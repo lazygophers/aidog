@@ -295,6 +295,25 @@ pub fn tools_endpoints_in(doc: &serde_json::Value, protocol: &str) -> Option<BTr
     }
 }
 
+/// 提取声明 URL 的 path 部分（`https://host/p/a` → `/p/a`；无 path → `/`）。
+/// tools URL 均为官方绝对 URL（spec-独立搜索转发 语义 1），仅服务 tools 分流匹配。
+pub fn tools_url_path(url: &str) -> &str {
+    let rest = url.split_once("://").map(|(_, r)| r).unwrap_or(url);
+    match rest.find('/') {
+        Some(i) => &rest[i..],
+        None => "/",
+    }
+}
+
+/// 入站 path 与声明 URL 的 path 是否匹配（语义 2 精确相等）：容忍尾 `/` 与
+/// `/proxy` 前缀变体（客户端 base_url 指代理时可能带代理自身前缀，同健康端点口径）。
+/// 语义 11 零回归：无声明 URL 时本函数不被调用。
+pub fn tools_url_matches(url: &str, path: &str) -> bool {
+    let p = path.trim_end_matches('/');
+    let declared = tools_url_path(url);
+    declared == p || p.strip_prefix("/proxy").is_some_and(|rest| declared == rest)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -495,13 +514,19 @@ mod tests {
             ("qianfan", &[("ai_search_chat", "https://qianfan.baidubce.com/v2/ai_search/chat/completions")]),
         ];
         for (code, eps) in expected {
-            let m = default_tools_endpoints(code).unwrap_or_else(|| panic!("{code} tools_endpoints bundled"));
+            // 纯函数直读 bundled（不经 effective_presets 缓存）：tools 端到端测试会向全局
+            // cache 装 stub 文档，本测试不与其互踩（test_tools.rs TOOLS_E2E_LOCK 只串行自身）。
+            let m = tools_endpoints_in(crate::gateway::registry::presets(), code)
+                .unwrap_or_else(|| panic!("{code} tools_endpoints bundled"));
             assert_eq!(m.len(), eps.len(), "{code} key count");
             for (k, v) in *eps {
                 assert_eq!(m.get(*k).map(String::as_str), Some(*v), "{code}/{k}");
             }
         }
-        assert!(default_tools_endpoints("anthropic").is_none(), "未声明平台返 None");
+        assert!(
+            tools_endpoints_in(crate::gateway::registry::presets(), "anthropic").is_none(),
+            "未声明平台返 None"
+        );
     }
 
     /// 票 18：tools_endpoints 值非 string（形状坏）→ warn 返 None，不 panic。

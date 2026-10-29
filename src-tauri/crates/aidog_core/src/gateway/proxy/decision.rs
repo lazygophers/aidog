@@ -20,6 +20,10 @@ pub(crate) fn kind_route_error_message(e: &str) -> String {
         "no_chat_platform" => {
             "分组内没有可用的聊天平台：平台仅支持决策请求，或模型不支持此类请求".to_string()
         }
+        // spec-独立搜索转发 语义 4：不区分「无人声明该 path」vs「声明平台全不可用」，同一措辞。
+        "no_tools_platform" => {
+            "分组内没有可用的搜索平台：组内平台未声明该搜索端点，或全部不可用".to_string()
+        }
         other => format!("route error: {other}"),
     }
 }

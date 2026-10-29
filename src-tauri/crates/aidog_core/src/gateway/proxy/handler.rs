@@ -389,6 +389,15 @@ pub(crate) async fn handle_proxy_core(
         return handle_decision(&state, &mut log, &log_settings, &group, &bytes, start, lang).await;
     }
 
+    // ── 独立搜索/tools 端点分流（必须在 parse_incoming_request 之前）──
+    // spec-独立搜索转发 语义 2：入站 path 精确命中某平台 tools_endpoints 声明 → 走独立转发
+    // （tools.rs），不进聊天转发链。全库无声明 → is_tools_endpoint false，行为与现状一致
+    //（语义 11 零回归）。
+    if is_tools_endpoint(&path) {
+        return handle_tools(&state, &mut log, &log_settings, &group, &bytes, &path, start, lang)
+            .await;
+    }
+
     // ── 解析 ChatRequest（按入站协议解析） ──
     // ponytail: 复用上面已解析的 req_value_opt，避免重复 from_slice
     let parsed = match req_value_opt {
