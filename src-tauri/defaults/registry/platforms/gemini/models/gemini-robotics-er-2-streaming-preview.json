@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1793289610,
   "supported_protocols": [
     "gemini"
   ],
@@ -17,8 +17,8 @@
   "official": true,
   "price": {
     "currency": "USD",
-    "input": 1,
-    "output": 5,
+    "input": 1e-06,
+    "output": 5e-06,
     "time_tiers": [
       {
         "start_at": 1798761600,
