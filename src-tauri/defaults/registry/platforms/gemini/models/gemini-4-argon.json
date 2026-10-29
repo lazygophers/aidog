@@ -1,0 +1,38 @@
+{
+  "last_updated": 1793292093,
+  "supported_protocols": [
+    "gemini"
+  ],
+  "model_id": "gemini-4-argon",
+  "display_name": "Gemini 4 Argon",
+  "canonical_model": "gemini-4-argon",
+  "version": "4",
+  "family": "gemini",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "audio",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 65536,
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 2e-06,
+    "output": 1e-05,
+    "cache_read": 1e-07,
+    "time_tiers": [
+      {
+        "start_at": 1796083200,
+        "input": 4e-06,
+        "output": 2e-05,
+        "cache_read": 2e-07
+      }
+    ]
+  }
+}

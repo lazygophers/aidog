@@ -1,0 +1,32 @@
+{
+  "last_updated": 1793292093,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "model_id": "kimi-k3.1-pro-highspeed",
+  "display_name": "Kimi K3.1 Pro Highspeed",
+  "canonical_model": "kimi-k3.1-pro-highspeed",
+  "version": "3.1",
+  "family": "kimi",
+  "thinking_supported": true,
+  "thinking_toggleable": false,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 131072,
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 4e-06,
+    "output": 2e-05,
+    "cache_read": 2e-07,
+    "cache_write": 4e-06,
+    "cache_write_1h": 8e-06
+  }
+}

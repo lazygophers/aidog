@@ -1,0 +1,20 @@
+{
+  "last_updated": 1793292093,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "voxtral-mini-tts-3-0",
+  "display_name": "Voxtral TTS 3",
+  "canonical_model": "voxtral-mini-tts-3-0",
+  "version": "3.0",
+  "family": "voxtral",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "unit": "char",
+    "unit_price": 0.013
+  }
+}
