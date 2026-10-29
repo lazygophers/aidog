@@ -1,5 +1,5 @@
 {
-  "last_updated": 1791006457,
+  "last_updated": 1793244703,
   "supported_protocols": ["gemini"],
   "model_id": "gemini-3.1-flash-lite-preview",
   "display_name": "Gemini 3.1 Flash Lite Preview",
@@ -16,6 +16,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
+    "currency": "USD",
     "input": 2.5e-07,
     "output": 1.5e-06,
     "cache_read": 2.5e-08

@@ -11,6 +11,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
+    "currency": "USD",
     "input": 5e-07,
     "output": 3e-06,
     "context_tiers": [
@@ -21,7 +22,7 @@
       }
     ]
   },
-  "last_updated": 1792068956,
+  "last_updated": 1793244705,
   "supported_protocols": [
     "anthropic",
     "openai"

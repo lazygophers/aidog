@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859420,
+  "last_updated": 1793244703,
   "model_id": "typesafe/jev",
   "display_name": "Jev",
   "canonical_model": "jev",
@@ -15,6 +15,7 @@
     "typesafe"
   ],
   "price": {
+    "currency": "USD",
     "input": 4.2000000000000006e-08,
     "output": 0.0,
     "cache_read": 0.0

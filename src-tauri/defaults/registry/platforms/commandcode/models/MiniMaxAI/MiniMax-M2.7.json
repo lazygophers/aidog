@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859420,
+  "last_updated": 1793244703,
   "model_id": "MiniMaxAI/MiniMax-M2.7",
   "display_name": "MiniMax M2.7",
   "canonical_model": "MiniMax-M2.7",
@@ -16,6 +16,7 @@
     "openai_responses"
   ],
   "price": {
+    "currency": "USD",
     "input": 3e-07,
     "output": 1.2e-06,
     "cache_read": 6e-08

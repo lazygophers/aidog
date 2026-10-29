@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859420,
+  "last_updated": 1793244703,
   "model_id": "claude-sonnet-5",
   "display_name": "Claude Sonnet 5",
   "canonical_model": "claude-sonnet-5",
@@ -15,6 +15,7 @@
     "anthropic"
   ],
   "price": {
+    "currency": "USD",
     "input": 2e-06,
     "output": 1e-05,
     "cache_read": 2.0000000000000002e-07,

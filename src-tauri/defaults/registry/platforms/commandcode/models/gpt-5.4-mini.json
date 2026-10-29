@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859420,
+  "last_updated": 1793244703,
   "model_id": "gpt-5.4-mini",
   "display_name": "GPT-5.4 Mini",
   "canonical_model": "gpt-5.4-mini",
@@ -16,6 +16,7 @@
     "openai_responses"
   ],
   "price": {
+    "currency": "USD",
     "input": 7.5e-07,
     "output": 4.5e-06,
     "cache_read": 7.5e-08

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859420,
+  "last_updated": 1793244703,
   "model_id": "stealth/space-bunny-alpha",
   "display_name": "Space Bunny Alpha",
   "canonical_model": "space-bunny-alpha",
@@ -15,6 +15,7 @@
     "openai"
   ],
   "price": {
+    "currency": "USD",
     "input": 0,
     "output": 0,
     "cache_read": 0

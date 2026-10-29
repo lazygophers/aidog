@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859420,
+  "last_updated": 1793244703,
   "model_id": "google/gemini-3.5-flash",
   "display_name": "Gemini 3.5 Flash",
   "canonical_model": "gemini-3.5-flash",
@@ -16,6 +16,7 @@
     "openai_responses"
   ],
   "price": {
+    "currency": "USD",
     "input": 1.5e-06,
     "output": 9e-06,
     "cache_read": 1.5e-07
