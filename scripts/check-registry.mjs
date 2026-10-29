@@ -181,6 +181,27 @@ for (const entry of indexDoc.platforms) {
   const platformRaw = readFileSync(platformPath, "utf8");
   validate("platform", "platforms/" + code + "/platform.json", platformRaw);
   const platformDoc = JSON.parse(platformRaw);
+  // tools_endpoints 形状 + 跨容器键对称（票 18）：键 → 绝对 https URL（带 host）；
+  // 与 tools_pricing 键同名对称——两容器都在场才校验键集相等，单容器在场不红。
+  if (platformDoc.tools_endpoints !== undefined) {
+    const te = platformDoc.tools_endpoints;
+    const relP = `platforms/${code}/platform.json`;
+    if (typeof te !== "object" || te === null || Array.isArray(te) || Object.keys(te).length === 0) {
+      failures.push([relP, "tools_endpoints 必须是非空对象"]);
+    } else {
+      const badUrl = Object.entries(te).filter(([, u]) => typeof u !== "string" || !/^https:\/\/[^/]+\//.test(u));
+      if (badUrl.length) failures.push([relP, `tools_endpoints 值必须是绝对 https URL（带 host 与 path）: ${badUrl.map(([k]) => k).join(", ")}`]);
+      if (platformDoc.tools_pricing !== undefined) {
+        const a = new Set(Object.keys(te));
+        const b = new Set(Object.keys(platformDoc.tools_pricing));
+        const onlyTe = [...a].filter((k) => !b.has(k));
+        const onlyTp = [...b].filter((k) => !a.has(k));
+        if (onlyTe.length || onlyTp.length) {
+          failures.push([relP, `tools_endpoints 与 tools_pricing 键不对称${onlyTe.length ? ` 仅 tools_endpoints 有: ${onlyTe.join(", ")}` : ""}${onlyTp.length ? ` 仅 tools_pricing 有: ${onlyTp.join(", ")}` : ""}`]);
+        }
+      }
+    }
+  }
   const refs = new Set();
   for (const branch of Object.values(platformDoc.models ?? {})) {
     for (const id of Object.values(branch ?? {})) refs.add(id);

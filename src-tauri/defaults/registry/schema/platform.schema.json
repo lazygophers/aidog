@@ -273,6 +273,16 @@
       },
       "description": "【可选】平台级高峰/低峰计价窗口（每窗口可指定 timezone，缺省 UTC；first-match wins，跨天 end<start）。条目带模型 peak 绝对价时本倍率被压成 1.0。注意三层同名不同层：本字段 peak = 平台级计价窗口；models.peak = 高峰模型切换分支；模型条目 peak = 高峰绝对价对象。"
     },
+    "tools_endpoints": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^https://[^/]+",
+        "description": "【必填】上游完整绝对 URL（https，含 path；入口分流按 path 精确匹配）。"
+      },
+      "description": "【可选】独立搜索/工具端点声明（键为开放集，平台逐家自定，键 → 上游绝对 URL）。与 tools_pricing 键同名对称：两容器都在场时键集必须相等（对称性由 check-registry lint 管）。"
+    },
     "tools_pricing": {
       "type": "object",
       "minProperties": 1,

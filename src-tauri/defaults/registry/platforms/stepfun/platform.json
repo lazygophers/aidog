@@ -1,5 +1,8 @@
 {
-  "last_updated": 1788200874,
+  "tools_endpoints": {
+    "search": "https://api.stepfun.com/v1/search"
+  },
+  "last_updated": 1793240736,
   "endpoints": {
     "default": [
       {
