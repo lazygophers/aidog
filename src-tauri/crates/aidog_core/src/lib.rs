@@ -43,6 +43,7 @@ pub mod menubar;
 pub mod menubar_state;
 // 票 08：内核管理面设置（绑定开关 + Bearer 凭据）。与代理的 `bind_lan` 相互独立。
 pub mod kernel_settings;
+pub mod display_currency;
 // C3 c3-commands 第 1 批：commands_tray 4 个 popover command 下沉（薄转发，纯搬运）。
 pub mod popover;
 // C3 c3-commands 第 2 批：commands_cli_env / commands_config 下沉。
