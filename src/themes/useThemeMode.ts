@@ -29,7 +29,8 @@ export function useThemeMode(): ThemeMode {
   return mode;
 }
 
-function readMode(): ThemeMode {
+export function readMode(): ThemeMode {
+  if (typeof document === "undefined") return DEFAULT_MODE; // Next 预渲染无 DOM
   const v = document.documentElement.dataset.mode;
   return v === "light" || v === "dark" ? v : DEFAULT_MODE;
 }
