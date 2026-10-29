@@ -518,6 +518,99 @@ fn manual_budget_unit_suffix(unit: &str) -> Option<&'static str> {
     }
 }
 
+/// 多指标平台槽的分隔符（同一格内按配置顺序连接）。
+const METRIC_SEP: &str = " · ";
+
+/// 平台槽取值：metrics 非空 → 逐指标取值拼接（新口径）；
+/// None/空 → [`platform_item_parts`] display 旧口径（旧配置逐字不变）。
+pub(crate) fn platform_item_value(
+    platform: &Platform,
+    item: &TrayItem,
+    plat_today: Option<&aidog_stats::TodayPlatformStat>,
+) -> String {
+    let Some(metrics) = item.metrics.as_deref().filter(|m| !m.is_empty()) else {
+        return platform_item_parts(platform, &item.display).1;
+    };
+    let plan = gateway::estimate::EstCodingPlan::from_json(&platform.est_coding_plan);
+    let unit = item.unit.as_deref().unwrap_or("");
+    let parts: Vec<String> = metrics
+        .iter()
+        .filter_map(|m| platform_metric_value(platform, m, &plan, unit, item.decimals, plat_today))
+        .collect();
+    if parts.is_empty() {
+        "—".to_string()
+    } else {
+        parts.join(METRIC_SEP)
+    }
+}
+
+/// 单指标取值；指标不可用（coding tier 缺失 / 未知 token）→ None 跳过。
+/// unit 非空替换默认单位标记（$ 前缀去掉、" tok" 后缀替换）；coding 的 % 固有不受 unit 影响。
+fn platform_metric_value(
+    platform: &Platform,
+    metric: &str,
+    plan: &gateway::estimate::EstCodingPlan,
+    unit: &str,
+    decimals: Option<u32>,
+    plat_today: Option<&aidog_stats::TodayPlatformStat>,
+) -> Option<String> {
+    let pct_of = |t: &gateway::estimate::EstTier| {
+        Some(format!("{:.0}%", (100.0 - t.est_utilization).max(0.0)))
+    };
+    let money = |v: f64, default_d: u32| {
+        let d = decimals.unwrap_or(default_d) as usize;
+        let n = trim_trailing_zeros(&format!("{v:.d$}", d = d));
+        if unit.is_empty() {
+            format!("${n}")
+        } else {
+            format!("{n}{unit}")
+        }
+    };
+    match metric {
+        "balance" => Some(money(platform.est_balance_remaining, 2)),
+        "coding" => pct_of(plan.tiers.first()?),
+        m if m.starts_with("coding:") => {
+            let name = &m["coding:".len()..];
+            pct_of(plan.tiers.iter().find(|t| t.name == name)?)
+        }
+        "today_cost" => Some(money(plat_today.map(|s| s.cost).unwrap_or(0.0), 5)),
+        "today_tokens" => {
+            let tokens = plat_today.map(|s| s.tokens).unwrap_or(0);
+            Some(if unit.is_empty() {
+                format!("{tokens} tok")
+            } else {
+                format!("{tokens}{unit}")
+            })
+        }
+        m if m.starts_with("reset_time:") => {
+            // 重置时刻 = window_start + cycle（与 algo.rs remain 推算同式）；cycle 未知 / 无起点 → 跳过。
+            let name = &m["reset_time:".len()..];
+            let tier = plan.tiers.iter().find(|t| t.name == name)?;
+            let cycle = gateway::usage_color::cycle_ms_for_tier(&tier.name)?;
+            if tier.window_start <= 0 {
+                return None;
+            }
+            Some(format_reset_time(tier.window_start + cycle))
+        }
+        _ => None,
+    }
+}
+
+/// 重置时刻本地时区展示：今天内 `HH:mm`，跨天 `MM-dd HH:mm`。
+fn format_reset_time(reset_ms: i64) -> String {
+    use chrono::TimeZone;
+    let local = chrono::Local;
+    let dt = match local.timestamp_millis_opt(reset_ms).single() {
+        Some(dt) => dt,
+        None => return "—".to_string(),
+    };
+    if dt.date_naive() == chrono::Local::now().date_naive() {
+        dt.format("%H:%M").to_string()
+    } else {
+        dt.format("%m-%d %H:%M").to_string()
+    }
+}
+
 /// 「当前命中平台」段的（名, 值）：名固定为「命中」，值为平台名；无转发记录 → "—"。
 pub(crate) fn routed_item_parts(platform: Option<&Platform>) -> (String, String) {
     (
@@ -592,6 +685,25 @@ pub(crate) async fn tray_layout_with_stats(
     };
     let now_ms = chrono::Utc::now().timestamp_millis();
 
+    // 平台槽含 today_* 指标时批量查一次各平台当日用量（TodayPlatformStat.platform_id 可直接过滤）。
+    let needs_today = items.iter().any(|i| {
+        i.item_type == "platform"
+            && i.metrics
+                .as_deref()
+                .is_some_and(|ms| ms.iter().any(|m| m == "today_cost" || m == "today_tokens"))
+    });
+    let today_by_pid: std::collections::HashMap<u64, aidog_stats::TodayPlatformStat> =
+        if needs_today {
+            aidog_stats::today_platform_stats(db)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .map(|s| (s.platform_id, s))
+                .collect()
+        } else {
+            Default::default()
+        };
+
     let mut columns: Vec<TrayColumn> = Vec::new();
     let mut gaps: Vec<Option<String>> = Vec::new();
     let mut pending_sep: Option<String> = None;
@@ -620,7 +732,8 @@ pub(crate) async fn tray_layout_with_stats(
                 let Some(platform) = platforms.get(&(pid as i64)) else {
                     continue;
                 };
-                platform_item_parts(platform, &item.display)
+                let value = platform_item_value(platform, item, today_by_pid.get(&pid));
+                (platform.name.clone(), value)
             }
             "routed_platform" => routed_item_parts(routed_platform.as_ref()),
             "peak" => peak_item_parts(routed_platform.as_ref(), now_ms),

@@ -78,10 +78,33 @@ export interface SegmentOption {
 function makeItem(patch: Partial<TrayItem>): TrayItem {
   return {
     item_type: "today_usage", platform_id: null, display: "", metric: null, label: null,
-    decimals: null, color: { mode: "follow", value: "" }, font_size: 9, line_mode: "single",
+    decimals: null, metrics: null, unit: null,
+    color: { mode: "follow", value: "" }, font_size: 9, line_mode: "single",
     align: "left", align_row2: null, enabled: true, order: 0,
     ...patch,
   };
+}
+
+function codingMetrics(platform: Platform): string[] {
+  try {
+    const plan = JSON.parse(platform.est_coding_plan || "{}") as { tiers?: { name?: string }[] };
+    return (plan.tiers ?? []).filter((tier) => tier.name).map((tier) => tier.name!);
+  } catch {
+    return [];
+  }
+}
+
+function platformMetricLabel(metric: string, t: TFunction): string {
+  if (metric.startsWith("coding:")) return `${t("tray.platform.codingRemaining", "剩余%")} (${metric.slice(7)})`;
+  if (metric.startsWith("reset_time:")) return `${t("tray.platform.resetTime", "重置时间")} (${metric.slice(11)})`;
+  const keys: Record<string, [string, string]> = {
+    balance: ["tray.platform.balance", "余额"],
+    coding: ["tray.platform.coding", "套餐剩余"],
+    today_cost: ["tray.platform.todayCost", "今日花费"],
+    today_tokens: ["tray.platform.todayTokens", "今日 token 数"],
+  };
+  const [key, fallback] = keys[metric] ?? [metric, metric];
+  return t(key, fallback);
 }
 
 /** 一个已存配置项对应的段 key（用于与候选清单对上号）。 */
@@ -156,7 +179,50 @@ export function previewValue(
     case "platform": {
       const p = platforms.find((pp) => pp.id === item.platform_id);
       if (!p) return "--.--";
-      return `$${trimZeros(p.est_balance_remaining.toFixed(2))}`;
+      const money = (v: number, d: number) => {
+        const n = trimZeros(v.toFixed(d));
+        return item.unit ? `${n}${item.unit}` : `$${n}`;
+      };
+      let tiers: { name: string; est_utilization: number; window_start?: number }[] = [];
+      try {
+        tiers = (JSON.parse(p.est_coding_plan || "{}") as { tiers?: typeof tiers }).tiers ?? [];
+      } catch { /* 旧数据无 plan */ }
+      const pct = (metric: string): string | null => {
+        const tier = metric === "coding" ? tiers[0] : tiers.find((x) => `coding:${x.name}` === metric);
+        return tier ? `${Math.max(0, 100 - tier.est_utilization).toFixed(0)}%` : null;
+      };
+      // reset 时刻 = window_start + cycle（与 Rust usage_color::cycle_ms_for_tier 对称的窗口周期表）。
+      const CYCLE_MS: Record<string, number> = {
+        five_hour: 5 * 3_600_000,
+        weekly_limit: 7 * 86_400_000, seven_day: 7 * 86_400_000,
+        mcp_monthly: 30 * 86_400_000,
+      };
+      const resetTime = (metric: string): string | null => {
+        const name = metric.slice("reset_time:".length);
+        const tier = tiers.find((x) => x.name === name);
+        const cycle = CYCLE_MS[name];
+        if (!tier || !cycle || !tier.window_start) return null;
+        const d = new Date(tier.window_start + cycle);
+        const now = new Date();
+        const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+        return d.toDateString() === now.toDateString()
+          ? hm
+          : `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${hm}`;
+      };
+      const one = (metric: string): string | null => {
+        if (metric === "balance") return money(p.est_balance_remaining, item.decimals ?? 2);
+        if (metric === "today_cost") return money(s.cost, item.decimals ?? 5);
+        if (metric === "today_tokens") return `${s.tokens}${item.unit ?? " tok"}`;
+        if (metric.startsWith("reset_time:")) return resetTime(metric);
+        return pct(metric);
+      };
+      const metrics = item.metrics?.length ? item.metrics : null;
+      if (metrics) {
+        const parts = metrics.map(one).filter(Boolean) as string[];
+        return parts.length ? parts.join(" · ") : "—";
+      }
+      // 旧口径（无 metrics）：有 coding plan → 首窗口剩余%；否则 $余额。manual 配额预览未对齐（预存差异，后端口径为准）。
+      return pct("coding") ?? money(p.est_balance_remaining, 2);
     }
     default:
       return "—";
@@ -227,11 +293,12 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 }
 
 export function SegmentEditor({
-  seg, t, onPatch,
+  seg, t, onPatch, platform,
 }: {
   seg: TrayItem;
   t: TFunction;
   onPatch: (patch: Partial<TrayItem>) => void;
+  platform: Platform | null;
 }) {
   const [customOn, setCustomOn] = useState(seg.color.mode === "custom");
   const [hex, setHex] = useState(seg.color.mode === "custom" ? seg.color.value : "");
@@ -252,6 +319,54 @@ export function SegmentEditor({
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px 18px", alignItems: "start" }}>
+      {/* 平台槽指标多选：勾选写入 metrics（按固定词表序）；全不勾 → metrics=null 回落旧 display 口径 */}
+      {seg.item_type === "platform" && platform && (() => {
+        const tiers = codingMetrics(platform);
+        const words = [
+          "balance",
+          ...(tiers.length ? ["coding"] : []),
+          ...tiers.map((n) => `coding:${n}`),
+          ...tiers.map((n) => `reset_time:${n}`),
+          "today_cost", "today_tokens",
+        ];
+        const chosen = new Set(seg.metrics ?? []);
+        const toggleMetric = (m: string) => {
+          const next = words.filter((w) => (w === m ? !chosen.has(w) : chosen.has(w)));
+          onPatch({ metrics: next.length ? next : null });
+        };
+        return (
+          <div style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", gap: 5 }}>
+            <FieldLabel>{t("tray.platform.metrics", "展示指标（可多选）")}</FieldLabel>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {words.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  data-testid={`tray-edit-metric-${m}`}
+                  data-state={chosen.has(m) ? "active" : ""}
+                  style={chosen.has(m) ? editorBtnActive : editorBtn}
+                  onClick={() => toggleMetric(m)}
+                >
+                  {platformMetricLabel(m, t)}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+      {/* 单位后缀（仅平台槽；留空回落默认） */}
+      {seg.item_type === "platform" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          <FieldLabel>{t("tray.platform.unit", "单位后缀")}</FieldLabel>
+          <input
+            data-testid="tray-edit-unit"
+            value={seg.unit ?? ""}
+            placeholder={t("tray.platform.unitPlaceholder", "留空使用默认")}
+            onChange={(e) => onPatch({ unit: e.target.value || null })}
+            style={editorInput}
+          />
+        </div>
+      )}
       {/* label */}
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
         <FieldLabel>{t("tray.customLabel", "自定义标签")}</FieldLabel>
@@ -267,12 +382,12 @@ export function SegmentEditor({
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
         <FieldLabel>{t("tray.decimals", "小数位")}</FieldLabel>
         <input
-          type="number" min={0} max={8}
+          type="number" min={0} max={5}
           data-testid="tray-edit-decimals"
           value={seg.decimals ?? 5}
           onChange={(e) => {
             const n = Number(e.target.value);
-            if (!Number.isNaN(n)) onPatch({ decimals: Math.max(0, Math.min(8, Math.round(n))) });
+            if (!Number.isNaN(n)) onPatch({ decimals: Math.max(0, Math.min(5, Math.round(n))) });
           }}
           style={editorInput}
         />
@@ -699,7 +814,13 @@ export function TrayConfigTab() {
                 <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 1.2, color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: 10 }}>
                   {t("tray.editTitle", "编辑段")}
                 </div>
-                <SegmentEditor key={editingKey} seg={editingSeg} t={t} onPatch={(p) => patchItem(editingKey!, p)} />
+                <SegmentEditor
+                  key={editingKey}
+                  seg={editingSeg}
+                  t={t}
+                  onPatch={(p) => patchItem(editingKey!, p)}
+                  platform={platforms.find((pp) => pp.id === editingSeg.platform_id) ?? null}
+                />
               </div>
             )}
           </TraySectionCard>
