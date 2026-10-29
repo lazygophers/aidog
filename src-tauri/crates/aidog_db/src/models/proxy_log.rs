@@ -62,6 +62,12 @@ pub struct ProxyLog {
     /// 预估花费（$），基于 model_entry 定价
     #[serde(default)]
     pub est_cost: f64,
+    /// 按次工具调用计数（spec-按次计费 B2）：(工具键, 成功次数)，键从 anthropic
+    /// `usage.server_tool_use` 子段派生（`web_search_requests` → `web_search`）。
+    /// 内存透传到 process_upsert 计价并加进 est_cost（B1 决策：不进
+    /// `PROXY_LOG_COLUMNS` / 不落列，落库列集零变化）。
+    #[serde(default)]
+    pub tool_call_counts: Vec<(String, i64)>,
     /// 是否为流式（SSE）请求；流式日志的 body 为聚合的真实 SSE 内容（非 "[stream]" 哨兵）
     #[serde(default)]
     pub is_stream: bool,

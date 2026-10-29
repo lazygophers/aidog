@@ -345,7 +345,9 @@ pub(crate) async fn process_upsert(
     // first_agg 也仅在 status_code != 0 时触发，二者天然对齐。无终态 upsert 的请求（被 abort）
     // 由 RequestLogGuard Drop 兜底写 status=499，仍会命中此分支计算。统计正确性不变。
     let est_cost_value = if log.est_cost == 0.0
-        && (log.input_tokens > 0 || log.output_tokens > 0)
+        && (log.input_tokens > 0
+            || log.output_tokens > 0
+            || !log.tool_call_counts.is_empty())
         && log.status_code != 0
     {
         let model_name = if log.actual_model.is_empty() {
@@ -374,6 +376,8 @@ pub(crate) async fn process_upsert(
                 log.cache_write_1h_tokens,
                 log.platform_id as i64,
                 log.created_at,
+                // 票 16 B2/B3：按次计数经内存 ProxyLog 透传（不落列），计价并加进 est_cost。
+                &log.tool_call_counts,
             )
             .await,
         )

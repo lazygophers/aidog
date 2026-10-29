@@ -37,6 +37,10 @@ pub const CNY_PER_USD: f64 = 6.6675;
 /// `platform_extra` 是已读取的平台行 extra，避免调用方为 peak 再次查询同一行。
 /// 传 `""` 时 override 不命中，但回退链仍保证非 0。`platform_id`=0（自动分组日志无源平台）
 /// / `created_at_ms`=0（缺失）时 peak 不生效（multiplier=1.0）。
+///
+/// `tool_counts` 是按次工具调用计数（spec-按次计费 B3）：est_cost = token 费 + 按次费，
+/// 按次项经 [`tools_cost`] × `tools_pricing` 计价，不乘 peak 倍率；平台无声明 → 0
+/// （warn 由 [`tools_cost`] 负责，每请求至多一条）。
 #[allow(clippy::too_many_arguments)]
 pub async fn calc_est_cost(
     db: &Db,
@@ -50,6 +54,7 @@ pub async fn calc_est_cost(
     cache_write_1h_tokens: i32,
     platform_id: i64,
     created_at_ms: i64,
+    tool_counts: &[(String, i64)],
 ) -> f64 {
     // 透传平台 est_cost 恒 0（ADR 0008 决策 1）：不查 registry 价格，也不走 fallback
     // 单价——对完全未知上游套 3.0 $/M 是编造数据，假账比没账更误导统计。
@@ -105,7 +110,7 @@ pub async fn calc_est_cost(
         ))
     };
     let rp = &resolved.price;
-    est_cost_from(
+    let token_cost = est_cost_from(
         input_tokens,
         output_tokens,
         cache_tokens,
@@ -117,7 +122,16 @@ pub async fn calc_est_cost(
         rp.cache_write_input_token_cost,
         rp.cache_write_1h_input_token_cost,
         multiplier,
-    )
+    );
+    // 票 16 B3：按次费只在有计数时查 tools_pricing（空计数零开销，也不触发 warn）。
+    let tool_fee = if tool_counts.is_empty() {
+        0.0
+    } else {
+        let refs: Vec<(&str, i64)> =
+            tool_counts.iter().map(|(k, c)| (k.as_str(), *c)).collect();
+        tools_cost(default_tools_pricing(platform_type).as_ref(), &refs)
+    };
+    token_cost + tool_fee
 }
 
 /// 计费规则的纯函数核心：base cost（token × 单价）× multiplier。不碰 DB / 全局状态，
@@ -217,13 +231,13 @@ mod tests {
         let db = Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
 
-        let cost = calc_est_cost(&db, "any-model", "passthrough", "", 1000, 2000, 0, 0, 0, 1, 1).await;
+        let cost = calc_est_cost(&db, "any-model", "passthrough", "", 1000, 2000, 0, 0, 0, 1, 1, &[]).await;
         assert_eq!(
             cost, 0.0,
             "passthrough platform must short-circuit to 0 before fallback"
         );
         // 非 passthrough 对照：走 fallback 默认价，非 0
-        let other = calc_est_cost(&db, "unknown-model", "anthropic", "", 1000, 0, 0, 0, 0, 0, 0).await;
+        let other = calc_est_cost(&db, "unknown-model", "anthropic", "", 1000, 0, 0, 0, 0, 0, 0, &[]).await;
         assert!(
             other > 0.0,
             "non-passthrough unknown model falls back to default price, got {other}"
@@ -238,7 +252,7 @@ mod tests {
         let db = Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
 
-        let cost = calc_est_cost(&db, "any-model", "unknown", "", 1000, 2000, 0, 0, 0, 1, 1).await;
+        let cost = calc_est_cost(&db, "any-model", "unknown", "", 1000, 2000, 0, 0, 0, 1, 1, &[]).await;
         assert_eq!(
             cost, 0.0,
             "unknown protocol must short-circuit to 0 before fallback"
@@ -341,7 +355,7 @@ mod tests {
         let created_at_ms = 1_767_254_400_000; // 2026-01-01 08:00 UTC
         let extra = r#"{"peak":[{"start_hour":6,"end_hour":10,"multiplier":2.0}]}"#;
         let cost = calc_est_cost(
-            &db, "unknown-model", "anthropic", extra, 1000, 0, 0, 0, 0, 1, created_at_ms,
+            &db, "unknown-model", "anthropic", extra, 1000, 0, 0, 0, 0, 1, created_at_ms, &[],
         )
         .await;
         assert!((cost - 0.003 * 2.0).abs() < 1e-12, "cost = {cost}");
@@ -436,6 +450,48 @@ mod tests {
         assert_eq!(tools_pricing_in(&doc, "no_field"), None);
         assert_eq!(tools_pricing_in(&doc, "malformed"), None);
         assert_eq!(tools_pricing_in(&doc, "absent"), None);
+    }
+
+    /// 票 16 B3：calc_est_cost = token 费 + 按次费（anthropic bundled registry：
+    /// web_search $10/1k USD）。1000 token fallback 价 3 $/M = 0.003，100 次 × $0.01 = 1.0。
+    #[tokio::test]
+    async fn calc_est_cost_merges_tool_counts() {
+        use aidog_stats::DbInitTables;
+        let db = Db::new(":memory:").await.expect("open memory db");
+        db.init_tables().await.expect("init tables");
+        let counts = vec![("web_search".to_string(), 100i64)];
+        let with_tools = calc_est_cost(
+            &db, "unknown-model", "anthropic", "", 1000, 0, 0, 0, 0, 0, 0, &counts,
+        )
+        .await;
+        let token_only = calc_est_cost(
+            &db, "unknown-model", "anthropic", "", 1000, 0, 0, 0, 0, 0, 0, &[],
+        )
+        .await;
+        assert!((token_only - 0.003).abs() < 1e-9, "token only = {token_only}");
+        assert!(
+            (with_tools - (0.003 + 100.0 * 10.0 / 1000.0)).abs() < 1e-9,
+            "est = token + 按次, got {with_tools}"
+        );
+    }
+
+    /// 票 16 B5：无 tools_pricing 声明的平台 → 按次费恒 0（不设 fallback 单价），
+    /// est 只含 token 项；warn 由 tools_cost 负责（每请求至多一条，此处不断言日志）。
+    #[tokio::test]
+    async fn calc_est_cost_tool_counts_without_declaration_zero() {
+        use aidog_stats::DbInitTables;
+        let db = Db::new(":memory:").await.expect("open memory db");
+        db.init_tables().await.expect("init tables");
+        assert!(
+            default_tools_pricing("openai").is_none(),
+            "前置：bundled registry 的 openai 无 tools_pricing"
+        );
+        let counts = vec![("web_search".to_string(), 100i64)];
+        let cost = calc_est_cost(
+            &db, "unknown-model", "openai", "", 1000, 0, 0, 0, 0, 0, 0, &counts,
+        )
+        .await;
+        assert!((cost - 0.003).abs() < 1e-9, "无声明按次费记 0, got {cost}");
     }
 }
 

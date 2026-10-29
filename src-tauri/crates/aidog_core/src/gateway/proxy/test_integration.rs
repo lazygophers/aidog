@@ -2963,6 +2963,42 @@ async fn decision_request_end_to_end() {
     assert!((log.est_cost - 0.000125).abs() < 1e-9, "upstream usage.cost adopted (R14), got {}", log.est_cost);
 }
 
+/// 票 16 B4（R14 零改动复核）：上游 `usage.cost` 在场时全盘采纳——即使 usage 同时带
+/// `server_tool_use` 按次计数（本票已提取入库），本地也不重算、不叠加按次项。
+#[tokio::test]
+async fn decision_upstream_cost_wins_over_tool_counts() {
+    let resp_body = r#"{"id":"g1","provider":"p","model":"jev-1.13","answers":[],"usage":{"input_tokens":1000,"output_tokens":50,"cost":0.000125,"server_tool_use":{"web_search_requests":100}}}"#;
+    let (upstream, _hits) = spawn_decision_upstream(vec![(200, resp_body)]).await;
+    let state = make_state(test_db().await).await;
+    setup_decision_group(
+        &state,
+        "gkdec-tools",
+        &upstream,
+        PlatformModels {
+            jev: Some("jev-latest".into()),
+            ..Default::default()
+        },
+        None,
+        Protocol::TypeSafe,
+    )
+    .await;
+
+    let resp = handle_proxy(AxumState(state.clone()), decision_request("gkdec-tools", "whatever"))
+        .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let log = last_log_for(&state, "gkdec-tools").await;
+    // 计数只在内存 ProxyLog 里参与计价（B1：不落列），DB 读回恒空——此处只断言 est 口径。
+    assert!(
+        log.tool_call_counts.is_empty(),
+        "按次计数不落列（PROXY_LOG_COLUMNS 零变化）"
+    );
+    assert!(
+        (log.est_cost - 0.000125).abs() < 1e-9,
+        "上游 cost 在场必须全盘采纳（不叠加按次项）, got {}",
+        log.est_cost
+    );
+}
+
 /// 不信任上游 `usage.cost: 0`（用户 2026-10-01 确认）：registry 价 > 0 → 按 registry 价；
 /// registry 标 `free: true` → 0；全 0 价未标 free 视同未定价 → PriceSyncSettings 默认价（3 $/M）。
 #[tokio::test]

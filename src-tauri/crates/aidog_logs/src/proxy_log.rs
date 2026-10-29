@@ -46,6 +46,8 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog
         field_trace: row.get(35)?,
         body_omitted: row.get::<_, i64>(36)? == 1,
         routing: aidog_db::models::parse_routing(&row.get::<_, String>(37)?),
+        // 票 16 B1：按次计数不落列（PROXY_LOG_COLUMNS 零变化），DB 读回恒空。
+        tool_call_counts: Vec::new(),
     })
 }
 
