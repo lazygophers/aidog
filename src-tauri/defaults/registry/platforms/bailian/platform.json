@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790181902,
+  "last_updated": 1793290955,
   "endpoints": {
     "default": [
       {
@@ -132,8 +132,6 @@
       "glm-5.1",
       "glm-5.2",
       "gte-rerank-v2",
-      "kimi-k2-thinking",
-      "kimi-k2.5",
       "kimi-k2.7-code",
       "MiniMax/speech-02-hd",
       "MiniMax/speech-02-turbo",

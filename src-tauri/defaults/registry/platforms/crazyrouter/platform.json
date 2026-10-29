@@ -82,8 +82,6 @@
       "MiniMax-M2.5",
       "MiniMax-M2.7",
       "MiniMax-M3",
-      "kimi-k2-0905-preview",
-      "kimi-k2.5",
       "kimi-k2.6",
       "grok-4-1-fast-reasoning",
       "o3",
@@ -217,5 +215,5 @@
       "timezone": "Asia/Shanghai"
     }
   ],
-  "last_updated": 1792068956
+  "last_updated": 1793290955
 }

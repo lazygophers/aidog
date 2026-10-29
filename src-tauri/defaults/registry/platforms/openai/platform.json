@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271371,
+  "last_updated": 1793290955,
   "endpoints": {
     "default": [
       {
@@ -18,11 +18,6 @@
     "default": [
       "chat-latest",
       "chatgpt-image-latest",
-      "computer-use-preview",
-      "gpt-3.5-turbo",
-      "gpt-4",
-      "gpt-4-turbo",
-      "gpt-4-turbo-2024-04-09",
       "gpt-4.1",
       "gpt-4.1-mini",
       "gpt-4.1-nano",
@@ -31,10 +26,8 @@
       "gpt-4o-2024-08-06",
       "gpt-4o-mini",
       "gpt-4o-mini-2024-07-18",
-      "gpt-4o-mini-search-preview",
       "gpt-4o-mini-transcribe",
       "gpt-4o-mini-tts",
-      "gpt-4o-search-preview",
       "gpt-4o-transcribe",
       "gpt-4o-transcribe-diarize",
       "gpt-5",
@@ -66,7 +59,6 @@
       "gpt-audio-mini",
       "gpt-daybreak-blue-latest",
       "gpt-daybreak-red-latest",
-      "gpt-image-1",
       "gpt-image-1-mini",
       "gpt-image-1.5",
       "gpt-image-2",
@@ -82,14 +74,8 @@
       "gpt-realtime-translate",
       "gpt-realtime-whisper",
       "gpt-transcribe",
-      "o1",
-      "o1-pro",
       "o3",
-      "o3-deep-research",
-      "o3-mini",
       "o3-pro",
-      "o4-mini",
-      "o4-mini-deep-research",
       "text-embedding-3-large",
       "text-embedding-3-small",
       "text-embedding-ada-002",
