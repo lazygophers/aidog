@@ -1,5 +1,5 @@
 {
-  "last_updated": 1792068956,
+  "last_updated": 1793290955,
   "endpoints": {
     "default": [
       {
@@ -222,12 +222,9 @@
       "nvidia/nemotron-3.5-content-safety:free",
       "nvidia/nemotron-3.5-lightning",
       "nvidia/nemotron-3.5-lightning:free",
-      "openai/gpt-3.5-turbo",
       "openai/gpt-3.5-turbo-0613",
       "openai/gpt-3.5-turbo-16k",
-      "openai/gpt-3.5-turbo-instruct",
       "openai/gpt-4",
-      "openai/gpt-4-turbo",
       "openai/gpt-4.1",
       "openai/gpt-4.1-mini",
       "openai/gpt-4.1-nano",
@@ -272,14 +269,8 @@
       "openai/gpt-oss-20b",
       "openai/gpt-oss-20b:batch",
       "openai/gpt-oss-safeguard-20b",
-      "openai/o1",
-      "openai/o1-pro",
       "openai/o3",
-      "openai/o3-mini",
-      "openai/o3-mini-high",
       "openai/o3-pro",
-      "openai/o4-mini",
-      "openai/o4-mini-high",
       "openrouter/auto",
       "openrouter/auto-beta",
       "openrouter/bodybuilder",

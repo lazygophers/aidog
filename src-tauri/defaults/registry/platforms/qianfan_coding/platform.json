@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1793290955,
   "is_coding_plan": true,
   "endpoints": {
     "default": [
@@ -26,7 +26,6 @@
   "model_list": {
     "default": [
       "qianfan-code-latest",
-      "kimi-k2.5",
       "deepseek-v3.2",
       "glm-5",
       "minimax-m2.5",

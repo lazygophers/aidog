@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790186887,
+  "last_updated": 1793290955,
   "endpoints": {
     "default": [
       {
@@ -201,13 +201,7 @@
       "openai/gpt-5.6-terra",
       "openai/gpt-oss-120b",
       "openai/gpt-oss-20b",
-      "openai/o1",
       "openai/o3",
-      "openai/o3-deep-research",
-      "openai/o3-mini",
-      "openai/o3-mini-high",
-      "openai/o4-mini",
-      "openai/o4-mini-high",
       "openai/gpt-6-sol",
       "openai/gpt-6-luna",
       "stepfun/step-3.5-flash",

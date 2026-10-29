@@ -69,7 +69,6 @@
       "grok-4.5",
       "grok-4.6",
       "grok-build-0.1",
-      "kimi-k2.5",
       "kimi-k2.6",
       "kimi-k2.7-code",
       "kimi-k3",
@@ -134,5 +133,5 @@
       "timezone": "Asia/Shanghai"
     }
   ],
-  "last_updated": 1788769178
+  "last_updated": 1793290955
 }

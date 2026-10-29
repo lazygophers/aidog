@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788189046,
+  "last_updated": 1793290955,
   "endpoints": {
     "default": [
       {
@@ -17,7 +17,6 @@
     "default": [
       "codestral-2508",
       "codestral-embed-2505",
-      "glm-5.2",
       "ministral-14b-2512",
       "ministral-3b-2512",
       "ministral-8b-2512",
