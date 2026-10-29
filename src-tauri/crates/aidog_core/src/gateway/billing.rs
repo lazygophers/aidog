@@ -57,13 +57,63 @@ pub async fn calc_est_cost(
     created_at_ms: i64,
     tool_counts: &[(String, i64)],
 ) -> f64 {
+    calc_est_cost_detail(
+        db,
+        model_name,
+        platform_type,
+        platform_extra,
+        input_tokens,
+        output_tokens,
+        cache_tokens,
+        cache_write_tokens,
+        cache_write_1h_tokens,
+        platform_id,
+        created_at_ms,
+        tool_counts,
+    )
+    .await
+    .est_cost
+}
+
+/// 计价明细（票 11 模拟器）：`est_cost` 之外带计价依据——`price_source` 取
+/// `ResolvedPrice::source`（条目价 / fallback / unsupported），`is_peak` / `multiplier`
+/// 供高峰徽标展示（`peak_applied` 不出 Rust，效果已由 multiplier=1.0 表达）。
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct EstCostDetail {
+    pub est_cost: f64,
+    pub price_source: String,
+    pub is_peak: bool,
+    pub multiplier: f64,
+}
+
+/// [`calc_est_cost`] 的明细版：计价链完全一致，只多带依据字段。
+#[allow(clippy::too_many_arguments)]
+pub async fn calc_est_cost_detail(
+    db: &Db,
+    model_name: &str,
+    platform_type: &str,
+    platform_extra: &str,
+    input_tokens: i32,
+    output_tokens: i32,
+    cache_tokens: i32,
+    cache_write_tokens: i32,
+    cache_write_1h_tokens: i32,
+    platform_id: i64,
+    created_at_ms: i64,
+    tool_counts: &[(String, i64)],
+) -> EstCostDetail {
     // 透传平台 est_cost 恒 0（ADR 0008 决策 1）：不查 registry 价格，也不走 fallback
     // 单价——对完全未知上游套 3.0 $/M 是编造数据，假账比没账更误导统计。
     // log.rs 的 est_cost==0 重算路径对本分支无害：重算仍走这里返 0，单次调用无循环。
     // 未知协议（票 architecture-deepening 06，用户裁决 2026-10-16）同样不计价（照 passthrough
     // 先例）：此类平台不参与路由（正常路径不会到达计价），历史行 / 边角重算落到这里也保 0。
     if platform_type == "passthrough" || platform_type == "unknown" {
-        return 0.0;
+        return EstCostDetail {
+            est_cost: 0.0,
+            price_source: "unsupported".to_string(),
+            is_peak: false,
+            multiplier: 1.0,
+        };
     }
 
     let settings = crate::gateway::price_sync::get_sync_settings(db).await;
@@ -132,7 +182,12 @@ pub async fn calc_est_cost(
             tool_counts.iter().map(|(k, c)| (k.as_str(), *c)).collect();
         tools_cost(default_tools_pricing(platform_type).as_ref(), &refs)
     };
-    token_cost + tool_fee
+    EstCostDetail {
+        est_cost: token_cost + tool_fee,
+        price_source: rp.source.clone(),
+        is_peak,
+        multiplier,
+    }
 }
 
 /// 计费规则的纯函数核心：base cost（token × 单价）× multiplier。不碰 DB / 全局状态，

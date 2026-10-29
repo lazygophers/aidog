@@ -24,6 +24,29 @@ export const modelInfoApi = {
   snapshot: () => invoke<ModelInfoSnapshot>("model_info_snapshot"),
 };
 
+// ─── 事前花费模拟器（计费预计算票 11）─────────────────────
+// 后端走既有 calc_est_cost 计价链（resolve_price 三层 + peak 语义）；透传/未知协议
+// 平台返 est_cost=0 + price_source="unsupported"。
+
+export interface SimulatorEstCostDto {
+  est_cost: number;
+  price_source: string;
+  is_peak: boolean;
+  multiplier: number;
+}
+
+export const costSimulatorApi = {
+  estimate: (params: {
+    platformId: number;
+    modelName: string;
+    inputTokens: number;
+    outputTokens: number;
+    cacheTokens: number;
+    cacheWriteTokens: number;
+    atMs?: number;
+  }) => invoke<SimulatorEstCostDto>("simulator_est_cost", { ...params, atMs: params.atMs ?? null }),
+};
+
 // ─── Realtime Events ───────────────────────────────────────
 // 后端每条 proxy_log 写库成功后 emit "proxy-log-updated"（payload 为 platform_id）。
 // Platforms / Stats / Groups 三页用此事件实时刷新统计（hub 在 proxy.ts::onProxyLogUpdated）。
