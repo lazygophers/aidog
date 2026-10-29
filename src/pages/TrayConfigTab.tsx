@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
@@ -417,13 +417,16 @@ export function TrayConfigTab() {
   useEffect(() => onProxyLogUpdated(() => { refreshStats(); }, 1000), [refreshStats]);
 
   // 勾选即存（票 I15 → 票 02 恢复）：乐观更新 + tray_config_set，失败显示错误态。
+  // seq 单调守卫：连续编辑时并发 set 乱序回包，旧回包不得覆盖新状态。
+  const persistSeq = useRef(0);
   const persist = useCallback(async (next: TrayConfig) => {
     setConfig(next);
+    const seq = ++persistSeq.current;
     try {
       await trayConfigApi.set(next);
-      setError(null);
+      if (seq === persistSeq.current) setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      if (seq === persistSeq.current) setError(e instanceof Error ? e.message : String(e));
     }
   }, []);
 
@@ -578,7 +581,11 @@ export function TrayConfigTab() {
                 data-editing={editingKey}
                 style={{ margin: "0 18px 18px", borderTop: "1px solid var(--border)", paddingTop: 14 }}
               >
-                <SegmentEditor seg={editingSeg} t={t} onPatch={(p) => patchItem(editingKey!, p)} />
+                {/* key=editingKey：切段重挂，清掉上一段的 hex/customOn 局部 state */}
+                <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 1.2, color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: 10 }}>
+                  {t("tray.editTitle", "编辑段")}
+                </div>
+                <SegmentEditor key={editingKey} seg={editingSeg} t={t} onPatch={(p) => patchItem(editingKey!, p)} />
               </div>
             )}
           </TraySectionCard>
@@ -603,9 +610,16 @@ export function TrayConfigTab() {
                         data-testid={`tray-chip-${opt.key}`}
                         data-state={state}
                         role="button"
+                        tabIndex={0}
                         aria-pressed={state === "loaded"}
                         aria-disabled={state === "locked"}
                         onClick={() => {
+                          if (state === "locked") return;
+                          persist({ ...config, items: toggleSegment(config.items, opt) });
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key !== "Enter" && e.key !== " ") return;
+                          e.preventDefault();
                           if (state === "locked") return;
                           persist({ ...config, items: toggleSegment(config.items, opt) });
                         }}
@@ -676,7 +690,7 @@ export function TrayConfigTab() {
       </div>
 
       {error && (
-        <div data-testid="tray-error" style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 11.5, color: "var(--color-danger)", padding: "10px 14px", border: "1px solid color-mix(in srgb, var(--color-danger) 40%, transparent)", borderRadius: 8 }}>
+        <div data-testid="tray-error" style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 11.5, color: "var(--destructive)", padding: "10px 14px", border: "1px solid color-mix(in srgb, var(--destructive) 40%, transparent)", borderRadius: 8 }}>
           {t("tray.persistError", "保存托盘配置失败：{{msg}}", { msg: error })}
         </div>
       )}

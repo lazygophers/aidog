@@ -2478,7 +2478,7 @@
   "tray.overBudgetHint": "超過",
   "tray.pageDesc": "メニューバー計器 — 選択したセグメントが順にライブ表示され、右側に今日の観測を同期。",
   "tray.peakBadge": "ピーク時間帯",
-"tray.persistError": "トレイ設定の保存に失敗しました: {{msg}}",
+  "tray.persistError": "トレイ設定の保存に失敗しました: {{msg}}",
   "tray.preview": "ライブプレビュー",
   "tray.previewEmpty": "表示項目なし",
   "tray.previewTitle": "メニューバープレビュー",
