@@ -2450,6 +2450,7 @@
   "tray.overBudgetHint": "超限",
   "tray.pageDesc": "菜单栏仪表——选中的段按顺序实时显示，右侧同步今日观测。",
   "tray.peakBadge": "高峰时段",
+"tray.persistError": "保存托盘配置失败：{{msg}}",
   "tray.preview": "实时预览",
   "tray.previewEmpty": "暂无展示项",
   "tray.previewTitle": "菜单栏预览",
