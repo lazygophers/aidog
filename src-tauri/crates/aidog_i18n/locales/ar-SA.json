@@ -2478,7 +2478,7 @@
   "tray.overBudgetHint": "تجاوز الحد",
   "tray.pageDesc": "لوحة شريط القوائم — تظهر المقاطع المحملة مباشرة بالترتيب، مع مزامنة إحصائيات اليوم على اليمين.",
   "tray.peakBadge": "ساعات الذروة",
-"tray.persistError": "فشل حفظ إعدادات الشريط: {{msg}}",
+  "tray.persistError": "فشل حفظ إعدادات الشريط: {{msg}}",
   "tray.preview": "معاينة مباشرة",
   "tray.previewEmpty": "لا توجد عناصر",
   "tray.previewTitle": "معاينة شريط القوائم",

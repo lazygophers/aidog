@@ -243,6 +243,12 @@ describe("候选库装载（票 02）", () => {
     // 提示在（测试 i18n 回退 key，不插值，只断元素存在）
     expect(view.getByTestId("tray-kept-disabled")).toBeTruthy();
   });
+
+  it("chip 键盘可达：Enter 装载进槽", async () => {
+    const view = await renderTab();
+    fireEvent.keyDown(view.getByTestId("tray-chip-peak"), { key: "Enter" });
+    expect(view.getByTestId("tray-slot-2").getAttribute("data-state")).toBe("filled");
+  });
 });
 
 // ── 票 03：段编辑面板 —— TrayItem 字段全量露出 ──
@@ -352,5 +358,21 @@ describe("段编辑面板（票 03）", () => {
     const it = sent.items.find((i: TrayItem) => segmentKey(i) === "today_usage:cost");
     expect(it.align_row2).toBe("right");
     expect(it.align).toBe("center");
+  });
+
+  it("切段重挂：A 段非法 hex 展开态切到 B 段后清空（key=editingKey）", async () => {
+    const view = await renderTab({
+      separator: "  ",
+      items: [item({ metric: "cost", order: 0 }), item({ metric: "tokens", order: 1 })],
+    });
+    fireEvent.click(view.getByTestId("tray-slot-0"));
+    await waitFor(() => expect(view.getByTestId("tray-editor")).toBeTruthy());
+    fireEvent.click(view.getByTestId("tray-edit-color-custom"));
+    fireEvent.change(view.getByTestId("tray-edit-hex"), { target: { value: "zzz" } });
+    expect(view.getByTestId("tray-edit-hex-invalid")).toBeTruthy();
+    fireEvent.click(view.getByTestId("tray-slot-1"));
+    expect(view.getByTestId("tray-editor").getAttribute("data-editing")).toBe("today_usage:tokens");
+    expect(view.queryByTestId("tray-edit-hex")).toBeNull();
+    expect(view.queryByTestId("tray-edit-hex-invalid")).toBeNull();
   });
 });
