@@ -539,6 +539,28 @@ pub(crate) fn peak_item_parts(platform: Option<&Platform>, now_ms: i64) -> (Stri
     )
 }
 
+/// 设置页预览用：最近命中平台的高峰态（与 `peak_item_parts` 同口径：peak_for + is_in_peak_window）。
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TrayPeakStatus {
+    pub platform_name: String,
+    pub in_peak: bool,
+    pub multiplier: f64,
+}
+
+pub(crate) fn peak_status(platform: &Platform, now_ms: i64) -> TrayPeakStatus {
+    let windows = gateway::peak::peak_for(&platform.extra, &platform.platform_type.wire_str());
+    let in_peak = gateway::peak::is_in_peak_window(&windows, now_ms, "");
+    TrayPeakStatus {
+        platform_name: platform.name.clone(),
+        in_peak,
+        multiplier: if in_peak {
+            gateway::peak::resolve_multiplier(&windows, now_ms, "")
+        } else {
+            1.0
+        },
+    }
+}
+
 /// 从托盘配置生成有序渲染布局（已按 order 排序、跳过 disabled、跳过取数失败项）。
 /// separator items 不生成列，而是作为相邻数据列之间的间隙。
 /// gaps[i] = columns[i] 与 columns[i+1] 之间的间隙；None = 默认空白。

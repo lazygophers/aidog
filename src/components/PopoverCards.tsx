@@ -180,7 +180,7 @@ function PlatformToday({ data, size, colorStyle }: { data: PopoverData; size: Si
 const DAY_MS = 86_400_000;
 
 /** scope/time_window → StatsQuery（overall=不传 filter；today=hourly，7d/30d=daily）。 */
-function buildTrendQuery(item: PopoverItem): StatsQuery {
+export function buildTrendQuery(item: PopoverItem): StatsQuery {
   const now = Date.now();
   const window = item.time_window ?? "7d";
   let start: number;
@@ -263,7 +263,7 @@ function trendTitle(item: PopoverItem, data: PopoverData, t: TFn): string {
   return t("popover.trendOverallTitle", "整体消费趋势");
 }
 
-function CostTrendCard({
+export function CostTrendCard({
   item,
   data,
   size,
