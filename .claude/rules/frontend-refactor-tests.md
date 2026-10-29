@@ -18,3 +18,12 @@
    （WindowsEditModal.tsx:347-350 的 `dim-${widx}-${opt.key}` + data-state 即此轮重建的先例）；
    也不用 `getByText(文案)` 断言（另一 agent 改 locale 值会假红，见
    WindowsEditModal.test.tsx:2 头注释）。新测试照此写。
+
+## 拖拽交互：Vite-only 测不到落点，列人工验收（2026-10-29 托盘拖拽）
+
+托盘设置页依赖 Tauri IPC，Vite-only 不挂载（同 ui-color-bug-verify.md 回退节）。dnd-kit 拖拽
+只能在 vitest 里 mock `DndContext` 直接喂 `onDragEnd`，落点判定（pointer 命中哪个槽）无覆盖。
+
+- 测试断言 `onDragEnd` 之后的状态（如 `moveSegment` 用 arrayMove 而非 swap，2ffa12be4）。
+- 回报与账本遗留单列人工验收：候选拖入槽、槽内手柄排序、拖回移除、键盘手柄
+  （pr-merge-discipline.md §2 同口径）。

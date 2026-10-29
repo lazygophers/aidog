@@ -207,3 +207,13 @@ harness 隔离建的 agent worktree 自带 lock，收工直接 `/usr/bin/git wor
 实际推送走 `origin`（GitHub `lazygophers/aidog`）：先 `git fetch origin &&
 git rev-list --left-right --count origin/master...master` 确认左边为 0（纯快进），再 `git push origin master`；origin 是公开远端，
 推送前仍按全局规则向用户确认一次。
+
+## 多个 agent 同时动主 checkout 的 master：串行（2026-10-29）
+
+合并 agent 与文档 commit agent 同时操作主仓 master，出现 `ff-only` 失败（master 已被
+5b6788efe 推进）和瞬时 `.git/index.lock`。
+
+- 凡写主 checkout（merge / commit / 改 master 指针）的 agent 串行派；并行实现留在各自 worktree，
+  只在合并阶段排队进主仓。
+- ff-only 失败且双方无冲突：改 `merge --no-ff`（使 `branch -d` 仍可删，不用 rebase 改写历史、
+  不用 cherry-pick 后 `-D`）。
