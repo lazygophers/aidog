@@ -178,3 +178,9 @@ registry-refresh 轮：`git commit -m "…$0.10/$0.50…"` 中两个 `$0` 均被
   在格式变更后会变致命。
 - 排查这类红的对照法：隔离 `TMPDIR`（`TMPDIR=$(mktemp -d) cargo test ...`）全绿、
   真 `$TMPDIR` 偶发红 = fixture 互踩实锤，不是 flaky。
+
+## harness `isolation: worktree` 的 worktree 收工清理：先 unlock 再 remove（2026-10-28）
+
+harness 隔离建的 agent worktree 自带 lock，收工直接 `/usr/bin/git worktree remove`
+被 locked 拒删。清理两步：`/usr/bin/git worktree unlock <path>` 后 `remove --force`；
+建/删/查照旧全走 `/usr/bin/git` 直跑（见上文 rtk 条）。
