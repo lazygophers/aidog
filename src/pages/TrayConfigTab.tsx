@@ -11,6 +11,15 @@ import {
   onProxyLogUpdated,
 } from "../services/api";
 import { useReveal } from "../components/shared";
+import {
+  DndContext, KeyboardSensor, PointerSensor, closestCenter, pointerWithin,
+  useDraggable, useDroppable, useSensor, useSensors,
+  type CollisionDetection, type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext, horizontalListSortingStrategy, sortableKeyboardCoordinates, useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 /** 菜单栏最多画几段（与 Rust `TRAY_MAX_SEGMENTS` 一致，票 I15）。 */
 export const MAX_SEGMENTS = 3;
@@ -177,6 +186,23 @@ export function toggleSegment(items: TrayItem[], opt: SegmentOption): TrayItem[]
   // enabled 的排在前面（按原相对顺序），order 按下标重写。
   const sorted = [...next.filter((it) => it.enabled), ...next.filter((it) => !it.enabled)];
   return sorted.map((it, i) => ({ ...it, order: i }));
+}
+
+/** 已启用段 key 移到启用序列的 toIndex；order 按下标重写。key 未启用 → 原样返回。 */
+export function moveSegment(items: TrayItem[], key: string, toIndex: number): TrayItem[] {
+  const enabled = items.filter((it) => it.enabled);
+  const from = enabled.findIndex((it) => segmentKey(it) === key);
+  if (from < 0) return items;
+  const [moved] = enabled.splice(from, 1);
+  enabled.splice(Math.max(0, Math.min(toIndex, enabled.length)), 0, moved);
+  return [...enabled, ...items.filter((it) => !it.enabled)].map((it, i) => ({ ...it, order: i }));
+}
+
+/** 候选库拖入装载槽：装载 opt 并插到启用序列 index。已装载 / 满槽 → 原样返回（沿用 toggleSegment 上限）。 */
+export function loadSegmentAt(items: TrayItem[], opt: SegmentOption, index: number): TrayItem[] {
+  if (items.some((it) => it.enabled && segmentKey(it) === opt.key)) return items;
+  const next = toggleSegment(items, opt);
+  return next === items ? items : moveSegment(next, opt.key, index);
 }
 
 // ── 票 03：段编辑面板 —— TrayItem 全部可编辑字段就地露出，编辑即持久化 ──
@@ -387,6 +413,81 @@ export function SegmentEditor({
   );
 }
 
+const SLOT_LABEL: React.CSSProperties = { position: "absolute", top: -9, left: 12, fontFamily: MONO, fontSize: 9.5, background: "var(--card)", border: "1px solid var(--border)", borderRadius: 4, padding: "1px 7px", letterSpacing: 1, lineHeight: 1.4 };
+const OVER_BG = "var(--accent-subtle)";
+
+// 指针拖拽按指针落点判定；键盘拖拽无指针坐标，回退最近中心。
+const collision: CollisionDetection = (args) =>
+  args.pointerCoordinates ? pointerWithin(args) : closestCenter(args);
+
+function EmptySlot({ i, tag, label }: { i: number; tag: string; label: string }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `empty:${i}` });
+  return (
+    <div ref={setNodeRef} data-testid={`tray-slot-${i}`} data-state="empty" data-over={isOver || undefined} style={{ flex: 1, border: "1.5px dashed var(--input)", background: isOver ? OVER_BG : undefined, borderRadius: 9, minHeight: 66, display: "flex", alignItems: "center", padding: "10px 14px", fontSize: 11.5, color: "var(--muted-foreground)", position: "relative" }}>
+      <span style={SLOT_LABEL}>{tag}</span>
+      {label}
+    </div>
+  );
+}
+
+function SortableSlot({ i, tag, id, onEdit, handleLabel, children }: {
+  i: number; tag: string; id: string; onEdit: () => void; handleLabel: string; children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging, isOver } = useSortable({ id: `slot:${id}` });
+  return (
+    <div
+      ref={setNodeRef}
+      data-testid={`tray-slot-${i}`}
+      data-state="filled"
+      data-dragging={isDragging || undefined}
+      onClick={onEdit}
+      style={{ flex: 1, border: "1px solid var(--border)", background: isOver && !isDragging ? OVER_BG : "var(--secondary)", borderRadius: 9, minHeight: 66, display: "flex", flexDirection: "column", justifyContent: "center", gap: 3, padding: "10px 14px", position: "relative", cursor: "pointer", transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1, zIndex: isDragging ? 10 : undefined }}
+    >
+      <span style={SLOT_LABEL}>{tag}</span>
+      {/* 拖拽手柄：点槽 = 编辑，故只有手柄起拖；键盘 Space 起拖、方向键移动 */}
+      <button
+        type="button"
+        ref={setActivatorNodeRef}
+        data-testid={`tray-slot-handle-${i}`}
+        aria-label={handleLabel}
+        onClick={(e) => e.stopPropagation()}
+        style={{ position: "absolute", top: 6, right: 8, border: "none", background: "transparent", color: "var(--muted-foreground)", cursor: "grab", fontSize: 14, lineHeight: 1, padding: 2, touchAction: "none" }}
+        {...attributes}
+        {...listeners}
+      >
+        ⠿
+      </button>
+      {children}
+    </div>
+  );
+}
+
+function DraggableChip({ id, disabled, children, ...rest }: {
+  id: string; disabled: boolean; children: React.ReactNode;
+} & React.HTMLAttributes<HTMLSpanElement> & { "data-testid": string; "data-state": string }) {
+  const { listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `chip:${id}`, disabled });
+  // listeners 在前、调用方的 onKeyDown 在后覆盖：Enter/Space 仍是点选装载（键盘排序走槽手柄）
+  return (
+    <span
+      ref={setNodeRef}
+      {...listeners}
+      {...rest}
+      style={{ transform: CSS.Translate.toString(transform), position: "relative", zIndex: isDragging ? 10 : undefined, touchAction: "none" }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function LibraryDrop({ children }: { children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: "library" });
+  return (
+    <div ref={setNodeRef} data-testid="tray-library" data-over={isOver || undefined} style={{ padding: "14px 18px 16px", display: "flex", flexDirection: "column", gap: 12, background: isOver ? OVER_BG : undefined, borderRadius: 10 }}>
+      {children}
+    </div>
+  );
+}
+
 export function TrayConfigTab() {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -431,6 +532,11 @@ export function TrayConfigTab() {
   }, []);
 
   const options = useMemo(() => segmentOptions(platforms, t), [platforms, t]);
+  // 距离 5px 才起拖，保留点选；拖拽结果走同一条 persist（含 persistSeq 守卫）。
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
   // 票 03：编辑指定段的字段，走与勾选同一条 persist 通道
   const patchItem = useCallback((key: string, patch: Partial<TrayItem>) => {
     persist({
@@ -449,6 +555,29 @@ export function TrayConfigTab() {
   const keptDisabled = config.items.filter(
     (i) => !i.enabled && !options.some((o) => o.key === segmentKey(i)),
   ).length;
+
+  const slotIndex = (overId: string) =>
+    overId.startsWith("empty:") ? selected.length - 1 : selected.findIndex((s) => `slot:${segmentKey(s)}` === overId);
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over) return;
+    const a = String(active.id), o = String(over.id);
+    if (a.startsWith("chip:")) {
+      const opt = options.find((x) => `chip:${x.key}` === a);
+      if (!opt || !(o.startsWith("slot:") || o.startsWith("empty:"))) return;
+      const at = o.startsWith("empty:") ? selected.length : slotIndex(o);
+      const items = loadSegmentAt(config.items, opt, at);
+      if (items !== config.items) persist({ ...config, items });
+    } else if (a.startsWith("slot:")) {
+      const key = a.slice(5);
+      if (o === "library") {
+        const opt = options.find((x) => x.key === key);
+        if (opt) persist({ ...config, items: toggleSegment(config.items, opt) });
+      } else if (o !== a) {
+        const to = slotIndex(o);
+        if (to >= 0) persist({ ...config, items: moveSegment(config.items, key, to) });
+      }
+    }
+  };
 
   if (loading) {
     return <div className="text-secondary" style={{ fontSize: 13, padding: 20 }}>{t("common.loading", "加载中...")}</div>;
@@ -478,6 +607,7 @@ export function TrayConfigTab() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 16, alignItems: "start" }}>
+        <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
           {/* ── 卡 1：菜单栏预览 + 装载槽 ── */}
           <TraySectionCard staggerMs={0}>
@@ -544,35 +674,19 @@ export function TrayConfigTab() {
               {t("tray.slotsLabel", "装载槽")}
             </div>
             <div style={{ margin: "0 18px 18px", display: "flex", gap: 10 }}>
-              {[0, 1, 2].map((i) => {
-                const seg = selected[i];
-                if (!seg) {
+              <SortableContext items={selected.map((x) => `slot:${segmentKey(x)}`)} strategy={horizontalListSortingStrategy}>
+                {[0, 1, 2].map((i) => {
+                  const seg = selected[i];
+                  if (!seg) return <EmptySlot key={i} i={i} tag={t("tray.slotIndex", "SLOT {{n}}", { n: i + 1 })} label={t("tray.slotEmpty", "空槽 — 从候选库点选装载")} />;
+                  const opt = options.find((o) => o.key === segmentKey(seg));
                   return (
-                    <div key={i} data-testid={`tray-slot-${i}`} data-state="empty" style={{ flex: 1, border: "1.5px dashed var(--input)", borderRadius: 9, minHeight: 66, display: "flex", alignItems: "center", padding: "10px 14px", fontSize: 11.5, color: "var(--muted-foreground)", position: "relative" }}>
-                      <span style={{ position: "absolute", top: -9, left: 12, fontFamily: MONO, fontSize: 9.5, background: "var(--card)", border: "1px solid var(--border)", borderRadius: 4, padding: "1px 7px", letterSpacing: 1, lineHeight: 1.4 }}>
-                        {t("tray.slotIndex", "SLOT {{n}}", { n: i + 1 })}
-                      </span>
-                      {t("tray.slotEmpty", "空槽 — 从候选库点选装载")}
-                    </div>
+                    <SortableSlot key={segmentKey(seg)} i={i} tag={t("tray.slotIndex", "SLOT {{n}}", { n: i + 1 })} id={segmentKey(seg)} onEdit={() => setEditingKey(segmentKey(seg))} handleLabel={t("tray.dragHandle", "拖动排序")}>
+                      <div style={{ fontSize: 12.5, fontWeight: 650 }}>{seg.label || opt?.label || segmentKey(seg)}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 700, color: ACCENT_TEXT, letterSpacing: 0.3 }}>{previewValue(seg, platforms, todayStats)}</div>
+                    </SortableSlot>
                   );
-                }
-                const opt = options.find((o) => o.key === segmentKey(seg));
-                return (
-                  <div
-                    key={i}
-                    data-testid={`tray-slot-${i}`}
-                    data-state="filled"
-                    onClick={() => setEditingKey(segmentKey(seg))}
-                    style={{ flex: 1, border: "1px solid var(--border)", background: "var(--secondary)", borderRadius: 9, minHeight: 66, display: "flex", flexDirection: "column", justifyContent: "center", gap: 3, padding: "10px 14px", position: "relative", cursor: "pointer" }}
-                  >
-                    <span style={{ position: "absolute", top: -9, left: 12, fontFamily: MONO, fontSize: 9.5, background: "var(--card)", border: "1px solid var(--border)", borderRadius: 4, padding: "1px 7px", letterSpacing: 1, lineHeight: 1.4 }}>
-                      {t("tray.slotIndex", "SLOT {{n}}", { n: i + 1 })}
-                    </span>
-                    <div style={{ fontSize: 12.5, fontWeight: 650 }}>{seg.label || opt?.label || segmentKey(seg)}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 700, color: ACCENT_TEXT, letterSpacing: 0.3 }}>{previewValue(seg, platforms, todayStats)}</div>
-                  </div>
-                );
-              })}
+                })}
+              </SortableContext>
             </div>
             {/* 票 03：段编辑面板 —— 点已装载槽就地展开，编辑即持久化 */}
             {editingSeg && (
@@ -597,15 +711,17 @@ export function TrayConfigTab() {
               lab="LIBRARY"
               hint={t("tray.libraryHint", "最多装载 3 段 · 按装载顺序显示")}
             />
-            <div style={{ padding: "14px 18px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+            <LibraryDrop>
               {libRows.map(([cat, rows]) => rows.length > 0 && (
                 <div key={cat} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ width: 58, flexShrink: 0, fontFamily: MONO, fontSize: 10, letterSpacing: 1.2, color: "var(--muted-foreground)", textTransform: "uppercase" }}>{cat}</span>
                   {rows.map((opt) => {
                     const state = selectedKeys.has(opt.key) ? "loaded" : full ? "locked" : "";
                     return (
-                      <span
+                      <DraggableChip
                         key={opt.key}
+                        id={opt.key}
+                        disabled={state !== ""}
                         className="tray-chip"
                         data-testid={`tray-chip-${opt.key}`}
                         data-state={state}
@@ -628,14 +744,15 @@ export function TrayConfigTab() {
                         <span className="tray-chip-v">
                           {previewValue(opt.item, platforms, todayStats)}
                         </span>
-                      </span>
+                      </DraggableChip>
                     );
                   })}
                 </div>
               ))}
-            </div>
+            </LibraryDrop>
           </TraySectionCard>
         </div>
+        </DndContext>
 
         {/* ── 右栏 · 实时观测 ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>

@@ -8,6 +8,8 @@ import {
   segmentKey,
   segmentOptions,
   toggleSegment,
+  moveSegment,
+  loadSegmentAt,
   previewValue,
   type SegmentOption,
 } from "./TrayConfigTab";
@@ -374,5 +376,93 @@ describe("段编辑面板（票 03）", () => {
     expect(view.getByTestId("tray-editor").getAttribute("data-editing")).toBe("today_usage:tokens");
     expect(view.queryByTestId("tray-edit-hex")).toBeNull();
     expect(view.queryByTestId("tray-edit-hex-invalid")).toBeNull();
+  });
+});
+
+// ── 拖拽：候选库拖入装载槽 + 槽内排序 ──
+// jsdom 无布局，不模拟指针；截获 DndContext 的 onDragEnd 直接喂拖拽结果，锁住「落点 → 持久化」。
+const dnd = vi.hoisted(() => ({ onDragEnd: null as null | ((e: unknown) => void) }));
+vi.mock("@dnd-kit/core", async (orig) => {
+  const actual = await orig<typeof import("@dnd-kit/core")>();
+  return {
+    ...actual,
+    DndContext: (props: { onDragEnd: (e: unknown) => void } & Record<string, unknown>) => {
+      dnd.onDragEnd = props.onDragEnd;
+      return <actual.DndContext {...(props as never)} />;
+    },
+  };
+});
+
+const drop = (active: string, over: string | null) =>
+  dnd.onDragEnd!({ active: { id: active }, over: over ? { id: over } : null });
+const sentKeys = (n = 0) =>
+  (api.set.mock.calls[n][0].items as TrayItem[]).filter((i) => i.enabled).map(segmentKey);
+
+describe("moveSegment / loadSegmentAt", () => {
+  const three = [
+    item({ metric: "cost", order: 0 }), item({ metric: "tokens", order: 1 }),
+    item({ item_type: "peak", metric: null, order: 2 }),
+  ];
+  it("moveSegment：启用序列内换位，order 重写，未启用项留在后面", () => {
+    const items = [...three.slice(0, 2), item({ metric: "requests", enabled: false, order: 2 })];
+    const next = moveSegment(items, "today_usage:cost", 1);
+    expect(next.map(segmentKey)).toEqual(["today_usage:tokens", "today_usage:cost", "today_usage:requests"]);
+    expect(next.map((i) => i.order)).toEqual([0, 1, 2]);
+    expect(moveSegment(items, "peak", 0)).toBe(items);
+  });
+  it("loadSegmentAt：插到指定位置；已装载 / 满槽原样返回", () => {
+    const two = three.slice(0, 2);
+    expect(loadSegmentAt(two, byKey("peak"), 0).map(segmentKey)).toEqual(["peak", "today_usage:cost", "today_usage:tokens"]);
+    expect(loadSegmentAt(two, byKey("today_usage:cost"), 1)).toBe(two);
+    expect(loadSegmentAt(three, byKey("routed_platform"), 0)).toBe(three);
+  });
+});
+
+describe("拖拽装载 / 排序", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("候选芯片拖到已装载槽 → 插在该槽位置，持久化一次", async () => {
+    await renderTab();
+    drop("chip:peak", "slot:today_usage:tokens");
+    expect(api.set).toHaveBeenCalledTimes(1);
+    expect(sentKeys()).toEqual(["today_usage:cost", "peak", "today_usage:tokens"]);
+  });
+
+  it("候选芯片拖到空槽 → 追加末尾", async () => {
+    await renderTab();
+    drop("chip:peak", "empty:2");
+    expect(sentKeys()).toEqual(["today_usage:cost", "today_usage:tokens", "peak"]);
+  });
+
+  it("满槽时拖入无效（沿用点选上限），无落点也不持久化", async () => {
+    await renderTab({
+      separator: "  ",
+      items: [item({ metric: "cost", order: 0 }), item({ metric: "tokens", order: 1 }), item({ item_type: "peak", metric: null, order: 2 })],
+    });
+    drop("chip:routed_platform", "slot:peak");
+    drop("chip:today_usage:requests", null);
+    expect(api.set).not.toHaveBeenCalled();
+  });
+
+  it("槽内拖拽排序 → 新顺序持久化", async () => {
+    await renderTab();
+    drop("slot:today_usage:cost", "slot:today_usage:tokens");
+    expect(api.set).toHaveBeenCalledTimes(1);
+    expect(sentKeys()).toEqual(["today_usage:tokens", "today_usage:cost"]);
+  });
+
+  it("槽拖回候选库 = 移除（只翻 enabled）", async () => {
+    await renderTab();
+    drop("slot:today_usage:cost", "library");
+    expect(sentKeys()).toEqual(["today_usage:tokens"]);
+    expect(api.set.mock.calls[0][0].items).toHaveLength(2);
+  });
+
+  it("每个已装载槽有拖拽手柄（键盘排序入口），空槽无", async () => {
+    const view = await renderTab();
+    expect(view.getByTestId("tray-slot-handle-0").getAttribute("aria-roledescription")).toBe("sortable");
+    expect(view.queryByTestId("tray-slot-handle-2")).toBeNull();
   });
 });
