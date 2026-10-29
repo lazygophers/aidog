@@ -193,16 +193,17 @@ harness 隔离建的 agent worktree 自带 lock，收工直接 `/usr/bin/git wor
 
 1. 核对 master 是集成分支祖先：`/usr/bin/git merge-base --is-ancestor master <分支>`
    退出码 0 才可快进。
-2. 不动工作区只挪指针：`/usr/bin/git fetch . <分支>:master`（当前不在 master 时可用；
-   当前就在 master 则先 `git switch` 到集成分支的做法不适用，改 `merge --ff-only`）。
+2. 按当前分支二选一：
+   - 当前不在 master → `/usr/bin/git fetch . <分支>:master`（只挪指针，不动工作区）；
+   - 当前就在 master → `/usr/bin/git merge --ff-only <分支>`（脏文件与合入内容不重叠才可用）。
 3. 切回 master 前确认脏文件在两边内容相同（`git diff <分支> master --stat -- <脏文件>`
-   为空），checkout 才不会碰它们。
+   为空），checkout 才不会碰它们。本步只适用于第一种（当前不在 master）。
 4. 收尾 `/usr/bin/git status --short` 核对脏文件原样还在。
 
 ## 推送走 origin，no-mistakes 远端可能已失效（2026-10-29）
 
 `no-mistakes` 远端指向 `/Users/luoxin/.no-mistakes/repos/9d3abbd5e514.git`，该目录
 整个不存在时 push 报 `fatal: ... does not appear to be a git repository`（exit 128）。
-实际推送走 `origin`（GitHub `lazygophers/aidog`）：先 `git rev-list --count
-origin/master..master` 确认纯快进，再 `git push origin master`；origin 是公开远端，
+实际推送走 `origin`（GitHub `lazygophers/aidog`）：先 `git fetch origin &&
+git rev-list --left-right --count origin/master...master` 确认左边为 0（纯快进），再 `git push origin master`；origin 是公开远端，
 推送前仍按全局规则向用户确认一次。
