@@ -23,7 +23,7 @@ import { getProtocolSearchTermsMap } from "../../domains/platforms/defaults";
 
 /**
  * 日志列表视图（自原 Logs.tsx L455-637 外迁）。
- * header + 筛选条 + 表格 + 分页；详情由 Logs.tsx 以 Sheet 叠加（本组件恒常渲染）。
+ * header + 筛选条 + 表格 + 分页；详情由 Logs.tsx 以居中浮层叠加（本组件恒常渲染）。
  */
 export function ListView({ filters, list, openDetail, copyRow }: {
   filters: LogsFiltersData;
