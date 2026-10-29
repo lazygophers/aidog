@@ -3212,14 +3212,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tauri-apps/api@npm:^2, @tauri-apps/api@npm:^2.11.0, @tauri-apps/api@npm:^2.8.0":
+"@tauri-apps/api@npm:^2.11.0, @tauri-apps/api@npm:^2.8.0":
   version: 2.11.0
   resolution: "@tauri-apps/api@npm:2.11.0"
   checksum: 10c0/70c9f692d14ef7a5f69aa56d474e993f2c25f393e30a26099cca198040ccd33724e4978cefd455c73ecb169b36ca9b7ee010db88b05b0a8bd4a85801caa317d6
   languageName: node
   linkType: hard
 
-"@tauri-apps/api@npm:^2.12.0":
+"@tauri-apps/api@npm:^2.12.0, @tauri-apps/api@npm:~2.12":
   version: 2.12.4
   resolution: "@tauri-apps/api@npm:2.12.4"
   checksum: 10c0/4a5c492d17999dc393be617978aed52c133d999575e251f0166cd9f6838941a207b9302c153104dfe83b0f97a8bdc5fda8574dfee40eed457e551b1c6ca4f061
@@ -4136,7 +4136,7 @@ __metadata:
     "@radix-ui/react-tooltip": "npm:^1.2.13"
     "@tailwindcss/postcss": "npm:^4.3.3"
     "@tailwindcss/vite": "npm:^4.3.3"
-    "@tauri-apps/api": "npm:^2"
+    "@tauri-apps/api": "npm:~2.12"
     "@tauri-apps/cli": "npm:^2"
     "@tauri-apps/plugin-clipboard-manager": "npm:^2"
     "@tauri-apps/plugin-dialog": "npm:^2.7.1"
