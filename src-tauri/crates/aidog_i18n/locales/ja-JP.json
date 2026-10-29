@@ -1721,7 +1721,6 @@
   "simulator.colUnit": "単価 $/M",
   "simulator.colQty": "数量",
   "simulator.colMult": "×倍率",
-  "simulator.colSubtotal": "小計",
   "simulator.compare": "マルチプラットフォーム比較",
   "simulator.lowest": "グループ内最安 ✓",
   "simulator.unsupported": "価格計算不可",
