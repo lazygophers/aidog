@@ -1,4 +1,5 @@
 //! proxy 命令域（C3 c3-commands 批4：原 commands_proxy 迁入，5 子文件结构原样保留）。
+pub mod cost_simulator;
 pub mod middleware;
 pub mod mitm;
 pub mod mitm_stats;
