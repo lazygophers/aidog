@@ -14,7 +14,7 @@ function cand(o: Partial<RouteCandidate> & { platform_id: number }): RouteCandid
 const snapshot = {
   mode: "failover",
   entries: [
-    cand({ order: 1, platform_id: 1 }),
+    cand({ order: 1, platform_id: 1, target_model: "model-one" }),
     cand({ order: 2, platform_id: 2, tags: ["sticky"] }),
     cand({ order: 3, platform_id: 3, reason: "breaker" }),
   ],
@@ -57,14 +57,18 @@ describe("RoutingCanvas", () => {
     expect(container.querySelector("path.rc-edge.bad")).not.toBeNull();
   });
 
+  it("仅有 target_model 时显示模型元素，旧快照不渲染模型元素", () => {
+    const { container } = renderCanvas(snapshot, [{ platform_id: 2, status_code: 200 }]);
+    expect(container.querySelectorAll('[data-testid="routing-target-model"]')).toHaveLength(1);
+    expect(container.querySelector('[data-node-id="p-1"] [data-testid="routing-target-model"]')?.textContent).toBe("model-one");
+  });
+
   it("排除项带原因胶囊，胜出带数据胶囊", () => {
     const { container } = renderCanvas(snapshot, [{ platform_id: 2, status_code: 200 }]);
     const dim = container.querySelector('[data-node-id="p-3"]')!;
     expect(dim.querySelectorAll(".rc-why").length).toBe(1);
     const win = container.querySelector('[data-node-id="p-2"]')!;
-    // 胜出节点恰 1 个数据胶囊（fixture tags=["sticky"]，不锚文案）
     expect(win.querySelectorAll(".rc-why").length).toBe(1);
-    // p-1 选中但未轮到尝试（无失败记录）→ dim + 「未尝试」胶囊
     expect(container.querySelector('[data-node-id="p-1"]')!.getAttribute("data-state")).toBe("dim");
     expect(container.querySelector('[data-node-id="p-1"]')!.querySelectorAll(".rc-why").length).toBe(1);
   });

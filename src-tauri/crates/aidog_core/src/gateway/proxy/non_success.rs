@@ -53,6 +53,7 @@ pub(crate) async fn handle_non_success(
         error: attempt_err.clone(),
         duration_ms: attempt_start.elapsed().as_millis() as i64,
         ts: attempt_ts,
+        model: Some(route.target_model.clone()),
     });
 
     // 错误体提取人类可读 message（嵌套 error.message / 顶层 message），命中则 last_error

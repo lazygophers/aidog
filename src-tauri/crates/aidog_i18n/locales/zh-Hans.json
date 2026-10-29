@@ -695,6 +695,7 @@
     "cacheTokens": "缓存 Token"
   },
   "logs.actualModel": "实际模型",
+  "logs.targetModel": "目标模型",
   "logs.attemptCount": "{{n}} 次",
   "logs.routingDecision": "路由决策",
   "logs.routing.noSnapshot": "无路由决策记录",

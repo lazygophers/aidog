@@ -695,6 +695,7 @@
     "cacheTokens": "Cache Tokens"
   },
   "logs.actualModel": "Modelo real",
+  "logs.targetModel": "Modelo objetivo",
   "logs.attemptCount": "{{n}}",
   "logs.routingDecision": "Decisión de enrutamiento",
   "logs.routing.noSnapshot": "Sin registro de enrutamiento",
