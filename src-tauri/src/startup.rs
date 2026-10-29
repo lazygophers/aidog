@@ -76,6 +76,7 @@ pub fn run() {
             aidog_core::platform_cmd::platform::tray_config_get,
             aidog_core::platform_cmd::platform::tray_config_set,
             aidog_core::platform_cmd::platform::tray_today_stats,
+            aidog_core::platform_cmd::platform::tray_peak_status,
             aidog_core::platform_cmd::stats::stats_query_batch,
             aidog_core::popover::popover_data,
             aidog_core::popover::popover_config_get,

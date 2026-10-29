@@ -79,9 +79,12 @@ describe("previewValue", () => {
     expect(previewValue(item({ metric: "cost" }), [], stats)).toBe("$1.25");
   });
 
-  it("命中平台 / 高峰由后端实时算，前端占位", () => {
+  it("命中平台仍占位；peak 段与真实托盘同口径：高峰「峰」，其余「平」", () => {
     expect(previewValue(item({ item_type: "routed_platform", metric: null }), [], null)).toBe("—");
-    expect(previewValue(item({ item_type: "peak", metric: null }), [], null)).toBe("—");
+    const pk = item({ item_type: "peak", metric: null });
+    expect(previewValue(pk, [], null)).toBe("平");
+    expect(previewValue(pk, [], null, { platform_name: "A", in_peak: false, multiplier: 1 })).toBe("平");
+    expect(previewValue(pk, [], null, { platform_name: "A", in_peak: true, multiplier: 2 })).toBe("峰");
   });
 });
 
@@ -93,16 +96,23 @@ const api = vi.hoisted(() => ({
   todayStats: vi.fn(),
   set: vi.fn(),
   onProxyLogUpdated: vi.fn(),
+  peakStatus: vi.fn(),
+  statsQuery: vi.fn(),
 }));
 vi.mock("../services/api", () => ({
   platformApi: { list: api.list },
-  trayConfigApi: { get: api.get, set: api.set, todayStats: api.todayStats },
+  trayConfigApi: { get: api.get, set: api.set, todayStats: api.todayStats, peakStatus: api.peakStatus },
+  statsApi: { query: api.statsQuery },
   onProxyLogUpdated: api.onProxyLogUpdated,
 }));
 
 const stats = { tokens: 1240000, input_tokens: 0, output_tokens: 0, cache_tokens: 0, cache_rate: 74, cost: 1.25, total_requests: 86 };
 
-async function renderTab(cfg?: { separator: string; items: TrayItem[] }) {
+async function renderTab(
+  cfg?: { separator: string; items: TrayItem[] },
+  peak: { platform_name: string; in_peak: boolean; multiplier: number } | null = null,
+  trend: { buckets: unknown[]; series: unknown[] } = { buckets: [], series: [] },
+) {
   const { TrayConfigTab } = await import("./TrayConfigTab");
   api.list.mockResolvedValue([]);
   api.get.mockResolvedValue(cfg ?? {
@@ -113,6 +123,8 @@ async function renderTab(cfg?: { separator: string; items: TrayItem[] }) {
     ],
   });
   api.todayStats.mockResolvedValue(stats);
+  api.peakStatus.mockResolvedValue(peak);
+  api.statsQuery.mockResolvedValue(trend);
   api.onProxyLogUpdated.mockReturnValue(() => {});
   const view = render(<TrayConfigTab />);
   await waitFor(() => expect(view.getByTestId("tray-menubar")).toBeTruthy());
@@ -179,6 +191,47 @@ describe("TrayConfigTab 骨架与预览（票 01）", () => {
     const lightBg = rootBlock.match(/--mb-bg: ([^;]+);/)![1];
     const darkBg = darkBlock.match(/--mb-bg: ([^;]+);/)![1];
     expect(lightBg).not.toBe(darkBg);
+  });
+});
+
+describe("高峰徽标与近 7 日趋势（预览区真数据）", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+  const peakCfg = { separator: "  ", items: [item({ item_type: "peak", metric: null, order: 0 })] };
+
+  it("最近命中平台在高峰 → 徽标显示平台名与倍率，预览段为「峰」", async () => {
+    const view = await renderTab(peakCfg, { platform_name: "Acme", in_peak: true, multiplier: 2 });
+    await waitFor(() => expect(view.getByTestId("tray-peak-badge").textContent).toContain("Acme ×2"));
+    expect(view.getByTestId("tray-segment-peak").textContent).toContain("峰");
+  });
+
+  it("非高峰 → 徽标隐藏，预览段为「平」", async () => {
+    const view = await renderTab(peakCfg, { platform_name: "Acme", in_peak: false, multiplier: 1 });
+    await waitFor(() => expect(api.peakStatus).toHaveBeenCalled());
+    expect(view.queryByTestId("tray-peak-badge")).toBeNull();
+    expect(view.getByTestId("tray-segment-peak").textContent).toContain("平");
+  });
+
+  it("无最近命中平台 → 徽标隐藏", async () => {
+    const view = await renderTab(peakCfg, null);
+    await waitFor(() => expect(api.peakStatus).toHaveBeenCalled());
+    expect(view.queryByTestId("tray-peak-badge")).toBeNull();
+  });
+
+  it("趋势卡按 statsApi.query 的全局 7 日按天查询渲染", async () => {
+    const view = await renderTab(undefined, null, {
+      buckets: [{ time_bucket: "2026-10-28", total_cost: 1.5 }, { time_bucket: "2026-10-29", total_cost: 2.5 }],
+      series: [],
+    });
+    await waitFor(() => expect(api.statsQuery).toHaveBeenCalled());
+    const q = api.statsQuery.mock.calls[0][0];
+    expect(q.granularity).toBe("daily");
+    expect(q.filter_group).toBeUndefined();
+    expect(q.filter_platform).toBeUndefined();
+    expect(Math.round((q.end - q.start) / 86_400_000)).toBe(7);
+    expect(view.getByTestId("tray-trend")).toBeTruthy();
+    await waitFor(() => expect(view.getByTestId("tray-trend").querySelector("svg")).toBeTruthy());
   });
 });
 

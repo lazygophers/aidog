@@ -8,8 +8,13 @@ import {
   type TrayConfig,
   type TrayItem,
   type TodayStats,
+  type TrayPeakStatus,
+  type StatsResult,
+  type PopoverItem,
+  statsApi,
   onProxyLogUpdated,
 } from "../services/api";
+import { CostTrendCard, buildTrendQuery, type PopoverData } from "../components/PopoverCards";
 import { useReveal } from "../components/shared";
 import {
   DndContext, KeyboardSensor, PointerSensor, closestCenter, pointerWithin,
@@ -138,11 +143,18 @@ export function segColor(c: TrayItem["color"]): string {
   return "var(--mb-fg-strong)";
 }
 
-/** 预览值。routed_platform / peak 由后端按实时路由算，前端只占位。 */
+/** 全局 7 日按天趋势：复用浮窗 cost_trend 卡的查询构造与渲染（scope=overall）。 */
+const TREND_ITEM: PopoverItem = {
+  id: "tray-trend", item_type: "cost_trend", visible: true, order: 0,
+  scope: "overall", time_window: "7d", size: "s",
+};
+
+/** 预览值。peak 与真实托盘同口径（峰/平，Rust `peak_item_parts`）；routed_platform 仍占位。 */
 export function previewValue(
   item: TrayItem,
   platforms: Platform[],
   stats: TodayStats | null,
+  peak: TrayPeakStatus | null = null,
 ): string {
   const s = stats ?? { tokens: 0, cache_rate: 0, cost: 0, total_requests: 0 };
   switch (item.item_type) {
@@ -158,6 +170,8 @@ export function previewValue(
       if (!p) return "--.--";
       return `$${trimZeros(p.est_balance_remaining.toFixed(2))}`;
     }
+    case "peak":
+      return peak?.in_peak ? "峰" : "平";
     default:
       return "—";
   }
@@ -493,6 +507,9 @@ export function TrayConfigTab() {
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [config, setConfig] = useState<TrayConfig>({ separator: "  ", items: [] });
   const [todayStats, setTodayStats] = useState<TodayStats | null>(null);
+  const [peak, setPeak] = useState<TrayPeakStatus | null>(null);
+  const [trend, setTrend] = useState<StatsResult | null>(null);
+  const [trendLoaded, setTrendLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -512,8 +529,16 @@ export function TrayConfigTab() {
   }, []);
 
   const refreshStats = useCallback(async () => {
-    try { setTodayStats(await trayConfigApi.todayStats()); } catch { /* */ }
+    const [st, pk, tr] = await Promise.allSettled([
+      trayConfigApi.todayStats(), trayConfigApi.peakStatus(), statsApi.query(buildTrendQuery(TREND_ITEM)),
+    ]);
+    if (st.status === "fulfilled") setTodayStats(st.value);
+    if (pk.status === "fulfilled") setPeak(pk.value);
+    setTrend(tr.status === "fulfilled" ? tr.value : null);
+    setTrendLoaded(true);
   }, []);
+  // 首次进入拉一次峰态与趋势（todayStats 由上面的初始 Promise.all 拉）。
+  useEffect(() => { refreshStats(); }, [refreshStats]);
   // 今日统计随 proxy_log 终态写入刷新（替代 30s 轮询）。
   useEffect(() => onProxyLogUpdated(() => { refreshStats(); }, 1000), [refreshStats]);
 
@@ -656,7 +681,7 @@ export function TrayConfigTab() {
                           alignSelf: two ? (ALIGN_FLEX[seg.align_row2 ?? seg.align] ?? "flex-start") : undefined,
                         }}
                       >
-                        {previewValue(seg, platforms, todayStats)}
+                        {previewValue(seg, platforms, todayStats, peak)}
                       </span>
                     </span>
                   );
@@ -682,7 +707,7 @@ export function TrayConfigTab() {
                   return (
                     <SortableSlot key={segmentKey(seg)} i={i} tag={t("tray.slotIndex", "SLOT {{n}}", { n: i + 1 })} id={segmentKey(seg)} onEdit={() => setEditingKey(segmentKey(seg))} handleLabel={t("tray.dragHandle", "拖动排序")}>
                       <div style={{ fontSize: 12.5, fontWeight: 650 }}>{seg.label || opt?.label || segmentKey(seg)}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 700, color: ACCENT_TEXT, letterSpacing: 0.3 }}>{previewValue(seg, platforms, todayStats)}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 700, color: ACCENT_TEXT, letterSpacing: 0.3 }}>{previewValue(seg, platforms, todayStats, peak)}</div>
                     </SortableSlot>
                   );
                 })}
@@ -742,7 +767,7 @@ export function TrayConfigTab() {
                       >
                         {opt.label}
                         <span className="tray-chip-v">
-                          {previewValue(opt.item, platforms, todayStats)}
+                          {previewValue(opt.item, platforms, todayStats, peak)}
                         </span>
                       </DraggableChip>
                     );
@@ -767,11 +792,12 @@ export function TrayConfigTab() {
               <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 2 }}>
                 {t("tray.todayCostSub", "随代理日志终态实时累加")}
               </div>
-              {/* 高峰窗口数据接入在票 02+（先出徽标壳，不编造倍率/时段） */}
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 10, border: "1px solid color-mix(in srgb, var(--warning) 40%, transparent)", background: "color-mix(in srgb, var(--warning) 10%, transparent)", color: "var(--warning)", borderRadius: 6, padding: "5px 10px", fontSize: 11.5, fontFamily: MONO }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--warning)" }} />
-                {t("tray.peakBadge", "高峰时段")}
-              </div>
+              {peak?.in_peak && (
+                <div data-testid="tray-peak-badge" style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 10, border: "1px solid color-mix(in srgb, var(--warning) 40%, transparent)", background: "color-mix(in srgb, var(--warning) 10%, transparent)", color: "var(--warning)", borderRadius: 6, padding: "5px 10px", fontSize: 11.5, fontFamily: MONO }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--warning)" }} />
+                  {t("tray.peakBadge", "高峰时段")} · {peak.platform_name} ×{peak.multiplier}
+                </div>
+              )}
             </div>
           </TraySectionCard>
           <TraySectionCard staggerMs={120}>
@@ -794,14 +820,12 @@ export function TrayConfigTab() {
               </div>
             </div>
           </TraySectionCard>
-          {/* 近 7 日消费趋势：壳先落地，数据接 statsApi.query 在票 02+（不画假曲线） */}
-          <div style={{ ...cardStyle, padding: "4px 16px 14px" }}>
+          <div data-testid="tray-trend" style={{ ...cardStyle, padding: "4px 16px 14px" }}>
             <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 1.2, color: "var(--muted-foreground)", textTransform: "uppercase", padding: "12px 0 6px" }}>
               {t("tray.trendTitle", "近 7 日消费趋势")}
             </div>
-            <svg data-testid="tray-spark" viewBox="0 0 240 64" preserveAspectRatio="none" style={{ width: "100%", height: 64, display: "block" }}>
-              <path d="M4,60 L236,60" fill="none" stroke="var(--border)" strokeWidth="1.5" strokeDasharray="4 4" />
-            </svg>
+            {/* size=s 无卡片标题，data 仅 m/l 标题用得到 */}
+            <CostTrendCard item={TREND_ITEM} data={{} as PopoverData} size="s" t={t} stats={trend ?? undefined} statsLoaded={trendLoaded} />
           </div>
         </div>
       </div>
