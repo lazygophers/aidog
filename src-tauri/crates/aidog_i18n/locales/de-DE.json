@@ -2472,6 +2472,7 @@
   "tray.overBudgetHint": "Überschritten",
   "tray.pageDesc": "Menübandleiste — geladene Segmente erscheinen live in Reihenfolge, rechts die Tageswerte.",
   "tray.peakBadge": "Spitzenzeit",
+"tray.persistError": "Speichern der Tray-Konfiguration fehlgeschlagen: {{msg}}",
   "tray.preview": "Live-Vorschau",
   "tray.previewEmpty": "Keine Elemente",
   "tray.previewTitle": "Menüband-Vorschau",
