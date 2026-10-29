@@ -156,6 +156,7 @@ pub(crate) async fn handle_mock(
             0,
             0,
             now_ms,
+            &[],
         )
         .await;
         let _ = super::manual_budget::apply_manual_budgets(

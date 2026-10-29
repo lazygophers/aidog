@@ -195,6 +195,11 @@ pub(crate) struct StreamAggregator {
     // 缓存写入 1h TTL token（Anthropic cache_creation.ephemeral_1h_input_tokens，spec B3）：
     // 独立于 5m 桶——1h 写入价 2× input 价，与 5m 的 1.25× 分开计。
     tokens_cache_write_1h: std::sync::atomic::AtomicI32,
+    // 按次工具计数桶（spec-按次计费 B2）：anthropic `usage.server_tool_use` 的
+    // web_search / web_fetch 请求次数。计数在流内单调不减，fetch_max 取最大即终值
+    // （与 token 桶同 idiom）。未知子字段不设桶（未声明工具不计费，B2 容错）。
+    tool_search: std::sync::atomic::AtomicI32,
+    tool_fetch: std::sync::atomic::AtomicI32,
     // SSE 行重组缓冲：网络 chunk 边界与 SSE event 边界不对齐，单个 `data:` 行可能被
     // 切到两个 reqwest chunk。逐 chunk `.lines()` 解析会把尾部不完整行喂给 serde 解析失败
     // 静默丢弃 usage（尤其 anthropic 尾部 message_delta 携带最终 input/output_tokens 时）。
@@ -226,6 +231,8 @@ impl StreamAggregator {
             tokens_cache: std::sync::atomic::AtomicI32::new(0),
             tokens_cache_write: std::sync::atomic::AtomicI32::new(0),
             tokens_cache_write_1h: std::sync::atomic::AtomicI32::new(0),
+            tool_search: std::sync::atomic::AtomicI32::new(0),
+            tool_fetch: std::sync::atomic::AtomicI32::new(0),
             sse_line_buf: std::sync::Mutex::new(String::new()),
             served_model: std::sync::Mutex::new(None),
             upstream_err: std::sync::atomic::AtomicBool::new(false),
@@ -329,6 +336,8 @@ impl StreamAggregator {
                         &self.tokens_cache,
                         &self.tokens_cache_write,
                         &self.tokens_cache_write_1h,
+                        &self.tool_search,
+                        &self.tool_fetch,
                     );
                     self.observe_served_model(&json);
                 }
@@ -400,6 +409,8 @@ impl StreamAggregator {
                     &self.tokens_cache,
                     &self.tokens_cache_write,
                     &self.tokens_cache_write_1h,
+                    &self.tool_search,
+                    &self.tool_fetch,
                 );
                 self.observe_served_model(&json);
             }
@@ -506,6 +517,16 @@ impl StreamLogGuard {
         let cache_tokens = self.agg.tokens_cache.load(Relaxed);
         let cache_write_tokens = self.agg.tokens_cache_write.load(Relaxed);
         let cache_write_1h_tokens = self.agg.tokens_cache_write_1h.load(Relaxed);
+        // 票 16 B2：按次计数桶 → ProxyLog 内存字段（不落列），随 upsert 进 process_upsert 计价。
+        let mut tool_call_counts: Vec<(String, i64)> = Vec::new();
+        let search = self.agg.tool_search.load(Relaxed);
+        if search > 0 {
+            tool_call_counts.push(("web_search".to_string(), search as i64));
+        }
+        let fetch = self.agg.tool_fetch.load(Relaxed);
+        if fetch > 0 {
+            tool_call_counts.push(("web_fetch".to_string(), fetch as i64));
+        }
 
         let mut final_log = self.log.clone();
         // 实际模型口径（统计按上游自报模型聚合，2026-09-21）：流式从 data: 帧首见模型名取
@@ -519,6 +540,7 @@ impl StreamLogGuard {
         final_log.cache_tokens = cache_tokens;
         final_log.cache_write_tokens = cache_write_tokens;
         final_log.cache_write_1h_tokens = cache_write_1h_tokens;
+        final_log.tool_call_counts = tool_call_counts;
         final_log.status_code = status_code;
         final_log.done = true;
         final_log.duration_ms = self.start.elapsed().as_millis() as i32;
@@ -589,6 +611,7 @@ impl Drop for StreamLogGuard {
 /// `message_start` 起始即定值，但后续 `message_delta`（及中转站尾部汇总事件）常携带
 /// `input_tokens: 0`，store 覆盖会把真实 input 清零。output 在 message_delta 里是累计值，
 /// 取流中最大即终值。OpenAI 末尾一次性给全量，从 0 升上去同样安全。
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn accumulate_sse_usage(
     json: &Value,
     acc_in: &std::sync::atomic::AtomicI32,
@@ -596,6 +619,8 @@ pub(crate) fn accumulate_sse_usage(
     acc_cache: &std::sync::atomic::AtomicI32,
     acc_cache_write: &std::sync::atomic::AtomicI32,
     acc_cache_write_1h: &std::sync::atomic::AtomicI32,
+    acc_tool_search: &std::sync::atomic::AtomicI32,
+    acc_tool_fetch: &std::sync::atomic::AtomicI32,
 ) {
     use std::sync::atomic::Ordering::Relaxed;
     // usage 可能在顶层，也可能在 message.usage（Anthropic message_start）
@@ -633,6 +658,38 @@ pub(crate) fn accumulate_sse_usage(
     // cache_write_1h 档（2× input 价），与 5m 桶分开。
     if let Some(cw1h) = cache_write_1h {
         acc_cache_write_1h.fetch_max(cw1h as i32, Relaxed);
+    }
+    // 票 16 B2：anthropic `server_tool_use` 按次计数，独立 fetch_max 桶（同 token idiom）。
+    // 仅认两个已声明键；未知子字段无桶、不计费（B2 容错）。
+    let stu = usage.get("server_tool_use");
+    if let Some(n) = stu
+        .and_then(|s| s.get("web_search_requests"))
+        .and_then(|v| v.as_i64())
+    {
+        acc_tool_search.fetch_max(n as i32, Relaxed);
+    }
+    if let Some(n) = stu
+        .and_then(|s| s.get("web_fetch_requests"))
+        .and_then(|v| v.as_i64())
+    {
+        acc_tool_fetch.fetch_max(n as i32, Relaxed);
+    }
+}
+
+/// 按次工具计数提取（spec-按次计费 B2 非流式路）：anthropic `usage.server_tool_use`
+/// 子段 → `(工具键, 次数)`，键从子段名派生（`web_search_requests` → `web_search`）。
+/// 开放键集：未知子字段容错提取，未在 tools_pricing 声明的键由计费侧（tools_cost）记 0。
+fn server_tool_counts(usage: &Value) -> Vec<(String, i64)> {
+    match usage.get("server_tool_use").and_then(|s| s.as_object()) {
+        Some(obj) => obj
+            .iter()
+            .filter_map(|(k, v)| {
+                let n = v.as_i64()?;
+                let key = k.strip_suffix("_requests").unwrap_or(k);
+                (n > 0).then(|| (key.to_string(), n))
+            })
+            .collect(),
+        None => Vec::new(),
     }
 }
 
@@ -697,7 +754,8 @@ fn usage_cache_arms(
 /// Extract input/output/cache tokens from non-stream response JSON.
 /// 返回 (input, output, cache_read, cache_write_5m, cache_write_1h)——cache_write = Anthropic
 /// `cache_creation_input_tokens`（2026-09-28 起独立提取，此前全链路丢弃）；1h 桶 =
-/// `cache_creation.ephemeral_1h_input_tokens`（B3，2026-10-28 起拆桶）。
+/// `cache_creation.ephemeral_1h_input_tokens`（B3，2026-10-28 起拆桶）。第 6 元 =
+/// 按次工具计数（票 16 B2，`usage.server_tool_use`，键派生见 [`server_tool_counts`]）。
 /// 流式判定：请求 body 的 stream 字段与上游响应 content-type 取并。
 /// 中转站常对未声明 stream 的请求强制以 `text/event-stream` 响应；仅凭请求字段会误判为非流式，
 /// 进而用 JSON 解析 SSE 文本拿不到 usage → token/est_cost 全为 0。OR 语义保证既有流式路径不回归。
@@ -705,14 +763,14 @@ pub(crate) fn resolve_is_stream(req_stream: bool, upstream_content_type: &str) -
     req_stream || upstream_content_type.contains("text/event-stream")
 }
 
-pub(crate) fn extract_usage(body: &str) -> (i32, i32, i32, i32, i32) {
+pub(crate) fn extract_usage(body: &str) -> (i32, i32, i32, i32, i32, Vec<(String, i64)>) {
     let v: Value = match serde_json::from_str(body) {
         Ok(v) => v,
-        Err(_) => return (0, 0, 0, 0, 0),
+        Err(_) => return (0, 0, 0, 0, 0, Vec::new()),
     };
     let usage = match v.get("usage") {
         Some(u) => u,
-        None => return (0, 0, 0, 0, 0),
+        None => return (0, 0, 0, 0, 0, Vec::new()),
     };
     // Cache tokens（arm 绑定见 usage_cache_arms）：Anthropic (cache_read_input_tokens),
     // OpenAI (prompt_tokens_details.cached_tokens), responses (input_tokens_details.*),
@@ -736,6 +794,7 @@ pub(crate) fn extract_usage(body: &str) -> (i32, i32, i32, i32, i32) {
         cache.unwrap_or(0) as i32,
         cache_write.unwrap_or(0) as i32,
         cache_write_1h.unwrap_or(0) as i32,
+        server_tool_counts(usage),
     )
 }
 
