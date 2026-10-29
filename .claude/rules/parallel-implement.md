@@ -119,6 +119,12 @@ mitm_bypass 测试读加密列断言明文——子集门禁全绿，合并到 m
   看似有结果实为残缺（该轮靠链尾 MARK 行才发现）。计数类 grep 补 `|| true`，
   且链尾固定 `echo GATE_CHAIN_DONE`：回看后台输出先找 MARK，不在场 = 链没跑完，
   中间结果再多也不算门禁跑过。
+- **裸 `cargo test` 只跑根包，是 workspace 子集假绿**（2026-10-28 直接模型转发轮实锤）：
+  本仓 src-tauri 是 cargo workspace，`cargo test` 不带 `--workspace` 时 crates/* 成员
+  （aidog_core / aidog_db 等）的测试一个不跑。票 01 门禁照写根包版，根包 14 passed
+  全绿，成员 crate 的直通测试实际没跑——agent 自行补跑 `--workspace` 才暴露。票面 /
+  派发 prompt 的 Rust 门禁一律写 `cargo test --workspace`；agent 拿到短命令自行补全
+  并在回报注明。
 
 ## 7b. 门禁红先问「是不是我顺手改的」（2026-10-22 入站密钥轮）
 
