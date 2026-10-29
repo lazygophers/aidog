@@ -57,7 +57,7 @@
 
 - 8 种语言（zh-Hans / en-US / ar-SA / fr-FR / de-DE / ru-RU / ja-JP / es-ES），阿拉伯语 RTL
 - 主题架构：每主题 light + dark 两组 CSS 变量，位于 `src/themes/`
-- UI 风格：观测台 G3（白底紫 `--primary #7A46C9` + IBM Plex 字族 + 点阵网格画布；dark 石墨夜 `#16181D`）。2026-10-24 拍板推翻 Liquid Glass，真值源 `.scratch/重设计-终稿/6-整体风格与分组页.html`（落地中，见 `.scratch/整体风格-重设计/spec.md`）
+- UI 风格：观测台 G3（白底紫 `--primary #7A46C9` + IBM Plex 字族 + 点阵网格画布；dark 石墨夜 `#16181D`）。2026-10-24 拍板推翻 Liquid Glass，真值源 `.scratch/重设计-终稿/6-整体风格与分组页.html`（2026-10-29 已落地）
 - 无 react-router：导航是 `App.tsx`(侧栏) + `AppSettings.tsx`(tab) 的本地 state；离页拦截走 `utils/navGuard.ts` 注册表，禁原生 confirm / beforeunload（破坏 Tauri）
 - modal/confirm 必须 `createPortal(document.body)`：祖先含 `transform`/`backdrop-filter`（liquid glass 主题）会让 `position:fixed` 退化为相对祖先，弹窗只在 page 内居中。详见 memory `modal-window-center-rule`。
 - **CSS 层级铁律：`src/styles/globals.css` 里禁裸写（unlayered）`position`**。Tailwind v4 的 `.fixed`/`.absolute` 在 `@layer utilities`，而 unlayered 声明压过任何 layered 声明（与特异性无关）——一条裸写的 `.glass-surface { position: relative }` 就能把挂该 class 的 Radix `DialogContent` 打回文档流，症状是「弹窗不按窗口居中」。给伪元素当锚点的 position 一律加进文件末尾 `@layer components` 的「定位上下文」块；唯二例外是弹窗定位硬保障类 `.ui-dialog-overlay` / `.ui-dialog-panel`（故意 unlayered，压过调用方 className，挂在 `components/ui/{dialog,alert-dialog}.tsx` 上）。
