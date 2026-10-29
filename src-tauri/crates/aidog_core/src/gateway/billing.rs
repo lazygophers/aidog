@@ -7,6 +7,7 @@
 use aidog_db::Db;
 
 use super::registry::effective_presets;
+use std::collections::BTreeMap;
 
 /// CNY→USD 汇率（1 USD 兑 CNY 数）：`tools_pricing` 声明 `currency: "CNY"` 的按次价换算
 /// USD 计费用（est_cost 列全库统一 USD 口径）。值 6.6675 = ECB 参考汇率（frankfurter.dev
@@ -218,6 +219,27 @@ pub fn tools_pricing_in(doc: &serde_json::Value, protocol: &str) -> Option<serde
     Some(val.clone())
 }
 
+/// 按 protocol 名（serde 裸名，如 "deepseek"）查生效 preset（DB 优先）的 `tools_endpoints`
+/// 独立搜索/工具端点声明（键 → 上游绝对 URL）。协议 / 字段缺失 → None；键值非 string
+/// → warn 返 None（照 `tools_pricing_in` 惯例，禁抄第二份真值源）。数据唯一落点 =
+/// platform.json（spec-独立搜索转发 语义 1）。供票 19 入口分流与转发消费。
+pub fn default_tools_endpoints(protocol: &str) -> Option<BTreeMap<String, String>> {
+    tools_endpoints_in(&effective_presets(), protocol)
+}
+
+/// [`default_tools_endpoints`] 的纯函数核心：从任意一篇 presets 文档取某协议的 tools_endpoints。
+pub fn tools_endpoints_in(doc: &serde_json::Value, protocol: &str) -> Option<BTreeMap<String, String>> {
+    let proto_obj = doc.get("protocols").and_then(|p| p.get(protocol))?;
+    let val = proto_obj.get("tools_endpoints")?;
+    match serde_json::from_value::<BTreeMap<String, String>>(val.clone()) {
+        Ok(m) => Some(m),
+        Err(_) => {
+            tracing::warn!(protocol, "tools_endpoints preset parse failed; skipping");
+            None
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -403,6 +425,38 @@ mod tests {
         let an = default_tools_pricing("anthropic").expect("anthropic tools_pricing bundled");
         assert_eq!(an["web_search"]["per_1000"].as_f64(), Some(10.0));
         assert_eq!(an["web_search"]["currency"].as_str(), None, "缺省 USD");
+    }
+
+    /// 票 18：accessor 读出 7 code 全部 tools_endpoints（bundled registry）。
+    #[test]
+    fn default_tools_endpoints_reads_bundled_registry() {
+        let expected: &[(&str, &[(&str, &str)])] = &[
+            ("deepseek", &[("search", "https://api.deepseek.com/v1/tools/search"), ("fetch", "https://api.deepseek.com/v1/tools/fetch")]),
+            ("kimi", &[("search", "https://api.moonshot.cn/v1/tools/search"), ("search_pro", "https://api.moonshot.cn/v1/tools/search_pro"), ("fetch", "https://api.moonshot.cn/v1/tools/fetch")]),
+            ("kimi_en", &[("search", "https://api.moonshot.ai/v1/tools/search"), ("search_pro", "https://api.moonshot.ai/v1/tools/search_pro"), ("fetch", "https://api.moonshot.ai/v1/tools/fetch")]),
+            ("glm", &[("web_search", "https://open.bigmodel.cn/api/paas/v4/web_search")]),
+            ("glm_en", &[("web_search", "https://api.z.ai/api/paas/v4/web_search")]),
+            ("stepfun", &[("search", "https://api.stepfun.com/v1/search")]),
+            ("qianfan", &[("ai_search_chat", "https://qianfan.baidubce.com/v2/ai_search/chat/completions")]),
+        ];
+        for (code, eps) in expected {
+            let m = default_tools_endpoints(code).unwrap_or_else(|| panic!("{code} tools_endpoints bundled"));
+            assert_eq!(m.len(), eps.len(), "{code} key count");
+            for (k, v) in *eps {
+                assert_eq!(m.get(*k).map(String::as_str), Some(*v), "{code}/{k}");
+            }
+        }
+        assert!(default_tools_endpoints("anthropic").is_none(), "未声明平台返 None");
+    }
+
+    /// 票 18：tools_endpoints 值非 string（形状坏）→ warn 返 None，不 panic。
+    #[test]
+    fn tools_endpoints_in_malformed_returns_none() {
+        let doc = serde_json::json!({
+            "protocols": { "bad": { "tools_endpoints": { "search": 123 } } }
+        });
+        assert!(tools_endpoints_in(&doc, "bad").is_none());
+        assert!(tools_endpoints_in(&serde_json::json!({"protocols": {}}), "bad").is_none());
     }
 
     /// B3：1h 档计价——cache_write_1h 用量落 1h 单价，与 5m 桶分开（1h=2× input 例）。
