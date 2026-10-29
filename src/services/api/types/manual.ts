@@ -527,6 +527,12 @@ export interface PassthroughAuth {
   auth_template: string;
 }
 
+/** qianfan AppBuilder 凭据（独立搜索转发，票 20；持久化在 platform.extra 顶层 `appbuilder_key` 键）。
+ *  AppBuilder key 独立于千帆模型服务 key；搜索转发读它发 `X-Appbuilder-Authorization` header。 */
+export interface AppbuilderCredential {
+  appbuilder_key: string;
+}
+
 export type ManualBudgetKind = "total" | "rolling" | "fixed" | "daily";
 /** 手动预算计量单位。count = 每请求扣 1（coding 套餐「N 次请求」口径）。 */
 export type ManualBudgetUnit = "usd" | "token" | "count";

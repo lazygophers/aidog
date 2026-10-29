@@ -4,7 +4,7 @@
 // （那条禁的是共享 i18n 实例的译文断言）。
 import { describe, it, expect, vi } from "vitest";
 import { render, fireEvent } from "../../test/render";
-import { ManualBudgetsFields, RateLimitsSection, PeakSection, DirectModelsSection } from "./formSections";
+import { ManualBudgetsFields, RateLimitsSection, PeakSection, DirectModelsSection, AppbuilderKeySection } from "./formSections";
 import type { ManualBudget, RateLimitsBundle, TimeWindow } from "../domains/platforms/defaults";
 import type { PlanQuotaTier } from "../domains/platforms/defaults";
 
@@ -256,5 +256,30 @@ describe("DirectModelsSection — 直通模型（票 02）", () => {
     const row = r.container.querySelector('[data-testid="direct-model-0"]') as HTMLInputElement;
     expect(row.value).toBe("kimi-k2");
     expect(row.readOnly).toBe(true);
+  });
+});
+
+// ── AppbuilderKeySection（qianfan AppBuilder 凭据，票 20）───────────────────
+describe("AppbuilderKeySection — qianfan AppBuilder 凭据（票 20）", () => {
+  function renderAppbuilder(value: string) {
+    const onChange = vi.fn();
+    const { container } = render(
+      <AppbuilderKeySection value={value} onChange={onChange} t={t} />
+    );
+    return { container, onChange };
+  }
+
+  it("回显 extra 现值；键入 → onChange 提交原值（trim/删键在 serialize 层）", () => {
+    const { container, onChange } = renderAppbuilder("bce-v3/k1");
+    const input = container.querySelector('[data-testid="appbuilder-key-input"]') as HTMLInputElement;
+    expect(input.value).toBe("bce-v3/k1");
+    fireEvent.change(input, { target: { value: " bce-v3/k2 " } });
+    expect(onChange).toHaveBeenCalledWith(" bce-v3/k2 ");
+  });
+
+  it("空值渲染空输入框（未配置态）", () => {
+    const { container } = renderAppbuilder("");
+    const input = container.querySelector('[data-testid="appbuilder-key-input"]') as HTMLInputElement;
+    expect(input.value).toBe("");
   });
 });
