@@ -510,6 +510,7 @@ pub(crate) fn platform_item_parts(
     (name, value)
 }
 
+/// 符号/汇率/小数位取自币种表（DisplayCurrency）；不复用 format_money 是为保持 USD 托盘文本与改动前逐字一致（符号+定点+去尾零）。
 /// USD 金额 → 托盘文本：符号 + 换算后定点并裁尾零。0 位小数币种（JPY）恒 0 位，
 /// 其余沿用调用方给的位数（USD 下与改动前 `$` + trim(format) 逐字一致）。
 fn tray_money(usd: f64, cur: &db::currency::DisplayCurrency, decimals: usize) -> String {
