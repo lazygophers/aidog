@@ -308,6 +308,8 @@ pub fn run() {
             aidog_core::proxy_cmd::mitm::mitm_reset_suspects,
             // cc-sub-mitm 票 12：MITM 统计读侧（趋势 / refresh 计数 / 旁路 / 盲转 / export 文案）
             aidog_core::proxy_cmd::mitm_stats::mitm_usage_trend,
+            // 计费预计算票 11：事前花费模拟器
+            aidog_core::proxy_cmd::cost_simulator::simulator_est_cost,
             aidog_core::proxy_cmd::mitm_stats::mitm_oauth_refresh_stats,
             aidog_core::proxy_cmd::mitm_stats::mitm_bypass_list,
             aidog_core::proxy_cmd::mitm_stats::mitm_opaque_count,
