@@ -213,6 +213,11 @@ pub async fn calibrate_from_quota(
         String::new()
     };
     let result = write_real_quota(db, platform_id, est_balance, &coding_json, now()).await;
+    if !is_coding_plan
+        && let Some(b) = &quota.balance
+    {
+        record_balance_currency(db, platform_id, &b.currency).await;
+    }
     if result.is_ok() {
         // 校准改写了 est_balance / est_coding_plan：复用 proxy-log-updated 通知前端停留页面
         // 轻刷（各页 refreshStats 合并派生字段）。校准全在后台 spawn（阈值触发 / 重置时刻 /
@@ -427,6 +432,46 @@ async fn maybe_emit_quota_forecast(db: &Db, platform_id: u64, platform_type: &st
     }
 }
 
+/// 平台余额币种（真查 `BalanceInfo.currency`）落 setting（scope/key=平台 id），供余额扣减换算。
+/// 余额预估链费用统一先算 USD（price_resolve 出口币种），平台余额是 CNY 就乘 `CNY_PER_USD` 再扣。
+const BALANCE_CCY_SCOPE: &str = "balance_currency";
+
+/// 真查成功后记下余额币种；值未变不写（set_setting 会失效整份 settings 缓存）。
+/// shortcut: 仅识别 USD / CNY，其它币种按 USD 直扣（单位不符），出现新币种时在此加汇率。
+async fn record_balance_currency(db: &Db, platform_id: u64, currency: &str) {
+    let ccy = currency.trim().to_uppercase();
+    if ccy.is_empty() {
+        return;
+    }
+    if ccy != "USD" && ccy != "CNY" {
+        tracing::warn!(platform_id, currency = %ccy, "unsupported balance currency; balance deducted as USD");
+    }
+    let key = platform_id.to_string();
+    if let Ok(Some(serde_json::Value::String(old))) =
+        aidog_db::get_setting(db, BALANCE_CCY_SCOPE, &key).await
+        && old == ccy
+    {
+        return;
+    }
+    let _ = aidog_db::set_setting(
+        db,
+        aidog_db::models::SetSettingInput {
+            scope: BALANCE_CCY_SCOPE.to_string(),
+            key,
+            value: serde_json::Value::String(ccy),
+        },
+    )
+    .await;
+}
+
+/// USD → 平台余额币种的乘数：CNY ×`CNY_PER_USD`；USD / 未记录（从未真查）/ 其它 → 1。
+async fn balance_fx(db: &Db, platform_id: u64) -> f64 {
+    match aidog_db::get_setting(db, BALANCE_CCY_SCOPE, &platform_id.to_string()).await {
+        Ok(Some(serde_json::Value::String(c))) if c == "CNY" => aidog_db::CNY_PER_USD,
+        _ => 1.0,
+    }
+}
+
 /// 单次请求后的预估入口（在 proxy 后台 tokio::spawn 中调用）。
 /// - 余额平台（非 coding plan）：扣金额。
 /// - coding plan 平台：更新 utilization。
@@ -446,6 +491,8 @@ pub async fn estimate_after_request(
     cache_write_tokens: i64,
     is_coding_plan: bool,
     created_at_ms: i64,
+    // 按次工具费（USD，tools_cost 已换算；不乘 peak 倍率——官方按次价无峰谷差，见 billing.rs tools_cost 注释）。
+    tool_cost_usd: f64,
 ) {
     // 判峰时刻与 calc_est_cost 同源：用请求发起时刻（created_at_ms），不用完成后的 now()
     // —— 跨峰边界请求（17:59 发 18:05 完）此前两套口径对不上。缺时间戳（0）才退 now()。
@@ -485,18 +532,21 @@ pub async fn estimate_after_request(
         let _ = apply_coding_plan_delta(db, platform_id, 1, total).await;
         // 通知体系票 01：配额预测（只在 coding plan 平台——按量平台无窗口耗尽语义）。
         maybe_emit_quota_forecast(db, platform_id, platform_type).await;
-    } else if let Some(ref price) = resolved_price {
-        // 按量平台扣金额
-        let cost = balance_cost(
-            input_tokens,
-            output_tokens,
-            cache_tokens,
-            cache_write_tokens,
-            price.input_cost_per_token,
-            price.output_cost_per_token,
-            price.cache_read_input_token_cost,
-            price.cache_write_input_token_cost,
-        ) * peak_mult;
+    } else if resolved_price.is_some() || tool_cost_usd > 0.0 {
+        // 按量平台扣金额：token 费（×peak）+ 按次费，USD 合计后一处换算成余额币种。
+        let token_usd = resolved_price.as_ref().map_or(0.0, |price| {
+            balance_cost(
+                input_tokens,
+                output_tokens,
+                cache_tokens,
+                cache_write_tokens,
+                price.input_cost_per_token,
+                price.output_cost_per_token,
+                price.cache_read_input_token_cost,
+                price.cache_write_input_token_cost,
+            ) * peak_mult
+        });
+        let cost = (token_usd + tool_cost_usd) * balance_fx(db, platform_id).await;
         let _ = apply_balance_delta(db, platform_id, cost).await;
     }
 
@@ -518,7 +568,8 @@ pub async fn estimate_after_request(
                     price.cache_write_input_token_cost,
                 ) * peak_mult
             })
-            .unwrap_or(0.0);
+            .unwrap_or(0.0)
+            + tool_cost_usd;
         let _ = crate::gateway::manual_budget::apply_manual_budgets(
             db,
             platform_id,

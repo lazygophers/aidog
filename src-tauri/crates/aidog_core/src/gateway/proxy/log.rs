@@ -576,6 +576,18 @@ pub(crate) async fn block_inbound(
     r
 }
 
+/// 聊天内 `server_tool_use` 按次费（USD）：与 calc_est_cost 同走 `tools_cost`，供余额扣减。
+pub(crate) fn chat_tool_cost_usd(platform_type: &Protocol, counts: &[(String, i64)]) -> f64 {
+    if counts.is_empty() {
+        return 0.0;
+    }
+    let refs: Vec<(&str, i64)> = counts.iter().map(|(k, n)| (k.as_str(), *n)).collect();
+    crate::gateway::billing::tools_cost(
+        crate::gateway::billing::default_tools_pricing(&platform_type.wire_str()).as_ref(),
+        &refs,
+    )
+}
+
 /// 在后台 tokio::spawn 中执行请求驱动的 quota 预估（不阻塞响应）。
 /// 余额平台扣金额 / coding plan 平台更新利用率，并按阈值触发真查校准。
 /// platform_type 传入 serde rename 裸名（如 "deepseek"），供 resolve_price 查 pricing key。
@@ -594,10 +606,11 @@ pub(crate) fn spawn_estimate(
     cache_write_tokens: i32,
     is_coding_plan: bool,
     created_at_ms: i64,
+    tool_cost_usd: f64,
     span: tracing::Span,
 ) {
-    // 无 token（请求失败 / 无 usage）则跳过
-    if input_tokens <= 0 && output_tokens <= 0 && cache_tokens <= 0 {
+    // 无 token 且无按次费（请求失败 / 无 usage）则跳过；独立搜索请求 token 全 0 但有按次费，不能跳。
+    if input_tokens <= 0 && output_tokens <= 0 && cache_tokens <= 0 && tool_cost_usd <= 0.0 {
         return;
     }
     let ptype = platform_type.wire_str();
@@ -618,6 +631,7 @@ pub(crate) fn spawn_estimate(
                 cache_write_tokens as i64,
                 is_coding_plan,
                 created_at_ms,
+                tool_cost_usd,
             )
             .await;
             // 预估更新后通知主线程刷新托盘（emit 事件，避免后台线程直接操作 tray）
