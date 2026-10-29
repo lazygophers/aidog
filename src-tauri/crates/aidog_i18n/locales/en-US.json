@@ -2450,6 +2450,7 @@
   "tray.overBudgetHint": "Over limit",
   "tray.pageDesc": "Menu bar gauge — loaded segments show live in order; today's stats sync on the right.",
   "tray.peakBadge": "Peak hours",
+"tray.persistError": "Failed to save tray config: {{msg}}",
   "tray.preview": "Live Preview",
   "tray.previewEmpty": "No items",
   "tray.previewTitle": "Menu Bar Preview",

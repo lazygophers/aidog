@@ -172,6 +172,7 @@ export function TrayConfigTab() {
   const [config, setConfig] = useState<TrayConfig>({ separator: "  ", items: [] });
   const [todayStats, setTodayStats] = useState<TodayStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -192,6 +193,17 @@ export function TrayConfigTab() {
   }, []);
   // 今日统计随 proxy_log 终态写入刷新（替代 30s 轮询）。
   useEffect(() => onProxyLogUpdated(() => { refreshStats(); }, 1000), [refreshStats]);
+
+  // 勾选即存（票 I15 → 票 02 恢复）：乐观更新 + tray_config_set，失败显示错误态。
+  const persist = useCallback(async (next: TrayConfig) => {
+    setConfig(next);
+    try {
+      await trayConfigApi.set(next);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }, []);
 
   const options = useMemo(() => segmentOptions(platforms, t), [platforms, t]);
   const selected = useMemo(
@@ -324,18 +336,19 @@ export function TrayConfigTab() {
                     return (
                       <span
                         key={opt.key}
+                        className="tray-chip"
                         data-testid={`tray-chip-${opt.key}`}
                         data-state={state}
-                        style={{
-                          display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${state === "loaded" ? "var(--primary)" : "var(--input)"}`,
-                          background: state === "loaded" ? "var(--accent-subtle)" : "var(--card)", borderRadius: 16,
-                          padding: "5px 12px 5px 9px", fontSize: 12,
-                          color: state === "loaded" ? ACCENT_TEXT : "var(--foreground)",
-                          opacity: state === "locked" ? 0.35 : 1, userSelect: "none",
+                        role="button"
+                        aria-pressed={state === "loaded"}
+                        aria-disabled={state === "locked"}
+                        onClick={() => {
+                          if (state === "locked") return;
+                          persist({ ...config, items: toggleSegment(config.items, opt) });
                         }}
                       >
                         {opt.label}
-                        <span style={{ fontFamily: MONO, fontSize: 11, color: state === "loaded" ? ACCENT_TEXT : "var(--muted-foreground)" }}>
+                        <span className="tray-chip-v">
                           {previewValue(opt.item, platforms, todayStats)}
                         </span>
                       </span>
@@ -399,8 +412,14 @@ export function TrayConfigTab() {
         </div>
       </div>
 
+      {error && (
+        <div data-testid="tray-error" style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 11.5, color: "var(--color-danger)", padding: "10px 14px", border: "1px solid color-mix(in srgb, var(--color-danger) 40%, transparent)", borderRadius: 8 }}>
+          {t("tray.persistError", "保存托盘配置失败：{{msg}}", { msg: error })}
+        </div>
+      )}
+
       {keptDisabled > 0 && (
-        <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 11.5, color: "var(--muted-foreground)", padding: "10px 14px", border: "1px dashed var(--border)", borderRadius: 8 }}>
+        <div data-testid="tray-kept-disabled" style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 11.5, color: "var(--muted-foreground)", padding: "10px 14px", border: "1px dashed var(--border)", borderRadius: 8 }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--warning)", flexShrink: 0 }} />
           {t("tray.keptDisabled", "旧版托盘配置里多出的 {{count}} 项已保留但未启用，不会丢失", { count: keptDisabled })}
         </div>

@@ -2,7 +2,7 @@
 // 取消勾选只翻 enabled，绝不删项；满 3 项后再勾无效。
 // 票 托盘设置-重设计/01：页面骨架 + 实时预览条（C 方向），组件级 vitest 锚 testid/data-state。
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { render, waitFor } from "../test/render";
+import { render, waitFor, fireEvent } from "../test/render";
 import {
   MAX_SEGMENTS,
   segmentKey,
@@ -100,10 +100,10 @@ vi.mock("../services/api", () => ({
 
 const stats = { tokens: 1240000, input_tokens: 0, output_tokens: 0, cache_tokens: 0, cache_rate: 74, cost: 1.25, total_requests: 86 };
 
-async function renderTab() {
+async function renderTab(cfg?: { separator: string; items: TrayItem[] }) {
   const { TrayConfigTab } = await import("./TrayConfigTab");
   api.list.mockResolvedValue([]);
-  api.get.mockResolvedValue({
+  api.get.mockResolvedValue(cfg ?? {
     separator: "  ",
     items: [
       item({ metric: "cost", order: 0 }),
@@ -144,7 +144,7 @@ describe("TrayConfigTab 骨架与预览（票 01）", () => {
     expect(view.getByTestId("tray-slot-2").getAttribute("data-state")).toBe("empty");
   });
 
-  it("候选库静态壳：芯片带 loaded/空 data-state（交互在票 02 接）", async () => {
+  it("候选库芯片带 loaded/空 data-state（装载交互见票 02 组）", async () => {
     const view = await renderTab();
     expect(view.getByTestId("tray-chip-today_usage:cost").getAttribute("data-state")).toBe("loaded");
     expect(view.getByTestId("tray-chip-today_usage:tokens").getAttribute("data-state")).toBe("loaded");
@@ -177,5 +177,70 @@ describe("TrayConfigTab 骨架与预览（票 01）", () => {
     const lightBg = rootBlock.match(/--mb-bg: ([^;]+);/)![1];
     const darkBg = darkBlock.match(/--mb-bg: ([^;]+);/)![1];
     expect(lightBg).not.toBe(darkBg);
+  });
+});
+
+describe("候选库装载（票 02）", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("点未装载芯片 → 装载进槽并即时持久化（tray_config_set 调用）", async () => {
+    const view = await renderTab();
+    expect(view.getByTestId("tray-chip-peak").getAttribute("data-state")).toBe("");
+    fireEvent.click(view.getByTestId("tray-chip-peak"));
+    expect(view.getByTestId("tray-chip-peak").getAttribute("data-state")).toBe("loaded");
+    expect(view.getByTestId("tray-slot-2").getAttribute("data-state")).toBe("filled");
+    expect(api.set).toHaveBeenCalledTimes(1);
+    const sent = api.set.mock.calls[0][0];
+    expect(sent.items.filter((i: TrayItem) => i.enabled)).toHaveLength(3);
+  });
+
+  it("点已装载芯片 → 卸载只翻 enabled 不删项", async () => {
+    const view = await renderTab();
+    fireEvent.click(view.getByTestId("tray-chip-today_usage:cost"));
+    expect(view.getByTestId("tray-chip-today_usage:cost").getAttribute("data-state")).not.toBe("loaded");
+    const sent = api.set.mock.calls[0][0];
+    // 原项仍在 items 里，只是 enabled=false
+    const kept = sent.items.find((i: TrayItem) => segmentKey(i) === "today_usage:cost");
+    expect(kept).toBeTruthy();
+    expect(kept.enabled).toBe(false);
+  });
+
+  it("满 3 段：未选项置灰 locked 且点击无效", async () => {
+    const view = await renderTab({
+      separator: "  ",
+      items: [
+        item({ metric: "cost", order: 0 }),
+        item({ metric: "tokens", order: 1 }),
+        item({ item_type: "peak", metric: null, order: 2 }),
+      ],
+    });
+    const chip = view.getByTestId("tray-chip-routed_platform");
+    expect(chip.getAttribute("data-state")).toBe("locked");
+    fireEvent.click(chip);
+    expect(api.set).not.toHaveBeenCalled();
+  });
+
+  it("persist 失败 → 错误态提示出现", async () => {
+    api.set.mockRejectedValueOnce(new Error("boom"));
+    const view = await renderTab();
+    fireEvent.click(view.getByTestId("tray-chip-peak"));
+    // 测试 i18n 缺译文回退 key 本身（无插值），断言提示出现即可
+    await waitFor(() => expect(view.getByTestId("tray-error")).toBeTruthy());
+  });
+
+  it("keptDisabled：不在候选清单的旧配置项保留并有提示", async () => {
+    const view = await renderTab({
+      separator: "  ",
+      items: [
+        item({ metric: "cost", order: 0 }),
+        // 平台清单为空 → platform:999 不在候选里，视为迁移保留项
+        item({ item_type: "platform", platform_id: 999, metric: null, enabled: false, order: 1 }),
+      ],
+    });
+    expect(view.getByTestId("tray-count").textContent).toContain("1");
+    // 提示在（测试 i18n 回退 key，不插值，只断元素存在）
+    expect(view.getByTestId("tray-kept-disabled")).toBeTruthy();
   });
 });
