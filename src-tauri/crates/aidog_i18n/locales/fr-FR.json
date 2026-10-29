@@ -2486,6 +2486,7 @@
   "tray.customLabel": "Étiquette",
   "tray.customLabelPlaceholder": "Par défaut",
   "tray.decimals": "Décimales",
+  "tray.dragHandle": "Glisser pour réordonner",
   "tray.display": "Affichage",
   "tray.displayBalance": "Solde",
   "tray.displayCoding": "Coding",

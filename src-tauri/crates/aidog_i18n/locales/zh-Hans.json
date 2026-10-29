@@ -2464,6 +2464,7 @@
   "tray.customLabel": "标签",
   "tray.customLabelPlaceholder": "默认",
   "tray.decimals": "小数位",
+  "tray.dragHandle": "拖动排序",
   "tray.display": "展示",
   "tray.displayBalance": "余额",
   "tray.displayCoding": "Coding",
