@@ -164,6 +164,7 @@ pub fn run() {
             aidog_core::system_cmd::notification::notification_clear,
             aidog_core::system_cmd::notification::notification_test,
             aidog_core::system_cmd::notification::notification_test_channel,
+            aidog_core::system_cmd::notification::notification_rule_validate,
             aidog_core::system_cmd::notification::notification_delivery_list,
             aidog_core::system_cmd::notification::notification_test_tts,
             aidog_core::system_cmd::notification::notification_test_popup,

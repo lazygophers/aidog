@@ -49,9 +49,17 @@ for (const dir of SRC_DIRS) {
   }
 }
 
-const missing = [...feNames].filter(([name]) => !rpcNames.has(name));
+// 故意不登记 /rpc 的命令（每项一行 + 原因）。仅限安全敏感项，其余缺口一律补登记。
+const ALLOW = new Map([
+  // 弹宿主机 osascript 管理员窗 + 把 SQLCipher 主密钥作为 HTTP 响应体回传：无头内核/LAN 暴露风险
+  ["db_master_key_reveal", "显示主密钥：仅桌面 IPC，禁经 HTTP 暴露"],
+]);
 
-console.log(`前端 invoke ${feNames.size} 个命令；内核 /rpc 登记 ${rpcNames.size} 个`);
+const missing = [...feNames].filter(([name]) => !rpcNames.has(name) && !ALLOW.has(name));
+const skipped = [...feNames].filter(([name]) => !rpcNames.has(name) && ALLOW.has(name));
+
+console.log(`前端 invoke ${feNames.size} 个命令；内核 /rpc 登记 ${rpcNames.size} 个；白名单跳过 ${skipped.length} 个`);
+for (const [name] of skipped) console.log(`   白名单 ${name}：${ALLOW.get(name)}`);
 if (missing.length > 0) {
   console.error(`❌ 以下命令前端会调、内核 /rpc 表里没有（浏览器形态会 404）：`);
   for (const [name, file] of missing) console.error(`   ${name}  ← ${file}`);

@@ -34,7 +34,7 @@ function forward(level: string, args: unknown[]) {
 }
 
 export function installFrontendLog() {
-  if (installed || !isTauri) return;
+  if (installed || !isTauri()) return;
   installed = true;
   for (const level of ["error", "warn", "info", "debug"] as const) {
     const orig = console[level].bind(console);
