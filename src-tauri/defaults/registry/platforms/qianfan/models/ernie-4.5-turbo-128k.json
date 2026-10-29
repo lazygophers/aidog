@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859420,
+  "last_updated": 1793289610,
   "supported_protocols": [
     "anthropic"
   ],
@@ -8,6 +8,7 @@
   "canonical_model": "ernie-4.5-turbo-128k",
   "official": true,
   "price": {
+    "currency": "CNY",
     "input": 1.11111111e-07,
     "output": 4.44444444e-07,
     "cache_read": 2.7777778e-08

@@ -1,6 +1,6 @@
 {
   "family": "deepseek",
-  "last_updated": 1791006457,
+  "last_updated": 1793289610,
   "supported_protocols": [
     "openai"
   ],
@@ -17,6 +17,7 @@
   "official": true,
   "thinking_toggleable": true,
   "price": {
+    "currency": "USD",
     "input": 0.0,
     "output": 0.0
   }

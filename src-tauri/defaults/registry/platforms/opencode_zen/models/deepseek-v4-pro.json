@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1793289610,
   "supported_protocols": [
     "openai"
   ],
@@ -18,8 +18,8 @@
   "thinking_toggleable": true,
   "price": {
     "currency": "USD",
-    "input": 1.74,
-    "output": 3.48,
+    "input": 1.74e-06,
+    "output": 3.48e-06,
     "cache_read": 2.2e-08,
     "peak": {
       "input": 1.32e-06,
