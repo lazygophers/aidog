@@ -1,0 +1,450 @@
+[
+ {
+  "code": "USD",
+  "usd": 1234.567,
+  "rate": 1.0,
+  "symbol": "$",
+  "decimals": 2,
+  "expected": "$1234.57"
+ },
+ {
+  "code": "USD",
+  "usd": 2.5,
+  "rate": 1.0,
+  "symbol": "$",
+  "decimals": 2,
+  "expected": "$2.50"
+ },
+ {
+  "code": "USD",
+  "usd": 0.31,
+  "rate": 1.0,
+  "symbol": "$",
+  "decimals": 2,
+  "expected": "$0.310"
+ },
+ {
+  "code": "USD",
+  "usd": 0.0034,
+  "rate": 1.0,
+  "symbol": "$",
+  "decimals": 2,
+  "expected": "$0.00340"
+ },
+ {
+  "code": "USD",
+  "usd": 4.5e-07,
+  "rate": 1.0,
+  "symbol": "$",
+  "decimals": 2,
+  "expected": "$0.00000045"
+ },
+ {
+  "code": "USD",
+  "usd": 0,
+  "rate": 1.0,
+  "symbol": "$",
+  "decimals": 2,
+  "expected": "$0"
+ },
+ {
+  "code": "USD",
+  "usd": -1,
+  "rate": 1.0,
+  "symbol": "$",
+  "decimals": 2,
+  "expected": "$0"
+ },
+ {
+  "code": "CNY",
+  "usd": 1234.567,
+  "rate": 6.6675,
+  "symbol": "¥",
+  "decimals": 2,
+  "expected": "¥8231.48"
+ },
+ {
+  "code": "CNY",
+  "usd": 2.5,
+  "rate": 6.6675,
+  "symbol": "¥",
+  "decimals": 2,
+  "expected": "¥16.67"
+ },
+ {
+  "code": "CNY",
+  "usd": 0.31,
+  "rate": 6.6675,
+  "symbol": "¥",
+  "decimals": 2,
+  "expected": "¥2.07"
+ },
+ {
+  "code": "CNY",
+  "usd": 0.0034,
+  "rate": 6.6675,
+  "symbol": "¥",
+  "decimals": 2,
+  "expected": "¥0.023"
+ },
+ {
+  "code": "CNY",
+  "usd": 4.5e-07,
+  "rate": 6.6675,
+  "symbol": "¥",
+  "decimals": 2,
+  "expected": "¥0.0000030"
+ },
+ {
+  "code": "CNY",
+  "usd": 0,
+  "rate": 6.6675,
+  "symbol": "¥",
+  "decimals": 2,
+  "expected": "¥0"
+ },
+ {
+  "code": "CNY",
+  "usd": -1,
+  "rate": 6.6675,
+  "symbol": "¥",
+  "decimals": 2,
+  "expected": "¥0"
+ },
+ {
+  "code": "EUR",
+  "usd": 1234.567,
+  "rate": 0.8985,
+  "symbol": "€",
+  "decimals": 2,
+  "expected": "€1109.26"
+ },
+ {
+  "code": "EUR",
+  "usd": 2.5,
+  "rate": 0.8985,
+  "symbol": "€",
+  "decimals": 2,
+  "expected": "€2.25"
+ },
+ {
+  "code": "EUR",
+  "usd": 0.31,
+  "rate": 0.8985,
+  "symbol": "€",
+  "decimals": 2,
+  "expected": "€0.279"
+ },
+ {
+  "code": "EUR",
+  "usd": 0.0034,
+  "rate": 0.8985,
+  "symbol": "€",
+  "decimals": 2,
+  "expected": "€0.00305"
+ },
+ {
+  "code": "EUR",
+  "usd": 4.5e-07,
+  "rate": 0.8985,
+  "symbol": "€",
+  "decimals": 2,
+  "expected": "€0.00000040"
+ },
+ {
+  "code": "EUR",
+  "usd": 0,
+  "rate": 0.8985,
+  "symbol": "€",
+  "decimals": 2,
+  "expected": "€0"
+ },
+ {
+  "code": "EUR",
+  "usd": -1,
+  "rate": 0.8985,
+  "symbol": "€",
+  "decimals": 2,
+  "expected": "€0"
+ },
+ {
+  "code": "JPY",
+  "usd": 1234.567,
+  "rate": 158.06,
+  "symbol": "JP¥",
+  "decimals": 0,
+  "expected": "JP¥195,136"
+ },
+ {
+  "code": "JPY",
+  "usd": 2.5,
+  "rate": 158.06,
+  "symbol": "JP¥",
+  "decimals": 0,
+  "expected": "JP¥395"
+ },
+ {
+  "code": "JPY",
+  "usd": 0.31,
+  "rate": 158.06,
+  "symbol": "JP¥",
+  "decimals": 0,
+  "expected": "JP¥49"
+ },
+ {
+  "code": "JPY",
+  "usd": 0.0034,
+  "rate": 158.06,
+  "symbol": "JP¥",
+  "decimals": 0,
+  "expected": "JP¥0.537"
+ },
+ {
+  "code": "JPY",
+  "usd": 4.5e-07,
+  "rate": 158.06,
+  "symbol": "JP¥",
+  "decimals": 0,
+  "expected": "JP¥0.000071"
+ },
+ {
+  "code": "JPY",
+  "usd": 0,
+  "rate": 158.06,
+  "symbol": "JP¥",
+  "decimals": 0,
+  "expected": "JP¥0"
+ },
+ {
+  "code": "JPY",
+  "usd": -1,
+  "rate": 158.06,
+  "symbol": "JP¥",
+  "decimals": 0,
+  "expected": "JP¥0"
+ },
+ {
+  "code": "GBP",
+  "usd": 1234.567,
+  "rate": 0.7509,
+  "symbol": "£",
+  "decimals": 2,
+  "expected": "£927.04"
+ },
+ {
+  "code": "GBP",
+  "usd": 2.5,
+  "rate": 0.7509,
+  "symbol": "£",
+  "decimals": 2,
+  "expected": "£1.88"
+ },
+ {
+  "code": "GBP",
+  "usd": 0.31,
+  "rate": 0.7509,
+  "symbol": "£",
+  "decimals": 2,
+  "expected": "£0.233"
+ },
+ {
+  "code": "GBP",
+  "usd": 0.0034,
+  "rate": 0.7509,
+  "symbol": "£",
+  "decimals": 2,
+  "expected": "£0.00255"
+ },
+ {
+  "code": "GBP",
+  "usd": 4.5e-07,
+  "rate": 0.7509,
+  "symbol": "£",
+  "decimals": 2,
+  "expected": "£0.00000034"
+ },
+ {
+  "code": "GBP",
+  "usd": 0,
+  "rate": 0.7509,
+  "symbol": "£",
+  "decimals": 2,
+  "expected": "£0"
+ },
+ {
+  "code": "GBP",
+  "usd": -1,
+  "rate": 0.7509,
+  "symbol": "£",
+  "decimals": 2,
+  "expected": "£0"
+ },
+ {
+  "code": "HKD",
+  "usd": 1234.567,
+  "rate": 7.8464,
+  "symbol": "HK$",
+  "decimals": 2,
+  "expected": "HK$9686.91"
+ },
+ {
+  "code": "HKD",
+  "usd": 2.5,
+  "rate": 7.8464,
+  "symbol": "HK$",
+  "decimals": 2,
+  "expected": "HK$19.62"
+ },
+ {
+  "code": "HKD",
+  "usd": 0.31,
+  "rate": 7.8464,
+  "symbol": "HK$",
+  "decimals": 2,
+  "expected": "HK$2.43"
+ },
+ {
+  "code": "HKD",
+  "usd": 0.0034,
+  "rate": 7.8464,
+  "symbol": "HK$",
+  "decimals": 2,
+  "expected": "HK$0.027"
+ },
+ {
+  "code": "HKD",
+  "usd": 4.5e-07,
+  "rate": 7.8464,
+  "symbol": "HK$",
+  "decimals": 2,
+  "expected": "HK$0.0000035"
+ },
+ {
+  "code": "HKD",
+  "usd": 0,
+  "rate": 7.8464,
+  "symbol": "HK$",
+  "decimals": 2,
+  "expected": "HK$0"
+ },
+ {
+  "code": "HKD",
+  "usd": -1,
+  "rate": 7.8464,
+  "symbol": "HK$",
+  "decimals": 2,
+  "expected": "HK$0"
+ },
+ {
+  "code": "CHF",
+  "usd": 1234.567,
+  "rate": 0.8286,
+  "symbol": "CHF ",
+  "decimals": 2,
+  "expected": "CHF 1022.96"
+ },
+ {
+  "code": "CHF",
+  "usd": 2.5,
+  "rate": 0.8286,
+  "symbol": "CHF ",
+  "decimals": 2,
+  "expected": "CHF 2.07"
+ },
+ {
+  "code": "CHF",
+  "usd": 0.31,
+  "rate": 0.8286,
+  "symbol": "CHF ",
+  "decimals": 2,
+  "expected": "CHF 0.257"
+ },
+ {
+  "code": "CHF",
+  "usd": 0.0034,
+  "rate": 0.8286,
+  "symbol": "CHF ",
+  "decimals": 2,
+  "expected": "CHF 0.00282"
+ },
+ {
+  "code": "CHF",
+  "usd": 4.5e-07,
+  "rate": 0.8286,
+  "symbol": "CHF ",
+  "decimals": 2,
+  "expected": "CHF 0.00000037"
+ },
+ {
+  "code": "CHF",
+  "usd": 0,
+  "rate": 0.8286,
+  "symbol": "CHF ",
+  "decimals": 2,
+  "expected": "CHF 0"
+ },
+ {
+  "code": "CHF",
+  "usd": -1,
+  "rate": 0.8286,
+  "symbol": "CHF ",
+  "decimals": 2,
+  "expected": "CHF 0"
+ },
+ {
+  "code": "RUB",
+  "usd": 1234.567,
+  "rate": 80.6761,
+  "symbol": "₽",
+  "decimals": 2,
+  "expected": "₽99600.05"
+ },
+ {
+  "code": "RUB",
+  "usd": 2.5,
+  "rate": 80.6761,
+  "symbol": "₽",
+  "decimals": 2,
+  "expected": "₽201.69"
+ },
+ {
+  "code": "RUB",
+  "usd": 0.31,
+  "rate": 80.6761,
+  "symbol": "₽",
+  "decimals": 2,
+  "expected": "₽25.01"
+ },
+ {
+  "code": "RUB",
+  "usd": 0.0034,
+  "rate": 80.6761,
+  "symbol": "₽",
+  "decimals": 2,
+  "expected": "₽0.274"
+ },
+ {
+  "code": "RUB",
+  "usd": 4.5e-07,
+  "rate": 80.6761,
+  "symbol": "₽",
+  "decimals": 2,
+  "expected": "₽0.000036"
+ },
+ {
+  "code": "RUB",
+  "usd": 0,
+  "rate": 80.6761,
+  "symbol": "₽",
+  "decimals": 2,
+  "expected": "₽0"
+ },
+ {
+  "code": "RUB",
+  "usd": -1,
+  "rate": 80.6761,
+  "symbol": "₽",
+  "decimals": 2,
+  "expected": "₽0"
+ }
+]
