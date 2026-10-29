@@ -1699,7 +1699,6 @@
   "simulator.colUnit": "Unit $/M",
   "simulator.colQty": "Qty",
   "simulator.colMult": "×Mult",
-  "simulator.colSubtotal": "Subtotal",
   "simulator.compare": "Multi-platform compare",
   "simulator.lowest": "Lowest in group ✓",
   "simulator.unsupported": "Not priceable",
