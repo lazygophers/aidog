@@ -80,7 +80,6 @@ rcgen = { workspace = true }
 tokio-rustls = { workspace = true }
 webpki-roots = { workspace = true }
 # 压缩格式支持（CPA config 导入）
-zip = { workspace = true }
 tar = { workspace = true }
 flate2 = { workspace = true }
 # test_support 模块（pub 暴露给 root package 测试跨 crate 引，非 #[cfg(test)] gate）
