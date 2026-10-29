@@ -70,3 +70,27 @@ async fn simulator_passthrough_unsupported() {
     assert!(!dto.is_peak);
     assert_eq!(dto.multiplier, 1.0);
 }
+
+/// ④ CNY 条目：模拟器与 calc_est_cost 同走 resolve_price，est_cost = 原价 / CNY_PER_USD × token，
+/// 两条路径结果一致；USD 对照条目不换算。
+#[tokio::test]
+async fn simulator_cny_entry_converted_and_matches_calc_est_cost() {
+    use crate::gateway::billing::{calc_est_cost, CNY_PER_USD};
+    let (db, _dir) = three_file_db().await;
+    let id = insert_platform(&db, "deepseek".into(), "{}".into()).await;
+    for (model, cur) in [("cny-model", "CNY"), ("usd-model", "USD")] {
+        let entry = aidog_db::model_entry_from_json(
+            "deepseek",
+            &format!(r#"{{"model_id":"{model}","price":{{"currency":"{cur}","input":6.6675e-6,"output":1.3335e-5}}}}"#),
+        )
+        .expect("entry parse");
+        aidog_db::upsert_model_entries(&db, vec![entry]).await.expect("upsert");
+    }
+    let sim = estimate_platform(&db, id, "cny-model", 1000, 1000, 0, 0, None).await.expect("sim");
+    let want = (1000.0 * 6.6675e-6 + 1000.0 * 1.3335e-5) / CNY_PER_USD;
+    assert!((sim.est_cost - want).abs() < 1e-12, "sim = {}", sim.est_cost);
+    let real = calc_est_cost(&db, "cny-model", "deepseek", "{}", 1000, 1000, 0, 0, 0, id, aidog_db::now(), &[]).await;
+    assert!((real - sim.est_cost).abs() < 1e-12, "calc = {real}, sim = {}", sim.est_cost);
+    let usd = estimate_platform(&db, id, "usd-model", 1000, 1000, 0, 0, None).await.expect("sim");
+    assert!((usd.est_cost - 1000.0 * 6.6675e-6 - 1000.0 * 1.3335e-5).abs() < 1e-12);
+}

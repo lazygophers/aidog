@@ -121,7 +121,7 @@ pub(crate) use log::flush_log_queue;
 #[allow(unused_imports)]
 pub(crate) use log::{
     ConnectLogCtx, LogMsg, MITM_OPAQUE_REASON, block_inbound, get_log_settings, record_observed,
-    remove_log_snapshot, spawn_estimate, spawn_log_writer, spawn_rate_limit, upsert_connect_log,
+    chat_tool_cost_usd, remove_log_snapshot, spawn_estimate, spawn_log_writer, spawn_rate_limit, upsert_connect_log,
     upsert_log,
 };
 pub(crate) use mock::handle_mock;
