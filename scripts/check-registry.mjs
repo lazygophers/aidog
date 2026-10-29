@@ -39,6 +39,9 @@ const PROTOCOL_VOCAB = new Set([
   "devin",
 ]);
 
+// price.currency 值域（与 model.schema.json price.currency enum 同步，票 17）
+const CURRENCY_VOCAB = new Set(["CNY", "USD", "EUR", "JPY"]);
+
 function validate(kind, rel, raw) {
   let doc;
   try {
@@ -86,6 +89,11 @@ function walkModels(dir, baseRel, rel, out, ids) {
           } else {
             const badSp = sp.filter((v) => !PROTOCOL_VOCAB.has(v));
             if (badSp.length) failures.push([relFile, `supported_protocols 含词表外值: ${badSp.join(", ")}`]);
+          }
+          // price.currency 可选标注字段（票 17）：缺失不算错，值域外 = failure（词表与 model.schema.json enum 同步四值）。
+          const cur = doc.price?.currency;
+          if (cur != null && !CURRENCY_VOCAB.has(cur)) {
+            failures.push([relFile, `price.currency 含词表外值: ${cur}`]);
           }
           ids.push(doc.model_id);
           modelMeta.push({

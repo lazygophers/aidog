@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859420,
+  "last_updated": 1793244703,
   "model_id": "gpt-6-astra",
   "display_name": "GPT-6 Astra",
   "canonical_model": "gpt-6-astra",
@@ -16,6 +16,7 @@
     "openai_responses"
   ],
   "price": {
+    "currency": "USD",
     "input": 1e-05,
     "output": 5e-05,
     "cache_read": 1e-06,

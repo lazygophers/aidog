@@ -1,5 +1,5 @@
 {
-  "last_updated": 1791007402,
+  "last_updated": 1793244703,
   "model_id": "inclusionai/ling-3.1-flash:free",
   "display_name": "Ling 3.1 Flash",
   "canonical_model": "ling-3.1-flash:free",
@@ -15,6 +15,7 @@
     "openai"
   ],
   "price": {
+    "currency": "USD",
     "input": 0,
     "output": 0,
     "cache_read": 0

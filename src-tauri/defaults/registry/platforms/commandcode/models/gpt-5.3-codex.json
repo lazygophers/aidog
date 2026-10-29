@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859420,
+  "last_updated": 1793244703,
   "model_id": "gpt-5.3-codex",
   "display_name": "GPT-5.3 Codex",
   "canonical_model": "gpt-5.3-codex",
@@ -16,6 +16,7 @@
     "openai_responses"
   ],
   "price": {
+    "currency": "USD",
     "input": 2e-06,
     "output": 8e-06,
     "cache_read": 5e-07

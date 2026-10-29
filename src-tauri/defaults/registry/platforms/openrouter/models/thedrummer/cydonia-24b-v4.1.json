@@ -9,11 +9,12 @@
   "official": true,
   "max_output_tokens": 117964,
   "price": {
+    "currency": "USD",
     "input": 3e-07,
     "output": 5e-07,
     "cache_read": 1.5e-07
   },
-  "last_updated": 1790859420,
+  "last_updated": 1793244705,
   "supported_protocols": [
     "anthropic",
     "openai"

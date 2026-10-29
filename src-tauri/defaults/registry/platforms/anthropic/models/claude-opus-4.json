@@ -2,7 +2,7 @@
   "supported_protocols": [
     "anthropic"
   ],
-  "last_updated": 1793201693,
+  "last_updated": 1793244702,
   "model_id": "claude-opus-4",
   "canonical_model": "claude-opus-4",
   "capabilities": [
@@ -13,6 +13,7 @@
   "context_window": 200000,
   "official": true,
   "price": {
+    "currency": "USD",
     "input": 1.5e-05,
     "output": 7.5e-05,
     "cache_read": 1.5e-06,

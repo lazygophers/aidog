@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859420,
+  "last_updated": 1793244703,
   "model_id": "Qwen/Qwen3.8-Max-0902",
   "display_name": "Qwen 3.8 Max 0902",
   "canonical_model": "qwen3.8-max-0902",
@@ -15,6 +15,7 @@
     "openai"
   ],
   "price": {
+    "currency": "USD",
     "input": 2e-06,
     "output": 6e-06,
     "cache_read": 2.5e-07

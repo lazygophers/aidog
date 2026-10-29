@@ -1,5 +1,5 @@
 {
-  "last_updated": 1791006457,
+  "last_updated": 1793244703,
   "supported_protocols": ["anthropic", "openai"],
   "model_id": "kimi-k2-0905-preview",
   "canonical_model": "kimi-k2-0905-preview",
@@ -15,6 +15,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
+    "currency": "CNY",
     "input": 6e-07,
     "output": 2.5e-06,
     "cache_read": 1.5e-07

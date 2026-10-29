@@ -1,7 +1,7 @@
 {
   "context_window": 32768,
   "max_input_tokens": 32768,
-  "last_updated": 1791006457,
+  "last_updated": 1793244702,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -16,6 +16,7 @@
   "official": false,
   "thinking_supported": true,
   "price": {
+    "currency": "USD",
     "input": 1e-07,
     "output": 1e-07
   }

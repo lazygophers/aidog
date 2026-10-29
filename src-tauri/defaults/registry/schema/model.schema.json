@@ -262,6 +262,11 @@
           },
           "description": "【可选】高峰时段绝对价（price_resolve.rs：命中平台 peak 窗口且条目带 peak → 用绝对价，平台倍率压成 1.0，不得再乘，否则双重计价）。未写字段继承默认价。"
         },
+        "currency": {
+          "type": "string",
+          "enum": ["CNY", "USD", "EUR", "JPY"],
+          "description": "【可选】官方定价原币标注（缺省=USD）。仅标注非计费输入：est_cost 真值仍是已换算的 USD 单价，price_resolve.rs 不读本字段。票 17（2026-10-28 拍板回执 a9dd9711ae82，enum 四值）。"
+        },
         "context_tiers": {
           "$ref": "#/definitions/context_tiers",
           "description": "【可选】按上下文长度分档计价（如 >524288 tokens 档）。"

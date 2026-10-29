@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859420,
+  "last_updated": 1793244703,
   "model_id": "deepseek/deepseek-v4-flash-fast",
   "display_name": "DeepSeek V4 Flash Fast",
   "canonical_model": "deepseek-v4-flash-fast",
@@ -15,6 +15,7 @@
     "openai"
   ],
   "price": {
+    "currency": "USD",
     "input": 2.8e-07,
     "output": 5.6e-07,
     "cache_read": 7e-08
