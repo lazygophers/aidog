@@ -1525,6 +1525,7 @@ mod test_routing_snapshot {
                 level_priority: 5,
                 priority: 0,
                 reason: RouteReason::Selected,
+                target_model: None,
                 tags: vec![RouteTag::CodingPlan, RouteTag::Sticky],
             }],
         }
@@ -1603,6 +1604,7 @@ mod test_routing_snapshot {
             level_priority: 5,
             priority: 1,
             reason: RouteReason::PeakDisabled,
+            target_model: None,
             tags: Vec::new(),
         });
         rs.mark_dead_upstream(7);

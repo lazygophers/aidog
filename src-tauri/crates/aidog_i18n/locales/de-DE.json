@@ -717,6 +717,7 @@
     "total": "Einträge"
   },
   "logs.actualModel": "Tatsächliches Modell",
+  "logs.targetModel": "Zielmodell",
   "logs.attemptCount": "{{n}}",
   "logs.routingDecision": "Routing-Entscheidung",
   "logs.routing.noSnapshot": "Keine Routing-Aufzeichnung",

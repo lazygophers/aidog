@@ -21,6 +21,11 @@ pub struct ProxyAttempt {
     /// 本次尝试发起时间（毫秒 unix 时间戳）
     #[ts(type = "number")]
     pub ts: i64,
+    /// 当次请求模型（路由目标模型；旧日志无此字段，缺省 None，序列化时省略）。
+    /// 与 actual_model（上游自报）语义不同：此处记每次 attempt 发起时的模型。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub model: Option<String>,
 }
 
 /// 序列化 attempts 列（出错回退空数组）
@@ -504,6 +509,7 @@ mod tests {
                 error: "".into(),
                 duration_ms: 150,
                 ts: 0,
+                model: None,
             },
             ProxyAttempt {
                 platform_id: 2,
@@ -512,6 +518,7 @@ mod tests {
                 error: "err".into(),
                 duration_ms: 300,
                 ts: 1,
+                model: None,
             },
         ];
         let s = serialize_attempts(&items);
@@ -525,6 +532,26 @@ mod tests {
     fn parse_attempts_invalid_returns_empty() {
         let v = parse_attempts("not-json");
         assert!(v.is_empty());
+    }
+
+    #[test]
+    fn proxy_attempt_model_is_backward_compatible() {
+        let old = r#"{"platform_id":1,"platform_name":"p","status_code":200,"error":"","duration_ms":10,"ts":1}"#;
+        let parsed: ProxyAttempt = serde_json::from_str(old).unwrap();
+        assert_eq!(parsed.model, None);
+
+        let with_model = ProxyAttempt {
+            platform_id: 1,
+            platform_name: "p".into(),
+            status_code: 200,
+            error: String::new(),
+            duration_ms: 10,
+            ts: 1,
+            model: Some("target-model".into()),
+        };
+        let json = serde_json::to_string(&with_model).unwrap();
+        assert!(json.contains(r#""model":"target-model""#));
+        assert_eq!(serde_json::from_str::<ProxyAttempt>(&json).unwrap().model, with_model.model);
     }
 
     // ── PlatformModels::all_values ──

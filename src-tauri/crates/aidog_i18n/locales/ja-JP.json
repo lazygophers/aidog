@@ -717,6 +717,7 @@
     "total": "件"
   },
   "logs.actualModel": "実際のモデル",
+  "logs.targetModel": "ターゲットモデル",
   "logs.attemptCount": "{{n}} 回",
   "logs.routingDecision": "ルーティング判断",
   "logs.routing.noSnapshot": "ルーティング記録なし",

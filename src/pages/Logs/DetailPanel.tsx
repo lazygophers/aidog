@@ -244,6 +244,11 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
                   <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                     <span style={{ fontSize: F.small, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {platName}
+                      {a.model && (
+                        <span data-testid="attempt-model" style={{ marginLeft: 6, fontSize: 11, fontWeight: 400, color: "var(--text-tertiary)" }}>
+                          {a.model}
+                        </span>
+                      )}
                     </span>
                     {a.error && (
                       <span style={{ fontSize: 11, color: "var(--color-danger)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={a.error}>

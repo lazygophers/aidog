@@ -394,6 +394,7 @@ pub async fn select_candidates_ctx(
                 level_priority: gp.level_priority,
                 priority: gp.priority,
                 reason: RouteReason::Selected,
+                target_model: None,
                 tags,
             }
         })
@@ -410,10 +411,11 @@ pub async fn select_candidates_ctx(
                 level_priority: gp.level_priority,
                 priority: gp.priority,
                 reason: *reason,
+                target_model: None,
                 tags: Vec::new(),
             }),
     );
-    let routing = RoutingSnapshot {
+    let mut routing = RoutingSnapshot {
         mode: Some(effective_mode),
         entries,
     };
@@ -476,6 +478,9 @@ pub async fn select_candidates_ctx(
         kind,
         &decision_models,
     );
+
+    // 快照回填目标模型：选中候选按解析结果填 target_model（排除候选算不到，留 None）
+    fill_snapshot_target_models(&mut routing, &candidates);
 
     tracing::info!(
         group = %group.name, source_model = %source_model,
@@ -590,13 +595,15 @@ async fn handle_single_platform(
         "single-platform group: bypassing status filter, forcing request"
     );
 
+    let mut routing = single_snapshot(only, group.routing_mode, RouteReason::Selected);
+    routing.entries[0].target_model = Some(target_model.clone());
     Ok(CandidateSet {
         candidates: vec![RouteResult {
             platform: only.platform.clone(),
             target_model,
             mapping: mapping.cloned(),
         }],
-        routing: single_snapshot(only, group.routing_mode, RouteReason::Selected),
+        routing,
     })
 }
 
@@ -615,8 +622,21 @@ fn single_snapshot(
             level_priority: only.level_priority,
             priority: only.priority,
             reason,
+            target_model: None,
             tags: Vec::new(),
         }],
+    }
+}
+
+// 按 platform_id 回填已解析候选模型；排除候选保持 None。
+fn fill_snapshot_target_models(routing: &mut RoutingSnapshot, candidates: &[RouteResult]) {
+    for entry in &mut routing.entries {
+        if entry.reason == RouteReason::Selected {
+            entry.target_model = candidates
+                .iter()
+                .find(|candidate| candidate.platform.id == entry.platform_id)
+                .map(|candidate| candidate.target_model.clone());
+        }
     }
 }
 
@@ -697,6 +717,7 @@ fn select_direct_candidates(
                 level_priority: gp.level_priority,
                 priority: gp.priority,
                 reason: RouteReason::Selected,
+                target_model: None,
                 tags,
             }
         })
@@ -708,9 +729,10 @@ fn select_direct_candidates(
         level_priority: gp.level_priority,
         priority: gp.priority,
         reason: *reason,
+        target_model: None,
         tags: Vec::new(),
     }));
-    let routing = RoutingSnapshot {
+    let mut routing = RoutingSnapshot {
         mode: Some(mode),
         entries,
     };
@@ -740,6 +762,8 @@ fn select_direct_candidates(
         mode = ?mode, first_platform = %candidates[0].platform.name,
         "direct-model candidates selected"
     );
+
+    fill_snapshot_target_models(&mut routing, &candidates);
 
     Ok(CandidateSet { candidates, routing })
 }

@@ -60,14 +60,16 @@ export function buildLogMarkdown(d: ProxyLogDetail): string {
       lines.push(``);
       for (const c of d.routing.entries) {
         const tagText = c.tags.map(tg => TAG_LABELS[tg] ?? tg).join("、");
-        lines.push(`${c.order}. ${c.platform} — ${REASON_LABELS[c.reason] ?? c.reason}${tagText ? `（${tagText}）` : ""} · 优先级 L${c.level_priority}/P${c.priority}`);
+        const modelText = c.target_model ? ` · ${c.target_model}` : "";
+        lines.push(`${c.order}. ${c.platform} — ${REASON_LABELS[c.reason] ?? c.reason}${tagText ? `（${tagText}）` : ""} · 优先级 L${c.level_priority}/P${c.priority}${modelText}`);
       }
       lines.push(``);
     }
     if (d.attempts.length > 0) {
       lines.push(`## Attempts`, ``);
       d.attempts.forEach((a, i) => {
-        lines.push(`${i + 1}. ${a.platform_name} — status ${a.status_code} — ${a.duration_ms} ms${a.error ? ` — ${a.error}` : ""}`);
+        const modelText = a.model ? ` — ${a.model}` : "";
+        lines.push(`${i + 1}. ${a.platform_name} — status ${a.status_code} — ${a.duration_ms} ms${modelText}${a.error ? ` — ${a.error}` : ""}`);
       });
       lines.push(``);
     }
