@@ -305,7 +305,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
           // section 内是否有 active 项（任一 item.id 匹配 activeId 顶级或其子页）。
           const topId = activeId.split("/")[0];
           const activeInSection = sec.items.some(it => it.id === topId || activeId.startsWith(it.id + "/"));
-          const collapsed = (collapsedSection[sec.key] ?? false) && !activeInSection;
+          const sectionCollapsed = (collapsedSection[sec.key] ?? false) && !activeInSection;
           // 无 section key（空串）= 平铺区，不渲染节头。
           const hasHeader = sec.key !== "";
           return (
@@ -313,6 +313,8 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
               {hasHeader && !collapsed && (
                 <Button
                   variant="ghost"
+                  data-testid={`nav-section-${sec.key}`}
+                  aria-expanded={!sectionCollapsed}
                   style={{
                     justifyContent: "space-between",
                     padding: "8px 10px 4px",
@@ -325,18 +327,18 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                     background: "transparent",
                     height: "auto",
                   }}
-                  onClick={() => setCollapsedSection((s) => ({ ...s, [sec.key]: !collapsed }))}
+                  onClick={() => setCollapsedSection((s) => ({ ...s, [sec.key]: !sectionCollapsed }))}
                 >
                   <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t(sec.key)}</span>
                   <span style={{
                     opacity: 0.5,
-                    transform: collapsed ? "rotate(-90deg)" : "none",
+                    transform: sectionCollapsed ? "rotate(-90deg)" : "none",
                     transition: "transform 200ms",
                     display: "inline-flex",
                   }}>{icons.chevron}</span>
                 </Button>
               )}
-              {(!hasHeader || !collapsed) && sec.items.map((item) => {
+              {(!hasHeader || collapsed || !sectionCollapsed) && sec.items.map((item) => {
                 const isActive = item.id === topId;
                 const hasChildren = !!item.children && item.children.length > 0;
                 const inThis = activeId.startsWith(item.id + "/");
@@ -346,6 +348,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
             <div key={item.id} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <Button
                 variant="ghost"
+                data-testid={`nav-item-${item.id}`}
                 className={isActive ? "ripple" : "ripple hover-lift"}
                 title={collapsed ? t(item.labelKey) : undefined}
                 style={{
