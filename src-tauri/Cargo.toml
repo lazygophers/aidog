@@ -102,7 +102,7 @@ dashmap = "6"
 tiktoken-rs = "0.12"
 tokenizers = { version = "0.21", default-features = false, features = ["fancy-regex"] }
 # 压缩格式支持（CPA config 导入）
-zip = "2"
+zip = "4"
 tar = "0.4"
 # macOS 托盘小字 attributedTitle（core refresh_tray_menu + root tray_render 共用同版本）
 objc2 = "0.6"
