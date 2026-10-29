@@ -146,6 +146,7 @@ pub async fn calc_est_cost_detail(
             source: "fallback".to_string(),
         },
         peak_applied: false,
+        source_cny: false,
     });
 
     let multiplier = if created_at_ms <= 0 {

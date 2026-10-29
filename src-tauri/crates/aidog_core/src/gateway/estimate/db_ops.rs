@@ -464,10 +464,17 @@ async fn record_balance_currency(db: &Db, platform_id: u64, currency: &str) {
     .await;
 }
 
-/// USD → 平台余额币种的乘数：CNY ×`CNY_PER_USD`；USD / 未记录（从未真查）/ 其它 → 1。
-async fn balance_fx(db: &Db, platform_id: u64) -> f64 {
+/// USD → 平台余额币种的乘数：CNY ×`CNY_PER_USD`；USD / 其它 → 1。
+/// 余额币种未记录（升级后到首次真查前）回落 `fallback_cny`（本次所用价格条目是否 CNY 计价）：
+/// 升级前余额按条目原币种直扣，CNY 计价即视作 CNY 余额，精确恢复换算前行为。
+/// shortcut: 回落只看模型条目币种（取不到按次费条目币种时视 USD），首次真查后即用真实币种；
+/// 要消除窗口期误差得在升级迁移里主动查一次余额币种。
+async fn balance_fx(db: &Db, platform_id: u64, fallback_cny: bool) -> f64 {
     match aidog_db::get_setting(db, BALANCE_CCY_SCOPE, &platform_id.to_string()).await {
-        Ok(Some(serde_json::Value::String(c))) if c == "CNY" => aidog_db::CNY_PER_USD,
+        Ok(Some(serde_json::Value::String(c))) => {
+            if c == "CNY" { aidog_db::CNY_PER_USD } else { 1.0 }
+        }
+        _ if fallback_cny => aidog_db::CNY_PER_USD,
         _ => 1.0,
     }
 }
@@ -523,6 +530,7 @@ pub async fn estimate_after_request(
     let peak_mult = resolved
         .as_ref()
         .map_or(raw_mult, |r| r.multiplier(raw_mult));
+    let source_cny = resolved.as_ref().is_some_and(|r| r.source_cny);
     let resolved_price = resolved.map(|r| r.price);
 
     // 1. 增量预估
@@ -546,7 +554,7 @@ pub async fn estimate_after_request(
                 price.cache_write_input_token_cost,
             ) * peak_mult
         });
-        let cost = (token_usd + tool_cost_usd) * balance_fx(db, platform_id).await;
+        let cost = (token_usd + tool_cost_usd) * balance_fx(db, platform_id, source_cny).await;
         let _ = apply_balance_delta(db, platform_id, cost).await;
     }
 
