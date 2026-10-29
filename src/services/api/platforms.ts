@@ -489,6 +489,39 @@ export function serializeDirectModels(extra: string, models: string[]): string {
   return JSON.stringify(obj);
 }
 
+/** 从 platform.extra JSON 解析 qianfan AppBuilder key（独立搜索转发，票 20）。缺失 / 非法 → ""。 */
+export function parseAppbuilderKey(extra: string): string {
+  if (!extra.trim()) return "";
+  try {
+    const parsed: unknown = JSON.parse(extra);
+    if (parsed && typeof parsed === "object" && "appbuilder_key" in parsed) {
+      const v = (parsed as { appbuilder_key: unknown }).appbuilder_key;
+      if (typeof v === "string") return v;
+    }
+  } catch { /* ignore */ }
+  return "";
+}
+
+/** 把 qianfan AppBuilder key 写回 extra JSON（保留其余键）。空白 → 移除键（不留空串）。 */
+export function serializeAppbuilderKey(extra: string, key: string): string {
+  let obj: Record<string, unknown> = {};
+  if (extra.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(extra);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        obj = parsed as Record<string, unknown>;
+      }
+    } catch { /* ignore */ }
+  }
+  const clean = key.trim();
+  if (clean.length === 0) {
+    delete obj.appbuilder_key;
+  } else {
+    obj.appbuilder_key = clean;
+  }
+  return JSON.stringify(obj);
+}
+
 
 /** 从 platform.extra JSON 解析 mitm_stats 开关（cc-sub-mitm 票 12：Claude Code 订阅平台
  *  的 MITM 接入形态标记）。缺失 / 非法 / 非布尔 → false。 */

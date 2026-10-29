@@ -16,6 +16,7 @@ import {
   parseMitmStats, serializeMitmStats,
   parseRateLimitsBundle, serializeRateLimitsBundle, type RateLimitsBundle,
   parsePassthroughAuth, serializePassthroughAuth,
+  parseAppbuilderKey, serializeAppbuilderKey,
   DEFAULT_MOCK_CONFIG, DEFAULT_DEVIN_CONFIG, DEFAULT_PASSTHROUGH_AUTH,
   type Platform, type Protocol, type ModelSlot, type PlatformEndpoint,
   type PlatformUsageStats, type LastTestResult, type MockConfig, type DevinConfig, type PassthroughAuth,
@@ -144,6 +145,8 @@ export interface PlatformFormState {
   isPassThrough: boolean;
   /** passthrough 认证配置（extra 顶层 auth_header/auth_template；见 parsePassthroughAuth）。 */
   passAuth: PassthroughAuth; setPassAuth: React.Dispatch<React.SetStateAction<PassthroughAuth>>;
+  /** qianfan AppBuilder key（独立搜索转发凭据，票 20；持久化 extra 顶层 appbuilder_key，空删键）。 */
+  appbuilderKey: string; setAppbuilderKey: React.Dispatch<React.SetStateAction<string>>;
   keyOptional: boolean;
   apiKeyMissing: boolean;
   resetForm: () => void;
@@ -225,6 +228,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [devinConfig, setDevinConfig] = useState<DevinConfig>({ ...DEFAULT_DEVIN_CONFIG });
   // 自定义透传认证配置（passthrough 协议，持久化 platform.extra 顶层 auth_header/auth_template）
   const [passAuth, setPassAuth] = useState<PassthroughAuth>({ ...DEFAULT_PASSTHROUGH_AUTH });
+  const [appbuilderKey, setAppbuilderKey] = useState("");
   // 手动预算限额（仅无上游 quota 自动支持平台可配；编辑表单态）
   const [manualBudgets, setManualBudgets] = useState<ManualBudget[]>([]);
   // 熔断阈值覆盖（0/空 = 继承全局默认；编辑表单态）。空字符串表示继承。
@@ -354,6 +358,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setQuotaSource("auto"); setQuotaSourcePristine(true);
     setDevinConfig({ ...DEFAULT_DEVIN_CONFIG });
     setPassAuth({ ...DEFAULT_PASSTHROUGH_AUTH });
+    setAppbuilderKey("");
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
     timemodels.reset(); setMitmStats(false);
@@ -435,6 +440,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setMitmStats(parseMitmStats(p.extra ?? ""));
     setDevinConfig(parseDevinConfig(p.extra ?? ""));
     setPassAuth(parsePassthroughAuth(p.extra ?? ""));
+    setAppbuilderKey(parseAppbuilderKey(p.extra ?? ""));
     setLockedGroupId(null);
     try {
       const gds = await groupDetailApi.list();
@@ -489,6 +495,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setMitmStats(parseMitmStats(p.extra ?? ""));
     setDevinConfig(parseDevinConfig(p.extra ?? ""));
     setPassAuth(parsePassthroughAuth(p.extra ?? ""));
+    setAppbuilderKey(parseAppbuilderKey(p.extra ?? ""));
     setLockedGroupId(null);
     // 反查源平台当前手动组成员（排除其 auto 分组），作为「加入已有分组」初始值。
     try {
@@ -670,6 +677,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     if (protocol === "devin") extraPayload = serializeDevinConfig(extraPayload, devinConfig);
     // passthrough：认证 header 名 + 值模板写 extra 顶层（共识稿 §2）。
     if (isPassThrough) extraPayload = serializePassthroughAuth(extraPayload, passAuth);
+    // qianfan AppBuilder key（票 20）：仅 qianfan 协议写；空删键，切走协议不残留。
+    if (protocol === "qianfan") extraPayload = serializeAppbuilderKey(extraPayload, appbuilderKey);
     // quota 脚本变体选择 + requires 参数（custom↔id 互斥、requires 顶层+旧嵌套镜像，
     //   见 serializeQuotaScriptConfig；须在 devin 序列化之后 —— org_id 镜像写 extra.devin）。
     extraPayload = serializeQuotaScriptConfig(
@@ -838,7 +847,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds,
     expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,
     lockedGroupId, setLockedGroupId,
-    isMock, isPassthrough, isPassThrough, passAuth, setPassAuth, keyOptional, apiKeyMissing,
+    isMock, isPassthrough, isPassThrough, passAuth, setPassAuth,
+    appbuilderKey, setAppbuilderKey, keyOptional, apiKeyMissing,
     resetForm, openCreatePlatform, handleEdit, handleDuplicate, handleProtocolChange,
     handleModelChange, handleModelSelect, handleFetchModels, handleFillAll, buildModelsPayload,
     handleSave, handleViewLogs, applyPaste, runBatchCreateFromPaste,

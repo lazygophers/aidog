@@ -21,7 +21,7 @@ import {
   FormSection, ApiKeyField,
   DevinConfigSection, PassthroughConfigSection, PassThroughSection, EndpointsSection,
   BreakerSection, PeakSection, RateLimitsSection, GroupAssignSection,
-  ExpirySection, QuotaSection, DirectModelsSection,
+  ExpirySection, QuotaSection, DirectModelsSection, AppbuilderKeySection,
 } from "./formSections";
 import { ModelsMatrixSection } from "./ModelsMatrixSection";
 import { CcMitmAccessSection } from "./CcMitmAccessSection";
@@ -40,6 +40,7 @@ export function PlatformEditForm({ s, variant = "page" }: { s: PlatformsState; v
     name, setName, protocol, codingPlan, handleProtocolChange,
     isMock, isPassthrough, isPassThrough, keyOptional, apiKeyMissing,
     passAuth, setPassAuth,
+  appbuilderKey = "", setAppbuilderKey,
     mockConfig, setMockConfig,
     apiKey, setApiKey, showKey, setShowKey,
     batchPreviewKeys, handleApiKeyChange, previewNames,
@@ -71,6 +72,7 @@ export function PlatformEditForm({ s, variant = "page" }: { s: PlatformsState; v
     ...(!isMock && !isPassthrough && !isPassThrough ? [{ id: "timemodels", label: t("platform.tabTimemodels", "时段档") }] : []),
     ...(!isMock && editing && !isPassthrough && !isPassThrough ? [{ id: "peak", label: t("platform.tabPeak", "高峰时段倍率") }] : []),
     ...(!isMock && editing && !isPassthrough && !isPassThrough ? [{ id: "direct", label: t("platform.tabDirect", "直通模型") }] : []),
+    ...(editing && protocol === "qianfan" ? [{ id: "appbuilder", label: t("platform.tabAppbuilder", "AppBuilder 凭据") }] : []),
     ...(editing && !isPassthrough && !isPassThrough ? [{ id: "ratelimits", label: t("platform.tabRateLimits", "限频") }] : []),
     ...(editing && !isPassthrough && !isPassThrough ? [{ id: "breaker", label: t("platform.tabBreaker", "熔断") }] : []),
     { id: "expiry", label: t("platform.tabExpiry", "过期时间") },
@@ -90,6 +92,7 @@ export function PlatformEditForm({ s, variant = "page" }: { s: PlatformsState; v
     timemodels: timemodels.timeModels.length > 0,
     peak: timemodels.peak.length > 0,
     direct: timemodels.directModels.length > 0,
+    appbuilder: !!appbuilderKey.trim(),
     ratelimits: Object.keys(rateLimits).length > 0,
     breaker: !!(breakerFailureThreshold || breakerOpenSecs || breakerHalfOpenMax),
     expiry: expiryEnabled && expiresAt > 0,
@@ -355,6 +358,14 @@ export function PlatformEditForm({ s, variant = "page" }: { s: PlatformsState; v
         {!isMock && editing && !isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "direct") && (
           <DirectModelsSection
             models={timemodels.directModels} setModels={timemodels.setDirectModels}
+            t={t}
+          />
+        )}
+
+        {/* qianfan AppBuilder 凭据（独立搜索转发，票 20）：extra.appbuilder_key，仅 qianfan 平台展示 */}
+        {editing && protocol === "qianfan" && (advTabs.length === 1 || activeAdvTab === "appbuilder") && (
+          <AppbuilderKeySection
+            value={appbuilderKey} onChange={setAppbuilderKey}
             t={t}
           />
         )}
