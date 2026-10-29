@@ -184,3 +184,25 @@ registry-refresh 轮：`git commit -m "…$0.10/$0.50…"` 中两个 `$0` 均被
 harness 隔离建的 agent worktree 自带 lock，收工直接 `/usr/bin/git worktree remove`
 被 locked 拒删。清理两步：`/usr/bin/git worktree unlock <path>` 后 `remove --force`；
 建/删/查照旧全走 `/usr/bin/git` 直跑（见上文 rtk 条）。
+
+## 共享 checkout 合回 master：只挪指针，不 stash 外来脏文件（2026-10-29 计费线收官）
+
+工作区带别的会话的脏文件（如 `src-tauri/defaults/registry/index.json` 盖戳）时，
+集成分支回 master 的 `stash → checkout master → merge → pop` 会连别人的改动一起
+搬动，用户当场拒绝。做法：
+
+1. 核对 master 是集成分支祖先：`/usr/bin/git merge-base --is-ancestor master <分支>`
+   退出码 0 才可快进。
+2. 不动工作区只挪指针：`/usr/bin/git fetch . <分支>:master`（当前不在 master 时可用；
+   当前就在 master 则先 `git switch` 到集成分支的做法不适用，改 `merge --ff-only`）。
+3. 切回 master 前确认脏文件在两边内容相同（`git diff <分支> master --stat -- <脏文件>`
+   为空），checkout 才不会碰它们。
+4. 收尾 `/usr/bin/git status --short` 核对脏文件原样还在。
+
+## 推送走 origin，no-mistakes 远端可能已失效（2026-10-29）
+
+`no-mistakes` 远端指向 `/Users/luoxin/.no-mistakes/repos/9d3abbd5e514.git`，该目录
+整个不存在时 push 报 `fatal: ... does not appear to be a git repository`（exit 128）。
+实际推送走 `origin`（GitHub `lazygophers/aidog`）：先 `git rev-list --count
+origin/master..master` 确认纯快进，再 `git push origin master`；origin 是公开远端，
+推送前仍按全局规则向用户确认一次。
