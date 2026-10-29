@@ -3,7 +3,8 @@
 //! 覆盖的是换宿主后**原地不动**那 246 行：排序 / 禁用跳过 / separator→gaps 映射 /
 //! today_usage 各 metric / 自定义 label / 小数位 / 尾零裁剪。AppKit 渲染不在此测。
 
-use super::{platform_item_parts, tray_layout, trim_trailing_zeros};
+use super::{platform_item_parts, tray_layout, tray_money, trim_trailing_zeros};
+use aidog_db::currency::{DisplayCurrency, DisplayCurrencySetting, build_display_currency};
 use aidog_db::{Db, TrayConfig, TrayItem, set_tray_config};
 use aidog_stats::DbInitTables;
 
@@ -171,11 +172,11 @@ fn platform(balance: f64, coding_plan: &str) -> aidog_db::Platform {
 #[test]
 fn platform_item_parts_balance_trims_zeros() {
     assert_eq!(
-        platform_item_parts(&platform(10.10, ""), "balance"),
+        platform_item_parts(&platform(10.10, ""), "balance", &usd()),
         ("Acme".to_string(), "$10.1".to_string())
     );
     assert_eq!(
-        platform_item_parts(&platform(0.0, ""), "balance"),
+        platform_item_parts(&platform(0.0, ""), "balance", &usd()),
         ("Acme".to_string(), "$0".to_string())
     );
 }
@@ -183,14 +184,14 @@ fn platform_item_parts_balance_trims_zeros() {
 #[test]
 fn platform_item_parts_coding_shows_remaining_percent() {
     let plan = r#"{"tiers":[{"name":"five_hour","est_utilization":25.0}]}"#;
-    let (_, value) = platform_item_parts(&platform(0.0, plan), "coding");
+    let (_, value) = platform_item_parts(&platform(0.0, plan), "coding", &usd());
     assert_eq!(value, "75%");
 }
 
 #[test]
 fn platform_item_parts_coding_clamps_over_100_utilization() {
     let plan = r#"{"tiers":[{"name":"five_hour","est_utilization":150.0}]}"#;
-    let (_, value) = platform_item_parts(&platform(0.0, plan), "coding");
+    let (_, value) = platform_item_parts(&platform(0.0, plan), "coding", &usd());
     assert_eq!(value, "0%", "超用不显示负数");
 }
 
@@ -198,7 +199,7 @@ fn platform_item_parts_coding_clamps_over_100_utilization() {
 fn platform_item_parts_coding_plan_beats_balance_display() {
     // 有 coding plan 数据时，即使 display=balance 也按配额百分比显示。
     let plan = r#"{"tiers":[{"name":"five_hour","est_utilization":10.0}]}"#;
-    let (_, value) = platform_item_parts(&platform(99.0, plan), "balance");
+    let (_, value) = platform_item_parts(&platform(99.0, plan), "balance", &usd());
     assert_eq!(value, "90%");
 }
 
@@ -263,4 +264,62 @@ fn trim_trailing_zeros_cases() {
     assert_eq!(trim_trailing_zeros("12"), "12", "无小数点原样返回");
     assert_eq!(trim_trailing_zeros("1.000"), "1");
     assert_eq!(trim_trailing_zeros("0.00001"), "0.00001");
+}
+
+// ─── 票 06：托盘费用按显示币种 ──────────────────────────────
+
+fn usd() -> DisplayCurrency {
+    build_display_currency(&DisplayCurrencySetting::default())
+}
+
+fn cur(code: &str, rate: Option<f64>) -> DisplayCurrency {
+    let mut s = DisplayCurrencySetting { code: code.to_string(), ..Default::default() };
+    if let Some(r) = rate {
+        s.rates.insert(code.to_string(), r);
+    }
+    build_display_currency(&s)
+}
+
+#[test]
+fn tray_money_usd_matches_legacy_text() {
+    // 改动前：`$` + trim(format!("{:.2}")) / cost 默认 5 位
+    assert_eq!(tray_money(10.10, &usd(), 2), "$10.1");
+    assert_eq!(tray_money(0.0, &usd(), 2), "$0");
+    assert_eq!(tray_money(0.123456789, &usd(), 5), "$0.12346");
+}
+
+#[test]
+fn tray_money_cny_jpy_chf() {
+    let c = cur("CNY", Some(7.0));
+    assert_eq!(tray_money(10.0, &c, 2), "¥70");
+    assert_eq!(tray_money(0.0123456, &c, 5), "¥0.08642");
+    // JPY 恒 0 位，符号 JP¥；大数值不带科学计数
+    let j = cur("JPY", Some(150.0));
+    assert_eq!(tray_money(1234.567, &j, 5), "JP¥185185");
+    assert_eq!(tray_money(0.004, &j, 2), "JP¥1");
+    // CHF 前缀带空格
+    assert_eq!(tray_money(10.0, &cur("CHF", Some(0.9)), 2), "CHF 9");
+}
+
+#[test]
+fn platform_balance_uses_display_currency() {
+    assert_eq!(
+        platform_item_parts(&platform(10.0, ""), "balance", &cur("EUR", Some(0.5))),
+        ("Acme".to_string(), "€5".to_string())
+    );
+}
+
+#[tokio::test]
+async fn layout_reads_currency_setting_from_db() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    aidog_db::currency::set_display_currency(&db, "CNY", Default::default()).await.unwrap();
+    let l = tray_layout(&db).await;
+    assert_eq!(l.columns[0].value, "¥0");
+}
+
+#[test]
+fn display_currency_set_triggers_tray_refresh() {
+    // 命令层 set 成功后必须 emit tray-refresh（app_setup.rs:622 listener 重画托盘）
+    let src = include_str!("display_currency.rs");
+    assert!(src.contains(r#"emit_unit("tray-refresh")"#));
 }

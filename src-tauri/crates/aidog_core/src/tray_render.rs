@@ -471,7 +471,11 @@ impl TrayMenuBuild for TrayMenuBuildImpl {
 /// display="coding" 或平台具 coding plan → 值=`{%}%`（剩余百分比）；
 /// manual 配额方式 → 最紧启用限额余量（quota-ia 票 07，与卡片 computeManualBudgetDisplay 同口径）；
 /// 否则 值=`{balance:.2}`。
-pub(crate) fn platform_item_parts(platform: &Platform, display: &str) -> (String, String) {
+pub(crate) fn platform_item_parts(
+    platform: &Platform,
+    display: &str,
+    cur: &db::currency::DisplayCurrency,
+) -> (String, String) {
     let name = platform.name.clone();
     let plan = gateway::estimate::EstCodingPlan::from_json(&platform.est_coding_plan);
     let first_tier = plan.tiers.first();
@@ -495,18 +499,22 @@ pub(crate) fn platform_item_parts(platform: &Platform, display: &str) -> (String
                 let rem = (b.amount - b.consumed).max(0.0);
                 match manual_budget_unit_suffix(&b.unit) {
                     Some(suffix) => format!("{suffix}{}", trim_trailing_zeros(&format!("{rem:.0}"))),
-                    None => format!("${}", trim_trailing_zeros(&format!("{rem:.2}"))),
+                    None => tray_money(rem, cur, 2),
                 }
             }
             None => "—".to_string(),
         }
     } else {
-        format!(
-            "${}",
-            trim_trailing_zeros(&format!("{:.2}", platform.est_balance_remaining))
-        )
+        tray_money(platform.est_balance_remaining, cur, 2)
     };
     (name, value)
+}
+
+/// USD 金额 → 托盘文本：符号 + 换算后定点并裁尾零。0 位小数币种（JPY）恒 0 位，
+/// 其余沿用调用方给的位数（USD 下与改动前 `$` + trim(format) 逐字一致）。
+fn tray_money(usd: f64, cur: &db::currency::DisplayCurrency, decimals: usize) -> String {
+    let d = if cur.decimals == 0 { 0 } else { decimals };
+    format!("{}{}", cur.symbol, trim_trailing_zeros(&format!("{:.d$}", usd * cur.rate)))
 }
 
 /// 预算单位 tray 后缀（usd 无后缀走 $ 前缀；token / count 加短后缀区分口径）。
@@ -585,6 +593,7 @@ pub(crate) async fn tray_layout_with_stats(
     let Ok(Some(config)) = db::get_tray_config(db).await else {
         return empty;
     };
+    let currency = db::currency::get_display_currency(db).await;
     let mut items: Vec<&TrayItem> = config.items.iter().filter(|i| i.enabled).collect();
     items.sort_by_key(|i| i.order);
 
@@ -645,7 +654,7 @@ pub(crate) async fn tray_layout_with_stats(
                 let Some(platform) = platforms.get(&(pid as i64)) else {
                     continue;
                 };
-                platform_item_parts(platform, &item.display)
+                platform_item_parts(platform, &item.display, &currency)
             }
             "routed_platform" => routed_item_parts(routed_platform.as_ref()),
             "peak" => peak_item_parts(routed_platform.as_ref(), now_ms),
@@ -676,10 +685,7 @@ pub(crate) async fn tray_layout_with_stats(
                         let d = item.decimals.unwrap_or(5) as usize;
                         (
                             "花费".to_string(),
-                            format!(
-                                "${}",
-                                trim_trailing_zeros(&format!("{:.d$}", stats.cost, d = d))
-                            ),
+                            tray_money(stats.cost, &currency, d),
                         )
                     }
                     "requests" => ("请求".to_string(), format!("{}", stats.total_requests)),
