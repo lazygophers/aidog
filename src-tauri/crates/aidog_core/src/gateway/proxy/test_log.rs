@@ -429,3 +429,13 @@ async fn scoped_queue_log_carries_bodies_only_at_terminal() {
 
     let _ = std::fs::remove_file(path);
 }
+
+/// 聊天内 server_tool_use 按次费（USD）：anthropic web_search 10 USD/千次 → 2 次 = 0.02；
+/// 空计数 / 未声明键 → 0。
+#[test]
+fn chat_tool_cost_usd_bills_server_tool_use() {
+    use super::*;
+    assert_eq!(chat_tool_cost_usd(&Protocol::Anthropic, &[]), 0.0);
+    let c = chat_tool_cost_usd(&Protocol::Anthropic, &[("web_search".to_string(), 2)]);
+    assert!((c - 0.02).abs() < 1e-12, "got {c}");
+}
