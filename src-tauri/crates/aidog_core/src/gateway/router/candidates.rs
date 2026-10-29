@@ -64,18 +64,22 @@ impl From<String> for RouteFail {
 /// 请求类型（jev-decision-proxy §3.3.3）：候选过滤按类型剔除不支持的平台。
 /// - `Chat`：普通聊天请求，剔除纯决策平台（`is_decision_only`，R3）
 /// - `Decision`：`/v1/systemone` 决策请求，剔除不支持决策的平台（R2）
+/// - `Tools(path)`：独立搜索/tools 请求（spec-独立搜索转发 语义 3）：候选 = 组内
+///   `tools_endpoints` 含 path 与入站 path 相等条目的平台；携带入站 path 供逐平台匹配。
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum RequestKind {
+pub enum RequestKind<'a> {
     Chat,
     Decision,
+    Tools(&'a str),
 }
 
-impl RequestKind {
+impl RequestKind<'_> {
     /// 该类型下平台不满足要求、且全部候选均因此被剔除时的路由 Err 字符串（R7）。
     pub(crate) fn no_platform_err(&self) -> &'static str {
         match self {
             RequestKind::Chat => "no_chat_platform",
             RequestKind::Decision => "no_decision_platform",
+            RequestKind::Tools(_) => "no_tools_platform",
         }
     }
 }
@@ -95,10 +99,11 @@ impl DecisionModels {
 
 /// 平台是否支持该请求类型（R2 / R3）：
 /// - Decision ⇔ `models.jev` 非空，或 `available_models` 含该平台 registry decision 能力模型；
-/// - Chat ⇔ 非纯决策平台（jev 配置且其余槽位全空才剔除）。
+/// - Chat ⇔ 非纯决策平台（jev 配置且其余槽位全空才剔除）；
+/// - Tools(path) ⇔ 平台 tools_endpoints 含 path 与入站 path 相等条目（语义 3，strict 逐平台）。
 pub(crate) fn platform_supports_kind(
     platform: &Platform,
-    kind: RequestKind,
+    kind: RequestKind<'_>,
     decision_models: &DecisionModels,
 ) -> bool {
     match kind {
@@ -109,6 +114,13 @@ pub(crate) fn platform_supports_kind(
                     .is_some()
         }
         RequestKind::Chat => !platform.models.is_decision_only(),
+        RequestKind::Tools(path) => {
+            crate::gateway::billing::default_tools_endpoints(&platform.platform_type.wire_str())
+                .is_some_and(|m| {
+                    m.values()
+                        .any(|u| crate::gateway::billing::tools_url_matches(u, path))
+                })
+        }
     }
 }
 
@@ -193,13 +205,13 @@ pub async fn select_candidates(
 }
 
 /// 带调度上下文的候选选取。`ctx=None` 时退化为无熔断 / 无指标的旧行为（仅 auto_disabled 过滤）。
-/// `kind` 按请求类型过滤候选（jev-decision-proxy R2–R6）：现有调用点一律传 `Chat`。
+/// `kind` 按请求类型过滤候选（jev-decision-proxy R2–R6；Tools 见 spec-独立搜索转发 语义 3）。
 pub async fn select_candidates_ctx(
     db: &db::Db,
     group: &Group,
     source_model: &str,
     ctx: Option<&ScheduleCtx<'_>>,
-    kind: RequestKind,
+    kind: RequestKind<'_>,
 ) -> Result<CandidateSet, RouteFail> {
     let mapping = group
         .model_mappings
@@ -490,7 +502,7 @@ async fn handle_single_platform(
     mapping: Option<&ModelMapping>,
     now_ms: i64,
     extra_cache: &ExtraCacheMap,
-    kind: RequestKind,
+    kind: RequestKind<'_>,
     decision_models: &DecisionModels,
 ) -> Result<CandidateSet, RouteFail> {
     // 未知协议（票 06）：无 wire 格式可转，唯一硬停之一（照 peak_disabled 先例，caller 落审计）。
@@ -626,7 +638,7 @@ fn select_direct_candidates(
     ctx: Option<&ScheduleCtx<'_>>,
     now_ms: i64,
     mode: RoutingMode,
-    kind: RequestKind,
+    kind: RequestKind<'_>,
     decision_models: &DecisionModels,
 ) -> Result<CandidateSet, RouteFail> {
     let in_direct = |gp: &GroupPlatformDetail| direct_ids.contains(&gp.platform.id);
@@ -757,7 +769,7 @@ fn filter_candidates<'a>(
     now_ms: i64,
     source_model: &str,
     extra_cache: &ExtraCacheMap,
-    kind: RequestKind,
+    kind: RequestKind<'_>,
     decision_models: &DecisionModels,
 ) -> FilteredCandidates<'a> {
     let mut active = Vec::new();
@@ -963,7 +975,7 @@ fn build_route_results(
     source_model: &str,
     mapping: Option<&ModelMapping>,
     extra_cache: &ExtraCacheMap,
-    kind: RequestKind,
+    kind: RequestKind<'_>,
     decision_models: &DecisionModels,
 ) -> Vec<RouteResult> {
     ordered
@@ -993,7 +1005,7 @@ fn build_route_results(
 /// 按请求类型做槽位匹配。`model_name` = 分组映射命中时的映射目标名，否则请求模型名：
 /// 映射只改名，不跳过槽位匹配（映射名不含档位词时同样回落 default 槽，用户 2026-10-01 确认）。
 fn resolve_target_model(
-    kind: RequestKind,
+    kind: RequestKind<'_>,
     effective_models: &PlatformModels,
     platform: &Platform,
     decision_models: &DecisionModels,
@@ -1008,6 +1020,8 @@ fn resolve_target_model(
             resolve_decision_model(effective_models, platform, decision_models, model_name)
         }
         RequestKind::Chat => resolve_model(effective_models, model_name),
+        // Tools 不做任何模型改写（语义 3）：映射命中取映射目标名（仅日志元数据），否则原样。
+        RequestKind::Tools(_) => model_name.to_string(),
     }
 }
 
