@@ -1,0 +1,22 @@
+{
+  "last_updated": 1793292093,
+  "supported_protocols": [
+    "gemini"
+  ],
+  "model_id": "gemini-3.8-flash-lite-tts",
+  "display_name": "Gemini 3.8 Flash-Lite TTS",
+  "canonical_model": "gemini-3.8-flash-lite-tts",
+  "version": "3.8",
+  "family": "gemini",
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 5e-07,
+    "output": 6e-06
+  }
+}
