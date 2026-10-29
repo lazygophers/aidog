@@ -23,6 +23,11 @@ priority: number,
  */
 reason: RouteReason, 
 /**
+ * 路由目标模型（build_route_results 解析的 target_model；排除候选算不到时为 None）。
+ * 旧日志无此字段，缺省 None，序列化时省略。
+ */
+target_model?: string, 
+/**
  * 位置标签（仅选中者携带）
  */
 tags: Array<RouteTag>, };

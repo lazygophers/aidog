@@ -145,6 +145,11 @@ async fn single_platform_forces_request_when_circuit_broken() {
         .expect("single platform must force request, not Err");
     assert_eq!(set.candidates.len(), 1);
     assert_eq!(set.candidates[0].platform.id, p.id);
+    // 单平台组快照：选中条目 target_model 已回填
+    assert_eq!(
+        set.routing.entries[0].target_model.as_deref(),
+        Some(set.candidates[0].target_model.as_str())
+    );
 }
 
 /// 配额冷却（429 配额耗尽）：冷却中的平台不进候选，但 DB status 保持 enabled（不被标记禁用）；
@@ -667,6 +672,9 @@ async fn model_mapping_prioritizes_target_platform() {
     // p2 should be first (mapped target)
     assert_eq!(set.candidates[0].platform.id, p2.id);
     assert_eq!(set.candidates[0].target_model, "gpt-4o-mapped");
+    // 快照同条目 target_model 已回填映射目标
+    let e = set.routing.entries.iter().find(|e| e.platform_id == p2.id).unwrap();
+    assert_eq!(e.target_model.as_deref(), Some("gpt-4o-mapped"));
 }
 
 /// All platforms manually disabled → Err("no available platform").
@@ -2239,6 +2247,12 @@ async fn snapshot_labels_manual_disabled() {
     assert_eq!(e_live.order, 1);
     assert_eq!(e_off.reason, RouteReason::DisabledManual);
     assert_eq!(set.routing.mode, Some(g.routing_mode));
+    // 目标模型回填：选中候选 = 解析结果；排除候选算不到 = None
+    assert_eq!(
+        e_live.target_model.as_deref(),
+        Some(set.candidates[0].target_model.as_str())
+    );
+    assert_eq!(e_off.target_model, None);
 }
 
 /// 熔断：Reject 的候选带 breaker 标签（非回退路径）。

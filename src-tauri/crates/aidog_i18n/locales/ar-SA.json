@@ -717,6 +717,7 @@
     "total": "سجل"
   },
   "logs.actualModel": "النموذج الفعلي",
+  "logs.targetModel": "النموذج المستهدف",
   "logs.attemptCount": "{{n}}",
   "logs.routingDecision": "قرار التوجيه",
   "logs.routing.noSnapshot": "لا يوجد سجل توجيه",
