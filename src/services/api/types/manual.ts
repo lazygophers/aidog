@@ -784,3 +784,21 @@ export interface ImportReport {
   skipped: Record<string, number>;
   errors: string[];
 }
+
+// ─── 显示币种（Rust: aidog_db::currency::DisplayCurrency / CurrencyRow，字段逐字对齐 serde）───
+export interface CurrencyRow {
+  code: string;
+  symbol: string;
+  decimals: number;
+  default_rate: number;
+  /** 生效汇率（覆盖项优先，缺省 = default_rate）。 */
+  rate: number;
+}
+
+export interface DisplayCurrency {
+  code: string;
+  symbol: string;
+  decimals: number;
+  rate: number;
+  table: CurrencyRow[];
+}

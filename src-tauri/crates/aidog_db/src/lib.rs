@@ -1111,6 +1111,7 @@ mod model_entry;
 mod platform;
 mod platform_lifecycle;
 mod price_resolve;
+pub mod currency;
 pub mod registry;
 mod ui_extra;
 pub use group::*;
