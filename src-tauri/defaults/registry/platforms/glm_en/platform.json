@@ -2,7 +2,10 @@
   "tools_endpoints": {
     "web_search": "https://api.z.ai/api/paas/v4/web_search"
   },
-  "last_updated": 1793240736,
+  "tools_pricing": {
+    "web_search": {"per_1000": 10.0, "currency": "USD"}
+  },
+  "last_updated": 1793247811,
   "endpoints": {
     "default": [
       {

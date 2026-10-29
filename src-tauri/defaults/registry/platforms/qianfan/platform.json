@@ -2,7 +2,10 @@
   "tools_endpoints": {
     "ai_search_chat": "https://qianfan.baidubce.com/v2/ai_search/chat/completions"
   },
-  "last_updated": 1793240736,
+  "tools_pricing": {
+    "ai_search_chat": {"per_1000": 36.0, "currency": "CNY"}
+  },
+  "last_updated": 1793247811,
   "endpoints": {
     "default": [
       {

@@ -4,7 +4,12 @@
     "search_pro": "https://api.moonshot.cn/v1/tools/search_pro",
     "fetch": "https://api.moonshot.cn/v1/tools/fetch"
   },
-  "last_updated": 1793240736,
+  "tools_pricing": {
+    "search": {"per_1000": 10.0, "currency": "CNY"},
+    "search_pro": {"per_1000": 15.0, "currency": "CNY"},
+    "fetch": {"per_1000": 10.0, "currency": "CNY"}
+  },
+  "last_updated": 1793247811,
   "endpoints": {
     "default": [
       {
