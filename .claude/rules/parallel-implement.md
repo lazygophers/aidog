@@ -64,6 +64,11 @@ master 基线本身带红（该轮：vitest 1 红、flutter 4 红、aidog_db 2 �
   （别的会话提交）同样造成漂移——合并前再对一次，不等开工时那一次管全程。
 - 基点已落后且补丁已产出：按 shared-worktree.md「采信半成品」三前提处理——逐 hunk
   重审 + 主会话全量重跑门禁，不采信 agent 侧门禁结论。
+- **数据落库与代码票并行时，基点漂移的是数据**（2026-10-29 计费线票 19）：agent 基点
+  da764097d 下写断言「kimi/qianfan 无 tools_pricing → est_cost 0」，主会话随后落库
+  bc6628dee 给两家上了价，合并必红。采信前对 agent 测试里每条「某数据缺失 / 为空 /
+  为 0」断言，`git log <agent 基点>..HEAD -- src-tauri/defaults/registry/` 查基点后
+  有无数据提交；有就改按真值断言，或让断言自带 stub 数据不依赖 registry 现状。
 
 ## 5. 多补丁流水线：`git apply --check` 通过 ≠ 已应用（2026-10-08）
 
@@ -74,6 +79,9 @@ master 基线本身带红（该轮：vitest 1 红、flutter 4 红、aidog_db 2 �
   跑 `--check` 把应用留到之后。
 - 必须先查后做别的：应用完立即 `git status --short` 点数确认改动落盘，再转向下一个
   补丁——「检查过」不占「应用过」的位置。
+- **补丁里的新文件**（2026-10-29）：agent worktree 里新建的未跟踪文件不进 `git diff`，
+  导补丁前先 `git add -N <新文件>`（或让 agent 回报新文件清单）；主会话 apply 后
+  commit 前，新文件也要 `git add`，否则 `git commit -- <路径>` 报 pathspec 未跟踪而失败。
 
 ## 6. 多 agent 并行审计：结论互相冲突时主会话实证定论（2026-10-18）
 
@@ -90,6 +98,11 @@ master 基线本身带红（该轮：vitest 1 红、flutter 4 红、aidog_db 2 �
 - 交叉验证是必做步骤，不是可省的收尾：本例若无交叉验证，脚本 agent 的错误结论会
   保住 4000 行死码。合并多 agent 报告时显式找「两份报告对同一符号/文件的不同说法」
   逐条对账。
+- **reviewer agent 的发现同样先实证**（2026-10-29 计费线）：reviewer 报「tools 真值源
+  双源不对称」，主会话 grep 见 `default_tools_endpoints` 与 `is_tools_endpoint` 同走
+  `effective_presets`（billing.rs:281-283），属误报；成因是只读了纯函数测试直读
+  `presets()` 的路径。「双源 / 不对称 / 死码」类发现，采信前 grep 两侧调用链到同一个
+  源头再决定修不修。
 
 ## 7. agent 门禁结论的假绿盲区（2026-10-20 obs 轮实锤）
 
@@ -125,6 +138,14 @@ mitm_bypass 测试读加密列断言明文——子集门禁全绿，合并到 m
   全绿，成员 crate 的直通测试实际没跑——agent 自行补跑 `--workspace` 才暴露。票面 /
   派发 prompt 的 Rust 门禁一律写 `cargo test --workspace`；agent 拿到短命令自行补全
   并在回报注明。
+- **MARK 在场 ≠ 链跑完**（2026-10-29 计费线实锤）：`grep ... | head; echo MARK` 结构把
+  cargo 中途失败吞掉，MARK 照打。`grep -cE 'test result: ok'` 得 4、期望 34（cargo
+  编译期失败中断），差点当绿。门禁链除 MARK 外再核一个数：`test result: ok` 计数 =
+  suite 总数；开工前在干净 HEAD 数一次期望值写进派发 prompt（2026-10-29 为 34，随
+  crate 增减变，不当常量）。
+- **门禁脚本名从 `package.json` scripts 抄，不凭记忆写**（2026-10-29）：派单与票面模板
+  曾写 `yarn check-i18n`（不存在），真名 `yarn check:i18n`（同族：`check:registry` /
+  `check:modal` / `check:tokens` / `check:rpc` / `check:docs`），首链因此在尾步红。
 
 ## 7b. 门禁红先问「是不是我顺手改的」（2026-10-22 入站密钥轮）
 
