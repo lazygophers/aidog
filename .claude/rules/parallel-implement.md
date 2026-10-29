@@ -161,3 +161,21 @@ mitm_bypass 测试读加密列断言明文——子集门禁全绿，合并到 m
 排队——这是可接受代价，不改规则；但**派之前先数在途 agent 数**，排队会饿住关键
 路径（如 review 挡合并）时，把顺序重排或将轻票收给主会话自己干，而不是派完才发现
 卡在队尾。
+
+## 9. 整体 revert 旧提交撤功能：逐 hunk 归属复核（2026-10-29 去抽屉轮）
+
+去抽屉用 revert 15f85b503 + 91571e2b8 压成一提交（cc2fa3d87）。整体 revert 会连同旧提交里
+非目标改动一起删（该轮风险点：`duplicating` 复制平台、appbuilder 侧栏条目）。
+
+- 合并前派复核：对 revert diff 逐 hunk 标「属目标功能 / 属别的功能」，后者即误删，修回。
+- 以可达性证据收口：被删符号的其它入口仍在（该轮 `PlatformEditForm.tsx:287`、
+  `usePlatformsState.ts:704`），不凭「diff 看着没问题」。
+
+## 10. 门禁红先跑基线对照再归因；worktree 内 build:web 的限制（2026-10-29）
+
+- 升级依赖后 `yarn build:web` 红（`document is not defined at useThemeMode.ts:33`），agent 停下问
+  「跑基线还是认定无关」。只有一条路：直接 detach worktree 到升级前 commit、独立 `yarn install`
+  跑同一命令（perf-testing.md §7 双版本对照）；基线同红 = 预存，记遗留，不算升级回归。
+- `build:web`（next/turbopack）在 harness worktree 里因 `node_modules` 软链找不到 next
+  （`web/next.config.ts` 的 `turbopack.root`）。验证在主仓跑；非要在 worktree 跑，临时改
+  `turbopack.root` 并在提交前还原（该轮已还原、未入提交）。
