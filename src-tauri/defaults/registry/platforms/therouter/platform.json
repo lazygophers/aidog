@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790185041,
+  "last_updated": 1793290955,
   "endpoints": {
     "default": [
       {
@@ -180,7 +180,6 @@
       "openai/gpt-audio",
       "openai/gpt-audio-1.5",
       "openai/gpt-audio-mini",
-      "openai/gpt-image-1",
       "openai/gpt-image-1-mini",
       "openai/gpt-image-1.5",
       "openai/gpt-image-2",
@@ -190,10 +189,8 @@
       "openai/gpt-oss-safeguard-20b",
       "openai/gpt-realtime-2.1",
       "openai/gpt-realtime-2.1-mini",
-      "openai/o1",
       "openai/o3",
       "openai/o3-pro",
-      "openai/o4-mini",
       "qwen/qwen-flash",
       "qwen/qwen3.8-flash",
       "qwen/qwen3.8-27b",

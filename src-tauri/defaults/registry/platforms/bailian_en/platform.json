@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790184635,
+  "last_updated": 1793290955,
   "endpoints": {
     "default": [
       {
@@ -89,8 +89,6 @@
       "happyhorse-1.1-i2v",
       "happyhorse-1.1-r2v",
       "happyhorse-1.1-t2v",
-      "kimi-k2-thinking",
-      "kimi-k2.5",
       "kimi-k2.6",
       "kimi-k2.7-code",
       "kimi-k3",
