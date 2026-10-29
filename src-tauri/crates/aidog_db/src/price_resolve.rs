@@ -19,6 +19,13 @@ use crate::Db;
 use crate::models::ResolvedPrice;
 use serde_json::{Map, Value};
 
+/// CNY→USD 汇率（1 USD 兑 CNY 数）：`price.currency == "CNY"` 的条目单价 / `tools_pricing`
+/// 按次价换算 USD 计费用（est_cost 列全库统一 USD 口径）。值 6.6675 = ECB 参考汇率
+/// （frankfurter.dev `/v1/latest?base=USD&symbols=CNY`，2026-10-27 参考价，2026-10-28 取值）。
+/// 随版本更新（spec B6：不进 schema / DB / 运行时配置，汇率大变时改此常量重发版）。
+/// 真值源在 aidog_db（aidog_core 反向依赖它），`gateway::billing::CNY_PER_USD` 是再导出。
+pub const CNY_PER_USD: f64 = 6.6675;
+
 /// 旧顶层价格键 → `price` 子树简名（2026-08-30 收归迁移的映射表，Rust 侧仅用于
 /// 读取层归一化 DB 里未重同步的旧形状行；registry 仓库本身已全量迁移）。
 const LEGACY_UNIT_KEYS: [(&str, &str); 4] = [
@@ -299,19 +306,29 @@ pub fn resolve_price_from(
             p.get("input").and_then(Value::as_f64).unwrap_or(0.0) > 0.0
                 || p.get("output").and_then(Value::as_f64).unwrap_or(0.0) > 0.0
         });
-    match peak {
+    let peak_applied = match peak {
         Some(p) => {
             overlay_prices(&mut price, p);
             price.source.push_str("+peak");
-            PriceResolution {
-                price,
-                peak_applied: true,
-            }
+            true
         }
-        None => PriceResolution {
-            price,
-            peak_applied: false,
-        },
+        None => false,
+    };
+    // 币种换算（唯一入口）：条目 `price.currency == "CNY"` → 分档 / peak 叠完后的全部单价
+    // 除以汇率成 USD，所有下游（est_cost / 明细 / 模拟器 / 余额预估）共用。fallback 兜底价
+    // 本身是 USD，不换算；缺省 currency 按 USD。
+    if price_obj.get("currency").and_then(Value::as_str) == Some("CNY")
+        && price.source != "fallback"
+    {
+        price.input_cost_per_token /= CNY_PER_USD;
+        price.output_cost_per_token /= CNY_PER_USD;
+        price.cache_read_input_token_cost /= CNY_PER_USD;
+        price.cache_write_input_token_cost /= CNY_PER_USD;
+        price.cache_write_1h_input_token_cost /= CNY_PER_USD;
+    }
+    PriceResolution {
+        price,
+        peak_applied,
     }
 }
 

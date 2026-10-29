@@ -437,3 +437,65 @@ async fn db_legacy_row_bills_and_displays_through_normalization() {
         "展示层拿到的应是归一化后的 price 子树"
     );
 }
+
+// ---- price.currency = CNY → USD 换算（单一入口 resolve_price_from） ----
+
+fn cny_pd() -> serde_json::Value {
+    serde_json::json!({"price": {
+        "currency": "CNY", "input": 6.6675e-6, "output": 1.3335e-5, "cache_read": 6.6675e-7,
+        "peak": {"input": 1.3335e-5, "output": 2.667e-5},
+        "context_tiers": [{"min_tokens": 1000, "input": 3.33375e-5, "output": 6.6675e-5}],
+        "time_tiers": [{"start_at": 1000, "input": 2.0e-5, "output": 4.0e-5}]
+    }})
+}
+
+fn close(a: f64, b: f64) -> bool {
+    (a - b).abs() < 1e-15
+}
+
+#[test]
+fn cny_entry_divides_by_rate() {
+    let r = resolve_price_from(Some(&cny_pd()), false, 3.0, 3.0, 0, 0);
+    assert!(close(r.price.input_cost_per_token, 1e-6));
+    assert!(close(r.price.output_cost_per_token, 2e-6));
+    assert!(close(r.price.cache_read_input_token_cost, 1e-7));
+}
+
+#[test]
+fn usd_and_missing_currency_unchanged() {
+    for pd in [
+        serde_json::json!({"price": {"currency": "USD", "input": 1e-6, "output": 2e-6}}),
+        serde_json::json!({"price": {"input": 1e-6, "output": 2e-6}}),
+    ] {
+        let r = resolve_price_from(Some(&pd), false, 3.0, 3.0, 0, 0);
+        assert_eq!(r.price.input_cost_per_token, 1e-6);
+        assert_eq!(r.price.output_cost_per_token, 2e-6);
+    }
+}
+
+#[test]
+fn cny_peak_absolute_price_converted() {
+    let r = resolve_price_from(Some(&cny_pd()), true, 3.0, 3.0, 0, 0);
+    assert!(r.peak_applied);
+    assert!(close(r.price.input_cost_per_token, 2e-6));
+    assert!(close(r.price.output_cost_per_token, 4e-6));
+}
+
+#[test]
+fn cny_context_and_time_tiers_converted() {
+    let ctx = resolve_price_from(Some(&cny_pd()), false, 3.0, 3.0, 2000, 0);
+    assert!(close(ctx.price.input_cost_per_token, 5e-6));
+    let time = resolve_price_from(Some(&cny_pd()), false, 3.0, 3.0, 0, 2_000_000);
+    assert!(close(time.price.input_cost_per_token, 2.0e-5 / CNY_PER_USD));
+}
+
+#[test]
+fn cny_fallback_not_converted() {
+    // 无价 CNY 条目 → fallback（USD），不再除汇率
+    let pd = serde_json::json!({"price": {"currency": "CNY"}});
+    let r = resolve_price_from(Some(&pd), false, 3.0, 6.0, 0, 0);
+    assert_eq!(r.price.source, "fallback");
+    assert_eq!(r.price.input_cost_per_token, 3.0 / 1_000_000.0);
+    let none = resolve_price_from(None, false, 3.0, 6.0, 0, 0);
+    assert_eq!(none.price.input_cost_per_token, 3.0 / 1_000_000.0);
+}
