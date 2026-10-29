@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModelDetailDialog } from "./ModelDetailDialog";
+import { CostSimulator } from "./CostSimulator";
 import { CAPABILITIES, CapabilityBadges, capabilityLabel } from "./CapabilityBadges";
 import { PAGE_SIZE_OPTIONS, Pagination } from "./Pagination";
 import { ModelNameCell } from "./ModelName";
@@ -255,6 +256,7 @@ export function ModelInfoTab() {
           <TabsList>
             <TabsTrigger value="models">{t("modelInfo.tabModels")}</TabsTrigger>
             <TabsTrigger value="platforms">{t("modelInfo.tabPlatforms")}</TabsTrigger>
+            <TabsTrigger value="simulator">{t("simulator.tab")}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="models">
@@ -307,6 +309,10 @@ export function ModelInfoTab() {
               onSelect={setActivePlatform}
               query={query}
             />
+          </TabsContent>
+
+          <TabsContent value="simulator">
+            <CostSimulator groups={groups} labelMap={labelMap} />
           </TabsContent>
         </Tabs>
       )}

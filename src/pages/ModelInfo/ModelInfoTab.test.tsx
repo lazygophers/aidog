@@ -11,6 +11,9 @@ const settingsGetMock = vi.fn();
 vi.mock("../../services/api", () => ({
   modelInfoApi: { snapshot: () => snapshotMock() },
   priceSyncApi: { get: () => settingsGetMock(), set: vi.fn().mockResolvedValue(undefined) },
+  // 票 12 费用模拟器 tab 的依赖：本文件不打开该 tab，stub 防缺导出
+  costSimulatorApi: { estimate: vi.fn().mockResolvedValue({ est_cost: 0, price_source: "", is_peak: false, multiplier: 1 }) },
+  platformApi: { list: vi.fn().mockResolvedValue([]) },
   // registry-updated 订阅：测试环境无事件总线，no-op 注册器（同 usePlatformsState.test.ts idiom）。
   onRegistryUpdated: (_cb: () => void) => () => {},
 }));
