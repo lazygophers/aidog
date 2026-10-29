@@ -14,6 +14,8 @@ import {
   serializeDisableDuringPeak,
   parseDirectModels,
   serializeDirectModels,
+  parseAppbuilderKey,
+  serializeAppbuilderKey,
   parseMitmStats,
   serializeMitmStats,
   parsePlatformTimeWindows,
@@ -311,6 +313,32 @@ describe("serializeDirectModels", () => {
     expect(JSON.parse(serializeDirectModels("", [" m1 "])).direct_models).toEqual(["m1"]);
     expect(JSON.parse(serializeDirectModels("bad", ["m1"])).direct_models).toEqual(["m1"]);
     expect(JSON.parse(serializeDirectModels("[]", ["m1"])).direct_models).toEqual(["m1"]);
+  });
+});
+
+describe("parseAppbuilderKey", () => {
+  it.each(BAD)("非法/缺键 %s 回空串", (extra) => {
+    expect(parseAppbuilderKey(extra)).toBe("");
+  });
+
+  it("有键回字符串；非字符串值回空串", () => {
+    expect(parseAppbuilderKey('{"appbuilder_key":"bce-v3/abc"}')).toBe("bce-v3/abc");
+    expect(parseAppbuilderKey('{"appbuilder_key":123}')).toBe("");
+  });
+});
+
+describe("serializeAppbuilderKey", () => {
+  it("空白 → 删键（不留空串），保留兄弟键", () => {
+    const o = JSON.parse(serializeAppbuilderKey('{"mock":{},"appbuilder_key":"k1"}', "  "));
+    expect(o.appbuilder_key).toBeUndefined();
+    expect(o.mock).toEqual({});
+    expect(JSON.parse(serializeAppbuilderKey('{"appbuilder_key":"k1"}', "")).appbuilder_key).toBeUndefined();
+  });
+
+  it("有值 → trim 后写键；非法/数组 extra 重建", () => {
+    expect(JSON.parse(serializeAppbuilderKey("", " k1 ")).appbuilder_key).toBe("k1");
+    expect(JSON.parse(serializeAppbuilderKey("bad", "k1")).appbuilder_key).toBe("k1");
+    expect(JSON.parse(serializeAppbuilderKey("[]", "k1")).appbuilder_key).toBe("k1");
   });
 });
 

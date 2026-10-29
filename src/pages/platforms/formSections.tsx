@@ -1760,3 +1760,26 @@ export function DirectModelsSection({ models, setModels, t }: {
     </FormSection>
   );
 }
+
+/** qianfan AppBuilder 凭据（独立搜索转发，票 20）：AppBuilder key 独立于千帆模型服务 key，
+ *  存 platform.extra 顶层 appbuilder_key（票 19 转发读它发 X-Appbuilder-Authorization）。 */
+export function AppbuilderKeySection({ value, onChange, t }: {
+  value: string;
+  onChange: (v: string) => void;
+  t: TFunction;
+}) {
+  return (
+    <FormSection
+      title={t("platform.appbuilder_key", "AppBuilder 凭据")}
+      desc={t("platform.appbuilder_key_desc", "独立搜索/工具端点转发用的 AppBuilder key，与千帆模型服务 key 相互独立；留空表示未配置（搜索请求照常转发，401 走冷却）。")}
+    >
+      <Input
+        data-testid="appbuilder-key-input"
+        value={value}
+        placeholder={t("platform.appbuilder_key_placeholder", "AppBuilder API Key（bce-v3/...）")}
+        onChange={e => onChange(e.target.value)}
+        style={{ width: "100%", fontFamily: "var(--font-mono, monospace)", fontSize: 11, height: 28 }}
+      />
+    </FormSection>
+  );
+}
