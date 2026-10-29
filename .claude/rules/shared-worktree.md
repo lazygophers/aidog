@@ -200,13 +200,12 @@ harness 隔离建的 agent worktree 自带 lock，收工直接 `/usr/bin/git wor
    为空），checkout 才不会碰它们。本步只适用于第一种（当前不在 master）。
 4. 收尾 `/usr/bin/git status --short` 核对脏文件原样还在。
 
-## 推送走 origin，no-mistakes 远端可能已失效（2026-10-29）
+## 推送只走 origin（2026-10-29）
 
-`no-mistakes` 远端指向 `/Users/luoxin/.no-mistakes/repos/9d3abbd5e514.git`，该目录
-整个不存在时 push 报 `fatal: ... does not appear to be a git repository`（exit 128）。
-实际推送走 `origin`（GitHub `lazygophers/aidog`）：先 `git fetch origin &&
-git rev-list --left-right --count origin/master...master` 确认左边为 0（纯快进），再 `git push origin master`；origin 是公开远端，
-推送前仍按全局规则向用户确认一次。
+历史：`no-mistakes` 远端（目录 `/Users/luoxin/.no-mistakes/repos/9d3abbd5e514.git` 已不存在）
+已于 2026-10-29 `git remote remove`。现行做法：推送只走 `origin`（GitHub `lazygophers/aidog`），
+先 `git fetch origin && git rev-list --left-right --count origin/master...master`，左边为 0
+（纯快进）才 `git push origin master`；origin 是公开远端，推送前仍按全局规则向用户确认一次。
 
 ## 多个 agent 同时动主 checkout 的 master：串行（2026-10-29）
 
