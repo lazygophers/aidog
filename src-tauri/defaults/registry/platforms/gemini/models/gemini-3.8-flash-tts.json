@@ -1,0 +1,25 @@
+{
+  "last_updated": 1793292093,
+  "supported_protocols": [
+    "gemini"
+  ],
+  "model_id": "gemini-3.8-flash-tts",
+  "display_name": "Gemini 3.8 Flash TTS",
+  "canonical_model": "gemini-3.8-flash-tts",
+  "version": "3.8",
+  "family": "gemini",
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "capabilities": [
+    "audio"
+  ],
+  "max_input_tokens": 8192,
+  "max_output_tokens": 16384,
+  "context_window": 8192,
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 5e-07,
+    "output": 9e-06
+  }
+}

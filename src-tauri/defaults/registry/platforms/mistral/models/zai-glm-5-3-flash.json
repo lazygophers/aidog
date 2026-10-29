@@ -1,0 +1,27 @@
+{
+  "last_updated": 1793292093,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "zai-glm-5-3-flash",
+  "display_name": "Z.ai GLM 5.3 Flash",
+  "canonical_model": "glm-5.3-flash",
+  "version": "5.3",
+  "family": "glm",
+  "thinking_supported": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 128000,
+  "context_window": 1000000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.5e-07,
+    "output": 5e-06,
+    "cache_read": 3e-08
+  }
+}

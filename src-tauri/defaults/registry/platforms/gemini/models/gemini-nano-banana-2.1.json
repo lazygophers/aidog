@@ -1,0 +1,27 @@
+{
+  "last_updated": 1793292093,
+  "supported_protocols": [
+    "gemini"
+  ],
+  "model_id": "gemini-nano-banana-2.1",
+  "display_name": "Gemini Nano Banana 2.1",
+  "canonical_model": "gemini-nano-banana-2.1",
+  "version": "2.1",
+  "family": "gemini",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "capabilities": [
+    "text_to_image",
+    "image_to_image",
+    "image_edit"
+  ],
+  "max_input_tokens": 131072,
+  "max_output_tokens": 32768,
+  "context_window": 131072,
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 1.5e-06,
+    "output": 7.5e-06
+  }
+}

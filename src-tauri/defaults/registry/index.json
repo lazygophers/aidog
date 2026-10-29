@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793290955,
+  "last_updated": 1793292093,
   "platforms": [
     {
       "code": "aihubmix",
@@ -2379,6 +2379,13 @@
       "platform_file": "platforms/gemini/platform.json",
       "models_dir": "platforms/gemini/models",
       "models": [
+        "antigravity-preview-09-2026.json",
+        "gemini-3.8-flash-lite-tts.json",
+        "gemini-3.8-flash-tts.json",
+        "gemini-3.8-live-extended-thinking.json",
+        "gemini-3.8-live.json",
+        "gemini-4-argon.json",
+        "gemini-nano-banana-2.1.json",
         "antigravity-preview-05-2026.json",
         "claude-3-5-haiku.json",
         "claude-3-5-haiku@20241022.json",
@@ -2696,6 +2703,8 @@
       "platform_file": "platforms/kimi/platform.json",
       "models_dir": "platforms/kimi/models",
       "models": [
+        "kimi-k3.1-pro-highspeed.json",
+        "kimi-k3.1-pro.json",
         "kimi-k2.6.json",
         "kimi-k2.7-code-highspeed.json",
         "kimi-k2.7-code.json",
@@ -6708,6 +6717,13 @@
       "platform_file": "platforms/mistral/platform.json",
       "models_dir": "platforms/mistral/models",
       "models": [
+        "deepseek-v4-1-flash-1017.json",
+        "mistral-large-4-0.json",
+        "voxtral-mini-tts-3-0.json",
+        "voxtral-mini-transcribe-3-0.json",
+        "voxtral-mini-transcribe-realtime-3-0.json",
+        "voxtral-small-transcribe-3-0.json",
+        "zai-glm-5-3-flash.json",
         "codestral-2508.json",
         "codestral-embed-2505.json",
         "ministral-14b-2512.json",
@@ -7047,6 +7063,7 @@
       "platform_file": "platforms/openai/platform.json",
       "models_dir": "platforms/openai/models",
       "models": [
+        "gpt-6.1-terra.json",
         "chat-latest.json",
         "chatgpt-image-latest.json",
         "gpt-4.1-mini.json",

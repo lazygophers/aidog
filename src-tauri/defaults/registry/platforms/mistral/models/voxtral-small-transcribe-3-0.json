@@ -1,0 +1,22 @@
+{
+  "last_updated": 1793292093,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "voxtral-small-transcribe-3-0",
+  "display_name": "Voxtral Small Transcribe 3",
+  "canonical_model": "voxtral-small-transcribe-3-0",
+  "version": "3.0",
+  "family": "voxtral",
+  "capabilities": [
+    "audio"
+  ],
+  "max_input_tokens": 32000,
+  "context_window": 32000,
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "unit": "second",
+    "unit_price": 6.66667e-05
+  }
+}

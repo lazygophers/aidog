@@ -1,0 +1,22 @@
+{
+  "last_updated": 1793292093,
+  "supported_protocols": [
+    "gemini"
+  ],
+  "model_id": "antigravity-preview-09-2026",
+  "display_name": "Antigravity Agent",
+  "canonical_model": "antigravity-preview-09-2026",
+  "family": "antigravity",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 65536,
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.0,
+    "output": 0
+  }
+}

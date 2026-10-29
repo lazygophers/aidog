@@ -321,6 +321,16 @@ const NO_OFFICIAL_CHANNEL: &[&str] = &[
     // openrouter/shengsuanyun 的 `deepseek/deepseek-v4.1-flash` 条目承载（official:true，
     // id 前缀不同故此处按字符串匹配不到），nvidia NIM 条目本身 official:false。
     "deepseek-ai/deepseek-v4.1-flash",
+
+    // 2026-10-29 审计轮新增。mistral 官方目录在售
+    // （https://docs.mistral.ai/models/deepseek-v4-1-flash-1017/），DeepSeek 官方渠道由
+    // deepseek 平台的 `deepseek-flash` 条目承载（official:true，mistral 路由 id 前缀
+    // 不同故字符串匹配不到），mistral 条目本身 official:false。
+    "deepseek-v4-1-flash-1017",
+    // 同轮新增：mistral 在售的 Z.ai GLM 5.3 Flash，官方渠道由 glm/glm_en 平台的
+    // `glm-5.3-flash` 条目承载（official:true，mistral 路由 id 前缀不同），mistral 条目
+    // 本身 official:false。（https://docs.mistral.ai/models/zai-glm-5-3-flash/）
+    "zai-glm-5-3-flash",
 ];
 
 /// 每个 `model_id` 至少有一个 `official` 平台条目（模型维度列表默认展示官方条目，

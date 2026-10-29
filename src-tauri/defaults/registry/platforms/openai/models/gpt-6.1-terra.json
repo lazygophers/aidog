@@ -1,0 +1,39 @@
+{
+  "last_updated": 1793292093,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gpt-6.1-terra",
+  "display_name": "GPT-6.1 Terra",
+  "canonical_model": "gpt-6.1-terra",
+  "version": "6.1",
+  "family": "gpt",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 922000,
+  "max_output_tokens": 128000,
+  "context_window": 1050000,
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 1e-06,
+    "output": 5e-06,
+    "cache_read": 5e-08,
+    "cache_write": 1.25e-06,
+    "cache_write_1h": 2.5e-06,
+    "context_tiers": [
+      {
+        "min_tokens": 272001,
+        "input": 2e-06,
+        "output": 7.5e-06,
+        "cache_read": 1e-07
+      }
+    ]
+  }
+}
