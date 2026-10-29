@@ -116,6 +116,19 @@ export function segmentOptions(platforms: Platform[], t: TFunction): SegmentOpti
   ];
 }
 
+// 票 03：段颜色三态 → 预览实际色。preset/custom 都映射到具体色值，follow 用菜单栏前景。
+const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+const PRESET_COLORS: Record<string, string> = {
+  red: "var(--destructive)", green: "var(--success)", orange: "var(--warning)",
+};
+const ALIGN_FLEX: Record<string, string> = { left: "flex-start", center: "center", right: "flex-end" };
+
+export function segColor(c: TrayItem["color"]): string {
+  if (c.mode === "preset") return PRESET_COLORS[c.value] ?? "var(--mb-fg-strong)";
+  if (c.mode === "custom" && HEX_RE.test(c.value)) return c.value;
+  return "var(--mb-fg-strong)";
+}
+
 /** 预览值。routed_platform / peak 由后端按实时路由算，前端只占位。 */
 export function previewValue(
   item: TrayItem,
@@ -166,6 +179,214 @@ export function toggleSegment(items: TrayItem[], opt: SegmentOption): TrayItem[]
   return sorted.map((it, i) => ({ ...it, order: i }));
 }
 
+// ── 票 03：段编辑面板 —— TrayItem 全部可编辑字段就地露出，编辑即持久化 ──
+const editorInput: React.CSSProperties = {
+  background: "var(--background)", border: "1px solid var(--input)", borderRadius: 6,
+  padding: "5px 9px", fontSize: 12, color: "var(--foreground)", width: 90, outline: "none",
+};
+const editorBtn: React.CSSProperties = {
+  border: "1px solid var(--input)", background: "var(--card)", borderRadius: 6,
+  padding: "4px 10px", fontSize: 11.5, cursor: "pointer", color: "var(--muted-foreground)",
+};
+const editorBtnActive: React.CSSProperties = {
+  ...editorBtn, borderColor: "var(--primary)", color: "var(--accent)", background: "var(--accent-subtle)",
+};
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 0.8, color: "var(--muted-foreground)", textTransform: "uppercase" }}>
+      {children}
+    </span>
+  );
+}
+
+export function SegmentEditor({
+  seg, t, onPatch,
+}: {
+  seg: TrayItem;
+  t: TFunction;
+  onPatch: (patch: Partial<TrayItem>) => void;
+}) {
+  const [customOn, setCustomOn] = useState(seg.color.mode === "custom");
+  const [hex, setHex] = useState(seg.color.mode === "custom" ? seg.color.value : "");
+  const [hexInvalid, setHexInvalid] = useState(false);
+  const two = seg.line_mode === "two";
+  const curRow2 = seg.align_row2 ?? seg.align;
+
+  const patchHex = (v: string) => {
+    setHex(v);
+    if (HEX_RE.test(v)) {
+      setHexInvalid(false);
+      onPatch({ color: { mode: "custom", value: v } });
+    } else {
+      // 非法 hex 不落库，只标红提示
+      setHexInvalid(v.length > 0);
+    }
+  };
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px 18px", alignItems: "start" }}>
+      {/* label */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        <FieldLabel>{t("tray.customLabel", "自定义标签")}</FieldLabel>
+        <input
+          data-testid="tray-edit-label"
+          value={seg.label ?? ""}
+          placeholder={t("tray.customLabelPlaceholder", "留空使用默认名")}
+          onChange={(e) => onPatch({ label: e.target.value || null })}
+          style={{ ...editorInput, width: "100%" }}
+        />
+      </div>
+      {/* decimals */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        <FieldLabel>{t("tray.decimals", "小数位")}</FieldLabel>
+        <input
+          type="number" min={0} max={8}
+          data-testid="tray-edit-decimals"
+          value={seg.decimals ?? 5}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            if (!Number.isNaN(n)) onPatch({ decimals: Math.max(0, Math.min(8, Math.round(n))) });
+          }}
+          style={editorInput}
+        />
+      </div>
+      {/* color 三态 */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        <FieldLabel>{t("tray.color", "颜色")}</FieldLabel>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            data-testid="tray-edit-color-follow"
+            data-state={seg.color.mode === "follow" ? "active" : ""}
+            style={seg.color.mode === "follow" ? editorBtnActive : editorBtn}
+            onClick={() => { setCustomOn(false); setHexInvalid(false); onPatch({ color: { mode: "follow", value: "" } }); }}
+          >
+            {t("tray.colorFollow", "跟随主题")}
+          </button>
+          <button
+            data-testid="tray-edit-color-preset"
+            data-state={seg.color.mode === "preset" ? "active" : ""}
+            style={seg.color.mode === "preset" ? editorBtnActive : editorBtn}
+            onClick={() => { setCustomOn(false); setHexInvalid(false); onPatch({ color: { mode: "preset", value: seg.color.mode === "preset" ? seg.color.value : "red" } }); }}
+          >
+            {t("tray.colorPreset", "预设")}
+          </button>
+          {seg.color.mode === "preset" && ["red", "green", "orange"].map((v) => (
+            <button
+              key={v}
+              data-testid={`tray-edit-preset-${v}`}
+              data-state={seg.color.value === v ? "active" : ""}
+              style={seg.color.value === v ? editorBtnActive : editorBtn}
+              onClick={() => onPatch({ color: { mode: "preset", value: v } })}
+            >
+              <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: PRESET_COLORS[v] }} />
+            </button>
+          ))}
+          <button
+            data-testid="tray-edit-color-custom"
+            data-state={seg.color.mode === "custom" ? "active" : ""}
+            style={seg.color.mode === "custom" ? editorBtnActive : editorBtn}
+            onClick={() => {
+              setCustomOn(true);
+              if (HEX_RE.test(hex)) onPatch({ color: { mode: "custom", value: hex } });
+            }}
+          >
+            {t("tray.colorCustom", "自定义")}
+          </button>
+        </div>
+        {customOn && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <input
+              data-testid="tray-edit-hex"
+              value={hex}
+              placeholder="#RRGGBB"
+              onChange={(e) => patchHex(e.target.value)}
+              style={{ ...editorInput, width: 110, borderColor: hexInvalid ? "var(--destructive)" : editorInput.borderColor }}
+            />
+            {hexInvalid && (
+              <span data-testid="tray-edit-hex-invalid" style={{ fontSize: 10.5, color: "var(--destructive)" }}>
+                {t("tray.colorInvalid", "颜色格式无效，请输入如 #RRGGBB")}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+      {/* font_size */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        <FieldLabel>{t("tray.fontSize", "字号")}</FieldLabel>
+        <input
+          type="number" min={7} max={32}
+          data-testid="tray-edit-fontsize"
+          value={seg.font_size}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            if (!Number.isNaN(n) && n >= 7 && n <= 32) onPatch({ font_size: Math.round(n) });
+          }}
+          style={editorInput}
+        />
+      </div>
+      {/* line_mode */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        <FieldLabel>{t("tray.lineMode", "行模式")}</FieldLabel>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            data-testid="tray-edit-line-single"
+            data-state={!two ? "active" : ""}
+            style={!two ? editorBtnActive : editorBtn}
+            onClick={() => onPatch({ line_mode: "single" })}
+          >
+            {t("tray.lineModeSingle", "单行")}
+          </button>
+          <button
+            data-testid="tray-edit-line-two"
+            data-state={two ? "active" : ""}
+            style={two ? editorBtnActive : editorBtn}
+            onClick={() => onPatch({ line_mode: "two" })}
+          >
+            {t("tray.lineModeTwo", "两行")}
+          </button>
+        </div>
+      </div>
+      {/* align */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        <FieldLabel>{t("tray.align", "对齐")}</FieldLabel>
+        <div style={{ display: "flex", gap: 6 }}>
+          {["left", "center", "right"].map((v) => (
+            <button
+              key={v}
+              data-testid={`tray-edit-align-${v}`}
+              data-state={seg.align === v ? "active" : ""}
+              style={seg.align === v ? editorBtnActive : editorBtn}
+              onClick={() => onPatch({ align: v })}
+            >
+              {t(`tray.align${v.charAt(0).toUpperCase()}${v.slice(1)}`, v)}
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* align_row2（仅两行模式） */}
+      {two && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          <FieldLabel>{t("tray.alignRow2", "值行对齐")}</FieldLabel>
+          <div style={{ display: "flex", gap: 6 }}>
+            {["left", "center", "right"].map((v) => (
+              <button
+                key={v}
+                data-testid={`tray-edit-align2-${v}`}
+                data-state={curRow2 === v ? "active" : ""}
+                style={curRow2 === v ? editorBtnActive : editorBtn}
+                onClick={() => onPatch({ align_row2: v })}
+              >
+                {t(`tray.align${v.charAt(0).toUpperCase()}${v.slice(1)}`, v)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function TrayConfigTab() {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -173,6 +394,7 @@ export function TrayConfigTab() {
   const [todayStats, setTodayStats] = useState<TodayStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -206,12 +428,20 @@ export function TrayConfigTab() {
   }, []);
 
   const options = useMemo(() => segmentOptions(platforms, t), [platforms, t]);
+  // 票 03：编辑指定段的字段，走与勾选同一条 persist 通道
+  const patchItem = useCallback((key: string, patch: Partial<TrayItem>) => {
+    persist({
+      ...config,
+      items: config.items.map((it) => (segmentKey(it) === key ? { ...it, ...patch } : it)),
+    });
+  }, [config, persist]);
   const selected = useMemo(
     () => config.items.filter((i) => i.enabled).sort((a, b) => a.order - b.order),
     [config],
   );
   const selectedKeys = new Set(selected.map(segmentKey));
   const full = selected.length >= MAX_SEGMENTS;
+  const editingSeg = selected.find((s) => segmentKey(s) === editingKey) ?? null;
   // 迁移留下的项：关着、且不在候选清单里（旧 separator / 已删平台）。
   const keptDisabled = config.items.filter(
     (i) => !i.enabled && !options.some((o) => o.key === segmentKey(i)),
@@ -274,10 +504,27 @@ export function TrayConfigTab() {
                   <span style={{ color: "var(--mb-fg-dim)", fontStyle: "italic" }}>{t("tray.previewEmpty", "暂无展示项")}</span>
                 ) : selected.map((seg) => {
                   const opt = options.find((o) => o.key === segmentKey(seg));
+                  const two = seg.line_mode === "two";
                   return (
-                    <span key={segmentKey(seg)} data-testid={`tray-segment-${segmentKey(seg)}`} style={{ display: "flex", gap: 5, whiteSpace: "nowrap" }}>
+                    <span
+                      key={segmentKey(seg)}
+                      data-testid={`tray-segment-${segmentKey(seg)}`}
+                      style={{
+                        display: "flex", flexDirection: two ? "column" : "row",
+                        alignItems: two ? (ALIGN_FLEX[seg.align] ?? "flex-start") : "center",
+                        gap: two ? 1 : 5, whiteSpace: "nowrap", textAlign: seg.align as React.CSSProperties["textAlign"],
+                        fontSize: seg.font_size,
+                      }}
+                    >
                       {seg.label || opt?.label || segmentKey(seg)}
-                      <span style={{ color: "var(--mb-fg-strong)" }}>{previewValue(seg, platforms, todayStats)}</span>
+                      <span
+                        style={{
+                          color: segColor(seg.color),
+                          alignSelf: two ? (ALIGN_FLEX[seg.align_row2 ?? seg.align] ?? "flex-start") : undefined,
+                        }}
+                      >
+                        {previewValue(seg, platforms, todayStats)}
+                      </span>
                     </span>
                   );
                 })}
@@ -308,7 +555,13 @@ export function TrayConfigTab() {
                 }
                 const opt = options.find((o) => o.key === segmentKey(seg));
                 return (
-                  <div key={i} data-testid={`tray-slot-${i}`} data-state="filled" style={{ flex: 1, border: "1px solid var(--border)", background: "var(--secondary)", borderRadius: 9, minHeight: 66, display: "flex", flexDirection: "column", justifyContent: "center", gap: 3, padding: "10px 14px", position: "relative" }}>
+                  <div
+                    key={i}
+                    data-testid={`tray-slot-${i}`}
+                    data-state="filled"
+                    onClick={() => setEditingKey(segmentKey(seg))}
+                    style={{ flex: 1, border: "1px solid var(--border)", background: "var(--secondary)", borderRadius: 9, minHeight: 66, display: "flex", flexDirection: "column", justifyContent: "center", gap: 3, padding: "10px 14px", position: "relative", cursor: "pointer" }}
+                  >
                     <span style={{ position: "absolute", top: -9, left: 12, fontFamily: MONO, fontSize: 9.5, background: "var(--card)", border: "1px solid var(--border)", borderRadius: 4, padding: "1px 7px", letterSpacing: 1, lineHeight: 1.4 }}>
                       {t("tray.slotIndex", "SLOT {{n}}", { n: i + 1 })}
                     </span>
@@ -318,6 +571,16 @@ export function TrayConfigTab() {
                 );
               })}
             </div>
+            {/* 票 03：段编辑面板 —— 点已装载槽就地展开，编辑即持久化 */}
+            {editingSeg && (
+              <div
+                data-testid="tray-editor"
+                data-editing={editingKey}
+                style={{ margin: "0 18px 18px", borderTop: "1px solid var(--border)", paddingTop: 14 }}
+              >
+                <SegmentEditor seg={editingSeg} t={t} onPatch={(p) => patchItem(editingKey!, p)} />
+              </div>
+            )}
           </TraySectionCard>
 
           {/* ── 卡 2：候选库（静态壳，装载交互在票 02 接 toggleSegment + persist）── */}

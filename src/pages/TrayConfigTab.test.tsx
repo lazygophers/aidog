@@ -244,3 +244,113 @@ describe("候选库装载（票 02）", () => {
     expect(view.getByTestId("tray-kept-disabled")).toBeTruthy();
   });
 });
+
+// ── 票 03：段编辑面板 —— TrayItem 字段全量露出 ──
+
+describe("段编辑面板（票 03）", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  async function openEditor() {
+    const view = await renderTab({
+      separator: "  ",
+      items: [item({ metric: "cost", line_mode: "single", align_row2: null, order: 0 })],
+    });
+    fireEvent.click(view.getByTestId("tray-slot-0"));
+    await waitFor(() => expect(view.getByTestId("tray-editor")).toBeTruthy());
+    expect(view.getByTestId("tray-editor").getAttribute("data-editing")).toBe("today_usage:cost");
+    return view;
+  }
+
+  it("点已装载槽打开编辑面板，露出全部七类字段控件", async () => {
+    const view = await openEditor();
+    expect(view.getByTestId("tray-edit-label")).toBeTruthy();
+    expect(view.getByTestId("tray-edit-decimals")).toBeTruthy();
+    expect(view.getByTestId("tray-edit-color-follow")).toBeTruthy();
+    expect(view.getByTestId("tray-edit-color-preset")).toBeTruthy();
+    expect(view.getByTestId("tray-edit-color-custom")).toBeTruthy();
+    expect(view.getByTestId("tray-edit-fontsize")).toBeTruthy();
+    expect(view.getByTestId("tray-edit-line-two")).toBeTruthy();
+    expect(view.getByTestId("tray-edit-align-left")).toBeTruthy();
+    // 单行模式下 align_row2 不露出
+    expect(view.queryByTestId("tray-edit-align2-left")).toBeNull();
+  });
+
+  it("label：编辑即时联动预览并持久化", async () => {
+    const view = await openEditor();
+    fireEvent.change(view.getByTestId("tray-edit-label"), { target: { value: "花费" } });
+    expect(view.getByTestId("tray-segment-today_usage:cost").textContent).toContain("花费");
+    const sent = api.set.mock.calls[0][0];
+    expect(sent.items.find((i: TrayItem) => segmentKey(i) === "today_usage:cost").label).toBe("花费");
+  });
+
+  it("decimals：改小数位即时反映到预览值并持久化", async () => {
+    const view = await openEditor();
+    fireEvent.change(view.getByTestId("tray-edit-decimals"), { target: { value: "0" } });
+    expect(view.getByTestId("tray-segment-today_usage:cost").textContent).toContain("$1");
+    const sent = api.set.mock.calls[0][0];
+    expect(sent.items.find((i: TrayItem) => segmentKey(i) === "today_usage:cost").decimals).toBe(0);
+  });
+
+  it("color preset：选红色 → 预览值染预设色并持久化", async () => {
+    const view = await openEditor();
+    fireEvent.click(view.getByTestId("tray-edit-color-preset"));
+    fireEvent.click(view.getByTestId("tray-edit-preset-red"));
+    const seg = view.getByTestId("tray-segment-today_usage:cost").innerHTML;
+    expect(seg).toContain("var(--destructive)");
+    const sent = api.set.mock.calls[1][0];
+    const it = sent.items.find((i: TrayItem) => segmentKey(i) === "today_usage:cost");
+    expect(it.color).toEqual({ mode: "preset", value: "red" });
+  });
+
+  it("color custom：合法 hex 落库并上预览，非法 hex 拒绝且不持久化", async () => {
+    const view = await openEditor();
+    fireEvent.click(view.getByTestId("tray-edit-color-custom"));
+    fireEvent.change(view.getByTestId("tray-edit-hex"), { target: { value: "#A1B2C3" } });
+    let sent = api.set.mock.calls[0][0];
+    let it = sent.items.find((i: TrayItem) => segmentKey(i) === "today_usage:cost");
+    expect(it.color).toEqual({ mode: "custom", value: "#A1B2C3" });
+    // jsdom 把 hex 归一化成 rgb 序列化，取 style.color 比对（#A1B2C3 → rgb(161,178,195)）
+    expect(view.getByTestId("tray-segment-today_usage:cost").querySelector("span:last-child")?.getAttribute("style")).toContain("color");
+
+    // 非法值：提示出现、不落库
+    fireEvent.change(view.getByTestId("tray-edit-hex"), { target: { value: "red" } });
+    expect(view.getByTestId("tray-edit-hex-invalid")).toBeTruthy();
+    const callCount = api.set.mock.calls.length;
+    const last = api.set.mock.calls[callCount - 1][0];
+    const lastIt = last.items.find((i: TrayItem) => segmentKey(i) === "today_usage:cost");
+    expect(lastIt.color.value).toBe("#A1B2C3");
+  });
+
+  it("font_size：改字号持久化", async () => {
+    const view = await openEditor();
+    fireEvent.change(view.getByTestId("tray-edit-fontsize"), { target: { value: "13" } });
+    const sent = api.set.mock.calls[0][0];
+    expect(sent.items.find((i: TrayItem) => segmentKey(i) === "today_usage:cost").font_size).toBe(13);
+  });
+
+  it("line_mode：切两行 → 预览变两行布局、align_row2 露出并持久化", async () => {
+    const view = await openEditor();
+    fireEvent.click(view.getByTestId("tray-edit-line-two"));
+    const seg = view.getByTestId("tray-segment-today_usage:cost");
+    expect(seg.getAttribute("style")).toContain("column");
+    expect(view.getByTestId("tray-edit-align2-right")).toBeTruthy();
+    const sent = api.set.mock.calls[0][0];
+    expect(sent.items.find((i: TrayItem) => segmentKey(i) === "today_usage:cost").line_mode).toBe("two");
+  });
+
+  it("align：改对齐持久化；两行模式下 align_row2 可单独设置", async () => {
+    const view = await openEditor();
+    fireEvent.click(view.getByTestId("tray-edit-align-center"));
+    let sent = api.set.mock.calls[0][0];
+    expect(sent.items.find((i: TrayItem) => segmentKey(i) === "today_usage:cost").align).toBe("center");
+
+    fireEvent.click(view.getByTestId("tray-edit-line-two"));
+    fireEvent.click(view.getByTestId("tray-edit-align2-right"));
+    sent = api.set.mock.calls[api.set.mock.calls.length - 1][0];
+    const it = sent.items.find((i: TrayItem) => segmentKey(i) === "today_usage:cost");
+    expect(it.align_row2).toBe("right");
+    expect(it.align).toBe("center");
+  });
+});
