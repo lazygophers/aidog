@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const invoke = vi.hoisted(() => vi.fn());
-// isTauri 在 transport 里是函数；frontendLog 里写成 `!isTauri`（函数恒真），见回报。
-vi.mock("../services/transport", () => ({ invoke, isTauri: () => true }));
+const isTauri = vi.hoisted(() => vi.fn(() => true));
+vi.mock("../services/transport", () => ({ invoke, isTauri }));
 
 const LEVELS = ["error", "warn", "info", "debug"] as const;
 const con = console as unknown as Record<string, unknown>;
@@ -17,6 +17,7 @@ async function load() {
 beforeEach(() => {
   invoke.mockReset();
   invoke.mockResolvedValue(undefined);
+  isTauri.mockReturnValue(true);
   // 让 install 绑定到可观察的 stub，避免测试输出污染
   for (const [l, f] of stubs) {
     f.mockClear();
@@ -55,6 +56,16 @@ describe("installFrontendLog", () => {
     install();
     expect(() => console.error("x")).not.toThrow();
     await Promise.resolve();
+  });
+
+  it("非 Tauri 环境：不 patch console、不 invoke", async () => {
+    isTauri.mockReturnValue(false);
+    const before = console.error;
+    const install = await load();
+    install();
+    expect(console.error).toBe(before);
+    console.error("x");
+    expect(invoke).not.toHaveBeenCalled();
   });
 
   it("重复调用只装一次", async () => {

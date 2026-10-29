@@ -249,4 +249,22 @@ rpc_routes! {
     aidog_core::proxy_cmd::mitm::mitm_whitelist_clear,
     aidog_core::proxy_cmd::mitm::mitm_whitelist_test_url,
     aidog_core::proxy_cmd::mitm::mitm_reset_suspects,
+    // 前端已调、此前漏登记（浏览器形态 404）。db_master_key_reveal 故意不登记：
+    // 弹宿主机 osascript 管理员窗并把主密钥经 HTTP 回传，见 scripts/check-frontend-rpc-coverage.mjs 白名单。
+    aidog_core::proxy_cmd::proxy_log::group_platform_breakdown,
+    aidog_core::proxy_cmd::proxy_log::group_daily_usage,
+    aidog_core::proxy_cmd::proxy_log::group_latest_routing,
+    aidog_core::proxy_cmd::mitm_stats::mitm_usage_trend,
+    aidog_core::proxy_cmd::mitm_stats::mitm_oauth_refresh_stats,
+    aidog_core::proxy_cmd::mitm_stats::mitm_bypass_list,
+    aidog_core::proxy_cmd::mitm_stats::mitm_bypass_detail,
+    aidog_core::proxy_cmd::mitm_stats::mitm_opaque_count,
+    aidog_core::proxy_cmd::mitm_stats::cc_plan_info,
+    aidog_core::proxy_cmd::mitm_stats::cc_proxy_export,
+    aidog_core::system_cmd::notification::notification_test_channel,
+    aidog_core::system_cmd::notification::notification_delivery_list,
+    aidog_core::system_cmd::notification::notification_rule_validate,
+    aidog_core::platform_cmd::platform::platform_error_status,
+    aidog_core::proxy_cmd::cost_simulator::simulator_est_cost,
+    aidog_core::system_cmd::app_log::app_log_frontend,
 }
