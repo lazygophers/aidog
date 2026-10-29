@@ -82,28 +82,31 @@ export function CostSimulator({ groups, labelMap }: {
     }));
   }, [group, platforms]);
 
-  // 实时重算：候选平台各调一次 simulator_est_cost
+  // 实时重算：候选平台各调一次 simulator_est_cost。150ms 防抖——滑杆每档位都触发时
+  // 不对 N 平台逐档轰炸 IPC（review 修复轮）。
   useEffect(() => {
     let cancelled = false;
     const runnable = candidates.filter(c => c.platform);
     if (runnable.length === 0) { setResults({}); return; }
-    Promise.all(runnable.map(c =>
-      costSimulatorApi.estimate({
-        platformId: c.platform!.id,
-        modelName: c.entry.model_id,
-        inputTokens: Math.round(tokens.input),
-        outputTokens: Math.round(tokens.output),
-        cacheTokens: Math.round(tokens.cache_read),
-        cacheWriteTokens: Math.round(tokens.cache_write),
-      }).then(dto => [c.entry.platform_code, dto] as const)
-        .catch(e => { console.error(e); return null; })
-    )).then(pairs => {
-      if (cancelled) return;
-      const next: Record<string, SimulatorEstCostDto> = {};
-      for (const p of pairs) if (p) next[p[0]] = p[1];
-      setResults(next);
-    });
-    return () => { cancelled = true; };
+    const timer = setTimeout(() => {
+      Promise.all(runnable.map(c =>
+        costSimulatorApi.estimate({
+          platformId: c.platform!.id,
+          modelName: c.entry.model_id,
+          inputTokens: Math.round(tokens.input),
+          outputTokens: Math.round(tokens.output),
+          cacheTokens: Math.round(tokens.cache_read),
+          cacheWriteTokens: Math.round(tokens.cache_write),
+        }).then(dto => [c.entry.platform_code, dto] as const)
+          .catch(e => { console.error(e); return null; })
+      )).then(pairs => {
+        if (cancelled) return;
+        const next: Record<string, SimulatorEstCostDto> = {};
+        for (const p of pairs) if (p) next[p[0]] = p[1];
+        setResults(next);
+      });
+    }, 150);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [candidates, tokens]);
 
   const primary = candidates.find(c => c.platform && c.entry.platform_code === group?.primary_platform)
@@ -266,21 +269,18 @@ export function CostSimulator({ groups, labelMap }: {
                   <TableHead style={{ textAlign: "right" }}>{t("simulator.colUnit")}</TableHead>
                   <TableHead style={{ textAlign: "right" }}>{t("simulator.colQty")}</TableHead>
                   <TableHead style={{ textAlign: "right" }}>{t("simulator.colMult")}</TableHead>
-                  <TableHead style={{ textAlign: "right" }}>{t("simulator.colSubtotal")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {DIMS.map(dim => {
                   const qty = Math.round(tokens[dim]);
                   const unit = primaryPrice?.[dim];
-                  const sub = typeof unit === "number" ? qty / 1e6 * unit * primaryDto.multiplier : null;
                   return (
                     <TableRow key={dim} data-testid={`sim-row-${dim}`}>
                       <TableCell>{t(`simulator.dim.${dim}`)}</TableCell>
                       <TableCell style={{ textAlign: "right" }}>{typeof unit === "number" ? formatCostUsd(unit * 1e6) : "-"}</TableCell>
                       <TableCell style={{ textAlign: "right" }}>{qty.toLocaleString()}</TableCell>
                       <TableCell style={{ textAlign: "right" }}>×{primaryDto.multiplier}</TableCell>
-                      <TableCell style={{ textAlign: "right" }}>{sub == null ? "-" : formatCostUsd(sub)}</TableCell>
                     </TableRow>
                   );
                 })}

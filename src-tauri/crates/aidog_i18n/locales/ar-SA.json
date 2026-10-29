@@ -1721,7 +1721,6 @@
   "simulator.colUnit": "سعر الوحدة $/M",
   "simulator.colQty": "الكمية",
   "simulator.colMult": "×المعامل",
-  "simulator.colSubtotal": "المجموع الجزئي",
   "simulator.compare": "مقارنة المنصات",
   "simulator.lowest": "الأدنى في المجموعة ✓",
   "simulator.unsupported": "غير قابل للتسعير",

@@ -1721,7 +1721,6 @@
   "simulator.colUnit": "Einzelpreis $/M",
   "simulator.colQty": "Menge",
   "simulator.colMult": "×Faktor",
-  "simulator.colSubtotal": "Zwischensumme",
   "simulator.compare": "Plattformvergleich",
   "simulator.lowest": "Gruppenweit am günstigsten ✓",
   "simulator.unsupported": "Nicht berechenbar",

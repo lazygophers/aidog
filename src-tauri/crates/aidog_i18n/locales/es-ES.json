@@ -1699,7 +1699,6 @@
   "simulator.colUnit": "Precio unitario $/M",
   "simulator.colQty": "Cantidad",
   "simulator.colMult": "×Multiplicador",
-  "simulator.colSubtotal": "Subtotal",
   "simulator.compare": "Comparación multiplataforma",
   "simulator.lowest": "El más bajo del grupo ✓",
   "simulator.unsupported": "No tarificable",
