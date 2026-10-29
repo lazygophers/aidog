@@ -1,6 +1,8 @@
 // 票 I15：托盘配置从二维网格降成「最多挑 3 项」。这里锁的是迁移规则本身 ——
 // 取消勾选只翻 enabled，绝不删项；满 3 项后再勾无效。
-import { describe, it, expect } from "vitest";
+// 票 托盘设置-重设计/01：页面骨架 + 实时预览条（C 方向），组件级 vitest 锚 testid/data-state。
+import { beforeEach, describe, it, expect, vi } from "vitest";
+import { render, waitFor } from "../test/render";
 import {
   MAX_SEGMENTS,
   segmentKey,
@@ -78,5 +80,102 @@ describe("previewValue", () => {
   it("命中平台 / 高峰由后端实时算，前端占位", () => {
     expect(previewValue(item({ item_type: "routed_platform", metric: null }), [], null)).toBe("—");
     expect(previewValue(item({ item_type: "peak", metric: null }), [], null)).toBe("—");
+  });
+});
+
+// ── 票 01：页面骨架 + 实时预览条 ──
+
+const api = vi.hoisted(() => ({
+  list: vi.fn(),
+  get: vi.fn(),
+  todayStats: vi.fn(),
+  set: vi.fn(),
+  onProxyLogUpdated: vi.fn(),
+}));
+vi.mock("../services/api", () => ({
+  platformApi: { list: api.list },
+  trayConfigApi: { get: api.get, set: api.set, todayStats: api.todayStats },
+  onProxyLogUpdated: api.onProxyLogUpdated,
+}));
+
+const stats = { tokens: 1240000, input_tokens: 0, output_tokens: 0, cache_tokens: 0, cache_rate: 74, cost: 1.25, total_requests: 86 };
+
+async function renderTab() {
+  const { TrayConfigTab } = await import("./TrayConfigTab");
+  api.list.mockResolvedValue([]);
+  api.get.mockResolvedValue({
+    separator: "  ",
+    items: [
+      item({ metric: "cost", order: 0 }),
+      item({ metric: "tokens", order: 1 }),
+    ],
+  });
+  api.todayStats.mockResolvedValue(stats);
+  api.onProxyLogUpdated.mockReturnValue(() => {});
+  const view = render(<TrayConfigTab />);
+  await waitFor(() => expect(view.getByTestId("tray-menubar")).toBeTruthy());
+  return view;
+}
+
+describe("TrayConfigTab 骨架与预览（票 01）", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("预览条按装载顺序渲染段，数值随 todayStats 实时刷新", async () => {
+    const view = await renderTab();
+    const bar = view.getByTestId("tray-menubar");
+    expect(bar.getAttribute("style")).toContain("var(--mb-bg)");
+    expect(view.getByTestId("tray-segment-today_usage:cost").textContent).toContain("$1.25");
+    expect(view.getByTestId("tray-segment-today_usage:tokens").textContent).toContain("1240000 tok");
+  });
+
+  it("页头 n/3 计数反映已装载段数", async () => {
+    const view = await renderTab();
+    expect(view.getByTestId("tray-count").textContent).toContain("2");
+    expect(view.getByTestId("tray-count").textContent).toContain("3");
+  });
+
+  it("装载槽 3 个：已装载槽显示段值，空槽标 empty", async () => {
+    const view = await renderTab();
+    expect(view.getByTestId("tray-slot-0").getAttribute("data-state")).toBe("filled");
+    expect(view.getByTestId("tray-slot-0").textContent).toContain("$1.25");
+    expect(view.getByTestId("tray-slot-1").getAttribute("data-state")).toBe("filled");
+    expect(view.getByTestId("tray-slot-2").getAttribute("data-state")).toBe("empty");
+  });
+
+  it("候选库静态壳：芯片带 loaded/空 data-state（交互在票 02 接）", async () => {
+    const view = await renderTab();
+    expect(view.getByTestId("tray-chip-today_usage:cost").getAttribute("data-state")).toBe("loaded");
+    expect(view.getByTestId("tray-chip-today_usage:tokens").getAttribute("data-state")).toBe("loaded");
+    expect(view.getByTestId("tray-chip-peak").getAttribute("data-state")).toBe("");
+  });
+
+  it("预览条颜色走主题 token，页内无字面色（禁硬编码色）", async () => {
+    const view = await renderTab();
+    const bar = view.getByTestId("tray-menubar").getAttribute("style") ?? "";
+    for (const tok of ["var(--mb-bg)", "var(--mb-border)", "var(--mb-fg)"]) {
+      expect(bar).toContain(tok);
+    }
+    const seg = view.getByTestId("tray-segment-today_usage:cost");
+    expect(seg.innerHTML).toContain("var(--mb-fg-strong)");
+    // 整页渲染树不出现字面色值
+    expect(view.container.innerHTML).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(view.container.innerHTML).not.toMatch(/rgba?\(/);
+  });
+
+  it("双主题：globals.css 的 light 缺省与 dark 覆盖各自定义 --mb-*，light 不是 dark 的附庸", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    const css = readFileSync(resolve(process.cwd(), "src/styles/globals.css"), "utf8");
+    const rootBlock = css.slice(css.indexOf(":root {"), css.indexOf("html,"));
+    const darkBlock = css.slice(css.indexOf(':root[data-mode="dark"] {'));
+    for (const v of ["--mb-bg", "--mb-border", "--mb-fg", "--mb-fg-dim", "--mb-fg-strong"]) {
+      expect(rootBlock).toContain(`${v}:`);
+      expect(darkBlock).toContain(`${v}:`);
+    }
+    const lightBg = rootBlock.match(/--mb-bg: ([^;]+);/)![1];
+    const darkBg = darkBlock.match(/--mb-bg: ([^;]+);/)![1];
+    expect(lightBg).not.toBe(darkBg);
   });
 });

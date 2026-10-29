@@ -10,26 +10,45 @@ import {
   type TodayStats,
   onProxyLogUpdated,
 } from "../services/api";
-import { Button } from "@/components/ui/button";
 import { useReveal } from "../components/shared";
 
 /** 菜单栏最多画几段（与 Rust `TRAY_MAX_SEGMENTS` 一致，票 I15）。 */
 export const MAX_SEGMENTS = 3;
 
+// G3 卡面（票 01 骨架）：card 底 + 1px 边 + 小投影，入场 reveal 沿用。
+const cardStyle: React.CSSProperties = {
+  background: "var(--card)", border: "1px solid var(--border)",
+  borderRadius: 10, boxShadow: "var(--shadow-sm)",
+};
+// mono 数字（spec 拍板沿用 Maple Mono，预览条同族）
+const MONO = '"Maple Mono NF", "Maple Mono", "SF Mono", ui-monospace, monospace';
+// 「紫的亮变体」语义位（定稿 --accent-text）：本仓已有等位 token accent-text → --accent
+// （src/themes/mono.ts 映射），不新造第二份。
+const ACCENT_TEXT = "var(--accent)";
+
 // ponytail: 卡片包装 — 每实例独立 useReveal (React 规则禁 map 内条件 hook)。
 function TraySectionCard({
   staggerMs,
-  style,
   children,
 }: {
   staggerMs: number;
-  style?: React.CSSProperties;
   children: React.ReactNode;
 }) {
   const { ref, shown } = useReveal<HTMLDivElement>(staggerMs);
   return (
-    <div ref={ref} className={`glass-surface hover-lift reveal${shown ? " in" : ""}`} style={style}>
+    <div ref={ref} className={`reveal${shown ? " in" : ""}`} style={cardStyle}>
       {children}
+    </div>
+  );
+}
+
+/** 卡片节头：标题 + mono 小标签 + 右侧提示。 */
+function SecHead({ title, lab, hint }: { title: string; lab: string; hint?: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 18px", borderBottom: "1px solid var(--border)" }}>
+      <div style={{ fontSize: 13.5, fontWeight: 700 }}>{title}</div>
+      <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 1.2, color: "var(--muted-foreground)", textTransform: "uppercase" }}>{lab}</div>
+      {hint && <div style={{ marginLeft: "auto", fontSize: 11.5, color: "var(--muted-foreground)" }}>{hint}</div>}
     </div>
   );
 }
@@ -153,7 +172,6 @@ export function TrayConfigTab() {
   const [config, setConfig] = useState<TrayConfig>({ separator: "  ", items: [] });
   const [todayStats, setTodayStats] = useState<TodayStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -175,11 +193,6 @@ export function TrayConfigTab() {
   // 今日统计随 proxy_log 终态写入刷新（替代 30s 轮询）。
   useEffect(() => onProxyLogUpdated(() => { refreshStats(); }, 1000), [refreshStats]);
 
-  const persist = async (next: TrayConfig) => {
-    setConfig(next);
-    try { await trayConfigApi.set(next); } catch (e) { console.error(e); setMessage(String(e)); }
-  };
-
   const options = useMemo(() => segmentOptions(platforms, t), [platforms, t]);
   const selected = useMemo(
     () => config.items.filter((i) => i.enabled).sort((a, b) => a.order - b.order),
@@ -196,77 +209,202 @@ export function TrayConfigTab() {
     return <div className="text-secondary" style={{ fontSize: 13, padding: 20 }}>{t("common.loading", "加载中...")}</div>;
   }
 
+  // 候选库按域分行：统计（今日 4 指标）/ 状态（命中·高峰）/ 平台余额。
+  const libRows: [string, SegmentOption[]][] = [
+    [t("tray.catStats", "统计"), options.filter((o) => o.key.startsWith("today_usage:"))],
+    [t("tray.catStatus", "状态"), options.filter((o) => o.key === "routed_platform" || o.key === "peak")],
+    [t("tray.catPlatform", "平台"), options.filter((o) => o.key.startsWith("platform:"))],
+  ];
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
-      {/* ── 预览：模拟菜单栏那一行 ── */}
-      <TraySectionCard staggerMs={0} style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("tray.preview", "实时预览")}</div>
-          <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
-            {selected.length}/{MAX_SEGMENTS}
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
+      {/* ── 页头：标题 + n/3 计数 ── */}
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 14 }}>
+        <div>
+          <h1 style={{ fontSize: 21, fontWeight: 800, margin: 0 }}>{t("tray.title", "托盘")}</h1>
+          <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", marginTop: 3 }}>
+            {t("tray.pageDesc", "菜单栏仪表——选中的段按顺序实时显示，右侧同步今日观测。")}
           </div>
         </div>
-        {/* 硬编码 rgba(30,30,30) / rgba(255,255,255,*) 是 macOS 菜单栏模拟色，不跟随 app 主题，勿 token 化。 */}
-        <div style={{
-          background: "rgba(30, 30, 30, 0.95)", borderRadius: 8, padding: "2px 14px",
-          minHeight: 26, display: "flex", alignItems: "center", gap: 12,
-          fontFamily: '"Maple Mono NF", "Maple Mono", "SF Pro Text", system-ui, sans-serif',
-          fontSize: 16, fontWeight: 600, color: "rgba(255,255,255,0.85)", userSelect: "none",
-        }}>
-          {selected.length === 0 ? (
-            <span style={{ color: "rgba(255,255,255,0.35)", fontStyle: "italic" }}>
-              {t("tray.previewEmpty", "暂无展示项")}
-            </span>
-          ) : selected.map((item) => {
-            const opt = options.find((o) => o.key === segmentKey(item));
-            return (
-              <span key={segmentKey(item)} style={{ whiteSpace: "pre" }}>
-                {item.label || opt?.label || segmentKey(item)} {previewValue(item, platforms, todayStats)}
-              </span>
-            );
-          })}
+        <div data-testid="tray-count" style={{ marginLeft: "auto", display: "flex", alignItems: "baseline", gap: 8, fontFamily: MONO, fontSize: 12, color: "var(--muted-foreground)" }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)" }}>{selected.length}</span>
+          {`/ ${MAX_SEGMENTS} ${t("tray.slotCountUnit", "段")}`}
         </div>
-      </TraySectionCard>
+      </div>
 
-      {/* ── 候选清单：最多挑 3 项 ── */}
-      <TraySectionCard staggerMs={60} style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-        <div style={{ padding: "12px 16px", fontSize: 12, color: "var(--text-secondary)" }}>
-          {t("tray.pickAtMost", "最多挑 3 项，菜单栏按勾选顺序显示")}
-        </div>
-        {options.map((opt) => {
-          const on = selectedKeys.has(opt.key);
-          const disabled = !on && full;
-          return (
-            <Button
-              key={opt.key}
-              variant="ghost"
-              disabled={disabled}
-              aria-pressed={on}
-              onClick={() => persist({ ...config, items: toggleSegment(config.items, opt) })}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 16, alignItems: "start" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+          {/* ── 卡 1：菜单栏预览 + 装载槽 ── */}
+          <TraySectionCard staggerMs={0}>
+            <SecHead
+              title={t("tray.previewTitle", "菜单栏预览")}
+              lab={t("tray.realScale", "REAL SCALE")}
+              hint={t("tray.liveHint", "数值随代理日志实时刷新 · 预览条跟随系统主题")}
+            />
+            {/* 菜单栏模拟条：颜色全走 --mb-* 主题 token（light=浅色菜单栏 / dark=深色），双主题自动换色 */}
+            <div
+              data-testid="tray-menubar"
               style={{
-                justifyContent: "flex-start", gap: 10, fontSize: 13, padding: "10px 16px",
-                borderRadius: 0, opacity: disabled ? 0.4 : 1,
+                margin: "16px 18px 8px", background: "var(--mb-bg)", border: "1px solid var(--mb-border)",
+                borderRadius: 8, height: 28, display: "flex", alignItems: "center", padding: "0 14px",
+                fontSize: 12.5, color: "var(--mb-fg)",
+                fontFamily: '-apple-system, "SF Pro Text", system-ui, sans-serif',
+                userSelect: "none",
               }}
             >
-              <span style={{
-                width: 16, height: 16, borderRadius: 4, flexShrink: 0,
-                border: on ? "none" : "1px solid var(--glass-border)",
-                background: on ? "var(--primary)" : "transparent",
-                color: "var(--primary-foreground)", fontSize: 11, lineHeight: "16px", textAlign: "center",
-              }}>{on ? "✓" : ""}</span>
-              <span style={{ flex: 1, textAlign: "left" }}>{opt.label}</span>
-            </Button>
-          );
-        })}
-      </TraySectionCard>
+              <div style={{ display: "flex", gap: 14, color: "var(--mb-fg-dim)", fontSize: 12 }}>
+                <b style={{ color: "var(--mb-fg-strong)", fontWeight: 600 }}>⌘ AiDog</b>
+                <span>{t("nav.groups", "分组")}</span>
+                <span>{t("nav.logs", "日志")}</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 18, fontFamily: MONO, fontWeight: 600, fontSize: 12.5, marginLeft: "auto", paddingRight: 18, borderRight: "1px solid var(--mb-border)", marginRight: 16 }}>
+                {selected.length === 0 ? (
+                  <span style={{ color: "var(--mb-fg-dim)", fontStyle: "italic" }}>{t("tray.previewEmpty", "暂无展示项")}</span>
+                ) : selected.map((seg) => {
+                  const opt = options.find((o) => o.key === segmentKey(seg));
+                  return (
+                    <span key={segmentKey(seg)} data-testid={`tray-segment-${segmentKey(seg)}`} style={{ display: "flex", gap: 5, whiteSpace: "nowrap" }}>
+                      {seg.label || opt?.label || segmentKey(seg)}
+                      <span style={{ color: "var(--mb-fg-strong)" }}>{previewValue(seg, platforms, todayStats)}</span>
+                    </span>
+                  );
+                })}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, opacity: 0.85 }}>
+                <svg width="15" height="12" viewBox="0 0 16 12"><path d="M8 10.5 5.6 8.1a3.4 3.4 0 0 1 4.8 0ZM3.2 5.7a6.8 6.8 0 0 1 9.6 0l-1.4 1.4a4.8 4.8 0 0 0-6.8 0ZM.8 3.3a10.2 10.2 0 0 1 14.4 0l-1.4 1.4a8.2 8.2 0 0 0-11.6 0Z" fill="currentColor" /></svg>
+                <svg width="22" height="11" viewBox="0 0 24 12"><rect x=".5" y=".5" width="20" height="11" rx="3" fill="none" stroke="currentColor" opacity=".5" /><rect x="2" y="2" width="13" height="8" rx="1.5" fill="currentColor" /><rect x="21.5" y="3.5" width="2" height="5" rx="1" fill="currentColor" opacity=".5" /></svg>
+                <span style={{ fontFamily: MONO, fontSize: 12 }}>
+                  {new Date().toLocaleDateString(undefined, { weekday: "short" })} {new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              </div>
+            </div>
+            <div style={{ margin: "16px 18px 8px", fontFamily: MONO, fontSize: 10, letterSpacing: 1.2, color: "var(--muted-foreground)", textTransform: "uppercase" }}>
+              {t("tray.slotsLabel", "装载槽")}
+            </div>
+            <div style={{ margin: "0 18px 18px", display: "flex", gap: 10 }}>
+              {[0, 1, 2].map((i) => {
+                const seg = selected[i];
+                if (!seg) {
+                  return (
+                    <div key={i} data-testid={`tray-slot-${i}`} data-state="empty" style={{ flex: 1, border: "1.5px dashed var(--input)", borderRadius: 9, minHeight: 66, display: "flex", alignItems: "center", padding: "10px 14px", fontSize: 11.5, color: "var(--muted-foreground)", position: "relative" }}>
+                      <span style={{ position: "absolute", top: -9, left: 12, fontFamily: MONO, fontSize: 9.5, background: "var(--card)", border: "1px solid var(--border)", borderRadius: 4, padding: "1px 7px", letterSpacing: 1, lineHeight: 1.4 }}>
+                        {t("tray.slotIndex", "SLOT {{n}}", { n: i + 1 })}
+                      </span>
+                      {t("tray.slotEmpty", "空槽 — 从候选库点选装载")}
+                    </div>
+                  );
+                }
+                const opt = options.find((o) => o.key === segmentKey(seg));
+                return (
+                  <div key={i} data-testid={`tray-slot-${i}`} data-state="filled" style={{ flex: 1, border: "1px solid var(--border)", background: "var(--secondary)", borderRadius: 9, minHeight: 66, display: "flex", flexDirection: "column", justifyContent: "center", gap: 3, padding: "10px 14px", position: "relative" }}>
+                    <span style={{ position: "absolute", top: -9, left: 12, fontFamily: MONO, fontSize: 9.5, background: "var(--card)", border: "1px solid var(--border)", borderRadius: 4, padding: "1px 7px", letterSpacing: 1, lineHeight: 1.4 }}>
+                      {t("tray.slotIndex", "SLOT {{n}}", { n: i + 1 })}
+                    </span>
+                    <div style={{ fontSize: 12.5, fontWeight: 650 }}>{seg.label || opt?.label || segmentKey(seg)}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 700, color: ACCENT_TEXT, letterSpacing: 0.3 }}>{previewValue(seg, platforms, todayStats)}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </TraySectionCard>
+
+          {/* ── 卡 2：候选库（静态壳，装载交互在票 02 接 toggleSegment + persist）── */}
+          <TraySectionCard staggerMs={60}>
+            <SecHead
+              title={t("tray.libraryTitle", "候选库")}
+              lab="LIBRARY"
+              hint={t("tray.libraryHint", "最多装载 3 段 · 按装载顺序显示")}
+            />
+            <div style={{ padding: "14px 18px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+              {libRows.map(([cat, rows]) => rows.length > 0 && (
+                <div key={cat} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ width: 58, flexShrink: 0, fontFamily: MONO, fontSize: 10, letterSpacing: 1.2, color: "var(--muted-foreground)", textTransform: "uppercase" }}>{cat}</span>
+                  {rows.map((opt) => {
+                    const state = selectedKeys.has(opt.key) ? "loaded" : full ? "locked" : "";
+                    return (
+                      <span
+                        key={opt.key}
+                        data-testid={`tray-chip-${opt.key}`}
+                        data-state={state}
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${state === "loaded" ? "var(--primary)" : "var(--input)"}`,
+                          background: state === "loaded" ? "var(--accent-subtle)" : "var(--card)", borderRadius: 16,
+                          padding: "5px 12px 5px 9px", fontSize: 12,
+                          color: state === "loaded" ? ACCENT_TEXT : "var(--foreground)",
+                          opacity: state === "locked" ? 0.35 : 1, userSelect: "none",
+                        }}
+                      >
+                        {opt.label}
+                        <span style={{ fontFamily: MONO, fontSize: 11, color: state === "loaded" ? ACCENT_TEXT : "var(--muted-foreground)" }}>
+                          {previewValue(opt.item, platforms, todayStats)}
+                        </span>
+                      </span>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </TraySectionCard>
+        </div>
+
+        {/* ── 右栏 · 实时观测 ── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <TraySectionCard staggerMs={60}>
+            <div style={{ padding: "14px 16px" }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 1.2, color: "var(--muted-foreground)", textTransform: "uppercase" }}>
+                {t("tray.todayUsage", "今日消耗")}
+              </div>
+              <div data-testid="tray-big-cost" style={{ fontFamily: MONO, fontSize: 32, fontWeight: 700, letterSpacing: 0.5, marginTop: 4, color: ACCENT_TEXT }}>
+                ${(todayStats?.cost ?? 0).toFixed(3)}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 2 }}>
+                {t("tray.todayCostSub", "随代理日志终态实时累加")}
+              </div>
+              {/* 高峰窗口数据接入在票 02+（先出徽标壳，不编造倍率/时段） */}
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 10, border: "1px solid color-mix(in srgb, var(--warning) 40%, transparent)", background: "color-mix(in srgb, var(--warning) 10%, transparent)", color: "var(--warning)", borderRadius: 6, padding: "5px 10px", fontSize: 11.5, fontFamily: MONO }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--warning)" }} />
+                {t("tray.peakBadge", "高峰时段")}
+              </div>
+            </div>
+          </TraySectionCard>
+          <TraySectionCard staggerMs={120}>
+            <div style={{ padding: "14px 16px 6px" }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 1.2, color: "var(--muted-foreground)", textTransform: "uppercase" }}>
+                {t("tray.todayMetrics", "今日指标")}
+              </div>
+              <div style={{ marginTop: 6 }}>
+                {([
+                  [t("tray.metric.tokens", "Tokens"), `${todayStats?.tokens ?? 0} tok`],
+                  [t("tray.metric.requests", "请求"), `${todayStats?.total_requests ?? 0}`],
+                  [t("tray.metric.cache_rate", "Cache%"), `${todayStats?.cache_rate ?? 0}%`],
+                  [t("tray.segment.routed", "当前命中平台"), "—"],
+                ] as [string, string][]).map(([k, v]) => (
+                  <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "7px 0", borderBottom: "1px solid var(--border)", fontSize: 12, color: "var(--muted-foreground)" }}>
+                    {k}
+                    <b style={{ fontFamily: MONO, fontSize: 13, color: "var(--foreground)" }}>{v}</b>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </TraySectionCard>
+          {/* 近 7 日消费趋势：壳先落地，数据接 statsApi.query 在票 02+（不画假曲线） */}
+          <div style={{ ...cardStyle, padding: "4px 16px 14px" }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 1.2, color: "var(--muted-foreground)", textTransform: "uppercase", padding: "12px 0 6px" }}>
+              {t("tray.trendTitle", "近 7 日消费趋势")}
+            </div>
+            <svg data-testid="tray-spark" viewBox="0 0 240 64" preserveAspectRatio="none" style={{ width: "100%", height: 64, display: "block" }}>
+              <path d="M4,60 L236,60" fill="none" stroke="var(--border)" strokeWidth="1.5" strokeDasharray="4 4" />
+            </svg>
+          </div>
+        </div>
+      </div>
 
       {keptDisabled > 0 && (
-        <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 11.5, color: "var(--muted-foreground)", padding: "10px 14px", border: "1px dashed var(--border)", borderRadius: 8 }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--warning)", flexShrink: 0 }} />
           {t("tray.keptDisabled", "旧版托盘配置里多出的 {{count}} 项已保留但未启用，不会丢失", { count: keptDisabled })}
         </div>
       )}
-
-      {message && <div className="toast">{message}</div>}
     </div>
   );
 }

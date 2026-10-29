@@ -133,6 +133,14 @@
   --color-neutral: var(--text-secondary);
   --color-neutral-bg: var(--bg-glass);
 
+  /* 菜单栏模拟条（托盘设置页预览，真值源 .scratch/托盘设置-重设计/design-demos/托盘设置页-定稿.html）：
+     light = 浅色 macOS 菜单栏，dark 覆盖见 :root[data-mode="dark"]。 */
+  --mb-bg: rgba(255, 255, 255, 0.82);
+  --mb-border: rgba(28, 36, 48, 0.14);
+  --mb-fg: rgba(28, 36, 48, 0.85);
+  --mb-fg-dim: rgba(28, 36, 48, 0.45);
+  --mb-fg-strong: #1C2430;
+
 
   /* G3 light 缺省（首帧兜底；applyTheme 写入完整变量后覆盖） */
   --background: #F6F7F9;
@@ -885,6 +893,12 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   --color-danger-bg: rgba(224, 106, 106, 0.12);
   --color-info: #6E9AE8;
   --color-info-bg: rgba(110, 154, 232, 0.12);
+  /* 菜单栏模拟条 dark 真值（deep 深色 macOS 菜单栏） */
+  --mb-bg: #0C0D10;
+  --mb-border: #23262d;
+  --mb-fg: rgba(255, 255, 255, 0.85);
+  --mb-fg-dim: rgba(255, 255, 255, 0.4);
+  --mb-fg-strong: #fff;
 }
 
 @theme inline {
