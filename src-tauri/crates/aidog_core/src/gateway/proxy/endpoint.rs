@@ -111,6 +111,28 @@ pub(crate) fn is_decision_endpoint(path: &str) -> bool {
     path.trim_end_matches('/').ends_with("/systemone")
 }
 
+/// 独立搜索/tools 端点判定（spec-独立搜索转发 语义 2）：入站 path 与任一平台
+/// `tools_endpoints` 声明 URL 的 path 精确相等（容忍 `/proxy` 前缀与尾 `/` 变体）。
+/// 全库无声明 → false，请求落现有链路（语义 11 零回归）。数据经 effective_presets
+/// （DB 同步值优先）现查不另建聚合缓存：tools 请求低频，一次 preset 文档遍历可忽略。
+pub(crate) fn is_tools_endpoint(path: &str) -> bool {
+    let doc = crate::gateway::registry::effective_presets();
+    doc.get("protocols")
+        .and_then(|p| p.as_object())
+        .is_some_and(|protos| {
+            protos.values().any(|po| {
+                po.get("tools_endpoints")
+                    .and_then(|t| t.as_object())
+                    .is_some_and(|m| {
+                        m.values().any(|u| {
+                            u.as_str()
+                                .is_some_and(|u| crate::gateway::billing::tools_url_matches(u, path))
+                        })
+                    })
+            })
+        })
+}
+
 /// 决策请求的 endpoint 选择（jev-decision-proxy R9）：
 /// 平台有 `typesafe` 协议 endpoint 优先；否则 OpenAI 系 endpoint（chat / completions / responses）。
 /// 都没有返回 None → 调用方回退平台主 `base_url` + `/systemone`（零端点平台）。
