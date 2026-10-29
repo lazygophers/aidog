@@ -1,5 +1,8 @@
 {
-  "last_updated": 1790504305,
+  "tools_endpoints": {
+    "web_search": "https://open.bigmodel.cn/api/paas/v4/web_search"
+  },
+  "last_updated": 1793240736,
   "endpoints": {
     "default": [
       {

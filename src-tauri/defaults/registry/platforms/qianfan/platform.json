@@ -1,5 +1,8 @@
 {
-  "last_updated": 1788155152,
+  "tools_endpoints": {
+    "ai_search_chat": "https://qianfan.baidubce.com/v2/ai_search/chat/completions"
+  },
+  "last_updated": 1793240736,
   "endpoints": {
     "default": [
       {

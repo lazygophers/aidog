@@ -1,5 +1,10 @@
 {
-  "last_updated": 1791006457,
+  "tools_endpoints": {
+    "search": "https://api.moonshot.cn/v1/tools/search",
+    "search_pro": "https://api.moonshot.cn/v1/tools/search_pro",
+    "fetch": "https://api.moonshot.cn/v1/tools/fetch"
+  },
+  "last_updated": 1793240736,
   "endpoints": {
     "default": [
       {
