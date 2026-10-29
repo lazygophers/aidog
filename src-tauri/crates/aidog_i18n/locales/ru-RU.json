@@ -2486,6 +2486,7 @@
   "tray.customLabel": "Подпись",
   "tray.customLabelPlaceholder": "По умолчанию",
   "tray.decimals": "Знаки после запятой",
+  "tray.dragHandle": "Перетащите для сортировки",
   "tray.display": "Отображение",
   "tray.displayBalance": "Баланс",
   "tray.displayCoding": "Coding",

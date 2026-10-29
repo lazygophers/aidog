@@ -2486,6 +2486,7 @@
   "tray.customLabel": "ラベル",
   "tray.customLabelPlaceholder": "デフォルト",
   "tray.decimals": "小数桁",
+  "tray.dragHandle": "ドラッグして並べ替え",
   "tray.display": "表示",
   "tray.displayBalance": "残高",
   "tray.displayCoding": "Coding",

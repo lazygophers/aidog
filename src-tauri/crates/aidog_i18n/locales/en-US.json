@@ -2464,6 +2464,7 @@
   "tray.customLabel": "Label",
   "tray.customLabelPlaceholder": "Default",
   "tray.decimals": "Decimals",
+  "tray.dragHandle": "Drag to reorder",
   "tray.display": "Display",
   "tray.displayBalance": "Balance",
   "tray.displayCoding": "Coding",
