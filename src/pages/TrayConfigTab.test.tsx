@@ -409,6 +409,8 @@ describe("moveSegment / loadSegmentAt", () => {
     expect(next.map(segmentKey)).toEqual(["today_usage:tokens", "today_usage:cost", "today_usage:requests"]);
     expect(next.map((i) => i.order)).toEqual([0, 1, 2]);
     expect(moveSegment(items, "peak", 0)).toBe(items);
+    // 三项首移末：顺移（arrayMove），非两两调换
+    expect(moveSegment(three, "today_usage:cost", 2).map(segmentKey)).toEqual(["today_usage:tokens", "peak", "today_usage:cost"]);
   });
   it("loadSegmentAt：插到指定位置；已装载 / 满槽原样返回", () => {
     const two = three.slice(0, 2);
