@@ -4,6 +4,7 @@ import { useSystemSettings } from "./AppSettings/useSystemSettings";
 import { ProxyStatusSection, UpstreamProxySection } from "./AppSettings/ProxyStatusSection";
 import { StartupSection } from "./AppSettings/StartupSection";
 import { KernelSection } from "./AppSettings/KernelSection";
+import { DisplayCurrencySection } from "../components/settings/DisplayCurrencySection";
 import { LogSettingsSection } from "./AppSettings/LogSettingsSection";
 import { SystemMiscSection, DbStatsSection, VersionToastSection } from "./AppSettings/SystemMiscSection";
 
@@ -74,6 +75,7 @@ function SystemTab() {
       <RevealedSection staggerMs={80}><UpstreamProxySection s={s} /></RevealedSection>
       <RevealedSection staggerMs={160}><KernelSection /></RevealedSection>
       <RevealedSection staggerMs={160}><SystemMiscSection s={s} /></RevealedSection>
+      <RevealedSection staggerMs={160}><DisplayCurrencySection /></RevealedSection>
       <RevealedSection staggerMs={160}><LogSettingsSection s={s} /></RevealedSection>
       <RevealedSection staggerMs={160}><DbStatsSection s={s} /></RevealedSection>
       <RevealedSection staggerMs={160}><VersionToastSection s={s} /></RevealedSection>
