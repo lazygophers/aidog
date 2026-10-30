@@ -1417,6 +1417,7 @@
   "platform.mockConfig": "Mock 模拟配置",
   "platform.mockConfigHint": "写入 platform.extra",
   "platform.mockDefault": "默认（不模拟）",
+  "platform.clientTypeGroupOthers": "其他客户端",
   "platform.mockDelayMs": "延迟毫秒",
   "platform.mockErrorHttp": "HTTP 错误",
   "platform.mockErrorMode": "错误模式",

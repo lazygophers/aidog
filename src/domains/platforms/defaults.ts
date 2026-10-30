@@ -1,5 +1,5 @@
-import type { Protocol, PlatformEndpoint, ModelSlot, ClientType } from "../../services/api";
-import { getDefaultsJson, getClientTypesJson, hasCustomQuotaScript } from "../../services/api";
+import type { Protocol, PlatformEndpoint, ModelSlot, ClientType, ClientVocabCategory } from "../../services/api";
+import { getDefaultsJson, getClientTypesJson, getClientVocab, hasCustomQuotaScript } from "../../services/api";
 import type { ProtocolOption } from "./constants";
 
 /** 高峰/低峰时段倍率窗口（多窗口数组）。
@@ -537,28 +537,14 @@ export async function getProtocolColorMap(): Promise<Partial<Record<Protocol, st
   return out;
 }
 
-// ─── Client Types 派生层（替代旧模块级 CLIENT_TYPES 硬编码常量） ─────────────
+// ─── Client Types 派生层（出站模拟下拉）─────────────────────────────────────
 
-/** client-types.json 单 entry（12 条：1 默认 + 5 Claude Code + 4 Codex + 2 IDE；value/group/name{8 locale}/desc{8 locale}）。
- *  真值源 `src-tauri/defaults/client-types.json`，运行时可被 `~/.aidog/client-types.json` 覆盖。
- *  前端禁直读 github / 文件系统，一律 invoke `get_client_types_json`。 */
-export type ClientTypeEntry = {
-  value: ClientType;
-  /** 分组名（"Claude Code" / "Codex" / "IDE" / "" 默认）；UI optgroup 用 */
-  group: string;
-  name: Partial<Record<DefaultsLocale, string>>;
-  desc?: Partial<Record<DefaultsLocale, string>>;
-};
+/** `get_client_types_json` 只用来回答「哪些词表码有出站模拟定义」；显示名/分组一律来自
+ *  词表 command `get_client_vocab` + `flow.client.<code>`（与白名单多选同源同名）。 */
+type ClientTypesDoc = { client_types: Array<{ value: ClientType }> };
 
-type ClientTypesDoc = {
-  version?: string;
-  last_updated?: number;
-  client_types: ClientTypeEntry[];
-};
-
-/** client-types.json 运行时缓存：进程内只拉一次 Tauri command。
- *  同 docPromise 模式：模块加载即发 invoke（Promise），多函数 await 它 — 单次 RPC 共享。 */
 let clientTypesDocPromise: Promise<ClientTypesDoc> | null = null;
+let clientVocabPromise: Promise<ClientVocabCategory[]> | null = null;
 
 async function loadClientTypesDoc(): Promise<ClientTypesDoc> {
   if (!clientTypesDocPromise) {
@@ -580,35 +566,41 @@ async function loadClientTypesDoc(): Promise<ClientTypesDoc> {
   return clientTypesDocPromise;
 }
 
-/** 测试专用：清缓存让下一轮 loadClientTypesDoc 重新走 mockIPC（生产代码禁调）。 */
+function loadClientVocab(): Promise<ClientVocabCategory[]> {
+  if (!clientVocabPromise) {
+    clientVocabPromise = getClientVocab().catch((e) => {
+      console.warn("[client-types] get_client_vocab failed:", e);
+      return [] as ClientVocabCategory[];
+    });
+  }
+  return clientVocabPromise;
+}
+
+/** 测试专用：清缓存让下一轮重新走 mockIPC（生产代码禁调）。 */
 export function __resetClientTypesCacheForTests(): void {
   clientTypesDocPromise = null;
+  clientVocabPromise = null;
 }
 
-/** 派生客户端类型列表（替代旧模块级 CLIENT_TYPES 硬编码常量）。
- *  loadClientTypesDoc → 每 entry 派生 {value, group, label}。
- *  - label: name[locale] || name["en-US"] || value（三级回退链）。
- *  调用方：formSectionsEndpoints 下拉 + 其他 CLIENT_TYPES 引用点。
- *  ponytail: 复用 clientTypesDocPromise 单次 RPC，纯函数式派生，零状态机。 */
-export async function buildClientTypesFromPresets(locale?: string): Promise<Array<{ value: ClientType; group: string; label: string }>> {
-  const doc = await loadClientTypesDoc();
-  const loc = locale ? (locale as DefaultsLocale) : undefined;
-  return doc.client_types.map((entry) => {
-    const name = entry.name;
-    const label = (name && ((loc && name[loc]) || name["en-US"])) || entry.value;
-    return { value: entry.value, group: entry.group, label };
-  });
-}
+type ClientT = (key: string, fallback: string) => string;
+const identityT: ClientT = (_k, fb) => fb;
 
-/** 批量取 client_type value → label 映射（一次 RPC 拉全表后内存过滤，避免 N 次 await）。
- *  调用方需 label 时优先用本函数；未知 value 不写入（调用方回退原 value 展示）。 */
-export async function getClientTypeLabelMap(locale?: string): Promise<Record<string, string>> {
-  const doc = await loadClientTypesDoc();
-  const loc = locale ? (locale as DefaultsLocale) : undefined;
-  const out: Record<string, string> = {};
-  for (const entry of doc.client_types) {
-    const name = entry.name;
-    out[entry.value] = (name && ((loc && name[loc]) || name["en-US"])) || entry.value;
+/** 出站模拟下拉选项：词表（大类 → 变体）∩ 有出站定义的码，外加置顶 `default`。
+ *  - 有变体的大类（Claude Code / Codex / pi）：组名 = 大类显示名；大类本身可识别且有定义时也列入。
+ *  - 无变体的独立 AI 客户端：并入统一组 `platform.clientTypeGroupOthers`。
+ *  - label = `t(nameKey)`，即白名单多选使用的同一 `flow.client.<code>` 文案。 */
+export async function buildClientTypesFromPresets(t: ClientT = identityT): Promise<Array<{ value: ClientType; group: string; label: string }>> {
+  const [doc, vocab] = await Promise.all([loadClientTypesDoc(), loadClientVocab()]);
+  const defined = new Set<string>(doc.client_types.map((e) => e.value));
+  const out: Array<{ value: ClientType; group: string; label: string }> = [];
+  if (defined.has("default")) out.push({ value: "default", group: "", label: "Default" });
+  const others = t("platform.clientTypeGroupOthers", "Other clients");
+  for (const c of vocab) {
+    const group = c.variants.length > 0 ? t(c.nameKey, c.code) : others;
+    if (c.matchable && defined.has(c.code)) out.push({ value: c.code as ClientType, group, label: t(c.nameKey, c.code) });
+    for (const v of c.variants) {
+      if (defined.has(v.code)) out.push({ value: v.code as ClientType, group, label: t(v.nameKey, v.code) });
+    }
   }
   return out;
 }
