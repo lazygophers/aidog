@@ -53,7 +53,16 @@ export function formatAmount(n: number, symbol: string, decimals = 2): string {
   else if (n >= 1) body = decimals === 0 ? groupThousands(n.toFixed(0)) : n.toFixed(decimals);
   else if (n >= 0.01) body = n.toFixed(3);
   else body = n.toFixed(Math.min(12, Math.max(5, -Math.floor(Math.log10(n)) + 1)));
-  return symbol + body;
+  return rtlIsolate(symbol + body);
+}
+
+/**
+ * RTL（html[dir=rtl]，ar-SA）下用 U+2066 LRI … U+2069 PDI 包住金额串，防符号 / 小数点被 bidi 重排；
+ * LTR 原样返回（USD 逐字回归不受影响）。选 (a) 字符隔离而非 <bdi> 组件：formatAmount/formatMoney 的
+ * 返回值有 40+ 处字符串消费点（title、图表标签、模板拼接），单点改动全覆盖。
+ */
+function rtlIsolate(s: string): string {
+  return typeof document !== "undefined" && document.documentElement.dir === "rtl" ? `\u2066${s}\u2069` : s;
 }
 
 /**
