@@ -1439,6 +1439,7 @@
   "platform.mockConfig": "Mock 設定",
   "platform.mockConfigHint": "platform.extra に保存",
   "platform.mockDefault": "デフォルト（モックなし）",
+  "platform.clientTypeGroupOthers": "その他のクライアント",
   "platform.mockDelayMs": "遅延 (ms)",
   "platform.mockErrorHttp": "HTTP エラー",
   "platform.mockErrorMode": "エラーモード",

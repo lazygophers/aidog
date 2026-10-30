@@ -1417,6 +1417,7 @@
   "platform.mockConfig": "Configuración mock",
   "platform.mockConfigHint": "Almacenado en platform.extra",
   "platform.mockDefault": "Predeterminado (sin mock)",
+  "platform.clientTypeGroupOthers": "Otros clientes",
   "platform.mockDelayMs": "Retardo (ms)",
   "platform.mockErrorHttp": "Error HTTP",
   "platform.mockErrorMode": "Modo de error",
