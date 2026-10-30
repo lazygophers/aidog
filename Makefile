@@ -61,6 +61,7 @@ lint: ## Run linters
 	yarn check:modal
 	@printf "$(CYAN)▶ Money format check...$(RESET)\n"
 	yarn check:money
+	yarn test:money
 	@printf "$(CYAN)▶ Design token check...$(RESET)\n"
 	yarn check:tokens
 	@printf "$(CYAN)▶ Linting...$(RESET)\n"
