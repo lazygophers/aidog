@@ -1,4 +1,4 @@
-//! 辅助模型请求（`/v1/embeddings`，后续 rerank 复用）的共享转发骨架，仿 `decision.rs`：
+//! 辅助模型请求（`/v1/embeddings`、`/v1/rerank`）的共享转发骨架，仿 `decision.rs`：
 //! 解析 JSON → `select_candidates_ctx(spec.kind)` → 重试编排 → OpenAI 系 endpoint →
 //! `join_upstream_path(base_url, spec.api_path)` → 仅改写 `model` 为槽位值 → 转发 →
 //! 2xx 回写响应 `model` 为客户端原名 → 记账。不支持流式。
@@ -18,6 +18,8 @@ pub(crate) struct AuxSpec {
     pub label: &'static str,
     /// 2xx 响应体 → (input_tokens, output_tokens)。
     pub extract_usage: fn(&str) -> (i32, i32),
+    /// 2xx 响应体 → 按次计量次数（rerank：Cohere `search_units`，缺省 1）；None = 该种类不按次计量。
+    pub extract_units: Option<fn(&str) -> i64>,
 }
 
 /// embedding：`usage.prompt_tokens` → input，output 恒 0（OpenAI 规范无输出 token）。
@@ -31,6 +33,42 @@ pub(crate) const EMBEDDING: AuxSpec = AuxSpec {
     api_path: "/embeddings",
     label: "embeddings",
     extract_usage: embedding_usage,
+    extract_units: None,
+};
+
+/// rerank：Jina `usage.total_tokens`（记 input）→ SiliconFlow `meta.tokens` →
+/// Cohere `meta.billed_units` 的 token 字段；全缺 → (0, 0)（Cohere 按次计量见 [`rerank_search_units`]）。
+fn rerank_usage(body: &str) -> (i32, i32) {
+    let v: Value = serde_json::from_str(body).unwrap_or_default();
+    let n = |p: &Value, k: &str| p.get(k).and_then(Value::as_i64).unwrap_or(0) as i32;
+    if let Some(t) = v.pointer("/usage/total_tokens").and_then(Value::as_i64) {
+        return (t as i32, 0);
+    }
+    for path in ["/meta/tokens", "/meta/billed_units"] {
+        if let Some(m) = v.pointer(path) {
+            let (i, o) = (n(m, "input_tokens"), n(m, "output_tokens"));
+            if i > 0 || o > 0 {
+                return (i, o);
+            }
+        }
+    }
+    (0, 0)
+}
+
+/// rerank 按次计量次数：`meta.billed_units.search_units`，缺省按 1 次/请求。
+fn rerank_search_units(body: &str) -> i64 {
+    serde_json::from_str::<Value>(body)
+        .ok()
+        .and_then(|v| v.pointer("/meta/billed_units/search_units").and_then(Value::as_i64))
+        .unwrap_or(1)
+}
+
+pub(crate) const RERANK: AuxSpec = AuxSpec {
+    kind: RequestKind::Rerank,
+    api_path: "/rerank",
+    label: "rerank",
+    extract_usage: rerank_usage,
+    extract_units: Some(rerank_search_units),
 };
 
 /// 辅助模型请求主入口（handler.rs 在 count_tokens / 决策分流旁调用）。
@@ -361,6 +399,11 @@ async fn aux_attempt(
     let (input, output) = (spec.extract_usage)(&body_str);
     log.input_tokens = input;
     log.output_tokens = output;
+    if let Some(units) = spec.extract_units {
+        // 按次计量次数经内存 ProxyLog 透传，calc_est_cost 仅在条目 `price.unit=="request"` 时消费。
+        log.tool_call_counts
+            .push((crate::gateway::billing::SEARCH_UNITS_KEY.to_string(), units(&body_str)));
+    }
 
     log.status_code = status.as_u16() as i32;
     log.done = true;

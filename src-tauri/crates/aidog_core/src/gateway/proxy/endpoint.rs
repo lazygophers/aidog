@@ -41,6 +41,7 @@ pub(crate) fn detect_source_protocol(path: &str) -> Protocol {
     } else if hit("/chat/completions")
         || hit("/completions")
         || hit("/embeddings")
+        || hit("/rerank")
         || hit("/images")
         || hit("/audio")
         || (versioned && api_path.starts_with("/models"))
@@ -151,6 +152,11 @@ pub(crate) fn select_endpoint_for_decision(
 /// `/v1/embeddingsfoo` 不命中）。
 pub(crate) fn is_embedding_endpoint(path: &str) -> bool {
     path.trim_end_matches('/').ends_with("/embeddings")
+}
+
+/// 重排序请求端点判定：路径以 `/rerank` 结尾（后缀判定，同 [`is_embedding_endpoint`]）。
+pub(crate) fn is_rerank_endpoint(path: &str) -> bool {
+    path.trim_end_matches('/').ends_with("/rerank")
 }
 
 /// 辅助模型请求（embedding / rerank）的 endpoint 选择：OpenAI 系优先（openai → completions → responses）。
@@ -513,7 +519,7 @@ pub(crate) fn is_api_endpoint(path: &str) -> bool {
         return true;
     }
     // 主路径前缀匹配（find 跳过 /proxy 等前缀，与 detect_source_protocol 同款定位逻辑）。
-    let api_path = if let Some(idx) = path.find("/v1/") {
+    let api_path = if let Some(idx) = path.find("/v1/").or_else(|| path.find("/v2/")) {
         &path[idx..]
     } else {
         return false;
@@ -523,6 +529,8 @@ pub(crate) fn is_api_endpoint(path: &str) -> bool {
         || api_path.starts_with("/v1/completions")
         || api_path.starts_with("/v1/responses")
         || api_path.starts_with("/v1/embeddings")
+        || api_path.starts_with("/v1/rerank")
+        || api_path.starts_with("/v2/rerank")
         || api_path.starts_with("/v1/images")
         || api_path.starts_with("/v1/audio")
         || api_path.starts_with("/v1/systemone")

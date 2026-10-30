@@ -143,6 +143,9 @@ pub struct PriceResolution {
     pub peak_applied: bool,
     /// 条目原币种为 CNY（单价已换算成 USD）；余额币种未知时据此推断余额币种。
     pub source_cny: bool,
+    /// 条目 `price.unit=="request"` 的按次单价（USD/次，已换算币种）；Some 时 token 价全 0，
+    /// 调用方按 `unit_price × 次数` 计费。
+    pub request_unit_price: Option<f64>,
 }
 
 impl PriceResolution {
@@ -257,6 +260,7 @@ pub fn resolve_price_from(
             price: fallback(),
             peak_applied: false,
             source_cny: false,
+            request_unit_price: None,
         };
     };
     // 旧形状行（价格平铺顶层）已由 `parse_price_data` 归一化，这里只认 `price` 子树
@@ -275,6 +279,27 @@ pub fn resolve_price_from(
             },
             peak_applied: false,
             source_cny: false,
+            request_unit_price: None,
+        };
+    }
+    // 按次计价（`unit:"request"` + `unit_price`，如 Cohere rerank）：token 价全 0，
+    // 费用由调用方 `unit_price × 次数` 得出；不走 fallback / 分档 / peak（按次价无峰谷差证据）。
+    if price_obj.get("unit").and_then(Value::as_str) == Some("request")
+        && let Some(up) = price_obj.get("unit_price").and_then(Value::as_f64)
+    {
+        let is_cny = price_obj.get("currency").and_then(Value::as_str) == Some("CNY");
+        return PriceResolution {
+            price: ResolvedPrice {
+                input_cost_per_token: 0.0,
+                output_cost_per_token: 0.0,
+                cache_read_input_token_cost: 0.0,
+                cache_write_input_token_cost: 0.0,
+                cache_write_1h_input_token_cost: 0.0,
+                source: "model_entry+request".to_string(),
+            },
+            peak_applied: false,
+            source_cny: is_cny,
+            request_unit_price: Some(if is_cny { up / CNY_PER_USD } else { up }),
         };
     }
     let num =|k: &str| price_obj.get(k).and_then(Value::as_f64).unwrap_or(0.0);
@@ -334,6 +359,7 @@ pub fn resolve_price_from(
         price,
         peak_applied,
         source_cny,
+        request_unit_price: None,
     }
 }
 
