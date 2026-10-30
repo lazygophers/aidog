@@ -473,6 +473,8 @@
   "flow.col.platform": "المنصة",
   "flow.col.actualModel": "النموذج الفعلي",
   "flow.col.group": "المجموعة",
+  "flow.platform.none": "غير موجَّه",
+  "flow.model.none": "غير محدد",
   "group.detail.open": "عرض التفاصيل",
   "group.detail.openShort": "التفاصيل",
   "group.health.title": "معدل النجاح {{rate}}",

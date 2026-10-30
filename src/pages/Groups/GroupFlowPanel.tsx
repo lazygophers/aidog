@@ -28,7 +28,7 @@ export function GroupFlowPanel({ groupKey, gps }: { groupKey: string; gps: Group
   }, [groupKey, win]);
 
   const columns = useMemo(() => {
-    const platName = (id: string) => gps.find(g => String(g.platform.id) === id)?.platform.platform_type ?? `#${id}`;
+    const platName = (id: string) => (id === "0" ? t("flow.platform.none", "未路由") : (gps.find(g => String(g.platform.id) === id)?.platform.platform_type ?? `#${id}`));
     return [
       { key: "client", title: t("flow.col.client", "客户端"), labelOf: (id: string) => (id === "" ? t("flow.client.unknown", "未知") : t(`flow.client.${id}`, id)) },
       { key: "req_model", title: t("flow.col.requestModel", "请求模型") },

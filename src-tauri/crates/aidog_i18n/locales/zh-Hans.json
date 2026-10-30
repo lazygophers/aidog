@@ -473,6 +473,8 @@
   "flow.col.platform": "平台",
   "flow.col.actualModel": "实际模型",
   "flow.col.group": "分组",
+  "flow.platform.none": "未路由",
+  "flow.model.none": "未指定",
   "group.detail.open": "打开详情页",
   "group.detail.openShort": "详情",
   "group.health.title": "成功率 {{rate}}",

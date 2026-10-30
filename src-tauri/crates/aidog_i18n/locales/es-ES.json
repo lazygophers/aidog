@@ -473,6 +473,8 @@
   "flow.col.platform": "Plataforma",
   "flow.col.actualModel": "Modelo real",
   "flow.col.group": "Grupo",
+  "flow.platform.none": "Sin enrutar",
+  "flow.model.none": "No especificado",
   "group.detail.open": "Abrir detalles",
   "group.detail.openShort": "Detalles",
   "group.health.title": "Tasa de éxito {{rate}}",
