@@ -1,10 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { GroupDetail, Platform, PlatformUsageStats } from "../../services/api";
 import {
   groupDetailApi, groupUsageApi, platformApi, proxyApi, onProxyLogUpdated,
 } from "../../services/api";
 import { upsertPlatformInto } from "../../domains/groups";
-import { platformBalanceUsd, refreshBalanceCurrencies } from "../../utils/balanceCurrency";
+import { refreshBalanceCurrenciesThrottled, sumGroupBalanceUsd, useBalanceCurrencies } from "../../utils/balanceCurrency";
+import { useDisplayCurrency } from "../../utils/displayCurrency";
+
+/** group id → 关联平台原币种余额明细（折 USD 延后到渲染期，见 sumGroupBalanceUsd）。 */
+export type GroupBalanceRaw = Record<number, { id: number; amount: number }[]>;
 
 /**
  * 拉取每个 group 的使用统计 + 余额。
@@ -15,10 +19,10 @@ import { platformBalanceUsd, refreshBalanceCurrencies } from "../../utils/balanc
 export async function fetchGroupStats(
   details: GroupDetail[],
   platforms: Platform[],
-): Promise<{ statsMap: Record<string, PlatformUsageStats>; balanceMap: Record<number, number>; unmatchedStat?: PlatformUsageStats }> {
+): Promise<{ statsMap: Record<string, PlatformUsageStats>; balanceRaw: GroupBalanceRaw; unmatchedStat?: PlatformUsageStats }> {
   const platById = new Map(platforms.map(pp => [pp.id, pp]));
   const statsMap: Record<string, PlatformUsageStats> = {};
-  const balanceMap: Record<number, number> = {};
+  const balanceRaw: GroupBalanceRaw = {};
   let unmatchedStat: PlatformUsageStats | undefined;
   // usage stats：单次批量 invoke（后端 GROUP BY group_key），消除逐 group N+1 往返。
   try {
@@ -32,17 +36,17 @@ export async function fetchGroupStats(
     if (u && u.total_requests > 0) unmatchedStat = u;
   } catch { /* ignore */ }
   // balance：关联平台余额求和（保持平台级语义）。est_balance_remaining 是各平台原币种，
-  // 先逐平台折 USD 再求和（混币种直接相加是错的）；币种映射先刷一次，保证新记录的币种参与。
-  await refreshBalanceCurrencies();
+  // 只收原币种明细，折 USD 在渲染期做（汇率 / 币种映射变化即时生效）；币种映射走节流版刷新。
+  await refreshBalanceCurrenciesThrottled();
   for (const g of details) {
-    let balance = 0;
+    const items: GroupBalanceRaw[number] = [];
     for (const gp of g.platforms) {
       const est = platById.get(gp.platform.id)?.est_balance_remaining;
-      if (typeof est === "number" && est > 0) balance += platformBalanceUsd(gp.platform.id, est);
+      if (typeof est === "number" && est > 0) items.push({ id: gp.platform.id, amount: est });
     }
-    if (balance > 0) balanceMap[g.group.id] = balance;
+    if (items.length) balanceRaw[g.group.id] = items;
   }
-  return { statsMap, balanceMap, unmatchedStat };
+  return { statsMap, balanceRaw, unmatchedStat };
 }
 
 export interface UseGroupDataArgs {
@@ -63,7 +67,15 @@ export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
   // 虚拟桶「未匹配」（MITM 解密非 API 流量 fallback 直通）：只读卡片展示，无平台/余额/编辑。
   const [unmatchedStat, setUnmatchedStat] = useState<PlatformUsageStats | undefined>(undefined);
   // 聚合余额：关联 platforms 的 est_balance_remaining 求和（platformApi.list 已带，无额外 HTTP）。
-  const [groupBalance, setGroupBalance] = useState<Record<number, number>>({});
+  const [groupBalanceRaw, setGroupBalanceRaw] = useState<GroupBalanceRaw>({});
+  // 订阅显示币种 / 余额币种 store：汇率或币种映射变化时重算（不缓存旧汇率折算值）。
+  const displayCurrency = useDisplayCurrency();
+  const balanceCurrencies = useBalanceCurrencies();
+  const groupBalance = useMemo(
+    () => sumGroupBalanceUsd(groupBalanceRaw),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sumGroupBalanceUsd 读两个 store，依赖其快照
+    [groupBalanceRaw, displayCurrency, balanceCurrencies],
+  );
   const [loading, setLoading] = useState(true);
   // 代理端口（proxy_get_settings），构造页面级 base_url；取失败兜底 7890。
   const [proxyPort, setProxyPort] = useState(7890);
@@ -92,10 +104,10 @@ export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
 
   /** 已拉全部组 detail + 全量平台 → 重算统计/余额（增量加载后复用，无额外组 invoke 往返）。 */
   const recomputeStats = async (seqAlive: () => boolean) => {
-    const { statsMap, balanceMap, unmatchedStat: u } = await fetchGroupStats(loadedDetailsRef.current, allPlatformsRef.current);
+    const { statsMap, balanceRaw, unmatchedStat: u } = await fetchGroupStats(loadedDetailsRef.current, allPlatformsRef.current);
     if (!seqAlive()) return;
     setGroupStats(statsMap);
-    setGroupBalance(balanceMap);
+    setGroupBalanceRaw(balanceRaw);
     setUnmatchedStat(u);
   };
 
@@ -127,9 +139,9 @@ export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
       const statsBase = patchDetails(loadedDetailsRef.current);
       loadedDetailsRef.current = statsBase;
       setDetails(prev => patchDetails(prev));
-      const { statsMap, balanceMap, unmatchedStat: u } = await fetchGroupStats(statsBase, p);
+      const { statsMap, balanceRaw, unmatchedStat: u } = await fetchGroupStats(statsBase, p);
       setGroupStats(statsMap);
-      setGroupBalance(balanceMap);
+      setGroupBalanceRaw(balanceRaw);
       setUnmatchedStat(u);
     } catch { /* ignore */ }
   };
@@ -349,7 +361,7 @@ export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
   // ponytail: 不另起 hooks 文件，groupApi 已在 services/api barrel 暴露
   return {
     details, platforms, setDetails,
-    groupStats, groupBalance, setGroupBalance,
+    groupStats, groupBalance,
     unmatchedStat,
     loading, loadingMore, hasMore, sentinelRef,
     proxyBaseUrl, allPlatformsRef,
