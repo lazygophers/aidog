@@ -77,7 +77,8 @@ pub struct PlatformModels {
 }
 
 impl PlatformModels {
-    /// 返回所有已配置的模型名（去重）
+    /// 返回所有已配置的聊天侧模型名（去重）；不含 embedding / rerank 专用槽
+    /// （唯一调用方 `merge_group_model_names` 喂 /models 与 pi 聊天模型清单）。
     #[allow(dead_code)]
     pub fn all_values(&self) -> Vec<String> {
         let mut v = Vec::new();
@@ -88,8 +89,6 @@ impl PlatformModels {
             &self.haiku,
             &self.gpt,
             &self.jev,
-            &self.embedding,
-            &self.rerank,
         ]
         .into_iter()
         .flatten()
@@ -687,6 +686,17 @@ mod tests {
         assert_eq!(json, r#"{"rerank":"jina-reranker-v2"}"#);
         let back: PlatformModels = serde_json::from_str(&json).unwrap();
         assert_eq!(back.rerank_slot(), Some("jina-reranker-v2"));
+    }
+
+    #[test]
+    fn platform_models_all_values_excludes_dedicated_slots() {
+        let pm = PlatformModels {
+            default: Some("gpt-4o".into()),
+            embedding: Some("emb".into()),
+            rerank: Some("rr".into()),
+            ..Default::default()
+        };
+        assert_eq!(pm.all_values(), vec!["gpt-4o".to_string()]);
     }
 
     #[test]
