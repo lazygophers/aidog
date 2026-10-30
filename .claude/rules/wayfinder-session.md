@@ -29,6 +29,9 @@ agent 不会自己去读那份 doc——词表不贴进 prompt 就等于没有�
 规则：派发 prompt 里原样贴三行：开工置 `Status: claimed`；结票在文末追加
 `## Answer` 段并置 `Status: resolved`；**状态词只有这两个**，禁 `done` / `closed`
 等近义词。主会话收报告后仍应 grep 一次 `Status:` 核对，别假设 agent 写对了。
+2026-10-30 复发：两张票（推荐配置 01、embedding 02）被写成 `done` 且无 `## Answer`，
+收尾才发现。词表放在派发 prompt 里仍不够——每张票合并后当场 grep 该票 `Status:` 与 `## Answer`，
+不留到 feature 收尾。
 
 ## 3. ask-ui 选项题收到「只写补充说明、未选任何选项」
 

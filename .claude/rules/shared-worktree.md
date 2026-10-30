@@ -108,6 +108,14 @@ target 致 `test_registry.rs:359` 假红。
   推荐配置 worktree 的 `make lint` 编到别的 worktree 的 test_candidates.rs。派第二个 cargo agent 前先等前一个收工。
 - 每次 `cargo test` 后立刻 `/usr/bin/git status --short` 核对 `src/services/api/types/generated/` 无意外变动；
   有变动先判是该提交的真更新还是串味，串味用 `git show HEAD:<path> > <path>` 恢复。
+- **cargo 前 `touch src-tauri/crates/aidog_core/build.rs`**（2026-10-30 实锤两次）：共享 target
+  里 aidog_core build script 产物陈旧——一次 clippy 报 `CODEX_PRESETS` 未定义（touch 后绿），
+  一次 `cargo test --workspace` 中途 exit 101 无 panic、doctest 报
+  `extern location for aidog_db does not exist`（重跑绿）。`cargo clean -p aidog_db` 后同样会触发。
+  首轮红且无 panic / 报 build-script 产物缺失时，先 touch + 重跑，再谈归因。
+- **票面 / 派发 prompt 不写独立 target 目录名**（如 `/tmp/aidog-agent-target-gh`）：与「单一目录」
+  冲突，同轮被用户指令覆盖。同一目录切 `GITHUB_ACTIONS` 等环境变量安全——`build.rs` 带
+  `rerun-if-env-changed`，会正确重编。
 
 ## `.git/index.lock` 残留（2026-10-22）
 
