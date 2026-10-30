@@ -473,6 +473,8 @@
   "flow.col.platform": "Платформа",
   "flow.col.actualModel": "Фактическая модель",
   "flow.col.group": "Группа",
+  "flow.platform.none": "Не маршрутизирован",
+  "flow.model.none": "Не указана",
   "group.detail.open": "Открыть подробности",
   "group.detail.openShort": "Подробнее",
   "group.health.title": "Доля успешных {{rate}}",

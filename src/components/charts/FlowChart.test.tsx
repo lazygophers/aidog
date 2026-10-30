@@ -1,5 +1,6 @@
 // FlowChart 测试（请求流向票 04）：选择器只锚 data-testid / data-value，不断言文案。
 import { describe, it, expect } from "vitest";
+import { fireEvent } from "@testing-library/react";
 import { render } from "../../test/render";
 import { FlowChart, formatPct, type FlowChartRow } from "./FlowChart";
 
@@ -38,10 +39,43 @@ describe("FlowChart", () => {
     expect(pcts(q("flow-node-a-y"))).toEqual([90]);
   });
 
-  it("总和为 0 不显示占比", () => {
+  it("度量总和为 0：不画任何节点与占比", () => {
     render(<FlowChart columns={[col("a"), col("b")]} rows={rows} metric="cost" />);
     expect(document.querySelectorAll('[data-testid="flow-pct"]')).toHaveLength(0);
-    expect(q("flow-node-a-x")).toBeTruthy();
+    expect(document.querySelectorAll('[data-testid^="flow-node-"]')).toHaveLength(0);
+  });
+
+  it("值为 0 的节点与连线不画；其他为 0 不出现", () => {
+    const data = [
+      { a: "x", b: "p", tokens: 50, requests: 0, cost: 0 },
+      { a: "z", b: "p", tokens: 0, requests: 3, cost: 0 },
+    ];
+    render(<FlowChart columns={[col("a"), col("b")]} rows={data} metric="tokens" />);
+    expect(document.querySelector('[data-testid="flow-node-a-z"]')).toBeNull();
+    expect(document.querySelector('[data-testid="flow-node-a-__other__"]')).toBeNull();
+    expect(document.querySelectorAll('[data-testid^="flow-link-"]')).toHaveLength(1);
+  });
+
+  it("节点高度与值成比例，连线宽度 = 流量占比 × 比例尺", () => {
+    render(<FlowChart columns={[col("a"), col("b")]} rows={rows} metric="tokens" />);
+    const h = (id: string) => Number(q(`flow-node-a-${id}`).getAttribute("data-height"));
+    expect(h("x") / h("y")).toBeCloseTo(60 / 40, 5);
+    const w = Number(q("flow-link-a-x-p").getAttribute("data-width"));
+    expect(w).toBeCloseTo(h("x"), 5); // x 的全部流量走 x→p
+  });
+
+  it("空 id 有可读显示名", () => {
+    const data = [{ a: "", b: "p", tokens: 5, requests: 1, cost: 0 }];
+    render(<FlowChart columns={[col("a"), col("b")]} rows={data} metric="tokens" />);
+    expect(q("flow-node-a-").textContent?.length).toBeGreaterThan(0);
+  });
+
+  it("hover 节点：链路外的连线 data-state=off，链路内 on", () => {
+    render(<FlowChart columns={[col("a"), col("b")]} rows={rows} metric="tokens" />);
+    fireEvent.mouseEnter(q("flow-node-a-x"));
+    expect(q("flow-link-a-x-p").getAttribute("data-state")).toBe("on");
+    expect(q("flow-link-a-y-q").getAttribute("data-state")).toBe("off");
+    expect(q("flow-tooltip")).toBeTruthy();
   });
 
   it("labelOf 缺省回退原 id；提供则用其结果", () => {
