@@ -38,6 +38,13 @@ beforeEach(() => {
 });
 
 describe("DisplayCurrencySection", () => {
+  it("符号等于代码（CHF 尾空格）只显示一次，其余「符号 代码」", async () => {
+    setDisplayCurrency({ ...state("USD"), table: [row("USD", "$", 1), row("CHF", "CHF ", 0.9)] });
+    render(<DisplayCurrencySection />);
+    expect(screen.getByTestId("currency-label-CHF").textContent).toBe("CHF");
+    expect(screen.getByTestId("currency-label-USD").textContent).toBe("$ USD");
+  });
+
   it("选币种保存：set 带 code 与空覆盖", async () => {
     render(<DisplayCurrencySection />);
     fireEvent.change(screen.getByTestId("currency-select"), { target: { value: "CNY" } });

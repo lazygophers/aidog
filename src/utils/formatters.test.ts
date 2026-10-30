@@ -119,6 +119,22 @@ describe("successRate", () => {
   });
 });
 
+describe("RTL 金额 bidi 隔离", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+  const stubDir = (dir: string) => vi.stubGlobal("document", { documentElement: { dir } });
+  it("ar-SA(rtl) 下 formatAmount/formatMoney 外包 LRI…PDI", () => {
+    stubDir("rtl");
+    expect(formatAmount(1.5, "$")).toBe("\u2066$1.50\u2069");
+    expect(formatMoney(1.5)).toBe("\u2066$1.50\u2069");
+  });
+  it("ltr 下不含隔离符", () => {
+    stubDir("ltr");
+    expect(formatMoney(1.5)).toBe("$1.50");
+  });
+});
+
 describe("sumTokens", () => {
   it("sums numeric parts, ignoring null/undefined/NaN", () => {
     expect(sumTokens(1, 2, 3)).toBe(6);

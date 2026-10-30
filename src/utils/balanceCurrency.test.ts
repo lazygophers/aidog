@@ -14,7 +14,7 @@ vi.mock("../services/api", () => ({
   onProxyLogUpdated: vi.fn(),
 }));
 
-import { balanceToUsd, platformBalanceUsd, setBalanceCurrencies, refreshBalanceCurrencies } from "./balanceCurrency";
+import { balanceToUsd, platformBalanceUsd, setBalanceCurrencies, refreshBalanceCurrencies, sumGroupBalanceUsd } from "./balanceCurrency";
 import { setDisplayCurrency } from "./displayCurrency";
 import { formatMoney } from "./formatters";
 import { computeQuotaDisplay } from "../domains/platforms/health";
@@ -87,9 +87,28 @@ describe("computeQuotaDisplay 余额币种", () => {
 describe("分组余额汇总", () => {
   it("混币种先逐平台折 USD 再求和", async () => {
     h.map.mockResolvedValue({ "1": "CNY", "2": "USD" });
+    setBalanceCurrencies({ "1": "CNY", "2": "USD" });
     const details = [{ group: { id: 5, group_key: "g" }, platforms: [{ platform: { id: 1 } }, { platform: { id: 2 } }] }] as never;
     const r = await fetchGroupStats(details, [plat(1, 66.675), plat(2, 5)]);
-    expect(r.balanceMap[5]).toBeCloseTo(15, 9);
+    expect(sumGroupBalanceUsd(r.balanceRaw)[5]).toBeCloseTo(15, 9);
+  });
+  it("改 CNY 汇率后同一份原始明细即时重算（不缓存旧汇率）", async () => {
+    h.map.mockResolvedValue({ "1": "CNY" });
+    setBalanceCurrencies({ "1": "CNY" });
+    const details = [{ group: { id: 5, group_key: "g" }, platforms: [{ platform: { id: 1 } }] }] as never;
+    const r = await fetchGroupStats(details, [plat(1, 70)]);
+    expect(sumGroupBalanceUsd(r.balanceRaw)[5]).toBeCloseTo(70 / 6.6675, 9);
+    const t7 = table.map((x) => (x.code === "CNY" ? { ...x, rate: 7 } : x));
+    setDisplayCurrency({ ...disp("USD"), table: t7 });
+    expect(sumGroupBalanceUsd(r.balanceRaw)[5]).toBeCloseTo(10, 9);
+  });
+  it("币种表未加载：含 CNY 的分组不给值，纯 USD 分组照常", () => {
+    setBalanceCurrencies({ "1": "CNY", "2": "USD" });
+    setDisplayCurrency({ ...disp("USD"), table: [] });
+    const raw = { 5: [{ id: 1, amount: 70 }], 6: [{ id: 2, amount: 3 }] };
+    const out = sumGroupBalanceUsd(raw);
+    expect(out[5]).toBeUndefined();
+    expect(out[6]).toBe(3);
   });
   it("platformBalanceUsd 读 store", async () => {
     h.map.mockResolvedValue({ "9": "CNY" });

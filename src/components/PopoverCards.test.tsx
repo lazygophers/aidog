@@ -165,9 +165,9 @@ describe("renderItem: 显示币种（票 05）", () => {
   it("platform_today 金额随显示币种 store 变化即时更新（popover 各 webview 自订阅同一 store）", () => {
     const data = { ...EMPTY_DATA, platform_today: [{ platform_id: 1, platform_name: "Alpha", cost: 2, tokens: 10, requests: 1 }] } as unknown as PopoverData;
     const { container } = render(<>{renderItem(makeItem("platform_today"), data, [], EMPTY_GROUPS, t, CTX(new Map()))}</>);
-    expect(container.querySelector(".popover-platform-value")?.textContent).toBe("$2.00");
+    expect(screen.getByTestId("popover-platform-cost").textContent).toBe("$2.00");
     act(() => setDisplayCurrency({ code: "CNY", symbol: "¥", decimals: 2, rate: 7, table: [] }));
-    expect(container.querySelector(".popover-platform-value")?.textContent).toBe("¥14.00");
+    expect(screen.getByTestId("popover-platform-cost").textContent).toBe("¥14.00");
     act(() => setDisplayCurrency(USD_DISPLAY));
   });
 });
@@ -186,7 +186,7 @@ describe("renderItem: group_balance 逐平台折 USD（票 08）", () => {
       ],
     }] as never;
     const { container } = render(<>{renderItem(makeItem("group_balance", { scope_ref: "g" }), EMPTY_DATA, [{ group_key: "g", name: "g" }] as never, details, t, CTX(new Map()))}</>);
-    expect(container.querySelector(".popover-metric-value")?.textContent).toBe("$15.00");
+    expect(screen.getByTestId("popover-group-balance").textContent).toBe("$15.00");
     act(() => { setBalanceCurrencies({}); setDisplayCurrency(USD_DISPLAY); });
   });
 });

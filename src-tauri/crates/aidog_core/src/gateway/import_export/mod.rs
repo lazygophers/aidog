@@ -100,6 +100,12 @@ pub struct Payload {
 }
 
 impl Payload {
+    /// payload 是否带显示币种 setting（导入走原始 SQL 写库，不经 display_currency_set，需调用方补发事件）。
+    pub fn touches_display_currency(&self) -> bool {
+        use aidog_db::currency::{DISPLAY_KEY, DISPLAY_SCOPE};
+        self.setting.iter().any(|[s, k, _]| s == DISPLAY_SCOPE && k == DISPLAY_KEY)
+    }
+
     /// 序列化为 JSON 字节并填 manifest.checksum（SHA256 over 自身 checksum 置空版）。
     pub fn serialize_with_checksum(&mut self) -> Result<Vec<u8>, String> {
         self.manifest.checksum.clear();

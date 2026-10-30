@@ -450,3 +450,15 @@ async fn collect_exports_credentials_plaintext() {
         .expect("cc_proxy_auth setting exported");
     assert_eq!(cc[2], serde_json::json!("pw-secret").to_string());
 }
+
+#[tokio::test]
+async fn touches_display_currency_detects_display_setting_row() {
+    let _h = HomeGuard::new();
+    let db = test_db().await;
+    let mut p = collect::collect(&db, &[]).await.unwrap();
+    assert!(!p.touches_display_currency());
+    p.setting.push(["other".into(), "currency".into(), "{}".into()]);
+    assert!(!p.touches_display_currency());
+    p.setting.push(["display".into(), "currency".into(), "{}".into()]);
+    assert!(p.touches_display_currency());
+}

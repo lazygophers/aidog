@@ -464,7 +464,8 @@ export const PlatformCard = memo(function PlatformCard({
                       <BalanceBar
                         remaining={quota.balanceRemaining}
                         total={quota.balanceTotal}
-                        currency={isAcu ? "" : (quota.currency === "USD" ? "$" : quota.currency)}
+                        kind={isAcu || quota.currency !== "USD" ? "raw" : "usd"}
+                        currency={isAcu ? "" : quota.currency}
                         level={balColor === "neutral" ? undefined : balColor}
                         label={isAcu ? t("platform.acuUsage", "ACU 用量") : undefined}
                       />
@@ -475,7 +476,7 @@ export const PlatformCard = memo(function PlatformCard({
                 {mb && mb.hasData && (
                   <div style={{ flexShrink: 0, width: 120, display: "flex", flexDirection: "column", gap: 2 }}>
                     {mb.unit === "usd" ? (
-                      <BalanceBar remaining={mb.remaining} total={mb.amount} currency="$" />
+                      <BalanceBar remaining={mb.remaining} total={mb.amount} kind="usd" />
                     ) : (
                       <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
                         <span style={{ fontWeight: 700, fontSize: 12, color: mb.depleted ? "var(--color-danger)" : mb.ratio < 0.2 ? "var(--color-warning)" : "var(--text-primary)" }}>

@@ -33,6 +33,11 @@ export async function refreshBalanceCurrencies(): Promise<void> {
   }
 }
 
+/** 节流版：10s 内复用已拉映射（proxy-log-updated 监听与分组统计共用，避免绕过节流）。 */
+export async function refreshBalanceCurrenciesThrottled(): Promise<void> {
+  if (Date.now() - lastFetch > THROTTLE_MS) await refreshBalanceCurrencies();
+}
+
 function start(): void {
   if (started) return;
   started = true;
@@ -41,7 +46,7 @@ function start(): void {
   Promise.resolve()
     .then(() =>
       listen("proxy-log-updated", () => {
-        if (Date.now() - lastFetch > THROTTLE_MS) void refreshBalanceCurrencies();
+        void refreshBalanceCurrenciesThrottled();
       }),
     )
     .catch((e) => console.error(e));
@@ -65,6 +70,31 @@ export function balanceToUsd(amount: number, ccy: string | null | undefined): nu
   if (ccy?.trim().toUpperCase() !== "CNY") return amount;
   const rate = getDisplayCurrency().table.find((r) => r.code === "CNY")?.rate;
   return rate && rate > 0 ? amount / rate : amount;
+}
+
+/** 币种表是否已含生效 CNY 汇率（未加载时 CNY 余额无法折 USD，不能当 USD 显示）。 */
+export function currencyTableReady(): boolean {
+  const rate = getDisplayCurrency().table.find((r) => r.code === "CNY")?.rate;
+  return !!rate && rate > 0;
+}
+
+/**
+ * 分组余额汇总（原币种明细 → USD 总额）。渲染期调用，汇率 / 币种映射变化即时生效；
+ * 含 CNY 平台而币种表未加载的分组不给值（宁可不显示，也不把 CNY 数值当 USD），表加载后订阅方重算。
+ */
+export function sumGroupBalanceUsd(raw: Record<number, { id: number; amount: number }[]>): Record<number, number> {
+  const ready = currencyTableReady();
+  const out: Record<number, number> = {};
+  for (const [gid, items] of Object.entries(raw)) {
+    let sum = 0;
+    let pending = false;
+    for (const { id, amount } of items) {
+      if (!ready && current[String(id)]?.trim().toUpperCase() === "CNY") pending = true;
+      else sum += platformBalanceUsd(id, amount);
+    }
+    if (!pending && sum > 0) out[Number(gid)] = sum;
+  }
+  return out;
 }
 
 /** 平台余额（原币种，按 store 记录的币种）→ USD。 */
