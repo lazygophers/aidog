@@ -18,7 +18,7 @@ describe("BalanceBar", () => {
   });
 
   it("renders value + total + progress bar with custom currency", () => {
-    render(<BalanceBar remaining={20} total={50} currency="¥" />);
+    render(<BalanceBar remaining={20} total={50} kind="raw" currency="¥" />);
     expect(screen.getByText("¥20.00")).toBeInTheDocument();
     expect(screen.getByText(/¥50\.00/)).toBeInTheDocument();
   });
