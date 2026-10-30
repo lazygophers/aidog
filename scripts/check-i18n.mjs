@@ -13,6 +13,7 @@
  *      (A/B/C 都要求 t( 后跟引号/反引号, t(变量) 完全漏扫 → D 堵此盲区)。
  *   E. registry 平台展示名 8 locale 完整性 — 真值源 src-tauri/defaults/registry/platforms/<code>/platform.json
  *      的 name，任一平台缺任一 locale 或值空白 → 报红。
+ *   F. locale 文件重复键 — 同一对象内重复 key (JSON.parse 取后者, 前者静默丢失) → 报文件+key+行号。
  *
  * 用法: node scripts/check-i18n.mjs
  * E 项自检: AIDOG_REGISTRY_DIR=$PWD/scripts/__fixtures__/registry-missing-locale node scripts/check-i18n.mjs
@@ -24,6 +25,7 @@
 import { readFileSync } from 'fs';
 import { execFileSync } from 'child_process';
 import { readPresets } from './registry.mjs';
+import { findDuplicateKeys } from './json-dup-keys.mjs';
 
 const LOCALES = ['zh-Hans', 'en-US', 'ar-SA', 'fr-FR', 'de-DE', 'ru-RU', 'ja-JP', 'es-ES'];
 const BASE = 'en-US'; // 动态模板覆盖度基准
@@ -31,6 +33,13 @@ const BASE = 'en-US'; // 动态模板覆盖度基准
 function loadLocale(l) {
   const obj = JSON.parse(readFileSync(`src-tauri/crates/aidog_i18n/locales/${l}.json`, 'utf8'));
   return new Set(Object.keys(obj));
+}
+
+// ── F. locale 文件重复键 (JSON.parse 静默取后者, 其余检查看不到) ──
+const dupKeys = []; // {locale, key, line, firstLine}
+for (const l of LOCALES) {
+  const text = readFileSync(`src-tauri/crates/aidog_i18n/locales/${l}.json`, 'utf8');
+  for (const d of findDuplicateKeys(text)) dupKeys.push({ locale: l, ...d });
 }
 
 const localeSet = Object.fromEntries(LOCALES.map(l => [l, loadLocale(l)]));
@@ -159,6 +168,13 @@ for (const { key, miss, files } of propMissing.sort((a, b) => a.key.localeCompar
 log(`\n## E. registry protocol name locale 缺失: ${protocolMissing.length}`);
 for (const { protocol, field, miss } of protocolMissing) {
   log(`  🔴 ${protocol}.${field} 缺 [${miss.join(',')}]`);
+  problems++;
+}
+
+// F
+log(`\n## F. locale 文件重复键: ${dupKeys.length}`);
+for (const { locale, key, line, firstLine } of dupKeys) {
+  log(`  🔴 ${locale}.json:${line} 重复键 "${key}" (首次 :${firstLine})`);
   problems++;
 }
 
