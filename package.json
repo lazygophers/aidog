@@ -20,6 +20,7 @@
     "check:registry": "node scripts/check-registry.mjs",
     "check:modal": "node scripts/check-modal-centering.mjs",
     "check:money": "node scripts/check-money-format.mjs",
+    "test:i18n-dup": "node --test scripts/json-dup-keys.test.mjs",
     "test:money": "node --test scripts/check-money-format.test.mjs",
     "tokens": "node design/tokens/build-tokens.mjs",
     "check:tokens": "node design/tokens/build-tokens.mjs --check",
