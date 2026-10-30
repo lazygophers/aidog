@@ -473,6 +473,8 @@
   "flow.col.platform": "Plattform",
   "flow.col.actualModel": "Tatsächliches Modell",
   "flow.col.group": "Gruppe",
+  "flow.platform.none": "Nicht geroutet",
+  "flow.model.none": "Nicht angegeben",
   "group.detail.open": "Details öffnen",
   "group.detail.openShort": "Details",
   "group.health.title": "Erfolgsquote {{rate}}",

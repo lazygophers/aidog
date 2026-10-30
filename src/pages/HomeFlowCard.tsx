@@ -27,7 +27,7 @@ export function HomeFlowCard({ rows, platforms, ungroupedLabel, loading }: {
   })), [rows]);
 
   const columns = useMemo(() => {
-    const platName = (id: string) => platforms.find(p => String(p.id) === id)?.platform_type ?? `#${id}`;
+    const platName = (id: string) => (id === "0" ? t("flow.platform.none", "未路由") : (platforms.find(p => String(p.id) === id)?.platform_type ?? `#${id}`));
     return [
       { key: "client", title: t("flow.col.client", "客户端"), labelOf: (id: string) => (id === "" ? t("flow.client.unknown", "未知") : t(`flow.client.${id}`, id)) },
       { key: "group", title: t("flow.col.group", "分组"), labelOf: (id: string) => (id === "" ? ungroupedLabel : id) },
@@ -57,7 +57,7 @@ export function HomeFlowCard({ rows, platforms, ungroupedLabel, loading }: {
           {t("group.flow.empty", "窗口内无请求")}
         </div>
       ) : (
-        <FlowChart columns={columns} rows={chartRows} metric={metric} />
+        <FlowChart columns={columns} rows={chartRows} metric={metric} surface={P.s1} />
       )}
     </div>
   );
