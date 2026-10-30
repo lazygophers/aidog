@@ -20,6 +20,7 @@ const REASON_LABELS: Record<string, string> = {
   "auth-cooldown": "认证冷却",
   "unknown-protocol": "协议未知",
   "kind-unsupported": "请求类型不支持",
+  "client-not-allowed": "客户端不被允许",
   "model-not-on-platform": "模型不在此平台",
   "skipped-dead-upstream": "死站跳过",
 };

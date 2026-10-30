@@ -21,6 +21,7 @@ const REASON_KEY: Record<RouteReason, string> = {
   "auth-cooldown": "logs.routing.reason.auth-cooldown",
   "unknown-protocol": "logs.routing.reason.unknown-protocol",
   "kind-unsupported": "logs.routing.reason.kind-unsupported",
+  "client-not-allowed": "logs.routing.reason.client-not-allowed",
   "model-not-on-platform": "logs.routing.reason.model-not-on-platform",
   "skipped-dead-upstream": "logs.routing.reason.skipped-dead-upstream",
 };
