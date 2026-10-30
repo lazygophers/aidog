@@ -20,7 +20,7 @@ const snapshot = {
   ],
 };
 
-function renderCanvas(routing: typeof snapshot | null, attempts?: { platform_id: number; status_code: number }[]) {
+function renderCanvas(routing: typeof snapshot | null, attempts?: { platform_id: number; status_code: number }[], actualModel?: string) {
   return render(
     <RoutingCanvas
       routing={routing}
@@ -28,6 +28,7 @@ function renderCanvas(routing: typeof snapshot | null, attempts?: { platform_id:
       platformMap={platformMap}
       durationMs={1900}
       statusCode={200}
+      actualModel={actualModel}
       t={t}
     />,
   );
@@ -71,5 +72,30 @@ describe("RoutingCanvas", () => {
     expect(win.querySelectorAll(".rc-why").length).toBe(1);
     expect(container.querySelector('[data-node-id="p-1"]')!.getAttribute("data-state")).toBe("dim");
     expect(container.querySelector('[data-node-id="p-1"]')!.querySelectorAll(".rc-why").length).toBe(1);
+  });
+
+  it("胜出候选无 target_model 时回落 actualModel", () => {
+    const { container } = renderCanvas(snapshot, [{ platform_id: 2, status_code: 200 }], "served-model");
+    expect(container.querySelector('[data-node-id="p-2"] [data-testid="routing-target-model"]')?.textContent).toBe("served-model");
+  });
+
+  it("胜出候选有 target_model 时不被 actualModel 覆盖", () => {
+    const { container } = renderCanvas(snapshot, [{ platform_id: 1, status_code: 200 }], "served-model");
+    expect(container.querySelector('[data-node-id="p-1"] [data-testid="routing-target-model"]')?.textContent).toBe("model-one");
+  });
+
+  it("排除候选出 routing-model-unused；非胜出 selected 无 target_model 两个 testid 都没有", () => {
+    const { container } = renderCanvas(snapshot, [{ platform_id: 1, status_code: 200 }], "served-model");
+    expect(container.querySelector('[data-node-id="p-3"] [data-testid="routing-model-unused"]')).not.toBeNull();
+    expect(container.querySelector('[data-node-id="p-3"] [data-testid="routing-target-model"]')).toBeNull();
+    const p2 = container.querySelector('[data-node-id="p-2"]')!;
+    expect(p2.querySelector('[data-testid="routing-model-unused"]')).toBeNull();
+    expect(p2.querySelector('[data-testid="routing-target-model"]')).toBeNull();
+  });
+
+  it("旧日志（无 target_model 字段）不报错", () => {
+    const old = { mode: "failover", entries: [{ order: 1, platform: "p", platform_id: 1, level_priority: 8, priority: 5, reason: "selected", tags: [] }] } as unknown as typeof snapshot;
+    const { container } = renderCanvas(old, [{ platform_id: 1, status_code: 200 }]);
+    expect(container.querySelector('[data-node-id="p-1"]')).not.toBeNull();
   });
 });
