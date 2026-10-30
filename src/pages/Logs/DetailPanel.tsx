@@ -214,6 +214,7 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
         platformMap={platformMap}
         durationMs={detail.duration_ms}
         statusCode={detail.status_code}
+        actualModel={detail.actual_model || undefined}
         t={t}
       />
 

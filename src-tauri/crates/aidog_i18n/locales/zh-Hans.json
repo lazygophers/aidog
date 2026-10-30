@@ -703,6 +703,7 @@
   "logs.routing.route": "路由",
   "logs.routing.response": "响应",
   "logs.routing.attemptFailed": "尝试失败",
+  "logs.routing.notUsed": "未选用",
 
   "logs.routing.untried": "未尝试",  "logs.routing.mode.load_balance": "负载均衡",
   "logs.routing.mode.failover": "故障转移",
