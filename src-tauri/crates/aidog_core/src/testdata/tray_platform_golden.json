@@ -1,0 +1,5 @@
+[
+ {"code": "CNY", "symbol": "¥", "decimals": 2, "rate": 7.0, "balance": 66.675, "balance_ccy": "CNY", "cost": 0.5, "metrics": ["balance", "today_cost"], "unit": null, "expected": "¥66.67 · ¥3.5"},
+ {"code": "CNY", "symbol": "¥", "decimals": 2, "rate": 7.0, "balance": 10.1,   "balance_ccy": null,  "cost": 0.5, "metrics": ["balance", "today_cost"], "unit": null, "expected": "¥70.7 · ¥3.5"},
+ {"code": "CNY", "symbol": "¥", "decimals": 2, "rate": 7.0, "balance": 10.1,   "balance_ccy": null,  "cost": 0.5, "metrics": ["today_cost"],            "unit": " U", "expected": "3.5 U"}
+]
