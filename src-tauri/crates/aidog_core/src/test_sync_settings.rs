@@ -815,3 +815,136 @@ async fn cc_proxy_password_stable_and_encrypted_at_rest() {
     assert!(raw.starts_with("\"enc1:"), "列值须密文形态: {raw}");
     assert!(!raw.contains(&pw1), "列值不得含明文密码");
 }
+
+/// 预设显示名 `_aidog_preset_name`：兜底 helper、分组文件、全局 ~/.claude/settings.json 均不含。
+#[tokio::test]
+async fn preset_display_name_never_reaches_written_settings() {
+    use crate::gateway::models::{CreateGroup, RoutingMode};
+    use aidog_db::SetSettingInput;
+    use aidog_db::test_support::{HomeGuard, test_db};
+    let h = HomeGuard::new();
+    let db = test_db().await;
+
+    assert!(
+        super::bundled_oss_preset()
+            .get(super::PRESET_NAME_KEY)
+            .is_none()
+    );
+
+    // 基线带显示名（模拟用户从预设加载后未剥离的最坏情形）
+    aidog_db::set_setting(
+        &db,
+        SetSettingInput {
+            scope: "global".to_string(),
+            key: "claude_code".to_string(),
+            value: json!({ super::PRESET_NAME_KEY: "X", "env": { "FOO": "1" } }),
+        },
+    )
+    .await
+    .unwrap();
+    let g = aidog_db::create_group(
+        &db,
+        CreateGroup {
+            name: "preset-name".to_string(),
+            group_key: Some("gk_presetname".to_string()),
+            routing_mode: RoutingMode::Failover,
+            auto_from_platform: String::new(),
+            request_timeout_secs: 0,
+            connect_timeout_secs: 0,
+            source_protocol: None,
+            max_retries: 2,
+            model_mappings: vec![],
+            env_vars: vec![],
+        },
+    )
+    .await
+    .unwrap();
+    aidog_db::set_default_group(&db, Some(g.id)).await.unwrap();
+
+    super::do_sync_group_settings(&db, 9912).await.unwrap();
+
+    let read = |rel: &str| -> serde_json::Value {
+        serde_json::from_str(&std::fs::read_to_string(h.home().join(rel)).unwrap()).unwrap()
+    };
+    let group_file = read(".aidog/settings.gk_presetname.json");
+    assert_eq!(group_file["env"]["FOO"], "1");
+    assert!(group_file.get(super::PRESET_NAME_KEY).is_none());
+    let global = read(".claude/settings.json");
+    assert_eq!(global["env"]["FOO"], "1");
+    assert!(global.get(super::PRESET_NAME_KEY).is_none());
+}
+
+fn preset_dir() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../defaults/settings")
+}
+
+fn read_preset(id: &str) -> serde_json::Value {
+    let path = preset_dir().join(format!("{id}.json"));
+    serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap()
+}
+
+/// 磁盘上每份预设都是带非空显示名的 JSON 对象（直接读目录，不依赖打包份数）。
+#[test]
+fn every_preset_file_is_object_with_display_name() {
+    let mut n = 0;
+    for e in std::fs::read_dir(preset_dir()).unwrap() {
+        let p = e.unwrap().path();
+        if p.extension().is_some_and(|x| x == "json") {
+            let v = read_preset(p.file_stem().unwrap().to_str().unwrap());
+            assert!(v.is_object(), "{p:?}");
+            assert!(
+                v[super::PRESET_NAME_KEY]
+                    .as_str()
+                    .is_some_and(|s| !s.is_empty()),
+                "{p:?} 缺显示名"
+            );
+            n += 1;
+        }
+    }
+    assert!(n >= 2);
+}
+
+/// oss 不含 spec 列出的每类个人项，且保留隐私/凭证 deny/ask/env。
+#[test]
+fn oss_preset_has_no_personal_items_and_keeps_privacy() {
+    let oss = read_preset("oss");
+    for k in [
+        "hooks",
+        "enabledPlugins",
+        "extraKnownMarketplaces",
+        "language",
+        "spinnerVerbs",
+        "spinnerTipsOverride",
+        "worktree",
+        "autoMode",
+        "skipDangerousModePermissionPrompt",
+        "enableAllProjectMcpServers",
+        "crossSessionInbound",
+        "effortLevel",
+    ] {
+        assert!(oss.get(k).is_none(), "oss 不应含 {k}");
+    }
+    let perms = &oss["permissions"];
+    for k in ["defaultMode", "additionalDirectories", "allow"] {
+        assert!(perms.get(k).is_none(), "oss permissions 不应含 {k}");
+    }
+    let deny: Vec<&str> = perms["deny"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    for t in [
+        "Artifact",
+        "Monitor",
+        "NotebookEdit",
+        "EnterWorktree",
+        "ShareOnboardingGuide",
+        "Bash(sleep:*)",
+    ] {
+        assert!(!deny.contains(&t), "oss deny 不应含 {t}");
+    }
+    assert!(!deny.is_empty() && !perms["ask"].as_array().unwrap().is_empty());
+    assert_eq!(oss["disableClaudeAiConnectors"], true);
+    assert_eq!(oss["_aidog_hooks"]["enabled"], true);
+}

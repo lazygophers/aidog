@@ -5,11 +5,11 @@ description: aidog 内置的 Claude Code 推荐配置逐项说明：顶层开关
 
 # Claude Code 推荐配置
 
-在设置页 `settings/claude` 点击「加载推荐配置」，aidog 会把内置推荐值与当前配置做差异对比，逐项勾选后才写入。真值源是 `src-tauri/defaults/settings.json`，前端通过 `src/services/claude-settings-schema.ts` 的 `RECOMMENDED_CONFIG` 引用（唯一改动是 `language` 按系统语言探测）。
+在设置页 `settings/claude` 点击「加载推荐配置」，aidog 会把内置推荐值与当前配置做差异对比，逐项勾选后才写入。真值源是 `src-tauri/defaults/settings/oss.json`，前端通过 `src/services/claude-settings-schema.ts` 的 `RECOMMENDED_CONFIG` 引用（唯一改动是 `language` 按系统语言探测）。
 
 ```mermaid
 flowchart LR
-  A["src-tauri/defaults/settings.json"] --> B["RECOMMENDED_CONFIG"]
+  A["src-tauri/defaults/settings/oss.json"] --> B["RECOMMENDED_CONFIG"]
   B --> C["差异树 buildRecommendedDiffTree"]
   D["当前配置"] --> C
   C --> E["逐项勾选弹窗"]

@@ -1,4 +1,5 @@
 {
+    "_aidog_preset_name": "lazygophers",
     "$schema": "https://json.schemastore.org/claude-code-settings.json",
     "language": "zh-SG",
     "autoCompactEnabled": true,
@@ -73,50 +74,50 @@
         ]
     },
     "worktree": {
-      "symlinkDirectories": [
-        "node_modules",
-        ".pnpm-store",
-        ".yarn",
-        ".next",
-        ".nuxt",
-        ".vite",
-        ".parcel-cache",
-        ".svelte-kit",
-        ".angular",
-        ".expo",
-        ".serverless",
-        ".docusaurus",
-        ".turbo",
-        ".cache",
-        "coverage",
-        "target",
-        ".venv",
-        "venv",
-        ".tox",
-        "__pycache__",
-        ".pytest_cache",
-        ".mypy_cache",
-        ".ruff_cache",
-        ".hypothesis",
-        ".ipynb_checkpoints",
-        ".eggs",
-        ".dart_tool",
-        "build",
-        ".gradle",
-        ".cxx",
-        ".externalNativeBuild",
-        ".kotlin",
-        "captures",
-        "Pods",
-        "dist",
-        "out",
-        "vendor",
-        ".wiki",
-        ".ask-ui",
-        "graphify-out",
-        ".scratch",
-        ".claude"
-      ]
+        "symlinkDirectories": [
+            "node_modules",
+            ".pnpm-store",
+            ".yarn",
+            ".next",
+            ".nuxt",
+            ".vite",
+            ".parcel-cache",
+            ".svelte-kit",
+            ".angular",
+            ".expo",
+            ".serverless",
+            ".docusaurus",
+            ".turbo",
+            ".cache",
+            "coverage",
+            "target",
+            ".venv",
+            "venv",
+            ".tox",
+            "__pycache__",
+            ".pytest_cache",
+            ".mypy_cache",
+            ".ruff_cache",
+            ".hypothesis",
+            ".ipynb_checkpoints",
+            ".eggs",
+            ".dart_tool",
+            "build",
+            ".gradle",
+            ".cxx",
+            ".externalNativeBuild",
+            ".kotlin",
+            "captures",
+            "Pods",
+            "dist",
+            "out",
+            "vendor",
+            ".wiki",
+            ".ask-ui",
+            "graphify-out",
+            ".scratch",
+            ".claude"
+        ]
     },
     "sandbox": {
         "enabled": false,
@@ -396,115 +397,115 @@
         ]
     },
     "hooks": {
-      "PreToolUse": [
-        {
-          "hooks": [
+        "PreToolUse": [
             {
-              "command": "graphify hook-guard search",
-              "type": "command"
-            }
-          ],
-          "matcher": "Bash|Grep"
-        },
-        {
-          "hooks": [
+                "hooks": [
+                    {
+                        "command": "graphify hook-guard search",
+                        "type": "command"
+                    }
+                ],
+                "matcher": "Bash|Grep"
+            },
             {
-              "command": "graphify hook-guard read",
-              "type": "command"
-            }
-          ],
-          "matcher": "Read|Glob"
-        },
-        {
-          "hooks": [
+                "hooks": [
+                    {
+                        "command": "graphify hook-guard read",
+                        "type": "command"
+                    }
+                ],
+                "matcher": "Read|Glob"
+            },
             {
-              "command": "rtk hook claude",
-              "type": "command"
-            }
-          ]
-        },
-        {
-          "matcher": "Bash",
-          "hooks": [
+                "hooks": [
+                    {
+                        "command": "rtk hook claude",
+                        "type": "command"
+                    }
+                ]
+            },
             {
-              "type": "command",
-              "command": "python3 -c 'import json,sys,re;c=json.load(sys.stdin).get(\"tool_input\",{}).get(\"command\",\"\");print(json.dumps({\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"数据库 CLI 直操作或经 ssh/docker exec 嵌套执行，需确认\"}}) if re.search(r\"\\b(mysql|mariadb|mysqldump|redis-cli|mongosh|mongo|mongodump|psql|pg_dump|pg_restore|sqlite3)\\b\",c) else \"\",end=\"\")'"
-            }
-          ]
-        },
-        {
-          "matcher": "Grep|Glob|Bash",
-          "hooks": [
+                "matcher": "Bash",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "python3 -c 'import json,sys,re;c=json.load(sys.stdin).get(\"tool_input\",{}).get(\"command\",\"\");print(json.dumps({\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"数据库 CLI 直操作或经 ssh/docker exec 嵌套执行，需确认\"}}) if re.search(r\"\\b(mysql|mariadb|mysqldump|redis-cli|mongosh|mongo|mongodump|psql|pg_dump|pg_restore|sqlite3)\\b\",c) else \"\",end=\"\")'"
+                    }
+                ]
+            },
             {
-              "type": "command",
-              "command": "mise exec node@22 -- node ~/.claude/hooks/gitnexus/gitnexus-hook.cjs",
-              "timeout": 10,
-              "statusMessage": "Enriching with GitNexus graph context..."
+                "matcher": "Grep|Glob|Bash",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "mise exec node@22 -- node ~/.claude/hooks/gitnexus/gitnexus-hook.cjs",
+                        "timeout": 10,
+                        "statusMessage": "Enriching with GitNexus graph context..."
+                    }
+                ]
             }
-          ]
-        }
-      ],
-      "Stop": [
-        {
-          "hooks": [
+        ],
+        "Stop": [
             {
-              "command": "python3 ~/.agents/skills/tracking-progress/scripts/tracking_progress.py",
-              "type": "command"
+                "hooks": [
+                    {
+                        "command": "python3 ~/.agents/skills/tracking-progress/scripts/tracking_progress.py",
+                        "type": "command"
+                    }
+                ]
             }
-          ]
-        }
-      ],
-      "PostToolUse": [
-        {
-          "hooks": [
+        ],
+        "PostToolUse": [
             {
-              "command": "sqz hook claude-post",
-              "type": "command"
-            }
-          ],
-          "matcher": "Bash"
-        },
-        {
-          "matcher": "Bash",
-          "hooks": [
+                "hooks": [
+                    {
+                        "command": "sqz hook claude-post",
+                        "type": "command"
+                    }
+                ],
+                "matcher": "Bash"
+            },
             {
-              "type": "command",
-              "command": "mise exec node@22 -- node ~/.claude/hooks/gitnexus/gitnexus-hook.cjs",
-              "timeout": 10,
-              "statusMessage": "Checking GitNexus index freshness..."
+                "matcher": "Bash",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "mise exec node@22 -- node ~/.claude/hooks/gitnexus/gitnexus-hook.cjs",
+                        "timeout": 10,
+                        "statusMessage": "Checking GitNexus index freshness..."
+                    }
+                ]
             }
-          ]
-        }
-      ],
-      "PreCompact": [
-        {
-          "hooks": [
+        ],
+        "PreCompact": [
             {
-              "command": "sqz hook precompact",
-              "type": "command"
+                "hooks": [
+                    {
+                        "command": "sqz hook precompact",
+                        "type": "command"
+                    }
+                ]
             }
-          ]
-        }
-      ],
-      "SessionStart": [
-        {
-          "hooks": [
+        ],
+        "SessionStart": [
             {
-              "command": "sqz resume",
-              "type": "command"
-            }
-          ],
-          "matcher": "compact"
-        },
-        {
-          "hooks": [
+                "hooks": [
+                    {
+                        "command": "sqz resume",
+                        "type": "command"
+                    }
+                ],
+                "matcher": "compact"
+            },
             {
-              "type": "command",
-              "command": "mise exec node@22 -- node ~/.claude/hooks/context-mode-cache-heal.mjs"
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "mise exec node@22 -- node ~/.claude/hooks/context-mode-cache-heal.mjs"
+                    }
+                ]
             }
-          ]
-        }
-      ]
+        ]
     },
     "env": {
         "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet",
@@ -540,7 +541,8 @@
         "caveman@caveman": true,
         "i-have-adhd@i-have-adhd": true,
         "ponytail@ponytail": true,
-        "context-mode@context-mode": true
+        "context-mode@context-mode": true,
+        "openviking-memory@openviking": true
     },
     "extraKnownMarketplaces": {
         "caveman": {
@@ -582,6 +584,12 @@
             "source": {
                 "source": "github",
                 "repo": "mksglu/context-mode"
+            }
+        },
+        "openviking": {
+            "source": {
+                "source": "url",
+                "url": "https://docs.openviking.net/dl/plugins/claude/marketplace.json"
             }
         }
     }

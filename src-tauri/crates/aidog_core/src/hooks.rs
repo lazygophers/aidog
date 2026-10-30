@@ -105,7 +105,7 @@ pub async fn seed_default_templates(db: &Db) -> Result<(), String> {
 }
 
 /// 读取「默认为所有分组注入通知 hook」总开关状态（基线 `claude_code._aidog_hooks.enabled`）。
-/// 无基线配置时回退编译内默认（defaults/settings.json 默认开）。
+/// 无基线配置时回退编译内默认（defaults/settings/oss.json 默认开）。
 /// `&Db` 版本：供 command 包装层转发，也供测试直调（不经 tauri::State，见 test_hooks 模块注释）。
 async fn default_hooks_enabled_from_db(db: &Db) -> bool {
     let config = aidog_db::get_setting(db, "global", "claude_code")
@@ -113,10 +113,7 @@ async fn default_hooks_enabled_from_db(db: &Db) -> bool {
         .ok()
         .flatten()
         .filter(|v| v.is_object() && v.as_object().is_some_and(|o| !o.is_empty()))
-        .unwrap_or_else(|| {
-            serde_json::from_str(include_str!("../../../defaults/settings.json"))
-                .unwrap_or(serde_json::Value::Object(Default::default()))
-        });
+        .unwrap_or_else(crate::sync_settings::bundled_oss_preset);
     aidog_hooks::hooks_marker_enabled(&config)
 }
 
@@ -161,8 +158,7 @@ crate::tauri_command! {
                 let mut config = aidog_db::get_setting(db, "global", "claude_code").await
                     .ok().flatten()
                     .filter(|v| v.is_object())
-                    .unwrap_or_else(|| serde_json::from_str(include_str!("../../../defaults/settings.json"))
-                        .unwrap_or(serde_json::Value::Object(Default::default())));
+                    .unwrap_or_else(crate::sync_settings::bundled_oss_preset);
                 let events = enabled_hook_events(db).await;
                 aidog_hooks::inject_claude_code_hooks(&mut config, &scripts, &events);
                 aidog_db::set_setting(db, SetSettingInput {
@@ -237,8 +233,7 @@ crate::tauri_command! {
         let mut config = aidog_db::get_setting(db, "global", "claude_code").await
             .ok().flatten()
             .filter(|v| v.is_object() && v.as_object().is_some_and(|o| !o.is_empty()))
-            .unwrap_or_else(|| serde_json::from_str(include_str!("../../../defaults/settings.json"))
-                .unwrap_or(serde_json::Value::Object(Default::default())));
+            .unwrap_or_else(crate::sync_settings::bundled_oss_preset);
         if let Some(obj) = config.as_object_mut() {
             obj.insert(
                 aidog_hooks::MARKER_HOOKS.to_string(),
@@ -335,7 +330,7 @@ mod test_hooks {
 
         // inject（&Db 版本等价逻辑，绕开 tauri::State/AppHandle 依赖的 port 解析）
         let mut config: serde_json::Value =
-            serde_json::from_str(include_str!("../../../defaults/settings.json")).unwrap();
+            crate::sync_settings::bundled_oss_preset();
         let events = enabled_hook_events(&db).await;
         let invoker = gateway::scripts::ScriptInvoker::Python3;
         let scripts = generate_hook_scripts(invoker).unwrap();
@@ -396,12 +391,12 @@ mod test_hooks {
     async fn default_hooks_enabled_get_set() {
         let _guard = HomeGuard::new();
         let db = test_db().await;
-        // 默认值（defaults/settings.json 决定）
+        // 默认值（defaults/settings/oss.json 决定）
         let default_val = default_hooks_enabled_from_db(&db).await;
 
         // 写 marker 翻转，验证读回一致
         let mut config: serde_json::Value =
-            serde_json::from_str(include_str!("../../../defaults/settings.json")).unwrap();
+            crate::sync_settings::bundled_oss_preset();
         if let Some(obj) = config.as_object_mut() {
             obj.insert(
                 aidog_hooks::MARKER_HOOKS.to_string(),

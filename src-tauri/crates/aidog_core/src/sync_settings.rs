@@ -50,6 +50,19 @@ pub async fn try_sync_settings(db: &Db) {
 
 /// DB 存储托管叶子快照的 scope/key。复用 KV `setting` 表，不加新表/列。
 /// value = JSON 字符串数组（dot-path 叶子集），前端 invoke `get_managed_paths` 读。
+/// 预设显示名字段：只用于预设选择 UI，写出前必须剥离（Claude Code 不认识）。
+pub const PRESET_NAME_KEY: &str = "_aidog_preset_name";
+
+/// 编译内置开源默认预设（兜底与 hooks 默认值），已剥离显示名。
+pub(crate) fn bundled_oss_preset() -> serde_json::Value {
+    let mut v: serde_json::Value = serde_json::from_str(include_str!("../../../defaults/settings/oss.json"))
+        .unwrap_or(serde_json::Value::Object(Default::default()));
+    if let Some(obj) = v.as_object_mut() {
+        obj.remove(PRESET_NAME_KEY);
+    }
+    v
+}
+
 pub const MANAGED_SCOPE: &str = "claude_default_group";
 pub const MANAGED_KEY: &str = "managed_paths";
 
@@ -315,10 +328,7 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
         .ok()
         .flatten()
         .filter(|v| v.is_object() && v.as_object().is_some_and(|o| !o.is_empty()))
-        .unwrap_or_else(|| {
-            serde_json::from_str(include_str!("../../../defaults/settings.json"))
-                .unwrap_or(serde_json::Value::Object(Default::default()))
-        });
+        .unwrap_or_else(bundled_oss_preset);
 
     // Collect current group names for cleanup
     let group_keys: std::collections::HashSet<String> =
@@ -513,6 +523,7 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
             obj.remove("_aidog_statusline");
             obj.remove("_aidog_subagent_statusline");
             obj.remove(aidog_hooks::MARKER_HOOKS);
+            obj.remove(PRESET_NAME_KEY);
         }
 
         let file_path = aidog_dir.join(format!("settings.{}.json", group_key));
