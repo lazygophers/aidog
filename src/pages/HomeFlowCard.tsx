@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { FlowRow, Platform } from "../services/api";
 import { FlowChart, type FlowMetric } from "../components/charts/FlowChart";
 import { useDisplayCurrency } from "../utils/displayCurrency";
+import { clientLabel } from "../utils/clientLabel";
 import { usePanel } from "./Home";
 
 const METRICS: FlowMetric[] = ["tokens", "requests", "cost"];
@@ -29,7 +30,7 @@ export function HomeFlowCard({ rows, platforms, ungroupedLabel, loading }: {
   const columns = useMemo(() => {
     const platName = (id: string) => (id === "0" ? t("flow.platform.none", "未路由") : (platforms.find(p => String(p.id) === id)?.platform_type ?? `#${id}`));
     return [
-      { key: "client", title: t("flow.col.client", "客户端"), labelOf: (id: string) => (id === "" ? t("flow.client.unknown", "未知") : t(`flow.client.${id}`, id)) },
+      { key: "client", title: t("flow.col.client", "客户端"), labelOf: (id: string) => clientLabel(t, id) },
       { key: "group", title: t("flow.col.group", "分组"), labelOf: (id: string) => (id === "" ? ungroupedLabel : id) },
       { key: "requestModel", title: t("flow.col.requestModel", "请求模型") },
       { key: "platform", title: t("flow.col.platform", "平台"), labelOf: platName },
