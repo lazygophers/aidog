@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Platform, PlatformUsageStats, LastTestResult, PlatformQuota } from "../../services/api";
 import { getPlatformLogo, getFaviconUrl } from "../../assets/platforms";
 import { CompactCard, StatChip, BalanceBar, TestResultBody, successRateLevel, costLevel, usageLevelToColor } from "../shared";
-import { clamp, formatNumber, formatPercent, formatCostUsd, formatDateTime } from "../../utils/formatters";
+import { clamp, formatNumber, formatPercent, formatMoney, formatDateTime } from "../../utils/formatters";
 import { IconBolt, IconCost, IconCheck, IconClock } from "../icons";
 import {
   PROTOCOL_LABELS, HEALTH_COLORS,
@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useDisplayCurrency } from "../../utils/displayCurrency";
 
 // ── Props types ──
 
@@ -116,6 +117,7 @@ export const PlatformCard = memo(function PlatformCard({
   levelPriority,
   onLevelPriorityChange,
 }: PlatformCardProps) {
+  useDisplayCurrency();
   const { t, i18n } = useTranslation();
   // QuotaDisplay 在卡片内计算并缓存：父列表渲染时不再现算新对象，浅比较稳定 → 局部交互不全卡重渲。
   const quota = useMemo(
@@ -503,14 +505,14 @@ export const PlatformCard = memo(function PlatformCard({
                     </span>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 12, fontWeight: 700, color: "var(--text-secondary)" }}>
                       <IconCost size={12} />
-                      {formatCostUsd(u.total_cost)}
+                      {formatMoney(u.total_cost)}
                     </span>
                   </div>
                 )}
                 {/* B3 折算行：本周期（首个配额窗口 window_start 起）累计折算 $ + 手填套餐价 */}
                 {hasCodingEndpoint && p.coding_window_cost > 0 && (
                   <span style={{ flexShrink: 0, fontSize: 11, color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>
-                    {t("platform.codingWindowCost", "本周期折算")} {formatCostUsd(p.coding_window_cost)}
+                    {t("platform.codingWindowCost", "本周期折算")} {formatMoney(p.coding_window_cost)}
                     {planPrice != null && ` · ${t("platform.codingPlanPrice", "套餐")} ¥${planPrice}/月`}
                   </span>
                 )}
@@ -579,7 +581,7 @@ export const PlatformCard = memo(function PlatformCard({
                     <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}
                       title={t("platform.todayUsageLabel", "今日")}>
                       <span style={{ fontSize: 13, fontWeight: 600, color: u.today_cost > 0 ? "var(--text-primary)" : "var(--text-tertiary)", fontVariantNumeric: "tabular-nums" }}>
-                        {formatCostUsd(u.today_cost)}
+                        {formatMoney(u.today_cost)}
                       </span>
                       <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{t("platform.todayUsageLabel", "今日")}</span>
                     </span>
@@ -764,6 +766,7 @@ function UsageSection({
   successRate: number;
   totalRequests: number;
 }) {
+  useDisplayCurrency();
   const { t } = useTranslation();
   return (
     <>
@@ -773,7 +776,7 @@ function UsageSection({
             <span className="text-tertiary" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "已使用")}</span>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               <StatChip icon={<IconBolt size={13} />} value={formatNumber(totalTokens)} label="tokens" />
-              <StatChip icon={<IconCost size={13} />} value={formatCostUsd(totalCost)} label="cost" level={costLevel(totalCost)} />
+              <StatChip icon={<IconCost size={13} />} value={formatMoney(totalCost)} label="cost" level={costLevel(totalCost)} />
               <StatChip icon={<IconCheck size={13} />} value={formatPercent(successRate)} label="ok" level={successRateLevel(successRate, totalRequests)} />
             </div>
           </div>
@@ -781,7 +784,7 @@ function UsageSection({
             <span className="text-tertiary" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.todayUsageLabel", "今日")}</span>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               <StatChip icon={<IconBolt size={13} />} value={formatNumber(usage.today_tokens)} label="tokens" />
-              <StatChip icon={<IconCost size={13} />} value={formatCostUsd(usage.today_cost)} label="cost" level={costLevel(usage.today_cost)} />
+              <StatChip icon={<IconCost size={13} />} value={formatMoney(usage.today_cost)} label="cost" level={costLevel(usage.today_cost)} />
             </div>
           </div>
         </div>

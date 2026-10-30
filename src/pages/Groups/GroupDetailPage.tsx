@@ -10,9 +10,10 @@ import { GroupSidePanels, staticOrder } from "./GroupSidePanels";
 import type { CardsSnapshot } from "./GroupListItem";
 import { GroupFlowPanel } from "./GroupFlowPanel";
 import { PlatformRow, PlatformRowCols } from "../platforms/PlatformRow";
-import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate } from "../../utils/formatters";
+import { formatNumber, formatMoney, formatPercent, successRate as calcSuccessRate } from "../../utils/formatters";
 import { routingModeLabel } from "../../domains/groups";
 import { Button } from "@/components/ui/button";
+import { useDisplayCurrency } from "../../utils/displayCurrency";
 
 // 设计稿 token 映射：pgtop / pgbody / acard / seclab / 统计带 / memrow 全部按 6-整体风格与分组页.html。
 const seclabStyle: React.CSSProperties = {
@@ -231,6 +232,7 @@ export function GroupDetailPage(props: {
   onMemberPointerDown?: (ev: React.PointerEvent, pid: number, gid: number) => void;
   memberDropIndicator?: { gid: number; idx: number } | null;
 }) {
+  useDisplayCurrency();
   const { detail, platforms, t, groupStats, cards, cardService } = props;
   const { i18n } = useTranslation();
   const { group } = detail;
@@ -260,7 +262,7 @@ export function GroupDetailPage(props: {
         <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }} data-testid="detail-stats">
             <StatCard big={formatNumber(u?.today_tokens ?? 0)} label={t("group.detail.todayTokens", "今日 tokens")} />
-            <StatCard big={"$" + formatCost(u?.today_cost ?? 0)} label={t("group.stats.todayCost", "今日费用")} />
+            <StatCard big={formatMoney(u?.today_cost ?? 0)} label={t("group.stats.todayCost", "今日费用")} />
             <StatCard big={<>{u && u.total_requests > 0 ? formatPercent(sRate, 1) : "—"}{u && u.total_requests > 0 ? <em style={{ fontStyle: "normal", fontSize: 13, color: "var(--text-tertiary)", fontWeight: 400 }}>%</em> : null}</>}
               label={t("group.detail.successRate", "成功率")}
               delt={u && u.total_requests > 0 ? (u.total_requests - u.success_count) + " " + t("group.detail.failedCount", "次失败") : undefined}

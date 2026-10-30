@@ -4,7 +4,8 @@
 // 遵「无数据隐藏整行」约定：remaining 缺值（null/undefined/NaN）时不渲染（返回 null）。
 // 全走 CSS 变量，明暗双模式对比度由 globals.css 语义色保证。
 
-import { formatCost } from "../../utils/formatters";
+import { formatAmount, formatMoney } from "../../utils/formatters";
+import { useDisplayCurrency } from "../../utils/displayCurrency";
 import type { ColorLevel } from "./colorScale";
 import { levelColor } from "./colorScale";
 
@@ -31,6 +32,9 @@ function remainingLevel(pct: number): ColorLevel {
 }
 
 export function BalanceBar({ remaining, total, currency = "$", level, showTotal = true, label }: BalanceBarProps) {
+  useDisplayCurrency();
+  // "$" = USD 金额，随显示币种换算；其余（ACU 空串、原币种符号）原样显示。
+  const fmt = (n: number) => (currency === "$" ? formatMoney(n) : formatAmount(n, currency));
   if (remaining == null || Number.isNaN(remaining)) return null;
 
   const hasTotal = typeof total === "number" && total > 0;
@@ -44,13 +48,11 @@ export function BalanceBar({ remaining, total, currency = "$", level, showTotal 
     <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 4, fontSize: 12 }}>
         <span className="counter" style={{ fontWeight: 700, color }}>
-          {currency}
-          {formatCost(remaining)}
+          {fmt(remaining)}
         </span>
         {hasTotal && showTotal && (
           <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-            / {currency}
-            {formatCost(total!)}
+            / {fmt(total!)}
           </span>
         )}
       </div>

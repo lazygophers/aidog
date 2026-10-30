@@ -4,7 +4,7 @@ import type { TFunction } from "i18next";
 import type { GroupDetail, GroupPlatformDetail, Platform, PlatformUsageStats, PurgeCandidate, PlatformErrorStatus } from "../../services/api";
 import { buildStatusOptions, idsForCode } from "./statusSelect";
 import { platformApi } from "../../services/api";
-import { formatCost, formatPercent, formatNumber, successRate as calcSuccessRate } from "../../utils/formatters";
+import { formatMoney, formatPercent, formatNumber, successRate as calcSuccessRate } from "../../utils/formatters";
 import { makeRipple } from "../../components/shared";
 import { PlatformCardActions, PlatformCardService } from "../../components/platforms/PlatformCard";
 import { PlatformRow } from "../platforms/PlatformRow";
@@ -26,6 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useDisplayCurrency } from "../../utils/displayCurrency";
 
 /** usePlatformCards 的卡片展示状态快照（memo 化子组件按需接收） */
 export interface CardsSnapshot {
@@ -120,6 +121,7 @@ export const GroupListItem = memo(function GroupListItem({
   batchDoneSignal,
   handle,
 }: GroupListItemProps) {
+  useDisplayCurrency();
   const { group, platforms: gps, model_mappings } = detail;
   // 代理 env（claude settings.json env 段），前置 export 注入 codex 启动命令（codex 无 config proxy）。
   const { i18n } = useTranslation();
@@ -255,11 +257,11 @@ export const GroupListItem = memo(function GroupListItem({
         </span>
         {/* 三统计（稿 .gstats：今日 / 请求 / 成功率） */}
         <span style={gstatStyle}>
-          <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("group.detail.todayShort", "今")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>${u ? formatCost(u.today_cost) : "0"}</b></span>
+          <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("group.detail.todayShort", "今")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>{formatMoney(u ? u.today_cost : 0)}</b></span>
           <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("group.todayRequests", "今日请求")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>{u ? formatNumber(u.today_requests) : "0"}</b></span>
           <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("group.todaySuccessRate", "今日成功率")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>{u && u.today_requests > 0 ? formatPercent(calcSuccessRate(u.today_success, u.today_requests), 1) : "—"}</b></span>
           {balance != null && (
-            <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("platform.col.balance", "余额")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>${formatCost(balance)}</b></span>
+            <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("platform.col.balance", "余额")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>{formatMoney(balance)}</b></span>
           )}
         </span>
         {/* 右侧操作（稿 .gactions：拖入提示 / 多选 / 设置 / ⋯） */}

@@ -47,6 +47,7 @@ import { CAPABILITIES, CapabilityBadges, capabilityLabel } from "./CapabilityBad
 import { PAGE_SIZE_OPTIONS, Pagination } from "./Pagination";
 import { ModelNameCell } from "./ModelName";
 import { fmtPricePerM, fmtTokens, parsePriceData } from "./priceData";
+import { useDisplayCurrency } from "../../utils/displayCurrency";
 
 // radix Select 的 SelectItem value="" 会抛错 → __none__ 哨兵映射回「不筛选」
 const NONE = "__none__";
@@ -330,6 +331,7 @@ function ModelRow({ group, labelMap, onOpen }: {
   labelMap: Record<string, string>;
   onOpen: () => void;
 }) {
+  useDisplayCurrency();
   const { t } = useTranslation();
   const primary = group.entries.find(e => e.platform_code === group.primary_platform) ?? group.entries[0];
   const price = parsePriceData(primary?.price_data ?? "");

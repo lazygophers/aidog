@@ -9,9 +9,10 @@ import { useThemeMode } from "../themes/useThemeMode";
 import type { StatsBucket, StatsSeries } from "../services/api";
 import type { ChartConfig } from "@/components/ui/chart";
 import { StackedAreaChart, bucketMs } from "@/components/charts";
-import { formatNumber, formatCostUsd } from "../utils/formatters";
+import { formatNumber, formatMoney } from "../utils/formatters";
 import { F } from "../domains/shared/tokens";
 import { DIM_TOP_N, usePanel, type PanelTokens } from "./Home";
+import { useDisplayCurrency } from "../utils/displayCurrency";
 
 export type TrendMetric = "cost" | "tokens";
 export type TrendDim = "total" | "platform" | "model" | "group";
@@ -131,6 +132,7 @@ export function HomeTrendChart({
   ungroupedLabel: string;
   loading: boolean;
 }) {
+  useDisplayCurrency();
   const { t } = useTranslation();
   const P = usePanel();
   const mode = useThemeMode();
@@ -195,7 +197,7 @@ export function HomeTrendChart({
         config={config}
         data={rows}
         height={240}
-        valueFormat={metric === "cost" ? formatCostUsd : formatNumber}
+        valueFormat={metric === "cost" ? formatMoney : formatNumber}
         rightConfig={{ req: { label: t("home.trendRequests", "请求数") } }}
         rightValueFormat={formatNumber}
         emptyHint={loading ? "" : t("home.noToday", "今日暂无请求")}

@@ -5,7 +5,7 @@ import type { PlatformCardActions, PlatformCardService } from "../../components/
 import type { usePlatformCards } from "../../components/platforms/usePlatformCards";
 import { SortableList } from "../../components/SortableList";
 import { CopyButton, StatChip, successRateLevel, costLevel } from "../../components/shared";
-import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate } from "../../utils/formatters";
+import { formatNumber, formatMoney, formatPercent, successRate as calcSuccessRate } from "../../utils/formatters";
 import { IconBolt, IconCost, IconCheck } from "../../components/icons";
 import { ModelTestPanel } from "../ModelTestPanel";
 import { ShareModal } from "../../components/platforms/ShareModal";
@@ -30,6 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useDisplayCurrency } from "../../utils/displayCurrency";
 
 export interface GroupListViewProps {
   details: GroupDetail[];
@@ -421,6 +422,7 @@ export function GroupListView(props: GroupListViewProps) {
 /** 虚拟桶「未匹配」只读卡片：MITM 解密非 API 流量未匹配分组 → fallback 直通原 host 的统计。
  *  非真实分组（不入 groups 表），仅展示请求数/token/cost(恒0)/成功率，灰色徽标区分，无编辑/平台/余额。 */
 function UnmatchedBucketCard({ stat: u, t }: { stat: PlatformUsageStats; t: TFunction }) {
+  useDisplayCurrency();
   const totalTokens = u.total_input_tokens + u.total_output_tokens;
   const sRate = calcSuccessRate(u.success_count, u.total_requests);
   return (
@@ -442,7 +444,7 @@ function UnmatchedBucketCard({ stat: u, t }: { stat: PlatformUsageStats; t: TFun
         </div>
         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
           <StatChip icon={<IconBolt size={13} />} value={formatNumber(totalTokens)} label="tokens" />
-          <StatChip icon={<IconCost size={13} />} value={`$${formatCost(u.total_cost)}`} label="cost" level={costLevel(u.total_cost)} />
+          <StatChip icon={<IconCost size={13} />} value={formatMoney(u.total_cost)} label="cost" level={costLevel(u.total_cost)} />
           {u.total_requests > 0 && (
             <StatChip icon={<IconCheck size={13} />} value={formatPercent(sRate, 0)} label="ok"
               level={successRateLevel(sRate, u.total_requests)} />

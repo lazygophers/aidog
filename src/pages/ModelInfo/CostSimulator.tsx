@@ -30,8 +30,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatCostUsd } from "../../utils/formatters";
+import { formatMoney, formatAmount } from "../../utils/formatters";
 import { parsePriceData, type PriceTier } from "./priceData";
+import { useDisplayCurrency } from "../../utils/displayCurrency";
 
 const DIMS = ["input", "output", "cache_read", "cache_write"] as const;
 type Dim = (typeof DIMS)[number];
@@ -54,6 +55,7 @@ export function CostSimulator({ groups, labelMap }: {
   groups: ModelEntryGroup[];
   labelMap: Record<string, string>;
 }) {
+  useDisplayCurrency();
   const { t } = useTranslation();
   const [canonical, setCanonical] = useState(groups[0]?.canonical_model ?? "");
   const [tokens, setTokens] = useState<Record<Dim, number>>({
@@ -245,7 +247,7 @@ export function CostSimulator({ groups, labelMap }: {
         {primaryDto ? (
           <>
             <div data-testid="sim-total" style={{ fontSize: 28, fontWeight: 700, fontFamily: "var(--font-mono, monospace)" }}>
-              {unsupported(primaryDto) ? "-" : formatCostUsd(primaryDto.est_cost)}
+              {unsupported(primaryDto) ? "-" : formatMoney(primaryDto.est_cost)}
               <small className="text-tertiary" style={{ fontSize: 12, fontWeight: 400 }}> {t("simulator.perRequest")}</small>
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "4px 0 12px" }}>
@@ -281,7 +283,7 @@ export function CostSimulator({ groups, labelMap }: {
                   return (
                     <TableRow key={dim} data-testid={`sim-row-${dim}`}>
                       <TableCell>{t(`simulator.dim.${dim}`)}</TableCell>
-                      <TableCell style={{ textAlign: "right" }}>{typeof unit === "number" ? (primaryCny ? formatCostUsd(unit * 1e6).replace("$", "¥") : formatCostUsd(unit * 1e6)) : "-"}</TableCell>
+                      <TableCell style={{ textAlign: "right" }}>{typeof unit === "number" ? (primaryCny ? formatAmount(unit * 1e6, "¥") : formatMoney(unit * 1e6)) : "-"}</TableCell>
                       <TableCell style={{ textAlign: "right" }}>{qty.toLocaleString()}</TableCell>
                       <TableCell style={{ textAlign: "right" }}>×{primaryDto.multiplier}</TableCell>
                     </TableRow>
@@ -323,7 +325,7 @@ export function CostSimulator({ groups, labelMap }: {
                   {labelMap[c.entry.platform_code] ?? c.entry.platform_code}
                 </div>
                 <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 16, fontWeight: 700, marginTop: 3 }}>
-                  {dto ? (isUnsupported ? "-" : formatCostUsd(dto.est_cost)) : "…"}
+                  {dto ? (isUnsupported ? "-" : formatMoney(dto.est_cost)) : "…"}
                 </div>
                 <div className="text-tertiary" style={{ fontSize: 10, fontFamily: "var(--font-mono, monospace)" }}>
                   {dto && isLowest && <span style={{ color: "var(--success, #1F9D61)" }}>{t("simulator.lowest")} </span>}

@@ -3,8 +3,8 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   formatNumber,
   formatBytes,
-  formatCost,
-  formatCostUsd,
+  formatAmount,
+  formatMoney,
   formatDurationMs,
   formatPercent,
   successRate,
@@ -54,7 +54,9 @@ describe("formatBytes", () => {
   });
 });
 
-describe("formatCost", () => {
+const formatCost = (n: number) => formatAmount(n, "");
+
+describe("formatAmount（旧 formatCost 量级规则，无符号）", () => {
   it("returns 0 for non-positive / NaN", () => {
     expect(formatCost(0)).toBe("0");
     expect(formatCost(-5)).toBe("0");
@@ -70,21 +72,29 @@ describe("formatCost", () => {
   });
   it("renders tiny non-zero costs as fixed decimals, never rounding to 0", () => {
     expect(formatCost(0.0034)).toBe("0.00340");
-    // 4.5e-7 → 不被舍成 "0"，定点 2 位有效数字
-    const out = formatCost(0.00000045);
-    expect(out).not.toBe("0");
-    expect(Number(out)).toBeGreaterThan(0);
+    expect(formatCost(0.00000045)).toBe("0.00000045");
   });
   it("clamps decimal places to a max of 12 for extreme values", () => {
-    const out = formatCost(1e-15);
-    expect(out.length).toBeLessThanOrEqual("0.".length + 12);
+    expect(formatCost(1e-15).length).toBeLessThanOrEqual("0.".length + 12);
+  });
+  it("0 位小数币种 >=1 加千分位", () => {
+    expect(formatAmount(1234567.4, "JP¥", 0)).toBe("JP¥1,234,567");
+    expect(formatAmount(999, "JP¥", 0)).toBe("JP¥999");
   });
 });
 
-describe("formatCostUsd", () => {
-  it("prefixes a $ sign", () => {
-    expect(formatCostUsd(0)).toBe("$0");
-    expect(formatCostUsd(1.5)).toBe("$1.50");
+describe("formatMoney 默认 USD（与旧 formatCostUsd 逐字一致）", () => {
+  it.each([
+    [0, "$0"],
+    [NaN, "$0"],
+    [-1, "$0"],
+    [1.5, "$1.50"],
+    [1234.567, "$1234.57"],
+    [0.31, "$0.310"],
+    [0.0034, "$0.00340"],
+    [4.5e-7, "$0.00000045"],
+  ])("%s -> %s", (n, out) => {
+    expect(formatMoney(n)).toBe(out);
   });
 });
 
