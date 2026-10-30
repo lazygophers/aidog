@@ -34,6 +34,7 @@ import { ProtocolLogo } from "../domains/platforms/ProtocolLogo";
 import { F } from "../domains/shared/tokens";
 import { useThemeMode } from "../themes/useThemeMode";
 import { useDisplayCurrency } from "../utils/displayCurrency";
+import { platformBalanceUsd, useBalanceCurrencies } from "../utils/balanceCurrency";
 
 export const DIM_TOP_N = 8;
 const DEFAULT_PORT = 7890;
@@ -212,6 +213,7 @@ function KpiCell({ label, value, spark, amber }: { label: string; value: string;
 
 export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavContext) => void }) {
   useDisplayCurrency();
+  useBalanceCurrencies();
   const P = usePanel();
   const { t } = useTranslation();
   const [running, setRunning] = useState<boolean | null>(null);
@@ -299,7 +301,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
   const hasTodayData = !!today && (today.total_requests > 0 || today.cost > 0 || today.tokens > 0);
 
   // 总余额 = 关联平台 est_balance_remaining 求和（平台级属性，无 per-group 概念）。
-  const totalBalance = platforms.reduce((acc, p) => acc + (p.est_balance_remaining || 0), 0);
+  const totalBalance = platforms.reduce((acc, p) => acc + platformBalanceUsd(p.id, p.est_balance_remaining || 0), 0);
 
   // 24h 趋势 / KPI sparkline 序列（hourly 桶；维度趋势图 / KPI sparkline 消费）。
   const reqSeries = trendBuckets.map(b => b.total_requests);

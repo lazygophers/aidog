@@ -3,7 +3,7 @@
 //! 前端 store / popover 订阅刷新；同时 emit tray-refresh 重画托盘。
 
 use aidog_db::currency::{self, DisplayCurrency};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 crate::tauri_command! {
     /// 当前显示币种 + 8 币种表（含生效汇率）。
@@ -23,5 +23,12 @@ crate::tauri_command! {
         // 托盘重画：复用 app_setup.rs:622 的 tray-refresh listener
         aidog_ctx::emit_unit("tray-refresh");
         Ok(r)
+    }
+}
+
+crate::tauri_command! {
+    /// 平台余额币种表（平台 id → 币种码）；未真查过的平台无条目。前端据此把原币种余额折 USD 再按显示币种换算。
+    pub async fn balance_currency_map() -> HashMap<u64, String> {
+        currency::get_balance_currencies(aidog_ctx::db()).await
     }
 }
