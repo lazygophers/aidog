@@ -473,6 +473,8 @@
   "flow.col.platform": "プラットフォーム",
   "flow.col.actualModel": "実モデル",
   "flow.col.group": "グループ",
+  "flow.platform.none": "未ルーティング",
+  "flow.model.none": "未指定",
   "group.detail.open": "詳細を開く",
   "group.detail.openShort": "詳細",
   "group.health.title": "成功率 {{rate}}",
