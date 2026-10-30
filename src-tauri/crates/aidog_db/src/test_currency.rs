@@ -71,3 +71,39 @@ async fn set_rejects_invalid_input_and_writes_nothing() {
     assert!(set_display_currency(&db, "USD", rate("XXX", 2.0)).await.is_err());
     assert_eq!(get_display_currency(&db).await.code, "USD");
 }
+
+#[test]
+fn balance_to_usd_cny_uses_table_rate_others_pass_through() {
+    let cur = build_display_currency(&DisplayCurrencySetting::default());
+    assert!((cur.balance_to_usd(66.675, Some("CNY")) - 10.0).abs() < 1e-9);
+    assert_eq!(cur.balance_to_usd(10.0, Some("USD")), 10.0);
+    assert_eq!(cur.balance_to_usd(10.0, None), 10.0);
+    // 未知 / 非 CNY 币种按 USD 处理
+    assert_eq!(cur.balance_to_usd(10.0, Some("EUR")), 10.0);
+    // 用户改了 CNY 汇率：CNY 余额回除生效汇率，显示 CNY 时恒等于原值
+    let mut s = DisplayCurrencySetting { code: "CNY".into(), ..Default::default() };
+    s.rates.insert("CNY".into(), 7.0);
+    let c = build_display_currency(&s);
+    assert!((c.balance_to_usd(70.0, Some("cny")) * c.rate - 70.0).abs() < 1e-9);
+}
+
+#[tokio::test]
+async fn balance_currencies_roundtrip_from_setting() {
+    let (db, _dir) = three_file_db().await;
+    for (k, v) in [("7", "CNY"), ("9", "USD"), ("x", "CNY")] {
+        crate::set_setting(
+            &db,
+            SetSettingInput {
+                scope: BALANCE_CCY_SCOPE.into(),
+                key: k.into(),
+                value: serde_json::Value::String(v.into()),
+            },
+        )
+        .await
+        .unwrap();
+    }
+    let m = get_balance_currencies(&db).await;
+    assert_eq!(m.len(), 2); // 非数字 key 跳过
+    assert_eq!(m[&7], "CNY");
+    assert_eq!(m[&9], "USD");
+}
