@@ -228,6 +228,7 @@ pub(crate) async fn forward_attempt(
                 error: $reason.to_string(),
                 duration_ms: attempt_latency_ms,
                 ts: attempt_ts,
+                model: Some(route.target_model.clone()),
             });
             let _ = aidog_db::set_platform_last_error(
                 &state.db, route.platform.id, Some(format!("HTTP 200: {}", $reason)),
@@ -276,6 +277,7 @@ pub(crate) async fn forward_attempt(
                 error: String::new(),
                 duration_ms: attempt_latency_ms,
                 ts: attempt_ts,
+                model: Some(route.target_model.clone()),
             });
             if route.platform.status == super::models::PlatformStatus::AutoDisabled {
                 if let Err(e) = aidog_db::recover_platform_auto_disabled(&state.db, route.platform.id).await {
@@ -2469,6 +2471,7 @@ async fn select_endpoint_target<'a>(
                 error: format!("invalid target protocol: {:?}", target_protocol_enum),
                 duration_ms: attempt_start.elapsed().as_millis() as i64,
                 ts: attempt_ts,
+                model: Some(route.target_model.clone()),
             });
             let _ = aidog_db::set_platform_last_error(
                 &state.db,
@@ -2520,6 +2523,7 @@ async fn select_endpoint_target<'a>(
             error: "base_url missing".to_string(),
             duration_ms: attempt_start.elapsed().as_millis() as i64,
             ts: attempt_ts,
+            model: Some(route.target_model.clone()),
         });
         let _ = aidog_db::set_platform_last_error(
             &state.db,
@@ -2757,6 +2761,7 @@ async fn prepare_outbound(
             error: "manual budget exhausted".to_string(),
             duration_ms: attempt_start.elapsed().as_millis() as i64,
             ts: attempt_ts,
+            model: Some(route.target_model.clone()),
         });
         log.retry_count = (attempts.len() as i32 - 1).max(0);
         log.attempts = std::mem::take(attempts);
@@ -3187,6 +3192,7 @@ async fn send_upstream(
                     error: format!("upstream error (retrying): {}", err_chain(&e)),
                     duration_ms: attempt_start.elapsed().as_millis() as i64,
                     ts: attempt_ts,
+                    model: Some(route.target_model.clone()),
                 });
                 transport_retried += 1;
                 tokio::time::sleep(backoff).await;
@@ -3226,6 +3232,7 @@ async fn send_upstream(
                     error: upstream_err.clone(),
                     duration_ms: attempt_start.elapsed().as_millis() as i64,
                     ts: attempt_ts,
+                    model: Some(route.target_model.clone()),
                 });
                 let _ = aidog_db::set_platform_last_error(
                     &state.db,
@@ -3271,6 +3278,7 @@ async fn send_upstream(
                 error: "400 with anthropic-beta (retrying without it)".to_string(),
                 duration_ms: attempt_start.elapsed().as_millis() as i64,
                 ts: attempt_ts,
+                model: Some(route.target_model.clone()),
             });
             retry.send().await.unwrap_or(resp)
         }

@@ -13,6 +13,8 @@ use std::sync::OnceLock;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use super::notif_type_for_event;
+
 // ── 规则模型 ────────────────────────────────────────────────────────────────
 
 /// 动作渠道：本地 4 形态 + 外部 7 渠道（票 03；外部渠道配置在 models::ExternalChannels）。
@@ -355,12 +357,17 @@ fn resolve_field<'a>(field: &str, input: &'a MatchInput) -> &'a str {
 
 /// 单条规则是否匹配（enabled + 类型 + 条件表达式）。条件编译失败视为不匹配
 /// （编辑期 UI 已校验报错，运行期静默跳过并 warn——一条坏规则不拖垮全部通知）。
+///
+/// 类型匹配双口径：规则的 match_type 写语义类型（规则编辑 UI 的词表），入站 typ 可能是
+/// CC hook 原始事件名（如 `Stop`）——先比对原文，再经 `notif_type_for_event` 归一比对；
+/// 否则预置规则（`task_complete` 等）永远匹配不到 hook 事件，完成通知整体静默。
 pub fn rule_matches(rule: &Rule, input: &MatchInput) -> bool {
     if !rule.enabled {
         return false;
     }
     if let Some(t) = &rule.match_type
         && t != input.typ
+        && Some(t.as_str()) != notif_type_for_event(input.typ).map(|n| n.as_str())
     {
         return false;
     }

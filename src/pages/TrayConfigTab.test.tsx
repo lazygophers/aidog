@@ -27,7 +27,8 @@ const t = ((key: string, fallback?: string) => fallback ?? key) as never;
 function item(patch: Partial<TrayItem>): TrayItem {
   return {
     item_type: "today_usage", platform_id: null, display: "", metric: "cost", label: null,
-    decimals: null, color: { mode: "follow", value: "" }, font_size: 9, line_mode: "two",
+    decimals: null, metrics: null, unit: null,
+    color: { mode: "follow", value: "" }, font_size: 9, line_mode: "two",
     align: "left", align_row2: "right", enabled: true, order: 0,
     ...patch,
   };
@@ -133,6 +134,71 @@ describe("trayMoney（对拍 Rust tray_money）", () => {
   });
 });
 
+// ── 平台槽多指标（metrics / unit / decimals / coding 窗口 / reset_time）──
+
+const plat = {
+  id: 7,
+  name: "Acme",
+  enabled: true,
+  est_balance_remaining: 10.1,
+  est_coding_plan: JSON.stringify({
+    tiers: [
+      { name: "five_hour", est_utilization: 25, window_start: 0 },
+      { name: "weekly_limit", est_utilization: 50 },
+    ],
+  }),
+} as never;
+
+function platformItem(patch: Partial<TrayItem>): TrayItem {
+  return item({ item_type: "platform", platform_id: 7, metric: null, ...patch });
+}
+
+describe("previewValue 平台槽多指标", () => {
+  const stats = { tokens: 1240, cache_rate: 0, cost: 0.5, total_requests: 3 } as TodayStats;
+
+  it("多指标按词表序以 ' · ' 拼进同一格", () => {
+    expect(
+      previewValue(
+        platformItem({ metrics: ["balance", "today_cost", "today_tokens"] }),
+        [plat],
+        stats,
+      ),
+    ).toBe("$10.1 · $0.5 · 1240 tok");
+  });
+
+  it("unit 替换默认单位（$ 前缀去掉、后缀接管）；decimals 上限裁尾零", () => {
+    expect(
+      previewValue(
+        platformItem({ metrics: ["balance", "today_tokens"], unit: " U", decimals: 3 }),
+        [plat],
+        stats,
+      ),
+    ).toBe("10.1 U · 1240 U");
+  });
+
+  it("多指标金额按显示币种（对拍 Rust platform_metrics_use_display_currency）", () => {
+    const cny = mk("CNY", "¥", 2, 7.0);
+    const st = { tokens: 0, cache_rate: 0, cost: 0.5, total_requests: 0 } as TodayStats;
+    expect(
+      previewValue(platformItem({ metrics: ["balance", "today_cost"] }), [plat], st, null, cny),
+    ).toBe("¥70.7 · ¥3.5");
+    expect(
+      previewValue(platformItem({ metrics: ["today_cost"], unit: " U" }), [plat], st, null, cny),
+    ).toBe("3.5 U");
+  });
+
+  it("coding 窗口取指定 tier 剩余%；reset_time 窗口无起点/未知 cycle 跳过", () => {
+    expect(
+      previewValue(
+        platformItem({ metrics: ["coding:weekly_limit", "coding:five_hour", "reset_time:five_hour"] }),
+        [plat],
+        stats,
+      ),
+      // weekly=50%、five=75%；five_hour window_start=0 → reset 跳过
+    ).toBe("50% · 75%");
+  });
+});
+
 // ── 票 01：页面骨架 + 实时预览条 ──
 
 const api = vi.hoisted(() => ({
@@ -155,11 +221,12 @@ const stats = { tokens: 1240000, input_tokens: 0, output_tokens: 0, cache_tokens
 
 async function renderTab(
   cfg?: { separator: string; items: TrayItem[] },
+  platforms: unknown[] = [],
   peak: { platform_name: string; in_peak: boolean; multiplier: number } | null = null,
   trend: { buckets: unknown[]; series: unknown[] } = { buckets: [], series: [] },
 ) {
   const { TrayConfigTab } = await import("./TrayConfigTab");
-  api.list.mockResolvedValue([]);
+  api.list.mockResolvedValue(platforms);
   api.get.mockResolvedValue(cfg ?? {
     separator: "  ",
     items: [
@@ -255,26 +322,26 @@ describe("高峰徽标与近 7 日趋势（预览区真数据）", () => {
   const peakCfg = { separator: "  ", items: [item({ item_type: "peak", metric: null, order: 0 })] };
 
   it("最近命中平台在高峰 → 徽标显示平台名与倍率，预览段为「峰」", async () => {
-    const view = await renderTab(peakCfg, { platform_name: "Acme", in_peak: true, multiplier: 2 });
+    const view = await renderTab(peakCfg, [], { platform_name: "Acme", in_peak: true, multiplier: 2 });
     await waitFor(() => expect(view.getByTestId("tray-peak-badge").textContent).toContain("Acme ×2"));
     expect(view.getByTestId("tray-segment-peak").textContent).toContain("峰");
   });
 
   it("非高峰 → 徽标隐藏，预览段为「平」", async () => {
-    const view = await renderTab(peakCfg, { platform_name: "Acme", in_peak: false, multiplier: 1 });
+    const view = await renderTab(peakCfg, [], { platform_name: "Acme", in_peak: false, multiplier: 1 });
     await waitFor(() => expect(api.peakStatus).toHaveBeenCalled());
     expect(view.queryByTestId("tray-peak-badge")).toBeNull();
     expect(view.getByTestId("tray-segment-peak").textContent).toContain("平");
   });
 
   it("无最近命中平台 → 徽标隐藏", async () => {
-    const view = await renderTab(peakCfg, null);
+    const view = await renderTab(peakCfg, [], null);
     await waitFor(() => expect(api.peakStatus).toHaveBeenCalled());
     expect(view.queryByTestId("tray-peak-badge")).toBeNull();
   });
 
   it("趋势卡按 statsApi.query 的全局 7 日按天查询渲染", async () => {
-    const view = await renderTab(undefined, null, {
+    const view = await renderTab(undefined, [], null, {
       buckets: [{ time_bucket: "2026-10-28", total_cost: 1.5 }, { time_bucket: "2026-10-29", total_cost: 2.5 }],
       series: [],
     });
@@ -377,6 +444,49 @@ describe("段编辑面板（票 03）", () => {
     expect(view.getByTestId("tray-editor").getAttribute("data-editing")).toBe("today_usage:cost");
     return view;
   }
+
+  it("平台槽指标多选：勾选写 metrics 持久化，全不勾回落 null；unit 输入持久化", async () => {
+    const view = await renderTab(
+      {
+        separator: "  ",
+        items: [
+          item({ item_type: "platform", platform_id: 7, metric: null, line_mode: "single", align_row2: null, order: 0 }),
+        ],
+      },
+      [plat],
+    );
+    fireEvent.click(view.getByTestId("tray-slot-0"));
+    await waitFor(() => expect(view.getByTestId("tray-editor")).toBeTruthy());
+    // 平台槽编辑器露出：指标项（含 coding 窗口与 reset_time 窗口）+ 单位输入
+    expect(view.getByTestId("tray-edit-metric-balance")).toBeTruthy();
+    expect(view.getByTestId("tray-edit-metric-coding:five_hour")).toBeTruthy();
+    expect(view.getByTestId("tray-edit-metric-reset_time:five_hour")).toBeTruthy();
+    expect(view.getByTestId("tray-edit-unit")).toBeTruthy();
+    // 勾 balance → metrics=[balance]
+    fireEvent.click(view.getByTestId("tray-edit-metric-balance"));
+    let sent = api.set.mock.calls[0][0];
+    const seg0 = sent.items.find((i: TrayItem) => segmentKey(i) === "platform:7");
+    expect(seg0.metrics).toEqual(["balance"]);
+    // 再勾 reset_time:five_hour → 追加在其后（词表序）
+    fireEvent.click(view.getByTestId("tray-edit-metric-reset_time:five_hour"));
+    sent = api.set.mock.calls[1][0];
+    expect(sent.items.find((i: TrayItem) => segmentKey(i) === "platform:7").metrics).toEqual([
+      "balance",
+      "reset_time:five_hour",
+    ]);
+    // 取消全部 → metrics=null 回落旧口径
+    fireEvent.click(view.getByTestId("tray-edit-metric-balance"));
+    fireEvent.click(view.getByTestId("tray-edit-metric-reset_time:five_hour"));
+    sent = api.set.mock.calls[3][0];
+    expect(sent.items.find((i: TrayItem) => segmentKey(i) === "platform:7").metrics).toBeNull();
+    // unit 输入持久化（空串归 null）
+    fireEvent.change(view.getByTestId("tray-edit-unit"), { target: { value: " U" } });
+    sent = api.set.mock.calls[4][0];
+    expect(sent.items.find((i: TrayItem) => segmentKey(i) === "platform:7").unit).toBe(" U");
+    fireEvent.change(view.getByTestId("tray-edit-unit"), { target: { value: "" } });
+    sent = api.set.mock.calls[5][0];
+    expect(sent.items.find((i: TrayItem) => segmentKey(i) === "platform:7").unit).toBeNull();
+  });
 
   it("点已装载槽打开编辑面板，露出全部七类字段控件", async () => {
     const view = await openEditor();

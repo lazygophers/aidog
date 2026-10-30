@@ -7,6 +7,7 @@ use super::{platform_item_parts, tray_layout, tray_money, trim_trailing_zeros};
 use aidog_db::currency::{DisplayCurrency, DisplayCurrencySetting, build_display_currency};
 use aidog_db::{Db, TrayConfig, TrayItem, set_tray_config};
 use aidog_stats::DbInitTables;
+use serde_json::json;
 
 async fn test_db() -> Db {
     aidog_db::test_support::ensure_test_master_key();
@@ -309,6 +310,40 @@ fn platform_balance_uses_display_currency() {
     );
 }
 
+// ─── 平台槽多指标（metrics / unit / decimals / coding 窗口细分）───
+
+fn item_json(v: serde_json::Value) -> TrayItem {
+    serde_json::from_value(v).expect("TrayItem from json")
+}
+
+#[test]
+fn platform_metrics_legacy_config_unchanged_without_metrics() {
+    // metrics=None → display 旧口径逐字不变（含 coding plan 压过 balance 的旧规则）。
+    let plan = r#"{"tiers":[{"name":"five_hour","est_utilization":10.0}]}"#;
+    let p = platform(99.0, plan);
+    let item = item_json(json!({"item_type": "platform", "platform_id": 1, "display": "balance"}));
+    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None), "90%");
+    let item = item_json(json!({"item_type": "platform", "platform_id": 1, "display": "coding"}));
+    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None), "90%");
+    let empty_metrics =
+        item_json(json!({"item_type": "platform", "platform_id": 1, "display": "balance", "metrics": []}));
+    assert_eq!(super::platform_item_value(&p, &empty_metrics, None, &usd(), None), "90%");
+}
+
+#[test]
+fn platform_metrics_join_with_separator() {
+    let p = platform(10.10, "");
+    let item = item_json(json!({
+        "item_type": "platform", "platform_id": 1,
+        "metrics": ["balance", "today_cost", "today_tokens"],
+    }));
+    // 无 per-platform today 数据 → today 两项落 0 值默认单位。
+    assert_eq!(
+        super::platform_item_value(&p, &item, None, &usd(), None),
+        "$10.1 · $0 · 0 tok"
+    );
+}
+
 #[test]
 fn platform_balance_converts_original_currency_to_usd_first() {
     let bal = |ccy, c: DisplayCurrency| platform_item_parts(&platform(66.675, ""), "balance", &c, ccy).1;
@@ -336,4 +371,124 @@ fn display_currency_set_triggers_tray_refresh() {
     // 命令层 set 成功后必须 emit tray-refresh（app_setup.rs:622 listener 重画托盘）
     let src = include_str!("display_currency.rs");
     assert!(src.contains(r#"emit_unit("tray-refresh")"#));
+}
+
+#[test]
+fn platform_metrics_unit_and_decimals() {
+    let p = platform(10.10, "");
+    let item = item_json(json!({
+        "item_type": "platform", "platform_id": 1,
+        "metrics": ["balance", "today_cost"], "unit": " U", "decimals": 3,
+    }));
+    // unit 非空：$ 前缀去掉、单位作后缀；decimals 是裁尾零的上限（与 today_usage cost 同语义）。
+    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None), "10.1 U · 0 U");
+    let tok = item_json(json!({
+        "item_type": "platform", "platform_id": 1,
+        "metrics": ["today_tokens"], "unit": "k",
+    }));
+    assert_eq!(super::platform_item_value(&p, &tok, None, &usd(), None), "0k");
+}
+
+#[test]
+fn platform_metrics_coding_window_tiers() {
+    let plan = r#"{"tiers":[
+        {"name":"five_hour","est_utilization":25.0},
+        {"name":"weekly_limit","est_utilization":50.0}
+    ]}"#;
+    let p = platform(0.0, plan);
+    // coding:<tier> 取指定窗口；coding 取首个窗口；缺失 tier 跳过该指标。
+    let item = item_json(json!({
+        "item_type": "platform", "platform_id": 1,
+        "metrics": ["balance", "coding:weekly_limit", "coding:five_hour", "coding:nope"],
+    }));
+    assert_eq!(
+        super::platform_item_value(&p, &item, None, &usd(), None),
+        "$0 · 50% · 75%"
+    );
+    // 全部指标不可用 → "—"。
+    let item = item_json(json!({
+        "item_type": "platform", "platform_id": 1, "metrics": ["coding:nope"],
+    }));
+    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None), "—");
+}
+
+#[test]
+fn platform_metrics_today_values_from_prefetched_stat() {
+    let p = platform(1.0, "");
+    let stat = aidog_stats::TodayPlatformStat {
+        platform_id: 1,
+        platform_name: "Acme".to_string(),
+        tokens: 1234,
+        cost: 0.5,
+        requests: 7,
+    };
+    let item = item_json(json!({
+        "item_type": "platform", "platform_id": 1,
+        "metrics": ["today_cost", "today_tokens"],
+    }));
+    assert_eq!(
+        super::platform_item_value(&p, &item, Some(&stat), &usd(), None),
+        "$0.5 · 1234 tok"
+    );
+}
+
+#[test]
+fn platform_metrics_reset_time_known_tier() {
+    use chrono::TimeZone;
+    // 今天本地 10:00 起点 + five_hour(5h) cycle → 15:00 今天 → "HH:mm"。
+    let today = chrono::Local::now().date_naive();
+    let start = chrono::Local
+        .from_local_datetime(&today.and_hms_opt(10, 0, 0).unwrap())
+        .single()
+        .unwrap()
+        .timestamp_millis();
+    let plan = format!(
+        r#"{{"tiers":[{{"name":"five_hour","est_utilization":10.0,"window_start":{start}}}]}}"#
+    );
+    let p = platform(0.0, &plan);
+    let item = item_json(json!({
+        "item_type": "platform", "platform_id": 1,
+        "metrics": ["reset_time:five_hour"],
+    }));
+    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None), "15:00");
+}
+
+#[test]
+fn platform_metrics_reset_time_skips_unusable_tiers() {
+    // window_start=0（无可靠周期起点）与未知 cycle 的 tier 都跳过 → "—"。
+    let plan = r#"{"tiers":[
+        {"name":"five_hour","est_utilization":10.0,"window_start":0},
+        {"name":"mystery","est_utilization":20.0,"window_start":123}
+    ]}"#;
+    let p = platform(0.0, plan);
+    let item = item_json(json!({
+        "item_type": "platform", "platform_id": 1,
+        "metrics": ["reset_time:five_hour", "reset_time:mystery"],
+    }));
+    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None), "—");
+}
+
+#[test]
+fn platform_metrics_use_display_currency() {
+    // balance 先按原币种折 USD 再换显示币种；today_cost(USD) 直接换算；自定义 unit 替换符号。
+    let p = platform(66.675, "");
+    let stat = aidog_stats::TodayPlatformStat {
+        platform_id: 1,
+        platform_name: "Acme".to_string(),
+        tokens: 0,
+        cost: 0.5,
+        requests: 1,
+    };
+    let item = item_json(json!({
+        "item_type": "platform", "platform_id": 1, "metrics": ["balance", "today_cost"],
+    }));
+    let c = cur("CNY", Some(7.0));
+    assert_eq!(
+        super::platform_item_value(&p, &item, Some(&stat), &c, Some("CNY")),
+        "¥66.67 · ¥3.5"
+    );
+    let unit = item_json(json!({
+        "item_type": "platform", "platform_id": 1, "metrics": ["today_cost"], "unit": " U",
+    }));
+    assert_eq!(super::platform_item_value(&p, &unit, Some(&stat), &c, None), "3.5 U");
 }
