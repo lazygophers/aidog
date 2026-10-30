@@ -30,6 +30,13 @@
 - **models.peak**（高峰时段模型切换分支，PRD 07-11，可选）：per-protocol `models` 可加 `peak` 分支（与 `default` 并列；仅 glm_coding 现带）。路由层 `gateway/router/candidates.rs::resolve_effective_models` 三层级联：① `time_windows`（用户显式时段切换，优先级最高）→ ② `preset.models.peak`（用户未配 time_windows + 命中 `peak_for` 任一窗口 → 用 peak 替换 effective_models）→ ③ `platform.models` 兜底。**peak 为 preset 级硬约束，设计上覆盖用户手工定制的 `platform.models`**（用户如需保留自定义请配 `time_windows`）。`default_peak_models`（`peak.rs`）从 bundled preset 读 peak 分支，与 `default_peak` 同 OnceLock 同 idiom。前端 cross-layer：`PlatformCard` 算 `isPeak = isCurrentlyPeak(userPh ?? preset default)` 传 `getDefaultModels(isPeak)` 仅影响展示；后端 `resolve_effective_models` 按请求 `source_model` 路由（含 model scope 过滤）。**不变量：`model_list.default` 必须是 `models` 各分支（default/peak）值集的超集**（下拉冷启动兜底列全候选；当前不加 `model_list.peak` 独立分支，default 已覆盖，YAGNI）。
 - **disable_during_peak**（高峰期禁用开关，可选）：per-platform 开关 `platform.extra.disable_during_peak`（bool，默认 false）。启用后命中 `peak` 任一窗口时该平台从路由候选排除（与 `expires_at` 同模式：独立维度，不改 status 三态，临时闸门，关开关/出窗口即恢复）。判定复用 `gateway::peak::is_in_peak_window`（与 `resolve_multiplier` 同 hit 逻辑，仅返回 bool）。**单平台组不 bypass**：此开关优先级高于 status bypass（status 维度照旧 bypass auto_disabled / 熔断；高峰禁用维度独立覆盖），单平台组高峰期请求直接 fail。整组所有候选全被高峰排除 → `select_candidates_ctx` 返 `Err("peak_disabled")` → `gateway/proxy/handler.rs` route fail 路径落 `proxy_log(blocked_by='router', blocked_reason='peak', status_code=503, est_cost=0)` 审计（写入点 2026-08-29 起统一为 `peak`，历史行旧值 `peak_hours` 保留不回填）；其他 NoCandidate 原因（disabled / 熔断无回退）照旧 warn 不落库。前端：`utils/timeWindow.ts` `isCurrentlyPeak(windows, nowMs)` 与 Rust 判定对称（cross-layer 一致），PlatformCard 徽标 + formSections 编辑表单「当前: 高峰/非高峰」实时态。
 
+### 推荐配置预设 (presets)
+- 目录布局：`src-tauri/defaults/{settings,codex,pi}/<id>.json`，一份预设 = 一个文件，id = 文件名主干（发布后禁改名）；顶层必带 `_aidog_preset_name`（显示名，写出前剥离）。编译期清单由 `aidog_core/build.rs` 生成，前端经 command 取列表，≥2 份才弹选择框；默认预设固定 `oss`，缺 `oss` 构建失败。
+- `GITHUB_ACTIONS=true` 构建清单只含 `oss`（过滤逻辑 `aidog_core/src/preset_filter.rs`），本地 `make install` / `make release` 全量；`rerun-if-env-changed` 已登记。测试禁依赖份数。
+- 新增预设 = 在对应目录放一个 json 文件，不改 Rust / TS；需翻译显示名才加前端 id→key 映射 + 8 locale。
+- 自检：`GITHUB_ACTIONS=true cargo test --workspace` 后对测试二进制 `strings | grep -c lazygophers/ccplugin`（非 oss 独有标记）应为 0，不设变量应 >0。
+- 风险：非 `oss` 预设（如 `lazygophers.json`）是个人配置且进公开 git，禁放密钥 / token / 内网地址，提交前过凭据扫描。
+
 ### URL 构造
 - `base_url` 含版本前缀（如 `/v1`、`/api/paas/v4`）
 - `provider_api_path()` 只返回 `/chat/completions`
