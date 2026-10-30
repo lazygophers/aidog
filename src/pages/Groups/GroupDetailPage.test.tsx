@@ -10,7 +10,7 @@ vi.mock("../../services/api", async () => {
   return {
     ...actual,
     groupFlowApi: {
-      breakdown: vi.fn().mockResolvedValue([]),
+      flow: vi.fn().mockResolvedValue([]),
       latestRouting: vi.fn().mockResolvedValue(null),
       daily: vi.fn(),
     },

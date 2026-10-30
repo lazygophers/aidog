@@ -3,14 +3,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent } from "@testing-library/react";
 import { render, screen, waitFor } from "../../test/render";
-import type { GroupPlatformBreakdown, LatestRouting } from "../../services/api";
+import type { FlowRow, LatestRouting } from "../../services/api";
 
 vi.mock("../../services/api", async () => {
   const actual = await vi.importActual<typeof import("../../services/api")>("../../services/api");
   return {
     ...actual,
     groupFlowApi: {
-      breakdown: vi.fn(),
+      flow: vi.fn(),
       latestRouting: vi.fn(),
     },
   };
@@ -20,9 +20,9 @@ import { groupFlowApi } from "../../services/api";
 import { GroupFlowPanel } from "./GroupFlowPanel";
 import { GroupSidePanels } from "./GroupSidePanels";
 
-const rows: GroupPlatformBreakdown[] = [
-  { platform_id: 1, model: "m-a", requests: 10, success: 10, est_cost: 0.1 },
-  { platform_id: 2, model: "m-b", requests: 5, success: 5, est_cost: 0.5 },
+const rows: FlowRow[] = [
+  { client: "claude_code", group_key: "gk", req_model: "opus", platform_id: 1, model: "m-a", requests: 10, tokens: 1000, est_cost: 0.1 },
+  { client: "", group_key: "gk", req_model: "opus", platform_id: 2, model: "m-b", requests: 5, tokens: 500, est_cost: 0.5 },
 ];
 const gps = [
   { platform: { id: 1, platform_type: "glm_coding", status: "enabled" }, priority: 1, weight: 1, level_priority: 8 },
@@ -30,29 +30,35 @@ const gps = [
   { platform: { id: 3, platform_type: "kimi", status: "disabled" }, priority: 3, weight: 1, level_priority: 10 },
 ] as never;
 
-describe("GroupFlowPanel — 桑基（票 03）", () => {
+describe("GroupFlowPanel — 四列流向（请求流向票 04）", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("渲染模型/平台两列 + 连线（path 数 = 明细行数）", async () => {
-    vi.mocked(groupFlowApi.breakdown).mockResolvedValue(rows);
+  it("四列渲染；默认度量 tokens；未知客户端 '' 成节点", async () => {
+    vi.mocked(groupFlowApi.flow).mockResolvedValue(rows);
     render(<GroupFlowPanel groupKey="gk" gps={gps} />);
-    const svg = await waitFor(() => {
-      const el = document.getElementById("g3-flow-svg")!;
-      expect(el).toBeTruthy();
-      return el;
-    });
-    expect(svg.querySelectorAll("path")).toHaveLength(2);
-    // 段切换：today 触发第二次拉取
-    const segs = document.querySelectorAll('[data-state]');
-    const today = [...segs].find(el => el.textContent === "group.flow.today")!;
-    fireEvent.click(today);
-    expect(groupFlowApi.breakdown).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(document.querySelector('[data-testid="flow-chart"]')).toBeTruthy());
+    for (const k of ["client", "req_model", "platform_id", "model"]) expect(document.querySelector(`[data-testid="flow-col-${k}"]`)).toBeTruthy();
+    expect(document.querySelector('[data-testid="flow-metric-tokens"]')!.getAttribute("data-state")).toBe("on");
+    expect(document.querySelector('[data-testid="flow-node-client-"]')).toBeTruthy();
+    expect(groupFlowApi.flow).toHaveBeenCalledWith("7d", "gk");
+  });
+
+  it("度量切换改 data-state 且不重新拉取；窗口切换重新拉取", async () => {
+    vi.mocked(groupFlowApi.flow).mockResolvedValue(rows);
+    render(<GroupFlowPanel groupKey="gk" gps={gps} />);
+    await waitFor(() => expect(document.querySelector('[data-testid="flow-chart"]')).toBeTruthy());
+    fireEvent.click(document.querySelector('[data-testid="flow-metric-cost"]')!);
+    expect(document.querySelector('[data-testid="flow-metric-cost"]')!.getAttribute("data-state")).toBe("on");
+    expect(groupFlowApi.flow).toHaveBeenCalledTimes(1);
+    fireEvent.click(document.querySelector('[data-testid="flow-win-today"]')!);
+    await waitFor(() => expect(groupFlowApi.flow).toHaveBeenLastCalledWith("today", "gk"));
+    expect(groupFlowApi.flow).toHaveBeenCalledTimes(2);
   });
 
   it("空数据 → 空态", async () => {
-    vi.mocked(groupFlowApi.breakdown).mockResolvedValueOnce([]);
+    vi.mocked(groupFlowApi.flow).mockResolvedValueOnce([]);
     render(<GroupFlowPanel groupKey="gk" gps={gps} />);
-    await screen.findByText("group.flow.empty");
+    await waitFor(() => expect(document.querySelector('[data-testid="flow-empty"]')).toBeTruthy());
   });
 });
 
