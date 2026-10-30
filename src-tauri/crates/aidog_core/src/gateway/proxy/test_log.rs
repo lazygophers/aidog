@@ -38,6 +38,7 @@ fn placeholder_stream_log(id: &str) -> ProxyLog {
         blocked_reason: String::new(),
         routing: None,
         client: String::new(),
+        user_agent: String::new(),
         created_at: ts,
         updated_at: ts,
         deleted_at: 0,

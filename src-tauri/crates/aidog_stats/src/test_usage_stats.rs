@@ -313,6 +313,7 @@ async fn latest_routing_snapshot_reads_most_recent() {
                 priority: 1,
                 reason: aidog_db::models::RouteReason::Selected,
                 target_model: None,
+                model_via: Vec::new(),
                 tags: vec![],
             }],
         });

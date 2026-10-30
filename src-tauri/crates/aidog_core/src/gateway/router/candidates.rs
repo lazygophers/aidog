@@ -4,14 +4,14 @@ use super::super::models::*;
 use super::super::peak;
 use super::super::scheduling::{Admission, BreakerThresholds, SchedulerState, StickyTable};
 use super::super::time_windows;
-use super::model_mapping::{resolve_decision_model, resolve_model};
+use super::model_mapping::{resolve_decision_model, resolve_model, resolve_model_with_via};
 use super::ordering::{
     apply_coding_plan_priority, apply_sticky, expiry_sort_key, is_coding_plan,
     order_load_balance,
 };
 use super::{RouteResult, candidate_state, sole_platform};
 use aidog_db as db;
-use aidog_db::models::{RouteCandidate, RouteReason, RouteTag, RoutingSnapshot};
+use aidog_db::models::{ModelVia, RouteCandidate, RouteReason, RouteTag, RoutingSnapshot};
 use std::collections::{HashMap, HashSet};
 
 /// 候选选取结果：有序的候选平台列表（首个为最优先），用于失败逐个重试。
@@ -422,6 +422,7 @@ pub async fn select_candidates_ctx(
                 priority: gp.priority,
                 reason: RouteReason::Selected,
                 target_model: None,
+                model_via: Vec::new(),
                 tags,
             }
         })
@@ -439,6 +440,7 @@ pub async fn select_candidates_ctx(
                 priority: gp.priority,
                 reason: *reason,
                 target_model: None,
+                model_via: Vec::new(),
                 tags: Vec::new(),
             }),
     );
@@ -508,6 +510,7 @@ pub async fn select_candidates_ctx(
 
     // 快照回填目标模型：选中候选按解析结果填 target_model（排除候选算不到，留 None）
     fill_snapshot_target_models(&mut routing, &candidates);
+    fill_snapshot_model_via(&mut routing, &candidates, &extra_cache, kind, now_ms, source_model, &mapped_target_model);
 
     tracing::info!(
         group = %group.name, source_model = %source_model,
@@ -624,6 +627,8 @@ async fn handle_single_platform(
 
     let mut routing = single_snapshot(only, group.routing_mode, RouteReason::Selected);
     routing.entries[0].target_model = Some(target_model.clone());
+    routing.entries[0].model_via =
+        model_via_for(&only.platform, cache, kind, now_ms, source_model, mapped_target_model);
     Ok(CandidateSet {
         candidates: vec![RouteResult {
             platform: only.platform.clone(),
@@ -650,8 +655,36 @@ fn single_snapshot(
             priority: only.priority,
             reason,
             target_model: None,
+            model_via: Vec::new(),
             tags: Vec::new(),
         }],
+    }
+}
+
+// 按 platform_id 回填选择来源；排除候选保持空。
+fn fill_snapshot_model_via(
+    routing: &mut RoutingSnapshot,
+    candidates: &[RouteResult],
+    extra_cache: &ExtraCacheMap,
+    kind: RequestKind<'_>,
+    now_ms: i64,
+    source_model: &str,
+    mapped_target_model: &Option<String>,
+) {
+    for entry in &mut routing.entries {
+        if entry.reason != RouteReason::Selected {
+            continue;
+        }
+        if let Some(c) = candidates.iter().find(|c| c.platform.id == entry.platform_id) {
+            entry.model_via = model_via_for(
+                &c.platform,
+                extra_cache.get(&c.platform.id),
+                kind,
+                now_ms,
+                source_model,
+                mapped_target_model,
+            );
+        }
     }
 }
 
@@ -745,6 +778,7 @@ fn select_direct_candidates(
                 priority: gp.priority,
                 reason: RouteReason::Selected,
                 target_model: None,
+                model_via: Vec::new(),
                 tags,
             }
         })
@@ -757,6 +791,7 @@ fn select_direct_candidates(
         priority: gp.priority,
         reason: *reason,
         target_model: None,
+        model_via: Vec::new(),
         tags: Vec::new(),
     }));
     let mut routing = RoutingSnapshot {
@@ -791,6 +826,10 @@ fn select_direct_candidates(
     );
 
     fill_snapshot_target_models(&mut routing, &candidates);
+    // 直通链转发名 = 直通原名（不进槽位匹配）；映射命中时先改名。
+    for e in routing.entries.iter_mut().filter(|e| e.reason == RouteReason::Selected) {
+        e.model_via = mapping.map(|_| ModelVia::Mapped).into_iter().chain([ModelVia::Passthrough]).collect();
+    }
 
     Ok(CandidateSet { candidates, routing })
 }
@@ -1111,7 +1150,23 @@ fn resolve_effective_models(
     now_ms: i64,
     source_model: &str,
 ) -> PlatformModels {
+    resolve_effective_models_tagged(platform, time_rules, now_ms, source_model).0
+}
+
+/// `resolve_effective_models` + 命中的层（time_windows / preset peak；平台默认 models 为 None）。
+fn resolve_effective_models_tagged(
+    platform: &Platform,
+    time_rules: &[serde_json::Value],
+    now_ms: i64,
+    source_model: &str,
+) -> (PlatformModels, Option<ModelVia>) {
     let mut effective = time_windows::resolve_time_windows(time_rules, &platform.models, now_ms);
+    let mut via = None;
+    if !time_rules.is_empty()
+        && serde_json::to_value(&effective).ok() != serde_json::to_value(&platform.models).ok()
+    {
+        via = Some(ModelVia::TimeWindow);
+    }
     // PRD 07-11：time_windows 未自定义时查 preset.models.peak 分支
     if time_rules.is_empty() {
         // serde rename 裸名（如 "glm_coding"），同 is_peak_disabled / calc_est_cost 取名模式
@@ -1120,10 +1175,44 @@ fn resolve_effective_models(
             let windows = super::super::peak::peak_for(&platform.extra, &ptype);
             if super::super::peak::is_in_peak_window(&windows, now_ms, source_model) {
                 effective = peak_models;
+                via = Some(ModelVia::PresetPeak);
             }
         }
     }
-    effective
+    (effective, via)
+}
+
+/// 目标模型选择来源（快照展示）：映射改名 → 时段/高峰层 → 槽位命中。与 `resolve_target_model` 同分支。
+fn model_via_for(
+    platform: &Platform,
+    cache: Option<&ExtraCache>,
+    kind: RequestKind<'_>,
+    now_ms: i64,
+    source_model: &str,
+    mapped_target_model: &Option<String>,
+) -> Vec<ModelVia> {
+    let mut out = Vec::new();
+    if mapped_target_model.is_some() {
+        out.push(ModelVia::Mapped);
+    }
+    if matches!(platform.platform_type, Protocol::Passthrough) {
+        out.push(ModelVia::Passthrough);
+        return out;
+    }
+    let time_rules: &[serde_json::Value] =
+        cache.map(|c| c.time_windows.as_slice()).unwrap_or_default();
+    let (effective, layer) = resolve_effective_models_tagged(platform, time_rules, now_ms, source_model);
+    out.extend(layer);
+    out.push(match kind {
+        RequestKind::Chat => {
+            resolve_model_with_via(&effective, mapped_target_model.as_deref().unwrap_or(source_model)).1
+        }
+        RequestKind::Decision => ModelVia::DedicatedSlot,
+        RequestKind::Embedding if platform.models.embedding_slot().is_some() => ModelVia::DedicatedSlot,
+        RequestKind::Rerank if platform.models.rerank_slot().is_some() => ModelVia::DedicatedSlot,
+        _ => ModelVia::Passthrough,
+    });
+    out
 }
 
 #[cfg(test)]
