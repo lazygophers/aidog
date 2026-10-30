@@ -13,7 +13,8 @@ import {
   type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit,
   type DevinConfig, type PassthroughAuth, type SchedulingBreakerSettings, type GroupDetail,
 } from "../../services/api";
-import { rateLimitsSummary, type RateLimitsBundle, type QuotaWindowConfig } from "../../services/api";
+import { rateLimitsSummary, clientCategoryState, toggleClientCategory, toggleClientVariant, type RateLimitsBundle, type QuotaWindowConfig, type ClientVocabCategory } from "../../services/api";
+import { Checkbox } from "@/components/ui/checkbox";
 import { newManualBudget, type TimeWindow, getDefaultPeak, getDefaultModelList, getDefaultPlanQuotas, type PlanQuotaTier, type QuotaScriptVariant, quotaVariantLabel } from "../../domains/platforms";
 import { isCurrentlyPeak, currentPeakMultiplier, utcToDisplay, displayToUtc, WINDOW_TIMEZONES, type TzMode } from "../../utils/timeWindow";
 import { formatDateTime, pad } from "../../utils/formatters";
@@ -1762,6 +1763,67 @@ export function DirectModelsSection({ models, setModels, availableModels, protoc
         <button type="button" data-testid="direct-model-add" className={C.addBtnClass} onClick={() => add()}>
           + {t("platform.direct_models_add", "添加")}
         </button>
+      </div>
+    </FormSection>
+  );
+}
+
+/** 客户端白名单：extra.allowed_clients。按词表大类分组，勾大类 = 允许其全部变体（子项联动、半选可见），
+ *  清空 = 取消白名单（全放行）。路由拦截不在本组件（票 04）。 */
+export function ClientWhitelistSection({ vocab, selected, setSelected, t }: {
+  vocab: ClientVocabCategory[];
+  selected: string[];
+  setSelected: React.Dispatch<React.SetStateAction<string[]>>;
+  t: TFunction;
+}) {
+  return (
+    <FormSection
+      title={t("platform.client_whitelist", "客户端白名单")}
+      desc={t("platform.client_whitelist_desc", "只允许勾选的客户端使用该平台；勾大类即允许其全部变体。未勾选任何项 = 不限制。配置后无法识别的客户端一律拒绝。")}
+      action={selected.length > 0 ? (
+        <Button variant="ghost" size="sm" data-testid="client-wl-clear" onClick={() => setSelected([])}>
+          {t("platform.client_whitelist_clear", "清空")}
+        </Button>
+      ) : undefined}
+    >
+      <div className="aidog-anim-rise" style={C.strip}>
+        <span style={C.pill(selected.length > 0 ? "ok" : "neutral")} data-testid="client-wl-count">
+          {selected.length > 0
+            ? t("platform.client_whitelist_count", "已限制 {{n}} 项", { n: selected.length })
+            : t("platform.client_whitelist_none", "不限制")}
+        </span>
+      </div>
+      <div style={{ maxHeight: 320, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
+        {vocab.map(cat => {
+          const st = clientCategoryState(selected, cat);
+          const catName = t(cat.nameKey, cat.code);
+          return (
+            <div key={cat.code} data-testid={`client-cat-${cat.code}`} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 600, color: "var(--text-primary)", cursor: "pointer" }}>
+                <Checkbox
+                  data-testid={`client-cat-check-${cat.code}`}
+                  checked={st === "all" ? true : st === "some" ? "indeterminate" : false}
+                  onCheckedChange={v => setSelected(prev => toggleClientCategory(prev, cat, v === true))}
+                />
+                {catName}
+              </label>
+              {cat.variants.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px", paddingInlineStart: 24 }}>
+                  {cat.variants.map(v => (
+                    <label key={v.code} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text-secondary)", cursor: "pointer" }}>
+                      <Checkbox
+                        data-testid={`client-var-check-${v.code}`}
+                        checked={st === "all" || selected.includes(v.code)}
+                        onCheckedChange={on => setSelected(prev => toggleClientVariant(prev, cat, v.code, on === true))}
+                      />
+                      {t(v.nameKey, v.code)}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </FormSection>
   );

@@ -4,7 +4,8 @@
 // （那条禁的是共享 i18n 实例的译文断言）。
 import { describe, it, expect, vi } from "vitest";
 import { render, fireEvent } from "../../test/render";
-import { ManualBudgetsFields, RateLimitsSection, PeakSection, DirectModelsSection, AppbuilderKeySection } from "./formSections";
+import { useState } from "react";
+import { ManualBudgetsFields, RateLimitsSection, PeakSection, DirectModelsSection, AppbuilderKeySection, ClientWhitelistSection } from "./formSections";
 import type { ManualBudget, RateLimitsBundle, TimeWindow } from "../domains/platforms/defaults";
 import type { PlanQuotaTier } from "../domains/platforms/defaults";
 
@@ -306,5 +307,54 @@ describe("AppbuilderKeySection — qianfan AppBuilder 凭据（票 20）", () =>
     const { container } = renderAppbuilder("");
     const input = container.querySelector('[data-testid="appbuilder-key-input"]') as HTMLInputElement;
     expect(input.value).toBe("");
+  });
+});
+
+// ── ClientWhitelistSection（客户端白名单，票 03）─────────────────────────────
+const VOCAB = [
+  { code: "claude_code", nameKey: "n.cc", matchable: true, variants: [{ code: "cc_a", nameKey: "n.a" }, { code: "cc_b", nameKey: "n.b" }] },
+  { code: "cursor", nameKey: "n.cur", matchable: true, variants: [] },
+];
+function renderWl(initial: string[]) {
+  let latest: string[] = initial;
+  function Host() {
+    const [sel, setSel] = useState<string[]>(initial);
+    latest = sel;
+    return <ClientWhitelistSection vocab={VOCAB} selected={sel} setSelected={setSel} t={t} />;
+  }
+  const { container } = render(<Host />);
+  const q = (id: string) => container.querySelector(`[data-testid="${id}"]`) as HTMLElement | null;
+  return { q, sel: () => latest };
+}
+
+describe("ClientWhitelistSection — 客户端白名单（票 03）", () => {
+  it("勾大类 → 全部变体态为选中；取消 → 清空", () => {
+    const { q, sel } = renderWl([]);
+    fireEvent.click(q("client-cat-check-claude_code")!);
+    expect(sel()).toEqual(["claude_code"]);
+    expect(q("client-var-check-cc_a")!.getAttribute("data-state")).toBe("checked");
+    expect(q("client-var-check-cc_b")!.getAttribute("data-state")).toBe("checked");
+    fireEvent.click(q("client-cat-check-claude_code")!);
+    expect(sel()).toEqual([]);
+  });
+
+  it("勾单变体 → 大类半选；取消 → 回到未选", () => {
+    const { q, sel } = renderWl([]);
+    fireEvent.click(q("client-var-check-cc_a")!);
+    expect(sel()).toEqual(["cc_a"]);
+    expect(q("client-cat-check-claude_code")!.getAttribute("data-state")).toBe("indeterminate");
+    expect(q("client-var-check-cc_b")!.getAttribute("data-state")).toBe("unchecked");
+    fireEvent.click(q("client-var-check-cc_a")!);
+    expect(sel()).toEqual([]);
+  });
+
+  it("无变体大类可直接勾；回显已存值；清空按钮 = 取消白名单", () => {
+    const { q, sel } = renderWl(["cursor", "cc_b"]);
+    expect(q("client-cat-check-cursor")!.getAttribute("data-state")).toBe("checked");
+    expect(q("client-var-check-cc_b")!.getAttribute("data-state")).toBe("checked");
+    expect(q("client-cat-check-claude_code")!.getAttribute("data-state")).toBe("indeterminate");
+    fireEvent.click(q("client-wl-clear")!);
+    expect(sel()).toEqual([]);
+    expect(q("client-wl-clear")).toBeNull();
   });
 });

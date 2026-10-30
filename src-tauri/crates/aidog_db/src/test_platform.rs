@@ -694,3 +694,26 @@ async fn platform_models_embedding_rerank_survive_reopen() {
     assert_eq!(listed[0].models.rerank_slot(), Some("jina-reranker-v2"));
     assert_eq!(listed[0].models.default.as_deref(), Some("gpt-4o"));
 }
+
+/// 票 03：extra.allowed_clients 写后重开 DB 读回（platform.db 读池，三文件库暴露错路由）；
+/// 缺省 / 空数组 = 无白名单，旧 extra 行为不变。
+#[tokio::test]
+async fn allowed_clients_in_extra_survive_reopen() {
+    let (db, dir) = three_file_db().await;
+    let mut with = sample_platform("wl");
+    with.extra = r#"{"allowed_clients":["claude_code","codex_cli"],"keep":1}"#.to_string();
+    create_platform(&db, with).await.unwrap();
+    create_platform(&db, sample_platform("legacy")).await.unwrap();
+    drop(db);
+
+    let reopened = Db::new(dir.path().join("aidog.db").to_str().unwrap())
+        .await
+        .expect("reopen");
+    let listed = list_platforms(&reopened).await.unwrap();
+    let by = |n: &str| listed.iter().find(|p| p.name == n).unwrap();
+    let ex = PlatformExtra::parse(&by("wl").extra);
+    assert_eq!(ex.allowed_clients, vec!["claude_code", "codex_cli"]);
+    assert!(ex.rest.contains_key("keep"), "其余键无损往返");
+    assert!(PlatformExtra::parse(&by("legacy").extra).allowed_clients.is_empty());
+    assert!(PlatformExtra::parse(r#"{"allowed_clients":[]}"#).allowed_clients.is_empty());
+}

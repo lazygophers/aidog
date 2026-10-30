@@ -26,6 +26,11 @@ vi.mock("./formSections", () => ({
   GroupAssignSection: () => null,
   ExpirySection: () => null,
   QuotaSection: () => null,
+  ClientWhitelistSection: () => null,
+}));
+vi.mock("../../services/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../services/api")>()),
+  getClientVocab: async () => [],
 }));
 vi.mock("./ModelsMatrixSection", () => ({ ModelsMatrixSection: () => null }));
 vi.mock("./CcMitmAccessSection", () => ({ CcMitmAccessSection: () => null }));
@@ -69,7 +74,7 @@ describe("PlatformEditForm advanced tabs (8-tab split)", () => {
     render(<PlatformEditForm s={state("openai")} />);
     const tabs = screen.getAllByRole("tab");
     expect(tabs.map(b => b.textContent)).toEqual([
-      "配额查询", "时段档", "高峰时段倍率", "直通模型", "限频", "熔断", "过期时间", "分组归属",
+      "配额查询", "时段档", "高峰时段倍率", "直通模型", "限频", "熔断", "客户端白名单", "过期时间", "分组归属",
     ]);
     expect(tabs[0]).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByText("计费")).not.toBeInTheDocument();
@@ -77,23 +82,22 @@ describe("PlatformEditForm advanced tabs (8-tab split)", () => {
     expect(screen.queryByText("生命周期")).not.toBeInTheDocument();
   });
 
-  it("passthrough shows only the expiry tab flat (no tab bar)", () => {
+  it("passthrough shows only clients + expiry tabs (透传同受白名单约束)", () => {
     const s = state("openai");
     (s.form as { isPassthrough: boolean }).isPassthrough = true;
     render(<PlatformEditForm s={s} />);
-    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
-    expect(screen.queryAllByRole("tab")).toHaveLength(0);
+    expect(screen.getAllByRole("tab").map(b => b.textContent)).toEqual(["客户端白名单", "过期时间"]);
   });
 });
 
 describe("PlatformEditForm advanced tabs visibility matrix (spec)", () => {
   const labels = () => screen.getAllByRole("tab").map(b => b.textContent);
 
-  it("create state (editing=null) shows only the 4 non-editing tabs", () => {
+  it("create state (editing=null) shows only the 5 non-editing tabs", () => {
     const s = state("openai");
     (s.form as { editing: unknown }).editing = null;
     render(<PlatformEditForm s={s} />);
-    expect(labels()).toEqual(["配额查询", "时段档", "过期时间", "分组归属"]);
+    expect(labels()).toEqual(["配额查询", "时段档", "客户端白名单", "过期时间", "分组归属"]);
   });
 
   it("mock platform hides quota/timemodels/peak, keeps ratelimits/breaker/expiry/group", () => {
@@ -103,10 +107,10 @@ describe("PlatformEditForm advanced tabs visibility matrix (spec)", () => {
     expect(labels()).toEqual(["限频", "熔断", "过期时间", "分组归属"]);
   });
 
-  it("passThrough platform shows only expiry + group tabs", () => {
+  it("passThrough platform shows only clients + expiry + group tabs", () => {
     const s = state("openai");
     (s.form as { isPassThrough: boolean }).isPassThrough = true;
     render(<PlatformEditForm s={s} />);
-    expect(labels()).toEqual(["过期时间", "分组归属"]);
+    expect(labels()).toEqual(["客户端白名单", "过期时间", "分组归属"]);
   });
 });

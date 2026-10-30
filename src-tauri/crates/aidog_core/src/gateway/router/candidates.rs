@@ -188,6 +188,9 @@ struct ExtraCache {
     disable_during_peak: bool,
     /// extra.direct_models（直通模型声明，直接模型转发）。
     direct_models: Vec<String>,
+    /// extra.allowed_clients（客户端白名单，空 = 全放行）；票 04 的路由拦截读取。
+    #[allow(dead_code)]
+    allowed_clients: Vec<String>,
 }
 
 impl ExtraCache {
@@ -196,12 +199,14 @@ impl ExtraCache {
         let time_windows = time_windows::parse_platform_time_windows(extra);
         let peak_windows = peak::peak_for(extra, &platform_type.wire_str());
         let disable_during_peak = peak::parse_disable_during_peak(extra);
-        let direct_models = db::models::PlatformExtra::parse(extra).direct_models;
+        let parsed = db::models::PlatformExtra::parse(extra);
+        let (direct_models, allowed_clients) = (parsed.direct_models, parsed.allowed_clients);
         Self {
             time_windows,
             peak_windows,
             disable_during_peak,
             direct_models,
+            allowed_clients,
         }
     }
 }

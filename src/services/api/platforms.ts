@@ -489,6 +489,62 @@ export function serializeDirectModels(extra: string, models: string[]): string {
   return JSON.stringify(obj);
 }
 
+/** 从 platform.extra JSON 解析客户端白名单（词表码，大类/变体混合）。缺失 / 非法 → []（= 全放行）。 */
+export function parseAllowedClients(extra: string): string[] {
+  if (!extra.trim()) return [];
+  try {
+    const parsed: unknown = JSON.parse(extra);
+    if (parsed && typeof parsed === "object" && "allowed_clients" in parsed) {
+      const arr = (parsed as { allowed_clients: unknown }).allowed_clients;
+      if (Array.isArray(arr)) return arr.filter((x): x is string => typeof x === "string" && x.length > 0);
+    }
+  } catch { /* ignore */ }
+  return [];
+}
+
+/** 把客户端白名单写回 extra JSON（保留其余键）。空数组 → 移除键（= 取消白名单）。 */
+export function serializeAllowedClients(extra: string, codes: string[]): string {
+  let obj: Record<string, unknown> = {};
+  if (extra.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(extra);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        obj = parsed as Record<string, unknown>;
+      }
+    } catch { /* ignore */ }
+  }
+  if (codes.length === 0) {
+    delete obj.allowed_clients;
+  } else {
+    obj.allowed_clients = codes;
+  }
+  return JSON.stringify(obj);
+}
+
+/** 大类勾选态：大类码在 = 全选；否则按变体命中数 some/none（变体全在也算 all）。 */
+export function clientCategoryState(sel: string[], cat: ClientVocabCategory): "all" | "some" | "none" {
+  if (sel.includes(cat.code)) return "all";
+  const n = cat.variants.filter(v => sel.includes(v.code)).length;
+  if (n === 0) return "none";
+  return n === cat.variants.length ? "all" : "some";
+}
+
+/** 勾 / 取消大类：勾 = 以大类码替换其变体（含全部变体）；取消 = 大类与变体都清掉。 */
+export function toggleClientCategory(sel: string[], cat: ClientVocabCategory, on: boolean): string[] {
+  const drop = new Set([cat.code, ...cat.variants.map(v => v.code)]);
+  const rest = sel.filter(c => !drop.has(c));
+  return on ? [...rest, cat.code] : rest;
+}
+
+/** 勾 / 取消单个变体：大类态下取消一个 = 展开为其余变体；勾满全部变体 = 折叠为大类码。 */
+export function toggleClientVariant(sel: string[], cat: ClientVocabCategory, variant: string, on: boolean): string[] {
+  const all = cat.variants.map(v => v.code);
+  const cur = sel.includes(cat.code) ? all : all.filter(c => sel.includes(c));
+  const next = on ? [...new Set([...cur, variant])] : cur.filter(c => c !== variant);
+  const rest = sel.filter(c => c !== cat.code && !all.includes(c));
+  return next.length === all.length ? [...rest, cat.code] : [...rest, ...next];
+}
+
 /** 从 platform.extra JSON 解析 qianfan AppBuilder key（独立搜索转发，票 20）。缺失 / 非法 → ""。 */
 export function parseAppbuilderKey(extra: string): string {
   if (!extra.trim()) return "";
