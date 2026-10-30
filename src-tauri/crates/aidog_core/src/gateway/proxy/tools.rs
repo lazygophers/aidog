@@ -387,6 +387,26 @@ async fn tools_attempt(
         0.0
     };
 
+    // 按次费入余额预估：独立搜索 token 全 0，spawn_estimate 凭按次费绕过「无 token 跳过」。
+    // log.est_cost 此刻即 tools_cost（USD，不含 peak 倍率），直接作 tool_cost_usd。
+    spawn_estimate(
+        state,
+        route.platform.id,
+        &route.platform.platform_type,
+        route.platform.base_url.clone(),
+        route.platform.api_key.clone(),
+        log.model.clone(),
+        route.platform.extra.clone(),
+        0,
+        0,
+        0,
+        0,
+        route.platform.endpoints.iter().any(|ep| ep.coding_plan),
+        log.created_at,
+        log.est_cost,
+        tracing::Span::current(),
+    );
+
     log.status_code = status.as_u16() as i32;
     log.done = true;
     log.response_body = body_str.clone();

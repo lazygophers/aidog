@@ -372,6 +372,7 @@ async fn estimate_after_request_balance_path_no_calibration() {
         0,       // cache_write
         false, // 非 coding plan
         0,       // created_at
+        0.0,
     )
     .await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
@@ -410,6 +411,7 @@ async fn estimate_after_request_applies_peak_multiplier() {
         0,
         false,
         0,
+        0.0,
     )
     .await;
 
@@ -454,6 +456,7 @@ async fn estimate_after_request_coding_path_no_calibration() {
         0,
         true,
         0,
+        0.0,
     )
     .await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
@@ -561,4 +564,116 @@ fn forecast_rate_gate_once_per_window() {
     assert!(!super::claim_forecast_window(pid, "five_hour", 1000));
     assert!(super::claim_forecast_window(pid, "five_hour", 2000)); // 新窗口
     assert!(super::claim_forecast_window(pid, "weekly_limit", 1000)); // 新档
+}
+
+// ── 余额币种换算 + 按次费入余额 ──
+fn quota_with_ccy(remaining: f64, ccy: &str) -> PlatformQuota {
+    PlatformQuota {
+        success: true,
+        error: None,
+        queried_at: now(),
+        balance: Some(crate::gateway::quota::BalanceInfo {
+            remaining,
+            total: None,
+            used: None,
+            currency: ccy.into(),
+            is_valid: true,
+        }),
+        coding_plan: None,
+        newapi_user_id: None,
+    }
+}
+
+/// 1000 in + 500 out；deepseek-ccy 条目 input 0.001 / output 0.002 CNY/token（currency=CNY → 出口 USD）。
+async fn run_est(db: &Db, id: u64, tool_usd: f64, in_tok: i64, out_tok: i64) {
+    estimate_after_request(
+        db, id, "deepseek", "https://example.com", "sk", "ccy-model", "", in_tok, out_tok, 0, 0,
+        false, 0, tool_usd,
+    )
+    .await;
+}
+
+async fn seed_cny_model(db: &Db) {
+    seed_entry(
+        db,
+        "deepseek",
+        "ccy-model",
+        r#"{"price":{"input":0.001,"output":0.002,"currency":"CNY"}}"#,
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn balance_cny_platform_cny_model_matches_pre_fx_behaviour() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, false).await;
+    seed_cny_model(&db).await;
+    write_real_quota(&db, id, 100.0, "", now()).await.unwrap();
+    calibrate_from_quota(&db, id, &quota_with_ccy(100.0, "CNY"), false).await;
+    run_est(&db, id, 0.0, 1000, 500).await;
+    let p = db::get_platform(&db, id).await.unwrap().unwrap();
+    // 换算前：CNY 价直接扣 CNY 余额 = 1000*0.001 + 500*0.002 = 2.0
+    assert!((p.est_balance_remaining - 98.0).abs() < 1e-6, "got {}", p.est_balance_remaining);
+}
+
+#[tokio::test]
+async fn balance_usd_platform_cny_model_deducts_usd() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, false).await;
+    seed_cny_model(&db).await;
+    calibrate_from_quota(&db, id, &quota_with_ccy(100.0, "USD"), false).await;
+    run_est(&db, id, 0.0, 1000, 500).await;
+    let p = db::get_platform(&db, id).await.unwrap().unwrap();
+    let usd = 2.0 / aidog_db::CNY_PER_USD;
+    assert!((p.est_balance_remaining - (100.0 - usd)).abs() < 1e-6, "got {}", p.est_balance_remaining);
+}
+
+#[tokio::test]
+async fn balance_missing_currency_cny_model_falls_back_to_cny() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, false).await;
+    seed_cny_model(&db).await;
+    write_real_quota(&db, id, 100.0, "", now()).await.unwrap(); // 从未真查 → 无币种记录 → 回落模型条目币种 CNY，扣 2.0（等于换算前行为）
+    run_est(&db, id, 0.0, 1000, 500).await;
+    let p = db::get_platform(&db, id).await.unwrap().unwrap();
+    assert!((p.est_balance_remaining - 98.0).abs() < 1e-6, "got {}", p.est_balance_remaining);
+}
+
+#[tokio::test]
+async fn balance_missing_currency_usd_model_deducts_usd() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, false).await;
+    seed_entry(&db, "deepseek", "ccy-model", r#"{"price":{"input":0.001,"output":0.002}}"#).await;
+    write_real_quota(&db, id, 100.0, "", now()).await.unwrap();
+    run_est(&db, id, 0.0, 1000, 500).await;
+    let p = db::get_platform(&db, id).await.unwrap().unwrap();
+    assert!((p.est_balance_remaining - 98.0).abs() < 1e-6, "got {}", p.est_balance_remaining);
+}
+
+#[tokio::test]
+async fn tool_fee_deducted_with_zero_tokens_and_converted_for_cny_balance() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, false).await;
+    calibrate_from_quota(&db, id, &quota_with_ccy(100.0, "CNY"), false).await;
+    // token 全 0 + 按次费 0.5 USD：不早退，CNY 余额扣 0.5 × 6.6675
+    run_est(&db, id, 0.5, 0, 0).await;
+    let p = db::get_platform(&db, id).await.unwrap().unwrap();
+    let want = 100.0 - 0.5 * aidog_db::CNY_PER_USD;
+    assert!((p.est_balance_remaining - want).abs() < 1e-6, "got {}", p.est_balance_remaining);
+    assert!(p.estimate_count >= 1);
+}
+
+#[tokio::test]
+async fn tool_fee_not_multiplied_by_peak() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, false).await;
+    calibrate_from_quota(&db, id, &quota_with_ccy(100.0, "USD"), false).await;
+    let extra = r#"{"peak":[{"start_hour":0,"end_hour":24,"multiplier":2.0}]}"#;
+    estimate_after_request(
+        &db, id, "deepseek", "https://example.com", "sk", "ccy-model", extra, 0, 0, 0, 0, false,
+        0, 0.5,
+    )
+    .await;
+    let p = db::get_platform(&db, id).await.unwrap().unwrap();
+    assert!((p.est_balance_remaining - 99.5).abs() < 1e-9, "got {}", p.est_balance_remaining);
 }

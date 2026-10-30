@@ -543,3 +543,105 @@ async fn e2e_undeclared_path_not_intercepted() {
         );
     }
 }
+
+/// 按次费入余额：deepseek search 成功（5 CNY/千次 → 0.005 CNY）→ CNY 余额平台 100 → 99.995；
+/// 空结果不扣。spawn_estimate 在后台，轮询 estimate_count（有界）等它落库。
+#[tokio::test]
+async fn e2e_tool_fee_deducted_from_cny_balance() {
+    let _guard = TOOLS_E2E_LOCK.lock().await;
+    let (db, _dir) = three_file_db().await;
+    let state = make_state(db).await;
+    let (stub, _) = spawn_capture_upstream(200, SEARCH_OK).await;
+    store_tools_preset_redirect(&stub, &["deepseek"]);
+    let plat_id = setup_platform_group(&state, "g1", "ds", Protocol::DeepSeek, "", &stub, 0).await;
+    let quota = crate::gateway::quota::PlatformQuota {
+        success: true,
+        error: None,
+        queried_at: aidog_db::now(),
+        balance: Some(crate::gateway::quota::BalanceInfo {
+            remaining: 100.0,
+            total: None,
+            used: None,
+            currency: "CNY".into(),
+            is_valid: true,
+        }),
+        coding_plan: None,
+        newapi_user_id: None,
+    };
+    crate::gateway::estimate::calibrate_from_quota(&state.db, plat_id, &quota, false).await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        tools_request("g1", "/v1/tools/search", r#"{"query":"rust"}"#),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    flush_log_queue(&state).await;
+    crate::gateway::registry::invalidate_presets_cache();
+
+    let mut p = aidog_db::get_platform(&state.db, plat_id).await.unwrap().unwrap();
+    for _ in 0..100 {
+        if p.estimate_count > 0 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        p = aidog_db::get_platform(&state.db, plat_id).await.unwrap().unwrap();
+    }
+    assert!(p.estimate_count > 0, "tools request must reach estimate (token 0 not skipped)");
+    assert!((p.est_balance_remaining - 99.995).abs() < 1e-6, "got {}", p.est_balance_remaining);
+}
+
+/// 聊天路径按次费入余额端到端：anthropic 非流式响应 `usage.server_tool_use.web_search_requests=2`
+/// （anthropic web_search 10 USD/千次 → 0.02 USD）→ finish.rs `chat_tool_cost_usd` → spawn_estimate
+/// → USD 余额 100 扣 ≈ 0.02（token 极小，fallback 价贡献 <1e-4）。本地 stub 上游，无外呼。
+#[tokio::test]
+async fn e2e_chat_server_tool_use_fee_deducted_from_balance() {
+    let _guard = TOOLS_E2E_LOCK.lock().await;
+    let (db, _dir) = three_file_db().await;
+    let state = make_state(db).await;
+    let (stub, _) = spawn_capture_upstream(
+        200,
+        r#"{"id":"m1","type":"message","role":"assistant","model":"claude-e2e-tool","content":[{"type":"text","text":"ok"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1,"server_tool_use":{"web_search_requests":2}}}"#,
+    )
+    .await;
+    let plat_id = setup_platform_group(&state, "gchat", "an", Protocol::Anthropic, "", &stub, 0).await;
+    let quota = crate::gateway::quota::PlatformQuota {
+        success: true,
+        error: None,
+        queried_at: aidog_db::now(),
+        balance: Some(crate::gateway::quota::BalanceInfo {
+            remaining: 100.0,
+            total: None,
+            used: None,
+            currency: "USD".into(),
+            is_valid: true,
+        }),
+        coding_plan: None,
+        newapi_user_id: None,
+    };
+    crate::gateway::estimate::calibrate_from_quota(&state.db, plat_id, &quota, false).await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        tools_request(
+            "gchat",
+            "/v1/messages",
+            r#"{"model":"claude-e2e-tool","max_tokens":16,"messages":[{"role":"user","content":"hi"}]}"#,
+        ),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    flush_log_queue(&state).await;
+
+    let mut p = aidog_db::get_platform(&state.db, plat_id).await.unwrap().unwrap();
+    for _ in 0..100 {
+        if p.estimate_count > 0 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        p = aidog_db::get_platform(&state.db, plat_id).await.unwrap().unwrap();
+    }
+    assert!(p.estimate_count > 0, "chat request must reach estimate");
+    let deducted = 100.0 - p.est_balance_remaining;
+    assert!((deducted - 0.02).abs() < 1e-3, "tool fee 0.02 USD expected, deducted {deducted}");
+}

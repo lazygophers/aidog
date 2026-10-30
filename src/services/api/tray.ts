@@ -21,6 +21,13 @@ export const trayApi = {
 };
 
 
+/** 最近命中平台的高峰态（Rust `tray_render::TrayPeakStatus`）；从未转发 → null。 */
+export interface TrayPeakStatus {
+  platform_name: string;
+  in_peak: boolean;
+  multiplier: number;
+}
+
 export const trayConfigApi = {
   /** 读取托盘配置（无配置时后端迁移旧 show_in_tray 平台生成默认）。 */
   get: () => invoke<TrayConfig>("tray_config_get"),
@@ -28,6 +35,8 @@ export const trayConfigApi = {
   set: (config: TrayConfig) => invoke<void>("tray_config_set", { config }),
   /** 获取今日统计摘要（tokens / cache_rate / cost / requests）。 */
   todayStats: () => invoke<TodayStats>("tray_today_stats"),
+  /** 最近命中平台的高峰态（与托盘「高峰」段同口径）。 */
+  peakStatus: () => invoke<TrayPeakStatus | null>("tray_peak_status"),
 };
 
 // ─── Popover Config API ────────────────────────────────────

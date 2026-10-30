@@ -619,17 +619,42 @@ pub(crate) fn routed_item_parts(platform: Option<&Platform>) -> (String, String)
     )
 }
 
+/// 平台当前是否命中其 peak 窗口（托盘高峰段与设置页预览共用的唯一判定）。
+fn platform_in_peak(p: &Platform, now_ms: i64) -> bool {
+    let windows = gateway::peak::peak_for(&p.extra, &p.platform_type.wire_str());
+    gateway::peak::is_in_peak_window(&windows, now_ms, "")
+}
+
 /// 「高峰指示」段的（名, 值）：按当前命中平台的 peak 窗口判定，命中窗口 → 「峰」，否则「平」。
 /// 没有命中平台（从未转发）→ 「平」（无平台可判，视作非高峰）。
 pub(crate) fn peak_item_parts(platform: Option<&Platform>, now_ms: i64) -> (String, String) {
-    let in_peak = platform.is_some_and(|p| {
-        let windows = gateway::peak::peak_for(&p.extra, &p.platform_type.wire_str());
-        gateway::peak::is_in_peak_window(&windows, now_ms, "")
-    });
+    let in_peak = platform.is_some_and(|p| platform_in_peak(p, now_ms));
     (
         "高峰".to_string(),
         if in_peak { "峰" } else { "平" }.to_string(),
     )
+}
+
+/// 设置页预览用：最近命中平台的高峰态（与 `peak_item_parts` 同口径：peak_for + is_in_peak_window）。
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TrayPeakStatus {
+    pub platform_name: String,
+    pub in_peak: bool,
+    pub multiplier: f64,
+}
+
+pub(crate) fn peak_status(platform: &Platform, now_ms: i64) -> TrayPeakStatus {
+    let windows = gateway::peak::peak_for(&platform.extra, &platform.platform_type.wire_str());
+    let in_peak = platform_in_peak(platform, now_ms);
+    TrayPeakStatus {
+        platform_name: platform.name.clone(),
+        in_peak,
+        multiplier: if in_peak {
+            gateway::peak::resolve_multiplier(&windows, now_ms, "")
+        } else {
+            1.0
+        },
+    }
 }
 
 /// 从托盘配置生成有序渲染布局（已按 order 排序、跳过 disabled、跳过取数失败项）。

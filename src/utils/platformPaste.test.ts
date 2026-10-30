@@ -7,6 +7,7 @@ import {
   parsePlatformPaste,
   extractExpiryAt,
   collectKeyPrefixes,
+  splitApiKeys,
   type PastePresetRef,
 } from "./platformPaste";
 // 真值源 = src-tauri/defaults/registry/（一协议一 platform.json）——数据驱动回归矩阵用。
@@ -757,5 +758,12 @@ describe("全协议回归矩阵（platform-presets.json 数据驱动）", () => 
     const out = parsePlatformPaste("tp-abcdefghijklmnop1234567890", ALL_PRESETS);
     expect(out.apiKeys.some((k) => k.startsWith("tp-"))).toBe(true);
     expect(out.platform?.value).toBe("xiaomi_mimo_coding");
+  });
+});
+
+describe("splitApiKeys", () => {
+  it("空串 → []", () => expect(splitApiKeys("")).toEqual([]));
+  it("按空白/逗号/分号拆分、去重、剔空", () => {
+    expect(splitApiKeys("a, b;c\nb  d,,")).toEqual(["a", "b", "c", "d"]);
   });
 });
