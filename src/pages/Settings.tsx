@@ -126,6 +126,12 @@ export function Settings() {
 
   const dirty = baseline !== "" && currentSig !== baseline;
 
+  // outputStyle 下拉 = 内置 ∪ ~/.claude/output-styles/ 自定义（目录读失败当空，手输照常保存）
+  const [customStyles, setCustomStyles] = useState<string[]>([]);
+  useEffect(() => {
+    claudeSettingsImportApi.outputStyles().then(setCustomStyles).catch(() => setCustomStyles([]));
+  }, []);
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -440,7 +446,7 @@ export function Settings() {
           return (
             <FieldRenderer
               key={field.key}
-              field={field}
+              field={field.key === "outputStyle" ? { ...field, options: [...new Set([...(field.options ?? []), ...customStyles])] } : field}
               value={config[field.key]}
               onChange={(v) => updateField(field.key, v)}
               t={t}
