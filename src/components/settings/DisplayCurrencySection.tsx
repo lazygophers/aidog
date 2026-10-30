@@ -6,6 +6,7 @@ import { displayCurrencyApi } from "../../services/api/currency";
 import { setDisplayCurrency, useDisplayCurrency } from "../../utils/displayCurrency";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const parseRate = (v: string): number | null => {
   const n = Number(v);
@@ -57,16 +58,14 @@ export function DisplayCurrencySection() {
       </div>
       <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12 }}>
         {t("displayCurrency.select")}
-        <select
-          data-testid="currency-select"
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 6, padding: "4px 8px", color: "inherit" }}
-        >
-          {cur.table.map((r) => (
-            <option key={r.code} value={r.code}>{r.symbol} {r.code}</option>
-          ))}
-        </select>
+        <Select value={code} onValueChange={setCode}>
+          <SelectTrigger data-testid="currency-select" style={{ maxWidth: 160 }}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {cur.table.map((r) => (
+              <SelectItem key={r.code} value={r.code}>{r.symbol} {r.code}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </label>
       <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", alignItems: "center", gap: "8px 12px", fontSize: 12 }}>
         {cur.table.map((r) => {
