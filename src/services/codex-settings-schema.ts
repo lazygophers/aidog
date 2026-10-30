@@ -110,48 +110,5 @@ export const CODEX_SECTIONS: SettingSection[] = [
 /** All known top-level keys covered by the schema. */
 export const ALL_CODEX_KEYS: string[] = CODEX_SECTIONS.flatMap((s) => s.fields.map((f) => f.key));
 
-// ── Recommended config（对照 RECOMMENDED_CONFIG）──────────────────
-// 基于 codex-config.md §6 推荐默认 + codex-aidog-spike.md provider 接入结论。
-// [model_providers.aidog]：base_url 指向 aidog 本地代理 /proxy，wire_api=responses，
-// env_key 指向持「分组名作 token」的环境变量。port 用内置默认 9890（可在 UI 改）。
-
-/**
- * 生成推荐 Codex 配置。`port` 为 aidog 代理端口（默认 9890）。
- * Codex 发请求 = base_url + `/v1/responses`，aidog 剥 `/proxy` 前缀后按 auth token=分组名路由。
- */
-export function buildCodexRecommendedConfig(port: number = AIDOG_DEFAULT_PORT): Record<string, unknown> {
-  return {
-    // ── Core ──
-    model: "gpt-5.5",
-    model_provider: "aidog",
-    model_reasoning_effort: "medium",
-    // ── Approval & Sandbox ──
-    approval_policy: "on-request",
-    sandbox_mode: "workspace-write",
-    sandbox_workspace_write: {
-      network_access: false,
-    },
-    // ── Web search ──
-    web_search: "cached",
-    personality: "pragmatic",
-    // ── Diagnostics（对齐 aidog 隐私偏好）──
-    analytics: {
-      enabled: false,
-    },
-    // ── Provider 指向 aidog 代理 ──
-    model_providers: {
-      aidog: {
-        name: "aidog proxy",
-        base_url: `http://127.0.0.1:${port}/proxy`,
-        wire_api: "responses",
-        env_key: "AIDOG_KEY",
-      },
-    },
-  };
-}
-
-/** 静态默认（端口 9890）— 供页面初始填充与 reset 默认值。 */
-export const CODEX_RECOMMENDED_CONFIG: Record<string, unknown> = buildCodexRecommendedConfig();
-
 // 复用 Claude Code schema 的字段/分区接口类型。
 export type { SettingField, SettingSection };

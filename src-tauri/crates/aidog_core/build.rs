@@ -5,16 +5,16 @@ use std::time::{SystemTime, UNIX_EPOCH};
 #[path = "src/preset_filter.rs"]
 mod preset_filter;
 
-/// 枚举 `defaults/settings/*.json`（Claude 预设），按 `GITHUB_ACTIONS` 过滤后生成 `include_str!` 清单。
-fn gen_claude_presets() {
+/// 枚举 `defaults/<sub>/*.json`（各 kind 预设目录），按 `GITHUB_ACTIONS` 过滤后返回 `include_str!` 清单源码。
+fn gen_presets(sub: &str, static_name: &str) -> String {
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../defaults/settings")
+        .join("../../defaults")
+        .join(sub)
         .canonicalize()
-        .expect("defaults/settings dir");
-    println!("cargo:rerun-if-env-changed=GITHUB_ACTIONS");
+        .unwrap_or_else(|e| panic!("defaults/{sub} dir: {e}"));
     println!("cargo:rerun-if-changed={}", dir.display());
     let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)
-        .expect("read defaults/settings")
+        .unwrap_or_else(|e| panic!("read defaults/{sub}: {e}"))
         .map(|e| e.expect("dir entry").path())
         .filter(|p| p.extension().is_some_and(|e| e == "json"))
         .collect();
@@ -26,17 +26,21 @@ fn gen_claude_presets() {
     let only_oss = std::env::var("GITHUB_ACTIONS").is_ok_and(|v| v == "true");
     let ids = preset_filter::select_ids(files.iter().map(stem).collect(), only_oss)
         .unwrap_or_else(|e| panic!("{}: {e}", dir.display()));
-    let mut src = String::from("pub static CLAUDE_PRESETS: &[(&str, &str)] = &[\n");
+    let mut src = format!("pub static {static_name}: &[(&str, &str)] = &[\n");
     for f in files.iter().filter(|f| ids.contains(&stem(f))) {
         src.push_str(&format!("    ({:?}, include_str!({f:?})),\n", stem(f)));
     }
     src.push_str("];\n");
-    let out = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR")).join("claude_presets.rs");
-    std::fs::write(out, src).expect("write claude_presets.rs");
+    src
 }
 
 fn main() {
-    gen_claude_presets();
+    println!("cargo:rerun-if-env-changed=GITHUB_ACTIONS");
+    let src = gen_presets("settings", "CLAUDE_PRESETS")
+        + &gen_presets("codex", "CODEX_PRESETS")
+        + &gen_presets("pi", "PI_PRESETS");
+    let out = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR")).join("claude_presets.rs");
+    std::fs::write(out, src).expect("write claude_presets.rs");
 
     // git 短 commit（失败回退 "unknown"）—— about.rs 用，同 root build.rs 逻辑（C3 迁入后本 crate 自持）。
     let commit = Command::new("git")

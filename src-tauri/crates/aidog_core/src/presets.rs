@@ -42,10 +42,12 @@ pub(crate) fn bundled_oss_config() -> serde_json::Value {
         .unwrap_or_else(|| serde_json::Value::Object(Default::default()))
 }
 
-/// 按 kind 取预设列表。当前仅 `claude`（codex/pi 由后续票扩白名单）。
+/// 按 kind 取预设列表（白名单：claude / codex / pi）。
 pub fn list_presets(kind: &str) -> Result<Vec<PresetItem>, String> {
     match kind {
         "claude" => build_items(CLAUDE_PRESETS),
+        "codex" => build_items(CODEX_PRESETS),
+        "pi" => build_items(PI_PRESETS),
         other => Err(format!("unsupported preset kind: {other}")),
     }
 }
@@ -81,7 +83,20 @@ mod tests {
 
     #[test]
     fn unknown_kind_is_error() {
-        assert!(list_presets("codex").unwrap_err().contains("unsupported"));
+        assert!(list_presets("nope").unwrap_err().contains("unsupported"));
+    }
+
+    /// codex/pi 的 oss 预设与迁移前 TS 常量一致（codex 保留 `{{port}}` 占位符）。
+    #[test]
+    fn codex_and_pi_oss_presets_match_legacy_values() {
+        let codex = list_presets("codex").unwrap();
+        let oss = codex.iter().find(|p| p.id == "oss").unwrap();
+        assert_eq!(oss.config["model"], "gpt-5.5");
+        assert_eq!(oss.config["model_providers"]["aidog"]["base_url"], "http://127.0.0.1:{{port}}/proxy");
+        let pi = list_presets("pi").unwrap();
+        let oss = pi.iter().find(|p| p.id == "oss").unwrap();
+        assert_eq!(oss.config.as_object().unwrap().len(), 7);
+        assert_eq!(oss.config["enableAnalytics"], false);
     }
 
     /// 发版自检用：`GITHUB_ACTIONS=true` 长度 1 且 id=oss；不设则等于磁盘份数（>=2）。
