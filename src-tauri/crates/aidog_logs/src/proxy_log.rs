@@ -1556,6 +1556,7 @@ mod test_routing_snapshot {
         assert_eq!(s(RouteReason::AuthCooldown), "\"auth-cooldown\"");
         assert_eq!(s(RouteReason::UnknownProtocol), "\"unknown-protocol\"");
         assert_eq!(s(RouteReason::KindUnsupported), "\"kind-unsupported\"");
+        assert_eq!(s(RouteReason::ClientNotAllowed), "\"client-not-allowed\"");
         assert_eq!(
             s(RouteReason::ModelNotOnPlatform),
             "\"model-not-on-platform\""
