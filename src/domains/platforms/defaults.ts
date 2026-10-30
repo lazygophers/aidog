@@ -269,14 +269,14 @@ function pickModelsBranch<T>(
  *  anthropic → claude_code、openai 系 → codex_tui、其余（gemini / typesafe / 未知）→ default。
  *  仅例外平台在 preset endpoint 显式标注（如官方 claude_code 直连端点标 default 不模拟）。 */
 export function clientTypeForProtocol(protocol: string): ClientType {
-  switch (protocol) {
-    case "anthropic": return "claude_code";
-    case "openai":
-    case "openai_responses":
-    case "openai_completions": return "codex_tui";
-    case "typesafe": return "default";
-    default: return "default";
-  }
+  if (isOpenAIFamilyProtocol(protocol)) return "codex_tui";
+  return protocol === "anthropic" ? "claude_code" : "default";
+}
+
+/** OpenAI 系 wire 协议（与 Rust `Protocol::same_wire_family` 的 OpenAI 族一致：openai / openai_completions / openai_responses）。
+ *  clientTypeForProtocol 与 embedding / rerank 槽位提示共用此单一真值。 */
+export function isOpenAIFamilyProtocol(protocol: string): boolean {
+  return protocol === "openai" || protocol === "openai_responses" || protocol === "openai_completions";
 }
 
 /** 根据端点协议返回推荐的默认客户端类型（clientTypeForProtocol 的旧名别名，保留调用方兼容）。 */

@@ -13,7 +13,7 @@ import type { TimeWindow } from "../../domains/platforms/defaults";
 import { type TzMode, utcToDisplay } from "../../utils/timeWindow";
 import { pad } from "../../utils/formatters";
 import {
-  MODEL_SLOTS, DEDICATED_MODEL_SLOTS,
+  MODEL_SLOTS, DEDICATED_MODEL_SLOTS, isOpenAIFamilyProtocol,
 } from "../../domains/platforms";
 import { FormSection } from "./formSections";
 import { WindowsEditModal } from "./WindowsEditModal";
@@ -82,7 +82,7 @@ export function ModelsMatrixSection({
   // tab 实例（columns="time"）的 card 标题覆盖（缺省「模型」）
   titleOverride,
   fetchError, fetching,
-  onFillAll, onFetchModels, apiKeyMissing, endpointsCount,
+  onFillAll, onFetchModels, apiKeyMissing, endpointsCount, endpoints = [],
   // 时段档列 props
   rules, setRules, peak,
   // tz 展示模式：表单级共用一份（design.md §3.5 契约），与 PeakSection 的 tzMode/setTzMode 签名逐字一致
@@ -104,6 +104,8 @@ export function ModelsMatrixSection({
   onFetchModels: () => void;
   apiKeyMissing: boolean;
   endpointsCount: number;
+  /** embedding / rerank 提示用：缺省视为无 endpoints。 */
+  endpoints?: { protocol: string }[];
   rules: TimeModelRule[];
   setRules: React.Dispatch<React.SetStateAction<TimeModelRule[]>>;
   peak: TimeWindow[];
@@ -187,6 +189,10 @@ export function ModelsMatrixSection({
       t={t}
     />
   );
+
+  // 与 Rust `has_openai_family_endpoint` 同口径：endpoints 任一 OpenAI 系，或平台协议本身即 OpenAI 系
+  const hasOpenAIEndpoint = isOpenAIFamilyProtocol(protocol)
+    || endpoints.some((e) => isOpenAIFamilyProtocol(e.protocol));
 
   // 列宽：默认列 + 时段档列 flex:1 平均分割（单列占满，多列均分）；
   // minWidth:80 软下限防极窄，极多列时外层 overflowX 滚动。slot label 列 64px 固定。
@@ -399,6 +405,15 @@ export function ModelsMatrixSection({
                   models[key],
                   (v) => handleModelChange(key, v),
                   (v) => handleModelSelect(key, v),
+                )}
+                {DEDICATED_MODEL_SLOTS.includes(key) && models[key] && !hasOpenAIEndpoint && (
+                  <div
+                    id={`slot-hint-${key}`}
+                    data-state="warn"
+                    style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 2 }}
+                  >
+                    {t("platform.dedicatedSlotNoOpenAIEndpointHint")}
+                  </div>
                 )}
               </div>
             </div>

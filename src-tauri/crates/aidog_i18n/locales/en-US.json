@@ -1378,6 +1378,7 @@
   "platform.modelJev": "Decision model",
   "platform.modelEmbedding": "Embedding",
   "platform.modelRerank": "Rerank",
+  "platform.dedicatedSlotNoOpenAIEndpointHint": "This platform has no OpenAI-family endpoint and will not be selected for this request type",
   "platform.modelHaiku": "Haiku",
   "platform.modelOpus": "Opus",
   "platform.modelSonnet": "Sonnet",
