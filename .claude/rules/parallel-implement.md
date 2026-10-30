@@ -179,3 +179,47 @@ mitm_bypass 测试读加密列断言明文——子集门禁全绿，合并到 m
 - `build:web`（next/turbopack）在 harness worktree 里因 `node_modules` 软链找不到 next
   （`web/next.config.ts` 的 `turbopack.root`）。验证在主仓跑；非要在 worktree 跑，临时改
   `turbopack.root` 并在提交前还原（该轮已还原、未入提交）。
+
+## 11. 等别人的门禁日志：禁 `tail -F | grep -m1`，用 node 等待脚本（2026-10-30）
+
+派发 prompt 让 agent 用 `tail -n +1 -F <log> | grep -m1 GATE_CHAIN_DONE` 等别人的门禁：
+grep 命中退出后，日志已写完、tail 不再写入就收不到 SIGPIPE，管道永不结束，agent 的
+Bash 一直挂到超时；一轮下来残留 9 个 tail（最老 2h13m），多个 agent 卡死。改用 node
+`fs.watchFile` 等待脚本后首用即成功（票 06 合并）。
+
+- 等待脚本在命中判据后自己 `process.exit(0)`，不留后台子进程；派发 prompt 直接贴脚本，
+  不贴 shell 管道写法。
+- 命中判据三条同时满足：行数 > 5、含 `make lint` 的 `EXIT` 行、末行为 `GATE_CHAIN_DONE`。
+  日志里残留的单行 `GATE_CHAIN_DONE`（上一轮遗留）会让「日志含标记」误判。
+- 清理残留 tail 按 PID 核对命令行（`tail … /tmp/aidog-*.log`）再 kill，不用 pkill
+  （perf-testing.md §1）。
+
+## 12. harness worktree 里 `check:docs` 恒红：主仓补跑（2026-10-30）
+
+worktree 缺 docs 子包依赖（`typescript-eslint`），`yarn check:docs` 恒 EXIT 2，与改动无关。
+本轮每张票的实现回报都带这一条红。
+
+- 派发 prompt 写明：worktree 内 `check:docs` EXIT 2 属已知，不修、不复跑；其余步骤全 0 即交付。
+- 合并 agent 在主仓补跑 `check:docs`，改了 command 签名 / 删 command 的票还要重新生成
+  docs（先例 bf3ba6cd8）。
+
+## 13. 已回报的 agent：回报转述后当场 TaskStop（2026-10-30）
+
+completed 的后台 subagent 不会从列表消失，界面一直显示最后一步，用户两次要求
+「已完成的后台 agent 及时关闭」。
+
+- 回报转述完当场对该 agent `TaskStop`；返回 `not running` 说明已自行结束，无需再试。
+- 空闲 teammate（已回报的 SendMessage 型）发 `shutdown_request`。
+- 派发前数在途数（§8）时，只算 running，不把 completed 算进去。
+
+## 14. 渲染类 UI 票：门禁全绿不等于视觉验收（2026-10-30 流向图）
+
+FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真机截图后否掉
+（「页面过于丑陋且没有动效」）：节点等高不成比例、连线压标签、0 值节点照显、
+空标签、颜色不可读、无动效共 8 处缺陷，重做一整轮（6600c646d）。
+
+- 图表 / 画布 / 动效类组件票，验收标准含「Playwright 真渲染深浅两 mode 截图 + 缺陷清单
+  逐条核」（取证法见 ui-color-bug-verify.md 规则 2），截图落 `.scratch/<feature>/`；
+  票面没有截图验收行不算完成。
+- 主会话合并前读一遍截图，按比例、遮挡、空值、对比度、动效五项自查；真机 WebKit /
+  reduced-motion 未覆盖的列入回报「人工验收 N 条未执行」（pr-merge-discipline.md §2）。
