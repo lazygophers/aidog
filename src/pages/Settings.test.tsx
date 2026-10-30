@@ -4,12 +4,14 @@ import { Settings } from "./Settings";
 import { requestNavigation } from "../utils/navGuard";
 
 const api = vi.hoisted(() => ({ get: vi.fn(), set: vi.fn(), syncGroupSettings: vi.fn() }));
+const presetList = vi.hoisted(() => vi.fn());
 vi.mock("../services/api", () => ({
   settingsApi: api,
   configApi: api,
+  settingsPresetApi: { list: presetList },
   claudeSettingsImportApi: { readDefault: vi.fn(), outputStyles: vi.fn().mockResolvedValue([]) },
 }));
-vi.mock("../services/claude-settings-schema", () => ({ SECTIONS: [], RECOMMENDED_CONFIG: { model: "default" } }));
+vi.mock("../services/claude-settings-schema", () => ({ SECTIONS: [] }));
 vi.mock("../components/shared/JsonCodeEditor", () => ({
   JsonCodeEditor: ({ value, onChange, error }: { value: string; onChange: (value: string) => void; error?: string }) => (
     <><textarea aria-label="JSON" value={value} onChange={(e) => onChange(e.target.value)} />{error && <p role="alert">{error}</p>}</>
@@ -18,6 +20,7 @@ vi.mock("../components/shared/JsonCodeEditor", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  presetList.mockResolvedValue([{ id: "oss", name: "oss", config: { model: "default" } }]);
   api.get.mockResolvedValue({ model: "saved" });
   api.set.mockResolvedValue(undefined);
   api.syncGroupSettings.mockResolvedValue(undefined);
@@ -88,5 +91,43 @@ describe("Settings draft modes", () => {
     unmount();
     await act(async () => resolve({ model: "late" }));
     expect(api.set).not.toHaveBeenCalled();
+  });
+});
+
+describe("load recommended presets", () => {
+  const loadRecommended = async () => {
+    render(<Settings />);
+    await waitFor(() => expect(presetList).toHaveBeenCalled());
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: /settings\.loadRecommended/ }));
+  };
+  const two = [
+    { id: "oss", name: "oss", config: { model: "default" } },
+    { id: "pro", name: "Pro", config: { model: "pro" } },
+  ];
+
+  it("1 份：不弹选择框，直接进预览", async () => {
+    await loadRecommended();
+    expect(document.querySelector("#preset-picker")).toBeNull();
+    expect(document.querySelector("#import-diff-modal")).not.toBeNull();
+  });
+
+  it("2 份：先弹选择框，选定后进预览", async () => {
+    presetList.mockResolvedValue(two);
+    await loadRecommended();
+    expect(document.querySelector("#preset-picker")).not.toBeNull();
+    expect(document.querySelector("#import-diff-modal")).toBeNull();
+    fireEvent.click(document.querySelector("#preset-option-pro")!);
+    expect(document.querySelector("#preset-picker")).toBeNull();
+    expect(document.querySelector("#import-diff-modal")).not.toBeNull();
+  });
+
+  it("2 份：取消无副作用", async () => {
+    presetList.mockResolvedValue(two);
+    await loadRecommended();
+    fireEvent.keyDown(document.querySelector("#preset-picker")!, { key: "Escape" });
+    await waitFor(() => expect(document.querySelector("#preset-picker")).toBeNull());
+    expect(document.querySelector("#import-diff-modal")).toBeNull();
+    expect(save()).toBeDisabled();
   });
 });

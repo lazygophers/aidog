@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { settingsApi, claudeSettingsImportApi, configApi } from "../services/api";
+import { settingsApi, claudeSettingsImportApi, configApi, settingsPresetApi, type SettingsPreset } from "../services/api";
+import { planPresetLoad } from "../services/preset-select";
+import { PresetPickerDialog } from "../components/settings/PresetPickerDialog";
 import { registerNavGuard } from "../utils/navGuard";
 import { deepMerge } from "../utils/deepMerge";
 import { UnsavedChangesModal } from "../components/settings/UnsavedChangesModal";
-import { SECTIONS, RECOMMENDED_CONFIG } from "../services/claude-settings-schema";
+import { SECTIONS } from "../services/claude-settings-schema";
 import { updateConfigField } from "../services/settings-env-pairs";
 import {
   F,
@@ -88,6 +90,8 @@ export function Settings() {
   const [toast, setToast] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeSection, setActiveSection] = useState(SECTIONS[0]?.id ?? "core");
+  const [presets, setPresets] = useState<SettingsPreset[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [importDiff, setImportDiff] = useState<{
     source: Record<string, any>;
     diff: DiffNode[];
@@ -132,13 +136,18 @@ export function Settings() {
     claudeSettingsImportApi.outputStyles().then(setCustomStyles).catch(() => setCustomStyles([]));
   }, []);
 
+  // 默认预设（oss 优先）config：首次填充 / 「与推荐值不同」指示 / 重置默认共用
+  const defaultConfig = useMemo(() => planPresetLoad(presets).defaultPreset?.config ?? {}, [presets]);
+
   useEffect(() => {
     const load = async () => {
       try {
+        const list = await settingsPresetApi.list("claude").catch((e) => { console.error(e); return [] as SettingsPreset[]; });
+        setPresets(list);
         const result = await settingsApi.get("global", CONFIG_KEY);
         const stored = result as Record<string, any> | null | undefined;
         // 若从未存储过，默认填入推荐配置
-        const data = stored && Object.keys(stored).length > 0 ? stored : { ...RECOMMENDED_CONFIG };
+        const data = stored && Object.keys(stored).length > 0 ? stored : { ...(planPresetLoad(list).defaultPreset?.config ?? {}) };
         setConfig(data);
         setEditJson(JSON.stringify(data, null, 2));
         // Establish the saved baseline so initial state is non-dirty.
@@ -209,14 +218,21 @@ export function Settings() {
   }, [mode, editJson, config, t]);
 
   // 与「从 Claude Code 导入」同一套逐项选择弹窗：先出 diff，用户勾选后才写入。
-  const handleLoadRecommended = () => {
-    const diff = buildRecommendedDiffTree(config, RECOMMENDED_CONFIG);
+  const previewPreset = (preset: SettingsPreset) => {
+    setPickerOpen(false);
+    const diff = buildRecommendedDiffTree(config, preset.config);
     if (diff.length === 0) {
       setToast(t("settings.noRecommendedDiff", "当前配置已包含全部推荐项"));
       setTimeout(() => setToast(""), 2000);
       return;
     }
-    setImportDiff({ source: RECOMMENDED_CONFIG, diff, kind: "recommended" });
+    setImportDiff({ source: preset.config, diff, kind: "recommended" });
+  };
+
+  const handleLoadRecommended = () => {
+    const { needPicker, defaultPreset } = planPresetLoad(presets);
+    if (needPicker) setPickerOpen(true);
+    else if (defaultPreset) previewPreset(defaultPreset);
   };
 
   const handleImportFromClaudeCode = async () => {
@@ -441,8 +457,8 @@ export function Settings() {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: S.gap }}>
         {visibleFields.map((field) => {
-          const hasDefault = Object.prototype.hasOwnProperty.call(RECOMMENDED_CONFIG, field.key);
-          const defaultValue = hasDefault ? RECOMMENDED_CONFIG[field.key] : undefined;
+          const hasDefault = Object.prototype.hasOwnProperty.call(defaultConfig, field.key);
+          const defaultValue = hasDefault ? defaultConfig[field.key] : undefined;
           return (
             <FieldRenderer
               key={field.key}
@@ -555,6 +571,10 @@ export function Settings() {
             ))}
           </div>
         </div>
+      )}
+
+      {pickerOpen && (
+        <PresetPickerDialog presets={presets} onSelect={previewPreset} onCancel={() => setPickerOpen(false)} />
       )}
 
       {/* Import diff modal */}
