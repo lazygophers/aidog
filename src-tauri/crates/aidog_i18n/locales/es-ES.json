@@ -545,6 +545,7 @@
   "home.copyBaseUrlTitle": "Copiar base_url del proxy",
   "home.cost": "Costo",
   "home.desc": "Estado del proxy, uso de hoy y resumen de grupos/plataformas",
+  "home.flow.title": "Flujo de solicitudes · 24 h",
   "home.noToday": "No hay solicitudes hoy",
   "home.byModel": "Por modelo · Hoy",
   "home.byGroup": "Por grupo · Hoy",
