@@ -29,7 +29,7 @@ import {
   type GroupDetail,
   type Platform,
 } from "../../services/api";
-import { formatNumber, formatCostUsd, formatPercent } from "../../utils/formatters";
+import { formatNumber, formatMoney, formatPercent } from "../../utils/formatters";
 import {
   collectStatsQueries,
   type PopoverStatsMap,
@@ -37,6 +37,7 @@ import {
 } from "../../components/PopoverCards";
 import { ALL_ITEM_TYPES, MULTI_INSTANCE_TYPES } from "./constants";
 import { effRow, makeItem, normalizeConfig } from "./utils";
+import { useDisplayCurrency } from "../../utils/displayCurrency";
 
 export interface PopoverConfigData {
   t: ReturnType<typeof useTranslation>["t"];
@@ -72,6 +73,7 @@ export interface PopoverConfigData {
 }
 
 export function usePopoverConfig(): PopoverConfigData {
+  useDisplayCurrency();
   const { t } = useTranslation();
   const [config, setConfig] = useState<PopoverConfig>({ items: [], rows: [] });
   const [todayStats, setTodayStats] = useState<TodayStats | null>(null);
@@ -273,7 +275,7 @@ export function usePopoverConfig(): PopoverConfigData {
     switch (type) {
       case "proxy_status": return t("popover.previewStatusLine", "Running :port");
       case "platform_balance": return t("popover.previewTrayCols", "（来自托盘配置的列）");
-      case "today_cost": return formatCostUsd(s.cost);
+      case "today_cost": return formatMoney(s.cost);
       case "today_cache_rate": return formatPercent(s.cache_rate, 0);
       case "today_tokens": return `${formatNumber(s.tokens)} tok`;
       case "platform_today":

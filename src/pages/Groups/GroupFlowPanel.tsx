@@ -4,7 +4,8 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { groupFlowApi, type GroupPlatformDetail } from "../../services/api";
-import { formatNumber, formatCost } from "../../utils/formatters";
+import { formatNumber, formatMoney } from "../../utils/formatters";
+import { useDisplayCurrency } from "../../utils/displayCurrency";
 
 type Window = "7d" | "today";
 type Metric = "requests" | "cost";
@@ -12,6 +13,7 @@ type Metric = "requests" | "cost";
 interface Link { model: string; platformId: number; value: number }
 
 export function GroupFlowPanel({ groupKey, gps }: { groupKey: string; gps: GroupPlatformDetail[] }) {
+  useDisplayCurrency();
   const { t } = useTranslation();
   const [win, setWin] = useState<Window>("7d");
   const [metric, setMetric] = useState<Metric>("requests");
@@ -53,7 +55,7 @@ export function GroupFlowPanel({ groupKey, gps }: { groupKey: string; gps: Group
   const scale = (v: number) => (total > 0 ? v / total : 0);
   // 左列节点纵向均分；连线 y 取两端节点中心，粗细按值占比（上限 14px）
   const rowY = (i: number, n: number) => (n <= 1 ? H / 2 : 14 + (i * (H - 28)) / (n - 1));
-  const fmtVal = (v: number) => metric === "requests" ? formatNumber(Math.round(v)) : `$${formatCost(v)}`;
+  const fmtVal = (v: number) => metric === "requests" ? formatNumber(Math.round(v)) : formatMoney(v);
 
   return (
     <div id="g3-flow" data-loading={loading ? "yes" : "no"} className="glass-surface"

@@ -13,9 +13,10 @@ import {
 } from "recharts";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import type { ScatterHistogram } from "@/services/api/types/generated/ScatterHistogram";
-import { formatCostUsd, formatDurationMs } from "@/utils/formatters";
+import { formatMoney, formatDurationMs } from "@/utils/formatters";
 import { ChartCard } from "./ChartCard";
 import { ChartsTooltip } from "./tooltip";
+import { useDisplayCurrency } from "../../utils/displayCurrency";
 
 export interface ScatterPoint {
   /** duration bin 中心（ms）。 */
@@ -51,7 +52,7 @@ export interface ScatterChartProps {
   /** 轴标签（x=延迟 y=成本），缺省走 charts.scatterX / charts.scatterY（Recharts 轴标签限纯文本）。 */
   xLabel?: string;
   yLabel?: string;
-  /** 轴 / tooltip 数值格式化，缺省 formatDurationMs / formatCostUsd（utils/formatters）。 */
+  /** 轴 / tooltip 数值格式化，缺省 formatDurationMs / formatMoney（utils/formatters）。 */
   formatX?: (n: number) => string;
   formatY?: (n: number) => string;
   title?: ReactNode;
@@ -72,10 +73,11 @@ export function ScatterChart({
   emptyHint,
   className,
 }: ScatterChartProps) {
+  useDisplayCurrency();
   const { t } = useTranslation();
   const points = useMemo(() => scatterPoints(histogram), [histogram]);
   const fmtX = formatX ?? formatDurationMs;
-  const fmtY = formatY ?? formatCostUsd;
+  const fmtY = formatY ?? formatMoney;
   const xl = xLabel ?? t("charts.scatterX", "延迟");
   const yl = yLabel ?? t("charts.scatterY", "成本");
 

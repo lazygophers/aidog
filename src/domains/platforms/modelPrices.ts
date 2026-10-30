@@ -3,6 +3,7 @@
 // priceData.ts；本层只做「条目 → 下拉可显示的形状」归一 + RPC 缓存，展示组件 ModelPriceTag。
 
 import { useEffect, useState } from "react";
+import { useDisplayCurrency } from "../../utils/displayCurrency";
 import { modelInfoApi, onRegistryUpdated } from "../../services/api/pricing";
 import {
   parsePriceData,
@@ -146,6 +147,7 @@ function fetchAll(): Promise<ReadonlyMap<string, PriceMap>> {
 
 /** 单平台价格表：model_id → 价格。用于平台编辑页（矩阵 + 时段档共用一个下拉）。 */
 export function useModelPrices(platformCode?: string | null): PriceMap {
+  useDisplayCurrency(); // 价格标签随显示币种换算，订阅以重渲染
   const [map, setMap] = useState<PriceMap>(EMPTY_MAP);
   useEffect(() => {
     if (!platformCode) return;
@@ -168,6 +170,7 @@ export function useModelPrices(platformCode?: string | null): PriceMap {
 
 /** 全平台价格表：platform_code → (model_id → 价格)。用于分组映射（逐行目标平台不同）。 */
 export function useAllModelPrices(): ReadonlyMap<string, PriceMap> {
+  useDisplayCurrency(); // 价格标签随显示币种换算，订阅以重渲染
   const [map, setMap] = useState<ReadonlyMap<string, PriceMap>>(EMPTY_ALL_MAP);
   useEffect(() => {
     let alive = true;

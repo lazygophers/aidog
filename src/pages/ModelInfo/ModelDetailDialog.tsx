@@ -17,6 +17,7 @@ import { fmtPricePerM, fmtPricePerUnit, fmtTokens, parseEntryFlags, parsePriceDa
 import { CapabilityBadges } from "./CapabilityBadges";
 import { nameParts } from "./ModelName";
 import { CopyButton } from "../../components/shared";
+import { useDisplayCurrency } from "../../utils/displayCurrency";
 
 export function ModelDetailDialog({ group, labelMap, pricingOnly, onClose }: {
   /** null = 关闭态（父组件用「选中哪个 canonical」单一状态驱动开合）。 */
@@ -153,6 +154,7 @@ function PriceRow({ label, tier, unitPrice, unit }: {
   unitPrice?: number | null;
   unit?: string | null;
 }) {
+  useDisplayCurrency();
   const { t } = useTranslation();
   return (
     <Field label={label}>
