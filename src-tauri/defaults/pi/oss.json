@@ -1,0 +1,9 @@
+{
+  "defaultThinkingLevel": "medium",
+  "defaultProjectTrust": "ask",
+  "theme": "dark",
+  "quietStartup": false,
+  "hideThinkingBlock": false,
+  "enableInstallTelemetry": false,
+  "enableAnalytics": false
+}
