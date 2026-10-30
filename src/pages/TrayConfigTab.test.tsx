@@ -17,6 +17,7 @@ import {
 import type { TrayItem, TodayStats, Platform } from "../services/api";
 import type { DisplayCurrency } from "../services/api/types";
 import { setDisplayCurrency, USD_DISPLAY } from "../utils/displayCurrency";
+import { setBalanceCurrencies } from "../utils/balanceCurrency";
 
 const mk = (code: string, symbol: string, decimals: number, rate: number): DisplayCurrency =>
   ({ code, symbol, decimals, rate, table: [] });
@@ -118,6 +119,17 @@ describe("trayMoney（对拍 Rust tray_money）", () => {
     expect(previewValue(item({ metric: "cost" }), [], stats, null, cny)).toBe("¥0.08642");
     const p = { id: 7, est_balance_remaining: 10 } as Platform;
     expect(previewValue(item({ item_type: "platform", platform_id: 7, metric: null }), [p], null, null, mk("JPY", "JP¥", 0, 150))).toBe("JP¥1500");
+  });
+
+  it("previewValue：CNY 余额先折 USD 再按显示币种（对拍 Rust test_tray_render CNY 余额例）", () => {
+    setDisplayCurrency({ ...USD_DISPLAY, table: [{ code: "CNY", symbol: "¥", decimals: 2, default_rate: 6.6675, rate: 6.6675 }] } as never);
+    setBalanceCurrencies({ "7": "CNY" });
+    const p = { id: 7, est_balance_remaining: 66.675 } as Platform;
+    const pi = item({ item_type: "platform", platform_id: 7, metric: null });
+    expect(previewValue(pi, [p], null, null, USD_DISPLAY)).toBe("$10"); // 对拍 bal(Some("CNY"), usd())
+    expect(previewValue(pi, [p], null, null, mk("CNY", "¥", 2, 6.6675))).toBe("¥66.67"); // 对拍 CNY 显示恒等
+    setBalanceCurrencies({});
+    setDisplayCurrency(USD_DISPLAY);
   });
 });
 

@@ -19,6 +19,7 @@ import type {
 import { formatNumber, formatMoney, formatPercent } from "../utils/formatters";
 import { LineChart, DonutChart, HourHeatBar, bucketMs } from "./charts";
 import { useDisplayCurrency } from "../utils/displayCurrency";
+import { platformBalanceUsd, useBalanceCurrencies } from "../utils/balanceCurrency";
 
 /** 浮窗各统计卡数据：item.id → 该卡批量查询结果（一次 IPC 拉全部，见 popover.tsx）。 */
 export type PopoverStatsMap = Map<string, StatsResult>;
@@ -633,10 +634,12 @@ function GroupBalanceCard({
   t: TFn;
 }) {
   useDisplayCurrency();
+  useBalanceCurrencies();
   const ref = item.scope_ref ?? "";
   const detail = groupDetails?.find((d) => d.group.group_key === ref);
+  // est_balance_remaining 是各平台原币种：逐平台折 USD 再求和（票 08）。
   const balance = detail
-    ? detail.platforms.reduce((sum, p) => sum + (p.platform.est_balance_remaining || 0), 0)
+    ? detail.platforms.reduce((sum, p) => sum + platformBalanceUsd(p.platform.id, p.platform.est_balance_remaining || 0), 0)
     : 0;
 
   return (
