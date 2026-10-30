@@ -2850,3 +2850,138 @@ fn model_via_no_slot_is_passthrough_and_tools_passthrough() {
         vec![ModelVia::Passthrough]
     );
 }
+
+// ── 票 04：客户端白名单（多平台组普通过滤路径）──
+
+const WL_CC: &str = r#"{"allowed_clients":["claude_code"]}"#;
+const PEAK_OFF: &str =
+    r#"{"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#;
+const PEAK_OFF_WL: &str = r#"{"allowed_clients":["claude_code"],"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#;
+
+#[derive(Clone, Copy, Debug)]
+enum Plat {
+    /// 白名单 {claude_code}
+    Wl,
+    /// 无白名单
+    Open,
+    /// 高峰禁用（恒命中）
+    Peak,
+    /// 高峰禁用 + 白名单（状态维度先排除，归 peak）
+    PeakWl,
+    /// 协议未知
+    Unknown,
+}
+
+/// 表驱动：白名单与其他排除原因并存时的错误码（curl UA 不在 claude_code 白名单内）。
+#[tokio::test]
+async fn client_whitelist_error_code_matrix() {
+    use Plat::*;
+    // (组内平台, 期望 Err reason；None = 选得出候选)
+    let cases: &[(&[Plat], Option<&str>)] = &[
+        (&[Wl, Wl], Some("client_not_allowed")),
+        (&[Wl, Peak], Some("client_not_allowed_mixed")),
+        (&[Wl, PeakWl], Some("client_not_allowed_mixed")),
+        (&[Wl, Unknown], Some("client_not_allowed_mixed")),
+        // 既有优先级不变：全高峰禁用（含配了白名单的）仍报 peak_disabled
+        (&[Peak, PeakWl], Some("peak_disabled")),
+        (&[PeakWl, PeakWl], Some("peak_disabled")),
+        // 全未知协议仍报 unknown_protocol
+        (&[Unknown, Unknown], Some("unknown_protocol")),
+        // 有未配白名单的存活平台 → 落到它
+        (&[Wl, Open], None),
+    ];
+    for (i, (plats, want)) in cases.iter().enumerate() {
+        let db = mk_test_db().await;
+        let mut ids = Vec::new();
+        for (j, p) in plats.iter().enumerate() {
+            let pl = mk_db_platform(&db, &format!("P{i}-{j}")).await;
+            match p {
+                Wl => set_extra(&db, pl.id, WL_CC).await,
+                Open => {}
+                Peak => set_extra(&db, pl.id, PEAK_OFF).await,
+                PeakWl => set_extra(&db, pl.id, PEAK_OFF_WL).await,
+                Unknown => {
+                    let pid = pl.id as i64;
+                    db.call_platform_traced(None, std::panic::Location::caller(), move |conn| {
+                        conn.execute(
+                            "UPDATE platform SET platform_type='no_such_protocol' WHERE id=?1",
+                            rusqlite::params![pid],
+                        )?;
+                        Ok(())
+                    })
+                    .await
+                    .unwrap();
+                }
+            }
+            ids.push(pl.id);
+        }
+        db.invalidate_group_details_cache();
+        let g = mk_db_group(&db, &format!("g-wl-{i}"), &ids).await;
+        let gate = ClientGate::On(crate::client_vocab::identify("curl/8.4.0"));
+        let got =
+            select_candidates_gated(&db, &g, "claude-opus-4-8", None, RequestKind::Chat, gate).await;
+        match (want, got) {
+            (Some(w), Err(e)) => assert_eq!(e.reason, *w, "case {i} {plats:?}"),
+            (None, Ok(set)) => assert_eq!(set.candidates.len(), 1, "case {i} {plats:?}"),
+            (w, g) => panic!("case {i} {plats:?}: want {w:?}, got {:?}", g.map(|s| s.candidates.len())),
+        }
+    }
+}
+
+/// 白名单命中 / 大类展开 / 认不出 / Off 不判定，及快照标签。
+#[tokio::test]
+async fn client_whitelist_hit_matrix_and_snapshot_label() {
+    let db = mk_test_db().await;
+    let wl = mk_db_platform(&db, "WL").await;
+    let open = mk_db_platform(&db, "OPEN").await;
+    set_extra(&db, wl.id, r#"{"allowed_clients":["claude_code_vscode"]}"#).await;
+    let g = mk_db_group(&db, "g-hit", &[wl.id, open.id]).await;
+    let sel = |gate| {
+        let (db, g) = (&db, &g);
+        async move {
+            select_candidates_gated(db, g, "claude-opus-4-8", None, RequestKind::Chat, gate)
+                .await
+                .unwrap()
+        }
+    };
+    let ua = |s: &str| ClientGate::On(crate::client_vocab::identify(s));
+    // 变体精确命中 → 两个平台都在
+    assert_eq!(sel(ua("claude-cli/2.0 (external, claude-vscode)")).await.candidates.len(), 2);
+    // 只勾变体，识别为 CLI → WL 被拦、快照带标签
+    let set = sel(ua("claude-cli/2.0 (external, cli)")).await;
+    assert_eq!(set.candidates.len(), 1);
+    assert_eq!(set.candidates[0].platform.id, open.id);
+    let e = set.routing.entries.iter().find(|e| e.platform_id == wl.id).unwrap();
+    assert_eq!(e.reason, RouteReason::ClientNotAllowed);
+    // 认不出（无 UA）→ WL 被拦
+    assert_eq!(sel(ClientGate::On(None)).await.candidates.len(), 1);
+    // Off：不判定，两个都在
+    assert_eq!(sel(ClientGate::Off).await.candidates.len(), 2);
+    // 勾大类 = 全部变体
+    set_extra(&db, wl.id, WL_CC).await;
+    db.invalidate_group_details_cache();
+    assert_eq!(sel(ua("claude-cli/2.0 (external, claude-vscode)")).await.candidates.len(), 2);
+}
+
+/// 熔断全空回退：被白名单拦下的平台不会被熔断回退「捞回来」。
+#[tokio::test]
+async fn client_whitelist_not_revived_by_breaker_bypass() {
+    let db = mk_test_db().await;
+    let wl = mk_db_platform(&db, "WL").await;
+    let broken = mk_db_platform(&db, "BROKEN").await;
+    set_extra(&db, wl.id, WL_CC).await;
+    let g = mk_db_group(&db, "g-bb", &[wl.id, broken.id]).await;
+    let sched = SchedulerState::new();
+    let th = BreakerThresholds { failure_threshold: 1, open_secs: 1800, half_open_max: 2 };
+    sched.inc_inflight(broken.id);
+    sched.record_failure(broken.id, &th, db::now());
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings { enabled: true, ..Default::default() };
+    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+    let gate = ClientGate::On(crate::client_vocab::identify("curl/8.4.0"));
+    let set = select_candidates_gated(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat, gate)
+        .await
+        .expect("breaker bypass revives only the non-whitelisted platform");
+    assert_eq!(set.candidates.len(), 1);
+    assert_eq!(set.candidates[0].platform.id, broken.id);
+}
