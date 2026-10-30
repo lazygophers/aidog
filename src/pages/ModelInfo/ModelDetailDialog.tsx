@@ -130,16 +130,17 @@ function EntryDetail({ entry }: { entry: ModelEntry }) {
 
       <Section title={t("modelInfo.prices")}>
         {price.unit && price.unit !== "token" ? (
-          <PriceRow label={t("modelInfo.priceDefault")} unitPrice={price.unit_price} unit={price.unit} />
+          <PriceRow label={t("modelInfo.priceDefault")} unitPrice={price.unit_price} unit={price.unit} currency={price.currency} />
         ) : (
-          <PriceRow label={t("modelInfo.priceDefault")} tier={price} />
+          <PriceRow label={t("modelInfo.priceDefault")} tier={price} currency={price.currency} />
         )}
-        {price.peak && <PriceRow label={t("modelInfo.pricePeak")} tier={price.peak} />}
+        {price.peak && <PriceRow label={t("modelInfo.pricePeak")} tier={price.peak} currency={price.currency} />}
         {tiers.map((tier, i) => (
           <PriceRow
             key={i}
             label={t("modelInfo.priceContextTier").replace("{tokens}", fmtTokens(tier.min_tokens))}
             tier={tier}
+            currency={price.currency}
           />
         ))}
       </Section>
@@ -147,12 +148,14 @@ function EntryDetail({ entry }: { entry: ModelEntry }) {
   );
 }
 
-function PriceRow({ label, tier, unitPrice, unit }: {
+function PriceRow({ label, tier, unitPrice, unit, currency }: {
   label: string;
   tier?: PriceTier;
   /** 非 token 计价（$/张、$/秒、$/次）时与 unit 成对传入。 */
   unitPrice?: number | null;
   unit?: string | null;
+  /** 条目计价币种（CNY 先 ÷ 汇率成 USD 再按显示币种换算）。 */
+  currency?: string | null;
 }) {
   useDisplayCurrency();
   const { t } = useTranslation();
@@ -160,12 +163,12 @@ function PriceRow({ label, tier, unitPrice, unit }: {
     <Field label={label}>
       <span style={{ display: "inline-flex", gap: 12, flexWrap: "wrap" }}>
         {unit && unit !== "token" ? (
-          <span>{fmtPricePerUnit(unitPrice, unit)}</span>
+          <span>{fmtPricePerUnit(unitPrice, unit, currency)}</span>
         ) : (
           <>
-            <span>{t("modelInfo.colInput")}: {fmtPricePerM(tier?.input)}</span>
-            <span>{t("modelInfo.colOutput")}: {fmtPricePerM(tier?.output)}</span>
-            <span>{t("modelInfo.colCacheRead")}: {fmtPricePerM(tier?.cache_read)}</span>
+            <span>{t("modelInfo.colInput")}: {fmtPricePerM(tier?.input, currency)}</span>
+            <span>{t("modelInfo.colOutput")}: {fmtPricePerM(tier?.output, currency)}</span>
+            <span>{t("modelInfo.colCacheRead")}: {fmtPricePerM(tier?.cache_read, currency)}</span>
           </>
         )}
       </span>
