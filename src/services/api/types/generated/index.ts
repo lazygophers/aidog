@@ -10,6 +10,7 @@ export * from "./ConditionLeaf";
 export * from "./ConditionNode";
 export * from "./EmailCfg";
 export * from "./ExternalChannels";
+export * from "./FlowRow";
 export * from "./GroupDailyBreakdown";
 export * from "./GroupPlatformBreakdown";
 export * from "./LatestRouting";

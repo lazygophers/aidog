@@ -263,6 +263,25 @@ pub struct GroupPlatformBreakdown {
     pub est_cost: f64,
 }
 
+/// 请求流向聚合行（请求流向票 03）：stats_agg_hourly 按 (client, group_key, req_model, platform_id, model) GROUP BY。
+/// 旧数据 client / req_model 为空串，前端显示「未知」。
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct FlowRow {
+    pub client: String,
+    pub group_key: String,
+    pub req_model: String,
+    #[ts(type = "number")]
+    pub platform_id: i64,
+    pub model: String,
+    #[ts(type = "number")]
+    pub requests: i64,
+    /// input + output + cache
+    #[ts(type = "number")]
+    pub tokens: i64,
+    pub est_cost: f64,
+}
+
 /// 分组页 7 天趋势行（详情页右栏趋势卡）：stats_agg_hourly 按天（本地日期）× 平台 GROUP BY。
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]

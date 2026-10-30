@@ -302,6 +302,15 @@ pub async fn group_platform_breakdown(
 }
 
 crate::tauri_command! {
+pub async fn stats_flow_breakdown(
+    window: String,
+    group_key: Option<String>) -> Result<Vec<gateway::models::FlowRow>, String> {
+    let db = aidog_ctx::db();
+    aidog_stats::stats_flow_breakdown(db, &window, group_key.as_deref()).await
+}
+}
+
+crate::tauri_command! {
 pub async fn group_daily_usage(
     group_key: String) -> Result<Vec<gateway::models::GroupDailyBreakdown>, String> {
     let db = aidog_ctx::db();
