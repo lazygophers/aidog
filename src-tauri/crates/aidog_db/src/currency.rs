@@ -9,7 +9,7 @@
 use crate::models::SetSettingInput;
 use crate::{Db, CNY_PER_USD};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// setting 表 scope / key。
 pub const DISPLAY_SCOPE: &str = "display";
@@ -74,6 +74,38 @@ pub struct DisplayCurrency {
     pub decimals: usize,
     pub rate: f64,
     pub table: Vec<CurrencyRow>,
+}
+
+/// 平台余额币种（真查 `BalanceInfo.currency`）的 setting scope，key = 平台 id。
+pub const BALANCE_CCY_SCOPE: &str = "balance_currency";
+
+impl DisplayCurrency {
+    /// 平台余额（原币种，`est_balance_remaining` 口径）→ USD：CNY 按币种表生效 CNY 汇率回除
+    /// （默认即 `CNY_PER_USD`，用户改了表则 CNY 余额显示 CNY 时仍等于原值）；其余 / 未记录一律视 USD。
+    /// shortcut: 仅识别 CNY（与 `balance_fx` 扣减口径一致），其它币种按 USD 处理；出现新币种时两处同加。
+    pub fn balance_to_usd(&self, amount: f64, ccy: Option<&str>) -> f64 {
+        match ccy {
+            Some(c) if c.trim().eq_ignore_ascii_case("CNY") => {
+                let rate = self.table.iter().find(|r| r.code == "CNY").map_or(1.0, |r| r.rate);
+                amount / rate
+            }
+            _ => amount,
+        }
+    }
+}
+
+/// 全部平台的余额币种（平台 id → 大写币种码）。读失败 / 非字符串值跳过。
+pub async fn get_balance_currencies(db: &Db) -> HashMap<u64, String> {
+    let mut out = HashMap::new();
+    for key in crate::list_setting_keys(db, BALANCE_CCY_SCOPE).await.unwrap_or_default() {
+        let Ok(id) = key.parse::<u64>() else { continue };
+        if let Ok(Some(serde_json::Value::String(c))) =
+            crate::get_setting(db, BALANCE_CCY_SCOPE, &key).await
+        {
+            out.insert(id, c);
+        }
+    }
+    out
 }
 
 fn effective_rate(def: &CurrencyDef, rates: &BTreeMap<String, f64>) -> f64 {
