@@ -1505,6 +1505,141 @@ async fn responses_subendpoint_upstream_unreachable_502() {
     assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
 }
 
+// ── 票 06：客户端白名单 × responses 子端点 / WebSocket 握手（本地假上游，无真实外呼）──
+
+fn responses_req_ua(gk: &str, method: &str, uri: &str, ua: Option<&str>) -> Request {
+    let mut b = HttpRequest::builder()
+        .method(method)
+        .uri(uri)
+        .header("authorization", format!("Bearer {gk}"));
+    if let Some(ua) = ua {
+        b = b.header("user-agent", ua);
+    }
+    let body = if method == "POST" { Body::from("{}") } else { Body::empty() };
+    b.body(body).unwrap()
+}
+
+/// 禁用组内某平台（status + enabled 同时关，等效退化形态用）。
+async fn disable_platform_named(state: &Arc<ProxyState>, name: &str) {
+    let id = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == name).unwrap().id;
+    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
+        id, name: None, platform_type: None, base_url: None, api_key: None, extra: None,
+        models: None, available_models: None, endpoints: None,
+        enabled: Some(false), status: Some(aidog_db::models::PlatformStatus::Disabled), manual_budgets: None,
+        join_group_ids: None, expires_at: None, quota_source: None,
+    })
+    .await
+    .unwrap();
+    state.db.invalidate_group_details_cache();
+}
+
+/// responses 子端点五种方法各一例：白名单拦下 → 417 + 审计行；放行 UA → 200；
+/// 未配白名单的组零变化。
+#[tokio::test]
+async fn whitelist_responses_subendpoints_all_methods() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, r#"{"id":"resp_1","object":"response"}"#).await;
+    setup_multi_platform_group(&state, "gkrwl", &[("RA", &up, WL_CC_EXTRA), ("RB", &up, WL_CC_EXTRA)]).await;
+    setup_multi_platform_group(&state, "gkrplain", &[("RC", &up, ""), ("RD", &up, "")]).await;
+
+    let cases = [
+        ("GET", "/v1/responses/resp_1"),
+        ("POST", "/v1/responses/resp_1/cancel"),
+        ("DELETE", "/v1/responses/resp_1"),
+        ("POST", "/v1/responses/compact"),
+        ("GET", "/v1/responses/resp_1/input_items"),
+    ];
+    for (method, uri) in cases {
+        let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrwl", method, uri, Some("curl/8.4.0"))).await;
+        assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "{method} {uri}");
+        let log = last_log_for(&state, "gkrwl").await;
+        assert_eq!(log.status_code, 417, "{method} {uri}");
+        assert_eq!(log.blocked_by, "router");
+        assert_eq!(log.blocked_reason, "client_not_allowed");
+        assert_eq!(log.est_cost, 0.0);
+        assert_eq!(log.user_agent, "curl/8.4.0");
+
+        let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrwl", method, uri, Some("claude-cli/2.0.1 (external, cli)"))).await;
+        assert_eq!(resp.status(), StatusCode::OK, "allowed {method} {uri}");
+        let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrplain", method, uri, Some("curl/8.4.0"))).await;
+        assert_eq!(resp.status(), StatusCode::OK, "no whitelist {method} {uri}");
+    }
+
+    // 无 UA → 认不出 → 417
+    let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrwl", "GET", "/v1/responses/resp_1", None)).await;
+    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+}
+
+/// 被拦平台跳过、落到未配白名单的平台；等效退化（只剩被拦平台 + 禁用平台）→ 503；
+/// 字面单平台组被拦 → 417。blocked_reason 恒为 client_not_allowed。
+#[tokio::test]
+async fn whitelist_responses_fallthrough_degenerate_and_mixed() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, r#"{"id":"resp_1"}"#).await;
+    setup_multi_platform_group(&state, "gkrfall", &[("FA", &up, WL_CC_EXTRA), ("FB", &up, "")]).await;
+    let b_id = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == "FB").unwrap().id;
+    let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrfall", "GET", "/v1/responses/x", Some("curl/8.4.0"))).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(last_log_for(&state, "gkrfall").await.platform_id, b_id);
+
+    disable_platform_named(&state, "FB").await;
+    let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrfall", "GET", "/v1/responses/x", Some("curl/8.4.0"))).await;
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let log = last_log_for(&state, "gkrfall").await;
+    assert_eq!((log.blocked_by.as_str(), log.blocked_reason.as_str()), ("router", "client_not_allowed"));
+    assert_eq!(log.status_code, 503);
+
+    setup_multi_platform_group(&state, "gkrsole", &[("SA", &up, WL_CC_EXTRA)]).await;
+    let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrsole", "GET", "/v1/responses/x", Some("curl/8.4.0"))).await;
+    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+}
+
+fn ws_handshake_req(gk: &str, ua: Option<&str>) -> Request {
+    let mut b = HttpRequest::builder()
+        .method("GET")
+        .uri("/v1/realtime")
+        .header("authorization", format!("Bearer {gk}"))
+        .header("connection", "Upgrade")
+        .header("upgrade", "websocket")
+        .header("sec-websocket-version", "13")
+        .header("sec-websocket-key", "dGhlIHNhbXBsZSBub25jZQ==");
+    if let Some(ua) = ua {
+        b = b.header("user-agent", ua);
+    }
+    b.body(Body::empty()).unwrap()
+}
+
+/// WS 握手：白名单拦下 → 握手阶段直接 HTTP 417（无 101、不连上游）+ 审计行；无 UA 同拦；
+/// 放行 UA / 未配白名单 → 越过闸门走到上游连接（reset 上游 → 502，非 417，无 blocked_reason）。
+/// 单透传平台即「等效退化形态」：select_candidates 单平台短路绕过过滤，由 ws.rs 对选中平台再判。
+#[tokio::test]
+async fn whitelist_ws_handshake_rejects_417_and_allows() {
+    let state = make_state(test_db().await).await;
+    let dead = spawn_reset_upstream().await;
+    setup_passthrough_platform_group_extra(&state, "gkws", &dead, WL_CC_EXTRA).await;
+
+    for ua in [Some("curl/8.4.0"), None] {
+        let resp = handle_proxy(AxumState(state.clone()), ws_handshake_req("gkws", ua)).await;
+        assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "ua={ua:?}");
+        assert!(resp.headers().get("upgrade").is_none(), "拒绝时不升级");
+        let log = last_log_for(&state, "gkws").await;
+        assert_eq!(log.status_code, 417);
+        assert_eq!(log.blocked_by, "router");
+        assert_eq!(log.blocked_reason, "client_not_allowed");
+        assert_eq!(log.upstream_status_code, 0, "未连上游");
+        assert_eq!(log.user_agent, ua.unwrap_or(""));
+    }
+
+    let resp = handle_proxy(AxumState(state.clone()), ws_handshake_req("gkws", Some("claude-cli/2.0.1 (external, cli)"))).await;
+    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY, "放行 → 走到上游连接（本地 reset 上游）");
+    assert_eq!(last_log_for(&state, "gkws").await.blocked_reason, "");
+
+    setup_passthrough_platform_group(&state, "gkwsplain", &dead).await;
+    let resp = handle_proxy(AxumState(state.clone()), ws_handshake_req("gkwsplain", Some("curl/8.4.0"))).await;
+    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
+}
+
+
 // ──────────────────────────────────────────────────────────────
 // /api/notify：handle_notify 鉴权 + dispatch 全链路
 // ──────────────────────────────────────────────────────────────
@@ -4430,4 +4565,148 @@ async fn client_and_req_model_land_in_log_and_stats_agg() {
     assert_eq!(client, "claude_code");
     assert_eq!(req_model, "request-model");
     assert_eq!(model, "claude-3", "model 列仍是 actual_model 优先");
+}
+
+// ── 票 04：客户端白名单端到端（多平台组普通过滤路径；本地假上游，无真实外呼）──
+
+/// 建一个多平台组（同 group_key），每平台 (名, base_url, extra)。
+async fn setup_multi_platform_group(state: &Arc<ProxyState>, gk: &str, plats: &[(&str, &str, &str)]) {
+    let mut inputs = Vec::new();
+    for (i, (name, base_url, extra)) in plats.iter().enumerate() {
+        let plat = aidog_db::create_platform(
+            &state.db,
+            CreatePlatform {
+                name: (*name).into(),
+                platform_type: Protocol::Anthropic,
+                base_url: (*base_url).to_string(),
+                api_key: "sk-up".into(),
+                extra: (*extra).to_string(),
+                models: None,
+                available_models: None,
+                endpoints: None,
+                manual_budgets: None,
+                auto_group: None,
+                join_group_ids: None,
+                expires_at: None,
+                quota_source: None,
+            },
+        )
+        .await
+        .unwrap();
+        inputs.push(GroupPlatformInput {
+            platform_id: plat.id,
+            priority: Some(i as i32),
+            weight: Some(1),
+            level_priority: Some(0),
+        });
+    }
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(&state.db, group.id, &inputs).await.unwrap();
+}
+
+fn messages_request_ua(gk: &str, ua: Option<&str>) -> Request {
+    let mut b = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/messages")
+        .header("authorization", format!("Bearer {gk}"))
+        .header("content-type", "application/json");
+    if let Some(ua) = ua {
+        b = b.header("user-agent", ua);
+    }
+    b.body(Body::from(
+        r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#,
+    ))
+    .unwrap()
+}
+
+const WL_CC_EXTRA: &str = r#"{"allowed_clients":["claude_code"]}"#;
+const PEAK_ALL_DAY_EXTRA: &str =
+    r#"{"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#;
+
+/// 全部候选被白名单拦下 → 417 + 审计行（router / client_not_allowed / est_cost 0 / 原始 UA）；
+/// claude_code 与其变体命中 → 200；无 UA → 417。
+#[tokio::test]
+async fn whitelist_all_blocked_417_and_hit_matrix() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkwl", &[("A", &up, WL_CC_EXTRA), ("B", &up, WL_CC_EXTRA)]).await;
+
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkwl", Some("curl/8.4.0"))).await;
+    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    assert!(String::from_utf8_lossy(&body).contains("client not allowed"), "417 body states reason");
+    let log = last_log_for(&state, "gkwl").await;
+    assert_eq!(log.status_code, 417);
+    assert_eq!(log.blocked_by, "router");
+    assert_eq!(log.blocked_reason, "client_not_allowed");
+    assert_eq!(log.est_cost, 0.0);
+    assert_eq!(log.user_agent, "curl/8.4.0");
+    assert_eq!(log.client, "curl");
+    let snap = log.routing.expect("routing snapshot");
+    assert!(snap.entries.iter().all(|e| e.reason == aidog_db::models::RouteReason::ClientNotAllowed));
+
+    // 无 UA → 认不出 → 417
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkwl", None)).await;
+    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+
+    // claude_code 本体与变体（勾大类 = 全变体）→ 200
+    for ua in ["claude-cli/2.0.1 (external, cli)", "claude-cli/2.0 (external, claude-vscode)"] {
+        let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkwl", Some(ua))).await;
+        assert_eq!(resp.status(), StatusCode::OK, "{ua}");
+    }
+}
+
+/// A 白名单拦下、B 未配 → 请求落到 B；未配白名单的存量组行为不变。
+#[tokio::test]
+async fn whitelist_falls_through_to_unrestricted_platform() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkfall", &[("A", &up, WL_CC_EXTRA), ("B", &up, "")]).await;
+    let b_id = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == "B").unwrap().id;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkfall", Some("curl/8.4.0"))).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(last_log_for(&state, "gkfall").await.platform_id, b_id);
+
+    // 回归：整组无白名单，curl 照常放行
+    setup_multi_platform_group(&state, "gkplain", &[("C", &up, ""), ("D", &up, "")]).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkplain", Some("curl/8.4.0"))).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+}
+
+/// 白名单与其他排除原因（高峰禁用）并存 → 503，blocked_reason 仍为 client_not_allowed。
+#[tokio::test]
+async fn whitelist_mixed_with_peak_disabled_503() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkmix", &[("A", &up, WL_CC_EXTRA), ("B", &up, PEAK_ALL_DAY_EXTRA)]).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkmix", Some("curl/8.4.0"))).await;
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let log = last_log_for(&state, "gkmix").await;
+    assert_eq!(log.status_code, 503);
+    assert_eq!(log.blocked_by, "router");
+    assert_eq!(log.blocked_reason, "client_not_allowed");
+    assert_eq!(log.est_cost, 0.0);
+}
+
+/// 等效退化形态：多平台组只剩 1 个 Enabled 平台 → 走 sole_platform 单平台短路，
+/// 当前白名单不生效（票 05 收口后此处应改为 417）。
+#[tokio::test]
+async fn whitelist_degenerate_single_enabled_still_bypasses_until_ticket_05() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkdeg", &[("A", &up, WL_CC_EXTRA), ("B", &up, "")]).await;
+    let b_id = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == "B").unwrap().id;
+    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
+        id: b_id, name: None, platform_type: None, base_url: None, api_key: None, extra: None,
+        models: None, available_models: None, endpoints: None,
+        enabled: None, status: Some(aidog_db::models::PlatformStatus::Disabled), manual_budgets: None,
+        join_group_ids: None, expires_at: None, quota_source: None,
+    })
+    .await
+    .unwrap();
+    state.db.invalidate_group_details_cache();
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkdeg", Some("curl/8.4.0"))).await;
+    assert_eq!(resp.status(), StatusCode::OK, "known gap: single-platform short-circuit precedes the whitelist guard (ticket 05)");
 }

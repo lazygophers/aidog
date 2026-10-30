@@ -369,6 +369,7 @@ pub(crate) async fn handle_proxy_core(
             &log_settings,
             &group,
             &orig_method,
+            &orig_headers,
             &bytes,
             &path,
             start,
@@ -617,12 +618,13 @@ pub(crate) async fn handle_proxy_core(
         settings: &sched_settings,
         sticky_key,
     };
-    let candidate_set = match select_candidates_ctx(
+    let candidate_set = match select_candidates_gated(
         &state.db,
         &group,
         &chat_req.model,
         Some(&sched_ctx),
         RequestKind::Chat,
+        ClientGate::On(super::client_detect::identify_client(&orig_headers)),
     )
     .await
     {
@@ -637,10 +639,13 @@ pub(crate) async fn handle_proxy_core(
             //（blocked_by='router', blocked_reason='no_chat_platform', status_code=400，R7）。
             // 直通模型声明平台全不可用（直接模型转发）→ 同样落审计
             //（blocked_by='router', blocked_reason='direct_model_unavailable', 503）。
+            // 客户端白名单拦下候选（blocked_reason='client_not_allowed'）：全拦 417，与其他原因并存 503。
             if e == "no_chat_platform"
                 || e == "peak_disabled"
                 || e == "unknown_protocol"
                 || e == "direct_model_unavailable"
+                || e == "client_not_allowed"
+                || e == "client_not_allowed_mixed"
             {
                 return route_fail_response(&state, &mut log, &log_settings, &e, start, lang).await;
             }
