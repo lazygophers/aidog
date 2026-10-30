@@ -3,6 +3,7 @@
 //   不持有自己的 state；表单分区（endpoints/models/budgets/breaker/group/expires）
 //   均为 props 驱动的 JSX，无跨组件 setState。
 import { useEffect, useState } from "react";
+import { getClientVocab, type ClientVocabCategory } from "../../services/api";
 import { useTranslation } from "react-i18next";
 import { SmartPasteModal } from "../../components/platforms/SmartPasteModal";
 import {
@@ -21,7 +22,7 @@ import {
   FormSection, ApiKeyField,
   DevinConfigSection, PassthroughConfigSection, PassThroughSection, EndpointsSection,
   BreakerSection, PeakSection, RateLimitsSection, GroupAssignSection,
-  ExpirySection, QuotaSection, DirectModelsSection, AppbuilderKeySection,
+  ExpirySection, QuotaSection, DirectModelsSection, AppbuilderKeySection, ClientWhitelistSection,
 } from "./formSections";
 import { ModelsMatrixSection } from "./ModelsMatrixSection";
 import { CcMitmAccessSection } from "./CcMitmAccessSection";
@@ -74,11 +75,21 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     ...(editing && protocol === "qianfan" ? [{ id: "appbuilder", label: t("platform.tabAppbuilder", "AppBuilder 凭据") }] : []),
     ...(editing && !isPassthrough && !isPassThrough ? [{ id: "ratelimits", label: t("platform.tabRateLimits", "限频") }] : []),
     ...(editing && !isPassthrough && !isPassThrough ? [{ id: "breaker", label: t("platform.tabBreaker", "熔断") }] : []),
+    ...(!isMock ? [{ id: "clients", label: t("platform.tabClients", "客户端白名单") }] : []),
     { id: "expiry", label: t("platform.tabExpiry", "过期时间") },
     ...(!isPassthrough ? [{ id: "group", label: t("platform.tabGroupAssign", "分组归属") }] : []),
   ];
   const [advTab, setAdvTab] = useState("quota");
   const activeAdvTab = advTabs.some(x => x.id === advTab) ? advTab : advTabs[0].id;
+  // 客户端词表（只读 command）：白名单 tab 激活时才拉。
+  const [clientVocab, setClientVocab] = useState<ClientVocabCategory[]>([]);
+  useEffect(() => {
+    if (activeAdvTab !== "clients" && advTabs.length > 1) return;
+    let cancelled = false;
+    getClientVocab().then(v => { if (!cancelled) setClientVocab(v); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAdvTab]);
 
   // 协议本地化 label 映射（共享 hook 全表）。fallback: PROTOCOL_LABELS 硬编码 → key；
   // 切语言重拉。全表覆盖原「仅 2 key」最小拉取（docPromise 单例缓存，无额外 RPC）。
@@ -329,6 +340,15 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             failure={breakerFailureThreshold} setFailure={setBreakerFailureThreshold}
             openSecs={breakerOpenSecs} setOpenSecs={setBreakerOpenSecs}
             halfOpenMax={breakerHalfOpenMax} setHalfOpenMax={setBreakerHalfOpenMax}
+            t={t}
+          />
+        )}
+
+        {/* 客户端白名单：extra.allowed_clients；空 = 全放行（路由拦截见票 04） */}
+        {!isMock && (advTabs.length === 1 || activeAdvTab === "clients") && (
+          <ClientWhitelistSection
+            vocab={clientVocab}
+            selected={timemodels.allowedClients} setSelected={timemodels.setAllowedClients}
             t={t}
           />
         )}

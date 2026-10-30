@@ -153,3 +153,19 @@ async fn command_desktop_and_http_expansions_agree() {
     assert_eq!(cc["matchable"], true);
     assert!(cc["variants"].as_array().unwrap().iter().any(|v| v["code"] == "claude_code_vscode"));
 }
+
+/// 票 03：白名单判定（票 04 路由拦截的读取接口）。空 = 全放行；认不出 = 不命中；
+/// 勾大类 = 其全部变体；勾变体 = 只该变体。
+#[test]
+fn client_allowed_semantics() {
+    let w = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    let var = identify("claude-cli/2.1.314 (external, claude-vscode)");
+    let cat = identify("claude-cli/2.1.204 (external, cli)");
+    assert_eq!(var.unwrap().code, "claude_code_vscode");
+    assert!(client_allowed(&[], None), "无白名单：认不出也放行");
+    assert!(!client_allowed(&w(&["claude_code"]), None), "有白名单：认不出拦下");
+    assert!(client_allowed(&w(&["claude_code"]), var), "勾大类含变体");
+    assert!(client_allowed(&w(&["claude_code_vscode"]), var));
+    assert!(!client_allowed(&w(&["claude_code_vscode"]), cat), "只勾变体不含大类兜底");
+    assert!(!client_allowed(&w(&["codex"]), var));
+}

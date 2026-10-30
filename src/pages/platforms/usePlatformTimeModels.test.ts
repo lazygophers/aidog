@@ -48,6 +48,16 @@ describe("usePlatformTimeModels", () => {
     expect(serialized.keep).toBe("yes");
   });
 
+  it("allowed_clients 回显 / 写回 / 清空删键", () => {
+    const { result } = renderHook(() => usePlatformTimeModels());
+    const e = JSON.stringify({ keep: "yes", allowed_clients: ["claude_code", "codex_cli"] });
+    act(() => result.current.hydrate(e));
+    expect(result.current.allowedClients).toEqual(["claude_code", "codex_cli"]);
+    expect(JSON.parse(result.current.serialize(e)).allowed_clients).toEqual(["claude_code", "codex_cli"]);
+    act(() => result.current.setAllowedClients([]));
+    expect(JSON.parse(result.current.serialize(e))).toEqual({ keep: "yes" });
+  });
+
   it("deletes all four persisted keys when cleared", () => {
     const { result } = renderHook(() => usePlatformTimeModels());
     act(() => result.current.hydrate(extra));
