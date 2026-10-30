@@ -29,6 +29,7 @@ export const RETRY_BADGE_STYLE: React.CSSProperties = { fontSize: 11, padding: "
 export const MODEL_NAME_STYLE: React.CSSProperties = { fontWeight: 500, fontSize: F.small };
 export const SSE_BADGE_STYLE: React.CSSProperties = { fontSize: 11, padding: "1px 5px", background: "var(--accent-subtle)", color: "var(--accent)" };
 export const ACTION_BTN_STYLE: React.CSSProperties = { padding: 2 };
+export const UA_CELL_STYLE: React.CSSProperties = { display: "inline-block", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", verticalAlign: "bottom", fontSize: F.small, color: "var(--text-secondary)" };
 export const GROUP_BADGE_STYLE: React.CSSProperties = { fontSize: 11 };
 
 // ponytail: CopyButton 自管 copied state（不挤占父级 copied/copiedId），复用已 import 的 writeText + 现有 copy/check svg 对
@@ -69,7 +70,7 @@ export function CopyButton({ text, title }: { text: string; title?: string }) {
   );
 }
 
-export function MetaItem({ label, value, highlight, copyText, t }: { label: string; value: string; highlight?: "ok" | "err"; copyText?: string; t?: TFunc }) {
+export function MetaItem({ label, value, highlight, copyText, testId, t }: { label: string; value: string; highlight?: "ok" | "err"; copyText?: string; testId?: string; t?: TFunc }) {
   return (
     <div style={{ position: "relative" }}>
       <div style={{ fontSize: F.small, color: "var(--text-tertiary)", marginBottom: 2 }}>{label}</div>
@@ -77,7 +78,8 @@ export function MetaItem({ label, value, highlight, copyText, t }: { label: stri
         fontSize: F.body, fontWeight: 600,
         color: highlight === "ok" ? "var(--color-success)" : highlight === "err" ? "var(--color-danger)" : "var(--text-primary)",
         paddingRight: copyText ? 24 : undefined,
-      }}>
+        overflowWrap: "anywhere",
+      }} data-testid={testId}>
         {value}
       </div>
       {copyText && copyText !== "-" && <CopyButton text={copyText} title={t?.("logs.copy", "复制")} />}
@@ -326,6 +328,7 @@ export const LogRow = memo(function LogRow({ log, idx = 0, platformName, groupNa
         </span>
       </TdCell>
       <TdCell><span style={MODEL_NAME_STYLE}>{log.actual_model || "-"}</span></TdCell>
+      <TdCell><span style={UA_CELL_STYLE} title={log.user_agent || undefined} data-testid="log-row-ua">{log.user_agent || log.client || "-"}</span></TdCell>
       <TdCell>
         <span style={{ color: log.status_code >= 200 && log.status_code < 300 ? "var(--color-success)" : "var(--color-danger)" }}>
           {log.status_code === 0

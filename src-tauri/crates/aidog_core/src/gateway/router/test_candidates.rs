@@ -2816,3 +2816,37 @@ async fn rerank_ignores_time_windows_and_direct_models() {
     let p_route = set.candidates.iter().find(|c| c.platform.id == p.id).unwrap();
     assert_eq!(p_route.target_model, "rr-x");
 }
+
+// ── 路由快照「模型选择来源」model_via ──
+
+#[test]
+fn model_via_peak_branch_then_slot() {
+    let pm = PlatformModels {
+        default: Some("glm-5.2".into()),
+        sonnet: Some("glm-4.7".into()),
+        ..Default::default()
+    };
+    let p = glm_coding_platform("", pm);
+    // 高峰窗口：preset peak 分支替换 → [PresetPeak, SlotSonnet]
+    let hit = model_via_for(&p, None, RequestKind::Chat, PEAK_MS, "", &Some("claude-sonnet-4".into()));
+    assert_eq!(hit, vec![ModelVia::Mapped, ModelVia::PresetPeak, ModelVia::SlotSonnet]);
+    // 非高峰 + 映射改名 → [Mapped, SlotSonnet]
+    let off = model_via_for(&p, None, RequestKind::Chat, OFF_MS, "x", &Some("claude-sonnet-4".into()));
+    assert_eq!(off, vec![ModelVia::Mapped, ModelVia::SlotSonnet]);
+    // 无档位词 → default 槽
+    let def = model_via_for(&p, None, RequestKind::Chat, OFF_MS, "foo", &None);
+    assert_eq!(def, vec![ModelVia::SlotDefault]);
+}
+
+#[test]
+fn model_via_no_slot_is_passthrough_and_tools_passthrough() {
+    let p = glm_coding_platform("", PlatformModels::default());
+    assert_eq!(
+        model_via_for(&p, None, RequestKind::Chat, OFF_MS, "foo", &None),
+        vec![ModelVia::Passthrough]
+    );
+    assert_eq!(
+        model_via_for(&p, None, RequestKind::Tools("t"), OFF_MS, "foo", &None),
+        vec![ModelVia::Passthrough]
+    );
+}
