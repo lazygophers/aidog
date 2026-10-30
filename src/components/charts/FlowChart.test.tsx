@@ -1,5 +1,5 @@
 // FlowChart 测试（请求流向票 04）：选择器只锚 data-testid / data-value，不断言文案。
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { fireEvent } from "@testing-library/react";
 import { render } from "../../test/render";
 import { FlowChart, formatPct, type FlowChartRow } from "./FlowChart";
@@ -89,5 +89,27 @@ describe("FlowChart", () => {
     expect(formatPct(12.345)).toBe("12.3%");
     expect(formatPct(0.05)).toBe("<0.1%");
     expect(formatPct(0)).toBe("0.0%");
+  });
+
+  describe("prefers-reduced-motion", () => {
+    const orig = window.matchMedia;
+    afterEach(() => { window.matchMedia = orig; });
+    const mockReduced = (reduce: boolean) => {
+      window.matchMedia = ((query: string) => ({ matches: reduce && query.includes("reduce"), media: query, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
+    };
+
+    it("减弱模式：根节点标记 reduced，流光仍渲染，节点直接落位（无高度补间）", () => {
+      mockReduced(true);
+      render(<FlowChart columns={[col("a"), col("b")]} rows={rows} metric="tokens" />);
+      expect(q("flow-chart").getAttribute("data-motion")).toBe("reduced");
+      expect(document.querySelectorAll('[data-testid="flow-shine"]').length).toBeGreaterThan(0);
+      expect(Number(q("flow-node-a-x").querySelector("rect")!.getAttribute("height"))).toBeCloseTo(Number(q("flow-node-a-x").getAttribute("data-height")), 5);
+    });
+
+    it("常规模式：data-motion=full", () => {
+      mockReduced(false);
+      render(<FlowChart columns={[col("a"), col("b")]} rows={rows} metric="tokens" />);
+      expect(q("flow-chart").getAttribute("data-motion")).toBe("full");
+    });
   });
 });
