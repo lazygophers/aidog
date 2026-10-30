@@ -475,6 +475,8 @@ fn detect_source_protocol_bare_endpoint_without_v1() {
     assert_eq!(d("/chat/completions"), Protocol::OpenAI);
     assert_eq!(d("/proxy/responses"), Protocol::OpenAIResponses);
     assert_eq!(d("/proxy/embeddings"), Protocol::OpenAI);
+    assert_eq!(d("/proxy/v1/rerank"), Protocol::OpenAI);
+    assert_eq!(d("/v2/rerank"), Protocol::OpenAI);
     assert_eq!(d("/proxy/messages"), Protocol::Anthropic);
 
     // 例外：裸 /models 保持 anthropic（handle_models_list 依赖）

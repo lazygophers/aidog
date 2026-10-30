@@ -60,8 +60,8 @@ pub(crate) async fn route_fail_response(
             StatusCode::SERVICE_UNAVAILABLE,
             format!("{}: {err}", i18n::t(lang, ErrorKey::Route)),
         )
-    } else if err == "no_embedding_platform" {
-        // 分组无可用向量化平台（槽位全空 / 无 OpenAI 系 endpoint）：配置条件而非客户端错误 → 503。
+    } else if err == "no_embedding_platform" || err == "no_rerank_platform" {
+        // 分组无可用向量化/重排序平台（槽位全空 / 无 OpenAI 系 endpoint）：配置条件而非客户端错误 → 503。
         log.blocked_reason = err.to_string();
         log.response_body = format!("route error: {err}");
         (

@@ -1658,6 +1658,7 @@ fn is_api_endpoint_covers_main_paths() {
     assert!(is_api_endpoint("/v1/responses/resp_abc"));
     assert!(is_api_endpoint("/v1/responses/resp_abc/cancel"));
     assert!(is_api_endpoint("/v1/embeddings"));
+    assert!(is_api_endpoint("/v1/rerank") && is_api_endpoint("/proxy/v2/rerank"));
     assert!(is_api_endpoint("/v1/models"));
     assert!(is_api_endpoint("/proxy/v1/messages"));
     // 非 API paths
@@ -3998,6 +3999,21 @@ async fn setup_embedding_group(
     gk: &str,
     plats: &[(&str, Option<&str>, Protocol, &str)],
 ) {
+    let plats: Vec<_> = plats
+        .iter()
+        .map(|(b, slot, p, n)| {
+            (*b, PlatformModels { embedding: slot.map(String::from), ..Default::default() }, p.clone(), *n)
+        })
+        .collect();
+    setup_aux_group(state, gk, &plats).await;
+}
+
+/// 同上，但槽位整份 PlatformModels 由调用方给（embedding + rerank 并存用例）。
+async fn setup_aux_group(
+    state: &Arc<ProxyState>,
+    gk: &str,
+    plats: &[(&str, PlatformModels, Protocol, &str)],
+) {
     let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
         .await
         .unwrap();
@@ -4011,10 +4027,7 @@ async fn setup_embedding_group(
                 base_url: base.to_string(),
                 api_key: format!("sk-{name}"),
                 extra: String::new(),
-                models: Some(PlatformModels {
-                    embedding: slot.map(String::from),
-                    ..Default::default()
-                }),
+                models: Some(slot.clone()),
                 available_models: None,
                 endpoints: Some(vec![crate::gateway::models::PlatformEndpoint {
                     protocol: proto.clone(),
@@ -4207,4 +4220,141 @@ async fn embedding_non_json_body_400() {
     .await;
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     assert!(hits.lock().unwrap().is_empty());
+}
+
+
+// ══ rerank：/v1/rerank 专用槽位转发端到端（本地假上游，禁外呼）══
+
+const RR_REQ: &str = r#"{"model":"client-rerank","query":"q","documents":["a","b"],"top_n":1,"return_documents":true}"#;
+const RR_JINA: &str = r#"{"model":"rr-slot","usage":{"total_tokens":100},"results":[{"index":1,"relevance_score":0.9}]}"#;
+const RR_SILICON: &str = r#"{"id":"x","results":[{"index":0,"relevance_score":0.5}],"meta":{"tokens":{"input_tokens":40,"output_tokens":0}}}"#;
+const RR_COHERE: &str = r#"{"id":"x","results":[{"index":0,"relevance_score":0.5}],"meta":{"billed_units":{"search_units":2}}}"#;
+const RR_COHERE_NO_UNITS: &str = r#"{"id":"x","results":[],"meta":{"billed_units":{}}}"#;
+
+fn rerank_slot(v: &str) -> PlatformModels {
+    PlatformModels { rerank: Some(v.into()), ..Default::default() }
+}
+
+fn rerank_entry(price: &str) -> ModelEntry {
+    ModelEntry {
+        model_id: "rr-slot".into(),
+        display_name: "rr-slot".into(),
+        canonical_model: "rr-slot".into(),
+        capabilities: vec!["rerank".into()],
+        ..embedding_entry(price)
+    }
+}
+
+/// 路径 /rerank、model 被槽位覆盖、query/documents/top_n/return_documents 原样、Authorization 为平台 key、
+/// 响应 model 回写、usage 入账、日志协议标签 rerank。
+#[tokio::test]
+async fn rerank_request_end_to_end() {
+    let (up, hits) = spawn_embedding_upstream(vec![(200, RR_JINA)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(&state.db, vec![rerank_entry(r#"{"input":3e-8,"output":0}"#)])
+        .await
+        .unwrap();
+    setup_aux_group(&state, "gkrr", &[(&up, rerank_slot("rr-slot"), Protocol::OpenAI, "a")]).await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request("gkrr", RR_REQ, "/v2/rerank"),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(v["model"], "client-rerank", "响应 model 回写客户端原名");
+    assert_eq!(v["results"][0]["relevance_score"], 0.9);
+
+    let (path, req_body, auth) = hits.lock().unwrap()[0].clone();
+    assert_eq!(path, "/v1/rerank", "base_url(/v1) + /rerank");
+    let sent: serde_json::Value = serde_json::from_str(&req_body).unwrap();
+    assert_eq!(sent["model"], "rr-slot");
+    assert_eq!(sent["query"], "q");
+    assert_eq!(sent["documents"], serde_json::json!(["a", "b"]));
+    assert_eq!(sent["top_n"], 1);
+    assert_eq!(sent["return_documents"], true);
+    assert_eq!(auth, "Bearer sk-a");
+
+    let log = last_log_for(&state, "gkrr").await;
+    assert_eq!((log.source_protocol.as_str(), log.target_protocol.as_str()), ("rerank", "rerank"));
+    assert_eq!(log.actual_model, "rr-slot");
+    assert_eq!((log.input_tokens, log.output_tokens), (100, 0));
+    assert!((log.est_cost - 100.0 * 3e-8).abs() < 1e-15, "got {}", log.est_cost);
+}
+
+/// 费用口径：token × price.input / SiliconFlow meta.tokens / free / 全 0 未标 free → 兜底价 /
+/// unit:"request" → unit_price × search_units（缺省 1 次），Cohere tokens 记 0，上游若返回 token 照记。
+#[tokio::test]
+async fn rerank_cost_matrix() {
+    let cases: [(&str, &str, &str, f64, i32); 7] = [
+        ("gkr1", r#"{"input":3e-8,"output":0}"#, RR_JINA, 100.0 * 3e-8, 100),
+        ("gkr2", r#"{"input":2e-8,"output":0}"#, RR_SILICON, 40.0 * 2e-8, 40),
+        ("gkr3", r#"{"free":true,"input":0,"output":0}"#, RR_JINA, 0.0, 100),
+        ("gkr4", r#"{"input":0,"output":0}"#, RR_JINA, 100.0 * 3.0 / 1_000_000.0, 100),
+        ("gkr5", r#"{"unit":"request","unit_price":0.002}"#, RR_COHERE, 0.004, 0),
+        ("gkr6", r#"{"unit":"request","unit_price":0.002}"#, RR_COHERE_NO_UNITS, 0.002, 0),
+        ("gkr7", r#"{"unit":"request","unit_price":0.002}"#, RR_JINA, 0.002, 100),
+    ];
+    for (gk, price, resp_body, expected, tokens) in cases {
+        let (up, _h) = spawn_embedding_upstream(vec![(200, resp_body)]).await;
+        let state = make_state(test_db().await).await;
+        aidog_db::upsert_model_entries(&state.db, vec![rerank_entry(price)]).await.unwrap();
+        setup_aux_group(&state, gk, &[(&up, rerank_slot("rr-slot"), Protocol::OpenAI, "a")]).await;
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            embedding_request(gk, RR_REQ, "/v1/rerank"),
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::OK, "{gk}");
+        let log = last_log_for(&state, gk).await;
+        assert_eq!(log.input_tokens, tokens, "{gk}");
+        assert!((log.est_cost - expected).abs() < 1e-12, "{gk}: want {expected}, got {}", log.est_cost);
+    }
+}
+
+/// 无候选 → 503 + no_rerank_platform（槽位空 / 非 OpenAI 系 / 只配了 embedding 槽）。
+#[tokio::test]
+async fn rerank_no_candidate_503_and_audit_log() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let state = make_state(db).await;
+    let (up, hits) = spawn_embedding_upstream(vec![]).await;
+    let emb_only = PlatformModels { embedding: Some("emb".into()), ..Default::default() };
+    setup_aux_group(&state, "gkq1", &[(&up, PlatformModels::default(), Protocol::OpenAI, "a")]).await;
+    setup_aux_group(&state, "gkq2", &[(&up, rerank_slot("rr"), Protocol::Anthropic, "a")]).await;
+    setup_aux_group(&state, "gkq3", &[(&up, emb_only, Protocol::OpenAI, "a")]).await;
+    for gk in ["gkq1", "gkq2", "gkq3"] {
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            embedding_request(gk, RR_REQ, "/v1/rerank"),
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE, "{gk}");
+        let log = last_log_for(&state, gk).await;
+        assert_eq!((log.blocked_by.as_str(), log.blocked_reason.as_str()), ("router", "no_rerank_platform"));
+        assert_eq!(log.est_cost, 0.0);
+    }
+    assert!(hits.lock().unwrap().is_empty(), "不得打到任何上游");
+}
+
+/// 同一平台两槽都配：embedding / rerank 请求各取各自槽位，互不串。
+#[tokio::test]
+async fn embedding_and_rerank_slots_do_not_cross() {
+    let (up, hits) = spawn_embedding_upstream(vec![(200, EMB_RESPONSE), (200, RR_JINA)]).await;
+    let state = make_state(test_db().await).await;
+    let both = PlatformModels {
+        embedding: Some("emb-slot".into()),
+        rerank: Some("rr-slot".into()),
+        ..Default::default()
+    };
+    setup_aux_group(&state, "gkboth", &[(&up, both, Protocol::OpenAI, "a")]).await;
+    for (body, path) in [(EMB_REQ, "/v1/embeddings"), (RR_REQ, "/v1/rerank")] {
+        let resp = handle_proxy(AxumState(state.clone()), embedding_request("gkboth", body, path)).await;
+        assert_eq!(resp.status(), StatusCode::OK, "{path}");
+    }
+    let h = hits.lock().unwrap();
+    let model_of = |i: usize| serde_json::from_str::<serde_json::Value>(&h[i].1).unwrap()["model"].clone();
+    assert_eq!((h[0].0.as_str(), model_of(0)), ("/v1/embeddings", serde_json::json!("emb-slot")));
+    assert_eq!((h[1].0.as_str(), model_of(1)), ("/v1/rerank", serde_json::json!("rr-slot")));
 }

@@ -72,6 +72,9 @@ pub async fn calc_est_cost(
     .est_cost
 }
 
+/// `ProxyLog.tool_call_counts` 里携带 rerank 按次计量次数的保留键（不是工具名，不进 tools_pricing）。
+pub const SEARCH_UNITS_KEY: &str = "__search_units";
+
 /// 计价明细（票 11 模拟器）：`est_cost` 之外带计价依据——`price_source` 取
 /// `ResolvedPrice::source`（条目价 / fallback / unsupported），`is_peak` / `multiplier`
 /// 供高峰徽标展示（`peak_applied` 不出 Rust，效果已由 multiplier=1.0 表达）。
@@ -147,6 +150,7 @@ pub async fn calc_est_cost_detail(
         },
         peak_applied: false,
         source_cny: false,
+        request_unit_price: None,
     });
 
     let multiplier = if created_at_ms <= 0 {
@@ -172,6 +176,16 @@ pub async fn calc_est_cost_detail(
         rp.cache_write_1h_input_token_cost,
         multiplier,
     );
+    // rerank 按次计量次数（SEARCH_UNITS_KEY）不是工具计数：摘出来单独计价，剩余才走 tools_pricing。
+    let search_units: i64 = tool_counts
+        .iter()
+        .filter(|(k, _)| k == SEARCH_UNITS_KEY)
+        .map(|(_, c)| *c)
+        .sum();
+    let tool_counts: Vec<&(String, i64)> =
+        tool_counts.iter().filter(|(k, _)| k != SEARCH_UNITS_KEY).collect();
+    // 条目 `price.unit=="request"`：est_cost = unit_price × 次数（缺次数按 1 次/请求），不乘 peak 倍率。
+    let request_fee = resolved.request_unit_price.map_or(0.0, |up| up * search_units.max(1) as f64);
     // 票 16 B3：按次费只在有计数时查 tools_pricing（空计数零开销，也不触发 warn）。
     let tool_fee = if tool_counts.is_empty() {
         0.0
@@ -181,7 +195,7 @@ pub async fn calc_est_cost_detail(
         tools_cost(default_tools_pricing(platform_type).as_ref(), &refs)
     };
     EstCostDetail {
-        est_cost: token_cost + tool_fee,
+        est_cost: token_cost + tool_fee + request_fee,
         price_source: rp.source.clone(),
         is_peak,
         multiplier,
