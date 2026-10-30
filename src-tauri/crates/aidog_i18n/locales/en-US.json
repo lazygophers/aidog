@@ -703,6 +703,7 @@
   "logs.routing.route": "Route",
   "logs.routing.response": "Response",
   "logs.routing.attemptFailed": "Attempt failed",
+  "logs.routing.notUsed": "Not used",
 
   "logs.routing.untried": "Not tried",  "logs.routing.mode.load_balance": "Load balance",
   "logs.routing.mode.failover": "Failover",

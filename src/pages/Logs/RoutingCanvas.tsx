@@ -44,6 +44,7 @@ interface NodeSpec {
   nm: string;
   sb?: string;
   model?: string;
+  modelUnused?: boolean;
   pills?: string[];
 }
 
@@ -57,6 +58,7 @@ function buildNodes(
   attempts: { platform_id: number; status_code: number }[] | undefined,
   platformMap: Map<number, string>,
   winId: string | null,
+  actualModel: string | undefined,
   t: T,
 ): NodeSpec[] {
   const lastFailByPlatform = new Map<number, number>();
@@ -71,16 +73,16 @@ function buildNodes(
   for (const c of routing.entries) {
     const nm = platformMap.get(c.platform_id) || `#${c.platform_id}`;
     const sb = `P${c.level_priority} · ${c.priority}`;
-    const model = c.target_model ?? undefined;
+    const target = c.target_model ?? undefined;
     const id = `p-${c.platform_id}`;
     if (c.reason !== "selected") {
-      nodes.push({ id, cls: "dim", ico: "·", nm, sb, model, pills: [t(REASON_KEY[c.reason])] });
+      nodes.push({ id, cls: "dim", ico: "·", nm, sb, modelUnused: true, pills: [t(REASON_KEY[c.reason])] });
     } else if (id === winId) {
-      nodes.push({ id, cls: "win", ico: "✓", nm, sb, model, pills: (c.tags ?? []).map((tg) => t(TAG_KEY[tg])) });
+      nodes.push({ id, cls: "win", ico: "✓", nm, sb, model: target ?? actualModel, pills: (c.tags ?? []).map((tg) => t(TAG_KEY[tg])) });
     } else if (lastFailByPlatform.has(c.platform_id)) {
-      nodes.push({ id, cls: "fail", ico: "✕", nm, sb, model, pills: [`${t("logs.routing.attemptFailed", "尝试失败")} ${lastFailByPlatform.get(c.platform_id)}`] });
+      nodes.push({ id, cls: "fail", ico: "✕", nm, sb, model: target, pills: [`${t("logs.routing.attemptFailed", "尝试失败")} ${lastFailByPlatform.get(c.platform_id)}`] });
     } else {
-      nodes.push({ id, cls: "dim", ico: "·", nm, sb, model, pills: [t("logs.routing.untried", "未尝试")] });
+      nodes.push({ id, cls: "dim", ico: "·", nm, sb, model: target, pills: [t("logs.routing.untried", "未尝试")] });
     }
   }
   return nodes;
@@ -92,6 +94,7 @@ export function RoutingCanvas({
   platformMap,
   durationMs,
   statusCode,
+  actualModel,
   t,
 }: {
   routing: RoutingSnapshot | null;
@@ -99,6 +102,7 @@ export function RoutingCanvas({
   platformMap: Map<number, string>;
   durationMs: number;
   statusCode: number;
+  actualModel?: string;
   t: T;
 }) {
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -115,7 +119,7 @@ export function RoutingCanvas({
 
   const nodes = useMemo(() => {
     if (!routing || routing.entries.length < 1) return null;
-    const list = buildNodes(routing, attempts, platformMap, winId, t);
+    const list = buildNodes(routing, attempts, platformMap, winId, actualModel, t);
     list.push({
       id: "resp",
       cls: winId !== null ? "win" : "dim",
@@ -250,6 +254,7 @@ export function RoutingCanvas({
                 <span style={{ display: "flex", flexDirection: "column", minWidth: 0, alignItems: "flex-start" }}>
                   <span className="rc-nm">{n.nm}</span>
                   {n.model && <span className="rc-sb" data-testid="routing-target-model">{n.model}</span>}
+                  {n.modelUnused && <span className="rc-sb" data-testid="routing-model-unused">{t("logs.routing.notUsed", "未选用")}</span>}
                   {n.sb && <span className="rc-sb">{n.sb}</span>}
                   {n.pills?.map((pl, j) => <span key={j} className={`rc-why ${n.cls === "fail" ? "red" : n.cls === "win" ? "green" : ""}`}>{pl}</span>)}
                 </span>
