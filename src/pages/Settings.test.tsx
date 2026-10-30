@@ -7,7 +7,7 @@ const api = vi.hoisted(() => ({ get: vi.fn(), set: vi.fn(), syncGroupSettings: v
 vi.mock("../services/api", () => ({
   settingsApi: api,
   configApi: api,
-  claudeSettingsImportApi: { readDefault: vi.fn() },
+  claudeSettingsImportApi: { readDefault: vi.fn(), outputStyles: vi.fn().mockResolvedValue([]) },
 }));
 vi.mock("../services/claude-settings-schema", () => ({ SECTIONS: [], RECOMMENDED_CONFIG: { model: "default" } }));
 vi.mock("../components/shared/JsonCodeEditor", () => ({
