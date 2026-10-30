@@ -20,7 +20,7 @@ vi.mock("../services/api", async () => {
     platformApi: { ...actual.platformApi, list: vi.fn(async () => []) },
     groupUsageApi: { ...actual.groupUsageApi, statsAll: vi.fn(async () => ({})) },
     proxyApi: { ...actual.proxyApi, getSettings: vi.fn(async () => ({ port: 9890 })) },
-    groupFlowApi: { ...actual.groupFlowApi, daily: vi.fn(async () => []), breakdown: vi.fn(async () => []), latestRouting: vi.fn(async () => null) },
+    groupFlowApi: { ...actual.groupFlowApi, daily: vi.fn(async () => []), flow: vi.fn(async () => []), latestRouting: vi.fn(async () => null) },
     onProxyLogUpdated: vi.fn(() => () => {}),
   };
 });
