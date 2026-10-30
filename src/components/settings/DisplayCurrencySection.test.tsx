@@ -8,6 +8,17 @@ vi.mock("../../services/api/currency", () => ({
   displayCurrencyApi: { get: h.get, set: h.set },
 }));
 
+// Radix Select 在 jsdom 无法开面板：换成原生 select 壳，testid 仍落在 data-testid="currency-select"
+vi.mock("@/components/ui/select", () => ({
+  Select: ({ value, onValueChange, children }: { value: string; onValueChange: (v: string) => void; children: React.ReactNode }) => (
+    <select data-testid="currency-select" value={value} onChange={(e) => onValueChange(e.target.value)}>{children}</select>
+  ),
+  SelectTrigger: () => null,
+  SelectValue: () => null,
+  SelectContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SelectItem: ({ value, children }: { value: string; children: React.ReactNode }) => <option value={value}>{children}</option>,
+}));
+
 import { DisplayCurrencySection } from "./DisplayCurrencySection";
 import { setDisplayCurrency } from "../../utils/displayCurrency";
 import type { CurrencyRow, DisplayCurrency } from "../../services/api/types";
