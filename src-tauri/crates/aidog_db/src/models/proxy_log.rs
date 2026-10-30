@@ -197,6 +197,11 @@ pub struct RouteCandidate {
     pub priority: i32,
     /// 原因标签
     pub reason: RouteReason,
+    /// 路由目标模型（build_route_results 解析的 target_model；排除候选算不到时为 None）。
+    /// 旧日志无此字段，缺省 None，序列化时省略。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub target_model: Option<String>,
     /// 位置标签（仅选中者携带）
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<RouteTag>,
@@ -688,5 +693,31 @@ mod tests {
             (0, RetentionUnit::Week),
         );
         assert_eq!(s.cleanup_interval_secs(), 24 * 3600);
+    }
+
+    /// 旧 routing JSON（无 target_model 字段）可反序列化；新序列化 None 省略字段。
+    #[test]
+    fn route_candidate_target_model_backward_compatible() {
+        let old = r#"{"order":1,"platform":"p","platform_id":1,"level_priority":5,"priority":0,"reason":"selected","tags":[]}"#;
+        let parsed: RouteCandidate = serde_json::from_str(old).unwrap();
+        assert_eq!(parsed.target_model, None);
+
+        let with_model = RouteCandidate {
+            order: 1,
+            platform: "p".into(),
+            platform_id: 1,
+            level_priority: 5,
+            priority: 0,
+            reason: RouteReason::Selected,
+            target_model: Some("m-1".into()),
+            tags: Vec::new(),
+        };
+        let json = serde_json::to_string(&with_model).unwrap();
+        assert!(json.contains(r#""target_model":"m-1""#));
+
+        let none = RouteCandidate { target_model: None, ..with_model.clone() };
+        let json_none = serde_json::to_string(&none).unwrap();
+        assert!(!json_none.contains("target_model"));
+        assert_eq!(serde_json::from_str::<RouteCandidate>(&json).unwrap(), with_model);
     }
 }

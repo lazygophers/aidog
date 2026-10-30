@@ -454,6 +454,8 @@ async fn tray_config_serde_roundtrip() {
                 metric: None,
                 label: None,
                 decimals: None,
+                metrics: None,
+                unit: None,
                 color: TrayColor {
                     mode: "preset".to_string(),
                     value: "green".to_string(),
@@ -472,6 +474,8 @@ async fn tray_config_serde_roundtrip() {
                 metric: Some("tokens".to_string()),
                 label: None,
                 decimals: None,
+                metrics: None,
+                unit: None,
                 color: TrayColor {
                     mode: "custom".to_string(),
                     value: "#ff8800".to_string(),

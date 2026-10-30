@@ -43,6 +43,7 @@ interface NodeSpec {
   ico: string;
   nm: string;
   sb?: string;
+  model?: string;
   pills?: string[];
 }
 
@@ -70,15 +71,16 @@ function buildNodes(
   for (const c of routing.entries) {
     const nm = platformMap.get(c.platform_id) || `#${c.platform_id}`;
     const sb = `P${c.level_priority} · ${c.priority}`;
+    const model = c.target_model ?? undefined;
     const id = `p-${c.platform_id}`;
     if (c.reason !== "selected") {
-      nodes.push({ id, cls: "dim", ico: "·", nm, sb, pills: [t(REASON_KEY[c.reason])] });
+      nodes.push({ id, cls: "dim", ico: "·", nm, sb, model, pills: [t(REASON_KEY[c.reason])] });
     } else if (id === winId) {
-      nodes.push({ id, cls: "win", ico: "✓", nm, sb, pills: (c.tags ?? []).map((tg) => t(TAG_KEY[tg])) });
+      nodes.push({ id, cls: "win", ico: "✓", nm, sb, model, pills: (c.tags ?? []).map((tg) => t(TAG_KEY[tg])) });
     } else if (lastFailByPlatform.has(c.platform_id)) {
-      nodes.push({ id, cls: "fail", ico: "✕", nm, sb, pills: [`${t("logs.routing.attemptFailed", "尝试失败")} ${lastFailByPlatform.get(c.platform_id)}`] });
+      nodes.push({ id, cls: "fail", ico: "✕", nm, sb, model, pills: [`${t("logs.routing.attemptFailed", "尝试失败")} ${lastFailByPlatform.get(c.platform_id)}`] });
     } else {
-      nodes.push({ id, cls: "dim", ico: "·", nm, sb, pills: [t("logs.routing.untried", "未尝试")] });
+      nodes.push({ id, cls: "dim", ico: "·", nm, sb, model, pills: [t("logs.routing.untried", "未尝试")] });
     }
   }
   return nodes;
@@ -247,6 +249,7 @@ export function RoutingCanvas({
                 <span className="rc-ico">{n.ico}</span>
                 <span style={{ display: "flex", flexDirection: "column", minWidth: 0, alignItems: "flex-start" }}>
                   <span className="rc-nm">{n.nm}</span>
+                  {n.model && <span className="rc-sb" data-testid="routing-target-model">{n.model}</span>}
                   {n.sb && <span className="rc-sb">{n.sb}</span>}
                   {n.pills?.map((pl, j) => <span key={j} className={`rc-why ${n.cls === "fail" ? "red" : n.cls === "win" ? "green" : ""}`}>{pl}</span>)}
                 </span>

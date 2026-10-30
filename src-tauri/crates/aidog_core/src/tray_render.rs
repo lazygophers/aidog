@@ -516,8 +516,13 @@ pub(crate) fn platform_item_parts(
 /// USD 金额 → 托盘文本：符号 + 换算后定点并裁尾零。0 位小数币种（JPY）恒 0 位，
 /// 其余沿用调用方给的位数（USD 下与改动前 `$` + trim(format) 逐字一致）。
 fn tray_money(usd: f64, cur: &db::currency::DisplayCurrency, decimals: usize) -> String {
+    format!("{}{}", cur.symbol, tray_money_num(usd, cur, decimals))
+}
+
+/// [`tray_money`] 的数值部分（无符号）；自定义单位后缀路径复用同一换算 / 位数规则。
+fn tray_money_num(usd: f64, cur: &db::currency::DisplayCurrency, decimals: usize) -> String {
     let d = if cur.decimals == 0 { 0 } else { decimals };
-    format!("{}{}", cur.symbol, trim_trailing_zeros(&format!("{:.d$}", usd * cur.rate)))
+    trim_trailing_zeros(&format!("{:.d$}", usd * cur.rate))
 }
 
 /// 预算单位 tray 后缀（usd 无后缀走 $ 前缀；token / count 加短后缀区分口径）。
@@ -526,6 +531,116 @@ fn manual_budget_unit_suffix(unit: &str) -> Option<&'static str> {
         "token" => Some("T "),
         "count" => Some("x "),
         _ => None,
+    }
+}
+
+/// 多指标平台槽的分隔符（同一格内按配置顺序连接）。
+const METRIC_SEP: &str = " · ";
+
+/// 平台槽取值：metrics 非空 → 逐指标取值拼接（新口径）；
+/// None/空 → [`platform_item_parts`] display 旧口径（旧配置逐字不变）。
+pub(crate) fn platform_item_value(
+    platform: &Platform,
+    item: &TrayItem,
+    plat_today: Option<&aidog_stats::TodayPlatformStat>,
+    cur: &db::currency::DisplayCurrency,
+    balance_ccy: Option<&str>,
+) -> String {
+    let Some(metrics) = item.metrics.as_deref().filter(|m| !m.is_empty()) else {
+        return platform_item_parts(platform, &item.display, cur, balance_ccy).1;
+    };
+    let plan = gateway::estimate::EstCodingPlan::from_json(&platform.est_coding_plan);
+    let parts: Vec<String> = metrics
+        .iter()
+        .filter_map(|m| {
+            platform_metric_value(
+                platform,
+                m,
+                &plan,
+                item,
+                plat_today,
+                cur,
+                balance_ccy,
+            )
+        })
+        .collect();
+    if parts.is_empty() {
+        "—".to_string()
+    } else {
+        parts.join(METRIC_SEP)
+    }
+}
+
+/// 单指标取值；指标不可用（coding tier 缺失 / 未知 token）→ None 跳过。
+/// unit 非空替换默认单位标记（$ 前缀去掉、" tok" 后缀替换）；coding 的 % 固有不受 unit 影响。
+fn platform_metric_value(
+    platform: &Platform,
+    metric: &str,
+    plan: &gateway::estimate::EstCodingPlan,
+    item: &TrayItem,
+    plat_today: Option<&aidog_stats::TodayPlatformStat>,
+    cur: &db::currency::DisplayCurrency,
+    balance_ccy: Option<&str>,
+) -> Option<String> {
+    let unit = item.unit.as_deref().unwrap_or("");
+    let decimals = item.decimals;
+    let pct_of = |t: &gateway::estimate::EstTier| {
+        Some(format!("{:.0}%", (100.0 - t.est_utilization).max(0.0)))
+    };
+    // usd 为 USD 金额：按显示币种换算；自定义单位替换币种符号、数值部分不变。
+    let money = |usd: f64, default_d: u32| {
+        let d = decimals.unwrap_or(default_d) as usize;
+        if unit.is_empty() {
+            tray_money(usd, cur, d)
+        } else {
+            format!("{}{unit}", tray_money_num(usd, cur, d))
+        }
+    };
+    match metric {
+        "balance" => Some(money(
+            cur.balance_to_usd(platform.est_balance_remaining, balance_ccy),
+            2,
+        )),
+        "coding" => pct_of(plan.tiers.first()?),
+        m if m.starts_with("coding:") => {
+            let name = &m["coding:".len()..];
+            pct_of(plan.tiers.iter().find(|t| t.name == name)?)
+        }
+        "today_cost" => Some(money(plat_today.map(|s| s.cost).unwrap_or(0.0), 5)),
+        "today_tokens" => {
+            let tokens = plat_today.map(|s| s.tokens).unwrap_or(0);
+            Some(if unit.is_empty() {
+                format!("{tokens} tok")
+            } else {
+                format!("{tokens}{unit}")
+            })
+        }
+        m if m.starts_with("reset_time:") => {
+            // 重置时刻 = window_start + cycle（与 algo.rs remain 推算同式）；cycle 未知 / 无起点 → 跳过。
+            let name = &m["reset_time:".len()..];
+            let tier = plan.tiers.iter().find(|t| t.name == name)?;
+            let cycle = gateway::usage_color::cycle_ms_for_tier(&tier.name)?;
+            if tier.window_start <= 0 {
+                return None;
+            }
+            Some(format_reset_time(tier.window_start + cycle))
+        }
+        _ => None,
+    }
+}
+
+/// 重置时刻本地时区展示：今天内 `HH:mm`，跨天 `MM-dd HH:mm`。
+fn format_reset_time(reset_ms: i64) -> String {
+    use chrono::TimeZone;
+    let local = chrono::Local;
+    let dt = match local.timestamp_millis_opt(reset_ms).single() {
+        Some(dt) => dt,
+        None => return "—".to_string(),
+    };
+    if dt.date_naive() == chrono::Local::now().date_naive() {
+        dt.format("%H:%M").to_string()
+    } else {
+        dt.format("%m-%d %H:%M").to_string()
     }
 }
 
@@ -630,6 +745,25 @@ pub(crate) async fn tray_layout_with_stats(
     };
     let now_ms = chrono::Utc::now().timestamp_millis();
 
+    // 平台槽含 today_* 指标时批量查一次各平台当日用量（TodayPlatformStat.platform_id 可直接过滤）。
+    let needs_today = items.iter().any(|i| {
+        i.item_type == "platform"
+            && i.metrics
+                .as_deref()
+                .is_some_and(|ms| ms.iter().any(|m| m == "today_cost" || m == "today_tokens"))
+    });
+    let today_by_pid: std::collections::HashMap<u64, aidog_stats::TodayPlatformStat> =
+        if needs_today {
+            aidog_stats::today_platform_stats(db)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .map(|s| (s.platform_id, s))
+                .collect()
+        } else {
+            Default::default()
+        };
+
     let mut columns: Vec<TrayColumn> = Vec::new();
     let mut gaps: Vec<Option<String>> = Vec::new();
     let mut pending_sep: Option<String> = None;
@@ -658,12 +792,14 @@ pub(crate) async fn tray_layout_with_stats(
                 let Some(platform) = platforms.get(&(pid as i64)) else {
                     continue;
                 };
-                platform_item_parts(
+                let value = platform_item_value(
                     platform,
-                    &item.display,
+                    item,
+                    today_by_pid.get(&pid),
                     &currency,
                     balance_ccys.get(&pid).map(String::as_str),
-                )
+                );
+                (platform.name.clone(), value)
             }
             "routed_platform" => routed_item_parts(routed_platform.as_ref()),
             "peak" => peak_item_parts(routed_platform.as_ref(), now_ms),
