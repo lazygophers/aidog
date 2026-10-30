@@ -113,9 +113,9 @@ export interface PlatformRowProps {
 
 const STAT_GAP = 10;
 
-function StatCell({ v, l, tone }: { v: string; l: string; tone?: "ok" | "warn" | "dim" }) {
+function StatCell({ v, l, tone, testId }: { v: string; l: string; tone?: "ok" | "warn" | "dim"; testId?: string }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
+    <div data-testid={testId} style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
       <span className="num" style={{
         fontSize: 13, fontWeight: 580, textAlign: "right", fontVariantNumeric: "tabular-nums",
         color: tone === "ok" ? "var(--color-success)" : tone === "warn" ? "var(--color-warning)" : tone === "dim" ? "var(--text-tertiary)" : "var(--foreground)",
@@ -337,8 +337,8 @@ export function PlatformRow({
               return (
                 <>
                   <span style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-secondary)" }}>
-                    <span className="num" style={{ color: mb.depleted ? "var(--color-danger)" : "var(--foreground)", fontWeight: 560, fontVariantNumeric: "tabular-nums" }}>
-                      {isUsd ? "$" : ""}{formatNumber(Math.max(0, mb.remaining))}
+                    <span data-testid="row-manual-remaining" className="num" style={{ color: mb.depleted ? "var(--color-danger)" : "var(--foreground)", fontWeight: 560, fontVariantNumeric: "tabular-nums" }}>
+                      {isUsd ? formatMoney(Math.max(0, mb.remaining)) : formatNumber(Math.max(0, mb.remaining))}
                     </span>
                     <span className="num" style={{ fontVariantNumeric: "tabular-nums", color: "var(--text-tertiary)" }}>
                       {isUsd ? `/ ${formatMoney(mb.amount)}` : `/ ${formatNumber(mb.amount)} ${mb.unit === "count" ? t("platform.manualBudgetUnitCountShort", "次") : "tok"}`}
@@ -362,7 +362,7 @@ export function PlatformRow({
           )}
         </span>
         {/* 列 5-8：今日 / 成功率 / 延迟 / 模型 */}
-        <StatCell v={u ? formatMoney(u.today_cost) : "—"} l={t("platform.col.today", "今日")} tone={u ? undefined : "dim"} />
+        <StatCell testId="row-today-cost" v={u ? formatMoney(u.today_cost) : "—"} l={t("platform.col.today", "今日")} tone={u ? undefined : "dim"} />
         <StatCell v={sRate != null ? formatPercent(sRate, 1) : "—"} l={t("platform.col.successRate", "成功率")}
           tone={sRate == null ? "dim" : sRate >= 98 ? "ok" : sRate >= 90 ? "warn" : undefined} />
         <StatCell v={lastTest ? formatDurationMs(lastTest.duration_ms) : "—"} l={t("platform.col.latency", "延迟")} tone={lastTest ? undefined : "dim"} />
