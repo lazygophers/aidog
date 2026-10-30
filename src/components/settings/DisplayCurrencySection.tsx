@@ -13,6 +13,12 @@ const parseRate = (v: string): number | null => {
   return v.trim() !== "" && Number.isFinite(n) && n > 0 ? n : null;
 };
 
+/** 符号（可含尾空格，如 "CHF "）去空白后与代码相同则只显示一次，避免「CHF  CHF」。 */
+function currencyLabel(r: { symbol: string; code: string }): string {
+  const sym = r.symbol.trim();
+  return sym === r.code ? r.code : `${sym} ${r.code}`;
+}
+
 export function DisplayCurrencySection() {
   const { t } = useTranslation();
   const cur = useDisplayCurrency();
@@ -62,7 +68,7 @@ export function DisplayCurrencySection() {
           <SelectTrigger data-testid="currency-select" style={{ maxWidth: 160 }}><SelectValue /></SelectTrigger>
           <SelectContent>
             {cur.table.map((r) => (
-              <SelectItem key={r.code} value={r.code}>{r.symbol} {r.code}</SelectItem>
+              <SelectItem key={r.code} value={r.code}>{currencyLabel(r)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -72,7 +78,7 @@ export function DisplayCurrencySection() {
           const usd = r.code === "USD";
           return (
             <div key={r.code} style={{ display: "contents" }}>
-              <span style={{ fontWeight: 600 }}>{r.symbol} {r.code}</span>
+              <span data-testid={`currency-label-${r.code}`} style={{ fontWeight: 600 }}>{currencyLabel(r)}</span>
               <div>
                 <Input
                   data-testid={`currency-rate-${r.code}`}
