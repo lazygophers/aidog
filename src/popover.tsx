@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import type { Group, GroupDetail, PopoverConfig, StatsResult } from "./services/api";
 import { groupApi, groupDetailApi, statsApi, onProxyLogUpdated } from "./services/api";
 import { clamp } from "./utils/formatters";
+import { useDisplayCurrency } from "./utils/displayCurrency";
 import { applyTheme, DEFAULT_MODE } from "./themes";
 import type { ThemeMode } from "./themes/types";
 import {
@@ -70,6 +71,9 @@ const DELTA = 1; // 尺寸/位置 delta ≤ 1px 不触发，防抖动循环。
 
 function Popover() {
   const { t } = useTranslation();
+  // 独立 webview：根组件订阅显示币种 store（首订阅拉取 + 监听 display-currency-updated）；
+  // renderItem 里 today_cost 在根渲染期 formatMoney，需根随币种重渲染。
+  useDisplayCurrency();
   const [data, setData] = useState<PopoverData | null>(null);
   const [groups, setGroups] = useState<Group[]>([]);
   const [groupDetails, setGroupDetails] = useState<GroupDetail[] | null>(null);

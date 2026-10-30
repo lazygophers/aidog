@@ -2,7 +2,7 @@
 // 取消勾选只翻 enabled，绝不删项；满 3 项后再勾无效。
 // 票 托盘设置-重设计/01：页面骨架 + 实时预览条（C 方向），组件级 vitest 锚 testid/data-state。
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { render, waitFor, fireEvent } from "../test/render";
+import { render, waitFor, fireEvent, act } from "../test/render";
 import {
   MAX_SEGMENTS,
   segmentKey,
@@ -11,9 +11,15 @@ import {
   moveSegment,
   loadSegmentAt,
   previewValue,
+  trayMoney,
   type SegmentOption,
 } from "./TrayConfigTab";
-import type { TrayItem, TodayStats } from "../services/api";
+import type { TrayItem, TodayStats, Platform } from "../services/api";
+import type { DisplayCurrency } from "../services/api/types";
+import { setDisplayCurrency, USD_DISPLAY } from "../utils/displayCurrency";
+
+const mk = (code: string, symbol: string, decimals: number, rate: number): DisplayCurrency =>
+  ({ code, symbol, decimals, rate, table: [] });
 
 const t = ((key: string, fallback?: string) => fallback ?? key) as never;
 
@@ -88,6 +94,33 @@ describe("previewValue", () => {
   });
 });
 
+// 跨层对拍：期望串逐字抄自 Rust test_tray_render.rs 的 tray_money_* 用例（同输入同币种参数）。
+describe("trayMoney（对拍 Rust tray_money）", () => {
+  const usd = USD_DISPLAY;
+  it.each([
+    // tray_money_usd_matches_legacy_text
+    [10.10, usd, 2, "$10.1"],
+    [0.0, usd, 2, "$0"],
+    [0.123456789, usd, 5, "$0.12346"],
+    // tray_money_cny_jpy_chf
+    [10.0, mk("CNY", "¥", 2, 7.0), 2, "¥70"],
+    [0.0123456, mk("CNY", "¥", 2, 7.0), 5, "¥0.08642"],
+    [1234.567, mk("JPY", "JP¥", 0, 150.0), 5, "JP¥185185"],
+    [0.004, mk("JPY", "JP¥", 0, 150.0), 2, "JP¥1"],
+    [10.0, mk("CHF", "CHF ", 2, 0.9), 2, "CHF 9"],
+  ])("%s -> %s", (n, cur, d, expected) => {
+    expect(trayMoney(n as number, cur as DisplayCurrency, d as number)).toBe(expected);
+  });
+
+  it("previewValue：花费 / 平台余额按显示币种，与 trayMoney 同口径", () => {
+    const stats = { tokens: 0, cache_rate: 0, cost: 0.0123456, total_requests: 0 } as TodayStats;
+    const cny = mk("CNY", "¥", 2, 7.0);
+    expect(previewValue(item({ metric: "cost" }), [], stats, null, cny)).toBe("¥0.08642");
+    const p = { id: 7, est_balance_remaining: 10 } as Platform;
+    expect(previewValue(item({ item_type: "platform", platform_id: 7, metric: null }), [p], null, null, mk("JPY", "JP¥", 0, 150))).toBe("JP¥1500");
+  });
+});
+
 // ── 票 01：页面骨架 + 实时预览条 ──
 
 const api = vi.hoisted(() => ({
@@ -134,6 +167,15 @@ async function renderTab(
 describe("TrayConfigTab 骨架与预览（票 01）", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("切显示币种后预览段与今日消耗大字即时换算（托盘口径）", async () => {
+    const view = await renderTab();
+    expect(view.getByTestId("tray-segment-today_usage:cost").textContent).toContain("$1.25");
+    act(() => setDisplayCurrency(mk("CNY", "¥", 2, 7.0)));
+    await waitFor(() => expect(view.getByTestId("tray-segment-today_usage:cost").textContent).toContain("¥8.75"));
+    expect(view.getByTestId("tray-big-cost").textContent).toBe("¥8.75");
+    act(() => setDisplayCurrency(USD_DISPLAY));
   });
 
   it("预览条按装载顺序渲染段，数值随 todayStats 实时刷新", async () => {
