@@ -39,7 +39,7 @@ _Avoid_: 决策日志（那指 tracing 内存日志）、blocked_reason（那只
 _Avoid_: 账单（那是上游真实计费）
 
 **Client**:
-An AI coding CLI that aidog configures and proxies for — currently Claude Code, Codex, and pi.
+A program that sends requests to aidog: AI coding CLIs, IDE plugins, language SDKs, and HTTP tools. Identified by User-Agent against a two-level vocabulary (category → variant).
 _Avoid_: agent, tool, harness
 
 **Decision Request（决策请求）**:

@@ -296,6 +296,7 @@ pub fn run() {
             aidog_core::defaults::sync_protocol_logo,
             // Client types JSON（内置 const）
             aidog_core::defaults::get_client_types_json,
+            aidog_core::client_vocab::get_client_vocab,
             // MITM (P3 ST7) — 白名单配置 + CA 安装状态/引导
             aidog_core::proxy_cmd::mitm::mitm_status,
             aidog_core::proxy_cmd::mitm::mitm_enable,

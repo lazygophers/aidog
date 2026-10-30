@@ -239,6 +239,7 @@ rpc_routes! {
     aidog_core::defaults::get_protocol_logo_data_url,
     aidog_core::defaults::sync_protocol_logo,
     aidog_core::defaults::get_client_types_json,
+    aidog_core::client_vocab::get_client_vocab,
     aidog_core::proxy_cmd::mitm::mitm_status,
     aidog_core::proxy_cmd::mitm::mitm_enable,
     aidog_core::proxy_cmd::mitm::mitm_disable,
