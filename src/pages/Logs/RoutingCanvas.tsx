@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { TFunction } from "i18next";
 import type { RouteReason } from "../../services/api/types/generated/RouteReason";
+import type { ModelVia } from "../../services/api/types/generated/ModelVia";
 import type { RouteTag } from "../../services/api/types/generated/RouteTag";
 import type { RoutingSnapshot } from "../../services/api/types/generated/RoutingSnapshot";
 import { F } from "../../domains/shared/tokens";
@@ -34,6 +35,19 @@ const MODE_KEY: Record<string, string> = {
   failover: "logs.routing.mode.failover",
   health_aware: "logs.routing.mode.health_aware",
   sticky: "logs.routing.mode.sticky",
+};
+
+const VIA_KEY: Record<ModelVia, string> = {
+  "mapped": "logs.routing.via.mapped",
+  "time-window": "logs.routing.via.time-window",
+  "preset-peak": "logs.routing.via.preset-peak",
+  "slot-opus": "logs.routing.via.slot-opus",
+  "slot-sonnet": "logs.routing.via.slot-sonnet",
+  "slot-haiku": "logs.routing.via.slot-haiku",
+  "slot-gpt": "logs.routing.via.slot-gpt",
+  "slot-default": "logs.routing.via.slot-default",
+  "dedicated-slot": "logs.routing.via.dedicated-slot",
+  "passthrough": "logs.routing.via.passthrough",
 };
 
 type NodeCls = "win" | "fail" | "dim";
@@ -95,6 +109,7 @@ export function RoutingCanvas({
   durationMs,
   statusCode,
   actualModel,
+  requestModel,
   t,
 }: {
   routing: RoutingSnapshot | null;
@@ -103,6 +118,7 @@ export function RoutingCanvas({
   durationMs: number;
   statusCode: number;
   actualModel?: string;
+  requestModel?: string;
   t: T;
 }) {
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -128,7 +144,17 @@ export function RoutingCanvas({
       sb: `${durationMs}ms · ${statusCode}`,
     });
     return list;
-  }, [routing, attempts, platformMap, winId, durationMs, statusCode, t]);
+  }, [routing, attempts, platformMap, winId, durationMs, statusCode, actualModel, t]);
+
+  // 模型选择摘要：胜出候选（无胜出则首个 selected）的 请求模型 → 目标模型 + 选择来源
+  const modelChoice = useMemo(() => {
+    if (!routing || routing.entries.length < 1) return null;
+    const win = winId ? routing.entries.find((c) => `p-${c.platform_id}` === winId) : undefined;
+    const pick = win ?? routing.entries.find((c) => c.reason === "selected");
+    const to = pick?.target_model ?? (win ? actualModel : undefined);
+    if (!requestModel && !to) return null;
+    return { from: requestModel, to, via: pick?.model_via ?? [] };
+  }, [routing, winId, actualModel, requestModel]);
 
   const vertical = width !== null && width < 720;
 
@@ -217,6 +243,17 @@ export function RoutingCanvas({
           </span>
         )}
       </div>
+      {modelChoice && (
+        <div data-testid="routing-model-choice" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, fontSize: F.small }}>
+          <span style={{ color: "var(--text-tertiary)" }}>{t("logs.routing.modelChoice", "模型选择")}</span>
+          <span data-testid="routing-model-from" style={{ fontWeight: 500 }}>{modelChoice.from ?? "-"}</span>
+          <span aria-hidden="true">→</span>
+          <span data-testid="routing-model-to" style={{ fontWeight: 500 }}>{modelChoice.to ?? "-"}</span>
+          {modelChoice.via.map((v) => (
+            <span key={v} data-testid="routing-model-via" className="rc-why">{t(VIA_KEY[v])}</span>
+          ))}
+        </div>
+      )}
       {!nodes ? (
         <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }} data-testid="routing-empty">
           {t("logs.routing.noSnapshot", "无路由决策记录")}

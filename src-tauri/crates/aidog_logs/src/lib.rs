@@ -7,6 +7,8 @@ mod proxy_log;
 mod test_mitm_log;
 #[cfg(test)]
 mod test_oauth_raw_crypt;
+#[cfg(test)]
+mod test_user_agent;
 mod test_proxy_log;
 
 pub use mitm_log::*;
