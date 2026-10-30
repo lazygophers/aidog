@@ -725,6 +725,7 @@
   "logs.routing.route": "Маршрут",
   "logs.routing.response": "Ответ",
   "logs.routing.attemptFailed": "Неудачная попытка",
+  "logs.routing.notUsed": "Не использовано",
 
   "logs.routing.untried": "Без попытки",  "logs.routing.mode.load_balance": "Балансировка нагрузки",
   "logs.routing.mode.failover": "Переключение при отказе",
