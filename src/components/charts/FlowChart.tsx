@@ -2,7 +2,7 @@
 // 每列 Top 6 + 「其他」；节点高度 ∝ 度量值，连线宽度 ∝ 流量并在节点处对齐堆叠；值为 0 的节点/连线不画。
 // 行是扁平记录：columns[i].key 取节点 id，row[metric] 取数值。
 // 动效：入场左→右依次展开、度量切换平滑过渡（JS 补间，WebKit 不支持 CSS `d` 过渡）、hover 高亮整条链路 + 数值 tooltip；
-// prefers-reduced-motion 下全部直接落位。
+// prefers-reduced-motion 下去掉补间/位移/回弹，改纯淡入 + 更慢更淡的流光。
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
@@ -49,11 +49,12 @@ const ribbon = (x1: number, x2: number, ya: number, yb: number, w: number) => {
   const m = (x1 + x2) / 2, h = w / 2;
   return `M ${x1} ${ya - h} C ${m} ${ya - h}, ${m} ${yb - h}, ${x2} ${yb - h} L ${x2} ${yb + h} C ${m} ${yb + h}, ${m} ${ya + h}, ${x1} ${ya + h} Z`;
 };
-// 流光：沿中线移动的淡色亮段，周期与流量无关；hover 链路加快加亮；reduced-motion 直接隐藏。
+// 流光：沿中线移动的淡色亮段，周期与流量无关；hover 链路加快加亮；reduced-motion 周期拉长、更淡、hover 不加速。
 const CSS = `@keyframes fc-flow{from{stroke-dashoffset:0}to{stroke-dashoffset:-100}}
 .fc-shine{stroke-opacity:.14;animation:fc-flow 4.5s linear infinite;transition:stroke-opacity .18s}
 .fc-shine.fc-hot{stroke-opacity:.5;animation-duration:1.6s}
-@media (prefers-reduced-motion: reduce){.fc-shine{display:none}}`;
+@keyframes fc-fade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion: reduce){.fc-shine,.fc-shine.fc-hot{stroke-opacity:.07;animation-duration:9s}.fc-in{animation:fc-fade .25s ease-out backwards}}`;
 
 const fmtValue = (metric: FlowMetric, v: number) => (metric === "cost" ? formatMoney(v) : formatNumber(Math.round(v)));
 
@@ -133,9 +134,9 @@ export function computeLayout(columns: FlowChartColumn[], rows: FlowChartRow[], 
 
 // easeOutBack，轻微回弹（c1 小，过冲约 2%）
 const ease = (p: number) => { const c1 = 0.5, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); };
-const canAnimate = () =>
-  typeof window !== "undefined" && typeof window.matchMedia === "function" && typeof requestAnimationFrame === "function" &&
-  !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const hasMedia = () => typeof window !== "undefined" && typeof window.matchMedia === "function";
+const prefersReduced = () => hasMedia() && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const canAnimate = () => hasMedia() && typeof requestAnimationFrame === "function" && !prefersReduced();
 
 /** 补间：n: 键 [y,h]，l: 键 [y1,y2,w]；新键从零高/零宽长出（带列延迟），旧键直接消失。 */
 function useTween(target: Map<string, number[]>, delayOf: (key: string) => number) {
@@ -192,6 +193,7 @@ export function FlowChart({ columns, rows, metric, surface = "var(--card)" }: Fl
   const [hov, setHov] = useState<Hover | null>(null);
   const [pt, setPt] = useState({ x: 0, y: 0 });
 
+  const reduced = prefersReduced();
   const nw = columns.length;
   const W = (nw - 1) * COL_GAP + NODE_W + LABEL_W;
   const H = TOP + Math.max(0, ...nodes.map(n => n.y + n.h - TOP)) + 8;
@@ -232,7 +234,7 @@ export function FlowChart({ columns, rows, metric, surface = "var(--card)" }: Fl
   if (nodes.length === 0) return <div data-testid="flow-chart" />;
 
   return (
-    <div data-testid="flow-chart" style={{ overflowX: "auto" }}>
+    <div data-testid="flow-chart" data-motion={reduced ? "reduced" : "full"} style={{ overflowX: "auto" }}>
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ direction: "ltr", minWidth: W, fontFamily: "var(--font-mono, monospace)" }} role="img"
         onMouseLeave={() => setHov(null)}>
         {columns.map((c, ci) => (
@@ -265,11 +267,12 @@ export function FlowChart({ columns, rows, metric, surface = "var(--card)" }: Fl
             const alpha = on === null ? base : on ? 0.72 : 0.07;
             return (
               <g key={l.key} data-testid={`flow-link-${columns[l.ci].key}-${l.a}-${l.b}`} data-value={l.v} data-width={l.w}
-                data-state={on === null ? "idle" : on ? "on" : "off"} style={{ cursor: "pointer" }}
+                data-state={on === null ? "idle" : on ? "on" : "off"} className={reduced ? "fc-in" : undefined}
+                style={{ cursor: "pointer", ...(reduced ? { animationDelay: `${(l.ci + 1) * 60}ms` } : {}) }}
                 onMouseEnter={() => setHov({ kind: "link", key: l.key })} onMouseMove={move}>
                 <path d={ribbon(x1, x2, a[0], a[1], a[2])} fill={`url(#${uid}g${i})`} style={{ fillOpacity: alpha, transition: "fill-opacity .18s" }} />
                 <g clipPath={`url(#${uid}c${i})`} style={{ opacity: on === false ? 0 : 1 }}>
-                  <path className={`fc-shine${on ? " fc-hot" : ""}`} pathLength={100} d={`M ${x1} ${a[0]} C ${mx} ${a[0]}, ${mx} ${a[1]}, ${x2} ${a[1]}`}
+                  <path data-testid="flow-shine" className={`fc-shine${on ? " fc-hot" : ""}`} pathLength={100} d={`M ${x1} ${a[0]} C ${mx} ${a[0]}, ${mx} ${a[1]}, ${x2} ${a[1]}`}
                     fill="none" stroke="#fff" strokeWidth={a[2] + 4} strokeDasharray="9 91" style={{ animationDelay: `${-((i * 1.37) % 4.5)}s` }} />
                 </g>
               </g>
@@ -286,7 +289,8 @@ export function FlowChart({ columns, rows, metric, surface = "var(--card)" }: Fl
           return (
             <g key={n.key} data-testid={`flow-node-${columns[ci].key}-${n.id}`} data-value={n.v} data-height={n.h}
               data-state={on === null ? "idle" : on ? "on" : "off"}
-              style={{ opacity: on === false ? 0.35 : 1, transition: "opacity .18s", cursor: "pointer" }}
+              className={reduced ? "fc-in" : undefined}
+              style={{ opacity: on === false ? 0.35 : 1, transition: "opacity .18s", cursor: "pointer", ...(reduced ? { animationDelay: `${ci * 60}ms` } : {}) }}
               onMouseEnter={() => setHov({ kind: "node", key: n.key })} onMouseMove={move}>
               <rect x={nx(ci)} y={a[0]} width={NODE_W} height={a[1]} rx={2} fill={n.color} />
               <text x={nx(ci) + NODE_W + 6} y={two ? cy - 2 : cy + 3.5} fontSize={10.5} fill="var(--foreground)" opacity={grow}
