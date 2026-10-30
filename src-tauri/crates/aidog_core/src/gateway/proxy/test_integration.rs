@@ -3514,7 +3514,7 @@ async fn passthrough_platform_relays_unparseable_requests_verbatim() {
     let state = make_state(test_db().await).await;
     setup_passthrough_platform_group(&state, "gkraw", &upstream).await;
 
-    let cases: [(&str, &str, &str); 8] = [
+    let cases: [(&str, &str, &str); 9] = [
         ("POST", "/v1/messages", "not json at all"),
         ("POST", "/v1/messages", r#"{"foo":1}"#),
         ("POST", "/v1/custom/thing", r#"{"input":"x"}"#),
@@ -3522,6 +3522,7 @@ async fn passthrough_platform_relays_unparseable_requests_verbatim() {
         ("GET", "/v1/files", ""),
         ("GET", "/v1/responses/resp_1", ""),
         ("POST", "/v1/systemone", r#"{"answers":[]}"#),
+        ("POST", "/v1/embeddings", r#"{"model":"m","input":"x"}"#),
         ("GET", "/v1/models", ""),
     ];
     for (method, path, body) in cases {
@@ -3948,4 +3949,262 @@ async fn chat_direct_model_unavailable_503_and_audit_log() {
     assert_eq!(log.blocked_by, "router");
     assert_eq!(log.blocked_reason, "direct_model_unavailable");
     assert_eq!(log.est_cost, 0.0, "route-fail must not be priced");
+}
+
+// ══ embedding：/v1/embeddings 专用槽位转发端到端（本地假上游，禁外呼）══
+
+type EmbHits = std::sync::Arc<StdMutex<Vec<(String, String, String)>>>;
+
+/// 记录 (path, body, authorization) 的假上游，按队列返回 (status, body)。
+async fn spawn_embedding_upstream(responses: Vec<(u16, &'static str)>) -> (String, EmbHits) {
+    let hits: EmbHits = std::sync::Arc::new(StdMutex::new(Vec::new()));
+    let queue = std::sync::Arc::new(StdMutex::new(std::collections::VecDeque::from(responses)));
+    let h2 = hits.clone();
+    let app = axum::Router::new().fallback(axum::routing::any(move |req: Request| {
+        let hits = h2.clone();
+        let queue = queue.clone();
+        async move {
+            let path = req.uri().path().to_string();
+            let auth = req
+                .headers()
+                .get("authorization")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("")
+                .to_string();
+            let body = axum::body::to_bytes(req.into_body(), 1024 * 1024)
+                .await
+                .map(|b| String::from_utf8_lossy(&b).to_string())
+                .unwrap_or_default();
+            hits.lock().unwrap().push((path, body, auth));
+            let (status, resp) = queue.lock().unwrap().pop_front().unwrap_or((200, "{}"));
+            (
+                axum::http::StatusCode::from_u16(status).unwrap(),
+                [("content-type", "application/json")],
+                resp,
+            )
+        }
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, app).await.ok(); });
+    (format!("http://{addr}"), hits)
+}
+
+const EMB_RESPONSE: &str = r#"{"object":"list","data":[{"object":"embedding","index":0,"embedding":[0.1,0.2]}],"model":"emb-slot","usage":{"prompt_tokens":8,"total_tokens":8}}"#;
+
+/// 建 group `gk` 并按序挂入平台：(上游地址, 槽位 embedding, 平台协议/endpoint 协议, 平台名)。
+async fn setup_embedding_group(
+    state: &Arc<ProxyState>,
+    gk: &str,
+    plats: &[(&str, Option<&str>, Protocol, &str)],
+) {
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
+    let mut inputs = Vec::new();
+    for (i, (base, slot, proto, name)) in plats.iter().enumerate() {
+        let plat = aidog_db::create_platform(
+            &state.db,
+            CreatePlatform {
+                name: format!("{gk}-{name}"),
+                platform_type: proto.clone(),
+                base_url: base.to_string(),
+                api_key: format!("sk-{name}"),
+                extra: String::new(),
+                models: Some(PlatformModels {
+                    embedding: slot.map(String::from),
+                    ..Default::default()
+                }),
+                available_models: None,
+                endpoints: Some(vec![crate::gateway::models::PlatformEndpoint {
+                    protocol: proto.clone(),
+                    base_url: format!("{base}/v1"),
+                    client_type: "default".into(),
+                    coding_plan: false,
+                }]),
+                manual_budgets: None,
+                auto_group: None,
+                join_group_ids: None,
+                expires_at: None,
+                quota_source: None,
+            },
+        )
+        .await
+        .unwrap();
+        inputs.push(GroupPlatformInput {
+            platform_id: plat.id,
+            priority: Some(i as i32),
+            weight: Some(1),
+            level_priority: Some(0),
+        });
+    }
+    aidog_db::set_group_platforms(&state.db, group.id, &inputs).await.unwrap();
+}
+
+fn embedding_request(gk: &str, body: &str, path: &str) -> Request {
+    HttpRequest::builder()
+        .method("POST")
+        .uri(path)
+        .header("authorization", format!("Bearer {gk}"))
+        .header("content-type", "application/json")
+        .body(Body::from(body.to_string()))
+        .unwrap()
+}
+
+const EMB_REQ: &str = r#"{"model":"text-embedding-3-small","input":["hello","world"],"encoding_format":"float","dimensions":256}"#;
+
+fn embedding_entry(price: &str) -> ModelEntry {
+    ModelEntry {
+        platform_code: "openai".into(),
+        model_id: "emb-slot".into(),
+        display_name: "emb-slot".into(),
+        canonical_model: "emb-slot".into(),
+        family: String::new(),
+        version: String::new(),
+        predecessor: String::new(),
+        capabilities: vec!["embedding".into()],
+        builtin_tools_excluded: vec![],
+        max_input_tokens: None,
+        max_output_tokens: None,
+        context_window: None,
+        official: true,
+        price_data: format!(r#"{{"price":{price}}}"#),
+        updated_at: aidog_db::now(),
+    }
+}
+
+/// 路径 /embeddings、model 被槽位覆盖、其它字段原样、Authorization 为平台 key、响应 model 回写、usage 入账。
+#[tokio::test]
+async fn embedding_request_end_to_end() {
+    let (up, hits) = spawn_embedding_upstream(vec![(200, EMB_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(&state.db, vec![embedding_entry(r#"{"input":2e-8,"output":0}"#)])
+        .await
+        .unwrap();
+    setup_embedding_group(&state, "gkemb", &[(&up, Some("emb-slot"), Protocol::OpenAI, "a")]).await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request("gkemb", EMB_REQ, "/v1/embeddings"),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(v["model"], "text-embedding-3-small", "响应 model 回写客户端原名");
+    assert_eq!(v["data"][0]["embedding"], serde_json::json!([0.1, 0.2]), "其它字段不变");
+    assert_eq!(v["usage"]["prompt_tokens"], 8);
+
+    let (path, req_body, auth) = hits.lock().unwrap()[0].clone();
+    assert_eq!(path, "/v1/embeddings", "base_url(/v1) + /embeddings，不是 /chat/completions");
+    let sent: serde_json::Value = serde_json::from_str(&req_body).unwrap();
+    assert_eq!(sent["model"], "emb-slot", "客户端模型名被槽位覆盖");
+    assert_eq!(sent["input"], serde_json::json!(["hello", "world"]));
+    assert_eq!(sent["encoding_format"], "float");
+    assert_eq!(sent["dimensions"], 256);
+    assert_eq!(auth, "Bearer sk-a");
+
+    let log = last_log_for(&state, "gkemb").await;
+    assert_eq!(log.status_code, 200);
+    assert_eq!(log.source_protocol, "embeddings");
+    assert_eq!(log.target_protocol, "embeddings");
+    assert_eq!(log.model, "text-embedding-3-small");
+    assert_eq!(log.actual_model, "emb-slot");
+    assert_eq!((log.input_tokens, log.output_tokens), (8, 0));
+    assert!((log.est_cost - 8.0 * 2e-8).abs() < 1e-15, "got {}", log.est_cost);
+}
+
+/// 计费口径：registry 价 / free:true / 全 0 价未标 free → 兜底价。
+#[tokio::test]
+async fn embedding_cost_registry_free_and_fallback() {
+    for (gk, price, expected) in [
+        ("gke1", r#"{"input":2e-8,"output":0}"#, 8.0 * 2e-8),
+        ("gke2", r#"{"free":true,"input":0,"output":0}"#, 0.0),
+        ("gke3", r#"{"input":0,"output":0}"#, 8.0 * 3.0 / 1_000_000.0),
+    ] {
+        let (up, _hits) = spawn_embedding_upstream(vec![(200, EMB_RESPONSE)]).await;
+        let state = make_state(test_db().await).await;
+        aidog_db::upsert_model_entries(&state.db, vec![embedding_entry(price)]).await.unwrap();
+        setup_embedding_group(&state, gk, &[(&up, Some("emb-slot"), Protocol::OpenAI, "a")]).await;
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            embedding_request(gk, EMB_REQ, "/v1/embeddings"),
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let log = last_log_for(&state, gk).await;
+        assert!((log.est_cost - expected).abs() < 1e-12, "{gk}: want {expected}, got {}", log.est_cost);
+    }
+}
+
+/// 无候选 → 503 + blocked_reason=no_embedding_platform（三文件库，读回）。
+/// 三种成因：槽位未配 / 槽位纯空白 / 非 OpenAI 系协议平台。
+#[tokio::test]
+async fn embedding_no_candidate_503_and_audit_log() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let state = make_state(db).await;
+    let (up, hits) = spawn_embedding_upstream(vec![]).await;
+    setup_embedding_group(&state, "gkn1", &[(&up, None, Protocol::OpenAI, "a")]).await;
+    setup_embedding_group(&state, "gkn2", &[(&up, Some("  "), Protocol::OpenAI, "a")]).await;
+    setup_embedding_group(&state, "gkn3", &[(&up, Some("emb"), Protocol::Anthropic, "a")]).await;
+    for gk in ["gkn1", "gkn2", "gkn3"] {
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            embedding_request(gk, EMB_REQ, "/v1/embeddings"),
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE, "{gk}");
+        let log = last_log_for(&state, gk).await;
+        assert_eq!(log.status_code, 503);
+        assert_eq!(log.blocked_by, "router");
+        assert_eq!(log.blocked_reason, "no_embedding_platform");
+        assert_eq!(log.est_cost, 0.0);
+    }
+    assert!(hits.lock().unwrap().is_empty(), "不得打到任何上游");
+}
+
+/// 三平台：槽位为空的被排除；首个 529 故障转移到第二个。
+#[tokio::test]
+async fn embedding_skips_empty_slot_and_fails_over() {
+    let (up_empty, hits_empty) = spawn_embedding_upstream(vec![]).await;
+    let (up1, hits1) = spawn_embedding_upstream(vec![(529, r#"{"error":"overloaded"}"#)]).await;
+    let (up2, hits2) = spawn_embedding_upstream(vec![(200, EMB_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    setup_embedding_group(
+        &state,
+        "gkfo",
+        &[
+            (&up_empty, None, Protocol::OpenAI, "empty"),
+            (&up1, Some("emb-1"), Protocol::OpenAI, "p1"),
+            (&up2, Some("emb-2"), Protocol::OpenAI, "p2"),
+        ],
+    )
+    .await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request("gkfo", EMB_REQ, "/proxy/v1/embeddings"),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK, "首个失败应转移到第二个");
+    assert!(hits_empty.lock().unwrap().is_empty(), "槽位为空的平台不参与");
+    assert_eq!(hits1.lock().unwrap().len(), 1);
+    assert_eq!(hits2.lock().unwrap().len(), 1);
+    let sent: serde_json::Value = serde_json::from_str(&hits2.lock().unwrap()[0].1).unwrap();
+    assert_eq!(sent["model"], "emb-2", "各平台用各自槽位");
+    assert_eq!(last_log_for(&state, "gkfo").await.retry_count, 1);
+}
+
+/// 非 JSON body → 400（不走 openai messages 解析）。
+#[tokio::test]
+async fn embedding_non_json_body_400() {
+    let (up, hits) = spawn_embedding_upstream(vec![]).await;
+    let state = make_state(test_db().await).await;
+    setup_embedding_group(&state, "gkbad", &[(&up, Some("emb"), Protocol::OpenAI, "a")]).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request("gkbad", "not json", "/v1/embeddings"),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert!(hits.lock().unwrap().is_empty());
 }
