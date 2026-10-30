@@ -16,6 +16,7 @@ import {
   trayConfigApi,
   platformApi,
   statsApi,
+  groupFlowApi,
   onProxyLogUpdated,
   type TodayStats,
   type Platform,
@@ -23,6 +24,7 @@ import {
   type StatsBucket,
   type DimensionEntry,
   type StatsSeries,
+  type FlowRow,
 } from "../services/api";
 import type { NavContext } from "../components/Sidebar";
 import { formatNumber, formatMoney, formatPercent, formatDurationMs } from "../utils/formatters";
@@ -30,6 +32,7 @@ import { writeText } from "../services/platform";
 import { useReveal } from "../components/shared";
 import { seriesColor } from "@/components/charts";
 import { HomeTrendChart, buildSparkMap } from "./HomeTrendChart";
+import { HomeFlowCard } from "./HomeFlowCard";
 import { ProtocolLogo } from "../domains/platforms/ProtocolLogo";
 import { F } from "../domains/shared/tokens";
 import { useThemeMode } from "../themes/useThemeMode";
@@ -234,6 +237,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
   const [todaySeriesPlatforms, setTodaySeriesPlatforms] = useState<StatsSeries[]>([]);
   const [todaySeriesModels, setTodaySeriesModels] = useState<StatsSeries[]>([]);
   const [todaySeriesGroups, setTodaySeriesGroups] = useState<StatsSeries[]>([]);
+  const [flowRows, setFlowRows] = useState<FlowRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
@@ -249,6 +253,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
       proxyApi.getSettings().then(s => setPort(s.port)).catch(() => {}),
       trayConfigApi.todayStats().then(setToday).catch(() => setToday(null)),
       platformApi.list().then(setPlatforms).catch(() => setPlatforms([])),
+      groupFlowApi.flow("24h").then(setFlowRows).catch(() => setFlowRows([])),
       statsApi.query({ start: windowStart, end: now.getTime(), granularity: "hourly" })
         .then(r => setTrendBuckets(r.buckets)).catch(() => setTrendBuckets([])),
       // 一次 batch 六条查询：前三条 24h 只取 series（趋势图，不带 group_by 免算
@@ -344,6 +349,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
   // 萤火虫动效：面板内 5 区块 reveal 入场错峰（0/70/140/210/280ms）。
   const revealSearch = useReveal<HTMLDivElement>(0);
   const revealKpi = useReveal<HTMLDivElement>(70);
+  const revealFlow = useReveal<HTMLDivElement>(105);
   const revealTrend = useReveal<HTMLDivElement>(140);
   const revealDims = useReveal<HTMLDivElement>(210);
   const revealFoot = useReveal<HTMLDivElement>(280);
@@ -456,6 +462,15 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
               {loading ? "" : t("home.noToday", "今日暂无请求")}
             </div>
           )}
+        </div>
+
+        {/* 2b. 请求流量（请求流向票 05）：24h 五列流向图，维度趋势上方。 */}
+        <div
+          ref={revealFlow.ref}
+          className={`reveal${revealFlow.shown ? " in" : ""}`}
+          style={{ padding: "14px 16px", borderBottom: `1px solid ${P.line}` }}
+        >
+          <HomeFlowCard rows={flowRows} platforms={platforms} ungroupedLabel={ungroupedLabel} loading={loading} />
         </div>
 
         {/* 3. 维度趋势（home-dim-trend）：2026-09-27 由面板外独立玻璃卡移入面板

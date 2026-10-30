@@ -545,6 +545,7 @@
   "home.copyBaseUrlTitle": "نسخ base_url للوكيل",
   "home.cost": "التكلفة",
   "home.desc": "حالة الوكيل واستخدام اليوم ونظرة عامة على المجموعات والمنصات",
+  "home.flow.title": "تدفق الطلبات · 24 ساعة",
   "home.noToday": "لا توجد طلبات اليوم",
   "home.byModel": "حسب النموذج · اليوم",
   "home.byGroup": "حسب المجموعة · اليوم",
