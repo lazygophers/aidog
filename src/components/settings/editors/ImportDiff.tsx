@@ -193,7 +193,7 @@ export function buildImportDiffTree(
 /**
  * 推荐配置差异树：与「从 Claude Code 导入」共用同一棵 diff / 同一个选择弹窗，
  * 区别是推荐路径不做 aidog managed 过滤（推荐值本就是 aidog 自己的默认）、
- * 也不做 CC runtime 过滤（defaults/settings.json 是 aidog 单一事实源，新增 key
+ * 也不做 CC runtime 过滤（defaults/settings/oss.json 是 aidog 单一事实源，新增 key
  * 如 hooks / language / 未来的键都要如实对比，2026-10-19 用户拍板：
  * 除 `_aidog_*` 内部键外全部对比）。
  * 推荐配置里没有、当前配置里有的键（含 statusLine 等物化残留）照常列为
