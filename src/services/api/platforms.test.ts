@@ -14,6 +14,7 @@ import {
   serializeDisableDuringPeak,
   parseDirectModels,
   serializeDirectModels,
+  parseAllowedClients, serializeAllowedClients, toggleClientCategory, toggleClientVariant, clientCategoryState,
   parseAppbuilderKey,
   serializeAppbuilderKey,
   parseMitmStats,
@@ -466,5 +467,41 @@ describe("rateLimitsSummary", () => {
     expect(rateLimitsSummary({}, wl)).toBe("");
     expect(rateLimitsSummary({ rate_limits: { rpm: 60, tpm: 2000000 }, quota_windows: [{ window: 18000 }] }, wl)).toBe("60 RPM · 2.0M TPM · 1 窗口");
     expect(rateLimitsSummary({ rate_limits: { tpm: 90000 } }, wl)).toBe("90K TPM");
+  });
+});
+
+describe("allowed_clients（平台客户端白名单）", () => {
+  const cc = { code: "claude_code", nameKey: "k", matchable: true, variants: [{ code: "cc_a", nameKey: "k" }, { code: "cc_b", nameKey: "k" }] };
+  const cur = { code: "cursor", nameKey: "k", matchable: true, variants: [] };
+
+  it("解析：缺省 / 非法 / 非数组 / 含非字符串 → 过滤，旧 extra 无白名单", () => {
+    expect(parseAllowedClients("")).toEqual([]);
+    expect(parseAllowedClients("{}")).toEqual([]);
+    expect(parseAllowedClients("not-json")).toEqual([]);
+    expect(parseAllowedClients('{"allowed_clients":"x"}')).toEqual([]);
+    expect(parseAllowedClients('{"allowed_clients":["a",1,"",null,"b"]}')).toEqual(["a", "b"]);
+  });
+
+  it("序列化：保留其余键；空数组删除键（清空 = 取消白名单）；往返一致", () => {
+    const s = serializeAllowedClients('{"keep":1}', ["claude_code", "cc_a"]);
+    expect(JSON.parse(s)).toEqual({ keep: 1, allowed_clients: ["claude_code", "cc_a"] });
+    expect(parseAllowedClients(s)).toEqual(["claude_code", "cc_a"]);
+    expect(JSON.parse(serializeAllowedClients(s, []))).toEqual({ keep: 1 });
+  });
+
+  it("勾大类 = 全部变体；取消大类连同变体清掉", () => {
+    expect(toggleClientCategory(["cc_a", "x"], cc, true)).toEqual(["x", "claude_code"]);
+    expect(clientCategoryState(["claude_code"], cc)).toBe("all");
+    expect(toggleClientCategory(["claude_code", "x"], cc, false)).toEqual(["x"]);
+    expect(toggleClientCategory([], cur, true)).toEqual(["cursor"]);
+  });
+
+  it("勾单变体 → 半选；勾满折叠为大类；大类态下取消一个变体展开为其余变体", () => {
+    expect(toggleClientVariant([], cc, "cc_a", true)).toEqual(["cc_a"]);
+    expect(clientCategoryState(["cc_a"], cc)).toBe("some");
+    expect(clientCategoryState([], cc)).toBe("none");
+    expect(toggleClientVariant(["cc_a"], cc, "cc_b", true)).toEqual(["claude_code"]);
+    expect(toggleClientVariant(["claude_code", "x"], cc, "cc_a", false)).toEqual(["x", "cc_b"]);
+    expect(toggleClientVariant(["cc_a", "cc_b"], cc, "cc_a", false)).toEqual(["cc_b"]);
   });
 });

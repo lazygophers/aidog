@@ -398,6 +398,9 @@ pub struct PlatformExtra {
     /// 直通模型列表（直接模型转发）：声明即真值，不查 registry 收录。
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub direct_models: Vec<String>,
+    /// 客户端白名单（客户端词表码，大类或变体可混合）；空 = 未配 = 全放行。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed_clients: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub peak: Vec<crate::models::stats::TimeWindow>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

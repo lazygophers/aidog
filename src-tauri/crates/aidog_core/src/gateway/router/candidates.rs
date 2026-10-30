@@ -10,6 +10,7 @@ use super::ordering::{
     order_load_balance,
 };
 use super::{RouteResult, candidate_state, sole_platform};
+use crate::client_vocab::{ClientEntry, client_allowed};
 use aidog_db as db;
 use aidog_db::models::{ModelVia, RouteCandidate, RouteReason, RouteTag, RoutingSnapshot};
 use std::collections::{HashMap, HashSet};
@@ -59,6 +60,14 @@ impl From<String> for RouteFail {
             routing: RoutingSnapshot::default(),
         }
     }
+}
+
+/// 入站客户端闸门：`Off` = 不做白名单判定（未接线的调用方，由票 05/06 逐个收口）；
+/// `On(hit)` = 按识别结果判定（`None` = 认不出，配了白名单的平台一律不命中）。
+#[derive(Clone, Copy)]
+pub enum ClientGate {
+    Off,
+    On(Option<&'static ClientEntry>),
 }
 
 /// 请求类型（jev-decision-proxy §3.3.3）：候选过滤按类型剔除不支持的平台。
@@ -188,6 +197,8 @@ struct ExtraCache {
     disable_during_peak: bool,
     /// extra.direct_models（直通模型声明，直接模型转发）。
     direct_models: Vec<String>,
+    /// extra.allowed_clients（客户端白名单，空 = 全放行）。
+    allowed_clients: Vec<String>,
 }
 
 impl ExtraCache {
@@ -196,12 +207,14 @@ impl ExtraCache {
         let time_windows = time_windows::parse_platform_time_windows(extra);
         let peak_windows = peak::peak_for(extra, &platform_type.wire_str());
         let disable_during_peak = peak::parse_disable_during_peak(extra);
-        let direct_models = db::models::PlatformExtra::parse(extra).direct_models;
+        let parsed = db::models::PlatformExtra::parse(extra);
+        let (direct_models, allowed_clients) = (parsed.direct_models, parsed.allowed_clients);
         Self {
             time_windows,
             peak_windows,
             disable_during_peak,
             direct_models,
+            allowed_clients,
         }
     }
 }
@@ -235,6 +248,19 @@ pub async fn select_candidates_ctx(
     source_model: &str,
     ctx: Option<&ScheduleCtx<'_>>,
     kind: RequestKind<'_>,
+) -> Result<CandidateSet, RouteFail> {
+    select_candidates_gated(db, group, source_model, ctx, kind, ClientGate::Off).await
+}
+
+/// [`select_candidates_ctx`] + 客户端白名单闸门（仅多平台组的普通过滤路径生效，
+/// 单平台 / 直通链 / 透传短路见票 05）。
+pub async fn select_candidates_gated(
+    db: &db::Db,
+    group: &Group,
+    source_model: &str,
+    ctx: Option<&ScheduleCtx<'_>>,
+    kind: RequestKind<'_>,
+    client: ClientGate,
 ) -> Result<CandidateSet, RouteFail> {
     let mapping = group
         .model_mappings
@@ -351,7 +377,8 @@ pub async fn select_candidates_ctx(
         peak_disabled_count,
         kind_rejected_count,
         unknown_protocol_count,
-    } = filter_candidates(&group_platforms, ctx, now_ms, source_model, &extra_cache, kind, &decision_models);
+        client_rejected_count,
+    } = filter_candidates(&group_platforms, ctx, now_ms, source_model, &extra_cache, kind, &decision_models, client);
 
     // ── 阶段 2: 熔断全空回退透传 ──
     // 仅当熔断维度踢空（active+probe 皆空）且确有被熔断踢出的候选时回退；
@@ -486,6 +513,23 @@ pub async fn select_candidates_ctx(
             );
             return Err(RouteFail {
                 reason: kind.no_platform_err().to_string(),
+                routing,
+            });
+        }
+        // 客户端白名单拦下了候选：全部平台都因白名单被拦 → 417（`client_not_allowed`）；
+        // 与其他排除原因并存 → 503（`client_not_allowed_mixed`，落库 blocked_reason 同为 client_not_allowed）。
+        if client_rejected_count > 0 {
+            let reason = if client_rejected_count == group_platforms.len() {
+                "client_not_allowed"
+            } else {
+                "client_not_allowed_mixed"
+            };
+            tracing::info!(
+                group = %group.name, client_rejected = client_rejected_count, reason,
+                "candidates excluded by client whitelist; returning error for audit log"
+            );
+            return Err(RouteFail {
+                reason: reason.to_string(),
                 routing,
             });
         }
@@ -736,6 +780,7 @@ fn select_direct_candidates(
         extra_cache,
         kind,
         decision_models,
+        ClientGate::Off, // 直通模型链的白名单约束属票 05
     );
     active.retain(|gp| in_direct(gp));
     probe.retain(|gp| in_direct(gp));
@@ -848,11 +893,14 @@ struct FilteredCandidates<'a> {
     peak_disabled_count: usize,
     kind_rejected_count: usize,
     unknown_protocol_count: usize,
+    /// 因客户端白名单被拦的平台数（仅统计状态正常、未被其他维度先排除者）。
+    client_rejected_count: usize,
 }
 
 /// 遍历 group_platforms 按 auto_disabled 三态分桶（enabled / 过期试探），
 /// 再叠加配额冷却（429 配额耗尽，内存态，不改 DB status）与熔断准入门
 /// （Open/HalfOpen 满踢出），高峰禁用计数。排除候选逐个带细分原因标签（票 01）。
+#[allow(clippy::too_many_arguments)]
 fn filter_candidates<'a>(
     group_platforms: &'a [GroupPlatformDetail],
     ctx: Option<&ScheduleCtx<'_>>,
@@ -861,6 +909,7 @@ fn filter_candidates<'a>(
     extra_cache: &ExtraCacheMap,
     kind: RequestKind<'_>,
     decision_models: &DecisionModels,
+    client: ClientGate,
 ) -> FilteredCandidates<'a> {
     let mut active = Vec::new();
     let mut probe = Vec::new();
@@ -869,6 +918,7 @@ fn filter_candidates<'a>(
     let mut peak_disabled_count = 0;
     let mut kind_rejected_count = 0;
     let mut unknown_protocol_count = 0;
+    let mut client_rejected_count = 0;
 
     let breaker_enabled = ctx.map(|c| c.settings.enabled).unwrap_or(false);
 
@@ -901,6 +951,16 @@ fn filter_candidates<'a>(
             }
             excluded.push((gp, state_reason));
             continue; // 手动 disabled / auto_disabled 未到期 / 高峰禁用 → 跳过
+        }
+
+        // 客户端白名单维度：放在状态判定之后（既有排除原因优先级不变），透传 / 冷却 / 熔断之前。
+        if let ClientGate::On(hit) = client
+            && let Some(c) = extra_cache.get(&gp.platform.id)
+            && !client_allowed(&c.allowed_clients, hit)
+        {
+            client_rejected_count += 1;
+            excluded.push((gp, RouteReason::ClientNotAllowed));
+            continue;
         }
 
         // 透传平台永远在线（ADR 0008 决策 2）：不参与失败计数，跳过配额/auth 冷却与熔断
@@ -961,6 +1021,7 @@ fn filter_candidates<'a>(
         peak_disabled_count,
         kind_rejected_count,
         unknown_protocol_count,
+        client_rejected_count,
     }
 }
 

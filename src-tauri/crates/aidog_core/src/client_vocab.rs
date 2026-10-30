@@ -131,6 +131,15 @@ pub fn identify(ua: &str) -> Option<&'static ClientEntry> {
     CLIENTS.iter().find(|e| e.rules.iter().any(|m| m.hit(&ua)))
 }
 
+/// 平台客户端白名单判定：空 = 全放行；`hit` 为 `None`（认不出）= 不命中；
+/// 否则白名单含该码或其所属大类即命中（勾大类 = 全部变体）。
+pub fn client_allowed(whitelist: &[String], hit: Option<&ClientEntry>) -> bool {
+    if whitelist.is_empty() {
+        return true;
+    }
+    hit.is_some_and(|e| whitelist.iter().any(|w| w == e.code || w == e.category()))
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VocabVariant {
