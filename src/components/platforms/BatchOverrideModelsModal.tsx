@@ -32,7 +32,7 @@ import {
 
 type Source = "manual" | "preset" | "copy";
 
-const EMPTY_MODELS: PlatformModels = { default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "" };
+const EMPTY_MODELS: PlatformModels = { default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "", embedding: "", rerank: "" };
 
 function normalize(partial: Partial<Record<ModelSlot, string>> | PlatformModels | undefined): PlatformModels {
   return {
@@ -42,6 +42,8 @@ function normalize(partial: Partial<Record<ModelSlot, string>> | PlatformModels 
     haiku: partial?.haiku ?? "",
     gpt: partial?.gpt ?? "",
     jev: partial?.jev ?? "",
+    embedding: partial?.embedding ?? "",
+    rerank: partial?.rerank ?? "",
   };
 }
 
@@ -192,6 +194,7 @@ export function BatchOverrideModelsModal({
               </span>
               <Input
                 className="input"
+                data-testid={`batch-slot-${s.key}`}
                 style={{ fontSize: 12, padding: "4px 8px", height: "auto" }}
                 value={slots[s.key] ?? ""}
                 onChange={e => setSlots(prev => ({ ...prev, [s.key]: e.target.value }))}

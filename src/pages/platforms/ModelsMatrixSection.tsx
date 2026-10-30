@@ -14,7 +14,7 @@ import { type TzMode, utcToDisplay } from "../../utils/timeWindow";
 import { pinyinMatch } from "../../utils/pinyin";
 import { pad } from "../../utils/formatters";
 import {
-  MODEL_SLOTS, getDefaultModelList,
+  MODEL_SLOTS, DEDICATED_MODEL_SLOTS, getDefaultModelList,
 } from "../../domains/platforms";
 import { FormSection } from "./formSections";
 import { WindowsEditModal } from "./WindowsEditModal";
@@ -373,7 +373,8 @@ export function ModelsMatrixSection({
                   {t("platform.time_windows_edit_button", "编辑时段")}
                 </Button>
               </div>
-              {MODEL_SLOTS.map(({ key, labelKey }) => (
+              {/* embedding / rerank 读 platform.models，不进时段规则 */}
+              {MODEL_SLOTS.filter(({ key }) => !DEDICATED_MODEL_SLOTS.includes(key)).map(({ key, labelKey }) => (
                 <div key={key} style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <div style={{ width: 64, flexShrink: 0, fontSize: 13, fontWeight: 500, color: "var(--text-tertiary)", textAlign: "right" }}>
                     {t(labelKey)}
@@ -476,7 +477,7 @@ export function ModelsMatrixSection({
 
           {/* 5 槽行 */}
           {MODEL_SLOTS.map(({ key, labelKey }) => (
-            <div key={key} style={rowStyle}>
+            <div key={key} style={rowStyle} data-testid={`model-slot-${key}`}>
               {/* 左侧固定 slot 标签 */}
               <div style={{
                 width: LABEL_W, flexShrink: 0,

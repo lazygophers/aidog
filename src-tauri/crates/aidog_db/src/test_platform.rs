@@ -670,3 +670,27 @@ async fn list_passthrough_extras_only_live_passthrough_platforms() {
         [r#"{"auth_header":"X-Token"}"#.to_string()]
     );
 }
+
+/// embedding / rerank 槽位写后重开 DB 读回（platform.db 读池，三文件库暴露错路由）。
+#[tokio::test]
+async fn platform_models_embedding_rerank_survive_reopen() {
+    let (db, dir) = three_file_db().await;
+    let mut input = sample_platform("emb-rr");
+    input.models = Some(PlatformModels {
+        default: Some("gpt-4o".into()),
+        embedding: Some("text-embedding-v4".into()),
+        rerank: Some("jina-reranker-v2".into()),
+        ..Default::default()
+    });
+    create_platform(&db, input).await.unwrap();
+    drop(db);
+
+    let reopened = Db::new(dir.path().join("aidog.db").to_str().unwrap())
+        .await
+        .expect("reopen");
+    let listed = list_platforms(&reopened).await.unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].models.embedding_slot(), Some("text-embedding-v4"));
+    assert_eq!(listed[0].models.rerank_slot(), Some("jina-reranker-v2"));
+    assert_eq!(listed[0].models.default.as_deref(), Some("gpt-4o"));
+}

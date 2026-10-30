@@ -40,7 +40,10 @@ pub fn parse_attempts(s: &str) -> Vec<ProxyAttempt> {
 
 // ─── Platform Models ───────────────────────────────────────
 
-/// 平台模型配置：6 个固定槽位（jev 为决策模型专用槽，见 jev-decision-proxy R2/R3）
+/// 平台模型配置：8 个固定槽位（jev 为决策模型专用槽，见 jev-decision-proxy R2/R3；
+/// embedding / rerank 为向量化 / 重排序专用槽，见 .scratch/embedding-槽位/spec.md）。
+/// embedding / rerank 只读 `platform.models`，**不读** `effective_models`：time_windows 命中与 preset
+/// `models.peak` 命中都是整支替换为不含新槽位的 `PlatformModels`，故两槽天然不参与时段/高峰切换。
 #[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct PlatformModels {
@@ -63,6 +66,14 @@ pub struct PlatformModels {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub jev: Option<String>,
+    /// 向量化模型槽（/v1/embeddings 专用路径上游固定用此模型）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub embedding: Option<String>,
+    /// 重排序模型槽（/v1/rerank 专用路径上游固定用此模型）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub rerank: Option<String>,
 }
 
 impl PlatformModels {
@@ -77,6 +88,8 @@ impl PlatformModels {
             &self.haiku,
             &self.gpt,
             &self.jev,
+            &self.embedding,
+            &self.rerank,
         ]
         .into_iter()
         .flatten()
@@ -104,10 +117,13 @@ impl PlatformModels {
         v
     }
 
-    /// 6 槽位全 None 时为空（用于分享串 `skip_serializing_if`）。
+    /// 8 槽位全 None 时为空（用于分享串 `skip_serializing_if`）。
     /// 直接字段判定零分配，避免 `all_values().is_empty()` 的 Vec 分配。
     pub fn is_empty(&self) -> bool {
-        !self.has_chat_slot() && self.jev_slot().is_none()
+        !self.has_chat_slot()
+            && self.jev_slot().is_none()
+            && self.embedding_slot().is_none()
+            && self.rerank_slot().is_none()
     }
 
     /// 5 个聊天槽是否至少一个已配置（`Some("")` / 纯空白不算：批量覆盖会持久化空串槽）。
@@ -120,6 +136,16 @@ impl PlatformModels {
     /// jev 决策槽的有效值（trim 后非空才算配置）。
     pub fn jev_slot(&self) -> Option<&str> {
         slot_filled(&self.jev)
+    }
+
+    /// embedding 向量化槽的有效值（trim 后非空才算配置）。
+    pub fn embedding_slot(&self) -> Option<&str> {
+        slot_filled(&self.embedding)
+    }
+
+    /// rerank 重排序槽的有效值（trim 后非空才算配置）。
+    pub fn rerank_slot(&self) -> Option<&str> {
+        slot_filled(&self.rerank)
     }
 
     /// 平台支持决策请求（jev 槽非空 ⇔ 决策请求可路由到该平台，R2 前半）。
@@ -639,6 +665,55 @@ mod tests {
         .is_empty());
     }
 
+    // ── PlatformModels::embedding / rerank 槽位 ──
+
+    #[test]
+    fn platform_models_embedding_rerank_serde_roundtrip() {
+        let e = PlatformModels {
+            embedding: Some("text-embedding-v4".into()),
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&e).unwrap();
+        assert_eq!(json, r#"{"embedding":"text-embedding-v4"}"#, "None 槽位不序列化");
+        let back: PlatformModels = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.embedding_slot(), Some("text-embedding-v4"));
+        assert_eq!(back.rerank_slot(), None);
+
+        let r = PlatformModels {
+            rerank: Some("jina-reranker-v2".into()),
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&r).unwrap();
+        assert_eq!(json, r#"{"rerank":"jina-reranker-v2"}"#);
+        let back: PlatformModels = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.rerank_slot(), Some("jina-reranker-v2"));
+    }
+
+    #[test]
+    fn platform_models_embedding_rerank_slot_semantics() {
+        let pm = PlatformModels {
+            default: Some("gpt-4o".into()),
+            embedding: Some("emb".into()),
+            rerank: Some("rr".into()),
+            ..Default::default()
+        };
+        let all = pm.all_values();
+        assert!(all.contains(&"emb".to_string()) && all.contains(&"rr".to_string()));
+        // 专用槽不承接主对话，不参与上下文窗口约束
+        assert_eq!(pm.main_loop_values(), vec!["gpt-4o".to_string()]);
+        // 仅配 embedding / 仅配 rerank 时整体非空（分享串不得丢槽位）
+        assert!(!PlatformModels { embedding: Some("emb".into()), ..Default::default() }.is_empty());
+        assert!(!PlatformModels { rerank: Some("rr".into()), ..Default::default() }.is_empty());
+        // 空串 / 纯空白不算配置
+        let blank = PlatformModels {
+            embedding: Some("  ".into()),
+            rerank: Some(String::new()),
+            ..Default::default()
+        };
+        assert!(blank.embedding_slot().is_none() && blank.rerank_slot().is_none());
+        assert!(blank.is_empty());
+    }
+
     #[test]
     fn platform_models_is_decision_only_both_directions() {
         // R3：jev 非空 + 5 聊天槽全空 → 只支持决策
@@ -684,6 +759,7 @@ mod tests {
             opus: Some("".into()),
             haiku: Some("".into()),
             gpt: Some("".into()),
+            ..Default::default()
         };
         assert!(only.is_decision_only());
         assert_eq!(only.jev_slot(), Some("jev-latest"));

@@ -175,7 +175,7 @@
             "type": "string",
             "minLength": 1
           },
-          "description": "【必填】默认槽位映射（槽位：default / opus / sonnet / haiku / gpt / fable / jev → 平台真实模型 id；jev = 决策模型槽位，纯决策平台只配 jev 不配 default，满足 R3）。聚合/中转平台可留空对象。"
+          "description": "【必填】默认槽位映射（槽位：default / opus / sonnet / haiku / gpt / fable / jev / embedding / rerank → 平台真实模型 id；jev = 决策模型槽位，纯决策平台只配 jev 不配 default，满足 R3；embedding = 向量化专用槽、rerank = 重排序专用槽，仅作可选键放行，本期不填数据）。聚合/中转平台可留空对象。"
         },
         "peak": {
           "type": "object",
