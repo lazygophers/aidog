@@ -125,7 +125,7 @@ export function segmentKey(item: TrayItem): string {
   }
 }
 
-/** 候选段清单：今日统计 4 项 + 当前命中平台 + 高峰指示 + 每个已启用平台。 */
+/** 候选段清单：今日统计 4 项 + 当前命中平台 + 高峰指示 + 每个平台（含禁用）。 */
 export function segmentOptions(platforms: Platform[], t: TFunction): SegmentOption[] {
   const metrics: [string, string, string][] = [
     ["cost", "tray.metric.cost", "花费"],
@@ -655,7 +655,7 @@ export function TrayConfigTab() {
         const [list, cfg, stats] = await Promise.all([
           platformApi.list(), trayConfigApi.get(), trayConfigApi.todayStats(),
         ]);
-        setPlatforms(list.filter((p) => p.enabled));
+        setPlatforms(list);
         setConfig(cfg);
         setTodayStats(stats);
       } catch (e) { console.error(e); }
