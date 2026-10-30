@@ -9,6 +9,7 @@ import {
   parsePriceData,
   fmtPricePerM,
   fmtPricePerUnit,
+  toUsd,
   type ModelPriceData,
 } from "../../pages/ModelInfo/priceData";
 
@@ -31,17 +32,19 @@ export interface ModelPriceInfo {
 export function toModelPriceInfo(p: ModelPriceData): ModelPriceInfo | null {
   if (p.unit && p.unit !== "token") {
     return p.unit_price != null
-      ? { free: false, unitLabel: fmtPricePerUnit(p.unit_price, p.unit) }
+      ? { free: false, unitLabel: fmtPricePerUnit(p.unit_price, p.unit, p.currency) }
       : null;
   }
+  // CNY 计价条目在此统一成 USD（ModelPriceInfo 数值恒 USD，展示再经 formatMoney 按显示币种换算）
+  const usd = (v?: number | null) => (v == null ? undefined : toUsd(v, p.currency));
   const info: ModelPriceInfo = {
     free: p.free === true,
-    input: p.input ?? undefined,
-    output: p.output ?? undefined,
-    cacheRead: p.cache_read ?? undefined,
-    cacheWrite: p.cache_write ?? undefined,
-    peakInput: p.peak?.input ?? undefined,
-    peakOutput: p.peak?.output ?? undefined,
+    input: usd(p.input),
+    output: usd(p.output),
+    cacheRead: usd(p.cache_read),
+    cacheWrite: usd(p.cache_write),
+    peakInput: usd(p.peak?.input),
+    peakOutput: usd(p.peak?.output),
   };
   const hasAny =
     info.free ||
