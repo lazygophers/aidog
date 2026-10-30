@@ -3,10 +3,12 @@ import {
   parsePlatformPeak,
   parseDisableDuringPeak,
   parseDirectModels,
+  parseAllowedClients,
   parsePlatformTimeWindows,
   serializePlatformPeak,
   serializeDisableDuringPeak,
   serializeDirectModels,
+  serializeAllowedClients,
   serializePlatformTimeWindows,
   type TimeModelRule,
 } from "../../services/api";
@@ -24,6 +26,9 @@ export interface PlatformTimeModelsState {
   /** direct_models：直通模型列表，空数组删除键（未声明 = 走默认链）。 */
   directModels: string[];
   setDirectModels: React.Dispatch<React.SetStateAction<string[]>>;
+  /** allowed_clients：客户端白名单词表码，空数组删除键（= 全放行）。 */
+  allowedClients: string[];
+  setAllowedClients: React.Dispatch<React.SetStateAction<string[]>>;
   reset: () => void;
   hydrate: (extra: string) => void;
   serialize: (extra: string) => string;
@@ -41,6 +46,7 @@ export function usePlatformTimeModels(): PlatformTimeModelsState {
   const [timeModels, setTimeModels] = useState<TimeModelRule[]>([]);
   /** direct_models：直通模型列表，空数组删除键（未声明 = 走默认链）。 */
   const [directModels, setDirectModels] = useState<string[]>([]);
+  const [allowedClients, setAllowedClients] = useState<string[]>([]);
 
   const reset = () => {
     setPeak([]);
@@ -48,6 +54,7 @@ export function usePlatformTimeModels(): PlatformTimeModelsState {
     setDisableDuringPeak(false);
     setTimeModels([]);
     setDirectModels([]);
+    setAllowedClients([]);
   };
 
   const hydrate = (extra: string) => {
@@ -55,12 +62,14 @@ export function usePlatformTimeModels(): PlatformTimeModelsState {
     setDisableDuringPeak(parseDisableDuringPeak(extra));
     setTimeModels(parsePlatformTimeWindows(extra));
     setDirectModels(parseDirectModels(extra));
+    setAllowedClients(parseAllowedClients(extra));
   };
 
   const serialize = (extra: string) => {
     let next = serializePlatformPeak(extra, peak);
     next = serializeDisableDuringPeak(next, disableDuringPeak);
     next = serializeDirectModels(next, directModels);
+    next = serializeAllowedClients(next, allowedClients);
     return serializePlatformTimeWindows(next, timeModels);
   };
 
@@ -69,6 +78,7 @@ export function usePlatformTimeModels(): PlatformTimeModelsState {
     disableDuringPeak, setDisableDuringPeak,
     timeModels, setTimeModels,
     directModels, setDirectModels,
+    allowedClients, setAllowedClients,
     reset, hydrate, serialize,
   };
 }
