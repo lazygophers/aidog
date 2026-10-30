@@ -126,6 +126,8 @@ export const claudeSettingsImportApi = {
   /** Read ~/.claude/settings.json and return parsed JSON */
   readDefault: () =>
     invoke<Record<string, any>>("read_claude_code_settings"),
+  /** 列 ~/.claude/output-styles/ 下自定义 output style 名（目录缺失 → []）。 */
+  outputStyles: () => invoke<string[]>("claude_output_styles_list"),
 };
 
 // ─── App Log Settings API ─────────────────────────────────

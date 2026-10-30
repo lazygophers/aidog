@@ -244,6 +244,7 @@ pub fn run() {
             aidog_core::settings::settings_list,
             aidog_core::settings::preview_statusline_script,
             aidog_core::settings::read_claude_code_settings,
+            aidog_core::settings::claude_output_styles_list,
             // Codex Config
             aidog_core::gateway::codex::codex_config_read,
             aidog_core::gateway::codex::codex_config_write,
