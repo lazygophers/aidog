@@ -108,6 +108,47 @@ async fn single_platform_applicable() {
 }
 
 #[tokio::test]
+async fn balance_cny_converted_to_usd() {
+    let state = make_state(test_db().await).await;
+    let p = aidog_db::create_platform(&state.db, sample_platform("p1"))
+        .await
+        .unwrap();
+    aidog_db::update_platform_quota(&state.db, p.id, 70.0, "{}")
+        .await
+        .unwrap();
+    aidog_db::set_setting(
+        &state.db,
+        aidog_db::models::SetSettingInput {
+            scope: aidog_db::currency::BALANCE_CCY_SCOPE.to_string(),
+            key: p.id.to_string(),
+            value: serde_json::Value::String("CNY".into()),
+        },
+    )
+    .await
+    .unwrap();
+    let g = aidog_db::create_group(&state.db, sample_group("g1", vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        g.id,
+        &[GroupPlatformInput {
+            platform_id: p.id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+
+    let resp = handle_group_info(AxumState(state), bearer("g1"), ci("127.0.0.1:50000")).await;
+    let v = body_json(resp).await;
+    let want = 70.0 / aidog_db::CNY_PER_USD;
+    assert!((v["balance"].as_f64().unwrap() - want).abs() < 1e-9, "balance={}", v["balance"]);
+}
+
+#[tokio::test]
 async fn two_platforms_not_applicable() {
     let state = make_state(test_db().await).await;
     let p1 = aidog_db::create_platform(&state.db, sample_platform("a"))

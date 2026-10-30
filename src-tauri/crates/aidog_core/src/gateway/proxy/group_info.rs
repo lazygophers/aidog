@@ -281,7 +281,15 @@ async fn handle_group_info_inner(
         .filter(|b| b.enabled && b.kind == "total")
         .map(super::manual_budget::remaining)
         .sum::<f64>();
-    let balance = platform.est_balance_remaining.max(manual_total_remaining);
+    // est_balance_remaining 是平台原币种；statusline 脚本拼 "$" 前缀，输出恒为 USD 数值（不按显示币种），
+    // 故只把原币种折 USD（票 08），再与手动预算取大。
+    let cur = aidog_db::currency::get_display_currency(&state.db).await;
+    let ccys = aidog_db::currency::get_balance_currencies(&state.db).await;
+    let est_usd = cur.balance_to_usd(
+        platform.est_balance_remaining,
+        ccys.get(&platform.id).map(String::as_str),
+    );
+    let balance = est_usd.max(manual_total_remaining);
 
     // 余额可用天数：动态窗口日速率（rate_per_hour，prd B）→ days = (balance / rate_per_hour) / 24。
     // 无用量数据 / 无余额 → null（配色中性，不报警）。

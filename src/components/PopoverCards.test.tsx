@@ -3,6 +3,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, act } from "../test/render";
 import { setDisplayCurrency, USD_DISPLAY } from "../utils/displayCurrency";
+import { setBalanceCurrencies } from "../utils/balanceCurrency";
 import {
   collectStatsQueries,
   renderItem,
@@ -168,5 +169,24 @@ describe("renderItem: 显示币种（票 05）", () => {
     act(() => setDisplayCurrency({ code: "CNY", symbol: "¥", decimals: 2, rate: 7, table: [] }));
     expect(container.querySelector(".popover-platform-value")?.textContent).toBe("¥14.00");
     act(() => setDisplayCurrency(USD_DISPLAY));
+  });
+});
+
+describe("renderItem: group_balance 逐平台折 USD（票 08）", () => {
+  it("CNY 平台 ¥70 + USD 平台 $5 → $15.00，而非 $75.00", () => {
+    act(() => {
+      setDisplayCurrency({ ...USD_DISPLAY, table: [{ code: "CNY", symbol: "¥", decimals: 2, default_rate: 7, rate: 7 }] } as never);
+      setBalanceCurrencies({ "1": "CNY" });
+    });
+    const details = [{
+      group: { group_key: "g" },
+      platforms: [
+        { platform: { id: 1, est_balance_remaining: 70 } },
+        { platform: { id: 2, est_balance_remaining: 5 } },
+      ],
+    }] as never;
+    const { container } = render(<>{renderItem(makeItem("group_balance", { scope_ref: "g" }), EMPTY_DATA, [{ group_key: "g", name: "g" }] as never, details, t, CTX(new Map()))}</>);
+    expect(container.querySelector(".popover-metric-value")?.textContent).toBe("$15.00");
+    act(() => { setBalanceCurrencies({}); setDisplayCurrency(USD_DISPLAY); });
   });
 });
