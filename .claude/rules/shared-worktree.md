@@ -85,19 +85,22 @@ perf-backend 收尾轮：PreToolUse hook 把 `git worktree add` 改写经 rtk �
   rtk 包装的 `git status --short` 输出被截断，只列部分已改文件，一度误判改动
   丢失。rtk 版只当摘要，数文件数以 `/usr/bin/git` 为准。
 
-## detach worktree 必须独立 CARGO_TARGET_DIR（2026-10-22）
+## agent / detach worktree 复用单一 CARGO_TARGET_DIR（2026-10-22 立，2026-10-30 改）
 
-为跑基线 `git worktree add --detach /tmp/aidog-baseline-*` 并把 `CARGO_TARGET_DIR`
-指向主仓 `src-tauri/target` 共享，两个 checkout 的同名 workspace crate 产物串味：
+历史（2026-10-22）：为跑基线 `git worktree add --detach /tmp/aidog-baseline-*` 并把
+`CARGO_TARGET_DIR` 指向主仓 `src-tauri/target` 共享，同名 workspace crate 产物串味
+（`aidog_core` 报 `cannot find function ... in crate aidog_db`；worktree 删后
+`build.rs:31 registry dir: NotFound`）。2026-10-30 又实锤：别的会话 worktree 共用主仓
+target 致 `test_registry.rs:359` 假红。
 
-- 主仓给 `aidog_db` 加 pub fn 后，`aidog_core` 报 `cannot find function ... in crate
-  aidog_db`（`aidog_db` 没重编，touch 源文件才好）；
-- worktree 删除后，`aidog_db` 的 build-script 产物仍写死已删路径，报
-  `build.rs:31 registry dir: NotFound`，只能 `cargo clean -p aidog_db`——这会清掉
-  共享 target 里其他会话的产物。
+现行做法（用户 2026-10-30 原话「要清理，以后尽量不要有临时编译目录，复用同一个」）：
 
-做法：worktree 构建一律 `CARGO_TARGET_DIR=/tmp/<worktree 同名>-target`，收尾
-随 worktree 一起删；主仓 `src-tauri/target` 只给主仓构建用。
+- agent worktree / detach worktree 一律 `CARGO_TARGET_DIR=/tmp/aidog-agent-target`，
+  不按票新建；收尾不再逐票删 target。
+- 主仓 `src-tauri/target` 只给主仓自身构建用。
+- 跑测试前 `cargo clean -p aidog_db --target-dir /tmp/aidog-agent-target`，消除
+  aidog_db build.rs registry 产物陈旧（该目录是 agent 自有，清它不影响别的会话）。
+- 前端构建输出 `--outDir /tmp/aidog-agent-dist`，不按票新建 dist。
 
 ## `.git/index.lock` 残留（2026-10-22）
 
