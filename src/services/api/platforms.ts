@@ -1,7 +1,7 @@
 // platforms.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "../transport";
-import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, PassthroughAuth, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, TimeModelRule, PlatformErrorStatus } from "./types";
+import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, PassthroughAuth, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, TimeModelRule, PlatformErrorStatus, ClientVocabCategory } from "./types";
 import type { TimeWindow } from "../../domains/platforms/defaults";
 import { normalizeWindow } from "../../utils/timeWindow";
 
@@ -760,6 +760,11 @@ export function getDefaultsJson(): Promise<string> {
  *  （Rust `client_types_const.rs`）。返回原始 JSON 字符串，前端解析缓存（禁直读文件系统，一律 invoke）。 */
 export function getClientTypesJson(): Promise<string> {
   return invoke<string>("get_client_types_json");
+}
+
+/** 两级客户端词表（大类 → 变体，Rust `client_vocab.rs` 单一真值源）。显示名走 `nameKey`（`flow.client.<code>`）。 */
+export function getClientVocab(): Promise<ClientVocabCategory[]> {
+  return invoke<ClientVocabCategory[]>("get_client_vocab");
 }
 
 /** 返回 protocol logo 缓存文件绝对路径（前端 `convertFileSrc` 用）。

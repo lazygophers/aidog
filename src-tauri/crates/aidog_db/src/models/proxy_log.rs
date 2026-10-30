@@ -112,7 +112,7 @@ pub struct ProxyLog {
     /// 不进 strip_raw_sides / ProxyLogColumns::from_log 的两侧「原始信息」列集。
     #[serde(default)]
     pub routing: Option<RoutingSnapshot>,
-    /// 客户端代码（请求进入时由 UA 归类，`claude_code|codex|pi|cursor|windsurf|gemini_cli|other`；
+    /// 客户端代码（请求进入时由 UA 归类，词表变体码或大类码（`aidog_core::client_vocab`），认不出 `other`，旧行可为旧 7 码；
     /// 空串 = 未知：迁移前存量行 / 带外日志）。元数据：不受 log_user_request 开关控制，不存原始 UA。
     #[serde(default)]
     pub client: String,
