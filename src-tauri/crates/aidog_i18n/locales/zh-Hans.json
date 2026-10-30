@@ -545,6 +545,7 @@
   "home.copyBaseUrlTitle": "复制代理 base_url",
   "home.cost": "费用",
   "home.desc": "代理状态、今日用量与分组平台速览",
+  "home.flow.title": "请求流量 · 24 小时",
   "home.noToday": "今日暂无请求",
   "home.byModel": "按模型 · 今日",
   "home.byGroup": "按分组 · 今日",
