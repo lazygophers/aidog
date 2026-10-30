@@ -248,6 +248,21 @@ pub fn apply_client_headers(
     protocol: &super::models::Protocol,
     api_key: &str,
 ) -> reqwest::RequestBuilder {
+    apply_client_headers_for_model(req_builder, client_type, protocol, api_key, "")
+}
+
+/// `{model}` 占位符只出现在 UA 模板（gemini_cli）：填本次实际上游模型名；空串（拉模型列表等无模型场景）→ `unknown`。
+fn fill_ua(ua: &str, model: &str) -> String {
+    ua.replace("{model}", if model.is_empty() { "unknown" } else { model })
+}
+
+pub fn apply_client_headers_for_model(
+    req_builder: reqwest::RequestBuilder,
+    client_type: &ClientType,
+    protocol: &super::models::Protocol,
+    api_key: &str,
+    model: &str,
+) -> reqwest::RequestBuilder {
     // 未知 client_type → 回落 `default` entry（simulation_for，等价旧 apply_default_headers，
     // 保留 client_type 审计字符串）。default entry 的 user_agent 缺省 → 不注入 UA。
     let sim = simulation_for(client_type.as_str());
@@ -255,7 +270,7 @@ pub fn apply_client_headers(
 
     // ① UA（若 simulation.user_agent 存在；default entry 无 UA）
     if let Some(ua) = sim.and_then(|s| s.user_agent.as_deref()) {
-        rb = rb.header("User-Agent", ua);
+        rb = rb.header("User-Agent", fill_ua(ua, model));
     }
 
     // ② auth headers（protocol key → default protocol 兜底；全缺 → Bearer only 终极兜底）
@@ -301,6 +316,16 @@ pub fn build_upstream_headers(
     api_key: &str,
     orig: &axum::http::HeaderMap,
 ) -> Vec<(String, String)> {
+    build_upstream_headers_for_model(client_type, protocol, api_key, "", orig)
+}
+
+pub fn build_upstream_headers_for_model(
+    client_type: &ClientType,
+    protocol: &super::models::Protocol,
+    api_key: &str,
+    model: &str,
+    orig: &axum::http::HeaderMap,
+) -> Vec<(String, String)> {
     let mut h: Vec<(String, String)> = Vec::new();
     // ① 透传入站头（剔 stripped：hop-by-hop + auth/UA/CT）。脱敏敏感值。
     for (k, v) in orig {
@@ -325,7 +350,7 @@ pub fn build_upstream_headers(
     let sim = simulation_for(client_type.as_str());
     let redacted = redact_key(api_key);
     if let Some(ua) = sim.and_then(|s| s.user_agent.as_deref()) {
-        h.push(("User-Agent".into(), ua.to_string()));
+        h.push(("User-Agent".into(), fill_ua(ua, model)));
     }
     let protocol_key = protocol_serde_name(protocol);
     let headers = sim

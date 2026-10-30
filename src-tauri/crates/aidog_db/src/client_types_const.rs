@@ -2,7 +2,7 @@
 //! 手维护：改这里，禁再落回外部 JSON 文件。
 
 pub const BUNDLED: &str = r##"{
-  "last_updated": 1793367651,
+  "last_updated": 1793374844,
   "client_types": [
     {
       "value": "default",
@@ -92,7 +92,7 @@ pub const BUNDLED: &str = r##"{
     {
       "value": "claude_code_sdk_ts",
       "simulation": {
-        "user_agent": "claude-cli/2.1.204 (external, sdk-ts)",
+        "user_agent": "claude-cli/2.1.204 (external, sdk-ts, agent-sdk/0.3.314)",
         "auth": {
           "anthropic": [
             {"name": "x-api-key", "value": "{api_key}"},
@@ -491,7 +491,7 @@ pub const BUNDLED: &str = r##"{
     {
       "value": "gemini_cli",
       "simulation": {
-        "user_agent": "GeminiCLI/0.66.0/gemini-pro (darwin; arm64; terminal)",
+        "user_agent": "GeminiCLI/0.66.0/{model} (darwin; arm64; terminal)",
         "auth": {
           "anthropic": [
             {"name": "x-api-key", "value": "{api_key}"}
