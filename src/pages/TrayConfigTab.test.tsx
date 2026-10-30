@@ -284,6 +284,12 @@ describe("TrayConfigTab 骨架与预览（票 01）", () => {
     expect(view.getByTestId("tray-chip-peak").getAttribute("data-state")).toBe("");
   });
 
+  it("候选库平台行含全部平台（含禁用 / 自动禁用），不按 enabled 过滤", async () => {
+    const mkP = (id: number, status: string) => ({ id, name: `P${id}`, enabled: status === "enabled", status });
+    const view = await renderTab(undefined, [mkP(1, "enabled"), mkP(2, "disabled"), mkP(3, "auto_disabled")]);
+    for (const id of [1, 2, 3]) expect(view.getByTestId(`tray-chip-platform:${id}`)).toBeTruthy();
+  });
+
   it("预览条颜色走主题 token，页内无字面色（禁硬编码色）", async () => {
     const view = await renderTab();
     const bar = view.getByTestId("tray-menubar").getAttribute("style") ?? "";
