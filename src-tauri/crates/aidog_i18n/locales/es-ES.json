@@ -3185,6 +3185,7 @@
   "settings.preset.name.oss": "Predeterminado de código abierto",
   "settings.preset.pickTitle": "Elegir configuración recomendada",
   "settings.preset.pickBody": "Elige un preajuste y luego selecciona las diferencias que quieres aplicar.",
+  "settings.preset.empty": "No hay configuraciones recomendadas disponibles (error de carga).",
   "middleware.viewRule": "Ver regla",
   "middleware.builtinReadonlyHint": "Las reglas integradas solo se pueden activar/desactivar; contenido de solo lectura",
   "middleware.actions": "Acciones (en orden; se detienen tras block/classify)",

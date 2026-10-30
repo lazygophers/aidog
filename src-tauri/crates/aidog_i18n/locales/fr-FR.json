@@ -3207,6 +3207,7 @@
   "settings.preset.name.oss": "Défaut open source",
   "settings.preset.pickTitle": "Choisir une configuration recommandée",
   "settings.preset.pickBody": "Choisissez un préréglage, puis sélectionnez les différences à appliquer.",
+  "settings.preset.empty": "Aucune configuration recommandée disponible (échec du chargement).",
   "middleware.viewRule": "Voir la règle",
   "middleware.builtinReadonlyHint": "Les règles intégrées ne peuvent être activées/désactivées ; contenu en lecture seule",
   "middleware.actions": "Actions (exécutées dans l’ordre ; arrêt après block/classify)",

@@ -233,6 +233,10 @@ export function Settings() {
     const { needPicker, defaultPreset } = planPresetLoad(presets);
     if (needPicker) setPickerOpen(true);
     else if (defaultPreset) previewPreset(defaultPreset);
+    else {
+      setToast(t("settings.preset.empty"));
+      setTimeout(() => setToast(""), 2000);
+    }
   };
 
   const handleImportFromClaudeCode = async () => {
