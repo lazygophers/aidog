@@ -591,6 +591,7 @@ impl StreamLogGuard {
                 cache_write_tokens,
                 est.coding_plan,
                 final_log.created_at,
+                super::log::chat_tool_cost_usd(&est.platform_type, &final_log.tool_call_counts),
                 self.req_span.clone(),
             );
         }

@@ -320,6 +320,26 @@ async fn rpc_unknown_command_returns_404() {
     assert_eq!(resp.status(), 404);
 }
 
+/// notification_rule_validate 曾漏登记（桌面 generate_handler 与 /rpc 均无）：合法表达式 200，非法表达式非 2xx。
+#[tokio::test]
+async fn rpc_notification_rule_validate_registered() {
+    let (base, _ctx, _addr) = spawn_test_management("").await;
+    let call = |expr: &'static str| {
+        let url = format!("{base}/rpc/notification_rule_validate");
+        async move {
+            reqwest::Client::new()
+                .post(url)
+                .json(&serde_json::json!({ "expr": expr }))
+                .send()
+                .await
+                .unwrap()
+        }
+    };
+    assert_eq!(call("a == 1").await.status(), 200);
+    let bad = call("severity == ").await;
+    assert!(!bad.status().is_success() && bad.status() != 404, "非法表达式应走命令 Err，实际 {}", bad.status());
+}
+
 /// 命令自身返回 Err 时落非 2xx，body 就是 reject 值（对齐 `invoke` 的 reject 语义）。
 #[tokio::test]
 async fn rpc_command_error_maps_to_non_2xx() {

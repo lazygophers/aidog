@@ -66,7 +66,8 @@ fn decrypt_tampered_ciphertext_errors_not_panics() {
     let c = crypt::encrypt_field(PLAIN).unwrap();
     let mut bytes = c.into_bytes();
     let last = bytes.len() - 3;
-    bytes[last] = b'X';
+    // 原字符恰为 'X' 时旧写法等于没篡改（~1/64 偶发红）；换成必不同的字符
+    bytes[last] = if bytes[last] == b'A' { b'B' } else { b'A' };
     let tampered = String::from_utf8(bytes).unwrap();
     assert!(crypt::decrypt_field(&tampered).is_err(), "篡改密文须报错");
 }

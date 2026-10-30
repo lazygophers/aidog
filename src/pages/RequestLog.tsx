@@ -22,7 +22,7 @@ import { TableHeader, TableBody } from "@/components/ui/table";
 
 // ponytail: RequestLog 自管 list + filter + detail state；复用 Logs/primitives (LogRow/Pagination/ThCell/FilterSelect)
 // + Logs/DetailPanel（ProxyLogDetail 经 proxyLogApi.get 取回 — request_log_list 仅摘要行）。
-// 详情现为 Sheet 叠加（DetailPanel 内部以 Radix Portal 渲染），列表恒常可见。
+// 详情现为居中浮层（DetailPanel 内部以 Radix Portal 渲染），列表恒常可见。
 // 筛选维度: 类型(test/quota) / 平台 / 状态 / 时间 — 独立于 Logs 主页。
 // 后端 request_log_list 默认 sources=[test,quota,fetch-models]（db 兜底），前端 filter.sources 显式覆盖。
 
@@ -311,7 +311,7 @@ export function RequestLog() {
           </>
         )}
       </div>
-      {/* 详情 Sheet 叠加（Radix Portal），列表恒常可见 */}
+      {/* 详情居中浮层（Radix Portal），列表恒常可见 */}
       <DetailPanel d={detailData as any} />
     </>
   );

@@ -122,6 +122,9 @@ export function CostSimulator({ groups, labelMap }: {
     return tier;
   }, [primary, primaryDto]);
 
+  // CNY 条目：Rust 计费链已换算 USD，明细行单价是条目原币种，标 ¥ 避免被读成 $。
+  const primaryCny = primary ? parsePriceData(primary.entry.price_data).currency === "CNY" : false;
+
   const unsupported = (dto: SimulatorEstCostDto) => dto.price_source === "unsupported";
 
   const comparable = candidates.filter(c => {
@@ -278,7 +281,7 @@ export function CostSimulator({ groups, labelMap }: {
                   return (
                     <TableRow key={dim} data-testid={`sim-row-${dim}`}>
                       <TableCell>{t(`simulator.dim.${dim}`)}</TableCell>
-                      <TableCell style={{ textAlign: "right" }}>{typeof unit === "number" ? formatCostUsd(unit * 1e6) : "-"}</TableCell>
+                      <TableCell style={{ textAlign: "right" }}>{typeof unit === "number" ? (primaryCny ? formatCostUsd(unit * 1e6).replace("$", "¥") : formatCostUsd(unit * 1e6)) : "-"}</TableCell>
                       <TableCell style={{ textAlign: "right" }}>{qty.toLocaleString()}</TableCell>
                       <TableCell style={{ textAlign: "right" }}>×{primaryDto.multiplier}</TableCell>
                     </TableRow>

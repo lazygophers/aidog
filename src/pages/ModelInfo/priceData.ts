@@ -18,6 +18,8 @@ export interface PriceTier {
  *  非 chat 模态（图像/视频/搜索工具类）用 `unit` + `unit_price` 计价（$/张、$/秒、$/次），
  *  token 单价字段不适用；chat 计费链不消费这类条目（无 token 价自动 fallback）。 */
 export interface ModelPriceData extends PriceTier {
+  /** 计价币种，缺省 USD；CNY 条目 Rust 计费链按汇率换算 USD。 */
+  currency?: string | null;
   /** 计价单位，缺省 token。 */
   unit?: "token" | "image" | "second" | "request" | "char" | null;
   /** 非 token 条目的单价（$/unit）。 */
