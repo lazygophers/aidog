@@ -16,6 +16,9 @@ import {
 } from "../services/api";
 import { CostTrendCard, buildTrendQuery, type PopoverData } from "../components/PopoverCards";
 import { useReveal } from "../components/shared";
+import { getDisplayCurrency, useDisplayCurrency } from "../utils/displayCurrency";
+import { formatMoney } from "../utils/formatters";
+import type { DisplayCurrency } from "../services/api/types";
 import {
   DndContext, KeyboardSensor, PointerSensor, closestCenter, pointerWithin,
   useDraggable, useDroppable, useSensor, useSensors,
@@ -149,18 +152,29 @@ const TREND_ITEM: PopoverItem = {
   scope: "overall", time_window: "7d", size: "s",
 };
 
+/**
+ * USD 金额 → 托盘文本：与 Rust `tray_render.rs::tray_money` 同规则（符号 + 换算后定点 + 去尾零；
+ * 0 位小数币种恒 0 位）。刻意不复用 formatMoney（量级舍入规则不同），预览须与菜单栏逐字一致；
+ * 跨层对拍见 TrayConfigTab.test.tsx 与 test_tray_render.rs。
+ */
+export function trayMoney(usd: number, cur: DisplayCurrency, decimals: number): string {
+  const d = cur.decimals === 0 ? 0 : decimals;
+  return cur.symbol + trimZeros((usd * cur.rate).toFixed(d));
+}
+
 /** 预览值。peak 与真实托盘同口径（峰/平，Rust `peak_item_parts`）；routed_platform 仍占位。 */
 export function previewValue(
   item: TrayItem,
   platforms: Platform[],
   stats: TodayStats | null,
   peak: TrayPeakStatus | null = null,
+  cur: DisplayCurrency = getDisplayCurrency(),
 ): string {
   const s = stats ?? { tokens: 0, cache_rate: 0, cost: 0, total_requests: 0 };
   switch (item.item_type) {
     case "today_usage":
       switch (item.metric || "tokens") {
-        case "cost": return `$${trimZeros(s.cost.toFixed(item.decimals ?? 5))}`;
+        case "cost": return trayMoney(s.cost, cur, item.decimals ?? 5);
         case "requests": return `${s.total_requests}`;
         case "cache_rate": return `${s.cache_rate.toFixed(0)}%`;
         default: return `${s.tokens} tok`;
@@ -168,7 +182,7 @@ export function previewValue(
     case "platform": {
       const p = platforms.find((pp) => pp.id === item.platform_id);
       if (!p) return "--.--";
-      return `$${trimZeros(p.est_balance_remaining.toFixed(2))}`;
+      return trayMoney(p.est_balance_remaining, cur, 2);
     }
     case "peak":
       return peak?.in_peak ? "峰" : "平";
@@ -504,6 +518,7 @@ function LibraryDrop({ children }: { children: React.ReactNode }) {
 
 export function TrayConfigTab() {
   const { t } = useTranslation();
+  const cur = useDisplayCurrency(); // 预览随显示币种重渲染
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [config, setConfig] = useState<TrayConfig>({ separator: "  ", items: [] });
   const [todayStats, setTodayStats] = useState<TodayStats | null>(null);
@@ -681,7 +696,7 @@ export function TrayConfigTab() {
                           alignSelf: two ? (ALIGN_FLEX[seg.align_row2 ?? seg.align] ?? "flex-start") : undefined,
                         }}
                       >
-                        {previewValue(seg, platforms, todayStats, peak)}
+                        {previewValue(seg, platforms, todayStats, peak, cur)}
                       </span>
                     </span>
                   );
@@ -707,7 +722,7 @@ export function TrayConfigTab() {
                   return (
                     <SortableSlot key={segmentKey(seg)} i={i} tag={t("tray.slotIndex", "SLOT {{n}}", { n: i + 1 })} id={segmentKey(seg)} onEdit={() => setEditingKey(segmentKey(seg))} handleLabel={t("tray.dragHandle", "拖动排序")}>
                       <div style={{ fontSize: 12.5, fontWeight: 650 }}>{seg.label || opt?.label || segmentKey(seg)}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 700, color: ACCENT_TEXT, letterSpacing: 0.3 }}>{previewValue(seg, platforms, todayStats, peak)}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 700, color: ACCENT_TEXT, letterSpacing: 0.3 }}>{previewValue(seg, platforms, todayStats, peak, cur)}</div>
                     </SortableSlot>
                   );
                 })}
@@ -767,7 +782,7 @@ export function TrayConfigTab() {
                       >
                         {opt.label}
                         <span className="tray-chip-v">
-                          {previewValue(opt.item, platforms, todayStats, peak)}
+                          {previewValue(opt.item, platforms, todayStats, peak, cur)}
                         </span>
                       </DraggableChip>
                     );
@@ -787,7 +802,7 @@ export function TrayConfigTab() {
                 {t("tray.todayUsage", "今日消耗")}
               </div>
               <div data-testid="tray-big-cost" style={{ fontFamily: MONO, fontSize: 32, fontWeight: 700, letterSpacing: 0.5, marginTop: 4, color: ACCENT_TEXT }}>
-                ${(todayStats?.cost ?? 0).toFixed(3)}
+                {formatMoney(todayStats?.cost ?? 0)}
               </div>
               <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 2 }}>
                 {t("tray.todayCostSub", "随代理日志终态实时累加")}
