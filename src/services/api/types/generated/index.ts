@@ -12,7 +12,6 @@ export * from "./EmailCfg";
 export * from "./ExternalChannels";
 export * from "./FlowRow";
 export * from "./GroupDailyBreakdown";
-export * from "./GroupPlatformBreakdown";
 export * from "./LatestRouting";
 export * from "./NotificationDelivery";
 export * from "./Rule";

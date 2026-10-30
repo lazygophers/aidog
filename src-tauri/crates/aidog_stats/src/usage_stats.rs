@@ -588,57 +588,6 @@ pub fn get_platform_hourly_rate(
     }
 }
 
-// ── G3 分组页（整体风格重设计票 03）─────────────────────────────────────────
-
-/// 分组 → 平台（可选模型维度）用量拆分：桑基 flow 数据源。
-/// 窗口 "today"（本地 00:00 起）| 其余值一律按 7d。GROUP BY group_key 语义同
-/// get_all_group_usage_stats：共享平台不重复计入（按 group_key 归属）。
-#[track_caller]
-pub fn group_platform_breakdown<'a>(
-    db: &'a Db,
-    group_key: &'a str,
-    window: &'a str,
-    by_model: bool,
-) -> impl std::future::Future<Output = Result<Vec<aidog_db::models::GroupPlatformBreakdown>, String>> + 'a {
-    let __db_caller = std::panic::Location::caller();
-    async move {
-        let group_key = group_key.to_string();
-        let since = if window == "today" {
-            local_today_hour_key()
-        } else {
-            use chrono::Duration;
-            (chrono::Local::now() - Duration::days(7))
-                .format("%Y-%m-%d %H:00:00")
-                .to_string()
-        };
-        let by_model = by_model;
-        db.call_read_traced(None, __db_caller, move |conn| {
-            let sql = if by_model {
-                "SELECT platform_id, model, SUM(request_count), SUM(success_count), SUM(sum_est_cost) \
-                 FROM stats_agg_hourly WHERE group_key = ?1 AND time_hour >= ?2 AND deleted_at = 0 \
-                 GROUP BY platform_id, model ORDER BY 3 DESC"
-            } else {
-                "SELECT platform_id, NULL, SUM(request_count), SUM(success_count), SUM(sum_est_cost) \
-                 FROM stats_agg_hourly WHERE group_key = ?1 AND time_hour >= ?2 AND deleted_at = 0 \
-                 GROUP BY platform_id ORDER BY 3 DESC"
-            };
-            let mut stmt = conn.prepare_cached(sql)?;
-            let rows = stmt.query_map(params![group_key, since], |row| {
-                Ok(aidog_db::models::GroupPlatformBreakdown {
-                    platform_id: row.get(0)?,
-                    model: row.get(1)?,
-                    requests: row.get(2)?,
-                    success: row.get(3)?,
-                    est_cost: row.get(4)?,
-                })
-            })?;
-            Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
-        })
-        .await
-        .map_err(|e| format!("group platform breakdown: {e}"))
-    }
-}
-
 /// 请求流向聚合：窗口内 (client, group_key, req_model, platform_id, model) 六元组的请求数 / token / 费用。
 /// window: `24h`（与首页维度趋势同边界：now-24h 起、含 now 所在整点桶）| `today`（本地 00:00 起）| `7d`。
 /// `group_key` 为 None = 首页全局；Some = 仅该分组。不加 LIMIT（度量与占比由前端算）。

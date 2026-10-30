@@ -291,49 +291,7 @@ async fn unmatched_virtual_bucket_appears_in_group_stats() {
     assert_eq!(all.len(), 2, "仅「未匹配」+ ga 两个非空 group");
 }
 
-// ── G3 分组页（整体风格票 03）：breakdown + 最近路由快照 ─────────────────────
-
-#[tokio::test]
-async fn group_platform_breakdown_windows_and_model_dim() {
-    let db = test_db().await;
-    let p1 = insert_test_platform(&db, "P1").await;
-    insert_test_group(&db, "g1", Some("gk_g1"), &p1.to_string()).await;
-    let now = chrono::Utc::now().timestamp_millis();
-    let mk = |id: &str, cost: f64, model: &str| {
-        let mut l = sample_log(id, "gk_g1", now);
-        l.platform_id = p1;
-        l.status_code = 200;
-        l.est_cost = cost;
-        l.model = model.to_string();
-        l.actual_model = model.to_string();
-        l
-    };
-    for l in [mk("a1", 0.01, "m-a"), mk("a2", 0.02, "m-a"), mk("a3", 0.10, "m-b")] {
-        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l, false, false))
-            .await
-            .unwrap();
-    }
-    rebuild_stats_agg_from_logs(&db).await.unwrap();
-
-    // 平台级（不分模型）：单平台聚合全部
-    let rows = group_platform_breakdown(&db, "gk_g1", "7d", false).await.unwrap();
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].platform_id, p1 as i64);
-    assert_eq!(rows[0].requests, 3);
-    assert_eq!(rows[0].success, 3);
-    assert!((rows[0].est_cost - 0.13).abs() < 1e-9);
-    assert!(rows[0].model.is_none());
-
-    // 模型维度：两行，按请求量降序（m-a 2 在前）
-    let rows = group_platform_breakdown(&db, "gk_g1", "7d", true).await.unwrap();
-    assert_eq!(rows.len(), 2);
-    assert_eq!(rows[0].model.as_deref(), Some("m-a"));
-    assert_eq!(rows[0].requests, 2);
-    assert_eq!(rows[1].model.as_deref(), Some("m-b"));
-
-    // 其他 group 拿不到
-    assert!(group_platform_breakdown(&db, "gk_other", "7d", false).await.unwrap().is_empty());
-}
+// ── G3 分组页（整体风格票 03）：最近路由快照 ─────────────────────
 
 #[tokio::test]
 async fn latest_routing_snapshot_reads_most_recent() {

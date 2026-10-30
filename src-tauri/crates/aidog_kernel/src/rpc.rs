@@ -256,7 +256,6 @@ rpc_routes! {
     aidog_core::proxy_cmd::mitm::mitm_reset_suspects,
     // 前端已调、此前漏登记（浏览器形态 404）。db_master_key_reveal 故意不登记：
     // 弹宿主机 osascript 管理员窗并把主密钥经 HTTP 回传，见 scripts/check-frontend-rpc-coverage.mjs 白名单。
-    aidog_core::proxy_cmd::proxy_log::group_platform_breakdown,
     aidog_core::proxy_cmd::proxy_log::group_daily_usage,
     aidog_core::proxy_cmd::proxy_log::stats_flow_breakdown,
     aidog_core::proxy_cmd::proxy_log::group_latest_routing,
