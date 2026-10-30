@@ -465,27 +465,26 @@ fn platform_metrics_reset_time_skips_unusable_tiers() {
     assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None), "—");
 }
 
+/// 跨层 golden：与前端 TrayConfigTab.test.tsx 共读 tray_platform_golden.json（多指标 / 余额币种 / unit）。
 #[test]
 fn platform_metrics_use_display_currency() {
-    // balance 先按原币种折 USD 再换显示币种；today_cost(USD) 直接换算；自定义 unit 替换符号。
-    let p = platform(66.675, "");
-    let stat = aidog_stats::TodayPlatformStat {
-        platform_id: 1,
-        platform_name: "Acme".to_string(),
-        tokens: 0,
-        cost: 0.5,
-        requests: 1,
-    };
-    let item = item_json(json!({
-        "item_type": "platform", "platform_id": 1, "metrics": ["balance", "today_cost"],
-    }));
-    let c = cur("CNY", Some(7.0));
-    assert_eq!(
-        super::platform_item_value(&p, &item, Some(&stat), &c, Some("CNY")),
-        "¥66.67 · ¥3.5"
-    );
-    let unit = item_json(json!({
-        "item_type": "platform", "platform_id": 1, "metrics": ["today_cost"], "unit": " U",
-    }));
-    assert_eq!(super::platform_item_value(&p, &unit, Some(&stat), &c, None), "3.5 U");
+    let cases: Vec<serde_json::Value> = serde_json::from_str(include_str!("testdata/tray_platform_golden.json")).unwrap();
+    assert_eq!(cases.len(), 3);
+    for c in cases {
+        let p = platform(c["balance"].as_f64().unwrap(), "");
+        let stat = aidog_stats::TodayPlatformStat {
+            platform_id: 1,
+            platform_name: "Acme".to_string(),
+            tokens: 0,
+            cost: c["cost"].as_f64().unwrap(),
+            requests: 1,
+        };
+        let mut j = json!({"item_type": "platform", "platform_id": 1, "metrics": c["metrics"]});
+        if let Some(u) = c["unit"].as_str() {
+            j["unit"] = json!(u);
+        }
+        let cu = cur(c["code"].as_str().unwrap(), Some(c["rate"].as_f64().unwrap()));
+        let got = super::platform_item_value(&p, &item_json(j), Some(&stat), &cu, c["balance_ccy"].as_str());
+        assert_eq!(got, c["expected"].as_str().unwrap(), "{c}");
+    }
 }
