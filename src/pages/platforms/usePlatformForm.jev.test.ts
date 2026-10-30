@@ -64,7 +64,7 @@ describe("unknown protocol repair", () => {
       result.current.setProtocol("unknown");
       result.current.setName("My platform");
       result.current.setEndpoints([{ protocol: "openai", base_url: "https://example.test/v1" }] as any);
-      result.current.setModels({ default: "custom-model", sonnet: "", opus: "", haiku: "", gpt: "", jev: "" });
+      result.current.setModels({ default: "custom-model", sonnet: "", opus: "", haiku: "", gpt: "", jev: "", embedding: "", rerank: "" });
       result.current.setQuotaCustomScript("custom script");
     });
     await act(() => result.current.handleProtocolChange("openai"));
@@ -125,18 +125,18 @@ describe("usePlatformForm jev slot", () => {
   it("buildModelsPayload keeps jev, drops blank slots", () => {
     const { result } = renderHook(() => useForm());
     act(() => {
-      result.current.setModels({ default: "", sonnet: "  ", opus: "", haiku: "", gpt: "", jev: " jev-latest " });
+      result.current.setModels({ default: "", sonnet: "  ", opus: "", haiku: "", gpt: "", jev: " jev-latest ", embedding: "", rerank: "" });
     });
     expect(result.current.buildModelsPayload()).toEqual({
       default: undefined, sonnet: undefined, opus: undefined, haiku: undefined, gpt: undefined,
-      jev: "jev-latest",
+      jev: "jev-latest", embedding: undefined, rerank: undefined,
     });
   });
 
   it("buildModelsPayload is undefined when every slot (incl. jev) is blank", () => {
     const { result } = renderHook(() => useForm());
     act(() => {
-      result.current.setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "   " });
+      result.current.setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "   ", embedding: "", rerank: "" });
     });
     expect(result.current.buildModelsPayload()).toBeUndefined();
   });
@@ -144,11 +144,45 @@ describe("usePlatformForm jev slot", () => {
   it("handleFillAll fills chat slots but not jev", () => {
     const { result } = renderHook(() => useForm());
     act(() => {
-      result.current.setModels({ default: "glm-5", sonnet: "", opus: "", haiku: "", gpt: "", jev: "" });
+      result.current.setModels({ default: "glm-5", sonnet: "", opus: "", haiku: "", gpt: "", jev: "", embedding: "", rerank: "" });
     });
     act(() => { result.current.handleFillAll(); });
     expect(result.current.models).toEqual({
       default: "glm-5", sonnet: "glm-5", opus: "glm-5", haiku: "glm-5", gpt: "glm-5", jev: "",
+      embedding: "", rerank: "",
     });
+  });
+});
+
+describe("usePlatformForm embedding / rerank slots", () => {
+  it("buildModelsPayload keeps trimmed embedding / rerank", () => {
+    const { result } = renderHook(() => useForm());
+    act(() => {
+      result.current.setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "", embedding: " text-embedding-v4 ", rerank: "rr" });
+    });
+    expect(result.current.buildModelsPayload()).toMatchObject({ embedding: "text-embedding-v4", rerank: "rr" });
+  });
+
+  it("only embedding filled → payload defined; blank embedding/rerank → undefined", () => {
+    const { result } = renderHook(() => useForm());
+    act(() => {
+      result.current.setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "", embedding: "e", rerank: "" });
+    });
+    expect(result.current.buildModelsPayload()).toBeDefined();
+    act(() => {
+      result.current.setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "", embedding: "  ", rerank: " " });
+    });
+    expect(result.current.buildModelsPayload()).toBeUndefined();
+  });
+
+  it("handleFillAll does not fill embedding / rerank", () => {
+    const { result } = renderHook(() => useForm());
+    act(() => {
+      result.current.setModels({ default: "glm-5", sonnet: "", opus: "", haiku: "", gpt: "", jev: "", embedding: "", rerank: "" });
+    });
+    act(() => { result.current.handleFillAll(); });
+    expect(result.current.models.embedding).toBe("");
+    expect(result.current.models.rerank).toBe("");
+    expect(result.current.models.gpt).toBe("glm-5");
   });
 });

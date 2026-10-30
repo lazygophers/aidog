@@ -1382,6 +1382,8 @@
   "platform.modelDefault": "デフォルト",
   "platform.modelGpt": "GPT",
   "platform.modelJev": "意思決定モデル",
+  "platform.modelEmbedding": "埋め込み",
+  "platform.modelRerank": "リランク",
   "platform.modelHaiku": "Haiku",
   "platform.modelOpus": "Opus",
   "platform.modelSonnet": "Sonnet",

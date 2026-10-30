@@ -26,7 +26,7 @@ import {
 import { splitApiKeys } from "../../utils/platformPaste";
 import { type SmartPasteApplyResult } from "../../components/platforms/SmartPasteModal";
 import {
-  PROTOCOL_LABELS, MODEL_SLOTS, DEFAULT_NAMES,
+  PROTOCOL_LABELS, MODEL_SLOTS, DEDICATED_MODEL_SLOTS, DEFAULT_NAMES,
   getDefaultEndpoints, getDefaultModels, getDefaultQuotaScripts, type QuotaScriptVariant,
   autoCategorize,
 } from "../../domains/platforms";
@@ -197,7 +197,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   // 创建态 + 非 keyOptional + splitApiKeys.length>1 → setBatchPreviewKeys(keys) 触发 MultiKeyPreview。
   const [batchPreviewKeys, setBatchPreviewKeys] = useState<string[] | null>(null);
   const [models, setModels] = useState<Record<ModelSlot, string>>({
-    default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "",
+    default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "", embedding: "", rerank: "",
   });
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [endpoints, setEndpoints] = useState<PlatformEndpoint[]>([]);
@@ -319,7 +319,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     // 仅填预设有值的槽位，其余保持空；未覆盖平台返回空对象 = 不改动。
     const defaultModels = await getDefaultModels(newProtocol);
     setModels({
-      default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "",
+      default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "", embedding: "", rerank: "",
       ...defaultModels,
     });
     // 切到 mock 时用当前 extra 初始化 mock 配置编辑器
@@ -346,7 +346,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const resetForm = () => {
     setName(""); setProtocol("openai"); setCodingPlan(false); setApiKey("");
     setBatchPreviewKeys(null);
-    setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "" });
+    setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "", embedding: "", rerank: "" });
     setAvailableModels([]); setEndpoints([]);
     setEditing(null); setShowForm(false); setFetchError(""); setSaveError("");
     setExtra(""); setMockConfig({ ...DEFAULT_MOCK_CONFIG });
@@ -394,6 +394,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       haiku: p.models.haiku ?? "",
       gpt: p.models.gpt ?? "",
       jev: p.models.jev ?? "",
+      embedding: p.models.embedding ?? "",
+      rerank: p.models.rerank ?? "",
     });
     setAvailableModels(p.available_models ?? []);
     // 透传平台保存侧允许 endpoints 空、只落顶层 base_url；编辑时回填进 endpoints[0]，
@@ -464,6 +466,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       haiku: p.models.haiku ?? "",
       gpt: p.models.gpt ?? "",
       jev: p.models.jev ?? "",
+      embedding: p.models.embedding ?? "",
+      rerank: p.models.rerank ?? "",
     });
     setAvailableModels(p.available_models ?? []);
     setEndpoints(p.endpoints ?? []);
@@ -597,8 +601,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setModels(prev => {
       const next = { ...prev };
       for (const slot of MODEL_SLOTS) {
-        // jev 是决策槽（/v1/systemone 专用），default 是聊天模型，一键填充不进决策槽
-        if (slot.key !== "default" && slot.key !== "jev") {
+        // jev 是决策槽（/v1/systemone 专用）、embedding / rerank 是专用槽，default 是聊天模型，一键填充不进专用槽
+        if (slot.key !== "default" && slot.key !== "jev" && !DEDICATED_MODEL_SLOTS.includes(slot.key)) {
           next[slot.key] = defaultModel;
         }
       }

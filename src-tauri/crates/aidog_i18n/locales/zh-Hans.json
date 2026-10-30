@@ -1360,6 +1360,8 @@
   "platform.modelDefault": "默认模型",
   "platform.modelGpt": "GPT",
   "platform.modelJev": "决策模型",
+  "platform.modelEmbedding": "向量化",
+  "platform.modelRerank": "重排序",
   "platform.modelHaiku": "Haiku",
   "platform.modelOpus": "Opus",
   "platform.modelSonnet": "Sonnet",
