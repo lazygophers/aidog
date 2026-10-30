@@ -53,15 +53,4 @@ export const PI_SECTIONS: SettingSection[] = [
   },
 ];
 
-/** 推荐配置：pi 官方默认 + aidog 的隐私偏好（两项遥测关掉，与 Codex 页同调）。 */
-export const PI_RECOMMENDED_CONFIG: Record<string, unknown> = {
-  defaultThinkingLevel: "medium",
-  defaultProjectTrust: "ask",
-  theme: "dark",
-  quietStartup: false,
-  hideThinkingBlock: false,
-  enableInstallTelemetry: false,
-  enableAnalytics: false,
-};
-
 export type { SettingField, SettingSection };

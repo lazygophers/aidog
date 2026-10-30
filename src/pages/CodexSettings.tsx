@@ -1,15 +1,17 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { codexApi } from "../services/api";
+import { codexApi, settingsPresetApi, type SettingsPreset } from "../services/api";
 import {
   F,
   S,
   SectionIcon,
   FieldRenderer,
 } from "../components/settings/editors";
+import { PresetPickerDialog } from "../components/settings/PresetPickerDialog";
+import { planPresetLoad, renderPresetPlaceholders } from "../services/preset-select";
 import {
   CODEX_SECTIONS,
-  CODEX_RECOMMENDED_CONFIG,
+  AIDOG_DEFAULT_PORT,
 } from "../services/codex-settings-schema";
 import { deepMerge } from "../utils/deepMerge";
 import { stableStringify, JsonCodeEditor } from "../components/shared";
@@ -17,6 +19,10 @@ import { useReveal } from "../utils/motion";
 import { Button } from "@/components/ui/button";
 
 type CodexConfig = Record<string, unknown>;
+
+// 预设里的 {{port}} 用 aidog 默认代理端口渲染（页面无端口设置，同迁移前行为）。
+const render = (p: SettingsPreset): CodexConfig =>
+  renderPresetPlaceholders(p.config, { port: AIDOG_DEFAULT_PORT });
 
 // ─── Codex Global Settings Page ────────────────────────────
 
@@ -64,15 +70,25 @@ export function CodexSettings() {
 
   const dirty = baseline !== "" && currentSig !== baseline;
 
+  const [presets, setPresets] = useState<SettingsPreset[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const recommended = useMemo(() => {
+    const d = planPresetLoad(presets).defaultPreset;
+    return d ? render(d) : {};
+  }, [presets]);
+
   useEffect(() => {
     const load = async () => {
       try {
+        const list = await settingsPresetApi.list("codex").catch((e) => { console.error(e); return [] as SettingsPreset[]; });
+        setPresets(list);
         const stored = await codexApi.read();
         // 从未配置过 → 默认填入推荐配置，便于用户一键起步。
+        const def = planPresetLoad(list).defaultPreset;
         const data =
           stored && Object.keys(stored).length > 0
             ? stored
-            : { ...CODEX_RECOMMENDED_CONFIG };
+            : def ? { ...render(def) } : {};
         setConfig(data);
         setEditJson(JSON.stringify(data, null, 2));
         setBaseline(stableStringify(data));
@@ -116,19 +132,29 @@ export function CodexSettings() {
     }
   }, [mode, editJson, config, t]);
 
-  const handleLoadRecommended = () => {
-    const merged = deepMerge(config, CODEX_RECOMMENDED_CONFIG);
+  const mergeRecommended = (rec: CodexConfig) => {
+    const merged = deepMerge(config, rec);
     setConfig(merged);
     setEditJson(JSON.stringify(merged, null, 2));
     setToast(t("settings.loadedRecommended", "已加载推荐配置"));
     setTimeout(() => setToast(""), 2000);
   };
 
+  const handleLoadRecommended = () => {
+    const { needPicker, defaultPreset } = planPresetLoad(presets);
+    if (needPicker) setPickerOpen(true);
+    else if (defaultPreset) mergeRecommended(render(defaultPreset));
+    else {
+      setToast(t("settings.preset.empty"));
+      setTimeout(() => setToast(""), 2000);
+    }
+  };
+
   const renderSection = (section: (typeof CODEX_SECTIONS)[number]) => (
     <div style={{ display: "flex", flexDirection: "column", gap: S.gap }}>
       {section.fields.map((field) => {
-        const hasDefault = Object.prototype.hasOwnProperty.call(CODEX_RECOMMENDED_CONFIG, field.key);
-        const defaultValue = hasDefault ? CODEX_RECOMMENDED_CONFIG[field.key] : undefined;
+        const hasDefault = Object.prototype.hasOwnProperty.call(recommended, field.key);
+        const defaultValue = hasDefault ? recommended[field.key] : undefined;
         return (
           <FieldRenderer
             key={field.key}
@@ -254,6 +280,13 @@ export function CodexSettings() {
             )}
           </div>
         </div>
+      )}
+      {pickerOpen && (
+        <PresetPickerDialog
+          presets={presets}
+          onSelect={(p) => { setPickerOpen(false); mergeRecommended(render(p)); }}
+          onCancel={() => setPickerOpen(false)}
+        />
       )}
     </div>
   );
