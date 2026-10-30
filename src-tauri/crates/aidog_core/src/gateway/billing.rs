@@ -9,11 +9,8 @@ use aidog_db::Db;
 use super::registry::effective_presets;
 use std::collections::BTreeMap;
 
-/// CNY→USD 汇率（1 USD 兑 CNY 数）：`tools_pricing` 声明 `currency: "CNY"` 的按次价换算
-/// USD 计费用（est_cost 列全库统一 USD 口径）。值 6.6675 = ECB 参考汇率（frankfurter.dev
-/// `/v1/latest?base=USD&symbols=CNY`，2026-10-27 参考价，2026-10-28 取值）。
-/// 随版本更新（spec B6：不进 schema / DB / 运行时配置，汇率大变时改此常量重发版）。
-pub const CNY_PER_USD: f64 = 6.6675;
+/// CNY→USD 汇率真值源在 `aidog_db::price_resolve`（token 单价与 `tools_pricing` 共用）。
+pub use aidog_db::CNY_PER_USD;
 
 /// 根据 `model_entry` 定价计算单次请求预估花费（$），含 peak 调价。
 ///
@@ -149,6 +146,7 @@ pub async fn calc_est_cost_detail(
             source: "fallback".to_string(),
         },
         peak_applied: false,
+        source_cny: false,
     });
 
     let multiplier = if created_at_ms <= 0 {

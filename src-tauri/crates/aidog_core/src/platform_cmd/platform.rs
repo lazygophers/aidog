@@ -319,6 +319,19 @@ pub async fn tray_today_stats() -> Result<aidog_stats::TodayStats, String> {
 }
 
 crate::tauri_command! {
+/// 托盘设置页预览：最近命中平台的高峰态；从未转发（或平台已删）→ None。
+pub async fn tray_peak_status() -> Result<Option<crate::tray_render::TrayPeakStatus>, String> {
+    let db = aidog_ctx::db();
+    let Some(pid) = aidog_stats::last_routed_platform_id(db).await? else {
+        return Ok(None);
+    };
+    let platform = db::get_platform(db, pid).await.ok().flatten();
+    let now_ms = chrono::Utc::now().timestamp_millis();
+    Ok(platform.map(|p| crate::tray_render::peak_status(&p, now_ms)))
+}
+}
+
+crate::tauri_command! {
 pub async fn platform_reorder(ordered_ids: Vec<u64>) -> Result<(), String> {
     let db = aidog_ctx::db();
     tracing::debug!(command = "platform_reorder", count = ordered_ids.len(), "command invoked");

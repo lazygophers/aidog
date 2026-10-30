@@ -215,6 +215,7 @@ pub(crate) async fn finish_nonstream(
         cache_write_tokens,
         coding_plan,
         created_at_ms,
+        chat_tool_cost_usd(&route.platform.platform_type, &log.tool_call_counts),
         tracing::Span::current(),
     );
 

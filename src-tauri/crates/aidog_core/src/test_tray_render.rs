@@ -231,6 +231,19 @@ fn routed_parts_fall_back_to_dash_without_traffic() {
 }
 
 #[test]
+fn peak_status_reports_multiplier_only_in_window() {
+    let mut p = platform(0.0, "");
+    p.extra = r#"{"peak":[{"start_hour":0,"end_hour":24,"multiplier":2.5}]}"#.to_string();
+    let s = super::peak_status(&p, 0);
+    assert!(s.in_peak);
+    assert_eq!(s.multiplier, 2.5);
+    p.extra = r#"{"peak":[{"start_hour":1,"end_hour":2,"multiplier":2.5}]}"#.to_string();
+    let s = super::peak_status(&p, 0);
+    assert!(!s.in_peak);
+    assert_eq!(s.multiplier, 1.0);
+}
+
+#[test]
 fn peak_parts_follow_routed_platform_window() {
     // 无命中平台 → 非高峰。
     assert_eq!(super::peak_item_parts(None, 0).1, "平");
