@@ -725,6 +725,7 @@
   "logs.routing.route": "Routage",
   "logs.routing.response": "Réponse",
   "logs.routing.attemptFailed": "Tentative échouée",
+  "logs.routing.notUsed": "Non utilisé",
 
   "logs.routing.untried": "Non tenté",  "logs.routing.mode.load_balance": "Répartition de charge",
   "logs.routing.mode.failover": "Basculement",
