@@ -1400,6 +1400,7 @@
   "platform.modelJev": "Модель принятия решений",
   "platform.modelEmbedding": "Векторизация",
   "platform.modelRerank": "Переранжирование",
+  "platform.dedicatedSlotNoOpenAIEndpointHint": "У этой платформы нет эндпоинта семейства OpenAI, она не будет выбрана для запросов этого типа",
   "platform.modelHaiku": "Haiku",
   "platform.modelOpus": "Opus",
   "platform.modelSonnet": "Sonnet",

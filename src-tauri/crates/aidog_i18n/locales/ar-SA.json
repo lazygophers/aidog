@@ -1400,6 +1400,7 @@
   "platform.modelJev": "نموذج القرار",
   "platform.modelEmbedding": "التضمين",
   "platform.modelRerank": "إعادة الترتيب",
+  "platform.dedicatedSlotNoOpenAIEndpointHint": "لا تحتوي هذه المنصة على نقطة نهاية من عائلة OpenAI ولن يتم اختيارها لهذا النوع من الطلبات",
   "platform.modelHaiku": "Haiku",
   "platform.modelOpus": "Opus",
   "platform.modelSonnet": "Sonnet",

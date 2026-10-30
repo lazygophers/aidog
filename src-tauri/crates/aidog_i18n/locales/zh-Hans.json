@@ -1378,6 +1378,7 @@
   "platform.modelJev": "决策模型",
   "platform.modelEmbedding": "向量化",
   "platform.modelRerank": "重排序",
+  "platform.dedicatedSlotNoOpenAIEndpointHint": "该平台没有 OpenAI 系端点，不会被此类请求选中",
   "platform.modelHaiku": "Haiku",
   "platform.modelOpus": "Opus",
   "platform.modelSonnet": "Sonnet",
