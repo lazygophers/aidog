@@ -4,28 +4,25 @@
 //   时段档列头点弹窗（WindowsEditModal，ST4 产出）编辑 windows；矩阵主体只管模型值。
 //   数据通道分离：默认列 = platform.models；时段档列 = platform.extra.time_windows.rules[*].models。
 //   仍纯 props 驱动，无外部 state（矩阵内部仅 UI 临时态：activeCell / editingIdx / importModalOpen）。
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import type { TFunction } from "i18next";
 import {
   type Protocol, type ModelSlot, type TimeModelRule,
 } from "../../services/api";
 import type { TimeWindow } from "../../domains/platforms/defaults";
 import { type TzMode, utcToDisplay } from "../../utils/timeWindow";
-import { pinyinMatch } from "../../utils/pinyin";
 import { pad } from "../../utils/formatters";
 import {
-  MODEL_SLOTS, DEDICATED_MODEL_SLOTS, getDefaultModelList,
+  MODEL_SLOTS, DEDICATED_MODEL_SLOTS,
 } from "../../domains/platforms";
 import { FormSection } from "./formSections";
 import { WindowsEditModal } from "./WindowsEditModal";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
-import { makeRipple, ModelPriceTag } from "../../components/shared";
-import { useModelPrices } from "../../domains/platforms/modelPrices";
+import { makeRipple } from "../../components/shared";
+import { ModelCombobox, useModelCandidates } from "./ModelCombobox";
 
 // 单元格 key：默认列 = `d:<slot>`；时段档列 = `r<idx>:<slot>`。整矩阵单开（activeCell 唯一）。
 type CellKey = string;
@@ -120,20 +117,8 @@ export function ModelsMatrixSection({
   const [importModalOpen, setImportModalOpen] = useState(false);
   // 时段档视图（columns="time"）左菜单选中档
   const [selectedRuleIdx, setSelectedRuleIdx] = useState(0);
-  // 下拉行尾 / 选中格尾的置灰价格（grill-select-price spec）；无价格条目不渲染
-  const priceMap = useModelPrices(protocol);
-
-  // 默认列候选列表：getDefaultModelList async 化后 effect 缓存（同 ModelsSection 原逻辑）。
-  //   时段档列复用同源（availableModels || defaultList）。
-  const [defaultList, setDefaultList] = useState<string[]>([]);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const list = await getDefaultModelList(protocol);
-      if (!cancelled) setDefaultList(list);
-    })();
-    return () => { cancelled = true; };
-  }, [protocol]);
+  // 候选列表（时段档列复用同源）。
+  const dropdownSource = useModelCandidates(availableModels, protocol);
 
   // ─── 时段档列操作（从 TimeModelsSection 移植）───
   const addRule = () => {
@@ -187,100 +172,21 @@ export function ModelsMatrixSection({
   };
 
   // ─── 矩阵渲染 helpers ───
-  const dropdownSource = availableModels.length > 0 ? availableModels : defaultList;
-  const hasDropdown = dropdownSource.length > 0;
-
-  // 每格 input + 可搜索下拉（复用 ModelsSection 的 pinyinMatch 模式）。
-  //   cellKey: "d:<slot>" | "r<idx>:<slot>"
+  // 每格 = 共用组合框；cellKey: "d:<slot>" | "r<idx>:<slot>"，整矩阵单开。
   const renderCell = (
     cellKey: string,
     value: string,
     onChange: (v: string) => void,
     onSelect: (v: string) => void,
-  ) => {
-    const query = value.trim().toLowerCase();
-    const filtered = hasDropdown
-      ? (query ? dropdownSource.filter((m) => pinyinMatch(query, m)) : dropdownSource)
-      : [];
-    const open = activeCell === cellKey && filtered.length > 0;
-    // 选中格尾紧凑价：flex 兄弟节点右对齐占位，不叠加在文本上（无 maxWidth 省略）
-    const cellPrice = value ? priceMap.get(value) : undefined;
-    return (
-      <Popover open={open} onOpenChange={(o) => { if (!o) setActiveCell(null); }}>
-        <PopoverAnchor asChild>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, width: "100%" }}>
-            <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
-              <Input
-                className="input"
-                style={{ width: "100%", fontSize: 13, padding: "6px 8px", paddingRight: hasDropdown ? 24 : undefined }}
-                placeholder={t("platform.models_placeholder", "模型名")}
-                value={value}
-                onChange={(e) => {
-                  onChange(e.target.value);
-                  if (hasDropdown) setActiveCell(cellKey);
-                }}
-                onFocus={() => {
-                  if (hasDropdown) setActiveCell(cellKey);
-                }}
-              />
-              {hasDropdown && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  style={{
-                    position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
-                    width: 22, height: 22, minWidth: 22, padding: 0,
-                    color: "var(--text-tertiary)", cursor: "pointer",
-                  }}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    setActiveCell(activeCell === cellKey ? null : cellKey);
-                  }}
-                  title={t("platform.selectModel")}
-                >
-                  ▾
-                </Button>
-              )}
-            </div>
-            <ModelPriceTag info={cellPrice} compact />
-          </div>
-        </PopoverAnchor>
-        <PopoverContent
-          align="start"
-          className="glass-elevated"
-          style={{ width: "var(--radix-popover-trigger-width)", maxHeight: 200, overflowY: "auto", padding: 4 }}
-          // 焦点留在单元格 input 内以继续输入过滤（下拉在 portal，不抢焦点）。
-          onOpenAutoFocus={(e) => e.preventDefault()}
-        >
-          {filtered.map((m) => (
-            <Button
-              key={m}
-              variant="ghost"
-              style={{
-                width: "100%",
-                justifyContent: "flex-start",
-                gap: 8,
-                padding: "6px 12px",
-                fontSize: 13,
-                fontWeight: value === m ? 600 : 400,
-                color: value === m ? "var(--accent)" : "var(--text-primary)",
-                background: value === m ? "var(--accent-subtle)" : "transparent",
-                borderRadius: "var(--radius-sm)",
-              }}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                onSelect(m);
-                setActiveCell(null);
-              }}
-            >
-              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", textAlign: "left" }}>{m}</span>
-              <ModelPriceTag info={priceMap.get(m)} />
-            </Button>
-          ))}
-        </PopoverContent>
-      </Popover>
-    );
-  };
+  ) => (
+    <ModelCombobox
+      value={value} onChange={onChange} onSelect={onSelect}
+      source={dropdownSource} protocol={protocol}
+      open={activeCell === cellKey}
+      onOpenChange={(o) => setActiveCell(o ? cellKey : null)}
+      t={t}
+    />
+  );
 
   // 列宽：默认列 + 时段档列 flex:1 平均分割（单列占满，多列均分）；
   // minWidth:80 软下限防极窄，极多列时外层 overflowX 滚动。slot label 列 64px 固定。

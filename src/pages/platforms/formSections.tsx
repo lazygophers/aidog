@@ -18,6 +18,7 @@ import { newManualBudget, type TimeWindow, getDefaultPeak, getDefaultModelList, 
 import { isCurrentlyPeak, currentPeakMultiplier, utcToDisplay, displayToUtc, WINDOW_TIMEZONES, type TzMode } from "../../utils/timeWindow";
 import { formatDateTime, pad } from "../../utils/formatters";
 import type { ThemeMode } from "../../themes/types";
+import { ModelCombobox, useModelCandidates } from "./ModelCombobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -1705,14 +1706,17 @@ export function RateLimitsSection({ bundle, setBundle, t }: {
 
 /** 直通模型（直接模型转发）：平台声明 direct_models，声明即生效不查 registry。
  *  添加走文本输入（聚合站自定义模型名可配），逐条删除；空列表 = 未声明。 */
-export function DirectModelsSection({ models, setModels, t }: {
+export function DirectModelsSection({ models, setModels, availableModels, protocol, t }: {
   models: string[];
   setModels: React.Dispatch<React.SetStateAction<string[]>>;
+  availableModels: string[];
+  protocol: Protocol;
   t: TFunction;
 }) {
   const [input, setInput] = useState("");
-  const add = () => {
-    const v = input.trim();
+  const source = useModelCandidates(availableModels, protocol);
+  const add = (raw: string = input) => {
+    const v = raw.trim();
     if (!v || models.includes(v)) return;
     setModels(prev => [...prev, v]);
     setInput("");
@@ -1745,15 +1749,17 @@ export function DirectModelsSection({ models, setModels, t }: {
         </div>
       ))}
       <div style={{ display: "flex", gap: 6, marginTop: models.length > 0 ? 6 : 0 }}>
-        <Input
-          data-testid="direct-model-input"
-          value={input}
-          placeholder={t("platform.direct_models_placeholder", "模型 id，如 claude-sonnet-4-5")}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
-          style={{ flex: 1, minWidth: 110, fontFamily: "var(--font-mono, monospace)", fontSize: 11, height: 28 }}
-        />
-        <button type="button" data-testid="direct-model-add" className={C.addBtnClass} onClick={add}>
+        <div style={{ flex: 1, minWidth: 110 }} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }}>
+          <ModelCombobox
+            value={input} onChange={setInput} onSelect={add}
+            source={source} protocol={protocol}
+            placeholder={t("platform.direct_models_placeholder", "模型 id，如 claude-sonnet-4-5")}
+            inputProps={{ "data-testid": "direct-model-input" }}
+            inputStyle={{ fontFamily: "var(--font-mono, monospace)", fontSize: 11, height: 28 }}
+            t={t}
+          />
+        </div>
+        <button type="button" data-testid="direct-model-add" className={C.addBtnClass} onClick={() => add()}>
           + {t("platform.direct_models_add", "添加")}
         </button>
       </div>
