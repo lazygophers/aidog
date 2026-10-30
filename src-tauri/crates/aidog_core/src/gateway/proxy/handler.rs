@@ -331,7 +331,8 @@ pub(crate) async fn handle_proxy_core(
     if (is_responses_subendpoint(&path)
         || is_count_tokens_endpoint(&path)
         || is_decision_endpoint(&path)
-        || is_embedding_endpoint(&path))
+        || is_embedding_endpoint(&path)
+        || is_rerank_endpoint(&path))
         && let Some(platform) =
             super::passthrough::passthrough_first_candidate(&state.db, &group, &raw_model).await
     {
@@ -396,6 +397,22 @@ pub(crate) async fn handle_proxy_core(
     if is_embedding_endpoint(&path) {
         return super::aux_model::handle_aux_model(
             &super::aux_model::EMBEDDING,
+            &state,
+            &mut log,
+            &log_settings,
+            &group,
+            &bytes,
+            start,
+            lang,
+        )
+        .await;
+    }
+
+    // ── 重排序请求分流（同上，body 为 query/documents，无 messages）──
+    // 一律用平台 rerank 槽位模型，出站 /rerank（aux_model.rs）。
+    if is_rerank_endpoint(&path) {
+        return super::aux_model::handle_aux_model(
+            &super::aux_model::RERANK,
             &state,
             &mut log,
             &log_settings,

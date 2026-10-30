@@ -2734,3 +2734,85 @@ async fn embedding_ignores_time_windows_and_direct_models() {
     let p_route = set.candidates.iter().find(|c| c.platform.id == p.id).unwrap();
     assert_eq!(p_route.target_model, "emb-x");
 }
+
+// ══ rerank：与 embedding 同构的请求类型维度 ══
+
+fn slot_rerank(v: &str) -> PlatformModels {
+    PlatformModels { rerank: Some(v.into()), ..Default::default() }
+}
+
+/// 槽位空 / 非 OpenAI 系 / 只配 embedding 槽 → 非候选；槽位值即上游模型；纯重排序平台被 Chat 剔除。
+#[tokio::test]
+async fn rerank_request_filters_and_rewrites() {
+    let db = mk_test_db().await;
+    let ok = mk_embedding_platform(&db, "ok", Protocol::OpenAI, slot_rerank("rr-x")).await;
+    let empty = mk_embedding_platform(&db, "empty", Protocol::OpenAI, slot_default("gpt")).await;
+    let emb = mk_embedding_platform(&db, "emb", Protocol::OpenAI, slot_embedding("emb-y")).await;
+    let anth = mk_embedding_platform(&db, "anth", Protocol::Anthropic, slot_rerank("rr-y")).await;
+    let g = mk_db_group(&db, "grp", &[ok.id, empty.id, emb.id, anth.id]).await;
+
+    let set = select_candidates_ctx(&db, &g, "client-model", None, RequestKind::Rerank)
+        .await
+        .expect("one rerank platform");
+    assert_eq!(set.candidates.len(), 1);
+    assert_eq!(set.candidates[0].platform.id, ok.id);
+    assert_eq!(set.candidates[0].target_model, "rr-x");
+
+    let set = select_candidates_ctx(&db, &g, "gpt", None, RequestKind::Chat)
+        .await
+        .expect("chat platforms remain");
+    let ids: Vec<u64> = set.candidates.iter().map(|c| c.platform.id).collect();
+    assert!(!ids.contains(&ok.id) && ids.contains(&empty.id));
+}
+
+/// 单平台组 与 多平台组退化为 1 个可用平台：槽位为空都报 no_rerank_platform。
+#[tokio::test]
+async fn rerank_empty_slot_errs_single_and_degraded_group() {
+    let db = mk_test_db().await;
+    let empty = mk_embedding_platform(&db, "empty", Protocol::OpenAI, slot_default("gpt")).await;
+    let rr = mk_embedding_platform(&db, "rr", Protocol::OpenAI, slot_rerank("rr-x")).await;
+    db::update_platform(
+        &db,
+        UpdatePlatform { status: Some(PlatformStatus::Disabled), ..upd_platform(rr.id) },
+    )
+    .await
+    .expect("disable");
+    let single = mk_db_group(&db, "single", &[empty.id]).await;
+    let degraded = mk_db_group(&db, "degraded", &[empty.id, rr.id]).await;
+    for g in [single, degraded] {
+        let e = select_candidates_ctx(&db, &g, "m", None, RequestKind::Rerank)
+            .await
+            .expect_err("no rerank platform");
+        assert_eq!(e, "no_rerank_platform", "group {}", g.name);
+    }
+}
+
+/// time_windows 不含 rerank 槽位不影响读数；direct_models 同名不收窄候选。
+#[tokio::test]
+async fn rerank_ignores_time_windows_and_direct_models() {
+    let db = mk_test_db().await;
+    let p = mk_embedding_platform(&db, "p", Protocol::OpenAI, slot_rerank("rr-x")).await;
+    let q = mk_embedding_platform(&db, "q", Protocol::OpenAI, slot_rerank("rr-q")).await;
+    db::update_platform(
+        &db,
+        UpdatePlatform {
+            extra: Some(
+                serde_json::json!({
+                    "time_windows": [{"start_hour":0,"end_hour":24,"models":{"default":"other"}}],
+                    "direct_models": ["client-model"]
+                })
+                .to_string(),
+            ),
+            ..upd_platform(p.id)
+        },
+    )
+    .await
+    .expect("set extra");
+    let g = mk_db_group(&db, "grp", &[p.id, q.id]).await;
+    let set = select_candidates_ctx(&db, &g, "client-model", None, RequestKind::Rerank)
+        .await
+        .expect("rerank routes normally");
+    assert_eq!(set.candidates.len(), 2);
+    let p_route = set.candidates.iter().find(|c| c.platform.id == p.id).unwrap();
+    assert_eq!(p_route.target_model, "rr-x");
+}

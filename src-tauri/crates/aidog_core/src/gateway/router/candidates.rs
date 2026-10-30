@@ -65,6 +65,7 @@ impl From<String> for RouteFail {
 /// - `Chat`：普通聊天请求，剔除纯决策平台（`is_dedicated_only`，R3）
 /// - `Decision`：`/v1/systemone` 决策请求，剔除不支持决策的平台（R2）
 /// - `Embedding`：`/v1/embeddings` 向量化请求：候选 = embedding 槽位非空 且 有 OpenAI 系 endpoint 的平台
+/// - `Rerank`：`/v1/rerank` 重排序请求：候选 = rerank 槽位非空 且 有 OpenAI 系 endpoint 的平台
 /// - `Tools(path)`：独立搜索/tools 请求（spec-独立搜索转发 语义 3）：候选 = 组内
 ///   `tools_endpoints` 含 path 与入站 path 相等条目的平台；携带入站 path 供逐平台匹配。
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -72,6 +73,7 @@ pub enum RequestKind<'a> {
     Chat,
     Decision,
     Embedding,
+    Rerank,
     Tools(&'a str),
 }
 
@@ -82,6 +84,7 @@ impl RequestKind<'_> {
             RequestKind::Chat => "no_chat_platform",
             RequestKind::Decision => "no_decision_platform",
             RequestKind::Embedding => "no_embedding_platform",
+            RequestKind::Rerank => "no_rerank_platform",
             RequestKind::Tools(_) => "no_tools_platform",
         }
     }
@@ -120,6 +123,9 @@ pub(crate) fn platform_supports_kind(
         RequestKind::Chat => !platform.models.is_dedicated_only(),
         RequestKind::Embedding => {
             platform.models.embedding_slot().is_some() && has_openai_family_endpoint(platform)
+        }
+        RequestKind::Rerank => {
+            platform.models.rerank_slot().is_some() && has_openai_family_endpoint(platform)
         }
         RequestKind::Tools(path) => {
             crate::gateway::billing::default_tools_endpoints(&platform.platform_type.wire_str())
@@ -298,10 +304,10 @@ pub async fn select_candidates_ctx(
         })
         .map(|gp| gp.platform.id)
         .collect();
-    // Embedding 不进直通链：客户端模型名与 direct_models 同名也不得改变槽位路由。
+    // Embedding / Rerank 不进直通链：客户端模型名与 direct_models 同名也不得改变槽位路由。
     if !direct_ids.is_empty()
         && group_platforms.len() > 1
-        && !matches!(kind, RequestKind::Embedding)
+        && !matches!(kind, RequestKind::Embedding | RequestKind::Rerank)
     {
         return select_direct_candidates(
             group,
@@ -1071,6 +1077,10 @@ fn resolve_target_model(
         RequestKind::Embedding => platform
             .models
             .embedding_slot()
+            .map_or_else(|| model_name.to_string(), str::to_string),
+        RequestKind::Rerank => platform
+            .models
+            .rerank_slot()
             .map_or_else(|| model_name.to_string(), str::to_string),
         // Tools 不做任何模型改写（语义 3）：映射命中取映射目标名（仅日志元数据），否则原样。
         RequestKind::Tools(_) => model_name.to_string(),
