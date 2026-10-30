@@ -15,6 +15,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { useDisplayCurrency } from "../../utils/displayCurrency";
+import { useBalanceCurrencies } from "../../utils/balanceCurrency";
 
 /** 行 grid 模板（稿真值，含未分组列头共用）。 */
 export const PLATFORM_ROW_GRID = "26px 34px minmax(200px,1.35fr) minmax(150px,1fr) 74px 62px 58px 58px 150px 108px";
@@ -131,7 +132,7 @@ export function PlatformRow({
   t, lang, lead, onSelect, onToggleExpanded, onToggle,
   onEdit, onShare, onDuplicate, onViewLogs, onQuickTest, onDelete, onLevelPriorityChange,
 }: PlatformRowProps) {
-  useDisplayCurrency();
+  const dispCur = useDisplayCurrency();
   const { isCpProtocol, defaultModels, peakWindows } = useProtocolMeta(p.platform_type, p.extra ?? "", lang);
   // 转发生效模型（PlatformCard 同口径）：显式槽位优先，没配回落 preset 默认。
   const configuredModels = useMemo(() => {
@@ -151,7 +152,8 @@ export function PlatformRow({
   const inPeak = isCurrentlyPeak(peakWindows, nowMs);
   const hitWin = inPeak ? peakWindows.find(w => isCurrentlyPeak([w], nowMs)) : undefined;
   // 配额列统一口径（同 PlatformCard）：真查校准（quotaPreferReal）→ est 预估 → 无数据。
-  const quota = useMemo(() => computeQuotaDisplay(p, quotaRaw, !!quotaPreferReal), [p, quotaRaw, quotaPreferReal]);
+  const balCcys = useBalanceCurrencies();
+  const quota = useMemo(() => computeQuotaDisplay(p, quotaRaw, !!quotaPreferReal, balCcys[String(p.id)]), [p, quotaRaw, quotaPreferReal, balCcys, dispCur]);
   const mb = useMemo(() => computeManualBudgetDisplay(p.manual_budgets), [p.manual_budgets]);
   const sRate = u && u.total_requests > 0 ? calcSuccessRate(u.success_count, u.total_requests) : null;
   const host = hostOf(p.base_url);
