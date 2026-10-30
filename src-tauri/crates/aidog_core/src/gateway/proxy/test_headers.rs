@@ -1199,7 +1199,7 @@ fn capture_request_headers_redacts_custom_key_headers() {
 const EXPECTED_UA: &[(&str, &str)] = &[
     ("claude_code", "claude-cli/2.1.204 (external, cli)"),
     ("claude_code_vscode", "claude-cli/2.1.204 (external, claude-vscode, agent-sdk/0.1.30)"),
-    ("claude_code_sdk_ts", "claude-cli/2.1.204 (external, sdk-ts)"),
+    ("claude_code_sdk_ts", "claude-cli/2.1.204 (external, sdk-ts, agent-sdk/0.3.314)"),
     ("claude_code_sdk_py", "claude-cli/2.1.204 (external, sdk-py)"),
     ("claude_code_gh_action", "claude-cli/2.1.204 (external, claude-code-github-action)"),
     ("codex_cli", "codex_cli_rs/0.38.0 (MacOS; arm64) Terminal"),
@@ -1239,10 +1239,10 @@ fn outbound_user_agents_are_verbatim_for_every_protocol() {
     let client = reqwest::Client::new();
     for &(code, ua) in EXPECTED_UA {
         for p in [Protocol::Anthropic, Protocol::OpenAI, Protocol::Gemini, Protocol::DeepSeek] {
-            let rb = apply_client_headers(client.post("http://localhost"), &ct(code), &p, "sk-key");
+            let rb = apply_client_headers_for_model(client.post("http://localhost"), &ct(code), &p, "sk-key", "gemini-pro");
             let h = headers_from_builder(rb);
             assert_eq!(h.get("User-Agent").unwrap().to_str().unwrap(), ua, "[{code}] UA");
-            let m = build_upstream_headers(&ct(code), &p, "sk-key", &axum::http::HeaderMap::new());
+            let m = build_upstream_headers_for_model(&ct(code), &p, "sk-key", "gemini-pro", &axum::http::HeaderMap::new());
             let m: std::collections::HashMap<&str, &str> = m.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
             assert_eq!(m.get("User-Agent"), Some(&ua), "[{code}] build_upstream_headers UA");
         }
@@ -1279,4 +1279,14 @@ fn removed_cursor_windsurf_fall_back_to_default_simulation() {
         let m = build_upstream_headers(&ep.client_type, &Protocol::OpenAI, "sk-key", &axum::http::HeaderMap::new());
         assert!(!m.iter().any(|(k, _)| k.eq_ignore_ascii_case("user-agent")));
     }
+}
+
+#[test]
+fn gemini_cli_ua_carries_actual_upstream_model() {
+    use crate::gateway::models::Protocol;
+    let want = "GeminiCLI/0.66.0/gemini-2.5-flash (darwin; arm64; terminal)";
+    let rb = apply_client_headers_for_model(reqwest::Client::new().post("http://localhost"), &ct("gemini_cli"), &Protocol::Gemini, "k", "gemini-2.5-flash");
+    assert_eq!(headers_from_builder(rb).get("User-Agent").unwrap().to_str().unwrap(), want);
+    let m = build_upstream_headers_for_model(&ct("gemini_cli"), &Protocol::Gemini, "k", "gemini-2.5-flash", &axum::http::HeaderMap::new());
+    assert!(m.iter().any(|(k, v)| k == "User-Agent" && v == want), "{m:?}");
 }

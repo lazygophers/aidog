@@ -161,10 +161,11 @@ fn prepare_http_request(ctx: &TestContext) -> Result<HttpRequestContext, String>
 
     let eff_api_key = gateway::proxy::resolve_opencode_zen_key(&ctx.platform);
 
-    let upstream_headers = gateway::proxy::build_upstream_headers(
+    let upstream_headers = gateway::proxy::build_upstream_headers_for_model(
         &client_type,
         &target_protocol,
         &eff_api_key,
+        &ctx.model,
         &axum::http::HeaderMap::new(),
     );
     let upstream_headers_json = serde_json::Value::Object(
@@ -423,7 +424,7 @@ crate::tauri_command! {
             .post(&http_ctx.url)
             .header("Content-Type", "application/json")
             .body(http_ctx.req_body_str.clone());
-        let req_builder = gateway::proxy::apply_client_headers(req_builder, &http_ctx.client_type, &http_ctx.target_protocol, &http_ctx.eff_api_key);
+        let req_builder = gateway::proxy::apply_client_headers_for_model(req_builder, &http_ctx.client_type, &http_ctx.target_protocol, &http_ctx.eff_api_key, &http_ctx.model);
 
         let resp = match req_builder.send().await {
             Ok(r) => r,
