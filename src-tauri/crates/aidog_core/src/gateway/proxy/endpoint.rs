@@ -147,6 +147,22 @@ pub(crate) fn select_endpoint_for_decision(
         .or_else(|| endpoints.iter().find(|ep| ep.protocol == Protocol::OpenAIResponses))
 }
 
+/// 向量化请求端点判定：路径以 `/embeddings` 结尾（后缀判定，容忍 `/proxy` 前缀与尾 `/`；
+/// `/v1/embeddingsfoo` 不命中）。
+pub(crate) fn is_embedding_endpoint(path: &str) -> bool {
+    path.trim_end_matches('/').ends_with("/embeddings")
+}
+
+/// 辅助模型请求（embedding / rerank）的 endpoint 选择：OpenAI 系优先（openai → completions → responses）。
+/// 都没有返回 None → 调用方回退平台主 `base_url`。
+pub(crate) fn select_endpoint_for_openai_family(
+    endpoints: &[super::models::PlatformEndpoint],
+) -> Option<&super::models::PlatformEndpoint> {
+    [Protocol::OpenAI, Protocol::OpenAICompletions, Protocol::OpenAIResponses]
+        .iter()
+        .find_map(|p| endpoints.iter().find(|ep| ep.protocol == *p))
+}
+
 pub(crate) fn infer_passthrough_protocol_from_ua(ua: &str) -> Option<Protocol> {
     let lower = ua.to_lowercase();
     if lower.contains("claude-cli") {

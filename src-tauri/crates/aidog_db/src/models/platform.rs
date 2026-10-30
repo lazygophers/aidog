@@ -152,9 +152,10 @@ impl PlatformModels {
         self.jev_slot().is_some()
     }
 
-    /// 平台只支持决策（jev 非空且 5 个聊天槽全空，R3：聊天请求须剔除该平台）。
-    pub fn is_decision_only(&self) -> bool {
-        self.jev_slot().is_some() && !self.has_chat_slot()
+    /// 平台只有专用槽（jev / embedding / rerank 任一非空且 5 个聊天槽全空，R3：聊天请求须剔除该平台）。
+    pub fn is_dedicated_only(&self) -> bool {
+        (self.jev_slot().is_some() || self.embedding_slot().is_some() || self.rerank_slot().is_some())
+            && !self.has_chat_slot()
     }
 }
 
@@ -725,13 +726,13 @@ mod tests {
     }
 
     #[test]
-    fn platform_models_is_decision_only_both_directions() {
+    fn platform_models_is_dedicated_only_both_directions() {
         // R3：jev 非空 + 5 聊天槽全空 → 只支持决策
         let only = PlatformModels {
             jev: Some("jev-latest".into()),
             ..Default::default()
         };
-        assert!(only.is_decision_only());
+        assert!(only.is_dedicated_only());
         assert!(only.supports_decision_slot());
         // 任一聊天槽有值 → 不是 decision-only（但仍支持决策）
         let mixed = PlatformModels {
@@ -739,15 +740,30 @@ mod tests {
             haiku: Some("glm-4.5".into()),
             ..Default::default()
         };
-        assert!(!mixed.is_decision_only());
+        assert!(!mixed.is_dedicated_only());
         assert!(mixed.supports_decision_slot());
         // 无 jev → 两者皆否
         let chat_only = PlatformModels {
             default: Some("gpt-4o".into()),
             ..Default::default()
         };
-        assert!(!chat_only.is_decision_only());
+        assert!(!chat_only.is_dedicated_only());
         assert!(!chat_only.supports_decision_slot());
+    }
+
+    #[test]
+    fn platform_models_dedicated_only_covers_embedding_rerank() {
+        let emb = PlatformModels { embedding: Some("e".into()), ..Default::default() };
+        assert!(emb.is_dedicated_only());
+        assert!(!emb.supports_decision_slot(), "Decision 路径行为不变");
+        assert!(PlatformModels { rerank: Some("r".into()), ..Default::default() }.is_dedicated_only());
+        let mixed = PlatformModels {
+            embedding: Some("e".into()),
+            default: Some("gpt".into()),
+            ..Default::default()
+        };
+        assert!(!mixed.is_dedicated_only());
+        assert!(!PlatformModels::default().is_dedicated_only());
     }
 
     #[test]
@@ -759,7 +775,7 @@ mod tests {
             ..Default::default()
         };
         assert!(!blank_jev.supports_decision_slot());
-        assert!(!blank_jev.is_decision_only());
+        assert!(!blank_jev.is_dedicated_only());
         assert_eq!(blank_jev.jev_slot(), None);
         // jev 有值、聊天槽全是空串 → 仍是 decision-only
         let only = PlatformModels {
@@ -771,7 +787,7 @@ mod tests {
             gpt: Some("".into()),
             ..Default::default()
         };
-        assert!(only.is_decision_only());
+        assert!(only.is_dedicated_only());
         assert_eq!(only.jev_slot(), Some("jev-latest"));
         // 全空串 → is_empty
         let all_blank = PlatformModels {

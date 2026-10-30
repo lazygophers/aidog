@@ -2613,3 +2613,124 @@ async fn direct_model_mapping_translates_without_locking() {
     assert_eq!(set.candidates[0].platform.id, a.id, "no mapping promotion");
     assert_eq!(set.candidates[0].target_model, "mapped-t");
 }
+
+// ══ embedding：请求类型维度（槽位 + OpenAI 系 endpoint）══
+
+fn slot_embedding(v: &str) -> PlatformModels {
+    PlatformModels {
+        embedding: Some(v.into()),
+        ..Default::default()
+    }
+}
+
+fn upd_platform(id: u64) -> UpdatePlatform {
+    UpdatePlatform {
+        id, name: None, platform_type: None, base_url: None, api_key: None, extra: None,
+        models: None, available_models: None, endpoints: None, enabled: None, status: None,
+        manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
+    }
+}
+
+async fn mk_embedding_platform(db: &db::Db, name: &str, proto: Protocol, models: PlatformModels) -> Platform {
+    db::create_platform(
+        db,
+        CreatePlatform {
+            name: name.into(),
+            platform_type: proto,
+            base_url: "https://example.invalid/v1".into(),
+            api_key: "k".into(),
+            extra: String::new(),
+            models: Some(models),
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .expect("create platform")
+}
+
+/// 槽位空 / 非 OpenAI 系 → 非候选；槽位值即上游模型（忽略请求名）；纯向量化平台被 Chat 剔除。
+#[tokio::test]
+async fn embedding_request_filters_and_rewrites() {
+    let db = mk_test_db().await;
+    let ok = mk_embedding_platform(&db, "ok", Protocol::OpenAI, slot_embedding("emb-x")).await;
+    let empty = mk_embedding_platform(&db, "empty", Protocol::OpenAI, slot_default("gpt")).await;
+    let anth = mk_embedding_platform(&db, "anth", Protocol::Anthropic, slot_embedding("emb-y")).await;
+    let g = mk_db_group(&db, "grp", &[ok.id, empty.id, anth.id]).await;
+
+    let set = select_candidates_ctx(&db, &g, "client-model", None, RequestKind::Embedding)
+        .await
+        .expect("one embedding platform");
+    assert_eq!(set.candidates.len(), 1);
+    assert_eq!(set.candidates[0].platform.id, ok.id);
+    assert_eq!(set.candidates[0].target_model, "emb-x");
+
+    // 纯向量化平台被 Chat 剔除，混合平台保留
+    let set = select_candidates_ctx(&db, &g, "gpt", None, RequestKind::Chat)
+        .await
+        .expect("chat platforms remain");
+    let ids: Vec<u64> = set.candidates.iter().map(|c| c.platform.id).collect();
+    assert!(!ids.contains(&ok.id) && ids.contains(&empty.id));
+}
+
+/// 单平台组 与 多平台组退化为 1 个可用平台：槽位为空都报 no_embedding_platform。
+#[tokio::test]
+async fn embedding_empty_slot_errs_single_and_degraded_group() {
+    let db = mk_test_db().await;
+    let empty = mk_embedding_platform(&db, "empty", Protocol::OpenAI, slot_default("gpt")).await;
+    let emb = mk_embedding_platform(&db, "emb", Protocol::OpenAI, slot_embedding("emb-x")).await;
+    // 退化：emb 手动禁用 → 组内只剩 empty 一个 Enabled
+    db::update_platform(
+        &db,
+        UpdatePlatform {
+            status: Some(PlatformStatus::Disabled),
+            ..upd_platform(emb.id)
+        },
+    )
+    .await
+    .expect("disable");
+    let single = mk_db_group(&db, "single", &[empty.id]).await;
+    let degraded = mk_db_group(&db, "degraded", &[empty.id, emb.id]).await;
+    for g in [single, degraded] {
+        let e = select_candidates_ctx(&db, &g, "m", None, RequestKind::Embedding)
+            .await
+            .expect_err("no embedding platform");
+        assert_eq!(e, "no_embedding_platform", "group {}", g.name);
+    }
+}
+
+/// time_windows 规则不含 embedding 槽位也不影响读数（读 platform.models 而非 effective_models）；
+/// direct_models 声明与客户端模型名同名也不改变 Embedding 路由。
+#[tokio::test]
+async fn embedding_ignores_time_windows_and_direct_models() {
+    let db = mk_test_db().await;
+    let p = mk_embedding_platform(&db, "p", Protocol::OpenAI, slot_embedding("emb-x")).await;
+    let q = mk_embedding_platform(&db, "q", Protocol::OpenAI, slot_embedding("emb-q")).await;
+    db::update_platform(
+        &db,
+        UpdatePlatform {
+            extra: Some(
+                serde_json::json!({
+                    "time_windows": [{"start_hour":0,"end_hour":24,"models":{"default":"other"}}],
+                    "direct_models": ["client-model"]
+                })
+                .to_string(),
+            ),
+            ..upd_platform(p.id)
+        },
+    )
+    .await
+    .expect("set extra");
+    let g = mk_db_group(&db, "grp", &[p.id, q.id]).await;
+    let set = select_candidates_ctx(&db, &g, "client-model", None, RequestKind::Embedding)
+        .await
+        .expect("embedding routes normally");
+    assert_eq!(set.candidates.len(), 2, "direct_models 不把候选收窄到声明平台");
+    let p_route = set.candidates.iter().find(|c| c.platform.id == p.id).unwrap();
+    assert_eq!(p_route.target_model, "emb-x");
+}
