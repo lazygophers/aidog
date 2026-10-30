@@ -59,6 +59,8 @@ lint: ## Run linters
 	node scripts/check-protocol-sync.mjs
 	@printf "$(CYAN)▶ Modal centering check...$(RESET)\n"
 	yarn check:modal
+	@printf "$(CYAN)▶ Money format check...$(RESET)\n"
+	yarn check:money
 	@printf "$(CYAN)▶ Design token check...$(RESET)\n"
 	yarn check:tokens
 	@printf "$(CYAN)▶ Linting...$(RESET)\n"
