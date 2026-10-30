@@ -350,7 +350,7 @@ export function ImportDiffModal({
   // shadcn Dialog (Radix Portal) 满足 createPortal(document.body) 居中规则。
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="glass-elevated"
+      <DialogContent id="import-diff-modal" className="glass-elevated"
         style={{
           width: 680, maxWidth: 680, maxHeight: "85vh", display: "flex", flexDirection: "column",
           padding: 0, borderRadius: "var(--radius-lg)", gap: 0,
