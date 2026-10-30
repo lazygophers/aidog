@@ -4358,3 +4358,56 @@ async fn embedding_and_rerank_slots_do_not_cross() {
     assert_eq!((h[0].0.as_str(), model_of(0)), ("/v1/embeddings", serde_json::json!("emb-slot")));
     assert_eq!((h[1].0.as_str(), model_of(1)), ("/v1/rerank", serde_json::json!("rr-slot")));
 }
+
+/// 请求流向 票 02 端到端：`User-Agent: claude-cli/x` 经 handle_proxy_core 全链路（本地假上游）后，
+/// proxy_log.client='claude_code'，stats_agg_hourly 行 client='claude_code' 且 req_model=请求模型
+/// （≠ actual_model）。用三文件库 + 另开一个 Db 句柄读回（写后重开级断言，防错库路由）。
+#[tokio::test]
+async fn client_and_req_model_land_in_log_and_stats_agg() {
+    let upstream = spawn_stub_upstream(200, ANTHROPIC_OK).await; // 响应 model = "claude-3"
+    let (db, dir) = aidog_db::test_support::three_file_db().await;
+    let state = make_state(db).await;
+    setup_group_with_upstream(&state, "gk_flow", &upstream).await;
+
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/messages")
+        .header("authorization", "Bearer gk_flow")
+        .header("content-type", "application/json")
+        .header("user-agent", "claude-cli/2.0.1 (external, cli)")
+        .body(Body::from(
+            r#"{"model":"request-model","messages":[{"role":"user","content":"hi"}]}"#,
+        ))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    flush_log_queue(&state).await;
+
+    let reopened = aidog_db::Db::new(dir.path().join("aidog.db").to_str().unwrap())
+        .await
+        .unwrap();
+    let log_client: String = reopened
+        .call_read_proxy_log_traced(None, std::panic::Location::caller(), |c| {
+            Ok(c.query_row(
+                "SELECT client FROM proxy_log WHERE group_key = 'gk_flow'",
+                [],
+                |r| r.get(0),
+            )?)
+        })
+        .await
+        .unwrap();
+    assert_eq!(log_client, "claude_code");
+    let (client, req_model, model): (String, String, String) = reopened
+        .call_read_traced(None, std::panic::Location::caller(), |c| {
+            Ok(c.query_row(
+                "SELECT client, req_model, model FROM stats_agg_hourly WHERE group_key = 'gk_flow'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )?)
+        })
+        .await
+        .unwrap();
+    assert_eq!(client, "claude_code");
+    assert_eq!(req_model, "request-model");
+    assert_eq!(model, "claude-3", "model 列仍是 actual_model 优先");
+}

@@ -123,7 +123,12 @@ pub fn run_migrations_late(
             if log_path.exists() {
                 let log_path_sql = log_path.to_string_lossy().replace("'", "''");
                 let migrate_result = (|| -> SqlResult<()> {
-                    conn.execute_batch(&format!("ATTACH DATABASE '{log_path_sql}' AS src_log"))?;
+                    // log.db 整库加密（SQLCipher）：ATTACH 必须带 key，否则读不到表、搬迁静默落空。
+                    let key_clause = crate::sqlcipher::attach_key_clause()
+                        .map_err(rusqlite::Error::InvalidParameterName)?;
+                    conn.execute_batch(&format!(
+                        "ATTACH DATABASE '{log_path_sql}' AS src_log {key_clause}"
+                    ))?;
                     let has_table: bool = conn
                         .query_row(
                             "SELECT 1 FROM src_log.sqlite_master \
@@ -136,7 +141,15 @@ pub fn run_migrations_late(
                         conn.execute_batch(
                             "BEGIN;\
                                          INSERT OR IGNORE INTO stats_agg_hourly \
-                                         SELECT * FROM src_log.stats_agg_hourly;\
+                                         (time_hour, model, group_key, platform_id, \
+                                          request_count, success_count, error_count, \
+                                          sum_input_tokens, sum_output_tokens, sum_cache_tokens, \
+                                          sum_est_cost, sum_duration_ms, created_at, updated_at, deleted_at) \
+                                         SELECT time_hour, model, group_key, platform_id, \
+                                          request_count, success_count, error_count, \
+                                          sum_input_tokens, sum_output_tokens, sum_cache_tokens, \
+                                          sum_est_cost, sum_duration_ms, created_at, updated_at, deleted_at \
+                                         FROM src_log.stats_agg_hourly;\
                                          COMMIT;",
                         )?;
                         tracing::info!(
@@ -157,6 +170,13 @@ pub fn run_migrations_late(
     }
 
     let _ = conn.execute("DROP TABLE IF EXISTS proxy_log", []);
+
+    // Migration 20261030-02 (请求流向 票 02): stats_agg_hourly 加 client / req_model 两列，
+    // UNIQUE 升为 6 元组 (time_hour,model,group_key,platform_id,client,req_model)。SQLite 改不了
+    // UNIQUE，故重建：旧表改名 → STATS_AGG_HOURLY_SQL 建新形态（含两索引）→ 显式列拷贝 → DROP 旧表，
+    // 事务内完成。幂等判据 PRAGMA table_info 已有 client 列即跳过（新装直接新形态）。不回填：
+    // 存量行 client='' req_model=''（=未知），手动 rebuild 时 upsert_aggregated 先删这类旧形态行防双计。
+    rebuild_stats_agg_six_tuple(conn)?;
 
     // Migration 20260824-02 (票 01 统一中间件引擎): middleware_rule 表迁移到统一模型。
     // 新增 conditions/actions/applies_to/failed 列；旧 8 类列按规则翻译为
@@ -344,6 +364,40 @@ CREATE INDEX IF NOT EXISTS idx_oauth_usage_sample_group_sampled ON oauth_usage_s
     updated_at INTEGER NOT NULL DEFAULT 0
 );"#,
     )?;
+    Ok(())
+}
+
+/// Migration 20261030-02 本体（抽出以便测试直调）：幂等，已有 client 列即跳过。
+pub(crate) fn rebuild_stats_agg_six_tuple(conn: &Connection) -> SqlResult<()> {
+    let has_client = conn
+        .prepare("PRAGMA table_info(stats_agg_hourly)")?
+        .query_map([], |r| r.get::<_, String>(1))?
+        .filter_map(Result::ok)
+        .any(|c| c == "client");
+    if !has_client {
+        let tx = conn.unchecked_transaction()?;
+        tx.execute_batch(
+            "ALTER TABLE stats_agg_hourly RENAME TO stats_agg_hourly_old;
+             DROP INDEX IF EXISTS idx_stats_agg_time;
+             DROP INDEX IF EXISTS idx_stats_agg_platform;",
+        )?;
+        tx.execute_batch(STATS_AGG_HOURLY_SQL)?;
+        tx.execute_batch(
+            "INSERT INTO stats_agg_hourly \
+             (time_hour, model, group_key, platform_id, \
+              request_count, success_count, error_count, \
+              sum_input_tokens, sum_output_tokens, sum_cache_tokens, \
+              sum_est_cost, sum_duration_ms, created_at, updated_at, deleted_at) \
+             SELECT time_hour, model, group_key, platform_id, \
+              request_count, success_count, error_count, \
+              sum_input_tokens, sum_output_tokens, sum_cache_tokens, \
+              sum_est_cost, sum_duration_ms, created_at, updated_at, deleted_at \
+             FROM stats_agg_hourly_old;
+             DROP TABLE stats_agg_hourly_old;",
+        )?;
+        tx.commit()?;
+        tracing::info!("migration 20261030-02: stats_agg_hourly 重建为 6 元组 UNIQUE + client/req_model");
+    }
     Ok(())
 }
 
@@ -647,6 +701,12 @@ pub fn run_migrations_proxy_log_late(
     // 无快照（旧版行），语义正确，无需回填。
     let _ = conn.execute(
         "ALTER TABLE proxy_log ADD COLUMN routing TEXT NOT NULL DEFAULT ''",
+        [],
+    );
+    // Migration 20261030-01 (请求流向 票 02): proxy_log 加 client 列——请求进入时按 UA 归类的
+    // 客户端代码（claude_code/codex/pi/cursor/windsurf/gemini_cli/other）。存量行 '' = 未知，不回填。
+    let _ = conn.execute(
+        "ALTER TABLE proxy_log ADD COLUMN client TEXT NOT NULL DEFAULT ''",
         [],
     );
     Ok(())

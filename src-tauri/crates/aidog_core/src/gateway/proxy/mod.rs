@@ -30,6 +30,7 @@ pub(crate) use aidog_middleware::{InboundOutcome, MiddlewareEngine};
 pub(crate) use connect::is_url_safe_group_name;
 
 mod builtin_tools;
+mod client_detect;
 mod connect;
 mod count_tokens;
 mod aux_model;
