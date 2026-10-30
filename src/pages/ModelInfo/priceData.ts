@@ -3,7 +3,7 @@
 // `ModelEntry` 只把查询/排序用得到的字段提成列，价格维度整份留在 `price_data`（registry 模型 JSON 原文）。
 // 展示层需要默认价 / 高峰绝对价 / 上下文阶梯价，故在此统一解析一次，禁各组件各写 JSON.parse。
 
-import { formatCostUsd, formatNumber } from "../../utils/formatters";
+import { formatMoney, formatNumber } from "../../utils/formatters";
 
 /** 一档价格（单位 $/token，registry 原始单位，字段名 = registry `price` 子树简名）。 */
 export interface PriceTier {
@@ -78,7 +78,7 @@ export function parseEntryFlags(raw: string): EntryFlags {
 export function fmtPricePerUnit(v?: number | null, unit?: string | null): string {
   if (typeof v !== "number" || !Number.isFinite(v)) return "-";
   // char 单位存 $/1K chars；其余 $/unit
-  return unit === "char" ? formatCostUsd(v) + " /1K chars" : formatCostUsd(v) + ` /${unit ?? "unit"}`;
+  return unit === "char" ? formatMoney(v) + " /1K chars" : formatMoney(v) + ` /${unit ?? "unit"}`;
 }
 
 /** $/token → $/M tokens；非有限数返回 null。 */
@@ -89,7 +89,7 @@ export function perMillion(v?: number | null): number | null {
 /** $/token → `$x.xx` 每百万 token 展示串；缺值 → "-"。 */
 export function fmtPricePerM(v?: number | null): string {
   const m = perMillion(v);
-  return m == null ? "-" : formatCostUsd(m);
+  return m == null ? "-" : formatMoney(m);
 }
 
 /** token 数展示（131072 → "131.1K"）；缺值 → "-"。 */
