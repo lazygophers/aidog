@@ -98,8 +98,10 @@ target 致 `test_registry.rs:359` 假红。
 - agent worktree / detach worktree 一律 `CARGO_TARGET_DIR=/tmp/aidog-agent-target`，
   不按票新建；收尾不再逐票删 target。
 - 主仓 `src-tauri/target` 只给主仓自身构建用。
-- 跑测试前 `cargo clean -p aidog_db --target-dir /tmp/aidog-agent-target`，消除
-  aidog_db build.rs registry 产物陈旧（该目录是 agent 自有，清它不影响别的会话）。
+- 跑测试前 `cargo clean --manifest-path <本 worktree>/src-tauri/Cargo.toml -p aidog_db --target-dir /tmp/aidog-agent-target`
+  （或先进 `src-tauri` 目录再跑，不带 manifest-path），消除 aidog_db build.rs registry 产物陈旧（该目录是 agent
+  自有，清它不影响别的会话）。**必须在 `src-tauri` 下或带 `--manifest-path`**：2026-10-30 事故，在仓库根跑因无
+  Cargo.toml 静默没清成，aidog_db build 产物仍指向已删 worktree，报 `build.rs:31 registry dir: NotFound`。
 - 前端构建输出 `--outDir /tmp/aidog-agent-dist`，不按票新建 dist。
 
 ## `.git/index.lock` 残留（2026-10-22）
