@@ -14,7 +14,9 @@ export interface BalanceBarProps {
   remaining: number | null | undefined;
   /** 总额度；为 null 时只显数值不显进度条（无分母无法算占比）。 */
   total?: number | null;
-  /** 货币符号前缀，默认 "$"。空串 = 无前缀（ACU 等非货币单位用）。 */
+  /** "usd"（默认）= 入参是 USD 金额，随显示币种换算；"raw" = 原样显示，前缀取 currency。 */
+  kind?: "usd" | "raw";
+  /** kind="raw" 的符号前缀；空串 = 无前缀（ACU 等非货币单位用）。kind="usd" 时忽略。 */
   currency?: string;
   /** 进度条已用部分的语义色，默认按剩余占比自动分档。 */
   level?: ColorLevel;
@@ -31,10 +33,9 @@ function remainingLevel(pct: number): ColorLevel {
   return "danger";
 }
 
-export function BalanceBar({ remaining, total, currency = "$", level, showTotal = true, label }: BalanceBarProps) {
+export function BalanceBar({ remaining, total, kind = "usd", currency = "", level, showTotal = true, label }: BalanceBarProps) {
   useDisplayCurrency();
-  // "$" = USD 金额，随显示币种换算；其余（ACU 空串、原币种符号）原样显示。
-  const fmt = (n: number) => (currency === "$" ? formatMoney(n) : formatAmount(n, currency));
+  const fmt = (n: number) => (kind === "usd" ? formatMoney(n) : formatAmount(n, currency));
   if (remaining == null || Number.isNaN(remaining)) return null;
 
   const hasTotal = typeof total === "number" && total > 0;
