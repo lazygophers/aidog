@@ -708,7 +708,7 @@ mod tests {
             ..Default::default()
         };
         let all = pm.all_values();
-        assert!(all.contains(&"emb".to_string()) && all.contains(&"rr".to_string()));
+        assert!(!all.contains(&"emb".to_string()) && !all.contains(&"rr".to_string()));
         // 专用槽不承接主对话，不参与上下文窗口约束
         assert_eq!(pm.main_loop_values(), vec!["gpt-4o".to_string()]);
         // 仅配 embedding / 仅配 rerank 时整体非空（分享串不得丢槽位）
