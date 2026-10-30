@@ -1,0 +1,10 @@
+[
+ {"code": "USD", "symbol": "$",    "decimals": 2, "rate": 1.0,   "usd": 10.10,        "d": 2, "expected": "$10.1"},
+ {"code": "USD", "symbol": "$",    "decimals": 2, "rate": 1.0,   "usd": 0.0,          "d": 2, "expected": "$0"},
+ {"code": "USD", "symbol": "$",    "decimals": 2, "rate": 1.0,   "usd": 0.123456789,  "d": 5, "expected": "$0.12346"},
+ {"code": "CNY", "symbol": "¥",    "decimals": 2, "rate": 7.0,   "usd": 10.0,         "d": 2, "expected": "¥70"},
+ {"code": "CNY", "symbol": "¥",    "decimals": 2, "rate": 7.0,   "usd": 0.0123456,    "d": 5, "expected": "¥0.08642"},
+ {"code": "JPY", "symbol": "JP¥",  "decimals": 0, "rate": 150.0, "usd": 1234.567,     "d": 5, "expected": "JP¥185185"},
+ {"code": "JPY", "symbol": "JP¥",  "decimals": 0, "rate": 150.0, "usd": 0.004,        "d": 2, "expected": "JP¥1"},
+ {"code": "CHF", "symbol": "CHF ", "decimals": 2, "rate": 0.9,   "usd": 10.0,         "d": 2, "expected": "CHF 9"}
+]
