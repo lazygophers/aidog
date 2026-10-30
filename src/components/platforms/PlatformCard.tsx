@@ -26,6 +26,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useDisplayCurrency } from "../../utils/displayCurrency";
+import { useBalanceCurrencies } from "../../utils/balanceCurrency";
 
 // ── Props types ──
 
@@ -117,12 +118,13 @@ export const PlatformCard = memo(function PlatformCard({
   levelPriority,
   onLevelPriorityChange,
 }: PlatformCardProps) {
-  useDisplayCurrency();
+  const dispCur = useDisplayCurrency();
+  const balCcys = useBalanceCurrencies();
   const { t, i18n } = useTranslation();
   // QuotaDisplay 在卡片内计算并缓存：父列表渲染时不再现算新对象，浅比较稳定 → 局部交互不全卡重渲。
   const quota = useMemo(
-    () => computeQuotaDisplay(p, quotaRaw, quotaPreferReal),
-    [p, quotaRaw, quotaPreferReal],
+    () => computeQuotaDisplay(p, quotaRaw, quotaPreferReal, balCcys[String(p.id)]),
+    [p, quotaRaw, quotaPreferReal, balCcys, dispCur],
   );
   const hasCodingEndpoint = (p.endpoints ?? []).some(ep => ep.coding_plan);
   // 上游速率限制快照：窗口通常 1 分钟，超 5 分钟的旧值不再代表现状，宁可不显示。

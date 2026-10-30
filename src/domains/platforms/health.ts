@@ -3,6 +3,7 @@ import { cycleMsForTier, codingTierLevel, type ColorLevel } from "../../componen
 import { MODEL_SLOTS } from "./constants";
 import { parseEstCodingPlan } from "./autoCategorize";
 import type { HealthStatus } from "./constants";
+import { balanceToUsd } from "../../utils/balanceCurrency";
 
 /** 判断平台健康状态：「成功即绿」语义 —— 最近 N 次请求中只要有一次成功即判健康，
  * 全失败才红，无请求灰。不返回 warning 中间态（避免「能用却显黄」），warning
@@ -80,7 +81,14 @@ export interface QuotaDisplay {
   hasData: boolean;
 }
 
-export function computeQuotaDisplay(p: Platform, q: PlatformQuota | undefined, preferRealCalibrated: boolean): QuotaDisplay {
+/** 余额数值折 USD（非货币单位 ACU 保留原值）；QuotaDisplay.currency 随之为 "USD" 或 "ACU"。 */
+function usdBalance(n: number, ccy: string | undefined): number {
+  return ccy === "ACU" ? n : balanceToUsd(n, ccy);
+}
+
+/** balanceCcy：est 余额的平台原币种（useBalanceCurrencies()[p.id]）；真查分支用 q.balance.currency。
+ *  输出的 balanceRemaining/balanceTotal 已折 USD（ACU 除外），调用方交 formatMoney / BalanceBar currency="$" 即可。 */
+export function computeQuotaDisplay(p: Platform, q: PlatformQuota | undefined, preferRealCalibrated: boolean, balanceCcy?: string): QuotaDisplay {
   const tierRemain = (utilization: number) => Math.max(0, Math.min(100, 100 - utilization));
   const preferReal = preferRealCalibrated && !!q;
   const estCoding = parseEstCodingPlan(p.est_coding_plan);
@@ -104,9 +112,9 @@ export function computeQuotaDisplay(p: Platform, q: PlatformQuota | undefined, p
       : [];
     return {
       estimated: true,
-      balanceRemaining: hasEstBalance ? p.est_balance_remaining : null,
+      balanceRemaining: hasEstBalance ? usdBalance(p.est_balance_remaining, balanceCcy ?? q?.balance?.currency) : null,
       balanceTotal: null,
-      currency: q?.balance?.currency || "USD",
+      currency: q?.balance?.currency === "ACU" ? "ACU" : "USD",
       tiers,
       hasData: hasEstBalance || tiers.length > 0,
     };
@@ -127,10 +135,10 @@ export function computeQuotaDisplay(p: Platform, q: PlatformQuota | undefined, p
       // ponytail: ACU (Devin) 无余额端点，balance.remaining 恒 0；改用 used (累计 ACU) 作展示值，
       //   total=null 抑制进度条，currency="ACU" 让 PlatformCard 标"ACU 用量" label 而非 $ 前缀。
       balanceRemaining: q.balance
-        ? (q.balance.currency === "ACU" ? (q.balance.used ?? 0) : q.balance.remaining)
+        ? (q.balance.currency === "ACU" ? (q.balance.used ?? 0) : usdBalance(q.balance.remaining, q.balance.currency))
         : null,
-      balanceTotal: q.balance?.currency === "ACU" ? null : (q.balance?.total ?? null),
-      currency: q.balance?.currency || "USD",
+      balanceTotal: q.balance?.currency === "ACU" || q.balance?.total == null ? null : usdBalance(q.balance.total, q.balance.currency),
+      currency: q.balance?.currency === "ACU" ? "ACU" : "USD",
       tiers,
       hasData: !!q.balance || tiers.length > 0,
     };

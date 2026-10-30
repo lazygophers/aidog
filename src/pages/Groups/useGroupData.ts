@@ -4,6 +4,7 @@ import {
   groupDetailApi, groupUsageApi, platformApi, proxyApi, onProxyLogUpdated,
 } from "../../services/api";
 import { upsertPlatformInto } from "../../domains/groups";
+import { platformBalanceUsd, refreshBalanceCurrencies } from "../../utils/balanceCurrency";
 
 /**
  * 拉取每个 group 的使用统计 + 余额。
@@ -30,12 +31,14 @@ export async function fetchGroupStats(
     const u = all["未匹配"];
     if (u && u.total_requests > 0) unmatchedStat = u;
   } catch { /* ignore */ }
-  // balance：关联平台余额求和（保持平台级语义，无 HTTP）。
+  // balance：关联平台余额求和（保持平台级语义）。est_balance_remaining 是各平台原币种，
+  // 先逐平台折 USD 再求和（混币种直接相加是错的）；币种映射先刷一次，保证新记录的币种参与。
+  await refreshBalanceCurrencies();
   for (const g of details) {
     let balance = 0;
     for (const gp of g.platforms) {
       const est = platById.get(gp.platform.id)?.est_balance_remaining;
-      if (typeof est === "number" && est > 0) balance += est;
+      if (typeof est === "number" && est > 0) balance += platformBalanceUsd(gp.platform.id, est);
     }
     if (balance > 0) balanceMap[g.group.id] = balance;
   }
