@@ -3207,6 +3207,7 @@
   "settings.preset.name.oss": "Открытый стандарт",
   "settings.preset.pickTitle": "Выберите рекомендуемую конфигурацию",
   "settings.preset.pickBody": "Выберите пресет, затем отметьте различия, которые нужно применить.",
+  "settings.preset.empty": "Рекомендуемые конфигурации недоступны (ошибка загрузки).",
   "middleware.viewRule": "Просмотр правила",
   "middleware.builtinReadonlyHint": "Встроенные правила можно только включать/выключать; содержимое только для чтения",
   "middleware.actions": "Действия (по порядку; остановка после block/classify)",
