@@ -473,6 +473,8 @@
   "flow.col.platform": "Platform",
   "flow.col.actualModel": "Actual model",
   "flow.col.group": "Group",
+  "flow.platform.none": "Unrouted",
+  "flow.model.none": "Unspecified",
   "group.detail.open": "Open detail",
   "group.detail.openShort": "Details",
   "group.health.title": "Success rate {{rate}}",

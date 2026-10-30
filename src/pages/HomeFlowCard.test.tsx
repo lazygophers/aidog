@@ -34,6 +34,12 @@ describe("HomeFlowCard", () => {
     expect(document.querySelector('[data-testid="flow-node-group-"]')).toBeTruthy();
   });
 
+  it("platform_id=0 / 空 req_model 有显示名", () => {
+    render(<HomeFlowCard rows={[row({ platform_id: 0, req_model: "" })]} platforms={plats} ungroupedLabel="u" loading={false} />);
+    expect(document.querySelector('[data-testid="flow-node-platform-0"]')!.textContent).not.toContain("#0");
+    expect(document.querySelector('[data-testid="flow-node-requestModel-"]')!.textContent!.length).toBeGreaterThan(0);
+  });
+
   it("度量默认 tokens，可切换", () => {
     render(<HomeFlowCard rows={[row({})]} platforms={plats} ungroupedLabel="u" loading={false} />);
     expect(screen.getByTestId("flow-metric-tokens").getAttribute("data-state")).toBe("on");
