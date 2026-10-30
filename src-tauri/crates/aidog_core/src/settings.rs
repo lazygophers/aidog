@@ -71,10 +71,65 @@ crate::tauri_command! {
     }
 }
 
+/// 列 `<dir>/*.md` 的 output style 名：frontmatter `name`，缺省/YAML 解析失败回落文件名（官方规则）。
+/// 目录不存在或不可读返回空。
+fn list_output_styles_in(dir: &std::path::Path) -> Vec<String> {
+    let Ok(rd) = std::fs::read_dir(dir) else { return vec![] };
+    let mut names: Vec<String> = rd
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.extension().is_some_and(|x| x == "md"))
+        .filter_map(|p| {
+            let stem = p.file_stem()?.to_string_lossy().into_owned();
+            let content = std::fs::read_to_string(&p).unwrap_or_default();
+            let name = content
+                .strip_prefix("---")
+                .and_then(|r| r.split_once("\n---"))
+                .and_then(|(fm, _)| serde_yaml::from_str::<serde_yaml::Value>(fm).ok())
+                .and_then(|v| v.get("name")?.as_str().map(str::to_owned))
+                .filter(|n| !n.is_empty());
+            Some(name.unwrap_or(stem))
+        })
+        .collect();
+    names.sort();
+    names.dedup();
+    names
+}
+
+crate::tauri_command! {
+    /// 只读：列 `~/.claude/output-styles/` 下自定义 output style 名（目录缺失 → 空列表）。
+    pub async fn claude_output_styles_list() -> Result<Vec<String>, String> {
+        let home = dirs::home_dir().ok_or("cannot resolve home directory")?;
+        Ok(list_output_styles_in(&home.join(".claude").join("output-styles")))
+    }
+}
+
 #[cfg(test)]
 mod test_settings {
     use super::*;
     use aidog_db::test_support::test_db;
+
+    #[test]
+    fn output_styles_missing_dir_is_empty() {
+        let d = tempfile::tempdir().unwrap();
+        assert!(list_output_styles_in(&d.path().join("nope")).is_empty());
+    }
+
+    #[test]
+    fn output_styles_name_from_frontmatter_or_filename() {
+        let d = tempfile::tempdir().unwrap();
+        let w = |f: &str, c: &str| std::fs::write(d.path().join(f), c).unwrap();
+        w("plain.md", "just instructions");
+        w("named.md", "---\nname: Diagrams first\ndescription: x\n---\nbody");
+        w("noname.md", "---\ndescription: x\n---\nbody");
+        w("badyaml.md", "---\nname: [oops\n---\nbody");
+        w("dup.md", "---\nname: plain\n---\n");
+        w("ignore.txt", "x");
+        assert_eq!(
+            list_output_styles_in(d.path()),
+            vec!["Diagrams first", "badyaml", "noname", "plain"]
+        );
+    }
 
     /// aidog_core 不能 dev-dep aidog_test_util（循环依赖），故不经 tauri::State/AppHandle
     /// 走 command 包装层，直测 command 转发的 db:: 函数（command 本身只是薄转发 + tracing）。
