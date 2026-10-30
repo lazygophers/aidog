@@ -17,7 +17,7 @@ import {
   type QuotaSnapshot,
   type ScatterHistogram,
 } from "../services/api";
-import { formatNumber, formatCost, formatCostUsd, successRate } from "../utils/formatters";
+import { formatNumber, formatMoney, successRate } from "../utils/formatters";
 import { F } from "../domains/shared/tokens";
 import { getProtocolSearchTermsMap } from "../domains/platforms/defaults";
 import {
@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/table";
 import { DonutChart, LineChart, StackedAreaChart, HourHeatmap, DimensionHeatmap, GaugeChart, ScatterChart, bucketMs, type GaugeTrendPoint } from "@/components/charts";
 import type { ChartConfig } from "@/components/ui/chart";
+import { useDisplayCurrency } from "../utils/displayCurrency";
 
 // 桶解析已收编公共层（charts/ticks.ts）；re-export 维持 Stats.test.ts 既有导入路径。
 export { bucketMs };
@@ -239,6 +240,7 @@ type SortDir = "asc" | "desc";
 const PAGE_SIZE = 50;
 
 export function Stats({ initialFilter }: { initialFilter?: { platformId?: number; platformName?: string; groupId?: string; groupKey?: string; model?: string } }) {
+  useDisplayCurrency();
   const { t } = useTranslation();
   const [data, setData] = useState<StatsResult | null>(null);
   const [prevOverview, setPrevOverview] = useState<StatsOverview | null>(null);
@@ -658,7 +660,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
             />
             <OverviewCard
               label={t("stats.totalCost", "预估成本")}
-              value={"$" + formatCost(overview.total_cost)}
+              value={formatMoney(overview.total_cost)}
               level={costLevel(overview.total_cost)}
               staggerMs={420}
               delta={delta(overview.total_cost, prevOverview?.total_cost ?? 0)}
@@ -808,7 +810,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                   </>
                 }
                 data={dims.filter(e => e.total_cost > 0).map(e => ({ name: e.name, value: e.total_cost }))}
-                formatValue={formatCostUsd}
+                formatValue={formatMoney}
                 centerLabel={t("stats.totalCost", "预估成本")}
               />
               <DimensionHeatmap
@@ -890,7 +892,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                       value={g.current}
                       max={g.peak}
                       title={platforms.find(p => p.id === g.platformId)?.name ?? `#${g.platformId}`}
-                      formatValue={(n) => formatCostUsd(n)}
+                      formatValue={(n) => formatMoney(n)}
                       trend={g.trend}
                       className="hover-lift"
                     />
@@ -947,7 +949,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                         <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.cache_tokens)}</TableCell>
                         <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{d.cache_rate.toFixed(1)}%</TableCell>
                         <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{d.avg_duration_ms.toFixed(0)} ms</TableCell>
-                        <TableCell style={{ textAlign: "right", padding: "6px 8px", color: levelColor(costLevel(d.total_cost)) }}>${formatCost(d.total_cost)}</TableCell>
+                        <TableCell style={{ textAlign: "right", padding: "6px 8px", color: levelColor(costLevel(d.total_cost)) }}>{formatMoney(d.total_cost)}</TableCell>
                       </TableRow>
                     );
                   })}

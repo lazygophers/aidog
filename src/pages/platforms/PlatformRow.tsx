@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { TFunction } from "i18next";
 import type { Platform, PlatformUsageStats, PlatformQuota, LastTestResult } from "../../services/api";
 import { parseRateLimitsBundle } from "../../services/api";
-import { formatNumber, formatCost, formatPercent, formatDurationMs, formatRelativeTime, successRate as calcSuccessRate } from "../../utils/formatters";
+import { formatNumber, formatMoney, formatAmount, formatPercent, formatDurationMs, formatRelativeTime, successRate as calcSuccessRate } from "../../utils/formatters";
 import { isCurrentlyPeak } from "../../utils/timeWindow";
 import { ProtocolLogo } from "../../domains/platforms/ProtocolLogo";
 import { useProtocolMeta } from "../../domains/platforms/useProtocolMeta";
@@ -14,6 +14,7 @@ import { allModelValues, computeQuotaDisplay, computeManualBudgetDisplay, tierLa
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { useDisplayCurrency } from "../../utils/displayCurrency";
 
 /** 行 grid 模板（稿真值，含未分组列头共用）。 */
 export const PLATFORM_ROW_GRID = "26px 34px minmax(200px,1.35fr) minmax(150px,1fr) 74px 62px 58px 58px 150px 108px";
@@ -130,6 +131,7 @@ export function PlatformRow({
   t, lang, lead, onSelect, onToggleExpanded, onToggle,
   onEdit, onShare, onDuplicate, onViewLogs, onQuickTest, onDelete, onLevelPriorityChange,
 }: PlatformRowProps) {
+  useDisplayCurrency();
   const { isCpProtocol, defaultModels, peakWindows } = useProtocolMeta(p.platform_type, p.extra ?? "", lang);
   // 转发生效模型（PlatformCard 同口径）：显式槽位优先，没配回落 preset 默认。
   const configuredModels = useMemo(() => {
@@ -314,11 +316,11 @@ export function PlatformRow({
                 <>
                   <span style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-secondary)" }}>
                     <span className="num" style={{ color: "var(--foreground)", fontWeight: 560, fontVariantNumeric: "tabular-nums" }}>
-                      {isAcu ? "" : "$"}{quota.balanceRemaining > 0 ? formatCost(quota.balanceRemaining) : "0"}
+                      {isAcu ? formatAmount(quota.balanceRemaining, "") : formatMoney(quota.balanceRemaining)}
                     </span>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                       <span className="num" style={{ fontVariantNumeric: "tabular-nums" }}>
-                        {quota.balanceTotal != null ? `/ $${formatCost(quota.balanceTotal)}` : isAcu ? "ACU" : t("platform.col.balance", "余额")}
+                        {quota.balanceTotal != null ? `/ ${formatMoney(quota.balanceTotal)}` : isAcu ? "ACU" : t("platform.col.balance", "余额")}
                       </span>
                       {refreshBtn}
                     </span>
@@ -339,7 +341,7 @@ export function PlatformRow({
                       {isUsd ? "$" : ""}{formatNumber(Math.max(0, mb.remaining))}
                     </span>
                     <span className="num" style={{ fontVariantNumeric: "tabular-nums", color: "var(--text-tertiary)" }}>
-                      {isUsd ? `/ $${formatCost(mb.amount)}` : `/ ${formatNumber(mb.amount)} ${mb.unit === "count" ? t("platform.manualBudgetUnitCountShort", "次") : "tok"}`}
+                      {isUsd ? `/ ${formatMoney(mb.amount)}` : `/ ${formatNumber(mb.amount)} ${mb.unit === "count" ? t("platform.manualBudgetUnitCountShort", "次") : "tok"}`}
                     </span>
                   </span>
                   <span style={{ height: 4, borderRadius: 99, background: "color-mix(in srgb, var(--foreground) 7%, transparent)", overflow: "hidden", display: "block" }}>
@@ -355,12 +357,12 @@ export function PlatformRow({
           {(isCpProtocol || hasCodingEndpoint) && u && (
             <span data-testid="row-coding-usage" title={t("platform.codingUsedHint", "本平台累计已用 tokens 与预估金额（基于实际请求估算）")}
               style={{ fontSize: 11, color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)", whiteSpace: "nowrap" }}>
-              ⚡ {formatNumber(u.total_input_tokens + u.total_output_tokens)} · ${formatCost(u.total_cost)}
+              ⚡ {formatNumber(u.total_input_tokens + u.total_output_tokens)} · {formatMoney(u.total_cost)}
             </span>
           )}
         </span>
         {/* 列 5-8：今日 / 成功率 / 延迟 / 模型 */}
-        <StatCell v={u ? `$${formatCost(u.today_cost)}` : "—"} l={t("platform.col.today", "今日")} tone={u ? undefined : "dim"} />
+        <StatCell v={u ? formatMoney(u.today_cost) : "—"} l={t("platform.col.today", "今日")} tone={u ? undefined : "dim"} />
         <StatCell v={sRate != null ? formatPercent(sRate, 1) : "—"} l={t("platform.col.successRate", "成功率")}
           tone={sRate == null ? "dim" : sRate >= 98 ? "ok" : sRate >= 90 ? "warn" : undefined} />
         <StatCell v={lastTest ? formatDurationMs(lastTest.duration_ms) : "—"} l={t("platform.col.latency", "延迟")} tone={lastTest ? undefined : "dim"} />
@@ -484,7 +486,7 @@ export function PlatformRow({
                       <td style={{ padding: "5px 8px 5px 0", borderTop: "1px solid var(--border)", color: "var(--foreground)" }}>{formatWindowSecs(w.window)}</td>
                       <td className="num" style={{ padding: "5px 8px 5px 0", borderTop: "1px solid var(--border)", color: "var(--text-secondary)" }}>
                         {w.budget_tokens != null ? formatNumber(w.budget_tokens) + " tokens"
-                          : w.budget_usd != null ? "$" + formatCost(w.budget_usd)
+                          : w.budget_usd != null ? formatMoney(w.budget_usd)
                           : w.budget_count != null ? formatNumber(w.budget_count) + " " + t("platform.detail.countUnit", "次")
                           : w.budget_points != null ? formatNumber(w.budget_points) + " pts" : "—"}
                       </td>
@@ -503,10 +505,10 @@ export function PlatformRow({
                   {p.manual_budgets.filter(b => b.enabled).map(b => (
                     <tr key={b.id}>
                       <td className="num" style={{ padding: "5px 8px 5px 0", borderTop: "1px solid var(--border)", color: "var(--foreground)" }}>
-                        {b.unit === "usd" ? `$${formatCost(b.amount)}` : `${formatNumber(b.amount)} ${b.unit === "token" ? "tokens" : t("platform.detail.countUnit", "次")}`}
+                        {b.unit === "usd" ? formatMoney(b.amount) : `${formatNumber(b.amount)} ${b.unit === "token" ? "tokens" : t("platform.detail.countUnit", "次")}`}
                       </td>
                       <td className="num" style={{ padding: "5px 8px 5px 0", borderTop: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-                        {b.unit === "usd" ? `$${formatCost(b.consumed)}` : formatNumber(b.consumed)}
+                        {b.unit === "usd" ? formatMoney(b.consumed) : formatNumber(b.consumed)}
                       </td>
                     </tr>
                   ))}

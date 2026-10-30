@@ -25,7 +25,7 @@ import {
   type StatsSeries,
 } from "../services/api";
 import type { NavContext } from "../components/Sidebar";
-import { formatNumber, formatCostUsd, formatPercent, formatDurationMs } from "../utils/formatters";
+import { formatNumber, formatMoney, formatPercent, formatDurationMs } from "../utils/formatters";
 import { writeText } from "../services/platform";
 import { useReveal } from "../components/shared";
 import { seriesColor } from "@/components/charts";
@@ -33,6 +33,7 @@ import { HomeTrendChart, buildSparkMap } from "./HomeTrendChart";
 import { ProtocolLogo } from "../domains/platforms/ProtocolLogo";
 import { F } from "../domains/shared/tokens";
 import { useThemeMode } from "../themes/useThemeMode";
+import { useDisplayCurrency } from "../utils/displayCurrency";
 
 export const DIM_TOP_N = 8;
 const DEFAULT_PORT = 7890;
@@ -210,6 +211,7 @@ function KpiCell({ label, value, spark, amber }: { label: string; value: string;
 }
 
 export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavContext) => void }) {
+  useDisplayCurrency();
   const P = usePanel();
   const { t } = useTranslation();
   const [running, setRunning] = useState<boolean | null>(null);
@@ -346,7 +348,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
 
   const kpis = hasTodayData && today
     ? [
-      { label: t("home.cost", "费用"), value: formatCostUsd(today.cost), spark: costSeries, amber: true },
+      { label: t("home.cost", "费用"), value: formatMoney(today.cost), spark: costSeries, amber: true },
       { label: t("home.tokens", "Token"), value: formatNumber(today.tokens), spark: tokensSeries },
       { label: t("home.requests", "请求"), value: formatNumber(today.total_requests), spark: reqSeries },
       { label: t("home.cacheRate", "缓存率"), value: formatPercent(today.cache_rate), spark: cacheSeries },
@@ -534,7 +536,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
             >
               <span>{t("home.totalBalance", "总余额")}</span>
               <b style={{ fontSize: 17, color: P.fg, fontFamily: P.mono, fontVariantNumeric: "tabular-nums" }}>
-                {formatCostUsd(totalBalance)}
+                {formatMoney(totalBalance)}
               </b>
             </div>
           )}
@@ -575,6 +577,7 @@ function DimPanel({
   logoOf?: (name: string) => Protocol | undefined;
   onRow: (name: string) => void;
 }) {
+  useDisplayCurrency();
   const P = usePanel();
   const { t } = useTranslation();
   return (
@@ -639,7 +642,7 @@ function DimPanel({
                   {formatNumber(dimTokens(r.d))}
                 </span>
                 <span style={{ fontFamily: P.mono, fontSize: 12, color: seriesColor(0), whiteSpace: "nowrap", minWidth: 56, textAlign: "end" }}>
-                  {formatCostUsd(r.d.total_cost)}
+                  {formatMoney(r.d.total_cost)}
                 </span>
                 <span style={{ fontFamily: P.mono, fontSize: 11, color: P.muted, whiteSpace: "nowrap", minWidth: 44, textAlign: "end" }}>
                   {formatNumber(r.d.total_requests)}
