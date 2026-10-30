@@ -103,6 +103,11 @@ target 致 `test_registry.rs:359` 假红。
   自有，清它不影响别的会话）。**必须在 `src-tauri` 下或带 `--manifest-path`**：2026-10-30 事故，在仓库根跑因无
   Cargo.toml 静默没清成，aidog_db build 产物仍指向已删 worktree，报 `build.rs:31 registry dir: NotFound`。
 - 前端构建输出 `--outDir /tmp/aidog-agent-dist`，不按票新建 dist。
+- **共享 target 下同一时刻只允许一个 agent 跑 cargo**（2026-10-30 实锤）：并发时别的 worktree 的 aidog_db
+  产物与 ts-rs `export_bindings` 输出会串味——向量化合并时主仓 `generated/PlatformModels.ts` 被覆盖成旧版，
+  推荐配置 worktree 的 `make lint` 编到别的 worktree 的 test_candidates.rs。派第二个 cargo agent 前先等前一个收工。
+- 每次 `cargo test` 后立刻 `/usr/bin/git status --short` 核对 `src/services/api/types/generated/` 无意外变动；
+  有变动先判是该提交的真更新还是串味，串味用 `git show HEAD:<path> > <path>` 恢复。
 
 ## `.git/index.lock` 残留（2026-10-22）
 
