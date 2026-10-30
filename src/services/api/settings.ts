@@ -130,7 +130,7 @@ export const claudeSettingsImportApi = {
   outputStyles: () => invoke<string[]>("claude_output_styles_list"),
 };
 
-/** 内置推荐配置预设（config 已剥离显示名）。kind 目前仅 "claude"。 */
+/** 内置推荐配置预设（config 已剥离显示名）。kind: claude / codex / pi。 */
 export interface SettingsPreset {
   id: string;
   name: string;
@@ -138,7 +138,7 @@ export interface SettingsPreset {
 }
 
 export const settingsPresetApi = {
-  list: (kind: "claude") => invoke<SettingsPreset[]>("settings_preset_list", { kind }),
+  list: (kind: "claude" | "codex" | "pi") => invoke<SettingsPreset[]>("settings_preset_list", { kind }),
 };
 
 // ─── App Log Settings API ─────────────────────────────────

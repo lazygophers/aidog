@@ -1,16 +1,15 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { piApi } from "../services/api";
+import { piApi, settingsPresetApi, type SettingsPreset } from "../services/api";
 import {
   F,
   S,
   SectionIcon,
   FieldRenderer,
 } from "../components/settings/editors";
-import {
-  PI_SECTIONS,
-  PI_RECOMMENDED_CONFIG,
-} from "../services/pi-settings-schema";
+import { PresetPickerDialog } from "../components/settings/PresetPickerDialog";
+import { planPresetLoad } from "../services/preset-select";
+import { PI_SECTIONS } from "../services/pi-settings-schema";
 import { deepMerge } from "../utils/deepMerge";
 import { stableStringify, JsonCodeEditor } from "../components/shared";
 import { useReveal } from "../utils/motion";
@@ -66,15 +65,21 @@ export function PiSettings() {
 
   const dirty = baseline !== "" && currentSig !== baseline;
 
+  const [presets, setPresets] = useState<SettingsPreset[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const recommended: PiConfig = useMemo(() => planPresetLoad(presets).defaultPreset?.config ?? {}, [presets]);
+
   useEffect(() => {
     const load = async () => {
       try {
+        const list = await settingsPresetApi.list("pi").catch((e) => { console.error(e); return [] as SettingsPreset[]; });
+        setPresets(list);
         const stored = await piApi.read();
         // 从未配置过 → 默认填入推荐配置，便于用户一键起步。
         const data =
           stored && Object.keys(stored).length > 0
             ? stored
-            : { ...PI_RECOMMENDED_CONFIG };
+            : { ...(planPresetLoad(list).defaultPreset?.config ?? {}) };
         setConfig(data);
         setEditJson(JSON.stringify(data, null, 2));
         setBaseline(stableStringify(data));
@@ -118,19 +123,29 @@ export function PiSettings() {
     }
   }, [mode, editJson, config, t]);
 
-  const handleLoadRecommended = () => {
-    const merged = deepMerge(config, PI_RECOMMENDED_CONFIG);
+  const mergeRecommended = (rec: PiConfig) => {
+    const merged = deepMerge(config, rec);
     setConfig(merged);
     setEditJson(JSON.stringify(merged, null, 2));
     setToast(t("settings.loadedRecommended", "已加载推荐配置"));
     setTimeout(() => setToast(""), 2000);
   };
 
+  const handleLoadRecommended = () => {
+    const { needPicker, defaultPreset } = planPresetLoad(presets);
+    if (needPicker) setPickerOpen(true);
+    else if (defaultPreset) mergeRecommended(defaultPreset.config);
+    else {
+      setToast(t("settings.preset.empty"));
+      setTimeout(() => setToast(""), 2000);
+    }
+  };
+
   const renderSection = (section: (typeof PI_SECTIONS)[number]) => (
     <div style={{ display: "flex", flexDirection: "column", gap: S.gap }}>
       {section.fields.map((field) => {
-        const hasDefault = Object.prototype.hasOwnProperty.call(PI_RECOMMENDED_CONFIG, field.key);
-        const defaultValue = hasDefault ? PI_RECOMMENDED_CONFIG[field.key] : undefined;
+        const hasDefault = Object.prototype.hasOwnProperty.call(recommended, field.key);
+        const defaultValue = hasDefault ? recommended[field.key] : undefined;
         return (
           <FieldRenderer
             key={field.key}
@@ -256,6 +271,13 @@ export function PiSettings() {
             )}
           </div>
         </div>
+      )}
+      {pickerOpen && (
+        <PresetPickerDialog
+          presets={presets}
+          onSelect={(p) => { setPickerOpen(false); mergeRecommended(p.config); }}
+          onCancel={() => setPickerOpen(false)}
+        />
       )}
     </div>
   );

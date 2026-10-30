@@ -1,5 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { planPresetLoad } from "./preset-select";
+import { planPresetLoad, renderPresetPlaceholders } from "./preset-select";
+
+describe("renderPresetPlaceholders", () => {
+  const cfg = { a: { base_url: "http://127.0.0.1:{{port}}/proxy" }, list: ["{{port}}", 1], n: 2 };
+  it("替换嵌套字符串里的 {{port}}，换端口生效", () => {
+    expect(renderPresetPlaceholders(cfg, { port: 19890 })).toEqual({
+      a: { base_url: "http://127.0.0.1:19890/proxy" }, list: ["19890", 1], n: 2,
+    });
+  });
+  it("无占位符原样返回同一引用", () => {
+    const plain = { x: "y", n: [1] };
+    expect(renderPresetPlaceholders(plain, { port: 1 })).toBe(plain);
+  });
+  it("未提供的变量保留原文", () => {
+    expect(renderPresetPlaceholders({ s: "{{other}}" }, { port: 1 })).toEqual({ s: "{{other}}" });
+  });
+});
 
 const p = (id: string) => ({ id, name: id, config: { id } });
 
