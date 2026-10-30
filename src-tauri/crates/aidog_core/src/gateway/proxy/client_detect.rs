@@ -46,9 +46,28 @@ pub(crate) fn detect_client(headers: &HeaderMap) -> &'static str {
     classify(headers.get(USER_AGENT).and_then(|v| v.to_str().ok()).unwrap_or(""))
 }
 
+/// 原始 UA（截断到 `USER_AGENT_MAX_CHARS` 字符）；无头 / 非 UTF-8 → 空串。
+pub(crate) fn raw_user_agent(headers: &HeaderMap) -> String {
+    headers
+        .get(USER_AGENT)
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.chars().take(aidog_db::models::USER_AGENT_MAX_CHARS).collect())
+        .unwrap_or_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn raw_user_agent_kept_and_truncated() {
+        let mut h = HeaderMap::new();
+        assert_eq!(raw_user_agent(&h), "");
+        h.insert(USER_AGENT, "claude-cli/2.0.1 (external, cli)".parse().unwrap());
+        assert_eq!(raw_user_agent(&h), "claude-cli/2.0.1 (external, cli)");
+        h.insert(USER_AGENT, "x".repeat(1000).parse().unwrap());
+        assert_eq!(raw_user_agent(&h).chars().count(), aidog_db::models::USER_AGENT_MAX_CHARS);
+    }
 
     #[test]
     fn table_driven() {

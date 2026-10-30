@@ -6,28 +6,37 @@ use super::super::models::*;
 /// 匹配规则：请求模型名（小写）包含槽位名（opus/sonnet/haiku/gpt）→ 使用该槽位值；
 /// 全部不匹配 → 使用 default；无 default → 透传原始模型（去掉 [... ] 后缀）。
 pub(crate) fn resolve_model(models: &PlatformModels, source_model: &str) -> String {
+    resolve_model_with_via(models, source_model).0
+}
+
+/// `resolve_model` + 命中来源（路由决策快照「模型选择」展示用）。
+pub(crate) fn resolve_model_with_via(
+    models: &PlatformModels,
+    source_model: &str,
+) -> (String, aidog_db::models::ModelVia) {
+    use aidog_db::models::ModelVia;
     // Strip Claude Code budget suffix like [1m], [128k]
     let base_model = source_model.split('[').next().unwrap_or(source_model);
     let lower = base_model.to_lowercase();
-    let slots: [(&str, &Option<String>); 4] = [
-        ("opus", &models.opus),
-        ("sonnet", &models.sonnet),
-        ("haiku", &models.haiku),
-        ("gpt", &models.gpt),
+    let slots: [(&str, &Option<String>, ModelVia); 4] = [
+        ("opus", &models.opus, ModelVia::SlotOpus),
+        ("sonnet", &models.sonnet, ModelVia::SlotSonnet),
+        ("haiku", &models.haiku, ModelVia::SlotHaiku),
+        ("gpt", &models.gpt, ModelVia::SlotGpt),
     ];
-    for (slot_name, slot_value) in &slots {
+    for (slot_name, slot_value, via) in &slots {
         if lower.contains(slot_name)
             && let Some(v) = slot_filled(slot_value)
         {
-            return v.to_string();
+            return (v.to_string(), *via);
         }
     }
     // 回退到 default
     if let Some(default) = slot_filled(&models.default) {
-        return default.to_string();
+        return (default.to_string(), ModelVia::SlotDefault);
     }
     // 无匹配无 default — 透传（去掉 budget 后缀）
-    base_model.to_string()
+    (base_model.to_string(), ModelVia::Passthrough)
 }
 
 /// 决策请求（/v1/systemone）的目标模型解析（jev-decision-proxy R8）。不走 opus/sonnet 子串匹配：

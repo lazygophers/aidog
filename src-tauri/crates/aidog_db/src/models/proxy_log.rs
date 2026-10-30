@@ -116,7 +116,15 @@ pub struct ProxyLog {
     /// 空串 = 未知：迁移前存量行 / 带外日志）。元数据：不受 log_user_request 开关控制，不存原始 UA。
     #[serde(default)]
     pub client: String,
+    /// 入站原始 User-Agent（`handler.rs` 入口直读请求头，截断 `USER_AGENT_MAX_CHARS`）。
+    /// 空串 = 无 UA 头 / 存量行 / 带外日志。元数据：不受 log_user_request 开关控制，仅 proxy_log
+    /// 单行存储，不进 stats_agg_hourly（聚合维度仍只用 `client` 代码，防基数失控）。
+    #[serde(default)]
+    pub user_agent: String,
 }
+
+/// `ProxyLog.user_agent` 字符上限（防畸形超长 UA 撑大行）。
+pub const USER_AGENT_MAX_CHARS: usize = 256;
 
 impl ProxyLog {
     /// 带外请求日志（不经代理转发路径的出站记录：Quota Script 查询 / 拉模型列表 / 模型测试）
@@ -183,6 +191,33 @@ pub enum RouteTag {
     Sticky,
 }
 
+/// 目标模型的选择来源（可叠加：如 `mapped` + `slot-opus`）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub enum ModelVia {
+    /// 分组 model_mappings 先把请求模型名改成映射目标名
+    Mapped,
+    /// 平台 time_windows 命中，用该时段的 models
+    TimeWindow,
+    /// preset `models.peak` 高峰分支替换了平台 models
+    PresetPeak,
+    /// 命中平台 opus 槽位
+    SlotOpus,
+    /// 命中平台 sonnet 槽位
+    SlotSonnet,
+    /// 命中平台 haiku 槽位
+    SlotHaiku,
+    /// 命中平台 gpt 槽位
+    SlotGpt,
+    /// 无档位词命中，落平台 default 槽位
+    SlotDefault,
+    /// 专用槽位（embedding / rerank / 决策 jev）
+    DedicatedSlot,
+    /// 无槽位可用 / 透传平台 / Tools：沿用（映射后的）请求模型名
+    Passthrough,
+}
+
 /// 单个候选平台的路由评估结果。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
@@ -209,6 +244,9 @@ pub struct RouteCandidate {
     /// 位置标签（仅选中者携带）
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<RouteTag>,
+    /// 目标模型选择来源（仅选中者携带；旧日志无此字段，缺省空）。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub model_via: Vec<ModelVia>,
 }
 
 /// 路由决策快照：单次请求的路由评估全程（proxy_log.routing 列）。
@@ -381,6 +419,12 @@ pub struct ProxyLogSummary {
     /// 拦截原因（'rate_limit' / 'peak' / 'observe' / …；空串 = 未被拦截）
     #[serde(default)]
     pub blocked_reason: String,
+    /// 客户端代码（见 `ProxyLog.client`）；空串 = 未知
+    #[serde(default)]
+    pub client: String,
+    /// 入站原始 User-Agent（见 `ProxyLog.user_agent`）；空串 = 无
+    #[serde(default)]
+    pub user_agent: String,
     #[ts(type = "number")]
     pub created_at: i64,
 }
@@ -708,6 +752,7 @@ mod tests {
         let old = r#"{"order":1,"platform":"p","platform_id":1,"level_priority":5,"priority":0,"reason":"selected","tags":[]}"#;
         let parsed: RouteCandidate = serde_json::from_str(old).unwrap();
         assert_eq!(parsed.target_model, None);
+        assert!(parsed.model_via.is_empty());
 
         let with_model = RouteCandidate {
             order: 1,
@@ -717,6 +762,7 @@ mod tests {
             priority: 0,
             reason: RouteReason::Selected,
             target_model: Some("m-1".into()),
+            model_via: Vec::new(),
             tags: Vec::new(),
         };
         let json = serde_json::to_string(&with_model).unwrap();

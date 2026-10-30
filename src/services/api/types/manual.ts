@@ -714,6 +714,10 @@ export interface ProxyLogDetail {
   /** 「正文已省略」（perf-backend O6）：该行部分正文因日志写入队列字节预算超限被降级丢弃，
    *  只有元数据落库。置位后单调不回落。 */
   body_omitted: boolean;
+  /** 客户端代码（UA 归类：claude_code|codex|pi|cursor|windsurf|gemini_cli|other）；空串 = 未知（旧行）。 */
+  client: string;
+  /** 入站原始 User-Agent（截断 256 字符）；空串 = 无（旧行 / 无 UA 头）。 */
+  user_agent: string;
   created_at: number;
   updated_at: number;
   deleted_at: number;
