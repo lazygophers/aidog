@@ -200,6 +200,7 @@ pub fn sample_log(id: &str, group_key: &str, created_at: i64) -> ProxyLog {
         blocked_by: String::new(),
         blocked_reason: String::new(),
         routing: None,
+        client: String::new(),
         created_at,
         updated_at: created_at,
         deleted_at: 0,

@@ -182,6 +182,8 @@ async fn platform_hourly_rate_from_agg_without_logs() {
             model: "m".into(),
             group_key: "g".into(),
             platform_id: 7,
+            client: String::new(),
+            req_model: String::new(),
             status_code: 200,
             input_tokens: 10,
             output_tokens: 20,
