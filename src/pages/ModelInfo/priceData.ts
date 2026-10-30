@@ -74,11 +74,22 @@ export function parseEntryFlags(raw: string): EntryFlags {
   return {};
 }
 
-/** $/unit（张/秒/次）展示串（`$x.xx /张` 等）；缺值 → "-"。 */
-export function fmtPricePerUnit(v?: number | null, unit?: string | null): string {
+/** 与 Rust `price_resolve::CNY_PER_USD` 同值：CNY 计价条目（`price.currency == "CNY"`）先 ÷ 此值成 USD，
+ *  再交 formatMoney 按显示币种换算（formatMoney 入参恒为 USD，禁对 CNY 原价直接乘显示汇率）。
+ *  不取用户可改的显示汇率：条目原价→USD 是计费口径，须与后端一致。 */
+export const CNY_PER_USD = 6.6675;
+
+/** 条目原币种价 → USD；非 CNY（含缺省）原样。 */
+export function toUsd(v: number, currency?: string | null): number {
+  return currency === "CNY" ? v / CNY_PER_USD : v;
+}
+
+/** $/unit（张/秒/次）展示串（`$x.xx /张` 等）；缺值 → "-"。`currency` 为条目计价币种。 */
+export function fmtPricePerUnit(v?: number | null, unit?: string | null, currency?: string | null): string {
   if (typeof v !== "number" || !Number.isFinite(v)) return "-";
+  const m = formatMoney(toUsd(v, currency));
   // char 单位存 $/1K chars；其余 $/unit
-  return unit === "char" ? formatMoney(v) + " /1K chars" : formatMoney(v) + ` /${unit ?? "unit"}`;
+  return unit === "char" ? m + " /1K chars" : m + ` /${unit ?? "unit"}`;
 }
 
 /** $/token → $/M tokens；非有限数返回 null。 */
@@ -87,9 +98,9 @@ export function perMillion(v?: number | null): number | null {
 }
 
 /** $/token → `$x.xx` 每百万 token 展示串；缺值 → "-"。 */
-export function fmtPricePerM(v?: number | null): string {
+export function fmtPricePerM(v?: number | null, currency?: string | null): string {
   const m = perMillion(v);
-  return m == null ? "-" : formatMoney(m);
+  return m == null ? "-" : formatMoney(toUsd(m, currency));
 }
 
 /** token 数展示（131072 → "131.1K"）；缺值 → "-"。 */

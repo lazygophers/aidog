@@ -1,10 +1,15 @@
 // 行为测试（票 12）：滑杆/输入触发重算、JSON 解析回填、对比卡最低高亮。
 // 选择器锚稳定 data-testid + data-state，禁锚 DOM 层级 / class / getByText 文案。
 // invoke 全 mock（test-no-real-calls.md），无真实外呼。
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "../../test/render";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, waitFor, act } from "../../test/render";
 import { CostSimulator } from "./CostSimulator";
 import type { ModelEntryGroup } from "../../services/api";
+import { setDisplayCurrency, USD_DISPLAY } from "../../utils/displayCurrency";
+
+const CNY = { code: "CNY", symbol: "¥", decimals: 2, rate: 6.6675, table: [] };
+const JPY = { code: "JPY", symbol: "JP¥", decimals: 0, rate: 150, table: [] };
+afterEach(() => setDisplayCurrency(USD_DISPLAY));
 
 const estimateMock = vi.fn();
 const platformListMock = vi.fn();
@@ -143,5 +148,28 @@ describe("CostSimulator", () => {
     await waitFor(() => expect(peak).toHaveAttribute("data-state", "peak"));
     expect(screen.getByTestId("sim-source")).toHaveTextContent("registry");
     expect(screen.getByTestId("sim-row-input")).toBeInTheDocument();
+  });
+
+  it("预估总价与 USD 条目单价随显示币种（CNY / JPY）", async () => {
+    estimateMock.mockImplementation(() => Promise.resolve(dto(0.02)));
+    setDisplayCurrency(CNY);
+    render(<CostSimulator groups={[group()]} labelMap={{}} />);
+    await waitFor(() => expect(screen.getByTestId("sim-total")).toHaveTextContent("¥0.133"));
+    // 条目 USD 价 1e-6/token = $1/M → ¥6.67
+    expect(screen.getByTestId("sim-row-input")).toHaveTextContent("¥6.67");
+    act(() => setDisplayCurrency(JPY));
+    await waitFor(() => expect(screen.getByTestId("sim-total")).toHaveTextContent("JP¥3"));
+    expect(screen.getByTestId("sim-row-input")).toHaveTextContent("JP¥150");
+  });
+
+  it("CNY 计价条目：单价标原币种 ¥ 原值（不随显示币种变），总价随显示币种", async () => {
+    const g = group();
+    g.entries[0].price_data = JSON.stringify({ price: { currency: "CNY", input: 10e-6, output: 40e-6 } });
+    estimateMock.mockImplementation(() => Promise.resolve(dto(0.02)));
+    setDisplayCurrency(JPY);
+    render(<CostSimulator groups={[g]} labelMap={{}} />);
+    await waitFor(() => expect(screen.getByTestId("sim-total")).toHaveTextContent("JP¥3"));
+    expect(screen.getByTestId("sim-row-input")).toHaveTextContent("¥10.00");
+    expect(screen.getByTestId("sim-row-input")).not.toHaveTextContent("JP¥");
   });
 });

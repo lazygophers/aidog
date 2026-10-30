@@ -1,7 +1,8 @@
 // ── Popover 三件套（#38 T8）：查询收集（queryBatch 批量通道）+ 曲线/环形/热力条渲染 ──
 // 测试 i18n 回传 key 本身（见 test/render），断言用 key。
 import { describe, it, expect } from "vitest";
-import { render, screen } from "../test/render";
+import { render, screen, act } from "../test/render";
+import { setDisplayCurrency, USD_DISPLAY } from "../utils/displayCurrency";
 import {
   collectStatsQueries,
   renderItem,
@@ -158,3 +159,14 @@ function mkResult(buckets: StatsBucket[], series: { name: string; buckets: Stats
     series,
   };
 }
+
+describe("renderItem: 显示币种（票 05）", () => {
+  it("platform_today 金额随显示币种 store 变化即时更新（popover 各 webview 自订阅同一 store）", () => {
+    const data = { ...EMPTY_DATA, platform_today: [{ platform_id: 1, platform_name: "Alpha", cost: 2, tokens: 10, requests: 1 }] } as unknown as PopoverData;
+    const { container } = render(<>{renderItem(makeItem("platform_today"), data, [], EMPTY_GROUPS, t, CTX(new Map()))}</>);
+    expect(container.querySelector(".popover-platform-value")?.textContent).toBe("$2.00");
+    act(() => setDisplayCurrency({ code: "CNY", symbol: "¥", decimals: 2, rate: 7, table: [] }));
+    expect(container.querySelector(".popover-platform-value")?.textContent).toBe("¥14.00");
+    act(() => setDisplayCurrency(USD_DISPLAY));
+  });
+});
