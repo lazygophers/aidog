@@ -20,7 +20,6 @@ export const PATTERNS = [
 /** 豁免（整文件；格式化真值源 formatters/displayCurrency 当前零命中，无需登记）：file 为相对仓库根的路径，why 写原因。 */
 export const ALLOWLIST = [
   { file: "src/components/settings/statusline-segments.ts", why: "外部 statusline 脚本前缀，输出保持 USD（spec Out of Scope）" },
-  { file: "src/components/platforms/PlatformCard.tsx", why: "\"$\" 仅作 USD 哨兵传给 BalanceBar，由其内部 formatMoney 换算" },
   { file: "src/pages/platforms/formSections.tsx", why: "限流窗口 usd 单位标签 / 预算输入框 $ 前缀：输入侧保持 USD 语义（story 22）" },
 ];
 

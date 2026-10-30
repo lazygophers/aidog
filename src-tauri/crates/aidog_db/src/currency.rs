@@ -200,6 +200,8 @@ fn group_thousands(s: &str) -> String {
     out
 }
 
+/// 注意：仅服务前端 `formatMoney` 的跨层 golden（`currency_golden.json` / `test_currency.rs`），无生产调用方；
+/// 托盘文本走 `aidog_core::tray_render::tray_money`（不同量级规则，对拍见 `tray_golden.json`）。
 /// USD 金额 → 显示字符串（符号前置）。`shown = usd * rate`，量级规则在换算后判定：
 /// 非正/NaN → "0"；≥1 → `decimals` 位（0 位币种加千分位）；≥0.01 → 3 位；
 /// 更小 → 2 位有效数字定点（小数位下限 5 上限 12，不用科学计数）。

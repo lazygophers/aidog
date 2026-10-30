@@ -18,6 +18,7 @@ import type { TrayItem, TodayStats, Platform } from "../services/api";
 import type { DisplayCurrency } from "../services/api/types";
 import { setDisplayCurrency, USD_DISPLAY } from "../utils/displayCurrency";
 import { setBalanceCurrencies } from "../utils/balanceCurrency";
+import golden from "../../src-tauri/crates/aidog_core/src/testdata/tray_golden.json";
 
 const mk = (code: string, symbol: string, decimals: number, rate: number): DisplayCurrency =>
   ({ code, symbol, decimals, rate, table: [] });
@@ -96,23 +97,14 @@ describe("previewValue", () => {
   });
 });
 
-// 跨层对拍：期望串逐字抄自 Rust test_tray_render.rs 的 tray_money_* 用例（同输入同币种参数）。
+// 跨层 golden：与 Rust test_tray_render.rs 的 tray_money_golden_cases_match 共读同一份 tray_golden.json。
 describe("trayMoney（对拍 Rust tray_money）", () => {
-  const usd = USD_DISPLAY;
-  it.each([
-    // tray_money_usd_matches_legacy_text
-    [10.10, usd, 2, "$10.1"],
-    [0.0, usd, 2, "$0"],
-    [0.123456789, usd, 5, "$0.12346"],
-    // tray_money_cny_jpy_chf
-    [10.0, mk("CNY", "¥", 2, 7.0), 2, "¥70"],
-    [0.0123456, mk("CNY", "¥", 2, 7.0), 5, "¥0.08642"],
-    [1234.567, mk("JPY", "JP¥", 0, 150.0), 5, "JP¥185185"],
-    [0.004, mk("JPY", "JP¥", 0, 150.0), 2, "JP¥1"],
-    [10.0, mk("CHF", "CHF ", 2, 0.9), 2, "CHF 9"],
-  ])("%s -> %s", (n, cur, d, expected) => {
-    expect(trayMoney(n as number, cur as DisplayCurrency, d as number)).toBe(expected);
-  });
+  it.each(golden as Array<{ code: string; symbol: string; decimals: number; rate: number; usd: number; d: number; expected: string }>)(
+    "$code $usd -> $expected",
+    (c) => {
+      expect(trayMoney(c.usd, mk(c.code, c.symbol, c.decimals, c.rate), c.d)).toBe(c.expected);
+    },
+  );
 
   it("previewValue：花费 / 平台余额按显示币种，与 trayMoney 同口径", () => {
     const stats = { tokens: 0, cache_rate: 0, cost: 0.0123456, total_requests: 0 } as TodayStats;

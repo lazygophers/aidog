@@ -138,7 +138,14 @@ aidog_core::tauri_command! {
         let payload = gateway::import_export::Payload::from_bytes_verified(&plain)?;
         let sel: Option<gateway::import_export::Selection> =
             selection.map(|v| v.into_iter().collect());
-        gateway::import_export::apply::apply(payload, &decisions, sel.as_ref(), db).await
+        let touches_currency = payload.touches_display_currency();
+        let report = gateway::import_export::apply::apply(payload, &decisions, sel.as_ref(), db).await?;
+        // 导入原始 SQL 写了 display/currency，通知前端 store / popover 重读并重画托盘（同 display_currency_set）。
+        if touches_currency {
+            aidog_ctx::emit_unit(aidog_db::currency::DISPLAY_CURRENCY_EVENT);
+            aidog_ctx::emit_unit("tray-refresh");
+        }
+        Ok(report)
     }
 }
 

@@ -165,7 +165,7 @@ function PlatformToday({ data, size, colorStyle }: { data: PopoverData; size: Si
             <span className="popover-platform-name">
               {p.platform_name || t("popover.unknownPlatform", "未知平台")}
             </span>
-            <span className="popover-platform-value" style={colorStyle}>{formatMoney(p.cost)}</span>
+            <span className="popover-platform-value" data-testid="popover-platform-cost" style={colorStyle}>{formatMoney(p.cost)}</span>
             {/* s: 仅平台名+金额；m: +token；l: +token+请求数 */}
             {size !== "s" && <span className="popover-platform-sub">{formatNumber(p.tokens)} tok</span>}
             {size === "l" && (
@@ -652,7 +652,7 @@ function GroupBalanceCard({
       ) : (
         <>
           <div className="popover-metric-row">
-            <span className="popover-metric-value" style={colorStyle}>{formatMoney(balance)}</span>
+            <span className="popover-metric-value" data-testid="popover-group-balance" style={colorStyle}>{formatMoney(balance)}</span>
           </div>
           {size === "l" && (
             <div className="popover-metric-sub">
