@@ -60,6 +60,14 @@ pub(crate) async fn route_fail_response(
             StatusCode::SERVICE_UNAVAILABLE,
             format!("{}: {err}", i18n::t(lang, ErrorKey::Route)),
         )
+    } else if err == "no_embedding_platform" {
+        // 分组无可用向量化平台（槽位全空 / 无 OpenAI 系 endpoint）：配置条件而非客户端错误 → 503。
+        log.blocked_reason = err.to_string();
+        log.response_body = format!("route error: {err}");
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            format!("{}: {err}", i18n::t(lang, ErrorKey::Route)),
+        )
     } else if err == "direct_model_unavailable" {
         // 声明直通模型的平台全不可用（直接模型转发）：DB 数据条件而非客户端错误 → 503。
         log.blocked_reason = "direct_model_unavailable".to_string();

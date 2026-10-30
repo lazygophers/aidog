@@ -62,14 +62,16 @@ impl From<String> for RouteFail {
 }
 
 /// 请求类型（jev-decision-proxy §3.3.3）：候选过滤按类型剔除不支持的平台。
-/// - `Chat`：普通聊天请求，剔除纯决策平台（`is_decision_only`，R3）
+/// - `Chat`：普通聊天请求，剔除纯决策平台（`is_dedicated_only`，R3）
 /// - `Decision`：`/v1/systemone` 决策请求，剔除不支持决策的平台（R2）
+/// - `Embedding`：`/v1/embeddings` 向量化请求：候选 = embedding 槽位非空 且 有 OpenAI 系 endpoint 的平台
 /// - `Tools(path)`：独立搜索/tools 请求（spec-独立搜索转发 语义 3）：候选 = 组内
 ///   `tools_endpoints` 含 path 与入站 path 相等条目的平台；携带入站 path 供逐平台匹配。
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum RequestKind<'a> {
     Chat,
     Decision,
+    Embedding,
     Tools(&'a str),
 }
 
@@ -79,6 +81,7 @@ impl RequestKind<'_> {
         match self {
             RequestKind::Chat => "no_chat_platform",
             RequestKind::Decision => "no_decision_platform",
+            RequestKind::Embedding => "no_embedding_platform",
             RequestKind::Tools(_) => "no_tools_platform",
         }
     }
@@ -99,7 +102,8 @@ impl DecisionModels {
 
 /// 平台是否支持该请求类型（R2 / R3）：
 /// - Decision ⇔ `models.jev` 非空，或 `available_models` 含该平台 registry decision 能力模型；
-/// - Chat ⇔ 非纯决策平台（jev 配置且其余槽位全空才剔除）；
+/// - Chat ⇔ 非纯专用槽平台（jev/embedding/rerank 配置且 5 聊天槽全空才剔除）；
+/// - Embedding ⇔ `models.embedding` 非空 且 有 OpenAI 系 endpoint（endpoints 含 OpenAI 系，或平台协议本身即 OpenAI 系）；
 /// - Tools(path) ⇔ 平台 tools_endpoints 含 path 与入站 path 相等条目（语义 3，strict 逐平台）。
 pub(crate) fn platform_supports_kind(
     platform: &Platform,
@@ -113,7 +117,10 @@ pub(crate) fn platform_supports_kind(
                     .first_in(platform, &platform.available_models)
                     .is_some()
         }
-        RequestKind::Chat => !platform.models.is_decision_only(),
+        RequestKind::Chat => !platform.models.is_dedicated_only(),
+        RequestKind::Embedding => {
+            platform.models.embedding_slot().is_some() && has_openai_family_endpoint(platform)
+        }
         RequestKind::Tools(path) => {
             crate::gateway::billing::default_tools_endpoints(&platform.platform_type.wire_str())
                 .is_some_and(|m| {
@@ -122,6 +129,16 @@ pub(crate) fn platform_supports_kind(
                 })
         }
     }
+}
+
+/// 平台是否有 OpenAI 系（openai / completions / responses）形态的出站入口：
+/// endpoints 任一属 OpenAI 系，或平台协议本身即 OpenAI 系（零端点平台走主 base_url）。
+pub(crate) fn has_openai_family_endpoint(platform: &Platform) -> bool {
+    platform
+        .endpoints
+        .iter()
+        .any(|e| e.protocol.same_wire_family(&Protocol::OpenAI))
+        || platform.platform_type.same_wire_family(&Protocol::OpenAI)
 }
 
 /// 一次全表读出 registry decision 能力模型（R2 推导源）。
@@ -281,7 +298,11 @@ pub async fn select_candidates_ctx(
         })
         .map(|gp| gp.platform.id)
         .collect();
-    if !direct_ids.is_empty() && group_platforms.len() > 1 {
+    // Embedding 不进直通链：客户端模型名与 direct_models 同名也不得改变槽位路由。
+    if !direct_ids.is_empty()
+        && group_platforms.len() > 1
+        && !matches!(kind, RequestKind::Embedding)
+    {
         return select_direct_candidates(
             group,
             &group_platforms,
@@ -1044,6 +1065,13 @@ fn resolve_target_model(
             resolve_decision_model(effective_models, platform, decision_models, model_name)
         }
         RequestKind::Chat => resolve_model(effective_models, model_name),
+        // Embedding：专用路径一律用槽位模型，忽略客户端模型名（spec Q4）。读 platform.models 而非
+        // effective_models：time_windows / preset peak 命中时整支替换为不含该槽位的 PlatformModels，
+        // 会把槽位读成空。
+        RequestKind::Embedding => platform
+            .models
+            .embedding_slot()
+            .map_or_else(|| model_name.to_string(), str::to_string),
         // Tools 不做任何模型改写（语义 3）：映射命中取映射目标名（仅日志元数据），否则原样。
         RequestKind::Tools(_) => model_name.to_string(),
     }

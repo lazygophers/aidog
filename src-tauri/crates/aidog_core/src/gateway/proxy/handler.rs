@@ -330,7 +330,8 @@ pub(crate) async fn handle_proxy_core(
     // ── 透传平台（ADR 0008）认领协议子端点：下方三个分流按协议处理、不认识透传平台 ──
     if (is_responses_subendpoint(&path)
         || is_count_tokens_endpoint(&path)
-        || is_decision_endpoint(&path))
+        || is_decision_endpoint(&path)
+        || is_embedding_endpoint(&path))
         && let Some(platform) =
             super::passthrough::passthrough_first_candidate(&state.db, &group, &raw_model).await
     {
@@ -387,6 +388,23 @@ pub(crate) async fn handle_proxy_core(
     // 经 router 复用过滤 / 冷却 / 熔断（不照抄 responses.rs 绕过路由的做法）。
     if is_decision_endpoint(&path) {
         return handle_decision(&state, &mut log, &log_settings, &group, &bytes, start, lang).await;
+    }
+
+    // ── 向量化请求分流（必须在 parse_incoming_request 之前）──
+    // /v1/embeddings 的 body 只有 input、没有 messages，进 parse_incoming_request 会本地 400。
+    // 一律用平台 embedding 槽位模型，出站 /embeddings（aux_model.rs）。
+    if is_embedding_endpoint(&path) {
+        return super::aux_model::handle_aux_model(
+            &super::aux_model::EMBEDDING,
+            &state,
+            &mut log,
+            &log_settings,
+            &group,
+            &bytes,
+            start,
+            lang,
+        )
+        .await;
     }
 
     // ── 独立搜索/tools 端点分流（必须在 parse_incoming_request 之前）──
