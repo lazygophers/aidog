@@ -66,7 +66,12 @@ export const MODEL_SLOTS: { key: ModelSlot; labelKey: string }[] = [
   { key: "haiku", labelKey: "platform.modelHaiku" },
   { key: "gpt", labelKey: "platform.modelGpt" },
   { key: "jev", labelKey: "platform.modelJev" },
+  { key: "embedding", labelKey: "platform.modelEmbedding" },
+  { key: "rerank", labelKey: "platform.modelRerank" },
 ];
+
+/** 向量化 / 重排序专用槽：读 platform.models，不参与时段模型规则（time_windows）、一键填充、聊天测试列表。 */
+export const DEDICATED_MODEL_SLOTS: readonly ModelSlot[] = ["embedding", "rerank"];
 
 export const MOCK_ERROR_MODES: { value: import("../../services/api").MockErrorMode; labelKey: string }[] = [
   { value: "none", labelKey: "platform.mockErrorNone" },

@@ -1307,6 +1307,7 @@ fn resolve_effective_models_peak_branch_replaces_default_when_in_peak_window() {
         gpt: Some("glm-5.2".into()),
         haiku: Some("glm-4.5".into()),
         jev: None,
+        ..Default::default()
     };
     // extra 无用户覆盖 → peak_for 回落 bundled preset glm_coding 默认窗口（6-10 ×3.0）
     let p = glm_coding_platform("", platform_models);

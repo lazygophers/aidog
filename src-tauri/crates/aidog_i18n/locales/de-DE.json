@@ -1382,6 +1382,8 @@
   "platform.modelDefault": "Standard",
   "platform.modelGpt": "GPT",
   "platform.modelJev": "Entscheidungsmodell",
+  "platform.modelEmbedding": "Einbettung",
+  "platform.modelRerank": "Neurangordnung",
   "platform.modelHaiku": "Haiku",
   "platform.modelOpus": "Opus",
   "platform.modelSonnet": "Sonnet",

@@ -1360,6 +1360,8 @@
   "platform.modelDefault": "Default",
   "platform.modelGpt": "GPT",
   "platform.modelJev": "Decision model",
+  "platform.modelEmbedding": "Embedding",
+  "platform.modelRerank": "Rerank",
   "platform.modelHaiku": "Haiku",
   "platform.modelOpus": "Opus",
   "platform.modelSonnet": "Sonnet",

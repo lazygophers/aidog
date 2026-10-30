@@ -103,6 +103,8 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
       haiku: s.models.haiku ?? "",
       gpt: s.models.gpt ?? "",
       jev: s.models.jev ?? "",
+      embedding: s.models.embedding ?? "",
+      rerank: s.models.rerank ?? "",
     });
     setAvailableModels(s.available_models ?? []);
     setEndpoints(s.endpoints ?? []);

@@ -1382,6 +1382,8 @@
   "platform.modelDefault": "الافتراضي",
   "platform.modelGpt": "GPT",
   "platform.modelJev": "نموذج القرار",
+  "platform.modelEmbedding": "التضمين",
+  "platform.modelRerank": "إعادة الترتيب",
   "platform.modelHaiku": "Haiku",
   "platform.modelOpus": "Opus",
   "platform.modelSonnet": "Sonnet",

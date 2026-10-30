@@ -1382,6 +1382,8 @@
   "platform.modelDefault": "Défaut",
   "platform.modelGpt": "GPT",
   "platform.modelJev": "Modèle de décision",
+  "platform.modelEmbedding": "Vectorisation",
+  "platform.modelRerank": "Reclassement",
   "platform.modelHaiku": "Haiku",
   "platform.modelOpus": "Opus",
   "platform.modelSonnet": "Sonnet",
