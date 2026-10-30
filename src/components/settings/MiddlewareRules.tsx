@@ -18,7 +18,7 @@ import {
   type ActionKind,
   type MiddlewareBudgetStatus,
 } from "../../services/api";
-import { formatCostUsd } from "../../utils/formatters";
+import { formatMoney } from "../../utils/formatters";
 import { F, S } from "./editors";
 import { IconClose, IconEdit } from "../icons";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ import { useReveal, makeRipple } from "../../components/shared";
 import { treeToDsl, parseDsl } from "../../utils/mwDsl";
 import { platformApi } from "../../services/api/platforms";
 import { groupApi } from "../../services/api/groups";
+import { useDisplayCurrency } from "../../utils/displayCurrency";
 
 // ponytail: 单卡片包装 — 每实例独立 useReveal (React 规则禁 map 内条件 hook),
 // hover-lift + reveal 萤火虫入场 (stagger idx*60)。
@@ -912,6 +913,7 @@ interface RuleRowProps {
 }
 
 function RuleRow({ rule, budget, onEdit, onToggle, onDelete }: RuleRowProps) {
+  useDisplayCurrency();
   const { t } = useTranslation();
   return (
     <div
@@ -996,8 +998,8 @@ function RuleRow({ rule, budget, onEdit, onToggle, onDelete }: RuleRowProps) {
               />
             </div>
             <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-              {t("middleware.budgetUsed", "本月已用")} {formatCostUsd(budget.spent_usd)} /{" "}
-              {formatCostUsd(budget.budget_usd)}
+              {t("middleware.budgetUsed", "本月已用")} {formatMoney(budget.spent_usd)} /{" "}
+              {formatMoney(budget.budget_usd)}
             </span>
             <span
               style={{
@@ -1007,7 +1009,7 @@ function RuleRow({ rule, budget, onEdit, onToggle, onDelete }: RuleRowProps) {
             >
               {budget.remaining_usd <= 0
                 ? t("middleware.budgetExceeded", "已超预算，请求被拒绝")
-                : `${t("middleware.budgetRemaining", "剩余")} ${formatCostUsd(budget.remaining_usd)}`}
+                : `${t("middleware.budgetRemaining", "剩余")} ${formatMoney(budget.remaining_usd)}`}
             </span>
           </div>
         )}
