@@ -714,7 +714,7 @@ export interface ProxyLogDetail {
   /** 「正文已省略」（perf-backend O6）：该行部分正文因日志写入队列字节预算超限被降级丢弃，
    *  只有元数据落库。置位后单调不回落。 */
   body_omitted: boolean;
-  /** 客户端代码（UA 归类：claude_code|codex|pi|cursor|windsurf|gemini_cli|other）；空串 = 未知（旧行）。 */
+  /** 客户端代码（UA 归类到词表变体或大类码，见 `get_client_vocab`；认不出 = other；旧行可为旧 7 码或空串）。 */
   client: string;
   /** 入站原始 User-Agent（截断 256 字符）；空串 = 无（旧行 / 无 UA 头）。 */
   user_agent: string;
@@ -805,4 +805,17 @@ export interface DisplayCurrency {
   decimals: number;
   rate: number;
   table: CurrencyRow[];
+}
+
+/** 客户端词表（`get_client_vocab`）：大类 → 变体。显示名 key = `nameKey`（8 locale）。 */
+export interface ClientVocabVariant {
+  code: string;
+  nameKey: string;
+}
+export interface ClientVocabCategory {
+  code: string;
+  nameKey: string;
+  /** 大类自身可被识别；false = 纯分组。 */
+  matchable: boolean;
+  variants: ClientVocabVariant[];
 }

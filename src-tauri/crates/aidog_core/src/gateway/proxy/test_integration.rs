@@ -3620,6 +3620,26 @@ async fn no_group_404_records_user_side_request_and_response() {
     assert!(row.response_body.is_empty(), "上游侧不应有内容: {}", row.response_body);
 }
 
+/// WS 握手路径（不经 handle_proxy_core）也要识别入站客户端并记原始 UA。
+#[tokio::test]
+async fn ws_handshake_records_client_and_user_agent() {
+    let state = make_state(test_db().await).await;
+    let req = HttpRequest::builder()
+        .method("GET")
+        .uri("/v1/responses")
+        .header("authorization", "Bearer ghost")
+        .header("upgrade", "websocket")
+        .header("connection", "Upgrade")
+        .header("user-agent", "codex-tui/0.38.0 (Mac OS 15.0; arm64)")
+        .body(Body::empty())
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    let row = last_log_for(&state, "").await;
+    assert_eq!(row.client, "codex_tui");
+    assert_eq!(row.user_agent, "codex-tui/0.38.0 (Mac OS 15.0; arm64)");
+}
+
 /// ADR 0009 决策 1：各默认通道都能定组；多个通道同时出现时第一个对上分组的胜
 /// （Authorization 里是客户端自带的上游 key，x-api-key 才是分组密钥）。
 #[tokio::test]

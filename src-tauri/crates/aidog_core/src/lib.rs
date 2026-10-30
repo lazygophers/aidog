@@ -49,6 +49,7 @@ pub mod display_currency;
 pub mod popover;
 // C3 c3-commands 第 2 批：commands_cli_env / commands_config 下沉。
 pub mod cli_env;
+pub mod client_vocab;
 pub mod defaults;
 pub mod settings;
 // C3 c3-commands 第 3 批：commands_system / commands_ai_tools 下沉。
