@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { groupFlowApi, type FlowRow, type GroupPlatformDetail } from "../../services/api";
 import { FlowChart, type FlowMetric } from "../../components/charts/FlowChart";
 import { useDisplayCurrency } from "../../utils/displayCurrency";
+import { clientLabel } from "../../utils/clientLabel";
 
 type Window = "7d" | "today";
 const METRICS: FlowMetric[] = ["tokens", "requests", "cost"];
@@ -30,7 +31,7 @@ export function GroupFlowPanel({ groupKey, gps }: { groupKey: string; gps: Group
   const columns = useMemo(() => {
     const platName = (id: string) => (id === "0" ? t("flow.platform.none", "未路由") : (gps.find(g => String(g.platform.id) === id)?.platform.platform_type ?? `#${id}`));
     return [
-      { key: "client", title: t("flow.col.client", "客户端"), labelOf: (id: string) => (id === "" ? t("flow.client.unknown", "未知") : t(`flow.client.${id}`, id)) },
+      { key: "client", title: t("flow.col.client", "客户端"), labelOf: (id: string) => clientLabel(t, id) },
       { key: "req_model", title: t("flow.col.requestModel", "请求模型") },
       { key: "platform_id", title: t("flow.col.platform", "平台"), labelOf: platName },
       { key: "model", title: t("flow.col.actualModel", "实际模型") },
