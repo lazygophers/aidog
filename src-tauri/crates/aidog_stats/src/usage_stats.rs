@@ -639,6 +639,64 @@ pub fn group_platform_breakdown<'a>(
     }
 }
 
+/// 请求流向聚合：窗口内 (client, group_key, req_model, platform_id, model) 六元组的请求数 / token / 费用。
+/// window: `24h`（与首页维度趋势同边界：now-24h 起、含 now 所在整点桶）| `today`（本地 00:00 起）| `7d`。
+/// `group_key` 为 None = 首页全局；Some = 仅该分组。不加 LIMIT（度量与占比由前端算）。
+#[track_caller]
+pub fn stats_flow_breakdown<'a>(
+    db: &'a Db,
+    window: &'a str,
+    group_key: Option<&'a str>,
+) -> impl std::future::Future<Output = Result<Vec<aidog_db::models::FlowRow>, String>> + 'a {
+    stats_flow_breakdown_at(db, window, group_key, chrono::Utc::now().timestamp_millis())
+}
+
+/// `stats_flow_breakdown` 的可注入时钟版本（测试用边界夹具）。
+#[track_caller]
+pub fn stats_flow_breakdown_at<'a>(
+    db: &'a Db,
+    window: &'a str,
+    group_key: Option<&'a str>,
+    now_ms: i64,
+) -> impl std::future::Future<Output = Result<Vec<aidog_db::models::FlowRow>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        const H: i64 = 3_600_000;
+        let end_key = utc_ms_to_local_hour_key(now_ms);
+        let since = match window {
+            "24h" => utc_ms_to_local_hour_key(now_ms - 24 * H),
+            "7d" => utc_ms_to_local_hour_key(now_ms - 7 * 24 * H),
+            "today" => format!("{} 00:00:00", &end_key[..10]),
+            other => return Err(format!("stats_flow_breakdown: unknown window {other:?}")),
+        };
+        let group_key = group_key.map(str::to_string);
+        db.call_read_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare_cached(
+                "SELECT client, group_key, req_model, platform_id, model, SUM(request_count), \
+                        SUM(sum_input_tokens + sum_output_tokens + sum_cache_tokens), SUM(sum_est_cost) \
+                 FROM stats_agg_hourly \
+                 WHERE time_hour >= ?1 AND time_hour <= ?2 AND deleted_at = 0 AND (?3 IS NULL OR group_key = ?3) \
+                 GROUP BY client, group_key, req_model, platform_id, model ORDER BY 6 DESC",
+            )?;
+            let rows = stmt.query_map(params![since, end_key, group_key], |row| {
+                Ok(aidog_db::models::FlowRow {
+                    client: row.get(0)?,
+                    group_key: row.get(1)?,
+                    req_model: row.get(2)?,
+                    platform_id: row.get(3)?,
+                    model: row.get(4)?,
+                    requests: row.get(5)?,
+                    tokens: row.get(6)?,
+                    est_cost: row.get(7)?,
+                })
+            })?;
+            Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| format!("stats flow breakdown: {e}"))
+    }
+}
+
 /// 分组 7 天趋势（详情页右栏）：stats_agg_hourly 按本地日 × platform GROUP BY。
 #[track_caller]
 pub fn group_daily_breakdown<'a>(

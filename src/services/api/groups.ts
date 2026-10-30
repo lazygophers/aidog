@@ -1,7 +1,7 @@
 // groups.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "../transport";
-import type { RoutingMode, Group, GroupPlatformDetail, ModelMapping, EnvVar, GroupDetail, PlatformUsageStats, GroupPlatformBreakdown, GroupDailyBreakdown, LatestRouting } from "./types";
+import type { RoutingMode, Group, GroupPlatformDetail, ModelMapping, EnvVar, GroupDetail, PlatformUsageStats, GroupPlatformBreakdown, GroupDailyBreakdown, LatestRouting, FlowRow } from "./types";
 
 // ── G3 分组页（整体风格票 03）：flow 拆分 + 最近路由快照（只读命令）──
 export const groupFlowApi = {
@@ -14,6 +14,9 @@ export const groupFlowApi = {
   /** 近 7 天按日 × 平台用量（详情页右栏趋势卡 + 今日请求数）。 */
   daily: (groupKey: string) =>
     invoke<GroupDailyBreakdown[]>("group_daily_usage", { groupKey }),
+  /** 请求流向聚合（client/group/请求模型/平台/实际模型 六元组）。groupKey 缺省 = 首页全局。 */
+  flow: (window: "24h" | "today" | "7d", groupKey?: string) =>
+    invoke<FlowRow[]>("stats_flow_breakdown", { window, groupKey }),
 };
 
 export const groupUsageApi = {
