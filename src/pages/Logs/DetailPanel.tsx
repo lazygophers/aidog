@@ -162,6 +162,8 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
         <MetaItem label={t("logs.platform", "平台")} value={platformMap.get(detail.platform_id) || "-"} copyText={platformMap.get(detail.platform_id)} t={t} />
         <MetaItem label={t("logs.model", "原始模型")} value={detail.model || "-"} copyText={detail.model} t={t} />
         <MetaItem label={t("logs.actualModel", "实际模型")} value={detail.actual_model && detail.actual_model !== detail.model ? detail.actual_model : "-"} copyText={detail.actual_model && detail.actual_model !== detail.model ? detail.actual_model : undefined} t={t} />
+        <MetaItem label={t("logs.client", "客户端")} value={detail.client || "-"} copyText={detail.client || undefined} testId="detail-client" t={t} />
+        <MetaItem label={t("logs.userAgent", "UA")} value={detail.user_agent || "-"} copyText={detail.user_agent || undefined} testId="detail-user-agent" t={t} />
         <MetaItem label={t("logs.sourceProtocol", "用户格式")} value={sourceLabel || detail.source_protocol || "-"} copyText={detail.source_protocol} t={t} />
         <MetaItem label={t("logs.targetProtocol", "请求格式")} value={targetLabel || detail.target_protocol || "-"} copyText={detail.target_protocol} t={t} />
         <MetaItem
@@ -215,6 +217,7 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
         durationMs={detail.duration_ms}
         statusCode={detail.status_code}
         actualModel={detail.actual_model || undefined}
+        requestModel={detail.model || undefined}
         t={t}
       />
 

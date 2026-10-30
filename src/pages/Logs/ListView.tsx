@@ -204,6 +204,7 @@ export function ListView({ filters, list, openDetail, copyRow }: {
                 <ThCell>{t("logs.platform", "平台")}</ThCell>
                 <ThCell>{t("logs.model", "原始模型")}</ThCell>
                 <ThCell>{t("logs.actualModel", "实际模型")}</ThCell>
+                <ThCell>{t("logs.userAgent", "UA")}</ThCell>
                 <ThCell>{t("logs.status")}</ThCell>
                 <ThCell>{t("logs.duration")}</ThCell>
                 <ThCell>{t("logs.inputTokens")}</ThCell>
