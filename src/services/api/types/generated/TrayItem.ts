@@ -17,9 +17,22 @@ export type TrayItem = { item_type: string, platform_id: number | null, display:
  */
 label: string | null, 
 /**
- * 花费/余额小数位数。None = 默认 5 位。
+ * 花费/余额小数位数。None = 默认 5 位（today_usage cost / today_cost）；platform 槽 balance 口径默认 2 位。
  */
-decimals: number | null, color: TrayColor, font_size: number, 
+decimals: number | null, 
+/**
+ * 仅 item_type="platform"：多指标列表，按序用 " · " 拼进同一格。
+ * token 词表：`balance` | `coding`（首个 tier 剩余%）| `coding:<tier_name>`（指定窗口）|
+ * `reset_time:<tier_name>`（指定窗口下次重置时刻）| `today_cost` | `today_tokens`，
+ * tier 来自 platform.est_coding_plan。
+ * None/空 = 沿用 display 旧口径（逐字不变）。
+ */
+metrics: Array<string> | null, 
+/**
+ * 仅 item_type="platform"：自定义单位后缀，非空替换该槽默认单位标记
+ * （$ 前缀 / " tok" 后缀；coding 的 % 固有，不受影响）。None = 默认。
+ */
+unit: string | null, color: TrayColor, font_size: number, 
 /**
  * 该项行模式（作为「一列」）："single"（第一行 "名 值"，第二行该列留空占位）
  * | "two"（第一行该列显 name，第二行该列显 value）。

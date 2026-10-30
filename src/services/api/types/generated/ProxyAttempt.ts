@@ -15,4 +15,9 @@ error: string, duration_ms: number,
 /**
  * 本次尝试发起时间（毫秒 unix 时间戳）
  */
-ts: number, };
+ts: number, 
+/**
+ * 当次请求模型（路由目标模型；旧日志无此字段，缺省 None，序列化时省略）。
+ * 与 actual_model（上游自报）语义不同：此处记每次 attempt 发起时的模型。
+ */
+model?: string, };

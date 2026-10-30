@@ -59,9 +59,20 @@ pub struct TrayItem {
     /// 自定义标签（优先于自动生成的 name）。None = 使用默认。
     #[serde(default)]
     pub label: Option<String>,
-    /// 花费/余额小数位数。None = 默认 5 位。
+    /// 花费/余额小数位数。None = 默认 5 位（today_usage cost / today_cost）；platform 槽 balance 口径默认 2 位。
     #[serde(default)]
     pub decimals: Option<u32>,
+    /// 仅 item_type="platform"：多指标列表，按序用 " · " 拼进同一格。
+    /// token 词表：`balance` | `coding`（首个 tier 剩余%）| `coding:<tier_name>`（指定窗口）|
+    /// `reset_time:<tier_name>`（指定窗口下次重置时刻）| `today_cost` | `today_tokens`，
+    /// tier 来自 platform.est_coding_plan。
+    /// None/空 = 沿用 display 旧口径（逐字不变）。
+    #[serde(default)]
+    pub metrics: Option<Vec<String>>,
+    /// 仅 item_type="platform"：自定义单位后缀，非空替换该槽默认单位标记
+    /// （$ 前缀 / " tok" 后缀；coding 的 % 固有，不受影响）。None = 默认。
+    #[serde(default)]
+    pub unit: Option<String>,
     #[serde(default)]
     pub color: TrayColor,
     #[serde(default = "default_font_size")]
@@ -136,6 +147,8 @@ fn segment(item_type: &str, metric: Option<&str>, order: i32) -> TrayItem {
         metric: metric.map(str::to_string),
         label: None,
         decimals: None,
+        metrics: None,
+        unit: None,
         color: TrayColor::default(),
         font_size: default_font_size(),
         line_mode: "single".to_string(),
