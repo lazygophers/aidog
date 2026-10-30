@@ -88,6 +88,9 @@ export const LANGUAGE_GROUPS: { family: string; options: { value: string; label:
   { family: "Українська", options: [{ value: "uk-UA", label: "Українська" }] },
 ];
 
+/** 内置 output style（官方 docs.claude.com output-styles：值区分大小写，default = 不选风格）。 */
+export const OUTPUT_STYLE_BUILTINS = ["default", "Proactive", "Concise", "Explanatory", "Learning"];
+
 export const LANGUAGE_OPTIONS: string[] = LANGUAGE_GROUPS.flatMap((g) => g.options.map((o) => o.value));
 
 export const SECTIONS: SettingSection[] = [
@@ -98,7 +101,7 @@ export const SECTIONS: SettingSection[] = [
       // ── 原 core ──
       { key: "model", label: "Model", type: "string", placeholder: "e.g. claude-sonnet-4-6, sonnet" },
       { key: "effortLevel", label: "Effort Level", type: "select", options: ["low", "medium", "high", "xhigh"] },
-      { key: "outputStyle", label: "Output Style", type: "string", placeholder: "Explanatory, Concise..." },
+      { key: "outputStyle", label: "Output Style", type: "string", placeholder: "Explanatory, Concise...", options: OUTPUT_STYLE_BUILTINS },
       { key: "language", label: "Language", type: "string", placeholder: "zh-Hans, en-US, ja-JP...", options: LANGUAGE_OPTIONS },
       { key: "agent", label: "Agent", type: "string", description: "将主线程作为命名 subagent 运行" },
       { key: "apiKeyHelper", label: "API Key Helper", type: "string", placeholder: "/bin/generate_temp_api_key.sh", pathType: "file" },
