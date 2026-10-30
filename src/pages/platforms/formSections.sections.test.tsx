@@ -18,6 +18,10 @@ vi.mock("../../domains/platforms", async (importOriginal) => {
   };
 });
 
+vi.mock("../../domains/platforms/modelPrices", () => ({
+  useModelPrices: () => new Map(),
+}));
+
 // t stub：fallback + {{var}} 插值（i18next 同构；本文件文本因此确定性）
 const t = ((key: string, fallback?: string, opts?: Record<string, unknown>) => {
   let s = fallback ?? key;
@@ -218,9 +222,11 @@ describe("PeakSection — C 方向稿接线（preset RPC mock 空）", () => {
 });
 
 // ── DirectModelsSection（直通模型，票 02）───────────────────────────────────
-function renderDirect(models: string[]) {
+function renderDirect(models: string[], availableModels: string[] = []) {
   const setModels = vi.fn();
-  const { container } = render(<DirectModelsSection models={models} setModels={setModels} t={t} />);
+  const { container } = render(
+    <DirectModelsSection models={models} setModels={setModels} availableModels={availableModels} protocol="openai" t={t} />,
+  );
   return { container, setModels };
 }
 
@@ -239,6 +245,25 @@ describe("DirectModelsSection — 直通模型（票 02）", () => {
     fireEvent.change(input, { target: { value: "   " } });
     fireEvent.click(add);
     expect(setModels).toHaveBeenCalledTimes(1);
+  });
+
+  it("下拉：聚焦输入出候选，点选候选 → setModels 追加该 id", () => {
+    const { container, setModels } = renderDirect(["m1"], ["gpt-a", "gpt-b"]);
+    const input = container.querySelector('[data-testid="direct-model-input"]') as HTMLInputElement;
+    fireEvent.focus(input);
+    const opt = document.body.querySelector('[data-testid="model-option-gpt-b"]')!;
+    fireEvent.mouseDown(opt);
+    const updater = setModels.mock.calls[0][0] as (prev: string[]) => string[];
+    expect(updater(["m1"])).toEqual(["m1", "gpt-b"]);
+  });
+
+  it("直接输入不在候选里的 id：Enter 追加原值", () => {
+    const { container, setModels } = renderDirect([], ["gpt-a"]);
+    const input = container.querySelector('[data-testid="direct-model-input"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "custom-x" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    const updater = setModels.mock.calls[0][0] as (prev: string[]) => string[];
+    expect(updater([])).toEqual(["custom-x"]);
   });
 
   it("删除：按 testid 点删 → setModels 过滤掉该条", () => {

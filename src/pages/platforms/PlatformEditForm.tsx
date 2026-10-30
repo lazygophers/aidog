@@ -286,6 +286,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         {!isMock && editing && !isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "direct") && (
           <DirectModelsSection
             models={timemodels.directModels} setModels={timemodels.setDirectModels}
+            availableModels={availableModels} protocol={proto}
             t={t}
           />
         )}
