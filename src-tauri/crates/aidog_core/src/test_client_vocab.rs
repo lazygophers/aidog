@@ -124,7 +124,31 @@ fn outbound_simulation_codes_align_with_vocab() {
         let v = ct["value"].as_str().unwrap();
         if v != "default" {
             assert!(codes.contains(v), "出站模拟值 {v} 不在词表");
+            let e = CLIENTS.iter().find(|e| e.code == v).unwrap();
+            // 推测 / 无一手来源的条目不得进出站模拟（票 07）
+            assert!(!e.src.starts_with("推测"), "出站值 {v} 来源是推测，不得模拟");
+            // SDK / HTTP 工具 / 框架只做入站识别
+            assert!(
+                !SDK_HTTP_CATEGORIES.contains(&e.category()),
+                "出站值 {v} 属 SDK/HTTP 类 {}，不得模拟",
+                e.category()
+            );
         }
+    }
+}
+
+const SDK_HTTP_CATEGORIES: &[&str] = &[
+    "litellm", "langchain", "anthropic_sdk", "openai_sdk", "python_http", "node_http", "go_http", "java_http", "cli_http",
+];
+
+/// 用户拍板不做出站模拟的 AI 客户端：Amp / Copilot CLI（来源是推测）、Cursor / Windsurf（无一手 UA，且请求经云端）。
+#[test]
+fn undecided_ai_clients_have_no_outbound_simulation() {
+    let doc: serde_json::Value = serde_json::from_str(aidog_db::client_types_const::BUNDLED).unwrap();
+    let codes: HashSet<_> = doc["client_types"].as_array().unwrap().iter().map(|e| e["value"].as_str().unwrap()).collect();
+    for c in ["amp", "copilot_cli", "cursor", "windsurf"] {
+        assert!(!codes.contains(c), "{c} 不应有出站模拟");
+        assert!(CLIENTS.iter().any(|e| e.code == c), "{c} 仍是入站词表码");
     }
 }
 

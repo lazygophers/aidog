@@ -29,9 +29,9 @@ export function EndpointsSection({ endpoints, setEndpoints, protocol, t }: {
   const { i18n } = useTranslation();
   const locked = ENDPOINTS_LOCKED_PROTOCOLS.has(protocol);
   // CLIENT_TYPES 删除（JSON 派生）：共享 hook（useClientTypeOptions）— useState 空初始
-  // + cancelled flag + locale key，切语言重拉派生层。禁前端直读 github / 文件系统，
-  // 一律 invoke get_client_types_json（封装在 buildClientTypesFromPresets 内）。
-  const clientTypeOptions = useClientTypeOptions(i18n.language);
+  // + cancelled flag + locale key，切语言重拉派生层。选项 = 词表（get_client_vocab）∩
+  // 有出站定义的码（get_client_types_json），封装在 buildClientTypesFromPresets 内。
+  const clientTypeOptions = useClientTypeOptions(i18n.language, (k, fb) => t(k, fb));
 
   return (
     <FormSection
