@@ -280,25 +280,22 @@ fn cur(code: &str, rate: Option<f64>) -> DisplayCurrency {
     build_display_currency(&s)
 }
 
+/// 跨层 golden：与前端 TrayConfigTab.test.tsx 共读同一份 tray_golden.json。
 #[test]
-fn tray_money_usd_matches_legacy_text() {
-    // 改动前：`$` + trim(format!("{:.2}")) / cost 默认 5 位
-    assert_eq!(tray_money(10.10, &usd(), 2), "$10.1");
-    assert_eq!(tray_money(0.0, &usd(), 2), "$0");
-    assert_eq!(tray_money(0.123456789, &usd(), 5), "$0.12346");
-}
-
-#[test]
-fn tray_money_cny_jpy_chf() {
-    let c = cur("CNY", Some(7.0));
-    assert_eq!(tray_money(10.0, &c, 2), "¥70");
-    assert_eq!(tray_money(0.0123456, &c, 5), "¥0.08642");
-    // JPY 恒 0 位，符号 JP¥；大数值不带科学计数
-    let j = cur("JPY", Some(150.0));
-    assert_eq!(tray_money(1234.567, &j, 5), "JP¥185185");
-    assert_eq!(tray_money(0.004, &j, 2), "JP¥1");
-    // CHF 前缀带空格
-    assert_eq!(tray_money(10.0, &cur("CHF", Some(0.9)), 2), "CHF 9");
+fn tray_money_golden_cases_match() {
+    let cases: Vec<serde_json::Value> = serde_json::from_str(include_str!("testdata/tray_golden.json")).unwrap();
+    assert_eq!(cases.len(), 8);
+    for c in cases {
+        let code = c["code"].as_str().unwrap();
+        let rate = c["rate"].as_f64().unwrap();
+        let cu = if code == "USD" { usd() } else { cur(code, Some(rate)) };
+        // golden 自带 symbol/decimals/rate，同时与币种表互证
+        assert_eq!(cu.symbol, c["symbol"].as_str().unwrap(), "{code}");
+        assert_eq!(cu.decimals as u64, c["decimals"].as_u64().unwrap(), "{code}");
+        assert_eq!(cu.rate, rate, "{code}");
+        let got = tray_money(c["usd"].as_f64().unwrap(), &cu, c["d"].as_u64().unwrap() as usize);
+        assert_eq!(got, c["expected"].as_str().unwrap(), "{code} {}", c["usd"]);
+    }
 }
 
 #[test]
