@@ -238,7 +238,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           availableModels={availableModels} protocol={proto}
           fetchError={fetchError} fetching={fetching}
           onFillAll={handleFillAll} onFetchModels={handleFetchModels}
-          apiKeyMissing={apiKeyMissing} endpointsCount={endpoints.length}
+          apiKeyMissing={apiKeyMissing} endpointsCount={endpoints.length} endpoints={endpoints}
           rules={timemodels.timeModels} setRules={timemodels.setTimeModels} peak={timemodels.peak}
           tzMode={timemodels.windowsTz} setTzMode={timemodels.setWindowsTz}
           t={t}

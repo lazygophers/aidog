@@ -1400,6 +1400,7 @@
   "platform.modelJev": "Entscheidungsmodell",
   "platform.modelEmbedding": "Einbettung",
   "platform.modelRerank": "Neurangordnung",
+  "platform.dedicatedSlotNoOpenAIEndpointHint": "Diese Plattform hat keinen OpenAI-kompatiblen Endpunkt und wird für diesen Anfragetyp nicht ausgewählt",
   "platform.modelHaiku": "Haiku",
   "platform.modelOpus": "Opus",
   "platform.modelSonnet": "Sonnet",
