@@ -149,8 +149,8 @@ describe("MiddlewareRulesPanel（统一引擎列表）", () => {
     ]);
     render(<MiddlewareRulesPanel />);
     await waitFor(() => expect(screen.getByText("budget-rule")).toBeTruthy());
-    expect(screen.getByText(/middleware\.budgetUsed \$3\.00 \/ \$10\.00/)).toBeTruthy();
-    expect(screen.getByText(/middleware\.budgetRemaining \$7\.00/)).toBeTruthy();
+    expect(screen.getByTestId("budget-used").textContent).toContain("$3.00 / $10.00");
+    expect(screen.getByTestId("budget-remaining").textContent).toContain("$7.00");
   });
 
   it("预算闸门规则：已超限显示超预算提示", async () => {
@@ -277,8 +277,8 @@ describe("预算闸门 × 显示币种（票 04）", () => {
     setDisplayCurrency(cny);
     render(<MiddlewareRulesPanel />);
     await waitFor(() => expect(screen.getByText("budget-rule")).toBeTruthy());
-    expect(screen.getByText(/middleware\.budgetUsed ¥21\.00 \/ ¥70\.00/)).toBeTruthy();
-    expect(screen.getByText(/middleware\.budgetRemaining ¥49\.00/)).toBeTruthy();
+    expect(screen.getByTestId("budget-used").textContent).toContain("¥21.00 / ¥70.00");
+    expect(screen.getByTestId("budget-remaining").textContent).toContain("¥49.00");
   });
 
   it("预算输入框恒为 USD：CNY 下回显原值、改值后保存的就是键入的 USD（无显示换算 / 保存原值错位）", async () => {

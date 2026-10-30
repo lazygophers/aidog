@@ -997,11 +997,12 @@ function RuleRow({ rule, budget, onEdit, onToggle, onDelete }: RuleRowProps) {
                 }}
               />
             </div>
-            <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+            <span data-testid="budget-used" style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
               {t("middleware.budgetUsed", "本月已用")} {formatMoney(budget.spent_usd)} /{" "}
               {formatMoney(budget.budget_usd)}
             </span>
             <span
+              data-testid="budget-remaining"
               style={{
                 fontSize: 11,
                 color: budget.remaining_usd <= 0 ? "var(--color-danger)" : "var(--text-tertiary)",
