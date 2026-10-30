@@ -156,8 +156,12 @@ fn upsert_aggregated(
           sum_duration_ms = excluded.sum_duration_ms, \
           updated_at = excluded.updated_at",
     )?;
-    for (k, b) in agg {
+    // 先整批删完旧形态行再写：边删边写时，某 key 的删除会误删同 4 元组下本批已写入的
+    // client=''/req_model='' 真实新行（HashMap 迭代序任意）。
+    for k in agg.keys() {
         del_legacy.execute(params![k.time_hour, k.model, k.group_key, k.platform_id])?;
+    }
+    for (k, b) in agg {
         stmt.execute(params![
             k.time_hour,
             k.model,

@@ -121,49 +121,50 @@ pub fn run_migrations_late(
                 .unwrap_or_else(|| std::path::Path::new("."))
                 .join("log.db");
             if log_path.exists() {
-                let log_path_sql = log_path.to_string_lossy().replace("'", "''");
                 let migrate_result = (|| -> SqlResult<()> {
-                    // log.db 整库加密（SQLCipher）：ATTACH 必须带 key，否则读不到表、搬迁静默落空。
-                    let key_clause = crate::sqlcipher::attach_key_clause()
+                    // log.db 整库加密（SQLCipher）：用带 key 的独立连接读，而非 ATTACH——
+                    // ATTACH ... KEY 的 SQL 会被主连接 profile 回调以 debug 级 `sql` 目标
+                    // 原文落日志（含 master key），独立连接没有 profile。
+                    let src = crate::sqlcipher::open_keyed_conn(&log_path)
                         .map_err(rusqlite::Error::InvalidParameterName)?;
-                    conn.execute_batch(&format!(
-                        "ATTACH DATABASE '{log_path_sql}' AS src_log {key_clause}"
-                    ))?;
-                    let has_table: bool = conn
+                    let has_table: bool = src
                         .query_row(
-                            "SELECT 1 FROM src_log.sqlite_master \
+                            "SELECT 1 FROM sqlite_master \
                                          WHERE type='table' AND name='stats_agg_hourly'",
                             [],
                             |r| r.get::<_, i64>(0),
                         )
                         .is_ok();
                     if has_table {
-                        conn.execute_batch(
-                            "BEGIN;\
-                                         INSERT OR IGNORE INTO stats_agg_hourly \
-                                         (time_hour, model, group_key, platform_id, \
+                        const COLS: &str = "time_hour, model, group_key, platform_id, \
                                           request_count, success_count, error_count, \
                                           sum_input_tokens, sum_output_tokens, sum_cache_tokens, \
-                                          sum_est_cost, sum_duration_ms, created_at, updated_at, deleted_at) \
-                                         SELECT time_hour, model, group_key, platform_id, \
-                                          request_count, success_count, error_count, \
-                                          sum_input_tokens, sum_output_tokens, sum_cache_tokens, \
-                                          sum_est_cost, sum_duration_ms, created_at, updated_at, deleted_at \
-                                         FROM src_log.stats_agg_hourly;\
-                                         COMMIT;",
-                        )?;
+                                          sum_est_cost, sum_duration_ms, created_at, updated_at, deleted_at";
+                        let mut sel = src.prepare(&format!("SELECT {COLS} FROM stats_agg_hourly"))?;
+                        let tx = conn.unchecked_transaction()?;
+                        {
+                            let mut ins = tx.prepare(&format!(
+                                "INSERT OR IGNORE INTO stats_agg_hourly ({COLS}) \
+                                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)"
+                            ))?;
+                            let mut rows = sel.query([])?;
+                            while let Some(r) = rows.next()? {
+                                let vals: Vec<rusqlite::types::Value> =
+                                    (0..15).map(|i| r.get(i)).collect::<SqlResult<_>>()?;
+                                ins.execute(rusqlite::params_from_iter(vals))?;
+                            }
+                        }
+                        tx.commit()?;
                         tracing::info!(
                             "migration 20260727-17 (原 052): stats_agg_hourly 跨库搬迁 log.db → main 完成"
                         );
                     }
-                    let _ = conn.execute("DETACH DATABASE 'src_log'", []);
                     Ok(())
                 })();
                 if let Err(e) = migrate_result {
                     tracing::warn!(
                         "migration 20260727-17 (原 052): stats_agg 跨库搬迁失败（不阻断启动，可后续 rebuild）: {e}"
                     );
-                    let _ = conn.execute("DETACH DATABASE 'src_log'", []);
                 }
             }
         }
