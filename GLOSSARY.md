@@ -162,3 +162,17 @@ _避免_: deployment、provider preset
 回 503（`blocked_reason: direct_model_unavailable`，落 proxy_log 审计）。声明即生效，不查
 registry 收录（聚合站自定义模型名可配）。整条直通链只在组内任一平台声明了直通模型时启用，
 未声明的组行为与现状一致。_避免_: 直接模型（需求口语）、直连模型
+
+## 推荐配置预设
+
+**推荐配置预设（Recommended Preset）**:
+一份可被设置页「加载推荐配置」选用的配置模板，随应用打包，一份一个文件、以文件名为 id，带一个显示名；Claude Code、Codex、Pi 各有自己的一组。不同于 Registry（平台/模型数据）与 provider preset（平台协议预置条目）。
+_避免_: 推荐配置文件（指单份时）、settings 模板
+
+**开源默认预设（OSS Preset）**:
+id 为 `oss` 的推荐配置预设，只含通用隐私/安全项，不依赖本机工具、不放宽权限；任何构建都必带，且是首次兜底与 hooks 默认值的取值来源。
+_避免_: 公开版、发版版
+
+**组织预设（Organization Preset）**:
+作者所在组织（lazygophers）自用的推荐配置预设，含个人工具链与偏好，进 git 管理但在 GitHub 构建中不打包。
+_避免_: 个人版、私有预设
