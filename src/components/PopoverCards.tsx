@@ -16,8 +16,9 @@ import type {
   Group,
   GroupDetail,
 } from "../services/api";
-import { formatNumber, formatCostUsd, formatPercent } from "../utils/formatters";
+import { formatNumber, formatMoney, formatPercent } from "../utils/formatters";
 import { LineChart, DonutChart, HourHeatBar, bucketMs } from "./charts";
+import { useDisplayCurrency } from "../utils/displayCurrency";
 
 /** 浮窗各统计卡数据：item.id → 该卡批量查询结果（一次 IPC 拉全部，见 popover.tsx）。 */
 export type PopoverStatsMap = Map<string, StatsResult>;
@@ -150,6 +151,7 @@ function MetricRow({
 }
 
 function PlatformToday({ data, size, colorStyle }: { data: PopoverData; size: Size; colorStyle?: React.CSSProperties }) {
+  useDisplayCurrency();
   const { t } = useTranslation();
   return (
     <div className={`popover-section pc-${size}`}>
@@ -162,7 +164,7 @@ function PlatformToday({ data, size, colorStyle }: { data: PopoverData; size: Si
             <span className="popover-platform-name">
               {p.platform_name || t("popover.unknownPlatform", "未知平台")}
             </span>
-            <span className="popover-platform-value" style={colorStyle}>{formatCostUsd(p.cost)}</span>
+            <span className="popover-platform-value" style={colorStyle}>{formatMoney(p.cost)}</span>
             {/* s: 仅平台名+金额；m: +token；l: +token+请求数 */}
             {size !== "s" && <span className="popover-platform-sub">{formatNumber(p.tokens)} tok</span>}
             {size === "l" && (
@@ -280,6 +282,7 @@ export function CostTrendCard({
   stats?: StatsResult;
   statsLoaded: boolean;
 }) {
+  useDisplayCurrency();
   // 批量查询已全局拉取：未加载完成 → loading；加载完但本卡缺结果 → failed。
   const failed = statsLoaded && !stats;
   const buckets = stats ? stats.buckets : null;
@@ -303,11 +306,11 @@ export function CostTrendCard({
             height={size === "s" ? 44 : size === "m" ? 56 : 72}
             config={{ v: { label: t("popover.trendCostSeries", "花费") } }}
             data={buckets.map((b) => ({ x: bucketMs(b.time_bucket), v: b.total_cost }))}
-            valueFormat={formatCostUsd}
+            valueFormat={formatMoney}
           />
           {size === "l" && (
             <div className="popover-metric-sub">
-              {t("popover.trendTotal", "合计")} <span style={colorStyle}>{formatCostUsd(total)}</span>
+              {t("popover.trendTotal", "合计")} <span style={colorStyle}>{formatMoney(total)}</span>
             </div>
           )}
         </>
@@ -330,6 +333,7 @@ function PlatformShareCard({
   stats?: StatsResult;
   statsLoaded: boolean;
 }) {
+  useDisplayCurrency();
   const failed = statsLoaded && !stats;
   const series = stats ? stats.series : null;
   // 逐序列聚合窗口总花费 → DonutChart 占比条目（value 0 的序列被组件自身过滤，这里先滤掉算有效数）
@@ -358,7 +362,7 @@ function PlatformShareCard({
           topN={size === "s" ? 3 : 4}
           size={size === "s" ? 64 : size === "m" ? 88 : 104}
           showLegend={size !== "s"}
-          formatValue={formatCostUsd}
+          formatValue={formatMoney}
           centerLabel={t("popover.trendTotal", "合计")}
         />
       )}
@@ -434,6 +438,7 @@ function PlatformMetricCard({
   stats?: StatsResult;
   statsLoaded: boolean;
 }) {
+  useDisplayCurrency();
   const failed = statsLoaded && !stats;
   const overview: StatsOverview | null = stats ? stats.overview : null;
 
@@ -450,7 +455,7 @@ function PlatformMetricCard({
       ) : (
         <>
           <div className="popover-platform-row">
-            <span className="popover-platform-value" style={colorStyle}>{formatCostUsd(overview.total_cost)}</span>
+            <span className="popover-platform-value" style={colorStyle}>{formatMoney(overview.total_cost)}</span>
             {/* s: 仅金额；m: +token；l: +token in/out 拆分 */}
             {size !== "s" && <span className="popover-platform-sub">{formatNumber(tokens)} tok</span>}
           </div>
@@ -492,6 +497,7 @@ function GroupCostCard({
   stats?: StatsResult;
   statsLoaded: boolean;
 }) {
+  useDisplayCurrency();
   const failed = statsLoaded && !stats;
   const overview: StatsOverview | null = stats ? stats.overview : null;
 
@@ -505,7 +511,7 @@ function GroupCostCard({
       ) : (
         <>
           <div className="popover-metric-row">
-            <span className="popover-metric-value" style={colorStyle}>{formatCostUsd(overview.total_cost)}</span>
+            <span className="popover-metric-value" style={colorStyle}>{formatMoney(overview.total_cost)}</span>
           </div>
           {size === "l" && (
             <div className="popover-metric-sub">
@@ -626,6 +632,7 @@ function GroupBalanceCard({
   colorStyle?: React.CSSProperties;
   t: TFn;
 }) {
+  useDisplayCurrency();
   const ref = item.scope_ref ?? "";
   const detail = groupDetails?.find((d) => d.group.group_key === ref);
   const balance = detail
@@ -642,7 +649,7 @@ function GroupBalanceCard({
       ) : (
         <>
           <div className="popover-metric-row">
-            <span className="popover-metric-value" style={colorStyle}>{formatCostUsd(balance)}</span>
+            <span className="popover-metric-value" style={colorStyle}>{formatMoney(balance)}</span>
           </div>
           {size === "l" && (
             <div className="popover-metric-sub">
@@ -680,7 +687,7 @@ export function renderItem(
     case "platform_balance":
       return <PlatformBalance key={item.id} data={data} size={size} />;
     case "today_cost":
-      return <MetricRow key={item.id} label={t("popover.todayCost", "今日金额")} value={formatCostUsd(data.today_stats.cost)} sub={t("popover.todayCostSub", "今日累计金额")} size={size} colorStyle={cs} />;
+      return <MetricRow key={item.id} label={t("popover.todayCost", "今日金额")} value={formatMoney(data.today_stats.cost)} sub={t("popover.todayCostSub", "今日累计金额")} size={size} colorStyle={cs} />;
     case "today_cache_rate":
       return <MetricRow key={item.id} label={t("popover.todayCacheRate", "今日缓存率")} value={formatPercent(data.today_stats.cache_rate, 0)} sub={t("popover.todayCacheRateSub", "缓存命中占比")} size={size} colorStyle={cs} />;
     case "today_tokens":

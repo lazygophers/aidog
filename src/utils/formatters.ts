@@ -1,6 +1,8 @@
 // ── 统一数值 / 成本 / 百分比 格式化工具 ──
 // 收敛 Groups / Stats / Logs 等页面原本各自重复定义的 formatter，保证显示一致、修复传播。
-// 仅纯函数，无副作用，无 React 依赖。
+// formatMoney 读 displayCurrency store 的当前币种，其余为纯函数。
+
+import { getDisplayCurrency } from "./displayCurrency";
 
 /**
  * 大数字缩写：1_200_000 → "1.2M"，3_500 → "3.5K"，整数原样，带小数则保留 1 位。
@@ -32,32 +34,35 @@ export function formatBytes(n: number): string {
   return `${i === 0 ? Math.round(v) : v.toFixed(1)} ${units[i]}`;
 }
 
-/**
- * 成本数值格式化（不含货币符号），按量级选择精度：
- * - 0（或非正 / NaN）→ "0"
- * - >= 1 → 2 位小数
- * - >= 0.01 → 3 位小数
- * - 0 < n < 0.01（极小值）→ 定点小数展示 2 位有效数字（如 `0.00000045`），**不用科学记数**
- *
- * 关键：极小但**非零**的成本绝不被舍成 "0"（旧版 toFixed(5) 会把 4.5e-7 显示成 "0.00000"）。
- * 合并自 Groups.tsx 行内 `u.total_cost.toFixed(...)` 逻辑。
- * 调用方自行拼接 "$" 前缀（与现有 `$${cost}` 用法一致）。
- */
-export function formatCost(n: number): string {
-  if (!(n > 0)) return "0";
-  if (n >= 1) return n.toFixed(2);
-  if (n >= 0.01) return n.toFixed(3);
-  // 定点小数（非科学记数）展示 2 位有效数字：0.00000045→"0.00000045"、0.0034→"0.0034"
-  // 小数位 = 保 2 位有效数字所需，下限 5、上限 12（防极小值串过长）
-  const decimals = Math.min(12, Math.max(5, -Math.floor(Math.log10(n)) + 1));
-  return n.toFixed(decimals);
+/** 整数部分加千分位逗号（仅 0 位小数币种用，其余币种与旧 formatCost 逐字一致）。 */
+function groupThousands(s: string): string {
+  const [int, frac] = s.split(".");
+  const g = int.replace(/\B(?=(\d{3})+$)/g, ",");
+  return frac === undefined ? g : `${g}.${frac}`;
 }
 
 /**
- * 带货币符号的成本：`$` + formatCost(n)。便于 chip / 表格统一调用。
+ * 金额格式化（已是目标币种的数值，不换算），符号前置，按量级选精度（与 Rust `currency::format_money` 同规则）：
+ * 非正 / NaN → "0"；>= 1 → `decimals` 位（0 位币种加千分位）；>= 0.01 → 3 位；
+ * 更小 → 2 位有效数字定点（小数位下限 5 上限 12，不用科学记数，非零绝不舍成 0）。
+ * 用于原币种金额（不随显示币种换算），如 ACU、手填 CNY 原价。
  */
-export function formatCostUsd(n: number): string {
-  return "$" + formatCost(n);
+export function formatAmount(n: number, symbol: string, decimals = 2): string {
+  let body: string;
+  if (!(n > 0)) body = "0";
+  else if (n >= 1) body = decimals === 0 ? groupThousands(n.toFixed(0)) : n.toFixed(decimals);
+  else if (n >= 0.01) body = n.toFixed(3);
+  else body = n.toFixed(Math.min(12, Math.max(5, -Math.floor(Math.log10(n)) + 1)));
+  return symbol + body;
+}
+
+/**
+ * USD 金额 → 当前显示币种字符串：读 displayCurrency store 的符号 / 小数位 / 汇率换算后格式化。
+ * 默认 USD 时与旧 `"$" + formatCost(n)` 逐字一致。组件需配合 `useDisplayCurrency()` 才会随币种变化重渲染。
+ */
+export function formatMoney(usd: number): string {
+  const c = getDisplayCurrency();
+  return formatAmount(usd * c.rate, c.symbol, c.decimals);
 }
 
 /**
