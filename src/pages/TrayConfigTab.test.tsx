@@ -19,6 +19,7 @@ import type { DisplayCurrency } from "../services/api/types";
 import { setDisplayCurrency, USD_DISPLAY } from "../utils/displayCurrency";
 import { setBalanceCurrencies } from "../utils/balanceCurrency";
 import golden from "../../src-tauri/crates/aidog_core/src/testdata/tray_golden.json";
+import platformGolden from "../../src-tauri/crates/aidog_core/src/testdata/tray_platform_golden.json";
 
 const mk = (code: string, symbol: string, decimals: number, rate: number): DisplayCurrency =>
   ({ code, symbol, decimals, rate, table: [] });
@@ -168,16 +169,21 @@ describe("previewValue 平台槽多指标", () => {
     ).toBe("10.1 U · 1240 U");
   });
 
-  it("多指标金额按显示币种（对拍 Rust platform_metrics_use_display_currency）", () => {
-    const cny = mk("CNY", "¥", 2, 7.0);
-    const st = { tokens: 0, cache_rate: 0, cost: 0.5, total_requests: 0 } as TodayStats;
-    expect(
-      previewValue(platformItem({ metrics: ["balance", "today_cost"] }), [plat], st, null, cny),
-    ).toBe("¥70.7 · ¥3.5");
-    expect(
-      previewValue(platformItem({ metrics: ["today_cost"], unit: " U" }), [plat], st, null, cny),
-    ).toBe("3.5 U");
-  });
+  // 跨层 golden：与 Rust platform_metrics_use_display_currency 共读 tray_platform_golden.json。
+  it.each(platformGolden as Array<{ code: string; symbol: string; decimals: number; rate: number; balance: number; balance_ccy: string | null; cost: number; metrics: string[]; unit: string | null; expected: string }>)(
+    "多指标金额按显示币种（对拍 Rust）$expected",
+    (c) => {
+      const cur = mk(c.code, c.symbol, c.decimals, c.rate);
+      setDisplayCurrency({ ...USD_DISPLAY, table: [{ code: c.code, symbol: c.symbol, decimals: c.decimals, default_rate: c.rate, rate: c.rate }] } as never);
+      setBalanceCurrencies(c.balance_ccy ? { "7": c.balance_ccy } : {});
+      const p = { ...(plat as object), est_balance_remaining: c.balance } as Platform;
+      const st = { tokens: 0, cache_rate: 0, cost: c.cost, total_requests: 0 } as TodayStats;
+      const it = platformItem({ metrics: c.metrics, ...(c.unit ? { unit: c.unit } : {}) });
+      expect(previewValue(it, [p], st, null, cur)).toBe(c.expected);
+      setBalanceCurrencies({});
+      setDisplayCurrency(USD_DISPLAY);
+    },
+  );
 
   it("coding 窗口取指定 tier 剩余%；reset_time 窗口无起点/未知 cycle 跳过", () => {
     expect(
