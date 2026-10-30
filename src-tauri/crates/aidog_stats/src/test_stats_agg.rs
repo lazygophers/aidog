@@ -487,3 +487,37 @@ async fn rebuild_after_migration_does_not_double_count_legacy_rows() {
         .unwrap();
     assert_eq!(legacy, 0);
 }
+
+/// 反例：真实请求无 UA 且无 model（client='' req_model=''）是合法新行，与同 4 元组下其它 6 元组键共批
+/// 重建时不得被「删旧形态行」误删（边删边写会按 HashMap 迭代序丢这行）。
+#[tokio::test]
+async fn rebuild_keeps_real_empty_client_empty_model_row() {
+    let (db, _dir) = three_file_db().await;
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut ids = vec![("e0", "", "")];
+    ids.extend([("e1", "x", "m1"), ("e2", "x", "m2"), ("e3", "x", "m3"), ("e4", "y", "m4"), ("e5", "y", "m5"), ("e6", "z", "m6")]);
+    for (id, client, model) in ids {
+        let mut l = sample_log(id, "g1", now);
+        l.client = client.into();
+        l.model = model.into();
+        l.done = true;
+        l.status_code = 200;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l, false, false))
+            .await
+            .unwrap();
+    }
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
+    let (rows, reqs, empty): (i64, i64, i64) = db
+        .call_read_traced(None, std::panic::Location::caller(), |c| {
+            Ok(c.query_row(
+                "SELECT COUNT(*), SUM(request_count), \
+                 COALESCE(SUM(CASE WHEN client='' AND req_model='' THEN request_count END),0) \
+                 FROM stats_agg_hourly",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )?)
+        })
+        .await
+        .unwrap();
+    assert_eq!((rows, reqs, empty), (7, 7, 1));
+}
