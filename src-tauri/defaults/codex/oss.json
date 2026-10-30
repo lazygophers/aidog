@@ -1,0 +1,23 @@
+{
+  "model": "gpt-5.5",
+  "model_provider": "aidog",
+  "model_reasoning_effort": "medium",
+  "approval_policy": "on-request",
+  "sandbox_mode": "workspace-write",
+  "sandbox_workspace_write": {
+    "network_access": false
+  },
+  "web_search": "cached",
+  "personality": "pragmatic",
+  "analytics": {
+    "enabled": false
+  },
+  "model_providers": {
+    "aidog": {
+      "name": "aidog proxy",
+      "base_url": "http://127.0.0.1:{{port}}/proxy",
+      "wire_api": "responses",
+      "env_key": "AIDOG_KEY"
+    }
+  }
+}
