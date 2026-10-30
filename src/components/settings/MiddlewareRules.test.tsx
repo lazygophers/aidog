@@ -1,11 +1,19 @@
 // MiddlewareRulesPanel 列表测试（票 02）：渲染、builtin toggle-only、Failed 徽标、
 // 「导入默认」入口不存在（统一引擎后内置规则不可删，无导入场景）。
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "../../test/render";
 import userEvent from "@testing-library/user-event";
 import { MiddlewareRulesPanel } from "./MiddlewareRules";
+import { setDisplayCurrency, USD_DISPLAY } from "../../utils/displayCurrency";
 import type { MiddlewareRule } from "../../services/api";
+
+// 币种 store 首次订阅的 refresh 固定回 USD（空操作）；用例用 setDisplayCurrency 同步注入 CNY。
+vi.mock("../../services/api/currency", () => ({
+  DISPLAY_CURRENCY_EVENT: "display-currency-updated",
+  displayCurrencyApi: { get: vi.fn().mockResolvedValue({ code: "USD", symbol: "$", decimals: 2, rate: 1, table: [] }) },
+}));
+const cny = { code: "CNY", symbol: "¥", decimals: 2, rate: 7, table: [] };
 
 const listRules = vi.hoisted(() => vi.fn());
 const updateRule = vi.hoisted(() => vi.fn());
@@ -248,5 +256,42 @@ describe("RuleForm（票 04/05：卡片编辑器 + DSL）", () => {
         },
       }),
     );
+  });
+});
+
+describe("预算闸门 × 显示币种（票 04）", () => {
+  const budgetRule = () =>
+    mk({ id: 7, name: "budget-rule", actions: [{ kind: "budget_gate", params: { budget_usd: 10 } }] });
+
+  beforeEach(() => {
+    platformList.mockReset().mockResolvedValue([]);
+    groupList.mockReset().mockResolvedValue([]);
+  });
+  afterEach(() => setDisplayCurrency(USD_DISPLAY));
+
+  it("列表已用 / 上限 / 剩余按显示币种换算（CNY ×7）", async () => {
+    listRules.mockResolvedValue([budgetRule()]);
+    budgetStatus.mockResolvedValue([
+      { rule_id: 7, rule_name: "budget-rule", budget_usd: 10, spent_usd: 3, remaining_usd: 7 },
+    ]);
+    setDisplayCurrency(cny);
+    render(<MiddlewareRulesPanel />);
+    await waitFor(() => expect(screen.getByText("budget-rule")).toBeTruthy());
+    expect(screen.getByText(/middleware\.budgetUsed ¥21\.00 \/ ¥70\.00/)).toBeTruthy();
+    expect(screen.getByText(/middleware\.budgetRemaining ¥49\.00/)).toBeTruthy();
+  });
+
+  it("预算输入框恒为 USD：CNY 下回显原值、改值后保存的就是键入的 USD（无显示换算 / 保存原值错位）", async () => {
+    setDisplayCurrency(cny);
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(<RuleForm rule={budgetRule()} onSave={onSave} onCancel={() => {}} />);
+    const input = screen.getByPlaceholderText("middleware.budgetAmount") as HTMLInputElement;
+    expect(input.value).toBe("10"); // 不是 70
+    await user.clear(input);
+    await user.type(input, "25");
+    await user.click(screen.getByRole("button", { name: "action.save" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].actions).toEqual([{ kind: "budget_gate", params: expect.objectContaining({ budget_usd: 25 }) }]);
   });
 });

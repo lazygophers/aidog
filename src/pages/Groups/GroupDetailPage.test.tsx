@@ -1,6 +1,6 @@
 // GroupDetailPage 就近测试：三栏挂载 + 成员行 + 切组 + 趋势卡。
 // 选择器锚稳定 testid；文案断言用 i18n key（test/render 回退 key）。
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent } from "@testing-library/react";
 import { render, screen, waitFor } from "../../test/render";
 import type { GroupDailyBreakdown } from "../../services/api";
@@ -17,7 +17,14 @@ vi.mock("../../services/api", async () => {
   };
 });
 
+// 币种 store 首次订阅的 refresh 固定回 USD（空操作）；用例用 setDisplayCurrency 同步注入 CNY。
+vi.mock("../../services/api/currency", () => ({
+  DISPLAY_CURRENCY_EVENT: "display-currency-updated",
+  displayCurrencyApi: { get: vi.fn().mockResolvedValue({ code: "USD", symbol: "$", decimals: 2, rate: 1, table: [] }) },
+}));
+
 import { groupFlowApi } from "../../services/api";
+import { setDisplayCurrency, USD_DISPLAY } from "../../utils/displayCurrency";
 import { GroupDetailPage } from "./GroupDetailPage";
 
 const daily: GroupDailyBreakdown[] = [
@@ -125,5 +132,21 @@ describe("GroupDetailPage — 成员行拖拽把手", () => {
     expect(baseProps.onMemberPointerDown).toHaveBeenCalledWith(
       expect.anything(), 1, 1,
     );
+  });
+});
+
+describe("GroupDetailPage — 显示币种（票 04）", () => {
+  afterEach(() => setDisplayCurrency(USD_DISPLAY));
+
+  it("统计带今日费用随币种变化：USD $4.80 → CNY(×7) ¥33.60", () => {
+    vi.mocked(groupFlowApi.daily!).mockResolvedValue([]);
+    const { unmount } = render(<GroupDetailPage {...baseProps} />);
+    expect(screen.getByTestId("detail-stats").textContent).toContain("$4.80");
+    unmount();
+    setDisplayCurrency({ code: "CNY", symbol: "¥", decimals: 2, rate: 7, table: [] });
+    render(<GroupDetailPage {...baseProps} />);
+    const txt = screen.getByTestId("detail-stats").textContent!;
+    expect(txt).toContain("¥33.60");
+    expect(txt).not.toContain("$");
   });
 });
