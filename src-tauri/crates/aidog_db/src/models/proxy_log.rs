@@ -247,22 +247,6 @@ pub fn parse_routing(s: &str) -> Option<RoutingSnapshot> {
     serde_json::from_str(s).ok()
 }
 
-/// 分组页桑基 flow 明细行（G3 整体风格票 03）：stats_agg_hourly 按 (platform_id, model?) GROUP BY。
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
-pub struct GroupPlatformBreakdown {
-    #[ts(type = "number")]
-    pub platform_id: i64,
-    /// 模型维度（by_model=false 时恒 None = 平台级聚合）。
-    #[serde(default)]
-    pub model: Option<String>,
-    #[ts(type = "number")]
-    pub requests: i64,
-    #[ts(type = "number")]
-    pub success: i64,
-    pub est_cost: f64,
-}
-
 /// 请求流向聚合行（请求流向票 03）：stats_agg_hourly 按 (client, group_key, req_model, platform_id, model) GROUP BY。
 /// 旧数据 client / req_model 为空串，前端显示「未知」。
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
