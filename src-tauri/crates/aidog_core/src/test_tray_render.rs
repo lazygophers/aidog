@@ -172,11 +172,11 @@ fn platform(balance: f64, coding_plan: &str) -> aidog_db::Platform {
 #[test]
 fn platform_item_parts_balance_trims_zeros() {
     assert_eq!(
-        platform_item_parts(&platform(10.10, ""), "balance", &usd()),
+        platform_item_parts(&platform(10.10, ""), "balance", &usd(), None),
         ("Acme".to_string(), "$10.1".to_string())
     );
     assert_eq!(
-        platform_item_parts(&platform(0.0, ""), "balance", &usd()),
+        platform_item_parts(&platform(0.0, ""), "balance", &usd(), None),
         ("Acme".to_string(), "$0".to_string())
     );
 }
@@ -184,14 +184,14 @@ fn platform_item_parts_balance_trims_zeros() {
 #[test]
 fn platform_item_parts_coding_shows_remaining_percent() {
     let plan = r#"{"tiers":[{"name":"five_hour","est_utilization":25.0}]}"#;
-    let (_, value) = platform_item_parts(&platform(0.0, plan), "coding", &usd());
+    let (_, value) = platform_item_parts(&platform(0.0, plan), "coding", &usd(), None);
     assert_eq!(value, "75%");
 }
 
 #[test]
 fn platform_item_parts_coding_clamps_over_100_utilization() {
     let plan = r#"{"tiers":[{"name":"five_hour","est_utilization":150.0}]}"#;
-    let (_, value) = platform_item_parts(&platform(0.0, plan), "coding", &usd());
+    let (_, value) = platform_item_parts(&platform(0.0, plan), "coding", &usd(), None);
     assert_eq!(value, "0%", "超用不显示负数");
 }
 
@@ -199,7 +199,7 @@ fn platform_item_parts_coding_clamps_over_100_utilization() {
 fn platform_item_parts_coding_plan_beats_balance_display() {
     // 有 coding plan 数据时，即使 display=balance 也按配额百分比显示。
     let plan = r#"{"tiers":[{"name":"five_hour","est_utilization":10.0}]}"#;
-    let (_, value) = platform_item_parts(&platform(99.0, plan), "balance", &usd());
+    let (_, value) = platform_item_parts(&platform(99.0, plan), "balance", &usd(), None);
     assert_eq!(value, "90%");
 }
 
@@ -304,9 +304,23 @@ fn tray_money_cny_jpy_chf() {
 #[test]
 fn platform_balance_uses_display_currency() {
     assert_eq!(
-        platform_item_parts(&platform(10.0, ""), "balance", &cur("EUR", Some(0.5))),
+        platform_item_parts(&platform(10.0, ""), "balance", &cur("EUR", Some(0.5)), None),
         ("Acme".to_string(), "€5".to_string())
     );
+}
+
+#[test]
+fn platform_balance_converts_original_currency_to_usd_first() {
+    let bal = |ccy, c: DisplayCurrency| platform_item_parts(&platform(66.675, ""), "balance", &c, ccy).1;
+    // CNY 余额 ¥66.675 → $10 → 显示 USD
+    assert_eq!(bal(Some("CNY"), usd()), "$10");
+    // CNY 余额 + 显示 CNY → 原值
+    assert_eq!(bal(Some("CNY"), cur("CNY", None)), "¥66.67");
+    // USD 余额 + 显示 JPY
+    assert_eq!(bal(Some("USD"), cur("JPY", Some(150.0))), "JP¥10001");
+    // 未记录 / 未知币种按 USD 处理
+    assert_eq!(bal(None, usd()), "$66.67");
+    assert_eq!(bal(Some("EUR"), usd()), "$66.67");
 }
 
 #[tokio::test]

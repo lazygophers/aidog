@@ -432,9 +432,9 @@ async fn maybe_emit_quota_forecast(db: &Db, platform_id: u64, platform_type: &st
     }
 }
 
-/// 平台余额币种（真查 `BalanceInfo.currency`）落 setting（scope/key=平台 id），供余额扣减换算。
-/// 余额预估链费用统一先算 USD（price_resolve 出口币种），平台余额是 CNY 就乘 `CNY_PER_USD` 再扣。
-const BALANCE_CCY_SCOPE: &str = "balance_currency";
+// 平台余额币种（真查 `BalanceInfo.currency`）落 setting（scope=BALANCE_CCY_SCOPE，key=平台 id），供余额扣减与显示换算。
+// 余额预估链费用统一先算 USD（price_resolve 出口币种），平台余额是 CNY 就乘 `CNY_PER_USD` 再扣。
+use aidog_db::currency::BALANCE_CCY_SCOPE;
 
 /// 真查成功后记下余额币种；值未变不写（set_setting 会失效整份 settings 缓存）。
 /// shortcut: 仅识别 USD / CNY，其它币种按 USD 直扣（单位不符），出现新币种时在此加汇率。

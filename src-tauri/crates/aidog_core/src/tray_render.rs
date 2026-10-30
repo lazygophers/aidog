@@ -475,6 +475,7 @@ pub(crate) fn platform_item_parts(
     platform: &Platform,
     display: &str,
     cur: &db::currency::DisplayCurrency,
+    balance_ccy: Option<&str>,
 ) -> (String, String) {
     let name = platform.name.clone();
     let plan = gateway::estimate::EstCodingPlan::from_json(&platform.est_coding_plan);
@@ -505,7 +506,8 @@ pub(crate) fn platform_item_parts(
             None => "—".to_string(),
         }
     } else {
-        tray_money(platform.est_balance_remaining, cur, 2)
+        // est_balance_remaining 是平台原币种余额，先折 USD 再按显示币种换算。
+        tray_money(cur.balance_to_usd(platform.est_balance_remaining, balance_ccy), cur, 2)
     };
     (name, value)
 }
@@ -595,6 +597,7 @@ pub(crate) async fn tray_layout_with_stats(
         return empty;
     };
     let currency = db::currency::get_display_currency(db).await;
+    let balance_ccys = db::currency::get_balance_currencies(db).await;
     let mut items: Vec<&TrayItem> = config.items.iter().filter(|i| i.enabled).collect();
     items.sort_by_key(|i| i.order);
 
@@ -655,7 +658,12 @@ pub(crate) async fn tray_layout_with_stats(
                 let Some(platform) = platforms.get(&(pid as i64)) else {
                     continue;
                 };
-                platform_item_parts(platform, &item.display, &currency)
+                platform_item_parts(
+                    platform,
+                    &item.display,
+                    &currency,
+                    balance_ccys.get(&pid).map(String::as_str),
+                )
             }
             "routed_platform" => routed_item_parts(routed_platform.as_ref()),
             "peak" => peak_item_parts(routed_platform.as_ref(), now_ms),
