@@ -18,6 +18,7 @@ import { CostTrendCard, buildTrendQuery, type PopoverData } from "../components/
 import { useReveal } from "../components/shared";
 import { getDisplayCurrency, useDisplayCurrency } from "../utils/displayCurrency";
 import { formatMoney } from "../utils/formatters";
+import { platformBalanceUsd, useBalanceCurrencies } from "../utils/balanceCurrency";
 import type { DisplayCurrency } from "../services/api/types";
 import {
   DndContext, KeyboardSensor, PointerSensor, closestCenter, pointerWithin,
@@ -182,7 +183,8 @@ export function previewValue(
     case "platform": {
       const p = platforms.find((pp) => pp.id === item.platform_id);
       if (!p) return "--.--";
-      return trayMoney(p.est_balance_remaining, cur, 2);
+      // 原币种余额先折 USD，与 Rust platform_item_parts 同口径。
+      return trayMoney(platformBalanceUsd(p.id, p.est_balance_remaining), cur, 2);
     }
     case "peak":
       return peak?.in_peak ? "峰" : "平";
@@ -519,6 +521,7 @@ function LibraryDrop({ children }: { children: React.ReactNode }) {
 export function TrayConfigTab() {
   const { t } = useTranslation();
   const cur = useDisplayCurrency(); // 预览随显示币种重渲染
+  useBalanceCurrencies(); // 余额币种映射变化时重渲染
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [config, setConfig] = useState<TrayConfig>({ separator: "  ", items: [] });
   const [todayStats, setTodayStats] = useState<TodayStats | null>(null);
