@@ -32,6 +32,7 @@ pub(crate) use connect::is_url_safe_group_name;
 mod builtin_tools;
 mod connect;
 mod count_tokens;
+mod aux_model;
 mod decision;
 mod devin;
 mod endpoint;
@@ -95,7 +96,7 @@ pub(crate) use endpoint::{
     detect_source_protocol, infer_passthrough_protocol_from_ua, is_api_endpoint,
     match_platform_by_host, model_from_gemini_path, resolve_group, select_endpoint_for_protocol,
     should_fallback_passthrough, is_decision_endpoint, is_tools_endpoint,
-    select_endpoint_for_decision,
+    select_endpoint_for_decision, select_endpoint_for_openai_family, is_embedding_endpoint,
     KeyCandidate, KeyChannel, custom_key_header_names, key_candidates, load_custom_key_channels};
 pub(crate) use finish::{AttemptCtx, finish_nonstream, finish_stream};
 pub(crate) use forward::{AttemptOutcome, finalize_proxy_502, forward_attempt};
