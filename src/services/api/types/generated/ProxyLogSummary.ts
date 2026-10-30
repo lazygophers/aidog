@@ -19,4 +19,12 @@ blocked_by: string,
 /**
  * 拦截原因（'rate_limit' / 'peak' / 'observe' / …；空串 = 未被拦截）
  */
-blocked_reason: string, created_at: number, };
+blocked_reason: string, 
+/**
+ * 客户端代码（见 `ProxyLog.client`）；空串 = 未知
+ */
+client: string, 
+/**
+ * 入站原始 User-Agent（见 `ProxyLog.user_agent`）；空串 = 无
+ */
+user_agent: string, created_at: number, };

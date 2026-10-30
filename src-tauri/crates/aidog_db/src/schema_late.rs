@@ -710,6 +710,12 @@ pub fn run_migrations_proxy_log_late(
         "ALTER TABLE proxy_log ADD COLUMN client TEXT NOT NULL DEFAULT ''",
         [],
     );
+    // Migration 20261030-03: proxy_log 加 user_agent 列——入站原始 UA（截断 256 字符），日志页展示用。
+    // 存量行 '' = 未知，不回填；不进 stats_agg_hourly（聚合只用 client 代码）。
+    let _ = conn.execute(
+        "ALTER TABLE proxy_log ADD COLUMN user_agent TEXT NOT NULL DEFAULT ''",
+        [],
+    );
     Ok(())
 }
 

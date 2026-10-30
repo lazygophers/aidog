@@ -86,3 +86,17 @@ describe("DetailPanel attempts model", () => {
     expect(screen.queryByTestId("attempt-model")).toBeNull();
   });
 });
+
+describe("DetailPanel UA", () => {
+  it("展示原始 UA 与客户端代码", () => {
+    const d = { ...detailFixture([attempt(1, 200)]), user_agent: "claude-cli/2.0.1 (external, cli)", client: "claude_code" } as unknown as ProxyLogDetail;
+    renderPanel(d);
+    expect(screen.getByTestId("detail-user-agent").textContent).toBe("claude-cli/2.0.1 (external, cli)");
+    expect(screen.getByTestId("detail-client").textContent).toBe("claude_code");
+  });
+
+  it("旧日志无 UA：占位 -", () => {
+    renderPanel(detailFixture([attempt(1, 200)]));
+    expect(screen.getByTestId("detail-user-agent").textContent).toBe("-");
+  });
+});
