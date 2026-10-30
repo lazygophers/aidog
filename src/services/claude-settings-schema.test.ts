@@ -90,9 +90,9 @@ describe("claude-settings-schema", () => {
 });
 
 // 内置默认的隐私基线：这些键一旦被删，新用户会在无提示的情况下重新暴露凭证或自动联网。
-describe("defaults/settings.json 隐私基线", () => {
+describe("defaults/settings/oss.json 隐私基线", () => {
   const defaults = JSON.parse(
-    readFileSync("src-tauri/defaults/settings.json", "utf8"),
+    readFileSync("src-tauri/defaults/settings/oss.json", "utf8"),
   ) as {
     permissions: { deny: string[]; ask: string[] };
     env: Record<string, string>;
@@ -114,16 +114,20 @@ describe("defaults/settings.json 隐私基线", () => {
     }
   });
 
-  // CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 会让 Claude Code 强制把权限模式压成 default
-  // （"Permission mode forced to default — CLAUDE_CODE_SUBPROCESS_ENV_SCRUB is set"），
-  // 连显式 --permission-mode 都被它覆盖，与下面的 defaultMode 冲突。
-  // defaultMode = bypassPermissions 是有意基线：仓库工作流全程 bypass（用户裁决），
-  // defaults 随之。仍不得设 CLAUDE_CODE_SUBPROCESS_ENV_SCRUB（见上）。
-  it("不设 CLAUDE_CODE_SUBPROCESS_ENV_SCRUB，且 defaultMode 为 bypassPermissions", () => {
+  // CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 会让 Claude Code 强制把权限模式压成 default，
+  // 与显式权限模式冲突，oss 不得设置。
+  it("不设 CLAUDE_CODE_SUBPROCESS_ENV_SCRUB", () => {
     expect(defaults.env.CLAUDE_CODE_SUBPROCESS_ENV_SCRUB).toBeUndefined();
-    expect((defaults.permissions as { defaultMode?: string }).defaultMode).toBe(
-      "bypassPermissions",
-    );
+  });
+
+  // oss 面向所有开源用户：不得带个人偏好、依赖本机工具的 hooks、免确认权限模式。
+  it("oss 不含个人项（bypassPermissions / hooks / 插件 / 市场 / language）", () => {
+    expect(
+      (defaults.permissions as { defaultMode?: string }).defaultMode,
+    ).toBeUndefined();
+    for (const k of ["hooks", "enabledPlugins", "extraKnownMarketplaces", "language"]) {
+      expect(defaults[k], k).toBeUndefined();
+    }
   });
 
   it("deny 覆盖云厂商与包管理器凭证路径", () => {
@@ -235,5 +239,17 @@ describe("defaults/settings.json 隐私基线", () => {
   it("env 每个键都在 ENV_VAR_DEFS 内（可视化面板可编辑）", () => {
     const known = new Set(ENV_VAR_DEFS.map((d) => d.key));
     expect(Object.keys(defaults.env).filter((k) => !known.has(k))).toEqual([]);
+  });
+});
+
+// 组织版只要求合法 JSON 对象且带显示名，个人偏好自由保留。
+describe("defaults/settings/lazygophers.json", () => {
+  it("合法对象且带显示名", () => {
+    const cfg = JSON.parse(
+      readFileSync("src-tauri/defaults/settings/lazygophers.json", "utf8"),
+    ) as Record<string, unknown>;
+    expect(typeof cfg).toBe("object");
+    expect(typeof cfg._aidog_preset_name).toBe("string");
+    expect(cfg._aidog_preset_name).not.toBe("");
   });
 });
