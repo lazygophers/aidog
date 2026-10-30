@@ -32,6 +32,11 @@ pub(crate) fn key_pragma_sql(path: &str) -> Result<String, String> {
     Ok(format!("PRAGMA key = \"x'{}'\";", hex_key(k)))
 }
 
+/// ATTACH 加密库用的 `KEY "x'hex'"` 子句（同主库 master key；log.db / platform.db 与主库同 key）。
+pub(crate) fn attach_key_clause() -> Result<String, String> {
+    Ok(format!("KEY \"x'{}'\"", hex_key(crate::crypt::master_key()?)))
+}
+
 /// 明文 SQLite 文件头魔数（前 16 字节）。SQLCipher 下 page 1 连头一起密文 → 头部随机
 /// 字节；非该魔数 = 已加密（或非 SQLite 文件，交给后续 open 报错）。
 const SQLITE_HEADER: &[u8; 16] = b"SQLite format 3\0";

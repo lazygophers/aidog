@@ -14,6 +14,8 @@ async fn upsert_stats_agg_accumulates_and_classifies() {
         model: "glm-4-plus".into(),
         group_key: "g1".into(),
         platform_id: 1,
+        client: String::new(),
+        req_model: String::new(),
         status_code: status,
         input_tokens: 10,
         output_tokens: 20,
@@ -118,8 +120,9 @@ async fn agg_rebuild_dedups_raw_models_to_same_actual_model() {
         })
         .await
         .unwrap();
-    assert_eq!(rows, 1, "两条 raw model 须聚合成一行（actual_model 优先）");
-    assert_eq!(reqs, 2, "聚合行 request_count 应为 2");
+    // 票 02 起 req_model 进键：同 actual_model、不同请求模型 → 各一行（不撞 UNIQUE），总请求数仍为 2。
+    assert_eq!(rows, 2, "model 列仍按 actual_model 优先；req_model 不同各占一行");
+    assert_eq!(reqs, 2, "聚合行 request_count 合计应为 2");
 }
 
 /// cleanup_stats_agg 按 retention_days 删除旧行。
@@ -203,6 +206,8 @@ async fn rebuild_overwrites_existing_row_no_doubling() {
             model: "glm-4-plus".into(),
             group_key: "g1".into(),
             platform_id: 1,
+            client: String::new(),
+            req_model: String::new(),
             status_code: 200,
             input_tokens: 99,
             output_tokens: 0,
@@ -255,6 +260,8 @@ async fn rebuild_preserves_rows_without_matching_proxy_log() {
             model: "orphan-model".into(),
             group_key: "g-orphan".into(),
             platform_id: 7,
+            client: String::new(),
+            req_model: String::new(),
             status_code: 200,
             input_tokens: 42,
             output_tokens: 0,
@@ -311,6 +318,8 @@ async fn correct_count_tokens_removes_orphan_buckets_and_overwrites_backed_ones(
             model: chat.actual_model.clone(),
             group_key: "g-ct".into(),
             platform_id: chat.platform_id as i64,
+            client: String::new(),
+            req_model: String::new(),
             status_code: 200,
             input_tokens: 9999,
             output_tokens: 0,
@@ -337,6 +346,8 @@ async fn correct_count_tokens_removes_orphan_buckets_and_overwrites_backed_ones(
             model: "ct-model".into(),
             group_key: "g-ct-only".into(),
             platform_id: 9,
+            client: String::new(),
+            req_model: String::new(),
             status_code: 200,
             input_tokens: 5000,
             output_tokens: 0,
@@ -398,6 +409,8 @@ async fn cleanup_stats_agg_keeps_everything_when_retention_is_zero() {
             model: "m".into(),
             group_key: "g".into(),
             platform_id: 1,
+            client: String::new(),
+            req_model: String::new(),
             status_code: 200,
             input_tokens: 1,
             output_tokens: 1,
@@ -418,4 +431,59 @@ async fn cleanup_stats_agg_keeps_everything_when_retention_is_zero() {
         .await
         .unwrap();
     assert_eq!(n, 1, "retention_days=0 表示永久保留");
+}
+
+/// 请求流向 票 02 最大正确性点：迁移后存量旧形态行（client='' req_model=''）与重建出的新键行
+/// 互不冲突，手动 rebuild 若不先删旧形态行会双计。同批请求总 request_count 必须不变。
+#[tokio::test]
+async fn rebuild_after_migration_does_not_double_count_legacy_rows() {
+    let (db, _dir) = three_file_db().await;
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut log = sample_log("flow-r1", "g1", now);
+    log.client = "codex".into();
+    log.done = true;
+    log.status_code = 200;
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&log, false, false))
+        .await
+        .unwrap();
+    // 先 rebuild 一次拿到真实 time_hour / model 桶，再按它造「迁移前旧形态行」。
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
+    db.call_traced(None, std::panic::Location::caller(), |c| {
+        c.execute(
+            "INSERT INTO stats_agg_hourly (time_hour, model, group_key, platform_id, client, req_model, request_count) \
+             SELECT time_hour, model, group_key, platform_id, '', '', request_count FROM stats_agg_hourly",
+            [],
+        )?;
+        Ok(())
+    })
+    .await
+    .unwrap();
+    let total = |db: &aidog_db::Db| {
+        let db = db.clone();
+        async move {
+            db.call_read_traced(None, std::panic::Location::caller(), |c| {
+                Ok(c.query_row(
+                    "SELECT COALESCE(SUM(request_count),0) FROM stats_agg_hourly",
+                    [],
+                    |r| r.get::<_, i64>(0),
+                )?)
+            })
+            .await
+            .unwrap()
+        }
+    };
+    assert_eq!(total(&db).await, 2, "前置：旧形态行 + 新键行并存");
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
+    assert_eq!(total(&db).await, 1, "rebuild 后只剩真值，不双计");
+    let legacy: i64 = db
+        .call_read_traced(None, std::panic::Location::caller(), |c| {
+            Ok(c.query_row(
+                "SELECT COUNT(*) FROM stats_agg_hourly WHERE client='' AND req_model=''",
+                [],
+                |r| r.get(0),
+            )?)
+        })
+        .await
+        .unwrap();
+    assert_eq!(legacy, 0);
 }

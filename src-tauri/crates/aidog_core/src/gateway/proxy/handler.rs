@@ -121,6 +121,8 @@ pub(crate) async fn handle_proxy_core(
         id: request_id,
         created_at,
         updated_at: created_at,
+        // 活请求头直读（不经落库后的 request_headers），不受 log_user_request 开关影响。
+        client: super::client_detect::detect_client(req.headers()).to_string(),
         ..Default::default()
     };
 
