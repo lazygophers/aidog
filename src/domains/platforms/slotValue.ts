@@ -38,3 +38,20 @@ export function formToSlots(f: Partial<Record<ModelSlot, string>>): PlatformMode
   }
   return out;
 }
+
+/** 后端/registry 槽位表 → 文本表单态（整条链，", " 连接）。批量覆盖用，不降成单值。 */
+export function slotsToText(m: Partial<Record<ModelSlot, SlotValue>> | undefined): Record<ModelSlot, string> {
+  const out = {} as Record<ModelSlot, string>;
+  for (const k of SLOTS) out[k] = slotList(m?.[k]).join(", ");
+  return out;
+}
+
+/** 文本表单态（逗号分隔）→ PlatformModels；空槽省略。 */
+export function textToSlots(f: Partial<Record<ModelSlot, string>>): PlatformModels {
+  const out: PlatformModels = {};
+  for (const k of SLOTS) {
+    const l = slotList((f[k] ?? "").split(/[,，]/));
+    if (l.length) out[k] = l;
+  }
+  return out;
+}
