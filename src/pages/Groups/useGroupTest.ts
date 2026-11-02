@@ -35,7 +35,7 @@ export function useGroupTest() {
     const testOne = async (idx: number) => {
       const gp = enabledGps[idx];
       patchRow(idx, { status: "testing" });
-      const defaultModel = gp.platform.models.default || gp.platform.available_models[0] || "";
+      const defaultModel = gp.platform.models.default?.[0] || gp.platform.available_models[0] || "";
       const start = Date.now();
       let success = false;
       try {

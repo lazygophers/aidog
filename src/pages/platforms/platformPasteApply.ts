@@ -15,6 +15,7 @@ import {
   getDefaultEndpoints, defaultClientForProtocol,
 } from "../../domains/platforms";
 import { getPrimaryBaseUrl } from "./usePlatformQuota";
+import { slotsToForm } from "../../domains/platforms/slotValue";
 
 /** ctx = applyPaste / runBatchCreateFromPaste 需要的全部 form state + list 依赖。
  *  字段引用 usePlatformForm 调用时刻闭包值（与抽前一致）。 */
@@ -96,16 +97,7 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
     setProtocol(s.platform_type);
     setApiKey(s.api_key);  // fullShare 路径仍是单 key（分享串只含 1 个 api_key），保留单平台行为
     setCodingPlan((s.endpoints || []).some(ep => ep.coding_plan));
-    setModels({
-      default: s.models.default ?? "",
-      sonnet: s.models.sonnet ?? "",
-      opus: s.models.opus ?? "",
-      haiku: s.models.haiku ?? "",
-      gpt: s.models.gpt ?? "",
-      jev: s.models.jev ?? "",
-      embedding: s.models.embedding ?? "",
-      rerank: s.models.rerank ?? "",
-    });
+    setModels(slotsToForm(s.models));
     setAvailableModels(s.available_models ?? []);
     setEndpoints(s.endpoints ?? []);
     setManualBudgets(s.manual_budgets ?? []);

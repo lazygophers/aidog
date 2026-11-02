@@ -677,9 +677,9 @@ async fn platform_models_embedding_rerank_survive_reopen() {
     let (db, dir) = three_file_db().await;
     let mut input = sample_platform("emb-rr");
     input.models = Some(PlatformModels {
-        default: Some("gpt-4o".into()),
-        embedding: Some("text-embedding-v4".into()),
-        rerank: Some("jina-reranker-v2".into()),
+        default: vec!["gpt-4o".into()],
+        embedding: vec!["text-embedding-v4".into()],
+        rerank: vec!["jina-reranker-v2".into()],
         ..Default::default()
     });
     create_platform(&db, input).await.unwrap();
@@ -692,7 +692,7 @@ async fn platform_models_embedding_rerank_survive_reopen() {
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].models.embedding_slot(), Some("text-embedding-v4"));
     assert_eq!(listed[0].models.rerank_slot(), Some("jina-reranker-v2"));
-    assert_eq!(listed[0].models.default.as_deref(), Some("gpt-4o"));
+    assert_eq!(listed[0].models.default, vec!["gpt-4o"]);
 }
 
 /// 票 03：extra.allowed_clients 写后重开 DB 读回（platform.db 读池，三文件库暴露错路由）；

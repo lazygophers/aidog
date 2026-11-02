@@ -142,10 +142,10 @@ describe("extractModels", () => {
       },
     });
     expect(extractModels(p)).toEqual({
-      default: "claude-sonnet",
-      haiku: "claude-haiku",
-      sonnet: "claude-sonnet-4",
-      opus: "claude-opus",
+      default: ["claude-sonnet"],
+      haiku: ["claude-haiku"],
+      sonnet: ["claude-sonnet-4"],
+      opus: ["claude-opus"],
     });
   });
 
@@ -160,7 +160,7 @@ describe("extractModels", () => {
 
   it("extracts codex model", () => {
     const p = codexProvider({ codexConfigParsed: { model: "gpt-5" } });
-    expect(extractModels(p)).toEqual({ default: "gpt-5" });
+    expect(extractModels(p)).toEqual({ default: ["gpt-5"] });
   });
 
   it("codex without parsed config → empty default", () => {
@@ -181,7 +181,7 @@ describe("ccProviderToPlatformJson", () => {
     expect(json.name).toBe("deepseek");
     expect(json.api_key).toBe("sk-key");
     expect(json.base_url).toBe("https://api.deepseek.com/anthropic");
-    expect((json.models as { default?: string }).default).toBe("m1");
+    expect((json.models as { default?: string[] }).default).toEqual(["m1"]);
   });
 
   it("omits models when d2 off and key when d4 off", async () => {
