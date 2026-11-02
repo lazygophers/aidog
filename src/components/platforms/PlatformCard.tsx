@@ -8,7 +8,7 @@ import { IconBolt, IconCost, IconCheck, IconClock } from "../icons";
 import {
   PROTOCOL_LABELS, HEALTH_COLORS,
   computeManualBudgetDisplay, computeQuotaDisplay,
-  allModelValues, tierLabel, formatResetCountdown, formatResetClock, deriveHealth,
+  allModelValues, primaryModelValues, tierLabel, formatResetCountdown, formatResetClock, deriveHealth,
   platformHasQuotaScript, parseRateLimit, rateLimitRatio,
 } from "../../domains/platforms";
 import { useProtocolLogo } from "../../domains/platforms/useProtocolLogo";
@@ -168,6 +168,10 @@ export const PlatformCard = memo(function PlatformCard({
     if (explicit.length > 0) return explicit;
     return defaultModels;
   })();
+  // 卡片只展示各槽主模型，备选模型折成「+N」（N = 备选去重数）。
+  const primaryModels = primaryModelValues(p.models);
+  const shownModels = primaryModels.length > 0 ? primaryModels : configuredModels;
+  const backupCount = primaryModels.length > 0 ? configuredModels.length - primaryModels.length : 0;
   // 配额查询入口按 quota_scripts 派生（quota-scripts T6，替代 mock/claude_code 硬编码；
   //   索引未就绪回落旧启发式，见 platformHasQuotaScript）。
   const quotaCapable = platformHasQuotaScript(p);
@@ -699,7 +703,8 @@ export const PlatformCard = memo(function PlatformCard({
             <EndpointsSection
               endpoints={p.endpoints}
               labelMap={labelMap}
-              configuredModels={configuredModels}
+              configuredModels={shownModels}
+              backupCount={backupCount}
             />
             {/* 订阅窗口利用率（5h/7d）趋势 + 最新值 */}
             {ccMitm && <CcMitmTrendSection samples={ccMitm.samples} />}
@@ -717,10 +722,12 @@ function EndpointsSection({
   endpoints,
   labelMap,
   configuredModels,
+  backupCount,
 }: {
   endpoints: Platform["endpoints"];
   labelMap: Record<string, string>;
   configuredModels: string[];
+  backupCount: number;
 }) {
   const { t } = useTranslation();
   return (
@@ -745,6 +752,9 @@ function EndpointsSection({
             {configuredModels.map((m, mi) => (
               <Badge key={mi} variant="secondary" style={{ fontSize: 12, padding: "2px 6px" }}>{m}</Badge>
             ))}
+            {backupCount > 0 && (
+              <Badge variant="outline" data-testid="model-backup-count" style={{ fontSize: 12, padding: "2px 6px" }}>+{backupCount}</Badge>
+            )}
           </div>
         </div>
       )}

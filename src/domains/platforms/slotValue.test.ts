@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { slotList, slotPrimary, slotsToForm, formToSlots, slotsToText, textToSlots } from "./slotValue";
+import { slotList, slotPrimary, slotsToForm, slotsToText, textToSlots } from "./slotValue";
 
 describe("modelSlots", () => {
   it("slotList 兼容字符串/数组/空，trim 去空去重保序", () => {
@@ -12,11 +12,11 @@ describe("modelSlots", () => {
     expect(slotPrimary(["x", "y"])).toBe("x");
     expect(slotPrimary(null)).toBe("");
   });
-  it("slotsToForm / formToSlots 往返（空槽省略）", () => {
+  it("slotsToForm 取整条链（备选不丢），空槽为空数组", () => {
     const f = slotsToForm({ default: ["a", "b"], jev: "j" });
-    expect(f.default).toBe("a");
-    expect(f.sonnet).toBe("");
-    expect(formToSlots(f)).toEqual({ default: ["a"], jev: ["j"] });
+    expect(f.default).toEqual(["a", "b"]);
+    expect(f.jev).toEqual(["j"]);
+    expect(f.sonnet).toEqual([]);
   });
   it("slotsToText / textToSlots 保留整条链（批量覆盖路径不降成单值）", () => {
     const t = slotsToText({ default: ["a", "b"], jev: "j" });

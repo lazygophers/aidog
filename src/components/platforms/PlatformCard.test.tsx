@@ -202,6 +202,18 @@ describe("PlatformCard", () => {
     expect(mockActions.onToggleExpanded).toHaveBeenCalledWith(1, false);
   });
 
+  it("模型徽章: 链长>1 只展示各槽主模型，备选折成 +N；全单模型无 +N", () => {
+    const usage = { total_requests: 1, success_count: 1, total_input_tokens: 1, total_output_tokens: 1, total_cost: 0, today_tokens: 0, today_cost: 0, recent_total: 1, recent_failures: 0 } as PlatformUsageStats;
+    const multi = { ...basePlatform, models: { default: ["m1", "m2", "m3"], opus: ["o1", "m2"] } } as Platform;
+    const { unmount } = render(<PlatformCard {...baseProps} expanded usage={usage} platform={multi} />);
+    expect(screen.getByTestId("model-backup-count")).toHaveTextContent("+2");
+    expect(screen.queryByText("m2")).toBeNull();
+    unmount();
+    const single = { ...basePlatform, models: { default: ["m1"] } } as Platform;
+    render(<PlatformCard {...baseProps} expanded usage={usage} platform={single} />);
+    expect(screen.queryByTestId("model-backup-count")).toBeNull();
+  });
+
   it("健康态: auto_disabled 显示自动禁用徽标", () => {
     const props = {
       ...baseProps,
