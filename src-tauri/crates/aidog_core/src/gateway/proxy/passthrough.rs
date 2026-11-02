@@ -682,6 +682,15 @@ pub(crate) async fn passthrough_first_candidate(
     model: &str,
     client: ClientGate,
 ) -> Result<Option<super::models::Platform>, RouteFail> {
+    // 只有分组首选是透传平台时才由本函数收口白名单；其余分组交回调用方的协议分支（各自有闸门）。
+    let first_is_passthrough = select_candidates_gated(db, group, model, None, RequestKind::Chat, ClientGate::Off)
+        .await
+        .ok()
+        .and_then(|s| s.candidates.into_iter().next())
+        .is_some_and(|c| matches!(c.platform.platform_type, Protocol::Passthrough));
+    if !first_is_passthrough {
+        return Ok(None);
+    }
     match select_candidates_gated(db, group, model, None, RequestKind::Chat, client).await {
         Ok(set) => Ok(set
             .candidates

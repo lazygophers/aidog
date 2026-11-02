@@ -62,7 +62,7 @@ impl From<String> for RouteFail {
     }
 }
 
-/// 入站客户端闸门：`Off` = 不做白名单判定（models 探测、WS 握手待票 06 等未接线调用方）；
+/// 入站客户端闸门：`Off` = 不做白名单判定（models 探测、透传首选探测等有意不约束的调用方）；
 /// `On(hit)` = 按识别结果判定（`None` = 认不出，配了白名单的平台一律不命中）。
 #[derive(Clone, Copy)]
 pub enum ClientGate {
