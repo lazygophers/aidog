@@ -5236,3 +5236,112 @@ async fn chain_len1_and_direct_models_do_not_switch_model() {
     assert_eq!(chain_send(&state, "gkc9b", CHAIN_REQ).await.status(), StatusCode::NOT_FOUND);
     assert_eq!(hit_models(&hits), ["claude-x"]);
 }
+
+// ══ 票 07：embedding / rerank / jev 专用槽位同平台换模型（复用 with_model_chain，本地假上游）══
+
+#[derive(Clone, Copy, Debug)]
+enum AuxKind {
+    Emb,
+    Rerank,
+    Jev,
+}
+
+const AUX_KINDS: [AuxKind; 3] = [AuxKind::Emb, AuxKind::Rerank, AuxKind::Jev];
+
+impl AuxKind {
+    fn ok_body(self) -> &'static str {
+        match self {
+            AuxKind::Emb => EMB_RESPONSE,
+            AuxKind::Rerank => RR_JINA,
+            AuxKind::Jev => OR_RESPONSE,
+        }
+    }
+    fn models(self, chain: &[&str]) -> PlatformModels {
+        let v: Vec<String> = chain.iter().map(|s| s.to_string()).collect();
+        match self {
+            AuxKind::Emb => PlatformModels { embedding: v, ..Default::default() },
+            AuxKind::Rerank => PlatformModels { rerank: v, ..Default::default() },
+            AuxKind::Jev => PlatformModels { jev: v, ..Default::default() },
+        }
+    }
+    fn request(self, gk: &str) -> Request {
+        match self {
+            AuxKind::Emb => embedding_request(gk, EMB_REQ, "/v1/embeddings"),
+            AuxKind::Rerank => embedding_request(gk, RR_REQ, "/v2/rerank"),
+            AuxKind::Jev => decision_request(gk, "jev-x"),
+        }
+    }
+}
+
+/// 每个 (上游, 槽位链) 一个平台；空链 = 该槽位为空，被候选过滤剔除（等效单平台形态）。
+async fn setup_aux_chain(state: &Arc<ProxyState>, gk: &str, kind: AuxKind, plats: &[(&str, &[&str])]) {
+    let plats: Vec<_> = plats
+        .iter()
+        .enumerate()
+        .map(|(i, (up, chain))| (*up, kind.models(chain), Protocol::OpenAI, ["pa", "pb", "pc"][i]))
+        .collect();
+    setup_aux_group(state, gk, &plats).await;
+}
+
+/// 首模型模型类错误 → 次模型成功；上游收到 [m-a, m-b]，attempts 两项各带模型；
+/// 单平台组与等效单平台（第二个平台槽位为空被剔除）各一遍。
+#[tokio::test]
+async fn aux_model_error_switches_to_next_model() {
+    for kind in AUX_KINDS {
+        for equivalent in [false, true] {
+            let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, kind.ok_body())]).await;
+            let state = make_state(test_db().await).await;
+            let gk = format!("gka7{}{equivalent}", kind as u8);
+            let mut plats: Vec<(&str, &[&str])> = vec![(&up, &["m-a", "m-b"])];
+            if equivalent {
+                plats.push((&up, &[]));
+            }
+            setup_aux_chain(&state, &gk, kind, &plats).await;
+            let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
+            assert_eq!(resp.status(), StatusCode::OK, "{kind:?} eq={equivalent}");
+            assert_eq!(hit_models(&hits), ["m-a", "m-b"], "{kind:?} eq={equivalent}");
+            let log = last_log_for(&state, &gk).await;
+            assert_eq!(log.attempts.len(), 2, "{kind:?}");
+            assert_eq!(log.attempts[0].model.as_deref(), Some("m-a"));
+            assert_eq!(log.attempts[0].status_code, 404);
+            assert_eq!(log.attempts[1].model.as_deref(), Some("m-b"));
+            assert_eq!(log.attempts[1].status_code, 200);
+            assert_eq!(log.actual_model, "m-b", "{kind:?}");
+            assert_eq!(log.status_code, 200);
+        }
+    }
+}
+
+/// 服务类错误（429）不换模型，直接换平台：上游 1 只收到 m-a 一次，上游 2 从 m-a 起。
+#[tokio::test]
+async fn aux_service_error_switches_platform_not_model() {
+    for kind in AUX_KINDS {
+        let (up1, hits1) = spawn_embedding_upstream(vec![(429, E429)]).await;
+        let (up2, hits2) = spawn_embedding_upstream(vec![(200, kind.ok_body())]).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gka7s{}", kind as u8);
+        setup_aux_chain(&state, &gk, kind, &[(&up1, &["m-a", "m-b"]), (&up2, &["m-a", "m-b"])]).await;
+        let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
+        assert_eq!(resp.status(), StatusCode::OK, "{kind:?}");
+        assert_eq!(hit_models(&hits1), ["m-a"], "{kind:?}");
+        assert_eq!(hit_models(&hits2), ["m-a"], "{kind:?}");
+        let log = last_log_for(&state, &gk).await;
+        assert_eq!(log.attempts.len(), 2, "{kind:?}");
+    }
+}
+
+/// 链长 1 回归：模型类错误无下一个模型可换，行为同改造前（上游只收到一次，错误回客户端）。
+#[tokio::test]
+async fn aux_chain_len_one_does_not_switch() {
+    for kind in AUX_KINDS {
+        let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, kind.ok_body())]).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gka7l{}", kind as u8);
+        setup_aux_chain(&state, &gk, kind, &[(&up, &["m-a"])]).await;
+        let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
+        assert_ne!(resp.status(), StatusCode::OK, "{kind:?}");
+        assert_eq!(hit_models(&hits), ["m-a"], "{kind:?}");
+        let log = last_log_for(&state, &gk).await;
+        assert_eq!(log.attempts.len(), 1, "{kind:?}");
+    }
+}
