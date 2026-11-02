@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { Fragment, useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
@@ -118,9 +118,13 @@ export function segmentKey(item: TrayItem): string {
   switch (item.item_type) {
     case "today_usage": return `today_usage:${item.metric || "tokens"}`;
     case "platform": return `platform:${item.platform_id}`;
+    case "separator": return `separator:${item.display}`;
     default: return item.item_type;
   }
 }
+
+/** 分隔符 4 预设（与 Rust tray_render.rs SEPARATOR_PRESETS 一致）。 */
+export const SEPARATOR_PRESETS = ["|", "｜", "·", "-"] as const;
 
 /** 候选段清单：今日统计 4 项 + 当前命中平台 + 高峰指示 + 每个平台（含禁用）。 */
 export function segmentOptions(platforms: Platform[], t: TFunction): SegmentOption[] {
@@ -150,6 +154,11 @@ export function segmentOptions(platforms: Platform[], t: TFunction): SegmentOpti
       key: `platform:${p.id}`,
       item: makeItem({ item_type: "platform", platform_id: p.id, display: "balance" }),
       label: p.name,
+    })),
+    ...SEPARATOR_PRESETS.map((d) => ({
+      key: `separator:${d}`,
+      item: makeItem({ item_type: "separator", metric: null, display: d }),
+      label: t("tray.separatorName", "分隔符"),
     })),
   ];
 }
@@ -253,9 +262,62 @@ export function previewValue(
     }
     case "peak":
       return peak?.in_peak ? "峰" : "平";
+    case "separator":
+      return item.display;
     default:
       return "—";
   }
+}
+
+/**
+ * 把 items 拆成：启用的数据段（按 order）、n+1 个间隙分隔符（gaps[i] = 第 i 段左侧，gaps[n] = 末段右侧，
+ * 值为 display 或 null）、其余项 rest（disabled 的数据段与 I15 禁用的旧 separator，原样保留）。
+ * 同一间隙多个 separator 取最后一个。
+ */
+function splitItems(items: TrayItem[]) {
+  const enabled = items.filter((it) => it.enabled).sort((a, b) => a.order - b.order);
+  const segs: TrayItem[] = [];
+  const gaps: (string | null)[] = [null];
+  for (const it of enabled) {
+    if (it.item_type === "separator") gaps[segs.length] = it.display;
+    else { segs.push(it); gaps.push(null); }
+  }
+  return { segs, gaps, rest: items.filter((it) => !it.enabled) };
+}
+
+/** splitItems 的逆：数据段与分隔符交错，启用项在前、rest 在后，order 按下标重写。 */
+function joinItems(segs: TrayItem[], gaps: (string | null)[], rest: TrayItem[]): TrayItem[] {
+  const out: TrayItem[] = [];
+  gaps.forEach((g, i) => {
+    if (g) out.push(makeItem({ item_type: "separator", metric: null, display: g }));
+    if (i < segs.length) out.push(segs[i]);
+  });
+  return [...out, ...rest].map((it, i) => ({ ...it, order: i }));
+}
+
+/** 各间隙的分隔符 display（长度 = 启用段数 + 1，空间隙 null）。 */
+export function gapSeparators(items: TrayItem[]): (string | null)[] {
+  return splitItems(items).gaps;
+}
+
+/** 设置第 gap 个间隙的分隔符（display=null 移除；已有则替换，每个间隙至多一个）。 */
+export function setGapSeparator(items: TrayItem[], gap: number, display: string | null): TrayItem[] {
+  const { segs, gaps, rest } = splitItems(items);
+  if (gap < 0 || gap >= gaps.length) return items;
+  gaps[gap] = display;
+  return joinItems(segs, gaps, rest);
+}
+
+/** 把 opt 装载到启用序列的 index（越界夹紧）；复用已关闭的同 key 项。新段左侧补一个空间隙，原间隙留在其右侧。 */
+function placeSegment(items: TrayItem[], opt: SegmentOption, index: number): TrayItem[] {
+  const { segs, gaps, rest } = splitItems(items);
+  const r = rest.findIndex((it) => segmentKey(it) === opt.key);
+  const item = r >= 0 ? { ...rest[r], enabled: true } : opt.item;
+  if (r >= 0) rest.splice(r, 1);
+  const k = Math.max(0, Math.min(index, segs.length));
+  segs.splice(k, 0, item);
+  gaps.splice(k, 0, null);
+  return joinItems(segs, gaps, rest);
 }
 
 /**
@@ -263,38 +325,31 @@ export function previewValue(
  *
  * 票 I15 的迁移规则在这里同样成立：**只翻 enabled，不删项**。
  * 取消勾选 → 该项留在 items 里（enabled=false），原有的 label / 颜色 / 行模式全保留，
- * 再勾回来还是老样子。装载段数无上限。
+ * 再勾回来还是老样子。装载段数无上限。分隔符不占段：关掉一段时其左侧间隙一并移除。
  */
 export function toggleSegment(items: TrayItem[], opt: SegmentOption): TrayItem[] {
-  const idx = items.findIndex((it) => segmentKey(it) === opt.key);
-  let next: TrayItem[];
-  if (idx >= 0 && items[idx].enabled) {
-    next = items.map((it, i) => (i === idx ? { ...it, enabled: false } : it));
-  } else if (idx >= 0) {
-    next = items.map((it, i) => (i === idx ? { ...it, enabled: true } : it));
-  } else {
-    next = [...items, opt.item];
-  }
-  // enabled 的排在前面（按原相对顺序），order 按下标重写。
-  const sorted = [...next.filter((it) => it.enabled), ...next.filter((it) => !it.enabled)];
-  return sorted.map((it, i) => ({ ...it, order: i }));
+  const { segs, gaps, rest } = splitItems(items);
+  const k = segs.findIndex((it) => segmentKey(it) === opt.key);
+  if (k < 0) return placeSegment(items, opt, segs.length);
+  const [off] = segs.splice(k, 1);
+  gaps.splice(k, 1);
+  return joinItems(segs, gaps, [...rest, { ...off, enabled: false }]);
 }
 
-/** 已启用段 key 移到启用序列的 toIndex；order 按下标重写。key 未启用 → 原样返回。 */
+/** 已启用段 key 移到启用序列的 toIndex；order 按下标重写；分隔符留在原间隙位置。key 未启用 → 原样返回。 */
 export function moveSegment(items: TrayItem[], key: string, toIndex: number): TrayItem[] {
-  const enabled = items.filter((it) => it.enabled);
-  const from = enabled.findIndex((it) => segmentKey(it) === key);
+  const { segs, gaps, rest } = splitItems(items);
+  const from = segs.findIndex((it) => segmentKey(it) === key);
   if (from < 0) return items;
-  const [moved] = enabled.splice(from, 1);
-  enabled.splice(Math.max(0, Math.min(toIndex, enabled.length)), 0, moved);
-  return [...enabled, ...items.filter((it) => !it.enabled)].map((it, i) => ({ ...it, order: i }));
+  const [moved] = segs.splice(from, 1);
+  segs.splice(Math.max(0, Math.min(toIndex, segs.length)), 0, moved);
+  return joinItems(segs, gaps, rest);
 }
 
 /** 候选库拖入装载槽：装载 opt 并插到启用序列 index。已装载 → 原样返回。 */
 export function loadSegmentAt(items: TrayItem[], opt: SegmentOption, index: number): TrayItem[] {
   if (items.some((it) => it.enabled && segmentKey(it) === opt.key)) return items;
-  const next = toggleSegment(items, opt);
-  return next === items ? items : moveSegment(next, opt.key, index);
+  return placeSegment(items, opt, index);
 }
 
 // ── 票 03：段编辑面板 —— TrayItem 全部可编辑字段就地露出，编辑即持久化 ──
@@ -620,6 +675,40 @@ function DraggableChip({ id, disabled, children, ...rest }: {
   );
 }
 
+/** 装载序列的间隙投放区（gap:<i>）：空 = 虚线窄条；有分隔符 = 可拖走/点击移除的字符块（gapsep:<i>）。 */
+function GapSlot({ i, display, removeLabel, dropLabel, onRemove }: {
+  i: number; display: string | null; removeLabel: string; dropLabel: string; onRemove: () => void;
+}) {
+  const { setNodeRef: dropRef, isOver } = useDroppable({ id: `gap:${i}` });
+  const { listeners, setNodeRef: dragRef, transform, isDragging } = useDraggable({ id: `gapsep:${i}`, disabled: !display });
+  return (
+    <div
+      ref={dropRef}
+      data-testid={`tray-gap-${i}`}
+      data-state={display ? "filled" : "empty"}
+      data-over={isOver || undefined}
+      style={{ width: 28, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 7, border: display ? "none" : "1.5px dashed var(--input)", background: isOver ? OVER_BG : undefined }}
+    >
+      {display ? (
+        <button
+          type="button"
+          ref={dragRef}
+          {...listeners}
+          data-testid={`tray-gapsep-${i}`}
+          aria-label={removeLabel}
+          title={removeLabel}
+          onClick={onRemove}
+          style={{ transform: CSS.Translate.toString(transform), zIndex: isDragging ? 10 : undefined, touchAction: "none", border: "1px solid var(--border)", background: "var(--card)", color: ACCENT_TEXT, borderRadius: 6, padding: "6px 4px", cursor: "grab", fontFamily: MONO, fontSize: 15, fontWeight: 700, lineHeight: 1 }}
+        >
+          {display}
+        </button>
+      ) : (
+        <span aria-label={dropLabel} title={dropLabel} style={{ color: "var(--muted-foreground)", fontSize: 11 }}>·</span>
+      )}
+    </div>
+  );
+}
+
 function LibraryDrop({ children }: { children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: "library" });
   return (
@@ -699,14 +788,15 @@ export function TrayConfigTab() {
     });
   }, [config, persist]);
   const selected = useMemo(
-    () => config.items.filter((i) => i.enabled).sort((a, b) => a.order - b.order),
+    () => config.items.filter((i) => i.enabled && i.item_type !== "separator").sort((a, b) => a.order - b.order),
     [config],
   );
   const selectedKeys = new Set(selected.map(segmentKey));
+  const gaps = gapSeparators(config.items); // 长度 = selected.length + 1
   const editingSeg = selected.find((s) => segmentKey(s) === editingKey) ?? null;
   // 迁移留下的项：关着、且不在候选清单里（旧 separator / 已删平台）。
   const keptDisabled = config.items.filter(
-    (i) => !i.enabled && !options.some((o) => o.key === segmentKey(i)),
+    (i) => !i.enabled && (i.item_type === "separator" || !options.some((o) => o.key === segmentKey(i))),
   ).length;
 
   const slotIndex = (overId: string) =>
@@ -714,7 +804,18 @@ export function TrayConfigTab() {
   const onDragEnd = ({ active, over }: DragEndEvent) => {
     if (!over) return;
     const a = String(active.id), o = String(over.id);
-    if (a.startsWith("chip:")) {
+    if (a.startsWith("chip:separator:")) {
+      // 分隔符芯片只认间隙落点；同预设可反复拖入。
+      const opt = options.find((x) => `chip:${x.key}` === a);
+      if (opt && o.startsWith("gap:")) persist({ ...config, items: setGapSeparator(config.items, Number(o.slice(4)), opt.item.display) });
+    } else if (a.startsWith("gapsep:")) {
+      const from = Number(a.slice(7));
+      if (o === "library") persist({ ...config, items: setGapSeparator(config.items, from, null) });
+      else if (o.startsWith("gap:") && o !== `gap:${from}`) {
+        const to = Number(o.slice(4));
+        persist({ ...config, items: setGapSeparator(setGapSeparator(config.items, from, null), to, gaps[from]) });
+      }
+    } else if (a.startsWith("chip:")) {
       const opt = options.find((x) => `chip:${x.key}` === a);
       if (!opt || !(o.startsWith("slot:") || o.startsWith("empty:"))) return;
       const at = o.startsWith("empty:") ? selected.length : slotIndex(o);
@@ -741,6 +842,7 @@ export function TrayConfigTab() {
     [t("tray.catStats", "统计"), options.filter((o) => o.key.startsWith("today_usage:"))],
     [t("tray.catStatus", "状态"), options.filter((o) => o.key === "routed_platform" || o.key === "peak")],
     [t("tray.catPlatform", "平台"), options.filter((o) => o.key.startsWith("platform:"))],
+    [t("tray.catSeparator", "分隔符"), options.filter((o) => o.key.startsWith("separator:"))],
   ];
 
   return (
@@ -788,12 +890,13 @@ export function TrayConfigTab() {
               <div style={{ display: "flex", alignItems: "center", gap: 18, fontFamily: MONO, fontWeight: 600, fontSize: 12.5, marginLeft: "auto", paddingRight: 18, borderRight: "1px solid var(--mb-border)", marginRight: 16 }}>
                 {selected.length === 0 ? (
                   <span style={{ color: "var(--mb-fg-dim)", fontStyle: "italic" }}>{t("tray.previewEmpty", "暂无展示项")}</span>
-                ) : selected.map((seg) => {
+                ) : selected.map((seg, idx) => {
                   const opt = options.find((o) => o.key === segmentKey(seg));
                   const two = seg.line_mode === "two";
                   return (
+                    <Fragment key={segmentKey(seg)}>
+                    {gaps[idx] && <span data-testid={`tray-preview-sep-${idx}`} style={{ color: "var(--mb-fg-dim)" }}>{gaps[idx]}</span>}
                     <span
-                      key={segmentKey(seg)}
                       data-testid={`tray-segment-${segmentKey(seg)}`}
                       style={{
                         display: "flex", flexDirection: two ? "column" : "row",
@@ -812,8 +915,12 @@ export function TrayConfigTab() {
                         {previewValue(seg, platforms, todayStats, peak, cur)}
                       </span>
                     </span>
+                    </Fragment>
                   );
                 })}
+                {selected.length > 0 && gaps[selected.length] && (
+                  <span data-testid={`tray-preview-sep-${selected.length}`} style={{ color: "var(--mb-fg-dim)" }}>{gaps[selected.length]}</span>
+                )}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 14, opacity: 0.85 }}>
                 <svg width="15" height="12" viewBox="0 0 16 12"><path d="M8 10.5 5.6 8.1a3.4 3.4 0 0 1 4.8 0ZM3.2 5.7a6.8 6.8 0 0 1 9.6 0l-1.4 1.4a4.8 4.8 0 0 0-6.8 0ZM.8 3.3a10.2 10.2 0 0 1 14.4 0l-1.4 1.4a8.2 8.2 0 0 0-11.6 0Z" fill="currentColor" /></svg>
@@ -830,13 +937,26 @@ export function TrayConfigTab() {
               <SortableContext items={selected.map((x) => `slot:${segmentKey(x)}`)} strategy={horizontalListSortingStrategy}>
                 {Array.from({ length: selected.length + 1 }, (_, i) => i).map((i) => {
                   const seg = selected[i];
-                  if (!seg) return <EmptySlot key={i} i={i} tag={t("tray.slotIndex", "SLOT {{n}}", { n: i + 1 })} label={t("tray.slotEmpty", "空槽 — 从候选库点选装载")} />;
+                  // 间隙 i 在第 i 槽左侧；尾部空槽左侧即末段右侧的间隙（无段时不出间隙）。
+                  const gap = i === 0 && !seg ? null : (
+                    <GapSlot
+                      i={i}
+                      display={gaps[i]}
+                      removeLabel={t("tray.separatorRemove", "移除分隔符")}
+                      dropLabel={t("tray.separatorDrop", "拖入分隔符")}
+                      onRemove={() => persist({ ...config, items: setGapSeparator(config.items, i, null) })}
+                    />
+                  );
+                  if (!seg) return <Fragment key={i}>{gap}<EmptySlot i={i} tag={t("tray.slotIndex", "SLOT {{n}}", { n: i + 1 })} label={t("tray.slotEmpty", "空槽 — 从候选库点选装载")} /></Fragment>;
                   const opt = options.find((o) => o.key === segmentKey(seg));
                   return (
-                    <SortableSlot key={segmentKey(seg)} i={i} tag={t("tray.slotIndex", "SLOT {{n}}", { n: i + 1 })} id={segmentKey(seg)} onEdit={() => setEditingKey(segmentKey(seg))} handleLabel={t("tray.dragHandle", "拖动排序")}>
+                    <Fragment key={segmentKey(seg)}>
+                    {gap}
+                    <SortableSlot i={i} tag={t("tray.slotIndex", "SLOT {{n}}", { n: i + 1 })} id={segmentKey(seg)} onEdit={() => setEditingKey(segmentKey(seg))} handleLabel={t("tray.dragHandle", "拖动排序")}>
                       <div style={{ fontSize: 12.5, fontWeight: 650 }}>{seg.label || opt?.label || segmentKey(seg)}</div>
                       <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 700, color: ACCENT_TEXT, letterSpacing: 0.3 }}>{previewValue(seg, platforms, todayStats, peak, cur)}</div>
                     </SortableSlot>
+                    </Fragment>
                   );
                 })}
               </SortableContext>
@@ -875,7 +995,14 @@ export function TrayConfigTab() {
                 <div key={cat} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ width: 58, flexShrink: 0, fontFamily: MONO, fontSize: 10, letterSpacing: 1.2, color: "var(--muted-foreground)", textTransform: "uppercase" }}>{cat}</span>
                   {rows.map((opt) => {
-                    const state = selectedKeys.has(opt.key) ? "loaded" : "";
+                    const isSep = opt.item.item_type === "separator"; // 分隔符不占槽、可重复，恒不禁用
+                    const state = !isSep && selectedKeys.has(opt.key) ? "loaded" : "";
+                    // 分隔符点选/回车 = 放进第一个空间隙（拖拽可指定任意间隙）。
+                    const toggle = () => {
+                      if (!isSep) return persist({ ...config, items: toggleSegment(config.items, opt) });
+                      const free = gaps.findIndex((g) => !g);
+                      if (free >= 0 && selected.length > 0) persist({ ...config, items: setGapSeparator(config.items, free, opt.item.display) });
+                    };
                     return (
                       <DraggableChip
                         key={opt.key}
@@ -887,13 +1014,11 @@ export function TrayConfigTab() {
                         role="button"
                         tabIndex={0}
                         aria-pressed={state === "loaded"}
-                        onClick={() => {
-                          persist({ ...config, items: toggleSegment(config.items, opt) });
-                        }}
+                        onClick={toggle}
                         onKeyDown={(e) => {
                           if (e.key !== "Enter" && e.key !== " ") return;
                           e.preventDefault();
-                          persist({ ...config, items: toggleSegment(config.items, opt) });
+                          toggle();
                         }}
                       >
                         {opt.label}

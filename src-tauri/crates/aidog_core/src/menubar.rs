@@ -182,6 +182,8 @@ pub fn render(state: MenuBarState) {
             &button,
             state.layout.columns,
             state.layout.gaps,
+            state.layout.lead_gap,
+            state.layout.trail_gap,
             state.separator,
         ) {
             tracing::warn!("menubar attributed title failed, fallback to plain text: {e}");

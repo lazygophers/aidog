@@ -136,7 +136,7 @@ fn clamp_never_reenables_disabled_items() {
 }
 
 #[test]
-fn clamp_disables_separators_but_keeps_their_fields() {
+fn clamp_keeps_enabled_separators_and_does_not_count_them() {
     let mut sep = it("separator", 1);
     sep.display = "·".to_string();
     let mut two_line = it("platform", 0);
@@ -146,13 +146,51 @@ fn clamp_disables_separators_but_keeps_their_fields() {
         separator: "  ".to_string(),
         items: vec![two_line, sep, it("platform", 2)],
     };
-    assert!(clamp_to_segments(&mut cfg));
-    assert!(!cfg.items[1].enabled, "separator 不再是可选段");
-    assert_eq!(cfg.items[1].display, "·", "字段原样保留，可降级回旧版本");
-    // 二维排布字段（line_mode / align_row2）一律不动。
+    assert!(!clamp_to_segments(&mut cfg), "separator 合规，不该被改");
+    assert!(cfg.items.iter().all(|i| i.enabled), "separator 保持 enabled");
+    assert_eq!(cfg.items[1].display, "·");
     assert_eq!(cfg.items[0].line_mode, "two");
     assert_eq!(cfg.items[0].align_row2.as_deref(), Some("right"));
-    assert!(cfg.items[0].enabled && cfg.items[2].enabled);
+}
+
+#[test]
+fn clamp_never_reenables_disabled_separator() {
+    let mut old = it("separator", 1);
+    old.enabled = false;
+    let mut cfg = TrayConfig {
+        separator: "  ".to_string(),
+        items: vec![it("platform", 0), old, it("platform", 2)],
+    };
+    assert!(!clamp_to_segments(&mut cfg));
+    assert!(!cfg.items[1].enabled, "I15 关掉的旧分隔符不恢复");
+}
+
+#[test]
+fn clamp_allows_leading_and_trailing_separators() {
+    let mut cfg = TrayConfig {
+        separator: "  ".to_string(),
+        items: vec![it("separator", 0), it("platform", 1), it("separator", 2)],
+    };
+    assert!(!clamp_to_segments(&mut cfg));
+    assert!(cfg.items.iter().all(|i| i.enabled));
+}
+
+#[test]
+fn clamp_keeps_at_most_one_separator_per_position() {
+    // 同一位置（相邻、中间无数据段）只留第一个，多余的置 disabled 不删。
+    let mut cfg = TrayConfig {
+        separator: "  ".to_string(),
+        items: vec![
+            it("platform", 0),
+            it("separator", 1),
+            it("separator", 2),
+            it("platform", 3),
+        ],
+    };
+    assert!(clamp_to_segments(&mut cfg));
+    let enabled: Vec<bool> = cfg.items.iter().map(|i| i.enabled).collect();
+    assert_eq!(enabled, vec![true, true, false, true]);
+    assert_eq!(cfg.items.len(), 4);
 }
 
 #[test]
