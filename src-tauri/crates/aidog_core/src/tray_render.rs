@@ -195,7 +195,6 @@ pub(crate) fn set_tray_attributed_title(
         // 两行都用 left tab @列右边界 → 同一列两行起始位置相同 → 列边界对齐。
         let mut col_widths: Vec<f64> = Vec::new();
         if two_line_mode {
-            const COL_PADDING: f64 = 5.0; // 列间最小间距 5px
             let mut left_tabs: Vec<Retained<NSTextTab>> = Vec::new();
             let mut loc: f64 = 0.0;
             for col in columns.iter() {
@@ -211,7 +210,7 @@ pub(crate) fn set_tray_attributed_title(
                 };
                 let w1 = measure_text_width(&line1, TRAY_FONT_SIZE);
                 let w2 = measure_text_width(&line2, TRAY_FONT_SIZE + 3.0);
-                let col_w = w1.max(w2) + COL_PADDING;
+                let col_w = col_width(w1, w2);
                 col_widths.push(col_w);
                 loc += col_w;
                 left_tabs.push(NSTextTab::initWithType_location(
@@ -224,31 +223,12 @@ pub(crate) fn set_tray_attributed_title(
             para.setTabStops(Some(&left_array));
         }
 
-        // 根据对齐设置在文本前填充空格：right → 左侧填充至列宽；center → 两侧填充。
+        // 根据对齐设置填充空格（纯函数 align_pad 算个数，测宽在此）。
         let align_text = |text: &str, col_w: f64, font_size: f64, align: &str| -> String {
-            if align == "left" || text.is_empty() {
-                return text.to_string();
-            }
             let text_w = measure_text_width(text, font_size);
             let space_w = measure_text_width(" ", font_size);
-            if space_w <= 0.0 {
-                return text.to_string();
-            }
-            let extra = (col_w - text_w).max(0.0);
-            let n_spaces = (extra / space_w).round() as usize;
-            match align {
-                "right" => format!("{}{}", " ".repeat(n_spaces), text),
-                "center" => {
-                    let half = n_spaces / 2;
-                    format!(
-                        "{}{}{}",
-                        " ".repeat(half),
-                        text,
-                        " ".repeat(n_spaces - half)
-                    )
-                }
-                _ => text.to_string(),
-            }
+            let (lead, trail) = align_pad(text.is_empty(), text_w, space_w, col_w, align);
+            format!("{}{}{}", " ".repeat(lead), text, " ".repeat(trail))
         };
 
         // baselineOffset：两行模式需要负偏移下推居中；单行模式无需偏移。
@@ -950,6 +930,35 @@ pub async fn build_tray_menu(
         .map_err(|e| e.to_string())?;
 
     Ok(menu)
+}
+
+/// 列间最小间距（pt）。两列最宽单元之间的可见间隙恰为此值，约一个空格宽。
+pub(crate) const COL_PADDING: f64 = 3.0;
+
+/// 列宽 = 两行中较宽者 + COL_PADDING。
+pub(crate) fn col_width(w1: f64, w2: f64) -> f64 {
+    w1.max(w2) + COL_PADDING
+}
+
+/// 列内对齐的填充空格数 (前, 后)。左 tab stop 在列右边界：若「前+文本+后」宽度 ≥ 列宽，
+/// 光标越过该 stop，下一列跳到再下一个 stop，整列错位。故 center 只前补不补尾空格，
+/// right 向下取整，总宽恒 < col_w（col_w 含 5pt padding）。
+pub(crate) fn align_pad(
+    empty: bool,
+    text_w: f64,
+    space_w: f64,
+    col_w: f64,
+    align: &str,
+) -> (usize, usize) {
+    if align == "left" || empty || space_w <= 0.0 {
+        return (0, 0);
+    }
+    let extra = (col_w - text_w).max(0.0);
+    match align {
+        "right" => ((extra / space_w).floor() as usize, 0),
+        "center" => ((extra / 2.0 / space_w).round() as usize, 0),
+        _ => (0, 0),
+    }
 }
 
 #[cfg(test)]
