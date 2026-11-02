@@ -2594,6 +2594,7 @@
   "tray.colorCustom": "Benutzerdefiniert",
   "tray.colorInvalid": "Ungültige Farbe, z. B. #RRGGBB",
   "tray.colorFollow": "System folgen",
+  "tray.colorAuto": "Automatisch",
   "tray.colorPreset": "Preset-Farbe",
   "tray.colorWarning": "Diese Farbe ist bei einigen Menüleisten-Themen schwer lesbar",
   "tray.custom": "Benutzerdefiniert",

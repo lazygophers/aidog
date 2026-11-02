@@ -2594,6 +2594,7 @@
   "tray.colorCustom": "Свой цвет",
   "tray.colorInvalid": "Неверный цвет, напр. #RRGGBB",
   "tray.colorFollow": "Как в системе",
+  "tray.colorAuto": "Авто",
   "tray.colorPreset": "Пресет-цвет",
   "tray.colorWarning": "Этот цвет может быть плохо виден в некоторых темах панели меню",
   "tray.custom": "Своё",

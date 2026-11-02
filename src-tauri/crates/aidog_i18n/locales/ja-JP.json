@@ -2594,6 +2594,7 @@
   "tray.colorCustom": "カスタム",
   "tray.colorInvalid": "無効な色です。例: #RRGGBB",
   "tray.colorFollow": "システムに従う",
+  "tray.colorAuto": "自動",
   "tray.colorPreset": "プリセット色",
   "tray.colorWarning": "この色は一部のメニューバーテーマで見えにくい場合があります",
   "tray.custom": "カスタム",

@@ -5,5 +5,6 @@
  * - mode="follow": 跟随系统（labelColor，自适应明暗）
  * - mode="preset": value ∈ {"red","green","orange"} → systemRed/Green/Orange（自适应明暗）
  * - mode="custom": value = hex（如 "#RRGGBB"），固定色，可能在某主题下可读性差
+ * - mode="auto": 按 `TrayColumn.level`（usage_color）变 systemRed/Orange/Green，无 level 同 follow；新装载段的初始值
  */
 export type TrayColor = { mode: string, value: string, };
