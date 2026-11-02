@@ -57,6 +57,7 @@ async fn progressive_columns_equals_full_replace() {
     final_log.is_stream = true;
     final_log.attempts = vec![aidog_db::models::ProxyAttempt {
         chain_stop: None,
+        ttfb_ms: None,
         platform_id: 1,
         platform_name: "p1".into(),
         status_code: 200,
@@ -187,6 +188,7 @@ async fn proxy_log_attempts_roundtrip() {
     log.attempts = vec![
         aidog_db::models::ProxyAttempt {
             chain_stop: None,
+            ttfb_ms: None,
             platform_id: 1,
             platform_name: "p1".into(),
             status_code: 503,
@@ -197,6 +199,7 @@ async fn proxy_log_attempts_roundtrip() {
         },
         aidog_db::models::ProxyAttempt {
             chain_stop: None,
+            ttfb_ms: None,
             platform_id: 2,
             platform_name: "p2".into(),
             status_code: 200,
@@ -1050,4 +1053,25 @@ async fn latest_error_codes_since_takes_latest_per_platform() {
         .unwrap();
     rows.sort();
     assert_eq!(rows, vec![(1, 402)], "只取平台 1 的最新失败码 402");
+}
+
+/// 路由耗时票 01：旧 JSON（无 eval_ms / ttfb_ms）反序列化为 None，再序列化不多出字段；
+/// 带值时往返保真。
+#[test]
+fn legacy_routing_and_attempts_json_roundtrip_without_new_fields() {
+    let r = parse_routing(r#"{"mode":"failover","entries":[]}"#).expect("旧 routing 可解析");
+    assert_eq!(r.eval_ms, None);
+    assert!(!serialize_routing(&Some(r)).contains("eval_ms"));
+
+    let old = r#"[{"platform_id":1,"platform_name":"p","status_code":200,"error":"","duration_ms":9,"ts":1}]"#;
+    let a = parse_attempts(old);
+    assert_eq!(a.len(), 1);
+    assert_eq!(a[0].ttfb_ms, None);
+    assert!(!serialize_attempts(&a).contains("ttfb_ms"));
+
+    let r2 = RoutingSnapshot { eval_ms: Some(3), ..Default::default() };
+    assert_eq!(parse_routing(&serialize_routing(&Some(r2.clone()))), Some(r2));
+    let mut a2 = a;
+    a2[0].ttfb_ms = Some(5);
+    assert_eq!(parse_attempts(&serialize_attempts(&a2))[0].ttfb_ms, Some(5));
 }

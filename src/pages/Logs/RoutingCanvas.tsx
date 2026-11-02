@@ -5,6 +5,7 @@ import type { ModelVia } from "../../services/api/types/generated/ModelVia";
 import type { RouteTag } from "../../services/api/types/generated/RouteTag";
 import type { RoutingSnapshot } from "../../services/api/types/generated/RoutingSnapshot";
 import { F } from "../../domains/shared/tokens";
+import { formatDurationMs } from "../../utils/formatters";
 
 /** 票 02「路由决策」区：workflow 节点画布（请求→路由→平台→响应）。设计稿 dir-a-workflow画布-v2.html。 */
 
@@ -63,11 +64,23 @@ interface NodeSpec {
   pills?: string[];
   /** 该平台模型链逐项状态（链长 > 1 时携带，替代单行 model）。 */
   chain?: ChainItem[];
+  /** 路由格：路由评估耗时（ms）。 */
+  evalMs?: number;
+  /** 平台格：该平台全部尝试耗时合计（ms）。 */
+  totalMs?: number;
+  /** 胜出平台：胜出尝试的首字节耗时（ms）。 */
+  ttfbMs?: number;
 }
 
-type AttemptLite = { platform_id: number; status_code: number; model?: string; error?: string; chain_stop?: string };
+type AttemptLite = { platform_id: number; status_code: number; model?: string; error?: string; chain_stop?: string; duration_ms?: number; ttfb_ms?: number };
 export type ChainState = "used" | "failed" | "skipped" | "untried";
-export interface ChainItem { model: string; state: ChainState; reason?: string }
+export interface ChainItem { model: string; state: ChainState; reason?: string; ms?: number }
+
+/** 求和有效的 duration_ms；一个有效值都没有（旧日志）返回 undefined，不显示。 */
+function sumMs(list: AttemptLite[]): number | undefined {
+  const vals = list.map((a) => a.duration_ms).filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+  return vals.length ? vals.reduce((x, y) => x + y, 0) : undefined;
+}
 
 /** 平台模型链逐项状态：该平台的 attempts 按序对照 chain。
  *  已尝试 → 2xx 已选用 / 非 2xx 失败（附状态码+错误摘要）；未尝试 → 末次尝试带 chain_stop 则「跳过」+ 原因，
@@ -78,7 +91,8 @@ export function chainStates(chain: string[], platformAttempts: AttemptLite[], t:
     const a = [...platformAttempts].reverse().find((x) => x.model === model);
     if (a) {
       const ok = a.status_code >= 200 && a.status_code < 300;
-      return ok ? { model, state: "used" } : { model, state: "failed", reason: `${a.status_code}${a.error ? ` ${a.error}` : ""}` };
+      const ms = sumMs(platformAttempts.filter((x) => x.model === model));
+      return ok ? { model, state: "used", ms } : { model, state: "failed", reason: `${a.status_code}${a.error ? ` ${a.error}` : ""}`, ms };
     }
     if (last?.chain_stop === "service" || last?.chain_stop === "rule") {
       return { model, state: "skipped", reason: t(`logs.routing.chain.skip.${last.chain_stop}`) };
@@ -107,7 +121,7 @@ function buildNodes(
 
   const nodes: NodeSpec[] = [
     { id: "req", cls: "dim", ico: "→", nm: t("logs.routing.request", "请求") },
-    { id: "route", cls: "dim", ico: "⇄", nm: t("logs.routing.route", "路由") },
+    { id: "route", cls: "dim", ico: "⇄", nm: t("logs.routing.route", "路由"), evalMs: routing.eval_ms ?? undefined },
   ];
   for (const c of routing.entries) {
     const nm = platformMap.get(c.platform_id) || `#${c.platform_id}`;
@@ -115,15 +129,16 @@ function buildNodes(
     const target = c.target_model ?? undefined;
     const id = `p-${c.platform_id}`;
     const chainModels = (c.model_chain ?? []).length > 1 ? c.model_chain : null;
-    const chain = chainModels && c.reason === "selected"
-      ? chainStates(chainModels, (attempts ?? []).filter((a) => a.platform_id === c.platform_id), t)
-      : undefined;
+    const platAttempts = (attempts ?? []).filter((a) => a.platform_id === c.platform_id);
+    const chain = chainModels && c.reason === "selected" ? chainStates(chainModels, platAttempts, t) : undefined;
+    const totalMs = sumMs(platAttempts);
+    const winTtfb = [...platAttempts].reverse().find((a) => a.status_code >= 200 && a.status_code < 300)?.ttfb_ms;
     if (c.reason !== "selected") {
       nodes.push({ id, cls: "dim", ico: "·", nm, sb, modelUnused: true, pills: [t(REASON_KEY[c.reason])] });
     } else if (id === winId) {
-      nodes.push({ id, cls: "win", ico: "✓", nm, sb, model: chain ? undefined : target ?? actualModel, chain, pills: (c.tags ?? []).map((tg) => t(TAG_KEY[tg])) });
+      nodes.push({ id, cls: "win", ico: "✓", nm, sb, totalMs, ttfbMs: winTtfb, model: chain ? undefined : target ?? actualModel, chain, pills: (c.tags ?? []).map((tg) => t(TAG_KEY[tg])) });
     } else if (lastFailByPlatform.has(c.platform_id)) {
-      nodes.push({ id, cls: "fail", ico: "✕", nm, sb, model: chain ? undefined : target, chain, pills: [`${t("logs.routing.attemptFailed", "尝试失败")} ${lastFailByPlatform.get(c.platform_id)}`] });
+      nodes.push({ id, cls: "fail", ico: "✕", nm, sb, totalMs, model: chain ? undefined : target, chain, pills: [`${t("logs.routing.attemptFailed", "尝试失败")} ${lastFailByPlatform.get(c.platform_id)}`] });
     } else {
       nodes.push({ id, cls: "dim", ico: "·", nm, sb, model: chain ? undefined : target, chain, pills: [t("logs.routing.untried", "未尝试")] });
     }
@@ -326,10 +341,14 @@ export function RoutingCanvas({
                   {n.chain?.map((it) => (
                     <span key={it.model} className="rc-sb" data-testid="routing-chain-item" data-state={it.state} title={it.reason}>
                       {it.model} · {t(`logs.routing.chain.${it.state}`)}{it.reason ? ` (${it.reason.slice(0, 60)})` : ""}
+                      {it.ms !== undefined && <span data-testid="routing-chain-ms" data-ms={it.ms}> · {formatDurationMs(it.ms)}</span>}
                     </span>
                   ))}
                   {n.modelUnused && <span className="rc-sb" data-testid="routing-model-unused">{t("logs.routing.notUsed", "未选用")}</span>}
                   {n.sb && <span className="rc-sb">{n.sb}</span>}
+                  {n.evalMs !== undefined && <span className="rc-sb" data-testid="routing-eval-ms" data-ms={n.evalMs}>{formatDurationMs(n.evalMs)}</span>}
+                  {n.totalMs !== undefined && <span className="rc-sb" data-testid="routing-platform-ms" data-ms={n.totalMs}>{formatDurationMs(n.totalMs)}</span>}
+                  {n.ttfbMs !== undefined && <span className="rc-sb" data-testid="routing-ttfb-ms" data-ms={n.ttfbMs}>{t("logs.routing.ttfb", "首字")} {formatDurationMs(n.ttfbMs)}</span>}
                   {n.pills?.map((pl, j) => <span key={j} className={`rc-why ${n.cls === "fail" ? "red" : n.cls === "win" ? "green" : ""}`}>{pl}</span>)}
                 </span>
                 <span className="rc-port out" aria-hidden="true" />

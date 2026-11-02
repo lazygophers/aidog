@@ -790,6 +790,7 @@
   "logs.routing.request": "Anfrage",
   "logs.routing.route": "Routing",
   "logs.routing.response": "Antwort",
+  "logs.routing.ttfb": "TTFB",
   "logs.routing.attemptFailed": "Fehlgeschlagener Versuch",
   "logs.routing.notUsed": "Nicht verwendet",
   "logs.routing.chain.used": "Verwendet",
