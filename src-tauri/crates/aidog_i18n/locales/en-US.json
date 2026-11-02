@@ -1162,6 +1162,7 @@
   "notif.eventTemplatePlaceholder": "Leave blank to use the selected type's template",
   "notif.eventTypeLabel": "Notification type",
   "notif.eventVarsHint": "Available variables",
+  "notif.optionalPlaceholderHint": "Optional placeholder {prefix|variable}: outputs prefix + value when the variable is non-empty, nothing otherwise, e.g. {project}{ · |session_name}",
   "notif.fieldForm": "Form",
   "notif.fieldPopup": "Popup",
   "notif.fieldSound": "Sound",

@@ -427,6 +427,9 @@ fn spawn_scheduled_jobs() {
             if let Err(e) = aidog_db::cleanup_notifications(db, retention_days).await {
                 tracing::warn!(error = %e, "scheduled: cleanup notifications failed");
             }
+            if let Err(e) = aidog_db::cleanup_session_name_cache(db).await {
+                tracing::warn!(error = %e, "scheduled: cleanup session_name_cache failed");
+            }
             let stats_settings: aidog_core::gateway::models::StatsSettings =
                 aidog_db::get_setting(db, "stats", "settings")
                     .await

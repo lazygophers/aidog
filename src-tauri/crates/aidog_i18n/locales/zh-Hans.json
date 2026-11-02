@@ -1162,6 +1162,7 @@
   "notif.eventTemplatePlaceholder": "留空用所选类型的模板",
   "notif.eventTypeLabel": "通知类型",
   "notif.eventVarsHint": "可用入参",
+  "notif.optionalPlaceholderHint": "可选占位 {前缀|变量}：变量非空时输出「前缀+值」，为空整段消失，如 {project}{ · |session_name}",
   "notif.fieldForm": "呈现形式",
   "notif.fieldPopup": "弹窗",
   "notif.fieldSound": "提示音",

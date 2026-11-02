@@ -19,6 +19,7 @@ pub mod rules;
 pub mod semantic;
 mod dispatch;
 mod render;
+mod session_name;
 mod tts;
 mod vars;
 
@@ -32,5 +33,7 @@ pub use vars::*;
 
 #[cfg(test)]
 mod test_render;
+#[cfg(test)]
+mod test_session_name;
 #[cfg(test)]
 mod test_vars;

@@ -41,3 +41,26 @@ fn substitute_all_vars() {
         "p/s/t/se/g"
     );
 }
+
+#[test]
+fn optional_prefix_placeholder() {
+    let named = vars(&[("project", "aidog"), ("session_name", "托盘重做")]);
+    let empty = vars(&[("project", "aidog"), ("session_name", "")]);
+    let missing = vars(&[("project", "aidog")]);
+    let tpl = "{project}{ · |session_name} 完成";
+    for f in [substitute_vars, substitute_vars_fill_empty] {
+        assert_eq!(f(tpl, &named), "aidog · 托盘重做 完成");
+        assert_eq!(f(tpl, &empty), "aidog 完成");
+        // 类型路径也不保留缺失的可选占位
+        assert_eq!(f(tpl, &missing), "aidog 完成");
+    }
+    // 普通占位语义不变：类型路径保留未知，事件路径置空
+    assert_eq!(substitute_vars("{x}", &missing), "{x}");
+    assert_eq!(substitute_vars_fill_empty("{x}", &missing), "");
+    // 前缀含空格 / 与普通占位混用 / 多个可选占位
+    let v = vars(&[("a", "1"), ("b", "")]);
+    assert_eq!(substitute_vars("[{ - |a}][{ - |b}]{a}", &v), "[ - 1][]1");
+    // 变量名非法 → 原样；前缀含 '{' → 内层 '{' 不被吞
+    assert_eq!(substitute_vars("{p|bad name}", &v), "{p|bad name}");
+    assert_eq!(substitute_vars("{{ -|a}", &v), "{ -1");
+}
