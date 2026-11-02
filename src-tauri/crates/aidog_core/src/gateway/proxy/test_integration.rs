@@ -3070,7 +3070,7 @@ async fn decision_request_end_to_end() {
         "gkdec",
         &upstream,
         PlatformModels {
-            jev: Some("jev-latest".into()),
+            jev: vec!["jev-latest".into()],
             ..Default::default()
         },
         None,
@@ -3126,7 +3126,7 @@ async fn decision_upstream_cost_wins_over_tool_counts() {
         "gkdec-tools",
         &upstream,
         PlatformModels {
-            jev: Some("jev-latest".into()),
+            jev: vec!["jev-latest".into()],
             ..Default::default()
         },
         None,
@@ -3255,7 +3255,7 @@ async fn decision_529_fails_over_to_next_platform() {
     let (up2, hits2) = spawn_decision_upstream(vec![(200, OR_RESPONSE)]).await;
     let state = make_state(test_db().await).await;
     let models = PlatformModels {
-        jev: Some("jev-latest".into()),
+        jev: vec!["jev-latest".into()],
         ..Default::default()
     };
     setup_decision_group(&state, "gkfo1", &up1, models.clone(), None, Protocol::TypeSafe).await;
@@ -3342,7 +3342,7 @@ async fn chat_no_chat_platform_400_and_audit_log() {
         "gknochat",
         "https://example.invalid",
         PlatformModels {
-            jev: Some("jev-latest".into()),
+            jev: vec!["jev-latest".into()],
             ..Default::default()
         },
         None,
@@ -3365,7 +3365,7 @@ async fn chat_no_chat_platform_400_and_audit_log() {
 /// 两个 jev 槽决策平台挂同一 group（priority 0 → up1，1 → up2）。
 async fn setup_two_decision_platforms(state: &Arc<ProxyState>, gk: &str, up1: &str, up2: &str) {
     let models = PlatformModels {
-        jev: Some("jev-latest".into()),
+        jev: vec!["jev-latest".into()],
         ..Default::default()
     };
     setup_decision_group(state, gk, up1, models.clone(), None, Protocol::TypeSafe).await;
@@ -3445,7 +3445,7 @@ async fn decision_log_switches_off_drop_bodies() {
         "gkdlog",
         &upstream,
         PlatformModels {
-            jev: Some("jev-latest".into()),
+            jev: vec!["jev-latest".into()],
             ..Default::default()
         },
         None,
@@ -3497,7 +3497,7 @@ async fn decision_peak_disabled_503_and_audit_log() {
         "gkpeak",
         "https://example.invalid",
         PlatformModels {
-            jev: Some("jev-latest".into()),
+            jev: vec!["jev-latest".into()],
             ..Default::default()
         },
         None,
@@ -4172,7 +4172,7 @@ async fn setup_embedding_group(
     let plats: Vec<_> = plats
         .iter()
         .map(|(b, slot, p, n)| {
-            (*b, PlatformModels { embedding: slot.map(String::from), ..Default::default() }, p.clone(), *n)
+            (*b, PlatformModels { embedding: slot.map(String::from).into_iter().collect(), ..Default::default() }, p.clone(), *n)
         })
         .collect();
     setup_aux_group(state, gk, &plats).await;
@@ -4402,7 +4402,7 @@ const RR_COHERE: &str = r#"{"id":"x","results":[{"index":0,"relevance_score":0.5
 const RR_COHERE_NO_UNITS: &str = r#"{"id":"x","results":[],"meta":{"billed_units":{}}}"#;
 
 fn rerank_slot(v: &str) -> PlatformModels {
-    PlatformModels { rerank: Some(v.into()), ..Default::default() }
+    PlatformModels { rerank: vec![v.into()], ..Default::default() }
 }
 
 fn rerank_entry(price: &str) -> ModelEntry {
@@ -4490,7 +4490,7 @@ async fn rerank_no_candidate_503_and_audit_log() {
     let (db, _dir) = aidog_db::test_support::three_file_db().await;
     let state = make_state(db).await;
     let (up, hits) = spawn_embedding_upstream(vec![]).await;
-    let emb_only = PlatformModels { embedding: Some("emb".into()), ..Default::default() };
+    let emb_only = PlatformModels { embedding: vec!["emb".into()], ..Default::default() };
     setup_aux_group(&state, "gkq1", &[(&up, PlatformModels::default(), Protocol::OpenAI, "a")]).await;
     setup_aux_group(&state, "gkq2", &[(&up, rerank_slot("rr"), Protocol::Anthropic, "a")]).await;
     setup_aux_group(&state, "gkq3", &[(&up, emb_only, Protocol::OpenAI, "a")]).await;
@@ -4514,8 +4514,8 @@ async fn embedding_and_rerank_slots_do_not_cross() {
     let (up, hits) = spawn_embedding_upstream(vec![(200, EMB_RESPONSE), (200, RR_JINA)]).await;
     let state = make_state(test_db().await).await;
     let both = PlatformModels {
-        embedding: Some("emb-slot".into()),
-        rerank: Some("rr-slot".into()),
+        embedding: vec!["emb-slot".into()],
+        rerank: vec!["rr-slot".into()],
         ..Default::default()
     };
     setup_aux_group(&state, "gkboth", &[(&up, both, Protocol::OpenAI, "a")]).await;
@@ -4861,8 +4861,8 @@ async fn whitelist_constrains_aux_and_decision_routes() {
     let (up, hits) = spawn_embedding_upstream(vec![(200, EMB_RESPONSE)]).await;
     let state = make_state(test_db().await).await;
     let both = PlatformModels {
-        embedding: Some("emb-slot".into()),
-        rerank: Some("rr-slot".into()),
+        embedding: vec!["emb-slot".into()],
+        rerank: vec!["rr-slot".into()],
         ..Default::default()
     };
     setup_aux_group(&state, "gkaux", &[(&up, both, Protocol::OpenAI, "wa")]).await;
@@ -4876,7 +4876,7 @@ async fn whitelist_constrains_aux_and_decision_routes() {
     assert!(hits.lock().unwrap().is_empty(), "不得打到上游");
 
     let (dup, _) = spawn_decision_upstream(vec![(200, OR_RESPONSE)]).await;
-    let jev = PlatformModels { jev: Some("jev-latest".into()), ..Default::default() };
+    let jev = PlatformModels { jev: vec!["jev-latest".into()], ..Default::default() };
     setup_decision_group(&state, "gkaux-dec", &dup, jev, None, Protocol::TypeSafe).await;
     set_platform_extra(&state, "stub-gkaux-dec", WL_CC_EXTRA).await;
     let resp = handle_proxy(AxumState(state.clone()), decision_request("gkaux-dec", "whatever")).await;

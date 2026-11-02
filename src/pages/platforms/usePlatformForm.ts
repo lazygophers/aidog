@@ -34,6 +34,7 @@ import { useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";
 import { getPrimaryBaseUrl } from "./usePlatformQuota";
 import { usePlatformTimeModels } from "./usePlatformTimeModels";
 import { QUOTA_CUSTOM_VARIANT } from "./formSections";
+import { slotsToForm } from "../../domains/platforms/slotValue";
 import { applyPaste as applyPasteImpl, runBatchCreateFromPaste as runBatchCreateFromPasteImpl, previewBatchNames, type PlatformPasteCtx } from "./platformPasteApply";
 
 /** owner（usePlatformsState）注入的 list 侧依赖。所有 form handler 需要的 list state/setters 走此通道。 */
@@ -155,7 +156,7 @@ export interface PlatformFormState {
   handleModelSelect: (slot: ModelSlot, value: string) => void;
   handleFetchModels: () => Promise<void>;
   handleFillAll: () => void;
-  buildModelsPayload: () => Record<string, string | undefined> | undefined;
+  buildModelsPayload: () => Record<string, string[] | undefined> | undefined;
   handleSave: () => Promise<void>;
   handleViewLogs: (p: Platform) => void;
   applyPaste: (r: SmartPasteApplyResult) => Promise<void>;
@@ -387,16 +388,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     // 检测 endpoints 中是否有 coding_plan
     const hasCodingPlan = (p.endpoints || []).some(ep => ep.coding_plan);
     setCodingPlan(hasCodingPlan);
-    setModels({
-      default: p.models.default ?? "",
-      sonnet: p.models.sonnet ?? "",
-      opus: p.models.opus ?? "",
-      haiku: p.models.haiku ?? "",
-      gpt: p.models.gpt ?? "",
-      jev: p.models.jev ?? "",
-      embedding: p.models.embedding ?? "",
-      rerank: p.models.rerank ?? "",
-    });
+    setModels(slotsToForm(p.models));
     setAvailableModels(p.available_models ?? []);
     // 透传平台保存侧允许 endpoints 空、只落顶层 base_url；编辑时回填进 endpoints[0]，
     // 否则表单 Base URL 输入框（绑定 endpoints[0]?.base_url）显示为空（票 02）。
@@ -459,16 +451,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setName(p.name); setProtocol(p.platform_type); setApiKey(p.api_key);
     const hasCodingPlan = (p.endpoints || []).some(ep => ep.coding_plan);
     setCodingPlan(hasCodingPlan);
-    setModels({
-      default: p.models.default ?? "",
-      sonnet: p.models.sonnet ?? "",
-      opus: p.models.opus ?? "",
-      haiku: p.models.haiku ?? "",
-      gpt: p.models.gpt ?? "",
-      jev: p.models.jev ?? "",
-      embedding: p.models.embedding ?? "",
-      rerank: p.models.rerank ?? "",
-    });
+    setModels(slotsToForm(p.models));
     setAvailableModels(p.available_models ?? []);
     setEndpoints(p.endpoints ?? []);
     setEditing(null); setShowForm(true); setFetchError(""); setSaveError("");
@@ -611,11 +594,11 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   };
 
   const buildModelsPayload = () => {
-    const result: Record<string, string | undefined> = {};
+    const result: Record<string, string[] | undefined> = {};
     let hasAny = false;
     for (const slot of MODEL_SLOTS) {
       const v = models[slot.key].trim();
-      if (v) { result[slot.key] = v; hasAny = true; }
+      if (v) { result[slot.key] = [v]; hasAny = true; }
       else { result[slot.key] = undefined; }
     }
     return hasAny ? result : undefined;

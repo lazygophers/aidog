@@ -18,7 +18,7 @@ pub(crate) fn resolve_model_with_via(
     // Strip Claude Code budget suffix like [1m], [128k]
     let base_model = source_model.split('[').next().unwrap_or(source_model);
     let lower = base_model.to_lowercase();
-    let slots: [(&str, &Option<String>, ModelVia); 4] = [
+    let slots: [(&str, &Vec<String>, ModelVia); 4] = [
         ("opus", &models.opus, ModelVia::SlotOpus),
         ("sonnet", &models.sonnet, ModelVia::SlotSonnet),
         ("haiku", &models.haiku, ModelVia::SlotHaiku),

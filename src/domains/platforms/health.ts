@@ -1,6 +1,7 @@
 import type { Platform, PlatformQuota, ManualBudget, ManualBudgetUnit, ManualBudgetKind } from "../../services/api";
 import { cycleMsForTier, codingTierLevel, type ColorLevel } from "../../components/shared";
 import { MODEL_SLOTS } from "./constants";
+import { slotList, type SlotValue } from "./slotValue";
 import { parseEstCodingPlan } from "./autoCategorize";
 import type { HealthStatus } from "./constants";
 import { balanceToUsd } from "../../utils/balanceCurrency";
@@ -54,14 +55,15 @@ export function deriveHealth(args: {
 }
 
 /** 从 PlatformModels 中提取所有非空值（去重） */
-export function allModelValues(models: Platform["models"]): string[] {
+export function allModelValues(models: Partial<Record<(typeof MODEL_SLOTS)[number]["key"], SlotValue>>): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
   for (const slot of MODEL_SLOTS) {
-    const v = models[slot.key];
-    if (v && !seen.has(v)) {
-      seen.add(v);
-      result.push(v);
+    for (const v of slotList(models[slot.key])) {
+      if (!seen.has(v)) {
+        seen.add(v);
+        result.push(v);
+      }
     }
   }
   return result;

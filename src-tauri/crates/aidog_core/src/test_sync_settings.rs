@@ -369,11 +369,11 @@ async fn group_max_context_window_ignores_haiku_and_gpt_slots() {
     let db = test_db().await;
 
     let pm = aidog_db::models::PlatformModels {
-        default: Some("glm-4.5".to_string()), // 131072
-        sonnet: Some("glm-4.6".to_string()),
-        opus: Some("glm-4.6".to_string()),
-        haiku: Some("deepseek-chat".to_string()), // 1048576，必须被忽略
-        gpt: Some("deepseek-chat".to_string()),   // 同上
+        default: vec!["glm-4.5".to_string()], // 131072
+        sonnet: vec!["glm-4.6".to_string()],
+        opus: vec!["glm-4.6".to_string()],
+        haiku: vec!["deepseek-chat".to_string()], // 1048576，必须被忽略
+        gpt: vec!["deepseek-chat".to_string()],   // 同上
         ..Default::default()
     };
 
@@ -421,8 +421,8 @@ async fn group_max_context_window_takes_widest_main_loop_model() {
     .unwrap();
 
     let pm = aidog_db::models::PlatformModels {
-        default: Some("fixture-narrow".to_string()), // 131072
-        opus: Some("fixture-wide".to_string()),      // 2097152
+        default: vec!["fixture-narrow".to_string()], // 131072
+        opus: vec!["fixture-wide".to_string()],      // 2097152
         ..Default::default()
     };
 
@@ -455,8 +455,8 @@ fn pi_models_union_group_mappings_and_platform_models_deduped() {
     let models = pi_model_candidates(
         &[mapping("claude-sonnet-5"), mapping("glm-4-plus")],
         &[PlatformModels {
-            default: Some("glm-4-plus".into()),
-            sonnet: Some("glm-4-air".into()),
+            default: vec!["glm-4-plus".into()],
+            sonnet: vec!["glm-4-air".into()],
             ..PlatformModels::default()
         }],
         &["should-not-be-used".to_string()],

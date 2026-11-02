@@ -204,15 +204,15 @@ export function extractModels(provider: CcProvider): PlatformModels {
     const main = env.ANTHROPIC_MODEL;
     // 优先把 ANTHROPIC_MODEL 当主模型；若同时有 default slot 语义，归 default。
     return {
-      default: main || undefined,
-      haiku: env.ANTHROPIC_DEFAULT_HAIKU_MODEL || undefined,
-      sonnet: env.ANTHROPIC_DEFAULT_SONNET_MODEL || undefined,
-      opus: env.ANTHROPIC_DEFAULT_OPUS_MODEL || undefined,
+      default: main ? [main] : undefined,
+      haiku: env.ANTHROPIC_DEFAULT_HAIKU_MODEL ? [env.ANTHROPIC_DEFAULT_HAIKU_MODEL] : undefined,
+      sonnet: env.ANTHROPIC_DEFAULT_SONNET_MODEL ? [env.ANTHROPIC_DEFAULT_SONNET_MODEL] : undefined,
+      opus: env.ANTHROPIC_DEFAULT_OPUS_MODEL ? [env.ANTHROPIC_DEFAULT_OPUS_MODEL] : undefined,
     };
   }
   if (provider.appType === "codex") {
     const model = provider.codexConfigParsed?.model;
-    return { default: model || undefined };
+    return { default: model ? [model] : undefined };
   }
   return {};
 }

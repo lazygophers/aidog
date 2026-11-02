@@ -1144,6 +1144,8 @@ mod test_mod;
 #[cfg(test)]
 mod test_flow_migration;
 #[cfg(test)]
+mod test_models_list_migration;
+#[cfg(test)]
 mod test_model_entry;
 #[cfg(test)]
 mod test_platform;

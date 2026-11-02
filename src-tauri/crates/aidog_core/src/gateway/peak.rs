@@ -390,8 +390,8 @@ mod tests {
         assert_eq!(w.len(), 1);
         assert_eq!(w[0].multiplier, 3.0);
         assert_eq!(
-            peak_models_in(&synced, "anthropic").and_then(|m| m.default),
-            Some("claude-peak".to_string())
+            peak_models_in(&synced, "anthropic").map(|m| m.default),
+            Some(vec!["claude-peak".to_string()])
         );
         // 未被 DB 覆盖的协议照旧走 bundled 值
         assert_eq!(
@@ -463,11 +463,11 @@ mod tests {
         // glm_coding preset 带 models.{default,peak} 双分支（PRD 07-11）
         let m = default_peak_models("glm_coding").expect("glm_coding preset has models.peak");
         // peak 分支值（platform-presets.json 真值，禁硬编码第二份 — 此处仅锁 schema 解析正确）
-        assert_eq!(m.default.as_deref(), Some("glm-5.3-flash"));
-        assert_eq!(m.opus.as_deref(), Some("glm-5.3-flash"));
-        assert_eq!(m.sonnet.as_deref(), Some("glm-5.3-flash"));
-        assert_eq!(m.gpt.as_deref(), Some("glm-5.3-flash"));
-        assert_eq!(m.haiku.as_deref(), Some("glm-5.3-flash"));
+        assert_eq!(m.default, vec!["glm-5.3-flash"]);
+        assert_eq!(m.opus, vec!["glm-5.3-flash"]);
+        assert_eq!(m.sonnet, vec!["glm-5.3-flash"]);
+        assert_eq!(m.gpt, vec!["glm-5.3-flash"]);
+        assert_eq!(m.haiku, vec!["glm-5.3-flash"]);
     }
 
     #[test]

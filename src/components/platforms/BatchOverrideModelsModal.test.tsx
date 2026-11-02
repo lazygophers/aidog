@@ -33,7 +33,7 @@ describe("BatchOverrideModelsModal jev slot", () => {
     expect(confirm.disabled).toBe(false);
     fireEvent.click(confirm);
     expect(onConfirm).toHaveBeenCalledWith({
-      default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "jev-latest", embedding: "", rerank: "",
+      jev: ["jev-latest"],
     });
   });
 
@@ -51,7 +51,7 @@ describe("BatchOverrideModelsModal jev slot", () => {
     expect(confirm.disabled).toBe(false);
     fireEvent.click(confirm);
     expect(onConfirm).toHaveBeenCalledWith({
-      default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "", embedding: "emb-1", rerank: "rr-1",
+      embedding: ["emb-1"], rerank: ["rr-1"],
     });
   });
 });

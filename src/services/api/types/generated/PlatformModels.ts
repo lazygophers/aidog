@@ -6,16 +6,16 @@
  * embedding / rerank 只读 `platform.models`，**不读** `effective_models`：time_windows 命中与 preset
  * `models.peak` 命中都是整支替换为不含新槽位的 `PlatformModels`，故两槽天然不参与时段/高峰切换。
  */
-export type PlatformModels = { default?: string, sonnet?: string, opus?: string, haiku?: string, gpt?: string, 
+export type PlatformModels = { default?: Array<string>, sonnet?: Array<string>, opus?: Array<string>, haiku?: Array<string>, gpt?: Array<string>, 
 /**
  * 决策模型槽（/v1/systemone 决策请求上游固定用此模型，jev-decision-proxy R8）
  */
-jev?: string, 
+jev?: Array<string>, 
 /**
  * 向量化模型槽（/v1/embeddings 专用路径上游固定用此模型）
  */
-embedding?: string, 
+embedding?: Array<string>, 
 /**
  * 重排序模型槽（/v1/rerank 专用路径上游固定用此模型）
  */
-rerank?: string, };
+rerank?: Array<string>, };
