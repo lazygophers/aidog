@@ -15,7 +15,6 @@ setGapSeparator,
   previewLevel,
   segColor,
   trayMoney,
-  segEarliestResetAt,
   remainingUntilReset,
   type SegmentOption,
 } from "./TrayConfigTab";
@@ -176,16 +175,26 @@ describe("previewValue 平台槽多指标", () => {
   });
 
   // 跨层 golden：与 Rust platform_metrics_use_display_currency 共读 tray_platform_golden.json。
-  it.each(platformGolden as Array<{ code: string; symbol: string; decimals: number; rate: number; balance: number; balance_ccy: string | null; cost: number; metrics: string[]; unit: string | null; expected: string }>)(
+  // reset 用例（带 now_local_h / ws_local_h）的 now 与 window_start 取「本地零点 + 小时偏移」，
+  // 与 Rust 侧同式推导：同一固定 now 注入（防秒边界抖动），绝对时间不随时区漂移。
+  it.each(platformGolden as Array<{ code: string; symbol: string; decimals: number; rate: number; balance: number; balance_ccy: string | null; cost: number; metrics: string[]; unit: string | null; ws_local_h?: number; now_local_h?: number; expected: string }>)(
     "多指标金额按显示币种（对拍 Rust）$expected",
     (c) => {
       const cur = mk(c.code, c.symbol, c.decimals, c.rate);
       setDisplayCurrency({ ...USD_DISPLAY, table: [{ code: c.code, symbol: c.symbol, decimals: c.decimals, default_rate: c.rate, rate: c.rate }] } as never);
       setBalanceCurrencies(c.balance_ccy ? { "7": c.balance_ccy } : {});
-      const p = { ...(plat as object), est_balance_remaining: c.balance } as Platform;
+      const midnight = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })();
+      const hasReset = c.ws_local_h != null && c.now_local_h != null;
+      const p = {
+        ...(plat as object),
+        est_balance_remaining: c.balance,
+        ...(hasReset
+          ? { est_coding_plan: JSON.stringify({ tiers: [{ name: "five_hour", est_utilization: 25, window_start: midnight + c.ws_local_h! * 3_600_000 }] }) }
+          : {}),
+      } as Platform;
       const st = { tokens: 0, cache_rate: 0, cost: c.cost, total_requests: 0 } as TodayStats;
       const it = platformItem({ metrics: c.metrics, ...(c.unit ? { unit: c.unit } : {}) });
-      expect(previewValue(it, [p], st, null, cur)).toBe(c.expected);
+      expect(previewValue(it, [p], st, null, cur, hasReset ? midnight + c.now_local_h! * 3_600_000 : undefined, tInterp)).toBe(c.expected);
       setBalanceCurrencies({});
       setDisplayCurrency(USD_DISPLAY);
     },
@@ -918,7 +927,7 @@ describe("颜色 auto 模式", () => {
 const tInterp = ((key: string, fallback?: string, opts?: { n?: number }) =>
   (fallback ?? key).replace(/\{\{n\}\}/g, String(opts?.n))) as never;
 
-describe("remainingUntilReset / segEarliestResetAt", () => {
+describe("remainingUntilReset", () => {
   const now = 1_800_000_000_000;
 
   it("相对剩余时间：天 / 小时 / 分钟各取 ceil，i18n 走 t", () => {
@@ -931,18 +940,5 @@ describe("remainingUntilReset / segEarliestResetAt", () => {
     expect(remainingUntilReset(null, now, tInterp)).toBe(null);
     expect(remainingUntilReset(now, now, tInterp)).toBe(null);
     expect(remainingUntilReset(now - 1, now, tInterp)).toBe(null);
-  });
-
-  it("segEarliestResetAt：取段内 reset_time 指标最早重置时刻；无 reset_time / 非平台段 / 数据缺失 → null", () => {
-    const ws = now - 3_600_000; // five_hour 窗口起点 → reset = ws + 5h
-    const p = {
-      id: 7,
-      est_coding_plan: JSON.stringify({ tiers: [{ name: "five_hour", est_utilization: 25, window_start: ws }] }),
-    } as unknown as Platform;
-    expect(segEarliestResetAt(platformItem({ metrics: ["coding:five_hour", "reset_time:five_hour"] }), [p])).toBe(ws + 5 * 3_600_000);
-    expect(segEarliestResetAt(platformItem({ metrics: ["coding:five_hour"] }), [p])).toBe(null);
-    expect(segEarliestResetAt(platformItem({ metrics: ["reset_time:weekly_limit"] }), [p])).toBe(null); // 无 window_start
-    expect(segEarliestResetAt(item({ metric: "cost" }), [p])).toBe(null);
-    expect(segEarliestResetAt(platformItem({ metrics: ["reset_time:five_hour"] }), [])).toBe(null);
   });
 });

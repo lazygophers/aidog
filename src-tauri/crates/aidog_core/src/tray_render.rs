@@ -620,48 +620,14 @@ pub(crate) fn platform_item_value(
     plat_today: Option<&aidog_stats::TodayPlatformStat>,
     cur: &db::currency::DisplayCurrency,
     balance_ccy: Option<&str>,
+    now_ms: i64,
 ) -> String {
     let Some(metrics) = item.metrics.as_deref().filter(|m| !m.is_empty()) else {
         return platform_item_parts(platform, &item.display, cur, balance_ccy).1;
     };
-    let plan = gateway::estimate::EstCodingPlan::from_json(&platform.est_coding_plan);
-    let parts: Vec<String> = metrics
-        .iter()
-        .filter_map(|m| {
-            platform_metric_value(
-                platform,
-                m,
-                &plan,
-                item,
-                plat_today,
-                cur,
-                balance_ccy,
-            )
-        })
-        .collect();
-    if parts.is_empty() {
-        "—".to_string()
-    } else {
-        parts.join(METRIC_SEP)
-    }
-}
-
-/// 单指标取值；指标不可用（coding tier 缺失 / 未知 token）→ None 跳过。
-/// unit 非空替换默认单位标记（$ 前缀去掉、" tok" 后缀替换）；coding 的 % 固有不受 unit 影响。
-fn platform_metric_value(
-    platform: &Platform,
-    metric: &str,
-    plan: &gateway::estimate::EstCodingPlan,
-    item: &TrayItem,
-    plat_today: Option<&aidog_stats::TodayPlatformStat>,
-    cur: &db::currency::DisplayCurrency,
-    balance_ccy: Option<&str>,
-) -> Option<String> {
     let unit = item.unit.as_deref().unwrap_or("");
     let decimals = item.decimals;
-    let pct_of = |t: &gateway::estimate::EstTier| {
-        Some(format!("{:.0}%", (100.0 - t.est_utilization).max(0.0)))
-    };
+    let plan = gateway::estimate::EstCodingPlan::from_json(&platform.est_coding_plan);
     // usd 为 USD 金额：按显示币种换算；自定义单位替换币种符号、数值部分不变。
     let money = |usd: f64, default_d: u32| {
         let d = decimals.unwrap_or(default_d) as usize;
@@ -671,36 +637,52 @@ fn platform_metric_value(
             format!("{}{unit}", tray_money_num(usd, cur, d))
         }
     };
-    match metric {
-        "balance" => Some(money(
-            cur.balance_to_usd(platform.est_balance_remaining, balance_ccy),
-            2,
-        )),
-        "coding" => pct_of(plan.tiers.first()?),
-        m if m.starts_with("coding:") => {
-            let name = &m["coding:".len()..];
-            pct_of(plan.tiers.iter().find(|t| t.name == name)?)
-        }
-        "today_cost" => Some(money(plat_today.map(|s| s.cost).unwrap_or(0.0), 5)),
-        "today_tokens" => {
-            let tokens = plat_today.map(|s| s.tokens).unwrap_or(0);
-            Some(if unit.is_empty() {
-                format!("{tokens} tok")
-            } else {
-                format!("{tokens}{unit}")
-            })
-        }
-        m if m.starts_with("reset_time:") => {
-            // 重置时刻 = window_start + cycle（与 algo.rs remain 推算同式）；cycle 未知 / 无起点 → 跳过。
-            let name = &m["reset_time:".len()..];
-            let tier = plan.tiers.iter().find(|t| t.name == name)?;
-            let cycle = gateway::usage_color::cycle_ms_for_tier(&tier.name)?;
-            if tier.window_start <= 0 {
-                return None;
+    let pct_of = |t: &gateway::estimate::EstTier| {
+        Some(format!("{:.0}%", (100.0 - t.est_utilization).max(0.0)))
+    };
+    let parts: Vec<String> = metrics
+        .iter()
+        .filter_map(|metric| match metric.as_str() {
+            "balance" => Some(money(
+                cur.balance_to_usd(platform.est_balance_remaining, balance_ccy),
+                2,
+            )),
+            "coding" => pct_of(plan.tiers.first()?),
+            m if m.starts_with("coding:") => {
+                let name = &m["coding:".len()..];
+                pct_of(plan.tiers.iter().find(|t| t.name == name)?)
             }
-            Some(format_reset_time(tier.window_start + cycle))
-        }
-        _ => None,
+            "today_cost" => Some(money(plat_today.map(|s| s.cost).unwrap_or(0.0), 5)),
+            "today_tokens" => {
+                let tokens = plat_today.map(|s| s.tokens).unwrap_or(0);
+                Some(if unit.is_empty() {
+                    format!("{tokens} tok")
+                } else {
+                    format!("{tokens}{unit}")
+                })
+            }
+            m if m.starts_with("reset_time:") => {
+                // 重置时刻 = window_start + cycle（与 algo.rs remain 推算同式）；cycle 未知 / 无起点 → 跳过。
+                let name = &m["reset_time:".len()..];
+                let tier = plan.tiers.iter().find(|t| t.name == name)?;
+                let cycle = gateway::usage_color::cycle_ms_for_tier(&tier.name)?;
+                if tier.window_start <= 0 {
+                    return None;
+                }
+                let reset = tier.window_start + cycle;
+                let abs = format_reset_time(reset, now_ms);
+                match remaining_until_reset(reset, now_ms) {
+                    Some(rel) => Some(format!("{abs} · {rel}")),
+                    None => Some(abs),
+                }
+            }
+            _ => None,
+        })
+        .collect();
+    if parts.is_empty() {
+        "—".to_string()
+    } else {
+        parts.join(METRIC_SEP)
     }
 }
 
@@ -750,18 +732,39 @@ pub(crate) fn platform_item_level(
 }
 
 /// 重置时刻本地时区展示：今天内 `HH:mm`，跨天 `MM-dd HH:mm`。
-fn format_reset_time(reset_ms: i64) -> String {
+fn format_reset_time(reset_ms: i64, now_ms: i64) -> String {
     use chrono::TimeZone;
     let local = chrono::Local;
     let dt = match local.timestamp_millis_opt(reset_ms).single() {
         Some(dt) => dt,
         None => return "—".to_string(),
     };
-    if dt.date_naive() == chrono::Local::now().date_naive() {
+    let now = match local.timestamp_millis_opt(now_ms).single() {
+        Some(n) => n,
+        None => return "—".to_string(),
+    };
+    if dt.date_naive() == now.date_naive() {
         dt.format("%H:%M").to_string()
     } else {
         dt.format("%m-%d %H:%M").to_string()
     }
+}
+
+/// 重置相对剩余时间文案（与前端 `remainingUntilReset` 同语义：分钟/小时/天逐级 ceil，过期 → None）。
+/// 托盘标签无 i18n（「命中」「高峰」同机制），硬编码中文，与前端 zh-Hans fallback 逐字一致。
+fn remaining_until_reset(reset_ms: i64, now_ms: i64) -> Option<String> {
+    let min = (reset_ms - now_ms + 59_999) / 60_000;
+    if min <= 0 {
+        return None;
+    }
+    if min < 60 {
+        return Some(format!("{min} 分钟后重置"));
+    }
+    let hr = (min + 59) / 60;
+    if hr < 24 {
+        return Some(format!("{hr} 小时后重置"));
+    }
+    Some(format!("{} 天后重置", (hr + 23) / 24))
 }
 
 /// 「当前命中平台」段的（名, 值）：名固定为「命中」，值为平台名；无转发记录 → "—"。
@@ -918,6 +921,7 @@ pub(crate) async fn tray_layout_with_stats(
                     today_by_pid.get(&pid),
                     &currency,
                     balance_ccys.get(&pid).map(String::as_str),
+                    now_ms,
                 );
                 if item.color.mode == "auto" {
                     // 与 platform_list / group-info 同式：余额 / 动态窗口日速率 / 24。

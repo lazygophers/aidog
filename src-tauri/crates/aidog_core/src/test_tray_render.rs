@@ -417,12 +417,12 @@ fn platform_metrics_legacy_config_unchanged_without_metrics() {
     let plan = r#"{"tiers":[{"name":"five_hour","est_utilization":10.0}]}"#;
     let p = platform(99.0, plan);
     let item = item_json(json!({"item_type": "platform", "platform_id": 1, "display": "balance"}));
-    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None), "90%");
+    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None, NOW), "90%");
     let item = item_json(json!({"item_type": "platform", "platform_id": 1, "display": "coding"}));
-    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None), "90%");
+    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None, NOW), "90%");
     let empty_metrics =
         item_json(json!({"item_type": "platform", "platform_id": 1, "display": "balance", "metrics": []}));
-    assert_eq!(super::platform_item_value(&p, &empty_metrics, None, &usd(), None), "90%");
+    assert_eq!(super::platform_item_value(&p, &empty_metrics, None, &usd(), None, NOW), "90%");
 }
 
 #[test]
@@ -434,7 +434,7 @@ fn platform_metrics_join_with_separator() {
     }));
     // 无 per-platform today 数据 → today 两项落 0 值默认单位。
     assert_eq!(
-        super::platform_item_value(&p, &item, None, &usd(), None),
+        super::platform_item_value(&p, &item, None, &usd(), None, NOW),
         "$10.1 · $0 · 0 tok"
     );
 }
@@ -476,12 +476,12 @@ fn platform_metrics_unit_and_decimals() {
         "metrics": ["balance", "today_cost"], "unit": " U", "decimals": 3,
     }));
     // unit 非空：$ 前缀去掉、单位作后缀；decimals 是裁尾零的上限（与 today_usage cost 同语义）。
-    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None), "10.1 U · 0 U");
+    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None, NOW), "10.1 U · 0 U");
     let tok = item_json(json!({
         "item_type": "platform", "platform_id": 1,
         "metrics": ["today_tokens"], "unit": "k",
     }));
-    assert_eq!(super::platform_item_value(&p, &tok, None, &usd(), None), "0k");
+    assert_eq!(super::platform_item_value(&p, &tok, None, &usd(), None, NOW), "0k");
 }
 
 #[test]
@@ -497,14 +497,14 @@ fn platform_metrics_coding_window_tiers() {
         "metrics": ["balance", "coding:weekly_limit", "coding:five_hour", "coding:nope"],
     }));
     assert_eq!(
-        super::platform_item_value(&p, &item, None, &usd(), None),
+        super::platform_item_value(&p, &item, None, &usd(), None, NOW),
         "$0 · 50% · 75%"
     );
     // 全部指标不可用 → "—"。
     let item = item_json(json!({
         "item_type": "platform", "platform_id": 1, "metrics": ["coding:nope"],
     }));
-    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None), "—");
+    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None, NOW), "—");
 }
 
 #[test]
@@ -522,7 +522,7 @@ fn platform_metrics_today_values_from_prefetched_stat() {
         "metrics": ["today_cost", "today_tokens"],
     }));
     assert_eq!(
-        super::platform_item_value(&p, &item, Some(&stat), &usd(), None),
+        super::platform_item_value(&p, &item, Some(&stat), &usd(), None, NOW),
         "$0.5 · 1234 tok"
     );
 }
@@ -530,7 +530,7 @@ fn platform_metrics_today_values_from_prefetched_stat() {
 #[test]
 fn platform_metrics_reset_time_known_tier() {
     use chrono::TimeZone;
-    // 今天本地 10:00 起点 + five_hour(5h) cycle → 15:00 今天 → "HH:mm"。
+    // 今天本地 10:00 起点 + five_hour(5h) cycle → 15:00 今天 → "HH:mm"，now=起点 → 5 小时后重置。
     let today = chrono::Local::now().date_naive();
     let start = chrono::Local
         .from_local_datetime(&today.and_hms_opt(10, 0, 0).unwrap())
@@ -545,7 +545,10 @@ fn platform_metrics_reset_time_known_tier() {
         "item_type": "platform", "platform_id": 1,
         "metrics": ["reset_time:five_hour"],
     }));
-    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None), "15:00");
+    assert_eq!(
+        super::platform_item_value(&p, &item, None, &usd(), None, start),
+        "15:00 · 5 小时后重置"
+    );
 }
 
 #[test]
@@ -560,16 +563,62 @@ fn platform_metrics_reset_time_skips_unusable_tiers() {
         "item_type": "platform", "platform_id": 1,
         "metrics": ["reset_time:five_hour", "reset_time:mystery"],
     }));
-    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None), "—");
+    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None, NOW), "—");
 }
 
-/// 跨层 golden：与前端 TrayConfigTab.test.tsx 共读 tray_platform_golden.json（多指标 / 余额币种 / unit）。
+// ─── 重置相对剩余时间（纯函数，now 注入防秒边界抖动；与前端 remainingUntilReset 同语义）───
+
+#[test]
+fn remaining_until_reset_ceil_boundaries() {
+    // 90s → ceil 2 分钟；90min → ceil 2 小时；60min 整 → 1 小时（不落分钟档）
+    assert_eq!(super::remaining_until_reset(NOW + 90_000, NOW).as_deref(), Some("2 分钟后重置"));
+    assert_eq!(super::remaining_until_reset(NOW + 90 * 60_000, NOW).as_deref(), Some("2 小时后重置"));
+    assert_eq!(super::remaining_until_reset(NOW + 60 * 60_000, NOW).as_deref(), Some("1 小时后重置"));
+    assert_eq!(super::remaining_until_reset(NOW + 3 * HOUR, NOW).as_deref(), Some("3 小时后重置"));
+    // 25h → ceil 2 天；25min 不满 1 小时仍分钟档
+    assert_eq!(super::remaining_until_reset(NOW + 25 * HOUR, NOW).as_deref(), Some("2 天后重置"));
+    assert_eq!(super::remaining_until_reset(NOW + 25 * 60_000, NOW).as_deref(), Some("25 分钟后重置"));
+    // 3 天整 → 3 天
+    assert_eq!(
+        super::remaining_until_reset(NOW + 3 * 24 * HOUR, NOW).as_deref(),
+        Some("3 天后重置")
+    );
+}
+
+#[test]
+fn remaining_until_reset_expired_or_zero_is_none() {
+    assert_eq!(super::remaining_until_reset(NOW, NOW), None);
+    assert_eq!(super::remaining_until_reset(NOW - 1, NOW), None);
+}
+
+/// 跨层 golden：与前端 TrayConfigTab.test.tsx 共读 tray_platform_golden.json（多指标 / 余额币种 / unit / reset 相对时间）。
+/// reset 用例（带 now_local_h / ws_local_h）的 now 与 window_start 取「本地零点 + 小时偏移」，
+/// 两侧同式推导：同一固定 now 注入（防秒边界抖动），绝对时间不随时区漂移。
 #[test]
 fn platform_metrics_use_display_currency() {
+    use chrono::TimeZone;
     let cases: Vec<serde_json::Value> = serde_json::from_str(include_str!("testdata/tray_platform_golden.json")).unwrap();
-    assert_eq!(cases.len(), 3);
+    assert_eq!(cases.len(), 5);
+    let midnight = chrono::Local
+        .from_local_datetime(&chrono::Local::now().date_naive().and_hms_opt(0, 0, 0).unwrap())
+        .single()
+        .unwrap()
+        .timestamp_millis();
     for c in cases {
-        let p = platform(c["balance"].as_f64().unwrap(), "");
+        let (now_ms, plan) = match (
+            c.get("now_local_h").and_then(|v| v.as_i64()),
+            c.get("ws_local_h").and_then(|v| v.as_i64()),
+        ) {
+            (Some(nh), Some(wh)) => (
+                midnight + nh * HOUR,
+                format!(
+                    r#"{{"tiers":[{{"name":"five_hour","est_utilization":25.0,"window_start":{}}}]}}"#,
+                    midnight + wh * HOUR
+                ),
+            ),
+            _ => (0, String::new()),
+        };
+        let p = platform(c["balance"].as_f64().unwrap(), &plan);
         let stat = aidog_stats::TodayPlatformStat {
             platform_id: 1,
             platform_name: "Acme".to_string(),
@@ -582,7 +631,7 @@ fn platform_metrics_use_display_currency() {
             j["unit"] = json!(u);
         }
         let cu = cur(c["code"].as_str().unwrap(), Some(c["rate"].as_f64().unwrap()));
-        let got = super::platform_item_value(&p, &item_json(j), Some(&stat), &cu, c["balance_ccy"].as_str());
+        let got = super::platform_item_value(&p, &item_json(j), Some(&stat), &cu, c["balance_ccy"].as_str(), now_ms);
         assert_eq!(got, c["expected"].as_str().unwrap(), "{c}");
     }
 }
