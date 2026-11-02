@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import type { Platform, PlatformModels, Protocol, ModelSlot } from "../../services/api";
 import { MODEL_SLOTS } from "../../domains/platforms/constants";
-import { slotsToForm, formToSlots } from "../../domains/platforms/slotValue";
+import { slotsToText, textToSlots, slotList } from "../../domains/platforms/slotValue";
 import { getDefaultModels, buildProtocolsFromPresets } from "../../domains/platforms/defaults";
 import type { ProtocolOption } from "../../domains/platforms/constants";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,7 @@ type Source = "manual" | "preset" | "copy";
 
 const EMPTY_MODELS: Record<ModelSlot, string> = { default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "", embedding: "", rerank: "" };
 
-const normalize = slotsToForm;
+const normalize = slotsToText;
 
 export interface BatchOverrideModelsModalProps {
   open: boolean;
@@ -209,7 +209,7 @@ export function BatchOverrideModelsModal({
             }}>
               <div style={{ fontSize: 12.5, fontWeight: 600 }}>{p.name}</div>
               {MODEL_SLOTS.map(s => {
-                const cur = p.models?.[s.key] ?? "";
+                const cur = slotList(p.models?.[s.key]).join(", ");
                 const next = slots[s.key] ?? "";
                 const changed = cur !== next;
                 const empty = !cur && !next;
@@ -251,7 +251,7 @@ export function BatchOverrideModelsModal({
             {t("action.cancel", "取消")}
           </Button>
           <Button
-            onClick={() => onConfirm(formToSlots(slots))}
+            onClick={() => onConfirm(textToSlots(slots))}
             disabled={busy || allEmpty}
             title={allEmpty ? t("group.batchOverrideAllEmptyHint", "所有槽位为空，请至少填一个") : undefined}
           >

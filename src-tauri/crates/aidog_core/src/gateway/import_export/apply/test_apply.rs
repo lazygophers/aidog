@@ -425,3 +425,60 @@ async fn import_restores_credentials_on_new_db() {
     // 列值形态 = JSON 串包裹密文（`"enc1:…"`，与 set_setting / migrate 写入形态对称）。
     assert!(cc_raw.2.starts_with(&format!("\"{}", aidog_db::crypt::ENC_PREFIX)));
 }
+
+/// 读回 platform.models 原始列（走 platform 写连接，三文件库下错路由当场 no such table）。
+async fn raw_models_column(db: &aidog_db::Db) -> String {
+    db.platform_write_conn()
+        .call(|conn| Ok(conn.query_row("SELECT models FROM platform LIMIT 1", [], |r| r.get::<_, String>(0))?))
+        .await
+        .unwrap()
+}
+
+/// 票 08：导出为数组，往返一致。
+#[tokio::test]
+async fn export_models_as_arrays_and_roundtrip() {
+    let _h = HomeGuard::new();
+    let (src, _d1) = aidog_db::test_support::three_file_db().await;
+    let mut cp = sample_platform("pm");
+    cp.models = Some(aidog_db::PlatformModels {
+        default: vec!["a".into(), "b".into()],
+        haiku: vec!["h".into()],
+        ..Default::default()
+    });
+    aidog_db::create_platform(&src, cp).await.unwrap();
+    let payload = collect::collect(&src, &[SCOPE_PLATFORM.to_string()]).await.unwrap();
+    let m = &payload.platform[0]["models"];
+    assert_eq!(m["default"], serde_json::json!(["a", "b"]));
+    assert_eq!(m["haiku"], serde_json::json!(["h"]));
+
+    let (target, _d2) = aidog_db::test_support::three_file_db().await;
+    let report = apply(payload, &[], None, &target).await.unwrap();
+    assert!(report.errors.is_empty(), "errors: {:?}", report.errors);
+    let got = aidog_db::list_platforms(&target).await.unwrap().remove(0);
+    assert_eq!(got.models.default, vec!["a", "b"]);
+    assert_eq!(got.models.haiku, vec!["h"]);
+}
+
+/// 票 08：旧版导出串（models 为对象或 JSON 字符串，槽位单值）导入成功，落库规范化为数组。
+#[tokio::test]
+async fn legacy_single_value_models_import_normalizes() {
+    let _h = HomeGuard::new();
+    for legacy in [
+        serde_json::json!({"default": "x", "sonnet": " y "}),
+        serde_json::json!(r#"{"default":"x","sonnet":" y "}"#),
+    ] {
+        let (target, _d) = aidog_db::test_support::three_file_db().await;
+        let mut payload = empty_payload(vec![SCOPE_PLATFORM.to_string()]);
+        payload.platform = vec![serde_json::json!({
+            "name": "old", "platform_type": "anthropic", "base_url": "https://a.example.com",
+            "api_key": "k", "models": legacy,
+        })];
+        let report = apply(payload, &[], None, &target).await.unwrap();
+        assert!(report.errors.is_empty(), "errors: {:?}", report.errors);
+        let got = aidog_db::list_platforms(&target).await.unwrap().remove(0);
+        assert_eq!(got.models.default, vec!["x"]);
+        assert_eq!(got.models.sonnet, vec!["y"]);
+        let raw: serde_json::Value = serde_json::from_str(&raw_models_column(&target).await).unwrap();
+        assert_eq!(raw["default"], serde_json::json!(["x"]));
+    }
+}
