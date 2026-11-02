@@ -1,7 +1,7 @@
 // Stats 四 tab（#37 T7）纯函数单测：时间序列宽表合并 / 时刻热力聚合 / bucket 本地时区解析 /
 // 配额快照 → 仪表盘数据（T10）。断言一律用 new Date(y, m, d, h, min) 同基准构造，不依赖跑测试机器的时区。
 import { describe, it, expect } from "vitest";
-import { bucketMs, buildTrendChartData, buildHeatCells, buildDimensionDayCells, buildQuotaGauges } from "./Stats";
+import { bucketMs, dimSortValue, buildTrendChartData, buildHeatCells, buildDimensionDayCells, buildQuotaGauges } from "./Stats";
 import type { StatsBucket, StatsSeries, QuotaSnapshot } from "../services/api";
 
 function bucket(tb: string, requests: number): StatsBucket {
@@ -25,6 +25,21 @@ describe("bucketMs", () => {
   });
   it("纯日期串补 T00:00:00 本地午夜（不被当 UTC）", () => {
     expect(bucketMs("2026-09-13")).toBe(new Date(2026, 8, 13).getTime());
+  });
+});
+
+describe("dimSortValue success_rate", () => {
+  const dim = (success_count: number, total_requests: number) => ({ success_count, total_requests }) as never;
+  it("按 success_count/total_requests 计算百分比", () => {
+    expect(dimSortValue(dim(9, 10), "success_rate")).toBeCloseTo(90);
+  });
+  it("请求数 0 → 0", () => {
+    expect(dimSortValue(dim(0, 0), "success_rate")).toBe(0);
+  });
+  it("升序按成功率而非成功数", () => {
+    const rows = [dim(50, 100), dim(9, 10), dim(1, 4)];
+    const asc = [...rows].sort((a, b) => dimSortValue(a, "success_rate") - dimSortValue(b, "success_rate"));
+    expect(asc.map(r => dimSortValue(r, "success_rate"))).toEqual([25, 50, 90]);
   });
 });
 
