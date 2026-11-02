@@ -106,12 +106,22 @@ describe("previewValue", () => {
 
 // 跨层 golden：与 Rust test_tray_render.rs 的 tray_money_golden_cases_match 共读同一份 tray_golden.json。
 describe("trayMoney（对拍 Rust tray_money）", () => {
-  it.each(golden as Array<{ code: string; symbol: string; decimals: number; rate: number; usd: number; d: number; expected: string }>)(
-    "$code $usd -> $expected",
+  it.each(golden as Array<{ code: string; symbol: string; decimals: number; rate: number; usd: number; d: number; unit?: string; pos?: string | null; expected: string }>)(
+    "$code $usd $unit $pos -> $expected",
     (c) => {
-      expect(trayMoney(c.usd, mk(c.code, c.symbol, c.decimals, c.rate), c.d)).toBe(c.expected);
+      expect(trayMoney(c.usd, mk(c.code, c.symbol, c.decimals, c.rate), c.d, c.unit, c.pos)).toBe(c.expected);
     },
   );
+
+  it("previewValue：今日花费 cost 段 unit / unit_position 与 Rust 同口径", () => {
+    const stats = { tokens: 0, cache_rate: 0, cost: 0.242857142857, total_requests: 0 } as TodayStats;
+    const cny = mk("CNY", "¥", 2, 7.0);
+    const p = (patch: Partial<TrayItem>) => previewValue(item({ metric: "cost", decimals: 2, ...patch }), [], stats, null, cny);
+    expect(p({})).toBe("¥1.7");
+    expect(p({ unit: "元" })).toBe("1.7元");
+    expect(p({ unit: "元", unit_position: "prefix" })).toBe("元1.7");
+    expect(p({ unit_position: "suffix" })).toBe("1.7¥");
+  });
 
   it("previewValue：花费 / 平台余额按显示币种，与 trayMoney 同口径", () => {
     const stats = { tokens: 0, cache_rate: 0, cost: 0.0123456, total_requests: 0 } as TodayStats;
@@ -530,6 +540,32 @@ describe("段编辑面板（票 03）", () => {
     fireEvent.change(view.getByTestId("tray-edit-unit"), { target: { value: "" } });
     sent = api.set.mock.calls[5][0];
     expect(sent.items.find((i: TrayItem) => segmentKey(i) === "platform:7").unit).toBeNull();
+  });
+
+  it("单位（票 04）：今日花费 cost 段露出 unit 与位置并持久化；非金额段两项位置都不露出", async () => {
+    const view = await openEditor();
+    expect(view.getByTestId("tray-edit-unit")).toBeTruthy();
+    fireEvent.click(view.getByTestId("tray-edit-unitpos-suffix"));
+    let sent = api.set.mock.calls[0][0];
+    expect(sent.items[0].unit_position).toBe("suffix");
+    expect(view.getByTestId("tray-edit-unitpos-suffix").getAttribute("data-state")).toBe("active");
+    fireEvent.click(view.getByTestId("tray-edit-unitpos-prefix"));
+    sent = api.set.mock.calls[1][0];
+    expect(sent.items[0].unit_position).toBe("prefix");
+    fireEvent.change(view.getByTestId("tray-edit-unit"), { target: { value: "元" } });
+    sent = api.set.mock.calls[2][0];
+    expect(sent.items[0].unit).toBe("元");
+  });
+
+  it("单位（票 04）：requests 段不露出位置项", async () => {
+    const view = await renderTab({
+      separator: "  ",
+      items: [item({ metric: "requests", line_mode: "single", align_row2: null, order: 0 })],
+    });
+    fireEvent.click(view.getByTestId("tray-slot-0"));
+    await waitFor(() => expect(view.getByTestId("tray-editor")).toBeTruthy());
+    expect(view.queryByTestId("tray-edit-unitpos-suffix")).toBeNull();
+    expect(view.queryByTestId("tray-edit-unit")).toBeNull();
   });
 
   it("点已装载槽打开编辑面板，露出全部七类字段控件", async () => {
