@@ -13,7 +13,7 @@ import {
   type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit,
   type DevinConfig, type PassthroughAuth, type SchedulingBreakerSettings, type GroupDetail,
 } from "../../services/api";
-import { rateLimitsSummary, clientCategoryState, toggleClientCategory, toggleClientVariant, type RateLimitsBundle, type QuotaWindowConfig, type ClientVocabCategory } from "../../services/api";
+import { rateLimitsSummary, clientCategoryState, toggleClientCategory, toggleClientVariant, validateClientUaRule, type ClientUaRule, type ClientUaRuleKind, type RateLimitsBundle, type QuotaWindowConfig, type ClientVocabCategory } from "../../services/api";
 import { Checkbox } from "@/components/ui/checkbox";
 import { newManualBudget, type TimeWindow, getDefaultPeak, getDefaultModelList, getDefaultPlanQuotas, type PlanQuotaTier, type QuotaScriptVariant, quotaVariantLabel } from "../../domains/platforms";
 import { isCurrentlyPeak, currentPeakMultiplier, utcToDisplay, displayToUtc, WINDOW_TIMEZONES, type TzMode } from "../../utils/timeWindow";
@@ -1770,26 +1770,31 @@ export function DirectModelsSection({ models, setModels, availableModels, protoc
 
 /** 客户端白名单：extra.allowed_clients。按词表大类分组，勾大类 = 允许其全部变体（子项联动、半选可见），
  *  清空 = 取消白名单（全放行）。路由拦截不在本组件（票 04）。 */
-export function ClientWhitelistSection({ vocab, selected, setSelected, t }: {
+export function ClientWhitelistSection({ vocab, selected, setSelected, uaRules, setUaRules, t }: {
   vocab: ClientVocabCategory[];
   selected: string[];
   setSelected: React.Dispatch<React.SetStateAction<string[]>>;
+  uaRules: ClientUaRule[];
+  setUaRules: React.Dispatch<React.SetStateAction<ClientUaRule[]>>;
   t: TFunction;
 }) {
+  const restricted = selected.length + uaRules.length;
+  const patchRule = (i: number, patch: Partial<ClientUaRule>) =>
+    setUaRules(prev => prev.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   return (
     <FormSection
       title={t("platform.client_whitelist", "客户端白名单")}
       desc={t("platform.client_whitelist_desc", "只允许勾选的客户端使用该平台；勾大类即允许其全部变体。未勾选任何项 = 不限制。配置后无法识别的客户端一律拒绝。")}
-      action={selected.length > 0 ? (
-        <Button variant="ghost" size="sm" data-testid="client-wl-clear" onClick={() => setSelected([])}>
+      action={restricted > 0 ? (
+        <Button variant="ghost" size="sm" data-testid="client-wl-clear" onClick={() => { setSelected([]); setUaRules([]); }}>
           {t("platform.client_whitelist_clear", "清空")}
         </Button>
       ) : undefined}
     >
       <div className="aidog-anim-rise" style={C.strip}>
-        <span style={C.pill(selected.length > 0 ? "ok" : "neutral")} data-testid="client-wl-count">
-          {selected.length > 0
-            ? t("platform.client_whitelist_count", "已限制 {{n}} 项", { n: selected.length })
+        <span style={C.pill(restricted > 0 ? "ok" : "neutral")} data-testid="client-wl-count">
+          {restricted > 0
+            ? t("platform.client_whitelist_count", "已限制 {{n}} 项", { n: restricted })
             : t("platform.client_whitelist_none", "不限制")}
         </span>
       </div>
@@ -1824,6 +1829,61 @@ export function ClientWhitelistSection({ vocab, selected, setSelected, t }: {
             </div>
           );
         })}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
+          {t("platform.client_ua_rules", "UA 规则")}
+        </div>
+        <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+          {t("platform.client_ua_rules_desc", "只对内置词表认不出的客户端生效，命中任一条即放行；内置认出的客户端只看上面的勾选。均不区分大小写。")}
+        </div>
+        {uaRules.map((r, i) => {
+          const err = validateClientUaRule(r);
+          return (
+            <div key={i} className={C.rowClass} style={C.row} data-testid={`client-ua-rule-${i}`} data-state={err ? "invalid" : "valid"}>
+              <select
+                className="input" style={{ fontSize: 12, width: 110, height: 28 }}
+                data-testid={`client-ua-rule-kind-${i}`}
+                value={r.kind}
+                onChange={e => patchRule(i, { kind: e.target.value as ClientUaRuleKind })}
+              >
+                <option value="contains">{t("platform.client_ua_rule_kind_contains", "包含")}</option>
+                <option value="prefix">{t("platform.client_ua_rule_kind_prefix", "开头是")}</option>
+                <option value="exact">{t("platform.client_ua_rule_kind_exact", "完全相等")}</option>
+                <option value="regex">{t("platform.client_ua_rule_kind_regex", "正则")}</option>
+              </select>
+              <Input
+                data-testid={`client-ua-rule-pattern-${i}`}
+                value={r.pattern}
+                placeholder={t("platform.client_ua_rule_placeholder", "UA 文本，如 openviking")}
+                aria-invalid={err ? true : undefined}
+                onChange={e => patchRule(i, { pattern: e.target.value })}
+                style={{ flex: 1, minWidth: 110, fontFamily: "var(--font-mono, monospace)", fontSize: 11, height: 28 }}
+              />
+              {err && (
+                <span style={{ fontSize: 11, color: "var(--danger, #c0392b)" }}>
+                  {err === "empty"
+                    ? t("platform.client_ua_rule_err_empty", "不能为空")
+                    : t("platform.client_ua_rule_err_regex", "正则不合法")}
+                </span>
+              )}
+              <Button
+                variant="ghost" size="icon" className="btn-danger" style={{ height: 28, width: 28 }}
+                data-testid={`client-ua-rule-remove-${i}`}
+                aria-label={t("platform.delete", "删除")}
+                onClick={() => setUaRules(prev => prev.filter((_, j) => j !== i))}
+              >×</Button>
+            </div>
+          );
+        })}
+        <div>
+          <Button
+            variant="ghost" size="sm" data-testid="client-ua-rule-add"
+            onClick={() => setUaRules(prev => [...prev, { kind: "contains", pattern: "" }])}
+          >
+            + {t("platform.client_ua_rule_add", "添加规则")}
+          </Button>
+        </div>
       </div>
     </FormSection>
   );

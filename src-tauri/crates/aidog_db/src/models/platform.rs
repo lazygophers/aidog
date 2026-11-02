@@ -443,6 +443,9 @@ pub struct PlatformExtra {
     /// 客户端白名单（客户端词表码，大类或变体可混合）；空 = 未配 = 全放行。
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_clients: Vec<String>,
+    /// 客户端白名单的 UA 规则：只对内置词表认不出的请求生效，命中即放行；空 = 未配。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub client_ua_rules: Vec<ClientUaRule>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub peak: Vec<crate::models::stats::TimeWindow>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -454,6 +457,60 @@ pub struct PlatformExtra {
     /// 未建模键（`_ui_*` 前端私有态 + 尚未收敛的业务键）往返保留，禁丢。
     #[serde(flatten)]
     pub rest: serde_json::Map<String, serde_json::Value>,
+}
+
+/// UA 规则匹配方式（均不区分大小写）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum UaRuleKind {
+    Contains,
+    Prefix,
+    Exact,
+    Regex,
+}
+
+/// `platform.extra.client_ua_rules` 的一条规则。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClientUaRule {
+    pub kind: UaRuleKind,
+    pub pattern: String,
+}
+
+/// 正则编译体积上限（字节）：与 `regex` 默认同量级，防超大模式吃内存。
+const UA_REGEX_SIZE_LIMIT: usize = 256 * 1024;
+
+/// UA 规则正则的唯一构建入口（保存校验与路由匹配共用）：不区分大小写 + 编译体积上限。
+/// `regex` crate 保证线性时间匹配（https://docs.rs/regex/latest/regex/#untrusted-input）。
+pub fn build_ua_regex(pattern: &str) -> Result<regex::Regex, String> {
+    regex::RegexBuilder::new(pattern)
+        .case_insensitive(true)
+        .size_limit(UA_REGEX_SIZE_LIMIT)
+        .build()
+        .map_err(|e| e.to_string())
+}
+
+/// 保存校验：`extra.client_ua_rules` 每条须是 `{kind, pattern}`，kind 在四种之内，
+/// pattern 非空（去空白后），regex 须能编译。无该键 = 通过。
+pub fn validate_client_ua_rules(extra: &str) -> Result<(), String> {
+    let Ok(root) = serde_json::from_str::<serde_json::Value>(extra.trim()) else {
+        return Ok(());
+    };
+    let Some(rules) = root.get("client_ua_rules") else {
+        return Ok(());
+    };
+    let arr = rules.as_array().ok_or("client_ua_rules must be an array")?;
+    for (i, r) in arr.iter().enumerate() {
+        let rule: ClientUaRule = serde_json::from_value(r.clone())
+            .map_err(|e| format!("client_ua_rules[{i}]: {e}"))?;
+        if rule.pattern.trim().is_empty() {
+            return Err(format!("client_ua_rules[{i}]: empty pattern"));
+        }
+        if rule.kind == UaRuleKind::Regex {
+            build_ua_regex(&rule.pattern)
+                .map_err(|e| format!("client_ua_rules[{i}]: invalid regex: {e}"))?;
+        }
+    }
+    Ok(())
 }
 
 impl PlatformExtra {
