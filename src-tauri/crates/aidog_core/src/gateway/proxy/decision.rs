@@ -31,7 +31,7 @@ pub(crate) fn kind_route_error_message(e: &str) -> String {
 /// 按请求类型 route fail 落库（R7，聊天 / 决策两路径共用）：`blocked_by='router'`、`est_cost=0`。
 /// - `peak_disabled`（整组被高峰禁用排除）→ 503 + `blocked_reason='peak'`；
 /// - `client_not_allowed`（全部候选被客户端白名单拦）→ 417 + `blocked_reason='client_not_allowed'`；
-///   `client_not_allowed_mixed`（白名单与其他排除原因并存）→ 503，同 blocked_reason；
+///   `client_not_allowed_mixed`（白名单与其他排除原因并存）→ 503 + `blocked_reason='client_not_allowed_mixed'`；
 /// - `unknown_protocol`（整组候选皆未知协议，票 06）→ 503 + `blocked_reason='unknown_protocol'`；
 /// - `direct_model_unavailable`（声明直通模型的平台全不可用）→ 503 + `blocked_reason='direct_model_unavailable'`；
 /// - 其余（`no_decision_platform` / `no_chat_platform` …）→ 400 + `blocked_reason`=Err 字符串。
@@ -63,8 +63,8 @@ pub(crate) async fn route_fail_response(
             format!("{}: {err}", i18n::t(lang, ErrorKey::Route)),
         )
     } else if err == "client_not_allowed" || err == "client_not_allowed_mixed" {
-        // 客户端白名单：全部候选被拦 → 417；与其他排除原因并存 → 503。落库 blocked_reason 同为 client_not_allowed。
-        log.blocked_reason = "client_not_allowed".to_string();
+        // 客户端白名单：全部候选被拦 → 417 + client_not_allowed；与其他排除原因并存 → 503 + client_not_allowed_mixed。
+        log.blocked_reason = err.to_string();
         let (status, msg) = if err == "client_not_allowed" {
             (StatusCode::EXPECTATION_FAILED, "client not allowed: no platform in this group accepts this client")
         } else {

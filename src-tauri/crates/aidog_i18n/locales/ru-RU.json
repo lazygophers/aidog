@@ -1279,6 +1279,7 @@
   "logs.blockedRateLimit": "Лимит",
   "logs.blockedPeak": "Отключён в пик",
   "logs.blockedClientNotAllowed": "Клиент не разрешён",
+  "logs.blockedClientNotAllowedMixed": "Клиент не разрешён (смешанно)",
   "logs.blockedObserve": "Наблюдение",
   "logs.blockedBy": "Заблокировано",
   "platform.add": "Добавить",

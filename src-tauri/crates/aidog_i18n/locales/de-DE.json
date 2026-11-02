@@ -1279,6 +1279,7 @@
   "logs.blockedRateLimit": "Begrenzt",
   "logs.blockedPeak": "Sperrzeit",
   "logs.blockedClientNotAllowed": "Client nicht erlaubt",
+  "logs.blockedClientNotAllowedMixed": "Client nicht erlaubt (gemischt)",
   "logs.blockedObserve": "Beobachtet",
   "logs.blockedBy": "Blockiert",
   "platform.add": "Hinzufügen",

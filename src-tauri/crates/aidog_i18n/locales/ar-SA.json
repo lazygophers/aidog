@@ -1279,6 +1279,7 @@
   "logs.blockedRateLimit": "محدود المعدل",
   "logs.blockedPeak": "معطّل بالذروة",
   "logs.blockedClientNotAllowed": "العميل غير مسموح",
+  "logs.blockedClientNotAllowedMixed": "العميل غير مسموح (مختلط)",
   "logs.blockedObserve": "مُراقب",
   "logs.blockedBy": "محجوب",
   "platform.add": "إضافة منصة",
