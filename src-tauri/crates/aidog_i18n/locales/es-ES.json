@@ -1257,6 +1257,7 @@
   "logs.blockedRateLimit": "Limitado",
   "logs.blockedPeak": "Desact. en pico",
   "logs.blockedClientNotAllowed": "Cliente no permitido",
+  "logs.blockedClientNotAllowedMixed": "Cliente no permitido (mixto)",
   "logs.blockedObserve": "Observado",
   "logs.blockedBy": "Bloqueado",
   "platform.add": "Añadir plataforma",
