@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790479137,
+  "last_updated": 1793615839,
   "is_coding_plan": true,
   "endpoints": {
     "default": [
@@ -12,11 +12,11 @@
   },
   "models": {
     "default": {
-      "default": "cline-pass/glm-5.3",
-      "sonnet": "cline-pass/glm-5.3",
-      "opus": "cline-pass/deepseek-v4-pro",
-      "haiku": "cline-pass/glm-5.3-flash",
-      "gpt": "cline-pass/qwen3.8-max"
+      "default": ["cline-pass/glm-5.3"],
+      "sonnet": ["cline-pass/glm-5.3"],
+      "opus": ["cline-pass/deepseek-v4-pro"],
+      "haiku": ["cline-pass/glm-5.3-flash"],
+      "gpt": ["cline-pass/qwen3.8-max"]
     }
   },
   "model_list": {

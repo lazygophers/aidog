@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790479137,
+  "last_updated": 1793615839,
   "endpoints": {
     "default": [
       {
@@ -10,10 +10,10 @@
   },
   "models": {
     "default": {
-      "default": "deepseek/deepseek-chat",
-      "sonnet": "anthropic/claude-sonnet-4-6",
-      "haiku": "deepseek/deepseek-chat",
-      "gpt": "openai/gpt-4o"
+      "default": ["deepseek/deepseek-chat"],
+      "sonnet": ["anthropic/claude-sonnet-4-6"],
+      "haiku": ["deepseek/deepseek-chat"],
+      "gpt": ["openai/gpt-4o"]
     }
   },
   "model_list": {

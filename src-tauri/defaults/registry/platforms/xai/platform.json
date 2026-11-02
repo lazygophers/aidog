@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788189046,
+  "last_updated": 1793615839,
   "endpoints": {
     "default": [
       {
@@ -10,7 +10,7 @@
   },
   "models": {
     "default": {
-      "default": "grok-4.6"
+      "default": ["grok-4.6"]
     }
   },
   "model_list": {
