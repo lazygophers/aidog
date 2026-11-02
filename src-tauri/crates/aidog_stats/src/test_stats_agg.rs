@@ -521,3 +521,40 @@ async fn rebuild_keeps_real_empty_client_empty_model_row() {
         .unwrap();
     assert_eq!((rows, reqs, empty), (7, 7, 1));
 }
+
+/// 未知客户端 `ua:<产品名>` 码原样落进聚合表 client 维度，与 other 各占一行（无 schema 变更）。
+#[tokio::test]
+async fn upsert_stats_agg_stores_ua_client_code_and_reads_back() {
+    let db = test_db().await;
+    let now = chrono::Utc::now().timestamp_millis();
+    for client in ["ua:OpenViking", "ua:OpenViking", "other"] {
+        upsert_stats_agg(
+            &db,
+            StatsAggInput {
+                created_at: now,
+                model: "m".into(),
+                group_key: "g".into(),
+                platform_id: 1,
+                client: client.into(),
+                req_model: String::new(),
+                status_code: 200,
+                input_tokens: 1,
+                output_tokens: 1,
+                cache_tokens: 0,
+                est_cost: 0.0,
+                duration_ms: 1,
+            },
+        )
+        .await
+        .unwrap();
+    }
+    let rows: Vec<(String, i64)> = db
+        .call_traced(None, std::panic::Location::caller(), |c| {
+            let mut st = c.prepare("SELECT client, request_count FROM stats_agg_hourly ORDER BY client")?;
+            let v = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+            Ok(v)
+        })
+        .await
+        .unwrap();
+    assert_eq!(rows, vec![("other".to_string(), 1), ("ua:OpenViking".to_string(), 2)]);
+}
