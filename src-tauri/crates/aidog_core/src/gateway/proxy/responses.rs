@@ -26,6 +26,7 @@ pub(crate) async fn handle_responses_subendpoint(
     log_settings: &ProxyLogSettings,
     group: &Group,
     orig_method: &axum::http::Method,
+    orig_headers: &axum::http::HeaderMap,
     bytes: &[u8],
     path: &str,
     start: std::time::Instant,
@@ -55,6 +56,38 @@ pub(crate) async fn handle_responses_subendpoint(
             };
         }
     };
+
+    // 客户端白名单（票 06）：所有子端点方法（create 之外的 GET/POST/DELETE）都以平台凭证转发上游，
+    // 一律在此统一判定；不走 select_candidates（单平台短路会绕过），直接逐平台判 extra.allowed_clients。
+    // 仅 enabled 平台参与判定（同 filter_candidates：禁用先于白名单）；全部平台被拦 → 417，
+    // 与「禁用等其他原因」并存且无可用平台 → 503，blocked_reason 同为 client_not_allowed。
+    let client_hit = super::client_detect::identify_client(orig_headers);
+    let total_platforms = group_platforms.len();
+    let mut client_rejected = 0usize;
+    let group_platforms: Vec<_> = group_platforms
+        .into_iter()
+        .filter(|gp| {
+            if !gp.platform.enabled {
+                return true;
+            }
+            let allowed = crate::client_vocab::client_allowed(
+                &aidog_db::models::PlatformExtra::parse(&gp.platform.extra).allowed_clients,
+                client_hit,
+            );
+            if !allowed {
+                client_rejected += 1;
+            }
+            allowed
+        })
+        .collect();
+    if client_rejected > 0 && !group_platforms.iter().any(|gp| gp.platform.enabled) {
+        let err = if client_rejected == total_platforms {
+            "client_not_allowed"
+        } else {
+            "client_not_allowed_mixed"
+        };
+        return route_fail_response(state, log, log_settings, err, start, lang).await;
+    }
 
     // 平台选择：首个 enabled 且含 OpenAIResponses 端点的平台 → 取其 responses 端点 base_url。
     // 回退：首个 enabled 平台（取其首个端点或平台主配置 base_url）。
