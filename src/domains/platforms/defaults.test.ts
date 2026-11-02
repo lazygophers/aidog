@@ -6,6 +6,8 @@ import {
   getDefaultEndpoints,
   clientTypeForProtocol,
   buildProtocolsFromPresets,
+  buildClientTypesFromPresets,
+  __resetClientTypesCacheForTests,
   getDefaultQuotaScripts,
   quotaScriptIndexSync,
   platformHasQuotaScript,
@@ -204,5 +206,36 @@ describe("quotaScriptIndexSync / platformHasQuotaScript — 同步索引", () =>
     })).toBe(true);
     // coding_plan-only returns（balance=false）同样算可查（coding plan tiers 有产出）
     expect(quotaScriptIndexSync("kimi_coding").variants[0].capable).toBe(true);
+  });
+});
+
+describe("buildClientTypesFromPresets（出站模拟下拉 = 词表 ∩ 有出站定义）", () => {
+  const VOCAB = [
+    { code: "claude_code", nameKey: "flow.client.claude_code", matchable: true, variants: [
+      { code: "claude_code_vscode", nameKey: "flow.client.claude_code_vscode" },
+      { code: "claude_code_desktop", nameKey: "flow.client.claude_code_desktop" }, // 词表有、无出站定义
+    ] },
+    { code: "kilo_code", nameKey: "flow.client.kilo_code", matchable: true, variants: [] },
+    { code: "cursor", nameKey: "flow.client.cursor", matchable: true, variants: [] }, // 已删出站
+    { code: "amp", nameKey: "flow.client.amp", matchable: true, variants: [] }, // 推测，无出站
+    { code: "openai_sdk", nameKey: "flow.client.openai_sdk", matchable: false, variants: [
+      { code: "openai_sdk_py", nameKey: "flow.client.openai_sdk_py" },
+    ] },
+  ];
+  const DOC = JSON.stringify({ client_types: [
+    { value: "default" }, { value: "claude_code" }, { value: "claude_code_vscode" }, { value: "kilo_code" },
+  ] });
+
+  it("选项集合 = 词表中有出站定义的码 + default；label/组名走 flow.client.*", async () => {
+    __resetClientTypesCacheForTests();
+    mockIPC((cmd: string) => (cmd === "get_client_types_json" ? DOC : cmd === "get_client_vocab" ? VOCAB : null));
+    const t = (k: string) => `T(${k})`;
+    const opts = await buildClientTypesFromPresets(t);
+    expect(opts.map((o) => o.value)).toEqual(["default", "claude_code", "claude_code_vscode", "kilo_code"]);
+    expect(opts.find((o) => o.value === "claude_code_vscode")).toMatchObject({
+      group: "T(flow.client.claude_code)", label: "T(flow.client.claude_code_vscode)",
+    });
+    expect(opts.find((o) => o.value === "kilo_code")?.group).toBe("T(platform.clientTypeGroupOthers)");
+    __resetClientTypesCacheForTests();
   });
 });

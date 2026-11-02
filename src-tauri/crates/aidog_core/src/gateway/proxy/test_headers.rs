@@ -293,7 +293,7 @@ fn build_upstream_headers_codex_tui_openai() {
     );
     let m: std::collections::HashMap<&str, &str> =
         h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
-    assert!(m.get("User-Agent").unwrap().contains("Codex"));
+    assert!(m.get("User-Agent").unwrap().starts_with("codex-tui/"));
 }
 
 #[test]
@@ -314,34 +314,6 @@ fn build_upstream_headers_codex_anthropic() {
         !m.contains_key("OpenAI-Beta"),
         "no OpenAI-Beta for anthropic protocol"
     );
-}
-
-#[test]
-fn build_upstream_headers_cursor_and_windsurf() {
-    let orig = axum::http::HeaderMap::new();
-    let h_cursor = build_upstream_headers(
-        &ct("cursor"),
-        &crate::gateway::models::Protocol::Anthropic,
-        "sk-test-key-1234567890",
-        &orig,
-    );
-    let m_cursor: std::collections::HashMap<&str, &str> = h_cursor
-        .iter()
-        .map(|(k, v)| (k.as_str(), v.as_str()))
-        .collect();
-    assert_eq!(m_cursor.get("User-Agent"), Some(&"Cursor/0.50.7"));
-
-    let h_windsurf = build_upstream_headers(
-        &ct("windsurf"),
-        &crate::gateway::models::Protocol::Anthropic,
-        "sk-test-key-1234567890",
-        &orig,
-    );
-    let m_windsurf: std::collections::HashMap<&str, &str> = h_windsurf
-        .iter()
-        .map(|(k, v)| (k.as_str(), v.as_str()))
-        .collect();
-    assert_eq!(m_windsurf.get("User-Agent"), Some(&"Windsurf/1.5.0"));
 }
 
 #[test]
@@ -390,7 +362,7 @@ fn build_upstream_headers_claude_code_variants() {
     let orig = axum::http::HeaderMap::new();
     let variants = [
         (ct("claude_code_vscode"), "claude-vscode"),
-        (ct("claude_code_sdk_ts"), "sdk-cli"),
+        (ct("claude_code_sdk_ts"), "external, sdk-ts"),
         (ct("claude_code_sdk_py"), "sdk-py"),
         (ct("claude_code_gh_action"), "claude-code-github-action"),
     ];
@@ -416,8 +388,8 @@ fn build_upstream_headers_claude_code_variants() {
 fn build_upstream_headers_codex_variants() {
     let orig = axum::http::HeaderMap::new();
     let variants = [
-        (ct("codex_desktop"), "codex desktop"),
-        (ct("codex_vscode"), "codex-vscode"),
+        (ct("codex_desktop"), "Codex Desktop/"),
+        (ct("codex_vscode"), "codex_vscode/"),
     ];
     for (ct, expected_part) in &variants {
         let h = build_upstream_headers(
@@ -434,37 +406,6 @@ fn build_upstream_headers_codex_variants() {
             "UA for {ct:?} should contain '{expected_part}', got: {ua}"
         );
     }
-}
-
-// ── cursor/windsurf with OpenAI protocol ──
-#[test]
-fn build_upstream_headers_cursor_openai() {
-    let orig = axum::http::HeaderMap::new();
-    let h = build_upstream_headers(
-        &ct("cursor"),
-        &crate::gateway::models::Protocol::OpenAI,
-        "sk-test-key-1234567890",
-        &orig,
-    );
-    let m: std::collections::HashMap<&str, &str> =
-        h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
-    assert_eq!(m.get("User-Agent"), Some(&"Cursor/0.50.7"));
-    assert!(m.get("Authorization").unwrap().starts_with("Bearer "));
-}
-
-#[test]
-fn build_upstream_headers_windsurf_gemini() {
-    let orig = axum::http::HeaderMap::new();
-    let h = build_upstream_headers(
-        &ct("windsurf"),
-        &crate::gateway::models::Protocol::Gemini,
-        "AIza-test-key-1234567890",
-        &orig,
-    );
-    let m: std::collections::HashMap<&str, &str> =
-        h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
-    assert_eq!(m.get("User-Agent"), Some(&"Windsurf/1.5.0"));
-    assert!(m.contains_key("x-goog-api-key"));
 }
 
 // ── uuid_sim: format check ──
@@ -759,94 +700,6 @@ fn apply_client_headers_codex_other() {
 }
 
 #[test]
-fn apply_client_headers_cursor_openai() {
-    let client = reqwest::Client::new();
-    let rb = client.post("http://localhost");
-    let rb = apply_client_headers(
-        rb,
-        &ct("cursor"),
-        &crate::gateway::models::Protocol::OpenAI,
-        "sk-key",
-    );
-    let h = headers_from_builder(rb);
-    let ua = h.get("User-Agent").unwrap().to_str().unwrap();
-    assert_eq!(ua, "Cursor/0.50.7");
-    assert!(h.contains_key("Authorization"));
-}
-
-#[test]
-fn apply_client_headers_cursor_gemini() {
-    let client = reqwest::Client::new();
-    let rb = client.post("http://localhost");
-    let rb = apply_client_headers(
-        rb,
-        &ct("cursor"),
-        &crate::gateway::models::Protocol::Gemini,
-        "AIza-key",
-    );
-    let h = headers_from_builder(rb);
-    assert!(h.contains_key("x-goog-api-key"));
-}
-
-#[test]
-fn apply_client_headers_cursor_other() {
-    let client = reqwest::Client::new();
-    let rb = client.post("http://localhost");
-    let rb = apply_client_headers(
-        rb,
-        &ct("cursor"),
-        &crate::gateway::models::Protocol::Kimi,
-        "sk-key",
-    );
-    let h = headers_from_builder(rb);
-    assert!(h.contains_key("Authorization"));
-}
-
-#[test]
-fn apply_client_headers_windsurf_openai() {
-    let client = reqwest::Client::new();
-    let rb = client.post("http://localhost");
-    let rb = apply_client_headers(
-        rb,
-        &ct("windsurf"),
-        &crate::gateway::models::Protocol::OpenAI,
-        "sk-key",
-    );
-    let h = headers_from_builder(rb);
-    let ua = h.get("User-Agent").unwrap().to_str().unwrap();
-    assert_eq!(ua, "Windsurf/1.5.0");
-    assert!(h.contains_key("Authorization"));
-}
-
-#[test]
-fn apply_client_headers_windsurf_gemini() {
-    let client = reqwest::Client::new();
-    let rb = client.post("http://localhost");
-    let rb = apply_client_headers(
-        rb,
-        &ct("windsurf"),
-        &crate::gateway::models::Protocol::Gemini,
-        "AIza-key",
-    );
-    let h = headers_from_builder(rb);
-    assert!(h.contains_key("x-goog-api-key"));
-}
-
-#[test]
-fn apply_client_headers_windsurf_other() {
-    let client = reqwest::Client::new();
-    let rb = client.post("http://localhost");
-    let rb = apply_client_headers(
-        rb,
-        &ct("windsurf"),
-        &crate::gateway::models::Protocol::DeepSeek,
-        "sk-key",
-    );
-    let h = headers_from_builder(rb);
-    assert!(h.contains_key("Authorization"));
-}
-
-#[test]
 fn inject_trace_header_debug_build_inserts_header() {
     // 测试在 debug build (cargo test 默认 debug) 下运行 → cfg!(debug_assertions) 为 true。
     // 模拟 `make run` (yarn tauri dev = debug build) 期望路径：响应头含 X-AiDog-Trace。
@@ -890,12 +743,12 @@ fn inject_trace_header_does_not_overwrite_existing_headers() {
 
 // ── simulation 配置驱动：12 client_type × anthropic/openai/gemini 行为等价覆盖 ──
 //
-// 验证 apply_client_headers 输出与重构前（match 臂 + per-variant UA + family fn）1:1：
-//   - UA：default 无 UA；claude_code 家族 claude-cli/<...>；codex 家族 codex*；cursor/windsurf 各自
+// 验证 apply_client_headers 输出：
+//   - UA：default 无 UA；claude_code 家族 claude-cli/<...>；codex 家族 codex*
 //   - auth 矩阵：anthropic → x-api-key；gemini → x-goog-api-key；openai → Authorization + （codex/cc/default）api-key
 //   - codex×openai 额外：OpenAI-Beta + conversation_id + session_id（{uuid} 占位符）
 
-/// 12 client_type 全列表（与 client-types.json value 集合对齐）。
+/// 全部出站 client_type（与 client_types_const BUNDLED value 集合对齐，由 `all_client_types_matches_bundled` 守）。
 const ALL_CLIENT_TYPES: &[&str] = &[
     "default",
     "claude_code",
@@ -907,11 +760,20 @@ const ALL_CLIENT_TYPES: &[&str] = &[
     "codex_tui",
     "codex_desktop",
     "codex_vscode",
-    "cursor",
-    "windsurf",
+    "pi_cli",
+    "kilo_code",
+    "opencode",
+    "qwen_code",
+    "roo_code",
+    "cline",
+    "factory_droid",
+    "crush",
+    "continue",
+    "zed",
+    "gemini_cli",
 ];
 
-/// 某 client_type 是否应注入 UA（default 不注入，其他 11 个注入）。
+/// 某 client_type 是否应注入 UA（default 不注入，其余均注入）。
 fn expect_has_ua(client_type: &str) -> bool {
     client_type != "default"
 }
@@ -922,21 +784,30 @@ fn expected_ua_substring(client_type: &str) -> Option<&'static str> {
         "default" => None,
         "claude_code" => Some("claude-cli/2.1.204 (external, cli)"),
         "claude_code_vscode" => Some("claude-vscode"),
-        "claude_code_sdk_ts" => Some("sdk-cli"),
+        "claude_code_sdk_ts" => Some("external, sdk-ts"),
         "claude_code_sdk_py" => Some("sdk-py"),
         "claude_code_gh_action" => Some("claude-code-github-action"),
+        "pi_cli" => Some("pi/"),
+        "kilo_code" => Some("kilo/"),
+        "opencode" => Some("opencode/"),
+        "qwen_code" => Some("QwenCode/"),
+        "roo_code" => Some("RooCode/"),
+        "cline" => Some("Cline/"),
+        "factory_droid" => Some("factory-cli/"),
+        "crush" => Some("Charm-Crush/"),
+        "continue" => Some("Continue/"),
+        "zed" => Some("Zed/"),
+        "gemini_cli" => Some("GeminiCLI/"),
         "codex_cli" => Some("codex_cli_rs/"),
-        "codex_tui" => Some("Codex/"),
-        "codex_desktop" => Some("codex desktop/"),
-        "codex_vscode" => Some("codex-vscode/"),
-        "cursor" => Some("Cursor/"),
-        "windsurf" => Some("Windsurf/"),
+        "codex_tui" => Some("codex-tui/"),
+        "codex_desktop" => Some("Codex Desktop/"),
+        "codex_vscode" => Some("codex_vscode/"),
         _ => None,
     }
 }
 
 /// 某 client_type × protocol 是否应在 openai 路径叠加 api-key 头
-/// （小米 token-plan openai 端点要求；cursor/windsurf 不叠加）。
+/// （小米 token-plan openai 端点要求；其余 AI 客户端不叠加）。
 fn expect_openai_api_key_header(client_type: &str) -> bool {
     matches!(
         client_type,
@@ -1016,7 +887,7 @@ fn apply_all_client_types_openai_protocol() {
                 .starts_with("Bearer "),
             "[{c}] openai: Bearer prefix"
         );
-        // api-key 头（除 cursor/windsurf）
+        // api-key 头（见 expect_openai_api_key_header）
         assert_eq!(
             h.contains_key("api-key"),
             expect_openai_api_key_header(c),
@@ -1322,4 +1193,100 @@ fn capture_request_headers_redacts_custom_key_headers() {
     let out = capture_request_headers(&h, &["x-token".to_string()]);
     assert!(out.contains(r#""x-token":"Token [REDACTED]""#), "{out}");
     assert!(out.contains(r#""x-other":"v""#), "{out}");
+}
+
+/// 全部出站值（除 default）的 UA 与词表来源逐字一致：官方源码原文，见 client_types_const BUNDLED 与票 01 取证报告 §6。
+const EXPECTED_UA: &[(&str, &str)] = &[
+    ("claude_code", "claude-cli/2.1.204 (external, cli)"),
+    ("claude_code_vscode", "claude-cli/2.1.204 (external, claude-vscode, agent-sdk/0.1.30)"),
+    ("claude_code_sdk_ts", "claude-cli/2.1.204 (external, sdk-ts, agent-sdk/0.3.314)"),
+    ("claude_code_sdk_py", "claude-cli/2.1.204 (external, sdk-py)"),
+    ("claude_code_gh_action", "claude-cli/2.1.204 (external, claude-code-github-action)"),
+    ("codex_cli", "codex_cli_rs/0.38.0 (MacOS; arm64) Terminal"),
+    ("codex_tui", "codex-tui/0.38.0"),
+    ("codex_desktop", "Codex Desktop/0.38.0"),
+    ("codex_vscode", "codex_vscode/0.38.0"),
+    ("pi_cli", "pi/0.84.2 (darwin; node/v24.0.0; arm64)"),
+    ("kilo_code", "kilo/latest/7.8.18/cli"),
+    ("opencode", "opencode/1.19.5"),
+    ("qwen_code", "QwenCode/0.26.4 (darwin; arm64)"),
+    ("roo_code", "RooCode/3.54.0"),
+    ("cline", "Cline/4.1.26"),
+    ("factory_droid", "factory-cli/1.0.0"),
+    ("crush", "Charm-Crush/0.99.0 (https://charm.land/crush)"),
+    ("continue", "Continue/IDE"),
+    ("zed", "Zed/1.26.2 (macos; aarch64)"),
+    ("gemini_cli", "GeminiCLI/0.66.0/gemini-pro (darwin; arm64; terminal)"),
+];
+
+#[test]
+fn all_client_types_matches_bundled() {
+    let doc: serde_json::Value = serde_json::from_str(crate::gateway::client_types_const::BUNDLED).unwrap();
+    let mut bundled: Vec<&str> = doc["client_types"].as_array().unwrap().iter().map(|e| e["value"].as_str().unwrap()).collect();
+    let mut listed: Vec<&str> = ALL_CLIENT_TYPES.to_vec();
+    bundled.sort_unstable();
+    listed.sort_unstable();
+    assert_eq!(bundled, listed);
+    let mut expected: Vec<&str> = EXPECTED_UA.iter().map(|(c, _)| *c).collect();
+    expected.push("default");
+    expected.sort_unstable();
+    assert_eq!(bundled, expected, "EXPECTED_UA 必须覆盖全部出站值");
+}
+
+#[test]
+fn outbound_user_agents_are_verbatim_for_every_protocol() {
+    use crate::gateway::models::Protocol;
+    let client = reqwest::Client::new();
+    for &(code, ua) in EXPECTED_UA {
+        for p in [Protocol::Anthropic, Protocol::OpenAI, Protocol::Gemini, Protocol::DeepSeek] {
+            let rb = apply_client_headers_for_model(client.post("http://localhost"), &ct(code), &p, "sk-key", "gemini-pro");
+            let h = headers_from_builder(rb);
+            assert_eq!(h.get("User-Agent").unwrap().to_str().unwrap(), ua, "[{code}] UA");
+            let m = build_upstream_headers_for_model(&ct(code), &p, "sk-key", "gemini-pro", &axum::http::HeaderMap::new());
+            let m: std::collections::HashMap<&str, &str> = m.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+            assert_eq!(m.get("User-Agent"), Some(&ua), "[{code}] build_upstream_headers UA");
+        }
+    }
+}
+
+#[test]
+fn roo_code_sends_referer_and_title_headers() {
+    let client = reqwest::Client::new();
+    for p in [crate::gateway::models::Protocol::Anthropic, crate::gateway::models::Protocol::OpenAI] {
+        let h = headers_from_builder(apply_client_headers(client.post("http://localhost"), &ct("roo_code"), &p, "sk-key"));
+        assert_eq!(h.get("HTTP-Referer").unwrap(), "https://github.com/RooVetGit/Roo-Cline");
+        assert_eq!(h.get("X-Title").unwrap(), "Roo Code");
+    }
+}
+
+/// 已删出站模拟的 cursor / windsurf：已存平台的 endpoint 仍存着该值，读出不报错，
+/// 行为回落 `default`（不注入 UA，仅 default 鉴权头）。
+#[test]
+fn removed_cursor_windsurf_fall_back_to_default_simulation() {
+    use crate::gateway::models::Protocol;
+    let client = reqwest::Client::new();
+    for legacy in ["cursor", "windsurf"] {
+        let ep: crate::gateway::models::PlatformEndpoint = serde_json::from_str(&format!(
+            r#"{{"protocol":"openai","base_url":"https://x/v1","client_type":"{legacy}"}}"#
+        ))
+        .unwrap();
+        assert_eq!(ep.client_type, legacy, "旧值读出原样保留，不报错");
+        for (p, key) in [(Protocol::Anthropic, "x-api-key"), (Protocol::OpenAI, "Authorization"), (Protocol::Gemini, "x-goog-api-key")] {
+            let h = headers_from_builder(apply_client_headers(client.post("http://localhost"), &ep.client_type, &p, "sk-key"));
+            assert!(!h.contains_key("User-Agent"), "[{legacy}] 回落 default 不模拟 UA");
+            assert!(h.contains_key(key), "[{legacy}] 回落 default 鉴权头 {key}");
+        }
+        let m = build_upstream_headers(&ep.client_type, &Protocol::OpenAI, "sk-key", &axum::http::HeaderMap::new());
+        assert!(!m.iter().any(|(k, _)| k.eq_ignore_ascii_case("user-agent")));
+    }
+}
+
+#[test]
+fn gemini_cli_ua_carries_actual_upstream_model() {
+    use crate::gateway::models::Protocol;
+    let want = "GeminiCLI/0.66.0/gemini-2.5-flash (darwin; arm64; terminal)";
+    let rb = apply_client_headers_for_model(reqwest::Client::new().post("http://localhost"), &ct("gemini_cli"), &Protocol::Gemini, "k", "gemini-2.5-flash");
+    assert_eq!(headers_from_builder(rb).get("User-Agent").unwrap().to_str().unwrap(), want);
+    let m = build_upstream_headers_for_model(&ct("gemini_cli"), &Protocol::Gemini, "k", "gemini-2.5-flash", &axum::http::HeaderMap::new());
+    assert!(m.iter().any(|(k, v)| k == "User-Agent" && v == want), "{m:?}");
 }

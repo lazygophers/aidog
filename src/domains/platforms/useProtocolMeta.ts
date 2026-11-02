@@ -156,14 +156,15 @@ export function useProtocolLabel(protocol: Protocol | undefined, lang: string): 
 
 /** useClientTypeOptions — clientTypeOptions 维度共享 hook（票 11）。
  *  消费点：formSectionsEndpoints。首渲染 []（下拉空不崩）；best-effort catch
- *  保空列表；lang 变化重拉。 */
-export function useClientTypeOptions(lang: string): Array<{ value: ClientType; group: string; label: string }> {
+ *  保空列表；lang 变化重拉。`t` 用于取词表显示名 `flow.client.*`（与白名单多选同源）。 */
+export function useClientTypeOptions(lang: string, t?: (key: string, fallback: string) => string): Array<{ value: ClientType; group: string; label: string }> {
   const [options, setOptions] = useState<Array<{ value: ClientType; group: string; label: string }>>([]);
   useEffect(() => {
     let cancelled = false;
-    buildClientTypesFromPresets(lang).then(list => { if (!cancelled) setOptions(list); })
+    buildClientTypesFromPresets(t).then(list => { if (!cancelled) setOptions(list); })
       .catch(() => { /* best-effort，空列表保下拉不崩 */ });
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- t 随 lang 变化，不单独作依赖
   }, [lang]);
   return options;
 }

@@ -176,8 +176,20 @@ pub(crate) async fn handle_ws_passthrough(
     upsert_log(&state, &log, &log_settings).await;
 
     // 候选：无模型名（WS 无 body），RequestKind::Chat；候选里第一个透传平台服务本连接。
-    let candidate_set = match select_candidates_ctx(&state.db, &group, "", None, RequestKind::Chat)
-        .await
+    // 客户端白名单（票 06）：握手阶段判定，拒绝在 101 之前以普通 HTTP 响应返回（417 / 503），
+    // 无需 WS 关闭码 1008。多平台组走 select_candidates_gated；单平台短路会绕过候选过滤，
+    // 故下方对选中的透传平台再判一次（等效退化形态仍受约束）。
+    let lang = state.settings_cache.read().await.lang;
+    let client_hit = super::client_detect::identify_client(&orig_headers);
+    let candidate_set = match select_candidates_gated(
+        &state.db,
+        &group,
+        "",
+        None,
+        RequestKind::Chat,
+        ClientGate::On(client_hit),
+    )
+    .await
     {
         Ok(c) => {
             log.routing = Some(c.routing.clone());
@@ -185,6 +197,9 @@ pub(crate) async fn handle_ws_passthrough(
         }
         Err(e) => {
             log.routing = Some(e.routing.clone());
+            if e == "client_not_allowed" || e == "client_not_allowed_mixed" {
+                return route_fail_response(&state, &mut log, &log_settings, &e, start, lang).await;
+            }
             log.response_body = format!("route error: {e}");
             log.status_code = 400;
             log.done = true;
@@ -208,6 +223,12 @@ pub(crate) async fn handle_ws_passthrough(
         upsert_log(&state, &log, &log_settings).await;
         return (StatusCode::BAD_REQUEST, log.response_body.clone()).into_response();
     };
+    if !crate::client_vocab::client_allowed(
+        &aidog_db::models::PlatformExtra::parse(&platform.extra).allowed_clients,
+        client_hit,
+    ) {
+        return route_fail_response(&state, &mut log, &log_settings, "client_not_allowed", start, lang).await;
+    }
     log.platform_id = platform.id;
 
     // 上游 URL：base_url（http→ws / https→wss）+ 客户端原始 path_and_query（共识稿 §3/§7）。

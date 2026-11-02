@@ -18,9 +18,8 @@ export const ENDPOINT_PROTOCOLS: { value: Protocol; label: string }[] = [
 ];
 
 /** 客户端模拟选项已迁移到 JSON 派生层（见 defaults.ts::buildClientTypesFromPresets）。
- *  真值源 `src-tauri/defaults/client-types.json`（12 entry：1 默认 + 5 Claude Code
- *  + 4 Codex + 2 IDE），前端 invoke `get_client_types_json` 后按 locale 派生 label，
- *  禁直读 github / 文件系统。
+ *  出站定义真值源 Rust `client_types_const.rs`（`get_client_types_json`），显示名/分组来自词表
+ *  `get_client_vocab` + `flow.client.*`，禁直读 github / 文件系统。
  *  旧模块级 CLIENT_TYPES 常量已删除（见 prd `07-10-client-types-json-sync`）。 */
 
 /** 请求格式协议 label（仅 5 条 endpoint 协议；平台类型 label 由 JSON name 经
