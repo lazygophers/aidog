@@ -8,7 +8,8 @@
 //!   （取证报告 `.scratch/平台-客户端白名单/research/01-ua-vocab.md`）。出站模拟表本模块不管（票 07）。
 //! - 显示名在 8 locale 文件的 `flow.client.<code>`（`name_key`），不在此处。
 //! - 汇总统计表 client 维度记到变体码：每 (小时, model, group, platform, req_model) 下 client 值
-//!   上限 = 本表可识别码数（约 55）+ `other` + 历史 `''`，行数按实际出现的 client 增长而非全集乘积。
+//!   上限 = 本表可识别码数（约 55）+ `other` + 历史 `''` + 出现过的未知产品名数（`ua:<名>`，名最长 32 字符、
+//!   仅 ASCII 字母数字与 `. _ -`，由 `client_detect::ua_product_name` 限定），行数按实际出现的 client 增长而非全集乘积。
 
 use serde::Serialize;
 

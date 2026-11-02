@@ -141,7 +141,7 @@ pub(crate) async fn handle_ws_passthrough(
         id: request_id,
         created_at,
         updated_at: created_at,
-        client: super::client_detect::detect_client(req.headers()).to_string(),
+        client: super::client_detect::detect_client(req.headers()),
         user_agent: super::client_detect::raw_user_agent(req.headers()),
         ..Default::default()
     };

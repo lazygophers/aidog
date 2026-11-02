@@ -37,4 +37,10 @@ describe("clientLabel", () => {
   it("未知新码回落原始代码不抛错", () => {
     expect(clientLabel((k, fb) => fb ?? k, "brand_new_client")).toBe("brand_new_client");
   });
+
+  it("ua:<产品名> 显示原文，不走 i18n", () => {
+    const t = (k: string) => `T(${k})`;
+    expect(clientLabel(t, "ua:OpenViking")).toBe("OpenViking");
+    expect(clientLabel(t, "ua:My_Tool-2.x")).toBe("My_Tool-2.x");
+  });
 });
