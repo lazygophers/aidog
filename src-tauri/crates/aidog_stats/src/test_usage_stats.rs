@@ -314,6 +314,7 @@ async fn latest_routing_snapshot_reads_most_recent() {
                 reason: aidog_db::models::RouteReason::Selected,
                 target_model: None,
                 model_via: Vec::new(),
+                model_chain: Vec::new(),
                 tags: vec![],
             }],
         });

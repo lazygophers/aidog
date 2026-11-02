@@ -4,7 +4,7 @@ use super::super::models::*;
 use super::super::peak;
 use super::super::scheduling::{Admission, BreakerThresholds, SchedulerState, StickyTable};
 use super::super::time_windows;
-use super::model_mapping::{resolve_decision_model, resolve_model, resolve_model_with_via};
+use super::model_mapping::{resolve_decision_model, resolve_model_chain_with_via, resolve_model_with_via};
 use super::ordering::{
     apply_coding_plan_priority, apply_sticky, expiry_sort_key, is_coding_plan,
     order_load_balance,
@@ -451,6 +451,7 @@ pub async fn select_candidates_gated(
                 reason: RouteReason::Selected,
                 target_model: None,
                 model_via: Vec::new(),
+                model_chain: Vec::new(),
                 tags,
             }
         })
@@ -469,6 +470,7 @@ pub async fn select_candidates_gated(
                 reason: *reason,
                 target_model: None,
                 model_via: Vec::new(),
+                model_chain: Vec::new(),
                 tags: Vec::new(),
             }),
     );
@@ -673,13 +675,15 @@ async fn handle_single_platform(
         cache.map(|c| c.time_windows.as_slice()).unwrap_or_default();
     let effective_models =
         resolve_effective_models(&only.platform, time_rules, now_ms, source_model);
-    let target_model = resolve_target_model(
+    let mut chain = resolve_target_chain(
         kind,
         &effective_models,
         &only.platform,
         decision_models,
         mapped_target_model.as_deref().unwrap_or(source_model),
     );
+    let target_model = chain.remove(0);
+    let fallback_models = chain;
 
     tracing::info!(
         group = %group.name, platform = %only.platform.name,
@@ -689,12 +693,14 @@ async fn handle_single_platform(
 
     let mut routing = single_snapshot(only, group.routing_mode, RouteReason::Selected);
     routing.entries[0].target_model = Some(target_model.clone());
+    routing.entries[0].model_chain = full_chain(&target_model, &fallback_models);
     routing.entries[0].model_via =
         model_via_for(&only.platform, cache, kind, now_ms, source_model, mapped_target_model);
     Ok(CandidateSet {
         candidates: vec![RouteResult {
             platform: only.platform.clone(),
             target_model,
+            fallback_models,
             mapping: mapping.cloned(),
         }],
         routing,
@@ -718,6 +724,7 @@ fn single_snapshot(
             reason,
             target_model: None,
             model_via: Vec::new(),
+            model_chain: Vec::new(),
             tags: Vec::new(),
         }],
     }
@@ -754,10 +761,10 @@ fn fill_snapshot_model_via(
 fn fill_snapshot_target_models(routing: &mut RoutingSnapshot, candidates: &[RouteResult]) {
     for entry in &mut routing.entries {
         if entry.reason == RouteReason::Selected {
-            entry.target_model = candidates
-                .iter()
-                .find(|candidate| candidate.platform.id == entry.platform_id)
-                .map(|candidate| candidate.target_model.clone());
+            let hit = candidates.iter().find(|candidate| candidate.platform.id == entry.platform_id);
+            entry.target_model = hit.map(|candidate| candidate.target_model.clone());
+            entry.model_chain =
+                hit.map_or_else(Vec::new, |c| full_chain(&c.target_model, &c.fallback_models));
         }
     }
 }
@@ -843,6 +850,7 @@ fn select_direct_candidates(
                 reason: RouteReason::Selected,
                 target_model: None,
                 model_via: Vec::new(),
+                model_chain: Vec::new(),
                 tags,
             }
         })
@@ -856,6 +864,7 @@ fn select_direct_candidates(
         reason: *reason,
         target_model: None,
         model_via: Vec::new(),
+        model_chain: Vec::new(),
         tags: Vec::new(),
     }));
     let mut routing = RoutingSnapshot {
@@ -891,6 +900,7 @@ fn select_direct_candidates(
         .map(|gp| RouteResult {
             platform: gp.platform.clone(),
             target_model: direct_model.to_string(),
+            fallback_models: Vec::new(),
             mapping: mapping.cloned(),
         })
         .collect();
@@ -1168,53 +1178,64 @@ fn build_route_results(
                 cache.map(|c| c.time_windows.as_slice()).unwrap_or_default();
             let effective_models =
                 resolve_effective_models(&gp.platform, time_rules, now_ms, source_model);
-            let target_model = resolve_target_model(
+            let mut chain = resolve_target_chain(
                 kind,
                 &effective_models,
                 &gp.platform,
                 decision_models,
                 mapped_target_model.as_deref().unwrap_or(source_model),
             );
+            let target_model = chain.remove(0);
             RouteResult {
                 platform: gp.platform.clone(),
                 target_model,
+                fallback_models: chain,
                 mapping: mapping.cloned(),
             }
         })
         .collect()
 }
 
-/// 按请求类型做槽位匹配。`model_name` = 分组映射命中时的映射目标名，否则请求模型名：
+/// 快照用完整链：无备选（链长 1）→ 空，使链长 1 的快照与改造前逐字一致。
+fn full_chain(target: &str, fallbacks: &[String]) -> Vec<String> {
+    if fallbacks.is_empty() {
+        return Vec::new();
+    }
+    std::iter::once(target.to_string()).chain(fallbacks.iter().cloned()).collect()
+}
+
+/// 按请求类型做槽位匹配，返回有序模型链（链首 = 目标模型，恒非空）。
+/// `model_name` = 分组映射命中时的映射目标名，否则请求模型名：
 /// 映射只改名，不跳过槽位匹配（映射名不含档位词时同样回落 default 槽，用户 2026-10-01 确认）。
-fn resolve_target_model(
+fn resolve_target_chain(
     kind: RequestKind<'_>,
     effective_models: &PlatformModels,
     platform: &Platform,
     decision_models: &DecisionModels,
     model_name: &str,
-) -> String {
+) -> Vec<String> {
     // 透传平台通配命中（ADR 0008）：不吃模型槽改写——body 原样转发，模型名仅作日志元数据。
     if matches!(platform.platform_type, Protocol::Passthrough) {
-        return model_name.to_string();
+        return vec![model_name.to_string()];
     }
+    // 槽位非空取整条链，否则退到单值 fallback。
+    let slot_or = |slot: &[String], fallback: String| {
+        let c = slot_chain(slot);
+        if c.is_empty() { vec![fallback] } else { c }
+    };
     match kind {
-        RequestKind::Decision => {
-            resolve_decision_model(effective_models, platform, decision_models, model_name)
-        }
-        RequestKind::Chat => resolve_model(effective_models, model_name),
+        RequestKind::Decision => slot_or(
+            &effective_models.jev,
+            resolve_decision_model(effective_models, platform, decision_models, model_name),
+        ),
+        RequestKind::Chat => resolve_model_chain_with_via(effective_models, model_name).0,
         // Embedding：专用路径一律用槽位模型，忽略客户端模型名（spec Q4）。读 platform.models 而非
         // effective_models：time_windows / preset peak 命中时整支替换为不含该槽位的 PlatformModels，
         // 会把槽位读成空。
-        RequestKind::Embedding => platform
-            .models
-            .embedding_slot()
-            .map_or_else(|| model_name.to_string(), str::to_string),
-        RequestKind::Rerank => platform
-            .models
-            .rerank_slot()
-            .map_or_else(|| model_name.to_string(), str::to_string),
+        RequestKind::Embedding => slot_or(&platform.models.embedding, model_name.to_string()),
+        RequestKind::Rerank => slot_or(&platform.models.rerank, model_name.to_string()),
         // Tools 不做任何模型改写（语义 3）：映射命中取映射目标名（仅日志元数据），否则原样。
-        RequestKind::Tools(_) => model_name.to_string(),
+        RequestKind::Tools(_) => vec![model_name.to_string()],
     }
 }
 
@@ -1274,7 +1295,7 @@ fn resolve_effective_models_tagged(
     (effective, via)
 }
 
-/// 目标模型选择来源（快照展示）：映射改名 → 时段/高峰层 → 槽位命中。与 `resolve_target_model` 同分支。
+/// 目标模型选择来源（快照展示）：映射改名 → 时段/高峰层 → 槽位命中。与 `resolve_target_chain` 同分支。
 fn model_via_for(
     platform: &Platform,
     cache: Option<&ExtraCache>,

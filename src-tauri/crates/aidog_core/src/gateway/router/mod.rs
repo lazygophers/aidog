@@ -38,6 +38,9 @@ pub fn cap_max_tokens(req_max: Option<u32>, model_max: Option<i64>) -> (Option<u
 pub struct RouteResult {
     pub platform: Platform,
     pub target_model: String,
+    /// 命中槽位里排在链首之后的有序备选（完整链 = `target_model` + 本字段）。
+    /// 透传平台 / 直通模型 / 请求名透传恒空；本票只携带，换模型动作见票 06。
+    pub fallback_models: Vec<String>,
     /// 匹配到的模型映射（如果有），用于读取超时等维度配置
     pub mapping: Option<ModelMapping>,
 }

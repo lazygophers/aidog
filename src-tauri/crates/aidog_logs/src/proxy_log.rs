@@ -1539,6 +1539,7 @@ mod test_routing_snapshot {
                 reason: RouteReason::Selected,
                 target_model: None,
                 model_via: Vec::new(),
+                model_chain: Vec::new(),
                 tags: vec![RouteTag::CodingPlan, RouteTag::Sticky],
             }],
         }
@@ -1620,6 +1621,7 @@ mod test_routing_snapshot {
             reason: RouteReason::PeakDisabled,
             target_model: None,
             model_via: Vec::new(),
+            model_chain: Vec::new(),
             tags: Vec::new(),
         });
         rs.mark_dead_upstream(7);
