@@ -1753,7 +1753,7 @@ export function DirectModelsSection({ models, setModels, availableModels, protoc
         <div style={{ flex: 1, minWidth: 110 }} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }}>
           <ModelCombobox
             value={input} onChange={setInput} onSelect={add}
-            source={source} protocol={protocol}
+            source={source} exclude={models} protocol={protocol}
             placeholder={t("platform.direct_models_placeholder", "模型 id，如 claude-sonnet-4-5")}
             inputProps={{ "data-testid": "direct-model-input" }}
             inputStyle={{ fontFamily: "var(--font-mono, monospace)", fontSize: 11, height: 28 }}

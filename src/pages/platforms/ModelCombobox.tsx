@@ -26,13 +26,15 @@ export function useModelCandidates(availableModels: string[], protocol: Protocol
 }
 
 export function ModelCombobox({
-  value, onChange, onSelect, source, protocol, open: openProp, onOpenChange,
+  value, onChange, onSelect, source, exclude, protocol, open: openProp, onOpenChange,
   placeholder, inputProps, inputStyle, t,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSelect: (v: string) => void;
   source: string[];
+  /** 已选模型（同一列表）：从候选中去掉，精确比较。 */
+  exclude?: string[];
   protocol: Protocol;
   /** 受控开合（矩阵整表单开）；缺省走内部 state。 */
   open?: boolean;
@@ -48,8 +50,9 @@ export function ModelCombobox({
   const priceMap = useModelPrices(protocol);
   const hasDropdown = source.length > 0;
   const query = value.trim().toLowerCase();
+  const candidates = exclude ? source.filter((m) => !exclude.includes(m)) : source;
   const filtered = hasDropdown
-    ? (query ? source.filter((m) => pinyinMatch(query, m)) : source)
+    ? (query ? candidates.filter((m) => pinyinMatch(query, m)) : candidates)
     : [];
   const open = active && filtered.length > 0;
   // 选中格尾紧凑价：flex 兄弟节点右对齐占位，不叠加在文本上（无 maxWidth 省略）
