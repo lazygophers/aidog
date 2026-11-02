@@ -12,6 +12,7 @@ use aidog_db::Db;
 use serde::{Deserialize, Serialize};
 
 pub(crate) const CLIENT_CLAUDE: &str = "claude_code";
+pub(crate) const CLIENT_CODEX: &str = "codex";
 const MAX_CHARS: usize = 24;
 
 /// 缓存 value（JSON；读取方忽略未知键）。`offset` 为已消费的 transcript 字节数。
@@ -79,6 +80,11 @@ pub(crate) async fn resolve(db: &Db, vars: &HashMap<String, String>) -> String {
     // hook 脚本把 stdin 的 session_id 以 `session` 键发出（scripts.rs 通用透传跳过 session_id），
     // 直接带 session_id 的调用方（测试 / 其它脚本）同样认。
     let (Some(sid), Some(path)) = (get("session_id").or_else(|| get("session")), get("transcript_path")) else {
+        if get("thread_id").is_some()
+            && let Some(home) = codex_home()
+        {
+            return resolve_codex(db, vars, &home).await;
+        }
         return vars.get("session_name").cloned().unwrap_or_default();
     };
     let cached_json = aidog_db::get_session_name_cache(db, CLIENT_CLAUDE, sid)
@@ -112,4 +118,80 @@ pub(crate) async fn resolve(db: &Db, vars: &HashMap<String, String>) -> String {
         tracing::debug!(error = %e, "session_name: write cache failed");
     }
     next.name
+}
+
+/// Codex 家目录：`CODEX_HOME` 优先（openai/codex `utils/home-dir`），否则 `~/.codex`。
+fn codex_home() -> Option<std::path::PathBuf> {
+    std::env::var_os("CODEX_HOME")
+        .filter(|v| !v.is_empty())
+        .map(Into::into)
+        .or_else(|| dirs::home_dir().map(|h| h.join(".codex")))
+}
+
+/// `session_index.jsonl`（追加写，字段 `id` / `thread_name`）里该线程最后一条非空名；坏行跳过。
+fn codex_rename(home: &Path, tid: &str) -> Option<String> {
+    let text = std::fs::read_to_string(home.join("session_index.jsonl")).ok()?;
+    text.lines()
+        .rev()
+        .filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok())
+        .filter(|v| v.get("id").and_then(|x| x.as_str()) == Some(tid))
+        .filter_map(|v| v.get("thread_name").and_then(|x| x.as_str()).map(truncate_name))
+        .find(|n| !n.is_empty())
+}
+
+/// 只读打开版本号最大的 `state_N.sqlite`（WAL 库），取 `threads.title`（首句提问原文）。
+fn codex_title(home: &Path, tid: &str) -> Option<String> {
+    let db = std::fs::read_dir(home)
+        .ok()?
+        .filter_map(|e| e.ok())
+        .filter_map(|e| {
+            let n = e.file_name().into_string().ok()?;
+            let v: u32 = n.strip_prefix("state_")?.strip_suffix(".sqlite")?.parse().ok()?;
+            Some((v, e.path()))
+        })
+        .max_by_key(|(v, _)| *v)?
+        .1;
+    let c = rusqlite::Connection::open_with_flags(
+        db,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .ok()?;
+    c.busy_timeout(std::time::Duration::from_millis(200)).ok()?;
+    let t: String = c
+        .query_row("SELECT title FROM threads WHERE id = ?1", [tid], |r| r.get(0))
+        .ok()?;
+    Some(truncate_name(&t)).filter(|n| !n.is_empty())
+}
+
+/// Codex：`/rename` 名（`session_index.jsonl`）> 线程标题（`state_*.sqlite` `threads.title`）> 无。
+/// 每次重查来源，名字变了才写缓存；任何来源缺失 / 打不开当无名。
+pub(crate) async fn resolve_codex(db: &Db, vars: &HashMap<String, String>, home: &Path) -> String {
+    let Some(tid) = vars.get("thread_id").map(|s| s.trim()).filter(|s| !s.is_empty()) else {
+        return String::new();
+    };
+    let (h, t) = (home.to_path_buf(), tid.to_string());
+    let found = tokio::task::spawn_blocking(move || {
+        codex_rename(&h, &t)
+            .map(|n| (n, "codex_rename"))
+            .or_else(|| codex_title(&h, &t).map(|n| (n, "codex_title")))
+    })
+    .await
+    .ok()
+    .flatten();
+    let Some((name, source)) = found else {
+        tracing::debug!("session_name: codex name not found");
+        return String::new();
+    };
+    let json = serde_json::json!({ "name": name, "source": source }).to_string();
+    let same = aidog_db::get_session_name_cache(db, CLIENT_CODEX, tid)
+        .await
+        .ok()
+        .flatten()
+        .is_some_and(|c| c == json);
+    if !same
+        && let Err(e) = aidog_db::put_session_name_cache(db, CLIENT_CODEX, tid, &json).await
+    {
+        tracing::debug!(error = %e, "session_name: write codex cache failed");
+    }
+    name
 }

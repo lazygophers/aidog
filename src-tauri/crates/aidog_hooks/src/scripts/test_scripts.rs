@@ -60,3 +60,20 @@ fn script_is_python_with_pep723_header() {
     assert!(s.starts_with("#!/usr/bin/env python3"));
     assert!(s.contains(r#""type": "waiting_input""#));
 }
+
+#[test]
+fn event_script_does_not_truncate_path_vars() {
+    let s = build_event_notify_script();
+    // 路径类变量（transcript_path 等 *_path、cwd）豁免 200 字符截断；其余字符串仍截断。
+    assert!(s.contains(r#"key == "cwd" or key.endswith("_path")"#));
+    assert!(s.contains("len(text) > max_len and not"));
+}
+
+#[test]
+fn complete_script_forwards_codex_thread_id() {
+    let s = build_hook_script("task_complete");
+    // Codex notify 把事件 JSON 放在 argv[1]；thread-id → vars.thread_id。
+    assert!(s.contains("sys.argv[1]"));
+    assert!(s.contains(r#"get("thread-id")"#));
+    assert!(s.contains(r#"vars_map["thread_id"]"#));
+}
