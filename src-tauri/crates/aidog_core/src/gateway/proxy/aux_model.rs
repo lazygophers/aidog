@@ -82,6 +82,7 @@ pub(crate) async fn handle_aux_model(
     bytes: &[u8],
     start: std::time::Instant,
     lang: Lang,
+    client: ClientGate,
 ) -> Response {
     log.source_protocol = spec.label.to_string();
     log.target_protocol = spec.label.to_string();
@@ -118,12 +119,13 @@ pub(crate) async fn handle_aux_model(
         settings: &sched_settings,
         sticky_key: Some(format!("{}|{}", group.group_key, spec.label)),
     };
-    let candidate_set = match select_candidates_ctx(
+    let candidate_set = match select_candidates_gated(
         &state.db,
         group,
         &requested_model,
         Some(&sched_ctx),
         spec.kind,
+        client,
     )
     .await
     {

@@ -233,9 +233,15 @@ pub(crate) async fn handle_proxy_core(
                 .await
                 .map(|(g, c)| (g, Some(c))),
         };
+        // 探测端点不受客户端白名单约束（定组前、无 UA 语义），故 ClientGate::Off。
         if let Some((g, matched_key)) = group
-            && let Some(platform) =
-                super::passthrough::passthrough_first_candidate(&state.db, &g, "").await
+            && let Ok(Some(platform)) = super::passthrough::passthrough_first_candidate(
+                &state.db,
+                &g,
+                "",
+                ClientGate::Off,
+            )
+            .await
         {
             log.group_key = g.group_key;
             return super::passthrough::handle_passthrough_platform(
@@ -329,31 +335,43 @@ pub(crate) async fn handle_proxy_core(
     log.source_protocol = source_protocol.wire_str();
     tracing::info!(group = %group.name, source_protocol = %log.source_protocol, model = %log.model, "group resolved");
     upsert_log(&state, &log, &log_settings).await;
+    // 入站客户端识别（只看 UA）：此后所有选平台转发的路径共用同一闸门（客户端白名单）。
+    let client_gate = ClientGate::On(super::client_detect::identify_client(&orig_headers));
 
     // ── 透传平台（ADR 0008）认领协议子端点：下方三个分流按协议处理、不认识透传平台 ──
-    if (is_responses_subendpoint(&path)
+    // 白名单拦下整组 → 直接 417/503，不得落回协议分支（那些分支各自有闸门，但此处先收口）。
+    if is_responses_subendpoint(&path)
         || is_count_tokens_endpoint(&path)
         || is_decision_endpoint(&path)
         || is_embedding_endpoint(&path)
-        || is_rerank_endpoint(&path))
-        && let Some(platform) =
-            super::passthrough::passthrough_first_candidate(&state.db, &group, &raw_model).await
+        || is_rerank_endpoint(&path)
     {
-        return super::passthrough::handle_passthrough_platform(
-            &state,
-            &mut log,
-            &log_settings,
-            orig_method,
-            orig_uri,
-            orig_headers,
-            bytes,
-            &platform,
-            matched_key.as_ref(),
-            &custom_key_headers,
-            start,
-            lang,
-        )
-        .await;
+        match super::passthrough::passthrough_first_candidate(&state.db, &group, &raw_model, client_gate)
+            .await
+        {
+            Ok(Some(platform)) => {
+                return super::passthrough::handle_passthrough_platform(
+                    &state,
+                    &mut log,
+                    &log_settings,
+                    orig_method,
+                    orig_uri,
+                    orig_headers,
+                    bytes,
+                    &platform,
+                    matched_key.as_ref(),
+                    &custom_key_headers,
+                    start,
+                    lang,
+                )
+                .await;
+            }
+            Err(e) => {
+                log.routing = Some(e.routing.clone());
+                return route_fail_response(&state, &mut log, &log_settings, &e, start, lang).await;
+            }
+            Ok(None) => {}
+        }
     }
 
     // ── Responses API 子端点分流（必须在 parse_incoming_request 之前）──
@@ -383,7 +401,8 @@ pub(crate) async fn handle_proxy_core(
     // passthrough_api_path 写死 /v1/messages 吞掉 count_tokens 尾段 → 上游按 messages
     // 处理 count_tokens 形态 body 而崩溃（GLM 实测 500）。命中 → 透传优先 + 本地估算兜底。
     if is_count_tokens_endpoint(&path) {
-        return handle_count_tokens(&state, &mut log, &log_settings, &group, &bytes, start).await;
+        return handle_count_tokens(&state, &mut log, &log_settings, &group, &bytes, start, client_gate)
+            .await;
     }
 
     // ── TypeSafe 决策请求分流（必须在 parse_incoming_request 之前）──
@@ -391,7 +410,8 @@ pub(crate) async fn handle_proxy_core(
     // 进 parse_incoming_request 必失败。决策请求原样转发仅改写 model（jev-decision-proxy §3.4），
     // 经 router 复用过滤 / 冷却 / 熔断（不照抄 responses.rs 绕过路由的做法）。
     if is_decision_endpoint(&path) {
-        return handle_decision(&state, &mut log, &log_settings, &group, &bytes, start, lang).await;
+        return handle_decision(&state, &mut log, &log_settings, &group, &bytes, start, lang, client_gate)
+            .await;
     }
 
     // ── 向量化请求分流（必须在 parse_incoming_request 之前）──
@@ -407,6 +427,7 @@ pub(crate) async fn handle_proxy_core(
             &bytes,
             start,
             lang,
+            client_gate,
         )
         .await;
     }
@@ -423,6 +444,7 @@ pub(crate) async fn handle_proxy_core(
             &bytes,
             start,
             lang,
+            client_gate,
         )
         .await;
     }
@@ -432,7 +454,7 @@ pub(crate) async fn handle_proxy_core(
     // （tools.rs），不进聊天转发链。全库无声明 → is_tools_endpoint false，行为与现状一致
     //（语义 11 零回归）。
     if is_tools_endpoint(&path) {
-        return handle_tools(&state, &mut log, &log_settings, &group, &bytes, &path, start, lang)
+        return handle_tools(&state, &mut log, &log_settings, &group, &bytes, &path, start, lang, client_gate)
             .await;
     }
 
@@ -445,25 +467,33 @@ pub(crate) async fn handle_proxy_core(
         None => Err(None),
     };
     // 解析失败（非 JSON / 不符合 path 推断的协议）：透传平台不依赖协议（ADR 0008），照样原样转发。
-    if parsed.is_err()
-        && let Some(platform) =
-            super::passthrough::passthrough_first_candidate(&state.db, &group, &raw_model).await
-    {
-        return super::passthrough::handle_passthrough_platform(
-            &state,
-            &mut log,
-            &log_settings,
-            orig_method,
-            orig_uri,
-            orig_headers,
-            bytes,
-            &platform,
-            matched_key.as_ref(),
-            &custom_key_headers,
-            start,
-            lang,
-        )
-        .await;
+    if parsed.is_err() {
+        match super::passthrough::passthrough_first_candidate(&state.db, &group, &raw_model, client_gate)
+            .await
+        {
+            Ok(Some(platform)) => {
+                return super::passthrough::handle_passthrough_platform(
+                    &state,
+                    &mut log,
+                    &log_settings,
+                    orig_method,
+                    orig_uri,
+                    orig_headers,
+                    bytes,
+                    &platform,
+                    matched_key.as_ref(),
+                    &custom_key_headers,
+                    start,
+                    lang,
+                )
+                .await;
+            }
+            Err(e) => {
+                log.routing = Some(e.routing.clone());
+                return route_fail_response(&state, &mut log, &log_settings, &e, start, lang).await;
+            }
+            Ok(None) => {}
+        }
     }
     let (req_value, mut chat_req) = match parsed {
         Ok(p) => p,
@@ -623,7 +653,7 @@ pub(crate) async fn handle_proxy_core(
         &chat_req.model,
         Some(&sched_ctx),
         RequestKind::Chat,
-        ClientGate::On(super::client_detect::identify_client(&orig_headers)),
+        client_gate,
     )
     .await
     {
