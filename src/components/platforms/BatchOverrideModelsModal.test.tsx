@@ -55,3 +55,12 @@ describe("BatchOverrideModelsModal jev slot", () => {
     });
   });
 });
+
+describe("BatchOverrideModelsModal 模型链", () => {
+  it("手输逗号分隔 → 数组原样进 onConfirm", () => {
+    const { inputs, confirm, onConfirm } = renderModal();
+    fireEvent.change(inputs[0], { target: { value: "m1, m2" } });
+    fireEvent.click(confirm);
+    expect(onConfirm).toHaveBeenCalledWith({ default: ["m1", "m2"] });
+  });
+});
