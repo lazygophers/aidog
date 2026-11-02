@@ -445,6 +445,12 @@ impl SchedulerState {
             .unwrap_or(false)
     }
 
+    /// 测试用：降权连败计数（断言「模型链耗尽只记一次」）。
+    #[cfg(test)]
+    pub fn penalty_consecutive(&self, platform_id: u64) -> u32 {
+        self.health.read().ok().and_then(|g| g.get(&platform_id).map(|h| h.penalty_consecutive)).unwrap_or(0)
+    }
+
     /// 候选准入判定（候选过滤准入门）。在 now_ms 时刻惰性转移 Open→HalfOpen。
     /// `enabled=false`（熔断总开关关）→ 一律 Allow，旁路熔断。
     pub fn admission(

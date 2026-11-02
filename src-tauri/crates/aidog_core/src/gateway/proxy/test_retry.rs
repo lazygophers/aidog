@@ -890,7 +890,10 @@ mod test_classify_upstream_error {
             // 冲突：Service 状态码 + Model 特征 -> 状态码优先
             ("429 带 model not found", 429, r#"{"error":{"message":"model not found"}}"#, Service),
             ("403 带 model_not_found", 403, r#"{"error":{"code":"model_not_found"}}"#, Service),
-            ("503 newapi 无可用渠道", 503, r#"{"error":{"code":"model_not_found","message":"No available channel for model x under group default (distributor)"}}"#, Service),
+            // 5xx 例外（用户 2026-11-02）：message 命中模型类特征 -> Model；否则仍 Service
+            ("503 newapi 无可用渠道", 503, r#"{"error":{"code":"model_not_found","message":"No available channel for model x under group default (distributor)"}}"#, Model),
+            ("503 中文无可用渠道", 503, r#"{"error":{"message":"当前分组 default 下对于模型 x 无可用渠道"}}"#, Model),
+            ("503 model overloaded 无特征", 503, r#"{"error":{"message":"the model is overloaded"}}"#, Service),
             // censorship_blocked（4xx）-> Service
             ("400 censorship_blocked", 400, r#"{"error":{"type":"censorship_blocked","message":"blocked"}}"#, Service),
             // Model 特征
