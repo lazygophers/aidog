@@ -387,6 +387,7 @@ pub(crate) async fn handle_proxy_core(
             &log_settings,
             &group,
             &orig_method,
+            &orig_headers,
             &bytes,
             &path,
             start,

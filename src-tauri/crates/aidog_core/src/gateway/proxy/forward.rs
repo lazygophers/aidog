@@ -139,6 +139,7 @@ pub(crate) async fn forward_attempt(
             is_stream,
             target_protocol_enum: target.target_protocol_enum,
             url: url.clone(),
+            model: &actual_model,
         },
         lang,
         candidate_total,
@@ -3007,6 +3008,7 @@ struct OutboundRequest<'a> {
     is_stream: bool,
     target_protocol_enum: &'a Protocol,
     url: String,
+    model: &'a str,
 }
 
 #[allow(clippy::too_many_arguments, clippy::result_large_err)]
@@ -3035,6 +3037,7 @@ async fn send_upstream(
         is_stream,
         target_protocol_enum,
         url,
+        model,
     } = outbound;
 
     // ── 解析超时：模型 > 分组 > 系统 ──（system_timeout + proxy_client 一次缓存借齐）
@@ -3060,10 +3063,11 @@ async fn send_upstream(
     // convert 路径：先铺底透传入站头（anthropic-* / x-stainless-* / x-app / session-id 等，
     // 跨协议也带，上游忽略未知头不报错），再由 apply_client_headers 覆盖 UA + auth + CT。
     // passthrough_convert_headers 已剔 hop-by-hop + auth/UA/CT（由下方覆盖），无同名多值。
-    let mut upstream_headers = build_upstream_headers(
+    let mut upstream_headers = build_upstream_headers_for_model(
         client_type,
         target_protocol_enum,
         &eff_api_key,
+        model,
         orig_headers,
     );
 
@@ -3097,7 +3101,7 @@ async fn send_upstream(
     .then(|| {
         let mut without_beta = passthrough_base.clone();
         without_beta.remove("anthropic-beta");
-        apply_client_headers(
+        apply_client_headers_for_model(
             client
                 .post(&url)
                 .header("Content-Type", "application/json")
@@ -3106,6 +3110,7 @@ async fn send_upstream(
             client_type,
             target_protocol_enum,
             &eff_api_key,
+            model,
         )
     });
 
@@ -3115,11 +3120,12 @@ async fn send_upstream(
         .headers(passthrough_base);
 
     // ── 覆盖 UA + auth（平台 api_key）──
-    req_builder = apply_client_headers(
+    req_builder = apply_client_headers_for_model(
         req_builder,
         client_type,
         target_protocol_enum,
         &eff_api_key,
+        model,
     );
 
     // ── 记录上游实际请求 ──

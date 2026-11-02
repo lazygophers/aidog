@@ -85,7 +85,8 @@ pub use settings_cache::refresh_proxy_settings_cache;
 // 打破与 handle_connect 的互递归 Send 死锁）。
 pub(crate) use handler::handle_proxy_core;
 pub use headers::{
-    apply_client_headers, build_upstream_headers, inject_coding_plan_fields,
+    apply_client_headers, apply_client_headers_for_model, build_upstream_headers,
+    build_upstream_headers_for_model, inject_coding_plan_fields,
     override_coding_plan_path,
 };
 // redact_key 仅 headers 内部消费，但作为对外 API 一致性保留可达路径 `gateway::proxy::redact_key`。

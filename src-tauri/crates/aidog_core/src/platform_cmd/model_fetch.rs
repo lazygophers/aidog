@@ -290,7 +290,7 @@ mod tests {
         let openai = models_request_headers_log(&ct_openai, &Protocol::OpenAI);
         assert!(openai.to_lowercase().contains("authorization"));
         assert!(openai.contains("api-key"));
-        assert!(openai.contains("Codex/"));
+        assert!(openai.contains("codex-tui/"));
         assert!(openai.contains("[REDACTED]"));
         // GET 无 body，不该带 Content-Type
         assert!(!openai.to_lowercase().contains("content-type"));

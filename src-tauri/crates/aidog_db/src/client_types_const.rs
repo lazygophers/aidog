@@ -2,31 +2,10 @@
 //! 手维护：改这里，禁再落回外部 JSON 文件。
 
 pub const BUNDLED: &str = r##"{
-  "last_updated": 1783677800,
+  "last_updated": 1793374844,
   "client_types": [
     {
       "value": "default",
-      "group": "",
-      "name": {
-        "zh-Hans": "默认",
-        "en-US": "Default",
-        "ar-SA": "افتراضي",
-        "fr-FR": "Par défaut",
-        "de-DE": "Standard",
-        "ru-RU": "По умолчанию",
-        "ja-JP": "デフォルト",
-        "es-ES": "Predeterminado"
-      },
-      "desc": {
-        "zh-Hans": "不模拟特定客户端，仅设置鉴权头",
-        "en-US": "No specific client emulation, only auth headers",
-        "ar-SA": "بدون محاكاة عميل محدد، فقط رؤوس المصادقة",
-        "fr-FR": "Aucune émulation de client spécifique, uniquement les en-têtes d'authentification",
-        "de-DE": "Keine spezifische Client-Emulation, nur Auth-Header",
-        "ru-RU": "Без эмуляции конкретного клиента, только заголовки аутентификации",
-        "ja-JP": "特定のクライアントエミュレートなし、認証ヘッダーのみ",
-        "es-ES": "Sin emulación de cliente específica, solo cabeceras de autenticación"
-      },
       "simulation": {
         "auth": {
           "anthropic": [
@@ -44,27 +23,6 @@ pub const BUNDLED: &str = r##"{
     },
     {
       "value": "claude_code",
-      "group": "Claude Code",
-      "name": {
-        "zh-Hans": "Claude Code CLI",
-        "en-US": "Claude Code CLI",
-        "ar-SA": "Claude Code CLI",
-        "fr-FR": "Claude Code CLI",
-        "de-DE": "Claude Code CLI",
-        "ru-RU": "Claude Code CLI",
-        "ja-JP": "Claude Code CLI",
-        "es-ES": "Claude Code CLI"
-      },
-      "desc": {
-        "zh-Hans": "模拟 Claude Code CLI 客户端（anthropic Stainless SDK User-Agent）",
-        "en-US": "Emulate Claude Code CLI client (anthropic Stainless SDK User-Agent)",
-        "ar-SA": "محاكاة عميل Claude Code CLI (Stainless SDK User-Agent لأنثروبيك)",
-        "fr-FR": "Émuler le client Claude Code CLI (User-Agent Stainless SDK d'Anthropic)",
-        "de-DE": "Claude Code CLI-Client emulieren (anthropic Stainless SDK User-Agent)",
-        "ru-RU": "Эмуляция клиента Claude Code CLI (anthropic Stainless SDK User-Agent)",
-        "ja-JP": "Claude Code CLI クライアントをエミュレート (anthropic Stainless SDK User-Agent)",
-        "es-ES": "Emular cliente Claude Code CLI (User-Agent anthropic Stainless SDK)"
-      },
       "simulation": {
         "user_agent": "claude-cli/2.1.204 (external, cli)",
         "auth": {
@@ -99,27 +57,6 @@ pub const BUNDLED: &str = r##"{
     },
     {
       "value": "claude_code_vscode",
-      "group": "Claude Code",
-      "name": {
-        "zh-Hans": "Claude Code VSCode",
-        "en-US": "Claude Code VSCode",
-        "ar-SA": "Claude Code VSCode",
-        "fr-FR": "Claude Code VSCode",
-        "de-DE": "Claude Code VSCode",
-        "ru-RU": "Claude Code VSCode",
-        "ja-JP": "Claude Code VSCode",
-        "es-ES": "Claude Code VSCode"
-      },
-      "desc": {
-        "zh-Hans": "模拟 Claude Code VSCode 插件客户端",
-        "en-US": "Emulate Claude Code VSCode extension client",
-        "ar-SA": "محاكاة عميل إضافة Claude Code VSCode",
-        "fr-FR": "Émuler le client de l'extension Claude Code VSCode",
-        "de-DE": "Claude Code VSCode-Erweiterungsclient emulieren",
-        "ru-RU": "Эмуляция клиента расширения Claude Code VSCode",
-        "ja-JP": "Claude Code VSCode 拡張クライアントをエミュレート",
-        "es-ES": "Emular cliente de la extensión Claude Code VSCode"
-      },
       "simulation": {
         "user_agent": "claude-cli/2.1.204 (external, claude-vscode, agent-sdk/0.1.30)",
         "auth": {
@@ -154,29 +91,8 @@ pub const BUNDLED: &str = r##"{
     },
     {
       "value": "claude_code_sdk_ts",
-      "group": "Claude Code",
-      "name": {
-        "zh-Hans": "Claude Code SDK (TS)",
-        "en-US": "Claude Code SDK (TS)",
-        "ar-SA": "Claude Code SDK (TS)",
-        "fr-FR": "Claude Code SDK (TS)",
-        "de-DE": "Claude Code SDK (TS)",
-        "ru-RU": "Claude Code SDK (TS)",
-        "ja-JP": "Claude Code SDK (TS)",
-        "es-ES": "Claude Code SDK (TS)"
-      },
-      "desc": {
-        "zh-Hans": "模拟 Claude Code TypeScript SDK 客户端",
-        "en-US": "Emulate Claude Code TypeScript SDK client",
-        "ar-SA": "محاكاة عميل Claude Code TypeScript SDK",
-        "fr-FR": "Émuler le client Claude Code TypeScript SDK",
-        "de-DE": "Claude Code TypeScript SDK-Client emulieren",
-        "ru-RU": "Эмуляция клиента Claude Code TypeScript SDK",
-        "ja-JP": "Claude Code TypeScript SDK クライアントをエミュレート",
-        "es-ES": "Emular cliente Claude Code TypeScript SDK"
-      },
       "simulation": {
-        "user_agent": "claude-cli/2.1.204 (external, sdk-cli)",
+        "user_agent": "claude-cli/2.1.204 (external, sdk-ts, agent-sdk/0.3.314)",
         "auth": {
           "anthropic": [
             {"name": "x-api-key", "value": "{api_key}"},
@@ -209,27 +125,6 @@ pub const BUNDLED: &str = r##"{
     },
     {
       "value": "claude_code_sdk_py",
-      "group": "Claude Code",
-      "name": {
-        "zh-Hans": "Claude Code SDK (Python)",
-        "en-US": "Claude Code SDK (Python)",
-        "ar-SA": "Claude Code SDK (Python)",
-        "fr-FR": "Claude Code SDK (Python)",
-        "de-DE": "Claude Code SDK (Python)",
-        "ru-RU": "Claude Code SDK (Python)",
-        "ja-JP": "Claude Code SDK (Python)",
-        "es-ES": "Claude Code SDK (Python)"
-      },
-      "desc": {
-        "zh-Hans": "模拟 Claude Code Python SDK 客户端",
-        "en-US": "Emulate Claude Code Python SDK client",
-        "ar-SA": "محاكاة عميل Claude Code Python SDK",
-        "fr-FR": "Émuler le client Claude Code Python SDK",
-        "de-DE": "Claude Code Python SDK-Client emulieren",
-        "ru-RU": "Эмуляция клиента Claude Code Python SDK",
-        "ja-JP": "Claude Code Python SDK クライアントをエミュレート",
-        "es-ES": "Emular cliente Claude Code Python SDK"
-      },
       "simulation": {
         "user_agent": "claude-cli/2.1.204 (external, sdk-py)",
         "auth": {
@@ -264,27 +159,6 @@ pub const BUNDLED: &str = r##"{
     },
     {
       "value": "claude_code_gh_action",
-      "group": "Claude Code",
-      "name": {
-        "zh-Hans": "Claude Code GitHub Action",
-        "en-US": "Claude Code GitHub Action",
-        "ar-SA": "Claude Code GitHub Action",
-        "fr-FR": "Claude Code GitHub Action",
-        "de-DE": "Claude Code GitHub Action",
-        "ru-RU": "Claude Code GitHub Action",
-        "ja-JP": "Claude Code GitHub Action",
-        "es-ES": "Claude Code GitHub Action"
-      },
-      "desc": {
-        "zh-Hans": "模拟 Claude Code GitHub Action 客户端",
-        "en-US": "Emulate Claude Code GitHub Action client",
-        "ar-SA": "محاكاة عميل Claude Code GitHub Action",
-        "fr-FR": "Émuler le client Claude Code GitHub Action",
-        "de-DE": "Claude Code GitHub Action-Client emulieren",
-        "ru-RU": "Эмуляция клиента Claude Code GitHub Action",
-        "ja-JP": "Claude Code GitHub Action クライアントをエミュレート",
-        "es-ES": "Emular cliente Claude Code GitHub Action"
-      },
       "simulation": {
         "user_agent": "claude-cli/2.1.204 (external, claude-code-github-action)",
         "auth": {
@@ -319,27 +193,6 @@ pub const BUNDLED: &str = r##"{
     },
     {
       "value": "codex_cli",
-      "group": "Codex",
-      "name": {
-        "zh-Hans": "Codex CLI (Rust)",
-        "en-US": "Codex CLI (Rust)",
-        "ar-SA": "Codex CLI (Rust)",
-        "fr-FR": "Codex CLI (Rust)",
-        "de-DE": "Codex CLI (Rust)",
-        "ru-RU": "Codex CLI (Rust)",
-        "ja-JP": "Codex CLI (Rust)",
-        "es-ES": "Codex CLI (Rust)"
-      },
-      "desc": {
-        "zh-Hans": "模拟 Codex CLI (Rust) 客户端",
-        "en-US": "Emulate Codex CLI (Rust) client",
-        "ar-SA": "محاكاة عميل Codex CLI (Rust)",
-        "fr-FR": "Émuler le client Codex CLI (Rust)",
-        "de-DE": "Codex CLI (Rust)-Client emulieren",
-        "ru-RU": "Эмуляция клиента Codex CLI (Rust)",
-        "ja-JP": "Codex CLI (Rust) クライアントをエミュレート",
-        "es-ES": "Emular cliente Codex CLI (Rust)"
-      },
       "simulation": {
         "user_agent": "codex_cli_rs/0.38.0 (MacOS; arm64) Terminal",
         "auth": {
@@ -362,29 +215,8 @@ pub const BUNDLED: &str = r##"{
     },
     {
       "value": "codex_tui",
-      "group": "Codex",
-      "name": {
-        "zh-Hans": "Codex TUI",
-        "en-US": "Codex TUI",
-        "ar-SA": "Codex TUI",
-        "fr-FR": "Codex TUI",
-        "de-DE": "Codex TUI",
-        "ru-RU": "Codex TUI",
-        "ja-JP": "Codex TUI",
-        "es-ES": "Codex TUI"
-      },
-      "desc": {
-        "zh-Hans": "模拟 Codex TUI 客户端",
-        "en-US": "Emulate Codex TUI client",
-        "ar-SA": "محاكاة عميل Codex TUI",
-        "fr-FR": "Émuler le client Codex TUI",
-        "de-DE": "Codex TUI-Client emulieren",
-        "ru-RU": "Эмуляция клиента Codex TUI",
-        "ja-JP": "Codex TUI クライアントをエミュレート",
-        "es-ES": "Emular cliente Codex TUI"
-      },
       "simulation": {
-        "user_agent": "Codex/0.38.0",
+        "user_agent": "codex-tui/0.38.0",
         "auth": {
           "anthropic": [
             {"name": "x-api-key", "value": "{api_key}"}
@@ -405,29 +237,8 @@ pub const BUNDLED: &str = r##"{
     },
     {
       "value": "codex_desktop",
-      "group": "Codex",
-      "name": {
-        "zh-Hans": "Codex Desktop",
-        "en-US": "Codex Desktop",
-        "ar-SA": "Codex Desktop",
-        "fr-FR": "Codex Desktop",
-        "de-DE": "Codex Desktop",
-        "ru-RU": "Codex Desktop",
-        "ja-JP": "Codex Desktop",
-        "es-ES": "Codex Desktop"
-      },
-      "desc": {
-        "zh-Hans": "模拟 Codex Desktop 客户端",
-        "en-US": "Emulate Codex Desktop client",
-        "ar-SA": "محاكاة عميل Codex Desktop",
-        "fr-FR": "Émuler le client Codex Desktop",
-        "de-DE": "Codex Desktop-Client emulieren",
-        "ru-RU": "Эмуляция клиента Codex Desktop",
-        "ja-JP": "Codex Desktop クライアントをエミュレート",
-        "es-ES": "Emular cliente Codex Desktop"
-      },
       "simulation": {
-        "user_agent": "codex desktop/0.38.0",
+        "user_agent": "Codex Desktop/0.38.0",
         "auth": {
           "anthropic": [
             {"name": "x-api-key", "value": "{api_key}"}
@@ -448,29 +259,8 @@ pub const BUNDLED: &str = r##"{
     },
     {
       "value": "codex_vscode",
-      "group": "Codex",
-      "name": {
-        "zh-Hans": "Codex VSCode",
-        "en-US": "Codex VSCode",
-        "ar-SA": "Codex VSCode",
-        "fr-FR": "Codex VSCode",
-        "de-DE": "Codex VSCode",
-        "ru-RU": "Codex VSCode",
-        "ja-JP": "Codex VSCode",
-        "es-ES": "Codex VSCode"
-      },
-      "desc": {
-        "zh-Hans": "模拟 Codex VSCode 插件客户端",
-        "en-US": "Emulate Codex VSCode extension client",
-        "ar-SA": "محاكاة عميل إضافة Codex VSCode",
-        "fr-FR": "Émuler le client de l'extension Codex VSCode",
-        "de-DE": "Codex VSCode-Erweiterungsclient emulieren",
-        "ru-RU": "Эмуляция клиента расширения Codex VSCode",
-        "ja-JP": "Codex VSCode 拡張クライアントをエミュレート",
-        "es-ES": "Emular cliente de la extensión Codex VSCode"
-      },
       "simulation": {
-        "user_agent": "codex-vscode/0.38.0",
+        "user_agent": "codex_vscode/0.38.0",
         "auth": {
           "anthropic": [
             {"name": "x-api-key", "value": "{api_key}"}
@@ -491,27 +281,6 @@ pub const BUNDLED: &str = r##"{
     },
     {
       "value": "pi_cli",
-      "group": "pi",
-      "name": {
-        "zh-Hans": "pi CLI",
-        "en-US": "pi CLI",
-        "ar-SA": "pi CLI",
-        "fr-FR": "pi CLI",
-        "de-DE": "pi CLI",
-        "ru-RU": "pi CLI",
-        "ja-JP": "pi CLI",
-        "es-ES": "pi CLI"
-      },
-      "desc": {
-        "zh-Hans": "模拟 pi CLI 客户端（pi/<版本> (<平台>; <运行时>; <架构>) User-Agent）",
-        "en-US": "Emulate pi CLI client (pi/<version> (<platform>; <runtime>; <arch>) User-Agent)",
-        "ar-SA": "محاكاة عميل pi CLI (‏User-Agent بصيغة pi/<version> (<platform>; <runtime>; <arch>))",
-        "fr-FR": "Émuler le client pi CLI (User-Agent pi/<version> (<platform>; <runtime>; <arch>))",
-        "de-DE": "pi CLI-Client emulieren (User-Agent pi/<Version> (<Plattform>; <Runtime>; <Arch>))",
-        "ru-RU": "Эмуляция клиента pi CLI (User-Agent pi/<версия> (<платформа>; <среда>; <архитектура>))",
-        "ja-JP": "pi CLI クライアントをエミュレート (User-Agent は pi/<バージョン> (<プラットフォーム>; <ランタイム>; <アーキテクチャ>))",
-        "es-ES": "Emular cliente pi CLI (User-Agent pi/<versión> (<plataforma>; <runtime>; <arquitectura>))"
-      },
       "simulation": {
         "user_agent": "pi/0.84.2 (darwin; node/v24.0.0; arm64)",
         "auth": {
@@ -532,30 +301,9 @@ pub const BUNDLED: &str = r##"{
       }
     },
     {
-      "value": "cursor",
-      "group": "IDE",
-      "name": {
-        "zh-Hans": "Cursor",
-        "en-US": "Cursor",
-        "ar-SA": "Cursor",
-        "fr-FR": "Cursor",
-        "de-DE": "Cursor",
-        "ru-RU": "Cursor",
-        "ja-JP": "Cursor",
-        "es-ES": "Cursor"
-      },
-      "desc": {
-        "zh-Hans": "模拟 Cursor IDE 客户端",
-        "en-US": "Emulate Cursor IDE client",
-        "ar-SA": "محاكاة عميل Cursor IDE",
-        "fr-FR": "Émuler le client Cursor IDE",
-        "de-DE": "Cursor IDE-Client emulieren",
-        "ru-RU": "Эмуляция клиента Cursor IDE",
-        "ja-JP": "Cursor IDE クライアントをエミュレート",
-        "es-ES": "Emular cliente Cursor IDE"
-      },
+      "value": "kilo_code",
       "simulation": {
-        "user_agent": "Cursor/0.50.7",
+        "user_agent": "kilo/latest/7.8.18/cli",
         "auth": {
           "anthropic": [
             {"name": "x-api-key", "value": "{api_key}"}
@@ -573,30 +321,177 @@ pub const BUNDLED: &str = r##"{
       }
     },
     {
-      "value": "windsurf",
-      "group": "IDE",
-      "name": {
-        "zh-Hans": "Windsurf",
-        "en-US": "Windsurf",
-        "ar-SA": "Windsurf",
-        "fr-FR": "Windsurf",
-        "de-DE": "Windsurf",
-        "ru-RU": "Windsurf",
-        "ja-JP": "Windsurf",
-        "es-ES": "Windsurf"
-      },
-      "desc": {
-        "zh-Hans": "模拟 Windsurf IDE 客户端",
-        "en-US": "Emulate Windsurf IDE client",
-        "ar-SA": "محاكاة عميل Windsurf IDE",
-        "fr-FR": "Émuler le client Windsurf IDE",
-        "de-DE": "Windsurf IDE-Client emulieren",
-        "ru-RU": "Эмуляция клиента Windsurf IDE",
-        "ja-JP": "Windsurf IDE クライアントをエミュレート",
-        "es-ES": "Emular cliente Windsurf IDE"
-      },
+      "value": "opencode",
       "simulation": {
-        "user_agent": "Windsurf/1.5.0",
+        "user_agent": "opencode/1.19.5",
+        "auth": {
+          "anthropic": [
+            {"name": "x-api-key", "value": "{api_key}"}
+          ],
+          "openai": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ],
+          "gemini": [
+            {"name": "x-goog-api-key", "value": "{api_key}"}
+          ],
+          "default": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ]
+        }
+      }
+    },
+    {
+      "value": "qwen_code",
+      "simulation": {
+        "user_agent": "QwenCode/0.26.4 (darwin; arm64)",
+        "auth": {
+          "anthropic": [
+            {"name": "x-api-key", "value": "{api_key}"}
+          ],
+          "openai": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ],
+          "gemini": [
+            {"name": "x-goog-api-key", "value": "{api_key}"}
+          ],
+          "default": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ]
+        }
+      }
+    },
+    {
+      "value": "roo_code",
+      "simulation": {
+        "user_agent": "RooCode/3.54.0",
+        "auth": {
+          "anthropic": [
+            {"name": "x-api-key", "value": "{api_key}"},
+            {"name": "HTTP-Referer", "value": "https://github.com/RooVetGit/Roo-Cline"},
+            {"name": "X-Title", "value": "Roo Code"}
+          ],
+          "openai": [
+            {"name": "Authorization", "value": "Bearer {api_key}"},
+            {"name": "HTTP-Referer", "value": "https://github.com/RooVetGit/Roo-Cline"},
+            {"name": "X-Title", "value": "Roo Code"}
+          ],
+          "gemini": [
+            {"name": "x-goog-api-key", "value": "{api_key}"},
+            {"name": "HTTP-Referer", "value": "https://github.com/RooVetGit/Roo-Cline"},
+            {"name": "X-Title", "value": "Roo Code"}
+          ],
+          "default": [
+            {"name": "Authorization", "value": "Bearer {api_key}"},
+            {"name": "HTTP-Referer", "value": "https://github.com/RooVetGit/Roo-Cline"},
+            {"name": "X-Title", "value": "Roo Code"}
+          ]
+        }
+      }
+    },
+    {
+      "value": "cline",
+      "simulation": {
+        "user_agent": "Cline/4.1.26",
+        "auth": {
+          "anthropic": [
+            {"name": "x-api-key", "value": "{api_key}"}
+          ],
+          "openai": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ],
+          "gemini": [
+            {"name": "x-goog-api-key", "value": "{api_key}"}
+          ],
+          "default": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ]
+        }
+      }
+    },
+    {
+      "value": "factory_droid",
+      "simulation": {
+        "user_agent": "factory-cli/1.0.0",
+        "auth": {
+          "anthropic": [
+            {"name": "x-api-key", "value": "{api_key}"}
+          ],
+          "openai": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ],
+          "gemini": [
+            {"name": "x-goog-api-key", "value": "{api_key}"}
+          ],
+          "default": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ]
+        }
+      }
+    },
+    {
+      "value": "crush",
+      "simulation": {
+        "user_agent": "Charm-Crush/0.99.0 (https://charm.land/crush)",
+        "auth": {
+          "anthropic": [
+            {"name": "x-api-key", "value": "{api_key}"}
+          ],
+          "openai": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ],
+          "gemini": [
+            {"name": "x-goog-api-key", "value": "{api_key}"}
+          ],
+          "default": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ]
+        }
+      }
+    },
+    {
+      "value": "continue",
+      "simulation": {
+        "user_agent": "Continue/IDE",
+        "auth": {
+          "anthropic": [
+            {"name": "x-api-key", "value": "{api_key}"}
+          ],
+          "openai": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ],
+          "gemini": [
+            {"name": "x-goog-api-key", "value": "{api_key}"}
+          ],
+          "default": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ]
+        }
+      }
+    },
+    {
+      "value": "zed",
+      "simulation": {
+        "user_agent": "Zed/1.26.2 (macos; aarch64)",
+        "auth": {
+          "anthropic": [
+            {"name": "x-api-key", "value": "{api_key}"}
+          ],
+          "openai": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ],
+          "gemini": [
+            {"name": "x-goog-api-key", "value": "{api_key}"}
+          ],
+          "default": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ]
+        }
+      }
+    },
+    {
+      "value": "gemini_cli",
+      "simulation": {
+        "user_agent": "GeminiCLI/0.66.0/{model} (darwin; arm64; terminal)",
         "auth": {
           "anthropic": [
             {"name": "x-api-key", "value": "{api_key}"}

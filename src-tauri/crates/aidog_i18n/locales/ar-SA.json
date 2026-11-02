@@ -1447,6 +1447,7 @@
   "platform.mockConfig": "إعدادات المحاكاة",
   "platform.mockConfigHint": "مخزن في platform.extra",
   "platform.mockDefault": "افتراضي (بدون محاكاة)",
+  "platform.clientTypeGroupOthers": "عملاء آخرون",
   "platform.mockDelayMs": "تأخير (مللي ثانية)",
   "platform.mockErrorHttp": "خطأ HTTP",
   "platform.mockErrorMode": "وضع الخطأ",
