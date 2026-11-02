@@ -870,3 +870,64 @@ mod test_retry_after {
         assert_eq!(normalized("soon-ish", "2026-09-21T10:00:00Z"), None);
     }
 }
+
+// ── classify_upstream_error：状态码优先（Service），其余读 message（Model），匹配不到 Unknown ──
+mod test_classify_upstream_error {
+    use super::*;
+    use UpstreamErrorClass::{Model, Service, Unknown};
+
+    #[test]
+    fn table() {
+        let cases: &[(&str, u16, &str, UpstreamErrorClass)] = &[
+            // Service 状态码：不读 body
+            ("429 限流", 429, r#"{"error":{"message":"rate limited"}}"#, Service),
+            ("402 billing_error", 402, r#"{"type":"error","error":{"type":"billing_error","message":"x"}}"#, Service),
+            ("401", 401, r#"{"error":{"message":"invalid api key"}}"#, Service),
+            ("403", 403, r#"{"error":{"type":"permission_error","message":"no"}}"#, Service),
+            ("500 api_error", 500, r#"{"error":{"type":"api_error","message":"internal"}}"#, Service),
+            ("502", 502, "", Service),
+            ("529 overloaded", 529, r#"{"error":{"type":"overloaded_error","message":"Overloaded"}}"#, Service),
+            // 冲突：Service 状态码 + Model 特征 -> 状态码优先
+            ("429 带 model not found", 429, r#"{"error":{"message":"model not found"}}"#, Service),
+            ("403 带 model_not_found", 403, r#"{"error":{"code":"model_not_found"}}"#, Service),
+            ("503 newapi 无可用渠道", 503, r#"{"error":{"code":"model_not_found","message":"No available channel for model x under group default (distributor)"}}"#, Service),
+            // censorship_blocked（4xx）-> Service
+            ("400 censorship_blocked", 400, r#"{"error":{"type":"censorship_blocked","message":"blocked"}}"#, Service),
+            // Model 特征
+            ("404 anthropic not_found_error", 404, r#"{"type":"error","error":{"type":"not_found_error","message":"model: claude-x"}}"#, Model),
+            ("404 openai model_not_found code", 404, r#"{"error":{"code":"model_not_found","message":"The model `x` does not exist or you do not have access to it."}}"#, Model),
+            ("400 openai message", 400, r#"{"error":{"message":"The model `x` does not exist or you do not have access to it."}}"#, Model),
+            ("400 oneapi 无可用渠道", 400, r#"{"error":{"message":"当前分组 default 下对于模型 x 无可用渠道"}}"#, Model),
+            ("404 model not found 大小写", 404, r#"{"error":{"message":"Model Not Found"}}"#, Model),
+            ("400 invalid model", 400, r#"{"error":{"message":"Invalid model: foo"}}"#, Model),
+            ("400 unknown model", 400, r#"{"message":"unknown model foo"}"#, Model),
+            ("400 not supported", 400, r#"{"error":{"message":"the model foo is not supported"}}"#, Model),
+            ("400 不支持", 400, r#"{"error":{"message":"该模型不支持"}}"#, Model),
+            ("400 该模型不存在", 400, r#"{"error":{"message":"该模型不存在"}}"#, Model),
+            ("非 JSON 正文含特征", 404, "model not found", Model),
+            // Unknown：4xx 无可识别特征
+            ("400 无特征", 400, r#"{"error":{"message":"messages: field required"}}"#, Unknown),
+            ("422 无特征", 422, r#"{"detail":"bad"}"#, Unknown),
+            ("404 无特征", 404, r#"{"error":{"message":"route not found"}}"#, Unknown),
+            ("not supported 但无 model", 400, r#"{"error":{"message":"streaming is not supported"}}"#, Unknown),
+            ("空 body", 400, "", Unknown),
+            ("非 JSON 无特征", 404, "<html>Not Found</html>", Unknown),
+            ("JSON 但无字符串字段", 400, r#"{"error":42}"#, Unknown),
+        ];
+        for (name, status, body, want) in cases {
+            assert_eq!(classify_upstream_error(*status, body), *want, "{name}");
+        }
+    }
+
+    #[test]
+    fn oversized_body_is_bounded_and_char_safe() {
+        // 特征落在扫描窗口之外 -> 不识别（有界扫描）；特征在头部 -> 识别
+        let tail = format!("{}model not found", "a".repeat(1 << 20));
+        assert_eq!(classify_upstream_error(404, &tail), Unknown);
+        let head = format!("model not found{}", "a".repeat(1 << 20));
+        assert_eq!(classify_upstream_error(404, &head), Model);
+        // 多字节字符跨过扫描窗口边界不得 panic
+        let cjk = "中".repeat(1 << 16);
+        assert_eq!(classify_upstream_error(400, &cjk), Unknown);
+    }
+}
