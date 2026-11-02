@@ -1570,6 +1570,21 @@ async fn whitelist_responses_subendpoints_all_methods() {
     assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
 }
 
+/// 票 06 缺口收口：组内有透传平台时 responses 子端点先被透传路径认领，同样受白名单约束。
+#[tokio::test]
+async fn whitelist_responses_subendpoint_on_passthrough_group_417() {
+    let (upstream, seen) = spawn_recording_upstream(r#"{"id":"resp_1"}"#).await;
+    let state = make_state(test_db().await).await;
+    setup_passthrough_platform_group_extra(&state, "gkprs", &upstream, WL_CC_EXTRA).await;
+    let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkprs", "GET", "/v1/responses/resp_1", Some("curl/8.4.0"))).await;
+    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_client_417_log(&state, "gkprs", "curl/8.4.0").await;
+    assert_eq!(seen.lock().unwrap().len(), 0, "blocked request must not reach upstream");
+    let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkprs", "GET", "/v1/responses/resp_1", Some("claude-cli/2.0.1 (external, cli)"))).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(seen.lock().unwrap().len(), 1);
+}
+
 /// 被拦平台跳过、落到未配白名单的平台；等效退化（只剩被拦平台 + 禁用平台）→ 503；
 /// 字面单平台组被拦 → 417。blocked_reason 恒为 client_not_allowed。
 #[tokio::test]
@@ -4839,25 +4854,45 @@ async fn whitelist_constrains_passthrough_platform() {
     assert_eq!(resp.status(), StatusCode::OK);
 }
 
-/// 子端点路径（决策 / embedding / rerank）整组被白名单拦 → 417 + 审计行。
-/// 注：这三条先经 handler 的透传探测（同一闸门）收口；各 handler 内部的 `select_candidates_gated`
-/// 接线（部分平台被拦时选其余平台）由编译期签名保证，无独立端到端覆盖。
+/// 嵌入 / rerank / 决策端点：各 handler 自己的选平台入口接了白名单闸门。平台带槽位（过得了
+/// 槽位筛选），无 UA（认不出）→ 整组被白名单拦下 → 417 + 审计行；放行 UA 不在本例（无头请求）。
 #[tokio::test]
 async fn whitelist_constrains_aux_and_decision_routes() {
+    let (up, hits) = spawn_embedding_upstream(vec![(200, EMB_RESPONSE)]).await;
     let state = make_state(test_db().await).await;
-    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
-    setup_multi_platform_group(&state, "gkaux", &[("A", &up, WL_CC_EXTRA), ("B", &up, WL_CC_EXTRA)]).await;
-    for path in ["/v1/embeddings", "/v1/rerank", "/v1/systemone"] {
-        let req = HttpRequest::builder()
-            .method("POST")
-            .uri(path)
-            .header("authorization", "Bearer gkaux")
-            .header("content-type", "application/json")
-            .header("user-agent", "curl/8.4.0")
-            .body(Body::from(r#"{"model":"m","input":"x"}"#))
-            .unwrap();
-        let resp = handle_proxy(AxumState(state.clone()), req).await;
+    let both = PlatformModels {
+        embedding: Some("emb-slot".into()),
+        rerank: Some("rr-slot".into()),
+        ..Default::default()
+    };
+    setup_aux_group(&state, "gkaux", &[(&up, both, Protocol::OpenAI, "wa")]).await;
+    set_platform_extra(&state, "gkaux-wa", WL_CC_EXTRA).await;
+    for (body, path) in [(EMB_REQ, "/v1/embeddings"), (RR_REQ, "/v1/rerank")] {
+        let resp = handle_proxy(AxumState(state.clone()), embedding_request("gkaux", body, path)).await;
         assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "{path}");
-        assert_client_417_log(&state, "gkaux", "curl/8.4.0").await;
+        let log = last_log_for(&state, "gkaux").await;
+        assert_eq!((log.status_code, log.blocked_by.as_str(), log.blocked_reason.as_str()), (417, "router", "client_not_allowed"), "{path}");
     }
+    assert!(hits.lock().unwrap().is_empty(), "不得打到上游");
+
+    let (dup, _) = spawn_decision_upstream(vec![(200, OR_RESPONSE)]).await;
+    let jev = PlatformModels { jev: Some("jev-latest".into()), ..Default::default() };
+    setup_decision_group(&state, "gkaux-dec", &dup, jev, None, Protocol::TypeSafe).await;
+    set_platform_extra(&state, "stub-gkaux-dec", WL_CC_EXTRA).await;
+    let resp = handle_proxy(AxumState(state.clone()), decision_request("gkaux-dec", "whatever")).await;
+    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "decision");
+    assert_eq!(last_log_for(&state, "gkaux-dec").await.blocked_reason, "client_not_allowed");
+}
+
+async fn set_platform_extra(state: &Arc<ProxyState>, name: &str, extra: &str) {
+    let id = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == name).unwrap().id;
+    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
+        id, name: None, platform_type: None, base_url: None, api_key: None, extra: Some(extra.to_string()),
+        models: None, available_models: None, endpoints: None,
+        enabled: None, status: None, manual_budgets: None,
+        join_group_ids: None, expires_at: None, quota_source: None,
+    })
+    .await
+    .unwrap();
+    state.db.invalidate_group_details_cache();
 }
