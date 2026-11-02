@@ -356,13 +356,13 @@ fn weighted_effective_weight_is_multiplicative() {
 fn resolve_model_skips_blank_slots() {
     use super::model_mapping::resolve_model;
     let m = PlatformModels {
-        opus: Some("".into()),
-        default: Some("glm-5".into()),
+        opus: vec!["".into()],
+        default: vec!["glm-5".into()],
         ..Default::default()
     };
     assert_eq!(resolve_model(&m, "claude-opus-4"), "glm-5", "blank opus falls to default");
     let blank_default = PlatformModels {
-        default: Some("  ".into()),
+        default: vec!["  ".into()],
         ..Default::default()
     };
     assert_eq!(resolve_model(&blank_default, "x[1m]"), "x", "blank default passes through");
