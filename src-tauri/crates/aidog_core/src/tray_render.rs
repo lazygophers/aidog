@@ -45,6 +45,9 @@ pub struct TrayColumn {
     pub align_row2: Option<String>,
 }
 
+/// 分隔符 4 预设（与前端 TrayConfigTab 候选库一致）。
+const SEPARATOR_PRESETS: [&str; 4] = ["|", "｜", "·", "-"];
+
 /// 托盘渲染布局：columns（数据列）+ gaps（列间间隙）。
 /// gaps[i] = columns[i] 与 columns[i+1] 之间的间隙；None = 默认 2px 空白。
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -53,6 +56,12 @@ pub struct TrayLayout {
     /// 长度 = columns.len() - 1（若 columns.len() ≥ 2）。
     /// None = 默认空白间隙；Some(text) = 自定义分隔符文本。
     pub gaps: Vec<Option<String>>,
+    /// 首段之前的分隔符（2026-11-02 起首尾可放）。旧 JSON 无此字段 → None。
+    #[serde(default)]
+    pub lead_gap: Option<String>,
+    /// 末段之后的分隔符。
+    #[serde(default)]
+    pub trail_gap: Option<String>,
 }
 
 #[cfg(all(target_os = "macos", feature = "menubar"))]
@@ -150,6 +159,8 @@ pub(crate) fn set_tray_attributed_title(
     button: &objc2_app_kit::NSStatusBarButton,
     columns: Vec<TrayColumn>,
     gaps: Vec<Option<String>>,
+    lead_gap: Option<String>,
+    trail_gap: Option<String>,
     _separator: String,
 ) -> Result<(), String> {
     use objc2::AnyThread;
@@ -166,6 +177,14 @@ pub(crate) fn set_tray_attributed_title(
     // 下面整块为 objc2 渲染主体，票 I10 逐字保留（仅由外层 with_inner_tray_icon 闭包
     // 换成普通块——button 改由调用方传入，缩进层级不变以便 diff 自证未重写）。
     {
+        // 分隔符与相邻列文字之间补空格（"A · B | C"），宽度测量与绘制都用补完后的文本。
+        let gaps: Vec<Option<String>> = gaps
+            .into_iter()
+            .map(|g| g.map(|t| format!(" {t} ")))
+            .collect();
+        let lead_gap = lead_gap.map(|t| format!("{t} "));
+        let trail_gap = trail_gap.map(|t| format!(" {t}"));
+
         let two_line_mode = columns.iter().any(|c| c.two_line);
 
         // 段落样式：两行模式压缩行高（min==max）让两行紧凑；单行模式不压缩，字号更大。
@@ -193,11 +212,21 @@ pub(crate) fn set_tray_attributed_title(
         // 列宽 = max(第一行该列文字, 第二行该列文字) 实测宽 + padding；位置累加（loc = 各列右边界）。
         // 对齐：通过在文本前填充空格实现右/居中对齐（精确测量 + 空格宽度推算）。
         // 两行都用 left tab @列右边界 → 同一列两行起始位置相同 → 列边界对齐。
+        // 分隔符文字（首段前 lead / 列间 gap）也占宽，计入各列 tab 位置；两行统一用 TRAY_FONT_SIZE 测宽与绘制，
+        // 保证两行同一列起点一致。
+        let gap_text_of = |idx: usize| -> String {
+            if idx == 0 {
+                lead_gap.clone().unwrap_or_default()
+            } else {
+                gaps.get(idx - 1).and_then(|g| g.clone()).unwrap_or_default()
+            }
+        };
         let mut col_widths: Vec<f64> = Vec::new();
         if two_line_mode {
             let mut left_tabs: Vec<Retained<NSTextTab>> = Vec::new();
-            let mut loc: f64 = 0.0;
-            for col in columns.iter() {
+            let mut content_ws: Vec<f64> = Vec::new();
+            let mut gap_ws: Vec<f64> = Vec::new();
+            for (idx, col) in columns.iter().enumerate() {
                 let line1 = if col.two_line {
                     col.name.clone()
                 } else {
@@ -212,7 +241,15 @@ pub(crate) fn set_tray_attributed_title(
                 let w2 = measure_text_width(&line2, TRAY_FONT_SIZE + 3.0);
                 let col_w = col_width(w1, w2);
                 col_widths.push(col_w);
-                loc += col_w;
+                content_ws.push(col_w);
+                let gt = gap_text_of(idx);
+                gap_ws.push(if gt.is_empty() {
+                    0.0
+                } else {
+                    measure_text_width(&gt, TRAY_FONT_SIZE)
+                });
+            }
+            for loc in tab_stop_locs(&content_ws, &gap_ws) {
                 left_tabs.push(NSTextTab::initWithType_location(
                     NSTextTab::alloc(),
                     NSTextTabType::LeftTabStopType,
@@ -276,8 +313,7 @@ pub(crate) fn set_tray_attributed_title(
         let result = NSMutableAttributedString::new();
 
         if two_line_mode {
-            let _default_gap = " ".to_string();
-            // 第一行（标签行）：各列首段，列间 \t + gap 文字。整行用 `para`（left tab）。
+            // 第一行（标签行）：各列首段，列间 \t + gap 文字（首段前直接放 lead）。整行用 `para`（left tab）。
             for (idx, col) in columns.iter().enumerate() {
                 if idx > 0 {
                     result.appendAttributedString(&make_part(
@@ -286,18 +322,15 @@ pub(crate) fn set_tray_attributed_title(
                         &follow_color,
                         &para,
                     ));
-                    let gap_text = gaps
-                        .get(idx - 1)
-                        .and_then(|g| g.clone())
-                        .unwrap_or_default();
-                    if !gap_text.is_empty() {
-                        result.appendAttributedString(&make_part(
-                            &gap_text,
-                            TRAY_FONT_SIZE,
-                            &follow_color,
-                            &para,
-                        ));
-                    }
+                }
+                let gap_text = gap_text_of(idx);
+                if !gap_text.is_empty() {
+                    result.appendAttributedString(&make_part(
+                        &gap_text,
+                        TRAY_FONT_SIZE,
+                        &follow_color,
+                        &para,
+                    ));
                 }
                 let line1 = if col.two_line {
                     col.name.clone()
@@ -313,12 +346,22 @@ pub(crate) fn set_tray_attributed_title(
                     &para,
                 ));
             }
+            if let Some(t) = trail_gap.as_deref() {
+                result.appendAttributedString(&make_part(
+                    "\t",
+                    TRAY_FONT_SIZE,
+                    &follow_color,
+                    &para,
+                ));
+                result.appendAttributedString(&make_part(t, TRAY_FONT_SIZE, &follow_color, &para));
+            }
             // 行间换行
             let nl_font = columns
                 .first()
                 .map(|c| c.font_size)
                 .unwrap_or(TRAY_FONT_SIZE);
             result.appendAttributedString(&make_part("\n", nl_font, &follow_color, &para));
+            let row2_font_trail = TRAY_FONT_SIZE + 3.0;
             // 第二行（值行）：与标签行相同结构，对齐取 align_row2（fallback align）。字体比标签行大1pt。
             for (idx, col) in columns.iter().enumerate() {
                 let row2_font = TRAY_FONT_SIZE + 3.0;
@@ -329,18 +372,15 @@ pub(crate) fn set_tray_attributed_title(
                         &follow_color,
                         &para,
                     ));
-                    let gap_text = gaps
-                        .get(idx - 1)
-                        .and_then(|g| g.clone())
-                        .unwrap_or_default();
-                    if !gap_text.is_empty() {
-                        result.appendAttributedString(&make_part(
-                            &gap_text,
-                            row2_font,
-                            &follow_color,
-                            &para,
-                        ));
-                    }
+                }
+                let gap_text = gap_text_of(idx);
+                if !gap_text.is_empty() {
+                    result.appendAttributedString(&make_part(
+                        &gap_text,
+                        TRAY_FONT_SIZE,
+                        &follow_color,
+                        &para,
+                    ));
                 }
                 let line2 = if col.two_line {
                     col.value.clone()
@@ -355,10 +395,22 @@ pub(crate) fn set_tray_attributed_title(
                         .appendAttributedString(&make_part(&aligned, row2_font, &col.color, &para));
                 }
             }
+            if let Some(t) = trail_gap.as_deref() {
+                result.appendAttributedString(&make_part(
+                    "\t",
+                    row2_font_trail,
+                    &follow_color,
+                    &para,
+                ));
+                result.appendAttributedString(&make_part(t, TRAY_FONT_SIZE, &follow_color, &para));
+            }
         } else {
             // 单行模式：每列 "名 值"，列间用 gap 拼接。字号加大（只有一行，充分利用菜单栏高度）。
             let default_gap = " ".to_string();
             let join_font = single_line_font_size;
+            if let Some(t) = lead_gap.as_deref() {
+                result.appendAttributedString(&make_part(t, join_font, &follow_color, &para));
+            }
             for (idx, col) in columns.iter().enumerate() {
                 if idx > 0 {
                     let gap_text = gaps
@@ -379,6 +431,9 @@ pub(crate) fn set_tray_attributed_title(
                     &col.color,
                     &para,
                 ));
+            }
+            if let Some(t) = trail_gap.as_deref() {
+                result.appendAttributedString(&make_part(t, join_font, &follow_color, &para));
             }
         }
 
@@ -687,6 +742,8 @@ pub(crate) async fn tray_layout_with_stats(
     let empty = TrayLayout {
         columns: Vec::new(),
         gaps: Vec::new(),
+        lead_gap: None,
+        trail_gap: None,
     };
     let Ok(Some(config)) = db::get_tray_config(db).await else {
         return empty;
@@ -746,21 +803,18 @@ pub(crate) async fn tray_layout_with_stats(
 
     let mut columns: Vec<TrayColumn> = Vec::new();
     let mut gaps: Vec<Option<String>> = Vec::new();
+    let mut lead_gap: Option<String> = None;
     let mut pending_sep: Option<String> = None;
 
     for item in items {
         if item.item_type == "separator" {
-            pending_sep = Some(if item.display.is_empty() {
-                "·".to_string()
-            } else {
+            // 4 预设之外（含空）回落 "·"；同位置多个取最后一个。
+            pending_sep = Some(if SEPARATOR_PRESETS.contains(&item.display.as_str()) {
                 item.display.clone()
+            } else {
+                "·".to_string()
             });
             continue;
-        }
-
-        // Non-separator item → compute column data
-        if !columns.is_empty() {
-            gaps.push(pending_sep.take());
         }
 
         let two_line = item.line_mode == "two";
@@ -825,6 +879,12 @@ pub(crate) async fn tray_layout_with_stats(
         }
         // 自定义 label 优先
         let name = item.label.clone().unwrap_or(name);
+        // 真正入列时才消费 pending 分隔符（被跳过的项不能让 gaps 与 columns 错位）。
+        if columns.is_empty() {
+            lead_gap = pending_sep.take();
+        } else {
+            gaps.push(pending_sep.take());
+        }
         columns.push(TrayColumn {
             name,
             value,
@@ -836,7 +896,13 @@ pub(crate) async fn tray_layout_with_stats(
         });
     }
 
-    TrayLayout { columns, gaps }
+    let trail_gap = if columns.is_empty() { None } else { pending_sep };
+    TrayLayout {
+        columns,
+        gaps,
+        lead_gap,
+        trail_gap,
+    }
 }
 
 /// 托盘配置的分隔符（多 item 横排间隔）。
@@ -862,13 +928,9 @@ pub(crate) async fn tray_quota_text(db: &Db) -> Option<String> {
     let default_sep = tray_separator(db).await;
     let mut texts: Vec<String> = Vec::new();
     for (i, col) in layout.columns.iter().enumerate() {
+        // 纯文本路径不读分隔符项（只用全局 separator）；保留原有的 " " 间隙。
         if i > 0 {
-            let gap = layout
-                .gaps
-                .get(i - 1)
-                .and_then(|g| g.clone())
-                .unwrap_or_else(|| " ".to_string());
-            texts.push(gap);
+            texts.push(" ".to_string());
         }
         texts.push(format!("{} {}", col.name, col.value));
     }
@@ -934,6 +996,20 @@ pub async fn build_tray_menu(
 
 /// 列间最小间距（pt）。两列最宽单元之间的可见间隙恰为此值，约一个空格宽。
 pub(crate) const COL_PADDING: f64 = 3.0;
+
+/// 两行模式 tab stop 右边界序列。`gap_widths[i]` = 第 i 列前的分隔符文字宽（i=0 为首段前），
+/// `content_widths[i]` = `col_width` 结果；每列实际占宽 = gap + content，位置累加。
+pub(crate) fn tab_stop_locs(content_widths: &[f64], gap_widths: &[f64]) -> Vec<f64> {
+    let mut loc = 0.0;
+    content_widths
+        .iter()
+        .zip(gap_widths)
+        .map(|(c, g)| {
+            loc += g + c;
+            loc
+        })
+        .collect()
+}
 
 /// 列宽 = 两行中较宽者 + COL_PADDING。
 pub(crate) fn col_width(w1: f64, w2: f64) -> f64 {

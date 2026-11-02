@@ -510,7 +510,7 @@ async fn tray_config_serde_roundtrip() {
     assert_eq!(got.items[1].order, 1);
 }
 
-/// 票 I15 迁移：旧二维配置读出来 separator 被关掉、已 disabled 的项不被恢复、其余 enabled 不限数量，
+/// 旧二维配置读出来：separator 不再被关（票 02）、已 disabled 的项不被恢复、其余 enabled 不限数量，
 /// 一项都不丢，且结果一次性落盘（再读一次形状相同）。
 #[tokio::test]
 async fn tray_config_clamped_on_read_without_dropping_items() {
@@ -539,8 +539,8 @@ async fn tray_config_clamped_on_read_without_dropping_items() {
     let cfg = get_tray_config(&db).await.unwrap().expect("config present");
     assert_eq!(cfg.items.len(), 5, "一项都不许丢");
     let enabled: Vec<bool> = cfg.items.iter().map(|i| i.enabled).collect();
-    // order 2 是 separator 被关掉，order 4 本就 disabled 不恢复，其余保持 enabled。
-    assert_eq!(enabled, vec![true, true, false, true, false]);
+    // order 2 的 separator 保持 enabled，order 4 本就 disabled 不恢复。
+    assert_eq!(enabled, vec![true, true, true, true, false]);
     // 二维字段原样留着（降级回旧版本仍能按老样子渲染）。
     assert_eq!(cfg.items[4].line_mode, "two");
     assert_eq!(cfg.items[4].align_row2.as_deref(), Some("right"));

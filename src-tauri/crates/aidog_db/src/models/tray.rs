@@ -41,9 +41,8 @@ impl Default for TrayColor {
 /// - item_type="today_usage": metric ∈ {"tokens","cache_rate","cost","requests"}，display/platform_id 忽略
 /// - item_type="routed_platform": 当前命中平台（取最近一条非测试 proxy_log 的平台），无字段
 /// - item_type="peak": 高峰指示（按当前命中平台的 peak 窗口判定），无字段
-/// - item_type="separator": display 存分隔符文本（如 "|"、"·"、"—"）。
-///   票 I15 起 separator 不再可选，存量 separator 项一律被
-///   [`clamp_to_segments`] 置 `enabled=false` 留在配置里（不删）。
+/// - item_type="separator": display 存分隔符预设（"|"、"｜"、"·"、"-" 四选一，其余渲染时回落 "·"）；
+///   不占段数，可放在任意相邻两段之间及首尾。票 I15 禁用的存量项（`enabled=false`）不恢复。
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct TrayItem {
@@ -170,17 +169,26 @@ impl TrayConfig {
     }
 }
 
-/// 票 I15 迁移的遗留职责：separator 项一律置 `enabled=false` 留在 items 里（不删）。
-/// 装载段数无上限；已 disabled 的项不会被恢复。
+/// 配置规整：装载段数无上限；separator（不占段数）可放在任意相邻两段之间及首尾，
+/// 同一位置（相邻、中间无数据段）至多一个——多余的置 `enabled=false`（不删，留第一个）。
+/// 票 I15 禁用的旧 separator 项（`enabled=false`）不会被恢复。
 ///
 /// 返回 true 表示配置被改过（调用方据此决定是否落盘）。
 pub fn clamp_to_segments(cfg: &mut TrayConfig) -> bool {
     let mut changed = false;
-    for item in &mut cfg.items {
-        if item.enabled && item.item_type == "separator" {
-            item.enabled = false;
+    let mut idx: Vec<usize> = (0..cfg.items.len())
+        .filter(|&i| cfg.items[i].enabled)
+        .collect();
+    idx.sort_by_key(|&i| cfg.items[i].order);
+    let mut prev_sep = false;
+    for i in idx {
+        let is_sep = cfg.items[i].item_type == "separator";
+        if is_sep && prev_sep {
+            cfg.items[i].enabled = false;
             changed = true;
+            continue;
         }
+        prev_sep = is_sep;
     }
     changed
 }
