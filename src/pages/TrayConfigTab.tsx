@@ -238,25 +238,6 @@ const CYCLE_MS: Record<string, number> = {
   mcp_monthly: 30 * 86_400_000,
 };
 
-/** 段内 reset_time 指标的最早重置时刻（ms）；非平台段 / 无 reset_time 指标 / 数据缺失 → null。 */
-export function segEarliestResetAt(seg: TrayItem, platforms: Platform[]): number | null {
-  if (seg.item_type !== "platform") return null;
-  const resets = (seg.metrics ?? []).filter((m) => m.startsWith("reset_time:"));
-  if (!resets.length) return null;
-  const p = platforms.find((pp) => pp.id === seg.platform_id);
-  if (!p) return null;
-  let tiers: { name: string; window_start?: number }[] = [];
-  try {
-    tiers = (JSON.parse(p.est_coding_plan || "{}") as { tiers?: typeof tiers }).tiers ?? [];
-  } catch { /* 旧数据无 plan */ }
-  const times = resets.map((m) => {
-    const tier = tiers.find((x) => x.name === m.slice("reset_time:".length));
-    const cycle = tier ? CYCLE_MS[tier.name] : undefined;
-    return tier?.window_start && cycle ? tier.window_start + cycle : null;
-  }).filter((x): x is number => x != null);
-  return times.length ? Math.min(...times) : null;
-}
-
 /** 剩余相对时间文案（纯函数：nowMs 注入）；resetAt 缺失或已过期 → null，与绝对时间展示行为一致。 */
 export function remainingUntilReset(
   resetAtMs: number | null, nowMs: number, t: TFunction,
@@ -270,20 +251,16 @@ export function remainingUntilReset(
   return t("tray.platform.resetInDays", "{{n}} 天后重置", { n: Math.ceil(hr / 24) });
 }
 
-/** 绝对时间旁的相对倒计时小字（muted 次要样式）；无 reset_time 指标时不出。 */
-function ResetHint({ seg, platforms, t }: { seg: TrayItem; platforms: Platform[]; t: TFunction }) {
-  const hint = remainingUntilReset(segEarliestResetAt(seg, platforms), Date.now(), t);
-  if (!hint) return null;
-  return <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>{hint}</span>;
-}
-
-/** 预览值。peak 与真实托盘同口径（峰/平，Rust `peak_item_parts`）；routed_platform 仍占位。 */
+/** 预览值。peak 与真实托盘同口径（峰/平，Rust `peak_item_parts`）；routed_platform 仍占位。
+ *  nowMs / t 可选注入：reset_time 指标拼接相对剩余时间（golden 两侧同 now 对算；组件传 useTranslation 的 t）。 */
 export function previewValue(
   item: TrayItem,
   platforms: Platform[],
   stats: TodayStats | null,
   peak: TrayPeakStatus | null = null,
   cur: DisplayCurrency = getDisplayCurrency(),
+  nowMs: number = Date.now(),
+  t?: TFunction,
 ): string {
   const s = stats ?? { tokens: 0, cache_rate: 0, cost: 0, total_requests: 0 };
   switch (item.item_type) {
@@ -316,11 +293,17 @@ export function previewValue(
         const cycle = CYCLE_MS[name];
         if (!tier || !cycle || !tier.window_start) return null;
         const d = new Date(tier.window_start + cycle);
-        const now = new Date();
+        const now = new Date(nowMs);
         const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-        return d.toDateString() === now.toDateString()
+        const abs = d.toDateString() === now.toDateString()
           ? hm
           : `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${hm}`;
+        // 相对剩余时间与绝对时间同格拼接（与 Rust remaining_until_reset 同语义）；
+        // t 缺省走中文兜底（与 Rust 托盘硬编码中文逐字一致）。
+        const tf = t ?? ((key: string, fb?: string, o?: { n?: number }) =>
+          (fb ?? key).replace(/\{\{n\}\}/g, String(o?.n))) as unknown as TFunction;
+        const rel = remainingUntilReset(tier.window_start + cycle, nowMs, tf);
+        return rel ? `${abs} · ${rel}` : abs;
       };
       const one = (metric: string): string | null => {
         if (metric === "balance") return money(balanceUsd, item.decimals ?? 2);
@@ -1024,9 +1007,8 @@ export function TrayConfigTab() {
                           alignSelf: two ? (ALIGN_FLEX[seg.align_row2 ?? seg.align] ?? "flex-start") : undefined,
                         }}
                       >
-                        {previewValue(seg, platforms, todayStats, peak, cur)}
+                        {previewValue(seg, platforms, todayStats, peak, cur, undefined, t)}
                       </span>
-                      <ResetHint seg={seg} platforms={platforms} t={t} />
                     </span>
                     </Fragment>
                   );
@@ -1067,8 +1049,7 @@ export function TrayConfigTab() {
                     {gap}
                     <SortableSlot i={i} tag={t("tray.slotIndex", "SLOT {{n}}", { n: i + 1 })} id={segmentKey(seg)} onEdit={() => setEditingKey(segmentKey(seg))} handleLabel={t("tray.dragHandle", "拖动排序")}>
                       <div style={{ fontSize: 12.5, fontWeight: 650 }}>{seg.label || opt?.label || segmentKey(seg)}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 700, color: ACCENT_TEXT, letterSpacing: 0.3 }}>{previewValue(seg, platforms, todayStats, peak, cur)}</div>
-                      <ResetHint seg={seg} platforms={platforms} t={t} />
+                      <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 700, color: ACCENT_TEXT, letterSpacing: 0.3 }}>{previewValue(seg, platforms, todayStats, peak, cur, undefined, t)}</div>
                     </SortableSlot>
                     </Fragment>
                   );

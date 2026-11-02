@@ -233,8 +233,14 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
   1. 票 `Status:` 是否停在 `claimed`（未写 `## Answer` = 没结票）；
   2. `git -C <worktree> status --short` / `diff --stat` 半成品范围，最后一次编译错误原文；
   3. 主仓 `status --short` 有无误写副本（与 worktree `cmp`）；
-  4. 锁残留：`/tmp/aidog-cargo.lock`（见 shared-worktree.md）、`.git/index.lock`。
-  半成品采信走 shared-worktree.md「implementer 挂掉后的半成品采信」三前提。
+  4. 锁残留：`/tmp/aidog-cargo.lock`（见 shared-worktree.md）、`.git/index.lock`；
+  5. 半成品含 JSON / 数据文件先跑语法门禁（`yarn check:defaults` 覆盖 `src-tauri/defaults/` 全部 JSON）
+     再续做——2026-11-02 preset 权限轮：进程退出杀掉 agent，preset 留下非法 JSON（编辑脚本劣化垃圾），
+     编译与既有门禁全绿，无门禁能拦。半成品采信走 shared-worktree.md「implementer 挂掉后的半成品采信」三前提。
+- **派数据 / JSON 批量编辑给 agent 时，prompt 附确定性脚本全文**（2026-11-02 preset 权限轮实锤）：
+  prompt 只写「精确文本插入」描述、让 agent 自己拼编辑脚本，agent 侧同样发生生成流劣化
+  （surgical-refactor.md §3 同模式）；agent 被中断后脚本垃圾直接落进数据文件。改法：把
+  删垃圾 + 锚点插入的 python/node 脚本全文写进 prompt，agent 只负责跑与回报校验输出。
 - **harness 并发上限是环境变量 `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`（默认 2）**：用户说「不要管限制」
   只解除本项目的 ≤2 约定，不改 harness；第 3 个派发报 `Concurrent subagent limit reached` 时不重试，
   任务排队，任一完成再派。
