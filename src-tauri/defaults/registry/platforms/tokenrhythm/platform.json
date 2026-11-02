@@ -9,7 +9,7 @@
   },
   "models": {
     "default": {
-      "default": "glm-5.2"
+      "default": ["glm-5.2"]
     }
   },
   "model_list": {
@@ -64,5 +64,5 @@
   ],
   "color": "#4958E8",
   "key_prefixes": ["sk_"],
-  "last_updated": 1790951674
+  "last_updated": 1793615839
 }

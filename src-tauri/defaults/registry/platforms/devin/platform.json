@@ -1,11 +1,11 @@
 {
-  "last_updated": 1788196594,
+  "last_updated": 1793615839,
   "endpoints": {
     "default": []
   },
   "models": {
     "default": {
-      "default": "devin-normal"
+      "default": ["devin-normal"]
     }
   },
   "model_list": {

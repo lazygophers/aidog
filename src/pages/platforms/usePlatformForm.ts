@@ -319,10 +319,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     // Auto-fill 默认模型预设（与 endpoints 同步随协议切换）。
     // 仅填预设有值的槽位，其余保持空；未覆盖平台返回空对象 = 不改动。
     const defaultModels = await getDefaultModels(newProtocol);
-    setModels({
-      default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "", embedding: "", rerank: "",
-      ...defaultModels,
-    });
+    setModels(slotsToForm(defaultModels));
     // 切到 mock 时用当前 extra 初始化 mock 配置编辑器
     if (newProtocol === "mock") {
       setMockConfig(parseMockConfig(extra));

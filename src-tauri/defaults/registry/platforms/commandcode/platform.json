@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790936019,
+  "last_updated": 1793615839,
   "is_coding_plan": true,
   "name": {
     "en-US": "Command Code",
@@ -50,12 +50,12 @@
   },
   "models": {
     "default": {
-      "default": "deepseek/deepseek-v4-flash",
-      "sonnet": "claude-sonnet-5-5",
-      "opus": "claude-opus-5-5",
-      "haiku": "claude-haiku-4-5-20251001",
-      "gpt": "gpt-6-sol",
-      "jev": "typesafe/jev"
+      "default": ["deepseek/deepseek-v4-flash"],
+      "sonnet": ["claude-sonnet-5-5"],
+      "opus": ["claude-opus-5-5"],
+      "haiku": ["claude-haiku-4-5-20251001"],
+      "gpt": ["gpt-6-sol"],
+      "jev": ["typesafe/jev"]
     }
   },
   "model_list": {

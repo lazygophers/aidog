@@ -9,7 +9,7 @@
     "search_pro": {"per_1000": 15.0, "currency": "CNY"},
     "fetch": {"per_1000": 10.0, "currency": "CNY"}
   },
-  "last_updated": 1793290955,
+  "last_updated": 1793615839,
   "endpoints": {
     "default": [
       {
@@ -24,7 +24,7 @@
   },
   "models": {
     "default": {
-      "default": "kimi-k3"
+      "default": ["kimi-k3"]
     }
   },
   "model_list": {
