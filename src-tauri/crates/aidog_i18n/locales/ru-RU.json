@@ -1184,6 +1184,7 @@
   "notif.eventTemplatePlaceholder": "Оставьте пустым, чтобы использовать шаблон выбранного типа",
   "notif.eventTypeLabel": "Тип уведомления",
   "notif.eventVarsHint": "Доступные переменные",
+  "notif.optionalPlaceholderHint": "Необязательный плейсхолдер {префикс|переменная}: выводит префикс + значение, если переменная не пуста, иначе ничего, например {project}{ · |session_name}",
   "notif.fieldForm": "Форма",
   "notif.fieldPopup": "Всплывающее",
   "notif.fieldSound": "Звук",

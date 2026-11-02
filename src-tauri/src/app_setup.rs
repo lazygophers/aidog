@@ -380,6 +380,9 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                                 if let Err(e) = aidog_db::cleanup_notifications(&db, retention_days).await {
                                     tracing::warn!(error = %e, "scheduled: cleanup notifications failed");
                                 }
+                                if let Err(e) = aidog_db::cleanup_session_name_cache(&db).await {
+                                    tracing::warn!(error = %e, "scheduled: cleanup session_name_cache failed");
+                                }
                                 // 聚合统计表 retention 硬删（默认 365 天；stats retention_days=0 → 永不清理）。
                                 let stats_settings: gateway::models::StatsSettings = aidog_db::get_setting(&db, "stats", "settings").await
                                     .ok().flatten().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default();

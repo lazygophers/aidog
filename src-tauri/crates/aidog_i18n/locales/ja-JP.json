@@ -1184,6 +1184,7 @@
   "notif.eventTemplatePlaceholder": "空欄にすると選択したタイプのテンプレートを使用します",
   "notif.eventTypeLabel": "通知タイプ",
   "notif.eventVarsHint": "利用可能な変数",
+  "notif.optionalPlaceholderHint": "オプションのプレースホルダー {プレフィックス|変数}：変数が空でなければ「プレフィックス+値」を出力し、空なら何も出力しません。例：{project}{ · |session_name}",
   "notif.fieldForm": "形式",
   "notif.fieldPopup": "ポップアップ",
   "notif.fieldSound": "通知音",

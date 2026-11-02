@@ -37,6 +37,20 @@ fn substitute_vars_impl(
             // 找配对 }
             if let Some(rel) = template[i + 1..].find('}') {
                 let key = &template[i + 1..i + 1 + rel];
+                // 可选占位 `{前缀|变量}`：值非空输出「前缀+值」，空/缺失整段为空串（与 fill_empty 无关）。
+                // 前缀含 '{' 视为非占位（让内层 '{' 自行配对）。
+                if let Some((prefix, name)) = key.rsplit_once('|')
+                    && !prefix.contains('{')
+                    && !name.is_empty()
+                    && name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
+                {
+                    if let Some(v) = vars.get(name).filter(|v| !v.is_empty()) {
+                        out.push_str(prefix);
+                        out.push_str(v);
+                    }
+                    i = i + 1 + rel + 1;
+                    continue;
+                }
                 // 键须为合法占位名（非空 + 仅 [a-zA-Z0-9_]）
                 let valid =
                     !key.is_empty() && key.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_');

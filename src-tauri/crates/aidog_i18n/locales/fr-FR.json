@@ -1184,6 +1184,7 @@
   "notif.eventTemplatePlaceholder": "Laisser vide pour utiliser le modèle du type sélectionné",
   "notif.eventTypeLabel": "Type de notification",
   "notif.eventVarsHint": "Variables disponibles",
+  "notif.optionalPlaceholderHint": "Espace réservé facultatif {préfixe|variable} : affiche préfixe + valeur si la variable n'est pas vide, sinon rien, p. ex. {project}{ · |session_name}",
   "notif.fieldForm": "Forme",
   "notif.fieldPopup": "Popup",
   "notif.fieldSound": "Son",
