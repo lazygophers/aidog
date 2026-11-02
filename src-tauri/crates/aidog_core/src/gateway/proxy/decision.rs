@@ -139,6 +139,7 @@ pub(crate) async fn handle_decision(
     bytes: &[u8],
     start: std::time::Instant,
     lang: Lang,
+    client: ClientGate,
 ) -> Response {
     log.source_protocol = "typesafe".to_string();
     log.target_protocol = "typesafe".to_string();
@@ -177,12 +178,13 @@ pub(crate) async fn handle_decision(
         settings: &sched_settings,
         sticky_key: Some(format!("{}|decision", group.group_key)),
     };
-    let candidate_set = match select_candidates_ctx(
+    let candidate_set = match select_candidates_gated(
         &state.db,
         group,
         &requested_model,
         Some(&sched_ctx),
         RequestKind::Decision,
+        client,
     )
     .await
     {
