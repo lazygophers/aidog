@@ -2594,7 +2594,7 @@
   "tray.previewEmpty": "No items",
   "tray.previewTitle": "Menu Bar Preview",
   "tray.keptDisabled": "{{count}} extra item(s) from the old tray layout are kept but switched off — nothing was discarded",
-  "tray.libraryHint": "Up to 3 segments · shown in load order",
+  "tray.libraryHint": "Shown in load order",
   "tray.libraryTitle": "Library",
   "tray.pickAtMost": "Pick up to 3 — shown in the order you check them",
   "tray.segment.peak": "Peak indicator",

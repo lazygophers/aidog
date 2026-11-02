@@ -510,8 +510,8 @@ async fn tray_config_serde_roundtrip() {
     assert_eq!(got.items[1].order, 1);
 }
 
-/// 票 I15 迁移：旧的 5 项二维配置读出来只剩前 3 项 enabled，其余项**仍在**配置里（只被关掉），
-/// 且收敛结果一次性落盘（再读一次形状相同）。
+/// 票 I15 迁移：旧二维配置读出来 separator 被关掉、已 disabled 的项不被恢复、其余 enabled 不限数量，
+/// 一项都不丢，且结果一次性落盘（再读一次形状相同）。
 #[tokio::test]
 async fn tray_config_clamped_on_read_without_dropping_items() {
     let db = test_db().await;
@@ -522,7 +522,7 @@ async fn tray_config_clamped_on_read_without_dropping_items() {
             "platform_id": i + 1, "display": "balance",
             "color": { "mode": "follow", "value": "" }, "font_size": 9.0,
             "line_mode": "two", "align_row2": "right",
-            "enabled": true, "order": i
+            "enabled": i != 4, "order": i
         })).collect::<Vec<_>>(),
     });
     set_setting(
@@ -539,7 +539,7 @@ async fn tray_config_clamped_on_read_without_dropping_items() {
     let cfg = get_tray_config(&db).await.unwrap().expect("config present");
     assert_eq!(cfg.items.len(), 5, "一项都不许丢");
     let enabled: Vec<bool> = cfg.items.iter().map(|i| i.enabled).collect();
-    // order 0/1 保留，order 2 是 separator 被关掉，order 3 补进第三段，order 4 超额关掉。
+    // order 2 是 separator 被关掉，order 4 本就 disabled 不恢复，其余保持 enabled。
     assert_eq!(enabled, vec![true, true, false, true, false]);
     // 二维字段原样留着（降级回旧版本仍能按老样子渲染）。
     assert_eq!(cfg.items[4].line_mode, "two");
@@ -551,6 +551,22 @@ async fn tray_config_clamped_on_read_without_dropping_items() {
         again.items.iter().map(|i| i.enabled).collect::<Vec<_>>(),
         enabled
     );
+}
+
+/// 装 6 段（无上限）写读回环保持 enabled。
+#[tokio::test]
+async fn tray_config_roundtrip_keeps_six_enabled() {
+    let db = test_db().await;
+    let mut cfg = TrayConfig::default_segments();
+    for o in 3..6 {
+        let mut x = cfg.items[0].clone();
+        x.order = o;
+        cfg.items.push(x);
+    }
+    set_tray_config(&db, &cfg).await.unwrap();
+    let got = get_tray_config(&db).await.unwrap().expect("config present");
+    assert_eq!(got.items.len(), 6);
+    assert!(got.items.iter().all(|i| i.enabled));
 }
 
 /// 迁移：无 tray config 且无旧 show_in_tray 平台 → 生成票 I15 的出厂三段并持久化。

@@ -1341,7 +1341,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   background-size: 24px 24px;
 }
 
-/* 托盘候选库 chip（票 02）：交互态对齐定稿 HTML（.chip / .loaded / .locked）。
+/* 托盘候选库 chip（票 02）：交互态对齐定稿 HTML（.chip / .loaded）。
    状态视觉放 CSS（data-state 变体），行内样式写不了 :hover/:active。 */
 @layer components {
   .tray-chip {
@@ -1357,6 +1357,5 @@ input[type="week"]::-webkit-calendar-picker-indicator {
     color: var(--accent); cursor: default;
   }
   .tray-chip[data-state="loaded"] .tray-chip-v { color: var(--accent); }
-  .tray-chip[data-state="locked"] { opacity: .35; cursor: not-allowed; }
   .tray-chip-v { font-family: "Maple Mono NF", "Maple Mono", "SF Mono", ui-monospace, monospace; font-size: 11px; color: var(--muted-foreground); }
 }
