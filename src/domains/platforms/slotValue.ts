@@ -1,6 +1,6 @@
 // 槽位值（PlatformModels 已改有序列表）与 UI 单值表单态的互转。
 // 票 01 最小适配：表单仍是单值，读取取链首、写回单元素数组；多选 UI 在票 03。
-// 兼容读取：registry 默认值（票 02 前仍是字符串）与旧形态一并接受。
+// 兼容读取：registry 默认值（已是数组）与旧字符串形态一并接受。
 import type { ModelSlot } from "../../services/api/types/manual";
 import type { PlatformModels } from "../../services/api/types/generated/PlatformModels";
 
