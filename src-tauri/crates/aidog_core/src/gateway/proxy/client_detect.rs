@@ -13,9 +13,29 @@ pub(crate) fn identify_client(headers: &HeaderMap) -> Option<&'static ClientEntr
     identify(headers.get(USER_AGENT).and_then(|v| v.to_str().ok()).unwrap_or(""))
 }
 
-/// 统计 / 日志用码：词表码，认不出 → `other`。
-pub(crate) fn detect_client(headers: &HeaderMap) -> &'static str {
-    identify_client(headers).map_or("other", |e| e.code)
+/// 统计 / 日志用码：词表码；认不出 → `ua:<产品名>`；截不出 / 无 UA → `other`。
+pub(crate) fn detect_client(headers: &HeaderMap) -> String {
+    if let Some(e) = identify_client(headers) {
+        return e.code.to_string();
+    }
+    let ua = headers.get(USER_AGENT).and_then(|v| v.to_str().ok()).unwrap_or("");
+    ua_product_name(ua).map_or_else(|| "other".to_string(), |n| format!("ua:{n}"))
+}
+
+/// UA 产品名：第一个空白或 `/` 之前，首字符须是 ASCII 字母数字（`(compatible)` 这类不算产品名），
+/// 只留 ASCII 字母数字与 `. _ -`，最长 32 字符，保留大小写；否则 `None`。
+/// 过滤并限长是为防乱码 UA 把统计 client 维度基数刷爆。
+fn ua_product_name(ua: &str) -> Option<String> {
+    let first = ua.split(|c: char| c.is_whitespace() || c == '/').next().unwrap_or("");
+    if !first.starts_with(|c: char| c.is_ascii_alphanumeric()) {
+        return None;
+    }
+    let name: String = first
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+        .take(32)
+        .collect();
+    Some(name)
 }
 
 /// 原始 UA（截断到 `USER_AGENT_MAX_CHARS` 字符）；无头 / 非 UTF-8 → 空串。
@@ -52,10 +72,32 @@ mod tests {
         assert_eq!(detect_client(&with_ua("claude-cli/2.0 (external, claude-vscode)")), "claude_code_vscode");
         assert_eq!(detect_client(&with_ua("claude-cli/2.0 (external, cli)")), "claude_code");
         assert_eq!(detect_client(&with_ua("curl/8.0")), "curl");
-        assert_eq!(detect_client(&with_ua("Mozilla/5.0 api (x)")), "other");
         assert!(identify_client(&with_ua("Mozilla/5.0 api (x)")).is_none());
         // 变体 → 所属大类（白名单勾大类用）
         assert_eq!(identify_client(&with_ua("codex-tui/1.0")).unwrap().category(), "codex");
+    }
+
+    #[test]
+    fn unknown_ua_becomes_product_name_code() {
+        let long = "a".repeat(40);
+        let want_long = format!("ua:{}", "a".repeat(32));
+        let cases: [(&str, &str); 9] = [
+            ("OpenViking", "ua:OpenViking"),
+            ("OpenViking/1.2", "ua:OpenViking"),
+            ("OpenViking/0.5.2 (darwin)", "ua:OpenViking"),
+            ("My_Tool-2.x agent", "ua:My_Tool-2.x"),
+            ("(compatible)", "other"),
+            ("!!!/1.0", "other"),
+            ("a!b@c", "ua:abc"),
+            ("", "other"),
+            (long.as_str(), want_long.as_str()),
+        ];
+        for (ua, want) in cases {
+            let h = if ua.is_empty() { HeaderMap::new() } else { with_ua(ua) };
+            assert_eq!(detect_client(&h), want, "ua={ua:?}");
+        }
+        // 白名单语义不变：产品名码不算认出
+        assert!(identify_client(&with_ua("OpenViking/1.2")).is_none());
     }
 
     #[test]
