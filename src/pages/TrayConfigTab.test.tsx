@@ -15,6 +15,8 @@ setGapSeparator,
   previewLevel,
   segColor,
   trayMoney,
+  segEarliestResetAt,
+  remainingUntilReset,
   type SegmentOption,
 } from "./TrayConfigTab";
 import type { TrayItem, TodayStats, Platform } from "../services/api";
@@ -908,5 +910,39 @@ describe("颜色 auto 模式", () => {
     expect(previewLevel(ci, [coding(20)], now)).toBe("warning");
     expect(previewLevel(ci, [coding(40)], now)).toBe("danger");
     expect(previewLevel(item({ metric: "cost" }), [], now)).toBe("neutral");
+  });
+});
+
+// ── reset 相对剩余时间（纯函数，nowMs 注入防秒边界抖动）──
+
+const tInterp = ((key: string, fallback?: string, opts?: { n?: number }) =>
+  (fallback ?? key).replace(/\{\{n\}\}/g, String(opts?.n))) as never;
+
+describe("remainingUntilReset / segEarliestResetAt", () => {
+  const now = 1_800_000_000_000;
+
+  it("相对剩余时间：天 / 小时 / 分钟各取 ceil，i18n 走 t", () => {
+    expect(remainingUntilReset(now + 3 * 86_400_000, now, tInterp)).toBe("3 天后重置");
+    expect(remainingUntilReset(now + 3 * 3_600_000, now, tInterp)).toBe("3 小时后重置");
+    expect(remainingUntilReset(now + 90_000, now, tInterp)).toBe("2 分钟后重置");
+  });
+
+  it("缺失（null）与已过期（remaining <= 0）→ null，与绝对时间展示一致", () => {
+    expect(remainingUntilReset(null, now, tInterp)).toBe(null);
+    expect(remainingUntilReset(now, now, tInterp)).toBe(null);
+    expect(remainingUntilReset(now - 1, now, tInterp)).toBe(null);
+  });
+
+  it("segEarliestResetAt：取段内 reset_time 指标最早重置时刻；无 reset_time / 非平台段 / 数据缺失 → null", () => {
+    const ws = now - 3_600_000; // five_hour 窗口起点 → reset = ws + 5h
+    const p = {
+      id: 7,
+      est_coding_plan: JSON.stringify({ tiers: [{ name: "five_hour", est_utilization: 25, window_start: ws }] }),
+    } as unknown as Platform;
+    expect(segEarliestResetAt(platformItem({ metrics: ["coding:five_hour", "reset_time:five_hour"] }), [p])).toBe(ws + 5 * 3_600_000);
+    expect(segEarliestResetAt(platformItem({ metrics: ["coding:five_hour"] }), [p])).toBe(null);
+    expect(segEarliestResetAt(platformItem({ metrics: ["reset_time:weekly_limit"] }), [p])).toBe(null); // 无 window_start
+    expect(segEarliestResetAt(item({ metric: "cost" }), [p])).toBe(null);
+    expect(segEarliestResetAt(platformItem({ metrics: ["reset_time:five_hour"] }), [])).toBe(null);
   });
 });

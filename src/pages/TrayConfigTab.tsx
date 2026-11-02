@@ -223,6 +223,52 @@ export function trayMoney(usd: number, cur: DisplayCurrency, decimals: number): 
   return cur.symbol + trimZeros((usd * cur.rate).toFixed(d));
 }
 
+// reset 时刻 = window_start + cycle（与 Rust usage_color::cycle_ms_for_tier 对称的窗口周期表）。
+const CYCLE_MS: Record<string, number> = {
+  five_hour: 5 * 3_600_000,
+  weekly_limit: 7 * 86_400_000, seven_day: 7 * 86_400_000,
+  mcp_monthly: 30 * 86_400_000,
+};
+
+/** 段内 reset_time 指标的最早重置时刻（ms）；非平台段 / 无 reset_time 指标 / 数据缺失 → null。 */
+export function segEarliestResetAt(seg: TrayItem, platforms: Platform[]): number | null {
+  if (seg.item_type !== "platform") return null;
+  const resets = (seg.metrics ?? []).filter((m) => m.startsWith("reset_time:"));
+  if (!resets.length) return null;
+  const p = platforms.find((pp) => pp.id === seg.platform_id);
+  if (!p) return null;
+  let tiers: { name: string; window_start?: number }[] = [];
+  try {
+    tiers = (JSON.parse(p.est_coding_plan || "{}") as { tiers?: typeof tiers }).tiers ?? [];
+  } catch { /* 旧数据无 plan */ }
+  const times = resets.map((m) => {
+    const tier = tiers.find((x) => x.name === m.slice("reset_time:".length));
+    const cycle = tier ? CYCLE_MS[tier.name] : undefined;
+    return tier?.window_start && cycle ? tier.window_start + cycle : null;
+  }).filter((x): x is number => x != null);
+  return times.length ? Math.min(...times) : null;
+}
+
+/** 剩余相对时间文案（纯函数：nowMs 注入）；resetAt 缺失或已过期 → null，与绝对时间展示行为一致。 */
+export function remainingUntilReset(
+  resetAtMs: number | null, nowMs: number, t: TFunction,
+): string | null {
+  if (resetAtMs == null) return null;
+  const min = Math.ceil((resetAtMs - nowMs) / 60_000);
+  if (min <= 0) return null;
+  if (min < 60) return t("tray.platform.resetInMinutes", "{{n}} 分钟后重置", { n: min });
+  const hr = Math.ceil(min / 60);
+  if (hr < 24) return t("tray.platform.resetInHours", "{{n}} 小时后重置", { n: hr });
+  return t("tray.platform.resetInDays", "{{n}} 天后重置", { n: Math.ceil(hr / 24) });
+}
+
+/** 绝对时间旁的相对倒计时小字（muted 次要样式）；无 reset_time 指标时不出。 */
+function ResetHint({ seg, platforms, t }: { seg: TrayItem; platforms: Platform[]; t: TFunction }) {
+  const hint = remainingUntilReset(segEarliestResetAt(seg, platforms), Date.now(), t);
+  if (!hint) return null;
+  return <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>{hint}</span>;
+}
+
 /** 预览值。peak 与真实托盘同口径（峰/平，Rust `peak_item_parts`）；routed_platform 仍占位。 */
 export function previewValue(
   item: TrayItem,
@@ -257,12 +303,6 @@ export function previewValue(
       const pct = (metric: string): string | null => {
         const tier = metric === "coding" ? tiers[0] : tiers.find((x) => `coding:${x.name}` === metric);
         return tier ? `${Math.max(0, 100 - tier.est_utilization).toFixed(0)}%` : null;
-      };
-      // reset 时刻 = window_start + cycle（与 Rust usage_color::cycle_ms_for_tier 对称的窗口周期表）。
-      const CYCLE_MS: Record<string, number> = {
-        five_hour: 5 * 3_600_000,
-        weekly_limit: 7 * 86_400_000, seven_day: 7 * 86_400_000,
-        mcp_monthly: 30 * 86_400_000,
       };
       const resetTime = (metric: string): string | null => {
         const name = metric.slice("reset_time:".length);
@@ -953,6 +993,7 @@ export function TrayConfigTab() {
                       >
                         {previewValue(seg, platforms, todayStats, peak, cur)}
                       </span>
+                      <ResetHint seg={seg} platforms={platforms} t={t} />
                     </span>
                     </Fragment>
                   );
@@ -994,6 +1035,7 @@ export function TrayConfigTab() {
                     <SortableSlot i={i} tag={t("tray.slotIndex", "SLOT {{n}}", { n: i + 1 })} id={segmentKey(seg)} onEdit={() => setEditingKey(segmentKey(seg))} handleLabel={t("tray.dragHandle", "拖动排序")}>
                       <div style={{ fontSize: 12.5, fontWeight: 650 }}>{seg.label || opt?.label || segmentKey(seg)}</div>
                       <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 700, color: ACCENT_TEXT, letterSpacing: 0.3 }}>{previewValue(seg, platforms, todayStats, peak, cur)}</div>
+                      <ResetHint seg={seg} platforms={platforms} t={t} />
                     </SortableSlot>
                     </Fragment>
                   );
