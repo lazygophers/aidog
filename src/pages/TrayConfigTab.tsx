@@ -86,7 +86,7 @@ export interface SegmentOption {
 function makeItem(patch: Partial<TrayItem>): TrayItem {
   return {
     item_type: "today_usage", platform_id: null, display: "", metric: null, label: null,
-    decimals: null, metrics: null, unit: null,
+    decimals: null, metrics: null, unit: null, unit_position: null,
     color: { mode: "auto", value: "" }, font_size: 9, line_mode: "single", // 新装载段默认 auto；已有段不迁移
     align: "left", align_row2: null, enabled: true, order: 0,
     ...patch,
@@ -218,9 +218,17 @@ const TREND_ITEM: PopoverItem = {
  * 0 位小数币种恒 0 位）。刻意不复用 formatMoney（量级舍入规则不同），预览须与菜单栏逐字一致；
  * 跨层对拍见 TrayConfigTab.test.tsx 与 test_tray_render.rs。
  */
-export function trayMoney(usd: number, cur: DisplayCurrency, decimals: number): string {
+export function trayMoney(
+  usd: number, cur: DisplayCurrency, decimals: number,
+  unit?: string | null, pos?: string | null,
+): string {
   const d = cur.decimals === 0 ? 0 : decimals;
-  return cur.symbol + trimZeros((usd * cur.rate).toFixed(d));
+  const num = trimZeros((usd * cur.rate).toFixed(d));
+  // 与 Rust tray_money_unit 同规则：pos 缺省 = 旧语义（unit 非空后置，否则前置）。
+  const suffix = pos ? pos === "suffix" : !!unit;
+  if (unit) return suffix ? num + unit : unit + num;
+  if (!suffix) return cur.symbol + num;
+  return cur.symbol.endsWith(" ") ? `${num} ${cur.symbol.trimEnd()}` : num + cur.symbol;
 }
 
 // reset 时刻 = window_start + cycle（与 Rust usage_color::cycle_ms_for_tier 对称的窗口周期表）。
@@ -281,7 +289,7 @@ export function previewValue(
   switch (item.item_type) {
     case "today_usage":
       switch (item.metric || "tokens") {
-        case "cost": return trayMoney(s.cost, cur, item.decimals ?? 5);
+        case "cost": return trayMoney(s.cost, cur, item.decimals ?? 5, item.unit, item.unit_position);
         case "requests": return `${s.total_requests}`;
         case "cache_rate": return `${s.cache_rate.toFixed(0)}%`;
         default: return `${s.tokens} tok`;
@@ -291,9 +299,7 @@ export function previewValue(
       if (!p) return "--.--";
       // usd 为 USD 金额：按显示币种换算（与 Rust platform_metric_value 同口径）；自定义 unit 替换币种符号。
       const money = (usd: number, d: number) =>
-        item.unit
-          ? `${trayMoney(usd, cur, d).slice(cur.symbol.length)}${item.unit}`
-          : trayMoney(usd, cur, d);
+        trayMoney(usd, cur, d, item.unit, item.unit_position);
       // 原币种余额先折 USD，与 Rust platform_item_parts 同口径。
       const balanceUsd = platformBalanceUsd(p.id, p.est_balance_remaining);
       let tiers: { name: string; est_utilization: number; window_start?: number }[] = [];
@@ -456,6 +462,10 @@ export function SegmentEditor({
   const [hex, setHex] = useState(seg.color.mode === "custom" ? seg.color.value : "");
   const [hexInvalid, setHexInvalid] = useState(false);
   const two = seg.line_mode === "two";
+  const isCostSeg = seg.item_type === "today_usage" && seg.metric === "cost";
+  // 平台槽：仅 metrics 含金额指标时有金额（旧口径无 metrics 的后端不读 unit 位置）。
+  const isMoneySeg =
+    isCostSeg || (seg.item_type === "platform" && !!seg.metrics?.some((m) => m === "balance" || m === "today_cost"));
   const curRow2 = seg.align_row2 ?? seg.align;
 
   const patchHex = (v: string) => {
@@ -506,10 +516,10 @@ export function SegmentEditor({
           </div>
         );
       })()}
-      {/* 单位后缀（仅平台槽；留空回落默认） */}
-      {seg.item_type === "platform" && (
+      {/* 单位（平台槽 / 今日花费 cost 段；留空回落默认） */}
+      {(seg.item_type === "platform" || isCostSeg) && (
         <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-          <FieldLabel>{t("tray.platform.unit", "单位后缀")}</FieldLabel>
+          <FieldLabel>{t("tray.platform.unit", "单位")}</FieldLabel>
           <input
             data-testid="tray-edit-unit"
             value={seg.unit ?? ""}
@@ -517,6 +527,29 @@ export function SegmentEditor({
             onChange={(e) => onPatch({ unit: e.target.value || null })}
             style={editorInput}
           />
+        </div>
+      )}
+      {/* 单位位置（仅金额段；缺省 = 旧语义，选后写显式值） */}
+      {isMoneySeg && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          <FieldLabel>{t("tray.unitPosition", "单位位置")}</FieldLabel>
+          <div style={{ display: "flex", gap: 6 }}>
+            {(["prefix", "suffix"] as const).map((p) => {
+              const cur = seg.unit_position ?? (seg.unit ? "suffix" : "prefix");
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  data-testid={`tray-edit-unitpos-${p}`}
+                  data-state={cur === p ? "active" : ""}
+                  style={cur === p ? editorBtnActive : editorBtn}
+                  onClick={() => onPatch({ unit_position: p })}
+                >
+                  {p === "prefix" ? t("tray.unitPosition.prefix", "前") : t("tray.unitPosition.suffix", "后")}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
       {/* label */}

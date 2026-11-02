@@ -3,7 +3,7 @@
 //! 覆盖的是换宿主后**原地不动**那 246 行：排序 / 禁用跳过 / separator→gaps 映射 /
 //! today_usage 各 metric / 自定义 label / 小数位 / 尾零裁剪。AppKit 渲染不在此测。
 
-use super::{align_pad, col_width, line_gap_text, platform_item_parts, tab_stop_locs, tray_layout, tray_money, trim_trailing_zeros};
+use super::{align_pad, col_width, line_gap_text, platform_item_parts, tab_stop_locs, tray_layout, trim_trailing_zeros};
 use aidog_db::currency::{DisplayCurrency, DisplayCurrencySetting, build_display_currency};
 use aidog_db::{Db, TrayConfig, TrayItem, set_tray_config};
 use aidog_stats::DbInitTables;
@@ -383,7 +383,7 @@ fn cur(code: &str, rate: Option<f64>) -> DisplayCurrency {
 #[test]
 fn tray_money_golden_cases_match() {
     let cases: Vec<serde_json::Value> = serde_json::from_str(include_str!("testdata/tray_golden.json")).unwrap();
-    assert_eq!(cases.len(), 8);
+    assert_eq!(cases.len(), 15);
     for c in cases {
         let code = c["code"].as_str().unwrap();
         let rate = c["rate"].as_f64().unwrap();
@@ -392,7 +392,13 @@ fn tray_money_golden_cases_match() {
         assert_eq!(cu.symbol, c["symbol"].as_str().unwrap(), "{code}");
         assert_eq!(cu.decimals as u64, c["decimals"].as_u64().unwrap(), "{code}");
         assert_eq!(cu.rate, rate, "{code}");
-        let got = tray_money(c["usd"].as_f64().unwrap(), &cu, c["d"].as_u64().unwrap() as usize);
+        let got = super::tray_money_unit(
+            c["usd"].as_f64().unwrap(),
+            &cu,
+            c["d"].as_u64().unwrap() as usize,
+            c["unit"].as_str().unwrap_or(""),
+            c["pos"].as_str(),
+        );
         assert_eq!(got, c["expected"].as_str().unwrap(), "{code} {}", c["usd"]);
     }
 }
@@ -561,6 +567,28 @@ fn platform_metrics_reset_time_skips_unusable_tiers() {
         "metrics": ["reset_time:five_hour", "reset_time:mystery"],
     }));
     assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None), "—");
+}
+
+/// 今日花费 cost 段自定义 unit 通路（经 layout，空库 cost=0）+ 旧配置逐字不变。
+#[tokio::test]
+async fn unit_position_cost_segment_and_legacy_platform_unit() {
+    let cost = |extra: serde_json::Value| {
+        let mut j = json!({"item_type": "today_usage", "metric": "cost"});
+        j.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+        item_json(j)
+    };
+    let v = |it: TrayItem| async move { layout_of(vec![it]).await.columns[0].value.clone() };
+    assert_eq!(v(cost(json!({}))).await, "$0");
+    assert_eq!(v(cost(json!({"unit": "元"}))).await, "0元", "无 unit_position + unit 非空 = 旧语义后置");
+    assert_eq!(v(cost(json!({"unit": "元", "unit_position": "prefix"}))).await, "元0");
+    assert_eq!(v(cost(json!({"unit_position": "suffix"}))).await, "0$");
+    let cny = cur("CNY", Some(7.0));
+    let p = platform(0.0, "");
+    let stat = aidog_stats::TodayPlatformStat { platform_id: 1, platform_name: "Acme".into(), tokens: 0, cost: 0.242857142857, requests: 1 };
+    let legacy = item_json(json!({"item_type": "platform", "platform_id": 1, "metrics": ["today_cost"], "unit": "元", "decimals": 2}));
+    assert_eq!(super::platform_item_value(&p, &legacy, Some(&stat), &cny, None), "1.7元");
+    let suffix = item_json(json!({"item_type": "platform", "platform_id": 1, "metrics": ["today_cost"], "decimals": 2, "unit_position": "suffix"}));
+    assert_eq!(super::platform_item_value(&p, &suffix, Some(&stat), &cny, None), "1.7¥");
 }
 
 /// 跨层 golden：与前端 TrayConfigTab.test.tsx 共读 tray_platform_golden.json（多指标 / 余额币种 / unit）。

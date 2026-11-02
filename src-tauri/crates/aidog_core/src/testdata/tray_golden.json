@@ -6,5 +6,12 @@
  {"code": "CNY", "symbol": "¥",    "decimals": 2, "rate": 7.0,   "usd": 0.0123456,    "d": 5, "expected": "¥0.08642"},
  {"code": "JPY", "symbol": "JP¥",  "decimals": 0, "rate": 150.0, "usd": 1234.567,     "d": 5, "expected": "JP¥185185"},
  {"code": "JPY", "symbol": "JP¥",  "decimals": 0, "rate": 150.0, "usd": 0.004,        "d": 2, "expected": "JP¥1"},
- {"code": "CHF", "symbol": "CHF ", "decimals": 2, "rate": 0.9,   "usd": 10.0,         "d": 2, "expected": "CHF 9"}
+ {"code": "CHF", "symbol": "CHF ", "decimals": 2, "rate": 0.9,   "usd": 10.0,         "d": 2, "expected": "CHF 9"},
+ {"code": "USD", "symbol": "$",    "decimals": 2, "rate": 1.0,   "usd": 10.10,        "d": 2, "unit": "",   "pos": "prefix", "expected": "$10.1"},
+ {"code": "CNY", "symbol": "¥",    "decimals": 2, "rate": 7.0,   "usd": 0.242857142857, "d": 2, "unit": "",   "pos": "suffix", "expected": "1.7¥"},
+ {"code": "CHF", "symbol": "CHF ", "decimals": 2, "rate": 0.9,   "usd": 1.888888889,  "d": 2, "unit": "",   "pos": "suffix", "expected": "1.7 CHF"},
+ {"code": "CNY", "symbol": "¥",    "decimals": 2, "rate": 7.0,   "usd": 0.242857142857, "d": 2, "unit": "元", "pos": "prefix", "expected": "元1.7"},
+ {"code": "CNY", "symbol": "¥",    "decimals": 2, "rate": 7.0,   "usd": 0.242857142857, "d": 2, "unit": "元", "pos": "suffix", "expected": "1.7元"},
+ {"code": "JPY", "symbol": "JP¥",  "decimals": 0, "rate": 150.0, "usd": 1234.567,     "d": 5, "unit": "",   "pos": "suffix", "expected": "185185JP¥"},
+ {"code": "CNY", "symbol": "¥",    "decimals": 2, "rate": 7.0,   "usd": 0.242857142857, "d": 2, "unit": "元", "pos": null,     "expected": "1.7元"}
 ]

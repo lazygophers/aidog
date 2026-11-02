@@ -594,6 +594,26 @@ fn tray_money(usd: f64, cur: &db::currency::DisplayCurrency, decimals: usize) ->
     format!("{}{}", cur.symbol, tray_money_num(usd, cur, decimals))
 }
 
+/// 金额 + 单位位置。`unit` 非空替换币种符号；`pos` None = 旧语义（unit 非空后置，否则前置）。
+/// 默认符号后置时尾空格移到数值前（`CHF ` -> `1.7 CHF`）；自定义 unit 原样使用。
+fn tray_money_unit(
+    usd: f64,
+    cur: &db::currency::DisplayCurrency,
+    decimals: usize,
+    unit: &str,
+    pos: Option<&str>,
+) -> String {
+    let num = tray_money_num(usd, cur, decimals);
+    let suffix = pos.map_or(!unit.is_empty(), |p| p == "suffix");
+    match (unit.is_empty(), suffix) {
+        (false, true) => format!("{num}{unit}"),
+        (false, false) => format!("{unit}{num}"),
+        (true, false) => format!("{}{num}", cur.symbol),
+        (true, true) if cur.symbol.ends_with(' ') => format!("{num} {}", cur.symbol.trim_end()),
+        (true, true) => format!("{num}{}", cur.symbol),
+    }
+}
+
 /// [`tray_money`] 的数值部分（无符号）；自定义单位后缀路径复用同一换算 / 位数规则。
 fn tray_money_num(usd: f64, cur: &db::currency::DisplayCurrency, decimals: usize) -> String {
     let d = if cur.decimals == 0 { 0 } else { decimals };
@@ -665,11 +685,7 @@ fn platform_metric_value(
     // usd 为 USD 金额：按显示币种换算；自定义单位替换币种符号、数值部分不变。
     let money = |usd: f64, default_d: u32| {
         let d = decimals.unwrap_or(default_d) as usize;
-        if unit.is_empty() {
-            tray_money(usd, cur, d)
-        } else {
-            format!("{}{unit}", tray_money_num(usd, cur, d))
-        }
+        tray_money_unit(usd, cur, d, unit, item.unit_position.as_deref())
     };
     match metric {
         "balance" => Some(money(
@@ -965,7 +981,13 @@ pub(crate) async fn tray_layout_with_stats(
                         let d = item.decimals.unwrap_or(5) as usize;
                         (
                             "花费".to_string(),
-                            tray_money(stats.cost, &currency, d),
+                            tray_money_unit(
+                                stats.cost,
+                                &currency,
+                                d,
+                                item.unit.as_deref().unwrap_or(""),
+                                item.unit_position.as_deref(),
+                            ),
                         )
                     }
                     "requests" => ("请求".to_string(), format!("{}", stats.total_requests)),
