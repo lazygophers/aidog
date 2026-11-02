@@ -2616,7 +2616,7 @@
   "tray.previewEmpty": "Keine Elemente",
   "tray.previewTitle": "Menüband-Vorschau",
   "tray.keptDisabled": "{{count}} überzählige Elemente aus dem alten Menüleisten-Layout bleiben erhalten, sind aber deaktiviert — nichts wurde gelöscht",
-  "tray.libraryHint": "Max. 3 Segmente · in Ladereihenfolge",
+  "tray.libraryHint": "In Ladereihenfolge",
   "tray.libraryTitle": "Bibliothek",
   "tray.pickAtMost": "Höchstens 3 auswählen — Anzeige in der Reihenfolge der Auswahl",
   "tray.segment.peak": "Spitzenzeit-Anzeige",
