@@ -26,6 +26,12 @@ pub struct ProxyAttempt {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub model: Option<String>,
+    /// 同平台模型链在本次失败后提前终止（链上仍有未尝试的模型）的原因：
+    /// `service`（上游服务类错误，直接换平台）/ `rule`（中间件 error_rule 标 non-retryable）。
+    /// 仅终止那一项携带；日志页据此给链上未尝试的模型标「跳过」及原因。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub chain_stop: Option<String>,
 }
 
 /// 序列化 attempts 列（出错回退空数组）
@@ -564,6 +570,7 @@ mod tests {
     fn attempts_roundtrip_with_items() {
         let items = vec![
             ProxyAttempt {
+                chain_stop: None,
                 platform_id: 1,
                 platform_name: "p1".into(),
                 status_code: 200,
@@ -573,6 +580,7 @@ mod tests {
                 model: None,
             },
             ProxyAttempt {
+                chain_stop: None,
                 platform_id: 2,
                 platform_name: "p2".into(),
                 status_code: 500,
@@ -602,6 +610,7 @@ mod tests {
         assert_eq!(parsed.model, None);
 
         let with_model = ProxyAttempt {
+            chain_stop: None,
             platform_id: 1,
             platform_name: "p".into(),
             status_code: 200,

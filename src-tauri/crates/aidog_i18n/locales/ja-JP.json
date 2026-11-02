@@ -792,6 +792,12 @@
   "logs.routing.response": "レスポンス",
   "logs.routing.attemptFailed": "試行失敗",
   "logs.routing.notUsed": "未使用",
+  "logs.routing.chain.used": "使用",
+  "logs.routing.chain.untried": "未選択",
+  "logs.routing.chain.failed": "失敗",
+  "logs.routing.chain.skipped": "スキップ",
+  "logs.routing.chain.skip.service": "上流サービスエラーのためプラットフォームを切替",
+  "logs.routing.chain.skip.rule": "エラールールで再試行不可に設定",
 
   "logs.routing.untried": "未試行",  "logs.routing.mode.load_balance": "負荷分散",
   "logs.routing.mode.failover": "フェイルオーバー",

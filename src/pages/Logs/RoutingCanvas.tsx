@@ -61,6 +61,30 @@ interface NodeSpec {
   model?: string;
   modelUnused?: boolean;
   pills?: string[];
+  /** 该平台模型链逐项状态（链长 > 1 时携带，替代单行 model）。 */
+  chain?: ChainItem[];
+}
+
+type AttemptLite = { platform_id: number; status_code: number; model?: string; error?: string; chain_stop?: string };
+export type ChainState = "used" | "failed" | "skipped" | "untried";
+export interface ChainItem { model: string; state: ChainState; reason?: string }
+
+/** 平台模型链逐项状态：该平台的 attempts 按序对照 chain。
+ *  已尝试 → 2xx 已选用 / 非 2xx 失败（附状态码+错误摘要）；未尝试 → 末次尝试带 chain_stop 则「跳过」+ 原因，
+ *  否则「未选」（没轮到：前序已成功，或该平台整体没被尝试）。 */
+export function chainStates(chain: string[], platformAttempts: AttemptLite[], t: T): ChainItem[] {
+  const last = platformAttempts[platformAttempts.length - 1];
+  return chain.map((model) => {
+    const a = [...platformAttempts].reverse().find((x) => x.model === model);
+    if (a) {
+      const ok = a.status_code >= 200 && a.status_code < 300;
+      return ok ? { model, state: "used" } : { model, state: "failed", reason: `${a.status_code}${a.error ? ` ${a.error}` : ""}` };
+    }
+    if (last?.chain_stop === "service" || last?.chain_stop === "rule") {
+      return { model, state: "skipped", reason: t(`logs.routing.chain.skip.${last.chain_stop}`) };
+    }
+    return { model, state: "untried" };
+  });
 }
 
 const EDGE_WIN = "rc-edge win";
@@ -70,7 +94,7 @@ const EDGE_EVAL = "rc-edge";
 /** 胜出：最后一次 2xx 尝试；失败尝试：非 2xx；选中未尝试 / 排除：灰虚线。 */
 function buildNodes(
   routing: RoutingSnapshot,
-  attempts: { platform_id: number; status_code: number }[] | undefined,
+  attempts: AttemptLite[] | undefined,
   platformMap: Map<number, string>,
   winId: string | null,
   actualModel: string | undefined,
@@ -90,14 +114,18 @@ function buildNodes(
     const sb = `P${c.level_priority} · ${c.priority}`;
     const target = c.target_model ?? undefined;
     const id = `p-${c.platform_id}`;
+    const chainModels = (c.model_chain ?? []).length > 1 ? c.model_chain : null;
+    const chain = chainModels && c.reason === "selected"
+      ? chainStates(chainModels, (attempts ?? []).filter((a) => a.platform_id === c.platform_id), t)
+      : undefined;
     if (c.reason !== "selected") {
       nodes.push({ id, cls: "dim", ico: "·", nm, sb, modelUnused: true, pills: [t(REASON_KEY[c.reason])] });
     } else if (id === winId) {
-      nodes.push({ id, cls: "win", ico: "✓", nm, sb, model: target ?? actualModel, pills: (c.tags ?? []).map((tg) => t(TAG_KEY[tg])) });
+      nodes.push({ id, cls: "win", ico: "✓", nm, sb, model: chain ? undefined : target ?? actualModel, chain, pills: (c.tags ?? []).map((tg) => t(TAG_KEY[tg])) });
     } else if (lastFailByPlatform.has(c.platform_id)) {
-      nodes.push({ id, cls: "fail", ico: "✕", nm, sb, model: target, pills: [`${t("logs.routing.attemptFailed", "尝试失败")} ${lastFailByPlatform.get(c.platform_id)}`] });
+      nodes.push({ id, cls: "fail", ico: "✕", nm, sb, model: chain ? undefined : target, chain, pills: [`${t("logs.routing.attemptFailed", "尝试失败")} ${lastFailByPlatform.get(c.platform_id)}`] });
     } else {
-      nodes.push({ id, cls: "dim", ico: "·", nm, sb, model: target, pills: [t("logs.routing.untried", "未尝试")] });
+      nodes.push({ id, cls: "dim", ico: "·", nm, sb, model: chain ? undefined : target, chain, pills: [t("logs.routing.untried", "未尝试")] });
     }
   }
   return nodes;
@@ -114,7 +142,7 @@ export function RoutingCanvas({
   t,
 }: {
   routing: RoutingSnapshot | null;
-  attempts: { platform_id: number; status_code: number }[] | undefined;
+  attempts: AttemptLite[] | undefined;
   platformMap: Map<number, string>;
   durationMs: number;
   statusCode: number;
@@ -164,10 +192,13 @@ export function RoutingCanvas({
     if (!nodes || width === null || vertical) return null;
     const colX = [24, width * 0.24, width * 0.5, width * 0.78];
     const plats = nodes.slice(2, -1);
-    const rowH = 84;
-    const y0 = Math.max(16, (260 - Math.max(plats.length, 1) * rowH) / 2);
+    // 链长 > 1 的节点多出逐项行，累计高度避免相互遮挡
+    const heights = plats.map((n) => 84 + Math.max(0, (n.chain?.length ?? 0) - 1) * 18);
+    const total = heights.reduce((a, b) => a + b, 0);
+    const y0 = Math.max(16, (260 - Math.max(total, 84)) / 2);
     const p: Record<string, { x: number; y: number }> = {};
-    plats.forEach((n, i) => { p[n.id] = { x: colX[2]!, y: y0 + i * rowH }; });
+    let acc = y0;
+    plats.forEach((n, i) => { p[n.id] = { x: colX[2]!, y: acc }; acc += heights[i]!; });
     p["req"] = { x: colX[0]!, y: 100 };
     p["route"] = { x: colX[1]!, y: 100 };
     p[nodes[nodes.length - 1]!.id] = { x: colX[3]!, y: 100 };
@@ -292,6 +323,11 @@ export function RoutingCanvas({
                 <span style={{ display: "flex", flexDirection: "column", minWidth: 0, alignItems: "flex-start" }}>
                   <span className="rc-nm">{n.nm}</span>
                   {n.model && <span className="rc-sb" data-testid="routing-target-model">{n.model}</span>}
+                  {n.chain?.map((it) => (
+                    <span key={it.model} className="rc-sb" data-testid="routing-chain-item" data-state={it.state} title={it.reason}>
+                      {it.model} · {t(`logs.routing.chain.${it.state}`)}{it.reason ? ` (${it.reason.slice(0, 60)})` : ""}
+                    </span>
+                  ))}
                   {n.modelUnused && <span className="rc-sb" data-testid="routing-model-unused">{t("logs.routing.notUsed", "未选用")}</span>}
                   {n.sb && <span className="rc-sb">{n.sb}</span>}
                   {n.pills?.map((pl, j) => <span key={j} className={`rc-why ${n.cls === "fail" ? "red" : n.cls === "win" ? "green" : ""}`}>{pl}</span>)}

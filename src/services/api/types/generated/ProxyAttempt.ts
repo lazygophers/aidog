@@ -20,4 +20,10 @@ ts: number,
  * 当次请求模型（路由目标模型；旧日志无此字段，缺省 None，序列化时省略）。
  * 与 actual_model（上游自报）语义不同：此处记每次 attempt 发起时的模型。
  */
-model?: string, };
+model?: string, 
+/**
+ * 同平台模型链在本次失败后提前终止（链上仍有未尝试的模型）的原因：
+ * `service`（上游服务类错误，直接换平台）/ `rule`（中间件 error_rule 标 non-retryable）。
+ * 仅终止那一项携带；日志页据此给链上未尝试的模型标「跳过」及原因。
+ */
+chain_stop?: string, };
