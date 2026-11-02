@@ -288,6 +288,7 @@ export function blockedReasonLabel(reason: string, t: (k: string, d: string) => 
     case "rate_limit": return t("logs.blockedRateLimit", "限频");
     case "peak": return t("logs.blockedPeak", "高峰禁用");
     case "client_not_allowed": return t("logs.blockedClientNotAllowed", "客户端被拒");
+    case "client_not_allowed_mixed": return t("logs.blockedClientNotAllowedMixed", "客户端被拒（混合）");
     case "observe": return t("logs.blockedObserve", "观察");
     default: return reason;
   }
