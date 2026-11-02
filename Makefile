@@ -53,6 +53,8 @@ check: ## Run TypeScript + Rust type checks
 lint: ## Run linters
 	@printf "$(CYAN)▶ Registry schema check...$(RESET)\n"
 	yarn check:registry
+	@printf "$(CYAN)▶ Defaults JSON syntax check...$(RESET)\n"
+	yarn check:defaults
 	@printf "$(CYAN)▶ i18n key completeness...$(RESET)\n"
 	yarn check:i18n
 	yarn test:i18n-dup

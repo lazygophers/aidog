@@ -18,6 +18,7 @@
     "test:cov": "vitest run --coverage",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:registry": "node scripts/check-registry.mjs",
+    "check:defaults": "node scripts/check-defaults-json.mjs",
     "check:modal": "node scripts/check-modal-centering.mjs",
     "check:money": "node scripts/check-money-format.mjs",
     "test:i18n-dup": "node --test scripts/json-dup-keys.test.mjs",
