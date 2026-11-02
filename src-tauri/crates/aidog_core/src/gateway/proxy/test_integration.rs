@@ -1332,6 +1332,51 @@ async fn streaming_request_passes_through() {
         .unwrap();
 }
 
+/// 路由耗时票 01：真实转发路径落库后 routing.eval_ms 与胜出 attempt 的 ttfb_ms 均为 Some，
+/// 且 ttfb_ms ≤ duration_ms；非流式 + 流式两条路径各验一次。
+#[tokio::test]
+async fn routing_eval_ms_and_attempt_ttfb_recorded_nonstream_and_stream() {
+    let sse = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":5,\"output_tokens\":0}}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":3}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+    for (gk, body, stream) in [
+        ("gktt1", ANTHROPIC_OK, false),
+        ("gktt2", sse, true),
+    ] {
+        let upstream = spawn_stub_upstream(200, body).await;
+        let state = make_state(test_db().await).await;
+        setup_group_with_upstream(&state, gk, &upstream).await;
+        let req_body = format!(
+            r#"{{"model":"claude-3","stream":{stream},"messages":[{{"role":"user","content":"hi"}}]}}"#
+        );
+        let resp = handle_proxy(AxumState(state.clone()), messages_request(gk, &req_body)).await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+        let log = last_log_for(&state, gk).await;
+        let eval = log.routing.as_ref().and_then(|r| r.eval_ms);
+        assert!(eval.is_some(), "{gk}: routing.eval_ms 应有值");
+        let a = log.attempts.last().expect("有胜出 attempt");
+        let ttfb = a.ttfb_ms.unwrap_or_else(|| panic!("{gk}: 胜出 attempt 应有 ttfb_ms"));
+        assert!(ttfb <= a.duration_ms, "{gk}: ttfb {ttfb} ≤ duration {}", a.duration_ms);
+    }
+}
+
+/// 连接失败的尝试没有响应头 → ttfb_ms 为 None（eval_ms 照常有）。
+#[tokio::test]
+async fn connect_failure_attempt_has_no_ttfb() {
+    let upstream = spawn_reset_upstream().await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gktt3", &upstream).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request("gktt3", r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
+    let log = last_log_for(&state, "gktt3").await;
+    assert!(!log.attempts.is_empty());
+    assert!(log.attempts.iter().all(|a| a.ttfb_ms.is_none()), "{:?}", log.attempts);
+    assert!(log.routing.and_then(|r| r.eval_ms).is_some());
+}
+
 // ──────────────────────────────────────────────────────────────
 // /v1/responses 子端点：handle_responses_subendpoint 全链路
 // ──────────────────────────────────────────────────────────────

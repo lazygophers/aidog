@@ -477,6 +477,7 @@ pub async fn select_candidates_gated(
     let mut routing = RoutingSnapshot {
         mode: Some(effective_mode),
         entries,
+        eval_ms: None,
     };
 
     // ── 阶段 5: 空候选处理 ──
@@ -727,6 +728,7 @@ fn single_snapshot(
             model_chain: Vec::new(),
             tags: Vec::new(),
         }],
+        eval_ms: None,
     }
 }
 
@@ -870,6 +872,7 @@ fn select_direct_candidates(
     let mut routing = RoutingSnapshot {
         mode: Some(mode),
         entries,
+        eval_ms: None,
     };
 
     if ordered.is_empty() {

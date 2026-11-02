@@ -695,7 +695,9 @@ pub(crate) async fn handle_proxy_core(
     };
 
     // 票 01：路由决策快照随主记录落库（终态 upsert 前持续在 log 上，死站补记就地改写）。
-    log.routing = Some(candidate_set.routing);
+    let mut routing = candidate_set.routing;
+    routing.eval_ms = Some(start.elapsed().as_millis() as i64);
+    log.routing = Some(routing);
     let candidates: Vec<RouteResult> = candidate_set.candidates;
 
     // ── Mock / ClaudeCode 透传：不参与重试（非目标），仅按首选候选终态处理。

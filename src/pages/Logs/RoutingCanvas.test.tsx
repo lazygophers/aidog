@@ -20,7 +20,7 @@ const snapshot = {
   ],
 };
 
-function renderCanvas(routing: typeof snapshot | null, attempts?: { platform_id: number; status_code: number; model?: string; error?: string; chain_stop?: string }[], actualModel?: string, requestModel?: string) {
+function renderCanvas(routing: typeof snapshot | null, attempts?: { platform_id: number; status_code: number; model?: string; error?: string; chain_stop?: string; duration_ms?: number; ttfb_ms?: number }[], actualModel?: string, requestModel?: string) {
   return render(
     <RoutingCanvas
       routing={routing}
@@ -155,5 +155,50 @@ describe("RoutingCanvas", () => {
     const { container } = renderCanvas(snapshot, [{ platform_id: 1, status_code: 200 }]);
     expect(container.querySelector('[data-testid="routing-chain-item"]')).toBeNull();
     expect(container.querySelector('[data-node-id="p-1"] [data-testid="routing-target-model"]')).not.toBeNull();
+  });
+
+  // 路由耗时票 01：每格耗时。锚 data-testid / data-ms，不锚文案。
+  const ms = (c: HTMLElement, sel: string) => c.querySelector(sel)?.getAttribute("data-ms") ?? null;
+
+  it("路由格显示 eval_ms；请求格不带耗时", () => {
+    const { container } = renderCanvas({ ...snapshot, eval_ms: 7 } as typeof snapshot, [{ platform_id: 2, status_code: 200 }]);
+    expect(ms(container as HTMLElement, '[data-node-id="route"] [data-testid="routing-eval-ms"]')).toBe("7");
+    expect(container.querySelector('[data-node-id="req"] [data-ms]')).toBeNull();
+  });
+
+  it("平台格 = 该平台 attempts 耗时合计；胜出平台另带 TTFB，失败平台无 TTFB", () => {
+    const { container } = renderCanvas(snapshot, [
+      { platform_id: 1, status_code: 502, duration_ms: 300, ttfb_ms: 250 },
+      { platform_id: 2, status_code: 500, duration_ms: 100 },
+      { platform_id: 2, status_code: 200, duration_ms: 400, ttfb_ms: 120 },
+    ]);
+    const c = container as HTMLElement;
+    expect(ms(c, '[data-node-id="p-2"] [data-testid="routing-platform-ms"]')).toBe("500");
+    expect(ms(c, '[data-node-id="p-2"] [data-testid="routing-ttfb-ms"]')).toBe("120");
+    expect(ms(c, '[data-node-id="p-1"] [data-testid="routing-platform-ms"]')).toBe("300");
+    expect(c.querySelector('[data-node-id="p-1"] [data-testid="routing-ttfb-ms"]')).toBeNull();
+    expect(c.querySelector('[data-node-id="p-3"] [data-testid="routing-platform-ms"]')).toBeNull();
+  });
+
+  it("模型链逐项带自己的耗时（同模型多次尝试求和）；未尝试 / 跳过的不写", () => {
+    const { container } = renderCanvas(chainSnap, [
+      { platform_id: 1, status_code: 429, model: "m-a", duration_ms: 80, chain_stop: "service" },
+      { platform_id: 2, status_code: 404, model: "m-x", duration_ms: 30 },
+      { platform_id: 2, status_code: 200, model: "m-y", duration_ms: 60, ttfb_ms: 20 },
+    ]);
+    const items = (id: string) =>
+      [...(container as HTMLElement).querySelectorAll(`[data-node-id="${id}"] [data-testid="routing-chain-item"]`)]
+        .map((e) => e.querySelector('[data-testid="routing-chain-ms"]')?.getAttribute("data-ms") ?? null);
+    expect(items("p-1")).toEqual(["80", null, null]);
+    expect(items("p-2")).toEqual(["30", "60"]);
+  });
+
+  it("旧日志无新字段：不显示任何耗时、页面无 NaN / undefined", () => {
+    const { container } = renderCanvas(snapshot, [{ platform_id: 2, status_code: 200 }]);
+    const c = container as HTMLElement;
+    for (const id of ["routing-eval-ms", "routing-platform-ms", "routing-ttfb-ms", "routing-chain-ms"]) {
+      expect(c.querySelector(`[data-testid="${id}"]`)).toBeNull();
+    }
+    expect(c.textContent).not.toMatch(/NaN|undefined/);
   });
 });

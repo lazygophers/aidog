@@ -768,6 +768,7 @@
   "logs.routing.request": "Solicitud",
   "logs.routing.route": "Enrutamiento",
   "logs.routing.response": "Respuesta",
+  "logs.routing.ttfb": "TTFB",
   "logs.routing.attemptFailed": "Intento fallido",
   "logs.routing.notUsed": "No usado",
   "logs.routing.chain.used": "Usado",

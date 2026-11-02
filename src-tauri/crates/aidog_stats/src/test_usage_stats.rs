@@ -317,6 +317,7 @@ async fn latest_routing_snapshot_reads_most_recent() {
                 model_chain: Vec::new(),
                 tags: vec![],
             }],
+            eval_ms: None,
         });
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l, false, false))
             .await
