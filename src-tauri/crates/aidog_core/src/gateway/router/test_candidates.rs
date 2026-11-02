@@ -1301,12 +1301,12 @@ const OFF_MS: i64 = (1_704_067_200 + 12 * 3600) * 1000;
 fn resolve_effective_models_peak_branch_replaces_default_when_in_peak_window() {
     // preset.glm_coding.models.default 填入 platform.models（创建时常见路径）
     let platform_models = PlatformModels {
-        default: Some("glm-5.2".into()),
-        opus: Some("glm-5.2".into()),
-        sonnet: Some("glm-4.7".into()),
-        gpt: Some("glm-5.2".into()),
-        haiku: Some("glm-4.5".into()),
-        jev: None,
+        default: vec!["glm-5.2".into()],
+        opus: vec!["glm-5.2".into()],
+        sonnet: vec!["glm-4.7".into()],
+        gpt: vec!["glm-5.2".into()],
+        haiku: vec!["glm-4.5".into()],
+        jev: vec![],
         ..Default::default()
     };
     // extra 无用户覆盖 → peak_for 回落 bundled preset glm_coding 默认窗口（6-10 ×3.0）
@@ -1314,18 +1314,18 @@ fn resolve_effective_models_peak_branch_replaces_default_when_in_peak_window() {
     let eff = resolve_effective_models(&p, &[], PEAK_MS, "");
     // 命中高峰 → 切到 preset.models.peak（当前 registry 全档 glm-5.3-flash）
     assert_eq!(
-        eff.default.as_deref(),
-        Some("glm-5.3-flash"),
+        eff.default,
+        vec!["glm-5.3-flash"],
         "peak: default 切 glm-5.3-flash"
     );
     assert_eq!(
-        eff.sonnet.as_deref(),
-        Some("glm-5.3-flash"),
+        eff.sonnet,
+        vec!["glm-5.3-flash"],
         "peak: sonnet 切 glm-5.3-flash"
     );
     assert_eq!(
-        eff.haiku.as_deref(),
-        Some("glm-5.3-flash"),
+        eff.haiku,
+        vec!["glm-5.3-flash"],
         "peak: haiku 切 glm-5.3-flash"
     );
 }
@@ -1333,21 +1333,21 @@ fn resolve_effective_models_peak_branch_replaces_default_when_in_peak_window() {
 #[test]
 fn resolve_effective_models_no_peak_when_off_peak() {
     let platform_models = PlatformModels {
-        default: Some("glm-5.2".into()),
-        sonnet: Some("glm-4.7".into()),
+        default: vec!["glm-5.2".into()],
+        sonnet: vec!["glm-4.7".into()],
         ..Default::default()
     };
     let p = glm_coding_platform("", platform_models);
     let eff = resolve_effective_models(&p, &[], OFF_MS, "");
     // 非高峰 → 保持 platform.models（不切 peak）
     assert_eq!(
-        eff.default.as_deref(),
-        Some("glm-5.2"),
+        eff.default,
+        vec!["glm-5.2"],
         "off-peak: 保持 default"
     );
     assert_eq!(
-        eff.sonnet.as_deref(),
-        Some("glm-4.7"),
+        eff.sonnet,
+        vec!["glm-4.7"],
         "off-peak: 保持 sonnet"
     );
 }
@@ -1356,7 +1356,7 @@ fn resolve_effective_models_no_peak_when_off_peak() {
 fn resolve_effective_models_user_time_windows_overrides_peak_branch() {
     // 用户显式 time_windows 优先级高于 preset.models.peak（time_rules 非空 → 跳过 peak 分支）
     let platform_models = PlatformModels {
-        default: Some("glm-5.2".into()),
+        default: vec!["glm-5.2".into()],
         ..Default::default()
     };
     // extra 含 time_windows（全天命中 → models.default=custom-model）
@@ -1372,8 +1372,8 @@ fn resolve_effective_models_user_time_windows_overrides_peak_branch() {
     let eff = resolve_effective_models(&p, &time_rules, PEAK_MS, "");
     // time_windows 命中 → custom-model（不被 preset.models.peak 覆盖）
     assert_eq!(
-        eff.default.as_deref(),
-        Some("custom-model"),
+        eff.default,
+        vec!["custom-model"],
         "user time_windows 优先于 preset peak"
     );
 }
@@ -1384,13 +1384,13 @@ fn resolve_effective_models_protocol_without_peak_branch_unchanged() {
     // mk_platform 默认协议即 anthropic
     let mut p = super::super::test_mod::mk_platform(PlatformStatus::Enabled, 0);
     p.models = PlatformModels {
-        default: Some("claude-sonnet-4".into()),
+        default: vec!["claude-sonnet-4".into()],
         ..Default::default()
     };
     let eff = resolve_effective_models(&p, &[], PEAK_MS, "");
     assert_eq!(
-        eff.default.as_deref(),
-        Some("claude-sonnet-4"),
+        eff.default,
+        vec!["claude-sonnet-4"],
         "无 peak 分支 → 不动"
     );
 }
@@ -1400,7 +1400,7 @@ fn resolve_effective_models_user_peak_override_takes_effect() {
     // 用户 extra.peak 覆盖 preset 默认（peak_for 优先返用户值）
     // 此处用户窗口设为非时段（start=end=0 退化 = 全天命中）→ is_in_peak_window=true
     let platform_models = PlatformModels {
-        default: Some("glm-5.2".into()),
+        default: vec!["glm-5.2".into()],
         ..Default::default()
     };
     let extra = serde_json::json!({
@@ -1411,8 +1411,8 @@ fn resolve_effective_models_user_peak_override_takes_effect() {
     // OFF_MS（hour=12，正常非高峰）但用户窗口全天命中 → 仍切 peak
     let eff = resolve_effective_models(&p, &[], OFF_MS, "");
     assert_eq!(
-        eff.default.as_deref(),
-        Some("glm-5.3-flash"),
+        eff.default,
+        vec!["glm-5.3-flash"],
         "用户 peak 命中 → 切 peak"
     );
 }
@@ -1612,14 +1612,14 @@ async fn mk_platform_models(
 
 fn slot_jev(v: &str) -> PlatformModels {
     PlatformModels {
-        jev: Some(v.into()),
+        jev: vec![v.into()],
         ..Default::default()
     }
 }
 
 fn slot_default(v: &str) -> PlatformModels {
     PlatformModels {
-        default: Some(v.into()),
+        default: vec![v.into()],
         ..Default::default()
     }
 }
@@ -1733,8 +1733,8 @@ async fn chat_request_skips_decision_only_platform() {
         &db,
         "or",
         PlatformModels {
-            jev: Some("jev-latest".into()),
-            default: Some("gpt-x".into()),
+            jev: vec!["jev-latest".into()],
+            default: vec!["gpt-x".into()],
             ..Default::default()
         },
         vec![],
@@ -1855,8 +1855,8 @@ async fn with_mapping(
 
 fn slots_opus_default() -> PlatformModels {
     PlatformModels {
-        opus: Some("glm-opus".into()),
-        default: Some("glm-d".into()),
+        opus: vec!["glm-opus".into()],
+        default: vec!["glm-d".into()],
         ..Default::default()
     }
 }
@@ -1902,7 +1902,7 @@ async fn mapped_name_passthrough_without_default_slot() {
         &db,
         "p",
         PlatformModels {
-            opus: Some("glm-opus".into()),
+            opus: vec!["glm-opus".into()],
             ..Default::default()
         },
         vec![],
@@ -1951,8 +1951,8 @@ async fn blank_jev_slot_is_not_decision_capable() {
         &db,
         "blank",
         PlatformModels {
-            default: Some("gpt-x".into()),
-            jev: Some("".into()),
+            default: vec!["gpt-x".into()],
+            jev: vec!["".into()],
             ..Default::default()
         },
         vec![],
@@ -1968,9 +1968,9 @@ async fn blank_jev_slot_is_not_decision_capable() {
         &db,
         "only",
         PlatformModels {
-            jev: Some("jev-latest".into()),
-            default: Some("".into()),
-            sonnet: Some("".into()),
+            jev: vec!["jev-latest".into()],
+            default: vec!["".into()],
+            sonnet: vec!["".into()],
             ..Default::default()
         },
         vec![],
@@ -2024,7 +2024,7 @@ async fn passthrough_wildcard_matches_any_model_no_slot_rewrite() {
         "pt",
         "",
         Some(db::models::PlatformModels {
-            default: Some("slot-model".into()),
+            default: vec!["slot-model".into()],
             ..Default::default()
         }),
     )
@@ -2618,7 +2618,7 @@ async fn direct_model_mapping_translates_without_locking() {
 
 fn slot_embedding(v: &str) -> PlatformModels {
     PlatformModels {
-        embedding: Some(v.into()),
+        embedding: vec![v.into()],
         ..Default::default()
     }
 }
@@ -2738,7 +2738,7 @@ async fn embedding_ignores_time_windows_and_direct_models() {
 // ══ rerank：与 embedding 同构的请求类型维度 ══
 
 fn slot_rerank(v: &str) -> PlatformModels {
-    PlatformModels { rerank: Some(v.into()), ..Default::default() }
+    PlatformModels { rerank: vec![v.into()], ..Default::default() }
 }
 
 /// 槽位空 / 非 OpenAI 系 / 只配 embedding 槽 → 非候选；槽位值即上游模型；纯重排序平台被 Chat 剔除。
@@ -2822,8 +2822,8 @@ async fn rerank_ignores_time_windows_and_direct_models() {
 #[test]
 fn model_via_peak_branch_then_slot() {
     let pm = PlatformModels {
-        default: Some("glm-5.2".into()),
-        sonnet: Some("glm-4.7".into()),
+        default: vec!["glm-5.2".into()],
+        sonnet: vec!["glm-4.7".into()],
         ..Default::default()
     };
     let p = glm_coding_platform("", pm);

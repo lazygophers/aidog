@@ -1017,6 +1017,10 @@ ALTER TABLE "group_new" RENAME TO "group";
     // （词汇统一，行为零变）。幂等：无旧键 → 空转；新旧键并存取新键并 warn（异常态）。
     rename_extra_peak_hours_to_peak(conn);
 
+    // Migration 20261102-01 (平台-模型多选 票 01): platform.models 与 extra.time_windows[].models
+    // 的单值槽位 → 单元素数组（单向，旧版程序读数组会回落空配置）。幂等：已是数组 → 原样。
+    listify_platform_models(conn);
+
     // Migration 20260901-01 (quota-scripts T4): platform.quota_script 物化列。
     // 用户保存平台 / 选变体时从 registry 选中变体写入选中脚本正文；空 = 未物化，
     // 执行时回落 registry 首条变体（零配置开箱即用）。已在 platform_early 建表
@@ -1324,6 +1328,95 @@ fn rename_extra_peak_hours_to_peak(conn: &Connection) {
             renamed,
             "migration 20260829-02: platform.extra.peak_hours → peak 改名完成"
         );
+    }
+}
+
+/// Migration 20261102-01 实体：8 槽位字符串 → 单元素数组；空白串 / null 槽位丢弃；数组原样。
+/// 返回是否改动。仅处理 JSON 对象，其余形状不动。
+fn listify_models_obj(v: &mut serde_json::Value) -> bool {
+    let Some(obj) = v.as_object_mut() else {
+        return false;
+    };
+    let mut changed = false;
+    for key in ["default", "sonnet", "opus", "haiku", "gpt", "jev", "embedding", "rerank"] {
+        match obj.get(key) {
+            Some(serde_json::Value::String(s)) => {
+                let s = s.trim().to_string();
+                if s.is_empty() {
+                    obj.remove(key);
+                } else {
+                    obj.insert(key.to_string(), serde_json::json!([s]));
+                }
+                changed = true;
+            }
+            Some(serde_json::Value::Null) => {
+                obj.remove(key);
+                changed = true;
+            }
+            _ => {}
+        }
+    }
+    changed
+}
+
+/// Migration 20261102-01 实体。单事务（同 20260829-02：BEGIN IMMEDIATE，in_txn 门控 COMMIT）；
+/// 损坏 JSON 行跳过并 warn，不中断。
+fn listify_platform_models(conn: &Connection) {
+    let rows: Vec<(i64, String, String)> =
+        match conn.prepare("SELECT id, models, extra FROM platform") {
+            Ok(mut stmt) => stmt
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+                .ok()
+                .map(|iter| iter.filter_map(Result::ok).collect())
+                .unwrap_or_default(),
+            Err(_) => return,
+        };
+    let in_txn = conn.execute_batch("BEGIN IMMEDIATE").is_ok();
+    let mut updated = 0u64;
+    for (id, models, extra) in rows {
+        let mut new_models = None;
+        if !models.trim().is_empty() {
+            match serde_json::from_str::<serde_json::Value>(&models) {
+                Ok(mut v) => {
+                    if listify_models_obj(&mut v) {
+                        new_models = serde_json::to_string(&v).ok();
+                    }
+                }
+                Err(_) => tracing::warn!(platform_id = id, "migration 20261102-01: models 非法 JSON，跳过"),
+            }
+        }
+        let mut new_extra = None;
+        if extra.contains("\"time_windows\"") {
+            match serde_json::from_str::<serde_json::Value>(&extra) {
+                Ok(mut root) => {
+                    let mut changed = false;
+                    if let Some(rules) = root.get_mut("time_windows").and_then(|t| t.as_array_mut()) {
+                        for rule in rules {
+                            if let Some(m) = rule.get_mut("models") {
+                                changed |= listify_models_obj(m);
+                            }
+                        }
+                    }
+                    if changed {
+                        new_extra = serde_json::to_string(&root).ok();
+                    }
+                }
+                Err(_) => tracing::warn!(platform_id = id, "migration 20261102-01: extra 非法 JSON，跳过"),
+            }
+        }
+        if new_models.is_some() || new_extra.is_some() {
+            let _ = conn.execute(
+                "UPDATE platform SET models = ?1, extra = ?2 WHERE id = ?3",
+                params![new_models.unwrap_or(models), new_extra.unwrap_or(extra), id],
+            );
+            updated += 1;
+        }
+    }
+    if in_txn {
+        let _ = conn.execute_batch("COMMIT");
+    }
+    if updated > 0 {
+        tracing::info!(updated, "migration 20261102-01: platform.models 单值 → 数组 完成");
     }
 }
 

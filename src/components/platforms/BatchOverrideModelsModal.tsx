@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import type { Platform, PlatformModels, Protocol, ModelSlot } from "../../services/api";
 import { MODEL_SLOTS } from "../../domains/platforms/constants";
+import { slotsToForm, formToSlots } from "../../domains/platforms/slotValue";
 import { getDefaultModels, buildProtocolsFromPresets } from "../../domains/platforms/defaults";
 import type { ProtocolOption } from "../../domains/platforms/constants";
 import { Button } from "@/components/ui/button";
@@ -32,20 +33,9 @@ import {
 
 type Source = "manual" | "preset" | "copy";
 
-const EMPTY_MODELS: PlatformModels = { default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "", embedding: "", rerank: "" };
+const EMPTY_MODELS: Record<ModelSlot, string> = { default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "", embedding: "", rerank: "" };
 
-function normalize(partial: Partial<Record<ModelSlot, string>> | PlatformModels | undefined): PlatformModels {
-  return {
-    default: partial?.default ?? "",
-    sonnet: partial?.sonnet ?? "",
-    opus: partial?.opus ?? "",
-    haiku: partial?.haiku ?? "",
-    gpt: partial?.gpt ?? "",
-    jev: partial?.jev ?? "",
-    embedding: partial?.embedding ?? "",
-    rerank: partial?.rerank ?? "",
-  };
-}
+const normalize = slotsToForm;
 
 export interface BatchOverrideModelsModalProps {
   open: boolean;
@@ -73,7 +63,7 @@ export function BatchOverrideModelsModal({
   const { i18n } = useTranslation();
   const locale = i18n.language;
   const [source, setSource] = useState<Source>("manual");
-  const [slots, setSlots] = useState<PlatformModels>(EMPTY_MODELS);
+  const [slots, setSlots] = useState<Record<ModelSlot, string>>(EMPTY_MODELS);
   const [presetProtocol, setPresetProtocol] = useState<Protocol | "">("");
   const [copyPlatformId, setCopyPlatformId] = useState<number | "">("");
   const [protocolOptions, setProtocolOptions] = useState<ProtocolOption[]>([]);
@@ -261,7 +251,7 @@ export function BatchOverrideModelsModal({
             {t("action.cancel", "取消")}
           </Button>
           <Button
-            onClick={() => onConfirm(slots)}
+            onClick={() => onConfirm(formToSlots(slots))}
             disabled={busy || allEmpty}
             title={allEmpty ? t("group.batchOverrideAllEmptyHint", "所有槽位为空，请至少填一个") : undefined}
           >

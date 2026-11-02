@@ -129,7 +129,7 @@ describe("usePlatformForm jev slot", () => {
     });
     expect(result.current.buildModelsPayload()).toEqual({
       default: undefined, sonnet: undefined, opus: undefined, haiku: undefined, gpt: undefined,
-      jev: "jev-latest", embedding: undefined, rerank: undefined,
+      jev: ["jev-latest"], embedding: undefined, rerank: undefined,
     });
   });
 
@@ -160,7 +160,7 @@ describe("usePlatformForm embedding / rerank slots", () => {
     act(() => {
       result.current.setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "", embedding: " text-embedding-v4 ", rerank: "rr" });
     });
-    expect(result.current.buildModelsPayload()).toMatchObject({ embedding: "text-embedding-v4", rerank: "rr" });
+    expect(result.current.buildModelsPayload()).toMatchObject({ embedding: ["text-embedding-v4"], rerank: ["rr"] });
   });
 
   it("only embedding filled → payload defined; blank embedding/rerank → undefined", () => {

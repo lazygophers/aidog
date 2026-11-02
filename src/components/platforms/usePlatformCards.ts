@@ -137,7 +137,7 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
     setTestingId(p.id);
     let success = false;
     try {
-      const defaultModel = p.models.default || p.available_models[0] || "";
+      const defaultModel = p.models.default?.[0] || p.available_models[0] || "";
       const r = await modelTestApi.test({ platform_id: p.id, model: defaultModel });
       success = r.success;
       setTestResults(prev => ({ ...prev, [p.id]: r.success ? "ok" : "fail" }));

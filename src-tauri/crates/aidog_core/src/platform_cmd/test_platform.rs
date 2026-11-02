@@ -218,14 +218,14 @@ fn share_empty_api_key_still_present() {
 fn share_nonempty_models_field_kept() {
     // 任一 models 槽位有值 → 整块 models key 保留
     let mut s = empty_share();
-    s.models.sonnet = Some("claude-sonnet-4".into());
+    s.models.sonnet = vec!["claude-sonnet-4".into()];
     let yaml = serde_yml::to_string(&s).expect("serialize");
     assert!(
         yaml.contains("models:"),
         "models block kept when slot set: {yaml}"
     );
     assert!(
-        yaml.contains("sonnet: claude-sonnet-4"),
+        yaml.contains("sonnet:") && yaml.contains("- claude-sonnet-4"),
         "sonnet slot value present: {yaml}"
     );
     // PlatformModels 槽位自身 skip_serializing_if Option::is_none，未设槽位不出现在 models 块里

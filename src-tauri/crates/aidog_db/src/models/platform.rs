@@ -47,33 +47,33 @@ pub fn parse_attempts(s: &str) -> Vec<ProxyAttempt> {
 #[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct PlatformModels {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub default: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub sonnet: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub opus: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub haiku: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub gpt: Option<String>,
+    #[serde(default, deserialize_with = "de_model_list", skip_serializing_if = "Vec::is_empty")]
+    #[ts(optional, as = "Option<Vec<String>>")]
+    pub default: Vec<String>,
+    #[serde(default, deserialize_with = "de_model_list", skip_serializing_if = "Vec::is_empty")]
+    #[ts(optional, as = "Option<Vec<String>>")]
+    pub sonnet: Vec<String>,
+    #[serde(default, deserialize_with = "de_model_list", skip_serializing_if = "Vec::is_empty")]
+    #[ts(optional, as = "Option<Vec<String>>")]
+    pub opus: Vec<String>,
+    #[serde(default, deserialize_with = "de_model_list", skip_serializing_if = "Vec::is_empty")]
+    #[ts(optional, as = "Option<Vec<String>>")]
+    pub haiku: Vec<String>,
+    #[serde(default, deserialize_with = "de_model_list", skip_serializing_if = "Vec::is_empty")]
+    #[ts(optional, as = "Option<Vec<String>>")]
+    pub gpt: Vec<String>,
     /// 决策模型槽（/v1/systemone 决策请求上游固定用此模型，jev-decision-proxy R8）
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub jev: Option<String>,
+    #[serde(default, deserialize_with = "de_model_list", skip_serializing_if = "Vec::is_empty")]
+    #[ts(optional, as = "Option<Vec<String>>")]
+    pub jev: Vec<String>,
     /// 向量化模型槽（/v1/embeddings 专用路径上游固定用此模型）
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub embedding: Option<String>,
+    #[serde(default, deserialize_with = "de_model_list", skip_serializing_if = "Vec::is_empty")]
+    #[ts(optional, as = "Option<Vec<String>>")]
+    pub embedding: Vec<String>,
     /// 重排序模型槽（/v1/rerank 专用路径上游固定用此模型）
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub rerank: Option<String>,
+    #[serde(default, deserialize_with = "de_model_list", skip_serializing_if = "Vec::is_empty")]
+    #[ts(optional, as = "Option<Vec<String>>")]
+    pub rerank: Vec<String>,
 }
 
 impl PlatformModels {
@@ -91,10 +91,10 @@ impl PlatformModels {
             &self.jev,
         ]
         .into_iter()
-        .flatten()
+        .flat_map(|l| slot_chain(l))
         {
-            if !v.contains(s) {
-                v.push(s.clone());
+            if !v.contains(&s) {
+                v.push(s);
             }
         }
         v
@@ -107,10 +107,10 @@ impl PlatformModels {
         let mut v = Vec::new();
         for s in [&self.default, &self.sonnet, &self.opus]
             .into_iter()
-            .flatten()
+            .flat_map(|l| slot_chain(l))
         {
-            if !v.contains(s) {
-                v.push(s.clone());
+            if !v.contains(&s) {
+                v.push(s);
             }
         }
         v
@@ -159,9 +159,41 @@ impl PlatformModels {
     }
 }
 
-/// 槽位有效值：trim 后非空才算已配置（批量覆盖会持久化 `Some("")`）。
-pub fn slot_filled(s: &Option<String>) -> Option<&str> {
-    s.as_deref().map(str::trim).filter(|v| !v.is_empty())
+/// 槽位主模型（链首有效值）：trim 后非空才算已配置（批量覆盖会持久化空串元素）。
+pub fn slot_filled(s: &[String]) -> Option<&str> {
+    s.iter().map(|v| v.trim()).find(|v| !v.is_empty())
+}
+
+/// 槽位完整链：有序有效值（trim、去空、去重保序）。
+pub fn slot_chain(s: &[String]) -> Vec<String> {
+    normalize_model_list(s.iter().map(String::as_str))
+}
+
+/// 归一化口径唯一实现：trim、去空串、去重保序。
+pub fn normalize_model_list<'a>(it: impl IntoIterator<Item = &'a str>) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for v in it {
+        let v = v.trim();
+        if !v.is_empty() && !out.iter().any(|x| x == v) {
+            out.push(v.to_string());
+        }
+    }
+    out
+}
+
+/// 槽位宽松反序列化（永久能力）：字符串 / 字符串数组 / null / 缺省 / 空串 → 归一化列表。
+fn de_model_list<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<String>, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Raw {
+        One(String),
+        Many(Vec<Option<String>>),
+    }
+    Ok(match Option::<Raw>::deserialize(d)? {
+        None => Vec::new(),
+        Some(Raw::One(s)) => normalize_model_list([s.as_str()]),
+        Some(Raw::Many(v)) => normalize_model_list(v.iter().flatten().map(String::as_str)),
+    })
 }
 
 // ─── ClientType (客户端模拟) ─────────────────────────────────
@@ -583,16 +615,39 @@ mod tests {
         assert_eq!(serde_json::from_str::<ProxyAttempt>(&json).unwrap().model, with_model.model);
     }
 
+    // ── PlatformModels 宽松反序列化（永久能力）──
+
+    #[test]
+    fn platform_models_lenient_deserialize_all_shapes() {
+        let pm: PlatformModels = serde_json::from_str(
+            r#"{"default":"a","sonnet":["b"," c ","b",""],"opus":null,"haiku":"  ","gpt":[null,"g"]}"#,
+        )
+        .unwrap();
+        assert_eq!(pm.default, vec!["a"]);
+        assert_eq!(pm.sonnet, vec!["b", "c"], "trim + 去空 + 去重保序");
+        assert!(pm.opus.is_empty() && pm.haiku.is_empty(), "null / 空白 → 空列表");
+        assert_eq!(pm.gpt, vec!["g"]);
+        assert!(pm.jev.is_empty(), "缺省 → 空列表");
+        // 序列化统一数组，空列表省略；往返稳定
+        let json = serde_json::to_string(&pm).unwrap();
+        assert_eq!(json, r#"{"default":["a"],"sonnet":["b","c"],"gpt":["g"]}"#);
+        let back: PlatformModels = serde_json::from_str(&json).unwrap();
+        assert_eq!(serde_json::to_string(&back).unwrap(), json);
+        // 主模型 = 链首有效值
+        assert_eq!(slot_filled(&pm.sonnet), Some("b"));
+        assert_eq!(slot_chain(&pm.sonnet), vec!["b", "c"]);
+    }
+
     // ── PlatformModels::all_values ──
 
     #[test]
     fn platform_models_all_values_deduplicates() {
         let pm = PlatformModels {
-            default: Some("gpt-4o".into()),
-            sonnet: Some("claude-sonnet-4".into()),
-            opus: Some("gpt-4o".into()), // duplicate
-            haiku: None,
-            gpt: Some("gpt-3.5".into()),
+            default: vec!["gpt-4o".into()],
+            sonnet: vec!["claude-sonnet-4".into()],
+            opus: vec!["gpt-4o".into()], // duplicate
+            haiku: vec![],
+            gpt: vec!["gpt-3.5".into()],
             ..Default::default()
         };
         let vals = pm.all_values();
@@ -612,11 +667,11 @@ mod tests {
     #[test]
     fn platform_models_main_loop_values_excludes_haiku_and_gpt() {
         let pm = PlatformModels {
-            default: Some("glm-4.7".into()),
-            sonnet: Some("glm-4.7".into()), // duplicate
-            opus: Some("glm-5.3".into()),
-            haiku: Some("glm-4.5".into()),
-            gpt: Some("gpt-5".into()),
+            default: vec!["glm-4.7".into()],
+            sonnet: vec!["glm-4.7".into()], // duplicate
+            opus: vec!["glm-5.3".into()],
+            haiku: vec!["glm-4.5".into()],
+            gpt: vec!["gpt-5".into()],
             ..Default::default()
         };
         assert_eq!(
@@ -628,8 +683,8 @@ mod tests {
     #[test]
     fn platform_models_main_loop_values_empty_when_only_side_slots() {
         let pm = PlatformModels {
-            haiku: Some("glm-4.5".into()),
-            gpt: Some("gpt-5".into()),
+            haiku: vec!["glm-4.5".into()],
+            gpt: vec!["gpt-5".into()],
             ..Default::default()
         };
         assert!(pm.main_loop_values().is_empty());
@@ -640,21 +695,21 @@ mod tests {
     #[test]
     fn platform_models_jev_serde_roundtrip() {
         let pm = PlatformModels {
-            jev: Some("jev-latest".into()),
+            jev: vec!["jev-latest".into()],
             ..Default::default()
         };
         let json = serde_json::to_string(&pm).unwrap();
-        assert_eq!(json, r#"{"jev":"jev-latest"}"#, "None 槽位不序列化");
+        assert_eq!(json, r#"{"jev":["jev-latest"]}"#, "None 槽位不序列化");
         let back: PlatformModels = serde_json::from_str(&json).unwrap();
-        assert_eq!(back.jev.as_deref(), Some("jev-latest"));
+        assert_eq!(back.jev, vec!["jev-latest"]);
         assert!(back.supports_decision_slot());
     }
 
     #[test]
     fn platform_models_jev_in_all_values() {
         let pm = PlatformModels {
-            default: Some("gpt-4o".into()),
-            jev: Some("jev-latest".into()),
+            default: vec!["gpt-4o".into()],
+            jev: vec!["jev-latest".into()],
             ..Default::default()
         };
         assert!(pm.all_values().contains(&"jev-latest".to_string()));
@@ -662,7 +717,7 @@ mod tests {
         assert!(!pm.main_loop_values().contains(&"jev-latest".to_string()));
         // 仅 jev 槽非空时整体非空（分享串不得丢槽位）
         assert!(!PlatformModels {
-            jev: Some("jev-latest".into()),
+            jev: vec!["jev-latest".into()],
             ..Default::default()
         }
         .is_empty());
@@ -673,21 +728,21 @@ mod tests {
     #[test]
     fn platform_models_embedding_rerank_serde_roundtrip() {
         let e = PlatformModels {
-            embedding: Some("text-embedding-v4".into()),
+            embedding: vec!["text-embedding-v4".into()],
             ..Default::default()
         };
         let json = serde_json::to_string(&e).unwrap();
-        assert_eq!(json, r#"{"embedding":"text-embedding-v4"}"#, "None 槽位不序列化");
+        assert_eq!(json, r#"{"embedding":["text-embedding-v4"]}"#, "None 槽位不序列化");
         let back: PlatformModels = serde_json::from_str(&json).unwrap();
         assert_eq!(back.embedding_slot(), Some("text-embedding-v4"));
         assert_eq!(back.rerank_slot(), None);
 
         let r = PlatformModels {
-            rerank: Some("jina-reranker-v2".into()),
+            rerank: vec!["jina-reranker-v2".into()],
             ..Default::default()
         };
         let json = serde_json::to_string(&r).unwrap();
-        assert_eq!(json, r#"{"rerank":"jina-reranker-v2"}"#);
+        assert_eq!(json, r#"{"rerank":["jina-reranker-v2"]}"#);
         let back: PlatformModels = serde_json::from_str(&json).unwrap();
         assert_eq!(back.rerank_slot(), Some("jina-reranker-v2"));
     }
@@ -695,9 +750,9 @@ mod tests {
     #[test]
     fn platform_models_all_values_excludes_dedicated_slots() {
         let pm = PlatformModels {
-            default: Some("gpt-4o".into()),
-            embedding: Some("emb".into()),
-            rerank: Some("rr".into()),
+            default: vec!["gpt-4o".into()],
+            embedding: vec!["emb".into()],
+            rerank: vec!["rr".into()],
             ..Default::default()
         };
         assert_eq!(pm.all_values(), vec!["gpt-4o".to_string()]);
@@ -706,9 +761,9 @@ mod tests {
     #[test]
     fn platform_models_embedding_rerank_slot_semantics() {
         let pm = PlatformModels {
-            default: Some("gpt-4o".into()),
-            embedding: Some("emb".into()),
-            rerank: Some("rr".into()),
+            default: vec!["gpt-4o".into()],
+            embedding: vec!["emb".into()],
+            rerank: vec!["rr".into()],
             ..Default::default()
         };
         let all = pm.all_values();
@@ -716,12 +771,12 @@ mod tests {
         // 专用槽不承接主对话，不参与上下文窗口约束
         assert_eq!(pm.main_loop_values(), vec!["gpt-4o".to_string()]);
         // 仅配 embedding / 仅配 rerank 时整体非空（分享串不得丢槽位）
-        assert!(!PlatformModels { embedding: Some("emb".into()), ..Default::default() }.is_empty());
-        assert!(!PlatformModels { rerank: Some("rr".into()), ..Default::default() }.is_empty());
+        assert!(!PlatformModels { embedding: vec!["emb".into()], ..Default::default() }.is_empty());
+        assert!(!PlatformModels { rerank: vec!["rr".into()], ..Default::default() }.is_empty());
         // 空串 / 纯空白不算配置
         let blank = PlatformModels {
-            embedding: Some("  ".into()),
-            rerank: Some(String::new()),
+            embedding: vec!["  ".into()],
+            rerank: vec![String::new()],
             ..Default::default()
         };
         assert!(blank.embedding_slot().is_none() && blank.rerank_slot().is_none());
@@ -732,22 +787,22 @@ mod tests {
     fn platform_models_is_dedicated_only_both_directions() {
         // R3：jev 非空 + 5 聊天槽全空 → 只支持决策
         let only = PlatformModels {
-            jev: Some("jev-latest".into()),
+            jev: vec!["jev-latest".into()],
             ..Default::default()
         };
         assert!(only.is_dedicated_only());
         assert!(only.supports_decision_slot());
         // 任一聊天槽有值 → 不是 decision-only（但仍支持决策）
         let mixed = PlatformModels {
-            jev: Some("jev-latest".into()),
-            haiku: Some("glm-4.5".into()),
+            jev: vec!["jev-latest".into()],
+            haiku: vec!["glm-4.5".into()],
             ..Default::default()
         };
         assert!(!mixed.is_dedicated_only());
         assert!(mixed.supports_decision_slot());
         // 无 jev → 两者皆否
         let chat_only = PlatformModels {
-            default: Some("gpt-4o".into()),
+            default: vec!["gpt-4o".into()],
             ..Default::default()
         };
         assert!(!chat_only.is_dedicated_only());
@@ -756,13 +811,13 @@ mod tests {
 
     #[test]
     fn platform_models_dedicated_only_covers_embedding_rerank() {
-        let emb = PlatformModels { embedding: Some("e".into()), ..Default::default() };
+        let emb = PlatformModels { embedding: vec!["e".into()], ..Default::default() };
         assert!(emb.is_dedicated_only());
         assert!(!emb.supports_decision_slot(), "Decision 路径行为不变");
-        assert!(PlatformModels { rerank: Some("r".into()), ..Default::default() }.is_dedicated_only());
+        assert!(PlatformModels { rerank: vec!["r".into()], ..Default::default() }.is_dedicated_only());
         let mixed = PlatformModels {
-            embedding: Some("e".into()),
-            default: Some("gpt".into()),
+            embedding: vec!["e".into()],
+            default: vec!["gpt".into()],
             ..Default::default()
         };
         assert!(!mixed.is_dedicated_only());
@@ -773,8 +828,8 @@ mod tests {
     fn platform_models_empty_string_slots_not_configured() {
         // 批量覆盖持久化的 Some("") / 纯空白槽位不算配置
         let blank_jev = PlatformModels {
-            jev: Some("".into()),
-            default: Some("gpt-4o".into()),
+            jev: vec!["".into()],
+            default: vec!["gpt-4o".into()],
             ..Default::default()
         };
         assert!(!blank_jev.supports_decision_slot());
@@ -782,20 +837,20 @@ mod tests {
         assert_eq!(blank_jev.jev_slot(), None);
         // jev 有值、聊天槽全是空串 → 仍是 decision-only
         let only = PlatformModels {
-            jev: Some(" jev-latest ".into()),
-            default: Some("".into()),
-            sonnet: Some("  ".into()),
-            opus: Some("".into()),
-            haiku: Some("".into()),
-            gpt: Some("".into()),
+            jev: vec![" jev-latest ".into()],
+            default: vec!["".into()],
+            sonnet: vec!["  ".into()],
+            opus: vec!["".into()],
+            haiku: vec!["".into()],
+            gpt: vec!["".into()],
             ..Default::default()
         };
         assert!(only.is_dedicated_only());
         assert_eq!(only.jev_slot(), Some("jev-latest"));
         // 全空串 → is_empty
         let all_blank = PlatformModels {
-            default: Some("".into()),
-            jev: Some(" ".into()),
+            default: vec!["".into()],
+            jev: vec![" ".into()],
             ..Default::default()
         };
         assert!(all_blank.is_empty());
