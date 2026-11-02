@@ -2985,3 +2985,168 @@ async fn client_whitelist_not_revived_by_breaker_bypass() {
     assert_eq!(set.candidates.len(), 1);
     assert_eq!(set.candidates[0].platform.id, broken.id);
 }
+
+// ── 票 04：模型链（备选）──
+
+fn chain(v: &[&str]) -> Vec<String> {
+    v.iter().map(|s| s.to_string()).collect()
+}
+
+fn chat_chain(p: &Platform, eff: &PlatformModels, name: &str) -> Vec<String> {
+    resolve_target_chain(RequestKind::Chat, eff, p, &DecisionModels::default(), name)
+}
+
+/// 槽位选择规则不变，命中槽位返回完整有序链（去空去重保序）；请求名透传 / 无槽位 → 单元素链。
+#[test]
+fn chain_slot_selection_and_passthrough() {
+    let pm = PlatformModels {
+        default: chain(&["d1", "d2"]),
+        opus: chain(&["o1", " ", "o2", "o1"]),
+        ..Default::default()
+    };
+    let p = glm_coding_platform("", pm.clone());
+    assert_eq!(chat_chain(&p, &pm, "claude-opus-4"), chain(&["o1", "o2"]));
+    assert_eq!(chat_chain(&p, &pm, "foo"), chain(&["d1", "d2"]));
+    let empty = PlatformModels::default();
+    assert_eq!(chat_chain(&p, &empty, "foo[1m]"), chain(&["foo"]));
+}
+
+/// 三层级联各层多模型：time_windows / preset peak / platform.models 的链顺序都原样输出。
+#[test]
+fn chain_three_layers_keep_order() {
+    // 层 3：platform.models
+    let pm = PlatformModels { default: chain(&["a", "b", "c"]), ..Default::default() };
+    let p = glm_coding_platform("", pm);
+    let eff = resolve_effective_models(&p, &[], OFF_MS, "");
+    assert_eq!(chat_chain(&p, &eff, "foo"), chain(&["a", "b", "c"]));
+    // 层 1：time_windows 数组形态
+    let extra = serde_json::json!({"time_windows": [{
+        "windows": [{"start_hour": 0, "end_hour": 24}],
+        "models": {"default": ["t1", "t2"]}
+    }]})
+    .to_string();
+    let p = glm_coding_platform(&extra, PlatformModels { default: chain(&["a"]), ..Default::default() });
+    let rules = crate::gateway::time_windows::parse_platform_time_windows(&p.extra);
+    let eff = resolve_effective_models(&p, &rules, PEAK_MS, "");
+    assert_eq!(chat_chain(&p, &eff, "foo"), chain(&["t1", "t2"]));
+    // 层 2：preset peak 分支（registry 里是单值，断言链 == preset peak default 槽的归一化链）
+    let (eff, via) = resolve_effective_models_tagged(&p, &[], PEAK_MS, "");
+    assert_eq!(via, Some(ModelVia::PresetPeak));
+    let expect = slot_chain(&crate::gateway::peak::default_peak_models("glm_coding").unwrap().default);
+    assert_eq!(chat_chain(&p, &eff, "foo"), expect);
+}
+
+/// 完整链路：RouteResult 链首 + fallback_models、快照 model_chain；链长 1 快照不带 model_chain。
+#[tokio::test]
+async fn route_result_carries_fallbacks_and_snapshot_chain() {
+    let db = mk_test_db().await;
+    let multi = mk_platform_models(
+        &db,
+        "multi",
+        PlatformModels { default: chain(&["m1", "m2", "m3"]), ..Default::default() },
+        vec![],
+    )
+    .await;
+    let single = mk_platform_models(
+        &db,
+        "single",
+        PlatformModels { default: chain(&["s1"]), ..Default::default() },
+        vec![],
+    )
+    .await;
+    let g = mk_db_group(&db, "grp", &[multi.id, single.id]).await;
+    let set = select_candidates_ctx(&db, &g, "foo", None, RequestKind::Chat).await.expect("route");
+    let m = set.candidates.iter().find(|c| c.platform.id == multi.id).unwrap();
+    assert_eq!(m.target_model, "m1");
+    assert_eq!(m.fallback_models, chain(&["m2", "m3"]));
+    let s = set.candidates.iter().find(|c| c.platform.id == single.id).unwrap();
+    assert_eq!(s.target_model, "s1");
+    assert!(s.fallback_models.is_empty());
+    let me = set.routing.entries.iter().find(|e| e.platform_id == multi.id).unwrap();
+    assert_eq!(me.target_model.as_deref(), Some("m1"));
+    assert_eq!(me.model_chain, chain(&["m1", "m2", "m3"]));
+    let se = set.routing.entries.iter().find(|e| e.platform_id == single.id).unwrap();
+    assert!(se.model_chain.is_empty());
+}
+
+/// 单平台组（bypass 路径）同样携带备选。
+#[tokio::test]
+async fn single_platform_group_carries_fallbacks() {
+    let db = mk_test_db().await;
+    let p = mk_platform_models(
+        &db,
+        "p",
+        PlatformModels { default: chain(&["m1", "m2"]), ..Default::default() },
+        vec![],
+    )
+    .await;
+    let g = mk_db_group(&db, "solo", &[p.id]).await;
+    let set = select_candidates_ctx(&db, &g, "foo", None, RequestKind::Chat).await.expect("route");
+    assert_eq!(set.candidates[0].fallback_models, chain(&["m2"]));
+    assert_eq!(set.routing.entries[0].model_chain, chain(&["m1", "m2"]));
+}
+
+/// 直通模型链：备选恒空（即使平台槽位有多模型）。
+#[tokio::test]
+async fn direct_model_chain_has_no_fallbacks() {
+    let db = mk_test_db().await;
+    let p = mk_platform_models(
+        &db,
+        "p",
+        PlatformModels { default: chain(&["m1", "m2"]), ..Default::default() },
+        vec![],
+    )
+    .await;
+    let q = mk_platform_models(&db, "q", PlatformModels::default(), vec![]).await;
+    db::update_platform(
+        &db,
+        UpdatePlatform {
+            extra: Some(serde_json::json!({"direct_models": ["client-model"]}).to_string()),
+            ..upd_platform(p.id)
+        },
+    )
+    .await
+    .expect("set extra");
+    let g = mk_db_group(&db, "grp", &[p.id, q.id]).await;
+    let set = select_candidates_ctx(&db, &g, "client-model", None, RequestKind::Chat)
+        .await
+        .expect("direct route");
+    assert_eq!(set.candidates[0].target_model, "client-model");
+    assert!(set.candidates[0].fallback_models.is_empty());
+    assert!(set.routing.entries.iter().all(|e| e.model_chain.is_empty()));
+}
+
+/// 透传平台：备选恒空。
+#[test]
+fn passthrough_platform_chain_is_single() {
+    let mut p = super::super::test_mod::mk_platform(PlatformStatus::Enabled, 0);
+    p.platform_type = Protocol::Passthrough;
+    let pm = PlatformModels { default: chain(&["x", "y"]), ..Default::default() };
+    assert_eq!(chat_chain(&p, &pm, "foo"), chain(&["foo"]));
+}
+
+/// 专用槽（embedding / jev）同样出链；rerank 槽空 → 单值。
+#[test]
+fn dedicated_slot_chains() {
+    let pm = PlatformModels {
+        embedding: chain(&["e1", "e2"]),
+        jev: chain(&["j1", "j2"]),
+        ..Default::default()
+    };
+    let p = glm_coding_platform("", pm.clone());
+    let dm = DecisionModels::default();
+    assert_eq!(resolve_target_chain(RequestKind::Embedding, &pm, &p, &dm, "x"), chain(&["e1", "e2"]));
+    assert_eq!(resolve_target_chain(RequestKind::Decision, &pm, &p, &dm, "x"), chain(&["j1", "j2"]));
+    assert_eq!(resolve_target_chain(RequestKind::Rerank, &pm, &p, &dm, "x"), chain(&["x"]));
+}
+
+/// `/models` 与 pi 清单展平含备选且跨平台去重。
+#[test]
+fn model_list_flattens_fallbacks_deduped() {
+    let a = PlatformModels { default: chain(&["a", "b"]), opus: chain(&["b", "c"]), ..Default::default() };
+    let b = PlatformModels { sonnet: chain(&["c", "d"]), ..Default::default() };
+    assert_eq!(
+        crate::gateway::proxy::merge_group_model_names(&[], &[a, b]),
+        chain(&["a", "b", "c", "d"])
+    );
+}
