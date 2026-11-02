@@ -4896,3 +4896,330 @@ async fn set_platform_extra(state: &Arc<ProxyState>, name: &str, extra: &str) {
     .unwrap();
     state.db.invalidate_group_details_cache();
 }
+
+// ══ 票 06：同平台模型链换模型（本地假上游，禁外呼）══
+// 嵌入层次：forward_attempt 内、非 2xx 之后；单平台 / 等效单平台 / 多平台组均在其内生效。
+// 透传平台（handler 在 forward_attempt 之前拦截）与直通模型（备选恒空）不换模型。
+
+const CHAIN_REQ: &str = r#"{"model":"claude-x","max_tokens":16,"messages":[{"role":"user","content":"hi"}]}"#;
+const CHAIN_REQ_STREAM: &str = r#"{"model":"claude-x","max_tokens":16,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#;
+const MB_OK: &str = r#"{"id":"msg_1","type":"message","role":"assistant","model":"m-b","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"output_tokens":3}}"#;
+const E404_MODEL: &str = r#"{"type":"error","error":{"type":"not_found_error","message":"model: m-a"}}"#;
+const E400_INVALID_MODEL: &str = r#"{"error":{"message":"Invalid model: m-a"}}"#;
+const E404_WEIRD: &str = r#"{"error":{"message":"weird"}}"#;
+const E429: &str = r#"{"error":{"message":"rate limited"}}"#;
+const E402: &str = r#"{"error":{"message":"insufficient balance"}}"#;
+const E401: &str = r#"{"error":{"message":"invalid api key"}}"#;
+const E503_NO_CHANNEL: &str = r#"{"error":{"code":"model_not_found","message":"No available channel for model m-a under group default"}}"#;
+const E503_NO_CHANNEL_ZH: &str = r#"{"error":{"message":"当前分组 default 下对于模型 m-a 无可用渠道"}}"#;
+const E503_PLAIN: &str = r#"{"error":{"message":"service unavailable"}}"#;
+const CHAIN_SSE_OK: &str = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":5,\"output_tokens\":0}}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":3}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+
+fn chain_models(chain: &[&str]) -> PlatformModels {
+    PlatformModels { default: chain.iter().map(|s| s.to_string()).collect(), ..Default::default() }
+}
+
+/// 上游实际收到的 model 序列。
+fn hit_models(h: &EmbHits) -> Vec<String> {
+    h.lock()
+        .unwrap()
+        .iter()
+        .map(|(_, body, _)| serde_json::from_str::<Value>(body).unwrap()["model"].as_str().unwrap().to_string())
+        .collect()
+}
+
+async fn chain_send(state: &Arc<ProxyState>, gk: &str, body: &str) -> axum::response::Response {
+    handle_proxy(AxumState(state.clone()), messages_request(gk, body)).await
+}
+
+fn anthropic_price_entry(model: &str, price: &str) -> ModelEntry {
+    ModelEntry {
+        platform_code: "anthropic".into(),
+        model_id: model.into(),
+        display_name: model.into(),
+        canonical_model: model.into(),
+        capabilities: vec![],
+        official: true,
+        price_data: format!(r#"{{"price":{price}}}"#),
+        updated_at: aidog_db::now(),
+        ..embedding_entry("{}")
+    }
+}
+
+/// 首模型 404 model_not_found → 次模型 200：上游收到 [m-a, m-b]，attempts 两项各带模型，
+/// est_cost 只计成功那次（m-a 价故意不同，计错即红）。单平台组（len==1）形态。
+#[tokio::test]
+async fn chain_model_not_found_switches_to_next_model() {
+    let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, MB_OK)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![
+            anthropic_price_entry("m-a", r#"{"input":1e-3,"output":1e-3}"#),
+            anthropic_price_entry("m-b", r#"{"input":1e-6,"output":2e-6}"#),
+        ],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(&state, "gkc1", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+    let resp = chain_send(&state, "gkc1", CHAIN_REQ).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(hit_models(&hits), ["m-a", "m-b"]);
+    let log = last_log_for(&state, "gkc1").await;
+    assert_eq!(log.attempts.len(), 2, "同平台换模型每次尝试各一项，不新增 proxy_log 行");
+    assert_eq!(log.attempts[0].model.as_deref(), Some("m-a"));
+    assert_eq!(log.attempts[0].status_code, 404);
+    assert_eq!(log.attempts[1].model.as_deref(), Some("m-b"));
+    assert_eq!(log.attempts[1].status_code, 200);
+    assert_eq!(log.actual_model, "m-b", "展示模型 = 实际成功的模型（上游自报）");
+    assert_eq!(log.status_code, 200);
+    assert!((log.est_cost - (5.0 * 1e-6 + 3.0 * 2e-6)).abs() < 1e-12, "只计成功那次: {}", log.est_cost);
+}
+
+/// 429 / 402 / 401 是上游服务类错误：不换模型，直接换平台；上游 1 只收到一次请求。
+#[tokio::test]
+async fn chain_service_errors_switch_platform_not_model() {
+    for (i, (status, body)) in [(429u16, E429), (402, E402), (401, E401)].into_iter().enumerate() {
+        let (up1, hits1) = spawn_embedding_upstream(vec![(status, body)]).await;
+        let (up2, hits2) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkc2{i}");
+        setup_aux_group(
+            &state,
+            &gk,
+            &[
+                (&up1, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p1"),
+                (&up2, chain_models(&["m-c", "m-d"]), Protocol::Anthropic, "p2"),
+            ],
+        )
+        .await;
+        let resp = chain_send(&state, &gk, CHAIN_REQ).await;
+        assert_eq!(resp.status(), StatusCode::OK, "{status}");
+        assert_eq!(hit_models(&hits1), ["m-a"], "{status}: 同平台只试一次");
+        assert_eq!(hit_models(&hits2), ["m-c"], "{status}");
+        let log = last_log_for(&state, &gk).await;
+        assert_eq!(log.attempts.len(), 2, "{status}");
+        assert_eq!(log.attempts[0].chain_stop.as_deref(), Some("service"), "{status}: 链上还有 m-b 未尝试，记终止原因");
+        assert_eq!(log.attempts[1].chain_stop, None);
+    }
+}
+
+/// 链耗尽：降权 / last_error 只记一次（scheduler 状态，非调用次数）；
+/// 三模型全 404 → 终态回包是最后一次错误，降权连败计数恰为 1。
+#[tokio::test]
+async fn chain_exhausted_records_platform_failure_once() {
+    let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (404, E404_MODEL), (404, E404_MODEL)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(&state, "gkc3", &[(&up, chain_models(&["m-a", "m-b", "m-c"]), Protocol::Anthropic, "p")]).await;
+    let resp = chain_send(&state, "gkc3", CHAIN_REQ).await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    assert_eq!(hit_models(&hits), ["m-a", "m-b", "m-c"]);
+    let p = aidog_db::list_platforms(&state.db).await.unwrap().remove(0);
+    assert_eq!(state.scheduler.penalty_consecutive(p.id), 1, "一次访问只算平台失败一次");
+    let log = last_log_for(&state, "gkc3").await;
+    assert_eq!(log.attempts.len(), 3);
+    assert!(log.attempts.iter().all(|a| a.chain_stop.is_none()), "耗尽不是提前终止");
+    assert!(p.last_error.starts_with("HTTP 404"), "{:?}", p.last_error);
+}
+
+/// 链中途成功：失败过的前序模型不留降权（连败为 0）。
+#[tokio::test]
+async fn chain_success_after_model_failures_leaves_no_penalty() {
+    let (up, _hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, ANTHROPIC_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(&state, "gkc3b", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+    assert_eq!(chain_send(&state, "gkc3b", CHAIN_REQ).await.status(), StatusCode::OK);
+    let pid = aidog_db::list_platforms(&state.db).await.unwrap()[0].id;
+    assert_eq!(state.scheduler.penalty_consecutive(pid), 0);
+}
+
+/// Unknown 类 4xx 默认换模型；400 invalid model 先换模型，耗尽后仍按「400 不换平台」回包。
+#[tokio::test]
+async fn chain_unknown_4xx_switches_model_and_400_exhausted_keeps_no_failover() {
+    // Unknown：404 无特征 → 换模型成功
+    let (up, hits) = spawn_embedding_upstream(vec![(404, E404_WEIRD), (200, ANTHROPIC_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(&state, "gkc4a", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+    assert_eq!(chain_send(&state, "gkc4a", CHAIN_REQ).await.status(), StatusCode::OK);
+    assert_eq!(hit_models(&hits), ["m-a", "m-b"]);
+
+    // 400 invalid model：两模型都 400 → 回 400，且不换到平台 2
+    let (up1, hits1) = spawn_embedding_upstream(vec![(400, E400_INVALID_MODEL), (400, E400_INVALID_MODEL)]).await;
+    let (up2, hits2) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(
+        &state,
+        "gkc4b",
+        &[
+            (&up1, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p1"),
+            (&up2, chain_models(&["m-c"]), Protocol::Anthropic, "p2"),
+        ],
+    )
+    .await;
+    assert_eq!(chain_send(&state, "gkc4b", CHAIN_REQ).await.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(hit_models(&hits1), ["m-a", "m-b"]);
+    assert!(hits2.lock().unwrap().is_empty(), "400 耗尽后不换平台");
+}
+
+/// 5xx 例外：message 命中模型类特征（new-api 503 无可用渠道，中英）→ 换模型不换平台；
+/// 普通 5xx → 服务类，直接换平台。
+#[tokio::test]
+async fn chain_5xx_with_model_marker_switches_model_plain_5xx_switches_platform() {
+    for (i, body) in [E503_NO_CHANNEL, E503_NO_CHANNEL_ZH].into_iter().enumerate() {
+        let (up, hits) = spawn_embedding_upstream(vec![(503, body), (200, ANTHROPIC_OK)]).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkc5a{i}");
+        setup_aux_group(&state, &gk, &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+        assert_eq!(chain_send(&state, &gk, CHAIN_REQ).await.status(), StatusCode::OK);
+        assert_eq!(hit_models(&hits), ["m-a", "m-b"], "{body}");
+    }
+
+    let (up1, hits1) = spawn_embedding_upstream(vec![(503, E503_PLAIN)]).await;
+    let (up2, hits2) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(
+        &state,
+        "gkc5b",
+        &[
+            (&up1, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p1"),
+            (&up2, chain_models(&["m-c"]), Protocol::Anthropic, "p2"),
+        ],
+    )
+    .await;
+    assert_eq!(chain_send(&state, "gkc5b", CHAIN_REQ).await.status(), StatusCode::OK);
+    assert_eq!(hit_models(&hits1), ["m-a"]);
+    assert_eq!(hit_models(&hits2), ["m-c"]);
+}
+
+/// error_rule 标 non-retryable：不换模型也不换平台，直接回客户端；终止项带 chain_stop=rule。
+#[tokio::test]
+async fn chain_error_rule_non_retryable_blocks_model_switch() {
+    use aidog_db::models::{
+        ActionKind, ActionParams, ActionStep, AppliesTo, ConditionLeaf, ConditionNode, MatchType, MiddlewareRule, Target,
+    };
+    let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, ANTHROPIC_OK)]).await;
+    let state = make_state(test_db().await).await;
+    state.middleware.rebuild_from_rules(vec![MiddlewareRule {
+        id: 1,
+        name: "no-retry-404".into(),
+        description: String::new(),
+        conditions: ConditionNode::Leaf(ConditionLeaf {
+            target: Target::Status,
+            field: String::new(),
+            match_type: MatchType::Regex,
+            pattern: "404".into(),
+            validator: String::new(),
+        }),
+        actions: vec![ActionStep {
+            kind: ActionKind::Classify,
+            params: ActionParams { category: "x".into(), retryable: false, ..Default::default() },
+        }],
+        applies_to: AppliesTo::default(),
+        priority: 0,
+        enabled: true,
+        is_builtin: false,
+        failed: false,
+        created_at: 0,
+        updated_at: 0,
+    }]);
+    setup_aux_group(&state, "gkc6", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+    assert_eq!(chain_send(&state, "gkc6", CHAIN_REQ).await.status(), StatusCode::NOT_FOUND);
+    assert_eq!(hit_models(&hits), ["m-a"]);
+    let log = last_log_for(&state, "gkc6").await;
+    assert_eq!(log.attempts.len(), 1);
+    assert_eq!(log.attempts[0].chain_stop.as_deref(), Some("rule"));
+}
+
+/// 流式：非 2xx 且尚无字节写给客户端 → 可换模型；2xx 流一旦开始就不再换。
+#[tokio::test]
+async fn chain_stream_switches_before_first_byte_not_after() {
+    let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, CHAIN_SSE_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(&state, "gkc7a", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+    let resp = chain_send(&state, "gkc7a", CHAIN_REQ_STREAM).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    assert_eq!(hit_models(&hits), ["m-a", "m-b"]);
+
+    // 2xx 流已开始：上游只收到首模型一次
+    let (up, hits) = spawn_embedding_upstream(vec![(200, CHAIN_SSE_OK), (200, CHAIN_SSE_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(&state, "gkc7b", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+    let resp = chain_send(&state, "gkc7b", CHAIN_REQ_STREAM).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    assert_eq!(hit_models(&hits), ["m-a"]);
+}
+
+/// 等效单平台（多平台组仅剩 1 个 Enabled）与字面单平台组（len==1）各一例：
+/// 都换模型；两模型都 400 invalid model 时终态回包一致（400，不再做别的）。
+#[tokio::test]
+async fn chain_degenerate_and_literal_single_platform_behave_alike() {
+    // 字面单平台组
+    let (up, hits) = spawn_embedding_upstream(vec![(400, E400_INVALID_MODEL), (400, E400_INVALID_MODEL)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(&state, "gkc8a", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "A")]).await;
+    assert_eq!(chain_send(&state, "gkc8a", CHAIN_REQ).await.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(hit_models(&hits), ["m-a", "m-b"]);
+
+    // 等效单平台：B 被禁用，只剩 A
+    let (up, hits) = spawn_embedding_upstream(vec![(400, E400_INVALID_MODEL), (400, E400_INVALID_MODEL)]).await;
+    let (upb, hitsb) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(
+        &state,
+        "gkc8b",
+        &[
+            (&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "A"),
+            (&upb, chain_models(&["m-c"]), Protocol::Anthropic, "B"),
+        ],
+    )
+    .await;
+    set_platform_status(&state, "gkc8b-B", aidog_db::models::PlatformStatus::Disabled).await;
+    assert_eq!(chain_send(&state, "gkc8b", CHAIN_REQ).await.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(hit_models(&hits), ["m-a", "m-b"]);
+    assert!(hitsb.lock().unwrap().is_empty());
+
+    // 等效单平台换模型成功
+    let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, ANTHROPIC_OK)]).await;
+    let (upb, _) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(
+        &state,
+        "gkc8c",
+        &[
+            (&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "A"),
+            (&upb, chain_models(&["m-c"]), Protocol::Anthropic, "B"),
+        ],
+    )
+    .await;
+    set_platform_status(&state, "gkc8c-B", aidog_db::models::PlatformStatus::Disabled).await;
+    assert_eq!(chain_send(&state, "gkc8c", CHAIN_REQ).await.status(), StatusCode::OK);
+    assert_eq!(hit_models(&hits), ["m-a", "m-b"]);
+}
+
+/// 链长 1 回归：无备选 → 与现状一致（404 换平台）；直通模型（direct_models）备选为空，不换模型。
+#[tokio::test]
+async fn chain_len1_and_direct_models_do_not_switch_model() {
+    let (up1, hits1) = spawn_embedding_upstream(vec![(404, E404_MODEL)]).await;
+    let (up2, hits2) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(
+        &state,
+        "gkc9a",
+        &[
+            (&up1, chain_models(&["m-a"]), Protocol::Anthropic, "p1"),
+            (&up2, chain_models(&["m-c"]), Protocol::Anthropic, "p2"),
+        ],
+    )
+    .await;
+    assert_eq!(chain_send(&state, "gkc9a", CHAIN_REQ).await.status(), StatusCode::OK);
+    assert_eq!(hit_models(&hits1), ["m-a"]);
+    assert_eq!(hit_models(&hits2), ["m-c"]);
+
+    let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, ANTHROPIC_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_multi_platform_group(&state, "gkc9b", &[("D", &up, r#"{"direct_models":["claude-x"]}"#)]).await;
+    assert_eq!(chain_send(&state, "gkc9b", CHAIN_REQ).await.status(), StatusCode::NOT_FOUND);
+    assert_eq!(hit_models(&hits), ["claude-x"]);
+}

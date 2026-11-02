@@ -792,6 +792,12 @@
   "logs.routing.response": "Réponse",
   "logs.routing.attemptFailed": "Tentative échouée",
   "logs.routing.notUsed": "Non utilisé",
+  "logs.routing.chain.used": "Utilisé",
+  "logs.routing.chain.untried": "Non choisi",
+  "logs.routing.chain.failed": "Échec",
+  "logs.routing.chain.skipped": "Ignoré",
+  "logs.routing.chain.skip.service": "Erreur du service amont, changement de plateforme",
+  "logs.routing.chain.skip.rule": "Règle d'erreur : non réessayable",
 
   "logs.routing.untried": "Non tenté",  "logs.routing.mode.load_balance": "Répartition de charge",
   "logs.routing.mode.failover": "Basculement",
