@@ -10,6 +10,10 @@ pub(crate) struct NonSuccessCtx<'a> {
     pub is_last_candidate: bool,
     pub log_settings: &'a ProxyLogSettings,
     pub requested_model: &'a str,
+    /// 命中槽位的模型链上是否还有下一个模型（票 06）。
+    pub has_next_model: bool,
+    /// 置 true = 本次为模型类失败，已留痕未记账，调用方换下一个模型重发。
+    pub switched: &'a mut bool,
 }
 
 /// 上游返回非 2xx 时的处理：记录 attempt、熔断计数（仅 429-限流）、401/402 auth 冷却、
@@ -26,7 +30,7 @@ pub(crate) async fn handle_non_success(
     breaker_th: &super::scheduling::BreakerThresholds,
     ctx: NonSuccessCtx<'_>,
 ) -> AttemptOutcome {
-    let NonSuccessCtx { url, start, attempt_start, attempt_ts, is_last_candidate, log_settings, requested_model } = ctx;
+    let NonSuccessCtx { url, start, attempt_start, attempt_ts, is_last_candidate, log_settings, requested_model, has_next_model, switched } = ctx;
     // Retry-After 须在 resp 被 text() 消费前取（429 配额冷却用，见下）
     let retry_after = resp
         .headers()
@@ -46,7 +50,34 @@ pub(crate) async fn handle_non_success(
     );
     tracing::debug!(url = %url, status = code, body = %super::log_util::log_body_preview(&body), "upstream error response body");
     let attempt_err = truncate_attempt_error(&body);
+    let err_class = {
+        let mw_settings = state
+            .settings_cache
+            .read()
+            .await
+            .middleware_settings
+            .clone();
+        state.middleware.classify_error(
+            &mw_settings,
+            code,
+            &body,
+            Some(&group.group_key),
+            Some(route.platform.id as i64),
+            requested_model,
+            Some(&resp_headers_json),
+        )
+    };
+    // ── 同平台换模型（票 06，spec D5）：先于 is_status_retryable（400/422 不换平台）与全部记账。
+    //   Service 类（含 censorship_blocked）→ 不换模型；error_rule 标 non-retryable → 用户显式意图，
+    //   不换模型也不换平台；其余（Model / Unknown）且链上还有下一个模型 → 只留痕不记账，换模型重发。
+    //   链耗尽（has_next_model=false）落回下面现有逻辑，用最后一次错误记账一次。
+    let class = classify_upstream_error(code, &body);
+    let rule_blocks = err_class.as_ref().is_some_and(|c| !c.retryable);
+    let switch_model = has_next_model && class != UpstreamErrorClass::Service && !rule_blocks;
+    let chain_stop = (has_next_model && !switch_model)
+        .then(|| if class == UpstreamErrorClass::Service { "service" } else { "rule" }.to_string());
     attempts.push(ProxyAttempt {
+        chain_stop,
         platform_id: route.platform.id,
         platform_name: route.platform.name.clone(),
         status_code: code as i32,
@@ -55,6 +86,14 @@ pub(crate) async fn handle_non_success(
         ts: attempt_ts,
         model: Some(route.target_model.clone()),
     });
+    if switch_model {
+        tracing::info!(
+            platform = %route.platform.name, status = code, class = ?class, model = %route.target_model,
+            "model-class upstream error, switching to next model on same platform"
+        );
+        *switched = true;
+        return AttemptOutcome::Next { connect_failed: false };
+    }
 
     // 错误体提取人类可读 message（嵌套 error.message / 顶层 message），命中则 last_error
     // 与 429 分类都基于它；未命中回退 truncate_attempt_error 摘要 / body 原文。
@@ -200,23 +239,6 @@ pub(crate) async fn handle_non_success(
     //   retryable     → 走默认重试语义（换下个候选）。
     //   无命中        → 默认重试语义不变（is_last_candidate 决定）。
     //   熔断器不在本树：此处只产标记驱动现有重试循环，不引入任何熔断状态。──
-    let err_class = {
-        let mw_settings = state
-            .settings_cache
-            .read()
-            .await
-            .middleware_settings
-            .clone();
-        state.middleware.classify_error(
-            &mw_settings,
-            code,
-            &body,
-            Some(&group.group_key),
-            Some(route.platform.id as i64),
-            requested_model,
-            Some(&resp_headers_json),
-        )
-    };
     // ── 决策 A：状态码硬错圈定 ──
     //   400 / 422（请求体本身非法）→ 不重试；结构化 censorship_blocked 是唯一例外，换候选。
     //   其余非 2xx（401/403/404/405/429/5xx/未知）→ 默认可重试（换下个候选）。

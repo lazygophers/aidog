@@ -24,10 +24,77 @@ pub(crate) enum AttemptOutcome {
     Next { connect_failed: bool },
 }
 
-/// 单次候选 forward 尝试：构建上游请求、发送、按状态码分类处理。
+/// 单次候选 forward 尝试（含同平台模型链）：构建上游请求、发送、按状态码分类处理。
 /// 返回 AttemptOutcome::Respond 直接回客户端，Next 表示换下个候选重试。
+///
+/// 同平台换模型（spec D5，票 06）：上游非 2xx 且分类为模型类、链上还有下一个模型时，
+/// 在同一候选内以下一个模型重发（不消耗 max_retries、不记平台失败）；嵌入点见
+/// `handle_non_success`。透传平台 / 直通模型 / 请求名透传的 `fallback_models` 恒空，
+/// 天然不换模型；2xx 流开始后不会回到这里换模型（非 2xx 才可能触发）。
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn forward_attempt(
+    state: &Arc<ProxyState>,
+    log: &mut ProxyLog,
+    attempts: &mut Vec<ProxyAttempt>,
+    mut route: RouteResult,
+    candidate_total: usize,
+    is_last_candidate: bool,
+    mut attempt_start: std::time::Instant,
+    mut attempt_ts: i64,
+    log_settings: &ProxyLogSettings,
+    lang: Lang,
+    group: &Group,
+    chat_req: &mut ChatRequest,
+    req_value: &Value,
+    source_protocol: &Protocol,
+    requested_model: &str,
+    is_stream: bool,
+    orig_headers: &axum::http::HeaderMap,
+    sched_settings: &super::models::SchedulingBreakerSettings,
+    start: std::time::Instant,
+    group_header_injects: &[(String, String)],
+) -> AttemptOutcome {
+    let mut fallbacks = std::mem::take(&mut route.fallback_models);
+    loop {
+        let mut switched = false;
+        let out = forward_attempt_model(
+            state,
+            log,
+            attempts,
+            route.clone(),
+            candidate_total,
+            is_last_candidate,
+            attempt_start,
+            attempt_ts,
+            log_settings,
+            lang,
+            group,
+            chat_req,
+            req_value,
+            source_protocol,
+            requested_model,
+            is_stream,
+            orig_headers,
+            sched_settings,
+            start,
+            group_header_injects,
+            !fallbacks.is_empty(),
+            &mut switched,
+        )
+        .await;
+        if !switched {
+            return out;
+        }
+        route.target_model = fallbacks.remove(0);
+        attempt_start = std::time::Instant::now();
+        attempt_ts = aidog_db::now();
+    }
+}
+
+/// 单个模型的一次上游尝试。`has_next_model`：链上还有备选；`switched`：置 true 表示
+/// 本次失败属模型类、已留痕未记账，调用方应换下一个模型重发（返回值此时无意义）。
+#[allow(clippy::too_many_arguments)]
+async fn forward_attempt_model(
     state: &Arc<ProxyState>,
     log: &mut ProxyLog,
     attempts: &mut Vec<ProxyAttempt>,
@@ -48,6 +115,8 @@ pub(crate) async fn forward_attempt(
     sched_settings: &super::models::SchedulingBreakerSettings,
     start: std::time::Instant,
     group_header_injects: &[(String, String)],
+    has_next_model: bool,
+    switched: &mut bool,
 ) -> AttemptOutcome {
     // group 层（路由前）收集到的 header 注入 + 下方 platform 层新增的，一起写进上游请求头。
     // 每个候选各建一份，换平台重试时不残留上一候选的注入。
@@ -195,6 +264,8 @@ pub(crate) async fn forward_attempt(
                 is_last_candidate,
                 log_settings,
                 requested_model,
+                has_next_model,
+                switched,
             },
         )
         .await;
@@ -223,6 +294,7 @@ pub(crate) async fn forward_attempt(
                 reason = $reason, "decision-B: upstream 200 but empty/invalid response, failover next platform"
             );
             attempts.push(ProxyAttempt {
+                chain_stop: None,
                 platform_id: route.platform.id,
                 platform_name: route.platform.name.clone(),
                 status_code: 200,
@@ -272,6 +344,7 @@ pub(crate) async fn forward_attempt(
                 let _ = aidog_db::set_platform_last_error(&state.db, route.platform.id, None).await;
             }
             attempts.push(ProxyAttempt {
+                chain_stop: None,
                 platform_id: route.platform.id,
                 platform_name: route.platform.name.clone(),
                 status_code: status.as_u16() as i32,
@@ -2466,6 +2539,7 @@ async fn select_endpoint_target<'a>(
         if !is_last_candidate {
             // 非 last candidate：记录 attempt 并换下一个候选
             attempts.push(ProxyAttempt {
+                chain_stop: None,
                 platform_id: route.platform.id,
                 platform_name: route.platform.name.clone(),
                 status_code: 0,
@@ -2518,6 +2592,7 @@ async fn select_endpoint_target<'a>(
             "upstream base_url empty, skipping platform"
         );
         attempts.push(ProxyAttempt {
+            chain_stop: None,
             platform_id: route.platform.id,
             platform_name: route.platform.name.clone(),
             status_code: 0,
@@ -2756,6 +2831,7 @@ async fn prepare_outbound(
         log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
         log.duration_ms = start.elapsed().as_millis() as i32;
         attempts.push(ProxyAttempt {
+            chain_stop: None,
             platform_id: route.platform.id,
             platform_name: route.platform.name.clone(),
             status_code: 402,
@@ -3192,6 +3268,7 @@ async fn send_upstream(
                     "upstream transport error, retrying same platform"
                 );
                 attempts.push(ProxyAttempt {
+                    chain_stop: None,
                     platform_id: route.platform.id,
                     platform_name: route.platform.name.clone(),
                     status_code: 0,
@@ -3232,6 +3309,7 @@ async fn send_upstream(
                 tracing::error!(url = %url, platform = %route.platform.name, error = %detail, duration_ms = start.elapsed().as_millis() as i64, "upstream request failed (502)");
                 let upstream_err = format!("upstream error: {detail}");
                 attempts.push(ProxyAttempt {
+                    chain_stop: None,
                     platform_id: route.platform.id,
                     platform_name: route.platform.name.clone(),
                     status_code: 0,
@@ -3278,6 +3356,7 @@ async fn send_upstream(
                 "third-party upstream rejected request with 400 while anthropic-beta was set, retrying once without it"
             );
             attempts.push(ProxyAttempt {
+                chain_stop: None,
                 platform_id: route.platform.id,
                 platform_name: route.platform.name.clone(),
                 status_code: 400,

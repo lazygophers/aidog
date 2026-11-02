@@ -20,7 +20,7 @@ const snapshot = {
   ],
 };
 
-function renderCanvas(routing: typeof snapshot | null, attempts?: { platform_id: number; status_code: number }[], actualModel?: string, requestModel?: string) {
+function renderCanvas(routing: typeof snapshot | null, attempts?: { platform_id: number; status_code: number; model?: string; error?: string; chain_stop?: string }[], actualModel?: string, requestModel?: string) {
   return render(
     <RoutingCanvas
       routing={routing}
@@ -123,5 +123,37 @@ describe("RoutingCanvas", () => {
   it("空快照不渲染模型选择摘要", () => {
     const { container } = renderCanvas(null, undefined, undefined, "req-m");
     expect(container.querySelector('[data-testid="routing-model-choice"]')).toBeNull();
+  });
+
+  // 票 06：平台下整串模型逐项状态（已选用 / 失败 / 跳过 / 未选）
+  const chainSnap = {
+    mode: "failover",
+    entries: [cand({ order: 1, platform_id: 1, target_model: "m-a", model_chain: ["m-a", "m-b", "m-c"] }), cand({ order: 2, platform_id: 2, target_model: "m-x", model_chain: ["m-x", "m-y"] })],
+  } as typeof snapshot;
+  const chainStates = (c: HTMLElement, id: string) =>
+    [...c.querySelectorAll(`[data-node-id="${id}"] [data-testid="routing-chain-item"]`)].map((e) => e.getAttribute("data-state"));
+
+  it("模型链：首模型失败、次模型成功、其后没轮到 → failed / used / untried", () => {
+    const { container } = renderCanvas(chainSnap, [
+      { platform_id: 1, status_code: 404, model: "m-a", error: "not found" },
+      { platform_id: 1, status_code: 200, model: "m-b" },
+    ]);
+    expect(chainStates(container, "p-1")).toEqual(["failed", "used", "untried"]);
+    expect(chainStates(container, "p-2")).toEqual(["untried", "untried"]);
+  });
+
+  it("模型链：服务类错误终止 → 未尝试的后续模型标 skipped", () => {
+    const { container } = renderCanvas(chainSnap, [
+      { platform_id: 1, status_code: 429, model: "m-a", chain_stop: "service" },
+      { platform_id: 2, status_code: 200, model: "m-x" },
+    ]);
+    expect(chainStates(container, "p-1")).toEqual(["failed", "skipped", "skipped"]);
+    expect(chainStates(container, "p-2")).toEqual(["used", "untried"]);
+  });
+
+  it("链长 1 / 无 model_chain：不渲染逐项行，保持单行模型", () => {
+    const { container } = renderCanvas(snapshot, [{ platform_id: 1, status_code: 200 }]);
+    expect(container.querySelector('[data-testid="routing-chain-item"]')).toBeNull();
+    expect(container.querySelector('[data-node-id="p-1"] [data-testid="routing-target-model"]')).not.toBeNull();
   });
 });

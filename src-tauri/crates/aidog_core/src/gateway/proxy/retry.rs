@@ -240,16 +240,16 @@ pub(crate) enum UpstreamErrorClass {
 /// 扫描 body 的字节上限：错误体特征都在头部，超长 body 不全量 lowercase。
 const CLASSIFY_SCAN_MAX: usize = 8 * 1024;
 
-/// 上游非 2xx 分类（用户 2026-11-02 拍板）：429/402/401/403/5xx 直接 `Service`（不读 body）；
+/// 上游非 2xx 分类（用户 2026-11-02 拍板）：429/402/401/403 直接 `Service`（不读 body）；
 /// 结构化 `censorship_blocked` 同为 `Service`；其余状态码读 error.message/code/type
-/// （非 JSON 读原文），命中模型类特征 → `Model`，否则 `Unknown`（调用方按模型类处理）。
+/// （非 JSON 读原文），命中模型类特征 → `Model`（含 5xx 例外：new-api 503「无可用渠道」
+/// 实为模型不可用），未命中：5xx → `Service`，其余 `Unknown`（调用方按模型类处理）。
 /// 出处：Anthropic errors 页（402 billing_error / 403 permission_error / 404 not_found_error /
 /// 529 overloaded_error）、one-api `middleware/distributor.go`「无可用渠道」、
 /// new-api `i18n/locales/en.yaml`「No available channel for model」、
 /// litellm `exception_mapping_utils.py`（model_not_found）。
-#[allow(dead_code)] // 票 06 接入转发链路前仅测试使用
 pub(crate) fn classify_upstream_error(status: u16, body: &str) -> UpstreamErrorClass {
-    if matches!(status, 401 | 402 | 403 | 429) || status >= 500 || is_censorship_blocked(body) {
+    if matches!(status, 401 | 402 | 403 | 429) || is_censorship_blocked(body) {
         return UpstreamErrorClass::Service;
     }
     let mut end = body.len().min(CLASSIFY_SCAN_MAX);
@@ -290,6 +290,8 @@ pub(crate) fn classify_upstream_error(status: u16, body: &str) -> UpstreamErrorC
                 .any(|m| text.contains(m)));
     if hit {
         UpstreamErrorClass::Model
+    } else if status >= 500 {
+        UpstreamErrorClass::Service
     } else {
         UpstreamErrorClass::Unknown
     }
