@@ -56,6 +56,7 @@ async fn progressive_columns_equals_full_replace() {
     final_log.est_cost = 0.0042;
     final_log.is_stream = true;
     final_log.attempts = vec![aidog_db::models::ProxyAttempt {
+        chain_stop: None,
         platform_id: 1,
         platform_name: "p1".into(),
         status_code: 200,
@@ -185,6 +186,7 @@ async fn proxy_log_attempts_roundtrip() {
     let mut log = sample_log("attlog", "g", now());
     log.attempts = vec![
         aidog_db::models::ProxyAttempt {
+            chain_stop: None,
             platform_id: 1,
             platform_name: "p1".into(),
             status_code: 503,
@@ -194,6 +196,7 @@ async fn proxy_log_attempts_roundtrip() {
             model: None,
         },
         aidog_db::models::ProxyAttempt {
+            chain_stop: None,
             platform_id: 2,
             platform_name: "p2".into(),
             status_code: 200,
