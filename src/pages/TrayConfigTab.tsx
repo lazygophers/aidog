@@ -30,9 +30,6 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-/** 菜单栏最多画几段（与 Rust `TRAY_MAX_SEGMENTS` 一致，票 I15）。 */
-export const MAX_SEGMENTS = 3;
-
 // G3 卡面（票 01 骨架）：card 底 + 1px 边 + 小投影，入场 reveal 沿用。
 const cardStyle: React.CSSProperties = {
   background: "var(--card)", border: "1px solid var(--border)",
@@ -266,16 +263,13 @@ export function previewValue(
  *
  * 票 I15 的迁移规则在这里同样成立：**只翻 enabled，不删项**。
  * 取消勾选 → 该项留在 items 里（enabled=false），原有的 label / 颜色 / 行模式全保留，
- * 再勾回来还是老样子。已满 3 段时继续勾 → 原样返回（调用方把按钮置灰）。
+ * 再勾回来还是老样子。装载段数无上限。
  */
 export function toggleSegment(items: TrayItem[], opt: SegmentOption): TrayItem[] {
   const idx = items.findIndex((it) => segmentKey(it) === opt.key);
-  const enabledCount = items.filter((it) => it.enabled).length;
   let next: TrayItem[];
   if (idx >= 0 && items[idx].enabled) {
     next = items.map((it, i) => (i === idx ? { ...it, enabled: false } : it));
-  } else if (enabledCount >= MAX_SEGMENTS) {
-    return items;
   } else if (idx >= 0) {
     next = items.map((it, i) => (i === idx ? { ...it, enabled: true } : it));
   } else {
@@ -296,7 +290,7 @@ export function moveSegment(items: TrayItem[], key: string, toIndex: number): Tr
   return [...enabled, ...items.filter((it) => !it.enabled)].map((it, i) => ({ ...it, order: i }));
 }
 
-/** 候选库拖入装载槽：装载 opt 并插到启用序列 index。已装载 / 满槽 → 原样返回（沿用 toggleSegment 上限）。 */
+/** 候选库拖入装载槽：装载 opt 并插到启用序列 index。已装载 → 原样返回。 */
 export function loadSegmentAt(items: TrayItem[], opt: SegmentOption, index: number): TrayItem[] {
   if (items.some((it) => it.enabled && segmentKey(it) === opt.key)) return items;
   const next = toggleSegment(items, opt);
@@ -709,7 +703,6 @@ export function TrayConfigTab() {
     [config],
   );
   const selectedKeys = new Set(selected.map(segmentKey));
-  const full = selected.length >= MAX_SEGMENTS;
   const editingSeg = selected.find((s) => segmentKey(s) === editingKey) ?? null;
   // 迁移留下的项：关着、且不在候选清单里（旧 separator / 已删平台）。
   const keptDisabled = config.items.filter(
@@ -752,7 +745,7 @@ export function TrayConfigTab() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
-      {/* ── 页头：标题 + n/3 计数 ── */}
+      {/* ── 页头：标题 + 已装段数 ── */}
       <div style={{ display: "flex", alignItems: "flex-end", gap: 14 }}>
         <div>
           <h1 style={{ fontSize: 21, fontWeight: 800, margin: 0 }}>{t("tray.title", "托盘")}</h1>
@@ -762,7 +755,7 @@ export function TrayConfigTab() {
         </div>
         <div data-testid="tray-count" style={{ marginLeft: "auto", display: "flex", alignItems: "baseline", gap: 8, fontFamily: MONO, fontSize: 12, color: "var(--muted-foreground)" }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)" }}>{selected.length}</span>
-          {`/ ${MAX_SEGMENTS} ${t("tray.slotCountUnit", "段")}`}
+          {t("tray.slotCountUnit", "段")}
         </div>
       </div>
 
@@ -835,7 +828,7 @@ export function TrayConfigTab() {
             </div>
             <div style={{ margin: "0 18px 18px", display: "flex", gap: 10 }}>
               <SortableContext items={selected.map((x) => `slot:${segmentKey(x)}`)} strategy={horizontalListSortingStrategy}>
-                {[0, 1, 2].map((i) => {
+                {Array.from({ length: selected.length + 1 }, (_, i) => i).map((i) => {
                   const seg = selected[i];
                   if (!seg) return <EmptySlot key={i} i={i} tag={t("tray.slotIndex", "SLOT {{n}}", { n: i + 1 })} label={t("tray.slotEmpty", "空槽 — 从候选库点选装载")} />;
                   const opt = options.find((o) => o.key === segmentKey(seg));
@@ -875,14 +868,14 @@ export function TrayConfigTab() {
             <SecHead
               title={t("tray.libraryTitle", "候选库")}
               lab="LIBRARY"
-              hint={t("tray.libraryHint", "最多装载 3 段 · 按装载顺序显示")}
+              hint={t("tray.libraryHint", "按装载顺序显示")}
             />
             <LibraryDrop>
               {libRows.map(([cat, rows]) => rows.length > 0 && (
                 <div key={cat} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ width: 58, flexShrink: 0, fontFamily: MONO, fontSize: 10, letterSpacing: 1.2, color: "var(--muted-foreground)", textTransform: "uppercase" }}>{cat}</span>
                   {rows.map((opt) => {
-                    const state = selectedKeys.has(opt.key) ? "loaded" : full ? "locked" : "";
+                    const state = selectedKeys.has(opt.key) ? "loaded" : "";
                     return (
                       <DraggableChip
                         key={opt.key}
@@ -894,15 +887,12 @@ export function TrayConfigTab() {
                         role="button"
                         tabIndex={0}
                         aria-pressed={state === "loaded"}
-                        aria-disabled={state === "locked"}
                         onClick={() => {
-                          if (state === "locked") return;
                           persist({ ...config, items: toggleSegment(config.items, opt) });
                         }}
                         onKeyDown={(e) => {
                           if (e.key !== "Enter" && e.key !== " ") return;
                           e.preventDefault();
-                          if (state === "locked") return;
                           persist({ ...config, items: toggleSegment(config.items, opt) });
                         }}
                       >
