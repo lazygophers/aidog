@@ -14,6 +14,8 @@ pub(crate) struct NonSuccessCtx<'a> {
     pub has_next_model: bool,
     /// 置 true = 本次为模型类失败，已留痕未记账，调用方换下一个模型重发。
     pub switched: &'a mut bool,
+    /// 本次尝试的首字节耗时（毫秒，响应头已到）。
+    pub ttfb_ms: Option<i64>,
 }
 
 /// 上游返回非 2xx 时的处理：记录 attempt、熔断计数（仅 429-限流）、401/402 auth 冷却、
@@ -30,7 +32,7 @@ pub(crate) async fn handle_non_success(
     breaker_th: &super::scheduling::BreakerThresholds,
     ctx: NonSuccessCtx<'_>,
 ) -> AttemptOutcome {
-    let NonSuccessCtx { url, start, attempt_start, attempt_ts, is_last_candidate, log_settings, requested_model, has_next_model, switched } = ctx;
+    let NonSuccessCtx { url, start, attempt_start, attempt_ts, is_last_candidate, log_settings, requested_model, has_next_model, switched, ttfb_ms } = ctx;
     // Retry-After 须在 resp 被 text() 消费前取（429 配额冷却用，见下）
     let retry_after = resp
         .headers()
@@ -78,6 +80,7 @@ pub(crate) async fn handle_non_success(
         .then(|| if class == UpstreamErrorClass::Service { "service" } else { "rule" }.to_string());
     attempts.push(ProxyAttempt {
         chain_stop,
+        ttfb_ms,
         platform_id: route.platform.id,
         platform_name: route.platform.name.clone(),
         status_code: code as i32,

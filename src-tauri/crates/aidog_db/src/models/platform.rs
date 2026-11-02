@@ -32,6 +32,10 @@ pub struct ProxyAttempt {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub chain_stop: Option<String>,
+    /// 本次尝试从发起到收到上游响应头（首字节）的毫秒数；连接失败 / 超时为 None，旧日志缺省 None。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "number")]
+    pub ttfb_ms: Option<i64>,
 }
 
 /// 序列化 attempts 列（出错回退空数组）
@@ -571,6 +575,7 @@ mod tests {
         let items = vec![
             ProxyAttempt {
                 chain_stop: None,
+                ttfb_ms: None,
                 platform_id: 1,
                 platform_name: "p1".into(),
                 status_code: 200,
@@ -581,6 +586,7 @@ mod tests {
             },
             ProxyAttempt {
                 chain_stop: None,
+                ttfb_ms: None,
                 platform_id: 2,
                 platform_name: "p2".into(),
                 status_code: 500,
@@ -611,6 +617,7 @@ mod tests {
 
         let with_model = ProxyAttempt {
             chain_stop: None,
+            ttfb_ms: None,
             platform_id: 1,
             platform_name: "p".into(),
             status_code: 200,

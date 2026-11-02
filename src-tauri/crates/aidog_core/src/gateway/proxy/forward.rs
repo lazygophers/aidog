@@ -252,6 +252,9 @@ async fn forward_attempt_model(
         };
 
 
+    // 首字节耗时：send_upstream 返回即响应头已到（流式 / 非流式同口径）。
+    let ttfb_ms = attempt_start.elapsed().as_millis() as i64;
+
     // ── 捕获上游响应 headers + status ──
     let status = resp.status();
     log.upstream_status_code = status.as_u16() as i32;
@@ -292,6 +295,7 @@ async fn forward_attempt_model(
                 requested_model,
                 has_next_model,
                 switched,
+                ttfb_ms: Some(ttfb_ms),
             },
         )
         .await;
@@ -321,6 +325,7 @@ async fn forward_attempt_model(
             );
             attempts.push(ProxyAttempt {
                 chain_stop: None,
+                ttfb_ms: Some(ttfb_ms),
                 platform_id: route.platform.id,
                 platform_name: route.platform.name.clone(),
                 status_code: 200,
@@ -371,6 +376,7 @@ async fn forward_attempt_model(
             }
             attempts.push(ProxyAttempt {
                 chain_stop: None,
+                ttfb_ms: Some(ttfb_ms),
                 platform_id: route.platform.id,
                 platform_name: route.platform.name.clone(),
                 status_code: status.as_u16() as i32,
@@ -2566,6 +2572,7 @@ async fn select_endpoint_target<'a>(
             // 非 last candidate：记录 attempt 并换下一个候选
             attempts.push(ProxyAttempt {
                 chain_stop: None,
+                ttfb_ms: None,
                 platform_id: route.platform.id,
                 platform_name: route.platform.name.clone(),
                 status_code: 0,
@@ -2619,6 +2626,7 @@ async fn select_endpoint_target<'a>(
         );
         attempts.push(ProxyAttempt {
             chain_stop: None,
+            ttfb_ms: None,
             platform_id: route.platform.id,
             platform_name: route.platform.name.clone(),
             status_code: 0,
@@ -2858,6 +2866,7 @@ async fn prepare_outbound(
         log.duration_ms = start.elapsed().as_millis() as i32;
         attempts.push(ProxyAttempt {
             chain_stop: None,
+            ttfb_ms: None,
             platform_id: route.platform.id,
             platform_name: route.platform.name.clone(),
             status_code: 402,
@@ -3295,6 +3304,7 @@ async fn send_upstream(
                 );
                 attempts.push(ProxyAttempt {
                     chain_stop: None,
+                    ttfb_ms: None,
                     platform_id: route.platform.id,
                     platform_name: route.platform.name.clone(),
                     status_code: 0,
@@ -3336,6 +3346,7 @@ async fn send_upstream(
                 let upstream_err = format!("upstream error: {detail}");
                 attempts.push(ProxyAttempt {
                     chain_stop: None,
+                    ttfb_ms: None,
                     platform_id: route.platform.id,
                     platform_name: route.platform.name.clone(),
                     status_code: 0,
@@ -3383,6 +3394,7 @@ async fn send_upstream(
             );
             attempts.push(ProxyAttempt {
                 chain_stop: None,
+                ttfb_ms: None,
                 platform_id: route.platform.id,
                 platform_name: route.platform.name.clone(),
                 status_code: 400,
