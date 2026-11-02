@@ -28,10 +28,15 @@ decimals: number | null,
  */
 metrics: Array<string> | null, 
 /**
- * 仅 item_type="platform"：自定义单位后缀，非空替换该槽默认单位标记
+ * 平台槽 / 今日花费 cost 段：自定义单位，非空替换该槽默认单位标记
  * （$ 前缀 / " tok" 后缀；coding 的 % 固有，不受影响）。None = 默认。
  */
-unit: string | null, color: TrayColor, font_size: number, 
+unit: string | null, 
+/**
+ * 金额段（今日花费 / 平台余额 / 平台今日花费）单位位置："prefix" | "suffix"。
+ * None = 旧语义：unit 非空 -> 后置，否则前置（保护已有自定义单位配置）。
+ */
+unit_position: string | null, color: TrayColor, font_size: number, 
 /**
  * 该项行模式（作为「一列」）："single"（第一行 "名 值"，第二行该列留空占位）
  * | "two"（第一行该列显 name，第二行该列显 value）。

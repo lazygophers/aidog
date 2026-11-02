@@ -69,10 +69,14 @@ pub struct TrayItem {
     /// None/空 = 沿用 display 旧口径（逐字不变）。
     #[serde(default)]
     pub metrics: Option<Vec<String>>,
-    /// 仅 item_type="platform"：自定义单位后缀，非空替换该槽默认单位标记
+    /// 平台槽 / 今日花费 cost 段：自定义单位，非空替换该槽默认单位标记
     /// （$ 前缀 / " tok" 后缀；coding 的 % 固有，不受影响）。None = 默认。
     #[serde(default)]
     pub unit: Option<String>,
+    /// 金额段（今日花费 / 平台余额 / 平台今日花费）单位位置："prefix" | "suffix"。
+    /// None = 旧语义：unit 非空 -> 后置，否则前置（保护已有自定义单位配置）。
+    #[serde(default)]
+    pub unit_position: Option<String>,
     #[serde(default)]
     pub color: TrayColor,
     #[serde(default = "default_font_size")]
@@ -146,6 +150,7 @@ fn segment(item_type: &str, metric: Option<&str>, order: i32) -> TrayItem {
         decimals: None,
         metrics: None,
         unit: None,
+        unit_position: None,
         color: TrayColor::default(),
         font_size: default_font_size(),
         line_mode: "single".to_string(),
