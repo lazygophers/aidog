@@ -15,9 +15,10 @@ import {
   type GroupDetail,
   type Platform,
   type QuotaSnapshot,
+  type DimensionEntry,
   type ScatterHistogram,
 } from "../services/api";
-import { formatNumber, formatMoney, successRate } from "../utils/formatters";
+import { formatNumber, formatMoney, formatPercent, successRate } from "../utils/formatters";
 import { F } from "../domains/shared/tokens";
 import { getProtocolSearchTermsMap } from "../domains/platforms/defaults";
 import {
@@ -233,9 +234,14 @@ function ArrowDown({ size = 11, color = "currentColor" }: { size?: number; color
 
 // ── 排序 ──
 type SortKey =
-  | "name" | "total_requests" | "success_count" | "input_tokens"
+  | "name" | "total_requests" | "success_count" | "success_rate" | "input_tokens"
   | "output_tokens" | "cache_tokens" | "cache_rate" | "avg_duration_ms" | "total_cost";
 type SortDir = "asc" | "desc";
+
+// 维度行排序取值：success_rate 为派生值（后端无此字段），其余直取列
+export function dimSortValue(d: DimensionEntry, key: Exclude<SortKey, "name">): number {
+  return key === "success_rate" ? successRate(d.success_count, d.total_requests) : d[key];
+}
 
 const PAGE_SIZE = 50;
 
@@ -462,7 +468,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
       let av: number | string;
       let bv: number | string;
       if (sortKey === "name") { av = a.name; bv = b.name; }
-      else { av = a[sortKey]; bv = b[sortKey]; }
+      else { av = dimSortValue(a, sortKey); bv = dimSortValue(b, sortKey); }
       let cmp: number;
       if (typeof av === "string" && typeof bv === "string") cmp = av.localeCompare(bv);
       else cmp = (av as number) - (bv as number);
@@ -928,6 +934,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                     <SortableTh label={t("stats.dimName", "名称")} col="name" align="left" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                     <SortableTh label={t("stats.requests", "请求")} col="total_requests" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                     <SortableTh label={t("stats.success", "成功")} col="success_count" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label={t("stats.successRate", "成功率")} col="success_rate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                     <SortableTh label={t("stats.inputTokens", "输入")} col="input_tokens" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                     <SortableTh label={t("stats.outputTokens", "输出")} col="output_tokens" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                     <SortableTh label={t("stats.cacheTokens", "缓存")} col="cache_tokens" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
@@ -944,6 +951,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                         <TableCell style={{ padding: "6px 8px", fontWeight: 500, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</TableCell>
                         <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.total_requests)}</TableCell>
                         <TableCell style={{ textAlign: "right", padding: "6px 8px", color: levelColor(successRateLevel(rate, d.total_requests)) }}>{formatNumber(d.success_count)}</TableCell>
+                        <TableCell data-testid="dim-success-rate" style={{ textAlign: "right", padding: "6px 8px", color: levelColor(successRateLevel(rate, d.total_requests)) }}>{formatPercent(rate)}</TableCell>
                         <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.input_tokens)}</TableCell>
                         <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.output_tokens)}</TableCell>
                         <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.cache_tokens)}</TableCell>
