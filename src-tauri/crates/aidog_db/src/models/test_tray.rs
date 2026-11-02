@@ -102,7 +102,7 @@ fn default_config_populates_new_fields() {
     assert!(cfg.rows.is_empty());
 }
 
-// ─── 票 I15：二维网格 → 最多 3 段的迁移规则 ───────────────
+// ─── 票 I15：二维网格迁移规则（数量上限已删，只剩 separator 禁用） ───────────────
 
 /// 造一个 enabled 的数据项（item_type 由调用方给）。
 fn it(item_type: &str, order: i32) -> TrayItem {
@@ -112,39 +112,27 @@ fn it(item_type: &str, order: i32) -> TrayItem {
 }
 
 #[test]
-fn clamp_keeps_first_three_and_disables_rest_without_deleting() {
+fn clamp_does_not_cap_segment_count() {
     let mut cfg = TrayConfig {
         separator: "  ".to_string(),
-        items: vec![
-            it("platform", 0),
-            it("today_usage", 1),
-            it("platform", 2),
-            it("today_usage", 3),
-            it("platform", 4),
-        ],
+        items: (0..5).map(|o| it("platform", o)).collect(),
     };
-    assert!(clamp_to_segments(&mut cfg));
-    // 一项都没丢。
+    assert!(!clamp_to_segments(&mut cfg), "装 5 段不该被收敛");
     assert_eq!(cfg.items.len(), 5);
-    let enabled: Vec<bool> = cfg.items.iter().map(|i| i.enabled).collect();
-    assert_eq!(enabled, vec![true, true, true, false, false]);
+    assert!(cfg.items.iter().all(|i| i.enabled));
 }
 
 #[test]
-fn clamp_uses_order_not_array_index() {
+fn clamp_never_reenables_disabled_items() {
+    let mut off = it("platform", 1);
+    off.enabled = false;
     let mut cfg = TrayConfig {
         separator: "  ".to_string(),
-        items: vec![
-            it("platform", 9),
-            it("today_usage", 0),
-            it("platform", 1),
-            it("today_usage", 2),
-        ],
+        items: vec![it("platform", 0), off, it("platform", 2)],
     };
-    clamp_to_segments(&mut cfg);
-    // order 0/1/2 三项留下，order 9 那项被关掉（数组第 0 个）。
-    assert!(!cfg.items[0].enabled);
-    assert!(cfg.items[1].enabled && cfg.items[2].enabled && cfg.items[3].enabled);
+    assert!(!clamp_to_segments(&mut cfg));
+    let enabled: Vec<bool> = cfg.items.iter().map(|i| i.enabled).collect();
+    assert_eq!(enabled, vec![true, false, true], "I15 关掉的项不自动恢复");
 }
 
 #[test]
@@ -181,5 +169,5 @@ fn default_segments_are_cost_routed_peak() {
     let kinds: Vec<&str> = cfg.items.iter().map(|i| i.item_type.as_str()).collect();
     assert_eq!(kinds, vec!["today_usage", "routed_platform", "peak"]);
     assert_eq!(cfg.items[0].metric.as_deref(), Some("cost"));
-    assert_eq!(cfg.items.len(), TRAY_MAX_SEGMENTS);
+    assert_eq!(cfg.items.len(), 3);
 }

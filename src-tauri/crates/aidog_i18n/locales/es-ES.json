@@ -2594,7 +2594,7 @@
   "tray.previewEmpty": "Sin elementos",
   "tray.previewTitle": "Vista previa barra de menú",
   "tray.keptDisabled": "Se conservan {{count}} elemento(s) sobrantes de la disposición anterior, pero desactivados: no se ha descartado nada",
-  "tray.libraryHint": "Máx. 3 segmentos · en orden de carga",
+  "tray.libraryHint": "En orden de carga",
   "tray.libraryTitle": "Biblioteca",
   "tray.pickAtMost": "Elige como máximo 3: se muestran en el orden en que los marcas",
   "tray.segment.peak": "Indicador de hora punta",
