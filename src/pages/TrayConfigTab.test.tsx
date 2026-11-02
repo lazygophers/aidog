@@ -1,10 +1,9 @@
-// 票 I15：托盘配置从二维网格降成「最多挑 3 项」。这里锁的是迁移规则本身 ——
-// 取消勾选只翻 enabled，绝不删项；满 3 项后再勾无效。
+// 票 I15：托盘配置从二维网格迁移。这里锁的是迁移规则本身 ——
+// 取消勾选只翻 enabled，绝不删项；装载段数无上限（票 托盘-颜色分隔符槽位/01）。
 // 票 托盘设置-重设计/01：页面骨架 + 实时预览条（C 方向），组件级 vitest 锚 testid/data-state。
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, waitFor, fireEvent, act } from "../test/render";
 import {
-  MAX_SEGMENTS,
   segmentKey,
   segmentOptions,
   toggleSegment,
@@ -57,14 +56,15 @@ describe("toggleSegment", () => {
     expect(next[0].label).toBe("💰");
   });
 
-  it("已满 3 项时再勾无效（原样返回）", () => {
+  it("已装 3 项仍可再勾，无数量上限", () => {
     const items = [
       item({ metric: "cost", order: 0 }),
       item({ metric: "tokens", order: 1 }),
       item({ item_type: "peak", metric: null, order: 2 }),
     ];
-    expect(items.filter((i) => i.enabled)).toHaveLength(MAX_SEGMENTS);
-    expect(toggleSegment(items, byKey("routed_platform"))).toBe(items);
+    const next = toggleSegment(items, byKey("routed_platform"));
+    expect(next.filter((i) => i.enabled)).toHaveLength(4);
+    expect(next).not.toBe(items);
   });
 
   it("新勾的项追加在末尾，order 按启用顺序重写", () => {
@@ -263,18 +263,52 @@ describe("TrayConfigTab 骨架与预览（票 01）", () => {
     expect(view.getByTestId("tray-segment-today_usage:tokens").textContent).toContain("1240000 tok");
   });
 
-  it("页头 n/3 计数反映已装载段数", async () => {
+  it("页头计数反映已装载段数，不再有 /N 上限", async () => {
     const view = await renderTab();
     expect(view.getByTestId("tray-count").textContent).toContain("2");
-    expect(view.getByTestId("tray-count").textContent).toContain("3");
+    expect(view.getByTestId("tray-count").textContent).not.toContain("/");
   });
 
-  it("装载槽 3 个：已装载槽显示段值，空槽标 empty", async () => {
+  it("装载槽 = 已装 N 段 + 1 个尾部空槽：已装载槽显示段值，空槽标 empty", async () => {
     const view = await renderTab();
     expect(view.getByTestId("tray-slot-0").getAttribute("data-state")).toBe("filled");
     expect(view.getByTestId("tray-slot-0").textContent).toContain("$1.25");
     expect(view.getByTestId("tray-slot-1").getAttribute("data-state")).toBe("filled");
     expect(view.getByTestId("tray-slot-2").getAttribute("data-state")).toBe("empty");
+    expect(view.queryByTestId("tray-slot-3")).toBeNull();
+  });
+
+  it("装入一段后槽数 +1（始终保留尾部空槽）", async () => {
+    const view = await renderTab();
+    fireEvent.click(view.getByTestId("tray-chip-peak"));
+    expect(view.getByTestId("tray-slot-2").getAttribute("data-state")).toBe("filled");
+    expect(view.getByTestId("tray-slot-3").getAttribute("data-state")).toBe("empty");
+    expect(view.queryByTestId("tray-slot-4")).toBeNull();
+  });
+
+  it("移除一段后槽数 -1", async () => {
+    const view = await renderTab();
+    fireEvent.click(view.getByTestId("tray-chip-today_usage:cost"));
+    expect(view.getByTestId("tray-slot-0").getAttribute("data-state")).toBe("filled");
+    expect(view.getByTestId("tray-slot-1").getAttribute("data-state")).toBe("empty");
+    expect(view.queryByTestId("tray-slot-2")).toBeNull();
+  });
+
+  it("已装 6 段渲染 7 个槽", async () => {
+    const view = await renderTab({
+      separator: "  ",
+      items: [
+        item({ metric: "cost", order: 0 }),
+        item({ metric: "tokens", order: 1 }),
+        item({ metric: "requests", order: 2 }),
+        item({ metric: "cache_rate", order: 3 }),
+        item({ item_type: "peak", metric: null, order: 4 }),
+        item({ item_type: "routed_platform", metric: null, order: 5 }),
+      ],
+    });
+    expect(view.getByTestId("tray-slot-5").getAttribute("data-state")).toBe("filled");
+    expect(view.getByTestId("tray-slot-6").getAttribute("data-state")).toBe("empty");
+    expect(view.queryByTestId("tray-slot-7")).toBeNull();
   });
 
   it("候选库芯片带 loaded/空 data-state（装载交互见票 02 组）", async () => {
@@ -387,7 +421,7 @@ describe("候选库装载（票 02）", () => {
     expect(kept.enabled).toBe(false);
   });
 
-  it("满 3 段：未选项置灰 locked 且点击无效", async () => {
+  it("已装 3 段：未选项仍可装载（无 locked）", async () => {
     const view = await renderTab({
       separator: "  ",
       items: [
@@ -397,9 +431,9 @@ describe("候选库装载（票 02）", () => {
       ],
     });
     const chip = view.getByTestId("tray-chip-routed_platform");
-    expect(chip.getAttribute("data-state")).toBe("locked");
+    expect(chip.getAttribute("data-state")).toBe("");
     fireEvent.click(chip);
-    expect(api.set).not.toHaveBeenCalled();
+    expect(api.set.mock.calls[0][0].items.filter((i: TrayItem) => i.enabled)).toHaveLength(4);
   });
 
   it("persist 失败 → 错误态提示出现", async () => {
@@ -633,11 +667,11 @@ describe("moveSegment / loadSegmentAt", () => {
     // 三项首移末：顺移（arrayMove），非两两调换
     expect(moveSegment(three, "today_usage:cost", 2).map(segmentKey)).toEqual(["today_usage:tokens", "peak", "today_usage:cost"]);
   });
-  it("loadSegmentAt：插到指定位置；已装载 / 满槽原样返回", () => {
+  it("loadSegmentAt：插到指定位置；已装载原样返回；已装 3 段仍可插入", () => {
     const two = three.slice(0, 2);
     expect(loadSegmentAt(two, byKey("peak"), 0).map(segmentKey)).toEqual(["peak", "today_usage:cost", "today_usage:tokens"]);
     expect(loadSegmentAt(two, byKey("today_usage:cost"), 1)).toBe(two);
-    expect(loadSegmentAt(three, byKey("routed_platform"), 0)).toBe(three);
+    expect(loadSegmentAt(three, byKey("routed_platform"), 0).map(segmentKey)).toHaveLength(4);
   });
 });
 
@@ -659,14 +693,15 @@ describe("拖拽装载 / 排序", () => {
     expect(sentKeys()).toEqual(["today_usage:cost", "today_usage:tokens", "peak"]);
   });
 
-  it("满槽时拖入无效（沿用点选上限），无落点也不持久化", async () => {
+  it("已装 3 段仍可拖入第 4 段（无上限）；无落点不持久化", async () => {
     await renderTab({
       separator: "  ",
       items: [item({ metric: "cost", order: 0 }), item({ metric: "tokens", order: 1 }), item({ item_type: "peak", metric: null, order: 2 })],
     });
-    drop("chip:routed_platform", "slot:peak");
     drop("chip:today_usage:requests", null);
     expect(api.set).not.toHaveBeenCalled();
+    drop("chip:routed_platform", "empty:3");
+    expect(sentKeys()).toEqual(["today_usage:cost", "today_usage:tokens", "peak", "routed_platform"]);
   });
 
   it("槽内拖拽排序 → 新顺序持久化", async () => {
