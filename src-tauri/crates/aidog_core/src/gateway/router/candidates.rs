@@ -518,7 +518,7 @@ pub async fn select_candidates_gated(
             });
         }
         // 客户端白名单拦下了候选：全部平台都因白名单被拦 → 417（`client_not_allowed`）；
-        // 与其他排除原因并存 → 503（`client_not_allowed_mixed`，落库 blocked_reason 同为 client_not_allowed）。
+        // 与其他排除原因并存 → 503（`client_not_allowed_mixed`，落库 blocked_reason 同名）。
         if client_rejected_count > 0 {
             let reason = if client_rejected_count == group_platforms.len() {
                 "client_not_allowed"

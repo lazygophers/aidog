@@ -1257,6 +1257,7 @@
   "logs.blockedRateLimit": "限频",
   "logs.blockedPeak": "高峰禁用",
   "logs.blockedClientNotAllowed": "客户端被拒",
+  "logs.blockedClientNotAllowedMixed": "客户端被拒（混合）",
   "logs.blockedObserve": "观察",
   "logs.blockedBy": "拦截",
   "platform.add": "添加平台",

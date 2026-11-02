@@ -1585,8 +1585,8 @@ async fn whitelist_responses_subendpoint_on_passthrough_group_417() {
     assert_eq!(seen.lock().unwrap().len(), 1);
 }
 
-/// 被拦平台跳过、落到未配白名单的平台；等效退化（只剩被拦平台 + 禁用平台）→ 503；
-/// 字面单平台组被拦 → 417。blocked_reason 恒为 client_not_allowed。
+/// 被拦平台跳过、落到未配白名单的平台；等效退化（只剩被拦平台 + 禁用平台）→ 417（同聊天路径单平台口径）；
+/// 字面单平台组被拦 → 417。blocked_reason 恒为 client_not_allowed（responses 只认 enabled，无「真混合」形态，混合 503 见聊天路径）。
 #[tokio::test]
 async fn whitelist_responses_fallthrough_degenerate_and_mixed() {
     let state = make_state(test_db().await).await;
@@ -1599,10 +1599,10 @@ async fn whitelist_responses_fallthrough_degenerate_and_mixed() {
 
     disable_platform_named(&state, "FB").await;
     let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrfall", "GET", "/v1/responses/x", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
     let log = last_log_for(&state, "gkrfall").await;
     assert_eq!((log.blocked_by.as_str(), log.blocked_reason.as_str()), ("router", "client_not_allowed"));
-    assert_eq!(log.status_code, 503);
+    assert_eq!(log.status_code, 417);
 
     setup_multi_platform_group(&state, "gkrsole", &[("SA", &up, WL_CC_EXTRA)]).await;
     let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrsole", "GET", "/v1/responses/x", Some("curl/8.4.0"))).await;
@@ -4690,7 +4690,7 @@ async fn whitelist_falls_through_to_unrestricted_platform() {
     assert_eq!(resp.status(), StatusCode::OK);
 }
 
-/// 白名单与其他排除原因（高峰禁用）并存 → 503，blocked_reason 仍为 client_not_allowed。
+/// 白名单与其他排除原因（高峰禁用）并存 → 503，blocked_reason 为 client_not_allowed_mixed。
 #[tokio::test]
 async fn whitelist_mixed_with_peak_disabled_503() {
     let state = make_state(test_db().await).await;
@@ -4701,7 +4701,7 @@ async fn whitelist_mixed_with_peak_disabled_503() {
     let log = last_log_for(&state, "gkmix").await;
     assert_eq!(log.status_code, 503);
     assert_eq!(log.blocked_by, "router");
-    assert_eq!(log.blocked_reason, "client_not_allowed");
+    assert_eq!(log.blocked_reason, "client_not_allowed_mixed");
     assert_eq!(log.est_cost, 0.0);
 }
 
