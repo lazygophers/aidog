@@ -121,10 +121,11 @@ fn insert_platform_row(
     // read 端 parse_models/parse_available_models/parse_endpoints 会刷 warn 日志（淹没真实问题）。
     // 故缺失/空时写标准空 JSON（与 db.rs create_platform serialize_* 默认值对齐）。
     let models = json_str(row, "models");
+    // 旧版导出串槽位是单值：经宽松读取归一化后以数组落库（损坏 JSON 回落空配置，同读取端）。
     let models = if models.trim().is_empty() {
         "{}".to_string()
     } else {
-        models
+        aidog_db::serialize_models(&aidog_db::parse_models(&models))
     };
     let available_models = json_str(row, "available_models");
     let available_models = if available_models.trim().is_empty() {
