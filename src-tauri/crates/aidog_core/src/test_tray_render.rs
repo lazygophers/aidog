@@ -95,7 +95,7 @@ async fn gap_is_none_when_no_separator_between_columns() {
 
 #[tokio::test]
 async fn today_usage_metrics_have_expected_labels_on_empty_db() {
-    // 4 项配置在入库时被收敛到 3 段（票 I15），第 4 项被关掉不渲染。
+    // 装载段数无上限：4 项全部渲染。
     let l = layout_of(vec![
         usage_item("tokens", 0),
         usage_item("cache_rate", 1),
@@ -110,7 +110,12 @@ async fn today_usage_metrics_have_expected_labels_on_empty_db() {
         .collect();
     assert_eq!(
         pairs,
-        vec![("今日", "0 tok"), ("Cache", "0%"), ("花费", "$0")]
+        vec![
+            ("今日", "0 tok"),
+            ("Cache", "0%"),
+            ("花费", "$0"),
+            ("请求", "0")
+        ]
     );
 }
 
