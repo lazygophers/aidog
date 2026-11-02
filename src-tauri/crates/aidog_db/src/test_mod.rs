@@ -8,8 +8,8 @@ use super::*;
 fn parse_models_valid_json() {
     let json = r#"{"default":"claude-sonnet-4","sonnet":"claude-sonnet-4"}"#;
     let m = parse_models(json);
-    assert_eq!(m.default.as_deref(), Some("claude-sonnet-4"));
-    assert_eq!(m.sonnet.as_deref(), Some("claude-sonnet-4"));
+    assert_eq!(m.default, vec!["claude-sonnet-4"]);
+    assert_eq!(m.sonnet, vec!["claude-sonnet-4"]);
 }
 
 #[test]
@@ -17,7 +17,7 @@ fn parse_models_corrupt_json_returns_default() {
     let m = parse_models("{not valid json");
     // default() = all None
     assert!(
-        m.default.is_none(),
+        m.default.is_empty(),
         "corrupt JSON should fall back to empty default"
     );
 }
@@ -25,14 +25,14 @@ fn parse_models_corrupt_json_returns_default() {
 #[test]
 fn serialize_models_roundtrip() {
     let m = PlatformModels {
-        default: Some("gpt-4o".to_string()),
-        gpt: Some("gpt-4o".to_string()),
+        default: vec!["gpt-4o".to_string()],
+        gpt: vec!["gpt-4o".to_string()],
         ..Default::default()
     };
     let json = serialize_models(&m);
     let back = parse_models(&json);
-    assert_eq!(back.default.as_deref(), Some("gpt-4o"));
-    assert_eq!(back.gpt.as_deref(), Some("gpt-4o"));
+    assert_eq!(back.default, vec!["gpt-4o"]);
+    assert_eq!(back.gpt, vec!["gpt-4o"]);
 }
 
 #[test]

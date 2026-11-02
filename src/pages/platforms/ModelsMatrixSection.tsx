@@ -5,6 +5,7 @@
 //   数据通道分离：默认列 = platform.models；时段档列 = platform.extra.time_windows.rules[*].models。
 //   仍纯 props 驱动，无外部 state（矩阵内部仅 UI 临时态：activeCell / editingIdx / importModalOpen）。
 import React, { useState } from "react";
+import { slotPrimary } from "../../domains/platforms/slotValue";
 import type { TFunction } from "i18next";
 import {
   type Protocol, type ModelSlot, type TimeModelRule,
@@ -157,7 +158,7 @@ export function ModelsMatrixSection({
     setRules(rules.map((r, i) => {
       if (i !== idx) return r;
       const nextModels = { ...r.models };
-      if (value) nextModels[slot] = value;
+      if (value) nextModels[slot] = [value];
       else delete nextModels[slot];
       return { ...r, models: nextModels };
     }));
@@ -294,7 +295,7 @@ export function ModelsMatrixSection({
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {renderCell(
                       `r${selIdx}:${key}`,
-                      sel.models[key] ?? "",
+                      slotPrimary(sel.models[key]),
                       (v) => updateRuleModel(selIdx, key, v),
                       (v) => updateRuleModel(selIdx, key, v),
                     )}

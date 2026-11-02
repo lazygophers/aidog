@@ -138,17 +138,17 @@ mod tests {
     #[test]
     fn resolve_time_windows_empty_returns_default() {
         let default = PlatformModels {
-            default: Some("default-model".into()),
+            default: vec!["default-model".into()],
             ..Default::default()
         };
         let result = resolve_time_windows(&[], &default, 1_700_000_000_000);
-        assert_eq!(result.default, Some("default-model".into()));
+        assert_eq!(result.default, vec!["default-model"]);
     }
 
     #[test]
     fn resolve_time_windows_no_match_returns_default() {
         let default = PlatformModels {
-            default: Some("default-model".into()),
+            default: vec!["default-model".into()],
             ..Default::default()
         };
         // 规则：14-22 点，但测试时间是 0 点（不命中）
@@ -157,14 +157,14 @@ mod tests {
             "models": {"default": "peak-model"}
         });
         let result = resolve_time_windows(&[rule], &default, 1_700_000_000_000);
-        assert_eq!(result.default, Some("default-model".into()));
+        assert_eq!(result.default, vec!["default-model"]);
     }
 
     #[test]
     fn resolve_time_windows_match_returns_rule_models() {
         let default = PlatformModels {
-            default: Some("default-model".into()),
-            sonnet: Some("default-sonnet".into()),
+            default: vec!["default-model".into()],
+            sonnet: vec!["default-sonnet".into()],
             ..Default::default()
         };
         // 规则：全天 0-24 点，必然命中
@@ -173,14 +173,14 @@ mod tests {
             "models": {"default": "peak-model", "sonnet": "peak-sonnet"}
         });
         let result = resolve_time_windows(&[rule], &default, 1_700_000_000_000);
-        assert_eq!(result.default, Some("peak-model".into()));
-        assert_eq!(result.sonnet, Some("peak-sonnet".into()));
+        assert_eq!(result.default, vec!["peak-model"]);
+        assert_eq!(result.sonnet, vec!["peak-sonnet"]);
     }
 
     #[test]
     fn resolve_time_windows_first_match_wins() {
         let default = PlatformModels {
-            default: Some("default-model".into()),
+            default: vec!["default-model".into()],
             ..Default::default()
         };
         // 两条规则：第一个 0-12，第二个 0-24
@@ -196,13 +196,13 @@ mod tests {
         // 2024-01-01T08:00:00Z（周一）→ timestamp 1704096000
         let ms = 1704096000 * 1000;
         let result = resolve_time_windows(&[rule1, rule2], &default, ms);
-        assert_eq!(result.default, Some("first-match".into()));
+        assert_eq!(result.default, vec!["first-match"]);
     }
 
     #[test]
     fn resolve_time_windows_cross_midnight() {
         let default = PlatformModels {
-            default: Some("default-model".into()),
+            default: vec!["default-model".into()],
             ..Default::default()
         };
         // 跨天规则：22-6 点
@@ -213,18 +213,18 @@ mod tests {
         // 2024-01-01T23:00:00Z（周一 23 点）→ 应命中
         let ms = (1704067200 + 23 * 3600) * 1000;
         let result = resolve_time_windows(std::slice::from_ref(&rule), &default, ms);
-        assert_eq!(result.default, Some("overnight-model".into()));
+        assert_eq!(result.default, vec!["overnight-model"]);
 
         // 2024-01-01T15:00:00Z（周一 15 点）→ 不命中
         let ms2 = (1704067200 + 15 * 3600) * 1000;
         let result2 = resolve_time_windows(&[rule], &default, ms2);
-        assert_eq!(result2.default, Some("default-model".into()));
+        assert_eq!(result2.default, vec!["default-model"]);
     }
 
     #[test]
     fn resolve_time_windows_days_of_week_filter() {
         let default = PlatformModels {
-            default: Some("default-model".into()),
+            default: vec!["default-model".into()],
             ..Default::default()
         };
         // 仅周末（0=周日，6=周六）
@@ -235,11 +235,11 @@ mod tests {
         // 2024-01-07T02:50:00Z（周日）→ 应命中
         let ms = 1704595800 * 1000;
         let result = resolve_time_windows(std::slice::from_ref(&rule), &default, ms);
-        assert_eq!(result.default, Some("weekend-model".into()));
+        assert_eq!(result.default, vec!["weekend-model"]);
 
         // 2024-01-01T08:00:00Z（周一）→ 不命中
         let ms2 = 1704105600 * 1000;
         let result2 = resolve_time_windows(&[rule], &default, ms2);
-        assert_eq!(result2.default, Some("default-model".into()));
+        assert_eq!(result2.default, vec!["default-model"]);
     }
 }

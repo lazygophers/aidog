@@ -44,7 +44,7 @@ async fn prepare_test_context(db: &Db, req: &ModelTestRequest) -> Result<TestCon
     let model = req
         .model
         .clone()
-        .or(platform.models.default.clone())
+        .or(platform.models.default.first().cloned())
         .ok_or_else(|| {
             tracing::warn!(
                 command = "model_test",

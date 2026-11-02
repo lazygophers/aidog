@@ -10,6 +10,7 @@ import { TestResultBody } from "../components/shared";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { slotPrimary } from "../domains/platforms/slotValue";
 import { useProtocolLabel } from "../domains/platforms/useProtocolMeta";
 import { useReveal, makeRipple } from "../components/shared";
 
@@ -35,10 +36,10 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
   // jev / embedding / rerank 槽位是专用模型（jev-decision-proxy §3.6.2；向量化 / 重排序），不进聊天测试列表
   const allModels = (platform.available_models.length > 0
     ? platform.available_models
-    : [platform.models.default, platform.models.sonnet, platform.models.opus, platform.models.haiku, platform.models.gpt].filter(Boolean) as string[]
-  ).filter(m => m !== platform.models.jev && m !== platform.models.embedding && m !== platform.models.rerank);
+    : [platform.models.default, platform.models.sonnet, platform.models.opus, platform.models.haiku, platform.models.gpt].map(slotPrimary).filter(Boolean)
+  ).filter(m => m !== slotPrimary(platform.models.jev) && m !== slotPrimary(platform.models.embedding) && m !== slotPrimary(platform.models.rerank));
 
-  const defaultModel = platform.models.default || allModels[0] || "";
+  const defaultModel = slotPrimary(platform.models.default) || allModels[0] || "";
 
   const getModels = useCallback((): string[] => {
     switch (mode) {
