@@ -3,7 +3,7 @@
 //! 覆盖的是换宿主后**原地不动**那 246 行：排序 / 禁用跳过 / separator→gaps 映射 /
 //! today_usage 各 metric / 自定义 label / 小数位 / 尾零裁剪。AppKit 渲染不在此测。
 
-use super::{align_pad, col_width,platform_item_parts, tray_layout, tray_money, trim_trailing_zeros};
+use super::{align_pad, col_width,platform_item_parts, tab_stop_locs, tray_layout, tray_money, trim_trailing_zeros};
 use aidog_db::currency::{DisplayCurrency, DisplayCurrencySetting, build_display_currency};
 use aidog_db::{Db, TrayConfig, TrayItem, set_tray_config};
 use aidog_stats::DbInitTables;
@@ -73,10 +73,8 @@ async fn disabled_items_are_skipped() {
 }
 
 #[tokio::test]
-async fn separator_items_no_longer_render_after_i15() {
-    // 票 I15：separator 不再是可选段，存量项在入库/读取时被置 enabled=false（不删），
-    // 于是既不占列也不产生 gap。tray_render 里的 gaps 机制因此变成惰性代码
-    // （I10 的 objc2 渲染主体照旧不动，故保留不删）。
+async fn enabled_separator_becomes_gap_between_columns() {
+    // 票 02：separator 不再被 clamp 禁用，不占列，落成相邻两列之间的 gap。
     let l = layout_of(vec![
         usage_item("cost", 0),
         separator_item("|", 1),
@@ -84,7 +82,102 @@ async fn separator_items_no_longer_render_after_i15() {
     ])
     .await;
     assert_eq!(l.columns.len(), 2);
+    assert_eq!(l.gaps, vec![Some("|".to_string())]);
+}
+
+#[tokio::test]
+async fn distinct_separators_map_to_gaps_in_order() {
+    let l = layout_of(vec![
+        usage_item("cost", 0),
+        separator_item("·", 1),
+        usage_item("requests", 2),
+        separator_item("｜", 3),
+        usage_item("tokens", 4),
+        usage_item("cache_rate", 5),
+    ])
+    .await;
+    assert_eq!(l.columns.len(), 4);
+    assert_eq!(
+        l.gaps,
+        vec![Some("·".to_string()), Some("｜".to_string()), None]
+    );
+}
+
+#[tokio::test]
+async fn leading_and_trailing_separators_are_kept() {
+    // 2026-11-02 用户拍板：首尾也可放。
+    let l = layout_of(vec![
+        separator_item("-", 0),
+        usage_item("cost", 1),
+        usage_item("requests", 2),
+        separator_item("|", 3),
+    ])
+    .await;
+    assert_eq!(l.columns.len(), 2);
     assert_eq!(l.gaps, vec![None]);
+    assert_eq!(l.lead_gap.as_deref(), Some("-"));
+    assert_eq!(l.trail_gap.as_deref(), Some("|"));
+}
+
+#[tokio::test]
+async fn separators_without_columns_yield_no_lead_or_trail() {
+    let l = layout_of(vec![separator_item("|", 0), separator_item("·", 1)]).await;
+    assert!(l.columns.is_empty());
+    assert_eq!(l.lead_gap, None);
+    assert_eq!(l.trail_gap, None);
+}
+
+#[tokio::test]
+async fn separator_display_outside_presets_falls_back_to_dot() {
+    let l = layout_of(vec![
+        usage_item("cost", 0),
+        separator_item("—", 1),
+        usage_item("requests", 2),
+        separator_item("", 3),
+        usage_item("tokens", 4),
+    ])
+    .await;
+    assert_eq!(
+        l.gaps,
+        vec![Some("·".to_string()), Some("·".to_string())]
+    );
+}
+
+#[tokio::test]
+async fn skipped_item_does_not_desync_gaps() {
+    // platform 行不存在 → 该项被跳过；gaps 长度仍须 = columns - 1。
+    let missing: TrayItem = serde_json::from_value(serde_json::json!({
+        "item_type": "platform", "platform_id": 999999, "order": 2,
+    }))
+    .expect("item");
+    let l = layout_of(vec![
+        usage_item("cost", 0),
+        separator_item("|", 1),
+        missing,
+        usage_item("requests", 3),
+    ])
+    .await;
+    assert_eq!(l.columns.len(), 2);
+    assert_eq!(l.gaps, vec![Some("|".to_string())]);
+}
+
+#[tokio::test]
+async fn disabled_legacy_separator_stays_inert() {
+    let mut legacy = separator_item("|", 1);
+    legacy.enabled = false;
+    let l = layout_of(vec![usage_item("cost", 0), legacy, usage_item("requests", 2)]).await;
+    assert_eq!(l.gaps, vec![None]);
+}
+
+#[test]
+fn tab_stops_include_gap_widths() {
+    // 列内容宽 [20, 30, 10]，gap 宽 [4(首段前), 0, 6]：右边界 = 累加 gap+content。
+    assert_eq!(
+        tab_stop_locs(&[20.0, 30.0, 10.0], &[4.0, 0.0, 6.0]),
+        vec![24.0, 54.0, 70.0]
+    );
+    // 无 gap 时与旧行为（仅 content 累加）一致。
+    assert_eq!(tab_stop_locs(&[20.0, 30.0], &[0.0, 0.0]), vec![20.0, 50.0]);
 }
 
 #[tokio::test]
