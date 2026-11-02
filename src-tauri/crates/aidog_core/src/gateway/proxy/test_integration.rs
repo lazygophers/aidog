@@ -1128,6 +1128,19 @@ async fn mock_platform_ttft_and_inter_chunk_split() {
     )
     .await;
 
+    // 预热：进程内首个请求含一次性冷启动开销（单跑实测多 ~150-220ms，基线同），不计入被测 ttft。
+    let warm = handle_proxy(
+        AxumState(state.clone()),
+        messages_request(
+            "gkttft",
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+        ),
+    )
+    .await;
+    let _ = axum::body::to_bytes(warm.into_body(), 1 << 20)
+        .await
+        .unwrap();
+
     let req = messages_request(
         "gkttft",
         r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
