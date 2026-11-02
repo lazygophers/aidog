@@ -224,17 +224,26 @@ pub(crate) async fn handle_decision(
         if attempt_idx > max_retries {
             break;
         }
-        let attempt_start = std::time::Instant::now();
-        let attempt_ts = aidog_db::now();
+        let mut attempt_start = std::time::Instant::now();
+        let mut attempt_ts = aidog_db::now();
         let is_last_candidate = attempt_idx + 1 >= candidate_total || attempt_idx >= max_retries;
 
-        match decision_attempt(
-            state, log, &mut attempts, log_settings, group, &route, &req_value, &requested_model,
-            &proxy_client, req_timeout, conn_timeout, &sched_settings, start, lang,
-            attempt_start, attempt_ts, is_last_candidate, candidate_total,
-        )
-        .await
-        {
+        let mut chain = ModelChain::new(route);
+        let outcome = loop {
+            let mut switched = false;
+            let out = decision_attempt(
+                state, log, &mut attempts, log_settings, group, chain.route(), &req_value, &requested_model,
+                &proxy_client, req_timeout, conn_timeout, &sched_settings, start, lang,
+                attempt_start, attempt_ts, is_last_candidate, candidate_total,
+                chain.has_next(), &mut switched,
+            )
+            .await;
+            if !switched {
+                break out;
+            }
+            (attempt_start, attempt_ts) = chain.advance();
+        };
+        match outcome {
             AttemptOutcome::Respond(r) => return r,
             AttemptOutcome::Next { .. } => continue,
         }
@@ -281,6 +290,8 @@ async fn decision_attempt(
     attempt_ts: i64,
     is_last_candidate: bool,
     candidate_total: usize,
+    has_next_model: bool,
+    switched: &mut bool,
 ) -> AttemptOutcome {
     // endpoint 选择（R9）：typesafe 优先，否则 OpenAI 系；都没有回退平台主 base_url。
     let ep = select_endpoint_for_decision(&route.platform.endpoints);
@@ -411,8 +422,8 @@ async fn decision_attempt(
                 is_last_candidate,
                 log_settings,
                 requested_model,
-                has_next_model: false,
-                switched: &mut false,
+                has_next_model,
+                switched,
             },
         )
         .await

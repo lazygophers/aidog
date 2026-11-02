@@ -103,7 +103,7 @@ pub(crate) use endpoint::{
     select_endpoint_for_decision, select_endpoint_for_openai_family, is_embedding_endpoint, is_rerank_endpoint,
     KeyCandidate, KeyChannel, custom_key_header_names, key_candidates, load_custom_key_channels};
 pub(crate) use finish::{AttemptCtx, finish_nonstream, finish_stream};
-pub(crate) use forward::{AttemptOutcome, finalize_proxy_502, forward_attempt};
+pub(crate) use forward::{AttemptOutcome, finalize_proxy_502, forward_attempt, ModelChain};
 pub(crate) use group_info::handle_group_info;
 pub(crate) use headers::{
     capture_request_headers, inject_trace_header, is_sensitive_log_header,

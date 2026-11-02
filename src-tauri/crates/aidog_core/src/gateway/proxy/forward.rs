@@ -36,11 +36,11 @@ pub(crate) async fn forward_attempt(
     state: &Arc<ProxyState>,
     log: &mut ProxyLog,
     attempts: &mut Vec<ProxyAttempt>,
-    mut route: RouteResult,
+    route: RouteResult,
     candidate_total: usize,
     is_last_candidate: bool,
-    mut attempt_start: std::time::Instant,
-    mut attempt_ts: i64,
+    attempt_start: std::time::Instant,
+    attempt_ts: i64,
     log_settings: &ProxyLogSettings,
     lang: Lang,
     group: &Group,
@@ -54,14 +54,15 @@ pub(crate) async fn forward_attempt(
     start: std::time::Instant,
     group_header_injects: &[(String, String)],
 ) -> AttemptOutcome {
-    let mut fallbacks = std::mem::take(&mut route.fallback_models);
+    let mut chain = ModelChain::new(route);
+    let (mut attempt_start, mut attempt_ts) = (attempt_start, attempt_ts);
     loop {
         let mut switched = false;
         let out = forward_attempt_model(
             state,
             log,
             attempts,
-            route.clone(),
+            chain.route().clone(),
             candidate_total,
             is_last_candidate,
             attempt_start,
@@ -78,16 +79,41 @@ pub(crate) async fn forward_attempt(
             sched_settings,
             start,
             group_header_injects,
-            !fallbacks.is_empty(),
+            chain.has_next(),
             &mut switched,
         )
         .await;
         if !switched {
             return out;
         }
-        route.target_model = fallbacks.remove(0);
-        attempt_start = std::time::Instant::now();
-        attempt_ts = aidog_db::now();
+        (attempt_start, attempt_ts) = chain.advance();
+    }
+}
+
+/// 同平台换模型的共用状态（票 06 聊天、票 07 embedding / rerank / jev 四条路径共用，单一实现）。
+/// 调用方循环：`X_attempt(chain.route(), .., chain.has_next(), &mut switched)`；`switched=true`
+/// 表示本次失败属模型类，`handle_non_success` 已完成「分类 → 换模型判定 → 留痕未记账」（链尽时
+/// 落回原逻辑记账一次），此时 `chain.advance()` 切到下一个模型并重置计时。不消耗 `max_retries`。
+pub(crate) struct ModelChain {
+    route: RouteResult,
+    fallbacks: Vec<String>,
+}
+
+impl ModelChain {
+    pub(crate) fn new(mut route: RouteResult) -> Self {
+        let fallbacks = std::mem::take(&mut route.fallback_models);
+        Self { route, fallbacks }
+    }
+    pub(crate) fn route(&self) -> &RouteResult {
+        &self.route
+    }
+    pub(crate) fn has_next(&self) -> bool {
+        !self.fallbacks.is_empty()
+    }
+    /// 切到下一个模型；返回新的 (attempt_start, attempt_ts)。调用前须 `has_next()`。
+    pub(crate) fn advance(&mut self) -> (std::time::Instant, i64) {
+        self.route.target_model = self.fallbacks.remove(0);
+        (std::time::Instant::now(), aidog_db::now())
     }
 }
 
