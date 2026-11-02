@@ -3,7 +3,7 @@
 // 不受 locale 编辑影响——与 WindowsEditModal.test.tsx 头注释的「禁按文案断言」不冲突
 // （那条禁的是共享 i18n 实例的译文断言）。
 import { describe, it, expect, vi } from "vitest";
-import { render, fireEvent } from "../../test/render";
+import { render, fireEvent, waitFor } from "../../test/render";
 import { useState } from "react";
 import { ManualBudgetsFields, RateLimitsSection, PeakSection, DirectModelsSection, AppbuilderKeySection, ClientWhitelistSection } from "./formSections";
 import type { ManualBudget, RateLimitsBundle, TimeWindow } from "../domains/platforms/defaults";
@@ -256,6 +256,20 @@ describe("DirectModelsSection — 直通模型（票 02）", () => {
     fireEvent.mouseDown(opt);
     const updater = setModels.mock.calls[0][0] as (prev: string[]) => string[];
     expect(updater(["m1"])).toEqual(["m1", "gpt-b"]);
+  });
+
+  it("已选模型不出现在下拉；删除后重新出现", async () => {
+    function Host() {
+      const [models, setModels] = useState(["gpt-a"]);
+      return <DirectModelsSection models={models} setModels={setModels} availableModels={["gpt-a", "gpt-b"]} protocol="openai" t={t} />;
+    }
+    const { container } = render(<Host />);
+    const input = container.querySelector('[data-testid="direct-model-input"]') as HTMLInputElement;
+    fireEvent.focus(input);
+    expect(document.body.querySelector('[data-testid="model-option-gpt-a"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="model-option-gpt-b"]')).not.toBeNull();
+    fireEvent.click(container.querySelector('[data-testid="direct-model-remove-0"]')!);
+    await waitFor(() => expect(document.body.querySelector('[data-testid="model-option-gpt-a"]')).not.toBeNull());
   });
 
   it("直接输入不在候选里的 id：Enter 追加原值", () => {
