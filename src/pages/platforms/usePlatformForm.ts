@@ -34,7 +34,7 @@ import { useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";
 import { getPrimaryBaseUrl } from "./usePlatformQuota";
 import { usePlatformTimeModels } from "./usePlatformTimeModels";
 import { QUOTA_CUSTOM_VARIANT } from "./formSections";
-import { slotsToForm } from "../../domains/platforms/slotValue";
+import { slotsToForm, slotList } from "../../domains/platforms/slotValue";
 import { applyPaste as applyPasteImpl, runBatchCreateFromPaste as runBatchCreateFromPasteImpl, previewBatchNames, type PlatformPasteCtx } from "./platformPasteApply";
 
 /** owner（usePlatformsState）注入的 list 侧依赖。所有 form handler 需要的 list state/setters 走此通道。 */
@@ -101,7 +101,7 @@ export interface PlatformFormState {
   /** 取消批量预览：清 batchPreviewKeys 并把 apiKey 清回单值（用户可重新输入）。 */
   /** 预览 name 列表（batchPreviewKeys 派生，供 MultiKeyPreview 渲染；null 时空数组）。 */
   previewNames: string[];
-  models: Record<ModelSlot, string>; setModels: React.Dispatch<React.SetStateAction<Record<ModelSlot, string>>>;
+  models: Record<ModelSlot, string[]>; setModels: React.Dispatch<React.SetStateAction<Record<ModelSlot, string[]>>>;
   availableModels: string[]; setAvailableModels: React.Dispatch<React.SetStateAction<string[]>>;
   endpoints: PlatformEndpoint[]; setEndpoints: React.Dispatch<React.SetStateAction<PlatformEndpoint[]>>;
   activeDropdown: ModelSlot | null; setActiveDropdown: React.Dispatch<React.SetStateAction<ModelSlot | null>>;
@@ -152,8 +152,7 @@ export interface PlatformFormState {
   handleEdit: (p: Platform) => Promise<void>;
   handleDuplicate: (p: Platform) => Promise<void>;
   handleProtocolChange: (newProtocol: Protocol, newCodingPlan?: boolean) => void | Promise<void>;
-  handleModelChange: (slot: ModelSlot, value: string) => void;
-  handleModelSelect: (slot: ModelSlot, value: string) => void;
+  handleModelsChange: (slot: ModelSlot, chain: string[]) => void;
   handleFetchModels: () => Promise<void>;
   handleFillAll: () => void;
   buildModelsPayload: () => Record<string, string[] | undefined> | undefined;
@@ -197,8 +196,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   // 多 key 预览态：null = 非批量；string[] = 待确认的批量 key 列表。
   // 创建态 + 非 keyOptional + splitApiKeys.length>1 → setBatchPreviewKeys(keys) 触发 MultiKeyPreview。
   const [batchPreviewKeys, setBatchPreviewKeys] = useState<string[] | null>(null);
-  const [models, setModels] = useState<Record<ModelSlot, string>>({
-    default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "", embedding: "", rerank: "",
+  const [models, setModels] = useState<Record<ModelSlot, string[]>>({
+    default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [],
   });
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [endpoints, setEndpoints] = useState<PlatformEndpoint[]>([]);
@@ -344,7 +343,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const resetForm = () => {
     setName(""); setProtocol("openai"); setCodingPlan(false); setApiKey("");
     setBatchPreviewKeys(null);
-    setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "", embedding: "", rerank: "" });
+    setModels(slotsToForm(undefined));
     setAvailableModels([]); setEndpoints([]);
     setEditing(null); setShowForm(false); setFetchError(""); setSaveError("");
     setExtra(""); setMockConfig({ ...DEFAULT_MOCK_CONFIG });
@@ -490,13 +489,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     }
   };
 
-  const handleModelChange = (slot: ModelSlot, value: string) => {
-    setModels(prev => ({ ...prev, [slot]: value }));
-  };
-
-  /** 从下拉选择一个模型填入指定槽位 */
-  const handleModelSelect = (slot: ModelSlot, value: string) => {
-    setModels(prev => ({ ...prev, [slot]: value }));
+  const handleModelsChange = (slot: ModelSlot, chain: string[]) => {
+    setModels(prev => ({ ...prev, [slot]: chain }));
   };
 
   /** 一键获取：获取模型列表 + 自动分类 + 持久化
@@ -542,7 +536,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
           }
           setAvailableModels(modelIds);
           const categorized = autoCategorize(modelIds);
-          setModels(categorized);
+          setModels(slotsToForm(categorized));
           lastError = null;
           fetched = true;
           break;
@@ -576,14 +570,14 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
 
   /** 一键填充：把 default 模型填到所有槽位（覆盖已有值） */
   const handleFillAll = () => {
-    const defaultModel = models.default.trim();
-    if (!defaultModel) return;
+    const defaultChain = models.default;
+    if (defaultChain.length === 0) return;
     setModels(prev => {
       const next = { ...prev };
       for (const slot of MODEL_SLOTS) {
         // jev 是决策槽（/v1/systemone 专用）、embedding / rerank 是专用槽，default 是聊天模型，一键填充不进专用槽
         if (slot.key !== "default" && slot.key !== "jev" && !DEDICATED_MODEL_SLOTS.includes(slot.key)) {
-          next[slot.key] = defaultModel;
+          next[slot.key] = [...defaultChain];
         }
       }
       return next;
@@ -594,8 +588,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     const result: Record<string, string[] | undefined> = {};
     let hasAny = false;
     for (const slot of MODEL_SLOTS) {
-      const v = models[slot.key].trim();
-      if (v) { result[slot.key] = [v]; hasAny = true; }
+      const v = slotList(models[slot.key]);
+      if (v.length > 0) { result[slot.key] = v; hasAny = true; }
       else { result[slot.key] = undefined; }
     }
     return hasAny ? result : undefined;
@@ -830,7 +824,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     isMock, isPassthrough, isPassThrough, passAuth, setPassAuth,
     appbuilderKey, setAppbuilderKey, keyOptional, apiKeyMissing,
     resetForm, openCreatePlatform, handleEdit, handleDuplicate, handleProtocolChange,
-    handleModelChange, handleModelSelect, handleFetchModels, handleFillAll, buildModelsPayload,
+    handleModelsChange, handleFetchModels, handleFillAll, buildModelsPayload,
     handleSave, handleViewLogs, applyPaste, runBatchCreateFromPaste,
   };
 }
