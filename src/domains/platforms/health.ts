@@ -233,3 +233,13 @@ export function computeManualBudgetDisplay(budgets: ManualBudget[] | undefined):
     depleted: rem <= 0,
   };
 }
+
+/** 各槽位主模型（链首）去重保序；卡片徽章展示主模型，备选只显示数量。 */
+export function primaryModelValues(models: Partial<Record<(typeof MODEL_SLOTS)[number]["key"], SlotValue>>): string[] {
+  const out: string[] = [];
+  for (const slot of MODEL_SLOTS) {
+    const v = slotList(models[slot.key])[0];
+    if (v && !out.includes(v)) out.push(v);
+  }
+  return out;
+}
