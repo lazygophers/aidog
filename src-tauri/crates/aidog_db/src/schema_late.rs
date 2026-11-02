@@ -366,7 +366,7 @@ CREATE INDEX IF NOT EXISTS idx_oauth_usage_sample_group_sampled ON oauth_usage_s
 );"#,
     )?;
 
-    // Migration 20261102-01 (通知-会话名 票 01，main.db): session_name_cache 会话名解析缓存。
+    // Migration 20261102-02 (通知-会话名 票 01，main.db): session_name_cache 会话名解析缓存。
     // 主键 (client, session_id)；value JSON；updated_at Unix 秒。每次启动顺带清 30 天前的行。
     conn.execute_batch(
         r#"CREATE TABLE IF NOT EXISTS session_name_cache (
