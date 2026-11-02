@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790266153,
+  "last_updated": 1793615839,
   "endpoints": {
     "default": [
       {
@@ -11,7 +11,7 @@
   },
   "models": {
     "default": {
-      "default": "nvidia/nemotron-3-ultra-550b-a55b"
+      "default": ["nvidia/nemotron-3-ultra-550b-a55b"]
     }
   },
   "model_list": {

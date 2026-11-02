@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793290955,
+  "last_updated": 1793615839,
   "endpoints": {
     "default": [
       {
@@ -18,10 +18,10 @@
   },
   "models": {
     "default": {
-      "default": "claude-sonnet-4-6",
-      "opus": "claude-opus-4-8",
-      "sonnet": "claude-sonnet-4-6",
-      "gpt": "gpt-5.5"
+      "default": ["claude-sonnet-4-6"],
+      "opus": ["claude-opus-4-8"],
+      "sonnet": ["claude-sonnet-4-6"],
+      "gpt": ["gpt-5.5"]
     }
   },
   "model_list": {

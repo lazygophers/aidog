@@ -211,8 +211,18 @@ for (const entry of indexDoc.platforms) {
     }
   }
   const refs = new Set();
+  // 槽位值是有序列表（形状由 schema 硬错）；非数组旧形态已被 schema 报，这里只展平数组。
+  const slotIds = new Set();
   for (const branch of Object.values(platformDoc.models ?? {})) {
-    for (const id of Object.values(branch ?? {})) refs.add(id);
+    for (const v of Object.values(branch ?? {})) {
+      for (const id of Array.isArray(v) ? v : []) { refs.add(id); slotIds.add(id); }
+    }
+  }
+  // 不变量：model_list.default ⊇ models 各分支展平后的值集
+  const listed = new Set(platformDoc.model_list?.default ?? []);
+  const notListed = [...slotIds].filter((id) => !listed.has(id));
+  if (notListed.length) {
+    failures.push([`platforms/${code}/platform.json`, `models 槽位值不在 model_list.default 内: ${notListed.join(", ")}`]);
   }
   for (const branch of Object.values(platformDoc.model_list ?? {})) {
     for (const id of branch ?? []) refs.add(id);

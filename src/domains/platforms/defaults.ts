@@ -60,7 +60,7 @@ type DefaultsDoc = {
     endpoints: { default?: PlatformEndpoint[] };    /** models 分支：default = 默认映射；
      *  peak = 高峰时段映射（PRD 07-11，命中平台 peak 任一窗口时启用，仅 glm_coding 等少数协议带）。
      *  absent peak = 无高峰切换（向后兼容，旧协议不受影响）。coding 套餐是独立协议，无 coding_plan 分支。 */
-    models: { default?: Partial<Record<ModelSlot, string>>; peak?: Partial<Record<ModelSlot, string>> };
+    models: { default?: Partial<Record<ModelSlot, string[]>>; peak?: Partial<Record<ModelSlot, string[]>> };
     model_list: { default?: string[] };
     name?: Partial<Record<DefaultsLocale, string>>;
     /** 官方文档页 + 定价页 URL（registry `platform.json` 实为对象而非数组）。
@@ -304,11 +304,11 @@ export async function getDefaultEndpoints(protocol: Protocol): Promise<PlatformE
 export async function getDefaultModels(
   protocol: Protocol,
   isPeak?: boolean,
-): Promise<Partial<Record<ModelSlot, string>>> {
+): Promise<Partial<Record<ModelSlot, string[]>>> {
   const doc = await loadDoc();
   const entry = doc.protocols[protocol];
   if (!entry) return {};
-  return { ...pickModelsBranch<Partial<Record<ModelSlot, string>>>(entry.models, isPeak, {}) };
+  return { ...pickModelsBranch<Partial<Record<ModelSlot, string[]>>>(entry.models, isPeak, {}) };
 }
 
 /** 平台内置候选模型列表（供模型槽位下拉冷启动兜底）。 */

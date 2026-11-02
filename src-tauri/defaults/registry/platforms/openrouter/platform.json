@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793290955,
+  "last_updated": 1793615839,
   "endpoints": {
     "default": [
       {
@@ -14,12 +14,12 @@
   },
   "models": {
     "default": {
-      "default": "anthropic/claude-sonnet-4.6",
-      "opus": "anthropic/claude-opus-4.8",
-      "sonnet": "anthropic/claude-sonnet-4.6",
-      "haiku": "anthropic/claude-haiku-4.5",
-      "fable": "anthropic/claude-fable-5",
-      "gpt": "openai/gpt-5.5"
+      "default": ["anthropic/claude-sonnet-4.6"],
+      "opus": ["anthropic/claude-opus-4.8"],
+      "sonnet": ["anthropic/claude-sonnet-4.6"],
+      "haiku": ["anthropic/claude-haiku-4.5"],
+      "fable": ["anthropic/claude-fable-5"],
+      "gpt": ["openai/gpt-5.5"]
     }
   },
   "model_list": {

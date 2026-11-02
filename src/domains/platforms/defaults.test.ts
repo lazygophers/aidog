@@ -33,8 +33,8 @@ const DEFAULTS_MOCK = JSON.stringify({
       ] },
       // PRD 07-11：default + peak 双分支
       models: {
-        default: { default: "glm-5.2", opus: "glm-5.2", sonnet: "glm-4.7", gpt: "glm-5.2", haiku: "glm-4.5" },
-        peak: { default: "glm-4.7", opus: "glm-4.7", sonnet: "glm-4.6", gpt: "glm-4.7", haiku: "glm-4.5" },
+        default: { default: ["glm-5.2"], opus: ["glm-5.2"], sonnet: ["glm-4.7"], gpt: ["glm-5.2"], haiku: ["glm-4.5"] },
+        peak: { default: ["glm-4.7"], opus: ["glm-4.7"], sonnet: ["glm-4.6"], gpt: ["glm-4.7"], haiku: ["glm-4.5"] },
       },
       model_list: { default: ["glm-5.2", "glm-4.7", "glm-4.6", "glm-4.5"] },
       name: { "en-US": "GLM Coding" },
@@ -45,7 +45,7 @@ const DEFAULTS_MOCK = JSON.stringify({
         default: [{ protocol: "openai", base_url: "https://api.kimi.com/coding/v1", coding_plan: true }],
       },
       models: {
-        default: { default: "kimi-default", sonnet: "kimi-sonnet-default" },
+        default: { default: ["kimi-default"], sonnet: ["kimi-sonnet-default"] },
       },
       model_list: { default: ["kimi-default"] },
       name: { "en-US": "Kimi Coding", "zh-Hans": "Kimi 编程" },
@@ -61,7 +61,7 @@ const DEFAULTS_MOCK = JSON.stringify({
     deepseek: {
       endpoints: { default: [{ protocol: "openai", base_url: "https://api.deepseek.com/v1", client_type: "default" }] },
       // 单分支（向后兼容：无 peak 分支）
-      models: { default: { default: "deepseek-v4-flash" } },
+      models: { default: { default: ["deepseek-v4-flash"] } },
       model_list: { default: ["deepseek-v4-flash"] },
       name: { "en-US": "DeepSeek" },
       // quota_scripts（T6）：无 requires 变体
@@ -87,27 +87,27 @@ afterAll(() => {
 describe("getDefaultModels — PRD 07-11 peak 分支", () => {
   it("glm_coding 非高峰（isPeak=false/undefined）→ 返 default 分支", async () => {
     const m = await getDefaultModels("glm_coding" as Protocol);
-    expect(m.sonnet).toBe("glm-4.7");
-    expect(m.haiku).toBe("glm-4.5");
-    expect(m.default).toBe("glm-5.2");
+    expect(m.sonnet).toEqual(["glm-4.7"]);
+    expect(m.haiku).toEqual(["glm-4.5"]);
+    expect(m.default).toEqual(["glm-5.2"]);
   });
 
   it("glm_coding 高峰（isPeak=true）→ 切 peak 分支", async () => {
     const m = await getDefaultModels("glm_coding" as Protocol, true);
-    expect(m.sonnet).toBe("glm-4.6");
-    expect(m.default).toBe("glm-4.7");
-    expect(m.haiku).toBe("glm-4.5");
+    expect(m.sonnet).toEqual(["glm-4.6"]);
+    expect(m.default).toEqual(["glm-4.7"]);
+    expect(m.haiku).toEqual(["glm-4.5"]);
   });
 
   it("kimi_coding 无 peak 分支 + isPeak=true → 回落 default", async () => {
     // 向后兼容：preset 无 peak 分支 → isPeak=true 仍返 default
     const m = await getDefaultModels("kimi_coding" as Protocol, true);
-    expect(m.default).toBe("kimi-default");
+    expect(m.default).toEqual(["kimi-default"]);
   });
 
   it("deepseek 单分支（无 peak）：isPeak=true 不影响，返 default", async () => {
     const m = await getDefaultModels("deepseek" as Protocol, true);
-    expect(m.default).toBe("deepseek-v4-flash");
+    expect(m.default).toEqual(["deepseek-v4-flash"]);
   });
 });
 
