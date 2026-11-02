@@ -1184,6 +1184,7 @@
   "notif.eventTemplatePlaceholder": "اتركه فارغًا لاستخدام قالب النوع المحدد",
   "notif.eventTypeLabel": "نوع الإشعار",
   "notif.eventVarsHint": "المتغيرات المتاحة",
+  "notif.optionalPlaceholderHint": "عنصر نائب اختياري {بادئة|متغير}: يُخرج البادئة + القيمة عندما يكون المتغير غير فارغ، وإلا لا شيء، مثل {project}{ · |session_name}",
   "notif.fieldForm": "الشكل",
   "notif.fieldPopup": "منبثق",
   "notif.fieldSound": "تنبيه صوتي",

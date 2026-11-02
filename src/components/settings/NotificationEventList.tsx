@@ -54,8 +54,8 @@ export const CC_HOOK_EVENTS: string[] = [
 /** 默认 ON 精选集（2 个：任务完成 + 等待授权；其余默认 off 可手动开）。**跨层镜像**后端 `DEFAULT_ON_EVENTS`。 */
 export const DEFAULT_ON_EVENTS: string[] = ["Stop", "PermissionRequest"];
 
-/** 通用入参（所有事件都有）：项目名 + 会话 id。事件专属入参见 EVENT_CATALOG.vars。 */
-const COMMON_VARS = ["{project}", "{session}"];
+/** 通用入参（所有事件都有）：项目名 + 会话 id + 会话名（取不到为空串）。事件专属入参见 EVENT_CATALOG.vars。 */
+const COMMON_VARS = ["{project}", "{session}", "{session_name}"];
 
 /**
  * per-event 目录：每事件**专属默认模板 + 专属可用入参**（每事件不同）。
@@ -64,36 +64,36 @@ const COMMON_VARS = ["{project}", "{session}"];
  * vars 为该事件**额外**专属占位（不含 COMMON_VARS）。
  */
 export const EVENT_CATALOG: Record<string, { defaultTemplate: string; vars: string[] }> = {
-  SessionStart: { defaultTemplate: "{project} 会话开始", vars: ["{source}", "{model}", "{agent_type}", "{session_title}"] },
-  Setup: { defaultTemplate: "{project} 初始化（{trigger}）", vars: ["{trigger}"] },
-  InstructionsLoaded: { defaultTemplate: "{project} 已加载 {memory_type}", vars: ["{file_path}", "{memory_type}", "{load_reason}"] },
-  UserPromptSubmit: { defaultTemplate: "{project} 收到新指令", vars: ["{prompt}"] },
-  UserPromptExpansion: { defaultTemplate: "{project} 展开命令 {command_name}", vars: ["{command_name}", "{command_args}"] },
-  MessageDisplay: { defaultTemplate: "{project} 消息更新", vars: ["{turn_id}", "{final}"] },
-  PreToolUse: { defaultTemplate: "{project} 即将执行 {tool_name}", vars: ["{tool_name}"] },
-  PermissionRequest: { defaultTemplate: "{project} 请求授权：{tool_name}", vars: ["{tool_name}"] },
-  PermissionDenied: { defaultTemplate: "{project} 拒绝 {tool_name}：{reason}", vars: ["{tool_name}", "{reason}"] },
-  PostToolUse: { defaultTemplate: "{project} {tool_name} 完成（{duration_ms}ms）", vars: ["{tool_name}", "{duration_ms}"] },
-  PostToolUseFailure: { defaultTemplate: "{project} {tool_name} 失败：{error}", vars: ["{tool_name}", "{error}"] },
-  PostToolBatch: { defaultTemplate: "{project} 批量工具完成", vars: [] },
-  Notification: { defaultTemplate: "{project}：{message}", vars: ["{message}", "{type}"] },
-  SubagentStart: { defaultTemplate: "{project} 子代理 {agent_type} 启动", vars: ["{agent_type}"] },
-  SubagentStop: { defaultTemplate: "{project} 子代理 {agent_type} 完成", vars: ["{agent_type}"] },
-  Stop: { defaultTemplate: "{project} 任务完成", vars: [] },
-  StopFailure: { defaultTemplate: "{project} 中断：{error_message}", vars: ["{error_code}", "{error_message}"] },
-  TeammateIdle: { defaultTemplate: "{project} 队友 {teammate_id} 空闲", vars: ["{teammate_id}", "{status}"] },
-  TaskCreated: { defaultTemplate: "{project} 新建任务：{task_name}", vars: ["{task_id}", "{task_name}"] },
-  TaskCompleted: { defaultTemplate: "{project} 任务完成：{task_name}", vars: ["{task_id}", "{task_name}"] },
-  ConfigChange: { defaultTemplate: "{project} 配置变更（{config_source}）", vars: ["{config_source}"] },
-  CwdChanged: { defaultTemplate: "{project} 切换目录：{new_cwd}", vars: ["{old_cwd}", "{new_cwd}"] },
-  FileChanged: { defaultTemplate: "{project} 文件变更：{file_path}", vars: ["{file_path}", "{change_type}"] },
-  WorktreeCreate: { defaultTemplate: "{project} 创建 worktree", vars: ["{worktree_path}"] },
-  WorktreeRemove: { defaultTemplate: "{project} 移除 worktree", vars: ["{worktree_path}"] },
-  PreCompact: { defaultTemplate: "{project} 即将压缩上下文（{compact_reason}）", vars: ["{compact_reason}", "{context_size}"] },
-  PostCompact: { defaultTemplate: "{project} 压缩完成", vars: ["{context_reduction_ratio}"] },
-  Elicitation: { defaultTemplate: "{project} {server_name} 请求输入", vars: ["{server_name}", "{tool_name}"] },
-  ElicitationResult: { defaultTemplate: "{project} {server_name} 已响应", vars: ["{server_name}"] },
-  SessionEnd: { defaultTemplate: "{project} 会话结束（{end_reason}）", vars: ["{end_reason}", "{duration_ms}"] },
+  SessionStart: { defaultTemplate: "{project}{ · |session_name} 会话开始", vars: ["{source}", "{model}", "{agent_type}", "{session_title}"] },
+  Setup: { defaultTemplate: "{project}{ · |session_name} 初始化（{trigger}）", vars: ["{trigger}"] },
+  InstructionsLoaded: { defaultTemplate: "{project}{ · |session_name} 已加载 {memory_type}", vars: ["{file_path}", "{memory_type}", "{load_reason}"] },
+  UserPromptSubmit: { defaultTemplate: "{project}{ · |session_name} 收到新指令", vars: ["{prompt}"] },
+  UserPromptExpansion: { defaultTemplate: "{project}{ · |session_name} 展开命令 {command_name}", vars: ["{command_name}", "{command_args}"] },
+  MessageDisplay: { defaultTemplate: "{project}{ · |session_name} 消息更新", vars: ["{turn_id}", "{final}"] },
+  PreToolUse: { defaultTemplate: "{project}{ · |session_name} 即将执行 {tool_name}", vars: ["{tool_name}"] },
+  PermissionRequest: { defaultTemplate: "{project}{ · |session_name} 请求授权：{tool_name}", vars: ["{tool_name}"] },
+  PermissionDenied: { defaultTemplate: "{project}{ · |session_name} 拒绝 {tool_name}：{reason}", vars: ["{tool_name}", "{reason}"] },
+  PostToolUse: { defaultTemplate: "{project}{ · |session_name} {tool_name} 完成（{duration_ms}ms）", vars: ["{tool_name}", "{duration_ms}"] },
+  PostToolUseFailure: { defaultTemplate: "{project}{ · |session_name} {tool_name} 失败：{error}", vars: ["{tool_name}", "{error}"] },
+  PostToolBatch: { defaultTemplate: "{project}{ · |session_name} 批量工具完成", vars: [] },
+  Notification: { defaultTemplate: "{project}{ · |session_name}：{message}", vars: ["{message}", "{type}"] },
+  SubagentStart: { defaultTemplate: "{project}{ · |session_name} 子代理 {agent_type} 启动", vars: ["{agent_type}"] },
+  SubagentStop: { defaultTemplate: "{project}{ · |session_name} 子代理 {agent_type} 完成", vars: ["{agent_type}"] },
+  Stop: { defaultTemplate: "{project}{ · |session_name} 任务完成", vars: [] },
+  StopFailure: { defaultTemplate: "{project}{ · |session_name} 中断：{error_message}", vars: ["{error_code}", "{error_message}"] },
+  TeammateIdle: { defaultTemplate: "{project}{ · |session_name} 队友 {teammate_id} 空闲", vars: ["{teammate_id}", "{status}"] },
+  TaskCreated: { defaultTemplate: "{project}{ · |session_name} 新建任务：{task_name}", vars: ["{task_id}", "{task_name}"] },
+  TaskCompleted: { defaultTemplate: "{project}{ · |session_name} 任务完成：{task_name}", vars: ["{task_id}", "{task_name}"] },
+  ConfigChange: { defaultTemplate: "{project}{ · |session_name} 配置变更（{config_source}）", vars: ["{config_source}"] },
+  CwdChanged: { defaultTemplate: "{project}{ · |session_name} 切换目录：{new_cwd}", vars: ["{old_cwd}", "{new_cwd}"] },
+  FileChanged: { defaultTemplate: "{project}{ · |session_name} 文件变更：{file_path}", vars: ["{file_path}", "{change_type}"] },
+  WorktreeCreate: { defaultTemplate: "{project}{ · |session_name} 创建 worktree", vars: ["{worktree_path}"] },
+  WorktreeRemove: { defaultTemplate: "{project}{ · |session_name} 移除 worktree", vars: ["{worktree_path}"] },
+  PreCompact: { defaultTemplate: "{project}{ · |session_name} 即将压缩上下文（{compact_reason}）", vars: ["{compact_reason}", "{context_size}"] },
+  PostCompact: { defaultTemplate: "{project}{ · |session_name} 压缩完成", vars: ["{context_reduction_ratio}"] },
+  Elicitation: { defaultTemplate: "{project}{ · |session_name} {server_name} 请求输入", vars: ["{server_name}", "{tool_name}"] },
+  ElicitationResult: { defaultTemplate: "{project}{ · |session_name} {server_name} 已响应", vars: ["{server_name}"] },
+  SessionEnd: { defaultTemplate: "{project}{ · |session_name} 会话结束（{end_reason}）", vars: ["{end_reason}", "{duration_ms}"] },
 };
 
 /** 取某事件专属默认模板（缺失 → 仅 {project} 兜底，与后端「未命中类型 default_template」呼应）。 */
@@ -267,6 +267,9 @@ export function NotificationEventList({ perEvent, disabled, onUpdate }: Props) {
                     {v}
                   </code>
                 ))}
+                <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                  {t("notif.optionalPlaceholderHint", "可选占位 {前缀|变量}：变量非空时输出「前缀+值」，为空整段消失，如 {project}{ · |session_name}")}
+                </span>
               </div>
             </EventRow>
           );
