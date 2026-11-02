@@ -3,7 +3,7 @@
 //! 覆盖的是换宿主后**原地不动**那 246 行：排序 / 禁用跳过 / separator→gaps 映射 /
 //! today_usage 各 metric / 自定义 label / 小数位 / 尾零裁剪。AppKit 渲染不在此测。
 
-use super::{platform_item_parts, tray_layout, tray_money, trim_trailing_zeros};
+use super::{align_pad, col_width,platform_item_parts, tray_layout, tray_money, trim_trailing_zeros};
 use aidog_db::currency::{DisplayCurrency, DisplayCurrencySetting, build_display_currency};
 use aidog_db::{Db, TrayConfig, TrayItem, set_tray_config};
 use aidog_stats::DbInitTables;
@@ -487,4 +487,67 @@ fn platform_metrics_use_display_currency() {
         let got = super::platform_item_value(&p, &item_json(j), Some(&stat), &cu, c["balance_ccy"].as_str());
         assert_eq!(got, c["expected"].as_str().unwrap(), "{c}");
     }
+}
+
+/// 回归：两列居中，最宽单元（¥1.67 / 97%）的前+文本+后宽度越过列右边界 tab stop，
+/// 下一列整体错位（截图 GLM 偏左、97% 偏右）。断言：总宽 < 列宽（不越 tab），且居中误差 ≤ 1 空格。
+#[test]
+fn align_pad_center_never_overshoots_tab_stop_and_is_centered() {
+    // (名, 文本宽, 空格宽) 取 9pt/12pt 粗体比例字体量级；col_w = max(行1, 行2) + 5
+    let cols = [
+        [("花费", 18.0, 2.5), ("¥1.67", 36.0, 3.3)],
+        [("GLM", 26.0, 2.5), ("97%", 34.0, 3.3)],
+    ];
+    for col in cols {
+        let col_w = col.iter().map(|c| c.1).fold(0.0_f64, f64::max) + 5.0;
+        for (name, w, sp) in col {
+            for align in ["center", "right"] {
+                let (lead, trail) = align_pad(false, w, sp, col_w, align);
+                let total = (lead + trail) as f64 * sp + w;
+                assert!(total < col_w, "{name} {align}: total {total} >= col_w {col_w}");
+            }
+            let (lead, trail) = align_pad(false, w, sp, col_w, "center");
+            let center = lead as f64 * sp + w / 2.0;
+            assert!(
+                (center - col_w / 2.0).abs() <= sp + 0.01 && trail == 0,
+                "{name}: center {center} vs {}",
+                col_w / 2.0
+            );
+        }
+    }
+    assert_eq!(align_pad(true, 0.0, 3.0, 40.0, "center"), (0, 0));
+    assert_eq!(align_pad(false, 10.0, 3.0, 40.0, "left"), (0, 0));
+}
+
+/// 模拟 AppKit 左 tab：光标跳到「大于当前位置的下一个 stop」。两行两列居中，
+/// 断言 ① 第 2 列两行都从 stop0（列左缘）起步（未越 stop）② 两列最宽单元的可见间隙
+/// ≤ 一个空格宽（截图 2：间隔过大）。
+#[test]
+fn two_column_center_layout_gap_is_tight() {
+    // 行1(9pt, 空格 2.5) / 行2(12pt, 空格 3.3)；列0 花费/¥1.7，列1 GLM/97%
+    let (sp1, sp2) = (2.5, 3.3);
+    let cells = [[(18.0, 36.0)], [(26.0, 34.0)]]; // [列][(行1宽, 行2宽)]
+    let widths: Vec<f64> = cells.iter().map(|c| col_width(c[0].0, c[0].1)).collect();
+    let stops = [widths[0], widths[0] + widths[1]];
+    for (row, sp) in [(0usize, sp1), (1, sp2)] {
+        let mut cursor = 0.0_f64;
+        let mut starts = vec![];
+        for (i, c) in cells.iter().enumerate() {
+            let w = if row == 0 { c[0].0 } else { c[0].1 };
+            let (lead, trail) = align_pad(false, w, sp, widths[i], "center");
+            if i > 0 {
+                cursor = *stops.iter().find(|s| **s > cursor).unwrap();
+            }
+            starts.push(cursor);
+            cursor += (lead + trail) as f64 * sp + w;
+        }
+        assert_eq!(starts[1], stops[0], "row {row}: col1 jumped past stop0");
+    }
+    // 最宽单元（¥1.7 在列0 行2，97% 在列1 行2）的可见间隙 = 列0 右缘空白 + 列1 左缘 lead
+    let (l1, _) = align_pad(false, 34.0, sp2, widths[1], "center");
+    let gap = (widths[0] - 36.0 - align_pad(false, 36.0, sp2, widths[0], "center").0 as f64 * sp2)
+        + l1 as f64 * sp2;
+    assert!(gap <= sp2 + 0.01, "visible gap {gap}pt > one space {sp2}pt");
+    assert_eq!(align_pad(true, 0.0, 3.0, 40.0, "center"), (0, 0));
+    assert_eq!(align_pad(false, 10.0, 3.0, 40.0, "left"), (0, 0));
 }
