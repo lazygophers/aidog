@@ -40,7 +40,7 @@ pub const EVENT_VAR_MAX_LEN: usize = 200;
 /// `notif_type` 为 `task_complete` / `waiting_input`。
 ///
 /// 脚本对 Claude Code（hooks.Stop/Notification，从 stdin 收 JSON，cwd=项目目录）与
-/// Codex（notify，从 `$1` 收 JSON）都安全：仅用 cwd basename 作 project，不解析 stdin/参数。
+/// Codex（notify，从 `$1` 收 JSON）都安全：cwd basename 作 project；Codex 的 `thread-id`（argv[1]）作 `thread_id`。
 ///
 /// PEP723 内联依赖头（`# /// script` … `# ///`，deps 现为空列表，预留第三方依赖隔离）。
 /// shebang 是 fallback；实际由 command 串里的 `uv run --script` / `python3` 执行，故 shebang
@@ -55,7 +55,7 @@ pub fn build_hook_script(notif_type: &str) -> String {
 # aidog notification hook — auto-generated. Do not edit.
 # 触发 aidog 系统通知（POST /api/notify）。
 # Claude Code: hooks.Stop / hooks.Notification 调用（stdin 为事件 JSON，忽略）。
-# Codex: notify 调用（$1 为事件 JSON，忽略）。
+# Codex: notify 调用（$1 为事件 JSON，取 thread-id）。
 import json
 import os
 import sys
@@ -76,10 +76,15 @@ def main() -> None:
             root = root[: -len(suffix)]
     url = root + "/api/notify"
 
-    project = os.path.basename(os.getcwd())
-    body = json.dumps(
-        {{"type": "{notif_type}", "vars": {{"project": project}}}}
-    ).encode("utf-8")
+    vars_map = {{"project": os.path.basename(os.getcwd())}}
+    # Codex notify：事件 JSON 在 argv[1]，取 thread-id 供内核解析线程名；Claude Code 无参数，跳过。
+    try:
+        thread_id = json.loads(sys.argv[1]).get("thread-id")
+        if isinstance(thread_id, str) and thread_id:
+            vars_map["thread_id"] = thread_id
+    except Exception:
+        pass
+    body = json.dumps({{"type": "{notif_type}", "vars": vars_map}}).encode("utf-8")
 
     req = urllib.request.Request(
         url,
@@ -111,7 +116,7 @@ if __name__ == "__main__":
 /// 与 `build_hook_script` 不同：本脚本**读 stdin JSON**，取 `hook_event_name`(→ event) +
 /// cwd basename(→ vars.project) + `session_id`(→ vars.session) +
 /// **遍历 stdin 所有顶层标量字段**（str/int/float/bool，跳过 dict/list 嵌套）塞入 vars，
-/// str 超 `EVENT_VAR_MAX_LEN`(200) 截断加省略；POST `/api/notify` body
+/// str 超 `EVENT_VAR_MAX_LEN`(200) 截断加省略（`cwd` 与 `*_path` 路径类豁免）；POST `/api/notify` body
 /// `{"event": <name>, "vars": {...}}`（**不传 type**，后端按 per_event 解析）。
 /// 这样每事件不同入参自动进 vars，无需枚举字段；模板用 `{字段名}`，未知占位后端忽略/兜空。
 /// 无命令行传参（event 来自 stdin），绕开 CC command 是否 shell 解析参数的风险。
@@ -182,7 +187,8 @@ def main() -> None:
             text = val
         else:
             continue  # 嵌套对象/数组/None → 跳过。
-        if len(text) > max_len:
+        # 路径类变量（transcript_path 等）不截断：截断后内核读不到文件，会话名解析失败。
+        if len(text) > max_len and not (key == "cwd" or key.endswith("_path")):
             text = text[:max_len] + "..."
         vars_map[key] = text
 
