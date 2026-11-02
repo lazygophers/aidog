@@ -33,6 +33,8 @@ fn fallback_title_joins_columns_with_separator() {
     let layout = TrayLayout {
         columns: vec![col("今日", "1 tok"), col("Cache", "50%")],
         gaps: vec![None],
+        lead_gap: None,
+        trail_gap: None,
     };
     assert_eq!(fallback_title(&layout, "  "), "今日 1 tok  Cache 50%");
     assert_eq!(fallback_title(&layout, " | "), "今日 1 tok | Cache 50%");
@@ -43,11 +45,15 @@ fn fallback_title_edge_cases() {
     let empty = TrayLayout {
         columns: vec![],
         gaps: vec![],
+        lead_gap: None,
+        trail_gap: None,
     };
     assert_eq!(fallback_title(&empty, "  "), "");
     let single = TrayLayout {
         columns: vec![col("花费", "$0.1")],
         gaps: vec![],
+        lead_gap: None,
+        trail_gap: None,
     };
     // 单列不加 separator。
     assert_eq!(fallback_title(&single, "  "), "花费 $0.1");

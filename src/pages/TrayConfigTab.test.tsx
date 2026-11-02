@@ -9,6 +9,8 @@ import {
   toggleSegment,
   moveSegment,
   loadSegmentAt,
+gapSeparators,
+setGapSeparator,
   previewValue,
   trayMoney,
   type SegmentOption,
@@ -722,5 +724,148 @@ describe("拖拽装载 / 排序", () => {
     const view = await renderTab();
     expect(view.getByTestId("tray-slot-handle-0").getAttribute("aria-roledescription")).toBe("sortable");
     expect(view.queryByTestId("tray-slot-handle-2")).toBeNull();
+  });
+});
+
+// ── 票 02：分隔符（候选库 + 间隙投放）──
+const sep = (display: string, patch: Partial<TrayItem> = {}) =>
+  item({ item_type: "separator", metric: null, display, ...patch });
+/** 按启用序列展开成 "key" / "|" 之类的可读序列（分隔符用 display）。 */
+const seq = (items: TrayItem[]) =>
+  items.filter((i) => i.enabled).sort((a, b) => a.order - b.order)
+    .map((i) => (i.item_type === "separator" ? `[${i.display}]` : segmentKey(i)));
+const abc = () => [
+  item({ metric: "cost", order: 0 }), item({ metric: "tokens", order: 1 }),
+  item({ item_type: "peak", metric: null, order: 2 }),
+];
+
+describe("分隔符候选与 key", () => {
+  it("候选库含 4 个预设（| ｜ · -），key 互不相同且不撞已有 key", () => {
+    const opts = segmentOptions([], t).filter((o) => o.item.item_type === "separator");
+    expect(opts.map((o) => o.item.display)).toEqual(["|", "｜", "·", "-"]);
+    const all = segmentOptions([], t).map((o) => o.key);
+    expect(new Set(all).size).toBe(all.length);
+  });
+  it("segmentKey 对 separator 带 display 区分", () => {
+    expect(segmentKey(sep("|"))).not.toBe(segmentKey(sep("｜")));
+    expect(segmentKey(sep("·"))).toBe("separator:·");
+  });
+});
+
+describe("setGapSeparator / gapSeparators", () => {
+  it("投放到中间间隙：order 正确，不占段数", () => {
+    const next = setGapSeparator(abc(), 1, "·");
+    expect(seq(next)).toEqual(["today_usage:cost", "[·]", "today_usage:tokens", "peak"]);
+    expect(next.map((i) => i.order)).toEqual([0, 1, 2, 3]);
+    expect(gapSeparators(next)).toEqual([null, "·", null, null]);
+  });
+  it("首尾间隙也可放", () => {
+    const next = setGapSeparator(setGapSeparator(abc(), 0, "-"), 3, "|");
+    expect(seq(next)).toEqual(["[-]", "today_usage:cost", "today_usage:tokens", "peak", "[|]"]);
+  });
+  it("同一预设可重复投放到不同间隙；同间隙再投放 = 替换，至多一个", () => {
+    let next = setGapSeparator(abc(), 1, "|");
+    next = setGapSeparator(next, 2, "|");
+    expect(next.filter((i) => i.item_type === "separator")).toHaveLength(2);
+    next = setGapSeparator(next, 1, "｜");
+    expect(gapSeparators(next)).toEqual([null, "｜", "|", null]);
+    expect(next.filter((i) => i.item_type === "separator")).toHaveLength(2);
+  });
+  it("null = 拖走移除", () => {
+    const next = setGapSeparator(setGapSeparator(abc(), 1, "·"), 1, null);
+    expect(seq(next)).toEqual(["today_usage:cost", "today_usage:tokens", "peak"]);
+    expect(next.some((i) => i.item_type === "separator")).toBe(false);
+  });
+  it("I15 关掉的旧分隔符项原样保留、不复活、不进 gaps", () => {
+    const legacy = sep("—", { enabled: false, order: 3 });
+    const next = setGapSeparator([...abc(), legacy], 1, "·");
+    expect(gapSeparators(next)).toEqual([null, "·", null, null]);
+    const kept = next.filter((i) => i.item_type === "separator" && !i.enabled);
+    expect(kept).toHaveLength(1);
+    expect(kept[0].display).toBe("—");
+  });
+});
+
+describe("分隔符与段增删/移动共存", () => {
+  it("moveSegment：分隔符留在原间隙位置", () => {
+    const items = setGapSeparator(abc(), 1, "·");
+    expect(seq(moveSegment(items, "today_usage:cost", 2))).toEqual(
+      ["today_usage:tokens", "[·]", "peak", "today_usage:cost"],
+    );
+  });
+  it("loadSegmentAt：新段插在该位置，原间隙分隔符仍在其右侧邻位（不丢）", () => {
+    const items = setGapSeparator(abc(), 1, "·"); // cost [·] tokens peak
+    const next = loadSegmentAt(items, byKey("today_usage:requests"), 1);
+    expect(seq(next)).toEqual(["today_usage:cost", "today_usage:requests", "[·]", "today_usage:tokens", "peak"]);
+  });
+  it("toggleSegment 关掉一段：其左侧间隙一并移除，其余分隔符保留，尾部分隔符仍在尾部", () => {
+    let items = setGapSeparator(abc(), 1, "·");
+    items = setGapSeparator(items, 3, "|");
+    const next = toggleSegment(items, byKey("today_usage:tokens"));
+    expect(seq(next)).toEqual(["today_usage:cost", "peak", "[|]"]);
+  });
+  it("toggleSegment 追加新段：尾部分隔符仍在尾部", () => {
+    const items = setGapSeparator(abc(), 3, "|");
+    expect(seq(toggleSegment(items, byKey("today_usage:requests")))).toEqual(
+      ["today_usage:cost", "today_usage:tokens", "peak", "today_usage:requests", "[|]"],
+    );
+  });
+});
+
+describe("分隔符拖拽", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+  const sentSeq = () => seq(api.set.mock.calls[0][0].items as TrayItem[]);
+
+  it("分隔符芯片拖到间隙 → 持久化 separator 项在正确 order", async () => {
+    await renderTab();
+    drop("chip:separator:·", "gap:1");
+    expect(api.set).toHaveBeenCalledTimes(1);
+    expect(sentSeq()).toEqual(["today_usage:cost", "[·]", "today_usage:tokens"]);
+  });
+  it("同一预设可重复拖入（库内芯片不会因已装载而禁用）", async () => {
+    const view = await renderTab({
+      separator: "  ",
+      items: [item({ metric: "cost", order: 0 }), sep("·", { order: 1 }), item({ metric: "tokens", order: 2 })],
+    });
+    expect(view.getByTestId("tray-chip-separator:·").getAttribute("data-state")).toBe("");
+    drop("chip:separator:·", "gap:2");
+    expect(sentSeq()).toEqual(["today_usage:cost", "[·]", "today_usage:tokens", "[·]"]);
+  });
+  it("首尾间隙可投放", async () => {
+    await renderTab();
+    drop("chip:separator:|", "gap:0");
+    expect(sentSeq()).toEqual(["[|]", "today_usage:cost", "today_usage:tokens"]);
+  });
+  it("间隙内分隔符拖回候选库 = 移除；拖到另一间隙 = 移动", async () => {
+    const cfg = {
+      separator: "  ",
+      items: [item({ metric: "cost", order: 0 }), sep("·", { order: 1 }), item({ metric: "tokens", order: 2 })],
+    };
+    await renderTab(cfg);
+    drop("gapsep:1", "library");
+    expect(sentSeq()).toEqual(["today_usage:cost", "today_usage:tokens"]);
+    vi.clearAllMocks();
+    await renderTab(cfg);
+    drop("gapsep:1", "gap:2");
+    expect(sentSeq()).toEqual(["today_usage:cost", "today_usage:tokens", "[·]"]);
+  });
+  it("分隔符芯片不能落在槽上（无效落点不持久化）；预览条显示分隔符", async () => {
+    const view = await renderTab({
+      separator: "  ",
+      items: [item({ metric: "cost", order: 0 }), sep("｜", { order: 1 }), item({ metric: "tokens", order: 2 })],
+    });
+    drop("chip:separator:|", "slot:today_usage:cost");
+    expect(api.set).not.toHaveBeenCalled();
+    expect(view.getByTestId("tray-preview-sep-1").textContent).toBe("｜");
+  });
+  it("旧版已禁用的分隔符仍显示「已保留未启用」提示，不进装载序列", async () => {
+    const view = await renderTab({
+      separator: "  ",
+      items: [item({ metric: "cost", order: 0 }), sep("|", { order: 1, enabled: false })],
+    });
+    expect(view.getByTestId("tray-kept-disabled")).toBeTruthy();
+    expect(view.queryByTestId("tray-preview-sep-1")).toBeNull();
   });
 });

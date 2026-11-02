@@ -7,9 +7,8 @@ import type { TrayColor } from "./TrayColor";
  * - item_type="today_usage": metric ∈ {"tokens","cache_rate","cost","requests"}，display/platform_id 忽略
  * - item_type="routed_platform": 当前命中平台（取最近一条非测试 proxy_log 的平台），无字段
  * - item_type="peak": 高峰指示（按当前命中平台的 peak 窗口判定），无字段
- * - item_type="separator": display 存分隔符文本（如 "|"、"·"、"—"）。
- *   票 I15 起 separator 不再可选，存量 separator 项一律被
- *   [`clamp_to_segments`] 置 `enabled=false` 留在配置里（不删）。
+ * - item_type="separator": display 存分隔符预设（"|"、"｜"、"·"、"-" 四选一，其余渲染时回落 "·"）；
+ *   不占段数，可放在任意相邻两段之间及首尾。票 I15 禁用的存量项（`enabled=false`）不恢复。
  */
 export type TrayItem = { item_type: string, platform_id: number | null, display: string, metric: string | null, 
 /**
