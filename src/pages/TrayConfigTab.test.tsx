@@ -12,6 +12,8 @@ import {
 gapSeparators,
 setGapSeparator,
   previewValue,
+  previewLevel,
+  segColor,
   trayMoney,
   type SegmentOption,
 } from "./TrayConfigTab";
@@ -867,5 +869,44 @@ describe("分隔符拖拽", () => {
     });
     expect(view.getByTestId("tray-kept-disabled")).toBeTruthy();
     expect(view.queryByTestId("tray-preview-sep-1")).toBeNull();
+  });
+});
+
+// ── 颜色「自动」模式（票 托盘-颜色分隔符槽位/03）──
+
+describe("颜色 auto 模式", () => {
+  it("新装载候选段默认 auto；已有段（item() 夹具 follow）不被改写", () => {
+    for (const o of segmentOptions([plat as never], t)) expect(o.item.color).toEqual({ mode: "auto", value: "" });
+    const next = toggleSegment([item({ metric: "cost", enabled: false })], byKey("today_usage:cost"));
+    expect(next[0].color).toEqual({ mode: "follow", value: "" });
+  });
+
+  it("segColor：auto 按 level 取界面 token，无 level -> 菜单栏前景；follow 不受 level 影响", () => {
+    const auto = { mode: "auto", value: "" };
+    expect(segColor(auto, "danger")).toBe("var(--destructive)");
+    expect(segColor(auto, "warning")).toBe("var(--warning)");
+    expect(segColor(auto, "success")).toBe("var(--success)");
+    expect(segColor(auto, "neutral")).toBe("var(--mb-fg-strong)");
+    expect(segColor(auto)).toBe("var(--mb-fg-strong)");
+    expect(segColor({ mode: "follow", value: "" }, "danger")).toBe("var(--mb-fg-strong)");
+  });
+
+  it("previewLevel：余额取后端 balance_level，coding 按 usageColor 进度差，today 无 level", () => {
+    const now = 1_800_000_000_000;
+    const coding = (util: number) => ({
+      id: 7, balance_level: "neutral",
+      est_coding_plan: JSON.stringify({ tiers: [{ name: "five_hour", est_utilization: util, window_start: now - 3_600_000 }] }),
+    }) as unknown as Platform;
+    const bal = (lv: string) => ({ id: 7, balance_level: lv, est_coding_plan: "" }) as unknown as Platform;
+    const pi = platformItem({ display: "balance" });
+    expect(previewLevel(pi, [bal("green")], now)).toBe("success");
+    expect(previewLevel(pi, [bal("yellow")], now)).toBe("warning");
+    expect(previewLevel(pi, [bal("red")], now)).toBe("danger");
+    expect(previewLevel(pi, [bal("")], now)).toBe("neutral");
+    const ci = platformItem({ metrics: ["coding"] });
+    expect(previewLevel(ci, [coding(10)], now)).toBe("success"); // 时间过 20%，差 -10
+    expect(previewLevel(ci, [coding(20)], now)).toBe("warning");
+    expect(previewLevel(ci, [coding(40)], now)).toBe("danger");
+    expect(previewLevel(item({ metric: "cost" }), [], now)).toBe("neutral");
   });
 });

@@ -2594,6 +2594,7 @@
   "tray.colorCustom": "مخصص",
   "tray.colorInvalid": "لون غير صالح، استخدم مثل #RRGGBB",
   "tray.colorFollow": "اتبع النظام",
+  "tray.colorAuto": "تلقائي",
   "tray.colorPreset": "لون جاهز",
   "tray.colorWarning": "قد يكون هذا اللون غير واضح تحت بعض سمات شريط القوائم",
   "tray.custom": "مخصص",

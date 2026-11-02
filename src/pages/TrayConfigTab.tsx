@@ -18,6 +18,8 @@ import { CostTrendCard, buildTrendQuery, type PopoverData } from "../components/
 import { useReveal } from "../components/shared";
 import { getDisplayCurrency, useDisplayCurrency } from "../utils/displayCurrency";
 import { formatMoney } from "../utils/formatters";
+import type { ColorLevel } from "../components/shared/colorScale";
+import { codingTierLevel, cycleMsForTier, usageLevelToColor } from "../components/shared/usageColor";
 import { platformBalanceUsd, useBalanceCurrencies } from "../utils/balanceCurrency";
 import type { DisplayCurrency } from "../services/api/types";
 import {
@@ -85,7 +87,7 @@ function makeItem(patch: Partial<TrayItem>): TrayItem {
   return {
     item_type: "today_usage", platform_id: null, display: "", metric: null, label: null,
     decimals: null, metrics: null, unit: null,
-    color: { mode: "follow", value: "" }, font_size: 9, line_mode: "single",
+    color: { mode: "auto", value: "" }, font_size: 9, line_mode: "single", // 新装载段默认 auto；已有段不迁移
     align: "left", align_row2: null, enabled: true, order: 0,
     ...patch,
   };
@@ -170,7 +172,36 @@ const PRESET_COLORS: Record<string, string> = {
 };
 const ALIGN_FLEX: Record<string, string> = { left: "flex-start", center: "center", right: "flex-end" };
 
-export function segColor(c: TrayItem["color"]): string {
+const LEVEL_COLORS: Partial<Record<ColorLevel, string>> = {
+  danger: "var(--destructive)", warning: "var(--warning)", success: "var(--success)",
+};
+
+/** auto 预览用的 level：余额取后端 balance_level，coding 按 usageColor 进度差（与 Rust platform_item_level 同源阈值）；其余 neutral。 */
+export function previewLevel(item: TrayItem, platforms: Platform[], nowMs: number = Date.now()): ColorLevel {
+  if (item.item_type !== "platform") return "neutral";
+  const p = platforms.find((pp) => pp.id === item.platform_id);
+  if (!p) return "neutral";
+  let tiers: { name: string; est_utilization: number; window_start?: number }[] = [];
+  try {
+    tiers = (JSON.parse(p.est_coding_plan || "{}") as { tiers?: typeof tiers }).tiers ?? [];
+  } catch { /* 旧数据无 plan */ }
+  const balance = (): ColorLevel => usageLevelToColor(p.balance_level);
+  const coding = (metric: string): ColorLevel => {
+    const tier = metric === "coding" ? tiers[0] : tiers.find((x) => `coding:${x.name}` === metric);
+    const cycle = tier ? cycleMsForTier(tier.name) : null;
+    if (!tier || cycle == null || !tier.window_start) return "neutral";
+    return codingTierLevel(tier.est_utilization, tier.window_start + cycle - nowMs, cycle);
+  };
+  const one = (m: string): ColorLevel => (m === "balance" ? balance() : m.startsWith("coding") ? coding(m) : "neutral");
+  const rank: ColorLevel[] = ["neutral", "success", "warning", "danger"];
+  const levels = item.metrics?.length
+    ? item.metrics.map(one)
+    : [tiers.length || item.display === "coding" ? coding("coding") : balance()];
+  return levels.reduce((a, b) => (rank.indexOf(b) > rank.indexOf(a) ? b : a), "neutral" as ColorLevel);
+}
+
+export function segColor(c: TrayItem["color"], level?: ColorLevel): string {
+  if (c.mode === "auto") return (level && LEVEL_COLORS[level]) || "var(--mb-fg-strong)";
   if (c.mode === "preset") return PRESET_COLORS[c.value] ?? "var(--mb-fg-strong)";
   if (c.mode === "custom" && HEX_RE.test(c.value)) return c.value;
   return "var(--mb-fg-strong)";
@@ -484,6 +515,14 @@ export function SegmentEditor({
             onClick={() => { setCustomOn(false); setHexInvalid(false); onPatch({ color: { mode: "follow", value: "" } }); }}
           >
             {t("tray.colorFollow", "跟随主题")}
+          </button>
+          <button
+            data-testid="tray-edit-color-auto"
+            data-state={seg.color.mode === "auto" ? "active" : ""}
+            style={seg.color.mode === "auto" ? editorBtnActive : editorBtn}
+            onClick={() => { setCustomOn(false); setHexInvalid(false); onPatch({ color: { mode: "auto", value: "" } }); }}
+          >
+            {t("tray.colorAuto", "自动")}
           </button>
           <button
             data-testid="tray-edit-color-preset"
@@ -908,7 +947,7 @@ export function TrayConfigTab() {
                       {seg.label || opt?.label || segmentKey(seg)}
                       <span
                         style={{
-                          color: segColor(seg.color),
+                          color: segColor(seg.color, previewLevel(seg, platforms)),
                           alignSelf: two ? (ALIGN_FLEX[seg.align_row2 ?? seg.align] ?? "flex-start") : undefined,
                         }}
                       >

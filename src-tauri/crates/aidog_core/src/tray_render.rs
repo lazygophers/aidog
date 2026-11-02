@@ -31,6 +31,11 @@ pub struct TrayColumn {
     pub name: String,
     pub value: String,
     pub color: TrayColor,
+    /// 用量级别 "red" | "yellow" | "green"（`usage_color::UsageLevel`，Neutral / 无可判定 = None）。
+    /// 仅 `color.mode == "auto"` 的渲染读它；旧 JSON 无此字段 → None。
+    #[serde(default)]
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub level: Option<String>,
     // 以下 4 字段为 macOS 富文本渲染（set_tray_attributed_title）专属参数；
     // 非 macOS 走 fallback 纯文本路径不读取，故平台条件 allow(dead_code)。
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
@@ -43,6 +48,34 @@ pub struct TrayColumn {
     /// 两行模式第二行对齐，None = 跟随 align
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub align_row2: Option<String>,
+}
+
+impl TrayColumn {
+    /// 渲染用的有效颜色：`auto` 按 level 落成 preset（red / orange / green），无 level -> follow（labelColor）；
+    /// 其它 mode 原样。level -> 色名的唯一映射点；要改「绿也用 labelColor」只改 `auto_preset`。
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub(crate) fn render_color(&self) -> TrayColor {
+        if self.color.mode != "auto" {
+            return self.color.clone();
+        }
+        match auto_preset(self.level.as_deref()) {
+            Some(value) => TrayColor {
+                mode: "preset".to_string(),
+                value: value.to_string(),
+            },
+            None => TrayColor::default(),
+        }
+    }
+}
+
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn auto_preset(level: Option<&str>) -> Option<&'static str> {
+    match level {
+        Some("red") => Some("red"),
+        Some("yellow") => Some("orange"),
+        Some("green") => Some("green"),
+        _ => None,
+    }
 }
 
 /// 分隔符 4 预设（与前端 TrayConfigTab 候选库一致）。
@@ -342,7 +375,7 @@ pub(crate) fn set_tray_attributed_title(
                 result.appendAttributedString(&make_part(
                     &aligned,
                     TRAY_FONT_SIZE,
-                    &col.color,
+                    &col.render_color(),
                     &para,
                 ));
             }
@@ -392,7 +425,7 @@ pub(crate) fn set_tray_attributed_title(
                     let col_w = col_widths.get(idx).copied().unwrap_or(0.0);
                     let aligned = align_text(&line2, col_w, row2_font, row2_align);
                     result
-                        .appendAttributedString(&make_part(&aligned, row2_font, &col.color, &para));
+                        .appendAttributedString(&make_part(&aligned, row2_font, &col.render_color(), &para));
                 }
             }
             if let Some(t) = trail_gap.as_deref() {
@@ -428,7 +461,7 @@ pub(crate) fn set_tray_attributed_title(
                 result.appendAttributedString(&make_part(
                     &text,
                     single_line_font_size,
-                    &col.color,
+                    &col.render_color(),
                     &para,
                 ));
             }
@@ -664,6 +697,51 @@ fn platform_metric_value(
     }
 }
 
+/// 平台槽的用量级别（`auto` 颜色用）：余额按 `days_remaining`、coding 按 tier 进度差，
+/// 阈值全部来自 `usage_color`。多指标槽取最差档；today_* / reset_time 无 level；
+/// manual 配额平台的余额无 level（与 platform_list 一致）。
+pub(crate) fn platform_item_level(
+    platform: &Platform,
+    item: &TrayItem,
+    days_remaining: Option<f64>,
+    now_ms: i64,
+) -> Option<&'static str> {
+    use gateway::usage_color::UsageLevel;
+    let plan = gateway::estimate::EstCodingPlan::from_json(&platform.est_coding_plan);
+    let tier_level = |t: Option<&gateway::estimate::EstTier>| {
+        t.map_or(UsageLevel::Neutral, |t| {
+            gateway::estimate::tier_usage_level(t, now_ms)
+        })
+    };
+    let level_of = |metric: &str| -> UsageLevel {
+        match metric {
+            "balance" if db::is_manual_quota_source(&platform.quota_source) => UsageLevel::Neutral,
+            "balance" => gateway::usage_color::balance_level(days_remaining),
+            "coding" => tier_level(plan.tiers.first()),
+            m if m.starts_with("coding:") => {
+                tier_level(plan.tiers.iter().find(|t| t.name == m["coding:".len()..]))
+            }
+            _ => UsageLevel::Neutral,
+        }
+    };
+    let severity = |l: UsageLevel| match l {
+        UsageLevel::Red => 3,
+        UsageLevel::Yellow => 2,
+        UsageLevel::Green => 1,
+        UsageLevel::Neutral => 0,
+    };
+    let worst = match item.metrics.as_deref().filter(|m| !m.is_empty()) {
+        Some(ms) => ms.iter().map(|m| level_of(m)).max_by_key(|l| severity(*l)),
+        // 旧口径与 platform_item_parts 同判据：coding plan 数据优先于 display=balance。
+        None if item.display == "coding" || !plan.tiers.is_empty() => Some(level_of("coding")),
+        None => Some(level_of("balance")),
+    };
+    match worst {
+        Some(UsageLevel::Neutral) | None => None,
+        Some(l) => Some(l.as_str()),
+    }
+}
+
 /// 重置时刻本地时区展示：今天内 `HH:mm`，跨天 `MM-dd HH:mm`。
 fn format_reset_time(reset_ms: i64) -> String {
     use chrono::TimeZone;
@@ -818,6 +896,7 @@ pub(crate) async fn tray_layout_with_stats(
         }
 
         let two_line = item.line_mode == "two";
+        let mut level: Option<&'static str> = None;
         let (name, value) = match item.item_type.as_str() {
             "platform" => {
                 let Some(pid) = item.platform_id else {
@@ -833,6 +912,21 @@ pub(crate) async fn tray_layout_with_stats(
                     &currency,
                     balance_ccys.get(&pid).map(String::as_str),
                 );
+                if item.color.mode == "auto" {
+                    // 与 platform_list / group-info 同式：余额 / 动态窗口日速率 / 24。
+                    let manual_total: f64 = platform
+                        .manual_budgets
+                        .iter()
+                        .filter(|b| b.enabled && b.kind == "total")
+                        .map(gateway::manual_budget::remaining)
+                        .sum();
+                    let balance = platform.est_balance_remaining.max(manual_total);
+                    let days_remaining = match aidog_stats::get_platform_hourly_rate(db, platform.id).await {
+                        Ok(Some(rate)) if rate > 0.0 && balance > 0.0 => Some((balance / rate) / 24.0),
+                        _ => None,
+                    };
+                    level = platform_item_level(platform, item, days_remaining, now_ms);
+                }
                 (platform.name.clone(), value)
             }
             "routed_platform" => routed_item_parts(routed_platform.as_ref()),
@@ -889,6 +983,7 @@ pub(crate) async fn tray_layout_with_stats(
             name,
             value,
             color: item.color.clone(),
+            level: level.map(str::to_string),
             font_size: item.font_size,
             two_line,
             align: item.align.clone(),

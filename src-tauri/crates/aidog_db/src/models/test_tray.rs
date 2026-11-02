@@ -209,3 +209,15 @@ fn default_segments_are_cost_routed_peak() {
     assert_eq!(cfg.items[0].metric.as_deref(), Some("cost"));
     assert_eq!(cfg.items.len(), 3);
 }
+
+#[test]
+fn legacy_color_without_mode_stays_follow_and_auto_roundtrips() {
+    // 旧 JSON（无 mode）不变、默认 follow；auto 只是新词表值，无迁移。
+    let legacy: TrayColor = serde_json::from_str("{}").unwrap();
+    assert_eq!((legacy.mode.as_str(), legacy.value.as_str()), ("follow", ""));
+    let auto: TrayColor = serde_json::from_str(r#"{"mode":"auto"}"#).unwrap();
+    assert_eq!(auto.mode, "auto");
+    let back: TrayColor = serde_json::from_str(&serde_json::to_string(&auto).unwrap()).unwrap();
+    assert_eq!(back.mode, "auto");
+    assert_eq!(TrayColor::default().mode, "follow");
+}

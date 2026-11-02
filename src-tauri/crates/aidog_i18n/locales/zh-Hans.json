@@ -2572,6 +2572,7 @@
   "tray.colorCustom": "自定义",
   "tray.colorInvalid": "颜色格式无效，请输入如 #RRGGBB",
   "tray.colorFollow": "跟随系统",
+  "tray.colorAuto": "自动",
   "tray.colorPreset": "预设色",
   "tray.colorWarning": "该颜色在部分菜单栏主题下可能不清晰",
   "tray.custom": "自定义",

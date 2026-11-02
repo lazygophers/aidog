@@ -12,6 +12,7 @@ fn col(name: &str, value: &str) -> TrayColumn {
         name: name.to_string(),
         value: value.to_string(),
         color: TrayColor::default(),
+        level: None,
         font_size: 9.0,
         two_line: false,
         align: "left".to_string(),
