@@ -3,7 +3,7 @@
 //! 覆盖的是换宿主后**原地不动**那 246 行：排序 / 禁用跳过 / separator→gaps 映射 /
 //! today_usage 各 metric / 自定义 label / 小数位 / 尾零裁剪。AppKit 渲染不在此测。
 
-use super::{align_pad, col_width,platform_item_parts, tab_stop_locs, tray_layout, tray_money, trim_trailing_zeros};
+use super::{align_pad, col_width, line_gap_text, platform_item_parts, tab_stop_locs, tray_layout, tray_money, trim_trailing_zeros};
 use aidog_db::currency::{DisplayCurrency, DisplayCurrencySetting, build_display_currency};
 use aidog_db::{Db, TrayConfig, TrayItem, set_tray_config};
 use aidog_stats::DbInitTables;
@@ -728,4 +728,17 @@ async fn today_cost_never_has_level_even_in_auto() {
     let l = layout_of(vec![it]).await;
     assert_eq!(l.columns[0].color.mode, "auto");
     assert_eq!(l.columns[0].level, None);
+}
+
+#[test]
+fn two_line_mode_separator_draws_on_label_row_only() {
+    // 两行条目（如 coding plan 的配额行 + 重置时间行）：分隔符每边界只画一条——
+    // 标签行（row 0）照画，值行（row 1）恒空（宽度仍由 tab stop 保留，列对齐不变）。
+    let gaps = vec![Some(" · ".to_string())];
+    let lead = Some(" - ".to_string());
+    assert_eq!(line_gap_text(0, lead.as_ref(), &gaps, 0), " - ");
+    assert_eq!(line_gap_text(1, lead.as_ref(), &gaps, 0), " · ");
+    assert_eq!(line_gap_text(0, lead.as_ref(), &gaps, 1), "");
+    assert_eq!(line_gap_text(1, lead.as_ref(), &gaps, 1), "");
+    assert_eq!(line_gap_text(1, None, &gaps, 1), "");
 }
