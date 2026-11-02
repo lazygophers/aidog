@@ -521,6 +521,48 @@ export function serializeAllowedClients(extra: string, codes: string[]): string 
   return JSON.stringify(obj);
 }
 
+export type ClientUaRuleKind = "contains" | "prefix" | "exact" | "regex";
+export interface ClientUaRule { kind: ClientUaRuleKind; pattern: string }
+
+const UA_RULE_KINDS: readonly string[] = ["contains", "prefix", "exact", "regex"];
+
+/** 从 platform.extra 解析白名单 UA 规则；缺失 / 非法 → []，形状不对的项丢弃。 */
+export function parseClientUaRules(extra: string): ClientUaRule[] {
+  if (!extra.trim()) return [];
+  try {
+    const arr = (JSON.parse(extra) as { client_ua_rules?: unknown } | null)?.client_ua_rules;
+    if (!Array.isArray(arr)) return [];
+    return arr.flatMap((r): ClientUaRule[] =>
+      r && typeof r === "object" && UA_RULE_KINDS.includes((r as ClientUaRule).kind) && typeof (r as ClientUaRule).pattern === "string"
+        ? [{ kind: (r as ClientUaRule).kind, pattern: (r as ClientUaRule).pattern }]
+        : []);
+  } catch { return []; }
+}
+
+/** 把 UA 规则写回 extra（保留其余键）；空数组 → 删键。 */
+export function serializeClientUaRules(extra: string, rules: ClientUaRule[]): string {
+  let obj: Record<string, unknown> = {};
+  if (extra.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(extra);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) obj = parsed as Record<string, unknown>;
+    } catch { /* ignore */ }
+  }
+  if (rules.length === 0) delete obj.client_ua_rules;
+  else obj.client_ua_rules = rules;
+  return JSON.stringify(obj);
+}
+
+/** 即时校验：空 pattern -> "empty"；非法正则 -> "regex"。
+ *  shortcut: 正则用 JS RegExp 校验，与后端 Rust regex 语法有细微差异（如 lookahead），后端保存校验为准。 */
+export function validateClientUaRule(r: ClientUaRule): "empty" | "regex" | null {
+  if (!r.pattern.trim()) return "empty";
+  if (r.kind === "regex") {
+    try { new RegExp(r.pattern, "i"); } catch { return "regex"; }
+  }
+  return null;
+}
+
 /** 大类勾选态：大类码在 = 全选；否则按变体命中数 some/none（变体全在也算 all）。 */
 export function clientCategoryState(sel: string[], cat: ClientVocabCategory): "all" | "some" | "none" {
   if (sel.includes(cat.code)) return "all";

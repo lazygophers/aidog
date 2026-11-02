@@ -15,6 +15,7 @@ import {
   parseDirectModels,
   serializeDirectModels,
   parseAllowedClients, serializeAllowedClients, toggleClientCategory, toggleClientVariant, clientCategoryState,
+  parseClientUaRules, serializeClientUaRules, validateClientUaRule, type ClientUaRule,
   parseAppbuilderKey,
   serializeAppbuilderKey,
   parseMitmStats,
@@ -503,5 +504,34 @@ describe("allowed_clients（平台客户端白名单）", () => {
     expect(toggleClientVariant(["cc_a"], cc, "cc_b", true)).toEqual(["claude_code"]);
     expect(toggleClientVariant(["claude_code", "x"], cc, "cc_a", false)).toEqual(["x", "cc_b"]);
     expect(toggleClientVariant(["cc_a", "cc_b"], cc, "cc_a", false)).toEqual(["cc_b"]);
+  });
+});
+
+describe("client_ua_rules（平台白名单 UA 规则）", () => {
+  it("解析：缺省 / 非法 / 非数组 → []；过滤形状不对的项，保留 kind+pattern", () => {
+    expect(parseClientUaRules("")).toEqual([]);
+    expect(parseClientUaRules("not-json")).toEqual([]);
+    expect(parseClientUaRules('{"client_ua_rules":"x"}')).toEqual([]);
+    expect(
+      parseClientUaRules(
+        '{"client_ua_rules":[{"kind":"contains","pattern":"a"},{"kind":"glob","pattern":"b"},{"kind":"regex"},1,{"kind":"exact","pattern":"c"}]}',
+      ),
+    ).toEqual([{ kind: "contains", pattern: "a" }, { kind: "exact", pattern: "c" }]);
+  });
+
+  it("序列化：保留其余键；空数组删键；往返一致", () => {
+    const rules: ClientUaRule[] = [{ kind: "prefix", pattern: "openviking/" }, { kind: "regex", pattern: "^x" }];
+    const s = serializeClientUaRules('{"keep":1}', rules);
+    expect(JSON.parse(s)).toEqual({ keep: 1, client_ua_rules: rules });
+    expect(parseClientUaRules(s)).toEqual(rules);
+    expect(JSON.parse(serializeClientUaRules(s, []))).toEqual({ keep: 1 });
+  });
+
+  it("校验：空 / 纯空白 pattern -> empty；非法正则 -> regex；合法 -> null；非 regex kind 不编译", () => {
+    expect(validateClientUaRule({ kind: "contains", pattern: "" })).toBe("empty");
+    expect(validateClientUaRule({ kind: "exact", pattern: "   " })).toBe("empty");
+    expect(validateClientUaRule({ kind: "regex", pattern: "(" })).toBe("regex");
+    expect(validateClientUaRule({ kind: "regex", pattern: "^open.*" })).toBeNull();
+    expect(validateClientUaRule({ kind: "contains", pattern: "(" })).toBeNull();
   });
 });

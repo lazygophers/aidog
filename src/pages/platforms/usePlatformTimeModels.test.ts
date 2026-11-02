@@ -68,3 +68,20 @@ describe("usePlatformTimeModels", () => {
     expect(result.current.directModels).toEqual([]);
   });
 });
+
+describe("usePlatformTimeModels — client_ua_rules", () => {
+  it("hydrate 回显 / serialize 写回 / 清空删键，其余键保留", () => {
+    const rules = [{ kind: "contains", pattern: "openviking" }];
+    const ex = JSON.stringify({ keep: "yes", client_ua_rules: rules });
+    const { result } = renderHook(() => usePlatformTimeModels());
+    act(() => result.current.hydrate(ex));
+    expect(result.current.uaRules).toEqual(rules);
+    expect(JSON.parse(result.current.serialize(ex)).client_ua_rules).toEqual(rules);
+    act(() => result.current.setUaRules([]));
+    const cleared = JSON.parse(result.current.serialize(ex));
+    expect(cleared.client_ua_rules).toBeUndefined();
+    expect(cleared.keep).toBe("yes");
+    act(() => result.current.reset());
+    expect(result.current.uaRules).toEqual([]);
+  });
+});
