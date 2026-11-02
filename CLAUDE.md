@@ -34,6 +34,7 @@
 - 目录布局：`src-tauri/defaults/{settings,codex,pi}/<id>.json`，一份预设 = 一个文件，id = 文件名主干（发布后禁改名）；顶层必带 `_aidog_preset_name`（显示名，写出前剥离）。编译期清单由 `aidog_core/build.rs` 生成，前端经 command 取列表，≥2 份才弹选择框；默认预设固定 `oss`，缺 `oss` 构建失败。
 - `GITHUB_ACTIONS=true` 构建清单只含 `oss`（过滤逻辑 `aidog_core/src/preset_filter.rs`），本地 `make install` / `make release` 全量；`rerun-if-env-changed` 已登记。测试禁依赖份数。
 - 新增预设 = 在对应目录放一个 json 文件，不改 Rust / TS；需翻译显示名才加前端 id→key 映射 + 8 locale。
+- 改 preset 的 `permissions.allow` 后同步两份全局拷贝（git 外，仓内改动不会带上）：`~/.claude/settings.json` 与 `~/.claude/settings.claude.json`；三处名单保持逐条一致。
 - 自检：`GITHUB_ACTIONS=true cargo test --workspace` 后对测试二进制 `strings | grep -c lazygophers/ccplugin`（非 oss 独有标记）应为 0，不设变量应 >0。
 - 风险：非 `oss` 预设（如 `lazygophers.json`）是个人配置且进公开 git，禁放密钥 / token / 内网地址，提交前过凭据扫描。
 
