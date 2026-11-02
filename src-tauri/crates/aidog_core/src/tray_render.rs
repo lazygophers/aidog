@@ -173,6 +173,26 @@ pub(crate) fn measure_text_width(text: &str, font_size: f64) -> f64 {
     unsafe { ns_text.sizeWithAttributes(Some(&attrs)) }.width
 }
 
+/// 两行模式下「边界 idx 前、第 row 行」应画的间隙分隔文本（lead/trail 已含补空格的成品文本）。
+///
+/// row = 0 标签行、1 值行。分隔符每边界只画一条（标签行），值行恒空——宽度仍由 tab stop
+/// 保留（测量恒按 row = 0 计），列对齐不变，不再每行各出一条分隔符（对齐设置页预览）。
+fn line_gap_text(
+    idx: usize,
+    lead_gap: Option<&String>,
+    gaps: &[Option<String>],
+    row: usize,
+) -> String {
+    if row != 0 {
+        return String::new();
+    }
+    if idx == 0 {
+        lead_gap.cloned().unwrap_or_default()
+    } else {
+        gaps.get(idx - 1).and_then(|g| g.clone()).unwrap_or_default()
+    }
+}
+
 /// macOS：用 attributedTitle 给菜单栏 button 设多列小字（每列独立颜色/字号）。
 /// tray-icon 的 set_title 走 button.setTitle(NSString) 无字号/颜色控制，故直接操作 NSStatusItem button。
 /// 票 I10 起 button 由 `crate::menubar` 自持的 NSStatusItem 提供（不再经 Tauri 透传），
@@ -247,12 +267,8 @@ pub(crate) fn set_tray_attributed_title(
         // 两行都用 left tab @列右边界 → 同一列两行起始位置相同 → 列边界对齐。
         // 分隔符文字（首段前 lead / 列间 gap）也占宽，计入各列 tab 位置；两行统一用 TRAY_FONT_SIZE 测宽与绘制，
         // 保证两行同一列起点一致。
-        let gap_text_of = |idx: usize| -> String {
-            if idx == 0 {
-                lead_gap.clone().unwrap_or_default()
-            } else {
-                gaps.get(idx - 1).and_then(|g| g.clone()).unwrap_or_default()
-            }
+        let gap_text_of = |idx: usize, row: usize| -> String {
+            line_gap_text(idx, lead_gap.as_ref(), &gaps, row)
         };
         let mut col_widths: Vec<f64> = Vec::new();
         if two_line_mode {
@@ -275,7 +291,7 @@ pub(crate) fn set_tray_attributed_title(
                 let col_w = col_width(w1, w2);
                 col_widths.push(col_w);
                 content_ws.push(col_w);
-                let gt = gap_text_of(idx);
+                let gt = gap_text_of(idx, 0);
                 gap_ws.push(if gt.is_empty() {
                     0.0
                 } else {
@@ -356,7 +372,7 @@ pub(crate) fn set_tray_attributed_title(
                         &para,
                     ));
                 }
-                let gap_text = gap_text_of(idx);
+                let gap_text = gap_text_of(idx, 0);
                 if !gap_text.is_empty() {
                     result.appendAttributedString(&make_part(
                         &gap_text,
@@ -394,7 +410,6 @@ pub(crate) fn set_tray_attributed_title(
                 .map(|c| c.font_size)
                 .unwrap_or(TRAY_FONT_SIZE);
             result.appendAttributedString(&make_part("\n", nl_font, &follow_color, &para));
-            let row2_font_trail = TRAY_FONT_SIZE + 3.0;
             // 第二行（值行）：与标签行相同结构，对齐取 align_row2（fallback align）。字体比标签行大1pt。
             for (idx, col) in columns.iter().enumerate() {
                 let row2_font = TRAY_FONT_SIZE + 3.0;
@@ -406,7 +421,7 @@ pub(crate) fn set_tray_attributed_title(
                         &para,
                     ));
                 }
-                let gap_text = gap_text_of(idx);
+                let gap_text = gap_text_of(idx, 1);
                 if !gap_text.is_empty() {
                     result.appendAttributedString(&make_part(
                         &gap_text,
@@ -428,15 +443,7 @@ pub(crate) fn set_tray_attributed_title(
                         .appendAttributedString(&make_part(&aligned, row2_font, &col.render_color(), &para));
                 }
             }
-            if let Some(t) = trail_gap.as_deref() {
-                result.appendAttributedString(&make_part(
-                    "\t",
-                    row2_font_trail,
-                    &follow_color,
-                    &para,
-                ));
-                result.appendAttributedString(&make_part(t, TRAY_FONT_SIZE, &follow_color, &para));
-            }
+            // 值行行尾不重复画 trail 分隔符（同 lead/中间 gap：每边界只画一条，见 line_gap_text）。
         } else {
             // 单行模式：每列 "名 值"，列间用 gap 拼接。字号加大（只有一行，充分利用菜单栏高度）。
             let default_gap = " ".to_string();
