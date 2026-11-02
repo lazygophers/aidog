@@ -61,6 +61,59 @@ const fmtValue = (metric: FlowMetric, v: number) => (metric === "cost" ? formatM
 interface LNode { key: string; ci: number; id: string; v: number; y: number; h: number; color: string }
 interface LLink { key: string; ci: number; a: string; b: string; v: number; y1: number; y2: number; w: number; color: string; color2: string }
 
+/** 相邻两列间的交叉数：边 (a1→b1)、(a2→b2) 满足 a1<a2 且 b1>b2 即交叉（节点内出入口已按对端次序堆叠，节点级即边粒度）。 */
+export function countCrossings(order: string[][], edges: Map<string, number>[]): number {
+  let n = 0;
+  edges.forEach((m, ci) => {
+    const es = [...m.keys()].map(k => { const [a, b] = k.split("\u0000"); return [order[ci].indexOf(a), order[ci + 1].indexOf(b)]; });
+    for (let i = 0; i < es.length; i++) for (let j = i + 1; j < es.length; j++) {
+      if ((es[i][0] - es[j][0]) * (es[i][1] - es[j][1]) < 0) n++;
+    }
+  });
+  return n;
+}
+
+/** 重心法减少交叉：左右交替扫描 + 相邻互换，各列按相邻列连接节点位置的流量加权均值重排；「其他」恒在列底；返回交叉数最少的次序（含初始，不会变差）。 */
+export function orderColumns(init: string[][], edges: Map<string, number>[], rounds = 8): string[][] {
+  let best = init.map(c => [...c]);
+  let bestX = countCrossings(best, edges);
+  let cur = best.map(c => [...c]);
+  const sweep = (ci: number, from: number) => {
+    const pos = new Map(cur[from].map((id, i) => [id, i]));
+    const m = edges[Math.min(ci, from)];
+    const acc = new Map<string, [number, number]>();
+    for (const [k, v] of m) {
+      const [a, b] = k.split("\u0000");
+      const [me, other] = from < ci ? [b, a] : [a, b];
+      const e = acc.get(me) ?? [0, 0];
+      acc.set(me, [e[0] + v * (pos.get(other) ?? 0), e[1] + v]);
+    }
+    const old = new Map(cur[ci].map((id, i) => [id, i]));
+    const bary = (id: string) => { const e = acc.get(id); return e && e[1] > 0 ? e[0] / e[1] : old.get(id)!; };
+    const body = cur[ci].filter(id => id !== OTHER).sort((x, y) => bary(x) - bary(y) || old.get(x)! - old.get(y)!);
+    cur[ci] = cur[ci].includes(OTHER) ? [...body, OTHER] : body;
+  };
+  for (let r = 0; r < rounds; r++) {
+    const before = JSON.stringify(cur);
+    for (let ci = 1; ci < cur.length; ci++) sweep(ci, ci - 1);
+    for (let ci = cur.length - 2; ci >= 0; ci--) sweep(ci, ci + 1);
+    // transpose：相邻节点互换若降低交叉则采纳，直到无改进（重心法的局部极小补刀）
+    for (let again = true; again;) {
+      again = false;
+      let x0 = countCrossings(cur, edges);
+      for (const col of cur) for (let i = 0; i + 1 < col.length && col[i + 1] !== OTHER; i++) {
+        [col[i], col[i + 1]] = [col[i + 1], col[i]];
+        const x1 = countCrossings(cur, edges);
+        if (x1 < x0) { x0 = x1; again = true; } else [col[i], col[i + 1]] = [col[i + 1], col[i]];
+      }
+    }
+    const x = countCrossings(cur, edges);
+    if (x < bestX) { bestX = x; best = cur.map(c => [...c]); }
+    if (JSON.stringify(cur) === before) break;
+  }
+  return best;
+}
+
 /** 纯布局：行 → 节点（Top N + 其他，0 值不入）与连线（宽度 ∝ 值，节点处堆叠对齐）。 */
 export function computeLayout(columns: FlowChartColumn[], rows: FlowChartRow[], metric: FlowMetric) {
   const val = (r: FlowChartRow) => Number(r[metric]) || 0;
@@ -84,6 +137,13 @@ export function computeLayout(columns: FlowChartColumn[], rows: FlowChartRow[], 
     const id = String(r[columns[ci].key]);
     return cols[ci].top.has(id) ? id : OTHER;
   };
+  const rank = cols.map(c => new Map(c.ids.map((id, i) => [id, i]))); // 配色按流量名次，重排不换色
+  const edges = columns.slice(0, -1).map((_c, ci) => {
+    const m = new Map<string, number>();
+    for (const r of pos) { const key = `${nodeOf(ci, r)}\u0000${nodeOf(ci + 1, r)}`; m.set(key, (m.get(key) ?? 0) + val(r)); }
+    return m;
+  });
+  orderColumns(cols.map(c => c.ids), edges).forEach((ids, ci) => { cols[ci].ids = ids; });
   const maxN = Math.max(1, ...cols.map(c => c.ids.length));
   const k = total > 0 ? (INNER_H - (maxN - 1) * NODE_GAP) / total : 0;
   const colH = cols.map(c => c.ids.reduce((s, id) => s + Math.max(MIN_H, (c.nodes.get(id) ?? 0) * k), 0) + Math.max(0, c.ids.length - 1) * NODE_GAP);
@@ -92,10 +152,10 @@ export function computeLayout(columns: FlowChartColumn[], rows: FlowChartRow[], 
   const nmap = new Map<string, LNode>();
   cols.forEach((c, ci) => {
     let y = TOP + (maxH - colH[ci]) / 2;
-    c.ids.forEach((id, i) => {
+    c.ids.forEach(id => {
       const v = c.nodes.get(id) ?? 0;
       const h = Math.max(MIN_H, v * k);
-      const n: LNode = { key: `${ci}|${id}`, ci, id, v, y, h, color: id === OTHER ? OTHER_COLOR : TOKEN_COLORS[i % TOKEN_COLORS.length] };
+      const n: LNode = { key: `${ci}|${id}`, ci, id, v, y, h, color: id === OTHER ? OTHER_COLOR : TOKEN_COLORS[rank[ci].get(id)! % TOKEN_COLORS.length] };
       nodes.push(n);
       nmap.set(n.key, n);
       y += h + NODE_GAP;
