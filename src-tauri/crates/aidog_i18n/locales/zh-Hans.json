@@ -770,6 +770,12 @@
   "logs.routing.response": "响应",
   "logs.routing.attemptFailed": "尝试失败",
   "logs.routing.notUsed": "未选用",
+  "logs.routing.chain.used": "已选用",
+  "logs.routing.chain.untried": "未选",
+  "logs.routing.chain.failed": "失败",
+  "logs.routing.chain.skipped": "跳过",
+  "logs.routing.chain.skip.service": "上游服务类错误，直接换平台",
+  "logs.routing.chain.skip.rule": "错误规则标记为不可重试",
 
   "logs.routing.untried": "未尝试",  "logs.routing.mode.load_balance": "负载均衡",
   "logs.routing.mode.failover": "故障转移",

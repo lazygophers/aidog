@@ -770,6 +770,12 @@
   "logs.routing.response": "Response",
   "logs.routing.attemptFailed": "Attempt failed",
   "logs.routing.notUsed": "Not used",
+  "logs.routing.chain.used": "Used",
+  "logs.routing.chain.untried": "Not chosen",
+  "logs.routing.chain.failed": "Failed",
+  "logs.routing.chain.skipped": "Skipped",
+  "logs.routing.chain.skip.service": "Upstream service error, switched platform",
+  "logs.routing.chain.skip.rule": "Error rule marked non-retryable",
 
   "logs.routing.untried": "Not tried",  "logs.routing.mode.load_balance": "Load balance",
   "logs.routing.mode.failover": "Failover",

@@ -34,7 +34,7 @@ pub fn cap_max_tokens(req_max: Option<u32>, model_max: Option<i64>) -> (Option<u
 }
 
 /// 路由结果
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RouteResult {
     pub platform: Platform,
     pub target_model: String,

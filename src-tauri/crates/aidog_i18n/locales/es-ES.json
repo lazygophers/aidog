@@ -770,6 +770,12 @@
   "logs.routing.response": "Respuesta",
   "logs.routing.attemptFailed": "Intento fallido",
   "logs.routing.notUsed": "No usado",
+  "logs.routing.chain.used": "Usado",
+  "logs.routing.chain.untried": "No elegido",
+  "logs.routing.chain.failed": "Fallido",
+  "logs.routing.chain.skipped": "Omitido",
+  "logs.routing.chain.skip.service": "Error del servicio upstream, se cambió de plataforma",
+  "logs.routing.chain.skip.rule": "Regla de error: no reintentable",
 
   "logs.routing.untried": "Sin intento",  "logs.routing.mode.load_balance": "Balanceo de carga",
   "logs.routing.mode.failover": "Conmutación por fallo",

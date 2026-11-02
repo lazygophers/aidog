@@ -295,6 +295,7 @@ async fn aux_attempt(
             tracing::error!(url = %url, platform = %route.platform.name, error = %detail, "aux upstream request failed (502)");
             let upstream_err = format!("upstream error: {detail}");
             attempts.push(ProxyAttempt {
+                chain_stop: None,
                 platform_id: route.platform.id,
                 platform_name: route.platform.name.clone(),
                 status_code: 0,
@@ -352,6 +353,8 @@ async fn aux_attempt(
                 is_last_candidate,
                 log_settings,
                 requested_model,
+                has_next_model: false,
+                switched: &mut false,
             },
         )
         .await
@@ -379,6 +382,7 @@ async fn aux_attempt(
         let _ = aidog_db::set_platform_last_error(&state.db, route.platform.id, None).await;
     }
     attempts.push(ProxyAttempt {
+        chain_stop: None,
         platform_id: route.platform.id,
         platform_name: route.platform.name.clone(),
         status_code: status.as_u16() as i32,

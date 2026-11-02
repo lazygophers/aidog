@@ -792,6 +792,12 @@
   "logs.routing.response": "Antwort",
   "logs.routing.attemptFailed": "Fehlgeschlagener Versuch",
   "logs.routing.notUsed": "Nicht verwendet",
+  "logs.routing.chain.used": "Verwendet",
+  "logs.routing.chain.untried": "Nicht gewählt",
+  "logs.routing.chain.failed": "Fehlgeschlagen",
+  "logs.routing.chain.skipped": "Übersprungen",
+  "logs.routing.chain.skip.service": "Upstream-Dienstfehler, Plattform gewechselt",
+  "logs.routing.chain.skip.rule": "Fehlerregel: nicht wiederholbar",
 
   "logs.routing.untried": "Nicht versucht",  "logs.routing.mode.load_balance": "Lastverteilung",
   "logs.routing.mode.failover": "Failover",
