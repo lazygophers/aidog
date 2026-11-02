@@ -172,18 +172,28 @@
         "default": {
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "minLength": 1
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
           },
-          "description": "【必填】默认槽位映射（槽位：default / opus / sonnet / haiku / gpt / fable / jev / embedding / rerank → 平台真实模型 id；jev = 决策模型槽位，纯决策平台只配 jev 不配 default，满足 R3；embedding = 向量化专用槽、rerank = 重排序专用槽，仅作可选键放行，本期不填数据）。聚合/中转平台可留空对象。"
+          "description": "【必填】默认槽位映射（槽位：default / opus / sonnet / haiku / gpt / fable / jev / embedding / rerank → 有序平台真实模型 id 列表（首个为主模型，其余为备选；minItems 1、元素非空、不重复；旧字符串形态不再合法）；jev = 决策模型槽位，纯决策平台只配 jev 不配 default，满足 R3；embedding = 向量化专用槽、rerank = 重排序专用槽，仅作可选键放行，本期不填数据）。聚合/中转平台可留空对象。"
         },
         "peak": {
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "minLength": 1
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
           },
-          "description": "【可选】高峰时段模型切换分支（PRD 07-11，现仅 glm_coding）。命中平台 peak 任一窗口时整支替换 default（router/candidates.rs 三层级联第 ② 层）。"
+          "description": "【可选】高峰时段模型切换分支（PRD 07-11，现仅 glm_coding）。槽位值同 default 为有序列表。命中平台 peak 任一窗口时整支替换 default（router/candidates.rs 三层级联第 ② 层）。"
         }
       },
       "description": "【必填】客户端模型槽位映射表。default 必填；peak 高峰切换（现仅 glm_coding）。coding 套餐是独立协议，无 coding_plan 分支。"

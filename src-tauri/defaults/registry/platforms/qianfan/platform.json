@@ -5,7 +5,7 @@
   "tools_pricing": {
     "ai_search_chat": {"per_1000": 36.0, "currency": "CNY"}
   },
-  "last_updated": 1793247811,
+  "last_updated": 1793615839,
   "endpoints": {
     "default": [
       {
@@ -16,7 +16,7 @@
   },
   "models": {
     "default": {
-      "default": "ernie-4.5-turbo-128k"
+      "default": ["ernie-4.5-turbo-128k"]
     }
   },
   "model_list": {

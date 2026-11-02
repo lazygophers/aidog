@@ -17,8 +17,8 @@
   },
   "models": {
     "default": {
-      "default": "claude-opus-4-8",
-      "gpt": "gpt-5.5"
+      "default": ["claude-opus-4-8"],
+      "gpt": ["gpt-5.5"]
     }
   },
   "model_list": {
@@ -215,5 +215,5 @@
       "timezone": "Asia/Shanghai"
     }
   ],
-  "last_updated": 1793290955
+  "last_updated": 1793615839
 }
