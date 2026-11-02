@@ -62,7 +62,7 @@ impl From<String> for RouteFail {
     }
 }
 
-/// 入站客户端闸门：`Off` = 不做白名单判定（未接线的调用方，由票 05/06 逐个收口）；
+/// 入站客户端闸门：`Off` = 不做白名单判定（models 探测、WS 握手待票 06 等未接线调用方）；
 /// `On(hit)` = 按识别结果判定（`None` = 认不出，配了白名单的平台一律不命中）。
 #[derive(Clone, Copy)]
 pub enum ClientGate {
@@ -252,8 +252,7 @@ pub async fn select_candidates_ctx(
     select_candidates_gated(db, group, source_model, ctx, kind, ClientGate::Off).await
 }
 
-/// [`select_candidates_ctx`] + 客户端白名单闸门（仅多平台组的普通过滤路径生效，
-/// 单平台 / 直通链 / 透传短路见票 05）。
+/// [`select_candidates_ctx`] + 客户端白名单闸门（普通过滤 / 单平台 / 直通链 / 透传均受约束）。
 pub async fn select_candidates_gated(
     db: &db::Db,
     group: &Group,
@@ -347,6 +346,7 @@ pub async fn select_candidates_gated(
             effective_mode,
             kind,
             &decision_models,
+            client,
         );
     }
 
@@ -364,6 +364,7 @@ pub async fn select_candidates_gated(
             &extra_cache,
             kind,
             &decision_models,
+            client,
         )
         .await;
     }
@@ -583,6 +584,7 @@ async fn handle_single_platform(
     extra_cache: &ExtraCacheMap,
     kind: RequestKind<'_>,
     decision_models: &DecisionModels,
+    client: ClientGate,
 ) -> Result<CandidateSet, RouteFail> {
     // 未知协议（票 06）：无 wire 格式可转，唯一硬停之一（照 peak_disabled 先例，caller 落审计）。
     if matches!(only.platform.platform_type, Protocol::Unknown) {
@@ -647,6 +649,22 @@ async fn handle_single_platform(
         return Err(RouteFail {
             reason: "peak_disabled".to_string(),
             routing: single_snapshot(only, group.routing_mode, RouteReason::PeakDisabled),
+        });
+    }
+
+    // 客户端白名单（票 05）：与 filter_candidates 同位次——手动禁用 / 审核硬停 / 高峰禁用等既有硬停
+    // 先判，之后、status bypass 与透传豁免之前拦截（独立维度，透传平台同样受约束，ADR 0008 修订）。
+    // 单平台无「混合原因」概念：唯一候选被白名单拦 = 全部候选被拦 → 417。
+    if let ClientGate::On(hit) = client
+        && cache.is_some_and(|c| !client_allowed(&c.allowed_clients, hit))
+    {
+        tracing::info!(
+            group = %group.name, platform = %only.platform.name,
+            "single-platform group: client not allowed by whitelist, request blocked"
+        );
+        return Err(RouteFail {
+            reason: "client_not_allowed".to_string(),
+            routing: single_snapshot(only, group.routing_mode, RouteReason::ClientNotAllowed),
         });
     }
 
@@ -764,6 +782,7 @@ fn select_direct_candidates(
     mode: RoutingMode,
     kind: RequestKind<'_>,
     decision_models: &DecisionModels,
+    client: ClientGate,
 ) -> Result<CandidateSet, RouteFail> {
     let in_direct = |gp: &GroupPlatformDetail| direct_ids.contains(&gp.platform.id);
     let FilteredCandidates {
@@ -780,7 +799,7 @@ fn select_direct_candidates(
         extra_cache,
         kind,
         decision_models,
-        ClientGate::Off, // 直通模型链的白名单约束属票 05
+        client,
     );
     active.retain(|gp| in_direct(gp));
     probe.retain(|gp| in_direct(gp));
@@ -845,6 +864,18 @@ fn select_direct_candidates(
     };
 
     if ordered.is_empty() {
+        // 声明平台全因客户端白名单被拦（票 05）→ 417；白名单与其他不可用原因并存沿用原错误。
+        let client_rejected = routing
+            .entries
+            .iter()
+            .filter(|e| e.reason == RouteReason::ClientNotAllowed)
+            .count();
+        if client_rejected > 0 && client_rejected == direct_ids.len() {
+            return Err(RouteFail {
+                reason: "client_not_allowed".to_string(),
+                routing,
+            });
+        }
         tracing::info!(
             group = %group.name, model = %direct_model, declared = direct_ids.len(),
             "all direct-model platforms unavailable; returning direct_model_unavailable for audit log"

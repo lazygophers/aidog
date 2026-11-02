@@ -58,6 +58,7 @@ pub(crate) async fn handle_count_tokens(
     group: &Group,
     bytes: &[u8],
     start: std::time::Instant,
+    client: ClientGate,
 ) -> Response {
     log.source_protocol = "anthropic".to_string();
     log.target_protocol = "anthropic".to_string();
@@ -109,12 +110,13 @@ pub(crate) async fn handle_count_tokens(
         settings: &sched_settings,
         sticky_key: Some(format!("{}|count_tokens", group.group_key)),
     };
-    let candidate_set = match select_candidates_ctx(
+    let candidate_set = match select_candidates_gated(
         &state.db,
         group,
         &requested_model,
         Some(&sched_ctx),
         RequestKind::Chat,
+        client,
     )
     .await
     {

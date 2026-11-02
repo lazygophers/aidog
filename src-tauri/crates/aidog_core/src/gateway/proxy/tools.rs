@@ -24,6 +24,7 @@ pub(crate) async fn handle_tools(
     path: &str,
     start: std::time::Instant,
     lang: Lang,
+    client: ClientGate,
 ) -> Response {
     log.source_protocol = "tools".to_string();
     log.target_protocol = "tools".to_string();
@@ -38,12 +39,13 @@ pub(crate) async fn handle_tools(
         settings: &sched_settings,
         sticky_key: Some(format!("{}|tools", group.group_key)),
     };
-    let candidate_set = match select_candidates_ctx(
+    let candidate_set = match select_candidates_gated(
         &state.db,
         group,
         "",
         Some(&sched_ctx),
         RequestKind::Tools(path),
+        client,
     )
     .await
     {

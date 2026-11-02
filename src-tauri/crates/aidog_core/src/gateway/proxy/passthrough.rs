@@ -673,19 +673,25 @@ pub(crate) fn rewrite_key_query(url: &str, set: Option<(&str, &str)>) -> String 
 /// 分组首选候选是透传平台时返回它，否则 None（调用方照原路径处理）。
 /// 透传不识别协议（ADR 0008）：body 解析失败、协议子端点分流这些按协议走的分支，
 /// 先用本函数问一次路由，透传分组直接原样转发。仅在这些非常规路径上调用，正常请求不多查一次路由。
+/// 客户端白名单（ADR 0008 修订）：`client` 为 `On` 时透传平台同样受约束；整组被白名单拦下
+/// 返回 `Err(client_not_allowed[_mixed])`，调用方须走 `route_fail_response`（不得落回协议分支，
+/// 否则会绕过白名单）。其余路由失败仍是 `Ok(None)`（照原路径处理）。
 pub(crate) async fn passthrough_first_candidate(
     db: &Db,
     group: &Group,
     model: &str,
-) -> Option<super::models::Platform> {
-    select_candidates_ctx(db, group, model, None, RequestKind::Chat)
-        .await
-        .ok()?
-        .candidates
-        .into_iter()
-        .next()
-        .map(|c| c.platform)
-        .filter(|p| matches!(p.platform_type, Protocol::Passthrough))
+    client: ClientGate,
+) -> Result<Option<super::models::Platform>, RouteFail> {
+    match select_candidates_gated(db, group, model, None, RequestKind::Chat, client).await {
+        Ok(set) => Ok(set
+            .candidates
+            .into_iter()
+            .next()
+            .map(|c| c.platform)
+            .filter(|p| matches!(p.platform_type, Protocol::Passthrough))),
+        Err(e) if e == "client_not_allowed" || e == "client_not_allowed_mixed" => Err(e),
+        Err(_) => Ok(None),
+    }
 }
 
 /// 从 Host header + URI 重构完整 url（`scheme://host/path?query`）。

@@ -4555,23 +4555,174 @@ async fn whitelist_mixed_with_peak_disabled_503() {
     assert_eq!(log.est_cost, 0.0);
 }
 
-/// 等效退化形态：多平台组只剩 1 个 Enabled 平台 → 走 sole_platform 单平台短路，
-/// 当前白名单不生效（票 05 收口后此处应改为 417）。
-#[tokio::test]
-async fn whitelist_degenerate_single_enabled_still_bypasses_until_ticket_05() {
-    let state = make_state(test_db().await).await;
-    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
-    setup_multi_platform_group(&state, "gkdeg", &[("A", &up, WL_CC_EXTRA), ("B", &up, "")]).await;
-    let b_id = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == "B").unwrap().id;
+async fn set_platform_status(state: &Arc<ProxyState>, name: &str, status: aidog_db::models::PlatformStatus) {
+    let id = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == name).unwrap().id;
     aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
-        id: b_id, name: None, platform_type: None, base_url: None, api_key: None, extra: None,
+        id, name: None, platform_type: None, base_url: None, api_key: None, extra: None,
         models: None, available_models: None, endpoints: None,
-        enabled: None, status: Some(aidog_db::models::PlatformStatus::Disabled), manual_budgets: None,
+        enabled: None, status: Some(status), manual_budgets: None,
         join_group_ids: None, expires_at: None, quota_source: None,
     })
     .await
     .unwrap();
     state.db.invalidate_group_details_cache();
+}
+
+/// 断言最近一条日志是白名单 417 审计行（router / client_not_allowed / est_cost 0 / 原始 UA）。
+async fn assert_client_417_log(state: &Arc<ProxyState>, gk: &str, ua: &str) {
+    let log = last_log_for(state, gk).await;
+    assert_eq!(log.status_code, 417, "{gk}");
+    assert_eq!(log.blocked_by, "router");
+    assert_eq!(log.blocked_reason, "client_not_allowed");
+    assert_eq!(log.est_cost, 0.0);
+    assert_eq!(log.user_agent, ua);
+}
+
+/// 等效退化形态（票 05）：多平台组只剩 1 个 Enabled 平台 → sole_platform 单平台短路，
+/// guard 在短路之内：白名单拦下 → 417，不得静默打到唯一平台；放行 UA 照常 200。
+#[tokio::test]
+async fn whitelist_degenerate_single_enabled_returns_417() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkdeg", &[("A", &up, WL_CC_EXTRA), ("B", &up, "")]).await;
+    set_platform_status(&state, "B", aidog_db::models::PlatformStatus::Disabled).await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkdeg", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::OK, "known gap: single-platform short-circuit precedes the whitelist guard (ticket 05)");
+    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_client_417_log(&state, "gkdeg", "curl/8.4.0").await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkdeg", Some("claude-cli/2.0.1 (external, cli)"))).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+}
+
+/// 字面单平台组（len==1）：417；放行 UA 200；无白名单存量不变。与等效退化形态分开验证。
+#[tokio::test]
+async fn whitelist_literal_single_platform_group_417() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gklit", &[("A", &up, WL_CC_EXTRA)]).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gklit", Some("curl/8.4.0"))).await;
+    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_client_417_log(&state, "gklit", "curl/8.4.0").await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gklit", None)).await;
+    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "no UA = unrecognized");
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gklit", Some("claude-cli/2.0.1 (external, cli)"))).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    setup_multi_platform_group(&state, "gklitplain", &[("P", &up, "")]).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gklitplain", Some("curl/8.4.0"))).await;
+    assert_eq!(resp.status(), StatusCode::OK, "regression: no whitelist");
+}
+
+/// status bypass：单平台 auto_disabled 本会无视状态强制请求；白名单优先级高于 bypass。
+#[tokio::test]
+async fn whitelist_beats_status_bypass_single_platform() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkbyp", &[("A", &up, WL_CC_EXTRA)]).await;
+    set_platform_status(&state, "A", aidog_db::models::PlatformStatus::AutoDisabled).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkbyp", Some("curl/8.4.0"))).await;
+    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_client_417_log(&state, "gkbyp", "curl/8.4.0").await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkbyp", Some("claude-cli/2.0.1 (external, cli)"))).await;
+    assert_eq!(resp.status(), StatusCode::OK, "regression: allowed client still bypasses status");
+}
+
+/// 单平台组 + 高峰禁用 + 白名单：既有硬停先判（与多平台路径同位次），错误码仍为 peak_disabled 503。
+#[tokio::test]
+async fn whitelist_single_platform_with_peak_disabled_keeps_peak_error() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let extra = r#"{"allowed_clients":["claude_code"],"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#;
+    setup_multi_platform_group(&state, "gksp", &[("A", &up, extra)]).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gksp", Some("curl/8.4.0"))).await;
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(last_log_for(&state, "gksp").await.blocked_reason, "peak");
+}
+
+/// 直通模型链：声明平台全被白名单拦 → 417；放行 UA 命中声明平台；声明平台一部分被拦、
+/// 其余不可用 → 沿用 direct_model_unavailable（503）。
+#[tokio::test]
+async fn whitelist_direct_model_chain() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let direct_wl = r#"{"direct_models":["claude-3"],"allowed_clients":["claude_code"]}"#;
+    setup_multi_platform_group(&state, "gkdir", &[("A", &up, direct_wl), ("B", &up, "")]).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkdir", Some("curl/8.4.0"))).await;
+    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "B 未声明 direct_models：不得借道落到 B");
+    assert_client_417_log(&state, "gkdir", "curl/8.4.0").await;
+    let a_id = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == "A").unwrap().id;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkdir", Some("claude-cli/2.0.1 (external, cli)"))).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(last_log_for(&state, "gkdir").await.platform_id, a_id);
+
+    // 混合：A 声明 + 白名单拦，C 声明 + 手动禁用 → 原错误 direct_model_unavailable
+    let direct = r#"{"direct_models":["claude-3"]}"#;
+    setup_multi_platform_group(&state, "gkdir2", &[("A2", &up, direct_wl), ("C2", &up, direct), ("B2", &up, "")]).await;
+    set_platform_status(&state, "C2", aidog_db::models::PlatformStatus::Disabled).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkdir2", Some("curl/8.4.0"))).await;
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(last_log_for(&state, "gkdir2").await.blocked_reason, "direct_model_unavailable");
+}
+
+/// 透传平台：聊天路径、body 解析失败路径、协议子端点路径都受白名单约束；放行 UA 照常；
+/// models 探测端点不受约束；无白名单存量不变。
+#[tokio::test]
+async fn whitelist_constrains_passthrough_platform() {
+    const OK: &str = r#"{"id":"x"}"#;
+    let (upstream, seen) = spawn_recording_upstream(OK).await;
+    let state = make_state(test_db().await).await;
+    setup_passthrough_platform_group_extra(&state, "gkpt", &upstream, WL_CC_EXTRA).await;
+    let send = |method: &'static str, path: &'static str, body: &'static str, ua: Option<&'static str>| {
+        let mut b = HttpRequest::builder()
+            .method(method)
+            .uri(path)
+            .header("authorization", "Bearer gkpt")
+            .header("content-type", "application/json");
+        if let Some(ua) = ua {
+            b = b.header("user-agent", ua);
+        }
+        b.body(Body::from(body)).unwrap()
+    };
+    let chat = r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#;
+    for (method, path, body) in [
+        ("POST", "/v1/messages", chat),
+        ("POST", "/v1/messages", "not json at all"),
+        ("POST", "/v1/messages/count_tokens", r#"{"model":"m","messages":[]}"#),
+        ("POST", "/v1/embeddings", r#"{"model":"m","input":"x"}"#),
+    ] {
+        let resp = handle_proxy(AxumState(state.clone()), send(method, path, body, Some("curl/8.4.0"))).await;
+        assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "{method} {path} {body}");
+        assert_client_417_log(&state, "gkpt", "curl/8.4.0").await;
+    }
+    assert_eq!(seen.lock().unwrap().len(), 0, "blocked requests must not reach upstream");
+
+    let resp = handle_proxy(AxumState(state.clone()), send("POST", "/v1/messages", chat, Some("claude-cli/2.0.1 (external, cli)"))).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(seen.lock().unwrap().len(), 1);
+
+    // models 探测端点：定组前分流，不受约束
+    let resp = handle_proxy(AxumState(state.clone()), send("GET", "/v1/models", "", Some("curl/8.4.0"))).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+}
+
+/// 子端点路径（决策 / embedding / rerank）整组被白名单拦 → 417 + 审计行。
+/// 注：这三条先经 handler 的透传探测（同一闸门）收口；各 handler 内部的 `select_candidates_gated`
+/// 接线（部分平台被拦时选其余平台）由编译期签名保证，无独立端到端覆盖。
+#[tokio::test]
+async fn whitelist_constrains_aux_and_decision_routes() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkaux", &[("A", &up, WL_CC_EXTRA), ("B", &up, WL_CC_EXTRA)]).await;
+    for path in ["/v1/embeddings", "/v1/rerank", "/v1/systemone"] {
+        let req = HttpRequest::builder()
+            .method("POST")
+            .uri(path)
+            .header("authorization", "Bearer gkaux")
+            .header("content-type", "application/json")
+            .header("user-agent", "curl/8.4.0")
+            .body(Body::from(r#"{"model":"m","input":"x"}"#))
+            .unwrap();
+        let resp = handle_proxy(AxumState(state.clone()), req).await;
+        assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "{path}");
+        assert_client_417_log(&state, "gkaux", "curl/8.4.0").await;
+    }
 }
