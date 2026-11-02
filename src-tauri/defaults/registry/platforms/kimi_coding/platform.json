@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789205467,
+  "last_updated": 1793615839,
   "is_coding_plan": true,
   "endpoints": {
     "default": [
@@ -17,10 +17,10 @@
   },
   "models": {
     "default": {
-      "default": "kimi-for-coding",
-      "opus": "kimi-for-coding-highspeed",
-      "sonnet": "kimi-for-coding",
-      "haiku": "kimi-for-coding"
+      "default": ["kimi-for-coding"],
+      "opus": ["kimi-for-coding-highspeed"],
+      "sonnet": ["kimi-for-coding"],
+      "haiku": ["kimi-for-coding"]
     }
   },
   "model_list": {

@@ -23,7 +23,7 @@
   },
   "models": {
     "default": {
-      "default": "deepseek-v4-flash"
+      "default": ["deepseek-v4-flash"]
     }
   },
   "model_list": {
@@ -126,5 +126,5 @@
     "search": "https://api.deepseek.com/v1/tools/search",
     "fetch": "https://api.deepseek.com/v1/tools/fetch"
   },
-  "last_updated": 1793240736
+  "last_updated": 1793615839
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1793615839,
   "endpoints": {
     "default": [
       {
@@ -10,7 +10,7 @@
   },
   "models": {
     "default": {
-      "gpt": "gpt-5.6"
+      "gpt": ["gpt-5.6"]
     }
   },
   "model_list": {

@@ -10,11 +10,11 @@
   },
   "models": {
     "default": {
-      "default": "big-pickle",
-      "opus": "claude-opus-4-8",
-      "sonnet": "claude-sonnet-4-6",
-      "gpt": "gpt-5.4",
-      "haiku": "claude-haiku-4-5"
+      "default": ["big-pickle"],
+      "opus": ["claude-opus-4-8"],
+      "sonnet": ["claude-sonnet-4-6"],
+      "gpt": ["gpt-5.4"],
+      "haiku": ["claude-haiku-4-5"]
     }
   },
   "model_list": {
@@ -133,5 +133,5 @@
       "timezone": "Asia/Shanghai"
     }
   ],
-  "last_updated": 1793290955
+  "last_updated": 1793615839
 }

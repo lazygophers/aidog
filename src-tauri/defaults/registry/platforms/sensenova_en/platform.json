@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788095447,
+  "last_updated": 1793615839,
   "endpoints": {
     "default": [
       {
@@ -14,7 +14,7 @@
   },
   "models": {
     "default": {
-      "default": "sensenova-6.8-flash-lite"
+      "default": ["sensenova-6.8-flash-lite"]
     }
   },
   "model_list": {
