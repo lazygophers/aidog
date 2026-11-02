@@ -6,22 +6,22 @@ use super::*;
 #[test]
 fn default_template_per_event_independent() {
     // 每事件模板各自独立、用其专属入参（抽样核对）。
-    assert_eq!(default_template_for_event("Stop"), "{project} 任务完成");
+    assert_eq!(default_template_for_event("Stop"), "{project}{ · |session_name} 任务完成");
     assert_eq!(
         default_template_for_event("SubagentStop"),
-        "{project} 子代理 {agent_type} 完成"
+        "{project}{ · |session_name} 子代理 {agent_type} 完成"
     );
     assert_eq!(
         default_template_for_event("Notification"),
-        "{project}：{message}"
+        "{project}{ · |session_name}：{message}"
     );
     assert_eq!(
         default_template_for_event("PostToolUseFailure"),
-        "{project} {tool_name} 失败：{error}"
+        "{project}{ · |session_name} {tool_name} 失败：{error}"
     );
     assert_eq!(
         default_template_for_event("SessionEnd"),
-        "{project} 会话结束（{end_reason}）"
+        "{project}{ · |session_name} 会话结束（{end_reason}）"
     );
     // 全量目录每事件都有非空专属默认模板。
     for e in CC_HOOK_EVENTS {
@@ -29,6 +29,17 @@ fn default_template_per_event_independent() {
             !default_template_for_event(e).is_empty(),
             "event {e} missing default template"
         );
+    }
+    // 会话事件 / 类型默认模板都在 {project} 后带可选会话名；网关事件不带。
+    const OPT: &str = "{project}{ · |session_name}";
+    for e in CC_HOOK_EVENTS {
+        assert!(default_template_for_event(e).starts_with(OPT), "event {e}");
+    }
+    for t in [NotifType::TaskComplete, NotifType::WaitingInput, NotifType::Error] {
+        assert!(t.default_template().starts_with(OPT), "type {t:?}");
+    }
+    for e in ["breaker_on", "breaker_off", "quota_exhaust_forecast"] {
+        assert!(!default_template_for_event(e).contains("session_name"), "gateway {e}");
     }
     // 各事件模板互不相同（无统一模板）。
     let mut seen = std::collections::HashSet::new();

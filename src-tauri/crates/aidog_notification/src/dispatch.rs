@@ -43,9 +43,12 @@ pub async fn dispatch(
         .filter(|s| !s.is_empty())
         .or_else(aidog_db::logging::current_trace_id)
         .unwrap_or_else(aidog_db::logging::new_trace_id);
+    // 会话名：类型 / 事件两条路径都显式注入（取不到 = 空串，可选占位 `{ · |session_name}` 据此整段消失）。
+    let session_name = super::session_name::resolve(db, vars).await;
     let vars_owned: HashMap<String, String> = {
         let mut v = vars.clone();
         v.insert("request_id".to_string(), action_key.clone());
+        v.insert("session_name".to_string(), session_name);
         v
     };
     let vars = &vars_owned;

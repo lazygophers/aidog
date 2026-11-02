@@ -1107,6 +1107,7 @@ pub fn retention_cutoff_secs(secs: u64) -> Option<i64> {
 pub mod client_types_const;
 mod group;
 pub mod health_state;
+mod session_name;
 mod group_platform;
 mod maintenance;
 mod middleware;
@@ -1123,6 +1124,7 @@ pub use maintenance::*;
 pub use middleware::*;
 pub use model_entry::*;
 pub use platform::*;
+pub use session_name::*;
 pub use platform_lifecycle::*;
 pub use price_resolve::*;
 pub use registry::*;
@@ -1143,6 +1145,8 @@ mod test_crypt;
 mod test_mod;
 #[cfg(test)]
 mod test_flow_migration;
+#[cfg(test)]
+mod test_session_name;
 #[cfg(test)]
 mod test_models_list_migration;
 #[cfg(test)]

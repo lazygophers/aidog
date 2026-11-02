@@ -242,3 +242,58 @@ async fn external_channel_rule_triggers_delivery_record() {
     }
     assert!(found, "webhook 投递记录应出现");
 }
+
+// ── 会话名（通知-会话名 票 01）：给定 vars + fixture transcript，断言渲染出的正文 ──
+#[tokio::test]
+async fn event_default_template_shows_session_name_from_transcript() {
+    let db = mem_db().await;
+    set_rules(&db, |_| {}).await;
+    let d = tempfile::tempdir().unwrap();
+    let p = d.path().join("t.jsonl");
+    std::fs::write(&p, "{\"type\":\"custom-title\",\"customTitle\":\"托盘重做\"}\n").unwrap();
+    let v = vars(&[
+        ("project", "aidog"),
+        // 真实 hook 脚本以 `session` 键发 session_id
+        ("session", "sess-1"),
+        ("transcript_path", p.to_str().unwrap()),
+    ]);
+    let r = dispatch(&db, None, Some("Stop"), "", None, &v).await;
+    assert_eq!(r.body, "aidog · 托盘重做 任务完成");
+    // 无名（无 transcript）→ 退回现状，无空的「aidog · 」
+    let r2 = dispatch(&db, None, Some("Stop"), "", None, &vars(&[("project", "aidog")])).await;
+    assert_eq!(r2.body, "aidog 任务完成");
+    // transcript 不存在 → 通知照发，不带名
+    let v3 = vars(&[("project", "aidog"), ("session_id", "s3"), ("transcript_path", "/nonexistent/x.jsonl")]);
+    let r3 = dispatch(&db, None, Some("Stop"), "", None, &v3).await;
+    assert!(r3.dispatched);
+    assert_eq!(r3.body, "aidog 任务完成");
+}
+
+#[tokio::test]
+async fn type_default_template_and_custom_template_session_name() {
+    let db = mem_db().await;
+    set_rules(&db, |_| {}).await;
+    // 类型路径默认模板
+    let r = dispatch(&db, None, None, "task_complete", None, &vars(&[("project", "aidog"), ("session_name", "X")])).await;
+    assert_eq!(r.body, "aidog · X 完成");
+    let r = dispatch(&db, None, None, "task_complete", None, &vars(&[("project", "aidog")])).await;
+    assert_eq!(r.body, "aidog 完成");
+    // 自定义模板不变：不含 session_name 的老模板原样
+    set_rules(&db, |s| {
+        s.per_event.insert(
+            "Stop".to_string(),
+            serde_json::from_value(serde_json::json!({ "enabled": true, "template": "{project} 老模板" })).unwrap(),
+        );
+    })
+    .await;
+    let r = dispatch(&db, None, Some("Stop"), "", None, &vars(&[("project", "aidog"), ("session_name", "X")])).await;
+    assert_eq!(r.body, "aidog 老模板");
+}
+
+#[tokio::test]
+async fn gateway_event_template_has_no_session_name() {
+    let db = mem_db().await;
+    set_rules(&db, |_| {}).await;
+    let r = dispatch(&db, None, Some("breaker_on"), "", None, &vars(&[("platform", "openai"), ("session_name", "X")])).await;
+    assert_eq!(r.body, "openai 熔断触发（连续失败摘除）");
+}
