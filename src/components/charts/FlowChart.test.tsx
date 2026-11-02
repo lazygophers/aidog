@@ -2,7 +2,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { fireEvent } from "@testing-library/react";
 import { render } from "../../test/render";
-import { FlowChart, formatPct, type FlowChartRow } from "./FlowChart";
+import { FlowChart, formatPct, computeLayout, countCrossings, orderColumns, type FlowChartRow } from "./FlowChart";
 
 const col = (key: string) => ({ key, title: key });
 const rows: FlowChartRow[] = [
@@ -111,5 +111,45 @@ describe("FlowChart", () => {
       render(<FlowChart columns={[col("a"), col("b")]} rows={rows} metric="tokens" />);
       expect(q("flow-chart").getAttribute("data-motion")).toBe("full");
     });
+  });
+});
+
+describe("FlowChart 降交叉", () => {
+  // 按流量降序的初始序 a:[a1,a2,a3] b:[b1,b2] c:[c1,c2]，但 a1→b2→c2、a2→b1→c1、a3→b1→c1：初始 2 次交叉，重排后 0
+  const rev: FlowChartRow[] = [
+    { a: "a1", b: "b2", c: "c2", tokens: 30, requests: 1, cost: 0 },
+    { a: "a2", b: "b1", c: "c1", tokens: 20, requests: 1, cost: 0 },
+    { a: "a3", b: "b1", c: "c1", tokens: 15, requests: 1, cost: 0 },
+  ];
+  const cols = ["a", "b", "c"].map(col);
+  const edgesOf = (L: ReturnType<typeof computeLayout>) =>
+    cols.slice(0, -1).map((_c, ci) => new Map(L.links.filter(l => l.ci === ci).map(l => [`${l.a}\u0000${l.b}`, l.v])));
+
+  it("orderColumns：反向数据交叉数下降，且不会比初始更差", () => {
+    const init = [["a1", "a2", "a3"], ["b1", "b2", "b3"], ["c1", "c2", "c3"]];
+    const edges = [
+      new Map([["a1\u0000b3", 30], ["a2\u0000b2", 20], ["a3\u0000b1", 10]]),
+      new Map([["b3\u0000c3", 30], ["b2\u0000c2", 20], ["b1\u0000c1", 10]]),
+    ];
+    const before = countCrossings(init, edges);
+    expect(before).toBeGreaterThan(0);
+    expect(countCrossings(orderColumns(init, edges), edges)).toBe(0);
+  });
+
+  it("computeLayout：典型数据 0 交叉；节点排序后 ids 仍是原集合", () => {
+    const L = computeLayout(cols, rev, "tokens");
+    const order = L.cols.map(c => c.ids);
+    expect(countCrossings(order, edgesOf(L))).toBe(0);
+    expect(order.map(o => [...o].sort())).toEqual([["a1", "a2", "a3"], ["b1", "b2"], ["c1", "c2"]]);
+    const init = [["a1", "a2", "a3"], ["b1", "b2"], ["c1", "c2"]];
+    expect(countCrossings(init, edgesOf(L))).toBe(2);
+  });
+
+  it("「其他」恒在列底，且节点高度比例不变", () => {
+    const many = Array.from({ length: 9 }, (_, i) => ({ a: `n${i}`, b: `p${8 - i}`, tokens: 10 + i, requests: 1, cost: 0 }));
+    const L = computeLayout([col("a"), col("b")], many, "tokens");
+    for (const c of L.cols) expect(c.ids[c.ids.length - 1]).toBe("__other__");
+    const ns = L.nodes.filter(n => n.ci === 0);
+    for (const n of ns) expect(n.h / n.v).toBeCloseTo(ns[0].h / ns[0].v, 5);
   });
 });
