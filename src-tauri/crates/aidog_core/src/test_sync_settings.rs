@@ -464,6 +464,21 @@ fn pi_models_union_group_mappings_and_platform_models_deduped() {
     assert_eq!(models, vec!["claude-sonnet-5", "glm-4-plus", "glm-4-air"]);
 }
 
+/// 票 08：喂「模型清单」处展平——槽位链上的备选模型全部进 pi 清单，去重保序；
+/// 喂「具体选一个」处（jev 等槽位访问器）取链首。
+#[test]
+fn pi_models_flatten_slot_chains_and_single_pick_takes_primary() {
+    let pm = PlatformModels {
+        default: vec!["glm-4-plus".into(), "glm-4-air".into()],
+        sonnet: vec!["glm-4-air".into(), "glm-4-flash".into()],
+        jev: vec!["jev-1".into(), "jev-2".into()],
+        ..PlatformModels::default()
+    };
+    let models = pi_model_candidates(&[], std::slice::from_ref(&pm), &[]);
+    assert_eq!(models, vec!["glm-4-plus", "glm-4-air", "glm-4-flash", "jev-1", "jev-2"]);
+    assert_eq!(pm.jev_slot(), Some("jev-1"));
+}
+
 #[test]
 fn pi_models_fall_back_to_caller_defaults_when_group_has_none() {
     // 空 models 的 provider 在 pi 的 /model 里一个模型都选不出来，等于废配置。
