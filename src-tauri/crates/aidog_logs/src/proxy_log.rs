@@ -1542,6 +1542,7 @@ mod test_routing_snapshot {
                 model_chain: Vec::new(),
                 tags: vec![RouteTag::CodingPlan, RouteTag::Sticky],
             }],
+            eval_ms: None,
         }
     }
 

@@ -12,4 +12,8 @@ mode: string | null,
 /**
  * 候选平台
  */
-entries: Array<RouteCandidate>, };
+entries: Array<RouteCandidate>, 
+/**
+ * 路由评估耗时（毫秒）：内核收到请求 → 候选平台评估完成。旧日志无此字段，缺省 None，序列化时省略。
+ */
+eval_ms?: number, };

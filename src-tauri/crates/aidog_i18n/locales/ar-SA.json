@@ -790,6 +790,7 @@
   "logs.routing.request": "الطلب",
   "logs.routing.route": "التوجيه",
   "logs.routing.response": "الاستجابة",
+  "logs.routing.ttfb": "TTFB",
   "logs.routing.attemptFailed": "محاولة فاشلة",
   "logs.routing.notUsed": "غير مستخدم",
   "logs.routing.chain.used": "مستخدم",

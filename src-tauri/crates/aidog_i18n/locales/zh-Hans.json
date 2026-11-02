@@ -768,6 +768,7 @@
   "logs.routing.request": "请求",
   "logs.routing.route": "路由",
   "logs.routing.response": "响应",
+  "logs.routing.ttfb": "首字",
   "logs.routing.attemptFailed": "尝试失败",
   "logs.routing.notUsed": "未选用",
   "logs.routing.chain.used": "已选用",

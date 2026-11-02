@@ -790,6 +790,7 @@
   "logs.routing.request": "Запрос",
   "logs.routing.route": "Маршрут",
   "logs.routing.response": "Ответ",
+  "logs.routing.ttfb": "TTFB",
   "logs.routing.attemptFailed": "Неудачная попытка",
   "logs.routing.notUsed": "Не использовано",
   "logs.routing.chain.used": "Использована",

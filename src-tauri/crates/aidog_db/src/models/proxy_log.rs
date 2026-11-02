@@ -265,6 +265,10 @@ pub struct RoutingSnapshot {
     /// 候选平台
     #[serde(default)]
     pub entries: Vec<RouteCandidate>,
+    /// 路由评估耗时（毫秒）：内核收到请求 → 候选平台评估完成。旧日志无此字段，缺省 None，序列化时省略。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "number")]
+    pub eval_ms: Option<i64>,
 }
 
 impl RoutingSnapshot {
