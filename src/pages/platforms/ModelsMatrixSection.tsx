@@ -5,7 +5,7 @@
 //   数据通道分离：默认列 = platform.models；时段档列 = platform.extra.time_windows.rules[*].models。
 //   仍纯 props 驱动，无外部 state（矩阵内部仅 UI 临时态：activeCell / editingIdx / importModalOpen）。
 import React, { useState } from "react";
-import { slotPrimary } from "../../domains/platforms/slotValue";
+import { slotList } from "../../domains/platforms/slotValue";
 import type { TFunction } from "i18next";
 import {
   type Protocol, type ModelSlot, type TimeModelRule,
@@ -23,7 +23,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { makeRipple } from "../../components/shared";
-import { ModelCombobox, useModelCandidates } from "./ModelCombobox";
+import { useModelCandidates } from "./ModelCombobox";
+import { ModelChainEditor } from "./ModelChainEditor";
 
 // 单元格 key：默认列 = `d:<slot>`；时段档列 = `r<idx>:<slot>`。整矩阵单开（activeCell 唯一）。
 type CellKey = string;
@@ -75,7 +76,7 @@ export function ModelsMatrixSection({
   // 2026-10-08 改版：时段档 UI 挪进计费 tab，同一组件渲染两个实例、各取一列视图。
   columns = "default",
   // 默认列 props（沿用 ModelsSection 签名，行为不退化）
-  models, handleModelChange, handleModelSelect,
+  models, onModelsChange,
   // activeDropdown / setActiveDropdown 接受签名兼容，矩阵内部用 activeCell 单开管理；
   //   外部 state 仅同步关闭（避免旧 dropdown 残留），不再驱动矩阵渲染。
   activeDropdown: _activeDropdown, setActiveDropdown: _setActiveDropdown,
@@ -92,9 +93,8 @@ export function ModelsMatrixSection({
 }: {
   columns?: "default" | "time";
   titleOverride?: string;
-  models: Record<ModelSlot, string>;
-  handleModelChange: (slot: ModelSlot, value: string) => void;
-  handleModelSelect: (slot: ModelSlot, value: string) => void;
+  models: Record<ModelSlot, string[]>;
+  onModelsChange: (slot: ModelSlot, chain: string[]) => void;
   activeDropdown: ModelSlot | null;
   setActiveDropdown: React.Dispatch<React.SetStateAction<ModelSlot | null>>;
   availableModels: string[];
@@ -154,11 +154,11 @@ export function ModelsMatrixSection({
     setRules(rules.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
   };
 
-  const updateRuleModel = (idx: number, slot: ModelSlot, value: string) => {
+  const updateRuleModel = (idx: number, slot: ModelSlot, chain: string[]) => {
     setRules(rules.map((r, i) => {
       if (i !== idx) return r;
       const nextModels = { ...r.models };
-      if (value) nextModels[slot] = [value];
+      if (chain.length > 0) nextModels[slot] = chain;
       else delete nextModels[slot];
       return { ...r, models: nextModels };
     }));
@@ -178,12 +178,11 @@ export function ModelsMatrixSection({
   // 每格 = 共用组合框；cellKey: "d:<slot>" | "r<idx>:<slot>"，整矩阵单开。
   const renderCell = (
     cellKey: string,
-    value: string,
-    onChange: (v: string) => void,
-    onSelect: (v: string) => void,
+    value: string[],
+    onChange: (next: string[]) => void,
   ) => (
-    <ModelCombobox
-      value={value} onChange={onChange} onSelect={onSelect}
+    <ModelChainEditor
+      testId={cellKey.replace(":", "-")} value={value} onChange={onChange}
       source={dropdownSource} protocol={protocol}
       open={activeCell === cellKey}
       onOpenChange={(o) => setActiveCell(o ? cellKey : null)}
@@ -295,8 +294,7 @@ export function ModelsMatrixSection({
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {renderCell(
                       `r${selIdx}:${key}`,
-                      slotPrimary(sel.models[key]),
-                      (v) => updateRuleModel(selIdx, key, v),
+                      slotList(sel.models[key]),
                       (v) => updateRuleModel(selIdx, key, v),
                     )}
                   </div>
@@ -353,7 +351,7 @@ export function ModelsMatrixSection({
             size="sm"
             style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--text-secondary)" }}
             onClick={onFillAll}
-            disabled={!models.default.trim()}
+            disabled={models.default.length === 0}
             title={t("platform.fillAllHint")}
           >
             {t("platform.fillAll")}
@@ -404,10 +402,9 @@ export function ModelsMatrixSection({
                 {renderCell(
                   `d:${key}`,
                   models[key],
-                  (v) => handleModelChange(key, v),
-                  (v) => handleModelSelect(key, v),
+                  (v) => onModelsChange(key, v),
                 )}
-                {DEDICATED_MODEL_SLOTS.includes(key) && models[key] && !hasOpenAIEndpoint && (
+                {DEDICATED_MODEL_SLOTS.includes(key) && models[key].length > 0 && !hasOpenAIEndpoint && (
                   <div
                     id={`slot-hint-${key}`}
                     data-state="warn"

@@ -49,7 +49,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     quotaRequires, setQuotaRequires,
     devinConfig, setDevinConfig,
     endpoints, setEndpoints,
-    models, handleModelChange, handleModelSelect, activeDropdown, setActiveDropdown,
+    models, handleModelsChange, activeDropdown, setActiveDropdown,
     availableModels, protocol: proto, fetching, fetchError, handleFetchModels, handleFillAll,
     manualBudgets, setManualBudgets,
     breakerDefaults, breakerFailureThreshold, setBreakerFailureThreshold,
@@ -244,7 +244,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
 
         {/* Models Matrix — 默认列 + 时段档列合并 card（PRD 07-09） */}
         <ModelsMatrixSection
-          models={models} handleModelChange={handleModelChange} handleModelSelect={handleModelSelect}
+          models={models} onModelsChange={handleModelsChange}
           activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown}
           availableModels={availableModels} protocol={proto}
           fetchError={fetchError} fetching={fetching}
@@ -316,7 +316,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         <ModelsMatrixSection
           columns="time"
           titleOverride={t("platform.time_windows_section_title", "时段档")}
-          models={models} handleModelChange={handleModelChange} handleModelSelect={handleModelSelect}
+          models={models} onModelsChange={handleModelsChange}
           activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown}
           availableModels={availableModels} protocol={proto}
           fetchError={fetchError} fetching={fetching}

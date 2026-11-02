@@ -37,7 +37,7 @@ export interface PlatformPasteCtx {
   setProtocol: React.Dispatch<React.SetStateAction<Protocol>>;
   setApiKey: React.Dispatch<React.SetStateAction<string>>;
   setCodingPlan: React.Dispatch<React.SetStateAction<boolean>>;
-  setModels: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  setModels: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
   setAvailableModels: React.Dispatch<React.SetStateAction<string[]>>;
   setEndpoints: React.Dispatch<React.SetStateAction<PlatformEndpoint[]>>;
   setManualBudgets: React.Dispatch<React.SetStateAction<ManualBudget[]>>;
