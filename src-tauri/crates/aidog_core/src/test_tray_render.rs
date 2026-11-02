@@ -649,3 +649,83 @@ fn two_column_center_layout_gap_is_tight() {
     assert_eq!(align_pad(true, 0.0, 3.0, 40.0, "center"), (0, 0));
     assert_eq!(align_pad(false, 10.0, 3.0, 40.0, "left"), (0, 0));
 }
+
+// ─── 颜色「自动」模式：level 只来自 usage_color，今日花费等无 level ──────
+
+const NOW: i64 = 1_800_000_000_000;
+const HOUR: i64 = 3_600_000;
+
+fn auto_item(json: serde_json::Value) -> TrayItem {
+    let mut v = json;
+    v["color"] = serde_json::json!({"mode": "auto"});
+    serde_json::from_value(v).expect("TrayItem from json")
+}
+
+/// five_hour 周期已过 1h（20%）；util 与 20 比较决定进度差。
+fn coding_plan_json(util: f64) -> String {
+    format!(
+        r#"{{"tiers":[{{"name":"five_hour","est_utilization":{util},"window_start":{}}}]}}"#,
+        NOW - HOUR
+    )
+}
+
+#[test]
+fn balance_level_maps_days_to_usage_color_levels() {
+    let item = auto_item(serde_json::json!({"item_type":"platform","platform_id":1,"display":"balance"}));
+    let p = platform(10.0, "");
+    assert_eq!(super::platform_item_level(&p, &item, Some(5.0), NOW), Some("green"));
+    assert_eq!(super::platform_item_level(&p, &item, Some(2.0), NOW), Some("yellow"));
+    assert_eq!(super::platform_item_level(&p, &item, Some(0.5), NOW), Some("red"));
+    assert_eq!(super::platform_item_level(&p, &item, None, NOW), None, "无用量 -> neutral -> 无 level");
+}
+
+#[test]
+fn coding_level_maps_pace_delta() {
+    let item = auto_item(serde_json::json!({"item_type":"platform","platform_id":1,"display":"coding"}));
+    // 时间已过 20%：util 10 -> 差 -10 绿；util 20 -> 0 黄；util 40 -> +20 红。
+    assert_eq!(super::platform_item_level(&platform(0.0, &coding_plan_json(10.0)), &item, None, NOW), Some("green"));
+    assert_eq!(super::platform_item_level(&platform(0.0, &coding_plan_json(20.0)), &item, None, NOW), Some("yellow"));
+    assert_eq!(super::platform_item_level(&platform(0.0, &coding_plan_json(40.0)), &item, None, NOW), Some("red"));
+}
+
+#[test]
+fn multi_metric_slot_takes_worst_level() {
+    let item = auto_item(serde_json::json!({
+        "item_type":"platform","platform_id":1,"metrics":["balance","coding","today_cost"]
+    }));
+    let p = platform(10.0, &coding_plan_json(40.0)); // coding 红
+    assert_eq!(super::platform_item_level(&p, &item, Some(5.0), NOW), Some("red"));
+    let p = platform(10.0, &coding_plan_json(10.0)); // coding 绿，余额黄
+    assert_eq!(super::platform_item_level(&p, &item, Some(2.0), NOW), Some("yellow"));
+}
+
+#[test]
+fn auto_color_maps_level_to_preset_and_none_to_follow() {
+    let col = |level: Option<&str>| super::TrayColumn {
+        name: "n".into(),
+        value: "v".into(),
+        color: aidog_db::TrayColor { mode: "auto".into(), value: String::new() },
+        level: level.map(str::to_string),
+        font_size: 9.0,
+        two_line: false,
+        align: "left".into(),
+        align_row2: None,
+    };
+    let c = |l| col(l).render_color();
+    assert_eq!((c(Some("red")).mode.as_str(), c(Some("red")).value.as_str()), ("preset", "red"));
+    assert_eq!(c(Some("yellow")).value, "orange");
+    assert_eq!(c(Some("green")).value, "green");
+    assert_eq!(c(None).mode, "follow");
+    // follow 老配置：有 level 也不影响色。
+    let mut f = col(Some("red"));
+    f.color = aidog_db::TrayColor::default();
+    assert_eq!(f.render_color().mode, "follow");
+}
+
+#[tokio::test]
+async fn today_cost_never_has_level_even_in_auto() {
+    let it = auto_item(serde_json::json!({"item_type":"today_usage","metric":"cost","order":0}));
+    let l = layout_of(vec![it]).await;
+    assert_eq!(l.columns[0].color.mode, "auto");
+    assert_eq!(l.columns[0].level, None);
+}

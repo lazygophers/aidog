@@ -2572,6 +2572,7 @@
   "tray.colorCustom": "Personalizado",
   "tray.colorInvalid": "Color no válido, p. ej. #RRGGBB",
   "tray.colorFollow": "Seguir el sistema",
+  "tray.colorAuto": "Automático",
   "tray.colorPreset": "Color preestablecido",
   "tray.colorWarning": "Este color puede ser difícil de leer con algunos temas de la barra de menú",
   "tray.custom": "Personalizado",
