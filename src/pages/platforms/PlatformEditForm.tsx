@@ -349,6 +349,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           <ClientWhitelistSection
             vocab={clientVocab}
             selected={timemodels.allowedClients} setSelected={timemodels.setAllowedClients}
+            uaRules={timemodels.uaRules} setUaRules={timemodels.setUaRules}
             t={t}
           />
         )}

@@ -16,7 +16,7 @@ import {
   parseMitmStats, serializeMitmStats,
   parseRateLimitsBundle, serializeRateLimitsBundle, type RateLimitsBundle,
   parsePassthroughAuth, serializePassthroughAuth,
-  parseAppbuilderKey, serializeAppbuilderKey,
+  parseAppbuilderKey, serializeAppbuilderKey, validateClientUaRule,
   DEFAULT_MOCK_CONFIG, DEFAULT_DEVIN_CONFIG, DEFAULT_PASSTHROUGH_AUTH,
   type Platform, type Protocol, type ModelSlot, type PlatformEndpoint,
   type PlatformUsageStats, type LastTestResult, type MockConfig, type DevinConfig, type PassthroughAuth,
@@ -668,6 +668,9 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       open_secs: toBreakerNum(breakerOpenSecs),
       half_open_max: toBreakerNum(breakerHalfOpenMax),
     });
+    if (timemodels.uaRules.some(r => validateClientUaRule(r))) {
+      throw new Error(t("platform.client_ua_rules_invalid", "UA 规则有误：pattern 不能为空，正则须合法"));
+    }
     extraPayload = timemodels.serialize(extraPayload);
     // mitm_stats：false → 移除键（默认行为）；true → 写入。
     extraPayload = serializeMitmStats(extraPayload, mitmStats);

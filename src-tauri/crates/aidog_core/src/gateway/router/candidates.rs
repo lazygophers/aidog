@@ -10,7 +10,7 @@ use super::ordering::{
     order_load_balance,
 };
 use super::{RouteResult, candidate_state, sole_platform};
-use crate::client_vocab::{ClientEntry, client_allowed};
+use crate::client_vocab::{ClientEntry, CompiledUaRule, client_allowed, compile_ua_rules, identify};
 use aidog_db as db;
 use aidog_db::models::{ModelVia, RouteCandidate, RouteReason, RouteTag, RoutingSnapshot};
 use std::collections::{HashMap, HashSet};
@@ -62,12 +62,26 @@ impl From<String> for RouteFail {
     }
 }
 
+/// 入站客户端探针：UA 原文 + 内置词表识别结果（`None` = 认不出）。UA 随探针走，是因为白名单的
+/// UA 规则只对「认不出」的请求按 UA 文本匹配。
+#[derive(Clone)]
+pub struct ClientProbe {
+    pub hit: Option<&'static ClientEntry>,
+    pub ua: std::sync::Arc<str>,
+}
+
+impl ClientProbe {
+    pub fn from_ua(ua: &str) -> Self {
+        Self { hit: identify(ua), ua: ua.into() }
+    }
+}
+
 /// 入站客户端闸门：`Off` = 不做白名单判定（models 探测、透传首选探测等有意不约束的调用方）；
-/// `On(hit)` = 按识别结果判定（`None` = 认不出，配了白名单的平台一律不命中）。
-#[derive(Clone, Copy)]
+/// `On(probe)` = 按识别结果判定（`hit` 为 `None` = 认不出，只有平台 UA 规则能放行）。
+#[derive(Clone)]
 pub enum ClientGate {
     Off,
-    On(Option<&'static ClientEntry>),
+    On(ClientProbe),
 }
 
 /// 请求类型（jev-decision-proxy §3.3.3）：候选过滤按类型剔除不支持的平台。
@@ -199,6 +213,8 @@ struct ExtraCache {
     direct_models: Vec<String>,
     /// extra.allowed_clients（客户端白名单，空 = 全放行）。
     allowed_clients: Vec<String>,
+    /// extra.client_ua_rules 编译结果（只对内置词表认不出的请求生效）。
+    ua_rules: Vec<CompiledUaRule>,
 }
 
 impl ExtraCache {
@@ -208,6 +224,7 @@ impl ExtraCache {
         let peak_windows = peak::peak_for(extra, &platform_type.wire_str());
         let disable_during_peak = peak::parse_disable_during_peak(extra);
         let parsed = db::models::PlatformExtra::parse(extra);
+        let ua_rules = compile_ua_rules(&parsed.client_ua_rules);
         let (direct_models, allowed_clients) = (parsed.direct_models, parsed.allowed_clients);
         Self {
             time_windows,
@@ -215,6 +232,7 @@ impl ExtraCache {
             disable_during_peak,
             direct_models,
             allowed_clients,
+            ua_rules,
         }
     }
 }
@@ -658,8 +676,8 @@ async fn handle_single_platform(
     // 客户端白名单（票 05）：与 filter_candidates 同位次——手动禁用 / 审核硬停 / 高峰禁用等既有硬停
     // 先判，之后、status bypass 与透传豁免之前拦截（独立维度，透传平台同样受约束，ADR 0008 修订）。
     // 单平台无「混合原因」概念：唯一候选被白名单拦 = 全部候选被拦 → 417。
-    if let ClientGate::On(hit) = client
-        && cache.is_some_and(|c| !client_allowed(&c.allowed_clients, hit))
+    if let ClientGate::On(probe) = &client
+        && cache.is_some_and(|c| !client_allowed(&c.allowed_clients, &c.ua_rules, &probe.ua, probe.hit))
     {
         tracing::info!(
             group = %group.name, platform = %only.platform.name,
@@ -998,9 +1016,9 @@ fn filter_candidates<'a>(
         }
 
         // 客户端白名单维度：放在状态判定之后（既有排除原因优先级不变），透传 / 冷却 / 熔断之前。
-        if let ClientGate::On(hit) = client
+        if let ClientGate::On(probe) = &client
             && let Some(c) = extra_cache.get(&gp.platform.id)
-            && !client_allowed(&c.allowed_clients, hit)
+            && !client_allowed(&c.allowed_clients, &c.ua_rules, &probe.ua, probe.hit)
         {
             client_rejected_count += 1;
             excluded.push((gp, RouteReason::ClientNotAllowed));

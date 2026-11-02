@@ -1712,6 +1712,143 @@ async fn whitelist_ws_handshake_rejects_417_and_allows() {
     assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
 }
 
+// ── 票 02：平台白名单 UA 规则（本地假上游，无真实外呼）──
+
+/// 规则：UA 含 openviking；另含一条 contains curl，用来证明「内置认出 → 规则不参与」。
+const UA_RULE_EXTRA: &str = r#"{"client_ua_rules":[{"kind":"contains","pattern":"openviking"},{"kind":"contains","pattern":"curl"}]}"#;
+const UA_RULE_PLUS_CC_EXTRA: &str = r#"{"allowed_clients":["claude_code"],"client_ua_rules":[{"kind":"prefix","pattern":"openviking/"}]}"#;
+const OV_UA: &str = "OpenViking/0.5.2 (darwin)";
+
+/// 多平台组（普通路由路径）：只写规则没勾内置 → 认不出的 UA 规则命中放行；其余未知 / 无 UA → 417；
+/// 内置认出（curl）即使规则含 curl 也拒（内置优先）；claude-cli 被内置认出且未勾 → 拒。
+#[tokio::test]
+async fn ua_rules_multi_platform_group() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkur", &[("A", &up, UA_RULE_EXTRA), ("B", &up, UA_RULE_EXTRA)]).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkur", Some(OV_UA))).await;
+    assert_eq!(resp.status(), StatusCode::OK, "规则命中的未知客户端放行");
+    assert_eq!(last_log_for(&state, "gkur").await.client, "ua:OpenViking");
+    for ua in [Some("Other/1.0"), None, Some("curl/8.4.0"), Some("claude-cli/2.0.1 (external, cli)")] {
+        let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkur", ua)).await;
+        assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "{ua:?}");
+        assert_client_417_log(&state, "gkur", ua.unwrap_or("")).await;
+    }
+}
+
+/// 多平台组：A 规则命中 → 两平台都在；A 规则不命中被拦 → 落到未配白名单的 B。
+#[tokio::test]
+async fn ua_rules_multi_platform_fallthrough() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkurf", &[("A", &up, UA_RULE_EXTRA), ("B", &up, "")]).await;
+    let b_id = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == "B").unwrap().id;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurf", Some("Other/1.0"))).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(last_log_for(&state, "gkurf").await.platform_id, b_id, "A 被拦，落到 B");
+}
+
+/// 勾选 + 规则并存：勾的内置放行，规则放行未知；其余拒。
+#[tokio::test]
+async fn ua_rules_combined_with_ticked_clients() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkurc", &[("A", &up, UA_RULE_PLUS_CC_EXTRA)]).await;
+    for (ua, want) in [
+        ("claude-cli/2.0.1 (external, cli)", StatusCode::OK),
+        (OV_UA, StatusCode::OK),
+        ("curl/8.4.0", StatusCode::EXPECTATION_FAILED),
+        ("Other/1.0", StatusCode::EXPECTATION_FAILED),
+    ] {
+        let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurc", Some(ua))).await;
+        assert_eq!(resp.status(), want, "{ua}");
+    }
+}
+
+/// 字面单平台组（len==1，单平台短路路径）与等效退化形态（多平台组只剩 1 个可用平台）分开验证。
+#[tokio::test]
+async fn ua_rules_literal_single_and_degenerate_single() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkurl", &[("A", &up, UA_RULE_EXTRA)]).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurl", Some(OV_UA))).await;
+    assert_eq!(resp.status(), StatusCode::OK, "字面单平台：规则命中放行");
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurl", Some("Other/1.0"))).await;
+    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "字面单平台：未命中 417");
+    assert_client_417_log(&state, "gkurl", "Other/1.0").await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurl", Some("curl/8.4.0"))).await;
+    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "字面单平台：内置认出且未勾 → 拒（规则含 curl 也不救）");
+
+    setup_multi_platform_group(&state, "gkurd", &[("DA", &up, UA_RULE_EXTRA), ("DB", &up, "")]).await;
+    set_platform_status(&state, "DB", aidog_db::models::PlatformStatus::Disabled).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurd", Some(OV_UA))).await;
+    assert_eq!(resp.status(), StatusCode::OK, "等效单平台：规则命中放行");
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurd", Some("Other/1.0"))).await;
+    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "等效单平台：不得静默打到唯一平台");
+    assert_client_417_log(&state, "gkurd", "Other/1.0").await;
+}
+
+/// 单平台 + status bypass：白名单规则优先级高于 bypass。
+#[tokio::test]
+async fn ua_rules_beat_status_bypass_single_platform() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkurb", &[("A", &up, UA_RULE_EXTRA)]).await;
+    set_platform_status(&state, "A", aidog_db::models::PlatformStatus::AutoDisabled).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurb", Some("Other/1.0"))).await;
+    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurb", Some(OV_UA))).await;
+    assert_eq!(resp.status(), StatusCode::OK, "规则命中的客户端仍享受 bypass");
+}
+
+/// responses 子端点路径认规则。
+#[tokio::test]
+async fn ua_rules_responses_subendpoints() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, r#"{"id":"resp_1","object":"response"}"#).await;
+    setup_multi_platform_group(&state, "gkurr", &[("RA", &up, UA_RULE_EXTRA), ("RB", &up, UA_RULE_EXTRA)]).await;
+    for (method, uri) in [("GET", "/v1/responses/resp_1"), ("POST", "/v1/responses/compact")] {
+        let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkurr", method, uri, Some(OV_UA))).await;
+        assert_eq!(resp.status(), StatusCode::OK, "{method} {uri}");
+        let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkurr", method, uri, Some("Other/1.0"))).await;
+        assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "{method} {uri}");
+        assert_client_417_log(&state, "gkurr", "Other/1.0").await;
+    }
+}
+
+/// 透传平台（聊天路径）与 WebSocket 握手路径认规则。
+#[tokio::test]
+async fn ua_rules_passthrough_chat_and_ws() {
+    let (upstream, seen) = spawn_recording_upstream(r#"{"id":"x"}"#).await;
+    let state = make_state(test_db().await).await;
+    setup_passthrough_platform_group_extra(&state, "gkurp", &upstream, UA_RULE_EXTRA).await;
+    let chat = r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#;
+    let post = |ua: &'static str| {
+        HttpRequest::builder()
+            .method("POST")
+            .uri("/v1/messages")
+            .header("authorization", "Bearer gkurp")
+            .header("content-type", "application/json")
+            .header("user-agent", ua)
+            .body(Body::from(chat))
+            .unwrap()
+    };
+    let resp = handle_proxy(AxumState(state.clone()), post("Other/1.0")).await;
+    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(seen.lock().unwrap().len(), 0, "blocked request must not reach upstream");
+    let resp = handle_proxy(AxumState(state.clone()), post(OV_UA)).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(seen.lock().unwrap().len(), 1);
+
+    let dead = spawn_reset_upstream().await;
+    setup_passthrough_platform_group_extra(&state, "gkurws", &dead, UA_RULE_EXTRA).await;
+    let resp = handle_proxy(AxumState(state.clone()), ws_handshake_req("gkurws", Some("Other/1.0"))).await;
+    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_client_417_log(&state, "gkurws", "Other/1.0").await;
+    let resp = handle_proxy(AxumState(state.clone()), ws_handshake_req("gkurws", Some(OV_UA))).await;
+    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY, "规则命中 → 越过闸门走到上游连接");
+}
+
 
 // ──────────────────────────────────────────────────────────────
 // /api/notify：handle_notify 鉴权 + dispatch 全链路

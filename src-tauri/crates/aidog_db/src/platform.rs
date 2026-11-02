@@ -191,6 +191,7 @@ pub fn create_platform(
 ) -> impl std::future::Future<Output = Result<Platform, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
+        crate::models::validate_client_ua_rules(&input.extra)?;
         let ts = now();
         // 粘贴的 key 带首尾空白（如尾部换行）会让 reqwest 报 builder error: failed to parse header value，入口剥净
         input.api_key = input.api_key.trim().to_string();
@@ -402,6 +403,9 @@ pub fn update_platform(
         let existing = get_platform(db, input.id)
             .await?
             .ok_or("platform not found")?;
+        if let Some(extra) = &input.extra {
+            crate::models::validate_client_ua_rules(extra)?;
+        }
 
         // 同 create：粘贴 key 带首尾空白会在转发时报 builder error，入口剥净
         input.api_key = input.api_key.map(|k| k.trim().to_string());

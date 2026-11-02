@@ -180,14 +180,14 @@ pub(crate) async fn handle_ws_passthrough(
     // 无需 WS 关闭码 1008。多平台组走 select_candidates_gated；单平台短路会绕过候选过滤，
     // 故下方对选中的透传平台再判一次（等效退化形态仍受约束）。
     let lang = state.settings_cache.read().await.lang;
-    let client_hit = super::client_detect::identify_client(&orig_headers);
+    let probe = super::client_detect::client_probe(&orig_headers);
     let candidate_set = match select_candidates_gated(
         &state.db,
         &group,
         "",
         None,
         RequestKind::Chat,
-        ClientGate::On(client_hit),
+        ClientGate::On(probe.clone()),
     )
     .await
     {
@@ -223,9 +223,12 @@ pub(crate) async fn handle_ws_passthrough(
         upsert_log(&state, &log, &log_settings).await;
         return (StatusCode::BAD_REQUEST, log.response_body.clone()).into_response();
     };
+    let extra = aidog_db::models::PlatformExtra::parse(&platform.extra);
     if !crate::client_vocab::client_allowed(
-        &aidog_db::models::PlatformExtra::parse(&platform.extra).allowed_clients,
-        client_hit,
+        &extra.allowed_clients,
+        &crate::client_vocab::compile_ua_rules(&extra.client_ua_rules),
+        &probe.ua,
+        probe.hit,
     ) {
         return route_fail_response(&state, &mut log, &log_settings, "client_not_allowed", start, lang).await;
     }

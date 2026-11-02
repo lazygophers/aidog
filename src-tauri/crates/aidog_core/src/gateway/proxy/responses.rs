@@ -61,7 +61,7 @@ pub(crate) async fn handle_responses_subendpoint(
     // 一律在此统一判定；不走 select_candidates（单平台短路会绕过），直接逐平台判 extra.allowed_clients。
     // 仅 enabled 平台参与判定（同 filter_candidates：禁用先于白名单）；全部平台被拦 → 417，
     // 禁用平台不算可用（同 handle_single_platform）：剩下的可用平台全被拦（含被拦 + 禁用的退化形态）→ 417。
-    let client_hit = super::client_detect::identify_client(orig_headers);
+    let probe = super::client_detect::client_probe(orig_headers);
     let mut client_rejected = 0usize;
     let group_platforms: Vec<_> = group_platforms
         .into_iter()
@@ -69,9 +69,12 @@ pub(crate) async fn handle_responses_subendpoint(
             if !gp.platform.enabled {
                 return true;
             }
+            let extra = aidog_db::models::PlatformExtra::parse(&gp.platform.extra);
             let allowed = crate::client_vocab::client_allowed(
-                &aidog_db::models::PlatformExtra::parse(&gp.platform.extra).allowed_clients,
-                client_hit,
+                &extra.allowed_clients,
+                &crate::client_vocab::compile_ua_rules(&extra.client_ua_rules),
+                &probe.ua,
+                probe.hit,
             );
             if !allowed {
                 client_rejected += 1;

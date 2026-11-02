@@ -11,6 +11,7 @@
 //!   上限 = 本表可识别码数（约 55）+ `other` + 历史 `''` + 出现过的未知产品名数（`ua:<名>`，名最长 32 字符、
 //!   仅 ASCII 字母数字与 `. _ -`，由 `client_detect::ua_product_name` 限定），行数按实际出现的 client 增长而非全集乘积。
 
+use aidog_db::models::{ClientUaRule, UaRuleKind};
 use serde::Serialize;
 
 #[derive(Clone, Copy)]
@@ -132,13 +133,81 @@ pub fn identify(ua: &str) -> Option<&'static ClientEntry> {
     CLIENTS.iter().find(|e| e.rules.iter().any(|m| m.hit(&ua)))
 }
 
-/// 平台客户端白名单判定：空 = 全放行；`hit` 为 `None`（认不出）= 不命中；
-/// 否则白名单含该码或其所属大类即命中（勾大类 = 全部变体）。
-pub fn client_allowed(whitelist: &[String], hit: Option<&ClientEntry>) -> bool {
-    if whitelist.is_empty() {
+/// 已编译的 UA 规则（匹配时 UA 与 pattern 都按小写比较；regex 编译时已加不区分大小写）。
+#[derive(Clone, Debug)]
+pub struct CompiledUaRule {
+    kind: UaRuleKind,
+    pattern: String,
+    /// 仅 `Regex`：编译失败为 `None`，该规则永不命中（保存校验本应拦下，这里只兜底）。
+    re: Option<std::sync::Arc<regex::Regex>>,
+}
+
+impl CompiledUaRule {
+    fn hit(&self, ua_lower: &str, ua: &str) -> bool {
+        match self.kind {
+            UaRuleKind::Contains => ua_lower.contains(&self.pattern),
+            UaRuleKind::Prefix => ua_lower.starts_with(&self.pattern),
+            UaRuleKind::Exact => ua_lower == self.pattern,
+            UaRuleKind::Regex => self.re.as_ref().is_some_and(|r| r.is_match(ua)),
+        }
+    }
+}
+
+/// 把存储的规则编译成可匹配形态。正则按 pattern 进进程级缓存（路由每请求都会重建平台 extra 缓存，
+/// 不缓存就变成每请求编译）；编译失败记 warn 并缓存失败结果，规则保留（仍算「已限制」）但永不命中。
+pub fn compile_ua_rules(rules: &[ClientUaRule]) -> Vec<CompiledUaRule> {
+    rules
+        .iter()
+        .map(|r| CompiledUaRule {
+            kind: r.kind,
+            pattern: r.pattern.to_lowercase(),
+            re: if r.kind == UaRuleKind::Regex { cached_regex(&r.pattern) } else { None },
+        })
+        .collect()
+}
+
+/// shortcut: 缓存满 256 条整体清空，不做 LRU；正则 pattern 数量由用户手配，量级很小。
+fn cached_regex(pattern: &str) -> Option<std::sync::Arc<regex::Regex>> {
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex, OnceLock};
+    static CACHE: OnceLock<Mutex<HashMap<String, Option<Arc<regex::Regex>>>>> = OnceLock::new();
+    let mut map = CACHE.get_or_init(Default::default).lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(v) = map.get(pattern) {
+        return v.clone();
+    }
+    let built = match aidog_db::models::build_ua_regex(pattern) {
+        Ok(re) => Some(Arc::new(re)),
+        Err(e) => {
+            tracing::warn!(pattern, error = %e, "client UA rule regex failed to compile, rule never matches");
+            None
+        }
+    };
+    if map.len() >= 256 {
+        map.clear();
+    }
+    map.insert(pattern.to_string(), built.clone());
+    built
+}
+
+/// 平台客户端白名单判定：勾选与规则都空 = 全放行；`hit` 是内置词表识别结果——
+/// 认出（`Some`）只看勾选（白名单含该码或其所属大类即命中，勾大类 = 全部变体；规则不参与，内置优先）；
+/// 认不出（`None`）只看规则，任一命中即放行，否则拒绝。
+pub fn client_allowed(
+    whitelist: &[String],
+    rules: &[CompiledUaRule],
+    ua: &str,
+    hit: Option<&ClientEntry>,
+) -> bool {
+    if whitelist.is_empty() && rules.is_empty() {
         return true;
     }
-    hit.is_some_and(|e| whitelist.iter().any(|w| w == e.code || w == e.category()))
+    match hit {
+        Some(e) => whitelist.iter().any(|w| w == e.code || w == e.category()),
+        None => {
+            let lower = ua.to_lowercase();
+            rules.iter().any(|r| r.hit(&lower, ua))
+        }
+    }
 }
 
 #[derive(Serialize)]

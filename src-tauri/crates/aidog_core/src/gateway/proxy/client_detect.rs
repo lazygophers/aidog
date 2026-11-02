@@ -7,10 +7,16 @@
 use axum::http::{HeaderMap, header::USER_AGENT};
 
 use crate::client_vocab::{ClientEntry, identify};
+use crate::gateway::router::ClientProbe;
 
 /// 无 UA 头 / 非 UTF-8 / 不在词表 → `None`（认不出）；命中变体返回变体，只命中大类返回大类。
 pub(crate) fn identify_client(headers: &HeaderMap) -> Option<&'static ClientEntry> {
     identify(headers.get(USER_AGENT).and_then(|v| v.to_str().ok()).unwrap_or(""))
+}
+
+/// 白名单闸门用探针：UA 原文 + 内置词表识别结果（无 UA / 非 UTF-8 → 空串、认不出）。
+pub(crate) fn client_probe(headers: &HeaderMap) -> ClientProbe {
+    ClientProbe::from_ua(headers.get(USER_AGENT).and_then(|v| v.to_str().ok()).unwrap_or(""))
 }
 
 /// 统计 / 日志用码：词表码；认不出 → `ua:<产品名>`；截不出 / 无 UA → `other`。

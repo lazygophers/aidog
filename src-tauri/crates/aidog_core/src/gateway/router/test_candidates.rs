@@ -2917,7 +2917,7 @@ async fn client_whitelist_error_code_matrix() {
         }
         db.invalidate_group_details_cache();
         let g = mk_db_group(&db, &format!("g-wl-{i}"), &ids).await;
-        let gate = ClientGate::On(crate::client_vocab::identify("curl/8.4.0"));
+        let gate = ClientGate::On(ClientProbe::from_ua("curl/8.4.0"));
         let got =
             select_candidates_gated(&db, &g, "claude-opus-4-8", None, RequestKind::Chat, gate).await;
         match (want, got) {
@@ -2944,7 +2944,7 @@ async fn client_whitelist_hit_matrix_and_snapshot_label() {
                 .unwrap()
         }
     };
-    let ua = |s: &str| ClientGate::On(crate::client_vocab::identify(s));
+    let ua = |s: &str| ClientGate::On(ClientProbe::from_ua(s));
     // 变体精确命中 → 两个平台都在
     assert_eq!(sel(ua("claude-cli/2.0 (external, claude-vscode)")).await.candidates.len(), 2);
     // 只勾变体，识别为 CLI → WL 被拦、快照带标签
@@ -2954,7 +2954,7 @@ async fn client_whitelist_hit_matrix_and_snapshot_label() {
     let e = set.routing.entries.iter().find(|e| e.platform_id == wl.id).unwrap();
     assert_eq!(e.reason, RouteReason::ClientNotAllowed);
     // 认不出（无 UA）→ WL 被拦
-    assert_eq!(sel(ClientGate::On(None)).await.candidates.len(), 1);
+    assert_eq!(sel(ClientGate::On(ClientProbe::from_ua(""))).await.candidates.len(), 1);
     // Off：不判定，两个都在
     assert_eq!(sel(ClientGate::Off).await.candidates.len(), 2);
     // 勾大类 = 全部变体
@@ -2978,7 +2978,7 @@ async fn client_whitelist_not_revived_by_breaker_bypass() {
     let sticky = StickyTable::new();
     let settings = SchedulingBreakerSettings { enabled: true, ..Default::default() };
     let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
-    let gate = ClientGate::On(crate::client_vocab::identify("curl/8.4.0"));
+    let gate = ClientGate::On(ClientProbe::from_ua("curl/8.4.0"));
     let set = select_candidates_gated(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat, gate)
         .await
         .expect("breaker bypass revives only the non-whitelisted platform");

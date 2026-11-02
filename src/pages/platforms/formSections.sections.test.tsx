@@ -329,16 +329,19 @@ const VOCAB = [
   { code: "claude_code", nameKey: "n.cc", matchable: true, variants: [{ code: "cc_a", nameKey: "n.a" }, { code: "cc_b", nameKey: "n.b" }] },
   { code: "cursor", nameKey: "n.cur", matchable: true, variants: [] },
 ];
-function renderWl(initial: string[]) {
+function renderWl(initial: string[], initialRules: { kind: "contains" | "prefix" | "exact" | "regex"; pattern: string }[] = []) {
   let latest: string[] = initial;
+  let latestRules = initialRules;
   function Host() {
     const [sel, setSel] = useState<string[]>(initial);
+    const [rules, setRules] = useState(initialRules);
     latest = sel;
-    return <ClientWhitelistSection vocab={VOCAB} selected={sel} setSelected={setSel} t={t} />;
+    latestRules = rules;
+    return <ClientWhitelistSection vocab={VOCAB} selected={sel} setSelected={setSel} uaRules={rules} setUaRules={setRules} t={t} />;
   }
   const { container } = render(<Host />);
   const q = (id: string) => container.querySelector(`[data-testid="${id}"]`) as HTMLElement | null;
-  return { q, sel: () => latest };
+  return { q, sel: () => latest, rules: () => latestRules };
 }
 
 describe("ClientWhitelistSection — 客户端白名单（票 03）", () => {
@@ -370,5 +373,38 @@ describe("ClientWhitelistSection — 客户端白名单（票 03）", () => {
     fireEvent.click(q("client-wl-clear")!);
     expect(sel()).toEqual([]);
     expect(q("client-wl-clear")).toBeNull();
+  });
+
+  it("UA 规则：添加 -> 默认 contains 空 pattern；改类型 / 文本；删除", () => {
+    const { q, rules } = renderWl([]);
+    expect(q("client-ua-rule-0")).toBeNull();
+    fireEvent.click(q("client-ua-rule-add")!);
+    expect(rules()).toEqual([{ kind: "contains", pattern: "" }]);
+    fireEvent.change(q("client-ua-rule-kind-0")!, { target: { value: "regex" } });
+    fireEvent.change(q("client-ua-rule-pattern-0")!, { target: { value: "^open" } });
+    expect(rules()).toEqual([{ kind: "regex", pattern: "^open" }]);
+    fireEvent.click(q("client-ua-rule-remove-0")!);
+    expect(rules()).toEqual([]);
+  });
+
+  it("UA 规则：计数含规则；空 pattern / 非法正则行 data-state=invalid，合法行 valid", () => {
+    const { q } = renderWl(["cursor"], [
+      { kind: "contains", pattern: "ok" },
+      { kind: "contains", pattern: "" },
+      { kind: "regex", pattern: "(" },
+      { kind: "regex", pattern: "^x" },
+    ]);
+    expect(q("client-wl-count")!.textContent).toContain("5");
+    expect(q("client-ua-rule-0")!.getAttribute("data-state")).toBe("valid");
+    expect(q("client-ua-rule-1")!.getAttribute("data-state")).toBe("invalid");
+    expect(q("client-ua-rule-2")!.getAttribute("data-state")).toBe("invalid");
+    expect(q("client-ua-rule-3")!.getAttribute("data-state")).toBe("valid");
+  });
+
+  it("只有规则、没勾客户端：计数显示已限制；清空按钮同时清掉规则", () => {
+    const { q, rules } = renderWl([], [{ kind: "exact", pattern: "OpenViking" }]);
+    expect(q("client-wl-count")!.textContent).toContain("1");
+    fireEvent.click(q("client-wl-clear")!);
+    expect(rules()).toEqual([]);
   });
 });

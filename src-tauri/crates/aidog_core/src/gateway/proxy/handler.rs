@@ -336,7 +336,7 @@ pub(crate) async fn handle_proxy_core(
     tracing::info!(group = %group.name, source_protocol = %log.source_protocol, model = %log.model, "group resolved");
     upsert_log(&state, &log, &log_settings).await;
     // 入站客户端识别（只看 UA）：此后所有选平台转发的路径共用同一闸门（客户端白名单）。
-    let client_gate = ClientGate::On(super::client_detect::identify_client(&orig_headers));
+    let client_gate = ClientGate::On(super::client_detect::client_probe(&orig_headers));
 
     // ── 透传平台（ADR 0008）认领协议子端点：下方三个分流按协议处理、不认识透传平台 ──
     // 白名单拦下整组 → 直接 417/503，不得落回协议分支（那些分支各自有闸门，但此处先收口）。
@@ -346,7 +346,7 @@ pub(crate) async fn handle_proxy_core(
         || is_embedding_endpoint(&path)
         || is_rerank_endpoint(&path)
     {
-        match super::passthrough::passthrough_first_candidate(&state.db, &group, &raw_model, client_gate)
+        match super::passthrough::passthrough_first_candidate(&state.db, &group, &raw_model, client_gate.clone())
             .await
         {
             Ok(Some(platform)) => {
@@ -469,7 +469,7 @@ pub(crate) async fn handle_proxy_core(
     };
     // 解析失败（非 JSON / 不符合 path 推断的协议）：透传平台不依赖协议（ADR 0008），照样原样转发。
     if parsed.is_err() {
-        match super::passthrough::passthrough_first_candidate(&state.db, &group, &raw_model, client_gate)
+        match super::passthrough::passthrough_first_candidate(&state.db, &group, &raw_model, client_gate.clone())
             .await
         {
             Ok(Some(platform)) => {

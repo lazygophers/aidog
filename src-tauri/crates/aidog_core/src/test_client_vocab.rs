@@ -179,17 +179,73 @@ async fn command_desktop_and_http_expansions_agree() {
 }
 
 /// 票 03：白名单判定（票 04 路由拦截的读取接口）。空 = 全放行；认不出 = 不命中；
-/// 勾大类 = 其全部变体；勾变体 = 只该变体。
+/// 勾大类 = 其全部变体；勾变体 = 只该变体。（无 UA 规则时的语义，票 02 前后不变）
 #[test]
 fn client_allowed_semantics() {
     let w = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
     let var = identify("claude-cli/2.1.314 (external, claude-vscode)");
     let cat = identify("claude-cli/2.1.204 (external, cli)");
     assert_eq!(var.unwrap().code, "claude_code_vscode");
-    assert!(client_allowed(&[], None), "无白名单：认不出也放行");
-    assert!(!client_allowed(&w(&["claude_code"]), None), "有白名单：认不出拦下");
-    assert!(client_allowed(&w(&["claude_code"]), var), "勾大类含变体");
-    assert!(client_allowed(&w(&["claude_code_vscode"]), var));
-    assert!(!client_allowed(&w(&["claude_code_vscode"]), cat), "只勾变体不含大类兜底");
-    assert!(!client_allowed(&w(&["codex"]), var));
+    assert!(client_allowed(&[], &[], "", None), "无白名单：认不出也放行");
+    assert!(!client_allowed(&w(&["claude_code"]), &[], "", None), "有白名单：认不出拦下");
+    assert!(client_allowed(&w(&["claude_code"]), &[], "", var), "勾大类含变体");
+    assert!(client_allowed(&w(&["claude_code_vscode"]), &[], "", var));
+    assert!(!client_allowed(&w(&["claude_code_vscode"]), &[], "", cat), "只勾变体不含大类兜底");
+    assert!(!client_allowed(&w(&["codex"]), &[], "", var));
+}
+
+fn rules(v: &[(UaRuleKind, &str)]) -> Vec<CompiledUaRule> {
+    compile_ua_rules(
+        &v.iter().map(|(k, p)| ClientUaRule { kind: *k, pattern: p.to_string() }).collect::<Vec<_>>(),
+    )
+}
+
+/// 票 02：判定函数表驱动。(勾选, 规则, UA, 期望)；UA 经 identify 得内置识别结果。
+#[test]
+fn client_allowed_ua_rules_table() {
+    use UaRuleKind::*;
+    let w = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    let cc = "claude-cli/2.1.204 (external, cli)";
+    #[allow(clippy::type_complexity)]
+    let cases: Vec<(Vec<String>, Vec<(UaRuleKind, &str)>, &str, bool)> = vec![
+        // 勾选与规则都空 → 放行（含认不出 / 无 UA）
+        (w(&[]), vec![], "OpenViking/0.5.2", true),
+        (w(&[]), vec![], "", true),
+        // 四种 kind 命中（认不出的 UA）
+        (w(&[]), vec![(Contains, "viking")], "OpenViking/0.5.2 (darwin)", true),
+        (w(&[]), vec![(Prefix, "openviking/")], "OpenViking/0.5.2", true),
+        (w(&[]), vec![(Exact, "openviking/0.5.2")], "OpenViking/0.5.2", true),
+        (w(&[]), vec![(Regex, r"^openviking/\d+\.\d+")], "OpenViking/0.5.2", true),
+        // 四种 kind 不命中
+        (w(&[]), vec![(Contains, "zzz")], "OpenViking/0.5.2", false),
+        (w(&[]), vec![(Prefix, "viking")], "OpenViking/0.5.2", false),
+        (w(&[]), vec![(Exact, "openviking")], "OpenViking/0.5.2", false),
+        (w(&[]), vec![(Regex, r"^viking")], "OpenViking/0.5.2", false),
+        // 大小写：pattern 与 UA 任一方大写都命中
+        (w(&[]), vec![(Contains, "OPENVIKING")], "openviking/1", true),
+        (w(&[]), vec![(Exact, "OpenViking/0.5.2")], "OPENVIKING/0.5.2", true),
+        (w(&[]), vec![(Regex, "OPENVIKING")], "openviking/1", true),
+        // 多条规则：任一命中即放行
+        (w(&[]), vec![(Contains, "zzz"), (Prefix, "open")], "OpenViking/1", true),
+        // 无 UA：规则不命中 → 拒（Contains 空串被保存校验挡住，这里用非空 pattern）
+        (w(&[]), vec![(Contains, "x")], "", false),
+        // 内置认出 + 未勾 + 规则命中 → 拒（内置优先）
+        (w(&["codex"]), vec![(Contains, "claude")], cc, false),
+        (w(&[]), vec![(Contains, "claude")], cc, false),
+        // 内置认出 + 勾选 → 放行（规则不参与）
+        (w(&["claude_code"]), vec![(Contains, "zzz")], cc, true),
+        // 只规则没勾：内置全拒、规则命中的未知放行
+        (w(&[]), vec![(Contains, "viking")], "curl/8.4.0", false),
+        // 勾选 + 规则：未知 UA 看规则（勾选不救未知）
+        (w(&["claude_code"]), vec![(Contains, "viking")], "OpenViking/1", true),
+        (w(&["claude_code"]), vec![(Contains, "viking")], "Other/1", false),
+        (w(&["claude_code"]), vec![], "OpenViking/1", false),
+        // 坏正则：规则不命中但仍算「已限制」（不退化成放行）
+        (w(&[]), vec![(Regex, "(")], "OpenViking/1", false),
+        (w(&[]), vec![(Regex, "("), (Contains, "viking")], "OpenViking/1", true),
+    ];
+    for (i, (wl, rs, ua, want)) in cases.iter().enumerate() {
+        let got = client_allowed(wl, &rules(rs), ua, identify(ua));
+        assert_eq!(got, *want, "case {i}: wl={wl:?} rules={rs:?} ua={ua:?}");
+    }
 }

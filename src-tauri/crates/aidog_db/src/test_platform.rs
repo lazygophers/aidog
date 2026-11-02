@@ -717,3 +717,80 @@ async fn allowed_clients_in_extra_survive_reopen() {
     assert!(PlatformExtra::parse(&by("legacy").extra).allowed_clients.is_empty());
     assert!(PlatformExtra::parse(r#"{"allowed_clients":[]}"#).allowed_clients.is_empty());
 }
+
+/// 票 02：extra.client_ua_rules 写后重开读回（三文件库）；缺省 = 空。
+#[tokio::test]
+async fn client_ua_rules_in_extra_survive_reopen() {
+    let (db, dir) = three_file_db().await;
+    let mut with = sample_platform("ua");
+    with.extra = r#"{"client_ua_rules":[{"kind":"contains","pattern":"openviking"},{"kind":"regex","pattern":"^foo/\\d+"}],"keep":1}"#.to_string();
+    create_platform(&db, with).await.unwrap();
+    create_platform(&db, sample_platform("legacy")).await.unwrap();
+    drop(db);
+
+    let reopened = Db::new(dir.path().join("aidog.db").to_str().unwrap()).await.expect("reopen");
+    let listed = list_platforms(&reopened).await.unwrap();
+    let by = |n: &str| listed.iter().find(|p| p.name == n).unwrap();
+    let ex = PlatformExtra::parse(&by("ua").extra);
+    assert_eq!(
+        ex.client_ua_rules,
+        vec![
+            ClientUaRule { kind: UaRuleKind::Contains, pattern: "openviking".into() },
+            ClientUaRule { kind: UaRuleKind::Regex, pattern: r"^foo/\d+".into() },
+        ]
+    );
+    assert!(ex.rest.contains_key("keep"));
+    assert!(PlatformExtra::parse(&by("legacy").extra).client_ua_rules.is_empty());
+}
+
+/// 票 02：保存校验——非法正则 / 空 pattern / 未知 kind 一律拒，且不落库；合法规则放行。
+#[tokio::test]
+async fn client_ua_rules_validation_rejects_bad_rules_on_create_and_update() {
+    let db = test_db().await;
+    let bad = [
+        r#"{"client_ua_rules":[{"kind":"regex","pattern":"("}]}"#,
+        r#"{"client_ua_rules":[{"kind":"contains","pattern":""}]}"#,
+        r#"{"client_ua_rules":[{"kind":"contains","pattern":"   "}]}"#,
+        r#"{"client_ua_rules":[{"kind":"glob","pattern":"x*"}]}"#,
+        r#"{"client_ua_rules":[{"kind":"regex"}]}"#,
+        r#"{"client_ua_rules":"x"}"#,
+        // 超过编译体积上限
+        r#"{"client_ua_rules":[{"kind":"regex","pattern":"(a{1000}){1000}"}]}"#,
+    ];
+    for (i, extra) in bad.iter().enumerate() {
+        let mut input = sample_platform(&format!("bad{i}"));
+        input.extra = extra.to_string();
+        let err = create_platform(&db, input).await.expect_err(&format!("create case {i} should fail"));
+        assert!(err.contains("client_ua_rules"), "case {i}: {err}");
+    }
+    assert!(list_platforms(&db).await.unwrap().is_empty(), "拒绝的保存不得落库");
+
+    let ok = r#"{"client_ua_rules":[{"kind":"exact","pattern":"OpenViking"},{"kind":"regex","pattern":"^open.*"}]}"#;
+    let mut input = sample_platform("good");
+    input.extra = ok.to_string();
+    let p = create_platform(&db, input).await.unwrap();
+
+    for (i, extra) in bad.iter().enumerate() {
+        let upd = UpdatePlatform {
+            id: p.id,
+            name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            extra: Some(extra.to_string()),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
+            status: None,
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        };
+        let err = update_platform(&db, upd).await.expect_err(&format!("update case {i} should fail"));
+        assert!(err.contains("client_ua_rules"), "case {i}: {err}");
+    }
+    let after = get_platform(&db, p.id).await.unwrap().unwrap();
+    assert_eq!(after.extra, ok, "更新被拒后库内 extra 原样");
+}

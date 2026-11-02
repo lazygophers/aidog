@@ -4,13 +4,16 @@ import {
   parseDisableDuringPeak,
   parseDirectModels,
   parseAllowedClients,
+  parseClientUaRules,
   parsePlatformTimeWindows,
   serializePlatformPeak,
   serializeDisableDuringPeak,
   serializeDirectModels,
   serializeAllowedClients,
+  serializeClientUaRules,
   serializePlatformTimeWindows,
   type TimeModelRule,
+  type ClientUaRule,
 } from "../../services/api";
 import type { TimeWindow } from "../../domains/platforms";
 
@@ -29,6 +32,8 @@ export interface PlatformTimeModelsState {
   /** allowed_clients：客户端白名单词表码，空数组删除键（= 全放行）。 */
   allowedClients: string[];
   setAllowedClients: React.Dispatch<React.SetStateAction<string[]>>;
+  uaRules: ClientUaRule[];
+  setUaRules: React.Dispatch<React.SetStateAction<ClientUaRule[]>>;
   reset: () => void;
   hydrate: (extra: string) => void;
   serialize: (extra: string) => string;
@@ -47,6 +52,7 @@ export function usePlatformTimeModels(): PlatformTimeModelsState {
   /** direct_models：直通模型列表，空数组删除键（未声明 = 走默认链）。 */
   const [directModels, setDirectModels] = useState<string[]>([]);
   const [allowedClients, setAllowedClients] = useState<string[]>([]);
+  const [uaRules, setUaRules] = useState<ClientUaRule[]>([]);
 
   const reset = () => {
     setPeak([]);
@@ -55,6 +61,7 @@ export function usePlatformTimeModels(): PlatformTimeModelsState {
     setTimeModels([]);
     setDirectModels([]);
     setAllowedClients([]);
+    setUaRules([]);
   };
 
   const hydrate = (extra: string) => {
@@ -63,6 +70,7 @@ export function usePlatformTimeModels(): PlatformTimeModelsState {
     setTimeModels(parsePlatformTimeWindows(extra));
     setDirectModels(parseDirectModels(extra));
     setAllowedClients(parseAllowedClients(extra));
+    setUaRules(parseClientUaRules(extra));
   };
 
   const serialize = (extra: string) => {
@@ -70,6 +78,7 @@ export function usePlatformTimeModels(): PlatformTimeModelsState {
     next = serializeDisableDuringPeak(next, disableDuringPeak);
     next = serializeDirectModels(next, directModels);
     next = serializeAllowedClients(next, allowedClients);
+    next = serializeClientUaRules(next, uaRules);
     return serializePlatformTimeWindows(next, timeModels);
   };
 
@@ -79,6 +88,7 @@ export function usePlatformTimeModels(): PlatformTimeModelsState {
     timeModels, setTimeModels,
     directModels, setDirectModels,
     allowedClients, setAllowedClients,
+    uaRules, setUaRules,
     reset, hydrate, serialize,
   };
 }
