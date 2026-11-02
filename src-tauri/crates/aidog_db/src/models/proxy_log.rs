@@ -249,6 +249,9 @@ pub struct RouteCandidate {
     /// 目标模型选择来源（仅选中者携带；旧日志无此字段，缺省空）。
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub model_via: Vec<ModelVia>,
+    /// 命中槽位的完整有序模型链（链首 = target_model）；仅链长 > 1 时携带，旧日志缺省空。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub model_chain: Vec<String>,
 }
 
 /// 路由决策快照：单次请求的路由评估全程（proxy_log.routing 列）。
@@ -765,6 +768,7 @@ mod tests {
             reason: RouteReason::Selected,
             target_model: Some("m-1".into()),
             model_via: Vec::new(),
+            model_chain: Vec::new(),
             tags: Vec::new(),
         };
         let json = serde_json::to_string(&with_model).unwrap();

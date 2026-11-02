@@ -35,4 +35,8 @@ tags: Array<RouteTag>,
 /**
  * 目标模型选择来源（仅选中者携带；旧日志无此字段，缺省空）。
  */
-model_via: Array<ModelVia>, };
+model_via: Array<ModelVia>, 
+/**
+ * 命中槽位的完整有序模型链（链首 = target_model）；仅链长 > 1 时携带，旧日志缺省空。
+ */
+model_chain: Array<string>, };

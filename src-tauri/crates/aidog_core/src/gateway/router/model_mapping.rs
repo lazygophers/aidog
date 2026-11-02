@@ -5,6 +5,7 @@ use super::super::models::*;
 /// 根据平台模型配置自动匹配请求模型。
 /// 匹配规则：请求模型名（小写）包含槽位名（opus/sonnet/haiku/gpt）→ 使用该槽位值；
 /// 全部不匹配 → 使用 default；无 default → 透传原始模型（去掉 [... ] 后缀）。
+#[cfg(test)]
 pub(crate) fn resolve_model(models: &PlatformModels, source_model: &str) -> String {
     resolve_model_with_via(models, source_model).0
 }
@@ -14,6 +15,16 @@ pub(crate) fn resolve_model_with_via(
     models: &PlatformModels,
     source_model: &str,
 ) -> (String, aidog_db::models::ModelVia) {
+    let (mut chain, via) = resolve_model_chain_with_via(models, source_model);
+    (chain.swap_remove(0), via)
+}
+
+/// 槽位选择规则同 `resolve_model`，返回命中槽位的完整有序模型链（链首 = 目标模型，恒非空）。
+/// 无槽位可用 → 透传名单元素链。
+pub(crate) fn resolve_model_chain_with_via(
+    models: &PlatformModels,
+    source_model: &str,
+) -> (Vec<String>, aidog_db::models::ModelVia) {
     use aidog_db::models::ModelVia;
     // Strip Claude Code budget suffix like [1m], [128k]
     let base_model = source_model.split('[').next().unwrap_or(source_model);
@@ -26,17 +37,17 @@ pub(crate) fn resolve_model_with_via(
     ];
     for (slot_name, slot_value, via) in &slots {
         if lower.contains(slot_name)
-            && let Some(v) = slot_filled(slot_value)
+            && slot_filled(slot_value).is_some()
         {
-            return (v.to_string(), *via);
+            return (slot_chain(slot_value), *via);
         }
     }
     // 回退到 default
-    if let Some(default) = slot_filled(&models.default) {
-        return (default.to_string(), ModelVia::SlotDefault);
+    if slot_filled(&models.default).is_some() {
+        return (slot_chain(&models.default), ModelVia::SlotDefault);
     }
     // 无匹配无 default — 透传（去掉 budget 后缀）
-    (base_model.to_string(), ModelVia::Passthrough)
+    (vec![base_model.to_string()], ModelVia::Passthrough)
 }
 
 /// 决策请求（/v1/systemone）的目标模型解析（jev-decision-proxy R8）。不走 opus/sonnet 子串匹配：
