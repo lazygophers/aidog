@@ -1162,6 +1162,7 @@
   "notif.eventTemplatePlaceholder": "Déjalo vacío para usar la plantilla del tipo seleccionado",
   "notif.eventTypeLabel": "Tipo de notificación",
   "notif.eventVarsHint": "Variables disponibles",
+  "notif.optionalPlaceholderHint": "Marcador opcional {prefijo|variable}: muestra prefijo + valor si la variable no está vacía; si lo está, no muestra nada. Ej.: {project}{ · |session_name}",
   "notif.fieldForm": "Forma",
   "notif.fieldPopup": "Popup",
   "notif.fieldSound": "Sonido",

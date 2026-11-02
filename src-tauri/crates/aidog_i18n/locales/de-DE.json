@@ -1184,6 +1184,7 @@
   "notif.eventTemplatePlaceholder": "Leer lassen, um die Vorlage des gewählten Typs zu verwenden",
   "notif.eventTypeLabel": "Benachrichtigungstyp",
   "notif.eventVarsHint": "Verfügbare Variablen",
+  "notif.optionalPlaceholderHint": "Optionaler Platzhalter {Präfix|Variable}: gibt Präfix + Wert aus, wenn die Variable nicht leer ist, sonst nichts, z. B. {project}{ · |session_name}",
   "notif.fieldForm": "Form",
   "notif.fieldPopup": "Popup",
   "notif.fieldSound": "Ton",
