@@ -106,6 +106,10 @@ target 致 `test_registry.rs:359` 假红。
 - **共享 target 下同一时刻只允许一个 agent 跑 cargo**（2026-10-30 实锤）：并发时别的 worktree 的 aidog_db
   产物与 ts-rs `export_bindings` 输出会串味——向量化合并时主仓 `generated/PlatformModels.ts` 被覆盖成旧版，
   推荐配置 worktree 的 `make lint` 编到别的 worktree 的 test_candidates.rs。派第二个 cargo agent 前先等前一个收工。
+  现成互斥手法（2026-10-30 ~ 11-02 平台-客户端白名单线，03/07、04/08、05/06 并行跑通多轮）：
+  每个 agent 的 cargo 步骤包在目录锁里——`until mkdir /tmp/aidog-cargo.lock 2>/dev/null; do sleep 20; done;
+  trap 'rmdir /tmp/aidog-cargo.lock' EXIT`；`mkdir` 原子，agent 被中断后锁目录残留，续做前先
+  `ls -ld /tmp/aidog-cargo.lock` 并确认无 cargo 进程（`pgrep -fl cargo`）再 `rmdir`。
 - 每次 `cargo test` 后立刻 `/usr/bin/git status --short` 核对 `src/services/api/types/generated/` 无意外变动；
   有变动先判是该提交的真更新还是串味，串味用 `git show HEAD:<path> > <path>` 恢复。
 - **cargo 前 `touch src-tauri/crates/aidog_core/build.rs`**（2026-10-30 实锤两次）：共享 target
@@ -123,6 +127,11 @@ target 致 `test_registry.rs:359` 假红。
 `pgrep -fl 'git '` 确认无进程、`ls -l` 确认 0 字节且 mtime 久远，再删，然后提交。
 有进程或非 0 字节就停，那是别的会话正在写。
 
+复发（2026-10-30 ~ 11-02 平台-客户端白名单线，mtime 18:24 / 20:47 / 21:23 三次，删时均无 git 进程）：
+多 agent 串行合并 master 的会话里高频出现，成因假设（`推测:`）是 agent 被中断 / 超时杀掉时
+`git merge` / `commit` 正持锁。合并 agent 起手固定做：`pgrep -fl 'git '` 无进程 + `ls -l` 0 字节 →
+删锁，再继续；派发 prompt 带上这一步，免得合并 agent 报错停下。
+
 ## agent 子会话的 Bash cwd 每次调用重置（2026-09-30）
 
 全局 CLAUDE.md 写「Bash 的 cwd 跨调用保留」，那只对主会话成立。**派生的
@@ -138,6 +147,10 @@ implementer 在 worktree 里跑相对路径命令，静默打到主 checkout 两
   那条 cd 已经没了。
 - 动手前后各跑一次 `git -C <主 checkout> status --short`：多出来的脏文件
   就是误伤，当场还原并核对内容。
+- **改文档类文件（ADR / spec / md）同样走 worktree 绝对路径**（2026-11-02 票 05：agent 把
+  `docs/adr/0008-*.md` 改动写进主仓，与 worktree 内容逐字节相同，会话中断后才发现）。
+  agent 回报前 `git -C <主 checkout> status --short` 必须为空；非空且 `cmp` 与 worktree 同内容 = 误写副本，
+  撤掉主仓副本，保留 worktree 版。
 
 ## registry 盖戳脚本无参模式会盖到别人的脏文件（2026-10-02）
 

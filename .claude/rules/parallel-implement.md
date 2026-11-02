@@ -223,3 +223,23 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
   票面没有截图验收行不算完成。
 - 主会话合并前读一遍截图，按比例、遮挡、空值、对比度、动效五项自查；真机 WebKit /
   reduced-motion 未覆盖的列入回报「人工验收 N 条未执行」（pr-merge-discipline.md §2）。
+
+## 15. 门禁退出码不进管道；agent 中断后的续做 checklist（2026-10-30 ~ 11-02 平台-客户端白名单线）
+
+- **门禁命令禁管到 `tail` / `head` 再取退出码**：合并 agent 把 `yarn test:cov` 管到 `tail -15`，
+  退出码与 `Tests` 行一并丢失（票 03 合并），靠票 08 合并补证。命令写 `cmd > /tmp/x.log 2>&1; echo EXIT=$?`，
+  再 `grep -E 'Tests |Test Files' /tmp/x.log`；派发 prompt 把这条写死。
+- **会话中途退出会让后台 agent 中断**（本线 2 次：规划 agent、票 05）。续做按此顺序核对现场，再派续做 agent：
+  1. 票 `Status:` 是否停在 `claimed`（未写 `## Answer` = 没结票）；
+  2. `git -C <worktree> status --short` / `diff --stat` 半成品范围，最后一次编译错误原文；
+  3. 主仓 `status --short` 有无误写副本（与 worktree `cmp`）；
+  4. 锁残留：`/tmp/aidog-cargo.lock`（见 shared-worktree.md）、`.git/index.lock`。
+  半成品采信走 shared-worktree.md「implementer 挂掉后的半成品采信」三前提。
+- **harness 并发上限是环境变量 `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`（默认 2）**：用户说「不要管限制」
+  只解除本项目的 ≤2 约定，不改 harness；第 3 个派发报 `Concurrent subagent limit reached` 时不重试，
+  任务排队，任一完成再派。
+- **主仓 `node_modules` 缺失**（票 07 observed，原因不明）：agent 在主仓补 `yarn install --immutable`，
+  装完确认 `git status --short` 无 `yarn.lock` 变动；再出现时记当日账本遗留，累计两次再查成因。
+- **TDD 与截图豁免要写进票面**：票 07 未先红后绿、票 08 以「渲染未变」跳过截图。修 bug / 加校验的票，
+  agent 回报须贴先红的失败输出；豁免截图须在回报写明「渲染未变」依据（diff 不含 JSX / 样式），
+  否则按 §14 列人工验收。
