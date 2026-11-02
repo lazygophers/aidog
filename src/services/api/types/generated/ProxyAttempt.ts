@@ -26,4 +26,8 @@ model?: string,
  * `service`（上游服务类错误，直接换平台）/ `rule`（中间件 error_rule 标 non-retryable）。
  * 仅终止那一项携带；日志页据此给链上未尝试的模型标「跳过」及原因。
  */
-chain_stop?: string, };
+chain_stop?: string, 
+/**
+ * 本次尝试从发起到收到上游响应头（首字节）的毫秒数；连接失败 / 超时为 None，旧日志缺省 None。
+ */
+ttfb_ms?: number, };

@@ -790,6 +790,7 @@
   "logs.routing.request": "リクエスト",
   "logs.routing.route": "ルーティング",
   "logs.routing.response": "レスポンス",
+  "logs.routing.ttfb": "TTFB",
   "logs.routing.attemptFailed": "試行失敗",
   "logs.routing.notUsed": "未使用",
   "logs.routing.chain.used": "使用",
