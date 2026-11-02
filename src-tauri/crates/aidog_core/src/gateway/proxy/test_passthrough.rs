@@ -535,13 +535,13 @@ fn merge_group_model_names_dedupes_in_order() {
         ],
         &[
             PlatformModels {
-                default: Some("glm-4.7".into()), // 与上面的映射重复 → 只留一次
-                sonnet: Some("glm-4.6".into()),
+                default: vec!["glm-4.7".into()], // 与上面的映射重复 → 只留一次
+                sonnet: vec!["glm-4.6".into()],
                 ..PlatformModels::default()
             },
             PlatformModels {
-                opus: Some("glm-4.6".into()), // 跨平台重复 → 同样只留一次
-                haiku: Some("glm-4.5".into()),
+                opus: vec!["glm-4.6".into()], // 跨平台重复 → 同样只留一次
+                haiku: vec!["glm-4.5".into()],
                 ..PlatformModels::default()
             },
         ],
