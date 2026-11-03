@@ -168,12 +168,12 @@ export function segmentOptions(platforms: Platform[], t: TFunction): SegmentOpti
 // 票 03：段颜色三态 → 预览实际色。preset/custom 都映射到具体色值，follow 用菜单栏前景。
 const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 const PRESET_COLORS: Record<string, string> = {
-  red: "var(--destructive)", green: "var(--success)", orange: "var(--warning)",
+  red: "var(--mb-red)", green: "var(--mb-green)", orange: "var(--mb-orange)",
 };
 const ALIGN_FLEX: Record<string, string> = { left: "flex-start", center: "center", right: "flex-end" };
 
 const LEVEL_COLORS: Partial<Record<ColorLevel, string>> = {
-  danger: "var(--destructive)", warning: "var(--warning)", success: "var(--success)",
+  danger: "var(--mb-red)", warning: "var(--mb-orange)", success: "var(--mb-green)",
 };
 
 /** auto 预览用的 level：余额取后端 balance_level，coding 按 usageColor 进度差（与 Rust platform_item_level 同源阈值）；其余 neutral。 */
