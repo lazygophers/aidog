@@ -16,6 +16,7 @@ setGapSeparator,
   segColor,
   trayMoney,
   remainingUntilReset,
+  formatCountdown,
   type SegmentOption,
 } from "./TrayConfigTab";
 import type { TrayItem, TodayStats, Platform } from "../services/api";
@@ -187,7 +188,7 @@ describe("previewValue 平台槽多指标", () => {
   // 跨层 golden：与 Rust platform_metrics_use_display_currency 共读 tray_platform_golden.json。
   // reset 用例（带 now_local_h / ws_local_h）的 now 与 window_start 取「本地零点 + 小时偏移」，
   // 与 Rust 侧同式推导：同一固定 now 注入（防秒边界抖动），绝对时间不随时区漂移。
-  it.each(platformGolden as Array<{ code: string; symbol: string; decimals: number; rate: number; balance: number; balance_ccy: string | null; cost: number; metrics: string[]; unit: string | null; ws_local_h?: number; now_local_h?: number; expected: string }>)(
+  it.each(platformGolden as Array<{ code: string; symbol: string; decimals: number; rate: number; balance: number; balance_ccy: string | null; cost: number; metrics: string[]; unit: string | null; ws_local_h?: number; now_local_h?: number; reset_format?: string; expected: string }>)(
     "多指标金额按显示币种（对拍 Rust）$expected",
     (c) => {
       const cur = mk(c.code, c.symbol, c.decimals, c.rate);
@@ -203,8 +204,8 @@ describe("previewValue 平台槽多指标", () => {
           : {}),
       } as Platform;
       const st = { tokens: 0, cache_rate: 0, cost: c.cost, total_requests: 0 } as TodayStats;
-      const it = platformItem({ metrics: c.metrics, ...(c.unit ? { unit: c.unit } : {}) });
-      expect(previewValue(it, [p], st, null, cur, hasReset ? midnight + c.now_local_h! * 3_600_000 : undefined, tInterp)).toBe(c.expected);
+      const it = platformItem({ metrics: c.metrics, ...(c.unit ? { unit: c.unit } : {}), ...(c.reset_format ? { reset_format: c.reset_format } : {}) });
+      expect(previewValue(it, [p], st, null, cur, hasReset ? midnight + c.now_local_h! * 3_600_000 : undefined)).toBe(c.expected);
       setBalanceCurrencies({});
       setDisplayCurrency(USD_DISPLAY);
     },
@@ -549,6 +550,37 @@ describe("段编辑面板（票 03）", () => {
     fireEvent.change(view.getByTestId("tray-edit-unit"), { target: { value: "" } });
     sent = api.set.mock.calls[5][0];
     expect(sent.items.find((i: TrayItem) => segmentKey(i) === "platform:7").unit).toBeNull();
+  });
+
+  it("重置时间三指标 + 倒计时格式：格式项仅在含倒计时的指标下露出，选后写 reset_format", async () => {
+    const view = await renderTab(
+      {
+        separator: "  ",
+        items: [
+          item({ item_type: "platform", platform_id: 7, metric: null, line_mode: "single", align_row2: null, order: 0 }),
+        ],
+      },
+      [plat],
+    );
+    fireEvent.click(view.getByTestId("tray-slot-0"));
+    await waitFor(() => expect(view.getByTestId("tray-editor")).toBeTruthy());
+    expect(view.getByTestId("tray-edit-metric-reset_at:five_hour")).toBeTruthy();
+    expect(view.getByTestId("tray-edit-metric-reset_in:five_hour")).toBeTruthy();
+    // 未选任何倒计时指标 / 仅选 reset_at：无格式项
+    expect(view.queryByTestId("tray-edit-reset-format")).toBeNull();
+    fireEvent.click(view.getByTestId("tray-edit-metric-reset_at:five_hour"));
+    expect(view.queryByTestId("tray-edit-reset-format")).toBeNull();
+    // 选 reset_in → 露出格式项，缺省显示 cn
+    fireEvent.click(view.getByTestId("tray-edit-metric-reset_in:five_hour"));
+    const sel = view.getByTestId("tray-edit-reset-format") as HTMLSelectElement;
+    expect(sel.value).toBe("cn");
+    fireEvent.change(sel, { target: { value: "clock" } });
+    const sent = api.set.mock.calls.at(-1)![0];
+    expect(sent.items.find((i: TrayItem) => segmentKey(i) === "platform:7").reset_format).toBe("clock");
+    expect(sent.items.find((i: TrayItem) => segmentKey(i) === "platform:7").metrics).toEqual([
+      "reset_at:five_hour",
+      "reset_in:five_hour",
+    ]);
   });
 
   it("单位（票 04）：今日花费 cost 段露出 unit 与位置并持久化；非金额段两项位置都不露出", async () => {
@@ -976,5 +1008,34 @@ describe("remainingUntilReset", () => {
     expect(remainingUntilReset(null, now, tInterp)).toBe(null);
     expect(remainingUntilReset(now, now, tInterp)).toBe(null);
     expect(remainingUntilReset(now - 1, now, tInterp)).toBe(null);
+  });
+});
+
+// ── 托盘倒计时三格式（与 Rust format_countdown 同语义；nowMs 注入）──
+
+describe("formatCountdown", () => {
+  const now = 1_800_000_000_000;
+  const m = 60_000;
+  // [剩余毫秒, compact, cn, clock]
+  const cases: Array<[number, string, string, string]> = [
+    [59_000, "1m", "1分", "0:01"],
+    [60 * m, "1h", "1小时", "1:00"],
+    [135 * m, "2h15m", "2小时15分", "2:15"],
+    [23 * 60 * m + 59 * m, "23h59m", "23小时59分", "23:59"],
+    [24 * 60 * m, "1d", "1天", "1天 0:00"],
+    [24 * 60 * m + 20 * m, "1d20m", "1天20分", "1天 0:20"],
+    [27 * 60 * m + 20 * m, "1d3h20m", "1天3小时20分", "1天 3:20"],
+    [24 * 60 * m + 1, "1d1m", "1天1分", "1天 0:01"],
+  ];
+  it.each(cases)("剩余 %i ms 三格式", (ms, compact, cn, clock) => {
+    expect(formatCountdown(now + ms, now, "compact")).toBe(compact);
+    expect(formatCountdown(now + ms, now, "cn")).toBe(cn);
+    expect(formatCountdown(now + ms, now, "clock")).toBe(clock);
+    expect(formatCountdown(now + ms, now, undefined)).toBe(cn);
+  });
+
+  it("过期 / 恰好到点 → null", () => {
+    expect(formatCountdown(now, now, "cn")).toBe(null);
+    expect(formatCountdown(now - 1, now, "clock")).toBe(null);
   });
 });
