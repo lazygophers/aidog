@@ -819,3 +819,12 @@ fn two_line_mode_separator_draws_on_label_row_only() {
     assert_eq!(line_gap_text(1, lead.as_ref(), &gaps, 1), "");
     assert_eq!(line_gap_text(1, None, &gaps, 1), "");
 }
+
+#[test]
+fn preset_hex_table_light_dark() {
+    use super::preset_hex;
+    assert_eq!(preset_hex("green"), Some(("197A34", "3FB950")));
+    assert_eq!(preset_hex("orange"), Some(("B34800", "F0883E")));
+    assert_eq!(preset_hex("red"), Some(("CF222E", "FF7B72")));
+    assert_eq!(preset_hex("follow"), None);
+}
