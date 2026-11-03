@@ -86,7 +86,7 @@ export interface SegmentOption {
 function makeItem(patch: Partial<TrayItem>): TrayItem {
   return {
     item_type: "today_usage", platform_id: null, display: "", metric: null, label: null,
-    decimals: null, metrics: null, unit: null, unit_position: null,
+    decimals: null, metrics: null, unit: null, reset_format: null, unit_position: null,
     color: { mode: "auto", value: "" }, font_size: 9, line_mode: "single", // 新装载段默认 auto；已有段不迁移
     align: "left", align_row2: null, enabled: true, order: 0,
     ...patch,
@@ -105,6 +105,8 @@ function codingMetrics(platform: Platform): string[] {
 function platformMetricLabel(metric: string, t: TFunction): string {
   if (metric.startsWith("coding:")) return `${t("tray.platform.codingRemaining", "剩余%")} (${metric.slice(7)})`;
   if (metric.startsWith("reset_time:")) return `${t("tray.platform.resetTime", "重置时间")} (${metric.slice(11)})`;
+  if (metric.startsWith("reset_at:")) return `${t("tray.platform.resetAt", "重置时刻")} (${metric.slice(9)})`;
+  if (metric.startsWith("reset_in:")) return `${t("tray.platform.resetIn", "倒计时")} (${metric.slice(9)})`;
   const keys: Record<string, [string, string]> = {
     balance: ["tray.platform.balance", "余额"],
     coding: ["tray.platform.coding", "套餐剩余"],
@@ -251,8 +253,18 @@ export function remainingUntilReset(
   return t("tray.platform.resetInDays", "{{n}} 天后重置", { n: Math.ceil(hr / 24) });
 }
 
+/** 托盘重置倒计时（与 Rust `format_countdown` 逐字对齐）：精确到分钟（ceil），过期 → null。 */
+export function formatCountdown(resetAtMs: number, nowMs: number, fmt?: string | null): string | null {
+  const min = Math.ceil((resetAtMs - nowMs) / 60_000);
+  if (min <= 0) return null;
+  const d = Math.floor(min / 1440), h = Math.floor((min % 1440) / 60), mi = min % 60;
+  if (fmt === "clock") return `${d > 0 ? `${d}天 ` : ""}${h}:${String(mi).padStart(2, "0")}`;
+  const [ud, uh, um] = fmt === "compact" ? ["d", "h", "m"] : ["天", "小时", "分"];
+  return [[d, ud], [h, uh], [mi, um]].filter(([n]) => n).map(([n, u]) => `${n}${u}`).join("");
+}
+
 /** 预览值。peak 与真实托盘同口径（峰/平，Rust `peak_item_parts`）；routed_platform 仍占位。
- *  nowMs / t 可选注入：reset_time 指标拼接相对剩余时间（golden 两侧同 now 对算；组件传 useTranslation 的 t）。 */
+ *  nowMs 可选注入：reset_* 指标的倒计时（golden 两侧同 now 对算）。 */
 export function previewValue(
   item: TrayItem,
   platforms: Platform[],
@@ -260,7 +272,6 @@ export function previewValue(
   peak: TrayPeakStatus | null = null,
   cur: DisplayCurrency = getDisplayCurrency(),
   nowMs: number = Date.now(),
-  t?: TFunction,
 ): string {
   const s = stats ?? { tokens: 0, cache_rate: 0, cost: 0, total_requests: 0 };
   switch (item.item_type) {
@@ -287,29 +298,29 @@ export function previewValue(
         const tier = metric === "coding" ? tiers[0] : tiers.find((x) => `coding:${x.name}` === metric);
         return tier ? `${Math.max(0, 100 - tier.est_utilization).toFixed(0)}%` : null;
       };
+      // reset_time = 时刻 · 倒计时；reset_at 仅时刻；reset_in 仅倒计时（与 Rust platform_item_value 同口径）。
       const resetTime = (metric: string): string | null => {
-        const name = metric.slice("reset_time:".length);
+        const [kind, name] = metric.split(":");
         const tier = tiers.find((x) => x.name === name);
         const cycle = CYCLE_MS[name];
         if (!tier || !cycle || !tier.window_start) return null;
-        const d = new Date(tier.window_start + cycle);
+        const resetAt = tier.window_start + cycle;
+        const d = new Date(resetAt);
         const now = new Date(nowMs);
         const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
         const abs = d.toDateString() === now.toDateString()
           ? hm
           : `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${hm}`;
-        // 相对剩余时间与绝对时间同格拼接（与 Rust remaining_until_reset 同语义）；
-        // t 缺省走中文兜底（与 Rust 托盘硬编码中文逐字一致）。
-        const tf = t ?? ((key: string, fb?: string, o?: { n?: number }) =>
-          (fb ?? key).replace(/\{\{n\}\}/g, String(o?.n))) as unknown as TFunction;
-        const rel = remainingUntilReset(tier.window_start + cycle, nowMs, tf);
+        if (kind === "reset_at") return abs;
+        const rel = formatCountdown(resetAt, nowMs, item.reset_format);
+        if (kind === "reset_in") return rel;
         return rel ? `${abs} · ${rel}` : abs;
       };
       const one = (metric: string): string | null => {
         if (metric === "balance") return money(balanceUsd, item.decimals ?? 2);
         if (metric === "today_cost") return money(s.cost, item.decimals ?? 5);
         if (metric === "today_tokens") return `${s.tokens}${item.unit ?? " tok"}`;
-        if (metric.startsWith("reset_time:")) return resetTime(metric);
+        if (/^reset_(time|at|in):/.test(metric)) return resetTime(metric);
         return pct(metric);
       };
       const metrics = item.metrics?.length ? item.metrics : null;
@@ -471,7 +482,7 @@ export function SegmentEditor({
           "balance",
           ...(tiers.length ? ["coding"] : []),
           ...tiers.map((n) => `coding:${n}`),
-          ...tiers.map((n) => `reset_time:${n}`),
+          ...tiers.flatMap((n) => [`reset_time:${n}`, `reset_at:${n}`, `reset_in:${n}`]),
           "today_cost", "today_tokens",
         ];
         const chosen = new Set(seg.metrics ?? []);
@@ -499,6 +510,22 @@ export function SegmentEditor({
           </div>
         );
       })()}
+      {/* 倒计时格式（仅含倒计时的 reset_time / reset_in 指标下露出；缺省 = cn） */}
+      {seg.item_type === "platform" && seg.metrics?.some((m) => m.startsWith("reset_time:") || m.startsWith("reset_in:")) && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          <FieldLabel>{t("tray.platform.resetFormat", "倒计时格式")}</FieldLabel>
+          <select
+            data-testid="tray-edit-reset-format"
+            value={seg.reset_format ?? "cn"}
+            onChange={(e) => onPatch({ reset_format: e.target.value })}
+            style={editorInput}
+          >
+            <option value="compact">{t("tray.platform.resetFormat.compact", "紧凑 2h15m")}</option>
+            <option value="cn">{t("tray.platform.resetFormat.cn", "中文 2小时15分")}</option>
+            <option value="clock">{t("tray.platform.resetFormat.clock", "时钟 2:15")}</option>
+          </select>
+        </div>
+      )}
       {/* 单位（平台槽 / 今日花费 cost 段；留空回落默认） */}
       {(seg.item_type === "platform" || isCostSeg) && (
         <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
@@ -1007,7 +1034,7 @@ export function TrayConfigTab() {
                           alignSelf: two ? (ALIGN_FLEX[seg.align_row2 ?? seg.align] ?? "flex-start") : undefined,
                         }}
                       >
-                        {previewValue(seg, platforms, todayStats, peak, cur, undefined, t)}
+                        {previewValue(seg, platforms, todayStats, peak, cur)}
                       </span>
                     </span>
                     </Fragment>
@@ -1049,7 +1076,7 @@ export function TrayConfigTab() {
                     {gap}
                     <SortableSlot i={i} tag={t("tray.slotIndex", "SLOT {{n}}", { n: i + 1 })} id={segmentKey(seg)} onEdit={() => setEditingKey(segmentKey(seg))} handleLabel={t("tray.dragHandle", "拖动排序")}>
                       <div style={{ fontSize: 12.5, fontWeight: 650 }}>{seg.label || opt?.label || segmentKey(seg)}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 700, color: ACCENT_TEXT, letterSpacing: 0.3 }}>{previewValue(seg, platforms, todayStats, peak, cur, undefined, t)}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 700, color: ACCENT_TEXT, letterSpacing: 0.3 }}>{previewValue(seg, platforms, todayStats, peak, cur)}</div>
                     </SortableSlot>
                     </Fragment>
                   );
