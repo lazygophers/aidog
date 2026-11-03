@@ -168,7 +168,7 @@ export function RoutingCanvas({
   const canvasRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef(new Map<string, HTMLDivElement>());
   const [width, setWidth] = useState<number | null>(null);
-  const [canvasH, setCanvasH] = useState(260);
+  const [heights, setHeights] = useState<Record<string, number>>({});
   const [edges, setEdges] = useState<{ key: string; d: string; cls: string }[]>([]);
   const [tick, setTick] = useState(0);
 
@@ -202,23 +202,25 @@ export function RoutingCanvas({
 
   const vertical = width !== null && width < 720;
 
-  // 宽布局：4 列绝对定位（位置与节点实测尺寸解耦）；容器 <720px 转纵向流式
-  const pos = useMemo(() => {
-    if (!nodes || width === null || vertical) return null;
+  // 宽布局：4 列绝对定位；平台列按节点「实测」高度累加（卡片行数随耗时/首字/徽标变化，估算必重叠）。
+  // 实测高度未到（首帧 / jsdom offsetHeight=0）回落估算值；高度与位置无循环依赖，一次重渲即收敛。
+  const GAP = 12;
+  const { pos, canvasH } = useMemo(() => {
+    if (!nodes || width === null || vertical) return { pos: null, canvasH: 260 };
     const colX = [24, width * 0.24, width * 0.5, width * 0.78];
     const plats = nodes.slice(2, -1);
-    // 链长 > 1 的节点多出逐项行，累计高度避免相互遮挡
-    const heights = plats.map((n) => 84 + Math.max(0, (n.chain?.length ?? 0) - 1) * 18);
-    const total = heights.reduce((a, b) => a + b, 0);
-    const y0 = Math.max(16, (260 - Math.max(total, 84)) / 2);
+    const hOf = (n: NodeSpec) => heights[n.id] || 84 + Math.max(0, (n.chain?.length ?? 0) - 1) * 18;
+    const total = plats.reduce((a, n) => a + hOf(n), 0) + Math.max(0, plats.length - 1) * GAP;
+    const H = Math.max(260, total + 32);
+    const mid = H / 2;
     const p: Record<string, { x: number; y: number }> = {};
-    let acc = y0;
-    plats.forEach((n, i) => { p[n.id] = { x: colX[2]!, y: acc }; acc += heights[i]!; });
-    p["req"] = { x: colX[0]!, y: 100 };
-    p["route"] = { x: colX[1]!, y: 100 };
-    p[nodes[nodes.length - 1]!.id] = { x: colX[3]!, y: 100 };
-    return p;
-  }, [nodes, width, vertical]);
+    let acc = (H - total) / 2;
+    plats.forEach((n) => { p[n.id] = { x: colX[2]!, y: acc }; acc += hOf(n) + GAP; });
+    const respId = nodes[nodes.length - 1]!.id;
+    const fixed: [string, number][] = [["req", colX[0]!], ["route", colX[1]!], [respId, colX[3]!]];
+    for (const [id, x] of fixed) p[id] = { x, y: mid - (heights[id] || 60) / 2 };
+    return { pos: p, canvasH: H };
+  }, [nodes, width, vertical, heights]);
 
   // 连线：req→route→各平台；胜出平台→响应（无胜出则 route→响应）。
   // useLayoutEffect 时 DOM 已提交，offset* 即用即取；resize 经 RO 80ms debounce 驱动 tick 重算。
@@ -228,8 +230,14 @@ export function RoutingCanvas({
     if (!canvas) return;
     setWidth(canvas.clientWidth);
     const boxes: Record<string, { l: number; t: number; w: number; h: number }> = {};
+    const measured: Record<string, number> = {};
     nodeRefs.current.forEach((el, id) => {
       boxes[id] = { l: el.offsetLeft, t: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight };
+      measured[id] = el.offsetHeight;
+    });
+    setHeights((prev) => {
+      const ids = Object.keys(measured);
+      return ids.length === Object.keys(prev).length && ids.every((id) => prev[id] === measured[id]) ? prev : measured;
     });
     const hasWin = winId !== null && boxes[winId] !== undefined;
     const pairs: [string, string, string][] = [["req", "route", hasWin ? EDGE_WIN : EDGE_EVAL]];
@@ -244,7 +252,8 @@ export function RoutingCanvas({
       if (!A || !B) continue;
       const x1c = A.l + A.w / 2, y1c = A.t + A.h / 2, x2c = B.l + B.w / 2, y2c = B.t + B.h / 2;
       let d: string;
-      if (Math.abs(x2c - x1c) < Math.abs(y2c - y1c)) {
+      // 宽布局恒走端口到端口的水平贝塞尔（否则远距平台会误判成「纵向」斜穿卡片）；仅纵向流式布局按相对位置选
+      if (vertical && Math.abs(x2c - x1c) < Math.abs(y2c - y1c)) {
         // 正上/正下：纵向贝塞尔（上卡底边中点 → 下卡顶边中点）
         const [top, bot] = A.t < B.t ? [A, B] : [B, A];
         const y1 = top.t + top.h, y2 = bot.t;
@@ -260,12 +269,7 @@ export function RoutingCanvas({
       out.push({ key: `${a}->${b}`, d, cls });
     }
     setEdges(out);
-    if (pos) {
-      let maxBottom = 260;
-      Object.values(boxes).forEach((bx) => { maxBottom = Math.max(maxBottom, bx.t + bx.h + 24); });
-      setCanvasH(maxBottom);
-    }
-  }, [nodes, winId, pos, tick]);
+  }, [nodes, winId, pos, tick, vertical]);
 
   useEffectResize(canvasRef, () => setTick((x) => x + 1));
 
@@ -320,7 +324,7 @@ export function RoutingCanvas({
           }}
         >
           <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
-            {edges.map((e) => <path key={e.key} className={e.cls} d={e.d} />)}
+            {edges.map((e) => <path key={e.key} data-edge={e.key} className={e.cls} d={e.d} />)}
           </svg>
           {nodes.map((n, i) => {
             const isResp = i === nodes.length - 1;
