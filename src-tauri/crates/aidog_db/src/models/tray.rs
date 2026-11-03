@@ -64,7 +64,8 @@ pub struct TrayItem {
     pub decimals: Option<u32>,
     /// 仅 item_type="platform"：多指标列表，按序用 " · " 拼进同一格。
     /// token 词表：`balance` | `coding`（首个 tier 剩余%）| `coding:<tier_name>`（指定窗口）|
-    /// `reset_time:<tier_name>`（指定窗口下次重置时刻）| `today_cost` | `today_tokens`，
+    /// `reset_time:<tier_name>`（重置时刻 · 倒计时）| `reset_at:<tier_name>`（仅重置时刻）|
+    /// `reset_in:<tier_name>`（仅倒计时）| `today_cost` | `today_tokens`，
     /// tier 来自 platform.est_coding_plan。
     /// None/空 = 沿用 display 旧口径（逐字不变）。
     #[serde(default)]
@@ -73,6 +74,10 @@ pub struct TrayItem {
     /// （$ 前缀 / " tok" 后缀；coding 的 % 固有，不受影响）。None = 默认。
     #[serde(default)]
     pub unit: Option<String>,
+    /// 倒计时格式（仅 `reset_time:` / `reset_in:` 指标生效）："compact"（2h15m）| "cn"（2小时15分）|
+    /// "clock"（2:15）。None / 未知值 = "cn"。
+    #[serde(default)]
+    pub reset_format: Option<String>,
     /// 金额段（今日花费 / 平台余额 / 平台今日花费）单位位置："prefix" | "suffix"。
     /// None = 旧语义：unit 非空 -> 后置，否则前置（保护已有自定义单位配置）。
     #[serde(default)]
@@ -151,6 +156,7 @@ fn segment(item_type: &str, metric: Option<&str>, order: i32) -> TrayItem {
         metrics: None,
         unit: None,
         unit_position: None,
+        reset_format: None,
         color: TrayColor::default(),
         font_size: default_font_size(),
         line_mode: "single".to_string(),
