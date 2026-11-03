@@ -103,6 +103,13 @@ pub async fn all_group_usage_stats() -> Result<std::collections::HashMap<String,
 }
 
 crate::tauri_command! {
+pub async fn group_last_requests(group_keys: Vec<String>) -> Result<std::collections::HashMap<String, gateway::models::GroupLastRequest>, String> {
+    let db = aidog_ctx::db();
+    aidog_stats::group_last_requests(db, &group_keys).await
+}
+}
+
+crate::tauri_command! {
 pub async fn all_platform_usage_stats() -> Result<std::collections::HashMap<u64, gateway::models::PlatformUsageStats>, String> {
     let db = aidog_ctx::db();
     aidog_stats::platform_usage_stats_all(db).await

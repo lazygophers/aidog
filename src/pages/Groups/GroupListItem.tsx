@@ -1,13 +1,14 @@
 import { Fragment, memo, useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import type { GroupDetail, GroupPlatformDetail, Platform, PlatformUsageStats, PurgeCandidate, PlatformErrorStatus } from "../../services/api";
+import type { GroupDetail, GroupLastRequest, GroupPlatformDetail, Platform, PlatformUsageStats, PurgeCandidate, PlatformErrorStatus } from "../../services/api";
 import { buildStatusOptions, idsForCode } from "./statusSelect";
 import { platformApi } from "../../services/api";
 import { formatMoney, formatPercent, formatNumber, successRate as calcSuccessRate } from "../../utils/formatters";
 import { makeRipple } from "../../components/shared";
 import { PlatformCardActions, PlatformCardService } from "../../components/platforms/PlatformCard";
 import { PlatformRow } from "../platforms/PlatformRow";
+import { GroupLastRequest as GroupLastRequestBadge } from "./GroupLastRequest";
 import type { DragHandleProps } from "../../components/SortableList";
 import { buildClaudeCommand, buildCodexCommand, buildPiCommand, useProxyEnvVars } from "../../domains/groups";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,7 @@ export interface GroupListItemProps {
   detail: GroupDetail;
   index: number;
   usageStat: PlatformUsageStats | undefined;
+  lastRequest: GroupLastRequest | undefined;
   balance: number | undefined;
   platforms: Platform[];
   // 折叠 / 拖拽 UI 状态
@@ -78,7 +80,7 @@ export interface GroupListItemProps {
   onToggleDefault: (group: GroupDetail["group"]) => void;
   onTestGroup: (group: GroupDetail["group"], gps: GroupPlatformDetail[]) => void;
   onCreatePlatform?: (presetGroupIds?: number[], lockedGroupId?: number) => void;
-  onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string; duplicate?: boolean }) => void;
+  onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string; duplicate?: boolean; logId?: string }) => void;
   onPlatPointerDown: (e: React.PointerEvent, pid: number, gid: number) => void;
   onSetLevelPriority: (gid: number, pid: number, v: number) => void;
   onPurgeDisabled: (gid: number) => void | Promise<void>;
@@ -105,7 +107,7 @@ export interface GroupListItemProps {
  * props 接口与全部 handler 保持不变（GroupListView 管线零改动）。
  */
 export const GroupListItem = memo(function GroupListItem({
-  detail, index, usageStat: u, balance, platforms,
+  detail, index, usageStat: u, lastRequest, balance, platforms,
   isExpanded, isDragOver, dropIndicatorIdx, dropIndicatorTotal,
   visiblePlatformIds, forceExpanded,
   groupTestRunning,
@@ -263,6 +265,12 @@ export const GroupListItem = memo(function GroupListItem({
           {balance != null && (
             <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("platform.col.balance", "余额")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>{formatMoney(balance)}</b></span>
           )}
+        </span>
+        <span onClick={e => e.stopPropagation()} style={{ minWidth: 0 }}>
+          <GroupLastRequestBadge
+            last={lastRequest}
+            onOpen={onNavigate ? (logId) => onNavigate("logs", { groupKey: group.group_key, logId }) : undefined}
+          />
         </span>
         {/* 右侧操作（稿 .gactions：拖入提示 / 多选 / 设置 / ⋯） */}
         <span style={{ marginLeft: "auto", display: "inline-flex", gap: 6, alignItems: "center" }} onClick={e => e.stopPropagation()}>

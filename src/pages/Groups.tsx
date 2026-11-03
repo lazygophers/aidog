@@ -23,7 +23,7 @@ import { usePlatformDrag } from "./Groups/usePlatformDrag";
 
 /** 分组内嵌组件（供 Platforms 页使用） */
 export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted, onCreatePlatform, onEditPlatform, onDuplicatePlatform, onToast, onViewModeChange, openCreateGroupRef, reloadRef, onCountChange, searchQuery }: {
-  onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string; duplicate?: boolean }) => void;
+  onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string; duplicate?: boolean; logId?: string }) => void;
   onGroupsChanged?: () => void;
   /** 平台被删后触发父级（Platforms 页 usePlatformsState.removePlatformsByIds）局部移除 platforms state。
    *  独立信号不复用 onGroupsChanged：后者语义是「分组结构变更 → 刷 groupDetails」，扩它刷 platforms 会污染
@@ -59,7 +59,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
 
   // ── 数据加载（分页 / 统计 / 余额聚合）──
   const {
-    details, platforms, setDetails, groupStats, groupBalance, unmatchedStat,
+    details, platforms, setDetails, groupStats, groupBalance, groupLast, unmatchedStat,
     loading, loadingMore, hasMore, sentinelRef, proxyBaseUrl,
     silentReload, patchPlatform, refreshSingleGroup,
   } = useGroupData({ onCountChange });
@@ -763,6 +763,8 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
           platforms={platforms}
           t={t}
           groupStats={groupStats}
+          groupLast={groupLast}
+          onNavigate={onNavigate}
           cards={cards}
           cardService={cardService}
           groupTestRunning={groupTest?.running ?? false}
@@ -795,6 +797,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       groupRows={groupRows}
       groupIndexById={groupIndexById}
       groupStats={groupStats}
+      groupLast={groupLast}
       groupBalance={groupBalance}
       unmatchedStat={unmatchedStat}
       groupSearch={groupSearch}

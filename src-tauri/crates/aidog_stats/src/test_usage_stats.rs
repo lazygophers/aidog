@@ -499,3 +499,50 @@ async fn flow_breakdown_7d_scale_guard() {
     assert_eq!(rows.len(), 20 * 3 * 3, "六元组基数不随小时数膨胀");
     assert!(el < std::time::Duration::from_millis(500), "7d 查询 {el:?} 超上界");
 }
+
+// ── 分组最近一次请求：log.db 读池，三文件库验证路由 ─────────────────────────────
+
+/// 三分组：gA 最新=失败（attempts 带 error）、gB 最新=成功（更早是失败）、gC 无请求；
+/// gA 另有更新的 test/quota 行必须被跳过（与 Logs 主页 exclude_sources 一致）。
+#[tokio::test]
+async fn group_last_requests_picks_latest_per_group() {
+    let (db, _dir) = three_file_db().await;
+    let base = chrono::Utc::now().timestamp_millis();
+    let put = |id: &'static str, gk: &'static str, ts: i64, status: i32, src: &'static str| {
+        let mut l = sample_log(id, gk, ts);
+        l.status_code = status;
+        l.source_protocol = src.to_string();
+        l
+    };
+    let mut a_fail = put("a2", "gA", base + 20, 502, "anthropic");
+    a_fail.attempts = vec![aidog_db::models::ProxyAttempt {
+        platform_id: 1,
+        platform_name: "P1".into(),
+        status_code: 502,
+        error: "upstream boom".into(),
+        duration_ms: 5,
+        ts: base,
+        model: None,
+        chain_stop: None,
+        ttfb_ms: None,
+    }];
+    let rows = vec![
+        put("a1", "gA", base + 10, 200, "anthropic"),
+        a_fail,
+        put("a3", "gA", base + 30, 200, "test"),
+        put("b1", "gB", base + 10, 500, "anthropic"),
+        put("b2", "gB", base + 20, 200, "anthropic"),
+    ];
+    for l in rows {
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l, false, false))
+            .await
+            .unwrap();
+    }
+    let keys = vec!["gA".to_string(), "gB".to_string(), "gC".to_string()];
+    let m = group_last_requests(&db, &keys).await.unwrap();
+    let a = m.get("gA").expect("gA 应有");
+    assert_eq!((a.id.as_str(), a.status_code, a.error.as_str()), ("a2", 502, "upstream boom"));
+    let b = m.get("gB").expect("gB 应有");
+    assert_eq!((b.id.as_str(), b.status_code, b.error.as_str()), ("b2", 200, ""));
+    assert!(!m.contains_key("gC"), "无请求的分组不出现");
+}

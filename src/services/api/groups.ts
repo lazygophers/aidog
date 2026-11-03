@@ -1,7 +1,7 @@
 // groups.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "../transport";
-import type { RoutingMode, Group, GroupPlatformDetail, ModelMapping, EnvVar, GroupDetail, PlatformUsageStats, GroupDailyBreakdown, LatestRouting, FlowRow } from "./types";
+import type { RoutingMode, Group, GroupPlatformDetail, ModelMapping, EnvVar, GroupDetail, PlatformUsageStats, GroupDailyBreakdown, GroupLastRequest, LatestRouting, FlowRow } from "./types";
 
 // ── G3 分组页（整体风格票 03）：flow 拆分 + 最近路由快照（只读命令）──
 export const groupFlowApi = {
@@ -23,6 +23,9 @@ export const groupUsageApi = {
   // 后端 GROUP BY group_key，共享平台不重复计入。
   statsAll: () =>
     invoke<Record<string, PlatformUsageStats>>("all_group_usage_stats"),
+  /** 批量：各分组最后一次请求（无请求的分组不在结果内）。 */
+  lastRequests: (groupKeys: string[]) =>
+    invoke<Record<string, GroupLastRequest>>("group_last_requests", { groupKeys }),
 };
 
 // ─── Tray Config API ───────────────────────────────────────
