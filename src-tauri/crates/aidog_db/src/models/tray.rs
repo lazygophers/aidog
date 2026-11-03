@@ -64,7 +64,8 @@ pub struct TrayItem {
     pub decimals: Option<u32>,
     /// 仅 item_type="platform"：多指标列表，按序用 " · " 拼进同一格。
     /// token 词表：`balance` | `coding`（首个 tier 剩余%）| `coding:<tier_name>`（指定窗口）|
-    /// `reset_time:<tier_name>`（重置倒计时；旧值 `reset_at:` / `reset_in:` 同按倒计时）|
+    /// `reset_time:<tier_name>`（重置剩余时间，仅倒计时；旧值 `reset_in:` 同）|
+    /// `reset_at:<tier_name>`（重置时刻，仅绝对时刻）|
     /// `today_cost` | `today_tokens`，
     /// tier 来自 platform.est_coding_plan。
     /// None/空 = 沿用 display 旧口径（逐字不变）。
@@ -74,7 +75,7 @@ pub struct TrayItem {
     /// （$ 前缀 / " tok" 后缀；coding 的 % 固有，不受影响）。None = 默认。
     #[serde(default)]
     pub unit: Option<String>,
-    /// 倒计时格式（仅 `reset_time:` 指标生效）："compact"（2h15m）| "cn"（2小时15分）|
+    /// 倒计时格式（仅 `reset_time:` / `reset_in:` 指标生效；`reset_at:` 不受影响）："compact"（2h15m）| "cn"（2小时15分）|
     /// "clock"（2:15）。None / 未知值 = "cn"。
     #[serde(default)]
     pub reset_format: Option<String>,

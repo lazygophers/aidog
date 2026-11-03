@@ -562,7 +562,7 @@ fn platform_metrics_reset_time_known_tier() {
     );
 }
 
-/// 托盘重置时间只出倒计时：reset_time 与旧设置残留的 reset_at / reset_in 一律按倒计时；格式字段仍生效。
+/// 重置剩余时间：reset_time 与旧设置残留的 reset_in 只出倒计时；格式字段仍生效。（具体时刻见 reset_at 独立指标）
 #[test]
 fn platform_metrics_reset_countdown_only_and_formats() {
     use chrono::TimeZone;
@@ -584,7 +584,7 @@ fn platform_metrics_reset_countdown_only_and_formats() {
         }
         super::platform_item_value(&p, &item_json(j), None, &usd(), None, now)
     };
-    for m in ["reset_time", "reset_at", "reset_in"] {
+    for m in ["reset_time", "reset_in"] {
         let k = format!("{m}:five_hour");
         assert_eq!(val(json!([k]), None), "4小时15分", "{m}");
         assert_eq!(val(json!([k]), Some("compact")), "4h15m", "{m}");
@@ -595,6 +595,40 @@ fn platform_metrics_reset_countdown_only_and_formats() {
     let late = start + 6 * HOUR;
     let j = json!({"item_type": "platform", "platform_id": 1, "metrics": ["reset_time:five_hour"]});
     assert_eq!(super::platform_item_value(&p, &item_json(j), None, &usd(), None, late), "—");
+}
+
+/// 重置时刻：reset_at 仅出本地绝对时刻（今天 HH:MM，跨天 MM-DD HH:MM），不受 reset_format 影响，过期仍给时刻。
+#[test]
+fn platform_metrics_reset_at_clock_time_only() {
+    use chrono::TimeZone;
+    let today = chrono::Local::now().date_naive();
+    let local = |d: chrono::NaiveDate, h: u32| {
+        chrono::Local.from_local_datetime(&d.and_hms_opt(h, 0, 0).unwrap()).single().unwrap().timestamp_millis()
+    };
+    let start = local(today, 10);
+    let plan = format!(
+        r#"{{"tiers":[{{"name":"five_hour","est_utilization":10.0,"window_start":{start}}}]}}"#
+    );
+    let p = platform(0.0, &plan);
+    let val = |fmt: Option<&str>, now: i64| {
+        let mut j = json!({"item_type": "platform", "platform_id": 1, "metrics": ["reset_at:five_hour"]});
+        if let Some(f) = fmt {
+            j["reset_format"] = json!(f);
+        }
+        super::platform_item_value(&p, &item_json(j), None, &usd(), None, now)
+    };
+    let now = start + 45 * 60_000;
+    assert_eq!(val(None, now), "15:00");
+    assert_eq!(val(Some("compact"), now), "15:00");
+    // 过期 → 仍给时刻（不是 "—"）。
+    assert_eq!(val(None, start + 6 * HOUR), "15:00");
+    // 跨天：now 取昨天 → 重置不在“今天”，带日期前缀。
+    let yesterday = today.pred_opt().unwrap();
+    let expect = chrono::Local.timestamp_millis_opt(start + 5 * HOUR).single().unwrap().format("%m-%d %H:%M").to_string();
+    assert_eq!(val(None, local(yesterday, 12)), expect);
+    // 两个指标并存，互相独立。
+    let j = json!({"item_type": "platform", "platform_id": 1, "metrics": ["reset_time:five_hour", "reset_at:five_hour"]});
+    assert_eq!(super::platform_item_value(&p, &item_json(j), None, &usd(), None, now), "4小时15分 · 15:00");
 }
 
 #[test]

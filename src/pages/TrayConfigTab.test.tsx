@@ -551,7 +551,7 @@ describe("段编辑面板（票 03）", () => {
     expect(sent.items.find((i: TrayItem) => segmentKey(i) === "platform:7").unit).toBeNull();
   });
 
-  it("重置时间只有倒计时一个指标（无时刻 / 倒计时切换）：选后露出格式项，写 reset_format", async () => {
+  it("重置剩余时间（reset_time）与重置时刻（reset_at）是两个独立勾选项；格式项仅在勾选剩余时间后露出，写 reset_format", async () => {
     const view = await renderTab(
       {
         separator: "  ",
@@ -564,9 +564,13 @@ describe("段编辑面板（票 03）", () => {
     fireEvent.click(view.getByTestId("tray-slot-0"));
     await waitFor(() => expect(view.getByTestId("tray-editor")).toBeTruthy());
     expect(view.getByTestId("tray-edit-metric-reset_time:five_hour")).toBeTruthy();
-    expect(view.queryByTestId("tray-edit-metric-reset_at:five_hour")).toBeNull();
+    expect(view.getByTestId("tray-edit-metric-reset_at:five_hour")).toBeTruthy();
     expect(view.queryByTestId("tray-edit-metric-reset_in:five_hour")).toBeNull();
     expect(view.queryByTestId("tray-edit-reset-format")).toBeNull();
+    // 仅勾重置时刻：不露出倒计时格式项。
+    fireEvent.click(view.getByTestId("tray-edit-metric-reset_at:five_hour"));
+    expect(view.queryByTestId("tray-edit-reset-format")).toBeNull();
+    fireEvent.click(view.getByTestId("tray-edit-metric-reset_at:five_hour"));
     fireEvent.click(view.getByTestId("tray-edit-metric-reset_time:five_hour"));
     const sel = view.getByTestId("tray-edit-reset-format") as HTMLSelectElement;
     expect(sel.value).toBe("cn");
@@ -574,6 +578,11 @@ describe("段编辑面板（票 03）", () => {
     const sent = api.set.mock.calls.at(-1)![0];
     expect(sent.items.find((i: TrayItem) => segmentKey(i) === "platform:7").reset_format).toBe("clock");
     expect(sent.items.find((i: TrayItem) => segmentKey(i) === "platform:7").metrics).toEqual(["reset_time:five_hour"]);
+    // 再勾重置时刻：两项并存，格式项仍在。
+    fireEvent.click(view.getByTestId("tray-edit-metric-reset_at:five_hour"));
+    expect(api.set.mock.calls.at(-1)![0].items.find((i: TrayItem) => segmentKey(i) === "platform:7").metrics)
+      .toEqual(["reset_time:five_hour", "reset_at:five_hour"]);
+    expect(view.getByTestId("tray-edit-reset-format")).toBeTruthy();
   });
 
   it("单位（票 04）：今日花费 cost 段露出 unit 与位置并持久化；非金额段两项位置都不露出", async () => {
