@@ -710,24 +710,16 @@ pub(crate) fn platform_item_value(
                     format!("{tokens}{unit}")
                 })
             }
+            // 重置时间只显示倒计时；旧设置残留的 reset_at: / reset_in: 同按倒计时（持久化兼容）。
             m if m.starts_with("reset_time:") || m.starts_with("reset_at:") || m.starts_with("reset_in:") => {
-                // 重置时刻 = window_start + cycle（与 algo.rs remain 推算同式）；cycle 未知 / 无起点 → 跳过。
-                let (kind, name) = m.split_once(':')?;
+                // 重置时刻 = window_start + cycle（与 algo.rs remain 推算同式）；cycle 未知 / 无起点 / 已过期 → 跳过。
+                let (_, name) = m.split_once(':')?;
                 let tier = plan.tiers.iter().find(|t| t.name == name)?;
                 let cycle = gateway::usage_color::cycle_ms_for_tier(&tier.name)?;
                 if tier.window_start <= 0 {
                     return None;
                 }
-                let reset = tier.window_start + cycle;
-                let rel = format_countdown(reset, now_ms, item.reset_format.as_deref().unwrap_or("cn"));
-                match kind {
-                    "reset_in" => rel,
-                    "reset_at" => Some(format_reset_time(reset, now_ms)),
-                    _ => {
-                        let abs = format_reset_time(reset, now_ms);
-                        Some(rel.map_or(abs.clone(), |r| format!("{abs} · {r}")))
-                    }
-                }
+                format_countdown(tier.window_start + cycle, now_ms, item.reset_format.as_deref().unwrap_or("cn"))
             }
             _ => None,
         })
@@ -784,26 +776,7 @@ pub(crate) fn platform_item_level(
     }
 }
 
-/// 重置时刻本地时区展示：今天内 `HH:mm`，跨天 `MM-dd HH:mm`。
-fn format_reset_time(reset_ms: i64, now_ms: i64) -> String {
-    use chrono::TimeZone;
-    let local = chrono::Local;
-    let dt = match local.timestamp_millis_opt(reset_ms).single() {
-        Some(dt) => dt,
-        None => return "—".to_string(),
-    };
-    let now = match local.timestamp_millis_opt(now_ms).single() {
-        Some(n) => n,
-        None => return "—".to_string(),
-    };
-    if dt.date_naive() == now.date_naive() {
-        dt.format("%H:%M").to_string()
-    } else {
-        dt.format("%m-%d %H:%M").to_string()
-    }
-}
-
-/// 重置倒计时文案：精确到分钟（向上取整，与前端 `remainingUntilReset` 的 ceil 同语义），过期 → None。
+/// 重置倒计时文案：精确到分钟（向上取整，与前端 `formatCountdown` 同语义），过期 → None。
 /// `fmt`：`compact`（`1d3h20m`）| `clock`（`1天 3:20` / `2:15`）| 其余（含 `cn` / 未知）→ 中文（`1天3小时20分`）。
 /// compact / cn 省略 0 值单位；clock 恒 `H:MM`，有天数前缀 `N天 `。
 /// 托盘标签无 i18n（「命中」「高峰」同机制），硬编码中文。

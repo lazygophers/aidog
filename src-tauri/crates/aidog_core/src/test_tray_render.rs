@@ -536,7 +536,7 @@ fn platform_metrics_today_values_from_prefetched_stat() {
 #[test]
 fn platform_metrics_reset_time_known_tier() {
     use chrono::TimeZone;
-    // 今天本地 10:00 起点 + five_hour(5h) cycle → 15:00 今天 → "HH:mm"，now=起点 → 5 小时后重置。
+    // 今天本地 10:00 起点 + five_hour(5h) cycle → 重置 15:00；托盘只显示倒计时，now=起点 → 5 小时。
     let today = chrono::Local::now().date_naive();
     let start = chrono::Local
         .from_local_datetime(&today.and_hms_opt(10, 0, 0).unwrap())
@@ -554,17 +554,17 @@ fn platform_metrics_reset_time_known_tier() {
     // 老配置（无 reset_format）：倒计时精确到分钟、默认中文格式，不再逐级 ceil 到整小时。
     assert_eq!(
         super::platform_item_value(&p, &item, None, &usd(), None, start),
-        "15:00 · 5小时"
+        "5小时"
     );
     assert_eq!(
         super::platform_item_value(&p, &item, None, &usd(), None, start + 45 * 60_000 + 1),
-        "15:00 · 4小时15分"
+        "4小时15分"
     );
 }
 
-/// 三个独立指标：reset_time（两者）/ reset_at（仅时刻）/ reset_in（仅倒计时）；格式字段只影响含倒计时的两个。
+/// 托盘重置时间只出倒计时：reset_time 与旧设置残留的 reset_at / reset_in 一律按倒计时；格式字段仍生效。
 #[test]
-fn platform_metrics_reset_three_metrics_and_formats() {
+fn platform_metrics_reset_countdown_only_and_formats() {
     use chrono::TimeZone;
     let today = chrono::Local::now().date_naive();
     let start = chrono::Local
@@ -576,7 +576,7 @@ fn platform_metrics_reset_three_metrics_and_formats() {
         r#"{{"tiers":[{{"name":"five_hour","est_utilization":10.0,"window_start":{start}}}]}}"#
     );
     let p = platform(0.0, &plan);
-    let now = start + 45 * 60_000; // 剩 4h15m，重置于 15:00（今天）
+    let now = start + 45 * 60_000; // 剩 4h15m
     let val = |metrics: serde_json::Value, fmt: Option<&str>| {
         let mut j = json!({"item_type": "platform", "platform_id": 1, "metrics": metrics});
         if let Some(f) = fmt {
@@ -584,24 +584,17 @@ fn platform_metrics_reset_three_metrics_and_formats() {
         }
         super::platform_item_value(&p, &item_json(j), None, &usd(), None, now)
     };
-    assert_eq!(val(json!(["reset_at:five_hour"]), None), "15:00");
-    assert_eq!(val(json!(["reset_in:five_hour"]), None), "4小时15分");
-    assert_eq!(val(json!(["reset_in:five_hour"]), Some("compact")), "4h15m");
-    assert_eq!(val(json!(["reset_in:five_hour"]), Some("clock")), "4:15");
-    assert_eq!(val(json!(["reset_time:five_hour"]), Some("compact")), "15:00 · 4h15m");
-    assert_eq!(val(json!(["reset_time:five_hour"]), Some("clock")), "15:00 · 4:15");
-    // 未知格式回落中文；reset_at 不受格式影响。
-    assert_eq!(val(json!(["reset_in:five_hour"]), Some("???")), "4小时15分");
-    assert_eq!(val(json!(["reset_at:five_hour"]), Some("clock")), "15:00");
-    // 过期：仅倒计时无值 → 跳过 → "—"；reset_time 退化为仅时刻（与旧行为一致）；reset_at 仍给时刻。
+    for m in ["reset_time", "reset_at", "reset_in"] {
+        let k = format!("{m}:five_hour");
+        assert_eq!(val(json!([k]), None), "4小时15分", "{m}");
+        assert_eq!(val(json!([k]), Some("compact")), "4h15m", "{m}");
+        assert_eq!(val(json!([k]), Some("clock")), "4:15", "{m}");
+        assert_eq!(val(json!([k]), Some("???")), "4小时15分", "{m}");
+    }
+    // 过期 → 无值 → "—"（不再退化成具体时刻）。
     let late = start + 6 * HOUR;
-    let at_late = |m: &str| {
-        let j = json!({"item_type": "platform", "platform_id": 1, "metrics": [m]});
-        super::platform_item_value(&p, &item_json(j), None, &usd(), None, late)
-    };
-    assert_eq!(at_late("reset_in:five_hour"), "—");
-    assert!(!at_late("reset_time:five_hour").contains('·'));
-    assert_eq!(at_late("reset_at:five_hour"), at_late("reset_time:five_hour"));
+    let j = json!({"item_type": "platform", "platform_id": 1, "metrics": ["reset_time:five_hour"]});
+    assert_eq!(super::platform_item_value(&p, &item_json(j), None, &usd(), None, late), "—");
 }
 
 #[test]
@@ -610,6 +603,16 @@ fn tray_item_without_reset_format_deserializes_to_none() {
     assert_eq!(it.reset_format, None);
     let it = item_json(json!({"item_type": "platform", "reset_format": "clock"}));
     assert_eq!(it.reset_format.as_deref(), Some("clock"));
+}
+
+/// 旧版存盘 JSON（时刻模式 reset_at / 带未知字段）反序列化不失败，渲染按倒计时。
+#[test]
+fn legacy_reset_at_setting_deserializes_and_renders_countdown() {
+    let it = item_json(json!({
+        "item_type": "platform", "platform_id": 1,
+        "metrics": ["reset_at:five_hour", "balance"], "reset_mode": "clock", "some_removed_field": 1,
+    }));
+    assert_eq!(it.metrics.as_deref(), Some(&["reset_at:five_hour".to_string(), "balance".to_string()][..]));
 }
 
 #[test]
@@ -622,7 +625,7 @@ fn platform_metrics_reset_time_skips_unusable_tiers() {
     let p = platform(0.0, plan);
     let item = item_json(json!({
         "item_type": "platform", "platform_id": 1,
-        "metrics": ["reset_time:five_hour", "reset_time:mystery", "reset_at:five_hour", "reset_in:mystery"],
+        "metrics": ["reset_time:five_hour", "reset_time:mystery", "reset_in:mystery"],
     }));
     assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None, NOW), "—");
 }
