@@ -17,6 +17,7 @@
 pub mod channels;
 pub mod rules;
 pub mod semantic;
+mod action;
 mod dispatch;
 mod render;
 mod session_name;
@@ -31,6 +32,8 @@ pub use tts::*;
 #[allow(unused_imports)]
 pub use vars::*;
 
+#[cfg(test)]
+mod test_action;
 #[cfg(test)]
 mod test_render;
 #[cfg(test)]

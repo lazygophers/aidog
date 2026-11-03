@@ -5,7 +5,7 @@
 // 用户改动才落 settings.per_event（经父组件 persist）。仅 claude_code（Codex 不逐事件）。
 //
 // 跨层镜像：CC_HOOK_EVENTS / DEFAULT_ON_EVENTS / EVENT_CATALOG 逐字镜像后端
-// src-tauri/src/gateway/models.rs（CC_HOOK_EVENTS / DEFAULT_ON_EVENTS / default_template_for_event
+// src-tauri/crates/aidog_db/src/models/notification.rs（CC_HOOK_EVENTS / DEFAULT_ON_EVENTS / default_template_for_event
 // + 事件目录表的专属入参），改一侧务必同步另一侧。事件名为 CC 官方英文原样，不翻译。
 
 import { useTranslation } from "react-i18next";
@@ -59,7 +59,7 @@ const COMMON_VARS = ["{project}", "{session}", "{session_name}"];
 
 /**
  * per-event 目录：每事件**专属默认模板 + 专属可用入参**（每事件不同）。
- * **跨层镜像**后端 `src-tauri/src/gateway/models.rs` 的 `default_template_for_event` + 事件目录表
+ * **跨层镜像**后端 `src-tauri/crates/aidog_db/src/models/notification.rs` 的 `default_template_for_event` + 事件目录表
  * 的「专属入参」列；改一侧务必逐字同步另一侧。defaultTemplate 为 zh 硬编码（非 i18n）。
  * vars 为该事件**额外**专属占位（不含 COMMON_VARS）。
  */
@@ -71,12 +71,12 @@ export const EVENT_CATALOG: Record<string, { defaultTemplate: string; vars: stri
   UserPromptExpansion: { defaultTemplate: "{project}{ · |session_name} 展开命令 {command_name}", vars: ["{command_name}", "{command_args}"] },
   MessageDisplay: { defaultTemplate: "{project}{ · |session_name} 消息更新", vars: ["{turn_id}", "{final}"] },
   PreToolUse: { defaultTemplate: "{project}{ · |session_name} 即将执行 {tool_name}", vars: ["{tool_name}"] },
-  PermissionRequest: { defaultTemplate: "{project}{ · |session_name} 请求授权：{tool_name}", vars: ["{tool_name}"] },
+  PermissionRequest: { defaultTemplate: "{project}{ · |session_name} {action}", vars: ["{action}", "{tool_name}"] },
   PermissionDenied: { defaultTemplate: "{project}{ · |session_name} 拒绝 {tool_name}：{reason}", vars: ["{tool_name}", "{reason}"] },
   PostToolUse: { defaultTemplate: "{project}{ · |session_name} {tool_name} 完成（{duration_ms}ms）", vars: ["{tool_name}", "{duration_ms}"] },
   PostToolUseFailure: { defaultTemplate: "{project}{ · |session_name} {tool_name} 失败：{error}", vars: ["{tool_name}", "{error}"] },
   PostToolBatch: { defaultTemplate: "{project}{ · |session_name} 批量工具完成", vars: [] },
-  Notification: { defaultTemplate: "{project}{ · |session_name}：{message}", vars: ["{message}", "{type}"] },
+  Notification: { defaultTemplate: "{project}{ · |session_name} 提醒：{action}", vars: ["{action}", "{message}", "{notification_type}"] },
   SubagentStart: { defaultTemplate: "{project}{ · |session_name} 子代理 {agent_type} 启动", vars: ["{agent_type}"] },
   SubagentStop: { defaultTemplate: "{project}{ · |session_name} 子代理 {agent_type} 完成", vars: ["{agent_type}"] },
   Stop: { defaultTemplate: "{project}{ · |session_name} 任务完成", vars: [] },
