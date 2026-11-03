@@ -13,7 +13,7 @@ fn default_template_per_event_independent() {
     );
     assert_eq!(
         default_template_for_event("Notification"),
-        "{project}{ · |session_name}：{message}"
+        "{project}{ · |session_name} 提醒：{action}"
     );
     assert_eq!(
         default_template_for_event("PostToolUseFailure"),

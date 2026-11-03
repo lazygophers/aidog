@@ -49,6 +49,9 @@ pub async fn dispatch(
         let mut v = vars.clone();
         v.insert("request_id".to_string(), action_key.clone());
         v.insert("session_name".to_string(), session_name);
+        if let Some(a) = event.and_then(|e| super::action::derive_action(e, vars)) {
+            v.entry("action".to_string()).or_insert(a);
+        }
         v
     };
     let vars = &vars_owned;
@@ -159,6 +162,15 @@ pub async fn dispatch(
                 }
             }
         }
+    }
+
+    // permission_prompt 与已启用的 PermissionRequest 重复 → 只写通知记录。
+    if event.is_some_and(|e| super::action::is_duplicate_permission_prompt(e, vars, &settings)) {
+        do_popup = false;
+        do_sound = false;
+        do_tts = false;
+        ext.clear();
+        inbox = true;
     }
 
     if !(do_popup || do_sound || do_tts || inbox || !ext.is_empty()) {
