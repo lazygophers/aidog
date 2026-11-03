@@ -60,6 +60,7 @@ const baseProps = {
   detail, details, platforms,
   t: ((k: string) => k) as never,
   groupStats: { gk: { total_requests: 1000, success_count: 890, total_input_tokens: 1, total_output_tokens: 1, total_cache_tokens: 0, cache_rate: 0, recent_failures: 0, recent_total: 0, total_cost: 4.83, today_tokens: 1248, today_cost: 4.8 } } as never,
+  groupLast: {},
   cards,
   cardService: { onQuickTest: vi.fn(), onEdit: vi.fn(), onShare: vi.fn(), onDuplicate: vi.fn(), onViewLogs: vi.fn(), onCustomTest: vi.fn(), onToggleEnabled: vi.fn() } as never,
   groupTestRunning: false,
@@ -71,6 +72,18 @@ const baseProps = {
 
 describe("GroupDetailPage — 观测台三栏", () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it("顶栏显示最近请求：失败带原因，点击导航到日志详情", () => {
+    vi.mocked(groupFlowApi.daily).mockResolvedValue([]);
+    const onNavigate = vi.fn();
+    const last = { id: "log-9", status_code: 502, created_at: Date.now(), duration_ms: 1, blocked_reason: "", error: "boom" };
+    render(<GroupDetailPage {...baseProps} groupLast={{ gk: last }} onNavigate={onNavigate} />);
+    const el = screen.getByTestId("group-last-request");
+    expect(el.getAttribute("data-state")).toBe("failed");
+    expect(screen.getByTestId("group-last-request-reason").getAttribute("title")).toBe("boom");
+    fireEvent.click(el);
+    expect(onNavigate).toHaveBeenCalledWith("logs", { groupKey: "gk", logId: "log-9" });
+  });
 
   it("双栏挂载：统计带 / flow / 成员表 / 趋势", async () => {
     vi.mocked(groupFlowApi.daily!).mockResolvedValue(daily);

@@ -719,3 +719,63 @@ pub fn latest_routing_snapshot<'a>(
         .map_err(|e| format!("latest routing snapshot: {e}"))
     }
 }
+
+/// 分组最后一次请求（log.db 读池）：按 `idx_proxy_log_group_created(group_key, created_at)` 逐组 seek 1 行。
+/// 排除 test/quota/fetch-models（同 Logs 主页）。无请求的分组不进结果。
+#[track_caller]
+pub fn group_last_requests<'a>(
+    db: &'a Db,
+    group_keys: &'a [String],
+) -> impl std::future::Future<
+    Output = Result<
+        std::collections::HashMap<String, aidog_db::models::GroupLastRequest>,
+        String,
+    >,
+> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let keys = group_keys.to_vec();
+        db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare_cached(
+                "SELECT id, status_code, created_at, duration_ms, blocked_reason, attempts, \
+                 substr(response_body, 1, 200) \
+                 FROM proxy_log WHERE group_key = ?1 AND deleted_at = 0 \
+                 AND source_protocol NOT IN ('test', 'quota', 'fetch-models') \
+                 ORDER BY created_at DESC LIMIT 1",
+            )?;
+            let mut map = std::collections::HashMap::new();
+            for key in keys {
+                let mut rows = stmt.query(params![key])?;
+                if let Some(row) = rows.next()? {
+                    let status_code: i32 = row.get(1)?;
+                    let attempts = aidog_db::models::parse_attempts(&row.get::<_, String>(5)?);
+                    let body: String = row.get(6)?;
+                    let error = if (200..300).contains(&status_code) {
+                        String::new()
+                    } else {
+                        attempts
+                            .iter()
+                            .rev()
+                            .find(|a| !a.error.is_empty())
+                            .map(|a| a.error.clone())
+                            .unwrap_or(body)
+                    };
+                    map.insert(
+                        key,
+                        aidog_db::models::GroupLastRequest {
+                            id: row.get(0)?,
+                            status_code,
+                            created_at: row.get(2)?,
+                            duration_ms: row.get(3)?,
+                            blocked_reason: row.get(4)?,
+                            error,
+                        },
+                    );
+                }
+            }
+            Ok(map)
+        })
+        .await
+        .map_err(|e| format!("group last requests: {e}"))
+    }
+}

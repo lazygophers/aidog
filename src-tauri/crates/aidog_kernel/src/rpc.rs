@@ -217,6 +217,7 @@ rpc_routes! {
     aidog_core::proxy_cmd::proxy_log::platform_usage_stats,
     aidog_core::proxy_cmd::proxy_log::group_usage_stats,
     aidog_core::proxy_cmd::proxy_log::all_group_usage_stats,
+    aidog_core::proxy_cmd::proxy_log::group_last_requests,
     aidog_core::proxy_cmd::proxy_log::all_platform_usage_stats,
     aidog_core::proxy_cmd::proxy_log::get_last_test_result,
     aidog_core::platform_cmd::quota::platform_query_quota,

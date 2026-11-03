@@ -4,7 +4,8 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import type { GroupDetail, Platform, PlatformUsageStats } from "../../services/api";
+import type { GroupDetail, GroupLastRequest, Platform, PlatformUsageStats } from "../../services/api";
+import { GroupLastRequest as GroupLastRequestBadge } from "./GroupLastRequest";
 import { groupFlowApi } from "../../services/api";
 import { GroupSidePanels, staticOrder } from "./GroupSidePanels";
 import type { CardsSnapshot } from "./GroupListItem";
@@ -217,6 +218,8 @@ export function GroupDetailPage(props: {
   platforms: Platform[];
   t: TFunction;
   groupStats: Record<string, PlatformUsageStats>;
+  groupLast: Record<string, GroupLastRequest>;
+  onNavigate?: (id: string, context?: { groupKey?: string; logId?: string }) => void;
   cards: CardsSnapshot;
   cardService: import("../../components/platforms/PlatformCard").PlatformCardService;
   groupTestRunning: boolean;
@@ -255,6 +258,10 @@ export function GroupDetailPage(props: {
         {/* 计数只显当前组自己的成员数；details.length/全量关联和是别的分组的信息，禁入详情页（2026-10-27 用户报） */}
         <span style={{ fontSize: 11.5, color: "var(--text-tertiary)" }}>{detail.platforms.length} {t("group.platforms", "平台")}</span>
         <div style={{ flex: 1 }} />
+        <GroupLastRequestBadge
+          last={props.groupLast[group.group_key]}
+          onOpen={props.onNavigate ? (logId) => props.onNavigate!("logs", { groupKey: group.group_key, logId }) : undefined}
+        />
       </div>
       {/* pgbody：1fr / 264px */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 264px", gap: 14, padding: "14px 16px", background: "linear-gradient(180deg, var(--secondary, #FBFBFD), transparent)", alignItems: "start" }}>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { TFunction } from "i18next";
-import type { GroupDetail, Platform, PlatformUsageStats } from "../../services/api";
+import type { GroupDetail, GroupLastRequest, Platform, PlatformUsageStats } from "../../services/api";
 import type { PlatformCardActions, PlatformCardService } from "../../components/platforms/PlatformCard";
 import type { usePlatformCards } from "../../components/platforms/usePlatformCards";
 import { SortableList } from "../../components/SortableList";
@@ -46,6 +46,7 @@ export interface GroupListViewProps {
   groupRows: GroupRow[];
   groupIndexById: Map<number, number>;
   groupStats: Record<string, PlatformUsageStats>;
+  groupLast: Record<string, GroupLastRequest>;
   groupBalance: Record<number, number>;
   /** 虚拟桶「未匹配」（MITM 解密非 API fallback 直通）：undefined = 无此类请求，不渲染卡片 */
   unmatchedStat: PlatformUsageStats | undefined;
@@ -83,7 +84,7 @@ export interface GroupListViewProps {
   /** 打开独立详情页（观测台三栏） */
   onOpenDetail?: (id: number) => void;
   onCreatePlatform?: (presetGroupIds?: number[], lockedGroupId?: number) => void;
-  onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string; duplicate?: boolean }) => void;
+  onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string; duplicate?: boolean; logId?: string }) => void;
   // 批量删除（group-batch-ops s3）
   onBatchDelete: (ids: number[], gid: number) => void;
   batchDeleteTarget: { platforms: Platform[]; groupNamesByPlatform: Record<number, string[]> } | null;
@@ -118,7 +119,7 @@ export interface GroupListViewProps {
 export function GroupListView(props: GroupListViewProps) {
   const {
     details, platforms, t, loading, loadingMore, hasMore, sentinelRef, proxyBaseUrl,
-    groupRows, groupIndexById, groupStats, groupBalance, unmatchedStat, groupSearch,
+    groupRows, groupIndexById, groupStats, groupLast, groupBalance, unmatchedStat, groupSearch,
     collapsedGroups, setCollapsedGroups, toggleGroupExpanded,
     dropIndicator, dragOverGroup, onPlatPointerDown,
     cards, makeGroupCardActions, cardService,
@@ -221,6 +222,7 @@ export function GroupListView(props: GroupListViewProps) {
                 detail={row.detail}
                 index={i}
                 usageStat={u}
+                lastRequest={groupLast[group.group_key]}
                 balance={balance}
                 platforms={platforms}
                 isExpanded={!collapsedGroups.has(group.id)}

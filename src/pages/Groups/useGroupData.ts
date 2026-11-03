@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { GroupDetail, Platform, PlatformUsageStats } from "../../services/api";
+import type { GroupDetail, GroupLastRequest, Platform, PlatformUsageStats } from "../../services/api";
 import {
   groupDetailApi, groupUsageApi, platformApi, proxyApi, onProxyLogUpdated,
 } from "../../services/api";
@@ -49,6 +49,14 @@ export async function fetchGroupStats(
   return { statsMap, balanceRaw, unmatchedStat };
 }
 
+/** 各分组最后一次请求（独立于 fetchGroupStats：走 log.db，失败不影响统计/余额）。 */
+export async function fetchGroupLast(details: GroupDetail[]): Promise<Record<string, GroupLastRequest>> {
+  if (!details.length) return {};
+  try {
+    return await groupUsageApi.lastRequests(details.map(g => g.group.group_key));
+  } catch { return {}; }
+}
+
 export interface UseGroupDataArgs {
   onCountChange?: (counts: { total: number; active: number } | null) => void;
 }
@@ -66,6 +74,7 @@ export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
   const [groupStats, setGroupStats] = useState<Record<string, PlatformUsageStats>>({});
   // 虚拟桶「未匹配」（MITM 解密非 API 流量 fallback 直通）：只读卡片展示，无平台/余额/编辑。
   const [unmatchedStat, setUnmatchedStat] = useState<PlatformUsageStats | undefined>(undefined);
+  const [groupLast, setGroupLast] = useState<Record<string, GroupLastRequest>>({});
   // 聚合余额：关联 platforms 的 est_balance_remaining 求和（platformApi.list 已带，无额外 HTTP）。
   const [groupBalanceRaw, setGroupBalanceRaw] = useState<GroupBalanceRaw>({});
   // 订阅显示币种 / 余额币种 store：汇率或币种映射变化时重算（不缓存旧汇率折算值）。
@@ -105,7 +114,9 @@ export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
   /** 已拉全部组 detail + 全量平台 → 重算统计/余额（增量加载后复用，无额外组 invoke 往返）。 */
   const recomputeStats = async (seqAlive: () => boolean) => {
     const { statsMap, balanceRaw, unmatchedStat: u } = await fetchGroupStats(loadedDetailsRef.current, allPlatformsRef.current);
+    const last = await fetchGroupLast(loadedDetailsRef.current);
     if (!seqAlive()) return;
+    setGroupLast(last);
     setGroupStats(statsMap);
     setGroupBalanceRaw(balanceRaw);
     setUnmatchedStat(u);
@@ -140,6 +151,7 @@ export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
       loadedDetailsRef.current = statsBase;
       setDetails(prev => patchDetails(prev));
       const { statsMap, balanceRaw, unmatchedStat: u } = await fetchGroupStats(statsBase, p);
+      setGroupLast(await fetchGroupLast(statsBase));
       setGroupStats(statsMap);
       setGroupBalanceRaw(balanceRaw);
       setUnmatchedStat(u);
@@ -361,7 +373,7 @@ export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
   // ponytail: 不另起 hooks 文件，groupApi 已在 services/api barrel 暴露
   return {
     details, platforms, setDetails,
-    groupStats, groupBalance,
+    groupStats, groupBalance, groupLast,
     unmatchedStat,
     loading, loadingMore, hasMore, sentinelRef,
     proxyBaseUrl, allPlatformsRef,

@@ -263,6 +263,7 @@ pub fn run() {
             aidog_core::proxy_cmd::proxy_log::platform_usage_stats,
             aidog_core::proxy_cmd::proxy_log::group_usage_stats,
             aidog_core::proxy_cmd::proxy_log::all_group_usage_stats,
+            aidog_core::proxy_cmd::proxy_log::group_last_requests,
             aidog_core::proxy_cmd::proxy_log::group_latest_routing,
             aidog_core::proxy_cmd::proxy_log::group_daily_usage,
             aidog_core::proxy_cmd::proxy_log::stats_flow_breakdown,

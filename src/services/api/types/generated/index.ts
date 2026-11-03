@@ -12,6 +12,7 @@ export * from "./EmailCfg";
 export * from "./ExternalChannels";
 export * from "./FlowRow";
 export * from "./GroupDailyBreakdown";
+export * from "./GroupLastRequest";
 export * from "./LatestRouting";
 export * from "./NotificationDelivery";
 export * from "./Rule";
