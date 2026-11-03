@@ -551,10 +551,65 @@ fn platform_metrics_reset_time_known_tier() {
         "item_type": "platform", "platform_id": 1,
         "metrics": ["reset_time:five_hour"],
     }));
+    // 老配置（无 reset_format）：倒计时精确到分钟、默认中文格式，不再逐级 ceil 到整小时。
     assert_eq!(
         super::platform_item_value(&p, &item, None, &usd(), None, start),
-        "15:00 · 5 小时后重置"
+        "15:00 · 5小时"
     );
+    assert_eq!(
+        super::platform_item_value(&p, &item, None, &usd(), None, start + 45 * 60_000 + 1),
+        "15:00 · 4小时15分"
+    );
+}
+
+/// 三个独立指标：reset_time（两者）/ reset_at（仅时刻）/ reset_in（仅倒计时）；格式字段只影响含倒计时的两个。
+#[test]
+fn platform_metrics_reset_three_metrics_and_formats() {
+    use chrono::TimeZone;
+    let today = chrono::Local::now().date_naive();
+    let start = chrono::Local
+        .from_local_datetime(&today.and_hms_opt(10, 0, 0).unwrap())
+        .single()
+        .unwrap()
+        .timestamp_millis();
+    let plan = format!(
+        r#"{{"tiers":[{{"name":"five_hour","est_utilization":10.0,"window_start":{start}}}]}}"#
+    );
+    let p = platform(0.0, &plan);
+    let now = start + 45 * 60_000; // 剩 4h15m，重置于 15:00（今天）
+    let val = |metrics: serde_json::Value, fmt: Option<&str>| {
+        let mut j = json!({"item_type": "platform", "platform_id": 1, "metrics": metrics});
+        if let Some(f) = fmt {
+            j["reset_format"] = json!(f);
+        }
+        super::platform_item_value(&p, &item_json(j), None, &usd(), None, now)
+    };
+    assert_eq!(val(json!(["reset_at:five_hour"]), None), "15:00");
+    assert_eq!(val(json!(["reset_in:five_hour"]), None), "4小时15分");
+    assert_eq!(val(json!(["reset_in:five_hour"]), Some("compact")), "4h15m");
+    assert_eq!(val(json!(["reset_in:five_hour"]), Some("clock")), "4:15");
+    assert_eq!(val(json!(["reset_time:five_hour"]), Some("compact")), "15:00 · 4h15m");
+    assert_eq!(val(json!(["reset_time:five_hour"]), Some("clock")), "15:00 · 4:15");
+    // 未知格式回落中文；reset_at 不受格式影响。
+    assert_eq!(val(json!(["reset_in:five_hour"]), Some("???")), "4小时15分");
+    assert_eq!(val(json!(["reset_at:five_hour"]), Some("clock")), "15:00");
+    // 过期：仅倒计时无值 → 跳过 → "—"；reset_time 退化为仅时刻（与旧行为一致）；reset_at 仍给时刻。
+    let late = start + 6 * HOUR;
+    let at_late = |m: &str| {
+        let j = json!({"item_type": "platform", "platform_id": 1, "metrics": [m]});
+        super::platform_item_value(&p, &item_json(j), None, &usd(), None, late)
+    };
+    assert_eq!(at_late("reset_in:five_hour"), "—");
+    assert!(!at_late("reset_time:five_hour").contains('·'));
+    assert_eq!(at_late("reset_at:five_hour"), at_late("reset_time:five_hour"));
+}
+
+#[test]
+fn tray_item_without_reset_format_deserializes_to_none() {
+    let it = item_json(json!({"item_type": "platform", "platform_id": 1, "metrics": ["reset_time:five_hour"]}));
+    assert_eq!(it.reset_format, None);
+    let it = item_json(json!({"item_type": "platform", "reset_format": "clock"}));
+    assert_eq!(it.reset_format.as_deref(), Some("clock"));
 }
 
 #[test]
@@ -567,7 +622,7 @@ fn platform_metrics_reset_time_skips_unusable_tiers() {
     let p = platform(0.0, plan);
     let item = item_json(json!({
         "item_type": "platform", "platform_id": 1,
-        "metrics": ["reset_time:five_hour", "reset_time:mystery"],
+        "metrics": ["reset_time:five_hour", "reset_time:mystery", "reset_at:five_hour", "reset_in:mystery"],
     }));
     assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None, NOW), "—");
 }
@@ -594,29 +649,42 @@ async fn unit_position_cost_segment_and_legacy_platform_unit() {
     assert_eq!(super::platform_item_value(&p, &suffix, Some(&stat), &cny, None, NOW), "1.7¥");
 }
 
-// ─── 重置相对剩余时间（纯函数，now 注入防秒边界抖动；与前端 remainingUntilReset 同语义）───
+// ─── 重置倒计时（纯函数，now 注入防秒边界抖动）───
 
 #[test]
-fn remaining_until_reset_ceil_boundaries() {
-    // 90s → ceil 2 分钟；90min → ceil 2 小时；60min 整 → 1 小时（不落分钟档）
-    assert_eq!(super::remaining_until_reset(NOW + 90_000, NOW).as_deref(), Some("2 分钟后重置"));
-    assert_eq!(super::remaining_until_reset(NOW + 90 * 60_000, NOW).as_deref(), Some("2 小时后重置"));
-    assert_eq!(super::remaining_until_reset(NOW + 60 * 60_000, NOW).as_deref(), Some("1 小时后重置"));
-    assert_eq!(super::remaining_until_reset(NOW + 3 * HOUR, NOW).as_deref(), Some("3 小时后重置"));
-    // 25h → ceil 2 天；25min 不满 1 小时仍分钟档
-    assert_eq!(super::remaining_until_reset(NOW + 25 * HOUR, NOW).as_deref(), Some("2 天后重置"));
-    assert_eq!(super::remaining_until_reset(NOW + 25 * 60_000, NOW).as_deref(), Some("25 分钟后重置"));
-    // 3 天整 → 3 天
-    assert_eq!(
-        super::remaining_until_reset(NOW + 3 * 24 * HOUR, NOW).as_deref(),
-        Some("3 天后重置")
-    );
+fn format_countdown_three_formats_and_boundaries() {
+    let f = |ms: i64, fmt: &str| super::format_countdown(NOW + ms, NOW, fmt);
+    let m = 60_000;
+    // (剩余毫秒, compact, cn, clock)
+    let cases: [(i64, &str, &str, &str); 11] = [
+        (59_000, "1m", "1分", "0:01"), // 59 秒 → ceil 1 分钟
+        (1, "1m", "1分", "0:01"),
+        (60 * m, "1h", "1小时", "1:00"), // 60 分整
+        (135 * m, "2h15m", "2小时15分", "2:15"),
+        (20 * m, "20m", "20分", "0:20"),
+        (23 * 60 * m + 59 * m, "23h59m", "23小时59分", "23:59"),
+        (24 * 60 * m, "1d", "1天", "1天 0:00"), // 恰好 24h
+        (24 * 60 * m + 20 * m, "1d20m", "1天20分", "1天 0:20"), // 省略 0 小时
+        (27 * 60 * m + 20 * m, "1d3h20m", "1天3小时20分", "1天 3:20"),
+        (3 * 24 * 60 * m, "3d", "3天", "3天 0:00"),
+        (24 * 60 * m + 1, "1d1m", "1天1分", "1天 0:01"), // 超 1 天 1 毫秒 → ceil 到下一分钟
+    ];
+    for (ms, compact, cn, clock) in cases {
+        assert_eq!(f(ms, "compact").as_deref(), Some(compact), "compact {ms}");
+        assert_eq!(f(ms, "cn").as_deref(), Some(cn), "cn {ms}");
+        assert_eq!(f(ms, "clock").as_deref(), Some(clock), "clock {ms}");
+    }
+    // 未知格式 = 中文
+    assert_eq!(f(135 * m, "bogus").as_deref(), Some("2小时15分"));
 }
 
 #[test]
-fn remaining_until_reset_expired_or_zero_is_none() {
-    assert_eq!(super::remaining_until_reset(NOW, NOW), None);
-    assert_eq!(super::remaining_until_reset(NOW - 1, NOW), None);
+fn format_countdown_expired_or_zero_is_none() {
+    for fmt in ["compact", "cn", "clock"] {
+        assert_eq!(super::format_countdown(NOW, NOW, fmt), None);
+        assert_eq!(super::format_countdown(NOW - 1, NOW, fmt), None);
+        assert_eq!(super::format_countdown(NOW - HOUR, NOW, fmt), None);
+    }
 }
 
 /// 跨层 golden：与前端 TrayConfigTab.test.tsx 共读 tray_platform_golden.json（多指标 / 余额币种 / unit / reset 相对时间）。
@@ -626,7 +694,7 @@ fn remaining_until_reset_expired_or_zero_is_none() {
 fn platform_metrics_use_display_currency() {
     use chrono::TimeZone;
     let cases: Vec<serde_json::Value> = serde_json::from_str(include_str!("testdata/tray_platform_golden.json")).unwrap();
-    assert_eq!(cases.len(), 5);
+    assert_eq!(cases.len(), 9);
     let midnight = chrono::Local
         .from_local_datetime(&chrono::Local::now().date_naive().and_hms_opt(0, 0, 0).unwrap())
         .single()
@@ -657,6 +725,9 @@ fn platform_metrics_use_display_currency() {
         let mut j = json!({"item_type": "platform", "platform_id": 1, "metrics": c["metrics"]});
         if let Some(u) = c["unit"].as_str() {
             j["unit"] = json!(u);
+        }
+        if let Some(f) = c["reset_format"].as_str() {
+            j["reset_format"] = json!(f);
         }
         let cu = cur(c["code"].as_str().unwrap(), Some(c["rate"].as_f64().unwrap()));
         let got = super::platform_item_value(&p, &item_json(j), Some(&stat), &cu, c["balance_ccy"].as_str(), now_ms);

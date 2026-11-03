@@ -677,19 +677,23 @@ pub(crate) fn platform_item_value(
                     format!("{tokens}{unit}")
                 })
             }
-            m if m.starts_with("reset_time:") => {
+            m if m.starts_with("reset_time:") || m.starts_with("reset_at:") || m.starts_with("reset_in:") => {
                 // 重置时刻 = window_start + cycle（与 algo.rs remain 推算同式）；cycle 未知 / 无起点 → 跳过。
-                let name = &m["reset_time:".len()..];
+                let (kind, name) = m.split_once(':')?;
                 let tier = plan.tiers.iter().find(|t| t.name == name)?;
                 let cycle = gateway::usage_color::cycle_ms_for_tier(&tier.name)?;
                 if tier.window_start <= 0 {
                     return None;
                 }
                 let reset = tier.window_start + cycle;
-                let abs = format_reset_time(reset, now_ms);
-                match remaining_until_reset(reset, now_ms) {
-                    Some(rel) => Some(format!("{abs} · {rel}")),
-                    None => Some(abs),
+                let rel = format_countdown(reset, now_ms, item.reset_format.as_deref().unwrap_or("cn"));
+                match kind {
+                    "reset_in" => rel,
+                    "reset_at" => Some(format_reset_time(reset, now_ms)),
+                    _ => {
+                        let abs = format_reset_time(reset, now_ms);
+                        Some(rel.map_or(abs.clone(), |r| format!("{abs} · {r}")))
+                    }
                 }
             }
             _ => None,
@@ -766,21 +770,28 @@ fn format_reset_time(reset_ms: i64, now_ms: i64) -> String {
     }
 }
 
-/// 重置相对剩余时间文案（与前端 `remainingUntilReset` 同语义：分钟/小时/天逐级 ceil，过期 → None）。
-/// 托盘标签无 i18n（「命中」「高峰」同机制），硬编码中文，与前端 zh-Hans fallback 逐字一致。
-fn remaining_until_reset(reset_ms: i64, now_ms: i64) -> Option<String> {
+/// 重置倒计时文案：精确到分钟（向上取整，与前端 `remainingUntilReset` 的 ceil 同语义），过期 → None。
+/// `fmt`：`compact`（`1d3h20m`）| `clock`（`1天 3:20` / `2:15`）| 其余（含 `cn` / 未知）→ 中文（`1天3小时20分`）。
+/// compact / cn 省略 0 值单位；clock 恒 `H:MM`，有天数前缀 `N天 `。
+/// 托盘标签无 i18n（「命中」「高峰」同机制），硬编码中文。
+fn format_countdown(reset_ms: i64, now_ms: i64, fmt: &str) -> Option<String> {
     let min = (reset_ms - now_ms + 59_999) / 60_000;
     if min <= 0 {
         return None;
     }
-    if min < 60 {
-        return Some(format!("{min} 分钟后重置"));
-    }
-    let hr = (min + 59) / 60;
-    if hr < 24 {
-        return Some(format!("{hr} 小时后重置"));
-    }
-    Some(format!("{} 天后重置", (hr + 23) / 24))
+    let (d, h, m) = (min / 1440, min % 1440 / 60, min % 60);
+    Some(match fmt {
+        "clock" if d > 0 => format!("{d}天 {h}:{m:02}"),
+        "clock" => format!("{h}:{m:02}"),
+        _ => {
+            let (ud, uh, um) = if fmt == "compact" { ("d", "h", "m") } else { ("天", "小时", "分") };
+            [(d, ud), (h, uh), (m, um)]
+                .iter()
+                .filter(|(n, _)| *n > 0)
+                .map(|(n, u)| format!("{n}{u}"))
+                .collect()
+        }
+    })
 }
 
 /// 「当前命中平台」段的（名, 值）：名固定为「命中」，值为平台名；无转发记录 → "—"。
