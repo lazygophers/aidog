@@ -131,6 +131,8 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
   if (r.platform) {
     await handleProtocolChange(r.platform.value as Protocol, r.platform.codingPlan);
   }
+  // 识别到模型名 → 填主模型槽（覆盖 handleProtocolChange 灌入的预设默认）。
+  if (r.models?.[0]) setModels((prev) => ({ ...prev, default: [r.models![0]] }));
   // 同步计算出本批 pasted 应落入的有效 endpoints（供 setEndpoints + 批量分支共用）。
   // typesafe 决策端点的 base_url 只到版本段（如 https://x.top/v1），/systemone 由网关拼接
   // （spec jev-decision-proxy R10）。粘贴文本里常带完整 /systemone URL，灌表单前剥掉尾段。

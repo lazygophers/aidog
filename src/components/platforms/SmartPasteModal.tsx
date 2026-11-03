@@ -40,6 +40,8 @@ export interface SmartPasteApplyResult {
   /** 从文案中识别到的过期时间（毫秒时间戳，0/null = 未识别）。
    *  社区分享帖常见「即将过期 06-28 23:59」格式。 */
   expiresAt?: number;
+  /** 从文案识别到的模型名（取首个填主模型槽）。 */
+  models?: string[];
 }
 
 export interface SmartPasteModalProps {
@@ -386,6 +388,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
                 baseUrls: selected,
                 apiKeys: selKeys,
                 expiresAt: parsed.expiresAt ?? 0,
+                models: parsed.models,
               });
               onClose();
             }}
