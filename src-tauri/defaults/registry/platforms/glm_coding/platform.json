@@ -50,6 +50,17 @@
     "ja-JP": "GLM コーディングプラン（智譜）",
     "es-ES": "GLM Coding Plan (Zhipu AI)"
   },
+  "rate_limit_policies": [
+    {
+      "id": "default",
+      "label": "Default",
+      "source_url": "https://docs.bigmodel.cn/cn/coding-plan/overview"
+    }
+  ],
+  "rate_limit_error_codes": {
+    "1302": "rate_limit",
+    "1305": "overloaded"
+  },
   "source_urls": {
     "docs": "https://docs.bigmodel.cn/cn/coding-plan/quick-start",
     "pricing": "https://docs.bigmodel.cn/cn/coding-plan/overview"
@@ -91,7 +102,7 @@
       "timezone": "Asia/Shanghai"
     }
   ],
-  "last_updated": 1793615839,
+  "last_updated": 1793718446,
   "quota_url_match": [
     "bigmodel.cn",
     "api.z.ai"

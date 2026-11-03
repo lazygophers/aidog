@@ -809,3 +809,31 @@ async fn presets_cache_concurrent_reads_are_consistent() {
 
     invalidate_presets_cache();
 }
+
+/// glm 四个内置限频策略可解析，V0~V3 官方并发数落在模型级；其余三个 GLM 平台是骨架；
+/// 四个 GLM 平台都带 1302/1305 码义；其余平台一律无该字段（本票只动 GLM）。
+#[test]
+fn glm_rate_limit_policies_parse() {
+    let glm = default_rate_limit_policies("glm");
+    let ids: Vec<&str> = glm.iter().map(|p| p.id.as_str()).collect();
+    assert_eq!(ids, ["v0", "v1", "v2", "v3"]);
+    assert!(glm.iter().all(|p| p.source_url.starts_with("https://") && p.caps == RateLimitCaps::default()));
+    let plus: Vec<_> = glm.iter().map(|p| p.models["glm-4-plus"].concurrency).collect();
+    assert_eq!(plus, [Some(50), Some(100), Some(300), Some(500)]);
+
+    for code in ["glm_en", "glm_coding", "glm_coding_en"] {
+        let ps = default_rate_limit_policies(code);
+        assert_eq!(ps.len(), 1, "{code}");
+        assert!(ps[0].models.is_empty() && ps[0].windows.is_empty() && ps[0].caps == RateLimitCaps::default());
+    }
+    for code in ["glm", "glm_en", "glm_coding", "glm_coding_en"] {
+        let codes = default_rate_limit_error_codes(code);
+        assert_eq!(codes.get("1302").map(String::as_str), Some("rate_limit"), "{code}");
+        assert_eq!(codes.get("1305").map(String::as_str), Some("overloaded"), "{code}");
+    }
+    for (code, doc) in protocols() {
+        if !["glm", "glm_en", "glm_coding", "glm_coding_en"].contains(&code.as_str()) {
+            assert!(doc.get("rate_limit_policies").is_none() && doc.get("rate_limit_error_codes").is_none(), "{code}");
+        }
+    }
+}

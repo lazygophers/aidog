@@ -5,7 +5,7 @@
   "tools_pricing": {
     "web_search": {"per_1000": 10.0, "currency": "USD"}
   },
-  "last_updated": 1793615839,
+  "last_updated": 1793718446,
   "endpoints": {
     "default": [
       {
@@ -62,6 +62,17 @@
     "ru-RU": "GLM International (z.ai)",
     "ja-JP": "GLM 国際版（z.ai）",
     "es-ES": "GLM International (z.ai)"
+  },
+  "rate_limit_policies": [
+    {
+      "id": "default",
+      "label": "Default",
+      "source_url": "https://docs.z.ai/api-reference/rate-limit"
+    }
+  ],
+  "rate_limit_error_codes": {
+    "1302": "rate_limit",
+    "1305": "overloaded"
   },
   "source_urls": {
     "docs": "https://docs.z.ai/guides/overview/quick-start",

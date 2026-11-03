@@ -46,6 +46,14 @@ _Avoid_: 决策日志（那指 tracing 内存日志）、blocked_reason（那只
 单请求估算费用，落 proxy_log。已知价取 registry 模型价，缺价走 fallback 单价；透传平台例外恒 0。
 _Avoid_: 账单（那是上游真实计费）
 
+**限频策略 (Rate Limit Policy)**:
+一组上限规则（并发 / RPM / TPM，平台级 + 模型级，可带时段窗口）。registry 内置的叫「内置策略」（`platform.json` 的 `rate_limit_policies`，只填官方值、带出处）；平台 `extra.rate_limits` 里的叫「平台限频配置」。
+_Avoid_: 限频快照（那是另一回事，见下）、额度窗口（`extra.quota_windows`，不属本概念）
+
+**限频快照 (Rate Limit Snapshot)**:
+数据库 `platform.rate_limit` 列，上游响应头里读到的余量数据，只读展示，不参与限流决策。
+_Avoid_: 限频策略（那是用户 / registry 声明的上限规则）
+
 **Client**:
 A program that sends requests to aidog: AI coding CLIs, IDE plugins, language SDKs, and HTTP tools. Identified by User-Agent against a two-level vocabulary (category → variant).
 _Avoid_: agent, tool, harness
