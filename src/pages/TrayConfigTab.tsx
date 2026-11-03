@@ -104,7 +104,8 @@ function codingMetrics(platform: Platform): string[] {
 
 function platformMetricLabel(metric: string, t: TFunction): string {
   if (metric.startsWith("coding:")) return `${t("tray.platform.codingRemaining", "剩余%")} (${metric.slice(7)})`;
-  if (metric.startsWith("reset_time:")) return `${t("tray.platform.resetTime", "重置时间")} (${metric.slice(11)})`;
+  if (metric.startsWith("reset_time:")) return `${t("tray.platform.resetTime", "重置剩余时间")} (${metric.slice(11)})`;
+  if (metric.startsWith("reset_at:")) return `${t("tray.platform.resetAt", "重置时刻")} (${metric.slice(9)})`;
   const keys: Record<string, [string, string]> = {
     balance: ["tray.platform.balance", "余额"],
     coding: ["tray.platform.coding", "套餐剩余"],
@@ -283,13 +284,19 @@ export function previewValue(
         const tier = metric === "coding" ? tiers[0] : tiers.find((x) => `coding:${x.name}` === metric);
         return tier ? `${Math.max(0, 100 - tier.est_utilization).toFixed(0)}%` : null;
       };
-      // 重置时间只显示倒计时；旧设置残留的 reset_at / reset_in 同按倒计时（与 Rust platform_item_value 同口径）。
+      // reset_time（旧值 reset_in 同）仅倒计时；reset_at 仅绝对时刻（与 Rust platform_item_value 同口径）。
       const resetTime = (metric: string): string | null => {
-        const name = metric.split(":")[1];
+        const [kind, name] = metric.split(":");
         const tier = tiers.find((x) => x.name === name);
         const cycle = CYCLE_MS[name];
         if (!tier || !cycle || !tier.window_start) return null;
-        return formatCountdown(tier.window_start + cycle, nowMs, item.reset_format);
+        const resetAt = tier.window_start + cycle;
+        if (kind !== "reset_at") return formatCountdown(resetAt, nowMs, item.reset_format);
+        const d = new Date(resetAt);
+        const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+        return d.toDateString() === new Date(nowMs).toDateString()
+          ? hm
+          : `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${hm}`;
       };
       const one = (metric: string): string | null => {
         if (metric === "balance") return money(balanceUsd, item.decimals ?? 2);
@@ -457,7 +464,7 @@ export function SegmentEditor({
           "balance",
           ...(tiers.length ? ["coding"] : []),
           ...tiers.map((n) => `coding:${n}`),
-          ...tiers.map((n) => `reset_time:${n}`),
+          ...tiers.flatMap((n) => [`reset_time:${n}`, `reset_at:${n}`]),
           "today_cost", "today_tokens",
         ];
         const chosen = new Set(seg.metrics ?? []);
@@ -485,7 +492,7 @@ export function SegmentEditor({
           </div>
         );
       })()}
-      {/* 倒计时格式（仅选了重置时间指标时露出；缺省 = cn） */}
+      {/* 倒计时格式（仅选了重置剩余时间指标时露出；缺省 = cn） */}
       {seg.item_type === "platform" && seg.metrics?.some((m) => m.startsWith("reset_time:")) && (
         <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
           <FieldLabel>{t("tray.platform.resetFormat", "倒计时格式")}</FieldLabel>
