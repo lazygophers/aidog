@@ -798,6 +798,7 @@
   "logs.routing.reason.unknown-protocol": "未知协议",
   "logs.routing.reason.kind-unsupported": "类型不支持",
   "logs.routing.reason.client-not-allowed": "客户端不被允许",
+  "logs.routing.reason.rate-limited": "限频超限",
   "logs.routing.reason.model-not-on-platform": "模型不在此平台",
   "logs.routing.reason.skipped-dead-upstream": "死站跳过",
   "logs.routing.tag.mapping-promoted": "映射提升",

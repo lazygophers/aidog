@@ -26,6 +26,7 @@ pub(crate) mod client_types_const {
 pub mod price_sync;
 pub mod proxy;
 pub mod quota;
+pub mod rate_limit;
 pub mod router;
 pub mod scheduling;
 pub mod scripts;

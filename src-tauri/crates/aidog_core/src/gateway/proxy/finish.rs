@@ -19,6 +19,8 @@ pub(crate) struct AttemptCtx {
     /// 客户端显式禁用思考（请求体 `disable_thinking: true`）。出站已写显式禁用参数，
     /// 但 MiniMax-M2 等内置思考模型照发思维链回来 → 响应侧再剥一次，兑现「禁用」语义。
     pub disable_thinking: bool,
+    /// 限频占位（extra.rate_limits）；结束后按 usage 修正 TPM 预占。
+    pub rate: Option<Arc<crate::gateway::rate_limit::Access>>,
 }
 
 /// 非流式 2xx 成功响应处理：usage 提取 + 跨协议转换 + 模型回填 + 出站中间件 + 响应头透传。
@@ -76,6 +78,9 @@ pub(crate) async fn finish_nonstream(
     log.duration_ms = start.elapsed().as_millis() as i32;
     log.input_tokens = input_tokens;
     log.output_tokens = output_tokens;
+    if let Some(r) = &ctx.rate {
+        r.settle(input_tokens as i64 + output_tokens as i64);
+    }
     log.cache_tokens = cache_tokens;
     log.cache_write_tokens = cache_write_tokens;
     log.cache_write_1h_tokens = cache_write_1h_tokens;
@@ -325,6 +330,7 @@ where
         record_upstream_body,
         record_client_body,
         req_span: req_span.clone(),
+        rate: ctx.rate.clone(),
         est: Some(StreamEstCtx {
             platform_id: route.platform.id,
             platform_type: route.platform.platform_type.clone(),
