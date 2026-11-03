@@ -672,6 +672,7 @@ pub(crate) async fn handle_proxy_core(
             // 客户端白名单拦下候选（blocked_reason='client_not_allowed'）：全拦 417，与其他原因并存 503。
             if e == "no_chat_platform"
                 || e == "peak_disabled"
+                || e == "rate_limit"
                 || e == "unknown_protocol"
                 || e == "direct_model_unavailable"
                 || e == "client_not_allowed"

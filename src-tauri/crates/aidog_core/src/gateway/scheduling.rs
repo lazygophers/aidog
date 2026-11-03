@@ -178,6 +178,8 @@ pub struct SchedulerState {
     /// R4（2026-09-28）持久化钩子：Some 时摘除性状态（熔断 Open / quota / auth 冷却）
     /// 写穿 platform_health_state 表，重启 restore。None（测试 / 无持久化）→ persist no-op。
     db: Option<std::sync::Arc<aidog_db::Db>>,
+    /// 平台限频计数（extra.rate_limits，内存态）。
+    pub rate: std::sync::Arc<super::rate_limit::RateLimiter>,
 }
 
 impl Default for SchedulerState {
@@ -191,6 +193,7 @@ impl SchedulerState {
         Self {
             health: RwLock::new(HashMap::new()),
             db: None,
+            rate: Default::default(),
         }
     }
 
@@ -199,6 +202,7 @@ impl SchedulerState {
         Self {
             health: RwLock::new(HashMap::new()),
             db: Some(db),
+            rate: Default::default(),
         }
     }
 
