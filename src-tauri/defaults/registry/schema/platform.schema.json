@@ -370,8 +370,8 @@
                 "end_hour": {
                   "type": "integer",
                   "minimum": 0,
-                  "maximum": 24,
-                  "description": "【必填】窗口结束小时（窗口时区本地，0-24；24 = 到当日末）。"
+                  "maximum": 23,
+                  "description": "【必填】窗口结束小时（窗口时区本地，0-23，与 peak 窗口一致）。"
                 },
                 "timezone": {
                   "type": "string",
