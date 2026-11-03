@@ -200,6 +200,10 @@ worktree 缺 docs 子包依赖（`typescript-eslint`），`yarn check:docs` 恒 
 本轮每张票的实现回报都带这一条红。
 
 - 派发 prompt 写明：worktree 内 `check:docs` EXIT 2 属已知，不修、不复跑；其余步骤全 0 即交付。
+- `yarn test:statusline-golden` 同理：`scripts/statusline-golden/build.mjs` 不读 `CARGO_TARGET_DIR`，
+  在 `CARGO_TARGET_DIR=/tmp/aidog-agent-target` 的 worktree 里 ENOENT，只在主仓跑。
+- harness 隔离 worktree 里的 agent 对主仓的 git 操作可能被 harness 拒绝；合并一律派单独的合并 agent
+  在主仓做。基点落后 master 时用 `merge --no-ff`，并在主仓重跑完整门禁（agent 侧测试数不作数）。
 - 合并 agent 在主仓补跑 `check:docs`，改了 command 签名 / 删 command 的票还要重新生成
   docs（先例 bf3ba6cd8）。
 
@@ -249,3 +253,8 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
 - **TDD 与截图豁免要写进票面**：票 07 未先红后绿、票 08 以「渲染未变」跳过截图。修 bug / 加校验的票，
   agent 回报须贴先红的失败输出；豁免截图须在回报写明「渲染未变」依据（diff 不含 JSX / 样式），
   否则按 §14 列人工验收。
+
+## 16. 先红输出全量落文件，禁 `head -N` 截断
+
+新增测试的「先红」证据：`cmd > /tmp/red.log 2>&1; echo EXIT=$?`，再对每个新测试名各 grep 一次
+`FAILED|failed|<测试名>`；管到 `head` / `tail` 会截掉新测试的失败行，无法确认它先红过。
