@@ -612,7 +612,7 @@ describe("段编辑面板（票 03）", () => {
     fireEvent.click(view.getByTestId("tray-edit-color-preset"));
     fireEvent.click(view.getByTestId("tray-edit-preset-red"));
     const seg = view.getByTestId("tray-segment-today_usage:cost").innerHTML;
-    expect(seg).toContain("var(--destructive)");
+    expect(seg).toContain("var(--mb-red)");
     const sent = api.set.mock.calls[1][0];
     const it = sent.items.find((i: TrayItem) => segmentKey(i) === "today_usage:cost");
     expect(it.color).toEqual({ mode: "preset", value: "red" });
@@ -930,9 +930,9 @@ describe("颜色 auto 模式", () => {
 
   it("segColor：auto 按 level 取界面 token，无 level -> 菜单栏前景；follow 不受 level 影响", () => {
     const auto = { mode: "auto", value: "" };
-    expect(segColor(auto, "danger")).toBe("var(--destructive)");
-    expect(segColor(auto, "warning")).toBe("var(--warning)");
-    expect(segColor(auto, "success")).toBe("var(--success)");
+    expect(segColor(auto, "danger")).toBe("var(--mb-red)");
+    expect(segColor(auto, "warning")).toBe("var(--mb-orange)");
+    expect(segColor(auto, "success")).toBe("var(--mb-green)");
     expect(segColor(auto, "neutral")).toBe("var(--mb-fg-strong)");
     expect(segColor(auto)).toBe("var(--mb-fg-strong)");
     expect(segColor({ mode: "follow", value: "" }, "danger")).toBe("var(--mb-fg-strong)");

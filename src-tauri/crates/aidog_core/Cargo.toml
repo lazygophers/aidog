@@ -101,6 +101,7 @@ semver = { workspace = true }
 objc2 = { workspace = true }
 objc2-foundation = { workspace = true }
 objc2-app-kit = { workspace = true }
+block2 = { workspace = true }
 
 # 测试期 dev-deps：gateway 内 skills（tempdir 隔离 FS）+ proxy/test_stream（gzip round-trip）。
 [dev-dependencies]
