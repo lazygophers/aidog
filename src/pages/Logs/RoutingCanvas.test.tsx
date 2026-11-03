@@ -1,5 +1,5 @@
 // 票 02 就近测试：只锚 data-testid / data-node-id / data-state，禁文案断言（另一 agent 改 locale 值不假红）。
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { render } from "../../test/render";
 import { RoutingCanvas } from "./RoutingCanvas";
 import type { RouteCandidate } from "../../services/api/types/generated/RouteCandidate";
@@ -200,5 +200,57 @@ describe("RoutingCanvas", () => {
       expect(c.querySelector(`[data-testid="${id}"]`)).toBeNull();
     }
     expect(c.textContent).not.toMatch(/NaN|undefined/);
+  });
+
+  // 宽布局几何：jsdom 无布局引擎，按「内容行数」伪造 offset*，位置取内联 left/top。
+  describe("宽布局几何（截图同形：5 次尝试 + 1 未选用）", () => {
+    const protoProps = ["clientWidth", "offsetHeight", "offsetWidth", "offsetLeft", "offsetTop"] as const;
+    const saved = protoProps.map((k) => [k, Object.getOwnPropertyDescriptor(HTMLElement.prototype, k)] as const);
+    const num = (el: HTMLElement, k: "left" | "top") => parseFloat(el.style[k]) || 0;
+    afterEach(() => { for (const [k, d] of saved) { if (d) Object.defineProperty(HTMLElement.prototype, k, d); else delete (HTMLElement.prototype as unknown as Record<string, unknown>)[k]; } });
+    const mockLayout = () => {
+      const def = (k: string, get: (this: HTMLElement) => number) => Object.defineProperty(HTMLElement.prototype, k, { configurable: true, get });
+      def("clientWidth", () => 1000);
+      def("offsetWidth", () => 150);
+      def("offsetHeight", function () { return this.dataset.nodeId ? 24 + 18 * this.querySelectorAll(".rc-nm,.rc-sb,.rc-why").length : 0; });
+      def("offsetLeft", function () { return num(this, "left"); });
+      def("offsetTop", function () { return num(this, "top"); });
+    };
+    const map = new Map<number, string>([[1, "A"], [2, "B"], [3, "C"], [4, "D"], [5, "E"], [6, "F"]]);
+    const snap = {
+      mode: "failover",
+      entries: [1, 2, 3, 4, 5].map((i) => cand({ order: i, platform_id: i, target_model: "m" })).concat([cand({ order: 6, platform_id: 6, reason: "disabled-manual" })]),
+    } as typeof snapshot;
+    const atts = [1, 2, 3, 4].map((i) => ({ platform_id: i, status_code: i < 3 ? 403 : 401, duration_ms: 100 })).concat([{ platform_id: 5, status_code: 200, duration_ms: 51000, ttfb_ms: 20700 } as never]);
+    const go = () => { mockLayout(); return render(<RoutingCanvas routing={snap} attempts={atts} platformMap={map} durationMs={51219} statusCode={200} t={t} />).container as HTMLElement; };
+
+    it("平台节点纵向不重叠（间距按实测高度累加）", () => {
+      const c = go();
+      const boxes = [1, 2, 3, 4, 5, 6].map((i) => {
+        const el = c.querySelector(`[data-node-id="p-${i}"]`) as HTMLElement;
+        return { top: num(el, "top"), h: 24 + 18 * el.querySelectorAll(".rc-nm,.rc-sb,.rc-why").length };
+      }).sort((a, b) => a.top - b.top);
+      for (let i = 1; i < boxes.length; i++) expect(boxes[i]!.top).toBeGreaterThanOrEqual(boxes[i - 1]!.top + boxes[i - 1]!.h);
+    });
+
+    it("每条边两端都是存在的节点；到响应只有一条且来自成功节点；未选用平台无到响应的边", () => {
+      const c = go();
+      const ids = new Set([...c.querySelectorAll("[data-node-id]")].map((e) => e.getAttribute("data-node-id")));
+      const edges = [...c.querySelectorAll("path[data-edge]")].map((e) => e.getAttribute("data-edge")!.split("->") as [string, string]);
+      expect(edges.length).toBeGreaterThan(0);
+      for (const [a, b] of edges) { expect(ids.has(a)).toBe(true); expect(ids.has(b)).toBe(true); }
+      expect(edges.filter(([, b]) => b === "resp")).toEqual([["p-5", "resp"]]);
+      expect(edges.filter(([a, b]) => a === "route" && b.startsWith("p-")).length).toBe(6);
+    });
+
+    it("宽布局边恒为水平贝塞尔：起点在左节点右缘、终点在右节点左缘（不斜穿卡片）", () => {
+      const c = go();
+      const d = c.querySelector('path[data-edge="p-5->resp"]')!.getAttribute("d")!;
+      const [x1, , , , x2] = d.replace(/[MC]/g, " ").split(/[ ,]+/).filter(Boolean).map(Number).filter((_, i) => [0, 1, 2, 3, 6].includes(i)) as number[];
+      const p5 = c.querySelector('[data-node-id="p-5"]') as HTMLElement;
+      const resp = c.querySelector('[data-node-id="resp"]') as HTMLElement;
+      expect(x1).toBe(num(p5, "left") + 150);
+      expect(x2).toBe(num(resp, "left"));
+    });
   });
 });
