@@ -340,6 +340,23 @@ pub struct LatestRouting {
     pub snapshot: RoutingSnapshot,
 }
 
+/// 分组「最后一次请求」摘要（分组列表卡片 / 详情页）：proxy_log 该 group_key 最新一条
+/// （排除 test/quota/fetch-models，与 Logs 主页同口径）。
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct GroupLastRequest {
+    /// proxy_log.id，供跳转日志详情。
+    pub id: String,
+    pub status_code: i32,
+    #[ts(type = "number")]
+    pub created_at: i64,
+    pub duration_ms: i32,
+    /// 拦截原因（proxy_log.blocked_reason，空 = 未被拦截）。
+    pub blocked_reason: String,
+    /// 失败摘要：最后一次带 error 的 attempt.error，否则响应体前 200 字符；成功为空。
+    pub error: String,
+}
+
 /// 平台使用统计（从 proxy_logs 聚合）
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]

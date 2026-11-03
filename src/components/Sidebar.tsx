@@ -128,6 +128,8 @@ export interface NavContext {
   groupId?: string;
   groupKey?: string;
   model?: string;
+  /** 进入日志页后自动打开的 proxy_log id（分组「最近请求」跳转用）。 */
+  logId?: string;
   /** 经导航进入平台页时以「复制」（新建态）而非「编辑」打开目标平台。 */
   duplicate?: boolean;
 }
