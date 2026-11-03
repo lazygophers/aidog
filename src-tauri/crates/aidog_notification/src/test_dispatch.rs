@@ -297,3 +297,32 @@ async fn gateway_event_template_has_no_session_name() {
     let r = dispatch(&db, None, Some("breaker_on"), "", None, &vars(&[("platform", "openai"), ("session_name", "X")])).await;
     assert_eq!(r.body, "openai 熔断触发（连续失败摘除）");
 }
+
+#[tokio::test]
+async fn permission_request_default_template_uses_action() {
+    let db = mem_db().await;
+    set_rules(&db, |_| {}).await;
+    let r = dispatch(&db, None, Some("PermissionRequest"), "", None, &vars(&[("project", "P"), ("tool_name", "AskUserQuestion")])).await;
+    assert_eq!(r.body, "P 有问题请你做选择");
+}
+
+#[tokio::test]
+async fn notification_permission_prompt_dedup() {
+    let db = mem_db().await;
+    let v = vars(&[("project", "P"), ("notification_type", "permission_prompt"), ("message", "m")]);
+    // PermissionRequest 默认 ON → 只落收件箱，不弹窗/播报/提示音
+    set_rules(&db, |_| {}).await;
+    let r = dispatch(&db, None, Some("Notification"), "", None, &v).await;
+    assert!(r.dispatched && r.inbox);
+    assert!(!r.popup && !r.tts && !r.sound);
+    // PermissionRequest 显式关 → 照常
+    set_rules(&db, |s| {
+        s.per_event.insert(
+            "PermissionRequest".to_string(),
+            serde_json::from_value(serde_json::json!({ "enabled": false })).unwrap(),
+        );
+    })
+    .await;
+    let r = dispatch(&db, None, Some("Notification"), "", None, &v).await;
+    assert!(r.popup && r.tts);
+}
