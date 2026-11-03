@@ -15,7 +15,6 @@ setGapSeparator,
   previewLevel,
   segColor,
   trayMoney,
-  remainingUntilReset,
   formatCountdown,
   type SegmentOption,
 } from "./TrayConfigTab";
@@ -552,7 +551,7 @@ describe("段编辑面板（票 03）", () => {
     expect(sent.items.find((i: TrayItem) => segmentKey(i) === "platform:7").unit).toBeNull();
   });
 
-  it("重置时间三指标 + 倒计时格式：格式项仅在含倒计时的指标下露出，选后写 reset_format", async () => {
+  it("重置时间只有倒计时一个指标（无时刻 / 倒计时切换）：选后露出格式项，写 reset_format", async () => {
     const view = await renderTab(
       {
         separator: "  ",
@@ -564,23 +563,17 @@ describe("段编辑面板（票 03）", () => {
     );
     fireEvent.click(view.getByTestId("tray-slot-0"));
     await waitFor(() => expect(view.getByTestId("tray-editor")).toBeTruthy());
-    expect(view.getByTestId("tray-edit-metric-reset_at:five_hour")).toBeTruthy();
-    expect(view.getByTestId("tray-edit-metric-reset_in:five_hour")).toBeTruthy();
-    // 未选任何倒计时指标 / 仅选 reset_at：无格式项
+    expect(view.getByTestId("tray-edit-metric-reset_time:five_hour")).toBeTruthy();
+    expect(view.queryByTestId("tray-edit-metric-reset_at:five_hour")).toBeNull();
+    expect(view.queryByTestId("tray-edit-metric-reset_in:five_hour")).toBeNull();
     expect(view.queryByTestId("tray-edit-reset-format")).toBeNull();
-    fireEvent.click(view.getByTestId("tray-edit-metric-reset_at:five_hour"));
-    expect(view.queryByTestId("tray-edit-reset-format")).toBeNull();
-    // 选 reset_in → 露出格式项，缺省显示 cn
-    fireEvent.click(view.getByTestId("tray-edit-metric-reset_in:five_hour"));
+    fireEvent.click(view.getByTestId("tray-edit-metric-reset_time:five_hour"));
     const sel = view.getByTestId("tray-edit-reset-format") as HTMLSelectElement;
     expect(sel.value).toBe("cn");
     fireEvent.change(sel, { target: { value: "clock" } });
     const sent = api.set.mock.calls.at(-1)![0];
     expect(sent.items.find((i: TrayItem) => segmentKey(i) === "platform:7").reset_format).toBe("clock");
-    expect(sent.items.find((i: TrayItem) => segmentKey(i) === "platform:7").metrics).toEqual([
-      "reset_at:five_hour",
-      "reset_in:five_hour",
-    ]);
+    expect(sent.items.find((i: TrayItem) => segmentKey(i) === "platform:7").metrics).toEqual(["reset_time:five_hour"]);
   });
 
   it("单位（票 04）：今日花费 cost 段露出 unit 与位置并持久化；非金额段两项位置都不露出", async () => {
@@ -987,27 +980,6 @@ describe("颜色 auto 模式", () => {
     expect(previewLevel(ci, [coding(20)], now)).toBe("warning");
     expect(previewLevel(ci, [coding(40)], now)).toBe("danger");
     expect(previewLevel(item({ metric: "cost" }), [], now)).toBe("neutral");
-  });
-});
-
-// ── reset 相对剩余时间（纯函数，nowMs 注入防秒边界抖动）──
-
-const tInterp = ((key: string, fallback?: string, opts?: { n?: number }) =>
-  (fallback ?? key).replace(/\{\{n\}\}/g, String(opts?.n))) as never;
-
-describe("remainingUntilReset", () => {
-  const now = 1_800_000_000_000;
-
-  it("相对剩余时间：天 / 小时 / 分钟各取 ceil，i18n 走 t", () => {
-    expect(remainingUntilReset(now + 3 * 86_400_000, now, tInterp)).toBe("3 天后重置");
-    expect(remainingUntilReset(now + 3 * 3_600_000, now, tInterp)).toBe("3 小时后重置");
-    expect(remainingUntilReset(now + 90_000, now, tInterp)).toBe("2 分钟后重置");
-  });
-
-  it("缺失（null）与已过期（remaining <= 0）→ null，与绝对时间展示一致", () => {
-    expect(remainingUntilReset(null, now, tInterp)).toBe(null);
-    expect(remainingUntilReset(now, now, tInterp)).toBe(null);
-    expect(remainingUntilReset(now - 1, now, tInterp)).toBe(null);
   });
 });
 

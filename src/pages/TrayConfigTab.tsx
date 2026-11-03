@@ -105,8 +105,6 @@ function codingMetrics(platform: Platform): string[] {
 function platformMetricLabel(metric: string, t: TFunction): string {
   if (metric.startsWith("coding:")) return `${t("tray.platform.codingRemaining", "剩余%")} (${metric.slice(7)})`;
   if (metric.startsWith("reset_time:")) return `${t("tray.platform.resetTime", "重置时间")} (${metric.slice(11)})`;
-  if (metric.startsWith("reset_at:")) return `${t("tray.platform.resetAt", "重置时刻")} (${metric.slice(9)})`;
-  if (metric.startsWith("reset_in:")) return `${t("tray.platform.resetIn", "倒计时")} (${metric.slice(9)})`;
   const keys: Record<string, [string, string]> = {
     balance: ["tray.platform.balance", "余额"],
     coding: ["tray.platform.coding", "套餐剩余"],
@@ -240,19 +238,6 @@ const CYCLE_MS: Record<string, number> = {
   mcp_monthly: 30 * 86_400_000,
 };
 
-/** 剩余相对时间文案（纯函数：nowMs 注入）；resetAt 缺失或已过期 → null，与绝对时间展示行为一致。 */
-export function remainingUntilReset(
-  resetAtMs: number | null, nowMs: number, t: TFunction,
-): string | null {
-  if (resetAtMs == null) return null;
-  const min = Math.ceil((resetAtMs - nowMs) / 60_000);
-  if (min <= 0) return null;
-  if (min < 60) return t("tray.platform.resetInMinutes", "{{n}} 分钟后重置", { n: min });
-  const hr = Math.ceil(min / 60);
-  if (hr < 24) return t("tray.platform.resetInHours", "{{n}} 小时后重置", { n: hr });
-  return t("tray.platform.resetInDays", "{{n}} 天后重置", { n: Math.ceil(hr / 24) });
-}
-
 /** 托盘重置倒计时（与 Rust `format_countdown` 逐字对齐）：精确到分钟（ceil），过期 → null。 */
 export function formatCountdown(resetAtMs: number, nowMs: number, fmt?: string | null): string | null {
   const min = Math.ceil((resetAtMs - nowMs) / 60_000);
@@ -298,23 +283,13 @@ export function previewValue(
         const tier = metric === "coding" ? tiers[0] : tiers.find((x) => `coding:${x.name}` === metric);
         return tier ? `${Math.max(0, 100 - tier.est_utilization).toFixed(0)}%` : null;
       };
-      // reset_time = 时刻 · 倒计时；reset_at 仅时刻；reset_in 仅倒计时（与 Rust platform_item_value 同口径）。
+      // 重置时间只显示倒计时；旧设置残留的 reset_at / reset_in 同按倒计时（与 Rust platform_item_value 同口径）。
       const resetTime = (metric: string): string | null => {
-        const [kind, name] = metric.split(":");
+        const name = metric.split(":")[1];
         const tier = tiers.find((x) => x.name === name);
         const cycle = CYCLE_MS[name];
         if (!tier || !cycle || !tier.window_start) return null;
-        const resetAt = tier.window_start + cycle;
-        const d = new Date(resetAt);
-        const now = new Date(nowMs);
-        const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-        const abs = d.toDateString() === now.toDateString()
-          ? hm
-          : `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${hm}`;
-        if (kind === "reset_at") return abs;
-        const rel = formatCountdown(resetAt, nowMs, item.reset_format);
-        if (kind === "reset_in") return rel;
-        return rel ? `${abs} · ${rel}` : abs;
+        return formatCountdown(tier.window_start + cycle, nowMs, item.reset_format);
       };
       const one = (metric: string): string | null => {
         if (metric === "balance") return money(balanceUsd, item.decimals ?? 2);
@@ -482,7 +457,7 @@ export function SegmentEditor({
           "balance",
           ...(tiers.length ? ["coding"] : []),
           ...tiers.map((n) => `coding:${n}`),
-          ...tiers.flatMap((n) => [`reset_time:${n}`, `reset_at:${n}`, `reset_in:${n}`]),
+          ...tiers.map((n) => `reset_time:${n}`),
           "today_cost", "today_tokens",
         ];
         const chosen = new Set(seg.metrics ?? []);
@@ -510,8 +485,8 @@ export function SegmentEditor({
           </div>
         );
       })()}
-      {/* 倒计时格式（仅含倒计时的 reset_time / reset_in 指标下露出；缺省 = cn） */}
-      {seg.item_type === "platform" && seg.metrics?.some((m) => m.startsWith("reset_time:") || m.startsWith("reset_in:")) && (
+      {/* 倒计时格式（仅选了重置时间指标时露出；缺省 = cn） */}
+      {seg.item_type === "platform" && seg.metrics?.some((m) => m.startsWith("reset_time:")) && (
         <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
           <FieldLabel>{t("tray.platform.resetFormat", "倒计时格式")}</FieldLabel>
           <select
