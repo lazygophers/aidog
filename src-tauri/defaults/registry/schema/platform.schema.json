@@ -283,6 +283,149 @@
       },
       "description": "【可选】平台级高峰/低峰计价窗口（每窗口可指定 timezone，缺省 UTC；first-match wins，跨天 end<start）。条目带模型 peak 绝对价时本倍率被压成 1.0。注意三层同名不同层：本字段 peak = 平台级计价窗口；models.peak = 高峰模型切换分支；模型条目 peak = 高峰绝对价对象。"
     },
+    "rate_limit_policies": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label",
+          "source_url"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "【必填】平台内唯一的策略 id；发布后禁改名（用户副本靠它关联来源策略）。"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "description": "【必填】策略显示名（单字符串不译，如 V0）。"
+          },
+          "source_url": {
+            "type": "string",
+            "pattern": "^https://[^/]+",
+            "description": "【必填】官方出处（https 绝对 URL）。只填官方公开数值，禁推测。"
+          },
+          "concurrency": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "【可选】平台级并发上限（在途请求数）；省略 = 不限。"
+          },
+          "rpm": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "【可选】平台级每分钟请求数上限；省略 = 不限。"
+          },
+          "tpm": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "【可选】平台级每分钟 token 数上限；省略 = 不限。"
+          },
+          "models": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "concurrency": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "【可选】该模型并发上限。"
+                },
+                "rpm": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "【可选】该模型每分钟请求数上限。"
+                },
+                "tpm": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "【可选】该模型每分钟 token 数上限。"
+                }
+              }
+            },
+            "description": "【可选】模型级上限；键必须是该平台 models/ 目录里存在的 model_id（由 check-registry lint 校验）。"
+          },
+          "windows": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "start_hour",
+                "end_hour"
+              ],
+              "properties": {
+                "start_hour": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 23,
+                  "description": "【必填】窗口起始小时（窗口时区本地，0-23；跨天窗口 end < start）。"
+                },
+                "end_hour": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 24,
+                  "description": "【必填】窗口结束小时（窗口时区本地，0-24；24 = 到当日末）。"
+                },
+                "timezone": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "【可选】IANA 时区名（如 Asia/Shanghai）；缺省 = UTC。"
+                },
+                "days_of_week": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 6
+                  },
+                  "description": "【可选】窗口限定星期（窗口时区本地，0=周日 … 6=周六）；缺省 = 每天。"
+                },
+                "concurrency": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "【可选】窗口内覆盖策略本体的并发上限。"
+                },
+                "rpm": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "【可选】窗口内覆盖策略本体的 RPM。"
+                },
+                "tpm": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "【可选】窗口内覆盖策略本体的 TPM。"
+                }
+              }
+            },
+            "description": "【可选】分时段上限（形状同 peak 窗口；first-match wins；命中窗口的数字覆盖策略本体同名字段，未写的沿用本体）。"
+          }
+        }
+      },
+      "description": "【可选】官方限频策略列表（每项一个档位，如智谱 V0~V3）。只填官方公开数值、必带 source_url；骨架策略（仅 id/label/source_url，数字全省略）合法，表示官方未公开 / 不限。与数据库 platform.rate_limit 列（上游响应头余量快照）无关。"
+    },
+    "rate_limit_error_codes": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[0-9]+$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "enum": [
+          "rate_limit",
+          "overloaded"
+        ]
+      },
+      "description": "【可选】上游响应体业务错误码 → 语义（rate_limit = 走每分钟限频冷却；overloaded = 按服务类错误换平台）。键为纯数字码字符串，词表与 check-registry lint 对称。"
+    },
     "tools_endpoints": {
       "type": "object",
       "minProperties": 1,

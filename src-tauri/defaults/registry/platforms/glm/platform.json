@@ -5,7 +5,7 @@
   "tools_pricing": {
     "web_search": {"per_1000": 10.0, "currency": "CNY"}
   },
-  "last_updated": 1793615839,
+  "last_updated": 1793718446,
   "endpoints": {
     "default": [
       {
@@ -99,6 +99,208 @@
     "ru-RU": "GLM (Zhipu AI)",
     "ja-JP": "GLM（ジーフーエム）",
     "es-ES": "GLM (Zhipu AI)"
+  },
+  "rate_limit_policies": [
+    {
+      "id": "v0",
+      "label": "V0",
+      "source_url": "https://docs.bigmodel.cn/cn/guide/platform/equity-explain.md",
+      "models": {
+        "glm-4-plus": {
+          "concurrency": 50
+        },
+        "glm-4-air-250414": {
+          "concurrency": 30
+        },
+        "glm-4-airx": {
+          "concurrency": 5
+        },
+        "glm-4-flashx-250414": {
+          "concurrency": 100
+        },
+        "glm-4-flash-250414": {
+          "concurrency": 200
+        },
+        "glm-4-long": {
+          "concurrency": 10
+        },
+        "glm-z1-air": {
+          "concurrency": 30
+        },
+        "glm-z1-airx": {
+          "concurrency": 30
+        },
+        "glm-z1-flashx": {
+          "concurrency": 50
+        },
+        "glm-z1-flash": {
+          "concurrency": 30
+        },
+        "glm-4.1v-thinking-flash": {
+          "concurrency": 5
+        },
+        "glm-4.1v-thinking-flashx": {
+          "concurrency": 30
+        },
+        "cogview-4": {
+          "concurrency": 5
+        },
+        "embedding-3": {
+          "concurrency": 50
+        }
+      }
+    },
+    {
+      "id": "v1",
+      "label": "V1",
+      "source_url": "https://docs.bigmodel.cn/cn/guide/platform/equity-explain.md",
+      "models": {
+        "glm-4-plus": {
+          "concurrency": 100
+        },
+        "glm-4-air-250414": {
+          "concurrency": 40
+        },
+        "glm-4-airx": {
+          "concurrency": 30
+        },
+        "glm-4-flashx-250414": {
+          "concurrency": 150
+        },
+        "glm-4-flash-250414": {
+          "concurrency": 1000
+        },
+        "glm-4-long": {
+          "concurrency": 30
+        },
+        "glm-z1-air": {
+          "concurrency": 40
+        },
+        "glm-z1-airx": {
+          "concurrency": 40
+        },
+        "glm-z1-flashx": {
+          "concurrency": 100
+        },
+        "glm-z1-flash": {
+          "concurrency": 40
+        },
+        "glm-4.1v-thinking-flash": {
+          "concurrency": 10
+        },
+        "glm-4.1v-thinking-flashx": {
+          "concurrency": 50
+        },
+        "cogview-4": {
+          "concurrency": 10
+        },
+        "embedding-3": {
+          "concurrency": 100
+        }
+      }
+    },
+    {
+      "id": "v2",
+      "label": "V2",
+      "source_url": "https://docs.bigmodel.cn/cn/guide/platform/equity-explain.md",
+      "models": {
+        "glm-4-plus": {
+          "concurrency": 300
+        },
+        "glm-4-air-250414": {
+          "concurrency": 50
+        },
+        "glm-4-airx": {
+          "concurrency": 40
+        },
+        "glm-4-flashx-250414": {
+          "concurrency": 200
+        },
+        "glm-4-flash-250414": {
+          "concurrency": 2000
+        },
+        "glm-4-long": {
+          "concurrency": 40
+        },
+        "glm-z1-air": {
+          "concurrency": 50
+        },
+        "glm-z1-airx": {
+          "concurrency": 50
+        },
+        "glm-z1-flashx": {
+          "concurrency": 150
+        },
+        "glm-z1-flash": {
+          "concurrency": 50
+        },
+        "glm-4.1v-thinking-flash": {
+          "concurrency": 15
+        },
+        "glm-4.1v-thinking-flashx": {
+          "concurrency": 80
+        },
+        "cogview-4": {
+          "concurrency": 15
+        },
+        "embedding-3": {
+          "concurrency": 300
+        }
+      }
+    },
+    {
+      "id": "v3",
+      "label": "V3",
+      "source_url": "https://docs.bigmodel.cn/cn/guide/platform/equity-explain.md",
+      "models": {
+        "glm-4-plus": {
+          "concurrency": 500
+        },
+        "glm-4-air-250414": {
+          "concurrency": 60
+        },
+        "glm-4-airx": {
+          "concurrency": 50
+        },
+        "glm-4-flashx-250414": {
+          "concurrency": 300
+        },
+        "glm-4-flash-250414": {
+          "concurrency": 3000
+        },
+        "glm-4-long": {
+          "concurrency": 50
+        },
+        "glm-z1-air": {
+          "concurrency": 60
+        },
+        "glm-z1-airx": {
+          "concurrency": 60
+        },
+        "glm-z1-flashx": {
+          "concurrency": 200
+        },
+        "glm-z1-flash": {
+          "concurrency": 60
+        },
+        "glm-4.1v-thinking-flash": {
+          "concurrency": 20
+        },
+        "glm-4.1v-thinking-flashx": {
+          "concurrency": 100
+        },
+        "cogview-4": {
+          "concurrency": 20
+        },
+        "embedding-3": {
+          "concurrency": 500
+        }
+      }
+    }
+  ],
+  "rate_limit_error_codes": {
+    "1302": "rate_limit",
+    "1305": "overloaded"
   },
   "source_urls": {
     "docs": "https://docs.bigmodel.cn/cn/guide/start/quick-start",

@@ -241,6 +241,84 @@ pub fn endpoints_in(
     })
 }
 
+// ── 限频策略（platform.json 顶层 `rate_limit_policies` / `rate_limit_error_codes`）──────────
+
+/// 一组上限：三项均 `None` = 不限（骨架策略）。平台级 / 模型级 / 时段窗口共用。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct RateLimitCaps {
+    #[serde(default)]
+    pub concurrency: Option<u32>,
+    #[serde(default)]
+    pub rpm: Option<u32>,
+    #[serde(default)]
+    pub tpm: Option<u32>,
+}
+
+/// 分时段上限（形状同 peak 窗口，`end_hour` 可到 24）；命中时数字覆盖策略本体同名字段。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RateLimitWindow {
+    pub start_hour: u8,
+    pub end_hour: u8,
+    #[serde(default)]
+    pub timezone: Option<String>,
+    #[serde(default)]
+    pub days_of_week: Option<Vec<u8>>,
+    #[serde(flatten)]
+    pub caps: RateLimitCaps,
+}
+
+/// registry 内置限频策略（一个档位，如智谱 V0）。`id` 发布后禁改名。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RateLimitPolicy {
+    pub id: String,
+    pub label: String,
+    pub source_url: String,
+    #[serde(flatten)]
+    pub caps: RateLimitCaps,
+    #[serde(default)]
+    pub models: BTreeMap<String, RateLimitCaps>,
+    #[serde(default)]
+    pub windows: Vec<RateLimitWindow>,
+}
+
+/// 从任意一篇 presets 文档取某协议顶层字段 `key` 并反序列化；缺失 → `Absent`，损坏 → `Corrupt`（已记 error）。
+fn top_level_in<T: serde::de::DeserializeOwned>(
+    doc: &Value,
+    protocol: &str,
+    key: &str,
+) -> RegistryLookup<T> {
+    let Some(v) = doc.get("protocols").and_then(|p| p.get(protocol)).and_then(|e| e.get(key)) else {
+        return RegistryLookup::Absent;
+    };
+    match serde_json::from_value(v.clone()) {
+        Ok(t) => RegistryLookup::Found(t),
+        Err(e) => {
+            tracing::error!(error = %e, protocol, key, "registry 配置损坏：解析失败");
+            RegistryLookup::Corrupt(e.to_string())
+        }
+    }
+}
+
+/// [`default_rate_limit_policies`] 的纯函数核心。
+pub fn rate_limit_policies_in(doc: &Value, protocol: &str) -> RegistryLookup<Vec<RateLimitPolicy>> {
+    top_level_in(doc, protocol, "rate_limit_policies")
+}
+
+/// 某协议的内置限频策略；无字段 / 损坏 → 空（损坏已记日志）。
+pub fn default_rate_limit_policies(protocol: &str) -> Vec<RateLimitPolicy> {
+    rate_limit_policies_in(&effective_presets(), protocol).unwrap_or_default()
+}
+
+/// 上游业务错误码 → 语义（`rate_limit` / `overloaded`）。
+pub fn rate_limit_error_codes_in(doc: &Value, protocol: &str) -> RegistryLookup<BTreeMap<String, String>> {
+    top_level_in(doc, protocol, "rate_limit_error_codes")
+}
+
+/// 某协议的限频错误码表；无字段 / 损坏 → 空（损坏已记日志）。
+pub fn default_rate_limit_error_codes(protocol: &str) -> BTreeMap<String, String> {
+    rate_limit_error_codes_in(&effective_presets(), protocol).unwrap_or_default()
+}
+
 /// wire 协议名（endpoint `protocol` 值域：anthropic / openai / …）的类型标记。
 /// 私有字段 + 仅 crate 内可见：外部 crate 拿到的任何字符串（含平台别名）都无法包成
 /// 它，喂错命名空间在编译期断掉（票 07；2026-10-07 cometapi 事故就是别名喂进了

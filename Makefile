@@ -66,6 +66,7 @@ lint: ## Run linters
 	yarn check:money
 	yarn test:money
 	yarn test:registry-slots
+	yarn test:registry-ratelimit
 	@printf "$(CYAN)▶ Design token check...$(RESET)\n"
 	yarn check:tokens
 	@printf "$(CYAN)▶ Linting...$(RESET)\n"
