@@ -54,9 +54,46 @@ pub(crate) async fn forward_attempt(
     start: std::time::Instant,
     group_header_injects: &[(String, String)],
 ) -> AttemptOutcome {
+    // 平台限频（extra.rate_limits）：一次访问平台级只占一次；候选筛选后仍可能被并发抢占，
+    // 占位失败按「该候选不可用」换下个候选。模型级在每个模型开始前重判（见下 enter_model）。
+    let rl_cfg = crate::gateway::rate_limit::RateLimitsCfg::parse(&route.platform.extra);
+    let rl_est = if rl_cfg.has_tpm() {
+        super::count_tokens::estimate_input_tokens(req_value, requested_model)
+    } else {
+        0
+    };
+    let access = if rl_cfg.is_empty() {
+        None
+    } else {
+        let now = aidog_db::now();
+        match state.scheduler.rate.begin(
+            route.platform.id,
+            &rl_cfg.platform_limits(now, requested_model),
+            now,
+            rl_est,
+        ) {
+            Some(a) => Some(a),
+            None => {
+                tracing::warn!(platform = %route.platform.name, "rate limit reached at acquire, skipping candidate");
+                return AttemptOutcome::Next { connect_failed: false };
+            }
+        }
+    };
     let mut chain = ModelChain::new(route);
     let (mut attempt_start, mut attempt_ts) = (attempt_start, attempt_ts);
     loop {
+        if let Some(a) = &access {
+            let model = chain.route().target_model.clone();
+            let now = aidog_db::now();
+            if !a.enter_model(&model, &rl_cfg.model_limits(&model), now, rl_est) {
+                tracing::warn!(model = %model, "model-level rate limit reached, trying next model");
+                if chain.has_next() {
+                    (attempt_start, attempt_ts) = chain.advance();
+                    continue;
+                }
+                return AttemptOutcome::Next { connect_failed: false };
+            }
+        }
         let mut switched = false;
         let out = forward_attempt_model(
             state,
@@ -81,10 +118,16 @@ pub(crate) async fn forward_attempt(
             group_header_injects,
             chain.has_next(),
             &mut switched,
+            &access,
         )
         .await;
         if !switched {
-            return out;
+            return match (out, access) {
+                (AttemptOutcome::Respond(r), Some(a)) => {
+                    AttemptOutcome::Respond(crate::gateway::rate_limit::hold_until_body_done(r, a))
+                }
+                (out, _) => out,
+            };
         }
         (attempt_start, attempt_ts) = chain.advance();
     }
@@ -143,6 +186,7 @@ async fn forward_attempt_model(
     group_header_injects: &[(String, String)],
     has_next_model: bool,
     switched: &mut bool,
+    rate: &Option<Arc<crate::gateway::rate_limit::Access>>,
 ) -> AttemptOutcome {
     // group 层（路由前）收集到的 header 注入 + 下方 platform 层新增的，一起写进上游请求头。
     // 每个候选各建一份，换平台重试时不残留上一候选的注入。
@@ -413,6 +457,7 @@ async fn forward_attempt_model(
         eff_api_key: eff_api_key.clone(),
         quota_base_url: target.target_base_url.clone(),
         disable_thinking,
+        rate: rate.clone(),
     };
 
     // 非流式：直接透传 JSON

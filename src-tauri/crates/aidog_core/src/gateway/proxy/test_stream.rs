@@ -305,6 +305,7 @@ fn make_guard(
         record_client_body: false,  // log_user_request=false
         req_span: tracing::Span::current(),
         est: None,
+        rate: None,
     }
 }
 

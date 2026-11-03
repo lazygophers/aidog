@@ -820,6 +820,7 @@
   "logs.routing.reason.unknown-protocol": "Неизвестный протокол",
   "logs.routing.reason.kind-unsupported": "Тип не поддерживается",
   "logs.routing.reason.client-not-allowed": "Клиент не разрешён",
+  "logs.routing.reason.rate-limited": "Лимит скорости превышен",
   "logs.routing.reason.model-not-on-platform": "Модели нет на платформе",
   "logs.routing.reason.skipped-dead-upstream": "Мёртвый upstream пропущен",
   "logs.routing.tag.mapping-promoted": "Повышен сопоставлением",

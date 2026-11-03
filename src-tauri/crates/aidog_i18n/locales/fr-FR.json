@@ -820,6 +820,7 @@
   "logs.routing.reason.unknown-protocol": "Protocole inconnu",
   "logs.routing.reason.kind-unsupported": "Type non pris en charge",
   "logs.routing.reason.client-not-allowed": "Client non autorisé",
+  "logs.routing.reason.rate-limited": "Limite de débit atteinte",
   "logs.routing.reason.model-not-on-platform": "Modèle absent de la plateforme",
   "logs.routing.reason.skipped-dead-upstream": "Amont mort ignoré",
   "logs.routing.tag.mapping-promoted": "Promu par mappage",

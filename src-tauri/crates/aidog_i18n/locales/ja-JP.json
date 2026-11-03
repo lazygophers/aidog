@@ -820,6 +820,7 @@
   "logs.routing.reason.unknown-protocol": "不明なプロトコル",
   "logs.routing.reason.kind-unsupported": "種別非対応",
   "logs.routing.reason.client-not-allowed": "クライアント不許可",
+  "logs.routing.reason.rate-limited": "レート制限超過",
   "logs.routing.reason.model-not-on-platform": "モデルがこのプラットフォームにない",
   "logs.routing.reason.skipped-dead-upstream": "死んだアップストリームをスキップ",
   "logs.routing.tag.mapping-promoted": "マッピング昇格",

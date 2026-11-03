@@ -881,15 +881,33 @@ export function syncProtocolLogo(protocol: Protocol): Promise<void> {
 
 /** 模型级限频覆盖（extra.rate_limits.models 的条目）。 */
 export interface RateLimitModelOverride {
+  concurrency?: number;
+  rpm?: number;
+  tpm?: number;
+}
+
+/** 限频时段窗口：时段字段同 peak 窗口，命中时其上限覆盖平台级同名字段（first-match）。 */
+export interface RateLimitWindow {
+  start_hour: number;
+  end_hour: number;
+  days_of_week?: number[];
+  timezone?: string;
+  concurrency?: number;
   rpm?: number;
   tpm?: number;
 }
 
 /** 平台级限频（extra.rate_limits）。models 键缺省回落平台级。 */
 export interface RateLimitsConfig {
+  concurrency?: number;
   rpm?: number;
   tpm?: number;
   models?: Record<string, RateLimitModelOverride>;
+  windows?: RateLimitWindow[];
+  /** 导入自 registry 内置策略时记录的来源策略 id（网关只透传不读）。 */
+  source_policy_id?: string;
+  /** 导入时该平台 platform.json 的 last_updated（Unix 秒）。 */
+  source_last_updated?: number;
 }
 
 /** 额度窗口（extra.quota_windows 条目）：window 秒数 + 预算三选一（token / 金额 $ / 请求次数）。
@@ -913,7 +931,12 @@ export interface RateLimitsBundle {
 }
 
 const isRateLimitsEmpty = (r: RateLimitsConfig | undefined) =>
-  !r || ((r.rpm ?? 0) === 0 && (r.tpm ?? 0) === 0 && (!r.models || Object.keys(r.models).length === 0));
+  !r ||
+  ((r.rpm ?? 0) === 0 &&
+    (r.tpm ?? 0) === 0 &&
+    (r.concurrency ?? 0) === 0 &&
+    (!r.models || Object.keys(r.models).length === 0) &&
+    (!r.windows || r.windows.length === 0));
 
 /** 从 platform.extra 解析限频配置（缺失/非法 → 空 bundle）。与 Rust 侧调度消费同一 JSON 形状（spec 票 02）。 */
 export function parseRateLimitsBundle(extra: string): RateLimitsBundle {
