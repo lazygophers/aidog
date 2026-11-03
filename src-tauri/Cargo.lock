@@ -187,6 +187,7 @@ dependencies = [
  "aidog_stats",
  "axum",
  "base64 0.22.1",
+ "block2",
  "chrono",
  "chrono-tz",
  "dashmap",

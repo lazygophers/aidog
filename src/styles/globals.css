@@ -140,6 +140,10 @@
   --mb-fg: rgba(28, 36, 48, 0.85);
   --mb-fg-dim: rgba(28, 36, 48, 0.45);
   --mb-fg-strong: #1C2430;
+  /* 托盘 coding/余额分档色（与 Rust tray_render::preset_hex 同值，深浅菜单栏自适应） */
+  --mb-green: #197A34;
+  --mb-orange: #B34800;
+  --mb-red: #CF222E;
 
 
   /* G3 light 缺省（首帧兜底；applyTheme 写入完整变量后覆盖） */
@@ -899,6 +903,9 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   --mb-fg: rgba(255, 255, 255, 0.85);
   --mb-fg-dim: rgba(255, 255, 255, 0.4);
   --mb-fg-strong: #fff;
+  --mb-green: #3FB950;
+  --mb-orange: #F0883E;
+  --mb-red: #FF7B72;
 }
 
 @theme inline {
