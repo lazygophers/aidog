@@ -78,6 +78,18 @@ fn auto_preset(level: Option<&str>) -> Option<&'static str> {
     }
 }
 
+/// 托盘 preset 色（浅色菜单栏 hex, 深色菜单栏 hex）。前端 globals.css `--mb-green/orange/red` 同值。
+/// 非 red/green/orange（含 follow 用的未知名）→ None，调用方回落 labelColor。
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub(crate) fn preset_hex(name: &str) -> Option<(&'static str, &'static str)> {
+    match name {
+        "green" => Some(("197A34", "3FB950")),
+        "orange" => Some(("B34800", "F0883E")),
+        "red" => Some(("CF222E", "FF7B72")),
+        _ => None,
+    }
+}
+
 /// 分隔符 4 预设（与前端 TrayConfigTab 候选库一致）。
 const SEPARATOR_PRESETS: [&str; 4] = ["|", "｜", "·", "-"];
 
@@ -119,34 +131,55 @@ pub trait TrayMenuBuild: Sync {
     fn separator<'a>(&'a self) -> Pin<Box<dyn Future<Output = String> + Send + 'a>>;
 }
 
+/// 6 位 hex -> sRGB NSColor；格式不合法 None。
+#[cfg(all(target_os = "macos", feature = "menubar"))]
+fn srgb_hex(hex: &str) -> Option<objc2::rc::Retained<objc2_app_kit::NSColor>> {
+    let hex = hex.trim().trim_start_matches('#');
+    if hex.len() != 6 {
+        return None;
+    }
+    let (r, g, b) = (
+        u8::from_str_radix(&hex[0..2], 16).ok()?,
+        u8::from_str_radix(&hex[2..4], 16).ok()?,
+        u8::from_str_radix(&hex[4..6], 16).ok()?,
+    );
+    Some(objc2_app_kit::NSColor::colorWithSRGBRed_green_blue_alpha(
+        r as f64 / 255.0,
+        g as f64 / 255.0,
+        b as f64 / 255.0,
+        1.0,
+    ))
+}
+
+/// 随外观切换的动态色：绘制时按 appearance 名含 "Dark" 取深色 hex，菜单栏深浅切换自动变色。
+#[cfg(all(target_os = "macos", feature = "menubar"))]
+fn dynamic_preset_color(
+    light: &'static str,
+    dark: &'static str,
+) -> objc2::rc::Retained<objc2_app_kit::NSColor> {
+    use objc2::rc::Retained;
+    use objc2_app_kit::{NSAppearance, NSColor};
+    use std::ptr::NonNull;
+    let provider = block2::RcBlock::new(move |ap: NonNull<NSAppearance>| -> NonNull<NSColor> {
+        // SAFETY: AppKit 传入的 appearance 在回调期间有效。
+        let is_dark = unsafe { ap.as_ref() }.name().to_string().contains("Dark");
+        let c = srgb_hex(if is_dark { dark } else { light }).expect("preset hex 常量合法");
+        // autorelease：AppKit 按 +0 取回返回值。
+        NonNull::new(Retained::autorelease_ptr(c)).expect("非空")
+    });
+    // SAFETY: provider 返回有效 NSColor 指针。
+    unsafe { NSColor::colorWithName_dynamicProvider(None, &provider) }
+}
+
 #[cfg(all(target_os = "macos", feature = "menubar"))]
 pub(crate) fn resolve_tray_color(color: &TrayColor) -> objc2::rc::Retained<objc2_app_kit::NSColor> {
     use objc2_app_kit::NSColor;
     match color.mode.as_str() {
-        "preset" => match color.value.as_str() {
-            "red" => NSColor::systemRedColor(),
-            "green" => NSColor::systemGreenColor(),
-            "orange" => NSColor::systemOrangeColor(),
-            _ => NSColor::labelColor(),
+        "preset" => match preset_hex(&color.value) {
+            Some((light, dark)) => dynamic_preset_color(light, dark),
+            None => NSColor::labelColor(),
         },
-        "custom" => {
-            let hex = color.value.trim().trim_start_matches('#');
-            if hex.len() == 6
-                && let (Ok(r), Ok(g), Ok(b)) = (
-                    u8::from_str_radix(&hex[0..2], 16),
-                    u8::from_str_radix(&hex[2..4], 16),
-                    u8::from_str_radix(&hex[4..6], 16),
-                )
-            {
-                return NSColor::colorWithSRGBRed_green_blue_alpha(
-                    r as f64 / 255.0,
-                    g as f64 / 255.0,
-                    b as f64 / 255.0,
-                    1.0,
-                );
-            }
-            NSColor::labelColor()
-        }
+        "custom" => srgb_hex(&color.value).unwrap_or_else(NSColor::labelColor),
         // "follow" 及未知 → labelColor
         _ => NSColor::labelColor(),
     }
