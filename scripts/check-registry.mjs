@@ -42,6 +42,9 @@ const PROTOCOL_VOCAB = new Set([
 // price.currency 值域（与 model.schema.json price.currency enum 同步，票 17）
 const CURRENCY_VOCAB = new Set(["CNY", "USD", "EUR", "JPY"]);
 
+// rate_limit_error_codes 码义词表（与 platform.schema.json enum 对称）
+const RATE_LIMIT_CODE_VOCAB = new Set(["rate_limit", "overloaded"]);
+
 function validate(kind, rel, raw) {
   let doc;
   try {
@@ -208,6 +211,28 @@ for (const entry of indexDoc.platforms) {
           failures.push([relP, `tools_endpoints 与 tools_pricing 键不对称${onlyTe.length ? ` 仅 tools_endpoints 有: ${onlyTe.join(", ")}` : ""}${onlyTp.length ? ` 仅 tools_pricing 有: ${onlyTp.join(", ")}` : ""}`]);
         }
       }
+    }
+  }
+  // 限频策略语义校验（形状由 schema 管；这里管 schema 表达不了的 + 与词表对称）：
+  // id 平台内唯一、windows.timezone 合法 IANA、模型级键须在本平台 models 目录、错误码语义词表。
+  {
+    const relP = `platforms/${code}/platform.json`;
+    const seenIds = new Set();
+    (platformDoc.rate_limit_policies ?? []).forEach((p, i) => {
+      const at = `rate_limit_policies[${i}]`;
+      if (seenIds.has(p?.id)) failures.push([relP, `${at}.id 重复: ${p.id}`]);
+      seenIds.add(p?.id);
+      for (const m of Object.keys(p?.models ?? {})) {
+        if (!idSet.has(m)) failures.push([relP, `${at}.models 键 ${m} 不在 models 目录`]);
+      }
+      for (const w of p?.windows ?? []) {
+        if (w?.timezone === undefined) continue;
+        try { new Intl.DateTimeFormat("en-US", { timeZone: w.timezone }); }
+        catch { failures.push([relP, `${at}.windows timezone 不是合法 IANA 名: ${w.timezone}`]); }
+      }
+    });
+    for (const [k, v] of Object.entries(platformDoc.rate_limit_error_codes ?? {})) {
+      if (!RATE_LIMIT_CODE_VOCAB.has(v)) failures.push([relP, `rate_limit_error_codes[${k}] 码义词表外: ${v}`]);
     }
   }
   const refs = new Set();

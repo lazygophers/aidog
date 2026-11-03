@@ -51,6 +51,20 @@ yarn check:registry
 - **`family` / `version` / `display_name` 只写官方一手来源核验过的值**：禁从 canonical 字符串正则提取、禁从平台目录名/平台主家族推断。正则派生曾把 149 个非 DeepSeek 模型标成 `family: "deepseek"`，全量回滚才清掉（2026-09-22）。
 - **禁 JSON round-trip 全文件重写**：改字段用文本级插入/替换，与 `bump-registry-last-updated.mjs` 同约束——round-trip 会把 `2e-06` 重写成 `0.000002`，数值相等但字面漂移（1860 文件中招过）。check-registry 的字面保真检查会拦（见检查清单第 6 条）。
 
+## 限频策略（rate_limit_policies / rate_limit_error_codes）
+
+platform.json 顶层两个可选字段，语义：
+
+- `rate_limit_policies[]`：官方限频档位列表（如智谱用户并发权益 V0~V3，每项一个档位）。每项必带 `id`（平台内唯一，**发布后禁改名**：用户导入的副本靠它关联来源策略）、`label`（单字符串不译）、`source_url`（官方 https 出处）。可选数字 `concurrency`（在途请求数）/ `rpm` / `tpm`，全为正整数，省略 = 不限；`models.<model_id>` 给模型级上限（**键必须是该平台 `models/` 目录里存在的 model_id**）；`windows[]` 分时段上限（形状同 `peak` 窗口：start_hour / end_hour / days_of_week / timezone，first-match；命中窗口的数字覆盖策略本体同名字段）。
+- `rate_limit_error_codes`：上游响应体业务错误码 → 语义。键为纯数字码字符串，值词表 `rate_limit`（按每分钟限频冷却）/ `overloaded`（按服务类错误换平台）。词表在 schema enum 与 check-registry `RATE_LIMIT_CODE_VOCAB` 各一份（对称）。
+
+规范：
+
+1. **只填官方公开数值，禁推测、禁社区旁证、禁按相邻模型推算**。官方没有数的模型不写（模型级无键 = 不限，不是 0）。
+2. **骨架策略合法**：只有 `id` / `label` / `source_url`、数字全省略，表示「官方未公开 / 不限」（如各 coding 套餐，只公布档位高低无数值）。
+3. 与数据库 `platform.rate_limit` 列（上游响应头余量快照）无关，术语见根 `GLOSSARY.md`「限频策略」「限频快照」。
+4. 硬错由 `node scripts/check-registry.mjs` 报：缺 `source_url`、数字非正整数、`id` 重复、`windows` 小时 / 星期 / timezone 非法、模型级键不在 models 目录、错误码键非纯数字或值不在词表。每条有坏样本测试：`yarn test:registry-ratelimit`。
+
 ## 目录结构约定
 
 ```
@@ -76,6 +90,7 @@ registry/
 | `models.default` / `models.peak` | `defaults.ts::pickModelsBranch`（两分支）、`gateway/router/candidates.rs::resolve_effective_models`（peak 三层级联） |
 | `model_list.default` | `defaults.ts::pickBranch`（下拉冷启动候选） |
 | `peak[]` | Rust `gateway/peak.rs`（resolve_multiplier / is_in_peak_window）、前端 `utils/timeWindow.ts`（isCurrentlyPeak，cross-layer 对称） |
+| `rate_limit_policies[]` / `rate_limit_error_codes` | 限频策略（见下节「限频策略」）。Rust `registry.rs::default_rate_limit_policies` / `default_rate_limit_error_codes`（供网关执行与前端策略库消费） |
 | `is_coding_plan` | Rust `gateway/router/ordering.rs`（coding 平台排序靠后）、前端 `defaults.ts::isCodingPlanProtocol` / ProtocolOption.codingPlan（徽标 / 选择器） |
 | `key_prefixes` | 前端 `platformPaste.ts::collectKeyPrefixes` + 优先级 2 平台直判（粘贴识别 key 提取正则与平台判定数据驱动；平台前缀禁在代码硬编码，通用 `sk-`/`sk_` 除外。coding 套餐平台是独立协议，其专属 token 前缀（tp- / sk-cp-）写在本字段，无独立 coding 前缀字段） |
 | `name`（8 locale 全必填） | 前端 `useProtocolMeta` / 协议选择器 label |

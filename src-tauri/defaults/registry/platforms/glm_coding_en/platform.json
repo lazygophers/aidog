@@ -72,6 +72,17 @@
     "ja-JP": "GLM コーディング国際版（z.ai）",
     "es-ES": "GLM Coding Plan International (z.ai)"
   },
+  "rate_limit_policies": [
+    {
+      "id": "default",
+      "label": "Default",
+      "source_url": "https://docs.z.ai/devpack/overview"
+    }
+  ],
+  "rate_limit_error_codes": {
+    "1302": "rate_limit",
+    "1305": "overloaded"
+  },
   "source_urls": {
     "docs": "https://docs.z.ai/devpack/overview",
     "pricing": "https://docs.z.ai/devpack/overview"
@@ -113,7 +124,7 @@
       ]
     }
   ],
-  "last_updated": 1793615839,
+  "last_updated": 1793718446,
   "quota_url_match": ["bigmodel.cn", "api.z.ai"],
   "quota_scripts": [
     {
