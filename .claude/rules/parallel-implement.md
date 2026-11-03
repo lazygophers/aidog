@@ -258,3 +258,10 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
 
 新增测试的「先红」证据：`cmd > /tmp/red.log 2>&1; echo EXIT=$?`，再对每个新测试名各 grep 一次
 `FAILED|failed|<测试名>`；管到 `head` / `tail` 会截掉新测试的失败行，无法确认它先红过。
+
+## 17. 门禁里的计时断言偶发红：`--no-fail-fast` 取全量，重跑定性
+
+`cargo test --workspace` 遇一个 suite 失败就停，后面的 suite 不跑，拿不到全量结果。
+门禁命令写 `cargo test --workspace --no-fail-fast > /tmp/x.log 2>&1; echo EXIT=$?`。
+计时断言（如 `aidog_stats::test_usage_stats::flow_breakdown_7d_scale_guard`，并发编译后首轮曾超时）
+首轮红先单跑该测试一次：绿 = 负载抖动，记账本遗留；仍红才按回归处理。
