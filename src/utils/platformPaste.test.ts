@@ -302,6 +302,20 @@ describe("parsePlatformPaste", () => {
     expect(out.models.length).toBeGreaterThan(0);
   });
 
+  it("论坛帖：key 为 base64、模型在「模型…」下一行纯文本 → 取正文模型而非标题", () => {
+    const key = "sk-TESTFAKEKEY0123456789abcdefABCDEF";
+    const b64 = Buffer.from(key, "utf-8").toString("base64");
+    const text = [
+      "公益deepseek-4.1-flash，还能蹬一会儿，截止23:59",
+      "福利羊毛", "由 kaibush 于 3 小时前 发布", "密钥base64解码", "", b64, "模型填下方的", "",
+      "deepseek-v4.1-flash", "https://igrok.lvyrix.com/v1",
+    ].join("\n");
+    const out = parsePlatformPaste(text, PRESETS);
+    expect(out.apiKeys).toContain(key);
+    expect(out.baseUrls.map((b) => b.url)).toContain("https://igrok.lvyrix.com/v1");
+    expect(out.models).toEqual(["deepseek-v4.1-flash"]);
+  });
+
   it("mimo token plan (tp- prefix via anti-crawl base64) upgrades to coding plan", () => {
     // 反爬中文插 base64 中间: 剔中文拼接后解码 = tp-cd0mfe829...token
     const full = Buffer.from("tp-cd0mfe829kk20chvj4n92ujw8synkxw5vqv5z67qx2k569qv").toString("base64");

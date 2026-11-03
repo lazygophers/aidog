@@ -577,6 +577,20 @@ export function extractExpiryAt(text: string, now: number = Date.now()): number 
   return best.ts;
 }
 
+/** 含「模型/model」标签的行，其下一个非空行若是模型 id 形态（含字母与数字/连字符、非 URL）即采用。
+ *  论坛帖常见「模型填下方的」+ 换行 + 模型名；标题里夹带的同类词不在标签行后，不会误取。 */
+const MODEL_ID_LINE_RE = /^(?=.*[A-Za-z])(?=.*[\d-])[A-Za-z0-9][A-Za-z0-9._:/-]{2,}$/;
+function extractModelAfterLabel(text: string): string[] {
+  const lines = text.split(/\r?\n/).map((l) => l.trim());
+  const out: string[] = [];
+  lines.forEach((l, i) => {
+    if (!/模型|\bmodel\b/i.test(l) || l.length > 40) return;
+    const next = lines.slice(i + 1).find((x) => x);
+    if (next && !/^https?:/i.test(next) && MODEL_ID_LINE_RE.test(next)) pushUnique(out, next);
+  });
+  return out;
+}
+
 /**
  * 解析粘贴文本 → {apiKeys, baseUrls, platform, models}。
  * @param text 用户粘贴的原始文案
@@ -593,7 +607,7 @@ export function parsePlatformPaste(
   const keyPrefixes = collectKeyPrefixes(presets);
   const baseUrls = extractBaseUrls(text);
   const apiKeys = extractApiKeys(text, keyPrefixes);
-  const models: string[] = [];
+  const models: string[] = extractModelAfterLabel(text);
 
   // 第三变体：base64 解码后是中文标签复合串。补提 key/base_url/model。
   for (const parts of extractCompoundFromBase64(text, keyPrefixes)) {
