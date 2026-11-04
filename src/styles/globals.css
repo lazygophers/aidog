@@ -1330,7 +1330,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   .rc-node.win .rc-ico, .rc-node[data-state="win"] .rc-ico { background: color-mix(in srgb, var(--color-success) 14%, transparent); color: var(--color-success); }
   .rc-node.fail, .rc-node.bad, .rc-node[data-state="fail"] { border-color: var(--color-danger); }
   .rc-node.fail .rc-ico, .rc-node[data-state="fail"] .rc-ico { background: color-mix(in srgb, var(--color-danger) 12%, transparent); color: var(--color-danger); }
-  .rc-node.dim, .rc-node.skip { border-style: dashed; opacity: .6; }
+  .rc-node.dim, .rc-node.skip, .rc-node.untried { border-style: dashed; opacity: .6; }
   .rc-node[data-node-id="req"], .rc-node[data-node-id="route"] { opacity: 1; border-style: solid; }
   .rc-node.ok { border-color: var(--color-success); background: color-mix(in srgb, var(--color-success) 8%, var(--surface)); }
   .rc-node.bad { background: color-mix(in srgb, var(--color-danger) 7%, var(--surface)); }

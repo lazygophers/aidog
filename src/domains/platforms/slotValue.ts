@@ -1,11 +1,12 @@
 // 槽位值（PlatformModels 已改有序列表）与 UI 单值表单态的互转。
 // 兼容读取：registry 默认值（已是数组）与旧字符串形态一并接受。
 import type { ModelSlot } from "../../services/api/types/manual";
+import { MODEL_SLOTS } from "./constants";
 import type { PlatformModels } from "../../services/api/types/generated/PlatformModels";
 
 export type SlotValue = string | string[] | null | undefined;
 
-const SLOTS: ModelSlot[] = ["default", "sonnet", "opus", "haiku", "gpt", "jev", "embedding", "rerank"];
+const SLOTS: ModelSlot[] = MODEL_SLOTS.map((s) => s.key);
 
 /** 槽位完整链：trim、去空、去重保序（与 Rust normalize_model_list 同口径）。 */
 export function slotList(v: SlotValue): string[] {

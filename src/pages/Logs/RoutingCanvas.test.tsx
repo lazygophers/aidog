@@ -252,7 +252,7 @@ describe("RoutingCanvas 其他分支", () => {
   it("无 attempts 的旧日志：候选 dim 未尝试，不崩溃", () => {
     const c = mount({ routing: snapA, attempts: undefined });
     expect(state(c, "c-1")).toBe("dim");
-    expect(nodeIds(c)).not.toContain("s-1-0");
+    expect(state(c, "s-1-0")).toBe("untried"); // 链 >1 的未尝试 lane 列链（spec D6）
   });
 
   it("限频跳过链（chain_stop=rate_limit）：剩余链模型画成跳过而不是未尝试", () => {
@@ -260,6 +260,26 @@ describe("RoutingCanvas 其他分支", () => {
     const c = mount({ routing: snap, attempts: [att({ platform_id: 1, status_code: 0, error: "rl", model: "a", kind: "rate_limit_platform", chain_stop: "rate_limit" })], statusCode: 503 });
     expect(state(c, "s-1-1")).toBe("skip");
     expect(c.querySelector('[data-node-id="s-1-1"] [data-testid="routing-step-stop"]')!.getAttribute("data-stop")).toBe("rate_limit");
+  });
+
+  it("链 [A,B,C] 中 B 成功：C 画成 untried 格（非 skip）", () => {
+    const snap: RoutingSnapshot = { mode: "failover", max_retries: 3, entries: [cand({ order: 1, platform_id: 1, target_model: "a", model_chain: ["a", "b", "c"] })] };
+    const c = mount({ routing: snap, attempts: [att({ platform_id: 1, status_code: 500, error: "x", model: "a", error_class: "model" }), att({ platform_id: 1, status_code: 200, model: "b" })] });
+    expect(state(c, "s-1-0")).toBe("bad");
+    expect(state(c, "s-1-1")).toBe("ok");
+    expect(state(c, "s-1-2")).toBe("untried");
+    expect(c.querySelector('[data-node-id="s-1-2"] [data-testid="routing-step-untried"]')).not.toBeNull();
+  });
+
+  it("already-succeeded 的 lane 也列整条链（untried 格）", () => {
+    const snap: RoutingSnapshot = { mode: "failover", max_retries: 3, entries: [
+      cand({ order: 1, platform_id: 1, target_model: "a" }),
+      cand({ order: 2, platform_id: 2, target_model: "x", model_chain: ["x", "y"] }),
+    ] };
+    const c = mount({ routing: snap, attempts: [att({ platform_id: 1, status_code: 200, model: "a" })] });
+    expect(state(c, "s-2-0")).toBe("untried");
+    expect(state(c, "s-2-1")).toBe("untried");
+    expect(c.querySelector('[data-node-id="c-2"] [data-testid="routing-not-chosen"]')!.getAttribute("data-reason")).toBe("already-succeeded");
   });
 
   it("限频跳过格（后端 status_code=0 + kind=rate_limit_*）：只显示 kind 标签，不画连接失败、不用 bad 样式", () => {

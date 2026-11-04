@@ -118,7 +118,7 @@ export type AttemptLite = {
 
 type EdgeKind = "eval" | "ok" | "bad" | "out";
 interface Edge { from: string; to: string; kind: EdgeKind; label?: EdgeLabel; why?: string }
-type StepState = "ok" | "bad" | "skip";
+type StepState = "ok" | "bad" | "skip" | "untried";
 interface Step {
   id: string; state: StepState; model?: string; attempt?: AttemptLite; stop?: string; next?: EdgeLabel;
   /** 限频跳过（kind=rate_limit_*，后端 status_code=0）：按跳过格画，不是连接失败。连线逻辑仍按 state（bad）走。 */
@@ -162,22 +162,26 @@ function buildFlow(routing: RoutingSnapshot, attempts: AttemptLite[] | undefined
       lane.notChosen = e.reason;
     } else if (mine.length === 0) {
       lane.notChosen = winPid !== null ? "already-succeeded" : "untried";
+      const chain = e.model_chain ?? [];
+      if (chain.length > 1) lane.steps = chain.map((m, i) => ({ id: `s-${pid}-${i}`, state: "untried" as const, model: m }));
     } else {
       lane.steps = mine.map((a, i) => ({ id: `s-${pid}-${i}`, state: attemptOk(a) ? "ok" : "bad", model: a.model, attempt: a, stop: a.chain_stop || undefined, rateSkip: isRateSkip(a) }));
-      // 链停止后链上没轮到的模型 → 跳过格（限频 / 服务类 / 规则）
+      // 链上没轮到的模型：链停止（限频 / 服务类 / 规则）→ 跳过格；否则（前面已成功）→ 未轮到格
       const lastA = mine[mine.length - 1]!;
       const chain = e.model_chain ?? [];
-      if (lastA.chain_stop && chain.length > 1) {
+      if (chain.length > 1) {
         const tried = new Set(mine.map((a) => a.model));
         for (const m of chain.filter((m) => !tried.has(m))) {
-          lane.steps.push({ id: `s-${pid}-${lane.steps.length}`, state: "skip", model: m, stop: lastA.chain_stop });
+          lane.steps.push(lastA.chain_stop
+            ? { id: `s-${pid}-${lane.steps.length}`, state: "skip", model: m, stop: lastA.chain_stop }
+            : { id: `s-${pid}-${lane.steps.length}`, state: "untried", model: m });
         }
       }
       lane.state = pid === winPid ? "win" : "fail";
     }
     lanes.push(lane);
 
-    if (lane.steps.length === 0) {
+    if (!lane.steps.some((s) => s.state === "ok" || s.state === "bad")) {
       edges.push({ from: "route", to: lane.id, kind: "out", why: lane.notChosen });
       continue;
     }
@@ -186,12 +190,12 @@ function buildFlow(routing: RoutingSnapshot, attempts: AttemptLite[] | undefined
     lane.steps.forEach((s, i) => {
       if (i === 0) return;
       const p = lane.steps[i - 1]!;
-      if (s.state === "skip") { edges.push({ from: p.id, to: s.id, kind: "out" }); return; }
+      if (s.state === "skip" || s.state === "untried") { edges.push({ from: p.id, to: s.id, kind: "out" }); return; }
       const label: EdgeLabel = p.attempt?.kind === "retry" || p.attempt?.kind === "beta_downgrade" ? "retry" : "next-model";
       p.next = label;
       edges.push({ from: p.id, to: s.id, kind: "bad", label });
     });
-    const tried = lane.steps.filter((s) => s.state !== "skip");
+    const tried = lane.steps.filter((s) => s.state === "ok" || s.state === "bad");
     const lastTried = tried[tried.length - 1]!;
     if (lane.state === "win") winStep = lastTried; else prev = lastTried;
   }
@@ -306,7 +310,7 @@ export function RoutingCanvas({
 
   const stepText = (s: Step) => {
     const a = s.attempt;
-    if (s.state === "skip" || s.rateSkip) return null;
+    if (s.state === "skip" || s.state === "untried" || s.rateSkip) return null;
     return a!.status_code === 0 ? t("logs.routing.step.connectFailed") : String(a!.status_code);
   };
 
@@ -424,6 +428,7 @@ export function RoutingCanvas({
                                   {a.effects.map((ef) => <span key={ef} className="rc-pill warn" data-testid="routing-step-effect" data-effect={ef}>{t(EFFECT_KEY[ef] ?? ef)}</span>)}
                                 </span>
                               )}
+                              {s.state === "untried" && <span className="rc-sub" data-testid="routing-step-untried">{t("logs.routing.chain.untried")}</span>}
                               {s.stop && <span className="rc-sub" data-testid="routing-step-stop" data-stop={s.stop}>{t(STOP_KEY[s.stop] ?? s.stop)}</span>}
                               {s.next && !s.stop && <span className="rc-sub" data-testid="routing-step-next" data-next={s.next}>{t(EDGE_KEY[s.next])}</span>}
                               {a && a.ttfb_ms !== undefined && s.state === "ok" && <span className="rc-sub" data-testid="routing-step-ttfb" data-ms={a.ttfb_ms}>{t("logs.routing.ttfb", "首字")} {formatDurationMs(a.ttfb_ms)}</span>}
