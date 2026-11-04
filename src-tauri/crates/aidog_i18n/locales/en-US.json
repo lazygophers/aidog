@@ -823,6 +823,7 @@
   "logs.routing.check.backfill": "Breaker all-empty fallback",
   "logs.routing.check.maxRetries": "Max retries",
   "logs.routing.val.pass": "Passed",
+  "logs.routing.val.inferredPass": "Inferred: pass",
   "logs.routing.val.hit": "Hit",
   "logs.routing.val.miss": "Not hit",
   "logs.routing.val.notTriggered": "Not triggered",

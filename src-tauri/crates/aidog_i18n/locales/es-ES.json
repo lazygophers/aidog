@@ -823,6 +823,7 @@
   "logs.routing.check.backfill": "Retroceso si todo está abierto",
   "logs.routing.check.maxRetries": "Reintentos máx.",
   "logs.routing.val.pass": "Permitido",
+  "logs.routing.val.inferredPass": "Inferido: pasa",
   "logs.routing.val.hit": "Coincide",
   "logs.routing.val.miss": "Sin coincidencia",
   "logs.routing.val.notTriggered": "No activado",

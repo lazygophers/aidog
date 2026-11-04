@@ -845,6 +845,7 @@
   "logs.routing.check.backfill": "Repli si tout est coupé",
   "logs.routing.check.maxRetries": "Max. tentatives",
   "logs.routing.val.pass": "Passé",
+  "logs.routing.val.inferredPass": "Déduit : passe",
   "logs.routing.val.hit": "Atteint",
   "logs.routing.val.miss": "Non atteint",
   "logs.routing.val.notTriggered": "Non déclenché",
