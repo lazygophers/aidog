@@ -1358,7 +1358,8 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   .rc-k { color: var(--text-tertiary); min-width: 64px; }
   .rc-mark { font-family: ui-monospace, monospace; font-size: 11px; }
   .rc-mark.ok { color: var(--color-success); } .rc-mark.bad { color: var(--color-danger); }
-  .rc-mark.warn { color: var(--color-warning); } .rc-mark.na, .rc-mark.unrec { color: var(--text-tertiary); }
+  .rc-mark.warn { color: var(--color-warning); } .rc-mark.na, .rc-mark.unrec, .rc-mark.inferred { color: var(--text-tertiary); }
+  .rc-checks li[data-state="inferred"] .rc-v { font-style: italic; color: var(--text-tertiary); }
   .rc-unrec {
     font-size: 10.5px; color: var(--text-tertiary); padding: 0 6px; border-radius: 6px; border: 1px dashed var(--border);
     background: repeating-linear-gradient(135deg, transparent 0 5px, var(--accent-subtle) 5px 6px);

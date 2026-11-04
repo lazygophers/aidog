@@ -845,6 +845,7 @@
   "logs.routing.check.backfill": "Откат при пустом брейкере",
   "logs.routing.check.maxRetries": "Макс. повторов",
   "logs.routing.val.pass": "Пропущено",
+  "logs.routing.val.inferredPass": "Предположительно: пропущено",
   "logs.routing.val.hit": "Сработало",
   "logs.routing.val.miss": "Не сработало",
   "logs.routing.val.notTriggered": "Не сработало",

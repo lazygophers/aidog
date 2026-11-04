@@ -823,6 +823,7 @@
   "logs.routing.check.backfill": "熔断全空回退",
   "logs.routing.check.maxRetries": "最大重试",
   "logs.routing.val.pass": "放行",
+  "logs.routing.val.inferredPass": "推断：放行",
   "logs.routing.val.hit": "命中",
   "logs.routing.val.miss": "未命中",
   "logs.routing.val.notTriggered": "未触发",

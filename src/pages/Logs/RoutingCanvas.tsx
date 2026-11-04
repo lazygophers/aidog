@@ -121,6 +121,8 @@ interface Edge { from: string; to: string; kind: EdgeKind; label?: EdgeLabel; wh
 type StepState = "ok" | "bad" | "skip";
 interface Step {
   id: string; state: StepState; model?: string; attempt?: AttemptLite; stop?: string; next?: EdgeLabel;
+  /** 限频跳过（kind=rate_limit_*，后端 status_code=0）：按跳过格画，不是连接失败。连线逻辑仍按 state（bad）走。 */
+  rateSkip?: boolean;
 }
 type LaneState = "win" | "fail" | "dim";
 interface Lane {
@@ -130,6 +132,7 @@ interface Lane {
 }
 
 /** 成功 = 2xx 且无 error 且非空 200。决策 B（200 空响应）的 attempt 记 status_code=200 + 非空 error（kind=empty_200），须算失败。 */
+const isRateSkip = (a?: AttemptLite) => !!a?.kind?.startsWith("rate_limit");
 const attemptOk = (a: AttemptLite) => a.status_code >= 200 && a.status_code < 300 && !a.error && a.kind !== "empty_200";
 
 /** 换平台连线标签：链停止原因优先，其次错误类别。 */
@@ -160,7 +163,7 @@ function buildFlow(routing: RoutingSnapshot, attempts: AttemptLite[] | undefined
     } else if (mine.length === 0) {
       lane.notChosen = winPid !== null ? "already-succeeded" : "untried";
     } else {
-      lane.steps = mine.map((a, i) => ({ id: `s-${pid}-${i}`, state: attemptOk(a) ? "ok" : "bad", model: a.model, attempt: a, stop: a.chain_stop || undefined }));
+      lane.steps = mine.map((a, i) => ({ id: `s-${pid}-${i}`, state: attemptOk(a) ? "ok" : "bad", model: a.model, attempt: a, stop: a.chain_stop || undefined, rateSkip: isRateSkip(a) }));
       // 链停止后链上没轮到的模型 → 跳过格（限频 / 服务类 / 规则）
       const lastA = mine[mine.length - 1]!;
       const chain = e.model_chain ?? [];
@@ -198,8 +201,8 @@ function buildFlow(routing: RoutingSnapshot, attempts: AttemptLite[] | undefined
   return { lanes, edges, winStep };
 }
 
-type CheckState = "ok" | "warn" | "na" | "unrec" | "bad";
-const MARK: Record<CheckState, string> = { ok: "✓", warn: "↷", na: "—", unrec: "?", bad: "✕" };
+type CheckState = "ok" | "warn" | "na" | "unrec" | "bad" | "inferred";
+const MARK: Record<CheckState, string> = { ok: "✓", warn: "↷", na: "—", unrec: "?", bad: "✕", inferred: "≈" };
 
 function Check({ id, state, label, t, children }: { id: string; state: CheckState; label: string; t: T; children?: React.ReactNode }) {
   return (
@@ -294,7 +297,7 @@ export function RoutingCanvas({
 
   // ── 入站 / 路由判定 检查项（旧快照缺字段 → unrec）──
   const entries = routing?.entries ?? [];
-  const newFormat = routing ? routing.max_retries !== undefined || routing.shortcut !== undefined : false;
+  const newFormat = routing ? routing.max_retries !== undefined || routing.shortcut !== undefined || routing.eval_ms !== undefined : false;
   const viaAny = (v: ModelVia) => entries.some((c) => (c.model_via ?? []).includes(v));
   const backfillN = entries.filter((c) => (c.tags ?? []).includes("breaker-backfill")).length;
   const clientBlocked = entries.filter((c) => c.reason === "client-not-allowed").length;
@@ -303,7 +306,7 @@ export function RoutingCanvas({
 
   const stepText = (s: Step) => {
     const a = s.attempt;
-    if (s.state === "skip") return null;
+    if (s.state === "skip" || s.rateSkip) return null;
     return a!.status_code === 0 ? t("logs.routing.step.connectFailed") : String(a!.status_code);
   };
 
@@ -328,7 +331,7 @@ export function RoutingCanvas({
                 {requestModel && <div className="rc-sub mono" data-testid="routing-request-model">{requestModel}{client ? ` · ${client}` : ""}</div>}
                 {groupName && <div className="rc-sub" data-testid="routing-group">{t("logs.routing.group")} <b>{groupName}</b></div>}
                 <ul className="rc-checks">
-                  <Check id="gate" state="ok" label={t("logs.routing.check.gate")} t={t}>{t("logs.routing.val.pass")}</Check>
+                  <Check id="gate" state="inferred" label={t("logs.routing.check.gate")} t={t}>{t("logs.routing.val.inferredPass")}</Check>
                   <Check id="clientGate" state={clientBlocked > 0 ? "warn" : "ok"} label={t("logs.routing.check.clientGate")} t={t}>
                     {clientBlocked > 0 ? `${t("logs.routing.val.excluded")} ${clientBlocked}` : t("logs.routing.val.pass")}
                   </Check>
@@ -400,13 +403,14 @@ export function RoutingCanvas({
                       <div className="rc-steps">
                         {ln.steps.map((s) => {
                           const a = s.attempt;
-                          const failed = s.state === "bad";
+                          const shown = s.rateSkip ? "skip" : s.state;
+                          const failed = shown === "bad";
                           return (
-                            <div key={s.id} className={`rc-node rc-step ${s.state}`} data-node-id={s.id} data-state={s.state} data-kind={a?.kind ?? "normal"}>
+                            <div key={s.id} className={`rc-node rc-step ${shown}`} data-node-id={s.id} data-state={shown} data-kind={a?.kind ?? "normal"}>
                               <span className="mono rc-step-model" data-testid="routing-step-model">{s.model ?? e.target_model ?? actualModel ?? "-"}</span>
                               {a && (
                                 <span className="rc-step-line">
-                                  <span data-testid="routing-step-status">{stepText(s)}</span>
+                                  {!s.rateSkip && <span data-testid="routing-step-status">{stepText(s)}</span>}
                                   {a.kind && <span className="rc-pill" data-testid="routing-step-kind" data-kind={a.kind}>{t(KIND_KEY[a.kind] ?? a.kind)}</span>}
                                   {failed && a.error_class && <span className="rc-pill bad" data-testid="routing-step-class" data-class={a.error_class}>{t(CLASS_KEY[a.error_class] ?? a.error_class)}</span>}
                                   {failed && !a.kind && !a.error_class && <span className="rc-unrec" data-testid="routing-unrecorded">{t("logs.routing.unrecorded")}</span>}

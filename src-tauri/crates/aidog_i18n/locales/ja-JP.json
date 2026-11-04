@@ -845,6 +845,7 @@
   "logs.routing.check.backfill": "ブレーカー全空フォールバック",
   "logs.routing.check.maxRetries": "最大リトライ",
   "logs.routing.val.pass": "通過",
+  "logs.routing.val.inferredPass": "推定：通過",
   "logs.routing.val.hit": "該当",
   "logs.routing.val.miss": "非該当",
   "logs.routing.val.notTriggered": "未発動",
