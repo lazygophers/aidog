@@ -3181,3 +3181,130 @@ fn model_list_flattens_fallbacks_deduped() {
         chain(&["a", "b", "c", "d"])
     );
 }
+
+// ── 路由画布 01：路由阶段补记快照 ──
+
+fn open_breaker(sched: &SchedulerState, pid: u64, now: i64) {
+    let th = BreakerThresholds { failure_threshold: 1, open_secs: 1800, half_open_max: 2 };
+    sched.inc_inflight(pid);
+    sched.record_failure(pid, &th, now);
+}
+
+/// 字面单平台组：短路标记 literal=true，列出被绕过的熔断 / auto_disabled。
+#[tokio::test]
+async fn rc01_literal_single_shortcut_lists_bypassed_states() {
+    let db = mk_test_db().await;
+    let p = mk_db_platform(&db, "GLM").await;
+    let g = mk_db_group(&db, "single", &[p.id]).await;
+    db::test_support::set_legacy_auto_disabled(&db, p.id, 1, db::now() + 3_600_000).await;
+    let sched = SchedulerState::new();
+    open_breaker(&sched, p.id, db::now());
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings { enabled: true, ..Default::default() };
+    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None, rate_body: None };
+
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
+        .await
+        .expect("force request");
+    let sc = set.routing.shortcut.expect("shortcut recorded");
+    assert!(sc.literal);
+    assert!(sc.bypassed.contains(&aidog_db::models::ShortcutBypass::AutoDisabled));
+    assert!(sc.bypassed.contains(&aidog_db::models::ShortcutBypass::Breaker));
+}
+
+/// 等效单平台（多平台组仅 1 个 Enabled）：literal=false；多平台正常路径无 shortcut。
+#[tokio::test]
+async fn rc01_equivalent_single_shortcut_and_multi_none() {
+    let db = mk_test_db().await;
+    let a = mk_db_platform(&db, "A").await;
+    let b = mk_db_platform(&db, "B").await;
+    let c = mk_db_platform(&db, "C").await;
+    let g_multi = mk_db_group(&db, "multi", &[a.id, b.id]).await;
+    let set = select_candidates_ctx(&db, &g_multi, "m", None, RequestKind::Chat).await.unwrap();
+    assert!(set.routing.shortcut.is_none());
+
+    db::test_support::set_legacy_auto_disabled(&db, b.id, 1, db::now() + 3_600_000).await;
+    let g_eq = mk_db_group(&db, "equiv", &[a.id, b.id, c.id]).await;
+    db::test_support::set_legacy_auto_disabled(&db, c.id, 1, db::now() + 3_600_000).await;
+    let set = select_candidates_ctx(&db, &g_eq, "m", None, RequestKind::Chat).await.unwrap();
+    let sc = set.routing.shortcut.expect("equivalent shortcut");
+    assert!(!sc.literal);
+    assert!(sc.bypassed.is_empty(), "sole platform itself is healthy");
+}
+
+/// auto_disabled 退避期满的探测放行带 Probe 标记。
+#[tokio::test]
+async fn rc01_probe_candidate_tagged() {
+    let db = mk_test_db().await;
+    let a = mk_db_platform(&db, "A").await;
+    let b = mk_db_platform(&db, "B").await;
+    let c = mk_db_platform(&db, "C").await;
+    db::test_support::set_legacy_auto_disabled(&db, c.id, 1, db::now() - 1000).await;
+    let g = mk_db_group(&db, "probe", &[a.id, b.id, c.id]).await;
+    let set = select_candidates_ctx(&db, &g, "m", None, RequestKind::Chat).await.unwrap();
+    let tag_of = |id: u64| set.routing.entries.iter().find(|e| e.platform_id == id).unwrap().tags.clone();
+    assert!(tag_of(c.id).contains(&RouteTag::Probe));
+    assert!(!tag_of(a.id).contains(&RouteTag::Probe));
+}
+
+/// 熔断全空回填：回填候选带 BreakerBackfill，reason 仍为 selected。
+#[tokio::test]
+async fn rc01_breaker_backfill_tagged() {
+    let db = mk_test_db().await;
+    let a = mk_db_platform(&db, "A").await;
+    let b = mk_db_platform(&db, "B").await;
+    let g = mk_db_group(&db, "bk", &[a.id, b.id]).await;
+    let sched = SchedulerState::new();
+    let now = db::now();
+    open_breaker(&sched, a.id, now);
+    open_breaker(&sched, b.id, now);
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings { enabled: true, ..Default::default() };
+    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None, rate_body: None };
+    let set = select_candidates_ctx(&db, &g, "m", Some(&ctx), RequestKind::Chat).await.unwrap();
+    assert_eq!(set.routing.entries.len(), 2);
+    for e in &set.routing.entries {
+        assert_eq!(e.reason, RouteReason::Selected);
+        assert!(e.tags.contains(&RouteTag::BreakerBackfill), "{:?}", e.tags);
+    }
+}
+
+/// 直通模式：未声明该模型的平台以 not-declared 原因出现。
+#[tokio::test]
+async fn rc01_direct_model_undeclared_platform_listed() {
+    let (db, _dir) = mk_three_file_db().await;
+    let a = mk_db_platform(&db, "A").await;
+    let b = mk_db_platform(&db, "B").await;
+    set_extra(&db, a.id, r#"{"direct_models":["m1"]}"#).await;
+    let g = mk_db_group(&db, "direct-nd", &[a.id, b.id]).await;
+    let set = select_candidates_ctx(&db, &g, "m1", None, RequestKind::Chat).await.unwrap();
+    let eb = set.routing.entries.iter().find(|e| e.platform_id == b.id).expect("B listed");
+    assert_eq!(eb.reason, RouteReason::NotDeclared);
+    let ea = set.routing.entries.iter().find(|e| e.platform_id == a.id).unwrap();
+    assert_eq!(ea.reason, RouteReason::Selected);
+}
+
+/// max_retries 截断：order > max_retries+1 的入选候选标 retry-limit，max_retries 可读。
+#[test]
+fn rc01_mark_retry_limit_truncates_tail() {
+    let mk = |order: u32| aidog_db::models::RouteCandidate {
+        order,
+        platform: format!("p{order}"),
+        platform_id: order as u64,
+        level_priority: 5,
+        priority: 0,
+        reason: RouteReason::Selected,
+        target_model: None,
+        tags: vec![],
+        model_via: vec![],
+        model_chain: vec![],
+    };
+    let mut r = RoutingSnapshot { entries: vec![mk(1), mk(2), mk(3), mk(4)], ..Default::default() };
+    r.mark_retry_limit(2);
+    assert_eq!(r.max_retries, Some(2));
+    let reasons: Vec<_> = r.entries.iter().map(|e| e.reason).collect();
+    assert_eq!(
+        reasons,
+        vec![RouteReason::Selected, RouteReason::Selected, RouteReason::Selected, RouteReason::RetryLimit]
+    );
+}

@@ -1543,6 +1543,7 @@ mod test_routing_snapshot {
                 tags: vec![RouteTag::CodingPlan, RouteTag::Sticky],
             }],
             eval_ms: None,
+            ..Default::default()
         }
     }
 

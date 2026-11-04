@@ -5906,3 +5906,81 @@ async fn undeclared_code_keeps_old_behaviour() {
     assert!(!state.scheduler.quota_cooled(g, aidog_db::now() + 1));
     assert!(!state.scheduler.quota_cooled(a, aidog_db::now() + 1));
 }
+
+// ── 路由画布 01：路由阶段补记快照（本地假上游，无外呼）──
+
+const RC01_BODY: &str = r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#;
+
+/// 单平台短路（字面 / 等效）端到端：快照带 shortcut 标记。
+#[tokio::test]
+async fn rc01_single_platform_shortcut_in_log_snapshot() {
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkrc1", &up).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkrc1", RC01_BODY)).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let sc = last_log_for(&state, "gkrc1").await.routing.unwrap().shortcut.expect("literal shortcut");
+    assert!(sc.literal);
+
+    // 等效单平台：两平台，其中一个手动禁用
+    setup_multi_platform_group(&state, "gkrc1b", &[("EA", &up, ""), ("EB", &up, "")]).await;
+    set_platform_status(&state, "EB", aidog_db::models::PlatformStatus::Disabled).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkrc1b", RC01_BODY)).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let sc = last_log_for(&state, "gkrc1b").await.routing.unwrap().shortcut.expect("equivalent shortcut");
+    assert!(!sc.literal);
+}
+
+/// max_retries=2 + 4 个全失败平台：第 4 个入选候选因截断未尝试，快照可读出上限与原因。
+#[tokio::test]
+async fn rc01_max_retries_truncation_in_log_snapshot() {
+    let up = spawn_stub_upstream(500, r#"{"error":"boom"}"#).await;
+    let state = make_state(test_db().await).await;
+    setup_multi_platform_group(&state, "gkrc2", &[("T1", &up, ""), ("T2", &up, ""), ("T3", &up, ""), ("T4", &up, "")]).await;
+    let _ = handle_proxy(AxumState(state.clone()), messages_request("gkrc2", RC01_BODY)).await;
+    let r = last_log_for(&state, "gkrc2").await.routing.unwrap();
+    assert_eq!(r.max_retries, Some(2));
+    let last = r.entries.iter().find(|e| e.platform == "T4").unwrap();
+    assert_eq!(last.reason, aidog_db::models::RouteReason::RetryLimit);
+    assert!(r.entries.iter().filter(|e| e.platform != "T4").all(|e| e.reason == aidog_db::models::RouteReason::Selected));
+}
+
+/// 路由失败（全部候选手动禁用）：快照带 eval_ms。
+#[tokio::test]
+async fn rc01_route_failure_snapshot_has_eval_ms() {
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_multi_platform_group(&state, "gkrc3", &[("FA", &up, ""), ("FB", &up, "")]).await;
+    set_platform_status(&state, "FA", aidog_db::models::PlatformStatus::Disabled).await;
+    set_platform_status(&state, "FB", aidog_db::models::PlatformStatus::Disabled).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkrc3", RC01_BODY)).await;
+    assert_ne!(resp.status(), StatusCode::OK);
+    let r = last_log_for(&state, "gkrc3").await.routing.expect("route-fail snapshot");
+    assert!(r.eval_ms.is_some(), "eval_ms missing on failure path");
+    assert_eq!(r.entries.len(), 2);
+}
+
+/// 透传平台认领成功（解析失败分流 + count_tokens 子端点分流两条路径）：写快照。
+#[tokio::test]
+async fn rc01_passthrough_claim_writes_snapshot() {
+    const OK: &str = r#"{"id":"x","usage":{"prompt_tokens":7,"completion_tokens":2}}"#;
+    let (upstream, _seen) = spawn_recording_upstream(OK).await;
+    let state = make_state(test_db().await).await;
+    setup_passthrough_platform_group(&state, "gkrc4", &upstream).await;
+    for path in ["/v1/messages", "/v1/messages/count_tokens"] {
+        let req = HttpRequest::builder()
+            .method("POST")
+            .uri(path)
+            .header("authorization", "Bearer gkrc4")
+            .header("content-type", "application/json")
+            .body(Body::from(if path.ends_with("tokens") { r#"{"model":"m","messages":[]}"# } else { "not json" }))
+            .unwrap();
+        let resp = handle_proxy(AxumState(state.clone()), req).await;
+        assert!(resp.status().is_success(), "{path}: {}", resp.status());
+        let r = last_log_for(&state, "gkrc4").await.routing.unwrap_or_else(|| panic!("{path}: no snapshot"));
+        assert_eq!(r.entries.len(), 1, "{path}");
+        assert_eq!(r.entries[0].reason, aidog_db::models::RouteReason::Selected);
+        assert!(r.eval_ms.is_some());
+        // 下一轮 last_log_for 取同 group 最新一条前清掉旧行的歧义：不同 path 各自断言即可
+    }
+}

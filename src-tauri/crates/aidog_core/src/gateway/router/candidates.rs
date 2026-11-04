@@ -13,7 +13,9 @@ use super::{RouteResult, candidate_state, sole_platform};
 use crate::gateway::rate_limit::RateLimitsCfg;
 use crate::client_vocab::{ClientEntry, CompiledUaRule, client_allowed, compile_ua_rules, identify};
 use aidog_db as db;
-use aidog_db::models::{ModelVia, RouteCandidate, RouteReason, RouteTag, RoutingSnapshot};
+use aidog_db::models::{
+    ModelVia, RouteCandidate, RouteReason, RouteTag, RoutingSnapshot, ShortcutBypass, SingleShortcut,
+};
 use std::collections::{HashMap, HashSet};
 
 /// 候选选取结果：有序的候选平台列表（首个为最优先），用于失败逐个重试。
@@ -380,6 +382,7 @@ pub async fn select_candidates_gated(
             db,
             group,
             only,
+            group_platforms.len() == 1,
             source_model,
             ctx,
             &mapped_target_model,
@@ -410,6 +413,11 @@ pub async fn select_candidates_gated(
     // 仅当熔断维度踢空（active+probe 皆空）且确有被熔断踢出的候选时回退；
     // 若空因 auto_disabled / 手动 disabled，则不回退（保持原 Err）。
     let breaker_bypass = active.is_empty() && probe.is_empty() && !breaker_rejected.is_empty();
+    let backfill_ids: HashSet<u64> = if breaker_bypass {
+        breaker_rejected.iter().map(|(gp, _)| gp.platform.id).collect()
+    } else {
+        HashSet::new()
+    };
     if breaker_bypass {
         tracing::warn!(
             group = %group.name, rejected = breaker_rejected.len(),
@@ -447,6 +455,7 @@ pub async fn select_candidates_gated(
             );
         }
     }
+    let probe_ids: HashSet<u64> = probe.iter().map(|gp| gp.platform.id).collect();
     let ordered = merge_and_promote_mapping(active, probe, mapped_platform_id);
 
     // ── 票 01: 路由决策快照 ── 选中者按最终尝试顺序 + 位置标签；排除者附细分原因。
@@ -466,6 +475,12 @@ pub async fn select_candidates_gated(
             }
             if sticky_id == Some(gp.platform.id) {
                 tags.push(RouteTag::Sticky);
+            }
+            if probe_ids.contains(&gp.platform.id) {
+                tags.push(RouteTag::Probe);
+            }
+            if backfill_ids.contains(&gp.platform.id) {
+                tags.push(RouteTag::BreakerBackfill);
             }
             RouteCandidate {
                 order: (i + 1) as u32,
@@ -503,6 +518,7 @@ pub async fn select_candidates_gated(
         mode: Some(effective_mode),
         entries,
         eval_ms: None,
+        ..Default::default()
     };
 
     // ── 阶段 5: 空候选处理 ──
@@ -616,6 +632,7 @@ async fn handle_single_platform(
     _db: &db::Db,
     group: &Group,
     only: &GroupPlatformDetail,
+    literal: bool,
     source_model: &str,
     _ctx: Option<&ScheduleCtx<'_>>,
     mapped_target_model: &Option<String>,
@@ -746,6 +763,10 @@ async fn handle_single_platform(
     );
 
     let mut routing = single_snapshot(only, group.routing_mode, RouteReason::Selected);
+    routing.shortcut = Some(SingleShortcut {
+        literal,
+        bypassed: bypassed_states(only, _ctx, now_ms, is_passthrough),
+    });
     routing.entries[0].target_model = Some(target_model.clone());
     routing.entries[0].model_chain = full_chain(&target_model, &fallback_models);
     routing.entries[0].model_via =
@@ -759,6 +780,37 @@ async fn handle_single_platform(
         }],
         routing,
     })
+}
+
+/// 单平台短路绕过的状态（只读：不用 admission，它会推进 HalfOpen 探测计数）。
+fn bypassed_states(
+    only: &GroupPlatformDetail,
+    ctx: Option<&ScheduleCtx<'_>>,
+    now_ms: i64,
+    is_passthrough: bool,
+) -> Vec<ShortcutBypass> {
+    let p = &only.platform;
+    let mut v = Vec::new();
+    if p.status == PlatformStatus::AutoDisabled && p.auto_disabled_until > now_ms && !is_passthrough {
+        v.push(ShortcutBypass::AutoDisabled);
+    }
+    if p.expires_at > 0 && now_ms >= p.expires_at {
+        v.push(ShortcutBypass::Expired);
+    }
+    if let (Some(c), false) = (ctx, is_passthrough) {
+        if c.settings.enabled
+            && matches!(c.scheduler.breaker_state(p.id), crate::gateway::scheduling::BreakerState::Open { until_ms } if now_ms < until_ms)
+        {
+            v.push(ShortcutBypass::Breaker);
+        }
+        if c.scheduler.quota_cooled(p.id, now_ms) {
+            v.push(ShortcutBypass::QuotaCooldown);
+        }
+        if c.scheduler.auth_cooled(p.id, now_ms) {
+            v.push(ShortcutBypass::AuthCooldown);
+        }
+    }
+    v
 }
 
 /// 平台限频只读判定：平台级（含时段窗口覆盖）与请求模型级任一放不下即超限。
@@ -805,6 +857,7 @@ fn single_snapshot(
             tags: Vec::new(),
         }],
         eval_ms: None,
+        ..Default::default()
     }
 }
 
@@ -901,7 +954,11 @@ fn select_direct_candidates(
     );
 
     let (sticky_id, demoted_ids) = sort_by_routing_mode(&mut active, &mut probe, mode, ctx, now_ms);
+    let probe_ids: HashSet<u64> = probe.iter().map(|gp| gp.platform.id).collect();
     let ordered: Vec<&GroupPlatformDetail> = active.into_iter().chain(probe).collect();
+    // 未声明该直通模型的平台被丢弃：作为带原因的排除项出现（路由画布 01）
+    let undeclared: Vec<&GroupPlatformDetail> =
+        group_platforms.iter().filter(|gp| !in_direct(gp)).collect();
 
     // 决策快照（与默认链同形状：选中按最终顺序 + 位置标签，排除附细分原因；无 MappingPromoted）
     let selected_count = ordered.len() as u32;
@@ -919,6 +976,9 @@ fn select_direct_candidates(
             if sticky_id == Some(gp.platform.id) {
                 tags.push(RouteTag::Sticky);
             }
+            if probe_ids.contains(&gp.platform.id) {
+                tags.push(RouteTag::Probe);
+            }
             RouteCandidate {
                 order: (i + 1) as u32,
                 platform: gp.platform.name.clone(),
@@ -932,6 +992,10 @@ fn select_direct_candidates(
                 tags,
             }
         })
+        .collect();
+    let excluded: Vec<(&GroupPlatformDetail, RouteReason)> = excluded
+        .into_iter()
+        .chain(undeclared.into_iter().map(|gp| (gp, RouteReason::NotDeclared)))
         .collect();
     entries.extend(excluded.iter().enumerate().map(|(i, (gp, reason))| RouteCandidate {
         order: selected_count + i as u32 + 1,
@@ -949,6 +1013,7 @@ fn select_direct_candidates(
         mode: Some(mode),
         entries,
         eval_ms: None,
+        ..Default::default()
     };
 
     if ordered.is_empty() {

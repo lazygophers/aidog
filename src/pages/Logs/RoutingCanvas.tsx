@@ -26,12 +26,16 @@ const REASON_KEY: Record<RouteReason, string> = {
   "rate-limited": "logs.routing.reason.rate-limited",
   "model-not-on-platform": "logs.routing.reason.model-not-on-platform",
   "skipped-dead-upstream": "logs.routing.reason.skipped-dead-upstream",
+  "not-declared": "logs.routing.reason.not-declared",
+  "retry-limit": "logs.routing.reason.retry-limit",
 };
 const TAG_KEY: Record<RouteTag, string> = {
   "mapping-promoted": "logs.routing.tag.mapping-promoted",
   "coding-plan": "logs.routing.tag.coding-plan",
   "demoted": "logs.routing.tag.demoted",
   "sticky": "logs.routing.tag.sticky",
+  "probe": "logs.routing.tag.probe",
+  "breaker-backfill": "logs.routing.tag.breaker-backfill",
 };
 const MODE_KEY: Record<string, string> = {
   load_balance: "logs.routing.mode.load_balance",

@@ -235,7 +235,7 @@ pub(crate) async fn handle_proxy_core(
         };
         // 探测端点不受客户端白名单约束（定组前、无 UA 语义），故 ClientGate::Off。
         if let Some((g, matched_key)) = group
-            && let Ok(Some(platform)) = super::passthrough::passthrough_first_candidate(
+            && let Ok(Some((platform, _))) = super::passthrough::passthrough_first_candidate(
                 &state.db,
                 &g,
                 "",
@@ -349,7 +349,9 @@ pub(crate) async fn handle_proxy_core(
         match super::passthrough::passthrough_first_candidate(&state.db, &group, &raw_model, client_gate.clone())
             .await
         {
-            Ok(Some(platform)) => {
+            Ok(Some((platform, mut routing))) => {
+                routing.eval_ms = Some(start.elapsed().as_millis() as i64);
+                log.routing = Some(routing);
                 return super::passthrough::handle_passthrough_platform(
                     &state,
                     &mut log,
@@ -367,7 +369,7 @@ pub(crate) async fn handle_proxy_core(
                 .await;
             }
             Err(e) => {
-                log.routing = Some(e.routing.clone());
+                log.routing = Some(failed_routing(&e, start));
                 return route_fail_response(&state, &mut log, &log_settings, &e, start, lang).await;
             }
             Ok(None) => {}
@@ -472,7 +474,9 @@ pub(crate) async fn handle_proxy_core(
         match super::passthrough::passthrough_first_candidate(&state.db, &group, &raw_model, client_gate.clone())
             .await
         {
-            Ok(Some(platform)) => {
+            Ok(Some((platform, mut routing))) => {
+                routing.eval_ms = Some(start.elapsed().as_millis() as i64);
+                log.routing = Some(routing);
                 return super::passthrough::handle_passthrough_platform(
                     &state,
                     &mut log,
@@ -490,7 +494,7 @@ pub(crate) async fn handle_proxy_core(
                 .await;
             }
             Err(e) => {
-                log.routing = Some(e.routing.clone());
+                log.routing = Some(failed_routing(&e, start));
                 return route_fail_response(&state, &mut log, &log_settings, &e, start, lang).await;
             }
             Ok(None) => {}
@@ -661,7 +665,7 @@ pub(crate) async fn handle_proxy_core(
     {
         Ok(c) => c,
         Err(e) => {
-            log.routing = Some(e.routing.clone());
+            log.routing = Some(failed_routing(&e, start));
             tracing::warn!(group = %group.name, model = %chat_req.model, error = %e, "route failed");
             // 整组所有候选被高峰禁用排除 → 落审计 proxy_log（blocked_by='router', blocked_reason='peak'）。
             // est_cost 保持 0（不计费）；status_code=503（照 route fail 现行错误响应，区别于 NoCandidate 的 400）。
@@ -795,6 +799,9 @@ pub(crate) async fn handle_proxy_core(
     //   其他错误(5xx/超时/连接失败) → 换下个候选。
     //   每次尝试均 record 进 attempts；超过 max_retries 或候选耗尽 → 返回最后一次错误。
     let max_retries = group.max_retries as usize;
+    if let Some(r) = log.routing.as_mut() {
+        r.mark_retry_limit(group.max_retries);
+    }
     let mut attempts: Vec<ProxyAttempt> = Vec::new();
     let candidate_total = candidates.len();
     // R3（2026-09-28）：本次请求内已 connect 失败的 base_url 集合。死站对同站兄弟条目同样
@@ -874,5 +881,12 @@ pub(crate) async fn handle_proxy_core(
     upsert_log(&state, &log, &log_settings).await;
     let mut r = (StatusCode::SERVICE_UNAVAILABLE, err_body).into_response();
     inject_trace_header(&mut r);
+    r
+}
+
+/// 路由失败快照：补上路由耗时（路由画布 01）。
+fn failed_routing(e: &RouteFail, start: std::time::Instant) -> aidog_db::models::RoutingSnapshot {
+    let mut r = e.routing.clone();
+    r.eval_ms = Some(start.elapsed().as_millis() as i64);
     r
 }

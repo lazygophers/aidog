@@ -1075,3 +1075,23 @@ fn legacy_routing_and_attempts_json_roundtrip_without_new_fields() {
     a2[0].ttfb_ms = Some(5);
     assert_eq!(parse_attempts(&serialize_attempts(&a2))[0].ttfb_ms, Some(5));
 }
+
+/// 路由画布 01：旧快照 JSON（无新字段）可解析，新字段缺省；新值往返；缺省时不序列化。
+#[test]
+fn rc01_legacy_snapshot_deserializes_without_new_fields() {
+    let old = r#"{"mode":"failover","entries":[{"order":1,"platform":"p","platform_id":1,"level_priority":5,"priority":0,"reason":"selected"}],"eval_ms":4}"#;
+    let r = parse_routing(old).expect("旧快照可解析");
+    assert!(r.shortcut.is_none() && r.max_retries.is_none());
+    let s = serialize_routing(&Some(r));
+    assert!(!s.contains("shortcut") && !s.contains("max_retries"));
+
+    let mut r2 = RoutingSnapshot::default();
+    r2.shortcut = Some(SingleShortcut { literal: true, bypassed: vec![ShortcutBypass::Breaker] });
+    r2.max_retries = Some(2);
+    r2.entries.push(RouteCandidate {
+        order: 1, platform: "p".into(), platform_id: 1, level_priority: 5, priority: 0,
+        reason: RouteReason::NotDeclared, target_model: None,
+        tags: vec![RouteTag::Probe, RouteTag::BreakerBackfill], model_via: vec![], model_chain: vec![],
+    });
+    assert_eq!(parse_routing(&serialize_routing(&Some(r2.clone()))), Some(r2));
+}

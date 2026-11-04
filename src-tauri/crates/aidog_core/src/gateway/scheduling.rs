@@ -642,8 +642,7 @@ impl SchedulerState {
         }
     }
 
-    /// 测试 / 诊断：读取当前 breaker 状态副本。
-    #[cfg(test)]
+    /// 读取当前 breaker 状态副本（测试 / 诊断 / 路由快照只读判定）。
     pub fn breaker_state(&self, platform_id: u64) -> BreakerState {
         self.health
             .read()

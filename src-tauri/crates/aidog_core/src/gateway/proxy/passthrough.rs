@@ -681,7 +681,7 @@ pub(crate) async fn passthrough_first_candidate(
     group: &Group,
     model: &str,
     client: ClientGate,
-) -> Result<Option<super::models::Platform>, RouteFail> {
+) -> Result<Option<(super::models::Platform, aidog_db::models::RoutingSnapshot)>, RouteFail> {
     // 只有分组首选是透传平台时才由本函数收口白名单；其余分组交回调用方的协议分支（各自有闸门）。
     let first_is_passthrough = select_candidates_gated(db, group, model, None, RequestKind::Chat, ClientGate::Off)
         .await
@@ -697,7 +697,8 @@ pub(crate) async fn passthrough_first_candidate(
             .into_iter()
             .next()
             .map(|c| c.platform)
-            .filter(|p| matches!(p.platform_type, Protocol::Passthrough))),
+            .filter(|p| matches!(p.platform_type, Protocol::Passthrough))
+            .map(|p| (p, set.routing))),
         Err(e) if e == "client_not_allowed" || e == "client_not_allowed_mixed" => Err(e),
         Err(_) => Ok(None),
     }
