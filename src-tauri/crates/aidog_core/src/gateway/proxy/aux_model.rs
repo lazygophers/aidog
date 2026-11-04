@@ -258,7 +258,7 @@ pub(crate) async fn handle_aux_model(
     log.user_response_body = err_body.clone();
     log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
     log.duration_ms = start.elapsed().as_millis() as i32;
-    log.retry_count = (attempts.len() as i32 - 1).max(0);
+    log.retry_count = aidog_db::models::retry_count_of(&attempts);
     log.attempts = std::mem::take(&mut attempts);
     upsert_log(state, log, log_settings).await;
     let mut r = (StatusCode::SERVICE_UNAVAILABLE, err_body).into_response();
@@ -491,7 +491,7 @@ async fn aux_attempt(
     log.user_response_body = String::from_utf8_lossy(&client_body).to_string();
     log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
     log.duration_ms = start.elapsed().as_millis() as i32;
-    log.retry_count = (attempts.len() as i32 - 1).max(0);
+    log.retry_count = aidog_db::models::retry_count_of(attempts);
     log.attempts = std::mem::take(attempts);
     upsert_log(state, log, log_settings).await;
     let mut response = (

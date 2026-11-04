@@ -876,7 +876,7 @@ pub(crate) async fn handle_proxy_core(
     log.user_response_body = err_body.clone();
     log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
     log.duration_ms = start.elapsed().as_millis() as i32;
-    log.retry_count = (attempts.len() as i32 - 1).max(0);
+    log.retry_count = aidog_db::models::retry_count_of(&attempts);
     log.attempts = std::mem::take(&mut attempts);
     upsert_log(&state, &log, &log_settings).await;
     let mut r = (StatusCode::SERVICE_UNAVAILABLE, err_body).into_response();
