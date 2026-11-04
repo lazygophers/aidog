@@ -252,7 +252,7 @@ export function QuotaScriptFields({
           {t("platform.quotaScript.variant", "脚本变体")}
         </div>
         <Select value={selection || QUOTA_CUSTOM_VARIANT} onValueChange={onVariantChange}>
-          <SelectTrigger className="input">
+          <SelectTrigger className="input" data-testid="quota-variant-select">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
