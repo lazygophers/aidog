@@ -9,7 +9,7 @@ export type RoutingSnapshot = {
 /**
  * 本次路由模式（load_balance / failover / health_aware / sticky）
  */
-mode: string | null, 
+mode?: string | null, 
 /**
  * 候选平台
  */

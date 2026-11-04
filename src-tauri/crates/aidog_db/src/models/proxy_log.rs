@@ -226,6 +226,7 @@ pub enum ShortcutBypass {
 pub struct SingleShortcut {
     pub literal: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[ts(optional, as = "Option<Vec<ShortcutBypass>>")]
     pub bypassed: Vec<ShortcutBypass>,
 }
 
@@ -281,12 +282,15 @@ pub struct RouteCandidate {
     pub target_model: Option<String>,
     /// 位置标签（仅选中者携带）
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[ts(optional, as = "Option<Vec<RouteTag>>")]
     pub tags: Vec<RouteTag>,
     /// 目标模型选择来源（仅选中者携带；旧日志无此字段，缺省空）。
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[ts(optional, as = "Option<Vec<ModelVia>>")]
     pub model_via: Vec<ModelVia>,
     /// 命中槽位的完整有序模型链（链首 = target_model）；仅链长 > 1 时携带，旧日志缺省空。
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[ts(optional, as = "Option<Vec<String>>")]
     pub model_chain: Vec<String>,
 }
 
@@ -296,7 +300,7 @@ pub struct RouteCandidate {
 pub struct RoutingSnapshot {
     /// 本次路由模式（load_balance / failover / health_aware / sticky）
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[ts(type = "string | null")]
+    #[ts(optional, type = "string | null")]
     pub mode: Option<RoutingMode>,
     /// 候选平台
     #[serde(default)]
