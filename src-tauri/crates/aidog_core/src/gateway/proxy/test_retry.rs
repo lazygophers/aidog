@@ -934,3 +934,25 @@ mod test_classify_upstream_error {
         assert_eq!(classify_upstream_error(400, &cjk), Unknown);
     }
 }
+
+// ── body 业务码 → 码义（registry rate_limit_error_codes）──
+mod test_body_error_code {
+    use super::*;
+
+    #[test]
+    fn extracts_string_and_number_codes() {
+        assert_eq!(body_error_code(r#"{"error":{"code":"1302"}}"#).as_deref(), Some("1302"));
+        assert_eq!(body_error_code(r#"{"error":{"code":1305}}"#).as_deref(), Some("1305"));
+        assert_eq!(body_error_code(r#"{"code":"x"}"#).as_deref(), Some("x"));
+        assert_eq!(body_error_code("not json"), None);
+        assert_eq!(body_error_code(r#"{"error":{"message":"m"}}"#), None);
+    }
+
+    #[test]
+    fn meaning_comes_from_registry_only() {
+        assert_eq!(registry_code_meaning("glm", r#"{"error":{"code":"1302"}}"#).as_deref(), Some("rate_limit"));
+        assert_eq!(registry_code_meaning("glm", r#"{"error":{"code":1305}}"#).as_deref(), Some("overloaded"));
+        assert_eq!(registry_code_meaning("glm", r#"{"error":{"code":"9999"}}"#), None);
+        assert_eq!(registry_code_meaning("anthropic", r#"{"error":{"code":"1302"}}"#), None);
+    }
+}
