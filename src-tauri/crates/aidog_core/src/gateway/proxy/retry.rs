@@ -297,6 +297,23 @@ pub(crate) fn classify_upstream_error(status: u16, body: &str) -> UpstreamErrorC
     }
 }
 
+/// 响应体业务错误码（智谱 `error.code`，字符串或数字均可；顶层 `code` 兜底）。
+pub(crate) fn body_error_code(body: &str) -> Option<String> {
+    let v = serde_json::from_str::<Value>(body).ok()?;
+    match v.get("error").unwrap_or(&v).get("code")? {
+        Value::String(s) => Some(s.clone()),
+        Value::Number(n) => Some(n.to_string()),
+        _ => None,
+    }
+}
+
+/// 平台 registry `rate_limit_error_codes` 对本响应体业务码的码义（`rate_limit` / `overloaded`）。
+/// 码义只读 registry，代码不硬编码平台错误码；`protocol` 是平台 code（`platform_type.wire_str()`）。
+pub(crate) fn registry_code_meaning(protocol: &str, body: &str) -> Option<String> {
+    let code = body_error_code(body)?;
+    aidog_db::registry::default_rate_limit_error_codes(protocol).remove(&code)
+}
+
 /// 配额冷却上限（24h）：超出一律丢弃，防上游给出离谱值或时区解析偏差把平台长期锁死。
 const MAX_QUOTA_COOLDOWN_MS: i64 = 24 * 60 * 60 * 1000;
 
