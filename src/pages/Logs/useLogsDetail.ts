@@ -61,7 +61,7 @@ export function buildLogMarkdown(d: ProxyLogDetail): string {
       if (d.routing.mode) lines.push(`- Mode: ${d.routing.mode}`);
       lines.push(``);
       for (const c of d.routing.entries) {
-        const tagText = c.tags.map(tg => TAG_LABELS[tg] ?? tg).join("、");
+        const tagText = (c.tags ?? []).map(tg => TAG_LABELS[tg] ?? tg).join("、");
         const modelText = c.target_model ? ` · ${c.target_model}` : "";
         lines.push(`${c.order}. ${c.platform} — ${REASON_LABELS[c.reason] ?? c.reason}${tagText ? `（${tagText}）` : ""} · 优先级 L${c.level_priority}/P${c.priority}${modelText}`);
       }

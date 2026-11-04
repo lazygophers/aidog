@@ -355,7 +355,7 @@ export function RoutingCanvas({
                     {sc ? (
                       <span data-literal={String(sc.literal)}>
                         {t(sc.literal ? "logs.routing.val.literal" : "logs.routing.val.equivalent")}
-                        {sc.bypassed.map((b) => (
+                        {(sc.bypassed ?? []).map((b) => (
                           <span key={b} className="rc-pill warn" data-testid="routing-bypass" data-bypass={b}>{t(BYPASS_KEY[b])}</span>
                         ))}
                       </span>
