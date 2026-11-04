@@ -6,6 +6,7 @@ import {
   parseQuotaScriptConfig,
   serializeQuotaScriptConfig,
   hasCustomQuotaScript,
+  QUOTA_SCRIPT_SAMPLE,
   readRequiresValue,
   parsePlatformPeak,
   serializePlatformPeak,
@@ -157,6 +158,24 @@ describe("serializeQuotaScriptConfig", () => {
     ));
     expect(o.quota_custom_script).toBe("return {}");
     expect(o.quota_script_id).toBeUndefined();
+  });
+
+  it("自定义脚本样例：原样（含首尾空白差异）保存 → 不写 quota_custom_script；改动后 → 写入", () => {
+    const untouched = JSON.parse(serializeQuotaScriptConfig(
+      '{"quota_custom_script":"x"}',
+      { variantId: "", customScript: `\n${QUOTA_SCRIPT_SAMPLE}  `, requires: {} },
+      VARIANTS,
+      "openrouter",
+    ));
+    expect(untouched.quota_custom_script).toBeUndefined();
+    const edited = JSON.parse(serializeQuotaScriptConfig(
+      "{}",
+      { variantId: "", customScript: QUOTA_SCRIPT_SAMPLE + "// mine", requires: {} },
+      VARIANTS,
+      "openrouter",
+    ));
+    expect(edited.quota_custom_script).toBe(QUOTA_SCRIPT_SAMPLE + "// mine");
+    expect(hasCustomQuotaScript(JSON.stringify({ quota_custom_script: QUOTA_SCRIPT_SAMPLE }))).toBe(false);
   });
 
   it("id 缺省 / 失效 → 不写 id（后端物化回落首条）；置空 requires 顶层与旧嵌套同删", () => {

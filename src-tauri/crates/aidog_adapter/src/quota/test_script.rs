@@ -334,3 +334,38 @@ fn default_ua_injected_only_when_script_omits_it() {
     inject_default_ua(&mut h, &None);
     assert!(h.is_empty());
 }
+
+// 前端「自定义脚本」编辑器的默认样例（与前端共用同一文件）必须在运行时真能跑。
+const FRONTEND_SAMPLE: &str =
+    include_str!("../../../../../src/domains/platforms/quotaScriptSample.txt");
+
+async fn run_sample(script: &str, stub: &str) -> PlatformQuota {
+    let mut ctx = qctx();
+    ctx.base_url = stub.to_string();
+    run_custom_query(None, ctx, script, 0).await
+}
+
+#[tokio::test]
+async fn frontend_sample_get_runs() {
+    let stub = spawn_stub(200, r#"{"hard_limit_usd":10,"usage":3.5}"#).await;
+    let q = run_sample(FRONTEND_SAMPLE, &stub).await;
+    assert!(q.success, "{:?}", q.error);
+    let b = q.balance.unwrap();
+    assert!((b.remaining - 6.5).abs() < 1e-9);
+    assert_eq!(b.currency, "USD");
+}
+
+#[tokio::test]
+async fn frontend_sample_post_variant_runs() {
+    let stub = spawn_stub(200, r#"{"hard_limit_usd":10,"usage":3.5}"#).await;
+    let post = FRONTEND_SAMPLE
+        .lines()
+        .filter(|l| !l.starts_with("const data = http.get"))
+        .map(|l| l.strip_prefix("// const data = http.post").map_or(l.to_string(), |r| format!("const data = http.post{r}")))
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(post.contains("const data = http.post"));
+    let q = run_sample(&post, &stub).await;
+    assert!(q.success, "{:?}", q.error);
+    assert!((q.balance.unwrap().remaining - 6.5).abs() < 1e-9);
+}

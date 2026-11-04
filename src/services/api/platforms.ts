@@ -4,6 +4,7 @@ import { invoke } from "../transport";
 import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, PassthroughAuth, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, TimeModelRule, PlatformErrorStatus, ClientVocabCategory } from "./types";
 import type { TimeWindow } from "../../domains/platforms/defaults";
 import { normalizeWindow } from "../../utils/timeWindow";
+import QUOTA_SCRIPT_SAMPLE_RAW from "../../domains/platforms/quotaScriptSample.txt?raw";
 
 export const DEFAULT_MOCK_CONFIG: MockConfig = {
   status_code: 200,
@@ -203,9 +204,18 @@ export function parseQuotaScriptConfig(extra: string): { variantId: string; cust
   return { variantId: "", customScript: "" };
 }
 
+/** 自定义脚本编辑器的默认样例（与 Rust 测试共用同一文件，保证样例真能跑）。 */
+export const QUOTA_SCRIPT_SAMPLE = QUOTA_SCRIPT_SAMPLE_RAW;
+
+/** 用户是否真写了自定义脚本：非空且不等于未改动的样例（样例原样 = 视为没配置）。 */
+export function isUserQuotaScript(script: string): boolean {
+  const s = script.trim();
+  return s !== "" && s !== QUOTA_SCRIPT_SAMPLE.trim();
+}
+
 /** extra 是否带非空自定义配额脚本（伪变体）。 */
 export function hasCustomQuotaScript(extra: string): boolean {
-  return parseQuotaScriptConfig(extra).customScript.trim() !== "";
+  return isUserQuotaScript(parseQuotaScriptConfig(extra).customScript);
 }
 
 /** 读 requires 参数值：嵌套优先（extra.newapi / extra.devin 子对象）→ 顶层兜底，
@@ -257,8 +267,7 @@ export function serializeQuotaScriptConfig(
     if (home && typeof home === "object" && !Array.isArray(home)) return home as Record<string, unknown>;
     return null;
   };
-  const custom = cfg.customScript.trim();
-  if (custom) {
+  if (isUserQuotaScript(cfg.customScript)) {
     obj.quota_custom_script = cfg.customScript;
     delete obj.quota_script_id;
   } else {

@@ -13,6 +13,7 @@ import {
   type Platform, type Protocol, type PlatformEndpoint,
   type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit,
   type DevinConfig, type PassthroughAuth, type SchedulingBreakerSettings, type GroupDetail,
+  QUOTA_SCRIPT_SAMPLE, isUserQuotaScript,
 } from "../../services/api";
 import { rateLimitsSummary, clientCategoryState, toggleClientCategory, toggleClientVariant, validateClientUaRule, type ClientUaRule, type ClientUaRuleKind, type RateLimitsBundle, type RateLimitsConfig, type RateLimitModelOverride, type RateLimitWindow, type QuotaWindowConfig, type ClientVocabCategory } from "../../services/api";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -276,7 +277,8 @@ export function QuotaScriptFields({
           <textarea
             className="input"
             placeholder={t("platform.quotaScript.customPlaceholder", "// 返回 { success, balance, tiers, newapi_user_id }")}
-            value={customScript}
+            data-testid="quota-custom-script"
+            value={customScript || QUOTA_SCRIPT_SAMPLE}
             onChange={(e) => onCustomScriptChange(e.target.value)}
             spellCheck={false}
             rows={10}
@@ -302,12 +304,13 @@ export function QuotaScriptFields({
       ))}
       {/* New API 用户 ID：非 requires 字段，保留旧表单入口（查询结果 newapi_user_id 的回填目标，
           回填链现状见 notes/01；序列化写 extra.newapi.user_id）。 */}
-      {protocol === "newapi" && (
+      {protocol === "newapi" && selection !== QUOTA_CUSTOM_VARIANT && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
             {t("platform.newapiUserId", "用户 ID")}
           </div>
           <Input
+            data-testid="quota-newapi-user-id"
             className="input"
             type="text"
             placeholder={t("platform.newapiUserIdPlaceholder", "数字 ID（可选）")}
@@ -1376,7 +1379,7 @@ export function QuotaSection({
   const [confirmTarget, setConfirmTarget] = useState<"auto" | "manual" | null>(null);
 
   // 脚本侧选中值派生（与 QuotaScriptSection 同规则：custom 优先 → 显式 id → 回落首条）。
-  const hasCustom = !!customScript.trim();
+  const hasCustom = isUserQuotaScript(customScript);
   const idValid = variants.some(v => v.id === variantId);
   const customOnly = variants.length === 0;
   const selection = hasCustom || customOnly || variantId === QUOTA_CUSTOM_VARIANT
@@ -1471,7 +1474,7 @@ export function QuotaSection({
 /** 脚本侧是否有用户显式配置（切 manual 时是否值得弹确认）：
  *  自定义脚本正文 / 显式选过变体 id。回落首条（零配置）不算——清了也无感。 */
 function quotaCustomScriptConfigured(customScript: string, variantId: string, variants: QuotaScriptVariant[]): boolean {
-  if (customScript.trim() !== "") return true;
+  if (isUserQuotaScript(customScript)) return true;
   return variantId !== "" && variantId !== QUOTA_CUSTOM_VARIANT && variants.some(v => v.id === variantId);
 }
 
