@@ -74,7 +74,11 @@ test("策略 id 重复硬错", () => {
 test("windows 小时越界硬错", () => {
   bad(withPolicies(policy({ windows: [{ start_hour: 24, end_hour: 8 }] })), /start_hour/);
   bad(withPolicies(policy({ windows: [{ start_hour: 0, end_hour: 25 }] })), /end_hour/);
-  bad(withPolicies(policy({ windows: [{ start_hour: 0, end_hour: 24 }] })), /end_hour/);
+  bad(withPolicies(policy({ windows: [{ start_hour: 0, end_hour: -1 }] })), /end_hour/);
+});
+test("windows end_hour=24（当日结束）合法", () => {
+  const r = run(withPolicies(policy({ windows: [{ start_hour: 0, end_hour: 24 }] })));
+  assert.equal(r.code, 0, r.out);
 });
 test("windows days_of_week 越界硬错", () => {
   bad(withPolicies(policy({ windows: [{ start_hour: 0, end_hour: 8, days_of_week: [7] }] })), /days_of_week/);

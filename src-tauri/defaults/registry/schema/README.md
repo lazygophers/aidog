@@ -55,7 +55,7 @@ yarn check:registry
 
 platform.json 顶层两个可选字段，语义：
 
-- `rate_limit_policies[]`：官方限频档位列表（如智谱用户并发权益 V0~V3，每项一个档位）。每项必带 `id`（平台内唯一，**发布后禁改名**：用户导入的副本靠它关联来源策略）、`label`（单字符串不译）、`source_url`（官方 https 出处）。可选数字 `concurrency`（在途请求数）/ `rpm` / `tpm`，全为正整数，省略 = 不限；`models.<model_id>` 给模型级上限（**键必须是该平台 `models/` 目录里存在的 model_id**）；`windows[]` 分时段上限（形状同 `peak` 窗口：start_hour / end_hour / days_of_week / timezone，end_hour 上限 23，与 peak 一致，first-match；命中窗口的数字覆盖策略本体同名字段）。
+- `rate_limit_policies[]`：官方限频档位列表（如智谱用户并发权益 V0~V3，每项一个档位）。每项必带 `id`（平台内唯一，**发布后禁改名**：用户导入的副本靠它关联来源策略）、`label`（单字符串不译）、`source_url`（官方 https 出处）。可选数字 `concurrency`（在途请求数）/ `rpm` / `tpm`，全为正整数，省略 = 不限；`models.<model_id>` 给模型级上限（**键必须是该平台 `models/` 目录里存在的 model_id**）；`windows[]` 分时段上限（形状同 `peak` 窗口：start_hour / end_hour / days_of_week / timezone，end_hour 0~24（24 = 当日结束，与 peak 不同；start_hour 仍 0~23），first-match；命中窗口的数字覆盖策略本体同名字段）。
 - `rate_limit_error_codes`：上游响应体业务错误码 → 语义。键为纯数字码字符串，值词表 `rate_limit`（按每分钟限频冷却）/ `overloaded`（按服务类错误换平台）。词表在 schema enum 与 check-registry `RATE_LIMIT_CODE_VOCAB` 各一份（对称）。
 
 规范：
