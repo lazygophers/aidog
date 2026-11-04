@@ -135,6 +135,34 @@ pub fn try_db() -> Option<&'static Db> {
     try_ctx().map(|c| c.db())
 }
 
+/// 一条广播给管理接口 `/api/events` 订阅者的界面事件（与 Tauri `emit` 同形：事件名 + payload）。
+#[derive(Clone, Debug)]
+pub struct UiEvent {
+    pub name: String,
+    pub payload: serde_json::Value,
+}
+
+/// 订阅者跟不上时最老的事件被丢（`Lagged`），而不是堵住代理热路径的 `emit`。
+const EVENT_CHANNEL_CAP: usize = 256;
+
+fn event_sender() -> &'static tokio::sync::broadcast::Sender<UiEvent> {
+    static TX: OnceLock<tokio::sync::broadcast::Sender<UiEvent>> = OnceLock::new();
+    TX.get_or_init(|| tokio::sync::broadcast::channel(EVENT_CHANNEL_CAP).0)
+}
+
+/// 订阅事件流（`/api/events` 每个连接一份）。
+pub fn subscribe_events() -> tokio::sync::broadcast::Receiver<UiEvent> {
+    event_sender().subscribe()
+}
+
+/// 把事件交给 `/api/events` 订阅者。各外壳的 `AppCtx::emit` 实现各调一次；没有订阅者不是错误。
+pub fn publish_event(event: &str, payload: &serde_json::Value) {
+    let _ = event_sender().send(UiEvent {
+        name: event.to_string(),
+        payload: payload.clone(),
+    });
+}
+
 /// 广播事件；ctx 未安装时静默丢弃（启动期 / 无头测试）。
 pub fn emit(event: &str, payload: serde_json::Value) {
     if let Some(c) = try_ctx() {

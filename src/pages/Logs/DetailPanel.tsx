@@ -218,6 +218,14 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
         statusCode={detail.status_code}
         actualModel={detail.actual_model || undefined}
         requestModel={detail.model || undefined}
+        groupName={groupName(detail.group_key)}
+        client={detail.client || undefined}
+        inputTokens={detail.input_tokens}
+        outputTokens={detail.output_tokens}
+        estCost={detail.est_cost}
+        retryCount={detail.retry_count}
+        blockedBy={detail.blocked_by || undefined}
+        blockedReason={detail.blocked_reason || undefined}
         t={t}
       />
 
