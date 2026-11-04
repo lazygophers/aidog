@@ -1,5 +1,6 @@
 // Sample (left unmodified, this is NOT saved and no script runs).
 // ctx.baseUrl / ctx.apiKey / ctx.extra (JSON string) are provided.
+// const extra = JSON.parse(ctx.extra);
 const headers = { Authorization: "Bearer " + ctx.apiKey };
 
 // GET: http.get(url, headers) returns the parsed JSON, throws on non-2xx
