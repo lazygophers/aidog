@@ -381,3 +381,79 @@ async fn show_popup_forwards_to_shell_instead_of_dropping() {
     assert_eq!(ev.payload["title"], "标题");
     assert_eq!(ev.payload["body"], "正文");
 }
+
+// ─── 密钥信息只写不读（API 票 02）──────────────────────────────────────────
+
+/// 一个进程只能装一次 `AppCtx`，所以密钥相关的 HTTP 行为合在一个测试里按序断言。
+/// 全程只打本地回环代理与临时库，无外呼。
+#[tokio::test]
+async fn secrets_are_masked_over_http_and_restored_on_write() {
+    let (base, ctx) = spawn_test_proxy(KernelSettings::default()).await;
+    aidog_ctx::install(ctx.clone());
+    let rpc = |name: &str, body: serde_json::Value| {
+        let url = format!("{base}/api/rpc/{name}");
+        async move { client().post(url).json(&body).send().await.unwrap() }
+    };
+
+    // 新建平台带密钥成功；创建响应里密钥已遮。
+    let r = rpc("platform_create", serde_json::json!({"input": {
+        "name": "p1", "platform_type": "openai", "base_url": "http://127.0.0.1:1/v1",
+        "api_key": "sk-secret-123", "extra": "{\"auth_header\":\"x-my-key\"}"
+    }})).await;
+    assert_eq!(r.status(), 200);
+    let created: serde_json::Value = r.json().await.unwrap();
+    assert_eq!(created["api_key"], "***");
+    let id = created["id"].as_u64().unwrap();
+    let db = aidog_ctx::db();
+    assert_eq!(aidog_db::get_platform(db, id).await.unwrap().unwrap().api_key, "sk-secret-123", "库里是原值");
+
+    // 列表 / 详情经 HTTP 都是 ***，原文不出现；IPC 路径（命令函数直调）仍是原值。
+    for (name, body) in [("platform_list", serde_json::json!({})), ("platform_get", serde_json::json!({"id": id}))] {
+        let text = rpc(name, body).await.text().await.unwrap();
+        assert!(!text.contains("sk-secret-123") && !text.contains("x-my-key"), "{name} 泄漏: {text}");
+        assert!(text.contains("***"), "{name}: {text}");
+    }
+    let ipc = aidog_core::platform_cmd::platform::platform_list().await.unwrap();
+    assert!(ipc.iter().any(|p| p.api_key == "sk-secret-123"), "桌面 IPC 行为不变");
+
+    // 更新平台回传 *** → 库中密钥与透传认证头不变；回传新值 → 照常生效。
+    let r = rpc("platform_update", serde_json::json!({"input": {
+        "id": id, "name": "p1-renamed", "api_key": "***", "extra": "{\"auth_header\":\"***\"}"
+    }})).await;
+    assert_eq!(r.status(), 200);
+    let p = aidog_db::get_platform(db, id).await.unwrap().unwrap();
+    assert_eq!((p.name.as_str(), p.api_key.as_str()), ("p1-renamed", "sk-secret-123"));
+    assert!(p.extra.contains("x-my-key") && !p.extra.contains("***"), "extra: {}", p.extra);
+    rpc("platform_update", serde_json::json!({"input": {"id": id, "api_key": "sk-new-456"}})).await;
+    assert_eq!(aidog_db::get_platform(db, id).await.unwrap().unwrap().api_key, "sk-new-456");
+
+    // 通知渠道：token / webhook / 口令写入生效，读取遮蔽，回传 *** 保持原值。
+    let settings = serde_json::json!({"settings": {"channels": {
+        "telegram": {"bot_token": "123:tg-secret", "chat_id": "9"},
+        "email": {"smtp_host": "h", "password": "smtp-pw", "from": "a@b", "to": "c@d"},
+        "webhook": {"url": "http://127.0.0.1:1/hook?t=wh-secret"},
+        "bark": {"url": "http://127.0.0.1:1/bark-secret"}
+    }}});
+    assert_eq!(rpc("notification_settings_set", settings).await.status(), 200);
+    let text = rpc("notification_settings_get", serde_json::json!({})).await.text().await.unwrap();
+    for leak in ["tg-secret", "smtp-pw", "wh-secret", "bark-secret"] {
+        assert!(!text.contains(leak), "通知设置泄漏 {leak}: {text}");
+    }
+    let echoed: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(echoed["channels"]["webhook"]["url"], "***");
+    let r = rpc("notification_settings_set", serde_json::json!({"settings": echoed})).await;
+    assert_eq!(r.status(), 200);
+    let kept = aidog_db::get_notification_settings(db).await.channels;
+    assert_eq!(kept.telegram.unwrap().bot_token, "123:tg-secret");
+    assert_eq!(kept.email.unwrap().password, "smtp-pw");
+    assert_eq!(kept.webhook.unwrap().url, "http://127.0.0.1:1/hook?t=wh-secret");
+    assert_eq!(kept.bark.unwrap().url, "http://127.0.0.1:1/bark-secret");
+
+    // exports_secret 命令整条 403，且不执行。
+    for name in ["platform_share_export", "export_to_file", "cc_proxy_export", "mcp_share_export"] {
+        let r = rpc(name, serde_json::json!({})).await;
+        assert_eq!(r.status(), 403, "{name}");
+        let v: serde_json::Value = r.json().await.unwrap();
+        assert_eq!(v["error"], "exports_secret_forbidden", "{name}");
+    }
+}
