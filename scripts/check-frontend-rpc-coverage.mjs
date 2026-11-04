@@ -10,22 +10,12 @@
 import { execFileSync } from "child_process";
 import { readdirSync, readFileSync, statSync } from "fs";
 import { join } from "path";
+import { RPC_FILE, parseRpcTable } from "./lib/rpc-table.mjs";
 
-const RPC_FILE = "src-tauri/crates/aidog_rpc/src/lib.rs";
 const SRC_DIRS = ["src"];
 
-// ── 管理接口命令表（与 scripts/t08-rpc-names.mjs 同一份解析规则） ──
-const rpcSrc = readFileSync(RPC_FILE, "utf8");
-const block = rpcSrc.match(/rpc_routes!\s*\{([\s\S]*?)\n\}/);
-if (!block) {
-  console.error(`${RPC_FILE}: 找不到 rpc_routes! { ... } 块`);
-  process.exit(1);
-}
-const rpcNames = new Set();
-for (const line of block[1].split("\n")) {
-  const m = line.trim().match(/^([A-Za-z0-9_:]+),$/);
-  if (m) rpcNames.add(m[1].split("::").pop());
-}
+// ── 管理接口命令表（解析规则见 scripts/lib/rpc-table.mjs） ──
+const rpcNames = new Set(parseRpcTable(readFileSync(RPC_FILE, "utf8")).entries.map((e) => e.name));
 
 // ── 前端 invoke 的命令名 ──
 // `invoke<T>("cmd"` / `invoke("cmd"`。命令名一律是字面量；出现变量名时这里抓不到，

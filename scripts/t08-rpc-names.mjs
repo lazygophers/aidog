@@ -6,24 +6,10 @@
 //        <(node scripts/t08-rpc-names.mjs     2>/dev/null)
 //   必须无输出 —— Tauri 注册表与 管理接口命令表是同一批命令。
 import { readFileSync } from "fs";
+import { parseRpcTable } from "./lib/rpc-table.mjs";
 
 const path = process.argv[2] ?? "src-tauri/crates/aidog_rpc/src/lib.rs";
-const src = readFileSync(path, "utf8");
-
-const block = src.match(/rpc_routes!\s*\{([\s\S]*?)\n\}/);
-if (!block) {
-  console.error(`${path}: 找不到 rpc_routes! { ... } 块`);
-  process.exit(1);
-}
-
-const names = [];
-for (const line of block[1].split("\n")) {
-  const trimmed = line.trim();
-  if (!trimmed || trimmed.startsWith("//")) continue;
-  const m = trimmed.match(/^([A-Za-z0-9_:]+),$/);
-  if (!m) continue;
-  names.push(m[1].split("::").pop());
-}
+const names = parseRpcTable(readFileSync(path, "utf8")).entries.map((e) => e.name);
 
 names.sort();
 console.error(`# ${path}: ${names.length} commands`);
