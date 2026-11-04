@@ -4,6 +4,10 @@
 agent 各自 worktree 并行、逐个合并回 PR 分支）踩出的流程缺口。适用于一切
 「主会话拆票 + 多 agent 并行实现 + 主会话合并验收」的形态。
 
+**默认不并行、不开 worktree**（2026-11-04 用户：「尽可能的不要使用worktree开发，除非有必要」）：
+implementer 在主 checkout 当前分支串行跑，「有必要」的三种情形见 shared-worktree.md 文首。
+下面涉及 worktree / 基点 / 合并的节，只在确实开了 worktree 并行时适用。
+
 ## 1. 基线红测名单开工前跑一次，写进每个派发 prompt
 
 master 基线本身带红（该轮：vitest 1 红、flutter 4 红、aidog_db 2 红）。结果：
