@@ -3378,5 +3378,17 @@
   "platform.rateLimits.budgetUsd": "金额 ($)",
   "platform.rateLimits.budgetCount": "请求次数",
   "platform.rateLimits.budgetAmount": "预算额度",
-  "platform.rateLimits.unitCount": "次"
+  "platform.rateLimits.unitCount": "次",
+  "platform.rateLimits.concurrency": "并发（在途请求）",
+  "platform.rateLimits.concurrencyShort": "并发",
+  "platform.rateLimits.timeWindows": "时段窗口（命中时覆盖上方上限，按顺序 first-match）",
+  "platform.rateLimits.addWindow": "加时段窗口",
+  "platform.rateLimits.windowTz": "时区",
+  "platform.rateLimits.policyLibrary": "策略库（内置限频策略）",
+  "platform.rateLimits.policyUpdated": "内置策略已更新，可重新导入",
+  "platform.rateLimits.policyNoNumbers": "官方未公开平台级数字",
+  "platform.rateLimits.policySource": "出处",
+  "platform.rateLimits.policyImport": "导入",
+  "platform.rateLimits.importConfirmTitle": "导入策略 {{label}}？",
+  "platform.rateLimits.importConfirmDesc": "将覆盖当前限频配置（并发 / RPM / TPM、模型级、时段窗口）。导入后是你自己的一份，可再改；内置原件不变。"
 }

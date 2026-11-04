@@ -986,6 +986,7 @@ export function serializeRateLimitsBundle(extra: string, bundle: RateLimitsBundl
 export function rateLimitsSummary(b: RateLimitsBundle, windowsLabel: (n: number) => string): string {
   const parts: string[] = [];
   const r = b.rate_limits;
+  if (r?.concurrency) parts.push(`${r.concurrency} CONC`);
   if (r?.rpm) parts.push(`${r.rpm} RPM`);
   if (r?.tpm) parts.push(`${r.tpm >= 1_000_000 ? `${(r.tpm / 1_000_000).toFixed(1)}M` : formatTpm(r.tpm)} TPM`);
   const w = b.quota_windows?.length ?? 0;

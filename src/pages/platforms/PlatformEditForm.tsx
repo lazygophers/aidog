@@ -330,7 +330,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         )}
         {/* 限频（2026-10-20 从稳定性 tab 拆出；rate-limit-aware 票 04：extra.rate_limits / extra.quota_windows） */}
         {editing && !isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "ratelimits") && (
-          <RateLimitsSection bundle={rateLimits} setBundle={setRateLimits} t={t} />
+          <RateLimitsSection bundle={rateLimits} setBundle={setRateLimits} protocol={protocol} t={t} />
         )}
 
         {/* 熔断（2026-10-20 从稳定性 tab 拆出）：Circuit Breaker 覆盖（仅编辑态可配；空 = 继承全局默认） */}

@@ -3400,5 +3400,17 @@
   "platform.rateLimits.budgetUsd": "Бюджет ($)",
   "platform.rateLimits.budgetCount": "Кол-во запросов",
   "platform.rateLimits.budgetAmount": "Сумма бюджета",
-  "platform.rateLimits.unitCount": "раз"
+  "platform.rateLimits.unitCount": "раз",
+  "platform.rateLimits.concurrency": "Конкурентность (активные запросы)",
+  "platform.rateLimits.concurrencyShort": "Парал.",
+  "platform.rateLimits.timeWindows": "Временные окна (при совпадении переопределяют лимиты выше; побеждает первое)",
+  "platform.rateLimits.addWindow": "Добавить временное окно",
+  "platform.rateLimits.windowTz": "Часовой пояс",
+  "platform.rateLimits.policyLibrary": "Библиотека политик (встроенные политики лимитов)",
+  "platform.rateLimits.policyUpdated": "Встроенная политика обновлена, можно импортировать заново",
+  "platform.rateLimits.policyNoNumbers": "Официальных значений уровня платформы нет",
+  "platform.rateLimits.policySource": "Источник",
+  "platform.rateLimits.policyImport": "Импорт",
+  "platform.rateLimits.importConfirmTitle": "Импортировать политику {{label}}?",
+  "platform.rateLimits.importConfirmDesc": "Текущая конфигурация лимитов (конкурентность / RPM / TPM, по моделям, окна) будет перезаписана. Импортированная копия редактируется, встроенный оригинал не меняется."
 }

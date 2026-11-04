@@ -3400,5 +3400,17 @@
   "platform.rateLimits.budgetUsd": "الميزانية ($)",
   "platform.rateLimits.budgetCount": "عدد الطلبات",
   "platform.rateLimits.budgetAmount": "مبلغ الميزانية",
-  "platform.rateLimits.unitCount": "مرة"
+  "platform.rateLimits.unitCount": "مرة",
+  "platform.rateLimits.concurrency": "التزامن (الطلبات الجارية)",
+  "platform.rateLimits.concurrencyShort": "التزامن",
+  "platform.rateLimits.timeWindows": "نوافذ زمنية (تتجاوز الحدود أعلاه عند التطابق؛ أول تطابق يفوز)",
+  "platform.rateLimits.addWindow": "إضافة نافذة زمنية",
+  "platform.rateLimits.windowTz": "المنطقة الزمنية",
+  "platform.rateLimits.policyLibrary": "مكتبة السياسات (سياسات تحديد المعدل المدمجة)",
+  "platform.rateLimits.policyUpdated": "تم تحديث السياسة المدمجة، يمكن إعادة الاستيراد",
+  "platform.rateLimits.policyNoNumbers": "لم تنشر أرقام على مستوى المنصة",
+  "platform.rateLimits.policySource": "المصدر",
+  "platform.rateLimits.policyImport": "استيراد",
+  "platform.rateLimits.importConfirmTitle": "استيراد السياسة {{label}}؟",
+  "platform.rateLimits.importConfirmDesc": "سيؤدي هذا إلى استبدال إعدادات تحديد المعدل الحالية (التزامن / RPM / TPM، على مستوى النموذج، النوافذ الزمنية). النسخة المستوردة ملكك للتعديل؛ الأصل المدمج لا يتغير."
 }

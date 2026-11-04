@@ -3378,5 +3378,17 @@
   "platform.rateLimits.budgetUsd": "Presupuesto ($)",
   "platform.rateLimits.budgetCount": "Nº de solicitudes",
   "platform.rateLimits.budgetAmount": "Importe del presupuesto",
-  "platform.rateLimits.unitCount": "veces"
+  "platform.rateLimits.unitCount": "veces",
+  "platform.rateLimits.concurrency": "Concurrencia (solicitudes en curso)",
+  "platform.rateLimits.concurrencyShort": "Concur.",
+  "platform.rateLimits.timeWindows": "Ventanas horarias (sustituyen los límites anteriores al coincidir; gana la primera)",
+  "platform.rateLimits.addWindow": "Añadir ventana horaria",
+  "platform.rateLimits.windowTz": "Zona horaria",
+  "platform.rateLimits.policyLibrary": "Biblioteca de políticas (políticas de límite integradas)",
+  "platform.rateLimits.policyUpdated": "Política integrada actualizada, se puede reimportar",
+  "platform.rateLimits.policyNoNumbers": "Sin cifras oficiales a nivel de plataforma",
+  "platform.rateLimits.policySource": "Fuente",
+  "platform.rateLimits.policyImport": "Importar",
+  "platform.rateLimits.importConfirmTitle": "¿Importar la política {{label}}?",
+  "platform.rateLimits.importConfirmDesc": "Se sobrescribirá la configuración actual de límites (concurrencia / RPM / TPM, por modelo, ventanas). La copia importada es editable; el original integrado no cambia."
 }

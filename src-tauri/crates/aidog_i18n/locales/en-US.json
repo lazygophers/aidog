@@ -3378,5 +3378,17 @@
   "platform.rateLimits.budgetUsd": "Budget ($)",
   "platform.rateLimits.budgetCount": "Request count",
   "platform.rateLimits.budgetAmount": "Budget amount",
-  "platform.rateLimits.unitCount": "req"
+  "platform.rateLimits.unitCount": "req",
+  "platform.rateLimits.concurrency": "Concurrency (in-flight)",
+  "platform.rateLimits.concurrencyShort": "Conc.",
+  "platform.rateLimits.timeWindows": "Time windows (override limits above when matched; first match wins)",
+  "platform.rateLimits.addWindow": "Add time window",
+  "platform.rateLimits.windowTz": "Time zone",
+  "platform.rateLimits.policyLibrary": "Policy library (built-in rate-limit policies)",
+  "platform.rateLimits.policyUpdated": "Built-in policy updated, re-import available",
+  "platform.rateLimits.policyNoNumbers": "No platform-level numbers published",
+  "platform.rateLimits.policySource": "Source",
+  "platform.rateLimits.policyImport": "Import",
+  "platform.rateLimits.importConfirmTitle": "Import policy {{label}}?",
+  "platform.rateLimits.importConfirmDesc": "This overwrites the current rate-limit config (concurrency / RPM / TPM, per-model, time windows). The imported copy is yours to edit; the built-in original is unchanged."
 }
