@@ -6,6 +6,7 @@ import {
   parseQuotaScriptConfig,
   serializeQuotaScriptConfig,
   hasCustomQuotaScript,
+  resolveQuotaSelection,
   QUOTA_SCRIPT_SAMPLE,
   readRequiresValue,
   parsePlatformPeak,
@@ -110,6 +111,19 @@ describe("parseQuotaScriptConfig / hasCustomQuotaScript", () => {
     expect(parseQuotaScriptConfig('{"quota_custom_script":"return {}"}').customScript).toBe("return {}");
     expect(hasCustomQuotaScript('{"quota_custom_script":"  "}')).toBe(false);
     expect(parseQuotaScriptConfig('{"quota_script_id":5,"quota_custom_script":[]}')).toEqual({ variantId: "", customScript: "" });
+  });
+});
+
+describe("resolveQuotaSelection", () => {
+  const V = [{ id: "default" }, { id: "voapi" }];
+  it("自定义正文优先 > 显式 id > 回落首个变体；无变体恒自定义", () => {
+    expect(resolveQuotaSelection("return 1", "voapi", V)).toMatchObject({ selection: "__custom__", fellBack: false });
+    expect(resolveQuotaSelection("", "voapi", V)).toMatchObject({ selection: "voapi", fellBack: false });
+    expect(resolveQuotaSelection("", "gone", V)).toMatchObject({ selection: "default", fellBack: true });
+    expect(resolveQuotaSelection("", "", V)).toMatchObject({ selection: "default", fellBack: false });
+    expect(resolveQuotaSelection("", "__custom__", V)).toMatchObject({ selection: "__custom__", fellBack: false });
+    expect(resolveQuotaSelection("", "", [])).toMatchObject({ selection: "__custom__", customOnly: true });
+    expect(resolveQuotaSelection(QUOTA_SCRIPT_SAMPLE, "", V).selection).toBe("default");
   });
 });
 
