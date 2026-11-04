@@ -1,4 +1,4 @@
-import type { Protocol, PlatformEndpoint, ModelSlot, ClientType, ClientVocabCategory } from "../../services/api";
+import type { Protocol, PlatformEndpoint, ModelSlot, ClientType, ClientVocabCategory, RateLimitModelOverride, RateLimitWindow } from "../../services/api";
 import { getDefaultsJson, getClientTypesJson, getClientVocab, hasCustomQuotaScript } from "../../services/api";
 import type { ProtocolOption } from "./constants";
 
@@ -50,9 +50,25 @@ export type TimeWindow = {
 /** JSON 内 name 用的 8 locale BCP 47 标识（zh 用 script 子标签 zh-Hans）。 */
 export type DefaultsLocale = "en-US" | "zh-Hans" | "ar-SA" | "fr-FR" | "de-DE" | "ru-RU" | "ja-JP" | "es-ES";
 
+/** registry 内置限频策略（platform.json `rate_limit_policies` 一项；数字缺省 = 官方未公开 / 不限）。 */
+export type RateLimitPolicy = {
+  id: string;
+  label: string;
+  source_url: string;
+  concurrency?: number;
+  rpm?: number;
+  tpm?: number;
+  models?: Record<string, RateLimitModelOverride>;
+  windows?: RateLimitWindow[];
+};
+
 type DefaultsDoc = {
   last_updated?: number;
   protocols: Partial<Record<Protocol, {
+    /** 该平台 platform.json 的 last_updated（Unix 秒）；限频策略导入时记作 source_last_updated。 */
+    last_updated?: number;
+    /** 内置限频策略（absent = 该平台无）。 */
+    rate_limit_policies?: RateLimitPolicy[];
     /** 协议层 coding plan 套餐标记（真值源）：true = 整套协议走 coding 套餐（独立子域 / 配额计费）。
      *  与 endpoint 级 `coding_plan` flag 语义不同（端点路由级）；两者并存。
      *  absent = false（向后兼容）。与 Rust `gateway::coding_plan::default_is_coding_plan` 对称。 */
@@ -331,6 +347,12 @@ export async function getDefaultPeak(protocol: Protocol): Promise<TimeWindow[]> 
     days_of_month: w.days_of_month ? [...w.days_of_month] : undefined,
     models: w.models ? [...w.models] : undefined,
   }));
+}
+
+/** 该协议的内置限频策略 + 该平台条目的 last_updated（deep copy，防污染缓存）。无 → policies=[]。 */
+export async function getDefaultRateLimitPolicies(protocol: Protocol): Promise<{ policies: RateLimitPolicy[]; lastUpdated: number }> {
+  const e = (await loadDoc()).protocols[protocol];
+  return { policies: structuredClone(e?.rate_limit_policies ?? []), lastUpdated: e?.last_updated ?? 0 };
 }
 
 /** 该协议的配额查询脚本变体列表（registry `quota_scripts`，DB 同步值优先）。

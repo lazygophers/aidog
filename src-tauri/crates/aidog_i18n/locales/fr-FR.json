@@ -3400,5 +3400,17 @@
   "platform.rateLimits.budgetUsd": "Budget ($)",
   "platform.rateLimits.budgetCount": "Nombre de requêtes",
   "platform.rateLimits.budgetAmount": "Montant du budget",
-  "platform.rateLimits.unitCount": "fois"
+  "platform.rateLimits.unitCount": "fois",
+  "platform.rateLimits.concurrency": "Simultanéité (requêtes en cours)",
+  "platform.rateLimits.concurrencyShort": "Simult.",
+  "platform.rateLimits.timeWindows": "Fenêtres horaires (remplacent les limites ci-dessus ; première correspondance retenue)",
+  "platform.rateLimits.addWindow": "Ajouter une fenêtre horaire",
+  "platform.rateLimits.windowTz": "Fuseau horaire",
+  "platform.rateLimits.policyLibrary": "Bibliothèque de politiques (politiques de limitation intégrées)",
+  "platform.rateLimits.policyUpdated": "Politique intégrée mise à jour, réimport possible",
+  "platform.rateLimits.policyNoNumbers": "Aucun chiffre officiel au niveau plateforme",
+  "platform.rateLimits.policySource": "Source",
+  "platform.rateLimits.policyImport": "Importer",
+  "platform.rateLimits.importConfirmTitle": "Importer la politique {{label}} ?",
+  "platform.rateLimits.importConfirmDesc": "Cela remplace la configuration de limitation actuelle (simultanéité / RPM / TPM, par modèle, fenêtres horaires). La copie importée est modifiable ; l'original intégré reste inchangé."
 }
