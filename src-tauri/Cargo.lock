@@ -419,8 +419,10 @@ dependencies = [
  "aidog_backup",
  "aidog_core",
  "aidog_ctx",
+ "aidog_db",
  "axum",
  "futures",
+ "serde_json",
  "tokio-stream",
 ]
 

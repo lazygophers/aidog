@@ -29,6 +29,8 @@
     "tokens": "node design/tokens/build-tokens.mjs",
     "check:tokens": "node design/tokens/build-tokens.mjs --check",
     "check:rpc": "node scripts/check-frontend-rpc-coverage.mjs",
+    "check:annotations": "node scripts/check-command-annotations.mjs",
+    "test:annotations": "node --test scripts/check-command-annotations.test.mjs",
     "gen:types": "cd src-tauri && cargo test -p aidog_core export_bindings",
     "check:docs": "node scripts/gen-command-docs.mjs --check && yarn workspace aidog-docs check:docs",
     "test:statusline-golden": "node scripts/statusline-golden/build.mjs check",
