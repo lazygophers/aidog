@@ -845,6 +845,7 @@
   "logs.routing.check.backfill": "الرجوع عند فراغ القاطع",
   "logs.routing.check.maxRetries": "الحد الأقصى للمحاولات",
   "logs.routing.val.pass": "مرّ",
+  "logs.routing.val.inferredPass": "مستنتج: مسموح",
   "logs.routing.val.hit": "مطابق",
   "logs.routing.val.miss": "غير مطابق",
   "logs.routing.val.notTriggered": "لم يُفعَّل",

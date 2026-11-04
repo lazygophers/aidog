@@ -189,7 +189,7 @@ describe("RoutingCanvas 场景 B：全部失败 503", () => {
     expect(c.querySelector('[data-node-id="s-1-2"] [data-testid="routing-step-stop"]')!.getAttribute("data-stop")).toBe("service");
     expect(c.querySelector('[data-node-id="s-1-0"]')!.getAttribute("data-kind")).toBe("retry");
     expect(c.querySelector('[data-node-id="s-2-0"]')!.getAttribute("data-kind")).toBe("rate_limit_platform");
-    expect(state(c, "s-2-0")).toBe("bad");
+    expect(state(c, "s-2-0")).toBe("skip"); // 限频跳过按跳过格画，不是 bad
     expect(c.querySelector('[data-node-id="c-11"] [data-testid="routing-not-chosen"]')!.getAttribute("data-reason")).toBe("not-declared");
     expect(c.querySelector('[data-node-id="c-2"] [data-testid="routing-tag"]')!.getAttribute("data-tag")).toBe("breaker-backfill");
     const effects = [...c.querySelectorAll('[data-node-id="s-1-1"] [data-testid="routing-step-effect"]')].map((e) => e.getAttribute("data-effect"));
@@ -257,9 +257,47 @@ describe("RoutingCanvas 其他分支", () => {
 
   it("限频跳过链（chain_stop=rate_limit）：剩余链模型画成跳过而不是未尝试", () => {
     const snap: RoutingSnapshot = { mode: "failover", max_retries: 3, entries: [cand({ order: 1, platform_id: 1, target_model: "a", model_chain: ["a", "b"] })] };
-    const c = mount({ routing: snap, attempts: [att({ platform_id: 1, status_code: 429, error: "rl", model: "a", kind: "rate_limit_platform", chain_stop: "rate_limit" })], statusCode: 503 });
+    const c = mount({ routing: snap, attempts: [att({ platform_id: 1, status_code: 0, error: "rl", model: "a", kind: "rate_limit_platform", chain_stop: "rate_limit" })], statusCode: 503 });
     expect(state(c, "s-1-1")).toBe("skip");
     expect(c.querySelector('[data-node-id="s-1-1"] [data-testid="routing-step-stop"]')!.getAttribute("data-stop")).toBe("rate_limit");
+  });
+
+  it("限频跳过格（后端 status_code=0 + kind=rate_limit_*）：只显示 kind 标签，不画连接失败、不用 bad 样式", () => {
+    for (const kind of ["rate_limit_platform", "rate_limit_model"]) {
+      const snap: RoutingSnapshot = { mode: "failover", max_retries: 3, entries: [cand({ order: 1, platform_id: 1, target_model: "a" })] };
+      const c = mount({ routing: snap, attempts: [att({ platform_id: 1, status_code: 0, error: "rl", model: "a", kind })], statusCode: 503 });
+      const step = c.querySelector('[data-node-id="s-1-0"]')!;
+      expect(step.getAttribute("data-state")).toBe("skip");
+      expect(step.getAttribute("data-kind")).toBe(kind);
+      expect(step.className).not.toMatch(/\bbad\b/);
+      expect(step.querySelector('[data-testid="routing-step-kind"]')!.getAttribute("data-kind")).toBe(kind);
+      expect(step.querySelector('[data-testid="routing-step-status"]')).toBeNull();
+      expect(step.querySelector('[data-testid="routing-unrecorded"]')).toBeNull();
+      expect(step.querySelector('[data-testid="routing-step-class"]')).toBeNull();
+    }
+  });
+
+  it("透传平台成功：attempt 由后端记录，候选画成胜出并连到响应", () => {
+    const snap: RoutingSnapshot = { mode: "failover", max_retries: 3, entries: [cand({ order: 1, platform_id: 1, target_model: "gpt-5", model_via: ["passthrough"] })] };
+    const c = mount({ routing: snap, attempts: [att({ platform_id: 1, status_code: 200, ttfb_ms: 120 })], statusCode: 200 });
+    expect(state(c, "c-1")).toBe("win");
+    expect(state(c, "s-1-0")).toBe("ok");
+    expect(edgeSet(c)).toContain("s-1-0->resp:ok");
+    expect(c.querySelector('[data-node-id="c-1"] [data-testid="routing-not-chosen"]')).toBeNull();
+  });
+
+  it("仅有 eval_ms 的新格式快照（无 shortcut / max_retries）：检查项不误显未记录", () => {
+    const snap: RoutingSnapshot = { mode: "failover", eval_ms: 5, entries: [cand({ order: 1, platform_id: 1 })] };
+    const c = mount({ routing: snap, attempts: [att({ platform_id: 1 })] });
+    for (const k of ["shortcut", "backfill"]) {
+      expect(c.querySelector(`[data-node-id="route"] [data-check="${k}"]`)!.getAttribute("data-state")).toBe("na");
+    }
+  });
+
+  it("入站「中间件 / 预算」是推断值（后端无记录）：data-state=inferred，不是 ok", () => {
+    const c = mount({ routing: snapC, attempts: [att({ platform_id: 1 })] });
+    expect(c.querySelector('[data-node-id="req"] [data-check="gate"]')!.getAttribute("data-state")).toBe("inferred");
+    expect(c.querySelector('[data-node-id="req"] [data-check="clientGate"]')!.getAttribute("data-state")).toBe("ok");
   });
 
   it("重试上限截断的候选：未选原因 retry-limit", () => {
