@@ -6063,6 +6063,7 @@ async fn rc02_empty_200_kind_class_and_chain_stop() {
 /// 错误类别 / registry 码义 / 副作用：每行 (协议, 状态码, body, 期望类别, 期望码义, 期望副作用)。
 #[tokio::test]
 async fn rc02_error_class_code_meaning_and_effects() {
+    #[allow(clippy::type_complexity)] // 测试表行，拆 type 反而难读
     let cases: [(Protocol, u16, &'static str, &str, Option<&str>, &[&str]); 5] = [
         (Protocol::Glm, 429, r#"{"error":{"code":"1302","message":"x"}}"#, "service", Some("rate_limit"), &["cooldown_minute"]),
         (Protocol::Glm, 400, r#"{"error":{"code":"1305","message":"x"}}"#, "service", Some("overloaded"), &["breaker_count", "penalty_client"]),
