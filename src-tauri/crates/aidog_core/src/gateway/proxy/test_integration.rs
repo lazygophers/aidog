@@ -5724,3 +5724,118 @@ async fn ratelimit_absent_config_unaffected() {
         assert_eq!(rl_status(&state, "gkrl10").await, StatusCode::OK);
     }
 }
+
+// ── registry 错误码码义（票 ratelimit-03）：glm 的 1302=rate_limit / 1305=overloaded 由 preset 声明 ──
+
+async fn mk_platform_of(state: &Arc<ProxyState>, ptype: Protocol, base_url: String) -> u64 {
+    let id = aidog_db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: format!("p_{}", ptype.wire_str()),
+            platform_type: ptype.clone(),
+            base_url: base_url.clone(),
+            api_key: "sk-up".into(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .unwrap()
+    .id;
+    // 厂商直连协议（glm 等）建库时端点被锁成 preset 真实域名；直写 DB 改指本地假上游，杜绝真实外呼。
+    // 同时挂 Anthropic 端点：客户端是 anthropic 协议。
+    let eps = aidog_db::serialize_endpoints(
+        &[ptype, Protocol::Anthropic]
+            .into_iter()
+            .map(|protocol| crate::gateway::models::PlatformEndpoint {
+                protocol,
+                base_url: base_url.clone(),
+                client_type: "default".to_string(),
+                coding_plan: false,
+            })
+            .collect::<Vec<_>>(),
+    );
+    state
+        .db
+        .call_platform_traced(None, std::panic::Location::caller(), move |conn| {
+            conn.execute(
+                "UPDATE platform SET endpoints=?1 WHERE id=?2",
+                rusqlite::params![eps, id as i64],
+            )?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    id
+}
+
+/// 组内按序挂平台，第一个优先。
+async fn group_of(state: &Arc<ProxyState>, gk: &str, ids: &[u64]) {
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
+    let inputs: Vec<_> = ids
+        .iter()
+        .enumerate()
+        .map(|(i, id)| GroupPlatformInput {
+            platform_id: *id,
+            priority: Some(i as i32),
+            weight: Some(1),
+            level_priority: Some(1),
+        })
+        .collect();
+    aidog_db::set_group_platforms(&state.db, group.id, &inputs).await.unwrap();
+}
+
+const HI: &str = r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#;
+
+#[tokio::test]
+async fn registry_code_rate_limit_cools_platform_to_minute_boundary() {
+    let up = spawn_stub_upstream(429, r#"{"error":{"code":"1302","message":"您的账户已达到速率限制"}}"#).await;
+    let state = make_state(test_db().await).await;
+    let pid = mk_platform_of(&state, Protocol::Glm, up).await;
+    group_of(&state, "gkrl1302", &[pid]).await;
+    let _ = handle_proxy(AxumState(state.clone()), messages_request("gkrl1302", HI)).await;
+    assert!(state.scheduler.quota_cooled(pid, aidog_db::now() + 1), "1302 应进每分钟冷却");
+    assert!(!state.scheduler.quota_cooled(pid, aidog_db::now() + 61_000), "冷却只到下一整分边界");
+}
+
+#[tokio::test]
+async fn registry_code_overloaded_is_service_class_fails_over_without_cooldown() {
+    let bad = spawn_stub_upstream(400, r#"{"error":{"code":"1305","message":"该模型当前访问量过大"}}"#).await;
+    let ok = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    let first = mk_platform_of(&state, Protocol::Glm, bad).await;
+    let second = mk_platform_of(&state, Protocol::Anthropic, ok).await;
+    group_of(&state, "gkov1305", &[first, second]).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkov1305", HI)).await;
+    assert_eq!(resp.status(), StatusCode::OK, "1305 归 Service，应换平台");
+    assert!(!state.scheduler.quota_cooled(first, aidog_db::now() + 1), "1305 不进限频冷却");
+    assert!(
+        !matches!(state.scheduler.breaker_state(first), crate::gateway::scheduling::BreakerState::Closed { fails: 0 }),
+        "1305 计入熔断失败"
+    );
+}
+
+#[tokio::test]
+async fn undeclared_code_keeps_old_behaviour() {
+    // glm 未声明 9999；anthropic 平台没有任何码义——同样的 1302 body 不得触发冷却
+    let up = spawn_stub_upstream(429, r#"{"error":{"code":"9999","message":"x"}}"#).await;
+    let up2 = spawn_stub_upstream(429, r#"{"error":{"code":"1302","message":"x"}}"#).await;
+    let state = make_state(test_db().await).await;
+    let g = mk_platform_of(&state, Protocol::Glm, up).await;
+    let a = mk_platform_of(&state, Protocol::Anthropic, up2).await;
+    group_of(&state, "gkund1", &[g]).await;
+    group_of(&state, "gkund2", &[a]).await;
+    let _ = handle_proxy(AxumState(state.clone()), messages_request("gkund1", HI)).await;
+    let _ = handle_proxy(AxumState(state.clone()), messages_request("gkund2", HI)).await;
+    assert!(!state.scheduler.quota_cooled(g, aidog_db::now() + 1));
+    assert!(!state.scheduler.quota_cooled(a, aidog_db::now() + 1));
+}
