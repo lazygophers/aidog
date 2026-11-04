@@ -563,13 +563,14 @@ impl SchedulerState {
     /// **本地网络保护条款**：60s 滑窗内 connect 失败的去重平台数 ≥ 本请求候选数一半
     /// → 判为本机网络问题而非平台死站，不计入熔断（防机场 WiFi 抖动误杀整组）。
     /// 其余 transport 错误（读超时/中途掐线）仍走 record_ignored 不计入。
+    /// 返回是否真计入（被本地网络保护跳过为 false），供 attempt 副作用观测。
     pub fn record_connect_failure(
         &self,
         platform_id: u64,
         candidate_total: usize,
         thresholds: &BreakerThresholds,
         now_ms: i64,
-    ) {
+    ) -> bool {
         let mut opened = false;
         if let Ok(mut g) = self.health.write() {
             let recent_before = g
@@ -587,7 +588,7 @@ impl SchedulerState {
                 recent_before + 1
             };
             if distinct * 2 >= candidate_total.max(1) {
-                return;
+                return false;
             }
             opened = Self::apply_breaker_failure(h, thresholds, now_ms);
         }
@@ -596,6 +597,7 @@ impl SchedulerState {
             // 通知体系票 01：熔断触发旁路发射，不改状态机行为。
             self.emit_breaker_event(platform_id, "breaker_on");
         }
+        true
     }
 
     fn connect_fail_recent(h: &PlatformHealth, now_ms: i64) -> bool {
