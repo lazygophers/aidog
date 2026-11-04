@@ -16,6 +16,11 @@ export function formatNumber(n: number): string {
   return n.toFixed(n % 1 === 0 ? 0 : 1);
 }
 
+/** 完整整数带千分位：1000 → "1,000"（计数类不压缩成 1.0K）。 */
+export function formatInteger(n: number): string {
+  return n.toLocaleString("en-US");
+}
+
 /**
  * 字节数人读化：`0` → "0 B"，1536 → "1.5 KB"，7.4e9 → "6.9 GB"。
  *
