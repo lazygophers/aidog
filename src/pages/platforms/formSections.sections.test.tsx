@@ -16,6 +16,10 @@ vi.mock("../../domains/platforms", async (importOriginal) => {
     // PeakSection 的 preset RPC：空 resolve（「该平台无默认高峰配置」分支）
     getDefaultPeak: vi.fn(async () => [] as TimeWindow[]),
     getDefaultModelList: vi.fn(async () => [] as string[]),
+    getDefaultRateLimitPolicies: vi.fn(async () => ({
+      policies: [{ id: "v1", label: "V1", source_url: "https://example.com/v1", concurrency: 20, rpm: 100 }],
+      lastUpdated: 500,
+    })),
   };
 });
 
@@ -114,7 +118,7 @@ const bundle: RateLimitsBundle = {
 
 function renderRateLimits(b: RateLimitsBundle) {
   const setBundle = vi.fn();
-  const { container } = render(<RateLimitsSection bundle={b} setBundle={setBundle} t={t} />);
+  const { container } = render(<RateLimitsSection bundle={b} setBundle={setBundle} protocol="glm" t={t} />);
   return { container, setBundle };
 }
 
@@ -151,6 +155,63 @@ describe("RateLimitsSection — C 方向稿接线", () => {
     // commit 传普通对象（draftToBundle 已算好），非函数式 updater
     const next = setBundle.mock.calls[0][0] as RateLimitsBundle;
     expect(next.quota_windows?.[0]).toMatchObject({ window: 7200, budget_tokens: 120000 });
+  });
+});
+
+describe("RateLimitsSection — 并发 / 时段窗口 / 策略库", () => {
+  const byId = (id: string) => document.getElementById(id) as HTMLInputElement;
+  const last = (fn: ReturnType<typeof vi.fn>) => fn.mock.calls.at(-1)![0] as RateLimitsBundle;
+
+  it("并发往返：平台级 + 模型级", () => {
+    const { setBundle } = renderRateLimits({ rate_limits: { concurrency: 8, models: { m1: { concurrency: 2 } } } });
+    expect(byId("rl-concurrency").value).toBe("8");
+    expect(byId("rl-model-0-concurrency").value).toBe("2");
+    fireEvent.change(byId("rl-concurrency"), { target: { value: "12" } });
+    expect(last(setBundle).rate_limits).toMatchObject({ concurrency: 12, models: { m1: { concurrency: 2 } } });
+    fireEvent.change(byId("rl-model-0-concurrency"), { target: { value: "3" } });
+    expect(last(setBundle).rate_limits?.models?.m1).toMatchObject({ concurrency: 3 });
+  });
+
+  it("时段窗口：加 → 编辑小时 / 星期 / 时区 / 上限 → 落 bundle；存量窗口读回", () => {
+    const { setBundle } = renderRateLimits({
+      rate_limits: { rpm: 10, windows: [{ start_hour: 22, end_hour: 6, timezone: "Asia/Shanghai", rpm: 50 }] },
+    });
+    expect(byId("rl-win-0-start").value).toBe("22");
+    expect(byId("rl-win-0-tz").value).toBe("Asia/Shanghai");
+    fireEvent.click(byId("rl-add-window"));
+    fireEvent.change(byId("rl-win-1-start"), { target: { value: "9" } });
+    fireEvent.change(byId("rl-win-1-end"), { target: { value: "18" } });
+    fireEvent.change(byId("rl-win-1-concurrency"), { target: { value: "4" } });
+    fireEvent.click(byId("rl-win-1-day-1"));
+    const w = last(setBundle).rate_limits?.windows;
+    expect(w).toHaveLength(2);
+    expect(w![0]).toMatchObject({ start_hour: 22, end_hour: 6, timezone: "Asia/Shanghai", rpm: 50 });
+    expect(w![1]).toMatchObject({ start_hour: 9, end_hour: 18, concurrency: 4, days_of_week: [1] });
+  });
+
+  it("策略库导入：覆盖 rate_limits、保留 quota_windows、记来源", async () => {
+    const { setBundle } = renderRateLimits({ rate_limits: { rpm: 1 }, quota_windows: [{ window: 18000, budget_tokens: 5 }] });
+    await waitFor(() => expect(byId("rl-policy-import-v1")).not.toBeNull());
+    fireEvent.click(byId("rl-policy-import-v1"));
+    await waitFor(() => expect(byId("rl-import-confirm-ok")).not.toBeNull());
+    fireEvent.click(byId("rl-import-confirm-ok"));
+    expect(last(setBundle)).toMatchObject({
+      rate_limits: { concurrency: 20, rpm: 100, source_policy_id: "v1", source_last_updated: 500 },
+      quota_windows: [{ window: 18000, budget_tokens: 5 }],
+    });
+    expect(last(setBundle).rate_limits?.tpm).toBeUndefined();
+  });
+
+  it("编辑保留来源标记：导入后改 RPM 仍带 source_*", () => {
+    const { setBundle } = renderRateLimits({ rate_limits: { rpm: 1, source_policy_id: "v1", source_last_updated: 100 } });
+    fireEvent.change(byId("rl-rpm"), { target: { value: "7" } });
+    expect(last(setBundle).rate_limits).toMatchObject({ rpm: 7, source_policy_id: "v1", source_last_updated: 100 });
+  });
+
+  it("已导入且内置更新（500 > 100）→ 提示 stale", async () => {
+    renderRateLimits({ rate_limits: { rpm: 1, source_policy_id: "v1", source_last_updated: 100 } });
+    await waitFor(() => expect(byId("rl-policy-library")).not.toBeNull());
+    expect(byId("rl-policy-library").getAttribute("data-state")).toBe("stale");
   });
 });
 
