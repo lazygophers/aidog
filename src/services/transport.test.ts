@@ -76,7 +76,7 @@ describe("transport 分流", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("Tauri 不存在时 POST /rpc/<命令>，body 就是 args", async () => {
+  it("Tauri 不存在时 POST /api/rpc/<命令>，body 就是 args", async () => {
     const fetchSpy = vi.fn().mockResolvedValue(
       new Response(JSON.stringify([{ id: "a" }]), { status: 200 }),
     );
@@ -86,7 +86,7 @@ describe("transport 分流", () => {
     await expect(invoke("proxy_log_list", ARGS)).resolves.toEqual([{ id: "a" }]);
 
     const [url, init] = fetchSpy.mock.calls[0];
-    expect(url).toBe("/rpc/proxy_log_list");
+    expect(url).toBe("/api/rpc/proxy_log_list");
     expect(init.method).toBe("POST");
     expect(init.headers).toEqual({ "Content-Type": "application/json" });
     // 参数形状与 Tauri 路一致（同一个对象原样 JSON 化，键名不做任何转换）。
@@ -156,12 +156,12 @@ describe("transport 分流", () => {
     un();
   });
 
-  it("Tauri 不存在时 listen 订阅 /events 的具名 SSE 事件，payload 与 emit 同形", async () => {
+  it("Tauri 不存在时 listen 订阅 /api/events 的具名 SSE 事件，payload 与 emit 同形", async () => {
     const seen: unknown[] = [];
     const un = await listen<number>("proxy-log-updated", (e) => seen.push(e.payload));
 
     const es = FakeEventSource.last!;
-    expect(es.url).toBe("/events");
+    expect(es.url).toBe("/api/events");
     es.push("proxy-log-updated", "3");
     es.push("other-event", "9");
     expect(seen).toEqual([3]);

@@ -1,0 +1,17 @@
+[package]
+name = "aidog_rpc"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# 管理接口（ADR 0010）的命令路由表：桌面壳与无界面内核共用这一份声明。
+# 命令 crate 一律 `default-features = false, features = ["http"]`：本 crate 只要 HTTP 形态，
+# 不能自己把 tauri 拉进无头内核的依赖图（桌面壳靠 feature 合并照样拿到 desktop）。
+[dependencies]
+aidog_core = { path = "../aidog_core", default-features = false, features = ["http"] }
+aidog_backup = { path = "../aidog_backup", default-features = false, features = ["http"] }
+aidog_ctx = { path = "../aidog_ctx" }
+axum = { workspace = true }
+tokio-stream = { workspace = true }
+futures = { workspace = true }

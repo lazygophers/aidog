@@ -162,6 +162,7 @@ aidog_mcp = { path = "crates/aidog_mcp" }
 aidog_backup = { path = "crates/aidog_backup" }
 aidog_middleware = { path = "crates/aidog_middleware" }
 aidog_adapter = { path = "crates/aidog_adapter" }
+aidog_rpc = { path = "crates/aidog_rpc" }
 # O7：入口设 #[global_allocator]（见 src/main.rs）
 mimalloc = { workspace = true }
 tauri = { version = "2", features = ["protocol-asset", "tray-icon", "macos-private-api"] }

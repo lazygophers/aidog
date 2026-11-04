@@ -273,6 +273,9 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
             app.state::<Db>().inner().clone(),
             engine,
         );
+        // 管理接口（ADR 0010）：路由表与内核共用 aidog_rpc，挂在代理端口的 /api/ 下，
+        // 开关 / 本机限制 / 凭据由代理侧 handle_management 把关。
+        aidog_core::gateway::proxy::install_management_router(aidog_rpc::management_router());
     }
 
     // 定时备份调度器 (常驻 loop, 启动首次检查补「关机错过」)。

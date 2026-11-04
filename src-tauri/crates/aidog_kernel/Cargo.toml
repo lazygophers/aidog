@@ -7,8 +7,8 @@ license = { workspace = true }
 
 # 票 08：无界面内核二进制。
 #
-# 不带参数 = 纯内核（代理转发 + 定时任务，**不开任何 HTTP 管理面**）；
-# `--ui` = 额外挂 /rpc/<命令>（211 个）、SSE /events、静态前端资源。
+# 不带参数 = 纯内核（代理转发 + 定时任务）；
+# `--ui` = 额外在代理端口的 /api/ui/ 提供 Web 界面；管理接口 /api/rpc、/api/events 由代理端口提供（ADR 0010）。
 #
 # 依赖侧的硬约束：**全部命令 crate 必须 `default-features = false, features = ["http"]`**。
 # 打开 `desktop` 会把 tauri 拉回来 → wry/tao → webkit2gtk + gtk3，headless Linux 上装不起
@@ -20,6 +20,7 @@ path = "src/main.rs"
 [dependencies]
 aidog_core = { path = "../aidog_core", default-features = false, features = ["http"] }
 aidog_backup = { path = "../aidog_backup", default-features = false, features = ["http"] }
+aidog_rpc = { path = "../aidog_rpc" }
 aidog_ctx = { path = "../aidog_ctx" }
 aidog_db = { path = "../aidog_db" }
 aidog_logs = { path = "../aidog_logs" }
@@ -29,7 +30,6 @@ aidog_notification = { path = "../aidog_notification" }
 aidog_adapter = { path = "../aidog_adapter" }
 axum = { workspace = true }
 tokio = { workspace = true, features = ["signal"] }
-tokio-stream = { workspace = true }
 tower-http = { workspace = true }
 futures = { workspace = true }
 serde = { workspace = true }

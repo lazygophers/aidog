@@ -8,7 +8,7 @@ import { DisplayCurrencySection } from "../components/settings/DisplayCurrencySe
 import { LogSettingsSection } from "./AppSettings/LogSettingsSection";
 import { SystemMiscSection, DbStatsSection, VersionToastSection } from "./AppSettings/SystemMiscSection";
 
-export type Tab = "system" | "claude" | "codex" | "pi" | "coding_tools" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover" | "importexport" | "mitm";
+export type Tab = "system" | "claude" | "codex" | "pi" | "coding_tools" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover" | "importexport" | "mitm" | "api";
 
 // ponytail: 每个 settings 子 tab 单独 chunk。AppSettings 本身已由 App.tsx 懒加载，
 // 这里再拆一层子 tab —— 进 system tab 时不该把 modelInfo/tray/codex 等其余 tab 的代码一并拖下来。
@@ -48,6 +48,7 @@ function AppSettingsTabContent({ tab, onNotifSettingsChanged }: { tab: Tab; onNo
   if (tab === "coding_tools") return <CodingToolsSettingsTab />;
   if (tab === "importexport") return <ImportExportTab />;
   if (tab === "mitm") return <MitmConfigTab />;
+  if (tab === "api") return <ApiTab />;
   return <Settings />;
 }
 
@@ -58,6 +59,15 @@ function RevealedSection({ staggerMs, children }: { staggerMs: number; children:
   return (
     <div ref={ref} className={`reveal${shown ? " in" : ""}`}>
       {children}
+    </div>
+  );
+}
+
+/** API 分页：管理接口（开关 / 可选凭据 / 当前地址）。 */
+function ApiTab() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <RevealedSection staggerMs={0}><KernelSection /></RevealedSection>
     </div>
   );
 }
@@ -73,7 +83,6 @@ function SystemTab() {
       <RevealedSection staggerMs={0}><ProxyStatusSection s={s} /></RevealedSection>
       <RevealedSection staggerMs={80}><StartupSection s={s} /></RevealedSection>
       <RevealedSection staggerMs={80}><UpstreamProxySection s={s} /></RevealedSection>
-      <RevealedSection staggerMs={160}><KernelSection /></RevealedSection>
       <RevealedSection staggerMs={160}><SystemMiscSection s={s} /></RevealedSection>
       <RevealedSection staggerMs={160}><DisplayCurrencySection /></RevealedSection>
       <RevealedSection staggerMs={160}><LogSettingsSection s={s} /></RevealedSection>
