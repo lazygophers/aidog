@@ -47,6 +47,7 @@ mod headers;
 mod health;
 mod log;
 mod middleware_body;
+mod management;
 mod mitm_bypass;
 mod mock;
 mod non_success;
@@ -79,6 +80,7 @@ mod test_mitm_bypass;
 // 对外路径保持 `gateway::proxy::X` 不变：re-export 全部对外 pub 项。
 pub use endpoint::{is_opencode_zen, opencode_zen_fallback, resolve_opencode_zen_key};
 pub use handler::handle_proxy;
+pub use management::install_management_router;
 /// settings_set 写 DB 后调此重建 ProxyState 设置缓存（跨 crate：commands_config 调用）。
 pub use settings_cache::refresh_proxy_settings_cache;
 // ST5：明文 MITM 路径灌入用（CONNECT 分流已移至 handle_proxy_inner，core 只处理 AI 请求，
@@ -105,6 +107,7 @@ pub(crate) use endpoint::{
 pub(crate) use finish::{AttemptCtx, finish_nonstream, finish_stream};
 pub(crate) use forward::{AttemptOutcome, ModelChain, finalize_proxy_502, forward_attempt, mark_rate_limited};
 pub(crate) use group_info::handle_group_info;
+pub(crate) use management::handle_management;
 pub(crate) use headers::{
     capture_request_headers, inject_trace_header, is_sensitive_log_header,
     passthrough_convert_headers, passthrough_headers,
@@ -393,6 +396,12 @@ fn build_router(state: Arc<ProxyState>) -> Router {
     Router::new()
         .route("/api/group-info", post(handle_group_info))
         .route("/api/notify", post(handle_notify))
+        // 管理接口（ADR 0010）：本机限制 / 开关 / 凭据都在 handle_management 内，早于分组解析与转发。
+        .route("/api/rpc/{*cmd}", post(handle_management))
+        .route("/api/events", get(handle_management))
+        .route("/api/ui", get(handle_management))
+        .route("/api/ui/", get(handle_management))
+        .route("/api/ui/{*rest}", get(handle_management))
         // 健康端点：客户端（Claude Code / Codex 启动探测等）会命中代理根 URL（含 / 前缀），
         // 无 Authorization 不应进 handle_proxy 走 404，也不应落 proxy_log 污染统计。
         // 仅返回 200 + 身份 JSON，跳过组路由 / 日志 / 上游。

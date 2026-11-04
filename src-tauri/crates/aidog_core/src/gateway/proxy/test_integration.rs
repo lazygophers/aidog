@@ -6192,3 +6192,109 @@ async fn rc02_platform_rate_limit_skip_recorded() {
     assert_eq!(skip.chain_stop.as_deref(), Some("rate_limit"));
     assert_eq!(log.blocked_reason, "rate_limit");
 }
+
+// ─── 管理接口（ADR 0010）：/api/rpc/* 挂在代理端口 ───────────────────────────
+
+/// 装一个只带 `/rpc/ping` 的测试路由（真路由表在 `aidog_rpc`，由内核测试覆盖）。
+fn install_mgmt_test_router() {
+    super::install_management_router(
+        axum::Router::new().route(
+            "/rpc/ping",
+            axum::routing::post(|| async { axum::Json(serde_json::json!({"pong": true})) }),
+        ),
+    );
+}
+
+async fn set_mgmt(state: &Arc<ProxyState>, api_enabled: bool, token: &str) {
+    crate::kernel_settings::save_kernel_settings(
+        &state.db,
+        &crate::kernel_settings::KernelSettings {
+            api_enabled,
+            auth_token: token.into(),
+        },
+    )
+    .await
+    .unwrap();
+}
+
+fn mgmt_client() -> reqwest::Client {
+    reqwest::Client::builder().no_proxy().build().unwrap()
+}
+
+/// 开关缺省开、凭据空：本机直接调通，返回命令的 JSON。
+#[tokio::test]
+async fn mgmt_rpc_default_on_returns_command_json() {
+    install_mgmt_test_router();
+    let state = make_state(test_db().await).await;
+    let base = spawn_proxy_router(state.clone()).await;
+    let r = mgmt_client().post(format!("{base}/api/rpc/ping")).send().await.unwrap();
+    assert_eq!(r.status(), 200);
+    assert_eq!(r.json::<serde_json::Value>().await.unwrap(), serde_json::json!({"pong": true}));
+}
+
+/// 开关关：明确的「未启用」404 + JSON，且不进转发（不落 proxy_log）。
+#[tokio::test]
+async fn mgmt_rpc_disabled_returns_not_enabled_and_does_not_forward() {
+    install_mgmt_test_router();
+    let state = make_state(test_db().await).await;
+    set_mgmt(&state, false, "").await;
+    let base = spawn_proxy_router(state.clone()).await;
+    for path in ["/api/rpc/ping", "/api/events", "/api/ui/", "/api/ui/x.js"] {
+        let r = mgmt_client().request(
+            if path == "/api/rpc/ping" { reqwest::Method::POST } else { reqwest::Method::GET },
+            format!("{base}{path}"),
+        ).send().await.unwrap();
+        assert_eq!(r.status(), 404, "{path}");
+        let v: serde_json::Value = r.json().await.unwrap();
+        assert_eq!(v["error"], "management_api_disabled", "{path}");
+    }
+    flush_log_queue(&state).await;
+    assert!(aidog_logs::list_proxy_logs(&state.db, 50, 0).await.unwrap().is_empty(), "未启用不得落入转发");
+}
+
+/// 凭据非空：缺 / 错 Bearer → 401，对的 → 200。
+#[tokio::test]
+async fn mgmt_rpc_optional_token_is_enforced() {
+    install_mgmt_test_router();
+    let state = make_state(test_db().await).await;
+    set_mgmt(&state, true, "s3cret").await;
+    let base = spawn_proxy_router(state.clone()).await;
+    let url = format!("{base}/api/rpc/ping");
+    let c = mgmt_client();
+    assert_eq!(c.post(&url).send().await.unwrap().status(), 401);
+    assert_eq!(c.post(&url).bearer_auth("nope").send().await.unwrap().status(), 401);
+    assert_eq!(c.post(&url).bearer_auth("s3cret").send().await.unwrap().status(), 200);
+}
+
+/// 非回环来源一律 403（bind_lan=true 监听 0.0.0.0 时同样只放行本机）。
+#[tokio::test]
+async fn mgmt_rpc_rejects_non_loopback_peer() {
+    install_mgmt_test_router();
+    let state = make_state(test_db().await).await;
+    let req = axum::http::Request::builder()
+        .method("POST")
+        .uri("/api/rpc/ping")
+        .body(axum::body::Body::empty())
+        .unwrap();
+    let r = super::handle_management(
+        AxumState(state),
+        axum::extract::ConnectInfo("10.1.2.3:5555".parse().unwrap()),
+        req,
+    )
+    .await;
+    assert_eq!(r.status(), 403);
+}
+
+/// 未登记的命令走管理接口的 404，不落入转发；其他路径照常进转发（根健康端点仍在）。
+#[tokio::test]
+async fn mgmt_rpc_unknown_command_is_404_and_other_paths_still_route() {
+    install_mgmt_test_router();
+    let state = make_state(test_db().await).await;
+    let base = spawn_proxy_router(state.clone()).await;
+    let c = mgmt_client();
+    assert_eq!(c.post(format!("{base}/api/rpc/nope")).send().await.unwrap().status(), 404);
+    flush_log_queue(&state).await;
+    assert!(aidog_logs::list_proxy_logs(&state.db, 50, 0).await.unwrap().is_empty());
+    let root: serde_json::Value = c.get(format!("{base}/")).send().await.unwrap().json().await.unwrap();
+    assert_eq!(root["service"], "aidog");
+}

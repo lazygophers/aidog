@@ -1,12 +1,13 @@
 //! aidog 无界面内核（票 08）。
 //!
 //! ```text
-//! aidog-kernel          纯内核：代理转发 + 定时任务，不开任何 HTTP 管理面
-//! aidog-kernel --ui     额外挂 /rpc/<命令>（203 个）、SSE /events、静态前端资源
+//! aidog-kernel          纯内核：代理转发 + 定时任务
+//! aidog-kernel --ui     额外在代理端口的 /api/ui/ 提供 Web 界面
 //! ```
 //!
-//! 两种形态跑的是**同一套**代理转发、协议转换、路由、计费、统计、MCP、skills、hooks 与
-//! 定时任务；`--ui` 只是多开一个管理面监听。日志同时进标准输出与 `~/.aidog/logs/`。
+//! 管理接口（`POST /api/rpc/<命令>`、`GET /api/events`，ADR 0010）与桌面版一样挂在**代理端口**
+//! 上，两种形态都有，由设置里的开关统一启停；`--ui` 只决定是否多提供 `/api/ui/` 网页界面。
+//! 日志同时进标准输出与 `~/.aidog/logs/`。
 //!
 //! 与桌面壳（root package `aidog`）的关系：命令体、代理、调度全部共用同一批 crate，
 //! 差别只有外壳 —— 桌面壳装 `TauriCtx`，这里装 [`ctx::HeadlessCtx`]。本 crate 不链 tauri。
@@ -17,8 +18,6 @@ use mimalloc::MiMalloc;
 static GLOBAL_ALLOCATOR: MiMalloc = MiMalloc;
 
 mod ctx;
-mod rpc;
-mod server;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -33,30 +32,27 @@ const HELP: &str = "\
 aidog-kernel — aidog 的无界面内核
 
 用法:
-  aidog-kernel              纯内核（代理转发 + 定时任务，无 HTTP 管理面）
-  aidog-kernel --ui         额外提供 HTTP 管理接口 /rpc/*、事件流 /events 与 Web 界面
+  aidog-kernel              纯内核（代理转发 + 定时任务）
+  aidog-kernel --ui         额外在 http://127.0.0.1:<代理端口>/api/ui/ 提供 Web 界面
+
+管理接口 /api/rpc/<命令> 与 /api/events 挂在代理端口上（只接受本机连接），
+由「设置 → API」里的开关统一启停；--ui 要求该开关为开。
 
 选项:
-  --ui              开启管理面（**只监听 127.0.0.1**；端口见「设置 → 内核管理面」，默认 9891。
-                    要从别的设备访问，请自行架反向代理回连本机）
-  --port <N>        管理面端口，覆盖设置里的值。写 0 = 由系统挑一个空闲端口。
-                    实际监听地址随后以 AIDOG_KERNEL_LISTEN=<url> 打到标准输出
+  --ui              提供 Web 界面（/api/ui/）。管理接口开关关着时启动失败
   --ui-dir <PATH>   Web 界面静态资源目录（默认取环境变量 AIDOG_UI_DIR，再回落
                     <可执行文件目录>/ui，最后 ./dist）
   -h, --help        打印本帮助
   -V, --version     打印版本
 ";
 
-/// 实际监听地址的机器可读输出前缀。GUI 外壳把内核当子进程拉起时按这个前缀读端口 ——
-/// `--port 0` 下端口由系统挑，除了让内核自己报，调用方没有别的途径知道它是几。
+/// 界面地址的机器可读输出前缀。GUI 外壳把内核当子进程拉起时按这个前缀读地址。
 const LISTEN_LINE_PREFIX: &str = "AIDOG_KERNEL_LISTEN=";
 
-/// 命令行选项。刻意不引 clap：三个开关而已，多一个依赖不划算。
+/// 命令行选项。刻意不引 clap：两个开关而已，多一个依赖不划算。
 #[derive(Debug, Default, PartialEq)]
 struct Options {
     ui: bool,
-    /// `None` = 用设置里的端口。`Some(0)` = 由系统挑空闲端口。
-    port: Option<u16>,
     ui_dir: Option<PathBuf>,
 }
 
@@ -73,13 +69,13 @@ fn parse_args<I: IntoIterator<Item = String>>(args: I) -> ParseOutcome {
     while let Some(a) = it.next() {
         match a.as_str() {
             "--ui" => opts.ui = true,
-            "--port" => match it.next() {
-                Some(v) => match v.parse::<u16>() {
-                    Ok(p) => opts.port = Some(p),
-                    Err(_) => return ParseOutcome::Error(format!("--port needs a number, got `{v}`")),
-                },
-                None => return ParseOutcome::Error("--port needs a number".into()),
-            },
+            "--port" => {
+                return ParseOutcome::Error(
+                    "--port was removed: the management API now shares the proxy port \
+                     (set it in the app, 设置 → 代理)"
+                        .into(),
+                );
+            }
             "--ui-dir" => match it.next() {
                 Some(v) => opts.ui_dir = Some(PathBuf::from(v)),
                 None => return ParseOutcome::Error("--ui-dir needs a path".into()),
@@ -205,25 +201,15 @@ async fn run(opts: Options) -> Result<(), String> {
     startup_tasks(&db).await;
     spawn_scheduled_jobs();
 
-    // 管理面：只有 --ui 才构造。纯内核形态下这段整个不执行 —— 没有任何 HTTP 管理面在听。
+    // 管理接口（ADR 0010）：挂在代理端口上，开关在设置里。`--ui` 只多提供 /api/ui/，
+    // 且要求开关为开 —— 否则会得到一个打不开的界面。
     let kernel_settings = load_kernel_settings(&db).await;
-    match management_bind_addr(&opts, &kernel_settings) {
-        Some(addr) => {
-            let local = start_management(
-                ctx.clone(),
-                addr,
-                kernel_settings.auth_token.clone(),
-                resolve_ui_dir(opts.ui_dir),
-            )
-            .await?;
-            // 实际地址（`--port 0` 时由系统挑）同时进标准输出与锁文件：前者给拉起我们的父进程，
-            // 后者给下一个抢锁失败的实例。
-            let line = format!("{LISTEN_LINE_PREFIX}http://{local}");
-            println!("{line}");
-            record_listen_addr(&lock, &line);
-        }
-        None => tracing::info!("kernel: pure mode, no HTTP management surface is listening"),
+    check_ui_allowed(&opts, &kernel_settings)?;
+    let mut mgmt = aidog_rpc::management_router();
+    if opts.ui {
+        mgmt = with_ui(mgmt, resolve_ui_dir(opts.ui_dir));
     }
+    aidog_core::gateway::proxy::install_management_router(mgmt);
 
     // 代理：按设置自启（与桌面壳同一份 proxy_start）。
     let proxy_settings = load_proxy_settings(&db).await?;
@@ -235,32 +221,49 @@ async fn run(opts: Options) -> Result<(), String> {
         tracing::info!("kernel: proxy autostart disabled in settings, not starting");
     }
 
+    // 界面地址同时进标准输出与锁文件：前者给拉起我们的父进程，后者给下一个抢锁失败的实例。
+    if opts.ui {
+        let line = format!(
+            "{LISTEN_LINE_PREFIX}http://127.0.0.1:{}/api/ui/",
+            proxy_settings.port
+        );
+        println!("{line}");
+        record_listen_addr(&lock, &line);
+    }
+
     wait_for_shutdown().await;
     tracing::info!("kernel: shutdown signal received, exiting");
     Ok(())
 }
 
-/// 管理面该绑在哪 —— **唯一**决定「有没有 HTTP 管理面在听」的地方。
-///
-/// - 没带 `--ui` → `None`：一个 socket 都不开（纯内核形态的定义）。
-/// - 带了 `--ui` → **永远 `127.0.0.1`**，只有端口可配。没有任何开关能把它换成 `0.0.0.0`。
-///
-/// 要从别的设备访问界面，请自行架反向代理（nginx / caddy）回连本机，由它负责 TLS 与鉴权
-/// （2026-09-03 审查裁决，理由见 `aidog_core::kernel_settings` 模块文档）。代理端口自己的
-/// `ProxySettings::bind_lan` 是另一个维度，这里**不读**。
-///
-/// 端口优先级：`--port` > 设置。**命令行只能改端口，改不了绑定的 IP。**
-fn management_bind_addr(
+/// `--ui` 要求管理接口开关为开：关着时 `/api/ui/` 只会回「未启用」，不如启动就失败并说明原因。
+fn check_ui_allowed(
     opts: &Options,
     settings: &aidog_core::kernel_settings::KernelSettings,
-) -> Option<std::net::SocketAddr> {
-    if !opts.ui {
-        return None;
+) -> Result<(), String> {
+    if opts.ui && !settings.api_enabled {
+        return Err("--ui needs the management API, which is disabled in settings \
+                    (enable it in 设置 → API first)"
+            .into());
     }
-    Some(std::net::SocketAddr::new(
-        std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
-        opts.port.unwrap_or(settings.port),
-    ))
+    Ok(())
+}
+
+/// 在管理接口路由上加 `/ui`（= 代理端口的 `/api/ui/`）：静态资源 + SPA 回落，只在该前缀内回落。
+/// 目录不存在只 warn：前端资源缺失不该让管理接口一起挂掉。
+fn with_ui(router: axum::Router, ui_dir: Option<PathBuf>) -> axum::Router {
+    match ui_dir {
+        Some(dir) if dir.is_dir() => {
+            let serve = tower_http::services::ServeDir::new(&dir)
+                .fallback(tower_http::services::ServeFile::new(dir.join("index.html")));
+            tracing::info!(dir = %dir.display(), "kernel: serving web UI assets at /api/ui/");
+            router.nest_service("/ui", serve)
+        }
+        other => {
+            tracing::warn!(dir = ?other, "kernel: web UI asset directory not found, /api/ui/ unavailable");
+            router
+        }
+    }
 }
 
 /// 单实例锁的结果。
@@ -314,26 +317,6 @@ fn record_listen_addr(lock: &std::fs::File, line: &str) {
     if let Err(e) = write() {
         tracing::warn!(error = %e, "kernel: cannot record listen address into lock file");
     }
-}
-
-/// 起管理面，返回**实际**监听地址（`--port 0` 时与入参不同）。
-async fn start_management(
-    ctx: Arc<ctx::HeadlessCtx>,
-    addr: std::net::SocketAddr,
-    auth_token: String,
-    ui_dir: Option<PathBuf>,
-) -> Result<std::net::SocketAddr, String> {
-    let has_auth = !auth_token.trim().is_empty();
-    let state = server::ManagementState::new(ctx, auth_token);
-    let (local, _handle) =
-        server::serve_management(server::management_router(state, ui_dir), addr).await?;
-    tracing::info!(
-        addr = %local,
-        auth = has_auth,
-        commands = rpc::RPC_COMMAND_NAMES.len(),
-        "kernel: management surface listening (/rpc/*, /events, /healthz, web UI)"
-    );
-    Ok(local)
 }
 
 /// 启动期一次性维护任务。与桌面壳 `app_setup` 同一批、同样 fire-and-forget。

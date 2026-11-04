@@ -1,52 +1,36 @@
-//! 内核管理面设置（票 08）：端口 + Bearer 凭据。
+//! 管理接口设置（ADR 0010）：开关 + 可选 Bearer 凭据。
 //!
-//! # 管理面**永远只绑 127.0.0.1**
+//! 管理接口（`POST /api/rpc/<命令>`、`GET /api/events`、内核 `--ui` 的 `/api/ui/`）挂在
+//! **代理端口**上，桌面版与内核版一致；只接受本机连接（复用 `/api/*` 既有的非回环拒绝，
+//! 与代理的 `bind_lan` 无关）。设置键仍叫 `kernel/settings`（持久化兼容）。
 //!
-//! `aidog-kernel --ui` 的管理面没有「开放到局域网」的开关，也不可配置监听地址：它一律
-//! 监听 `127.0.0.1`。要从别的设备访问界面，请自行在前面架一层反向代理（nginx / caddy），
-//! 由反向代理负责 TLS 与鉴权，回连本机的 `127.0.0.1:<port>`。
-//!
-//! 理由（2026-09-03 审查裁决）：管理面 `/rpc/<命令>` 覆盖全部命令，含改配置、读全部请求
-//! 日志（含请求/响应正文）、执行脚本，比代理的转发端口危险一个数量级；而它的鉴权只有一个
-//! 静态 Bearer，还带不进浏览器的文档导航与 `EventSource`。把「开放到公网/局域网」这件事
-//! 整个交给成熟的反向代理，比在这里自造一套半吊子的开放路径更安全。
-//!
-//! # 与代理 `bind_lan` 的关系：没有关系
-//!
-//! 代理端口的 `ProxySettings::bind_lan`（`crate::shared`）是**另一个维度**的开关，管的是
-//! **转发端口**：局域网设备能把请求经 aidog 转给上游，防线是每个分组各自的 `group_key`
-//! Bearer。它与本模块无关，**禁在任何一侧读另一侧。**
-//!
-//! # 凭据
-//!
-//! [`KernelSettings::auth_token`] 非空时，管理面所有请求都要求
-//! `Authorization: Bearer <auth_token>`。绑在 127.0.0.1 也仍然有意义：反向代理回连本机时，
-//! 同机的其他进程同样够得着这个端口，凭据是这一层的防线。为空 = 不校验。
+//! - [`KernelSettings::api_enabled`]：统一启停，缺省开；关着时三类路径返回「未启用」而不落入转发。
+//! - [`KernelSettings::auth_token`]：非空时三类路径都要求 `Authorization: Bearer <auth_token>`；
+//!   空 = 不校验。反向代理回连本机时，同机其他进程同样够得着代理端口，凭据是这一层的防线。
 
 use aidog_db::{self as db, Db};
 
-/// 内核管理面（`--ui` 形态）的监听设置。
+/// 管理接口设置。
 ///
-/// **没有绑定地址字段**：管理面永远 127.0.0.1（见模块文档）。老库里若残留 `bind_lan`
-/// 键，serde 反序列化时按未知字段忽略，不需要迁移。
+/// 老库里残留的 `port` / `bind_lan` 键按未知字段忽略，不需要迁移。
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub struct KernelSettings {
-    /// 管理面监听端口。默认 9891（代理默认 9890 的下一个，避免撞车）。
-    #[serde(default = "default_kernel_port")]
-    pub port: u16,
+    /// 管理接口开关。缺省 = 开。
+    #[serde(default = "default_api_enabled")]
+    pub api_enabled: bool,
     /// Bearer 凭据。空 = 不校验。
     #[serde(default)]
     pub auth_token: String,
 }
 
-fn default_kernel_port() -> u16 {
-    9891
+fn default_api_enabled() -> bool {
+    true
 }
 
 impl Default for KernelSettings {
     fn default() -> Self {
         Self {
-            port: default_kernel_port(),
+            api_enabled: default_api_enabled(),
             auth_token: String::new(),
         }
     }
@@ -85,14 +69,14 @@ pub async fn save_kernel_settings(db: &Db, s: &KernelSettings) -> Result<(), Str
 }
 
 crate::tauri_command! {
-    /// 读内核管理面设置。
+    /// 读管理接口设置。
     pub async fn kernel_settings_get() -> KernelSettings {
         load_kernel_settings(aidog_ctx::db()).await
     }
 }
 
 crate::tauri_command! {
-    /// 写内核管理面设置（端口 + 凭据）。
+    /// 写管理接口设置（开关 + 凭据）。
     pub async fn kernel_settings_set(settings: KernelSettings) -> Result<(), String> {
         save_kernel_settings(aidog_ctx::db(), &settings).await
     }

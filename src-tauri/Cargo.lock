@@ -79,6 +79,7 @@ dependencies = [
  "aidog_logs",
  "aidog_mcp",
  "aidog_middleware",
+ "aidog_rpc",
  "aidog_stats",
  "axum",
  "chrono",
@@ -227,6 +228,7 @@ dependencies = [
  "tokio-rustls",
  "tokio-tungstenite 0.26.2",
  "toml 0.8.2",
+ "tower",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
@@ -304,6 +306,7 @@ dependencies = [
  "aidog_logs",
  "aidog_middleware",
  "aidog_notification",
+ "aidog_rpc",
  "aidog_stats",
  "axum",
  "futures",
@@ -313,7 +316,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
- "tokio-stream",
  "tower-http",
  "tracing",
 ]
@@ -408,6 +410,18 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "tts",
+]
+
+[[package]]
+name = "aidog_rpc"
+version = "0.1.19"
+dependencies = [
+ "aidog_backup",
+ "aidog_core",
+ "aidog_ctx",
+ "axum",
+ "futures",
+ "tokio-stream",
 ]
 
 [[package]]

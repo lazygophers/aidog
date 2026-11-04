@@ -1,14 +1,23 @@
-//! `/rpc/<命令名>` 路由表（票 08）。
+//! 管理接口命令路由表（票 08 / API-接口模块票 01）。
 //!
 //! 每一项与 `src-tauri/src/startup.rs` 的 `tauri::generate_handler![...]` 一一对应：
-//! 那边出 Tauri IPC 形态，这边出 HTTP 形态，**两张表必须是同一批命令**。
+//! 那边出 Tauri IPC 形态，这边出 HTTP 形态，**两张表必须是同一批命令**。桌面壳与无界面
+//! 内核都从这里取表（ADR 0010），不再各抄一份。
 //!
 //! 路由路径里的命令名不手写，由 [`rpc_last_seg`] 从路径末段 `stringify!` 出来 —— 路径写错
 //! 编译不过，所以路径对了名字就一定对。漂移护栏（少写/多写一条）：
 //! `node scripts/t08-rpc-names.mjs` 抽本文件的命令名集合，与 `scripts/t06-handler-names.mjs`
 //! 抽的注册表逐行比对，必须零差集。
+//!
+//! 本表挂在代理端口的 `/api/` 前缀下，由 `aidog_core::gateway::proxy::management` 负责
+//! 本机限制 / 开关 / 凭据，再把去掉 `/api` 的请求交给 [`management_router`]。
+use std::convert::Infallible;
+use std::time::Duration;
+
 use axum::Router;
-use axum::routing::post;
+use axum::response::sse::{Event, KeepAlive, Sse};
+use axum::routing::{get, post};
+use futures::stream::Stream;
 
 /// 取路径末段（= 命令名）。macro_rules 没有「取最后一个」，靠对尾部递归实现。
 macro_rules! rpc_last_seg {
@@ -274,4 +283,29 @@ rpc_routes! {
     aidog_core::platform_cmd::platform::platform_error_status,
     aidog_core::proxy_cmd::cost_simulator::simulator_est_cost,
     aidog_core::system_cmd::app_log::app_log_frontend,
+}
+
+/// SSE 心跳间隔：穿过反向代理 / NAT 时防止空闲连接被掐。
+const SSE_KEEPALIVE_SECS: u64 = 15;
+
+/// `/events`：每个连接一个 broadcast 订阅。事件名 = `emit` 的第一个参数，data = payload 的
+/// JSON 原文，形状与 Tauri 侧一字不差。订阅者跟不上而丢的事件直接跳过（刷新语义幂等）。
+async fn events_handler() -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    use futures::StreamExt;
+    let rx = aidog_ctx::subscribe_events();
+    let stream = tokio_stream::wrappers::BroadcastStream::new(rx).filter_map(|item| async move {
+        item.ok()
+            .map(|ev| Ok(Event::default().event(ev.name).data(ev.payload.to_string())))
+    });
+    Sse::new(stream).keep_alive(
+        KeepAlive::new()
+            .interval(Duration::from_secs(SSE_KEEPALIVE_SECS))
+            .text("keep-alive"),
+    )
+}
+
+/// 管理接口的完整路由：`/rpc/<命令>` + `/events`（路径相对 `/api`）。
+/// 内核 `--ui` 在此之上再 `nest_service("/ui", ...)`。
+pub fn management_router() -> Router {
+    rpc_router::<()>().route("/events", get(events_handler))
 }

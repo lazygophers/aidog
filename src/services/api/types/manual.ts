@@ -545,14 +545,13 @@ export interface ProxySettings {
 }
 
 /**
- * 无界面内核**管理面**的监听设置（Rust `aidog_core::kernel_settings::KernelSettings`，票 08）。
+ * 管理接口设置（Rust `aidog_core::kernel_settings::KernelSettings`，ADR 0010）。
  *
- * **没有绑定地址字段**：管理面永远只监听 127.0.0.1，跨机访问由用户自行架反向代理。
- * 上面 `ProxySettings.bind_lan` 管的是转发端口，是另一个维度，两者互不读取。
- * `auth_token` 为空 = 不校验（够得着的只有本机进程）。
+ * 管理接口挂在代理端口上，只接受本机连接（与上面 `ProxySettings.bind_lan` 无关）。
+ * `api_enabled` 缺省开；`auth_token` 为空 = 不校验。
  */
 export interface KernelSettings {
-  port: number;
+  api_enabled: boolean;
   auth_token: string;
 }
 
