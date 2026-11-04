@@ -200,6 +200,8 @@ pub struct ScheduleCtx<'a> {
     pub settings: &'a SchedulingBreakerSettings,
     /// Sticky 模式 session 键（group_key + 客户端稳定标识，调用侧拼接）。
     pub sticky_key: Option<String>,
+    /// 请求体：限频筛选按它估算输入 token（与转发时 `begin` 同口径）。`None` = 估算 0（非聊天辅助请求）。
+    pub rate_body: Option<&'a serde_json::Value>,
 }
 
 /// Platform extra 解析缓存：避免每个候选重复解析 time_windows 和 peak
@@ -710,7 +712,7 @@ async fn handle_single_platform(
     if !is_passthrough
         && let Some(c) = _ctx
         && let Some(cache) = cache
-        && rate_limited(&c.scheduler.rate, only.platform.id, &cache.rate, now_ms, source_model)
+        && rate_limited(c, only.platform.id, &cache.rate, now_ms, source_model)
     {
         tracing::info!(
             group = %group.name, platform = %only.platform.name,
@@ -762,7 +764,7 @@ async fn handle_single_platform(
 /// 平台限频只读判定：平台级（含时段窗口覆盖）与请求模型级任一放不下即超限。
 /// 模型级只查请求模型名（目标模型此时未解析，换模型后的上限在转发时重判）。
 fn rate_limited(
-    rl: &crate::gateway::rate_limit::RateLimiter,
+    ctx: &ScheduleCtx<'_>,
     pid: u64,
     cfg: &RateLimitsCfg,
     now_ms: i64,
@@ -771,9 +773,15 @@ fn rate_limited(
     if cfg.is_empty() {
         return false;
     }
-    !rl.has_room(pid, "", &cfg.platform_limits(now_ms, source_model), now_ms)
+    // 与 forward.rs 的 `begin` 同一估算，否则大请求过筛后 begin 必败。
+    let est = match ctx.rate_body {
+        Some(b) if cfg.has_tpm() => crate::gateway::proxy::estimate_input_tokens(b, source_model),
+        _ => 0,
+    };
+    let rl = &ctx.scheduler.rate;
+    !rl.has_room(pid, "", &cfg.platform_limits(now_ms, source_model), now_ms, est)
         || (!source_model.is_empty()
-            && !rl.has_room(pid, source_model, &cfg.model_limits(source_model), now_ms))
+            && !rl.has_room(pid, source_model, &cfg.model_limits(source_model), now_ms, est))
 }
 
 /// 单平台组快照（票 01）：唯一候选一个条目，排除时带原因。
@@ -1088,7 +1096,7 @@ fn filter_candidates<'a>(
         // 平台限频维度（extra.rate_limits，内存计数；独立于 status，与高峰禁用同型临时闸门）。
         if let Some(c) = ctx
             && let Some(cache) = extra_cache.get(&gp.platform.id)
-            && rate_limited(&c.scheduler.rate, gp.platform.id, &cache.rate, now_ms, source_model)
+            && rate_limited(c, gp.platform.id, &cache.rate, now_ms, source_model)
         {
             rate_limited_count += 1;
             excluded.push((gp, RouteReason::RateLimited));

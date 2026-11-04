@@ -137,6 +137,7 @@ async fn single_platform_forces_request_when_circuit_broken() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
 
     // 单平台短路：无视熔断必请求
@@ -169,6 +170,7 @@ async fn quota_cooldown_excludes_candidate_without_disabling() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
     let now = db::now();
     sched.set_quota_cooldown(cooled.id, now + 3_600_000);
@@ -207,6 +209,7 @@ async fn single_platform_forces_request_when_auto_disabled() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
 
     let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
@@ -233,6 +236,7 @@ async fn single_platform_censorship_blocked_does_not_bypass() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
 
     let result =
@@ -280,6 +284,7 @@ async fn single_platform_manual_disabled_errs() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
 
     let res =
@@ -311,6 +316,7 @@ async fn single_platform_peak_disabled_errs() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
 
     let res =
@@ -348,6 +354,7 @@ async fn single_platform_peak_disabled_off_peak_still_forces() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
 
     // 极小概率运行在 01:00-02:00 UTC；选择窗口外的概率 22/24 ≈ 92%
@@ -390,6 +397,7 @@ async fn multi_platform_all_peak_disabled_errs() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
 
     let res =
@@ -423,6 +431,7 @@ async fn multi_platform_partial_peak_disabled_skipped() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
 
     let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
@@ -468,6 +477,7 @@ async fn single_platform_unknown_protocol_errs() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
 
     let res =
@@ -499,6 +509,7 @@ async fn multi_platform_all_unknown_protocol_errs() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
 
     let res =
@@ -529,6 +540,7 @@ async fn multi_platform_partial_unknown_protocol_skipped() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
 
     let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
@@ -554,6 +566,7 @@ async fn empty_group_returns_err() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
     let res =
         select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await;
@@ -581,6 +594,7 @@ async fn load_balance_mode_returns_candidates() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
     let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
         .await
@@ -603,6 +617,7 @@ async fn sticky_mode_returns_candidates() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: Some("sess-key".to_string()),
+        rate_body: None,
     };
     let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
         .await
@@ -665,6 +680,7 @@ async fn model_mapping_prioritizes_target_platform() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
     let set = select_candidates_ctx(&db, &g, "gpt-4o", Some(&ctx), RequestKind::Chat)
         .await
@@ -717,6 +733,7 @@ async fn all_platforms_disabled_returns_err() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
     let res =
         select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await;
@@ -752,6 +769,7 @@ async fn multi_platform_respects_status_and_falls_back_when_all_broken() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
 
     // 有健康平台 → 只选 p2（坏的被过滤）
@@ -849,6 +867,7 @@ async fn failover_prefers_coding_plan_over_priority() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
     let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
         .await
@@ -910,6 +929,7 @@ async fn failover_intra_coding_plan_bucket_keeps_priority() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
     let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
         .await
@@ -971,6 +991,7 @@ async fn load_balance_coding_plan_bucket_first() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
     let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
         .await
@@ -1067,6 +1088,7 @@ async fn explicit_mapping_overrides_coding_plan_preference() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
     let set = select_candidates_ctx(&db, &g, "gpt-4o", Some(&ctx), RequestKind::Chat)
         .await
@@ -1164,6 +1186,7 @@ async fn failover_prefers_earliest_expiry_within_same_priority() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
     let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
         .await
@@ -1236,6 +1259,7 @@ async fn failover_priority_dominates_over_expiry_in_db() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
     let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
         .await
@@ -1266,6 +1290,7 @@ async fn expired_platform_filtered_out_not_prioritized() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
     let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
         .await
@@ -1460,6 +1485,7 @@ async fn sole_enabled_platform_among_three_shortcuts() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
 
     let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
@@ -1487,6 +1513,7 @@ async fn two_enabled_one_auto_disabled_no_shortcut() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
 
     let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
@@ -1523,6 +1550,7 @@ async fn zero_enabled_multi_platform_no_shortcut() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
 
     let res =
@@ -1555,6 +1583,7 @@ async fn penalty_demotes_platform_to_last() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
 
     let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
@@ -2100,6 +2129,7 @@ async fn passthrough_bypasses_auto_disabled_breaker_and_cooldown() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
 
     let set = select_candidates_ctx(&db, &g, "any-model", Some(&ctx), RequestKind::Chat)
@@ -2283,6 +2313,7 @@ async fn snapshot_labels_breaker_rejected() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: None,
+        rate_body: None,
     };
 
     let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
@@ -2977,7 +3008,7 @@ async fn client_whitelist_not_revived_by_breaker_bypass() {
     sched.record_failure(broken.id, &th, db::now());
     let sticky = StickyTable::new();
     let settings = SchedulingBreakerSettings { enabled: true, ..Default::default() };
-    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None, rate_body: None };
     let gate = ClientGate::On(ClientProbe::from_ua("curl/8.4.0"));
     let set = select_candidates_gated(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat, gate)
         .await

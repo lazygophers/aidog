@@ -5725,6 +5725,54 @@ async fn ratelimit_absent_config_unaffected() {
     }
 }
 
+fn oversize_chat_body() -> String {
+    format!(
+        r#"{{"model":"claude-3","max_tokens":10,"messages":[{{"role":"user","content":"{}"}}]}}"#,
+        "hello world ".repeat(200)
+    )
+}
+
+/// 筛选与 begin 同一估算：窗口已有占用时，估算超出剩余 TPM 的大请求在筛选阶段就被排除 → 503 + rate_limit
+/// （旧：筛选估算 0 放行，begin 必败，末候选回无 blocked_reason 的通用 503）。
+#[tokio::test]
+async fn ratelimit_tpm_oversize_request_single_platform_503_rate_limit() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkrl11", &[("A", &up, r#"{"rate_limits":{"tpm":100}}"#)]).await;
+    assert_eq!(rl_status(&state, "gkrl11").await, StatusCode::OK, "小请求占用窗口 (usage 8)");
+    let r = handle_proxy(AxumState(state.clone()), messages_request("gkrl11", &oversize_chat_body())).await;
+    assert_eq!(r.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let log = last_log_for(&state, "gkrl11").await;
+    assert_eq!((log.blocked_by.as_str(), log.blocked_reason.as_str()), ("router", "rate_limit"));
+}
+
+/// 同上，等效单平台组（多平台组只剩 1 个 Enabled）。
+#[tokio::test]
+async fn ratelimit_tpm_oversize_request_equivalent_single_503_rate_limit() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkrl12", &[("A", &up, r#"{"rate_limits":{"tpm":100}}"#), ("B", &up, "")]).await;
+    set_platform_status(&state, "B", aidog_db::models::PlatformStatus::Disabled).await;
+    assert_eq!(rl_status(&state, "gkrl12").await, StatusCode::OK);
+    let r = handle_proxy(AxumState(state.clone()), messages_request("gkrl12", &oversize_chat_body())).await;
+    assert_eq!(r.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(last_log_for(&state, "gkrl12").await.blocked_reason, "rate_limit");
+}
+
+/// aux（embedding / rerank / jev）同样占限频名额：rpm=1 → 第二个请求 503 + rate_limit（路由层整组限频同语义）。
+#[tokio::test]
+async fn ratelimit_embedding_takes_slot_rpm1() {
+    let (up, _hits) = spawn_embedding_upstream(vec![(200, EMB_RESPONSE), (200, EMB_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    setup_embedding_group(&state, "gkrl13", &[(&up, Some("emb-slot"), Protocol::OpenAI, "a")]).await;
+    set_platform_extra(&state, "gkrl13-a", RPM1).await;
+    let send = || handle_proxy(AxumState(state.clone()), embedding_request("gkrl13", EMB_REQ, "/v1/embeddings"));
+    assert_eq!(send().await.status(), StatusCode::OK);
+    assert_eq!(send().await.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let log = last_log_for(&state, "gkrl13").await;
+    assert_eq!((log.blocked_by.as_str(), log.blocked_reason.as_str()), ("router", "rate_limit"));
+}
+
 // ── registry 错误码码义（票 ratelimit-03）：glm 的 1302=rate_limit / 1305=overloaded 由 preset 声明 ──
 
 async fn mk_platform_of(state: &Arc<ProxyState>, ptype: Protocol, base_url: String) -> u64 {

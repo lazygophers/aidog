@@ -109,6 +109,7 @@ pub(crate) async fn handle_count_tokens(
         sticky: &state.sticky,
         settings: &sched_settings,
         sticky_key: Some(format!("{}|count_tokens", group.group_key)),
+        rate_body: None,
     };
     let candidate_set = match select_candidates_gated(
         &state.db,

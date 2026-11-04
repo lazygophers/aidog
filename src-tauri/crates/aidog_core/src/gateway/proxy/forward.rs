@@ -57,6 +57,11 @@ pub(crate) async fn forward_attempt(
     // 平台限频（extra.rate_limits）：一次访问平台级只占一次；候选筛选后仍可能被并发抢占，
     // 占位失败按「该候选不可用」换下个候选。模型级在每个模型开始前重判（见下 enter_model）。
     let rl_cfg = crate::gateway::rate_limit::RateLimitsCfg::parse(&route.platform.extra);
+    // 上一候选的限频标记不带进本候选；只有最后一次失败仍是限频，才以 blocked_reason='rate_limit' 落库。
+    if log.blocked_reason == "rate_limit" {
+        log.blocked_by.clear();
+        log.blocked_reason.clear();
+    }
     let rl_est = if rl_cfg.has_tpm() {
         super::count_tokens::estimate_input_tokens(req_value, requested_model)
     } else {
@@ -75,6 +80,7 @@ pub(crate) async fn forward_attempt(
             Some(a) => Some(a),
             None => {
                 tracing::warn!(platform = %route.platform.name, "rate limit reached at acquire, skipping candidate");
+                mark_rate_limited(log);
                 return AttemptOutcome::Next { connect_failed: false };
             }
         }
@@ -91,6 +97,7 @@ pub(crate) async fn forward_attempt(
                     (attempt_start, attempt_ts) = chain.advance();
                     continue;
                 }
+                mark_rate_limited(log);
                 return AttemptOutcome::Next { connect_failed: false };
             }
         }
@@ -131,6 +138,12 @@ pub(crate) async fn forward_attempt(
         }
         (attempt_start, attempt_ts) = chain.advance();
     }
+}
+
+/// 限频占位失败：末候选走「全部耗尽」503 时据此落 blocked_reason（与路由层整组限频审计同值）。
+pub(crate) fn mark_rate_limited(log: &mut ProxyLog) {
+    log.blocked_by = "router".to_string();
+    log.blocked_reason = "rate_limit".to_string();
 }
 
 /// 同平台换模型的共用状态（票 06 聊天、票 07 embedding / rerank / jev 四条路径共用，单一实现）。

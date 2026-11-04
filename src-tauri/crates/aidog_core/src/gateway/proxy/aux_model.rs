@@ -118,6 +118,7 @@ pub(crate) async fn handle_aux_model(
         sticky: &state.sticky,
         settings: &sched_settings,
         sticky_key: Some(format!("{}|{}", group.group_key, spec.label)),
+        rate_body: Some(&req_value),
     };
     let candidate_set = match select_candidates_gated(
         &state.db,
@@ -168,8 +169,46 @@ pub(crate) async fn handle_aux_model(
         let mut attempt_ts = aidog_db::now();
         let is_last_candidate = attempt_idx + 1 >= candidate_total || attempt_idx >= max_retries;
 
+        // 平台限频占位（与 forward_attempt 同口径）：begin 占平台级，enter_model 逐模型占模型级；
+        // `access` 随本轮候选结束 Drop，成功 / 失败 / 换候选都释放并发。
+        if log.blocked_reason == "rate_limit" {
+            log.blocked_by.clear();
+            log.blocked_reason.clear();
+        }
+        let rl_cfg = crate::gateway::rate_limit::RateLimitsCfg::parse(&route.platform.extra);
+        let rl_est = if rl_cfg.has_tpm() { estimate_input_tokens(&req_value, &requested_model) } else { 0 };
+        let access = if rl_cfg.is_empty() {
+            None
+        } else {
+            let now = aidog_db::now();
+            match state.scheduler.rate.begin(
+                route.platform.id,
+                &rl_cfg.platform_limits(now, &requested_model),
+                now,
+                rl_est,
+            ) {
+                Some(a) => Some(a),
+                None => {
+                    tracing::warn!(platform = %route.platform.name, kind = spec.label, "rate limit reached at acquire, skipping candidate");
+                    mark_rate_limited(log);
+                    continue;
+                }
+            }
+        };
         let mut chain = ModelChain::new(route);
         let outcome = loop {
+            if let Some(a) = &access {
+                let model = chain.route().target_model.clone();
+                if !a.enter_model(&model, &rl_cfg.model_limits(&model), aidog_db::now(), rl_est) {
+                    tracing::warn!(model = %model, kind = spec.label, "model-level rate limit reached, trying next model");
+                    if chain.has_next() {
+                        (attempt_start, attempt_ts) = chain.advance();
+                        continue;
+                    }
+                    mark_rate_limited(log);
+                    break AttemptOutcome::Next { connect_failed: false };
+                }
+            }
             let mut switched = false;
             let out = aux_attempt(
                 spec, state, log, &mut attempts, log_settings, group, chain.route(), &req_value,
