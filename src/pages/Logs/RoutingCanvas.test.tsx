@@ -294,6 +294,14 @@ describe("RoutingCanvas 其他分支", () => {
     }
   });
 
+  it("后端 skip_serializing_if 省略空数组：shortcut 无 bypassed、候选无 tags / model_via / model_chain 不崩", () => {
+    const e = { order: 1, platform_id: 1, platform: "p", level_priority: 1, priority: 1, reason: "selected" } as unknown as RouteCandidate;
+    const snap = { mode: "failover", shortcut: { literal: false }, entries: [e] } as unknown as RoutingSnapshot;
+    const c = mount({ routing: snap, attempts: [att({ platform_id: 1 })] });
+    expect(c.querySelector('[data-node-id="route"] [data-check="shortcut"]')!.getAttribute("data-state")).toBe("warn");
+    expect(c.querySelectorAll('[data-testid="routing-bypass"]').length).toBe(0);
+  });
+
   it("入站「中间件 / 预算」是推断值（后端无记录）：data-state=inferred，不是 ok", () => {
     const c = mount({ routing: snapC, attempts: [att({ platform_id: 1 })] });
     expect(c.querySelector('[data-node-id="req"] [data-check="gate"]')!.getAttribute("data-state")).toBe("inferred");

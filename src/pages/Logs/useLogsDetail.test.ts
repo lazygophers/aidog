@@ -56,6 +56,14 @@ describe("buildLogMarkdown", () => {
     expect(md).toContain("2. platB — status 200 — 50 ms — mapped-b");
   });
 
+  it("路由候选缺 tags（后端省略空数组）不崩", () => {
+    const md = buildLogMarkdown({
+      ...base,
+      routing: { mode: "failover", entries: [{ order: 1, platform: "platA", platform_id: 1, level_priority: 1, priority: 0, reason: "selected" }] },
+    } as unknown as ProxyLogDetail);
+    expect(md).toContain("1. platA — 选中 · 优先级 L1/P0");
+  });
+
   it("旧日志缺模型字段时不输出占位符", () => {
     const md = buildLogMarkdown({ ...base, attempts: [attempt("platA", 200)] } as unknown as ProxyLogDetail);
     expect(md).not.toContain("undefined");
