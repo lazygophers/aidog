@@ -3,4 +3,4 @@
 /**
  * 候选条目的位置标签（排序阶段的位置变化）。
  */
-export type RouteTag = "mapping-promoted" | "coding-plan" | "demoted" | "sticky";
+export type RouteTag = "mapping-promoted" | "coding-plan" | "demoted" | "sticky" | "probe" | "breaker-backfill";

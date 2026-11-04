@@ -178,6 +178,10 @@ pub enum RouteReason {
     ModelNotOnPlatform,
     /// 死站跳过（重试循环内同 base_url 已 connect 失败，handler.rs R3 补记）
     SkippedDeadUpstream,
+    /// 直通模型链：平台未声明该直通模型，被丢弃（路由画布 01）
+    NotDeclared,
+    /// 入选但因 max_retries 截断从未尝试（路由画布 01；上限见 `RoutingSnapshot.max_retries`）
+    RetryLimit,
 }
 
 /// 候选条目的位置标签（排序阶段的位置变化）。
@@ -193,6 +197,36 @@ pub enum RouteTag {
     Demoted,
     /// sticky 会话绑定命中，提到首位
     Sticky,
+    /// auto_disabled 退避期满，作为探测放行（排在 active 之后，路由画布 01）
+    Probe,
+    /// 整组熔断踢空后，被熔断拒绝的候选回填为选中（路由画布 01）
+    BreakerBackfill,
+}
+
+/// 单平台短路时被绕过的状态（路由画布 01）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub enum ShortcutBypass {
+    /// auto_disabled 未到期
+    AutoDisabled,
+    /// expires_at 已过期
+    Expired,
+    /// 熔断 Open
+    Breaker,
+    /// 配额冷却（429）
+    QuotaCooldown,
+    /// 认证冷却（401/402）
+    AuthCooldown,
+}
+
+/// 单平台短路标记（路由画布 01）：`literal` = 组内仅 1 个平台；否则为「恰好 1 个 Enabled」的等效单平台。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct SingleShortcut {
+    pub literal: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub bypassed: Vec<ShortcutBypass>,
 }
 
 /// 目标模型的选择来源（可叠加：如 `mapped` + `slot-opus`）。
@@ -271,9 +305,27 @@ pub struct RoutingSnapshot {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional, type = "number")]
     pub eval_ms: Option<i64>,
+    /// 单平台短路触发标记及被绕过的状态（路由画布 01）。旧日志缺省 None。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub shortcut: Option<SingleShortcut>,
+    /// 分组 max_retries（路由画布 01）。旧日志 / 未进重试循环缺省 None。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "number")]
+    pub max_retries: Option<u32>,
 }
 
 impl RoutingSnapshot {
+    /// max_retries 截断补记（路由画布 01）：尝试序号 > max_retries 的入选候选永不会被尝试。
+    pub fn mark_retry_limit(&mut self, max_retries: u32) {
+        self.max_retries = Some(max_retries);
+        for e in &mut self.entries {
+            if e.reason == RouteReason::Selected && e.order > max_retries.saturating_add(1) {
+                e.reason = RouteReason::RetryLimit;
+            }
+        }
+    }
+
     /// 死站跳过补记（handler.rs 重试循环 R3）：把该候选标为 skipped-dead-upstream。
     pub fn mark_dead_upstream(&mut self, platform_id: u64) {
         for e in &mut self.entries {
