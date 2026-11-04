@@ -53,6 +53,14 @@ pub(crate) async fn route_fail_response(
             StatusCode::SERVICE_UNAVAILABLE,
             format!("{}: {err}", i18n::t(lang, ErrorKey::Route)),
         )
+    } else if err == "rate_limit" {
+        // 整组平台限频超限（extra.rate_limits）：503 + blocked_reason='rate_limit'。
+        log.blocked_reason = "rate_limit".to_string();
+        log.response_body = format!("route error: {err}");
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            format!("{}: {err}", i18n::t(lang, ErrorKey::Route)),
+        )
     } else if err == "unknown_protocol" {
         // 整组候选皆未知协议（票 06，用户裁决 2026-10-16）：DB 数据条件而非客户端错误 → 503，
         // est_cost 0 不计价（billing.rs 对 "unknown" 同 passthrough 先例短路）。

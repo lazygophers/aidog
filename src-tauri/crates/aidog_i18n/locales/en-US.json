@@ -798,6 +798,7 @@
   "logs.routing.reason.unknown-protocol": "Unknown protocol",
   "logs.routing.reason.kind-unsupported": "Kind unsupported",
   "logs.routing.reason.client-not-allowed": "Client not allowed",
+  "logs.routing.reason.rate-limited": "Rate limited",
   "logs.routing.reason.model-not-on-platform": "Model not on platform",
   "logs.routing.reason.skipped-dead-upstream": "Dead upstream skipped",
   "logs.routing.tag.mapping-promoted": "Promoted by mapping",
