@@ -444,6 +444,8 @@ pub(crate) struct StreamLogGuard {
     pub(crate) req_span: tracing::Span,
     // 后台预估上下文（None = 不做预估，如透传分支）
     pub(crate) est: Option<StreamEstCtx>,
+    // 限频占位句柄：flush 时按实际 usage 修正 TPM 预占（None = 该平台未配限频）。
+    pub(crate) rate: Option<Arc<crate::gateway::rate_limit::Access>>,
 }
 
 /// 流式 flush 时触发的后台预估上下文。
@@ -535,6 +537,9 @@ impl StreamLogGuard {
             .agg
             .take_served_model()
             .unwrap_or_else(|| final_log.model.clone());
+        if let Some(r) = &self.rate {
+            r.settle(input_tokens as i64 + output_tokens as i64);
+        }
         final_log.input_tokens = input_tokens;
         final_log.output_tokens = output_tokens;
         final_log.cache_tokens = cache_tokens;
