@@ -102,33 +102,37 @@ describe("RoutingCanvas", () => {
 
   const order = (c: HTMLElement) => [...c.querySelectorAll("[data-node-id]")].map((e) => e.getAttribute("data-node-id"));
 
-  it("模型选择是独立节点：位于路由与平台之间，含 请求模型 → 目标模型 + 来源", () => {
+  it("模型选择是独立节点：位于平台与响应之间，含 请求模型 → 目标模型 + 来源", () => {
     const snap = {
       mode: "failover",
       entries: [cand({ order: 1, platform_id: 1, target_model: "glm-4.7", model_via: ["mapped", "slot-sonnet"] })],
     } as typeof snapshot;
     const { container } = renderCanvas(snap, [{ platform_id: 1, status_code: 200 }], undefined, "claude-sonnet-4");
     const c = container as HTMLElement;
-    expect(order(c)).toEqual(["req", "route", "model", "p-1", "resp"]);
+    expect(order(c)).toEqual(["req", "route", "p-1", "model", "resp"]);
     const node = c.querySelector('[data-node-id="model"]')!;
     expect(node.querySelector('[data-testid="routing-model-from"]')?.textContent).toBe("claude-sonnet-4");
     expect(node.querySelector('[data-testid="routing-model-to"]')?.textContent).toBe("glm-4.7");
     expect(node.querySelectorAll('[data-testid="routing-model-via"]')).toHaveLength(2);
     // 旧头部文字行已移除
     expect(c.querySelector('[data-testid="routing-model-choice"]')).toBeNull();
-    // 边：路由 → 模型选择 → 平台，路由不再直连平台
+    // 边：路由 → 平台 → 模型选择 → 响应
     const edges = [...c.querySelectorAll("path[data-edge]")].map((e) => e.getAttribute("data-edge"));
-    expect(edges).toContain("route->model");
-    expect(edges).toContain("model->p-1");
-    expect(edges).not.toContain("route->p-1");
+    expect(edges).toContain("route->p-1");
+    expect(edges).toContain("p-1->model");
+    expect(edges).toContain("model->resp");
+    expect(edges).not.toContain("route->model");
+    expect(edges).not.toContain("p-1->resp");
+    expect(c.querySelector('path[data-edge="model->resp"]')?.getAttribute("class")).toContain("win");
   });
 
-  it("多候选平台共用一个模型选择节点（扇出前）", () => {
+  it("多候选：路由扇出到每个平台，只有胜出平台连模型选择节点", () => {
     const { container } = renderCanvas(snapshot, [{ platform_id: 2, status_code: 200 }], undefined, "req-m");
     const c = container as HTMLElement;
     expect(c.querySelectorAll('[data-node-id="model"]')).toHaveLength(1);
     const edges = [...c.querySelectorAll("path[data-edge]")].map((e) => e.getAttribute("data-edge"));
-    for (const id of ["p-1", "p-2", "p-3"]) expect(edges).toContain(`model->${id}`);
+    for (const id of ["p-1", "p-2", "p-3"]) expect(edges).toContain(`route->${id}`);
+    expect(edges.filter((e) => e!.endsWith("->model"))).toEqual(["p-2->model"]);
   });
 
   it("旧快照无 model_via：节点仍显示请求→实际，不渲染来源", () => {
@@ -145,6 +149,7 @@ describe("RoutingCanvas", () => {
     expect(c.querySelector('[data-node-id="model"]')).toBeNull();
     const edges = [...c.querySelectorAll("path[data-edge]")].map((e) => e.getAttribute("data-edge"));
     expect(edges).toContain("route->p-1");
+    expect(edges).toContain("p-1->resp");
   });
 
   it("空快照不渲染模型选择节点", () => {
@@ -260,22 +265,23 @@ describe("RoutingCanvas", () => {
       for (let i = 1; i < boxes.length; i++) expect(boxes[i]!.top).toBeGreaterThanOrEqual(boxes[i - 1]!.top + boxes[i - 1]!.h);
     });
 
-    it("每条边两端都是存在的节点；到响应只有一条且来自成功节点；未选用平台无到响应的边", () => {
+    it("每条边两端都是存在的节点；到响应只有一条且来自模型选择节点；未选用平台无到响应的边", () => {
       const c = go();
       const ids = new Set([...c.querySelectorAll("[data-node-id]")].map((e) => e.getAttribute("data-node-id")));
       const edges = [...c.querySelectorAll("path[data-edge]")].map((e) => e.getAttribute("data-edge")!.split("->") as [string, string]);
       expect(edges.length).toBeGreaterThan(0);
       for (const [a, b] of edges) { expect(ids.has(a)).toBe(true); expect(ids.has(b)).toBe(true); }
-      expect(edges.filter(([, b]) => b === "resp")).toEqual([["p-5", "resp"]]);
-      expect(edges.filter(([a, b]) => a === "model" && b.startsWith("p-")).length).toBe(6);
+      expect(edges.filter(([, b]) => b === "resp")).toEqual([["model", "resp"]]);
+      expect(edges.filter(([, b]) => b === "model")).toEqual([["p-5", "model"]]);
+      expect(edges.filter(([a, b]) => a === "route" && b.startsWith("p-")).length).toBe(6);
     });
 
     it("宽布局边恒为水平贝塞尔：起点在左节点右缘、终点在右节点左缘（不斜穿卡片）", () => {
       const c = go();
-      const d = c.querySelector('path[data-edge="p-5->resp"]')!.getAttribute("d")!;
+      const d = c.querySelector('path[data-edge="p-5->model"]')!.getAttribute("d")!;
       const [x1, , , , x2] = d.replace(/[MC]/g, " ").split(/[ ,]+/).filter(Boolean).map(Number).filter((_, i) => [0, 1, 2, 3, 6].includes(i)) as number[];
       const p5 = c.querySelector('[data-node-id="p-5"]') as HTMLElement;
-      const resp = c.querySelector('[data-node-id="resp"]') as HTMLElement;
+      const resp = c.querySelector('[data-node-id="model"]') as HTMLElement;
       expect(x1).toBe(num(p5, "left") + 150);
       expect(x2).toBe(num(resp, "left"));
     });
