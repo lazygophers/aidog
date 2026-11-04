@@ -237,6 +237,17 @@ pub(crate) enum UpstreamErrorClass {
     Unknown,
 }
 
+impl UpstreamErrorClass {
+    /// `ProxyAttempt.error_class` 的落库字符串。
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Model => "model",
+            Self::Service => "service",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
 /// 扫描 body 的字节上限：错误体特征都在头部，超长 body 不全量 lowercase。
 const CLASSIFY_SCAN_MAX: usize = 8 * 1024;
 
