@@ -100,29 +100,56 @@ describe("RoutingCanvas", () => {
     expect(container.querySelector('[data-node-id="p-1"]')).not.toBeNull();
   });
 
-  it("模型选择摘要：请求模型 → 胜出候选模型 + 选择来源（来源取自胜出候选 model_via）", () => {
+  const order = (c: HTMLElement) => [...c.querySelectorAll("[data-node-id]")].map((e) => e.getAttribute("data-node-id"));
+
+  it("模型选择是独立节点：位于路由与平台之间，含 请求模型 → 目标模型 + 来源", () => {
     const snap = {
       mode: "failover",
       entries: [cand({ order: 1, platform_id: 1, target_model: "glm-4.7", model_via: ["mapped", "slot-sonnet"] })],
     } as typeof snapshot;
     const { container } = renderCanvas(snap, [{ platform_id: 1, status_code: 200 }], undefined, "claude-sonnet-4");
-    const box = container.querySelector('[data-testid="routing-model-choice"]')!;
-    expect(box).not.toBeNull();
-    expect(box.querySelector('[data-testid="routing-model-from"]')?.textContent).toBe("claude-sonnet-4");
-    expect(box.querySelector('[data-testid="routing-model-to"]')?.textContent).toBe("glm-4.7");
-    expect(box.querySelectorAll('[data-testid="routing-model-via"]')).toHaveLength(2);
+    const c = container as HTMLElement;
+    expect(order(c)).toEqual(["req", "route", "model", "p-1", "resp"]);
+    const node = c.querySelector('[data-node-id="model"]')!;
+    expect(node.querySelector('[data-testid="routing-model-from"]')?.textContent).toBe("claude-sonnet-4");
+    expect(node.querySelector('[data-testid="routing-model-to"]')?.textContent).toBe("glm-4.7");
+    expect(node.querySelectorAll('[data-testid="routing-model-via"]')).toHaveLength(2);
+    // 旧头部文字行已移除
+    expect(c.querySelector('[data-testid="routing-model-choice"]')).toBeNull();
+    // 边：路由 → 模型选择 → 平台，路由不再直连平台
+    const edges = [...c.querySelectorAll("path[data-edge]")].map((e) => e.getAttribute("data-edge"));
+    expect(edges).toContain("route->model");
+    expect(edges).toContain("model->p-1");
+    expect(edges).not.toContain("route->p-1");
   });
 
-  it("旧快照无 model_via：摘要仍显示请求→实际，不渲染来源", () => {
+  it("多候选平台共用一个模型选择节点（扇出前）", () => {
+    const { container } = renderCanvas(snapshot, [{ platform_id: 2, status_code: 200 }], undefined, "req-m");
+    const c = container as HTMLElement;
+    expect(c.querySelectorAll('[data-node-id="model"]')).toHaveLength(1);
+    const edges = [...c.querySelectorAll("path[data-edge]")].map((e) => e.getAttribute("data-edge"));
+    for (const id of ["p-1", "p-2", "p-3"]) expect(edges).toContain(`model->${id}`);
+  });
+
+  it("旧快照无 model_via：节点仍显示请求→实际，不渲染来源", () => {
     const { container } = renderCanvas(snapshot, [{ platform_id: 1, status_code: 200 }], undefined, "req-m");
-    const box = container.querySelector('[data-testid="routing-model-choice"]')!;
-    expect(box.querySelector('[data-testid="routing-model-to"]')?.textContent).toBe("model-one");
-    expect(box.querySelector('[data-testid="routing-model-via"]')).toBeNull();
+    const node = (container as HTMLElement).querySelector('[data-node-id="model"]')!;
+    expect(node.querySelector('[data-testid="routing-model-to"]')?.textContent).toBe("model-one");
+    expect(node.querySelector('[data-testid="routing-model-via"]')).toBeNull();
   });
 
-  it("空快照不渲染模型选择摘要", () => {
+  it("无模型摘要数据：不渲染模型选择节点，路由直连平台", () => {
+    const bare = { mode: "failover", entries: [cand({ order: 1, platform_id: 1 })] } as typeof snapshot;
+    const { container } = renderCanvas(bare, [{ platform_id: 1, status_code: 200 }]);
+    const c = container as HTMLElement;
+    expect(c.querySelector('[data-node-id="model"]')).toBeNull();
+    const edges = [...c.querySelectorAll("path[data-edge]")].map((e) => e.getAttribute("data-edge"));
+    expect(edges).toContain("route->p-1");
+  });
+
+  it("空快照不渲染模型选择节点", () => {
     const { container } = renderCanvas(null, undefined, undefined, "req-m");
-    expect(container.querySelector('[data-testid="routing-model-choice"]')).toBeNull();
+    expect(container.querySelector('[data-node-id="model"]')).toBeNull();
   });
 
   // 票 06：平台下整串模型逐项状态（已选用 / 失败 / 跳过 / 未选）
@@ -240,7 +267,7 @@ describe("RoutingCanvas", () => {
       expect(edges.length).toBeGreaterThan(0);
       for (const [a, b] of edges) { expect(ids.has(a)).toBe(true); expect(ids.has(b)).toBe(true); }
       expect(edges.filter(([, b]) => b === "resp")).toEqual([["p-5", "resp"]]);
-      expect(edges.filter(([a, b]) => a === "route" && b.startsWith("p-")).length).toBe(6);
+      expect(edges.filter(([a, b]) => a === "model" && b.startsWith("p-")).length).toBe(6);
     });
 
     it("宽布局边恒为水平贝塞尔：起点在左节点右缘、终点在右节点左缘（不斜穿卡片）", () => {
