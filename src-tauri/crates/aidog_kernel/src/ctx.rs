@@ -35,6 +35,7 @@ impl HeadlessCtx {
         }
     }
 
+    #[cfg(test)]
     /// 订阅事件流（测试用；生产订阅者是代理上的 `/api/events`）。
     pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<aidog_ctx::UiEvent> {
         aidog_ctx::subscribe_events()

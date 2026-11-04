@@ -1088,9 +1088,11 @@ fn rc01_legacy_snapshot_deserializes_without_new_fields() {
     let s = serialize_routing(&Some(r));
     assert!(!s.contains("shortcut") && !s.contains("max_retries"));
 
-    let mut r2 = RoutingSnapshot::default();
-    r2.shortcut = Some(SingleShortcut { literal: true, bypassed: vec![ShortcutBypass::Breaker] });
-    r2.max_retries = Some(2);
+    let mut r2 = RoutingSnapshot {
+        shortcut: Some(SingleShortcut { literal: true, bypassed: vec![ShortcutBypass::Breaker] }),
+        max_retries: Some(2),
+        ..Default::default()
+    };
     r2.entries.push(RouteCandidate {
         order: 1, platform: "p".into(), platform_id: 1, level_priority: 5, priority: 0,
         reason: RouteReason::NotDeclared, target_model: None,
