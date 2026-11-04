@@ -9,6 +9,7 @@ vi.mock("../../domains/platforms/useProtocolMeta", () => ({
   useProtocolLabel: () => "anthropic",
 }));
 
+import { fireEvent } from "@testing-library/react";
 import { render, screen } from "../../test/render";
 import { DetailPanel } from "./DetailPanel";
 import type { ProxyLogDetail } from "../../services/api";
@@ -48,7 +49,7 @@ function detailFixture(attempts: unknown[]) {
   } as unknown as ProxyLogDetail;
 }
 
-function renderPanel(detail: ProxyLogDetail | null) {
+function renderPanel(detail: ProxyLogDetail | null, setDetail: (d: null) => void = () => {}) {
   return render(
     <DetailPanel
       d={{
@@ -61,7 +62,7 @@ function renderPanel(detail: ProxyLogDetail | null) {
         copyDetail: () => {},
         platformMap: new Map(),
         groupName: (k) => k,
-        setDetail: () => {},
+        setDetail,
       }}
     />,
   );
@@ -98,5 +99,16 @@ describe("DetailPanel UA", () => {
   it("旧日志无 UA：占位 -", () => {
     renderPanel(detailFixture([attempt(1, 200)]));
     expect(screen.getByTestId("detail-user-agent").textContent).toBe("-");
+  });
+});
+
+describe("DetailPanel 独立页", () => {
+  it("渲染为整页（非弹窗），返回按钮把 detail 置空", () => {
+    const setDetail = vi.fn();
+    renderPanel(detailFixture([attempt(1, 200)]), setDetail);
+    expect(screen.getByTestId("detail-page")).not.toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(screen.getByTestId("detail-back"));
+    expect(setDetail).toHaveBeenCalledWith(null);
   });
 });
