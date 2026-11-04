@@ -80,6 +80,17 @@ pub(crate) async fn forward_attempt(
             Some(a) => Some(a),
             None => {
                 tracing::warn!(platform = %route.platform.name, "rate limit reached at acquire, skipping candidate");
+                attempts.push(ProxyAttempt {
+                    kind: Some("rate_limit_platform".to_string()),
+                    // 整条链都没轮到：链上还有模型时记终止原因，画布给它们标「跳过」
+                    chain_stop: (!route.fallback_models.is_empty()).then(|| "rate_limit".to_string()),
+                    platform_id: route.platform.id,
+                    platform_name: route.platform.name.clone(),
+                    error: "platform rate limit reached".to_string(),
+                    ts: attempt_ts,
+                    model: Some(route.target_model.clone()),
+                    ..Default::default()
+                });
                 mark_rate_limited(log);
                 return AttemptOutcome::Next { connect_failed: false };
             }
@@ -93,6 +104,15 @@ pub(crate) async fn forward_attempt(
             let now = aidog_db::now();
             if !a.enter_model(&model, &rl_cfg.model_limits(&model), now, rl_est) {
                 tracing::warn!(model = %model, "model-level rate limit reached, trying next model");
+                attempts.push(ProxyAttempt {
+                    kind: Some("rate_limit_model".to_string()),
+                    platform_id: chain.route().platform.id,
+                    platform_name: chain.route().platform.name.clone(),
+                    error: "model rate limit reached".to_string(),
+                    ts: attempt_ts,
+                    model: Some(model.clone()),
+                    ..Default::default()
+                });
                 if chain.has_next() {
                     (attempt_start, attempt_ts) = chain.advance();
                     continue;
@@ -382,7 +402,11 @@ async fn forward_attempt_model(
                 reason = $reason, "decision-B: upstream 200 but empty/invalid response, failover next platform"
             );
             attempts.push(ProxyAttempt {
-                chain_stop: None,
+                // 空 200 属服务类，直接换平台（或 502），链上剩余模型不再尝试
+                chain_stop: has_next_model.then(|| "service".to_string()),
+                kind: Some("empty_200".to_string()),
+                error_class: Some("service".to_string()),
+                effects: vec!["penalty_server".to_string()],
                 ttfb_ms: Some(ttfb_ms),
                 platform_id: route.platform.id,
                 platform_name: route.platform.name.clone(),
@@ -391,6 +415,7 @@ async fn forward_attempt_model(
                 duration_ms: attempt_latency_ms,
                 ts: attempt_ts,
                 model: Some(route.target_model.clone()),
+                ..Default::default()
             });
             let _ = aidog_db::set_platform_last_error(
                 &state.db, route.platform.id, Some(format!("HTTP 200: {}", $reason)),
@@ -442,6 +467,7 @@ async fn forward_attempt_model(
                 duration_ms: attempt_latency_ms,
                 ts: attempt_ts,
                 model: Some(route.target_model.clone()),
+                ..Default::default()
             });
             if route.platform.status == super::models::PlatformStatus::AutoDisabled {
                 if let Err(e) = aidog_db::recover_platform_auto_disabled(&state.db, route.platform.id).await {
@@ -2639,6 +2665,7 @@ async fn select_endpoint_target<'a>(
                 duration_ms: attempt_start.elapsed().as_millis() as i64,
                 ts: attempt_ts,
                 model: Some(route.target_model.clone()),
+                ..Default::default()
             });
             let _ = aidog_db::set_platform_last_error(
                 &state.db,
@@ -2693,6 +2720,7 @@ async fn select_endpoint_target<'a>(
             duration_ms: attempt_start.elapsed().as_millis() as i64,
             ts: attempt_ts,
             model: Some(route.target_model.clone()),
+            ..Default::default()
         });
         let _ = aidog_db::set_platform_last_error(
             &state.db,
@@ -2933,6 +2961,7 @@ async fn prepare_outbound(
             duration_ms: attempt_start.elapsed().as_millis() as i64,
             ts: attempt_ts,
             model: Some(route.target_model.clone()),
+            ..Default::default()
         });
         log.retry_count = (attempts.len() as i32 - 1).max(0);
         log.attempts = std::mem::take(attempts);
@@ -3363,6 +3392,7 @@ async fn send_upstream(
                     "upstream transport error, retrying same platform"
                 );
                 attempts.push(ProxyAttempt {
+                    kind: Some("retry".to_string()),
                     chain_stop: None,
                     ttfb_ms: None,
                     platform_id: route.platform.id,
@@ -3372,6 +3402,7 @@ async fn send_upstream(
                     duration_ms: attempt_start.elapsed().as_millis() as i64,
                     ts: attempt_ts,
                     model: Some(route.target_model.clone()),
+                    ..Default::default()
                 });
                 transport_retried += 1;
                 tokio::time::sleep(backoff).await;
@@ -3383,16 +3414,20 @@ async fn send_upstream(
                 // R1（2026-09-28，推翻 2026-09-15「网络类故障不降权」）：connect 失败计入熔断
                 // （死站滞留候选的根治），带本地网络保护（60s 滑窗失败平台数达候选半数不计数）；
                 // 其余 transport 错误（读超时/中途掐线）仍不降权仅 inflight-1。
+                let mut effects = Vec::new();
                 if e.is_connect() {
-                    state.scheduler.record_connect_failure(
+                    if state.scheduler.record_connect_failure(
                         route.platform.id,
                         candidate_total,
                         &breaker_th,
                         aidog_db::now(),
-                    );
+                    ) {
+                        effects.push("breaker_count".to_string());
+                    }
                 } else {
                     state.scheduler.record_ignored(route.platform.id);
                 }
+                effects.push("penalty_server".to_string());
                 // 失败降权（health-aware，2026-09-29）：connect 失败（已计熔断）与读超时/
                 // 中途掐线/TLS 等 transport 错（原 record_ignored）均计入服务端/网络档降权，
                 // 与熔断并行。此分支在响应头到达前，同请求同平台仅计这一次。
@@ -3407,6 +3442,8 @@ async fn send_upstream(
                 attempts.push(ProxyAttempt {
                     // transport 错（连接失败 / 超时）属服务类：不换模型直接换平台，链上剩余模型记「跳过」
                     chain_stop: has_next_model.then(|| "service".to_string()),
+                    error_class: Some("service".to_string()),
+                    effects,
                     ttfb_ms: None,
                     platform_id: route.platform.id,
                     platform_name: route.platform.name.clone(),
@@ -3415,6 +3452,7 @@ async fn send_upstream(
                     duration_ms: attempt_start.elapsed().as_millis() as i64,
                     ts: attempt_ts,
                     model: Some(route.target_model.clone()),
+                    ..Default::default()
                 });
                 let _ = aidog_db::set_platform_last_error(
                     &state.db,
@@ -3454,6 +3492,7 @@ async fn send_upstream(
                 "third-party upstream rejected request with 400 while anthropic-beta was set, retrying once without it"
             );
             attempts.push(ProxyAttempt {
+                kind: Some("beta_downgrade".to_string()),
                 chain_stop: None,
                 ttfb_ms: None,
                 platform_id: route.platform.id,
@@ -3463,6 +3502,7 @@ async fn send_upstream(
                 duration_ms: attempt_start.elapsed().as_millis() as i64,
                 ts: attempt_ts,
                 model: Some(route.target_model.clone()),
+                ..Default::default()
             });
             retry.send().await.unwrap_or(resp)
         }

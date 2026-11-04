@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 /// proxy_log.attempts JSON 数组元素：每次平台尝试的快照。
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct ProxyAttempt {
     #[ts(type = "number")]
@@ -27,7 +27,8 @@ pub struct ProxyAttempt {
     #[ts(optional)]
     pub model: Option<String>,
     /// 同平台模型链在本次失败后提前终止（链上仍有未尝试的模型）的原因：
-    /// `service`（上游服务类错误，直接换平台）/ `rule`（中间件 error_rule 标 non-retryable）。
+    /// `service`（上游服务类错误，直接换平台）/ `rule`（中间件 error_rule 标 non-retryable）/
+    /// `rate_limit`（平台级限频占位失败，整条链未尝试）。
     /// 仅终止那一项携带；日志页据此给链上未尝试的模型标「跳过」及原因。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
@@ -36,6 +37,29 @@ pub struct ProxyAttempt {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional, type = "number")]
     pub ttfb_ms: Option<i64>,
+    /// 尝试种类：`retry`（传输错误同平台原地重试）/ `beta_downgrade`（anthropic-beta 400 剔头重试）/
+    /// `empty_200`（200 但空 / 无效响应，决策 B）/ `rate_limit_platform`（平台级限频占位失败）/
+    /// `rate_limit_model`（模型级限频跳过）。缺省 None = 正常尝试（含旧日志）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub kind: Option<String>,
+    /// 失败分类：`model` / `service` / `unknown`（同平台换模型的判据，见 retry.rs::classify_upstream_error）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub error_class: Option<String>,
+    /// registry 错误码码义（`rate_limit` / `overloaded` 等；平台未声明则无）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub code_meaning: Option<String>,
+    /// 命中的中间件 error_rule（rule#id name）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub error_rule: Option<String>,
+    /// 本次尝试引起的副作用（仅观测）：`breaker_count` / `penalty_server` / `penalty_client` /
+    /// `cooldown_minute` / `cooldown_quota` / `cooldown_balance` / `cooldown_auth` / `disabled_censorship`。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[ts(optional, as = "Option<Vec<String>>")]
+    pub effects: Vec<String>,
 }
 
 /// 序列化 attempts 列（出错回退空数组）
@@ -640,6 +664,7 @@ mod tests {
                 duration_ms: 150,
                 ts: 0,
                 model: None,
+                ..Default::default()
             },
             ProxyAttempt {
                 chain_stop: None,
@@ -651,6 +676,7 @@ mod tests {
                 duration_ms: 300,
                 ts: 1,
                 model: None,
+                ..Default::default()
             },
         ];
         let s = serialize_attempts(&items);
@@ -682,10 +708,25 @@ mod tests {
             duration_ms: 10,
             ts: 1,
             model: Some("target-model".into()),
+            ..Default::default()
         };
         let json = serde_json::to_string(&with_model).unwrap();
         assert!(json.contains(r#""model":"target-model""#));
         assert_eq!(serde_json::from_str::<ProxyAttempt>(&json).unwrap().model, with_model.model);
+    }
+
+    #[test]
+    fn rc02_legacy_attempt_deserializes_without_new_fields() {
+        let old = r#"{"platform_id":1,"platform_name":"p","status_code":429,"error":"x","duration_ms":10,"ts":1,"model":"m","chain_stop":"service"}"#;
+        let a: ProxyAttempt = serde_json::from_str(old).unwrap();
+        assert_eq!((&a.kind, &a.error_class, &a.code_meaning, &a.error_rule), (&None, &None, &None, &None));
+        assert!(a.effects.is_empty());
+        // 新字段缺省时不出现在序列化里（旧读者零感知）
+        let json = serde_json::to_string(&a).unwrap();
+        assert!(!json.contains("kind") && !json.contains("effects") && !json.contains("error_class"));
+        let full = ProxyAttempt { kind: Some("empty_200".into()), effects: vec!["penalty_server".into()], ..Default::default() };
+        let back: ProxyAttempt = serde_json::from_str(&serde_json::to_string(&full).unwrap()).unwrap();
+        assert_eq!((back.kind.as_deref(), back.effects), (Some("empty_200"), vec!["penalty_server".to_string()]));
     }
 
     // ── PlatformModels 宽松反序列化（永久能力）──

@@ -65,6 +65,7 @@ async fn progressive_columns_equals_full_replace() {
         duration_ms: 99,
         ts: now_ms,
         model: None,
+        ..Default::default()
     }];
     final_log.retry_count = 0;
     final_log.blocked_by = String::new();
@@ -196,6 +197,7 @@ async fn proxy_log_attempts_roundtrip() {
             duration_ms: 12,
             ts: now(),
             model: None,
+            ..Default::default()
         },
         aidog_db::models::ProxyAttempt {
             chain_stop: None,
@@ -207,6 +209,7 @@ async fn proxy_log_attempts_roundtrip() {
             duration_ms: 34,
             ts: now(),
             model: None,
+            ..Default::default()
         },
     ];
     log.retry_count = 1;

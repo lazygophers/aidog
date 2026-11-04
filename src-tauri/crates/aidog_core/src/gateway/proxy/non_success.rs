@@ -84,6 +84,16 @@ pub(crate) async fn handle_non_success(
         .then(|| if class == UpstreamErrorClass::Service { "service" } else { "rule" }.to_string());
     attempts.push(ProxyAttempt {
         chain_stop,
+        error_class: Some(
+            match class {
+                UpstreamErrorClass::Model => "model",
+                UpstreamErrorClass::Service => "service",
+                UpstreamErrorClass::Unknown => "unknown",
+            }
+            .to_string(),
+        ),
+        code_meaning: code_meaning.clone(),
+        error_rule: err_class.as_ref().map(|c| c.matched_by.clone()),
         ttfb_ms,
         platform_id: route.platform.id,
         platform_name: route.platform.name.clone(),
@@ -92,6 +102,7 @@ pub(crate) async fn handle_non_success(
         duration_ms: attempt_start.elapsed().as_millis() as i64,
         ts: attempt_ts,
         model: Some(route.target_model.clone()),
+        ..Default::default()
     });
     if switch_model {
         tracing::info!(
@@ -141,9 +152,12 @@ pub(crate) async fn handle_non_success(
     // ── 熔断计数（2026-09-15 用户裁决：网络类故障不降权）：仅 429-限流（状态码 + 响应体
     //    解析出的平台主动限流）计一次失败；5xx / 网络错误 / 空响应 / 401 / 402 / 其他客户端
     //    4xx 一律不计（仅 inflight-1，不动 EMA，下一轮调度仍优先选择）。──
+    // 副作用只观测：随下面各记账点收集，最后写回本次 attempt（模型类换模型已在上面提前返回，无副作用）。
+    let mut effects: Vec<String> = Vec::new();
     if registry_overloaded
         || (code == 429 && !is_429_quota_exhausted && !is_429_per_minute_rate_limit)
     {
+        effects.push("breaker_count".to_string());
         state
             .scheduler
             .record_failure(route.platform.id, breaker_th, aidog_db::now());
@@ -165,6 +179,9 @@ pub(crate) async fn handle_non_success(
         } else {
             super::scheduling::PenaltyTier::Client
         };
+        effects.push(
+            if tier == super::scheduling::PenaltyTier::Server { "penalty_server" } else { "penalty_client" }.to_string(),
+        );
         state
             .scheduler
             .record_penalty(route.platform.id, tier, aidog_db::now());
@@ -175,6 +192,7 @@ pub(crate) async fn handle_non_success(
     if is_429_per_minute_rate_limit {
         let now_ms = aidog_db::now();
         let until = (now_ms / 60_000 + 1) * 60_000;
+        effects.push("cooldown_minute".to_string());
         state.scheduler.set_quota_cooldown(route.platform.id, until);
         tracing::warn!(
             platform = %route.platform.name, platform_id = route.platform.id,
@@ -192,6 +210,7 @@ pub(crate) async fn handle_non_success(
         .then(|| parse_quota_reset_at(retry_after.as_deref(), &body, aidog_db::now()))
         .flatten()
     {
+        effects.push("cooldown_quota".to_string());
         state.scheduler.set_quota_cooldown(route.platform.id, until);
         super::estimate::spawn_refresh_at(
             state.db.clone(),
@@ -212,6 +231,7 @@ pub(crate) async fn handle_non_success(
     //   区域封锁的 401 同样不冷却（is_region_blocked 按 message 文本分类）。不写 DB status：
     //   平台 UI 仍是启用态，到点自动回调度；DB 存量 auto_disabled 行照旧按 until 过滤、成功时恢复。──
     if code == 402 {
+        effects.push("cooldown_balance".to_string());
         state
             .scheduler
             .set_balance_cooldown(route.platform.id, aidog_db::now());
@@ -221,6 +241,7 @@ pub(crate) async fn handle_non_success(
             "platform out of scheduling for balance cooldown (memory-only, not disabled)"
         );
     } else if code == 401 && !is_region_blocked(extracted_msg.as_deref().unwrap_or(&body)) {
+        effects.push("cooldown_auth".to_string());
         state
             .scheduler
             .set_auth_cooldown(route.platform.id, aidog_db::now());
@@ -232,6 +253,7 @@ pub(crate) async fn handle_non_success(
     }
 
     if censorship_blocked {
+        effects.push("disabled_censorship".to_string());
         if let Err(e) =
             aidog_db::disable_platform_for_censorship(&state.db, route.platform.id).await
         {
@@ -245,6 +267,10 @@ pub(crate) async fn handle_non_success(
             "upstream censorship blocked request; platform auto-disabled for one hour"
         );
         aidog_ctx::emit("proxy-log-updated", route.platform.id.into());
+    }
+
+    if let Some(a) = attempts.last_mut() {
+        a.effects = effects;
     }
 
     // ── 中间件 error_rule 分类（出站）：按规则将上游错误分类为 retryable/non-retryable。

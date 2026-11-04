@@ -286,6 +286,7 @@ async fn tools_attempt(
                 duration_ms: attempt_start.elapsed().as_millis() as i64,
                 ts: attempt_ts,
                 model: Some(route.target_model.clone()),
+                ..Default::default()
             });
             let _ = aidog_db::set_platform_last_error(
                 &state.db,
@@ -371,6 +372,7 @@ async fn tools_attempt(
         duration_ms: attempt_latency_ms,
         ts: attempt_ts,
         model: Some(route.target_model.clone()),
+        ..Default::default()
     });
     if route.platform.status == super::models::PlatformStatus::AutoDisabled {
         if let Err(e) =

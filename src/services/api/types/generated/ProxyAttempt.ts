@@ -23,11 +23,35 @@ ts: number,
 model?: string, 
 /**
  * 同平台模型链在本次失败后提前终止（链上仍有未尝试的模型）的原因：
- * `service`（上游服务类错误，直接换平台）/ `rule`（中间件 error_rule 标 non-retryable）。
+ * `service`（上游服务类错误，直接换平台）/ `rule`（中间件 error_rule 标 non-retryable）/
+ * `rate_limit`（平台级限频占位失败，整条链未尝试）。
  * 仅终止那一项携带；日志页据此给链上未尝试的模型标「跳过」及原因。
  */
 chain_stop?: string, 
 /**
  * 本次尝试从发起到收到上游响应头（首字节）的毫秒数；连接失败 / 超时为 None，旧日志缺省 None。
  */
-ttfb_ms?: number, };
+ttfb_ms?: number, 
+/**
+ * 尝试种类：`retry`（传输错误同平台原地重试）/ `beta_downgrade`（anthropic-beta 400 剔头重试）/
+ * `empty_200`（200 但空 / 无效响应，决策 B）/ `rate_limit_platform`（平台级限频占位失败）/
+ * `rate_limit_model`（模型级限频跳过）。缺省 None = 正常尝试（含旧日志）。
+ */
+kind?: string, 
+/**
+ * 失败分类：`model` / `service` / `unknown`（同平台换模型的判据，见 retry.rs::classify_upstream_error）。
+ */
+error_class?: string, 
+/**
+ * registry 错误码码义（`rate_limit` / `overloaded` 等；平台未声明则无）。
+ */
+code_meaning?: string, 
+/**
+ * 命中的中间件 error_rule（rule#id name）。
+ */
+error_rule?: string, 
+/**
+ * 本次尝试引起的副作用（仅观测）：`breaker_count` / `penalty_server` / `penalty_client` /
+ * `cooldown_minute` / `cooldown_quota` / `cooldown_balance` / `cooldown_auth` / `disabled_censorship`。
+ */
+effects?: Array<string>, };

@@ -526,6 +526,7 @@ async fn group_last_requests_picks_latest_per_group() {
         model: None,
         chain_stop: None,
         ttfb_ms: None,
+        ..Default::default()
     }];
     let rows = vec![
         put("a1", "gA", base + 10, 200, "anthropic"),
