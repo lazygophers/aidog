@@ -5,7 +5,7 @@
   "tools_pricing": {
     "web_search": {"per_1000": 10.0, "currency": "USD"}
   },
-  "last_updated": 1793718446,
+  "last_updated": 1793758439,
   "endpoints": {
     "default": [
       {
@@ -67,7 +67,7 @@
     {
       "id": "default",
       "label": "Default",
-      "source_url": "https://docs.z.ai/api-reference/rate-limit"
+      "source_url": "https://docs.z.ai/api-reference/api-code.md"
     }
   ],
   "rate_limit_error_codes": {
