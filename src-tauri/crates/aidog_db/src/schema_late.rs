@@ -1374,7 +1374,7 @@ fn listify_models_obj(v: &mut serde_json::Value) -> bool {
 
 /// Migration 20261102-01 实体。单事务（同 20260829-02：BEGIN IMMEDIATE，in_txn 门控 COMMIT）；
 /// 损坏 JSON 行跳过并 warn，不中断。
-fn listify_platform_models(conn: &Connection) {
+pub(crate) fn listify_platform_models(conn: &Connection) -> u64 {
     let rows: Vec<(i64, String, String)> =
         match conn.prepare("SELECT id, models, extra FROM platform") {
             Ok(mut stmt) => stmt
@@ -1382,7 +1382,7 @@ fn listify_platform_models(conn: &Connection) {
                 .ok()
                 .map(|iter| iter.filter_map(Result::ok).collect())
                 .unwrap_or_default(),
-            Err(_) => return,
+            Err(_) => return 0,
         };
     let in_txn = conn.execute_batch("BEGIN IMMEDIATE").is_ok();
     let mut updated = 0u64;
@@ -1418,11 +1418,13 @@ fn listify_platform_models(conn: &Connection) {
             }
         }
         if new_models.is_some() || new_extra.is_some() {
-            let _ = conn.execute(
+            match conn.execute(
                 "UPDATE platform SET models = ?1, extra = ?2 WHERE id = ?3",
                 params![new_models.unwrap_or(models), new_extra.unwrap_or(extra), id],
-            );
-            updated += 1;
+            ) {
+                Ok(_) => updated += 1,
+                Err(e) => tracing::warn!(platform_id = id, error = %e, "migration 20261102-01: UPDATE 失败，跳过"),
+            }
         }
     }
     if in_txn {
@@ -1431,6 +1433,7 @@ fn listify_platform_models(conn: &Connection) {
     if updated > 0 {
         tracing::info!(updated, "migration 20261102-01: platform.models 单值 → 数组 完成");
     }
+    updated
 }
 
 /// Migration 20260727-12 (原 039): 把原 037 引入但未走 extract_error_message 的历史 last_error 行重提为 message。

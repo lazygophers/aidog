@@ -116,3 +116,20 @@ async fn migration_20261102_01_is_idempotent() {
     rerun(&db).await;
     assert_eq!(read_raw(&db, 1).await, first, "二次及以后运行零变化");
 }
+
+#[tokio::test]
+async fn migration_20261102_01_update_failure_is_not_counted() {
+    let (db, _dir) = three_file_db().await;
+    insert_raw(&db, 1, r#"{"default":"a"}"#, "{}").await;
+    let updated = db
+        .call_platform_traced(None, std::panic::Location::caller(), |c| {
+            c.execute_batch(
+                "CREATE TRIGGER block_upd BEFORE UPDATE ON platform BEGIN SELECT RAISE(ABORT, 'blocked'); END;",
+            )?;
+            Ok(crate::schema_late::listify_platform_models(c))
+        })
+        .await
+        .unwrap();
+    assert_eq!(updated, 0, "UPDATE 失败不得计入 updated");
+    assert_eq!(read_raw(&db, 1).await.0, r#"{"default":"a"}"#);
+}

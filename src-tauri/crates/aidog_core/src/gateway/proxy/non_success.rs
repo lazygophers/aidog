@@ -84,14 +84,7 @@ pub(crate) async fn handle_non_success(
         .then(|| if class == UpstreamErrorClass::Service { "service" } else { "rule" }.to_string());
     attempts.push(ProxyAttempt {
         chain_stop,
-        error_class: Some(
-            match class {
-                UpstreamErrorClass::Model => "model",
-                UpstreamErrorClass::Service => "service",
-                UpstreamErrorClass::Unknown => "unknown",
-            }
-            .to_string(),
-        ),
+        error_class: Some(class.as_str().to_string()),
         code_meaning: code_meaning.clone(),
         error_rule: err_class.as_ref().map(|c| c.matched_by.clone()),
         ttfb_ms,

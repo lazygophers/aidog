@@ -923,6 +923,21 @@ mod test_classify_upstream_error {
     }
 
     #[test]
+    fn streaming_not_supported_for_this_model_is_model_class() {
+        // 边界：「not supported」+ 正文含 model 即判 Model（宽匹配，锁当前行为；链上有下一个模型时会换模型重发）
+        let body = r#"{"error":{"message":"streaming not supported for this model"}}"#;
+        assert_eq!(classify_upstream_error(400, body), Model);
+    }
+
+    #[test]
+    fn upstream_error_class_as_str_is_stable() {
+        assert_eq!(
+            [Model, Service, Unknown].map(UpstreamErrorClass::as_str),
+            ["model", "service", "unknown"]
+        );
+    }
+
+    #[test]
     fn oversized_body_is_bounded_and_char_safe() {
         // 特征落在扫描窗口之外 -> 不识别（有界扫描）；特征在头部 -> 识别
         let tail = format!("{}model not found", "a".repeat(1 << 20));
