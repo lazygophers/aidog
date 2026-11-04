@@ -75,7 +75,7 @@ interface NodeSpec {
   ttfbMs?: number;
 }
 
-interface ModelChoice { from?: string; to?: string; via: ModelVia[] }
+interface ModelChoice { pid?: string; from?: string; to?: string; via: ModelVia[] }
 
 type AttemptLite = { platform_id: number; status_code: number; model?: string; error?: string; chain_stop?: string; duration_ms?: number; ttfb_ms?: number };
 export type ChainState = "used" | "failed" | "skipped" | "untried";
@@ -189,13 +189,13 @@ export function RoutingCanvas({
     const pick = win ?? routing.entries.find((c) => c.reason === "selected");
     const to = pick?.target_model ?? (win ? actualModel : undefined);
     if (!requestModel && !to) return null;
-    return { from: requestModel, to, via: pick?.model_via ?? [] };
+    return { pid: pick ? `p-${pick.platform_id}` : undefined, from: requestModel, to, via: pick?.model_via ?? [] };
   }, [routing, winId, actualModel, requestModel]);
 
   const nodes = useMemo(() => {
     if (!routing || routing.entries.length < 1) return null;
     const list = buildNodes(routing, attempts, platformMap, winId, actualModel, t);
-    if (modelChoice) list.splice(2, 0, { id: "model", cls: "dim", ico: "◇", nm: t("logs.routing.modelChoice", "模型选择"), choice: modelChoice });
+    if (modelChoice) list.push({ id: "model", cls: "dim", ico: "◇", nm: t("logs.routing.modelChoice", "模型选择"), choice: modelChoice });
     list.push({
       id: "resp",
       cls: winId !== null ? "win" : "dim",
@@ -208,14 +208,14 @@ export function RoutingCanvas({
 
   const vertical = width !== null && width < 720;
 
-  // 宽布局：4 列绝对定位；平台列按节点「实测」高度累加（卡片行数随耗时/首字/徽标变化，估算必重叠）。
+  // 宽布局：4~5 列绝对定位；平台列按节点「实测」高度累加（卡片行数随耗时/首字/徽标变化，估算必重叠）。
   // 实测高度未到（首帧 / jsdom offsetHeight=0）回落估算值；高度与位置无循环依赖，一次重渲即收敛。
   const GAP = 12;
   const { pos, canvasH } = useMemo(() => {
     if (!nodes || width === null || vertical) return { pos: null, canvasH: 260 };
     const hasModel = nodes.some((n) => n.id === "model");
     const colX = hasModel ? [24, width * 0.17, width * 0.36, width * 0.6, width * 0.82] : [24, width * 0.24, width * 0.5, width * 0.78];
-    const platX = colX[hasModel ? 3 : 2]!;
+    const platX = colX[2]!;
     const plats = nodes.filter((n) => n.id.startsWith("p-"));
     const hOf = (n: NodeSpec) => heights[n.id] || 84 + Math.max(0, (n.chain?.length ?? 0) - 1) * 18;
     const total = plats.reduce((a, n) => a + hOf(n), 0) + Math.max(0, plats.length - 1) * GAP;
@@ -226,12 +226,12 @@ export function RoutingCanvas({
     plats.forEach((n) => { p[n.id] = { x: platX, y: acc }; acc += hOf(n) + GAP; });
     const respId = nodes[nodes.length - 1]!.id;
     const fixed: [string, number][] = [["req", colX[0]!], ["route", colX[1]!], [respId, colX[hasModel ? 4 : 3]!]];
-    if (hasModel) fixed.push(["model", colX[2]!]);
+    if (hasModel) fixed.push(["model", colX[3]!]);
     for (const [id, x] of fixed) p[id] = { x, y: mid - (heights[id] || 60) / 2 };
     return { pos: p, canvasH: H };
   }, [nodes, width, vertical, heights]);
 
-  // 连线：req→route→(模型选择)→各平台；胜出平台→响应（无胜出则 route→响应）。
+  // 连线：req→route→各平台；胜出平台（无胜出则首个选中）→模型选择→响应；无模型摘要时胜出平台→响应（无胜出则 route→响应）。
   // useLayoutEffect 时 DOM 已提交，offset* 即用即取；resize 经 RO 80ms debounce 驱动 tick 重算。
   useLayoutEffect(() => {
     if (!nodes) return;
@@ -250,13 +250,17 @@ export function RoutingCanvas({
     });
     const hasWin = winId !== null && boxes[winId] !== undefined;
     const pairs: [string, string, string][] = [["req", "route", hasWin ? EDGE_WIN : EDGE_EVAL]];
-    const hasModel = nodes.some((n) => n.id === "model");
-    if (hasModel) pairs.push(["route", "model", hasWin ? EDGE_WIN : EDGE_EVAL]);
     for (const n of nodes.filter((x) => x.id.startsWith("p-"))) {
-      pairs.push([hasModel ? "model" : "route", n.id, n.cls === "win" ? EDGE_WIN : n.cls === "fail" ? EDGE_BAD : EDGE_EVAL]);
+      pairs.push(["route", n.id, n.cls === "win" ? EDGE_WIN : n.cls === "fail" ? EDGE_BAD : EDGE_EVAL]);
     }
     const respId = nodes[nodes.length - 1]!.id;
-    pairs.push([hasWin ? winId! : "route", respId, hasWin ? EDGE_WIN : EDGE_EVAL]);
+    const wc = hasWin ? EDGE_WIN : EDGE_EVAL;
+    const mc = nodes.find((n) => n.id === "model")?.choice;
+    if (mc) {
+      pairs.push([mc.pid ?? "route", "model", wc], ["model", respId, wc]);
+    } else {
+      pairs.push([hasWin ? winId! : "route", respId, wc]);
+    }
     const out: { key: string; d: string; cls: string }[] = [];
     for (const [a, b, cls] of pairs) {
       const A = boxes[a!]; const B = boxes[b!];
