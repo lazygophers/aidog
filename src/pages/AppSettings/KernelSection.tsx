@@ -1,21 +1,19 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { kernelApi, type KernelSettings } from "../../services/api";
+import { kernelApi, proxyApi, type KernelSettings } from "../../services/api";
+import { Switch } from "@/components/ui/switch";
 
 /**
- * 无界面内核**管理面**设置（票 08，2026-09-03 审查后收窄）。
+ * 管理接口设置（ADR 0010）：开关、可选凭据、当前地址。
  *
- * 管理面永远只监听 127.0.0.1，**没有开放到局域网的开关**：它开放的是全部管理命令（改任意
- * 配置、读全部请求日志、执行脚本），而它唯一的鉴权是一个静态 Bearer，还带不进浏览器的文档
- * 导航与 EventSource。跨机访问交给用户自己架反向代理（nginx / caddy）负责 TLS 与鉴权。
- *
- * 这里只剩两件可配的事：端口、访问令牌。StartupSection 里代理的「局域网访问」开关管的是
- * 转发端口，是另一个维度，别把两者混为一谈。
+ * 管理接口挂在代理端口 /api/ 下（POST /api/rpc/<命令>、GET /api/events），只接受本机连接，
+ * 与代理的「局域网访问」开关无关。
  */
 export function KernelSection() {
   const { t } = useTranslation();
   const [settings, setSettings] = useState<KernelSettings | null>(null);
   const [token, setToken] = useState("");
+  const [port, setPort] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState("");
 
@@ -26,7 +24,8 @@ export function KernelSection() {
         setSettings(s);
         setToken(s.auth_token);
       })
-      .catch(() => setSettings({ port: 9891, auth_token: "" }));
+      .catch(() => setSettings({ api_enabled: true, auth_token: "" }));
+    proxyApi.getSettings().then((p) => setPort(p.port)).catch(() => {});
   }, []);
 
   if (!settings) return null;
@@ -49,21 +48,37 @@ export function KernelSection() {
 
   return (
     <>
-      {/* 监听地址是写死的事实，不是开关 —— 如实告诉用户，并给出跨机访问的正确做法 */}
-      <div className="glass-surface" style={{ padding: "16px 20px" }}>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("kernel.loopbackOnly")}</div>
-        <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-          {t("kernel.loopbackOnlyDesc")}
+      <div
+        className="glass-surface"
+        style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+      >
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("kernel.enabled")}</div>
+          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+            {t("kernel.enabledDesc")}
+          </div>
+          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+            {t("kernel.loopbackOnly")}
+          </div>
         </div>
-        <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-          {t("kernel.remoteAccess")}
-        </div>
-        <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-          {t("kernel.notProxy")}
-        </div>
+        <Switch
+          checked={settings.api_enabled}
+          onCheckedChange={(v) => persist({ ...settings, api_enabled: v })}
+        />
       </div>
 
-      {/* 访问令牌 —— 反代回连本机时防同机其他进程 */}
+      {port !== null && (
+        <div className="glass-surface" style={{ padding: "16px 20px" }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("kernel.address")}</div>
+          <code style={{ display: "block", marginTop: 6, fontSize: 12 }}>
+            {`http://127.0.0.1:${port}/api/rpc/<command>`}
+          </code>
+          <code style={{ display: "block", marginTop: 2, fontSize: 12 }}>
+            {`http://127.0.0.1:${port}/api/events`}
+          </code>
+        </div>
+      )}
+
       <div className="glass-surface" style={{ padding: "16px 20px" }}>
         <div style={{ fontSize: 13, fontWeight: 600 }}>{t("kernel.authToken")}</div>
         <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>

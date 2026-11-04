@@ -5,7 +5,6 @@
 
 use super::*;
 use aidog_core::kernel_settings::KernelSettings;
-use std::net::{IpAddr, Ipv4Addr};
 
 // ─── 命令行形态 ────────────────────────────────────────────────────────────
 
@@ -35,153 +34,30 @@ fn unknown_argument_is_an_error_not_a_silent_default() {
     ));
 }
 
+/// `--port` 已删：给明确提示（指向代理端口），而不是当成未知参数。
 #[test]
-fn port_flag_is_parsed() {
-    let o = match parse_args(vec!["--ui".into(), "--port".into(), "18999".into()]) {
-        ParseOutcome::Run(o) => o,
-        _ => panic!("--port <n> 必须是正常启动"),
-    };
-    assert_eq!(o.port, Some(18999));
+fn port_flag_is_rejected_with_a_hint() {
+    for args in [vec!["--port", "9891"], vec!["--ui", "--port", "0"], vec!["--port"]] {
+        match parse_args(args.into_iter().map(String::from)) {
+            ParseOutcome::Error(e) => assert!(e.contains("proxy port"), "提示要指向代理端口，实得 {e:?}"),
+            _ => panic!("--port 必须被拒"),
+        }
+    }
 }
 
-/// 端口 0 是合法输入，不是「没给」：它明确表示「让系统挑一个空闲端口」。
+// ─── 验收：--ui 与管理接口开关 ─────────────────────────────────────────────
+
+/// 开关关 + `--ui` → 启动失败并说明原因；开关开 / 没带 `--ui` 都放行。
 #[test]
-fn port_zero_means_let_the_os_choose_not_unset() {
-    let o = match parse_args(vec!["--ui".into(), "--port".into(), "0".into()]) {
-        ParseOutcome::Run(o) => o,
-        _ => panic!("--port 0 必须是正常启动"),
-    };
-    assert_eq!(o.port, Some(0), "0 必须落在 Some 里，不能与 None 混为一谈");
-}
-
-#[test]
-fn port_flag_rejects_garbage_and_missing_value() {
-    assert!(matches!(
-        parse_args(vec!["--port".into(), "abc".into()]),
-        ParseOutcome::Error(_)
-    ));
-    assert!(matches!(
-        parse_args(vec!["--port".into(), "70000".into()]),
-        ParseOutcome::Error(_)
-    ));
-    assert!(matches!(
-        parse_args(vec!["--port".into()]),
-        ParseOutcome::Error(_)
-    ));
-}
-
-// ─── 验收：纯内核形态下无任何 HTTP 管理面在听 ──────────────────────────────
-
-/// `management_bind_addr` 是全进程唯一决定「开不开管理面监听」的地方（`run` 里只有这一处
-/// 调 `serve_management`）。不带 `--ui` 时它返回 `None`，即一个 socket 都不绑 ——
-/// 且这与内核设置里怎么配无关。
-#[test]
-fn pure_kernel_never_binds_a_management_socket() {
-    let opts = Options {
-        ui: false,
-        port: None,
-        ui_dir: None,
-    };
-    let configured = KernelSettings {
-        port: 9891,
-        auth_token: "secret".into(),
-    };
-    assert_eq!(
-        management_bind_addr(&opts, &KernelSettings::default()),
-        None
-    );
-    assert_eq!(
-        management_bind_addr(&opts, &configured),
-        None,
-        "纯内核形态下不论设置怎么配都不得开管理面"
-    );
-}
-
-// ─── 验收：管理面永远只绑 127.0.0.1 ───────────────────────────────────────
-
-/// `--ui` 的管理面绑回环，端口取设置。
-#[test]
-fn management_always_binds_loopback() {
-    let opts = Options {
-        ui: true,
-        port: None,
-        ui_dir: None,
-    };
-    let addr = management_bind_addr(&opts, &KernelSettings::default()).unwrap();
-    assert_eq!(addr.ip(), IpAddr::V4(Ipv4Addr::LOCALHOST));
-    assert_eq!(addr.port(), 9891, "默认端口 9891，与代理的 9890 分开");
-}
-
-/// 配了凭据、换了端口，绑定地址依然是回环 —— 没有任何设置能把管理面开到 0.0.0.0。
-/// 跨机访问的唯一路径是用户自己架反向代理回连本机。
-#[test]
-fn no_setting_can_expose_management_beyond_loopback() {
-    let opts = Options {
-        ui: true,
-        port: None,
-        ui_dir: None,
-    };
-    let s = KernelSettings {
-        port: 18891,
-        auth_token: "secret".into(),
-    };
-    let addr = management_bind_addr(&opts, &s).unwrap();
-    assert_eq!(
-        addr.ip(),
-        IpAddr::V4(Ipv4Addr::LOCALHOST),
-        "管理面绝不能监听 0.0.0.0"
-    );
-    assert_eq!(addr.port(), 18891, "端口仍可配");
-}
-
-/// `--port` 覆盖设置里的端口，但**覆盖不了绑定的 IP**。
-#[test]
-fn port_flag_overrides_settings_but_never_the_bound_ip() {
-    let opts = Options {
-        ui: true,
-        port: Some(19999),
-        ui_dir: None,
-    };
-    let s = KernelSettings {
-        port: 18891,
-        auth_token: String::new(),
-    };
-    let addr = management_bind_addr(&opts, &s).unwrap();
-    assert_eq!(addr.port(), 19999, "命令行优先于设置");
-    assert_eq!(
-        addr.ip(),
-        IpAddr::V4(Ipv4Addr::LOCALHOST),
-        "命令行只能改端口，改不了绑定的 IP"
-    );
-}
-
-/// 没带 `--port` 时仍取设置里的值 —— 新开关不得改变既有默认行为。
-#[test]
-fn without_port_flag_settings_still_win() {
-    let opts = Options {
-        ui: true,
-        port: None,
-        ui_dir: None,
-    };
-    let s = KernelSettings {
-        port: 18891,
-        auth_token: String::new(),
-    };
-    assert_eq!(management_bind_addr(&opts, &s).unwrap().port(), 18891);
-}
-
-/// `--port` 不能把纯内核形态变成开监听 —— 决定「开不开」的只有 `--ui`。
-#[test]
-fn port_flag_cannot_turn_pure_kernel_into_a_listening_one() {
-    let opts = Options {
-        ui: false,
-        port: Some(19999),
-        ui_dir: None,
-    };
-    assert_eq!(
-        management_bind_addr(&opts, &KernelSettings::default()),
-        None
-    );
+fn ui_requires_the_management_api_switch() {
+    let ui = Options { ui: true, ui_dir: None };
+    let pure = Options { ui: false, ui_dir: None };
+    let off = KernelSettings { api_enabled: false, ..Default::default() };
+    let on = KernelSettings::default();
+    let err = check_ui_allowed(&ui, &off).unwrap_err();
+    assert!(err.contains("disabled"), "{err}");
+    assert!(check_ui_allowed(&ui, &on).is_ok());
+    assert!(check_ui_allowed(&pure, &off).is_ok(), "纯内核不依赖 --ui 检查");
 }
 
 // ─── 单实例锁 ──────────────────────────────────────────────────────────────
@@ -250,49 +126,54 @@ fn lock_file_carries_the_listen_address_to_the_next_instance() {
 /// `/rpc` 表与注册表同规模且无重名（重名会让 axum 直接 panic，这里提前断言）。
 #[test]
 fn rpc_table_has_no_duplicates() {
-    let mut sorted: Vec<&str> = rpc::RPC_COMMAND_NAMES.to_vec();
+    let mut sorted: Vec<&str> = aidog_rpc::RPC_COMMAND_NAMES.to_vec();
     sorted.sort_unstable();
     let before = sorted.len();
     sorted.dedup();
     assert_eq!(before, sorted.len(), "/rpc 路由表里有重复命令名");
-    // 阈值 150：CLI 代理移除后表从 211 降到 200，只作「宏没展开全」的下限护栏，不追命令总数。
-    assert!(
-        before > 150,
-        "路由表规模异常（{before}），可能是宏没展开全"
-    );
+    // 阈值 150：只作「宏没展开全」的下限护栏，不追命令总数。
+    assert!(before > 150, "路由表规模异常（{before}），可能是宏没展开全");
 }
 
-// ─── 集成：/rpc 与 /events ────────────────────────────────────────────────
+// ─── 集成：代理端口上的 /api/rpc 与 /api/events ────────────────────────────
 
-/// 起一个只挂 `/rpc/*` + `/events` 的管理面（不带静态资源），返回 base URL 与 ctx。
-async fn spawn_test_management(
-    auth_token: &str,
-) -> (String, std::sync::Arc<ctx::HeadlessCtx>, std::net::SocketAddr) {
+fn client() -> reqwest::Client {
+    reqwest::Client::builder().no_proxy().build().unwrap()
+}
+
+/// 起一个真代理（随机端口、临时库、本地回环），管理接口装的是真路由表。
+async fn spawn_test_proxy(
+    settings: KernelSettings,
+) -> (String, std::sync::Arc<ctx::HeadlessCtx>) {
     let db = aidog_db::test_support::test_db().await;
-    let c = std::sync::Arc::new(ctx::HeadlessCtx::new(
-        db,
-        std::sync::Arc::new(aidog_middleware::MiddlewareEngine::new()),
-    ));
-    let state = server::ManagementState::new(c.clone(), auth_token.to_string());
-    let app = server::management_router(state, None);
-    let (addr, _handle) = server::serve_management(
-        app,
-        std::net::SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0),
-    )
-    .await
-    .unwrap();
-    (format!("http://{addr}"), c, addr)
+    aidog_core::kernel_settings::save_kernel_settings(&db, &settings)
+        .await
+        .unwrap();
+    aidog_core::gateway::proxy::install_management_router(aidog_rpc::management_router());
+    let port = {
+        let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        l.local_addr().unwrap().port()
+    };
+    let mw = std::sync::Arc::new(aidog_middleware::MiddlewareEngine::new());
+    let c = std::sync::Arc::new(ctx::HeadlessCtx::new(db.clone(), mw.clone()));
+    aidog_core::gateway::proxy::start_proxy(std::sync::Arc::new(db), port, mw, false)
+        .await
+        .unwrap();
+    (format!("http://127.0.0.1:{port}"), c)
 }
 
-/// 验收：`/rpc/<已知命令>` 返回与 `invoke` 相同的 JSON。
+fn with_token(t: &str) -> KernelSettings {
+    KernelSettings { auth_token: t.into(), ..Default::default() }
+}
+
+/// 验收：`/api/rpc/<已知命令>` 返回与 `invoke` 相同的 JSON。
 ///
-/// 用 `about_info` 是因为它不吃参数也不碰 DB，断言的是「HTTP 形态返回的就是命令返回值本身」
-/// —— 与桌面版 `invoke("about_info")` 拿到的是同一个 struct 的同一份 serde 序列化。
+/// 用 `about_info` 是因为它不吃参数也不碰 DB，断言的是「HTTP 形态返回的就是命令返回值本身」。
 #[tokio::test]
 async fn rpc_known_command_returns_command_json() {
-    let (base, _ctx, _addr) = spawn_test_management("").await;
-    let resp = reqwest::Client::new()
-        .post(format!("{base}/rpc/about_info"))
+    let (base, _ctx) = spawn_test_proxy(KernelSettings::default()).await;
+    let resp = client()
+        .post(format!("{base}/api/rpc/about_info"))
         .json(&serde_json::json!({}))
         .send()
         .await
@@ -307,12 +188,12 @@ async fn rpc_known_command_returns_command_json() {
     assert!(body["os"].is_string());
 }
 
-/// 验收：`/rpc/<未知命令>` 返回 404。
+/// 验收：未知命令 404。
 #[tokio::test]
 async fn rpc_unknown_command_returns_404() {
-    let (base, _ctx, _addr) = spawn_test_management("").await;
-    let resp = reqwest::Client::new()
-        .post(format!("{base}/rpc/definitely_not_a_command"))
+    let (base, _ctx) = spawn_test_proxy(KernelSettings::default()).await;
+    let resp = client()
+        .post(format!("{base}/api/rpc/definitely_not_a_command"))
         .json(&serde_json::json!({}))
         .send()
         .await
@@ -320,14 +201,14 @@ async fn rpc_unknown_command_returns_404() {
     assert_eq!(resp.status(), 404);
 }
 
-/// notification_rule_validate 曾漏登记（桌面 generate_handler 与 /rpc 均无）：合法表达式 200，非法表达式非 2xx。
+/// notification_rule_validate 曾漏登记：合法表达式 200，非法表达式非 2xx。
 #[tokio::test]
 async fn rpc_notification_rule_validate_registered() {
-    let (base, _ctx, _addr) = spawn_test_management("").await;
+    let (base, _ctx) = spawn_test_proxy(KernelSettings::default()).await;
     let call = |expr: &'static str| {
-        let url = format!("{base}/rpc/notification_rule_validate");
+        let url = format!("{base}/api/rpc/notification_rule_validate");
         async move {
-            reqwest::Client::new()
+            client()
                 .post(url)
                 .json(&serde_json::json!({ "expr": expr }))
                 .send()
@@ -340,13 +221,13 @@ async fn rpc_notification_rule_validate_registered() {
     assert!(!bad.status().is_success() && bad.status() != 404, "非法表达式应走命令 Err，实际 {}", bad.status());
 }
 
-/// 命令自身返回 Err 时落非 2xx，body 就是 reject 值（对齐 `invoke` 的 reject 语义）。
+/// 命令自身失败时落非 2xx，body 就是 reject 值（对齐 `invoke` 的 reject 语义）。
 #[tokio::test]
 async fn rpc_command_error_maps_to_non_2xx() {
-    let (base, _ctx, _addr) = spawn_test_management("").await;
+    let (base, _ctx) = spawn_test_proxy(KernelSettings::default()).await;
     // 缺必填参数 → 参数解析失败 → 400。
-    let resp = reqwest::Client::new()
-        .post(format!("{base}/rpc/skill_read_file"))
+    let resp = client()
+        .post(format!("{base}/api/rpc/skill_read_file"))
         .json(&serde_json::json!({}))
         .send()
         .await
@@ -354,134 +235,52 @@ async fn rpc_command_error_maps_to_non_2xx() {
     assert_eq!(resp.status(), 400);
 }
 
-/// `/healthz` 在没配凭据时可用，形状与代理端口那两个健康端点一致。
+/// 开关关：未启用的明确 404，不落入转发。
 #[tokio::test]
-async fn healthz_reports_the_management_surface_is_up() {
-    let (base, _ctx, _addr) = spawn_test_management("").await;
-    let resp = reqwest::Client::new()
-        .get(format!("{base}/healthz"))
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), 200);
-    let body: serde_json::Value = resp.json().await.unwrap();
-    assert_eq!(body["service"].as_str(), Some("aidog"));
-    assert_eq!(body["ok"].as_bool(), Some(true));
-}
-
-/// **`/healthz` 免鉴权**：配了凭据、不带 Bearer 也必须 200。
-///
-/// 拉起内核的父进程要在还没拿到凭据时就能判断「起来了没有」。这条断言钉的是那个豁免 ——
-/// 把它挪到鉴权 layer 之前会让本测试变红。
-#[tokio::test]
-async fn healthz_stays_open_even_when_a_credential_is_configured() {
-    let (base, _ctx, _addr) = spawn_test_management("s3cret").await;
-    let client = reqwest::Client::new();
-
-    let resp = client
-        .get(format!("{base}/healthz"))
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), 200, "探活不该被凭据挡住");
-
-    // 同一个服务上，别的路径仍然要凭据 —— 证明豁免只开在 /healthz 这一条上。
-    let guarded = client
-        .post(format!("{base}/rpc/about_info"))
+async fn disabled_switch_returns_not_enabled() {
+    let (base, _ctx) =
+        spawn_test_proxy(KernelSettings { api_enabled: false, ..Default::default() }).await;
+    let resp = client()
+        .post(format!("{base}/api/rpc/about_info"))
         .json(&serde_json::json!({}))
         .send()
         .await
         .unwrap();
-    assert_eq!(guarded.status(), 401, "豁免不得外溢到其它路径");
+    assert_eq!(resp.status(), 404);
+    let v: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(v["error"], "management_api_disabled");
 }
 
-/// 验收：管理面只在 127.0.0.1 可达。绑定地址即证据 —— 0.0.0.0 与 127.0.0.1
-/// 在 socket 层是两种不同的绑定，前者才会接受来自其它网卡的连接。
-#[tokio::test]
-async fn management_listens_on_loopback_only_by_default() {
-    let (_base, _ctx, addr) = spawn_test_management("").await;
-    assert_eq!(addr.ip(), IpAddr::V4(Ipv4Addr::LOCALHOST));
-}
-
-/// 配了凭据后，不带 Bearer 的管理请求一律 401；带对的放行。
+/// 配了凭据后，不带 / 错 Bearer 一律 401；带对的放行。401 body 必须是合法 JSON
+/// （前端传输层统一 `JSON.parse`，裸文本会把「未授权」掩盖成「解析失败」）。
 #[tokio::test]
 async fn management_requires_bearer_when_credential_configured() {
-    let (base, _ctx, _addr) = spawn_test_management("s3cret").await;
-    let client = reqwest::Client::new();
+    let (base, _ctx) = spawn_test_proxy(with_token("s3cret")).await;
+    let url = format!("{base}/api/rpc/about_info");
+    let body = serde_json::json!({});
 
-    let no_auth = client
-        .post(format!("{base}/rpc/about_info"))
-        .json(&serde_json::json!({}))
-        .send()
-        .await
-        .unwrap();
+    let no_auth = client().post(&url).json(&body).send().await.unwrap();
     assert_eq!(no_auth.status(), 401, "无凭据必须被拒");
-
-    let wrong = client
-        .post(format!("{base}/rpc/about_info"))
-        .header("Authorization", "Bearer nope")
-        .json(&serde_json::json!({}))
-        .send()
-        .await
-        .unwrap();
+    assert_eq!(
+        no_auth.json::<serde_json::Value>().await.unwrap().as_str(),
+        Some("unauthorized"),
+        "401 body 必须是可 JSON.parse 的 \"unauthorized\""
+    );
+    let wrong = client().post(&url).bearer_auth("nope").json(&body).send().await.unwrap();
     assert_eq!(wrong.status(), 401, "错凭据必须被拒");
-
-    let ok = client
-        .post(format!("{base}/rpc/about_info"))
-        .header("Authorization", "Bearer s3cret")
-        .json(&serde_json::json!({}))
-        .send()
-        .await
-        .unwrap();
+    let ok = client().post(&url).bearer_auth("s3cret").json(&body).send().await.unwrap();
     assert_eq!(ok.status(), 200);
 }
 
-/// 401 的响应体必须是**合法 JSON**，否则前端 `httpInvoke` 的 `JSON.parse` 会抛
-/// `SyntaxError`，把真正的「未授权」掩盖成「解析失败」。
-#[tokio::test]
-async fn unauthorized_response_body_is_json() {
-    let (base, _ctx, _addr) = spawn_test_management("s3cret").await;
-    let resp = reqwest::Client::new()
-        .post(format!("{base}/rpc/about_info"))
-        .json(&serde_json::json!({}))
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), 401);
-    assert_eq!(
-        resp.headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or_default(),
-        "application/json"
-    );
-    let text = resp.text().await.unwrap();
-    let parsed: serde_json::Value =
-        serde_json::from_str(&text).expect("401 body 必须能被 JSON.parse 解析");
-    assert_eq!(
-        parsed.as_str(),
-        Some("unauthorized"),
-        "前端要能从这个值认出是未授权"
-    );
-}
-
-/// 验收：`/events` 能建立 SSE 连接，emit 后收到事件，且 payload 形状不变
+/// 验收：`/api/events` 能建立 SSE 连接，emit 后收到事件，且 payload 形状不变
 /// （`proxy-log-updated` 的 payload 是**数字** platform_id）。
-///
-/// 事件源用 `AppCtx::emit` ——生产路径上唯一的 producer 是
-/// `aidog_core::gateway::proxy::log::emit_log_events`，它就是这一句：
-/// `aidog_ctx::emit("proxy-log-updated", platform_id.into())`。
 #[tokio::test]
 async fn events_stream_delivers_proxy_log_updated() {
     use aidog_ctx::AppCtx;
     use futures::StreamExt;
 
-    let (base, c, _addr) = spawn_test_management("").await;
-    let resp = reqwest::Client::new()
-        .get(format!("{base}/events"))
-        .send()
-        .await
-        .unwrap();
+    let (base, c) = spawn_test_proxy(KernelSettings::default()).await;
+    let resp = client().get(format!("{base}/api/events")).send().await.unwrap();
     assert_eq!(resp.status(), 200);
     assert!(
         resp.headers()
@@ -494,11 +293,10 @@ async fn events_stream_delivers_proxy_log_updated() {
     let mut stream = resp.bytes_stream();
 
     // 连接已建立后再 emit（broadcast 只发给已订阅者）。给 axum 一点时间完成订阅。
-    let ctx_for_emit = c.clone();
     tokio::spawn(async move {
         for _ in 0..40 {
             tokio::time::sleep(std::time::Duration::from_millis(25)).await;
-            ctx_for_emit.emit("proxy-log-updated", serde_json::json!(7u64));
+            c.emit("proxy-log-updated", serde_json::json!(7u64));
         }
     });
 
@@ -525,6 +323,29 @@ async fn events_stream_delivers_proxy_log_updated() {
     );
 }
 
+/// `--ui`：`/ui/` 出 index、静态文件原样、前缀内未知路径回落 index；前缀外不回落。
+#[tokio::test]
+async fn ui_router_serves_assets_with_spa_fallback_inside_prefix_only() {
+    let dir = std::env::temp_dir().join(format!("aidog-ui-test-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("index.html"), "INDEX").unwrap();
+    std::fs::write(dir.join("a.js"), "JS").unwrap();
+    let app = with_ui(axum::Router::new(), Some(dir.clone()));
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", l.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(l, app).await.ok() });
+
+    let get = |p: &str| {
+        let u = format!("{base}{p}");
+        async move { client().get(u).send().await.unwrap() }
+    };
+    assert_eq!(get("/ui/").await.text().await.unwrap(), "INDEX");
+    assert_eq!(get("/ui/a.js").await.text().await.unwrap(), "JS");
+    assert_eq!(get("/ui/some/spa/route").await.text().await.unwrap(), "INDEX");
+    assert_eq!(get("/other").await.status(), 404, "回落只在 /ui 前缀内");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
 /// 验收（票 I12）：内核没有桌面会话，系统弹窗必须**转发给外壳**而不是被丢掉。
 ///
 /// 丢掉的后果不是「少个弹窗」：`aidog_notification::dispatch` 的整条 Popup 通道
@@ -534,7 +355,11 @@ async fn events_stream_delivers_proxy_log_updated() {
 async fn show_popup_forwards_to_shell_instead_of_dropping() {
     use aidog_ctx::AppCtx;
 
-    let (_base, c, _addr) = spawn_test_management("").await;
+    let db = aidog_db::test_support::test_db().await;
+    let c = ctx::HeadlessCtx::new(
+        db,
+        std::sync::Arc::new(aidog_middleware::MiddlewareEngine::new()),
+    );
     let mut rx = c.subscribe();
 
     assert!(
@@ -542,8 +367,13 @@ async fn show_popup_forwards_to_shell_instead_of_dropping() {
         "请求已交给外壳 —— 返回 false 会让 DispatchResult.popup 一律报「没弹」"
     );
 
-    let ev = rx.try_recv().expect("show_popup 必须广播出一个事件");
-    assert_eq!(ev.name, aidog_notification::NOTIF_POPUP);
+    // 事件通道是进程级单例，并行的别的测试也会往里 emit：只认弹窗事件。
+    let ev = loop {
+        let ev = rx.try_recv().expect("show_popup 必须广播出一个事件");
+        if ev.name == aidog_notification::NOTIF_POPUP {
+            break ev;
+        }
+    };
     assert_eq!(
         ev.name, "notif-popup",
         "事件名是跨语言契约，改名要连 Dart 一起改"

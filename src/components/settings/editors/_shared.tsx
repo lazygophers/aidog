@@ -574,7 +574,7 @@ export function PathInput({
       try {
         // 票 10：改走传输层。原先这里判 `__TAURI_INTERNALS__`、非 Tauri 就返空数组，
         // 浏览器形态下补全会整个失灵 —— 而补全正是浏览器里代替原生对话框的那半边。
-        // `invoke` 在浏览器下走 `POST /rpc/fs_autocomplete`，同一个后端命令。
+        // `invoke` 在浏览器下走 `POST /api/rpc/fs_autocomplete`，同一个后端命令。
         const result = await invoke<PathSuggestion[]>("fs_autocomplete", { input });
         setSuggestions(result);
         setShowSugg(result.length > 0);

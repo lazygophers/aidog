@@ -53,6 +53,7 @@ toml = { workspace = true }
 url = { workspace = true }
 tokio = { workspace = true }
 futures = { workspace = true }
+tower = { version = "0.5", features = ["util"] }
 rusqlite = { workspace = true }
 tokio-rusqlite = { workspace = true }
 axum = { workspace = true }

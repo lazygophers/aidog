@@ -1,14 +1,13 @@
-//! 内核管理面设置验收（票 08，2026-09-03 审查后收窄）：
-//! 管理面永远只绑 127.0.0.1，设置里没有任何能改这件事的字段；凭据仍可配。
+//! 管理接口设置验收（ADR 0010）：开关缺省开，凭据可选；设置里没有任何绑定地址 / 端口字段。
 use super::*;
 use aidog_db::test_support::test_db;
 
-/// 新装（DB 无 `kernel/settings` 记录）读出来是默认端口 + 无凭据。
+/// 新装（DB 无 `kernel/settings` 记录）读出来是开关开 + 无凭据。
 #[tokio::test]
 async fn fresh_install_defaults() {
     let db = test_db().await;
     let s = load_kernel_settings(&db).await;
-    assert_eq!(s.port, 9891, "默认端口 9891，与代理的 9890 分开");
+    assert!(s.api_enabled, "管理接口缺省开");
     assert!(!s.has_auth(), "新装不应凭空带凭据");
 }
 
@@ -18,7 +17,7 @@ async fn fresh_install_defaults() {
 fn legacy_bind_lan_key_is_ignored_not_fatal() {
     let s: KernelSettings =
         serde_json::from_str(r#"{"port":9999,"bind_lan":true,"auth_token":"secret"}"#).unwrap();
-    assert_eq!(s.port, 9999);
+    assert!(s.api_enabled, "旧库没有开关键 → 缺省开");
     assert_eq!(s.auth_token, "secret");
 }
 
@@ -36,18 +35,18 @@ fn serialized_settings_have_no_bind_field() {
 #[test]
 fn whitespace_only_credential_does_not_count() {
     let s = KernelSettings {
-        port: 9891,
+        api_enabled: false,
         auth_token: "   ".into(),
     };
     assert!(!s.has_auth());
 }
 
-/// 端口与凭据能落库并读回。
+/// 开关与凭据能落库并读回。
 #[tokio::test]
 async fn settings_round_trip() {
     let db = test_db().await;
     let s = KernelSettings {
-        port: 9891,
+        api_enabled: false,
         auth_token: "secret".into(),
     };
     save_kernel_settings(&db, &s).await.unwrap();
@@ -74,7 +73,7 @@ async fn kernel_settings_are_independent_from_proxy_settings() {
     save_kernel_settings(
         &db,
         &KernelSettings {
-            port: 9891,
+            api_enabled: false,
             auth_token: "secret".into(),
         },
     )

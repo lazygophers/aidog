@@ -1,4 +1,4 @@
-// 票 09 漂移护栏：前端 invoke 的每个命令名，内核 `/rpc` 路由表里必须都有。
+// 票 09 漂移护栏：前端 invoke 的每个命令名，管理接口命令表（`aidog_rpc`）里必须都有。
 //
 // 为什么需要：传输层分流后，浏览器形态把 `invoke(name, args)` 打到 `POST /rpc/<name>`。
 // 名字不在内核路由表里 → **只有浏览器形态 404**，桌面形态照常工作。这种偏差在桌面上
@@ -7,13 +7,14 @@
 // 反向差集（内核有、前端不叫）是正常的：不少命令只由 Rust 侧或托盘触发，不做要求。
 //
 //   yarn check:rpc
+import { execFileSync } from "child_process";
 import { readdirSync, readFileSync, statSync } from "fs";
 import { join } from "path";
 
-const RPC_FILE = "src-tauri/crates/aidog_kernel/src/rpc.rs";
+const RPC_FILE = "src-tauri/crates/aidog_rpc/src/lib.rs";
 const SRC_DIRS = ["src"];
 
-// ── 内核 /rpc 路由表（与 scripts/t08-rpc-names.mjs 同一份解析规则） ──
+// ── 管理接口命令表（与 scripts/t08-rpc-names.mjs 同一份解析规则） ──
 const rpcSrc = readFileSync(RPC_FILE, "utf8");
 const block = rpcSrc.match(/rpc_routes!\s*\{([\s\S]*?)\n\}/);
 if (!block) {
@@ -66,3 +67,19 @@ if (missing.length > 0) {
   process.exit(1);
 }
 console.log("✅ 前端调得到的命令，内核 /rpc 表里全都有");
+
+// ── 桌面 `generate_handler!` 与管理接口命令表零差集（只允许 ALLOW 里的桌面专属命令缺席） ──
+const handlerNames = execFileSync("node", ["scripts/t06-handler-names.mjs"], {
+  encoding: "utf8",
+  stdio: ["ignore", "pipe", "ignore"],
+}).split("\n").filter(Boolean);
+const desktopOnly = handlerNames.filter((n) => !rpcNames.has(n));
+const unexpected = desktopOnly.filter((n) => !ALLOW.has(n));
+const extra = [...rpcNames].filter((n) => !handlerNames.includes(n));
+console.log(`generate_handler! ${handlerNames.length} 个；无 HTTP 形态（仅桌面界面）${desktopOnly.length} 个：${desktopOnly.join(", ") || "无"}`);
+if (unexpected.length > 0 || extra.length > 0) {
+  if (unexpected.length) console.error(`❌ 桌面注册了但管理接口表里没有（且不在白名单）：${unexpected.join(", ")}`);
+  if (extra.length) console.error(`❌ 管理接口表里有但桌面 generate_handler! 没注册：${extra.join(", ")}`);
+  process.exit(1);
+}
+console.log("✅ 桌面命令集合与管理接口命令表零差集");

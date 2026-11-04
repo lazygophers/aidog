@@ -9,6 +9,8 @@ const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
+  // 相对基路径：内核 --ui 把同一份 dist 挂在代理端口的 /api/ui/ 下（ADR 0010），绝对 /assets 会落进转发。
+  base: "./",
   plugins: [react(), tailwindcss()],
 
   resolve: {

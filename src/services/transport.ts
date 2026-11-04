@@ -4,7 +4,7 @@
 //
 // 1. **桌面版**（Tauri）：命令走 Tauri IPC（`invoke`），事件走 Tauri 事件总线（`listen`）。
 // 2. **浏览器版**（票 08 的 `aidog-kernel --ui` 托管同一份 dist）：命令走
-//    `POST /rpc/<命令名>`（args 作 JSON body），事件走 SSE `/events`。
+//    `POST /api/rpc/<命令名>`（args 作 JSON body），事件走 SSE `/api/events`（代理端口上的管理接口，ADR 0010）。
 //
 // 分流依据是运行时探测 `window.__TAURI_INTERNALS__`（Tauri v2 注入到 webview 的内部对象，
 // `@tauri-apps/api` 自己也是读它）。**每次调用都重新探测**，不在模块加载时定死：
@@ -29,11 +29,11 @@ export type { UnlistenFn };
 /** 事件回调签名（与 `@tauri-apps/api/event` 的 `EventCallback<T>` 对齐）。 */
 export type EventCallback<T> = (event: TauriEvent<T>) => void;
 
-/** 管理面 RPC 前缀，与 `aidog_kernel::rpc::rpc_router` 的路由一致。 */
-const RPC_PREFIX = "/rpc/";
+/** 管理接口 RPC 前缀，与代理端口 `/api/rpc/{*cmd}` 路由一致（`aidog_rpc::management_router`）。 */
+const RPC_PREFIX = "/api/rpc/";
 
-/** 管理面 SSE 端点，与 `aidog_kernel::server::management_router` 的路由一致。 */
-const EVENTS_PATH = "/events";
+/** 管理接口 SSE 端点（代理端口 `/api/events`）。 */
+const EVENTS_PATH = "/api/events";
 
 /**
  * 当前是否跑在 Tauri webview 里。
@@ -45,14 +45,14 @@ export function isTauri(): boolean {
 }
 
 /**
- * 未授权时管理面 reject 的值（内核 `server.rs::UNAUTHORIZED_BODY`）。
+ * 未授权时管理面 reject 的值（代理端口 `management.rs`）。
  *
  * 配了访问令牌但请求没带对 Bearer 时，`invoke` 抛的就是这个字符串。判断方式：
  * `e === RPC_UNAUTHORIZED`。
  */
 export const RPC_UNAUTHORIZED = "unauthorized";
 
-/** HTTP 形态的命令调用：`POST /rpc/<cmd>`，body = args。 */
+/** HTTP 形态的命令调用：`POST /api/rpc/<cmd>`，body = args。 */
 async function httpInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const res = await fetch(`${RPC_PREFIX}${cmd}`, {
     method: "POST",
@@ -81,7 +81,7 @@ async function httpInvoke<T>(cmd: string, args?: Record<string, unknown>): Promi
 }
 
 /**
- * 调命令。桌面版走 Tauri IPC，浏览器版走 `POST /rpc/<cmd>`。
+ * 调命令。桌面版走 Tauri IPC，浏览器版走 `POST /api/rpc/<cmd>`。
  *
  * 签名与 `@tauri-apps/api/core` 的 `invoke` 一致，`services/api/*.ts` 直接换 import 即可。
  */
@@ -91,9 +91,9 @@ export function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<
 }
 
 // ─── SSE 事件（浏览器形态） ──────────────────────────────────
-// 整个 JS 上下文共用一条 `/events` 连接，按事件名 `addEventListener` 扇出。
+// 整个 JS 上下文共用一条 `/api/events` 连接，按事件名 `addEventListener` 扇出。
 // 这与 Tauri 侧的语义一致：内核把 `emit(name, payload)` 原样广播成 SSE 具名事件
-// （`aidog_kernel::server::event_stream`），data 就是 payload 的 JSON 原文。
+// （`aidog_rpc`），data 就是 payload 的 JSON 原文。
 
 let eventSource: EventSource | null = null;
 
@@ -103,7 +103,7 @@ function ensureEventSource(): EventSource {
     // EventSource 自带重连（内核重启 / 网络抖动后自动恢复），这里只记一条日志，
     // 不销毁实例 —— 销毁反而会掐掉浏览器的自动重连。
     eventSource.onerror = () => {
-      console.warn("[transport] /events stream interrupted, browser will retry");
+      console.warn("[transport] /api/events stream interrupted, browser will retry");
     };
   }
   return eventSource;
@@ -133,7 +133,7 @@ function httpListen<T>(event: string, handler: EventCallback<T>): Promise<Unlist
 }
 
 /**
- * 订阅后端事件。桌面版走 Tauri 事件总线，浏览器版走内核 SSE `/events`。
+ * 订阅后端事件。桌面版走 Tauri 事件总线，浏览器版走 SSE `/api/events`。
  *
  * 签名与 `@tauri-apps/api/event` 的 `listen` 一致。
  */
