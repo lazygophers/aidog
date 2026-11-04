@@ -14,6 +14,7 @@ import {
 import { F } from "../domains/shared/tokens";
 import { LogRow, Pagination, FilterSelect, ThCell } from "./Logs/primitives";
 import { DetailPanel } from "./Logs/DetailPanel";
+import { useDetailScroll } from "./Logs/useDetailScroll";
 import { timePresetToRange, type TimePreset } from "./Logs/types";
 import { formatDateTime } from "../utils/formatters";
 import { makeRipple } from "@/utils/motion";
@@ -22,7 +23,7 @@ import { TableHeader, TableBody } from "@/components/ui/table";
 
 // ponytail: RequestLog 自管 list + filter + detail state；复用 Logs/primitives (LogRow/Pagination/ThCell/FilterSelect)
 // + Logs/DetailPanel（ProxyLogDetail 经 proxyLogApi.get 取回 — request_log_list 仅摘要行）。
-// 详情现为居中浮层（DetailPanel 内部以 Radix Portal 渲染），列表恒常可见。
+// 详情为独立全页：detail 非空时替换列表（筛选 / 分页 state 在本组件，返回后保持）。
 // 筛选维度: 类型(test/quota) / 平台 / 状态 / 时间 — 独立于 Logs 主页。
 // 后端 request_log_list 默认 sources=[test,quota,fetch-models]（db 兜底），前端 filter.sources 显式覆盖。
 
@@ -189,6 +190,9 @@ export function RequestLog() {
     setDetail,
   }), [t, detail, copied, copiedId, openDetail, copyDetail, platformMap]);
 
+  useDetailScroll(detail !== null);
+  if (detail !== null) return <DetailPanel d={detailData as any} />;
+
   return (
     <>
       <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
@@ -311,8 +315,6 @@ export function RequestLog() {
           </>
         )}
       </div>
-      {/* 详情居中浮层（Radix Portal），列表恒常可见 */}
-      <DetailPanel d={detailData as any} />
     </>
   );
 }
