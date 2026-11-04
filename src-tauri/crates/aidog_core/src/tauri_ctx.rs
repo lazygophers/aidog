@@ -54,6 +54,7 @@ impl AppCtx for TauriCtx {
 
     fn emit(&self, event: &str, payload: serde_json::Value) {
         // 迁移前各调用点一律 `let _ = app.emit(...)`：没有 webview 在听不是错误。
+        aidog_ctx::publish_event(event, &payload);
         let _ = self.app.emit(event, payload);
     }
 

@@ -21,38 +21,24 @@ use aidog_middleware::MiddlewareEngine;
 use serde_json::Value;
 use tokio::sync::broadcast;
 
-/// 一条广播出去的界面事件（事件名 + payload）。
-#[derive(Clone, Debug)]
-pub struct KernelEvent {
-    pub name: String,
-    pub payload: Value,
-}
-
-/// 广播缓冲条数。订阅者跟不上时最老的事件被丢（`RecvError::Lagged`），
-/// 而不是把代理热路径的 `emit` 堵住 —— 事件是「该刷新了」的提示，丢几条不影响正确性。
-const EVENT_CHANNEL_CAP: usize = 256;
-
 pub struct HeadlessCtx {
     db: Db,
     middleware: Arc<MiddlewareEngine>,
     proxy: ProxyHandle,
-    events: broadcast::Sender<KernelEvent>,
 }
 
 impl HeadlessCtx {
     pub fn new(db: Db, middleware: Arc<MiddlewareEngine>) -> Self {
-        let (events, _) = broadcast::channel(EVENT_CHANNEL_CAP);
         Self {
             db,
             middleware,
             proxy: ProxyHandle::new(),
-            events,
         }
     }
 
-    /// 订阅事件流（`/events` 每个连接一份）。
-    pub fn subscribe(&self) -> broadcast::Receiver<KernelEvent> {
-        self.events.subscribe()
+    /// 订阅事件流（测试用；生产订阅者是代理上的 `/api/events`）。
+    pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<aidog_ctx::UiEvent> {
+        aidog_ctx::subscribe_events()
     }
 }
 
