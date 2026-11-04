@@ -798,6 +798,7 @@
   "logs.routing.reason.unknown-protocol": "Protocolo desconocido",
   "logs.routing.reason.kind-unsupported": "Tipo no soportado",
   "logs.routing.reason.client-not-allowed": "Cliente no permitido",
+  "logs.routing.reason.rate-limited": "Límite de tasa alcanzado",
   "logs.routing.reason.model-not-on-platform": "Modelo no en la plataforma",
   "logs.routing.reason.skipped-dead-upstream": "Upstream muerto omitido",
   "logs.routing.tag.mapping-promoted": "Promovido por mapeo",

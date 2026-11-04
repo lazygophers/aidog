@@ -10,6 +10,7 @@ use super::ordering::{
     order_load_balance,
 };
 use super::{RouteResult, candidate_state, sole_platform};
+use crate::gateway::rate_limit::RateLimitsCfg;
 use crate::client_vocab::{ClientEntry, CompiledUaRule, client_allowed, compile_ua_rules, identify};
 use aidog_db as db;
 use aidog_db::models::{ModelVia, RouteCandidate, RouteReason, RouteTag, RoutingSnapshot};
@@ -215,6 +216,8 @@ struct ExtraCache {
     allowed_clients: Vec<String>,
     /// extra.client_ua_rules 编译结果（只对内置词表认不出的请求生效）。
     ua_rules: Vec<CompiledUaRule>,
+    /// extra.rate_limits（并发 / RPM / TPM，内存计数执行）。
+    rate: RateLimitsCfg,
 }
 
 impl ExtraCache {
@@ -233,6 +236,7 @@ impl ExtraCache {
             direct_models,
             allowed_clients,
             ua_rules,
+            rate: RateLimitsCfg::parse(extra),
         }
     }
 }
@@ -397,6 +401,7 @@ pub async fn select_candidates_gated(
         kind_rejected_count,
         unknown_protocol_count,
         client_rejected_count,
+        rate_limited_count,
     } = filter_candidates(&group_platforms, ctx, now_ms, source_model, &extra_cache, kind, &decision_models, client);
 
     // ── 阶段 2: 熔断全空回退透传 ──
@@ -523,6 +528,18 @@ pub async fn select_candidates_gated(
             );
             return Err(RouteFail {
                 reason: "peak_disabled".to_string(),
+                routing,
+            });
+        }
+        // 整组所有候选被平台限频排除 → 返特殊 Err，caller 落审计 proxy_log
+        // (blocked_by='router', blocked_reason='rate_limit', est_cost=0, status_code=503)。
+        if rate_limited_count > 0 && rate_limited_count == group_platforms.len() {
+            tracing::info!(
+                group = %group.name, rate_limited = rate_limited_count,
+                "all candidates rate-limited; returning rate_limit error for audit log"
+            );
+            return Err(RouteFail {
+                reason: "rate_limit".to_string(),
                 routing,
             });
         }
@@ -689,6 +706,22 @@ async fn handle_single_platform(
         });
     }
 
+    // 平台限频：单平台 / 等效单平台同样不 bypass（与高峰禁用同位次，在单平台短路之内）。
+    if !is_passthrough
+        && let Some(c) = _ctx
+        && let Some(cache) = cache
+        && rate_limited(&c.scheduler.rate, only.platform.id, &cache.rate, now_ms, source_model)
+    {
+        tracing::info!(
+            group = %group.name, platform = %only.platform.name,
+            "single-platform group: rate-limited, request blocked"
+        );
+        return Err(RouteFail {
+            reason: "rate_limit".to_string(),
+            routing: single_snapshot(only, group.routing_mode, RouteReason::RateLimited),
+        });
+    }
+
     // 时段模型：从缓存获取 time_windows，再用 resolve_model
     let time_rules: &[serde_json::Value] =
         cache.map(|c| c.time_windows.as_slice()).unwrap_or_default();
@@ -724,6 +757,23 @@ async fn handle_single_platform(
         }],
         routing,
     })
+}
+
+/// 平台限频只读判定：平台级（含时段窗口覆盖）与请求模型级任一放不下即超限。
+/// 模型级只查请求模型名（目标模型此时未解析，换模型后的上限在转发时重判）。
+fn rate_limited(
+    rl: &crate::gateway::rate_limit::RateLimiter,
+    pid: u64,
+    cfg: &RateLimitsCfg,
+    now_ms: i64,
+    source_model: &str,
+) -> bool {
+    if cfg.is_empty() {
+        return false;
+    }
+    !rl.has_room(pid, "", &cfg.platform_limits(now_ms, source_model), now_ms)
+        || (!source_model.is_empty()
+            && !rl.has_room(pid, source_model, &cfg.model_limits(source_model), now_ms))
 }
 
 /// 单平台组快照（票 01）：唯一候选一个条目，排除时带原因。
@@ -957,6 +1007,8 @@ struct FilteredCandidates<'a> {
     unknown_protocol_count: usize,
     /// 因客户端白名单被拦的平台数（仅统计状态正常、未被其他维度先排除者）。
     client_rejected_count: usize,
+    /// 因平台限频超限被排除的平台数（阶段 5 全组超限 → rate_limit）。
+    rate_limited_count: usize,
 }
 
 /// 遍历 group_platforms 按 auto_disabled 三态分桶（enabled / 过期试探），
@@ -981,6 +1033,7 @@ fn filter_candidates<'a>(
     let mut kind_rejected_count = 0;
     let mut unknown_protocol_count = 0;
     let mut client_rejected_count = 0;
+    let mut rate_limited_count = 0;
 
     let breaker_enabled = ctx.map(|c| c.settings.enabled).unwrap_or(false);
 
@@ -1029,6 +1082,16 @@ fn filter_candidates<'a>(
         // （candidate_state 已按 Passthrough 跳过高峰禁用与 auto_disabled）。
         if matches!(gp.platform.platform_type, Protocol::Passthrough) {
             active.push(gp);
+            continue;
+        }
+
+        // 平台限频维度（extra.rate_limits，内存计数；独立于 status，与高峰禁用同型临时闸门）。
+        if let Some(c) = ctx
+            && let Some(cache) = extra_cache.get(&gp.platform.id)
+            && rate_limited(&c.scheduler.rate, gp.platform.id, &cache.rate, now_ms, source_model)
+        {
+            rate_limited_count += 1;
+            excluded.push((gp, RouteReason::RateLimited));
             continue;
         }
 
@@ -1084,6 +1147,7 @@ fn filter_candidates<'a>(
         kind_rejected_count,
         unknown_protocol_count,
         client_rejected_count,
+        rate_limited_count,
     }
 }
 

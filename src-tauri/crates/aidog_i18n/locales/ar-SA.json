@@ -820,6 +820,7 @@
   "logs.routing.reason.unknown-protocol": "بروتوكول غير معروف",
   "logs.routing.reason.kind-unsupported": "النوع غير مدعوم",
   "logs.routing.reason.client-not-allowed": "العميل غير مسموح",
+  "logs.routing.reason.rate-limited": "تجاوز حد المعدل",
   "logs.routing.reason.model-not-on-platform": "الطراز غير موجود على المنصة",
   "logs.routing.reason.skipped-dead-upstream": "تم تخطي خادم ميت",
   "logs.routing.tag.mapping-promoted": "تمت الترقية بالتعيين",

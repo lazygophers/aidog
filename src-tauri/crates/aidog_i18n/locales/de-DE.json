@@ -820,6 +820,7 @@
   "logs.routing.reason.unknown-protocol": "Unbekanntes Protokoll",
   "logs.routing.reason.kind-unsupported": "Typ nicht unterstützt",
   "logs.routing.reason.client-not-allowed": "Client nicht erlaubt",
+  "logs.routing.reason.rate-limited": "Ratenlimit erreicht",
   "logs.routing.reason.model-not-on-platform": "Modell nicht auf Plattform",
   "logs.routing.reason.skipped-dead-upstream": "Toten Upstream übersprungen",
   "logs.routing.tag.mapping-promoted": "Durch Mapping befördert",

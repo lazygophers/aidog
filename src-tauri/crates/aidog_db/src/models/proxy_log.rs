@@ -172,6 +172,8 @@ pub enum RouteReason {
     KindUnsupported,
     /// 客户端白名单未命中（platform.extra.allowed_clients）
     ClientNotAllowed,
+    /// 平台限频超限（platform.extra.rate_limits，内存计数）
+    RateLimited,
     /// 模型不在此平台（预留：现路由无此排除维度，枚举先行供票 02 UI 渲染）
     ModelNotOnPlatform,
     /// 死站跳过（重试循环内同 base_url 已 connect 失败，handler.rs R3 补记）

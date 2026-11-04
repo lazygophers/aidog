@@ -21,6 +21,7 @@ const REASON_LABELS: Record<string, string> = {
   "unknown-protocol": "协议未知",
   "kind-unsupported": "请求类型不支持",
   "client-not-allowed": "客户端不被允许",
+  "rate-limited": "限频超限",
   "model-not-on-platform": "模型不在此平台",
   "skipped-dead-upstream": "死站跳过",
 };
