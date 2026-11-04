@@ -301,6 +301,7 @@ async fn forward_attempt_model(
         start,
         log_settings,
         sched_settings,
+        has_next_model,
     )
         .await
         {
@@ -3196,6 +3197,7 @@ async fn send_upstream(
     start: std::time::Instant,
     log_settings: &ProxyLogSettings,
     sched_settings: &super::models::SchedulingBreakerSettings,
+    has_next_model: bool,
 ) -> Result<(reqwest::Response, super::scheduling::BreakerThresholds), StageExit> {
     let OutboundRequest {
         req_body_str,
@@ -3403,7 +3405,8 @@ async fn send_upstream(
                 tracing::error!(url = %url, platform = %route.platform.name, error = %detail, duration_ms = start.elapsed().as_millis() as i64, "upstream request failed (502)");
                 let upstream_err = format!("upstream error: {detail}");
                 attempts.push(ProxyAttempt {
-                    chain_stop: None,
+                    // transport 错（连接失败 / 超时）属服务类：不换模型直接换平台，链上剩余模型记「跳过」
+                    chain_stop: has_next_model.then(|| "service".to_string()),
                     ttfb_ms: None,
                     platform_id: route.platform.id,
                     platform_name: route.platform.name.clone(),

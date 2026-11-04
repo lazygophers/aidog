@@ -183,6 +183,18 @@ describe("RoutingCanvas", () => {
     expect(chainStates(container, "p-2")).toEqual(["used", "untried"]);
   });
 
+  // 决策 B：上游 200 但空响应，attempt 记 status_code=200 + 非空 error，须当失败
+  it("空 200（决策 B）：全部候选失败时无胜出，节点 fail，链项 failed 非 used", () => {
+    const { container } = renderCanvas(chainSnap, [
+      { platform_id: 1, status_code: 200, model: "m-a", error: "200 but empty/invalid body" },
+      { platform_id: 2, status_code: 502, model: "m-x", error: "upstream error" },
+    ]);
+    expect(container.querySelector('[data-node-id="p-1"]')!.getAttribute("data-state")).toBe("fail");
+    expect(container.querySelector('[data-node-id="p-2"]')!.getAttribute("data-state")).toBe("fail");
+    expect(container.querySelector("path.rc-edge.win")).toBeNull();
+    expect(chainStates(container, "p-1")[0]).toBe("failed");
+  });
+
   it("链长 1 / 无 model_chain：不渲染逐项行，保持单行模型", () => {
     const { container } = renderCanvas(snapshot, [{ platform_id: 1, status_code: 200 }]);
     expect(container.querySelector('[data-testid="routing-chain-item"]')).toBeNull();

@@ -81,6 +81,9 @@ type AttemptLite = { platform_id: number; status_code: number; model?: string; e
 export type ChainState = "used" | "failed" | "skipped" | "untried";
 export interface ChainItem { model: string; state: ChainState; reason?: string; ms?: number }
 
+/** 成功 = 2xx 且无 error。决策 B（200 空响应）的 attempt 记 status_code=200 + 非空 error，须算失败；成功 attempt 的 error 恒为空串。 */
+const attemptOk = (a: AttemptLite) => a.status_code >= 200 && a.status_code < 300 && !a.error;
+
 /** 求和有效的 duration_ms；一个有效值都没有（旧日志）返回 undefined，不显示。 */
 function sumMs(list: AttemptLite[]): number | undefined {
   const vals = list.map((a) => a.duration_ms).filter((v): v is number => typeof v === "number" && Number.isFinite(v));
@@ -95,7 +98,7 @@ export function chainStates(chain: string[], platformAttempts: AttemptLite[], t:
   return chain.map((model) => {
     const a = [...platformAttempts].reverse().find((x) => x.model === model);
     if (a) {
-      const ok = a.status_code >= 200 && a.status_code < 300;
+      const ok = attemptOk(a);
       const ms = sumMs(platformAttempts.filter((x) => x.model === model));
       return ok ? { model, state: "used", ms } : { model, state: "failed", reason: `${a.status_code}${a.error ? ` ${a.error}` : ""}`, ms };
     }
@@ -121,7 +124,7 @@ function buildNodes(
 ): NodeSpec[] {
   const lastFailByPlatform = new Map<number, number>();
   attempts?.forEach((a) => {
-    if (!(a.status_code >= 200 && a.status_code < 300)) lastFailByPlatform.set(a.platform_id, a.status_code);
+    if (!attemptOk(a)) lastFailByPlatform.set(a.platform_id, a.status_code);
   });
 
   const nodes: NodeSpec[] = [
@@ -137,7 +140,7 @@ function buildNodes(
     const platAttempts = (attempts ?? []).filter((a) => a.platform_id === c.platform_id);
     const chain = chainModels && c.reason === "selected" ? chainStates(chainModels, platAttempts, t) : undefined;
     const totalMs = sumMs(platAttempts);
-    const winTtfb = [...platAttempts].reverse().find((a) => a.status_code >= 200 && a.status_code < 300)?.ttfb_ms;
+    const winTtfb = [...platAttempts].reverse().find(attemptOk)?.ttfb_ms;
     if (c.reason !== "selected") {
       nodes.push({ id, cls: "dim", ico: "·", nm, sb, modelUnused: true, pills: [t(REASON_KEY[c.reason])] });
     } else if (id === winId) {
@@ -178,7 +181,7 @@ export function RoutingCanvas({
   const [tick, setTick] = useState(0);
 
   const winId = useMemo(() => {
-    const wins = attempts?.filter((a) => a.status_code >= 200 && a.status_code < 300);
+    const wins = attempts?.filter(attemptOk);
     return wins && wins.length >= 1 ? `p-${wins[wins.length - 1]!.platform_id}` : null;
   }, [attempts]);
 
