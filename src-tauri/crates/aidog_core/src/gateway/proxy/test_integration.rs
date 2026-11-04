@@ -5984,3 +5984,211 @@ async fn rc01_passthrough_claim_writes_snapshot() {
         // 下一轮 last_log_for 取同 group 最新一条前清掉旧行的歧义：不同 path 各自断言即可
     }
 }
+
+// ── 路由画布 02：转发尝试补记种类 / 错误分类 / 副作用（本地假上游，无外呼）──
+
+/// 传输错误：同平台原地重试那一项 kind=retry；末次耗尽失败项归服务类并带降权副作用
+/// （单候选组触发本地网络保护，不计熔断）。
+#[tokio::test]
+async fn rc02_transport_retry_kind_and_exhausted_class() {
+    let up = spawn_flaky_upstream(1).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkrc02a", &up).await;
+    assert_eq!(handle_proxy(AxumState(state.clone()), messages_request("gkrc02a", RC01_BODY)).await.status(), StatusCode::OK);
+    let log = last_log_for(&state, "gkrc02a").await;
+    assert_eq!(log.attempts.len(), 2);
+    assert_eq!(log.attempts[0].kind.as_deref(), Some("retry"));
+    assert_eq!(log.attempts[1].kind, None);
+
+    let dead = spawn_flaky_upstream(usize::MAX).await;
+    setup_group_with_upstream(&state, "gkrc02b", &dead).await;
+    assert_eq!(handle_proxy(AxumState(state.clone()), messages_request("gkrc02b", RC01_BODY)).await.status(), StatusCode::BAD_GATEWAY);
+    let last = last_log_for(&state, "gkrc02b").await.attempts.pop().unwrap();
+    assert_eq!(last.kind, None);
+    assert_eq!(last.error_class.as_deref(), Some("service"));
+    assert_eq!(last.effects, ["penalty_server"]);
+}
+
+/// anthropic-beta 400 剔头重试：被降级的那次 400 标 beta_downgrade，重试成功项为正常。
+#[tokio::test]
+async fn rc02_beta_downgrade_kind() {
+    use axum::routing::any;
+    let app = axum::Router::new().fallback(any(|req: HttpRequest<Body>| async move {
+        if req.headers().contains_key("anthropic-beta") {
+            (axum::http::StatusCode::BAD_REQUEST, [("content-type", "application/json")], r#"{"error":{"message":"bad"}}"#)
+        } else {
+            (axum::http::StatusCode::OK, [("content-type", "application/json")], ANTHROPIC_OK)
+        }
+    }));
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let up = format!("http://{}", l.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(l, app).await.ok(); });
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkrc02c", &up).await;
+    let req = HttpRequest::builder()
+        .method("POST").uri("/v1/messages")
+        .header("authorization", "Bearer gkrc02c")
+        .header("content-type", "application/json")
+        .header("anthropic-beta", "x-new-beta")
+        .body(Body::from(RC01_BODY)).unwrap();
+    assert_eq!(handle_proxy(AxumState(state.clone()), req).await.status(), StatusCode::OK);
+    let log = last_log_for(&state, "gkrc02c").await;
+    assert_eq!(log.attempts.len(), 2);
+    assert_eq!(log.attempts[0].kind.as_deref(), Some("beta_downgrade"));
+    assert_eq!(log.attempts[0].status_code, 400);
+    assert_eq!(log.attempts[1].kind, None);
+}
+
+/// 200 空响应（决策 B）：kind=empty_200、服务类、降权副作用；换平台时链上剩余模型记 chain_stop=service。
+#[tokio::test]
+async fn rc02_empty_200_kind_class_and_chain_stop() {
+    let empty = spawn_stub_upstream(200, "").await;
+    let ok = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(&state, "gkrc02d", &[
+        (&empty, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p1"),
+        (&ok, chain_models(&["m-c"]), Protocol::Anthropic, "p2"),
+    ]).await;
+    assert_eq!(chain_send(&state, "gkrc02d", CHAIN_REQ).await.status(), StatusCode::OK);
+    let log = last_log_for(&state, "gkrc02d").await;
+    assert_eq!(log.attempts.len(), 2, "m-b 未尝试，不出现");
+    let a = &log.attempts[0];
+    assert_eq!((a.kind.as_deref(), a.status_code), (Some("empty_200"), 200));
+    assert_eq!(a.error_class.as_deref(), Some("service"));
+    assert_eq!(a.effects, ["penalty_server"]);
+    assert_eq!(a.chain_stop.as_deref(), Some("service"), "空 200 换平台，m-b 未试");
+    assert_eq!(log.attempts[1].kind, None);
+}
+
+/// 错误类别 / registry 码义 / 副作用：每行 (协议, 状态码, body, 期望类别, 期望码义, 期望副作用)。
+#[tokio::test]
+async fn rc02_error_class_code_meaning_and_effects() {
+    let cases: [(Protocol, u16, &'static str, &str, Option<&str>, &[&str]); 5] = [
+        (Protocol::Glm, 429, r#"{"error":{"code":"1302","message":"x"}}"#, "service", Some("rate_limit"), &["cooldown_minute"]),
+        (Protocol::Glm, 400, r#"{"error":{"code":"1305","message":"x"}}"#, "service", Some("overloaded"), &["breaker_count", "penalty_client"]),
+        (Protocol::Anthropic, 401, r#"{"error":{"message":"invalid api key"}}"#, "service", None, &["penalty_client", "cooldown_auth"]),
+        (Protocol::Anthropic, 402, r#"{"error":{"message":"insufficient balance"}}"#, "service", None, &["penalty_client", "cooldown_balance"]),
+        (Protocol::Anthropic, 500, r#"{"error":{"message":"service unavailable"}}"#, "service", None, &["penalty_server"]),
+    ];
+    for (i, (proto, status, body, class, meaning, effects)) in cases.into_iter().enumerate() {
+        let up = spawn_stub_upstream(status, body).await;
+        let state = make_state(test_db().await).await;
+        let pid = mk_platform_of(&state, proto, up).await;
+        let gk = format!("gkrc02e{i}");
+        group_of(&state, &gk, &[pid]).await;
+        let _ = handle_proxy(AxumState(state.clone()), messages_request(&gk, HI)).await;
+        let a = last_log_for(&state, &gk).await.attempts.remove(0);
+        assert_eq!(a.kind, None, "case {i}");
+        assert_eq!(a.error_class.as_deref(), Some(class), "case {i}");
+        assert_eq!(a.code_meaning.as_deref(), meaning, "case {i}");
+        assert_eq!(a.effects, effects, "case {i}");
+    }
+}
+
+/// 模型类失败（换模型，未记账）：带 model 类别、无副作用；命中 error_rule 时带规则标识。
+#[tokio::test]
+async fn rc02_model_class_no_effects_and_error_rule_recorded() {
+    use aidog_db::models::{
+        ActionKind, ActionParams, ActionStep, AppliesTo, ConditionLeaf, ConditionNode, MatchType, MiddlewareRule, Target,
+    };
+    let (up, _hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, ANTHROPIC_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(&state, "gkrc02f", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+    assert_eq!(chain_send(&state, "gkrc02f", CHAIN_REQ).await.status(), StatusCode::OK);
+    let a = last_log_for(&state, "gkrc02f").await.attempts.remove(0);
+    assert_eq!((a.error_class.as_deref(), a.error_rule.as_deref()), (Some("model"), None));
+    assert!(a.effects.is_empty(), "换模型未记账，无副作用: {:?}", a.effects);
+
+    let (up, _hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, ANTHROPIC_OK)]).await;
+    state.middleware.rebuild_from_rules(vec![MiddlewareRule {
+        id: 1,
+        name: "no-retry-404".into(),
+        description: String::new(),
+        conditions: ConditionNode::Leaf(ConditionLeaf {
+            target: Target::Status,
+            field: String::new(),
+            match_type: MatchType::Regex,
+            pattern: "404".into(),
+            validator: String::new(),
+        }),
+        actions: vec![ActionStep {
+            kind: ActionKind::Classify,
+            params: ActionParams { category: "x".into(), retryable: false, ..Default::default() },
+        }],
+        applies_to: AppliesTo::default(),
+        priority: 0,
+        enabled: true,
+        is_builtin: false,
+        failed: false,
+        created_at: 0,
+        updated_at: 0,
+    }]);
+    setup_aux_group(&state, "gkrc02g", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+    assert_eq!(chain_send(&state, "gkrc02g", CHAIN_REQ).await.status(), StatusCode::NOT_FOUND);
+    let a = last_log_for(&state, "gkrc02g").await.attempts.remove(0);
+    assert!(a.error_rule.as_deref().is_some_and(|r| r.contains("no-retry-404")), "{:?}", a.error_rule);
+    assert_eq!(a.chain_stop.as_deref(), Some("rule"));
+}
+
+/// 模型级限频跳过：不再无痕，推为 kind=rate_limit_model 的一次尝试，链继续下一个模型。
+#[tokio::test]
+async fn rc02_model_rate_limit_skip_recorded() {
+    let (up, hits) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK), (200, ANTHROPIC_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(&state, "gkrc02h", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+    set_platform_extra(&state, "gkrc02h-p", r#"{"rate_limits":{"models":{"m-a":{"rpm":1}}}}"#).await;
+    assert_eq!(chain_send(&state, "gkrc02h", CHAIN_REQ).await.status(), StatusCode::OK);
+    state.db.invalidate_group_details_cache();
+    assert_eq!(chain_send(&state, "gkrc02h", CHAIN_REQ).await.status(), StatusCode::OK);
+    assert_eq!(hit_models(&hits), ["m-a", "m-b"], "第二次 m-a 被限频跳过，直接用 m-b");
+    let log = last_log_for(&state, "gkrc02h").await;
+    assert_eq!(log.attempts.len(), 2);
+    assert_eq!(log.attempts[0].kind.as_deref(), Some("rate_limit_model"));
+    assert_eq!(log.attempts[0].model.as_deref(), Some("m-a"));
+    assert_eq!(log.attempts[1].kind, None);
+    assert_eq!(log.attempts[1].model.as_deref(), Some("m-b"));
+}
+
+/// 平台级限频占位失败（候选筛选后被并发抢占）：推为 kind=rate_limit_platform；链上模型记 chain_stop=rate_limit。
+/// 复现：A 的假上游在收到请求时顺手占满 B 的并发位，A 500 后轮到 B，begin 失败。
+#[tokio::test]
+async fn rc02_platform_rate_limit_skip_recorded() {
+    use axum::routing::any;
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let up_a = format!("http://{}", l.local_addr().unwrap());
+    let up_b = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(&state, "gkrc02i", &[
+        (&up_a, chain_models(&["m-a"]), Protocol::Anthropic, "pa"),
+        (&up_b, chain_models(&["m-b1", "m-b2"]), Protocol::Anthropic, "pb"),
+    ]).await;
+    let b_extra = r#"{"rate_limits":{"concurrency":1}}"#;
+    set_platform_extra(&state, "gkrc02i-pb", b_extra).await;
+    let b_id = platform_id_of(&state, "gkrc02i-pb").await;
+    let held: Arc<std::sync::Mutex<Vec<Arc<crate::gateway::rate_limit::Access>>>> = Default::default();
+    let (st, held2) = (state.clone(), held.clone());
+    let app = axum::Router::new().fallback(any(move || {
+        let (st, held) = (st.clone(), held2.clone());
+        async move {
+            let now = aidog_db::now();
+            let lim = crate::gateway::rate_limit::RateLimitsCfg::parse(b_extra).platform_limits(now, "");
+            if let Some(a) = st.scheduler.rate.begin(b_id, &lim, now, 0) {
+                held.lock().unwrap().push(a);
+            }
+            (axum::http::StatusCode::INTERNAL_SERVER_ERROR, [("content-type", "application/json")], r#"{"error":{"message":"boom"}}"#)
+        }
+    }));
+    tokio::spawn(async move { axum::serve(l, app).await.ok(); });
+    let resp = chain_send(&state, "gkrc02i", CHAIN_REQ).await;
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(held.lock().unwrap().len(), 1, "B 并发位应已被占");
+    let log = last_log_for(&state, "gkrc02i").await;
+    assert_eq!(log.attempts.len(), 2);
+    assert_eq!(log.attempts[0].status_code, 500);
+    let skip = &log.attempts[1];
+    assert_eq!(skip.kind.as_deref(), Some("rate_limit_platform"));
+    assert_eq!(skip.platform_id, b_id);
+    assert_eq!(skip.model.as_deref(), Some("m-b1"));
+    assert_eq!(skip.chain_stop.as_deref(), Some("rate_limit"));
+    assert_eq!(log.blocked_reason, "rate_limit");
+}

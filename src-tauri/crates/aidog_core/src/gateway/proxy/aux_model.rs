@@ -190,6 +190,16 @@ pub(crate) async fn handle_aux_model(
                 Some(a) => Some(a),
                 None => {
                     tracing::warn!(platform = %route.platform.name, kind = spec.label, "rate limit reached at acquire, skipping candidate");
+                    attempts.push(ProxyAttempt {
+                        kind: Some("rate_limit_platform".to_string()),
+                        chain_stop: (!route.fallback_models.is_empty()).then(|| "rate_limit".to_string()),
+                        platform_id: route.platform.id,
+                        platform_name: route.platform.name.clone(),
+                        error: "platform rate limit reached".to_string(),
+                        ts: attempt_ts,
+                        model: Some(route.target_model.clone()),
+                        ..Default::default()
+                    });
                     mark_rate_limited(log);
                     continue;
                 }
@@ -201,6 +211,15 @@ pub(crate) async fn handle_aux_model(
                 let model = chain.route().target_model.clone();
                 if !a.enter_model(&model, &rl_cfg.model_limits(&model), aidog_db::now(), rl_est) {
                     tracing::warn!(model = %model, kind = spec.label, "model-level rate limit reached, trying next model");
+                    attempts.push(ProxyAttempt {
+                        kind: Some("rate_limit_model".to_string()),
+                        platform_id: chain.route().platform.id,
+                        platform_name: chain.route().platform.name.clone(),
+                        error: "model rate limit reached".to_string(),
+                        ts: attempt_ts,
+                        model: Some(model.clone()),
+                        ..Default::default()
+                    });
                     if chain.has_next() {
                         (attempt_start, attempt_ts) = chain.advance();
                         continue;
@@ -354,6 +373,7 @@ async fn aux_attempt(
                 duration_ms: attempt_start.elapsed().as_millis() as i64,
                 ts: attempt_ts,
                 model: Some(route.target_model.clone()),
+                ..Default::default()
             });
             let _ = aidog_db::set_platform_last_error(
                 &state.db,
@@ -443,6 +463,7 @@ async fn aux_attempt(
         duration_ms: attempt_latency_ms,
         ts: attempt_ts,
         model: Some(route.target_model.clone()),
+        ..Default::default()
     });
     if route.platform.status == super::models::PlatformStatus::AutoDisabled {
         if let Err(e) = aidog_db::recover_platform_auto_disabled(&state.db, route.platform.id).await
