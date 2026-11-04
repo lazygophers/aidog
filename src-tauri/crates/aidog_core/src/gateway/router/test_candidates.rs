@@ -523,6 +523,28 @@ async fn multi_platform_all_unknown_protocol_errs() {
     }
 }
 
+/// 路由画布修复 3：任何路径出的快照（成功 / 路由失败）都带 max_retries，前端据此判新格式。
+#[tokio::test]
+async fn rcfix_snapshot_always_stamps_max_retries() {
+    let db = mk_test_db().await;
+    let ok = mk_db_platform(&db, "ok").await;
+    let g = mk_db_group(&db, "rcfix-ok", &[ok.id]).await;
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat).await.unwrap();
+    assert_eq!(set.routing.max_retries, Some(g.max_retries), "success snapshot");
+
+    let p1 = mk_db_platform(&db, "u1").await;
+    let p2 = mk_db_platform(&db, "u2").await;
+    set_unknown_platform_type(&db, p1.id).await;
+    set_unknown_platform_type(&db, p2.id).await;
+    let g2 = mk_db_group(&db, "rcfix-fail", &[p1.id, p2.id]).await;
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None, rate_body: None };
+    let e = select_candidates_ctx(&db, &g2, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await.unwrap_err();
+    assert_eq!(e.routing.max_retries, Some(g2.max_retries), "route-fail snapshot");
+}
+
 /// 多平台分组：仅部分候选协议未知 → 被排除，其他候选正常纳入（不影响）。
 #[tokio::test]
 async fn multi_platform_partial_unknown_protocol_skipped() {

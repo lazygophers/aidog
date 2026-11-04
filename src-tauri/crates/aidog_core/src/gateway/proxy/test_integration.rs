@@ -6298,3 +6298,54 @@ async fn mgmt_rpc_unknown_command_is_404_and_other_paths_still_route() {
     let root: serde_json::Value = c.get(format!("{base}/")).send().await.unwrap().json().await.unwrap();
     assert_eq!(root["service"], "aidog");
 }
+
+fn rc_chat_req(gk: &str) -> Request {
+    HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/messages")
+        .header("authorization", format!("Bearer {gk}"))
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#))
+        .unwrap()
+}
+
+/// 路由画布修复 1：透传平台转发成功 → attempts 记一条真实 ProxyAttempt（platform / status / 耗时），retry_count 仍 0。
+#[tokio::test]
+async fn rcfix_passthrough_platform_success_records_attempt() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, r#"{"ok":true}"#).await;
+    setup_passthrough_platform_group(&state, "gkrcpa", &up).await;
+    let resp = handle_proxy(AxumState(state.clone()), rc_chat_req("gkrcpa")).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let row = last_log_for(&state, "gkrcpa").await;
+    assert_eq!(row.attempts.len(), 1, "passthrough must record its attempt");
+    let a = &row.attempts[0];
+    assert_eq!(a.platform_id, row.platform_id);
+    assert_eq!(a.platform_name, "pt");
+    assert_eq!(a.status_code, 200);
+    assert!(a.error.is_empty());
+    assert!(a.ts > 0 && a.ttfb_ms.is_some());
+    assert_eq!(row.retry_count, 0);
+}
+
+/// 同上：上游 500 与连接失败也各记一条（500 附 `HTTP 500`，连接失败 status=0 + 错误文本）。
+#[tokio::test]
+async fn rcfix_passthrough_platform_failure_records_attempt() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(500, r#"{"e":1}"#).await;
+    setup_passthrough_platform_group(&state, "gkrcpf", &up).await;
+    let _ = handle_proxy(AxumState(state.clone()), rc_chat_req("gkrcpf")).await;
+    let row = last_log_for(&state, "gkrcpf").await;
+    assert_eq!(row.attempts.len(), 1);
+    assert_eq!(row.attempts[0].status_code, 500);
+    assert_eq!(row.attempts[0].error, "HTTP 500");
+
+    let dead = spawn_reset_upstream().await;
+    setup_passthrough_platform_group(&state, "gkrcpd", &dead).await;
+    let _ = handle_proxy(AxumState(state.clone()), rc_chat_req("gkrcpd")).await;
+    let row = last_log_for(&state, "gkrcpd").await;
+    assert_eq!(row.attempts.len(), 1);
+    assert_eq!(row.attempts[0].status_code, 0);
+    assert!(!row.attempts[0].error.is_empty());
+    assert!(row.attempts[0].ttfb_ms.is_none());
+}

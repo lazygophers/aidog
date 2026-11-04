@@ -72,6 +72,12 @@ pub fn parse_attempts(s: &str) -> Vec<ProxyAttempt> {
     serde_json::from_str(s).unwrap_or_default()
 }
 
+/// 重试次数 = 实际尝试数 - 1。限频跳过（kind 以 `rate_limit` 开头）没有真正发出请求，不计入。
+pub fn retry_count_of(attempts: &[ProxyAttempt]) -> i32 {
+    let sent = attempts.iter().filter(|a| !a.kind.as_deref().is_some_and(|k| k.starts_with("rate_limit"))).count();
+    (sent as i32 - 1).max(0)
+}
+
 // ─── Platform Models ───────────────────────────────────────
 
 /// 平台模型配置：8 个固定槽位（jev 为决策模型专用槽，见 jev-decision-proxy R2/R3；
@@ -640,6 +646,17 @@ pub struct UpdatePlatform {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn retry_count_excludes_rate_limit_skips() {
+        let at = |kind: Option<&str>| ProxyAttempt { kind: kind.map(str::to_string), ..Default::default() };
+        assert_eq!(retry_count_of(&[]), 0);
+        assert_eq!(retry_count_of(&[at(None)]), 0);
+        assert_eq!(retry_count_of(&[at(Some("rate_limit_platform")), at(None)]), 0);
+        assert_eq!(retry_count_of(&[at(Some("rate_limit_model")), at(Some("rate_limit_platform")), at(None), at(Some("retry"))]), 1);
+        assert_eq!(retry_count_of(&[at(Some("rate_limit_platform"))]), 0);
+        assert_eq!(retry_count_of(&[at(None), at(Some("empty_200")), at(Some("beta_downgrade"))]), 2);
+    }
 
     // ── serialize_attempts / parse_attempts ──
 
