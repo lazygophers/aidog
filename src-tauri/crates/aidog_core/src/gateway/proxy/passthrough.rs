@@ -29,6 +29,25 @@ pub(crate) struct PassthroughOpts {
     /// 注入的认证头 `(头名, 已填 key 的值)`。日志记录时该头值脱敏（scheme 保留、key 置 [REDACTED]）。
     /// 透传平台专用；api_key 为空时 None（只剥不注，strip_inbound_auth 仍生效）。
     pub auth_inject: Option<(String, String)>,
+    /// 透传平台（platform_id, 名称）：Some 时本次转发记一条真实 ProxyAttempt（路由画布据此连响应）；
+    /// 无平台的直通 / claude_code 订阅透传为 None（不属于平台路由）。
+    pub attempt_platform: Option<(u64, String)>,
+}
+
+/// 透传平台一次转发的 attempt 快照（连接失败 status=0；否则为上游状态码，非 2xx 附 `HTTP n`）。
+fn push_passthrough_attempt(log: &mut ProxyLog, opts: &PassthroughOpts, status_code: i32, error: String, ts: i64, start: std::time::Instant) {
+    let Some((platform_id, platform_name)) = &opts.attempt_platform else { return };
+    let ms = start.elapsed().as_millis() as i64;
+    log.attempts.push(ProxyAttempt {
+        platform_id: *platform_id,
+        platform_name: platform_name.clone(),
+        status_code,
+        error,
+        duration_ms: ms,
+        ts,
+        ttfb_ms: (status_code != 0).then_some(ms),
+        ..Default::default()
+    });
 }
 
 /// Claude Code 订阅平台纯透传：把客户端原始请求 1:1 relay 到 base_url，原样返回响应，记 proxy_log。
@@ -56,6 +75,7 @@ pub(crate) async fn handle_passthrough(
         idle_ping: true,
         strip_inbound_auth: false,
         auth_inject: None,
+        attempt_platform: None,
     };
     relay_passthrough(
         state,
@@ -167,9 +187,11 @@ async fn relay_passthrough(
     let mut req_builder = client.request(method, &url).body(bytes.to_vec());
     req_builder = req_builder.headers(fwd_headers);
 
+    let attempt_ts = aidog_db::now();
     let resp = match req_builder.send().await {
         Ok(r) => r,
         Err(e) => {
+            push_passthrough_attempt(log, opts, 0, format!("{e}"), attempt_ts, start);
             tracing::error!(url = %log.upstream_request_url, error = %e, duration_ms = start.elapsed().as_millis() as i64, tag = %opts.protocol_tag, "passthrough upstream request failed (502)");
             log.response_body = format!("upstream error: {e}");
             log.status_code = 502;
@@ -190,6 +212,11 @@ async fn relay_passthrough(
 
     let status = resp.status();
     log.upstream_status_code = status.as_u16() as i32;
+    push_passthrough_attempt(
+        log, opts, status.as_u16() as i32,
+        if status.is_success() { String::new() } else { format!("HTTP {}", status.as_u16()) },
+        attempt_ts, start,
+    );
     tracing::info!(url = %log.upstream_request_url, status = status.as_u16(), duration_ms = start.elapsed().as_millis() as i64, tag = %opts.protocol_tag, "passthrough upstream responded");
 
     // 捕获上游响应头（原样照搬给客户端）
@@ -599,6 +626,7 @@ pub(crate) async fn handle_passthrough_platform(
         idle_ping: false,             // 同理：非 anthropic SSE 插 ping 帧只会污染响应体
         strip_inbound_auth: true,
         auth_inject,
+        attempt_platform: Some((platform.id, platform.name.clone())),
     };
     relay_passthrough(
         state,
@@ -790,6 +818,7 @@ pub(crate) async fn forward_passthrough_to_orig_host(
         idle_ping: false,             // 同理：普通浏览流量不是 SSE，不插 ping 帧
         strip_inbound_auth: false,
         auth_inject: None,
+        attempt_platform: None,
     };
     relay_passthrough(
         state,

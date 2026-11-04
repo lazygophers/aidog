@@ -332,7 +332,7 @@ pub(crate) async fn handle_non_success(
     // 日志字段 = 实际发回客户端的头集合（与 finish.rs 的 2xx 路径同语义）
     log.user_response_headers = resp_headers_to_log_json(&filtered);
     log.duration_ms = duration_ms as i32;
-    log.retry_count = (attempts.len() as i32 - 1).max(0);
+    log.retry_count = aidog_db::models::retry_count_of(attempts);
     log.attempts = std::mem::take(attempts);
     upsert_log(state, log, log_settings).await;
     let mut r = (
