@@ -33,7 +33,7 @@ import {
 
 type Source = "manual" | "preset" | "copy";
 
-const EMPTY_MODELS: Record<ModelSlot, string> = { default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "", embedding: "", rerank: "" };
+const EMPTY_MODELS = slotsToText({});
 
 const normalize = slotsToText;
 
