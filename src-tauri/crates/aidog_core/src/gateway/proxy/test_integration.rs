@@ -5217,6 +5217,25 @@ async fn chain_exhausted_records_platform_failure_once() {
     assert!(p.last_error.starts_with("HTTP 404"), "{:?}", p.last_error);
 }
 
+/// 连接失败（transport 错）属服务类：不换模型，链上剩余模型记 chain_stop=service，画布显示「跳过」而非「未选」。
+#[tokio::test]
+async fn chain_transport_error_records_chain_stop_service() {
+    // 绑端口后立即释放 → 本地必拒连，不碰外网
+    let dead = {
+        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        format!("http://{}", l.local_addr().unwrap())
+    };
+    let state = make_state(test_db().await).await;
+    setup_aux_group(&state, "gkc3t", &[(&dead, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+    let resp = chain_send(&state, "gkc3t", CHAIN_REQ).await;
+    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
+    let log = last_log_for(&state, "gkc3t").await;
+    let last = log.attempts.last().unwrap();
+    assert_eq!(last.status_code, 0);
+    assert_eq!(last.model.as_deref(), Some("m-a"));
+    assert_eq!(last.chain_stop.as_deref(), Some("service"), "链上 m-b 未尝试，须记终止原因");
+}
+
 /// 链中途成功：失败过的前序模型不留降权（连败为 0）。
 #[tokio::test]
 async fn chain_success_after_model_failures_leaves_no_penalty() {
