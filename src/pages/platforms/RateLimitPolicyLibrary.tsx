@@ -7,7 +7,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "../../components/ui/alert-dialog";
-import { formatNumber } from "../../utils/formatters";
+import { formatInteger } from "../../utils/formatters";
 
 /** 策略 → 平台限频配置（深拷贝；内置原件不变），记录来源策略 id 与 platform.json last_updated。 */
 export function policyToRateLimits(p: RateLimitPolicy, lastUpdated: number): RateLimitsConfig {
@@ -21,18 +21,18 @@ export function policyToRateLimits(p: RateLimitPolicy, lastUpdated: number): Rat
   };
 }
 
-const nums = (p: RateLimitModelOverride) => [
-  p.concurrency && `${formatNumber(p.concurrency)} CONC`,
-  p.rpm && `${formatNumber(p.rpm)} RPM`,
-  p.tpm && `${formatNumber(p.tpm)} TPM`,
+const nums = (p: RateLimitModelOverride, t: TFunction) => [
+  p.concurrency && `${t("platform.rateLimits.concurrencyShort", "并发")} ${formatInteger(p.concurrency)}`,
+  p.rpm && `RPM ${formatInteger(p.rpm)}`,
+  p.tpm && `TPM ${formatInteger(p.tpm)}`,
 ].filter(Boolean) as string[];
 
 const COLLAPSE_AT = 5;
 const detailStyle = { fontSize: 11, color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" } as const;
 
 function PolicyDetail({ p, expanded, onToggle, t }: { p: RateLimitPolicy; expanded: boolean; onToggle: () => void; t: TFunction }) {
-  const n = nums(p);
-  const models = Object.entries(p.models ?? {}).filter(([, v]) => nums(v).length > 0);
+  const n = nums(p, t);
+  const models = Object.entries(p.models ?? {}).filter(([, v]) => nums(v, t).length > 0);
   const windows = p.windows ?? [];
   const empty = n.length === 0 && models.length === 0 && windows.length === 0;
   const shown = expanded ? models : models.slice(0, COLLAPSE_AT);
@@ -56,7 +56,7 @@ function PolicyDetail({ p, expanded, onToggle, t }: { p: RateLimitPolicy; expand
             <div key={id} id={`rl-policy-model-${p.id}-${id}`} data-kind="model"
               style={{ ...detailStyle, display: "flex", gap: 8, justifyContent: "space-between", paddingLeft: 8 }}>
               <span style={{ overflowWrap: "anywhere" }}>{id}</span>
-              <span>{nums(v).join(" · ")}</span>
+              <span>{nums(v, t).join(" · ")}</span>
             </div>
           ))}
           {models.length > COLLAPSE_AT && (
@@ -82,7 +82,7 @@ function PolicyDetail({ p, expanded, onToggle, t }: { p: RateLimitPolicy; expand
                 {w.days_of_week && w.days_of_week.length > 0 && ` · ${t("platform.rateLimits.policyDays", "星期 {{days}}", { days: w.days_of_week.join(",") })}`}
                 {` · ${w.timezone ?? "UTC"}`}
               </span>
-              <span>{nums(w).join(" · ")}</span>
+              <span>{nums(w, t).join(" · ")}</span>
             </div>
           ))}
         </div>
