@@ -185,6 +185,7 @@ pub(crate) async fn handle_decision(
         sticky: &state.sticky,
         settings: &sched_settings,
         sticky_key: Some(format!("{}|decision", group.group_key)),
+        rate_body: None,
     };
     let candidate_set = match select_candidates_gated(
         &state.db,

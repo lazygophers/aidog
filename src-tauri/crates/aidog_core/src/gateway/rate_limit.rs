@@ -143,7 +143,7 @@ impl Inner {
         }
     }
 
-    /// `est` = 本次预占量（候选筛选时传 0）。窗口里已有占用才拦 TPM：单个超大请求在空窗口放行，
+    /// `est` = 本次预占量（候选筛选与 `begin` 同一估算）。窗口里已有占用才拦 TPM：单个超大请求在空窗口放行，
     /// 否则它永远发不出去。
     fn has_room(&mut self, lim: &Limits, now: i64, est: i64) -> bool {
         self.prune(now);
@@ -198,13 +198,13 @@ impl RateLimiter {
     }
 
     /// 只读：该桶当前还放不放得下一个请求（候选筛选用）。没建过桶 = 没有占用 = 放得下。
-    pub fn has_room(&self, pid: u64, model: &str, lim: &Limits, now: i64) -> bool {
+    pub fn has_room(&self, pid: u64, model: &str, lim: &Limits, now: i64, est: i64) -> bool {
         if lim.is_unlimited() {
             return true;
         }
         match self.bucket(pid, model, false) {
             None => true,
-            Some(b) => b.0.lock().map(|mut g| g.has_room(lim, now, 0)).unwrap_or(true),
+            Some(b) => b.0.lock().map(|mut g| g.has_room(lim, now, est)).unwrap_or(true),
         }
     }
 
@@ -329,7 +329,7 @@ mod tests {
         let l = lim(None, Some(2), None);
         let (a, b) = (rl.begin(1, &l, 1000, 0).unwrap(), rl.begin(1, &l, 2000, 0).unwrap());
         assert!(rl.begin(1, &l, 3000, 0).is_none(), "第 3 个超限");
-        assert!(!rl.has_room(1, "", &l, 3000));
+        assert!(!rl.has_room(1, "", &l, 3000, 0));
         assert!(rl.begin(1, &l, 1000 + WINDOW_MS, 0).is_some(), "60s 后最早一条滑出");
         drop((a, b));
     }

@@ -95,7 +95,7 @@ pub use headers::redact_key;
 pub use passthrough::build_models_url;
 
 // 子模块内部互用项（crate 内可见，便于 handler/各模块交叉调用）。
-pub(crate) use count_tokens::{handle_count_tokens, is_count_tokens_endpoint};
+pub(crate) use count_tokens::{estimate_input_tokens, handle_count_tokens, is_count_tokens_endpoint};
 pub(crate) use endpoint::{
     detect_source_protocol, infer_passthrough_protocol_from_ua, is_api_endpoint,
     match_platform_by_host, model_from_gemini_path, resolve_group, select_endpoint_for_protocol,
@@ -103,7 +103,7 @@ pub(crate) use endpoint::{
     select_endpoint_for_decision, select_endpoint_for_openai_family, is_embedding_endpoint, is_rerank_endpoint,
     KeyCandidate, KeyChannel, custom_key_header_names, key_candidates, load_custom_key_channels};
 pub(crate) use finish::{AttemptCtx, finish_nonstream, finish_stream};
-pub(crate) use forward::{AttemptOutcome, finalize_proxy_502, forward_attempt, ModelChain};
+pub(crate) use forward::{AttemptOutcome, ModelChain, finalize_proxy_502, forward_attempt, mark_rate_limited};
 pub(crate) use group_info::handle_group_info;
 pub(crate) use headers::{
     capture_request_headers, inject_trace_header, is_sensitive_log_header,
