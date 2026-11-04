@@ -4,6 +4,32 @@
 2026-09-23 一天之内发生三次误扫（A 的未提交改动被 B 的提交带走），三次内容都正确、
 功能都没坏，所以没人当场发现——这正是它危险的地方。
 
+## 默认：主 checkout 当前分支开发，implementer 串行（2026-11-04）
+
+用户原话：「尽可能的不要使用worktree开发，除非有必要」。代价实锤（ratelimit 线 4 个 worktree
++ routing-model-node）：基点漂移后 `--no-ff` 合并、共享 `/tmp/aidog-agent-target` 写满磁盘
+（rustc `No space left on device`，约 80G 依赖）、cargo 锁与 `.git/index.lock` 反复残留、
+`check:docs` 只在 worktree 红、每票多一个合并 agent、崩溃 agent 的半成品散在 worktree 里。
+
+- 写代码的 agent 默认直接在主 checkout 当前分支改，一次一个，前一个回报后再派下一个；
+  串行即无 cargo 互斥、无基点漂移、无合并步骤。
+- **「有必要」只有三种**：① 两个写码 agent 必须同时跑，且各自改动文件集不相交；
+  ② 要构建旧版本 / 基线二进制（perf-testing.md §6/§7 的 detach worktree）；
+  ③ 主 checkout 正被别的会话占用（脏文件与本任务相交，无法并存）。
+  其余理由（「隔离更干净」「怕改坏」）不算；改坏用 `git diff` 按行号还原。
+- 用了 worktree 就写明是哪一种，收工当场合回并删除；下文各节是「用了 worktree 时」的卫生规则。
+
+## 减少磁盘残留（2026-11-04）
+
+用户原话：「要尽可能的减少残留不要再磁盘导出拉屎」（否掉了「df < 20G 即停」的阈值规则，要的是源头少留）。
+
+- agent 收工当场清掉自己建的东西：临时日志 `/tmp/<任务>-*.log`、补丁、截图、临时 json、临时目录。
+- 不新建按票的构建 / 输出目录，复用 `/tmp/aidog-agent-target`、`/tmp/aidog-agent-dist`（下文已立规）。
+- 只留报告里引用到的文件，且留到主会话读完为止。
+- 删共享缓存（如 `/tmp/aidog-agent-target` 内容）或任何 `rm -rf` 都要用户授权。
+  反例：2026-11-04 有 agent 在 `No space left on device` 后，未经授权自行删了
+  `/tmp/aidog-agent-target/debug/incremental` 32G。
+
 ## 硬规则
 
 1. **禁止 `git commit -a` / `git commit` 不带路径。** 一律 `git commit -- <路径> [<路径>…]`。
@@ -244,7 +270,7 @@ harness 隔离建的 agent worktree 自带 lock，收工直接 `/usr/bin/git wor
 合并 agent 与文档 commit agent 同时操作主仓 master，出现 `ff-only` 失败（master 已被
 5b6788efe 推进）和瞬时 `.git/index.lock`。
 
-- 凡写主 checkout（merge / commit / 改 master 指针）的 agent 串行派；并行实现留在各自 worktree，
-  只在合并阶段排队进主仓。
+- 凡写主 checkout（merge / commit / 改 master 指针）的 agent 串行派；默认实现也直接在主 checkout
+  串行做（见文首「默认」）；确需并行的实现才留在各自 worktree，只在合并阶段排队进主仓。
 - ff-only 失败且双方无冲突：改 `merge --no-ff`（使 `branch -d` 仍可删，不用 rebase 改写历史、
   不用 cherry-pick 后 `-D`）。
