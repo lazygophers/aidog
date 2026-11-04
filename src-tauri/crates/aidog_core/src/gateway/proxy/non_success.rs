@@ -73,7 +73,11 @@ pub(crate) async fn handle_non_success(
     //   Service 类（含 censorship_blocked）→ 不换模型；error_rule 标 non-retryable → 用户显式意图，
     //   不换模型也不换平台；其余（Model / Unknown）且链上还有下一个模型 → 只留痕不记账，换模型重发。
     //   链耗尽（has_next_model=false）落回下面现有逻辑，用最后一次错误记账一次。
-    let class = classify_upstream_error(code, &body);
+    let code_meaning = registry_code_meaning(&route.platform.platform_type.wire_str(), &body);
+    let class = match code_meaning.as_deref() {
+        Some("rate_limit" | "overloaded") => UpstreamErrorClass::Service,
+        _ => classify_upstream_error(code, &body),
+    };
     let rule_blocks = err_class.as_ref().is_some_and(|c| !c.retryable);
     let switch_model = has_next_model && class != UpstreamErrorClass::Service && !rule_blocks;
     let chain_stop = (has_next_model && !switch_model)
@@ -114,16 +118,20 @@ pub(crate) async fn handle_non_success(
 
     // ── 429 分类（只看 message 文本，禁按 error.type）：配额耗尽 vs 每分钟限流 vs 其余限流 ──
     //   分类用于熔断计数（见下），不再触发 auto_disable：429 统一走 failover 换下个候选。
-    let is_429_quota_exhausted =
-        code == 429 && classify_429(extracted_msg.as_deref().unwrap_or(&body));
+    let registry_rate_limited = code_meaning.as_deref() == Some("rate_limit");
+    let registry_overloaded = code_meaning.as_deref() == Some("overloaded");
+    let is_429_quota_exhausted = code == 429
+        && !registry_rate_limited
+        && classify_429(extracted_msg.as_deref().unwrap_or(&body));
 
     // ── 429 每分钟限流（2026-10-03 用户裁决）：窗口是自然分钟——"rate limit 40/min exceeded"
     //    在 59s 报错，下个整分边界（1s 后）额度就回来了。冷却到边界即可复用，不套固定
     //    熔断/降权窗口（那会把平台多锁最多 59s）。marker 只认显式 "/min" / "per minute" /
     //    "每分钟"，不按裸 "rate limit" 猜（小时/日级限流误判成分钟级会提前放行）。
-    let is_429_per_minute_rate_limit = code == 429
-        && !is_429_quota_exhausted
-        && is_per_minute_rate_limit(extracted_msg.as_deref().unwrap_or(&body));
+    let is_429_per_minute_rate_limit = registry_rate_limited
+        || (code == 429
+            && !is_429_quota_exhausted
+            && is_per_minute_rate_limit(extracted_msg.as_deref().unwrap_or(&body)));
 
     // 审核拒绝是平台级不可用：自动禁用一小时，并立即换下个候选。
     // 400 通常是请求硬错，但结构化 censorship_blocked 明确表示上游审核机制拒绝，换平台可能成功。
@@ -133,7 +141,9 @@ pub(crate) async fn handle_non_success(
     // ── 熔断计数（2026-09-15 用户裁决：网络类故障不降权）：仅 429-限流（状态码 + 响应体
     //    解析出的平台主动限流）计一次失败；5xx / 网络错误 / 空响应 / 401 / 402 / 其他客户端
     //    4xx 一律不计（仅 inflight-1，不动 EMA，下一轮调度仍优先选择）。──
-    if code == 429 && !is_429_quota_exhausted && !is_429_per_minute_rate_limit {
+    if registry_overloaded
+        || (code == 429 && !is_429_quota_exhausted && !is_429_per_minute_rate_limit)
+    {
         state
             .scheduler
             .record_failure(route.platform.id, breaker_th, aidog_db::now());
@@ -243,9 +253,9 @@ pub(crate) async fn handle_non_success(
     //   无命中        → 默认重试语义不变（is_last_candidate 决定）。
     //   熔断器不在本树：此处只产标记驱动现有重试循环，不引入任何熔断状态。──
     // ── 决策 A：状态码硬错圈定 ──
-    //   400 / 422（请求体本身非法）→ 不重试；结构化 censorship_blocked 是唯一例外，换候选。
+    //   400 / 422（请求体本身非法）→ 不重试；结构化 censorship_blocked 与 registry 码义 overloaded 是例外，换候选。
     //   其余非 2xx（401/403/404/405/429/5xx/未知）→ 默认可重试（换下个候选）。
-    let status_retryable = is_status_retryable(code) || censorship_blocked;
+    let status_retryable = is_status_retryable(code) || censorship_blocked || registry_overloaded;
     // 中间件 error_rule：审核拒绝必须换候选，不允许规则把它降级成 non-retryable；
     // 其他状态仅在本身可重试时允许规则缩小重试面。
     let mw_non_retryable =
