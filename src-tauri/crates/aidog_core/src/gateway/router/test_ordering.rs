@@ -19,6 +19,7 @@ fn sticky_binds_then_falls_back() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: Some("grpA|client1".to_string()),
+        rate_body: None,
     };
     let gp1 = mk_gp(1, 1, 0);
     let gp2 = mk_gp(2, 1, 0);
@@ -123,6 +124,7 @@ fn apply_sticky_empty_candidates_no_panic() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: Some("key".to_string()),
+        rate_body: None,
     };
     let mut v: Vec<&GroupPlatformDetail> = vec![];
     apply_sticky(&mut v, Some(&ctx), 0); // should not panic
@@ -293,6 +295,7 @@ fn sticky_inherits_load_balance_expiry_tiebreak() {
         sticky: &sticky,
         settings: &settings,
         sticky_key: Some("grpB|client1".to_string()),
+        rate_body: None,
     };
     apply_sticky(&mut v, Some(&ctx), now);
     // 无既有绑定 → 写绑定为当前首选（最早过期 p3）

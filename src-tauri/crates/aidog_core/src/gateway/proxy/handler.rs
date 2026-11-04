@@ -647,6 +647,7 @@ pub(crate) async fn handle_proxy_core(
         sticky: &state.sticky,
         settings: &sched_settings,
         sticky_key,
+        rate_body: Some(&req_value),
     };
     let candidate_set = match select_candidates_gated(
         &state.db,
