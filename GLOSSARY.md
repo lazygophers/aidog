@@ -27,7 +27,7 @@ _Avoid_: 账号
 _Avoid_: 认证头（那指 aidog 发给上游的头）
 
 **模型槽 (Model Slot)**:
-平台上按档位配置的候选模型集合，共 6 槽（`default` / `sonnet` / `opus` / `haiku` / `gpt` / `jev`），路由按 source_model 匹配。`jev` 槽服务 Decision Request。透传平台不吃模型槽（通配命中）。
+平台上按档位配置的候选模型集合，共 8 槽（`default` / `sonnet` / `opus` / `haiku` / `gpt` / `jev` / `embedding` / `rerank`），路由按 source_model 匹配。`jev` 槽服务 Decision Request。透传平台不吃模型槽（通配命中）。
 _Avoid_: 模型列表（那是下拉候选清单）、model alias、tier
 
 **模型链 (Model Chain)**:
