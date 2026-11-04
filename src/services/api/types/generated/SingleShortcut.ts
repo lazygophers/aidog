@@ -4,4 +4,4 @@ import type { ShortcutBypass } from "./ShortcutBypass";
 /**
  * 单平台短路标记（路由画布 01）：`literal` = 组内仅 1 个平台；否则为「恰好 1 个 Enabled」的等效单平台。
  */
-export type SingleShortcut = { literal: boolean, bypassed: Array<ShortcutBypass>, };
+export type SingleShortcut = { literal: boolean, bypassed?: Array<ShortcutBypass>, };

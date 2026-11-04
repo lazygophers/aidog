@@ -65,6 +65,8 @@ lint: ## Run linters
 	@printf "$(CYAN)▶ Command annotation check...$(RESET)\n"
 	yarn check:annotations
 	yarn test:annotations
+	yarn check:serde-ts
+	yarn test:serde-ts
 	@printf "$(CYAN)▶ Money format check...$(RESET)\n"
 	yarn check:money
 	yarn test:money
