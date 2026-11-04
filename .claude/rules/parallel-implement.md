@@ -216,7 +216,7 @@ worktree 缺 docs 子包依赖（`typescript-eslint`），`yarn check:docs` 恒 
 completed 的后台 subagent 不会从列表消失，界面一直显示最后一步，用户两次要求
 「已完成的后台 agent 及时关闭」。
 
-- 回报转述完当场对该 agent `TaskStop`；返回 `not running` 说明已自行结束，无需再试。
+- 回报转述完当场对该 agent `TaskStop`；返回 `not running` 或 `No task found` 都说明该 agent 已结束，无需再试。
 - 空闲 teammate（已回报的 SendMessage 型）发 `shutdown_request`。
 - 派发前数在途数（§8）时，只算 running，不把 completed 算进去。
 
