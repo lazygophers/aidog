@@ -13,7 +13,7 @@ import {
   type Platform, type Protocol, type PlatformEndpoint,
   type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit,
   type DevinConfig, type PassthroughAuth, type SchedulingBreakerSettings, type GroupDetail,
-  QUOTA_SCRIPT_SAMPLE, isUserQuotaScript,
+  QUOTA_SCRIPT_SAMPLE, isUserQuotaScript, QUOTA_CUSTOM_VARIANT, resolveQuotaSelection,
 } from "../../services/api";
 import { rateLimitsSummary, clientCategoryState, toggleClientCategory, toggleClientVariant, validateClientUaRule, type ClientUaRule, type ClientUaRuleKind, type RateLimitsBundle, type RateLimitsConfig, type RateLimitModelOverride, type RateLimitWindow, type QuotaWindowConfig, type ClientVocabCategory } from "../../services/api";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -217,8 +217,7 @@ export function ApiKeyField({ value, onChange, show, onToggleShow, editing, plac
 //   本组件纯 props 渲染；requires 值 / 变体 id / 自定义正文的 extra 序列化见
 //   services/api/platforms.ts::serializeQuotaScriptConfig。
 
-/** 自定义伪变体下拉哨兵值（radix Select 禁空串 value；选中时表单切到 customScript 编辑）。 */
-export const QUOTA_CUSTOM_VARIANT = "__custom__";
+export { QUOTA_CUSTOM_VARIANT };
 
 
 /** QuotaScriptSection 的裸内容（合区后由 QuotaSection 的 Tab 内渲染；本组件保留旧签名供测试）。 */
@@ -278,7 +277,7 @@ export function QuotaScriptFields({
             className="input"
             placeholder={t("platform.quotaScript.customPlaceholder", "// 返回 { success, balance, tiers, newapi_user_id }")}
             data-testid="quota-custom-script"
-            value={customScript || QUOTA_SCRIPT_SAMPLE}
+            value={customScript}
             onChange={(e) => onCustomScriptChange(e.target.value)}
             spellCheck={false}
             rows={10}
@@ -1378,14 +1377,7 @@ export function QuotaSection({
 }) {
   const [confirmTarget, setConfirmTarget] = useState<"auto" | "manual" | null>(null);
 
-  // 脚本侧选中值派生（与 QuotaScriptSection 同规则：custom 优先 → 显式 id → 回落首条）。
-  const hasCustom = isUserQuotaScript(customScript);
-  const idValid = variants.some(v => v.id === variantId);
-  const customOnly = variants.length === 0;
-  const selection = hasCustom || customOnly || variantId === QUOTA_CUSTOM_VARIANT
-    ? QUOTA_CUSTOM_VARIANT
-    : idValid ? variantId : (variants[0]?.id ?? "");
-  const fellBack = !hasCustom && variantId !== QUOTA_CUSTOM_VARIANT && variantId !== "" && !idValid;
+  const { selection, customOnly, fellBack } = resolveQuotaSelection(customScript, variantId, variants);
   const selVariant = selection === QUOTA_CUSTOM_VARIANT ? null : variants.find(v => v.id === selection) ?? null;
 
   // 手动预算侧：档位列表 + 创建态自动填首档（原 ManualBudgetsSection 的状态逻辑原样搬入）。
@@ -1406,6 +1398,16 @@ export function QuotaSection({
     return () => { alive = false; };
   }, [protocol, editing, setBudgets]);
   const selectedTier = tiers.find(x => x.id === tierId) ?? tiers[0];
+
+  // 进入自定义模式且脚本为空 → 把样例预填进表单态一次（保存时 isUserQuotaScript 会丢掉未改样例）；
+  // 只在 selection 切换时触发，用户之后清空不会被回填。
+  const prevSelection = React.useRef<string | null>(null);
+  useEffect(() => {
+    if (quotaSource === "auto" && selection === QUOTA_CUSTOM_VARIANT && prevSelection.current !== QUOTA_CUSTOM_VARIANT && customScript === "") {
+      onCustomScriptChange(QUOTA_SCRIPT_SAMPLE);
+    }
+    prevSelection.current = selection;
+  }, [quotaSource, selection, customScript, onCustomScriptChange]);
 
   // 切 tab：对侧有用户数据才确认（票 03：无配置静默切换，有配置弹窗列出将清什么）。
   const scriptConfigured = quotaCustomScriptConfigured(customScript, variantId, variants);

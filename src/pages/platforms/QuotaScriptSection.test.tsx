@@ -1,9 +1,11 @@
 // 行为断言（区块渲染与否 / 自定义脚本编辑器出现与否），不按文案文字断言。
 import { describe, it, expect, vi } from "vitest";
+import { useState } from "react";
+import { fireEvent } from "@testing-library/react";
 import { render, cleanup } from "../../test/render";
 import { QuotaScriptFields, QuotaSection, QUOTA_CUSTOM_VARIANT } from "./formSections";
 import type { QuotaScriptVariant } from "../../domains/platforms";
-import { QUOTA_SCRIPT_SAMPLE, isUserQuotaScript } from "../../services/api";
+import { QUOTA_SCRIPT_SAMPLE, resolveQuotaSelection } from "../../services/api";
 
 vi.mock("../../domains/platforms", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../domains/platforms")>()),
@@ -14,12 +16,7 @@ const t = ((key: string, fallback?: string) => fallback ?? key) as unknown as Pa
 
 function renderSection(variants: QuotaScriptVariant[], customScript = "", variantId = "", protocol: "bailian_coding" | "newapi" = "bailian_coding", requires: Record<string, string> = {}) {
   const onCustomScriptChange = vi.fn();
-  const customOnly = variants.length === 0;
-  const hasCustom = isUserQuotaScript(customScript);
-  const idValid = variants.some(v => v.id === variantId);
-  const selection = hasCustom || customOnly || variantId === QUOTA_CUSTOM_VARIANT
-    ? QUOTA_CUSTOM_VARIANT
-    : idValid ? variantId : (variants[0]?.id ?? "");
+  const { selection, customOnly } = resolveQuotaSelection(customScript, variantId, variants);
   const selVariant = selection === QUOTA_CUSTOM_VARIANT ? null : variants.find(v => v.id === selection) ?? null;
   const { container } = render(
     <QuotaScriptFields
@@ -65,9 +62,25 @@ describe("QuotaScriptFields", () => {
     expect(container.querySelector("textarea")).not.toBeNull();
   });
 
-  it("自定义编辑器空内容时显示样例；已有内容显示原文", () => {
-    const empty = renderSection([]);
-    expect((empty.container.querySelector("[data-testid='quota-custom-script']") as HTMLTextAreaElement).value).toBe(QUOTA_SCRIPT_SAMPLE);
+  it("自定义编辑器空内容时预填样例进表单态；清空后保持为空；已有内容显示原文", () => {
+    const Harness = () => {
+      const [script, setScript] = useState("");
+      return (
+        <QuotaSection
+          quotaSource="auto" onSourceChange={vi.fn()} protocol="bailian_coding"
+          variants={[]} variantId="" onVariantChange={vi.fn()}
+          customScript={script} onCustomScriptChange={setScript}
+          requires={{}} onRequiresChange={vi.fn()}
+          budgets={[]} setBudgets={vi.fn()} editing={true} t={t as never}
+        />
+      );
+    };
+    const { container } = render(<Harness />);
+    const ta = () => container.querySelector("[data-testid='quota-custom-script']") as HTMLTextAreaElement;
+    expect(ta().value).toBe(QUOTA_SCRIPT_SAMPLE);
+    fireEvent.change(ta(), { target: { value: "" } });
+    expect(ta().value).toBe("");
+    cleanup();
     const own = renderSection([], "return {}");
     expect((own.container.querySelector("[data-testid='quota-custom-script']") as HTMLTextAreaElement).value).toBe("return {}");
   });

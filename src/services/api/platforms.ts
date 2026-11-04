@@ -207,13 +207,29 @@ export function parseQuotaScriptConfig(extra: string): { variantId: string; cust
 /** 自定义脚本编辑器的默认样例（与 Rust 测试共用同一文件，保证样例真能跑）。 */
 export const QUOTA_SCRIPT_SAMPLE = QUOTA_SCRIPT_SAMPLE_RAW;
 
-/** 用户是否真写了自定义脚本：非空且不等于未改动的样例（样例原样 = 视为没配置）。 */
+/** 用户是否真写了自定义脚本：非空且不等于未改动的样例（样例原样 = 视为没配置）。
+ *  取舍：与样例逐字相同（trim 后）的脚本被当作未配置。与 hasCustomQuotaScript 同口径，改一处要看另一处。 */
 export function isUserQuotaScript(script: string): boolean {
   const s = script.trim();
   return s !== "" && s !== QUOTA_SCRIPT_SAMPLE.trim();
 }
 
-/** extra 是否带非空自定义配额脚本（伪变体）。 */
+/** 自定义伪变体下拉哨兵值（radix Select 禁空串 value；选中时表单切到 customScript 编辑）。 */
+export const QUOTA_CUSTOM_VARIANT = "__custom__";
+
+/** 脚本侧选中值：自定义正文优先 → 显式变体 id → 回落首个变体；无变体恒自定义。 */
+export function resolveQuotaSelection(customScript: string, variantId: string, variants: { id: string }[]) {
+  const hasCustom = isUserQuotaScript(customScript);
+  const idValid = variants.some(v => v.id === variantId);
+  const customOnly = variants.length === 0;
+  const selection = hasCustom || customOnly || variantId === QUOTA_CUSTOM_VARIANT
+    ? QUOTA_CUSTOM_VARIANT
+    : idValid ? variantId : (variants[0]?.id ?? "");
+  const fellBack = !hasCustom && variantId !== QUOTA_CUSTOM_VARIANT && variantId !== "" && !idValid;
+  return { selection, customOnly, fellBack };
+}
+
+/** extra 是否带非空自定义配额脚本（伪变体）。判定口径见 isUserQuotaScript，两者须同步。 */
 export function hasCustomQuotaScript(extra: string): boolean {
   return isUserQuotaScript(parseQuotaScriptConfig(extra).customScript);
 }
