@@ -1448,7 +1448,7 @@
   "platform.direct_models_add": "添加",
   "platform.direct_models_count": "{{n}} 个模型",
   "platform.client_whitelist": "客户端白名单",
-  "platform.client_whitelist_desc": "只允许勾选的客户端使用该平台；勾大类即允许其全部变体。未勾选任何项 = 不限制。配置后无法识别的客户端一律拒绝。",
+  "platform.client_whitelist_desc": "只允许勾选的客户端使用该平台；勾大类即允许其全部变体。勾选与 UA 规则都为空 = 不限制。内置词表认不出的客户端按 UA 规则判定，没有规则命中则拒绝。",
   "platform.client_whitelist_clear": "清空",
   "platform.client_whitelist_count": "已限制 {{n}} 项",
   "platform.client_whitelist_none": "不限制",

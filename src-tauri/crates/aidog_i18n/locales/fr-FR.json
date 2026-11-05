@@ -1470,7 +1470,7 @@
   "platform.direct_models_add": "Ajouter",
   "platform.direct_models_count": "{{n}} modèles",
   "platform.client_whitelist": "Liste blanche de clients",
-  "platform.client_whitelist_desc": "Seuls les clients cochés peuvent utiliser cette plateforme ; cocher une catégorie autorise toutes ses variantes. Rien de coché = aucune restriction. Une fois configurée, les clients non reconnus sont refusés.",
+  "platform.client_whitelist_desc": "Seuls les clients cochés peuvent utiliser cette plateforme ; cocher une catégorie autorise toutes ses variantes. Aucune sélection et aucune règle UA = aucune restriction. Les clients que le vocabulaire intégré ne reconnaît pas sont jugés d'après les règles UA et refusés si aucune ne correspond.",
   "platform.client_whitelist_clear": "Effacer",
   "platform.client_whitelist_count": "{{n}} restreint(s)",
   "platform.client_whitelist_none": "Aucune restriction",

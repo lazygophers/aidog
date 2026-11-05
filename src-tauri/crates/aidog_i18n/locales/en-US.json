@@ -1448,7 +1448,7 @@
   "platform.direct_models_add": "Add",
   "platform.direct_models_count": "{{n}} models",
   "platform.client_whitelist": "Client allowlist",
-  "platform.client_whitelist_desc": "Only the selected clients may use this platform; selecting a category allows all its variants. Nothing selected = no restriction. Once set, unrecognized clients are rejected.",
+  "platform.client_whitelist_desc": "Only the selected clients may use this platform; selecting a category allows all its variants. No selection and no UA rules = no restriction. Clients the built-in vocabulary cannot identify are judged by the UA rules and rejected if none matches.",
   "platform.client_whitelist_clear": "Clear",
   "platform.client_whitelist_count": "{{n}} restricted",
   "platform.client_whitelist_none": "No restriction",
