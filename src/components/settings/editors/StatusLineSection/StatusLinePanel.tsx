@@ -13,6 +13,7 @@ import { F, S } from "../tokens";
 import { Toggle, Hint } from "../_shared";
 import { previewColor, StatusLinePreview } from "./preview";
 import { SegmentEditModal } from "./SegmentEditModal";
+import { StatusLineOptions } from "./StatusLineOptions";
 import { useStatusLinePanel, type ScriptType } from "./useStatusLinePanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,7 +33,7 @@ export function StatusLinePanel({
   const {
     isMain, aidogKey, stored, enabled, mode, customCommand, segments, scriptPreview,
     showScript, setShowScript, editSeg, setEditSeg, showAddMenu, setShowAddMenu,
-    handleToggle, updateSegments, deleteRow, handleApplyCustom,
+    handleToggle, setOption, updateSegments, deleteRow, handleApplyCustom,
     switchMode, addSegment, addRow, resetToDefaultLayout, cycleRowAlign,
   } = useStatusLinePanel({ config, updateField, scriptType });
 
@@ -85,6 +86,8 @@ export function StatusLinePanel({
           </div>
         </>
       )}
+
+      {enabled && isMain && <StatusLineOptions stored={stored} onChange={setOption} t={t} />}
 
       {enabled && mode === "custom" && (
         <div style={{
