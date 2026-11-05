@@ -28,11 +28,10 @@ const About = lazy(() => import("./pages/About").then(m => ({ default: m.About }
 import {
   notificationApi,
   NOTIF_SPEAK,
-  autoUpdateApi,
   onRegistryUpdated,
 } from "./services/api";
 import { invalidateDefaultsDoc } from "./domains/platforms/defaults";
-import { checkForUpdateDailyThrottled } from "./services/updater";
+import { listenKernelUpdate } from "./services/updateEvent";
 import type { Update } from "@tauri-apps/plugin-updater";
 import { requestNavigation } from "./utils/navGuard";
 import { useCloseGuard } from "./utils/closeGuard";
@@ -110,19 +109,6 @@ function App() {
     return () => { unlistenPromise.then((un) => un()).catch((e) => console.error(e)); };
   }, []);
 
-  // 每日检测更新：启动调节流检查 (24h)，有更新弹自定义提醒 modal。
-  // dev/未签名/无网络失败已在 service 内 catch 静默，不打扰。
-  // 设置开关关闭 → 跳过启动自动检查（手动按钮仍可查）。
-  // 票 10：自动更新是桌面壳独有的（更新的是本机安装包）。浏览器形态下 `check()` 必然抛错，
-  // 与其让它每次启动都失败一次，不如直接不查 —— 内核的升级由部署方管。
-  useEffect(() => {
-    if (!isTauri()) return;
-    autoUpdateApi.get()
-      .then((enabled) => { if (!enabled) return null; return checkForUpdateDailyThrottled(); })
-      .then((upd) => { if (upd) setPendingUpdate(upd); })
-      .catch(() => {});
-  }, []);
-
   // 注册表远程同步落库有变更（Rust emit "registry-updated"）→ 失效 defaults docPromise，
   // 后续 getDefault* 调用重新走 RPC（消费点分散在表单默认值 / 模型候选列，不在此逐个刷新）。
   // 模型信息页自身的 snapshot 重拉由 ModelInfoTab 自己订阅同一事件。
@@ -151,13 +137,21 @@ function App() {
         if (entity === "skill") setActiveNav("skills");
       },
     );
-    // 监听挂好后通知后端补发排队的链接（界面按需新建，创建到挂载之间的 emit 会丢）。
+    // 每日检查更新由内核做（节流 / 开关都在 Rust），发现新版本 emit 事件，这里弹现有提示。
+    // 桌面壳独有：浏览器形态 `check()` 必抛错，不挂。
+    const updatePromise = isTauri()
+      ? listenKernelUpdate((u) => setPendingUpdate(u))
+      : Promise.resolve(() => {});
+    // 两个监听都挂好后通知后端补发排队的链接 / 新版本（界面按需新建，创建到挂载之间的 emit 会丢）。
     if (isTauri()) {
-      unlistenPromise
+      Promise.all([unlistenPromise, updatePromise])
         .then(() => import("@tauri-apps/api/event").then((m) => m.emit("aidog-ui-ready")))
         .catch((e) => console.error(e));
     }
-    return () => { unlistenPromise.then((un) => un()).catch((e) => console.error(e)); };
+    return () => {
+      unlistenPromise.then((un) => un()).catch((e) => console.error(e));
+      updatePromise.then((un) => un()).catch((e) => console.error(e));
+    };
   }, []);
 
   const handleNavigate = (id: string, context?: NavContext) => {
