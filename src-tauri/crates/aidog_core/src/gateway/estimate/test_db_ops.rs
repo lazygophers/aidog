@@ -677,3 +677,103 @@ async fn tool_fee_not_multiplied_by_peak() {
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
     assert!((p.est_balance_remaining - 99.5).abs() < 1e-9, "got {}", p.est_balance_remaining);
 }
+
+// ── apply_quota_verdict：真查判定写入调度器额度冷却 ──
+mod verdict_apply {
+    use super::*;
+    use crate::gateway::estimate::algo::{QUOTA_OPEN_ENDED_UNTIL_MS, QuotaVerdict};
+    use crate::gateway::scheduling::SchedulerState;
+
+    const NOW: i64 = 1_800_000_000_000;
+    const FAR: i64 = NOW + 365 * 86_400_000;
+
+    #[test]
+    fn open_ended_holds_until_available_clears() {
+        let s = SchedulerState::new();
+        apply_quota_verdict(
+            &s,
+            1,
+            QuotaVerdict::Exhausted { until_ms: QUOTA_OPEN_ENDED_UNTIL_MS },
+        );
+        assert!(s.quota_cooled(1, NOW));
+        assert!(s.quota_cooled(1, FAR), "open-ended must outlast any fixed window");
+        apply_quota_verdict(&s, 1, QuotaVerdict::Available);
+        assert!(!s.quota_cooled(1, NOW));
+    }
+
+    #[test]
+    fn real_query_overrides_both_ways() {
+        let s = SchedulerState::new();
+        // 429 路径先写了个很远的冷却；真查给出更近的重置时刻 → 以真查为准（可缩短）
+        s.set_quota_cooldown(2, FAR);
+        apply_quota_verdict(&s, 2, QuotaVerdict::Exhausted { until_ms: NOW + 60_000 });
+        assert!(s.quota_cooled(2, NOW));
+        assert!(!s.quota_cooled(2, NOW + 60_000));
+        // 开放式 → 之后得到明确重置时刻：改成固定截止
+        apply_quota_verdict(
+            &s,
+            3,
+            QuotaVerdict::Exhausted { until_ms: QUOTA_OPEN_ENDED_UNTIL_MS },
+        );
+        apply_quota_verdict(&s, 3, QuotaVerdict::Exhausted { until_ms: NOW + 1000 });
+        assert!(!s.quota_cooled(3, NOW + 1000));
+    }
+
+    #[test]
+    fn unknown_leaves_cooldown_untouched() {
+        let s = SchedulerState::new();
+        s.set_quota_cooldown(4, NOW + 5000);
+        apply_quota_verdict(&s, 4, QuotaVerdict::Unknown);
+        assert!(s.quota_cooled(4, NOW));
+    }
+
+    /// 手动刷新 / 自动校准同走 calibrate_from_quota：用完 → 写冷却；估算外推不参与；恢复 → 解除。
+    #[tokio::test]
+    async fn calibrate_from_quota_drives_global_scheduler() {
+        use crate::gateway::quota::{CodingPlanInfo, QuotaTier};
+        let db = mem_db().await;
+        let id = mk_platform(&db, true).await;
+        let sched = std::sync::Arc::new(SchedulerState::new());
+        crate::gateway::scheduling::install_global(sched.clone());
+        let mk = |util: f64| PlatformQuota {
+            success: true,
+            error: None,
+            queried_at: now(),
+            balance: None,
+            coding_plan: Some(CodingPlanInfo {
+                tiers: vec![QuotaTier {
+                    name: "five_hour".into(),
+                    utilization: util,
+                    resets_at: None,
+                    limit: None,
+                    remaining: None,
+                    unit: None,
+                }],
+                level: None,
+            }),
+            newapi_user_id: None,
+        };
+        calibrate_from_quota(&db, id, &mk(100.0), true).await;
+        assert!(sched.quota_cooled(id, now() + 86_400_000 * 365));
+        calibrate_from_quota(&db, id, &mk(20.0), true).await;
+        assert!(!sched.quota_cooled(id, now()));
+    }
+
+    /// 开放式冷却经 platform_health_state 行回灌后仍在（重启保持）。
+    #[test]
+    fn open_ended_survives_restart_seed() {
+        let s = SchedulerState::new();
+        let row = aidog_db::health_state::PlatformHealthStateRow {
+            platform_id: 5,
+            breaker_state: "closed".into(),
+            breaker_until_ms: 0,
+            quota_cooldown_until_ms: QUOTA_OPEN_ENDED_UNTIL_MS,
+            auth_cooldown_until_ms: 0,
+            balance_cooldown_until_ms: 0,
+            last_connect_fail_ms: 0,
+            updated_at: NOW,
+        };
+        s.seed_from_rows(vec![row], NOW);
+        assert!(s.quota_cooled(5, FAR));
+    }
+}

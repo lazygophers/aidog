@@ -173,6 +173,22 @@ pub fn build_calibrated_coding_plan(prev: &EstCodingPlan, quota: &PlatformQuota)
     }
 }
 
+/// 把真查判定写入调度器的额度冷却（Unknown 不动；Available 解除；Exhausted 覆盖到截止）。
+pub fn apply_quota_verdict(
+    scheduler: &crate::gateway::scheduling::SchedulerState,
+    platform_id: u64,
+    verdict: super::algo::QuotaVerdict,
+) {
+    use super::algo::QuotaVerdict;
+    match verdict {
+        QuotaVerdict::Unknown => {}
+        QuotaVerdict::Available => scheduler.set_quota_cooldown_exact(platform_id, 0),
+        QuotaVerdict::Exhausted { until_ms } => {
+            scheduler.set_quota_cooldown_exact(platform_id, until_ms)
+        }
+    }
+}
+
 /// 用一次真查结果对齐 est（严格覆盖）：est_balance/est_coding_plan = 真实值，
 /// 重置 last_real_query_at + estimate_count，并（方案 B）拟合 coef。
 /// 供 GUI 手动真查 + 冷启动初始化复用——确保真查发生时 est 立即严格对齐真实，
@@ -187,6 +203,11 @@ pub async fn calibrate_from_quota(
     if !quota.success {
         tracing::warn!(platform_id, is_coding_plan, error = ?quota.error, "calibrate_from_quota skipped: upstream quota query failed, keeping estimates");
         return;
+    }
+    // 额度冷却只认真查返回值（quota 参数），不看估算外推；手动刷新 / 自动校准 / 冷启动 / 重置定时
+    // 全部汇入本函数，故此处是唯一判定挂点。调度器未启动（代理从未运行）→ 无冷却可写。
+    if let Some(s) = crate::gateway::scheduling::global() {
+        apply_quota_verdict(&s, platform_id, super::algo::quota_verdict(quota, now()));
     }
     let prev_json: String = db
         .platform_write_conn()

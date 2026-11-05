@@ -3330,3 +3330,114 @@ fn rc01_mark_retry_limit_truncates_tail() {
         vec![RouteReason::Selected, RouteReason::Selected, RouteReason::Selected, RouteReason::RetryLimit]
     );
 }
+
+// ── 真查用完 → 开放式额度冷却（票 01）：多平台跳过 / 字面单平台照发 / 等效单平台照发 ──
+
+fn open_ended_quota_ctx_sched(sched: &SchedulerState, platform_id: u64) {
+    use crate::gateway::estimate::{QuotaVerdict, apply_quota_verdict};
+    apply_quota_verdict(
+        sched,
+        platform_id,
+        QuotaVerdict::Exhausted { until_ms: crate::gateway::estimate::QUOTA_OPEN_ENDED_UNTIL_MS },
+    );
+}
+
+#[tokio::test]
+async fn real_query_exhausted_open_ended_skipped_in_multi_group() {
+    let db = mk_test_db().await;
+    let cooled = mk_db_platform(&db, "GLM").await;
+    let other = mk_db_platform(&db, "Kimi").await;
+    let g = mk_db_group(&db, "multi-open", &[cooled.id, other.id]).await;
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+        rate_body: None,
+    };
+    open_ended_quota_ctx_sched(&sched, cooled.id);
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
+        .await
+        .expect("other platform available");
+    assert!(set.candidates.iter().all(|c| c.platform.id != cooled.id));
+    // 真查显示恢复 → 立即放回
+    crate::gateway::estimate::apply_quota_verdict(
+        &sched,
+        cooled.id,
+        crate::gateway::estimate::QuotaVerdict::Available,
+    );
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
+        .await
+        .expect("both available");
+    assert!(set.candidates.iter().any(|c| c.platform.id == cooled.id));
+}
+
+#[tokio::test]
+async fn real_query_exhausted_literal_single_platform_still_sent() {
+    let db = mk_test_db().await;
+    let p = mk_db_platform(&db, "GLM").await;
+    let g = mk_db_group(&db, "single-open", &[p.id]).await;
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+        rate_body: None,
+    };
+    open_ended_quota_ctx_sched(&sched, p.id);
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
+        .await
+        .expect("single platform bypasses quota cooldown");
+    assert_eq!(set.candidates[0].platform.id, p.id);
+}
+
+#[tokio::test]
+async fn real_query_exhausted_equivalent_single_platform_still_sent() {
+    let db = mk_test_db().await;
+    let p = mk_db_platform(&db, "GLM").await;
+    let off = mk_db_platform(&db, "Off").await;
+    db::update_platform(
+        &db,
+        UpdatePlatform {
+            id: off.id,
+            name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            extra: None,
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
+            status: Some(PlatformStatus::Disabled),
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .expect("disable second platform");
+    let g = mk_db_group(&db, "equiv-single-open", &[p.id, off.id]).await;
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+        rate_body: None,
+    };
+    open_ended_quota_ctx_sched(&sched, p.id);
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
+        .await
+        .expect("equivalent single platform bypasses quota cooldown");
+    assert_eq!(set.candidates[0].platform.id, p.id);
+}

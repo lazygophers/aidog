@@ -1,6 +1,56 @@
 //! 纯算法（可单测）：校准判定 / 增量预估 / pace 配色 / 真查拟合
 
 use super::model::{CALIBRATE_COUNT, CALIBRATE_INTERVAL_MS, EstTier};
+use crate::gateway::quota::PlatformQuota;
+
+/// 开放式额度冷却的截止哨兵：真查显示用完但无任何重置时刻，冷却到下一次真查显示恢复为止。
+/// 取 JS Date 上限（8.64e15 ms）而非 i64::MAX：快照 until_ms 前端会转 Date，且 JSON 数值不丢精度。
+pub const QUOTA_OPEN_ENDED_UNTIL_MS: i64 = 8_640_000_000_000_000;
+
+/// 真查结果对额度状态的判定（只看真查返回值，不看估算外推值）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QuotaVerdict {
+    /// 查询失败 / 无额度信息：不改冷却状态。
+    Unknown,
+    /// 有额度信息且未用完：解除额度冷却。
+    Available,
+    /// 用完：冷却到 `until_ms`（无重置时刻 = [`QUOTA_OPEN_ENDED_UNTIL_MS`]）。
+    Exhausted { until_ms: i64 },
+}
+
+/// 真查结果 → 额度判定。任一档剩余 0 / 用量 100%，或按量余额 <= 0 即用完；
+/// 截止取用完档里最晚的未来重置时刻，没有则开放式。
+pub fn quota_verdict(q: &PlatformQuota, now_ms: i64) -> QuotaVerdict {
+    if !q.success {
+        return QuotaVerdict::Unknown;
+    }
+    let mut known = false;
+    let mut exhausted = false;
+    let mut latest_reset: Option<i64> = None;
+    if let Some(cp) = &q.coding_plan {
+        for t in &cp.tiers {
+            known = true;
+            if t.utilization >= 100.0 || t.remaining.is_some_and(|r| r <= 0.0) {
+                exhausted = true;
+                let reset = t.resets_at.as_deref().and_then(parse_resets_to_ms);
+                if let Some(ms) = reset.filter(|&ms| ms > now_ms) {
+                    latest_reset = latest_reset.max(Some(ms));
+                }
+            }
+        }
+    }
+    if let Some(b) = &q.balance {
+        known = true;
+        exhausted |= b.remaining <= 0.0;
+    }
+    match (known, exhausted) {
+        (false, _) => QuotaVerdict::Unknown,
+        (true, false) => QuotaVerdict::Available,
+        (true, true) => QuotaVerdict::Exhausted {
+            until_ms: latest_reset.unwrap_or(QUOTA_OPEN_ENDED_UNTIL_MS),
+        },
+    }
+}
 
 /// 校准判定：距上次真查 >5min 或 预估次数 >=100
 pub fn should_calibrate(now_ms: i64, last_real_query_at: i64, estimate_count: i64) -> bool {

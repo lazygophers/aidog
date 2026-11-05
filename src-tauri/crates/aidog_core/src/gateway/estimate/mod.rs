@@ -24,14 +24,14 @@ mod rate_limit;
 // 对外路径保持 `gateway::estimate::X` 不变（部分项仅测试 / 备用，allow 保稳定 API）。
 #[allow(unused_imports)]
 pub use algo::{
-    TierPace, apply_tier_delta, balance_cost, calibrate_tier, should_calibrate, tier_pace,
+    QUOTA_OPEN_ENDED_UNTIL_MS, QuotaVerdict, TierPace, quota_verdict, apply_tier_delta, balance_cost, calibrate_tier, should_calibrate, tier_pace,
     tier_usage_level,
 };
 #[allow(unused_imports)]
 pub use anchors::{anchors_in, default_plan_quota_anchors};
 #[allow(unused_imports)]
 pub use db_ops::{
-    apply_balance_delta, apply_coding_plan_delta, build_calibrated_coding_plan,
+    apply_balance_delta, apply_coding_plan_delta, apply_quota_verdict, build_calibrated_coding_plan,
     calibrate_from_quota, estimate_after_request, read_estimate_state, seed_plan_anchor_if_empty,
     spawn_refresh_at, write_rate_limit, write_real_quota,
 };
