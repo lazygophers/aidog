@@ -1435,6 +1435,7 @@
   "platform.rateLimits.importConfirmDesc": "Dies überschreibt die aktuelle Ratenlimit-Konfiguration (Parallelität / RPM / TPM, je Modell, Zeitfenster). Die importierte Kopie ist bearbeitbar; das integrierte Original bleibt unverändert.",
   "logs.blockedRateLimit": "Begrenzt",
   "logs.blockedPeak": "Sperrzeit",
+  "logs.blockedQuotaExhausted": "Kontingent aufgebraucht",
   "logs.blockedClientNotAllowed": "Client nicht erlaubt",
   "logs.blockedClientNotAllowedMixed": "Client nicht erlaubt (gemischt)",
   "logs.blockedObserve": "Beobachtet",

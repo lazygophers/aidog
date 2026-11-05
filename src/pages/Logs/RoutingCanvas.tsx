@@ -9,6 +9,7 @@ import type { ShortcutBypass } from "../../services/api/types/generated/Shortcut
 import { F } from "../../domains/shared/tokens";
 import { formatDurationMs, formatMoney, formatNumber } from "../../utils/formatters";
 import { useDisplayCurrency } from "../../utils/displayCurrency";
+import { blockedReasonLabel } from "./primitives";
 
 /** 请求详情「路由决策」画布：按网关真实执行顺序分五列（入站 / 路由判定 / 候选筛选与排序 + 逐平台转发 / 响应）。
  *  设计稿 .scratch/路由画布-完整流程/design-demos/设计稿.html（v2）。节点 id 稳定：req / route / c-{平台} / s-{平台}-{序} / resp。 */
@@ -248,6 +249,7 @@ export function RoutingCanvas({
   const [paths, setPaths] = useState<Record<string, { d: string; lx: number; ly: number }>>({});
 
   const statusOk = statusCode >= 200 && statusCode < 300;
+  const blockedLabel = blockedReason ? blockedReasonLabel(blockedReason, (k, d) => t(k, d)) : "";
   const flow = useMemo(
     () => (routing && routing.entries.length > 0 ? buildFlow(routing, attempts, statusOk) : null),
     [routing, attempts, statusOk],
@@ -467,8 +469,8 @@ export function RoutingCanvas({
                 {estCost !== undefined && <div className="rc-sub mono" data-testid="routing-resp-cost" data-value={estCost}>{formatMoney(estCost)}</div>}
                 {retryCount !== undefined && <div className="rc-sub mono" data-testid="routing-resp-retry" data-value={retryCount}>{t("logs.routing.resp.retry")} {retryCount}</div>}
                 {(blockedBy || blockedReason) && (
-                  <div className="rc-sub mono" data-testid="routing-resp-blocked" data-by={blockedBy ?? ""} data-reason={blockedReason ?? ""}>
-                    {blockedBy}{blockedBy && blockedReason ? " · " : ""}{blockedReason}
+                  <div className="rc-sub mono" data-testid="routing-resp-blocked" data-by={blockedBy ?? ""} data-reason={blockedReason ?? ""} data-label={blockedLabel}>
+                    {blockedBy}{blockedBy && blockedReason ? " · " : ""}{blockedLabel}
                   </div>
                 )}
               </div>

@@ -1435,6 +1435,7 @@
   "platform.rateLimits.importConfirmDesc": "سيؤدي هذا إلى استبدال إعدادات تحديد المعدل الحالية (التزامن / RPM / TPM، على مستوى النموذج، النوافذ الزمنية). النسخة المستوردة ملكك للتعديل؛ الأصل المدمج لا يتغير.",
   "logs.blockedRateLimit": "محدود المعدل",
   "logs.blockedPeak": "معطّل بالذروة",
+  "logs.blockedQuotaExhausted": "استُنفدت الحصة",
   "logs.blockedClientNotAllowed": "العميل غير مسموح",
   "logs.blockedClientNotAllowedMixed": "العميل غير مسموح (مختلط)",
   "logs.blockedObserve": "مُراقب",

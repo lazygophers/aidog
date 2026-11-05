@@ -28,6 +28,21 @@ pub(crate) fn kind_route_error_message(e: &str) -> String {
     }
 }
 
+/// 全组额度用完（402）文案：coding plan 类 →「套餐额度已用完，将于 <时刻> 恢复」（无已知重置时刻省略后半句），
+/// 否则「余额不足」。重置时刻按本机本地时间 `%Y-%m-%d %H:%M`。
+pub(crate) fn quota_exhausted_message(lang: Lang, q: QuotaExhausted) -> String {
+    if !q.coding_plan {
+        return i18n::t(lang, ErrorKey::BalanceInsufficient).to_string();
+    }
+    match q.earliest_reset_ms.and_then(chrono::DateTime::from_timestamp_millis) {
+        Some(utc) => {
+            let at = utc.with_timezone(&chrono::Local).format("%Y-%m-%d %H:%M").to_string();
+            i18n::t(lang, ErrorKey::QuotaExhaustedCodingPlanResume).replace("{{time}}", &at)
+        }
+        None => i18n::t(lang, ErrorKey::QuotaExhaustedCodingPlan).to_string(),
+    }
+}
+
 /// 按请求类型 route fail 落库（R7，聊天 / 决策两路径共用）：`blocked_by='router'`、`est_cost=0`。
 /// - `peak_disabled`（整组被高峰禁用排除）→ 503 + `blocked_reason='peak'`；
 /// - `client_not_allowed`（全部候选被客户端白名单拦）→ 417 + `blocked_reason='client_not_allowed'`；
@@ -53,6 +68,27 @@ pub(crate) async fn route_fail_response(
             StatusCode::SERVICE_UNAVAILABLE,
             format!("{}: {err}", i18n::t(lang, ErrorKey::Route)),
         )
+    } else if let Some(q) = QuotaExhausted::parse(err) {
+        // 多平台组全部额度用完：402 + blocked_reason='quota_exhausted'；body 沿用手动预算 402 的 JSON 错误形状。
+        log.blocked_reason = "quota_exhausted".to_string();
+        let body = serde_json::json!({
+            "error": { "type": "quota_exhausted", "message": quota_exhausted_message(lang, q) }
+        })
+        .to_string();
+        log.response_body = body.clone();
+        log.user_response_body = body.clone();
+        log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
+        log.status_code = 402;
+        log.duration_ms = start.elapsed().as_millis() as i32;
+        upsert_log(state, log, log_settings).await;
+        let mut r = (
+            StatusCode::PAYMENT_REQUIRED,
+            [(axum::http::header::CONTENT_TYPE, "application/json")],
+            body,
+        )
+            .into_response();
+        inject_trace_header(&mut r);
+        return r;
     } else if err == "rate_limit" {
         // 整组平台限频超限（extra.rate_limits）：503 + blocked_reason='rate_limit'。
         log.blocked_reason = "rate_limit".to_string();
