@@ -78,6 +78,8 @@ pub enum ErrorKey {
     ProxyStartOther,
     /// 首次关窗：仍在托盘运行
     TrayStillRunning,
+    /// 有新版本（界面不在时的系统通知）
+    UpdateAvailable,
 }
 
 /// 返回翻译后的错误消息
@@ -113,6 +115,7 @@ fn t_en(key: ErrorKey) -> &'static str {
         ErrorKey::ProxyStartPortInUse => "Port {{port}} is already in use, proxy did not start",
         ErrorKey::ProxyStartOther => "Failed to bind port {{port}}, proxy did not start",
         ErrorKey::TrayStillRunning => "AiDog is still running in the tray",
+        ErrorKey::UpdateAvailable => "AiDog has a new version available",
     }
 }
 
@@ -133,6 +136,7 @@ fn t_zh(key: ErrorKey) -> &'static str {
         ErrorKey::ProxyStartPortInUse => "端口 {{port}} 被占用，代理未启动",
         ErrorKey::ProxyStartOther => "端口 {{port}} 绑定失败，代理未启动",
         ErrorKey::TrayStillRunning => "aidog 仍在托盘运行",
+        ErrorKey::UpdateAvailable => "aidog 有新版本",
     }
 }
 
@@ -155,6 +159,7 @@ fn t_ja(key: ErrorKey) -> &'static str {
         ErrorKey::ProxyStartPortInUse => "ポート {{port}} は使用中のため、プロキシは起動しませんでした",
         ErrorKey::ProxyStartOther => "ポート {{port}} のバインドに失敗したため、プロキシは起動しませんでした",
         ErrorKey::TrayStillRunning => "aidog はトレイで実行中です",
+        ErrorKey::UpdateAvailable => "aidog に新しいバージョンがあります",
     }
 }
 
@@ -177,6 +182,7 @@ fn t_fr(key: ErrorKey) -> &'static str {
         ErrorKey::ProxyStartPortInUse => "Le port {{port}} est déjà utilisé, le proxy n'a pas démarré",
         ErrorKey::ProxyStartOther => "Échec de la liaison au port {{port}}, le proxy n'a pas démarré",
         ErrorKey::TrayStillRunning => "aidog continue de s'exécuter dans la barre d'état",
+        ErrorKey::UpdateAvailable => "Une nouvelle version d'aidog est disponible",
     }
 }
 
@@ -203,6 +209,7 @@ fn t_de(key: ErrorKey) -> &'static str {
         ErrorKey::ProxyStartPortInUse => "Port {{port}} wird bereits verwendet, Proxy wurde nicht gestartet",
         ErrorKey::ProxyStartOther => "Bindung an Port {{port}} fehlgeschlagen, Proxy wurde nicht gestartet",
         ErrorKey::TrayStillRunning => "aidog läuft weiterhin im Tray",
+        ErrorKey::UpdateAvailable => "Neue aidog-Version verfügbar",
     }
 }
 
@@ -225,6 +232,7 @@ fn t_ru(key: ErrorKey) -> &'static str {
         ErrorKey::ProxyStartPortInUse => "Порт {{port}} уже занят, прокси не запущен",
         ErrorKey::ProxyStartOther => "Не удалось привязаться к порту {{port}}, прокси не запущен",
         ErrorKey::TrayStillRunning => "aidog продолжает работать в трее",
+        ErrorKey::UpdateAvailable => "Доступна новая версия aidog",
     }
 }
 
@@ -249,6 +257,7 @@ fn t_ar(key: ErrorKey) -> &'static str {
         ErrorKey::ProxyStartPortInUse => "المنفذ {{port}} مستخدم بالفعل، لم يبدأ الوكيل",
         ErrorKey::ProxyStartOther => "فشل ربط المنفذ {{port}}، لم يبدأ الوكيل",
         ErrorKey::TrayStillRunning => "aidog لا يزال يعمل في شريط النظام",
+        ErrorKey::UpdateAvailable => "يتوفر إصدار جديد من aidog",
     }
 }
 
@@ -275,6 +284,7 @@ fn t_es(key: ErrorKey) -> &'static str {
         ErrorKey::ProxyStartPortInUse => "El puerto {{port}} ya está en uso, el proxy no se inició",
         ErrorKey::ProxyStartOther => "No se pudo vincular al puerto {{port}}, el proxy no se inició",
         ErrorKey::TrayStillRunning => "aidog sigue ejecutándose en la bandeja",
+        ErrorKey::UpdateAvailable => "Hay una nueva versión de aidog disponible",
     }
 }
 
