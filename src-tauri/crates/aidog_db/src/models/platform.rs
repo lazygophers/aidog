@@ -673,7 +673,6 @@ mod tests {
         let items = vec![
             ProxyAttempt {
                 chain_stop: None,
-                ttfb_ms: None,
                 platform_id: 1,
                 platform_name: "p1".into(),
                 status_code: 200,
@@ -685,7 +684,6 @@ mod tests {
             },
             ProxyAttempt {
                 chain_stop: None,
-                ttfb_ms: None,
                 platform_id: 2,
                 platform_name: "p2".into(),
                 status_code: 500,
@@ -717,7 +715,6 @@ mod tests {
 
         let with_model = ProxyAttempt {
             chain_stop: None,
-            ttfb_ms: None,
             platform_id: 1,
             platform_name: "p".into(),
             status_code: 200,

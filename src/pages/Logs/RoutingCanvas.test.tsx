@@ -150,6 +150,14 @@ describe("RoutingCanvas 场景 A：换模型后换平台成功", () => {
     expect(r.querySelector('[data-testid="routing-resp-blocked"]')).toBeNull();
   });
 
+  it("平台格合计该平台全部尝试耗时；无尝试的平台不显示", () => {
+    const c = mount({ routing: snapA, attempts: attsA });
+    const total = (id: string) => c.querySelector(`[data-node-id="${id}"] [data-testid="routing-platform-total"]`);
+    expect(total("c-1")!.getAttribute("data-ms")).toBe("200");
+    expect(total("c-2")!.getAttribute("data-ms")).toBe("4400");
+    expect(total("c-11")).toBeNull();
+  });
+
   it("路由格含 eval_ms；单模型链每格带模型名与耗时", () => {
     const c = go();
     expect(c.querySelector('[data-node-id="route"] [data-testid="routing-eval-ms"]')!.getAttribute("data-ms")).toBe("30");

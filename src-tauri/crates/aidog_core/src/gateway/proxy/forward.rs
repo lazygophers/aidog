@@ -2657,7 +2657,6 @@ async fn select_endpoint_target<'a>(
             // 非 last candidate：记录 attempt 并换下一个候选
             attempts.push(ProxyAttempt {
                 chain_stop: None,
-                ttfb_ms: None,
                 platform_id: route.platform.id,
                 platform_name: route.platform.name.clone(),
                 status_code: 0,
@@ -2712,7 +2711,6 @@ async fn select_endpoint_target<'a>(
         );
         attempts.push(ProxyAttempt {
             chain_stop: None,
-            ttfb_ms: None,
             platform_id: route.platform.id,
             platform_name: route.platform.name.clone(),
             status_code: 0,
@@ -2953,7 +2951,6 @@ async fn prepare_outbound(
         log.duration_ms = start.elapsed().as_millis() as i32;
         attempts.push(ProxyAttempt {
             chain_stop: None,
-            ttfb_ms: None,
             platform_id: route.platform.id,
             platform_name: route.platform.name.clone(),
             status_code: 402,
@@ -3394,7 +3391,6 @@ async fn send_upstream(
                 attempts.push(ProxyAttempt {
                     kind: Some("retry".to_string()),
                     chain_stop: None,
-                    ttfb_ms: None,
                     platform_id: route.platform.id,
                     platform_name: route.platform.name.clone(),
                     status_code: 0,
@@ -3444,7 +3440,6 @@ async fn send_upstream(
                     chain_stop: has_next_model.then(|| "service".to_string()),
                     error_class: Some("service".to_string()),
                     effects,
-                    ttfb_ms: None,
                     platform_id: route.platform.id,
                     platform_name: route.platform.name.clone(),
                     status_code: 0,
@@ -3494,7 +3489,6 @@ async fn send_upstream(
             attempts.push(ProxyAttempt {
                 kind: Some("beta_downgrade".to_string()),
                 chain_stop: None,
-                ttfb_ms: None,
                 platform_id: route.platform.id,
                 platform_name: route.platform.name.clone(),
                 status_code: 400,

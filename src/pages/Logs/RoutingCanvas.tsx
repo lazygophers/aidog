@@ -307,6 +307,9 @@ export function RoutingCanvas({
   const clientBlocked = entries.filter((c) => c.reason === "client-not-allowed").length;
   const sc = routing?.shortcut;
   const winTtfb = flow?.winStep?.attempt?.ttfb_ms;
+  const ttfbLine = (Tag: "span" | "div", testid: string, ms: number, cls: string) => (
+    <Tag className={cls} data-testid={testid} data-ms={ms}>{t("logs.routing.ttfb", "首字")} {formatDurationMs(ms)}</Tag>
+  );
 
   const stepText = (s: Step) => {
     const a = s.attempt;
@@ -382,12 +385,17 @@ export function RoutingCanvas({
                   const e = ln.entry;
                   const excluded = e.reason !== "selected";
                   const name = platformMap.get(e.platform_id) || e.platform || `#${e.platform_id}`;
+                  const timed = ln.steps.flatMap((s) => (s.attempt?.duration_ms !== undefined ? [s.attempt.duration_ms] : []));
+                  const totalMs = timed.reduce((x, y) => x + y, 0);
                   return (
                     <div className="rc-row" key={ln.id}>
                       <div className={`rc-node rc-cand ${excluded ? "out" : ""}`} data-node-id={ln.id} data-state={ln.state}>
                         <div className="rc-cand-head">
                           <span className="rc-ico">{STATE_ICON[ln.state]}</span>
                           <span className="rc-name">{name}</span>
+                          {timed.length > 0 && (
+                            <span className="rc-sub" data-testid="routing-platform-total" data-ms={totalMs}>{formatDurationMs(totalMs)}</span>
+                          )}
                           {!excluded && (
                             <span className="rc-ord mono" data-testid="routing-order" data-order={e.order}>#{e.order} · P{e.level_priority}·{e.priority}</span>
                           )}
@@ -431,7 +439,7 @@ export function RoutingCanvas({
                               {s.state === "untried" && <span className="rc-sub" data-testid="routing-step-untried">{t("logs.routing.chain.untried")}</span>}
                               {s.stop && <span className="rc-sub" data-testid="routing-step-stop" data-stop={s.stop}>{t(STOP_KEY[s.stop] ?? s.stop)}</span>}
                               {s.next && !s.stop && <span className="rc-sub" data-testid="routing-step-next" data-next={s.next}>{t(EDGE_KEY[s.next])}</span>}
-                              {a && a.ttfb_ms !== undefined && s.state === "ok" && <span className="rc-sub" data-testid="routing-step-ttfb" data-ms={a.ttfb_ms}>{t("logs.routing.ttfb", "首字")} {formatDurationMs(a.ttfb_ms)}</span>}
+                              {a && a.ttfb_ms !== undefined && s.state === "ok" && ttfbLine("span", "routing-step-ttfb", a.ttfb_ms, "rc-sub")}
                             </div>
                           );
                         })}
@@ -450,7 +458,7 @@ export function RoutingCanvas({
                   <span data-testid="routing-resp-status" data-value={statusCode}>{statusCode}</span>
                 </h3>
                 <div className="rc-sub mono" data-testid="routing-resp-duration" data-ms={durationMs}>{formatDurationMs(durationMs)}</div>
-                {winTtfb !== undefined && <div className="rc-sub mono" data-testid="routing-resp-ttfb" data-ms={winTtfb}>{t("logs.routing.ttfb", "首字")} {formatDurationMs(winTtfb)}</div>}
+                {winTtfb !== undefined && ttfbLine("div", "routing-resp-ttfb", winTtfb, "rc-sub mono")}
                 {inputTokens !== undefined && outputTokens !== undefined && (
                   <div className="rc-sub mono" data-testid="routing-resp-tokens" data-in={inputTokens} data-out={outputTokens}>
                     {t("logs.routing.resp.tokens")} {formatNumber(inputTokens)} / {formatNumber(outputTokens)}
