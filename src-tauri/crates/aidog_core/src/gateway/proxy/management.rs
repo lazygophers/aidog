@@ -22,7 +22,8 @@ pub const SETTINGS_TEST_SOURCE: &str = "settings-test";
 /// `/api/ui/*` 是静态资源，不记。
 fn call_log_command(path: &str) -> Option<String> {
     if let Some(cmd) = path.strip_prefix("/api/rpc/") {
-        return Some(cmd.to_string());
+        // 命令名来自请求路径，入库截断防超长串撑库。
+        return Some(cmd.chars().take(64).collect());
     }
     (path == "/api/events").then(|| "events".to_string())
 }
@@ -40,7 +41,8 @@ pub(crate) async fn handle_management(
     req: Request,
 ) -> Response {
     let started = std::time::Instant::now();
-    let command = call_log_command(req.uri().path());
+    // 非回环请求只回 403、不记调用（否则 LAN 上任何人都能刷表）。
+    let command = call_log_command(req.uri().path()).filter(|_| addr.ip().is_loopback());
     let user_agent: String = req_header(&req, "user-agent").chars().take(200).collect();
     let source = if req_header(&req, SOURCE_HEADER) == SETTINGS_TEST_SOURCE {
         aidog_db::API_CALL_SOURCE_SETTINGS_TEST
