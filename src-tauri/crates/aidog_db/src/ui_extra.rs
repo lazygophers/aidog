@@ -83,3 +83,70 @@ pub fn update_extra_key<'a>(
         Ok(())
     }
 }
+
+/// 自定义模型槽位（platform.extra.custom_slots）：返回 (id, 解析后的 extra) 中含 `name` 键的平台 id。
+fn ids_with_custom_slot(rows: Vec<(i64, String)>, name: &str) -> Vec<(i64, serde_json::Value)> {
+    rows.into_iter()
+        .filter_map(|(id, raw)| {
+            let v: serde_json::Value = serde_json::from_str(&raw).ok()?;
+            v.get("custom_slots")?.get(name)?;
+            Some((id, v))
+        })
+        .collect()
+}
+
+/// 统计 `extra.custom_slots` 含 `name` 键的平台数（删除确认框用）。损坏 / 空 extra 视为不含。
+#[track_caller]
+pub fn count_custom_slot_usage<'a>(
+    db: &'a Db,
+    name: &'a str,
+) -> impl std::future::Future<Output = Result<usize, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let rows = db
+            .call_read_platform_traced(None, __db_caller, |conn| {
+                let mut st = conn.prepare("SELECT id, extra FROM \"platform\"")?;
+                let rows = st
+                    .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(rows)
+            })
+            .await
+            .map_err(|e| format!("count_custom_slot_usage: {e}"))?;
+        Ok(ids_with_custom_slot(rows, name).len())
+    }
+}
+
+/// 从所有平台的 `extra.custom_slots` 删除 `name` 键，返回受影响平台数。其它键原样保留。
+#[track_caller]
+pub fn purge_custom_slot<'a>(
+    db: &'a Db,
+    name: &'a str,
+) -> impl std::future::Future<Output = Result<usize, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let name = name.to_string();
+        let n = db
+            .call_platform_traced(None, __db_caller, move |conn| {
+                let rows = {
+                    let mut st = conn.prepare("SELECT id, extra FROM \"platform\"")?;
+                    st.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?
+                        .collect::<Result<Vec<_>, _>>()?
+                };
+                let hits = ids_with_custom_slot(rows, &name);
+                for (id, mut v) in hits.iter().cloned() {
+                    if let Some(m) = v.get_mut("custom_slots").and_then(|c| c.as_object_mut()) {
+                        m.remove(&name);
+                    }
+                    let s = serde_json::to_string(&v)
+                        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+                    conn.execute("UPDATE \"platform\" SET extra = ?1 WHERE id = ?2", params![s, id])?;
+                }
+                Ok(hits.len())
+            })
+            .await
+            .map_err(|e| format!("purge_custom_slot: {e}"))?;
+        db.invalidate_groups_cache();
+        Ok(n)
+    }
+}
