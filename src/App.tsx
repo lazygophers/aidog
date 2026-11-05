@@ -35,6 +35,8 @@ import { invalidateDefaultsDoc } from "./domains/platforms/defaults";
 import { checkForUpdateDailyThrottled } from "./services/updater";
 import type { Update } from "@tauri-apps/plugin-updater";
 import { requestNavigation } from "./utils/navGuard";
+import { useCloseGuard } from "./utils/closeGuard";
+import { usePersistedNav } from "./utils/lastNav";
 
 const BASE_NAV: NavItem[] = [
   // G3 侧栏：概览第一位 / 监控 = 平台（分组内嵌 GroupsEmbedded，同页展示分组段 + 平台行）/ 日志。
@@ -72,8 +74,12 @@ const BASE_NAV: NavItem[] = [
   { id: "about", icon: "about", labelKey: "nav.about", section: "nav.section.system" },
 ];
 
+// 持久化的导航 id 须在清单内（含 settings 子页）。
+const NAV_IDS = BASE_NAV.flatMap((n) => [n.id, ...(n.children?.map((c) => c.id) ?? [])]);
+
 function App() {
-  const [activeNav, setActiveNav] = useState("home");
+  const [activeNav, setActiveNav] = usePersistedNav(NAV_IDS, "home");
+  useCloseGuard();
   const [navContext, setNavContext] = useState<NavContext>({});
   // G3 全局骨架：⌘K 命令面板（设计稿顶栏 kbd）。
   const [paletteOpen, setPaletteOpen] = useState(false);

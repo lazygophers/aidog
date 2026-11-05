@@ -389,12 +389,8 @@ export function Settings() {
     return unregister;
   }, [dirty]);
 
-  // 关窗不再拦截：主窗口关闭在 Rust 侧改成了隐藏而非销毁
-  // （`src-tauri/src/startup.rs` 的 `WindowEvent::CloseRequested`），webview 照活，
-  // 改到一半的草稿原样留着，从托盘「显示窗口」回来还在这一页。
-  // 原先这里挂 `onCloseRequested` + `win.destroy()`，那是窗口真会被销毁时的必要拦截；
-  // 现在留着只会弹一个警告「不会发生的事」的框，而且「丢弃」那条路会真把窗口销毁掉。
-  // 页内导航的未保存拦截（`registerNavGuard`）不受影响，仍在上面。
+  // 关窗未保存拦截：App.tsx 的 `useCloseGuard` 把关窗请求交给上面注册的 navGuard，
+  // 主窗口关闭 = 销毁，「丢弃 / 保存并离开」放行后才真正销毁，取消则窗口与草稿保留。
 
   // ── Resolve a pending navigation from the unsaved-changes modal ──
   const handleSaveAndLeave = useCallback(async () => {
