@@ -72,6 +72,12 @@ pub enum ErrorKey {
     Upstream,
     /// 中间件入站拦截
     MiddlewareBlocked,
+    /// 代理启动失败：端口被占用（`{{port}}` 占位）
+    ProxyStartPortInUse,
+    /// 代理启动失败：其它绑定错误（`{{port}}` 占位）
+    ProxyStartOther,
+    /// 首次关窗：仍在托盘运行
+    TrayStillRunning,
 }
 
 /// 返回翻译后的错误消息
@@ -104,6 +110,9 @@ fn t_en(key: ErrorKey) -> &'static str {
         }
         ErrorKey::Upstream => "upstream",
         ErrorKey::MiddlewareBlocked => "Request blocked by a middleware rule",
+        ErrorKey::ProxyStartPortInUse => "Port {{port}} is already in use, proxy did not start",
+        ErrorKey::ProxyStartOther => "Failed to bind port {{port}}, proxy did not start",
+        ErrorKey::TrayStillRunning => "AiDog is still running in the tray",
     }
 }
 
@@ -121,6 +130,9 @@ fn t_zh(key: ErrorKey) -> &'static str {
         ErrorKey::BudgetResetTotal => "总预算已耗尽，请增加或重置限额以恢复。",
         ErrorKey::Upstream => "上游",
         ErrorKey::MiddlewareBlocked => "请求被中间件规则拦截",
+        ErrorKey::ProxyStartPortInUse => "端口 {{port}} 被占用，代理未启动",
+        ErrorKey::ProxyStartOther => "端口 {{port}} 绑定失败，代理未启动",
+        ErrorKey::TrayStillRunning => "aidog 仍在托盘运行",
     }
 }
 
@@ -140,6 +152,9 @@ fn t_ja(key: ErrorKey) -> &'static str {
         }
         ErrorKey::Upstream => "アップストリーム",
         ErrorKey::MiddlewareBlocked => "リクエストはミドルウェアルールによってブロックされました",
+        ErrorKey::ProxyStartPortInUse => "ポート {{port}} は使用中のため、プロキシは起動しませんでした",
+        ErrorKey::ProxyStartOther => "ポート {{port}} のバインドに失敗したため、プロキシは起動しませんでした",
+        ErrorKey::TrayStillRunning => "aidog はトレイで実行中です",
     }
 }
 
@@ -159,6 +174,9 @@ fn t_fr(key: ErrorKey) -> &'static str {
         ErrorKey::BudgetResetTotal => "Budget total épuisé ; augmentez ou réinitialisez la limite.",
         ErrorKey::Upstream => "amont",
         ErrorKey::MiddlewareBlocked => "Requête bloquée par une règle de middleware",
+        ErrorKey::ProxyStartPortInUse => "Le port {{port}} est déjà utilisé, le proxy n'a pas démarré",
+        ErrorKey::ProxyStartOther => "Échec de la liaison au port {{port}}, le proxy n'a pas démarré",
+        ErrorKey::TrayStillRunning => "aidog continue de s'exécuter dans la barre d'état",
     }
 }
 
@@ -182,6 +200,9 @@ fn t_de(key: ErrorKey) -> &'static str {
         }
         ErrorKey::Upstream => "Upstream",
         ErrorKey::MiddlewareBlocked => "Anfrage durch eine Middleware-Regel blockiert",
+        ErrorKey::ProxyStartPortInUse => "Port {{port}} wird bereits verwendet, Proxy wurde nicht gestartet",
+        ErrorKey::ProxyStartOther => "Bindung an Port {{port}} fehlgeschlagen, Proxy wurde nicht gestartet",
+        ErrorKey::TrayStillRunning => "aidog läuft weiterhin im Tray",
     }
 }
 
@@ -201,6 +222,9 @@ fn t_ru(key: ErrorKey) -> &'static str {
         ErrorKey::BudgetResetTotal => "Общий бюджет исчерпан; увеличьте или сбросьте лимит.",
         ErrorKey::Upstream => "вышестоящий",
         ErrorKey::MiddlewareBlocked => "Запрос заблокирован правилом промежуточного слоя",
+        ErrorKey::ProxyStartPortInUse => "Порт {{port}} уже занят, прокси не запущен",
+        ErrorKey::ProxyStartOther => "Не удалось привязаться к порту {{port}}, прокси не запущен",
+        ErrorKey::TrayStillRunning => "aidog продолжает работать в трее",
     }
 }
 
@@ -222,6 +246,9 @@ fn t_ar(key: ErrorKey) -> &'static str {
         }
         ErrorKey::Upstream => "المنبع",
         ErrorKey::MiddlewareBlocked => "تم حظر الطلب بواسطة قاعدة الوسيط",
+        ErrorKey::ProxyStartPortInUse => "المنفذ {{port}} مستخدم بالفعل، لم يبدأ الوكيل",
+        ErrorKey::ProxyStartOther => "فشل ربط المنفذ {{port}}، لم يبدأ الوكيل",
+        ErrorKey::TrayStillRunning => "aidog لا يزال يعمل في شريط النظام",
     }
 }
 
@@ -245,6 +272,9 @@ fn t_es(key: ErrorKey) -> &'static str {
         }
         ErrorKey::Upstream => "origen",
         ErrorKey::MiddlewareBlocked => "Solicitud bloqueada por una regla de middleware",
+        ErrorKey::ProxyStartPortInUse => "El puerto {{port}} ya está en uso, el proxy no se inició",
+        ErrorKey::ProxyStartOther => "No se pudo vincular al puerto {{port}}, el proxy no se inició",
+        ErrorKey::TrayStillRunning => "aidog sigue ejecutándose en la bandeja",
     }
 }
 

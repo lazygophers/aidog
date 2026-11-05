@@ -30,12 +30,25 @@ pub fn show_popup(ctx: &dyn AppCtx, title: &str, body: &str) {
     ctx.show_popup(title, body);
 }
 
+/// 界面不存在时 WebSpeech 无处可播：本次改用系统朗读（不改写用户设置）。
+pub(crate) fn effective_backend(ui_exists: bool, backend: TtsBackend) -> TtsBackend {
+    match (backend, ui_exists) {
+        (TtsBackend::WebSpeech, false) if cfg!(target_os = "macos") => TtsBackend::MacSay,
+        (TtsBackend::WebSpeech, false) => TtsBackend::CrossPlatform,
+        (b, _) => b,
+    }
+}
+
 /// TTS 播报：按后端分发。
 /// - CrossPlatform：tts crate，在独立线程构造 + speak（Tts 内含 Rc，须单线程持有；
 ///   speak 为非阻塞触发，线程随即退出，平台 backend 自行排播）。
 /// - MacSay：std::process `say`（macOS only；其他平台退化为 CrossPlatform）。
 /// - WebSpeech：emit 事件给前端 webview，由 N3 webview SpeechSynthesis 朗读。
 pub fn speak(ctx: Option<&dyn AppCtx>, backend: TtsBackend, text: &str) {
+    let backend = match ctx {
+        Some(c) => effective_backend(c.ui_exists(), backend),
+        None => backend,
+    };
     match backend {
         TtsBackend::WebSpeech => {
             if let Some(ctx) = ctx {

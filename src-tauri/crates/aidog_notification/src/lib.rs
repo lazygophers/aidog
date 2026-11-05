@@ -40,3 +40,5 @@ mod test_render;
 mod test_session_name;
 #[cfg(test)]
 mod test_vars;
+#[cfg(test)]
+mod test_tts;

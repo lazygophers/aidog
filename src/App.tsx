@@ -1,6 +1,6 @@
 import { useState, useEffect, useTransition, lazy, Suspense } from "react";
 import { listen } from "./services/transport";
-import { notify, isTauri } from "./services/platform";
+import { isTauri } from "./services/platform";
 import { PathPickerHost } from "./components/shared/PathPickerHost";
 import { ErrorBoundary } from "./components/shared/ErrorBoundary";
 import { Sidebar, type NavItem, type NavContext } from "./components/Sidebar";
@@ -157,25 +157,6 @@ function App() {
         .then(() => import("@tauri-apps/api/event").then((m) => m.emit("aidog-ui-ready")))
         .catch((e) => console.error(e));
     }
-    return () => { unlistenPromise.then((un) => un()).catch((e) => console.error(e)); };
-  }, []);
-
-  // 无前端窗口路径启动失败（自启动 / 托盘点启动，proxy-port-no-drift s3）：
-  // Rust 侧 app_setup.rs 两处 emit "proxy-start-failed"（kind/port，与手动启动错误条
-  // 同 ProxyStartError 形状），这里转系统通知。文案走 i18n（同 ProxyStatusSection 用的
-  // proxy.startFailedPortInUse / proxy.startFailedOther key），Rust 侧不硬编码文案。
-  useEffect(() => {
-    const unlistenPromise = listen<{ kind: "addr_in_use" | "other"; port: number }>(
-      "proxy-start-failed",
-      async (e) => {
-        const { kind, port } = e.payload;
-        const body = kind === "addr_in_use"
-          ? i18n.t("proxy.startFailedPortInUse", { port })
-          : i18n.t("proxy.startFailedOther", { port });
-        // 票 10：桌面走 Tauri 通知插件，浏览器走 `window.Notification`，都在 platform.notify 里。
-        await notify(i18n.t("app.title"), body);
-      },
-    );
     return () => { unlistenPromise.then((un) => un()).catch((e) => console.error(e)); };
   }, []);
 
