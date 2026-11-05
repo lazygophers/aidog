@@ -962,6 +962,7 @@
   "logs.routing.via.slot-haiku": "Slot Haiku",
   "logs.routing.via.slot-gpt": "Slot GPT",
   "logs.routing.via.slot-default": "Slot par défaut",
+  "logs.routing.via.slot-custom": "Slot personnalisé {{name}}",
   "logs.routing.via.dedicated-slot": "Slot dédié",
   "logs.routing.via.passthrough": "Nom conservé",
   "logs.attempts": "Tentatives",

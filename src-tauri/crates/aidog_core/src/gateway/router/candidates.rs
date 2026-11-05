@@ -4,17 +4,22 @@ use super::super::models::*;
 use super::super::peak;
 use super::super::scheduling::{Admission, BreakerThresholds, SchedulerState, StickyTable};
 use super::super::time_windows;
-use super::model_mapping::{resolve_decision_model, resolve_model_chain_with_via, resolve_model_with_via};
+use super::model_mapping::{
+    CustomSlotDef, CustomSlotEntry, build_custom_entries, parse_custom_defs,
+    resolve_decision_model, resolve_model_chain_with_custom,
+};
 use super::ordering::{
-    apply_coding_plan_priority, apply_sticky, expiry_sort_key, is_coding_plan,
-    order_load_balance,
+    apply_coding_plan_priority, apply_sticky, expiry_sort_key, is_coding_plan, order_load_balance,
 };
 use super::{RouteResult, candidate_state, sole_platform};
+use crate::client_vocab::{
+    ClientEntry, CompiledUaRule, client_allowed, compile_ua_rules, identify,
+};
 use crate::gateway::rate_limit::RateLimitsCfg;
-use crate::client_vocab::{ClientEntry, CompiledUaRule, client_allowed, compile_ua_rules, identify};
 use aidog_db as db;
 use aidog_db::models::{
-    ModelVia, RouteCandidate, RouteReason, RouteTag, RoutingSnapshot, ShortcutBypass, SingleShortcut,
+    ModelVia, RouteCandidate, RouteReason, RouteTag, RoutingSnapshot, ShortcutBypass,
+    SingleShortcut,
 };
 use std::collections::{HashMap, HashSet};
 
@@ -61,7 +66,10 @@ impl QuotaExhausted {
         if it.next()? != "quota_exhausted" {
             return None;
         }
-        let mut q = Self { coding_plan: false, earliest_reset_ms: None };
+        let mut q = Self {
+            coding_plan: false,
+            earliest_reset_ms: None,
+        };
         for kv in it {
             match kv.split_once('=') {
                 Some(("cp", v)) => q.coding_plan = v == "1",
@@ -111,14 +119,22 @@ pub struct ClientProbe {
 
 impl ClientProbe {
     pub fn from_ua(ua: &str) -> Self {
-        Self { hit: identify(ua), ua: ua.into() }
+        Self {
+            hit: identify(ua),
+            ua: ua.into(),
+        }
     }
 
     /// 平台 `extra` JSON 的白名单（词表勾选 + UA 规则）是否放行本请求；空白名单放行。
     /// 不经路由缓存的调用方（responses 子端点 / ws 透传）用。
     pub fn allowed_by(&self, platform_extra: &str) -> bool {
         let extra = db::models::PlatformExtra::parse(platform_extra);
-        client_allowed(&extra.allowed_clients, &compile_ua_rules(&extra.client_ua_rules), &self.ua, self.hit)
+        client_allowed(
+            &extra.allowed_clients,
+            &compile_ua_rules(&extra.client_ua_rules),
+            &self.ua,
+            self.hit,
+        )
     }
 }
 
@@ -166,7 +182,11 @@ pub(crate) struct DecisionModels(HashMap<String, HashSet<String>>);
 
 impl DecisionModels {
     /// `models` 里第一个在 `platform` 对应 registry 条目上带 decision 能力的模型。
-    pub(crate) fn first_in<'a>(&self, platform: &Platform, models: &'a [String]) -> Option<&'a String> {
+    pub(crate) fn first_in<'a>(
+        &self,
+        platform: &Platform,
+        models: &'a [String],
+    ) -> Option<&'a String> {
         let ids = self.0.get(&platform.platform_type.wire_str())?;
         models.iter().find(|m| ids.contains(m.as_str()))
     }
@@ -265,16 +285,22 @@ struct ExtraCache {
     ua_rules: Vec<CompiledUaRule>,
     /// extra.rate_limits（并发 / RPM / TPM，内存计数执行）。
     rate: RateLimitsCfg,
+    /// extra.custom_slots × 全局自定义槽位定义：本平台已填值的槽，按匹配顺序排好（仅聊天请求构建）。
+    custom: Vec<CustomSlotEntry>,
 }
 
 impl ExtraCache {
     /// `platform_type` 直接取自 `Platform` 顶层字段（非 extra 内字段，caller 传入）。
-    fn new(extra: &str, platform_type: &Protocol) -> Self {
+    /// `custom_defs`：`Some` = 聊天请求，按全局定义解析自定义槽；`None` = 非聊天请求，跳过（也不 warn 孤儿键）。
+    fn new(extra: &str, platform_type: &Protocol, custom_defs: Option<&[CustomSlotDef]>) -> Self {
         let time_windows = time_windows::parse_platform_time_windows(extra);
         let peak_windows = peak::peak_for(extra, &platform_type.wire_str());
         let disable_during_peak = peak::parse_disable_during_peak(extra);
         let parsed = db::models::PlatformExtra::parse(extra);
         let ua_rules = compile_ua_rules(&parsed.client_ua_rules);
+        let custom = custom_defs
+            .map(|defs| build_custom_entries(defs, parsed.rest.get("custom_slots")))
+            .unwrap_or_default();
         let (direct_models, allowed_clients) = (parsed.direct_models, parsed.allowed_clients);
         Self {
             time_windows,
@@ -284,6 +310,7 @@ impl ExtraCache {
             allowed_clients,
             ua_rules,
             rate: RateLimitsCfg::parse(extra),
+            custom,
         }
     }
 }
@@ -393,12 +420,26 @@ async fn select_candidates_inner(
 
     // ── 阶段 -1: 预解析所有 platform.extra（避免每个候选重复解析）──
     // ponytail: 在入口处统一解析 time_windows 和 peak，缓存传递给 helper 函数
+    // 自定义槽位定义（仅聊天请求；settings 内存缓存读，非 DB 往返）。
+    let custom_defs: Option<Vec<CustomSlotDef>> = if kind == RequestKind::Chat {
+        let v = db::get_setting(db, "model", "custom_model_slots")
+            .await
+            .ok()
+            .flatten();
+        Some(parse_custom_defs(v.as_ref()))
+    } else {
+        None
+    };
     let extra_cache: ExtraCacheMap = group_platforms
         .iter()
         .map(|gp| {
             (
                 gp.platform.id,
-                ExtraCache::new(&gp.platform.extra, &gp.platform.platform_type),
+                ExtraCache::new(
+                    &gp.platform.extra,
+                    &gp.platform.platform_type,
+                    custom_defs.as_deref(),
+                ),
             )
         })
         .collect();
@@ -473,14 +514,26 @@ async fn select_candidates_inner(
         unknown_protocol_count,
         client_rejected_count,
         rate_limited_count,
-    } = filter_candidates(&group_platforms, ctx, now_ms, source_model, &extra_cache, kind, &decision_models, client);
+    } = filter_candidates(
+        &group_platforms,
+        ctx,
+        now_ms,
+        source_model,
+        &extra_cache,
+        kind,
+        &decision_models,
+        client,
+    );
 
     // ── 阶段 2: 熔断全空回退透传 ──
     // 仅当熔断维度踢空（active+probe 皆空）且确有被熔断踢出的候选时回退；
     // 若空因 auto_disabled / 手动 disabled，则不回退（保持原 Err）。
     let breaker_bypass = active.is_empty() && probe.is_empty() && !breaker_rejected.is_empty();
     let backfill_ids: HashSet<u64> = if breaker_bypass {
-        breaker_rejected.iter().map(|(gp, _)| gp.platform.id).collect()
+        breaker_rejected
+            .iter()
+            .map(|(gp, _)| gp.platform.id)
+            .collect()
     } else {
         HashSet::new()
     };
@@ -633,7 +686,9 @@ async fn select_candidates_inner(
         if let Some(c) = ctx
             && !excluded.is_empty()
             && excluded.len() == group_platforms.len()
-            && excluded.iter().all(|(_, r)| *r == RouteReason::QuotaCooldown)
+            && excluded
+                .iter()
+                .all(|(_, r)| *r == RouteReason::QuotaCooldown)
         {
             let ups: Vec<i64> = excluded
                 .iter()
@@ -705,7 +760,15 @@ async fn select_candidates_inner(
 
     // 快照回填目标模型：选中候选按解析结果填 target_model（排除候选算不到，留 None）
     fill_snapshot_target_models(&mut routing, &candidates);
-    fill_snapshot_model_via(&mut routing, &candidates, &extra_cache, kind, now_ms, source_model, &mapped_target_model);
+    fill_snapshot_model_via(
+        &mut routing,
+        &candidates,
+        &extra_cache,
+        kind,
+        now_ms,
+        source_model,
+        &mapped_target_model,
+    );
 
     tracing::info!(
         group = %group.name, source_model = %source_model,
@@ -714,7 +777,10 @@ async fn select_candidates_inner(
         "candidates selected"
     );
 
-    Ok(CandidateSet { candidates, routing })
+    Ok(CandidateSet {
+        candidates,
+        routing,
+    })
 }
 
 // ── Helper: 单平台分组短路逻辑 ──
@@ -807,7 +873,8 @@ async fn handle_single_platform(
     // 先判，之后、status bypass 与透传豁免之前拦截（独立维度，透传平台同样受约束，ADR 0008 修订）。
     // 单平台无「混合原因」概念：唯一候选被白名单拦 = 全部候选被拦 → 417。
     if let ClientGate::On(probe) = &client
-        && cache.is_some_and(|c| !client_allowed(&c.allowed_clients, &c.ua_rules, &probe.ua, probe.hit))
+        && cache
+            .is_some_and(|c| !client_allowed(&c.allowed_clients, &c.ua_rules, &probe.ua, probe.hit))
     {
         tracing::info!(
             group = %group.name, platform = %only.platform.name,
@@ -846,6 +913,7 @@ async fn handle_single_platform(
         &only.platform,
         decision_models,
         mapped_target_model.as_deref().unwrap_or(source_model),
+        cache.map(|c| c.custom.as_slice()).unwrap_or_default(),
     );
     let target_model = chain.remove(0);
     let fallback_models = chain;
@@ -863,8 +931,14 @@ async fn handle_single_platform(
     });
     routing.entries[0].target_model = Some(target_model.clone());
     routing.entries[0].model_chain = full_chain(&target_model, &fallback_models);
-    routing.entries[0].model_via =
-        model_via_for(&only.platform, cache, kind, now_ms, source_model, mapped_target_model);
+    routing.entries[0].model_via = model_via_for(
+        &only.platform,
+        cache,
+        kind,
+        now_ms,
+        source_model,
+        mapped_target_model,
+    );
     Ok(CandidateSet {
         candidates: vec![RouteResult {
             platform: only.platform.clone(),
@@ -885,7 +959,8 @@ fn bypassed_states(
 ) -> Vec<ShortcutBypass> {
     let p = &only.platform;
     let mut v = Vec::new();
-    if p.status == PlatformStatus::AutoDisabled && p.auto_disabled_until > now_ms && !is_passthrough {
+    if p.status == PlatformStatus::AutoDisabled && p.auto_disabled_until > now_ms && !is_passthrough
+    {
         v.push(ShortcutBypass::AutoDisabled);
     }
     if p.expires_at > 0 && now_ms >= p.expires_at {
@@ -925,9 +1000,20 @@ fn rate_limited(
         _ => 0,
     };
     let rl = &ctx.scheduler.rate;
-    !rl.has_room(pid, "", &cfg.platform_limits(now_ms, source_model), now_ms, est)
-        || (!source_model.is_empty()
-            && !rl.has_room(pid, source_model, &cfg.model_limits(source_model), now_ms, est))
+    !rl.has_room(
+        pid,
+        "",
+        &cfg.platform_limits(now_ms, source_model),
+        now_ms,
+        est,
+    ) || (!source_model.is_empty()
+        && !rl.has_room(
+            pid,
+            source_model,
+            &cfg.model_limits(source_model),
+            now_ms,
+            est,
+        ))
 }
 
 /// 单平台组快照（票 01）：唯一候选一个条目，排除时带原因。
@@ -969,7 +1055,10 @@ fn fill_snapshot_model_via(
         if entry.reason != RouteReason::Selected {
             continue;
         }
-        if let Some(c) = candidates.iter().find(|c| c.platform.id == entry.platform_id) {
+        if let Some(c) = candidates
+            .iter()
+            .find(|c| c.platform.id == entry.platform_id)
+        {
             entry.model_via = model_via_for(
                 &c.platform,
                 extra_cache.get(&c.platform.id),
@@ -986,10 +1075,13 @@ fn fill_snapshot_model_via(
 fn fill_snapshot_target_models(routing: &mut RoutingSnapshot, candidates: &[RouteResult]) {
     for entry in &mut routing.entries {
         if entry.reason == RouteReason::Selected {
-            let hit = candidates.iter().find(|candidate| candidate.platform.id == entry.platform_id);
+            let hit = candidates
+                .iter()
+                .find(|candidate| candidate.platform.id == entry.platform_id);
             entry.target_model = hit.map(|candidate| candidate.target_model.clone());
-            entry.model_chain =
-                hit.map_or_else(Vec::new, |c| full_chain(&c.target_model, &c.fallback_models));
+            entry.model_chain = hit.map_or_else(Vec::new, |c| {
+                full_chain(&c.target_model, &c.fallback_models)
+            });
         }
     }
 }
@@ -1046,6 +1138,12 @@ fn select_direct_candidates(
             .filter(|(gp, _)| in_direct(gp))
             .map(|(gp, _)| (gp, RouteReason::Breaker)),
     );
+    // 直通额度快照（用户拍板 2026-11-05）：声明平台全部额度冷却 → 402（见下方 ordered.is_empty 分支）
+    let quota_excluded: Vec<&GroupPlatformDetail> = excluded
+        .iter()
+        .filter(|(_, r)| *r == RouteReason::QuotaCooldown)
+        .map(|(gp, _)| *gp)
+        .collect();
 
     let (sticky_id, demoted_ids) = sort_by_routing_mode(&mut active, &mut probe, mode, ctx, now_ms);
     let probe_ids: HashSet<u64> = probe.iter().map(|gp| gp.platform.id).collect();
@@ -1089,20 +1187,29 @@ fn select_direct_candidates(
         .collect();
     let excluded: Vec<(&GroupPlatformDetail, RouteReason)> = excluded
         .into_iter()
-        .chain(undeclared.into_iter().map(|gp| (gp, RouteReason::NotDeclared)))
+        .chain(
+            undeclared
+                .into_iter()
+                .map(|gp| (gp, RouteReason::NotDeclared)),
+        )
         .collect();
-    entries.extend(excluded.iter().enumerate().map(|(i, (gp, reason))| RouteCandidate {
-        order: selected_count + i as u32 + 1,
-        platform: gp.platform.name.clone(),
-        platform_id: gp.platform.id,
-        level_priority: gp.level_priority,
-        priority: gp.priority,
-        reason: *reason,
-        target_model: None,
-        model_via: Vec::new(),
-        model_chain: Vec::new(),
-        tags: Vec::new(),
-    }));
+    entries.extend(
+        excluded
+            .iter()
+            .enumerate()
+            .map(|(i, (gp, reason))| RouteCandidate {
+                order: selected_count + i as u32 + 1,
+                platform: gp.platform.name.clone(),
+                platform_id: gp.platform.id,
+                level_priority: gp.level_priority,
+                priority: gp.priority,
+                reason: *reason,
+                target_model: None,
+                model_via: Vec::new(),
+                model_chain: Vec::new(),
+                tags: Vec::new(),
+            }),
+    );
     let mut routing = RoutingSnapshot {
         mode: Some(mode),
         entries,
@@ -1120,6 +1227,32 @@ fn select_direct_candidates(
         if client_rejected > 0 && client_rejected == direct_ids.len() {
             return Err(RouteFail {
                 reason: "client_not_allowed".to_string(),
+                routing,
+            });
+        }
+        // 声明该直通模型的平台全部因额度冷却被排除（用户拍板 2026-11-05）→ 同返 quota_exhausted 402，
+        // 与普通路由同文案；混合原因（部分禁用 / 熔断等）不命中，走下方兜底。
+        if let Some(c) = ctx
+            && !quota_excluded.is_empty()
+            && quota_excluded.len() == direct_ids.len()
+        {
+            let ups: Vec<i64> = quota_excluded
+                .iter()
+                .map(|gp| c.scheduler.quota_cooldown_until_ms(gp.platform.id))
+                .collect();
+            let q = QuotaExhausted {
+                coding_plan: quota_excluded.iter().any(|gp| is_coding_plan(&gp.platform)),
+                earliest_reset_ms: ups
+                    .into_iter()
+                    .filter(|&u| u < super::super::estimate::QUOTA_OPEN_ENDED_UNTIL_MS)
+                    .min(),
+            };
+            tracing::info!(
+                group = %group.name, model = %direct_model, ?q,
+                "all direct-model platforms quota-cooled; returning quota_exhausted error for audit log"
+            );
+            return Err(RouteFail {
+                reason: q.to_reason(),
                 routing,
             });
         }
@@ -1151,11 +1284,22 @@ fn select_direct_candidates(
 
     fill_snapshot_target_models(&mut routing, &candidates);
     // 直通链转发名 = 直通原名（不进槽位匹配）；映射命中时先改名。
-    for e in routing.entries.iter_mut().filter(|e| e.reason == RouteReason::Selected) {
-        e.model_via = mapping.map(|_| ModelVia::Mapped).into_iter().chain([ModelVia::Passthrough]).collect();
+    for e in routing
+        .entries
+        .iter_mut()
+        .filter(|e| e.reason == RouteReason::Selected)
+    {
+        e.model_via = mapping
+            .map(|_| ModelVia::Mapped)
+            .into_iter()
+            .chain([ModelVia::Passthrough])
+            .collect();
     }
 
-    Ok(CandidateSet { candidates, routing })
+    Ok(CandidateSet {
+        candidates,
+        routing,
+    })
 }
 
 // ── Helper: 候选分桶过滤 ──
@@ -1436,6 +1580,7 @@ fn build_route_results(
                 &gp.platform,
                 decision_models,
                 mapped_target_model.as_deref().unwrap_or(source_model),
+                cache.map(|c| c.custom.as_slice()).unwrap_or_default(),
             );
             let target_model = chain.remove(0);
             RouteResult {
@@ -1453,7 +1598,9 @@ fn full_chain(target: &str, fallbacks: &[String]) -> Vec<String> {
     if fallbacks.is_empty() {
         return Vec::new();
     }
-    std::iter::once(target.to_string()).chain(fallbacks.iter().cloned()).collect()
+    std::iter::once(target.to_string())
+        .chain(fallbacks.iter().cloned())
+        .collect()
 }
 
 /// 按请求类型做槽位匹配，返回有序模型链（链首 = 目标模型，恒非空）。
@@ -1465,6 +1612,7 @@ fn resolve_target_chain(
     platform: &Platform,
     decision_models: &DecisionModels,
     model_name: &str,
+    custom: &[CustomSlotEntry],
 ) -> Vec<String> {
     // 透传平台通配命中（ADR 0008）：不吃模型槽改写——body 原样转发，模型名仅作日志元数据。
     if matches!(platform.platform_type, Protocol::Passthrough) {
@@ -1480,7 +1628,9 @@ fn resolve_target_chain(
             &effective_models.jev,
             resolve_decision_model(effective_models, platform, decision_models, model_name),
         ),
-        RequestKind::Chat => resolve_model_chain_with_via(effective_models, model_name).0,
+        RequestKind::Chat => {
+            resolve_model_chain_with_custom(effective_models, custom, model_name).0
+        }
         // Embedding：专用路径一律用槽位模型，忽略客户端模型名（spec Q4）。读 platform.models 而非
         // effective_models：time_windows / preset peak 命中时整支替换为不含该槽位的 PlatformModels，
         // 会把槽位读成空。
@@ -1566,14 +1716,19 @@ fn model_via_for(
     }
     let time_rules: &[serde_json::Value] =
         cache.map(|c| c.time_windows.as_slice()).unwrap_or_default();
-    let (effective, layer) = resolve_effective_models_tagged(platform, time_rules, now_ms, source_model);
+    let (effective, layer) =
+        resolve_effective_models_tagged(platform, time_rules, now_ms, source_model);
     out.extend(layer);
     out.push(match kind {
         RequestKind::Chat => {
-            resolve_model_with_via(&effective, mapped_target_model.as_deref().unwrap_or(source_model)).1
+            let name = mapped_target_model.as_deref().unwrap_or(source_model);
+            let custom = cache.map(|c| c.custom.as_slice()).unwrap_or_default();
+            resolve_model_chain_with_custom(&effective, custom, name).1
         }
         RequestKind::Decision => ModelVia::DedicatedSlot,
-        RequestKind::Embedding if platform.models.embedding_slot().is_some() => ModelVia::DedicatedSlot,
+        RequestKind::Embedding if platform.models.embedding_slot().is_some() => {
+            ModelVia::DedicatedSlot
+        }
         RequestKind::Rerank if platform.models.rerank_slot().is_some() => ModelVia::DedicatedSlot,
         _ => ModelVia::Passthrough,
     });
