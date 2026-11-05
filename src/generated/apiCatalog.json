@@ -470,6 +470,34 @@
       "returns": "CodingToolsSettings"
     },
     {
+      "name": "custom_slot_purge",
+      "category": "settings",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "name",
+          "type": "String"
+        }
+      ],
+      "returns": "usize"
+    },
+    {
+      "name": "custom_slot_usage_count",
+      "category": "settings",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "name",
+          "type": "String"
+        }
+      ],
+      "returns": "usize"
+    },
+    {
       "name": "db_compact",
       "category": "backup",
       "kind": "mutating",
