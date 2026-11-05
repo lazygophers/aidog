@@ -1,0 +1,18 @@
+[
+ {"name": "balance green",  "display": "balance", "balance_level": "green",  "days": 5.0,  "expected": "success"},
+ {"name": "balance yellow", "display": "balance", "balance_level": "yellow", "days": 2.0,  "expected": "warning"},
+ {"name": "balance red",    "display": "balance", "balance_level": "red",    "days": 0.5,  "expected": "danger"},
+ {"name": "balance none",   "display": "balance", "balance_level": "",       "days": null, "expected": "neutral"},
+ {"name": "manual quota balance neutral", "display": "balance", "balance_level": "", "days": 5.0, "manual": true, "expected": "neutral"},
+ {"name": "coding saving",  "metrics": ["coding"], "tiers": [{"name": "five_hour", "util": 10, "elapsed_ms": 3600000}], "expected": "success"},
+ {"name": "coding on pace", "metrics": ["coding"], "tiers": [{"name": "five_hour", "util": 20, "elapsed_ms": 3600000}], "expected": "warning"},
+ {"name": "coding over",    "metrics": ["coding"], "tiers": [{"name": "five_hour", "util": 40, "elapsed_ms": 3600000}], "expected": "danger"},
+ {"name": "coding exhausted", "metrics": ["coding"], "tiers": [{"name": "five_hour", "util": 100, "elapsed_ms": 3600000}], "expected": "danger"},
+ {"name": "coding no window_start", "metrics": ["coding"], "tiers": [{"name": "five_hour", "util": 90}], "expected": "neutral"},
+ {"name": "coding unknown tier", "metrics": ["coding"], "tiers": [{"name": "weird", "util": 90, "elapsed_ms": 3600000}], "expected": "neutral"},
+ {"name": "coding named tier", "metrics": ["coding:weekly_limit"], "tiers": [{"name": "five_hour", "util": 10, "elapsed_ms": 3600000}, {"name": "weekly_limit", "util": 50, "elapsed_ms": 3600000}], "expected": "danger"},
+ {"name": "multi worst wins", "metrics": ["balance", "coding"], "balance_level": "green", "days": 5.0, "tiers": [{"name": "five_hour", "util": 40, "elapsed_ms": 3600000}], "expected": "danger"},
+ {"name": "legacy coding display", "display": "coding", "tiers": [{"name": "five_hour", "util": 10, "elapsed_ms": 3600000}], "expected": "success"},
+ {"name": "legacy tiers beat balance", "display": "balance", "balance_level": "red", "days": 0.5, "tiers": [{"name": "five_hour", "util": 10, "elapsed_ms": 3600000}], "expected": "success"},
+ {"name": "today metric neutral", "metrics": ["today_cost"], "expected": "neutral"}
+]

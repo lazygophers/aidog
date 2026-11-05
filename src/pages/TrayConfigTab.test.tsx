@@ -24,6 +24,7 @@ import { setDisplayCurrency, USD_DISPLAY } from "../utils/displayCurrency";
 import { setBalanceCurrencies } from "../utils/balanceCurrency";
 import golden from "../../src-tauri/crates/aidog_core/src/testdata/tray_golden.json";
 import platformGolden from "../../src-tauri/crates/aidog_core/src/testdata/tray_platform_golden.json";
+import levelGolden from "../../src-tauri/crates/aidog_core/src/testdata/tray_level_golden.json";
 
 const mk = (code: string, symbol: string, decimals: number, rate: number): DisplayCurrency =>
   ({ code, symbol, decimals, rate, table: [] });
@@ -956,6 +957,12 @@ describe("分隔符拖拽", () => {
 // ── 颜色「自动」模式（票 托盘-颜色分隔符槽位/03）──
 
 describe("颜色 auto 模式", () => {
+  it("新建金额段（今日花费）显式 unit_position=prefix，非金额段不写", () => {
+    const opts = segmentOptions([plat as never], t);
+    expect(opts.find((o) => o.key === "today_usage:cost")!.item.unit_position).toBe("prefix");
+    expect(opts.find((o) => o.key === "today_usage:tokens")!.item.unit_position).toBeNull();
+  });
+
   it("新装载候选段默认 auto；已有段（item() 夹具 follow）不被改写", () => {
     for (const o of segmentOptions([plat as never], t)) expect(o.item.color).toEqual({ mode: "auto", value: "" });
     const next = toggleSegment([item({ metric: "cost", enabled: false })], byKey("today_usage:cost"));
@@ -989,6 +996,26 @@ describe("颜色 auto 模式", () => {
     expect(previewLevel(ci, [coding(20)], now)).toBe("warning");
     expect(previewLevel(ci, [coding(40)], now)).toBe("danger");
     expect(previewLevel(item({ metric: "cost" }), [], now)).toBe("neutral");
+  });
+});
+
+// 跨层 golden：与 Rust platform_item_level_golden_cases_match 共读 tray_level_golden.json。
+describe("previewLevel 对拍 Rust platform_item_level", () => {
+  const now = 1_800_000_000_000;
+  type LevelCase = {
+    name: string; display?: string; metrics?: string[]; balance_level?: string; manual?: boolean;
+    tiers?: { name: string; util: number; elapsed_ms?: number }[]; expected: string;
+  };
+  it.each(levelGolden as LevelCase[])("$name", (c) => {
+    const p = {
+      id: 7,
+      balance_level: c.balance_level ?? "",
+      est_coding_plan: c.tiers
+        ? JSON.stringify({ tiers: c.tiers.map((t) => ({ name: t.name, est_utilization: t.util, window_start: t.elapsed_ms ? now - t.elapsed_ms : 0 })) })
+        : "",
+    } as unknown as Platform;
+    const it = platformItem({ ...(c.display ? { display: c.display } : {}), ...(c.metrics ? { metrics: c.metrics } : {}) });
+    expect(previewLevel(it, [p], now)).toBe(c.expected);
   });
 });
 
