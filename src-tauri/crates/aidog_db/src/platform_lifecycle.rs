@@ -421,7 +421,7 @@ pub async fn get_tray_config(db: &Db) -> Result<Option<TrayConfig>, String> {
         }
         // 票 I15：separator 不再可选，只置 enabled=false（不删），
         // 改动一次性落盘，之后读到的就是已收敛的配置。
-        if crate::models::clamp_to_segments(&mut cfg) {
+        if crate::models::dedup_adjacent_separators(&mut cfg) {
             tracing::info!("tray config: separators disabled (I15); items kept");
             set_tray_config(db, &cfg).await?;
         }
@@ -460,7 +460,7 @@ async fn migrate_tray_config(db: &Db) -> Result<Option<TrayConfig>, String> {
 /// 写入 TrayConfig 到 settings。入库前按票 I15 禁用 separator 项（置 enabled=false，不删），装载段数无上限。
 pub async fn set_tray_config(db: &Db, cfg: &TrayConfig) -> Result<(), String> {
     let mut cfg = cfg.clone();
-    crate::models::clamp_to_segments(&mut cfg);
+    crate::models::dedup_adjacent_separators(&mut cfg);
     let value = serde_json::to_value(&cfg).map_err(|e| format!("serialize tray config: {e}"))?;
     set_setting(
         db,
