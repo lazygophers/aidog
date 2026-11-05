@@ -254,6 +254,8 @@ pub fn run() {
             aidog_core::settings::settings_get,
             aidog_core::settings::settings_set,
             aidog_core::settings::settings_delete,
+            aidog_core::settings::custom_slot_usage_count,
+            aidog_core::settings::custom_slot_purge,
             aidog_core::settings::settings_list,
             aidog_core::settings::preview_statusline_script,
             aidog_core::settings::read_claude_code_settings,

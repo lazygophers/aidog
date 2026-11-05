@@ -265,6 +265,8 @@ rpc_routes! {
     readonly aidog_core::settings::settings_get,
     mutating aidog_core::settings::settings_set,
     mutating aidog_core::settings::settings_delete,
+    readonly aidog_core::settings::custom_slot_usage_count,
+    mutating aidog_core::settings::custom_slot_purge,
     readonly aidog_core::settings::settings_list,
     readonly aidog_core::settings::preview_statusline_script,
     readonly aidog_core::settings::read_claude_code_settings,
