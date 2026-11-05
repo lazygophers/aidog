@@ -49,6 +49,11 @@ pub fn speak(ctx: Option<&dyn AppCtx>, backend: TtsBackend, text: &str) {
         Some(c) => effective_backend(c.ui_exists(), backend),
         None => backend,
     };
+    // 单元测试禁真出声：`say` 在无音频会话下永久阻塞 dispatch（.claude/rules/test-no-real-calls.md）。
+    // WebSpeech 只 emit 事件，不受影响。
+    if cfg!(test) && backend != TtsBackend::WebSpeech {
+        return;
+    }
     match backend {
         TtsBackend::WebSpeech => {
             if let Some(ctx) = ctx {
