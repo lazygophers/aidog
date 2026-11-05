@@ -6,7 +6,10 @@
 //! `POLICY` 记录当前策略，MockRuntime 下真实调用不可观测，测试断言该记录。
 //! Windows / Linux 任务栏图标随窗口销毁自然消失，策略记录仅为跨平台统一状态。
 
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
+#[cfg(test)]
+use std::sync::atomic::AtomicUsize;
+use tauri::Listener;
 use tauri::{AppHandle, Manager, Runtime};
 
 pub(crate) const LABEL: &str = "main";
@@ -114,12 +117,62 @@ pub(crate) fn on_second_instance<R: Runtime>(app: &AppHandle<R>) {
     open(app);
 }
 
+/// 前端 `closeGuard` 在 close-requested 里同步 emit 的存活确认（见 `utils/closeGuard.ts`）。
+pub(crate) const CLOSE_ACK_EVENT: &str = "aidog-close-ack";
+/// 前端放行关窗、即将 `destroy()` 前 emit：此刻起旧 webview 不再接收 deep link。
+pub(crate) const UI_CLOSING_EVENT: &str = "aidog-ui-closing";
+
+/// 关窗兜底超时：有 JS close-requested 监听时 Rust 自动 prevent_close（tauri-2.12.5
+/// `manager/window.rs:177-181`），前端挂起则永远关不掉，超时没收到 ack 就强制销毁。
+pub(crate) const CLOSE_ACK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+
+/// 主窗口 CloseRequested 计数 / 最近一次已 ack 的计数；定时器只认自己那一次请求。
+static CLOSE_GEN: AtomicU64 = AtomicU64::new(0);
+static ACK_GEN: AtomicU64 = AtomicU64::new(0);
+
+#[cfg(test)]
+static FORCED_DESTROYS: AtomicUsize = AtomicUsize::new(0);
+
+/// 主窗口收到 CloseRequested：起超时计时，前端没在时限内 ack 就强制销毁。
+pub(crate) fn on_close_requested<R: Runtime>(app: &AppHandle<R>, timeout: std::time::Duration) {
+    let seq = CLOSE_GEN.fetch_add(1, Ordering::SeqCst) + 1;
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(timeout).await;
+        if ACK_GEN.load(Ordering::SeqCst) >= seq {
+            return;
+        }
+        tracing::warn!("close ack timed out, destroying main window");
+        if let Some(w) = app.get_webview_window(LABEL) {
+            #[cfg(test)]
+            FORCED_DESTROYS.fetch_add(1, Ordering::SeqCst);
+            let _ = w.destroy();
+        }
+    });
+}
+
+/// 前端 ack：当前这次关窗请求已被前端接住。
+pub(crate) fn on_close_ack() {
+    ACK_GEN.store(CLOSE_GEN.load(Ordering::SeqCst), Ordering::SeqCst);
+}
+
+/// 挂关窗相关的前端事件监听（setup 阶段调一次）。
+pub(crate) fn setup<R: Runtime>(app: &AppHandle<R>) {
+    app.listen(CLOSE_ACK_EVENT, |_| on_close_ack());
+    app.listen(UI_CLOSING_EVENT, |_| crate::deep_link::mark_closed());
+}
+
 /// 界面已关闭（窗口销毁后）：策略切 Accessory。
 pub(crate) fn on_closed<R: Runtime>(app: &AppHandle<R>) {
     crate::deep_link::mark_closed();
     OPEN.store(false, Ordering::SeqCst);
     set_policy(app, Policy::Accessory);
     if !EXITING.load(Ordering::SeqCst) {
+        // 放行关窗到销毁之间到达的链接排在收件箱里：重建界面让它们有去处。
+        if crate::deep_link::has_pending() {
+            open(app);
+            return;
+        }
         tauri::async_runtime::spawn(async {
             if let Some(c) = aidog_ctx::try_ctx() {
                 aidog_core::ui_notice::notify_first_tray_close(c).await;
@@ -149,10 +202,66 @@ pub(crate) fn test_setup() -> (
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
     use tauri::test::MockRuntime;
+    use tauri::Emitter;
+
+    fn setup_events(app: &tauri::App<MockRuntime>) {
+        super::setup(app.handle());
+    }
 
     fn setup() -> (std::sync::MutexGuard<'static, ()>, tauri::App<MockRuntime>) {
         test_setup()
+    }
+
+    fn forced() -> usize {
+        FORCED_DESTROYS.load(Ordering::SeqCst)
+    }
+
+    #[test]
+    fn close_without_ack_force_destroys_after_timeout() {
+        let (_g, app) = setup();
+        setup_events(&app);
+        open(app.handle());
+        let before = forced();
+        on_close_requested(app.handle(), std::time::Duration::from_millis(50));
+        std::thread::sleep(std::time::Duration::from_millis(400));
+        assert_eq!(forced(), before + 1, "无 ack → 超时销毁");
+    }
+
+    #[test]
+    fn close_with_ack_is_not_destroyed_by_timer() {
+        let (_g, app) = setup();
+        setup_events(&app);
+        open(app.handle());
+        let before = forced();
+        on_close_requested(app.handle(), std::time::Duration::from_millis(150));
+        app.emit(CLOSE_ACK_EVENT, ()).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        assert_eq!(forced(), before, "有 ack → 不由计时器销毁");
+    }
+
+    #[test]
+    fn closing_event_resets_deep_link_ready_and_destroy_replays_to_new_ui() {
+        let (_g, app) = setup();
+        setup_events(&app);
+        let n = Arc::new(AtomicUsize::new(0));
+        let n2 = n.clone();
+        app.listen("aidog-deep-link", move |_| {
+            n2.fetch_add(1, Ordering::SeqCst);
+        });
+        open(app.handle());
+        crate::deep_link::mark_ready(app.handle());
+        app.emit(UI_CLOSING_EVENT, ()).unwrap();
+        crate::deep_link::deliver(
+            app.handle(),
+            crate::deep_link::DeepLinkPayload { entity: "platform".into(), action: "import".into(), data: "x".into() },
+        );
+        assert_eq!(n.load(Ordering::SeqCst), 0, "放行后到达的链接不得 emit 给旧窗口");
+        on_closed(app.handle());
+        assert!(exists(), "有排队链接：旧窗口销毁后重建界面");
+        crate::deep_link::mark_ready(app.handle());
+        assert_eq!(n.load(Ordering::SeqCst), 1, "新界面就绪后补发");
     }
 
     #[test]
