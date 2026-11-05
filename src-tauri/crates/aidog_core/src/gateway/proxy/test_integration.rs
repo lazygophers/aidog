@@ -6337,7 +6337,7 @@ async fn mgmt_call_log_records_metadata_without_bodies() {
     assert!(!dump.contains("BODY-MARKER-9f3a") && !dump.contains("pong"));
 }
 
-/// 被拒请求（未启用 404 / 凭据错 401 / 非回环 403）也记录状态与失败标记；放行后的 404 同样记。
+/// 被拒请求（未启用 404 / 凭据错 401）也记录状态与失败标记；放行后的 404 同样记。非回环 403 不记（见下一条）。
 #[tokio::test]
 async fn mgmt_call_log_records_rejected_requests() {
     install_mgmt_test_router();
@@ -6372,7 +6372,6 @@ async fn mgmt_call_log_records_rejected_requests() {
         [
             ("ping".to_string(), 404, false),
             ("ping".to_string(), 401, false),
-            ("ping".to_string(), 403, false),
             ("nope".to_string(), 404, false),
         ]
     );
@@ -6427,4 +6426,31 @@ async fn rcfix_passthrough_platform_failure_records_attempt() {
     assert_eq!(row.attempts[0].status_code, 0);
     assert!(!row.attempts[0].error.is_empty());
     assert!(row.attempts[0].ttfb_ms.is_none());
+}
+
+/// 非回环请求只回 403、不写 api_call_log（LAN 上的任何人都能刷表）；超长命令名入库截 64 字符。
+#[tokio::test]
+async fn mgmt_call_log_skips_non_loopback_and_truncates_command() {
+    install_mgmt_test_router();
+    let state = make_state(test_db().await).await;
+    let req = axum::http::Request::builder()
+        .method("POST")
+        .uri("/api/rpc/ping")
+        .body(axum::body::Body::empty())
+        .unwrap();
+    let r = super::handle_management(
+        AxumState(state.clone()),
+        axum::extract::ConnectInfo("10.1.2.3:5555".parse().unwrap()),
+        req,
+    )
+    .await;
+    assert_eq!(r.status(), 403);
+    assert!(aidog_db::list_api_call_logs(&state.db, 10).await.unwrap().is_empty(), "非回环请求不得落行");
+
+    let base = spawn_proxy_router(state.clone()).await;
+    let long = "x".repeat(300);
+    assert_eq!(mgmt_client().post(format!("{base}/api/rpc/{long}")).send().await.unwrap().status(), 404);
+    let rows = aidog_db::list_api_call_logs(&state.db, 10).await.unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].command.chars().count(), 64);
 }
