@@ -89,7 +89,7 @@ pub trait AppCtx: Send + Sync + 'static {
         false
     }
 
-    /// 界面（主窗口 webview）当前是否存在。托盘常驻时为 `false`；无头内核恒 `false`。
+    /// 界面（主窗口 webview）当前是否存在。托盘常驻时为 `false`；无头内核恒 `true`（界面 = `--ui` 网页，经 SSE 收事件）。
     fn ui_exists(&self) -> bool {
         false
     }
