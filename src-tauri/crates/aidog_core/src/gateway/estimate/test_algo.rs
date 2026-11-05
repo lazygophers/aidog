@@ -545,3 +545,124 @@ fn minutes_to_exhaust_basic_and_guards() {
     assert_eq!(minutes_to_exhaust(f64::NAN, ws, now), None);
     assert_eq!(minutes_to_exhaust(-1.0, ws, now), None);
 }
+
+// ── quota_verdict：真查结果 → 用完判定（注入 now_ms） ──
+mod verdict {
+    use super::*;
+    use crate::gateway::quota::{BalanceInfo, CodingPlanInfo, QuotaTier};
+
+    const NOW: i64 = 1_800_000_000_000;
+
+    fn tier(name: &str, util: f64, remaining: Option<f64>, resets: Option<i64>) -> QuotaTier {
+        QuotaTier {
+            name: name.into(),
+            utilization: util,
+            resets_at: resets.map(|ms| ms.to_string()),
+            limit: None,
+            remaining,
+            unit: None,
+        }
+    }
+
+    fn plan(tiers: Vec<QuotaTier>) -> PlatformQuota {
+        PlatformQuota {
+            success: true,
+            error: None,
+            queried_at: NOW,
+            balance: None,
+            coding_plan: Some(CodingPlanInfo { tiers, level: None }),
+            newapi_user_id: None,
+        }
+    }
+
+    fn bal(remaining: f64) -> PlatformQuota {
+        PlatformQuota {
+            success: true,
+            error: None,
+            queried_at: NOW,
+            balance: Some(BalanceInfo {
+                remaining,
+                total: None,
+                used: None,
+                currency: "USD".into(),
+                is_valid: true,
+            }),
+            coding_plan: None,
+            newapi_user_id: None,
+        }
+    }
+
+    #[test]
+    fn single_tier_full_uses_its_reset() {
+        let r = NOW + 3_600_000;
+        let q = plan(vec![tier("five_hour", 100.0, None, Some(r))]);
+        assert_eq!(quota_verdict(&q, NOW), QuotaVerdict::Exhausted { until_ms: r });
+    }
+
+    #[test]
+    fn any_tier_exhausted_takes_latest_exhausted_reset() {
+        let (r5, rw) = (NOW + 3_600_000, NOW + 86_400_000 * 3);
+        let q = plan(vec![
+            tier("five_hour", 100.0, None, Some(r5)),
+            tier("weekly_limit", 100.0, None, Some(rw)),
+        ]);
+        assert_eq!(quota_verdict(&q, NOW), QuotaVerdict::Exhausted { until_ms: rw });
+        // 只有 5h 用完：周档未满，其重置时刻不参与
+        let q = plan(vec![
+            tier("five_hour", 100.0, None, Some(r5)),
+            tier("weekly_limit", 40.0, None, Some(rw)),
+        ]);
+        assert_eq!(quota_verdict(&q, NOW), QuotaVerdict::Exhausted { until_ms: r5 });
+    }
+
+    #[test]
+    fn remaining_zero_counts_as_exhausted() {
+        let q = plan(vec![tier("five_hour", 37.0, Some(0.0), None)]);
+        assert_eq!(
+            quota_verdict(&q, NOW),
+            QuotaVerdict::Exhausted { until_ms: QUOTA_OPEN_ENDED_UNTIL_MS }
+        );
+    }
+
+    #[test]
+    fn no_or_stale_reset_is_open_ended() {
+        let q = plan(vec![tier("five_hour", 100.0, None, None)]);
+        assert_eq!(
+            quota_verdict(&q, NOW),
+            QuotaVerdict::Exhausted { until_ms: QUOTA_OPEN_ENDED_UNTIL_MS }
+        );
+        let q = plan(vec![tier("five_hour", 100.0, None, Some(NOW - 1000))]);
+        assert_eq!(
+            quota_verdict(&q, NOW),
+            QuotaVerdict::Exhausted { until_ms: QUOTA_OPEN_ENDED_UNTIL_MS }
+        );
+    }
+
+    #[test]
+    fn below_full_is_available() {
+        let q = plan(vec![
+            tier("five_hour", 99.9, Some(3.0), Some(NOW + 1000)),
+            tier("weekly_limit", 10.0, None, None),
+        ]);
+        assert_eq!(quota_verdict(&q, NOW), QuotaVerdict::Available);
+    }
+
+    #[test]
+    fn balance_le_zero_exhausted_positive_available() {
+        let open = QuotaVerdict::Exhausted { until_ms: QUOTA_OPEN_ENDED_UNTIL_MS };
+        assert_eq!(quota_verdict(&bal(0.0), NOW), open);
+        assert_eq!(quota_verdict(&bal(-1.5), NOW), open);
+        assert_eq!(quota_verdict(&bal(0.01), NOW), QuotaVerdict::Available);
+    }
+
+    #[test]
+    fn failed_or_empty_query_is_unknown() {
+        let mut q = bal(0.0);
+        q.success = false;
+        assert_eq!(quota_verdict(&q, NOW), QuotaVerdict::Unknown);
+        let mut q = bal(5.0);
+        q.balance = None;
+        assert_eq!(quota_verdict(&q, NOW), QuotaVerdict::Unknown);
+        assert_eq!(quota_verdict(&plan(vec![]), NOW), QuotaVerdict::Unknown);
+    }
+}
