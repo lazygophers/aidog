@@ -1470,7 +1470,7 @@
   "platform.direct_models_add": "追加",
   "platform.direct_models_count": "モデル {{n}} 件",
   "platform.client_whitelist": "クライアント許可リスト",
-  "platform.client_whitelist_desc": "選択したクライアントのみがこのプラットフォームを使用できます。カテゴリを選ぶとそのすべてのバリアントを許可します。未選択 = 制限なし。設定後は識別できないクライアントを拒否します。",
+  "platform.client_whitelist_desc": "選択したクライアントのみがこのプラットフォームを使用できます。カテゴリを選ぶとそのすべてのバリアントを許可します。選択も UA ルールも空 = 制限なし。組み込み語彙で識別できないクライアントは UA ルールで判定され、一致するルールがなければ拒否されます。",
   "platform.client_whitelist_clear": "クリア",
   "platform.client_whitelist_count": "{{n}} 件に制限",
   "platform.client_whitelist_none": "制限なし",

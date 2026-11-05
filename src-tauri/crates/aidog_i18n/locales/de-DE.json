@@ -1470,7 +1470,7 @@
   "platform.direct_models_add": "Hinzufügen",
   "platform.direct_models_count": "{{n}} Modelle",
   "platform.client_whitelist": "Client-Whitelist",
-  "platform.client_whitelist_desc": "Nur die ausgewählten Clients dürfen diese Plattform nutzen; eine Kategorie erlaubt alle ihre Varianten. Keine Auswahl = keine Einschränkung. Nicht erkannte Clients werden dann abgewiesen.",
+  "platform.client_whitelist_desc": "Nur die ausgewählten Clients dürfen diese Plattform nutzen; eine Kategorie erlaubt alle ihre Varianten. Keine Auswahl und keine UA-Regeln = keine Einschränkung. Clients, die das integrierte Vokabular nicht erkennt, werden anhand der UA-Regeln beurteilt und abgewiesen, wenn keine Regel greift.",
   "platform.client_whitelist_clear": "Leeren",
   "platform.client_whitelist_count": "{{n}} eingeschränkt",
   "platform.client_whitelist_none": "Keine Einschränkung",

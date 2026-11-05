@@ -1470,7 +1470,7 @@
   "platform.direct_models_add": "إضافة",
   "platform.direct_models_count": "{{n}} نماذج",
   "platform.client_whitelist": "القائمة البيضاء للعملاء",
-  "platform.client_whitelist_desc": "يمكن للعملاء المحددين فقط استخدام هذه المنصة؛ تحديد فئة يسمح بجميع متغيراتها. عدم تحديد شيء = بلا قيود. بعد الإعداد يُرفض العملاء غير المعروفين.",
+  "platform.client_whitelist_desc": "يمكن للعملاء المحددين فقط استخدام هذه المنصة؛ تحديد فئة يسمح بجميع متغيراتها. عدم التحديد وعدم وجود قواعد UA = بلا قيود. العملاء غير المعروفين في المفردات المضمنة يُحكم عليهم بقواعد UA ويُرفضون إذا لم تنطبق أي قاعدة.",
   "platform.client_whitelist_clear": "مسح",
   "platform.client_whitelist_count": "مقيّد: {{n}}",
   "platform.client_whitelist_none": "بلا قيود",

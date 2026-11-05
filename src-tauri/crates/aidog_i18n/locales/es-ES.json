@@ -1448,7 +1448,7 @@
   "platform.direct_models_add": "Añadir",
   "platform.direct_models_count": "{{n}} modelos",
   "platform.client_whitelist": "Lista blanca de clientes",
-  "platform.client_whitelist_desc": "Solo los clientes marcados pueden usar esta plataforma; marcar una categoría permite todas sus variantes. Sin selección = sin restricción. Una vez configurada, los clientes no reconocidos se rechazan.",
+  "platform.client_whitelist_desc": "Solo los clientes marcados pueden usar esta plataforma; marcar una categoría permite todas sus variantes. Sin selección y sin reglas UA = sin restricción. Los clientes que el vocabulario integrado no reconoce se evalúan con las reglas UA y se rechazan si ninguna coincide.",
   "platform.client_whitelist_clear": "Borrar",
   "platform.client_whitelist_count": "{{n}} restringidos",
   "platform.client_whitelist_none": "Sin restricción",
