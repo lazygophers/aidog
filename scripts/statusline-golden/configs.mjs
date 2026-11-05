@@ -112,6 +112,32 @@ export const CONFIGS = {
     ],
   },
 
+  // Official fields added later: spend limit / prompt cache / fast mode / worktree path+cwd / pr kind.
+  "official-b": {
+    segments: [
+      seg("b-spend-auto", "spend-limit", { affixPre: "·" }, { autoColor: true }),
+      seg("b-spend", "spend-limit", { showReset: true, showAmount: true, affixPre: "·" }),
+      seg("b-pc-hit", "prompt-cache", { mode: "hitrate", affixPre: "·" }),
+      seg("b-pc-warm", "prompt-cache", { mode: "warm", affixPre: "·" }),
+      seg("b-pc-ttl", "prompt-cache", { mode: "ttl", affixPre: "·" }),
+      seg("b-pc-miss", "prompt-cache", { mode: "misses", affixPre: "·" }),
+      seg("b-pc-cold", "prompt-cache", { mode: "recache", affixPre: "·" }),
+      seg("b-pc-cause", "prompt-cache", { mode: "cause", affixPre: "·" }),
+      seg("b-fast", "fast-mode", { affixPre: "·" }),
+      seg("b-wtp", "worktree-path", { affixPre: "·" }),
+      seg("b-wtc", "worktree-original-cwd", { affixPre: "·" }),
+      seg("b-prk", "pr-kind", { affixPre: "·" }),
+    ],
+  },
+  // Subagent task fields added later: agentType / description / effort (string or number).
+  "subagent-official-b": {
+    segments: [
+      seg("sb-type", "agent-type", { affixPre: "·" }),
+      seg("sb-desc", "task-description", { affixPre: "·" }),
+      seg("sb-eff", "task-effort", { affixPre: "·" }),
+    ],
+  },
+
   // Subagent variants: agent-badge status/color permutations exercised via inputs.
   "subagent-default-2": { segments: null },
 };
