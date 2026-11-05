@@ -376,7 +376,6 @@ async fn decision_attempt(
             let upstream_err = format!("upstream error: {detail}");
             attempts.push(ProxyAttempt {
                 chain_stop: None,
-                ttfb_ms: None,
                 platform_id: route.platform.id,
                 platform_name: route.platform.name.clone(),
                 status_code: 0,
@@ -461,7 +460,6 @@ async fn decision_attempt(
     }
     attempts.push(ProxyAttempt {
         chain_stop: None,
-        ttfb_ms: None,
         platform_id: route.platform.id,
         platform_name: route.platform.name.clone(),
         status_code: status.as_u16() as i32,
