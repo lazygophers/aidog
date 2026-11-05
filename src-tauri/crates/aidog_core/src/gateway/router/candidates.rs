@@ -77,6 +77,13 @@ impl ClientProbe {
     pub fn from_ua(ua: &str) -> Self {
         Self { hit: identify(ua), ua: ua.into() }
     }
+
+    /// 平台 `extra` JSON 的白名单（词表勾选 + UA 规则）是否放行本请求；空白名单放行。
+    /// 不经路由缓存的调用方（responses 子端点 / ws 透传）用。
+    pub fn allowed_by(&self, platform_extra: &str) -> bool {
+        let extra = db::models::PlatformExtra::parse(platform_extra);
+        client_allowed(&extra.allowed_clients, &compile_ua_rules(&extra.client_ua_rules), &self.ua, self.hit)
+    }
 }
 
 /// 入站客户端闸门：`Off` = 不做白名单判定（models 探测、透传首选探测等有意不约束的调用方）；
