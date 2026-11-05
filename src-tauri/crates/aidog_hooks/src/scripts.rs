@@ -116,7 +116,7 @@ if __name__ == "__main__":
 /// 与 `build_hook_script` 不同：本脚本**读 stdin JSON**，取 `hook_event_name`(→ event) +
 /// cwd basename(→ vars.project) + `session_id`(→ vars.session) +
 /// **遍历 stdin 所有顶层标量字段**（str/int/float/bool，跳过 dict/list 嵌套）塞入 vars，
-/// str 超 `EVENT_VAR_MAX_LEN`(200) 截断加省略（`cwd` 与 `*_path` 路径类豁免）；POST `/api/notify` body
+/// str 超 `EVENT_VAR_MAX_LEN`(200) 截断加省略（仅 `cwd` / `transcript_path` 豁免）；POST `/api/notify` body
 /// `{"event": <name>, "vars": {...}}`（**不传 type**，后端按 per_event 解析）。
 /// 这样每事件不同入参自动进 vars，无需枚举字段；模板用 `{字段名}`，未知占位后端忽略/兜空。
 /// 无命令行传参（event 来自 stdin），绕开 CC command 是否 shell 解析参数的风险。
@@ -187,8 +187,8 @@ def main() -> None:
             text = val
         else:
             continue  # 嵌套对象/数组/None → 跳过。
-        # 路径类变量（transcript_path 等）不截断：截断后内核读不到文件，会话名解析失败。
-        if len(text) > max_len and not (key == "cwd" or key.endswith("_path")):
+        # cwd / transcript_path 不截断：截断后内核读不到文件，会话名解析失败；其余 *_path（file_path 等）照常截断。
+        if len(text) > max_len and key not in ("cwd", "transcript_path"):
             text = text[:max_len] + "..."
         vars_map[key] = text
 

@@ -64,9 +64,10 @@ fn script_is_python_with_pep723_header() {
 #[test]
 fn event_script_does_not_truncate_path_vars() {
     let s = build_event_notify_script();
-    // 路径类变量（transcript_path 等 *_path、cwd）豁免 200 字符截断；其余字符串仍截断。
-    assert!(s.contains(r#"key == "cwd" or key.endswith("_path")"#));
-    assert!(s.contains("len(text) > max_len and not"));
+    // 仅 cwd / transcript_path 豁免 200 字符截断（内核要读文件）；其余 *_path（如 file_path）与字符串仍截断。
+    assert!(s.contains(r#"key not in ("cwd", "transcript_path")"#));
+    assert!(!s.contains(r#"endswith("_path")"#));
+    assert!(s.contains("len(text) > max_len and key not in"));
 }
 
 #[test]
