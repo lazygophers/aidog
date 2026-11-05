@@ -1413,6 +1413,7 @@
   "platform.rateLimits.importConfirmDesc": "Se sobrescribirá la configuración actual de límites (concurrencia / RPM / TPM, por modelo, ventanas). La copia importada es editable; el original integrado no cambia.",
   "logs.blockedRateLimit": "Limitado",
   "logs.blockedPeak": "Desact. en pico",
+  "logs.blockedQuotaExhausted": "Cuota agotada",
   "logs.blockedClientNotAllowed": "Cliente no permitido",
   "logs.blockedClientNotAllowedMixed": "Cliente no permitido (mixto)",
   "logs.blockedObserve": "Observado",

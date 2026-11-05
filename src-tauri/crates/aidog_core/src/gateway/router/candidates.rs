@@ -37,6 +37,42 @@ pub struct RouteFail {
     pub routing: RoutingSnapshot,
 }
 
+/// 全组额度用完（402）的附带信息：随 `RouteFail.reason` 以 `quota_exhausted;cp=<0|1>;reset=<ms>`
+/// 编码（`reset` 缺省 = 无已知重置时刻），handler 解码后拼 402 文案。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct QuotaExhausted {
+    /// 被跳过平台中有 coding plan 类
+    pub coding_plan: bool,
+    /// 被跳过平台中最早的已知重置时刻（毫秒）；开放式冷却不计
+    pub earliest_reset_ms: Option<i64>,
+}
+
+impl QuotaExhausted {
+    pub fn to_reason(self) -> String {
+        let mut s = format!("quota_exhausted;cp={}", u8::from(self.coding_plan));
+        if let Some(ms) = self.earliest_reset_ms {
+            s.push_str(&format!(";reset={ms}"));
+        }
+        s
+    }
+
+    pub fn parse(reason: &str) -> Option<Self> {
+        let mut it = reason.split(';');
+        if it.next()? != "quota_exhausted" {
+            return None;
+        }
+        let mut q = Self { coding_plan: false, earliest_reset_ms: None };
+        for kv in it {
+            match kv.split_once('=') {
+                Some(("cp", v)) => q.coding_plan = v == "1",
+                Some(("reset", v)) => q.earliest_reset_ms = v.parse().ok(),
+                _ => {}
+            }
+        }
+        Some(q)
+    }
+}
+
 impl std::fmt::Display for RouteFail {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.reason)
@@ -588,6 +624,34 @@ async fn select_candidates_inner(
             );
             return Err(RouteFail {
                 reason: "rate_limit".to_string(),
+                routing,
+            });
+        }
+        // 整组所有候选都因额度冷却被排除（真查用完 / 429 配额耗尽）→ 返 quota_exhausted，
+        // caller 落审计 proxy_log (blocked_by='router', blocked_reason='quota_exhausted', 402, est_cost=0)。
+        // 混合原因（部分禁用 / 熔断 / 高峰等）不命中，走下方兜底。
+        if let Some(c) = ctx
+            && !excluded.is_empty()
+            && excluded.len() == group_platforms.len()
+            && excluded.iter().all(|(_, r)| *r == RouteReason::QuotaCooldown)
+        {
+            let ups: Vec<i64> = excluded
+                .iter()
+                .map(|(gp, _)| c.scheduler.quota_cooldown_until_ms(gp.platform.id))
+                .collect();
+            let q = QuotaExhausted {
+                coding_plan: excluded.iter().any(|(gp, _)| is_coding_plan(&gp.platform)),
+                earliest_reset_ms: ups
+                    .into_iter()
+                    .filter(|&u| u < super::super::estimate::QUOTA_OPEN_ENDED_UNTIL_MS)
+                    .min(),
+            };
+            tracing::info!(
+                group = %group.name, ?q,
+                "all candidates quota-cooled; returning quota_exhausted error for audit log"
+            );
+            return Err(RouteFail {
+                reason: q.to_reason(),
                 routing,
             });
         }

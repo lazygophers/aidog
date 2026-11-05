@@ -366,3 +366,17 @@ describe("RoutingCanvas 其他分支", () => {
     });
   });
 });
+
+describe("RoutingCanvas 全组额度用完（票 03）", () => {
+  it("响应节点：quota_exhausted 显示「额度用完」专属标签，data-reason 保留原值", () => {
+    const snap: RoutingSnapshot = {
+      mode: "failover", eval_ms: 3,
+      entries: [cand({ order: 1, platform_id: 11, reason: "quota-cooldown" }), cand({ order: 2, platform_id: 12, reason: "quota-cooldown" })],
+    };
+    const c = mount({ routing: snap, attempts: [], statusCode: 402, blockedBy: "router", blockedReason: "quota_exhausted" });
+    const b = c.querySelector('[data-node-id="resp"] [data-testid="routing-resp-blocked"]')!;
+    expect(b.getAttribute("data-reason")).toBe("quota_exhausted");
+    expect(b.getAttribute("data-label")).toBe("logs.blockedQuotaExhausted");
+    expect(c.querySelector('[data-node-id="c-11"] [data-testid="routing-not-chosen"]')!.getAttribute("data-reason")).toBe("quota-cooldown");
+  });
+});

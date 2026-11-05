@@ -1435,6 +1435,7 @@
   "platform.rateLimits.importConfirmDesc": "Текущая конфигурация лимитов (конкурентность / RPM / TPM, по моделям, окна) будет перезаписана. Импортированная копия редактируется, встроенный оригинал не меняется.",
   "logs.blockedRateLimit": "Лимит",
   "logs.blockedPeak": "Отключён в пик",
+  "logs.blockedQuotaExhausted": "Квота исчерпана",
   "logs.blockedClientNotAllowed": "Клиент не разрешён",
   "logs.blockedClientNotAllowedMixed": "Клиент не разрешён (смешанно)",
   "logs.blockedObserve": "Наблюдение",
