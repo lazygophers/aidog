@@ -382,6 +382,20 @@ async fn show_popup_forwards_to_shell_instead_of_dropping() {
     assert_eq!(ev.payload["body"], "正文");
 }
 
+/// 无头内核的「界面」= `--ui` 网页，事件经 SSE 广播：`ui_exists` 必须为 true，
+/// 否则 WebSpeech 被改走系统朗读、更新检查不再 emit，违背「不改 --ui」。
+#[tokio::test]
+async fn headless_ctx_reports_ui_present_so_web_speech_stays() {
+    use aidog_ctx::AppCtx;
+
+    let db = aidog_db::test_support::test_db().await;
+    let c = ctx::HeadlessCtx::new(
+        db,
+        std::sync::Arc::new(aidog_middleware::MiddlewareEngine::new()),
+    );
+    assert!(c.ui_exists());
+}
+
 // ─── 密钥信息只写不读（API 票 02）──────────────────────────────────────────
 
 /// 一个进程只能装一次 `AppCtx`，所以密钥相关的 HTTP 行为合在一个测试里按序断言。

@@ -116,7 +116,7 @@ async fn update_with_ui_emits_event_only() {
 }
 
 #[tokio::test]
-async fn update_without_ui_notifies_then_flush_emits_once() {
+async fn update_without_ui_notifies_then_flush_replays_until_acked() {
     let c = Stub::new(false).await;
     set(&c, "locale", serde_json::json!({"locale": "zh-CN"})).await;
     daily_check(&c, NOW, || async { Ok(Some("9.9.9".to_string())) }).await;
@@ -124,9 +124,25 @@ async fn update_without_ui_notifies_then_flush_emits_once() {
     assert!(c.events.lock().unwrap().is_empty());
     flush_pending(&c).await;
     flush_pending(&c).await;
+    assert_eq!(c.events.lock().unwrap().len(), 2, "未确认 → 每次就绪都补发");
+    ack(&c).await;
+    flush_pending(&c).await;
     let ev = c.events.lock().unwrap();
-    assert_eq!(ev.len(), 1, "补发一次后清除");
+    assert_eq!(ev.len(), 2, "确认后不再补");
     assert_eq!(ev[0].1["version"], "9.9.9");
+}
+
+#[tokio::test]
+async fn update_emitted_to_ui_stays_pending_until_acked() {
+    let c = Stub::new(true).await;
+    daily_check(&c, NOW, || async { Ok(Some("9.9.9".to_string())) }).await;
+    assert_eq!(c.events.lock().unwrap().len(), 1);
+    // 界面在场发出后前端可能已挂起 / 关窗：未确认则下次就绪再补发。
+    flush_pending(&c).await;
+    assert_eq!(c.events.lock().unwrap().len(), 2);
+    ack(&c).await;
+    flush_pending(&c).await;
+    assert_eq!(c.events.lock().unwrap().len(), 2);
 }
 
 #[tokio::test]

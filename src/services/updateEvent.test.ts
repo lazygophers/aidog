@@ -11,6 +11,8 @@ vi.mock("./transport", () => ({
     return unlisten;
   },
 }));
+const emit = vi.fn();
+vi.mock("@tauri-apps/api/event", () => ({ emit: (n: string) => emit(n) }));
 const check = vi.fn();
 vi.mock("@tauri-apps/plugin-updater", () => ({ check: () => check() }));
 
@@ -18,6 +20,7 @@ beforeEach(() => {
   handler = null;
   eventName = "";
   check.mockReset();
+  emit.mockReset();
   unlisten.mockClear();
 });
 
@@ -30,6 +33,13 @@ describe("listenKernelUpdate", () => {
     expect(eventName).toBe("aidog-update-available");
     await handler!();
     expect(cb).toHaveBeenCalledWith(upd);
+  });
+
+  it("事件到达即 emit ack（内核据此清除挂起版本）", async () => {
+    check.mockResolvedValue(null);
+    await listenKernelUpdate(vi.fn());
+    await handler!();
+    expect(emit).toHaveBeenCalledWith("aidog-update-ack");
   });
 
   it("check 无更新或抛错 → 不回调、不抛", async () => {
