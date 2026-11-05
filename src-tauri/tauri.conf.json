@@ -13,6 +13,7 @@
     "windows": [
       {
         "title": "AiDog",
+        "create": false,
         "width": 1026,
         "height": 759,
         "resizable": true,

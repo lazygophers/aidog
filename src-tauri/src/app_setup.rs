@@ -507,10 +507,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 });
             }),
             on_show: Box::new(move || {
-                if let Some(w) = show_handle.get_webview_window("main") {
-                    let _ = w.show();
-                    let _ = w.set_focus();
-                }
+                crate::ui_window::open(&show_handle);
             }),
             on_quit: Box::new(move || quit_handle.exit(0)),
         });
@@ -552,8 +549,9 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                     // 定位：居中于 tray 图标正下方
                     // rect 坐标为 Physical 像素，position() 接受 Logical 坐标，需除以 scale factor
                     let scale = app
-                        .get_webview_window("main")
+                        .get_webview_window(crate::ui_window::LABEL)
                         .and_then(|w| w.scale_factor().ok())
+                        .or_else(|| app.primary_monitor().ok().flatten().map(|m| m.scale_factor()))
                         .unwrap_or(2.0);
                     let (rx, ry) = match rect.position {
                         tauri::Position::Physical(p) => (p.x as f64 / scale, p.y as f64 / scale),
@@ -604,10 +602,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                     });
                 }
                 "show" => {
-                    if let Some(w) = app.get_webview_window("main") {
-                        let _ = w.show();
-                        let _ = w.set_focus();
-                    }
+                    crate::ui_window::open(app);
                 }
                 "quit" => {
                     app.exit(0);
@@ -707,11 +702,9 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         });
     }
 
-    // 静默启动：隐藏主窗口，仅托盘运行
-    if settings.silent_launch
-        && let Some(w) = app.get_webview_window("main")
-    {
-        let _ = w.hide();
+    // 主窗口按需创建（tauri.conf `create:false`）；静默启动不建，仅托盘运行
+    if !settings.silent_launch {
+        crate::ui_window::open(app.handle());
     }
 
     // aidog:// deep link 协议层：挂 on_open_url + 冷启动 get_current 补发 +

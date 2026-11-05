@@ -9,5 +9,6 @@ mod commands;
 mod deep_link;
 mod popover_window;
 mod startup;
+mod ui_window;
 
 pub use startup::run;
