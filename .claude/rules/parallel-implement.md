@@ -269,3 +269,21 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
 门禁命令写 `cargo test --workspace --no-fail-fast > /tmp/x.log 2>&1; echo EXIT=$?`。
 计时断言（如 `aidog_stats::test_usage_stats::flow_breakdown_7d_scale_guard`，并发编译后首轮曾超时）
 首轮红先单跑该测试一次：绿 = 负载抖动，记账本遗留；仍红才按回归处理。
+
+## 18. 网络断连中断、先红严格性、票状态词、带密钥写命令登记（2026-11-04 ~ 11-05）
+
+- **SSL / 断网中断是常态**：2026-11-04.md:216/222 API 票 01 两个 agent 连续 `SSL certificate hostname mismatch`
+  中止，2026-11-05.md:300 又一次。续做走 §15 的核对现场清单；采信半成品的 commit message 注明
+  `adopted from interrupted agent`，门禁整条重跑（11-05.md:300 即此写法）。派续做 agent 时 prompt 写明
+  「前一 agent 因断网中止，先 `git diff` 逐 hunk 核对再接着做」，不让它从头重写。
+- **先红要严格**：2026-11-04.md:24 策略库 4 条「测试与组件同写、未拍到真先红」，2026-11-05.md:92 生成脚本
+  「非严格先红，事后改坏三处反证」，11-05.md:27 review 因「先红输出未见」无法核实 Spec。
+  派发 prompt 要求：先只写测试跑出红（`> /tmp/red.log 2>&1; echo EXIT=$?`），回报**贴 EXIT 值与失败测试名**，
+  再写实现；确实做不到（测试与实现不可分）写明原因并改用「改坏实现→红→按行号还原」反证，回报标「非严格先红」。
+  回报只写「先红已验」而无 EXIT 值和失败名，按没验处理。
+- **票 `Status:` 只有 `claimed` → `resolved`**：2026-11-05.md:101 遗留「票状态跳过 claimed」。
+  与 wayfinder-session.md §2 同口径，派发 prompt 三行词表照贴；合并后当场 grep `Status:`。
+- **新增带密钥的写命令，同提交登记 `RESTORERS`**（`aidog_rpc/src/secret_fields.rs:114`）：2026-11-05.md:105
+  审查补了 `kernel_settings_set` / `proxy_client_set_settings` / `settings_set` 三处漏登记；裁决「不修」Shotgun
+  （2026-11-05.md:106）的复活条件是「再新增带密钥写命令」。派发含新增写命令且涉及 `SECRET_PATHS` 字段的票时，
+  prompt 写明此登记要求，review 时对照检查。建议做成机械检查：「`SECRET_PATHS` 涉及的写命令 ⊆ `RESTORERS`」测试（未做，属代码改动）。
