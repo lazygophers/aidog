@@ -16,7 +16,7 @@ mod ordering;
 
 #[allow(unused_imports)]
 pub use candidates::{
-    CandidateSet, ClientGate, ClientProbe, RequestKind, RouteFail, ScheduleCtx, select_candidates, select_candidates_ctx,
+    CandidateSet, ClientGate, ClientProbe, QuotaExhausted, RequestKind, RouteFail, ScheduleCtx, select_candidates, select_candidates_ctx,
     select_candidates_gated,
 };
 

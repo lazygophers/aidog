@@ -358,6 +358,15 @@ impl SchedulerState {
         }
     }
 
+    /// 该平台额度冷却截止（毫秒，0 = 未冷却；开放式冷却为 `QUOTA_OPEN_ENDED_UNTIL_MS`）。
+    pub fn quota_cooldown_until_ms(&self, platform_id: u64) -> i64 {
+        self.health
+            .read()
+            .ok()
+            .and_then(|g| g.get(&platform_id).map(|h| h.quota_cooldown_until_ms))
+            .unwrap_or(0)
+    }
+
     /// 该平台此刻是否处于配额冷却中（到点自动失效，无需清理）。
     pub fn quota_cooled(&self, platform_id: u64, now_ms: i64) -> bool {
         self.health

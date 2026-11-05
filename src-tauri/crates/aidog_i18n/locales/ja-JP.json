@@ -1435,6 +1435,7 @@
   "platform.rateLimits.importConfirmDesc": "現在の流量制限設定（同時実行 / RPM / TPM、モデル別、時間帯）を上書きします。インポート後は自分のコピーとして編集でき、内蔵の原本は変わりません。",
   "logs.blockedRateLimit": "制限",
   "logs.blockedPeak": "ピーク無効",
+  "logs.blockedQuotaExhausted": "割り当て使い切り",
   "logs.blockedClientNotAllowed": "クライアント不許可",
   "logs.blockedClientNotAllowedMixed": "クライアント不許可（混在）",
   "logs.blockedObserve": "監視",

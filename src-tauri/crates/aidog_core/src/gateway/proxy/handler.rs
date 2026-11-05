@@ -678,6 +678,7 @@ pub(crate) async fn handle_proxy_core(
             if e == "no_chat_platform"
                 || e == "peak_disabled"
                 || e == "rate_limit"
+                || e.starts_with("quota_exhausted")
                 || e == "unknown_protocol"
                 || e == "direct_model_unavailable"
                 || e == "client_not_allowed"

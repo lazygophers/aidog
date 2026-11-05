@@ -4252,6 +4252,52 @@ async fn routing_snapshot_marks_skipped_dead_upstream() {
     );
 }
 
+/// 全组额度用完（票 03）：多平台组两平台均额度冷却 → 402 + 文案 + 审计行
+/// blocked_by='router', blocked_reason='quota_exhausted', status_code=402, est_cost=0。
+/// 三文件库 fixture（platform 冷却状态跨库，db-pool-routing.md）；上游为不可达占位，路由层即拦。
+#[tokio::test]
+async fn chat_all_quota_cooled_402_and_audit_log() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let state = make_state(db).await;
+    let p1 = create_plain_platform(&state, "q1", "http://127.0.0.1:1").await;
+    let p2 = create_plain_platform(&state, "q2", "http://127.0.0.1:1").await;
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group("gkquota", vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[
+            GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
+            GroupPlatformInput { platform_id: p2.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
+        ],
+    )
+    .await
+    .unwrap();
+    let until = aidog_db::now() + 3_600_000;
+    state.scheduler.set_quota_cooldown(p1.id, until);
+    state.scheduler.set_quota_cooldown(p2.id, until + 60_000);
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request("gkquota", r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::PAYMENT_REQUIRED);
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let v: Value = serde_json::from_slice(&body).expect("json error body");
+    assert_eq!(v["error"]["type"], "quota_exhausted");
+    assert!(
+        v["error"]["message"].as_str().is_some_and(|m| m.contains("Insufficient balance") || m.contains("余额不足")),
+        "non coding-plan group says balance insufficient: {v}"
+    );
+    let log = last_log_for(&state, "gkquota").await;
+    assert_eq!(log.status_code, 402);
+    assert_eq!(log.blocked_by, "router");
+    assert_eq!(log.blocked_reason, "quota_exhausted");
+    assert_eq!(log.est_cost, 0.0);
+}
+
 /// 直接模型转发验收 #4：声明平台全禁用 → handler route-fail 路径落审计行
 /// blocked_by='router', blocked_reason='direct_model_unavailable', status_code=503, est_cost=0。
 /// 注：直通链入口有 `len() > 1` guard（candidates.rs），字面单平台组不走直通链，需 ≥2 平台组。

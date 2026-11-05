@@ -63,3 +63,45 @@ fn kind_route_error_message_user_facing() {
     assert!(kind_route_error_message("no_chat_platform").contains("聊天平台"));
     assert_eq!(kind_route_error_message("other"), "route error: other");
 }
+
+/// 全组额度用完 402 文案：coding plan + 已知重置时刻 → 含本地时刻的恢复句；时刻来自独立构造的字面量，
+/// 不复用被测函数的格式化。
+#[test]
+fn quota_message_coding_plan_with_reset() {
+    use chrono::TimeZone;
+    let local = chrono::Local.with_ymd_and_hms(2026, 11, 6, 3, 5, 0).unwrap();
+    let q = QuotaExhausted { coding_plan: true, earliest_reset_ms: Some(local.timestamp_millis()) };
+    assert_eq!(
+        quota_exhausted_message(Lang::ZhCn, q),
+        "套餐额度已用完，将于 2026-11-06 03:05 恢复"
+    );
+    assert_eq!(
+        quota_exhausted_message(Lang::EnUs, q),
+        "Plan quota exhausted, will resume at 2026-11-06 03:05"
+    );
+}
+
+/// coding plan 无已知重置时刻（含开放式冷却）→ 省略后半句。
+#[test]
+fn quota_message_coding_plan_without_reset() {
+    let q = QuotaExhausted { coding_plan: true, earliest_reset_ms: None };
+    assert_eq!(quota_exhausted_message(Lang::ZhCn, q), "套餐额度已用完");
+}
+
+/// 非 coding plan → 「余额不足」，即便带重置时刻也不拼恢复句。
+#[test]
+fn quota_message_balance_only() {
+    let q = QuotaExhausted { coding_plan: false, earliest_reset_ms: Some(1_800_000_000_000) };
+    assert_eq!(quota_exhausted_message(Lang::ZhCn, q), "余额不足");
+    assert_eq!(quota_exhausted_message(Lang::EnUs, q), "Insufficient balance");
+}
+
+/// reason 编码往返。
+#[test]
+fn quota_reason_roundtrip() {
+    let q = QuotaExhausted { coding_plan: true, earliest_reset_ms: Some(42) };
+    assert_eq!(QuotaExhausted::parse(&q.to_reason()), Some(q));
+    let n = QuotaExhausted { coding_plan: false, earliest_reset_ms: None };
+    assert_eq!(QuotaExhausted::parse(&n.to_reason()), Some(n));
+    assert_eq!(QuotaExhausted::parse("peak_disabled"), None);
+}

@@ -1413,6 +1413,7 @@
   "platform.rateLimits.importConfirmDesc": "This overwrites the current rate-limit config (concurrency / RPM / TPM, per-model, time windows). The imported copy is yours to edit; the built-in original is unchanged.",
   "logs.blockedRateLimit": "Rate limited",
   "logs.blockedPeak": "Peak disabled",
+  "logs.blockedQuotaExhausted": "Quota exhausted",
   "logs.blockedClientNotAllowed": "Client not allowed",
   "logs.blockedClientNotAllowedMixed": "Client not allowed (mixed)",
   "logs.blockedObserve": "Observed",

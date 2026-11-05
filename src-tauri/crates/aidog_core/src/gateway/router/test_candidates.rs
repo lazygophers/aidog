@@ -3441,3 +3441,101 @@ async fn real_query_exhausted_equivalent_single_platform_still_sent() {
         .expect("equivalent single platform bypasses quota cooldown");
     assert_eq!(set.candidates[0].platform.id, p.id);
 }
+
+// ── 全组额度用完 → quota_exhausted（票 03）──
+
+fn quota_ctx_parts() -> (SchedulerState, StickyTable, SchedulingBreakerSettings) {
+    (SchedulerState::new(), StickyTable::new(), SchedulingBreakerSettings::default())
+}
+
+/// 多平台分组全部因额度冷却被排除 → Err(quota_exhausted)，无 coding plan、最早重置 = 两者较早者。
+#[tokio::test]
+async fn multi_platform_all_quota_cooled_errs_quota_exhausted() {
+    let db = mk_test_db().await;
+    let a = mk_db_platform(&db, "A").await;
+    let b = mk_db_platform(&db, "B").await;
+    let g = mk_db_group(&db, "qx-all", &[a.id, b.id]).await;
+    let (sched, sticky, settings) = quota_ctx_parts();
+    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None, rate_body: None };
+    let now = db::now();
+    sched.set_quota_cooldown(a.id, now + 7_200_000);
+    sched.set_quota_cooldown(b.id, now + 3_600_000);
+
+    let e = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
+        .await
+        .expect_err("all quota-cooled");
+    let q = QuotaExhausted::parse(&e).expect("quota_exhausted reason");
+    assert!(!q.coding_plan);
+    assert_eq!(q.earliest_reset_ms, Some(now + 3_600_000));
+}
+
+/// coding plan 与按量混合 → coding plan 标记为真；开放式冷却不计入重置时刻。
+#[tokio::test]
+async fn quota_exhausted_mixed_types_flags_coding_plan_and_skips_open_ended() {
+    let db = mk_test_db().await;
+    let cp = mk_db_platform_cp(&db, "CP").await;
+    let bal = mk_db_platform(&db, "BAL").await;
+    let g = mk_db_group(&db, "qx-mixed", &[cp.id, bal.id]).await;
+    let (sched, sticky, settings) = quota_ctx_parts();
+    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None, rate_body: None };
+    let now = db::now();
+    sched.set_quota_cooldown(cp.id, now + 3_600_000);
+    sched.set_quota_cooldown(bal.id, crate::gateway::estimate::QUOTA_OPEN_ENDED_UNTIL_MS);
+
+    let e = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
+        .await
+        .expect_err("all quota-cooled");
+    let q = QuotaExhausted::parse(&e).expect("quota_exhausted reason");
+    assert!(q.coding_plan);
+    assert_eq!(q.earliest_reset_ms, Some(now + 3_600_000));
+}
+
+/// 全部开放式冷却 → 无已知重置时刻。
+#[tokio::test]
+async fn quota_exhausted_all_open_ended_has_no_reset() {
+    let db = mk_test_db().await;
+    let a = mk_db_platform(&db, "A").await;
+    let b = mk_db_platform(&db, "B").await;
+    let g = mk_db_group(&db, "qx-open", &[a.id, b.id]).await;
+    let (sched, sticky, settings) = quota_ctx_parts();
+    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None, rate_body: None };
+    sched.set_quota_cooldown(a.id, crate::gateway::estimate::QUOTA_OPEN_ENDED_UNTIL_MS);
+    sched.set_quota_cooldown(b.id, crate::gateway::estimate::QUOTA_OPEN_ENDED_UNTIL_MS);
+
+    let e = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
+        .await
+        .expect_err("all quota-cooled");
+    let q = QuotaExhausted::parse(&e).expect("quota_exhausted reason");
+    assert_eq!(q.earliest_reset_ms, None);
+}
+
+/// 混合原因（一个额度冷却 + 一个手动禁用）→ 不是 quota_exhausted，保持现有兜底。
+#[tokio::test]
+async fn quota_cooled_mixed_with_disabled_keeps_generic_error() {
+    let db = mk_test_db().await;
+    let a = mk_db_platform(&db, "A").await;
+    let b = mk_db_platform(&db, "B").await;
+    let g = mk_db_group(&db, "qx-mix-dis", &[a.id, b.id]).await;
+    db::update_platform(
+        &db,
+        UpdatePlatform {
+            id: b.id,
+            name: None, platform_type: None, base_url: None, api_key: None, extra: None,
+            models: None, available_models: None, endpoints: None, enabled: None,
+            status: Some(PlatformStatus::Disabled),
+            manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
+        },
+    )
+    .await
+    .expect("disable b");
+    let (sched, sticky, settings) = quota_ctx_parts();
+    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None, rate_body: None };
+    sched.set_quota_cooldown(a.id, db::now() + 3_600_000);
+
+    let e = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await;
+    // 禁用的 b 使分组退化为等效单平台：沿用现有短路（照发 a），不报错也不报 quota_exhausted
+    match e {
+        Ok(set) => assert_eq!(set.candidates[0].platform.id, a.id),
+        Err(e) => assert!(QuotaExhausted::parse(&e).is_none(), "mixed reasons must not be quota_exhausted: {e}"),
+    }
+}

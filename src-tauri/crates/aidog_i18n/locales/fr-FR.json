@@ -1435,6 +1435,7 @@
   "platform.rateLimits.importConfirmDesc": "Cela remplace la configuration de limitation actuelle (simultanéité / RPM / TPM, par modèle, fenêtres horaires). La copie importée est modifiable ; l'original intégré reste inchangé.",
   "logs.blockedRateLimit": "Limité",
   "logs.blockedPeak": "Désactivé en pointe",
+  "logs.blockedQuotaExhausted": "Quota épuisé",
   "logs.blockedClientNotAllowed": "Client non autorisé",
   "logs.blockedClientNotAllowedMixed": "Client non autorisé (mixte)",
   "logs.blockedObserve": "Observé",

@@ -80,6 +80,12 @@ pub enum ErrorKey {
     TrayStillRunning,
     /// 有新版本（界面不在时的系统通知）
     UpdateAvailable,
+    /// 全组额度用完（402）：coding plan 套餐额度已用完（无已知重置时刻）
+    QuotaExhaustedCodingPlan,
+    /// 全组额度用完（402）：coding plan 套餐额度已用完，`{{time}}` 为最早重置时刻（本地时间）
+    QuotaExhaustedCodingPlanResume,
+    /// 全组额度用完（402）：按量余额不足
+    BalanceInsufficient,
 }
 
 /// 返回翻译后的错误消息
@@ -116,6 +122,9 @@ fn t_en(key: ErrorKey) -> &'static str {
         ErrorKey::ProxyStartOther => "Failed to bind port {{port}}, proxy did not start",
         ErrorKey::TrayStillRunning => "AiDog is still running in the tray",
         ErrorKey::UpdateAvailable => "AiDog has a new version available",
+        ErrorKey::QuotaExhaustedCodingPlan => "Plan quota exhausted",
+        ErrorKey::QuotaExhaustedCodingPlanResume => "Plan quota exhausted, will resume at {{time}}",
+        ErrorKey::BalanceInsufficient => "Insufficient balance",
     }
 }
 
@@ -137,6 +146,9 @@ fn t_zh(key: ErrorKey) -> &'static str {
         ErrorKey::ProxyStartOther => "端口 {{port}} 绑定失败，代理未启动",
         ErrorKey::TrayStillRunning => "aidog 仍在托盘运行",
         ErrorKey::UpdateAvailable => "aidog 有新版本",
+        ErrorKey::QuotaExhaustedCodingPlan => "套餐额度已用完",
+        ErrorKey::QuotaExhaustedCodingPlanResume => "套餐额度已用完，将于 {{time}} 恢复",
+        ErrorKey::BalanceInsufficient => "余额不足",
     }
 }
 
@@ -160,6 +172,9 @@ fn t_ja(key: ErrorKey) -> &'static str {
         ErrorKey::ProxyStartOther => "ポート {{port}} のバインドに失敗したため、プロキシは起動しませんでした",
         ErrorKey::TrayStillRunning => "aidog はトレイで実行中です",
         ErrorKey::UpdateAvailable => "aidog に新しいバージョンがあります",
+        ErrorKey::QuotaExhaustedCodingPlan => "プランの割り当てを使い切りました",
+        ErrorKey::QuotaExhaustedCodingPlanResume => "プランの割り当てを使い切りました。{{time}} に再開します",
+        ErrorKey::BalanceInsufficient => "残高不足です",
     }
 }
 
@@ -183,6 +198,9 @@ fn t_fr(key: ErrorKey) -> &'static str {
         ErrorKey::ProxyStartOther => "Échec de la liaison au port {{port}}, le proxy n'a pas démarré",
         ErrorKey::TrayStillRunning => "aidog continue de s'exécuter dans la barre d'état",
         ErrorKey::UpdateAvailable => "Une nouvelle version d'aidog est disponible",
+        ErrorKey::QuotaExhaustedCodingPlan => "Quota du forfait épuisé",
+        ErrorKey::QuotaExhaustedCodingPlanResume => "Quota du forfait épuisé, reprise à {{time}}",
+        ErrorKey::BalanceInsufficient => "Solde insuffisant",
     }
 }
 
@@ -210,6 +228,9 @@ fn t_de(key: ErrorKey) -> &'static str {
         ErrorKey::ProxyStartOther => "Bindung an Port {{port}} fehlgeschlagen, Proxy wurde nicht gestartet",
         ErrorKey::TrayStillRunning => "aidog läuft weiterhin im Tray",
         ErrorKey::UpdateAvailable => "Neue aidog-Version verfügbar",
+        ErrorKey::QuotaExhaustedCodingPlan => "Kontingent des Tarifs aufgebraucht",
+        ErrorKey::QuotaExhaustedCodingPlanResume => "Kontingent des Tarifs aufgebraucht, Fortsetzung um {{time}}",
+        ErrorKey::BalanceInsufficient => "Guthaben unzureichend",
     }
 }
 
@@ -233,6 +254,9 @@ fn t_ru(key: ErrorKey) -> &'static str {
         ErrorKey::ProxyStartOther => "Не удалось привязаться к порту {{port}}, прокси не запущен",
         ErrorKey::TrayStillRunning => "aidog продолжает работать в трее",
         ErrorKey::UpdateAvailable => "Доступна новая версия aidog",
+        ErrorKey::QuotaExhaustedCodingPlan => "Квота тарифа исчерпана",
+        ErrorKey::QuotaExhaustedCodingPlanResume => "Квота тарифа исчерпана, возобновится в {{time}}",
+        ErrorKey::BalanceInsufficient => "Недостаточно средств",
     }
 }
 
@@ -258,6 +282,9 @@ fn t_ar(key: ErrorKey) -> &'static str {
         ErrorKey::ProxyStartOther => "فشل ربط المنفذ {{port}}، لم يبدأ الوكيل",
         ErrorKey::TrayStillRunning => "aidog لا يزال يعمل في شريط النظام",
         ErrorKey::UpdateAvailable => "يتوفر إصدار جديد من aidog",
+        ErrorKey::QuotaExhaustedCodingPlan => "استُنفدت حصة الباقة",
+        ErrorKey::QuotaExhaustedCodingPlanResume => "استُنفدت حصة الباقة، وستُستأنف في {{time}}",
+        ErrorKey::BalanceInsufficient => "الرصيد غير كافٍ",
     }
 }
 
@@ -285,6 +312,9 @@ fn t_es(key: ErrorKey) -> &'static str {
         ErrorKey::ProxyStartOther => "No se pudo vincular al puerto {{port}}, el proxy no se inició",
         ErrorKey::TrayStillRunning => "aidog sigue ejecutándose en la bandeja",
         ErrorKey::UpdateAvailable => "Hay una nueva versión de aidog disponible",
+        ErrorKey::QuotaExhaustedCodingPlan => "Cuota del plan agotada",
+        ErrorKey::QuotaExhaustedCodingPlanResume => "Cuota del plan agotada, se reanudará a las {{time}}",
+        ErrorKey::BalanceInsufficient => "Saldo insuficiente",
     }
 }
 

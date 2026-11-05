@@ -1413,6 +1413,7 @@
   "platform.rateLimits.importConfirmDesc": "将覆盖当前限频配置（并发 / RPM / TPM、模型级、时段窗口）。导入后是你自己的一份，可再改；内置原件不变。",
   "logs.blockedRateLimit": "限频",
   "logs.blockedPeak": "高峰禁用",
+  "logs.blockedQuotaExhausted": "额度用完",
   "logs.blockedClientNotAllowed": "客户端被拒",
   "logs.blockedClientNotAllowedMixed": "客户端被拒（混合）",
   "logs.blockedObserve": "观察",
