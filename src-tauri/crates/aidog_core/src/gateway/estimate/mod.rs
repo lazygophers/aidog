@@ -17,6 +17,7 @@
 
 mod algo;
 mod anchors;
+mod backoff;
 mod db_ops;
 mod model;
 mod rate_limit;
