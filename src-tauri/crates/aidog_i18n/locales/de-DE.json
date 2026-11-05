@@ -45,6 +45,7 @@
   "apiTest.send": "Senden",
   "apiTest.disabledHint": "Die Verwaltungsschnittstelle ist aus. Bitte zuerst oben im Abschnitt Verwaltungsschnittstelle einschalten.",
   "apiTest.proxyDown": "Der Proxy läuft nicht. Bitte zuerst den Proxy starten.",
+  "apiTest.settingsError": "Die Einstellungen der Verwaltungs-API konnten nicht gelesen werden; Senden ist deaktiviert.",
   "apiTest.confirmTitle": "Senden eines datenändernden Befehls bestätigen",
   "apiTest.confirmDesc": "Dieser Befehl ändert Daten. Er wird erst nach Bestätigung gesendet:",
   "apiTest.cancel": "Abbrechen",

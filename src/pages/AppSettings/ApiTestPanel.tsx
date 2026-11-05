@@ -17,6 +17,7 @@ type Outcome = { kind: "ok" | "error"; res: ApiTestResult } | { kind: "proxy-dow
 export function ApiTestPanel({ refreshKey = 0, onSent }: { refreshKey?: number; onSent?: () => void }) {
   const { t } = useTranslation();
   const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [command, setCommand] = useState(COMMANDS[0]?.name ?? "");
   const [params, setParams] = useState(() => (COMMANDS[0] ? paramsSkeleton(COMMANDS[0].params) : "{}"));
   const [confirming, setConfirming] = useState(false);
@@ -24,7 +25,8 @@ export function ApiTestPanel({ refreshKey = 0, onSent }: { refreshKey?: number; 
   const [outcome, setOutcome] = useState<Outcome | null>(null);
 
   useEffect(() => {
-    kernelApi.getSettings().then((s) => setEnabled(s.api_enabled)).catch(() => setEnabled(true));
+    setLoadFailed(false);
+    kernelApi.getSettings().then((s) => setEnabled(s.api_enabled)).catch(() => setLoadFailed(true));
   }, [refreshKey]);
 
   const cmd = COMMANDS.find((c) => c.name === command);
@@ -50,12 +52,15 @@ export function ApiTestPanel({ refreshKey = 0, onSent }: { refreshKey?: number; 
     }
   };
 
-  const state = enabled === false ? "disabled" : enabled === null ? "loading" : "ready";
+  const state = loadFailed ? "error" : enabled === false ? "disabled" : enabled === null ? "loading" : "ready";
 
   return (
     <div className="glass-surface" data-testid="api-test" data-state={state} style={{ padding: "16px 20px" }}>
       <div style={{ fontSize: 13, fontWeight: 600 }}>{t("apiTest.title")}</div>
       <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>{t("apiTest.desc")}</div>
+      {loadFailed && (
+        <div data-testid="api-test-settings-error" style={{ fontSize: 12, marginTop: 10 }}>{t("apiTest.settingsError")}</div>
+      )}
       {enabled === false && (
         <div data-testid="api-test-disabled-hint" style={{ fontSize: 12, marginTop: 10 }}>{t("apiTest.disabledHint")}</div>
       )}
