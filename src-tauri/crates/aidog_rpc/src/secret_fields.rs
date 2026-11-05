@@ -114,6 +114,9 @@ pub fn restore_value(new: &mut Value, old: &Value) {
 const RESTORERS: &[(&str, &str)] = &[
     ("platform_update", "input"),
     ("notification_settings_set", "settings"),
+    ("kernel_settings_set", "settings"),
+    ("proxy_client_set_settings", "settings"),
+    ("settings_set", "input"),
 ];
 
 async fn load_old(cmd: &str, arg: &Value) -> Option<Value> {
@@ -125,6 +128,13 @@ async fn load_old(cmd: &str, arg: &Value) -> Option<Value> {
             serde_json::to_value(p).ok()
         }
         "notification_settings_set" => serde_json::to_value(aidog_db::get_notification_settings(db).await).ok(),
+        "kernel_settings_set" => aidog_db::get_setting(db, "kernel", "settings").await.ok()?,
+        "proxy_client_set_settings" => aidog_db::get_setting(db, "proxy", "proxy_client").await.ok()?,
+        // 通用设置写入（含 kernel/settings、proxy/proxy_client 这两条带密钥的）：新值在 `value` 下，原值同形包一层。
+        "settings_set" => {
+            let old = aidog_db::get_setting(db, arg.get("scope")?.as_str()?, arg.get("key")?.as_str()?).await.ok()??;
+            Some(serde_json::json!({ "value": old }))
+        }
         _ => None,
     }
 }

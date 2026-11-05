@@ -456,4 +456,45 @@ async fn secrets_are_masked_over_http_and_restored_on_write() {
         let v: serde_json::Value = r.json().await.unwrap();
         assert_eq!(v["error"], "exports_secret_forbidden", "{name}");
     }
+
+    // 其余带密钥的写命令同样「回传 *** = 保持原值」（Spec1）。AppCtx 进程内只能装一次，故并入本测试。
+    let rpc_auth = |name: &str, body: serde_json::Value, token: &str| {
+        let url = format!("{base}/api/rpc/{name}");
+        let token = token.to_string();
+        async move { client().post(url).bearer_auth(token).json(&body).send().await.unwrap() }
+    };
+    let setting = |scope: &'static str, key: &'static str| async move {
+        aidog_db::get_setting(aidog_ctx::db(), scope, key).await.unwrap().unwrap()
+    };
+
+    // proxy_client_set_settings：出站代理口令。
+    assert_eq!(
+        rpc("proxy_client_set_settings", serde_json::json!({"settings": {"enabled": false, "username": "u", "password": "pc-pw"}})).await.status(),
+        200
+    );
+    let echoed: serde_json::Value = rpc("proxy_client_get_settings", serde_json::json!({})).await.json().await.unwrap();
+    assert_eq!(echoed["password"], "***");
+    assert_eq!(rpc("proxy_client_set_settings", serde_json::json!({"settings": echoed})).await.status(), 200);
+    assert_eq!(setting("proxy", "proxy_client").await["password"], "pc-pw", "proxy_client_set_settings 回传 *** 必须保持原口令");
+
+    // settings_set(scope=kernel)：管理接口凭据。写入后即要求 Bearer。
+    let r = rpc("settings_set", serde_json::json!({"input": {"scope": "kernel", "key": "settings", "value": {"api_enabled": true, "auth_token": "tok-1"}}})).await;
+    assert_eq!(r.status(), 200);
+    let echoed: serde_json::Value = rpc_auth("settings_get", serde_json::json!({"scope": "kernel", "key": "settings"}), "tok-1").await.json().await.unwrap();
+    assert_eq!(echoed["auth_token"], "***");
+    let r = rpc_auth("settings_set", serde_json::json!({"input": {"scope": "kernel", "key": "settings", "value": echoed}}), "tok-1").await;
+    assert_eq!(r.status(), 200);
+    assert_eq!(setting("kernel", "settings").await["auth_token"], "tok-1", "settings_set(kernel) 回传 *** 必须保持原凭据");
+    assert_eq!(rpc_auth("about_info", serde_json::json!({}), "***").await.status(), 401, "Bearer *** 不得通过管理接口");
+    assert_eq!(rpc_auth("about_info", serde_json::json!({}), "tok-1").await.status(), 200);
+
+    // kernel_settings_set：换新凭据照常生效；回传 *** 保持原值。
+    let r = rpc_auth("kernel_settings_set", serde_json::json!({"settings": {"api_enabled": true, "auth_token": "tok-2"}}), "tok-1").await;
+    assert_eq!(r.status(), 200);
+    let echoed: serde_json::Value = rpc_auth("kernel_settings_get", serde_json::json!({}), "tok-2").await.json().await.unwrap();
+    assert_eq!(echoed["auth_token"], "***");
+    assert_eq!(rpc_auth("kernel_settings_set", serde_json::json!({"settings": echoed}), "tok-2").await.status(), 200);
+    assert_eq!(setting("kernel", "settings").await["auth_token"], "tok-2", "kernel_settings_set 回传 *** 必须保持原凭据");
+    assert_eq!(rpc_auth("about_info", serde_json::json!({}), "***").await.status(), 401, "Bearer *** 不得通过管理接口");
+    assert_eq!(rpc_auth("about_info", serde_json::json!({}), "tok-2").await.status(), 200);
 }
