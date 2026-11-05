@@ -445,6 +445,8 @@
             "Bash(git push origin --delete:*)",
             "Bash(git reset:*)",
             "Bash(git checkout:*)",
+            "Bash(git switch:*)",
+            "ExitWorktree",
             "Bash(mysql:*)",
             "Bash(mariadb:*)",
             "Bash(mysqldump:*)",
