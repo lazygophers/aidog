@@ -41,6 +41,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     isMock, isPassthrough, isPassThrough, keyOptional, apiKeyMissing,
     passAuth, setPassAuth,
   appbuilderKey = "", setAppbuilderKey,
+    customSlotDefs = [], customSlotValues = {}, setCustomSlotValues,
     mockConfig, setMockConfig,
     apiKey, setApiKey, showKey, setShowKey,
     batchPreviewKeys, handleApiKeyChange, previewNames,
@@ -252,6 +253,8 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           apiKeyMissing={apiKeyMissing} endpointsCount={endpoints.length} endpoints={endpoints}
           rules={timemodels.timeModels} setRules={timemodels.setTimeModels} peak={timemodels.peak}
           tzMode={timemodels.windowsTz} setTzMode={timemodels.setWindowsTz}
+          customSlotDefs={customSlotDefs ?? []} customSlotValues={customSlotValues}
+          onCustomSlotChange={(name, chain) => setCustomSlotValues?.((prev) => ({ ...prev, [name]: chain }))}
           t={t}
         />
         </>
