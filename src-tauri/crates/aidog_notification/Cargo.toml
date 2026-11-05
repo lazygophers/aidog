@@ -25,6 +25,10 @@ chrono = { workspace = true }
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 tts = { workspace = true }
 
+[features]
+# 依赖方测试（dev-dependencies 开启）：tts::speak 不真出声；生产构建不开。
+test-util = []
+
 [dev-dependencies]
 tracing-subscriber = { workspace = true }
 tokio = { workspace = true }
