@@ -90,6 +90,59 @@ crate::tauri_command! {
     }
 }
 
+/// 测试面板发送结果：真实状态码、耗时、响应正文。
+#[derive(serde::Serialize, Clone, Debug, ts_rs::TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct ApiTestResult {
+    pub status: u16,
+    #[ts(type = "number")]
+    pub duration_ms: u64,
+    pub body: String,
+}
+
+/// 向本机代理端口上的 `POST /api/rpc/<命令>` 发真实 HTTP 请求（webview 跨源 fetch 读不到
+/// 无 CORS 头的响应，故走 Rust）。带 `X-Aidog-Source: settings-test` 以便调用记录区分来源；
+/// 凭据非空带 Bearer。错误码：`invalid_command` / `proxy_unreachable`。
+pub async fn send_management_request(
+    port: u16,
+    token: &str,
+    command: &str,
+    params: &str,
+) -> Result<ApiTestResult, String> {
+    if command.is_empty() || !command.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+        return Err("invalid_command".into());
+    }
+    let body = if params.trim().is_empty() { "{}" } else { params };
+    let mut req = reqwest::Client::builder()
+        .no_proxy()
+        .build()
+        .map_err(|e| e.to_string())?
+        .post(format!("http://127.0.0.1:{port}/api/rpc/{command}"))
+        .header("content-type", "application/json")
+        .header("x-aidog-source", "settings-test")
+        .body(body.to_string());
+    if !token.trim().is_empty() {
+        req = req.bearer_auth(token.trim());
+    }
+    let started = std::time::Instant::now();
+    let resp = req.send().await.map_err(|e| {
+        if e.is_connect() { "proxy_unreachable".to_string() } else { e.to_string() }
+    })?;
+    let status = resp.status().as_u16();
+    let body = resp.text().await.map_err(|e| e.to_string())?;
+    Ok(ApiTestResult { status, duration_ms: started.elapsed().as_millis() as u64, body })
+}
+
+crate::tauri_command! {
+    /// 设置页测试面板：经代理端口真实调用一个管理接口命令（走开关 / 本机限制 / 凭据 / 遮挡）。
+    pub async fn api_test_send(command: String, params: String) -> Result<ApiTestResult, String> {
+        let db = aidog_ctx::db();
+        let port = crate::shared::load_proxy_settings(db).await?.port;
+        let token = load_kernel_settings(db).await.auth_token;
+        send_management_request(port, &token, &command, &params).await
+    }
+}
+
 #[cfg(test)]
 #[path = "test_kernel_settings.rs"]
 mod test_kernel_settings;
