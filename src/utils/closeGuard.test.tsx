@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, act } from "@testing-library/react";
+import { render, waitFor, act } from "@testing-library/react";
 import { useCloseGuard } from "./closeGuard";
 import { registerNavGuard } from "./navGuard";
 
@@ -16,6 +16,11 @@ vi.mock("@tauri-apps/api/window", () => ({
     destroy,
   }),
 }));
+
+// 事件 API：记录 emit 顺序（ack → closing → destroy）。
+const calls: string[] = [];
+const emit = vi.fn(async (name: string) => { calls.push(`emit:${name}`); });
+vi.mock("@tauri-apps/api/event", () => ({ emit: (n: string) => emit(n) }));
 
 function Harness() {
   useCloseGuard();
@@ -37,6 +42,9 @@ function requestClose() {
 beforeEach(() => {
   closeHandler = null;
   destroy.mockClear();
+  destroy.mockImplementation(async () => { calls.push("destroy"); });
+  emit.mockClear();
+  calls.length = 0;
   unlisten.mockClear();
 });
 
@@ -44,7 +52,23 @@ describe("useCloseGuard", () => {
   it("无未保存改动：关窗请求直接销毁", async () => {
     await mount();
     requestClose();
-    expect(destroy).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(destroy).toHaveBeenCalledTimes(1));
+  });
+
+  it("关窗请求同步 emit ack（Rust 兜底计时据此放过）", async () => {
+    const off = registerNavGuard(() => {});
+    await mount();
+    requestClose();
+    expect(emit).toHaveBeenCalledWith("aidog-close-ack");
+    expect(destroy).not.toHaveBeenCalled();
+    off();
+  });
+
+  it("放行：先通知 Rust 界面即将关闭，再销毁", async () => {
+    await mount();
+    requestClose();
+    await waitFor(() => expect(destroy).toHaveBeenCalledTimes(1));
+    expect(calls).toEqual(["emit:aidog-close-ack", "emit:aidog-ui-closing", "destroy"]);
   });
 
   it("有 guard：拦下关窗，确认前不销毁；确认后销毁", async () => {
@@ -55,7 +79,7 @@ describe("useCloseGuard", () => {
     expect(prevented).toHaveBeenCalled();
     expect(destroy).not.toHaveBeenCalled();
     act(() => proceed!());
-    expect(destroy).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(destroy).toHaveBeenCalledTimes(1));
     off();
   });
 
@@ -71,6 +95,5 @@ describe("useCloseGuard", () => {
     const r = await mount();
     r.unmount();
     await waitFor(() => expect(unlisten).toHaveBeenCalled());
-    expect(screen.queryByTestId("harness")).toBeNull();
   });
 });

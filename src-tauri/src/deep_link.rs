@@ -122,6 +122,11 @@ pub fn mark_ready<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
+/// 是否有排队等界面就绪的链接。
+pub fn has_pending() -> bool {
+    !inbox().pending.is_empty()
+}
+
 /// 界面关闭：前端监听随之消失，复位就绪。
 pub fn mark_closed() {
     inbox().ready = false;
@@ -176,6 +181,8 @@ pub fn setup<R: Runtime>(app: &AppHandle<R>) {
             }
         });
     });
+
+    crate::ui_window::setup(app);
 
     // on_open_url：运行时唤起（app 已开）。闭包 move 捕获 app clone，事件回调里直接 dispatch。
     let app_for_callback = app.clone();

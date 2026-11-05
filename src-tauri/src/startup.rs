@@ -45,6 +45,16 @@ pub fn run() {
             {
                 crate::popover_window::close(&window.app_handle().clone());
             }
+            // 前端 closeGuard 接管关窗（Tauri 自动 prevent_close）：限时没收到它的 ack 就强制销毁，
+            // 防前端挂起时关不掉窗。
+            if let tauri::WindowEvent::CloseRequested { .. } = event
+                && window.label() == crate::ui_window::LABEL
+            {
+                crate::ui_window::on_close_requested(
+                    &window.app_handle().clone(),
+                    crate::ui_window::CLOSE_ACK_TIMEOUT,
+                );
+            }
             // 主窗口关闭 = 销毁（不再 prevent_close），进入托盘常驻：释放 webview 内存，
             // macOS 同时隐藏 Dock 与顶部菜单（`ui_window::on_closed`）。从托盘经 `ui_window::open` 重建。
             if let tauri::WindowEvent::Destroyed = event

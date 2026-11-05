@@ -27,7 +27,7 @@ export function UnsavedChangesModal({
   const { t } = useTranslation();
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onCancel(); }}>
-      <DialogContent className="glass-elevated" style={{ maxWidth: 420, padding: "22px 24px" }}>
+      <DialogContent data-testid="unsaved-modal" className="glass-elevated" style={{ maxWidth: 420, padding: "22px 24px" }}>
         <DialogHeader>
           <DialogTitle style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)" }}>
             {t("settings.unsavedTitle", "未保存的更改")}
@@ -40,7 +40,7 @@ export function UnsavedChangesModal({
           <Button variant="ghost" style={{ fontSize: F.body, padding: S.btnPad }} onClick={onCancel} disabled={saving}>
             {t("action.cancel", "取消")}
           </Button>
-          <Button variant="ghost" style={{ fontSize: F.body, padding: S.btnPad, color: "var(--color-danger)" }} onClick={onDiscard} disabled={saving}>
+          <Button data-testid="unsaved-discard" variant="ghost" style={{ fontSize: F.body, padding: S.btnPad, color: "var(--color-danger)" }} onClick={onDiscard} disabled={saving}>
             {t("settings.discardChanges", "放弃更改")}
           </Button>
           <Button variant="default" style={{ fontSize: F.body, padding: S.btnPad, minWidth: 96 }} onClick={onSave} disabled={saving}>
