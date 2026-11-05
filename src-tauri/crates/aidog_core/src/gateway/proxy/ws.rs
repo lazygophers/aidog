@@ -223,13 +223,7 @@ pub(crate) async fn handle_ws_passthrough(
         upsert_log(&state, &log, &log_settings).await;
         return (StatusCode::BAD_REQUEST, log.response_body.clone()).into_response();
     };
-    let extra = aidog_db::models::PlatformExtra::parse(&platform.extra);
-    if !crate::client_vocab::client_allowed(
-        &extra.allowed_clients,
-        &crate::client_vocab::compile_ua_rules(&extra.client_ua_rules),
-        &probe.ua,
-        probe.hit,
-    ) {
+    if !probe.allowed_by(&platform.extra) {
         return route_fail_response(&state, &mut log, &log_settings, "client_not_allowed", start, lang).await;
     }
     log.platform_id = platform.id;

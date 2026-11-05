@@ -69,13 +69,7 @@ pub(crate) async fn handle_responses_subendpoint(
             if !gp.platform.enabled {
                 return true;
             }
-            let extra = aidog_db::models::PlatformExtra::parse(&gp.platform.extra);
-            let allowed = crate::client_vocab::client_allowed(
-                &extra.allowed_clients,
-                &crate::client_vocab::compile_ua_rules(&extra.client_ua_rules),
-                &probe.ua,
-                probe.hit,
-            );
+            let allowed = probe.allowed_by(&gp.platform.extra);
             if !allowed {
                 client_rejected += 1;
             }

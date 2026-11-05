@@ -1,5 +1,5 @@
 //! 入站客户端识别：按 User-Agent 查 `crate::client_vocab` 两级词表，写 `proxy_log.client` 与
-//! `stats_agg_hourly.client`。只存词表码、不存原始 UA（否则聚合表维度基数失控）。
+//! `stats_agg_hourly.client`。统计维度只存词表码或限长 `ua:<产品名>`（基数受控）；原始 UA 另存 `proxy_log.user_agent`。
 //!
 //! 两种语义同一接口：[`identify_client`] 返回 `None` = 认不出（白名单判定视为未命中）；
 //! [`detect_client`] 把 `None` 映射为统计码 `other`。存量空串（未知）仅旧行 / 带外日志，本模块不产出。
@@ -25,7 +25,7 @@ pub(crate) fn detect_client(headers: &HeaderMap) -> String {
         return e.code.to_string();
     }
     let ua = headers.get(USER_AGENT).and_then(|v| v.to_str().ok()).unwrap_or("");
-    ua_product_name(ua).map_or_else(|| "other".to_string(), |n| format!("ua:{n}"))
+    ua_product_name(ua).map_or_else(|| "other".to_string(), |n| format!("{}{n}", crate::client_vocab::UA_CODE_PREFIX))
 }
 
 /// UA 产品名：第一个空白或 `/` 之前，首字符须是 ASCII 字母数字（`(compatible)` 这类不算产品名），

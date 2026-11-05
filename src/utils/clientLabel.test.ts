@@ -2,7 +2,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
-import { clientLabel } from "./clientLabel";
+import { clientLabel, UA_CODE_PREFIX } from "./clientLabel";
 
 const root = resolve(__dirname, "../..");
 const localeDir = resolve(root, "src-tauri/crates/aidog_i18n/locales");
@@ -16,6 +16,12 @@ const sameAsCode = new Set(["opencode", "curl"]);
 const locales = readdirSync(localeDir).filter(f => f.endsWith(".json"));
 
 describe("clientLabel", () => {
+  it("ua: 前缀与 Rust client_vocab::UA_CODE_PREFIX 一致（跨层）", () => {
+    const m = vocabSrc.match(/pub const UA_CODE_PREFIX: &str = "([^"]+)";/);
+    expect(m?.[1]).toBe(UA_CODE_PREFIX);
+  });
+
+
   it("词表码数合理（防正则漂移）", () => {
     expect(vocabCodes.length).toBeGreaterThanOrEqual(40);
     expect(locales.length).toBe(8);
