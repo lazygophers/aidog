@@ -19,6 +19,8 @@ import {
   parseAllowedClients, serializeAllowedClients, toggleClientCategory, toggleClientVariant, clientCategoryState,
   parseClientUaRules, serializeClientUaRules, validateClientUaRule, type ClientUaRule,
   parseAppbuilderKey,
+  parseCustomSlots,
+  serializeCustomSlots,
   serializeAppbuilderKey,
   parseMitmStats,
   serializeMitmStats,
@@ -573,5 +575,25 @@ describe("client_ua_rules（平台白名单 UA 规则）", () => {
     expect(validateClientUaRule({ kind: "regex", pattern: "(" })).toBe("regex");
     expect(validateClientUaRule({ kind: "regex", pattern: "^open.*" })).toBeNull();
     expect(validateClientUaRule({ kind: "contains", pattern: "(" })).toBeNull();
+  });
+});
+
+describe("parseCustomSlots / serializeCustomSlots", () => {
+  it("缺失 / 非法 / 非数组值 → 空；数组去空去重", () => {
+    expect(parseCustomSlots("")).toEqual({});
+    expect(parseCustomSlots("bad")).toEqual({});
+    expect(parseCustomSlots('{"custom_slots":{"a":["x"," ","x","y"],"b":"s","c":[]}}')).toEqual({ a: ["x", "y"] });
+  });
+  it("写回：空链省略、孤儿键（无定义）丢弃、保留其余 extra 键", () => {
+    const out = JSON.parse(serializeCustomSlots(
+      '{"mock":{},"custom_slots":{"gone":["z"]}}',
+      { keep: ["m"], empty: [], orphan: ["o"] },
+      ["keep", "empty"],
+    ));
+    expect(out.mock).toEqual({});
+    expect(out.custom_slots).toEqual({ keep: ["m"] });
+  });
+  it("无有效值 → 删除 custom_slots 键", () => {
+    expect(JSON.parse(serializeCustomSlots('{"custom_slots":{"a":["x"]}}', {}, ["a"])).custom_slots).toBeUndefined();
   });
 });

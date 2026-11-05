@@ -16,6 +16,7 @@ import { pad } from "../../utils/formatters";
 import {
   MODEL_SLOTS, DEDICATED_MODEL_SLOTS, isOpenAIFamilyProtocol,
 } from "../../domains/platforms";
+import type { CustomSlotDef } from "../../services/api/customSlots";
 import { FormSection } from "./formSections";
 import { WindowsEditModal } from "./WindowsEditModal";
 import { Button } from "@/components/ui/button";
@@ -89,6 +90,8 @@ export function ModelsMatrixSection({
   rules, setRules, peak,
   // tz 展示模式：表单级共用一份（design.md §3.5 契约），与 PeakSection 的 tzMode/setTzMode 签名逐字一致
   tzMode, setTzMode,
+  // 自定义槽位（全局定义 + 本平台值）：仅默认列视图渲染；缺省无自定义行
+  customSlotDefs = [], customSlotValues = {}, onCustomSlotChange,
   t,
 }: {
   columns?: "default" | "time";
@@ -112,6 +115,9 @@ export function ModelsMatrixSection({
   peak: TimeWindow[];
   tzMode: TzMode;
   setTzMode: React.Dispatch<React.SetStateAction<TzMode>>;
+  customSlotDefs?: CustomSlotDef[];
+  customSlotValues?: Record<string, string[]>;
+  onCustomSlotChange?: (name: string, chain: string[]) => void;
   t: TFunction;
 }) {
   // 矩阵内部 UI 临时态
@@ -413,6 +419,28 @@ export function ModelsMatrixSection({
                     {t("platform.dedicatedSlotNoOpenAIEndpointHint")}
                   </div>
                 )}
+              </div>
+            </div>
+          ))}
+
+          {customSlotDefs.map(({ name, match }) => (
+            <div key={name} style={rowStyle} data-testid={`custom-slot-${name}`}>
+              <div style={{
+                width: LABEL_W, flexShrink: 0, fontSize: 13, fontWeight: 500,
+                color: "var(--text-tertiary)", textAlign: "right", overflow: "hidden", textOverflow: "ellipsis",
+              }} title={name}>
+                {name}
+              </div>
+              <div style={{ flex: 1, minWidth: 80, display: "flex", gap: 6, alignItems: "center" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {renderCell(`c:${name}`, customSlotValues[name] ?? [], (v) => onCustomSlotChange?.(name, v))}
+                </div>
+                <span
+                  data-testid={`custom-slot-badge-${name}`} data-state={match}
+                  style={{ fontSize: 11, padding: "1px 6px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", color: "var(--text-secondary)", whiteSpace: "nowrap" }}
+                >
+                  {t(match === "exact" ? "customSlots.matchExact" : "customSlots.matchContains")}
+                </span>
               </div>
             </div>
           ))}
