@@ -210,6 +210,8 @@ worktree 缺 docs 子包依赖（`typescript-eslint`），`yarn check:docs` 恒 
   在主仓做。基点落后 master 时用 `merge --no-ff`，并在主仓重跑完整门禁（agent 侧测试数不作数）。
 - 合并 agent 在主仓补跑 `check:docs`，改了 command 签名 / 删 command 的票还要重新生成
   docs（先例 bf3ba6cd8）。
+- 新增 / 改签名 `tauri_command!` 的票，其门禁必含 `yarn check:api-catalog`（已在 `make lint`，无 CI、无 pre-commit，
+  不手跑就没人跑）；红则 `yarn gen:api-catalog` 后一并提交（2026-11-05 票 01 漏 regen，4c185f112 补）。
 
 ## 13. 已回报的 agent：回报转述后当场 TaskStop（2026-10-30）
 
@@ -281,6 +283,8 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
   派发 prompt 要求：先只写测试跑出红（`> .tmp/<任务名>/red.log 2>&1; echo EXIT=$?`），回报**贴 EXIT 值与失败测试名**，
   再写实现；确实做不到（测试与实现不可分）写明原因并改用「改坏实现→红→按行号还原」反证，回报标「非严格先红」。
   回报只写「先红已验」而无 EXIT 值和失败名，按没验处理。
+  **红必须是断言红，不是编译红**（2026-11-05 模型-自定义槽位：4 张票 3 张非严格——符号缺失编译红、夹具缺项红、写完实现再换回）：
+  先加桩（新符号只给签名 + 默认返回值，夹具补全）使测试编译通过，再跑出断言失败；票 03 桩先行即得真先红。
 - **票 `Status:` 只有 `claimed` → `resolved`**：2026-11-05.md:101 遗留「票状态跳过 claimed」。
   与 wayfinder-session.md §2 同口径，派发 prompt 三行词表照贴；合并后当场 grep `Status:`。
 - **新增带密钥的写命令，同提交登记 `RESTORERS`**（`aidog_rpc/src/secret_fields.rs:114`）：2026-11-05.md:105
