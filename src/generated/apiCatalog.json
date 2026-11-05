@@ -1,0 +1,3170 @@
+{
+  "commands": [
+    {
+      "name": "about_info",
+      "category": "system",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "AboutInfo"
+    },
+    {
+      "name": "all_group_usage_stats",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "std::collections::HashMap<String, gateway::models::PlatformUsageStats>"
+    },
+    {
+      "name": "all_platform_usage_stats",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "std::collections::HashMap<u64, gateway::models::PlatformUsageStats>"
+    },
+    {
+      "name": "api_call_log_list",
+      "category": "kernel_settings",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "limit",
+          "type": "Option<i64>"
+        }
+      ],
+      "returns": "Vec<aidog_db::models::ApiCallLog>"
+    },
+    {
+      "name": "app_get_autolaunch",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "bool"
+    },
+    {
+      "name": "app_log_frontend",
+      "category": "system",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "level",
+          "type": "String"
+        },
+        {
+          "name": "message",
+          "type": "String"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "app_log_settings_get",
+      "category": "system",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "logging::AppLogSettings"
+    },
+    {
+      "name": "app_log_settings_set",
+      "category": "system",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "settings",
+          "type": "logging::AppLogSettings"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "app_set_autolaunch",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "app_set_silent_launch",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "backup_run_now",
+      "category": "backup",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "crate::BackupResult"
+    },
+    {
+      "name": "backup_settings_get",
+      "category": "backup",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "crate::BackupSettings"
+    },
+    {
+      "name": "backup_settings_set",
+      "category": "backup",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "settings",
+          "type": "crate::BackupSettings"
+        }
+      ],
+      "returns": "crate::BackupSettings"
+    },
+    {
+      "name": "balance_currency_map",
+      "category": "display_currency",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "HashMap<u64, String>"
+    },
+    {
+      "name": "batch_delete_platforms",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "ids",
+          "type": "Vec<u64>"
+        }
+      ],
+      "returns": "BatchReport"
+    },
+    {
+      "name": "batch_move_group",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "ids",
+          "type": "Vec<u64>"
+        },
+        {
+          "name": "targetGroupId",
+          "type": "u64"
+        },
+        {
+          "name": "mode",
+          "type": "String"
+        }
+      ],
+      "returns": "BatchReport"
+    },
+    {
+      "name": "batch_override_models",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "ids",
+          "type": "Vec<u64>"
+        },
+        {
+          "name": "models",
+          "type": "PlatformModels"
+        }
+      ],
+      "returns": "BatchReport"
+    },
+    {
+      "name": "batch_set_status",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "ids",
+          "type": "Vec<u64>"
+        },
+        {
+          "name": "status",
+          "type": "String"
+        }
+      ],
+      "returns": "BatchReport"
+    },
+    {
+      "name": "build_notify_hooks_fragment",
+      "category": "hooks",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "serde_json::Value"
+    },
+    {
+      "name": "cc_plan_info",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "groupName",
+          "type": "String"
+        }
+      ],
+      "returns": "Option<aidog_logs::CcProfileDto>"
+    },
+    {
+      "name": "cc_proxy_export",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": true,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "groupName",
+          "type": "String"
+        }
+      ],
+      "returns": "String"
+    },
+    {
+      "name": "ccswitch_detect",
+      "category": "backup",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "overridePath",
+          "type": "Option<String>"
+        }
+      ],
+      "returns": "gateway::import_export::CcswitchDetection"
+    },
+    {
+      "name": "ccswitch_import",
+      "category": "backup",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "platformPayload",
+          "type": "Vec<serde_json::Value>"
+        },
+        {
+          "name": "decisions",
+          "type": "Vec<gateway::import_export::ConflictDecision>"
+        },
+        {
+          "name": "autoGroup",
+          "type": "bool"
+        }
+      ],
+      "returns": "gateway::import_export::ImportReport"
+    },
+    {
+      "name": "ccswitch_read",
+      "category": "backup",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "path",
+          "type": "Option<String>"
+        }
+      ],
+      "returns": "gateway::import_export::CcswitchReadResult"
+    },
+    {
+      "name": "check_uv",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "bool"
+    },
+    {
+      "name": "claude_output_styles_list",
+      "category": "settings",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<String>"
+    },
+    {
+      "name": "cli_check_updates",
+      "category": "cli_env",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<CliToolStatus>"
+    },
+    {
+      "name": "cli_check_versions",
+      "category": "cli_env",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<CliToolStatus>"
+    },
+    {
+      "name": "cli_diagnose_conflicts",
+      "category": "cli_env",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<CliConflict>"
+    },
+    {
+      "name": "cli_install",
+      "category": "cli_env",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "tool",
+          "type": "String"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "cli_upgrade",
+      "category": "cli_env",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "tool",
+          "type": "String"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "codex_config_path",
+      "category": "gateway",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "String"
+    },
+    {
+      "name": "codex_config_read",
+      "category": "gateway",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "serde_json::Value"
+    },
+    {
+      "name": "codex_config_write",
+      "category": "gateway",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "value",
+          "type": "serde_json::Value"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "coding_tools_settings_get",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "CodingToolsSettings"
+    },
+    {
+      "name": "coding_tools_settings_set",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "applyToClaudePlugin",
+          "type": "Option<bool>"
+        },
+        {
+          "name": "skipClaudeOnboarding",
+          "type": "Option<bool>"
+        }
+      ],
+      "returns": "CodingToolsSettings"
+    },
+    {
+      "name": "db_compact",
+      "category": "backup",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "aidog_db::CompactResult"
+    },
+    {
+      "name": "db_master_key_reveal",
+      "category": "system",
+      "kind": null,
+      "exportsSecret": false,
+      "desktopOnly": true,
+      "params": [],
+      "returns": "String"
+    },
+    {
+      "name": "display_currency_get",
+      "category": "display_currency",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "DisplayCurrency"
+    },
+    {
+      "name": "display_currency_set",
+      "category": "display_currency",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "code",
+          "type": "String"
+        },
+        {
+          "name": "rates",
+          "type": "BTreeMap<String, f64>"
+        }
+      ],
+      "returns": "DisplayCurrency"
+    },
+    {
+      "name": "export_claude_config",
+      "category": "sync_settings",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "port",
+          "type": "u16"
+        }
+      ],
+      "returns": "String"
+    },
+    {
+      "name": "export_preview",
+      "category": "backup",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "scopes",
+          "type": "Vec<String>"
+        }
+      ],
+      "returns": "gateway::import_export::ImportPreview"
+    },
+    {
+      "name": "export_to_file",
+      "category": "backup",
+      "kind": "mutating",
+      "exportsSecret": true,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "scopes",
+          "type": "Vec<String>"
+        },
+        {
+          "name": "path",
+          "type": "String"
+        },
+        {
+          "name": "selection",
+          "type": "Option<Vec<(String, String)>>"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "fs_autocomplete",
+      "category": "system",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "input",
+          "type": "String"
+        }
+      ],
+      "returns": "Vec<PathEntry>"
+    },
+    {
+      "name": "get_auto_update_enabled",
+      "category": "system",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "bool"
+    },
+    {
+      "name": "get_client_types_json",
+      "category": "defaults",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "String"
+    },
+    {
+      "name": "get_client_vocab",
+      "category": "client_vocab",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<VocabCategory>"
+    },
+    {
+      "name": "get_default_hooks_enabled",
+      "category": "hooks",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "bool"
+    },
+    {
+      "name": "get_defaults_json",
+      "category": "defaults",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "String"
+    },
+    {
+      "name": "get_last_test_result",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "platformId",
+          "type": "u64"
+        }
+      ],
+      "returns": "Option<gateway::models::LastTestResult>"
+    },
+    {
+      "name": "get_managed_paths",
+      "category": "sync_settings",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<String>"
+    },
+    {
+      "name": "get_protocol_logo_data_url",
+      "category": "defaults",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "protocol",
+          "type": "String"
+        }
+      ],
+      "returns": "String"
+    },
+    {
+      "name": "get_protocol_logo_path",
+      "category": "defaults",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "protocol",
+          "type": "String"
+        }
+      ],
+      "returns": "String"
+    },
+    {
+      "name": "group_create",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "input",
+          "type": "CreateGroup"
+        }
+      ],
+      "returns": "Group"
+    },
+    {
+      "name": "group_daily_usage",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "groupKey",
+          "type": "String"
+        }
+      ],
+      "returns": "Vec<gateway::models::GroupDailyBreakdown>"
+    },
+    {
+      "name": "group_delete",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "id",
+          "type": "u64"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "group_detail",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "id",
+          "type": "u64"
+        }
+      ],
+      "returns": "Option<GroupDetail>"
+    },
+    {
+      "name": "group_detail_list",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<GroupDetail>"
+    },
+    {
+      "name": "group_detail_list_paged",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "offset",
+          "type": "u64"
+        },
+        {
+          "name": "limit",
+          "type": "u64"
+        }
+      ],
+      "returns": "Vec<GroupDetail>"
+    },
+    {
+      "name": "group_get",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "id",
+          "type": "u64"
+        }
+      ],
+      "returns": "Option<Group>"
+    },
+    {
+      "name": "group_get_platforms",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "groupId",
+          "type": "u64"
+        }
+      ],
+      "returns": "Vec<GroupPlatformDetail>"
+    },
+    {
+      "name": "group_last_requests",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "groupKeys",
+          "type": "Vec<String>"
+        }
+      ],
+      "returns": "std::collections::HashMap<String, gateway::models::GroupLastRequest>"
+    },
+    {
+      "name": "group_latest_routing",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "groupKey",
+          "type": "String"
+        }
+      ],
+      "returns": "Option<gateway::models::LatestRouting>"
+    },
+    {
+      "name": "group_list",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<Group>"
+    },
+    {
+      "name": "group_platform_move",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "platformId",
+          "type": "u64"
+        },
+        {
+          "name": "fromGroupId",
+          "type": "u64"
+        },
+        {
+          "name": "toGroupId",
+          "type": "u64"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "group_platform_reorder",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "groupId",
+          "type": "u64"
+        },
+        {
+          "name": "orderedIds",
+          "type": "Vec<u64>"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "group_platform_set_level_priority",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "groupId",
+          "type": "u64"
+        },
+        {
+          "name": "platformId",
+          "type": "u64"
+        },
+        {
+          "name": "levelPriority",
+          "type": "i32"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "group_reorder",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "orderedIds",
+          "type": "Vec<u64>"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "group_set_default",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "id",
+          "type": "Option<u64>"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "group_set_platforms",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "input",
+          "type": "SetGroupPlatforms"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "group_update",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "input",
+          "type": "UpdateGroup"
+        }
+      ],
+      "returns": "Group"
+    },
+    {
+      "name": "group_usage_stats",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "groupKey",
+          "type": "String"
+        }
+      ],
+      "returns": "gateway::models::PlatformUsageStats"
+    },
+    {
+      "name": "import_apply",
+      "category": "backup",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "path",
+          "type": "String"
+        },
+        {
+          "name": "decisions",
+          "type": "Vec<gateway::import_export::ConflictDecision>"
+        },
+        {
+          "name": "selection",
+          "type": "Option<Vec<(String, String)>>"
+        }
+      ],
+      "returns": "gateway::import_export::ImportReport"
+    },
+    {
+      "name": "import_read_file",
+      "category": "backup",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "path",
+          "type": "String"
+        }
+      ],
+      "returns": "gateway::import_export::ImportPreview"
+    },
+    {
+      "name": "inject_hooks",
+      "category": "hooks",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "group",
+          "type": "String"
+        },
+        {
+          "name": "client",
+          "type": "String"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "install_uv",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "bool"
+    },
+    {
+      "name": "kernel_settings_get",
+      "category": "kernel_settings",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "KernelSettings"
+    },
+    {
+      "name": "kernel_settings_set",
+      "category": "kernel_settings",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "settings",
+          "type": "KernelSettings"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "mcp_add",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "payload",
+          "type": "gateway::mcp::McpUpdatePayload"
+        }
+      ],
+      "returns": "gateway::mcp::McpServerInfo"
+    },
+    {
+      "name": "mcp_delete",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "name",
+          "type": "String"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "mcp_import",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "items",
+          "type": "Vec<gateway::mcp::McpImportPayload>"
+        }
+      ],
+      "returns": "gateway::mcp::ImportReport"
+    },
+    {
+      "name": "mcp_import_json",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "json",
+          "type": "String"
+        }
+      ],
+      "returns": "gateway::mcp::ImportReport"
+    },
+    {
+      "name": "mcp_list",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<gateway::mcp::McpServerInfo>"
+    },
+    {
+      "name": "mcp_recommended_list",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<gateway::mcp::RecommendedEntry>"
+    },
+    {
+      "name": "mcp_resync",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "usize"
+    },
+    {
+      "name": "mcp_scan",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<gateway::mcp::McpScanItem>"
+    },
+    {
+      "name": "mcp_set_agent",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "name": "agent",
+          "type": "String"
+        },
+        {
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "mcp_share_export",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": true,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "name",
+          "type": "String"
+        }
+      ],
+      "returns": "serde_json::Value"
+    },
+    {
+      "name": "mcp_update",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "oldName",
+          "type": "String"
+        },
+        {
+          "name": "payload",
+          "type": "gateway::mcp::McpUpdatePayload"
+        }
+      ],
+      "returns": "gateway::mcp::McpServerInfo"
+    },
+    {
+      "name": "menu_bar_state",
+      "category": "menubar_state",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "MenuBarState"
+    },
+    {
+      "name": "middleware_budget_status",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<MiddlewareBudgetStatus>"
+    },
+    {
+      "name": "middleware_create_rule",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "input",
+          "type": "CreateMiddlewareRule"
+        }
+      ],
+      "returns": "MiddlewareRule"
+    },
+    {
+      "name": "middleware_delete_rule",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "id",
+          "type": "i64"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "middleware_list_rules",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<MiddlewareRule>"
+    },
+    {
+      "name": "middleware_settings_get",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "MiddlewareSettings"
+    },
+    {
+      "name": "middleware_settings_set",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "settings",
+          "type": "MiddlewareSettings"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "middleware_update_rule",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "input",
+          "type": "UpdateMiddlewareRule"
+        }
+      ],
+      "returns": "MiddlewareRule"
+    },
+    {
+      "name": "mitm_bypass_detail",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "id",
+          "type": "i64"
+        }
+      ],
+      "returns": "Option<aidog_logs::MitmBypassDetail>"
+    },
+    {
+      "name": "mitm_bypass_list",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "limit",
+          "type": "Option<u32>"
+        }
+      ],
+      "returns": "Vec<aidog_logs::MitmBypassRow>"
+    },
+    {
+      "name": "mitm_classify_trust_error",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "name": "code",
+          "type": "Option<i32>"
+        },
+        {
+          "name": "stderr",
+          "type": "String"
+        }
+      ],
+      "returns": "String"
+    },
+    {
+      "name": "mitm_disable",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "()"
+    },
+    {
+      "name": "mitm_enable",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "()"
+    },
+    {
+      "name": "mitm_install_ca",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "CaInstallOutcome"
+    },
+    {
+      "name": "mitm_install_ca_prepare",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "CaCommandSpec"
+    },
+    {
+      "name": "mitm_oauth_refresh_stats",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "sinceMs",
+          "type": "Option<i64>"
+        }
+      ],
+      "returns": "MitmRefreshStats"
+    },
+    {
+      "name": "mitm_opaque_count",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "sinceMs",
+          "type": "Option<i64>"
+        }
+      ],
+      "returns": "i64"
+    },
+    {
+      "name": "mitm_reset_suspects",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "usize"
+    },
+    {
+      "name": "mitm_set_ca_installed",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "installed",
+          "type": "bool"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "mitm_status",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "MitmStatus"
+    },
+    {
+      "name": "mitm_uninstall_ca_prepare",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "CaUninstallSpec"
+    },
+    {
+      "name": "mitm_usage_trend",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "groupName",
+          "type": "String"
+        },
+        {
+          "name": "limit",
+          "type": "Option<u32>"
+        }
+      ],
+      "returns": "Vec<aidog_logs::OauthUsageSampleDto>"
+    },
+    {
+      "name": "mitm_whitelist_add",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "input",
+          "type": "WhitelistAddInput"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "mitm_whitelist_clear",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "usize"
+    },
+    {
+      "name": "mitm_whitelist_import_defaults",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "ImportDefaultsResult"
+    },
+    {
+      "name": "mitm_whitelist_remove",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "hostPattern",
+          "type": "String"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "mitm_whitelist_test_url",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "url",
+          "type": "String"
+        }
+      ],
+      "returns": "Vec<MatchedRuleDto>"
+    },
+    {
+      "name": "mitm_whitelist_toggle",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "hostPattern",
+          "type": "String"
+        },
+        {
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "model_entry_get",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "platformCode",
+          "type": "String"
+        },
+        {
+          "name": "modelId",
+          "type": "String"
+        }
+      ],
+      "returns": "Option<gateway::models::ModelEntry>"
+    },
+    {
+      "name": "model_entry_list",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "platformCode",
+          "type": "Option<String>"
+        }
+      ],
+      "returns": "Vec<gateway::models::ModelEntry>"
+    },
+    {
+      "name": "model_info_snapshot",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "gateway::models::ModelInfoSnapshot"
+    },
+    {
+      "name": "model_test",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "req",
+          "type": "ModelTestRequest"
+        }
+      ],
+      "returns": "ModelTestResult"
+    },
+    {
+      "name": "notification_clear",
+      "category": "system",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "()"
+    },
+    {
+      "name": "notification_delivery_list",
+      "category": "system",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "limit",
+          "type": "Option<i64>"
+        }
+      ],
+      "returns": "Vec<aidog_db::models::NotificationDelivery>"
+    },
+    {
+      "name": "notification_inbox_list",
+      "category": "system",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "limit",
+          "type": "Option<i64>"
+        },
+        {
+          "name": "source",
+          "type": "Option<String>"
+        },
+        {
+          "name": "notifType",
+          "type": "Option<String>"
+        },
+        {
+          "name": "severity",
+          "type": "Option<String>"
+        },
+        {
+          "name": "sinceMs",
+          "type": "Option<i64>"
+        }
+      ],
+      "returns": "Vec<Notification>"
+    },
+    {
+      "name": "notification_rule_validate",
+      "category": "system",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "expr",
+          "type": "String"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "notification_settings_get",
+      "category": "system",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "NotificationSettings"
+    },
+    {
+      "name": "notification_settings_set",
+      "category": "system",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "settings",
+          "type": "NotificationSettings"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "notification_test",
+      "category": "system",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "notifType",
+          "type": "String"
+        },
+        {
+          "name": "content",
+          "type": "Option<String>"
+        }
+      ],
+      "returns": "aidog_notification::DispatchResult"
+    },
+    {
+      "name": "notification_test_beep",
+      "category": "system",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "()"
+    },
+    {
+      "name": "notification_test_channel",
+      "category": "system",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "channel",
+          "type": "String"
+        }
+      ],
+      "returns": "aidog_notification::channels::DeliverySummary"
+    },
+    {
+      "name": "notification_test_popup",
+      "category": "system",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "title",
+          "type": "String"
+        },
+        {
+          "name": "body",
+          "type": "String"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "notification_test_tts",
+      "category": "system",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "text",
+          "type": "String"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "pi_models_path",
+      "category": "gateway",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "String"
+    },
+    {
+      "name": "pi_settings_read",
+      "category": "gateway",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Value"
+    },
+    {
+      "name": "pi_settings_write",
+      "category": "gateway",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "config",
+          "type": "Value"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "platform_create",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "input",
+          "type": "CreatePlatform"
+        }
+      ],
+      "returns": "Platform"
+    },
+    {
+      "name": "platform_delete",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "id",
+          "type": "u64"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "platform_ensure_auto_group",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "id",
+          "type": "u64"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "platform_error_status",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<PlatformErrorStatus>"
+    },
+    {
+      "name": "platform_fetch_models",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "protocol",
+          "type": "Protocol"
+        },
+        {
+          "name": "baseUrl",
+          "type": "String"
+        },
+        {
+          "name": "apiKey",
+          "type": "String"
+        }
+      ],
+      "returns": "Vec<String>"
+    },
+    {
+      "name": "platform_get",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "id",
+          "type": "u64"
+        }
+      ],
+      "returns": "Option<Platform>"
+    },
+    {
+      "name": "platform_list",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<Platform>"
+    },
+    {
+      "name": "platform_purge_disabled",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "groupId",
+          "type": "Option<u64>"
+        }
+      ],
+      "returns": "db::PurgeResult"
+    },
+    {
+      "name": "platform_purge_disabled_preview",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "groupId",
+          "type": "Option<u64>"
+        }
+      ],
+      "returns": "Vec<db::PurgeCandidate>"
+    },
+    {
+      "name": "platform_query_quota",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "baseUrl",
+          "type": "String"
+        },
+        {
+          "name": "apiKey",
+          "type": "String"
+        },
+        {
+          "name": "platformId",
+          "type": "Option<u64>"
+        }
+      ],
+      "returns": "PlatformQuota"
+    },
+    {
+      "name": "platform_query_quota_devin",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "baseUrl",
+          "type": "String"
+        },
+        {
+          "name": "apiKey",
+          "type": "String"
+        },
+        {
+          "name": "extra",
+          "type": "String"
+        },
+        {
+          "name": "platformId",
+          "type": "Option<u64>"
+        }
+      ],
+      "returns": "PlatformQuota"
+    },
+    {
+      "name": "platform_query_quota_newapi",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "baseUrl",
+          "type": "String"
+        },
+        {
+          "name": "apiKey",
+          "type": "String"
+        },
+        {
+          "name": "extra",
+          "type": "String"
+        },
+        {
+          "name": "platformId",
+          "type": "Option<u64>"
+        }
+      ],
+      "returns": "PlatformQuota"
+    },
+    {
+      "name": "platform_reorder",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "orderedIds",
+          "type": "Vec<u64>"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "platform_set_tray",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "platformId",
+          "type": "u64"
+        },
+        {
+          "name": "trayDisplay",
+          "type": "String"
+        },
+        {
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "platform_share_export",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": true,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "platformId",
+          "type": "u64"
+        }
+      ],
+      "returns": "SharePlatform"
+    },
+    {
+      "name": "platform_share_parse",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "text",
+          "type": "String"
+        }
+      ],
+      "returns": "SharePlatform"
+    },
+    {
+      "name": "platform_update",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "input",
+          "type": "UpdatePlatform"
+        }
+      ],
+      "returns": "Platform"
+    },
+    {
+      "name": "platform_usage_stats",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "platformId",
+          "type": "u64"
+        }
+      ],
+      "returns": "gateway::models::PlatformUsageStats"
+    },
+    {
+      "name": "popover_config_get",
+      "category": "popover",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "gateway::models::PopoverConfig"
+    },
+    {
+      "name": "popover_config_set",
+      "category": "popover",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "config",
+          "type": "gateway::models::PopoverConfig"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "popover_data",
+      "category": "popover",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "PopoverData"
+    },
+    {
+      "name": "popover_platform_today",
+      "category": "popover",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<aidog_stats::TodayPlatformStat>"
+    },
+    {
+      "name": "preview_statusline_script",
+      "category": "settings",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "scriptType",
+          "type": "String"
+        },
+        {
+          "name": "stored",
+          "type": "serde_json::Value"
+        }
+      ],
+      "returns": "String"
+    },
+    {
+      "name": "price_sync_settings_get",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "gateway::models::PriceSyncSettings"
+    },
+    {
+      "name": "price_sync_settings_set",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "settings",
+          "type": "gateway::models::PriceSyncSettings"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "proxy_client_get_settings",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "gateway::models::ProxyClientSettings"
+    },
+    {
+      "name": "proxy_client_set_settings",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "settings",
+          "type": "gateway::models::ProxyClientSettings"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "proxy_get_settings",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "ProxySettings"
+    },
+    {
+      "name": "proxy_log_cleanup_estimate",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "gateway::models::CleanupEstimate"
+    },
+    {
+      "name": "proxy_log_cleanup_expired",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "()"
+    },
+    {
+      "name": "proxy_log_clear",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "()"
+    },
+    {
+      "name": "proxy_log_count",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "state",
+          "type": "&Arc<ProxyState>"
+        }
+      ],
+      "returns": "i64"
+    },
+    {
+      "name": "proxy_log_count_filtered",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "filter",
+          "type": "ProxyLogFilter"
+        }
+      ],
+      "returns": "u32"
+    },
+    {
+      "name": "proxy_log_distinct_models",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "filter",
+          "type": "ProxyLogFilter"
+        },
+        {
+          "name": "actual",
+          "type": "bool"
+        },
+        {
+          "name": "limit",
+          "type": "u32"
+        }
+      ],
+      "returns": "Vec<String>"
+    },
+    {
+      "name": "proxy_log_get",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "id",
+          "type": "String"
+        }
+      ],
+      "returns": "Option<ProxyLog>"
+    },
+    {
+      "name": "proxy_log_list",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "limit",
+          "type": "u32"
+        },
+        {
+          "name": "offset",
+          "type": "u32"
+        }
+      ],
+      "returns": "Vec<ProxyLogSummary>"
+    },
+    {
+      "name": "proxy_log_list_filtered",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "filter",
+          "type": "ProxyLogFilter"
+        },
+        {
+          "name": "limit",
+          "type": "u32"
+        },
+        {
+          "name": "offset",
+          "type": "u32"
+        }
+      ],
+      "returns": "ProxyLogPage"
+    },
+    {
+      "name": "proxy_log_settings_get",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "ProxyLogSettings"
+    },
+    {
+      "name": "proxy_log_settings_set",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "settings",
+          "type": "ProxyLogSettings"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "proxy_set_autostart",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "proxy_set_bind_lan",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "proxy_start",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "port",
+          "type": "u16"
+        }
+      ],
+      "returns": "String"
+    },
+    {
+      "name": "proxy_status",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "bool"
+    },
+    {
+      "name": "proxy_stop",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "()"
+    },
+    {
+      "name": "proxy_timeout_get",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "ProxyTimeoutSettings"
+    },
+    {
+      "name": "proxy_timeout_set",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "settings",
+          "type": "ProxyTimeoutSettings"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "quota_snapshots",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "query",
+          "type": "QuotaSnapshotsQuery"
+        }
+      ],
+      "returns": "Vec<QuotaSnapshot>"
+    },
+    {
+      "name": "read_claude_code_settings",
+      "category": "settings",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "serde_json::Value"
+    },
+    {
+      "name": "remove_hooks",
+      "category": "hooks",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "group",
+          "type": "String"
+        },
+        {
+          "name": "client",
+          "type": "String"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "request_log_list",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "filter",
+          "type": "ProxyLogFilter"
+        },
+        {
+          "name": "limit",
+          "type": "u32"
+        },
+        {
+          "name": "offset",
+          "type": "u32"
+        }
+      ],
+      "returns": "Vec<ProxyLogSummary>"
+    },
+    {
+      "name": "scatter_histogram",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "query",
+          "type": "ScatterHistogramQuery"
+        }
+      ],
+      "returns": "ScatterHistogram"
+    },
+    {
+      "name": "scheduling_settings_get",
+      "category": "system",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "SchedulingBreakerSettings"
+    },
+    {
+      "name": "scheduling_settings_set",
+      "category": "system",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "settings",
+          "type": "SchedulingBreakerSettings"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "set_auto_update_enabled",
+      "category": "system",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "set_default_hooks_enabled",
+      "category": "hooks",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "set_script_executor",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "executor",
+          "type": "String"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "set_ui_extra",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "target",
+          "type": "String"
+        },
+        {
+          "name": "id",
+          "type": "u64"
+        },
+        {
+          "name": "key",
+          "type": "String"
+        },
+        {
+          "name": "value",
+          "type": "serde_json::Value"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "settings_delete",
+      "category": "settings",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "scope",
+          "type": "String"
+        },
+        {
+          "name": "key",
+          "type": "String"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "settings_get",
+      "category": "settings",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "scope",
+          "type": "String"
+        },
+        {
+          "name": "key",
+          "type": "String"
+        }
+      ],
+      "returns": "Option<serde_json::Value>"
+    },
+    {
+      "name": "settings_list",
+      "category": "settings",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "scope",
+          "type": "String"
+        }
+      ],
+      "returns": "Vec<String>"
+    },
+    {
+      "name": "settings_preset_list",
+      "category": "presets",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "kind",
+          "type": "String"
+        }
+      ],
+      "returns": "Vec<PresetItem>"
+    },
+    {
+      "name": "settings_set",
+      "category": "settings",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "input",
+          "type": "SetSettingInput"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "simulator_est_cost",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "platformId",
+          "type": "i64"
+        },
+        {
+          "name": "modelName",
+          "type": "String"
+        },
+        {
+          "name": "inputTokens",
+          "type": "i32"
+        },
+        {
+          "name": "outputTokens",
+          "type": "i32"
+        },
+        {
+          "name": "cacheTokens",
+          "type": "i32"
+        },
+        {
+          "name": "cacheWriteTokens",
+          "type": "i32"
+        },
+        {
+          "name": "atMs",
+          "type": "Option<i64>"
+        }
+      ],
+      "returns": "SimulatorEstCostDto"
+    },
+    {
+      "name": "skill_detail",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "installedPath",
+          "type": "String"
+        }
+      ],
+      "returns": "gateway::skills::SkillDetail"
+    },
+    {
+      "name": "skill_read_file",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "installedPath",
+          "type": "String"
+        },
+        {
+          "name": "rel",
+          "type": "String"
+        }
+      ],
+      "returns": "gateway::skills::SkillFileContent"
+    },
+    {
+      "name": "skills_align_agents",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "from",
+          "type": "SkillAgent"
+        },
+        {
+          "name": "to",
+          "type": "SkillAgent"
+        },
+        {
+          "name": "scope",
+          "type": "SkillScope"
+        }
+      ],
+      "returns": "SkillsOpResult"
+    },
+    {
+      "name": "skills_browse_catalog",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<CatalogEntry>"
+    },
+    {
+      "name": "skills_check_env",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "SkillsEnv"
+    },
+    {
+      "name": "skills_disable",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "name": "agent",
+          "type": "SkillAgent"
+        },
+        {
+          "name": "scope",
+          "type": "SkillScope"
+        }
+      ],
+      "returns": "SkillsOpResult"
+    },
+    {
+      "name": "skills_enable",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "name": "path",
+          "type": "String"
+        },
+        {
+          "name": "agent",
+          "type": "SkillAgent"
+        },
+        {
+          "name": "scope",
+          "type": "SkillScope"
+        }
+      ],
+      "returns": "SkillsOpResult"
+    },
+    {
+      "name": "skills_enable_all",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "agent",
+          "type": "SkillAgent"
+        },
+        {
+          "name": "scope",
+          "type": "SkillScope"
+        }
+      ],
+      "returns": "SkillsOpResult"
+    },
+    {
+      "name": "skills_install",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "id",
+          "type": "String"
+        },
+        {
+          "name": "agents",
+          "type": "Vec<SkillAgent>"
+        },
+        {
+          "name": "scope",
+          "type": "SkillScope"
+        }
+      ],
+      "returns": "SkillsOpResult"
+    },
+    {
+      "name": "skills_install_batch",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "ids",
+          "type": "Vec<String>"
+        },
+        {
+          "name": "agents",
+          "type": "Vec<SkillAgent>"
+        },
+        {
+          "name": "scope",
+          "type": "SkillScope"
+        }
+      ],
+      "returns": "SkillsOpResult"
+    },
+    {
+      "name": "skills_list_installed",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "scope",
+          "type": "SkillScope"
+        }
+      ],
+      "returns": "CachedSkills"
+    },
+    {
+      "name": "skills_list_refresh",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "scope",
+          "type": "SkillScope"
+        }
+      ],
+      "returns": "CachedSkills"
+    },
+    {
+      "name": "skills_search",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "keyword",
+          "type": "String"
+        }
+      ],
+      "returns": "Vec<CatalogEntry>"
+    },
+    {
+      "name": "skills_uninstall",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "name": "scope",
+          "type": "SkillScope"
+        }
+      ],
+      "returns": "SkillsOpResult"
+    },
+    {
+      "name": "skills_uninstall_all",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "scope",
+          "type": "SkillScope"
+        }
+      ],
+      "returns": "SkillsOpResult"
+    },
+    {
+      "name": "skills_uninstall_batch",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "names",
+          "type": "Vec<String>"
+        },
+        {
+          "name": "scope",
+          "type": "SkillScope"
+        }
+      ],
+      "returns": "SkillsOpResult"
+    },
+    {
+      "name": "skills_update",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "scope",
+          "type": "SkillScope"
+        }
+      ],
+      "returns": "SkillsOpResult"
+    },
+    {
+      "name": "stats_flow_breakdown",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "window",
+          "type": "String"
+        },
+        {
+          "name": "groupKey",
+          "type": "Option<String>"
+        }
+      ],
+      "returns": "Vec<gateway::models::FlowRow>"
+    },
+    {
+      "name": "stats_query",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "query",
+          "type": "StatsQuery"
+        }
+      ],
+      "returns": "StatsResult"
+    },
+    {
+      "name": "stats_query_batch",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "queries",
+          "type": "Vec<StatsQuery>"
+        }
+      ],
+      "returns": "Vec<StatsResult>"
+    },
+    {
+      "name": "stats_rebuild_from_logs",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "()"
+    },
+    {
+      "name": "stats_settings_get",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "StatsSettings"
+    },
+    {
+      "name": "stats_settings_set",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "settings",
+          "type": "StatsSettings"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "sub2api_import",
+      "category": "backup",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "platformPayload",
+          "type": "Vec<serde_json::Value>"
+        },
+        {
+          "name": "decisions",
+          "type": "Vec<gateway::import_export::ConflictDecision>"
+        },
+        {
+          "name": "autoGroup",
+          "type": "bool"
+        }
+      ],
+      "returns": "gateway::import_export::ImportReport"
+    },
+    {
+      "name": "sub2api_parse",
+      "category": "backup",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "jsonText",
+          "type": "String"
+        }
+      ],
+      "returns": "gateway::import_export::Sub2ApiReadResult"
+    },
+    {
+      "name": "sub2api_read_file",
+      "category": "backup",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "path",
+          "type": "String"
+        }
+      ],
+      "returns": "String"
+    },
+    {
+      "name": "sync_group_settings",
+      "category": "sync_settings",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<String>"
+    },
+    {
+      "name": "sync_protocol_logo",
+      "category": "defaults",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "protocol",
+          "type": "String"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "tray_config_get",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "TrayConfig"
+    },
+    {
+      "name": "tray_config_set",
+      "category": "platform",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "config",
+          "type": "TrayConfig"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "tray_peak_status",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Option<crate::tray_render::TrayPeakStatus>"
+    },
+    {
+      "name": "tray_today_stats",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "aidog_stats::TodayStats"
+    }
+  ]
+}
