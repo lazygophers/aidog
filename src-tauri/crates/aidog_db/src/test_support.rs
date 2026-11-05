@@ -298,3 +298,54 @@ pub async fn three_file_db() -> (Db, tempfile::TempDir) {
         .expect("init tables");
     (db, dir)
 }
+
+/// 建平台并把端点全部指向本地假上游。厂商直连协议（glm 等）建库时端点被锁成 preset 真实域名
+/// （`endpoints_locked`），base_url 入参会被忽略；这里建库后直写 DB 覆盖，杜绝测试真实外呼
+/// （.claude/rules/test-no-real-calls.md）。`endpoint_protocols` 每个协议各挂一条指向 `base_url` 的端点。
+pub async fn create_platform_at_fake_upstream(
+    db: &Db,
+    ptype: Protocol,
+    base_url: &str,
+    endpoint_protocols: &[Protocol],
+) -> u64 {
+    let id = crate::create_platform(
+        db,
+        CreatePlatform {
+            name: format!("p_{}", ptype.wire_str()),
+            platform_type: ptype,
+            base_url: base_url.to_string(),
+            api_key: "sk-up".into(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .expect("create platform")
+    .id;
+    let eps = crate::serialize_endpoints(
+        &endpoint_protocols
+            .iter()
+            .cloned()
+            .map(|protocol| PlatformEndpoint {
+                protocol,
+                base_url: base_url.to_string(),
+                client_type: "default".to_string(),
+                coding_plan: false,
+            })
+            .collect::<Vec<_>>(),
+    );
+    db.call_platform_traced(None, std::panic::Location::caller(), move |conn| {
+        conn.execute("UPDATE platform SET endpoints=?1 WHERE id=?2", params![eps, id as i64])?;
+        Ok(())
+    })
+    .await
+    .expect("point endpoints at fake upstream");
+    id
+}

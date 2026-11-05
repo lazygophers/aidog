@@ -85,6 +85,29 @@ pub fn platform_proxy_enabled(extra: &str) -> Option<bool> {
         .and_then(|v| v.get("proxy_enabled").and_then(|f| f.as_bool()))
 }
 
+/// 测试构建专用护栏：只解析回环主机名，其余一律报错点名主机，杜绝测试真实外呼
+/// （.claude/rules/test-no-real-calls.md）。shortcut: IP 字面量不经 resolver，非回环 IP 拦不到；出现再换 connector 层。
+#[cfg(test)]
+struct LoopbackOnlyResolver;
+
+#[cfg(test)]
+impl reqwest::dns::Resolve for LoopbackOnlyResolver {
+    fn resolve(&self, name: reqwest::dns::Name) -> reqwest::dns::Resolving {
+        let host = name.as_str().to_string();
+        Box::pin(async move {
+            if host.eq_ignore_ascii_case("localhost") {
+                let addrs: Vec<std::net::SocketAddr> = vec![
+                    (std::net::Ipv4Addr::LOCALHOST, 0).into(),
+                    (std::net::Ipv6Addr::LOCALHOST, 0).into(),
+                ];
+                Ok(Box::new(addrs.into_iter()) as reqwest::dns::Addrs)
+            } else {
+                Err(format!("blocked non-loopback host {host} in test build").into())
+            }
+        })
+    }
+}
+
 /// Build a reqwest client with optional proxy and timeout.
 /// `force_proxy`: overrides platform-level setting for callers that always want proxy or never.
 /// - `None` = check system proxy + platform `proxy_enabled`
@@ -166,6 +189,10 @@ pub async fn build_http_client(
     } else {
         builder = builder.no_proxy();
     }
+    #[cfg(test)]
+    {
+        builder = builder.dns_resolver(Arc::new(LoopbackOnlyResolver));
+    }
     let client = builder.build().unwrap_or_else(|_| reqwest::Client::new());
 
     // Cache for reuse (write lock)
@@ -194,6 +221,43 @@ pub async fn build_http_client_system(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn err_chain(e: &dyn std::error::Error) -> String {
+        let mut out = e.to_string();
+        let mut cur = e.source();
+        while let Some(s) = cur {
+            out.push_str(" | ");
+            out.push_str(&s.to_string());
+            cur = s.source();
+        }
+        out
+    }
+
+    /// 护栏：测试构建下连非回环主机必须响亮失败并点名主机（test-no-real-calls.md）。
+    #[tokio::test]
+    async fn test_build_blocks_non_loopback_host() {
+        let c = build_http_client(&ProxyClientSettings::default(), 5, 5, None, None).await;
+        let e = c.get("https://open.bigmodel.cn/").send().await.unwrap_err();
+        let chain = err_chain(&e);
+        assert!(chain.contains("blocked non-loopback host open.bigmodel.cn"), "{chain}");
+    }
+
+    /// 回环假上游（含 localhost 主机名）不受护栏影响。
+    #[tokio::test]
+    async fn test_build_allows_loopback_host() {
+        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = l.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            use tokio::io::{AsyncReadExt, AsyncWriteExt};
+            let (mut s, _) = l.accept().await.unwrap();
+            let mut b = [0u8; 1024];
+            let _ = s.read(&mut b).await;
+            s.write_all(b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\nconnection: close\r\n\r\nok").await.unwrap();
+        });
+        let c = build_http_client(&ProxyClientSettings::default(), 5, 5, None, None).await;
+        let r = c.get(format!("http://localhost:{port}/")).send().await.unwrap();
+        assert_eq!(r.text().await.unwrap(), "ok");
+    }
 
     #[test]
     fn platform_proxy_enabled_empty_returns_none() {
