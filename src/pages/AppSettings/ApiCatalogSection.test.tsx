@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "../../test/render";
+import { fireEvent, render, screen, testI18n, waitFor } from "../../test/render";
 import { ApiCatalogSection } from "./ApiCatalogSection";
 
 const h = vi.hoisted(() => ({ kernel: vi.fn(), proxy: vi.fn() }));
@@ -81,5 +81,15 @@ describe("ApiCatalogSection", () => {
     expect(screen.getByTestId("api-local-curl-notify").textContent).toContain("Bearer <group-name>");
     expect(screen.getByTestId("api-forward-curl-chat").textContent).toContain("http://127.0.0.1:9890/v1/chat/completions");
     expect(screen.getByTestId("api-forward-models")).toBeInTheDocument();
+  });
+
+  it("category labels go through i18n; unknown category falls back to its id", async () => {
+    testI18n.addResourceBundle("zh-Hans", "translation", { apiCatalog: { category: { platform: "PLATFORM-LABEL" } } }, true, true);
+    setup();
+    render(<ApiCatalogSection />);
+    await ready();
+    expect(screen.getByTestId("api-cmd-category-platform_list")).toHaveTextContent("PLATFORM-LABEL");
+    expect(screen.getByTestId("api-catalog-category-opt-platform")).toHaveTextContent("PLATFORM-LABEL");
+    expect(screen.getByTestId("api-cmd-category-db_master_key_reveal")).toHaveTextContent("system");
   });
 });
