@@ -727,6 +727,63 @@ fn format_countdown_expired_or_zero_is_none() {
 /// 跨层 golden：与前端 TrayConfigTab.test.tsx 共读 tray_platform_golden.json（多指标 / 余额币种 / unit / reset 相对时间）。
 /// reset 用例（带 now_local_h / ws_local_h）的 now 与 window_start 取「本地零点 + 小时偏移」，
 /// 两侧同式推导：同一固定 now 注入（防秒边界抖动），绝对时间不随时区漂移。
+/// 跨层 golden：与前端 TrayConfigTab.test.tsx 的 previewLevel 共读 tray_level_golden.json。
+/// 前端 balance 档取后端下发的 balance_level，故同时断言 balance_level(days) 与 case 的 balance_level 一致。
+#[test]
+fn platform_item_level_golden_cases_match() {
+    let cases: Vec<serde_json::Value> = serde_json::from_str(include_str!("testdata/tray_level_golden.json")).unwrap();
+    assert_eq!(cases.len(), 16);
+    for c in cases {
+        let name = c["name"].as_str().unwrap();
+        let tiers: Vec<serde_json::Value> = c["tiers"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .map(|t| {
+                        json!({
+                            "name": t["name"],
+                            "est_utilization": t["util"],
+                            "window_start": t["elapsed_ms"].as_i64().map_or(0, |e| NOW - e),
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let plan = if tiers.is_empty() { String::new() } else { json!({ "tiers": tiers }).to_string() };
+        let mut p = platform(0.0, &plan);
+        if c["manual"].as_bool() == Some(true) {
+            p.quota_source = "manual".to_string();
+        }
+        let days = c["days"].as_f64();
+        if !c["manual"].as_bool().unwrap_or(false) && c.get("balance_level").is_some() {
+            let lv = aidog_core_balance_level(days);
+            assert_eq!(lv, c["balance_level"].as_str().unwrap(), "{name}: balance_level(days)");
+        }
+        let mut item = json!({"item_type": "platform", "platform_id": 1});
+        for k in ["metrics", "display"] {
+            if let Some(v) = c.get(k) {
+                item[k] = v.clone();
+            }
+        }
+        let got = super::platform_item_level(&p, &item_json(item), days, NOW);
+        let want = match got {
+            Some("red") => "danger",
+            Some("yellow") => "warning",
+            Some("green") => "success",
+            None => "neutral",
+            Some(o) => panic!("{name}: unexpected level {o}"),
+        };
+        assert_eq!(want, c["expected"].as_str().unwrap(), "{name}");
+    }
+}
+
+fn aidog_core_balance_level(days: Option<f64>) -> &'static str {
+    match crate::gateway::usage_color::balance_level(days) {
+        crate::gateway::usage_color::UsageLevel::Neutral => "",
+        l => l.as_str(),
+    }
+}
+
 #[test]
 fn platform_metrics_use_display_currency() {
     use chrono::TimeZone;

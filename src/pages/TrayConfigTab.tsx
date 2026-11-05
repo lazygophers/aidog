@@ -140,7 +140,7 @@ export function segmentOptions(platforms: Platform[], t: TFunction): SegmentOpti
   return [
     ...metrics.map(([m, key, fallback]) => ({
       key: `today_usage:${m}`,
-      item: makeItem({ item_type: "today_usage", metric: m }),
+      item: makeItem({ item_type: "today_usage", metric: m, ...(m === "cost" ? { unit_position: "prefix" } : {}) }),
       label: `${t("tray.todayUsage", "今日消耗")} — ${t(key, fallback)}`,
     })),
     {
