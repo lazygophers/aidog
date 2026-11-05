@@ -30,3 +30,4 @@ tracing-subscriber = { workspace = true }
 tokio = { workspace = true }
 tempfile = { workspace = true }
 aidog_stats = { path = "../aidog_stats" }
+aidog_middleware = { path = "../aidog_middleware" }

@@ -273,6 +273,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
             app.state::<Db>().inner().clone(),
             engine,
         );
+        aidog_core::tauri_ctx::set_ui_probe(crate::ui_window::exists);
         // 管理接口（ADR 0010）：路由表与内核共用 aidog_rpc，挂在代理端口的 /api/ 下，
         // 开关 / 本机限制 / 凭据由代理侧 handle_management 把关。
         aidog_core::gateway::proxy::install_management_router(aidog_rpc::management_router());
@@ -498,10 +499,9 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 tauri::async_runtime::block_on(async move {
                     if let Err(e) = proxy_start(port).await {
                         tracing::error!(port, error = %e, "menubar: proxy start failed");
-                        // 无前端窗口路径（proxy-port-no-drift s3）：emit 结构化错误供
-                        // App.tsx 转系统通知（i18n 在前端做）+ 复用 tray-refresh 确认未启动态。
+                        // 内核直接发系统通知（界面开不开都一条）+ 复用 tray-refresh 确认未启动态。
                         use tauri::Emitter;
-                        let _ = app_handle.emit("proxy-start-failed", &e);
+                        aidog_core::ui_notice::notify_proxy_start_failed(aidog_ctx::ctx(), &e).await;
                         let _ = app_handle.emit("tray-refresh", ());
                     }
                 });
@@ -585,11 +585,9 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                     tauri::async_runtime::block_on(async move {
                         if let Err(e) = proxy_start(port).await {
                             tracing::error!(port, error = %e, "tray: proxy start failed");
-                            // 无前端窗口路径（托盘点启动同自启动，proxy-port-no-drift s3）：
-                            // emit 结构化错误供 App.tsx 监听转系统通知（i18n 在前端做，
-                            // Rust 侧不硬编码文案）+ 复用既有 tray-refresh 事件确认未启动态。
+                            // 内核直接发系统通知 + 复用既有 tray-refresh 事件确认未启动态。
                             use tauri::Emitter;
-                            let _ = app_handle.emit("proxy-start-failed", &e);
+                            aidog_core::ui_notice::notify_proxy_start_failed(aidog_ctx::ctx(), &e).await;
                             let _ = app_handle.emit("tray-refresh", ());
                         }
                     });
@@ -682,10 +680,9 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         tauri::async_runtime::spawn(async move {
             if let Err(e) = proxy_start(port).await {
                 tracing::error!(port, error = %e, "autostart: proxy start failed");
-                // 无前端窗口路径：emit 结构化错误供 App.tsx 监听转系统通知
-                // （proxy-port-no-drift s3，与托盘点启动分支同处理，见上）。
+                // 内核直接发系统通知（与托盘点启动分支同处理，见上）。
                 use tauri::Emitter;
-                let _ = handle.emit("proxy-start-failed", &e);
+                aidog_core::ui_notice::notify_proxy_start_failed(aidog_ctx::ctx(), &e).await;
                 let _ = handle.emit("tray-refresh", ());
             }
         });
