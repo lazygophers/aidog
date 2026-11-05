@@ -940,6 +940,7 @@
   "logs.routing.via.slot-haiku": "Haiku 槽位",
   "logs.routing.via.slot-gpt": "GPT 槽位",
   "logs.routing.via.slot-default": "默认槽位",
+  "logs.routing.via.slot-custom": "自定义槽位 {{name}}",
   "logs.routing.via.dedicated-slot": "专用槽位",
   "logs.routing.via.passthrough": "沿用请求名",
   "logs.attempts": "尝试记录",

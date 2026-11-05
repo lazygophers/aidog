@@ -48,7 +48,8 @@ const MODE_KEY: Record<string, string> = {
   health_aware: "logs.routing.mode.health_aware",
   sticky: "logs.routing.mode.sticky",
 };
-const VIA_KEY: Record<ModelVia, string> = {
+const CUSTOM_VIA_PREFIX = "slot-custom:";
+const VIA_KEY: Record<Exclude<ModelVia, `slot-custom:${string}`>, string> = {
   "mapped": "logs.routing.via.mapped",
   "time-window": "logs.routing.via.time-window",
   "preset-peak": "logs.routing.via.preset-peak",
@@ -60,6 +61,8 @@ const VIA_KEY: Record<ModelVia, string> = {
   "dedicated-slot": "logs.routing.via.dedicated-slot",
   "passthrough": "logs.routing.via.passthrough",
 };
+const viaLabel = (v: ModelVia, t: T) =>
+  v.startsWith(CUSTOM_VIA_PREFIX) ? t("logs.routing.via.slot-custom", { name: v.slice(CUSTOM_VIA_PREFIX.length) }) : t(VIA_KEY[v as keyof typeof VIA_KEY]);
 const BYPASS_KEY: Record<ShortcutBypass, string> = {
   "auto-disabled": "logs.routing.bypass.auto-disabled",
   "expired": "logs.routing.bypass.expired",
@@ -249,7 +252,12 @@ export function RoutingCanvas({
   const [paths, setPaths] = useState<Record<string, { d: string; lx: number; ly: number }>>({});
 
   const statusOk = statusCode >= 200 && statusCode < 300;
-  const blockedLabel = blockedReason ? blockedReasonLabel(blockedReason, (k, d) => t(k, d)) : "";
+  // 只对 quota_exhausted 走 i18n 标签（其它原因保持原始串，Std3 2026-11-05）
+  const blockedLabel = blockedReason
+    ? blockedReason === "quota_exhausted"
+      ? blockedReasonLabel(blockedReason, (k, d) => t(k, d))
+      : blockedReason
+    : "";
   const flow = useMemo(
     () => (routing && routing.entries.length > 0 ? buildFlow(routing, attempts, statusOk) : null),
     [routing, attempts, statusOk],
@@ -404,7 +412,7 @@ export function RoutingCanvas({
                         </div>
                         <div className="rc-tags">
                           {(e.tags ?? []).map((tg) => <span key={tg} className="rc-pill" data-testid="routing-tag" data-tag={tg}>{t(TAG_KEY[tg])}</span>)}
-                          {(e.model_via ?? []).map((v) => <span key={v} className="rc-pill" data-testid="routing-model-via" data-via={v}>{t(VIA_KEY[v])}</span>)}
+                          {(e.model_via ?? []).map((v) => <span key={v} className="rc-pill" data-testid="routing-model-via" data-via={v}>{viaLabel(v, t)}</span>)}
                           {e.target_model && !excluded && <span className="rc-sub mono" data-testid="routing-target-model">{e.target_model}</span>}
                         </div>
                         {ln.notChosen && (

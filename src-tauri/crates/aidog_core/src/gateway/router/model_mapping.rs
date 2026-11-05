@@ -7,28 +7,88 @@ use super::super::models::*;
 /// 全部不匹配 → 使用 default；无 default → 透传原始模型（去掉 [... ] 后缀）。
 #[cfg(test)]
 pub(crate) fn resolve_model(models: &PlatformModels, source_model: &str) -> String {
-    resolve_model_with_via(models, source_model).0
+    resolve_model_chain_with_custom(models, &[], source_model).0.swap_remove(0)
 }
 
-/// `resolve_model` + 命中来源（路由决策快照「模型选择」展示用）。
-pub(crate) fn resolve_model_with_via(
-    models: &PlatformModels,
-    source_model: &str,
-) -> (String, aidog_db::models::ModelVia) {
-    let (mut chain, via) = resolve_model_chain_with_via(models, source_model);
-    (chain.swap_remove(0), via)
+/// 自定义槽位定义（全局 settings `model` / `custom_model_slots` 的一项）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct CustomSlotDef {
+    pub name: String,
+    /// true = 请求模型名（小写后）须等于槽名；false = 包含即命中。
+    pub exact: bool,
 }
 
-/// 槽位选择规则同 `resolve_model`，返回命中槽位的完整有序模型链（链首 = 目标模型，恒非空）。
-/// 无槽位可用 → 透传名单元素链。
-pub(crate) fn resolve_model_chain_with_via(
+/// 某平台上已填值的自定义槽位（已按匹配顺序排好：精确在前，包含按槽名长度降序，同长按定义序）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct CustomSlotEntry {
+    pub name: String,
+    pub exact: bool,
+    pub chain: Vec<String>,
+}
+
+/// 解析全局槽位定义。非数组 / 缺名字 / 空名字的项跳过；`match` 缺省或未知 = contains。
+pub(crate) fn parse_custom_defs(v: Option<&serde_json::Value>) -> Vec<CustomSlotDef> {
+    let Some(arr) = v.and_then(|v| v.as_array()) else { return Vec::new() };
+    arr.iter()
+        .filter_map(|item| {
+            let name = item.get("name")?.as_str()?.trim();
+            (!name.is_empty()).then(|| CustomSlotDef {
+                name: name.to_string(),
+                exact: item.get("match").and_then(|m| m.as_str()) == Some("exact"),
+            })
+        })
+        .collect()
+}
+
+/// 由全局定义 + 平台 `extra.custom_slots` 生成该平台的有序命中表。无值的槽不入表（= 未命中）；
+/// extra 里无定义的孤儿键忽略并 warn。
+pub(crate) fn build_custom_entries(
+    defs: &[CustomSlotDef],
+    values: Option<&serde_json::Value>,
+) -> Vec<CustomSlotEntry> {
+    let Some(map) = values.and_then(|v| v.as_object()) else { return Vec::new() };
+    for key in map.keys().filter(|k| !defs.iter().any(|d| &d.name == *k)) {
+        tracing::warn!(slot = %key, "platform.extra.custom_slots has key without global definition; ignored");
+    }
+    let mut out: Vec<CustomSlotEntry> = defs
+        .iter()
+        .filter_map(|d| {
+            let raw: Vec<String> = match map.get(&d.name)? {
+                serde_json::Value::Array(a) => a.iter().filter_map(|x| x.as_str().map(str::to_owned)).collect(),
+                serde_json::Value::String(s) => vec![s.clone()],
+                _ => return None,
+            };
+            let chain = slot_chain(&raw);
+            (!chain.is_empty()).then(|| CustomSlotEntry { name: d.name.clone(), exact: d.exact, chain })
+        })
+        .collect();
+    // 稳定排序：精确在前；包含按槽名长度降序；同组同长保持定义序。
+    out.sort_by_key(|e| (!e.exact, std::cmp::Reverse(if e.exact { 0 } else { e.name.len() })));
+    out
+}
+
+/// 在有序命中表里找第一个命中请求名（已小写）的槽位。
+pub(crate) fn match_custom<'a>(
+    entries: &'a [CustomSlotEntry],
+    lower: &str,
+) -> Option<&'a CustomSlotEntry> {
+    entries.iter().find(|e| if e.exact { lower == e.name } else { lower.contains(e.name.as_str()) })
+}
+
+/// 返回命中槽位的完整有序模型链（链首 = 目标模型，恒非空）+ 命中来源。
+/// 顺序：自定义槽 → 内置 opus/sonnet/haiku/gpt → default → 透传（无槽位可用 → 透传名单元素链）。
+pub(crate) fn resolve_model_chain_with_custom(
     models: &PlatformModels,
+    custom: &[CustomSlotEntry],
     source_model: &str,
 ) -> (Vec<String>, aidog_db::models::ModelVia) {
     use aidog_db::models::ModelVia;
     // Strip Claude Code budget suffix like [1m], [128k]
     let base_model = source_model.split('[').next().unwrap_or(source_model);
     let lower = base_model.to_lowercase();
+    if let Some(e) = match_custom(custom, &lower) {
+        return (e.chain.clone(), ModelVia::SlotCustom(e.name.clone()));
+    }
     let slots: [(&str, &Vec<String>, ModelVia); 4] = [
         ("opus", &models.opus, ModelVia::SlotOpus),
         ("sonnet", &models.sonnet, ModelVia::SlotSonnet),
@@ -39,7 +99,7 @@ pub(crate) fn resolve_model_chain_with_via(
         if lower.contains(slot_name)
             && slot_filled(slot_value).is_some()
         {
-            return (slot_chain(slot_value), *via);
+            return (slot_chain(slot_value), via.clone());
         }
     }
     // 回退到 default

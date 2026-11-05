@@ -529,8 +529,14 @@ async fn rcfix_snapshot_always_stamps_max_retries() {
     let db = mk_test_db().await;
     let ok = mk_db_platform(&db, "ok").await;
     let g = mk_db_group(&db, "rcfix-ok", &[ok.id]).await;
-    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat).await.unwrap();
-    assert_eq!(set.routing.max_retries, Some(g.max_retries), "success snapshot");
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .unwrap();
+    assert_eq!(
+        set.routing.max_retries,
+        Some(g.max_retries),
+        "success snapshot"
+    );
 
     let p1 = mk_db_platform(&db, "u1").await;
     let p2 = mk_db_platform(&db, "u2").await;
@@ -540,9 +546,21 @@ async fn rcfix_snapshot_always_stamps_max_retries() {
     let sched = SchedulerState::new();
     let sticky = StickyTable::new();
     let settings = SchedulingBreakerSettings::default();
-    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None, rate_body: None };
-    let e = select_candidates_ctx(&db, &g2, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await.unwrap_err();
-    assert_eq!(e.routing.max_retries, Some(g2.max_retries), "route-fail snapshot");
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+        rate_body: None,
+    };
+    let e = select_candidates_ctx(&db, &g2, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        e.routing.max_retries,
+        Some(g2.max_retries),
+        "route-fail snapshot"
+    );
 }
 
 /// 多平台分组：仅部分候选协议未知 → 被排除，其他候选正常纳入（不影响）。
@@ -711,7 +729,12 @@ async fn model_mapping_prioritizes_target_platform() {
     assert_eq!(set.candidates[0].platform.id, p2.id);
     assert_eq!(set.candidates[0].target_model, "gpt-4o-mapped");
     // 快照同条目 target_model 已回填映射目标
-    let e = set.routing.entries.iter().find(|e| e.platform_id == p2.id).unwrap();
+    let e = set
+        .routing
+        .entries
+        .iter()
+        .find(|e| e.platform_id == p2.id)
+        .unwrap();
     assert_eq!(e.target_model.as_deref(), Some("gpt-4o-mapped"));
 }
 
@@ -1387,16 +1410,8 @@ fn resolve_effective_models_no_peak_when_off_peak() {
     let p = glm_coding_platform("", platform_models);
     let eff = resolve_effective_models(&p, &[], OFF_MS, "");
     // 非高峰 → 保持 platform.models（不切 peak）
-    assert_eq!(
-        eff.default,
-        vec!["glm-5.2"],
-        "off-peak: 保持 default"
-    );
-    assert_eq!(
-        eff.sonnet,
-        vec!["glm-4.7"],
-        "off-peak: 保持 sonnet"
-    );
+    assert_eq!(eff.default, vec!["glm-5.2"], "off-peak: 保持 default");
+    assert_eq!(eff.sonnet, vec!["glm-4.7"], "off-peak: 保持 sonnet");
 }
 
 #[test]
@@ -1435,11 +1450,7 @@ fn resolve_effective_models_protocol_without_peak_branch_unchanged() {
         ..Default::default()
     };
     let eff = resolve_effective_models(&p, &[], PEAK_MS, "");
-    assert_eq!(
-        eff.default,
-        vec!["claude-sonnet-4"],
-        "无 peak 分支 → 不动"
-    );
+    assert_eq!(eff.default, vec!["claude-sonnet-4"], "无 peak 分支 → 不动");
 }
 
 #[test]
@@ -2259,7 +2270,7 @@ async fn disable_platform(db: &db::Db, id: u64) {
         aidog_db::models::UpdatePlatform {
             id,
             status: Some(PlatformStatus::Disabled),
-                    name: None,
+            name: None,
             platform_type: None,
             base_url: None,
             api_key: None,
@@ -2294,8 +2305,18 @@ async fn snapshot_labels_manual_disabled() {
         .expect("live candidate available");
     assert_eq!(set.candidates.len(), 2);
     assert_eq!(set.routing.entries.len(), 3);
-    let e_live = set.routing.entries.iter().find(|e| e.platform_id == live.id).unwrap();
-    let e_off = set.routing.entries.iter().find(|e| e.platform_id == off.id).unwrap();
+    let e_live = set
+        .routing
+        .entries
+        .iter()
+        .find(|e| e.platform_id == live.id)
+        .unwrap();
+    let e_off = set
+        .routing
+        .entries
+        .iter()
+        .find(|e| e.platform_id == off.id)
+        .unwrap();
     assert_eq!(e_live.reason, RouteReason::Selected);
     assert_eq!(e_live.order, 1);
     assert_eq!(e_off.reason, RouteReason::DisabledManual);
@@ -2342,7 +2363,12 @@ async fn snapshot_labels_breaker_rejected() {
         .await
         .expect("live candidate available");
     assert_eq!(set.candidates.len(), 1);
-    let e_broken = set.routing.entries.iter().find(|e| e.platform_id == broken.id).unwrap();
+    let e_broken = set
+        .routing
+        .entries
+        .iter()
+        .find(|e| e.platform_id == broken.id)
+        .unwrap();
     assert_eq!(e_broken.reason, RouteReason::Breaker);
 }
 
@@ -2382,7 +2408,12 @@ async fn snapshot_labels_peak_disabled() {
     let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
         .await
         .expect("live candidate available");
-    let e_peaky = set.routing.entries.iter().find(|e| e.platform_id == peaky.id).unwrap();
+    let e_peaky = set
+        .routing
+        .entries
+        .iter()
+        .find(|e| e.platform_id == peaky.id)
+        .unwrap();
     assert_eq!(e_peaky.reason, RouteReason::PeakDisabled);
     // 整组未全被高峰禁用 → 不触发 peak_disabled Err（行为不变）
     assert_eq!(set.candidates.len(), 1);
@@ -2399,13 +2430,24 @@ async fn snapshot_labels_unknown_protocol_and_err_carries_snapshot() {
     let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
         .await
         .expect("live candidate available");
-    let e_unknown = set.routing.entries.iter().find(|e| e.platform_id == unknown.id).unwrap();
+    let e_unknown = set
+        .routing
+        .entries
+        .iter()
+        .find(|e| e.platform_id == unknown.id)
+        .unwrap();
     assert_eq!(e_unknown.reason, RouteReason::UnknownProtocol);
 
     let g_all_unknown = mk_db_group(&db, "g-unknown-all", &[unknown.id]).await;
-    let err = select_candidates_ctx(&db, &g_all_unknown, "claude-opus-4-8", None, RequestKind::Chat)
-        .await
-        .expect_err("all unknown must fail");
+    let err = select_candidates_ctx(
+        &db,
+        &g_all_unknown,
+        "claude-opus-4-8",
+        None,
+        RequestKind::Chat,
+    )
+    .await
+    .expect_err("all unknown must fail");
     assert!(err == "unknown_protocol");
     assert_eq!(err.routing.entries.len(), 1);
     assert_eq!(err.routing.entries[0].reason, RouteReason::UnknownProtocol);
@@ -2422,8 +2464,18 @@ async fn snapshot_tags_coding_plan_platform() {
     let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
         .await
         .expect("candidates available");
-    let e_cp = set.routing.entries.iter().find(|e| e.platform_id == cp.id).unwrap();
-    let e_plain = set.routing.entries.iter().find(|e| e.platform_id == plain.id).unwrap();
+    let e_cp = set
+        .routing
+        .entries
+        .iter()
+        .find(|e| e.platform_id == cp.id)
+        .unwrap();
+    let e_plain = set
+        .routing
+        .entries
+        .iter()
+        .find(|e| e.platform_id == plain.id)
+        .unwrap();
     assert_eq!(e_cp.tags, vec![RouteTag::CodingPlan]);
     assert!(e_plain.tags.is_empty());
 }
@@ -2678,13 +2730,30 @@ fn slot_embedding(v: &str) -> PlatformModels {
 
 fn upd_platform(id: u64) -> UpdatePlatform {
     UpdatePlatform {
-        id, name: None, platform_type: None, base_url: None, api_key: None, extra: None,
-        models: None, available_models: None, endpoints: None, enabled: None, status: None,
-        manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
+        id,
+        name: None,
+        platform_type: None,
+        base_url: None,
+        api_key: None,
+        extra: None,
+        models: None,
+        available_models: None,
+        endpoints: None,
+        enabled: None,
+        status: None,
+        manual_budgets: None,
+        join_group_ids: None,
+        expires_at: None,
+        quota_source: None,
     }
 }
 
-async fn mk_embedding_platform(db: &db::Db, name: &str, proto: Protocol, models: PlatformModels) -> Platform {
+async fn mk_embedding_platform(
+    db: &db::Db,
+    name: &str,
+    proto: Protocol,
+    models: PlatformModels,
+) -> Platform {
     db::create_platform(
         db,
         CreatePlatform {
@@ -2713,7 +2782,8 @@ async fn embedding_request_filters_and_rewrites() {
     let db = mk_test_db().await;
     let ok = mk_embedding_platform(&db, "ok", Protocol::OpenAI, slot_embedding("emb-x")).await;
     let empty = mk_embedding_platform(&db, "empty", Protocol::OpenAI, slot_default("gpt")).await;
-    let anth = mk_embedding_platform(&db, "anth", Protocol::Anthropic, slot_embedding("emb-y")).await;
+    let anth =
+        mk_embedding_platform(&db, "anth", Protocol::Anthropic, slot_embedding("emb-y")).await;
     let g = mk_db_group(&db, "grp", &[ok.id, empty.id, anth.id]).await;
 
     let set = select_candidates_ctx(&db, &g, "client-model", None, RequestKind::Embedding)
@@ -2783,15 +2853,26 @@ async fn embedding_ignores_time_windows_and_direct_models() {
     let set = select_candidates_ctx(&db, &g, "client-model", None, RequestKind::Embedding)
         .await
         .expect("embedding routes normally");
-    assert_eq!(set.candidates.len(), 2, "direct_models 不把候选收窄到声明平台");
-    let p_route = set.candidates.iter().find(|c| c.platform.id == p.id).unwrap();
+    assert_eq!(
+        set.candidates.len(),
+        2,
+        "direct_models 不把候选收窄到声明平台"
+    );
+    let p_route = set
+        .candidates
+        .iter()
+        .find(|c| c.platform.id == p.id)
+        .unwrap();
     assert_eq!(p_route.target_model, "emb-x");
 }
 
 // ══ rerank：与 embedding 同构的请求类型维度 ══
 
 fn slot_rerank(v: &str) -> PlatformModels {
-    PlatformModels { rerank: vec![v.into()], ..Default::default() }
+    PlatformModels {
+        rerank: vec![v.into()],
+        ..Default::default()
+    }
 }
 
 /// 槽位空 / 非 OpenAI 系 / 只配 embedding 槽 → 非候选；槽位值即上游模型；纯重排序平台被 Chat 剔除。
@@ -2826,7 +2907,10 @@ async fn rerank_empty_slot_errs_single_and_degraded_group() {
     let rr = mk_embedding_platform(&db, "rr", Protocol::OpenAI, slot_rerank("rr-x")).await;
     db::update_platform(
         &db,
-        UpdatePlatform { status: Some(PlatformStatus::Disabled), ..upd_platform(rr.id) },
+        UpdatePlatform {
+            status: Some(PlatformStatus::Disabled),
+            ..upd_platform(rr.id)
+        },
     )
     .await
     .expect("disable");
@@ -2866,7 +2950,11 @@ async fn rerank_ignores_time_windows_and_direct_models() {
         .await
         .expect("rerank routes normally");
     assert_eq!(set.candidates.len(), 2);
-    let p_route = set.candidates.iter().find(|c| c.platform.id == p.id).unwrap();
+    let p_route = set
+        .candidates
+        .iter()
+        .find(|c| c.platform.id == p.id)
+        .unwrap();
     assert_eq!(p_route.target_model, "rr-x");
 }
 
@@ -2881,10 +2969,27 @@ fn model_via_peak_branch_then_slot() {
     };
     let p = glm_coding_platform("", pm);
     // 高峰窗口：preset peak 分支替换 → [PresetPeak, SlotSonnet]
-    let hit = model_via_for(&p, None, RequestKind::Chat, PEAK_MS, "", &Some("claude-sonnet-4".into()));
-    assert_eq!(hit, vec![ModelVia::Mapped, ModelVia::PresetPeak, ModelVia::SlotSonnet]);
+    let hit = model_via_for(
+        &p,
+        None,
+        RequestKind::Chat,
+        PEAK_MS,
+        "",
+        &Some("claude-sonnet-4".into()),
+    );
+    assert_eq!(
+        hit,
+        vec![ModelVia::Mapped, ModelVia::PresetPeak, ModelVia::SlotSonnet]
+    );
     // 非高峰 + 映射改名 → [Mapped, SlotSonnet]
-    let off = model_via_for(&p, None, RequestKind::Chat, OFF_MS, "x", &Some("claude-sonnet-4".into()));
+    let off = model_via_for(
+        &p,
+        None,
+        RequestKind::Chat,
+        OFF_MS,
+        "x",
+        &Some("claude-sonnet-4".into()),
+    );
     assert_eq!(off, vec![ModelVia::Mapped, ModelVia::SlotSonnet]);
     // 无档位词 → default 槽
     let def = model_via_for(&p, None, RequestKind::Chat, OFF_MS, "foo", &None);
@@ -2972,11 +3077,15 @@ async fn client_whitelist_error_code_matrix() {
         let g = mk_db_group(&db, &format!("g-wl-{i}"), &ids).await;
         let gate = ClientGate::On(ClientProbe::from_ua("curl/8.4.0"));
         let got =
-            select_candidates_gated(&db, &g, "claude-opus-4-8", None, RequestKind::Chat, gate).await;
+            select_candidates_gated(&db, &g, "claude-opus-4-8", None, RequestKind::Chat, gate)
+                .await;
         match (want, got) {
             (Some(w), Err(e)) => assert_eq!(e.reason, *w, "case {i} {plats:?}"),
             (None, Ok(set)) => assert_eq!(set.candidates.len(), 1, "case {i} {plats:?}"),
-            (w, g) => panic!("case {i} {plats:?}: want {w:?}, got {:?}", g.map(|s| s.candidates.len())),
+            (w, g) => panic!(
+                "case {i} {plats:?}: want {w:?}, got {:?}",
+                g.map(|s| s.candidates.len())
+            ),
         }
     }
 }
@@ -2999,21 +3108,44 @@ async fn client_whitelist_hit_matrix_and_snapshot_label() {
     };
     let ua = |s: &str| ClientGate::On(ClientProbe::from_ua(s));
     // 变体精确命中 → 两个平台都在
-    assert_eq!(sel(ua("claude-cli/2.0 (external, claude-vscode)")).await.candidates.len(), 2);
+    assert_eq!(
+        sel(ua("claude-cli/2.0 (external, claude-vscode)"))
+            .await
+            .candidates
+            .len(),
+        2
+    );
     // 只勾变体，识别为 CLI → WL 被拦、快照带标签
     let set = sel(ua("claude-cli/2.0 (external, cli)")).await;
     assert_eq!(set.candidates.len(), 1);
     assert_eq!(set.candidates[0].platform.id, open.id);
-    let e = set.routing.entries.iter().find(|e| e.platform_id == wl.id).unwrap();
+    let e = set
+        .routing
+        .entries
+        .iter()
+        .find(|e| e.platform_id == wl.id)
+        .unwrap();
     assert_eq!(e.reason, RouteReason::ClientNotAllowed);
     // 认不出（无 UA）→ WL 被拦
-    assert_eq!(sel(ClientGate::On(ClientProbe::from_ua(""))).await.candidates.len(), 1);
+    assert_eq!(
+        sel(ClientGate::On(ClientProbe::from_ua("")))
+            .await
+            .candidates
+            .len(),
+        1
+    );
     // Off：不判定，两个都在
     assert_eq!(sel(ClientGate::Off).await.candidates.len(), 2);
     // 勾大类 = 全部变体
     set_extra(&db, wl.id, WL_CC).await;
     db.invalidate_group_details_cache();
-    assert_eq!(sel(ua("claude-cli/2.0 (external, claude-vscode)")).await.candidates.len(), 2);
+    assert_eq!(
+        sel(ua("claude-cli/2.0 (external, claude-vscode)"))
+            .await
+            .candidates
+            .len(),
+        2
+    );
 }
 
 /// 熔断全空回退：被白名单拦下的平台不会被熔断回退「捞回来」。
@@ -3025,16 +3157,36 @@ async fn client_whitelist_not_revived_by_breaker_bypass() {
     set_extra(&db, wl.id, WL_CC).await;
     let g = mk_db_group(&db, "g-bb", &[wl.id, broken.id]).await;
     let sched = SchedulerState::new();
-    let th = BreakerThresholds { failure_threshold: 1, open_secs: 1800, half_open_max: 2 };
+    let th = BreakerThresholds {
+        failure_threshold: 1,
+        open_secs: 1800,
+        half_open_max: 2,
+    };
     sched.inc_inflight(broken.id);
     sched.record_failure(broken.id, &th, db::now());
     let sticky = StickyTable::new();
-    let settings = SchedulingBreakerSettings { enabled: true, ..Default::default() };
-    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None, rate_body: None };
+    let settings = SchedulingBreakerSettings {
+        enabled: true,
+        ..Default::default()
+    };
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+        rate_body: None,
+    };
     let gate = ClientGate::On(ClientProbe::from_ua("curl/8.4.0"));
-    let set = select_candidates_gated(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat, gate)
-        .await
-        .expect("breaker bypass revives only the non-whitelisted platform");
+    let set = select_candidates_gated(
+        &db,
+        &g,
+        "claude-opus-4-8",
+        Some(&ctx),
+        RequestKind::Chat,
+        gate,
+    )
+    .await
+    .expect("breaker bypass revives only the non-whitelisted platform");
     assert_eq!(set.candidates.len(), 1);
     assert_eq!(set.candidates[0].platform.id, broken.id);
 }
@@ -3046,7 +3198,14 @@ fn chain(v: &[&str]) -> Vec<String> {
 }
 
 fn chat_chain(p: &Platform, eff: &PlatformModels, name: &str) -> Vec<String> {
-    resolve_target_chain(RequestKind::Chat, eff, p, &DecisionModels::default(), name)
+    resolve_target_chain(
+        RequestKind::Chat,
+        eff,
+        p,
+        &DecisionModels::default(),
+        name,
+        &[],
+    )
 }
 
 /// 槽位选择规则不变，命中槽位返回完整有序链（去空去重保序）；请求名透传 / 无槽位 → 单元素链。
@@ -3068,7 +3227,10 @@ fn chain_slot_selection_and_passthrough() {
 #[test]
 fn chain_three_layers_keep_order() {
     // 层 3：platform.models
-    let pm = PlatformModels { default: chain(&["a", "b", "c"]), ..Default::default() };
+    let pm = PlatformModels {
+        default: chain(&["a", "b", "c"]),
+        ..Default::default()
+    };
     let p = glm_coding_platform("", pm);
     let eff = resolve_effective_models(&p, &[], OFF_MS, "");
     assert_eq!(chat_chain(&p, &eff, "foo"), chain(&["a", "b", "c"]));
@@ -3078,14 +3240,24 @@ fn chain_three_layers_keep_order() {
         "models": {"default": ["t1", "t2"]}
     }]})
     .to_string();
-    let p = glm_coding_platform(&extra, PlatformModels { default: chain(&["a"]), ..Default::default() });
+    let p = glm_coding_platform(
+        &extra,
+        PlatformModels {
+            default: chain(&["a"]),
+            ..Default::default()
+        },
+    );
     let rules = crate::gateway::time_windows::parse_platform_time_windows(&p.extra);
     let eff = resolve_effective_models(&p, &rules, PEAK_MS, "");
     assert_eq!(chat_chain(&p, &eff, "foo"), chain(&["t1", "t2"]));
     // 层 2：preset peak 分支（registry 里是单值，断言链 == preset peak default 槽的归一化链）
     let (eff, via) = resolve_effective_models_tagged(&p, &[], PEAK_MS, "");
     assert_eq!(via, Some(ModelVia::PresetPeak));
-    let expect = slot_chain(&crate::gateway::peak::default_peak_models("glm_coding").unwrap().default);
+    let expect = slot_chain(
+        &crate::gateway::peak::default_peak_models("glm_coding")
+            .unwrap()
+            .default,
+    );
     assert_eq!(chat_chain(&p, &eff, "foo"), expect);
 }
 
@@ -3096,29 +3268,55 @@ async fn route_result_carries_fallbacks_and_snapshot_chain() {
     let multi = mk_platform_models(
         &db,
         "multi",
-        PlatformModels { default: chain(&["m1", "m2", "m3"]), ..Default::default() },
+        PlatformModels {
+            default: chain(&["m1", "m2", "m3"]),
+            ..Default::default()
+        },
         vec![],
     )
     .await;
     let single = mk_platform_models(
         &db,
         "single",
-        PlatformModels { default: chain(&["s1"]), ..Default::default() },
+        PlatformModels {
+            default: chain(&["s1"]),
+            ..Default::default()
+        },
         vec![],
     )
     .await;
     let g = mk_db_group(&db, "grp", &[multi.id, single.id]).await;
-    let set = select_candidates_ctx(&db, &g, "foo", None, RequestKind::Chat).await.expect("route");
-    let m = set.candidates.iter().find(|c| c.platform.id == multi.id).unwrap();
+    let set = select_candidates_ctx(&db, &g, "foo", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    let m = set
+        .candidates
+        .iter()
+        .find(|c| c.platform.id == multi.id)
+        .unwrap();
     assert_eq!(m.target_model, "m1");
     assert_eq!(m.fallback_models, chain(&["m2", "m3"]));
-    let s = set.candidates.iter().find(|c| c.platform.id == single.id).unwrap();
+    let s = set
+        .candidates
+        .iter()
+        .find(|c| c.platform.id == single.id)
+        .unwrap();
     assert_eq!(s.target_model, "s1");
     assert!(s.fallback_models.is_empty());
-    let me = set.routing.entries.iter().find(|e| e.platform_id == multi.id).unwrap();
+    let me = set
+        .routing
+        .entries
+        .iter()
+        .find(|e| e.platform_id == multi.id)
+        .unwrap();
     assert_eq!(me.target_model.as_deref(), Some("m1"));
     assert_eq!(me.model_chain, chain(&["m1", "m2", "m3"]));
-    let se = set.routing.entries.iter().find(|e| e.platform_id == single.id).unwrap();
+    let se = set
+        .routing
+        .entries
+        .iter()
+        .find(|e| e.platform_id == single.id)
+        .unwrap();
     assert!(se.model_chain.is_empty());
 }
 
@@ -3129,12 +3327,17 @@ async fn single_platform_group_carries_fallbacks() {
     let p = mk_platform_models(
         &db,
         "p",
-        PlatformModels { default: chain(&["m1", "m2"]), ..Default::default() },
+        PlatformModels {
+            default: chain(&["m1", "m2"]),
+            ..Default::default()
+        },
         vec![],
     )
     .await;
     let g = mk_db_group(&db, "solo", &[p.id]).await;
-    let set = select_candidates_ctx(&db, &g, "foo", None, RequestKind::Chat).await.expect("route");
+    let set = select_candidates_ctx(&db, &g, "foo", None, RequestKind::Chat)
+        .await
+        .expect("route");
     assert_eq!(set.candidates[0].fallback_models, chain(&["m2"]));
     assert_eq!(set.routing.entries[0].model_chain, chain(&["m1", "m2"]));
 }
@@ -3146,7 +3349,10 @@ async fn direct_model_chain_has_no_fallbacks() {
     let p = mk_platform_models(
         &db,
         "p",
-        PlatformModels { default: chain(&["m1", "m2"]), ..Default::default() },
+        PlatformModels {
+            default: chain(&["m1", "m2"]),
+            ..Default::default()
+        },
         vec![],
     )
     .await;
@@ -3174,7 +3380,10 @@ async fn direct_model_chain_has_no_fallbacks() {
 fn passthrough_platform_chain_is_single() {
     let mut p = super::super::test_mod::mk_platform(PlatformStatus::Enabled, 0);
     p.platform_type = Protocol::Passthrough;
-    let pm = PlatformModels { default: chain(&["x", "y"]), ..Default::default() };
+    let pm = PlatformModels {
+        default: chain(&["x", "y"]),
+        ..Default::default()
+    };
     assert_eq!(chat_chain(&p, &pm, "foo"), chain(&["foo"]));
 }
 
@@ -3188,16 +3397,32 @@ fn dedicated_slot_chains() {
     };
     let p = glm_coding_platform("", pm.clone());
     let dm = DecisionModels::default();
-    assert_eq!(resolve_target_chain(RequestKind::Embedding, &pm, &p, &dm, "x"), chain(&["e1", "e2"]));
-    assert_eq!(resolve_target_chain(RequestKind::Decision, &pm, &p, &dm, "x"), chain(&["j1", "j2"]));
-    assert_eq!(resolve_target_chain(RequestKind::Rerank, &pm, &p, &dm, "x"), chain(&["x"]));
+    assert_eq!(
+        resolve_target_chain(RequestKind::Embedding, &pm, &p, &dm, "x", &[]),
+        chain(&["e1", "e2"])
+    );
+    assert_eq!(
+        resolve_target_chain(RequestKind::Decision, &pm, &p, &dm, "x", &[]),
+        chain(&["j1", "j2"])
+    );
+    assert_eq!(
+        resolve_target_chain(RequestKind::Rerank, &pm, &p, &dm, "x", &[]),
+        chain(&["x"])
+    );
 }
 
 /// `/models` 与 pi 清单展平含备选且跨平台去重。
 #[test]
 fn model_list_flattens_fallbacks_deduped() {
-    let a = PlatformModels { default: chain(&["a", "b"]), opus: chain(&["b", "c"]), ..Default::default() };
-    let b = PlatformModels { sonnet: chain(&["c", "d"]), ..Default::default() };
+    let a = PlatformModels {
+        default: chain(&["a", "b"]),
+        opus: chain(&["b", "c"]),
+        ..Default::default()
+    };
+    let b = PlatformModels {
+        sonnet: chain(&["c", "d"]),
+        ..Default::default()
+    };
     assert_eq!(
         crate::gateway::proxy::merge_group_model_names(&[], &[a, b]),
         chain(&["a", "b", "c", "d"])
@@ -3207,7 +3432,11 @@ fn model_list_flattens_fallbacks_deduped() {
 // ── 路由画布 01：路由阶段补记快照 ──
 
 fn open_breaker(sched: &SchedulerState, pid: u64, now: i64) {
-    let th = BreakerThresholds { failure_threshold: 1, open_secs: 1800, half_open_max: 2 };
+    let th = BreakerThresholds {
+        failure_threshold: 1,
+        open_secs: 1800,
+        half_open_max: 2,
+    };
     sched.inc_inflight(pid);
     sched.record_failure(pid, &th, now);
 }
@@ -3222,16 +3451,31 @@ async fn rc01_literal_single_shortcut_lists_bypassed_states() {
     let sched = SchedulerState::new();
     open_breaker(&sched, p.id, db::now());
     let sticky = StickyTable::new();
-    let settings = SchedulingBreakerSettings { enabled: true, ..Default::default() };
-    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None, rate_body: None };
+    let settings = SchedulingBreakerSettings {
+        enabled: true,
+        ..Default::default()
+    };
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+        rate_body: None,
+    };
 
     let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
         .await
         .expect("force request");
     let sc = set.routing.shortcut.expect("shortcut recorded");
     assert!(sc.literal);
-    assert!(sc.bypassed.contains(&aidog_db::models::ShortcutBypass::AutoDisabled));
-    assert!(sc.bypassed.contains(&aidog_db::models::ShortcutBypass::Breaker));
+    assert!(
+        sc.bypassed
+            .contains(&aidog_db::models::ShortcutBypass::AutoDisabled)
+    );
+    assert!(
+        sc.bypassed
+            .contains(&aidog_db::models::ShortcutBypass::Breaker)
+    );
 }
 
 /// 等效单平台（多平台组仅 1 个 Enabled）：literal=false；多平台正常路径无 shortcut。
@@ -3242,13 +3486,17 @@ async fn rc01_equivalent_single_shortcut_and_multi_none() {
     let b = mk_db_platform(&db, "B").await;
     let c = mk_db_platform(&db, "C").await;
     let g_multi = mk_db_group(&db, "multi", &[a.id, b.id]).await;
-    let set = select_candidates_ctx(&db, &g_multi, "m", None, RequestKind::Chat).await.unwrap();
+    let set = select_candidates_ctx(&db, &g_multi, "m", None, RequestKind::Chat)
+        .await
+        .unwrap();
     assert!(set.routing.shortcut.is_none());
 
     db::test_support::set_legacy_auto_disabled(&db, b.id, 1, db::now() + 3_600_000).await;
     let g_eq = mk_db_group(&db, "equiv", &[a.id, b.id, c.id]).await;
     db::test_support::set_legacy_auto_disabled(&db, c.id, 1, db::now() + 3_600_000).await;
-    let set = select_candidates_ctx(&db, &g_eq, "m", None, RequestKind::Chat).await.unwrap();
+    let set = select_candidates_ctx(&db, &g_eq, "m", None, RequestKind::Chat)
+        .await
+        .unwrap();
     let sc = set.routing.shortcut.expect("equivalent shortcut");
     assert!(!sc.literal);
     assert!(sc.bypassed.is_empty(), "sole platform itself is healthy");
@@ -3263,8 +3511,18 @@ async fn rc01_probe_candidate_tagged() {
     let c = mk_db_platform(&db, "C").await;
     db::test_support::set_legacy_auto_disabled(&db, c.id, 1, db::now() - 1000).await;
     let g = mk_db_group(&db, "probe", &[a.id, b.id, c.id]).await;
-    let set = select_candidates_ctx(&db, &g, "m", None, RequestKind::Chat).await.unwrap();
-    let tag_of = |id: u64| set.routing.entries.iter().find(|e| e.platform_id == id).unwrap().tags.clone();
+    let set = select_candidates_ctx(&db, &g, "m", None, RequestKind::Chat)
+        .await
+        .unwrap();
+    let tag_of = |id: u64| {
+        set.routing
+            .entries
+            .iter()
+            .find(|e| e.platform_id == id)
+            .unwrap()
+            .tags
+            .clone()
+    };
     assert!(tag_of(c.id).contains(&RouteTag::Probe));
     assert!(!tag_of(a.id).contains(&RouteTag::Probe));
 }
@@ -3281,9 +3539,20 @@ async fn rc01_breaker_backfill_tagged() {
     open_breaker(&sched, a.id, now);
     open_breaker(&sched, b.id, now);
     let sticky = StickyTable::new();
-    let settings = SchedulingBreakerSettings { enabled: true, ..Default::default() };
-    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None, rate_body: None };
-    let set = select_candidates_ctx(&db, &g, "m", Some(&ctx), RequestKind::Chat).await.unwrap();
+    let settings = SchedulingBreakerSettings {
+        enabled: true,
+        ..Default::default()
+    };
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+        rate_body: None,
+    };
+    let set = select_candidates_ctx(&db, &g, "m", Some(&ctx), RequestKind::Chat)
+        .await
+        .unwrap();
     assert_eq!(set.routing.entries.len(), 2);
     for e in &set.routing.entries {
         assert_eq!(e.reason, RouteReason::Selected);
@@ -3299,10 +3568,22 @@ async fn rc01_direct_model_undeclared_platform_listed() {
     let b = mk_db_platform(&db, "B").await;
     set_extra(&db, a.id, r#"{"direct_models":["m1"]}"#).await;
     let g = mk_db_group(&db, "direct-nd", &[a.id, b.id]).await;
-    let set = select_candidates_ctx(&db, &g, "m1", None, RequestKind::Chat).await.unwrap();
-    let eb = set.routing.entries.iter().find(|e| e.platform_id == b.id).expect("B listed");
+    let set = select_candidates_ctx(&db, &g, "m1", None, RequestKind::Chat)
+        .await
+        .unwrap();
+    let eb = set
+        .routing
+        .entries
+        .iter()
+        .find(|e| e.platform_id == b.id)
+        .expect("B listed");
     assert_eq!(eb.reason, RouteReason::NotDeclared);
-    let ea = set.routing.entries.iter().find(|e| e.platform_id == a.id).unwrap();
+    let ea = set
+        .routing
+        .entries
+        .iter()
+        .find(|e| e.platform_id == a.id)
+        .unwrap();
     assert_eq!(ea.reason, RouteReason::Selected);
 }
 
@@ -3321,13 +3602,21 @@ fn rc01_mark_retry_limit_truncates_tail() {
         model_via: vec![],
         model_chain: vec![],
     };
-    let mut r = RoutingSnapshot { entries: vec![mk(1), mk(2), mk(3), mk(4)], ..Default::default() };
+    let mut r = RoutingSnapshot {
+        entries: vec![mk(1), mk(2), mk(3), mk(4)],
+        ..Default::default()
+    };
     r.mark_retry_limit(2);
     assert_eq!(r.max_retries, Some(2));
     let reasons: Vec<_> = r.entries.iter().map(|e| e.reason).collect();
     assert_eq!(
         reasons,
-        vec![RouteReason::Selected, RouteReason::Selected, RouteReason::Selected, RouteReason::RetryLimit]
+        vec![
+            RouteReason::Selected,
+            RouteReason::Selected,
+            RouteReason::Selected,
+            RouteReason::RetryLimit
+        ]
     );
 }
 
@@ -3338,7 +3627,9 @@ fn open_ended_quota_ctx_sched(sched: &SchedulerState, platform_id: u64) {
     apply_quota_verdict(
         sched,
         platform_id,
-        QuotaVerdict::Exhausted { until_ms: crate::gateway::estimate::QUOTA_OPEN_ENDED_UNTIL_MS },
+        QuotaVerdict::Exhausted {
+            until_ms: crate::gateway::estimate::QUOTA_OPEN_ENDED_UNTIL_MS,
+        },
     );
 }
 
@@ -3445,7 +3736,11 @@ async fn real_query_exhausted_equivalent_single_platform_still_sent() {
 // ── 全组额度用完 → quota_exhausted（票 03）──
 
 fn quota_ctx_parts() -> (SchedulerState, StickyTable, SchedulingBreakerSettings) {
-    (SchedulerState::new(), StickyTable::new(), SchedulingBreakerSettings::default())
+    (
+        SchedulerState::new(),
+        StickyTable::new(),
+        SchedulingBreakerSettings::default(),
+    )
 }
 
 /// 多平台分组全部因额度冷却被排除 → Err(quota_exhausted)，无 coding plan、最早重置 = 两者较早者。
@@ -3456,7 +3751,13 @@ async fn multi_platform_all_quota_cooled_errs_quota_exhausted() {
     let b = mk_db_platform(&db, "B").await;
     let g = mk_db_group(&db, "qx-all", &[a.id, b.id]).await;
     let (sched, sticky, settings) = quota_ctx_parts();
-    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None, rate_body: None };
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+        rate_body: None,
+    };
     let now = db::now();
     sched.set_quota_cooldown(a.id, now + 7_200_000);
     sched.set_quota_cooldown(b.id, now + 3_600_000);
@@ -3477,7 +3778,13 @@ async fn quota_exhausted_mixed_types_flags_coding_plan_and_skips_open_ended() {
     let bal = mk_db_platform(&db, "BAL").await;
     let g = mk_db_group(&db, "qx-mixed", &[cp.id, bal.id]).await;
     let (sched, sticky, settings) = quota_ctx_parts();
-    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None, rate_body: None };
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+        rate_body: None,
+    };
     let now = db::now();
     sched.set_quota_cooldown(cp.id, now + 3_600_000);
     sched.set_quota_cooldown(bal.id, crate::gateway::estimate::QUOTA_OPEN_ENDED_UNTIL_MS);
@@ -3498,7 +3805,13 @@ async fn quota_exhausted_all_open_ended_has_no_reset() {
     let b = mk_db_platform(&db, "B").await;
     let g = mk_db_group(&db, "qx-open", &[a.id, b.id]).await;
     let (sched, sticky, settings) = quota_ctx_parts();
-    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None, rate_body: None };
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+        rate_body: None,
+    };
     sched.set_quota_cooldown(a.id, crate::gateway::estimate::QUOTA_OPEN_ENDED_UNTIL_MS);
     sched.set_quota_cooldown(b.id, crate::gateway::estimate::QUOTA_OPEN_ENDED_UNTIL_MS);
 
@@ -3520,22 +3833,121 @@ async fn quota_cooled_mixed_with_disabled_keeps_generic_error() {
         &db,
         UpdatePlatform {
             id: b.id,
-            name: None, platform_type: None, base_url: None, api_key: None, extra: None,
-            models: None, available_models: None, endpoints: None, enabled: None,
+            name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            extra: None,
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
             status: Some(PlatformStatus::Disabled),
-            manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
         },
     )
     .await
     .expect("disable b");
     let (sched, sticky, settings) = quota_ctx_parts();
-    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None, rate_body: None };
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+        rate_body: None,
+    };
     sched.set_quota_cooldown(a.id, db::now() + 3_600_000);
 
     let e = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await;
     // 禁用的 b 使分组退化为等效单平台：沿用现有短路（照发 a），不报错也不报 quota_exhausted
     match e {
         Ok(set) => assert_eq!(set.candidates[0].platform.id, a.id),
-        Err(e) => assert!(QuotaExhausted::parse(&e).is_none(), "mixed reasons must not be quota_exhausted: {e}"),
+        Err(e) => assert!(
+            QuotaExhausted::parse(&e).is_none(),
+            "mixed reasons must not be quota_exhausted: {e}"
+        ),
     }
+}
+
+// ── 自定义模型槽位（ticket 03）：端到端路由与 via ──
+
+fn custom_defs(v: &[(&str, bool)]) -> Vec<CustomSlotDef> {
+    v.iter()
+        .map(|(n, e)| CustomSlotDef {
+            name: n.to_string(),
+            exact: *e,
+        })
+        .collect()
+}
+
+#[test]
+fn custom_slot_routes_chain_and_records_via() {
+    let defs = custom_defs(&[("fast", false)]);
+    let extra = r#"{"custom_slots":{"fast":["f1","f2"]}}"#;
+    let cache = ExtraCache::new(extra, &Protocol::Anthropic, Some(&defs));
+    let pm = PlatformModels {
+        default: chain(&["d"]),
+        opus: chain(&["o"]),
+        ..Default::default()
+    };
+    let p = glm_coding_platform(extra, pm.clone());
+    // 自定义优先于内置 opus
+    let got = resolve_target_chain(
+        RequestKind::Chat,
+        &pm,
+        &p,
+        &DecisionModels::default(),
+        "claude-opus-fast",
+        &cache.custom,
+    );
+    assert_eq!(got, chain(&["f1", "f2"]));
+    let via = model_via_for(
+        &p,
+        Some(&cache),
+        RequestKind::Chat,
+        OFF_MS,
+        "claude-opus-fast",
+        &None,
+    );
+    assert_eq!(via, vec![ModelVia::SlotCustom("fast".into())]);
+    // 未命中 → 内置 opus，via 不变
+    let via = model_via_for(
+        &p,
+        Some(&cache),
+        RequestKind::Chat,
+        OFF_MS,
+        "claude-opus-4",
+        &None,
+    );
+    assert_eq!(via, vec![ModelVia::SlotOpus]);
+}
+
+#[test]
+fn custom_slot_skipped_for_non_chat_kinds() {
+    let defs = custom_defs(&[("fast", false)]);
+    let extra = r#"{"custom_slots":{"fast":["f1"]}}"#;
+    // 非聊天请求不构建自定义表
+    assert!(
+        ExtraCache::new(extra, &Protocol::Anthropic, None)
+            .custom
+            .is_empty()
+    );
+    let cache = ExtraCache::new(extra, &Protocol::Anthropic, Some(&defs));
+    let pm = PlatformModels {
+        embedding: chain(&["e1"]),
+        ..Default::default()
+    };
+    let p = glm_coding_platform(extra, pm.clone());
+    let got = resolve_target_chain(
+        RequestKind::Embedding,
+        &pm,
+        &p,
+        &DecisionModels::default(),
+        "fast",
+        &cache.custom,
+    );
+    assert_eq!(got, chain(&["e1"]), "embedding 专用槽不读自定义槽");
 }

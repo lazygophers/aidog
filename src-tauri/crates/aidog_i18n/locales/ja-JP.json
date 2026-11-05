@@ -962,6 +962,7 @@
   "logs.routing.via.slot-haiku": "Haiku スロット",
   "logs.routing.via.slot-gpt": "GPT スロット",
   "logs.routing.via.slot-default": "デフォルトスロット",
+  "logs.routing.via.slot-custom": "カスタムスロット {{name}}",
   "logs.routing.via.dedicated-slot": "専用スロット",
   "logs.routing.via.passthrough": "名前そのまま",
   "logs.attempts": "試行記録",

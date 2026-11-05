@@ -962,6 +962,7 @@
   "logs.routing.via.slot-haiku": "خانة Haiku",
   "logs.routing.via.slot-gpt": "خانة GPT",
   "logs.routing.via.slot-default": "الخانة الافتراضية",
+  "logs.routing.via.slot-custom": "خانة مخصصة {{name}}",
   "logs.routing.via.dedicated-slot": "خانة مخصصة",
   "logs.routing.via.passthrough": "الاسم كما هو",
   "logs.attempts": "المحاولات",
