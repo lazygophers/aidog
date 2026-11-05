@@ -26,18 +26,33 @@ pub(crate) struct CustomSlotEntry {
     pub chain: Vec<String>,
 }
 
+/// 内置槽名（与前端 `BUILTIN_SLOT_NAMES` / `ModelSlot` 一致），自定义槽不得重名。
+const BUILTIN_SLOT_NAMES: [&str; 8] =
+    ["default", "opus", "sonnet", "haiku", "gpt", "jev", "embedding", "rerank"];
+
+fn valid_slot_name(n: &str) -> bool {
+    (1..=24).contains(&n.len()) && n.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+}
+
 /// 解析全局槽位定义。非数组 / 缺名字 / 空名字的项跳过；`match` 缺省或未知 = contains。
+/// 名字不合 `^[a-z0-9-]{1,24}$`、与内置槽重名、或重复（保留先出现者）的项 warn 后跳过。
 pub(crate) fn parse_custom_defs(v: Option<&serde_json::Value>) -> Vec<CustomSlotDef> {
     let Some(arr) = v.and_then(|v| v.as_array()) else { return Vec::new() };
-    arr.iter()
-        .filter_map(|item| {
-            let name = item.get("name")?.as_str()?.trim();
-            (!name.is_empty()).then(|| CustomSlotDef {
-                name: name.to_string(),
-                exact: item.get("match").and_then(|m| m.as_str()) == Some("exact"),
-            })
-        })
-        .collect()
+    let mut out: Vec<CustomSlotDef> = Vec::new();
+    for item in arr {
+        let Some(name) = item.get("name").and_then(|n| n.as_str()).map(str::trim).filter(|n| !n.is_empty()) else {
+            continue;
+        };
+        if !valid_slot_name(name) || BUILTIN_SLOT_NAMES.contains(&name) || out.iter().any(|d| d.name == name) {
+            tracing::warn!(slot = %name, "custom_model_slots: invalid, builtin-colliding or duplicate slot name; skipped");
+            continue;
+        }
+        out.push(CustomSlotDef {
+            name: name.to_string(),
+            exact: item.get("match").and_then(|m| m.as_str()) == Some("exact"),
+        });
+    }
+    out
 }
 
 /// 由全局定义 + 平台 `extra.custom_slots` 生成该平台的有序命中表。无值的槽不入表（= 未命中）；

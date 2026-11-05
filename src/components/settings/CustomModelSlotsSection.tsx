@@ -1,5 +1,5 @@
 // 自定义模型槽位定义（system tab）：槽名 + 匹配方式。各平台的值在平台编辑页填（票 02），路由见票 03。
-// 删除前显示已填值平台数，确认后先清各平台 extra.custom_slots[槽名] 再写定义。
+// 删除前显示已填值平台数，确认后先写定义再清各平台 extra.custom_slots[槽名]。
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { customSlotsApi, type CustomSlotDef, type CustomSlotMatch } from "../../services/api/customSlots";
@@ -78,13 +78,13 @@ export function CustomModelSlotsSection() {
     if (!pending) return;
     const { name: n } = pending;
     setPending(null);
+    // 先写定义再清平台值：写定义失败则平台值原样保留；清值失败只留下被后端忽略的孤儿键。
+    if (!(await persist(list.filter((s) => s.name !== n)))) return;
     try {
       await customSlotsApi.purge(n);
     } catch (e) {
       setSaveError(String(e));
-      return;
     }
-    await persist(list.filter((s) => s.name !== n));
   };
 
   return (

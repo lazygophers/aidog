@@ -3951,3 +3951,55 @@ fn custom_slot_skipped_for_non_chat_kinds() {
     );
     assert_eq!(got, chain(&["e1"]), "embedding 专用槽不读自定义槽");
 }
+
+/// settings(model/custom_model_slots) → 路由：写设置后选候选读到定义；改设置后新定义立即生效（无需重建别的）。
+#[tokio::test]
+async fn custom_slot_setting_flows_into_candidate_selection() {
+    let (db, _dir) = mk_three_file_db().await;
+    let a = mk_platform_models(&db, "A", slot_default("d"), vec![]).await;
+    set_extra(&db, a.id, r#"{"custom_slots":{"fast":["f1","f2"],"slow":["s1"]}}"#).await;
+    let g = mk_db_group(&db, "cs", &[a.id]).await;
+    let put = |v: serde_json::Value| {
+        let db = &db;
+        async move {
+            db::set_setting(
+                db,
+                db::models::SetSettingInput {
+                    scope: "model".into(),
+                    key: "custom_model_slots".into(),
+                    value: v,
+                },
+            )
+            .await
+            .expect("set setting");
+        }
+    };
+    put(serde_json::json!([{"name": "fast", "match": "contains"}])).await;
+    let set = select_candidates_ctx(&db, &g, "claude-fast-1", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    let c = &set.candidates[0];
+    assert_eq!(c.target_model, "f1");
+    assert_eq!(c.fallback_models, chain(&["f2"]));
+    let e = &set.routing.entries[0];
+    assert_eq!(e.model_via, vec![ModelVia::SlotCustom("fast".into())]);
+    // 请求名不含 fast → default
+    let set = select_candidates_ctx(&db, &g, "claude-slow-1", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    assert_eq!(set.candidates[0].target_model, "d", "slow 尚未定义（孤儿键忽略）");
+    // 改定义：slow 生效，fast 不再生效
+    put(serde_json::json!([{"name": "slow", "match": "exact"}])).await;
+    let set = select_candidates_ctx(&db, &g, "slow", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    assert_eq!(set.candidates[0].target_model, "s1");
+    assert_eq!(
+        set.routing.entries[0].model_via,
+        vec![ModelVia::SlotCustom("slow".into())]
+    );
+    let set = select_candidates_ctx(&db, &g, "claude-fast-1", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    assert_eq!(set.candidates[0].target_model, "d");
+}
