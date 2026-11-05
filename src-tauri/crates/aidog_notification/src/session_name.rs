@@ -76,6 +76,19 @@ pub(crate) fn scan_transcript(path: &Path, prev: ClaudeCache) -> std::io::Result
 /// 解析会话名并刷新缓存；`vars` 缺 `session_id` / `transcript_path` 时返回已有 `session_name` 或空串。
 /// 每次都重新检查来源（增量读），缓存只省重复全量读。失败 → 空串 + debug 日志。
 pub(crate) async fn resolve(db: &Db, vars: &HashMap<String, String>) -> String {
+    resolve_in(db, vars, &projects_root()).await
+}
+
+fn projects_root() -> std::path::PathBuf {
+    // 测试：fixture 在 tempdir，不碰真 ~/.claude。
+    #[cfg(test)]
+    return std::env::temp_dir();
+    #[cfg(not(test))]
+    dirs::home_dir().unwrap_or_default().join(".claude").join("projects")
+}
+
+/// `root` 为允许读取的 transcript 根目录（生产 = `~/.claude/projects`，测试注入 tempdir）。
+pub(crate) async fn resolve_in(db: &Db, vars: &HashMap<String, String>, root: &Path) -> String {
     let get = |k: &str| vars.get(k).map(|s| s.trim()).filter(|s| !s.is_empty());
     // hook 脚本把 stdin 的 session_id 以 `session` 键发出（scripts.rs 通用透传跳过 session_id），
     // 直接带 session_id 的调用方（测试 / 其它脚本）同样认。
@@ -98,17 +111,22 @@ pub(crate) async fn resolve(db: &Db, vars: &HashMap<String, String>) -> String {
         .and_then(|j| serde_json::from_str(j).ok())
         .unwrap_or_default();
     let path = std::path::PathBuf::from(path);
+    // /api/notify 的 vars 来自本机任意调用方：只读 root 下、无 `..` 的文件，其余当无名。
+    if !path.starts_with(root) || path.components().any(|c| c == std::path::Component::ParentDir) {
+        tracing::debug!("session_name: transcript_path outside root, skipped");
+        return String::new();
+    }
     let prev2 = prev.clone();
     let scanned = tokio::task::spawn_blocking(move || scan_transcript(&path, prev2)).await;
     let next = match scanned {
         Ok(Ok(c)) => c,
         Ok(Err(e)) => {
             tracing::debug!(error = %e, "session_name: read transcript failed");
-            return String::new();
+            return prev.name;
         }
         Err(e) => {
             tracing::debug!(error = %e, "session_name: scan task failed");
-            return String::new();
+            return prev.name;
         }
     };
     if next != prev
@@ -183,6 +201,7 @@ pub(crate) async fn resolve_codex(db: &Db, vars: &HashMap<String, String>, home:
         return String::new();
     };
     let json = serde_json::json!({ "name": name, "source": source }).to_string();
+    // 缓存只写不读：仅用于「名字没变就不重写」的比较与排查，运行时不据此回落（表结构由 spec 定）。
     let same = aidog_db::get_session_name_cache(db, CLIENT_CODEX, tid)
         .await
         .ok()

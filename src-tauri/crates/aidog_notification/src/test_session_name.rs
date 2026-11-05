@@ -116,13 +116,13 @@ async fn resolve_uses_and_refreshes_db_cache() {
     let p = d.path().join("t.jsonl");
     write(&p, &[AI]);
     let v = vars(&[("session_id", "s1"), ("transcript_path", p.to_str().unwrap())]);
-    assert_eq!(resolve(&db, &v).await, "自动标题");
+    assert_eq!(resolve_in(&db, &v, d.path()).await, "自动标题");
     let cached = aidog_db::get_session_name_cache(&db, "claude_code", "s1").await.unwrap().unwrap();
     let c: ClaudeCache = serde_json::from_str(&cached).unwrap();
     assert_eq!((c.name.as_str(), c.offset), ("自动标题", std::fs::metadata(&p).unwrap().len()));
     // /rename 之后再次解析：名字变了、缓存更新
     append(&p, &format!("{CUSTOM}\n"));
-    assert_eq!(resolve(&db, &v).await, "我起的名");
+    assert_eq!(resolve_in(&db, &v, d.path()).await, "我起的名");
     let c2: ClaudeCache = serde_json::from_str(
         &aidog_db::get_session_name_cache(&db, "claude_code", "s1").await.unwrap().unwrap(),
     )
@@ -135,10 +135,40 @@ async fn resolve_failures_yield_empty() {
     let (db, _dir) = aidog_db::test_support::three_file_db().await;
     let d = tempfile::tempdir().unwrap();
     // 缺 session_id / transcript_path
-    assert_eq!(resolve(&db, &vars(&[("project", "x")])).await, "");
+    assert_eq!(resolve_in(&db, &vars(&[("project", "x")]), d.path()).await, "");
     // 文件不存在
     let v = vars(&[("session_id", "s2"), ("transcript_path", d.path().join("no.jsonl").to_str().unwrap())]);
-    assert_eq!(resolve(&db, &v).await, "");
+    assert_eq!(resolve_in(&db, &v, d.path()).await, "");
+}
+
+// F6：根目录外的 transcript_path 不读（/api/notify 入参可被本机任意进程构造），名字为空。
+#[tokio::test]
+async fn resolve_outside_root_not_read() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let root = tempfile::tempdir().unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    let p = outside.path().join("t.jsonl");
+    write(&p, &[AI]);
+    let v = vars(&[("session_id", "s3"), ("transcript_path", p.to_str().unwrap())]);
+    assert_eq!(resolve_in(&db, &v, root.path()).await, "");
+    assert!(aidog_db::get_session_name_cache(&db, "claude_code", "s3").await.unwrap().is_none());
+    // `..` 逃逸同样拒绝
+    let sneaky = root.path().join("..").join(outside.path().file_name().unwrap()).join("t.jsonl");
+    let v = vars(&[("session_id", "s3"), ("transcript_path", sneaky.to_str().unwrap())]);
+    assert_eq!(resolve_in(&db, &v, root.path()).await, "");
+}
+
+// F5：transcript 读失败（被删 / 暂不可读）回落缓存里的旧名，不让通知标题闪空。
+#[tokio::test]
+async fn resolve_read_failure_falls_back_to_cached_name() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let d = tempfile::tempdir().unwrap();
+    let p = d.path().join("t.jsonl");
+    write(&p, &[AI]);
+    let v = vars(&[("session_id", "s4"), ("transcript_path", p.to_str().unwrap())]);
+    assert_eq!(resolve_in(&db, &v, d.path()).await, "自动标题");
+    std::fs::remove_file(&p).unwrap();
+    assert_eq!(resolve_in(&db, &v, d.path()).await, "自动标题");
 }
 
 // ---- Codex ----
@@ -229,5 +259,5 @@ async fn long_transcript_path_resolves_name() {
     write(&p, &[AI]);
     assert!(p.to_str().unwrap().chars().count() > 200);
     let v = vars(&[("session", "s9"), ("transcript_path", p.to_str().unwrap())]);
-    assert_eq!(resolve(&db, &v).await, "自动标题");
+    assert_eq!(resolve_in(&db, &v, d.path()).await, "自动标题");
 }
