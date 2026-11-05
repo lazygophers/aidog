@@ -14,6 +14,9 @@
 use aidog_db::models::{ClientUaRule, UaRuleKind};
 use serde::Serialize;
 
+/// 未识别 UA 的统计码前缀（`ua:<产品名>`）；前端 `utils/clientLabel.ts::UA_CODE_PREFIX` 必须一致。
+pub const UA_CODE_PREFIX: &str = "ua:";
+
 #[derive(Clone, Copy)]
 enum M {
     /// UA 包含子串。

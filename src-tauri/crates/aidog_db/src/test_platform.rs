@@ -754,6 +754,8 @@ async fn client_ua_rules_validation_rejects_bad_rules_on_create_and_update() {
         r#"{"client_ua_rules":[{"kind":"glob","pattern":"x*"}]}"#,
         r#"{"client_ua_rules":[{"kind":"regex"}]}"#,
         r#"{"client_ua_rules":"x"}"#,
+        // JS RegExp 合法、Rust regex 不支持（前端即时校验放行，须由后端保存校验拦下）
+        r#"{"client_ua_rules":[{"kind":"regex","pattern":"^(?=foo)"}]}"#,
         // 超过编译体积上限
         r#"{"client_ua_rules":[{"kind":"regex","pattern":"(a{1000}){1000}"}]}"#,
     ];
