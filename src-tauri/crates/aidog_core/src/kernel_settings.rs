@@ -8,6 +8,7 @@
 //! - [`KernelSettings::auth_token`]：非空时三类路径都要求 `Authorization: Bearer <auth_token>`；
 //!   空 = 不校验。反向代理回连本机时，同机其他进程同样够得着代理端口，凭据是这一层的防线。
 
+use crate::gateway::proxy::{SETTINGS_TEST_SOURCE, SOURCE_HEADER};
 use aidog_db::{self as db, Db};
 
 /// 管理接口设置。
@@ -119,7 +120,7 @@ pub async fn send_management_request(
         .map_err(|e| e.to_string())?
         .post(format!("http://127.0.0.1:{port}/api/rpc/{command}"))
         .header("content-type", "application/json")
-        .header("x-aidog-source", "settings-test")
+        .header(SOURCE_HEADER, SETTINGS_TEST_SOURCE)
         .body(body.to_string());
     if !token.trim().is_empty() {
         req = req.bearer_auth(token.trim());
