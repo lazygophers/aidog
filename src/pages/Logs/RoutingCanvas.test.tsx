@@ -314,6 +314,20 @@ describe("RoutingCanvas 其他分支", () => {
     expect(c.querySelector('[data-node-id="c-1"] [data-testid="routing-not-chosen"]')).toBeNull();
   });
 
+  it("自定义槽位命中：via 标签用 slot-custom 文案键并带槽名参数，固定词仍走各自键", () => {
+    const calls: Array<[string, unknown]> = [];
+    const spyT = ((key: string, vars?: unknown) => { calls.push([key, vars]); return key; }) as unknown as Props["t"];
+    const snap: RoutingSnapshot = {
+      mode: "failover", max_retries: 3,
+      entries: [cand({ order: 1, platform_id: 1, target_model: "f1", model_via: ["mapped", "slot-custom:fast"] })],
+    };
+    const c = mount({ routing: snap, attempts: [att({ platform_id: 1 })], t: spyT });
+    const pills = [...c.querySelectorAll('[data-testid="routing-model-via"]')];
+    expect(pills.map((p) => p.getAttribute("data-via"))).toEqual(["mapped", "slot-custom:fast"]);
+    expect(pills.map((p) => p.textContent)).toEqual(["logs.routing.via.mapped", "logs.routing.via.slot-custom"]);
+    expect(calls).toContainEqual(["logs.routing.via.slot-custom", { name: "fast" }]);
+  });
+
   it("仅有 eval_ms 的新格式快照（无 shortcut / max_retries）：检查项不误显未记录", () => {
     const snap: RoutingSnapshot = { mode: "failover", eval_ms: 5, entries: [cand({ order: 1, platform_id: 1 })] };
     const c = mount({ routing: snap, attempts: [att({ platform_id: 1 })] });
@@ -378,5 +392,16 @@ describe("RoutingCanvas 全组额度用完（票 03）", () => {
     expect(b.getAttribute("data-reason")).toBe("quota_exhausted");
     expect(b.getAttribute("data-label")).toBe("logs.blockedQuotaExhausted");
     expect(c.querySelector('[data-node-id="c-11"] [data-testid="routing-not-chosen"]')!.getAttribute("data-reason")).toBe("quota-cooldown");
+  });
+
+  it("其它 blockedReason 保持原始串显示，不走 i18n（Std3）", () => {
+    const snap: RoutingSnapshot = {
+      mode: "failover", eval_ms: 3,
+      entries: [cand({ order: 1, platform_id: 11, reason: "peak-disabled" })],
+    };
+    const c = mount({ routing: snap, attempts: [], statusCode: 503, blockedBy: "router", blockedReason: "peak" });
+    const b = c.querySelector('[data-node-id="resp"] [data-testid="routing-resp-blocked"]')!;
+    expect(b.getAttribute("data-reason")).toBe("peak");
+    expect(b.getAttribute("data-label")).toBe("peak");
   });
 });

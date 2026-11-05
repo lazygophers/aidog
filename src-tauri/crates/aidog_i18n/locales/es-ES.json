@@ -940,6 +940,7 @@
   "logs.routing.via.slot-haiku": "Ranura Haiku",
   "logs.routing.via.slot-gpt": "Ranura GPT",
   "logs.routing.via.slot-default": "Ranura predeterminada",
+  "logs.routing.via.slot-custom": "Ranura personalizada {{name}}",
   "logs.routing.via.dedicated-slot": "Ranura dedicada",
   "logs.routing.via.passthrough": "Nombre sin cambios",
   "logs.attempts": "Intentos",

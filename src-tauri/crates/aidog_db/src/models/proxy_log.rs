@@ -231,9 +231,15 @@ pub struct SingleShortcut {
 }
 
 /// 目标模型的选择来源（可叠加：如 `mapped` + `slot-opus`）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(rename_all = "kebab-case")]
-#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+///
+/// 线格式是单个字符串：固定词用 kebab-case（`slot-opus`），自定义槽位为 `slot-custom:<槽名>`。
+/// 手写 serde 而非 derive：带名字的变体用 derive 会成 `{"slot-custom":"x"}` 对象，破坏既有字符串数组形态。
+#[derive(Debug, Clone, PartialEq, Eq, TS)]
+#[ts(
+    export,
+    export_to = "../../../../src/services/api/types/generated/",
+    type = r#""mapped" | "time-window" | "preset-peak" | "slot-opus" | "slot-sonnet" | "slot-haiku" | "slot-gpt" | "slot-default" | "dedicated-slot" | "passthrough" | `slot-custom:${string}`"#
+)]
 pub enum ModelVia {
     /// 分组 model_mappings 先把请求模型名改成映射目标名
     Mapped,
@@ -249,12 +255,63 @@ pub enum ModelVia {
     SlotHaiku,
     /// 命中平台 gpt 槽位
     SlotGpt,
+    /// 命中自定义槽位（槽名）
+    SlotCustom(String),
     /// 无档位词命中，落平台 default 槽位
     SlotDefault,
     /// 专用槽位（embedding / rerank / 决策 jev）
     DedicatedSlot,
     /// 无槽位可用 / 透传平台 / Tools：沿用（映射后的）请求模型名
     Passthrough,
+}
+
+const SLOT_CUSTOM_PREFIX: &str = "slot-custom:";
+
+impl ModelVia {
+    fn wire(&self) -> std::borrow::Cow<'static, str> {
+        use std::borrow::Cow::{Borrowed, Owned};
+        match self {
+            Self::Mapped => Borrowed("mapped"),
+            Self::TimeWindow => Borrowed("time-window"),
+            Self::PresetPeak => Borrowed("preset-peak"),
+            Self::SlotOpus => Borrowed("slot-opus"),
+            Self::SlotSonnet => Borrowed("slot-sonnet"),
+            Self::SlotHaiku => Borrowed("slot-haiku"),
+            Self::SlotGpt => Borrowed("slot-gpt"),
+            Self::SlotCustom(name) => Owned(format!("{SLOT_CUSTOM_PREFIX}{name}")),
+            Self::SlotDefault => Borrowed("slot-default"),
+            Self::DedicatedSlot => Borrowed("dedicated-slot"),
+            Self::Passthrough => Borrowed("passthrough"),
+        }
+    }
+}
+
+impl Serialize for ModelVia {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(&self.wire())
+    }
+}
+
+impl<'de> Deserialize<'de> for ModelVia {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let raw = String::deserialize(d)?;
+        Ok(match raw.as_str() {
+            "mapped" => Self::Mapped,
+            "time-window" => Self::TimeWindow,
+            "preset-peak" => Self::PresetPeak,
+            "slot-opus" => Self::SlotOpus,
+            "slot-sonnet" => Self::SlotSonnet,
+            "slot-haiku" => Self::SlotHaiku,
+            "slot-gpt" => Self::SlotGpt,
+            "slot-default" => Self::SlotDefault,
+            "dedicated-slot" => Self::DedicatedSlot,
+            "passthrough" => Self::Passthrough,
+            other => match other.strip_prefix(SLOT_CUSTOM_PREFIX) {
+                Some(name) if !name.is_empty() => Self::SlotCustom(name.to_string()),
+                _ => return Err(serde::de::Error::custom(format!("unknown ModelVia: {other}"))),
+            },
+        })
+    }
 }
 
 /// 单个候选平台的路由评估结果。

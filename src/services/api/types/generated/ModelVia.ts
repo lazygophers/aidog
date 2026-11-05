@@ -2,5 +2,8 @@
 
 /**
  * 目标模型的选择来源（可叠加：如 `mapped` + `slot-opus`）。
+ *
+ * 线格式是单个字符串：固定词用 kebab-case（`slot-opus`），自定义槽位为 `slot-custom:<槽名>`。
+ * 手写 serde 而非 derive：带名字的变体用 derive 会成 `{"slot-custom":"x"}` 对象，破坏既有字符串数组形态。
  */
-export type ModelVia = "mapped" | "time-window" | "preset-peak" | "slot-opus" | "slot-sonnet" | "slot-haiku" | "slot-gpt" | "slot-default" | "dedicated-slot" | "passthrough";
+export type ModelVia = "mapped" | "time-window" | "preset-peak" | "slot-opus" | "slot-sonnet" | "slot-haiku" | "slot-gpt" | "slot-default" | "dedicated-slot" | "passthrough" | `slot-custom:${string}`;

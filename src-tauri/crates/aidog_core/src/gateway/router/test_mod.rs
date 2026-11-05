@@ -367,3 +367,143 @@ fn resolve_model_skips_blank_slots() {
     };
     assert_eq!(resolve_model(&blank_default, "x[1m]"), "x", "blank default passes through");
 }
+
+// ── 自定义模型槽位（ticket 03）：model_mapping ──
+
+mod custom_slots {
+    use super::super::model_mapping::*;
+    use aidog_db::models::{ModelVia, PlatformModels};
+    use serde_json::json;
+    use std::sync::{Arc, Mutex};
+
+    fn d(name: &str, exact: bool) -> CustomSlotDef {
+        CustomSlotDef { name: name.into(), exact }
+    }
+    fn entries(defs: &[CustomSlotDef], values: serde_json::Value) -> Vec<CustomSlotEntry> {
+        build_custom_entries(defs, Some(&values))
+    }
+    fn hit(models: &PlatformModels, e: &[CustomSlotEntry], name: &str) -> (Vec<String>, ModelVia) {
+        resolve_model_chain_with_custom(models, e, name)
+    }
+    fn v(a: &[&str]) -> Vec<String> {
+        a.iter().map(|s| s.to_string()).collect()
+    }
+    fn base() -> PlatformModels {
+        PlatformModels { default: v(&["dflt"]), opus: v(&["opus-m"]), gpt: v(&["gpt-m"]), ..Default::default() }
+    }
+
+    #[test]
+    fn exact_beats_contains_even_when_defined_later() {
+        let defs = [d("fast", false), d("claude-fast", true)];
+        let e = entries(&defs, json!({"fast": ["c"], "claude-fast": ["x"]}));
+        assert_eq!(hit(&base(), &e, "claude-fast"), (v(&["x"]), ModelVia::SlotCustom("claude-fast".into())));
+        // 精确类不做包含匹配：带后缀不命中 exact，落到 contains
+        assert_eq!(hit(&base(), &e, "claude-fast-2"), (v(&["c"]), ModelVia::SlotCustom("fast".into())));
+    }
+
+    #[test]
+    fn exact_does_not_match_substring() {
+        let e = entries(&[d("fast", true)], json!({"fast": ["x"]}));
+        assert_eq!(hit(&base(), &e, "my-fast-model").1, ModelVia::SlotDefault);
+    }
+
+    #[test]
+    fn longer_keyword_wins_then_definition_order() {
+        let defs = [d("fa", false), d("fast", false), d("ab", false), d("cd", false)];
+        let e = entries(&defs, json!({"fa": ["s"], "fast": ["l"], "ab": ["ab-m"], "cd": ["cd-m"]}));
+        assert_eq!(hit(&base(), &e, "m-fast-1").0, v(&["l"]));
+        // 同长度按定义序：ab 先于 cd
+        assert_eq!(hit(&base(), &e, "abcd").0, v(&["ab-m"]));
+    }
+
+    #[test]
+    fn custom_beats_builtin_and_lowercases_and_strips_budget_suffix() {
+        let e = entries(&[d("fast", false)], json!({"fast": ["x"]}));
+        assert_eq!(hit(&base(), &e, "Claude-OPUS-FAST[1m]"), (v(&["x"]), ModelVia::SlotCustom("fast".into())));
+    }
+
+    #[test]
+    fn unfilled_platform_value_is_a_miss_and_falls_back() {
+        let defs = [d("fast", false), d("bg", false)];
+        // fast 无键、bg 空串 / 空数组 → 均视同未命中
+        let e = entries(&defs, json!({"bg": [" "]}));
+        assert!(e.is_empty());
+        assert_eq!(hit(&base(), &e, "x-opus-fast-bg"), (v(&["opus-m"]), ModelVia::SlotOpus));
+        assert_eq!(hit(&base(), &e, "x-fast"), (v(&["dflt"]), ModelVia::SlotDefault));
+    }
+
+    #[test]
+    fn longer_unfilled_slot_falls_through_to_shorter_filled() {
+        let defs = [d("fast-x", false), d("fast", false)];
+        let e = entries(&defs, json!({"fast": ["s"]}));
+        assert_eq!(hit(&base(), &e, "fast-x-1").0, v(&["s"]));
+    }
+
+    #[test]
+    fn chain_is_normalized_like_builtin_slots() {
+        let e = entries(&[d("fast", false)], json!({"fast": ["a", " ", "b", "a"]}));
+        assert_eq!(hit(&base(), &e, "fast").0, v(&["a", "b"]));
+    }
+
+    #[test]
+    fn orphan_keys_ignored_and_warned() {
+        struct W(Arc<Mutex<Vec<u8>>>);
+        impl std::io::Write for W {
+            fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
+                self.0.lock().unwrap().extend_from_slice(b);
+                Ok(b.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let buf = Arc::new(Mutex::new(Vec::new()));
+        let b2 = buf.clone();
+        let sub = tracing_subscriber::fmt()
+            .with_writer(move || W(b2.clone()))
+            .with_ansi(false)
+            .finish();
+        let e = tracing::subscriber::with_default(sub, || {
+            entries(&[d("fast", false)], json!({"fast": ["x"], "ghost": ["y"]}))
+        });
+        assert_eq!(e.len(), 1, "孤儿键不入表");
+        assert_eq!(e[0].name, "fast");
+        let log = String::from_utf8(buf.lock().unwrap().clone()).unwrap();
+        assert!(log.contains("WARN") && log.contains("ghost"), "orphan warn 缺失: {log}");
+        assert!(!log.contains("fast"), "已定义的键不应 warn: {log}");
+    }
+
+    #[test]
+    fn no_custom_entries_keeps_builtin_behavior() {
+        assert_eq!(hit(&base(), &[], "claude-opus-4"), (v(&["opus-m"]), ModelVia::SlotOpus));
+        assert_eq!(hit(&base(), &[], "zzz").1, ModelVia::SlotDefault);
+        assert_eq!(hit(&PlatformModels::default(), &[], "zzz[1m]"), (v(&["zzz"]), ModelVia::Passthrough));
+    }
+
+    #[test]
+    fn parse_defs_reads_match_and_skips_bad_items() {
+        let got = parse_custom_defs(Some(&json!([
+            {"name": "fast"},
+            {"name": "bg", "match": "exact"},
+            {"name": "x", "match": "contains"},
+            {"match": "exact"},
+            "junk",
+            {"name": ""}
+        ])));
+        assert_eq!(got, vec![d("fast", false), d("bg", true), d("x", false)]);
+        assert!(parse_custom_defs(None).is_empty());
+        assert!(parse_custom_defs(Some(&json!("oops"))).is_empty());
+    }
+
+    #[test]
+    fn via_wire_format_roundtrip() {
+        let s = serde_json::to_string(&ModelVia::SlotCustom("fast".into())).unwrap();
+        assert_eq!(s, "\"slot-custom:fast\"");
+        assert_eq!(serde_json::from_str::<ModelVia>(&s).unwrap(), ModelVia::SlotCustom("fast".into()));
+        // 旧持久化值仍可解析
+        assert_eq!(serde_json::from_str::<ModelVia>("\"slot-opus\"").unwrap(), ModelVia::SlotOpus);
+        assert_eq!(serde_json::to_string(&ModelVia::SlotOpus).unwrap(), "\"slot-opus\"");
+        assert!(serde_json::from_str::<ModelVia>("\"slot-custom:\"").is_err());
+        assert!(serde_json::from_str::<ModelVia>("\"nope\"").is_err());
+    }
+}
