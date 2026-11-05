@@ -207,7 +207,12 @@ pub async fn calibrate_from_quota(
     // 额度冷却只认真查返回值（quota 参数），不看估算外推；手动刷新 / 自动校准 / 冷启动 / 重置定时
     // 全部汇入本函数，故此处是唯一判定挂点。调度器未启动（代理从未运行）→ 无冷却可写。
     if let Some(s) = crate::gateway::scheduling::global() {
-        apply_quota_verdict(&s, platform_id, super::algo::quota_verdict(quota, now()));
+        let verdict = super::algo::quota_verdict(quota, now());
+        apply_quota_verdict(&s, platform_id, verdict);
+        // 用完 → 起退避真查链（同平台至多一条）；恢复 → 链终止、退避归零。
+        if BACKOFF_CHAINS.on_verdict(platform_id, verdict) {
+            spawn_backoff_chain(db.clone(), platform_id);
+        }
     }
     let prev_json: String = db
         .platform_write_conn()
@@ -255,6 +260,43 @@ pub async fn calibrate_from_quota(
     }
     tracing::info!(platform_id, is_coding_plan, coding_json_len = coding_json.len(), result = ?result, "calibrate_from_quota done");
     schedule_reset_refresh(db, platform_id, quota).await;
+}
+
+/// 活跃的额度退避真查链。内存态：重启后冷启动真查若仍用完会重新起链。
+static BACKOFF_CHAINS: std::sync::LazyLock<super::backoff::BackoffChains> =
+    std::sync::LazyLock::new(Default::default);
+
+/// 起退避真查链：每次到点走 `calibrate_from_quota` 同一入口（不受请求后 5 分钟校准节流约束），
+/// 恢复 / 平台删除即终止；进程退出时任务随运行时结束。
+fn spawn_backoff_chain(db: Db, platform_id: u64) {
+    use super::backoff::{Probe, run_chain};
+    tokio::spawn(async move {
+        run_chain(
+            &BACKOFF_CHAINS,
+            platform_id,
+            |ms| tokio::time::sleep(std::time::Duration::from_millis(ms as u64)),
+            || async {
+                let Ok(Some(p)) = aidog_db::get_platform(&db, platform_id).await else {
+                    return Probe::Gone;
+                };
+                let quota = crate::gateway::quota::query_quota(
+                    Some(&std::sync::Arc::new(db.clone())),
+                    &p.base_url,
+                    &p.api_key,
+                    platform_id as i64,
+                )
+                .await;
+                let is_coding_plan = quota.coding_plan.is_some();
+                calibrate_from_quota(&db, platform_id, &quota, is_coding_plan).await;
+                if BACKOFF_CHAINS.is_active(platform_id) {
+                    Probe::Exhausted
+                } else {
+                    Probe::Recovered
+                }
+            },
+        )
+        .await;
+    });
 }
 
 /// 每请求触发的校准尝试时刻（platform_id → unix ms）。校准失败不写库（保留预估），
