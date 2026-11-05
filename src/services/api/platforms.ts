@@ -646,6 +646,36 @@ export function serializeAppbuilderKey(extra: string, key: string): string {
 }
 
 
+/** 从 platform.extra JSON 解析自定义槽位值（extra.custom_slots[槽名] = 模型链）。非数组值丢弃，链去空去重。 */
+export function parseCustomSlots(extra: string): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  try {
+    const cs = (JSON.parse(extra) as { custom_slots?: unknown } | null)?.custom_slots;
+    if (cs && typeof cs === "object" && !Array.isArray(cs)) {
+      for (const [k, v] of Object.entries(cs)) {
+        if (!Array.isArray(v)) continue;
+        const chain = [...new Set(v.filter((x): x is string => typeof x === "string").map((x) => x.trim()).filter(Boolean))];
+        if (chain.length > 0) out[k] = chain;
+      }
+    }
+  } catch { /* ignore */ }
+  return out;
+}
+
+/** 把自定义槽位值写回 extra JSON（保留其余键）。只保留 defNames 内且链非空的键（孤儿键 / 空链丢弃）；无剩余 → 删 custom_slots 键。 */
+export function serializeCustomSlots(extra: string, values: Record<string, string[]>, defNames: string[]): string {
+  let obj: Record<string, unknown> = {};
+  try {
+    const parsed: unknown = JSON.parse(extra);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) obj = parsed as Record<string, unknown>;
+  } catch { /* ignore */ }
+  const kept: Record<string, string[]> = {};
+  for (const n of defNames) if (values[n]?.length) kept[n] = values[n];
+  if (Object.keys(kept).length > 0) obj.custom_slots = kept;
+  else delete obj.custom_slots;
+  return JSON.stringify(obj);
+}
+
 /** 从 platform.extra JSON 解析 mitm_stats 开关（cc-sub-mitm 票 12：Claude Code 订阅平台
  *  的 MITM 接入形态标记）。缺失 / 非法 / 非布尔 → false。 */
 export function parseMitmStats(extra: string): boolean {
