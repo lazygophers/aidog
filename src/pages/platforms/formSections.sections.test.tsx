@@ -8,6 +8,7 @@ import { useState } from "react";
 import { ManualBudgetsFields, RateLimitsSection, PeakSection, DirectModelsSection, AppbuilderKeySection, ClientWhitelistSection } from "./formSections";
 import type { ManualBudget, RateLimitsBundle, TimeWindow } from "../domains/platforms/defaults";
 import type { PlanQuotaTier } from "../domains/platforms/defaults";
+import { getDefaultModelList } from "../../domains/platforms";
 
 vi.mock("../../domains/platforms", async (importOriginal) => {
   const orig = await importOriginal<typeof import("../../domains/platforms")>();
@@ -259,6 +260,13 @@ describe("PeakSection — C 方向稿接线（preset RPC mock 空）", () => {
     const updater = setWindows.mock.calls[0][0] as (prev: TimeWindow[]) => TimeWindow[];
     const next = updater([{ start_hour: 0, end_hour: 24, multiplier: 1 }]);
     expect(next[0]).toMatchObject({ start_hour: 9, start_minute: 37 });
+  });
+  it("受影响模型的 datalist 不含该窗口已选模型", async () => {
+    vi.mocked(getDefaultModelList).mockResolvedValueOnce(["a", "b", "c"]);
+    const { container } = renderPeak([{ start_hour: 0, end_hour: 24, multiplier: 1, models: ["a"] }]);
+    await waitFor(() => expect(container.querySelectorAll("#peak-models-0 option").length).toBeGreaterThan(0));
+    const vals = Array.from(container.querySelectorAll("#peak-models-0 option")).map(o => o.getAttribute("value"));
+    expect(vals).toEqual(["b", "c"]);
   });
   it("生效期平铺恒显：两个 datetime-local 直接渲染（非必填，空 = 立即/永久）", () => {
     const { container } = renderPeak([{ start_hour: 0, end_hour: 24, multiplier: 1 }]);
