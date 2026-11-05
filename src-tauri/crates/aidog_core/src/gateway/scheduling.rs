@@ -342,6 +342,22 @@ impl SchedulerState {
         self.persist(platform_id);
     }
 
+    /// 真查判定写入：按给定截止**覆盖**额度冷却（0 = 解除）。与 [`set_quota_cooldown`]（取 max、
+    /// 只增不减）不同，真查结果是权威来源，可缩短或解除（含开放式冷却）。值未变不重复落库。
+    pub fn set_quota_cooldown_exact(&self, platform_id: u64, until_ms: i64) {
+        let changed = self.health.write().is_ok_and(|mut g| {
+            let cur = g.get(&platform_id).map_or(0, |h| h.quota_cooldown_until_ms);
+            if cur == until_ms {
+                return false;
+            }
+            g.entry(platform_id).or_default().quota_cooldown_until_ms = until_ms;
+            true
+        });
+        if changed {
+            self.persist(platform_id);
+        }
+    }
+
     /// 该平台此刻是否处于配额冷却中（到点自动失效，无需清理）。
     pub fn quota_cooled(&self, platform_id: u64, now_ms: i64) -> bool {
         self.health
