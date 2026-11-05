@@ -461,6 +461,9 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         });
     }
 
+    // 点击通知打开界面：须在任何通知发出前注册。
+    crate::ui_window::register_notification_tap(app.handle());
+
     // 通知授权（①）：启动时请求一次系统通知权限。
     // desktop 上 tauri-plugin-notification 为 no-op 返回 Granted（无害）；
     // mobile 会真实弹原生授权框。失败仅 warn，不 panic、不阻塞启动。

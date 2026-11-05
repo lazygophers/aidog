@@ -117,6 +117,31 @@ pub(crate) fn on_second_instance<R: Runtime>(app: &AppHandle<R>) {
     open(app);
 }
 
+/// 系统通知被点击（tauri-plugin-notification 2.8 `on_action`，点击本体的 action 为 `"tap"`）：打开界面。
+/// 更新通知的挂起版本已在 settings，界面就绪时 `flush_pending` 自会补弹更新提示，无需来源标记。
+pub(crate) fn on_notification_action<R: Runtime>(app: &AppHandle<R>, action_id: &str) {
+    if action_id != "tap" {
+        return;
+    }
+    // 回调在插件的 spawn_blocking 线程；建窗须主线程。
+    let a = app.clone();
+    if let Err(e) = app.run_on_main_thread(move || open(&a)) {
+        tracing::warn!(error = %e, "notification tap: dispatch to main thread failed");
+    }
+}
+
+/// 在任何通知发出前注册点击回调（setup 调一次）。
+pub(crate) fn register_notification_tap<R: Runtime>(app: &AppHandle<R>) {
+    use tauri_plugin_notification::NotificationExt;
+    let a = app.clone();
+    if let Err(e) = app
+        .notification()
+        .on_action(move |p| on_notification_action(&a, p.action_id()))
+    {
+        tracing::warn!(error = %e, "notification on_action register failed");
+    }
+}
+
 /// 前端 `closeGuard` 在 close-requested 里同步 emit 的存活确认（见 `utils/closeGuard.ts`）。
 pub(crate) const CLOSE_ACK_EVENT: &str = "aidog-close-ack";
 /// 前端放行关窗、即将 `destroy()` 前 emit：此刻起旧 webview 不再接收 deep link。
@@ -216,6 +241,15 @@ mod tests {
 
     fn forced() -> usize {
         FORCED_DESTROYS.load(Ordering::SeqCst)
+    }
+
+    #[test]
+    fn notification_tap_opens_ui_other_actions_do_not() {
+        let (_g, app) = setup();
+        on_notification_action(app.handle(), "other");
+        assert!(!exists(), "非 tap 动作不开界面");
+        on_notification_action(app.handle(), "tap");
+        assert!(exists(), "tap 打开界面");
     }
 
     #[test]

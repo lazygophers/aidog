@@ -3372,12 +3372,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tauri-apps/plugin-notification@npm:^2.3.3":
-  version: 2.3.3
-  resolution: "@tauri-apps/plugin-notification@npm:2.3.3"
+"@tauri-apps/plugin-notification@npm:^2.8.0":
+  version: 2.8.0
+  resolution: "@tauri-apps/plugin-notification@npm:2.8.0"
   dependencies:
-    "@tauri-apps/api": "npm:^2.8.0"
-  checksum: 10c0/a0af7a159a2e71ef080d356789fa219f8df98eff3b9adf7b8a37367b1de6a8a51eb8bc1aa91d42217a41f8fad4931a17251d86f66ab904b738416c3f272fa6df
+    "@tauri-apps/api": "npm:^2.12.0"
+  checksum: 10c0/e0713507bfe4b3f46b2b4f255faa5f314c21a39d1b5466efae76d9b1f56ae22cf9a6c3cf5794e941cc827f71b6b8a3ad35672610cb6e1c7f3e43d84aefb5b159
   languageName: node
   linkType: hard
 
@@ -4141,7 +4141,7 @@ __metadata:
     "@tauri-apps/cli": "npm:^2"
     "@tauri-apps/plugin-clipboard-manager": "npm:^2"
     "@tauri-apps/plugin-dialog": "npm:^2.7.1"
-    "@tauri-apps/plugin-notification": "npm:^2.3.3"
+    "@tauri-apps/plugin-notification": "npm:^2.8.0"
     "@tauri-apps/plugin-opener": "npm:^2"
     "@tauri-apps/plugin-process": "npm:^2"
     "@tauri-apps/plugin-updater": "npm:^2"
