@@ -525,7 +525,6 @@ async fn group_last_requests_picks_latest_per_group() {
         ts: base,
         model: None,
         chain_stop: None,
-        ttfb_ms: None,
         ..Default::default()
     }];
     let rows = vec![
