@@ -12,6 +12,7 @@ import {
   SEGMENT_DEF_MAP,
 } from "../../statusline-gen";
 import { statuslineApi } from "../../../../services/api";
+import { pickStatusLineOptions, type StatusLineOptionKey } from "./StatusLineOptions";
 
 export type ScriptType = "statusline" | "subagent";
 
@@ -45,6 +46,12 @@ export function useStatusLinePanel({
 
   const setStored = (patch: Record<string, any>) => {
     updateField(aidogKey, { ...stored, ...patch });
+  };
+
+  // 官方可选项：undefined = 用户清空，整键删除（不写 → 官方默认）。
+  const setOption = (key: StatusLineOptionKey, value: number | boolean | undefined) => {
+    const { [key]: _drop, ...rest } = stored;
+    updateField(aidogKey, value === undefined ? rest : { ...rest, [key]: value });
   };
 
   const handleToggle = (val: boolean) => {
@@ -107,7 +114,7 @@ export function useStatusLinePanel({
       updateField(fieldName, undefined);
       return;
     }
-    const value: Record<string, any> = { type: "command", command: cmd };
+    const value: Record<string, any> = { type: "command", command: cmd, ...(isMain ? pickStatusLineOptions(stored) : {}) };
     updateField(fieldName, value);
   };
 
@@ -170,7 +177,7 @@ export function useStatusLinePanel({
     editSeg, setEditSeg,
     showAddMenu, setShowAddMenu,
     // actions
-    handleToggle, updateSegments, deleteRow, handleApplyCustom,
+    handleToggle, setOption, updateSegments, deleteRow, handleApplyCustom,
     switchMode, addSegment, addRow, resetToDefaultLayout, cycleRowAlign,
   };
 }

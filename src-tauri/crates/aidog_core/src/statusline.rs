@@ -365,9 +365,36 @@ pub async fn prepare_statusline_fields(
                 Some(json!({ "type": "command", "command": invoker.command_for(&path) }))
             }
         };
+        // padding / refreshInterval / hideVimModeIndicator 只属于主 statusLine。
+        let value = if is_main {
+            value.map(|v| apply_options(v, base_config.get(aidog_key)))
+        } else {
+            value
+        };
         out[i] = (field, value);
     }
     Ok(out)
+}
+
+/// 把用户设过的官方可选项（padding / refreshInterval / hideVimModeIndicator）并进 statusLine 值；
+/// 未设置（缺失 / 类型或取值不合法）一律不写，保持官方默认。
+fn apply_options(mut value: Value, stored: Option<&Value>) -> Value {
+    let Some(o) = stored.and_then(Value::as_object) else {
+        return value;
+    };
+    let mut put = |k: &str, v: Value| {
+        value[k] = v;
+    };
+    if let Some(p) = o.get("padding").and_then(Value::as_u64) {
+        put("padding", json!(p));
+    }
+    if let Some(r) = o.get("refreshInterval").and_then(Value::as_u64).filter(|r| *r >= 1) {
+        put("refreshInterval", json!(r));
+    }
+    if let Some(h) = o.get("hideVimModeIndicator").and_then(Value::as_bool) {
+        put("hideVimModeIndicator", json!(h));
+    }
+    value
 }
 
 /// 把 `prepare_statusline_fields` 的结果写进一组 settings。
@@ -541,5 +568,30 @@ mod tests {
         inject_statusline(&mut config, &fields);
         assert!(config.get("statusLine").is_none());
         assert!(config.get("subagentStatusLine").is_none());
+    }
+
+    #[test]
+    fn apply_options_writes_only_what_user_set() {
+        let base = json!({"type": "command", "command": "c"});
+        // 全未设 → 原样。
+        assert_eq!(apply_options(base.clone(), Some(&json!({"enabled": true}))), base);
+        assert_eq!(apply_options(base.clone(), None), base);
+        // 三项都设 → 全写；padding 允许 0，hide=false 也算用户设过。
+        let v = apply_options(
+            base.clone(),
+            Some(&json!({"padding": 0, "refreshInterval": 5, "hideVimModeIndicator": false})),
+        );
+        assert_eq!(v["padding"], 0);
+        assert_eq!(v["refreshInterval"], 5);
+        assert_eq!(v["hideVimModeIndicator"], false);
+        assert_eq!(v["command"], "c");
+        // 非法值丢弃：负 padding、refreshInterval<1、非整数、错类型。
+        let v = apply_options(
+            base.clone(),
+            Some(&json!({"padding": -1, "refreshInterval": 0, "hideVimModeIndicator": "yes"})),
+        );
+        assert_eq!(v, base);
+        let v = apply_options(base.clone(), Some(&json!({"padding": 1.5, "refreshInterval": null})));
+        assert_eq!(v, base);
     }
 }
