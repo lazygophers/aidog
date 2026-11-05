@@ -946,12 +946,13 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                 <TableBody>
                   {pagedDims.map((d, i) => {
                     const rate = successRate(d.success_count, d.total_requests);
+                    const rateColor = levelColor(successRateLevel(rate, d.total_requests));
                     return (
                       <TableRow key={safePage * PAGE_SIZE + i} style={{ borderBottom: "1px solid var(--border)", opacity: 0.9 }}>
                         <TableCell style={{ padding: "6px 8px", fontWeight: 500, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</TableCell>
                         <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.total_requests)}</TableCell>
-                        <TableCell style={{ textAlign: "right", padding: "6px 8px", color: levelColor(successRateLevel(rate, d.total_requests)) }}>{formatNumber(d.success_count)}</TableCell>
-                        <TableCell data-testid="dim-success-rate" style={{ textAlign: "right", padding: "6px 8px", color: levelColor(successRateLevel(rate, d.total_requests)) }}>{formatPercent(rate)}</TableCell>
+                        <TableCell style={{ textAlign: "right", padding: "6px 8px", color: rateColor }}>{formatNumber(d.success_count)}</TableCell>
+                        <TableCell data-testid="dim-success-rate" style={{ textAlign: "right", padding: "6px 8px", color: rateColor }}>{formatPercent(rate)}</TableCell>
                         <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.input_tokens)}</TableCell>
                         <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.output_tokens)}</TableCell>
                         <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.cache_tokens)}</TableCell>
