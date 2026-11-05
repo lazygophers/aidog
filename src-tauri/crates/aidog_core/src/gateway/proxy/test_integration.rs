@@ -5795,52 +5795,8 @@ async fn ratelimit_embedding_takes_slot_rpm1() {
 // ── registry 错误码码义（票 ratelimit-03）：glm 的 1302=rate_limit / 1305=overloaded 由 preset 声明 ──
 
 async fn mk_platform_of(state: &Arc<ProxyState>, ptype: Protocol, base_url: String) -> u64 {
-    let id = aidog_db::create_platform(
-        &state.db,
-        CreatePlatform {
-            name: format!("p_{}", ptype.wire_str()),
-            platform_type: ptype.clone(),
-            base_url: base_url.clone(),
-            api_key: "sk-up".into(),
-            extra: String::new(),
-            models: None,
-            available_models: None,
-            endpoints: None,
-            manual_budgets: None,
-            auto_group: None,
-            join_group_ids: None,
-            expires_at: None,
-            quota_source: None,
-        },
-    )
-    .await
-    .unwrap()
-    .id;
-    // 厂商直连协议（glm 等）建库时端点被锁成 preset 真实域名；直写 DB 改指本地假上游，杜绝真实外呼。
     // 同时挂 Anthropic 端点：客户端是 anthropic 协议。
-    let eps = aidog_db::serialize_endpoints(
-        &[ptype, Protocol::Anthropic]
-            .into_iter()
-            .map(|protocol| crate::gateway::models::PlatformEndpoint {
-                protocol,
-                base_url: base_url.clone(),
-                client_type: "default".to_string(),
-                coding_plan: false,
-            })
-            .collect::<Vec<_>>(),
-    );
-    state
-        .db
-        .call_platform_traced(None, std::panic::Location::caller(), move |conn| {
-            conn.execute(
-                "UPDATE platform SET endpoints=?1 WHERE id=?2",
-                rusqlite::params![eps, id as i64],
-            )?;
-            Ok(())
-        })
-        .await
-        .unwrap();
-    id
+    aidog_db::test_support::create_platform_at_fake_upstream(&state.db, ptype.clone(), &base_url, &[ptype, Protocol::Anthropic]).await
 }
 
 /// 组内按序挂平台，第一个优先。
