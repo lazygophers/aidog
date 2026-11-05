@@ -32,6 +32,7 @@ export type SegmentType =
   // Rate limits (per window)
   | "rate-limit-5h"          // rate_limits.five_hour
   | "rate-limit-7d"          // rate_limits.seven_day
+  | "spend-limit"            // rate_limits.spend_limit
   // Git
   | "git-branch"             // git -C <cwd> branch --show-current（脚本内跑 git）
   | "git-host"               // workspace.repo.host
@@ -50,10 +51,13 @@ export type SegmentType =
   | "worktree-name"          // worktree.name
   | "worktree-branch"        // worktree.branch
   | "worktree-original-branch" // worktree.original_branch
+  | "worktree-path"          // worktree.path
+  | "worktree-original-cwd"  // worktree.original_cwd
   // PR
   | "pr-number"              // pr.number
   | "pr-url"                 // pr.url
   | "pr-state"               // pr.review_state
+  | "pr-kind"                // pr.kind
   // Other single fields
   | "version"                // version
   | "output-style"           // output_style.name
@@ -61,6 +65,11 @@ export type SegmentType =
   | "token-warn"             // exceeds_200k_tokens
   | "agent"                  // agent.name
   | "agent-badge"            // 子代理徽章 [type·status·model]（动态符号/色）
+  | "prompt-cache"           // prompt_cache.*
+  | "fast-mode"              // fast_mode
+  | "agent-type"             // 子代理 task.agentType
+  | "task-description"       // 子代理 task.description
+  | "task-effort"            // 子代理 task.effort
   // aidog group segments
   | "group-balance"  // aidog group: 预估余额
   | "group-spent"    // aidog group: 累计预估花费
@@ -100,7 +109,7 @@ export const VALUE_COLORABLE: Set<SegmentType> = new Set([
   "context-pct", "context-bar", "cost", "rate-limits",
   // Atomic value-class segments
   "cost-usd", "context-remaining", "rate-limit-5h", "rate-limit-7d",
-  "session-duration", "api-duration",
+  "session-duration", "api-duration", "spend-limit",
 ]);
 
 /** Segment types that consume the shared aidog group-info endpoint. */
@@ -656,6 +665,101 @@ export const SEGMENT_DEFS: SegmentDef[] = [
     fields: [],
   },
   {
+    type: "spend-limit",
+    name: "消费上限",
+    icon: "permissions",
+    desc: "rate_limits.spend_limit — 网关消费上限用量（未设置时隐藏）",
+    defaultOptions: { showReset: false, showAmount: false },
+    toPreview: (o) => `spend:63%${o.showReset ? " (2h)" : ""}${o.showAmount ? " $314.12/$500 monthly" : ""}`,
+    fields: [
+      { key: "showReset", label: "显示重置倒计时", type: "select", options: ["true", "false"] },
+      { key: "showAmount", label: "显示金额", type: "select", options: ["true", "false"] },
+    ],
+  },
+  {
+    type: "prompt-cache",
+    name: "提示缓存",
+    icon: "status",
+    desc: "prompt_cache — 命中率 / 预热 / 过期倒计时 / 未命中 / 冷启重建 / 未命中原因",
+    defaultOptions: { mode: "hitrate", prefix: "缓存 " },
+    toPreview: (o) => {
+      const body: Record<string, string> = {
+        hitrate: "91%", warm: "warm", ttl: "90m", misses: "2/14 miss",
+        recache: "cold→45K", cause: "tools_changed",
+      };
+      return (o.prefix ?? "缓存 ") + (body[o.mode ?? "hitrate"] ?? "91%");
+    },
+    fields: [
+      { key: "mode", label: "模式", type: "select", options: ["hitrate", "warm", "ttl", "misses", "recache", "cause"] },
+      { key: "prefix", label: "前缀", type: "string", placeholder: "缓存 " },
+    ],
+  },
+  {
+    type: "fast-mode",
+    name: "快速模式",
+    icon: "behavior",
+    desc: "fast_mode — 快速模式开启时显示",
+    defaultOptions: { label: "fast" },
+    toPreview: (o) => o.label ?? "fast",
+    fields: [
+      { key: "label", label: "文案", type: "string", placeholder: "fast" },
+    ],
+  },
+  {
+    type: "worktree-path",
+    name: "Worktree 路径",
+    icon: "folder",
+    desc: "worktree.path — Worktree 目录",
+    defaultOptions: {},
+    toPreview: () => "/tmp/wt/feature-xyz",
+    fields: [],
+  },
+  {
+    type: "worktree-original-cwd",
+    name: "Worktree 源目录",
+    icon: "folder",
+    desc: "worktree.original_cwd — 进入 worktree 前的目录",
+    defaultOptions: {},
+    toPreview: () => "/tmp/proj",
+    fields: [],
+  },
+  {
+    type: "pr-kind",
+    name: "PR 类型",
+    icon: "status",
+    desc: "pr.kind — mr 表示 GitLab 合并请求（GitHub PR 隐藏）",
+    defaultOptions: {},
+    toPreview: () => "mr",
+    fields: [],
+  },
+  {
+    type: "agent-type",
+    name: "子代理类型",
+    icon: "team",
+    desc: "task.agentType — 子代理类型（如 Explore）",
+    defaultOptions: {},
+    toPreview: () => "Explore",
+    fields: [],
+  },
+  {
+    type: "task-description",
+    name: "子代理描述",
+    icon: "team",
+    desc: "task.description — 子代理任务描述",
+    defaultOptions: {},
+    toPreview: () => "review code",
+    fields: [],
+  },
+  {
+    type: "task-effort",
+    name: "子代理 effort",
+    icon: "team",
+    desc: "task.effort — 子代理推理 effort（档位或 token 预算）",
+    defaultOptions: {},
+    toPreview: () => "high",
+    fields: [],
+  },
+  {
     type: "custom",
     name: "自定义",
     icon: "bolt",
@@ -678,13 +782,13 @@ export const SEGMENT_DEF_MAP = new Map(SEGMENT_DEFS.map(d => [d.type, d]));
 export const SEGMENT_CATEGORIES: { id: string; label: string; types: SegmentType[] }[] = [
   { id: "common", label: "常用", types: ["model", "context-bar", "context-pct", "git", "cost", "rate-limits", "effort", "vim", "separator"] },
   { id: "cost", label: "成本 / 执行", types: ["cost-usd", "session-duration", "api-duration", "lines-changed"] },
-  { id: "context", label: "上下文", types: ["context-tokens", "context-max", "context-remaining", "context-cache"] },
-  { id: "rate", label: "速率限制", types: ["rate-limit-5h", "rate-limit-7d"] },
+  { id: "context", label: "上下文", types: ["context-tokens", "context-max", "context-remaining", "context-cache", "prompt-cache"] },
+  { id: "rate", label: "速率限制", types: ["rate-limit-5h", "rate-limit-7d", "spend-limit"] },
   { id: "git", label: "Git", types: ["git-branch", "git-host", "git-owner", "git-repo", "git-repo-full", "git-worktree"] },
   { id: "session", label: "目录 / 会话", types: ["cwd", "project-dir", "added-dirs", "session-id", "session-name", "transcript-path"] },
-  { id: "worktree", label: "Worktree", types: ["worktree-name", "worktree-branch", "worktree-original-branch"] },
-  { id: "pr", label: "Pull Request", types: ["pr-number", "pr-url", "pr-state"] },
-  { id: "other", label: "其他", types: ["version", "output-style", "thinking", "token-warn", "agent", "agent-badge", "custom"] },
+  { id: "worktree", label: "Worktree", types: ["worktree-name", "worktree-branch", "worktree-original-branch", "worktree-path", "worktree-original-cwd"] },
+  { id: "pr", label: "Pull Request", types: ["pr-number", "pr-url", "pr-state", "pr-kind"] },
+  { id: "other", label: "其他", types: ["version", "output-style", "thinking", "token-warn", "agent", "agent-badge", "agent-type", "task-description", "task-effort", "fast-mode", "custom"] },
 ];
 
 /**

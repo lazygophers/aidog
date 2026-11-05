@@ -1,0 +1,1 @@
+{"session_id": "s", "hook_event_name": "SubagentStatusLine", "tasks": [{"id": "t9", "type": "local_agent", "agentType": "code-reviewer", "status": "running", "description": "x", "label": "x", "effort": 16000, "tokenCount": 10}]}

@@ -65,6 +65,12 @@ const CASES = [
   ["main-default", "main", "official_null_pct"],
   ["atoms-fields", "main", "official_no_effort_vim"],
   ["atoms-fixed", "main", "official_no_rate_limits"],
+  // official fields B batch (spend limit / prompt cache / fast mode / worktree / pr kind / task fields)
+  ["official-b", "main", "official_full"],
+  ["official-b", "main", "official_null_pct"],
+  ["official-b", "main", "official_no_rate_limits"],
+  ["subagent-official-b", "subagent", "sa_official"],
+  ["subagent-official-b", "subagent", "sa_effort_num"],
 ];
 
 // Emitter. Python path: the Rust generator (aidog_core::statusline) — the same
