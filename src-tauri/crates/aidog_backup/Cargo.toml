@@ -33,6 +33,8 @@ aidog_notification = { path = "../aidog_notification" }
 tauri = { workspace = true, optional = true }
 
 [dev-dependencies]
+# 测试禁真朗读：开 test-util 让 tts::speak 对依赖方测试也静默（test-no-real-calls.md）
+aidog_notification = { path = "../aidog_notification", features = ["test-util"] }
 tokio = { workspace = true }
 dirs = { workspace = true }
 tempfile = { workspace = true }
