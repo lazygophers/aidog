@@ -4,7 +4,7 @@ import { kernelApi, type ApiCallLog } from "../../services/api";
 import { formatDateTime, formatDurationMs } from "../../utils/formatters";
 
 /** 最近的管理接口调用记录（只含元数据，不含请求与响应正文，保留 7 天）。 */
-export function ApiCallLogSection() {
+export function ApiCallLogSection({ refreshKey = 0 }: { refreshKey?: number }) {
   const { t } = useTranslation();
   const [rows, setRows] = useState<ApiCallLog[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -20,7 +20,7 @@ export function ApiCallLogSection() {
       });
   }, []);
 
-  useEffect(load, [load]);
+  useEffect(load, [load, refreshKey]);
 
   const state = rows === null ? "loading" : failed ? "error" : rows.length === 0 ? "empty" : "ready";
 
