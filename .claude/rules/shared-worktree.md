@@ -159,6 +159,12 @@ target 致 `test_registry.rs:359` 假红。
 `git merge` / `commit` 正持锁。合并 agent 起手固定做：`pgrep -fl 'git '` 无进程 + `ls -l` 0 字节 →
 删锁，再继续；派发 prompt 带上这一步，免得合并 agent 报错停下。
 
+再复发（2026-11-04 起默认主 checkout 串行后仍出，账本 2026-11-04.md:53/139、2026-11-05.md:94/101/135：
+11-04 两次、11-05 三次，均 0 字节、无 git 进程，成因仍未查）：
+- 删锁的判据与动作不变，任何 implementer / 合并 agent 都按上面三步自行处理，回报里记「删锁 1 次 + mtime」，账本累计次数。
+- 自动模式分类器可能拒绝 agent 的 `rm .git/index.lock`（2026-11-04.md:53，合并 agent 被拒、未合并）：
+  被拒就停手回传，由主会话核对 `pgrep` / `ls -l` 后删，再重派；不绕过分类器换写法。
+
 ## agent 子会话的 Bash cwd 每次调用重置（2026-09-30）
 
 全局 CLAUDE.md 写「Bash 的 cwd 跨调用保留」，那只对主会话成立。**派生的
