@@ -27,6 +27,7 @@ pub use serde_json as __serde_json;
 pub mod hooks;
 // 界面不在场时由内核直接发的系统通知（代理启动失败 / 首次关窗）。
 pub mod ui_notice;
+pub mod update_check;
 // statusline 脚本生成（原前端 TS，2026-09-16 下沉）：启动时随 sync 无条件重写。
 pub mod statusline;
 pub mod sync_settings;
@@ -69,3 +70,5 @@ pub use tray_render::{TrayColumn, TrayLayout};
 pub use tray_render::{TrayMenuBuild, refresh_tray_menu};
 #[cfg(test)]
 mod test_ui_notice;
+#[cfg(test)]
+mod test_update_check;

@@ -167,7 +167,15 @@ pub fn dispatch_urls<R: Runtime>(app: &AppHandle<R>, urls: &[url::Url]) {
 /// 全部失败仅 warn，不阻塞启动（deep-link 非关键路径）。
 pub fn setup<R: Runtime>(app: &AppHandle<R>) {
     let app_for_ready = app.clone();
-    app.listen(UI_READY_EVENT, move |_| mark_ready(&app_for_ready));
+    app.listen(UI_READY_EVENT, move |_| {
+        mark_ready(&app_for_ready);
+        // 界面不在场时发现的新版本，趁界面就绪补发（前端弹现有更新提示）。
+        tauri::async_runtime::spawn(async {
+            if let Some(c) = aidog_ctx::try_ctx() {
+                aidog_core::update_check::flush_pending(c).await;
+            }
+        });
+    });
 
     // on_open_url：运行时唤起（app 已开）。闭包 move 捕获 app clone，事件回调里直接 dispatch。
     let app_for_callback = app.clone();

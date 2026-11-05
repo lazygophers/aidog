@@ -1,6 +1,6 @@
 use super::*;
 
-const ALL_KEYS: [ErrorKey; 15] = [
+const ALL_KEYS: [ErrorKey; 16] = [
     ErrorKey::ReadBody,
     ErrorKey::NoMatchingGroup,
     ErrorKey::ParseJson,
@@ -16,6 +16,7 @@ const ALL_KEYS: [ErrorKey; 15] = [
     ErrorKey::ProxyStartPortInUse,
     ErrorKey::ProxyStartOther,
     ErrorKey::TrayStillRunning,
+    ErrorKey::UpdateAvailable,
 ];
 
 const ALL_LANGS: [Lang; 8] = [

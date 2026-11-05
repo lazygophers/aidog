@@ -284,6 +284,28 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     // spawn 由外壳做 —— 这里仍是 tauri::async_runtime，行为与之前一字不差。
     tauri::async_runtime::spawn(aidog_backup::scheduler_loop());
 
+    // 每日检查更新（原前端 localStorage 节流）：启动 30s 后起、每小时过一次 24h 节流闸。
+    // 延迟是为让非静默启动的界面先挂上监听（事件不排队）。
+    {
+        use tauri_plugin_updater::UpdaterExt;
+        let handle = app.handle().clone();
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            loop {
+                let now_ms = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_millis() as i64)
+                    .unwrap_or(0);
+                aidog_core::update_check::daily_check(aidog_ctx::ctx(), now_ms, || async {
+                    let u = handle.updater().map_err(|e| e.to_string())?;
+                    Ok(u.check().await.map_err(|e| e.to_string())?.map(|u| u.version))
+                })
+                .await;
+                tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
+            }
+        });
+    }
+
     // Protocol logo 后台批量同步：启动时预热 `~/.aidog/logos/<protocol>.png`，
     // 三路 fallback（simpleicons → favicon → clearbit），缓存命中跳过，不阻塞启动。
     // 非 DB 依赖预热场景：clone 现有 Db handle + app_data_dir 后 spawn，失败仅 debug log。
