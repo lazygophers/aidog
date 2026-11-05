@@ -145,6 +145,12 @@ function App() {
         if (entity === "skill") setActiveNav("skills");
       },
     );
+    // 监听挂好后通知后端补发排队的链接（界面按需新建，创建到挂载之间的 emit 会丢）。
+    if (isTauri()) {
+      unlistenPromise
+        .then(() => import("@tauri-apps/api/event").then((m) => m.emit("aidog-ui-ready")))
+        .catch((e) => console.error(e));
+    }
     return () => { unlistenPromise.then((un) => un()).catch((e) => console.error(e)); };
   }, []);
 

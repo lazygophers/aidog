@@ -20,7 +20,7 @@ pub(crate) enum Policy {
 static OPEN: AtomicBool = AtomicBool::new(false);
 static POLICY: AtomicU8 = AtomicU8::new(0);
 
-/// 界面是否存在。票 02+ 的入口 / 内核查询会消费，本票仅测试用。
+/// 界面是否存在。后续票的内核查询会消费，目前仅测试用。
 #[allow(dead_code)]
 pub(crate) fn exists() -> bool {
     OPEN.load(Ordering::SeqCst)
@@ -80,29 +80,60 @@ pub(crate) fn open<R: Runtime>(app: &AppHandle<R>) {
     let _ = w.set_focus();
 }
 
+/// 启动入口：静默启动不建窗口、直接 Accessory；否则打开界面。
+pub(crate) fn start<R: Runtime>(app: &AppHandle<R>, silent: bool) {
+    if silent {
+        set_policy(app, Policy::Accessory);
+    } else {
+        open(app);
+    }
+}
+
+/// macOS 再次启动 / 点 Dock 图标（`RunEvent::Reopen`）。
+#[allow(dead_code)] // 仅 macOS 的 RunEvent::Reopen 分支调用
+pub(crate) fn on_reopen<R: Runtime>(app: &AppHandle<R>) {
+    open(app);
+}
+
+/// Windows / Linux 第二实例启动：首实例打开界面（aidog:// 参数由 single-instance 的
+/// deep-link 特性转给 deep-link 插件 → `dispatch_urls`）。
+#[allow(dead_code)] // 仅非 macOS 的单实例回调调用
+pub(crate) fn on_second_instance<R: Runtime>(app: &AppHandle<R>) {
+    open(app);
+}
+
 /// 界面已关闭（窗口销毁后）：策略切 Accessory。
 pub(crate) fn on_closed<R: Runtime>(app: &AppHandle<R>) {
+    crate::deep_link::mark_closed();
     OPEN.store(false, Ordering::SeqCst);
     set_policy(app, Policy::Accessory);
+}
+
+/// 测试共享：`OPEN` / `POLICY` / deep link 收件箱是进程级 static → 用例间串行 + 每次重置。
+#[cfg(test)]
+pub(crate) fn test_setup() -> (
+    std::sync::MutexGuard<'static, ()>,
+    tauri::App<tauri::test::MockRuntime>,
+) {
+    use tauri::test::{mock_builder, mock_context, noop_assets};
+    static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let guard = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    OPEN.store(false, Ordering::SeqCst);
+    POLICY.store(1, Ordering::SeqCst);
+    crate::deep_link::reset_for_test();
+    let app = mock_builder()
+        .build(mock_context(noop_assets()))
+        .expect("build mock app");
+    (guard, app)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Mutex, MutexGuard};
-    use tauri::test::{MockRuntime, mock_builder, mock_context, noop_assets};
+    use tauri::test::MockRuntime;
 
-    /// `OPEN` / `POLICY` 是进程级 static → 用例间串行 + 每次重置。
-    static SERIAL: Mutex<()> = Mutex::new(());
-
-    fn setup() -> (MutexGuard<'static, ()>, tauri::App<MockRuntime>) {
-        let guard = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
-        OPEN.store(false, Ordering::SeqCst);
-        POLICY.store(1, Ordering::SeqCst);
-        let app = mock_builder()
-            .build(mock_context(noop_assets()))
-            .expect("build mock app");
-        (guard, app)
+    fn setup() -> (std::sync::MutexGuard<'static, ()>, tauri::App<MockRuntime>) {
+        test_setup()
     }
 
     #[test]
@@ -149,5 +180,33 @@ mod tests {
             assert!(!exists());
             assert_eq!(policy(), Policy::Accessory);
         }
+    }
+
+    #[test]
+    fn start_silent_creates_no_window_and_is_accessory() {
+        let (_g, app) = setup();
+        start(app.handle(), true);
+        assert!(!exists());
+        assert!(app.get_webview_window(LABEL).is_none());
+        assert_eq!(policy(), Policy::Accessory);
+    }
+
+    #[test]
+    fn start_normal_opens_ui() {
+        let (_g, app) = setup();
+        start(app.handle(), false);
+        assert!(exists());
+        assert_eq!(policy(), Policy::Regular);
+    }
+
+    #[test]
+    fn reopen_and_second_instance_open_ui_from_closed() {
+        let (_g, app) = setup();
+        on_reopen(app.handle());
+        assert!(exists());
+        on_closed(app.handle());
+        on_second_instance(app.handle());
+        assert!(exists());
+        assert_eq!(policy(), Policy::Regular);
     }
 }

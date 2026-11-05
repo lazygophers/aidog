@@ -21,7 +21,7 @@
 //! `/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister`
 //! 注册 `.app` 后测试。Win/Linux dev 经 `register_all()` 运行时注册，无此限制。
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Runtime};
+use tauri::{AppHandle, Emitter, Listener, Runtime};
 use tauri_plugin_deep_link::DeepLinkExt;
 
 /// 解析后的 deep link 载荷，emit 给前端 `aidog-deep-link` 事件。
@@ -73,9 +73,70 @@ pub fn parse_url(url: &url::Url) -> Option<DeepLinkPayload> {
     })
 }
 
-/// 处理一组唤起 URL：逐个 parse → emit `aidog-deep-link`。
+/// 前端挂好 `aidog-deep-link` 监听后 emit 的就绪事件（`App.tsx`）。
+pub const UI_READY_EVENT: &str = "aidog-ui-ready";
+
+/// 收件箱：界面不存在或前端未就绪时 payload 先排队，就绪后补发（界面是按需新建的，
+/// 创建完到 React 挂载监听之间 emit 会丢）。界面关闭即复位。
+struct Inbox {
+    ready: bool,
+    pending: Vec<DeepLinkPayload>,
+}
+
+static INBOX: std::sync::Mutex<Inbox> = std::sync::Mutex::new(Inbox { ready: false, pending: Vec::new() });
+
+fn inbox() -> std::sync::MutexGuard<'static, Inbox> {
+    INBOX.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+fn emit_payload<R: Runtime>(app: &AppHandle<R>, payload: &DeepLinkPayload) {
+    if let Err(e) = app.emit("aidog-deep-link", payload) {
+        tracing::warn!(error = %e, entity = %payload.entity, "deep-link: emit failed");
+    }
+}
+
+/// 投递一条链接：先确保界面已打开（关窗状态下重建），前端就绪则直接 emit，否则排队。
+pub fn deliver<R: Runtime>(app: &AppHandle<R>, payload: DeepLinkPayload) {
+    let ready = {
+        let mut ib = inbox();
+        if !ib.ready {
+            ib.pending.push(payload.clone());
+        }
+        ib.ready
+    };
+    crate::ui_window::open(app);
+    if ready {
+        emit_payload(app, &payload);
+    }
+}
+
+/// 前端就绪：置位并补发排队的 payload。
+pub fn mark_ready<R: Runtime>(app: &AppHandle<R>) {
+    let pending = {
+        let mut ib = inbox();
+        ib.ready = true;
+        std::mem::take(&mut ib.pending)
+    };
+    for p in &pending {
+        emit_payload(app, p);
+    }
+}
+
+/// 界面关闭：前端监听随之消失，复位就绪。
+pub fn mark_closed() {
+    inbox().ready = false;
+}
+
+#[cfg(test)]
+pub(crate) fn reset_for_test() {
+    let mut ib = inbox();
+    ib.ready = false;
+    ib.pending.clear();
+}
+
+/// 处理一组唤起 URL：逐个 parse → `deliver`。
 ///
-/// 单 URL 解析失败仅 warn 跳过，不影响同批其他 URL；emit 失败仅 warn 不 panic。
+/// 单 URL 解析失败仅 warn 跳过，不影响同批其他 URL。
 pub fn dispatch_urls<R: Runtime>(app: &AppHandle<R>, urls: &[url::Url]) {
     for url in urls {
         match parse_url(url) {
@@ -86,9 +147,7 @@ pub fn dispatch_urls<R: Runtime>(app: &AppHandle<R>, urls: &[url::Url]) {
                     data_len = payload.data.len(),
                     "deep-link: dispatch"
                 );
-                if let Err(e) = app.emit("aidog-deep-link", &payload) {
-                    tracing::warn!(error = %e, entity = %payload.entity, "deep-link: emit failed");
-                }
+                deliver(app, payload);
             }
             None => tracing::warn!(url = %url, "deep-link: skipped malformed/non-aidog url"),
         }
@@ -107,6 +166,9 @@ pub fn dispatch_urls<R: Runtime>(app: &AppHandle<R>, urls: &[url::Url]) {
 ///
 /// 全部失败仅 warn，不阻塞启动（deep-link 非关键路径）。
 pub fn setup<R: Runtime>(app: &AppHandle<R>) {
+    let app_for_ready = app.clone();
+    app.listen(UI_READY_EVENT, move |_| mark_ready(&app_for_ready));
+
     // on_open_url：运行时唤起（app 已开）。闭包 move 捕获 app clone，事件回调里直接 dispatch。
     let app_for_callback = app.clone();
     app.deep_link().on_open_url(move |event| {
@@ -205,5 +267,56 @@ mod tests {
     fn parse_takes_first_data_when_duplicated() {
         let p = parse_url(&url("aidog://platform/import?data=first&data=second")).unwrap();
         assert_eq!(p.data, "first");
+    }
+
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    fn payload() -> DeepLinkPayload {
+        DeepLinkPayload { entity: "platform".into(), action: "import".into(), data: "x".into() }
+    }
+
+    fn counter(app: &tauri::App<tauri::test::MockRuntime>) -> Arc<AtomicUsize> {
+        let n = Arc::new(AtomicUsize::new(0));
+        let n2 = n.clone();
+        app.listen("aidog-deep-link", move |_| {
+            n2.fetch_add(1, Ordering::SeqCst);
+        });
+        n
+    }
+
+    #[test]
+    fn link_while_ui_closed_opens_ui_and_waits_for_ready() {
+        let (_g, app) = crate::ui_window::test_setup();
+        let n = counter(&app);
+        deliver(app.handle(), payload());
+        assert!(crate::ui_window::exists());
+        assert_eq!(n.load(Ordering::SeqCst), 0, "前端未就绪不得 emit");
+        mark_ready(app.handle());
+        assert_eq!(n.load(Ordering::SeqCst), 1, "就绪后补发");
+        mark_ready(app.handle());
+        assert_eq!(n.load(Ordering::SeqCst), 1, "不重复补发");
+    }
+
+    #[test]
+    fn link_while_ui_ready_emits_immediately() {
+        let (_g, app) = crate::ui_window::test_setup();
+        let n = counter(&app);
+        crate::ui_window::open(app.handle());
+        mark_ready(app.handle());
+        deliver(app.handle(), payload());
+        assert_eq!(n.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn closing_ui_resets_ready() {
+        let (_g, app) = crate::ui_window::test_setup();
+        let n = counter(&app);
+        crate::ui_window::open(app.handle());
+        mark_ready(app.handle());
+        crate::ui_window::on_closed(app.handle());
+        deliver(app.handle(), payload());
+        assert_eq!(n.load(Ordering::SeqCst), 0);
+        assert!(crate::ui_window::exists());
     }
 }

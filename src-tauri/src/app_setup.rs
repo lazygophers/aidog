@@ -703,9 +703,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     }
 
     // 主窗口按需创建（tauri.conf `create:false`）；静默启动不建，仅托盘运行
-    if !settings.silent_launch {
-        crate::ui_window::open(app.handle());
-    }
+    crate::ui_window::start(app.handle(), settings.silent_launch);
 
     // aidog:// deep link 协议层：挂 on_open_url + 冷启动 get_current 补发 +
     // Win/Linux register_all。失败仅 warn 不阻塞启动（非关键路径）。
