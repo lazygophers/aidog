@@ -39,6 +39,22 @@ crate::tauri_command! {
 }
 
 crate::tauri_command! {
+    /// 自定义模型槽位：统计 `extra.custom_slots` 含该槽名的平台数（删除确认框用）。
+    pub async fn custom_slot_usage_count(name: String) -> Result<usize, String> {
+        let db = aidog_ctx::db();
+        db::count_custom_slot_usage(db, &name).await
+    }
+}
+
+crate::tauri_command! {
+    /// 自定义模型槽位：从所有平台 `extra.custom_slots` 删除该槽名，返回受影响平台数。
+    pub async fn custom_slot_purge(name: String) -> Result<usize, String> {
+        let db = aidog_ctx::db();
+        db::purge_custom_slot(db, &name).await
+    }
+}
+
+crate::tauri_command! {
     pub async fn settings_list(scope: String) -> Result<Vec<String>, String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "settings_list", scope = %scope, "command invoked");

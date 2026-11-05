@@ -1169,3 +1169,5 @@ mod test_sqlcipher;
 mod test_trace;
 #[cfg(test)]
 mod test_ui_extra;
+#[cfg(test)]
+mod test_custom_slots;
