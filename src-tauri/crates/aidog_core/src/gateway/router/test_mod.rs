@@ -496,6 +496,22 @@ mod custom_slots {
     }
 
     #[test]
+    fn parse_defs_rejects_invalid_builtin_and_duplicate_names() {
+        let got = parse_custom_defs(Some(&json!([
+            {"name": "Fast"},
+            {"name": "has space"},
+            {"name": "x".repeat(25)},
+            {"name": "opus"},
+            {"name": "default"},
+            {"name": "rerank"},
+            {"name": "ok1"},
+            {"name": "ok1", "match": "exact"},
+            {"name": "a".repeat(24)}
+        ])));
+        assert_eq!(got, vec![d("ok1", false), d(&"a".repeat(24), false)]);
+    }
+
+    #[test]
     fn via_wire_format_roundtrip() {
         let s = serde_json::to_string(&ModelVia::SlotCustom("fast".into())).unwrap();
         assert_eq!(s, "\"slot-custom:fast\"");
