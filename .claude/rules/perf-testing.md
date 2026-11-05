@@ -46,8 +46,9 @@
 - 回退：`/usr/bin/sample <pid> 30 -mayDie -file <out>`，配 harness 的 `sample_analyze.py`
   去掉阻塞等待叶子。
 - 要行号：另建带符号副本，`CARGO_PROFILE_RELEASE_STRIP=false
-  CARGO_PROFILE_RELEASE_DEBUG=line-tables-only`，`--target-dir` 指到 `/tmp/aidog-agent-target/perf`（复用 agent 单一目录的子目录，与 release 配置隔离），
-  不污染 `src-tauri/target`。
+  CARGO_PROFILE_RELEASE_DEBUG=line-tables-only`，`--target-dir` 指到 `<项目根>/.worktrees/.target/perf`（worktree 独立 target 的子目录，与 release 配置隔离；
+  压测二进制按 §6 在 detach worktree 构建，故用 worktree 的独立 target，不污染 `src-tauri/target`）。
+  2026-11-05 起不再用 `/tmp/aidog-agent-target/perf`（用户原话：「Debug 的产出或者是这些前端的产出，能不能都限制在当前目录……」）。
 
 ## 5. 收尾清 /tmp，保留 harness
 
@@ -73,9 +74,8 @@ master，采到的是 master 二进制——证据为二进制里零 mimalloc �
   `strings $KERNEL_BIN | grep -c mimalloc` >0（本次改动引入的符号在）；
   `strings $KERNEL_BIN | grep -c format_pretty_json` =0（本次删掉的符号不在）。
   符号随分支内容定，测前想清楚「这轮引入了什么、删了什么」，各验一条。
-- 该 worktree 的 `CARGO_TARGET_DIR` 指 `/tmp/aidog-agent-target`（压测带符号构建用其子目录 `/tmp/aidog-agent-target/perf`），禁共享主仓 target
-  （产物串味与 `cargo clean -p` 误伤见 shared-worktree.md「agent / detach
-  worktree 复用单一 CARGO_TARGET_DIR」）。
+- 该 worktree 的 `CARGO_TARGET_DIR` 指 `<项目根>/.worktrees/.target`（压测带符号构建用其子目录 `.worktrees/.target/perf`），禁共享主仓 target
+  （产物串味与 `cargo clean -p` 误伤见 shared-worktree.md「构建目录」；2026-11-05 由 `/tmp/aidog-agent-target` 改为仓库内）。
 - profile 里出现「按理已删的函数」就是血统污染的直接信号，先验二进制再怀疑
   采样工具（ui-parity-audit.md「先核实再下结论」同模式）。
 

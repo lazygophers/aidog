@@ -72,3 +72,4 @@ vite.config.js
 
 # perf harness 测量产物（scripts/perf/README.md）
 scripts/perf/results/
+/.tmp/

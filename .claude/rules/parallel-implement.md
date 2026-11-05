@@ -128,7 +128,7 @@ mitm_bypass 测试读加密列断言明文——子集门禁全绿，合并到 m
   无 PR / 直合路径同样成立）。
 - 门禁输出禁纯 grep 过滤 test result：连续三轮（db-field-encryption ×2 +
   passthrough-log-fixes ×1）「首跑 1 红复跑绿、失败名被 grep 过滤丢失」无法归因。
-  命令模板改 `2>&1 | tee /tmp/gate.log | grep -E 'test result|error'`——全量落
+  命令模板改 `2>&1 | tee .tmp/<任务名>/gate.log | grep -E 'test result|error'`——全量落
   文件，屏幕只留摘要，flaky 复现时失败名还在。
 - **`&&` 门禁链上禁裸 grep 计数**（2026-10-24 routing-viz 轮两次实锤）：
   `cargo clippy 2>&1 | grep -cE '^warning|^error' && cargo test ...` 零 warning
@@ -195,7 +195,7 @@ Bash 一直挂到超时；一轮下来残留 9 个 tail（最老 2h13m），多�
   不贴 shell 管道写法。
 - 命中判据三条同时满足：行数 > 5、含 `make lint` 的 `EXIT` 行、末行为 `GATE_CHAIN_DONE`。
   日志里残留的单行 `GATE_CHAIN_DONE`（上一轮遗留）会让「日志含标记」误判。
-- 清理残留 tail 按 PID 核对命令行（`tail … /tmp/aidog-*.log`）再 kill，不用 pkill
+- 清理残留 tail 按 PID 核对命令行（`tail … .tmp/*/*.log`）再 kill，不用 pkill
   （perf-testing.md §1）。
 
 ## 12. harness worktree 里 `check:docs` 恒红：主仓补跑（2026-10-30）
@@ -205,7 +205,7 @@ worktree 缺 docs 子包依赖（`typescript-eslint`），`yarn check:docs` 恒 
 
 - 派发 prompt 写明：worktree 内 `check:docs` EXIT 2 属已知，不修、不复跑；其余步骤全 0 即交付。
 - `yarn test:statusline-golden` 同理：`scripts/statusline-golden/build.mjs` 不读 `CARGO_TARGET_DIR`，
-  在 `CARGO_TARGET_DIR=/tmp/aidog-agent-target` 的 worktree 里 ENOENT，只在主仓跑。
+  在设了独立 `CARGO_TARGET_DIR`（`.worktrees/.target`）的 worktree 里 ENOENT，只在主仓跑。
 - harness 隔离 worktree 里的 agent 对主仓的 git 操作可能被 harness 拒绝；合并一律派单独的合并 agent
   在主仓做。基点落后 master 时用 `merge --no-ff`，并在主仓重跑完整门禁（agent 侧测试数不作数）。
 - 合并 agent 在主仓补跑 `check:docs`，改了 command 签名 / 删 command 的票还要重新生成
@@ -235,8 +235,8 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
 ## 15. 门禁退出码不进管道；agent 中断后的续做 checklist（2026-10-30 ~ 11-02 平台-客户端白名单线）
 
 - **门禁命令禁管到 `tail` / `head` 再取退出码**：合并 agent 把 `yarn test:cov` 管到 `tail -15`，
-  退出码与 `Tests` 行一并丢失（票 03 合并），靠票 08 合并补证。命令写 `cmd > /tmp/x.log 2>&1; echo EXIT=$?`，
-  再 `grep -E 'Tests |Test Files' /tmp/x.log`；派发 prompt 把这条写死。
+  退出码与 `Tests` 行一并丢失（票 03 合并），靠票 08 合并补证。命令写 `cmd > .tmp/<任务名>/x.log 2>&1; echo EXIT=$?`，
+  再 `grep -E 'Tests |Test Files' .tmp/<任务名>/x.log`；派发 prompt 把这条写死。
 - **会话中途退出会让后台 agent 中断**（本线 2 次：规划 agent、票 05）。续做按此顺序核对现场，再派续做 agent：
   1. 票 `Status:` 是否停在 `claimed`（未写 `## Answer` = 没结票）；
   2. `git -C <worktree> status --short` / `diff --stat` 半成品范围，最后一次编译错误原文；
@@ -260,13 +260,13 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
 
 ## 16. 先红输出全量落文件，禁 `head -N` 截断
 
-新增测试的「先红」证据：`cmd > /tmp/red.log 2>&1; echo EXIT=$?`，再对每个新测试名各 grep 一次
+新增测试的「先红」证据：`cmd > .tmp/<任务名>/red.log 2>&1; echo EXIT=$?`，再对每个新测试名各 grep 一次
 `FAILED|failed|<测试名>`；管到 `head` / `tail` 会截掉新测试的失败行，无法确认它先红过。
 
 ## 17. 门禁里的计时断言偶发红：`--no-fail-fast` 取全量，重跑定性
 
 `cargo test --workspace` 遇一个 suite 失败就停，后面的 suite 不跑，拿不到全量结果。
-门禁命令写 `cargo test --workspace --no-fail-fast > /tmp/x.log 2>&1; echo EXIT=$?`。
+门禁命令写 `cargo test --workspace --no-fail-fast > .tmp/<任务名>/x.log 2>&1; echo EXIT=$?`。
 计时断言（如 `aidog_stats::test_usage_stats::flow_breakdown_7d_scale_guard`，并发编译后首轮曾超时）
 首轮红先单跑该测试一次：绿 = 负载抖动，记账本遗留；仍红才按回归处理。
 
@@ -278,7 +278,7 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
   「前一 agent 因断网中止，先 `git diff` 逐 hunk 核对再接着做」，不让它从头重写。
 - **先红要严格**：2026-11-04.md:24 策略库 4 条「测试与组件同写、未拍到真先红」，2026-11-05.md:92 生成脚本
   「非严格先红，事后改坏三处反证」，11-05.md:27 review 因「先红输出未见」无法核实 Spec。
-  派发 prompt 要求：先只写测试跑出红（`> /tmp/red.log 2>&1; echo EXIT=$?`），回报**贴 EXIT 值与失败测试名**，
+  派发 prompt 要求：先只写测试跑出红（`> .tmp/<任务名>/red.log 2>&1; echo EXIT=$?`），回报**贴 EXIT 值与失败测试名**，
   再写实现；确实做不到（测试与实现不可分）写明原因并改用「改坏实现→红→按行号还原」反证，回报标「非严格先红」。
   回报只写「先红已验」而无 EXIT 值和失败名，按没验处理。
 - **票 `Status:` 只有 `claimed` → `resolved`**：2026-11-05.md:101 遗留「票状态跳过 claimed」。
@@ -287,3 +287,11 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
   审查补了 `kernel_settings_set` / `proxy_client_set_settings` / `settings_set` 三处漏登记；裁决「不修」Shotgun
   （2026-11-05.md:106）的复活条件是「再新增带密钥写命令」。派发含新增写命令且涉及 `SECRET_PATHS` 字段的票时，
   prompt 写明此登记要求，review 时对照检查。建议做成机械检查：「`SECRET_PATHS` 涉及的写命令 ⊆ `RESTORERS`」测试（未做，属代码改动）。
+
+## 18. 门禁日志与构建目录收回仓库（2026-11-05）
+
+用户原话：「Debug 的产出或者是这些前端的产出，能不能都限制在当前目录，而不是每次都去 temp 目录下面的临时文件里面创建，让它们每次都在同一个地方？这样更便于清理和管理。」
+
+- 上文各节的 `/tmp/<名>.log` 一律落仓库 `.tmp/<任务名>/<名>.log`（`.gitignore` 已忽略），收工删该目录；
+  命令前先 `mkdir -p .tmp/<任务名>`。
+- 上文 `CARGO_TARGET_DIR=/tmp/aidog-agent-target` 作废：主 checkout 用默认 `src-tauri/target`，仅 worktree 用 `<项目根>/.worktrees/.target`（见 shared-worktree.md「构建目录」）。

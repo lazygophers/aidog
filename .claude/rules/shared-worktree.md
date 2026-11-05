@@ -23,12 +23,19 @@
 
 用户原话：「要尽可能的减少残留不要再磁盘导出拉屎」（否掉了「df < 20G 即停」的阈值规则，要的是源头少留）。
 
-- agent 收工当场清掉自己建的东西：临时日志 `/tmp/<任务>-*.log`、补丁、截图、临时 json、临时目录。
-- 不新建按票的构建 / 输出目录，复用 `/tmp/aidog-agent-target`、`/tmp/aidog-agent-dist`（下文已立规）。
+- agent 收工当场清掉自己建的东西：临时日志、补丁、截图、临时 json、临时目录（位置见下条）。
+- **临时产物收回仓库目录（2026-11-05 改）**：用户原话「Debug 的产出或者是这些前端的产出，能不能都限制在当前目录，
+  而不是每次都去 temp 目录下面的临时文件里面创建，让它们每次都在同一个地方？这样更便于清理和管理。」
+  - 临时日志 / 补丁 / 脚本 / 截图：放仓库 `.tmp/<任务名>/`（已在 `.gitignore`），收工删该目录；
+    `/tmp/<任务>-*.log` 写法作废（旧文中出现的 `/tmp/x.log` 一律读作 `.tmp/<任务名>/x.log`）。
+  - cargo / 前端构建目录见下「构建目录」节。
+  - 例外：跨会话互斥锁 `/tmp/aidog-cargo.lock` 留在 /tmp（锁不是产物）。
 - 只留报告里引用到的文件，且留到主会话读完为止。
-- 删共享缓存（如 `/tmp/aidog-agent-target` 内容）或任何 `rm -rf` 都要用户授权。
+- 删共享缓存或任何 `rm -rf` 都要用户授权。
   反例：2026-11-04 有 agent 在 `No space left on device` 后，未经授权自行删了
   `/tmp/aidog-agent-target/debug/incremental` 32G。
+  2026-11-05 用户经表单授权只删 `/tmp/aidog-agent-target/debug/incremental`（24G），已删；
+  `/tmp/aidog-agent-target` 其余内容待清，同样需授权。
 
 ## 硬规则
 
@@ -111,7 +118,21 @@ perf-backend 收尾轮：PreToolUse hook 把 `git worktree add` 改写经 rtk �
   rtk 包装的 `git status --short` 输出被截断，只列部分已改文件，一度误判改动
   丢失。rtk 版只当摘要，数文件数以 `/usr/bin/git` 为准。
 
-## agent / detach worktree 复用单一 CARGO_TARGET_DIR（2026-10-22 立，2026-10-30 改）
+## 构建目录：主仓默认 target，worktree 才用独立 target（2026-11-05 改）
+
+用户原话（2026-11-05）：「Debug 的产出或者是这些前端的产出，能不能都限制在当前目录，而不是每次都去 temp 目录下面的临时文件里面创建，让它们每次都在同一个地方？这样更便于清理和管理。」
+
+- **cargo**：agent 一律用主仓默认 target，不设 `CARGO_TARGET_DIR`，产物落 `src-tauri/target`。
+- **仅** 文首「有必要」三种 worktree 情形（并行写码、基线二进制、主 checkout 被占）才用独立 target：
+  `CARGO_TARGET_DIR=<项目根>/.worktrees/.target`（`.worktrees/` 已是 worktree 约定目录，仍在仓库内）。
+  与主仓 target 分开的原因不变：同名 workspace crate 产物串味（2026-10-22 `aidog_core` 报
+  `cannot find function ... in crate aidog_db`；2026-10-30 `test_registry.rs:359` 假红）。
+  worktree 之间仍共用这一个目录，不按票新建。
+- **前端构建**：用仓库默认输出目录，不再 `--outDir /tmp/aidog-agent-dist`。
+- 下文「（已废止 2026-11-05）」的段落里所有 `/tmp/aidog-agent-target`、`/tmp/aidog-agent-dist` 写法同样作废，
+  其中的互斥锁、`cargo clean -p aidog_db`、`touch build.rs`、串味核对手法仍有效，目录按本节替换。
+
+## agent / detach worktree 复用单一 CARGO_TARGET_DIR（已废止 2026-11-05：目录改为上节；2026-10-22 立，2026-10-30 改）
 
 历史（2026-10-22）：为跑基线 `git worktree add --detach /tmp/aidog-baseline-*` 并把
 `CARGO_TARGET_DIR` 指向主仓 `src-tauri/target` 共享，同名 workspace crate 产物串味
