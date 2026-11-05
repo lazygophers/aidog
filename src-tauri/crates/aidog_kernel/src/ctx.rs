@@ -75,6 +75,11 @@ impl AppCtx for HeadlessCtx {
         true
     }
 
+    /// 无头内核的「界面」是 `--ui` 网页，事件经 SSE 广播：恒视为在场，WebSpeech 不被改走系统朗读。
+    fn ui_exists(&self) -> bool {
+        true
+    }
+
     fn autolaunch_enabled(&self) -> Result<bool, String> {
         Err("autolaunch is managed by the service manager (systemd/launchd) in kernel mode".into())
     }
