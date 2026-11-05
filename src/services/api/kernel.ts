@@ -2,7 +2,7 @@
 // 管理接口挂在代理端口 /api/ 下，只接受本机连接；与 proxy.ts 的 `setBindLan` 无关。
 
 import { invoke } from "../transport";
-import type { ApiCallLog, KernelSettings } from "./types";
+import type { ApiCallLog, ApiTestResult, KernelSettings } from "./types";
 
 export const kernelApi = {
   getSettings: () => invoke<KernelSettings>("kernel_settings_get"),
@@ -10,4 +10,6 @@ export const kernelApi = {
     invoke<void>("kernel_settings_set", { settings }),
   /** 最近的管理接口调用记录（只含元数据，保留 7 天）。 */
   callLog: (limit?: number) => invoke<ApiCallLog[]>("api_call_log_list", { limit }),
+  /** 测试面板：经代理端口真实调用一个管理接口命令。 */
+  testSend: (command: string, params: string) => invoke<ApiTestResult>("api_test_send", { command, params }),
 };

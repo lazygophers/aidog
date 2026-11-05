@@ -42,6 +42,24 @@
       "returns": "Vec<aidog_db::models::ApiCallLog>"
     },
     {
+      "name": "api_test_send",
+      "category": "kernel_settings",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "command",
+          "type": "String"
+        },
+        {
+          "name": "params",
+          "type": "String"
+        }
+      ],
+      "returns": "ApiTestResult"
+    },
+    {
       "name": "app_get_autolaunch",
       "category": "proxy",
       "kind": "readonly",

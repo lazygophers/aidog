@@ -5,6 +5,7 @@ import { ProxyStatusSection, UpstreamProxySection } from "./AppSettings/ProxySta
 import { StartupSection } from "./AppSettings/StartupSection";
 import { KernelSection } from "./AppSettings/KernelSection";
 import { ApiCallLogSection } from "./AppSettings/ApiCallLogSection";
+import { ApiTestPanel } from "./AppSettings/ApiTestPanel";
 import { ApiCatalogSection } from "./AppSettings/ApiCatalogSection";
 import { DisplayCurrencySection } from "../components/settings/DisplayCurrencySection";
 import { LogSettingsSection } from "./AppSettings/LogSettingsSection";
@@ -68,11 +69,13 @@ function RevealedSection({ staggerMs, children }: { staggerMs: number; children:
 /** API 分页：管理接口（开关 / 可选凭据 / 当前地址）、接口清单、调用记录。 */
 function ApiTab() {
   const [rev, setRev] = useState(0); // 管理接口设置保存后让清单重取端口 / 凭据状态
+  const [sent, setSent] = useState(0); // 测试面板发送后让调用记录重取
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <RevealedSection staggerMs={0}><KernelSection onSaved={() => setRev((r) => r + 1)} /></RevealedSection>
       <RevealedSection staggerMs={80}><ApiCatalogSection refreshKey={rev} /></RevealedSection>
-      <RevealedSection staggerMs={160}><ApiCallLogSection /></RevealedSection>
+      <RevealedSection staggerMs={120}><ApiTestPanel refreshKey={rev} onSent={() => setSent((n) => n + 1)} /></RevealedSection>
+      <RevealedSection staggerMs={160}><ApiCallLogSection refreshKey={sent} /></RevealedSection>
     </div>
   );
 }

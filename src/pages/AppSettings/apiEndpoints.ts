@@ -33,8 +33,13 @@ function head({ port, hasToken }: CurlOpts, method: string, path: string, authPl
   return `curl -X ${method} '${url}'${auth}`;
 }
 
+/** 命令参数骨架 JSON（测试面板预填、curl 示例共用）。 */
+export function paramsSkeleton(params: { name: string; type: string }[]): string {
+  return JSON.stringify(Object.fromEntries(params.map((p) => [p.name, placeholder(p.type)])));
+}
+
 export function curlForCommand(name: string, params: { name: string; type: string }[], o: CurlOpts): string {
-  const body = JSON.stringify(Object.fromEntries(params.map((p) => [p.name, placeholder(p.type)])));
+  const body = paramsSkeleton(params);
   return `${head(o, "POST", `/api/rpc/${name}`, "<api-credential>")} -H 'Content-Type: application/json' -d '${body}'`;
 }
 

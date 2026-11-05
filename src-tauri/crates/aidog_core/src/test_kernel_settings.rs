@@ -97,3 +97,67 @@ async fn kernel_settings_are_independent_from_proxy_settings() {
             .is_some()
     );
 }
+
+// ── 测试面板发送（票 05）：真实回环 HTTP，假上游代替代理 ─────────────────────
+
+type Seen = std::sync::Arc<std::sync::Mutex<Vec<(String, Option<String>, Option<String>, String)>>>;
+
+/// 起本地假「代理」：记录 (路径, x-aidog-source, authorization, body)，回固定状态与正文。
+async fn spawn_stub(status: u16, body: &'static str) -> (u16, Seen) {
+    use axum::{extract::State, http::HeaderMap, http::Uri, routing::post, Router};
+    let seen: Seen = Default::default();
+    let app = Router::new()
+        .fallback(post(
+            move |State(s): State<Seen>, uri: Uri, h: HeaderMap, b: String| async move {
+                let g = |n: &str| h.get(n).and_then(|v| v.to_str().ok()).map(String::from);
+                s.lock().unwrap().push((uri.path().to_string(), g("x-aidog-source"), g("authorization"), b));
+                (axum::http::StatusCode::from_u16(status).unwrap(), body)
+            },
+        ))
+        .with_state(seen.clone());
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = l.local_addr().unwrap().port();
+    tokio::spawn(async move { axum::serve(l, app).await.unwrap() });
+    (port, seen)
+}
+
+/// 真实状态码与响应体原样返回（含 4xx），请求带来源头、POST 参数 JSON、路径 /api/rpc/<命令>。
+#[tokio::test]
+async fn send_returns_real_status_and_body_with_source_header() {
+    let (port, seen) = spawn_stub(403, r#"{"error":"forbidden"}"#).await;
+    let r = send_management_request(port, "", "backup_export", r#"{"a":1}"#).await.unwrap();
+    assert_eq!(r.status, 403);
+    assert_eq!(r.body, r#"{"error":"forbidden"}"#);
+    let s = seen.lock().unwrap();
+    assert_eq!(s[0].0, "/api/rpc/backup_export");
+    assert_eq!(s[0].1.as_deref(), Some("settings-test"));
+    assert_eq!(s[0].2, None, "凭据空 = 不带 Authorization");
+    assert_eq!(s[0].3, r#"{"a":1}"#);
+}
+
+/// 凭据非空 → Bearer；参数空白 → 发 `{}`。
+#[tokio::test]
+async fn send_attaches_bearer_and_defaults_empty_params() {
+    let (port, seen) = spawn_stub(200, "[]").await;
+    send_management_request(port, "tok", "platform_list", "  ").await.unwrap();
+    let s = seen.lock().unwrap();
+    assert_eq!(s[0].2.as_deref(), Some("Bearer tok"));
+    assert_eq!(s[0].3, "{}");
+}
+
+/// 代理没跑（端口无监听）→ 固定错误码 proxy_unreachable，供前端提示。
+#[tokio::test]
+async fn send_reports_proxy_unreachable() {
+    let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = l.local_addr().unwrap().port();
+    drop(l);
+    let e = send_management_request(port, "", "platform_list", "").await.unwrap_err();
+    assert_eq!(e, "proxy_unreachable");
+}
+
+/// 命令名只允许标识符字符，防路径注入（../、斜杠、查询串）。
+#[tokio::test]
+async fn send_rejects_bad_command_name() {
+    let e = send_management_request(1, "", "../x?y", "").await.unwrap_err();
+    assert_eq!(e, "invalid_command");
+}
