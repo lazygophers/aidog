@@ -58,6 +58,13 @@ const CASES = [
   ["subagent-default", "subagent", "sa_notasks"],
   ["subagent-default", "subagent", "sa_noid"],
   ["subagent-default", "subagent", "sa_times"],
+  // official protocol (https://code.claude.com/docs/en/statusline): width via COLUMNS env,
+  // subagent task fields model(string)/contextWindowSize/tokenCount.
+  ["align-rows", "main", "official_full", null, { COLUMNS: "120" }],
+  ["subagent-default", "subagent", "sa_official"],
+  ["main-default", "main", "official_null_pct"],
+  ["atoms-fields", "main", "official_no_effort_vim"],
+  ["atoms-fixed", "main", "official_no_rate_limits"],
 ];
 
 // Emitter. Python path: the Rust generator (aidog_core::statusline) — the same
@@ -107,7 +114,7 @@ const isPy = (buf) => buf.slice(0, 32).toString().includes("python");
 const ext = (buf) => (isPy(buf) ? "py" : "sh");
 
 let fails = 0, total = 0;
-for (const [cfg, kind, input, groupFx] of CASES) {
+for (const [cfg, kind, input, groupFx, extraEnv] of CASES) {
   total++;
   const scriptBuf = genScript(cfg, kind);
   const scriptPath = join(TMP, `${cfg}__${kind}.${ext(scriptBuf)}`);
@@ -122,6 +129,9 @@ for (const [cfg, kind, input, groupFx] of CASES) {
     LC_ALL: "C.UTF-8", LANG: "C.UTF-8", TZ: "UTC",
     PATH: `${shimDir}:${process.env.PATH}`,
   };
+  // Official protocol: terminal width arrives via the COLUMNS env var, never stdin.
+  delete env.COLUMNS; delete env.LINES;
+  Object.assign(env, extraEnv);
   let server = null;
   if (groupFx) {
     server = await startServer(join(INPUTS, `${groupFx}.json`));

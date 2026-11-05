@@ -110,6 +110,9 @@ def fetch_group_info():
 # ─── Segment renderers (return the segment body text, or None to drop) ───
 
 def seg_model(inp, o):
+    m = inp.get("model")
+    if isinstance(m, str):  # official subagent task: model is the model-id string
+        return m or "Claude"
     if o.get("format") == "full":
         return get(inp, "model", "id", default="claude")
     return get(inp, "model", "display_name", default="Claude")
@@ -765,6 +768,14 @@ def normalize_task(task, top, now):
     elif cw is not None and (get(t, "context_window", "total_input_tokens", default=0) == 0) and tc > 0:
         t["context_window"] = copy.deepcopy(cw)
         t["context_window"]["total_input_tokens"] = t["tokenCount"]
+    # Official task fields: percentage = tokenCount / contextWindowSize (needs both).
+    cws = t.get("contextWindowSize")
+    if (isinstance(cws, (int, float)) and not isinstance(cws, bool) and cws > 0 and tc > 0
+            and get(t, "context_window", "used_percentage") is None):
+        cwd = dict(t.get("context_window") or {})
+        cwd["context_window_size"] = cws
+        cwd["used_percentage"] = tc / cws * 100
+        t["context_window"] = cwd
     st_raw = t.get("startTime")
     if st_raw is not None:
         st = None
@@ -808,7 +819,14 @@ def render_subagent(payload, segs, now):
 
 def render(payload, rows, gi):
     """Render the main statusline rows → list of output lines."""
-    cols = int(get(payload, "terminal", "width", default=0) or 0)
+    # Official protocol: Claude Code sets COLUMNS before running the script; stdin has no
+    # terminal field. `terminal.width` is the legacy fallback.
+    try:
+        cols = int(os.environ.get("COLUMNS") or 0)
+    except ValueError:
+        cols = 0
+    if cols <= 0:
+        cols = int(get(payload, "terminal", "width", default=0) or 0)
     out_lines = []
     for row in rows:
         align = row["align"]
