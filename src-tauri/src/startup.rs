@@ -341,8 +341,8 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|_app, _event| {
-            match &_event {
+        .run(|app, event| {
+            match &event {
                 // 最后一个窗口销毁也会触发 code=None 的 ExitRequested；界面已不在时那是进托盘常驻，拦下。
                 tauri::RunEvent::ExitRequested { code, api, .. } => {
                     if crate::ui_window::should_prevent_exit(*code) {
@@ -355,8 +355,8 @@ pub fn run() {
                 _ => {}
             }
             #[cfg(target_os = "macos")]
-            if let tauri::RunEvent::Reopen { .. } = _event {
-                crate::ui_window::on_reopen(_app);
+            if let tauri::RunEvent::Reopen { .. } = event {
+                crate::ui_window::on_reopen(app);
             }
         });
 }
