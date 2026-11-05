@@ -187,7 +187,7 @@ impl TrayConfig {
 /// 票 I15 禁用的旧 separator 项（`enabled=false`）不会被恢复。
 ///
 /// 返回 true 表示配置被改过（调用方据此决定是否落盘）。
-pub fn clamp_to_segments(cfg: &mut TrayConfig) -> bool {
+pub fn dedup_adjacent_separators(cfg: &mut TrayConfig) -> bool {
     let mut changed = false;
     let mut idx: Vec<usize> = (0..cfg.items.len())
         .filter(|&i| cfg.items[i].enabled)

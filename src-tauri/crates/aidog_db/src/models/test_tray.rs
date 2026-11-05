@@ -117,7 +117,7 @@ fn clamp_does_not_cap_segment_count() {
         separator: "  ".to_string(),
         items: (0..5).map(|o| it("platform", o)).collect(),
     };
-    assert!(!clamp_to_segments(&mut cfg), "装 5 段不该被收敛");
+    assert!(!dedup_adjacent_separators(&mut cfg), "装 5 段不该被收敛");
     assert_eq!(cfg.items.len(), 5);
     assert!(cfg.items.iter().all(|i| i.enabled));
 }
@@ -130,7 +130,7 @@ fn clamp_never_reenables_disabled_items() {
         separator: "  ".to_string(),
         items: vec![it("platform", 0), off, it("platform", 2)],
     };
-    assert!(!clamp_to_segments(&mut cfg));
+    assert!(!dedup_adjacent_separators(&mut cfg));
     let enabled: Vec<bool> = cfg.items.iter().map(|i| i.enabled).collect();
     assert_eq!(enabled, vec![true, false, true], "I15 关掉的项不自动恢复");
 }
@@ -146,7 +146,7 @@ fn clamp_keeps_enabled_separators_and_does_not_count_them() {
         separator: "  ".to_string(),
         items: vec![two_line, sep, it("platform", 2)],
     };
-    assert!(!clamp_to_segments(&mut cfg), "separator 合规，不该被改");
+    assert!(!dedup_adjacent_separators(&mut cfg), "separator 合规，不该被改");
     assert!(cfg.items.iter().all(|i| i.enabled), "separator 保持 enabled");
     assert_eq!(cfg.items[1].display, "·");
     assert_eq!(cfg.items[0].line_mode, "two");
@@ -161,7 +161,7 @@ fn clamp_never_reenables_disabled_separator() {
         separator: "  ".to_string(),
         items: vec![it("platform", 0), old, it("platform", 2)],
     };
-    assert!(!clamp_to_segments(&mut cfg));
+    assert!(!dedup_adjacent_separators(&mut cfg));
     assert!(!cfg.items[1].enabled, "I15 关掉的旧分隔符不恢复");
 }
 
@@ -171,7 +171,7 @@ fn clamp_allows_leading_and_trailing_separators() {
         separator: "  ".to_string(),
         items: vec![it("separator", 0), it("platform", 1), it("separator", 2)],
     };
-    assert!(!clamp_to_segments(&mut cfg));
+    assert!(!dedup_adjacent_separators(&mut cfg));
     assert!(cfg.items.iter().all(|i| i.enabled));
 }
 
@@ -187,7 +187,7 @@ fn clamp_keeps_at_most_one_separator_per_position() {
             it("platform", 3),
         ],
     };
-    assert!(clamp_to_segments(&mut cfg));
+    assert!(dedup_adjacent_separators(&mut cfg));
     let enabled: Vec<bool> = cfg.items.iter().map(|i| i.enabled).collect();
     assert_eq!(enabled, vec![true, true, false, true]);
     assert_eq!(cfg.items.len(), 4);
@@ -196,7 +196,7 @@ fn clamp_keeps_at_most_one_separator_per_position() {
 #[test]
 fn clamp_is_idempotent_and_reports_no_change_when_already_clamped() {
     let mut cfg = TrayConfig::default_segments();
-    assert!(!clamp_to_segments(&mut cfg), "出厂三段本就合规，不该被改");
+    assert!(!dedup_adjacent_separators(&mut cfg), "出厂三段本就合规，不该被改");
     assert_eq!(cfg.items.len(), 3);
     assert!(cfg.items.iter().all(|i| i.enabled));
 }
