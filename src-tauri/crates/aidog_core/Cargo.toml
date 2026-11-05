@@ -106,6 +106,8 @@ block2 = { workspace = true }
 
 # 测试期 dev-deps：gateway 内 skills（tempdir 隔离 FS）+ proxy/test_stream（gzip round-trip）。
 [dev-dependencies]
+# 测试禁真朗读：开 test-util 让 tts::speak 对依赖方测试也静默（test-no-real-calls.md）
+aidog_notification = { path = "../aidog_notification", features = ["test-util"] }
 # start_paused = true：ping 注入测试要把 tokio 时钟拨快，否则单测要真等 95 秒。
 tokio = { workspace = true, features = ["test-util"] }
 tempfile = { workspace = true }

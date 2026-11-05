@@ -50,8 +50,8 @@ pub fn speak(ctx: Option<&dyn AppCtx>, backend: TtsBackend, text: &str) {
         None => backend,
     };
     // 单元测试禁真出声：`say` 在无音频会话下永久阻塞 dispatch（.claude/rules/test-no-real-calls.md）。
-    // WebSpeech 只 emit 事件，不受影响。
-    if cfg!(test) && backend != TtsBackend::WebSpeech {
+    // 本 crate 测试走 cfg(test)，依赖方测试经 dev-dependencies 开 test-util。WebSpeech 只 emit 事件，不受影响。
+    if cfg!(any(test, feature = "test-util")) && backend != TtsBackend::WebSpeech {
         return;
     }
     match backend {
