@@ -57,6 +57,9 @@ const DEFAULT_OPTIONS: &str = r##"{
   "version": {"prefix": "v"},
   "thinking": {"label": "thinking"},
   "token-warn": {"label": "⚠200k"},
+  "spend-limit": {"showReset": false, "showAmount": false},
+  "prompt-cache": {"mode": "hitrate", "prefix": "缓存 "},
+  "fast-mode": {"label": "fast"},
   "custom": {"expr": ".model.display_name"}
 }"##;
 
@@ -72,6 +75,7 @@ const VALUE_COLORABLE: &[&str] = &[
     "rate-limit-7d",
     "session-duration",
     "api-duration",
+    "spend-limit",
 ];
 
 /// 需要调 `/api/group-info` 的类型（任一出现即 `NEED_GROUP = True`）。

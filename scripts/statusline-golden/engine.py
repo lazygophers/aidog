@@ -380,6 +380,66 @@ def seg_token_warn(inp, o):
 
 def seg_agent(inp, o): return _atom(inp, "agent", "name")
 
+# ── official fields (spend limit / prompt cache / fast mode / worktree / task) ──
+
+def seg_spend_limit(inp, o):
+    v = get(inp, "rate_limits", "spend_limit", "used_percentage")
+    if v is None:
+        return None
+    out = "spend:" + jts(jround(v)) + "%"
+    if o.get("showReset"):
+        ra = get(inp, "rate_limits", "spend_limit", "resets_at")
+        if ra is not None:
+            out += " (" + jts(jfloor((ra - _now_epoch()) / 3600)) + "h)"
+    if o.get("showAmount"):
+        used = get(inp, "rate_limits", "spend_limit", "used_usd")
+        limit = get(inp, "rate_limits", "spend_limit", "limit_usd")
+        if used is not None and limit is not None:
+            out += " $" + jts(used) + "/$" + jts(limit)
+            period = get(inp, "rate_limits", "spend_limit", "period")
+            if period:
+                out += " " + period
+    return out
+
+def seg_prompt_cache(inp, o):
+    pc = get(inp, "prompt_cache")
+    if not isinstance(pc, dict):
+        return None
+    mode = o.get("mode", "hitrate")
+    if mode == "hitrate":
+        v = pc.get("hit_ratio")
+        body = None if v is None else jts(jround(v * 100)) + "%"
+    elif mode == "warm":
+        body = ("warm" if pc.get("warm") else "cold") if pc.get("caching_observed") else None
+    elif mode == "ttl":
+        ea = pc.get("expires_at")
+        body = None if ea is None else jts(max(jfloor((ea - _now_epoch()) / 60), 0)) + "m"
+    elif mode == "misses":
+        r, m = pc.get("requests"), pc.get("misses")
+        body = None if r is None or m is None else jts(m) + "/" + jts(r) + " miss"
+    elif mode == "recache":
+        v = pc.get("recache_tokens_if_cold")
+        body = None if v is None else "cold→" + km_abbrev(v)
+    elif mode == "cause":
+        body = ",".join(get(pc, "last_miss_cause", "causes", default=[])) or None
+    else:
+        body = None
+    return None if body is None else o.get("prefix", "缓存 ") + body
+
+def seg_fast_mode(inp, o):
+    return o.get("label", "fast") if get(inp, "fast_mode") is True else None
+
+def seg_worktree_path(inp, o): return _atom(inp, "worktree", "path")
+def seg_worktree_original_cwd(inp, o): return _atom(inp, "worktree", "original_cwd")
+def seg_pr_kind(inp, o): return _atom(inp, "pr", "kind")
+
+# Subagent task fields (the normalized task is the render input).
+def seg_agent_type(inp, o): return _atom(inp, "agentType")
+def seg_task_description(inp, o): return _atom(inp, "description")
+def seg_task_effort(inp, o):
+    v = inp.get("effort")
+    return None if v is None or isinstance(v, (bool, dict, list)) else (jts(v) or None)
+
 def seg_agent_badge(inp, o):
     typ = get(inp, "type", default="")
     if not typ:
@@ -654,6 +714,11 @@ RENDERERS = {
     "group-coding": seg_group_coding, "group-requests": seg_group_requests,
     "group-cache": seg_group_cache, "group-tokens": seg_group_tokens,
     "group-route": seg_group_route,
+    "spend-limit": seg_spend_limit, "prompt-cache": seg_prompt_cache,
+    "fast-mode": seg_fast_mode, "worktree-path": seg_worktree_path,
+    "worktree-original-cwd": seg_worktree_original_cwd, "pr-kind": seg_pr_kind,
+    "agent-type": seg_agent_type, "task-description": seg_task_description,
+    "task-effort": seg_task_effort,
 }
 
 GROUP_TYPES = {"group-balance", "group-spent", "group-window-cost",
@@ -661,7 +726,7 @@ GROUP_TYPES = {"group-balance", "group-spent", "group-window-cost",
                "group-cache", "group-tokens", "group-route"}
 VALUE_COLORABLE = {"context-pct", "context-bar", "cost", "rate-limits", "cost-usd",
                    "context-remaining", "rate-limit-5h", "rate-limit-7d",
-                   "session-duration", "api-duration"}
+                   "session-duration", "api-duration", "spend-limit"}
 
 # ── auto-color thresholds (mirror bash autoColorBash) ──
 
@@ -680,6 +745,9 @@ def auto_color(seg_type, inp, text):
         c = _pct_thresh(m)
     elif seg_type == "rate-limit-7d":
         m = jround(get(inp, "rate_limits", "seven_day", "used_percentage", default=0))
+        c = _pct_thresh(m)
+    elif seg_type == "spend-limit":
+        m = jround(get(inp, "rate_limits", "spend_limit", "used_percentage", default=0))
         c = _pct_thresh(m)
     elif seg_type in ("session-duration", "api-duration"):
         field = "total_api_duration_ms" if seg_type == "api-duration" else "total_duration_ms"

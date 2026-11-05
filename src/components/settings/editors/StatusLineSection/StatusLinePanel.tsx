@@ -246,6 +246,7 @@ export function StatusLinePanel({
                   {t("statusline.addRow")}
                 </Button>
                 <Button variant="ghost"  style={{ fontSize: F.body, padding: "6px 14px" }}
+                  data-testid="sl-add-toggle"
                   onClick={() => setShowAddMenu(!showAddMenu)}>
                   {t("statusline.addSegment")}
                 </Button>
@@ -267,7 +268,7 @@ export function StatusLinePanel({
                           const def = SEGMENT_DEF_MAP.get(type);
                           if (!def) return null;
                           return (
-                            <Button variant="outline" key={def.type} type="button" style={{
+                            <Button variant="outline" key={def.type} type="button" data-testid={`sl-add-${def.type}`} style={{
                               display: "block", width: "100%", textAlign: "left",
                               padding: "6px 12px", fontSize: F.body,
                               background: "transparent", border: "none", borderRadius: "var(--radius-sm)",
