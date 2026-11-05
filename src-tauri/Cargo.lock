@@ -398,6 +398,7 @@ version = "0.1.19"
 dependencies = [
  "aidog_ctx",
  "aidog_db",
+ "aidog_middleware",
  "aidog_stats",
  "chrono",
  "dirs 6.0.0",

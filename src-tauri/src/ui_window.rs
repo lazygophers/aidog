@@ -20,8 +20,20 @@ pub(crate) enum Policy {
 static OPEN: AtomicBool = AtomicBool::new(false);
 static POLICY: AtomicU8 = AtomicU8::new(0);
 
-/// 界面是否存在。后续票的内核查询会消费，目前仅测试用。
-#[allow(dead_code)]
+/// 进程正在退出（ExitRequested / Exit）：此时窗口被销毁不是「进托盘常驻」，不发首次关窗提示。
+static EXITING: AtomicBool = AtomicBool::new(false);
+
+pub(crate) fn mark_exiting() {
+    EXITING.store(true, Ordering::SeqCst);
+}
+
+/// `ExitRequested` 是否该拦：`code=None` 是「最后一个窗口销毁」，界面已不在 = 托盘常驻，要拦；
+/// 显式退出码（托盘/菜单退出）或界面还在时的 Cmd+Q 照常退出。
+pub(crate) fn should_prevent_exit(code: Option<i32>) -> bool {
+    code.is_none() && !exists()
+}
+
+/// 界面是否存在（`AppCtx::ui_exists` 经 `tauri_ctx::set_ui_probe` 读它）。
 pub(crate) fn exists() -> bool {
     OPEN.load(Ordering::SeqCst)
 }
@@ -107,6 +119,13 @@ pub(crate) fn on_closed<R: Runtime>(app: &AppHandle<R>) {
     crate::deep_link::mark_closed();
     OPEN.store(false, Ordering::SeqCst);
     set_policy(app, Policy::Accessory);
+    if !EXITING.load(Ordering::SeqCst) {
+        tauri::async_runtime::spawn(async {
+            if let Some(c) = aidog_ctx::try_ctx() {
+                aidog_core::ui_notice::notify_first_tray_close(c).await;
+            }
+        });
+    }
 }
 
 /// 测试共享：`OPEN` / `POLICY` / deep link 收件箱是进程级 static → 用例间串行 + 每次重置。
@@ -189,6 +208,16 @@ mod tests {
         assert!(!exists());
         assert!(app.get_webview_window(LABEL).is_none());
         assert_eq!(policy(), Policy::Accessory);
+    }
+
+    #[test]
+    fn exit_prevented_only_when_last_window_gone_and_no_code() {
+        let (_g, app) = setup();
+        open(app.handle());
+        assert!(!should_prevent_exit(None), "界面还在：Cmd+Q 照常退出");
+        on_closed(app.handle());
+        assert!(should_prevent_exit(None), "最后窗口销毁：留托盘");
+        assert!(!should_prevent_exit(Some(0)), "显式退出码照常退出");
     }
 
     #[test]

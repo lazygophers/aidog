@@ -25,6 +25,8 @@ pub use axum as __axum;
 #[doc(hidden)]
 pub use serde_json as __serde_json;
 pub mod hooks;
+// 界面不在场时由内核直接发的系统通知（代理启动失败 / 首次关窗）。
+pub mod ui_notice;
 // statusline 脚本生成（原前端 TS，2026-09-16 下沉）：启动时随 sync 无条件重写。
 pub mod statusline;
 pub mod sync_settings;
@@ -65,3 +67,5 @@ pub use gateway::models::*;
 pub use tray_render::{TrayColumn, TrayLayout};
 #[cfg(all(feature = "desktop", not(target_os = "macos")))]
 pub use tray_render::{TrayMenuBuild, refresh_tray_menu};
+#[cfg(test)]
+mod test_ui_notice;

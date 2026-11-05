@@ -14,6 +14,13 @@ use aidog_db::Db;
 use aidog_middleware::MiddlewareEngine;
 use tauri::Emitter;
 
+/// 界面是否存在的探针。真值在壳 crate 的 `ui_window`（aidog_core 不能反向依赖壳），启动时注入。
+static UI_PROBE: std::sync::OnceLock<fn() -> bool> = std::sync::OnceLock::new();
+
+pub fn set_ui_probe(probe: fn() -> bool) {
+    let _ = UI_PROBE.set(probe);
+}
+
 pub struct TauriCtx {
     app: tauri::AppHandle,
     db: Db,
@@ -74,6 +81,10 @@ impl AppCtx for TauriCtx {
                 false
             }
         }
+    }
+
+    fn ui_exists(&self) -> bool {
+        UI_PROBE.get().is_some_and(|p| p())
     }
 
     fn speak_via_ui(&self, text: &str) -> bool {
