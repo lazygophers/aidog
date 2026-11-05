@@ -4,6 +4,7 @@
 export * from "./ActionKind";
 export * from "./ActionParams";
 export * from "./ActionStep";
+export * from "./ApiCallLog";
 export * from "./AppliesTo";
 export * from "./Channel";
 export * from "./ConditionLeaf";

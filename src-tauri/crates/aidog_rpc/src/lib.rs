@@ -158,6 +158,7 @@ rpc_routes! {
     mutating aidog_core::proxy_cmd::proxy::proxy_set_bind_lan,
     readonly aidog_core::kernel_settings::kernel_settings_get,
     mutating aidog_core::kernel_settings::kernel_settings_set,
+    readonly aidog_core::kernel_settings::api_call_log_list,
     readonly aidog_core::display_currency::display_currency_get,
     mutating aidog_core::display_currency::display_currency_set,
     readonly aidog_core::display_currency::balance_currency_map,

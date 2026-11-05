@@ -80,7 +80,7 @@ mod test_mitm_bypass;
 // 对外路径保持 `gateway::proxy::X` 不变：re-export 全部对外 pub 项。
 pub use endpoint::{is_opencode_zen, opencode_zen_fallback, resolve_opencode_zen_key};
 pub use handler::handle_proxy;
-pub use management::install_management_router;
+pub use management::{SETTINGS_TEST_SOURCE, SOURCE_HEADER, install_management_router};
 /// settings_set 写 DB 后调此重建 ProxyState 设置缓存（跨 crate：commands_config 调用）。
 pub use settings_cache::refresh_proxy_settings_cache;
 // ST5：明文 MITM 路径灌入用（CONNECT 分流已移至 handle_proxy_inner，core 只处理 AI 请求，

@@ -6300,6 +6300,84 @@ async fn mgmt_rpc_unknown_command_is_404_and_other_paths_still_route() {
     assert_eq!(root["service"], "aidog");
 }
 
+/// 调用记录（API 票 03）：落行、字段正确、来源可区分、正文（请求体）不入库。
+#[tokio::test]
+async fn mgmt_call_log_records_metadata_without_bodies() {
+    install_mgmt_test_router();
+    let state = make_state(test_db().await).await;
+    let base = spawn_proxy_router(state.clone()).await;
+    let c = mgmt_client();
+    let url = format!("{base}/api/rpc/ping");
+    let r = c.post(&url).header("user-agent", "my-script/1").body("BODY-MARKER-9f3a").send().await.unwrap();
+    assert_eq!(r.status(), 200);
+    let r = c.post(&url).header(super::SOURCE_HEADER, super::SETTINGS_TEST_SOURCE).send().await.unwrap();
+    assert_eq!(r.status(), 200);
+
+    let rows = aidog_db::list_api_call_logs(&state.db, 10).await.unwrap();
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[1].command, "ping");
+    assert_eq!(rows[1].status_code, 200);
+    assert!(rows[1].success);
+    assert_eq!(rows[1].user_agent, "my-script/1");
+    assert_eq!(rows[1].source, "third_party");
+    assert!(rows[1].created_at > 0);
+    assert_eq!(rows[0].source, "settings_test");
+    // 全表任意列都不含请求 / 响应正文。
+    let dump: String = state
+        .db
+        .call_read_proxy_log_traced(None, std::panic::Location::caller(), |conn| {
+            Ok(conn.query_row(
+                "SELECT group_concat(command || user_agent || source, '|') FROM api_call_log",
+                [],
+                |r| r.get::<_, String>(0),
+            )?)
+        })
+        .await
+        .unwrap();
+    assert!(!dump.contains("BODY-MARKER-9f3a") && !dump.contains("pong"));
+}
+
+/// 被拒请求（未启用 404 / 凭据错 401 / 非回环 403）也记录状态与失败标记；放行后的 404 同样记。
+#[tokio::test]
+async fn mgmt_call_log_records_rejected_requests() {
+    install_mgmt_test_router();
+    let state = make_state(test_db().await).await;
+    let base = spawn_proxy_router(state.clone()).await;
+    let c = mgmt_client();
+    let url = format!("{base}/api/rpc/ping");
+
+    set_mgmt(&state, false, "").await;
+    assert_eq!(c.post(&url).send().await.unwrap().status(), 404);
+    set_mgmt(&state, true, "s3cret").await;
+    assert_eq!(c.post(&url).bearer_auth("nope").send().await.unwrap().status(), 401);
+    let req = axum::http::Request::builder()
+        .method("POST")
+        .uri("/api/rpc/ping")
+        .body(axum::body::Body::empty())
+        .unwrap();
+    let r = super::handle_management(
+        AxumState(state.clone()),
+        axum::extract::ConnectInfo("10.1.2.3:5555".parse().unwrap()),
+        req,
+    )
+    .await;
+    assert_eq!(r.status(), 403);
+    assert_eq!(c.post(format!("{base}/api/rpc/nope")).bearer_auth("s3cret").send().await.unwrap().status(), 404);
+
+    let rows = aidog_db::list_api_call_logs(&state.db, 10).await.unwrap();
+    let got: Vec<(String, i32, bool)> =
+        rows.iter().rev().map(|r| (r.command.clone(), r.status_code, r.success)).collect();
+    assert_eq!(
+        got,
+        [
+            ("ping".to_string(), 404, false),
+            ("ping".to_string(), 401, false),
+            ("ping".to_string(), 403, false),
+            ("nope".to_string(), 404, false),
+        ]
+    );
+}
+
 fn rc_chat_req(gk: &str) -> Request {
     HttpRequest::builder()
         .method("POST")

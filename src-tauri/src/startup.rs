@@ -114,6 +114,7 @@ pub fn run() {
             // 管理接口开关与可选凭据（ADR 0010）。
             aidog_core::kernel_settings::kernel_settings_get,
             aidog_core::kernel_settings::kernel_settings_set,
+            aidog_core::kernel_settings::api_call_log_list,
             aidog_core::display_currency::display_currency_get,
             aidog_core::display_currency::display_currency_set,
             aidog_core::display_currency::balance_currency_map,

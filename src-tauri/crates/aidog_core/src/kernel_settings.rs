@@ -82,6 +82,14 @@ crate::tauri_command! {
     }
 }
 
+crate::tauri_command! {
+    /// 最近的管理接口调用记录（只含元数据，保留 7 天）。
+    pub async fn api_call_log_list(
+        limit: Option<i64>) -> Result<Vec<aidog_db::models::ApiCallLog>, String> {
+        aidog_db::list_api_call_logs(aidog_ctx::db(), limit.unwrap_or(200).clamp(1, 1000)).await
+    }
+}
+
 #[cfg(test)]
 #[path = "test_kernel_settings.rs"]
 mod test_kernel_settings;

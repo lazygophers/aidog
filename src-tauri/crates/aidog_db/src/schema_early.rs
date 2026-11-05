@@ -219,6 +219,22 @@ CREATE INDEX IF NOT EXISTS idx_proxy_log_actual_model
         "ALTER TABLE notification ADD COLUMN action_key TEXT NOT NULL DEFAULT ''",
         [],
     );
+    // Migration 20261105-01（API 票 03）：api_call_log 表（管理接口调用记录，log.db）。
+    // 只存元数据（命令名 / 状态 / 耗时 / UA / 来源），不存请求与响应正文；保留 7 天
+    // （run_retention_cleanup 链清理）。created_at 毫秒 Unix。
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS api_call_log (
+                       id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                       created_at  INTEGER NOT NULL DEFAULT 0,
+                       command     TEXT NOT NULL DEFAULT '',
+                       status_code INTEGER NOT NULL DEFAULT 0,
+                       success     INTEGER NOT NULL DEFAULT 0,
+                       duration_ms INTEGER NOT NULL DEFAULT 0,
+                       user_agent  TEXT NOT NULL DEFAULT '',
+                       source      TEXT NOT NULL DEFAULT 'third_party'
+                     );
+         CREATE INDEX IF NOT EXISTS idx_api_call_log_created ON api_call_log(created_at);",
+    )?;
     Ok(())
 }
 

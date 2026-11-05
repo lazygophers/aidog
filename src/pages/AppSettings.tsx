@@ -4,6 +4,7 @@ import { useSystemSettings } from "./AppSettings/useSystemSettings";
 import { ProxyStatusSection, UpstreamProxySection } from "./AppSettings/ProxyStatusSection";
 import { StartupSection } from "./AppSettings/StartupSection";
 import { KernelSection } from "./AppSettings/KernelSection";
+import { ApiCallLogSection } from "./AppSettings/ApiCallLogSection";
 import { DisplayCurrencySection } from "../components/settings/DisplayCurrencySection";
 import { LogSettingsSection } from "./AppSettings/LogSettingsSection";
 import { SystemMiscSection, DbStatsSection, VersionToastSection } from "./AppSettings/SystemMiscSection";
@@ -68,6 +69,7 @@ function ApiTab() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <RevealedSection staggerMs={0}><KernelSection /></RevealedSection>
+      <RevealedSection staggerMs={80}><ApiCallLogSection /></RevealedSection>
     </div>
   );
 }
