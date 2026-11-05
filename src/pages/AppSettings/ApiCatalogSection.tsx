@@ -52,7 +52,8 @@ function StaticList({ group, items, port }: { group: "local" | "forward"; items:
 
 /** 「API」分页接口清单：管理接口（构建期生成物）+ Local API + 转发接口。 */
 export function ApiCatalogSection({ refreshKey = 0 }: { refreshKey?: number }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const catLabel = (c: string) => (i18n.exists(`apiCatalog.category.${c}`) ? t(`apiCatalog.category.${c}`) : c);
   const [port, setPort] = useState<number | null>(null);
   const [hasToken, setHasToken] = useState(false);
   const [query, setQuery] = useState("");
@@ -89,7 +90,7 @@ export function ApiCatalogSection({ refreshKey = 0 }: { refreshKey?: number }) {
           />
           <select data-testid="api-catalog-category" value={category} onChange={(e) => setCategory(e.target.value)} style={{ fontSize: 12 }}>
             <option value="">{t("apiCatalog.allCategories")}</option>
-            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            {CATEGORIES.map((c) => <option key={c} value={c} data-testid={`api-catalog-category-opt-${c}`}>{catLabel(c)}</option>)}
           </select>
           <span className="text-secondary" data-testid="api-catalog-count" style={{ fontSize: 12 }}>
             {t("apiCatalog.count", { count: rows.length })}
@@ -109,7 +110,7 @@ export function ApiCatalogSection({ refreshKey = 0 }: { refreshKey?: number }) {
             style={{ marginTop: 12, fontSize: 12 }}
           >
             <code style={{ fontWeight: 600 }}>{c.name}</code>
-            <span className="text-secondary">{` · ${c.category} · `}</span>
+            <span className="text-secondary" data-testid={`api-cmd-category-${c.name}`}>{` · ${catLabel(c.category)} · `}</span>
             <span>
               {c.desktopOnly ? t("apiCatalog.desktopOnly") : c.kind === "readonly" ? t("apiCatalog.readonly") : t("apiCatalog.mutating")}
             </span>
