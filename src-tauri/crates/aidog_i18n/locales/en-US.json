@@ -45,6 +45,7 @@
   "apiTest.send": "Send",
   "apiTest.disabledHint": "The management API is off. Turn it on in the Management API section above first.",
   "apiTest.proxyDown": "The proxy is not running. Start the proxy first.",
+  "apiTest.settingsError": "Could not read the management API settings; sending is disabled.",
   "apiTest.confirmTitle": "Confirm sending a data-changing command",
   "apiTest.confirmDesc": "This command changes data. It is sent only after you confirm:",
   "apiTest.cancel": "Cancel",

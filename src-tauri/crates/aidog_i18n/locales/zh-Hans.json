@@ -45,6 +45,7 @@
   "apiTest.send": "发送",
   "apiTest.disabledHint": "管理接口未启用，请先在上方「管理接口」中打开开关。",
   "apiTest.proxyDown": "代理未运行，请先启动代理。",
+  "apiTest.settingsError": "读取管理接口设置失败，已禁用发送。",
   "apiTest.confirmTitle": "确认发送会改数据的命令",
   "apiTest.confirmDesc": "该命令会修改数据，确认后才会发送：",
   "apiTest.cancel": "取消",

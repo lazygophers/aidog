@@ -45,6 +45,7 @@
   "apiTest.send": "Enviar",
   "apiTest.disabledHint": "La API de gestión está desactivada. Actívela primero en la sección API de gestión de arriba.",
   "apiTest.proxyDown": "El proxy no está en ejecución. Inícielo primero.",
+  "apiTest.settingsError": "No se pudo leer la configuración de la API de gestión; el envío está desactivado.",
   "apiTest.confirmTitle": "Confirmar el envío de un comando que modifica datos",
   "apiTest.confirmDesc": "Este comando modifica datos. Solo se envía tras confirmar:",
   "apiTest.cancel": "Cancelar",

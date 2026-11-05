@@ -45,6 +45,7 @@
   "apiTest.send": "送信",
   "apiTest.disabledHint": "管理 API が無効です。上の「管理 API」でスイッチをオンにしてください。",
   "apiTest.proxyDown": "プロキシが起動していません。先に起動してください。",
+  "apiTest.settingsError": "管理 API の設定を読み取れなかったため、送信は無効です。",
   "apiTest.confirmTitle": "データを変更するコマンドの送信確認",
   "apiTest.confirmDesc": "このコマンドはデータを変更します。確認後にのみ送信されます：",
   "apiTest.cancel": "キャンセル",

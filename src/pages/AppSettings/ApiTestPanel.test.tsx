@@ -77,6 +77,14 @@ describe("ApiTestPanel", () => {
     expect(screen.getByTestId("api-test-send")).toBeDisabled();
   });
 
+  it("reading settings fails: error state, send disabled (not treated as enabled)", async () => {
+    h.kernel.mockRejectedValue(new Error("boom"));
+    render(<ApiTestPanel />);
+    await ready("error");
+    expect(screen.getByTestId("api-test-settings-error")).toBeInTheDocument();
+    expect(screen.getByTestId("api-test-send")).toBeDisabled();
+  });
+
   it("proxy not running: hint instead of result", async () => {
     h.send.mockRejectedValue("proxy_unreachable");
     render(<ApiTestPanel />);
