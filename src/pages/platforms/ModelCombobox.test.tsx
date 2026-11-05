@@ -32,4 +32,13 @@ describe("ModelCombobox exclude", () => {
     open(["b", "C"]);
     expect(opts()).toEqual(["model-option-a", "model-option-c"]);
   });
+  it("候选全部被排除：不显示下拉按钮，聚焦也不弹出", () => {
+    open(["a", "b", "c"]);
+    expect(document.body.querySelector('[data-testid="model-combobox-toggle"]')).toBeNull();
+    expect(opts()).toEqual([]);
+  });
+  it("仍有候选：显示下拉按钮", () => {
+    open(["a"]);
+    expect(document.body.querySelector('[data-testid="model-combobox-toggle"]')).not.toBeNull();
+  });
 });

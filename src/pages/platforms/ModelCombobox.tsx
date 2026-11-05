@@ -48,9 +48,9 @@ export function ModelCombobox({
   const active = openProp ?? innerOpen;
   const setActive = onOpenChange ?? setInnerOpen;
   const priceMap = useModelPrices(protocol);
-  const hasDropdown = source.length > 0;
-  const query = value.trim().toLowerCase();
   const candidates = exclude ? source.filter((m) => !exclude.includes(m)) : source;
+  const hasDropdown = candidates.length > 0;
+  const query = value.trim().toLowerCase();
   const filtered = hasDropdown
     ? (query ? candidates.filter((m) => pinyinMatch(query, m)) : candidates)
     : [];
@@ -80,6 +80,7 @@ export function ModelCombobox({
               <Button
                 variant="ghost"
                 size="icon"
+                data-testid="model-combobox-toggle"
                 style={{
                   position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
                   width: 22, height: 22, minWidth: 22, padding: 0,
