@@ -1129,7 +1129,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                 }}
               />
               <datalist id={`peak-models-${idx}`}>
-                {modelList.map(m => <option key={m} value={m} />)}
+                {modelList.filter(m => !(w.models ?? []).includes(m)).map(m => <option key={m} value={m} />)}
               </datalist>
             </div>
           </div>
