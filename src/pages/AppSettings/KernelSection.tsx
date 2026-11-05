@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
  * 管理接口挂在代理端口 /api/ 下（POST /api/rpc/<命令>、GET /api/events），只接受本机连接，
  * 与代理的「局域网访问」开关无关。
  */
-export function KernelSection() {
+export function KernelSection({ onSaved }: { onSaved?: () => void } = {}) {
   const { t } = useTranslation();
   const [settings, setSettings] = useState<KernelSettings | null>(null);
   const [token, setToken] = useState("");
@@ -41,6 +41,7 @@ export function KernelSection() {
       await kernelApi.setSettings(next);
       setSettings(next);
       flash(t("kernel.saved"));
+      onSaved?.();
     } catch (e: any) {
       setError(typeof e === "string" ? e : e?.toString?.() ?? "");
     }
