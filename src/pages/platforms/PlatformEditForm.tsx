@@ -41,7 +41,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     isMock, isPassthrough, isPassThrough, keyOptional, apiKeyMissing,
     passAuth, setPassAuth,
   appbuilderKey = "", setAppbuilderKey,
-    customSlotDefs = [], customSlotValues = {}, setCustomSlotValues,
+    customSlotDefs, customSlotValues = {}, setCustomSlotValues,
     mockConfig, setMockConfig,
     apiKey, setApiKey, showKey, setShowKey,
     batchPreviewKeys, handleApiKeyChange, previewNames,

@@ -65,7 +65,7 @@ describe("CustomModelSlotsSection", () => {
     await waitFor(() => expect(h.set).toHaveBeenCalledWith([{ name: "fast", match: "exact" }, initial[1]]));
   });
 
-  it("删除：确认框显示平台数，确认后先清平台再写定义", async () => {
+  it("删除：确认框显示平台数，确认后先写定义再清平台", async () => {
     render(<CustomModelSlotsSection />);
     await screen.findByTestId("slot-row-fast");
     fireEvent.click(screen.getByTestId("slot-delete-fast"));
@@ -74,8 +74,19 @@ describe("CustomModelSlotsSection", () => {
     expect(h.usage).toHaveBeenCalledWith("fast");
     fireEvent.click(screen.getByTestId("slot-delete-confirm"));
     await waitFor(() => expect(h.set).toHaveBeenCalledWith([initial[1]]));
-    expect(h.purge).toHaveBeenCalledWith("fast");
-    expect(h.purge.mock.invocationCallOrder[0]).toBeLessThan(h.set.mock.invocationCallOrder[0]);
+    await waitFor(() => expect(h.purge).toHaveBeenCalledWith("fast"));
+    expect(h.set.mock.invocationCallOrder[0]).toBeLessThan(h.purge.mock.invocationCallOrder[0]);
+  });
+
+  it("删除：写定义失败则不清平台值（不丢数据）", async () => {
+    h.set.mockRejectedValueOnce("boom");
+    render(<CustomModelSlotsSection />);
+    await screen.findByTestId("slot-row-fast");
+    fireEvent.click(screen.getByTestId("slot-delete-fast"));
+    await screen.findByTestId("slot-delete-count");
+    fireEvent.click(screen.getByTestId("slot-delete-confirm"));
+    await screen.findByTestId("slot-save-error");
+    expect(h.purge).not.toHaveBeenCalled();
   });
 
   it("删除取消：不清平台、不写定义", async () => {

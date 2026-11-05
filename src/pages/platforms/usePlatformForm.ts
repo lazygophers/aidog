@@ -236,7 +236,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   useEffect(() => {
     if (!showForm) return;
     let alive = true;
-    customSlotsApi.get().then((d) => { if (alive) setCustomSlotDefs(d); }).catch(() => {});
+    customSlotsApi.get().then((d) => { if (alive) setCustomSlotDefs(d); }).catch((e) => console.error("custom slots definitions load failed:", e));
     return () => { alive = false; };
   }, [showForm]);
   // 手动预算限额（仅无上游 quota 自动支持平台可配；编辑表单态）
