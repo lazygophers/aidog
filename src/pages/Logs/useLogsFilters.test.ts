@@ -1,5 +1,5 @@
 // useLogsFilters.test — c8 三段切分后 filters 段的行为回归。
-// 覆盖 activeFilter 派生（exclude_sources 默认值/NO_GROUP_SENTINEL 映射/model_type 只在有文本时带）、
+// 覆盖 activeFilter 派生（exclude_sources 默认值/NO_GROUP_SENTINEL 映射/请求模型/实际模型独立带）、
 // hasFilter 判定、clearFilter 复位。mock 策略同 usePlatformsState.test：整包拦截 services/api。
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
@@ -8,7 +8,10 @@ import { NO_GROUP_SENTINEL } from "./types";
 const { platformApiMock, groupDetailApiMock, proxyLogApiMock } = vi.hoisted(() => ({
   platformApiMock: { list: vi.fn<() => Promise<any[]>>() },
   groupDetailApiMock: { list: vi.fn<() => Promise<any[]>>() },
-  proxyLogApiMock: { listFiltered: vi.fn<() => Promise<{ items: any[]; has_more: boolean }>>() },
+  proxyLogApiMock: {
+    listFiltered: vi.fn<() => Promise<{ items: any[]; has_more: boolean }>>(),
+    distinctModels: vi.fn<(f: any, actual: boolean, n?: number) => Promise<string[]>>(),
+  },
 }));
 
 vi.mock("../../services/api", () => ({
@@ -25,6 +28,7 @@ describe("useLogsFilters", () => {
     platformApiMock.list.mockResolvedValue([{ id: 1, name: "P1" }]);
     groupDetailApiMock.list.mockResolvedValue([{ group: { group_key: "g1", name: "G1" } }]);
     proxyLogApiMock.listFiltered.mockResolvedValue({ items: [], has_more: false });
+    proxyLogApiMock.distinctModels.mockImplementation(async (_f, actual) => (actual ? ["glm-4"] : ["claude-3"]));
   });
 
   it("初始 activeFilter 只带 exclude_sources 默认值", async () => {
@@ -41,12 +45,23 @@ describe("useLogsFilters", () => {
     expect(r.result.current.hasFilter).toBe(true);
   });
 
-  it("filterModelText 非空才在 activeFilter 上带 model/model_type", () => {
+  it("请求模型/实际模型各自独立，可同时带在 activeFilter 上", () => {
     const r = renderHook(() => useLogsFilters());
     expect(r.result.current.activeFilter.model).toBeUndefined();
-    act(() => r.result.current.setFilterModelText("claude-3"));
+    expect(r.result.current.activeFilter.actual_model).toBeUndefined();
+    act(() => r.result.current.setFilterModel("claude-3"));
     expect(r.result.current.activeFilter.model).toBe("claude-3");
-    expect(r.result.current.activeFilter.model_type).toBe("actual");
+    expect(r.result.current.activeFilter.actual_model).toBeUndefined();
+    act(() => r.result.current.setFilterActualModel("glm-4"));
+    expect(r.result.current.activeFilter.model).toBe("claude-3");
+    expect(r.result.current.activeFilter.actual_model).toBe("glm-4");
+    expect(r.result.current.hasFilter).toBe(true);
+  });
+
+  it("两个下拉选项各取自 model / actual_model 列", async () => {
+    const r = renderHook(() => useLogsFilters());
+    await waitFor(() => expect(r.result.current.modelOptions).toEqual(["claude-3"]));
+    expect(r.result.current.actualModelOptions).toEqual(["glm-4"]);
   });
 
   it("filterStatus success/error 映射为 status=200/-1", () => {
@@ -73,7 +88,8 @@ describe("useLogsFilters", () => {
       r.result.current.setFilterPlatform("1");
       r.result.current.setFilterGroup("g1");
       r.result.current.setFilterStatus("error");
-      r.result.current.setFilterModelText("x");
+      r.result.current.setFilterModel("x");
+      r.result.current.setFilterActualModel("y");
       r.result.current.setFilterPath("/v1");
       r.result.current.setFilterObserved("observed");
     });
@@ -83,8 +99,8 @@ describe("useLogsFilters", () => {
     expect(r.result.current.filterPlatform).toBe("");
     expect(r.result.current.filterGroup).toBe("");
     expect(r.result.current.filterStatus).toBe("");
-    expect(r.result.current.filterModelText).toBe("");
-    expect(r.result.current.filterModelType).toBe("actual");
+    expect(r.result.current.filterModel).toBe("");
+    expect(r.result.current.filterActualModel).toBe("");
     expect(r.result.current.filterPath).toBe("");
     expect(r.result.current.filterObserved).toBe("");
   });

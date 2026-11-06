@@ -24,8 +24,8 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
   const [filterGroup, setFilterGroup] = useState<string>(initialFilter?.groupKey ?? "");
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [filterTime, setFilterTime] = useState<TimePreset>("all");
-  const [filterModelType, setFilterModelType] = useState<"original" | "actual">("actual");
-  const [filterModelText, setFilterModelText] = useState<string>("");
+  const [filterModel, setFilterModel] = useState<string>("");
+  const [filterActualModel, setFilterActualModel] = useState<string>("");
   const [filterPath, setFilterPath] = useState<string>("");
   // 中间件观察模式命中（票 04）："" = 全部；"observed" = 仅 blocked_reason='observe' 的行
   const [filterObserved, setFilterObserved] = useState<string>("");
@@ -46,36 +46,32 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
     const tr = timePresetToRange(filterTime);
     if (tr.start) f.time_start = tr.start;
     if (tr.end) f.time_end = tr.end;
-    if (filterModelText.trim()) {
-      f.model = filterModelText.trim();
-      f.model_type = filterModelType;
-    }
+    if (filterModel.trim()) f.model = filterModel.trim();
+    if (filterActualModel.trim()) f.actual_model = filterActualModel.trim();
     if (filterPath.trim()) f.path = filterPath.trim();
     if (filterObserved === "observed") f.observed = true;
     return f;
-  }, [filterPlatform, filterGroup, filterStatus, filterTime, filterModelText, filterModelType, filterPath, filterObserved]);
+  }, [filterPlatform, filterGroup, filterStatus, filterTime, filterModel, filterActualModel, filterPath, filterObserved]);
 
-  const hasFilter = !!(filterPlatform || filterGroup || filterStatus || filterTime !== "all" || filterModelText.trim() || filterPath.trim() || filterObserved);
+  const hasFilter = !!(filterPlatform || filterGroup || filterStatus || filterTime !== "all" || filterModel.trim() || filterActualModel.trim() || filterPath.trim() || filterObserved);
 
   const [modelOptions, setModelOptions] = useState<string[]>([]);
+  const [actualModelOptions, setActualModelOptions] = useState<string[]>([]);
   useEffect(() => {
-    (async () => {
-      try {
-        // 模型下拉同样排除 test/quota，避免列出主列表不存在的模型。
-        // 后端 DISTINCT 直出选项（logs-query-ipc-slimming s4），不再拉 200 行完整日志前端去重。
-        const items = await proxyLogApi.distinctModels({ exclude_sources: ["test", "quota", "fetch-models"] }, filterModelType === "actual", 200);
-        setModelOptions(items);
-      } catch { /* ignore */ }
-    })();
-  }, [filterModelType]);
+    // 模型下拉同样排除 test/quota，避免列出主列表不存在的模型。
+    // 后端 DISTINCT 直出选项（logs-query-ipc-slimming s4），请求模型 / 实际模型各取各列。
+    const f: ProxyLogFilter = { exclude_sources: ["test", "quota", "fetch-models"] };
+    proxyLogApi.distinctModels(f, false, 200).then(setModelOptions).catch(() => {});
+    proxyLogApi.distinctModels(f, true, 200).then(setActualModelOptions).catch(() => {});
+  }, []);
 
   const clearFilter = () => {
     setFilterPlatform("");
     setFilterGroup("");
     setFilterStatus("");
     setFilterTime("all");
-    setFilterModelText("");
-    setFilterModelType("actual");
+    setFilterModel("");
+    setFilterActualModel("");
     setFilterPath("");
     setFilterObserved("");
   };
@@ -95,9 +91,9 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
 
   return {
     t,
-    platforms, groups, filterPlatform, filterGroup, filterStatus, filterTime, filterModelType, filterModelText, filterPath, filterObserved,
-    setFilterPlatform, setFilterGroup, setFilterStatus, setFilterTime, setFilterModelType, setFilterModelText, setFilterPath, setFilterObserved,
-    activeFilter, hasFilter, clearFilter, modelOptions,
+    platforms, groups, filterPlatform, filterGroup, filterStatus, filterTime, filterModel, filterActualModel, filterPath, filterObserved,
+    setFilterPlatform, setFilterGroup, setFilterStatus, setFilterTime, setFilterModel, setFilterActualModel, setFilterPath, setFilterObserved,
+    activeFilter, hasFilter, clearFilter, modelOptions, actualModelOptions,
     platformMap, groupName,
   };
 }

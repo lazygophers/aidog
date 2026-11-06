@@ -21,9 +21,10 @@ export interface FilterDropdownProps {
   options: Array<{ value: string; label: string; searchTerms?: string[] }>;
   /** 搜索无匹配时的空态文案 */
   emptyLabel: string;
+  testId?: string;
 }
 
-export function FilterDropdown({ width, value, onChange, allLabel, searchPlaceholder, options, emptyLabel }: FilterDropdownProps) {
+export function FilterDropdown({ width, value, onChange, allLabel, searchPlaceholder, options, emptyLabel, testId }: FilterDropdownProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -49,6 +50,7 @@ export function FilterDropdown({ width, value, onChange, allLabel, searchPlaceho
           onClick={makeRipple}
           style={{ fontSize: 14, lineHeight: 1.5, height: 36, width, textAlign: "left", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", justifyContent: "space-between" }}
           data-state={open ? "open" : "closed"}
+          data-testid={testId}
         >
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>
             {current ? current.label : allLabel}

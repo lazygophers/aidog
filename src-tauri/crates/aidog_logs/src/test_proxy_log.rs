@@ -566,7 +566,7 @@ async fn filtered_list_by_status_success() {
     assert_eq!(rows2[0].id, "fail");
 }
 
-/// filtered_list：model_type="actual" vs "original"。
+/// filtered_list：actual_model / model 各自独立过滤。
 #[tokio::test]
 async fn filtered_list_by_model_type() {
     let db = test_db().await;
@@ -580,8 +580,7 @@ async fn filtered_list_by_model_type() {
 
     // actual model filter
     let filter_actual = aidog_db::models::ProxyLogFilter {
-        model: Some("glm-4-plus".to_string()),
-        model_type: Some("actual".to_string()),
+        actual_model: Some("glm-4-plus".to_string()),
         ..Default::default()
     };
     let rows = filtered_list_proxy_logs(&db, &filter_actual, 10, 0)
@@ -593,7 +592,6 @@ async fn filtered_list_by_model_type() {
     // original model filter
     let filter_orig = aidog_db::models::ProxyLogFilter {
         model: Some("claude-sonnet-4".to_string()),
-        model_type: Some("original".to_string()),
         ..Default::default()
     };
     let rows2 = filtered_list_proxy_logs(&db, &filter_orig, 10, 0)
@@ -601,6 +599,29 @@ async fn filtered_list_by_model_type() {
         .unwrap()
         .items;
     assert_eq!(rows2.len(), 1, "original model match should work");
+}
+
+/// filtered_list：model 与 actual_model 同时给出 → AND。
+#[tokio::test]
+async fn filtered_list_model_and_actual_model_combined() {
+    let db = test_db().await;
+    let ts = now();
+    for (id, m, a) in [("c1", "sonnet", "glm"), ("c2", "sonnet", "gpt"), ("c3", "opus", "glm")] {
+        let mut l = sample_log(id, "g", ts);
+        l.model = m.into();
+        l.actual_model = a.into();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l, false, false))
+            .await
+            .unwrap();
+    }
+    let filter = aidog_db::models::ProxyLogFilter {
+        model: Some("sonnet".into()),
+        actual_model: Some("glm".into()),
+        ..Default::default()
+    };
+    let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap().items;
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].id, "c1");
 }
 
 /// filtered_list：has_more 边界（logs-query-ipc-slimming s2，替代精确 COUNT）。
@@ -765,7 +786,7 @@ async fn filtered_list_by_exact_status_code() {
     assert_eq!(rows[0].id, "s429");
 }
 
-/// filtered_list：model_type="actual" 按 actual_model 过滤。
+/// filtered_list：actual_model 按 actual_model 列过滤。
 #[tokio::test]
 async fn filtered_list_model_type_actual() {
     let db = test_db().await;
@@ -784,8 +805,7 @@ async fn filtered_list_model_type_actual() {
         .unwrap();
 
     let filter = aidog_db::models::ProxyLogFilter {
-        model: Some("claude-3-5-sonnet".into()),
-        model_type: Some("actual".into()),
+        actual_model: Some("claude-3-5-sonnet".into()),
         ..Default::default()
     };
     let rows = filtered_list_proxy_logs(&db, &filter, 10, 0)
