@@ -130,6 +130,8 @@ export interface NavContext {
   model?: string;
   /** 进入日志页后自动打开的 proxy_log id（分组「最近请求」跳转用）。 */
   logId?: string;
+  /** 进入日志页后按 session_key 过滤（magpie 票 09 会话统计下钻）。 */
+  sessionKey?: string;
   /** 经导航进入平台页时以「复制」（新建态）而非「编辑」打开目标平台。 */
   duplicate?: boolean;
 }
