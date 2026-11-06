@@ -38,6 +38,9 @@ master 基线本身带红（该轮：vitest 1 红、flutter 4 红、aidog_db 2 �
   bench agent 实例：消息送达、agent 做一半停住，主会话接手收尾）：空闲 agent
   被唤醒后不保证把新任务跑完。有分量的新活重派一个新 agent 或主会话自己干；
   只把「顺手捎带」级别的小事交给唤醒。
+- **派发 prompt 里的需求词有歧义就先定义**（2026-11-06 statusline「官方协议」：agent 列出 3 种解读后停下，用户插话澄清
+  时 agent 已停，需 SendMessage 唤醒续做）：prompt 写明该词在本仓的所指（如「官方协议 = 平台 protocol 为 anthropic 的官方直连」）
+  与回退口径；仍有多解的，让 agent 回传解读由主会话 ask-me，用户的澄清等 agent 回报后连同答复一次性发新 prompt。
 
 ## 3. 派发 prompt 里的路径先验存在，agent 侧留自检指令
 
@@ -285,6 +288,11 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
   回报只写「先红已验」而无 EXIT 值和失败名，按没验处理。
   **红必须是断言红，不是编译红**（2026-11-05 模型-自定义槽位：4 张票 3 张非严格——符号缺失编译红、夹具缺项红、写完实现再换回）：
   先加桩（新符号只给签名 + 默认返回值，夹具补全）使测试编译通过，再跑出断言失败；票 03 桩先行即得真先红。
+  review 修复补的测试同样适用（2026-11-06 38ca3d577 仍非严格先红，靠改坏 decision.rs 反证）：派 review-fix agent 时 prompt 照贴本条。
+- **`make lint` 整条跑**（2026-11-06 额度线遗留「make lint 未整条跑，仅分项跑」）：收尾门禁以 `make lint > .tmp/<任务名>/lint.log 2>&1; echo EXIT=$?` 为准，
+  分项绿不算；收尾 agent 回报贴 EXIT 值，没跑写「做了没验证」。
+- **绕开脏文件另建模块只是权宜**（2026-11-06 statusline 回退放进 fallback.py 因 engine.py 被他线占用）：占用解除后并回原模块，
+  账本遗留写明并入条件；不把「文件被占」当拆文件的设计理由。
 - **票 `Status:` 只有 `claimed` → `resolved`**：2026-11-05.md:101 遗留「票状态跳过 claimed」。
   与 wayfinder-session.md §2 同口径，派发 prompt 三行词表照贴；合并后当场 grep `Status:`。
 - **新增带密钥的写命令，同提交登记 `RESTORERS`**（`aidog_rpc/src/secret_fields.rs:114`）：2026-11-05.md:105
