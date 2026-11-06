@@ -31,6 +31,8 @@ jobs:
   # 与 make lint / make check 同源：类型 + 六道 lint + 前端测试 + Rust 全量测试。
   gates:
     runs-on: ubuntu-latest
+    env:
+      YARN_ENABLE_GLOBAL_CACHE: "false" # yarn 缓存落 .yarn/cache，供下方 actions/cache
     steps:
       - uses: actions/checkout@v5
       # cargo check 在 ubuntu 上编 tauri 的 -sys crate（glib-sys 等）需要系统库 .pc 文件；mac/win runner 自带，无需此步。
@@ -46,9 +48,18 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: src-tauri -> target
+          shared-key: gates
+          cache-on-failure: true # 门禁失败也存缓存，否则重跑每次冷编译（v0.1.20 两次 gates 失败各冷编 ~4min）
       - name: Enable corepack (yarn@4 via packageManager field)
         run: corepack enable
+      - name: Restore yarn cache
+        id: yarn-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .yarn/cache
+          key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: ${{ runner.os }}-yarn-
       - name: Install JS deps
         run: yarn install --immutable
       - name: Type checks (tsc + cargo check)
@@ -59,6 +70,12 @@ jobs:
         run: yarn test
       - name: Rust tests (cargo test --workspace)
         run: cargo test --manifest-path src-tauri/Cargo.toml --workspace
+      - name: Save yarn cache
+        if: always() && steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: .yarn/cache
+          key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
 
   release:
     # cleanup 在 push 事件被 skip：always() && result != failure 让 push 路径照跑（skipped != failure）。
