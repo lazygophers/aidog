@@ -390,7 +390,11 @@ def seg_spend_limit(inp, o):
     if o.get("showReset"):
         ra = get(inp, "rate_limits", "spend_limit", "resets_at")
         if ra is not None:
-            out += " (" + jts(jfloor((ra - _now_epoch()) / 3600)) + "h)"
+            h = jfloor((ra - _now_epoch()) / 3600)
+            # ≥48h 按天显示，<48h 保持小时（2026-11-05）
+            out += (
+                " (" + jts(jfloor(h / 24)) + "d)" if h >= 48 else " (" + jts(h) + "h)"
+            )
     if o.get("showAmount"):
         used = get(inp, "rate_limits", "spend_limit", "used_usd")
         limit = get(inp, "rate_limits", "spend_limit", "limit_usd")

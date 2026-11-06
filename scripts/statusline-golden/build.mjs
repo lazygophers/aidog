@@ -69,6 +69,7 @@ const CASES = [
   ["official-b", "main", "official_full"],
   ["official-b", "main", "official_null_pct"],
   ["official-b", "main", "official_no_rate_limits"],
+  ["spend-reset-d", "main", "spend_reset_long"],
   ["subagent-official-b", "subagent", "sa_official"],
   ["subagent-official-b", "subagent", "sa_effort_num"],
 ];
