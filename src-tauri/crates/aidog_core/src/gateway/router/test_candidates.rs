@@ -4159,3 +4159,63 @@ async fn all_disabled_slot_group_errs_and_beats_peak() {
         .expect_err("must err");
     assert_eq!(e, "slot_disabled");
 }
+
+/// 按模型名排除：请求名属 haiku 族且该平台关了 haiku，无论 haiku 槽空（落 default / 透传）都排除。
+#[tokio::test]
+async fn disabled_tier_slot_excludes_by_model_family() {
+    let (db, _dir) = db::test_support::three_file_db().await;
+    let p1 = mk_db_platform(&db, "a").await;
+    let p2 = mk_db_platform(&db, "b").await;
+    let g = mk_db_group(&db, "g", &[p1.id, p2.id]).await;
+    let off = r#"{"disabled_slots":["haiku"]}"#;
+    // haiku 槽空 + default 空 → 透传
+    set_models_extra(&db, p1.id, PlatformModels::default(), off).await;
+    let set = select_candidates_ctx(&db, &g, "claude-haiku-5-5", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    assert_eq!(cand_ids(&set), vec![p2.id]);
+    assert_eq!(reason_of(&set, p1.id), RouteReason::ModelNotOnPlatform);
+    // haiku 槽空 + default 有值 → 落 default，仍排除
+    set_models_extra(&db, p1.id, slot_default("d"), off).await;
+    let set = select_candidates_ctx(&db, &g, "claude-haiku-5-5", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    assert_eq!(cand_ids(&set), vec![p2.id]);
+    assert_eq!(reason_of(&set, p1.id), RouteReason::ModelNotOnPlatform);
+    // 请求是 sonnet → 不排除
+    let set = select_candidates_ctx(&db, &g, "claude-sonnet-4-5", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    assert_eq!(cand_ids(&set), vec![p1.id, p2.id]);
+}
+
+/// 只关 default：haiku 槽已填的 haiku 请求不排除（default 仍只看实际命中）。
+#[tokio::test]
+async fn disabled_default_does_not_hit_family_request_with_filled_slot() {
+    let (db, _dir) = db::test_support::three_file_db().await;
+    let p1 = mk_db_platform(&db, "a").await;
+    let p2 = mk_db_platform(&db, "b").await;
+    let pm = PlatformModels { default: chain(&["d"]), haiku: chain(&["h"]), ..Default::default() };
+    set_models_extra(&db, p1.id, pm, r#"{"disabled_slots":["default"]}"#).await;
+    let g = mk_db_group(&db, "g", &[p1.id, p2.id]).await;
+    let set = select_candidates_ctx(&db, &g, "claude-haiku-5-5", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    assert_eq!(cand_ids(&set), vec![p1.id, p2.id]);
+}
+
+/// 单平台分组：关 haiku 且槽空，haiku 请求 → Err("slot_disabled")。
+#[tokio::test]
+async fn single_platform_disabled_tier_slot_rejects_by_family() {
+    let (db, _dir) = db::test_support::three_file_db().await;
+    let p = mk_db_platform(&db, "only").await;
+    set_models_extra(&db, p.id, slot_default("d"), r#"{"disabled_slots":["haiku"]}"#).await;
+    let g = mk_db_group(&db, "single", &[p.id]).await;
+    let e = select_candidates_ctx(&db, &g, "claude-haiku-5-5", None, RequestKind::Chat)
+        .await
+        .expect_err("must reject");
+    assert_eq!(e, "slot_disabled");
+    select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("other family passes");
+}
