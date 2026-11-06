@@ -4219,3 +4219,186 @@ async fn single_platform_disabled_tier_slot_rejects_by_family() {
         .await
         .expect("other family passes");
 }
+
+// ── HealthAware 档内排序（2026-11-06 拍板）集成：键快照计算 + 排序接线 ──
+
+/// 直写平台 est_coding_plan 列（测试专用；写后作废分组明细缓存）。
+async fn set_est_coding_plan(db: &db::Db, id: u64, json: &str) {
+    let json = json.to_string();
+    db.platform_write_conn()
+        .call(move |conn| {
+            conn.execute(
+                "UPDATE platform SET est_coding_plan = ?1 WHERE id = ?2",
+                rusqlite::params![json, id as i64],
+            )?;
+            Ok(())
+        })
+        .await
+        .expect("set est_coding_plan");
+    db.invalidate_group_details_cache();
+}
+
+async fn mk_ha_group(
+    db: &db::Db,
+    name: &str,
+    inputs: Vec<GroupPlatformInput>,
+) -> Group {
+    let g = db::create_group(
+        db,
+        CreateGroup {
+            name: name.into(),
+            group_key: Some(name.into()),
+            routing_mode: RoutingMode::HealthAware,
+            auto_from_platform: String::new(),
+            request_timeout_secs: 0,
+            connect_timeout_secs: 0,
+            source_protocol: Some("anthropic".into()),
+            max_retries: 2,
+            model_mappings: vec![],
+            env_vars: vec![],
+        },
+    )
+    .await
+    .expect("create group");
+    db::set_group_platforms(db, g.id, &inputs).await.expect("set group platforms");
+    g
+}
+
+/// 决策 1 回归保护：HealthAware 下低优先级 coding plan 不越过高优先级按量。
+#[tokio::test]
+async fn health_aware_level_priority_beats_coding_plan_e2e() {
+    let db = mk_test_db().await;
+    let cp = mk_db_platform_cp(&db, "cp-low-lp").await;
+    let payg = mk_db_platform(&db, "payg-high-lp").await;
+    let g = mk_ha_group(
+        &db,
+        "ha-dom",
+        vec![
+            GroupPlatformInput {
+                platform_id: cp.id,
+                priority: Some(0),
+                weight: Some(100),
+                level_priority: Some(1),
+            },
+            GroupPlatformInput {
+                platform_id: payg.id,
+                priority: Some(1),
+                weight: Some(1),
+                level_priority: Some(10),
+            },
+        ],
+    )
+    .await;
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+        rate_body: None,
+    };
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
+        .await
+        .expect("ok");
+    assert_eq!(set.candidates.len(), 2);
+    assert_eq!(
+        set.candidates[0].platform.id, payg.id,
+        "high level_priority payg must stay before low-priority coding plan"
+    );
+    assert_eq!(set.candidates[1].platform.id, cp.id);
+}
+
+/// 同档内 coding plan 桶整体排前，桶内最紧维度剩余比例降序（est_coding_plan 直写）。
+#[tokio::test]
+async fn health_aware_same_level_coding_plan_tightest_first_e2e() {
+    let db = mk_test_db().await;
+    let tight = mk_db_platform_cp(&db, "cp-tight").await;
+    let loose = mk_db_platform_cp(&db, "cp-loose").await;
+    set_est_coding_plan(
+        &db,
+        tight.id,
+        r#"{"tiers":[{"name":"five_hour","est_utilization":90.0}]}"#,
+    )
+    .await;
+    set_est_coding_plan(
+        &db,
+        loose.id,
+        r#"{"tiers":[{"name":"five_hour","est_utilization":10.0}]}"#,
+    )
+    .await;
+    let g = mk_ha_group(
+        &db,
+        "ha-cp",
+        vec![
+            GroupPlatformInput {
+                platform_id: tight.id,
+                priority: Some(0),
+                weight: Some(1000),
+                level_priority: None,
+            },
+            GroupPlatformInput {
+                platform_id: loose.id,
+                priority: Some(1),
+                weight: Some(1),
+                level_priority: None,
+            },
+        ],
+    )
+    .await;
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("ok");
+    assert_eq!(set.candidates.len(), 2);
+    assert_eq!(
+        set.candidates[0].platform.id, loose.id,
+        "cp with more remaining quota first despite far lower weight"
+    );
+    assert_eq!(set.candidates[1].platform.id, tight.id);
+}
+
+/// 同档按量桶内静态单价升序：model_entry 条目价便宜的排前（权重不参与档内键）。
+#[tokio::test]
+async fn health_aware_same_level_payg_cheapest_first_e2e() {
+    let db = mk_test_db().await;
+    let pricey = mk_db_platform(&db, "payg-pricey").await;
+    let cheap = mk_db_platform(&db, "payg-cheap").await;
+    // 两平台同为 anthropic，共享 (platform_code="anthropic", model_id) 条目 → 同价。
+    // 区分单价：借助 extra.peak 倍率 —— pricey 平台配 peak ×3 窗口（恒命中），
+    // 单价 = 条目价 × 3；cheap 无倍率。两平台条目价相等（都不落 model_entry → 同 fallback）。
+    set_extra(
+        &db,
+        pricey.id,
+        r#"{"peak":[{"start_hour":0,"end_hour":24,"multiplier":3.0,"days_of_week":[0,1,2,3,4,5,6]}]}"#,
+    )
+    .await;
+    let g = mk_ha_group(
+        &db,
+        "ha-payg",
+        vec![
+            GroupPlatformInput {
+                platform_id: pricey.id,
+                priority: Some(0),
+                weight: Some(1000),
+                level_priority: None,
+            },
+            GroupPlatformInput {
+                platform_id: cheap.id,
+                priority: Some(1),
+                weight: Some(1),
+                level_priority: None,
+            },
+        ],
+    )
+    .await;
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("ok");
+    assert_eq!(set.candidates.len(), 2);
+    assert_eq!(
+        set.candidates[0].platform.id, cheap.id,
+        "cheaper (no peak multiplier) first despite far lower weight"
+    );
+    assert_eq!(set.candidates[1].platform.id, pricey.id);
+}

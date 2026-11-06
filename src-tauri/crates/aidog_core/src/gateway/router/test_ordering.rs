@@ -1,6 +1,6 @@
 use super::super::super::scheduling::{SchedulerState, StickyTable};
 use super::super::candidates::ScheduleCtx;
-use super::super::test_mod::{mk_gp, mk_gp_exp};
+use super::super::test_mod::{mk_gp, mk_gp_cp, mk_gp_exp, mk_gp_lp};
 use super::*;
 
 fn mk_settings() -> SchedulingBreakerSettings {
@@ -305,4 +305,117 @@ fn sticky_inherits_load_balance_expiry_tiebreak() {
         "Sticky 绑定到最早过期首选 p3"
     );
     assert_eq!(v[0].platform.id, 3, "首选仍为最早过期平台");
+}
+
+// ── HealthAware 档内排序（2026-11-06 拍板：level_priority 主导 + coding plan / 单价档内链）──
+
+fn hk(pairs: Vec<(u64, HealthOrderKey)>) -> HashMap<u64, HealthOrderKey> {
+    pairs.into_iter().collect()
+}
+
+fn ids(v: &[&GroupPlatformDetail]) -> Vec<u64> {
+    v.iter().map(|g| g.platform.id).collect()
+}
+
+/// coding_remaining_ratio：各 tier 剩余比例取最小（最紧维度）；无数据 → 1.0。
+#[test]
+fn health_coding_remaining_ratio_tightest_and_missing() {
+    assert_eq!(coding_remaining_ratio(""), 1.0, "empty est = fully available");
+    assert_eq!(coding_remaining_ratio(r#"{"tiers":[]}"#), 1.0, "no tiers = fully available");
+    let r = coding_remaining_ratio(
+        r#"{"tiers":[{"name":"five_hour","est_utilization":80.0},{"name":"weekly_limit","est_utilization":50.0}]}"#,
+    );
+    assert!(
+        (r - 0.2).abs() < 1e-9,
+        "tightest dimension (min remaining) wins, got {r}"
+    );
+}
+
+/// 决策 1 回归保护：coding plan 不压过手动优先级 —— lp=1 的 cp 排在 lp=10 的按量之后。
+#[test]
+fn health_aware_level_priority_dominates_coding_plan() {
+    let cp = mk_gp_lp(1, 100, 0, 1);
+    let payg = mk_gp_lp(2, 1, 0, 10);
+    let keys = hk(vec![
+        (1, HealthOrderKey::CodingRemaining(0.9)),
+        (2, HealthOrderKey::PaygPrice(0.000_001)),
+    ]);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&cp, &payg];
+    order_health_aware(&mut v, 0, &keys);
+    assert_eq!(
+        ids(&v),
+        vec![2, 1],
+        "higher level_priority payg stays before low-priority coding plan"
+    );
+}
+
+/// 决策 1 的另一面：同 level_priority 档内 coding plan 整体排前。
+#[test]
+fn health_aware_same_level_coding_plan_first() {
+    let cp = mk_gp(1, 1, 0);
+    let payg = mk_gp(2, 1, 0);
+    let keys = hk(vec![
+        (1, HealthOrderKey::CodingRemaining(1.0)),
+        (2, HealthOrderKey::PaygPrice(0.000_001)),
+    ]);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&payg, &cp];
+    order_health_aware(&mut v, 0, &keys);
+    assert_eq!(ids(&v), vec![1, 2], "same level: coding plan bucket first");
+}
+
+/// 决策 4：coding plan 桶内按最紧维度剩余比例降序，权重不参与档内键。
+#[test]
+fn health_aware_coding_bucket_tightest_first() {
+    let tight = mk_gp_cp(1, 1000, 0); // 剩 10%，权重 1000
+    let loose = mk_gp_cp(2, 1, 0); // 剩 90%，权重 1
+    let keys = hk(vec![
+        (1, HealthOrderKey::CodingRemaining(0.1)),
+        (2, HealthOrderKey::CodingRemaining(0.9)),
+    ]);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&tight, &loose];
+    order_health_aware(&mut v, 0, &keys);
+    assert_eq!(
+        ids(&v),
+        vec![2, 1],
+        "higher remaining first despite much lower weight"
+    );
+}
+
+/// 决策 3：按量桶内静态估算单价升序，权重不参与档内键。
+#[test]
+fn health_aware_payg_bucket_cheapest_first() {
+    let cheap = mk_gp(1, 1, 0);
+    let pricey = mk_gp(2, 1000, 0);
+    let keys = hk(vec![
+        (1, HealthOrderKey::PaygPrice(0.000_001)),
+        (2, HealthOrderKey::PaygPrice(0.000_002)),
+    ]);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&pricey, &cheap];
+    order_health_aware(&mut v, 0, &keys);
+    assert_eq!(ids(&v), vec![1, 2], "cheaper first despite lower weight");
+}
+
+/// 键缺失回落：coding plan → 1.0（按全可用），按量 → 排按量桶末尾。
+#[test]
+fn health_aware_missing_keys_fallback() {
+    let cp = mk_gp_cp(1, 1, 0);
+    let payg = mk_gp(2, 1, 0);
+    let keys = hk(vec![]);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&payg, &cp];
+    order_health_aware(&mut v, 0, &keys);
+    assert_eq!(ids(&v), vec![1, 2], "cp (missing = 1.0) still first");
+}
+
+/// 决策 4 尾巴：全键并列 → 现状 tiebreak（有效权重降序 + expires_at 升序）保持。
+#[test]
+fn health_aware_tied_falls_back_to_weight_expiry() {
+    let a = mk_gp_exp(1, 5, 0, 100);
+    let b = mk_gp_exp(2, 1, 0, 100);
+    let keys = hk(vec![
+        (1, HealthOrderKey::PaygPrice(0.000_001)),
+        (2, HealthOrderKey::PaygPrice(0.000_001)),
+    ]);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&b, &a];
+    order_health_aware(&mut v, 0, &keys);
+    assert_eq!(ids(&v), vec![1, 2], "equal key: higher weight first");
 }
