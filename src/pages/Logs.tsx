@@ -6,7 +6,7 @@ import { DetailPanel } from "./Logs/DetailPanel";
 import { ListView } from "./Logs/ListView";
 import { useDetailScroll } from "./Logs/useDetailScroll";
 
-export function Logs({ initialFilter }: { initialFilter?: { platformId?: number; platformName?: string; groupId?: string; groupKey?: string; logId?: string } }) {
+export function Logs({ initialFilter }: { initialFilter?: { platformId?: number; platformName?: string; groupId?: string; groupKey?: string; logId?: string; sessionKey?: string } }) {
   const filters = useLogsFilters(initialFilter);
   const list = useLogsList(filters.activeFilter, filters.hasFilter);
   const detail = useLogsDetail();

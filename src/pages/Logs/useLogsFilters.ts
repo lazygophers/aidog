@@ -15,13 +15,15 @@ import { timePresetToRange, NO_GROUP_SENTINEL, type TimePreset } from "./types";
  * platformMap/groupName（platform/group 展示名映射，list 与 detail 两侧共用）。
  * 自 useLogsData 拆出（c8 三段切分），行为不变。
  */
-export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?: string }) {
+export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?: string; sessionKey?: string }) {
   const { t } = useTranslation();
 
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [groups, setGroups] = useState<GroupDetail[]>([]);
   const [filterPlatform, setFilterPlatform] = useState<string>(initialFilter?.platformId ? String(initialFilter.platformId) : "");
   const [filterGroup, setFilterGroup] = useState<string>(initialFilter?.groupKey ?? "");
+  // 会话归组键（magpie 票 09 会话统计下钻）：仅导航入口带入，无独立下拉
+  const [filterSession, setFilterSession] = useState<string>(initialFilter?.sessionKey ?? "");
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [filterTime, setFilterTime] = useState<TimePreset>("all");
   const [filterModel, setFilterModel] = useState<string>("");
@@ -50,10 +52,11 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
     if (filterActualModel.trim()) f.actual_model = filterActualModel.trim();
     if (filterPath.trim()) f.path = filterPath.trim();
     if (filterObserved === "observed") f.observed = true;
+    if (filterSession.trim()) f.session_key = filterSession.trim();
     return f;
-  }, [filterPlatform, filterGroup, filterStatus, filterTime, filterModel, filterActualModel, filterPath, filterObserved]);
+  }, [filterPlatform, filterGroup, filterStatus, filterTime, filterModel, filterActualModel, filterPath, filterObserved, filterSession]);
 
-  const hasFilter = !!(filterPlatform || filterGroup || filterStatus || filterTime !== "all" || filterModel.trim() || filterActualModel.trim() || filterPath.trim() || filterObserved);
+  const hasFilter = !!(filterPlatform || filterGroup || filterStatus || filterTime !== "all" || filterModel.trim() || filterActualModel.trim() || filterPath.trim() || filterObserved || filterSession.trim());
 
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [actualModelOptions, setActualModelOptions] = useState<string[]>([]);
@@ -74,6 +77,7 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
     setFilterActualModel("");
     setFilterPath("");
     setFilterObserved("");
+    setFilterSession("");
   };
 
   const platformMap = useMemo(() => {
@@ -91,8 +95,8 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
 
   return {
     t,
-    platforms, groups, filterPlatform, filterGroup, filterStatus, filterTime, filterModel, filterActualModel, filterPath, filterObserved,
-    setFilterPlatform, setFilterGroup, setFilterStatus, setFilterTime, setFilterModel, setFilterActualModel, setFilterPath, setFilterObserved,
+    platforms, groups, filterPlatform, filterGroup, filterStatus, filterTime, filterModel, filterActualModel, filterPath, filterObserved, filterSession,
+    setFilterPlatform, setFilterGroup, setFilterStatus, setFilterTime, setFilterModel, setFilterActualModel, setFilterPath, setFilterObserved, setFilterSession,
     activeFilter, hasFilter, clearFilter, modelOptions, actualModelOptions,
     platformMap, groupName,
   };

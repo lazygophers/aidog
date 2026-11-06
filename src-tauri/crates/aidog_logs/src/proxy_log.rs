@@ -808,6 +808,15 @@ fn build_filter_where(
         p.push(Box::new("observe".to_string()));
         idx += 1;
     }
+    // 会话归组键精确匹配（magpie 票 09 会话统计下钻）；空串视为未设置
+    if let Some(ref v) = filter.session_key {
+        let trimmed = v.trim();
+        if !trimmed.is_empty() {
+            parts.push(format!("AND session_key = ?{idx}"));
+            p.push(Box::new(trimmed.to_string()));
+            idx += 1;
+        }
+    }
     let _ = idx;
 
     let where_sql = if parts.is_empty() {

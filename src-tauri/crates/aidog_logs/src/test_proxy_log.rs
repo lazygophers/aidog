@@ -527,6 +527,37 @@ async fn filtered_list_by_group_key() {
     assert_eq!(count, 1);
 }
 
+/// filtered_list：按 session_key 精确过滤（magpie 票 09 会话统计下钻）。
+#[tokio::test]
+async fn filtered_list_by_session_key() {
+    let db = test_db().await;
+    let now = now();
+    let mut l_s1 = sample_log("sess1", "group_a", now);
+    l_s1.session_key = "abc-123".to_string();
+    let mut l_s2 = sample_log("sess2", "group_a", now + 1);
+    l_s2.session_key = "def-456".to_string();
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_s1, false, false))
+        .await
+        .unwrap();
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_s2, false, false))
+        .await
+        .unwrap();
+
+    let filter = aidog_db::models::ProxyLogFilter {
+        session_key: Some("abc-123".to_string()),
+        ..Default::default()
+    };
+    let rows = filtered_list_proxy_logs(&db, &filter, 10, 0)
+        .await
+        .unwrap()
+        .items;
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].id, "sess1");
+
+    let count = filtered_count_proxy_logs(&db, &filter).await.unwrap();
+    assert_eq!(count, 1);
+}
+
 /// filtered_list：按 status=200(成功) 过滤。
 #[tokio::test]
 async fn filtered_list_by_status_success() {
