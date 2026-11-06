@@ -1,12 +1,13 @@
 // GroupDetailPage — G3 分组详情页（设计稿「分组页终稿」1:1 独立成页）。
 // 双栏观测台：中央统计带 + 桑基 flow + 成员表 + 模型映射 / 右候选序 + 最近路由 + 7 天趋势 + 组操作。
 // 数据源全部复用现有 API；idiom 同 GroupEditPanel（页内独立视图态，Groups.tsx detailTarget 分支渲染）。
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import type { GroupDetail, GroupLastRequest, Platform, PlatformUsageStats } from "../../services/api";
+import type { GroupDetail, GroupLastRequest, Platform, PlatformErrorStatus, PlatformUsageStats } from "../../services/api";
 import { GroupLastRequest as GroupLastRequestBadge } from "./GroupLastRequest";
-import { groupFlowApi } from "../../services/api";
+import { groupFlowApi, platformApi } from "../../services/api";
+import { buildStatusOptions, idsForCode } from "./statusSelect";
 import { GroupSidePanels, staticOrder } from "./GroupSidePanels";
 import type { CardsSnapshot } from "./GroupListItem";
 import { GroupFlowPanel } from "./GroupFlowPanel";
@@ -14,6 +15,7 @@ import { PlatformRow, PlatformRowCols } from "../platforms/PlatformRow";
 import { formatNumber, formatMoney, formatPercent, successRate as calcSuccessRate } from "../../utils/formatters";
 import { routingModeLabel } from "../../domains/groups";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useDisplayCurrency } from "../../utils/displayCurrency";
 
 // 设计稿 token 映射：pgtop / pgbody / acard / seclab / 统计带 / memrow 全部按 6-整体风格与分组页.html。
@@ -107,6 +109,15 @@ function MembersCard(props: {
   onSetLevelPriority?: (pid: number, v: number) => void;
   onDeleteMapping: (groupId: number, index: number) => void;
   onAddPlatform?: () => void;
+  /** 成员行「删除平台…」→ 父级删/移出确认 modal（列表页 actions.onDelete 同语义）。 */
+  onDeletePlatform?: (id: number) => void;
+  /** 批量操作（对齐列表页 GroupListItem：批量条 → 父级渲染的 4 个批量 modal）。 */
+  onBatchDelete: (ids: number[], gid: number) => void;
+  onBatchOverrideModels: (ids: number[], gid: number) => void;
+  onBatchSetStatus: (ids: number[], gid: number) => void;
+  onBatchMoveGroup: (ids: number[], gid: number) => void;
+  /** 批量操作完成信号（每次成功 +1）；非删除类批量靠本信号强制退出多选。 */
+  batchDoneSignal?: number;
   /** 成员行拖拽（复用列表页 usePlatformDrag：组内重排 priority 序，WKWebView pointer 方案） */
   onMemberPointerDown?: (ev: React.PointerEvent, pid: number, gid: number) => void;
   memberDropIndicator?: { gid: number; idx: number } | null;
@@ -120,18 +131,119 @@ function MembersCard(props: {
   const toggleMember = (id: number, next: boolean) => {
     setMemberExpanded(prev => { const s = new Set(prev); if (next) s.add(id); else s.delete(id); return s; });
   };
+  // ── 多选模式（对齐列表页 GroupListItem：批量条 + 行 checkbox + 父级批量 modal）──
+  const [mode, setMode] = useState<"view" | "select">("view");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  // 按状态选数据：下拉首次展开拉一次；null = 未拉（含拉失败后重试语义）。
+  const [errStatus, setErrStatus] = useState<PlatformErrorStatus[] | null>(null);
+  // 批量删除成功后：selectedIds 内平台从 gps 全消失 → 自动退出多选模式。
+  useEffect(() => {
+    if (mode !== "select" || selectedIds.size === 0) return;
+    const currentIds = new Set(gps.map(gp => gp.platform.id));
+    const anyAlive = [...selectedIds].some(id => currentIds.has(id));
+    if (!anyAlive) {
+      setMode("view");
+      setSelectedIds(new Set());
+    }
+  }, [gps, mode, selectedIds]);
+  // 非删除类批量成功：靠父级 batchDoneSignal 自增强制退出多选模式（初始 0 跳过）。
+  const batchDoneSignalRef = useRef(0);
+  useEffect(() => {
+    if (props.batchDoneSignal === undefined) return;
+    if (props.batchDoneSignal === batchDoneSignalRef.current) return;
+    batchDoneSignalRef.current = props.batchDoneSignal;
+    if (mode === "select") {
+      setMode("view");
+      setSelectedIds(new Set());
+    }
+  }, [props.batchDoneSignal, mode]);
+  const statusOptions = errStatus !== null
+    ? buildStatusOptions(errStatus, fullPlats.map(p => p.id))
+    : [];
+  const bactBtn: React.CSSProperties = { fontSize: 12, padding: "3px 9px", height: "auto", borderRadius: 6, background: "var(--secondary)", border: "1px solid var(--border)" };
   return (
     <div style={{ ...acardStyle, padding: 0, overflow: "hidden" }} data-testid="detail-members" data-group-id={detail.group.id}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
         <b style={{ fontSize: 12.5 }}>{t("group.detail.members", "成员平台")} · {fullPlats.length}</b>
         <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10.5, color: "var(--text-tertiary)" }}>{t("group.detail.byCandidateOrder", "按候选序")}</span>
         <div style={{ flex: 1 }} />
+        {fullPlats.length > 0 && (
+          <Button variant="ghost" data-testid="detail-multi-select" style={{ height: "auto", padding: "4px 10px", fontSize: 11, ...(mode === "select" ? { background: "var(--accent-subtle)", color: "var(--primary)" } : {}) }}
+            onClick={() => { setMode("select"); setSelectedIds(new Set()); }}>
+            {t("group.batchOps", "多选")}
+          </Button>
+        )}
         {props.onAddPlatform && (
           <Button variant="outline" style={{ height: "auto", padding: "4px 10px", fontSize: 11 }} onClick={props.onAddPlatform}>
             {t("group.detail.addPlatform", "＋ 添加平台")}
           </Button>
         )}
       </div>
+      {/* 批量条（对齐列表页 GroupListItem .batchbar）：多选模式下成员行上方常驻 */}
+      {mode === "select" && (
+        <div data-testid="detail-batchbar" style={{
+          display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", flexWrap: "wrap",
+          background: "var(--accent-subtle)", borderBottom: "1px solid color-mix(in srgb, var(--primary) 35%, transparent)",
+          fontSize: 12, color: "var(--text-secondary)",
+        }}>
+          <span style={{ fontWeight: 620, color: "var(--primary)" }}>{t("group.selectedCount", "已选 {{count}} 个", { count: selectedIds.size })}</span>
+          <span style={{ width: 1, height: 14, background: "color-mix(in srgb, var(--foreground) 12%, transparent)" }} />
+          <Button variant="ghost" data-testid="detail-batch-delete" disabled={selectedIds.size === 0} style={{ ...bactBtn, color: "var(--color-danger)" }}
+            onClick={() => props.onBatchDelete([...selectedIds], detail.group.id)}>
+            {t("group.batchDelete", "批量删除")}
+          </Button>
+          <Button variant="ghost" data-testid="detail-batch-move" disabled={selectedIds.size === 0} style={bactBtn}
+            onClick={() => props.onBatchMoveGroup([...selectedIds], detail.group.id)}>
+            {t("group.batchMoveGroup", "移动到分组")}
+          </Button>
+          <Button variant="ghost" data-testid="detail-batch-status" disabled={selectedIds.size === 0} style={bactBtn}
+            onClick={() => props.onBatchSetStatus([...selectedIds], detail.group.id)}>
+            {t("group.batchSetStatus", "改状态")}
+          </Button>
+          <Button variant="ghost" data-testid="detail-batch-override" disabled={selectedIds.size === 0} style={bactBtn}
+            onClick={() => props.onBatchOverrideModels([...selectedIds], detail.group.id)}>
+            {t("group.batchOverrideModels", "覆盖模型")}
+          </Button>
+          <Button variant="ghost" data-testid="detail-batch-select-all" style={bactBtn}
+            onClick={() => setSelectedIds(new Set(fullPlats.map(p => p.id)))}>
+            {t("group.selectAll", "全选")}
+          </Button>
+          {/* 按状态选（plat-select-status）：动态错误码选项；口径同列表页。 */}
+          <Select
+            onOpenChange={(open) => {
+              if (open && errStatus === null) {
+                platformApi.errorStatus()
+                  .then(r => setErrStatus(r.filter(i => !(i.source === "cooldown" && i.until_ms !== null && i.until_ms < Date.now()))))
+                  .catch(() => setErrStatus([]));
+              }
+            }}
+            onValueChange={(v) => {
+              const ids = idsForCode(errStatus ?? [], fullPlats.map(p => p.id), Number(v));
+              if (ids.size > 0) setSelectedIds(ids);
+            }}
+          >
+            <SelectTrigger style={{ fontSize: 12, height: "auto", padding: "3px 9px", minHeight: 26, width: "auto", background: "var(--secondary)" }}>
+              <SelectValue placeholder={t("group.selectByStatus", "按状态选")} />
+            </SelectTrigger>
+            <SelectContent>
+              {statusOptions.map(o => (
+                <SelectItem key={o.code} value={String(o.code)} style={{ fontSize: 12 }}>
+                  {`${o.code} · ${t(`group.err.${o.code}`, `HTTP ${o.code}`)}（${o.count}）`}
+                </SelectItem>
+              ))}
+              {statusOptions.length === 0 && (
+                <SelectItem value="__none__" disabled style={{ fontSize: 12 }}>
+                  {errStatus === null ? "…" : t("group.selectByStatusNone", "无错误状态")}
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+          <span data-testid="detail-batch-cancel" onClick={() => { setMode("view"); setSelectedIds(new Set()); }}
+            style={{ marginLeft: "auto", fontSize: 12, color: "var(--text-tertiary)", cursor: "pointer" }}>
+            {t("group.cancelMultiSelect", "取消多选")}
+          </span>
+        </div>
+      )}
       {fullPlats.length > 0 && <PlatformRowCols t={t} />}
       {fullPlats.length === 0 ? (
         <div style={{ fontSize: 12, color: "var(--text-tertiary)", padding: "18px 14px" }}>{t("group.empty", "暂无平台")}</div>
@@ -155,6 +267,13 @@ function MembersCard(props: {
                 manualResult={cards.testResults[p.id]}
                 testing={cards.testingId === p.id}
                 expanded={memberExpanded.has(p.id)}
+                selecting={mode === "select"}
+                selected={selectedIds.has(p.id)}
+                onSelect={() => setSelectedIds(prev => {
+                  const s = new Set(prev);
+                  s.has(p.id) ? s.delete(p.id) : s.add(p.id);
+                  return s;
+                })}
                 onToggleExpanded={(next) => toggleMember(p.id, next)}
                 onToggle={(pp) => props.cardService.onToggleEnabled(pp)}
                 onEdit={props.onEditPlatform}
@@ -162,6 +281,7 @@ function MembersCard(props: {
                 onDuplicate={(pp) => props.cardService.onDuplicate(pp)}
                 onViewLogs={(pp) => props.cardService.onViewLogs(pp)}
                 onQuickTest={(pp) => props.cardService.onQuickTest(pp)}
+                onDelete={(id) => props.onDeletePlatform?.(id)}
                 levelPriority={gp?.level_priority}
                 onLevelPriorityChange={gp != null && props.onSetLevelPriority ? (v) => props.onSetLevelPriority!(p.id, v) : undefined}
                 t={t}
@@ -232,6 +352,15 @@ export function GroupDetailPage(props: {
   onSetLevelPriority: (groupId: number, pid: number, v: number) => void;
   onDeleteMapping: (groupId: number, index: number) => void;
   onAddPlatform?: () => void;
+  /** 成员行「删除平台…」→ 父级删/移出确认 modal（列表页 actions.onDelete 同语义）。 */
+  onDeletePlatform?: (id: number) => void;
+  /** 批量操作（对齐列表页；modal 由 Groups.tsx 共享弹窗段渲染）。 */
+  onBatchDelete: (ids: number[], gid: number) => void;
+  onBatchOverrideModels: (ids: number[], gid: number) => void;
+  onBatchSetStatus: (ids: number[], gid: number) => void;
+  onBatchMoveGroup: (ids: number[], gid: number) => void;
+  /** 批量操作完成信号（每次成功 +1）→ MembersCard 自动退出多选。 */
+  batchDoneSignal?: number;
   /** 成员行拖拽（Groups.tsx 注入 usePlatformDrag 句柄） */
   onMemberPointerDown?: (ev: React.PointerEvent, pid: number, gid: number) => void;
   memberDropIndicator?: { gid: number; idx: number } | null;
@@ -309,6 +438,12 @@ export function GroupDetailPage(props: {
             onEditPlatform={props.onEditPlatform}
             onDeleteMapping={props.onDeleteMapping}
             onAddPlatform={props.onAddPlatform}
+            onDeletePlatform={props.onDeletePlatform}
+            onBatchDelete={props.onBatchDelete}
+            onBatchOverrideModels={props.onBatchOverrideModels}
+            onBatchSetStatus={props.onBatchSetStatus}
+            onBatchMoveGroup={props.onBatchMoveGroup}
+            batchDoneSignal={props.batchDoneSignal}
             onSetLevelPriority={(pid, v) => props.onSetLevelPriority(group.id, pid, v)}
             onMemberPointerDown={props.onMemberPointerDown}
             memberDropIndicator={props.memberDropIndicator}

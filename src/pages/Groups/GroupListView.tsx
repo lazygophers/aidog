@@ -9,15 +9,9 @@ import { formatNumber, formatMoney, formatPercent, successRate as calcSuccessRat
 import { IconBolt, IconCost, IconCheck } from "../../components/icons";
 import { ModelTestPanel } from "../ModelTestPanel";
 import { ShareModal } from "../../components/platforms/ShareModal";
-import { BatchDeleteModal } from "../../components/platforms/BatchDeleteModal";
-import { BatchOverrideModelsModal } from "../../components/platforms/BatchOverrideModelsModal";
-import { BatchSetStatusModal } from "../../components/platforms/BatchSetStatusModal";
-import { BatchMoveGroupModal } from "../../components/platforms/BatchMoveGroupModal";
-import type { PlatformModels } from "../../services/api";
 import { GroupTestPanel, type GroupRow } from "../../domains/groups";
 import { GroupListItem, type CardsSnapshot } from "./GroupListItem";
 import type { GroupTestState } from "./useGroupTest";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -66,12 +60,6 @@ export interface GroupListViewProps {
   // 测试
   groupTest: GroupTestState | null;
   setGroupTest: (v: GroupTestState | null) => void;
-  // 删平台确认态：groupCount/groupNames 作 modal 展示
-  removeTarget: { platform: Platform; gid: number; groupCount: number; groupNames: string[] } | null;
-  setRemoveTarget: React.Dispatch<React.SetStateAction<{ platform: Platform; gid: number; groupCount: number; groupNames: string[] } | null>>;
-  confirmDeletePlatform: () => Promise<void>;
-  /** 多组场景「移出本组」按钮接线 */
-  removePlatformFromGroup: (pid: number, gid: number) => Promise<void>;
   // 稳定回调（父级 useCallback）
   onToast?: (toast: { text: string; ok: boolean } | null) => void;
   handleReorderGroups: (next: GroupRow[]) => void;
@@ -85,34 +73,13 @@ export interface GroupListViewProps {
   onOpenDetail?: (id: number) => void;
   onCreatePlatform?: (presetGroupIds?: number[], lockedGroupId?: number) => void;
   onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string; duplicate?: boolean; logId?: string }) => void;
-  // 批量删除（group-batch-ops s3）
+  // 批量操作入口（modal 由 Groups.tsx 共享弹窗段渲染，2026-11-06 对齐轮上移）
   onBatchDelete: (ids: number[], gid: number) => void;
-  batchDeleteTarget: { platforms: Platform[]; groupNamesByPlatform: Record<number, string[]> } | null;
-  batchDeleteBusy: boolean;
-  confirmBatchDelete: () => Promise<void>;
-  setBatchDeleteTarget: React.Dispatch<React.SetStateAction<{ platforms: Platform[]; groupNamesByPlatform: Record<number, string[]> } | null>>;
-  // 批量覆盖模型（group-batch-ops s4）
   onBatchOverrideModels: (ids: number[], gid: number) => void;
-  batchOverrideTarget: { platforms: Platform[] } | null;
-  batchOverrideBusy: boolean;
-  confirmBatchOverrideModels: (models: PlatformModels) => Promise<void>;
-  setBatchOverrideTarget: React.Dispatch<React.SetStateAction<{ platforms: Platform[] } | null>>;
   /** 非删除类批量完成信号（GroupListItem 监听退出多选）。 */
   batchDoneSignal?: number;
-  // 批量改状态（group-batch-ops s5）
   onBatchSetStatus: (ids: number[], gid: number) => void;
-  batchSetStatusTarget: { platforms: Platform[]; groupEnabledIds: number[] } | null;
-  batchSetStatusBusy: boolean;
-  confirmBatchSetStatus: (status: "enabled" | "disabled") => Promise<void>;
-  setBatchSetStatusTarget: React.Dispatch<React.SetStateAction<{ platforms: Platform[]; groupEnabledIds: number[] } | null>>;
-  // 批量移组（group-batch-ops s5）
   onBatchMoveGroup: (ids: number[], gid: number) => void;
-  batchMoveGroupTarget: { platforms: Platform[]; gid: number } | null;
-  batchMoveGroupBusy: boolean;
-  confirmBatchMoveGroup: (targetGroupId: number, mode: "move" | "add") => Promise<void>;
-  setBatchMoveGroupTarget: React.Dispatch<React.SetStateAction<{ platforms: Platform[]; gid: number } | null>>;
-  /** 全部分组（目标组下拉数据源）。 */
-  allGroups: { id: number; name: string }[];
 }
 
 /** 分组列表视图：页头操作栏 + 测试面板 + SortableList + 加载哨兵 + 弹窗（自定义测试 / 分享 / 删平台确认）。 */
@@ -124,18 +91,12 @@ export function GroupListView(props: GroupListViewProps) {
     dropIndicator, dragOverGroup, onPlatPointerDown,
     cards, makeGroupCardActions, cardService,
     groupTest, setGroupTest,
-    removeTarget, setRemoveTarget, confirmDeletePlatform, removePlatformFromGroup,
     onToast,
     handleReorderGroups, openEdit, handleDeleteGroup, handleToggleDefault,
     handleTestGroup,
     handleSetLevelPriority, handlePurgeDisabled, onOpenDetail,
     onCreatePlatform, onNavigate,
-    onBatchDelete, batchDeleteTarget, batchDeleteBusy, confirmBatchDelete, setBatchDeleteTarget,
-    onBatchOverrideModels, batchOverrideTarget, batchOverrideBusy, confirmBatchOverrideModels, setBatchOverrideTarget,
-    batchDoneSignal,
-    onBatchSetStatus, batchSetStatusTarget, batchSetStatusBusy, confirmBatchSetStatus, setBatchSetStatusTarget,
-    onBatchMoveGroup, batchMoveGroupTarget, batchMoveGroupBusy, confirmBatchMoveGroup, setBatchMoveGroupTarget,
-    allGroups,
+    onBatchDelete, onBatchOverrideModels, batchDoneSignal, onBatchSetStatus, onBatchMoveGroup,
   } = props;
 
   // 删分组也要先确认（2026-09-22 用户在 ask-ui 定）。
@@ -301,92 +262,9 @@ export function GroupListView(props: GroupListViewProps) {
         />
       )}
 
-      {/* 删平台确认弹窗：总弹（根因旁路，去 count 决定行为）。
-          单组 → 单按钮「删除平台」（销毁平台）；多组 → 双按钮「移出本组」+「删除平台（全部组）」。
-          AlertDialog 走 Radix Portal（脱离 transform 祖先，参考 BatchDeleteModal）。 */}
-      <AlertDialog open={removeTarget !== null} onOpenChange={(next) => { if (!next) setRemoveTarget(null); }}>
-        <AlertDialogContent className="glass-elevated" style={{ maxWidth: 420, padding: "20px 22px" }}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {removeTarget?.groupCount && removeTarget.groupCount > 1
-                ? t("group.deletePlatformMultiTitle", "移出或删除平台")
-                : t("group.deletePlatformTitle", "删除平台")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {removeTarget?.groupCount && removeTarget.groupCount > 1
-                ? t("group.deletePlatformMultiDesc",
-                    "「{{name}}」属 {{count}} 个分组：{{groups}}。选择操作：",
-                    { name: removeTarget.platform.name, count: removeTarget.groupCount, groups: removeTarget.groupNames.join("、") })
-                : t("group.deletePlatformConfirm",
-                    "「{{name}}」仅属此分组，移除将彻底删除该平台及其所有关联，且无法撤销。确认删除？",
-                    { name: removeTarget?.platform.name ?? "" })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("action.cancel", "取消")}</AlertDialogCancel>
-            {removeTarget?.groupCount && removeTarget.groupCount > 1 && (
-              <Button variant="outline" onClick={() => {
-                removePlatformFromGroup(removeTarget.platform.id, removeTarget.gid);
-                setRemoveTarget(null);
-              }}>
-                {t("group.removeFromGroupAction", "移出本组")}
-              </Button>
-            )}
-            <AlertDialogAction
-              style={{ backgroundColor: "var(--color-danger)", color: "var(--destructive-foreground)" }}
-              onClick={() => { void confirmDeletePlatform(); }}>
-              {removeTarget?.groupCount && removeTarget.groupCount > 1
-                ? t("group.deleteFromAllGroupsAction", "删除平台（全部组）")
-                : t("group.deletePlatformAction", "删除平台")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* 删平台确认 + 4 个批量 modal：已上移为 Groups.tsx 的共享弹窗段 sharedModals
+          （详情页分支与列表分支共用；2026-11-06 详情页平台功能对齐轮）。 */}
 
-      {/* 批量删除平台确认弹窗（group-batch-ops s3）：全列可滚 + 跨组警告 + 原子事务物理删。 */}
-      <BatchDeleteModal
-        open={batchDeleteTarget !== null}
-        platforms={batchDeleteTarget?.platforms ?? []}
-        groupNamesByPlatform={batchDeleteTarget?.groupNamesByPlatform ?? {}}
-        onConfirm={() => void confirmBatchDelete()}
-        onClose={() => { if (!batchDeleteBusy) setBatchDeleteTarget(null); }}
-        busy={batchDeleteBusy}
-        t={t}
-      />
-
-      {/* 批量覆盖平台模型弹窗（group-batch-ops s4）：三来源 radio + 全 diff + 原子事务整体覆盖。 */}
-      <BatchOverrideModelsModal
-        open={batchOverrideTarget !== null}
-        platforms={batchOverrideTarget?.platforms ?? []}
-        allPlatforms={platforms}
-        onConfirm={(m) => void confirmBatchOverrideModels(m)}
-        onClose={() => { if (!batchOverrideBusy) setBatchOverrideTarget(null); }}
-        busy={batchOverrideBusy}
-        t={t}
-      />
-
-      {/* 批量改状态弹窗（group-batch-ops s5）：启用/禁用 radio + 无候选警告 + 原子事务。 */}
-      <BatchSetStatusModal
-        open={batchSetStatusTarget !== null}
-        platforms={batchSetStatusTarget?.platforms ?? []}
-        groupEnabledIds={batchSetStatusTarget?.groupEnabledIds ?? []}
-        onConfirm={(s) => void confirmBatchSetStatus(s)}
-        onClose={() => { if (!batchSetStatusBusy) setBatchSetStatusTarget(null); }}
-        busy={batchSetStatusBusy}
-        t={t}
-      />
-
-      {/* 批量移组弹窗（group-batch-ops s5）：目标组下拉 + move/add radio + 原子事务。 */}
-      <BatchMoveGroupModal
-        open={batchMoveGroupTarget !== null}
-        platforms={batchMoveGroupTarget?.platforms ?? []}
-        groups={allGroups}
-        currentGroupId={batchMoveGroupTarget?.gid ?? 0}
-        onConfirm={(gid, mode) => void confirmBatchMoveGroup(gid, mode)}
-        onClose={() => { if (!batchMoveGroupBusy) setBatchMoveGroupTarget(null); }}
-        busy={batchMoveGroupBusy}
-        t={t}
-      />
       {/* 删分组的二次确认。AlertDialog 而非 Dialog：点遮罩不许关。 */}
       <AlertDialog
         open={deleteGroupId !== null}
