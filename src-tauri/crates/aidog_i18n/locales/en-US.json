@@ -1555,6 +1555,8 @@
   "platform.modelChain.drag": "Drag to reorder",
   "platform.modelChain.primary": "Primary",
   "platform.modelChain.remove": "Remove",
+  "platform.modelCount": "{{n}} models",
+  "platform.slotDedicated": "dedicated",
   "platform.groupAssignAuto": "Create default group",
   "platform.groupAssignDesc": "Create a default group and join other existing groups at the same time; selecting none means the platform belongs to no group.",
   "platform.groupAssignJoin": "Join existing groups",

@@ -4,7 +4,7 @@
 //   时段档列头点弹窗（WindowsEditModal，ST4 产出）编辑 windows；矩阵主体只管模型值。
 //   数据通道分离：默认列 = platform.models；时段档列 = platform.extra.time_windows.rules[*].models。
 //   仍纯 props 驱动，无外部 state（矩阵内部仅 UI 临时态：activeCell / editingIdx / importModalOpen）。
-import React, { useState } from "react";
+import React, { type ReactNode, useState } from "react";
 import { slotList } from "../../domains/platforms/slotValue";
 import type { TFunction } from "i18next";
 import {
@@ -201,11 +201,34 @@ export function ModelsMatrixSection({
     || endpoints.some((e) => isOpenAIFamilyProtocol(e.protocol));
 
   // 列宽：默认列 + 时段档列 flex:1 平均分割（单列占满，多列均分）；
-  // minWidth:80 软下限防极窄，极多列时外层 overflowX 滚动。slot label 列 64px 固定。
-  const LABEL_W = 64;
+  // minWidth:80 软下限防极窄，极多列时外层 overflowX 滚动。slot label 列 150px 固定（V2 行式增强）。
+  const LABEL_W = 150;
   const rowStyle: React.CSSProperties = {
     display: "flex", gap: 8, width: "100%", alignItems: "center",
   };
+
+  // V2 行式增强标签列：槽名（600）+ 徽标就地标注，下方「N 个模型」计数小字。
+  const slotLabel = (name: string, count: number, badge?: ReactNode, title?: string) => (
+    <div style={{ width: LABEL_W, flexShrink: 0, display: "flex", flexDirection: "column", gap: 1 }} title={title}>
+      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+        {badge}
+      </span>
+      <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+        {t("platform.modelCount", "{{n}} 个模型", { n: count })}
+      </span>
+    </div>
+  );
+
+  // 专用槽徽标（embedding / rerank，读 platform.models 不进时段规则）。
+  const dedicatedBadge = (key: ModelSlot) => DEDICATED_MODEL_SLOTS.includes(key) ? (
+    <span
+      data-testid={`slot-badge-${key}`}
+      style={{ fontSize: 10, lineHeight: "16px", padding: "0 5px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", color: "var(--text-tertiary)", whiteSpace: "nowrap", flexShrink: 0 }}
+    >
+      {t("platform.slotDedicated", "专用")}
+    </span>
+  ) : null;
 
   // ── 时段档视图（columns === "time"，2026-10-08 三轮裁决）：左侧分层菜单 + 右侧选中档编辑器 ──
   if (columns === "time") {
@@ -293,10 +316,8 @@ export function ModelsMatrixSection({
               </div>
               {/* embedding / rerank 读 platform.models，不进时段规则 */}
               {MODEL_SLOTS.filter(({ key }) => !DEDICATED_MODEL_SLOTS.includes(key)).map(({ key, labelKey }) => (
-                <div key={key} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <div style={{ width: 64, flexShrink: 0, fontSize: 13, fontWeight: 500, color: "var(--text-tertiary)", textAlign: "right" }}>
-                    {t(labelKey)}
-                  </div>
+                <div key={key} style={rowStyle} className="model-matrix-row">
+                  {slotLabel(t(labelKey), slotList(sel.models[key]).length)}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {renderCell(
                       `r${selIdx}:${key}`,
@@ -394,15 +415,9 @@ export function ModelsMatrixSection({
 
           {/* 5 槽行 */}
           {MODEL_SLOTS.map(({ key, labelKey }) => (
-            <div key={key} style={rowStyle} data-testid={`model-slot-${key}`}>
-              {/* 左侧固定 slot 标签 */}
-              <div style={{
-                width: LABEL_W, flexShrink: 0,
-                fontSize: 13, fontWeight: 500, color: "var(--text-tertiary)",
-                textAlign: "right",
-              }}>
-                {t(labelKey)}
-              </div>
+            <div key={key} style={rowStyle} className="model-matrix-row" data-testid={`model-slot-${key}`}>
+              {/* 左侧固定 slot 标签（V2 行式增强：槽名 + 徽标 + 计数） */}
+              {slotLabel(t(labelKey), models[key].length, dedicatedBadge(key))}
               {/* 默认列单元格 */}
               <div style={{ flex: 1, minWidth: 80 }}>
                 {renderCell(
@@ -424,23 +439,17 @@ export function ModelsMatrixSection({
           ))}
 
           {customSlotDefs.map(({ name, match }) => (
-            <div key={name} style={rowStyle} data-testid={`custom-slot-${name}`}>
-              <div style={{
-                width: LABEL_W, flexShrink: 0, fontSize: 13, fontWeight: 500,
-                color: "var(--text-tertiary)", textAlign: "right", overflow: "hidden", textOverflow: "ellipsis",
-              }} title={name}>
-                {name}
-              </div>
-              <div style={{ flex: 1, minWidth: 80, display: "flex", gap: 6, alignItems: "center" }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  {renderCell(`c:${name}`, customSlotValues[name] ?? [], (v) => onCustomSlotChange?.(name, v))}
-                </div>
+            <div key={name} style={rowStyle} className="model-matrix-row" data-testid={`custom-slot-${name}`}>
+              {slotLabel(name, (customSlotValues[name] ?? []).length, (
                 <span
                   data-testid={`custom-slot-badge-${name}`} data-state={match}
-                  style={{ fontSize: 11, padding: "1px 6px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", color: "var(--text-secondary)", whiteSpace: "nowrap" }}
+                  style={{ fontSize: 10, lineHeight: "16px", padding: "0 5px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", color: "var(--text-secondary)", whiteSpace: "nowrap", flexShrink: 0 }}
                 >
                   {t(match === "exact" ? "customSlots.matchExact" : "customSlots.matchContains")}
                 </span>
+              ), name)}
+              <div style={{ flex: 1, minWidth: 80 }}>
+                {renderCell(`c:${name}`, customSlotValues[name] ?? [], (v) => onCustomSlotChange?.(name, v))}
               </div>
             </div>
           ))}

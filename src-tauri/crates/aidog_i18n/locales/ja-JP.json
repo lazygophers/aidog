@@ -1577,6 +1577,8 @@
   "platform.modelChain.drag": "ドラッグして並べ替え",
   "platform.modelChain.primary": "メイン",
   "platform.modelChain.remove": "削除",
+  "platform.modelCount": "モデル {{n}}個",
+  "platform.slotDedicated": "専用",
   "platform.groupAssignAuto": "デフォルトグループを作成",
   "platform.groupAssignDesc": "デフォルトグループを作成しつつ他の既存グループに同時に参加できます。どちらも選ばないとプラットフォームはどのグループにも属しません。",
   "platform.groupAssignJoin": "既存グループに参加",

@@ -1577,6 +1577,8 @@
   "platform.modelChain.drag": "اسحب لإعادة الترتيب",
   "platform.modelChain.primary": "رئيسي",
   "platform.modelChain.remove": "إزالة",
+  "platform.modelCount": "{{n}} نماذج",
+  "platform.slotDedicated": "مخصص",
   "platform.groupAssignAuto": "إنشاء مجموعة افتراضية",
   "platform.groupAssignDesc": "يمكنك إنشاء مجموعة افتراضية والانضمام إلى مجموعات موجودة أخرى في آن واحد؛ عدم التحديد يعني أن المنصة لا تنتمي لأي مجموعة.",
   "platform.groupAssignJoin": "الانضمام إلى مجموعات موجودة",
