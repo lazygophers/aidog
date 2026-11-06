@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793615839,
+  "last_updated": 1793985010,
   "endpoints": {
     "default": [
       {
@@ -16,6 +16,11 @@
   "model_list": {
     "default": [
       "gemini-3.8-flash",
+      "gemini-3.8-live",
+      "gemini-3.8-live-extended-thinking",
+      "gemini-3.8-flash-tts",
+      "gemini-3.8-flash-lite-tts",
+      "gemini-nano-banana-2.1",
       "gemini-3.5-flash-lite",
       "gemini-3.6-flash",
       "gemini-3.7-flash",
@@ -94,8 +99,8 @@
       "gemini-flash-lite-latest",
       "gemini-gemma-2-27b-it",
       "gemini-gemma-2-9b-it",
-      "gemini-omni-flash-preview",
       "gemini-omni-1.1-flash",
+      "gemini-omni-1.2-flash",
       
       "gemini-pro-latest",
       

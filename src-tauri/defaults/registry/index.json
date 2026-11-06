@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793758439,
+  "last_updated": 1793985010,
   "platforms": [
     {
       "code": "aihubmix",
@@ -2460,7 +2460,7 @@
         "gemini-gemma-2-27b-it.json",
         "gemini-gemma-2-9b-it.json",
         "gemini-omni-1.1-flash.json",
-        "gemini-omni-flash-preview.json",
+        "gemini-omni-1.2-flash.json",
         "gemini-pro-latest.json",
         "gemini-robotics-er-2-preview.json",
         "gemini-robotics-er-2-streaming-preview.json",
