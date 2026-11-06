@@ -35,10 +35,10 @@ export function routingModeDesc(t: TFunction, mode: RoutingMode): string {
     load_balance: t("group.routingModeDesc.load_balance", "在可用平台间加权随机分流。"),
     health_aware: t("group.routingModeDesc.health_aware", "加权随机分流，实现与负载均衡相同；熔断/冷却摘除对所有路由模式生效。"),
     sticky: t("group.routingModeDesc.sticky", "同会话绑定同一平台，失效/熔断后回退加权随机。"),
-    rotate: t("group.routingModeDesc.rotate", "同档平台间按请求依次轮转。"),
-    usage: t("group.routingModeDesc.usage", "统计窗口内成功请求量最少的平台优先。"),
-    pace: t("group.routingModeDesc.pace", "重置前剩余额度最多的平台优先。"),
-    smart: t("group.routingModeDesc.smart", "最快重置的套餐优先，次键套餐余额。"),
+    rotate: t("group.routingModeDesc.rotate", "同档平台间按请求依次轮转，重启后从头开始。"),
+    usage: t("group.routingModeDesc.usage", "近 24 小时成功请求量最少的平台优先。"),
+    pace: t("group.routingModeDesc.pace", "重置前剩余额度最多的平台优先；无额度数据时回落用量模式。"),
+    smart: t("group.routingModeDesc.smart", "最快重置的套餐优先，次键套餐余额；无重置数据时回落健康感知。"),
   };
   return map[mode] ?? "";
 }
