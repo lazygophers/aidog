@@ -17,6 +17,11 @@ dev + Playwright（系统 Chrome channel）起真 app 读 getComputedStyle，30 
    开页面，对目标元素逐状态触发（选中 / 键盘高亮分别触发）后读
    `getComputedStyle(el).backgroundColor`（及 color）。**深浅两 mode 各读一遍**——
    两 mode 走的 token 分支不同，只验一个会漏另一半。
+   本机 playwright 未装 chromium headless shell，默认 `chromium.launch()` 起不来；
+   一切 Playwright 截图 / 渲染验证（含 huashu-design 的 design_lint、渲染类票截图验收）
+   一律带 `channel: "chrome"`，跑不成就报「做了没验证」，不静默跳过（2026-11-06
+   模型配置重设计轮：design_lint 因缺 headless shell 未跑成，huashu-design 收工
+   三件套缺 lint）。
 3. 结论落在读出来的值上（「13% 透明近黑」），不落在推理链上（「按顺序应该被
    覆盖」）。见 CLAUDE.md 的 accent token 语义条目：本仓 `--accent` 是文字色，
    shadcn `bg-accent` idiom 在 dark 下系统性错位，静态推理最容易在这里翻车。
