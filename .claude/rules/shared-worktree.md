@@ -297,7 +297,7 @@ harness 隔离建的 agent worktree 自带 lock，收工直接 `/usr/bin/git wor
 历史：`no-mistakes` 远端（目录 `/Users/luoxin/.no-mistakes/repos/9d3abbd5e514.git` 已不存在）
 已于 2026-10-29 `git remote remove`。现行做法：推送只走 `origin`（GitHub `lazygophers/aidog`），
 先 `git fetch origin && git rev-list --left-right --count origin/master...master`，左边为 0
-（纯快进）才 `git push origin master`；origin 是公开远端，推送前仍按全局规则向用户确认一次。
+（纯快进）才 `git push origin master`；origin 是公开远端，推送前仍按全局规则向用户确认一次。2026-11-06 起不主动推送，也不主动发起推送提问；用户当轮明说才按上述快进检查推送。
 
 ## 多个 agent 同时动主 checkout 的 master：串行（2026-10-29）
 
