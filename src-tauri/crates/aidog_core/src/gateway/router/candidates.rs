@@ -1617,7 +1617,14 @@ fn sort_by_routing_mode(
     now_ms: i64,
     health_keys: Option<&HashMap<u64, HealthOrderKey>>,
 ) -> (Option<u64>, Vec<u64>) {
-    let sticky_id = match mode {
+    // 票 magpie 04 数据面占位：rotate/usage（票 05）、pace/smart（票 06）的真实排序落地前
+    // 回落最近似既有排序，不新增路由行为。占位解除条件 = 票 05/06 合入时删除本映射。
+    let effective = match mode {
+        RoutingMode::Rotate | RoutingMode::Usage => RoutingMode::Failover,
+        RoutingMode::Pace | RoutingMode::Smart => RoutingMode::HealthAware,
+        m => m,
+    };
+    let sticky_id = match effective {
         RoutingMode::Failover => {
             active.sort_by_key(|gp| {
                 (
@@ -1658,6 +1665,8 @@ fn sort_by_routing_mode(
             apply_coding_plan_priority(probe);
             apply_sticky(active, ctx, now_ms)
         }
+        // 1622 的占位映射后不可达；编译器无法窄化，显式收口。
+        _ => unreachable!("placeholder mapping in sort_by_routing_mode covers all variants"),
     };
 
     // ── 失败降权沉底（health-aware，2026-09-29）：降权窗口内的平台整体沉到 active 桶

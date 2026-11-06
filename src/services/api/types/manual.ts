@@ -55,12 +55,18 @@ export type Protocol =
 /** 路由 / 调度策略。
  *  load_balance: 加权随机；failover: priority 升序；
  *  health_aware: 熔断摘除后健康集加权随机；
- *  sticky: session 键绑定平台，失效/熔断回退加权随机。 */
+ *  sticky: session 键绑定平台，失效/熔断回退加权随机；
+ *  rotate: 严格轮换；usage: 成功请求量最少优先；
+ *  pace: 重置前剩余额度最多优先；smart: 最快重置优先，次键余额。 */
 export type RoutingMode =
   | "load_balance"
   | "failover"
   | "health_aware"
-  | "sticky";
+  | "sticky"
+  | "rotate"
+  | "usage"
+  | "pace"
+  | "smart";
 
 /** 平台三态状态：enabled(用户启用) / disabled(用户手动禁用) / auto_disabled(401/403 自动禁用) */
 export type PlatformStatus = "enabled" | "disabled" | "auto_disabled";
