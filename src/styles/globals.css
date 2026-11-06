@@ -1401,3 +1401,26 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   .tray-chip[data-state="loaded"] .tray-chip-v { color: var(--accent); }
   .tray-chip-v { font-family: "Maple Mono NF", "Maple Mono", "SF Mono", ui-monospace, monospace; font-size: 11px; color: var(--muted-foreground); }
 }
+
+/* 模型配置区行式增强（ModelsMatrixSection / ModelChainEditor）：
+   交替底色与 ✕ 悬停出现依赖伪类，内联样式写不了；颜色全走 token，两 mode 自适应。 */
+@layer components {
+  .model-matrix-row {
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+  }
+  .model-matrix-row:nth-child(even):not(:hover) {
+    background: color-mix(in srgb, var(--accent-subtle) 40%, transparent);
+  }
+  .model-matrix-row:hover {
+    background: var(--accent-subtle);
+  }
+  .model-chip .model-chip-remove {
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+  .model-chip:hover .model-chip-remove,
+  .model-chip:focus-within .model-chip-remove {
+    opacity: 1;
+  }
+}

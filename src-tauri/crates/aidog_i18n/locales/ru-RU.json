@@ -1577,6 +1577,8 @@
   "platform.modelChain.drag": "Перетащите для сортировки",
   "platform.modelChain.primary": "Основная",
   "platform.modelChain.remove": "Убрать",
+  "platform.modelCount": "{{n}} моделей",
+  "platform.slotDedicated": "выделенный",
   "platform.groupAssignAuto": "Создать группу по умолчанию",
   "platform.groupAssignDesc": "Можно создать группу по умолчанию и одновременно присоединиться к другим существующим группам; если ничего не выбрано, платформа не входит ни в одну группу.",
   "platform.groupAssignJoin": "Присоединиться к существующим группам",

@@ -1577,6 +1577,8 @@
   "platform.modelChain.drag": "Zum Sortieren ziehen",
   "platform.modelChain.primary": "Primär",
   "platform.modelChain.remove": "Entfernen",
+  "platform.modelCount": "{{n}} Modelle",
+  "platform.slotDedicated": "dediziert",
   "platform.groupAssignAuto": "Standardgruppe erstellen",
   "platform.groupAssignDesc": "Standardgruppe erstellen und gleichzeitig anderen bestehenden Gruppen beitreten; keine Auswahl bedeutet, die Plattform gehört zu keiner Gruppe.",
   "platform.groupAssignJoin": "Bestehenden Gruppen beitreten",
