@@ -182,9 +182,9 @@ pub fn apply_quota_verdict(
     use super::algo::QuotaVerdict;
     match verdict {
         QuotaVerdict::Unknown => {}
-        QuotaVerdict::Available => scheduler.set_quota_cooldown_exact(platform_id, 0),
+        QuotaVerdict::Available => scheduler.set_quota_verdict_exact(platform_id, 0),
         QuotaVerdict::Exhausted { until_ms } => {
-            scheduler.set_quota_cooldown_exact(platform_id, until_ms)
+            scheduler.set_quota_verdict_exact(platform_id, until_ms)
         }
     }
 }
@@ -200,13 +200,31 @@ pub async fn calibrate_from_quota(
     quota: &PlatformQuota,
     is_coding_plan: bool,
 ) {
+    calibrate_from_quota_with(
+        db,
+        platform_id,
+        quota,
+        is_coding_plan,
+        crate::gateway::scheduling::global(),
+    )
+    .await
+}
+
+/// [`calibrate_from_quota`] 的可注入 scheduler 版本（测试传自己的实例，不碰进程级全局）。
+pub async fn calibrate_from_quota_with(
+    db: &Db,
+    platform_id: u64,
+    quota: &PlatformQuota,
+    is_coding_plan: bool,
+    scheduler: Option<std::sync::Arc<crate::gateway::scheduling::SchedulerState>>,
+) {
     if !quota.success {
         tracing::warn!(platform_id, is_coding_plan, error = ?quota.error, "calibrate_from_quota skipped: upstream quota query failed, keeping estimates");
         return;
     }
     // 额度冷却只认真查返回值（quota 参数），不看估算外推；手动刷新 / 自动校准 / 冷启动 / 重置定时
     // 全部汇入本函数，故此处是唯一判定挂点。调度器未启动（代理从未运行）→ 无冷却可写。
-    if let Some(s) = crate::gateway::scheduling::global() {
+    if let Some(s) = scheduler {
         let verdict = super::algo::quota_verdict(quota, now());
         apply_quota_verdict(&s, platform_id, verdict);
         // 用完 → 起退避真查链（同平台至多一条）；恢复 → 链终止、退避归零。
@@ -270,10 +288,14 @@ static BACKOFF_CHAINS: std::sync::LazyLock<super::backoff::BackoffChains> =
 /// 恢复 / 平台删除即终止；进程退出时任务随运行时结束。
 fn spawn_backoff_chain(db: Db, platform_id: u64) {
     use super::backoff::{Probe, run_chain};
+    let Some(generation) = BACKOFF_CHAINS.generation(platform_id) else {
+        return;
+    };
     tokio::spawn(async move {
         run_chain(
             &BACKOFF_CHAINS,
             platform_id,
+            generation,
             |ms| tokio::time::sleep(std::time::Duration::from_millis(ms as u64)),
             || async {
                 let Ok(Some(p)) = aidog_db::get_platform(&db, platform_id).await else {

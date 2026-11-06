@@ -4,7 +4,8 @@ use super::model::{CALIBRATE_COUNT, CALIBRATE_INTERVAL_MS, EstTier};
 use crate::gateway::quota::PlatformQuota;
 
 /// 开放式额度冷却的截止哨兵：真查显示用完但无任何重置时刻，冷却到下一次真查显示恢复为止。
-/// 取 JS Date 上限（8.64e15 ms）而非 i64::MAX：快照 until_ms 前端会转 Date，且 JSON 数值不丢精度。
+/// 取 JS 安全整数上限（2^53-1 附近的 8.64e15 ms）而非 i64::MAX：前端只做数值比较不转 Date
+/// （GroupListItem.tsx `until_ms < Date.now()`），JSON 数值不丢精度即可。
 pub const QUOTA_OPEN_ENDED_UNTIL_MS: i64 = 8_640_000_000_000_000;
 
 /// 真查结果对额度状态的判定（只看真查返回值，不看估算外推值）。
@@ -172,9 +173,7 @@ impl TierPace {
 /// 速度 = est_utilization /（now - window_start），即窗口内平均消耗。
 /// 数据不足 / 样本太短（< 5 分钟）/ 已耗尽（util ≥ 100）/ 非有限值 → None（不告警）。
 pub fn minutes_to_exhaust(est_utilization: f64, window_start: i64, now_ms: i64) -> Option<f64> {
-    if !est_utilization.is_finite()
-        || !(0.0..100.0).contains(&est_utilization)
-        || window_start <= 0
+    if !est_utilization.is_finite() || !(0.0..100.0).contains(&est_utilization) || window_start <= 0
     {
         return None;
     }
