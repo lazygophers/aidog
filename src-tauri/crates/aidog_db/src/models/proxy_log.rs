@@ -174,7 +174,7 @@ pub enum RouteReason {
     ClientNotAllowed,
     /// 平台限频超限（platform.extra.rate_limits，内存计数）
     RateLimited,
-    /// 模型不在此平台（预留：现路由无此排除维度，枚举先行供票 02 UI 渲染）
+    /// 命中的模型槽位被用户关闭（platform.extra.disabled_slots）：平台被排除，不计平台错误
     ModelNotOnPlatform,
     /// 死站跳过（重试循环内同 base_url 已 connect 失败，handler.rs R3 补记）
     SkippedDeadUpstream,

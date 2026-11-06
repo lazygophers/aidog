@@ -676,26 +676,36 @@ export function serializeCustomSlots(extra: string, values: Record<string, strin
   return JSON.stringify(obj);
 }
 
-/** 从 platform.extra JSON 解析备用槽位名（extra.soft_disabled_slots）。非数组 → 空；去空去重。 */
-export function parseSoftDisabledSlots(extra: string): string[] {
+/** 从 platform.extra JSON 解析关闭的槽位名（extra.disabled_slots ∪ 旧键 soft_disabled_slots）。非数组 → 空；去空去重。 */
+export function parseDisabledSlots(extra: string): string[] {
   try {
-    const v = (JSON.parse(extra) as { soft_disabled_slots?: unknown } | null)?.soft_disabled_slots;
-    if (Array.isArray(v)) {
-      return [...new Set(v.filter((x): x is string => typeof x === "string").map((x) => x.trim()).filter(Boolean))];
+    const o = JSON.parse(extra) as Record<string, unknown> | null;
+    const out: string[] = [];
+    for (const key of ["disabled_slots", "soft_disabled_slots"]) {
+      const v = o?.[key];
+      if (Array.isArray(v)) {
+        for (const x of v) {
+          if (typeof x !== "string") continue;
+          const n = x.trim();
+          if (n && !out.includes(n)) out.push(n);
+        }
+      }
     }
+    return out;
   } catch { /* ignore */ }
   return [];
 }
 
-/** 把备用槽位名写回 extra JSON（保留其余键）；空数组删键。 */
-export function serializeSoftDisabledSlots(extra: string, slots: string[]): string {
+/** 把关闭的槽位名写回 extra JSON（保留其余键）；只写 disabled_slots，旧键 soft_disabled_slots 一并删除；空数组删键。 */
+export function serializeDisabledSlots(extra: string, slots: string[]): string {
   let obj: Record<string, unknown> = {};
   try {
     const parsed: unknown = JSON.parse(extra);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) obj = parsed as Record<string, unknown>;
   } catch { /* ignore */ }
-  if (slots.length > 0) obj.soft_disabled_slots = slots;
-  else delete obj.soft_disabled_slots;
+  delete obj.soft_disabled_slots;
+  if (slots.length > 0) obj.disabled_slots = slots;
+  else delete obj.disabled_slots;
   return JSON.stringify(obj);
 }
 
