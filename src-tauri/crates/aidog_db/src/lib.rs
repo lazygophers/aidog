@@ -216,6 +216,46 @@ pub fn resolve_eff_pid(platform_id: i64, group_key: &str, map: &HashMap<String, 
 }
 
 impl Db {
+    /// 全部底层连接句柄（写槽 + 三个读池 + log/platform 写槽），内存库 fallback 下含重复 clone。
+    fn all_conns(&self) -> Vec<AsyncConnection> {
+        let slot = |m: &std::sync::Mutex<AsyncConnection>| {
+            m.lock().unwrap_or_else(|p| p.into_inner()).clone()
+        };
+        let mut v = vec![slot(&self.0), slot(&self.4), slot(&self.6)];
+        for pool in [&self.2, &self.5, &self.7] {
+            v.extend(pool.conns.iter().cloned());
+        }
+        v
+    }
+}
+
+/// 最后一个 clone 析构时同步关闭全部连接。tokio-rusqlite 0.6 的工作线程是 detached 的：
+/// 仅 drop 句柄时线程在后台异步 `sqlite3_close`（SQLCipher/OpenSSL 上下文释放），进程随即
+/// `exit()` 跑 OpenSSL atexit 清理，二者并发 → Linux CI 上 aidog_stats 测试进程退出期
+/// `double free or corruption` SIGABRT。显式 `close().await` 等到 sqlite3_close 完成才返回。
+/// 在独立线程里跑并限时，避免 Db 在工作线程自己的闭包内析构时自等死锁。
+impl Drop for Db {
+    fn drop(&mut self) {
+        if Arc::get_mut(&mut self.1).is_none() {
+            return; // 还有别的 clone
+        }
+        let conns = self.all_conns();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            if let Ok(rt) = tokio::runtime::Builder::new_current_thread().build() {
+                rt.block_on(async {
+                    for c in conns {
+                        let _ = c.close().await;
+                    }
+                });
+            }
+            let _ = tx.send(());
+        });
+        let _ = rx.recv_timeout(std::time::Duration::from_secs(5));
+    }
+}
+
+impl Db {
     pub async fn new(path: &str) -> Result<Self, String> {
         // SQLCipher（db-sqlcipher-full 票 01）：文件库先迁移存量明文（幂等）、key 不可得即
         // 在 open 之前失败（不建明文库）；`PRAGMA key` 必须是首个语句（内存库返回空串，无 key
