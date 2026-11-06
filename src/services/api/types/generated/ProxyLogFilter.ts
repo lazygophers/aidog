@@ -36,4 +36,8 @@ exclude_sources?: Array<string>,
  * 中间件观察模式命中筛选（票 04）：Some(true) = 仅 `blocked_reason='observe'` 的行；
  * None / Some(false) = 不加此谓词（全部）。
  */
-observed?: boolean | null, };
+observed?: boolean | null, 
+/**
+ * 会话归组键：按 session_key 列精确匹配（magpie 票 09 会话统计下钻）
+ */
+session_key?: string, };

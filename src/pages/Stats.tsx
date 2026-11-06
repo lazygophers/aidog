@@ -17,7 +17,9 @@ import {
   type QuotaSnapshot,
   type DimensionEntry,
   type ScatterHistogram,
+  type SessionStats,
 } from "../services/api";
+import type { NavContext } from "../components/Sidebar";
 import { formatNumber, formatMoney, formatPercent, successRate } from "../utils/formatters";
 import { F } from "../domains/shared/tokens";
 import { getProtocolSearchTermsMap } from "../domains/platforms/defaults";
@@ -87,13 +89,14 @@ function delta(cur: number, prev: number): number | null {
   return ((cur - prev) / prev) * 100;
 }
 
-// ── 主图区四 tab（spec C1）：时间序列 / 占比 / 密度 / 配额 ──
-type StatsTab = "trend" | "share" | "density" | "quota";
+// ── 主图区五 tab（spec C1 + magpie 票 09）：时间序列 / 占比 / 密度 / 配额 / 会话 ──
+type StatsTab = "trend" | "share" | "density" | "quota" | "sessions";
 const TABS: { id: StatsTab; key: string }[] = [
   { id: "trend", key: "stats.tabTrend" },
   { id: "share", key: "stats.tabShare" },
   { id: "density", key: "stats.tabDensity" },
   { id: "quota", key: "stats.tabQuota" },
+  { id: "sessions", key: "stats.tabSessions" },
 ];
 
 // time_bucket 串 → ms 见公共层 bucketMs（charts/ticks.ts，本文件顶部 re-export）。
@@ -245,7 +248,7 @@ export function dimSortValue(d: DimensionEntry, key: Exclude<SortKey, "name">): 
 
 const PAGE_SIZE = 50;
 
-export function Stats({ initialFilter }: { initialFilter?: { platformId?: number; platformName?: string; groupId?: string; groupKey?: string; model?: string } }) {
+export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platformId?: number; platformName?: string; groupId?: string; groupKey?: string; model?: string }; onNavigate?: (id: string, context?: NavContext) => void }) {
   useDisplayCurrency();
   const { t } = useTranslation();
   const [data, setData] = useState<StatsResult | null>(null);
@@ -298,6 +301,18 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
   const [quotaSnaps, setQuotaSnaps] = useState<QuotaSnapshot[] | null>(null);
   // MITM 盲转行数（当前时间窗内 blocked_reason=mitm_opaque；票 12「未计入」提示行）
   const [opaqueCount, setOpaqueCount] = useState(0);
+  // 会话 tab（magpie 票 09）：天数 7/14/30（对齐后端 clamp 1..=90）+ 按需拉聚合行
+  const [sessionDays, setSessionDays] = useState(7);
+  const [sessions, setSessions] = useState<SessionStats[] | null>(null);
+  useEffect(() => {
+    if (activeTab !== "sessions") return;
+    let cancelled = false;
+    statsApi
+      .sessionStats(sessionDays)
+      .then((rows) => { if (!cancelled) setSessions(rows); })
+      .catch(console.error);
+    return () => { cancelled = true; };
+  }, [activeTab, sessionDays]);
 
   // 「无分组」sentinel 映射：下拉选「无分组」→ filter_group=''（隧道请求 group_key 空）。
   // "0" 在平台筛选 truthy，直接透传后端 CAST AS INTEGER = 0（无平台）。
@@ -904,6 +919,80 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                     />
                   ))}
                 </div>
+              </div>
+            );
+          })()}
+
+          {/* 会话 tab（magpie 票 09）：session_key 聚合行；列 = 标题 / 请求 / Token / 花费。
+              行点击跳请求日志页按 session_key 过滤（Logs sessionKey 过滤参数，票 09） */}
+          {activeTab === "sessions" && (() => {
+            const rows = sessions ?? [];
+            if (rows.length === 0) {
+              return (
+                <div className="glass-surface" style={{ padding: "16px 20px" }}>
+                  <div style={{ fontSize: F.label, fontWeight: 600, marginBottom: 12 }}>{t("stats.tabSessions", "会话")}</div>
+                  <div style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)", fontSize: F.hint }}>
+                    {t("stats.sessionEmpty", "暂无会话数据")}
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div className="glass-surface" style={{ padding: "16px 20px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+                  <div style={{ fontSize: F.label, fontWeight: 600 }}>
+                    {t("stats.tabSessions", "会话")}
+                    <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400, marginLeft: 8 }}>
+                      {t("stats.totalRows", "共 {{count}} 条", { count: rows.length })}
+                    </span>
+                  </div>
+                  <Select value={String(sessionDays)} onValueChange={v => setSessionDays(Number(v))}>
+                    <SelectTrigger style={{ fontSize: 12, width: 110, height: 30 }}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="7">{t("stats.7d", "近 7 天")}</SelectItem>
+                      <SelectItem value="14">{t("stats.14d", "近 14 天")}</SelectItem>
+                      <SelectItem value="30">{t("stats.30d", "近 30 天")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {rows.length >= 200 && (
+                  <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 8 }}>
+                    {t("stats.sessionLimitNote", "仅显示最近 200 个会话")}
+                  </div>
+                )}
+                <Table style={{ fontSize: F.hint }}>
+                  <TableHeader>
+                    <TableRow style={{ borderBottom: "1px solid var(--border)" }}>
+                      <TableHead style={{ textAlign: "left", padding: "6px 8px", fontWeight: 600 }}>{t("stats.tabSessions", "会话")}</TableHead>
+                      <TableHead style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600 }}>{t("stats.requests", "请求")}</TableHead>
+                      <TableHead style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600 }}>{t("stats.totalTokens", "总 Token")}</TableHead>
+                      <TableHead style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600 }}>{t("stats.totalCost", "预估成本")}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.map((s) => (
+                      <TableRow
+                        key={s.session_key}
+                        data-testid="session-row"
+                        style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}
+                        onClick={() => onNavigate?.("logs", { sessionKey: s.session_key })}
+                      >
+                        <TableCell
+                          data-testid="session-title"
+                          title={s.title || undefined}
+                          style={{ padding: "6px 8px", fontWeight: 500, maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                        >
+                          {s.title || t("stats.sessionUntitled", "未命名会话")}
+                        </TableCell>
+                        <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(s.requests)}</TableCell>
+                        <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(s.input_tokens + s.output_tokens + s.cache_tokens)}</TableCell>
+                        <TableCell style={{ textAlign: "right", padding: "6px 8px", color: levelColor(costLevel(s.est_cost)) }}>{formatMoney(s.est_cost)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             );
           })()}

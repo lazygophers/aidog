@@ -61,6 +61,7 @@ export * from "./ProxyClientSettings";
 export * from "./CleanupEstimate";
 export * from "./ProxyLogFilter";
 export * from "./ProxyLogPage";
+export * from "./SessionStats";
 export * from "./ProxyLogSettings";
 export * from "./ProxyLogSummary";
 export * from "./ProxyTimeoutSettings";

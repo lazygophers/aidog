@@ -40,9 +40,9 @@ export function ListView({ filters, list, openDetail, copyRow }: {
   }, []);
   const {
     t, platforms, groups, filterPlatform, filterGroup, filterStatus, filterTime,
-    filterModel, filterActualModel, filterPath, filterObserved,
+    filterModel, filterActualModel, filterPath, filterObserved, filterSession,
     setFilterPlatform, setFilterGroup, setFilterStatus, setFilterTime,
-    setFilterModel, setFilterActualModel, setFilterPath, setFilterObserved,
+    setFilterModel, setFilterActualModel, setFilterPath, setFilterObserved, setFilterSession,
     modelOptions, actualModelOptions, hasFilter, clearFilter, platformMap, groupName,
   } = filters;
   const {
@@ -174,6 +174,15 @@ export function ListView({ filters, list, openDetail, copyRow }: {
           placeholder={t("logs.filterPath", "搜索路径（如 /v1/messages）")}
           style={{ fontSize: F.small, height: 30, maxWidth: 180, minWidth: 120 }}
         />
+        {/* 会话归组键（magpie 票 09 会话统计下钻）：仅导航入口带入，chip 展示 + 可移除 */}
+        {filterSession && (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: F.small, height: 30, padding: "0 8px", borderRadius: 6, background: "var(--accent-subtle)", color: "var(--accent)", maxWidth: 200, overflow: "hidden" }}>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t("logs.sessionFilter", "会话")}: {filterSession}</span>
+            <button type="button" data-testid="clear-session-filter" onClick={() => setFilterSession("")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit", display: "inline-flex" }}>
+              <IconClose size={11} />
+            </button>
+          </span>
+        )}
         {/* Clear */}
         {hasFilter && (
           <Button variant="ghost" type="button" onClick={clearFilter} style={{ fontSize: F.small, height: "auto", padding: "2px 8px", color: "var(--text-tertiary)" }}>

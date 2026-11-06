@@ -660,6 +660,10 @@ pub struct ProxyLogFilter {
     #[serde(default)]
     #[ts(optional, type = "boolean | null")]
     pub observed: Option<bool>,
+    /// 会话归组键：按 session_key 列精确匹配（magpie 票 09 会话统计下钻）
+    #[serde(default)]
+    #[ts(optional)]
+    pub session_key: Option<String>,
 }
 
 /// 手动「立即清理」前的只读预估（三个数）。

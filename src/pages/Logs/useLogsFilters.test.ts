@@ -111,4 +111,16 @@ describe("useLogsFilters", () => {
     expect(r.result.current.groupName("g1")).toBe("G1");
     expect(r.result.current.groupName("unknown")).toBe("unknown");
   });
+
+  // magpie 票 09：会话统计行点击跳日志页，sessionKey 经导航入口带入
+  it("初始 sessionKey 带入 activeFilter.session_key，clearFilter 复位", () => {
+    const r = renderHook(() => useLogsFilters({ sessionKey: "abc-123" }));
+    expect(r.result.current.activeFilter.session_key).toBe("abc-123");
+    expect(r.result.current.hasFilter).toBe(true);
+    expect(r.result.current.filterSession).toBe("abc-123");
+    act(() => r.result.current.clearFilter());
+    expect(r.result.current.activeFilter.session_key).toBeUndefined();
+    expect(r.result.current.hasFilter).toBe(false);
+    expect(r.result.current.filterSession).toBe("");
+  });
 });
