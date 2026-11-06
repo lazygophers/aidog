@@ -9,7 +9,8 @@ use super::model_mapping::{
     resolve_decision_model, request_tier_families, resolve_model_chain_with_custom,
 };
 use super::ordering::{
-    apply_coding_plan_priority, apply_sticky, expiry_sort_key, is_coding_plan, order_load_balance,
+    HealthOrderKey, apply_coding_plan_priority, apply_sticky, coding_remaining_ratio,
+    expiry_sort_key, is_coding_plan, order_health_aware, order_load_balance,
 };
 use super::{RouteResult, candidate_state, sole_platform};
 use crate::client_vocab::{
@@ -329,6 +330,67 @@ impl ExtraCache {
 /// 候选平台的 extra 解析缓存（key: platform_id）
 type ExtraCacheMap = HashMap<u64, ExtraCache>;
 
+/// HealthAware 排序键快照（2026-11-06 拍板）：排序前一次性算好（候选数少，O(n) 一遍），
+/// 比较闭包内零查库 / 零 JSON 解析。仅 HealthAware 模式计算，其余模式空表零开销。
+/// - coding plan → 最紧维度剩余比例（`est_coding_plan` tier `100 - est_utilization` 最小值 / 100）；
+/// - 按量 → 请求模型静态单价（`aidog_db::resolve_price` × peak 倍率链 `extra.peak` →
+///   bundled preset default → 1.0；peak 绝对价条目 `peak_applied` 已含涨价不另乘倍率，
+///   与日志 est_cost 同计费链口径）。
+async fn compute_health_order_keys(
+    db: &db::Db,
+    group_platforms: &[GroupPlatformDetail],
+    source_model: &str,
+    extra_cache: &ExtraCacheMap,
+    now_ms: i64,
+) -> HashMap<u64, HealthOrderKey> {
+    let mut keys = HashMap::new();
+    let mut fallback: Option<super::super::models::PriceSyncSettings> = None;
+    let empty_windows = Vec::new();
+    for gp in group_platforms {
+        if is_coding_plan(&gp.platform) {
+            keys.insert(
+                gp.platform.id,
+                HealthOrderKey::CodingRemaining(coding_remaining_ratio(
+                    &gp.platform.est_coding_plan,
+                )),
+            );
+            continue;
+        }
+        let settings = match &fallback {
+            Some(s) => s,
+            None => {
+                fallback = Some(crate::gateway::price_sync::get_sync_settings(db).await);
+                fallback.as_ref().expect("fallback just set")
+            }
+        };
+        let wire = gp.platform.platform_type.wire_str();
+        let windows = extra_cache
+            .get(&gp.platform.id)
+            .map(|c| &c.peak_windows)
+            .unwrap_or(&empty_windows);
+        let is_peak = peak::is_in_peak_window(windows, now_ms, source_model);
+        let multiplier = peak::resolve_multiplier(windows, now_ms, source_model);
+        let price = match aidog_db::resolve_price(
+            db,
+            &wire,
+            source_model,
+            settings.fallback_input_price,
+            settings.fallback_output_price,
+            0,
+            now_ms,
+            is_peak,
+        )
+        .await
+        {
+            Ok(r) => r.price.input_cost_per_token * r.multiplier(multiplier),
+            // 查价失败 → 兜底单价（同计费 fallback 口径，不排 0 假便宜）
+            Err(_) => settings.fallback_input_price / 1_000_000.0,
+        };
+        keys.insert(gp.platform.id, HealthOrderKey::PaygPrice(price));
+    }
+    keys
+}
+
 /// 根据分组路由规则选择**有序候选平台列表**，用于失败逐个重试。
 ///
 /// 排序：
@@ -455,6 +517,14 @@ async fn select_candidates_inner(
         })
         .collect();
 
+    // ── HealthAware 排序键快照：coding plan 最紧余额 / 按量静态单价（排序前一次性算好，
+    //    热路径比较闭包内零查库；仅 HealthAware 计算，其余模式空表零开销）──
+    let health_keys = if effective_mode == RoutingMode::HealthAware {
+        compute_health_order_keys(db, &group_platforms, source_model, &extra_cache, now_ms).await
+    } else {
+        HashMap::new()
+    };
+
     // ── 直通模型链（直接模型转发）：有效模型名（映射命中取 target_model，否则请求原名）
     // 被组内任一平台 extra.direct_models 声明 → 只在声明它的平台里走全维度过滤 + 现有排序
     // failover。此链映射只翻译不锁平台（跳过提首与静默回落），转发模型名 = 原名（不进槽位匹配）。
@@ -491,6 +561,7 @@ async fn select_candidates_inner(
             kind,
             &decision_models,
             client,
+            Some(&health_keys),
         );
     }
 
@@ -572,8 +643,14 @@ async fn select_candidates_inner(
     }
 
     // ── 阶段 3: 按路由模式排序 ──
-    let (sticky_id, demoted_ids) =
-        sort_by_routing_mode(&mut active, &mut probe, effective_mode, ctx, now_ms);
+    let (sticky_id, demoted_ids) = sort_by_routing_mode(
+        &mut active,
+        &mut probe,
+        effective_mode,
+        ctx,
+        now_ms,
+        Some(&health_keys),
+    );
 
     // ── 阶段 4: 合并 + 映射提升 ──
     // 显式映射目标平台不在候选集时记录 warn（沿用原逻辑）
@@ -1154,6 +1231,7 @@ fn select_direct_candidates(
     kind: RequestKind<'_>,
     decision_models: &DecisionModels,
     client: ClientGate,
+    health_keys: Option<&HashMap<u64, HealthOrderKey>>,
 ) -> Result<CandidateSet, RouteFail> {
     let in_direct = |gp: &GroupPlatformDetail| direct_ids.contains(&gp.platform.id);
     let FilteredCandidates {
@@ -1193,7 +1271,8 @@ fn select_direct_candidates(
         .map(|(gp, _)| *gp)
         .collect();
 
-    let (sticky_id, demoted_ids) = sort_by_routing_mode(&mut active, &mut probe, mode, ctx, now_ms);
+    let (sticky_id, demoted_ids) =
+        sort_by_routing_mode(&mut active, &mut probe, mode, ctx, now_ms, health_keys);
     let probe_ids: HashSet<u64> = probe.iter().map(|gp| gp.platform.id).collect();
     let ordered: Vec<&GroupPlatformDetail> = active.into_iter().chain(probe).collect();
     // 未声明该直通模型的平台被丢弃：作为带原因的排除项出现（路由画布 01）
@@ -1536,6 +1615,7 @@ fn sort_by_routing_mode(
     mode: RoutingMode,
     ctx: Option<&ScheduleCtx<'_>>,
     now_ms: i64,
+    health_keys: Option<&HashMap<u64, HealthOrderKey>>,
 ) -> (Option<u64>, Vec<u64>) {
     let sticky_id = match mode {
         RoutingMode::Failover => {
@@ -1557,11 +1637,18 @@ fn sort_by_routing_mode(
             apply_coding_plan_priority(probe);
             None
         }
-        RoutingMode::LoadBalance | RoutingMode::HealthAware => {
+        RoutingMode::LoadBalance => {
             order_load_balance(active, now_ms);
             order_load_balance(probe, now_ms);
             apply_coding_plan_priority(active);
             apply_coding_plan_priority(probe);
+            None
+        }
+        RoutingMode::HealthAware => {
+            let empty = HashMap::new();
+            let keys = health_keys.unwrap_or(&empty);
+            order_health_aware(active, now_ms, keys);
+            order_health_aware(probe, now_ms, keys);
             None
         }
         RoutingMode::Sticky => {
