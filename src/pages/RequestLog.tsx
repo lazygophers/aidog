@@ -275,7 +275,7 @@ export function RequestLog() {
                   <ThCell>{t("logs.time")}</ThCell>
                   <ThCell>{t("logs.group")}</ThCell>
                   <ThCell>{t("logs.platform", "平台")}</ThCell>
-                  <ThCell>{t("logs.model", "原始模型")}</ThCell>
+                  <ThCell>{t("logs.model", "请求模型")}</ThCell>
                   <ThCell>{t("logs.actualModel", "实际模型")}</ThCell>
                   <ThCell>{t("logs.status")}</ThCell>
                   <ThCell>{t("logs.duration")}</ThCell>

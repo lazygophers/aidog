@@ -1005,7 +1005,7 @@
   "logs.group": "Группа",
   "logs.headers": "Заголовки запроса",
   "logs.inputTokens": "Входные токены",
-  "logs.model": "Модель",
+  "logs.model": "Запрошенная модель",
   "logs.noGroup": "Без группы",
   "logs.noPlatform": "Без платформы",
   "logs.noUpstream": "(не зафиксировано)",

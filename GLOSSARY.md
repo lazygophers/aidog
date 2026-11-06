@@ -170,6 +170,10 @@ _避免_: deployment、provider preset
 
 前后端同文件：`~/.aidog/logs/aidog.<YYYY-MM-DD-HH>.log`，按小时分割，按 `retention_hours`（默认 24）自动清理，设置页可调（`app_log_settings_get/set`，file_enabled/level/retention_hours）。前端 console（error/warn/info/debug）与未捕获异常由 `src/utils/frontendLog.ts` 入口 patch 转发 `app_log_frontend` 命令，Rust 侧 tracing `target=frontend` 落同一 appender。定位卡顿：复现时段内 grep `frontend`（前端渲染异常）+ `trace_id`（代理请求链）+ `ERROR`（后端），打包给 AI：`tar czf aidog-logs.tgz -C ~/.aidog logs`。_避免_: appender、webview console
 
+**请求模型 (Requested Model)**:
+客户端请求里带的模型名，存 `proxy_log.model`；经路由映射后实际发给上游的名字是「实际模型」（`proxy_log.actual_model`）。
+日志页两者各一个下拉，可同时过滤（AND）。_避免_: 原始模型（旧 UI 叫法）
+
 ### 直接模型转发
 
 **直通模型（Direct Model）**:

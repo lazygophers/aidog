@@ -735,11 +735,12 @@ fn build_filter_where(
         idx += 1;
     }
     if let Some(ref v) = filter.model {
-        let col = match filter.model_type.as_deref() {
-            Some("actual") => "actual_model",
-            _ => "model",
-        };
-        parts.push(format!("AND {col} = ?{idx}"));
+        parts.push(format!("AND model = ?{idx}"));
+        p.push(Box::new(v.clone()));
+        idx += 1;
+    }
+    if let Some(ref v) = filter.actual_model {
+        parts.push(format!("AND actual_model = ?{idx}"));
         p.push(Box::new(v.clone()));
         idx += 1;
     }
@@ -1098,7 +1099,7 @@ mod tests {
                 time_start: Some(1000),
                 time_end: Some(2000),
                 model: Some("m".into()),
-                model_type: Some("actual".into()),
+                actual_model: Some("am".into()),
                 path: Some("p".into()),
                 ..Default::default()
             });

@@ -7,11 +7,15 @@ export type ProxyLogFilter = { platform_id?: number | null, group_key?: string,
 /**
  * None=全部; Some(200)=仅成功; Some(-1)=仅失败
  */
-status?: number, time_start?: number | null, time_end?: number | null, model?: string, 
+status?: number, time_start?: number | null, time_end?: number | null, 
 /**
- * "original" = 按 model 列; "actual" = 按 actual_model 列
+ * 请求模型：按 model 列精确匹配
  */
-model_type?: string, 
+model?: string, 
+/**
+ * 实际模型：按 actual_model 列精确匹配，与 model 同时给出时 AND
+ */
+actual_model?: string, 
 /**
  * 路径片段：对 request_url 做 LIKE %v% 模糊匹配
  */

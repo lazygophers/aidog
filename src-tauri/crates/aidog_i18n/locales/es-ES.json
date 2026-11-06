@@ -983,7 +983,7 @@
   "logs.group": "Grupo",
   "logs.headers": "Cabeceras",
   "logs.inputTokens": "Tokens de entrada",
-  "logs.model": "Modelo",
+  "logs.model": "Modelo solicitado",
   "logs.noGroup": "Sin grupo",
   "logs.noPlatform": "Sin plataforma",
   "logs.noUpstream": "(no capturado)",

@@ -595,11 +595,12 @@ pub struct ProxyLogFilter {
     pub time_start: Option<i64>,
     #[ts(optional, type = "number | null")]
     pub time_end: Option<i64>,
+    /// 请求模型：按 model 列精确匹配
     #[ts(optional)]
     pub model: Option<String>,
-    /// "original" = 按 model 列; "actual" = 按 actual_model 列
+    /// 实际模型：按 actual_model 列精确匹配，与 model 同时给出时 AND
     #[ts(optional)]
-    pub model_type: Option<String>,
+    pub actual_model: Option<String>,
     /// 路径片段：对 request_url 做 LIKE %v% 模糊匹配
     #[serde(default)]
     #[ts(optional)]
