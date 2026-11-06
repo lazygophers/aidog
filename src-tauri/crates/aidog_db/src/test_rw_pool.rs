@@ -168,3 +168,26 @@ async fn concurrent_reads_not_blocked_by_writes() {
         let _ = std::fs::remove_file(format!("{path_str}{suffix}"));
     }
 }
+
+/// 最后一个 Db clone 析构后，所有底层连接必须已关闭（工作线程 sqlite3_close 完成），
+/// 否则 Linux 测试进程退出时与 OpenSSL atexit 清理并发。仍有别的 clone 时不得提前关。
+#[tokio::test]
+async fn drop_last_clone_closes_every_connection() {
+    async fn alive(c: &AsyncConnection) -> bool {
+        c.call(|c| Ok(c.query_row("SELECT 1", [], |r| r.get::<_, i64>(0))?))
+            .await
+            .is_ok()
+    }
+    let (db, _dir) = crate::test_support::three_file_db().await;
+    let conns = db.all_conns();
+    assert!(conns.len() > 3);
+    let extra = db.clone();
+    drop(db);
+    for c in &conns {
+        assert!(alive(c).await, "closed while a clone is still alive");
+    }
+    drop(extra);
+    for c in &conns {
+        assert!(!alive(c).await, "connection still open after last clone dropped");
+    }
+}
