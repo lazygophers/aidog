@@ -1569,6 +1569,8 @@
   "platform.sourcePricing": "Pricing",
   "platform.lastError": "Last error",
   "platform.lastErrorHint": "Last failure · {{time}}\n{{error}}",
+  "platform.lastOutcomeFail": "Failed",
+  "platform.lastOutcomeOk": "OK",
   "platform.lastTestFailHint": "Last test failed · {{time}}{{error}}",
   "platform.lastTestOkHint": "Last test passed · {{time}}",
   "platform.manualBudgetAdd": "Add limit",

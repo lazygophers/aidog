@@ -658,7 +658,7 @@ pub async fn set_platform_last_error(db: &Db, id: u64, err: Option<String>) -> R
                     params![msg, now(), id as i64],
                 ),
                 None => conn.execute(
-                    "UPDATE platform SET last_error = '', last_error_at = 0 WHERE id = ?1",
+                    "UPDATE platform SET last_error = '', last_error_at = 0 WHERE id = ?1 AND last_error != ''",
                     params![id as i64],
                 ),
             }?;

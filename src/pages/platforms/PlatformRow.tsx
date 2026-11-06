@@ -93,6 +93,8 @@ export interface PlatformRowProps {
   selecting?: boolean;
   selected?: boolean;
   levelPriority?: number;
+  /** 身份列底部显示该平台最近一次请求结果（成功/失败 + 原因 + 相对时间，读 last_error / last_error_at）。分组成员表用。 */
+  showLastOutcome?: boolean;
   t: TFunction;
   lang: string;
   /** 列 1 插槽：多选 checkbox 或拖拽把手（组内排序把手 / 未分组 pointer 拖拽把手由父级渲染）。 */
@@ -128,7 +130,7 @@ function StatCell({ v, l, tone, testId }: { v: string; l: string; tone?: "ok" | 
 
 export function PlatformRow({
   platform: p, usage: u, quotaRaw, quotaPreferReal, lastTest, manualResult, testing, onRefreshQuota, refreshing,
-  riseDelay, expanded, selecting, selected, levelPriority,
+  riseDelay, expanded, selecting, selected, levelPriority, showLastOutcome,
   t, lang, lead, onSelect, onToggleExpanded, onToggle,
   onEdit, onShare, onDuplicate, onViewLogs, onQuickTest, onDelete, onLevelPriorityChange,
 }: PlatformRowProps) {
@@ -284,6 +286,21 @@ export function PlatformRow({
           <span style={{ fontSize: 12, color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {p.platform_type} · {host}
           </span>
+          {showLastOutcome && (() => {
+            const failed = !!p.last_error;
+            const at = failed ? formatRelativeTime(p.last_error_at) : null;
+            return (
+              <span data-testid="row-last-outcome" data-result={failed ? "fail" : "ok"}
+                title={failed ? t("platform.lastErrorHint", "最近一次失败 · {{time}}\n{{error}}").replace("{{time}}", at ?? "-").replace("{{error}}", p.last_error) : undefined}
+                style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, fontSize: 12, color: failed ? "var(--color-danger)" : "var(--text-tertiary)" }}>
+                <span style={{ fontWeight: 600, flexShrink: 0 }}>
+                  {failed ? t("platform.lastOutcomeFail", "失败") : t("platform.lastOutcomeOk", "正常")}
+                </span>
+                {failed && <span data-testid="row-last-outcome-reason" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{p.last_error}</span>}
+                {at && <span data-testid="row-last-outcome-time" style={{ color: "var(--text-tertiary)", whiteSpace: "nowrap", flexShrink: 0 }}>{at}</span>}
+              </span>
+            );
+          })()}
         </span>
         {/* 列 4：余额 / 配额（coding 档位 / 余额条 / 手动预算，口径同 PlatformCard.computeQuotaDisplay） */}
         <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 5 }}>

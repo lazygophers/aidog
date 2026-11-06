@@ -1591,6 +1591,8 @@
   "platform.sourcePricing": "Tarifs",
   "platform.lastError": "Dernière erreur",
   "platform.lastErrorHint": "Dernier échec · {{time}}\n{{error}}",
+  "platform.lastOutcomeFail": "Échec",
+  "platform.lastOutcomeOk": "OK",
   "platform.lastTestFailHint": "Dernier test échoué · {{time}}{{error}}",
   "platform.lastTestOkHint": "Dernier test réussi · {{time}}",
   "platform.manualBudgetAdd": "Ajouter une limite",
