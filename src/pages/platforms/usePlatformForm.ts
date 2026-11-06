@@ -17,7 +17,7 @@ import {
   parseRateLimitsBundle, serializeRateLimitsBundle, type RateLimitsBundle,
   parsePassthroughAuth, serializePassthroughAuth,
   parseAppbuilderKey, serializeAppbuilderKey, validateClientUaRule,
-  parseCustomSlots, serializeCustomSlots,
+  parseCustomSlots, serializeCustomSlots, parseSoftDisabledSlots, serializeSoftDisabledSlots,
   DEFAULT_MOCK_CONFIG, DEFAULT_DEVIN_CONFIG, DEFAULT_PASSTHROUGH_AUTH,
   type Platform, type Protocol, type ModelSlot, type PlatformEndpoint,
   type PlatformUsageStats, type LastTestResult, type MockConfig, type DevinConfig, type PassthroughAuth,
@@ -150,6 +150,8 @@ export interface PlatformFormState {
   /** 全局自定义槽位定义（null = 未加载，此时保存不清孤儿键）与本平台各槽值（extra.custom_slots）。 */
   customSlotDefs: CustomSlotDef[] | null;
   customSlotValues: Record<string, string[]>; setCustomSlotValues: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
+  /** 备用槽位名（extra.soft_disabled_slots，内置 + 自定义）。 */
+  softDisabledSlots: string[]; setSoftDisabledSlots: React.Dispatch<React.SetStateAction<string[]>>;
   keyOptional: boolean;
   apiKeyMissing: boolean;
   resetForm: () => void;
@@ -232,6 +234,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [appbuilderKey, setAppbuilderKey] = useState("");
   const [customSlotDefs, setCustomSlotDefs] = useState<CustomSlotDef[] | null>(null);
   const [customSlotValues, setCustomSlotValues] = useState<Record<string, string[]>>({});
+  const [softDisabledSlots, setSoftDisabledSlots] = useState<string[]>([]);
   // 表单挂载与每次打开（新建 / 编辑）时重读全局定义：设置页增删槽位后平台页随之出现 / 消失。
   useEffect(() => {
     if (!showForm) return;
@@ -365,7 +368,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setQuotaSource("auto"); setQuotaSourcePristine(true);
     setDevinConfig({ ...DEFAULT_DEVIN_CONFIG });
     setPassAuth({ ...DEFAULT_PASSTHROUGH_AUTH });
-    setAppbuilderKey(""); setCustomSlotValues({});
+    setAppbuilderKey(""); setCustomSlotValues({}); setSoftDisabledSlots([]);
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
     timemodels.reset(); setMitmStats(false);
@@ -440,7 +443,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setMitmStats(parseMitmStats(p.extra ?? ""));
     setDevinConfig(parseDevinConfig(p.extra ?? ""));
     setPassAuth(parsePassthroughAuth(p.extra ?? ""));
-    setAppbuilderKey(parseAppbuilderKey(p.extra ?? "")); setCustomSlotValues(parseCustomSlots(p.extra ?? ""));
+    setAppbuilderKey(parseAppbuilderKey(p.extra ?? "")); setCustomSlotValues(parseCustomSlots(p.extra ?? "")); setSoftDisabledSlots(parseSoftDisabledSlots(p.extra ?? ""));
     setLockedGroupId(null);
     try {
       const gds = await groupDetailApi.list();
@@ -488,7 +491,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setMitmStats(parseMitmStats(p.extra ?? ""));
     setDevinConfig(parseDevinConfig(p.extra ?? ""));
     setPassAuth(parsePassthroughAuth(p.extra ?? ""));
-    setAppbuilderKey(parseAppbuilderKey(p.extra ?? "")); setCustomSlotValues(parseCustomSlots(p.extra ?? ""));
+    setAppbuilderKey(parseAppbuilderKey(p.extra ?? "")); setCustomSlotValues(parseCustomSlots(p.extra ?? "")); setSoftDisabledSlots(parseSoftDisabledSlots(p.extra ?? ""));
     setLockedGroupId(null);
     // 反查源平台当前手动组成员（排除其 auto 分组），作为「加入已有分组」初始值。
     try {
@@ -669,6 +672,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     if (protocol === "qianfan") extraPayload = serializeAppbuilderKey(extraPayload, appbuilderKey);
     // 自定义槽位（extra.custom_slots）：定义未加载时不动，避免误清存量值。
     if (customSlotDefs) extraPayload = serializeCustomSlots(extraPayload, customSlotValues, customSlotDefs.map(d => d.name));
+    extraPayload = serializeSoftDisabledSlots(extraPayload, softDisabledSlots);
     // quota 脚本变体选择 + requires 参数（custom↔id 互斥、requires 顶层+旧嵌套镜像，
     //   见 serializeQuotaScriptConfig；须在 devin 序列化之后 —— org_id 镜像写 extra.devin）。
     extraPayload = serializeQuotaScriptConfig(
@@ -841,7 +845,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,
     lockedGroupId, setLockedGroupId,
     isMock, isPassthrough, isPassThrough, passAuth, setPassAuth,
-    appbuilderKey, setAppbuilderKey, customSlotDefs, customSlotValues, setCustomSlotValues, keyOptional, apiKeyMissing,
+    appbuilderKey, setAppbuilderKey, customSlotDefs, customSlotValues, setCustomSlotValues, softDisabledSlots, setSoftDisabledSlots, keyOptional, apiKeyMissing,
     resetForm, openCreatePlatform, handleEdit, handleDuplicate, handleProtocolChange,
     handleModelsChange, handleFetchModels, handleFillAll, buildModelsPayload,
     handleSave, handleViewLogs, applyPaste, runBatchCreateFromPaste,

@@ -805,6 +805,7 @@ pub(crate) async fn handle_proxy_core(
     }
     let mut attempts: Vec<ProxyAttempt> = Vec::new();
     let candidate_total = candidates.len();
+    let soft_flags: Vec<bool> = candidates.iter().map(|c| c.soft_disabled).collect();
     // R3（2026-09-28）：本次请求内已 connect 失败的 base_url 集合。死站对同站兄弟条目同样
     // 连不上（站级事实，与 key 无关），后续候选命中同 base_url 直接跳过，省一遍 15s connect 死等。
     // 仅 connect 失败联动；429/401 等 key 级错误不联动（同站不同 key 仍各有机会）。
@@ -812,8 +813,8 @@ pub(crate) async fn handle_proxy_core(
 
     for (attempt_idx, route) in candidates.into_iter().enumerate() {
         // 超过最大重试次数（attempt_idx 从 0 起；max_retries=2 → 最多 3 次尝试 idx 0/1/2）
-        if attempt_idx > max_retries {
-            break;
+        if !retry_allowed(attempt_idx, max_retries, route.soft_disabled) {
+            continue;
         }
         if dead_base_urls.contains(&route.platform.base_url) {
             tracing::warn!(
@@ -829,7 +830,7 @@ pub(crate) async fn handle_proxy_core(
         let route_base_url = route.platform.base_url.clone();
         let attempt_start = std::time::Instant::now();
         let attempt_ts = aidog_db::now();
-        let is_last_candidate = attempt_idx + 1 >= candidate_total || attempt_idx >= max_retries;
+        let is_last_candidate = is_last_attempt(attempt_idx, max_retries, &soft_flags);
 
         match forward_attempt(
             &state,

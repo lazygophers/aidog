@@ -287,6 +287,8 @@ struct ExtraCache {
     rate: RateLimitsCfg,
     /// extra.custom_slots × 全局自定义槽位定义：本平台已填值的槽，按匹配顺序排好（仅聊天请求构建）。
     custom: Vec<CustomSlotEntry>,
+    /// extra.soft_disabled_slots（备用槽位名：内置或自定义）。
+    soft_slots: Vec<String>,
 }
 
 impl ExtraCache {
@@ -301,6 +303,12 @@ impl ExtraCache {
         let custom = custom_defs
             .map(|defs| build_custom_entries(defs, parsed.rest.get("custom_slots")))
             .unwrap_or_default();
+        let soft_slots = parsed
+            .rest
+            .get("soft_disabled_slots")
+            .and_then(|v| v.as_array())
+            .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_owned)).collect())
+            .unwrap_or_default();
         let (direct_models, allowed_clients) = (parsed.direct_models, parsed.allowed_clients);
         Self {
             time_windows,
@@ -311,6 +319,7 @@ impl ExtraCache {
             ua_rules,
             rate: RateLimitsCfg::parse(extra),
             custom,
+            soft_slots,
         }
     }
 }
@@ -561,6 +570,18 @@ async fn select_candidates_inner(
     // ── 阶段 3: 按路由模式排序 ──
     let (sticky_id, demoted_ids) =
         sort_by_routing_mode(&mut active, &mut probe, effective_mode, ctx, now_ms);
+
+    // ── 备用槽位沉底：命中备用槽位的平台沉到各自桶末尾（不排除），且不被映射提首 ──
+    let model_name = mapped_target_model.as_deref().unwrap_or(source_model);
+    let soft: HashSet<u64> = active
+        .iter()
+        .chain(probe.iter())
+        .filter(|gp| hits_soft_slot(gp, &extra_cache, kind, now_ms, source_model, model_name))
+        .map(|gp| gp.platform.id)
+        .collect();
+    active.sort_by_key(|gp| soft.contains(&gp.platform.id));
+    probe.sort_by_key(|gp| soft.contains(&gp.platform.id));
+    let mapped_platform_id = mapped_platform_id.filter(|id| !soft.contains(id));
 
     // ── 阶段 4: 合并 + 映射提升 ──
     // 显式映射目标平台不在候选集时记录 warn（沿用原逻辑）
@@ -945,6 +966,7 @@ async fn handle_single_platform(
             target_model,
             fallback_models,
             mapping: mapping.cloned(),
+            soft_disabled: false,
         }],
         routing,
     })
@@ -1273,6 +1295,7 @@ fn select_direct_candidates(
             target_model: direct_model.to_string(),
             fallback_models: Vec::new(),
             mapping: mapping.cloned(),
+            soft_disabled: false,
         })
         .collect();
 
@@ -1588,9 +1611,58 @@ fn build_route_results(
                 target_model,
                 fallback_models: chain,
                 mapping: mapping.cloned(),
+                soft_disabled: hits_soft_slot(
+                    gp,
+                    extra_cache,
+                    kind,
+                    now_ms,
+                    source_model,
+                    mapped_target_model.as_deref().unwrap_or(source_model),
+                ),
             }
         })
         .collect()
+}
+
+/// 本次请求在该平台命中的槽位是否被标为备用（`extra.soft_disabled_slots`）。
+/// 透传 / 无槽命中 / Tools 恒 false。
+fn hits_soft_slot(
+    gp: &GroupPlatformDetail,
+    extra_cache: &ExtraCacheMap,
+    kind: RequestKind<'_>,
+    now_ms: i64,
+    source_model: &str,
+    model_name: &str,
+) -> bool {
+    let Some(cache) = extra_cache.get(&gp.platform.id).filter(|c| !c.soft_slots.is_empty()) else {
+        return false;
+    };
+    let platform = &gp.platform;
+    if matches!(platform.platform_type, Protocol::Passthrough) {
+        return false;
+    }
+    let slot: Option<String> = match kind {
+        RequestKind::Chat => {
+            let eff = resolve_effective_models(platform, &cache.time_windows, now_ms, source_model);
+            match resolve_model_chain_with_custom(&eff, &cache.custom, model_name).1 {
+                ModelVia::SlotOpus => Some("opus".into()),
+                ModelVia::SlotSonnet => Some("sonnet".into()),
+                ModelVia::SlotHaiku => Some("haiku".into()),
+                ModelVia::SlotGpt => Some("gpt".into()),
+                ModelVia::SlotDefault => Some("default".into()),
+                ModelVia::SlotCustom(n) => Some(n),
+                _ => None,
+            }
+        }
+        RequestKind::Decision => {
+            let eff = resolve_effective_models(platform, &cache.time_windows, now_ms, source_model);
+            eff.jev_slot().map(|_| "jev".into())
+        }
+        RequestKind::Embedding => slot_filled(&platform.models.embedding).map(|_| "embedding".into()),
+        RequestKind::Rerank => slot_filled(&platform.models.rerank).map(|_| "rerank".into()),
+        RequestKind::Tools(_) => None,
+    };
+    slot.is_some_and(|s| cache.soft_slots.contains(&s))
 }
 
 /// 快照用完整链：无备选（链长 1）→ 空，使链长 1 的快照与改造前逐字一致。

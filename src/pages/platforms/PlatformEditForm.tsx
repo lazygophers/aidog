@@ -42,6 +42,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     passAuth, setPassAuth,
   appbuilderKey = "", setAppbuilderKey,
     customSlotDefs, customSlotValues = {}, setCustomSlotValues,
+    softDisabledSlots = [], setSoftDisabledSlots,
     mockConfig, setMockConfig,
     apiKey, setApiKey, showKey, setShowKey,
     batchPreviewKeys, handleApiKeyChange, previewNames,
@@ -255,6 +256,8 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           tzMode={timemodels.windowsTz} setTzMode={timemodels.setWindowsTz}
           customSlotDefs={customSlotDefs ?? []} customSlotValues={customSlotValues}
           onCustomSlotChange={(name, chain) => setCustomSlotValues?.((prev) => ({ ...prev, [name]: chain }))}
+          softDisabledSlots={softDisabledSlots}
+          onSoftDisabledChange={(slot, on) => setSoftDisabledSlots?.((prev) => (on ? [...new Set([...prev, slot])] : prev.filter((x) => x !== slot)))}
           t={t}
         />
         </>

@@ -43,6 +43,18 @@ pub struct RouteResult {
     pub fallback_models: Vec<String>,
     /// 匹配到的模型映射（如果有），用于读取超时等维度配置
     pub mapping: Option<ModelMapping>,
+    /// 本次请求命中的槽位被用户标为「备用」：候选沉底，且不占 `max_retries`。
+    pub soft_disabled: bool,
+}
+
+/// 重试预算：备用槽位候选不占 `max_retries`（`idx` 从 0 起）。
+pub fn retry_allowed(idx: usize, max_retries: usize, soft_disabled: bool) -> bool {
+    soft_disabled || idx <= max_retries
+}
+
+/// `idx` 之后是否再无会被尝试的候选（`soft[j]` = 第 j 个候选是否备用）。
+pub fn is_last_attempt(idx: usize, max_retries: usize, soft: &[bool]) -> bool {
+    soft.iter().enumerate().skip(idx + 1).all(|(j, &s)| !s && j > max_retries)
 }
 
 /// 判定平台当前是否可作为候选纳入：
