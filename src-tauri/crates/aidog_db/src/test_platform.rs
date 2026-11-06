@@ -796,3 +796,36 @@ async fn client_ua_rules_validation_rejects_bad_rules_on_create_and_update() {
     let after = get_platform(&db, p.id).await.unwrap().unwrap();
     assert_eq!(after.extra, ok, "更新被拒后库内 extra 原样");
 }
+
+/// 清空内置槽位只留自定义槽位：update 传 Some(空 models) 必须替换成空；None 保留旧值（前端清空保存回归）。
+#[tokio::test]
+async fn update_empty_models_clears_slots_none_keeps() {
+    let (db, _dir) = three_file_db().await;
+    let mut input = sample_platform("clear-slots");
+    input.models = Some(PlatformModels {
+        default: vec!["a".into()],
+        sonnet: vec!["b".into()],
+        ..Default::default()
+    });
+    let created = create_platform(&db, input).await.unwrap();
+
+    let keep = update_platform(&db, UpdatePlatform { id: created.id, ..empty_update() }).await.unwrap();
+    assert_eq!(keep.models.default, vec!["a".to_string()]);
+
+    let extra = r#"{"custom_slots":{"fast":["f1"]}}"#.to_string();
+    update_platform(
+        &db,
+        UpdatePlatform {
+            id: created.id,
+            models: Some(serde_json::from_str("{}").unwrap()),
+            extra: Some(extra),
+            ..empty_update()
+        },
+    )
+    .await
+    .unwrap();
+    let got = get_platform(&db, created.id).await.unwrap().unwrap();
+    assert!(got.models.default.is_empty() && got.models.sonnet.is_empty());
+    let v: serde_json::Value = serde_json::from_str(&got.extra).unwrap();
+    assert_eq!(v["custom_slots"]["fast"][0], "f1");
+}

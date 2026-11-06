@@ -133,12 +133,15 @@ describe("usePlatformForm jev slot", () => {
     });
   });
 
-  it("buildModelsPayload is undefined when every slot (incl. jev) is blank", () => {
+  // 全空必须返回显式空对象（而非 undefined）：undefined 会被 JSON 丢键，后端 update 视为「保留旧值」，清空保存不生效。
+  it("buildModelsPayload is an object with no filled slot when every slot (incl. jev) is blank", () => {
     const { result } = renderHook(() => useForm());
     act(() => {
       result.current.setModels({ default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [] });
     });
-    expect(result.current.buildModelsPayload()).toBeUndefined();
+    const payload = result.current.buildModelsPayload();
+    expect(payload).toBeDefined();
+    expect(Object.values(payload!).filter(v => v && v.length > 0)).toEqual([]);
   });
 
   it("handleFillAll fills chat slots but not jev", () => {
@@ -163,16 +166,18 @@ describe("usePlatformForm embedding / rerank slots", () => {
     expect(result.current.buildModelsPayload()).toMatchObject({ embedding: ["text-embedding-v4"], rerank: ["rr"] });
   });
 
-  it("only embedding filled → payload defined; blank embedding/rerank → undefined", () => {
+  it("only embedding filled → embedding kept; all blank → still defined, no filled slot", () => {
     const { result } = renderHook(() => useForm());
     act(() => {
       result.current.setModels({ default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: ["e"], rerank: [] });
     });
-    expect(result.current.buildModelsPayload()).toBeDefined();
+    expect(result.current.buildModelsPayload()?.embedding).toEqual(["e"]);
     act(() => {
       result.current.setModels({ default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [] });
     });
-    expect(result.current.buildModelsPayload()).toBeUndefined();
+    const blank = result.current.buildModelsPayload();
+    expect(blank).toBeDefined();
+    expect(Object.values(blank!).filter(v => v && v.length > 0)).toEqual([]);
   });
 
   it("handleFillAll does not fill embedding / rerank", () => {

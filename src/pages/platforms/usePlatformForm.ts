@@ -603,13 +603,12 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
 
   const buildModelsPayload = () => {
     const result: Record<string, string[] | undefined> = {};
-    let hasAny = false;
     for (const slot of MODEL_SLOTS) {
       const v = slotList(models[slot.key]);
-      if (v.length > 0) { result[slot.key] = v; hasAny = true; }
-      else { result[slot.key] = undefined; }
+      result[slot.key] = v.length > 0 ? v : undefined;
     }
-    return hasAny ? result : undefined;
+    // 全空也返回对象（JSON 序列化为 {}）：后端 update 对 models 缺省=保留旧值，undefined 会让清空保存静默失效。
+    return result;
   };
 
   /** 构建 applyPaste/runBatchCreateFromPaste 的 ctx（每次调用刷新引用最新闭包值）。
