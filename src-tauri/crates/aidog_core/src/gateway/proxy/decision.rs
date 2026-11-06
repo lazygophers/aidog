@@ -500,10 +500,7 @@ async fn decision_attempt(
     state
         .scheduler
         .record_success(route.platform.id, attempt_latency_ms);
-    if !route.platform.last_error.is_empty() {
-        let _ =
-            aidog_db::set_platform_last_error(&state.db, route.platform.id, None).await;
-    }
+    let _ = aidog_db::set_platform_last_error(&state.db, route.platform.id, None).await;
     attempts.push(ProxyAttempt {
         chain_stop: None,
         platform_id: route.platform.id,

@@ -1591,6 +1591,8 @@
   "platform.sourcePricing": "Цены",
   "platform.lastError": "Последняя ошибка",
   "platform.lastErrorHint": "Последний сбой · {{time}}\n{{error}}",
+  "platform.lastOutcomeFail": "Ошибка",
+  "platform.lastOutcomeOk": "В норме",
   "platform.lastTestFailHint": "Последний тест провален · {{time}}{{error}}",
   "platform.lastTestOkHint": "Последний тест пройден · {{time}}",
   "platform.manualBudgetAdd": "Добавить лимит",

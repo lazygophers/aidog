@@ -453,10 +453,9 @@ async fn forward_attempt_model(
             // 熔断指标：成功 → 更新延迟 EMA + breaker Closed/HalfOpen→Closed + inflight-1。
             // 注意流式此处为「首个有效内容」延迟（peek 已收到内容）；作为延迟近似记入 EMA。
             state.scheduler.record_success(route.platform.id, attempt_latency_ms);
-            // 最近一次成功 → 清本平台 last_error。仅在原有 last_error 非空时写，避免成功热路径空写。
-            if !route.platform.last_error.is_empty() {
-                let _ = aidog_db::set_platform_last_error(&state.db, route.platform.id, None).await;
-            }
+            // 最近一次成功 → 清本平台 last_error。不读路由缓存快照判空（失败写库不失效缓存，快照会陈旧）；
+            // 无错时 SQL 的 `last_error != ''` 条件使 UPDATE 零行。
+            let _ = aidog_db::set_platform_last_error(&state.db, route.platform.id, None).await;
             attempts.push(ProxyAttempt {
                 chain_stop: None,
                 ttfb_ms: Some(ttfb_ms),

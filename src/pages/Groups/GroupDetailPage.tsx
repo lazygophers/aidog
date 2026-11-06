@@ -145,6 +145,7 @@ function MembersCard(props: {
             <div data-plat-id={p.id} data-gp-id={p.id}>
               <PlatformRow
                 platform={p}
+                showLastOutcome
                 usage={cards.usageMap[p.id]}
                 quotaRaw={cards.quotaMap[p.id]}
                 quotaPreferReal={!!cards.quotaRealIds[p.id]}

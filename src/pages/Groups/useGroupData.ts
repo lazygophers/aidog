@@ -137,9 +137,10 @@ export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
           let changed = false;
           const platforms = d.platforms.map(gp => {
             const f = freshById.get(gp.platform.id);
-            if (!f || (f.status === gp.platform.status && f.enabled === gp.platform.enabled && f.est_balance_remaining === gp.platform.est_balance_remaining)) return gp;
+            if (!f || (f.status === gp.platform.status && f.enabled === gp.platform.enabled && f.est_balance_remaining === gp.platform.est_balance_remaining
+              && f.last_error === gp.platform.last_error && f.last_error_at === gp.platform.last_error_at)) return gp;
             changed = true;
-            return { ...gp, platform: { ...gp.platform, status: f.status, enabled: f.enabled, est_balance_remaining: f.est_balance_remaining } };
+            return { ...gp, platform: { ...gp.platform, status: f.status, enabled: f.enabled, est_balance_remaining: f.est_balance_remaining, last_error: f.last_error, last_error_at: f.last_error_at } };
           });
           if (!changed) return d;
           anyChanged = true;

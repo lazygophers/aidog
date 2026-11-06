@@ -6617,3 +6617,21 @@ async fn mgmt_call_log_skips_non_loopback_and_truncates_command() {
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].command.chars().count(), 64);
 }
+
+/// 成员平台「最近一次结果」：失败写入的 last_error 必须被下一次成功清掉，
+/// 即便路由缓存里的 platform 快照在失败写入前就已填充（旧 guard 读缓存快照 last_error 为空而跳过清除）。
+#[tokio::test]
+async fn success_clears_last_error_written_after_route_cache_filled() {
+    let (up, _hits) = spawn_embedding_upstream(vec![(200, MB_OK), (200, MB_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(&state, "gklast", &[(&up, chain_models(&["m-a"]), Protocol::Anthropic, "p")]).await;
+    // 第一次成功请求：路由缓存填入 last_error 为空的 platform 快照。
+    assert_eq!(chain_send(&state, "gklast", CHAIN_REQ).await.status(), StatusCode::OK);
+    let pid = aidog_db::list_platforms(&state.db).await.unwrap().remove(0).id;
+    // 之后一次失败（别的路径）写入 last_error；缓存不失效。
+    aidog_db::set_platform_last_error(&state.db, pid, Some("HTTP 500 boom".into())).await.unwrap();
+    assert_eq!(chain_send(&state, "gklast", CHAIN_REQ).await.status(), StatusCode::OK);
+    let p = aidog_db::get_platform(&state.db, pid).await.unwrap().unwrap();
+    assert_eq!(p.last_error, "", "成功后 last_error 必须清空");
+    assert_eq!(p.last_error_at, 0);
+}
