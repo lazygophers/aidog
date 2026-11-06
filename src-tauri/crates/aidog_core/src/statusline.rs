@@ -655,7 +655,7 @@ mod tests {
     #[test]
     fn group_coding_falls_back_to_stdin_when_group_unidentified() {
         let out = run_group_coding(&[], STDIN_RL);
-        assert_eq!(out.trim(), "5h 70%·7d 40%");
+        assert_eq!(out.trim(), "CC官方 5h 70%·7d 40%");
     }
 
     #[test]
@@ -665,7 +665,7 @@ mod tests {
         let bad = fake_group_info("200 OK", "not json");
         for base in [r500.as_str(), bad.as_str(), "http://127.0.0.1:1"] {
             let out = run_group_coding(&[("ANTHROPIC_BASE_URL", base)], STDIN_RL);
-            assert_eq!(out.trim(), "5h 70%·7d 40%", "base={base}");
+            assert_eq!(out.trim(), "CC官方 5h 70%·7d 40%", "base={base}");
         }
     }
 
