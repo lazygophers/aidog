@@ -93,7 +93,7 @@ export function ModelsMatrixSection({
   tzMode, setTzMode,
   // 自定义槽位（全局定义 + 本平台值）：仅默认列视图渲染；缺省无自定义行
   customSlotDefs = [], customSlotValues = {}, onCustomSlotChange,
-  softDisabledSlots = [], onSoftDisabledChange,
+  disabledSlots = [], onSlotEnabledChange,
   t,
 }: {
   columns?: "default" | "time";
@@ -120,9 +120,9 @@ export function ModelsMatrixSection({
   customSlotDefs?: CustomSlotDef[];
   customSlotValues?: Record<string, string[]>;
   onCustomSlotChange?: (name: string, chain: string[]) => void;
-  /** 备用槽位名（内置 + 自定义）；命中该槽位的平台沉到候选末尾。 */
-  softDisabledSlots?: string[];
-  onSoftDisabledChange?: (slot: string, on: boolean) => void;
+  /** 关闭的槽位名（内置 + 自定义）；命中该槽位的请求不会路由到本平台。 */
+  disabledSlots?: string[];
+  onSlotEnabledChange?: (slot: string, enabled: boolean) => void;
   t: TFunction;
 }) {
   // 矩阵内部 UI 临时态
@@ -225,18 +225,18 @@ export function ModelsMatrixSection({
     </div>
   );
 
-  // 备用开关：命中该槽位时平台沉到候选末尾（仅其它候选都不可用时才用）。
-  const softToggle = (slot: string) => (
+  // 启用开关：关闭后平台不接收命中该槽位的请求（直接换下个平台，不计平台错误）。
+  const enabledToggle = (slot: string) => (
     <label
-      title={t("platform.softSlotHint")}
+      title={t("platform.slotEnabledHint")}
       style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, fontSize: 12, color: "var(--text-tertiary)", cursor: "pointer" }}
     >
       <Switch
-        data-testid={`soft-toggle-${slot}`}
-        checked={softDisabledSlots.includes(slot)}
-        onCheckedChange={(on) => onSoftDisabledChange?.(slot, on)}
+        data-testid={`slot-enabled-${slot}`}
+        checked={!disabledSlots.includes(slot)}
+        onCheckedChange={(on) => onSlotEnabledChange?.(slot, on)}
       />
-      {t("platform.softSlot")}
+      {t("platform.slotEnabled")}
     </label>
   );
 
@@ -455,7 +455,7 @@ export function ModelsMatrixSection({
                   </div>
                 )}
               </div>
-              {softToggle(key)}
+              {enabledToggle(key)}
             </div>
           ))}
 
@@ -472,7 +472,7 @@ export function ModelsMatrixSection({
               <div style={{ flex: 1, minWidth: 80 }}>
                 {renderCell(`c:${name}`, customSlotValues[name] ?? [], (v) => onCustomSlotChange?.(name, v))}
               </div>
-              {softToggle(name)}
+              {enabledToggle(name)}
             </div>
           ))}
 

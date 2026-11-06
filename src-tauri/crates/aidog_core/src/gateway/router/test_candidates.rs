@@ -4004,7 +4004,7 @@ async fn custom_slot_setting_flows_into_candidate_selection() {
     assert_eq!(set.candidates[0].target_model, "d");
 }
 
-// ── 备用槽位（extra.soft_disabled_slots）：命中槽位被标备用 → 平台沉底、不占 max_retries ──
+// ── 槽位关闭（extra.disabled_slots）：命中槽位被关 → 平台排除（ModelNotOnPlatform），不计平台错误 ──
 
 async fn set_models_extra(db: &db::Db, id: u64, models: PlatformModels, extra: &str) {
     let mut u = upd_platform(id);
@@ -4013,39 +4013,52 @@ async fn set_models_extra(db: &db::Db, id: u64, models: PlatformModels, extra: &
     db::update_platform(db, u).await.expect("set models/extra");
 }
 
-fn soft_ids(set: &CandidateSet) -> Vec<(u64, bool)> {
-    set.candidates.iter().map(|c| (c.platform.id, c.soft_disabled)).collect()
+fn cand_ids(set: &CandidateSet) -> Vec<u64> {
+    set.candidates.iter().map(|c| c.platform.id).collect()
+}
+
+fn reason_of(set: &CandidateSet, id: u64) -> RouteReason {
+    set.routing.entries.iter().find(|e| e.platform_id == id).expect("entry").reason
 }
 
 #[test]
-fn soft_slots_parsed_into_extra_cache() {
+fn disabled_slots_parsed_and_legacy_soft_key_read() {
+    let c = ExtraCache::new(r#"{"disabled_slots":["default","fast"]}"#, &Protocol::Anthropic, None);
+    assert_eq!(c.disabled_slots, vec!["default".to_string(), "fast".to_string()]);
+    // 旧键 soft_disabled_slots 视为关闭；两键并存去重
     let c = ExtraCache::new(
-        r#"{"soft_disabled_slots":["default","fast"]}"#,
+        r#"{"soft_disabled_slots":["default","opus"],"disabled_slots":["opus"]}"#,
         &Protocol::Anthropic,
         None,
     );
-    assert_eq!(c.soft_slots, vec!["default".to_string(), "fast".to_string()]);
-    assert!(ExtraCache::new("", &Protocol::Anthropic, None).soft_slots.is_empty());
+    assert_eq!(c.disabled_slots, vec!["opus".to_string(), "default".to_string()]);
+    assert!(ExtraCache::new("", &Protocol::Anthropic, None).disabled_slots.is_empty());
 }
 
-/// 命中备用槽位的平台沉到末尾（Failover 原本它排首位），不被排除。
+/// 命中关闭槽位的平台被排除（原因 ModelNotOnPlatform），不写 last_error / 状态；旧键同效。
 #[tokio::test]
-async fn soft_disabled_slot_sinks_platform_to_last() {
-    let (db, _dir) = db::test_support::three_file_db().await;
-    let p1 = mk_db_platform(&db, "soft").await;
-    let p2 = mk_db_platform(&db, "n2").await;
-    let p3 = mk_db_platform(&db, "n3").await;
-    set_models_extra(&db, p1.id, slot_default("d1"), r#"{"soft_disabled_slots":["default"]}"#).await;
-    let g = mk_db_group(&db, "g", &[p1.id, p2.id, p3.id]).await;
-    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
-        .await
-        .expect("route");
-    assert_eq!(soft_ids(&set), vec![(p2.id, false), (p3.id, false), (p1.id, true)]);
+async fn disabled_slot_excludes_platform_without_blame() {
+    for key in ["disabled_slots", "soft_disabled_slots"] {
+        let (db, _dir) = db::test_support::three_file_db().await;
+        let p1 = mk_db_platform(&db, "off").await;
+        let p2 = mk_db_platform(&db, "n2").await;
+        set_models_extra(&db, p1.id, slot_default("d1"), &format!(r#"{{"{key}":["default"]}}"#)).await;
+        let g = mk_db_group(&db, "g", &[p1.id, p2.id]).await;
+        let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+            .await
+            .expect("route");
+        assert_eq!(cand_ids(&set), vec![p2.id], "key={key}");
+        assert_eq!(reason_of(&set, p1.id), RouteReason::ModelNotOnPlatform);
+        let row = db::get_platform(&db, p1.id).await.expect("get").expect("exists");
+        assert_eq!(row.status, PlatformStatus::Enabled);
+        assert!(row.last_error.is_empty(), "no last_error: {}", row.last_error);
+        assert_eq!(row.auto_disabled_until, 0);
+    }
 }
 
-/// 标记跟随实际命中的槽位：opus 槽位非备用 → 不沉；落到 default（备用）才沉。
+/// 判定跟随实际命中槽位：opus 槽位开着 → 不排除；落到 default（已关）才排除（空槽回落 default）。
 #[tokio::test]
-async fn soft_flag_follows_hit_slot() {
+async fn disabled_slot_follows_hit_slot_with_default_fallback() {
     let (db, _dir) = db::test_support::three_file_db().await;
     let p1 = mk_db_platform(&db, "a").await;
     let p2 = mk_db_platform(&db, "b").await;
@@ -4054,28 +4067,30 @@ async fn soft_flag_follows_hit_slot() {
         opus: chain(&["o"]),
         ..Default::default()
     };
-    set_models_extra(&db, p1.id, pm, r#"{"soft_disabled_slots":["default"]}"#).await;
+    set_models_extra(&db, p1.id, pm, r#"{"disabled_slots":["default"]}"#).await;
     let g = mk_db_group(&db, "g", &[p1.id, p2.id]).await;
     let opus = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
         .await
         .expect("route");
-    assert_eq!(soft_ids(&opus), vec![(p1.id, false), (p2.id, false)]);
-    let other = select_candidates_ctx(&db, &g, "some-other", None, RequestKind::Chat)
+    assert_eq!(cand_ids(&opus), vec![p1.id, p2.id]);
+    // sonnet 槽位空 → 回落 default（已关）→ 排除
+    let sonnet = select_candidates_ctx(&db, &g, "claude-sonnet-4-5", None, RequestKind::Chat)
         .await
         .expect("route");
-    assert_eq!(soft_ids(&other), vec![(p2.id, false), (p1.id, true)]);
+    assert_eq!(cand_ids(&sonnet), vec![p2.id]);
+    assert_eq!(reason_of(&sonnet, p1.id), RouteReason::ModelNotOnPlatform);
 }
 
-/// 自定义槽位同样可标备用；透传（无槽命中）永不备用。
+/// 自定义槽位可关闭；透传（无槽命中，空槽按请求名透传）永不排除。
 #[tokio::test]
-async fn soft_custom_slot_sinks_and_passthrough_never() {
+async fn disabled_custom_slot_excludes_and_passthrough_never() {
     let (db, _dir) = db::test_support::three_file_db().await;
     let p1 = mk_db_platform(&db, "a").await;
     let p2 = mk_db_platform(&db, "b").await;
     set_extra(
         &db,
         p1.id,
-        r#"{"custom_slots":{"fast":["f1"]},"soft_disabled_slots":["fast","default"]}"#,
+        r#"{"custom_slots":{"fast":["f1"]},"disabled_slots":["fast","default"]}"#,
     )
     .await;
     db::set_setting(
@@ -4092,57 +4107,55 @@ async fn soft_custom_slot_sinks_and_passthrough_never() {
     let hit = select_candidates_ctx(&db, &g, "claude-fast-1", None, RequestKind::Chat)
         .await
         .expect("route");
-    assert_eq!(soft_ids(&hit), vec![(p2.id, false), (p1.id, true)]);
-    // p1 无 default 槽位、请求名不含 fast → 透传，不备用
+    assert_eq!(cand_ids(&hit), vec![p2.id]);
+    // p1 无 default 槽位、请求名不含 fast → 请求名透传，不排除
     let pass = select_candidates_ctx(&db, &g, "zzz", None, RequestKind::Chat)
         .await
         .expect("route");
-    assert_eq!(soft_ids(&pass), vec![(p1.id, false), (p2.id, false)]);
+    assert_eq!(cand_ids(&pass), vec![p1.id, p2.id]);
 }
 
-/// 备用胜过显式映射提首：映射目标是备用平台时不提首。
+/// 单平台分组同样拒绝（不 bypass）：Err("slot_disabled")；槽位未命中则照常放行。
 #[tokio::test]
-async fn soft_disabled_beats_mapping_promotion() {
+async fn single_platform_disabled_slot_rejects() {
     let (db, _dir) = db::test_support::three_file_db().await;
-    let p1 = mk_db_platform(&db, "first").await;
-    let p2 = mk_db_platform(&db, "mapped-soft").await;
-    set_models_extra(&db, p2.id, slot_default("d"), r#"{"soft_disabled_slots":["default"]}"#).await;
-    let g = db::create_group(
-        &db,
-        CreateGroup {
-            name: "g".into(),
-            group_key: Some("g".into()),
-            routing_mode: RoutingMode::Failover,
-            auto_from_platform: String::new(),
-            request_timeout_secs: 0,
-            connect_timeout_secs: 0,
-            source_protocol: Some("anthropic".into()),
-            max_retries: 2,
-            model_mappings: vec![ModelMapping {
-                source_model: "gpt-4o".to_string(),
-                target_model: "gpt-4o-m".to_string(),
-                target_platform_id: p2.id,
-                request_timeout_secs: 0,
-                connect_timeout_secs: 0,
-            }],
-            env_vars: vec![],
-        },
-    )
-    .await
-    .expect("group");
-    let inputs: Vec<GroupPlatformInput> = [p1.id, p2.id]
-        .iter()
-        .enumerate()
-        .map(|(i, &pid)| GroupPlatformInput {
-            platform_id: pid,
-            priority: Some(i as i32),
-            weight: Some(1),
-            level_priority: None,
-        })
-        .collect();
-    db::set_group_platforms(&db, g.id, &inputs).await.expect("set");
-    let set = select_candidates_ctx(&db, &g, "gpt-4o", None, RequestKind::Chat)
+    let p = mk_db_platform(&db, "only").await;
+    let pm = PlatformModels { default: chain(&["d"]), opus: chain(&["o"]), ..Default::default() };
+    set_models_extra(&db, p.id, pm, r#"{"disabled_slots":["default"]}"#).await;
+    let g = mk_db_group(&db, "single", &[p.id]).await;
+    let e = select_candidates_ctx(&db, &g, "some-other", None, RequestKind::Chat)
         .await
-        .expect("route");
-    assert_eq!(soft_ids(&set), vec![(p1.id, false), (p2.id, true)]);
+        .expect_err("must reject");
+    assert_eq!(e, "slot_disabled");
+    let ok = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("opus slot is on");
+    assert_eq!(ok.candidates[0].target_model, "o");
+}
+
+/// 整组被关闭槽位排除 → Err("slot_disabled")；与高峰禁用并存也走 slot_disabled。
+#[tokio::test]
+async fn all_disabled_slot_group_errs_and_beats_peak() {
+    let (db, _dir) = db::test_support::three_file_db().await;
+    let p1 = mk_db_platform(&db, "a").await;
+    let p2 = mk_db_platform(&db, "b").await;
+    set_models_extra(&db, p1.id, slot_default("d1"), r#"{"disabled_slots":["default"]}"#).await;
+    set_models_extra(&db, p2.id, slot_default("d2"), r#"{"disabled_slots":["default"]}"#).await;
+    let g = mk_db_group(&db, "g", &[p1.id, p2.id]).await;
+    let e = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect_err("must err");
+    assert_eq!(e, "slot_disabled");
+    // p2 改为高峰禁用（全天窗口）+ p1 仍槽位关闭：混合 → slot_disabled
+    set_models_extra(
+        &db,
+        p2.id,
+        slot_default("d2"),
+        r#"{"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#,
+    )
+    .await;
+    let e = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect_err("must err");
+    assert_eq!(e, "slot_disabled");
 }

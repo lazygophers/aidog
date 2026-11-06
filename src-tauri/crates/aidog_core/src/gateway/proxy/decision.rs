@@ -45,6 +45,7 @@ pub(crate) fn quota_exhausted_message(lang: Lang, q: QuotaExhausted) -> String {
 
 /// 按请求类型 route fail 落库（R7，聊天 / 决策两路径共用）：`blocked_by='router'`、`est_cost=0`。
 /// - `peak_disabled`（整组被高峰禁用排除）→ 503 + `blocked_reason='peak'`；
+/// - `slot_disabled`（整组因命中槽位被关闭排除）→ 503 + `blocked_reason='slot_disabled'`；
 /// - `client_not_allowed`（全部候选被客户端白名单拦）→ 417 + `blocked_reason='client_not_allowed'`；
 ///   `client_not_allowed_mixed`（白名单与其他排除原因并存）→ 503 + `blocked_reason='client_not_allowed_mixed'`；
 /// - `unknown_protocol`（整组候选皆未知协议，票 06）→ 503 + `blocked_reason='unknown_protocol'`；
@@ -101,6 +102,14 @@ pub(crate) async fn route_fail_response(
     } else if err == "rate_limit" {
         // 整组平台限频超限（extra.rate_limits）：503 + blocked_reason='rate_limit'。
         log.blocked_reason = "rate_limit".to_string();
+        log.response_body = format!("route error: {err}");
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            format!("{}: {err}", i18n::t(lang, ErrorKey::Route)),
+        )
+    } else if err == "slot_disabled" {
+        // 命中槽位被关闭（extra.disabled_slots）导致整组无候选：503 + blocked_reason='slot_disabled'。
+        log.blocked_reason = "slot_disabled".to_string();
         log.response_body = format!("route error: {err}");
         (
             StatusCode::SERVICE_UNAVAILABLE,
@@ -258,7 +267,6 @@ pub(crate) async fn handle_decision(
     let max_retries = group.max_retries as usize;
     let mut attempts: Vec<ProxyAttempt> = Vec::new();
     let candidate_total = candidates.len();
-    let soft_flags: Vec<bool> = candidates.iter().map(|c| c.soft_disabled).collect();
 
     let (system_timeout, proxy_client) = {
         let c = state.settings_cache.read().await;
@@ -276,12 +284,12 @@ pub(crate) async fn handle_decision(
     };
 
     for (attempt_idx, route) in candidates.into_iter().enumerate() {
-        if !retry_allowed(attempt_idx, max_retries, route.soft_disabled) {
-            continue;
+        if attempt_idx > max_retries {
+            break;
         }
         let mut attempt_start = std::time::Instant::now();
         let mut attempt_ts = aidog_db::now();
-        let is_last_candidate = is_last_attempt(attempt_idx, max_retries, &soft_flags);
+        let is_last_candidate = attempt_idx + 1 >= candidate_total || attempt_idx >= max_retries;
 
         let mut chain = ModelChain::new(route);
         let outcome = loop {

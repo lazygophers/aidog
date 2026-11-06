@@ -523,27 +523,3 @@ mod custom_slots {
         assert!(serde_json::from_str::<ModelVia>("\"nope\"").is_err());
     }
 }
-
-mod soft_retry {
-    use super::super::{is_last_attempt, retry_allowed};
-
-    #[test]
-    fn soft_candidates_ignore_max_retries() {
-        assert!(retry_allowed(2, 2, false));
-        assert!(!retry_allowed(3, 2, false));
-        assert!(retry_allowed(9, 2, true));
-    }
-
-    #[test]
-    fn last_attempt_accounts_for_trailing_soft() {
-        // max_retries=0：普通候选 0 号之后还有备用 → 0 号不是最后一次
-        assert!(!is_last_attempt(0, 0, &[false, true]));
-        assert!(is_last_attempt(1, 0, &[false, true]));
-        // 无备用时与旧口径一致
-        assert!(is_last_attempt(0, 0, &[false, false]));
-        assert!(!is_last_attempt(0, 1, &[false, false]));
-        assert!(is_last_attempt(1, 1, &[false, false]));
-        // 普通候选超预算且其后无备用 → 视为最后一次
-        assert!(is_last_attempt(2, 2, &[false, false, false, false]));
-    }
-}

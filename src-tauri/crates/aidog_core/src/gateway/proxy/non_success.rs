@@ -106,6 +106,18 @@ pub(crate) async fn handle_non_success(
         return AttemptOutcome::Next { connect_failed: false };
     }
 
+    // 模型类错误且链已尽：错在模型而非平台。非末位候选 → 换下个平台（含 400/422），只留痕不记账
+    // （不写 last_error / 降权 / 熔断 / 冷却，仅 inflight-1）；末位候选落回下面现有逻辑把上游错误回客户端。
+    // error_rule 标 non-retryable 是用户显式意图，不在此放行。
+    if class == UpstreamErrorClass::Model && !has_next_model && !rule_blocks && !is_last_candidate {
+        tracing::info!(
+            platform = %route.platform.name, status = code, model = %route.target_model,
+            "model-class upstream error with chain exhausted, failing over to next platform without platform blame"
+        );
+        state.scheduler.record_ignored(route.platform.id);
+        return AttemptOutcome::Next { connect_failed: false };
+    }
+
     // 错误体提取人类可读 message（嵌套 error.message / 顶层 message），命中则 last_error
     // 与 429 分类都基于它；未命中回退 truncate_attempt_error 摘要 / body 原文。
     let extracted_msg = extract_error_message(&body);
