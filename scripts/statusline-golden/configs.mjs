@@ -112,6 +112,11 @@ export const CONFIGS = {
     ],
   },
 
+  // spend-limit showReset 长周期（≥48h）按天显示（2026-11-05）。
+  "spend-reset-d": {
+    segments: [seg("d-spend", "spend-limit", { showReset: true, affixPre: "·" })],
+  },
+
   // Official fields added later: spend limit / prompt cache / fast mode / worktree path+cwd / pr kind.
   "official-b": {
     segments: [
