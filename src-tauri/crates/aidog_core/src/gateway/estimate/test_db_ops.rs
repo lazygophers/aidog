@@ -369,9 +369,9 @@ async fn estimate_after_request_balance_path_no_calibration() {
         1000,
         500,
         0,
-        0,       // cache_write
+        0,     // cache_write
         false, // 非 coding plan
-        0,       // created_at
+        0,     // created_at
         0.0,
     )
     .await;
@@ -544,13 +544,19 @@ fn claim_calibration_attempt_backs_off_until_cleared() {
     let pid = 987_655u64; // 本测试专用 id，避免与其他测试共用全局表冲突
     let interval = super::super::model::CALIBRATE_INTERVAL_MS;
     assert!(claim_calibration_attempt(pid, now), "首次尝试放行");
-    assert!(!claim_calibration_attempt(pid, now + 1_000), "进行中/刚失败退避");
+    assert!(
+        !claim_calibration_attempt(pid, now + 1_000),
+        "进行中/刚失败退避"
+    );
     assert!(
         claim_calibration_attempt(pid, now + interval),
         "退避期满再放行"
     );
     clear_calibration_attempt(pid);
-    assert!(claim_calibration_attempt(pid, now + interval + 1), "成功清除后立即放行");
+    assert!(
+        claim_calibration_attempt(pid, now + interval + 1),
+        "成功清除后立即放行"
+    );
 }
 
 // ── 通知体系票 01：预测频控（每窗口每档 1 次）───────────────────────────────
@@ -587,8 +593,20 @@ fn quota_with_ccy(remaining: f64, ccy: &str) -> PlatformQuota {
 /// 1000 in + 500 out；deepseek-ccy 条目 input 0.001 / output 0.002 CNY/token（currency=CNY → 出口 USD）。
 async fn run_est(db: &Db, id: u64, tool_usd: f64, in_tok: i64, out_tok: i64) {
     estimate_after_request(
-        db, id, "deepseek", "https://example.com", "sk", "ccy-model", "", in_tok, out_tok, 0, 0,
-        false, 0, tool_usd,
+        db,
+        id,
+        "deepseek",
+        "https://example.com",
+        "sk",
+        "ccy-model",
+        "",
+        in_tok,
+        out_tok,
+        0,
+        0,
+        false,
+        0,
+        tool_usd,
     )
     .await;
 }
@@ -613,7 +631,11 @@ async fn balance_cny_platform_cny_model_matches_pre_fx_behaviour() {
     run_est(&db, id, 0.0, 1000, 500).await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
     // 换算前：CNY 价直接扣 CNY 余额 = 1000*0.001 + 500*0.002 = 2.0
-    assert!((p.est_balance_remaining - 98.0).abs() < 1e-6, "got {}", p.est_balance_remaining);
+    assert!(
+        (p.est_balance_remaining - 98.0).abs() < 1e-6,
+        "got {}",
+        p.est_balance_remaining
+    );
 }
 
 #[tokio::test]
@@ -625,7 +647,11 @@ async fn balance_usd_platform_cny_model_deducts_usd() {
     run_est(&db, id, 0.0, 1000, 500).await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
     let usd = 2.0 / aidog_db::CNY_PER_USD;
-    assert!((p.est_balance_remaining - (100.0 - usd)).abs() < 1e-6, "got {}", p.est_balance_remaining);
+    assert!(
+        (p.est_balance_remaining - (100.0 - usd)).abs() < 1e-6,
+        "got {}",
+        p.est_balance_remaining
+    );
 }
 
 #[tokio::test]
@@ -636,18 +662,32 @@ async fn balance_missing_currency_cny_model_falls_back_to_cny() {
     write_real_quota(&db, id, 100.0, "", now()).await.unwrap(); // 从未真查 → 无币种记录 → 回落模型条目币种 CNY，扣 2.0（等于换算前行为）
     run_est(&db, id, 0.0, 1000, 500).await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
-    assert!((p.est_balance_remaining - 98.0).abs() < 1e-6, "got {}", p.est_balance_remaining);
+    assert!(
+        (p.est_balance_remaining - 98.0).abs() < 1e-6,
+        "got {}",
+        p.est_balance_remaining
+    );
 }
 
 #[tokio::test]
 async fn balance_missing_currency_usd_model_deducts_usd() {
     let db = mem_db().await;
     let id = mk_platform(&db, false).await;
-    seed_entry(&db, "deepseek", "ccy-model", r#"{"price":{"input":0.001,"output":0.002}}"#).await;
+    seed_entry(
+        &db,
+        "deepseek",
+        "ccy-model",
+        r#"{"price":{"input":0.001,"output":0.002}}"#,
+    )
+    .await;
     write_real_quota(&db, id, 100.0, "", now()).await.unwrap();
     run_est(&db, id, 0.0, 1000, 500).await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
-    assert!((p.est_balance_remaining - 98.0).abs() < 1e-6, "got {}", p.est_balance_remaining);
+    assert!(
+        (p.est_balance_remaining - 98.0).abs() < 1e-6,
+        "got {}",
+        p.est_balance_remaining
+    );
 }
 
 #[tokio::test]
@@ -659,7 +699,11 @@ async fn tool_fee_deducted_with_zero_tokens_and_converted_for_cny_balance() {
     run_est(&db, id, 0.5, 0, 0).await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
     let want = 100.0 - 0.5 * aidog_db::CNY_PER_USD;
-    assert!((p.est_balance_remaining - want).abs() < 1e-6, "got {}", p.est_balance_remaining);
+    assert!(
+        (p.est_balance_remaining - want).abs() < 1e-6,
+        "got {}",
+        p.est_balance_remaining
+    );
     assert!(p.estimate_count >= 1);
 }
 
@@ -670,12 +714,28 @@ async fn tool_fee_not_multiplied_by_peak() {
     calibrate_from_quota(&db, id, &quota_with_ccy(100.0, "USD"), false).await;
     let extra = r#"{"peak":[{"start_hour":0,"end_hour":24,"multiplier":2.0}]}"#;
     estimate_after_request(
-        &db, id, "deepseek", "https://example.com", "sk", "ccy-model", extra, 0, 0, 0, 0, false,
-        0, 0.5,
+        &db,
+        id,
+        "deepseek",
+        "https://example.com",
+        "sk",
+        "ccy-model",
+        extra,
+        0,
+        0,
+        0,
+        0,
+        false,
+        0,
+        0.5,
     )
     .await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
-    assert!((p.est_balance_remaining - 99.5).abs() < 1e-9, "got {}", p.est_balance_remaining);
+    assert!(
+        (p.est_balance_remaining - 99.5).abs() < 1e-9,
+        "got {}",
+        p.est_balance_remaining
+    );
 }
 
 // ── apply_quota_verdict：真查判定写入调度器额度冷却 ──
@@ -693,29 +753,148 @@ mod verdict_apply {
         apply_quota_verdict(
             &s,
             1,
-            QuotaVerdict::Exhausted { until_ms: QUOTA_OPEN_ENDED_UNTIL_MS },
+            QuotaVerdict::Exhausted {
+                until_ms: QUOTA_OPEN_ENDED_UNTIL_MS,
+            },
         );
         assert!(s.quota_cooled(1, NOW));
-        assert!(s.quota_cooled(1, FAR), "open-ended must outlast any fixed window");
+        assert!(
+            s.quota_cooled(1, FAR),
+            "open-ended must outlast any fixed window"
+        );
         apply_quota_verdict(&s, 1, QuotaVerdict::Available);
         assert!(!s.quota_cooled(1, NOW));
     }
 
+    /// spec 第 17 条：真查判定与 429 冷却分开记，真查 Available 不清 429 冷却。
     #[test]
-    fn real_query_overrides_both_ways() {
+    fn verdict_available_keeps_429_cooldown() {
         let s = SchedulerState::new();
-        // 429 路径先写了个很远的冷却；真查给出更近的重置时刻 → 以真查为准（可缩短）
+        s.set_quota_cooldown(8, NOW + 60_000);
+        apply_quota_verdict(&s, 8, QuotaVerdict::Available);
+        assert!(s.quota_cooled(8, NOW), "429 冷却不被真查 Available 清掉");
+        assert_eq!(s.quota_cooldown_until_ms(8), NOW + 60_000);
+    }
+
+    /// 真查 Exhausted 给更近的截止，不缩短更长的 429 冷却；两者取最大。
+    #[test]
+    fn verdict_exhausted_does_not_shorten_429_cooldown() {
+        let s = SchedulerState::new();
         s.set_quota_cooldown(2, FAR);
-        apply_quota_verdict(&s, 2, QuotaVerdict::Exhausted { until_ms: NOW + 60_000 });
-        assert!(s.quota_cooled(2, NOW));
-        assert!(!s.quota_cooled(2, NOW + 60_000));
+        apply_quota_verdict(
+            &s,
+            2,
+            QuotaVerdict::Exhausted {
+                until_ms: NOW + 60_000,
+            },
+        );
+        assert!(s.quota_cooled(2, NOW + 60_000), "更长的 429 冷却仍在");
+        assert_eq!(s.quota_cooldown_until_ms(2), FAR);
+    }
+
+    /// 真查 Available 解除自己那份后，仅剩判定通道的冷却被清。
+    #[test]
+    fn verdict_available_clears_verdict_channel() {
+        let s = SchedulerState::new();
+        apply_quota_verdict(
+            &s,
+            9,
+            QuotaVerdict::Exhausted {
+                until_ms: NOW + 60_000,
+            },
+        );
+        assert!(s.quota_cooled(9, NOW));
+        apply_quota_verdict(&s, 9, QuotaVerdict::Available);
+        assert!(!s.quota_cooled(9, NOW));
+    }
+
+    /// 两条通道各自写穿落库、重启（seed）后都恢复。
+    #[test]
+    fn both_channels_survive_restart_seed() {
+        let s = SchedulerState::new();
+        let row = aidog_db::health_state::PlatformHealthStateRow {
+            platform_id: 6,
+            quota_cooldown_until_ms: NOW + 1000,
+            quota_verdict_until_ms: QUOTA_OPEN_ENDED_UNTIL_MS,
+            ..Default::default()
+        };
+        s.seed_from_rows(vec![row], NOW);
+        assert!(s.quota_cooled(6, FAR), "判定通道（开放式）恢复");
+        let s2 = SchedulerState::new();
+        s2.seed_from_rows(
+            vec![aidog_db::health_state::PlatformHealthStateRow {
+                platform_id: 6,
+                quota_cooldown_until_ms: FAR,
+                ..Default::default()
+            }],
+            NOW,
+        );
+        assert_eq!(s2.quota_cooldown_until_ms(6), FAR, "429 通道恢复");
+    }
+
+    /// 写后重开读回：真查判定经 persist 落到 platform.db 的独立列。
+    /// 写池多连接无顺序保证，两步写入之间用读回确认落库后再做下一步。
+    #[tokio::test]
+    async fn verdict_persists_to_own_column() {
+        let (db, _dir) = aidog_db::test_support::three_file_db().await;
+        let db = std::sync::Arc::new(db);
+        let s = SchedulerState::with_db(db.clone());
+        s.set_quota_cooldown(11, NOW + 5000);
+        let row11 = || async {
+            aidog_db::health_state::load_platform_health_states(&db)
+                .await
+                .unwrap()
+                .into_iter()
+                .find(|r| r.platform_id == 11)
+        };
+        let mut landed = false;
+        for _ in 0..40 {
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            if row11().await.is_some() {
+                landed = true;
+                break;
+            }
+        }
+        assert!(landed, "429 冷却应先落库");
+        apply_quota_verdict(
+            &s,
+            11,
+            QuotaVerdict::Exhausted {
+                until_ms: NOW + 9000,
+            },
+        );
+        let mut got = None;
+        for _ in 0..40 {
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            if let Some(r) = row11().await
+                && r.quota_verdict_until_ms == NOW + 9000
+            {
+                got = Some(r);
+                break;
+            }
+        }
+        let r = got.expect("判定列应落库");
+        assert_eq!(r.quota_cooldown_until_ms, NOW + 5000, "429 列不被判定覆盖");
+    }
+
+    #[test]
+    fn verdict_channel_overrides_itself() {
+        let s = SchedulerState::new();
         // 开放式 → 之后得到明确重置时刻：改成固定截止
         apply_quota_verdict(
             &s,
             3,
-            QuotaVerdict::Exhausted { until_ms: QUOTA_OPEN_ENDED_UNTIL_MS },
+            QuotaVerdict::Exhausted {
+                until_ms: QUOTA_OPEN_ENDED_UNTIL_MS,
+            },
         );
-        apply_quota_verdict(&s, 3, QuotaVerdict::Exhausted { until_ms: NOW + 1000 });
+        apply_quota_verdict(
+            &s,
+            3,
+            QuotaVerdict::Exhausted {
+                until_ms: NOW + 1000,
+            },
+        );
         assert!(!s.quota_cooled(3, NOW + 1000));
     }
 
@@ -734,7 +913,6 @@ mod verdict_apply {
         let db = mem_db().await;
         let id = mk_platform(&db, true).await;
         let sched = std::sync::Arc::new(SchedulerState::new());
-        crate::gateway::scheduling::install_global(sched.clone());
         let mk = |util: f64| PlatformQuota {
             success: true,
             error: None,
@@ -753,9 +931,9 @@ mod verdict_apply {
             }),
             newapi_user_id: None,
         };
-        calibrate_from_quota(&db, id, &mk(100.0), true).await;
+        calibrate_from_quota_with(&db, id, &mk(100.0), true, Some(sched.clone())).await;
         assert!(sched.quota_cooled(id, now() + 86_400_000 * 365));
-        calibrate_from_quota(&db, id, &mk(20.0), true).await;
+        calibrate_from_quota_with(&db, id, &mk(20.0), true, Some(sched.clone())).await;
         assert!(!sched.quota_cooled(id, now()));
     }
 
@@ -768,6 +946,7 @@ mod verdict_apply {
             breaker_state: "closed".into(),
             breaker_until_ms: 0,
             quota_cooldown_until_ms: QUOTA_OPEN_ENDED_UNTIL_MS,
+            quota_verdict_until_ms: 0,
             auth_cooldown_until_ms: 0,
             balance_cooldown_until_ms: 0,
             last_connect_fail_ms: 0,

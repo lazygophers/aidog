@@ -14,6 +14,8 @@ pub struct PlatformHealthStateRow {
     pub breaker_state: String,
     pub breaker_until_ms: i64,
     pub quota_cooldown_until_ms: i64,
+    /// 额度真查判定冷却截止（独立于 429 通道 `quota_cooldown_until_ms`；真查只读写自己这份，spec 第 17 条）。
+    pub quota_verdict_until_ms: i64,
     pub auth_cooldown_until_ms: i64,
     /// 402 余额冷却截止（独立于 401 鉴权通道，plat-select-status 2026-10-04 拆列）。
     pub balance_cooldown_until_ms: i64,
@@ -33,12 +35,14 @@ pub fn upsert_platform_health_state(
             conn.execute(
                 "INSERT INTO platform_health_state \
                  (platform_id, breaker_state, breaker_until_ms, quota_cooldown_until_ms, \
-                  auth_cooldown_until_ms, balance_cooldown_until_ms, last_connect_fail_ms, updated_at) \
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) \
+                  quota_verdict_until_ms, auth_cooldown_until_ms, balance_cooldown_until_ms, \
+                  last_connect_fail_ms, updated_at) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) \
                  ON CONFLICT(platform_id) DO UPDATE SET \
                  breaker_state = excluded.breaker_state, \
                  breaker_until_ms = excluded.breaker_until_ms, \
                  quota_cooldown_until_ms = excluded.quota_cooldown_until_ms, \
+                 quota_verdict_until_ms = excluded.quota_verdict_until_ms, \
                  auth_cooldown_until_ms = excluded.auth_cooldown_until_ms, \
                  balance_cooldown_until_ms = excluded.balance_cooldown_until_ms, \
                  last_connect_fail_ms = excluded.last_connect_fail_ms, \
@@ -48,6 +52,7 @@ pub fn upsert_platform_health_state(
                     row.breaker_state,
                     row.breaker_until_ms,
                     row.quota_cooldown_until_ms,
+                    row.quota_verdict_until_ms,
                     row.auth_cooldown_until_ms,
                     row.balance_cooldown_until_ms,
                     row.last_connect_fail_ms,
@@ -71,7 +76,8 @@ pub fn load_platform_health_states(
         db.call_read_platform_traced(None, __db_caller, |conn| {
             let mut stmt = conn.prepare(
                 "SELECT platform_id, breaker_state, breaker_until_ms, quota_cooldown_until_ms, \
-                 auth_cooldown_until_ms, balance_cooldown_until_ms, last_connect_fail_ms, updated_at \
+                 quota_verdict_until_ms, auth_cooldown_until_ms, balance_cooldown_until_ms, \
+                 last_connect_fail_ms, updated_at \
                  FROM platform_health_state",
             )?;
             let rows = stmt.query_map([], |r| {
@@ -80,10 +86,11 @@ pub fn load_platform_health_states(
                     breaker_state: r.get(1)?,
                     breaker_until_ms: r.get(2)?,
                     quota_cooldown_until_ms: r.get(3)?,
-                    auth_cooldown_until_ms: r.get(4)?,
-                    balance_cooldown_until_ms: r.get(5)?,
-                    last_connect_fail_ms: r.get(6)?,
-                    updated_at: r.get(7)?,
+                    quota_verdict_until_ms: r.get(4)?,
+                    auth_cooldown_until_ms: r.get(5)?,
+                    balance_cooldown_until_ms: r.get(6)?,
+                    last_connect_fail_ms: r.get(7)?,
+                    updated_at: r.get(8)?,
                 })
             })?;
             Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
