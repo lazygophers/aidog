@@ -4515,3 +4515,132 @@ async fn usage_mode_orders_by_least_success_24h() {
         "snapshot first entry matches"
     );
 }
+
+// ── pace / smart 路由模式（票 magpie 06）──
+
+/// 带 est_coding_plan 的候选（pace/smart 数据源 fixture；tier_name 决定周期 → 重置时刻）。
+async fn mk_cp_with_plan_tier(db: &db::Db, name: &str, tier: &str, util: f64, window_start: i64) -> Platform {
+    let p = mk_db_platform_cp(db, name).await;
+    set_est_coding_plan(
+        db,
+        p.id,
+        &format!(
+            r#"{{"tiers":[{{"name":"{tier}","est_utilization":{util},"window_start":{window_start}}}]}}"#
+        ),
+    )
+    .await;
+    p
+}
+
+async fn mk_cp_with_plan(db: &db::Db, name: &str, util: f64, window_start: i64) -> Platform {
+    mk_cp_with_plan_tier(db, name, "five_hour", util, window_start).await
+}
+
+async fn mk_cp_with_plan_weekly(db: &db::Db, name: &str, util: f64, window_start: i64) -> Platform {
+    mk_cp_with_plan_tier(db, name, "weekly_limit", util, window_start).await
+}
+
+/// pace 模式：重置前剩余额度最多优先（est_coding_plan 剩余比例降序），权重不参与主键。
+#[tokio::test]
+async fn pace_mode_orders_by_most_remaining() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let now = db::now();
+    let hour = 3_600_000i64;
+    // used 先建（id 更小）——若排序失效退回 id/原序，会得到 [used, full]，断言必红
+    let used = mk_cp_with_plan(&db, "P-used", 95.0, now - hour).await;
+    let full = mk_cp_with_plan(&db, "P-full", 20.0, now - hour).await;
+    let g = mk_db_group_equal_prio(&db, "pace-grp", &[used.id, full.id], RoutingMode::Pace).await;
+
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("pace select");
+    let order: Vec<u64> = set.candidates.iter().map(|c| c.platform.id).collect();
+    assert_eq!(order, vec![full.id, used.id], "most remaining first despite lower weight");
+    assert_eq!(
+        set.routing.entries.iter().find(|e| e.order == 1).map(|e| e.platform_id),
+        Some(full.id),
+        "snapshot first entry matches"
+    );
+}
+
+/// smart 模式：最快重置的套餐优先（window_start + cycle 升序）。
+#[tokio::test]
+async fn smart_mode_orders_by_earliest_reset() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let now = db::now();
+    let hour = 3_600_000i64;
+    // soon: five_hour start=now-1h → 重置 now+4h；late: weekly_limit start=now-1h → 重置 now+7d
+    // late 先建（id 更小）——若排序失效退回 id/原序，会得到 [late, soon]，断言必红
+    let late = mk_cp_with_plan_weekly(&db, "S-late", 50.0, now - hour).await;
+    let soon = mk_cp_with_plan(&db, "S-soon", 50.0, now - hour).await;
+    let g = mk_db_group_equal_prio(&db, "smart-grp", &[late.id, soon.id], RoutingMode::Smart).await;
+
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("smart select");
+    let order: Vec<u64> = set.candidates.iter().map(|c| c.platform.id).collect();
+    assert_eq!(order, vec![soon.id, late.id], "earliest reset first");
+}
+
+/// pace 模式回落：无任何候选有剩余额度数据（全按量）→ 回落 usage（近 24h 成功数最少优先）。
+#[tokio::test]
+async fn pace_mode_falls_back_to_usage_when_no_data() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let p1 = mk_db_platform(&db, "PF1").await;
+    let p2 = mk_db_platform(&db, "PF2").await;
+    let g = mk_db_group_equal_prio(&db, "pace-fb-grp", &[p1.id, p2.id], RoutingMode::Pace).await;
+
+    let now = db::now();
+    let key_now = aidog_stats::utc_ms_to_local_hour_key(now);
+    insert_agg_row(&db, key_now, p1.id, 10).await;
+
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("pace fallback select");
+    let order: Vec<u64> = set.candidates.iter().map(|c| c.platform.id).collect();
+    // usage 回落序 = [p2(0), p1(10)]；若误走权重/原序则 stable 为 [p1, p2]
+    assert_eq!(order, vec![p2.id, p1.id], "no remaining data → usage fallback order");
+}
+
+/// smart 模式回落：无任何候选有重置时间数据（全按量）→ 回落 health_aware
+/// （level_priority 保持主导，coding plan 无关；lp 高者优先证明 health_aware 链路生效）。
+#[tokio::test]
+async fn smart_mode_falls_back_to_health_aware_when_no_data() {
+    let db = mk_test_db().await;
+    let p1 = mk_db_platform(&db, "SF1").await;
+    let p2 = mk_db_platform(&db, "SF2").await;
+    let g = db::create_group(
+        &db,
+        CreateGroup {
+            name: "smart-fb-grp".into(),
+            group_key: Some("smart-fb-grp".into()),
+            routing_mode: RoutingMode::Smart,
+            auto_from_platform: String::new(),
+            request_timeout_secs: 0,
+            connect_timeout_secs: 0,
+            source_protocol: Some("anthropic".into()),
+            max_retries: 2,
+            model_mappings: vec![],
+            env_vars: vec![],
+        },
+    )
+    .await
+    .expect("create group");
+    db::set_group_platforms(
+        &db,
+        g.id,
+        &[
+            GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1000), level_priority: Some(1) },
+            GroupPlatformInput { platform_id: p2.id, priority: Some(0), weight: Some(1), level_priority: Some(10) },
+        ],
+    )
+    .await
+    .expect("set group platforms");
+
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("smart fallback select");
+    let order: Vec<u64> = set.candidates.iter().map(|c| c.platform.id).collect();
+    // health_aware：level_priority 主导 → p2 (lp 10) 首位；若误走 weight 序则是 p1
+    assert_eq!(order, vec![p2.id, p1.id], "no reset data → health_aware fallback (level_priority dominant)");
+}

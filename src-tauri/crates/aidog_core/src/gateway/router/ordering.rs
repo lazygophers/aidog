@@ -1,4 +1,4 @@
-//! 候选排序策略：负载均衡（加权随机）/ 粘性绑定 / 轮换 / 用量（票 magpie 05）。
+//! 候选排序策略：负载均衡（加权随机）/ 粘性绑定 / 轮换 / 用量 / 余量 / 智能（票 magpie 05/06）。
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
@@ -259,6 +259,153 @@ pub(crate) fn order_usage(platforms: &mut [&GroupPlatformDetail], counts: &HashM
         let ca = counts.get(&a.platform.id).copied().unwrap_or(0);
         let cb = counts.get(&b.platform.id).copied().unwrap_or(0);
         ca.cmp(&cb)
+            .then_with(|| {
+                std::cmp::Reverse(effective_weight(a))
+                    .cmp(&std::cmp::Reverse(effective_weight(b)))
+            })
+            .then_with(|| {
+                expiry_sort_key(a.platform.expires_at).cmp(&expiry_sort_key(b.platform.expires_at))
+            })
+    });
+}
+
+/// pace / smart 排序键快照（票 magpie 06）：由 `platform.est_coding_plan` 纯解析，
+/// 排序前一次性算好，比较闭包内零 JSON 解析（同 `HealthOrderKey` 快照模式）。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct PaceSmartKey {
+    /// 最快重置时刻（unix ms）：各 tier `window_start + cycle` 的最小值；
+    /// `<= now` 视为已重置 → 取 now（最新鲜）。
+    /// None = 无 tier 有 window_start + 已知周期 → 重置时间不可得。
+    pub reset_at: Option<i64>,
+    /// 最紧 tier 剩余比例（0..1）：各 tier `(100 - est_utilization)/100` 的最小值。
+    /// None = 无 tier 数据（非 coding plan / est_coding_plan 空 / 无 tier）→ 剩余额度不可得。
+    pub remaining: Option<f64>,
+}
+
+/// 从 est_coding_plan 纯解析 pace/smart 键（audit 结论：剩余额度可得自 tier
+/// `est_utilization`；重置时间可得自 `window_start + cycle_ms_for_tier`，
+/// 后者仅真查拿过 resets_at 且周期已知时落地，故 Smart 是部分可得维度）。
+pub(crate) fn compute_pace_smart_keys(
+    platforms: &[GroupPlatformDetail],
+    now_ms: i64,
+) -> HashMap<u64, PaceSmartKey> {
+    let mut keys = HashMap::new();
+    for gp in platforms {
+        let plan = crate::gateway::estimate::EstCodingPlan::from_json(&gp.platform.est_coding_plan);
+        let mut reset_at: Option<i64> = None;
+        let mut remaining: Option<f64> = None;
+        for t in &plan.tiers {
+            let rem = (100.0 - t.est_utilization).clamp(0.0, 100.0) / 100.0;
+            remaining = Some(remaining.map_or(rem, |m: f64| m.min(rem)));
+            if t.window_start > 0
+                && let Some(cycle) = crate::gateway::usage_color::cycle_ms_for_tier(&t.name)
+            {
+                let r = (t.window_start + cycle).max(now_ms);
+                reset_at = Some(reset_at.map_or(r, |m| m.min(r)));
+            }
+        }
+        keys.insert(
+            gp.platform.id,
+            PaceSmartKey { reset_at, remaining },
+        );
+    }
+    keys
+}
+
+/// Pace 回落判定：被排序候选中无任何平台有剩余额度数据 → 整模回落 usage
+/// （spec D3「数据不可得时 pace 显式回落 usage」）。
+pub(crate) fn pace_falls_back_to_usage(
+    keys: &HashMap<u64, PaceSmartKey>,
+    platforms: &[&GroupPlatformDetail],
+) -> bool {
+    !platforms
+        .iter()
+        .any(|gp| keys.get(&gp.platform.id).is_some_and(|k| k.remaining.is_some()))
+}
+
+/// Smart 回落判定：被排序候选中无任何平台有重置时间数据 → 整模回落 health_aware
+/// （spec D3「数据不可得时 smart 显式回落 health_aware」）。
+pub(crate) fn smart_falls_back_to_health_aware(
+    keys: &HashMap<u64, PaceSmartKey>,
+    platforms: &[&GroupPlatformDetail],
+) -> bool {
+    !platforms
+        .iter()
+        .any(|gp| keys.get(&gp.platform.id).is_some_and(|k| k.reset_at.is_some()))
+}
+
+/// Option 升序、None 排末尾（pace 的重置时间次键 / smart 主键共用）。
+fn opt_ascending_none_last<T: Ord>(x: Option<T>, y: Option<T>) -> std::cmp::Ordering {
+    match (x, y) {
+        (Some(a), Some(b)) => a.cmp(&b),
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, None) => std::cmp::Ordering::Equal,
+    }
+}
+
+/// Option 降序、None 排末尾（剩余比例键共用）。
+fn opt_descending_none_last(x: Option<f64>, y: Option<f64>) -> std::cmp::Ordering {
+    match (x, y) {
+        (Some(a), Some(b)) => b.total_cmp(&a),
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, None) => std::cmp::Ordering::Equal,
+    }
+}
+
+/// Pace 排序（spec D3「重置前剩余额度最多优先」）：有剩余额度数据的平台按剩余比例
+/// 降序（重置前余最多优先），次键重置时间升序（同等余量先吃快重置的，避免临期浪费）；
+/// 无数据平台（按量 / 无 tier）排有数据之后（pace 是套餐额度维度，按量无该维度），
+/// 档内权重降序 + expires_at 升序 tiebreak。输入已是状态过滤后的可用候选集，
+/// 不改摘除逻辑。整体不可得时由 `pace_falls_back_to_usage` 判定回落 usage。
+pub(crate) fn order_pace(
+    platforms: &mut [&GroupPlatformDetail],
+    keys: &HashMap<u64, PaceSmartKey>,
+) {
+    if platforms.len() <= 1 {
+        return;
+    }
+    let key = |gp: &GroupPlatformDetail| -> (Option<f64>, Option<i64>) {
+        keys.get(&gp.platform.id)
+            .map_or((None, None), |k| (k.remaining, k.reset_at))
+    };
+    platforms.sort_by(|a, b| {
+        let (ra, ta) = key(a);
+        let (rb, tb) = key(b);
+        opt_descending_none_last(ra, rb)
+            .then_with(|| opt_ascending_none_last(ta, tb))
+            .then_with(|| {
+                std::cmp::Reverse(effective_weight(a))
+                    .cmp(&std::cmp::Reverse(effective_weight(b)))
+            })
+            .then_with(|| {
+                expiry_sort_key(a.platform.expires_at).cmp(&expiry_sort_key(b.platform.expires_at))
+            })
+    });
+}
+
+/// Smart 排序（spec D3「最快重置的套餐优先，次键套餐余额」）：有重置时间的平台按
+/// 重置时间升序（最快重置优先），次键剩余比例降序（套餐余额多者优先）；无重置时间的
+/// 平台（按量 / tier 无 window_start）排有数据之后，仍用剩余比例降序排序（残缺数据
+/// 不浪费），再权重降序 + expires_at 升序 tiebreak。输入已是状态过滤后的可用候选集，
+/// 不改摘除逻辑。整体不可得时由 `smart_falls_back_to_health_aware` 判定回落 health_aware。
+pub(crate) fn order_smart(
+    platforms: &mut [&GroupPlatformDetail],
+    keys: &HashMap<u64, PaceSmartKey>,
+) {
+    if platforms.len() <= 1 {
+        return;
+    }
+    let key = |gp: &GroupPlatformDetail| -> (Option<i64>, Option<f64>) {
+        keys.get(&gp.platform.id)
+            .map_or((None, None), |k| (k.reset_at, k.remaining))
+    };
+    platforms.sort_by(|a, b| {
+        let (ta, ra) = key(a);
+        let (tb, rb) = key(b);
+        opt_ascending_none_last(ta, tb)
+            .then_with(|| opt_descending_none_last(ra, rb))
             .then_with(|| {
                 std::cmp::Reverse(effective_weight(a))
                     .cmp(&std::cmp::Reverse(effective_weight(b)))

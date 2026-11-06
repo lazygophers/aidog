@@ -497,3 +497,133 @@ fn usage_tie_breaks_by_weight_desc_then_expiry_asc() {
     order_usage(&mut v, &counts);
     assert_eq!(ids(&v), vec![4, 3], "tie weight → earlier expiry first");
 }
+
+// ── pace / smart（票 magpie 06）──
+
+fn pk(reset_at: Option<i64>, remaining: Option<f64>) -> PaceSmartKey {
+    PaceSmartKey { reset_at, remaining }
+}
+
+fn pkeys(pairs: Vec<(u64, Option<i64>, Option<f64>)>) -> HashMap<u64, PaceSmartKey> {
+    pairs
+        .into_iter()
+        .map(|(id, t, r)| (id, pk(t, r)))
+        .collect()
+}
+
+#[test]
+fn pace_most_remaining_first_with_reset_tiebreak() {
+    // 剩余比例降序主键；并列 → 重置时间升序；重置时间缺失排末位
+    let gp1 = mk_gp(1, 1, 0);
+    let gp2 = mk_gp(2, 1, 0);
+    let gp3 = mk_gp(3, 1, 0);
+    let keys = pkeys(vec![
+        (1, Some(10_000), Some(0.2)),
+        (2, Some(5_000), Some(0.8)),
+        (3, None, Some(0.8)),
+    ]);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2, &gp3];
+    order_pace(&mut v, &keys);
+    assert_eq!(
+        ids(&v),
+        vec![2, 3, 1],
+        "most remaining first; tie → earliest reset; unknown reset last"
+    );
+}
+
+#[test]
+fn pace_missing_data_ranked_last() {
+    // 无剩余额度数据（按量平台）排有数据之后，权重再高也不提首；无数据档内按权重降序
+    let gp1 = mk_gp(1, 1, 0);
+    let gp2 = mk_gp(2, 1, 0);
+    let payg_hi = mk_gp(9, 1000, 0);
+    let payg_lo = mk_gp(8, 1, 0);
+    let keys = pkeys(vec![(1, Some(1_000), Some(0.1)), (2, Some(1_000), Some(0.9))]);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&payg_hi, &payg_lo, &gp1, &gp2];
+    order_pace(&mut v, &keys);
+    assert_eq!(
+        ids(&v),
+        vec![2, 1, 9, 8],
+        "data-having first by remaining desc, missing-data after by weight desc"
+    );
+}
+
+#[test]
+fn smart_earliest_reset_first_with_remaining_tiebreak() {
+    // 重置时间升序主键；并列 → 剩余比例降序
+    let gp1 = mk_gp(1, 1, 0);
+    let gp2 = mk_gp(2, 1, 0);
+    let gp3 = mk_gp(3, 1, 0);
+    let keys = pkeys(vec![
+        (1, Some(5_000), Some(0.9)),
+        (2, Some(1_000), Some(0.2)),
+        (3, Some(1_000), Some(0.7)),
+    ]);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2, &gp3];
+    order_smart(&mut v, &keys);
+    assert_eq!(
+        ids(&v),
+        vec![3, 2, 1],
+        "earliest reset first; tie → most remaining first"
+    );
+}
+
+#[test]
+fn smart_missing_reset_ranked_last_by_remaining() {
+    // 无重置时间数据排有数据之后，仍按剩余比例降序（残缺数据不浪费）；全缺排最末
+    let known_a = mk_gp(1, 1, 0);
+    let known_b = mk_gp(2, 1, 0);
+    let unknown_some = mk_gp(3, 1, 0); // 有 remaining 无 reset
+    let unknown_none = mk_gp(4, 1000, 0); // 全缺，权重再高也最后
+    let keys = pkeys(vec![
+        (1, Some(3_000), Some(0.5)),
+        (2, Some(9_000), Some(0.1)),
+        (3, None, Some(0.9)),
+        (4, None, None),
+    ]);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&unknown_none, &unknown_some, &known_b, &known_a];
+    order_smart(&mut v, &keys);
+    assert_eq!(
+        ids(&v),
+        vec![1, 2, 3, 4],
+        "reset-known asc → unknown-by-remaining desc → missing last"
+    );
+}
+
+#[test]
+fn pace_smart_fallback_predicates() {
+    let gp_known = mk_gp(1, 1, 0);
+    let gp_none = mk_gp(2, 1, 0);
+    let keys_data = pkeys(vec![(1, Some(1_000), Some(0.5)), (2, None, None)]);
+    let keys_none = pkeys(vec![(2, None, None)]);
+    let have = vec![&gp_known, &gp_none];
+    let none_only = vec![&gp_none];
+    assert!(!pace_falls_back_to_usage(&keys_data, &have));
+    assert!(pace_falls_back_to_usage(&keys_none, &none_only));
+    assert!(!smart_falls_back_to_health_aware(&keys_data, &have));
+    assert!(smart_falls_back_to_health_aware(&keys_none, &none_only));
+}
+
+#[test]
+fn compute_pace_smart_keys_parses_est_plan() {
+    let now: i64 = 1_000_000_000_000;
+    let hour: i64 = 3_600_000;
+    let mut gp = mk_gp(1, 1, 0);
+    // five_hour util 90 → remaining 0.1；window_start = now-4h → reset = now+1h
+    gp.platform.est_coding_plan =
+        format!(r#"{{"tiers":[{{"name":"five_hour","est_utilization":90.0,"window_start":{}}}]}}"#, now - 4 * hour);
+    let mut gp2 = mk_gp(2, 1, 0);
+    // 过期重置时刻（start = now-10h → reset = now-5h）→ 视为已重置 → now
+    gp2.platform.est_coding_plan =
+        format!(r#"{{"tiers":[{{"name":"five_hour","est_utilization":50.0,"window_start":{}}}]}}"#, now - 10 * hour);
+    let gp3 = mk_gp(3, 1, 0); // 空 est_coding_plan → 全 None
+    let keys = compute_pace_smart_keys(&[gp.clone(), gp2.clone(), gp3.clone()], now);
+    let k1 = keys.get(&1).expect("key p1");
+    assert_eq!(k1.remaining, Some(0.1), "min tier remaining");
+    assert_eq!(k1.reset_at, Some(now + hour), "window_start + five_hour cycle");
+    let k2 = keys.get(&2).expect("key p2");
+    assert_eq!(k2.reset_at, Some(now), "past reset clamped to now");
+    let k3 = keys.get(&3).expect("key p3");
+    assert_eq!(k3.reset_at, None, "no plan → no reset");
+    assert_eq!(k3.remaining, None, "no plan → no remaining");
+}
