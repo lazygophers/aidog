@@ -12,6 +12,7 @@ async fn health_state_upsert_load_roundtrip() {
         breaker_state: "open".to_string(),
         breaker_until_ms: 1_800_000,
         quota_cooldown_until_ms: 1_700_000,
+        quota_verdict_until_ms: 1_600_000,
         auth_cooldown_until_ms: 0,
         balance_cooldown_until_ms: 1_650_000,
         last_connect_fail_ms: 1_000_000,
@@ -32,6 +33,27 @@ async fn health_state_upsert_load_roundtrip() {
     assert_eq!(rows[0].platform_id, 42);
     assert_eq!(rows[0].breaker_state, "closed");
     assert_eq!(rows[0].breaker_until_ms, 0);
+}
+
+#[tokio::test]
+async fn health_state_verdict_column_roundtrip() {
+    let (db, _dir) = three_file_db().await;
+    let row = PlatformHealthStateRow {
+        platform_id: 7,
+        quota_cooldown_until_ms: 1_700_000,
+        quota_verdict_until_ms: 1_600_000,
+        ..Default::default()
+    };
+    upsert_platform_health_state(&db, row.clone())
+        .await
+        .unwrap();
+    let rows = load_platform_health_states(&db).await.unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].quota_cooldown_until_ms, 1_700_000);
+    assert_eq!(
+        rows[0].quota_verdict_until_ms, 1_600_000,
+        "判定列须独立落库"
+    );
 }
 
 #[tokio::test]

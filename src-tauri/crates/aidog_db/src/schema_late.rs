@@ -1169,6 +1169,11 @@ ALTER TABLE "group_new" RENAME TO "group";
         "ALTER TABLE platform_health_state ADD COLUMN balance_cooldown_until_ms INTEGER NOT NULL DEFAULT 0",
         [],
     );
+    // Migration 20261105-02（额度用完排除）：真查判定冷却拆独立列，与 429 冷却分开记。
+    let _ = conn.execute(
+        "ALTER TABLE platform_health_state ADD COLUMN quota_verdict_until_ms INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
     Ok(())
 }
 

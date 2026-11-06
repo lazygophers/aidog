@@ -98,6 +98,9 @@ pub struct PlatformHealth {
     /// 配额冷却截止（unix ms，0 = 无）。429 配额耗尽且上游给出重置时间时设置：
     /// 该时刻前不参与调度，但**不改 DB status**（平台在 UI 仍是启用态，只是不被选中）。
     pub quota_cooldown_until_ms: i64,
+    /// 额度真查判定冷却截止（unix ms，0 = 无；开放式 = `QUOTA_OPEN_ENDED_UNTIL_MS`）。
+    /// 与 429 通道分开：真查只读写这份，路由取两者最大值。
+    pub quota_verdict_until_ms: i64,
     /// 401 权限冷却截止（unix ms，0 = 无）。固定 AUTH_COOLDOWN_MS，纯内存态
     /// （取代旧 DB auto_disabled），到点自动回调度。
     pub auth_cooldown_until_ms: i64,
@@ -122,6 +125,7 @@ impl Default for PlatformHealth {
             latency_ema_ms: 0.0,
             inflight: 0,
             quota_cooldown_until_ms: 0,
+            quota_verdict_until_ms: 0,
             auth_cooldown_until_ms: 0,
             balance_cooldown_until_ms: 0,
             last_connect_fail_ms: 0,
@@ -223,6 +227,9 @@ impl SchedulerState {
                 if row.quota_cooldown_until_ms > now_ms {
                     h.quota_cooldown_until_ms = row.quota_cooldown_until_ms;
                 }
+                if row.quota_verdict_until_ms > now_ms {
+                    h.quota_verdict_until_ms = row.quota_verdict_until_ms;
+                }
                 if row.auth_cooldown_until_ms > now_ms {
                     h.auth_cooldown_until_ms = row.auth_cooldown_until_ms;
                 }
@@ -294,6 +301,7 @@ impl SchedulerState {
                 breaker_state: state.to_string(),
                 breaker_until_ms: until,
                 quota_cooldown_until_ms: h.quota_cooldown_until_ms,
+                quota_verdict_until_ms: h.quota_verdict_until_ms,
                 auth_cooldown_until_ms: h.auth_cooldown_until_ms,
                 balance_cooldown_until_ms: h.balance_cooldown_until_ms,
                 last_connect_fail_ms: h.last_connect_fail_ms,
@@ -301,9 +309,7 @@ impl SchedulerState {
             }
         };
         tokio::spawn(async move {
-            if let Err(e) =
-                aidog_db::health_state::upsert_platform_health_state(&db, row).await
-            {
+            if let Err(e) = aidog_db::health_state::upsert_platform_health_state(&db, row).await {
                 tracing::warn!("persist platform_health_state failed: {e}");
             }
         });
@@ -342,15 +348,17 @@ impl SchedulerState {
         self.persist(platform_id);
     }
 
-    /// 真查判定写入：按给定截止**覆盖**额度冷却（0 = 解除）。与 [`set_quota_cooldown`]（取 max、
-    /// 只增不减）不同，真查结果是权威来源，可缩短或解除（含开放式冷却）。值未变不重复落库。
-    pub fn set_quota_cooldown_exact(&self, platform_id: u64, until_ms: i64) {
+    /// 真查判定写入（独立于 429 的 [`PlatformHealth::quota_verdict_until_ms`] 通道）：按给定截止
+    /// **覆盖**判定冷却（0 = 解除）。与 [`set_quota_cooldown`]（取 max、只增不减）不同，真查结果
+    /// 是本通道的权威来源，可缩短或解除（含开放式冷却）；永不触碰 429 通道（spec 第 17 条）。
+    /// 值未变不重复落库。
+    pub fn set_quota_verdict_exact(&self, platform_id: u64, until_ms: i64) {
         let changed = self.health.write().is_ok_and(|mut g| {
-            let cur = g.get(&platform_id).map_or(0, |h| h.quota_cooldown_until_ms);
+            let cur = g.get(&platform_id).map_or(0, |h| h.quota_verdict_until_ms);
             if cur == until_ms {
                 return false;
             }
-            g.entry(platform_id).or_default().quota_cooldown_until_ms = until_ms;
+            g.entry(platform_id).or_default().quota_verdict_until_ms = until_ms;
             true
         });
         if changed {
@@ -359,21 +367,21 @@ impl SchedulerState {
     }
 
     /// 该平台额度冷却截止（毫秒，0 = 未冷却；开放式冷却为 `QUOTA_OPEN_ENDED_UNTIL_MS`）。
+    /// 429 通道与真查判定通道取最大——任一活跃即冷却。
     pub fn quota_cooldown_until_ms(&self, platform_id: u64) -> i64 {
         self.health
             .read()
             .ok()
-            .and_then(|g| g.get(&platform_id).map(|h| h.quota_cooldown_until_ms))
+            .and_then(|g| {
+                g.get(&platform_id)
+                    .map(|h| h.quota_cooldown_until_ms.max(h.quota_verdict_until_ms))
+            })
             .unwrap_or(0)
     }
 
     /// 该平台此刻是否处于配额冷却中（到点自动失效，无需清理）。
     pub fn quota_cooled(&self, platform_id: u64, now_ms: i64) -> bool {
-        self.health
-            .read()
-            .ok()
-            .and_then(|g| g.get(&platform_id).map(|h| h.quota_cooldown_until_ms))
-            .is_some_and(|until| until > now_ms)
+        self.quota_cooldown_until_ms(platform_id) > now_ms
     }
 
     /// 401 鉴权失败：把平台冷却固定 [`AUTH_COOLDOWN_MS`]（取 max，不缩短已有冷却）。
@@ -414,11 +422,12 @@ impl SchedulerState {
         };
         g.iter()
             .filter_map(|(&platform_id, h)| {
-                if h.quota_cooldown_until_ms > now_ms {
+                let quota_until = h.quota_cooldown_until_ms.max(h.quota_verdict_until_ms);
+                if quota_until > now_ms {
                     Some(PlatformCooldownSnapshot {
                         platform_id,
                         code: 429,
-                        until_ms: h.quota_cooldown_until_ms,
+                        until_ms: quota_until,
                     })
                 } else if h.balance_cooldown_until_ms > now_ms {
                     Some(PlatformCooldownSnapshot {
@@ -477,7 +486,11 @@ impl SchedulerState {
     /// 测试用：降权连败计数（断言「模型链耗尽只记一次」）。
     #[cfg(test)]
     pub fn penalty_consecutive(&self, platform_id: u64) -> u32 {
-        self.health.read().ok().and_then(|g| g.get(&platform_id).map(|h| h.penalty_consecutive)).unwrap_or(0)
+        self.health
+            .read()
+            .ok()
+            .and_then(|g| g.get(&platform_id).map(|h| h.penalty_consecutive))
+            .unwrap_or(0)
     }
 
     /// 候选准入判定（候选过滤准入门）。在 now_ms 时刻惰性转移 Open→HalfOpen。
@@ -537,6 +550,7 @@ impl SchedulerState {
             let h = g.entry(platform_id).or_default();
             let non_default = h.breaker != BreakerState::Closed { fails: 0 }
                 || h.quota_cooldown_until_ms > 0
+                || h.quota_verdict_until_ms > 0
                 || h.auth_cooldown_until_ms > 0
                 || h.balance_cooldown_until_ms > 0
                 || h.last_connect_fail_ms > 0;
@@ -637,25 +651,25 @@ impl SchedulerState {
     ) -> bool {
         let open_until = now_ms + thresholds.open_secs as i64 * 1000;
         h.breaker = match h.breaker {
-                BreakerState::Closed { fails } => {
-                    let next = fails + 1;
-                    if next >= thresholds.failure_threshold {
-                        BreakerState::Open {
-                            until_ms: open_until,
-                        }
-                    } else {
-                        BreakerState::Closed { fails: next }
+            BreakerState::Closed { fails } => {
+                let next = fails + 1;
+                if next >= thresholds.failure_threshold {
+                    BreakerState::Open {
+                        until_ms: open_until,
                     }
+                } else {
+                    BreakerState::Closed { fails: next }
                 }
-                // HalfOpen 探测失败 → 立即重新 Open。
-                BreakerState::HalfOpen { .. } => BreakerState::Open {
-                    until_ms: open_until,
-                },
-                // Open 期间不应有 inflight 结果回流，但兜底重置 until。
-                BreakerState::Open { .. } => BreakerState::Open {
-                    until_ms: open_until,
-                },
-            };
+            }
+            // HalfOpen 探测失败 → 立即重新 Open。
+            BreakerState::HalfOpen { .. } => BreakerState::Open {
+                until_ms: open_until,
+            },
+            // Open 期间不应有 inflight 结果回流，但兜底重置 until。
+            BreakerState::Open { .. } => BreakerState::Open {
+                until_ms: open_until,
+            },
+        };
         matches!(h.breaker, BreakerState::Open { .. })
     }
 
@@ -814,11 +828,17 @@ mod tests {
         assert!(matches!(s.breaker_state(1), BreakerState::Open { .. }));
         s.inc_inflight(2);
         s.record_connect_failure(2, 4, &th, now + 1_000); // 2*2 >= 4 → 本地网络，不计
-        assert!(matches!(s.breaker_state(2), BreakerState::Closed { fails: 0 }));
+        assert!(matches!(
+            s.breaker_state(2),
+            BreakerState::Closed { fails: 0 }
+        ));
         // 同平台重复失败不重复计数：平台 2 再败仍 2 个去重平台 → 依旧不计。
         s.inc_inflight(2);
         s.record_connect_failure(2, 4, &th, now + 2_000);
-        assert!(matches!(s.breaker_state(2), BreakerState::Closed { fails: 0 }));
+        assert!(matches!(
+            s.breaker_state(2),
+            BreakerState::Closed { fails: 0 }
+        ));
     }
 
     #[test]
@@ -892,9 +912,7 @@ mod tests {
             .collect();
         assert_eq!(snap.get(&8), Some(&401));
         // 到点自动失效：两条通道都过期 → 不再出现在快照。
-        assert!(s
-            .cooldown_snapshot(now + AUTH_COOLDOWN_MS + 1)
-            .is_empty());
+        assert!(s.cooldown_snapshot(now + AUTH_COOLDOWN_MS + 1).is_empty());
     }
 
     #[test]
@@ -922,10 +940,7 @@ mod tests {
             .map(|x| (x.platform_id, x.code))
             .collect();
         snap.sort();
-        assert_eq!(
-            snap,
-            vec![(1, 429), (2, 402), (3, 503)]
-        );
+        assert_eq!(snap, vec![(1, 429), (2, 402), (3, 503)]);
     }
 
     #[test]

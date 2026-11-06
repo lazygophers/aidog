@@ -4286,6 +4286,8 @@ async fn chat_all_quota_cooled_402_and_audit_log() {
     assert_eq!(resp.status(), StatusCode::PAYMENT_REQUIRED);
     let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
     let v: Value = serde_json::from_slice(&body).expect("json error body");
+    // anthropic 入站（/v1/messages）→ body 带 anthropic 错误外壳
+    assert_eq!(v["type"], "error");
     assert_eq!(v["error"]["type"], "quota_exhausted");
     assert!(
         v["error"]["message"].as_str().is_some_and(|m| m.contains("Insufficient balance") || m.contains("余额不足")),
@@ -4296,6 +4298,165 @@ async fn chat_all_quota_cooled_402_and_audit_log() {
     assert_eq!(log.blocked_by, "router");
     assert_eq!(log.blocked_reason, "quota_exhausted");
     assert_eq!(log.est_cost, 0.0);
+}
+
+
+/// 同上但 openai 入站（/v1/chat/completions）→ body 无 anthropic 外壳，`{"error":{...}}`。
+#[tokio::test]
+async fn chat_all_quota_cooled_402_openai_shape() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let state = make_state(db).await;
+    let p1 = create_plain_platform(&state, "qo1", "http://127.0.0.1:1").await;
+    let p2 = create_plain_platform(&state, "qo2", "http://127.0.0.1:1").await;
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group("gkquotaopen", vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[
+            GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
+            GroupPlatformInput { platform_id: p2.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
+        ],
+    )
+    .await
+    .unwrap();
+    let until = aidog_db::now() + 3_600_000;
+    state.scheduler.set_quota_cooldown(p1.id, until);
+    state.scheduler.set_quota_cooldown(p2.id, until + 60_000);
+
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/chat/completions")
+        .header("authorization", "Bearer gkquotaopen")
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::PAYMENT_REQUIRED);
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let v: Value = serde_json::from_slice(&body).expect("json error body");
+    assert_eq!(v["error"]["type"], "quota_exhausted");
+    assert!(v.get("type").is_none(), "openai 入站不带 anthropic 外壳: {v}");
+}
+
+/// 直通模型（直接模型转发）：声明该模型的平台全部额度冷却 → 同样 402 quota_exhausted（不是 503）。
+/// 组 ≥2、两平台均声明 m1（直通链 len>1 guard）。
+#[tokio::test]
+async fn chat_direct_model_all_quota_cooled_402() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let state = make_state(db).await;
+    setup_group_with_upstream(&state, "gkdirquota", "https://example.invalid").await;
+    let second = aidog_db::create_platform(
+        &state.db,
+        aidog_db::test_support::sample_platform("dsecond"),
+    )
+    .await
+    .unwrap();
+    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
+        id: second.id,
+        name: None, platform_type: None, base_url: None, api_key: None,
+        extra: Some(r#"{"direct_models":["m1"]}"#.to_string()),
+        models: None, available_models: None, endpoints: None,
+        enabled: None, status: None, manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
+    })
+    .await
+    .unwrap();
+    let group = aidog_db::list_groups(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|g| g.group_key == "gkdirquota")
+        .unwrap();
+    let existing = aidog_db::get_group_platforms(&state.db, group.id).await.unwrap();
+    // 首个平台也声明 m1
+    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
+        id: existing[0].platform.id,
+        name: None, platform_type: None, base_url: None, api_key: None,
+        extra: Some(r#"{"direct_models":["m1"]}"#.to_string()),
+        models: None, available_models: None, endpoints: None,
+        enabled: None, status: None, manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
+    })
+    .await
+    .unwrap();
+    aidog_db::set_group_platforms(&state.db, group.id, &[
+        GroupPlatformInput { platform_id: existing[0].platform.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
+        GroupPlatformInput { platform_id: second.id, priority: Some(1), weight: Some(1), level_priority: Some(5) },
+    ])
+    .await
+    .unwrap();
+    state.db.invalidate_group_details_cache();
+    let until = aidog_db::now() + 3_600_000;
+    state.scheduler.set_quota_cooldown(existing[0].platform.id, until);
+    state.scheduler.set_quota_cooldown(second.id, until + 60_000);
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request("gkdirquota", r#"{"model":"m1","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::PAYMENT_REQUIRED);
+    let log = last_log_for(&state, "gkdirquota").await;
+    assert_eq!(log.status_code, 402);
+    assert_eq!(log.blocked_reason, "quota_exhausted");
+    assert_eq!(log.est_cost, 0.0);
+}
+
+/// 直通模型混合原因（额度冷却 + 手动 Disabled）→ 仍 503 direct_model_unavailable。
+#[tokio::test]
+async fn chat_direct_model_mixed_reason_still_503() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let state = make_state(db).await;
+    setup_group_with_upstream(&state, "gkdirmix", "https://example.invalid").await;
+    let second = aidog_db::create_platform(
+        &state.db,
+        aidog_db::test_support::sample_platform("dmix"),
+    )
+    .await
+    .unwrap();
+    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
+        id: second.id,
+        name: None, platform_type: None, base_url: None, api_key: None,
+        extra: Some(r#"{"direct_models":["m1"]}"#.to_string()),
+        models: None, available_models: None, endpoints: None,
+        enabled: None, status: None, manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
+    })
+    .await
+    .unwrap();
+    let group = aidog_db::list_groups(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|g| g.group_key == "gkdirmix")
+        .unwrap();
+    let existing = aidog_db::get_group_platforms(&state.db, group.id).await.unwrap();
+    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
+        id: existing[0].platform.id,
+        name: None, platform_type: None, base_url: None, api_key: None,
+        extra: Some(r#"{"direct_models":["m1"]}"#.to_string()),
+        models: None, available_models: None, endpoints: None,
+        enabled: None, status: Some(aidog_db::models::PlatformStatus::Disabled),
+        manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
+    })
+    .await
+    .unwrap();
+    aidog_db::set_group_platforms(&state.db, group.id, &[
+        GroupPlatformInput { platform_id: existing[0].platform.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
+        GroupPlatformInput { platform_id: second.id, priority: Some(1), weight: Some(1), level_priority: Some(5) },
+    ])
+    .await
+    .unwrap();
+    state.db.invalidate_group_details_cache();
+    state.scheduler.set_quota_cooldown(second.id, aidog_db::now() + 3_600_000);
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request("gkdirmix", r#"{"model":"m1","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let log = last_log_for(&state, "gkdirmix").await;
+    assert_eq!(log.blocked_reason, "direct_model_unavailable");
 }
 
 /// 直接模型转发验收 #4：声明平台全禁用 → handler route-fail 路径落审计行

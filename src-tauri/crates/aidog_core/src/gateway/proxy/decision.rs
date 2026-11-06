@@ -71,10 +71,19 @@ pub(crate) async fn route_fail_response(
     } else if let Some(q) = QuotaExhausted::parse(err) {
         // 多平台组全部额度用完：402 + blocked_reason='quota_exhausted'；body 沿用手动预算 402 的 JSON 错误形状。
         log.blocked_reason = "quota_exhausted".to_string();
-        let body = serde_json::json!({
-            "error": { "type": "quota_exhausted", "message": quota_exhausted_message(lang, q) }
-        })
-        .to_string();
+        // body 按入站协议（spec：沿用该入站协议的错误格式）：anthropic 带 `type:"error"` 外壳
+        let msg = quota_exhausted_message(lang, q);
+        let body = match aidog_db::models::Protocol::from_db_str(&log.source_protocol) {
+            aidog_db::models::Protocol::Anthropic => serde_json::json!({
+                "type": "error",
+                "error": { "type": "quota_exhausted", "message": msg }
+            })
+            .to_string(),
+            _ => serde_json::json!({
+                "error": { "type": "quota_exhausted", "message": msg }
+            })
+            .to_string(),
+        };
         log.response_body = body.clone();
         log.user_response_body = body.clone();
         log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
