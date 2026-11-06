@@ -10,7 +10,8 @@ use super::model_mapping::{
 };
 use super::ordering::{
     HealthOrderKey, apply_coding_plan_priority, apply_sticky, coding_remaining_ratio,
-    expiry_sort_key, is_coding_plan, order_health_aware, order_load_balance,
+    expiry_sort_key, is_coding_plan, next_rotate_offset, order_health_aware, order_load_balance,
+    order_rotate, order_usage,
 };
 use super::{RouteResult, candidate_state, sole_platform};
 use crate::client_vocab::{
@@ -525,6 +526,24 @@ async fn select_candidates_inner(
         HashMap::new()
     };
 
+    // ── Usage 排序键快照（票 magpie 05）：近 24h 每平台成功请求数，stats_agg_hourly
+    //    主库读池一次现查（窗口注释见 platform_success_counts_24h；仅 Usage 计算）。
+    //    读失败退化为空表（全部按 0 → 权重 / expiry tiebreak 序），可用性优先不阻断路由。
+    let usage_counts = if effective_mode == RoutingMode::Usage {
+        match aidog_stats::platform_success_counts_24h(db, now_ms).await {
+            Ok(m) => Some(m),
+            Err(e) => {
+                tracing::warn!(
+                    error = %e,
+                    "usage routing: success counts query failed, falling back to weight order"
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     // ── 直通模型链（直接模型转发）：有效模型名（映射命中取 target_model，否则请求原名）
     // 被组内任一平台 extra.direct_models 声明 → 只在声明它的平台里走全维度过滤 + 现有排序
     // failover。此链映射只翻译不锁平台（跳过提首与静默回落），转发模型名 = 原名（不进槽位匹配）。
@@ -562,6 +581,7 @@ async fn select_candidates_inner(
             &decision_models,
             client,
             Some(&health_keys),
+            usage_counts.as_ref(),
         );
     }
 
@@ -647,9 +667,11 @@ async fn select_candidates_inner(
         &mut active,
         &mut probe,
         effective_mode,
+        group.id,
         ctx,
         now_ms,
         Some(&health_keys),
+        usage_counts.as_ref(),
     );
 
     // ── 阶段 4: 合并 + 映射提升 ──
@@ -1232,6 +1254,7 @@ fn select_direct_candidates(
     decision_models: &DecisionModels,
     client: ClientGate,
     health_keys: Option<&HashMap<u64, HealthOrderKey>>,
+    usage_counts: Option<&HashMap<u64, i64>>,
 ) -> Result<CandidateSet, RouteFail> {
     let in_direct = |gp: &GroupPlatformDetail| direct_ids.contains(&gp.platform.id);
     let FilteredCandidates {
@@ -1271,8 +1294,16 @@ fn select_direct_candidates(
         .map(|(gp, _)| *gp)
         .collect();
 
-    let (sticky_id, demoted_ids) =
-        sort_by_routing_mode(&mut active, &mut probe, mode, ctx, now_ms, health_keys);
+    let (sticky_id, demoted_ids) = sort_by_routing_mode(
+        &mut active,
+        &mut probe,
+        mode,
+        group.id,
+        ctx,
+        now_ms,
+        health_keys,
+        usage_counts,
+    );
     let probe_ids: HashSet<u64> = probe.iter().map(|gp| gp.platform.id).collect();
     let ordered: Vec<&GroupPlatformDetail> = active.into_iter().chain(probe).collect();
     // 未声明该直通模型的平台被丢弃：作为带原因的排除项出现（路由画布 01）
@@ -1607,20 +1638,22 @@ fn filter_candidates<'a>(
 
 // ── Helper: 按路由模式排序 ──
 
-/// 按路由模式对 active/probe 桶排序（Failover/LoadBalance/Sticky）。
+/// 按路由模式对 active/probe 桶排序（Failover/LoadBalance/Sticky/Rotate/Usage）。
 /// 返回 (sticky 提首的平台 id, 失败降权沉底的平台 id 集)（票 01 位置标签采集）。
+#[allow(clippy::too_many_arguments)]
 fn sort_by_routing_mode(
     active: &mut Vec<&GroupPlatformDetail>,
     probe: &mut Vec<&GroupPlatformDetail>,
     mode: RoutingMode,
+    group_id: u64,
     ctx: Option<&ScheduleCtx<'_>>,
     now_ms: i64,
     health_keys: Option<&HashMap<u64, HealthOrderKey>>,
+    usage_counts: Option<&HashMap<u64, i64>>,
 ) -> (Option<u64>, Vec<u64>) {
-    // 票 magpie 04 数据面占位：rotate/usage（票 05）、pace/smart（票 06）的真实排序落地前
-    // 回落最近似既有排序，不新增路由行为。占位解除条件 = 票 05/06 合入时删除本映射。
+    // pace/smart（票 magpie 06）真实排序落地前回落 HealthAware，不新增路由行为。
+    // 占位解除条件 = 票 06 合入时删除本映射。
     let effective = match mode {
-        RoutingMode::Rotate | RoutingMode::Usage => RoutingMode::Failover,
         RoutingMode::Pace | RoutingMode::Smart => RoutingMode::HealthAware,
         m => m,
     };
@@ -1665,8 +1698,23 @@ fn sort_by_routing_mode(
             apply_coding_plan_priority(probe);
             apply_sticky(active, ctx, now_ms)
         }
-        // 1622 的占位映射后不可达；编译器无法窄化，显式收口。
-        _ => unreachable!("placeholder mapping in sort_by_routing_mode covers all variants"),
+        // rotate / usage（票 magpie 05）：同一次请求 active / probe 两桶共用一个轮换偏移 /
+        // 同一张计数表；均不改 coding plan 上浮与降权沉底（轮换 / 计数只定档内 / 计数次序）。
+        RoutingMode::Rotate => {
+            let offset = next_rotate_offset(group_id);
+            order_rotate(active, offset);
+            order_rotate(probe, offset);
+            None
+        }
+        RoutingMode::Usage => {
+            let empty = HashMap::new();
+            let counts = usage_counts.unwrap_or(&empty);
+            order_usage(active, counts);
+            order_usage(probe, counts);
+            None
+        }
+        // 上方 Pace/Smart 占位映射后不可达；编译器无法窄化，显式收口。
+        _ => unreachable!("pace/smart placeholder mapping in sort_by_routing_mode covers all variants"),
     };
 
     // ── 失败降权沉底（health-aware，2026-09-29）：降权窗口内的平台整体沉到 active 桶

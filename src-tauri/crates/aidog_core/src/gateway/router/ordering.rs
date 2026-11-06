@@ -1,6 +1,8 @@
-//! 候选排序策略：负载均衡（加权随机）/ 粘性绑定。
+//! 候选排序策略：负载均衡（加权随机）/ 粘性绑定 / 轮换 / 用量（票 magpie 05）。
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
+use std::sync::{Mutex, OnceLock};
 
 use super::super::models::*;
 use super::candidates::ScheduleCtx;
@@ -205,6 +207,66 @@ pub(crate) fn order_health_aware(
             }
         }
     }
+}
+
+/// rotate 模式请求级轮换计数器：per-group AtomicU64（票 magpie 05）。
+/// 进程内计数、**重启归零**（轮换起点复位属可接受边界，票面已记录）；轮换只决定
+/// 「可用候选内」的次序，不参与熔断 / 冷却 / 状态过滤。
+static ROTATE_COUNTERS: OnceLock<Mutex<HashMap<u64, AtomicU64>>> = OnceLock::new();
+
+/// 取该分组下一个轮换偏移（每次请求自增 1）。
+pub(crate) fn next_rotate_offset(group_id: u64) -> u64 {
+    let counters = ROTATE_COUNTERS.get_or_init(Default::default);
+    let mut m = counters.lock().unwrap_or_else(|e| e.into_inner());
+    m.entry(group_id)
+        .or_default()
+        .fetch_add(1, AtomicOrdering::Relaxed)
+}
+
+/// Rotate 排序（spec D3「严格轮换，同档请求级轮换」）：档键 = (level_priority 降序,
+/// priority 升序)，档间顺序保持优先级语义；每档内按 `offset % 档长` 严格轮换
+/// （不吃权重 / expires_at / coding plan 等其它键）。
+pub(crate) fn order_rotate(platforms: &mut [&GroupPlatformDetail], offset: u64) {
+    if platforms.len() <= 1 {
+        return;
+    }
+    platforms.sort_by_key(|gp| (std::cmp::Reverse(gp.level_priority), gp.priority));
+    let n = platforms.len();
+    let mut start = 0usize;
+    while start < n {
+        let tier = (platforms[start].level_priority, platforms[start].priority);
+        let mut end = start + 1;
+        while end < n
+            && (platforms[end].level_priority, platforms[end].priority) == tier
+        {
+            end += 1;
+        }
+        let k = (offset % (end - start) as u64) as usize;
+        platforms[start..end].rotate_left(k);
+        start = end;
+    }
+}
+
+/// Usage 排序（spec D3「统计窗口内成功请求量最少优先」）：counts = 近 24h 每平台
+/// 成功请求数（`platform_success_counts_24h`），缺失 / 查询失败按 0（从未用过先用）。
+/// tiebreak：有效权重降序 → expires_at 升序（快过期先用）。输入已是状态过滤后的
+/// 可用候选集，不改摘除逻辑；无 level_priority 分档（按量口径，计数即序）。
+pub(crate) fn order_usage(platforms: &mut [&GroupPlatformDetail], counts: &HashMap<u64, i64>) {
+    if platforms.len() <= 1 {
+        return;
+    }
+    platforms.sort_by(|a, b| {
+        let ca = counts.get(&a.platform.id).copied().unwrap_or(0);
+        let cb = counts.get(&b.platform.id).copied().unwrap_or(0);
+        ca.cmp(&cb)
+            .then_with(|| {
+                std::cmp::Reverse(effective_weight(a))
+                    .cmp(&std::cmp::Reverse(effective_weight(b)))
+            })
+            .then_with(|| {
+                expiry_sort_key(a.platform.expires_at).cmp(&expiry_sort_key(b.platform.expires_at))
+            })
+    });
 }
 
 #[cfg(test)]
