@@ -9,9 +9,10 @@ use super::model_mapping::{
     resolve_decision_model, request_tier_families, resolve_model_chain_with_custom,
 };
 use super::ordering::{
-    HealthOrderKey, apply_coding_plan_priority, apply_sticky, coding_remaining_ratio,
-    expiry_sort_key, is_coding_plan, next_rotate_offset, order_health_aware, order_load_balance,
-    order_rotate, order_usage,
+    HealthOrderKey, PaceSmartKey, apply_coding_plan_priority, apply_sticky,
+    coding_remaining_ratio, compute_pace_smart_keys, expiry_sort_key, is_coding_plan,
+    next_rotate_offset, order_health_aware, order_load_balance, order_pace, order_rotate,
+    order_smart, order_usage, pace_falls_back_to_usage, smart_falls_back_to_health_aware,
 };
 use super::{RouteResult, candidate_state, sole_platform};
 use crate::client_vocab::{
@@ -519,17 +520,21 @@ async fn select_candidates_inner(
         .collect();
 
     // ── HealthAware 排序键快照：coding plan 最紧余额 / 按量静态单价（排序前一次性算好，
-    //    热路径比较闭包内零查库；仅 HealthAware 计算，其余模式空表零开销）──
-    let health_keys = if effective_mode == RoutingMode::HealthAware {
+    //    热路径比较闭包内零查库；HealthAware 与 Smart 回落路径计算，其余模式空表零开销）──
+    let health_keys = if matches!(
+        effective_mode,
+        RoutingMode::HealthAware | RoutingMode::Smart
+    ) {
         compute_health_order_keys(db, &group_platforms, source_model, &extra_cache, now_ms).await
     } else {
         HashMap::new()
     };
 
     // ── Usage 排序键快照（票 magpie 05）：近 24h 每平台成功请求数，stats_agg_hourly
-    //    主库读池一次现查（窗口注释见 platform_success_counts_24h；仅 Usage 计算）。
-    //    读失败退化为空表（全部按 0 → 权重 / expiry tiebreak 序），可用性优先不阻断路由。
-    let usage_counts = if effective_mode == RoutingMode::Usage {
+    //    主库读池一次现查（窗口注释见 platform_success_counts_24h；Usage 与 Pace 回落
+    //    路径计算）。读失败退化为空表（全部按 0 → 权重 / expiry tiebreak 序），
+    //    可用性优先不阻断路由。
+    let usage_counts = if matches!(effective_mode, RoutingMode::Usage | RoutingMode::Pace) {
         match aidog_stats::platform_success_counts_24h(db, now_ms).await {
             Ok(m) => Some(m),
             Err(e) => {
@@ -542,6 +547,14 @@ async fn select_candidates_inner(
         }
     } else {
         None
+    };
+
+    // ── Pace/Smart 排序键快照（票 magpie 06）：est_coding_plan 纯解析（零查库），
+    //    剩余额度 = 各 tier 剩余比例最小值，重置时间 = window_start + cycle 最小值。
+    let pace_smart_keys = if matches!(effective_mode, RoutingMode::Pace | RoutingMode::Smart) {
+        compute_pace_smart_keys(&group_platforms, now_ms)
+    } else {
+        HashMap::new()
     };
 
     // ── 直通模型链（直接模型转发）：有效模型名（映射命中取 target_model，否则请求原名）
@@ -582,6 +595,7 @@ async fn select_candidates_inner(
             client,
             Some(&health_keys),
             usage_counts.as_ref(),
+            Some(&pace_smart_keys),
         );
     }
 
@@ -672,6 +686,7 @@ async fn select_candidates_inner(
         now_ms,
         Some(&health_keys),
         usage_counts.as_ref(),
+        Some(&pace_smart_keys),
     );
 
     // ── 阶段 4: 合并 + 映射提升 ──
@@ -1255,6 +1270,7 @@ fn select_direct_candidates(
     client: ClientGate,
     health_keys: Option<&HashMap<u64, HealthOrderKey>>,
     usage_counts: Option<&HashMap<u64, i64>>,
+    pace_smart_keys: Option<&HashMap<u64, PaceSmartKey>>,
 ) -> Result<CandidateSet, RouteFail> {
     let in_direct = |gp: &GroupPlatformDetail| direct_ids.contains(&gp.platform.id);
     let FilteredCandidates {
@@ -1303,6 +1319,7 @@ fn select_direct_candidates(
         now_ms,
         health_keys,
         usage_counts,
+        pace_smart_keys,
     );
     let probe_ids: HashSet<u64> = probe.iter().map(|gp| gp.platform.id).collect();
     let ordered: Vec<&GroupPlatformDetail> = active.into_iter().chain(probe).collect();
@@ -1650,14 +1667,9 @@ fn sort_by_routing_mode(
     now_ms: i64,
     health_keys: Option<&HashMap<u64, HealthOrderKey>>,
     usage_counts: Option<&HashMap<u64, i64>>,
+    pace_smart_keys: Option<&HashMap<u64, PaceSmartKey>>,
 ) -> (Option<u64>, Vec<u64>) {
-    // pace/smart（票 magpie 06）真实排序落地前回落 HealthAware，不新增路由行为。
-    // 占位解除条件 = 票 06 合入时删除本映射。
-    let effective = match mode {
-        RoutingMode::Pace | RoutingMode::Smart => RoutingMode::HealthAware,
-        m => m,
-    };
-    let sticky_id = match effective {
+    let sticky_id = match mode {
         RoutingMode::Failover => {
             active.sort_by_key(|gp| {
                 (
@@ -1713,8 +1725,37 @@ fn sort_by_routing_mode(
             order_usage(probe, counts);
             None
         }
-        // 上方 Pace/Smart 占位映射后不可达；编译器无法窄化，显式收口。
-        _ => unreachable!("pace/smart placeholder mapping in sort_by_routing_mode covers all variants"),
+        // pace / smart（票 magpie 06）：整体数据不可得时显式回落（spec D3）——
+        // pace → usage（无任何候选有剩余额度数据）、smart → health_aware（无任何候选有
+        // 重置时间数据）；部分可得时不可得维度排末位（见 order_pace / order_smart）。
+        RoutingMode::Pace => {
+            let empty_p = HashMap::new();
+            let empty_u = HashMap::new();
+            let keys = pace_smart_keys.unwrap_or(&empty_p);
+            let counts = usage_counts.unwrap_or(&empty_u);
+            if pace_falls_back_to_usage(keys, active) {
+                order_usage(active, counts);
+                order_usage(probe, counts);
+            } else {
+                order_pace(active, keys);
+                order_pace(probe, keys);
+            }
+            None
+        }
+        RoutingMode::Smart => {
+            let empty_p = HashMap::new();
+            let keys = pace_smart_keys.unwrap_or(&empty_p);
+            if smart_falls_back_to_health_aware(keys, active) {
+                let empty_h = HashMap::new();
+                let hkeys = health_keys.unwrap_or(&empty_h);
+                order_health_aware(active, now_ms, hkeys);
+                order_health_aware(probe, now_ms, hkeys);
+            } else {
+                order_smart(active, keys);
+                order_smart(probe, keys);
+            }
+            None
+        }
     };
 
     // ── 失败降权沉底（health-aware，2026-09-29）：降权窗口内的平台整体沉到 active 桶
