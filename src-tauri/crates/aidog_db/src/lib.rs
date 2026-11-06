@@ -1211,3 +1211,5 @@ mod test_trace;
 mod test_ui_extra;
 #[cfg(test)]
 mod test_custom_slots;
+#[cfg(test)]
+mod test_session_key;

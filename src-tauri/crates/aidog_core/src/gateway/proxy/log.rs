@@ -837,6 +837,8 @@ async fn process_connect_log(
         raw_written_mask: 0,
         // CONNECT 隧道不携带 body 列内容，无降级一说（O6）。
         body_omitted: 0,
+        // CONNECT 隧道无会话归组（无 JSON body 可派生）。
+        session_key: String::new(),
     };
     if let Err(e) = aidog_logs::insert_proxy_log_columns(&state.db, cols).await {
         tracing::warn!(error = %e, "connect log insert failed (non-fatal)");
@@ -866,6 +868,55 @@ async fn process_connect_log(
     emit_log_events(state, platform_id);
 }
 
+/// 入站请求派生会话归组键（magpie 票 08 / spec D4）。规则：
+/// ① anthropic `metadata.user_id` 内 `session_<uuid>`（Claude Code 形如
+///    `user_<x>_account__session_<uuid>`）→ 取 session UUID；
+/// ② openai 系启发式：body `session_id` / body `metadata.session_id`；
+/// ③ header `x-session-id`。
+/// 取不到 = 空串（不参与聚合）。字符串值统一截 256 字符上限，防畸形超长值撑大行。
+pub fn derive_session_key(
+    req_body: Option<&serde_json::Value>,
+    headers: &axum::http::HeaderMap,
+) -> String {
+    const MAX_CHARS: usize = aidog_db::models::USER_AGENT_MAX_CHARS;
+    let cap = |s: &str| s.chars().take(MAX_CHARS).collect::<String>();
+    if let Some(body) = req_body {
+        // ① anthropic：metadata.user_id 里的 session UUID（取 `session_` 后连续 uuid 字符，
+        //    遇非 hex/连字符字符即止——兼容 uuid 后还有后缀的形态）
+        if let Some(uid) = body.pointer("/metadata/user_id").and_then(|v| v.as_str())
+            && let Some(pos) = uid.rfind("session_")
+        {
+            let tail = &uid[pos + "session_".len()..];
+            let uuid: String = tail
+                .chars()
+                .take_while(|c| c.is_ascii_hexdigit() || *c == '-')
+                .collect();
+            if !uuid.is_empty() {
+                return uuid;
+            }
+        }
+        // ② openai 系启发式：body session_id / metadata.session_id（非字符串 / 空串跳过）
+        for ptr in ["/session_id", "/metadata/session_id"] {
+            if let Some(s) = body.pointer(ptr).and_then(|v| v.as_str())
+                && !s.is_empty()
+            {
+                return cap(s);
+            }
+        }
+    }
+    // ③ header x-session-id
+    headers
+        .get("x-session-id")
+        .and_then(|v| v.to_str().ok())
+        .filter(|s| !s.is_empty())
+        .map(cap)
+        .unwrap_or_default()
+}
+
 #[cfg(test)]
 #[path = "test_log.rs"]
 mod test_log;
+
+#[cfg(test)]
+#[path = "test_session_key.rs"]
+mod test_session_key;

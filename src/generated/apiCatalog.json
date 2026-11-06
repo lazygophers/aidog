@@ -2549,6 +2549,20 @@
       "returns": "()"
     },
     {
+      "name": "session_stats",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "days",
+          "type": "Option<u32>"
+        }
+      ],
+      "returns": "Vec<gateway::models::SessionStats>"
+    },
+    {
       "name": "set_auto_update_enabled",
       "category": "system",
       "kind": "mutating",

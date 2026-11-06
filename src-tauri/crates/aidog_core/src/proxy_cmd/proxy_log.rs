@@ -327,3 +327,14 @@ pub async fn group_latest_routing(
     aidog_stats::latest_routing_snapshot(db, &group_key).await
 }
 }
+
+crate::tauri_command! {
+/// 会话归组聚合（magpie 票 08）：近 `days` 天（缺省 7，clamp 1..=90）按
+/// proxy_log.session_key 聚合请求数 / token / est_cost；标题 = 会话首条有
+/// request_body 的请求前 60 字符；空 session_key 不参与聚合。
+pub async fn session_stats(
+    days: Option<u32>) -> Result<Vec<gateway::models::SessionStats>, String> {
+    let db = aidog_ctx::db();
+    aidog_stats::get_session_stats(db, days).await
+}
+}

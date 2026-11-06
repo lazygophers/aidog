@@ -121,10 +121,48 @@ pub struct ProxyLog {
     /// 单行存储，不进 stats_agg_hourly（聚合维度仍只用 `client` 代码，防基数失控）。
     #[serde(default)]
     pub user_agent: String,
+    /// 会话归组键（magpie 票 08，migration 20261107-01）：入站请求派生（`gateway::proxy::derive_session_key`）
+    /// ——anthropic `metadata.user_id` 的 session UUID / openai 系 `session_id` / header `x-session-id`；
+    /// 取不到 = 空串（不参与聚合）。元数据：不受 log_user_request / log_upstream_request 开关控制。
+    /// 存量行 '' = 未归组（D4a 不回填）。
+    #[serde(default)]
+    pub session_key: String,
 }
 
 /// `ProxyLog.user_agent` 字符上限（防畸形超长 UA 撑大行）。
 pub const USER_AGENT_MAX_CHARS: usize = 256;
+
+/// 会话统计聚合行（magpie 票 08）：`get_session_stats` 按 `proxy_log.session_key`
+/// 聚合近 N 天的请求级数据。空 session_key 不产生行。
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct SessionStats {
+    /// 会话归组键（派生规则见 `ProxyLog.session_key`）
+    pub session_key: String,
+    /// 标题 = 该会话首条有 request_body 的请求前 60 字符；log_user_request 关着取不到 → 空串
+    /// （UI 显示「未命名会话」）
+    pub title: String,
+    /// 窗口内请求数
+    #[ts(type = "number")]
+    pub requests: i64,
+    #[ts(type = "number")]
+    pub input_tokens: i64,
+    #[ts(type = "number")]
+    pub output_tokens: i64,
+    #[ts(type = "number")]
+    pub cache_tokens: i64,
+    /// 窗口内预估花费合计（$）
+    pub est_cost: f64,
+    /// 窗口内首条请求 created_at（毫秒 epoch）
+    #[ts(type = "number")]
+    pub first_created_at: i64,
+    /// 窗口内末条请求 created_at（毫秒 epoch）
+    #[ts(type = "number")]
+    pub last_created_at: i64,
+}
+
+/// 会话标题截断长度（magpie 票 08 / spec D4）
+pub const SESSION_TITLE_MAX_CHARS: usize = 60;
 
 impl ProxyLog {
     /// 带外请求日志（不经代理转发路径的出站记录：Quota Script 查询 / 拉模型列表 / 模型测试）

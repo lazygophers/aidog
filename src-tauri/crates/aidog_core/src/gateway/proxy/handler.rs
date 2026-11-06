@@ -217,6 +217,9 @@ pub(crate) async fn handle_proxy_core(
         })
         .unwrap_or_else(|| (String::new(), None));
     log.model = raw_model.clone();
+    // 会话归组键（票 08）：与 log_user_request 开关无关——session_key 是元数据（如 model），
+    // 从单次解析的 JSON + 原始 headers 派生。
+    log.session_key = super::log::derive_session_key(req_value_opt.as_ref(), &orig_headers);
 
     // Upsert #1: request received
     upsert_log(&state, &log, &log_settings).await;

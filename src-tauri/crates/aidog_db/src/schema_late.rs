@@ -729,6 +729,21 @@ pub fn run_migrations_proxy_log_late(
         "ALTER TABLE proxy_log ADD COLUMN user_agent TEXT NOT NULL DEFAULT ''",
         [],
     );
+    // Migration 20261107-01 (magpie 票 08 会话归组): proxy_log 加 session_key 列——入站请求
+    // 派生的会话归组键（anthropic metadata.user_id 的 session UUID / openai 系 session_id /
+    // header x-session-id，派生在 aidog_core gateway::proxy::derive_session_key）。元数据：
+    // 不受 log_user_request / log_upstream_request 开关控制。存量行 '' = 未归组（spec D4a
+    // 不回填，空键不参与聚合），语义正确，无需回填。附 (session_key, created_at) 读侧窄索引
+    // 供会话聚合查询（同 20261001-01 idiom）。
+    let _ = conn.execute(
+        "ALTER TABLE proxy_log ADD COLUMN session_key TEXT NOT NULL DEFAULT ''",
+        [],
+    );
+    let _ = conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_proxy_log_session_created \
+         ON proxy_log(session_key, created_at) WHERE deleted_at = 0",
+        [],
+    );
     Ok(())
 }
 
