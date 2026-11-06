@@ -1,19 +1,21 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1793985010,
   "supported_protocols": [
     "gemini"
   ],
-  "model_id": "gemini-omni-flash-preview",
-  "canonical_model": "gemini-omni-flash-preview",
+  "model_id": "gemini-omni-1.2-flash",
+  "canonical_model": "gemini-omni-1.2-flash",
   "family": "gemini",
-  "display_name": "Gemini Omni Flash (preview)",
+  "version": "1.2",
+  "display_name": "Gemini Omni Flash 1.2",
   "capabilities": [
     "text",
     "audio",
     "video"
   ],
-  "max_output_tokens": 65535,
-  "context_window": 65536,
+  "max_input_tokens": 131072,
+  "max_output_tokens": 65536,
+  "context_window": 131072,
   "official": true,
   "thinking_supported": true,
   "thinking_toggleable": true,
