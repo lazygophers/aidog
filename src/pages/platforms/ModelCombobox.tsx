@@ -26,7 +26,7 @@ export function useModelCandidates(availableModels: string[], protocol: Protocol
 }
 
 export function ModelCombobox({
-  value, onChange, onSelect, source, exclude, protocol, open: openProp, onOpenChange,
+  value, onChange, onSelect, source, exclude, selected, protocol, open: openProp, onOpenChange,
   placeholder, inputProps, inputStyle, t,
 }: {
   value: string;
@@ -35,6 +35,8 @@ export function ModelCombobox({
   source: string[];
   /** 已选模型（同一列表）：从候选中去掉，精确比较。 */
   exclude?: string[];
+  /** 多选模式：已选项留在候选里打勾（data-state=checked），点选不关下拉，由 onSelect 自行切换。 */
+  selected?: string[];
   protocol: Protocol;
   /** 受控开合（矩阵整表单开）；缺省走内部 state。 */
   open?: boolean;
@@ -111,6 +113,7 @@ export function ModelCombobox({
             key={m}
             variant="ghost"
             data-testid={`model-option-${m}`}
+            {...(selected && { "data-state": selected.includes(m) ? "checked" : "unchecked", "aria-selected": selected.includes(m) })}
             style={{
               width: "100%",
               justifyContent: "flex-start",
@@ -125,9 +128,12 @@ export function ModelCombobox({
             onMouseDown={(e) => {
               e.preventDefault();
               onSelect(m);
-              setActive(false);
+              if (!selected) setActive(false);
             }}
           >
+            {selected && (
+              <span aria-hidden style={{ width: 12, color: "var(--primary)" }}>{selected.includes(m) ? "✓" : ""}</span>
+            )}
             <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", textAlign: "left" }}>{m}</span>
             <ModelPriceTag info={priceMap.get(m)} />
           </Button>

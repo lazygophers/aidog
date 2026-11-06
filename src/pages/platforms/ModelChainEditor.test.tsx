@@ -59,12 +59,25 @@ describe("ModelChainEditor", () => {
     expect(m.onChange).toHaveBeenCalledWith([]);
   });
 
-  it("下拉排除已选，点选候选追加到链尾", () => {
+  const opt = (id: string) => document.body.querySelector(`[data-testid="model-option-${id}"]`) as HTMLElement;
+
+  it("下拉保留已选并打勾，点未选候选追加到链尾且下拉不关", () => {
     const { onChange, q } = mount(["a", "c"]);
     fireEvent.focus(q("chain-input-default")!);
-    expect(optionIds()).toEqual(["model-option-b", "model-option-d"]);
-    fireEvent.mouseDown(document.body.querySelector('[data-testid="model-option-d"]')!);
+    expect(optionIds()).toEqual(["a", "b", "c", "d"].map((i) => `model-option-${i}`));
+    expect(opt("a").getAttribute("data-state")).toBe("checked");
+    expect(opt("b").getAttribute("data-state")).toBe("unchecked");
+    fireEvent.mouseDown(opt("d"));
     expect(onChange).toHaveBeenCalledWith(["a", "c", "d"]);
+    expect(optionIds()).toHaveLength(4);
+  });
+
+  it("点已勾选项从链中移除，下拉不关", () => {
+    const { onChange, q } = mount(["a", "c"]);
+    fireEvent.focus(q("chain-input-default")!);
+    fireEvent.mouseDown(opt("a"));
+    expect(onChange).toHaveBeenCalledWith(["c"]);
+    expect(optionIds()).toHaveLength(4);
   });
 
   it("回车添加手输模型：trim；空白 / 重复不追加", () => {
