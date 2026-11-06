@@ -46,6 +46,7 @@ for _ in $(seq 1 10); do
     completed/success) STATUS=0; break ;;
     completed/*)       STATUS=1; break ;;
   esac
+  sleep 30  # watch 因 API 瞬时 EOF 秒退时别空转烧完 10 轮（2026-11-06 v0.1.20 提前误报）
 done
 
 if [ "$STATUS" -ne 0 ]; then
