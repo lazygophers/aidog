@@ -360,5 +360,7 @@ pub fn run() {
             if let tauri::RunEvent::Reopen { .. } = event {
                 crate::ui_window::on_reopen(app);
             }
+            #[cfg(not(target_os = "macos"))]
+            let _ = app;
         });
 }
