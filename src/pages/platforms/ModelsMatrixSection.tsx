@@ -20,6 +20,7 @@ import type { CustomSlotDef } from "../../services/api/customSlots";
 import { FormSection } from "./formSections";
 import { WindowsEditModal } from "./WindowsEditModal";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -92,6 +93,7 @@ export function ModelsMatrixSection({
   tzMode, setTzMode,
   // 自定义槽位（全局定义 + 本平台值）：仅默认列视图渲染；缺省无自定义行
   customSlotDefs = [], customSlotValues = {}, onCustomSlotChange,
+  softDisabledSlots = [], onSoftDisabledChange,
   t,
 }: {
   columns?: "default" | "time";
@@ -118,6 +120,9 @@ export function ModelsMatrixSection({
   customSlotDefs?: CustomSlotDef[];
   customSlotValues?: Record<string, string[]>;
   onCustomSlotChange?: (name: string, chain: string[]) => void;
+  /** 备用槽位名（内置 + 自定义）；命中该槽位的平台沉到候选末尾。 */
+  softDisabledSlots?: string[];
+  onSoftDisabledChange?: (slot: string, on: boolean) => void;
   t: TFunction;
 }) {
   // 矩阵内部 UI 临时态
@@ -218,6 +223,21 @@ export function ModelsMatrixSection({
         {t("platform.modelCount", "{{n}} 个模型", { n: count })}
       </span>
     </div>
+  );
+
+  // 备用开关：命中该槽位时平台沉到候选末尾（仅其它候选都不可用时才用）。
+  const softToggle = (slot: string) => (
+    <label
+      title={t("platform.softSlotHint")}
+      style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, fontSize: 12, color: "var(--text-tertiary)", cursor: "pointer" }}
+    >
+      <Switch
+        data-testid={`soft-toggle-${slot}`}
+        checked={softDisabledSlots.includes(slot)}
+        onCheckedChange={(on) => onSoftDisabledChange?.(slot, on)}
+      />
+      {t("platform.softSlot")}
+    </label>
   );
 
   // 专用槽徽标（embedding / rerank，读 platform.models 不进时段规则）。
@@ -435,6 +455,7 @@ export function ModelsMatrixSection({
                   </div>
                 )}
               </div>
+              {softToggle(key)}
             </div>
           ))}
 
@@ -451,6 +472,7 @@ export function ModelsMatrixSection({
               <div style={{ flex: 1, minWidth: 80 }}>
                 {renderCell(`c:${name}`, customSlotValues[name] ?? [], (v) => onCustomSlotChange?.(name, v))}
               </div>
+              {softToggle(name)}
             </div>
           ))}
 

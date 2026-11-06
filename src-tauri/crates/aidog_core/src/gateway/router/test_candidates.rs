@@ -4003,3 +4003,146 @@ async fn custom_slot_setting_flows_into_candidate_selection() {
         .expect("route");
     assert_eq!(set.candidates[0].target_model, "d");
 }
+
+// ── 备用槽位（extra.soft_disabled_slots）：命中槽位被标备用 → 平台沉底、不占 max_retries ──
+
+async fn set_models_extra(db: &db::Db, id: u64, models: PlatformModels, extra: &str) {
+    let mut u = upd_platform(id);
+    u.models = Some(models);
+    u.extra = Some(extra.into());
+    db::update_platform(db, u).await.expect("set models/extra");
+}
+
+fn soft_ids(set: &CandidateSet) -> Vec<(u64, bool)> {
+    set.candidates.iter().map(|c| (c.platform.id, c.soft_disabled)).collect()
+}
+
+#[test]
+fn soft_slots_parsed_into_extra_cache() {
+    let c = ExtraCache::new(
+        r#"{"soft_disabled_slots":["default","fast"]}"#,
+        &Protocol::Anthropic,
+        None,
+    );
+    assert_eq!(c.soft_slots, vec!["default".to_string(), "fast".to_string()]);
+    assert!(ExtraCache::new("", &Protocol::Anthropic, None).soft_slots.is_empty());
+}
+
+/// 命中备用槽位的平台沉到末尾（Failover 原本它排首位），不被排除。
+#[tokio::test]
+async fn soft_disabled_slot_sinks_platform_to_last() {
+    let (db, _dir) = db::test_support::three_file_db().await;
+    let p1 = mk_db_platform(&db, "soft").await;
+    let p2 = mk_db_platform(&db, "n2").await;
+    let p3 = mk_db_platform(&db, "n3").await;
+    set_models_extra(&db, p1.id, slot_default("d1"), r#"{"soft_disabled_slots":["default"]}"#).await;
+    let g = mk_db_group(&db, "g", &[p1.id, p2.id, p3.id]).await;
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    assert_eq!(soft_ids(&set), vec![(p2.id, false), (p3.id, false), (p1.id, true)]);
+}
+
+/// 标记跟随实际命中的槽位：opus 槽位非备用 → 不沉；落到 default（备用）才沉。
+#[tokio::test]
+async fn soft_flag_follows_hit_slot() {
+    let (db, _dir) = db::test_support::three_file_db().await;
+    let p1 = mk_db_platform(&db, "a").await;
+    let p2 = mk_db_platform(&db, "b").await;
+    let pm = PlatformModels {
+        default: chain(&["d"]),
+        opus: chain(&["o"]),
+        ..Default::default()
+    };
+    set_models_extra(&db, p1.id, pm, r#"{"soft_disabled_slots":["default"]}"#).await;
+    let g = mk_db_group(&db, "g", &[p1.id, p2.id]).await;
+    let opus = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    assert_eq!(soft_ids(&opus), vec![(p1.id, false), (p2.id, false)]);
+    let other = select_candidates_ctx(&db, &g, "some-other", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    assert_eq!(soft_ids(&other), vec![(p2.id, false), (p1.id, true)]);
+}
+
+/// 自定义槽位同样可标备用；透传（无槽命中）永不备用。
+#[tokio::test]
+async fn soft_custom_slot_sinks_and_passthrough_never() {
+    let (db, _dir) = db::test_support::three_file_db().await;
+    let p1 = mk_db_platform(&db, "a").await;
+    let p2 = mk_db_platform(&db, "b").await;
+    set_extra(
+        &db,
+        p1.id,
+        r#"{"custom_slots":{"fast":["f1"]},"soft_disabled_slots":["fast","default"]}"#,
+    )
+    .await;
+    db::set_setting(
+        &db,
+        db::models::SetSettingInput {
+            scope: "model".into(),
+            key: "custom_model_slots".into(),
+            value: serde_json::json!([{"name": "fast"}]),
+        },
+    )
+    .await
+    .expect("defs");
+    let g = mk_db_group(&db, "g", &[p1.id, p2.id]).await;
+    let hit = select_candidates_ctx(&db, &g, "claude-fast-1", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    assert_eq!(soft_ids(&hit), vec![(p2.id, false), (p1.id, true)]);
+    // p1 无 default 槽位、请求名不含 fast → 透传，不备用
+    let pass = select_candidates_ctx(&db, &g, "zzz", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    assert_eq!(soft_ids(&pass), vec![(p1.id, false), (p2.id, false)]);
+}
+
+/// 备用胜过显式映射提首：映射目标是备用平台时不提首。
+#[tokio::test]
+async fn soft_disabled_beats_mapping_promotion() {
+    let (db, _dir) = db::test_support::three_file_db().await;
+    let p1 = mk_db_platform(&db, "first").await;
+    let p2 = mk_db_platform(&db, "mapped-soft").await;
+    set_models_extra(&db, p2.id, slot_default("d"), r#"{"soft_disabled_slots":["default"]}"#).await;
+    let g = db::create_group(
+        &db,
+        CreateGroup {
+            name: "g".into(),
+            group_key: Some("g".into()),
+            routing_mode: RoutingMode::Failover,
+            auto_from_platform: String::new(),
+            request_timeout_secs: 0,
+            connect_timeout_secs: 0,
+            source_protocol: Some("anthropic".into()),
+            max_retries: 2,
+            model_mappings: vec![ModelMapping {
+                source_model: "gpt-4o".to_string(),
+                target_model: "gpt-4o-m".to_string(),
+                target_platform_id: p2.id,
+                request_timeout_secs: 0,
+                connect_timeout_secs: 0,
+            }],
+            env_vars: vec![],
+        },
+    )
+    .await
+    .expect("group");
+    let inputs: Vec<GroupPlatformInput> = [p1.id, p2.id]
+        .iter()
+        .enumerate()
+        .map(|(i, &pid)| GroupPlatformInput {
+            platform_id: pid,
+            priority: Some(i as i32),
+            weight: Some(1),
+            level_priority: None,
+        })
+        .collect();
+    db::set_group_platforms(&db, g.id, &inputs).await.expect("set");
+    let set = select_candidates_ctx(&db, &g, "gpt-4o", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    assert_eq!(soft_ids(&set), vec![(p1.id, false), (p2.id, true)]);
+}

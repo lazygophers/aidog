@@ -1579,6 +1579,8 @@
   "platform.modelChain.remove": "Entfernen",
   "platform.modelCount": "{{n}} Modelle",
   "platform.slotDedicated": "dediziert",
+  "platform.softSlot": "Reserve",
+  "platform.softSlotHint": "Wird dieser Slot getroffen, steht die Plattform hinter allen anderen Kandidaten und wird nur genutzt, wenn alle anderen ausfallen oder nicht verfügbar sind",
   "platform.groupAssignAuto": "Standardgruppe erstellen",
   "platform.groupAssignDesc": "Standardgruppe erstellen und gleichzeitig anderen bestehenden Gruppen beitreten; keine Auswahl bedeutet, die Plattform gehört zu keiner Gruppe.",
   "platform.groupAssignJoin": "Bestehenden Gruppen beitreten",
