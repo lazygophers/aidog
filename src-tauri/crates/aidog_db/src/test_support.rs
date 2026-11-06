@@ -202,6 +202,7 @@ pub fn sample_log(id: &str, group_key: &str, created_at: i64) -> ProxyLog {
         routing: None,
         client: String::new(),
         user_agent: String::new(),
+        session_key: String::new(),
         created_at,
         updated_at: created_at,
         deleted_at: 0,
