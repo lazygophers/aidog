@@ -287,8 +287,8 @@ struct ExtraCache {
     rate: RateLimitsCfg,
     /// extra.custom_slots × 全局自定义槽位定义：本平台已填值的槽，按匹配顺序排好（仅聊天请求构建）。
     custom: Vec<CustomSlotEntry>,
-    /// extra.soft_disabled_slots（备用槽位名：内置或自定义）。
-    soft_slots: Vec<String>,
+    /// extra.disabled_slots ∪ 旧键 extra.soft_disabled_slots（关闭的槽位名：内置或自定义）。
+    disabled_slots: Vec<String>,
 }
 
 impl ExtraCache {
@@ -303,12 +303,14 @@ impl ExtraCache {
         let custom = custom_defs
             .map(|defs| build_custom_entries(defs, parsed.rest.get("custom_slots")))
             .unwrap_or_default();
-        let soft_slots = parsed
-            .rest
-            .get("soft_disabled_slots")
-            .and_then(|v| v.as_array())
-            .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_owned)).collect())
-            .unwrap_or_default();
+        let mut disabled_slots: Vec<String> = Vec::new();
+        for key in ["disabled_slots", "soft_disabled_slots"] {
+            for s in parsed.rest.get(key).and_then(|v| v.as_array()).into_iter().flatten().filter_map(|x| x.as_str()) {
+                if !disabled_slots.iter().any(|d| d == s) {
+                    disabled_slots.push(s.to_owned());
+                }
+            }
+        }
         let (direct_models, allowed_clients) = (parsed.direct_models, parsed.allowed_clients);
         Self {
             time_windows,
@@ -319,7 +321,7 @@ impl ExtraCache {
             ua_rules,
             rate: RateLimitsCfg::parse(extra),
             custom,
-            soft_slots,
+            disabled_slots,
         }
     }
 }
@@ -523,11 +525,13 @@ async fn select_candidates_inner(
         unknown_protocol_count,
         client_rejected_count,
         rate_limited_count,
+        slot_disabled_count,
     } = filter_candidates(
         &group_platforms,
         ctx,
         now_ms,
         source_model,
+        Some(mapped_target_model.as_deref().unwrap_or(source_model)),
         &extra_cache,
         kind,
         &decision_models,
@@ -570,18 +574,6 @@ async fn select_candidates_inner(
     // ── 阶段 3: 按路由模式排序 ──
     let (sticky_id, demoted_ids) =
         sort_by_routing_mode(&mut active, &mut probe, effective_mode, ctx, now_ms);
-
-    // ── 备用槽位沉底：命中备用槽位的平台沉到各自桶末尾（不排除），且不被映射提首 ──
-    let model_name = mapped_target_model.as_deref().unwrap_or(source_model);
-    let soft: HashSet<u64> = active
-        .iter()
-        .chain(probe.iter())
-        .filter(|gp| hits_soft_slot(gp, &extra_cache, kind, now_ms, source_model, model_name))
-        .map(|gp| gp.platform.id)
-        .collect();
-    active.sort_by_key(|gp| soft.contains(&gp.platform.id));
-    probe.sort_by_key(|gp| soft.contains(&gp.platform.id));
-    let mapped_platform_id = mapped_platform_id.filter(|id| !soft.contains(id));
 
     // ── 阶段 4: 合并 + 映射提升 ──
     // 显式映射目标平台不在候选集时记录 warn（沿用原逻辑）
@@ -686,6 +678,19 @@ async fn select_candidates_inner(
             );
             return Err(RouteFail {
                 reason: "peak_disabled".to_string(),
+                routing,
+            });
+        }
+        // 命中槽位被关闭而排除（extra.disabled_slots）：全部排除原因仅为 高峰禁用 + 槽位关闭 → 503
+        // + blocked_reason='slot_disabled'（优先级高于 peak：高峰会自行恢复，槽位关闭需要用户改配置）。
+        // 纯高峰禁用已在上方先返回 peak_disabled；与熔断 / 限频 / 禁用等其他原因混合则走下方兜底。
+        if slot_disabled_count > 0 && slot_disabled_count + peak_disabled_count == group_platforms.len() {
+            tracing::info!(
+                group = %group.name, slot_disabled = slot_disabled_count,
+                "all candidates excluded by disabled slots; returning slot_disabled error for audit log"
+            );
+            return Err(RouteFail {
+                reason: "slot_disabled".to_string(),
                 routing,
             });
         }
@@ -890,6 +895,27 @@ async fn handle_single_platform(
         });
     }
 
+    // 命中槽位被关闭：单平台组同样不 bypass（与高峰禁用同位次）；透传 / 无槽命中 / Tools 恒不拦。
+    if let Some(c) = cache
+        && hits_disabled_slot(
+            &only.platform,
+            c,
+            kind,
+            now_ms,
+            source_model,
+            mapped_target_model.as_deref().unwrap_or(source_model),
+        )
+    {
+        tracing::info!(
+            group = %group.name, platform = %only.platform.name,
+            "single-platform group: hit slot disabled, request blocked"
+        );
+        return Err(RouteFail {
+            reason: "slot_disabled".to_string(),
+            routing: single_snapshot(only, group.routing_mode, RouteReason::ModelNotOnPlatform),
+        });
+    }
+
     // 客户端白名单（票 05）：与 filter_candidates 同位次——手动禁用 / 审核硬停 / 高峰禁用等既有硬停
     // 先判，之后、status bypass 与透传豁免之前拦截（独立维度，透传平台同样受约束，ADR 0008 修订）。
     // 单平台无「混合原因」概念：唯一候选被白名单拦 = 全部候选被拦 → 417。
@@ -966,7 +992,6 @@ async fn handle_single_platform(
             target_model,
             fallback_models,
             mapping: mapping.cloned(),
-            soft_disabled: false,
         }],
         routing,
     })
@@ -1142,6 +1167,7 @@ fn select_direct_candidates(
         ctx,
         now_ms,
         direct_model,
+        None, // 直通模型转发原名、不进槽位匹配 → 不做槽位关闭判定
         extra_cache,
         kind,
         decision_models,
@@ -1295,7 +1321,6 @@ fn select_direct_candidates(
             target_model: direct_model.to_string(),
             fallback_models: Vec::new(),
             mapping: mapping.cloned(),
-            soft_disabled: false,
         })
         .collect();
 
@@ -1343,6 +1368,8 @@ struct FilteredCandidates<'a> {
     client_rejected_count: usize,
     /// 因平台限频超限被排除的平台数（阶段 5 全组超限 → rate_limit）。
     rate_limited_count: usize,
+    /// 因命中槽位被关闭（extra.disabled_slots）排除的平台数。
+    slot_disabled_count: usize,
 }
 
 /// 遍历 group_platforms 按 auto_disabled 三态分桶（enabled / 过期试探），
@@ -1354,6 +1381,8 @@ fn filter_candidates<'a>(
     ctx: Option<&ScheduleCtx<'_>>,
     now_ms: i64,
     source_model: &str,
+    // 请求模型名（映射后）；`None` = 不做槽位关闭判定（直通模型链）。
+    slot_model: Option<&str>,
     extra_cache: &ExtraCacheMap,
     kind: RequestKind<'_>,
     decision_models: &DecisionModels,
@@ -1368,6 +1397,7 @@ fn filter_candidates<'a>(
     let mut unknown_protocol_count = 0;
     let mut client_rejected_count = 0;
     let mut rate_limited_count = 0;
+    let mut slot_disabled_count = 0;
 
     let breaker_enabled = ctx.map(|c| c.settings.enabled).unwrap_or(false);
 
@@ -1416,6 +1446,16 @@ fn filter_candidates<'a>(
         // （candidate_state 已按 Passthrough 跳过高峰禁用与 auto_disabled）。
         if matches!(gp.platform.platform_type, Protocol::Passthrough) {
             active.push(gp);
+            continue;
+        }
+
+        // 槽位关闭维度（extra.disabled_slots）：命中槽位被关 → 排除；仅是路由排除，不碰 last_error / 惩罚 / 熔断。
+        if let Some(model_name) = slot_model
+            && let Some(cache) = extra_cache.get(&gp.platform.id)
+            && hits_disabled_slot(&gp.platform, cache, kind, now_ms, source_model, model_name)
+        {
+            slot_disabled_count += 1;
+            excluded.push((gp, RouteReason::ModelNotOnPlatform));
             continue;
         }
 
@@ -1482,6 +1522,7 @@ fn filter_candidates<'a>(
         unknown_protocol_count,
         client_rejected_count,
         rate_limited_count,
+        slot_disabled_count,
     }
 }
 
@@ -1611,33 +1652,24 @@ fn build_route_results(
                 target_model,
                 fallback_models: chain,
                 mapping: mapping.cloned(),
-                soft_disabled: hits_soft_slot(
-                    gp,
-                    extra_cache,
-                    kind,
-                    now_ms,
-                    source_model,
-                    mapped_target_model.as_deref().unwrap_or(source_model),
-                ),
             }
         })
         .collect()
 }
 
-/// 本次请求在该平台命中的槽位是否被标为备用（`extra.soft_disabled_slots`）。
-/// 透传 / 无槽命中 / Tools 恒 false。
-fn hits_soft_slot(
-    gp: &GroupPlatformDetail,
-    extra_cache: &ExtraCacheMap,
+/// 本次请求在该平台命中的槽位是否被关闭（`extra.disabled_slots`）。
+/// 透传 / 无槽命中（空槽按请求名透传）/ Tools 恒 false。
+fn hits_disabled_slot(
+    platform: &Platform,
+    cache: &ExtraCache,
     kind: RequestKind<'_>,
     now_ms: i64,
     source_model: &str,
     model_name: &str,
 ) -> bool {
-    let Some(cache) = extra_cache.get(&gp.platform.id).filter(|c| !c.soft_slots.is_empty()) else {
+    if cache.disabled_slots.is_empty() {
         return false;
-    };
-    let platform = &gp.platform;
+    }
     if matches!(platform.platform_type, Protocol::Passthrough) {
         return false;
     }
@@ -1662,7 +1694,7 @@ fn hits_soft_slot(
         RequestKind::Rerank => slot_filled(&platform.models.rerank).map(|_| "rerank".into()),
         RequestKind::Tools(_) => None,
     };
-    slot.is_some_and(|s| cache.soft_slots.contains(&s))
+    slot.is_some_and(|s| cache.disabled_slots.contains(&s))
 }
 
 /// 快照用完整链：无备选（链长 1）→ 空，使链长 1 的快照与改造前逐字一致。

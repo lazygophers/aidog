@@ -410,6 +410,7 @@ pub(crate) fn truncate_peek_text(text: &str) -> String {
 ///   429（限流/配额，换平台可能成功）、所有 5xx（上游故障）、其余未知非 2xx（保守重试）。
 ///
 /// 连接错误 / 超时不经此函数（在 send() Err 分支已按可重试处理）。
+/// 例外：`Model` 类错误（`classify_upstream_error`）链尽后的非末位候选不受此函数限制，见 `non_success.rs`。
 /// 注意：中间件 error_rule 的 non-retryable 分类是显式覆盖机制，独立于本函数（见调用点）。
 pub(crate) fn is_status_retryable(code: u16) -> bool {
     !matches!(code, 400 | 422)

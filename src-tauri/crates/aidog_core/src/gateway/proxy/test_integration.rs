@@ -5454,9 +5454,10 @@ async fn chain_success_after_model_failures_leaves_no_penalty() {
     assert_eq!(state.scheduler.penalty_consecutive(pid), 0);
 }
 
-/// Unknown 类 4xx 默认换模型；400 invalid model 先换模型，耗尽后仍按「400 不换平台」回包。
+/// Unknown 类 4xx 默认换模型；Model 类 400（invalid model）链尽后：非末位候选换下个平台且不记平台错误
+/// （无 last_error / 降权 / 熔断计数），末位候选仍把上游 400 回给客户端。
 #[tokio::test]
-async fn chain_unknown_4xx_switches_model_and_400_exhausted_keeps_no_failover() {
+async fn chain_unknown_4xx_switches_model_and_model_400_exhausted_fails_over_without_blame() {
     // Unknown：404 无特征 → 换模型成功
     let (up, hits) = spawn_embedding_upstream(vec![(404, E404_WEIRD), (200, ANTHROPIC_OK)]).await;
     let state = make_state(test_db().await).await;
@@ -5464,7 +5465,7 @@ async fn chain_unknown_4xx_switches_model_and_400_exhausted_keeps_no_failover() 
     assert_eq!(chain_send(&state, "gkc4a", CHAIN_REQ).await.status(), StatusCode::OK);
     assert_eq!(hit_models(&hits), ["m-a", "m-b"]);
 
-    // 400 invalid model：两模型都 400 → 回 400，且不换到平台 2
+    // Model 类 400：平台 1 两个模型都 400 → 换到平台 2 成功；平台 1 不背锅
     let (up1, hits1) = spawn_embedding_upstream(vec![(400, E400_INVALID_MODEL), (400, E400_INVALID_MODEL)]).await;
     let (up2, hits2) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
     let state = make_state(test_db().await).await;
@@ -5477,9 +5478,61 @@ async fn chain_unknown_4xx_switches_model_and_400_exhausted_keeps_no_failover() 
         ],
     )
     .await;
-    assert_eq!(chain_send(&state, "gkc4b", CHAIN_REQ).await.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(chain_send(&state, "gkc4b", CHAIN_REQ).await.status(), StatusCode::OK);
     assert_eq!(hit_models(&hits1), ["m-a", "m-b"]);
-    assert!(hits2.lock().unwrap().is_empty(), "400 耗尽后不换平台");
+    assert_eq!(hit_models(&hits2), ["m-c"], "Model 类 400 链尽后换平台");
+    let p1 = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == "gkc4b-p1").unwrap();
+    assert!(p1.last_error.is_empty(), "不写 last_error: {}", p1.last_error);
+    assert!(!state.scheduler.penalty_active(p1.id, aidog_db::now()), "不降权");
+    assert_eq!(state.scheduler.penalty_consecutive(p1.id), 0);
+    let log = last_log_for(&state, "gkc4b").await;
+    assert_eq!(log.attempts.len(), 3, "两次模型 400 + 平台 2 成功各留痕");
+    assert_eq!(log.attempts[1].status_code, 400);
+
+    // 末位候选：Model 类 400 照旧回给客户端
+    let (up3, hits3) = spawn_embedding_upstream(vec![(400, E400_INVALID_MODEL), (400, E400_INVALID_MODEL)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(&state, "gkc4c", &[(&up3, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+    assert_eq!(chain_send(&state, "gkc4c", CHAIN_REQ).await.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(hit_models(&hits3), ["m-a", "m-b"]);
+}
+
+/// 命中槽位被关闭 → 整组无候选：503 + blocked_reason='slot_disabled'，上游零请求，est_cost 0。
+#[tokio::test]
+async fn chat_all_slots_disabled_503_and_audit_log() {
+    let (up, hits) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(
+        &state,
+        "gkslotoff",
+        &[
+            (&up, chain_models(&["m-a"]), Protocol::Anthropic, "p1"),
+            (&up, chain_models(&["m-b"]), Protocol::Anthropic, "p2"),
+        ],
+    )
+    .await;
+    for p in aidog_db::list_platforms(&state.db).await.unwrap() {
+        aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
+            id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
+            extra: Some(r#"{"disabled_slots":["default"]}"#.to_string()),
+            models: None, available_models: None, endpoints: None,
+            enabled: None, status: None, manual_budgets: None,
+            join_group_ids: None, expires_at: None, quota_source: None,
+        })
+        .await
+        .unwrap();
+    }
+    let resp = chain_send(&state, "gkslotoff", CHAIN_REQ).await;
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert!(hits.lock().unwrap().is_empty(), "槽位关闭不应请求上游");
+    let log = last_log_for(&state, "gkslotoff").await;
+    assert_eq!(log.status_code, 503);
+    assert_eq!(log.blocked_by, "router");
+    assert_eq!(log.blocked_reason, "slot_disabled");
+    assert_eq!(log.est_cost, 0.0);
+    for p in aidog_db::list_platforms(&state.db).await.unwrap() {
+        assert!(p.last_error.is_empty());
+    }
 }
 
 /// 5xx 例外：message 命中模型类特征（new-api 503 无可用渠道，中英）→ 换模型不换平台；
