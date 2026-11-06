@@ -62,6 +62,8 @@ matrix 两个 job：`macos-latest`（`--target universal-apple-darwin`，Apple S
 | `Verify version sync` exit 1 | manifest 被手改 / 漏跑 sync | 跑 `node scripts/sync-version.mjs`，commit 后重推 |
 | tauri-action `tag already exists` | 同版本重发 | 走 `gh workflow run release.yml`（cleanup job 删旧 tag+release），**跑完重跑 §4 的 `gh release edit`**（§0-4） |
 | 仅 windows 或仅 macos 挂 | 平台特有编译/签名问题 | `gh run view <id> --log-failed` 看真实报错。修完代码后版本号不用动 —— 但 push 只在 diff 含 `.version`/`release.yml` 时才触发，所以同版本重跑一律走 `gh workflow run release.yml`，同样**跑完重跑 §4** |
+| 仅 ubuntu lint job 红：`dead_code` / `unused variable`（2026-11-06 v0.1.20 两轮：`tray_render.rs` macOS 专用 helper、`startup.rs` 非 macOS 下未用的 `app`） | 本机 macOS 的 clippy 只编 macOS cfg 分支，`#[cfg(target_os)]` 另一侧的死码本机永远看不见 | push 前自查：本次 diff 里新增/改动的 `cfg(target_os = ...)` 与只被 cfg 代码引用的 helper / 参数，helper 加同样的 cfg，参数用 `#[cfg_attr(not(target_os="macos"), allow(unused_variables))]` 或 `let _ = app;`；一次发版前集中改完，每轮失败 CI 约 40 分钟 |
+| ubuntu 上 `aidog_stats` 等测试二进制退出时 SIGABRT（测试全绿后崩，2026-11-06 两轮） | tokio-rusqlite 分离线程在进程退出时仍持连接，与 OpenSSL atexit 清理竞态 | `Db` 已 `impl Drop`（8ce5f0005）先 join 工作线程；新增持 SQLCipher 连接的类型照此做，别靠重跑碰运气 |
 | 签名相关报错 | `TAURI_SIGNING_PRIVATE_KEY(_PASSWORD)` secret 缺失/过期 | 仓库 secrets 修，非代码问题 |
 
 ## 4. 更新 Release 说明
