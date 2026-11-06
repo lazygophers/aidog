@@ -6,7 +6,7 @@ use super::super::scheduling::{Admission, BreakerThresholds, SchedulerState, Sti
 use super::super::time_windows;
 use super::model_mapping::{
     CustomSlotDef, CustomSlotEntry, build_custom_entries, parse_custom_defs,
-    resolve_decision_model, resolve_model_chain_with_custom,
+    resolve_decision_model, request_tier_families, resolve_model_chain_with_custom,
 };
 use super::ordering::{
     apply_coding_plan_priority, apply_sticky, expiry_sort_key, is_coding_plan, order_load_balance,
@@ -1657,8 +1657,9 @@ fn build_route_results(
         .collect()
 }
 
-/// 本次请求在该平台命中的槽位是否被关闭（`extra.disabled_slots`）。
-/// 透传 / 无槽命中（空槽按请求名透传）/ Tools 恒 false。
+/// 本次请求在该平台命中的槽位是否被关闭（`extra.disabled_slots`），或请求名所属档位族
+/// （opus/sonnet/haiku/gpt）的槽位被关闭——后者与该槽是否留空、实际落到哪个槽 / 透传无关。
+/// 平台透传（Passthrough 协议）/ Tools 恒 false；`default` 与自定义槽只看实际命中。
 fn hits_disabled_slot(
     platform: &Platform,
     cache: &ExtraCache,
@@ -1695,6 +1696,8 @@ fn hits_disabled_slot(
         RequestKind::Tools(_) => None,
     };
     slot.is_some_and(|s| cache.disabled_slots.contains(&s))
+        || matches!(kind, RequestKind::Chat)
+            && request_tier_families(model_name).iter().any(|f| cache.disabled_slots.iter().any(|d| d == f))
 }
 
 /// 快照用完整链：无备选（链长 1）→ 空，使链长 1 的快照与改造前逐字一致。

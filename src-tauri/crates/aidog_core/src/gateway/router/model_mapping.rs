@@ -90,6 +90,20 @@ pub(crate) fn match_custom<'a>(
     entries.iter().find(|e| if e.exact { lower == e.name } else { lower.contains(e.name.as_str()) })
 }
 
+/// 内置档位族（槽位名 = 请求名子串）。
+pub(crate) const TIER_FAMILIES: [&str; 4] = ["opus", "sonnet", "haiku", "gpt"];
+
+/// 去掉 Claude Code budget 后缀（如 `[1m]`、`[128k]`）。
+fn base_model_of(source_model: &str) -> &str {
+    source_model.split('[').next().unwrap_or(source_model)
+}
+
+/// 请求名所属档位族（与 `resolve_model_chain_with_custom` 同一子串规则，不看槽位是否已填）。
+pub(crate) fn request_tier_families(source_model: &str) -> Vec<&'static str> {
+    let lower = base_model_of(source_model).to_lowercase();
+    TIER_FAMILIES.into_iter().filter(|f| lower.contains(f)).collect()
+}
+
 /// 返回命中槽位的完整有序模型链（链首 = 目标模型，恒非空）+ 命中来源。
 /// 顺序：自定义槽 → 内置 opus/sonnet/haiku/gpt → default → 透传（无槽位可用 → 透传名单元素链）。
 pub(crate) fn resolve_model_chain_with_custom(
@@ -98,17 +112,16 @@ pub(crate) fn resolve_model_chain_with_custom(
     source_model: &str,
 ) -> (Vec<String>, aidog_db::models::ModelVia) {
     use aidog_db::models::ModelVia;
-    // Strip Claude Code budget suffix like [1m], [128k]
-    let base_model = source_model.split('[').next().unwrap_or(source_model);
+    let base_model = base_model_of(source_model);
     let lower = base_model.to_lowercase();
     if let Some(e) = match_custom(custom, &lower) {
         return (e.chain.clone(), ModelVia::SlotCustom(e.name.clone()));
     }
     let slots: [(&str, &Vec<String>, ModelVia); 4] = [
-        ("opus", &models.opus, ModelVia::SlotOpus),
-        ("sonnet", &models.sonnet, ModelVia::SlotSonnet),
-        ("haiku", &models.haiku, ModelVia::SlotHaiku),
-        ("gpt", &models.gpt, ModelVia::SlotGpt),
+        (TIER_FAMILIES[0], &models.opus, ModelVia::SlotOpus),
+        (TIER_FAMILIES[1], &models.sonnet, ModelVia::SlotSonnet),
+        (TIER_FAMILIES[2], &models.haiku, ModelVia::SlotHaiku),
+        (TIER_FAMILIES[3], &models.gpt, ModelVia::SlotGpt),
     ];
     for (slot_name, slot_value, via) in &slots {
         if lower.contains(slot_name)
