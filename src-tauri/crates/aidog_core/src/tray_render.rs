@@ -210,6 +210,7 @@ pub(crate) fn measure_text_width(text: &str, font_size: f64) -> f64 {
 ///
 /// row = 0 标签行、1 值行。分隔符每边界只画一条（标签行），值行恒空——宽度仍由 tab stop
 /// 保留（测量恒按 row = 0 计），列对齐不变，不再每行各出一条分隔符（对齐设置页预览）。
+#[cfg(any(test, all(target_os = "macos", feature = "menubar")))]
 fn line_gap_text(
     idx: usize,
     lead_gap: Option<&String>,
@@ -1164,10 +1165,12 @@ pub async fn build_tray_menu(
 }
 
 /// 列间最小间距（pt）。两列最宽单元之间的可见间隙恰为此值，约一个空格宽。
+#[cfg(any(test, all(target_os = "macos", feature = "menubar")))]
 pub(crate) const COL_PADDING: f64 = 3.0;
 
 /// 两行模式 tab stop 右边界序列。`gap_widths[i]` = 第 i 列前的分隔符文字宽（i=0 为首段前），
 /// `content_widths[i]` = `col_width` 结果；每列实际占宽 = gap + content，位置累加。
+#[cfg(any(test, all(target_os = "macos", feature = "menubar")))]
 pub(crate) fn tab_stop_locs(content_widths: &[f64], gap_widths: &[f64]) -> Vec<f64> {
     let mut loc = 0.0;
     content_widths
@@ -1181,6 +1184,7 @@ pub(crate) fn tab_stop_locs(content_widths: &[f64], gap_widths: &[f64]) -> Vec<f
 }
 
 /// 列宽 = 两行中较宽者 + COL_PADDING。
+#[cfg(any(test, all(target_os = "macos", feature = "menubar")))]
 pub(crate) fn col_width(w1: f64, w2: f64) -> f64 {
     w1.max(w2) + COL_PADDING
 }
@@ -1188,6 +1192,7 @@ pub(crate) fn col_width(w1: f64, w2: f64) -> f64 {
 /// 列内对齐的填充空格数 (前, 后)。左 tab stop 在列右边界：若「前+文本+后」宽度 ≥ 列宽，
 /// 光标越过该 stop，下一列跳到再下一个 stop，整列错位。故 center 只前补不补尾空格，
 /// right 向下取整，总宽恒 < col_w（col_w 含 5pt padding）。
+#[cfg(any(test, all(target_os = "macos", feature = "menubar")))]
 pub(crate) fn align_pad(
     empty: bool,
     text_w: f64,
