@@ -1555,6 +1555,8 @@
   "platform.modelChain.drag": "拖动排序",
   "platform.modelChain.primary": "主",
   "platform.modelChain.remove": "移除",
+  "platform.modelCount": "{{n}} 个模型",
+  "platform.slotDedicated": "专用",
   "platform.groupAssignAuto": "创建默认分组",
   "platform.groupAssignDesc": "可同时创建默认分组并加入其他已有分组；都不选则该平台不在任何分组。",
   "platform.groupAssignJoin": "加入已有分组",

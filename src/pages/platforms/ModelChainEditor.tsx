@@ -1,5 +1,5 @@
 // ModelChainEditor — 槽位 / 时段共用的有序模型链编辑器：
-// chip 列表（拖拽 + 键盘手柄排序，首个标「主」，✕ 删除）+ 末尾 ModelCombobox 添加（下拉多选：已选打勾，再点取消，点选不关闭）。
+// chip 横排 wrap（拖拽 + 键盘手柄排序，序号徽标 1/2/3，链首紫底 = 主，✕ 悬停删除）+ 行尾 ModelCombobox 添加（下拉多选：已选打勾，再点取消，点选不关闭）。
 // 纯受控：value 为链，所有变更经 onChange 写出归一化后的新链（trim / 去空 / 去重保序）。
 import { useState } from "react";
 import type { TFunction } from "i18next";
@@ -30,20 +30,33 @@ export function ModelChainEditor({
   // 下拉点选 = 切换：已在链中则移除，否则追加链尾
   const toggle = (v: string) => (value.includes(v) ? onChange(value.filter((m) => m !== v)) : add(v));
   return (
-    <div data-testid={`chain-${testId}`} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+    // 横排 wrap（V2 行式增强）：chip 内联序号徽标，链首紫底 = 主模型；✕ 悬停出现（globals.css .model-chip）。
+    <div data-testid={`chain-${testId}`} style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
       <SortableList
+        strategy="grid"
         items={value.map((id) => ({ id }))}
         onReorder={(next) => onChange(next.map((i) => i.id))}
         renderItem={({ id }, handle) => (
           <div
             data-testid={`chip-${id}`}
             data-state={id === value[0] ? "primary" : "backup"}
+            className="model-chip"
             style={{
-              display: "flex", alignItems: "center", gap: 6, padding: "3px 6px", fontSize: 13,
+              display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 9px", fontSize: 12,
               borderRadius: "var(--radius-sm)", border: "1px solid var(--border)",
               background: id === value[0] ? "var(--accent-subtle)" : "transparent",
             }}
           >
+            <span
+              style={{
+                fontSize: 10, fontWeight: 600, width: 15, height: 15, borderRadius: 4,
+                display: "grid", placeItems: "center", flexShrink: 0,
+                background: id === value[0] ? "var(--primary)" : "var(--muted)",
+                color: id === value[0] ? "var(--primary-foreground)" : "var(--muted-foreground)",
+              }}
+            >
+              {value.indexOf(id) + 1}
+            </span>
             <span
               ref={handle.ref}
               data-testid={`chip-handle-${id}`}
@@ -55,15 +68,11 @@ export function ModelChainEditor({
             >
               ⠿
             </span>
-            {id === value[0] && (
-              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--primary)" }}>
-                {t("platform.modelChain.primary", "主")}
-              </span>
-            )}
-            <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{id}</span>
+            <span style={{ minWidth: 0, maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{id}</span>
             <button
               type="button"
               data-testid={`chip-remove-${id}`}
+              className="model-chip-remove"
               aria-label={t("platform.modelChain.remove", "移除")}
               title={t("platform.modelChain.remove", "移除")}
               onClick={() => onChange(value.filter((m) => m !== id))}
@@ -74,7 +83,8 @@ export function ModelChainEditor({
           </div>
         )}
       />
-      <ModelCombobox
+      <div style={{ flex: "1 1 200px", minWidth: 200, maxWidth: 360 }}>
+        <ModelCombobox
         value={draft} onChange={setDraft} onSelect={toggle}
         source={source} selected={value} protocol={protocol}
         open={open} onOpenChange={onOpenChange}
@@ -86,7 +96,8 @@ export function ModelChainEditor({
           },
         }}
         t={t}
-      />
+        />
+      </div>
     </div>
   );
 }
