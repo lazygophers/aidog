@@ -68,6 +68,8 @@ const baseProps = {
   onSelectGroup: vi.fn(), onClose: vi.fn(), onEditGroup: vi.fn(),
   onTestGroup: vi.fn(), onEditPlatform: vi.fn(),
   onDeleteMapping: vi.fn(), onAddPlatform: vi.fn(), onSetLevelPriority: vi.fn(),
+  onDeletePlatform: vi.fn(),
+  onBatchDelete: vi.fn(), onBatchOverrideModels: vi.fn(), onBatchSetStatus: vi.fn(), onBatchMoveGroup: vi.fn(),
 };
 
 describe("GroupDetailPage — 观测台三栏", () => {
@@ -145,6 +147,41 @@ describe("GroupDetailPage — 成员行拖拽把手", () => {
     expect(baseProps.onMemberPointerDown).toHaveBeenCalledWith(
       expect.anything(), 1, 1,
     );
+  });
+});
+
+describe("GroupDetailPage — 成员多选与批量操作（对齐列表页）", () => {
+  it("多选入口 → 批量条出现；勾选平台 → data-selected；批量删除带选中 ids + gid", () => {
+    vi.mocked(groupFlowApi.daily!).mockResolvedValue([]);
+    render(<GroupDetailPage {...baseProps} />);
+    fireEvent.click(document.querySelector('[data-testid="detail-multi-select"]')!);
+    expect(document.querySelector('[data-testid="detail-batchbar"]')).toBeTruthy();
+    fireEvent.click(document.querySelector('[data-plat-id="1"] [data-testid="row-select"]')!);
+    expect(document.querySelector('[data-plat-id="1"] [data-testid="platform-row"]')!.getAttribute("data-selected")).toBe("true");
+    fireEvent.click(document.querySelector('[data-testid="detail-batch-delete"]')!);
+    expect(baseProps.onBatchDelete).toHaveBeenCalledWith([1], 1);
+  });
+
+  it("全选两行；batchDoneSignal 递增 → 自动退出多选（批量条消失）", () => {
+    vi.mocked(groupFlowApi.daily!).mockResolvedValue([]);
+    const { rerender } = render(<GroupDetailPage {...baseProps} />);
+    fireEvent.click(document.querySelector('[data-testid="detail-multi-select"]')!);
+    fireEvent.click(document.querySelector('[data-testid="detail-batch-select-all"]')!);
+    expect(document.querySelector('[data-plat-id="2"] [data-testid="platform-row"]')!.getAttribute("data-selected")).toBe("true");
+    rerender(<GroupDetailPage {...baseProps} batchDoneSignal={1} />);
+    expect(document.querySelector('[data-testid="detail-batchbar"]')).toBeNull();
+    expect(document.querySelector('[data-plat-id="1"] [data-testid="platform-row"]')!.getAttribute("data-selected")).toBeNull();
+  });
+
+  it("成员行 ⋯ 菜单「删除平台…」→ onDeletePlatform(pid)", () => {
+    vi.mocked(groupFlowApi.daily!).mockResolvedValue([]);
+    render(<GroupDetailPage {...baseProps} />);
+    const menu = document.querySelector('[data-plat-id="1"] [data-testid="row-menu"]')!;
+    fireEvent.pointerDown(menu, { button: 0, ctrlKey: false });
+    fireEvent.click(menu);
+    const item = screen.getByText("platform.deletePlatformMenu");
+    fireEvent.click(item);
+    expect(baseProps.onDeletePlatform).toHaveBeenCalledWith(1);
   });
 });
 

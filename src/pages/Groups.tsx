@@ -17,6 +17,21 @@ import { GroupEditPanel } from "./Groups/GroupEditPanel";
 import { GroupCreateModal } from "./Groups/GroupCreateModal";
 import { GroupListView } from "./Groups/GroupListView";
 import { GroupDetailPage } from "./Groups/GroupDetailPage";
+import { BatchDeleteModal } from "../components/platforms/BatchDeleteModal";
+import { BatchOverrideModelsModal } from "../components/platforms/BatchOverrideModelsModal";
+import { BatchSetStatusModal } from "../components/platforms/BatchSetStatusModal";
+import { BatchMoveGroupModal } from "../components/platforms/BatchMoveGroupModal";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useGroupData } from "./Groups/useGroupData";
 import { useGroupTest } from "./Groups/useGroupTest";
 import { usePlatformDrag } from "./Groups/usePlatformDrag";
@@ -717,6 +732,99 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     return m;
   }, [details]);
 
+  // ── 共享弹窗段（2026-11-06 详情页平台功能对齐轮上移）：删平台确认 + 4 个批量 modal。
+  //  detailTarget 详情分支与列表分支（GroupListView）共用同一份 state，任何分支都能弹。──
+  const sharedModals = (
+    <>
+      {/* 删平台确认弹窗：总弹（根因旁路，去 count 决定行为）。
+          单组 → 单按钮「删除平台」（销毁平台）；多组 → 双按钮「移出本组」+「删除平台（全部组）」。
+          AlertDialog 走 Radix Portal（脱离 transform 祖先，参考 BatchDeleteModal）。 */}
+      <AlertDialog open={removeTarget !== null} onOpenChange={(next) => { if (!next) setRemoveTarget(null); }}>
+        <AlertDialogContent className="glass-elevated" style={{ maxWidth: 420, padding: "20px 22px" }}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {removeTarget?.groupCount && removeTarget.groupCount > 1
+                ? t("group.deletePlatformMultiTitle", "移出或删除平台")
+                : t("group.deletePlatformTitle", "删除平台")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {removeTarget?.groupCount && removeTarget.groupCount > 1
+                ? t("group.deletePlatformMultiDesc",
+                    "「{{name}}」属 {{count}} 个分组：{{groups}}。选择操作：",
+                    { name: removeTarget.platform.name, count: removeTarget.groupCount, groups: removeTarget.groupNames.join("、") })
+                : t("group.deletePlatformConfirm",
+                    "「{{name}}」仅属此分组，移除将彻底删除该平台及其所有关联，且无法撤销。确认删除？",
+                    { name: removeTarget?.platform.name ?? "" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("action.cancel", "取消")}</AlertDialogCancel>
+            {removeTarget?.groupCount && removeTarget.groupCount > 1 && (
+              <Button variant="outline" onClick={() => {
+                removePlatformFromGroup(removeTarget.platform.id, removeTarget.gid);
+                setRemoveTarget(null);
+              }}>
+                {t("group.removeFromGroupAction", "移出本组")}
+              </Button>
+            )}
+            <AlertDialogAction
+              style={{ backgroundColor: "var(--color-danger)", color: "var(--destructive-foreground)" }}
+              onClick={() => { void confirmDeletePlatform(); }}>
+              {removeTarget?.groupCount && removeTarget.groupCount > 1
+                ? t("group.deleteFromAllGroupsAction", "删除平台（全部组）")
+                : t("group.deletePlatformAction", "删除平台")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 批量删除平台确认弹窗（group-batch-ops s3）：全列可滚 + 跨组警告 + 原子事务物理删。 */}
+      <BatchDeleteModal
+        open={batchDeleteTarget !== null}
+        platforms={batchDeleteTarget?.platforms ?? []}
+        groupNamesByPlatform={batchDeleteTarget?.groupNamesByPlatform ?? {}}
+        onConfirm={() => void confirmBatchDelete()}
+        onClose={() => { if (!batchDeleteBusy) setBatchDeleteTarget(null); }}
+        busy={batchDeleteBusy}
+        t={t}
+      />
+
+      {/* 批量覆盖平台模型弹窗（group-batch-ops s4）：三来源 radio + 全 diff + 原子事务整体覆盖。 */}
+      <BatchOverrideModelsModal
+        open={batchOverrideTarget !== null}
+        platforms={batchOverrideTarget?.platforms ?? []}
+        allPlatforms={platforms}
+        onConfirm={(m) => void confirmBatchOverrideModels(m)}
+        onClose={() => { if (!batchOverrideBusy) setBatchOverrideTarget(null); }}
+        busy={batchOverrideBusy}
+        t={t}
+      />
+
+      {/* 批量改状态弹窗（group-batch-ops s5）：启用/禁用 radio + 无候选警告 + 原子事务。 */}
+      <BatchSetStatusModal
+        open={batchSetStatusTarget !== null}
+        platforms={batchSetStatusTarget?.platforms ?? []}
+        groupEnabledIds={batchSetStatusTarget?.groupEnabledIds ?? []}
+        onConfirm={(s) => void confirmBatchSetStatus(s)}
+        onClose={() => { if (!batchSetStatusBusy) setBatchSetStatusTarget(null); }}
+        busy={batchSetStatusBusy}
+        t={t}
+      />
+
+      {/* 批量移组弹窗（group-batch-ops s5）：目标组下拉 + move/add radio + 原子事务。 */}
+      <BatchMoveGroupModal
+        open={batchMoveGroupTarget !== null}
+        platforms={batchMoveGroupTarget?.platforms ?? []}
+        groups={details.map(d => ({ id: d.group.id, name: d.group.name }))}
+        currentGroupId={batchMoveGroupTarget?.gid ?? 0}
+        onConfirm={(gid, mode) => void confirmBatchMoveGroup(gid, mode)}
+        onClose={() => { if (!batchMoveGroupBusy) setBatchMoveGroupTarget(null); }}
+        busy={batchMoveGroupBusy}
+        t={t}
+      />
+    </>
+  );
+
   // ── Edit page ──
   if (editTarget) {
     return (
@@ -757,28 +865,37 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     const detail = details.find(d => d.group.id === detailTarget);
     if (detail) {
       return (
-        <GroupDetailPage
-          detail={detail}
-          details={details}
-          platforms={platforms}
-          t={t}
-          groupStats={groupStats}
-          groupLast={groupLast}
-          onNavigate={onNavigate}
-          cards={cards}
-          cardService={cardService}
-          groupTestRunning={groupTest?.running ?? false}
-          onSelectGroup={setDetailTarget}
-          onClose={() => setDetailTarget(null)}
-          onEditGroup={openEdit}
-          onTestGroup={handleTestGroup}
-          onEditPlatform={p => cardService.onEdit(p)}
-          onDeleteMapping={handleDeleteMapping}
-          onSetLevelPriority={handleSetLevelPriority}
-          onMemberPointerDown={onPlatPointerDown}
-          memberDropIndicator={dropIndicator}
-          onAddPlatform={onCreatePlatform ? () => onCreatePlatform([detail.group.id], detail.group.id) : undefined}
-        />
+        <>
+          {sharedModals}
+          <GroupDetailPage
+            detail={detail}
+            details={details}
+            platforms={platforms}
+            t={t}
+            groupStats={groupStats}
+            groupLast={groupLast}
+            onNavigate={onNavigate}
+            cards={cards}
+            cardService={cardService}
+            groupTestRunning={groupTest?.running ?? false}
+            onSelectGroup={setDetailTarget}
+            onClose={() => setDetailTarget(null)}
+            onEditGroup={openEdit}
+            onTestGroup={handleTestGroup}
+            onEditPlatform={p => cardService.onEdit(p)}
+            onDeleteMapping={handleDeleteMapping}
+            onSetLevelPriority={handleSetLevelPriority}
+            onMemberPointerDown={onPlatPointerDown}
+            memberDropIndicator={dropIndicator}
+            onAddPlatform={onCreatePlatform ? () => onCreatePlatform([detail.group.id], detail.group.id) : undefined}
+            onDeletePlatform={(id) => makeGroupCardActions(detail.group.id).onDelete(id)}
+            onBatchDelete={handleBatchDelete}
+            onBatchOverrideModels={handleBatchOverrideModels}
+            onBatchSetStatus={handleBatchSetStatus}
+            onBatchMoveGroup={handleBatchMoveGroup}
+            batchDoneSignal={batchDoneSignal}
+          />
+        </>
       );
     }
   }
@@ -812,10 +929,6 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       cardService={cardService}
       groupTest={groupTest}
       setGroupTest={setGroupTest}
-      removeTarget={removeTarget}
-      setRemoveTarget={setRemoveTarget}
-      confirmDeletePlatform={confirmDeletePlatform}
-      removePlatformFromGroup={removePlatformFromGroup}
       onToast={onToast}
       handleReorderGroups={handleReorderGroups}
       openEdit={openEdit}
@@ -828,27 +941,10 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       onCreatePlatform={onCreatePlatform}
       onNavigate={onNavigate}
       onBatchDelete={handleBatchDelete}
-      batchDeleteTarget={batchDeleteTarget}
-      batchDeleteBusy={batchDeleteBusy}
-      confirmBatchDelete={confirmBatchDelete}
-      setBatchDeleteTarget={setBatchDeleteTarget}
       onBatchOverrideModels={handleBatchOverrideModels}
-      batchOverrideTarget={batchOverrideTarget}
-      batchOverrideBusy={batchOverrideBusy}
-      confirmBatchOverrideModels={confirmBatchOverrideModels}
-      setBatchOverrideTarget={setBatchOverrideTarget}
       batchDoneSignal={batchDoneSignal}
       onBatchSetStatus={handleBatchSetStatus}
-      batchSetStatusTarget={batchSetStatusTarget}
-      batchSetStatusBusy={batchSetStatusBusy}
-      confirmBatchSetStatus={confirmBatchSetStatus}
-      setBatchSetStatusTarget={setBatchSetStatusTarget}
       onBatchMoveGroup={handleBatchMoveGroup}
-      batchMoveGroupTarget={batchMoveGroupTarget}
-      batchMoveGroupBusy={batchMoveGroupBusy}
-      confirmBatchMoveGroup={confirmBatchMoveGroup}
-      setBatchMoveGroupTarget={setBatchMoveGroupTarget}
-      allGroups={details.map(d => ({ id: d.group.id, name: d.group.name }))}
     />
   );
 }

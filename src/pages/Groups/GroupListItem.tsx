@@ -413,6 +413,7 @@ export const GroupListItem = memo(function GroupListItem({
                 lastTest={cards.lastTestMap[p.id]}
                 manualResult={cards.testResults[p.id]}
                 testing={cards.testingId === p.id}
+                showLastOutcome
                 expanded={cards.expandedIds.has(p.id)}
                 selecting={mode === "select"}
                 selected={selectedIds.has(p.id)}
