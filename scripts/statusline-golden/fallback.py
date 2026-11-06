@@ -19,7 +19,11 @@ def _stdin_coding_gi(inp):
 def seg_group_coding_with_fallback(inp, o, gi):
     if _group_applicable(gi) and gi.get("coding_plan"):
         return _seg_group_coding_aidog(inp, o, gi)
-    return _seg_group_coding_aidog(inp, o, _stdin_coding_gi(inp))
+    # 非 aidog 数据：加来源前缀，避免与 aidog tier 混淆（中文前缀沿用 engine.py 的「缓存 」「余额 」惯例）。
+    res = _seg_group_coding_aidog(inp, o, _stdin_coding_gi(inp))
+    if isinstance(res, tuple):
+        return (res[0], "CC官方 " + res[1])
+    return None if res is None else "CC官方 " + res
 
 
 RENDERERS["group-coding"] = seg_group_coding_with_fallback
