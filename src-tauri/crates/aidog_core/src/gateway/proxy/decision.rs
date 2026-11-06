@@ -258,6 +258,7 @@ pub(crate) async fn handle_decision(
     let max_retries = group.max_retries as usize;
     let mut attempts: Vec<ProxyAttempt> = Vec::new();
     let candidate_total = candidates.len();
+    let soft_flags: Vec<bool> = candidates.iter().map(|c| c.soft_disabled).collect();
 
     let (system_timeout, proxy_client) = {
         let c = state.settings_cache.read().await;
@@ -275,12 +276,12 @@ pub(crate) async fn handle_decision(
     };
 
     for (attempt_idx, route) in candidates.into_iter().enumerate() {
-        if attempt_idx > max_retries {
-            break;
+        if !retry_allowed(attempt_idx, max_retries, route.soft_disabled) {
+            continue;
         }
         let mut attempt_start = std::time::Instant::now();
         let mut attempt_ts = aidog_db::now();
-        let is_last_candidate = attempt_idx + 1 >= candidate_total || attempt_idx >= max_retries;
+        let is_last_candidate = is_last_attempt(attempt_idx, max_retries, &soft_flags);
 
         let mut chain = ModelChain::new(route);
         let outcome = loop {
