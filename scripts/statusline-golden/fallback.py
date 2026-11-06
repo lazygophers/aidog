@@ -19,11 +19,19 @@ def _stdin_coding_gi(inp):
 def seg_group_coding_with_fallback(inp, o, gi):
     if _group_applicable(gi) and gi.get("coding_plan"):
         return _seg_group_coding_aidog(inp, o, gi)
-    # 非 aidog 数据：加来源前缀，避免与 aidog tier 混淆（中文前缀沿用 engine.py 的「缓存 」「余额 」惯例）。
-    res = _seg_group_coding_aidog(inp, o, _stdin_coding_gi(inp))
-    if isinstance(res, tuple):
-        return (res[0], "CC官方 " + res[1])
-    return None if res is None else "CC官方 " + res
+    # 非 aidog 数据：来源标签「CC官方」由 group-route 段显示（见下），此处不加前缀。
+    return _seg_group_coding_aidog(inp, o, _stdin_coding_gi(inp))
+
+
+_seg_group_route_aidog = seg_group_route
+
+
+def seg_group_route_with_fallback(inp, o, gi):
+    # coding 段正在用 stdin 回退（无 aidog tier 且 stdin 有 rate_limits）→ 路由段改显「CC官方」。
+    if not (_group_applicable(gi) and gi.get("coding_plan")) and _stdin_coding_gi(inp)["coding_plan"]:
+        return "CC官方"
+    return _seg_group_route_aidog(inp, o, gi)
 
 
 RENDERERS["group-coding"] = seg_group_coding_with_fallback
+RENDERERS["group-route"] = seg_group_route_with_fallback
