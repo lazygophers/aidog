@@ -44,6 +44,10 @@
    不是自己的就 `git add -p` 只挑自己的那几段，再 `git commit`（不带 `-a`）。
 3. `git status` 只认到**文件**这一层，**防不住同文件内跨 hunk 的误扫**——
    第三次事故就是这么来的：文件确实是自己的活，文件里还有别人的两段。
+   2026-11-06 复发（1719f68e8 票 03 带走另一会话 candidates.rs 直通链 402 与 RoutingCanvas blockedLabel 的 hunk，
+   事后取证才发现 review 项「已在 HEAD」）。`git commit -- <路径>` 提交整文件，规则 2 只靠事后扫 diff 拦不住：
+   **开工前**对将要改的文件跑 `git status --short`，已脏的文件记下，提交时对这些文件必须
+   `git add -p` / `git apply --cached` 只暂存自己的 hunk，再 `git diff --cached --stat` 核对；干净起步的文件才可整文件提交。
 4. 发现自己扫走了别人的改动：**不回滚、不重写历史**（代价大于收益），
    立刻告诉对方「你的那部分已经在 `<commit>` 里了」，让对方撤掉本地副本，
    否则会重复改一遍。
