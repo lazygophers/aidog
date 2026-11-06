@@ -62,10 +62,10 @@ jobs:
           restore-keys: ${{ runner.os }}-yarn-
       - name: Install JS deps
         run: yarn install --immutable
-      - name: Type checks (tsc + cargo check)
-        run: make check
       - name: Lint gates (registry/i18n/protocol/modal/tokens/clippy)
         run: make lint
+      - name: Type checks (tsc + cargo check)
+        run: make check
       - name: Frontend tests (vitest)
         run: yarn test
       - name: Rust tests (cargo test --workspace)
