@@ -26,19 +26,19 @@ function mount(over: Record<string, unknown>) {
 const pick = (m: string) => fireEvent.mouseDown(document.body.querySelector(`[data-testid="model-option-${m}"]`)!);
 
 describe("ModelsMatrixSection 模型链", () => {
-  it("默认列：下拉排除已选，点选追加写出整条链", () => {
+  it("默认列：下拉已选打勾，点选追加写出整条链", () => {
     const { container, onModelsChange } = mount({});
     fireEvent.focus(container.querySelector('[data-testid="chain-input-d-default"]')!);
-    expect(document.body.querySelector('[data-testid="model-option-a"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="model-option-a"]')?.getAttribute("data-state")).toBe("checked");
     pick("b");
     expect(onModelsChange).toHaveBeenCalledWith("default", ["a", "b"]);
   });
 
-  it("时段档：编辑写出数组，已选从该槽下拉排除；删光槽位键被去掉", () => {
+  it("时段档：编辑写出数组，已选在该槽下拉打勾；删光槽位键被去掉", () => {
     const rules = [{ windows: [], models: { default: ["a"], opus: ["c"] } }];
     const { container, setRules } = mount({ columns: "time", rules });
     fireEvent.focus(container.querySelector('[data-testid="chain-input-r0-default"]')!);
-    expect(document.body.querySelector('[data-testid="model-option-a"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="model-option-a"]')?.getAttribute("data-state")).toBe("checked");
     pick("b");
     expect(setRules).toHaveBeenLastCalledWith([{ windows: [], models: { default: ["a", "b"], opus: ["c"] } }]);
     fireEvent.click(container.querySelector('[data-testid="chip-remove-c"]')!);

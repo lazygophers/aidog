@@ -1,5 +1,5 @@
 // ModelChainEditor — 槽位 / 时段共用的有序模型链编辑器：
-// chip 列表（拖拽 + 键盘手柄排序，首个标「主」，✕ 删除）+ 末尾 ModelCombobox 添加（下拉排除已选）。
+// chip 列表（拖拽 + 键盘手柄排序，首个标「主」，✕ 删除）+ 末尾 ModelCombobox 添加（下拉多选：已选打勾，再点取消，点选不关闭）。
 // 纯受控：value 为链，所有变更经 onChange 写出归一化后的新链（trim / 去空 / 去重保序）。
 import { useState } from "react";
 import type { TFunction } from "i18next";
@@ -27,6 +27,8 @@ export function ModelChainEditor({
     const next = slotList([...value, v]);
     if (next.length !== value.length) onChange(next);
   };
+  // 下拉点选 = 切换：已在链中则移除，否则追加链尾
+  const toggle = (v: string) => (value.includes(v) ? onChange(value.filter((m) => m !== v)) : add(v));
   return (
     <div data-testid={`chain-${testId}`} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <SortableList
@@ -73,8 +75,8 @@ export function ModelChainEditor({
         )}
       />
       <ModelCombobox
-        value={draft} onChange={setDraft} onSelect={add}
-        source={source} exclude={value} protocol={protocol}
+        value={draft} onChange={setDraft} onSelect={toggle}
+        source={source} selected={value} protocol={protocol}
         open={open} onOpenChange={onOpenChange}
         placeholder={t("platform.modelChain.add", "添加模型（回车确认）")}
         inputProps={{

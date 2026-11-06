@@ -42,3 +42,31 @@ describe("ModelCombobox exclude", () => {
     expect(document.body.querySelector('[data-testid="model-combobox-toggle"]')).not.toBeNull();
   });
 });
+
+describe("ModelCombobox 单选 / 多选", () => {
+  it("exclude 路径：点选后触发 onSelect 并关闭下拉", () => {
+    const onSelect = vi.fn();
+    const { container } = render(
+      <ModelCombobox value="" onChange={() => {}} onSelect={onSelect} source={["a", "b"]}
+        exclude={["b"]} protocol="openai" t={t} inputProps={{ "data-testid": "cb-input" }} />,
+    );
+    fireEvent.focus(container.querySelector('[data-testid="cb-input"]')!);
+    fireEvent.mouseDown(document.body.querySelector('[data-testid="model-option-a"]')!);
+    expect(onSelect).toHaveBeenCalledWith("a");
+    expect(opts()).toEqual([]);
+  });
+  it("selected 模式：已选项保留并标 checked，点选后下拉不关", () => {
+    const onSelect = vi.fn();
+    const { container } = render(
+      <ModelCombobox value="" onChange={() => {}} onSelect={onSelect} source={["a", "b"]}
+        selected={["b"]} protocol="openai" t={t} inputProps={{ "data-testid": "cb-input" }} />,
+    );
+    fireEvent.focus(container.querySelector('[data-testid="cb-input"]')!);
+    const st = (id: string) => document.body.querySelector(`[data-testid="model-option-${id}"]`)?.getAttribute("data-state");
+    expect(st("a")).toBe("unchecked");
+    expect(st("b")).toBe("checked");
+    fireEvent.mouseDown(document.body.querySelector('[data-testid="model-option-a"]')!);
+    expect(onSelect).toHaveBeenCalledWith("a");
+    expect(opts()).toEqual(["model-option-a", "model-option-b"]);
+  });
+});
