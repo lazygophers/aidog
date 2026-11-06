@@ -1591,6 +1591,8 @@
   "platform.sourcePricing": "التسعير",
   "platform.lastError": "آخر خطأ",
   "platform.lastErrorHint": "آخر فشل · {{time}}\n{{error}}",
+  "platform.lastOutcomeFail": "فشل",
+  "platform.lastOutcomeOk": "سليم",
   "platform.lastTestFailHint": "آخر اختبار فاشل · {{time}}{{error}}",
   "platform.lastTestOkHint": "آخر اختبار ناجح · {{time}}",
   "platform.manualBudgetAdd": "إضافة حد",

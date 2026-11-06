@@ -1569,6 +1569,8 @@
   "platform.sourcePricing": "定价",
   "platform.lastError": "最近错误",
   "platform.lastErrorHint": "最近一次失败 · {{time}}\n{{error}}",
+  "platform.lastOutcomeFail": "失败",
+  "platform.lastOutcomeOk": "正常",
   "platform.lastTestFailHint": "最近测试失败 · {{time}}{{error}}",
   "platform.lastTestOkHint": "最近测试通过 · {{time}}",
   "platform.manualBudgetAdd": "添加限额",

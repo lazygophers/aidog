@@ -1591,6 +1591,8 @@
   "platform.sourcePricing": "料金",
   "platform.lastError": "最新エラー",
   "platform.lastErrorHint": "直近の失敗 · {{time}}\n{{error}}",
+  "platform.lastOutcomeFail": "失敗",
+  "platform.lastOutcomeOk": "正常",
   "platform.lastTestFailHint": "最終テスト失敗 · {{time}}{{error}}",
   "platform.lastTestOkHint": "最終テスト成功 · {{time}}",
   "platform.manualBudgetAdd": "上限を追加",
