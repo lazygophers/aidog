@@ -983,7 +983,7 @@
   "logs.group": "分组",
   "logs.headers": "请求头",
   "logs.inputTokens": "输入 Token",
-  "logs.model": "模型",
+  "logs.model": "请求模型",
   "logs.noGroup": "无分组",
   "logs.noPlatform": "无平台",
   "logs.noUpstream": "(未捕获)",

@@ -26,6 +26,13 @@ const setup = (value = "", onChange = vi.fn()) => {
 };
 
 describe("FilterDropdown", () => {
+  it("testId 落在 trigger 按钮上", () => {
+    render(
+      <FilterDropdown width={200} value="" onChange={vi.fn()} allLabel="全部" searchPlaceholder="搜索" options={OPTIONS} emptyLabel="无匹配" testId="fd-x" />,
+    );
+    expect(screen.getByTestId("fd-x").tagName).toBe("BUTTON");
+  });
+
   // 近黑强调色那一轮的护栏：选中项的字色不能是 --primary（映射 token `accent`，
   // 深色下近黑），否则选中行就是近黑字压在近黑底上，整条看不见。前景走 --accent。
   it("选中项的字色取 --accent，不取 --primary", async () => {

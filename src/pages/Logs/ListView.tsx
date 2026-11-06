@@ -40,10 +40,10 @@ export function ListView({ filters, list, openDetail, copyRow }: {
   }, []);
   const {
     t, platforms, groups, filterPlatform, filterGroup, filterStatus, filterTime,
-    filterModelType, filterModelText, filterPath, filterObserved,
+    filterModel, filterActualModel, filterPath, filterObserved,
     setFilterPlatform, setFilterGroup, setFilterStatus, setFilterTime,
-    setFilterModelType, setFilterModelText, setFilterPath, setFilterObserved,
-    modelOptions, hasFilter, clearFilter, platformMap, groupName,
+    setFilterModel, setFilterActualModel, setFilterPath, setFilterObserved,
+    modelOptions, actualModelOptions, hasFilter, clearFilter, platformMap, groupName,
   } = filters;
   const {
     logs, hasMore, offset, pageSize, loading, load, setOffset, setPageSize,
@@ -145,28 +145,24 @@ export function ListView({ filters, list, openDetail, copyRow }: {
           ]}
           placeholder={t("logs.filterMiddleware", "中间件")}
         />
-        {/* Model type toggle */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: F.small }}>
-          <Button
-            variant="ghost"
-            type="button"
-            style={{ padding: "2px 8px", fontSize: F.small, height: "auto", fontWeight: filterModelType === "actual" ? 700 : 400, opacity: filterModelType === "actual" ? 1 : 0.6 }}
-            onClick={() => setFilterModelType("actual")}
-          >{t("logs.actualModel", "实际模型")}</Button>
-          <Button
-            variant="ghost"
-            type="button"
-            style={{ padding: "2px 8px", fontSize: F.small, height: "auto", fontWeight: filterModelType === "original" ? 700 : 400, opacity: filterModelType === "original" ? 1 : 0.6 }}
-            onClick={() => setFilterModelType("original")}
-          >{t("logs.model", "原始模型")}</Button>
-        </div>
-        {/* Model dropdown — options from unfiltered query */}
+        {/* 请求模型 / 实际模型：两个独立下拉，可同时过滤（AND） */}
         <FilterDropdown
           width={170}
-          value={filterModelText}
-          onChange={setFilterModelText}
+          testId="log-filter-model"
+          value={filterModel}
+          onChange={setFilterModel}
           options={modelOptions.map(m => ({ value: m, label: m }))}
-          allLabel={t("logs.filterModel", "模型")}
+          allLabel={t("logs.model", "请求模型")}
+          searchPlaceholder={t("stats.searchModel", "搜索模型")}
+          emptyLabel={t("stats.noMatch", "无匹配结果")}
+        />
+        <FilterDropdown
+          width={170}
+          testId="log-filter-actual-model"
+          value={filterActualModel}
+          onChange={setFilterActualModel}
+          options={actualModelOptions.map(m => ({ value: m, label: m }))}
+          allLabel={t("logs.actualModel", "实际模型")}
           searchPlaceholder={t("stats.searchModel", "搜索模型")}
           emptyLabel={t("stats.noMatch", "无匹配结果")}
         />
@@ -202,7 +198,7 @@ export function ListView({ filters, list, openDetail, copyRow }: {
                 <ThCell>{t("logs.time")}</ThCell>
                 <ThCell>{t("logs.group")}</ThCell>
                 <ThCell>{t("logs.platform", "平台")}</ThCell>
-                <ThCell>{t("logs.model", "原始模型")}</ThCell>
+                <ThCell>{t("logs.model", "请求模型")}</ThCell>
                 <ThCell>{t("logs.actualModel", "实际模型")}</ThCell>
                 <ThCell>{t("logs.userAgent", "UA")}</ThCell>
                 <ThCell>{t("logs.status")}</ThCell>

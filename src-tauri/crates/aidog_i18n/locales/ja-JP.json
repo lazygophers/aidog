@@ -1005,7 +1005,7 @@
   "logs.group": "グループ",
   "logs.headers": "リクエストヘッダー",
   "logs.inputTokens": "入力トークン",
-  "logs.model": "モデル",
+  "logs.model": "リクエストモデル",
   "logs.noGroup": "グループなし",
   "logs.noPlatform": "プラットフォームなし",
   "logs.noUpstream": "(記録なし)",

@@ -51,7 +51,7 @@ export const proxyLogApi = {
   countFiltered: (filter: ProxyLogFilter) =>
     invoke<number>("proxy_log_count_filtered", { filter }),
   // logs-query-ipc-slimming s4：model 下拉选项直取 DISTINCT，替代拉整页日志前端去重。
-  // actual=true → actual_model 列，false → model 列（对应前端 filterModelType）。
+  // actual=true → actual_model 列，false → model 列（请求模型 / 实际模型两个下拉各取一列）。
   distinctModels: (filter: ProxyLogFilter, actual: boolean, limit = 200) =>
     invoke<string[]>("proxy_log_distinct_models", { filter, actual, limit }),
   getSettings: () =>

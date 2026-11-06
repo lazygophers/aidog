@@ -133,7 +133,7 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
       <div className="glass-surface hover-lift" style={{ padding: 20, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 14 }}>
         <MetaItem label={t("logs.group", "分组")} value={groupName(detail.group_key)} copyText={detail.group_key} t={t} />
         <MetaItem label={t("logs.platform", "平台")} value={platformMap.get(detail.platform_id) || "-"} copyText={platformMap.get(detail.platform_id)} t={t} />
-        <MetaItem label={t("logs.model", "原始模型")} value={detail.model || "-"} copyText={detail.model} t={t} />
+        <MetaItem label={t("logs.model", "请求模型")} value={detail.model || "-"} copyText={detail.model} t={t} />
         <MetaItem label={t("logs.actualModel", "实际模型")} value={detail.actual_model && detail.actual_model !== detail.model ? detail.actual_model : "-"} copyText={detail.actual_model && detail.actual_model !== detail.model ? detail.actual_model : undefined} t={t} />
         <MetaItem label={t("logs.client", "客户端")} value={detail.client || "-"} copyText={detail.client || undefined} testId="detail-client" t={t} />
         <MetaItem label={t("logs.userAgent", "UA")} value={detail.user_agent || "-"} copyText={detail.user_agent || undefined} testId="detail-user-agent" t={t} />

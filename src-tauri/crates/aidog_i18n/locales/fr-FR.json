@@ -1005,7 +1005,7 @@
   "logs.group": "Groupe",
   "logs.headers": "En-têtes de la requête",
   "logs.inputTokens": "Tokens d'entrée",
-  "logs.model": "Modèle",
+  "logs.model": "Modèle demandé",
   "logs.noGroup": "Aucun groupe",
   "logs.noPlatform": "Aucune plateforme",
   "logs.noUpstream": "(non capturé)",

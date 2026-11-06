@@ -1005,7 +1005,7 @@
   "logs.group": "المجموعة",
   "logs.headers": "رؤوس الطلب",
   "logs.inputTokens": "رموز الإدخال",
-  "logs.model": "النموذج",
+  "logs.model": "النموذج المطلوب",
   "logs.noGroup": "لا مجموعة",
   "logs.noPlatform": "لا منصة",
   "logs.noUpstream": "(غير مسجّل)",
