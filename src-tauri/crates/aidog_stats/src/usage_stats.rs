@@ -779,3 +779,40 @@ pub fn group_last_requests<'a>(
         .map_err(|e| format!("group last requests: {e}"))
     }
 }
+
+/// 近 24h 每平台成功请求数（usage 路由模式数据源，票 magpie 05）。
+///
+/// 复用 `stats_agg_hourly` 聚合表（主库读池 `call_read_traced` 一次现查；聚合表
+/// `platform_id` 已是回溯后 eff_pid，无需子查询）。窗口 = now-24h 对应的本地小时桶
+/// 文本键，与 `time_hour` 字典序比较（同 `utc_ms_to_local_hour_key` 口径）。
+/// platform_id=0（回溯不到的自动分组残留）跳过。
+/// 读失败 → Err 交调用方退化（usage 排序回落权重序，可用性优先）。
+#[track_caller]
+pub fn platform_success_counts_24h(
+    db: &Db,
+    now_ms: i64,
+) -> impl std::future::Future<Output = Result<std::collections::HashMap<u64, i64>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let since = crate::utc_ms_to_local_hour_key(now_ms - 24 * 60 * 60 * 1000);
+        db.call_read_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare_cached(
+                "SELECT platform_id, COALESCE(SUM(success_count), 0) FROM stats_agg_hourly \
+                 WHERE deleted_at = 0 AND time_hour >= ?1 GROUP BY platform_id",
+            )?;
+            let rows = stmt.query_map(params![since], |row| {
+                Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?))
+            })?;
+            let mut map = std::collections::HashMap::new();
+            for r in rows {
+                let (pid, n) = r?;
+                if pid > 0 {
+                    map.insert(pid as u64, n);
+                }
+            }
+            Ok(map)
+        })
+        .await
+        .map_err(|e| format!("platform_success_counts_24h: {e}"))
+    }
+}

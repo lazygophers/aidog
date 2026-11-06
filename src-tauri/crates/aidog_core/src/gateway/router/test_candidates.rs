@@ -4402,3 +4402,116 @@ async fn health_aware_same_level_payg_cheapest_first_e2e() {
     );
     assert_eq!(set.candidates[1].platform.id, pricey.id);
 }
+
+// ── rotate / usage 路由模式（票 magpie 05）──
+
+/// 直插一行 stats_agg_hourly（usage 模式数据源 fixture）。time_hour 为本地小时桶键。
+async fn insert_agg_row(db: &db::Db, time_hour: String, platform_id: u64, success: i64) {
+    db.call_traced(None, std::panic::Location::caller(), move |conn| {
+        conn.execute(
+            "INSERT OR REPLACE INTO stats_agg_hourly (time_hour, model, group_key, platform_id, \
+                 client, req_model, request_count, success_count, error_count, \
+                 sum_input_tokens, sum_output_tokens, sum_cache_tokens, sum_est_cost, \
+                 sum_duration_ms, created_at, updated_at, deleted_at) \
+                 VALUES (?1, 'm', 'g', ?2, '', '', ?3, ?3, 0, 0, 0, 0, 0.0, 0, 0, 0, 0)",
+            rusqlite::params![time_hour, platform_id as i64, success],
+        )?;
+        Ok(())
+    })
+    .await
+    .expect("insert stats_agg_hourly row");
+}
+
+/// 等优先级多平台分组（rotate 档内轮换 / usage 纯计数序测试用）。
+async fn mk_db_group_equal_prio(db: &db::Db, name: &str, platform_ids: &[u64], mode: RoutingMode) -> Group {
+    let g = db::create_group(
+        db,
+        CreateGroup {
+            name: name.into(),
+            group_key: Some(name.into()),
+            routing_mode: mode,
+            auto_from_platform: String::new(),
+            request_timeout_secs: 0,
+            connect_timeout_secs: 0,
+            source_protocol: Some("anthropic".into()),
+            max_retries: 2,
+            model_mappings: vec![],
+            env_vars: vec![],
+        },
+    )
+    .await
+    .expect("create group");
+    let inputs: Vec<GroupPlatformInput> = platform_ids
+        .iter()
+        .map(|&pid| GroupPlatformInput {
+            platform_id: pid,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: None,
+        })
+        .collect();
+    db::set_group_platforms(db, g.id, &inputs).await.expect("set group platforms");
+    g
+}
+
+/// three_file_db 下 rotate 模式：同档候选逐请求轮换（offset 0/1/2 → 原序 / 左移 1 / 左移 2）。
+/// 计数器 per-group 进程内，本测试独占该 group_id 的计数。
+#[tokio::test]
+async fn rotate_mode_rotates_candidates_per_request() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let p1 = mk_db_platform(&db, "R1").await;
+    let p2 = mk_db_platform(&db, "R2").await;
+    let p3 = mk_db_platform(&db, "R3").await;
+    let g = mk_db_group_equal_prio(&db, "rotate-grp", &[p1.id, p2.id, p3.id], RoutingMode::Rotate).await;
+
+    let set0 = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("rotate call 0");
+    let base: Vec<u64> = set0.candidates.iter().map(|c| c.platform.id).collect();
+    assert_eq!(base.len(), 3);
+    assert!(base.contains(&p1.id) && base.contains(&p2.id) && base.contains(&p3.id));
+
+    let set1 = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("rotate call 1");
+    let got1: Vec<u64> = set1.candidates.iter().map(|c| c.platform.id).collect();
+    let expect1: Vec<u64> = base[1..].iter().chain(base[..1].iter()).copied().collect();
+    assert_eq!(got1, expect1, "second request rotates left by 1");
+
+    let set2 = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("rotate call 2");
+    let got2: Vec<u64> = set2.candidates.iter().map(|c| c.platform.id).collect();
+    let expect2: Vec<u64> = base[2..].iter().chain(base[..2].iter()).copied().collect();
+    assert_eq!(got2, expect2, "third request rotates left by 2");
+}
+
+/// three_file_db 下 usage 模式：近 24h 成功请求数最少者优先；窗口外（25h 前）行不计。
+/// 注意：stats_agg_hourly 属主库 split 读，内存库测不出错路由（db-pool-routing.md），故用 three_file_db。
+#[tokio::test]
+async fn usage_mode_orders_by_least_success_24h() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let p1 = mk_db_platform(&db, "U1").await;
+    let p2 = mk_db_platform(&db, "U2").await;
+    let p3 = mk_db_platform(&db, "U3").await;
+    let g = mk_db_group_equal_prio(&db, "usage-grp", &[p1.id, p2.id, p3.id], RoutingMode::Usage).await;
+
+    let now = db::now();
+    let key_now = aidog_stats::utc_ms_to_local_hour_key(now);
+    let key_old = aidog_stats::utc_ms_to_local_hour_key(now - 25 * 60 * 60 * 1000);
+    // p1: 24h 内成功 10；p2: 24h 内成功 3 + 25h 前成功 100（窗口外不计）；p3: 无记录 = 0
+    insert_agg_row(&db, key_now.clone(), p1.id, 10).await;
+    insert_agg_row(&db, key_now.clone(), p2.id, 3).await;
+    insert_agg_row(&db, key_old, p2.id, 100).await;
+
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("usage select");
+    let order: Vec<u64> = set.candidates.iter().map(|c| c.platform.id).collect();
+    assert_eq!(order, vec![p3.id, p2.id, p1.id], "least 24h success first, old rows excluded");
+    assert_eq!(
+        set.routing.entries.iter().find(|e| e.order == 1).map(|e| e.platform_id),
+        Some(p3.id),
+        "snapshot first entry matches"
+    );
+}

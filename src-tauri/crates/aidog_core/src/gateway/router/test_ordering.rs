@@ -419,3 +419,81 @@ fn health_aware_tied_falls_back_to_weight_expiry() {
     order_health_aware(&mut v, 0, &keys);
     assert_eq!(ids(&v), vec![1, 2], "equal key: higher weight first");
 }
+
+// ── order_rotate / order_usage（票 magpie 05）──
+
+#[test]
+fn rotate_same_tier_cycles_by_offset() {
+    let gp1 = mk_gp(1, 1, 0);
+    let gp2 = mk_gp(2, 1, 0);
+    let gp3 = mk_gp(3, 1, 0);
+    // 同档（level_priority / priority 全同）：offset 0/1/2 依次轮换
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2, &gp3];
+    order_rotate(&mut v, 0);
+    assert_eq!(ids(&v), vec![1, 2, 3], "offset 0 keeps order");
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2, &gp3];
+    order_rotate(&mut v, 1);
+    assert_eq!(ids(&v), vec![2, 3, 1], "offset 1 rotates left by 1");
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2, &gp3];
+    order_rotate(&mut v, 2);
+    assert_eq!(ids(&v), vec![3, 1, 2], "offset 2 rotates left by 2");
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2, &gp3];
+    order_rotate(&mut v, 3);
+    assert_eq!(ids(&v), vec![1, 2, 3], "offset wraps modulo len");
+}
+
+#[test]
+fn rotate_preserves_tier_order_between_tiers() {
+    // 两档：档 1 = (lp 5, prio 0) 的 p1/p2，档 2 = (lp 5, prio 1) 的 p3。
+    // 档间顺序固定，档内各自轮换。
+    let gp1 = mk_gp(1, 1, 0);
+    let gp2 = mk_gp(2, 1, 0);
+    let gp3 = mk_gp(3, 1, 1);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2, &gp3];
+    order_rotate(&mut v, 1);
+    assert_eq!(ids(&v), vec![2, 1, 3], "tier1 rotates, tier2 pinned");
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2, &gp3];
+    order_rotate(&mut v, 2);
+    assert_eq!(ids(&v), vec![1, 2, 3], "tier1 wraps at 2 members");
+}
+
+#[test]
+fn rotate_ignores_weight_and_expiry() {
+    // 权重 / expires_at 不同不影响轮换（严格轮换语义）
+    let gp1 = mk_gp_exp(1, 9, 0, 100);
+    let gp2 = mk_gp_exp(2, 1, 0, 0);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2];
+    order_rotate(&mut v, 1);
+    assert_eq!(ids(&v), vec![2, 1], "strict rotation ignores weight/expiry");
+}
+
+#[test]
+fn usage_least_success_first_with_missing_as_zero() {
+    let gp1 = mk_gp(1, 1, 0);
+    let gp2 = mk_gp(2, 1, 0);
+    let gp3 = mk_gp(3, 1, 0);
+    let mut counts = HashMap::new();
+    counts.insert(1u64, 10i64);
+    counts.insert(2u64, 3i64);
+    // p3 无记录 = 0 → 最先用；其次 p2(3)；p1(10) 最后
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2, &gp3];
+    order_usage(&mut v, &counts);
+    assert_eq!(ids(&v), vec![3, 2, 1], "least success first, missing = 0");
+}
+
+#[test]
+fn usage_tie_breaks_by_weight_desc_then_expiry_asc() {
+    // 计数并列 → 有效权重降序；再并列 → expires_at 升序
+    let gp1 = mk_gp(1, 5, 0);
+    let gp2 = mk_gp(2, 1, 0);
+    let counts = HashMap::new();
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp2, &gp1];
+    order_usage(&mut v, &counts);
+    assert_eq!(ids(&v), vec![1, 2], "tie → higher weight first");
+    // expires_at=0 = 永不过期（expiry_sort_key 视为 i64::MAX 排末尾），故用 300/100 两档
+    let gp3 = mk_gp_exp(3, 1, 0, 300);
+    let gp4 = mk_gp_exp(4, 1, 0, 100);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp3, &gp4];
+    order_usage(&mut v, &counts);
+    assert_eq!(ids(&v), vec![4, 3], "tie weight → earlier expiry first");
+}
