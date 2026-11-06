@@ -608,8 +608,12 @@ mod tests {
 
     /// 生成只含 group-coding 的脚本，喂 stdin 跑 python3，返回 stdout。
     fn run_group_coding(env: &[(&str, &str)], stdin: &str) -> String {
+        run_segs(r#"[{"type":"group-coding","enabled":true}]"#, env, stdin)
+    }
+
+    fn run_segs(segs_json: &str, env: &[(&str, &str)], stdin: &str) -> String {
         use std::io::Write;
-        let list = segs(r#"[{"type":"group-coding","enabled":true}]"#);
+        let list = segs(segs_json);
         let script = generate_main(&list);
         let dir = std::env::temp_dir().join(format!("aidog-sl-{}-{:p}", std::process::id(), &script));
         std::fs::create_dir_all(&dir).unwrap();
@@ -655,7 +659,7 @@ mod tests {
     #[test]
     fn group_coding_falls_back_to_stdin_when_group_unidentified() {
         let out = run_group_coding(&[], STDIN_RL);
-        assert_eq!(out.trim(), "CC官方 5h 70%·7d 40%");
+        assert_eq!(out.trim(), "5h 70%·7d 40%");
     }
 
     #[test]
@@ -665,7 +669,7 @@ mod tests {
         let bad = fake_group_info("200 OK", "not json");
         for base in [r500.as_str(), bad.as_str(), "http://127.0.0.1:1"] {
             let out = run_group_coding(&[("ANTHROPIC_BASE_URL", base)], STDIN_RL);
-            assert_eq!(out.trim(), "CC官方 5h 70%·7d 40%", "base={base}");
+            assert_eq!(out.trim(), "5h 70%·7d 40%", "base={base}");
         }
     }
 
@@ -677,6 +681,22 @@ mod tests {
         );
         let out = run_group_coding(&[("ANTHROPIC_BASE_URL", &base)], STDIN_RL);
         assert_eq!(out.trim(), "5h 90%");
+    }
+
+    #[test]
+    fn group_route_shows_cc_official_when_using_stdin_fallback() {
+        const SEGS: &str = r#"[{"type":"group-route","enabled":true},{"type":"group-coding","enabled":true,"newline":true}]"#;
+        // 组已识别但无 coding tier + stdin 有 rate_limits → 路由段显示 CC官方
+        let no_tier = fake_group_info("200 OK", r#"{"applicable":true,"group_name":"g","last_platform_name":"p","coding_plan":[]}"#);
+        let out = run_segs(SEGS, &[("ANTHROPIC_BASE_URL", &no_tier)], STDIN_RL);
+        assert_eq!(out.trim(), "CC官方\n5h 70%·7d 40%");
+        // 有 coding tier → 走 aidog 数据，路由段保持 group/platform
+        let tier = fake_group_info("200 OK", r#"{"applicable":true,"group_name":"g","last_platform_name":"p","coding_plan":[{"name":"five_hour","utilization":10}]}"#);
+        let out = run_segs(SEGS, &[("ANTHROPIC_BASE_URL", &tier)], STDIN_RL);
+        assert_eq!(out.trim(), "g/p\n5h 90%");
+        // stdin 无 rate_limits → 不回退，路由段保持 group/platform
+        let out = run_segs(SEGS, &[("ANTHROPIC_BASE_URL", &no_tier)], "{}");
+        assert_eq!(out.trim(), "g/p");
     }
 
     #[test]
