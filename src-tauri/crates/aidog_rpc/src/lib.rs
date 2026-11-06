@@ -182,6 +182,7 @@ rpc_routes! {
     mutating aidog_core::proxy_cmd::proxy_log::proxy_log_settings_set,
     mutating aidog_core::proxy_cmd::proxy_log::proxy_log_cleanup_expired,
     readonly aidog_core::proxy_cmd::proxy_log::proxy_log_cleanup_estimate,
+    readonly aidog_core::proxy_cmd::proxy_log::session_stats,
     readonly aidog_core::proxy_cmd::proxy_log::request_log_list,
     readonly aidog_core::platform_cmd::stats::stats_settings_get,
     mutating aidog_core::platform_cmd::stats::stats_settings_set,
