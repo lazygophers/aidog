@@ -340,6 +340,18 @@ pub enum RoutingMode {
     /// 粘性会话：session 键绑定平台（若健康），否则回退加权随机并写绑定。
     #[serde(rename = "sticky")]
     Sticky,
+    /// 严格轮换：请求级轮换计数器在同档平台间依次轮转（magpie rotate；排序实现票 05）。
+    #[serde(rename = "rotate")]
+    Rotate,
+    /// 用量最少优先：统计窗口内成功请求量最少的平台优先（magpie usage；排序实现票 05）。
+    #[serde(rename = "usage")]
+    Usage,
+    /// 余量最多优先：重置前剩余额度最多的平台优先（magpie pace；排序实现票 06）。
+    #[serde(rename = "pace")]
+    Pace,
+    /// 智能模式：最快重置的套餐优先，次键套餐余额（magpie smart；排序实现票 06）。
+    #[serde(rename = "smart")]
+    Smart,
 }
 
 impl RoutingMode {
@@ -351,6 +363,10 @@ impl RoutingMode {
             "failover" => RoutingMode::Failover,
             "health_aware" => RoutingMode::HealthAware,
             "sticky" => RoutingMode::Sticky,
+            "rotate" => RoutingMode::Rotate,
+            "usage" => RoutingMode::Usage,
+            "pace" => RoutingMode::Pace,
+            "smart" => RoutingMode::Smart,
             _ => RoutingMode::LoadBalance,
         }
     }
@@ -520,6 +536,21 @@ mod test_routing_mode {
             RoutingMode::from_str_or_default(""),
             RoutingMode::LoadBalance
         );
+    }
+
+    /// 票 magpie 04 先红锚点：serde 词表外值（旧版无 rotate/usage/pace/smart rename）
+    /// 解析必须失败，实现后四值 roundtrip 必须成功。
+    #[test]
+    fn serde_accepts_new_modes() {
+        for s in ["rotate", "usage", "pace", "smart"] {
+            let m: RoutingMode = serde_json::from_str(&format!("\"{s}\""))
+                .unwrap_or_else(|e| panic!("{s}: {e}"));
+            assert_eq!(
+                serde_json::to_string(&m).unwrap(),
+                format!("\"{s}\""),
+                "roundtrip {s}"
+            );
+        }
     }
 }
 
