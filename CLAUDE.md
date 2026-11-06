@@ -1,6 +1,6 @@
 - 本项目授权自动 `git commit`：所有文件变更完成后立即提交，无需等待明确指令
 - 提交信息格式：`<type>(<scope>): <description>`，type 遵循 conventional commits（feat / fix / chore / style / refactor / docs）
-- **全量 git 授权（2026-09-12 用户永久授权）**：`git push`、创建/合并 PR、code review、切换分支（checkout / switch）均无需逐次确认。仅剩高危项仍需当轮明示：force push、改写历史、删分支/删远端 ref
+- **git 授权（2026-09-12 永久授权，2026-11-06 收回 push）**：创建/合并 PR、code review、切换分支（checkout / switch）无需逐次确认。**禁止主动 `git push`**（用户 2026-11-06：「任何时候都不主动推送」），仅在用户当轮明说时推送。高危项仍需当轮明示：force push、改历史、删分支/删远端 ref
 - **`.git/index.lock` 残留自动清理，无需询问用户（2026-11-05 用户授权）**：判据 `pgrep -fl 'git '` 无 git 进程且锁文件 0 字节才删；有 git 进程或非 0 字节不删（别的会话正在写）
 - `cd src-tauri && cargo clippy` 的 warning 必须清干净
 
