@@ -573,7 +573,6 @@
     },
     "env": {
         "CLAUDE_CODE_SUBAGENT_MODEL": "subagent",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "subagent",
         "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "0",
         "CLAUDE_CODE_DISABLE_ARTIFACT": "1",
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
