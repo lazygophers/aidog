@@ -4,13 +4,32 @@
 //! 出处：MCP 规范 2025-06-18「Transports → stdio」
 //! https://modelcontextprotocol.io/specification/2025-06-18/basic/transports
 //!
-//! 骨架只做协议层：initialize 握手 + tools/list（4 工具 schema）+ tools/call 一律回
-//! 「未实现」（isError）；搜索 / 生图 / 生视频 provider 的实现留票 11/12。不碰
-//! aidog_mcp（那是第三方 MCP server 的管理层，语义不同）；桌面版不 spawn 本进程，
-//! 由用户的 agent（Claude Code / Codex）按 mcpServers 配置自己拉起。
+//! 骨架做协议层：initialize 握手 + tools/list（4 工具 schema）。tools/call 里
+//! web_search / web_fetch 走 [`search`] 的真实现（票 11），generate_image / generate_video
+//! 仍回「未实现」（isError，留票 12）。provider 设置经环境变量 `AIDOG_MCP_TOOLS_JSON`
+//! 注入（整库 SQLCipher，本进程不连库——见 main.rs「不连库不抢锁」；由 aidog 写 agent
+//! 的 mcpServers 配置时嵌入）。不碰 aidog_mcp（那是第三方 MCP server 的管理层，语义不同）；
+//! 桌面版不 spawn 本进程，由用户的 agent（Claude Code / Codex）按 mcpServers 配置自己拉起。
 
+use crate::search;
+use aidog_core::mcp_tools::McpToolsSettings;
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
+/// MCP 进程的 provider 设置来源：`AIDOG_MCP_TOOLS_JSON`（McpToolsSettings 的 JSON）。
+/// 缺失或解析失败按未配置处理（诊断写 stderr，stdout 禁非 MCP 消息）。
+fn mcp_tools_settings() -> McpToolsSettings {
+    match std::env::var("AIDOG_MCP_TOOLS_JSON") {
+        Ok(s) => match serde_json::from_str(&s) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("aidog-kernel mcp: AIDOG_MCP_TOOLS_JSON parse failed (treated as unconfigured): {e}");
+                McpToolsSettings::default()
+            }
+        },
+        Err(_) => McpToolsSettings::default(),
+    }
+}
 
 /// 支持的最高协议版本（协商失败 / 客户端版本不受支持时的回落值）。
 pub const LATEST_PROTOCOL_VERSION: &str = "2025-06-18";
@@ -72,7 +91,7 @@ fn tool_definitions() -> Vec<Value> {
 }
 
 /// 一条 JSON-RPC 消息 → 应答（`None` = 不应答：notification / 无关消息 / response）。
-pub fn handle_request(msg: &Value) -> Option<Value> {
+pub async fn handle_request(msg: &Value) -> Option<Value> {
     // 无 id = notification，按 JSON-RPC 不回包；带 id 但无 method = response，忽略。
     let id = msg.get("id")?;
     let method = msg.get("method")?.as_str()?;
@@ -111,16 +130,40 @@ pub fn handle_request(msg: &Value) -> Option<Value> {
             if !tool_definitions().iter().any(|t| t["name"] == name) {
                 return Some(error_of(-32602, "Unknown tool", Some(json!(name))));
             }
-            // 骨架期一律「未实现」：按 MCP 规范走 CallToolResult.isError=true
-            // （工具执行失败属于结果，不是协议层 error）。
-            let result = json!({
-                "content": [{"type": "text", "text": format!("未实现：工具 `{name}` 尚未接入 provider（票 11/12）")}],
-                "isError": true
-            });
+            let settings = mcp_tools_settings();
+            let result =
+                handle_tools_call(name, &msg["params"]["arguments"], &settings).await;
             Some(response_of(result))
         }
         // 未知方法按 JSON-RPC -32601（notification 已在上面的 id 过滤处被忽略）。
         _ => Some(error_of(-32601, "Method not found", Some(json!(method)))),
+    }
+}
+
+/// tools/call 的工具执行（票 11：web_search / web_fetch 真实现；image/video 留票 12）。
+/// 工具执行失败按 MCP 规范走 CallToolResult.isError=true，不是协议层 error。
+pub async fn handle_tools_call(
+    name: &str,
+    args: &Value,
+    settings: &McpToolsSettings,
+) -> Value {
+    let outcome = match name {
+        "web_search" => {
+            let query = args["query"].as_str().unwrap_or_default();
+            let count = args["count"].as_u64().map(|v| v as usize);
+            search::web_search(&settings.search, query, count)
+                .await
+                .map(|hits| search::format_hits(&hits))
+        }
+        "web_fetch" => {
+            search::fetch_url_text(args["url"].as_str().unwrap_or_default()).await
+        }
+        // 票 12：生图 / 生视频 provider，保持占位。
+        _ => Err(format!("未实现：工具 `{name}` 尚未接入 provider（票 12）")),
+    };
+    match outcome {
+        Ok(text) => json!({"content": [{"type": "text", "text": text}]}),
+        Err(e) => json!({"content": [{"type": "text", "text": e}], "isError": true}),
     }
 }
 
@@ -160,7 +203,7 @@ pub async fn run() -> Result<(), String> {
                 continue;
             }
         };
-        if let Some(resp) = handle_request(&msg) {
+        if let Some(resp) = handle_request(&msg).await {
             write_msg(&mut stdout, &resp).await?;
         }
     }

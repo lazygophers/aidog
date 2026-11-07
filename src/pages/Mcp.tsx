@@ -14,12 +14,15 @@
 import { useMcpData } from "./Mcp/useMcpData";
 import { McpView } from "./Mcp/McpView";
 import { McpModals } from "./Mcp/McpModals";
+import { McpToolsSection } from "./Mcp/McpToolsSection";
 
 export function Mcp() {
   const d = useMcpData();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
       <McpView d={d} />
+      {/* 票 11：web_search provider 设置（写 mcp_tools/settings，MCP 进程经 env 注入读取） */}
+      <McpToolsSection />
       <McpModals d={d} />
     </div>
   );
