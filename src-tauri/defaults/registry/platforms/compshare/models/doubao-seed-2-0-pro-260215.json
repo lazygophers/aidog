@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1794028978,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -19,21 +19,21 @@
   "thinking_supported": true,
   "price": {
     "currency": "CNY",
-    "input": 4.44444e-07,
-    "cache_read": 8.88889e-08,
-    "output": 2.22222e-06,
+    "input": 3.1999970000000004e-06,
+    "cache_read": 6.4e-07,
+    "output": 1.5999984e-05,
     "context_tiers": [
       {
         "min_tokens": 32769,
-        "input": 6.66667e-07,
-        "cache_read": 1.33333e-07,
-        "output": 3.33333e-06
+        "input": 4.800002e-06,
+        "cache_read": 9.59998e-07,
+        "output": 2.3999976e-05
       },
       {
         "min_tokens": 131073,
-        "input": 1.33333e-06,
-        "cache_read": 2.66667e-07,
-        "output": 6.66667e-06
+        "input": 9.599976e-06,
+        "cache_read": 1.920002e-06,
+        "output": 4.8000024e-05
       }
     ]
   }

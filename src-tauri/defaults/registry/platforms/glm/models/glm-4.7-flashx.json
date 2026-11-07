@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794017726,
+  "last_updated": 1794028978,
   "supported_protocols": [
     "anthropic",
     "openai"
@@ -21,9 +21,9 @@
   "official": true,
   "price": {
     "currency": "CNY",
-    "input": 6.944444444444445e-08,
-    "output": 4.166666666666666e-07,
-    "cache_read": 1.388888888888889e-08
+    "input": 5e-07,
+    "output": 3e-06,
+    "cache_read": 1.0000000000000001e-07
   },
   "display_name": "GLM-4.7-FlashX"
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1794028978,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -20,8 +20,8 @@
   "thinking_toggleable": true,
   "price": {
     "currency": "CNY",
-    "input": 2.08194e-07,
-    "output": 4.16389e-07,
-    "cache_read": 4.16667e-08
+    "input": 1.4989969999999999e-06,
+    "output": 2.9980009999999997e-06,
+    "cache_read": 3e-07
   }
 }

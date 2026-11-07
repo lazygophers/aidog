@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794028978,
   "supported_protocols": [
     "anthropic"
   ],
@@ -22,8 +22,8 @@
   "official": false,
   "price": {
     "currency": "CNY",
-    "input": 1.11111e-07,
-    "output": 3.88889e-07,
-    "cache_read": 3.19444e-08
+    "input": 7.99999e-07,
+    "output": 2.800001e-06,
+    "cache_read": 2.3000000000000002e-07
   }
 }
