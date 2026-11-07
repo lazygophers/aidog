@@ -83,26 +83,8 @@
     "koodingupuran"
   ],
   "color": "#3B5FEC",
-  "peak": [
-    {
-      "start_hour": 14,
-      "end_hour": 18,
-      "multiplier": 2,
-      "days_of_week": [
-        1,
-        2,
-        3,
-        4,
-        5
-      ],
-      "models": [
-        "glm-5.3",
-        "glm-5.3-flash"
-      ],
-      "timezone": "Asia/Shanghai"
-    }
-  ],
-  "last_updated": 1793718446,
+  "peak": [{"start_hour":14,"end_hour":18,"multiplier":3,"days_of_week":[1,2,3,4,5],"models":["glm-5.3"],"timezone":"Asia/Shanghai"},{"start_hour":14,"end_hour":18,"multiplier":1.2,"days_of_week":[1,2,3,4,5],"models":["glm-5.3-flash"],"timezone":"Asia/Shanghai"}],
+  "last_updated": 1794017726,
   "quota_url_match": [
     "bigmodel.cn",
     "api.z.ai"

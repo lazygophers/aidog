@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244704,
+  "last_updated": 1794017726,
   "supported_protocols": [
     "openai"
   ],
@@ -9,9 +9,9 @@
   "capabilities": [
     "text_to_image"
   ],
-  "max_input_tokens": 65536,
+  "max_input_tokens": 1048576,
   "context_window": 65536,
-  "max_output_tokens": 32768,
+  "max_output_tokens": 65536,
   "official": false,
   "thinking_supported": true,
   "price": {

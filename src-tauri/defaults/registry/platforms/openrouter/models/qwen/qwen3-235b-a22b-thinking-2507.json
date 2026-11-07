@@ -5,9 +5,9 @@
   "family": "qwen",
   "version": "3",
   "max_input_tokens": 131072,
-  "context_window": 131072,
+  "context_window": 128000,
   "official": true,
-  "max_output_tokens": 117964,
+  "max_output_tokens": 16384,
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
@@ -15,7 +15,7 @@
     "input": 4.5e-07,
     "output": 3.5e-06
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794017726,
   "supported_protocols": [
     "anthropic",
     "openai"

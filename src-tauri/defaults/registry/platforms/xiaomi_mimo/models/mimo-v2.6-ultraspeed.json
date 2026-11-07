@@ -1,0 +1,21 @@
+{
+  "family": "mimo",
+  "version": "2.6",
+  "capabilities": [
+    "audio"
+  ],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "official": true,
+  "model_id": "mimo-v2.6-ultraspeed",
+  "canonical_model": "mimo-v2.6-ultraspeed",
+  "price": {
+    "currency": "CNY",
+    "input": 3e-05,
+    "output": 6e-05,
+    "cache_read": 2.5e-07
+  },
+  "last_updated": 1794017726
+}

@@ -1,0 +1,26 @@
+{
+  "last_updated": 1794017726,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "crouton-alpha-free",
+  "display_name": "Crouton Alpha Free",
+  "canonical_model": "crouton-alpha-free",
+  "family": "crouton",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 270000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0,
+    "cache_read": 0,
+    "free": true
+  },
+  "context_window": 1048576
+}

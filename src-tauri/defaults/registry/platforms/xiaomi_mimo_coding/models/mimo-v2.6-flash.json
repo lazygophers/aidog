@@ -1,0 +1,23 @@
+{
+  "family": "mimo",
+  "version": "2.6",
+  "capabilities": [
+    "text"
+  ],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "model_id": "mimo-v2.6-flash",
+  "context_window": 1048576,
+  "canonical_model": "mimo-v2.6-flash",
+  "price": {
+    "currency": "CNY",
+    "input": 1e-08,
+    "output": 1e-08
+  },
+  "last_updated": 1794017726
+}

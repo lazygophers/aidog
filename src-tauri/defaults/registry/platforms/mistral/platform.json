@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793615839,
+  "last_updated": 1794017726,
   "endpoints": {
     "default": [
       {
@@ -26,7 +26,7 @@
       "mistral-medium-3-5",
       "mistral-moderation-2603",
       "mistral-ocr-2512",
-      "mistral-ocr-2606",
+
       "mistral-small-2603",
       "voxtral-mini-transcribe-2602",
       "voxtral-mini-transcribe-realtime-2602",

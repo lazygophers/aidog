@@ -7,16 +7,16 @@
   "max_input_tokens": 204800,
   "context_window": 204800,
   "official": true,
-  "max_output_tokens": 131072,
+  "max_output_tokens": 176947,
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
     "currency": "USD",
-    "input": 3e-07,
-    "output": 1.2e-06,
+    "input": 2.1e-7,
+    "output": 8.4e-7,
     "cache_read": 6e-08
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794017726,
   "supported_protocols": [
     "anthropic",
     "openai"

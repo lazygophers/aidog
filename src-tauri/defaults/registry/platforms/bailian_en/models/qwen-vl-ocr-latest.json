@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1794017726,
   "supported_protocols": [
     "anthropic",
     "openai"
@@ -16,8 +16,8 @@
   "thinking_toggleable": false,
   "price": {
     "currency": "USD",
-    "input": 4.2999999999999995e-08,
-    "output": 7.2e-08
+    "input": 7e-08,
+    "output": 1.6e-07
   },
   "version": "0",
   "context_window": 32768

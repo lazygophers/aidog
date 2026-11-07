@@ -5,7 +5,7 @@
   "tools_pricing": {
     "search": {"per_1000": 40.0, "currency": "CNY"}
   },
-  "last_updated": 1793615839,
+  "last_updated": 1794017726,
   "endpoints": {
     "default": [
       {
@@ -36,7 +36,7 @@
       "step-asr-1.1-stream",
       "step-audio-2",
       "step-audio-r1.5",
-      "step-image-edit-2",
+
       "step-router-v1",
       "step-tts-2",
       "step-tts-mini",
