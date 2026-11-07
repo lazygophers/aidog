@@ -41,6 +41,10 @@ master 基线本身带红（该轮：vitest 1 红、flutter 4 红、aidog_db 2 �
 - **派发 prompt 里的需求词有歧义就先定义**（2026-11-06 statusline「官方协议」：agent 列出 3 种解读后停下，用户插话澄清
   时 agent 已停，需 SendMessage 唤醒续做）：prompt 写明该词在本仓的所指（如「官方协议 = 平台 protocol 为 anthropic 的官方直连」）
   与回退口径；仍有多解的，让 agent 回传解读由主会话 ask-me，用户的澄清等 agent 回报后连同答复一次性发新 prompt。
+- **落盘约定（路径 + 文件名规范）也要贴进派发 prompt**（2026-11-07 magpie 调研轮：两个 research agent 被给了英文
+  文件名 `2026-11-07-*.md`，照写落盘，主会话事后 `mv` 改中文名 + 改 HTML 引用，纯返工）：agent 不读
+  `scratch-规范.md` 等全局规则文件，prompt 写死的目标路径 agent 会原样照抄。要求 agent 落盘新文件时，
+  prompt 里直接给最终中文名（research 类：中文文件名、词间 `-` 连），不给将来要改的过渡名。
 
 ## 3. 派发 prompt 里的路径先验存在，agent 侧留自检指令
 
@@ -56,6 +60,12 @@ master 基线本身带红（该轮：vitest 1 红、flutter 4 红、aidog_db 2 �
    /tmp/aidog-* 目录」**（2026-10-20 db-sqlcipher-full 票 02：prompt 经 /tmp 下
    文件间接引用，agent 顺着同名 PROMPT.md 走进 obs 旧 worktree，白跑一轮。
    /tmp 下的 `aidog-*` 是多轮共用的命名约定，同名文件撞车是常态不是意外）。
+4. **prompt 里的清单会被生成流劣化截断**（2026-11-07 registry 审计轮两次实锤：
+   V1 新增清单 2 个条目名被截、V2 删除 / 新增清单部分截断，肉眼读起来像完整）：
+   prompt 内联的多条目清单（文件名列表、平台清单）中后段条目可能被静默截掉。
+   写 prompt 时数一遍条目数、把 N 写进 prompt（「清单共 N 项」）；agent 侧自检
+   指令加一句：「清单条数与磁盘实际（`git status` / 目录列表）不符时以磁盘为准，
+   不按 prompt 原文照搬」——本轮靠这句兜住，两次截断都没造成漏改。
 
 ## 4. harness worktree 隔离的 agent：开工前核对基点（2026-10-08 passthrough-platform 轮）
 
@@ -224,6 +234,11 @@ completed 的后台 subagent 不会从列表消失，界面一直显示最后一
 - 回报转述完当场对该 agent `TaskStop`；返回 `not running` 或 `No task found` 都说明该 agent 已结束，无需再试。
 - 空闲 teammate（已回报的 SendMessage 型）发 `shutdown_request`。
 - 派发前数在途数（§8）时，只算 running，不把 completed 算进去。
+- **idle 但报告未达：先查产出已落盘再催收，不重派**（2026-11-07 registry 审计轮：
+  reg-struct 完成后 idle 11h、主会话未收到回报——报告其实已落盘；SendMessage 催交
+  后立即回传）：agent 长时间 idle 且无回报时，先 `ls` 它应落盘的产出文件（报告路径
+  在派发 prompt 里写死），文件在 = 工作已完成只是回报链路丢了，SendMessage 催交；
+  不在才走 §15 中断 checklist 续做。重派 = 白烧一遍取证 / 实现成本。
 
 ## 14. 渲染类 UI 票：门禁全绿不等于视觉验收（2026-10-30 流向图）
 
