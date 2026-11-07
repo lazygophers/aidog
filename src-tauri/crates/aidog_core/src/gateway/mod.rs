@@ -43,3 +43,4 @@ pub mod mcp {
 }
 pub mod mcp_recommend;
 pub mod claude_integration;
+pub mod privacy;
