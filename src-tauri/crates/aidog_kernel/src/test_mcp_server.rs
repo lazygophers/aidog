@@ -1,6 +1,7 @@
-//! mcp_server 单元测试（magpie 票 10）：纯函数 `handle_request` 的协议行为。
+//! mcp_server 单元测试（票 10 协议行为 + 票 11 tools/call 分发）。
 
 use super::*;
+use aidog_core::mcp_tools::{McpToolsSettings, SearchProviderConfig};
 use serde_json::{Value, json};
 
 /// 带 id 的请求包装。
@@ -19,9 +20,18 @@ fn err_code(resp: &Value) -> i64 {
         .expect("response should carry error.code")
 }
 
+/// handle_request 已 async（票 11 工具执行要出站）：同步测试用 current_thread runtime 包一层。
+fn handle(msg: &Value) -> Option<Value> {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(handle_request(msg))
+}
+
 #[test]
 fn initialize_echoes_supported_version_and_advertises_tools() {
-    let resp = handle_request(&req(1, "initialize", json!({
+    let resp = handle(&req(1, "initialize", json!({
         "protocolVersion": "2025-06-18",
         "capabilities": {},
         "clientInfo": {"name": "test-client", "version": "0"}
@@ -43,7 +53,7 @@ fn initialize_echoes_supported_version_and_advertises_tools() {
 #[test]
 fn initialize_negotiates_down_for_unsupported_client_version() {
     // 客户端报旧版本且不受支持 → 服务端回自己支持的最高版本（MCP lifecycle 规范）。
-    let resp = handle_request(&req(2, "initialize", json!({
+    let resp = handle(&req(2, "initialize", json!({
         "protocolVersion": "2024-10-07",
         "capabilities": {}
     })))
@@ -54,7 +64,7 @@ fn initialize_negotiates_down_for_unsupported_client_version() {
 #[test]
 fn initialize_negotiates_up_for_older_supported_client_version() {
     // 客户端报 2025-03-26（受支持的旧版本）→ 原样回执，不强行抬版本。
-    let resp = handle_request(&req(3, "initialize", json!({
+    let resp = handle(&req(3, "initialize", json!({
         "protocolVersion": "2025-03-26",
         "capabilities": {}
     })))
@@ -64,7 +74,7 @@ fn initialize_negotiates_up_for_older_supported_client_version() {
 
 #[test]
 fn tools_list_returns_the_four_placeholders_with_schemas() {
-    let resp = handle_request(&req(4, "tools/list", json!({})))
+    let resp = handle(&req(4, "tools/list", json!({})))
         .expect("tools/list must produce a response");
     let tools = result_of(&resp)["tools"]
         .as_array()
@@ -108,42 +118,87 @@ fn tools_list_returns_the_four_placeholders_with_schemas() {
         .is_some_and(|r| r.contains(&json!("prompt"))));
 }
 
+fn call_tool(name: &str, args: Value, settings: &McpToolsSettings) -> Value {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(handle_tools_call(name, &args, settings))
+}
+
 #[test]
-fn tools_call_returns_is_error_for_all_four_tools() {
-    for name in ["web_search", "web_fetch", "generate_image", "generate_video"] {
-        let resp = handle_request(&req(5, "tools/call", json!({"name": name, "arguments": {}})))
-            .expect("tools/call must produce a response");
-        let result = result_of(&resp);
-        assert_eq!(result["isError"], true, "{name} 骨架期必须 isError=true");
-        let text = result["content"][0]["text"].as_str().expect("content[0].text");
-        assert!(text.contains("未实现"), "{name} 的文案要写明未实现");
+fn tools_call_web_search_unconfigured_is_explicit_error() {
+    let result = call_tool("web_search", json!({"query": "q"}), &McpToolsSettings::default());
+    assert_eq!(result["isError"], true, "未配置必须 isError=true");
+    let text = result["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("未配置"), "text={text}");
+}
+
+#[test]
+fn tools_call_unverified_provider_is_explicit_error() {
+    // unverified provider 不打网络：入口处直接显式报错（票面纪律：不猜端点）。
+    let settings = McpToolsSettings {
+        search: SearchProviderConfig {
+            provider: "deepseek".into(),
+            keys: vec!["k".into()],
+            enabled: true,
+            searxng_base_urls: vec![],
+        },
+        ..Default::default()
+    };
+    let result = call_tool("web_search", json!({"query": "q"}), &settings);
+    assert_eq!(result["isError"], true);
+    assert!(
+        result["content"][0]["text"].as_str().unwrap().contains("unverified"),
+        "text={}",
+        result["content"][0]["text"]
+    );
+}
+
+#[test]
+fn tools_call_generate_image_and_video_still_placeholder() {
+    // 票 12 范围：保持「未实现」占位。
+    for name in ["generate_image", "generate_video"] {
+        let result = call_tool(name, json!({"prompt": "p"}), &McpToolsSettings::default());
+        assert_eq!(result["isError"], true, "{name} 必须 isError=true");
+        assert!(
+            result["content"][0]["text"].as_str().unwrap().contains("未实现"),
+            "{name} 的文案要写明未实现"
+        );
     }
 }
 
 #[test]
 fn tools_call_unknown_tool_is_invalid_params() {
-    let resp = handle_request(&req(6, "tools/call", json!({"name": "nope", "arguments": {}})))
+    let resp = handle(&req(6, "tools/call", json!({"name": "nope", "arguments": {}})))
         .expect("unknown tool must produce an error response");
     assert_eq!(err_code(&resp), -32602);
 }
 
 #[test]
 fn unknown_method_is_method_not_found() {
-    let resp = handle_request(&req(7, "resources/list", json!({})))
+    let resp = handle(&req(7, "resources/list", json!({})))
         .expect("unknown method must produce an error response");
     assert_eq!(err_code(&resp), -32601);
 }
 
 #[test]
 fn ping_returns_empty_result() {
-    let resp = handle_request(&req(8, "ping", json!({}))).expect("ping must produce a response");
+    let resp = handle(&req(8, "ping", json!({}))).expect("ping must produce a response");
     assert!(result_of(&resp).is_object());
 }
 
 #[test]
 fn notifications_produce_no_response() {
     assert_eq!(
-        handle_request(&json!({"jsonrpc": "2.0", "method": "notifications/initialized"})),
+        handle(&json!({"jsonrpc": "2.0", "method": "notifications/initialized"})),
         None
     );
+}
+
+#[test]
+fn env_settings_missing_or_invalid_falls_back_to_default() {
+    // 不设 env 时 = 未配置（不 panic）。env 读取进程级，这里只验 default 路径的形状。
+    let s = McpToolsSettings::default();
+    assert_eq!(call_tool("web_search", json!({"query": "q"}), &s)["isError"], true);
 }

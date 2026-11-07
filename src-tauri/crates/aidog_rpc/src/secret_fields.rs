@@ -14,6 +14,7 @@ pub const MASK: &str = "***";
 /// 密钥字段声明（唯一一处）：JSON 路径后缀；段名忽略大小写与下划线（兼容 camelCase）；数组下标不占段。
 pub const SECRET_PATHS: &[&[&str]] = &[
     &["api_key"],                  // 平台 API 密钥
+    &["keys"],                     // MCP 工具搜索 provider 多 key（票 11）
     &["auth_token"],               // 管理接口凭据
     &["bot_token"],                // 通知渠道：Telegram
     &["password"],                 // 通知渠道：Email SMTP / 出站代理
@@ -60,7 +61,11 @@ fn walk(v: &mut Value, path: &mut Vec<String>, f: &mut dyn FnMut(&[String], &mut
                 path.pop();
             }
         }
-        Value::Array(a) => a.iter_mut().for_each(|c| walk(c, path, f)),
+        Value::Array(a) => a.iter_mut().for_each(|c| match c {
+            // 数组下标不占段：字符串元素继承当前路径过密钥判定（如搜索 provider 的 keys，票 11）
+            Value::String(s) if is_secret_path(path) => f(path, s),
+            _ => walk(c, path, f),
+        }),
         _ => {}
     }
 }
@@ -196,6 +201,7 @@ mod tests {
     fn mask_covers_each_secret_kind_and_keeps_empty() {
         let mut v = json!([{
             "api_key": "sk-real", "apiKey": "sk-camel", "base_url": "http://x",
+            "keys": ["sk-search-1", "sk-search-2"],
             "extra": "{\"auth_header\":\"x-my-key\",\"auth_template\":\"Bearer {key}\",\"other\":1}",
             "channels": {
                 "telegram": {"bot_token": "123:abc", "chat_id": "9"},
@@ -208,7 +214,7 @@ mod tests {
         }]);
         mask_value(&mut v);
         let s = v.to_string();
-        for leak in ["sk-real", "sk-camel", "123:abc", "\"pw\"", "hook?token", "bark/k", "bearer-1", "\"pp\"", "BEGIN", "x-my-key", "Bearer {key}"] {
+        for leak in ["sk-real", "sk-camel", "123:abc", "\"pw\"", "hook?token", "bark/k", "bearer-1", "\"pp\"", "BEGIN", "x-my-key", "Bearer {key}", "sk-search-1", "sk-search-2"] {
             assert!(!s.contains(leak), "{leak} 泄漏: {s}");
         }
         assert_eq!(v[0]["base_url"], "http://x");

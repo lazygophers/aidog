@@ -20,6 +20,7 @@ static GLOBAL_ALLOCATOR: MiMalloc = MiMalloc;
 
 mod ctx;
 mod mcp_server;
+mod search;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -37,7 +38,8 @@ aidog-kernel — aidog 的无界面内核
   aidog-kernel              纯内核（代理转发 + 定时任务）
   aidog-kernel --ui         额外在 http://127.0.0.1:<代理端口>/api/ui/ 提供 Web 界面
   aidog-kernel mcp          stdio 上的 MCP server（newline-delimited JSON-RPC；
-                            由 Claude Code / Codex 的 mcpServers 配置拉起，不连库不抢锁）
+                            由 Claude Code / Codex 的 mcpServers 配置拉起，不连库不抢锁；
+                            provider 设置经环境变量 AIDOG_MCP_TOOLS_JSON 注入）
 
 管理接口 /api/rpc/<命令> 与 /api/events 挂在代理端口上（只接受本机连接），
 由「设置 → API」里的开关统一启停；--ui 要求该开关为开。
@@ -62,7 +64,8 @@ struct Options {
 
 enum ParseOutcome {
     Run(Options),
-    /// 子命令 `mcp`：stdio MCP server（不连库、不抢单实例锁）。
+    /// 子命令 `mcp`：stdio MCP server（不连库、不抢单实例锁；provider 设置走
+    /// 环境变量 `AIDOG_MCP_TOOLS_JSON`，见 mcp_server 模块头）。
     RunMcp,
     /// 打印一段文字后正常退出（--help / --version）。
     Print(String),

@@ -6,16 +6,38 @@
 
 use aidog_db::{self as db, Db};
 
+/// 搜索 provider id 词表（spec D5a 的 9 家）。
+pub const SEARCH_PROVIDERS: [&str; 9] = [
+    "tavily",
+    "brave",
+    "exa",
+    "firecrawl",
+    "youcom",
+    "deepseek",
+    "doubao",
+    "tencent_yuanbao",
+    "searxng",
+];
+
 /// 搜索 provider 配置。
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Default)]
 pub struct SearchProviderConfig {
-    /// provider id（词表与逐家实现留票 11；候选清单见 spec D5a：tavily / brave / exa /
-    /// firecrawl / you.com / deepseek / 豆包 / 腾讯元宝 / searxng）。
+    /// provider id（词表 [`SEARCH_PROVIDERS`]）。
     #[serde(default)]
     pub provider: String,
     /// API keys，多 key 轮换（D5a：多 key 数组 + 轮换；至少 1 个才算配置了搜索）。
     #[serde(default)]
     pub keys: Vec<String>,
+    /// 启用开关：false 时 web_search 直接回「已禁用」（缺省 true）。
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    /// SearXNG 专用：多实例 base_url（provider = searxng 时按序尝试，无 key）。
+    #[serde(default)]
+    pub searxng_base_urls: Vec<String>,
+}
+
+fn default_enabled() -> bool {
+    true
 }
 
 impl SearchProviderConfig {
@@ -123,5 +145,32 @@ mod test_mcp_tools {
             model: String::new(),
         };
         assert!(!m.is_configured(), "缺 model 不算配置");
+    }
+
+    #[test]
+    fn enabled_defaults_true_and_searxng_urls_parse() {
+        // 缺省 enabled = true：配置了 provider 就该默认可用，开关只在显式禁用时为 false。
+        let s: SearchProviderConfig = serde_json::from_value(serde_json::json!({
+            "provider": "searxng", "keys": ["k"],
+            "searxng_base_urls": ["http://a", "http://b"]
+        }))
+        .unwrap();
+        assert!(s.enabled, "缺省 enabled 必须是 true");
+        assert_eq!(s.searxng_base_urls, vec!["http://a".to_string(), "http://b".to_string()]);
+
+        let off: SearchProviderConfig = serde_json::from_value(serde_json::json!({
+            "provider": "tavily", "keys": ["k"], "enabled": false
+        }))
+        .unwrap();
+        assert!(!off.enabled, "显式 enabled=false 必须保留");
+    }
+
+    #[test]
+    fn search_providers_word_list_matches_spec_d5a() {
+        // spec D5a 的 9 家；票 11 实现按此词表分发。
+        assert_eq!(
+            SEARCH_PROVIDERS,
+            ["tavily", "brave", "exa", "firecrawl", "youcom", "deepseek", "doubao", "tencent_yuanbao", "searxng"]
+        );
     }
 }
