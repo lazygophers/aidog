@@ -1,0 +1,21 @@
+{
+  "family": "mimo",
+  "version": "2.6",
+  "capabilities": [
+    "audio"
+  ],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "official": true,
+  "model_id": "mimo-v2.6-pro",
+  "canonical_model": "mimo-v2.6-pro",
+  "price": {
+    "currency": "CNY",
+    "input": 3e-06,
+    "output": 6e-06,
+    "cache_read": 2.5e-08
+  },
+  "last_updated": 1794017726
+}

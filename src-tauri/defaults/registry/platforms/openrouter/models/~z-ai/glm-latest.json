@@ -4,18 +4,18 @@
   "canonical_model": "glm-latest",
   "family": "glm",
   "max_input_tokens": 1048576,
-  "context_window": 1310720,
+  "context_window": 1048576,
   "official": true,
-  "max_output_tokens": 131072,
+  "max_output_tokens": 943718,
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
     "currency": "USD",
-    "input": 6.3e-08,
-    "output": 4.4e-06,
+    "input": 6.99e-8,
+    "output": 0.0000014,
     "cache_read": 5.86e-08
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794017726,
   "supported_protocols": [
     "anthropic",
     "openai"

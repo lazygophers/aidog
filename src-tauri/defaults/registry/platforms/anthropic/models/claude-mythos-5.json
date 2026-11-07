@@ -1,0 +1,22 @@
+{
+  "model_id": "claude-mythos-5",
+  "canonical_model": "claude-mythos-5",
+  "family": "claude",
+  "version": "5",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 128000,
+  "context_window": 1000000,
+  "supported_protocols": [
+    "anthropic"
+  ],
+  "price": {
+    "input": 1e-05,
+    "output": 5e-05,
+    "cache_read": 1e-06
+  },
+  "last_updated": 1794017726
+}

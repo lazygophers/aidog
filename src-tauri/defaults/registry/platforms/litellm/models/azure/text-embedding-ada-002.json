@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1794017726,
   "supported_protocols": [
     "openai"
   ],
@@ -11,14 +11,14 @@
   "capabilities": [
     "embedding"
   ],
-  "max_input_tokens": 8191,
+  "max_input_tokens": 8192,
   "context_window": 8191,
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
     "currency": "USD",
-    "input": 1e-07,
+    "input": 1.1e-07,
     "output": 0
   }
 }

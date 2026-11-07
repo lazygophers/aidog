@@ -1,0 +1,29 @@
+{
+  "model_id": "meta/muse-spark-open",
+  "display_name": "Meta: Muse Spark Open",
+  "canonical_model": "muse-spark-open",
+  "family": "muse",
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "official": true,
+  "max_output_tokens": 943718,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000125,
+    "output": 0.00000425,
+    "cache_read": 1.5e-7
+  },
+  "last_updated": 1794017726,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
+}

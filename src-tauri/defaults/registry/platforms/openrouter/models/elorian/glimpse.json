@@ -1,0 +1,29 @@
+{
+  "model_id": "elorian/glimpse",
+  "display_name": "Elorian: Glimpse",
+  "canonical_model": "glimpse",
+  "family": "glimpse",
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": true,
+  "max_output_tokens": 256000,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "currency": "USD",
+    "input": 6e-7,
+    "output": 0.000003,
+    "cache_read": 6e-8
+  },
+  "last_updated": 1794017726,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
+}

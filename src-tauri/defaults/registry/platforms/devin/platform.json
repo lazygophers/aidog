@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793615839,
+  "last_updated": 1794017726,
   "endpoints": {
     "default": []
   },
@@ -14,7 +14,10 @@
       "devin-fast",
       "devin-lite",
       "devin-ultra",
-      "devin-fusion"
+      "devin-fusion",
+    "devin-swe-1-6",
+    "devin-swe-1-7",
+    "devin-swe-1-7-medium"
     ]
   },
   "name": {

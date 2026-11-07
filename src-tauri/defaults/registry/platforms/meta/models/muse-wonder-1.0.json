@@ -1,0 +1,21 @@
+{
+  "model_id": "muse-wonder-1.0",
+  "canonical_model": "muse-wonder-1.0",
+  "family": "muse",
+  "version": "1.0",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "context_window": 1048576,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "input": 4e-06,
+    "output": 2e-05,
+    "cache_read": 2e-07
+  },
+  "last_updated": 1794017726
+}

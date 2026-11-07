@@ -1,0 +1,25 @@
+{
+  "last_updated": 1794017726,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "mimo-v2.6-flash",
+  "display_name": "MiMo-V2.6-Flash",
+  "canonical_model": "mimo-v2.6-flash",
+  "family": "mimo",
+  "thinking_supported": true,
+  "thinking_toggleable": false,
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 131072,
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 1.4e-7,
+    "output": 2.8e-7,
+    "cache_read": 2.8e-9
+  },
+  "context_window": 1048576
+}

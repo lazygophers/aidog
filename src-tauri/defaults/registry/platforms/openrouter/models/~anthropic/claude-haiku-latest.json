@@ -4,9 +4,9 @@
   "canonical_model": "claude-haiku-latest",
   "family": "claude",
   "max_input_tokens": 200000,
-  "context_window": 200000,
+  "context_window": 1000000,
   "official": true,
-  "max_output_tokens": 64000,
+  "max_output_tokens": 128000,
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
@@ -23,7 +23,7 @@
       }
     ]
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794017726,
   "supported_protocols": [
     "anthropic",
     "openai"

@@ -1,0 +1,18 @@
+{
+  "last_updated": 1794017726,
+  "supported_protocols": [
+    "devin"
+  ],
+  "model_id": "devin-swe-1-7",
+  "canonical_model": "devin-swe-1-7",
+  "family": "devin",
+  "display_name": "Devin Fast",
+  "capabilities": [
+    "tool_use"
+  ],
+  "official": true,
+  "price": {
+    "input": 5e-07,
+    "output": 2.5e-06
+  }
+}

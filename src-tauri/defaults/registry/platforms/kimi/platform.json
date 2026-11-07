@@ -9,7 +9,7 @@
     "search_pro": {"per_1000": 15.0, "currency": "CNY"},
     "fetch": {"per_1000": 10.0, "currency": "CNY"}
   },
-  "last_updated": 1793615839,
+  "last_updated": 1794017726,
   "endpoints": {
     "default": [
       {
@@ -32,7 +32,9 @@
       "kimi-k2.6",
       "kimi-k2.7-code",
       "kimi-k2.7-code-highspeed",
-      "kimi-k3"
+      "kimi-k3",
+    "kimi-k3.1-pro",
+    "kimi-k3.1-pro-highspeed"
     ]
   },
   "name": {

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794017726,
   "supported_protocols": [
     "anthropic",
     "openai"
@@ -13,7 +13,7 @@
     "text"
   ],
   "max_input_tokens": 131072,
-  "context_window": 131072,
+  "context_window": 163840,
   "max_output_tokens": 65536,
   "official": true,
   "thinking_supported": true,
