@@ -269,7 +269,7 @@ async fn forward_attempt_model(
     chat_req.model = actual_model.clone();
 
 
-    let Prepared { req_body, url } = match prepare_outbound(
+    let Prepared { mut req_body, url } = match prepare_outbound(
         state,
         group,
         &route,
@@ -293,6 +293,21 @@ async fn forward_attempt_model(
             Ok(v) => v,
             Err(o) => return o.into(),
         };
+
+    // ── 票 02：出站隐私脱敏（设置 privacy/scrub 开启时）：对出站 JSON body 字符串值检测替换。
+    // 映射表只在本 attempt 内存存活（响应侧还原后随作用域丢弃），不落盘、不进 proxy_log
+    // 原文列——上游请求 / 响应 body 落库为占位符形态。设置关闭时零改动直通。──
+    let privacy_map = {
+        let privacy_settings = state.settings_cache.read().await.privacy.clone();
+        if privacy_settings.enabled {
+            let opts = crate::gateway::privacy::scrub_options(&privacy_settings);
+            Some(Arc::new(crate::gateway::privacy::scrub_json(
+                &mut req_body, &opts,
+            )))
+        } else {
+            None
+        }
+    };
     let req_body_str = serde_json::to_string(&req_body).unwrap_or_default();
 
 
@@ -522,6 +537,7 @@ async fn forward_attempt_model(
                 &attempt_ctx,
                 &upstream_resp_headers,
                 start,
+                privacy_map,
                 body,
             )
             .await,
@@ -590,6 +606,7 @@ async fn forward_attempt_model(
             &attempt_ctx,
             &upstream_resp_headers,
             start,
+            privacy_map,
         )
         .await,
     )
