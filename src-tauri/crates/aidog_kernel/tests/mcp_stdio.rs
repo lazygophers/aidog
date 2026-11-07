@@ -26,8 +26,10 @@ async fn mcp_stdio_roundtrip() {
         r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}"#,
         // 工具清单
         r#"{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}"#,
-        // 骨架期工具调用：应回「未实现」错误结果
+        // 票 11：web_search 真实现，未配置 env 时应回「未配置」的 isError 结果
         r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"web_search","arguments":{"query":"hi"}}}"#,
+        // generate_image 仍是票 12 占位：应回「未实现」
+        r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"generate_image","arguments":{"prompt":"p"}}}"#,
     ];
     for line in requests {
         stdin.write_all(line.as_bytes()).await.expect("write request");
@@ -39,7 +41,7 @@ async fn mcp_stdio_roundtrip() {
     drop(stdin);
 
     let mut responses = Vec::new();
-    for _ in 0..3 {
+    for _ in 0..4 {
         let line = tokio::time::timeout(Duration::from_secs(10), reader.next_line())
             .await
             .expect("timeout waiting for response line")
@@ -69,8 +71,17 @@ async fn mcp_stdio_roundtrip() {
     let call = &responses[2];
     assert_eq!(call["id"], 3);
     let text = call["result"]["content"][0]["text"].as_str().expect("content text");
-    assert!(text.contains("未实现"), "骨架期 tools/call 应回「未实现」，实得 {text}");
+    assert!(
+        text.contains("未配置"),
+        "票 11 未配置 provider 的 web_search 应回「未配置」，实得 {text}"
+    );
     assert_eq!(call["result"]["isError"], true);
+
+    let image = &responses[3];
+    assert_eq!(image["id"], 4);
+    let text = image["result"]["content"][0]["text"].as_str().expect("content text");
+    assert!(text.contains("未实现"), "generate_image 仍是票 12 占位，实得 {text}");
+    assert_eq!(image["result"]["isError"], true);
 
     let status = child.wait().await.expect("wait child");
     assert!(status.success(), "stdin EOF 后子进程应正常退出，实得 {status}");
