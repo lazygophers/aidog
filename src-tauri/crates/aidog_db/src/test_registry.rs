@@ -345,6 +345,51 @@ fn siliconflow_per_model_peak_pricing() {
     assert_eq!(p["cache_read"], serde_json::json!(0), "hunyuan 官方无缓存计价行 = 0，禁缺键回落兜底单价");
 }
 
+/// devin 官方双档价（促销档 → list 档）：docs.devin.ai/desktop/models 页内嵌
+/// modelCostData（TEAMS_TIER_DEVIN_ENTERPRISE 档，2026-11-07 raw curl 一手）。
+/// SWE-2 三档推理变体（medium/high/max）token 单价相同，现促销价至 2026-12-31（Pacific），
+/// 2027-01-01 08:00 UTC 起 list 价 —— time_tiers 表达后半段；swe-check 官方全 0 价
+/// （Quick Review 免费）→ `free: true` 显式免费（全 0 未标 free 会回落兜底单价）。
+#[test]
+fn devin_swe2_promo_list_tiers() {
+    let approx = |a: f64, b: f64| (a - b).abs() <= b * 1e-9;
+    let price_of = |rel: &str| {
+        let (_, _, json) = MODEL_FILES
+            .iter()
+            .find(|(c, f, _)| *c == "devin" && *f == rel)
+            .unwrap_or_else(|| panic!("devin 缺模型条目 {rel}"));
+        serde_json::from_str::<Value>(json).expect("model json")["price"]
+            .clone()
+    };
+    for uid in [
+        "swe-2-medium.json",
+        "swe-2-high.json",
+        "swe-2-max.json",
+    ] {
+        let p = price_of(uid);
+        assert!(approx(p["input"].as_f64().unwrap(), 0.5e-6), "{uid} 促销 input 0.50 $/M");
+        assert!(approx(p["output"].as_f64().unwrap(), 2.5e-6), "{uid} 促销 output 2.50 $/M");
+        assert!(approx(p["cache_read"].as_f64().unwrap(), 0.05e-6), "{uid} 促销 cache_read 0.05 $/M");
+        let tiers = p["time_tiers"]
+            .as_array()
+            .expect("time_tiers 数组（促销→list 双档）");
+        assert_eq!(tiers.len(), 1, "{uid} 只有一档 list 价，增删先核官方定价页");
+        let t = &tiers[0];
+        assert_eq!(
+            t["start_at"],
+            serde_json::json!(1798790400),
+            "{uid} list 起点 2027-01-01 08:00 UTC（促销至 2026-12-31 Pacific）"
+        );
+        assert!(approx(t["input"].as_f64().unwrap(), 3.0e-6), "{uid} list input 3.00 $/M");
+        assert!(approx(t["output"].as_f64().unwrap(), 15.0e-6), "{uid} list output 15.00 $/M");
+        assert!(approx(t["cache_read"].as_f64().unwrap(), 0.3e-6), "{uid} list cache_read 0.30 $/M");
+    }
+    let p = price_of("swe-check.json");
+    assert_eq!(p["free"], serde_json::json!(true), "swe-check 全 0 价须显式 free，否则回落兜底单价");
+    assert_eq!(p["input"], serde_json::json!(0.0));
+    assert_eq!(p["output"], serde_json::json!(0.0));
+}
+
 /// 没有任何 official 条目、且不能靠「整个平台零 official」规则放行的 `model_id`，
 /// 逐条核过来源后在此登记豁免：
 /// - `deepseek-v3.2-think`：只上架 qianfan（百度转售），deepseek 官方平台无同名条目

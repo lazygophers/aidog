@@ -1,0 +1,28 @@
+{
+  "last_updated": 1794026233,
+  "supported_protocols": [
+    "devin"
+  ],
+  "model_id": "swe-2-max",
+  "canonical_model": "swe-2-max",
+  "family": "devin",
+  "display_name": "SWE-2 Max",
+  "capabilities": [
+    "tool_use"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 5e-07,
+    "output": 2.5e-06,
+    "cache_read": 5e-08,
+    "time_tiers": [
+      {
+        "start_at": 1798790400,
+        "input": 3e-06,
+        "output": 1.5e-05,
+        "cache_read": 3e-07
+      }
+    ]
+  }
+}
