@@ -279,6 +279,72 @@ fn glm_coding_keeps_peak_branches() {
     assert_eq!(glm["is_coding_plan"], true);
 }
 
+/// siliconflow 官方 per-model 时段价（registry-计费形状扩展 票 01；一手出处
+/// https://siliconflow.cn/pricing 2026-11-07 raw curl）。官方按「模型 × 时段」独立定价：
+/// - tencent/Hunyuan-A13B-Instruct：峰（北京 9-18）on 1.0/4.0，off 0.8/3.2 CNY/M → 比值 ×1.25
+/// - DeepSeek-V4-Flash（官方展示名；objectName 请求 id 为 `deepseek-ai/DeepSeek-V4-Flash-0731`）：
+///   峰（北京 8-24∪0-2）on 3/9/0.3，off 1.5/4.5/0.15 CNY/M → ×2.0
+/// - DeepSeek-V4.1-Flash：同窗口 on 2/8/0.04，off 1/4/0.02 CNY/M → ×2.0
+/// 条目价落官方 off-peak 价（deepseek 平台先例），峰价 = 条目价 × 窗口倍率（比值恰为
+/// 1.25 / 2.0，无需 per-model price.peak 绝对价）。条目单价 = 官方 CNY/M × 1e-6 ÷ 7.2
+/// （全库 CNY 条目家族换算；注意 currency:CNY 运行时还会 ÷6.6675，见票 01 越界发现）。
+#[test]
+fn siliconflow_per_model_peak_pricing() {
+    let sf = &protocols()["siliconflow"];
+    let windows = sf["peak"]
+        .as_array()
+        .expect("siliconflow peak 窗口数组");
+    assert_eq!(
+        windows.len(),
+        2,
+        "官方时段价只有 hunyuan 与 deepseek-flash 两组；增删窗口先核官方定价页"
+    );
+    let (hy, ds) = (&windows[0], &windows[1]);
+    assert_eq!(hy["start_hour"], serde_json::json!(9), "hunyuan 高峰起点：北京 9 点");
+    assert_eq!(hy["end_hour"], serde_json::json!(18), "hunyuan 高峰终点：北京 18 点");
+    assert_eq!(hy["multiplier"], serde_json::json!(1.25));
+    assert_eq!(hy["timezone"], serde_json::json!("Asia/Shanghai"));
+    assert_eq!(
+        hy["models"],
+        serde_json::json!(["tencent/Hunyuan-A13B-Instruct"])
+    );
+    assert_eq!(ds["start_hour"], serde_json::json!(8), "deepseek flash 高峰起点（跨天窗 8→2）");
+    assert_eq!(ds["end_hour"], serde_json::json!(2), "deepseek flash 跨天终点：覆盖 8-24∪0-2");
+    assert_eq!(ds["multiplier"], serde_json::json!(2.0));
+    assert_eq!(ds["timezone"], serde_json::json!("Asia/Shanghai"));
+    assert_eq!(
+        ds["models"],
+        serde_json::json!([
+            "deepseek-ai/DeepSeek-V4-Flash-0731",
+            "deepseek-ai/DeepSeek-V4.1-Flash"
+        ])
+    );
+    // 条目价 = 官方 off-peak 价（CNY/M × 1e-6 ÷ 7.2）
+    let price_of = |rel: &str| {
+        let (_, _, json) = MODEL_FILES
+            .iter()
+            .find(|(c, f, _)| *c == "siliconflow" && *f == rel)
+            .unwrap_or_else(|| panic!("siliconflow 缺模型条目 {rel}"));
+        serde_json::from_str::<Value>(json)
+            .expect("model json")["price"]
+            .clone()
+    };
+    let approx = |a: f64, b: f64| (a - b).abs() <= b * 1e-9;
+    let p = price_of("deepseek-ai/DeepSeek-V4-Flash-0731.json");
+    assert!(approx(p["input"].as_f64().unwrap(), 1.5e-6 / 7.2), "v4-0731 input");
+    assert!(approx(p["output"].as_f64().unwrap(), 4.5e-6 / 7.2), "v4-0731 output");
+    assert!(approx(p["cache_read"].as_f64().unwrap(), 0.15e-6 / 7.2), "v4-0731 cache_read");
+    let p = price_of("deepseek-ai/DeepSeek-V4.1-Flash.json");
+    assert!(approx(p["input"].as_f64().unwrap(), 1.0e-6 / 7.2), "v4.1-flash input");
+    assert!(approx(p["output"].as_f64().unwrap(), 4.0e-6 / 7.2), "v4.1-flash output");
+    assert!(approx(p["cache_read"].as_f64().unwrap(), 0.02e-6 / 7.2), "v4.1-flash cache_read");
+    // hunyuan 条目维持官方 off 价（0.8 / 3.2 CNY/M），无 cache_read（官方无缓存计价行）
+    let p = price_of("tencent/Hunyuan-A13B-Instruct.json");
+    assert!(approx(p["input"].as_f64().unwrap(), 0.8e-6 / 7.2));
+    assert!(approx(p["output"].as_f64().unwrap(), 3.2e-6 / 7.2));
+    assert_eq!(p["cache_read"], serde_json::json!(0), "hunyuan 官方无缓存计价行 = 0，禁缺键回落兜底单价");
+}
+
 /// 没有任何 official 条目、且不能靠「整个平台零 official」规则放行的 `model_id`，
 /// 逐条核过来源后在此登记豁免：
 /// - `deepseek-v3.2-think`：只上架 qianfan（百度转售），deepseek 官方平台无同名条目

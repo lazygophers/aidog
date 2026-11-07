@@ -505,6 +505,53 @@ mod tests {
         assert!(!is_in_peak_window(&[w], ms, "gpt-4"));
     }
 
+    /// 票 01（registry-计费形状扩展）：per-model 时段价 = 窗口 `models` 限定器按请求模型
+    /// 分流 is_peak / multiplier，同一时刻同平台不同模型生效价不同。siliconflow 官方形状
+    /// （https://siliconflow.cn/pricing 2026-11-07 raw 一手）：hunyuan 峰 9-18 北京 ×1.25，
+    /// deepseek flash 系峰 8→2（跨天，覆盖 8-24∪0-2）×2.0；条目价 = off-peak 价（deepseek
+    /// 平台先例），峰价 = 条目价 × 倍率（比值恰为 1.25 / 2.0，无需 per-model price.peak）。
+    #[test]
+    fn per_model_peak_multiplier_by_window_models_limiter() {
+        let windows: Vec<TimeWindow> = serde_json::from_str(
+            r#"[
+            {"start_hour":9,"end_hour":18,"multiplier":1.25,"models":["tencent/Hunyuan-A13B-Instruct"],"timezone":"Asia/Shanghai"},
+            {"start_hour":8,"end_hour":2,"multiplier":2.0,"models":["deepseek-ai/DeepSeek-V4-Flash-0731","deepseek-ai/DeepSeek-V4.1-Flash"],"timezone":"Asia/Shanghai"}
+        ]"#,
+        )
+        .unwrap();
+        // 2026-11-10T04:00Z = 北京 12:00：hunyuan 峰内 ×1.25，deepseek 峰内 ×2.0，其余模型 ×1.0
+        let noon = 1_794_283_200_000_i64;
+        assert_eq!(
+            resolve_multiplier(&windows, noon, "tencent/Hy4-preview"),
+            1.0,
+            "不在任何窗口 models 限定器内的模型不受平台峰值影响"
+        );
+        assert_eq!(
+            resolve_multiplier(&windows, noon, "tencent/Hunyuan-A13B-Instruct"),
+            1.25
+        );
+        assert_eq!(
+            resolve_multiplier(&windows, noon, "deepseek-ai/DeepSeek-V4.1-Flash"),
+            2.0
+        );
+        assert_eq!(
+            resolve_multiplier(&windows, noon, "deepseek-ai/DeepSeek-V4-Flash-0731"),
+            2.0
+        );
+        assert!(is_in_peak_window(&windows, noon, "tencent/Hunyuan-A13B-Instruct"));
+        assert!(!is_in_peak_window(&windows, noon, "tencent/Hy4-preview"));
+        // 2026-11-09T22:00Z = 北京 06:00：deepseek off（2-8）×1.0，hunyuan off ×1.0
+        let dawn = 1_794_261_600_000_i64;
+        assert_eq!(
+            resolve_multiplier(&windows, dawn, "deepseek-ai/DeepSeek-V4.1-Flash"),
+            1.0
+        );
+        assert_eq!(
+            resolve_multiplier(&windows, dawn, "tencent/Hunyuan-A13B-Instruct"),
+            1.0
+        );
+    }
+
     // ---- peak golden fixture（Rust↔TS 共享真值：testdata/peak_golden.json，TS 侧 vitest import 同一份）----
 
     #[derive(serde::Deserialize)]
