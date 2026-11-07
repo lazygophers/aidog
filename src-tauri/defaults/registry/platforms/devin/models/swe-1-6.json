@@ -1,18 +1,19 @@
 {
-  "last_updated": 1794017726,
+  "last_updated": 1794030037,
   "supported_protocols": [
     "devin"
   ],
-  "model_id": "devin-swe-1-6",
-  "canonical_model": "devin-swe-1-6",
+  "model_id": "swe-1-6",
+  "canonical_model": "swe-1-6",
   "family": "devin",
-  "display_name": "Devin Fast",
+  "display_name": "SWE-1.6",
   "capabilities": [
     "tool_use"
   ],
   "official": true,
   "price": {
     "input": 5e-07,
-    "output": 2.5e-06
+    "output": 2.5e-06,
+    "cache_read": 2e-07
   }
 }

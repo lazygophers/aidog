@@ -1,0 +1,19 @@
+{
+  "last_updated": 1794030037,
+  "supported_protocols": [
+    "devin"
+  ],
+  "model_id": "swe-1-7-medium",
+  "canonical_model": "swe-1-7-medium",
+  "family": "devin",
+  "display_name": "SWE-1.7 Medium",
+  "capabilities": [
+    "tool_use"
+  ],
+  "official": true,
+  "price": {
+    "input": 5e-07,
+    "output": 2.5e-06,
+    "cache_read": 2e-07
+  }
+}

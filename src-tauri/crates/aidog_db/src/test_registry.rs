@@ -390,6 +390,88 @@ fn devin_swe2_promo_list_tiers() {
     assert_eq!(p["output"], serde_json::json!(0.0));
 }
 
+/// 票 registry-计费形状扩展 05：devin 官方 uid 无 devin- 前缀（modelCostData model_uid
+/// 字面，docs.devin.ai/desktop/models 2026-11-07 raw curl 一手），三个旧条目按官方
+/// uid 改名 + display_name 对齐 + 补 cache_read 0.2 $/M；五条旧会话条目
+/// （devin-fast/fusion/lite/normal/ultra）官方价表已无 → 删除。
+#[test]
+fn devin_uid_rename_and_legacy_cleanup() {
+    let approx = |a: f64, b: f64| (a - b).abs() <= b * 1e-9;
+    let devin_files: Vec<(&str, &str)> = MODEL_FILES
+        .iter()
+        .filter(|(c, _, _)| *c == "devin")
+        .map(|(_, f, j)| (*f, *j))
+        .collect();
+    let entry_of = |rel: &str| {
+        let json = devin_files
+            .iter()
+            .find(|(f, _)| *f == rel)
+            .unwrap_or_else(|| panic!("devin 缺模型条目 {rel}"))
+            .1;
+        serde_json::from_str::<Value>(json).expect("model json")
+    };
+    // 旧会话条目已删（官方 modelCostData 无此 uid）
+    for legacy in [
+        "devin-fast.json",
+        "devin-fusion.json",
+        "devin-lite.json",
+        "devin-normal.json",
+        "devin-ultra.json",
+    ] {
+        assert!(
+            !devin_files.iter().any(|(f, _)| *f == legacy),
+            "官方价表已无 {legacy}，须删除"
+        );
+    }
+    // 改名后无 devin- 前缀条目残留
+    for (_, json) in &devin_files {
+        let e = serde_json::from_str::<Value>(json).expect("model json");
+        let id = e["model_id"].as_str().expect("model_id");
+        assert!(
+            !id.starts_with("devin-"),
+            "官方 uid 无 devin- 前缀，残留 {id}"
+        );
+    }
+    // 三条改名条目：uid / display_name / 价（含 cache_read 0.2 $/M）对齐官方
+    let official: [(&str, &str, &str); 3] = [
+        ("swe-1-6.json", "swe-1-6", "SWE-1.6"),
+        ("swe-1-7.json", "swe-1-7", "SWE-1.7 Max"),
+        ("swe-1-7-medium.json", "swe-1-7-medium", "SWE-1.7 Medium"),
+    ];
+    for (rel, uid, label) in official {
+        let e = entry_of(rel);
+        assert_eq!(e["model_id"], serde_json::json!(uid), "{rel} uid");
+        assert_eq!(e["canonical_model"], serde_json::json!(uid), "{rel} canonical");
+        assert_eq!(e["display_name"], serde_json::json!(label), "{rel} 官方现名");
+        let p = &e["price"];
+        assert!(approx(p["input"].as_f64().unwrap(), 0.5e-6), "{rel} input 0.50 $/M");
+        assert!(approx(p["output"].as_f64().unwrap(), 2.5e-6), "{rel} output 2.50 $/M");
+        assert!(approx(p["cache_read"].as_f64().unwrap(), 0.2e-6), "{rel} cache_read 0.20 $/M");
+    }
+    // index.json devin 清单 = 磁盘 7 文件（3 改名 + 4 现役）
+    let index = parse("index.json", INDEX_JSON);
+    let devin = index["platforms"]
+        .as_array()
+        .expect("platforms array")
+        .iter()
+        .find(|p| p["code"] == serde_json::json!("devin"))
+        .expect("devin in index");
+    let mut listed: Vec<&str> = devin["models"]
+        .as_array()
+        .expect("models array")
+        .iter()
+        .map(|m| m.as_str().expect("filename"))
+        .collect();
+    listed.sort_unstable();
+    let mut on_disk: Vec<&str> = {
+        let mut v: Vec<&str> = devin_files.iter().map(|(f, _)| *f).collect();
+        v.sort_unstable();
+        v
+    };
+    on_disk.sort_unstable();
+    assert_eq!(listed, on_disk, "index.json devin 清单与 models 目录零差集");
+}
+
 /// 票 registry-计费形状扩展 03：meta sam-3.1 官方按图计费（$2.50 / 1,000 images = 0.0025 $/图），
 /// `unit:"image"` + `unit_price` 表达（先例 muse-image-1.0）。
 /// 一手出处 https://dev.meta.ai/docs/pricing-rate-limits #sam-pricing（2026-11-07 raw curl）。

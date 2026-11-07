@@ -1,27 +1,22 @@
 {
-  "last_updated": 1794026233,
+  "last_updated": 1794030037,
   "endpoints": {
     "default": []
   },
   "models": {
     "default": {
-      "default": ["devin-normal"]
+      "default": ["swe-2-high"]
     }
   },
   "model_list": {
     "default": [
-      "devin-normal",
-      "devin-fast",
-      "devin-lite",
-      "devin-ultra",
-      "devin-fusion",
-    "devin-swe-1-6",
-    "devin-swe-1-7",
-    "devin-swe-1-7-medium",
-      "swe-2-medium",
       "swe-2-high",
       "swe-2-max",
-      "swe-check"
+      "swe-2-medium",
+      "swe-check",
+      "swe-1-6",
+      "swe-1-7",
+      "swe-1-7-medium"
     ]
   },
   "name": {
