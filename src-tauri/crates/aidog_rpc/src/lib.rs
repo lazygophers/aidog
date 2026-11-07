@@ -243,6 +243,7 @@ rpc_routes! {
     mutating aidog_core::ai_tools_cmd::mcp::mcp_resync,
     readonly aidog_core::ai_tools_cmd::mcp::mcp_share_export [exports_secret],
     readonly aidog_core::ai_tools_cmd::mcp::mcp_recommended_list,
+    mutating aidog_core::ai_tools_cmd::mcp::mcp_self_install,
     mutating aidog_backup::commands::export_to_file [exports_secret],
     readonly aidog_backup::commands::export_preview,
     readonly aidog_backup::commands::backup_settings_get,

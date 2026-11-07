@@ -1,7 +1,7 @@
 // mcp.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "../transport";
-import type { McpAgentSlug, McpServerInfo, McpScanItem, McpImportPayload, McpImportReport, McpUpdatePayload, McpRecommendedEntry } from "./types";
+import type { McpAgentSlug, McpServerInfo, McpScanItem, McpImportPayload, McpImportReport, McpUpdatePayload, McpRecommendedEntry, McpSelfInstallReport } from "./types";
 
 export const mcpApi = {
   /** 列出 DB 中所有 MCP（env/headers 脱敏）。 */
@@ -32,6 +32,8 @@ export const mcpApi = {
     invoke<Record<string, unknown>>("mcp_share_export", { name }),
   /** 推荐安装清单（远程缓存 → 内置兜底；key snake_case）。 */
   recommendedList: () => invoke<McpRecommendedEntry[]>("mcp_recommended_list"),
+  /** 一键写入本机 agent 配置：`aidog-kernel mcp`（stdio）进 Claude Code / Codex 的 mcpServers。 */
+  selfInstall: () => invoke<McpSelfInstallReport>("mcp_self_install"),
 };
 
 // ─── 导入导出子系统 ───────────────────────────────────────

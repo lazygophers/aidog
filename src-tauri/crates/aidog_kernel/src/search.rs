@@ -32,7 +32,7 @@ pub const FETCH_MAX_BYTES: usize = 1024 * 1024;
 /// web_fetch / web_search 单次出站超时。
 pub const FETCH_TIMEOUT_SECS: u64 = 30;
 
-fn http_client() -> Result<reqwest::Client, String> {
+pub(crate) fn http_client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(FETCH_TIMEOUT_SECS))
         .build()
@@ -125,7 +125,7 @@ async fn search_with_keys(
     ))
 }
 
-async fn call(
+pub(crate) async fn call(
     req: reqwest::RequestBuilder,
 ) -> Result<serde_json::Value, String> {
     let resp = req.send().await.map_err(|e| format!("request: {e}"))?;
@@ -137,7 +137,7 @@ async fn call(
     serde_json::from_str(&body).map_err(|e| format!("parse json: {e}: {}", truncate_str(&body, 200)))
 }
 
-fn truncate_str(s: &str, max: usize) -> &str {
+pub(crate) fn truncate_str(s: &str, max: usize) -> &str {
     match s.char_indices().nth(max) {
         Some((i, _)) => &s[..i],
         None => s,
