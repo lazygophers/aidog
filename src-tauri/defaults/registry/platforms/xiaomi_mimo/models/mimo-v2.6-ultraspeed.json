@@ -13,9 +13,9 @@
   "canonical_model": "mimo-v2.6-ultraspeed",
   "price": {
     "currency": "CNY",
-    "input": 3e-05,
-    "output": 6e-05,
-    "cache_read": 2.5e-07
+    "input": 0.000216,
+    "output": 0.000432,
+    "cache_read": 1.8000000000000001e-06
   },
-  "last_updated": 1794017726
+  "last_updated": 1794028978
 }

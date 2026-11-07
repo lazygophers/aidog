@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794028978,
   "supported_protocols": [
     "anthropic"
   ],
@@ -21,13 +21,13 @@
   "thinking_toggleable": true,
   "price": {
     "currency": "CNY",
-    "input": 5.55556e-08,
-    "output": 4.44444e-07,
+    "input": 4.0000000000000003e-07,
+    "output": 3.1999970000000004e-06,
     "context_tiers": [
       {
         "min_tokens": 131073,
-        "input": 2.22222e-07,
-        "output": 1.77778e-06
+        "input": 1.599998e-06,
+        "output": 1.2800016e-05
       }
     ]
   }
