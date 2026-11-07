@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794022183,
+  "last_updated": 1794025183,
   "platforms": [
     {
       "code": "aihubmix",
@@ -7596,8 +7596,9 @@
         "deepseek-ai/DeepSeek-V3.1-Terminus.json",
         "deepseek-ai/DeepSeek-V3.2.json",
         "deepseek-ai/DeepSeek-V3.json",
-        "deepseek-ai/DeepSeek-V4-Flash.json",
+        "deepseek-ai/DeepSeek-V4-Flash-0731.json",
         "deepseek-ai/DeepSeek-V4-Pro.json",
+        "deepseek-ai/DeepSeek-V4.1-Flash.json",
         "fnlp/MOSS-TTSD-v0.5.json",
         "inclusionAI/Ling-flash-2.0.json",
         "inclusionAI/Ling-mini-2.0.json",
