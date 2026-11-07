@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793615839,
+  "last_updated": 1794022183,
   "endpoints": {
     "default": [
       {
@@ -34,7 +34,7 @@
     "es-ES": "OpenAI Codex"
   },
   "source_urls": {
-    "docs": "https://platform.openai.com/docs/guides/codex",
+    "docs": "https://platform.openai.com/docs/codex",
     "pricing": "https://openai.com/api/pricing/"
   },
   "homepage": "https://openai.com",
