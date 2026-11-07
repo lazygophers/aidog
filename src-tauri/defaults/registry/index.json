@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794026233,
+  "last_updated": 1794026972,
   "platforms": [
     {
       "code": "aihubmix",
@@ -6089,7 +6089,8 @@
         "muse-spark-1.3-contributor.json",
         "muse-spark-1.3.json",
         "muse-voice-transcribe-1.0.json",
-        "muse-wonder-1.0.json"
+        "muse-wonder-1.0.json",
+        "sam-3.1.json"
       ],
       "name": "Meta Model API"
     },
