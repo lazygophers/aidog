@@ -90,3 +90,32 @@ per-platform `models/*.json` 的增删不自动反映到 `index.json` 的平台 
   `node scripts/check-registry.mjs`；两处 diff 属同一任务文件集，盖戳照常
   （`node scripts/bump-registry-last-updated.mjs`）。
 - 2026-10-15 尚无 sync 脚本；若日后加了，以脚本为准删本节。
+
+## 大规模落库的分工：写入 agent 不碰共享文件，收尾统一（2026-11-07 审计轮）
+
+1155 文件落库轮（commit 04abaddcb）跑通的分工：两个写入 agent 并行（文件集
+不相交，各管自己的平台目录），**不碰 `index.json`、不 commit**——index.json
+同步 + 盖戳 + 门禁 + commit 由收尾 agent 在两个写入 agent 都完成后统一做。
+全程零 index.lock 事故、零盖戳误伤（既有规则「无参盖戳会盖到别人的脏文件」
+自然失效：脏文件集里没有并行的写入 agent）。
+
+规则：写入型 agent 要并行时，共享文件（index.json、盖戳、commit）收口给一个
+收尾 agent；写入 agent 的改动面限定各自目录，边界三行写进派发 prompt。这是
+shared-worktree.md「凡写主 checkout 的 agent 串行派」在 registry 大轮上的
+例外形态：文件集不相交才并行，共享文件永远单点收口。
+
+## schema 拦截 ≠ 数据没丢：按 schema 删键前 grep 读取层（2026-11-07 审计轮）
+
+「新必填字段上线 = 三件套」是加字段方向；本条是反向的删字段 / 禁键对称件。
+model.schema.json 禁 `context_tier` 档内 `cache_write` / `cache_write_1h`
+（additionalProperties:false 拦截），check-registry 门禁**全绿**——但
+`price_resolve.rs:163-171` 的 `overlay_prices` 显式读这两键：按 schema 删掉
+gpt-6.1-terra 系档内 cache_write 价（2.5e-6）后，运行时行为从「档内价覆盖
+base」静默变成「继承 base 价」。门禁绿 + schema 是契约，挡不住 schema 与
+读取层错位导致的数据静默删除。
+
+规则：按 schema 为契约删数据键、或改 schema 禁键之前，先 grep Rust / TS
+读取层有无显式读该键的消费者（`grep -rn '<键名>' src-tauri/crates/*/src/`）；
+有 → 先拍板（扩 schema 保留，或确认「删除 = 运行时行为变更」并留复活条件），
+不静默删。落选的「扩 schema 保留」要带复活条件写进报告遗留（本轮遗留㉑即此
+写法）。
