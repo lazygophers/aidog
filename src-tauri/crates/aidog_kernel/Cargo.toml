@@ -29,7 +29,7 @@ aidog_middleware = { path = "../aidog_middleware" }
 aidog_notification = { path = "../aidog_notification" }
 aidog_adapter = { path = "../aidog_adapter" }
 axum = { workspace = true }
-tokio = { workspace = true, features = ["signal"] }
+tokio = { workspace = true, features = ["signal", "io-std"] }
 tower-http = { workspace = true }
 futures = { workspace = true }
 serde = { workspace = true }
