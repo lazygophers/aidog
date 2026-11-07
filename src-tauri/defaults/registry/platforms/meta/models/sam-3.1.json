@@ -1,0 +1,24 @@
+{
+  "last_updated": 1794026972,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "model_id": "sam-3.1",
+  "canonical_model": "sam-3.1",
+  "display_name": "SAM 3.1",
+  "family": "sam",
+  "version": "3.1",
+  "capabilities": [
+    "vision",
+    "video"
+  ],
+  "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "price": {
+    "currency": "USD",
+    "unit": "image",
+    "unit_price": 0.0025
+  }
+}
