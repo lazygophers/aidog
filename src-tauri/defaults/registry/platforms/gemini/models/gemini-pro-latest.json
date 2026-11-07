@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1794017726,
   "supported_protocols": [
     "gemini"
   ],
@@ -11,15 +11,15 @@
     "text"
   ],
   "max_input_tokens": 1048576,
-  "max_output_tokens": 65535,
+  "max_output_tokens": 65536,
   "context_window": 1048576,
   "official": true,
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
     "currency": "USD",
-    "input": 1.25e-06,
-    "output": 1e-05,
+    "input": 2e-06,
+    "output": 1.2e-05,
     "cache_read": 1.25e-07
   }
 }

@@ -4,7 +4,7 @@
   "canonical_model": "inkling",
   "family": "inkling",
   "max_input_tokens": 524288,
-  "context_window": 1048576,
+  "context_window": 524288,
   "official": true,
   "max_output_tokens": 471859,
   "thinking_supported": true,
@@ -14,7 +14,7 @@
     "output": 4.05e-06,
     "cache_read": 1.7e-07
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794017726,
   "supported_protocols": [
     "anthropic",
     "openai"

@@ -5,9 +5,9 @@
   "family": "glm",
   "version": "5.3",
   "max_input_tokens": 1048576,
-  "context_window": 1310720,
+  "context_window": 1048575,
   "official": true,
-  "max_output_tokens": 943718,
+  "max_output_tokens": 943717,
   "thinking_supported": true,
   "price": {
     "currency": "USD",
@@ -15,7 +15,7 @@
     "output": 5e-07,
     "cache_read": 3e-08
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794017726,
   "supported_protocols": [
     "anthropic",
     "openai"

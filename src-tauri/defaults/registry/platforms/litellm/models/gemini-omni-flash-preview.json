@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244704,
+  "last_updated": 1794017726,
   "supported_protocols": [
     "openai"
   ],
@@ -7,8 +7,8 @@
   "canonical_model": "gemini-omni-flash-preview",
   "family": "gemini",
   "thinking_supported": true,
-  "max_output_tokens": 65535,
-  "max_input_tokens": 1048576,
+  "max_output_tokens": 57920,
+  "max_input_tokens": 131072,
   "display_name": "Gemini Omni Flash (preview)",
   "capabilities": [
     "text",

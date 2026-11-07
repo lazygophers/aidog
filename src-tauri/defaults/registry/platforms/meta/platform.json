@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793615839,
+  "last_updated": 1794017726,
   "endpoints": {
     "default": [
       {
@@ -25,7 +25,8 @@
       "muse-spark-1.1",
       "muse-spark-1.2-contributor",
       "muse-spark-1.2",
-      "muse-voice-transcribe-1.0"
+      "muse-voice-transcribe-1.0",
+    "muse-wonder-1.0"
     ]
   },
   "name": {

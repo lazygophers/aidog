@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793615839,
+  "last_updated": 1794017726,
   "is_coding_plan": true,
   "endpoints": {
     "default": [
@@ -27,13 +27,16 @@
   },
   "models": {
     "default": {
-      "default": ["mimo-v2.5-pro"]
+      "default": ["mimo-v2.6-pro"]
     }
   },
   "model_list": {
     "default": [
-      "mimo-v2.5-pro",
-      "mimo-v2.5"
+    "mimo-v2.6-pro",
+    "mimo-v2.6-flash"
+  
+
+
     ]
   },
   "name": {

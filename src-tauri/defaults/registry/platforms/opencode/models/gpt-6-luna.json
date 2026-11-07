@@ -1,0 +1,33 @@
+{
+  "last_updated": 1794017726,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gpt-6-luna",
+  "display_name": "GPT-6 Luna",
+  "canonical_model": "gpt-6-luna",
+  "family": "gpt",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 922000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1e-7,
+    "output": 5e-7,
+    "cache_read": 1e-8,
+    "context_tiers": [
+      {
+        "min_tokens": 272001,
+        "input": 2e-7,
+        "output": 7.5e-7,
+        "cache_read": 2e-8
+      }
+    ]
+  },
+  "context_window": 1050000
+}
