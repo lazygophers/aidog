@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794025183,
+  "last_updated": 1794026233,
   "platforms": [
     {
       "code": "aihubmix",
@@ -2310,7 +2310,7 @@
       "name": "Devin",
       "platform_file": "platforms/devin/platform.json",
       "models_dir": "platforms/devin/models",
-      "models": [
+      "models": ["swe-2-high.json", "swe-2-max.json", "swe-2-medium.json", "swe-check.json", 
         "devin-fast.json",
         "devin-fusion.json",
         "devin-lite.json",

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794017726,
+  "last_updated": 1794026233,
   "endpoints": {
     "default": []
   },
@@ -17,7 +17,11 @@
       "devin-fusion",
     "devin-swe-1-6",
     "devin-swe-1-7",
-    "devin-swe-1-7-medium"
+    "devin-swe-1-7-medium",
+      "swe-2-medium",
+      "swe-2-high",
+      "swe-2-max",
+      "swe-check"
     ]
   },
   "name": {
