@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1794030037,
   "platforms": [
     {
       "code": "aihubmix",
@@ -2310,16 +2310,15 @@
       "name": "Devin",
       "platform_file": "platforms/devin/platform.json",
       "models_dir": "platforms/devin/models",
-      "models": ["swe-2-high.json", "swe-2-max.json", "swe-2-medium.json", "swe-check.json", 
-        "devin-fast.json",
-        "devin-fusion.json",
-        "devin-lite.json",
-        "devin-normal.json",
-        "devin-swe-1-6.json",
-        "devin-swe-1-7-medium.json",
-        "devin-swe-1-7.json",
-        "devin-ultra.json"
-      ]
+      "models": [
+      "swe-2-high.json",
+      "swe-2-max.json",
+      "swe-2-medium.json",
+      "swe-check.json",
+      "swe-1-6.json",
+      "swe-1-7.json",
+      "swe-1-7-medium.json"
+    ]
     },
     {
       "code": "doubao",
