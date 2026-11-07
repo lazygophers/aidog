@@ -4,8 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "../../test/render";
 
 const h = vi.hoisted(() => ({ get: vi.fn(), set: vi.fn() }));
+const m = vi.hoisted(() => ({ selfInstall: vi.fn() }));
 vi.mock("../../services/transport", () => ({ invoke: vi.fn(), listen: vi.fn(async () => () => {}) }));
 vi.mock("../../services/api/settings", () => ({ settingsApi: { get: h.get, set: h.set } }));
+vi.mock("../../services/api/mcp", () => ({ mcpApi: { selfInstall: m.selfInstall } }));
 
 import { McpToolsSection } from "./McpToolsSection";
 
@@ -18,6 +20,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.get.mockResolvedValue(null);
   h.set.mockResolvedValue(undefined);
+  m.selfInstall.mockReset();
 });
 
 describe("McpToolsSection", () => {
@@ -114,5 +117,37 @@ describe("McpToolsSection", () => {
     await waitFor(() => expect(providerSelect().value).toBe(""));
     fireEvent.click(saved());
     expect(await screen.findByTestId("mcp-tools-save-error")).toHaveTextContent("settings_set failed");
+  });
+
+  it("image 字段编辑后保存写出 image 对象；video 留空不写", async () => {
+    render(<McpToolsSection />);
+    await waitFor(() => expect(providerSelect().value).toBe(""));
+    fireEvent.change(screen.getByTestId("mcp-tools-image-base-url"), { target: { value: "https://p/v1/" } });
+    fireEvent.change(screen.getByTestId("mcp-tools-image-api-key"), { target: { value: "sk" } });
+    fireEvent.change(screen.getByTestId("mcp-tools-image-model"), { target: { value: "m1" } });
+    fireEvent.click(saved());
+    await waitFor(() => {
+      const call = h.set.mock.calls[0];
+      expect((call[2] as any).image).toEqual({ base_url: "https://p/v1/", api_key: "sk", model: "m1" });
+      expect((call[2] as any).video).toBeUndefined();
+    });
+  });
+
+  it("一键安装成功：展示结果元素（i18n 资源空时落原始 key，同 unverifiedBadge）", async () => {
+    m.selfInstall.mockResolvedValue({ name: "aidog", command: "/usr/local/bin/aidog-kernel", agents: ["claude-code", "codex"] });
+    render(<McpToolsSection />);
+    await waitFor(() => expect(providerSelect().value).toBe(""));
+    fireEvent.click(screen.getByTestId("mcp-tools-install"));
+    const res = await screen.findByTestId("mcp-tools-install-result");
+    expect(res).toHaveTextContent("mcp.tools.installed");
+    expect(m.selfInstall).toHaveBeenCalledTimes(1);
+  });
+
+  it("一键安装失败展示原文", async () => {
+    m.selfInstall.mockRejectedValue("no kernel");
+    render(<McpToolsSection />);
+    await waitFor(() => expect(providerSelect().value).toBe(""));
+    fireEvent.click(screen.getByTestId("mcp-tools-install"));
+    expect(await screen.findByTestId("mcp-tools-install-result")).toHaveTextContent("no kernel");
   });
 });

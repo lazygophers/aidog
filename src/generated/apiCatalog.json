@@ -1161,6 +1161,15 @@
       "returns": "Vec<gateway::mcp::McpScanItem>"
     },
     {
+      "name": "mcp_self_install",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "McpSelfInstallReport"
+    },
+    {
       "name": "mcp_set_agent",
       "category": "ai_tools",
       "kind": "mutating",

@@ -4,14 +4,15 @@
 //! 出处：MCP 规范 2025-06-18「Transports → stdio」
 //! https://modelcontextprotocol.io/specification/2025-06-18/basic/transports
 //!
-//! 骨架做协议层：initialize 握手 + tools/list（4 工具 schema）。tools/call 里
-//! web_search / web_fetch 走 [`search`] 的真实现（票 11），generate_image / generate_video
-//! 仍回「未实现」（isError，留票 12）。provider 设置经环境变量 `AIDOG_MCP_TOOLS_JSON`
+//! 协议层：initialize 握手 + tools/list（4 工具 schema）。tools/call 里
+//! web_search / web_fetch 走 [`search`] 的真实现（票 11），generate_image /
+//! generate_video 走 [`media`]（票 12：image 为 OpenAI images 兼容实现，video
+//! 仅接口 + 明确错误）。provider 设置经环境变量 `AIDOG_MCP_TOOLS_JSON`
 //! 注入（整库 SQLCipher，本进程不连库——见 main.rs「不连库不抢锁」；由 aidog 写 agent
 //! 的 mcpServers 配置时嵌入）。不碰 aidog_mcp（那是第三方 MCP server 的管理层，语义不同）；
 //! 桌面版不 spawn 本进程，由用户的 agent（Claude Code / Codex）按 mcpServers 配置自己拉起。
 
-use crate::search;
+use crate::{media, search};
 use aidog_core::mcp_tools::McpToolsSettings;
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -158,8 +159,17 @@ pub async fn handle_tools_call(
         "web_fetch" => {
             search::fetch_url_text(args["url"].as_str().unwrap_or_default()).await
         }
-        // 票 12：生图 / 生视频 provider，保持占位。
-        _ => Err(format!("未实现：工具 `{name}` 尚未接入 provider（票 12）")),
+        "generate_image" => {
+            let prompt = args["prompt"].as_str().unwrap_or_default();
+            let size = args["size"].as_str();
+            media::generate_image(settings.image.as_ref(), prompt, size).await
+        }
+        "generate_video" => {
+            let prompt = args["prompt"].as_str().unwrap_or_default();
+            media::generate_video(settings.video.as_ref(), prompt).await
+        }
+        // handle_request 已按 tool_definitions 校验过名字，此臂正常不可达。
+        _ => Err(format!("未知工具：`{name}`")),
     };
     match outcome {
         Ok(text) => json!({"content": [{"type": "text", "text": text}]}),

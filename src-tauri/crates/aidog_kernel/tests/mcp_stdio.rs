@@ -28,7 +28,7 @@ async fn mcp_stdio_roundtrip() {
         r#"{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}"#,
         // 票 11：web_search 真实现，未配置 env 时应回「未配置」的 isError 结果
         r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"web_search","arguments":{"query":"hi"}}}"#,
-        // generate_image 仍是票 12 占位：应回「未实现」
+        // 票 12：generate_image 已实现，未配置 env 时应回「未配置图片 provider」的 isError 结果
         r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"generate_image","arguments":{"prompt":"p"}}}"#,
     ];
     for line in requests {
@@ -80,7 +80,10 @@ async fn mcp_stdio_roundtrip() {
     let image = &responses[3];
     assert_eq!(image["id"], 4);
     let text = image["result"]["content"][0]["text"].as_str().expect("content text");
-    assert!(text.contains("未实现"), "generate_image 仍是票 12 占位，实得 {text}");
+    assert!(
+        text.contains("未配置图片 provider"),
+        "票 12 未配置图片 provider 的 generate_image 应回「未配置」，实得 {text}"
+    );
     assert_eq!(image["result"]["isError"], true);
 
     let status = child.wait().await.expect("wait child");

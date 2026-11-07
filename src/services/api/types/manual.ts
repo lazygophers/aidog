@@ -138,6 +138,13 @@ export interface McpImportReport {
   skipped: string[];
 }
 
+/** 一键写入 agent 配置的报告（后端 McpSelfInstallReport，字段单词无 camelCase 差异）。 */
+export interface McpSelfInstallReport {
+  name: string;
+  command: string;
+  agents: McpAgentSlug[];
+}
+
 /** 编辑 MCP 入参。env/headers 未改的敏感值前端传 "***"，后端 merge 旧 DB 明文。 */
 export interface McpUpdatePayload {
   name: string;
