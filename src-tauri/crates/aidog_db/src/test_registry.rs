@@ -390,6 +390,24 @@ fn devin_swe2_promo_list_tiers() {
     assert_eq!(p["output"], serde_json::json!(0.0));
 }
 
+/// 票 registry-计费形状扩展 03：meta sam-3.1 官方按图计费（$2.50 / 1,000 images = 0.0025 $/图），
+/// `unit:"image"` + `unit_price` 表达（先例 muse-image-1.0）。
+/// 一手出处 https://dev.meta.ai/docs/pricing-rate-limits #sam-pricing（2026-11-07 raw curl）。
+#[test]
+fn meta_sam31_per_image_pricing() {
+    let (_, _, json) = MODEL_FILES
+        .iter()
+        .find(|(c, f, _)| *c == "meta" && *f == "sam-3.1.json")
+        .unwrap_or_else(|| panic!("meta 缺模型条目 sam-3.1.json"));
+    let entry = serde_json::from_str::<Value>(json).expect("model json");
+    assert_eq!(entry["official"], serde_json::json!(true), "官方价一手来源");
+    assert_eq!(entry["model_id"], serde_json::json!("sam-3.1"), "请求名 = 官方 models 页 <code> 字面");
+    let p = &entry["price"];
+    assert_eq!(p["unit"], serde_json::json!("image"), "SAM 3.1 官方按图计费，非 token");
+    assert_eq!(p["unit_price"], serde_json::json!(0.0025), "$2.50 / 1,000 images");
+    assert_eq!(p["currency"], serde_json::json!("USD"));
+}
+
 /// 没有任何 official 条目、且不能靠「整个平台零 official」规则放行的 `model_id`，
 /// 逐条核过来源后在此登记豁免：
 /// - `deepseek-v3.2-think`：只上架 qianfan（百度转售），deepseek 官方平台无同名条目

@@ -231,6 +231,19 @@ fn resolve_price_from_free_entry_is_zero() {
     assert_eq!(resolve_price_from(Some(&pd), false, 3.0, 6.0, 0, 0).price.source, "fallback");
 }
 
+#[test]
+fn resolve_price_from_image_unit_bills_per_image() {
+    // 票 registry-计费形状扩展 03：`unit:"image"` 同 `unit:"request"` 走按次单价，
+    // est_cost = unit_price × 次数（chat 路径无图数，调用方 max(1) 计 1 次）。
+    let pd = serde_json::json!({"price": {"currency": "USD", "unit": "image", "unit_price": 0.0025}});
+    let r = resolve_price_from(Some(&pd), false, 3.0, 15.0, 1000, 0);
+    assert_eq!(r.request_unit_price, Some(0.0025), "按图单价 USD/张");
+    assert_eq!(r.price.input_cost_per_token, 0.0, "按图条目 token 价全 0，不吃 fallback");
+    assert_eq!(r.price.output_cost_per_token, 0.0);
+    assert_eq!(r.price.source, "model_entry+image");
+    assert!(!r.peak_applied, "按次价不走 peak");
+}
+
 // ── DB 路径 ──
 
 #[tokio::test]
