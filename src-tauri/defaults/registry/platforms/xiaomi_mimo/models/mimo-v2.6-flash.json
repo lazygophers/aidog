@@ -13,9 +13,9 @@
   "canonical_model": "mimo-v2.6-flash",
   "price": {
     "currency": "CNY",
-    "input": 1e-06,
-    "output": 2e-06,
-    "cache_read": 2e-08
+    "input": 7.2000000000000005e-06,
+    "output": 1.4400000000000001e-05,
+    "cache_read": 1.44e-07
   },
-  "last_updated": 1794017726
+  "last_updated": 1794028978
 }

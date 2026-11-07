@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1794028978,
   "supported_protocols": [
     "anthropic",
     "openai"
@@ -20,15 +20,15 @@
   "thinking_toggleable": true,
   "price": {
     "currency": "CNY",
-    "input": 1.6666666666666665e-07,
-    "output": 1e-06,
-    "cache_read": 1.6666666666666667e-08,
+    "input": 1.2e-06,
+    "output": 7.2000000000000005e-06,
+    "cache_read": 1.2e-07,
     "context_tiers": [
       {
         "min_tokens": 262145,
-        "input": 6.666666666666666e-07,
-        "output": 4e-06,
-        "cache_read": 6.666666666666667e-08
+        "input": 4.8e-06,
+        "output": 2.8800000000000002e-05,
+        "cache_read": 4.8e-07
       }
     ]
   }

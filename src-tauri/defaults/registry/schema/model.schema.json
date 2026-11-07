@@ -265,7 +265,7 @@
         "currency": {
           "type": "string",
           "enum": ["CNY", "USD", "EUR", "JPY"],
-          "description": "【可选】官方定价原币标注（缺省=USD）。仅标注非计费输入：est_cost 真值仍是已换算的 USD 单价，price_resolve.rs 不读本字段。票 17（2026-10-28 拍板回执 a9dd9711ae82，enum 四值）。"
+          "description": "【可选】条目单价的计价币种标注（缺省=USD）。非 USD 时条目单价按该币种落库，price_resolve.rs 换算 USD 计费（CNY 单价 ÷ CNY_PER_USD=6.6675，ECB 参考汇率）。票 04（2026-11-07）：CNY 条目一律存官方原币价（CNY/M × 1e-6），禁再按家族汇率 ÷7.2 预换算——预换算叠加运行时 ÷ 会双重换算低计费。enum 四值出自票 17（2026-10-28 拍板回执 a9dd9711ae82）。"
         },
         "context_tiers": {
           "$ref": "#/definitions/context_tiers",

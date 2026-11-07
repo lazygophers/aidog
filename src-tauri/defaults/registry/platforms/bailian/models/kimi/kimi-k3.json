@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1794028978,
   "supported_protocols": [
     "anthropic",
     "openai"
@@ -17,8 +17,8 @@
   "official": true,
   "price": {
     "currency": "CNY",
-    "input": 2.7777777777777775e-06,
-    "output": 1.388888888888889e-05
+    "input": 2e-05,
+    "output": 0.0001
   },
   "context_window": 262144
 }

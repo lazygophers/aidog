@@ -286,8 +286,8 @@ fn glm_coding_keeps_peak_branches() {
 ///   峰（北京 8-24∪0-2）on 3/9/0.3，off 1.5/4.5/0.15 CNY/M → ×2.0
 /// - DeepSeek-V4.1-Flash：同窗口 on 2/8/0.04，off 1/4/0.02 CNY/M → ×2.0
 /// 条目价落官方 off-peak 价（deepseek 平台先例），峰价 = 条目价 × 窗口倍率（比值恰为
-/// 1.25 / 2.0，无需 per-model price.peak 绝对价）。条目单价 = 官方 CNY/M × 1e-6 ÷ 7.2
-/// （全库 CNY 条目家族换算；注意 currency:CNY 运行时还会 ÷6.6675，见票 01 越界发现）。
+/// 1.25 / 2.0，无需 per-model price.peak 绝对价）。条目单价 = 官方 CNY/M × 1e-6 原币落库
+/// （票 04 起 CNY 条目一律存原币；运行时 ÷CNY_PER_USD(6.6675) 换算 USD 计费）。
 #[test]
 fn siliconflow_per_model_peak_pricing() {
     let sf = &protocols()["siliconflow"];
@@ -319,7 +319,7 @@ fn siliconflow_per_model_peak_pricing() {
             "deepseek-ai/DeepSeek-V4.1-Flash"
         ])
     );
-    // 条目价 = 官方 off-peak 价（CNY/M × 1e-6 ÷ 7.2）
+    // 条目价 = 官方 off-peak 价（CNY/M × 1e-6 原币 CNY/token，票 04）
     let price_of = |rel: &str| {
         let (_, _, json) = MODEL_FILES
             .iter()
@@ -331,17 +331,17 @@ fn siliconflow_per_model_peak_pricing() {
     };
     let approx = |a: f64, b: f64| (a - b).abs() <= b * 1e-9;
     let p = price_of("deepseek-ai/DeepSeek-V4-Flash-0731.json");
-    assert!(approx(p["input"].as_f64().unwrap(), 1.5e-6 / 7.2), "v4-0731 input");
-    assert!(approx(p["output"].as_f64().unwrap(), 4.5e-6 / 7.2), "v4-0731 output");
-    assert!(approx(p["cache_read"].as_f64().unwrap(), 0.15e-6 / 7.2), "v4-0731 cache_read");
+    assert!(approx(p["input"].as_f64().unwrap(), 1.5e-6), "v4-0731 input");
+    assert!(approx(p["output"].as_f64().unwrap(), 4.5e-6), "v4-0731 output");
+    assert!(approx(p["cache_read"].as_f64().unwrap(), 0.15e-6), "v4-0731 cache_read");
     let p = price_of("deepseek-ai/DeepSeek-V4.1-Flash.json");
-    assert!(approx(p["input"].as_f64().unwrap(), 1.0e-6 / 7.2), "v4.1-flash input");
-    assert!(approx(p["output"].as_f64().unwrap(), 4.0e-6 / 7.2), "v4.1-flash output");
-    assert!(approx(p["cache_read"].as_f64().unwrap(), 0.02e-6 / 7.2), "v4.1-flash cache_read");
+    assert!(approx(p["input"].as_f64().unwrap(), 1.0e-6), "v4.1-flash input");
+    assert!(approx(p["output"].as_f64().unwrap(), 4.0e-6), "v4.1-flash output");
+    assert!(approx(p["cache_read"].as_f64().unwrap(), 0.02e-6), "v4.1-flash cache_read");
     // hunyuan 条目维持官方 off 价（0.8 / 3.2 CNY/M），无 cache_read（官方无缓存计价行）
     let p = price_of("tencent/Hunyuan-A13B-Instruct.json");
-    assert!(approx(p["input"].as_f64().unwrap(), 0.8e-6 / 7.2));
-    assert!(approx(p["output"].as_f64().unwrap(), 3.2e-6 / 7.2));
+    assert!(approx(p["input"].as_f64().unwrap(), 0.8e-6));
+    assert!(approx(p["output"].as_f64().unwrap(), 3.2e-6));
     assert_eq!(p["cache_read"], serde_json::json!(0), "hunyuan 官方无缓存计价行 = 0，禁缺键回落兜底单价");
 }
 
@@ -965,4 +965,67 @@ fn glm_rate_limit_policies_parse() {
             assert!(doc.get("rate_limit_policies").is_none() && doc.get("rate_limit_error_codes").is_none(), "{code}");
         }
     }
+}
+
+/// CNY 条目原币落库一致性（registry-计费形状扩展 票 04，2026-11-07）。
+/// 条目单价 = 官方 CNY 价 × 1e-6（原币直落，不做汇率预换算）；运行时
+/// `resolve_price_from` 对 `currency:"CNY"` 条目 ÷`CNY_PER_USD`（6.6675，ECB）换算 USD。
+/// 历史 bug（f406da854 前数据惯例）：条目按官方 ÷7.2 落库 + 运行时再 ÷6.6675 →
+/// 双重换算，计费系统性低 7.2 倍；票 04 已全量 rescale ×7.2 回原币。
+/// 抽样条目锚定官方 CNY/M（取证出处见票 04 ## Answer）：
+/// - compshare glm-4.6：¥2 / ¥8 / ¥0.4（bigmodel 官方表；glm 平台同名条目互证）
+/// - glm glm-4-32b-0414-128k：¥0.72
+/// - minimax MiniMax-M2：¥2.1 / ¥8.4 / ¥0.21 / ¥2.625（tokenrhythm.studio/models 2026-11-07 raw curl 同族官方原价互证）
+/// - siliconflow Pro/deepseek-ai/DeepSeek-V3.2：¥4 / ¥6 / ¥0.4（siliconflow.cn/pricing 2026-11-07，票 01 同源）
+/// - bailian qwen3-vl-8b-thinking：¥0.8424 / ¥9.828（条目两值均 3 位小数 ÷7.2 精确整除；
+///   bailian 定价页 JS 壳无一手表，锚条目自身家族换算惯例——570/688 精确 ÷7.2 集成员）
+/// - kimi_coding kimi-for-coding：订阅占位价 1e-8（ddc136bbe），×7.2 后仍 ≈0
+#[test]
+fn cny_entries_store_native_cny_and_resolve_to_usd() {
+    use crate::{price_resolve::resolve_price_from, CNY_PER_USD};
+    let price_of = |code: &str, file: &str| -> Value {
+        let (_, _, json) = MODEL_FILES
+            .iter()
+            .find(|(c, f, _)| *c == code && *f == file)
+            .unwrap_or_else(|| panic!("{code} 缺模型条目 {file}"));
+        serde_json::from_str::<Value>(json).expect("model json")["price"]
+            .clone()
+    };
+    let resolve = |p: &Value| {
+        let pd = serde_json::json!({ "price": p });
+        resolve_price_from(Some(&pd), false, 3.0, 3.0, 0, 0).price
+    };
+    let approx = |a: f64, b: f64, what: &str| {
+        assert!(
+            (a - b).abs() <= 1e-11,
+            "{what}: got {a}, want {b} (=官方 CNY ÷ {CNY_PER_USD})"
+        );
+    };
+
+    let r = resolve(&price_of("compshare", "zai-org/glm-4.6.json"));
+    approx(r.input_cost_per_token, 2.0e-6 / CNY_PER_USD, "compshare glm-4.6 input");
+    approx(r.output_cost_per_token, 8.0e-6 / CNY_PER_USD, "compshare glm-4.6 output");
+    approx(r.cache_read_input_token_cost, 0.4e-6 / CNY_PER_USD, "compshare glm-4.6 cache_read");
+
+    let r = resolve(&price_of("glm", "glm-4-32b-0414-128k.json"));
+    approx(r.input_cost_per_token, 0.72e-6 / CNY_PER_USD, "glm-4-32b input");
+
+    let r = resolve(&price_of("minimax", "MiniMax-M2.json"));
+    approx(r.input_cost_per_token, 2.1e-6 / CNY_PER_USD, "minimax M2 input");
+    approx(r.output_cost_per_token, 8.4e-6 / CNY_PER_USD, "minimax M2 output");
+    approx(r.cache_read_input_token_cost, 0.21e-6 / CNY_PER_USD, "minimax M2 cache_read");
+    approx(r.cache_write_input_token_cost, 2.625e-6 / CNY_PER_USD, "minimax M2 cache_write");
+
+    let r = resolve(&price_of("siliconflow", "Pro/deepseek-ai/DeepSeek-V3.2.json"));
+    approx(r.input_cost_per_token, 4.0e-6 / CNY_PER_USD, "sf V3.2 input");
+    approx(r.output_cost_per_token, 6.0e-6 / CNY_PER_USD, "sf V3.2 output");
+    approx(r.cache_read_input_token_cost, 0.4e-6 / CNY_PER_USD, "sf V3.2 cache_read");
+
+    let r = resolve(&price_of("bailian", "qwen3-vl-8b-thinking.json"));
+    approx(r.input_cost_per_token, 0.8424e-6 / CNY_PER_USD, "bailian qwen3-vl-8b input");
+    approx(r.output_cost_per_token, 9.828e-6 / CNY_PER_USD, "bailian qwen3-vl-8b output");
+
+    let r = resolve(&price_of("kimi_coding", "kimi-for-coding.json"));
+    approx(r.input_cost_per_token, 7.2e-8 / CNY_PER_USD, "kimi_coding 占位 input");
+    approx(r.output_cost_per_token, 7.2e-8 / CNY_PER_USD, "kimi_coding 占位 output");
 }
