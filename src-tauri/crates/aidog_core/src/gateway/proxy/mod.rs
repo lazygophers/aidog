@@ -128,7 +128,8 @@ pub(crate) use health::{handle_root, is_hello_endpoint};
 pub(crate) use log::flush_log_queue;
 #[allow(unused_imports)]
 pub(crate) use log::{
-    ConnectLogCtx, LogMsg, MITM_OPAQUE_REASON, block_inbound, get_log_settings, record_observed,
+    ConnectLogCtx, LogMsg, MITM_OPAQUE_REASON, block_inbound, block_privacy_fail_closed,
+    get_log_settings, record_observed,
     chat_tool_cost_usd, remove_log_snapshot, spawn_estimate, spawn_log_writer, spawn_rate_limit, upsert_connect_log,
     upsert_log,
 };

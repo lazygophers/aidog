@@ -6,12 +6,19 @@
 
 mod detect;
 mod engine;
+mod wire;
 
 #[cfg(test)]
 mod tests;
 
 use std::collections::HashMap;
 use std::fmt;
+
+pub use wire::{
+    engine_unavailable, get_privacy_scrub_settings, privacy_gate, restore_json_escaped,
+    scrub_json, scrub_options, set_engine_unavailable, PrivacyGate, PrivacyScrubSettings,
+    StreamRestorer,
+};
 
 /// 敏感数据类型。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

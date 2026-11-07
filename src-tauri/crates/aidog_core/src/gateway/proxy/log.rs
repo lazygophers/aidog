@@ -578,6 +578,43 @@ pub(crate) async fn block_inbound(
     r
 }
 
+/// 隐私脱敏 fail-closed 拦截（票 02）：503 + `blocked_reason='privacy_scrub_unavailable'`，
+/// 落 proxy_log（est_cost=0 不计费，不 spawn_estimate），不转发。仿 block_inbound 形状。
+pub(crate) async fn block_privacy_fail_closed(
+    state: &Arc<ProxyState>,
+    mut log: ProxyLog,
+    log_settings: &ProxyLogSettings,
+    lang: Lang,
+    start: std::time::Instant,
+) -> Response {
+    let blocked_reason = "privacy_scrub_unavailable".to_string();
+    let body = serde_json::json!({
+        "error": {
+            "type": "privacy_scrub_unavailable",
+            "message": i18n::t(lang, ErrorKey::MiddlewareBlocked),
+        }
+    })
+    .to_string();
+    tracing::warn!(reason = %blocked_reason, "privacy scrub fail-closed: request blocked (503)");
+    log.status_code = 503;
+    log.done = true;
+    log.blocked_by = "router".to_string();
+    log.blocked_reason = blocked_reason;
+    log.response_body = body.clone();
+    log.user_response_body = body.clone();
+    log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
+    log.duration_ms = start.elapsed().as_millis() as i32;
+    upsert_log(state, &log, log_settings).await;
+    let mut r = (
+        StatusCode::SERVICE_UNAVAILABLE,
+        [(axum::http::header::CONTENT_TYPE, "application/json")],
+        body,
+    )
+        .into_response();
+    inject_trace_header(&mut r);
+    r
+}
+
 /// 聊天内 `server_tool_use` 按次费（USD）：与 calc_est_cost 同走 `tools_cost`，供余额扣减。
 pub(crate) fn chat_tool_cost_usd(platform_type: &Protocol, counts: &[(String, i64)]) -> f64 {
     if counts.is_empty() {
