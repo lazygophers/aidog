@@ -1,7 +1,7 @@
 //! mcp_server 单元测试（票 10 协议行为 + 票 11 tools/call 分发）。
 
 use super::*;
-use aidog_core::mcp_tools::{McpToolsSettings, SearchProviderConfig};
+use aidog_core::mcp_tools::{MediaProviderConfig, McpToolsSettings, SearchProviderConfig};
 use serde_json::{Value, json};
 
 /// 带 id 的请求包装。
@@ -156,16 +156,31 @@ fn tools_call_unverified_provider_is_explicit_error() {
 }
 
 #[test]
-fn tools_call_generate_image_and_video_still_placeholder() {
-    // 票 12 范围：保持「未实现」占位。
-    for name in ["generate_image", "generate_video"] {
-        let result = call_tool(name, json!({"prompt": "p"}), &McpToolsSettings::default());
-        assert_eq!(result["isError"], true, "{name} 必须 isError=true");
-        assert!(
-            result["content"][0]["text"].as_str().unwrap().contains("未实现"),
-            "{name} 的文案要写明未实现"
-        );
-    }
+fn tools_call_media_unconfigured_is_explicit_error_and_video_impl_placeholder() {
+    // 票 12：未配置 → 明确「未配置」错误；视频已配置 → 「未实现」（D5 首版仅接口）。
+    let result = call_tool("generate_image", json!({"prompt": "p"}), &McpToolsSettings::default());
+    assert_eq!(result["isError"], true, "未配置必须 isError=true");
+    let text = result["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("未配置"), "text={text}");
+
+    let result = call_tool("generate_video", json!({"prompt": "p"}), &McpToolsSettings::default());
+    assert_eq!(result["isError"], true);
+    let text = result["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("未配置视频 provider"), "text={text}");
+
+    let configured = McpToolsSettings {
+        video: Some(MediaProviderConfig {
+            base_url: "https://v.example/v1".into(),
+            api_key: "k".into(),
+            model: "m".into(),
+        }),
+        ..Default::default()
+    };
+    let result = call_tool("generate_video", json!({"prompt": "p"}), &configured);
+    assert_eq!(result["isError"], true);
+    let text = result["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("未实现"), "配置了视频 provider 报未实现, text={text}");
+    assert!(!text.contains("未配置"), "已配置不得报未配置, text={text}");
 }
 
 #[test]
