@@ -92,6 +92,34 @@ pub(crate) async fn handle_passthrough(
     .await
 }
 
+/// 日志列 `upstream_request_headers` 的装配（透传形态：redact authorization + 用户自定义
+/// 认证头）：`log_upstream_request` 关 → 空串且 redact 循环整段跳过（strip_raw_sides 本就
+/// 清该列，短路只省 CPU，不改入库语义；开关开着时行为与原逐条循环一致）。
+pub(crate) fn passthrough_request_headers_json_for_log(
+    headers: &reqwest::header::HeaderMap,
+    auth_inject: Option<&(String, String)>,
+    log_upstream_request: bool,
+) -> String {
+    if !log_upstream_request {
+        return String::new();
+    }
+    let mut h = serde_json::Map::new();
+    for (k, v) in headers {
+        let name = k.as_str();
+        let custom_auth = auth_inject
+            .is_some_and(|(n, _)| name.eq_ignore_ascii_case(n));
+        if is_sensitive_log_header(name) || custom_auth {
+            h.insert(
+                name.to_string(),
+                Value::String(redact_log_header_value(v.to_str().unwrap_or(""))),
+            );
+        } else if let Ok(s) = v.to_str() {
+            h.insert(name.to_string(), Value::String(s.to_string()));
+        }
+    }
+    Value::Object(h).to_string()
+}
+
 /// 透传共享骨架：URL → http client → headers → send → resp headers → 非流式 relay / 流式 StreamLogGuard。
 ///
 /// ponytail: 抽自 handle_passthrough / forward_passthrough_to_orig_host 的高重合度（~95%）骨架，
@@ -153,23 +181,12 @@ async fn relay_passthrough(
     if opts.strip_inbound_auth {
         apply_platform_auth_headers(&mut fwd_headers, &opts.auth_inject);
     }
-    // 记录上游请求头（透传 redact authorization + 用户自定义认证头名）
-    log.upstream_request_headers = {
-        let mut h = serde_json::Map::new();
-        for (k, v) in &fwd_headers {
-            let name = k.as_str();
-            let custom_auth = opts
-                .auth_inject
-                .as_ref()
-                .is_some_and(|(n, _)| name.eq_ignore_ascii_case(n));
-            if is_sensitive_log_header(name) || custom_auth {
-                h.insert(name.to_string(), Value::String(redact_log_header_value(v.to_str().unwrap_or(""))));
-            } else if let Ok(s) = v.to_str() {
-                h.insert(name.to_string(), Value::String(s.to_string()));
-            }
-        }
-        Value::Object(h).to_string()
-    };
+    // 记录上游请求头（透传 redact authorization + 用户自定义认证头名；开关关时整段短路）
+    log.upstream_request_headers = passthrough_request_headers_json_for_log(
+        &fwd_headers,
+        opts.auth_inject.as_ref(),
+        log_settings.log_upstream_request,
+    );
     log.upstream_request_body = String::from_utf8_lossy(&bytes).to_string();
     tracing::info!(method = %orig_method, url = %log.upstream_request_url, tag = %opts.protocol_tag, "passthrough upstream request");
     tracing::debug!(method = %orig_method, url = %log.upstream_request_url, body = %super::log_util::log_body_preview(&log.upstream_request_body), "passthrough upstream request body");
@@ -219,12 +236,15 @@ async fn relay_passthrough(
     );
     tracing::info!(url = %log.upstream_request_url, status = status.as_u16(), duration_ms = start.elapsed().as_millis() as i64, tag = %opts.protocol_tag, "passthrough upstream responded");
 
-    // 捕获上游响应头（原样照搬给客户端）
+    // 捕获上游响应头（原样照搬给客户端；日志镜像 h 的装配受 log_upstream_request 开关控制，
+    // 开关关时跳过 insert 与序列化，strip_raw_sides 本就清该列）
     let mut resp_header_map = axum::http::HeaderMap::new();
     {
         let mut h = serde_json::Map::new();
         for (k, v) in resp.headers() {
-            if let Ok(s) = v.to_str() {
+            if log_settings.log_upstream_request
+                && let Ok(s) = v.to_str()
+            {
                 h.insert(k.to_string(), Value::String(s.to_string()));
             }
             // 剔除必剔 + hop-by-hop（长度/传输编码由 axum 按 body 重设），与转换路径同一条黑名单。
@@ -247,7 +267,11 @@ async fn relay_passthrough(
                 resp_header_map.insert(hn, hv);
             }
         }
-        log.upstream_response_headers = Value::Object(h).to_string();
+        log.upstream_response_headers = if log_settings.log_upstream_request {
+            Value::Object(h).to_string()
+        } else {
+            String::new()
+        };
     }
 
     let content_type = resp

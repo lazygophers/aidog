@@ -20,7 +20,7 @@ fn mock_error_hit(error_rate: f64) -> bool {
 pub(crate) async fn handle_mock(
     state: Arc<ProxyState>,
     mut log: ProxyLog,
-    log_settings: ProxyLogSettings,
+    log_settings: &ProxyLogSettings,
     extra: &str,
     chat_req: &ChatRequest,
     req_value: &Value,
@@ -67,7 +67,7 @@ pub(crate) async fn handle_mock(
             log.response_body = body_str.clone();
             log.user_response_body = body_str.clone();
             log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
-            upsert_log(&state, &log, &log_settings).await;
+            upsert_log(&state, &log, log_settings).await;
             return {
                 let mut r = (
                     status,
@@ -93,7 +93,7 @@ pub(crate) async fn handle_mock(
             log.user_response_body = body_str.clone();
             log.user_response_headers =
                 r#"{"content-type":"application/json","retry-after":"5"}"#.to_string();
-            upsert_log(&state, &log, &log_settings).await;
+            upsert_log(&state, &log, log_settings).await;
             return {
                 let mut r = (
                     StatusCode::TOO_MANY_REQUESTS,
@@ -123,7 +123,7 @@ pub(crate) async fn handle_mock(
             log.response_body = body_str.clone();
             log.user_response_body = body_str.clone();
             log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
-            upsert_log(&state, &log, &log_settings).await;
+            upsert_log(&state, &log, log_settings).await;
             return {
                 let mut r = (
                     StatusCode::GATEWAY_TIMEOUT,
@@ -192,7 +192,7 @@ pub(crate) async fn handle_mock(
         log.response_body = "[mock stream]".to_string();
         log.user_response_body = "[mock stream]".to_string();
         log.user_response_headers = r#"{"content-type":"text/event-stream","cache-control":"no-cache","connection":"keep-alive"}"#.to_string();
-        upsert_log(&state, &log, &log_settings).await;
+        upsert_log(&state, &log, log_settings).await;
 
         return {
             let mut r = (
@@ -220,7 +220,7 @@ pub(crate) async fn handle_mock(
     log.response_body = body_str.clone();
     log.user_response_body = body_str.clone();
     log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
-    upsert_log(&state, &log, &log_settings).await;
+    upsert_log(&state, &log, log_settings).await;
 
     let mut r = (
         status,

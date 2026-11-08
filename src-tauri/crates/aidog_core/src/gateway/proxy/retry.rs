@@ -173,6 +173,25 @@ pub(crate) fn upstream_headers_json_for_log(
     }
 }
 
+/// 日志列 `upstream_request_headers` 的装配（转换路径 Vec<(String,String)> 形态，send_upstream
+/// 出站头）：`log_upstream_request` 关 → 空串且跳过序列化（strip_raw_sides 本就清该列，
+/// 短路只省 CPU，不改入库语义）。
+pub(crate) fn upstream_header_pairs_json_for_log(
+    pairs: impl IntoIterator<Item = (String, String)>,
+    log_upstream_request: bool,
+) -> String {
+    if !log_upstream_request {
+        return String::new();
+    }
+    serde_json::Value::Object(
+        pairs
+            .into_iter()
+            .map(|(k, v)| (k, Value::String(v)))
+            .collect(),
+    )
+    .to_string()
+}
+
 /// 上游是否明确因审核机制拒绝请求。只识别结构化 `error.type`，避免误把普通 400 当审核拒绝。
 pub(crate) fn is_censorship_blocked(body: &str) -> bool {
     serde_json::from_str::<Value>(body)

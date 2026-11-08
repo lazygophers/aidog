@@ -17,6 +17,8 @@ pub async fn seed_registry_from_bundled(db: &Db) -> Result<PriceSyncResult, Stri
     // 一致 → 内置内容未变、无残留行，跳过 bundled 全量解析与全表 diff。内容变更必走
     // 盖戳脚本（CLAUDE.md 约定）推高 index 戳，故「戳同 ⇒ 内容同」由构建纪律保证；
     // 戳同但行数漂移（上一版二进制残留 / 行被删）走下方慢路径，prune 语义不变。
+    // 注意：DB 侧库外改价（导入他机备份等）戳与行数不变时不会被快速路径修复，方向为
+    // 保守保留导入内容；恢复内置价走盖戳脚本或清掉 registry_last_updated 戳短路。
     let bundled_stamp = aidog_db::registry::presets()
         .get("last_updated")
         .and_then(serde_json::Value::as_i64)

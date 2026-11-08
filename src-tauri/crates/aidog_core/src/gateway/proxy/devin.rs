@@ -128,7 +128,7 @@ fn attach_session_header(resp: &mut axum::response::Response, client_id: &str) {
 pub(crate) async fn handle_devin(
     state: Arc<ProxyState>,
     mut log: ProxyLog,
-    log_settings: ProxyLogSettings,
+    log_settings: &ProxyLogSettings,
     platform: &models::Platform,
     chat_req: &ChatRequest,
     _req_value: &Value,
@@ -154,7 +154,7 @@ pub(crate) async fn handle_devin(
         Some(id) => id,
         None => {
             return devin_error(
-                &state, &mut log, &log_settings, lang, start,
+                &state, &mut log, log_settings, lang, start,
                 StatusCode::BAD_REQUEST,
                 "devin platform missing extra.devin.org_id (expected {\"devin\":{\"org_id\":\"...\"}})",
             ).await;
@@ -165,7 +165,7 @@ pub(crate) async fn handle_devin(
         return devin_error(
             &state,
             &mut log,
-            &log_settings,
+            log_settings,
             lang,
             start,
             StatusCode::BAD_REQUEST,
@@ -193,7 +193,7 @@ pub(crate) async fn handle_devin(
             return devin_error(
                 &state,
                 &mut log,
-                &log_settings,
+                log_settings,
                 lang,
                 start,
                 StatusCode::BAD_REQUEST,
@@ -286,7 +286,7 @@ pub(crate) async fn handle_devin(
                 let mut r = devin_error(
                     &state,
                     &mut log,
-                    &log_settings,
+                    log_settings,
                     lang,
                     start,
                     StatusCode::BAD_GATEWAY,
@@ -308,7 +308,7 @@ pub(crate) async fn handle_devin(
                     let mut r = devin_error(
                         &state,
                         &mut log,
-                        &log_settings,
+                        log_settings,
                         lang,
                         start,
                         StatusCode::BAD_GATEWAY,
@@ -343,7 +343,7 @@ pub(crate) async fn handle_devin(
             let mut r = devin_error(
                 &state,
                 &mut log,
-                &log_settings,
+                log_settings,
                 lang,
                 start,
                 StatusCode::BAD_GATEWAY,
@@ -396,7 +396,7 @@ pub(crate) async fn handle_devin(
             log.response_body = timeout_body.clone();
             log.user_response_body = timeout_body.clone();
             log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
-            upsert_log(&state, &log, &log_settings).await;
+            upsert_log(&state, &log, log_settings).await;
             let mut r = (
                 StatusCode::GATEWAY_TIMEOUT,
                 [(axum::http::header::CONTENT_TYPE, "application/json")],
@@ -429,7 +429,7 @@ pub(crate) async fn handle_devin(
                     let mut r = devin_error(
                         &state,
                         &mut log,
-                        &log_settings,
+                        log_settings,
                         lang,
                         start,
                         StatusCode::BAD_GATEWAY,
@@ -453,7 +453,7 @@ pub(crate) async fn handle_devin(
             log.est_cost = acus_consumed; // 契约 9: 即使失败也记 ACU 消耗
             log.duration_ms = start.elapsed().as_millis() as i32;
             log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
-            upsert_log(&state, &log, &log_settings).await;
+            upsert_log(&state, &log, log_settings).await;
             let mut r = (
                 StatusCode::BAD_GATEWAY,
                 [(axum::http::header::CONTENT_TYPE, "application/json")],
@@ -480,7 +480,7 @@ pub(crate) async fn handle_devin(
             log.est_cost = acus_consumed;
             log.duration_ms = start.elapsed().as_millis() as i32;
             log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
-            upsert_log(&state, &log, &log_settings).await;
+            upsert_log(&state, &log, log_settings).await;
             let mut r = (
                 StatusCode::PAYMENT_REQUIRED,
                 [(axum::http::header::CONTENT_TYPE, "application/json")],
@@ -497,7 +497,7 @@ pub(crate) async fn handle_devin(
             let mut r = devin_error(
                 &state,
                 &mut log,
-                &log_settings,
+                log_settings,
                 lang,
                 start,
                 StatusCode::BAD_GATEWAY,
@@ -552,7 +552,7 @@ pub(crate) async fn handle_devin(
     log.response_body = body_str.clone();
     log.user_response_body = body_str.clone();
     log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
-    upsert_log(&state, &log, &log_settings).await;
+    upsert_log(&state, &log, log_settings).await;
 
     let mut r = (
         StatusCode::OK,
@@ -1060,7 +1060,7 @@ async fn devin_error(
 async fn stream_terminal_response(
     state: Arc<ProxyState>,
     mut log: ProxyLog,
-    log_settings: ProxyLogSettings,
+    log_settings: &ProxyLogSettings,
     source_protocol: &Protocol,
     requested_model: &str,
     session_id: &str,
@@ -1167,7 +1167,7 @@ async fn stream_terminal_response(
     log.response_body = body_marker.clone();
     log.user_response_body = body_marker;
     log.user_response_headers = r#"{"content-type":"text/event-stream","cache-control":"no-cache","connection":"keep-alive"}"#.to_string();
-    upsert_log(&state, &log, &log_settings).await;
+    upsert_log(&state, &log, log_settings).await;
 
     // ── 构造 SSE Body（参考 mock.rs:112 + finish.rs:332）──
     let body_stream = futures::stream::iter(chunks.into_iter().map(Ok::<_, std::io::Error>));

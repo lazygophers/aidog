@@ -827,3 +827,32 @@ fn rewrite_key_query_strips_and_sets() {
     assert_eq!(rewrite_key_query("http://u/p", Some(("key", "sk a/b"))), "http://u/p?key=sk+a%2Fb");
     assert_eq!(rewrite_key_query("http://u/p?my_key=1&key=g", Some(("key", "sk"))), "http://u/p?my_key=1&key=sk");
 }
+
+// ── 上游请求头日志装配 gate：log_upstream_request 关 → 空串且 redact 循环不跑 ──
+#[test]
+fn passthrough_request_headers_json_gated_by_log_switch() {
+    let mut fwd = reqwest::header::HeaderMap::new();
+    fwd.insert("authorization", "Bearer sk-secret".parse().unwrap());
+    fwd.insert("content-type", "application/json".parse().unwrap());
+    fwd.insert("x-my-auth", "Bearer sk-custom".parse().unwrap());
+    let custom = Some(("x-my-auth".to_string(), "Bearer sk-custom".to_string()));
+
+    // 开关关 → 短路整段跳过（strip_raw_sides 本就清该列，入库语义不变）
+    assert_eq!(
+        passthrough_request_headers_json_for_log(&fwd, custom.as_ref(), false),
+        ""
+    );
+
+    // 开关开 → 与原逐条循环一致：authorization 与用户自定义认证头脱敏，普通头原样
+    let logged = passthrough_request_headers_json_for_log(&fwd, custom.as_ref(), true);
+    let v: serde_json::Value = serde_json::from_str(&logged).unwrap();
+    assert!(
+        v["authorization"].as_str().unwrap().contains("[REDACTED]"),
+        "authorization 必须脱敏"
+    );
+    assert!(
+        v["x-my-auth"].as_str().unwrap().contains("[REDACTED]"),
+        "自定义认证头必须脱敏"
+    );
+    assert_eq!(v["content-type"], "application/json");
+}
