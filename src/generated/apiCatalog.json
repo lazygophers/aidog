@@ -2240,6 +2240,65 @@
       "returns": "()"
     },
     {
+      "name": "profile_apply",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "name": "dryRun",
+          "type": "bool"
+        }
+      ],
+      "returns": "Vec<ProfileDiffItem>"
+    },
+    {
+      "name": "profile_delete",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "name",
+          "type": "String"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "profile_list",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<ProfileMeta>"
+    },
+    {
+      "name": "profile_save",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "name": "overwrite",
+          "type": "bool"
+        }
+      ],
+      "returns": "ProfileMeta"
+    },
+    {
       "name": "proxy_client_get_settings",
       "category": "proxy",
       "kind": "readonly",

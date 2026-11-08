@@ -20,3 +20,4 @@ export * from "./mcp";
 export * from "./exchange";
 export * from "./mitm";
 export * from "./ui_extra";
+export * from "./profile";

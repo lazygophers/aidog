@@ -26,7 +26,7 @@ mod json_helpers;
 mod test_apply;
 
 // 对外 API 路径保持 `import_export::apply::X` 不变。
-pub use db_rows::{ensure_group_and_attach, snapshot_platform_ids};
+pub use db_rows::{ensure_group_and_attach, relink_group_platform, snapshot_platform_ids, upsert_group_row};
 
 /// 解密文件 + 校验 + 扫描冲突，返回预览（供前端弹窗收集决策）。
 pub async fn preview(file_bytes: &[u8], db: &Db) -> Result<ImportPreview, String> {
