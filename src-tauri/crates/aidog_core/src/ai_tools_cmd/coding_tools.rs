@@ -70,6 +70,25 @@ pub async fn ensure_default_coding_tools_settings(db: &Db) -> Result<(), String>
 
     // 无记录（用户未操作）→ 写两外部文件让功能开箱生效。
     // 独立 try，失败 warn 不中断另一个；不落 DB 记录。
+    // magpie 票 05：覆盖用户已有键前备份原值（agent_config_uninstall 恢复用）。
+    if let Ok(old) = gateway::claude_integration::read_plugin_primary_key() {
+        super::agent_config::backup_before_overwrite(
+            db,
+            super::agent_config::KEY_PRIMARY_API_KEY,
+            old,
+            &serde_json::json!("any"),
+        )
+        .await;
+    }
+    if let Ok(old) = gateway::claude_integration::read_has_completed_onboarding() {
+        super::agent_config::backup_before_overwrite(
+            db,
+            super::agent_config::KEY_ONBOARDING,
+            old,
+            &serde_json::json!(true),
+        )
+        .await;
+    }
     match gateway::claude_integration::write_plugin_primary_key() {
         Ok(_changed) => tracing::info!(
             "ensure_default_coding_tools_settings: wrote ~/.claude/config.json primaryApiKey"
@@ -111,6 +130,15 @@ crate::tauri_command! {
         if let Some(v) = apply_to_claude_plugin
             && v != current.apply_to_claude_plugin {
                 let res = if v {
+                    if let Ok(old) = gateway::claude_integration::read_plugin_primary_key() {
+                        super::agent_config::backup_before_overwrite(
+                            db,
+                            super::agent_config::KEY_PRIMARY_API_KEY,
+                            old,
+                            &serde_json::json!("any"),
+                        )
+                        .await;
+                    }
                     gateway::claude_integration::write_plugin_primary_key()
                 } else {
                     gateway::claude_integration::clear_plugin_primary_key()
@@ -132,6 +160,15 @@ crate::tauri_command! {
         if let Some(v) = skip_claude_onboarding
             && v != current.skip_claude_onboarding {
                 let res = if v {
+                    if let Ok(old) = gateway::claude_integration::read_has_completed_onboarding() {
+                        super::agent_config::backup_before_overwrite(
+                            db,
+                            super::agent_config::KEY_ONBOARDING,
+                            old,
+                            &serde_json::json!(true),
+                        )
+                        .await;
+                    }
                     gateway::claude_integration::set_has_completed_onboarding()
                 } else {
                     gateway::claude_integration::clear_has_completed_onboarding()

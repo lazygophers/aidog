@@ -169,6 +169,7 @@ rpc_routes! {
     readonly aidog_core::proxy_cmd::proxy::proxy_client_get_settings,
     mutating aidog_core::proxy_cmd::proxy::proxy_client_set_settings,
     mutating aidog_core::sync_settings::export_claude_config,
+    mutating aidog_core::ai_tools_cmd::agent_config::agent_config_uninstall,
     mutating aidog_core::sync_settings::sync_group_settings,
     readonly aidog_core::sync_settings::get_managed_paths,
     readonly aidog_core::proxy_cmd::proxy_log::proxy_log_list,

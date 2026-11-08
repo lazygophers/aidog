@@ -123,7 +123,7 @@ pub struct McpSelfInstallReport {
 
 /// `aidog` 这个 MCP server 条目名（写进用户 `~/.claude.json` / `~/.codex/config.toml`
 /// 的 `mcpServers` 键名）。同名已有条目会被更新为内核配置（一键安装语义）。
-const SELF_INSTALL_NAME: &str = "aidog";
+pub(crate) const SELF_INSTALL_NAME: &str = "aidog";
 
 /// 解析内核可执行文件：优先当前可执行文件同目录的 `aidog-kernel`（桌面壳 / 内核
 /// 同目录发行），找不到回落 `aidog-kernel` 走 PATH（用户自行安装的内核）。

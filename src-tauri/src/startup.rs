@@ -138,6 +138,7 @@ pub fn run() {
             aidog_core::proxy_cmd::proxy::proxy_client_set_settings,
             // Config Export
             aidog_core::sync_settings::export_claude_config,
+            aidog_core::ai_tools_cmd::agent_config::agent_config_uninstall,
             aidog_core::sync_settings::sync_group_settings,
             aidog_core::sync_settings::get_managed_paths,
             // Proxy Logs

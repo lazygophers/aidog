@@ -10,6 +10,20 @@
       "returns": "AboutInfo"
     },
     {
+      "name": "agent_config_uninstall",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "dryRun",
+          "type": "bool"
+        }
+      ],
+      "returns": "Vec<UninstallAction>"
+    },
+    {
       "name": "all_group_usage_stats",
       "category": "proxy",
       "kind": "readonly",
