@@ -3357,13 +3357,8 @@ async fn send_upstream(
     );
 
     // ── 记录上游实际请求 ──
-    log.upstream_request_headers = serde_json::Value::Object(
-        upstream_headers
-            .into_iter()
-            .map(|(k, v)| (k, Value::String(v)))
-            .collect(),
-    )
-    .to_string();
+    log.upstream_request_headers =
+        super::retry::upstream_header_pairs_json_for_log(upstream_headers, log_settings.log_upstream_request);
     // O2（perf-backend spec §2）：日志存原文（紧凑 JSON），不再写库前 pretty（省 CPU + 写盘）。
     // 展示侧（Logs 详情 safeParseJson + JSON.stringify(,2) / 复制路径 fj）格式化，对存量
     // 已 pretty 的旧行同样成立（parse→stringify 幂等）。
