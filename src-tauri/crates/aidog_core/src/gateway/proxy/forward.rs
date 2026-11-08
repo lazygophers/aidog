@@ -366,7 +366,8 @@ async fn forward_attempt_model(
     builtin_tools::mark_tools_4xx(log, &req_body, status.as_u16());
     // clone 上游响应头，供回包前透传筛选用（resp 后续被 bytes()/bytes_stream() 消费）
     let upstream_resp_headers = resp.headers().clone();
-    log.upstream_response_headers = upstream_headers_to_json(&upstream_resp_headers);
+    log.upstream_response_headers =
+        upstream_headers_json_for_log(&upstream_resp_headers, log_settings.log_upstream_request);
 
     // ── 流式判定以实际上游响应为准：请求 body 的 stream 字段与上游响应 content-type 取并。
     //   中转站常对未声明 stream 的请求强制以 text/event-stream 响应；若仅凭请求字段会误判为

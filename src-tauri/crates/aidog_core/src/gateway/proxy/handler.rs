@@ -730,7 +730,7 @@ pub(crate) async fn handle_proxy_core(
             return handle_mock(
                 state,
                 log,
-                log_settings,
+                (*log_settings).clone(),
                 &first.platform.extra,
                 &chat_req,
                 &req_value,
@@ -768,7 +768,7 @@ pub(crate) async fn handle_proxy_core(
             return super::devin::handle_devin(
                 state,
                 log,
-                log_settings,
+                (*log_settings).clone(),
                 &platform,
                 &chat_req,
                 &req_value,

@@ -55,6 +55,16 @@ fn response_header_log_redacts_credentials() {
 }
 
 #[test]
+fn upstream_headers_json_gated_by_log_switch() {
+    let headers = rq_headers(&[("content-type", "application/json")]);
+    // log_upstream_request 关 → 短路不序列化，装配产物为空串
+    assert_eq!(upstream_headers_json_for_log(&headers, false), "");
+    // 开 → 与 upstream_headers_to_json 同产物
+    let logged = upstream_headers_json_for_log(&headers, true);
+    assert!(logged.contains("content-type"));
+}
+
+#[test]
 fn is_stream_request_false_but_upstream_sse() {
     // 中转站对未声明 stream 的请求强制以 SSE 响应 → 必须判为流式（修复账目零 token bug）。
     assert!(resolve_is_stream(false, "text/event-stream"));
