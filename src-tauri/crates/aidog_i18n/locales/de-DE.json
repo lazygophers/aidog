@@ -3668,5 +3668,17 @@
   "profile.opDelete": "Löschen",
   "profile.targetDbGroups": "Gruppen & Zuordnungen",
   "profile.deleteTitle": "Profil löschen",
-  "profile.deleteDesc": "Löscht die Snapshot-Datei des Profils „{name}“. Die aktuelle Konfiguration bleibt unverändert."
+  "profile.deleteDesc": "Löscht die Snapshot-Datei des Profils „{name}“. Die aktuelle Konfiguration bleibt unverändert.",
+  "agentUpdate.title": "Agent-Updates",
+  "agentUpdate.desc": "Agent-Versionen prüfen und das zur Installationsquelle passende Update-Kommando ausführen.",
+  "agentUpdate.notInstalled": "Nicht installiert",
+  "agentUpdate.unknown": "unbekannt",
+  "agentUpdate.update": "Aktualisieren",
+  "agentUpdate.updating": "Aktualisiere…",
+  "agentUpdate.confirmOk": "Jetzt aktualisieren",
+  "agentUpdate.confirmTitle": "{{tool}} aktualisieren",
+  "agentUpdate.confirmDesc": "Führt das Update-Kommando der Installationsquelle aus; Dateien können geladen werden. Fortfahren?",
+  "agentUpdate.manualHint": "Diese Installationsquelle unterstützt keine automatischen Updates; bitte manuell aktualisieren",
+  "agentUpdate.success": "Aktualisiert: v{{before}} → v{{after}}",
+  "agentUpdate.failed": "Update fehlgeschlagen"
 }

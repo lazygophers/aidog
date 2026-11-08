@@ -3668,5 +3668,17 @@
   "profile.opDelete": "حذف",
   "profile.targetDbGroups": "المجموعات والربط",
   "profile.deleteTitle": "حذف الملف",
-  "profile.deleteDesc": "حذف ملف الاسترجاع للملف \"{name}\"، دون التأثير على الإعدادات الحالية."
+  "profile.deleteDesc": "حذف ملف الاسترجاع للملف \"{name}\"، دون التأثير على الإعدادات الحالية.",
+  "agentUpdate.title": "تحديثات الوكلاء",
+  "agentUpdate.desc": "يتحقق من إصدارات الوكلاء ويشغّل أمر التحديث المناسب لمصدر التثبيت.",
+  "agentUpdate.notInstalled": "غير مثبت",
+  "agentUpdate.unknown": "غير معروف",
+  "agentUpdate.update": "تحديث",
+  "agentUpdate.updating": "جارٍ التحديث…",
+  "agentUpdate.confirmOk": "تحديث الآن",
+  "agentUpdate.confirmTitle": "تحديث {{tool}}",
+  "agentUpdate.confirmDesc": "سيتم تشغيل أمر التحديث الخاص بمصدر التثبيت وقد يتطلب تنزيل ملفات. هل تريد المتابعة؟",
+  "agentUpdate.manualHint": "مصدر التثبيت هذا لا يدعم التحديث التلقائي؛ يرجى الترقية يدويًا",
+  "agentUpdate.success": "تم التحديث: v{{before}} → v{{after}}",
+  "agentUpdate.failed": "فشل التحديث"
 }

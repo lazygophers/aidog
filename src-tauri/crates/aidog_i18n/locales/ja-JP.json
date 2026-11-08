@@ -3668,5 +3668,17 @@
   "profile.opDelete": "削除",
   "profile.targetDbGroups": "グループとマッピング",
   "profile.deleteTitle": "プロファイルを削除",
-  "profile.deleteDesc": "プロファイル「{name}」のスナップショットファイルを削除します。現在の設定には影響しません。"
+  "profile.deleteDesc": "プロファイル「{name}」のスナップショットファイルを削除します。現在の設定には影響しません。",
+  "agentUpdate.title": "エージェントの更新",
+  "agentUpdate.desc": "各エージェントのバージョンを確認し、インストール元に応じた更新コマンドを実行します。",
+  "agentUpdate.notInstalled": "未インストール",
+  "agentUpdate.unknown": "不明",
+  "agentUpdate.update": "更新",
+  "agentUpdate.updating": "更新中…",
+  "agentUpdate.confirmOk": "更新する",
+  "agentUpdate.confirmTitle": "{{tool}} を更新",
+  "agentUpdate.confirmDesc": "インストール元に応じた更新コマンドを実行します。ダウンロードが行われる場合があります。続行しますか？",
+  "agentUpdate.manualHint": "このインストール元は自動更新に対応していません。手動でアップグレードしてください",
+  "agentUpdate.success": "更新完了：v{{before}} → v{{after}}",
+  "agentUpdate.failed": "更新に失敗しました"
 }

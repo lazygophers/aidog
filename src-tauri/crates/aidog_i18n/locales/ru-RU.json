@@ -3668,5 +3668,17 @@
   "profile.opDelete": "Удалить",
   "profile.targetDbGroups": "Группы и привязки",
   "profile.deleteTitle": "Удалить профиль",
-  "profile.deleteDesc": "Удаляет файл снапшота профиля «{name}». Текущая конфигурация не затрагивается."
+  "profile.deleteDesc": "Удаляет файл снапшота профиля «{name}». Текущая конфигурация не затрагивается.",
+  "agentUpdate.title": "Обновления агентов",
+  "agentUpdate.desc": "Проверяет версии агентов и выполняет команду обновления в зависимости от источника установки.",
+  "agentUpdate.notInstalled": "Не установлено",
+  "agentUpdate.unknown": "неизвестно",
+  "agentUpdate.update": "Обновить",
+  "agentUpdate.updating": "Обновление…",
+  "agentUpdate.confirmOk": "Обновить",
+  "agentUpdate.confirmTitle": "Обновить {{tool}}",
+  "agentUpdate.confirmDesc": "Будет выполнена команда обновления для источника установки; возможно скачивание. Продолжить?",
+  "agentUpdate.manualHint": "Этот источник установки не поддерживает автоматические обновления; обновите вручную",
+  "agentUpdate.success": "Обновлено: v{{before}} → v{{after}}",
+  "agentUpdate.failed": "Не удалось обновить"
 }

@@ -3646,5 +3646,17 @@
   "profile.opDelete": "删除",
   "profile.targetDbGroups": "分组与映射",
   "profile.deleteTitle": "删除方案",
-  "profile.deleteDesc": "删除方案「{name}」的快照文件，不影响当前配置。"
+  "profile.deleteDesc": "删除方案「{name}」的快照文件，不影响当前配置。",
+  "agentUpdate.title": "Agent 版本更新",
+  "agentUpdate.desc": "检测各 agent 版本，并按安装来源执行对应的更新命令。",
+  "agentUpdate.notInstalled": "未安装",
+  "agentUpdate.unknown": "未知",
+  "agentUpdate.update": "更新",
+  "agentUpdate.updating": "更新中…",
+  "agentUpdate.confirmOk": "确认更新",
+  "agentUpdate.confirmTitle": "更新 {{tool}}",
+  "agentUpdate.confirmDesc": "将按该工具的安装来源执行更新命令，可能需要下载。确认继续？",
+  "agentUpdate.manualHint": "该安装方式暂不支持自动更新，请手动升级",
+  "agentUpdate.success": "已更新：v{{before}} → v{{after}}",
+  "agentUpdate.failed": "更新失败"
 }

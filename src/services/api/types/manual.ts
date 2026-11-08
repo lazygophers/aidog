@@ -317,6 +317,33 @@ export interface CliConflict {
   suggestion: string;
 }
 
+/** 票 07：单 agent 更新状态（版本对照 + 可否自动更新）。对应 aidog_core::cli_env::AgentUpdateStatus。 */
+export interface AgentUpdateStatus {
+  tool: string;
+  installed: boolean;
+  version: string | null;
+  /** 包管理器可升级版本；null = unknown（检测失败/离线）。 */
+  latest_version: string | null;
+  /** true=有更新 / false=最新 / undefined=unknown。 */
+  has_update?: boolean | null;
+  /** PATH 默认命中安装的来源。 */
+  source: string | null;
+  /** 映射表支持自动更新。 */
+  updatable: boolean;
+  /** 不支持自动更新时的提示（UI 按 key 本地化）。 */
+  manual_hint?: string | null;
+}
+
+/** 票 07：单 agent 更新执行结果（前后版本回显）。对应 aidog_core::cli_env::AgentUpdateResult。 */
+export interface AgentUpdateResult {
+  tool: string;
+  source: string;
+  before_version: string | null;
+  after_version: string | null;
+  success: boolean;
+  message: string;
+}
+
 export interface CodingToolsSettings {
   apply_to_claude_plugin: boolean;
   skip_claude_onboarding: boolean;

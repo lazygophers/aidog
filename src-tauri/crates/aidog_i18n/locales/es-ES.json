@@ -3646,5 +3646,17 @@
   "profile.opDelete": "Eliminar",
   "profile.targetDbGroups": "Grupos y mapeos",
   "profile.deleteTitle": "Eliminar perfil",
-  "profile.deleteDesc": "Elimina el archivo instantáneo del perfil «{name}». No afecta a la configuración actual."
+  "profile.deleteDesc": "Elimina el archivo instantáneo del perfil «{name}». No afecta a la configuración actual.",
+  "agentUpdate.title": "Actualizaciones de agentes",
+  "agentUpdate.desc": "Comprueba las versiones de los agentes y ejecuta el comando de actualización según el origen de instalación.",
+  "agentUpdate.notInstalled": "No instalado",
+  "agentUpdate.unknown": "desconocida",
+  "agentUpdate.update": "Actualizar",
+  "agentUpdate.updating": "Actualizando…",
+  "agentUpdate.confirmOk": "Actualizar",
+  "agentUpdate.confirmTitle": "Actualizar {{tool}}",
+  "agentUpdate.confirmDesc": "Se ejecutará el comando de actualización del origen de instalación; puede requerir descargas. ¿Continuar?",
+  "agentUpdate.manualHint": "Este origen de instalación no admite actualizaciones automáticas; actualiza manualmente",
+  "agentUpdate.success": "Actualizado: v{{before}} → v{{after}}",
+  "agentUpdate.failed": "Error al actualizar"
 }

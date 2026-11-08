@@ -24,6 +24,29 @@
       "returns": "Vec<UninstallAction>"
     },
     {
+      "name": "agent_update_apply",
+      "category": "cli_env",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "tool",
+          "type": "String"
+        }
+      ],
+      "returns": "AgentUpdateResult"
+    },
+    {
+      "name": "agent_update_check",
+      "category": "cli_env",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<AgentUpdateStatus>"
+    },
+    {
       "name": "all_group_usage_stats",
       "category": "proxy",
       "kind": "readonly",

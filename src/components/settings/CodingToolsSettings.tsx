@@ -31,6 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
 import { useReveal } from "../../components/shared";
 import { ProfilesSection } from "./ProfilesSection";
+import { AgentUpdateSection } from "./AgentUpdateSection";
 
 // ponytail: 单卡片包装 — 每实例独立 useReveal (React 规则禁 map 内条件 hook),
 // hover-lift + reveal 萤火虫入场 (stagger idx*60)。
@@ -375,6 +376,9 @@ export function CodingToolsSettingsTab() {
 
       {/* 配置方案：保存 / 一键切回（magpie 票 06） */}
       <ProfilesSection />
+
+      {/* agent 版本更新：版本对照 + 按安装来源单项更新（magpie 票 07） */}
+      <AgentUpdateSection />
 
       <ToggleCard
         titleKey="codingTools.applyPlugin.title"

@@ -689,6 +689,126 @@ pub async fn cli_check_updates() -> Vec<CliToolStatus> {
 }
 }
 
+// ─── 票 07：按安装来源的版本更新（数据驱动映射表）──────────
+
+/// 更新命令模板表（数据驱动）：source → argv 模板。
+/// 占位符：`{pkg}` = NPM_PACKAGES 包名、`{cask}` = HOMEBREW_CASKS 名、`{extra}` = 工具专属额外参数展开。
+/// 未知 source 不在表内 = Manual（不猜）；native / pip / scoop / system 亦不在表内（提示手动）。
+const UPDATE_TEMPLATES: &[(&str, &[&str])] = &[
+    ("npm-global", &["npm", "install", "-g", "{extra}", "{pkg}@latest"]),
+    ("nvm", &["npm", "install", "-g", "{extra}", "{pkg}@latest"]),
+    ("fnm", &["npm", "install", "-g", "{extra}", "{pkg}@latest"]),
+    ("volta", &["npm", "install", "-g", "{extra}", "{pkg}@latest"]),
+    ("mise", &["npm", "install", "-g", "{extra}", "{pkg}@latest"]),
+    ("bun", &["npm", "install", "-g", "{extra}", "{pkg}@latest"]),
+    ("pnpm", &["npm", "install", "-g", "{extra}", "{pkg}@latest"]),
+    ("homebrew", &["brew", "upgrade", "--cask", "{cask}"]),
+];
+
+/// homebrew cask 名（formulae.brew.sh 2026-11-08 核实：claude-code / codex 有 cask，pi 无 → Manual）。
+const HOMEBREW_CASKS: &[(&str, &str)] = &[("claude", "claude-code"), ("codex", "codex")];
+
+/// npm 更新额外参数（pi 的 postinstall 需跳过，对齐 cli_upgrade 兜底路径）。
+const NPM_UPDATE_EXTRA: &[(&str, &[&str])] = &[("pi", &["--ignore-scripts"])];
+
+/// 单次更新命令超时：包管理器下载可能较慢。
+const UPDATE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(300);
+
+/// 更新动作：Cmd = 固定形式 argv（模板占位符已替换，不拼用户输入）；Manual = 提示手动。
+#[derive(Clone, Debug, PartialEq)]
+pub enum UpdateAction {
+    Cmd(Vec<String>),
+    Manual(&'static str),
+}
+
+/// (tool, source) → 更新动作。数据驱动查表；未知 source / 无包名 / 无 cask → Manual。
+fn update_action_for(tool: &str, source: &str) -> UpdateAction {
+    let Some((_, tpl)) = UPDATE_TEMPLATES.iter().find(|(s, _)| *s == source) else {
+        return UpdateAction::Manual("manual: unsupported install source");
+    };
+    let mut argv: Vec<String> = Vec::new();
+    for part in tpl.iter() {
+        let s = *part;
+        if s.contains("{pkg}") {
+            let Some((_, pkg)) = NPM_PACKAGES.iter().find(|&&(t, _)| t == tool) else {
+                return UpdateAction::Manual("manual: no npm package for tool");
+            };
+            argv.push(s.replace("{pkg}", pkg));
+            continue;
+        }
+        if s.contains("{cask}") {
+            let Some((_, cask)) = HOMEBREW_CASKS.iter().find(|&&(t, _)| t == tool) else {
+                return UpdateAction::Manual("manual: no homebrew cask for tool");
+            };
+            argv.push(s.replace("{cask}", cask));
+            continue;
+        }
+        if s == "{extra}" {
+            if let Some((_, extra)) = NPM_UPDATE_EXTRA.iter().find(|&&(t, _)| t == tool) {
+                argv.extend(extra.iter().map(|s| s.to_string()));
+            }
+            continue;
+        }
+        argv.push(s.to_string());
+    }
+    UpdateAction::Cmd(argv)
+}
+
+/// 对指定安装路径重跑 `--version`（更新后回显 / before-after 比对用）。
+fn version_at(path: &str) -> Option<String> {
+    let mut cmd = Command::new(path);
+    cmd.arg("--version");
+    no_window(&mut cmd);
+    match cmd.output() {
+        Ok(o) if o.status.success() => {
+            let text = format!(
+                "{}{}",
+                String::from_utf8_lossy(&o.stdout),
+                String::from_utf8_lossy(&o.stderr)
+            );
+            extract_version(&text)
+        }
+        _ => None,
+    }
+}
+
+/// 带超时跑一次外部命令，合并 stdout/stderr 返回；非 0 退出 = Err（含退出码与输出）。
+/// `path_env` 显式注入 PATH（None = 不注入，测试直接给绝对路径）。
+async fn run_command_with_timeout(
+    argv: &[String],
+    timeout: std::time::Duration,
+    path_env: Option<&str>,
+) -> Result<String, String> {
+    let Some(prog) = argv.first() else {
+        return Err("empty argv".into());
+    };
+    let mut cmd = TokioCommand::new(prog);
+    cmd.args(&argv[1..]);
+    if let Some(p) = path_env {
+        cmd.env("PATH", p);
+    }
+    no_window_tokio(&mut cmd).await;
+    let output = tokio::time::timeout(timeout, cmd.output())
+        .await
+        .map_err(|_| format!("timeout after {}s", timeout.as_secs()))?
+        .map_err(|e| format!("spawn failed: {e}"))?;
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    if !output.status.success() {
+        let code = output
+            .status
+            .code()
+            .map(|c| c.to_string())
+            .unwrap_or_else(|| "signal".into());
+        let tail: String = text.trim().chars().rev().take(400).collect::<String>().chars().rev().collect();
+        return Err(format!("exit {code}: {tail}"));
+    }
+    Ok(text)
+}
+
 #[cfg(test)]
 mod test_cli_env {
     use super::*;
@@ -869,5 +989,227 @@ mod test_cli_env {
                 "tool {tool} missing from NPM_PACKAGES"
             );
         }
+    }
+}
+
+/// 票 07：单 agent 更新状态（版本对照 + 可否自动更新）。
+#[derive(serde::Serialize, Clone)]
+pub struct AgentUpdateStatus {
+    pub tool: String,
+    pub installed: bool,
+    /// PATH 默认命中安装的当前版本。
+    pub version: Option<String>,
+    /// 包管理器可升级版本（npm registry latest；检测失败/离线 = None，UI 标 unknown）。
+    pub latest_version: Option<String>,
+    /// Some(true)=有更新 / Some(false)=最新 / None=unknown。
+    pub has_update: Option<bool>,
+    /// PATH 默认命中安装的来源（infer_source 词表）。
+    pub source: Option<String>,
+    /// 映射表支持自动更新。
+    pub updatable: bool,
+    /// 不支持自动更新时的提示（UI 按 key 本地化）。
+    pub manual_hint: Option<String>,
+}
+
+/// 票 07：单 agent 更新执行结果（前后版本回显）。
+#[derive(serde::Serialize, Clone)]
+pub struct AgentUpdateResult {
+    pub tool: String,
+    pub source: String,
+    pub before_version: Option<String>,
+    pub after_version: Option<String>,
+    pub success: bool,
+    /// 更新命令输出尾段（截 400 字符）。
+    pub message: String,
+}
+
+/// PATH 默认命中安装的 (source, 映射表可否自动更新, 手动提示)。
+fn default_installation_info(tool: &str) -> (Option<String>, bool, Option<String>) {
+    let installs = enumerate_installations(tool);
+    let Some(inst) = installs.iter().find(|i| i.is_path_default).or_else(|| installs.first()) else {
+        return (None, false, None);
+    };
+    let action = update_action_for(tool, &inst.source);
+    match action {
+        UpdateAction::Cmd(_) => (Some(inst.source.clone()), true, None),
+        UpdateAction::Manual(reason) => (Some(inst.source.clone()), false, Some(reason.to_string())),
+    }
+}
+
+crate::tauri_command! {
+/// 票 07：各 agent 当前版本 vs 包管理器可升级版本。latest 查不到标 unknown（None）。
+pub async fn agent_update_check() -> Vec<AgentUpdateStatus> {
+    tracing::debug!(command = "agent_update_check", "command invoked");
+    let statuses = cli_check_updates().await;
+    statuses
+        .into_iter()
+        .map(|s| {
+            let (source, updatable, manual_hint) = default_installation_info(&s.name);
+            AgentUpdateStatus {
+                tool: s.name,
+                installed: s.installed,
+                version: s.version,
+                latest_version: s.latest_version,
+                has_update: s.has_update,
+                source,
+                updatable,
+                manual_hint: manual_hint.filter(|_| !updatable),
+            }
+        })
+        .collect()
+}
+}
+
+crate::tauri_command! {
+/// 票 07：按安装来源执行单个 agent 更新（UI 确认后的高危动作；不做批量全更）。
+/// 取 PATH 默认安装 → 映射表查命令 → 带超时执行 → 重跑版本检测回显前后版本。
+pub async fn agent_update_apply(tool: String) -> Result<AgentUpdateResult, String> {
+    tracing::debug!(command = "agent_update_apply", tool = %tool, "command invoked");
+    if !TOOLS.contains(&tool.as_str()) {
+        return Err(format!("unsupported tool: {tool}"));
+    }
+    let installs = enumerate_installations(&tool);
+    let Some(inst) = installs.iter().find(|i| i.is_path_default).or_else(|| installs.first()).cloned() else {
+        return Err(format!("{tool} not installed"));
+    };
+    let before = inst.version.clone();
+    let argv = match update_action_for(&tool, &inst.source) {
+        UpdateAction::Cmd(argv) => argv,
+        UpdateAction::Manual(reason) => return Err(reason.to_string()),
+    };
+    let output = run_update_command(&argv).await?;
+    let after = version_at(&inst.path);
+    let tail: String = output.trim().chars().rev().take(400).collect::<String>().chars().rev().collect();
+    Ok(AgentUpdateResult {
+        tool,
+        source: inst.source,
+        before_version: before,
+        after_version: after,
+        success: true,
+        message: tail,
+    })
+}
+}
+
+/// run_command_with_timeout 的公开包装：注入登录 shell 合并 PATH（幂等缓存）。
+async fn run_update_command(argv: &[String]) -> Result<String, String> {
+    run_command_with_timeout(argv, UPDATE_TIMEOUT, crate::gateway::skills::runtime_path()).await
+}
+
+#[cfg(test)]
+mod test_cli_update {
+    use super::*;
+
+    #[test]
+    fn update_action_mapping_per_source() {
+        // npm 系来源 → Cmd：npm install -g <pkg>@latest
+        for src in ["npm-global", "nvm", "fnm", "volta", "mise", "bun", "pnpm"] {
+            for (tool, pkg) in NPM_PACKAGES {
+                match update_action_for(tool, src) {
+                    UpdateAction::Cmd(argv) => {
+                        assert_eq!(&argv[..3], ["npm", "install", "-g"], "source {src} tool {tool}");
+                        assert!(
+                            argv.iter().any(|a| a == &format!("{pkg}@latest")),
+                            "source {src} tool {tool}: {argv:?}"
+                        );
+                    }
+                    other => panic!("source {src} tool {tool} 应为 Cmd，实际 {other:?}"),
+                }
+            }
+        }
+        // pi 的 npm 更新带 --ignore-scripts（postinstall 跳过）
+        match update_action_for("pi", "npm-global") {
+            UpdateAction::Cmd(argv) => assert!(argv.contains(&"--ignore-scripts".to_string()), "{argv:?}"),
+            other => panic!("pi npm-global 应为 Cmd，实际 {other:?}"),
+        }
+        // homebrew：cask 表内 → Cmd；表外（pi）→ Manual
+        match update_action_for("claude", "homebrew") {
+            UpdateAction::Cmd(argv) => {
+                assert_eq!(&argv[..4], ["brew", "upgrade", "--cask", "claude-code"], "{argv:?}")
+            }
+            other => panic!("claude homebrew 应为 Cmd，实际 {other:?}"),
+        }
+        match update_action_for("codex", "homebrew") {
+            UpdateAction::Cmd(argv) => assert_eq!(&argv[..4], ["brew", "upgrade", "--cask", "codex"], "{argv:?}"),
+            other => panic!("codex homebrew 应为 Cmd，实际 {other:?}"),
+        }
+        assert!(matches!(update_action_for("pi", "homebrew"), UpdateAction::Manual(_)));
+        // 不支持自动更新的来源 → Manual（native / pip / scoop / system / 未知，不猜）
+        for src in ["native", "pip", "scoop", "system", "totally-unknown"] {
+            assert!(
+                matches!(update_action_for("claude", src), UpdateAction::Manual(_)),
+                "source {src} 应为 Manual"
+            );
+        }
+    }
+
+    /// 临时目录假可执行文件：脚本三件套 + 假版本二进制。收尾自清理。
+    #[cfg(unix)]
+    fn fake_bin_dir(tag: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("aidog-cli-update-test-{}-{tag}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let write = |name: &str, body: &str| {
+            let p = dir.join(name);
+            std::fs::write(&p, body).unwrap();
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
+        };
+        write(
+            "ok.sh",
+            "#!/bin/sh\necho 'updated to 2.0.0'\necho 'warning noise' >&2\nexit 0\n",
+        );
+        write("fail.sh", "#!/bin/sh\necho 'boom' >&2\nexit 3\n");
+        write("slow.sh", "#!/bin/sh\nsleep 5\n");
+        write("fake-tool.sh", "#!/bin/sh\necho 'fake-tool 1.2.3'\n");
+        dir
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn run_command_success_captures_output() {
+        let dir = fake_bin_dir("ok");
+        let argv = vec![dir.join("ok.sh").to_string_lossy().into_owned()];
+        let out = run_command_with_timeout(&argv, std::time::Duration::from_secs(10), None)
+            .await
+            .expect("success path");
+        assert!(out.contains("updated to 2.0.0"), "stdout: {out}");
+        assert!(out.contains("warning noise"), "stderr 也应捕获: {out}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn run_command_failure_reports_exit_and_stderr() {
+        let dir = fake_bin_dir("fail");
+        let argv = vec![dir.join("fail.sh").to_string_lossy().into_owned()];
+        let err = run_command_with_timeout(&argv, std::time::Duration::from_secs(10), None)
+            .await
+            .expect_err("failure path");
+        assert!(err.contains("exit 3"), "{err}");
+        assert!(err.contains("boom"), "{err}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn run_command_timeout_errors() {
+        let dir = fake_bin_dir("slow");
+        let argv = vec![dir.join("slow.sh").to_string_lossy().into_owned()];
+        let err = run_command_with_timeout(&argv, std::time::Duration::from_millis(300), None)
+            .await
+            .expect_err("timeout path");
+        assert!(err.contains("timeout"), "{err}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn version_at_fake_binary_before_and_after() {
+        let dir = fake_bin_dir("ver");
+        let bin = dir.join("fake-tool.sh").to_string_lossy().into_owned();
+        assert_eq!(version_at(&bin), Some("1.2.3".to_string()));
+        assert_eq!(version_at(&dir.join("missing.bin").to_string_lossy()), None);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
