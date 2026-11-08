@@ -1,6 +1,8 @@
 //! 主界面（主窗口 webview）生命周期：关窗即销毁，托盘常驻；需要时按配置重建。
 //!
-//! 单一真值：`OPEN` 标志而非 `get_webview_window`——`destroy()` 后窗口从表里摘除要等
+//! 单一真值：`OPEN` 标志而非 `get_webview_window`——最小化驻托盘时窗口隐藏但 `OPEN` 保持
+//! true（存活），关闭销毁后才置 false；两者恢复/重建都走 `open()`。
+//! `destroy()` 后窗口从表里摘除要等
 //! `RunEvent::WindowEvent::Destroyed`（同 `popover_window.rs` 模块注释），MockRuntime 还从不派发它。
 //! macOS Dock 图标与顶部菜单由同一个激活策略开关控制：界面开 = Regular，关 = Accessory；
 //! `POLICY` 记录当前策略，MockRuntime 下真实调用不可观测，测试断言该记录。
@@ -151,6 +153,9 @@ pub(crate) const UI_CLOSING_EVENT: &str = "aidog-ui-closing";
 /// `manager/window.rs:177-181`），前端挂起则永远关不掉，超时没收到 ack 就强制销毁。
 pub(crate) const CLOSE_ACK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
 
+/// 失焦后等最小化动画/状态落定再查 `is_minimized`，避免正常失焦误判。
+pub(crate) const MINIMIZE_CHECK_DELAY: std::time::Duration = std::time::Duration::from_millis(200);
+
 /// 主窗口 CloseRequested 计数 / 最近一次已 ack 的计数；定时器只认自己那一次请求。
 static CLOSE_GEN: AtomicU64 = AtomicU64::new(0);
 static ACK_GEN: AtomicU64 = AtomicU64::new(0);
@@ -203,6 +208,33 @@ pub(crate) fn on_closed<R: Runtime>(app: &AppHandle<R>) {
                 aidog_core::ui_notice::notify_first_tray_close(c).await;
             }
         });
+    }
+}
+
+/// 主窗口失焦：延迟后查 `is_minimized`，真最小化才转托盘驻留（正常失焦不动）。
+pub(crate) fn on_focus_lost<R: Runtime>(app: &AppHandle<R>) {
+    let a = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(MINIMIZE_CHECK_DELAY).await;
+        let Some(w) = a.get_webview_window(LABEL) else {
+            return;
+        };
+        match w.is_minimized() {
+            Ok(true) => minimize_to_tray(&a),
+            Ok(false) => {}
+            Err(e) => tracing::warn!(error = %e, "is_minimized check failed"),
+        }
+    });
+}
+
+/// 最小化转托盘：窗口隐藏但存活（OPEN 保持 true，前端状态保留），策略切 Accessory，
+/// 恢复走既有 `open()`（托盘 show / Dock Reopen → show + focus + Regular）。
+pub(crate) fn minimize_to_tray<R: Runtime>(app: &AppHandle<R>) {
+    set_policy(app, Policy::Accessory);
+    if let Some(w) = app.get_webview_window(LABEL) {
+        // 先退出最小化态再 hide：macOS Dock 不留 miniaturized 残影，恢复时 open() 直接 show 正常态。
+        let _ = w.unminimize();
+        let _ = w.hide();
     }
 }
 
@@ -369,6 +401,31 @@ mod tests {
         start(app.handle(), false);
         assert!(exists());
         assert_eq!(policy(), Policy::Regular);
+    }
+
+    #[test]
+    fn minimize_to_tray_hides_but_keeps_ui_alive_and_open_restores() {
+        let (_g, app) = setup();
+        open(app.handle());
+        minimize_to_tray(app.handle());
+        assert!(exists(), "最小化驻托盘：界面仍存活（前端状态保留）");
+        assert_eq!(policy(), Policy::Accessory, "最小化驻托盘：策略切 Accessory");
+        assert!(
+            app.get_webview_window(LABEL).is_some(),
+            "窗口不销毁，托盘 show / Dock Reopen 走 show+focus 分支"
+        );
+        open(app.handle());
+        assert_eq!(policy(), Policy::Regular, "恢复后策略回 Regular");
+    }
+
+    #[test]
+    fn focus_lost_without_minimize_keeps_ui_visible() {
+        let (_g, app) = setup();
+        open(app.handle());
+        on_focus_lost(app.handle());
+        std::thread::sleep(MINIMIZE_CHECK_DELAY + std::time::Duration::from_millis(400));
+        assert!(exists());
+        assert_eq!(policy(), Policy::Regular, "正常失焦不得触发托盘驻留");
     }
 
     #[test]
