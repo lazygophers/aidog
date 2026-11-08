@@ -402,7 +402,8 @@ async fn aux_attempt(
 
     let status = resp.status();
     log.upstream_status_code = status.as_u16() as i32;
-    log.upstream_response_headers = upstream_headers_to_json(resp.headers());
+    log.upstream_response_headers =
+        upstream_headers_json_for_log(resp.headers(), log_settings.log_upstream_request);
 
     // 非 2xx 沿用 handle_non_success（429 冷却 / 5xx·529 换平台计熔断 / 401 auth 冷却 / 400·422 直返）。
     if !status.is_success() {

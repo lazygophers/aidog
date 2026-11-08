@@ -154,7 +154,8 @@ pub(crate) use retry::{
     is_censorship_blocked, is_nonstream_body_valid, is_region_blocked, is_status_retryable,
     is_transport_retryable,
     parse_quota_reset_at, resp_headers_to_log_json, transport_retry_backoff,
-    truncate_attempt_error, truncate_peek_text, upstream_headers_to_json,
+    truncate_attempt_error, truncate_peek_text, upstream_headers_json_for_log,
+    upstream_headers_to_json,
 };
 pub(crate) use settings_cache::{ProxySettingsCache, register as register_settings_cache};
 pub(crate) use stream::{
