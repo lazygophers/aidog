@@ -2111,6 +2111,8 @@
   "requestLog.typeTest": "Тест",
   "scheduling.breakerDefaults": "Глобальные значения предохранителя по умолчанию",
   "scheduling.breakerDefaultsDesc": "Пороги предохранителя по умолчанию, когда платформа их не переопределяет (пусто / 0).",
+  "scheduling.cacheAffinity": "Привязка к кэшу",
+  "scheduling.cacheAffinityDesc": "Удерживает диалог на платформе, которая его обслуживала, пока продолжаются попадания в кэш; отвязка автоматически после двух ответов подряд без кэша",
   "scheduling.defaultRoutingMode": "Режим маршрутизации по умолчанию",
   "scheduling.defaultRoutingModeDesc": "Глобальная стратегия по умолчанию, когда группа не задаёт свою.",
   "scheduling.masterToggle": "Главный выключатель предохранителя",

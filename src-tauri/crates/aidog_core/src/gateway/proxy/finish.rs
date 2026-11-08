@@ -21,6 +21,9 @@ pub(crate) struct AttemptCtx {
     pub disable_thinking: bool,
     /// 限频占位（extra.rate_limits）；结束后按 usage 修正 TPM 预占。
     pub rate: Option<Arc<crate::gateway::rate_limit::Access>>,
+    /// 缓存亲和信号键（票 magpie-08）：Some = 聊天主路径且 cache_affinity 开，
+    /// 响应侧凭它 record 缓存信号；None = 开关关 / 其他路径（不记录）。
+    pub cache_key: Option<String>,
 }
 
 /// 非流式 2xx 成功响应处理：usage 提取 + 跨协议转换 + 模型回填 + 出站中间件 + 响应头透传。
@@ -88,6 +91,15 @@ pub(crate) async fn finish_nonstream(
     log.cache_write_tokens = cache_write_tokens;
     log.cache_write_1h_tokens = cache_write_1h_tokens;
     log.tool_call_counts = tool_counts;
+
+    // 缓存亲和（票 magpie-08）：聊天主路径响应侧记录缓存信号（cache_affinity 开才有关键）。
+    if let Some(key) = &ctx.cache_key {
+        state.scheduler.cache_signals.record(
+            key,
+            cache_tokens > 0 || cache_write_tokens > 0 || cache_write_1h_tokens > 0,
+            aidog_db::now(),
+        );
+    }
 
     // ── 非流式跨协议响应转换 ──
     // 流式路径靠 parse_sse→to_client_sse 转换响应格式，但非流式分支历史上**直接透传上游 body**，
@@ -354,6 +366,7 @@ where
         record_client_body,
         req_span: req_span.clone(),
         rate: ctx.rate.clone(),
+        cache_key: ctx.cache_key.clone(),
         est: Some(StreamEstCtx {
             platform_id: route.platform.id,
             platform_type: route.platform.platform_type.clone(),

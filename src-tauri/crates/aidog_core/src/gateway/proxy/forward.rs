@@ -515,6 +515,9 @@ async fn forward_attempt_model(
         quota_base_url: target.target_base_url.clone(),
         disable_thinking,
         rate: rate.clone(),
+        cache_key: sched_settings
+            .cache_affinity
+            .then(|| crate::gateway::scheduling::sticky_session_key(&group.group_key, orig_headers)),
     };
 
     // 非流式：直接透传 JSON

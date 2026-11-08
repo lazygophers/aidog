@@ -25,4 +25,9 @@ breaker_half_open_max: number,
 /**
  * 熔断总开关。
  */
-enabled: boolean, };
+enabled: boolean, 
+/**
+ * 缓存亲和（票 magpie-08）：开 = 粘性绑定条件化（响应带缓存信号才绑定/续期，
+ * 连续两次无缓存解绑回退正常调度）；关 = 现状无条件粘性。
+ */
+cache_affinity: boolean, };

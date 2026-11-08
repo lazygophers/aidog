@@ -446,6 +446,8 @@ pub(crate) struct StreamLogGuard {
     pub(crate) est: Option<StreamEstCtx>,
     // 限频占位句柄：flush 时按实际 usage 修正 TPM 预占（None = 该平台未配限频）。
     pub(crate) rate: Option<Arc<crate::gateway::rate_limit::Access>>,
+    // 缓存亲和信号键（票 magpie-08）：Some = 聊天主路径且 cache_affinity 开，flush 时记录信号。
+    pub(crate) cache_key: Option<String>,
 }
 
 /// 流式 flush 时触发的后台预估上下文。
@@ -549,6 +551,14 @@ impl StreamLogGuard {
         final_log.status_code = status_code;
         final_log.done = true;
         final_log.duration_ms = self.start.elapsed().as_millis() as i32;
+        // 缓存亲和（票 magpie-08）：聊天主路径流式 flush 时记录缓存信号。
+        if let Some(key) = &self.cache_key {
+            self.state.scheduler.cache_signals.record(
+                key,
+                cache_tokens > 0 || cache_write_tokens > 0 || cache_write_1h_tokens > 0,
+                aidog_db::now(),
+            );
+        }
         // 聚合真实 SSE 内容写入 body（受 record 开关控制；upsert_log 仍按 settings 二次过滤）。
         // 票 06：终态判定由 done=true 承担（上方已置位），body 只承载真实内容 / 空串，
         // 关日志正文时不再有哨兵残留问题。

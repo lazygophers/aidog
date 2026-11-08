@@ -2089,6 +2089,8 @@
   "requestLog.typeTest": "Prueba",
   "scheduling.breakerDefaults": "Predeterminados globales del cortacircuitos",
   "scheduling.breakerDefaultsDesc": "Umbrales predeterminados del cortacircuitos usados cuando una plataforma no los sobrescribe (vacío / 0).",
+  "scheduling.cacheAffinity": "Afinidad de caché",
+  "scheduling.cacheAffinityDesc": "Mantiene la conversación en la plataforma que la atendió mientras continúen los aciertos de caché; se desvincula automáticamente tras dos respuestas consecutivas sin caché",
   "scheduling.defaultRoutingMode": "Modo de enrutamiento predeterminado",
   "scheduling.defaultRoutingModeDesc": "Estrategia global predeterminada usada cuando un grupo no especifica la suya.",
   "scheduling.masterToggle": "Interruptor maestro del cortacircuitos",
