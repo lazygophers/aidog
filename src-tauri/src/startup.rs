@@ -45,6 +45,13 @@ pub fn run() {
             {
                 crate::popover_window::close(&window.app_handle().clone());
             }
+            // 主窗口失焦：延迟后查 is_minimized，真最小化 → 转托盘驻留（tao macOS 不发
+            // miniaturize 事件，Focused(false) + is_minimized 是唯一跨平台检测口）。
+            if let tauri::WindowEvent::Focused(false) = event
+                && window.label() == crate::ui_window::LABEL
+            {
+                crate::ui_window::on_focus_lost(&window.app_handle().clone());
+            }
             // 前端 closeGuard 接管关窗（Tauri 自动 prevent_close）：限时没收到它的 ack 就强制销毁，
             // 防前端挂起时关不掉窗。
             if let tauri::WindowEvent::CloseRequested { .. } = event
