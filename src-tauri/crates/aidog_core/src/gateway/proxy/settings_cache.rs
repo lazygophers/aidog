@@ -10,27 +10,27 @@ use super::*;
 
 #[derive(Clone, Default)]
 pub(crate) struct ProxySettingsCache {
-    pub log_settings: ProxyLogSettings,
+    pub log_settings: Arc<ProxyLogSettings>,
     pub lang: Lang,
-    pub middleware_settings: MiddlewareSettings,
+    pub middleware_settings: Arc<MiddlewareSettings>,
     pub system_timeout: ProxyTimeoutSettings,
     pub proxy_client: ProxyClientSettings,
     /// builtin_tool_compat 全局总开关（默认 false；内置工具剔除的唯一开关）
     pub builtin_tool_compat: super::models::BuiltinToolCompatGlobalSettings,
     /// 出站隐私脱敏设置（票 02，默认关；scope=privacy key=scrub）
-    pub privacy: crate::gateway::privacy::PrivacyScrubSettings,
+    pub privacy: Arc<crate::gateway::privacy::PrivacyScrubSettings>,
 }
 
 impl ProxySettingsCache {
     pub(crate) async fn load_from(db: &Db) -> Self {
         Self {
-            log_settings: get_log_settings(db).await,
+            log_settings: Arc::new(get_log_settings(db).await),
             lang: get_lang(db).await,
-            middleware_settings: aidog_db::get_middleware_settings(db).await,
+            middleware_settings: Arc::new(aidog_db::get_middleware_settings(db).await),
             system_timeout: get_system_timeout(db).await,
             proxy_client: super::http_client::load_proxy_client_settings(db).await,
             builtin_tool_compat: super::builtin_tools::get_builtin_tool_compat_global(db).await,
-            privacy: crate::gateway::privacy::get_privacy_scrub_settings(db).await,
+            privacy: Arc::new(crate::gateway::privacy::get_privacy_scrub_settings(db).await),
         }
     }
 }

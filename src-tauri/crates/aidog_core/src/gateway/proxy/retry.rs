@@ -160,6 +160,19 @@ pub(crate) fn upstream_headers_to_json(headers: &reqwest::header::HeaderMap) -> 
     Value::Object(h).to_string()
 }
 
+/// 日志列 `upstream_response_headers` 的装配：`log_upstream_request` 关 → 空串（strip_raw_sides
+/// 本就清该列，短路只省序列化，不改入库语义）。
+pub(crate) fn upstream_headers_json_for_log(
+    headers: &reqwest::header::HeaderMap,
+    log_upstream_request: bool,
+) -> String {
+    if log_upstream_request {
+        upstream_headers_to_json(headers)
+    } else {
+        String::new()
+    }
+}
+
 /// 上游是否明确因审核机制拒绝请求。只识别结构化 `error.type`，避免误把普通 400 当审核拒绝。
 pub(crate) fn is_censorship_blocked(body: &str) -> bool {
     serde_json::from_str::<Value>(body)
