@@ -527,14 +527,15 @@ pub fn get_model_entry_any_platform<'a>(
 /// 返回的 `bool` = 是否走了跨平台回退（价格 `source` 据此区分）。
 ///
 /// 进程级缓存（spec O4）：同一请求内价格解析会多次走到这里（forward / log / billing /
-/// estimate），命中后零 DB 往返。DB miss + bundled miss 也缓存（fallback 单价的模型
-/// 每次白查两遍 DB 更亏）；model_entry 任何写入后由 [`Db::invalidate_model_entry_cache`]
-/// 整体失效，远程同步 / 导入恢复 / prune 都走那几个写入函数，天然覆盖。
+/// estimate），命中后零 DB 往返、零 serde parse、clone 只拷 Arc 指针。DB miss + bundled
+/// miss 也缓存（fallback 单价的模型每次白查两遍 DB 更亏）；model_entry 任何写入后由
+/// [`Db::invalidate_model_entry_cache`] 整体失效，远程同步 / 导入恢复 / prune 都走那几个
+/// 写入函数，天然覆盖。
 pub async fn model_entry_for_billing(
     db: &Db,
     platform_code: &str,
     model_id: &str,
-) -> Result<Option<(ModelEntry, bool)>, String> {
+) -> Result<Option<std::sync::Arc<BillingEntry>>, String> {
     // 借用探测复用 settings 缓存的 KeyPair 惯用：命中路径零 String 分配。
     {
         let probe: &dyn KeyPair = &(platform_code, model_id);
@@ -545,11 +546,21 @@ pub async fn model_entry_for_billing(
         }
     }
     let result = if let Some(e) = get_model_entry(db, platform_code, model_id).await? {
-        Some((e, false))
+        Some(std::sync::Arc::new(BillingEntry {
+            price_data: crate::price_resolve::parse_price_data(&e.price_data),
+            cross_platform: false,
+            entry: e,
+        }))
     } else {
         get_model_entry_any_platform(db, model_id)
             .await?
-            .map(|e| (e, true))
+            .map(|e| {
+                std::sync::Arc::new(BillingEntry {
+                    price_data: crate::price_resolve::parse_price_data(&e.price_data),
+                    cross_platform: true,
+                    entry: e,
+                })
+            })
     };
     if let Ok(mut g) = db.1.model_entry_billing.write() {
         // 硬上限 4096：key 含请求可控 model_id，防客户端刷唯一模型名撑爆常驻缓存

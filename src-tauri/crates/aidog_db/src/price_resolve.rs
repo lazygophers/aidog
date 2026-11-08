@@ -129,7 +129,7 @@ pub fn legacy_price_into(doc: &mut Value) -> bool {
 
 /// 解析 `price_data` 文本并归一化为新形状。计费路径的统一入口（旧形状就地转换，
 /// 不让旧 DB 数据把 fallback 价喂进计费）。
-fn parse_price_data(raw: &str) -> Value {
+pub(crate) fn parse_price_data(raw: &str) -> Value {
     let mut v: Value = serde_json::from_str(raw).unwrap_or_default();
     legacy_price_into(&mut v);
     v
@@ -382,11 +382,11 @@ pub async fn resolve_price(
     is_peak: bool,
 ) -> Result<PriceResolution, String> {
     let found = crate::model_entry_for_billing(db, platform_code, model_id).await?;
-    let cross_platform = found.as_ref().is_some_and(|(_, x)| *x);
-    // parse + 旧形状归一化（DB 未重同步的行计费照常走 price 子树）
-    let pd: Option<Value> = found.as_ref().map(|(e, _)| parse_price_data(&e.price_data));
+    let cross_platform = found.as_ref().is_some_and(|x| x.cross_platform);
+    // parse + 旧形状归一化已在缓存填充时完成（命中路径直接用预解析产物，零 parse）
+    let pd: Option<&Value> = found.as_ref().map(|x| &x.price_data);
     let mut out = resolve_price_from(
-        pd.as_ref(),
+        pd,
         is_peak,
         fallback_input,
         fallback_output,
@@ -416,13 +416,12 @@ pub async fn model_max_output_tokens(
     platform_code: &str,
     model_id: &str,
 ) -> Result<Option<i64>, String> {
-    let Some((entry, _)) = crate::model_entry_for_billing(db, platform_code, model_id).await?
-    else {
+    let Some(b) = crate::model_entry_for_billing(db, platform_code, model_id).await? else {
         return Ok(None);
     };
-    if let Some(v) = entry.max_output_tokens {
+    if let Some(v) = b.entry.max_output_tokens {
         return Ok(Some(v));
     }
-    let pd: Value = serde_json::from_str(&entry.price_data).unwrap_or_default();
-    Ok(pd.get("max_output_tokens").and_then(Value::as_i64))
+    // `max_output_tokens` 不被 legacy_price_into 搬移，归一化产物顶层取值与 raw parse 等价
+    Ok(b.price_data.get("max_output_tokens").and_then(Value::as_i64))
 }
