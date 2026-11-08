@@ -67,6 +67,20 @@ AiDog 是一款基于 Tauri 的**桌面端 AI API 网关**。它在你的电脑�
 - **导入导出** — AES-256-GCM 加密单文件容器 `.aidogx`，7 种范围逐项冲突决策
 - **托盘 + 状态栏** — 系统托盘快速操作 + 可定制状态栏脚本（Python + uv）
 
+## 与同类工具对比
+
+aidog 属于「本地 / 自建 AI API 网关」一类工具。下表是与同类开源项目的简要对照；完整逐项功能对比（含与 magpie 的详细对照表）见文档站[同类工具对比](https://lazygophers.github.io/aidog/zh/features/comparison)。
+
+| 项目 | 形态 | 定位 |
+| --- | --- | --- |
+| **aidog** | 桌面应用 + headless 内核 | 多平台分组路由、多协议转发、模型链降级、计费统计、编程助手配置全家桶 |
+| [magpie](https://github.com/yetone/magpie) | 菜单栏 + TUI / Web / CLI / Docker | 70+ agent 配置改写、订阅账号桥接、路由组、隐私脱敏、Bun 插件 |
+| [Claude Code Router](https://github.com/musistudio/claude-code-router) | 桌面应用 + npm CLI + Docker | 10+ agent 配置下发、多协议转换、凭证池与顺序降级 |
+| [new-api](https://github.com/QuantumNous/new-api) | 自托管服务端 | 渠道制团队网关、配额计费、用户体系 |
+| [LiteLLM Proxy](https://github.com/BerriAI/litellm) | Python SDK + 网关服务 | 100+ provider 统一 OpenAI 格式、负载均衡、用量追踪 |
+| [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) | Go 代理服务 | 订阅账号桥接为主、多账号轮换 |
+| [GPT-Load](https://github.com/tbphp/gpt-load) | 自托管服务端 | 原生协议透传、多凭证调度、本地凭证加密 |
+
 ## 安装
 
 ### 系统要求

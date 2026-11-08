@@ -67,6 +67,20 @@ AiDog est une **passerelle API IA de bureau** basée sur Tauri. Elle unifie la g
 - **Import & export** — conteneur mono-fichier chiffré AES-256-GCM `.aidogx`, 7 périmètres avec résolution de conflit par élément
 - **Tray + barre d'état** — actions rapides depuis le tray système + scripts de barre d'état personnalisables (Python + uv)
 
+## Comparaison avec les outils similaires
+
+AiDog appartient à la catégorie des passerelles IA locales / auto-hébergées. Le tableau ci-dessous compare brièvement les projets open source similaires ; la comparaison détaillée (dont le tableau magpie complet) se trouve sur le site de documentation : [Comparaison avec les outils similaires](https://lazygophers.github.io/aidog/en/guide/comparison).
+
+| Projet | Forme | Positionnement |
+| --- | --- | --- |
+| **AiDog** | Desktop app + headless kernel | Multi-platform group routing, multi-protocol forwarding, model-chain fallback, usage metering, full coding-assistant config suites |
+| [magpie](https://github.com/yetone/magpie) | Menu bar + TUI / Web / CLI / Docker | Atomic config rewrite for 70+ agents, subscription bridging, routing groups, PII masking, Bun plugins |
+| [Claude Code Router](https://github.com/musistudio/claude-code-router) | Desktop app + npm CLI + Docker | Config push for 10+ agents, multi-protocol conversion, credential pools with ordered fallback |
+| [new-api](https://github.com/QuantumNous/new-api) | Self-hosted server | Channel-based team gateway, quotas and billing, user management |
+| [LiteLLM Proxy](https://github.com/BerriAI/litellm) | Python SDK + gateway service | 100+ providers in unified OpenAI format, load balancing, spend tracking |
+| [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) | Go proxy service | Subscription-account bridging as the focus, multi-account rotation |
+| [GPT-Load](https://github.com/tbphp/gpt-load) | Self-hosted server | Native protocol passthrough, multi-credential scheduling, local credential encryption |
+
 ## Installation
 
 ### Configuration requise
