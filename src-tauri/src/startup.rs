@@ -316,6 +316,8 @@ pub fn run() {
             aidog_core::cli_env::cli_upgrade,
             aidog_core::cli_env::cli_diagnose_conflicts,
             aidog_core::cli_env::cli_check_updates,
+            aidog_core::cli_env::agent_update_check,
+            aidog_core::cli_env::agent_update_apply,
             // Platform defaults JSON（内置 const，无远端同步）
             aidog_core::defaults::get_defaults_json,
             aidog_core::defaults::get_protocol_logo_path,

@@ -3646,5 +3646,17 @@
   "profile.opDelete": "Delete",
   "profile.targetDbGroups": "Groups & mappings",
   "profile.deleteTitle": "Delete profile",
-  "profile.deleteDesc": "Delete the snapshot file of profile \"{name}\". The current configuration is not affected."
+  "profile.deleteDesc": "Delete the snapshot file of profile \"{name}\". The current configuration is not affected.",
+  "agentUpdate.title": "Agent Updates",
+  "agentUpdate.desc": "Check agent versions and run the matching update command for each install source.",
+  "agentUpdate.notInstalled": "Not installed",
+  "agentUpdate.unknown": "unknown",
+  "agentUpdate.update": "Update",
+  "agentUpdate.updating": "Updating…",
+  "agentUpdate.confirmOk": "Update now",
+  "agentUpdate.confirmTitle": "Update {{tool}}",
+  "agentUpdate.confirmDesc": "This runs the update command for this tool's install source and may download files. Continue?",
+  "agentUpdate.manualHint": "This install source does not support automatic updates; upgrade manually",
+  "agentUpdate.success": "Updated: v{{before}} → v{{after}}",
+  "agentUpdate.failed": "Update failed"
 }

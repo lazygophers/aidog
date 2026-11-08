@@ -1,7 +1,7 @@
 // system.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "../transport";
-import type { AppLogSettings, ScriptExecutor, DbCompactResult, AboutInfo, CliTool, CliToolStatus, CliConflict } from "./types";
+import type { AppLogSettings, ScriptExecutor, DbCompactResult, AboutInfo, CliTool, CliToolStatus, CliConflict, AgentUpdateStatus, AgentUpdateResult } from "./types";
 
 export const scriptExecutorApi = {
   /** 检测 uv 是否可用（true=已安装）。 */
@@ -60,6 +60,10 @@ export const cliEnvApi = {
   upgrade: (tool: CliTool) => invoke<void>("cli_upgrade", { tool }),
   /** 诊断冲突：`which -a` / `where` 枚举 + canonicalize 去重 + source 推断。 */
   diagnoseConflicts: () => invoke<CliConflict[]>("cli_diagnose_conflicts"),
+  /** 票 07：各 agent 当前版本 vs 包管理器可升级版本（查不到标 unknown）。 */
+  checkAgentUpdates: () => invoke<AgentUpdateStatus[]>("agent_update_check"),
+  /** 票 07：按安装来源更新单个 agent（UI 确认后调用；返回前后版本回显）。 */
+  applyAgentUpdate: (tool: CliTool) => invoke<AgentUpdateResult>("agent_update_apply", { tool }),
 };
 
 // ─── Auto-update toggle (gates 启动 daily check；手动按钮不 gate) ──────────
