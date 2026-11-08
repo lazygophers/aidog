@@ -448,7 +448,7 @@ fn act(
 }
 
 /// `$CODEX_HOME`（缺省 `~/.codex`），与 `gateway::codex` 同口径；不创建目录。
-fn codex_home_dir() -> Option<PathBuf> {
+pub(crate) fn codex_home_dir() -> Option<PathBuf> {
     if let Ok(custom) = std::env::var("CODEX_HOME")
         && !custom.trim().is_empty()
     {
@@ -459,7 +459,7 @@ fn codex_home_dir() -> Option<PathBuf> {
 
 /// pi agent 目录（`PI_CODING_AGENT_DIR`，缺省 `~/.pi/agent`），与 `gateway::pi`
 /// 同口径；不创建目录。
-fn pi_agent_dir() -> Option<PathBuf> {
+pub(crate) fn pi_agent_dir() -> Option<PathBuf> {
     if let Ok(custom) = std::env::var("PI_CODING_AGENT_DIR")
         && !custom.trim().is_empty()
     {
@@ -470,7 +470,7 @@ fn pi_agent_dir() -> Option<PathBuf> {
 
 /// codex 分组 profile TOML 的 aidog 指纹（[`toml::Value`] 形态，语义同
 /// [`is_aidog_codex_profile`]）。
-fn is_aidog_codex_profile_toml(t: &toml::Value) -> bool {
+pub(crate) fn is_aidog_codex_profile_toml(t: &toml::Value) -> bool {
     t.get("model_provider").and_then(|v| v.as_str()) == Some("aidog")
         || t.get("model_providers").and_then(|p| p.get("aidog")).is_some()
 }
