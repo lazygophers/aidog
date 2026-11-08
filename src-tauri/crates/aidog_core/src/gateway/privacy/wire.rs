@@ -16,7 +16,7 @@ use super::{scrub as engine_scrub, ScrubMap, ScrubOptions};
 /// 设置键 scope=`privacy` key=`scrub` 的形状。默认全关。
 /// `secrets` / `personal` 两档类型开关；细粒度 per-kind 覆盖留票 04（映射 ScrubOptions.per_kind）。
 /// 字段缺省全 false（bool Default 语义与 fail-closed 方向一致：默认不脱敏 = 零改动直通）。
-#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct PrivacyScrubSettings {
     /// 出站脱敏总开关（默认 false）。
@@ -29,6 +29,8 @@ pub struct PrivacyScrubSettings {
     pub model_enabled: bool,
     /// 本地检测服务 URL（POST 文本 → span 列表，契约见 `privacy::model`）。
     pub model_endpoint: String,
+    /// 单类型细粒度覆盖（票 04）：键 = `PiiKind::as_str` 词表，优先于两档总开关；词表外键忽略。
+    pub per_kind: std::collections::HashMap<String, bool>,
 }
 
 /// 读取脱敏设置（缺省 / 解析失败 → 默认全关）。
@@ -44,8 +46,26 @@ pub fn scrub_options(s: &PrivacyScrubSettings) -> ScrubOptions {
     ScrubOptions {
         secrets: s.secrets,
         personal: s.personal,
-        per_kind: std::collections::HashMap::new(),
+        per_kind: s
+            .per_kind
+            .iter()
+            .filter_map(|(k, &on)| pii_kind_from_str(k).map(|kind| (kind, on)))
+            .collect(),
     }
+}
+
+/// `PiiKind::as_str` 词表反查（票 04 per-kind 设置键）；词表外 None。
+fn pii_kind_from_str(s: &str) -> Option<super::PiiKind> {
+    [
+        super::PiiKind::ApiKey,
+        super::PiiKind::PrivateKey,
+        super::PiiKind::BearerToken,
+        super::PiiKind::Email,
+        super::PiiKind::BankCard,
+        super::PiiKind::IdNumber,
+    ]
+    .into_iter()
+    .find(|k| k.as_str() == s)
 }
 
 /// 检测层不可用标记（票 03 接口位 + 集成测试缝）。
@@ -285,6 +305,7 @@ mod tests {
             personal: true,
             model_enabled: false,
             model_endpoint: String::new(),
+            per_kind: Default::default(),
         }
     }
 
@@ -302,6 +323,31 @@ mod tests {
         assert!(s.enabled);
         assert!(!s.model_enabled);
         assert!(s.model_endpoint.is_empty());
+        assert!(s.per_kind.is_empty());
+    }
+
+    /// 票 04：per-kind 细粒度覆盖两档总开关；词表外键忽略。
+    #[test]
+    fn scrub_options_per_kind_overrides() {
+        let s = PrivacyScrubSettings {
+            enabled: true,
+            secrets: true,
+            personal: false,
+            per_kind: [
+                ("EMAIL".to_string(), true),
+                ("BEARER_TOKEN".to_string(), false),
+                ("NOT_A_KIND".to_string(), true),
+            ]
+            .into_iter()
+            .collect(),
+            ..Default::default()
+        };
+        let o = scrub_options(&s);
+        use crate::gateway::privacy::PiiKind;
+        assert!(o.enabled(PiiKind::Email), "per_kind true overrides personal=false");
+        assert!(!o.enabled(PiiKind::BearerToken), "per_kind false overrides secrets=true");
+        assert!(!o.enabled(PiiKind::BankCard), "personal=false applies without override");
+        assert!(o.enabled(PiiKind::ApiKey), "secrets=true applies");
     }
 
     #[test]

@@ -200,6 +200,7 @@ mod tests {
             personal: true,
             model_enabled: true,
             model_endpoint: endpoint.to_string(),
+            per_kind: Default::default(),
         }
     }
 
