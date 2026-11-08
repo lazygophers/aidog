@@ -651,15 +651,10 @@ pub(crate) async fn handle_proxy_core(
     let sched_settings = aidog_db::get_scheduling_settings(&state.db).await;
     // Sticky session 键：aidog 无 session_id 概念（见 design.md），用 group_key + 客户端稳定标识。
     // 稳定标识优先取 x-session-id / session_id header，缺省回退 user-agent；再缺省仅用 group_key。
-    let sticky_key = {
-        let client_id = orig_headers
-            .get("x-session-id")
-            .or_else(|| orig_headers.get("session_id"))
-            .or_else(|| orig_headers.get("user-agent"))
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("");
-        Some(format!("{}|{}", group.group_key, client_id))
-    };
+    let sticky_key = Some(super::super::scheduling::sticky_session_key(
+        &group.group_key,
+        &orig_headers,
+    ));
     let sched_ctx = ScheduleCtx {
         scheduler: &state.scheduler,
         sticky: &state.sticky,

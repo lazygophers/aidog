@@ -205,6 +205,10 @@ pub struct SchedulingBreakerSettings {
     /// 熔断总开关。
     #[serde(default = "default_true")]
     pub enabled: bool,
+    /// 缓存亲和（票 magpie-08）：开 = 粘性绑定条件化（响应带缓存信号才绑定/续期，
+    /// 连续两次无缓存解绑回退正常调度）；关 = 现状无条件粘性。
+    #[serde(default)]
+    pub cache_affinity: bool,
 }
 
 fn default_routing_mode_str() -> String {
@@ -228,6 +232,7 @@ impl Default for SchedulingBreakerSettings {
             breaker_open_secs: default_breaker_open_secs(),
             breaker_half_open_max: default_breaker_half_open_max(),
             enabled: true,
+            cache_affinity: false,
         }
     }
 }

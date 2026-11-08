@@ -131,6 +131,130 @@ fn apply_sticky_empty_candidates_no_panic() {
     assert!(v.is_empty());
 }
 
+// ── 缓存亲和（票 magpie-08）：cache_affinity 开 = 条件绑定 ──
+
+#[test]
+fn sticky_cache_affinity_first_bind_allowed_without_signal() {
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let now = aidog_db::now();
+    let mut settings = mk_settings();
+    settings.cache_affinity = true;
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: Some("g|c".to_string()),
+        rate_body: None,
+    };
+    let gp1 = mk_gp(1, 1, 0);
+    let gp2 = mk_gp(2, 1, 0);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2];
+    apply_sticky(&mut v, Some(&ctx), now);
+    assert_eq!(sticky.get("g|c", now), Some(1), "无信号 → 缺省值得保留，允许首绑");
+}
+
+#[test]
+fn sticky_cache_affinity_cache_signal_renews_binding() {
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let now = aidog_db::now();
+    let mut settings = mk_settings();
+    settings.cache_affinity = true;
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: Some("g|c".to_string()),
+        rate_body: None,
+    };
+    let gp1 = mk_gp(1, 1, 0);
+    let gp2 = mk_gp(2, 1, 0);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2];
+    apply_sticky(&mut v, Some(&ctx), now);
+    // 上一请求带缓存信号 → 绑定续期：绑定 p1 提首
+    sched.cache_signals.record("g|c", true, now);
+    let mut v2: Vec<&GroupPlatformDetail> = vec![&gp2, &gp1];
+    apply_sticky(&mut v2, Some(&ctx), now);
+    assert_eq!(v2[0].platform.id, 1, "有缓存信号 → 绑定续期（提首）");
+}
+
+#[test]
+fn sticky_cache_affinity_two_no_cache_unbinds() {
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let now = aidog_db::now();
+    let mut settings = mk_settings();
+    settings.cache_affinity = true;
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: Some("g|c".to_string()),
+        rate_body: None,
+    };
+    let gp1 = mk_gp(1, 1, 0);
+    let gp2 = mk_gp(2, 1, 0);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2];
+    apply_sticky(&mut v, Some(&ctx), now);
+    // 连续两次无缓存信号 → 解绑（回退正常调度，不提首、不再续期）
+    sched.cache_signals.record("g|c", false, now);
+    sched.cache_signals.record("g|c", false, now);
+    let mut v2: Vec<&GroupPlatformDetail> = vec![&gp2, &gp1];
+    apply_sticky(&mut v2, Some(&ctx), now);
+    assert_eq!(v2[0].platform.id, 2, "解绑 → 正常调度序（不提首）");
+    assert_eq!(sticky.get("g|c", now), Some(1), "不主动删：旧绑定留表自然过期");
+}
+
+#[test]
+fn sticky_cache_affinity_unworthy_never_binds_new_key() {
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let now = aidog_db::now();
+    let mut settings = mk_settings();
+    settings.cache_affinity = true;
+    // 无绑定的新键 + 两次无缓存信号（会话曾解绑后表项已过期重建信号）
+    sched.cache_signals.record("g|c", false, now);
+    sched.cache_signals.record("g|c", false, now);
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: Some("g|c".to_string()),
+        rate_body: None,
+    };
+    let gp1 = mk_gp(1, 1, 0);
+    let gp2 = mk_gp(2, 1, 0);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2];
+    apply_sticky(&mut v, Some(&ctx), now);
+    assert_eq!(sticky.get("g|c", now), None, "不值得保留 → put 跳过，不写绑定");
+}
+
+#[test]
+fn sticky_cache_affinity_off_state_stays_unconditional() {
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let now = aidog_db::now();
+    // 开关关（默认）+ 两次无缓存信号 → 现状无条件粘性不变
+    sched.cache_signals.record("g|c", false, now);
+    sched.cache_signals.record("g|c", false, now);
+    let settings = mk_settings();
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: Some("g|c".to_string()),
+        rate_body: None,
+    };
+    let gp1 = mk_gp(1, 1, 0);
+    let gp2 = mk_gp(2, 1, 0);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2];
+    apply_sticky(&mut v, Some(&ctx), now);
+    let mut v2: Vec<&GroupPlatformDetail> = vec![&gp2, &gp1];
+    apply_sticky(&mut v2, Some(&ctx), now);
+    assert_eq!(v2[0].platform.id, 1, "开关关 → 无条件粘性（提首）");
+}
+
 // ── expiry_sort_key / [platform-expiry-priority] ──
 
 #[test]

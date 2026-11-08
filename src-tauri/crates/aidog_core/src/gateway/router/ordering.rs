@@ -92,6 +92,11 @@ pub(crate) fn apply_sticky(
     if platforms.is_empty() {
         return None;
     }
+    // 缓存亲和（票 magpie-08）：开关开且连续两次无缓存信号 → 不读不写绑定（正常调度，
+    // 旧绑定留表自然过期 = 不再续期）；缺条目 = 无信号 → 值得保留。开关关 → 下方无条件粘性。
+    if c.settings.cache_affinity && !c.scheduler.cache_signals.worth_keeping(key, now_ms) {
+        return None;
+    }
     if let Some(bound_id) = c.sticky.get(key, now_ms)
         && let Some(pos) = platforms.iter().position(|gp| gp.platform.id == bound_id)
     {

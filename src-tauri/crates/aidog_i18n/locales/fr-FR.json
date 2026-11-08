@@ -2111,6 +2111,8 @@
   "requestLog.typeTest": "Test",
   "scheduling.breakerDefaults": "Valeurs par défaut globales du disjoncteur",
   "scheduling.breakerDefaultsDesc": "Seuils de disjoncteur par défaut utilisés lorsqu'une plateforme ne les remplace pas (vide / 0).",
+  "scheduling.cacheAffinity": "Affinité de cache",
+  "scheduling.cacheAffinityDesc": "Maintient la conversation sur la plateforme qui l'a servie tant que le cache est utilisé ; déliaison automatique après deux réponses consécutives sans cache",
   "scheduling.defaultRoutingMode": "Mode de routage par défaut",
   "scheduling.defaultRoutingModeDesc": "Stratégie globale par défaut utilisée lorsqu'un groupe n'en spécifie pas.",
   "scheduling.masterToggle": "Interrupteur principal du disjoncteur",

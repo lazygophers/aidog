@@ -994,6 +994,7 @@ async fn relay_passthrough_stream(
         // 透传分支历史上不做请求驱动预估，保持现状
         est: None,
         rate: None,
+        cache_key: None,
     };
 
     // 提前 copy 到局部，避免 opts 引用逃逸进 'static stream 闭包（E0521）。

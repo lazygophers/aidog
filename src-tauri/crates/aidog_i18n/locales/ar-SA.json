@@ -2111,6 +2111,8 @@
   "requestLog.typeTest": "اختبار",
   "scheduling.breakerDefaults": "الإعدادات الافتراضية العامة للقاطع",
   "scheduling.breakerDefaultsDesc": "عتبات القاطع الافتراضية المستخدمة عندما لا تتجاوزها المنصة (فارغ / 0).",
+  "scheduling.cacheAffinity": "ترابط ذاكرة التخزين المؤقت",
+  "scheduling.cacheAffinityDesc": "يُبقي المحادثة مرتبطة بالمنصة التي خدمتها طالما استمرت إصابات الذاكرة المؤقتة؛ ويُلغى الارتباط تلقائيًا بعد استجابتيْن متتاليتيْن بدون ذاكرة مؤقتة",
   "scheduling.defaultRoutingMode": "وضع التوجيه الافتراضي",
   "scheduling.defaultRoutingModeDesc": "الاستراتيجية الافتراضية العامة عندما لا تحدد المجموعة استراتيجيتها.",
   "scheduling.masterToggle": "المفتاح الرئيسي لقاطع الدائرة",

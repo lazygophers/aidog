@@ -307,6 +307,7 @@ fn make_guard(
         req_span: tracing::Span::current(),
         est: None,
         rate: None,
+        cache_key: None,
     }
 }
 
