@@ -27,7 +27,7 @@ async fn scrub_settings_roundtrip() {
 async fn preview_disabled_returns_original() {
     let db = test_db().await;
     save_privacy_scrub_settings(&db, &settings(false)).await.unwrap();
-    let p = scrub_preview_text(&db, "mail bob@example.com").await;
+    let p = scrub_preview_text(&db, "mail bob@example.com").await.unwrap();
     assert_eq!(p.scrubbed, "mail bob@example.com");
     assert_eq!(p.hits, 0);
 }
@@ -37,7 +37,7 @@ async fn preview_disabled_returns_original() {
 async fn preview_scrubs_email() {
     let db = test_db().await;
     save_privacy_scrub_settings(&db, &settings(true)).await.unwrap();
-    let p = scrub_preview_text(&db, "mail bob@example.com").await;
+    let p = scrub_preview_text(&db, "mail bob@example.com").await.unwrap();
     assert!(p.scrubbed.contains("{{PII_EMAIL_"), "got: {}", p.scrubbed);
     assert_eq!(p.hits, 1);
 }

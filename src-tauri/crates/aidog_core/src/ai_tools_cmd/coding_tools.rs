@@ -76,7 +76,6 @@ pub async fn ensure_default_coding_tools_settings(db: &Db) -> Result<(), String>
             db,
             super::agent_config::KEY_PRIMARY_API_KEY,
             old,
-            &serde_json::json!("any"),
         )
         .await;
     }
@@ -85,7 +84,6 @@ pub async fn ensure_default_coding_tools_settings(db: &Db) -> Result<(), String>
             db,
             super::agent_config::KEY_ONBOARDING,
             old,
-            &serde_json::json!(true),
         )
         .await;
     }
@@ -135,7 +133,6 @@ crate::tauri_command! {
                             db,
                             super::agent_config::KEY_PRIMARY_API_KEY,
                             old,
-                            &serde_json::json!("any"),
                         )
                         .await;
                     }
@@ -165,7 +162,6 @@ crate::tauri_command! {
                             db,
                             super::agent_config::KEY_ONBOARDING,
                             old,
-                            &serde_json::json!(true),
                         )
                         .await;
                     }
