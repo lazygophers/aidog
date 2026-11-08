@@ -13,6 +13,35 @@ use std::collections::{HashMap, HashSet};
 pub async fn seed_registry_from_bundled(db: &Db) -> Result<PriceSyncResult, String> {
     tracing::info!("registry seed from bundled started");
 
+    // 快速路径（票 04）：上次灌种戳 = 本版 bundled index 戳，且两张镜像表行数与内置清单
+    // 一致 → 内置内容未变、无残留行，跳过 bundled 全量解析与全表 diff。内容变更必走
+    // 盖戳脚本（CLAUDE.md 约定）推高 index 戳，故「戳同 ⇒ 内容同」由构建纪律保证；
+    // 戳同但行数漂移（上一版二进制残留 / 行被删）走下方慢路径，prune 语义不变。
+    let bundled_stamp = aidog_db::registry::presets()
+        .get("last_updated")
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(0);
+    let mut settings = get_sync_settings(db).await;
+    let total = (aidog_db::registry::bundled_platform_files().len()
+        + aidog_db::registry::bundled_model_files().len()) as u32;
+    if bundled_stamp != 0
+        && settings.registry_last_updated == bundled_stamp
+        && aidog_db::count_platform_presets(db).await
+            == Ok(aidog_db::registry::bundled_platform_files().len() as u32)
+        && aidog_db::count_model_entries(db).await
+            == Ok(aidog_db::registry::bundled_model_files().len() as u32)
+    {
+        tracing::info!(total, "registry seed: stamp+count match, diff skipped");
+        return Ok(PriceSyncResult {
+            added: 0,
+            updated: 0,
+            unchanged: total,
+            failed: 0,
+            total,
+            failures: Vec::new(),
+        });
+    }
+
     let mut failures: Vec<SyncFailure> = Vec::new();
     let presets: Vec<PlatformPreset> = aidog_db::registry::bundled_platform_files()
         .iter()
@@ -120,14 +149,9 @@ pub async fn seed_registry_from_bundled(db: &Db) -> Result<PriceSyncResult, Stri
     }
 
     // 诊断戳：灌种完成的 registry 版本（bundled index last_updated）。
-    let mut settings = get_sync_settings(db).await;
-    settings.registry_last_updated = aidog_db::registry::presets()
-        .get("last_updated")
-        .and_then(serde_json::Value::as_i64)
-        .unwrap_or(settings.registry_last_updated);
+    settings.registry_last_updated = bundled_stamp;
     save_sync_settings(db, &settings).await;
 
-    let total = (aidog_db::registry::bundled_platform_files().len() + bundled_model_total) as u32;
     tracing::info!(
         added,
         updated,
