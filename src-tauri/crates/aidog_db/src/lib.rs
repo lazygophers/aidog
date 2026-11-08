@@ -1030,6 +1030,17 @@ impl Db {
         if let Ok(mut g) = self.1.group_platforms.write() {
             g.clear();
         }
+        // passthrough_extras（直通通道每请求缓存，票 01）同源失效：platform 增删改 /
+        // update_extra_key 全部途经本钩子，宁全勿漏（清一个 Option，代价可忽略）。
+        self.invalidate_passthrough_extras_cache();
+    }
+
+    /// 失效 list_passthrough_extras 缓存（platform 增删改 / extra 改动后调用；
+    /// 上述写入函数经 invalidate_group_details_cache 自动覆盖）。
+    pub fn invalidate_passthrough_extras_cache(&self) {
+        if let Ok(mut g) = self.1.passthrough_extras.write() {
+            *g = None;
+        }
     }
 
     /// 同时失效 setting + group 两类热路径缓存。
@@ -1039,6 +1050,7 @@ impl Db {
         self.invalidate_settings_cache();
         self.invalidate_groups_cache();
         self.invalidate_model_entry_cache();
+        self.invalidate_passthrough_extras_cache();
     }
 
     /// 取写连接的 clone（短暂持锁，纳秒级 channel sender clone）。

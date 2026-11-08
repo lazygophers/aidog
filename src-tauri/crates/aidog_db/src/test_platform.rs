@@ -666,7 +666,7 @@ async fn list_passthrough_extras_only_live_passthrough_platforms() {
     delete_platform(&db, gone.id).await.unwrap();
 
     assert_eq!(
-        list_passthrough_extras(&db).await.unwrap(),
+        *list_passthrough_extras(&db).await.unwrap(),
         [r#"{"auth_header":"X-Token"}"#.to_string()]
     );
 }
@@ -828,4 +828,40 @@ async fn update_empty_models_clears_slots_none_keeps() {
     assert!(got.models.default.is_empty() && got.models.sonnet.is_empty());
     let v: serde_json::Value = serde_json::from_str(&got.extra).unwrap();
     assert_eq!(v["custom_slots"]["fast"][0], "f1");
+}
+
+/// 票 01 性能优化：list_passthrough_extras 走 Db 级缓存（命中零 SQL），
+/// platform 增删改 / extra 改动经 invalidate_group_details_cache 失效后重查可见。
+#[tokio::test]
+async fn passthrough_extras_cache_hit_and_invalidation() {
+    let (db, _dir) = three_file_db().await;
+    let mk = |name: &str, extra: &str| CreatePlatform {
+        platform_type: Protocol::Passthrough,
+        extra: extra.to_string(),
+        ..sample_platform(name)
+    };
+    let p1 = create_platform(&db, mk("pt1", r#"{"auth_header":"X-Token"}"#)).await.unwrap();
+    let first = list_passthrough_extras(&db).await.unwrap();
+    assert_eq!(*first, vec![r#"{"auth_header":"X-Token"}"#.to_string()], "预热缓存");
+    // create → 失效后新平台 extra 可见
+    create_platform(&db, mk("pt2", r#"{"auth_header":"X-Gone"}"#)).await.unwrap();
+    let second = list_passthrough_extras(&db).await.unwrap();
+    assert_eq!(*second, vec![
+        r#"{"auth_header":"X-Token"}"#.to_string(),
+        r#"{"auth_header":"X-Gone"}"#.to_string(),
+    ], "create 后缓存失效重查");
+    // 软删 → 失效后只剩 pt1
+    let p2 = list_platforms(&db).await.unwrap().into_iter().find(|p| p.name == "pt2").expect("pt2").id;
+    delete_platform(&db, p2).await.unwrap();
+    assert_eq!(*list_passthrough_extras(&db).await.unwrap(), vec![r#"{"auth_header":"X-Token"}"#.to_string()], "delete 后缓存失效重查");
+    // update_platform 改 extra → 失效可见
+    update_platform(&db, UpdatePlatform {
+        id: p1.id,
+        extra: Some(r#"{"auth_header":"X-New"}"#.to_string()),
+        name: None, platform_type: None, base_url: None, models: None,
+        available_models: None, endpoints: None, enabled: None, status: None,
+        manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
+        api_key: None,
+    }).await.unwrap();
+    assert_eq!(*list_passthrough_extras(&db).await.unwrap(), vec![r#"{"auth_header":"X-New"}"#.to_string()], "update extra 后缓存失效重查");
 }

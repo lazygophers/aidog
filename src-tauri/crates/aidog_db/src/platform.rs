@@ -333,14 +333,20 @@ pub fn list_platforms(
 }
 
 /// 未软删透传平台的 `extra` 原文（ADR 0009：其中认证头配置兼作入站密钥通道）。
-/// 每个代理请求查一次，只取一列，不解密 api_key。
+/// 直通通道每请求查询 → Db 级缓存（票 01 性能优化）：命中零 SQL，返回 Arc 共享零拷贝；
+/// 失效挂 invalidate_group_details_cache（platform 增删改 + update_extra_key 全覆盖，宁全勿漏）。
 #[track_caller]
 pub fn list_passthrough_extras(
     db: &Db,
-) -> impl std::future::Future<Output = Result<Vec<String>, String>> + '_ {
+) -> impl std::future::Future<Output = Result<std::sync::Arc<Vec<String>>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-        db.call_read_platform_traced(None, __db_caller, |conn| {
+        if let Ok(g) = db.1.passthrough_extras.read()
+            && let Some(hit) = g.as_ref()
+        {
+            return Ok(hit.clone());
+        }
+        let rows: Vec<String> = db.call_read_platform_traced(None, __db_caller, |conn| {
             // 列存两种形态：JSON 串 `"passthrough"`（正常写入）与裸名（见 Protocol::from_db_str）
             let mut stmt = conn.prepare(
                 "SELECT extra FROM platform WHERE deleted_at = 0 \
@@ -350,7 +356,12 @@ pub fn list_passthrough_extras(
             Ok(rows.collect::<SqlResult<Vec<_>>>()?)
         })
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+        let arc = std::sync::Arc::new(rows);
+        if let Ok(mut g) = db.1.passthrough_extras.write() {
+            *g = Some(arc.clone());
+        }
+        Ok(arc)
     }
 }
 
