@@ -10,6 +10,7 @@ import { getDisplayCurrency } from "./displayCurrency";
 let current: Record<string, string> = {};
 const subscribers = new Set<() => void>();
 let started = false;
+let unlisten: (() => void) | null = null;
 let lastFetch = 0;
 const THROTTLE_MS = 10_000;
 
@@ -43,13 +44,26 @@ function start(): void {
   started = true;
   void refreshBalanceCurrencies();
   // 真查成功后端先记币种再 emit proxy-log-updated；节流避免逐请求都拉（映射极小，10s 内复用）。
+  // 监听句柄存 unlisten，订阅者全卸载时注销（stop），重挂载由 start 重建。
   Promise.resolve()
     .then(() =>
       listen("proxy-log-updated", () => {
         void refreshBalanceCurrenciesThrottled();
       }),
     )
+    .then((fn) => {
+      if (started) unlisten = fn;
+      else fn();
+    })
     .catch((e) => console.error(e));
+}
+
+function stop(): void {
+  if (unlisten) {
+    unlisten();
+    unlisten = null;
+  }
+  started = false;
 }
 
 function subscribe(cb: () => void): () => void {
@@ -57,6 +71,7 @@ function subscribe(cb: () => void): () => void {
   start();
   return () => {
     subscribers.delete(cb);
+    if (subscribers.size === 0) stop();
   };
 }
 
