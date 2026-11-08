@@ -1,0 +1,74 @@
+---
+title: Comparison with similar tools
+description: Feature-by-feature comparison of AiDog with magpie and similar AI API gateway projects.
+---
+
+# Comparison with similar tools
+
+AiDog belongs to the category of "local / self-hosted AI API gateway" tools. This page puts it side by side with similar open-source projects, stating only feature presence and shape differences — the right choice depends on your use case.
+
+Sources: all competitor facts are paraphrased from each project's official GitHub README and LICENSE files (fetched 2026-11-08, linked at the bottom). AiDog features are grounded in this repository's code and docs. These projects move fast; current official docs win.
+
+## vs magpie
+
+[magpie](https://github.com/yetone/magpie) (MIT) is the closest comparable project: a local AI API gateway for individual developers, doing "aggregate many platforms → unified routing → coding-assistant integration".
+
+**AiDog**: a local AI API proxy gateway desktop app (Rust + Tauri + React). Core: multi-platform group routing, multi-protocol forwarding, model-chain fallback, usage metering, request logs with a per-request inspector, Claude Code / Codex / pi configuration generation, Skills and MCP management, headless kernel with web UI (`--ui`). 8 UI languages (incl. RTL), SQLCipher whole-database encryption.
+
+**magpie** (Go + Wails): "Every agent's model. One place." Core: atomic config rewriting for 70+ agents, four-protocol conversion, subscription-account bridging as providers, routing groups, outbound PII masking, Bun plugin system, menu bar / TUI / Web / CLI / Docker / Termux shapes.
+
+### Feature comparison
+
+| Area | aidog | magpie |
+| --- | --- | --- |
+| Platform / provider management | Multi-platform CRUD, bulk operations, model list fetch, subscription info import | 30+ preset providers, direct model fetch from vendor APIs, logged-in subscription discovery, import from CC Switch and similar tools |
+| Wire protocols | OpenAI Chat / Completions / Responses, Anthropic, Gemini and more, converted both ways | OpenAI Chat / Responses, Anthropic, Gemini — four-protocol conversion incl. streaming, tool calls, reasoning |
+| Routing | 5 scheduling modes (failover / rotate / usage / pace / smart) plus group tiers, coding-plan boost, passthrough priority; model-chain fallback one by one | 5 routing-group modes (smart / order / rotate / usage / pace), nested groups, intent routing (a small model picks the model) |
+| Quota awareness | Platform balance probing, Coding Plan quotas, peak-hour multiplier windows; routing can sort by remaining quota / fastest reset | Per-key / per-account quota tracking, daily warm-up of the 5-hour subscription window |
+| Prompt-cache affinity | Yes (30-min sticky scheduling + cache-aware conditional binding, off by default) | Yes (conversation stays on the account that still holds the cache) |
+| Spending limits | Budget rules in the middleware rules engine | Per-key / per-account daily / monthly / cumulative USD caps with automatic fallback |
+| PII masking (outbound) | Yes (off by default): rules engine (keys / emails / bank cards / ID numbers) + local PII model backend hook, deterministic placeholders restored on replies, fail-closed | Yes (off by default): rules + local PII model, placeholders restored incl. streaming and tool arguments, 503 on failure |
+| Usage & billing | Tokens / cost / balance / Coding Plan quota / per-session stats, multi-currency | Official-price billing for tokens / cache / reasoning tokens, per-key quotas, context usage analysis, OTLP export |
+| Log auditing | Request logs + per-request inspector + MITM capture + 3-tier retention | Masked-traffic observation page; no per-request inspector |
+| Client config generation | Claude Code / Codex / pi full suites (settings, statusline, hooks, per-group sync) + uninstall-restore + profiles + agent version updates | 70+ agents atomic rewrite + profiles + agent version updates + WSL |
+| Skills / MCP | Skills scan & install, MCP import & agent binding, built-in stdio MCP server | Library (prompts / MCP / skills / subagents distributed per agent format) + MCP router |
+| Plugin system | Built-in middleware rules engine (rewrite / budget / sensitive words / error rules) | Bun plugin runtime (provider plugins + gateway middleware plugins + plugin marketplace) |
+| Web search / image gen | web_search aggregating multiple search providers + web_fetch + image-gen MCP tool | 9 search providers aggregated as MCP + image / video generation MCP tools |
+| Sync & sharing | LAN binding, group tokens, import/export, local backup schedules, platform share codes | LAN sharing (per-client key + budget), remote instance interconnect, encrypted WebDAV / S3 / GitHub sync |
+| Deployment shapes | Desktop app + headless kernel (`--ui` web interface) | Menu bar + window + TUI + Web + CLI + daemon + Docker + Android Termux |
+| Notifications | webhook / SMTP / TTS / popup / inbox + rules | Quota-window reset reminders |
+| UI languages / encryption | 8 languages incl. RTL, SQLCipher whole-DB encryption, auto-update | Multi-language UI, telemetry (optional), signed auto-update on macOS |
+
+### Not yet at parity
+
+- **Subscription accounts as providers**: magpie bridges locally logged-in Claude / ChatGPT / Copilot / Gemini / Grok subscriptions into the gateway as providers; aidog imports subscription info only, no bridging. This is the biggest capability gap for aidog.
+- **Plugin runtime**: magpie runs Bun plugins (provider plugins + gateway middleware JS plugins + a plugin marketplace); aidog covers common cases (rewrite / budget / sensitive words) with its built-in middleware rules engine, no JS runtime.
+- **Remote config sync**: magpie syncs encrypted backups to WebDAV / S3 / GitHub; aidog backups are local artifacts only.
+- **Agent coverage breadth**: magpie covers 70+ agents; aidog goes deep on Claude Code / Codex / pi (settings, statusline, hooks full suites) — depth over breadth by design.
+
+## Cross-tool overview
+
+| Dimension | aidog | magpie | Claude Code Router | new-api | LiteLLM Proxy | CLIProxyAPI | GPT-Load |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Shape | Desktop app + headless kernel | Menu bar + TUI / Web / CLI / Docker / Termux | Desktop app + npm CLI + Docker | Self-hosted server (Docker) | Python SDK + gateway service | CLI proxy service (Go) | Self-hosted server (Docker) |
+| Audience | Individual developers | Individual developers | Coding-assistant users | Teams / organizations | Apps and teams | Developers | Teams / multi-credential setups |
+| Provider aggregation | 50+ preset platforms | 30+ presets + subscription accounts + local models | Built-in presets + custom endpoints | Channel-based (any OpenAI-compatible upstream) | 100+ providers in unified OpenAI format | Subscription accounts focus | Channel-based (API keys + subscription OAuth) |
+| Protocol capability | Multi-protocol conversion both ways | Four-protocol conversion incl. streaming and tool calls | OpenAI / Anthropic / Gemini multi-protocol | Four-protocol conversion + Realtime WebSocket + image/audio APIs | Unified OpenAI-format access to 100+ providers | OpenAI / Gemini / Claude-compatible interfaces | Native protocol passthrough (no conversion) |
+| Coding-assistant integration | Claude Code / Codex / pi full suites (settings, statusline, hooks, per-group sync) | 70+ agents atomic rewrite + profiles | 10+ agents config push + profiles | None | None | Any client with a configurable base URL | Any client with a configurable base URL |
+| Routing | 5 scheduling modes + group tiers + model-chain fallback | 5 routing-group modes + nesting + intent routing | Retries, credential pools, key rotation, ordered fallback | Channel priority / weight / retries / affinity | Load balancing + fallbacks + complexity-based autorouter | Multi-account rotation | Multi-credential scheduling (weight / retry / cooldown / blacklist / session affinity) |
+| Outbound PII masking | Yes (off by default) | Yes (off by default, rules + local PII model) | No such claim | No such claim | No such claim | No such claim | No such claim |
+| Subscription bridging | No | Yes (Claude / ChatGPT / Copilot / Gemini / Grok) | No such claim | No | No | Yes (core selling point) | Yes (subscription OAuth channels) |
+| Usage & billing | Tokens / cost / balance / quota / per-session stats | Official-price billing + per-key quotas + OTLP export | Request logs + cost estimates | Quotas / subscriptions / usage logs / expression pricing | Spend tracking + budgets + admin dashboard | No billing dashboard | Usage stats + cost estimates + cache hit rate |
+| Data encryption | SQLCipher whole-DB encryption | — | No such claim | — | — | — | Local credential encryption |
+| License | AGPL-3.0 | MIT | MIT | AGPL-3.0 | MIT (enterprise dir separately licensed) | MIT | MIT |
+
+"No such claim" means we could not find the capability described in that project's official README — it does not prove the project lacks the feature.
+
+## Sources
+
+- magpie: https://github.com/yetone/magpie (README.zh-CN.md, LICENSE)
+- Claude Code Router: https://github.com/musistudio/claude-code-router (README.md, LICENSE)
+- new-api: https://github.com/QuantumNous/new-api (README.md, LICENSE)
+- LiteLLM: https://github.com/BerriAI/litellm (README.md, LICENSE)
+- CLIProxyAPI: https://github.com/router-for-me/CLIProxyAPI (README.md, LICENSE)
+- GPT-Load: https://github.com/tbphp/gpt-load (README.md, LICENSE)
