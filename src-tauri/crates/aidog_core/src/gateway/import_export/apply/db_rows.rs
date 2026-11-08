@@ -7,7 +7,7 @@ use aidog_db::Db;
 
 // ── db 行级 upsert（按 group_key 查重；name 作显示名可重命名；group_key 锁定不改） ──
 
-pub(super) async fn upsert_group_row(
+pub async fn upsert_group_row(
     db: &Db,
     group_key: &str,
     effective_name: &str,
@@ -207,7 +207,7 @@ pub(super) fn effective_extra_with_breaker(row: &serde_json::Value) -> String {
     )
 }
 
-pub(super) async fn relink_group_platform(
+pub async fn relink_group_platform(
     db: &Db,
     group_key: &str,
     platform_name: &str,

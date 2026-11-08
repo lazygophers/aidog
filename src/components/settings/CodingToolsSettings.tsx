@@ -30,6 +30,7 @@ import { Toggle } from "./editors";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
 import { useReveal } from "../../components/shared";
+import { ProfilesSection } from "./ProfilesSection";
 
 // ponytail: 单卡片包装 — 每实例独立 useReveal (React 规则禁 map 内条件 hook),
 // hover-lift + reveal 萤火虫入场 (stagger idx*60)。
@@ -371,6 +372,9 @@ export function CodingToolsSettingsTab() {
           {t("codingTools.introDesc", "以下开关会写入 Claude Code CLI 的本地配置文件，使扩展与 CLI 走 aidog 代理并跳过首启引导。")}
         </div>
       </CodingSectionCard>
+
+      {/* 配置方案：保存 / 一键切回（magpie 票 06） */}
+      <ProfilesSection />
 
       <ToggleCard
         titleKey="codingTools.applyPlugin.title"
