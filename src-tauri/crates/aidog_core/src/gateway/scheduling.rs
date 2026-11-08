@@ -819,6 +819,16 @@ impl CacheSignalTable {
             {
                 g.remove(key);
             }
+            // 容量上限与 StickyTable 同款（STICKY_CAP）：满且为新键时淘汰最久未访问项。
+            if g.len() >= STICKY_CAP
+                && !g.contains_key(key)
+                && let Some(oldest) = g
+                    .iter()
+                    .min_by_key(|(_, e)| e.last_access_ms)
+                    .map(|(k, _)| k.clone())
+            {
+                g.remove(&oldest);
+            }
             let e = g.entry(key.to_string()).or_insert(CacheSignalEntry {
                 no_cache_streak: 0,
                 last_access_ms: now_ms,
@@ -1237,5 +1247,30 @@ mod tests {
         assert!(!s.cache_signals.worth_keeping("k", now));
         // 信号条目超 TTL 视为无信号 → 回到缺省值得保留
         assert!(s.cache_signals.worth_keeping("k", now + STICKY_TTL_MS + 1));
+    }
+
+    #[test]
+    fn cache_signal_table_evicts_oldest_at_cap() {
+        let s = SchedulerState::new();
+        let now = 1_000_000i64;
+        // 灌满容量：每个键的 last_access 递增，k0 最久未访问
+        for i in 0..STICKY_CAP {
+            s.cache_signals.record(&format!("k{i}"), false, now + i as i64);
+        }
+        // 满而未超：最早条目仍在表内（k0 记满 streak=2 → 不值得保留）
+        s.cache_signals.record("k0", false, now);
+        s.cache_signals.record("k0", false, now);
+        assert!(!s.cache_signals.worth_keeping("k0", now));
+        // 超容量插入新键 → 最久未访问的 k0 被淘汰（缺条目 → 值得保留）
+        s.cache_signals.record("overflow", false, now + STICKY_CAP as i64);
+        s.cache_signals.record("overflow", false, now + STICKY_CAP as i64);
+        assert!(
+            s.cache_signals.worth_keeping("k0", now + STICKY_CAP as i64),
+            "超 STICKY_CAP 后最早条目必须被淘汰"
+        );
+        assert!(
+            !s.cache_signals.worth_keeping("overflow", now + STICKY_CAP as i64),
+            "新条目必须在表内"
+        );
     }
 }
