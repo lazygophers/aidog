@@ -56,9 +56,20 @@ impl<'a> std::borrow::Borrow<dyn KeyPair + 'a> for (String, String) {
     }
 }
 
+/// `model_entry_for_billing` 缓存条目：Arc 化（命中 clone 只拷指针）+ 预解析归一化
+/// `price_data`（命中路径零 serde parse；票 01 性能优化）。
+pub struct BillingEntry {
+    pub entry: ModelEntry,
+    /// 本平台无条目、借了官方条目（价格 `source` 据此改前缀）。
+    pub cross_platform: bool,
+    /// `parse_price_data(&entry.price_data)` 归一化产物，缓存填充时算一次。
+    /// `max_output_tokens` 不在 legacy 归一化搬移键集中，顶层取值与 raw parse 等价。
+    pub price_data: serde_json::Value,
+}
+
 /// `model_entry_for_billing` 缓存形状：key=(platform_code, model_id)，
-/// value 外层 Option = 是否已缓存，内层 = DB+bundled 都没查到；bool = 是否跨平台回退。
-pub type BillingEntryCache = HashMap<(String, String), Option<(ModelEntry, bool)>>;
+/// value 外层 Option = 是否已缓存，内层 = DB+bundled 都没查到。
+pub type BillingEntryCache = HashMap<(String, String), Option<std::sync::Arc<BillingEntry>>>;
 
 /// 进程内热路径缓存（随 Db 实例生命周期，clone 共享同一份）。
 ///
@@ -94,4 +105,8 @@ pub struct DbCache {
     /// 硬上限（内存泄露扫描 2026-10-18）：key 含请求可控的 model_id（客户端可刷唯一
     /// 模型名），无上限只涨不缩；超限整表清空（同步重建代价低，宁全勿漏）。
     pub model_entry_billing: RwLock<BillingEntryCache>,
+    /// list_passthrough_extras 结果缓存（直通通道每请求查询 → Arc 共享，票 01）。
+    /// None = 未缓存；platform 增删改 / extra 改动经 invalidate_group_details_cache
+    /// 失效（同源失效时机，宁全勿漏）。
+    pub passthrough_extras: RwLock<Option<std::sync::Arc<Vec<String>>>>,
 }

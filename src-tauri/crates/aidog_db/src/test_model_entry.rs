@@ -751,11 +751,37 @@ async fn billing_cache_invalidated_by_model_entry_writes() {
     )
     .await
     .unwrap();
-    let (got, cross) = model_entry_for_billing(&db, "zzz-cache", "no-such-model")
+    let got = model_entry_for_billing(&db, "zzz-cache", "no-such-model")
         .await
         .unwrap()
         .expect("upsert 后缓存失效，能查到新行");
-    assert!(!cross, "本平台有条目，不该走跨平台回退");
-    assert_eq!(got.platform_code, "zzz-cache");
-    assert_eq!(got.model_id, "no-such-model");
+    assert!(!got.cross_platform, "本平台有条目，不该走跨平台回退");
+    assert_eq!(got.entry.platform_code, "zzz-cache");
+    assert_eq!(got.entry.model_id, "no-such-model");
+}
+
+/// 票 01 性能优化：计费缓存条目 Arc 化 + 预解析归一化 price_data。
+/// 命中路径返回同一 Arc 指针 = 零重建零 parse；旧实现值语义 clone 不可能 ptr_eq，
+/// 故对新 API 编译红即先红证据（非严格先红，行为不变重构无法产出断言红）。
+#[tokio::test]
+async fn billing_cache_hit_returns_same_arc_pointer() {
+    let db = test_db().await;
+    upsert_model_entries(&db, vec![entry("zzz-cache", "arc-model", "arc-model", false)])
+        .await
+        .unwrap();
+    let a = model_entry_for_billing(&db, "zzz-cache", "arc-model")
+        .await
+        .unwrap()
+        .expect("row");
+    let b = model_entry_for_billing(&db, "zzz-cache", "arc-model")
+        .await
+        .unwrap()
+        .expect("row");
+    assert!(std::sync::Arc::ptr_eq(&a, &b), "命中路径返回同一 Arc = 零重建");
+    // 缓存填充时已归一化：legacy 形状 fixture 的 input 单价已搬进 price 子树。
+    assert_eq!(
+        a.price_data.get("price").and_then(|p| p.get("input")),
+        Some(&serde_json::json!(1.1e-6)),
+        "预解析产物 = parse_price_data 归一化结果"
+    );
 }
