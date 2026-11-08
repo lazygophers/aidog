@@ -563,18 +563,24 @@ pub async fn model_entry_for_billing(
             return Ok(hit.clone());
         }
     }
-    let result = if let Some(e) = get_model_entry(db, platform_code, model_id).await? {
+    let result = if let Some(mut e) = get_model_entry(db, platform_code, model_id).await? {
+        // 内存单份：缓存条目只留预解析 Value，原始 String 弃掉（miss 路径本就从 DB 行重 parse，
+        // 无新增开销；消费者 price_resolve 只读 Value 与 max_output_tokens 字段）。
+        let pd = crate::price_resolve::parse_price_data(&e.price_data);
+        e.price_data = String::new();
         Some(std::sync::Arc::new(BillingEntry {
-            price_data: crate::price_resolve::parse_price_data(&e.price_data),
+            price_data: pd,
             cross_platform: false,
             entry: e,
         }))
     } else {
         get_model_entry_any_platform(db, model_id)
             .await?
-            .map(|e| {
+            .map(|mut e| {
+                let pd = crate::price_resolve::parse_price_data(&e.price_data);
+                e.price_data = String::new();
                 std::sync::Arc::new(BillingEntry {
-                    price_data: crate::price_resolve::parse_price_data(&e.price_data),
+                    price_data: pd,
                     cross_platform: true,
                     entry: e,
                 })

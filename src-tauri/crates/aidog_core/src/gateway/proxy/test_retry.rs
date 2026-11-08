@@ -65,6 +65,20 @@ fn upstream_headers_json_gated_by_log_switch() {
 }
 
 #[test]
+fn upstream_header_pairs_json_gated_by_log_switch() {
+    let pairs = vec![
+        ("content-type".to_string(), "application/json".to_string()),
+        ("authorization".to_string(), "Bearer sk-up".to_string()),
+    ];
+    // log_upstream_request 关 → 短路不序列化（send_upstream 出站头 Vec 形态），装配产物为空串
+    assert_eq!(upstream_header_pairs_json_for_log(pairs.clone(), false), "");
+    // 开 → 转换路径原有产物（JSON object）
+    let logged = upstream_header_pairs_json_for_log(pairs, true);
+    assert!(logged.contains("content-type"));
+    assert!(logged.contains("sk-up"));
+}
+
+#[test]
 fn is_stream_request_false_but_upstream_sse() {
     // 中转站对未声明 stream 的请求强制以 SSE 响应 → 必须判为流式（修复账目零 token bug）。
     assert!(resolve_is_stream(false, "text/event-stream"));

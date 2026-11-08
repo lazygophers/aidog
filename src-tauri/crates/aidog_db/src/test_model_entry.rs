@@ -778,6 +778,11 @@ async fn billing_cache_hit_returns_same_arc_pointer() {
         .unwrap()
         .expect("row");
     assert!(std::sync::Arc::ptr_eq(&a, &b), "命中路径返回同一 Arc = 零重建");
+    // 内存单份：BillingEntry 只留预解析 Value，缓存条目不再持有 price_data String 双份。
+    assert!(
+        a.entry.price_data.is_empty(),
+        "缓存条目的 entry.price_data String 必须清空（值已在 price_data Value）"
+    );
     // 缓存填充时已归一化：legacy 形状 fixture 的 input 单价已搬进 price 子树。
     assert_eq!(
         a.price_data.get("price").and_then(|p| p.get("input")),
