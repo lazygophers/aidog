@@ -136,6 +136,10 @@ pub fn run() {
             // Proxy Client Settings
             aidog_core::proxy_cmd::proxy::proxy_client_get_settings,
             aidog_core::proxy_cmd::proxy::proxy_client_set_settings,
+            // 隐私脱敏设置 + 试一试预览（票 04）
+            aidog_core::proxy_cmd::privacy::privacy_scrub_get,
+            aidog_core::proxy_cmd::privacy::privacy_scrub_set,
+            aidog_core::proxy_cmd::privacy::privacy_scrub_preview,
             // Config Export
             aidog_core::sync_settings::export_claude_config,
             aidog_core::ai_tools_cmd::agent_config::agent_config_uninstall,
