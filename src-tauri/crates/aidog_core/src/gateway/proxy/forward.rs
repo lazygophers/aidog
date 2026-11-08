@@ -301,9 +301,12 @@ async fn forward_attempt_model(
         let privacy_settings = state.settings_cache.read().await.privacy.clone();
         if privacy_settings.enabled {
             let opts = crate::gateway::privacy::scrub_options(&privacy_settings);
-            Some(Arc::new(crate::gateway::privacy::scrub_json(
-                &mut req_body, &opts,
-            )))
+            Some(Arc::new(
+                crate::gateway::privacy::scrub_json_with_model(
+                    &mut req_body, &opts, &privacy_settings,
+                )
+                .await,
+            ))
         } else {
             None
         }

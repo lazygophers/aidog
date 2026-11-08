@@ -26,6 +26,12 @@ fn placeholder_for(kind: PiiKind, original: &str) -> String {
 /// 返回（脱敏后文本，映射表）。同原值恒得同占位符。
 pub fn scrub(text: &str, opts: &ScrubOptions) -> (String, ScrubMap) {
     let spans = collect_spans(text, |k| opts.enabled(k));
+    apply_spans(text, spans)
+}
+
+/// 把已收集的 span 应用到文本：区间替换为占位符并登记映射。
+/// 规则引擎路径（scrub）与模型合并路径（wire 层）共用。
+pub(crate) fn apply_spans(text: &str, spans: Vec<super::detect::SpanKind>) -> (String, ScrubMap) {
     let mut map = ScrubMap::new();
     if spans.is_empty() {
         return (text.to_string(), map);
