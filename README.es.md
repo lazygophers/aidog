@@ -67,6 +67,20 @@ AiDog es un **gateway de IA API de escritorio** basado en Tauri. Unifica la gest
 - **Importar y exportar** — contenedor de un solo fichero cifrado AES-256-GCM `.aidogx`, 7 ámbitos con resolución de conflictos por elemento
 - **Bandeja + barra de estado** — acciones rápidas desde la bandeja del sistema + scripts de barra de estado personalizables (Python + uv)
 
+## Comparación con herramientas similares
+
+AiDog pertenece a la categoría de pasarelas de API de IA locales / autoalojadas. La tabla siguiente compara brevemente proyectos de código abierto similares; la comparación completa función por función (incluida la tabla detallada de magpie) está en el sitio de documentación: [Comparación con herramientas similares](https://lazygophers.github.io/aidog/en/guide/comparison).
+
+| Proyecto | Forma | Enfoque |
+| --- | --- | --- |
+| **AiDog** | Desktop app + headless kernel | Multi-platform group routing, multi-protocol forwarding, model-chain fallback, usage metering, full coding-assistant config suites |
+| [magpie](https://github.com/yetone/magpie) | Menu bar + TUI / Web / CLI / Docker | Atomic config rewrite for 70+ agents, subscription bridging, routing groups, PII masking, Bun plugins |
+| [Claude Code Router](https://github.com/musistudio/claude-code-router) | Desktop app + npm CLI + Docker | Config push for 10+ agents, multi-protocol conversion, credential pools with ordered fallback |
+| [new-api](https://github.com/QuantumNous/new-api) | Self-hosted server | Channel-based team gateway, quotas and billing, user management |
+| [LiteLLM Proxy](https://github.com/BerriAI/litellm) | Python SDK + gateway service | 100+ providers in unified OpenAI format, load balancing, spend tracking |
+| [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) | Go proxy service | Subscription-account bridging as the focus, multi-account rotation |
+| [GPT-Load](https://github.com/tbphp/gpt-load) | Self-hosted server | Native protocol passthrough, multi-credential scheduling, local credential encryption |
+
 ## Instalación
 
 ### Requisitos del sistema

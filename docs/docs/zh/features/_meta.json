@@ -66,6 +66,11 @@
   },
   {
     "type": "file",
+    "name": "comparison",
+    "label": "同类工具对比"
+  },
+  {
+    "type": "file",
     "name": "recommended-claude-code",
     "label": "Claude Code 推荐配置"
   },

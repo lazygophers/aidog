@@ -8,5 +8,10 @@
     "type": "dir-section-header",
     "name": "use-mdx",
     "label": "Markdown & MDX"
+  },
+  {
+    "type": "file",
+    "name": "comparison",
+    "label": "Comparison with similar tools"
   }
 ]

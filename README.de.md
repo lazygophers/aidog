@@ -67,6 +67,20 @@ AiDog ist ein **Desktop-KI-API-Gateway** auf Basis von Tauri. Es vereint Verwalt
 - **Import & Export** — AES-256-GCM-verschlüsselter Einzeldatei-Container `.aidogx`, 7 Bereiche mit Per-Item-Konfliktlösung
 - **Tray + Statusleiste** — Schnellaktionen aus dem System-Tray + anpassbare Statusleisten-Skripte (Python + uv)
 
+## Vergleich mit ähnlichen Tools
+
+AiDog gehört zur Kategorie der lokalen / selbst gehosteten AI-API-Gateways. Die folgende Tabelle vergleicht kurz ähnliche Open-Source-Projekte; den vollständigen Funktionsvergleich (inklusive detaillierter magpie-Tabelle) finden Sie auf der Docs-Site: [Vergleich mit ähnlichen Tools](https://lazygophers.github.io/aidog/en/guide/comparison).
+
+| Projekt | Form | Profil |
+| --- | --- | --- |
+| **AiDog** | Desktop app + headless kernel | Multi-platform group routing, multi-protocol forwarding, model-chain fallback, usage metering, full coding-assistant config suites |
+| [magpie](https://github.com/yetone/magpie) | Menu bar + TUI / Web / CLI / Docker | Atomic config rewrite for 70+ agents, subscription bridging, routing groups, PII masking, Bun plugins |
+| [Claude Code Router](https://github.com/musistudio/claude-code-router) | Desktop app + npm CLI + Docker | Config push for 10+ agents, multi-protocol conversion, credential pools with ordered fallback |
+| [new-api](https://github.com/QuantumNous/new-api) | Self-hosted server | Channel-based team gateway, quotas and billing, user management |
+| [LiteLLM Proxy](https://github.com/BerriAI/litellm) | Python SDK + gateway service | 100+ providers in unified OpenAI format, load balancing, spend tracking |
+| [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) | Go proxy service | Subscription-account bridging as the focus, multi-account rotation |
+| [GPT-Load](https://github.com/tbphp/gpt-load) | Self-hosted server | Native protocol passthrough, multi-credential scheduling, local credential encryption |
+
 ## Installation
 
 ### Systemanforderungen
