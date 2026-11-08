@@ -199,6 +199,12 @@ fn json_escape_inner(original: &str) -> String {
 /// 与引擎 restore 的差别只在替换值先做 JSON 字符串转义——原值含引号 / 反斜杠 /
 /// 换行（PEM 私钥）时直接替换会打破外层 JSON / SSE JSON 帧结构。
 pub fn restore_json_escaped(text: &str, map: &ScrubMap) -> String {
+    // 票 03 短路：全部占位符均以 `{{PII_` 开头（json_escape_inner 不转义 `{`，
+    // 占位符在任何 wire 文本中都是字面形态），文本不含该前缀 ⇒ 无占位符在场
+    // ⇒ 逐占位符 replace 必为零改动，原样返回。严格推理，漏还原为零。
+    if !text.contains(PLACEHOLDER_HEAD_STR) {
+        return text.to_string();
+    }
     let mut out = text.to_string();
     for (placeholder, original) in map.iter() {
         if !out.contains(placeholder.as_str()) {
@@ -214,7 +220,8 @@ pub fn restore_json_escaped(text: &str, map: &ScrubMap) -> String {
 const MAX_PLACEHOLDER_LEN: usize = 29;
 
 /// 占位符起始标记（全部占位符的公共 ASCII 前缀）。
-const PLACEHOLDER_HEAD: &[u8] = b"{{PII_";
+const PLACEHOLDER_HEAD_STR: &str = "{{PII_";
+const PLACEHOLDER_HEAD: &[u8] = PLACEHOLDER_HEAD_STR.as_bytes();
 
 /// 流式还原窗口：按占位符完整性切分（票 02 选定策略，理由见票面 ## Answer）。
 /// 每次 `push_bytes` 扣留尾部可能的半截占位符（≤ MAX_PLACEHOLDER_LEN-1 字节），

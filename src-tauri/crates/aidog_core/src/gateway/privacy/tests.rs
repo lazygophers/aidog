@@ -15,6 +15,34 @@ fn scrub_all(text: &str) -> (String, ScrubMap) {
     scrub(text, &ScrubOptions::all())
 }
 
+/// 票 03 守卫（对抗性形态）：检测短路开启后，特征形态各异的 6 类 PII 仍必须全部检出。
+/// 覆盖大写 Bearer、sk_ 下划线 key、小写 x 结尾身份证、含 % + 多段域名邮箱；
+/// 该测试在无短路的旧实现下也必须绿（回归基线），短路实现有漏检时变红。
+#[test]
+fn all_six_kinds_detected_with_adversarial_forms() {
+    let text = format!(
+        "auth {0} | key {1} | id {2} | mail {3} | card {4} | {5}",
+        "BEARER abcdef0123456789abcdef0123456789",
+        "sk_abcdefghijklmnopqrstuvwxyz",
+        "11010119900307803x",
+        "first.last%tag+pfx@mail.example.co.uk",
+        BANK_CARD_VAL,
+        PEM_VAL,
+    );
+    let (s, m) = scrub_all(&text);
+    for ph in [
+        "{{PII_API_KEY_",
+        "{{PII_PRIVATE_KEY_",
+        "{{PII_BEARER_TOKEN_",
+        "{{PII_ID_NUMBER_",
+        "{{PII_BANK_CARD_",
+        "{{PII_EMAIL_",
+    ] {
+        assert!(s.contains(ph), "短路后漏检 {ph}: {s}");
+    }
+    assert_eq!(m.len(), 6, "map: {m:?}");
+}
+
 #[test]
 fn api_key_hit_and_miss() {
     let (s, m) = scrub_all(&format!("key={API_KEY_VAL} ok"));
