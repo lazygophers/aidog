@@ -2203,6 +2203,43 @@
       "returns": "()"
     },
     {
+      "name": "privacy_scrub_get",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "PrivacyScrubSettings"
+    },
+    {
+      "name": "privacy_scrub_preview",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "text",
+          "type": "String"
+        }
+      ],
+      "returns": "PrivacyScrubPreview"
+    },
+    {
+      "name": "privacy_scrub_set",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "settings",
+          "type": "PrivacyScrubSettings"
+        }
+      ],
+      "returns": "()"
+    },
+    {
       "name": "proxy_client_get_settings",
       "category": "proxy",
       "kind": "readonly",

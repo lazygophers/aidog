@@ -5,4 +5,5 @@ pub mod mitm;
 pub mod mitm_stats;
 pub mod proxy;
 pub mod proxy_log;
+pub mod privacy;
 pub mod proxy_timeout;
