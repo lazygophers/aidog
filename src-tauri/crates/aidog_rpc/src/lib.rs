@@ -313,6 +313,8 @@ rpc_routes! {
     mutating aidog_core::cli_env::cli_upgrade,
     readonly aidog_core::cli_env::cli_diagnose_conflicts,
     readonly aidog_core::cli_env::cli_check_updates,
+    readonly aidog_core::cli_env::agent_update_check,
+    mutating aidog_core::cli_env::agent_update_apply,
     readonly aidog_core::defaults::get_defaults_json,
     readonly aidog_core::defaults::get_protocol_logo_path,
     readonly aidog_core::defaults::get_protocol_logo_data_url,

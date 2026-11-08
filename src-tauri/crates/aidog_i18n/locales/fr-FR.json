@@ -3668,5 +3668,17 @@
   "profile.opDelete": "Supprimer",
   "profile.targetDbGroups": "Groupes et mappages",
   "profile.deleteTitle": "Supprimer le profil",
-  "profile.deleteDesc": "Supprime le fichier instantané du profil « {name} ». La configuration actuelle n'est pas affectée."
+  "profile.deleteDesc": "Supprime le fichier instantané du profil « {name} ». La configuration actuelle n'est pas affectée.",
+  "agentUpdate.title": "Mises à jour des agents",
+  "agentUpdate.desc": "Vérifie les versions des agents et exécute la commande de mise à jour selon la source d'installation.",
+  "agentUpdate.notInstalled": "Non installé",
+  "agentUpdate.unknown": "inconnue",
+  "agentUpdate.update": "Mettre à jour",
+  "agentUpdate.updating": "Mise à jour…",
+  "agentUpdate.confirmOk": "Mettre à jour",
+  "agentUpdate.confirmTitle": "Mettre à jour {{tool}}",
+  "agentUpdate.confirmDesc": "La commande de mise à jour de cette source d'installation sera exécutée ; un téléchargement peut être nécessaire. Continuer ?",
+  "agentUpdate.manualHint": "Cette source d'installation ne prend pas en charge les mises à jour automatiques ; mettez à jour manuellement",
+  "agentUpdate.success": "Mis à jour : v{{before}} → v{{after}}",
+  "agentUpdate.failed": "Échec de la mise à jour"
 }
