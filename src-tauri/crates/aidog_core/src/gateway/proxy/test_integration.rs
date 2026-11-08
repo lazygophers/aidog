@@ -6712,6 +6712,28 @@ async fn set_privacy_scrub(state: &Arc<ProxyState>, enabled: bool) {
         super::settings_cache::ProxySettingsCache::load_from(&state.db).await;
 }
 
+/// 票 03：写 model_enabled=true + 指定端点（死端点即真实触发 fail-closed，不再强拨全局位）。
+async fn set_privacy_scrub_model(
+    state: &Arc<ProxyState>,
+    endpoint: &str,
+) {
+    aidog_db::set_setting(
+        &state.db,
+        crate::gateway::models::SetSettingInput {
+            scope: "privacy".into(),
+            key: "scrub".into(),
+            value: serde_json::json!({
+                "enabled": true, "secrets": true, "personal": true,
+                "model_enabled": true, "model_endpoint": endpoint
+            }),
+        },
+    )
+    .await
+    .unwrap();
+    *state.settings_cache.write().await =
+        super::settings_cache::ProxySettingsCache::load_from(&state.db).await;
+}
+
 /// 测试邮箱原值（email 规则稳定命中）与其出站占位符（确定性派生）。
 const PRIVACY_EMAIL: &str = "bob@example.com";
 
@@ -6794,15 +6816,16 @@ async fn privacy_nonstream_roundtrip_and_log_forms() {
     set_privacy_scrub(&state, false).await;
 }
 
-/// fail-closed：设置开启 + 检测层不可用 → 503 不转发，落库 blocked_reason=privacy_scrub_unavailable。
+/// fail-closed（票 03 真实路径）：脱敏开启 + model_enabled=true + 死端点 → 探活失败置位
+/// engine_unavailable → 503 不转发，落库 blocked_reason=privacy_scrub_unavailable。
 #[tokio::test]
 async fn privacy_fail_closed_503_when_engine_unavailable() {
     let _g = PRIVACY_TEST_LOCK.lock().await;
     let (up, hits) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
     let state = make_state(test_db().await).await;
     setup_group_with_upstream(&state, "gkp2", &up).await;
-    set_privacy_scrub(&state, true).await;
-    crate::gateway::privacy::set_engine_unavailable(true);
+    // 死端口：探活连接拒绝。用非默认端口常量（禁 9890 用户端口）。
+    set_privacy_scrub_model(&state, "http://127.0.0.1:1/").await;
 
     let req_body = r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#;
     let resp = handle_proxy(AxumState(state.clone()), messages_request("gkp2", req_body)).await;
@@ -6818,7 +6841,6 @@ async fn privacy_fail_closed_503_when_engine_unavailable() {
     assert_eq!(full.blocked_reason, "privacy_scrub_unavailable");
     assert_eq!(full.est_cost, 0.0);
 
-    crate::gateway::privacy::set_engine_unavailable(false);
     set_privacy_scrub(&state, false).await;
 }
 

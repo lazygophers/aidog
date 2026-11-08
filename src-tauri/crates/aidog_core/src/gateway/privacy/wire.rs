@@ -25,6 +25,10 @@ pub struct PrivacyScrubSettings {
     pub secrets: bool,
     /// 个人信息类（邮箱 / 银行卡 / 证件号）。
     pub personal: bool,
+    /// 本地 PII 模型后端开关（票 03，默认 false = 完全不走模型路径、零请求）。
+    pub model_enabled: bool,
+    /// 本地检测服务 URL（POST 文本 → span 列表，契约见 `privacy::model`）。
+    pub model_endpoint: String,
 }
 
 /// 读取脱敏设置（缺省 / 解析失败 → 默认全关）。
@@ -80,6 +84,47 @@ pub fn scrub_json(body: &mut Value, opts: &ScrubOptions) -> ScrubMap {
     let mut merged = ScrubMap::new();
     scrub_value(body, opts, &mut merged);
     merged
+}
+
+/// 票 03：`model_enabled=true` 时每个叶子字符串额外走本地模型检测（契约见 `privacy::model`），
+/// 模型 span 与规则 span 合并后统一替换；`model_enabled=false` / 端点未配置 → 与 `scrub_json`
+/// 等价（零请求）。
+pub async fn scrub_json_with_model(
+    body: &mut Value,
+    opts: &ScrubOptions,
+    settings: &PrivacyScrubSettings,
+) -> ScrubMap {
+    if !settings.model_enabled || settings.model_endpoint.is_empty() {
+        return scrub_json(body, opts);
+    }
+    let endpoint = settings.model_endpoint.clone();
+    let mut merged = ScrubMap::new();
+    let mut leaves: Vec<&mut String> = Vec::new();
+    collect_string_leaves(body, &mut leaves);
+    for s in leaves {
+        let mut spans = super::detect::collect_spans(s, |k| opts.enabled(k));
+        if let Ok(model) = super::model::model_spans(&endpoint, s).await {
+            super::model::merge_model_spans(&mut spans, model);
+        }
+        let (new_s, map) = super::engine::apply_spans(s, spans);
+        if !map.is_empty() {
+            for (p, o) in map.iter() {
+                merged.insert(p, o);
+            }
+            *s = new_s;
+        }
+    }
+    merged
+}
+
+/// 收集 JSON 树的全部叶子字符串（可变引用，原地替换用）。
+fn collect_string_leaves<'a>(v: &'a mut Value, out: &mut Vec<&'a mut String>) {
+    match v {
+        Value::String(s) => out.push(s),
+        Value::Array(items) => items.iter_mut().for_each(|i| collect_string_leaves(i, out)),
+        Value::Object(map) => map.values_mut().for_each(|x| collect_string_leaves(x, out)),
+        _ => {}
+    }
 }
 
 fn scrub_value(v: &mut Value, opts: &ScrubOptions, merged: &mut ScrubMap) {
@@ -234,7 +279,13 @@ mod tests {
     use super::*;
 
     fn settings(enabled: bool) -> PrivacyScrubSettings {
-        PrivacyScrubSettings { enabled, secrets: true, personal: true }
+        PrivacyScrubSettings {
+            enabled,
+            secrets: true,
+            personal: true,
+            model_enabled: false,
+            model_endpoint: String::new(),
+        }
     }
 
     #[test]
@@ -242,6 +293,15 @@ mod tests {
         assert_eq!(privacy_gate(&settings(true), false), PrivacyGate::Block);
         assert_eq!(privacy_gate(&settings(true), true), PrivacyGate::Allow);
         assert_eq!(privacy_gate(&settings(false), false), PrivacyGate::Allow);
+    }
+
+    /// 票 03：旧值兼容——无新字段的旧 JSON 反序列化得默认（model 路径关、零请求）。
+    #[test]
+    fn privacy_scrub_settings_old_json_defaults() {
+        let s: PrivacyScrubSettings = serde_json::from_str(r#"{"enabled":true}"#).unwrap();
+        assert!(s.enabled);
+        assert!(!s.model_enabled);
+        assert!(s.model_endpoint.is_empty());
     }
 
     #[test]
