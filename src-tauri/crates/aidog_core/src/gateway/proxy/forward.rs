@@ -301,12 +301,20 @@ async fn forward_attempt_model(
         let privacy_settings = state.settings_cache.read().await.privacy.clone();
         if privacy_settings.enabled {
             let opts = crate::gateway::privacy::scrub_options(&privacy_settings);
-            Some(Arc::new(
-                crate::gateway::privacy::scrub_json_with_model(
-                    &mut req_body, &opts, &privacy_settings,
-                )
-                .await,
-            ))
+            // review #2：检测失败 → fail-closed，本次请求 503 不触上游。
+            match crate::gateway::privacy::scrub_json_with_model(
+                &mut req_body, &opts, &privacy_settings,
+            )
+            .await
+            {
+                Ok(map) => Some(Arc::new(map)),
+                Err(()) => {
+                    return AttemptOutcome::Respond(
+                        block_privacy_fail_closed(state, log.clone(), log_settings, lang, start)
+                            .await,
+                    );
+                }
+            }
         } else {
             None
         }

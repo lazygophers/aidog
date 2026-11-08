@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use aidog_db::Db;
 use serde::{Deserialize, Serialize};
 
-use super::agent_config::{codex_home_dir, is_aidog_codex_profile_toml, pi_agent_dir};
+use super::agent_config::{codex_home_dir, is_aidog_base_url, is_aidog_codex_profile_toml, pi_agent_dir};
 
 #[cfg(test)]
 #[path = "test_profile.rs"]
@@ -68,7 +68,7 @@ pub struct ProfileMeta {
 pub struct ProfileDiffItem {
     /// 文件 key 或 `db:groups`。
     pub target: String,
-    /// create / update / delete。
+    /// create / update / delete / skip。
     pub op: &'static str,
     /// 人读说明。
     pub detail: String,
@@ -286,7 +286,7 @@ async fn collect_groups(db: &Db) -> Result<(Vec<serde_json::Value>, Vec<[String;
 
 /// 写 `<file>.aidogtmp` → 回设权限位 → rename（同目录原子替换，禁半写）；
 /// 任何一步失败都清掉临时文件。
-fn atomic_write(path: &Path, content: &str, mode: Option<u32>) -> Result<(), String> {
+pub(crate) fn atomic_write(path: &Path, content: &str, mode: Option<u32>) -> Result<(), String> {
     let parent = path
         .parent()
         .ok_or_else(|| format!("no parent dir for {}", path.display()))?;
@@ -366,6 +366,44 @@ fn load_profile(name: &str) -> Result<ProfilePayload, String> {
 
 // ─── diff / apply ──────────────────────────────────────────────
 
+/// review #3：静态面「快照时不存在、现在存在」的文件删前指纹门——无 aidog
+/// 指纹 → op=skip 保留用户文件，误删用户现文件的路径关闭。动态面
+/// （codex_profile:/aidog_settings:/aidog_script:）采集时就按指纹 / 自有目录
+/// 收窄，恒视为 aidog 产物。
+fn has_aidog_fingerprint(key: &str, content: &str) -> bool {
+    match key {
+        "codex_config_toml" => toml::from_str::<toml::Value>(content)
+            .map(|t| is_aidog_codex_profile_toml(&t))
+            .unwrap_or(false),
+        "pi_models_json" | "pi_settings_json" => {
+            let Ok(v) = serde_json::from_str::<serde_json::Value>(content) else {
+                return false;
+            };
+            let prefix = crate::gateway::pi::PROVIDER_PREFIX;
+            v.get("providers")
+                .and_then(|p| p.as_object())
+                .is_some_and(|m| m.keys().any(|k| k.starts_with(prefix)))
+                || v.get("defaultProvider")
+                    .and_then(|x| x.as_str())
+                    .is_some_and(|x| x.starts_with(prefix))
+        }
+        "claude_dot_json" | "claude_settings_json" | "claude_config_json" => {
+            let Ok(v) = serde_json::from_str::<serde_json::Value>(content) else {
+                return false;
+            };
+            is_aidog_base_url(
+                v.get("ANTHROPIC_BASE_URL").unwrap_or(&serde_json::Value::Null),
+            ) || v.get("mcpServers")
+                .and_then(|m| m.get("aidog"))
+                .is_some()
+                || v.get("primaryApiKey").and_then(|x| x.as_str()) == Some("any")
+                || content.contains(".aidog")
+        }
+        // 动态面 key（带 `:` 前缀）：指纹已验
+        _ => true,
+    }
+}
+
 enum FileOp {
     Write {
         path: PathBuf,
@@ -375,6 +413,8 @@ enum FileOp {
     Delete {
         path: PathBuf,
     },
+    /// review #3：无 aidog 指纹的静态面现存文件，跳过删除（保留用户文件）。
+    Skip,
     /// db:groups 面占位（执行时调 [`restore_groups`]）。
     DbGroups,
 }
@@ -409,16 +449,28 @@ fn file_ops_and_diff(payload: &ProfilePayload) -> Result<Vec<(FileOp, ProfileDif
                     },
                 ));
             }
-            (None, Some(_)) => {
-                out.push((
-                    FileOp::Delete { path },
-                    ProfileDiffItem {
-                        target: f.key.clone(),
-                        op: "delete",
-                        detail: "快照时不存在，删除现文件".to_string(),
-                        error: None,
-                    },
-                ));
+            (None, Some(cur)) => {
+                if has_aidog_fingerprint(&f.key, &cur) {
+                    out.push((
+                        FileOp::Delete { path },
+                        ProfileDiffItem {
+                            target: f.key.clone(),
+                            op: "delete",
+                            detail: "快照时不存在，删除现文件".to_string(),
+                            error: None,
+                        },
+                    ));
+                } else {
+                    out.push((
+                        FileOp::Skip,
+                        ProfileDiffItem {
+                            target: f.key.clone(),
+                            op: "skip",
+                            detail: "快照时不存在且无 aidog 指纹，保留用户文件".to_string(),
+                            error: None,
+                        },
+                    ));
+                }
             }
             _ => {}
         }
@@ -570,6 +622,7 @@ pub(crate) async fn apply_profile(
                     item.error = Some(format!("remove {}: {e}", path.display()));
                 }
             }
+            FileOp::Skip => {}
             FileOp::DbGroups => {
                 if let Err(e) = restore_groups(db, &payload).await {
                     item.error = Some(e);

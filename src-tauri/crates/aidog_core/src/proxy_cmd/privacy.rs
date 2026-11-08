@@ -40,23 +40,25 @@ pub async fn save_privacy_scrub_settings(
 }
 
 /// 「试一试」预览：总开关关 → 原样返回（hits=0）；开 → 生产 scrub 路径（含模型合并）。
-pub async fn scrub_preview_text(db: &Db, text: &str) -> PrivacyScrubPreview {
+/// 模型检测失败 → Err（fail-closed，与生产 503 同语义，预览不展示半脱敏结果）。
+pub async fn scrub_preview_text(db: &Db, text: &str) -> Result<PrivacyScrubPreview, String> {
     let settings = privacy::get_privacy_scrub_settings(db).await;
     if !settings.enabled {
-        return PrivacyScrubPreview {
+        return Ok(PrivacyScrubPreview {
             original: text.to_string(),
             scrubbed: text.to_string(),
             hits: 0,
-        };
+        });
     }
     let mut body = serde_json::json!({ "text": text });
     let map = privacy::scrub_json_with_model(&mut body, &privacy::scrub_options(&settings), &settings)
-        .await;
-    PrivacyScrubPreview {
+        .await
+        .map_err(|_| "检测服务不可用（fail-closed），无法预览".to_string())?;
+    Ok(PrivacyScrubPreview {
         original: text.to_string(),
         scrubbed: body["text"].as_str().unwrap_or(text).to_string(),
         hits: map.len(),
-    }
+    })
 }
 
 crate::tauri_command! {
@@ -76,7 +78,7 @@ pub async fn privacy_scrub_set(settings: PrivacyScrubSettings) -> Result<(), Str
 crate::tauri_command! {
 /// 「试一试」预览。
 pub async fn privacy_scrub_preview(text: String) -> Result<PrivacyScrubPreview, String> {
-    Ok(scrub_preview_text(aidog_ctx::db(), &text).await)
+    scrub_preview_text(aidog_ctx::db(), &text).await
 }
 }
 
