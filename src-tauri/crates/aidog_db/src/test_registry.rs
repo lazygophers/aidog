@@ -285,9 +285,9 @@ fn glm_coding_keeps_peak_branches() {
 /// - DeepSeek-V4-Flash（官方展示名；objectName 请求 id 为 `deepseek-ai/DeepSeek-V4-Flash-0731`）：
 ///   峰（北京 8-24∪0-2）on 3/9/0.3，off 1.5/4.5/0.15 CNY/M → ×2.0
 /// - DeepSeek-V4.1-Flash：同窗口 on 2/8/0.04，off 1/4/0.02 CNY/M → ×2.0
-/// 条目价落官方 off-peak 价（deepseek 平台先例），峰价 = 条目价 × 窗口倍率（比值恰为
-/// 1.25 / 2.0，无需 per-model price.peak 绝对价）。条目单价 = 官方 CNY/M × 1e-6 原币落库
-/// （票 04 起 CNY 条目一律存原币；运行时 ÷CNY_PER_USD(6.6675) 换算 USD 计费）。
+///   条目价落官方 off-peak 价（deepseek 平台先例），峰价 = 条目价 × 窗口倍率（比值恰为
+///   1.25 / 2.0，无需 per-model price.peak 绝对价）。条目单价 = 官方 CNY/M × 1e-6 原币落库
+///   （票 04 起 CNY 条目一律存原币；运行时 ÷CNY_PER_USD(6.6675) 换算 USD 计费）。
 #[test]
 fn siliconflow_per_model_peak_pricing() {
     let sf = &protocols()["siliconflow"];
