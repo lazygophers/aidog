@@ -6800,7 +6800,7 @@ async fn privacy_nonstream_roundtrip_and_log_forms() {
     assert!(!client_text.contains(&ph), "客户端不应看到占位符: {client_text}");
 
     // 上游收到的出站 body：占位符形态，原值不出站
-    let sent = &hits.lock().unwrap()[0].1;
+    let sent = hits.lock().unwrap()[0].1.clone();
     assert!(sent.contains(&ph), "上游应收到占位符: {sent}");
     assert!(!sent.contains(PRIVACY_EMAIL), "原值禁出站: {sent}");
 
@@ -6858,7 +6858,7 @@ async fn privacy_disabled_passthrough_untouched() {
         format!(r#"{{"model":"claude-3","messages":[{{"role":"user","content":"mail {PRIVACY_EMAIL}"}}]}}"#);
     let resp = handle_proxy(AxumState(state.clone()), messages_request("gkp3", &req_body)).await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let sent = &hits.lock().unwrap()[0].1;
+    let sent = hits.lock().unwrap()[0].1.clone();
     assert!(sent.contains(PRIVACY_EMAIL), "关闭时原值应原样出站: {sent}");
     assert!(!sent.contains(&ph), "关闭时不应出现占位符: {sent}");
     set_privacy_scrub(&state, false).await;
