@@ -392,6 +392,24 @@ pub fn count_model_entries(db: &Db) -> impl std::future::Future<Output = Result<
     }
 }
 
+#[track_caller]
+pub fn count_platform_presets(
+    db: &Db,
+) -> impl std::future::Future<Output = Result<u32, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        db.call_read_traced(None, __db_caller, move |conn| {
+            Ok(conn.query_row(
+                "SELECT COUNT(*) FROM platform_preset WHERE deleted_at = 0",
+                [],
+                |r| r.get(0),
+            )?)
+        })
+        .await
+        .map_err(|e| e.to_string())
+    }
+}
+
 /// 列模型条目裸行（无 bundled 兜底）：`platform_code` 为 None 即全量。
 /// 同步的「新增 / 更新 / 未变」分类必须走这条——带兜底的 [`list_model_entries`] 在空表时
 /// 会返回 bundled 快照，会把首次同步的全部条目误判成「未变」。
