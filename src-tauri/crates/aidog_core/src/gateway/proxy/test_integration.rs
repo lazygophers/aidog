@@ -6893,3 +6893,55 @@ async fn privacy_stream_placeholder_across_chunks_restored() {
     assert!(!client_text.contains(&ph), "流式客户端不应看到占位符: {client_text}");
     set_privacy_scrub(&state, false).await;
 }
+
+/// review #2 集成红测试：探活健康但检测失败（stub：text 空 → 200 `{"spans":[]}`，非空 → 500）
+/// → scrub_json_with_model Err。修前接线吞 Err → 照常转发 200（红）；
+/// 修后 forward.rs fail-closed → 503 不触上游，落库 blocked_reason=privacy_scrub_unavailable。
+#[tokio::test]
+async fn privacy_detect_failure_fail_closed_503() {
+    let _g = PRIVACY_TEST_LOCK.lock().await;
+    crate::gateway::privacy::set_engine_unavailable(false);
+
+    // 检测服务 stub：确定性构造「探活过、检测败」——探活发空文本 200，检测发非空文本 500。
+    async fn spawn_detect_fail_stub() -> String {
+        use axum::body::Bytes;
+        use axum::response::IntoResponse as _;
+        use axum::routing::any;
+        let app = axum::Router::new().fallback(any(|body: Bytes| async move {
+            let probe: &[u8] = b"{\"text\":\"\"}";
+            if body.is_empty() || body.as_ref() == probe {
+                axum::Json(serde_json::json!({ "spans": [] })).into_response()
+            } else {
+                (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "detect fail").into_response()
+            }
+        }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await.ok(); });
+        format!("http://{addr}/")
+    }
+
+    let (up, hits) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkp5", &up).await;
+    let detect = spawn_detect_fail_stub().await;
+    set_privacy_scrub_model(&state, &detect).await;
+
+    let req_body =
+        format!(r#"{{"model":"claude-3","messages":[{{"role":"user","content":"mail {PRIVACY_EMAIL} hi"}}]}}"#);
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkp5", &req_body)).await;
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE, "检测失败必须 fail-closed 503");
+    assert!(hits.lock().unwrap().is_empty(), "fail-closed 不应触达上游");
+
+    flush_log_queue(&state).await;
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let row = logs.iter().find(|l| l.group_key == "gkp5").expect("blocked log missing");
+    let full = aidog_logs::get_proxy_log(&state.db, &row.id).await.unwrap().unwrap();
+    assert_eq!(full.status_code, 503);
+    assert_eq!(full.blocked_by, "router");
+    assert_eq!(full.blocked_reason, "privacy_scrub_unavailable");
+    assert_eq!(full.est_cost, 0.0);
+
+    set_privacy_scrub(&state, false).await;
+    crate::gateway::privacy::set_engine_unavailable(false);
+}

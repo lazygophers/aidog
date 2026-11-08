@@ -40,7 +40,14 @@ pub(crate) fn apply_spans(text: &str, spans: Vec<super::detect::SpanKind>) -> (S
     let mut last = 0usize;
     for span in spans {
         let original = &text[span.start..span.end];
-        let placeholder = placeholder_for(span.kind, original);
+        let mut placeholder = placeholder_for(span.kind, original);
+        // review #7：FNV-1a-32 碰撞时同键异值会覆盖映射（restore 不可逆）→
+        // 键同值异 → salt 重散列出新占位符，两条映射独立、往返无损。
+        let mut salt = 0u32;
+        while map.get(&placeholder).is_some_and(|prev| prev != original) {
+            salt += 1;
+            placeholder = placeholder_for(span.kind, &format!("{salt}:{original}"));
+        }
         out.push_str(&text[last..span.start]);
         out.push_str(&placeholder);
         map.insert(&placeholder, original);
@@ -57,4 +64,40 @@ pub fn restore(text: &str, map: &ScrubMap) -> String {
         out = out.replace(placeholder, original);
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::detect::SpanKind;
+    use super::*;
+    use std::collections::HashMap;
+
+    /// review #7 红测试：FNV-1a-32 碰撞时 `map.insert` 覆盖映射 → 后值的占位符指回前值，
+    /// restore 不可逆。修后：键同值异 → salt 重散列出新占位符，两条映射独立、往返无损。
+    #[test]
+    fn fnv_collision_keeps_both_mappings() {
+        // 32 位空间 ~2^16 样本期望撞出一对：暴力找一对 fnv1a32 相等的不同短串。
+        let mut seen: HashMap<u32, String> = HashMap::new();
+        let mut pair: Option<(String, String)> = None;
+        for i in 0..1_000_000u32 {
+            let s = format!("t{i}");
+            let h = fnv1a32(s.as_bytes());
+            if let Some(prev) = seen.insert(h, s.clone())
+                && prev != s
+            {
+                pair = Some((prev, s));
+                break;
+            }
+        }
+        let (a, b) = pair.expect("FNV-32 空间撞不出一对碰撞串");
+        assert_ne!(a, b);
+        let text = format!("{a}|{b}");
+        let spans = vec![
+            SpanKind { start: 0, end: a.len(), kind: PiiKind::Email },
+            SpanKind { start: a.len() + 1, end: a.len() + 1 + b.len(), kind: PiiKind::Email },
+        ];
+        let (out, map) = apply_spans(&text, spans);
+        assert_eq!(map.len(), 2, "碰撞对必须各得独立映射: {map:?}");
+        assert_eq!(restore(&out, &map), text, "碰撞对往返必须无损");
+    }
 }

@@ -143,10 +143,14 @@ pub(crate) fn merge_model_spans(rule: &mut Vec<SpanKind>, model: Vec<ModelSpan>)
     rule.sort_by_key(|s| s.start);
 }
 
-/// 票 03 闸门刷新：`model_enabled=true` 时按端点健康置位 / 复位 `engine_unavailable`
-/// （handler 在 privacy_gate 前调用一次；TTL 内零 HTTP）；`model_enabled=false` 恒复位。
+/// 票 03 闸门刷新：总开关开且 `model_enabled=true` 时按端点健康置位 / 复位
+/// `engine_unavailable`（handler 在 privacy_gate 前调用一次；TTL 内零 HTTP）；
+/// 总开关关或 `model_enabled=false` 恒复位（review #6：总开关关不探活，白探活浪费请求）。
 pub async fn refresh_model_gate(settings: &PrivacyScrubSettings) {
-    let ok = if settings.model_enabled && !settings.model_endpoint.is_empty() {
+    let ok = if settings.enabled
+        && settings.model_enabled
+        && !settings.model_endpoint.is_empty()
+    {
         model_health(&settings.model_endpoint).await
     } else {
         true
@@ -215,7 +219,8 @@ mod tests {
         .await;
         let mut body = serde_json::json!({ "content": "hello world" });
         let map = scrub_json_with_model(&mut body, &ScrubOptions::all(), &model_settings(&ep))
-            .await;
+            .await
+            .expect("stub 恒 2xx，不应 Err");
         let s = serde_json::to_string(&body).unwrap();
         assert!(s.contains("{{PII_EMAIL_"), "model span must scrub: {s}");
         assert!(!s.contains("hello"), "original region must be gone: {s}");
@@ -251,7 +256,9 @@ mod tests {
         refresh_model_gate(&s).await;
         assert!(!engine_unavailable());
         let mut body = serde_json::json!({ "content": format!("mail {EMAIL} end") });
-        let map = scrub_json_with_model(&mut body, &ScrubOptions::all(), &s).await;
+        let map = scrub_json_with_model(&mut body, &ScrubOptions::all(), &s)
+            .await
+            .expect("model 关闭走规则路径，不应 Err");
         assert_eq!(counter.load(AtomicOrdering::SeqCst), 0, "no request when model off");
         // 规则引擎照常工作
         assert_eq!(map.len(), 1);
@@ -296,6 +303,48 @@ mod tests {
         assert_eq!(rule.len(), 2);
         assert_eq!(rule[0].start, 0);
         assert_eq!(rule[1].start, 4);
+    }
+
+    /// review #1 锁定测试：两个互相重叠的模型 span 经 merge 后只剩非重叠集——重叠检查
+    /// `rule.iter().any` 同样覆盖已 push 的模型 span，第二个被丢弃，`apply_spans` 不存在
+    /// 重叠 panic 路径。跑绿 = 实证 review #1 的 panic 前提不成立。
+    #[test]
+    fn merged_overlapping_model_spans_cannot_double_push() {
+        let mut rule = Vec::new();
+        merge_model_spans(
+            &mut rule,
+            vec![
+                ModelSpan { start: 0, end: 10, kind: PiiKind::Email },
+                ModelSpan { start: 5, end: 15, kind: PiiKind::Email },
+            ],
+        );
+        assert_eq!(rule.len(), 1, "重叠模型 span 必须被合并逻辑丢弃");
+        let text = "abcdefghij klmno";
+        let (out, map) = crate::gateway::privacy::engine::apply_spans(
+            text,
+            rule.into_iter().map(|s| SpanKind { start: s.start, end: s.end, kind: s.kind }).collect(),
+        );
+        assert!(out.starts_with("{{PII_EMAIL_"), "模型 span 应替换为占位符: {out}");
+        assert!(out.ends_with(" klmno"), "未命中区域应原样保留: {out}");
+        assert_eq!(map.len(), 1);
+        assert_eq!(crate::gateway::privacy::engine::restore(&out, &map), text, "往返无损");
+    }
+
+    /// review #6 红测试：refresh_model_gate 判据缺 `settings.enabled` → 总开关关仍探活。
+    /// 修后：总开关关 → 不探活（零请求）、恒复位 fail-closed 位。
+    #[tokio::test]
+    async fn refresh_gate_skips_probe_when_scrub_disabled() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let ep = spawn_stub(serde_json::json!([]), counter.clone()).await;
+        let mut s = model_settings(&ep);
+        s.enabled = false; // 总开关关，model_enabled=true、端点可达
+        refresh_model_gate(&s).await;
+        assert_eq!(
+            counter.load(AtomicOrdering::SeqCst),
+            0,
+            "总开关关 → 不应发探活请求"
+        );
+        assert!(!engine_unavailable(), "总开关关 → 不应置位 fail-closed");
     }
 
     #[test]

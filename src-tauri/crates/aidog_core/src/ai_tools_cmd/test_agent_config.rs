@@ -364,3 +364,46 @@ async fn user_owned_config_produces_no_actions() {
     let actions = super::plan_actions(&db).await.unwrap();
     assert!(actions.is_empty(), "用户自有内容不应产生卸载动作: {actions:?}");
 }
+
+/// review #5 红测试：用户已有 `hasCompletedOnboarding=true`（install 写同值 true，
+/// old==new）。修前：old==new 不备份 → uninstall 无备份删键，丢用户原值 true（红）；
+/// 修后：备份语义以「卸载后回到用户安装前状态」为准——写同值也备份，
+/// uninstall 恢复 true 且二次卸载不再删。
+#[tokio::test]
+async fn uninstall_restores_user_true_when_aidog_wrote_same_value() {
+    let _h = HomeGuard::new();
+    let db = test_db().await;
+    let h = home();
+    std::fs::create_dir_all(h.join(".claude")).unwrap();
+    std::fs::write(
+        h.join(".claude.json"),
+        serde_json::to_string_pretty(&json!({
+            "hasCompletedOnboarding": true,
+            "projects": {"p1": "keep"}
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+
+    // install 侧真实路径：ensure 默认写（含 old==new=true 的 onboarding 写）
+    // + export（注入 base_url，无备份 → uninstall 删键）
+    crate::ai_tools_cmd::coding_tools::ensure_default_coding_tools_settings(&db)
+        .await
+        .unwrap();
+    crate::sync_settings::export_claude_config_with_db(&db, 8080).await.unwrap();
+
+    let actions = super::run_uninstall(&db).await.unwrap();
+    assert!(
+        actions.iter().all(|a| a.error.is_none()),
+        "单面不应失败: {actions:?}"
+    );
+    let cj = jv(&h.join(".claude.json"));
+    assert_eq!(cj["hasCompletedOnboarding"], true, "用户原值 true 必须保留");
+    assert_eq!(cj["projects"]["p1"], "keep", "用户其余键不得被改动");
+
+    // 二次卸载：备份行保留（恢复值==当前值），不得删用户 true
+    let actions2 = super::run_uninstall(&db).await.unwrap();
+    assert!(actions2.iter().all(|a| a.error.is_none()));
+    let cj2 = jv(&h.join(".claude.json"));
+    assert_eq!(cj2["hasCompletedOnboarding"], true, "二次卸载不得删用户 true");
+}

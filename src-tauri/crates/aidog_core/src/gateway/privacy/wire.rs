@@ -109,13 +109,19 @@ pub fn scrub_json(body: &mut Value, opts: &ScrubOptions) -> ScrubMap {
 /// 票 03：`model_enabled=true` 时每个叶子字符串额外走本地模型检测（契约见 `privacy::model`），
 /// 模型 span 与规则 span 合并后统一替换；`model_enabled=false` / 端点未配置 → 与 `scrub_json`
 /// 等价（零请求）。
+///
+/// fail-closed（review #2）：模型检测失败（网络 / 非 2xx / 不可解析）不上抛被吞——部分
+/// 脱敏结果照样出站等于把规则漏掉的部分原样外泄。Err 时先置位 `engine_unavailable`
+/// （后续 attempt 由闸拦截）再上抛，调用方按 fail-closed 503 拦截本次请求。
+// Err(()) 是有意的 fail-closed 信号，调用方不读错误内容，无可携带信息。
+#[allow(clippy::result_unit_err)]
 pub async fn scrub_json_with_model(
     body: &mut Value,
     opts: &ScrubOptions,
     settings: &PrivacyScrubSettings,
-) -> ScrubMap {
+) -> Result<ScrubMap, ()> {
     if !settings.model_enabled || settings.model_endpoint.is_empty() {
-        return scrub_json(body, opts);
+        return Ok(scrub_json(body, opts));
     }
     let endpoint = settings.model_endpoint.clone();
     let mut merged = ScrubMap::new();
@@ -123,9 +129,16 @@ pub async fn scrub_json_with_model(
     collect_string_leaves(body, &mut leaves);
     for s in leaves {
         let mut spans = super::detect::collect_spans(s, |k| opts.enabled(k));
-        if let Ok(model) = super::model::model_spans(&endpoint, s).await {
-            super::model::merge_model_spans(&mut spans, model);
-        }
+        // review #2 fail-closed：检测失败（网络 / 非 2xx / 不可解析）→ 置位
+        // engine_unavailable（后续 attempt 由闸拦截）后上抛 Err，调用方 503 拦本次。
+        let model = match super::model::model_spans(&endpoint, s).await {
+            Ok(m) => m,
+            Err(()) => {
+                super::set_engine_unavailable(true);
+                return Err(());
+            }
+        };
+        super::model::merge_model_spans(&mut spans, model);
         let (new_s, map) = super::engine::apply_spans(s, spans);
         if !map.is_empty() {
             for (p, o) in map.iter() {
@@ -134,7 +147,7 @@ pub async fn scrub_json_with_model(
             *s = new_s;
         }
     }
-    merged
+    Ok(merged)
 }
 
 /// 收集 JSON 树的全部叶子字符串（可变引用，原地替换用）。
@@ -416,5 +429,55 @@ mod tests {
         let mut out = r.push_bytes(text.as_bytes());
         out.push_str(&r.finish());
         assert_eq!(out, text);
+    }
+
+    /// 检测契约 stub：探活（text 空）→ 200，检测（text 非空）→ 500。
+    /// 确定性构造「探活过、检测败」，禁真实外呼。
+    async fn spawn_detect_fail_stub() -> String {
+        use axum::body::Bytes;
+        use axum::response::IntoResponse as _;
+        use axum::routing::any;
+        let app = axum::Router::new().fallback(any(|body: Bytes| async move {
+            let text = serde_json::from_slice::<serde_json::Value>(&body)
+                .ok()
+                .and_then(|v| v.get("text").and_then(|t| t.as_str()).map(str::to_string))
+                .unwrap_or_default();
+            if text.is_empty() {
+                axum::Json(serde_json::json!({ "spans": [] })).into_response()
+            } else {
+                (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    "detect fail",
+                )
+                    .into_response()
+            }
+        }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        format!("http://{addr}/")
+    }
+
+    /// review #2 红测试：探活过（健康闸放行）但检测层 500 → 修前 `if let Ok` 吞 Err，
+    /// 返回只剩规则脱敏的部分结果；修后置位 fail-closed 并上抛 Err。
+    #[tokio::test]
+    async fn model_detect_failure_propagates_err_and_sets_fail_closed_flag() {
+        set_engine_unavailable(false);
+        let ep = spawn_detect_fail_stub().await;
+        let s = PrivacyScrubSettings {
+            enabled: true,
+            secrets: true,
+            personal: true,
+            model_enabled: true,
+            model_endpoint: ep,
+            per_kind: Default::default(),
+        };
+        let mut body = serde_json::json!({ "content": "mail bob@example.com hi" });
+        let r = scrub_json_with_model(&mut body, &ScrubOptions::all(), &s).await;
+        assert!(r.is_err(), "检测层失败必须上抛 Err（fail-closed），实际: {r:?}");
+        assert!(engine_unavailable(), "Err 时必须置位 engine_unavailable");
+        set_engine_unavailable(false);
     }
 }

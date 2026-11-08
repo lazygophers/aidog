@@ -274,6 +274,39 @@ async fn delete_removes_profile_and_apply_missing_errors() {
     );
 }
 
+/// review #3 红测试：快照后出现的用户自有文件（快照该面 content=None → 静态面
+/// delete）。修前：无指纹也直接删文件（红）；修后：无 aidog 指纹 → op=skip 保留。
+#[tokio::test]
+async fn apply_keeps_user_file_absent_in_snapshot() {
+    let _h = HomeGuard::new();
+    let (db, _dir) = three_file_db().await;
+    let _snapshot = seed_and_save(&db, "work").await;
+    let h = home();
+
+    // 快照没采到 .claude/config.json（seed 未写）→ 快照面 content=None。
+    // 快照之后用户自己写了该文件（无任何 aidog 指纹）。
+    let user_file = h.join(".claude").join("config.json");
+    write_text(&user_file, r#"{"primaryApiKey": "user-key"}"#);
+
+    let applied = apply_profile(&db, "work", false).await.unwrap();
+    assert!(user_file.exists(), "无 aidog 指纹的用户文件必须保留");
+    let v: serde_json::Value = serde_json::from_str(&read_text(&user_file)).unwrap();
+    assert_eq!(v["primaryApiKey"], "user-key", "用户值不得被改动");
+    let item = applied
+        .iter()
+        .find(|d| d.target == "claude_config_json")
+        .expect("diff 应含 claude_config_json 面");
+    assert_eq!(item.op, "skip", "无指纹应跳过删除: {item:?}");
+
+    // 对照组：带 aidog 指纹的同类文件照旧删除（还原「未装」状态）
+    write_text(
+        &user_file,
+        r#"{"primaryApiKey": "any", "env": {"ANTHROPIC_BASE_URL": "http://127.0.0.1:9890/claude/v1/messages"}}"#,
+    );
+    let _ = apply_profile(&db, "work", false).await.unwrap();
+    assert!(!user_file.exists(), "带 aidog 指纹的多余文件应删除");
+}
+
 // ─── helpers ───────────────────────────────────────────────────
 
 fn walk(root: &Path) -> Vec<PathBuf> {

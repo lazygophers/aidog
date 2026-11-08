@@ -36,7 +36,6 @@ pub async fn export_claude_config_with_db(db: &Db, port: u16) -> Result<String, 
             db,
             crate::ai_tools_cmd::agent_config::KEY_CLAUDE_BASE_URL,
             old,
-            &serde_json::Value::String(base_url.clone()),
         )
         .await;
         obj.insert(
@@ -47,9 +46,10 @@ pub async fn export_claude_config_with_db(db: &Db, port: u16) -> Result<String, 
 
     let content =
         serde_json::to_string_pretty(&config).map_err(|e| format!("serialize config: {e}"))?;
-    std::fs::write(&config_path, content).map_err(|e| {
+    // review #4：走同目录临时文件 + rename 的原子写，禁非原子半写
+    crate::ai_tools_cmd::profile::atomic_write(&config_path, &content, None).map_err(|e| {
         tracing::error!(command = "export_claude_config", error = %e, "write .claude.json failed");
-        format!("write config: {e}")
+        e
     })?;
 
     Ok(config_path.to_string_lossy().to_string())

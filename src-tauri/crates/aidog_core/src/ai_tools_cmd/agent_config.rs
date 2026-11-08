@@ -73,21 +73,16 @@ enum Step {
 
 // ─── install 侧备份 helper ─────────────────────────────────────
 
-/// install 覆盖用户已有键前备份原值（magpie 票 05）。`old` 为 None / null（键原本
-/// 不存在）不备份；`old == new`（写入不改变用户语义）不备份；已有备份（更早的用户
-/// 原值）不覆盖 —— 重复 install 不丢最早的备份。
+/// install 覆盖用户已有键前备份原值（magpie 票 05）。已有备份（更早的用户原值）
+/// 不覆盖 —— 重复 install 不丢最早的备份。
+/// `old` 为 None → 备份 null 哨兵（键原本不存在，uninstall 删键）。
+/// review #5：`old == new`（写同值）也备份——备份语义是「卸载后回到用户安装前
+/// 状态」；不备份则 uninstall 无备份分支会删掉用户自己的键。
 pub(crate) async fn backup_before_overwrite(
     db: &Db,
     backup_key: &str,
     old: Option<serde_json::Value>,
-    new: &serde_json::Value,
 ) {
-    let Some(old) = old.filter(|v| !v.is_null()) else {
-        return;
-    };
-    if &old == new {
-        return;
-    }
     let existing = aidog_db::get_setting(db, BACKUP_SCOPE, backup_key)
         .await
         .ok()
@@ -95,12 +90,13 @@ pub(crate) async fn backup_before_overwrite(
     if existing.is_some() {
         return;
     }
+    let value = old.unwrap_or(serde_json::Value::Null);
     let _ = aidog_db::set_setting(
         db,
         SetSettingInput {
             scope: BACKUP_SCOPE.to_string(),
             key: backup_key.to_string(),
-            value: old,
+            value,
         },
     )
     .await;
@@ -318,23 +314,32 @@ async fn apply(db: &Db, step: Step) -> Result<(), String> {
         } => {
             let backup = aidog_db::get_setting(db, BACKUP_SCOPE, backup_key).await?;
             let mut root = read_json(&path)?;
+            let mut keep_backup_row = false;
             match backup {
-                // 有备份：恢复用户原值（install 覆盖前的值）
-                Some(v) => {
-                    let obj = root
-                        .as_object_mut()
-                        .ok_or_else(|| format!("{} root is not an object", path.display()))?;
-                    obj.insert(key.to_string(), v);
-                }
-                // 无备份：键原本不存在，删 aidog 形状键
-                None => {
+                // null 哨兵 / 无备份：键原本不存在，删 aidog 形状键
+                Some(serde_json::Value::Null) | None => {
                     if let Some(obj) = root.as_object_mut() {
                         obj.remove(key);
                     }
                 }
+                // 有备份：恢复用户原值（install 覆盖前的值）。
+                // 恢复值 == 当前值（写同值场景，review #5）→ 保留备份行：
+                // 二次卸载不再走删键分支，用户原值永不被删。
+                Some(v) => {
+                    let cur = root.get(key).cloned();
+                    let obj = root
+                        .as_object_mut()
+                        .ok_or_else(|| format!("{} root is not an object", path.display()))?;
+                    obj.insert(key.to_string(), v);
+                    keep_backup_row = cur.as_ref() == obj.get(key);
+                }
             }
             write_json(&path, &root)?;
-            aidog_db::delete_setting(db, BACKUP_SCOPE, backup_key).await
+            if keep_backup_row {
+                Ok(())
+            } else {
+                aidog_db::delete_setting(db, BACKUP_SCOPE, backup_key).await
+            }
         }
         Step::RemoveManagedLeaves => {
             let managed = aidog_db::get_setting(
@@ -476,7 +481,7 @@ pub(crate) fn is_aidog_codex_profile_toml(t: &toml::Value) -> bool {
 }
 
 /// `ANTHROPIC_BASE_URL` 的 aidog 指纹：值含 aidog 代理路径段。
-fn is_aidog_base_url(v: &serde_json::Value) -> bool {
+pub(crate) fn is_aidog_base_url(v: &serde_json::Value) -> bool {
     v.as_str()
         .map(|s| s.contains("/claude/v1/messages"))
         .unwrap_or(false)
@@ -512,16 +517,12 @@ fn read_json(path: &Path) -> Result<serde_json::Value, String> {
     serde_json::from_str(&content).map_err(|e| format!("parse {}: {e}", path.display()))
 }
 
-/// pretty 写回 JSON；父目录不存在自动创建。
+/// pretty 写回 JSON；父目录不存在自动创建（review #4：走同目录临时文件 +
+/// rename 的 [`super::profile::atomic_write`]，禁非原子半写）。
 fn write_json(path: &Path, value: &serde_json::Value) -> Result<(), String> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("create_dir_all {}: {e}", parent.display()))?;
-    }
     let content = serde_json::to_string_pretty(value)
         .map_err(|e| format!("serialize {}: {e}", path.display()))?;
-    std::fs::write(path, content)
-        .map_err(|e| format!("write {}: {e}", path.display()))
+    super::profile::atomic_write(path, &content, None)
 }
 
 /// 按 dot-path 删除叶子键；删空的对象父级逐级上剪（根不动，由调用方决定删文件）。
