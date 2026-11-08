@@ -6,6 +6,7 @@
 
 mod detect;
 mod engine;
+mod model;
 mod wire;
 
 #[cfg(test)]
@@ -16,9 +17,11 @@ use std::fmt;
 
 pub use wire::{
     engine_unavailable, get_privacy_scrub_settings, privacy_gate, restore_json_escaped,
-    scrub_json, scrub_options, set_engine_unavailable, PrivacyGate, PrivacyScrubSettings,
-    StreamRestorer,
+    scrub_json, scrub_json_with_model, scrub_options, set_engine_unavailable, PrivacyGate,
+    PrivacyScrubSettings, StreamRestorer,
 };
+
+pub use model::refresh_model_gate;
 
 /// 敏感数据类型。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
