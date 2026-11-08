@@ -4,7 +4,15 @@ use crate::shared::*;
 use aidog_db::{CC_PROXY_AUTH_SCOPE, Db};
 
 crate::tauri_command! {
-pub fn export_claude_config(port: u16) -> Result<String, String> {
+pub async fn export_claude_config(port: u16) -> Result<String, String> {
+    let db = aidog_ctx::db();
+    export_claude_config_with_db(db, port).await
+}
+}
+
+/// `export_claude_config` 的 DB 版（供测试直调）。magpie 票 05：覆盖用户已有
+/// `ANTHROPIC_BASE_URL` 前备份原值（DB scope=`agent_config_backup`），卸载时恢复。
+pub async fn export_claude_config_with_db(db: &Db, port: u16) -> Result<String, String> {
     tracing::debug!(command = "export_claude_config", port, "command invoked");
     let base_url = format!("http://localhost:{}/claude/v1/messages", port);
     let config_path = dirs::home_dir()
@@ -22,6 +30,15 @@ pub fn export_claude_config(port: u16) -> Result<String, String> {
 
     // 设置 ANTHROPIC_BASE_URL
     if let Some(obj) = config.as_object_mut() {
+        let old = obj.get("ANTHROPIC_BASE_URL").cloned();
+        // magpie 票 05：覆盖用户已有值前备份原值（uninstall 恢复）
+        crate::ai_tools_cmd::agent_config::backup_before_overwrite(
+            db,
+            crate::ai_tools_cmd::agent_config::KEY_CLAUDE_BASE_URL,
+            old,
+            &serde_json::Value::String(base_url.clone()),
+        )
+        .await;
         obj.insert(
             "ANTHROPIC_BASE_URL".to_string(),
             serde_json::Value::String(base_url.clone()),
@@ -36,7 +53,6 @@ pub fn export_claude_config(port: u16) -> Result<String, String> {
     })?;
 
     Ok(config_path.to_string_lossy().to_string())
-}
 }
 
 /// Helper: attempt sync, log errors but don't propagate
