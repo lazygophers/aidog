@@ -2111,6 +2111,8 @@
   "requestLog.typeTest": "Test",
   "scheduling.breakerDefaults": "Globale Schutzschalter-Standardwerte",
   "scheduling.breakerDefaultsDesc": "Standard-Schutzschalterschwellen, wenn eine Plattform sie nicht überschreibt (leer / 0).",
+  "scheduling.cacheAffinity": "Cache-Affinität",
+  "scheduling.cacheAffinityDesc": "Hält die Konversation an der Plattform fest, die sie bedient hat, solange Cache-Treffer weitergehen; nach zwei aufeinanderfolgenden Antworten ohne Cache wird automatisch entkoppelt",
   "scheduling.defaultRoutingMode": "Standard-Routing-Modus",
   "scheduling.defaultRoutingModeDesc": "Globale Standardstrategie, wenn eine Gruppe keine eigene angibt.",
   "scheduling.masterToggle": "Hauptschalter des Schutzschalters",

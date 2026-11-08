@@ -184,6 +184,8 @@ pub struct SchedulerState {
     db: Option<std::sync::Arc<aidog_db::Db>>,
     /// 平台限频计数（extra.rate_limits，内存态）。
     pub rate: std::sync::Arc<super::rate_limit::RateLimiter>,
+    /// 缓存亲和信号表（票 magpie-08）：sticky_key → 最近响应缓存信号。
+    pub cache_signals: CacheSignalTable,
 }
 
 impl Default for SchedulerState {
@@ -198,6 +200,7 @@ impl SchedulerState {
             health: RwLock::new(HashMap::new()),
             db: None,
             rate: Default::default(),
+            cache_signals: CacheSignalTable::new(),
         }
     }
 
@@ -207,6 +210,7 @@ impl SchedulerState {
             health: RwLock::new(HashMap::new()),
             db: Some(db),
             rate: Default::default(),
+            cache_signals: CacheSignalTable::new(),
         }
     }
 
@@ -715,6 +719,21 @@ pub struct StickyTable {
     map: RwLock<HashMap<String, StickyEntry>>,
 }
 
+/// 聊天主路径 sticky_key 拼法（handler / forward_attempt 共用，防两处漂移）：
+/// `group_key|客户端稳定标识`（x-session-id / session_id / user-agent 回退，缺省空串）。
+pub fn sticky_session_key(
+    group_key: &str,
+    orig_headers: &axum::http::HeaderMap,
+) -> String {
+    let client_id = orig_headers
+        .get("x-session-id")
+        .or_else(|| orig_headers.get("session_id"))
+        .or_else(|| orig_headers.get("user-agent"))
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    format!("{}|{}", group_key, client_id)
+}
+
 impl Default for StickyTable {
     fn default() -> Self {
         Self::new()
@@ -759,6 +778,74 @@ impl StickyTable {
                     last_access_ms: now_ms,
                 },
             );
+        }
+    }
+}
+
+/// 缓存亲和（票 magpie-08）：连续无缓存信号次数达此值 → 解绑（回退正常调度）。
+const CACHE_UNBIND_STREAK: u8 = 2;
+
+struct CacheSignalEntry {
+    no_cache_streak: u8,
+    last_access_ms: i64,
+}
+
+/// sticky_key → 最近缓存信号表（内存）。随 SchedulerState 同生命周期。
+/// 响应侧 `record`（finish / 流式 flush 的 usage 提取处），路由侧 `worth_keeping`
+/// （apply_sticky 的 get/put 闸）。缺条目 = 无信号 → 值得保留（首个请求允许绑定）。
+pub struct CacheSignalTable {
+    map: RwLock<HashMap<String, CacheSignalEntry>>,
+}
+
+impl Default for CacheSignalTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl CacheSignalTable {
+    pub fn new() -> Self {
+        Self {
+            map: RwLock::new(HashMap::new()),
+        }
+    }
+
+    /// 记录一次响应缓存信号（聊天主路径；has_cache = cache_read/cache_write 任一 > 0）。
+    pub fn record(&self, key: &str, has_cache: bool, now_ms: i64) {
+        if let Ok(mut g) = self.map.write() {
+            if now_ms
+                - g.get(key).map(|e| e.last_access_ms).unwrap_or(now_ms)
+                > STICKY_TTL_MS
+            {
+                g.remove(key);
+            }
+            let e = g.entry(key.to_string()).or_insert(CacheSignalEntry {
+                no_cache_streak: 0,
+                last_access_ms: now_ms,
+            });
+            e.last_access_ms = now_ms;
+            e.no_cache_streak = if has_cache {
+                0
+            } else {
+                CACHE_UNBIND_STREAK.min(e.no_cache_streak + 1)
+            };
+        }
+    }
+
+    /// 缓存是否值得保留（true = 允许绑定 / 续期）。连续 `CACHE_UNBIND_STREAK`
+    /// 次无缓存信号 → false；信号条目超 TTL 视为无信号 → true。
+    pub fn worth_keeping(&self, key: &str, now_ms: i64) -> bool {
+        let mut g = match self.map.write() {
+            Ok(g) => g,
+            Err(_) => return true,
+        };
+        match g.get(&key.to_string()) {
+            Some(e) if now_ms - e.last_access_ms > STICKY_TTL_MS => {
+                g.remove(key);
+                true
+            }
+            Some(e) => e.no_cache_streak < CACHE_UNBIND_STREAK,
+            None => true,
         }
     }
 }
@@ -1123,5 +1210,32 @@ mod tests {
         assert_eq!(t.get("k", now + 1000 + STICKY_TTL_MS + 1), None);
         // 已淘汰后再查仍 None
         assert_eq!(t.get("k", now + 1000 + STICKY_TTL_MS + 2), None);
+    }
+
+    #[test]
+    fn cache_signal_worth_keeping_lifecycle() {
+        let s = SchedulerState::new();
+        let now = 1_000_000i64;
+        // 无信号 → 缺省值得保留（首个请求允许绑定）
+        assert!(s.cache_signals.worth_keeping("k", now));
+        // 连续两次无缓存 → 解绑
+        s.cache_signals.record("k", false, now);
+        assert!(s.cache_signals.worth_keeping("k", now));
+        s.cache_signals.record("k", false, now);
+        assert!(!s.cache_signals.worth_keeping("k", now));
+        // 缓存信号 → 恢复绑定
+        s.cache_signals.record("k", true, now);
+        assert!(s.cache_signals.worth_keeping("k", now));
+    }
+
+    #[test]
+    fn cache_signal_ttl_expiry_resets_streak() {
+        let s = SchedulerState::new();
+        let now = 1_000_000i64;
+        s.cache_signals.record("k", false, now);
+        s.cache_signals.record("k", false, now);
+        assert!(!s.cache_signals.worth_keeping("k", now));
+        // 信号条目超 TTL 视为无信号 → 回到缺省值得保留
+        assert!(s.cache_signals.worth_keeping("k", now + STICKY_TTL_MS + 1));
     }
 }

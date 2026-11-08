@@ -2111,6 +2111,8 @@
   "requestLog.typeTest": "テスト",
   "scheduling.breakerDefaults": "グローバルブレーカー既定値",
   "scheduling.breakerDefaultsDesc": "プラットフォームが上書きしない場合（空 / 0）に使用する既定ブレーカーしきい値。",
+  "scheduling.cacheAffinity": "キャッシュアフィニティ",
+  "scheduling.cacheAffinityDesc": "キャッシュがヒットしている間、会話を応答したプラットフォームに固定します。キャッシュなしの応答が2回続くと自動的に解除します",
   "scheduling.defaultRoutingMode": "既定のルーティングモード",
   "scheduling.defaultRoutingModeDesc": "グループが個別指定しない場合に使用するグローバル既定戦略。",
   "scheduling.masterToggle": "サーキットブレーカー主スイッチ",

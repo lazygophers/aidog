@@ -46,6 +46,7 @@ const DEFAULT_SETTINGS: SchedulingBreakerSettings = {
   breaker_open_secs: 60,
   breaker_half_open_max: 2,
   enabled: true,
+  cache_affinity: false,
 };
 
 export function SchedulingSettingsTab() {
@@ -79,6 +80,7 @@ export function SchedulingSettingsTab() {
   };
 
   const toggleEnabled = () => persist({ ...settings, enabled: !settings.enabled });
+  const toggleCacheAffinity = () => persist({ ...settings, cache_affinity: !settings.cache_affinity });
 
   // 数字字段：钳为 ≥ 0 的整数后持久化（空 → 0）。
   const setNum = (key: "breaker_failure_threshold" | "breaker_open_secs" | "breaker_half_open_max", v: string) =>
@@ -108,6 +110,20 @@ export function SchedulingSettingsTab() {
           </div>
         </div>
         <Switch checked={settings.enabled} onCheckedChange={toggleEnabled} />
+      </SchedSectionCard>
+
+      {/* 缓存亲和（票 magpie-08） */}
+      <SchedSectionCard
+        staggerMs={60}
+        style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+      >
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("scheduling.cacheAffinity", "缓存亲和")}</div>
+          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+            {t("scheduling.cacheAffinityDesc", "响应带缓存时对话保持绑定回答它的平台；连续两次无缓存自动解绑")}
+          </div>
+        </div>
+        <Switch checked={settings.cache_affinity} onCheckedChange={toggleCacheAffinity} />
       </SchedSectionCard>
 
       {/* 默认调度策略 */}

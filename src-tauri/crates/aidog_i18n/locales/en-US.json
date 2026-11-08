@@ -2089,6 +2089,8 @@
   "requestLog.typeTest": "Test",
   "scheduling.breakerDefaults": "Global breaker defaults",
   "scheduling.breakerDefaultsDesc": "Default breaker thresholds used when a platform does not override them (empty / 0).",
+  "scheduling.cacheAffinity": "Cache affinity",
+  "scheduling.cacheAffinityDesc": "Keep conversations pinned to the platform that served them while cache hits continue; unbinds after two consecutive cache-less responses",
   "scheduling.defaultRoutingMode": "Default routing mode",
   "scheduling.defaultRoutingModeDesc": "Global default strategy used when a group does not specify its own.",
   "scheduling.masterToggle": "Circuit breaker master switch",

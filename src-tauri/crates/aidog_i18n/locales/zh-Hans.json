@@ -2089,6 +2089,8 @@
   "requestLog.typeTest": "测试",
   "scheduling.breakerDefaults": "全局熔断默认",
   "scheduling.breakerDefaultsDesc": "平台未单独覆盖（留空 / 0）时使用的默认熔断阈值",
+  "scheduling.cacheAffinity": "缓存亲和",
+  "scheduling.cacheAffinityDesc": "响应带缓存时对话保持绑定回答它的平台；连续两次无缓存自动解绑",
   "scheduling.defaultRoutingMode": "默认调度策略",
   "scheduling.defaultRoutingModeDesc": "Group 未单独指定时使用的全局默认策略",
   "scheduling.masterToggle": "熔断总开关",
