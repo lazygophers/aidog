@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { renderHook } from "@testing-library/react";
 
-const h = vi.hoisted(() => ({ map: vi.fn() }));
-vi.mock("../services/transport", () => ({ invoke: vi.fn(), listen: vi.fn(async () => () => {}) }));
+const h = vi.hoisted(() => ({ map: vi.fn(), unlisten: vi.fn(), listen: vi.fn() }));
+vi.mock("../services/transport", () => ({ invoke: vi.fn(), listen: h.listen }));
 vi.mock("../services/api/currency", () => ({
   DISPLAY_CURRENCY_EVENT: "display-currency-updated",
   displayCurrencyApi: { get: vi.fn(), balanceCurrencies: h.map },
@@ -14,7 +15,7 @@ vi.mock("../services/api", () => ({
   onProxyLogUpdated: vi.fn(),
 }));
 
-import { balanceToUsd, platformBalanceUsd, setBalanceCurrencies, refreshBalanceCurrencies, sumGroupBalanceUsd } from "./balanceCurrency";
+import { balanceToUsd, platformBalanceUsd, setBalanceCurrencies, refreshBalanceCurrencies, sumGroupBalanceUsd, useBalanceCurrencies } from "./balanceCurrency";
 import { setDisplayCurrency } from "./displayCurrency";
 import { formatMoney } from "./formatters";
 import { computeQuotaDisplay } from "../domains/platforms/health";
@@ -115,5 +116,18 @@ describe("分组余额汇总", () => {
     await refreshBalanceCurrencies();
     expect(platformBalanceUsd(9, 6.6675)).toBeCloseTo(1, 9);
     expect(platformBalanceUsd(8, 6.6675)).toBe(6.6675);
+  });
+
+  it("全部订阅卸载后注销 proxy-log-updated listen，重挂载重建", async () => {
+    h.listen.mockResolvedValue(h.unlisten);
+    const { unmount } = renderHook(() => useBalanceCurrencies());
+    await vi.waitFor(() => expect(h.listen).toHaveBeenCalledTimes(1));
+    unmount();
+    expect(h.unlisten).toHaveBeenCalledTimes(1);
+    // 重挂载：listen 重新建立（started 已复位），缓存行为不变（current 未清）
+    const { unmount: unmount2 } = renderHook(() => useBalanceCurrencies());
+    await vi.waitFor(() => expect(h.listen).toHaveBeenCalledTimes(2));
+    unmount2();
+    expect(h.unlisten).toHaveBeenCalledTimes(2);
   });
 });

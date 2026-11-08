@@ -9,8 +9,14 @@ vi.mock("../transport", () => ({ invoke: hoisted.invoke, listen: hoisted.listen 
 
 import { onProxyLogUpdated, PROXY_LOG_UPDATED, isProxyStartError } from "./proxy";
 
+function setVisible(v: boolean) {
+  Object.defineProperty(document, "visibilityState", { value: v ? "visible" : "hidden", configurable: true });
+  Object.defineProperty(document, "hidden", { value: !v, configurable: true });
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
+  setVisible(true);
   hoisted.listen.mockImplementation((_e: string, cb: (e: { payload: unknown }) => void) => {
     hoisted.handler = cb;
     return Promise.resolve(() => {});
@@ -50,6 +56,37 @@ describe("onProxyLogUpdated", () => {
     expect(good).toHaveBeenCalled();
     expect(cancelled).not.toHaveBeenCalled();
     offs.forEach((o) => o());
+  });
+
+  it("隐藏时不触发回调；恢复可见时补拉一次（覆盖隐藏期积累）", () => {
+    const cb = vi.fn();
+    const off = onProxyLogUpdated(cb, 100);
+    setVisible(false);
+    hoisted.handler!({ payload: 1 });
+    hoisted.handler!({ payload: 2 });
+    hoisted.handler!({ payload: 3 });
+    vi.advanceTimersByTime(200);
+    expect(cb).not.toHaveBeenCalled();
+    setVisible(true);
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(cb).toHaveBeenCalledTimes(1);
+    off();
+    // 清掉 afterEach 外残留的 visibilitychange 监听（off 已注销）
+    setVisible(true);
+  });
+
+  it("可见期正常 debounce；恢复可见但无隐藏期积累不触发", () => {
+    const cb = vi.fn();
+    const off = onProxyLogUpdated(cb, 100);
+    hoisted.handler!({ payload: 1 });
+    vi.advanceTimersByTime(99);
+    expect(cb).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(cb).toHaveBeenCalledTimes(1);
+    // 无 pending 时 visibilitychange 不应补拉
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(cb).toHaveBeenCalledTimes(1);
+    off();
   });
 });
 
