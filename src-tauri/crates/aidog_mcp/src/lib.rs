@@ -63,3 +63,38 @@ pub(crate) fn backend_for(agent: McpAgent) -> Box<dyn McpAgentBackend> {
         McpAgent::Codex => Box::new(CodexBackend),
     }
 }
+
+// ─── 一键卸载（magpie 票 05）：aidog 自装条目的检测 / 无条件移除 ───────────
+
+/// 哪些 agent 配置文件里存在名为 `name` 的 MCP 条目（返回 agent slug）。
+/// 只读配置文件、不看 DB enabled —— 供 `agent_config_uninstall` 的 dry_run 清单使用。
+pub fn agents_with_entry(name: &str) -> Vec<&'static str> {
+    McpAgent::all()
+        .iter()
+        .filter(|a| {
+            backend_for(**a)
+                .read_all()
+                .map(|entries| entries.iter().any(|(n, _)| n == name))
+                .unwrap_or(false)
+        })
+        .map(|a| a.slug())
+        .collect()
+}
+
+/// 无条件从所有 agent 配置移除名为 `name` 的 MCP 条目（不看 DB enabled；
+/// 与 [`domain::delete_server`] 不同：DB 行缺失时也执行）。返回条目存在且删除
+/// 成功的 agent slug。merge-by-name：只删本条目，配置文件其余内容不动。
+pub fn remove_named_from_agents(name: &str) -> Vec<&'static str> {
+    let mut removed = Vec::new();
+    for agent in McpAgent::all() {
+        let backend = backend_for(*agent);
+        let has = backend
+            .read_all()
+            .map(|entries| entries.iter().any(|(n, _)| n == name))
+            .unwrap_or(false);
+        if has && backend.remove(name).is_ok() {
+            removed.push(agent.slug());
+        }
+    }
+    removed
+}

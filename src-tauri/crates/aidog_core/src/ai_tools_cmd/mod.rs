@@ -1,3 +1,4 @@
+pub mod agent_config;
 pub mod coding_tools;
 pub mod mcp;
 pub mod model_test;

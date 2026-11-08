@@ -122,6 +122,26 @@ pub fn clear_has_completed_onboarding() -> Result<bool, String> {
     Ok(true)
 }
 
+/// 读 `~/.claude/config.json` 的 `primaryApiKey`（magpie 票 05：install 覆盖前备份原值用）。
+/// 文件不存在返回 None。
+pub fn read_plugin_primary_key() -> Result<Option<serde_json::Value>, String> {
+    let path = claude_config_path()?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    Ok(read_json_object(&path)?.get("primaryApiKey").cloned())
+}
+
+/// 读 `~/.claude.json` 的 `hasCompletedOnboarding`（magpie 票 05：install 覆盖前备份原值用）。
+/// 文件不存在返回 None。
+pub fn read_has_completed_onboarding() -> Result<Option<serde_json::Value>, String> {
+    let path = claude_dotjson_path()?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    Ok(read_json_object(&path)?.get("hasCompletedOnboarding").cloned())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
