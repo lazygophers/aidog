@@ -164,7 +164,7 @@ describe("ToolsSection", () => {
   });
 
   it("一键安装成功：展示结果元素（i18n 资源空时落原始 key，同 unverifiedBadge）", async () => {
-    m.selfInstall.mockResolvedValue({ name: "aidog", command: "/usr/local/bin/aidog-kernel", agents: ["claude-code", "codex"] });
+    m.selfInstall.mockResolvedValue({ name: "aidog", url: "http://127.0.0.1:9890/mcp", agents: ["claude-code", "codex"] });
     render(<ToolsSection />);
     await waitFor(() => expect(providerSelect().value).toBe(""));
     fireEvent.click(screen.getByTestId("mcp-tools-install"));

@@ -8,9 +8,9 @@ export const AGENT_ICONS: Record<McpAgentSlug, string> = {
   codex: codexIcon,
 };
 
-/** codex 仅 stdio；http/sse MCP 不能给 codex 启用。 */
+/** codex 支持 stdio 与 streamable http；sse MCP 不能给 codex 启用。 */
 export function agentSupported(transport: string, agent: McpAgentSlug): boolean {
-  if (agent === "codex") return transport === "stdio";
+  if (agent === "codex") return transport !== "sse";
   return true; // claude-code 支持 stdio/http/sse
 }
 

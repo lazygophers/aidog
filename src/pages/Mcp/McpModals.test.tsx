@@ -106,16 +106,16 @@ describe("McpModals 推荐区（票 09）", () => {
     expect(screen.getByText("mcp.requiredKeyHint")).toBeTruthy();
     expect(screen.getByText("https://brave.com/search/api/")).toBeTruthy();
     // stdio 不出 Codex 提示
-    expect(screen.queryByText("mcp.codexStdioOnlyHint")).toBeNull();
+    expect(screen.queryByText("mcp.codexNoSseHint")).toBeNull();
   });
 
-  it("点未装 http 卡片 → url 预填 + Codex 仅 stdio 提示", async () => {
+  it("点未装 http 卡片 → url 预填，Codex 支持 streamable http 故不出 sse 提示", async () => {
     await openAdd();
     fireEvent.click(screen.getByText("DeepWiki"));
     expect((screen.getByDisplayValue("https://mcp.deepwiki.com/mcp") as HTMLInputElement).value).toBe(
       "https://mcp.deepwiki.com/mcp",
     );
-    expect(screen.getByText("mcp.codexStdioOnlyHint")).toBeTruthy();
+    expect(screen.queryByText("mcp.codexNoSseHint")).toBeNull();
   });
 
   it("保存走 mcp_add 路径并关闭弹窗", async () => {

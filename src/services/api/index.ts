@@ -19,5 +19,6 @@ export * from "./skills";
 export * from "./mcp";
 export * from "./exchange";
 export * from "./mitm";
+export * from "./toolLog";
 export * from "./ui_extra";
 export * from "./profile";
