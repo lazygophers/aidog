@@ -238,6 +238,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
   const [todaySeriesModels, setTodaySeriesModels] = useState<StatsSeries[]>([]);
   const [todaySeriesGroups, setTodaySeriesGroups] = useState<StatsSeries[]>([]);
   const [flowRows, setFlowRows] = useState<FlowRow[]>([]);
+  const [flowClass, setFlowClass] = useState("");
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
@@ -253,7 +254,6 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
       proxyApi.getSettings().then(s => setPort(s.port)).catch(() => {}),
       trayConfigApi.todayStats().then(setToday).catch(() => setToday(null)),
       platformApi.list().then(setPlatforms).catch(() => setPlatforms([])),
-      groupFlowApi.flow("24h").then(setFlowRows).catch(() => setFlowRows([])),
       statsApi.query({ start: windowStart, end: now.getTime(), granularity: "hourly" })
         .then(r => setTrendBuckets(r.buckets)).catch(() => setTrendBuckets([])),
       // 一次 batch 六条查询：前三条 24h 只取 series（趋势图，不带 group_by 免算
@@ -288,9 +288,16 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
     setLoading(false);
   }, []);
 
+  // 请求流量卡独立拉取：请求类型过滤器变更只重拉这一路，不牵动 KPI / 趋势。
+  const loadFlow = useCallback(
+    () => groupFlowApi.flow("24h", undefined, flowClass || undefined).then(setFlowRows).catch(() => setFlowRows([])),
+    [flowClass],
+  );
+
   useEffect(() => { load(); }, [load]);
-  // 请求完成后后端 emit "proxy-log-updated" → 重载今日 / 平台用量 / 趋势。
-  useEffect(() => onProxyLogUpdated(() => { load(); }), [load]);
+  useEffect(() => { loadFlow(); }, [loadFlow]);
+  // 请求完成后后端 emit "proxy-log-updated" → 重载今日 / 平台用量 / 趋势 / 请求流量。
+  useEffect(() => onProxyLogUpdated(() => { load(); loadFlow(); }), [load, loadFlow]);
 
   const proxyBaseUrl = `http://127.0.0.1:${port}/proxy`;
   const copyUrl = useCallback(() => {
@@ -470,7 +477,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
           className={`reveal${revealFlow.shown ? " in" : ""}`}
           style={{ padding: "14px 16px", borderBottom: `1px solid ${P.line}` }}
         >
-          <HomeFlowCard rows={flowRows} platforms={platforms} ungroupedLabel={ungroupedLabel} loading={loading} />
+          <HomeFlowCard rows={flowRows} platforms={platforms} ungroupedLabel={ungroupedLabel} loading={loading} requestClass={flowClass} onRequestClassChange={setFlowClass} />
         </div>
 
         {/* 3. 维度趋势（home-dim-trend）：2026-09-27 由面板外独立玻璃卡移入面板

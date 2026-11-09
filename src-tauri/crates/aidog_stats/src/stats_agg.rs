@@ -7,8 +7,8 @@ use aidog_db::{
 use rusqlite::{Connection, OptionalExtension, params};
 use std::collections::HashMap;
 
-/// 聚合复合键：(本地小时桶, actual_model 优先, group_key, eff_pid, client, req_model)。与 stats_agg_hourly
-/// UNIQUE(time_hour,model,group_key,platform_id,client,req_model) 对应。从 proxy_log 重建/回填时内存 GROUP BY 用。
+/// 聚合复合键：(本地小时桶, actual_model 优先, group_key, eff_pid, client, req_model, request_class)。与 stats_agg_hourly
+/// UNIQUE(time_hour,model,group_key,platform_id,client,req_model,request_class) 对应。从 proxy_log 重建/回填时内存 GROUP BY 用。
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct AggKey {
     time_hour: String,
@@ -17,6 +17,7 @@ struct AggKey {
     platform_id: i64,
     client: String,
     req_model: String,
+    request_class: String,
 }
 
 /// 单桶累计值（与 stats_agg_hourly 的 request_count/success/error/sum_* 列一一对应）。
@@ -53,13 +54,19 @@ fn aggregate_proxy_logs(
         |r| r.get::<_, i64>(0),
     )? > 0;
     let client_expr = if has_client { "client" } else { "''" };
+    let has_class: bool = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('proxy_log') WHERE name = 'request_class'",
+        [],
+        |r| r.get::<_, i64>(0),
+    )? > 0;
+    let class_expr = if has_class { "request_class" } else { "''" };
     let mut stmt = conn.prepare(&format!(
         "SELECT created_at, \
                 CASE WHEN actual_model != '' THEN actual_model ELSE model END, \
                 group_key, platform_id, status_code, \
                 COALESCE(input_tokens, 0), COALESCE(output_tokens, 0), COALESCE(cache_tokens, 0), \
                 COALESCE(est_cost, 0.0), COALESCE(duration_ms, 0), \
-                {client_expr}, model \
+                {client_expr}, model, {class_expr} \
          FROM proxy_log WHERE deleted_at = 0 \
            AND request_url NOT LIKE '%count_tokens%'"
     ))?;
@@ -77,6 +84,7 @@ fn aggregate_proxy_logs(
             r.get::<_, i64>(9)?,    // duration
             r.get::<_, String>(10)?, // client
             r.get::<_, String>(11)?, // req_model（请求模型 = proxy_log.model）
+            r.get::<_, String>(12)?, // request_class
         ))
     })?;
 
@@ -95,6 +103,7 @@ fn aggregate_proxy_logs(
             dur,
             client,
             req_model,
+            request_class,
         ) = r?;
         let eff_pid = resolve_eff_pid(platform_id, &group_key, auto_map);
         let key = AggKey {
@@ -104,6 +113,7 @@ fn aggregate_proxy_logs(
             platform_id: eff_pid,
             client,
             req_model,
+            request_class,
         };
         let b = map.entry(key).or_default();
         b.request_count += 1;
@@ -131,21 +141,23 @@ fn upsert_aggregated(
     agg: &HashMap<AggKey, AggBucket>,
     now: i64,
 ) -> rusqlite::Result<()> {
-    // 迁移 20261030-02 前的旧形态行（client='' AND req_model=''）与新键行互不冲突，重建会双计：
-    // 写每个 key 前先删同 4 元组的旧形态行，真值由本批 6 元组行承接。
+    // 旧形态行与新键行互不冲突，重建会双计：写每个 key 前先删旧形态行，真值由本批行承接。
+    // ① 20261030-02 前的旧形态（同 4 元组、client='' AND req_model=''）；
+    // ② 20261110-02 前的旧形态（同 6 元组、request_class=''，重建后按类型拆成多行）。
     let mut del_legacy = conn.prepare_cached(
         "DELETE FROM stats_agg_hourly \
          WHERE time_hour = ?1 AND model = ?2 AND group_key = ?3 AND platform_id = ?4 \
-           AND client = '' AND req_model = ''",
+           AND ((client = '' AND req_model = '') \
+                OR (client = ?5 AND req_model = ?6 AND request_class = ''))",
     )?;
     let mut stmt = conn.prepare(
         "INSERT INTO stats_agg_hourly \
-         (time_hour, model, group_key, platform_id, client, req_model, \
+         (time_hour, model, group_key, platform_id, client, req_model, request_class, \
           request_count, success_count, error_count, \
           sum_input_tokens, sum_output_tokens, sum_cache_tokens, \
           sum_est_cost, sum_duration_ms, created_at, updated_at, deleted_at) \
-         VALUES (?1, ?2, ?3, ?4, ?14, ?15, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13, 0) \
-         ON CONFLICT(time_hour, model, group_key, platform_id, client, req_model) DO UPDATE SET \
+         VALUES (?1, ?2, ?3, ?4, ?14, ?15, ?16, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13, 0) \
+         ON CONFLICT(time_hour, model, group_key, platform_id, client, req_model, request_class) DO UPDATE SET \
           request_count = excluded.request_count, \
           success_count = excluded.success_count, \
           error_count = excluded.error_count, \
@@ -159,7 +171,7 @@ fn upsert_aggregated(
     // 先整批删完旧形态行再写：边删边写时，某 key 的删除会误删同 4 元组下本批已写入的
     // client=''/req_model='' 真实新行（HashMap 迭代序任意）。
     for k in agg.keys() {
-        del_legacy.execute(params![k.time_hour, k.model, k.group_key, k.platform_id])?;
+        del_legacy.execute(params![k.time_hour, k.model, k.group_key, k.platform_id, k.client, k.req_model])?;
     }
     for (k, b) in agg {
         stmt.execute(params![
@@ -178,6 +190,7 @@ fn upsert_aggregated(
             now,
             k.client,
             k.req_model,
+            k.request_class,
         ])?;
     }
     Ok(())
@@ -215,6 +228,8 @@ pub struct StatsAggInput {
     pub client: String,
     /// 请求模型（`proxy_log.model`，客户端请求里的模型名）。
     pub req_model: String,
+    /// Claude Code 请求类型（`proxy_log.request_class`）；空串 = 未知。
+    pub request_class: String,
     pub status_code: i32,
     pub input_tokens: i64,
     pub output_tokens: i64,
@@ -223,7 +238,7 @@ pub struct StatsAggInput {
     pub duration_ms: i64,
 }
 
-/// 对一条终态请求按 (time_hour,model,group_key,platform_id,client,req_model) UPSERT 进 stats_agg_hourly。
+/// 对一条终态请求按 (time_hour,model,group_key,platform_id,client,req_model,request_class) UPSERT 进 stats_agg_hourly。
 /// eff_pid 写时物化：platform_id!=0 直接用（零查询）；=0 才 `load_auto_from_map` 内存回溯，
 /// 替代旧 SQL 内 `CASE WHEN ?4=0 THEN (SELECT ... FROM "group")` 标量子查询。
 /// 写入【不受日志开关影响】：proxy 终态路径无条件调用。失败非致命（调用方 warn 不中断请求）。
@@ -260,15 +275,15 @@ pub fn upsert_stats_agg(
             let error = if is_2xx { 0i64 } else { 1 };
             conn.execute(
                 "INSERT INTO stats_agg_hourly \
-                 (time_hour, model, group_key, platform_id, client, req_model, \
+                 (time_hour, model, group_key, platform_id, client, req_model, request_class, \
                   request_count, success_count, error_count, \
                   sum_input_tokens, sum_output_tokens, sum_cache_tokens, \
                   sum_est_cost, sum_duration_ms, created_at, updated_at, deleted_at) \
                  VALUES ( \
                   strftime('%Y-%m-%d %H:00:00', ?1/1000, 'unixepoch', 'localtime'), \
-                  ?2, ?3, ?4, ?13, ?14, \
+                  ?2, ?3, ?4, ?13, ?14, ?15, \
                   1, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12, 0) \
-                 ON CONFLICT(time_hour, model, group_key, platform_id, client, req_model) DO UPDATE SET \
+                 ON CONFLICT(time_hour, model, group_key, platform_id, client, req_model, request_class) DO UPDATE SET \
                   request_count = request_count + 1, \
                   success_count = success_count + ?5, \
                   error_count = error_count + ?6, \
@@ -293,6 +308,7 @@ pub fn upsert_stats_agg(
                     now,
                     input.client,
                     input.req_model,
+                    input.request_class,
                 ],
             )?;
             Ok(())
@@ -406,7 +422,7 @@ pub async fn correct_count_tokens_agg_once_if_needed(db: &Db) -> Result<bool, St
         // ① 覆盖写有 backing 行的桶。
         upsert_aggregated(conn, &agg, now)?;
         // ② 删孤儿桶（stats_agg 有但过滤后聚合无 → 纯 count_tokens 贡献，扣净后应为 0）。
-        type Key = (String, String, String, i64, String, String);
+        type Key = (String, String, String, i64, String, String, String);
         let keep: std::collections::HashSet<Key> = agg
             .keys()
             .map(|k| {
@@ -417,13 +433,14 @@ pub async fn correct_count_tokens_agg_once_if_needed(db: &Db) -> Result<bool, St
                     k.platform_id,
                     k.client.clone(),
                     k.req_model.clone(),
+                    k.request_class.clone(),
                 )
             })
             .collect();
         let mut existing: Vec<Key> = Vec::new();
         {
             let mut stmt = conn.prepare(
-                "SELECT time_hour, model, group_key, platform_id, client, req_model FROM stats_agg_hourly",
+                "SELECT time_hour, model, group_key, platform_id, client, req_model, request_class FROM stats_agg_hourly",
             )?;
             let rows = stmt.query_map([], |r| {
                 Ok((
@@ -433,6 +450,7 @@ pub async fn correct_count_tokens_agg_once_if_needed(db: &Db) -> Result<bool, St
                     r.get::<_, i64>(3)?,
                     r.get::<_, String>(4)?,
                     r.get::<_, String>(5)?,
+                    r.get::<_, String>(6)?,
                 ))
             })?;
             for r in rows {
@@ -442,11 +460,11 @@ pub async fn correct_count_tokens_agg_once_if_needed(db: &Db) -> Result<bool, St
         let mut del = conn.prepare(
             "DELETE FROM stats_agg_hourly \
              WHERE time_hour = ?1 AND model = ?2 AND group_key = ?3 AND platform_id = ?4 \
-               AND client = ?5 AND req_model = ?6",
+               AND client = ?5 AND req_model = ?6 AND request_class = ?7",
         )?;
         for k in &existing {
             if !keep.contains(k) {
-                del.execute(params![k.0, k.1, k.2, k.3, k.4, k.5])?;
+                del.execute(params![k.0, k.1, k.2, k.3, k.4, k.5, k.6])?;
             }
         }
         Ok(())

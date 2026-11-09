@@ -10,6 +10,7 @@ import { CopyCurlButtons } from "./CopyCurlButtons";
 import { RoutingCanvas } from "./RoutingCanvas";
 import { useProtocolLabel } from "../../domains/platforms/useProtocolMeta";
 import type { Protocol } from "../../services/api";
+import { requestClassLabel } from "../../utils/requestClass";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -62,16 +63,6 @@ interface DetailBodyProps {
   onNavigate?: (id: string) => void;
 }
 
-/** Claude Code `x-claude-code-request-class` 已知取值 → 中文兜底（locale key `logs.requestClass.<值>`）；未知值原样展示。 */
-const REQUEST_CLASS_FALLBACK: Record<string, string> = {
-  main: "主对话",
-  subagent: "子代理",
-  workflow: "工作流",
-  compaction: "压缩",
-  auxiliary: "辅助",
-  side_reply: "旁路回复",
-};
-
 function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copyDetail, platformMap, groupName, onBack, onNavigate }: DetailBodyProps) {
   const reqHeaders = safeParseJson(detail.request_headers);
   const reqBody = safeParseJson(detail.request_body);
@@ -96,11 +87,7 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
   const sourceLabel = useProtocolLabel(detail.source_protocol as Protocol | undefined, i18n.language);
   const targetLabel = useProtocolLabel(detail.target_protocol as Protocol | undefined, i18n.language);
 
-  const requestClassLabel = !detail.request_class
-    ? "-"
-    : detail.request_class in REQUEST_CLASS_FALLBACK
-      ? t(`logs.requestClass.${detail.request_class}`, REQUEST_CLASS_FALLBACK[detail.request_class])
-      : detail.request_class;
+  const requestClassText = requestClassLabel(t, detail.request_class);
 
   return (
     <>
@@ -157,7 +144,7 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
         <MetaItem label={t("logs.actualModel", "实际模型")} value={detail.actual_model && detail.actual_model !== detail.model ? detail.actual_model : "-"} copyText={detail.actual_model && detail.actual_model !== detail.model ? detail.actual_model : undefined} t={t} />
         <MetaItem label={t("logs.client", "客户端")} value={detail.client || "-"} copyText={detail.client || undefined} testId="detail-client" t={t} />
         <MetaItem label={t("logs.userAgent", "UA")} value={detail.user_agent || "-"} copyText={detail.user_agent || undefined} testId="detail-user-agent" t={t} />
-        <MetaItem label={t("logs.requestClassLabel", "请求类型")} value={requestClassLabel} copyText={detail.request_class || undefined} testId="detail-request-class" t={t} />
+        <MetaItem label={t("logs.requestClassLabel", "请求类型")} value={requestClassText} copyText={detail.request_class || undefined} testId="detail-request-class" t={t} />
         <MetaItem label={t("logs.agentType", "子代理类型")} value={detail.agent_type || "-"} copyText={detail.agent_type || undefined} testId="detail-agent-type" t={t} />
         <MetaItem label={t("logs.sourceProtocol", "用户格式")} value={sourceLabel || detail.source_protocol || "-"} copyText={detail.source_protocol} t={t} />
         <MetaItem label={t("logs.targetProtocol", "请求格式")} value={targetLabel || detail.target_protocol || "-"} copyText={detail.target_protocol} t={t} />

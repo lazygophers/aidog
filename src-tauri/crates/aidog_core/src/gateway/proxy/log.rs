@@ -398,6 +398,7 @@ pub(crate) async fn process_upsert(
             platform_id: log.platform_id as i64,
             client: log.client.clone(),
             req_model: log.model.clone(),
+            request_class: log.request_class.clone(),
             status_code: log.status_code,
             input_tokens: log.input_tokens as i64,
             output_tokens: log.output_tokens as i64,

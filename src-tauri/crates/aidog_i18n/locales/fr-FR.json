@@ -529,6 +529,8 @@
   "group.flow.today": "Aujourd'hui",
   "group.flow.7d": "7 jours",
   "group.flow.tokens": "Tokens",
+  "flow.requestClass.all": "Tous",
+  "flow.requestClass.unknown": "Inconnu",
   "flow.client.unknown": "Inconnu",
   "flow.client.other": "Autre client",
   "flow.client.claude_code": "Claude Code",

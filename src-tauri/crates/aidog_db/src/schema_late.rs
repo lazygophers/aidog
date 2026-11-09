@@ -179,6 +179,9 @@ pub fn run_migrations_late(
     // 存量行 client='' req_model=''（=未知），手动 rebuild 时 upsert_aggregated 先删这类旧形态行防双计。
     rebuild_stats_agg_six_tuple(conn)?;
 
+    // Migration 20261110-02 (Claude Code 请求类型): stats_agg_hourly 加 request_class 维度（请求流量 / 流向按请求类型过滤）。
+    rebuild_stats_agg_request_class(conn)?;
+
     // Migration 20260824-02 (票 01 统一中间件引擎): middleware_rule 表迁移到统一模型。
     // 新增 conditions/actions/applies_to/failed 列；旧 8 类列按规则翻译为
     // ConditionNode/ActionStep/AppliesTo JSON（翻译不了的 → failed=1，前端引导手删）；
@@ -378,6 +381,42 @@ CREATE INDEX IF NOT EXISTS idx_oauth_usage_sample_group_sampled ON oauth_usage_s
 );"#,
     )?;
     crate::session_name::purge_stale_session_names(conn)?;
+    Ok(())
+}
+
+/// Migration 20261110-02 本体：stats_agg_hourly 加 request_class 并把 UNIQUE 升为 7 元组。
+/// 做法同 `rebuild_stats_agg_six_tuple`（改名 → 新 DDL → 显式列拷贝 → DROP，事务内）；
+/// 幂等判据 PRAGMA table_info 已有 request_class 列。存量行 request_class=''（=未知），不回填。
+pub(crate) fn rebuild_stats_agg_request_class(conn: &Connection) -> SqlResult<()> {
+    let has_col = conn
+        .prepare("PRAGMA table_info(stats_agg_hourly)")?
+        .query_map([], |r| r.get::<_, String>(1))?
+        .filter_map(Result::ok)
+        .any(|c| c == "request_class");
+    if !has_col {
+        let tx = conn.unchecked_transaction()?;
+        tx.execute_batch(
+            "ALTER TABLE stats_agg_hourly RENAME TO stats_agg_hourly_old;
+             DROP INDEX IF EXISTS idx_stats_agg_time;
+             DROP INDEX IF EXISTS idx_stats_agg_platform;",
+        )?;
+        tx.execute_batch(STATS_AGG_HOURLY_SQL)?;
+        tx.execute_batch(
+            "INSERT INTO stats_agg_hourly \
+             (time_hour, model, group_key, platform_id, client, req_model, \
+              request_count, success_count, error_count, \
+              sum_input_tokens, sum_output_tokens, sum_cache_tokens, \
+              sum_est_cost, sum_duration_ms, created_at, updated_at, deleted_at) \
+             SELECT time_hour, model, group_key, platform_id, client, req_model, \
+              request_count, success_count, error_count, \
+              sum_input_tokens, sum_output_tokens, sum_cache_tokens, \
+              sum_est_cost, sum_duration_ms, created_at, updated_at, deleted_at \
+             FROM stats_agg_hourly_old;
+             DROP TABLE stats_agg_hourly_old;",
+        )?;
+        tx.commit()?;
+        tracing::info!("migration 20261110-02: stats_agg_hourly 重建为 7 元组 UNIQUE + request_class");
+    }
     Ok(())
 }
 

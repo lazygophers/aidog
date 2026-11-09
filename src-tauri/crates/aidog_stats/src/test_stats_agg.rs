@@ -16,6 +16,7 @@ async fn upsert_stats_agg_accumulates_and_classifies() {
         platform_id: 1,
         client: String::new(),
         req_model: String::new(),
+        request_class: String::new(),
         status_code: status,
         input_tokens: 10,
         output_tokens: 20,
@@ -39,6 +40,84 @@ async fn upsert_stats_agg_accumulates_and_classifies() {
     assert_eq!(err, 1, "1 条非 2xx");
     assert_eq!(inp, 30, "input 累加 10*3");
     assert!((cost - 0.03).abs() < 1e-9, "cost 累加 0.01*3");
+}
+
+/// request_class 是聚合键维度：同桶不同类型分行，同类型累加。
+#[tokio::test]
+async fn upsert_stats_agg_splits_by_request_class() {
+    let db = test_db().await;
+    let now = chrono::Utc::now().timestamp_millis();
+    let mk = |class: &str| StatsAggInput {
+        created_at: now,
+        model: "m".into(),
+        group_key: "g1".into(),
+        platform_id: 1,
+        client: "claude-code".into(),
+        req_model: "opus".into(),
+        request_class: class.into(),
+        status_code: 200,
+        input_tokens: 1,
+        output_tokens: 1,
+        cache_tokens: 0,
+        est_cost: 0.0,
+        duration_ms: 1,
+    };
+    for c in ["main", "main", "subagent", ""] {
+        upsert_stats_agg(&db, mk(c)).await.unwrap();
+    }
+    let rows: Vec<(String, i64)> = db
+        .call_traced(None, std::panic::Location::caller(), |conn| {
+            let mut st = conn.prepare("SELECT request_class, request_count FROM stats_agg_hourly ORDER BY request_class")?;
+            let v = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<rusqlite::Result<Vec<_>>>()?;
+            Ok(v)
+        })
+        .await
+        .unwrap();
+    assert_eq!(rows, vec![("".to_string(), 1), ("main".into(), 2), ("subagent".into(), 1)]);
+}
+
+/// rebuild 按 request_class 拆桶；同 6 元组下 request_class='' 的旧行被真值替换，不双计。
+#[tokio::test]
+async fn rebuild_splits_by_request_class_without_double_counting_blank_row() {
+    let db = test_db().await;
+    let now = chrono::Utc::now().timestamp_millis();
+    upsert_stats_agg(
+        &db,
+        StatsAggInput {
+            created_at: now,
+            model: "glm".into(),
+            group_key: "g1".into(),
+            platform_id: 1,
+            client: String::new(),
+            req_model: String::new(),
+            request_class: String::new(),
+            status_code: 200,
+            input_tokens: 1,
+            output_tokens: 0,
+            cache_tokens: 0,
+            est_cost: 0.0,
+            duration_ms: 0,
+        },
+    )
+    .await
+    .unwrap();
+    for (id, class) in [("rc1", "main"), ("rc2", "main"), ("rc3", "subagent")] {
+        let mut l = sample_log(id, "g1", now);
+        l.actual_model = "glm".into();
+        l.platform_id = 1;
+        l.request_class = class.into();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l, false, false)).await.unwrap();
+    }
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
+    let rows: Vec<(String, i64)> = db
+        .call_traced(None, std::panic::Location::caller(), |conn| {
+            let mut st = conn.prepare("SELECT request_class, request_count FROM stats_agg_hourly ORDER BY request_class")?;
+            let v = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<rusqlite::Result<Vec<_>>>()?;
+            Ok(v)
+        })
+        .await
+        .unwrap();
+    assert_eq!(rows, vec![("main".to_string(), 2), ("subagent".into(), 1)], "旧 '' 行被替换");
 }
 
 /// 回填幂等：migration 20260727-16（历史 011 file / 032 inline / 051 inline）已在 init 回填；
@@ -208,6 +287,7 @@ async fn rebuild_overwrites_existing_row_no_doubling() {
             platform_id: 1,
             client: String::new(),
             req_model: String::new(),
+            request_class: String::new(),
             status_code: 200,
             input_tokens: 99,
             output_tokens: 0,
@@ -262,6 +342,7 @@ async fn rebuild_preserves_rows_without_matching_proxy_log() {
             platform_id: 7,
             client: String::new(),
             req_model: String::new(),
+            request_class: String::new(),
             status_code: 200,
             input_tokens: 42,
             output_tokens: 0,
@@ -320,6 +401,7 @@ async fn correct_count_tokens_removes_orphan_buckets_and_overwrites_backed_ones(
             platform_id: chat.platform_id as i64,
             client: String::new(),
             req_model: String::new(),
+            request_class: String::new(),
             status_code: 200,
             input_tokens: 9999,
             output_tokens: 0,
@@ -348,6 +430,7 @@ async fn correct_count_tokens_removes_orphan_buckets_and_overwrites_backed_ones(
             platform_id: 9,
             client: String::new(),
             req_model: String::new(),
+            request_class: String::new(),
             status_code: 200,
             input_tokens: 5000,
             output_tokens: 0,
@@ -411,6 +494,7 @@ async fn cleanup_stats_agg_keeps_everything_when_retention_is_zero() {
             platform_id: 1,
             client: String::new(),
             req_model: String::new(),
+            request_class: String::new(),
             status_code: 200,
             input_tokens: 1,
             output_tokens: 1,
@@ -537,6 +621,7 @@ async fn upsert_stats_agg_stores_ua_client_code_and_reads_back() {
                 platform_id: 1,
                 client: client.into(),
                 req_model: String::new(),
+                request_class: String::new(),
                 status_code: 200,
                 input_tokens: 1,
                 output_tokens: 1,

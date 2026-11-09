@@ -64,6 +64,61 @@ fn rebuild_keeps_rows_adds_columns_6_tuple_unique_and_is_idempotent() {
     assert_eq!(count(&conn, "SELECT COUNT(*) FROM stats_agg_hourly"), before);
 }
 
+/// 20261110-02 之前的 stats_agg_hourly（6 元组 UNIQUE + 两个索引）。
+const SIX_TUPLE_DDL: &str = "CREATE TABLE stats_agg_hourly (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, time_hour TEXT NOT NULL, model TEXT NOT NULL DEFAULT '',
+    group_key TEXT NOT NULL DEFAULT '', platform_id INTEGER NOT NULL DEFAULT 0,
+    client TEXT NOT NULL DEFAULT '', req_model TEXT NOT NULL DEFAULT '',
+    request_count INTEGER NOT NULL DEFAULT 0, success_count INTEGER NOT NULL DEFAULT 0,
+    error_count INTEGER NOT NULL DEFAULT 0, sum_input_tokens INTEGER NOT NULL DEFAULT 0,
+    sum_output_tokens INTEGER NOT NULL DEFAULT 0, sum_cache_tokens INTEGER NOT NULL DEFAULT 0,
+    sum_est_cost REAL NOT NULL DEFAULT 0, sum_duration_ms INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL DEFAULT 0,
+    deleted_at INTEGER NOT NULL DEFAULT 0, UNIQUE(time_hour, model, group_key, platform_id, client, req_model));
+CREATE INDEX idx_stats_agg_time ON stats_agg_hourly(time_hour);
+CREATE INDEX idx_stats_agg_platform ON stats_agg_hourly(platform_id);";
+
+fn insert7(conn: &Connection, class: &str) -> rusqlite::Result<usize> {
+    conn.execute(
+        "INSERT INTO stats_agg_hourly (time_hour, model, group_key, platform_id, client, req_model, request_class) \
+         VALUES ('2026-10-30 10:00:00','mx','g',1,'c','r',?1)",
+        [class],
+    )
+}
+
+#[test]
+fn rebuild_adds_request_class_7_tuple_unique_and_is_idempotent() {
+    let conn = Connection::open_in_memory().unwrap();
+    conn.execute_batch(SIX_TUPLE_DDL).unwrap();
+    for i in 0..3 {
+        conn.execute(
+            "INSERT INTO stats_agg_hourly (time_hour, model, group_key, platform_id, client, req_model, request_count, sum_est_cost) \
+             VALUES ('2026-10-30 10:00:00', ?1, 'g', 1, 'c', 'r', 5, 1.5)",
+            [format!("m{i}")],
+        )
+        .unwrap();
+    }
+    crate::schema_late::rebuild_stats_agg_request_class(&conn).unwrap();
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM pragma_table_info('stats_agg_hourly') WHERE name='request_class'"), 1);
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM stats_agg_hourly"), 3, "行数不变");
+    assert_eq!(
+        count(&conn, "SELECT COUNT(*) FROM stats_agg_hourly WHERE request_class='' AND client='c' AND request_count=5 AND sum_est_cost=1.5"),
+        3,
+        "新列 ''，旧值保留"
+    );
+    assert_eq!(
+        count(&conn, "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name IN ('idx_stats_agg_time','idx_stats_agg_platform')"),
+        2
+    );
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM sqlite_master WHERE name='stats_agg_hourly_old'"), 0);
+    insert7(&conn, "main").unwrap();
+    insert7(&conn, "subagent").unwrap();
+    assert!(insert7(&conn, "main").is_err(), "7 元组冲突");
+    let before = count(&conn, "SELECT COUNT(*) FROM stats_agg_hourly");
+    crate::schema_late::rebuild_stats_agg_request_class(&conn).unwrap();
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM stats_agg_hourly"), before, "幂等");
+}
+
 #[tokio::test]
 async fn fresh_install_is_new_shape_and_proxy_log_has_client() {
     let (db, _dir) = three_file_db().await;
@@ -81,14 +136,14 @@ async fn fresh_install_is_new_shape_and_proxy_log_has_client() {
     let agg_cols: i64 = db
         .call_read_traced(None, std::panic::Location::caller(), |c| {
             Ok(c.query_row(
-                "SELECT COUNT(*) FROM pragma_table_info('stats_agg_hourly') WHERE name IN ('client','req_model')",
+                "SELECT COUNT(*) FROM pragma_table_info('stats_agg_hourly') WHERE name IN ('client','req_model','request_class')",
                 [],
                 |r| r.get(0),
             )?)
         })
         .await
         .unwrap();
-    assert_eq!(agg_cols, 2, "新装直接新形态");
+    assert_eq!(agg_cols, 3, "新装直接新形态");
 }
 
 /// 跨库搬迁：log.db 带旧形态 stats_agg_hourly，主库已是新形态 → 显式列清单搬迁，不报列数不匹配。

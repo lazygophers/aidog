@@ -6,6 +6,7 @@ import { groupFlowApi, type FlowRow, type GroupPlatformDetail } from "../../serv
 import { FlowChart, type FlowMetric } from "../../components/charts/FlowChart";
 import { useDisplayCurrency } from "../../utils/displayCurrency";
 import { clientLabel } from "../../utils/clientLabel";
+import { RequestClassFilter } from "../../components/RequestClassFilter";
 
 type Window = "7d" | "today";
 const METRICS: FlowMetric[] = ["tokens", "requests", "cost"];
@@ -15,18 +16,19 @@ export function GroupFlowPanel({ groupKey, gps }: { groupKey: string; gps: Group
   const { t } = useTranslation();
   const [win, setWin] = useState<Window>("7d");
   const [metric, setMetric] = useState<FlowMetric>("tokens");
+  const [requestClass, setRequestClass] = useState("");
   const [rows, setRows] = useState<FlowRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    groupFlowApi.flow(win, groupKey)
+    groupFlowApi.flow(win, groupKey, requestClass || undefined)
       .then(r => { if (!cancelled) setRows(r); })
       .catch(() => { if (!cancelled) setRows([]); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [groupKey, win]);
+  }, [groupKey, win, requestClass]);
 
   const columns = useMemo(() => {
     const platName = (id: string) => (id === "0" ? t("flow.platform.none", "未路由") : (gps.find(g => String(g.platform.id) === id)?.platform.platform_type ?? `#${id}`));
@@ -46,7 +48,9 @@ export function GroupFlowPanel({ groupKey, gps }: { groupKey: string; gps: Group
       style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 12.5, fontWeight: 600 }}>{t("group.flow.title", "请求流向")}</span>
-        <div style={{ display: "flex", gap: 4 }}>
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <RequestClassFilter value={requestClass} onChange={setRequestClass} />
+          <span style={{ width: 8 }} />
           {(["7d", "today"] as Window[]).map(w => (
             <button key={w} type="button" data-testid={`flow-win-${w}`} data-state={win === w ? "on" : "off"} onClick={() => setWin(w)} style={btn(win === w)}>
               {t(`group.flow.${w}`, w === "7d" ? "近 7 天" : "今天")}

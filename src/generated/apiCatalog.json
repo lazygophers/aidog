@@ -3167,6 +3167,10 @@
         {
           "name": "groupKey",
           "type": "Option<String>"
+        },
+        {
+          "name": "requestClass",
+          "type": "Option<String>"
         }
       ],
       "returns": "Vec<gateway::models::FlowRow>"

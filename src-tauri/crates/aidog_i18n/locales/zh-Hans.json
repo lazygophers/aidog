@@ -529,6 +529,8 @@
   "group.flow.today": "今天",
   "group.flow.7d": "近 7 天",
   "group.flow.tokens": "Token",
+  "flow.requestClass.all": "全部",
+  "flow.requestClass.unknown": "未知",
   "flow.client.unknown": "未知",
   "flow.client.other": "其他客户端",
   "flow.client.claude_code": "Claude Code",
