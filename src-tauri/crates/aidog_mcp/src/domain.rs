@@ -208,7 +208,7 @@ pub async fn set_agent_enabled(
         .await?
         .ok_or_else(|| format!("mcp server not found: {name}"))?;
 
-    // transport 兼容检查（codex 仅 stdio）。
+    // transport 兼容检查（codex 不支持 sse）。
     let transport = row.transport_enum();
     if enabled && !transport.supported_by(agent) {
         return Err(format!(

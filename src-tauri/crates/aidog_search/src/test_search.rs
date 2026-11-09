@@ -2,18 +2,18 @@
 //! （test-no-real-calls.md）。断言请求形状（path / 鉴权头 / body 字段）与响应解析。
 
 use super::*;
-use aidog_core::mcp_tools::SearchProviderConfig;
+
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
 /// 假上游 handler：收 (method, path, 小写头列表, body)，回 (status, content-type, body)。
-type Handler =
+pub(crate) type Handler =
     Arc<dyn Fn(String, String, Vec<String>, String) -> (u16, String, String) + Send + Sync>;
 
 /// 起本地假上游，返回端口。请求按「一次读尽（测试请求都小）→ 回一包 → 关连接」处理。
-async fn spawn_stub(handler: Handler) -> u16 {
+pub(crate) async fn spawn_stub(handler: Handler) -> u16 {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
     tokio::spawn(async move {
@@ -58,6 +58,7 @@ fn cfg(provider: &str, keys: &[&str]) -> SearchProviderConfig {
         keys: keys.iter().map(|k| k.to_string()).collect(),
         enabled: true,
         searxng_base_urls: vec![],
+        engines: Default::default(),
     }
 }
 
@@ -141,42 +142,6 @@ async fn firecrawl_bearer_and_parse() {
 }
 
 #[tokio::test]
-async fn searxng_json_format_and_multi_instance() {
-    let calls = Arc::new(AtomicUsize::new(0));
-    let c2 = calls.clone();
-    let port = spawn_stub(Arc::new(move |method, path, _headers, _body| {
-        assert_eq!(method, "GET");
-        assert!(path.starts_with("/search?q=hi&format=json"), "path={path}");
-        // 首个实例 500 → 落到第二个（用同一端口模拟两次实例，计数区分）
-        let n = c2.fetch_add(1, Ordering::SeqCst);
-        if n == 0 {
-            (500, "application/json".into(), "boom".into())
-        } else {
-            (200, "application/json".into(), r#"{"results":[{"title":"S1","url":"https://s.example/1","content":"searx content"}]}"#.into())
-        }
-    }))
-    .await;
-    let base = format!("http://127.0.0.1:{port}");
-    let mut sc = cfg("searxng", &[]);
-    sc.searxng_base_urls = vec![base.clone(), base.clone()];
-    let hits = web_search(&sc, "hi", None).await.unwrap();
-    assert_eq!(hits[0].title, "S1");
-    assert_eq!(hits[0].snippet, "searx content");
-    assert!(calls.load(Ordering::SeqCst) >= 2);
-}
-
-#[tokio::test]
-async fn searxng_all_instances_fail_aggregates() {
-    let port = spawn_stub(Arc::new(|_m, _p, _h, _b| (500, "application/json".into(), "x".into()))).await;
-    let base = format!("http://127.0.0.1:{port}");
-    let mut sc = cfg("searxng", &[]);
-    sc.searxng_base_urls = vec![base.clone(), base.clone()];
-    let err = web_search(&sc, "hi", None).await.unwrap_err();
-    assert!(err.contains("全部 2 个 SearXNG 实例失败"), "err={err}");
-    assert!(err.contains(&base), "聚合错误要带实例地址: {err}");
-}
-
-#[tokio::test]
 async fn rotation_tries_all_keys_until_success() {
     let tries = Arc::new(AtomicUsize::new(0));
     let t2 = tries.clone();
@@ -214,13 +179,13 @@ async fn unverified_providers_return_explicit_error() {
 }
 
 #[tokio::test]
-async fn not_configured_and_disabled_are_explicit() {
-    let err = web_search(&SearchProviderConfig::default(), "q", None).await.unwrap_err();
-    assert!(err.contains("未配置"), "err={err}");
-    let mut sc = cfg("tavily", &["k"]);
-    sc.enabled = false;
+async fn nothing_configured_and_all_engines_off_is_explicit() {
+    let mut sc = SearchProviderConfig::default();
+    for e in crate::engines::ENGINES {
+        sc.engines.insert(e.id.to_string(), false);
+    }
     let err = web_search(&sc, "q", None).await.unwrap_err();
-    assert!(err.contains("已禁用"), "err={err}");
+    assert!(err.contains("未配置"), "err={err}");
 }
 
 #[tokio::test]
@@ -269,6 +234,6 @@ fn html_to_text_handles_numeric_entities_and_plain_text() {
 #[test]
 fn format_shapes_hits_and_empty() {
     assert_eq!(format_hits(&[]), "（无结果）");
-    let s = format_hits(&[SearchHit { title: "T".into(), url: "https://u".into(), snippet: "s".into() }]);
+    let s = format_hits(&[SearchHit { title: "T".into(), url: "https://u".into(), snippet: "s".into(), page_age: None }]);
     assert!(s.contains("1. T") && s.contains("https://u") && s.contains('s'), "s={s}");
 }

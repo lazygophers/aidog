@@ -46,6 +46,7 @@ aidog_mitm = { path = "../aidog_mitm" }
 aidog_notification = { path = "../aidog_notification" }
 aidog_hooks = { path = "../aidog_hooks" }
 aidog_adapter = { path = "../aidog_adapter" }
+aidog_search = { path = "../aidog_search" }
 aidog_middleware = { path = "../aidog_middleware" }
 aidog_stats = { path = "../aidog_stats" }
 serde_yml = { workspace = true }

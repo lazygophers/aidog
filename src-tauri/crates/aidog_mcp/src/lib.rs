@@ -8,7 +8,7 @@
 //!
 //! Agent 配置后端：
 //! - ClaudeCode: `~/.claude.json` 的 `mcpServers`（JSON object）
-//! - Codex: `~/.codex/config.toml` 的 `[mcp_servers.<name>]`（TOML，仅 stdio）
+//! - Codex: `~/.codex/config.toml` 的 `[mcp_servers.<name>]`（TOML，stdio + streamable http）
 //!
 //! 敏感：env/headers 可能含 token/key/secret，前端展示经 `mask_env` 脱敏（`***`），
 //! DB 存原值，写 agent 配置用原值（非脱敏值）。

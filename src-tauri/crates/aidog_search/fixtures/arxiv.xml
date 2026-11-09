@@ -1,0 +1,170 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom" xmlns="http://www.w3.org/2005/Atom">
+  <id>https://arxiv.org/api/L8ovMx0Fn5uScEKmcyvfMO/yUO0</id>
+  <title>arXiv Query: search_query=all:rust OR all:async&amp;id_list=&amp;start=0&amp;max_results=5</title>
+  <updated>2026-11-09T09:07:34Z</updated>
+  <link href="https://arxiv.org/api/query?search_query=all:rust+OR+all:async&amp;start=0&amp;max_results=5&amp;id_list=" type="application/atom+xml"/>
+  <opensearch:itemsPerPage>5</opensearch:itemsPerPage>
+  <opensearch:totalResults>1115</opensearch:totalResults>
+  <opensearch:startIndex>0</opensearch:startIndex>
+  <entry>
+    <id>http://arxiv.org/abs/2610.09198v1</id>
+    <title>Modular Responsiveness Verification of Rust Async Runtimes</title>
+    <updated>2026-10-06T22:49:50Z</updated>
+    <link href="https://arxiv.org/abs/2610.09198v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2610.09198v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Asynchronous (async) programming is a popular paradigm for managing concurrency. Languages that provide async support typically have a runtime to manage asynchronous executions. These runtimes are critical infrastructure, yet verifying them has received little attention. One reason is that a property that users care most about from an async runtime is a liveness property: tasks submitted to the runtime eventually make progress. Verifying liveness is challenging for libraries that are both concurrent and highly optimized. We present a lightweight and modular proof technique for verifying eventual progression guarantees for Rust async runtimes. We describe this technique in the context of a simple language based on Rust and Rust's async model. We then realize this proof technique as a set of static analyses for Rust and use these to verify eventual progression of several key components of multiple Rust async runtime implementations.</summary>
+    <category term="cs.PL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-10-06T22:49:50Z</published>
+    <arxiv:comment>To appear at ESOP 2027, preprint with appendix</arxiv:comment>
+    <arxiv:primary_category term="cs.PL"/>
+    <author>
+      <name>Yanze Li</name>
+    </author>
+    <author>
+      <name>Ivan Beschastnikh</name>
+    </author>
+    <author>
+      <name>Alexander J. Summers</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2602.07455v1</id>
+    <title>RustCompCert: A Verified and Verifying Compiler for a Sequential Subset of Rust</title>
+    <updated>2026-02-07T09:15:35Z</updated>
+    <link href="https://arxiv.org/abs/2602.07455v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2602.07455v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>We present our ongoing work on developing an end-to-end verified Rust compiler based on CompCert. It provides two guarantees: one is semantics preservation from Rust to assembly, i.e., the behaviors of source code includes the behaviors of target code, with which the properties verified at the source can be preserved down to the target; the other is memory safety ensured by the verifying compilation -- the borrow checking pass, which can simplify the verification of Rust programs, e.g., by allowing the verification tools focus on the functional correctness.</summary>
+    <category term="cs.PL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-02-07T09:15:35Z</published>
+    <arxiv:comment>Submitted to Rust Verify 2026</arxiv:comment>
+    <arxiv:primary_category term="cs.PL"/>
+    <author>
+      <name>Jinhua Wu</name>
+    </author>
+    <author>
+      <name>Yuting Wang</name>
+    </author>
+    <author>
+      <name>Liukun Yu</name>
+    </author>
+    <author>
+      <name>Linglong Meng</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2211.14306v2</id>
+    <title>RUST: Latent Neural Scene Representations from Unposed Imagery</title>
+    <updated>2023-03-24T16:56:25Z</updated>
+    <link href="https://arxiv.org/abs/2211.14306v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2211.14306v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Inferring the structure of 3D scenes from 2D observations is a fundamental challenge in computer vision. Recently popularized approaches based on neural scene representations have achieved tremendous impact and have been applied across a variety of applications. One of the major remaining challenges in this space is training a single model which can provide latent representations which effectively generalize beyond a single scene. Scene Representation Transformer (SRT) has shown promise in this direction, but scaling it to a larger set of diverse scenes is challenging and necessitates accurately posed ground truth data. To address this problem, we propose RUST (Really Unposed Scene representation Transformer), a pose-free approach to novel view synthesis trained on RGB images alone. Our main insight is that one can train a Pose Encoder that peeks at the target image and learns a latent pose embedding which is used by the decoder for view synthesis. We perform an empirical investigation into the learned latent pose structure and show that it allows meaningful test-time camera transformations and accurate explicit pose readouts. Perhaps surprisingly, RUST achieves similar quality as methods which have access to perfect camera pose, thereby unlocking the potential for large-scale training of amortized neural scene representations.</summary>
+    <category term="cs.CV" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.GR" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="eess.IV" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2022-11-25T18:59:10Z</published>
+    <arxiv:comment>CVPR 2023 Highlight. Project website: https://rust-paper.github.io/</arxiv:comment>
+    <arxiv:primary_category term="cs.CV"/>
+    <author>
+      <name>Mehdi S. M. Sajjadi</name>
+    </author>
+    <author>
+      <name>Aravindh Mahendran</name>
+    </author>
+    <author>
+      <name>Thomas Kipf</name>
+    </author>
+    <author>
+      <name>Etienne Pot</name>
+    </author>
+    <author>
+      <name>Daniel Duckworth</name>
+    </author>
+    <author>
+      <name>Mario Lucic</name>
+    </author>
+    <author>
+      <name>Klaus Greff</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2503.12511v3</id>
+    <title>SACTOR: LLM-Driven Correct and Idiomatic C to Rust Translation with Static Analysis and FFI-Based Verification</title>
+    <updated>2025-12-22T20:28:48Z</updated>
+    <link href="https://arxiv.org/abs/2503.12511v3" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2503.12511v3" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Translating software written in C to Rust has significant benefits in improving memory safety. However, manual translation is cumbersome, error-prone, and often produces unidiomatic code. Large language models (LLMs) have demonstrated promise in producing idiomatic translations, but offer no correctness guarantees. We propose SACTOR, an LLM-driven C-to-Rust translation tool that employs a two-step process: an initial "unidiomatic" translation to preserve semantics, followed by an "idiomatic" refinement to align with Rust standards. To validate correctness of our function-wise incremental translation that mixes C and Rust, we use end-to-end testing via the foreign function interface. We evaluate SACTOR on 200 programs from two public datasets and on two more real-world scenarios (a 50-sample subset of CRust-Bench and the libogg library), comparing multiple LLMs. Across datasets, SACTOR delivers high end-to-end correctness and produces safe, idiomatic Rust with up to 7 times fewer Clippy warnings; On CRust-Bench, SACTOR achieves an average (across samples) of 85% unidiomatic and 52% idiomatic success, and on libogg it attains full unidiomatic and up to 78% idiomatic coverage on GPT-5.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.PL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-03-16T14:05:26Z</published>
+    <arxiv:comment>35 pages, 15 figures Previously named as "LLM-Driven Multi-step Translation from C to Rust using Static Analysis"</arxiv:comment>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Tianyang Zhou</name>
+    </author>
+    <author>
+      <name>Ziyi Zhang</name>
+    </author>
+    <author>
+      <name>Haowen Lin</name>
+    </author>
+    <author>
+      <name>Somesh Jha</name>
+    </author>
+    <author>
+      <name>Mihai Christodorescu</name>
+    </author>
+    <author>
+      <name>Kirill Levchenko</name>
+    </author>
+    <author>
+      <name>Varun Chandrasekaran</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2310.17186v1</id>
+    <title>Demystifying Compiler Unstable Feature Usage and Impacts in the Rust Ecosystem</title>
+    <updated>2023-10-26T06:43:25Z</updated>
+    <link href="https://arxiv.org/abs/2310.17186v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2310.17186v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Rust programming language is gaining popularity rapidly in building reliable and secure systems due to its security guarantees and outstanding performance. To provide extra functionalities, the Rust compiler introduces Rust unstable features (RUF) to extend compiler functionality, syntax, and standard library support. However, these features are unstable and may get removed, introducing compilation failures to dependent packages. Even worse, their impacts propagate through transitive dependencies, causing large-scale failures in the whole ecosystem. Although RUF is widely used in Rust, previous research has primarily concentrated on Rust code safety, with the usage and impacts of RUF from the Rust compiler remaining unexplored. Therefore, we aim to bridge this gap by systematically analyzing the RUF usage and impacts in the Rust ecosystem. We propose novel techniques for extracting RUF precisely, and to assess its impact on the entire ecosystem quantitatively, we accurately resolve package dependencies. We have analyzed the whole Rust ecosystem with 590K package versions and 140M transitive dependencies. Our study shows that the Rust ecosystem uses 1000 different RUF, and at most 44% of package versions are affected by RUF, causing compiling failures for at most 12%. To mitigate wide RUF impacts, we further design and implement a RUF-compilation-failure recovery tool that can recover up to 90% of the failure. We believe our techniques, findings, and tools can help to stabilize the Rust compiler, ultimately enhancing the security and reliability of the Rust ecosystem.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2023-10-26T06:43:25Z</published>
+    <arxiv:comment>Published in ICSE'2024 Conference: https://conf.researchr.org/details/icse-2024/icse-2024-research-track/6/Demystifying-Compiler-Unstable-Feature-Usage-and-Impacts-in-the-Rust-Ecosystem. Project webiste: https://sites.google.com/view/ruf-study/home. Released Source Code Zonodo: https://zenodo.org/records/8289375</arxiv:comment>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Chenghao Li</name>
+      <arxiv:affiliation>Zhejiang University, Hangzhou, China</arxiv:affiliation>
+    </author>
+    <author>
+      <name>Yifei Wu</name>
+      <arxiv:affiliation>Zhejiang University, Hangzhou, China</arxiv:affiliation>
+    </author>
+    <author>
+      <name>Wenbo Shen</name>
+      <arxiv:affiliation>Zhejiang University, Hangzhou, China</arxiv:affiliation>
+    </author>
+    <author>
+      <name>Zichen Zhao</name>
+      <arxiv:affiliation>Zhejiang University, Hangzhou, China</arxiv:affiliation>
+    </author>
+    <author>
+      <name>Rui Chang</name>
+      <arxiv:affiliation>Zhejiang University, Hangzhou, China</arxiv:affiliation>
+    </author>
+    <author>
+      <name>Chengwei Liu</name>
+      <arxiv:affiliation>Nanyang Technological University, Singapore, Singapore</arxiv:affiliation>
+    </author>
+    <author>
+      <name>Yang Liu</name>
+      <arxiv:affiliation>Nanyang Technological University, Singapore, Singapore</arxiv:affiliation>
+    </author>
+    <author>
+      <name>Kui Ren</name>
+      <arxiv:affiliation>Zhejiang University, Hangzhou, China</arxiv:affiliation>
+    </author>
+  </entry>
+</feed>

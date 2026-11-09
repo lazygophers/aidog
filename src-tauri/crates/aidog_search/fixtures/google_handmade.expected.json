@@ -1,0 +1,12 @@
+[
+ {
+  "url": "https://www.rust-lang.org/",
+  "title": "Rust Programming Language",
+  "snippet": "Rust is a fast, reliable language."
+ },
+ {
+  "url": "https://tokio.rs/",
+  "title": "Tokio - An asynchronous Rust runtime",
+  "snippet": "Tokio is an event-driven platform."
+ }
+]

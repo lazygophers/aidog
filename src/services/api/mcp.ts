@@ -32,7 +32,7 @@ export const mcpApi = {
     invoke<Record<string, unknown>>("mcp_share_export", { name }),
   /** 推荐安装清单（远程缓存 → 内置兜底；key snake_case）。 */
   recommendedList: () => invoke<McpRecommendedEntry[]>("mcp_recommended_list"),
-  /** 一键写入本机 agent 配置：`aidog-kernel mcp`（stdio）进 Claude Code / Codex 的 mcpServers。 */
+  /** 一键写入本机 agent 配置：HTTP MCP 地址 + 分组 Bearer 进 Claude Code / Codex 的 mcpServers（替换旧 stdio 条目）。 */
   selfInstall: () => invoke<McpSelfInstallReport>("mcp_self_install"),
 };
 

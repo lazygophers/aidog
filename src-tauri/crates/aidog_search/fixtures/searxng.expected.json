@@ -1,0 +1,12 @@
+[
+ {
+  "url": "https://www.rust-lang.org/",
+  "title": "Rust Lang",
+  "snippet": "A language empowering everyone"
+ },
+ {
+  "url": "https://tokio.rs/",
+  "title": "Tokio",
+  "snippet": "async runtime"
+ }
+]

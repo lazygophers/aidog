@@ -8,7 +8,7 @@ pub fn install_management_router(router: axum::Router) {
     let _ = MANAGEMENT_ROUTER.set(router);
 }
 
-fn json_response(status: StatusCode, body: &str) -> Response {
+pub(super) fn json_response(status: StatusCode, body: &str) -> Response {
     let mut r = (status, [("content-type", "application/json")], body.to_string()).into_response();
     inject_trace_header(&mut r);
     r

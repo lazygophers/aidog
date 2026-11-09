@@ -1,7 +1,9 @@
 //! mcp_server 单元测试（票 10 协议行为 + 票 11 tools/call 分发）。
 
 use super::*;
-use aidog_core::mcp_tools::{MediaProviderConfig, McpToolsSettings, SearchProviderConfig};
+use crate::mcp_tools::{MediaProviderConfig, McpToolsSettings, SearchProviderConfig};
+use crate::tool_exec::{TRIGGER_MCP, ToolCtx};
+use aidog_db::test_support::test_db;
 use serde_json::{Value, json};
 
 /// 带 id 的请求包装。
@@ -26,7 +28,7 @@ fn handle(msg: &Value) -> Option<Value> {
         .enable_all()
         .build()
         .unwrap()
-        .block_on(handle_request(msg))
+        .block_on(async { handle_request(msg, &test_db().await, "g").await })
 }
 
 #[test]
@@ -123,12 +125,25 @@ fn call_tool(name: &str, args: Value, settings: &McpToolsSettings) -> Value {
         .enable_all()
         .build()
         .unwrap()
-        .block_on(handle_tools_call(name, &args, settings))
+        .block_on(async {
+            let db = test_db().await;
+            let ctx = ToolCtx { db: &db, trigger: TRIGGER_MCP, group: "g", platform: "" };
+            handle_tools_call(&ctx, name, &args, settings).await
+        })
+}
+
+/// 未配 key 服务且关掉全部免 key 引擎的设置（默认设置会真实外呼，测试禁用）。
+fn settings_without_engines() -> McpToolsSettings {
+    let mut s = McpToolsSettings::default();
+    for e in aidog_search::engines::ENGINES {
+        s.search.engines.insert(e.id.to_string(), false);
+    }
+    s
 }
 
 #[test]
 fn tools_call_web_search_unconfigured_is_explicit_error() {
-    let result = call_tool("web_search", json!({"query": "q"}), &McpToolsSettings::default());
+    let result = call_tool("web_search", json!({"query": "q"}), &settings_without_engines());
     assert_eq!(result["isError"], true, "未配置必须 isError=true");
     let text = result["content"][0]["text"].as_str().unwrap();
     assert!(text.contains("未配置"), "text={text}");
@@ -143,6 +158,7 @@ fn tools_call_unverified_provider_is_explicit_error() {
             keys: vec!["k".into()],
             enabled: true,
             searxng_base_urls: vec![],
+            engines: Default::default(),
         },
         ..Default::default()
     };
@@ -209,11 +225,4 @@ fn notifications_produce_no_response() {
         handle(&json!({"jsonrpc": "2.0", "method": "notifications/initialized"})),
         None
     );
-}
-
-#[test]
-fn env_settings_missing_or_invalid_falls_back_to_default() {
-    // 不设 env 时 = 未配置（不 panic）。env 读取进程级，这里只验 default 路径的形状。
-    let s = McpToolsSettings::default();
-    assert_eq!(call_tool("web_search", json!({"query": "q"}), &s)["isError"], true);
 }

@@ -14,8 +14,8 @@
 //! generate_video 仅接口（spec D5 首版不实现）：未配置 → 明确「未配置视频 provider」；
 //! 已配置 → 「未实现」（复活条件：用户配置视频 provider）。
 
-use crate::search::{call, http_client};
-use aidog_core::mcp_tools::MediaProviderConfig;
+use aidog_search::{call, http_client};
+use crate::mcp_tools::MediaProviderConfig;
 
 /// `generate_image` 工具入口。
 pub async fn generate_image(
@@ -64,7 +64,7 @@ trait ValuePreview {
 
 impl ValuePreview for serde_json::Value {
     fn to_string_lossy_truncate(&self) -> String {
-        crate::search::truncate_str(&self.to_string(), 200).to_string()
+        aidog_search::truncate_str(&self.to_string(), 200).to_string()
     }
 }
 
