@@ -186,6 +186,7 @@ pub fn run() {
             aidog_core::proxy_cmd::middleware::middleware_delete_rule,
             aidog_core::proxy_cmd::middleware::middleware_budget_status,
             aidog_core::proxy_cmd::middleware::middleware_settings_get,
+            aidog_core::proxy_cmd::middleware::middleware_try,
             aidog_core::proxy_cmd::middleware::middleware_settings_set,
             aidog_core::system_cmd::scheduling::scheduling_settings_get,
             aidog_core::system_cmd::scheduling::scheduling_settings_set,

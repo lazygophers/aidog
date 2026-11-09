@@ -34,6 +34,7 @@ export * from "./MatchType";
 export * from "./MiddlewareBudgetStatus";
 export * from "./MiddlewareRule";
 export * from "./MiddlewareSettings";
+export * from "./MiddlewareTryResult";
 export * from "./ModelMapping";
 export * from "./ModelEntry";
 export * from "./ModelEntryGroup";

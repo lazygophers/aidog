@@ -47,6 +47,7 @@ mod headers;
 mod health;
 mod log;
 mod middleware_body;
+pub(crate) mod middleware_try;
 mod management;
 mod mitm_bypass;
 mod mock;
