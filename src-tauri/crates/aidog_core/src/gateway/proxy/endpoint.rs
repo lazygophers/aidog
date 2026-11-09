@@ -385,7 +385,8 @@ fn percent_decode(s: &str) -> String {
 }
 
 /// 显式选组请求头：值 = 分组 group_key（与 token 同一命名空间）。命中时优先于密钥候选；
-/// 值未知则按「未匹配分组」处理，不回落到 token 定组。入口剥掉，不转发上游。
+/// 值未知则按「未匹配分组」处理，不回落到 token 定组。入口剥掉，不转发上游。仅网关模式生效：
+/// MITM / CONNECT 隧道请求在 `connect.rs::serve_plaintext` 已先剥头，归组不受它影响。
 pub(crate) const GROUP_HEADER: &str = "x-aidog-group";
 
 /// 读 `X-Aidog-Group`：trim 后非空才算有值（空 / 全空白 = 头缺席，保持 token 定组的现行为）。
