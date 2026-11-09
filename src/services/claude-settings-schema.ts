@@ -429,6 +429,7 @@ export const ENV_VAR_DEFS: EnvVarDef[] = [
   { key: "CLAUDE_AUTO_BACKGROUND_TASKS", label: "Auto Background Tasks", description: "自动将长时间运行的子代理移到后台", type: "boolean", group: "toggles" },
   { key: "CLAUDE_CODE_ATTRIBUTION_HEADER", label: "Attribution Header", description: "从系统提示省略归属块，改善代理缓存", type: "boolean", group: "toggles" },
   { key: "CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION", label: "Suppress Session Attribution", description: "不在会话中附带归属信息", type: "boolean", group: "toggles" },
+  { key: "CLAUDE_CODE_GATEWAY_HINT_HEADERS", label: "Gateway Hint Headers", description: "向自定义网关发送请求类型/子代理类型提示头", type: "boolean", group: "toggles" },
   { key: "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS", label: "Agent Teams (Experimental)", description: "启用代理团队协作", type: "boolean", group: "toggles" },
   { key: "CLAUDE_CODE_AUTO_COMPACT_WINDOW", label: "Auto Compact Window", description: "用于自动压缩计算的上下文令牌数", type: "number", placeholder: "180000", group: "performance" },
   { key: "CLAUDE_CODE_PLAN_MODE_REQUIRED", label: "Plan Mode Required", type: "boolean", group: "toggles" },
