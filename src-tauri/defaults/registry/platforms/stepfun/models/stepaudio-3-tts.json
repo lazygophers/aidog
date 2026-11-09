@@ -17,6 +17,12 @@
   "price": {
     "currency": "CNY",
     "unit": "char",
-    "unit_price": 0.25
+    "unit_price": 0.25,
+    "time_tiers": [
+      {
+        "start_at": 1794844800,
+        "unit_price": 0.095
+      }
+    ]
   }
 }

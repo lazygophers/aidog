@@ -7,6 +7,7 @@ import { useDisplayCurrency } from "../../utils/displayCurrency";
 import { modelInfoApi, onRegistryUpdated } from "../../services/api/pricing";
 import {
   parsePriceData,
+  effectiveUnitPrice,
   fmtPricePerM,
   fmtPricePerUnit,
   toUsd,
@@ -31,8 +32,9 @@ export interface ModelPriceInfo {
 /** `price` 子树 → 展示形状；无任何可展示价格返回 null（调用方留空渲染）。 */
 export function toModelPriceInfo(p: ModelPriceData): ModelPriceInfo | null {
   if (p.unit && p.unit !== "token") {
-    return p.unit_price != null
-      ? { free: false, unitLabel: fmtPricePerUnit(p.unit_price, p.unit, p.currency) }
+    const up = effectiveUnitPrice(p);
+    return up != null
+      ? { free: false, unitLabel: fmtPricePerUnit(up, p.unit, p.currency) }
       : null;
   }
   // CNY 计价条目在此统一成 USD（ModelPriceInfo 数值恒 USD，展示再经 formatMoney 按显示币种换算）

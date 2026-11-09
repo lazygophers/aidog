@@ -17,6 +17,12 @@
   "price": {
     "currency": "CNY",
     "unit": "second",
-    "unit_price": 0.000778
+    "unit_price": 0.000778,
+    "time_tiers": [
+      {
+        "start_at": 1794844800,
+        "unit_price": 0.00208333
+      }
+    ]
   }
 }
