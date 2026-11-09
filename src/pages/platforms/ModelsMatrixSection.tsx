@@ -260,10 +260,10 @@ export function ModelsMatrixSection({
     </label>
   );
 
-  // 专用槽徽标（embedding / rerank，读 platform.models 不进时段规则）。
-  const dedicatedBadge = (key: ModelSlot) => DEDICATED_MODEL_SLOTS.includes(key) ? (
+  // 专用槽徽标（embedding / rerank）。prefix 区分「模型」tab 与时段档视图的 testid。
+  const dedicatedBadge = (key: ModelSlot, prefix = "slot-badge") => DEDICATED_MODEL_SLOTS.includes(key) ? (
     <span
-      data-testid={`slot-badge-${key}`}
+      data-testid={`${prefix}-${key}`}
       style={{ fontSize: 10, lineHeight: "16px", padding: "0 5px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", color: "var(--text-tertiary)", whiteSpace: "nowrap", flexShrink: 0 }}
     >
       {t("platform.slotDedicated", "专用")}
@@ -354,9 +354,32 @@ export function ModelsMatrixSection({
                   {t("platform.time_windows_edit_button", "编辑时段")}
                 </Button>
               </div>
-              {/* embedding / rerank 读 platform.models，不进时段规则 */}
-              {MODEL_SLOTS.filter(({ key }) => !DEDICATED_MODEL_SLOTS.includes(key)).map(({ key, labelKey }) => (
-                <SlotRow key={key} name={t(labelKey)} count={slotList(sel.models[key]).length} cellMinWidth={0} t={t}>
+              {MODEL_SLOTS.map(({ key, labelKey }) => (
+                <SlotRow
+                  key={key} testId={`time-slot-${key}`} name={t(labelKey)}
+                  count={slotList(sel.models[key]).length} cellMinWidth={0}
+                  badge={dedicatedBadge(key, "time-slot-badge")} t={t}
+                  hint={DEDICATED_MODEL_SLOTS.includes(key) && (
+                    slotList(sel.models[key]).length === 0 ? (
+                      // 命中时段档整套替换：档内没填 = 时段内本平台不接此类请求
+                      <div
+                        id={`time-slot-hint-${key}`}
+                        data-state="empty"
+                        style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 2 }}
+                      >
+                        {t("platform.timeSlotDedicatedEmptyHint", "时段内本平台不接此类请求")}
+                      </div>
+                    ) : !hasOpenAIEndpoint && (
+                      <div
+                        id={`time-slot-hint-${key}`}
+                        data-state="warn"
+                        style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 2 }}
+                      >
+                        {t("platform.dedicatedSlotNoOpenAIEndpointHint")}
+                      </div>
+                    )
+                  )}
+                >
                   {renderCell(
                     `r${selIdx}:${key}`,
                     slotList(sel.models[key]),

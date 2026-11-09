@@ -1744,6 +1744,7 @@
   "platform.modelEmbedding": "Embedding",
   "platform.modelRerank": "Rerank",
   "platform.dedicatedSlotNoOpenAIEndpointHint": "This platform has no OpenAI-family endpoint and will not be selected for this request type",
+  "platform.timeSlotDedicatedEmptyHint": "This platform does not accept this request type during this time rule",
   "platform.modelHaiku": "Haiku",
   "platform.modelOpus": "Opus",
   "platform.modelSonnet": "Sonnet",
