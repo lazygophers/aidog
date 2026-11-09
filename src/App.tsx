@@ -25,8 +25,10 @@ const Skills = lazy(() => import("./pages/Skills").then(m => ({ default: m.Skill
 const MiddlewareSettingsTab = lazy(() => import("./components/settings/MiddlewareRules").then(m => ({ default: m.MiddlewareSettingsTab })));
 const MiddlewareTryPanel = lazy(() => import("./components/settings/MiddlewareTryPanel").then(m => ({ default: m.MiddlewareTryPanel })));
 const Mcp = lazy(() => import("./pages/Mcp").then(m => ({ default: m.Mcp })));
+const Tools = lazy(() => import("./pages/Tools").then(m => ({ default: m.Tools })));
 const RequestLog = lazy(() => import("./pages/RequestLog").then(m => ({ default: m.RequestLog })));
 const MitmLog = lazy(() => import("./pages/MitmLog").then(m => ({ default: m.MitmLog })));
+const ToolLog = lazy(() => import("./pages/ToolLog").then(m => ({ default: m.ToolLog })));
 const About = lazy(() => import("./pages/About").then(m => ({ default: m.About })));
 import {
   notificationApi,
@@ -209,12 +211,14 @@ function App() {
                 {effectiveNav === "platforms" && <Platforms onNavigate={handleNavigate} initialFilter={navContext} />}
             {effectiveNav === "request-log" && <RequestLog />}
             {effectiveNav === "mitm-log" && <MitmLog />}
+            {effectiveNav === "tool-log" && <ToolLog />}
             {effectiveNav === "settings" && <AppSettings tab={settingsTab} onNotifSettingsChanged={(enabled) => setNotifEnabled(enabled)} />}
             {effectiveNav === "logs" && <Logs initialFilter={navContext} onNavigate={handleNavigate} />}
             {effectiveNav === "stats" && <Stats initialFilter={navContext} />}
             {effectiveNav === "notifications" && <Notifications onNavigate={handleNavigate} />}
             {effectiveNav === "skills" && <Skills />}
             {effectiveNav === "mcp" && <Mcp />}
+            {effectiveNav === "tools" && <Tools />}
             {effectiveNav === "middleware" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                 <MiddlewareSettingsTab />

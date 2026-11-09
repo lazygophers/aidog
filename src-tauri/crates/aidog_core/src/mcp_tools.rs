@@ -19,33 +19,8 @@ pub const SEARCH_PROVIDERS: [&str; 9] = [
     "searxng",
 ];
 
-/// 搜索 provider 配置。
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Default)]
-pub struct SearchProviderConfig {
-    /// provider id（词表 [`SEARCH_PROVIDERS`]）。
-    #[serde(default)]
-    pub provider: String,
-    /// API keys，多 key 轮换（D5a：多 key 数组 + 轮换；至少 1 个才算配置了搜索）。
-    #[serde(default)]
-    pub keys: Vec<String>,
-    /// 启用开关：false 时 web_search 直接回「已禁用」（缺省 true）。
-    #[serde(default = "default_enabled")]
-    pub enabled: bool,
-    /// SearXNG 专用：多实例 base_url（provider = searxng 时按序尝试，无 key）。
-    #[serde(default)]
-    pub searxng_base_urls: Vec<String>,
-}
-
-fn default_enabled() -> bool {
-    true
-}
-
-impl SearchProviderConfig {
-    /// 是否已配置到可用（有 provider 且至少一个非空 key）。
-    pub fn is_configured(&self) -> bool {
-        !self.provider.is_empty() && self.keys.iter().any(|k| !k.trim().is_empty())
-    }
-}
+/// 搜索设置（定义在 `aidog_search`，供网关 / HTTP MCP / kernel 共用而不成环）。
+pub use aidog_search::SearchProviderConfig;
 
 /// 生图 / 生视频 provider 配置：OpenAI images 兼容端点（D5：走用户配置的平台，
 /// `base_url` 含版本前缀，最终 URL = base_url + 端点路径，禁额外拼接）。
@@ -145,6 +120,25 @@ mod test_mcp_tools {
             model: String::new(),
         };
         assert!(!m.is_configured(), "缺 model 不算配置");
+    }
+
+    #[test]
+    fn old_shape_search_json_keeps_keys_and_defaults_engines() {
+        // 引擎开关上线前落库的真实形状：无 engines 键，所有旧字段（含 keys）原样读出。
+        let s: McpToolsSettings = serde_json::from_value(serde_json::json!({
+            "search": {"provider": "brave", "keys": ["k1"], "enabled": true,
+                       "searxng_base_urls": ["http://s"]},
+            "image": {"base_url": "https://i/v1", "api_key": "k", "model": "m"}
+        }))
+        .unwrap();
+        assert_eq!(s.search.keys, vec!["k1".to_string()]);
+        assert_eq!(s.search.searxng_base_urls, vec!["http://s".to_string()]);
+        assert!(s.search.engines.is_empty(), "无 engines 键 = 全取默认开关");
+        // 新字段往返
+        let mut n = s.clone();
+        n.search.engines.insert("bing".into(), false);
+        let back: McpToolsSettings = serde_json::from_value(serde_json::to_value(&n).unwrap()).unwrap();
+        assert_eq!(back.search.engines.get("bing"), Some(&false));
     }
 
     #[test]
