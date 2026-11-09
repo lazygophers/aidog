@@ -2,8 +2,7 @@
 //! 「尚未排除的（平台，模型）组合」重排取第一；失败按错误类排除——模型类 / 未知类只排除该组合（pair），
 //! 服务类排除整个平台。失败组合在本次请求内不再选。
 //!
-//! 聊天循环（handler.rs）使用；向量化 / 重排序 / 决策 / tools 循环（票 03）复用同一套
-//! [`Exclusions`] + [`AttemptPlanner`]。
+//! 聊天、向量化 / 重排序、决策、搜索四类请求的循环共用 [`AttemptLoop`]（票 02 聊天、票 03 其余三类）。
 
 use super::*;
 use aidog_db::models::GroupPlatformDetail;
@@ -146,19 +145,104 @@ impl AttemptPlanner {
         group: &Group,
         source_model: &str,
         ctx: &ScheduleCtx<'_>,
+        kind: RequestKind<'_>,
         client: ClientGate,
     ) -> Result<Vec<RouteResult>, String> {
         if self.platforms.is_none() {
             self.platforms = Some(aidog_db::get_group_platforms(db, group.id).await.map_err(|e| e.to_string())?);
         }
         let platforms = self.platforms.clone().unwrap_or_default();
-        select_candidates_preloaded(db, group, Some(platforms), source_model, Some(ctx), RequestKind::Chat, client)
+        select_candidates_preloaded(db, group, Some(platforms), source_model, Some(ctx), kind, client)
             .await
             .map(|s| {
                 self.saw_rate_limit = s.routing.entries.iter().any(|e| e.reason == aidog_db::models::RouteReason::RateLimited);
                 s.candidates
             })
             .map_err(|e| e.to_string())
+    }
+}
+
+/// 一次请求的尝试循环状态（四类请求共用）：每次调用前 [`next`](Self::next) 按当前调度状态重排取第一，
+/// 失败后 [`failed`](Self::failed) 按错误类折进排除集。上游调用计数归 `budget`。
+pub(crate) struct AttemptLoop<'k> {
+    pub(crate) budget: CallBudget,
+    kind: RequestKind<'k>,
+    source_model: String,
+    client: ClientGate,
+    excl: Exclusions,
+    planner: AttemptPlanner,
+    first: Option<Vec<RouteResult>>,
+    /// 本次请求内已 connect 失败的 base_url（R3：站级事实，同站兄弟条目直接跳过）。
+    dead_base_urls: HashSet<String>,
+    /// 当前这次选择：(平台 id, 模型, base_url)。
+    cur: Option<(u64, String, String)>,
+}
+
+impl<'k> AttemptLoop<'k> {
+    /// `first` = 请求入口已算好的首次排序；之后每次尝试重排。
+    pub(crate) fn new(max_attempts: u32, kind: RequestKind<'k>, source_model: &str, client: ClientGate, first: Vec<RouteResult>) -> Self {
+        Self {
+            budget: CallBudget::new(max_attempts),
+            kind,
+            source_model: source_model.to_string(),
+            client,
+            excl: Exclusions::default(),
+            planner: AttemptPlanner::default(),
+            first: Some(first),
+            dead_base_urls: HashSet::new(),
+            cur: None,
+        }
+    }
+
+    /// 下一次尝试的选择；None = 次数用尽或无组合可选（调用方落终态 503）。
+    pub(crate) async fn next(
+        &mut self,
+        db: &Db,
+        group: &Group,
+        ctx: &ScheduleCtx<'_>,
+        log: &mut ProxyLog,
+    ) -> Option<Pick> {
+        if self.budget.exhausted() {
+            return None;
+        }
+        let ranked = match self.first.take() {
+            Some(c) => c,
+            None => match self.planner.rerank(db, group, &self.source_model, ctx, self.kind, self.client.clone()).await {
+                Ok(c) => c,
+                Err(e) => {
+                    // 重排时剩余候选全被限频挡掉：终态 503 沿用限频审计标记
+                    if e == "rate_limit" {
+                        mark_rate_limited(log);
+                    }
+                    return None;
+                }
+            },
+        };
+        let Some(pick) = pick_first(self.excl.apply(ranked), &self.dead_base_urls, log) else {
+            // 重排时有平台被限频挡掉、其余都已排除：终态 503 沿用限频审计标记
+            if self.planner.saw_rate_limit {
+                mark_rate_limited(log);
+            }
+            return None;
+        };
+        self.cur = Some((pick.route.platform.id, pick.route.target_model.clone(), pick.route.platform.base_url.clone()));
+        Some(pick)
+    }
+
+    /// 本次选择失败（`Next`）：折进排除集；`connect_failed` 把 base_url 记为已死。
+    pub(crate) fn failed(&mut self, attempts: &mut [ProxyAttempt], connect_failed: bool) {
+        if let Some((platform_id, model, base_url)) = self.cur.take() {
+            if connect_failed {
+                self.dead_base_urls.insert(base_url);
+            }
+            record_exclusion(&mut self.excl, attempts, platform_id, &model);
+        }
+    }
+
+    /// 记一次上游调用（限频占位等不发请求的跳过不计）；返回 true = 配额内最后一次。
+    pub(crate) fn begin_call(&mut self, log: &mut ProxyLog, attempts: &[ProxyAttempt], platform_id: u64) -> bool {
+        let tried: Vec<u64> = attempts.iter().map(|a| a.platform_id).chain([platform_id]).collect();
+        self.budget.begin_call_untried(log, &tried)
     }
 }
 

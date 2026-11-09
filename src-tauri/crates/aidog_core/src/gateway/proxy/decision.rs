@@ -247,7 +247,7 @@ pub(crate) async fn handle_decision(
         &requested_model,
         Some(&sched_ctx),
         RequestKind::Decision,
-        client,
+        client.clone(),
     )
     .await
     {
@@ -263,10 +263,9 @@ pub(crate) async fn handle_decision(
     };
     let candidates = candidate_set.candidates;
 
-    // ── 重试编排：仿 handler.rs 聊天循环（最大尝试次数 + attempts 记录）──
-    let mut budget = CallBudget::new(group.max_retries);
+    // ── 尝试编排：与聊天共用 AttemptLoop（逐次重排 + 按类排除 + 最大尝试次数）──
+    let mut attempt_loop = super::attempt_plan::AttemptLoop::new(group.max_retries, RequestKind::Decision, &requested_model, client, candidates);
     let mut attempts: Vec<ProxyAttempt> = Vec::new();
-    let candidate_total = candidates.len();
 
     let (system_timeout, proxy_client) = {
         let c = state.settings_cache.read().await;
@@ -283,33 +282,20 @@ pub(crate) async fn handle_decision(
         10
     };
 
-    for (attempt_idx, route) in candidates.into_iter().enumerate() {
-        if budget.exhausted() {
-            break;
-        }
-        let mut attempt_start = std::time::Instant::now();
-        let mut attempt_ts = aidog_db::now();
-        let is_last_candidate = attempt_idx + 1 >= candidate_total || budget.next_is_last();
-
-        let mut chain = ModelChain::new(route);
-        let outcome = loop {
-            let mut switched = false;
-            let capped = budget.begin_call(log, chain.route().platform.id);
-            let out = decision_attempt(
-                state, log, &mut attempts, log_settings, group, chain.route(), &req_value, &requested_model,
-                &proxy_client, req_timeout, conn_timeout, &sched_settings, start, lang,
-                attempt_start, attempt_ts, is_last_candidate || capped, candidate_total,
-                chain.has_next() && !capped, &mut switched,
-            )
-            .await;
-            if !switched {
-                break out;
-            }
-            (attempt_start, attempt_ts) = chain.advance();
-        };
-        match outcome {
+    while let Some(pick) = attempt_loop.next(&state.db, group, &sched_ctx, log).await {
+        let attempt_start = std::time::Instant::now();
+        let attempt_ts = aidog_db::now();
+        let capped = attempt_loop.begin_call(log, &attempts, pick.route.platform.id);
+        match decision_attempt(
+            state, log, &mut attempts, log_settings, group, &pick.route, &req_value, &requested_model,
+            &proxy_client, req_timeout, conn_timeout, &sched_settings, start, lang,
+            attempt_start, attempt_ts, !pick.platform_alt || capped, pick.candidate_total,
+            pick.model_alt && !capped, &mut false,
+        )
+        .await
+        {
             AttemptOutcome::Respond(r) => return r,
-            AttemptOutcome::Next { .. } => continue,
+            AttemptOutcome::Next { connect_failed } => attempt_loop.failed(&mut attempts, connect_failed),
         }
     }
 
@@ -447,7 +433,7 @@ async fn decision_attempt(
             )
             .await;
             if !is_last_candidate {
-                return AttemptOutcome::Next { connect_failed: false };
+                return AttemptOutcome::Next { connect_failed: e.is_connect() };
             }
             let msg = format!("{}: {detail}", i18n::t(lang, ErrorKey::Upstream));
             return AttemptOutcome::Respond(finalize_proxy_502(

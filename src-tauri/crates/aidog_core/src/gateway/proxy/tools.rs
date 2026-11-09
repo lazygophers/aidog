@@ -46,7 +46,7 @@ pub(crate) async fn handle_tools(
         "",
         Some(&sched_ctx),
         RequestKind::Tools(path),
-        client,
+        client.clone(),
     )
     .await
     {
@@ -62,10 +62,9 @@ pub(crate) async fn handle_tools(
     };
     let candidates = candidate_set.candidates;
 
-    // ── 重试编排：同 handler.rs 聊天 / decision.rs 循环 ──
-    let mut budget = CallBudget::new(group.max_retries);
+    // ── 尝试编排：与聊天共用 AttemptLoop（逐次重排 + 按类排除 + 最大尝试次数）──
+    let mut attempt_loop = super::attempt_plan::AttemptLoop::new(group.max_retries, RequestKind::Tools(path), "", client, candidates);
     let mut attempts: Vec<ProxyAttempt> = Vec::new();
-    let candidate_total = candidates.len();
 
     let (system_timeout, proxy_client) = {
         let c = state.settings_cache.read().await;
@@ -82,24 +81,19 @@ pub(crate) async fn handle_tools(
         10
     };
 
-    for (attempt_idx, route) in candidates.into_iter().enumerate() {
-        if budget.exhausted() {
-            break;
-        }
+    while let Some(pick) = attempt_loop.next(&state.db, group, &sched_ctx, log).await {
         let attempt_start = std::time::Instant::now();
         let attempt_ts = aidog_db::now();
-        let capped = budget.begin_call(log, route.platform.id);
-        let is_last_candidate = attempt_idx + 1 >= candidate_total || capped;
-
+        let capped = attempt_loop.begin_call(log, &attempts, pick.route.platform.id);
         match tools_attempt(
-            state, log, &mut attempts, log_settings, group, &route, bytes, path,
+            state, log, &mut attempts, log_settings, group, &pick.route, bytes, path,
             &proxy_client, req_timeout, conn_timeout, &sched_settings, start, lang,
-            attempt_start, attempt_ts, is_last_candidate, candidate_total,
+            attempt_start, attempt_ts, !pick.platform_alt || capped, pick.candidate_total,
         )
         .await
         {
             AttemptOutcome::Respond(r) => return r,
-            AttemptOutcome::Next { .. } => continue,
+            AttemptOutcome::Next { connect_failed } => attempt_loop.failed(&mut attempts, connect_failed),
         }
     }
 

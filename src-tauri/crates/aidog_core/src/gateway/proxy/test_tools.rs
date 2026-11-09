@@ -449,6 +449,49 @@ async fn e2e_cap_one_stops_failover() {
     assert_eq!(*seen200.lock().unwrap(), Value::Null, "上限 1：次平台不得被调用");
 }
 
+/// 连接失败属服务类：尝试记录标 platform 排除范围（逐次重算 票 03），随后换平台成功。
+#[tokio::test]
+async fn e2e_connect_failure_records_platform_exclusion_then_fails_over() {
+    let _guard = TOOLS_E2E_LOCK.lock().await;
+    let (db, dir) = three_file_db().await;
+    let state = make_state(db).await;
+    let dead = {
+        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        format!("http://{}", l.local_addr().unwrap())
+    };
+    let (stub200, _) = spawn_capture_upstream(200, r#"{"search_results":[{"title":"t"}]}"#).await;
+    store_tools_preset_redirect(&dead, &["deepseek"]);
+    store_tools_preset_redirect(&stub200, &["kimi"]);
+    let mk = |name: &str, pt: Protocol, base: &str| CreatePlatform {
+        name: name.into(), platform_type: pt, base_url: base.to_string(),
+        api_key: "sk-tools".into(), extra: String::new(), models: None,
+        available_models: None, endpoints: None, manual_budgets: None, auto_group: None,
+        join_group_ids: None, expires_at: None, quota_source: None,
+    };
+    let p1 = aidog_db::create_platform(&state.db, mk("ds", Protocol::DeepSeek, &dead)).await.unwrap();
+    let p2 = aidog_db::create_platform(&state.db, mk("kimi", Protocol::Kimi, &stub200)).await.unwrap();
+    let group = aidog_db::create_group(&state.db, sample_group("gra03", vec![])).await.unwrap();
+    aidog_db::set_group_platforms(&state.db, group.id, &[
+        GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1), level_priority: Some(0) },
+        GroupPlatformInput { platform_id: p2.id, priority: Some(1), weight: Some(1), level_priority: Some(0) },
+    ]).await.unwrap();
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        tools_request("gra03", "/v1/tools/search", r#"{"text_query":"x"}"#),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    flush_log_queue(&state).await;
+    crate::gateway::registry::invalidate_presets_cache();
+
+    let fresh = reopen_and_read(&dir).await;
+    let logs = aidog_logs::list_proxy_logs(&fresh, 10, 0).await.unwrap();
+    let row = aidog_logs::get_proxy_log(&fresh, &logs[0].id).await.unwrap().unwrap();
+    let scopes: Vec<_> = row.attempts.iter().map(|a| a.exclusion.as_deref()).collect();
+    assert_eq!(scopes, [Some("platform"), None]);
+}
+
 /// 用例 5：组内无声明平台 → 400 + no_tools_platform 白名单 reason，落审计 proxy_log。
 #[tokio::test]
 async fn e2e_no_tools_platform_returns_400() {

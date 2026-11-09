@@ -6669,6 +6669,107 @@ async fn ra02_hard_400_returns_immediately() {
     assert!(h2.lock().unwrap().is_empty());
 }
 
+// ══ 请求尝试-逐次重算 票 03：向量化 / 重排序 / 决策 接入同一尝试编排（搜索转发见 test_tools.rs）══
+
+/// 绑一个端口再释放：连接必被拒（传输错误，connect 失败）。
+async fn ra03_dead_base() -> String {
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    format!("http://{}", l.local_addr().unwrap())
+}
+
+/// 第 1 次尝试期间 P2 熔断打开 → 第 2 次尝试重排，跳过 P2 直接选 P3（旧固定顺序会去撞 P2）。
+#[tokio::test]
+async fn ra03_aux_state_change_between_attempts_reranks() {
+    use axum::routing::any;
+    for kind in AUX_KINDS {
+        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let up1 = format!("http://{}", l.local_addr().unwrap());
+        let (up2, h2) = spawn_embedding_upstream(vec![(200, kind.ok_body())]).await;
+        let (up3, h3) = spawn_embedding_upstream(vec![(200, kind.ok_body())]).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkra03a{}", kind as u8);
+        setup_aux_chain(&state, &gk, kind, &[(&up1, &["m-a"]), (&up2, &["m-b"]), (&up3, &["m-c"])]).await;
+        let p2 = platform_id_of(&state, &format!("{gk}-pb")).await;
+        let st = state.clone();
+        let app = axum::Router::new().fallback(any(move || {
+            let st = st.clone();
+            async move {
+                let th = crate::gateway::scheduling::BreakerThresholds { failure_threshold: 1, open_secs: 60, half_open_max: 1 };
+                st.scheduler.record_failure(p2, &th, aidog_db::now());
+                (axum::http::StatusCode::INTERNAL_SERVER_ERROR, [("content-type", "application/json")], E500_PLAIN)
+            }
+        }));
+        tokio::spawn(async move { axum::serve(l, app).await.ok(); });
+        let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
+        assert_eq!(resp.status(), StatusCode::OK, "{kind:?}");
+        assert!(h2.lock().unwrap().is_empty(), "{kind:?}: P2 熔断后不应再被选");
+        assert_eq!(hit_models(&h3), ["m-c"], "{kind:?}");
+    }
+}
+
+/// 连接失败属服务类：排除整个平台并在尝试记录上标 platform；共享同一 base_url 的兄弟平台在本次请求内跳过（R3）。
+#[tokio::test]
+async fn ra03_aux_connect_failure_excludes_platform_and_dead_siblings() {
+    for kind in AUX_KINDS {
+        let dead = ra03_dead_base().await;
+        let (up3, h3) = spawn_embedding_upstream(vec![(200, kind.ok_body())]).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkra03b{}", kind as u8);
+        setup_aux_chain(&state, &gk, kind, &[(&dead, &["m-a", "m-x"]), (&dead, &["m-b"]), (&up3, &["m-c"])]).await;
+        let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
+        assert_eq!(resp.status(), StatusCode::OK, "{kind:?}");
+        let log = last_log_for(&state, &gk).await;
+        let scopes: Vec<_> = log.attempts.iter().map(|a| (a.model.as_deref(), a.exclusion.as_deref())).collect();
+        assert_eq!(scopes, [(Some("m-a"), Some("platform")), (Some("m-c"), None)], "{kind:?}");
+        assert_eq!(hit_models(&h3), ["m-c"], "{kind:?}");
+    }
+}
+
+/// 服务类失败排除整个平台（链上第二个模型不再试）+ 每次记一次；模型类失败换同平台下一个模型且不碰平台健康（三库读回）。
+#[tokio::test]
+async fn ra03_aux_service_excludes_platform_model_switches_same_platform() {
+    for kind in AUX_KINDS {
+        let (db, _dir) = aidog_db::test_support::three_file_db().await;
+        let (up1, h1) = spawn_embedding_upstream(vec![(500, E500_PLAIN); 3]).await;
+        let (up2, h2) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, kind.ok_body())]).await;
+        let state = make_state(db).await;
+        let gk = format!("gkra03c{}", kind as u8);
+        setup_aux_chain(&state, &gk, kind, &[(&up1, &["m-a", "m-b"]), (&up2, &["m-c", "m-d"])]).await;
+        let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
+        assert_eq!(resp.status(), StatusCode::OK, "{kind:?}");
+        assert_eq!(hit_models(&h1), ["m-a"], "{kind:?}: 服务类失败后该平台其他模型不再选");
+        assert_eq!(hit_models(&h2), ["m-c", "m-d"], "{kind:?}");
+        let log = last_log_for(&state, &gk).await;
+        let scopes: Vec<_> = log.attempts.iter().map(|a| a.exclusion.as_deref()).collect();
+        assert_eq!(scopes, [Some("platform"), Some("pair"), None], "{kind:?}");
+        let (p1, p2) = (platform_id_of(&state, &format!("{gk}-pa")).await, platform_id_of(&state, &format!("{gk}-pb")).await);
+        assert_eq!(state.scheduler.penalty_consecutive(p1), 1, "{kind:?}: 服务类记一次");
+        assert_eq!(state.scheduler.penalty_consecutive(p2), 0, "{kind:?}: 模型类不降权");
+        let plats = aidog_db::list_platforms(&state.db).await.unwrap();
+        let pb = plats.iter().find(|p| p.id == p2).unwrap();
+        assert!(pb.last_error.is_empty(), "{kind:?}: 模型类不写 last_error: {:?}", pb.last_error);
+        assert!(matches!(state.scheduler.breaker_state(p2), crate::gateway::scheduling::BreakerState::Closed { fails: 0 }), "{kind:?}");
+    }
+}
+
+/// 最大尝试次数 3：首平台链 4 个模型全模型类失败 → 只调用 3 次，次平台零调用。
+#[tokio::test]
+async fn ra03_aux_budget_cap_counts_model_switches() {
+    for kind in AUX_KINDS {
+        let (up1, h1) = spawn_embedding_upstream(vec![(404, E404_MODEL); 6]).await;
+        let (up2, h2) = spawn_embedding_upstream(vec![(200, kind.ok_body())]).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkra03d{}", kind as u8);
+        setup_aux_chain(&state, &gk, kind, &[(&up1, &["m-a", "m-b", "m-c", "m-d"]), (&up2, &["m-e"])]).await;
+        set_group_max_attempts(&state, &gk, 3).await;
+        let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
+        assert_ne!(resp.status(), StatusCode::OK, "{kind:?}");
+        assert_eq!(hit_models(&h1), ["m-a", "m-b", "m-c"], "{kind:?}");
+        assert!(h2.lock().unwrap().is_empty(), "{kind:?}: 上限用尽，次平台不被调用");
+        assert_eq!(last_log_for(&state, &gk).await.attempts.len(), 3, "{kind:?}");
+    }
+}
+
 // ─── 管理接口（ADR 0010）：/api/rpc/* 挂在代理端口 ───────────────────────────
 
 /// 装一个只带 `/rpc/ping` 的测试路由（真路由表在 `aidog_rpc`，由内核测试覆盖）。
