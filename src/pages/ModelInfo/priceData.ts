@@ -21,7 +21,7 @@ export interface ModelPriceData extends PriceTier {
   /** 计价币种，缺省 USD；CNY 条目 Rust 计费链按汇率换算 USD。 */
   currency?: string | null;
   /** 计价单位，缺省 token。 */
-  unit?: "token" | "image" | "second" | "request" | "char" | null;
+  unit?: "token" | "image" | "second" | "request" | "char" | "mp" | null;
   /** 非 token 条目的单价（$/unit）。 */
   unit_price?: number | null;
   /** 显式免费（官方来源）：计费价恒为 0。全 0 价未标 free 视同未定价。 */
@@ -88,8 +88,10 @@ export function toUsd(v: number, currency?: string | null): number {
 export function fmtPricePerUnit(v?: number | null, unit?: string | null, currency?: string | null): string {
   if (typeof v !== "number" || !Number.isFinite(v)) return "-";
   const m = formatMoney(toUsd(v, currency));
-  // char 单位存 $/1K chars；其余 $/unit
-  return unit === "char" ? m + " /1K chars" : m + ` /${unit ?? "unit"}`;
+  // char 单位存 $/1K chars；mp 展示为 $/MP；其余 $/unit
+  if (unit === "char") return m + " /1K chars";
+  if (unit === "mp") return m + " /MP";
+  return m + ` /${unit ?? "unit"}`;
 }
 
 /** $/token → $/M tokens；非有限数返回 null。 */
