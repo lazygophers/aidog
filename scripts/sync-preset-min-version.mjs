@@ -108,7 +108,8 @@ async function main() {
   const miss = [];
   for (const p of leafPaths(preset)) {
     if (p === 'minimumVersion') continue;
-    const hit = lookup(p, settings);
+    // _aidog_claude_json 段的键是 ~/.claude.json 的 Global config 键，同样在 settings-reference 小节里查版本
+    const hit = lookup(p.replace(/^_aidog_claude_json\./, ''), settings);
     if (hit?.ver) rows.push([p, hit.ver, 'settings-reference#' + hit.key]);
     else miss.push(p + (hit ? ' (小节无版本)' : ''));
   }

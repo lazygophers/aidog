@@ -39,6 +39,7 @@
 - `GITHUB_ACTIONS=true` 构建清单只含 `oss`（过滤逻辑 `aidog_core/src/preset_filter.rs`），本地 `make install` / `make release` 全量；`rerun-if-env-changed` 已登记。测试禁依赖份数。
 - 新增预设 = 在对应目录放一个 json 文件，不改 Rust / TS；需翻译显示名才加前端 id→key 映射 + 8 locale。
 - 改 preset 的 `permissions.allow` 后同步两份全局拷贝（git 外，仓内改动不会带上）：`~/.claude/settings.json` 与 `~/.claude/settings.claude.json`；三处名单保持逐条一致。
+- **`_aidog_claude_json` 段**（预设顶层可选）：Claude Code 的 Global config 键（`copyOnSelect` / `diffTool` / `autoInstallIdeExtension` 等，settings-reference「Global config settings」节）只从 `~/.claude.json` 读，写进 settings.json 无效。该段写 `~/.claude/settings.json` 与各分组 `settings.<group>.json` 前一律剥离（`sync_settings.rs` `CLAUDE_JSON_KEY`）；仅默认分组同步时把段内键合并写入 `~/.claude.json`（`merge_claude_json`：只覆盖段内键、其余保留、值已一致不写、文件非法 JSON 则拒写、原子写）；取消默认分组 / 卸载**不恢复**。段内键参与 `sync-preset-min-version.mjs` 的 minimumVersion 计算。
 - 自检：`GITHUB_ACTIONS=true cargo test --workspace` 后对测试二进制 `strings | grep -c lazygophers/ccplugin`（非 oss 独有标记）应为 0，不设变量应 >0。
 - 风险：非 `oss` 预设（如 `lazygophers.json`）是个人配置且进公开 git，禁放密钥 / token / 内网地址，提交前过凭据扫描。
 - 改 `src-tauri/defaults/settings/lazygophers.json` 的任何键后跑 `yarn sync:preset-min-version`（从官方文档取各键所需 CLI 版本的最大值写入顶层 `minimumVersion`）并一并提交；`yarn sync:preset-min-version` 不带 `--write` 即校验，仅覆盖该预设，其它预设无此键。
