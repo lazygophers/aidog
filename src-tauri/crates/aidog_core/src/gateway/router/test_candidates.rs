@@ -2827,7 +2827,7 @@ async fn embedding_empty_slot_errs_single_and_degraded_group() {
     }
 }
 
-/// time_windows 规则不含 embedding 槽位也不影响读数（读 platform.models 而非 effective_models）；
+/// 无效形状的 time_windows 规则（缺 windows）被解析层过滤，不影响读数；
 /// direct_models 声明与客户端模型名同名也不改变 Embedding 路由。
 #[tokio::test]
 async fn embedding_ignores_time_windows_and_direct_models() {
@@ -4643,4 +4643,93 @@ async fn smart_mode_falls_back_to_health_aware_when_no_data() {
     let order: Vec<u64> = set.candidates.iter().map(|c| c.platform.id).collect();
     // health_aware：level_priority 主导 → p2 (lp 10) 首位；若误走 weight 序则是 p1
     assert_eq!(order, vec![p2.id, p1.id], "no reset data → health_aware fallback (level_priority dominant)");
+}
+
+// ══ 时段档 embedding / rerank：命中整套替换（票 时段档-模型配置对齐/02）══
+
+/// 全天命中的时段档（models 整套替换默认配置）。
+fn all_day_rule(models: serde_json::Value) -> String {
+    serde_json::json!({
+        "time_windows": [{"windows":[{"start_hour":0,"end_hour":24}],"models":models}]
+    })
+    .to_string()
+}
+
+/// 时段内档 embedding 有值 → 用档值；档 embedding 为空 → 平台被排除（单平台组 / 多平台组都报 no_embedding_platform）。
+#[tokio::test]
+async fn time_rule_embedding_hit_uses_rule_value_and_empty_excludes() {
+    let db = mk_test_db().await;
+    let with = mk_embedding_platform(&db, "with", Protocol::OpenAI, slot_embedding("emb-day")).await;
+    set_extra(&db, with.id, &all_day_rule(serde_json::json!({"embedding":["emb-night"]}))).await;
+    let g = mk_db_group(&db, "g1", &[with.id]).await;
+    let set = select_candidates_ctx(&db, &g, "m", None, RequestKind::Embedding)
+        .await
+        .expect("rule embedding used");
+    assert_eq!(set.candidates[0].target_model, "emb-night");
+
+    let without = mk_embedding_platform(&db, "without", Protocol::OpenAI, slot_embedding("emb-day")).await;
+    set_extra(&db, without.id, &all_day_rule(serde_json::json!({"default":["gpt"]}))).await;
+    let plain = mk_embedding_platform(&db, "plain", Protocol::OpenAI, slot_embedding("emb-plain")).await;
+    let multi = mk_db_group(&db, "g2", &[without.id, plain.id]).await;
+    let set = select_candidates_ctx(&db, &multi, "m", None, RequestKind::Embedding)
+        .await
+        .expect("plain remains");
+    let ids: Vec<u64> = set.candidates.iter().map(|c| c.platform.id).collect();
+    assert_eq!(ids, vec![plain.id], "档内无 embedding 的平台被排除");
+
+    let single = mk_db_group(&db, "g3", &[without.id]).await;
+    let e = select_candidates_ctx(&db, &single, "m", None, RequestKind::Embedding)
+        .await
+        .expect_err("single platform excluded");
+    assert_eq!(e, "no_embedding_platform");
+}
+
+/// rerank 与 embedding 对称。
+#[tokio::test]
+async fn time_rule_rerank_hit_uses_rule_value_and_empty_excludes() {
+    let db = mk_test_db().await;
+    let mk = |name: &'static str| {
+        let db = &db;
+        async move {
+            mk_embedding_platform(
+                db,
+                name,
+                Protocol::OpenAI,
+                PlatformModels { rerank: vec!["rr-day".into()], ..Default::default() },
+            )
+            .await
+        }
+    };
+    let with = mk("with").await;
+    set_extra(&db, with.id, &all_day_rule(serde_json::json!({"rerank":["rr-night"]}))).await;
+    let g = mk_db_group(&db, "g1", &[with.id]).await;
+    let set = select_candidates_ctx(&db, &g, "m", None, RequestKind::Rerank)
+        .await
+        .expect("rule rerank used");
+    assert_eq!(set.candidates[0].target_model, "rr-night");
+
+    let without = mk("without").await;
+    set_extra(&db, without.id, &all_day_rule(serde_json::json!({"default":["gpt"]}))).await;
+    let single = mk_db_group(&db, "g2", &[without.id]).await;
+    let e = select_candidates_ctx(&db, &single, "m", None, RequestKind::Rerank)
+        .await
+        .expect_err("excluded");
+    assert_eq!(e, "no_rerank_platform");
+}
+
+/// 时段外 → 照旧读默认配置（固定时刻 2023-11-14 22:13 UTC：9-10 点窗口未命中，22-23 点窗口命中）。
+#[tokio::test]
+async fn time_rule_embedding_out_of_window_uses_default() {
+    let db = mk_test_db().await;
+    let p = mk_embedding_platform(&db, "p", Protocol::OpenAI, slot_embedding("emb-day")).await;
+    let dm = DecisionModels::default();
+    let now = 1_700_000_000_000_i64;
+    let rules = |h0: i64, h1: i64| {
+        crate::gateway::time_windows::parse_platform_time_windows(
+            &serde_json::json!({"time_windows":[{"windows":[{"start_hour":h0,"end_hour":h1}],"models":{"default":["x"]}}]})
+                .to_string(),
+        )
+    };
+    assert!(platform_supports_kind(&p, RequestKind::Embedding, &dm, &rules(9, 10), now), "时段外读默认");
+    assert!(!platform_supports_kind(&p, RequestKind::Embedding, &dm, &rules(22, 23), now), "时段内档无 embedding");
 }

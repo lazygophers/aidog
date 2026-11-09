@@ -1135,6 +1135,10 @@ ALTER TABLE "group_new" RENAME TO "group";
     // 的单值槽位 → 单元素数组（单向，旧版程序读数组会回落空配置）。幂等：已是数组 → 原样。
     listify_platform_models(conn);
 
+    // Migration 20261110-11 (时段档-模型配置对齐 票 02): 已有时段档补齐平台默认 embedding / rerank（一次性，标记门控）。
+    // 须在 listify 之后：槽位值此时已统一为数组。
+    backfill_time_rule_dedicated_models(conn);
+
     // Migration 20260901-01 (quota-scripts T4): platform.quota_script 物化列。
     // 用户保存平台 / 选变体时从 registry 选中变体写入选中脚本正文；空 = 未物化，
     // 执行时回落 registry 首条变体（零配置开箱即用）。已在 platform_early 建表
@@ -1538,6 +1542,106 @@ pub(crate) fn listify_platform_models(conn: &Connection) -> u64 {
     }
     if updated > 0 {
         tracing::info!(updated, "migration 20261102-01: platform.models 单值 → 数组 完成");
+    }
+    updated
+}
+
+/// Migration 20261110-11（时段档-模型配置对齐 票 02）：时段档开始承载 embedding / rerank
+/// （命中整套替换，档内为空 = 时段内本平台不接）。为使升级前后行为一致，对每个平台的每条已有
+/// 时段档：缺 embedding / rerank（缺键或空）→ 写入平台默认 `models` 当时的值，已有值不覆盖。
+///
+/// **一次性**：本仓迁移每次启动都会重跑，而「缺键」会被用户有意留空（空槽序列化时省略）——
+/// 若不设标记，重启就把用户清空的槽补回。故以 `migration_done` 表的标记行门控，
+/// 标记与数据改动同事务提交；任一 UPDATE 失败 → 回滚且不打标，下次启动重试。
+/// 损坏 JSON 行跳过并 warn，不中断。返回被改动的平台行数。
+pub(crate) fn backfill_time_rule_dedicated_models(conn: &Connection) -> u64 {
+    const ID: &str = "20261110-11";
+    if conn
+        .execute("CREATE TABLE IF NOT EXISTS migration_done (id TEXT PRIMARY KEY)", [])
+        .is_err()
+    {
+        return 0;
+    }
+    let done = conn
+        .query_row("SELECT 1 FROM migration_done WHERE id = ?1", [ID], |_| Ok(()))
+        .is_ok();
+    if done {
+        return 0;
+    }
+    let rows: Vec<(i64, String, String)> =
+        match conn.prepare("SELECT id, models, extra FROM platform") {
+            Ok(mut stmt) => stmt
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+                .ok()
+                .map(|iter| iter.filter_map(Result::ok).collect())
+                .unwrap_or_default(),
+            Err(_) => return 0,
+        };
+    if conn.execute_batch("BEGIN IMMEDIATE").is_err() {
+        return 0;
+    }
+    let mut updated = 0u64;
+    for (id, models, extra) in rows {
+        if !extra.contains("\"time_windows\"") {
+            continue;
+        }
+        let (Ok(defaults), Ok(mut root)) = (
+            serde_json::from_str::<serde_json::Value>(&models),
+            serde_json::from_str::<serde_json::Value>(&extra),
+        ) else {
+            tracing::warn!(platform_id = id, "migration 20261110-11: models / extra 非法 JSON，跳过");
+            continue;
+        };
+        let mut changed = false;
+        for rule in root
+            .get_mut("time_windows")
+            .and_then(|t| t.as_array_mut())
+            .into_iter()
+            .flatten()
+        {
+            let Some(rule_models) = rule.get_mut("models").and_then(|m| m.as_object_mut()) else {
+                continue;
+            };
+            for key in ["embedding", "rerank"] {
+                let missing = match rule_models.get(key) {
+                    None | Some(serde_json::Value::Null) => true,
+                    Some(serde_json::Value::Array(a)) => a.is_empty(),
+                    Some(serde_json::Value::String(s)) => s.trim().is_empty(),
+                    Some(_) => false,
+                };
+                let default = defaults.get(key).filter(|v| v.as_array().is_some_and(|a| !a.is_empty()));
+                if let (true, Some(d)) = (missing, default) {
+                    rule_models.insert(key.to_string(), d.clone());
+                    changed = true;
+                }
+            }
+        }
+        if !changed {
+            continue;
+        }
+        let Ok(new_extra) = serde_json::to_string(&root) else {
+            continue;
+        };
+        if let Err(e) = conn.execute(
+            "UPDATE platform SET extra = ?1 WHERE id = ?2",
+            params![new_extra, id],
+        ) {
+            tracing::warn!(platform_id = id, error = %e, "migration 20261110-11: UPDATE 失败，整体回滚待下次重试");
+            let _ = conn.execute_batch("ROLLBACK");
+            return 0;
+        }
+        updated += 1;
+    }
+    if conn
+        .execute("INSERT INTO migration_done (id) VALUES (?1)", [ID])
+        .is_err()
+        || conn.execute_batch("COMMIT").is_err()
+    {
+        let _ = conn.execute_batch("ROLLBACK");
+        return 0;
+    }
+    if updated > 0 {
+        tracing::info!(updated, "migration 20261110-11: 时段档补齐默认 embedding / rerank 完成");
     }
     updated
 }
