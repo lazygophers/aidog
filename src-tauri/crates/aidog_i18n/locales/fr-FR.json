@@ -942,6 +942,8 @@
   "logs.routing.class.model": "Erreur modèle",
   "logs.routing.class.service": "Erreur service",
   "logs.routing.class.unknown": "Erreur inconnue",
+  "logs.routing.exclusion.pair": "Cette combinaison n'est plus choisie dans cette requête",
+  "logs.routing.exclusion.platform": "Cette plateforme n'est plus choisie dans cette requête",
   "logs.routing.effect.breaker_count": "Compte disjoncteur",
   "logs.routing.effect.penalty_server": "Pénalité serveur",
   "logs.routing.effect.penalty_client": "Pénalité client",

@@ -54,4 +54,9 @@ error_rule?: string,
  * 本次尝试引起的副作用（仅观测）：`breaker_count` / `penalty_server` / `penalty_client` /
  * `cooldown_minute` / `cooldown_quota` / `cooldown_balance` / `cooldown_auth` / `disabled_censorship`。
  */
-effects?: Array<string>, };
+effects?: Array<string>, 
+/**
+ * 本次失败在请求内的排除范围：`pair`（只排除该「平台 + 模型」组合，模型类 / 未知类）/
+ * `platform`（排除整个平台，服务类 / 连接失败 / 限频占位失败）。未排除（成功、不可重试直返）为 None。
+ */
+exclusion?: string, };

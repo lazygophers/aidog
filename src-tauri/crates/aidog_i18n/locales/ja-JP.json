@@ -942,6 +942,8 @@
   "logs.routing.class.model": "モデル系",
   "logs.routing.class.service": "サービス系",
   "logs.routing.class.unknown": "不明",
+  "logs.routing.exclusion.pair": "このリクエストでは当該の組み合わせを再選択しません",
+  "logs.routing.exclusion.platform": "このリクエストでは当該プラットフォームを再選択しません",
   "logs.routing.effect.breaker_count": "ブレーカー計数",
   "logs.routing.effect.penalty_server": "サーバー側ペナルティ",
   "logs.routing.effect.penalty_client": "クライアント側ペナルティ",

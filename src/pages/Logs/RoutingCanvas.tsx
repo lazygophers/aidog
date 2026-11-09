@@ -83,6 +83,10 @@ const CLASS_KEY: Record<string, string> = {
   service: "logs.routing.class.service",
   unknown: "logs.routing.class.unknown",
 };
+const EXCLUSION_KEY: Record<string, string> = {
+  pair: "logs.routing.exclusion.pair",
+  platform: "logs.routing.exclusion.platform",
+};
 const EFFECT_KEY: Record<string, string> = {
   breaker_count: "logs.routing.effect.breaker_count",
   penalty_server: "logs.routing.effect.penalty_server",
@@ -117,7 +121,7 @@ const WHY_KEY = {
 
 export type AttemptLite = {
   platform_id: number; status_code: number; model?: string; error?: string; chain_stop?: string; duration_ms?: number; ttfb_ms?: number;
-  kind?: string; error_class?: string; code_meaning?: string; error_rule?: string; effects?: string[];
+  kind?: string; error_class?: string; code_meaning?: string; error_rule?: string; effects?: string[]; exclusion?: string;
 };
 
 type EdgeKind = "eval" | "ok" | "bad" | "out";
@@ -435,6 +439,7 @@ export function RoutingCanvas({
                                   {!s.rateSkip && <span data-testid="routing-step-status">{stepText(s)}</span>}
                                   {a.kind && <span className="rc-pill" data-testid="routing-step-kind" data-kind={a.kind}>{t(KIND_KEY[a.kind] ?? a.kind)}</span>}
                                   {failed && a.error_class && <span className="rc-pill bad" data-testid="routing-step-class" data-class={a.error_class}>{t(CLASS_KEY[a.error_class] ?? a.error_class)}</span>}
+                                  {a.exclusion && <span className="rc-pill warn" data-testid="routing-step-exclusion" data-scope={a.exclusion}>{t(EXCLUSION_KEY[a.exclusion] ?? a.exclusion)}</span>}
                                   {failed && !a.kind && !a.error_class && <span className="rc-unrec" data-testid="routing-unrecorded">{t("logs.routing.unrecorded")}</span>}
                                   {a.duration_ms !== undefined && <span className="rc-sub" data-testid="routing-step-ms" data-ms={a.duration_ms}>{formatDurationMs(a.duration_ms)}</span>}
                                 </span>

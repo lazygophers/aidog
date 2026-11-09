@@ -441,10 +441,24 @@ pub async fn select_candidates_gated(
     kind: RequestKind<'_>,
     client: ClientGate,
 ) -> Result<CandidateSet, RouteFail> {
+    select_candidates_preloaded(db, group, None, source_model, ctx, kind, client).await
+}
+
+/// [`select_candidates_gated`] 的重排入口（请求尝试-逐次重算）：`group_platforms=Some` 复用已读出的
+/// 分组平台列表（一次请求只读一次库），其余状态（熔断 / 降权 / 冷却等）取调用时刻的 `ctx`。
+pub async fn select_candidates_preloaded(
+    db: &db::Db,
+    group: &Group,
+    group_platforms: Option<Vec<GroupPlatformDetail>>,
+    source_model: &str,
+    ctx: Option<&ScheduleCtx<'_>>,
+    kind: RequestKind<'_>,
+    client: ClientGate,
+) -> Result<CandidateSet, RouteFail> {
     // 所有路径（成功 / 路由失败 / 透传 / embedding / tools）统一补记 max_retries：画布以它判「新格式快照」，
     // 此前只有 handler 主循环的 mark_retry_limit 写，其余路径的新日志被误显「未记录」。
     let stamp = |r: &mut RoutingSnapshot| r.max_retries = r.max_retries.or(Some(group.max_retries));
-    match select_candidates_inner(db, group, source_model, ctx, kind, client).await {
+    match select_candidates_inner(db, group, group_platforms, source_model, ctx, kind, client).await {
         Ok(mut set) => {
             stamp(&mut set.routing);
             Ok(set)
@@ -459,6 +473,7 @@ pub async fn select_candidates_gated(
 async fn select_candidates_inner(
     db: &db::Db,
     group: &Group,
+    preloaded: Option<Vec<GroupPlatformDetail>>,
     source_model: &str,
     ctx: Option<&ScheduleCtx<'_>>,
     kind: RequestKind<'_>,
@@ -471,9 +486,12 @@ async fn select_candidates_inner(
     let mapped_target_model = mapping.map(|m| m.target_model.clone());
     let mapped_platform_id = mapping.map(|m| m.target_platform_id).filter(|id| *id != 0);
 
-    let group_platforms = db::get_group_platforms(db, group.id)
-        .await
-        .map_err(RouteFail::from)?;
+    let group_platforms = match preloaded {
+        Some(v) => v,
+        None => db::get_group_platforms(db, group.id)
+            .await
+            .map_err(RouteFail::from)?,
+    };
     if group_platforms.is_empty() {
         return Err("group has no platforms".to_string().into());
     }

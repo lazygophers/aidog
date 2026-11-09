@@ -24,24 +24,24 @@ pub(crate) enum AttemptOutcome {
     Next { connect_failed: bool },
 }
 
-/// 单次候选 forward 尝试（含同平台模型链）：构建上游请求、发送、按状态码分类处理。
-/// 返回 AttemptOutcome::Respond 直接回客户端，Next 表示换下个候选重试。
+/// 单次上游调用（一个「平台 + 模型」组合，请求尝试-逐次重算）：构建上游请求、发送、按状态码分类处理。
+/// 返回 AttemptOutcome::Respond 直接回客户端，Next 表示失败、由 handler 的编排按
+/// `attempts.last().exclusion` 排除后重排再试。
 ///
-/// 同平台换模型（spec D5，票 06）：上游非 2xx 且分类为模型类、链上还有下一个模型时，
-/// 在同一候选内以下一个模型重发（计入最大尝试次数、不记平台失败）；嵌入点见
-/// `handle_non_success`。透传平台 / 直通模型 / 请求名透传的 `fallback_models` 恒空，
-/// 天然不换模型；2xx 流开始后不会回到这里换模型（非 2xx 才可能触发）。
+/// 一次调用只发 `route.target_model`（`fallback_models` 恒空）；同平台换模型不再在这里循环，
+/// 而是由编排把失败的组合排除后重排选下一个。`rate_slot` 跨调用保存当前平台的限频占位：
+/// 同平台连续调用复用同一占位（平台级只占一次），换平台时释放上一个。
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn forward_attempt(
     state: &Arc<ProxyState>,
     log: &mut ProxyLog,
     attempts: &mut Vec<ProxyAttempt>,
     route: RouteResult,
+    model_alt: bool,
     candidate_total: usize,
     is_last_candidate: bool,
     budget: &mut CallBudget,
-    attempt_start: std::time::Instant,
-    attempt_ts: i64,
+    rate_slot: &mut Option<(u64, Option<Arc<crate::gateway::rate_limit::Access>>)>,
     log_settings: &ProxyLogSettings,
     lang: Lang,
     group: &Group,
@@ -55,10 +55,12 @@ pub(crate) async fn forward_attempt(
     start: std::time::Instant,
     group_header_injects: &[(String, String)],
 ) -> AttemptOutcome {
+    let attempt_start = std::time::Instant::now();
+    let attempt_ts = aidog_db::now();
     // 平台限频（extra.rate_limits）：一次访问平台级只占一次；候选筛选后仍可能被并发抢占，
-    // 占位失败按「该候选不可用」换下个候选。模型级在每个模型开始前重判（见下 enter_model）。
+    // 占位失败按「该平台不可用」排除。模型级在每个模型开始前重判。
     let rl_cfg = crate::gateway::rate_limit::RateLimitsCfg::parse(&route.platform.extra);
-    // 上一候选的限频标记不带进本候选；只有最后一次失败仍是限频，才以 blocked_reason='rate_limit' 落库。
+    // 上一次调用的限频标记不带进本次；只有最后一次失败仍是限频，才以 blocked_reason='rate_limit' 落库。
     if log.blocked_reason == "rate_limit" {
         log.blocked_by.clear();
         log.blocked_reason.clear();
@@ -68,97 +70,94 @@ pub(crate) async fn forward_attempt(
     } else {
         0
     };
-    let access = if rl_cfg.is_empty() {
-        None
-    } else {
-        let now = aidog_db::now();
-        match state.scheduler.rate.begin(
-            route.platform.id,
-            &rl_cfg.platform_limits(now, requested_model),
-            now,
-            rl_est,
-        ) {
-            Some(a) => Some(a),
-            None => {
-                tracing::warn!(platform = %route.platform.name, "rate limit reached at acquire, skipping candidate");
-                attempts.push(ProxyAttempt {
-                    kind: Some("rate_limit_platform".to_string()),
-                    // 整条链都没轮到：链上还有模型时记终止原因，画布给它们标「跳过」
-                    chain_stop: (!route.fallback_models.is_empty()).then(|| "rate_limit".to_string()),
-                    platform_id: route.platform.id,
-                    platform_name: route.platform.name.clone(),
-                    error: "platform rate limit reached".to_string(),
-                    ts: attempt_ts,
-                    model: Some(route.target_model.clone()),
-                    ..Default::default()
-                });
-                mark_rate_limited(log);
-                return AttemptOutcome::Next { connect_failed: false };
-            }
-        }
-    };
-    let mut chain = ModelChain::new(route);
-    let (mut attempt_start, mut attempt_ts) = (attempt_start, attempt_ts);
-    loop {
-        if let Some(a) = &access {
-            let model = chain.route().target_model.clone();
+    if rate_slot.as_ref().map(|(pid, _)| *pid) != Some(route.platform.id) {
+        *rate_slot = None; // 释放上一平台的占位
+        let access = if rl_cfg.is_empty() {
+            None
+        } else {
             let now = aidog_db::now();
-            if !a.enter_model(&model, &rl_cfg.model_limits(&model), now, rl_est) {
-                tracing::warn!(model = %model, "model-level rate limit reached, trying next model");
-                attempts.push(ProxyAttempt {
-                    kind: Some("rate_limit_model".to_string()),
-                    platform_id: chain.route().platform.id,
-                    platform_name: chain.route().platform.name.clone(),
-                    error: "model rate limit reached".to_string(),
-                    ts: attempt_ts,
-                    model: Some(model.clone()),
-                    ..Default::default()
-                });
-                if chain.has_next() {
-                    (attempt_start, attempt_ts) = chain.advance();
-                    continue;
+            match state.scheduler.rate.begin(
+                route.platform.id,
+                &rl_cfg.platform_limits(now, requested_model),
+                now,
+                rl_est,
+            ) {
+                Some(a) => Some(a),
+                None => {
+                    tracing::warn!(platform = %route.platform.name, "rate limit reached at acquire, skipping candidate");
+                    attempts.push(ProxyAttempt {
+                        kind: Some("rate_limit_platform".to_string()),
+                        // 整个平台都没轮到：平台上还有模型时记终止原因，画布给它们标「跳过」
+                        chain_stop: model_alt.then(|| "rate_limit".to_string()),
+                        platform_id: route.platform.id,
+                        platform_name: route.platform.name.clone(),
+                        error: "platform rate limit reached".to_string(),
+                        ts: attempt_ts,
+                        model: Some(route.target_model.clone()),
+                        exclusion: Some("platform".to_string()),
+                        ..Default::default()
+                    });
+                    mark_rate_limited(log);
+                    return AttemptOutcome::Next { connect_failed: false };
                 }
-                mark_rate_limited(log);
-                return AttemptOutcome::Next { connect_failed: false };
             }
+        };
+        *rate_slot = Some((route.platform.id, access));
+    }
+    let access: Option<Arc<crate::gateway::rate_limit::Access>> = rate_slot.as_ref().and_then(|(_, a)| a.clone());
+    if let Some(a) = &access {
+        let model = route.target_model.clone();
+        let now = aidog_db::now();
+        if !a.enter_model(&model, &rl_cfg.model_limits(&model), now, rl_est) {
+            tracing::warn!(model = %model, "model-level rate limit reached, excluding pair");
+            attempts.push(ProxyAttempt {
+                kind: Some("rate_limit_model".to_string()),
+                platform_id: route.platform.id,
+                platform_name: route.platform.name.clone(),
+                error: "model rate limit reached".to_string(),
+                ts: attempt_ts,
+                model: Some(model),
+                exclusion: Some("pair".to_string()),
+                ..Default::default()
+            });
+            mark_rate_limited(log);
+            return AttemptOutcome::Next { connect_failed: false };
         }
-        let mut switched = false;
-        let capped = budget.begin_call(log, chain.route().platform.id);
-        let out = forward_attempt_model(
-            state,
-            log,
-            attempts,
-            chain.route().clone(),
-            candidate_total,
-            is_last_candidate || capped,
-            attempt_start,
-            attempt_ts,
-            log_settings,
-            lang,
-            group,
-            chat_req,
-            req_value,
-            source_protocol,
-            requested_model,
-            is_stream,
-            orig_headers,
-            sched_settings,
-            start,
-            group_header_injects,
-            chain.has_next() && !capped,
-            &mut switched,
-            &access,
-        )
-        .await;
-        if !switched {
-            return match (out, access) {
-                (AttemptOutcome::Respond(r), Some(a)) => {
-                    AttemptOutcome::Respond(crate::gateway::rate_limit::hold_until_body_done(r, a))
-                }
-                (out, _) => out,
-            };
+    }
+    let tried: Vec<u64> = attempts.iter().map(|a| a.platform_id).chain([route.platform.id]).collect();
+    let capped = budget.begin_call_untried(log, &tried);
+    let mut switched = false;
+    let out = forward_attempt_model(
+        state,
+        log,
+        attempts,
+        route,
+        candidate_total,
+        is_last_candidate || capped,
+        attempt_start,
+        attempt_ts,
+        log_settings,
+        lang,
+        group,
+        chat_req,
+        req_value,
+        source_protocol,
+        requested_model,
+        is_stream,
+        orig_headers,
+        sched_settings,
+        start,
+        group_header_injects,
+        model_alt && !capped,
+        &mut switched,
+        &access,
+    )
+    .await;
+    match (out, access) {
+        (AttemptOutcome::Respond(r), Some(a)) => {
+            AttemptOutcome::Respond(crate::gateway::rate_limit::hold_until_body_done(r, a))
         }
-        (attempt_start, attempt_ts) = chain.advance();
+        (out, _) => out,
     }
 }
 
@@ -186,6 +185,19 @@ impl CallBudget {
     /// 下一次调用是否就是配额内最后一次（外层循环据此给候选定 `is_last_candidate`）。
     pub(crate) fn next_is_last(&self) -> bool {
         self.used + 1 >= self.max
+    }
+    /// 只计数：返回 true = 这是配额内最后一次。
+    pub(crate) fn count_call(&mut self) -> bool {
+        self.used += 1;
+        self.exhausted()
+    }
+    /// 逐次重算版（聊天）：最后一次时把从未尝试（`tried` 之外）的入选候选补记为 retry-limit。
+    pub(crate) fn begin_call_untried(&mut self, log: &mut ProxyLog, tried: &[u64]) -> bool {
+        let last = self.count_call();
+        if last && let Some(r) = log.routing.as_mut() {
+            r.mark_retry_limit_untried(self.max as u32, tried);
+        }
+        last
     }
     /// 记一次上游调用；返回 true = 这是配额内最后一次（不再换模型 / 换平台）。
     /// 最后一次时把其后仍「入选」的候选在路由快照里补记为 retry-limit。

@@ -18,6 +18,13 @@ pub(crate) struct NonSuccessCtx<'a> {
     pub ttfb_ms: Option<i64>,
 }
 
+/// 失败后继续（换组合）时给最后一条尝试记录打排除范围：服务类 → 整个平台，其余（模型类 / 未知类）→ 只该组合。
+fn mark_exclusion(attempts: &mut [ProxyAttempt], class: UpstreamErrorClass) {
+    if let Some(a) = attempts.last_mut() {
+        a.exclusion = Some(if class == UpstreamErrorClass::Service { "platform" } else { "pair" }.to_string());
+    }
+}
+
 /// 上游返回非 2xx 时的处理：记录 attempt、熔断计数（仅 429-限流）、401/402 auth 冷却、
 /// 中间件 error_rule 分类、决策 A 硬错圈定，决定 failover(Next) 还是返回客户端(Respond)。
 #[allow(clippy::too_many_arguments)]
@@ -74,7 +81,7 @@ pub(crate) async fn handle_non_success(
     // ── 同平台换模型（票 06，spec D5）：先于 is_status_retryable（400/422 不换平台）与全部记账。
     //   Service 类（含 censorship_blocked）→ 不换模型；error_rule 标 non-retryable → 用户显式意图，
     //   不换模型也不换平台；其余（Model / Unknown）且链上还有下一个模型 → 只留痕不记账，换模型重发。
-    //   链耗尽（has_next_model=false）落回下面现有逻辑，用最后一次错误记账一次。
+    //   无备选（has_next_model=false）：模型类错误换平台或回客户端都不记账；服务类每次失败记账一次。
     let code_meaning = registry_code_meaning(&route.platform.platform_type.wire_str(), &body);
     let class = match code_meaning.as_deref() {
         Some("rate_limit" | "overloaded") => UpstreamErrorClass::Service,
@@ -105,11 +112,12 @@ pub(crate) async fn handle_non_success(
             "model-class upstream error, switching to next model on same platform"
         );
         *switched = true;
+        mark_exclusion(attempts, class);
         return AttemptOutcome::Next { connect_failed: false };
     }
 
-    // 模型类错误且链已尽：错在模型而非平台。非末位候选 → 换下个平台（含 400/422），只留痕不记账
-    // （不写 last_error / 降权 / 熔断 / 冷却，仅 inflight-1）；末位候选落回下面现有逻辑把上游错误回客户端。
+    // 模型类错误且无同平台备选：错在模型而非平台。还有别的平台 → 换平台（含 400/422），只留痕不记账
+    // （不写 last_error / 降权 / 熔断 / 冷却，仅 inflight-1）；已是末位 → 落回下面把上游错误回客户端，同样不记账。
     // error_rule 标 non-retryable 是用户显式意图，不在此放行。
     if class == UpstreamErrorClass::Model && !has_next_model && !rule_blocks && !is_last_candidate {
         tracing::info!(
@@ -117,6 +125,7 @@ pub(crate) async fn handle_non_success(
             "model-class upstream error with chain exhausted, failing over to next platform without platform blame"
         );
         state.scheduler.record_ignored(route.platform.id);
+        mark_exclusion(attempts, class);
         return AttemptOutcome::Next { connect_failed: false };
     }
 
@@ -126,13 +135,17 @@ pub(crate) async fn handle_non_success(
 
     // 记本平台最近一次错误（卡片展示，非请求记录实时取）。本平台失败即覆盖，
     // 其自身下次成功时清空（commit_2xx）。换候选成功不清失败平台的 last_error。
+    // 模型类失败（到这里 = 链尽且无处可换）错在模型不在平台：不写 last_error、不降权，只留尝试记录。
+    let no_blame = class == UpstreamErrorClass::Model && !rule_blocks;
     let last_error_detail = extracted_msg.clone().unwrap_or_else(|| attempt_err.clone());
-    let _ = aidog_db::set_platform_last_error(
-        &state.db,
-        route.platform.id,
-        Some(format!("HTTP {code}: {last_error_detail}")),
-    )
-    .await;
+    if !no_blame {
+        let _ = aidog_db::set_platform_last_error(
+            &state.db,
+            route.platform.id,
+            Some(format!("HTTP {code}: {last_error_detail}")),
+        )
+        .await;
+    }
 
     // ── 429 分类（只看 message 文本，禁按 error.type）：配额耗尽 vs 每分钟限流 vs 其余限流 ──
     //   分类用于熔断计数（见下），不再触发 auto_disable：429 统一走 failover 换下个候选。
@@ -178,7 +191,7 @@ pub(crate) async fn handle_non_success(
     //    censorship 例外（已 DB 禁用 1h，不叠加）。档位：429/5xx → Server（起步 1min），
     //    其余 4xx（401/402/403/400/422…）→ Client（起步 30s）。连败 ×2 封顶 10min，
     //    成功清零；与熔断/auth 冷却并行，只沉候选排序不踢出（candidates.rs 消费）。──
-    if !censorship_blocked && !is_429_per_minute_rate_limit {
+    if !no_blame && !censorship_blocked && !is_429_per_minute_rate_limit {
         // 每分钟限流不降权：降权窗口（1min 起 ×2）同样会越过分边界，到点该平台只沉不踢、
         // 但多平台组里排序靠后等于事实上的不可用；冷却到边界后应按正常优先度回来。
         let tier = if code == 429 || code >= 500 {
@@ -310,6 +323,7 @@ pub(crate) async fn handle_non_success(
     // 可重试（审核拒绝或非 400/422 硬错，且中间件未标 non-retryable）→ 换下个候选；
     // 候选耗尽 / 最大尝试次数用尽则返回最后一次错误。non-retryable → 立即返回（不换候选）。
     if !non_retryable && !is_last_candidate {
+        mark_exclusion(attempts, class);
         return AttemptOutcome::Next {
             connect_failed: false,
         };
