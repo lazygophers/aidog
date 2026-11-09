@@ -21,6 +21,7 @@
     "showTurnDuration": true,
     "enableArtifact": false,
     "autoUpdatesChannel": "latest",
+    "minimumVersion": "2.1.290",
     "autoInstallIdeExtension": true,
     "idleCompaction": true,
     "bashEditDiffEnabled": true,
