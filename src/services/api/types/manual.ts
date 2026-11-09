@@ -516,6 +516,8 @@ export interface TimeModelRule {
   windows: import("../../../domains/platforms/defaults").TimeWindow[];
   /** 5 槽模型配置（default/opus/sonnet/haiku/gpt） */
   models: import("./generated/PlatformModels").PlatformModels;
+  /** 本档内置槽启用开关（关闭的内置槽名；与平台级 extra.disabled_slots 同形）。缺省 = 沿用平台级。 */
+  disabled_slots?: string[];
 }
 
 export type MockErrorMode = "none" | "http_error" | "rate_limit_429" | "timeout";

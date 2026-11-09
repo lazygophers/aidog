@@ -1638,6 +1638,10 @@ mod test_routing_snapshot {
             "\"model-not-on-platform\""
         );
         assert_eq!(
+            s(RouteReason::TimeRuleSlotDisabled),
+            "\"time-rule-slot-disabled\""
+        );
+        assert_eq!(
             s(RouteReason::SkippedDeadUpstream),
             "\"skipped-dead-upstream\""
         );

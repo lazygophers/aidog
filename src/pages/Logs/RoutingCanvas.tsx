@@ -30,6 +30,7 @@ const REASON_KEY: Record<RouteReason, string> = {
   "client-not-allowed": "logs.routing.reason.client-not-allowed",
   "rate-limited": "logs.routing.reason.rate-limited",
   "model-not-on-platform": "logs.routing.reason.model-not-on-platform",
+  "time-rule-slot-disabled": "logs.routing.reason.time-rule-slot-disabled",
   "skipped-dead-upstream": "logs.routing.reason.skipped-dead-upstream",
   "not-declared": "logs.routing.reason.not-declared",
   "retry-limit": "logs.routing.reason.retry-limit",

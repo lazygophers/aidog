@@ -1139,6 +1139,9 @@ ALTER TABLE "group_new" RENAME TO "group";
     // 须在 listify 之后：槽位值此时已统一为数组。
     backfill_time_rule_dedicated_models(conn);
 
+    // Migration 20261110-13 (时段档-模型配置对齐 票 03): 已有时段档补本档内置槽开关（取平台级开关，排除自定义槽名）。
+    backfill_time_rule_slot_switches(conn);
+
     // Migration 20261110-12 (请求尝试-逐次重算 票 01): 全部分组 max_retries 置 10（一次性，标记门控）。
     reset_group_max_attempts(conn);
 
@@ -1545,6 +1548,80 @@ pub(crate) fn listify_platform_models(conn: &Connection) -> u64 {
     }
     if updated > 0 {
         tracing::info!(updated, "migration 20261102-01: platform.models 单值 → 数组 完成");
+    }
+    updated
+}
+
+/// Migration 20261110-13（时段档-模型配置对齐 票 03）：每条时段档有自己的内置槽开关集合 `disabled_slots`。
+/// 对缺该键的已有档写入平台级内置槽开关（`disabled_slots` ∪ 旧键 `soft_disabled_slots`，排除自定义槽名），
+/// 升级前后时段内行为不变。幂等：已有该键（含空数组）的档不覆盖，二次运行零变化。损坏 JSON 跳过并 warn。
+pub(crate) fn backfill_time_rule_slot_switches(conn: &Connection) -> u64 {
+    const BUILTIN: [&str; 8] = ["default", "opus", "sonnet", "haiku", "gpt", "jev", "embedding", "rerank"];
+    let rows: Vec<(i64, String)> = match conn.prepare("SELECT id, extra FROM platform") {
+        Ok(mut stmt) => stmt
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .ok()
+            .map(|iter| iter.filter_map(Result::ok).collect())
+            .unwrap_or_default(),
+        Err(_) => return 0,
+    };
+    if conn.execute_batch("BEGIN IMMEDIATE").is_err() {
+        return 0;
+    }
+    let mut updated = 0u64;
+    for (id, extra) in rows {
+        if !extra.contains("\"time_windows\"") {
+            continue;
+        }
+        let Ok(mut root) = serde_json::from_str::<serde_json::Value>(&extra) else {
+            tracing::warn!(platform_id = id, "migration 20261110-13: extra 非法 JSON，跳过");
+            continue;
+        };
+        let mut switches: Vec<serde_json::Value> = Vec::new();
+        for key in ["disabled_slots", "soft_disabled_slots"] {
+            for s in root.get(key).and_then(|v| v.as_array()).into_iter().flatten().filter_map(|x| x.as_str()) {
+                let v = serde_json::Value::from(s);
+                if BUILTIN.contains(&s) && !switches.contains(&v) {
+                    switches.push(v);
+                }
+            }
+        }
+        let mut changed = false;
+        for rule in root
+            .get_mut("time_windows")
+            .and_then(|t| t.as_array_mut())
+            .into_iter()
+            .flatten()
+        {
+            if let Some(o) = rule.as_object_mut()
+                && !o.contains_key("disabled_slots")
+            {
+                o.insert("disabled_slots".into(), switches.clone().into());
+                changed = true;
+            }
+        }
+        if !changed {
+            continue;
+        }
+        let Ok(new_extra) = serde_json::to_string(&root) else {
+            continue;
+        };
+        if let Err(e) = conn.execute(
+            "UPDATE platform SET extra = ?1 WHERE id = ?2",
+            params![new_extra, id],
+        ) {
+            tracing::warn!(platform_id = id, error = %e, "migration 20261110-13: UPDATE 失败，整体回滚待下次重试");
+            let _ = conn.execute_batch("ROLLBACK");
+            return 0;
+        }
+        updated += 1;
+    }
+    if conn.execute_batch("COMMIT").is_err() {
+        let _ = conn.execute_batch("ROLLBACK");
+        return 0;
+    }
+    if updated > 0 {
+        tracing::info!(updated, "migration 20261110-13: 时段档补本档内置槽开关完成");
     }
     updated
 }
