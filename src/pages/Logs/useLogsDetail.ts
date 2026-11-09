@@ -22,7 +22,8 @@ const REASON_LABELS: Record<string, string> = {
   "kind-unsupported": "请求类型不支持",
   "client-not-allowed": "客户端不被允许",
   "rate-limited": "限频超限",
-  "model-not-on-platform": "模型不在此平台",
+  "model-not-on-platform": "槽位已关闭（默认开关）",
+  "time-rule-slot-disabled": "槽位已关闭（时段档开关）",
   "skipped-dead-upstream": "死站跳过",
 };
 

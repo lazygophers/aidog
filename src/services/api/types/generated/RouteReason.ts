@@ -4,4 +4,4 @@
  * 候选条目的原因标签：`selected` = 进入最终尝试序列；其余为排除 / 跳过原因。
  * serde rename（kebab-case）即 wire 值，与 TS 侧字面量逐字一致。
  */
-export type RouteReason = "selected" | "disabled-manual" | "disabled-auto" | "peak-disabled" | "breaker" | "quota-cooldown" | "auth-cooldown" | "unknown-protocol" | "kind-unsupported" | "client-not-allowed" | "rate-limited" | "model-not-on-platform" | "skipped-dead-upstream" | "not-declared" | "retry-limit";
+export type RouteReason = "selected" | "disabled-manual" | "disabled-auto" | "peak-disabled" | "breaker" | "quota-cooldown" | "auth-cooldown" | "unknown-protocol" | "kind-unsupported" | "client-not-allowed" | "rate-limited" | "model-not-on-platform" | "time-rule-slot-disabled" | "skipped-dead-upstream" | "not-declared" | "retry-limit";

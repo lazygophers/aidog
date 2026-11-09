@@ -160,7 +160,7 @@ export function ModelsMatrixSection({
   customSlotDefs?: CustomSlotDef[];
   customSlotValues?: Record<string, string[]>;
   onCustomSlotChange?: (name: string, chain: string[]) => void;
-  /** 关闭的槽位名（内置 + 自定义）；命中该槽位的请求不会路由到本平台。 */
+  /** 关闭的槽位名（内置 + 自定义）；命中该槽位的请求不会路由到本平台。时段档视图里仅用作新建档开关的预填来源。 */
   disabledSlots?: string[];
   onSlotEnabledChange?: (slot: string, enabled: boolean) => void;
   t: TFunction;
@@ -175,8 +175,11 @@ export function ModelsMatrixSection({
   const dropdownSource = useModelCandidates(availableModels, protocol);
 
   // ─── 时段档列操作（从 TimeModelsSection 移植）───
+  // 新建档的开关按「模型」tab 当前内置槽开关预填（自定义槽开关只存平台级，不进时段档）。
+  const platformBuiltinOff = disabledSlots.filter((s) => MODEL_SLOTS.some((m) => m.key === s));
+
   const addRule = () => {
-    setRules([...rules, { windows: [], models: {} }]);
+    setRules([...rules, { windows: [], models: {}, disabled_slots: platformBuiltinOff }]);
   };
 
   const removeRule = (idx: number) => {
@@ -205,6 +208,14 @@ export function ModelsMatrixSection({
     setRules(rules.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
   };
 
+  // 本档开关；档缺省（升级迁移前的旧档）按平台级内置槽开关显示。
+  const ruleOff = (rule: TimeModelRule) => rule.disabled_slots ?? platformBuiltinOff;
+
+  const setRuleSlotEnabled = (idx: number, slot: string, enabled: boolean) => {
+    const off = ruleOff(rules[idx]).filter((x) => x !== slot);
+    updateRule(idx, { disabled_slots: enabled ? off : [...off, slot] });
+  };
+
   const updateRuleModel = (idx: number, slot: ModelSlot, chain: string[]) => {
     setRules(rules.map((r, i) => {
       if (i !== idx) return r;
@@ -220,6 +231,7 @@ export function ModelsMatrixSection({
     const newRule: TimeModelRule = {
       windows: peak.map((w) => ({ ...w })),
       models: {},
+      disabled_slots: platformBuiltinOff,
     };
     setRules([...rules, newRule]);
     setImportModalOpen(false);
@@ -246,15 +258,20 @@ export function ModelsMatrixSection({
     || endpoints.some((e) => isOpenAIFamilyProtocol(e.protocol));
 
   // 启用开关：关闭后平台不接收命中该槽位的请求（直接换下个平台，不计平台错误）。
-  const enabledToggle = (slot: string) => (
+  const enabledToggle = (
+    slot: string,
+    checked = !disabledSlots.includes(slot),
+    onChange: (on: boolean) => void = (on) => onSlotEnabledChange?.(slot, on),
+    testPrefix = "slot-enabled",
+  ) => (
     <label
       title={t("platform.slotEnabledHint")}
       style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, fontSize: 12, color: "var(--text-tertiary)", cursor: "pointer" }}
     >
       <Switch
-        data-testid={`slot-enabled-${slot}`}
-        checked={!disabledSlots.includes(slot)}
-        onCheckedChange={(on) => onSlotEnabledChange?.(slot, on)}
+        data-testid={`${testPrefix}-${slot}`}
+        checked={checked}
+        onCheckedChange={onChange}
       />
       {t("platform.slotEnabled")}
     </label>
@@ -286,6 +303,7 @@ export function ModelsMatrixSection({
               variant="ghost"
               size="sm"
               style={{ fontSize: 12, padding: "4px 10px", whiteSpace: "nowrap" }}
+              data-testid="time-rule-import-peak"
               disabled={peak.length === 0}
               title={peak.length === 0 ? t("platform.time_windows_no_peak", "当前无高峰时段配置") : ""}
               onClick={() => setImportModalOpen(true)}
@@ -296,6 +314,7 @@ export function ModelsMatrixSection({
               variant="ghost"
               size="sm"
               style={{ fontSize: 12, padding: "4px 10px", color: "var(--accent)" }}
+              data-testid="time-rule-add"
               onClick={addRule}
             >
               + {t("platform.time_windows_add_rule", "添加时段档")}
@@ -359,6 +378,7 @@ export function ModelsMatrixSection({
                   key={key} testId={`time-slot-${key}`} name={t(labelKey)}
                   count={slotList(sel.models[key]).length} cellMinWidth={0}
                   badge={dedicatedBadge(key, "time-slot-badge")} t={t}
+                  toggle={enabledToggle(key, !ruleOff(sel).includes(key), (on) => setRuleSlotEnabled(selIdx, key, on), "time-slot-enabled")}
                   hint={DEDICATED_MODEL_SLOTS.includes(key) && (
                     slotList(sel.models[key]).length === 0 ? (
                       // 命中时段档整套替换：档内没填 = 时段内本平台不接此类请求
@@ -418,7 +438,7 @@ export function ModelsMatrixSection({
               <Button variant="ghost" onClick={() => setImportModalOpen(false)}>
                 {t("action.cancel", "取消")}
               </Button>
-              <Button className="ripple" onClick={(e) => { makeRipple(e); importFromPeak(); }}>
+              <Button data-testid="time-rule-import-confirm" className="ripple" onClick={(e) => { makeRipple(e); importFromPeak(); }}>
                 {t("platform.time_windows_import_confirm_button", "确认")}
               </Button>
             </div>

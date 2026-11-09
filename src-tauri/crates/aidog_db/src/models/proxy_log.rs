@@ -240,8 +240,10 @@ pub enum RouteReason {
     ClientNotAllowed,
     /// 平台限频超限（platform.extra.rate_limits，内存计数）
     RateLimited,
-    /// 命中的模型槽位被用户关闭（platform.extra.disabled_slots）：平台被排除，不计平台错误
+    /// 命中的模型槽位被平台默认开关关闭（platform.extra.disabled_slots）：平台被排除，不计平台错误
     ModelNotOnPlatform,
+    /// 命中的模型槽位被「时段档」自己的开关关闭（time_windows[].disabled_slots）：与 `ModelNotOnPlatform`（平台默认开关）区分
+    TimeRuleSlotDisabled,
     /// 死站跳过（重试循环内同 base_url 已 connect 失败，handler.rs R3 补记）
     SkippedDeadUpstream,
     /// 直通模型链：平台未声明该直通模型，被丢弃（路由画布 01）

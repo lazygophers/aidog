@@ -18,6 +18,30 @@ pub fn parse_platform_time_windows(extra: &str) -> Vec<serde_json::Value> {
         .collect()
 }
 
+/// 按当前时段（epoch_ms UTC）first-match 命中 time_windows，返回命中的规则及其 models；无命中 → None。
+pub fn matched_time_rule(
+    rules: &[serde_json::Value],
+    epoch_ms: i64,
+) -> Option<(&serde_json::Value, PlatformModels)> {
+    // 复用 peak 的 utc_time 和 hit 判定（含 minute + day_of_month）
+    let (hour, minute, weekday, day_of_month) = crate::gateway::peak::utc_time(epoch_ms);
+
+    for rule in rules {
+        if let Some(windows) = rule.get("windows").and_then(|w| w.as_array()) {
+            for w in windows {
+                if let Some(parsed) = parse_peak_window(w)
+                    && crate::gateway::peak::hit(&parsed, hour, minute, weekday, day_of_month)
+                    && let Some(models_val) = rule.get("models")
+                    && let Ok(models) = serde_json::from_value::<PlatformModels>(models_val.clone())
+                {
+                    return Some((rule, models));
+                }
+            }
+        }
+    }
+    None
+}
+
 /// 按当前时段（epoch_ms UTC）first-match 命中 time_windows，返回对应 models；
 /// 未命中 → 返回 default_models（platform.models）。
 pub fn resolve_time_windows(
@@ -25,35 +49,9 @@ pub fn resolve_time_windows(
     default_models: &PlatformModels,
     epoch_ms: i64,
 ) -> PlatformModels {
-    if rules.is_empty() {
-        return default_models.clone();
-    }
-
-    // 复用 peak 的 utc_time 和 hit 判定（含 minute + day_of_month）
-    let (hour, minute, weekday, day_of_month) = crate::gateway::peak::utc_time(epoch_ms);
-
-    // first-match: 遍历 rules，找到第一个命中的窗口
-    for rule in rules {
-        if let Some(windows) = rule.get("windows").and_then(|w| w.as_array()) {
-            // 转换窗口为 TimeWindow 格式进行判定
-            for w in windows {
-                if let Some(parsed) = parse_peak_window(w)
-                    && crate::gateway::peak::hit(&parsed, hour, minute, weekday, day_of_month)
-                {
-                    // 命中：解析该 rule 的 models
-                    if let Some(models_val) = rule.get("models")
-                        && let Ok(models) =
-                            serde_json::from_value::<PlatformModels>(models_val.clone())
-                    {
-                        return models;
-                    }
-                }
-            }
-        }
-    }
-
-    // 未命中：返回默认
-    default_models.clone()
+    matched_time_rule(rules, epoch_ms)
+        .map(|(_, m)| m)
+        .unwrap_or_else(|| default_models.clone())
 }
 
 /// 解析单个窗口（从 JSON Value），失败返回 None。支持 minute + day_of_month（向后兼容旧 schema）。
