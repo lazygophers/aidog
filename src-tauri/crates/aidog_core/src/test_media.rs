@@ -3,7 +3,7 @@
 //! 出参 markdown 形态与显式错误路径。
 
 use super::*;
-use aidog_core::mcp_tools::MediaProviderConfig;
+use crate::mcp_tools::MediaProviderConfig;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;

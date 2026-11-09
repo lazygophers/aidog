@@ -23,9 +23,11 @@ mod protocol;
 mod proxy_log;
 mod settings;
 mod stats;
+mod tool_log;
 mod tray;
 
 pub use api_call_log::*;
+pub use tool_log::*;
 pub use batch::*;
 pub use group::*;
 pub use manual_budget::*;
