@@ -257,6 +257,71 @@ fn resolve_price_from_mp_unit_bills_per_megapixel() {
     assert!(!r.peak_applied, "按 MP 价不走 peak");
 }
 
+#[test]
+fn time_tiers_switches_per_call_price_at_start_at() {
+    // stepfun stepaudio-3-asr-max 真实形状：按次条目（CNY ¥/秒）time_tiers 定时切价，
+    // 档内 `unit_price` 覆盖顶层，币种换算照走 currency=CNY。
+    let pd = serde_json::json!({"price": {
+        "currency": "CNY",
+        "unit": "second",
+        "unit_price": 0.000778,
+        "time_tiers": [{ "start_at": 1794844800_i64, "unit_price": 0.00208333 }]
+    }});
+    let r_before = resolve_price_from(Some(&pd), false, 3.0, 15.0, 0, 1794844800_i64 * 1000 - 1);
+    assert_eq!(
+        r_before.request_unit_price,
+        Some(0.000778 / crate::price_resolve::CNY_PER_USD),
+        "生效前用顶层价（CNY 换算 USD）"
+    );
+    let r_after = resolve_price_from(Some(&pd), false, 3.0, 15.0, 0, 1794844800_i64 * 1000 + 1);
+    assert_eq!(
+        r_after.request_unit_price,
+        Some(0.00208333 / crate::price_resolve::CNY_PER_USD),
+        "生效后切到 time 档价"
+    );
+    assert_eq!(r_after.price.source, "model_entry+second+time");
+    // now_ms <= 0 = 无时间上下文 → 顶层价
+    let r_none = resolve_price_from(Some(&pd), false, 3.0, 15.0, 0, 0);
+    assert_eq!(r_none.request_unit_price, Some(0.000778 / crate::price_resolve::CNY_PER_USD));
+    assert_eq!(r_none.price.source, "model_entry+second");
+}
+
+#[test]
+fn unit_tiers_default_to_first_tier_without_request_param() {
+    // `unit_tiers`（镜像 context_tiers）：转发/计费链拿不到图像尺寸/分辨率参数 →
+    // 缺参兜底 = 第一档（registry 档位顺序即官方顺序）。
+    let pd = serde_json::json!({"price": {
+        "currency": "USD",
+        "unit": "image",
+        "unit_price": 0.05,
+        "unit_tiers": [
+            { "tier": "720p", "unit_price": 0.1395 },
+            { "tier": "1080p", "unit_price": 0.2479 }
+        ]
+    }});
+    let r = resolve_price_from(Some(&pd), false, 3.0, 15.0, 0, 0);
+    assert_eq!(r.request_unit_price, Some(0.1395), "缺参按第一档计费");
+    assert_eq!(r.price.source, "model_entry+image");
+}
+
+#[test]
+fn time_tier_unit_price_overrides_unit_tiers_default() {
+    // 优先级：time 档 unit_price > unit_tiers 第一档 > 顶层 unit_price。
+    let pd = serde_json::json!({"price": {
+        "currency": "USD",
+        "unit": "second",
+        "unit_price": 0.1,
+        "unit_tiers": [{ "tier": "720p", "unit_price": 0.2 }],
+        "time_tiers": [{ "start_at": 1794844800_i64, "unit_price": 0.3 }]
+    }});
+    let r = resolve_price_from(Some(&pd), false, 3.0, 15.0, 0, 1794844800_i64 * 1000 + 1);
+    assert_eq!(r.request_unit_price, Some(0.3), "time 档价最高优先");
+    assert_eq!(r.price.source, "model_entry+second+time");
+    // 未命中 time 档 → unit_tiers 第一档压过顶层
+    let r_miss = resolve_price_from(Some(&pd), false, 3.0, 15.0, 0, 1794844800_i64 * 1000 - 1);
+    assert_eq!(r_miss.request_unit_price, Some(0.2));
+}
+
 // ── DB 路径 ──
 
 #[tokio::test]
