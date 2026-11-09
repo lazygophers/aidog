@@ -131,7 +131,24 @@
         "autoAllowBashIfSandboxed": true,
         "excludedCommands": [
             "docker *",
-            "gh *"
+            "gh *",
+            "git fetch *",
+            "git pull *",
+            "git push *",
+            "yarn *",
+            "npm *",
+            "npx *",
+            "pnpm *",
+            "bun *",
+            "cargo *",
+            "go *",
+            "make *",
+            "gradle *",
+            "./gradlew *",
+            "mvn *",
+            "pip *",
+            "uv *",
+            "mise *"
         ],
         "filesystem": {
             "denyRead": [
