@@ -963,3 +963,154 @@ fn oss_preset_has_no_personal_items_and_keeps_privacy() {
     assert_eq!(oss["disableClaudeAiConnectors"], true);
     assert_eq!(oss["_aidog_hooks"]["enabled"], true);
 }
+
+/// `_aidog_claude_json` 合并写 claude.json：不存在则创建。
+#[test]
+fn merge_claude_json_creates_missing_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = dir.path().join(".claude.json");
+    super::merge_claude_json(&p, &json!({ "copyOnSelect": false, "diffTool": "terminal" })).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&p).unwrap()).unwrap();
+    assert_eq!(v, json!({ "copyOnSelect": false, "diffTool": "terminal" }));
+}
+
+/// 只覆盖段内键，其余键（含嵌套对象）原样保留。
+#[test]
+fn merge_claude_json_preserves_other_keys() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = dir.path().join(".claude.json");
+    std::fs::write(
+        &p,
+        r#"{"numStartups":7,"projects":{"/a":{"x":1}},"copyOnSelect":true}"#,
+    )
+    .unwrap();
+    super::merge_claude_json(&p, &json!({ "copyOnSelect": false })).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&p).unwrap()).unwrap();
+    assert_eq!(v["copyOnSelect"], false);
+    assert_eq!(v["numStartups"], 7);
+    assert_eq!(v["projects"]["/a"]["x"], 1);
+}
+
+/// 段内键值都已一致 → 不写（用紧凑格式文件：若被重写会变成 pretty，内容必变）。
+#[test]
+fn merge_claude_json_skips_write_when_equal() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = dir.path().join(".claude.json");
+    let raw = r#"{"copyOnSelect":false,"other":1}"#;
+    std::fs::write(&p, raw).unwrap();
+    super::merge_claude_json(&p, &json!({ "copyOnSelect": false })).unwrap();
+    assert_eq!(std::fs::read_to_string(&p).unwrap(), raw);
+}
+
+/// 非法 JSON：不写、返回 Err，原文件字节不变（防毁用户状态文件）。
+#[test]
+fn merge_claude_json_refuses_invalid_json() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = dir.path().join(".claude.json");
+    std::fs::write(&p, "{ not json").unwrap();
+    assert!(super::merge_claude_json(&p, &json!({ "copyOnSelect": false })).is_err());
+    assert_eq!(std::fs::read_to_string(&p).unwrap(), "{ not json");
+}
+
+/// 端到端：默认组同步 → 段从分组文件 / settings.json 剥离，键合并进 ~/.claude.json 且保留其它键；
+/// 非默认组同样不含该段。
+#[tokio::test]
+async fn claude_json_section_stripped_and_merged_for_default_group() {
+    use crate::gateway::models::{CreateGroup, RoutingMode};
+    use aidog_db::SetSettingInput;
+    use aidog_db::test_support::{HomeGuard, test_db};
+    let h = HomeGuard::new();
+    let db = test_db().await;
+    std::fs::write(h.home().join(".claude.json"), r#"{"numStartups":3}"#).unwrap();
+    aidog_db::set_setting(
+        &db,
+        SetSettingInput {
+            scope: "global".to_string(),
+            key: "claude_code".to_string(),
+            value: json!({
+                super::CLAUDE_JSON_KEY: { "copyOnSelect": false, "diffTool": "terminal" },
+                "env": { "FOO": "1" }
+            }),
+        },
+    )
+    .await
+    .unwrap();
+    let mk = |name: &str, key: &str| CreateGroup {
+        name: name.to_string(),
+        group_key: Some(key.to_string()),
+        routing_mode: RoutingMode::Failover,
+        auto_from_platform: String::new(),
+        request_timeout_secs: 0,
+        connect_timeout_secs: 0,
+        source_protocol: None,
+        max_retries: 2,
+        model_mappings: vec![],
+        env_vars: vec![],
+    };
+    let g = aidog_db::create_group(&db, mk("cj-default", "gk_cjdef")).await.unwrap();
+    aidog_db::create_group(&db, mk("cj-other", "gk_cjoth")).await.unwrap();
+    aidog_db::set_default_group(&db, Some(g.id)).await.unwrap();
+
+    super::do_sync_group_settings(&db, 9913).await.unwrap();
+
+    let read = |rel: &str| -> serde_json::Value {
+        serde_json::from_str(&std::fs::read_to_string(h.home().join(rel)).unwrap()).unwrap()
+    };
+    for rel in [
+        ".aidog/settings.gk_cjdef.json",
+        ".aidog/settings.gk_cjoth.json",
+        ".claude/settings.json",
+    ] {
+        let v = read(rel);
+        assert_eq!(v["env"]["FOO"], "1", "{rel}");
+        assert!(v.get(super::CLAUDE_JSON_KEY).is_none(), "{rel} 含 claude_json 段");
+    }
+    let cj = read(".claude.json");
+    assert_eq!(cj["copyOnSelect"], false);
+    assert_eq!(cj["diffTool"], "terminal");
+    assert_eq!(cj["numStartups"], 3);
+}
+
+/// 无默认组：只剥离、不写 ~/.claude.json。
+#[tokio::test]
+async fn claude_json_section_not_written_without_default_group() {
+    use crate::gateway::models::{CreateGroup, RoutingMode};
+    use aidog_db::SetSettingInput;
+    use aidog_db::test_support::{HomeGuard, test_db};
+    let h = HomeGuard::new();
+    let db = test_db().await;
+    aidog_db::set_setting(
+        &db,
+        SetSettingInput {
+            scope: "global".to_string(),
+            key: "claude_code".to_string(),
+            value: json!({ super::CLAUDE_JSON_KEY: { "copyOnSelect": false }, "env": { "FOO": "1" } }),
+        },
+    )
+    .await
+    .unwrap();
+    aidog_db::create_group(
+        &db,
+        CreateGroup {
+            name: "cj-nodef".to_string(),
+            group_key: Some("gk_cjnodef".to_string()),
+            routing_mode: RoutingMode::Failover,
+            auto_from_platform: String::new(),
+            request_timeout_secs: 0,
+            connect_timeout_secs: 0,
+            source_protocol: None,
+            max_retries: 2,
+            model_mappings: vec![],
+            env_vars: vec![],
+        },
+    )
+    .await
+    .unwrap();
+    super::do_sync_group_settings(&db, 9914).await.unwrap();
+    let f: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(h.home().join(".aidog/settings.gk_cjnodef.json")).unwrap(),
+    )
+    .unwrap();
+    assert!(f.get(super::CLAUDE_JSON_KEY).is_none());
+    assert!(!h.home().join(".claude.json").exists());
+}

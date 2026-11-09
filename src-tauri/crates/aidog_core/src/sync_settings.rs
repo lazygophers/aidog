@@ -170,6 +170,46 @@ pub async fn write_default_claude_settings(
     Ok(())
 }
 
+/// 预设里写进 `~/.claude.json` 的独立段（Global config 键只从该文件读，写进 settings.json 无效）。
+/// 写 settings.json / 分组文件前必须剥离。
+pub const CLAUDE_JSON_KEY: &str = "_aidog_claude_json";
+
+/// 把 `section` 的键合并写入 claude.json（`path`）：只覆盖段内列出的键，其余原样保留。
+pub(crate) fn merge_claude_json(path: &std::path::Path, section: &serde_json::Value) -> Result<(), String> {
+    let Some(section) = section.as_object() else {
+        return Ok(());
+    };
+    // 不存在 → 新建；存在但不是合法 JSON 对象 → 拒写（绝不把用户状态文件覆盖成空对象）。
+    let mut root: serde_json::Value = match std::fs::read_to_string(path) {
+        Ok(raw) => serde_json::from_str(&raw)
+            .map_err(|e| format!("{} is not valid JSON, left untouched: {e}", path.display()))?,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            serde_json::Value::Object(Default::default())
+        }
+        Err(e) => return Err(format!("read {}: {e}", path.display())),
+    };
+    let obj = root
+        .as_object_mut()
+        .ok_or_else(|| format!("{} is not a JSON object, left untouched", path.display()))?;
+    if section.iter().all(|(k, v)| obj.get(k) == Some(v)) {
+        return Ok(());
+    }
+    for (k, v) in section {
+        obj.insert(k.clone(), v.clone());
+    }
+    let content = serde_json::to_string_pretty(&root)
+        .map_err(|e| format!("serialize {}: {e}", path.display()))?;
+    // 保留原文件权限（claude.json 通常 0600）；新建走默认。
+    #[cfg(unix)]
+    let mode = {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::metadata(path).ok().map(|m| m.permissions().mode())
+    };
+    #[cfg(not(unix))]
+    let mode = None;
+    crate::ai_tools_cmd::profile::atomic_write(path, &content, mode)
+}
+
 /// JSON deep merge：overlay 叠加到 base（in-place）。
 /// - overlay 非 object → 直接覆盖 base（*base = overlay.clone()）
 /// - overlay 为 object → 逐键递归合并；base 非 object 时先升级为空 object
@@ -404,6 +444,7 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
     // 默认分组捕获：循环内为默认组算出的 config（已 strip 内部 marker），循环结束后
     // merge 写入 ~/.claude/settings.json 全局。None = 无默认组（循环后跳过全局写入）。
     let mut default_claude_config: Option<serde_json::Value> = None;
+    let mut default_claude_json: Option<serde_json::Value> = None;
 
     for group in &groups {
         let group_key = &group.group_key;
@@ -530,11 +571,14 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
         }
 
         // Strip internal aidog UI state — not real Claude Code fields.
+        let mut claude_json_section = None;
         if let Some(obj) = config.as_object_mut() {
             obj.remove("_aidog_statusline");
             obj.remove("_aidog_subagent_statusline");
             obj.remove(aidog_hooks::MARKER_HOOKS);
             obj.remove(PRESET_NAME_KEY);
+            // 写 ~/.claude.json 的独立段：不进任何 settings 文件，默认组另行合并写入。
+            claude_json_section = obj.remove(CLAUDE_JSON_KEY);
         }
 
         let file_path = aidog_dir.join(format!("settings.{}.json", group_key));
@@ -552,6 +596,7 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
         // 捕获默认组 config（已 strip 内部 marker），循环后 merge 写 ~/.claude/settings.json。
         if group.is_default {
             default_claude_config = Some(config.clone());
+            default_claude_json = claude_json_section;
         }
 
         // Codex profile：为该分组生成 `$CODEX_HOME/<group>.config.toml`
@@ -574,6 +619,11 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
         Some(config) => {
             if let Err(e) = write_default_claude_settings(db, &config).await {
                 tracing::warn!(error = %e, "default group: merge ~/.claude/settings.json failed");
+            }
+            if let (Some(section), Some(home)) = (&default_claude_json, dirs::home_dir())
+                && let Err(e) = merge_claude_json(&home.join(".claude.json"), section)
+            {
+                tracing::warn!(error = %e, "default group: merge ~/.claude.json failed");
             }
             if let Err(e) = gateway::codex::write_default_profile_to_config(port) {
                 tracing::warn!(error = %e, "default group: merge ~/.codex/config.toml failed");
