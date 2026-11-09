@@ -7,11 +7,13 @@ const h = vi.hoisted(() => ({ get: vi.fn(), set: vi.fn() }));
 const m = vi.hoisted(() => ({ selfInstall: vi.fn() }));
 vi.mock("../../services/transport", () => ({ invoke: vi.fn(), listen: vi.fn(async () => () => {}) }));
 vi.mock("../../services/api/settings", () => ({ settingsApi: { get: h.get, set: h.set } }));
+const sx = vi.hoisted(() => ({ searxInstances: vi.fn() }));
+vi.mock("../../services/api/search", () => ({ searchApi: { searxInstances: sx.searxInstances } }));
 vi.mock("../../services/api/mcp", () => ({ mcpApi: { selfInstall: m.selfInstall } }));
 
 import { SEARCH_ENGINES, ToolsSection } from "./ToolsSection";
 
-const ALL_ON = Object.fromEntries(SEARCH_ENGINES.map((e) => [e.id, true]));
+const ALL_ON = Object.fromEntries(SEARCH_ENGINES.map((e) => [e.id, e.defaultOn]));
 const engineBox = (id: string) => screen.getByTestId(`tools-engine-${id}`) as HTMLInputElement;
 
 const providerSelect = () => screen.getByTestId("mcp-tools-provider") as HTMLSelectElement;
@@ -24,6 +26,7 @@ beforeEach(() => {
   h.get.mockResolvedValue(null);
   h.set.mockResolvedValue(undefined);
   m.selfInstall.mockReset();
+  sx.searxInstances.mockReset();
 });
 
 describe("ToolsSection", () => {
@@ -72,10 +75,10 @@ describe("ToolsSection", () => {
     );
   });
 
-  it("引擎列表：默认全开；关掉 bing 后保存写出 engines.bing=false", async () => {
+  it("引擎列表：默认取各引擎缺省开关；关掉 bing 后保存写出 engines.bing=false", async () => {
     render(<ToolsSection />);
     await waitFor(() => expect(providerSelect().value).toBe(""));
-    for (const e of SEARCH_ENGINES) expect(engineBox(e.id).checked, e.id).toBe(true);
+    for (const e of SEARCH_ENGINES) expect(engineBox(e.id).checked, e.id).toBe(e.defaultOn);
     fireEvent.click(engineBox("bing"));
     expect(engineBox("bing").checked).toBe(false);
     fireEvent.click(saved());
@@ -92,7 +95,7 @@ describe("ToolsSection", () => {
     const { unmount } = render(<ToolsSection />);
     await waitFor(() => expect((screen.getByTestId("mcp-tools-searxng-urls") as HTMLTextAreaElement).value).toBe("http://old"));
     expect(providerSelect().value).toBe("");
-    for (const e of SEARCH_ENGINES) expect(engineBox(e.id).checked, e.id).toBe(true);
+    for (const e of SEARCH_ENGINES) expect(engineBox(e.id).checked, e.id).toBe(e.defaultOn);
     unmount();
 
     h.get.mockResolvedValue({ search: { provider: "", keys: [], enabled: true, engines: { google: false } } });
@@ -179,5 +182,59 @@ describe("ToolsSection", () => {
     await waitFor(() => expect(providerSelect().value).toBe(""));
     fireEvent.click(screen.getByTestId("mcp-tools-install"));
     expect(await screen.findByTestId("mcp-tools-install-result")).toHaveTextContent("no kernel");
+  });
+
+  it("新增 7 个引擎默认关、可见；其余 7 个默认开", async () => {
+    render(<ToolsSection />);
+    await waitFor(() => expect(engineBox("ddg").checked).toBe(true));
+    for (const id of ["ddg_lite", "yandex", "sogou", "so360", "baidu", "crossref", "pubmed"]) {
+      expect(engineBox(id).checked, id).toBe(false);
+    }
+    for (const id of ["ddg", "bing", "google", "arxiv", "searxng", "wikipedia", "github"]) {
+      expect(engineBox(id).checked, id).toBe(true);
+    }
+  });
+
+  it("SearXNG 公共列表：加载 / 打开页面从不自动拉取，只有点刷新才拉一次", async () => {
+    sx.searxInstances.mockResolvedValue([{ url: "https://a.example/", seconds: 0.3 }]);
+    render(<ToolsSection />);
+    await waitFor(() => expect(engineBox("ddg").checked).toBe(true));
+    expect(sx.searxInstances).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId("tools-searx-refresh"));
+    await waitFor(() => expect(screen.getByTestId("tools-searx-inst-0")).toBeTruthy());
+    expect(sx.searxInstances).toHaveBeenCalledTimes(1);
+  });
+
+  it("刷新后多选写入实例 URL 并随保存持久化；自填 URL 保留；取消勾选移除", async () => {
+    h.get.mockResolvedValue({ search: { provider: "", keys: [], enabled: true, searxng_base_urls: ["http://mine"] } });
+    sx.searxInstances.mockResolvedValue([
+      { url: "https://a.example/", seconds: 0.3 },
+      { url: "https://b.example/", seconds: 1.2 },
+    ]);
+    render(<ToolsSection />);
+    await waitFor(() => expect((screen.getByTestId("mcp-tools-searxng-urls") as HTMLTextAreaElement).value).toBe("http://mine"));
+    fireEvent.click(screen.getByTestId("tools-searx-refresh"));
+    await waitFor(() => screen.getByTestId("tools-searx-inst-1"));
+    fireEvent.click(screen.getByTestId("tools-searx-inst-0"));
+    fireEvent.click(screen.getByTestId("tools-searx-inst-1"));
+    expect((screen.getByTestId("mcp-tools-searxng-urls") as HTMLTextAreaElement).value).toBe("http://mine\nhttps://a.example/\nhttps://b.example/");
+    fireEvent.click(screen.getByTestId("tools-searx-inst-0"));
+    expect((screen.getByTestId("mcp-tools-searxng-urls") as HTMLTextAreaElement).value).toBe("http://mine\nhttps://b.example/");
+    fireEvent.click(saved());
+    await waitFor(() =>
+      expect((h.set.mock.calls[0][2] as any).search.searxng_base_urls).toEqual(["http://mine", "https://b.example/"]),
+    );
+  });
+
+  it("已保存的实例在刷新列表里显示为已勾选；刷新失败显示错误", async () => {
+    h.get.mockResolvedValue({ search: { provider: "", keys: [], enabled: true, searxng_base_urls: ["https://a.example/"] } });
+    sx.searxInstances.mockResolvedValueOnce([{ url: "https://a.example/", seconds: null }]);
+    render(<ToolsSection />);
+    await waitFor(() => expect((screen.getByTestId("mcp-tools-searxng-urls") as HTMLTextAreaElement).value).toBe("https://a.example/"));
+    fireEvent.click(screen.getByTestId("tools-searx-refresh"));
+    await waitFor(() => expect((screen.getByTestId("tools-searx-inst-0") as HTMLInputElement).checked).toBe(true));
+    sx.searxInstances.mockRejectedValueOnce("searx.space: HTTP 500");
+    fireEvent.click(screen.getByTestId("tools-searx-refresh"));
+    await waitFor(() => expect(screen.getByTestId("tools-searx-error").textContent).toContain("HTTP 500"));
   });
 });
