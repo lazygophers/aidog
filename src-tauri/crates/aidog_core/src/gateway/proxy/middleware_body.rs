@@ -14,6 +14,7 @@
 //! **block 不在本模块**：block 在分叉前判定并直接返回 403，两条路径本来就都生效。
 
 use aidog_db::models::MiddlewareSettings;
+use aidog_middleware::placeholder::ScrubMap;
 use aidog_middleware::{InboundInject, InboundTexts, MiddlewareEngine};
 use serde_json::Value;
 
@@ -43,17 +44,7 @@ pub(crate) fn apply_middleware_body(
     platform_id: i64,
     req_headers: Option<&str>,
 ) -> bool {
-    let mut texts = InboundTexts::new(model);
-    for side in [Side::System, Side::Messages] {
-        let mut sink = |s: &str| -> Option<String> {
-            match side {
-                Side::System => texts_push(&mut texts.system, s),
-                Side::Messages => texts_push(&mut texts.messages, s),
-            }
-            None
-        };
-        visit_texts(body, wire, side, &mut sink);
-    }
+    let mut texts = collect_slots(body, wire, model);
     let before = (texts.system.clone(), texts.messages.clone());
 
     engine.apply_inbound_texts(settings, &mut texts, group_key, platform_id, req_headers);
@@ -63,19 +54,7 @@ pub(crate) fn apply_middleware_body(
         return false;
     }
     if rewritten {
-        for side in [Side::System, Side::Messages] {
-            let slots = match side {
-                Side::System => &texts.system,
-                Side::Messages => &texts.messages,
-            };
-            let mut i = 0usize;
-            let mut writer = |_: &str| -> Option<String> {
-                let next = slots.get(i).cloned();
-                i += 1;
-                next
-            };
-            visit_texts(body, wire, side, &mut writer);
-        }
+        write_slots(body, wire, &texts);
     }
     for op in &texts.injects {
         match op {
@@ -92,6 +71,61 @@ pub(crate) fn apply_middleware_body(
 
 fn texts_push(dst: &mut Vec<String>, s: &str) {
     dst.push(s.to_string());
+}
+
+/// 按 wire 协议把 body 内 system / messages 文本抽进文本槽。
+fn collect_slots<'a>(body: &mut Value, wire: &Protocol, model: &'a str) -> InboundTexts<'a> {
+    let mut texts = InboundTexts::new(model);
+    for side in [Side::System, Side::Messages] {
+        let mut sink = |s: &str| -> Option<String> {
+            match side {
+                Side::System => texts_push(&mut texts.system, s),
+                Side::Messages => texts_push(&mut texts.messages, s),
+            }
+            None
+        };
+        visit_texts(body, wire, side, &mut sink);
+    }
+    texts
+}
+
+/// 与 [`collect_slots`] 同遍历顺序把文本槽写回 body。
+fn write_slots(body: &mut Value, wire: &Protocol, texts: &InboundTexts<'_>) {
+    for side in [Side::System, Side::Messages] {
+        let slots = match side {
+            Side::System => &texts.system,
+            Side::Messages => &texts.messages,
+        };
+        let mut i = 0usize;
+        let mut writer = |_: &str| -> Option<String> {
+            let next = slots.get(i).cloned();
+            i += 1;
+            next
+        };
+        visit_texts(body, wire, side, &mut writer);
+    }
+}
+
+/// 最终出站 body 上执行可还原 mask（中间件 Reversible Mask）。
+/// 返回本请求映射表（无命中 = 空表，body 一个字节不动）；`Err` = 应用失败，调用方 fail-closed。
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn apply_reversible_mask_body(
+    engine: &MiddlewareEngine,
+    settings: &MiddlewareSettings,
+    body: &mut Value,
+    wire: &Protocol,
+    model: &str,
+    group_key: Option<&str>,
+    platform_id: i64,
+    req_headers: Option<&str>,
+) -> Result<ScrubMap, String> {
+    let mut texts = collect_slots(body, wire, model);
+    let before = (texts.system.clone(), texts.messages.clone());
+    let map = engine.apply_reversible_texts(settings, &mut texts, group_key, platform_id, req_headers)?;
+    if before.0 != texts.system || before.1 != texts.messages {
+        write_slots(body, wire, &texts);
+    }
+    Ok(map)
 }
 
 // ───────────────────────── 文本槽遍历（wire 协议分叉） ─────────────────────────

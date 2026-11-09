@@ -294,4 +294,36 @@ describe("预算闸门 × 显示币种（票 04）", () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(onSave.mock.calls[0][0].actions).toEqual([{ kind: "budget_gate", params: expect.objectContaining({ budget_usd: 25 }) }]);
   });
+
+  // 票 01：可还原 mask 列表标记 + 编辑器模式切换
+  it("列表：reversible mask 规则显示「可还原」标记，fixed 不显示", async () => {
+    listRules.mockResolvedValue([
+      mk({ id: 1, name: "rev", actions: [{ kind: "mask", params: { replacement: "****", fields: [], mode: "reversible" } }] }),
+      mk({ id: 2, name: "fix" }),
+    ]);
+    render(<MiddlewareRulesPanel />);
+    await waitFor(() => expect(screen.getByText("rev")).toBeTruthy());
+    expect(screen.getAllByTestId("rule-reversible-badge")).toHaveLength(1);
+  });
+
+  it("编辑器：mask 步骤可切换 Fixed / Reversible 并随保存带出 mode", async () => {
+    const user = userEvent.setup();
+    listRules.mockResolvedValue([mk({ id: 3, name: "ed" })]);
+    updateRule.mockResolvedValue(mk({ id: 3, name: "ed" }));
+    render(<MiddlewareRulesPanel />);
+    await waitFor(() => expect(screen.getByText("ed")).toBeTruthy());
+    await user.click(screen.getByTitle("action.edit"));
+    const toggle = await screen.findByTestId("mask-mode-toggle");
+    expect(toggle.getAttribute("data-state")).toBe("unchecked");
+    await user.click(toggle);
+    expect(screen.getByTestId("mask-mode-toggle").getAttribute("data-state")).toBe("checked");
+    await user.click(screen.getByText("action.save"));
+    await waitFor(() =>
+      expect(updateRule).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actions: [expect.objectContaining({ kind: "mask", params: expect.objectContaining({ mode: "reversible" }) })],
+        }),
+      ),
+    );
+  });
 });

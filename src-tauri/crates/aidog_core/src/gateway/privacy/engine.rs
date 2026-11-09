@@ -1,25 +1,7 @@
 //! 脱敏 / 还原引擎：确定性占位符生成与文本替换。
 
 use super::detect::collect_spans;
-use super::{PiiKind, ScrubMap, ScrubOptions};
-
-/// FNV-1a 32 位，占位符 hex 由原值确定性派生（同原值恒同占位符）。
-fn fnv1a32(bytes: &[u8]) -> u32 {
-    let mut hash: u32 = 0x811c_9dc5;
-    for &b in bytes {
-        hash ^= u32::from(b);
-        hash = hash.wrapping_mul(0x0100_0193);
-    }
-    hash
-}
-
-fn placeholder_for(kind: PiiKind, original: &str) -> String {
-    format!(
-        "{{{{PII_{}_{:08x}}}}}",
-        kind.as_str(),
-        fnv1a32(original.as_bytes())
-    )
-}
+use super::{ScrubMap, ScrubOptions};
 
 /// 检测并脱敏文本中的敏感数据。
 ///
@@ -40,36 +22,21 @@ pub(crate) fn apply_spans(text: &str, spans: Vec<super::detect::SpanKind>) -> (S
     let mut last = 0usize;
     for span in spans {
         let original = &text[span.start..span.end];
-        let mut placeholder = placeholder_for(span.kind, original);
-        // review #7：FNV-1a-32 碰撞时同键异值会覆盖映射（restore 不可逆）→
-        // 键同值异 → salt 重散列出新占位符，两条映射独立、往返无损。
-        let mut salt = 0u32;
-        while map.get(&placeholder).is_some_and(|prev| prev != original) {
-            salt += 1;
-            placeholder = placeholder_for(span.kind, &format!("{salt}:{original}"));
-        }
+        let placeholder = map.register(span.kind.as_str(), original);
         out.push_str(&text[last..span.start]);
         out.push_str(&placeholder);
-        map.insert(&placeholder, original);
         last = span.end;
     }
     out.push_str(&text[last..]);
     (out, map)
 }
 
-/// 把 `text` 中登记过的占位符换回原值。
-pub fn restore(text: &str, map: &ScrubMap) -> String {
-    let mut out = text.to_string();
-    for (placeholder, original) in map.iter() {
-        out = out.replace(placeholder, original);
-    }
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::super::detect::SpanKind;
     use super::*;
+    use crate::gateway::privacy::PiiKind;
+    use aidog_middleware::placeholder::{fnv1a32, restore};
     use std::collections::HashMap;
 
     /// review #7 红测试：FNV-1a-32 碰撞时 `map.insert` 覆盖映射 → 后值的占位符指回前值，

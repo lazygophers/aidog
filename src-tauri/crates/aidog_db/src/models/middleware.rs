@@ -170,6 +170,17 @@ impl ActionKind {
     }
 }
 
+/// mask 动作模式：Fixed = 固定文本替换（不还原，缺省）；Reversible = 占位符替换，
+/// 响应返回客户端时自动还原（忽略 `replacement`）。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub enum MaskMode {
+    #[default]
+    Fixed,
+    Reversible,
+}
+
 /// 动作参数（一个平铺结构按需取用，各 kind 只读自己关心的字段；默认值安全）。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
@@ -180,6 +191,9 @@ pub struct ActionParams {
     /// mask 的字段限定（request_body：messages/system；空 = 全部）
     #[serde(default)]
     pub fields: Vec<String>,
+    /// mask 的模式（缺省 fixed）
+    #[serde(default)]
+    pub mode: MaskMode,
     /// inject：system_append | body_set
     #[serde(default)]
     pub inject_mode: String,
@@ -215,6 +229,7 @@ impl Default for ActionParams {
         Self {
             replacement: default_replacement(),
             fields: Vec::new(),
+            mode: MaskMode::Fixed,
             inject_mode: String::new(),
             target: String::new(),
             value: String::new(),

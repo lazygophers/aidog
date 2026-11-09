@@ -7,7 +7,6 @@
 //!   （健康检查不过 → 置位），兼作集成测试强制触发 fail-closed 的测试缝。
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 
 use serde_json::Value;
 
@@ -177,146 +176,11 @@ fn scrub_value(v: &mut Value, opts: &ScrubOptions, merged: &mut ScrubMap) {
     }
 }
 
-/// JSON 字符串字面量转义（替换值安全嵌入 JSON / SSE 的 JSON 帧用）。
-/// 与 serde_json::to_string 的区别：不外层加引号——调用方是在已有 JSON 字符串值内做替换。
-fn json_escape_inner(original: &str) -> String {
-    let mut esc = String::with_capacity(original.len());
-    for c in original.chars() {
-        match c {
-            '"' => esc.push_str("\\\""),
-            '\\' => esc.push_str("\\\\"),
-            '\n' => esc.push_str("\\n"),
-            '\r' => esc.push_str("\\r"),
-            '\t' => esc.push_str("\\t"),
-            c if (c as u32) < 0x20 => esc.push_str(&format!("\\u{:04x}", c as u32)),
-            c => esc.push(c),
-        }
-    }
-    esc
-}
-
-/// 把 `text` 中登记过的占位符换回原值（JSON / SSE 文本上下文安全形态）：
-/// 与引擎 restore 的差别只在替换值先做 JSON 字符串转义——原值含引号 / 反斜杠 /
-/// 换行（PEM 私钥）时直接替换会打破外层 JSON / SSE JSON 帧结构。
-pub fn restore_json_escaped(text: &str, map: &ScrubMap) -> String {
-    // 票 03 短路：全部占位符均以 `{{PII_` 开头（json_escape_inner 不转义 `{`，
-    // 占位符在任何 wire 文本中都是字面形态），文本不含该前缀 ⇒ 无占位符在场
-    // ⇒ 逐占位符 replace 必为零改动，原样返回。严格推理，漏还原为零。
-    if !text.contains(PLACEHOLDER_HEAD_STR) {
-        return text.to_string();
-    }
-    let mut out = text.to_string();
-    for (placeholder, original) in map.iter() {
-        if !out.contains(placeholder.as_str()) {
-            continue;
-        }
-        out = out.replace(placeholder.as_str(), &json_escape_inner(original));
-    }
-    out
-}
-
-/// 占位符最大长度：`{{PII_BEARER_TOKEN_8hex}}` = 29 字节（当前规则表最长类型名）。
-/// 新增更长类型名时同步上调。
-const MAX_PLACEHOLDER_LEN: usize = 29;
-
-/// 占位符起始标记（全部占位符的公共 ASCII 前缀）。
-const PLACEHOLDER_HEAD_STR: &str = "{{PII_";
-const PLACEHOLDER_HEAD: &[u8] = PLACEHOLDER_HEAD_STR.as_bytes();
-
-/// 流式还原窗口：按占位符完整性切分（票 02 选定策略，理由见票面 ## Answer）。
-/// 每次 `push_bytes` 扣留尾部可能的半截占位符（≤ MAX_PLACEHOLDER_LEN-1 字节），
-/// 攒齐再还原下发，占位符永不被 chunk 边界切断；流末 / 断连 / 终止符时
-/// `finish()` 冲刷残留。与中间件 StreamMasker 同一滑窗 idiom（首字延迟上界 28 字节）。
-/// 扣留按字节扫 ASCII 标记，下发前回落到 char boundary（防多字节字符被切半）。
-pub struct StreamRestorer {
-    map: Arc<ScrubMap>,
-    pending: Vec<u8>,
-}
-
-/// `haystack[..i..]` 是否以某个已登记占位符完整开头（占位符均在 haystack 内结束）。
-fn starts_with_registered_placeholder(haystack: &[u8], i: usize, map: &ScrubMap) -> bool {
-    map.iter()
-        .any(|(p, _)| haystack[i..].starts_with(p.as_bytes()))
-}
-
-/// `haystack` 尾部与 `PLACEHOLDER_HEAD` 的最长公共前缀匹配长度（半截起始标记扣留用），
-/// 不匹配返回 0。k ∈ 1..PLACEHOLDER_HEAD.len()。
-fn tail_head_prefix_len(haystack: &[u8]) -> usize {
-    let max = PLACEHOLDER_HEAD.len() - 1;
-    let start = haystack.len().saturating_sub(max);
-    let tail = &haystack[start..];
-    for k in (1..=tail.len()).rev() {
-        if PLACEHOLDER_HEAD[..k] == tail[tail.len() - k..] {
-            return k;
-        }
-    }
-    0
-}
-
-impl StreamRestorer {
-    pub fn new(map: Arc<ScrubMap>) -> Self {
-        Self { map, pending: Vec::new() }
-    }
-
-    /// 喂一段（未还原）字节，返回可安全下发的还原后文本（UTF-8 无损）。
-    pub fn push_bytes(&mut self, data: &[u8]) -> String {
-        self.pending.extend_from_slice(data);
-        let mut emit_len = self.pending.len();
-        // 扣留判定：末个起始标记若可能是半截占位符（完整标记未到 / 长度不足 29）→ 从标记处扣留。
-        if let Some(i) = last_head_occurrence(&self.pending) {
-            let remaining = self.pending.len() - i;
-            if remaining < MAX_PLACEHOLDER_LEN
-                && !starts_with_registered_placeholder(&self.pending, i, &self.map)
-            {
-                emit_len = i;
-            }
-        } else {
-            // 无起始标记：尾部可能是半截 `{{PII_` → 扣留匹配前缀长度。
-            emit_len -= tail_head_prefix_len(&self.pending);
-        }
-        // 下发段回落 char boundary（被切半的多字节字符留在 pending 等下块拼齐）。
-        while emit_len > 0 && !is_char_boundary(&self.pending, emit_len) {
-            emit_len -= 1;
-        }
-        if emit_len == 0 {
-            return String::new();
-        }
-        let text = String::from_utf8_lossy(&self.pending[..emit_len]).to_string();
-        self.pending.drain(..emit_len);
-        restore_json_escaped(&text, &self.map)
-    }
-
-    /// 冲刷扣留的残留（还原后返回；此后窗口为空，幂等）。
-    pub fn finish(&mut self) -> String {
-        if self.pending.is_empty() {
-            return String::new();
-        }
-        let text = String::from_utf8_lossy(&self.pending).to_string();
-        self.pending.clear();
-        restore_json_escaped(&text, &self.map)
-    }
-}
-
-/// `bytes[..cut]` 是否落在 UTF-8 字符边界（Vec<u8> 无 is_char_boundary，自行判）。
-fn is_char_boundary(bytes: &[u8], cut: usize) -> bool {
-    cut == 0
-        || cut >= bytes.len()
-        || (bytes[cut] & 0b1100_0000) != 0b1000_0000
-}
-
-/// `haystack` 内 `PLACEHOLDER_HEAD` 最后一次出现的字节下标（无则 None）。
-fn last_head_occurrence(haystack: &[u8]) -> Option<usize> {
-    if haystack.len() < PLACEHOLDER_HEAD.len() {
-        return None;
-    }
-    (0..=haystack.len() - PLACEHOLDER_HEAD.len())
-        .rev()
-        .find(|&i| &haystack[i..i + PLACEHOLDER_HEAD.len()] == PLACEHOLDER_HEAD)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+    use aidog_middleware::placeholder::{restore_json_escaped, StreamRestorer};
 
     fn settings(enabled: bool) -> PrivacyScrubSettings {
         PrivacyScrubSettings {

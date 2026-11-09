@@ -396,6 +396,7 @@ function defaultParams(): ActionStep["params"] {
   return {
     replacement: "****",
     fields: [],
+    mode: "fixed",
     inject_mode: "",
     target: "",
     value: "",
@@ -409,6 +410,11 @@ function defaultParams(): ActionStep["params"] {
 }
 
 /** 规则里是否存在「观察模式」的 block 动作（列表徽标用）。 */
+/** 规则里是否存在可还原 mask 步骤（列表徽标用）。 */
+function hasReversible(steps: ActionStep[]): boolean {
+  return steps.some((s) => s.kind === "mask" && s.params.mode === "reversible");
+}
+
 function hasObserve(steps: ActionStep[]): boolean {
   return steps.some((s) => s.kind === "block" && s.params.observe);
 }
@@ -450,14 +456,26 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
           {/* 参数区（按 kind 显示相关字段） */}
           {(st.kind === "mask" || st.kind === "override") && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-              <div style={{ flex: "1 1 120px", minWidth: 120 }}>
-                <AutoTextarea
-                  mono
-                  placeholder='replacement（默认 ****，regex 支持 $1）'
-                  value={st.params.replacement}
-                  onChange={(v) => setStep(i, { ...st, params: { ...st.params, replacement: v } })}
-                />
-              </div>
+              {st.kind === "mask" && (
+                <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11 }}>
+                  <Switch
+                    data-testid="mask-mode-toggle"
+                    checked={st.params.mode === "reversible"}
+                    onCheckedChange={(v) => setStep(i, { ...st, params: { ...st.params, mode: v ? "reversible" : "fixed" } })}
+                  />
+                  {t("middleware.maskReversible", "可还原（占位符，响应自动还原）")}
+                </label>
+              )}
+              {!(st.kind === "mask" && st.params.mode === "reversible") && (
+                <div style={{ flex: "1 1 120px", minWidth: 120 }}>
+                  <AutoTextarea
+                    mono
+                    placeholder='replacement（默认 ****，regex 支持 $1）'
+                    value={st.params.replacement}
+                    onChange={(v) => setStep(i, { ...st, params: { ...st.params, replacement: v } })}
+                  />
+                </div>
+              )}
               {st.kind === "mask" && (
                 <div style={{ flex: "1 1 140px", minWidth: 140 }}>
                   <MultiSelect
@@ -944,6 +962,16 @@ function RuleRow({ rule, budget, onEdit, onToggle, onDelete }: RuleRowProps) {
           <span className="badge" style={{ fontSize: 11 }}>
             {actionsSummary(t, rule.actions)}
           </span>
+          {hasReversible(rule.actions) && (
+            <span
+              data-testid="rule-reversible-badge"
+              className="badge"
+              style={{ fontSize: 11 }}
+              title={t("middleware.maskReversibleHint", "命中片段以占位符发往上游，响应返回时自动还原")}
+            >
+              {t("middleware.reversible", "可还原")}
+            </span>
+          )}
           {hasObserve(rule.actions) && (
             <span
               className="badge"

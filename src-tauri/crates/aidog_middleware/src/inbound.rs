@@ -289,6 +289,9 @@ fn rewrite_texts(
     step: &aidog_db::models::ActionStep,
     texts: &mut InboundTexts<'_>,
 ) {
+    if crate::reversible::is_reversible_step(step) {
+        return;
+    }
     let leaves = collect_patterns(&cr.conditions, Target::RequestBody);
     if leaves.is_empty() {
         return;
@@ -352,6 +355,10 @@ fn apply_rewrite_inbound(
     step: &aidog_db::models::ActionStep,
     chat_req: &mut ChatRequest,
 ) {
+    // 可还原 mask 不在此层：它在协议转换后的最终 body 上执行（reversible.rs）。
+    if crate::reversible::is_reversible_step(step) {
+        return;
+    }
     let leaves = collect_patterns(&cr.conditions, Target::RequestBody);
     if leaves.is_empty() {
         return;
