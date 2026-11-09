@@ -920,6 +920,8 @@
   "logs.routing.class.model": "模型类",
   "logs.routing.class.service": "服务类",
   "logs.routing.class.unknown": "未知类",
+  "logs.routing.exclusion.pair": "本次请求内不再选该组合",
+  "logs.routing.exclusion.platform": "本次请求内不再选该平台",
   "logs.routing.effect.breaker_count": "熔断计数",
   "logs.routing.effect.penalty_server": "服务端惩罚",
   "logs.routing.effect.penalty_client": "客户端惩罚",

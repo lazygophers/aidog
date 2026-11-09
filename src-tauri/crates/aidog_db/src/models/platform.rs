@@ -60,6 +60,11 @@ pub struct ProxyAttempt {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[ts(optional, as = "Option<Vec<String>>")]
     pub effects: Vec<String>,
+    /// 本次失败在请求内的排除范围：`pair`（只排除该「平台 + 模型」组合，模型类 / 未知类）/
+    /// `platform`（排除整个平台，服务类 / 连接失败 / 限频占位失败）。未排除（成功、不可重试直返）为 None。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub exclusion: Option<String>,
 }
 
 /// 序列化 attempts 列（出错回退空数组）

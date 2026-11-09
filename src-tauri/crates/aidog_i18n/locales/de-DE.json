@@ -942,6 +942,8 @@
   "logs.routing.class.model": "Modellfehler",
   "logs.routing.class.service": "Dienstfehler",
   "logs.routing.class.unknown": "Unbekannter Fehler",
+  "logs.routing.exclusion.pair": "Diese Kombination wird in dieser Anfrage nicht erneut gewählt",
+  "logs.routing.exclusion.platform": "Diese Plattform wird in dieser Anfrage nicht erneut gewählt",
   "logs.routing.effect.breaker_count": "Breaker-Zähler",
   "logs.routing.effect.penalty_server": "Server-Strafe",
   "logs.routing.effect.penalty_client": "Client-Strafe",

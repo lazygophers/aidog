@@ -23,7 +23,7 @@ pub(crate) use super::models::{
     ClientType, Group, Protocol, ProxyAttempt, ProxyLog, ProxyLogSettings, ProxyTimeoutSettings,
 };
 pub(crate) use super::router::{
-    ClientGate, QuotaExhausted, RequestKind, RouteFail, RouteResult, ScheduleCtx, select_candidates_gated,
+    ClientGate, QuotaExhausted, RequestKind, RouteFail, RouteResult, ScheduleCtx, select_candidates_gated, select_candidates_preloaded,
 };
 pub(crate) use aidog_adapter::{self as adapter, ChatRequest, ChatStreamEvent};
 pub(crate) use aidog_db::Db;
@@ -41,6 +41,7 @@ mod decision;
 mod devin;
 mod endpoint;
 mod finish;
+mod attempt_plan;
 mod forward;
 mod group_info;
 mod handler;
