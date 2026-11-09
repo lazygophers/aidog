@@ -635,17 +635,6 @@ pub(crate) async fn handle_proxy_core(
         }
     }
 
-    // ── 隐私脱敏 fail-closed 闸（票 02）：脱敏开启但检测层不可用 → 503 不转发。
-    // 检测层 = 常驻规则引擎（恒可用）+ 票 03 本地模型后端健康检查（TTL 缓存，refresh 在闸前）。──
-    crate::gateway::privacy::refresh_model_gate(&state.settings_cache.read().await.privacy).await;
-    if crate::gateway::privacy::privacy_gate(
-        &state.settings_cache.read().await.privacy,
-        !crate::gateway::privacy::engine_unavailable(),
-    ) == crate::gateway::privacy::PrivacyGate::Block
-    {
-        return block_privacy_fail_closed(&state, log, &log_settings, lang, start).await;
-    }
-
     // ── 路由选择有序候选平台列表（失败逐个重试）──
     // 调度上下文：scheduler(熔断+延迟+在途) / sticky(粘性绑定) / scheduling settings。
     let sched_settings = aidog_db::get_scheduling_settings(&state.db).await;

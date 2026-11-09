@@ -323,31 +323,6 @@ async fn forward_attempt_model(
         }
     };
 
-    // ── 票 02：出站隐私脱敏（设置 privacy/scrub 开启时）：对出站 JSON body 字符串值检测替换。
-    // 映射表只在本 attempt 内存存活（响应侧还原后随作用域丢弃），不落盘、不进 proxy_log
-    // 原文列——上游请求 / 响应 body 落库为占位符形态。设置关闭时零改动直通。──
-    let privacy_map = {
-        let privacy_settings = state.settings_cache.read().await.privacy.clone();
-        if privacy_settings.enabled {
-            let opts = crate::gateway::privacy::scrub_options(&privacy_settings);
-            // review #2：检测失败 → fail-closed，本次请求 503 不触上游。
-            match crate::gateway::privacy::scrub_json_with_model(
-                &mut req_body, &opts, &privacy_settings,
-            )
-            .await
-            {
-                Ok(map) => Some(Arc::new(map)),
-                Err(()) => {
-                    return AttemptOutcome::Respond(
-                        block_privacy_fail_closed(state, log.clone(), log_settings, lang, start)
-                            .await,
-                    );
-                }
-            }
-        } else {
-            None
-        }
-    };
     let req_body_str = serde_json::to_string(&req_body).unwrap_or_default();
 
 
@@ -581,7 +556,6 @@ async fn forward_attempt_model(
                 &attempt_ctx,
                 &upstream_resp_headers,
                 start,
-                privacy_map,
                 mw_restore,
                 body,
             )
@@ -651,7 +625,6 @@ async fn forward_attempt_model(
             &attempt_ctx,
             &upstream_resp_headers,
             start,
-            privacy_map,
             mw_restore,
         )
         .await,
