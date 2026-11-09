@@ -40,9 +40,9 @@ export function ListView({ filters, list, openDetail, copyRow }: {
   }, []);
   const {
     t, platforms, groups, filterPlatform, filterGroup, filterStatus, filterTime,
-    filterModel, filterActualModel, filterPath, filterObserved, filterSession,
+    filterModel, filterActualModel, filterPath, filterObserved, filterType, filterSession,
     setFilterPlatform, setFilterGroup, setFilterStatus, setFilterTime,
-    setFilterModel, setFilterActualModel, setFilterPath, setFilterObserved, setFilterSession,
+    setFilterModel, setFilterActualModel, setFilterPath, setFilterObserved, setFilterType, setFilterSession,
     modelOptions, actualModelOptions, hasFilter, clearFilter, platformMap, groupName,
   } = filters;
   const {
@@ -135,6 +135,16 @@ export function ListView({ filters, list, openDetail, copyRow }: {
             { value: "30d", label: "30d" },
           ]}
           placeholder={t("logs.filterTime", "时间")}
+        />
+        {/* 日志类型：默认全部（含隧道连接） */}
+        <FilterSelect
+          value={filterType}
+          onChange={setFilterType}
+          options={[
+            { value: "request", label: t("logs.typeRequest", "AI 请求") },
+            { value: "tunnel", label: t("logs.typeTunnel", "隧道连接") },
+          ]}
+          placeholder={t("logs.filterType", "类型")}
         />
         {/* 中间件观察模式命中（票 04）：只看「规则命中但放行」的请求 */}
         <FilterSelect

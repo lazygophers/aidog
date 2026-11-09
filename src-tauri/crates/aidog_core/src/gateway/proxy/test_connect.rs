@@ -1466,3 +1466,20 @@ async fn early_failure_without_bytes_writes_no_observation_row() {
     flush_log_queue(&state).await;
     assert!(mitm_hosts(&state).await.is_empty());
 }
+
+// ===== 代理日志-MITM隧道 票 02：AI 隧道行字节数 =====
+
+#[tokio::test]
+async fn ai_tunnel_row_stores_up_down_bytes_and_url_in_summary() {
+    let state = make_state().await;
+    let mut ctx = connect_ctx("t02-a", 7, log::MITM_OPAQUE_REASON, 0);
+    ctx.req_bytes = 1234;
+    ctx.resp_bytes = 5678;
+    log::upsert_connect_log(&state, &ctx, "api.example.com:443".into(), 200, 5).await;
+    flush_log_queue(&state).await;
+    let rows = aidog_logs::list_proxy_logs(&state.db, 10, 0).await.unwrap();
+    let r = rows.iter().find(|r| r.id == "t02-a").expect("summary row");
+    assert_eq!(r.up_bytes, 1234);
+    assert_eq!(r.down_bytes, 5678);
+    assert_eq!(r.request_url, "api.example.com:443");
+}

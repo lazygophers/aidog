@@ -27,4 +27,16 @@ client: string,
 /**
  * 入站原始 User-Agent（见 `ProxyLog.user_agent`）；空串 = 无
  */
-user_agent: string, created_at: number, };
+user_agent: string, 
+/**
+ * 请求 URL；CONNECT 隧道行 = 目标 `host:port`（列表直接展示，免逐行取详情）
+ */
+request_url: string, 
+/**
+ * 隧道上行字节数（migration 20261109-02，仅 http-connect 行有值，其余 0）
+ */
+up_bytes: number, 
+/**
+ * 隧道下行字节数（同上）
+ */
+down_bytes: number, created_at: number, };
