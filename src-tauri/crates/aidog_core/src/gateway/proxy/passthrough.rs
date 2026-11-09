@@ -367,8 +367,12 @@ pub(crate) fn merge_group_model_names(
 /// 带 group token 时的模型清单：该分组真正配着的模型（见 `merge_group_model_names`）。
 ///
 /// 返回 `None` 表示「没有 token / token 认不出分组 / 该分组一个模型都没配」，调用方回落默认清单。
-async fn group_model_ids(db: &Db, candidates: &[KeyCandidate]) -> Option<Vec<String>> {
-    let (group, _) = resolve_group(db, candidates).await?;
+async fn group_model_ids(
+    db: &Db,
+    candidates: &[KeyCandidate],
+    hint: Option<&str>,
+) -> Option<Vec<String>> {
+    let (group, _) = resolve_group(db, candidates, hint).await?;
     let detail = aidog_db::get_group_detail(db, group.id).await.ok()??;
     let platform_models: Vec<aidog_db::models::PlatformModels> = detail
         .platforms
@@ -491,6 +495,7 @@ pub(crate) async fn handle_models_list(
     log_settings: &ProxyLogSettings,
     path: &str,
     candidates: &[KeyCandidate],
+    hint: Option<&str>,
     start: std::time::Instant,
 ) -> Response {
     let proto = detect_source_protocol(path);
@@ -500,7 +505,7 @@ pub(crate) async fn handle_models_list(
         .await
         .map(|entries| build_context_map(&entries))
         .unwrap_or_default();
-    let ids = match group_model_ids(&state.db, candidates).await {
+    let ids = match group_model_ids(&state.db, candidates, hint).await {
         Some(v) => v,
         None => default_model_ids(&state.db).await,
     };
