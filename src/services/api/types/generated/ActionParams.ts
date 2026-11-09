@@ -18,6 +18,10 @@ fields: Array<string>,
  */
 mode: MaskMode, 
 /**
+ * mask（reversible）的占位符 TYPE 段（大写字母/数字/下划线）；空 = 按校验器派生，其余 `MASK`。
+ */
+placeholder_type: string, 
+/**
  * inject：system_append | body_set
  */
 inject_mode: string, 

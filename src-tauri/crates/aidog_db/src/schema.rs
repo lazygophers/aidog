@@ -512,9 +512,29 @@ static PII_CONDITIONS: std::sync::LazyLock<[String; 6]> = std::sync::LazyLock::n
     ]
 });
 
-/// 内置识别器统一的脱敏动作（mask messages+system）。
-const PII_MASK_ACTIONS: &str =
-    r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#;
+/// 内置隐私脱敏动作：可还原 mask + 全部内容范围，占位符 TYPE 由规则指定（编译期拼接 JSON）。
+macro_rules! reversible_all_actions {
+    ($ty:literal) => {
+        concat!(
+            r#"[{"kind":"mask","params":{"replacement":"****","mode":"reversible","fields":["all"],"placeholder_type":""#,
+            $ty,
+            r#""}}]"#
+        )
+    };
+}
+
+/// PEM 私钥块（BEGIN/END ... PRIVATE KEY 整块，跨行）。
+const BUILTIN_PRIVATE_KEY_PATTERN: &str =
+    r"(?s)-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----";
+/// Bearer 凭据。shortcut: regex crate 无 lookbehind，命中含 `Bearer ` 前缀，整段换成占位符；还原后无损。
+const BUILTIN_BEARER_PATTERN: &str = r"(?i)\bbearer\s+[A-Za-z0-9._~+/=\-]{16,}";
+
+static EXTRA_PRIVACY_CONDITIONS: std::sync::LazyLock<[String; 2]> = std::sync::LazyLock::new(|| {
+    [
+        regex_leaf_conditions(BUILTIN_PRIVATE_KEY_PATTERN, ""),
+        regex_leaf_conditions(BUILTIN_BEARER_PATTERN, ""),
+    ]
+});
 
 /// 内置预设规则清单（票 03：密钥/邮箱/手机/DB-Redis 凭据脱敏 + 日期改写 + 默认错误分类；
 /// 票 09 追加六条内置识别器，默认关闭）。
@@ -526,7 +546,7 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
                 name: "内置·密钥脱敏",
                 description: "脱敏各平台 API 密钥（sk- 系 / ghp_ / AKIA / AIza / bfl_ / key_ / AQ. 等，含未知厂商的长随机 token）。",
                 conditions: SECRET_RULE_CONDITIONS.as_str(),
-                actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
+                actions: reversible_all_actions!("SECRET"),
                 priority: 10,
                 default_enabled: true,
             },
@@ -534,8 +554,24 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
                 name: "内置·邮箱脱敏",
                 description: "脱敏邮箱地址。",
                 conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}"}]}"#,
-                actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
+                actions: reversible_all_actions!("EMAIL"),
                 priority: 11,
+                default_enabled: true,
+            },
+            BuiltinRuleSpec {
+                name: "内置·私钥脱敏",
+                description: "脱敏 PEM 私钥块（-----BEGIN ... PRIVATE KEY----- 到 END，整块换成占位符）。",
+                conditions: EXTRA_PRIVACY_CONDITIONS[0].as_str(),
+                actions: reversible_all_actions!("PRIVATE_KEY"),
+                priority: 9,
+                default_enabled: true,
+            },
+            BuiltinRuleSpec {
+                name: "内置·Bearer token 脱敏",
+                description: "脱敏 Authorization 头式 `Bearer <token>`（token ≥ 16 位）。",
+                conditions: EXTRA_PRIVACY_CONDITIONS[1].as_str(),
+                actions: reversible_all_actions!("BEARER_TOKEN"),
+                priority: 16,
                 default_enabled: true,
             },
             BuiltinRuleSpec {
@@ -635,7 +671,7 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
                 name: "内置·云厂商密钥脱敏",
                 description: "脱敏 AWS Access Key / Secret 与各 LLM 平台 token 前缀（前缀清单来自 registry key_prefixes，随平台数据自动扩展）。",
                 conditions: PII_CONDITIONS[0].as_str(),
-                actions: PII_MASK_ACTIONS,
+                actions: reversible_all_actions!("CLOUD_SECRET"),
                 priority: 30,
                 default_enabled: false,
             },
@@ -643,7 +679,7 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
                 name: "内置·IP/MAC 地址脱敏",
                 description: "脱敏 IPv4 / IPv6 地址与 MAC 地址。",
                 conditions: PII_CONDITIONS[1].as_str(),
-                actions: PII_MASK_ACTIONS,
+                actions: reversible_all_actions!("IP_MAC"),
                 priority: 31,
                 default_enabled: false,
             },
@@ -651,7 +687,7 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
                 name: "内置·信用卡号脱敏",
                 description: "脱敏 12–19 位银行卡号；正则命中后再跑 Luhn 校验位，校验不过的数字串原样保留。",
                 conditions: PII_CONDITIONS[2].as_str(),
-                actions: PII_MASK_ACTIONS,
+                actions: reversible_all_actions!("BANK_CARD"),
                 priority: 32,
                 default_enabled: false,
             },
@@ -659,7 +695,7 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
                 name: "内置·IBAN 脱敏",
                 description: "脱敏国际银行账号 IBAN；正则命中后再跑 ISO 13616 mod-97 校验，校验不过的不算命中。",
                 conditions: PII_CONDITIONS[3].as_str(),
-                actions: PII_MASK_ACTIONS,
+                actions: reversible_all_actions!("IBAN"),
                 priority: 33,
                 default_enabled: false,
             },
@@ -667,7 +703,7 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
                 name: "内置·中国身份证号脱敏",
                 description: "脱敏 18 位中国大陆身份证号；正则命中后再跑 GB 11643 校验位，校验不过的 18 位数字原样保留。",
                 conditions: PII_CONDITIONS[4].as_str(),
-                actions: PII_MASK_ACTIONS,
+                actions: reversible_all_actions!("ID_NUMBER"),
                 priority: 34,
                 default_enabled: false,
             },
@@ -675,7 +711,7 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
                 name: "内置·美国社保号脱敏",
                 description: "脱敏美国社保号 SSN（按官方有效号段判定，排除 000/666/9xx 等无效段）。",
                 conditions: PII_CONDITIONS[5].as_str(),
-                actions: PII_MASK_ACTIONS,
+                actions: reversible_all_actions!("US_SSN"),
                 priority: 35,
                 default_enabled: false,
             },
