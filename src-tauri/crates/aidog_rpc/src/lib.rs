@@ -159,6 +159,7 @@ rpc_routes! {
     readonly aidog_core::kernel_settings::kernel_settings_get,
     mutating aidog_core::kernel_settings::kernel_settings_set,
     readonly aidog_core::kernel_settings::api_call_log_list,
+    readonly aidog_core::proxy_cmd::search::search_searx_instances,
     readonly aidog_core::proxy_cmd::tool_log::tool_log_list,
     readonly aidog_core::proxy_cmd::tool_log::tool_log_get,
     readonly aidog_core::proxy_cmd::tool_log::tool_log_retention_get,
