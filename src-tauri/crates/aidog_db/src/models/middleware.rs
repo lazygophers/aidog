@@ -398,6 +398,15 @@ pub struct MiddlewareBudgetStatus {
     pub remaining_usd: f64,
 }
 
+/// 「试一试」结果（`middleware_try` 返回体）：替换后文本 / 命中规则名 / 还原后文本。
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct MiddlewareTryResult {
+    pub masked: String,
+    pub hits: Vec<String>,
+    pub restored: String,
+}
+
 /// 中间件总设置（settings KV：scope="middleware" key="settings"）。
 /// 统一引擎后仅剩总开关；旧 8 类 type_toggles 子开关已废（票 02）。
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
