@@ -299,6 +299,8 @@
     "includeCoAuthoredBy": false,
     "isolatePeerMachines": false,
     "agentPushNotifEnabled": false,
+    "inputNeededNotifEnabled": false,
+    "disableRemoteControl": true,
     "advisorModel": "opus",
     "fastModePerSessionOptIn": true,
     "askUserQuestionTimeout": "never",
