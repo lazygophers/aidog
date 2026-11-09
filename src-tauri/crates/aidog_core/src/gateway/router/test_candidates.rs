@@ -3587,7 +3587,7 @@ async fn rc01_direct_model_undeclared_platform_listed() {
     assert_eq!(ea.reason, RouteReason::Selected);
 }
 
-/// max_retries 截断：order > max_retries+1 的入选候选标 retry-limit，max_retries 可读。
+/// 最大尝试次数用尽：上限调用落在 platform_id=2 → 其后的入选候选标 retry-limit，上限可读。
 #[test]
 fn rc01_mark_retry_limit_truncates_tail() {
     let mk = |order: u32| aidog_db::models::RouteCandidate {
@@ -3606,15 +3606,15 @@ fn rc01_mark_retry_limit_truncates_tail() {
         entries: vec![mk(1), mk(2), mk(3), mk(4)],
         ..Default::default()
     };
-    r.mark_retry_limit(2);
-    assert_eq!(r.max_retries, Some(2));
+    r.mark_retry_limit(3, 2);
+    assert_eq!(r.max_retries, Some(3));
     let reasons: Vec<_> = r.entries.iter().map(|e| e.reason).collect();
     assert_eq!(
         reasons,
         vec![
             RouteReason::Selected,
             RouteReason::Selected,
-            RouteReason::Selected,
+            RouteReason::RetryLimit,
             RouteReason::RetryLimit
         ]
     );

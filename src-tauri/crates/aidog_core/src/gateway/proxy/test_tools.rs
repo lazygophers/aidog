@@ -410,6 +410,45 @@ async fn e2e_failover_to_second_platform() {
     assert_eq!(row.retry_count, 1, "first attempt failed, second succeeded");
 }
 
+/// 最大尝试次数（请求尝试-逐次重算 票 01）：上限 1 → 首平台 500 后不换平台，次平台零调用。
+#[tokio::test]
+async fn e2e_cap_one_stops_failover() {
+    let _guard = TOOLS_E2E_LOCK.lock().await;
+    let (db, _dir) = three_file_db().await;
+    let state = make_state(db).await;
+    let (stub500, _) = spawn_capture_upstream(500, r#"{"error":"down"}"#).await;
+    let (stub200, seen200) = spawn_capture_upstream(200, r#"{"search_results":[{"title":"t"}]}"#).await;
+    store_tools_preset_redirect(&stub500, &["deepseek"]);
+    store_tools_preset_redirect(&stub200, &["kimi"]);
+    let mk = |name: &str, pt: Protocol, base: &str| CreatePlatform {
+        name: name.into(), platform_type: pt, base_url: base.to_string(),
+        api_key: "sk-tools".into(), extra: String::new(), models: None,
+        available_models: None, endpoints: None, manual_budgets: None, auto_group: None,
+        join_group_ids: None, expires_at: None, quota_source: None,
+    };
+    let p1 = aidog_db::create_platform(&state.db, mk("ds", Protocol::DeepSeek, &stub500)).await.unwrap();
+    let p2 = aidog_db::create_platform(&state.db, mk("kimi", Protocol::Kimi, &stub200)).await.unwrap();
+    let group = aidog_db::create_group(&state.db, sample_group("gcap", vec![])).await.unwrap();
+    aidog_db::set_group_platforms(&state.db, group.id, &[
+        GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1), level_priority: Some(0) },
+        GroupPlatformInput { platform_id: p2.id, priority: Some(1), weight: Some(1), level_priority: Some(0) },
+    ]).await.unwrap();
+    aidog_db::update_group(&state.db, aidog_db::models::UpdateGroup {
+        id: group.id, name: None, routing_mode: None, request_timeout_secs: 0, connect_timeout_secs: 0,
+        source_protocol: None, max_retries: Some(1), model_mappings: vec![], env_vars: vec![], is_default: None,
+    }).await.unwrap();
+    state.db.invalidate_group_details_cache();
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        tools_request("gcap", "/v1/tools/search", r#"{"text_query":"x"}"#),
+    )
+    .await;
+    crate::gateway::registry::invalidate_presets_cache();
+    assert_ne!(resp.status(), StatusCode::OK);
+    assert_eq!(*seen200.lock().unwrap(), Value::Null, "上限 1：次平台不得被调用");
+}
+
 /// 用例 5：组内无声明平台 → 400 + no_tools_platform 白名单 reason，落审计 proxy_log。
 #[tokio::test]
 async fn e2e_no_tools_platform_returns_400() {

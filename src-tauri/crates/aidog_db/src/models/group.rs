@@ -107,7 +107,7 @@ pub struct UpdateGroup {
     pub connect_timeout_secs: u64,
     #[serde(default)]
     pub source_protocol: Option<String>,
-    /// 分组级最大重试次数；None = 不变（保留既有值）
+    /// 分组级最大尝试次数（1–10，上游调用总数）；None = 不变（保留既有值）
     #[serde(default)]
     pub max_retries: Option<u32>,
     #[serde(default)]

@@ -280,15 +280,15 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
           </div>
         </div>
 
-        {/* Max retries（多平台失败逐个重试上限） */}
+        {/* 最大尝试次数（一次请求的上游调用总数，换平台与同平台换模型都计；1–10） */}
         <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.maxRetries", "最大重试")}</span>
+          <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.maxRetries", "最大尝试次数")}</span>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <Input type="number" min={0} max={10}
+            <Input type="number" min={1} max={10} data-testid="group-max-attempts"
               value={editMaxRetries}
-              onChange={e => dispatchEdit({ type: "patch", patch: { maxRetries: Math.max(0, Number(e.target.value)) } })}
+              onChange={e => dispatchEdit({ type: "patch", patch: { maxRetries: Math.min(10, Math.max(1, Math.round(Number(e.target.value)))) } })}
               style={{ width: 80, fontSize: F.body, padding: S.inputPad }} />
-            <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{t("group.maxRetriesHint", "0 = 不重试，只试 1 个平台")}</span>
+            <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{t("group.maxRetriesHint", "一次请求最多调用上游的总次数（换平台、换模型都计），1–10")}</span>
           </div>
         </div>
 

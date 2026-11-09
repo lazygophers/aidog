@@ -324,7 +324,7 @@ CREATE TABLE IF NOT EXISTS "group" (
     updated_at           INTEGER NOT NULL DEFAULT 0,
     deleted_at           INTEGER NOT NULL DEFAULT 0,
     sort_order           INTEGER NOT NULL DEFAULT 0,
-    max_retries          INTEGER NOT NULL DEFAULT 2,
+    max_retries          INTEGER NOT NULL DEFAULT 10,
     is_default           INTEGER NOT NULL DEFAULT 0,
     env_vars             TEXT NOT NULL DEFAULT '[]',
     extra                TEXT NOT NULL DEFAULT '',
