@@ -62,11 +62,11 @@ impl McpTransport {
             _ => Self::Stdio,
         }
     }
-    /// codex TOML `[mcp_servers.*]` 仅支持 stdio（无 url/headers 字段）。
+    /// codex TOML `[mcp_servers.*]` 支持 stdio 与 streamable http（`url` + `http_headers`），不支持 sse。
     pub fn supported_by(self, agent: McpAgent) -> bool {
         match agent {
             McpAgent::ClaudeCode => true,
-            McpAgent::Codex => self == Self::Stdio,
+            McpAgent::Codex => self != Self::Sse,
         }
     }
 }

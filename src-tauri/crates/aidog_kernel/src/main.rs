@@ -3,7 +3,6 @@
 //! ```text
 //! aidog-kernel          纯内核：代理转发 + 定时任务
 //! aidog-kernel --ui     额外在代理端口的 /api/ui/ 提供 Web 界面
-//! aidog-kernel mcp      stdio 上的 MCP server（newline-delimited JSON-RPC）
 //! ```
 //!
 //! 管理接口（`POST /api/rpc/<命令>`、`GET /api/events`，ADR 0010）与桌面版一样挂在**代理端口**
@@ -19,9 +18,6 @@ use mimalloc::MiMalloc;
 static GLOBAL_ALLOCATOR: MiMalloc = MiMalloc;
 
 mod ctx;
-mod mcp_server;
-mod media;
-mod search;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -38,9 +34,6 @@ aidog-kernel — aidog 的无界面内核
 用法:
   aidog-kernel              纯内核（代理转发 + 定时任务）
   aidog-kernel --ui         额外在 http://127.0.0.1:<代理端口>/api/ui/ 提供 Web 界面
-  aidog-kernel mcp          stdio 上的 MCP server（newline-delimited JSON-RPC；
-                            由 Claude Code / Codex 的 mcpServers 配置拉起，不连库不抢锁；
-                            provider 设置经环境变量 AIDOG_MCP_TOOLS_JSON 注入）
 
 管理接口 /api/rpc/<命令> 与 /api/events 挂在代理端口上（只接受本机连接），
 由「设置 → API」里的开关统一启停；--ui 要求该开关为开。
@@ -65,9 +58,6 @@ struct Options {
 
 enum ParseOutcome {
     Run(Options),
-    /// 子命令 `mcp`：stdio MCP server（不连库、不抢单实例锁；provider 设置走
-    /// 环境变量 `AIDOG_MCP_TOOLS_JSON`，见 mcp_server 模块头）。
-    RunMcp,
     /// 打印一段文字后正常退出（--help / --version）。
     Print(String),
     Error(String),
@@ -76,17 +66,7 @@ enum ParseOutcome {
 fn parse_args<I: IntoIterator<Item = String>>(args: I) -> ParseOutcome {
     let mut opts = Options::default();
     let mut it = args.into_iter();
-    // 子命令分发：`mcp` 是第一个位置参数，不接受额外参数。
-    let mut pending = it.next();
-    if pending.as_deref() == Some("mcp") {
-        return match it.next() {
-            Some(extra) => ParseOutcome::Error(format!(
-                "unknown argument `{extra}` (subcommand `mcp` takes no options)"
-            )),
-            None => ParseOutcome::RunMcp,
-        };
-    }
-    while let Some(a) = pending.take().or_else(|| it.next()) {
+    while let Some(a) = it.next() {
         match a.as_str() {
             "--ui" => opts.ui = true,
             "--port" => {
@@ -133,19 +113,6 @@ fn main() {
     let outcome = parse_args(std::env::args().skip(1));
     let opts = match outcome {
         ParseOutcome::Run(o) => o,
-        ParseOutcome::RunMcp => {
-            // MCP stdio 模式：不连库、不抢单实例锁、不装 rustls（骨架无出站 TLS）。
-            // stdout 上只许有 MCP 消息（规范 MUST），一切诊断写 stderr。
-            let rt = tokio::runtime::Builder::new_multi_thread()
-                .enable_all()
-                .build()
-                .expect("failed to build tokio runtime");
-            if let Err(e) = rt.block_on(mcp_server::run()) {
-                eprintln!("aidog-kernel mcp: fatal: {e}");
-                std::process::exit(1);
-            }
-            return;
-        }
         ParseOutcome::Print(s) => {
             println!("{s}");
             return;

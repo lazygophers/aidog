@@ -65,42 +65,63 @@ fn seed_claude_json(home: &std::path::Path, extra: serde_json::Value) -> std::pa
 }
 
 #[tokio::test]
-async fn self_install_writes_both_agents_and_preserves_existing_entries() {
+async fn self_install_writes_http_entry_for_both_agents_and_replaces_old_stdio() {
     let home = HomeGuard::new();
     let db = test_db().await;
     // 用户既有条目必须保留（merge 语义：只动 `aidog` 这一条）。
     let claude_json =
         seed_claude_json(home.dir.path(), serde_json::json!({ "user-srv": { "command": "npx", "args": ["-y", "pkg"] } }));
 
+    // 升级前遗留：同名 stdio 条目（DB 行 + 两个 agent 配置文件）。
+    let stdio = gateway::mcp::McpUpdatePayload {
+        name: "aidog".into(),
+        transport: "stdio".into(),
+        command: "aidog-kernel".into(),
+        args: vec!["mcp".into()],
+        env: std::collections::BTreeMap::from([("AIDOG_MCP_TOOLS_JSON".into(), "{}".into())]),
+        url: String::new(),
+        headers: Default::default(),
+    };
+    gateway::mcp::add_server(&db, stdio).await.unwrap();
+    gateway::mcp::set_agent_enabled(&db, "aidog", gateway::mcp::McpAgent::ClaudeCode, true).await.unwrap();
+    gateway::mcp::set_agent_enabled(&db, "aidog", gateway::mcp::McpAgent::Codex, true).await.unwrap();
+
+    // 默认分组决定 Bearer。
+    let g1 = aidog_db::create_group(&db, aidog_db::test_support::sample_group("g1", vec![])).await.unwrap();
+    let g2 = aidog_db::create_group(&db, aidog_db::test_support::sample_group("g2", vec![])).await.unwrap();
+    aidog_db::set_default_group(&db, Some(g2.id)).await.unwrap();
+    let _ = g1;
+
     let report = self_install(&db).await.unwrap();
     assert_eq!(report.name, "aidog");
-    assert!(report.command.contains("aidog-kernel"), "command={}", report.command);
+    assert_eq!(report.url, "http://127.0.0.1:9890/mcp");
     assert_eq!(report.agents, vec!["claude-code".to_string(), "codex".to_string()]);
 
-    // DB 行 + 两个 agent 全启用。
+    // DB 行：http，无 command/env。
     let row = gateway::mcp::store::get_mcp_server(&db, "aidog").await.unwrap().expect("row exists");
+    assert_eq!(row.transport, "http");
+    assert!(row.command.is_empty());
+    assert!(!row.env_json.contains("AIDOG_MCP_TOOLS_JSON"));
     let enabled = row.enabled_set();
     assert!(enabled.contains(&gateway::mcp::McpAgent::ClaudeCode));
     assert!(enabled.contains(&gateway::mcp::McpAgent::Codex));
 
-    // ~/.claude.json：mcpServers.aidog 存在、env 带 AIDOG_MCP_TOOLS_JSON、用户条目仍在。
+    // ~/.claude.json：type http + url + Authorization，旧 stdio 字段消失，用户条目仍在。
     let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&claude_json).unwrap()).unwrap();
     let entry = &v["mcpServers"]["aidog"];
-    assert_eq!(entry["command"], "aidog-kernel", "entry={entry}");
-    assert_eq!(entry["args"], serde_json::json!(["mcp"]));
-    let env_json = entry["env"]["AIDOG_MCP_TOOLS_JSON"].as_str().expect("env json");
-    let parsed: crate::mcp_tools::McpToolsSettings = serde_json::from_str(env_json).unwrap();
-    assert_eq!(parsed, crate::mcp_tools::McpToolsSettings::default());
-    assert!(
-        v["mcpServers"]["user-srv"]["command"] == "npx",
-        "用户既有条目不得被覆盖, v={v}"
-    );
+    assert_eq!(entry["type"], "http", "entry={entry}");
+    assert_eq!(entry["url"], "http://127.0.0.1:9890/mcp");
+    assert_eq!(entry["headers"]["Authorization"], format!("Bearer {}", g2.group_key));
+    assert!(entry.get("command").is_none() && entry.get("env").is_none(), "旧 stdio 字段须被替换掉: {entry}");
+    assert!(v["mcpServers"]["user-srv"]["command"] == "npx", "用户既有条目不得被覆盖, v={v}");
 
-    // ~/.codex/config.toml：[mcp_servers.aidog] + 同一 env。
-    let codex_toml = home.dir.path().join(".codex/config.toml");
-    let content = std::fs::read_to_string(&codex_toml).unwrap();
-    assert!(content.contains("[mcp_servers.aidog]"), "content={content}");
-    assert!(content.contains("AIDOG_MCP_TOOLS_JSON"), "content={content}");
+    // ~/.codex/config.toml：[mcp_servers.aidog] url + http_headers，无 command。
+    let content = std::fs::read_to_string(home.dir.path().join(".codex/config.toml")).unwrap();
+    let t: toml::Value = toml::from_str(&content).unwrap();
+    let c = &t["mcp_servers"]["aidog"];
+    assert_eq!(c["url"].as_str(), Some("http://127.0.0.1:9890/mcp"), "content={content}");
+    assert_eq!(c["http_headers"]["Authorization"].as_str(), Some(format!("Bearer {}", g2.group_key).as_str()));
+    assert!(c.get("command").is_none(), "content={content}");
 
     // 幂等：再装一次不报错、文件仍合法。
     self_install(&db).await.unwrap();
@@ -110,10 +131,30 @@ async fn self_install_writes_both_agents_and_preserves_existing_entries() {
 }
 
 #[tokio::test]
+async fn self_install_without_any_group_is_explicit_error() {
+    let _home = HomeGuard::new();
+    let db = test_db().await;
+    let err = self_install(&db).await.unwrap_err();
+    assert!(err.contains("分组"), "err={err}");
+}
+
+#[tokio::test]
+async fn self_install_falls_back_to_first_group_when_no_default() {
+    let home = HomeGuard::new();
+    let db = test_db().await;
+    let g = aidog_db::create_group(&db, aidog_db::test_support::sample_group("only", vec![])).await.unwrap();
+    self_install(&db).await.unwrap();
+    let v: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(home.dir.path().join(".claude.json")).unwrap()).unwrap();
+    assert_eq!(v["mcpServers"]["aidog"]["headers"]["Authorization"], format!("Bearer {}", g.group_key));
+}
+
+#[tokio::test]
 async fn self_install_updates_existing_aidog_entry() {
     // 已有同名条目（此前一键装过）→ 更新而非报错。
     let _home = HomeGuard::new();
     let db = test_db().await;
+    aidog_db::create_group(&db, aidog_db::test_support::sample_group("g", vec![])).await.unwrap();
     self_install(&db).await.unwrap();
     // 第二次直接走 update_server 分支。
     let report = self_install(&db).await.unwrap();
