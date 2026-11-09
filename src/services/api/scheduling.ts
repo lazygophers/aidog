@@ -1,7 +1,7 @@
 // scheduling.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "../transport";
-import type { MiddlewareRule, CreateMiddlewareRule, UpdateMiddlewareRule, MiddlewareSettings, MiddlewareBudgetStatus, SchedulingBreakerSettings } from "./types";
+import type { MiddlewareRule, CreateMiddlewareRule, UpdateMiddlewareRule, MiddlewareSettings, MiddlewareBudgetStatus, MiddlewareTryResult, SchedulingBreakerSettings } from "./types";
 
 export const middlewareApi = {
   /** 列出全部规则（后端按 priority 升序、id 升序）。 */
@@ -21,6 +21,8 @@ export const middlewareApi = {
   /** 保存中间件总设置。 */
   setSettings: (settings: MiddlewareSettings) =>
     invoke<void>("middleware_settings_set", { settings }),
+  /** 试一试：样例文本按当前启用的全部请求侧规则依次执行（与转发同一引擎），返回替换后文本 / 命中规则名 / 还原后文本。 */
+  tryRun: (text: string) => invoke<MiddlewareTryResult>("middleware_try", { text }),
 };
 
 // ─── Scheduling & Breaker Settings ─────────────────────────

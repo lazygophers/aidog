@@ -1339,6 +1339,20 @@
       "returns": "()"
     },
     {
+      "name": "middleware_try",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "text",
+          "type": "String"
+        }
+      ],
+      "returns": "MiddlewareTryResult"
+    },
+    {
       "name": "middleware_update_rule",
       "category": "proxy",
       "kind": "mutating",

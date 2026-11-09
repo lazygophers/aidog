@@ -23,6 +23,7 @@ const Stats = lazy(() => import("./pages/Stats").then(m => ({ default: m.Stats }
 const Notifications = lazy(() => import("./pages/Notifications").then(m => ({ default: m.Notifications })));
 const Skills = lazy(() => import("./pages/Skills").then(m => ({ default: m.Skills })));
 const MiddlewareSettingsTab = lazy(() => import("./components/settings/MiddlewareRules").then(m => ({ default: m.MiddlewareSettingsTab })));
+const MiddlewareTryPanel = lazy(() => import("./components/settings/MiddlewareTryPanel").then(m => ({ default: m.MiddlewareTryPanel })));
 const Mcp = lazy(() => import("./pages/Mcp").then(m => ({ default: m.Mcp })));
 const RequestLog = lazy(() => import("./pages/RequestLog").then(m => ({ default: m.RequestLog })));
 const MitmLog = lazy(() => import("./pages/MitmLog").then(m => ({ default: m.MitmLog })));
@@ -214,7 +215,12 @@ function App() {
             {effectiveNav === "notifications" && <Notifications onNavigate={handleNavigate} />}
             {effectiveNav === "skills" && <Skills />}
             {effectiveNav === "mcp" && <Mcp />}
-            {effectiveNav === "middleware" && <MiddlewareSettingsTab />}
+            {effectiveNav === "middleware" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                <MiddlewareSettingsTab />
+                <MiddlewareTryPanel />
+              </div>
+            )}
             {effectiveNav === "about" && <About />}
           </div>
         </Suspense>

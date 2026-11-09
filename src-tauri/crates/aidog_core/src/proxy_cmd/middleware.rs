@@ -73,6 +73,20 @@ pub async fn middleware_budget_status() -> Result<Vec<MiddlewareBudgetStatus>, S
 }
 
 crate::tauri_command! {
+/// 「试一试」：样例文本按当前启用的全部请求侧规则依次执行（与转发同一引擎函数），只读不落库。
+pub async fn middleware_try(text: String) -> Result<MiddlewareTryResult, String> {
+    let db = aidog_ctx::db();
+    let rules = aidog_db::list_middleware_rules(db).await?;
+    let settings: MiddlewareSettings = aidog_db::get_setting(db, "middleware", "settings").await
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
+    crate::gateway::proxy::middleware_try::try_run(rules, &settings, &text)
+}
+}
+
+crate::tauri_command! {
 pub async fn middleware_settings_get() -> Result<MiddlewareSettings, String> {
     let db = aidog_ctx::db();
     Ok(aidog_db::get_setting(db, "middleware", "settings").await
