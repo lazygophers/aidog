@@ -244,6 +244,19 @@ fn resolve_price_from_image_unit_bills_per_image() {
     assert!(!r.peak_applied, "按次价不走 peak");
 }
 
+#[test]
+fn resolve_price_from_mp_unit_bills_per_megapixel() {
+    // `unit:"mp"`（百万像素，$/MP，FLUX 2 系列）同 image 走按次单价，
+    // est_cost = unit_price × MP 数（chat 路径无像素数，调用方 max(1) 计 1 MP）。
+    let pd = serde_json::json!({"price": {"currency": "USD", "unit": "mp", "unit_price": 0.03}});
+    let r = resolve_price_from(Some(&pd), false, 3.0, 15.0, 1000, 0);
+    assert_eq!(r.request_unit_price, Some(0.03), "百万像素单价 USD/MP");
+    assert_eq!(r.price.input_cost_per_token, 0.0, "按 MP 条目 token 价全 0，不吃 fallback");
+    assert_eq!(r.price.output_cost_per_token, 0.0);
+    assert_eq!(r.price.source, "model_entry+mp");
+    assert!(!r.peak_applied, "按 MP 价不走 peak");
+}
+
 // ── DB 路径 ──
 
 #[tokio::test]

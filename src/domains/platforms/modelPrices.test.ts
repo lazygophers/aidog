@@ -31,6 +31,12 @@ describe("toModelPriceInfo", () => {
     expect(info?.unitLabel).toBe("$0.00400 /image");
     expect(info?.input).toBeUndefined();
   });
+
+  it("mp 计价条目 → unitLabel 展示 $/MP", () => {
+    const info = toModelPriceInfo({ unit: "mp", unit_price: 0.03 });
+    expect(info?.unitLabel).toBe("$0.030 /MP");
+    expect(info?.input).toBeUndefined();
+  });
 });
 
 describe("compactPriceLabel", () => {
