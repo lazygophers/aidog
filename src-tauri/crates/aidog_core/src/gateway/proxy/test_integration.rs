@@ -7429,3 +7429,50 @@ async fn tool_search_emulation_openai_convert() {
     assert!(!b.contains("defer_loading") && !b.contains("tool_reference"), "{b}");
     assert!(b.contains("已加载工具 mcp__a__loaded"), "{b}");
 }
+
+// ══ 时段档 embedding / rerank：命中整套替换，整组都不接 → 503（本地假上游）══
+
+/// 给名为 `name` 的平台写入全天命中的时段档（models 整套替换）。
+async fn set_all_day_rule(state: &Arc<ProxyState>, name: &str, models: serde_json::Value) {
+    let id = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == name).unwrap().id;
+    let extra = serde_json::json!({"time_windows":[{"windows":[{"start_hour":0,"end_hour":24}],"models":models}]}).to_string();
+    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
+        id, name: None, platform_type: None, base_url: None, api_key: None, extra: Some(extra),
+        models: None, available_models: None, endpoints: None,
+        enabled: None, status: None, manual_budgets: None,
+        join_group_ids: None, expires_at: None, quota_source: None,
+    })
+    .await
+    .unwrap();
+    state.db.invalidate_group_details_cache();
+}
+
+/// 时段内整组档里都没有 embedding / rerank → 503 + 对应 blocked_reason，且不打上游；
+/// 档里有值的平台照常用档值发往上游。
+#[tokio::test]
+async fn time_rule_without_embedding_or_rerank_503_and_with_uses_rule() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let state = make_state(db).await;
+    let (up, hits) = spawn_embedding_upstream(vec![(200, EMB_RESPONSE)]).await;
+    let both = PlatformModels { embedding: vec!["emb-day".into()], rerank: vec!["rr-day".into()], ..Default::default() };
+    setup_aux_group(&state, "gkt1", &[(&up, both.clone(), Protocol::OpenAI, "a")]).await;
+    setup_aux_group(&state, "gkt2", &[(&up, both.clone(), Protocol::OpenAI, "a")]).await;
+    set_all_day_rule(&state, "gkt1-a", serde_json::json!({"default":["gpt"]})).await;
+    for (path, req, reason) in [
+        ("/v1/embeddings", EMB_REQ, "no_embedding_platform"),
+        ("/v1/rerank", RR_REQ, "no_rerank_platform"),
+    ] {
+        let resp = handle_proxy(AxumState(state.clone()), embedding_request("gkt1", req, path)).await;
+        assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE, "{path}");
+        let log = last_log_for(&state, "gkt1").await;
+        assert_eq!((log.blocked_by.as_str(), log.blocked_reason.as_str()), ("router", reason), "{path}");
+    }
+    assert!(hits.lock().unwrap().is_empty(), "时段内被排除，不得打到上游");
+
+    set_all_day_rule(&state, "gkt2-a", serde_json::json!({"embedding":["emb-night"]})).await;
+    let resp = handle_proxy(AxumState(state.clone()), embedding_request("gkt2", EMB_REQ, "/v1/embeddings")).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let sent = hits.lock().unwrap();
+    assert_eq!(sent.len(), 1);
+    assert!(sent[0].1.contains("emb-night") && !sent[0].1.contains("emb-day"), "发往上游的是档值: {}", sent[0].1);
+}

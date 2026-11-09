@@ -69,7 +69,7 @@ export const MODEL_SLOTS: { key: ModelSlot; labelKey: string }[] = [
   { key: "rerank", labelKey: "platform.modelRerank" },
 ];
 
-/** 向量化 / 重排序专用槽：读 platform.models，不参与时段模型规则（time_windows）、一键填充、聊天测试列表。 */
+/** 向量化 / 重排序专用槽：不参与一键填充、聊天测试列表；时段档（time_windows）命中时整套替换，档内为空 = 时段内本平台不接。 */
 export const DEDICATED_MODEL_SLOTS: readonly ModelSlot[] = ["embedding", "rerank"];
 
 export const MOCK_ERROR_MODES: { value: import("../../services/api").MockErrorMode; labelKey: string }[] = [

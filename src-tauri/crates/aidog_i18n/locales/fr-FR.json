@@ -1766,6 +1766,7 @@
   "platform.modelEmbedding": "Vectorisation",
   "platform.modelRerank": "Reclassement",
   "platform.dedicatedSlotNoOpenAIEndpointHint": "Cette plateforme n'a pas de endpoint de la famille OpenAI et ne sera pas sélectionnée pour ce type de requête",
+  "platform.timeSlotDedicatedEmptyHint": "Cette plateforme n'accepte pas ce type de requête pendant cette plage horaire",
   "platform.modelHaiku": "Haiku",
   "platform.modelOpus": "Opus",
   "platform.modelSonnet": "Sonnet",

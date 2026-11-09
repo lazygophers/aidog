@@ -1766,6 +1766,7 @@
   "platform.modelEmbedding": "Векторизация",
   "platform.modelRerank": "Переранжирование",
   "platform.dedicatedSlotNoOpenAIEndpointHint": "У этой платформы нет эндпоинта семейства OpenAI, она не будет выбрана для запросов этого типа",
+  "platform.timeSlotDedicatedEmptyHint": "В этот период платформа не принимает запросы этого типа",
   "platform.modelHaiku": "Haiku",
   "platform.modelOpus": "Opus",
   "platform.modelSonnet": "Sonnet",

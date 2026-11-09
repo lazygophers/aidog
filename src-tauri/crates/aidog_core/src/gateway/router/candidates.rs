@@ -198,12 +198,14 @@ impl DecisionModels {
 /// 平台是否支持该请求类型（R2 / R3）：
 /// - Decision ⇔ `models.jev` 非空，或 `available_models` 含该平台 registry decision 能力模型；
 /// - Chat ⇔ 非纯专用槽平台（jev/embedding/rerank 配置且 5 聊天槽全空才剔除）；
-/// - Embedding ⇔ `models.embedding` 非空 且 有 OpenAI 系 endpoint（endpoints 含 OpenAI 系，或平台协议本身即 OpenAI 系）；
+/// - Embedding ⇔ 当前生效 `models.embedding` 非空（时段档命中读档）且 有 OpenAI 系 endpoint（endpoints 含 OpenAI 系，或平台协议本身即 OpenAI 系）；
 /// - Tools(path) ⇔ 平台 tools_endpoints 含 path 与入站 path 相等条目（语义 3，strict 逐平台）。
 pub(crate) fn platform_supports_kind(
     platform: &Platform,
     kind: RequestKind<'_>,
     decision_models: &DecisionModels,
+    time_rules: &[serde_json::Value],
+    now_ms: i64,
 ) -> bool {
     match kind {
         RequestKind::Decision => {
@@ -213,11 +215,18 @@ pub(crate) fn platform_supports_kind(
                     .is_some()
         }
         RequestKind::Chat => !platform.models.is_dedicated_only(),
+        // 读当前生效配置：时段档命中则整套替换（档内无此槽 = 时段内不接），否则默认配置。
         RequestKind::Embedding => {
-            platform.models.embedding_slot().is_some() && has_openai_family_endpoint(platform)
+            time_windows::resolve_time_windows(time_rules, &platform.models, now_ms)
+                .embedding_slot()
+                .is_some()
+                && has_openai_family_endpoint(platform)
         }
         RequestKind::Rerank => {
-            platform.models.rerank_slot().is_some() && has_openai_family_endpoint(platform)
+            time_windows::resolve_time_windows(time_rules, &platform.models, now_ms)
+                .rerank_slot()
+                .is_some()
+                && has_openai_family_endpoint(platform)
         }
         RequestKind::Tools(path) => {
             crate::gateway::billing::default_tools_endpoints(&platform.platform_type.wire_str())
@@ -481,7 +490,13 @@ async fn select_candidates_inner(
         && let Some(gp) = group_platforms
             .iter()
             .find(|gp| gp.platform.id == target_id)
-        && !platform_supports_kind(&gp.platform, kind, &decision_models)
+        && !platform_supports_kind(
+            &gp.platform,
+            kind,
+            &decision_models,
+            &time_windows::parse_platform_time_windows(&gp.platform.extra),
+            db::now(),
+        )
     {
         tracing::warn!(
             group = %group.name, target_platform_id = target_id,
@@ -956,7 +971,16 @@ async fn handle_single_platform(
     }
 
     // 请求类型不匹配也是硬停（R5：单平台短路同样检查，2026-09-30 复核拍板）。
-    if !platform_supports_kind(&only.platform, kind, decision_models) {
+    if !platform_supports_kind(
+        &only.platform,
+        kind,
+        decision_models,
+        extra_cache
+            .get(&only.platform.id)
+            .map(|c| c.time_windows.as_slice())
+            .unwrap_or_default(),
+        now_ms,
+    ) {
         tracing::info!(
             group = %group.name, platform = %only.platform.name, kind = ?kind,
             "single-platform group: request kind unsupported"
@@ -1067,7 +1091,7 @@ async fn handle_single_platform(
     let time_rules: &[serde_json::Value] =
         cache.map(|c| c.time_windows.as_slice()).unwrap_or_default();
     let effective_models =
-        resolve_effective_models(&only.platform, time_rules, now_ms, source_model);
+        effective_models_for(kind, &only.platform, time_rules, now_ms, source_model);
     let mut chain = resolve_target_chain(
         kind,
         &effective_models,
@@ -1539,7 +1563,16 @@ fn filter_candidates<'a>(
 
         // 请求类型维度（R2/R3）：不支持该类型的平台剔除（先于 status 判定，
         // 纯决策平台 / 无决策能力的平台不进任何桶）。
-        if !platform_supports_kind(&gp.platform, kind, decision_models) {
+        if !platform_supports_kind(
+            &gp.platform,
+            kind,
+            decision_models,
+            extra_cache
+                .get(&gp.platform.id)
+                .map(|c| c.time_windows.as_slice())
+                .unwrap_or_default(),
+            now_ms,
+        ) {
             kind_rejected_count += 1;
             excluded.push((gp, RouteReason::KindUnsupported));
             continue;
@@ -1822,7 +1855,7 @@ fn build_route_results(
             let time_rules: &[serde_json::Value] =
                 cache.map(|c| c.time_windows.as_slice()).unwrap_or_default();
             let effective_models =
-                resolve_effective_models(&gp.platform, time_rules, now_ms, source_model);
+                effective_models_for(kind, &gp.platform, time_rules, now_ms, source_model);
             let mut chain = resolve_target_chain(
                 kind,
                 &effective_models,
@@ -1876,8 +1909,14 @@ fn hits_disabled_slot(
             let eff = resolve_effective_models(platform, &cache.time_windows, now_ms, source_model);
             eff.jev_slot().map(|_| "jev".into())
         }
-        RequestKind::Embedding => slot_filled(&platform.models.embedding).map(|_| "embedding".into()),
-        RequestKind::Rerank => slot_filled(&platform.models.rerank).map(|_| "rerank".into()),
+        RequestKind::Embedding => {
+            let eff = effective_models_for(kind, platform, &cache.time_windows, now_ms, source_model);
+            slot_filled(&eff.embedding).map(|_| "embedding".into())
+        }
+        RequestKind::Rerank => {
+            let eff = effective_models_for(kind, platform, &cache.time_windows, now_ms, source_model);
+            slot_filled(&eff.rerank).map(|_| "rerank".into())
+        }
         RequestKind::Tools(_) => None,
     };
     slot.is_some_and(|s| cache.disabled_slots.contains(&s))
@@ -1923,11 +1962,10 @@ fn resolve_target_chain(
         RequestKind::Chat => {
             resolve_model_chain_with_custom(effective_models, custom, model_name).0
         }
-        // Embedding：专用路径一律用槽位模型，忽略客户端模型名（spec Q4）。读 platform.models 而非
-        // effective_models：time_windows / preset peak 命中时整支替换为不含该槽位的 PlatformModels，
-        // 会把槽位读成空。
-        RequestKind::Embedding => slot_or(&platform.models.embedding, model_name.to_string()),
-        RequestKind::Rerank => slot_or(&platform.models.rerank, model_name.to_string()),
+        // Embedding：专用路径一律用槽位模型，忽略客户端模型名（spec Q4）。effective_models 由
+        // `effective_models_for` 给出：时段档命中读档，否则默认（不含 preset peak 分支）。
+        RequestKind::Embedding => slot_or(&effective_models.embedding, model_name.to_string()),
+        RequestKind::Rerank => slot_or(&effective_models.rerank, model_name.to_string()),
         // Tools 不做任何模型改写（语义 3）：映射命中取映射目标名（仅日志元数据），否则原样。
         RequestKind::Tools(_) => vec![model_name.to_string()],
     }
@@ -1936,6 +1974,22 @@ fn resolve_target_chain(
 /// 缓存版本的 peak 窗口判定（避免重新解析 peak）
 fn is_in_peak_window_cached(windows: &[peak::TimeWindow], now_ms: i64, source_model: &str) -> bool {
     peak::is_in_peak_window(windows, now_ms, source_model)
+}
+
+/// 按请求类型取有效模型配置：embedding / rerank 只认时段档（命中整套替换，否则默认），
+/// 不吃 preset peak 分支（peak 分支不含这两槽，会把它们读成空）；其余同 `resolve_effective_models`。
+fn effective_models_for(
+    kind: RequestKind<'_>,
+    platform: &Platform,
+    time_rules: &[serde_json::Value],
+    now_ms: i64,
+    source_model: &str,
+) -> PlatformModels {
+    if matches!(kind, RequestKind::Embedding | RequestKind::Rerank) {
+        time_windows::resolve_time_windows(time_rules, &platform.models, now_ms)
+    } else {
+        resolve_effective_models(platform, time_rules, now_ms, source_model)
+    }
 }
 
 /// 解析当前时段的有效模型配置（effective_models）—— 使用已解析的 time_windows 缓存。
@@ -2008,8 +2062,14 @@ fn model_via_for(
     }
     let time_rules: &[serde_json::Value] =
         cache.map(|c| c.time_windows.as_slice()).unwrap_or_default();
-    let (effective, layer) =
-        resolve_effective_models_tagged(platform, time_rules, now_ms, source_model);
+    let (effective, layer) = if matches!(kind, RequestKind::Embedding | RequestKind::Rerank) {
+        let eff = effective_models_for(kind, platform, time_rules, now_ms, source_model);
+        let hit = !time_rules.is_empty()
+            && serde_json::to_value(&eff).ok() != serde_json::to_value(&platform.models).ok();
+        (eff, hit.then_some(ModelVia::TimeWindow))
+    } else {
+        resolve_effective_models_tagged(platform, time_rules, now_ms, source_model)
+    };
     out.extend(layer);
     out.push(match kind {
         RequestKind::Chat => {
@@ -2018,10 +2078,8 @@ fn model_via_for(
             resolve_model_chain_with_custom(&effective, custom, name).1
         }
         RequestKind::Decision => ModelVia::DedicatedSlot,
-        RequestKind::Embedding if platform.models.embedding_slot().is_some() => {
-            ModelVia::DedicatedSlot
-        }
-        RequestKind::Rerank if platform.models.rerank_slot().is_some() => ModelVia::DedicatedSlot,
+        RequestKind::Embedding if effective.embedding_slot().is_some() => ModelVia::DedicatedSlot,
+        RequestKind::Rerank if effective.rerank_slot().is_some() => ModelVia::DedicatedSlot,
         _ => ModelVia::Passthrough,
     });
     out
