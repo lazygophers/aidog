@@ -203,17 +203,10 @@ pub fn apply_context_tier(
     base
 }
 
-/// 时间阶梯选档：取 `price.time_tiers` 中 `start_at * 1000 <= now_ms` 的最大档。命中后该档
-/// 整体作为价表（三价覆盖 + 其内嵌 `context_tiers` 替代 price 顶层），再跑 context 分档 ——
-/// 顺序 time→context，因为涨价后的长文档价只能表达在 time 条目内部。
-/// `now_ms <= 0` = 无时间上下文，跳过分档。`price_obj` 是条目 `price` 子树。
-pub fn apply_tiers(
-    mut base: ResolvedPrice,
-    price_obj: &Value,
-    input_tokens: i64,
-    now_ms: i64,
-) -> ResolvedPrice {
-    let hit = (now_ms > 0)
+/// time_tiers 选档公共体：取 `time_tiers` 中 `start_at * 1000 <= now_ms` 的最大档（latest wins）。
+/// `now_ms <= 0` = 无时间上下文，返回 None。token 价（apply_tiers）与按次价共用。
+fn select_time_tier(price_obj: &Value, now_ms: i64) -> Option<(i64, &Value)> {
+    (now_ms > 0)
         .then(|| price_obj.get("time_tiers").and_then(Value::as_array))
         .flatten()
         .and_then(|tiers| {
@@ -224,7 +217,20 @@ pub fn apply_tiers(
                     (at.saturating_mul(1000) <= now_ms).then_some((at, t))
                 })
                 .max_by_key(|(at, _)| *at)
-        });
+        })
+}
+
+/// 时间阶梯选档：取 `price.time_tiers` 中 `start_at * 1000 <= now_ms` 的最大档。命中后该档
+/// 整体作为价表（三价覆盖 + 其内嵌 `context_tiers` 替代 price 顶层），再跑 context 分档 ——
+/// 顺序 time→context，因为涨价后的长文档价只能表达在 time 条目内部。
+/// `now_ms <= 0` = 无时间上下文，跳过分档。`price_obj` 是条目 `price` 子树。
+pub fn apply_tiers(
+    mut base: ResolvedPrice,
+    price_obj: &Value,
+    input_tokens: i64,
+    now_ms: i64,
+) -> ResolvedPrice {
+    let hit = select_time_tier(price_obj, now_ms);
     let ctx_src = match hit {
         Some((_, tier)) => {
             overlay_prices(&mut base, tier);
@@ -286,10 +292,30 @@ pub fn resolve_price_from(
     // 按次计价（`unit:"request"` + `unit_price`，如 Cohere rerank；`unit:"image"` 按图同理，
     // 如 meta sam-3.1；`unit:"mp"` 按百万像素，如 FLUX 2 系列）：token 价全 0，费用由
     // 调用方 `unit_price × 次数` 得出；不走 fallback / 分档 / peak（按次价无峰谷差证据）。
+    // 按次价的定时切换 / 多档：time 档 `unit_price` > `unit_tiers` 第一档 > 顶层 `unit_price`
+    // （计费链拿不到图像尺寸/分辨率参数，`unit_tiers` 按档位顺序取第一档兜底）。
     let unit = price_obj.get("unit").and_then(Value::as_str);
-    if matches!(unit, Some("request") | Some("image") | Some("mp"))
-        && let Some(up) = price_obj.get("unit_price").and_then(Value::as_f64)
+    if matches!(unit, Some("request") | Some("image") | Some("second") | Some("char") | Some("mp"))
+        && let Some(top_up) = price_obj.get("unit_price").and_then(Value::as_f64)
     {
+        let mut source = format!("model_entry+{}", unit.unwrap_or("request"));
+        let mut up = top_up;
+        // time 档选档与 apply_tiers 同法（latest wins）；档内 unit_price 覆盖顶层。
+        // 未命中 time 档 → `unit_tiers` 第一档（缺参兜底，见 unit_tiers 字段 doc）。
+        if let Some((_, tier)) = select_time_tier(&price_obj, now_ms) {
+            if let Some(tu) = tier.get("unit_price").and_then(Value::as_f64) {
+                up = tu;
+                source.push_str("+time");
+            }
+        } else if let Some(tu) = price_obj
+            .get("unit_tiers")
+            .and_then(Value::as_array)
+            .and_then(|t| t.first())
+            .and_then(|t| t.get("unit_price"))
+            .and_then(Value::as_f64)
+        {
+            up = tu;
+        }
         let is_cny = price_obj.get("currency").and_then(Value::as_str) == Some("CNY");
         return PriceResolution {
             price: ResolvedPrice {
@@ -298,7 +324,7 @@ pub fn resolve_price_from(
                 cache_read_input_token_cost: 0.0,
                 cache_write_input_token_cost: 0.0,
                 cache_write_1h_input_token_cost: 0.0,
-                source: format!("model_entry+{}", unit.unwrap_or("request")),
+                source,
             },
             peak_applied: false,
             source_cny: is_cny,

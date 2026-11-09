@@ -271,16 +271,38 @@
           "$ref": "#/definitions/context_tiers",
           "description": "【可选】按上下文长度分档计价（如 >524288 tokens 档）。"
         },
+        "unit_tiers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["tier", "unit_price"],
+            "properties": {
+              "tier": {
+                "type": "string",
+                "minLength": 1,
+                "description": "【必填】档位标签（官方原文：720p / 1080p / 1K / 2K / 质量档名等）。数组顺序=官方档位顺序，第一档=缺参兜底档。"
+              },
+              "unit_price": {
+                "type": "number",
+                "minimum": 0,
+                "description": "【必填】本档单价（$/unit，同顶层 unit_price 单位口径与币种）。"
+              }
+            }
+          },
+          "description": "【可选】按次计价分档（镜像 context_tiers 结构，门槛=档位标签而非数值）：分辨率（720p/1080p）、尺寸（1K/2K）、质量档等多档单价。选档：转发/计费链拿不到图像尺寸/分辨率参数，照 context_tiers「缺参兜底」语义取第一档计费（order-based fallback）；逐请求参数选档待转发链携带该参数后启用。"
+        },
         "time_tiers": {
           "type": "array",
           "minItems": 1,
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "start_at",
-              "input",
-              "output"
+            "required": ["start_at"],
+            "anyOf": [
+              { "required": ["input", "output"] },
+              { "required": ["unit_price"] }
             ],
             "properties": {
               "start_at": {
@@ -291,17 +313,27 @@
               "input": {
                 "type": "number",
                 "minimum": 0,
-                "description": "【必填】本档输入单价（$/token）。"
+                "description": "【可选】（token 档与 output 成对必填，anyOf 强制）本档输入单价（$/token）。"
               },
               "output": {
                 "type": "number",
                 "minimum": 0,
-                "description": "【必填】本档输出单价（$/token）。"
+                "description": "【可选】（token 档与 input 成对必填，anyOf 强制）本档输出单价（$/token）。"
               },
               "cache_read": {
                 "type": "number",
                 "minimum": 0,
                 "description": "【可选】本档缓存读单价（$/token）。"
+              },
+              "unit": {
+                "type": "string",
+                "enum": ["token", "image", "second", "request", "char", "mp"],
+                "description": "【可选】本档计价单位（缺省沿用顶层 unit）。"
+              },
+              "unit_price": {
+                "type": "number",
+                "minimum": 0,
+                "description": "【可选】（按次档必填，与 input+output 二选一，anyOf 强制）本档单价（$/unit）；按次条目（unit 非 token）定时切价用，生效后覆盖顶层 unit_price。"
               },
               "context_tiers": {
                 "$ref": "#/definitions/context_tiers",
@@ -309,7 +341,7 @@
               }
             }
           },
-          "description": "【可选】按生效时间切换的价目（start_at Unix 秒，latest wins）。"
+          "description": "【可选】按生效时间切换的价目（start_at Unix 秒，latest wins）。token 档（input+output）与按次档（unit_price）二选一；按次档生效后覆盖顶层 unit_price（price_resolve.rs 按次分支）。"
         }
       },
       "description": "【必填】计价结构：默认单价 + 高峰绝对价 + 分档价，全部数值字段（$/token），禁字符串表达式。旧顶层价格字段（input_cost_per_token 等 + default_price）2026-08-30 已收归于此。"

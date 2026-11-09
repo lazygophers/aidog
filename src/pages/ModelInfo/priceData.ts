@@ -30,6 +30,11 @@ export interface ModelPriceData extends PriceTier {
   peak?: PriceTier | null;
   /** 上下文阶梯价：按请求 input_tokens 选档，`min_tokens` 为起档阈值。 */
   context_tiers?: Array<PriceTier & { min_tokens?: number | null }> | null;
+  /** 按次计价分档（`tier` 标签 + 单价，顺序=官方档位顺序）；展示取第一档为现价。
+   *  与 Rust `price_resolve` 同口径：计费链拿不到尺寸/分辨率参数，第一档=缺参兜底档。 */
+  unit_tiers?: Array<{ tier: string; unit_price: number }> | null;
+  /** time_tiers 档（展示层只消费按次条目的 `unit_price` 切换）。 */
+  time_tiers?: Array<{ start_at?: number | null; unit_price?: number | null }> | null;
 }
 
 /** 解析 `price_data` 取 `price` 子树；空串 / 非法 JSON / 缺 price 一律返回空对象
@@ -92,6 +97,28 @@ export function fmtPricePerUnit(v?: number | null, unit?: string | null, currenc
   if (unit === "char") return m + " /1K chars";
   if (unit === "mp") return m + " /MP";
   return m + ` /${unit ?? "unit"}`;
+}
+
+/** 按次条目现价（$/unit，条目原币种）：time 档 `unit_price`（start_at <= nowMs，latest wins）
+ *  > `unit_tiers` 第一档 > 顶层 `unit_price`；无任何值返回 null。与 Rust `price_resolve`
+ *  按次分支同口径（`nowMs` 缺省 = 当前时间）。 */
+export function effectiveUnitPrice(p: ModelPriceData, nowMs = Date.now()): number | null {
+  let up = typeof p.unit_price === "number" ? p.unit_price : null;
+  if (Array.isArray(p.unit_tiers) && p.unit_tiers.length > 0) {
+    const first = p.unit_tiers[0]?.unit_price;
+    if (typeof first === "number") up = first;
+  }
+  if (Array.isArray(p.time_tiers) && nowMs > 0) {
+    let best: { at: number; up: number | null } | null = null;
+    for (const t of p.time_tiers) {
+      const at = typeof t.start_at === "number" ? t.start_at : null;
+      if (at != null && at * 1000 <= nowMs && (best == null || at >= best.at)) {
+        best = { at, up: typeof t.unit_price === "number" ? t.unit_price : null };
+      }
+    }
+    if (best?.up != null) up = best.up;
+  }
+  return up;
 }
 
 /** $/token → $/M tokens；非有限数返回 null。 */
