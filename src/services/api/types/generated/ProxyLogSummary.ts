@@ -39,4 +39,12 @@ up_bytes: number,
 /**
  * 隧道下行字节数（同上）
  */
-down_bytes: number, created_at: number, };
+down_bytes: number, created_at: number, 
+/**
+ * Claude Code 请求类型提示头（见 `ProxyLog.request_class`）；空串 = 无
+ */
+request_class: string, 
+/**
+ * Claude Code 子代理类型提示头（见 `ProxyLog.agent_type`）；空串 = 无
+ */
+agent_type: string, };

@@ -262,6 +262,8 @@ fn placeholder_stream_log(id: &str) -> ProxyLog {
         client: String::new(),
         user_agent: String::new(),
         session_key: String::new(),
+        request_class: String::new(),
+        agent_type: String::new(),
         created_at: ts,
         updated_at: ts,
         deleted_at: 0,

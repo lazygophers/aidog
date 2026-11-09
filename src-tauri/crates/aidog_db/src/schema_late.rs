@@ -767,6 +767,15 @@ pub fn run_migrations_proxy_log_late(
             [],
         );
     }
+    // Migration 20261110-01: proxy_log 加 request_class / agent_type 两列——Claude Code 网关提示头
+    // `x-claude-code-request-class` / `x-claude-code-agent-type`（入口解析，元数据恒记录）。
+    // 存量行 '' = 无，不回填。
+    for col in ["request_class", "agent_type"] {
+        let _ = conn.execute(
+            &format!("ALTER TABLE proxy_log ADD COLUMN {col} TEXT NOT NULL DEFAULT ''"),
+            [],
+        );
+    }
     Ok(())
 }
 
