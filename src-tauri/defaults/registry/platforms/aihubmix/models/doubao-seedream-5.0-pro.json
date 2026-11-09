@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1794191265,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -21,6 +21,10 @@
   "price": {
     "currency": "USD",
     "unit": "image",
-    "unit_price": 0
+    "unit_price": 0.0471,
+    "unit_tiers": [
+      { "tier": "<2.36MP", "unit_price": 0.0471 },
+      { "tier": ">2.36MP", "unit_price": 0.0942 }
+    ]
   }
 }

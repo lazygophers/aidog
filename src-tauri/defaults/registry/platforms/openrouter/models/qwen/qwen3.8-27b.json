@@ -5,7 +5,7 @@
   "family": "qwen",
   "version": "3.8",
   "max_input_tokens": 1000000,
-  "context_window": 262144,
+  "context_window": 1024000,
   "official": true,
   "max_output_tokens": 235929,
   "thinking_supported": true,
@@ -16,7 +16,7 @@
     "output": 0.000001875,
     "cache_read": 5e-08
   },
-  "last_updated": 1794017726,
+  "last_updated": 1794191265,
   "supported_protocols": [
     "anthropic",
     "openai"

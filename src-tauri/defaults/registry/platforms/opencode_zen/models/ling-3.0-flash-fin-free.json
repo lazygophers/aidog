@@ -1,11 +1,12 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794191265,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "ling-3.0-flash-fin-free",
   "canonical_model": "ling-3.0-flash-fin-free",
   "capabilities": [],
+  "context_window": 262144,
   "official": true,
   "family": "ling",
   "price": {

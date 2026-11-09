@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1794191265,
   "supported_protocols": [
     "anthropic"
   ],
@@ -15,6 +15,7 @@
   "thinking_toggleable": true,
   "max_input_tokens": 1000000,
   "context_window": 1000000,
+  "max_output_tokens": 128000,
   "official": true,
   "price": {
     "currency": "USD",
