@@ -63,7 +63,7 @@ pub(crate) async fn handle_tools(
     let candidates = candidate_set.candidates;
 
     // ── 重试编排：同 handler.rs 聊天 / decision.rs 循环 ──
-    let max_retries = group.max_retries as usize;
+    let mut budget = CallBudget::new(group.max_retries);
     let mut attempts: Vec<ProxyAttempt> = Vec::new();
     let candidate_total = candidates.len();
 
@@ -83,12 +83,13 @@ pub(crate) async fn handle_tools(
     };
 
     for (attempt_idx, route) in candidates.into_iter().enumerate() {
-        if attempt_idx > max_retries {
+        if budget.exhausted() {
             break;
         }
         let attempt_start = std::time::Instant::now();
         let attempt_ts = aidog_db::now();
-        let is_last_candidate = attempt_idx + 1 >= candidate_total || attempt_idx >= max_retries;
+        let capped = budget.begin_call(log, route.platform.id);
+        let is_last_candidate = attempt_idx + 1 >= candidate_total || capped;
 
         match tools_attempt(
             state, log, &mut attempts, log_settings, group, &route, bytes, path,

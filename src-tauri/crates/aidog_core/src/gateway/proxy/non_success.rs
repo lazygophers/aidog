@@ -308,7 +308,7 @@ pub(crate) async fn handle_non_success(
     }
 
     // 可重试（审核拒绝或非 400/422 硬错，且中间件未标 non-retryable）→ 换下个候选；
-    // 候选耗尽 / 超 max_retries 则返回最后一次错误。non-retryable → 立即返回（不换候选）。
+    // 候选耗尽 / 最大尝试次数用尽则返回最后一次错误。non-retryable → 立即返回（不换候选）。
     if !non_retryable && !is_last_candidate {
         return AttemptOutcome::Next {
             connect_failed: false,

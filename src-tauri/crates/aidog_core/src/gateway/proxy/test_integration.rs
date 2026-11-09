@@ -6256,18 +6256,22 @@ async fn rc01_single_platform_shortcut_in_log_snapshot() {
     assert!(!sc.literal);
 }
 
-/// max_retries=2 + 4 个全失败平台：第 4 个入选候选因截断未尝试，快照可读出上限与原因。
+/// 最大尝试次数=2 + 4 个全失败平台：第 3、4 个入选候选因总次数用尽未尝试，快照可读出上限与原因。
 #[tokio::test]
 async fn rc01_max_retries_truncation_in_log_snapshot() {
     let up = spawn_stub_upstream(500, r#"{"error":"boom"}"#).await;
     let state = make_state(test_db().await).await;
     setup_multi_platform_group(&state, "gkrc2", &[("T1", &up, ""), ("T2", &up, ""), ("T3", &up, ""), ("T4", &up, "")]).await;
+    set_group_max_attempts(&state, "gkrc2", 2).await;
     let _ = handle_proxy(AxumState(state.clone()), messages_request("gkrc2", RC01_BODY)).await;
     let r = last_log_for(&state, "gkrc2").await.routing.unwrap();
     assert_eq!(r.max_retries, Some(2));
-    let last = r.entries.iter().find(|e| e.platform == "T4").unwrap();
-    assert_eq!(last.reason, aidog_db::models::RouteReason::RetryLimit);
-    assert!(r.entries.iter().filter(|e| e.platform != "T4").all(|e| e.reason == aidog_db::models::RouteReason::Selected));
+    for name in ["T3", "T4"] {
+        let e = r.entries.iter().find(|e| e.platform == name).unwrap();
+        assert_eq!(e.reason, aidog_db::models::RouteReason::RetryLimit, "{name}");
+    }
+    assert!(r.entries.iter().filter(|e| e.platform != "T3" && e.platform != "T4").all(|e| e.reason == aidog_db::models::RouteReason::Selected));
+    assert_eq!(last_log_for(&state, "gkrc2").await.attempts.len(), 2, "总次数 2 → 只调用 2 个平台");
 }
 
 /// 路由失败（全部候选手动禁用）：快照带 eval_ms。
@@ -7475,4 +7479,111 @@ async fn time_rule_without_embedding_or_rerank_503_and_with_uses_rule() {
     let sent = hits.lock().unwrap();
     assert_eq!(sent.len(), 1);
     assert!(sent[0].1.contains("emb-night") && !sent[0].1.contains("emb-day"), "发往上游的是档值: {}", sent[0].1);
+}
+
+// ══ 请求尝试-逐次重算 票 01：最大尝试次数 = 一次请求的上游调用总数（换平台 + 同平台换模型都计）══
+
+async fn set_group_max_attempts(state: &Arc<ProxyState>, gk: &str, n: u32) {
+    let g = aidog_db::list_groups(&state.db).await.unwrap().into_iter().find(|g| g.group_key == gk).unwrap();
+    aidog_db::update_group(&state.db, aidog_db::models::UpdateGroup {
+        id: g.id, name: None, routing_mode: None, request_timeout_secs: 0, connect_timeout_secs: 0,
+        source_protocol: None, max_retries: Some(n), model_mappings: g.model_mappings.clone(),
+        env_vars: g.env_vars.clone(), is_default: None,
+    })
+    .await
+    .unwrap();
+    state.db.invalidate_group_details_cache();
+}
+
+/// 上限 3，首平台模型链 3 个模型全部模型类失败 → 共 3 次调用后停止：次平台不被调用，尝试记录 3 条。
+#[tokio::test]
+async fn ra01_chat_cap_counts_model_switches() {
+    let (up1, hits1) = spawn_embedding_upstream(vec![(404, E404_MODEL); 6]).await;
+    let (up2, hits2) = spawn_embedding_upstream(vec![(200, MB_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(
+        &state,
+        "gkra1",
+        &[
+            (&up1, chain_models(&["m-a", "m-b", "m-c"]), Protocol::Anthropic, "p1"),
+            (&up2, chain_models(&["m-d"]), Protocol::Anthropic, "p2"),
+        ],
+    )
+    .await;
+    set_group_max_attempts(&state, "gkra1", 3).await;
+    let resp = chain_send(&state, "gkra1", CHAIN_REQ).await;
+    assert_ne!(resp.status(), StatusCode::OK);
+    assert_eq!(hit_models(&hits1), ["m-a", "m-b", "m-c"]);
+    assert!(hits2.lock().unwrap().is_empty(), "总次数用尽，次平台不得被调用");
+    assert_eq!(last_log_for(&state, "gkra1").await.attempts.len(), 3);
+}
+
+/// 上限 3：首平台链 2 个模型失败（2 次）+ 次平台第 1 次失败（第 3 次）→ 第三个平台不被调用。
+#[tokio::test]
+async fn ra01_chat_cap_counts_across_platforms() {
+    let (up1, hits1) = spawn_embedding_upstream(vec![(404, E404_MODEL); 6]).await;
+    let (up2, hits2) = spawn_embedding_upstream(vec![(500, E503_PLAIN); 6]).await;
+    let (up3, hits3) = spawn_embedding_upstream(vec![(200, MB_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(
+        &state,
+        "gkra2",
+        &[
+            (&up1, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p1"),
+            (&up2, chain_models(&["m-c", "m-d"]), Protocol::Anthropic, "p2"),
+            (&up3, chain_models(&["m-e"]), Protocol::Anthropic, "p3"),
+        ],
+    )
+    .await;
+    set_group_max_attempts(&state, "gkra2", 3).await;
+    let resp = chain_send(&state, "gkra2", CHAIN_REQ).await;
+    assert_ne!(resp.status(), StatusCode::OK);
+    assert_eq!(hits1.lock().unwrap().len() + hits2.lock().unwrap().len(), 3);
+    assert!(hits3.lock().unwrap().is_empty(), "第 4 次调用不得发生");
+    assert_eq!(last_log_for(&state, "gkra2").await.attempts.len(), 3);
+}
+
+/// 向量化 / 重排序：上限 1 → 首平台失败后不换平台。
+#[tokio::test]
+async fn ra01_aux_cap_stops_platform_switch() {
+    let (up1, hits1) = spawn_embedding_upstream(vec![(529, r#"{"error":"overloaded"}"#)]).await;
+    let (up2, hits2) = spawn_embedding_upstream(vec![(200, EMB_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    setup_embedding_group(
+        &state,
+        "gkra3",
+        &[(&up1, Some("emb-1"), Protocol::OpenAI, "p1"), (&up2, Some("emb-2"), Protocol::OpenAI, "p2")],
+    )
+    .await;
+    set_group_max_attempts(&state, "gkra3", 1).await;
+    let resp = handle_proxy(AxumState(state.clone()), embedding_request("gkra3", EMB_REQ, "/v1/embeddings")).await;
+    assert_ne!(resp.status(), StatusCode::OK);
+    assert_eq!(hits1.lock().unwrap().len(), 1);
+    assert!(hits2.lock().unwrap().is_empty(), "上限 1：不得换平台");
+}
+
+/// 向量化同平台换模型也计数：上限 2，链 3 个模型全 404 → 2 次调用。
+#[tokio::test]
+async fn ra01_aux_cap_counts_model_switches() {
+    let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL); 6]).await;
+    let state = make_state(test_db().await).await;
+    let slot = PlatformModels { embedding: vec!["e-a".into(), "e-b".into(), "e-c".into()], ..Default::default() };
+    setup_aux_group(&state, "gkra3b", &[(&up, slot, Protocol::OpenAI, "p")]).await;
+    set_group_max_attempts(&state, "gkra3b", 2).await;
+    let resp = handle_proxy(AxumState(state.clone()), embedding_request("gkra3b", EMB_REQ, "/v1/embeddings")).await;
+    assert_ne!(resp.status(), StatusCode::OK);
+    assert_eq!(hits.lock().unwrap().len(), 2);
+}
+
+/// 决策请求：上限 2，jev 链 3 个模型全 404 → 2 次调用。
+#[tokio::test]
+async fn ra01_decision_cap_counts_model_switches() {
+    let (up, hits) = spawn_decision_upstream(vec![(404, E404_MODEL), (404, E404_MODEL), (404, E404_MODEL), (200, OR_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    let jev = PlatformModels { jev: vec!["j-a".into(), "j-b".into(), "j-c".into()], ..Default::default() };
+    setup_decision_group(&state, "gkra4", &up, jev, None, Protocol::TypeSafe).await;
+    set_group_max_attempts(&state, "gkra4", 2).await;
+    let resp = handle_proxy(AxumState(state.clone()), decision_request("gkra4", "whatever")).await;
+    assert_ne!(resp.status(), StatusCode::OK);
+    assert_eq!(hits.lock().unwrap().len(), 2);
 }

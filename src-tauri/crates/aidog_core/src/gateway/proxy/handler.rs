@@ -803,11 +803,8 @@ pub(crate) async fn handle_proxy_core(
     //   2xx → 成功（曾 auto_disabled 则恢复 enabled），进入下游成功处理直接 return。
     //   401/402 → 内存 auth 冷却 5 分钟（不写 DB），换下个候选。
     //   其他错误(5xx/超时/连接失败) → 换下个候选。
-    //   每次尝试均 record 进 attempts；超过 max_retries 或候选耗尽 → 返回最后一次错误。
-    let max_retries = group.max_retries as usize;
-    if let Some(r) = log.routing.as_mut() {
-        r.mark_retry_limit(group.max_retries);
-    }
+    //   每次尝试均 record 进 attempts；最大尝试次数用尽或候选耗尽 → 返回最后一次错误。
+    let mut budget = CallBudget::new(group.max_retries);
     let mut attempts: Vec<ProxyAttempt> = Vec::new();
     let candidate_total = candidates.len();
     // R3（2026-09-28）：本次请求内已 connect 失败的 base_url 集合。死站对同站兄弟条目同样
@@ -816,8 +813,8 @@ pub(crate) async fn handle_proxy_core(
     let mut dead_base_urls: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     for (attempt_idx, route) in candidates.into_iter().enumerate() {
-        // 超过最大重试次数（attempt_idx 从 0 起；max_retries=2 → 最多 3 次尝试 idx 0/1/2）
-        if attempt_idx > max_retries {
+        // 最大尝试次数用尽（换平台与同平台换模型的上游调用都计）
+        if budget.exhausted() {
             break;
         }
         if dead_base_urls.contains(&route.platform.base_url) {
@@ -834,7 +831,7 @@ pub(crate) async fn handle_proxy_core(
         let route_base_url = route.platform.base_url.clone();
         let attempt_start = std::time::Instant::now();
         let attempt_ts = aidog_db::now();
-        let is_last_candidate = attempt_idx + 1 >= candidate_total || attempt_idx >= max_retries;
+        let is_last_candidate = attempt_idx + 1 >= candidate_total || budget.next_is_last();
 
         match forward_attempt(
             &state,
@@ -843,6 +840,7 @@ pub(crate) async fn handle_proxy_core(
             route,
             candidate_total,
             is_last_candidate,
+            &mut budget,
             attempt_start,
             attempt_ts,
             &log_settings,
@@ -870,8 +868,8 @@ pub(crate) async fn handle_proxy_core(
         }
     } // ── end retry loop (for candidate) ──
 
-    // 候选耗尽 / 全部超 max_retries 且未在循环内 return（理论不可达：循环内每条路径均 return 或 continue，
-    // 仅 attempt_idx > max_retries 的 break 会落到这里）。返回 503 + 已记录的 attempts。
+    // 候选耗尽 / 最大尝试次数用尽且未在循环内 return（理论不可达：循环内每条路径均 return 或 continue，
+    // 仅 budget.exhausted() 的 break 会落到这里）。返回 503 + 已记录的 attempts。
     log.status_code = 503;
     log.done = true;
     let err_body = format!(

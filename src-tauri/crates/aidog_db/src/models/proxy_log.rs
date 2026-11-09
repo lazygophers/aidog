@@ -246,7 +246,7 @@ pub enum RouteReason {
     SkippedDeadUpstream,
     /// 直通模型链：平台未声明该直通模型，被丢弃（路由画布 01）
     NotDeclared,
-    /// 入选但因 max_retries 截断从未尝试（路由画布 01；上限见 `RoutingSnapshot.max_retries`）
+    /// 入选但因最大尝试次数用尽从未尝试（路由画布 01；上限见 `RoutingSnapshot.max_retries`）
     RetryLimit,
 }
 
@@ -443,11 +443,15 @@ pub struct RoutingSnapshot {
 }
 
 impl RoutingSnapshot {
-    /// max_retries 截断补记（路由画布 01）：尝试序号 > max_retries 的入选候选永不会被尝试。
-    pub fn mark_retry_limit(&mut self, max_retries: u32) {
-        self.max_retries = Some(max_retries);
+    /// 最大尝试次数用尽补记（路由画布 01 / 请求尝试 01）：上限那次调用落在 `after_platform_id`，
+    /// 其后的入选候选永不会被尝试 → 标 retry-limit。
+    pub fn mark_retry_limit(&mut self, max_attempts: u32, after_platform_id: u64) {
+        self.max_retries = Some(max_attempts);
+        let Some(order) = self.entries.iter().find(|e| e.platform_id == after_platform_id).map(|e| e.order) else {
+            return;
+        };
         for e in &mut self.entries {
-            if e.reason == RouteReason::Selected && e.order > max_retries.saturating_add(1) {
+            if e.reason == RouteReason::Selected && e.order > order {
                 e.reason = RouteReason::RetryLimit;
             }
         }
