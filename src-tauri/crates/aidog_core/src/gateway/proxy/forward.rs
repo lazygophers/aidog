@@ -28,7 +28,7 @@ pub(crate) enum AttemptOutcome {
 /// 返回 AttemptOutcome::Respond 直接回客户端，Next 表示换下个候选重试。
 ///
 /// 同平台换模型（spec D5，票 06）：上游非 2xx 且分类为模型类、链上还有下一个模型时，
-/// 在同一候选内以下一个模型重发（不消耗 max_retries、不记平台失败）；嵌入点见
+/// 在同一候选内以下一个模型重发（计入最大尝试次数、不记平台失败）；嵌入点见
 /// `handle_non_success`。透传平台 / 直通模型 / 请求名透传的 `fallback_models` 恒空，
 /// 天然不换模型；2xx 流开始后不会回到这里换模型（非 2xx 才可能触发）。
 #[allow(clippy::too_many_arguments)]
@@ -39,6 +39,7 @@ pub(crate) async fn forward_attempt(
     route: RouteResult,
     candidate_total: usize,
     is_last_candidate: bool,
+    budget: &mut CallBudget,
     attempt_start: std::time::Instant,
     attempt_ts: i64,
     log_settings: &ProxyLogSettings,
@@ -122,13 +123,14 @@ pub(crate) async fn forward_attempt(
             }
         }
         let mut switched = false;
+        let capped = budget.begin_call(log, chain.route().platform.id);
         let out = forward_attempt_model(
             state,
             log,
             attempts,
             chain.route().clone(),
             candidate_total,
-            is_last_candidate,
+            is_last_candidate || capped,
             attempt_start,
             attempt_ts,
             log_settings,
@@ -143,7 +145,7 @@ pub(crate) async fn forward_attempt(
             sched_settings,
             start,
             group_header_injects,
-            chain.has_next(),
+            chain.has_next() && !capped,
             &mut switched,
             &access,
         )
@@ -166,10 +168,41 @@ pub(crate) fn mark_rate_limited(log: &mut ProxyLog) {
     log.blocked_reason = "rate_limit".to_string();
 }
 
+/// 一次请求的上游调用配额（分组「最大尝试次数」，请求尝试-逐次重算 票 01）：
+/// 换平台与同平台换模型各调用一次都计 1，用尽即停；四类请求循环共用同一实现。
+pub(crate) struct CallBudget {
+    max: usize,
+    used: usize,
+}
+
+impl CallBudget {
+    /// DB 里不合法的 0 按 1 处理（至少调用一次）。
+    pub(crate) fn new(max_attempts: u32) -> Self {
+        Self { max: (max_attempts as usize).max(1), used: 0 }
+    }
+    pub(crate) fn exhausted(&self) -> bool {
+        self.used >= self.max
+    }
+    /// 下一次调用是否就是配额内最后一次（外层循环据此给候选定 `is_last_candidate`）。
+    pub(crate) fn next_is_last(&self) -> bool {
+        self.used + 1 >= self.max
+    }
+    /// 记一次上游调用；返回 true = 这是配额内最后一次（不再换模型 / 换平台）。
+    /// 最后一次时把其后仍「入选」的候选在路由快照里补记为 retry-limit。
+    pub(crate) fn begin_call(&mut self, log: &mut ProxyLog, platform_id: u64) -> bool {
+        self.used += 1;
+        let last = self.exhausted();
+        if last && let Some(r) = log.routing.as_mut() {
+            r.mark_retry_limit(self.max as u32, platform_id);
+        }
+        last
+    }
+}
+
 /// 同平台换模型的共用状态（票 06 聊天、票 07 embedding / rerank / jev 四条路径共用，单一实现）。
 /// 调用方循环：`X_attempt(chain.route(), .., chain.has_next(), &mut switched)`；`switched=true`
 /// 表示本次失败属模型类，`handle_non_success` 已完成「分类 → 换模型判定 → 留痕未记账」（链尽时
-/// 落回原逻辑记账一次），此时 `chain.advance()` 切到下一个模型并重置计时。不消耗 `max_retries`。
+/// 落回原逻辑记账一次），此时 `chain.advance()` 切到下一个模型并重置计时。每次换模型都计入 `CallBudget`。
 pub(crate) struct ModelChain {
     route: RouteResult,
     fallbacks: Vec<String>,

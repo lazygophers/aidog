@@ -48,6 +48,17 @@ fn row_to_group(row: &rusqlite::Row) -> SqlResult<Group> {
     })
 }
 
+/// 分组「最大尝试次数」合法区间（一次请求的上游调用总数，含换平台与同平台换模型）。
+pub const MAX_ATTEMPTS_RANGE: std::ops::RangeInclusive<u32> = 1..=10;
+
+fn validate_max_attempts(n: u32) -> Result<(), String> {
+    if MAX_ATTEMPTS_RANGE.contains(&n) {
+        Ok(())
+    } else {
+        Err(format!("max_retries（最大尝试次数）须在 1–10 之间，收到 {n}"))
+    }
+}
+
 #[track_caller]
 pub fn create_group(
     db: &Db,
@@ -55,6 +66,7 @@ pub fn create_group(
 ) -> impl std::future::Future<Output = Result<Group, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
+        validate_max_attempts(input.max_retries)?;
         let ts = now();
         let routing_str = serde_json::to_string(&input.routing_mode).unwrap();
         let source_protocol = input
@@ -322,6 +334,9 @@ pub fn update_group(
 ) -> impl std::future::Future<Output = Result<Group, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
+        if let Some(n) = input.max_retries {
+            validate_max_attempts(n)?;
+        }
         let existing = get_group(db, input.id).await?.ok_or("group not found")?;
 
         let updated = Group {

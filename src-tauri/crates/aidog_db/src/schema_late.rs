@@ -910,7 +910,7 @@ pub fn run_migrations_platform_late(conn: &Connection) -> SqlResult<()> {
     updated_at           INTEGER NOT NULL DEFAULT 0,
     deleted_at           INTEGER NOT NULL DEFAULT 0,
     sort_order           INTEGER NOT NULL DEFAULT 0,
-    max_retries          INTEGER NOT NULL DEFAULT 2,
+    max_retries          INTEGER NOT NULL DEFAULT 10,
     UNIQUE(name)
 );
 INSERT INTO "group_new"
@@ -949,7 +949,7 @@ ALTER TABLE "group_new" RENAME TO "group";
     updated_at           INTEGER NOT NULL DEFAULT 0,
     deleted_at           INTEGER NOT NULL DEFAULT 0,
     sort_order           INTEGER NOT NULL DEFAULT 0,
-    max_retries          INTEGER NOT NULL DEFAULT 2,
+    max_retries          INTEGER NOT NULL DEFAULT 10,
     UNIQUE(name),
     UNIQUE(group_key)
 );
@@ -1138,6 +1138,9 @@ ALTER TABLE "group_new" RENAME TO "group";
     // Migration 20261110-11 (时段档-模型配置对齐 票 02): 已有时段档补齐平台默认 embedding / rerank（一次性，标记门控）。
     // 须在 listify 之后：槽位值此时已统一为数组。
     backfill_time_rule_dedicated_models(conn);
+
+    // Migration 20261110-12 (请求尝试-逐次重算 票 01): 全部分组 max_retries 置 10（一次性，标记门控）。
+    reset_group_max_attempts(conn);
 
     // Migration 20260901-01 (quota-scripts T4): platform.quota_script 物化列。
     // 用户保存平台 / 选变体时从 registry 选中变体写入选中脚本正文；空 = 未物化，
@@ -1642,6 +1645,49 @@ pub(crate) fn backfill_time_rule_dedicated_models(conn: &Connection) -> u64 {
     }
     if updated > 0 {
         tracing::info!(updated, "migration 20261110-11: 时段档补齐默认 embedding / rerank 完成");
+    }
+    updated
+}
+
+/// Migration 20261110-12（请求尝试-逐次重算 票 01）：「最大重试」改义为「最大尝试次数」（总调用数 1–10），
+/// 旧值（默认 2）按旧语义偏小，一次性把所有分组置 10（用户决策「全部改成 10」）。
+/// 本仓迁移每次启动都重跑，故以 `migration_done` 标记行门控（同 20261110-11），否则重启会覆盖用户之后的设置；
+/// 标记与数据改动同事务提交。返回被改动的分组数。
+pub(crate) fn reset_group_max_attempts(conn: &Connection) -> u64 {
+    const ID: &str = "20261110-12";
+    if conn
+        .execute("CREATE TABLE IF NOT EXISTS migration_done (id TEXT PRIMARY KEY)", [])
+        .is_err()
+    {
+        return 0;
+    }
+    if conn
+        .query_row("SELECT 1 FROM migration_done WHERE id = ?1", [ID], |_| Ok(()))
+        .is_ok()
+    {
+        return 0;
+    }
+    if conn.execute_batch("BEGIN IMMEDIATE").is_err() {
+        return 0;
+    }
+    let updated = match conn.execute("UPDATE \"group\" SET max_retries = 10", []) {
+        Ok(n) => n as u64,
+        Err(e) => {
+            tracing::warn!(error = %e, "migration 20261110-12: UPDATE 失败，回滚待下次重试");
+            let _ = conn.execute_batch("ROLLBACK");
+            return 0;
+        }
+    };
+    if conn
+        .execute("INSERT INTO migration_done (id) VALUES (?1)", [ID])
+        .is_err()
+        || conn.execute_batch("COMMIT").is_err()
+    {
+        let _ = conn.execute_batch("ROLLBACK");
+        return 0;
+    }
+    if updated > 0 {
+        tracing::info!(updated, "migration 20261110-12: 全部分组最大尝试次数置 10");
     }
     updated
 }

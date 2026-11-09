@@ -159,7 +159,7 @@ pub fn sample_group(name: &str, mappings: Vec<ModelMapping>) -> CreateGroup {
         request_timeout_secs: 0,
         connect_timeout_secs: 0,
         source_protocol: None,
-        max_retries: 2,
+        max_retries: 10,
         model_mappings: mappings,
         env_vars: Vec::new(),
     }

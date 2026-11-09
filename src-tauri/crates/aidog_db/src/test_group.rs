@@ -57,7 +57,7 @@ async fn group_max_retries_roundtrip() {
             request_timeout_secs: 0,
             connect_timeout_secs: 0,
             source_protocol: None,
-            max_retries: Some(0),
+            max_retries: Some(1),
             model_mappings: vec![],
             env_vars: vec![],
             is_default: None,
@@ -65,8 +65,8 @@ async fn group_max_retries_roundtrip() {
     )
     .await
     .unwrap();
-    assert_eq!(upd.max_retries, 0);
-    assert_eq!(get_group(&db, g.id).await.unwrap().unwrap().max_retries, 0);
+    assert_eq!(upd.max_retries, 1);
+    assert_eq!(get_group(&db, g.id).await.unwrap().unwrap().max_retries, 1);
 }
 
 /// group is_default 单选：set_default_group 同时清零其它 + 置目标；None 清零全部。

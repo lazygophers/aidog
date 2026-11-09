@@ -142,7 +142,7 @@ pub(crate) async fn handle_aux_model(
     };
     let candidates = candidate_set.candidates;
 
-    let max_retries = group.max_retries as usize;
+    let mut budget = CallBudget::new(group.max_retries);
     let mut attempts: Vec<ProxyAttempt> = Vec::new();
     let candidate_total = candidates.len();
 
@@ -162,12 +162,12 @@ pub(crate) async fn handle_aux_model(
     };
 
     for (attempt_idx, route) in candidates.into_iter().enumerate() {
-        if attempt_idx > max_retries {
+        if budget.exhausted() {
             break;
         }
         let mut attempt_start = std::time::Instant::now();
         let mut attempt_ts = aidog_db::now();
-        let is_last_candidate = attempt_idx + 1 >= candidate_total || attempt_idx >= max_retries;
+        let is_last_candidate = attempt_idx + 1 >= candidate_total || budget.next_is_last();
 
         // 平台限频占位（与 forward_attempt 同口径）：begin 占平台级，enter_model 逐模型占模型级；
         // `access` 随本轮候选结束 Drop，成功 / 失败 / 换候选都释放并发。
@@ -229,11 +229,12 @@ pub(crate) async fn handle_aux_model(
                 }
             }
             let mut switched = false;
+            let capped = budget.begin_call(log, chain.route().platform.id);
             let out = aux_attempt(
                 spec, state, log, &mut attempts, log_settings, group, chain.route(), &req_value,
                 &requested_model, &proxy_client, req_timeout, conn_timeout, &sched_settings, start,
-                lang, attempt_start, attempt_ts, is_last_candidate, candidate_total,
-                chain.has_next(), &mut switched,
+                lang, attempt_start, attempt_ts, is_last_candidate || capped, candidate_total,
+                chain.has_next() && !capped, &mut switched,
             )
             .await;
             if !switched {

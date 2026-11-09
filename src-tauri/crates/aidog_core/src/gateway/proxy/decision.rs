@@ -263,8 +263,8 @@ pub(crate) async fn handle_decision(
     };
     let candidates = candidate_set.candidates;
 
-    // ── 重试编排：仿 handler.rs 聊天循环（max_retries 上限 + attempts 记录）──
-    let max_retries = group.max_retries as usize;
+    // ── 重试编排：仿 handler.rs 聊天循环（最大尝试次数 + attempts 记录）──
+    let mut budget = CallBudget::new(group.max_retries);
     let mut attempts: Vec<ProxyAttempt> = Vec::new();
     let candidate_total = candidates.len();
 
@@ -284,21 +284,22 @@ pub(crate) async fn handle_decision(
     };
 
     for (attempt_idx, route) in candidates.into_iter().enumerate() {
-        if attempt_idx > max_retries {
+        if budget.exhausted() {
             break;
         }
         let mut attempt_start = std::time::Instant::now();
         let mut attempt_ts = aidog_db::now();
-        let is_last_candidate = attempt_idx + 1 >= candidate_total || attempt_idx >= max_retries;
+        let is_last_candidate = attempt_idx + 1 >= candidate_total || budget.next_is_last();
 
         let mut chain = ModelChain::new(route);
         let outcome = loop {
             let mut switched = false;
+            let capped = budget.begin_call(log, chain.route().platform.id);
             let out = decision_attempt(
                 state, log, &mut attempts, log_settings, group, chain.route(), &req_value, &requested_model,
                 &proxy_client, req_timeout, conn_timeout, &sched_settings, start, lang,
-                attempt_start, attempt_ts, is_last_candidate, candidate_total,
-                chain.has_next(), &mut switched,
+                attempt_start, attempt_ts, is_last_candidate || capped, candidate_total,
+                chain.has_next() && !capped, &mut switched,
             )
             .await;
             if !switched {
