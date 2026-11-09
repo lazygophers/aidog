@@ -28,6 +28,16 @@ describe("usePersistedNav", () => {
     expect(state()).toBe("settings/tray");
   });
 
+  it("旧 id 经别名表恢复到新 id", () => {
+    localStorage.setItem("aidog.lastNav", "old/x");
+    function H() {
+      const [nav] = usePersistedNav(["home", "new-x"], "home", { "old/x": "new-x" });
+      return <div data-testid="nav2" data-state={nav} />;
+    }
+    render(<H />);
+    expect(screen.getByTestId("nav2").getAttribute("data-state")).toBe("new-x");
+  });
+
   it("存的值不在合法清单（页被删/篡改）→ 回落默认", () => {
     localStorage.setItem("aidog.lastNav", "gone-page");
     render(<Harness />);

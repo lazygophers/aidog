@@ -3,7 +3,8 @@ import { listen } from "./services/transport";
 import { isTauri } from "./services/platform";
 import { PathPickerHost } from "./components/shared/PathPickerHost";
 import { ErrorBoundary } from "./components/shared/ErrorBoundary";
-import { Sidebar, type NavItem, type NavContext } from "./components/Sidebar";
+import { Sidebar, type NavContext } from "./components/Sidebar";
+import { BASE_NAV, NAV_IDS, NAV_ALIASES } from "./navItems";
 import { CommandPalette } from "./components/CommandPalette";
 import { Topbar } from "./components/Topbar";
 import type { Tab } from "./pages/AppSettings";
@@ -21,6 +22,7 @@ const Logs = lazy(() => import("./pages/Logs").then(m => ({ default: m.Logs })))
 const Stats = lazy(() => import("./pages/Stats").then(m => ({ default: m.Stats })));
 const Notifications = lazy(() => import("./pages/Notifications").then(m => ({ default: m.Notifications })));
 const Skills = lazy(() => import("./pages/Skills").then(m => ({ default: m.Skills })));
+const MiddlewareSettingsTab = lazy(() => import("./components/settings/MiddlewareRules").then(m => ({ default: m.MiddlewareSettingsTab })));
 const Mcp = lazy(() => import("./pages/Mcp").then(m => ({ default: m.Mcp })));
 const RequestLog = lazy(() => import("./pages/RequestLog").then(m => ({ default: m.RequestLog })));
 const MitmLog = lazy(() => import("./pages/MitmLog").then(m => ({ default: m.MitmLog })));
@@ -37,47 +39,8 @@ import { requestNavigation } from "./utils/navGuard";
 import { useCloseGuard } from "./utils/closeGuard";
 import { usePersistedNav } from "./utils/lastNav";
 
-const BASE_NAV: NavItem[] = [
-  // G3 侧栏：概览第一位 / 监控 = 平台（分组内嵌 GroupsEmbedded，同页展示分组段 + 平台行）/ 日志。
-  { id: "home", icon: "home", labelKey: "nav.home", section: "nav.section.overview" },
-  { id: "platforms", icon: "platforms", labelKey: "nav.platforms", section: "nav.section.monitoring" },
-  { id: "stats", icon: "stats", labelKey: "nav.stats", section: "nav.section.logStats" },
-  { id: "logs", icon: "logs", labelKey: "nav.logs", section: "nav.section.logStats" },
-  { id: "request-log", icon: "logs", labelKey: "nav.requestLog", section: "nav.section.logStats" },
-  { id: "mitm-log", icon: "logs", labelKey: "nav.mitmLog", section: "nav.section.logStats" },
-  { id: "notifications", icon: "notifications", labelKey: "nav.notifications", section: "nav.section.logStats" },
-  { id: "skills", icon: "skills", labelKey: "nav.skills", section: "nav.section.extension" },
-  { id: "mcp", icon: "mcp", labelKey: "nav.mcp", section: "nav.section.extension" },
-  {
-    id: "settings",
-    icon: "settings",
-    labelKey: "nav.settings",
-    section: "nav.section.system",
-    children: [
-      { id: "settings/system", labelKey: "appSettings.systemTab", group: "nav.settingsGroup.general" },
-      { id: "settings/api", labelKey: "appSettings.apiTab", group: "nav.settingsGroup.general" },
-      { id: "settings/coding_tools", labelKey: "appSettings.cliIntegrationTab", group: "nav.settingsGroup.integration" },
-      { id: "settings/claude", labelKey: "appSettings.claudeTab", group: "nav.settingsGroup.integration" },
-      { id: "settings/codex", labelKey: "appSettings.codexTab", group: "nav.settingsGroup.integration" },
-      { id: "settings/pi", labelKey: "appSettings.piTab", group: "nav.settingsGroup.integration" },
-      { id: "settings/middleware", labelKey: "appSettings.middlewareTab", group: "nav.settingsGroup.rules" },
-      { id: "settings/scheduling", labelKey: "appSettings.schedulingTab", group: "nav.settingsGroup.rules" },
-      { id: "settings/notifications", labelKey: "appSettings.notificationsTab", group: "nav.settingsGroup.notification" },
-      { id: "settings/pricing", labelKey: "appSettings.modelInfoTab", group: "nav.settingsGroup.config" },
-      { id: "settings/tray", labelKey: "appSettings.trayTab", group: "nav.settingsGroup.config" },
-      { id: "settings/popover", labelKey: "appSettings.popoverTab", group: "nav.settingsGroup.config" },
-      { id: "settings/importexport", labelKey: "appSettings.importExportTab", group: "nav.settingsGroup.config" },
-      { id: "settings/mitm", labelKey: "appSettings.mitmTab", group: "nav.settingsGroup.config" },
-    ],
-  },
-  { id: "about", icon: "about", labelKey: "nav.about", section: "nav.section.system" },
-];
-
-// 持久化的导航 id 须在清单内（含 settings 子页）。
-const NAV_IDS = BASE_NAV.flatMap((n) => [n.id, ...(n.children?.map((c) => c.id) ?? [])]);
-
 function App() {
-  const [activeNav, setActiveNav] = usePersistedNav(NAV_IDS, "home");
+  const [activeNav, setActiveNav] = usePersistedNav(NAV_IDS, "home", NAV_ALIASES);
   useCloseGuard();
   const [navContext, setNavContext] = useState<NavContext>({});
   // G3 全局骨架：⌘K 命令面板（设计稿顶栏 kbd）。
@@ -251,6 +214,7 @@ function App() {
             {effectiveNav === "notifications" && <Notifications onNavigate={handleNavigate} />}
             {effectiveNav === "skills" && <Skills />}
             {effectiveNav === "mcp" && <Mcp />}
+            {effectiveNav === "middleware" && <MiddlewareSettingsTab />}
             {effectiveNav === "about" && <About />}
           </div>
         </Suspense>

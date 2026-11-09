@@ -13,7 +13,7 @@ import { PrivacyScrubSection } from "../components/settings/PrivacyScrubSection"
 import { LogSettingsSection } from "./AppSettings/LogSettingsSection";
 import { SystemMiscSection, DbStatsSection, VersionToastSection } from "./AppSettings/SystemMiscSection";
 
-export type Tab = "system" | "claude" | "codex" | "pi" | "coding_tools" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover" | "importexport" | "mitm" | "api";
+export type Tab = "system" | "claude" | "codex" | "pi" | "coding_tools" | "scheduling" | "notifications" | "pricing" | "tray" | "popover" | "importexport" | "mitm" | "api";
 
 // ponytail: 每个 settings 子 tab 单独 chunk。AppSettings 本身已由 App.tsx 懒加载，
 // 这里再拆一层子 tab —— 进 system tab 时不该把 modelInfo/tray/codex 等其余 tab 的代码一并拖下来。
@@ -25,7 +25,6 @@ const PiSettings = lazy(() => import("./PiSettings").then(m => ({ default: m.PiS
 const ModelInfoTab = lazy(() => import("./ModelInfo/ModelInfoTab").then(m => ({ default: m.ModelInfoTab })));
 const TrayConfigTab = lazy(() => import("./TrayConfigTab").then(m => ({ default: m.TrayConfigTab })));
 const PopoverConfigTab = lazy(() => import("./PopoverConfigTab").then(m => ({ default: m.PopoverConfigTab })));
-const MiddlewareSettingsTab = lazy(() => import("../components/settings/MiddlewareRules").then(m => ({ default: m.MiddlewareSettingsTab })));
 const SchedulingSettingsTab = lazy(() => import("../components/settings/SchedulingSettings").then(m => ({ default: m.SchedulingSettingsTab })));
 const NotificationSettingsTab = lazy(() => import("../components/settings/NotificationSettings").then(m => ({ default: m.NotificationSettingsTab })));
 const ImportExportTab = lazy(() => import("../components/settings/ImportExport/ImportExportTab").then(m => ({ default: m.ImportExportTab })));
@@ -44,7 +43,6 @@ function AppSettingsTabContent({ tab, onNotifSettingsChanged }: { tab: Tab; onNo
   if (tab === "pricing") return <ModelInfoTab />;
   if (tab === "tray") return <TrayConfigTab />;
   if (tab === "popover") return <PopoverConfigTab />;
-  if (tab === "middleware") return <MiddlewareSettingsTab />;
   if (tab === "scheduling") return <SchedulingSettingsTab />;
   if (tab === "notifications") return <NotificationSettingsTab onEnabledChanged={onNotifSettingsChanged} />;
   if (tab === "system") return <SystemTab />;
