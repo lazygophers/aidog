@@ -1,0 +1,626 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<!--[if IE 6]><html class="ie6" xmlns="http://www.w3.org/1999/xhtml"><![endif]-->
+<!--[if IE 7]><html class="lt-ie8 lt-ie9" xmlns="http://www.w3.org/1999/xhtml"><![endif]-->
+<!--[if IE 8]><html class="lt-ie9" xmlns="http://www.w3.org/1999/xhtml"><![endif]-->
+<!--[if gt IE 8]><!--><html xmlns="http://www.w3.org/1999/xhtml"><!--<![endif]-->
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=1" />
+  <meta name="referrer" content="origin" />
+  <meta name="HandheldFriendly" content="true" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>rust async runtime at DuckDuckGo</title>
+  <link title="DuckDuckGo (HTML)" type="application/opensearchdescription+xml" rel="search" href="//duckduckgo.com/opensearch_html_v2.xml" />
+  <link href="//duckduckgo.com/favicon.ico" rel="shortcut icon" />
+  <link rel="icon" href="//duckduckgo.com/favicon.ico" type="image/x-icon" />
+  <link id="icon60" rel="apple-touch-icon" href="//duckduckgo.com/assets/icons/meta/DDG-iOS-icon_60x60.png?v=2"/>
+  <link id="icon76" rel="apple-touch-icon" sizes="76x76" href="//duckduckgo.com/assets/icons/meta/DDG-iOS-icon_76x76.png?v=2"/>
+  <link id="icon120" rel="apple-touch-icon" sizes="120x120" href="//duckduckgo.com/assets/icons/meta/DDG-iOS-icon_120x120.png?v=2"/>
+  <link id="icon152" rel="apple-touch-icon" sizes="152x152" href="//duckduckgo.com/assets/icons/meta/DDG-iOS-icon_152x152.png?v=2"/>
+  <link rel="image_src" href="//duckduckgo.com/assets/icons/meta/DDG-icon_256x256.png">
+  <link rel="stylesheet" media="handheld, all" href="//duckduckgo.com/dist/h.12e359033b8c1146e5f7.css" type="text/css"/>
+</head>
+
+<body class="body--html">
+  <a name="top" id="top"></a>
+
+  <form action="/html/" method="post">
+    <input type="text" name="state_hidden" id="state_hidden" />
+  </form>
+
+  <div>
+    <div class="site-wrapper-border"></div>
+
+    <div id="header" class="header cw header--html">
+      <a title="DuckDuckGo" href="/html/" class="header__logo-wrap"></a>
+
+      <form name="x" class="header__form" action="/html/" method="post">
+        <div class="search search--header">
+          <input name="q" autocomplete="off" class="search__input" id="search_form_input_homepage" type="text" value="rust async runtime" />
+          <input name="b" id="search_button_homepage" class="search__button search__button--html" value="" title="Search" alt="Search" type="submit" />
+        </div>
+
+        
+        
+        
+        
+
+        <div class="frm__select">
+          <select name="kl">
+            
+              <option value="" >All Regions</option>
+            
+              <option value="ar-es" >Argentina</option>
+            
+              <option value="au-en" >Australia</option>
+            
+              <option value="at-de" >Austria</option>
+            
+              <option value="be-fr" >Belgium (fr)</option>
+            
+              <option value="be-nl" >Belgium (nl)</option>
+            
+              <option value="br-pt" >Brazil</option>
+            
+              <option value="bg-bg" >Bulgaria</option>
+            
+              <option value="ca-en" >Canada (en)</option>
+            
+              <option value="ca-fr" >Canada (fr)</option>
+            
+              <option value="ct-ca" >Catalonia</option>
+            
+              <option value="cl-es" >Chile</option>
+            
+              <option value="cn-zh" >China</option>
+            
+              <option value="co-es" >Colombia</option>
+            
+              <option value="hr-hr" >Croatia</option>
+            
+              <option value="cz-cs" >Czech Republic</option>
+            
+              <option value="dk-da" >Denmark</option>
+            
+              <option value="ee-et" >Estonia</option>
+            
+              <option value="fi-fi" >Finland</option>
+            
+              <option value="fr-fr" >France</option>
+            
+              <option value="de-de" >Germany</option>
+            
+              <option value="gr-el" >Greece</option>
+            
+              <option value="hk-tzh" >Hong Kong</option>
+            
+              <option value="hu-hu" >Hungary</option>
+            
+              <option value="is-is" >Iceland</option>
+            
+              <option value="in-en" >India (en)</option>
+            
+              <option value="id-en" >Indonesia (en)</option>
+            
+              <option value="ie-en" >Ireland</option>
+            
+              <option value="il-en" >Israel (en)</option>
+            
+              <option value="it-it" >Italy</option>
+            
+              <option value="jp-jp" >Japan</option>
+            
+              <option value="kr-kr" >Korea</option>
+            
+              <option value="lv-lv" >Latvia</option>
+            
+              <option value="lt-lt" >Lithuania</option>
+            
+              <option value="my-en" >Malaysia (en)</option>
+            
+              <option value="mx-es" >Mexico</option>
+            
+              <option value="nl-nl" >Netherlands</option>
+            
+              <option value="nz-en" >New Zealand</option>
+            
+              <option value="no-no" >Norway</option>
+            
+              <option value="pk-en" >Pakistan (en)</option>
+            
+              <option value="pe-es" >Peru</option>
+            
+              <option value="ph-en" >Philippines (en)</option>
+            
+              <option value="pl-pl" >Poland</option>
+            
+              <option value="pt-pt" >Portugal</option>
+            
+              <option value="ro-ro" >Romania</option>
+            
+              <option value="ru-ru" >Russia</option>
+            
+              <option value="xa-ar" >Saudi Arabia</option>
+            
+              <option value="sg-en" >Singapore</option>
+            
+              <option value="sk-sk" >Slovakia</option>
+            
+              <option value="sl-sl" >Slovenia</option>
+            
+              <option value="za-en" >South Africa</option>
+            
+              <option value="es-ca" >Spain (ca)</option>
+            
+              <option value="es-es" >Spain (es)</option>
+            
+              <option value="se-sv" >Sweden</option>
+            
+              <option value="ch-de" >Switzerland (de)</option>
+            
+              <option value="ch-fr" >Switzerland (fr)</option>
+            
+              <option value="tw-tzh" >Taiwan</option>
+            
+              <option value="th-en" >Thailand (en)</option>
+            
+              <option value="tr-tr" >Turkey</option>
+            
+              <option value="us-en" >US (English)</option>
+            
+              <option value="us-es" >US (Spanish)</option>
+            
+              <option value="ua-uk" >Ukraine</option>
+            
+              <option value="uk-en" >United Kingdom</option>
+            
+              <option value="vn-en" >Vietnam (en)</option>
+            
+          </select>
+        </div>
+
+        <div class="frm__select frm__select--last">
+          <select class="" name="df">
+            
+              <option value="" selected>Any Time</option>
+            
+              <option value="d" >Past Day</option>
+            
+              <option value="w" >Past Week</option>
+            
+              <option value="m" >Past Month</option>
+            
+              <option value="y" >Past Year</option>
+            
+          </select>
+        </div>
+      </form>
+    </div>
+
+    
+
+    
+      <!-- Web results are present -->
+      <div>
+        <div class="serp__results">
+          <div id="links" class="results">
+            
+
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Frust%2Dlang.github.io%2Fasync%2Dbook%2F08_ecosystem%2F00_chapter.html&amp;rut=36ce940c93f0af37af01565343c4a851ffbbfd98e31cc38299402506dad81ff5">The Async Ecosystem - Asynchronous Programming in Rust</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Frust%2Dlang.github.io%2Fasync%2Dbook%2F08_ecosystem%2F00_chapter.html&amp;rut=36ce940c93f0af37af01565343c4a851ffbbfd98e31cc38299402506dad81ff5">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/rust-lang.github.io.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Frust%2Dlang.github.io%2Fasync%2Dbook%2F08_ecosystem%2F00_chapter.html&amp;rut=36ce940c93f0af37af01565343c4a851ffbbfd98e31cc38299402506dad81ff5">
+                            rust-lang.github.io/async-book/08_ecosystem/00_chapter.html
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Frust%2Dlang.github.io%2Fasync%2Dbook%2F08_ecosystem%2F00_chapter.html&amp;rut=36ce940c93f0af37af01565343c4a851ffbbfd98e31cc38299402506dad81ff5">Learn about <b>async</b> <b>runtimes</b>, libraries, and traits for writing and executing <b>async</b> code in <b>Rust</b>. Compare popular <b>runtimes</b> such as Tokio, <b>async</b>-std, and smol, and their compatibility and performance differences.</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fgithub.com%2Fsmol%2Drs%2Fsmol&amp;rut=4a2808cc5282bdec93af810ae3560e06f361adca1db940fa1d976f718d7f736a">GitHub - smol-rs/smol: A small and fast async runtime for Rust</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fgithub.com%2Fsmol%2Drs%2Fsmol&amp;rut=4a2808cc5282bdec93af810ae3560e06f361adca1db940fa1d976f718d7f736a">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/github.com.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fgithub.com%2Fsmol%2Drs%2Fsmol&amp;rut=4a2808cc5282bdec93af810ae3560e06f361adca1db940fa1d976f718d7f736a">
+                            github.com/smol-rs/smol
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fgithub.com%2Fsmol%2Drs%2Fsmol&amp;rut=4a2808cc5282bdec93af810ae3560e06f361adca1db940fa1d976f718d7f736a">A small and fast <b>async</b> <b>runtime</b> for <b>Rust</b>. Contribute to smol-rs/smol development by creating an account on GitHub.</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Ftokio.rs%2Ftokio%2Ftutorial%2Fasync&amp;rut=d77ecfa56db1c93bbdfec8dae568d363df9a26590e909b81c42b18bbfad00a30">Async in depth | Tokio - An asynchronous Rust runtime</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Ftokio.rs%2Ftokio%2Ftutorial%2Fasync&amp;rut=d77ecfa56db1c93bbdfec8dae568d363df9a26590e909b81c42b18bbfad00a30">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/tokio.rs.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Ftokio.rs%2Ftokio%2Ftutorial%2Fasync&amp;rut=d77ecfa56db1c93bbdfec8dae568d363df9a26590e909b81c42b18bbfad00a30">
+                            tokio.rs/tokio/tutorial/async
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Ftokio.rs%2Ftokio%2Ftutorial%2Fasync&amp;rut=d77ecfa56db1c93bbdfec8dae568d363df9a26590e909b81c42b18bbfad00a30">Tokio is a <b>runtime</b> for writing reliable asynchronous applications with <b>Rust</b>. It provides <b>async</b> I/O, networking, scheduling, timers, and more.</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Frustify.rs%2Farticles%2Frust%2Dasync%2Druntimes%2Dtokio%2Dvs%2Dasync%2Dstd%2D2026&amp;rut=2df420fc8edde102a0cca75a188a8752eeaabd81cc2ba58bba5e691669697445">Rust Async Runtimes: Tokio vs async-std vs smol 2026 | Rustify</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Frustify.rs%2Farticles%2Frust%2Dasync%2Druntimes%2Dtokio%2Dvs%2Dasync%2Dstd%2D2026&amp;rut=2df420fc8edde102a0cca75a188a8752eeaabd81cc2ba58bba5e691669697445">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/rustify.rs.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Frustify.rs%2Farticles%2Frust%2Dasync%2Druntimes%2Dtokio%2Dvs%2Dasync%2Dstd%2D2026&amp;rut=2df420fc8edde102a0cca75a188a8752eeaabd81cc2ba58bba5e691669697445">
+                            rustify.rs/articles/rust-async-runtimes-tokio-vs-async-std-2026
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Frustify.rs%2Farticles%2Frust%2Dasync%2Druntimes%2Dtokio%2Dvs%2Dasync%2Dstd%2D2026&amp;rut=2df420fc8edde102a0cca75a188a8752eeaabd81cc2ba58bba5e691669697445">Tokio dominates <b>async</b> <b>Rust</b> with 150M monthly downloads. This guide compares Tokio, <b>async</b>-std, and smol on performance and ecosystem lock-in.</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdoc.rust%2Dlang.org%2Fbook%2Fch17%2D00%2Dasync%2Dawait.html&amp;rut=44f8b994c8984af4ecc57352f6572e1e75aeb8777478a59e964cf3d6aa6eb7db">Fundamentals of Asynchronous Programming: Async, Await ... - Learn Rust</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdoc.rust%2Dlang.org%2Fbook%2Fch17%2D00%2Dasync%2Dawait.html&amp;rut=44f8b994c8984af4ecc57352f6572e1e75aeb8777478a59e964cf3d6aa6eb7db">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/doc.rust-lang.org.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdoc.rust%2Dlang.org%2Fbook%2Fch17%2D00%2Dasync%2Dawait.html&amp;rut=44f8b994c8984af4ecc57352f6572e1e75aeb8777478a59e964cf3d6aa6eb7db">
+                            doc.rust-lang.org/book/ch17-00-async-await.html
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdoc.rust%2Dlang.org%2Fbook%2Fch17%2D00%2Dasync%2Dawait.html&amp;rut=44f8b994c8984af4ecc57352f6572e1e75aeb8777478a59e964cf3d6aa6eb7db">Running <b>async</b> code in <b>Rust</b> usually happens concurrently. Depending on the hardware, the operating system, and the <b>async</b> <b>runtime</b> we are using (more on <b>async</b> <b>runtimes</b> shortly), that concurrency may also use parallelism under the hood. Now, let&#x27;s dive into how <b>async</b> programming in <b>Rust</b> actually works.</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fmichaelhelvey.dev%2Fposts%2Frust%2Dasync%2Druntime&amp;rut=77b6daf9a0afc241aa43719148eb7904fd30a6a41083288ac1fdd5483407d0f8">Writing an Async Runtime in Rust - michaelhelvey.dev</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fmichaelhelvey.dev%2Fposts%2Frust%2Dasync%2Druntime&amp;rut=77b6daf9a0afc241aa43719148eb7904fd30a6a41083288ac1fdd5483407d0f8">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/michaelhelvey.dev.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fmichaelhelvey.dev%2Fposts%2Frust%2Dasync%2Druntime&amp;rut=77b6daf9a0afc241aa43719148eb7904fd30a6a41083288ac1fdd5483407d0f8">
+                            michaelhelvey.dev/posts/rust-async-runtime
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fmichaelhelvey.dev%2Fposts%2Frust%2Dasync%2Druntime&amp;rut=77b6daf9a0afc241aa43719148eb7904fd30a6a41083288ac1fdd5483407d0f8">The future returned by this <b>async</b> function in particular is a state machine much like our Task class from JavaScript, but auto-generated by the <b>Rust</b> compiler. The tokio documentation has an excellent example of what this compiles to.</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Ftokio.rs%2F&amp;rut=b6bf0f4455bf5c398e4c95c8f437426e42ca902150697c2f28f9a55a5e6a17ed">Tokio - An asynchronous Rust runtime</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Ftokio.rs%2F&amp;rut=b6bf0f4455bf5c398e4c95c8f437426e42ca902150697c2f28f9a55a5e6a17ed">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/tokio.rs.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Ftokio.rs%2F&amp;rut=b6bf0f4455bf5c398e4c95c8f437426e42ca902150697c2f28f9a55a5e6a17ed">
+                            tokio.rs
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Ftokio.rs%2F&amp;rut=b6bf0f4455bf5c398e4c95c8f437426e42ca902150697c2f28f9a55a5e6a17ed">Tokio is a <b>runtime</b> for writing reliable asynchronous applications with <b>Rust</b>. It provides <b>async</b> I/O, networking, scheduling, timers, and more.</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Frust%2Dlang.github.io%2Fasync%2Dbook%2Fpart%2Dguide%2Fruntimes.html&amp;rut=87c8415ed19a970d0d6b5ff9405c5dbd969b52c011ce08b5b7207dae24d61209">Runtimes - Asynchronous Programming in Rust</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Frust%2Dlang.github.io%2Fasync%2Dbook%2Fpart%2Dguide%2Fruntimes.html&amp;rut=87c8415ed19a970d0d6b5ff9405c5dbd969b52c011ce08b5b7207dae24d61209">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/rust-lang.github.io.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Frust%2Dlang.github.io%2Fasync%2Dbook%2Fpart%2Dguide%2Fruntimes.html&amp;rut=87c8415ed19a970d0d6b5ff9405c5dbd969b52c011ce08b5b7207dae24d61209">
+                            rust-lang.github.io/async-book/part-guide/runtimes.html
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Frust%2Dlang.github.io%2Fasync%2Dbook%2Fpart%2Dguide%2Fruntimes.html&amp;rut=87c8415ed19a970d0d6b5ff9405c5dbd969b52c011ce08b5b7207dae24d61209">Asynchronous Programming in <b>Rust</b> <b>Runtimes</b> and <b>runtime</b> issues Running <b>async</b> code Explicit startup vs <b>async</b> main tokio context concept block_on <b>runtime</b> as reflected in the code (<b>Runtime</b>, Handle) <b>runtime</b> shutdown Threads and tasks default work stealing, multi-threaded revisit Send + &#x27;static bounds yield spawn-local spawn-blocking (recap), block ...</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fcorrode.dev%2Fblog%2Fasync%2F&amp;rut=4738f96e2e0c135c77a03622d971258018f905dfc99c3b20a471abdb5e1e63fb">The State of Async Rust: Runtimes - Corrode Rust Consulting</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fcorrode.dev%2Fblog%2Fasync%2F&amp;rut=4738f96e2e0c135c77a03622d971258018f905dfc99c3b20a471abdb5e1e63fb">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/corrode.dev.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fcorrode.dev%2Fblog%2Fasync%2F&amp;rut=4738f96e2e0c135c77a03622d971258018f905dfc99c3b20a471abdb5e1e63fb">
+                            corrode.dev/blog/async/
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fcorrode.dev%2Fblog%2Fasync%2F&amp;rut=4738f96e2e0c135c77a03622d971258018f905dfc99c3b20a471abdb5e1e63fb">Writing your <b>async</b> code in a <b>runtime</b>-agnostic fashion requires conditional compilation, compatibility layers and handling edge-cases. This is the rationale behind most libraries gravitating towards the One True <b>Runtime</b> — Tokio. Executor coupling is a big problem for <b>async</b> <b>Rust</b> as it breaks the ecosystem into silos.</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdoc.rust%2Dlang.org%2Fbook%2Fch17%2D01%2Dfutures%2Dand%2Dsyntax.html&amp;rut=7a8e810a7d52f2a5c127e1a715f4719acf33d15548a0419f81b44279ad6d0068">Futures and the Async Syntax - The Rust Programming Language</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdoc.rust%2Dlang.org%2Fbook%2Fch17%2D01%2Dfutures%2Dand%2Dsyntax.html&amp;rut=7a8e810a7d52f2a5c127e1a715f4719acf33d15548a0419f81b44279ad6d0068">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/doc.rust-lang.org.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdoc.rust%2Dlang.org%2Fbook%2Fch17%2D01%2Dfutures%2Dand%2Dsyntax.html&amp;rut=7a8e810a7d52f2a5c127e1a715f4719acf33d15548a0419f81b44279ad6d0068">
+                            doc.rust-lang.org/book/ch17-01-futures-and-syntax.html
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdoc.rust%2Dlang.org%2Fbook%2Fch17%2D01%2Dfutures%2Dand%2Dsyntax.html&amp;rut=7a8e810a7d52f2a5c127e1a715f4719acf33d15548a0419f81b44279ad6d0068">The futures crate is an official home for <b>Rust</b> experimentation for <b>async</b> code, and it&#x27;s actually where the Future trait was originally designed. Tokio is the most widely used <b>async</b> <b>runtime</b> in <b>Rust</b> today, especially for web applications. There are other great <b>runtimes</b> out there, and they may be more suitable for your purposes.</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+
+            
+              
+              
+                <div class="nav-link">
+                  <form action="/html/" method="post">
+                    <input type="submit" class='btn btn--alt' value="Next" />
+                    <input type="hidden" name="q" value="rust async runtime" />
+                    <input type="hidden" name="s" value="10" />
+                    <input type="hidden" name="nextParams" value="" />
+                    <input type="hidden" name="v" value="l" />
+                    <input type="hidden" name="o" value="json" />
+                    <input type="hidden" name="dc" value="11" />
+                    <input type="hidden" name="api" value="d.js" />
+                    <input type="hidden" name="vqd" value="4-206170901252735239368247376958957732080" />
+
+                    
+                    
+                    
+                      <input name="kl" value="wt-wt" type="hidden" />
+                    
+                    
+                    
+                    
+                  </form>
+                </div>
+              
+            
+
+            <div class="feedback-btn">
+              <a rel="nofollow" href="//duckduckgo.com/feedback.html" target="_new">Feedback</a>
+            </div>
+            <div class="clear"></div>
+          </div>
+        </div>
+      </div> <!-- links wrapper //-->
+    
+  </div>
+
+  <div id="bottom_spacing2"></div>
+
+  
+    <img src="//duckduckgo.com/t/sl_h"/>
+  
+</body>
+</html>

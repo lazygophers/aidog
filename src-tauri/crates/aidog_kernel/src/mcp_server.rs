@@ -12,7 +12,8 @@
 //! 的 mcpServers 配置时嵌入）。不碰 aidog_mcp（那是第三方 MCP server 的管理层，语义不同）；
 //! 桌面版不 spawn 本进程，由用户的 agent（Claude Code / Codex）按 mcpServers 配置自己拉起。
 
-use crate::{media, search};
+use crate::media;
+use aidog_search as search;
 use aidog_core::mcp_tools::McpToolsSettings;
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};

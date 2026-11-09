@@ -1,0 +1,25 @@
+[package]
+name = "aidog_search"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# 搜索引擎层（网关-网页搜索 票 01）：key 服务适配 + 免 key 引擎（浏览器指纹出站）+ web_fetch。
+# 独立成 crate 是为让 aidog_core（网关代执行 / HTTP MCP）与 aidog_kernel 都能调用而不成环：
+# 本 crate 不依赖 aidog_core，设置形状 SearchProviderConfig 定义在此，由 aidog_core::mcp_tools 再导出。
+[dependencies]
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["time", "net"] }
+futures = { workspace = true }
+regex = { workspace = true }
+url = { workspace = true }
+percent-encoding = "2"
+base64 = "0.22"
+scraper = "0.29"
+# 免 key 引擎出站的浏览器 TLS/HTTP2 指纹模拟（仅引擎抓取用，不影响代理转发）。
+# wreq-util 取 0.2（配 wreq 0.16）：3.0.0-rc 系依赖 wreq 6.0.0-rc.31，该版本在当前工具链编译失败。
+wreq = { version = "0.16", features = ["system-proxy"] }
+wreq-util = "0.2"
