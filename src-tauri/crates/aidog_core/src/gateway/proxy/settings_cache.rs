@@ -17,8 +17,6 @@ pub(crate) struct ProxySettingsCache {
     pub proxy_client: ProxyClientSettings,
     /// builtin_tool_compat 全局总开关（默认 false；内置工具剔除的唯一开关）
     pub builtin_tool_compat: super::models::BuiltinToolCompatGlobalSettings,
-    /// 出站隐私脱敏设置（票 02，默认关；scope=privacy key=scrub）
-    pub privacy: Arc<crate::gateway::privacy::PrivacyScrubSettings>,
 }
 
 impl ProxySettingsCache {
@@ -30,7 +28,6 @@ impl ProxySettingsCache {
             system_timeout: get_system_timeout(db).await,
             proxy_client: super::http_client::load_proxy_client_settings(db).await,
             builtin_tool_compat: super::builtin_tools::get_builtin_tool_compat_global(db).await,
-            privacy: Arc::new(crate::gateway::privacy::get_privacy_scrub_settings(db).await),
         }
     }
 }
