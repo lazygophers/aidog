@@ -3,7 +3,7 @@ use aidog_db::{Db, incremental_vacuum_conn, now, retention_cutoff_secs};
 use rusqlite::{OptionalExtension, Result as SqlResult, params};
 
 /// proxy_log 全列序（INSERT / 单行 SELECT 共用，与表定义列序一致）
-const PROXY_LOG_COLUMNS: &str = "id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, cache_write_tokens, cache_write_1h_tokens, est_cost, is_stream, attempts, retry_count, blocked_by, blocked_reason, created_at, updated_at, deleted_at, done, field_trace, body_omitted, routing, client, user_agent, session_key, up_bytes, down_bytes, request_class, agent_type";
+const PROXY_LOG_COLUMNS: &str = "id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, cache_write_tokens, cache_write_1h_tokens, est_cost, is_stream, attempts, retry_count, blocked_by, blocked_reason, created_at, updated_at, deleted_at, done, field_trace, body_omitted, routing, client, user_agent, session_key, up_bytes, down_bytes, request_class, agent_type, prompt_id, session_id, agent_id, parent_agent_id, compaction, context_compacted, prev_tool_durations";
 
 /// 从查询行构造 ProxyLog（列序须与 PROXY_LOG_COLUMNS 一致）
 fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog> {
@@ -51,6 +51,13 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog
         session_key: row.get(40)?,
         request_class: row.get(43)?,
         agent_type: row.get(44)?,
+        prompt_id: row.get(45)?,
+        session_id: row.get(46)?,
+        agent_id: row.get(47)?,
+        parent_agent_id: row.get(48)?,
+        compaction: row.get(49)?,
+        context_compacted: row.get(50)?,
+        prev_tool_durations: row.get(51)?,
         // 票 16 B1：按次计数不落列（PROXY_LOG_COLUMNS 零变化），DB 读回恒空。
         tool_call_counts: Vec::new(),
     })
@@ -123,10 +130,10 @@ pub fn upsert_proxy_log(
             // 固定 SQL（列序常量）→ prepare_cached 命中 rusqlite statement cache，省每次写的 prepare 开销
             let mut stmt = conn.prepare_cached(
                 &format!("INSERT OR REPLACE INTO proxy_log ({PROXY_LOG_COLUMNS})
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36,?37,?38,?39,?40,?41,?42,?43,?44,?45)"),
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36,?37,?38,?39,?40,?41,?42,?43,?44,?45,?46,?47,?48,?49,?50,?51,?52)"),
             )?;
             stmt.execute(
-                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.cache_write_tokens, log.cache_write_1h_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at, log.done as i64, log.field_trace, log.body_omitted as i64, routing_str, log.client, log.user_agent, log.session_key, 0i64, 0i64, log.request_class, log.agent_type],
+                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.cache_write_tokens, log.cache_write_1h_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at, log.done as i64, log.field_trace, log.body_omitted as i64, routing_str, log.client, log.user_agent, log.session_key, 0i64, 0i64, log.request_class, log.agent_type, log.prompt_id, log.session_id, log.agent_id, log.parent_agent_id, log.compaction, log.context_compacted, log.prev_tool_durations],
             )?;
             Ok(())
         })
@@ -207,6 +214,13 @@ pub struct ProxyLogColumns {
     /// Claude Code 网关提示头（migration 20261110-01）；空串 = 无。元数据：不参与两侧 strip。
     pub request_class: String,
     pub agent_type: String,
+    pub prompt_id: String,
+    pub session_id: String,
+    pub agent_id: String,
+    pub parent_agent_id: String,
+    pub compaction: String,
+    pub context_compacted: String,
+    pub prev_tool_durations: String,
 }
 
 /// 渐进式 UPDATE 的列绑定（列名 + SQL 绑定值）。
@@ -324,6 +338,13 @@ impl ProxyLogColumns {
             down_bytes: 0,
             request_class: log.request_class.clone(),
             agent_type: log.agent_type.clone(),
+            prompt_id: log.prompt_id.clone(),
+            session_id: log.session_id.clone(),
+            agent_id: log.agent_id.clone(),
+            parent_agent_id: log.parent_agent_id.clone(),
+            compaction: log.compaction.clone(),
+            context_compacted: log.context_compacted.clone(),
+            prev_tool_durations: log.prev_tool_durations.clone(),
         }
     }
 
@@ -376,6 +397,13 @@ impl ProxyLogColumns {
         diff!("session_key", session_key);
         diff!("request_class", request_class);
         diff!("agent_type", agent_type);
+        diff!("prompt_id", prompt_id);
+        diff!("session_id", session_id);
+        diff!("agent_id", agent_id);
+        diff!("parent_agent_id", parent_agent_id);
+        diff!("compaction", compaction);
+        diff!("context_compacted", context_compacted);
+        diff!("prev_tool_durations", prev_tool_durations);
         out
     }
 
@@ -475,10 +503,10 @@ pub fn insert_proxy_log_columns(
             // 固定 SQL（列序常量）→ prepare_cached 命中 statement cache（渐进式日志首节点高频）
             let mut stmt = conn.prepare_cached(
                 &format!("INSERT INTO proxy_log ({PROXY_LOG_COLUMNS})
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36,?37,?38,?39,?40,?41,?42,?43,?44,?45)"),
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36,?37,?38,?39,?40,?41,?42,?43,?44,?45,?46,?47,?48,?49,?50,?51,?52)"),
             )?;
             stmt.execute(
-                params![cols.id, cols.group_key, cols.model, cols.actual_model, cols.source_protocol, cols.target_protocol, cols.platform_id, cols.request_headers, cols.request_body, cols.upstream_request_headers, cols.upstream_request_body, cols.response_body, cols.request_url, cols.upstream_request_url, cols.upstream_response_headers, cols.upstream_status_code, cols.user_response_headers, cols.user_response_body, cols.status_code, cols.duration_ms, cols.input_tokens, cols.output_tokens, cols.cache_tokens, cols.cache_write_tokens, cols.cache_write_1h_tokens, cols.est_cost, cols.is_stream, cols.attempts, cols.retry_count, cols.blocked_by, cols.blocked_reason, cols.created_at, cols.updated_at, cols.deleted_at, cols.done, cols.field_trace, cols.body_omitted, cols.routing, cols.client, cols.user_agent, cols.session_key, cols.up_bytes, cols.down_bytes, cols.request_class, cols.agent_type],
+                params![cols.id, cols.group_key, cols.model, cols.actual_model, cols.source_protocol, cols.target_protocol, cols.platform_id, cols.request_headers, cols.request_body, cols.upstream_request_headers, cols.upstream_request_body, cols.response_body, cols.request_url, cols.upstream_request_url, cols.upstream_response_headers, cols.upstream_status_code, cols.user_response_headers, cols.user_response_body, cols.status_code, cols.duration_ms, cols.input_tokens, cols.output_tokens, cols.cache_tokens, cols.cache_write_tokens, cols.cache_write_1h_tokens, cols.est_cost, cols.is_stream, cols.attempts, cols.retry_count, cols.blocked_by, cols.blocked_reason, cols.created_at, cols.updated_at, cols.deleted_at, cols.done, cols.field_trace, cols.body_omitted, cols.routing, cols.client, cols.user_agent, cols.session_key, cols.up_bytes, cols.down_bytes, cols.request_class, cols.agent_type, cols.prompt_id, cols.session_id, cols.agent_id, cols.parent_agent_id, cols.compaction, cols.context_compacted, cols.prev_tool_durations],
             )?;
             Ok(())
         })
@@ -834,6 +862,17 @@ fn build_filter_where(
             parts.push(format!("AND session_key = ?{idx}"));
             p.push(Box::new(trimmed.to_string()));
             idx += 1;
+        }
+    }
+    // Claude Code 网关提示头精确匹配（prompt-id / session-id）；空串视为未设置
+    for (col, val) in [("prompt_id", &filter.prompt_id), ("session_id", &filter.session_id)] {
+        if let Some(v) = val {
+            let trimmed = v.trim();
+            if !trimmed.is_empty() {
+                parts.push(format!("AND {col} = ?{idx}"));
+                p.push(Box::new(trimmed.to_string()));
+                idx += 1;
+            }
         }
     }
     let _ = idx;
