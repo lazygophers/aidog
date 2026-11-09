@@ -28,6 +28,7 @@
     "skipDangerousModePermissionPrompt": true,
     "spinnerTipsEnabled": true,
     "bashOutputMaxChars": 4000,
+    "promptSuggestionEnabled": true,
       "claudeMdExcludes": ["**/vendor/**/CLAUDE.md", "**/node_modules/**/CLAUDE.md"],
     "crossSessionInbound": "accept",
     "spinnerTipsOverride": {
