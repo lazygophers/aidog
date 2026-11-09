@@ -10,6 +10,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { settingsApi } from "../../services/api/settings";
 import { mcpApi } from "../../services/api/mcp";
+import { searchApi, type SearxInstance } from "../../services/api/search";
 import { Button } from "@/components/ui/button";
 
 // 搜索 key 服务（SearXNG 已并入下方免 key 引擎列表；其余词表见 aidog_core SEARCH_PROVIDERS）。
@@ -20,9 +21,16 @@ const PROVIDERS = [
 // 免 key 引擎清单与默认开关：与 aidog_search::engines::ENGINES 同序同值（加引擎两处同改）。
 export const SEARCH_ENGINES = [
   { id: "ddg", defaultOn: true },
+  { id: "ddg_lite", defaultOn: false },
   { id: "bing", defaultOn: true },
   { id: "google", defaultOn: true },
+  { id: "yandex", defaultOn: false },
+  { id: "sogou", defaultOn: false },
+  { id: "baidu", defaultOn: false },
+  { id: "so360", defaultOn: false },
   { id: "arxiv", defaultOn: true },
+  { id: "crossref", defaultOn: false },
+  { id: "pubmed", defaultOn: false },
   { id: "searxng", defaultOn: true },
   { id: "wikipedia", defaultOn: true },
   { id: "github", defaultOn: true },
@@ -66,6 +74,9 @@ export function ToolsSection() {
   const [enabled, setEnabled] = useState(true);
   const [keysText, setKeysText] = useState("");
   const [urlsText, setUrlsText] = useState("");
+  const [searxList, setSearxList] = useState<SearxInstance[]>([]);
+  const [searxBusy, setSearxBusy] = useState(false);
+  const [searxError, setSearxError] = useState("");
   const [engines, setEngines] = useState<Record<string, boolean>>(defaultEngineFlags);
   const [image, setImage] = useState<MediaCfg>(EMPTY_MEDIA);
   const [video, setVideo] = useState<MediaCfg>(EMPTY_MEDIA);
@@ -113,6 +124,25 @@ export function ToolsSection() {
     } catch (e) {
       setSaveError(String(e));
     }
+  };
+
+  // 手动刷新 searx.space 公共列表：只在点按钮时拉一次，AiDog 不自动拉取。
+  const refreshSearx = async () => {
+    setSearxBusy(true);
+    setSearxError("");
+    try {
+      setSearxList(await searchApi.searxInstances());
+    } catch (e) {
+      setSearxError(String(e));
+    } finally {
+      setSearxBusy(false);
+    }
+  };
+  // 勾选 = 把实例 URL 追加进下方文本（随保存持久化），取消 = 移除该行。
+  const toggleSearx = (url: string, on: boolean) => {
+    const lines = linesOf(urlsText).filter((l) => l !== url);
+    setUrlsText((on ? [...lines, url] : lines).join("\n"));
+    setSaved(false);
   };
 
   const install = async () => {
@@ -257,6 +287,34 @@ export function ToolsSection() {
           style={{ width: "100%", boxSizing: "border-box" }}
         />
       </label>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <Button data-testid="tools-searx-refresh" variant="outline" disabled={searxBusy} onClick={() => void refreshSearx()}>
+            {searxBusy ? t("tools.searxRefreshing", "刷新中…") : t("tools.searxRefresh", "刷新公共列表")}
+          </Button>
+          <span className="text-secondary" style={{ fontSize: 12 }}>
+            {t("tools.searxRefreshHint", "从 searx.space 拉取一次健康实例供多选；仅在点击时联网，不会自动刷新。")}
+          </span>
+        </div>
+        {searxError && <span style={{ color: "var(--danger)", fontSize: 12 }} data-testid="tools-searx-error">{searxError}</span>}
+        {searxList.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 180, overflowY: "auto" }}>
+            {searxList.map((inst, i) => (
+              <label key={inst.url} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                <input
+                  type="checkbox"
+                  data-testid={`tools-searx-inst-${i}`}
+                  checked={linesOf(urlsText).includes(inst.url)}
+                  onChange={(ev) => toggleSearx(inst.url, ev.target.checked)}
+                />
+                {inst.url}
+                {inst.seconds != null && <span className="text-secondary">{inst.seconds.toFixed(2)}s</span>}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div style={{ fontSize: 12, fontWeight: 600 }}>
         {t("tools.mediaTitle", "生图 / 生视频 provider（OpenAI images 兼容端点）")}

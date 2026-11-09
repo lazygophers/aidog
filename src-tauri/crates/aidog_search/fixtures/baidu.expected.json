@@ -1,0 +1,57 @@
+[
+ {
+  "url": "http://www.baidu.com/link?url=GNMAnic74kev8AfNvCUThblSpDiekkxRgz33vbFzCXn2DYlXv0RpoQYG9XXa9Pf74HnW8GmJi--QH-awIGDL4M4o8wncCOYQmdE9cE1UzWS",
+  "title": "Rust语言(计算机编程语言) - 百度百科",
+  "snippet": " Rust 是一门系统 编程语言 ，专注于安全，尤其是并发安全，支持函数式和命令式以及泛型等编程范式的多范式语言。 Rust 在语法上和 C++ 类似，设计者想要在保证性能的同时提供更好的内存安全。该语言由 Mozilla 员工 Graydon Hoare 于 2006 年作为私人项目启动，2009 年获得 Mozilla 赞助，首个有版本号的编译器于 2012 年 1 月发布。2015 年 5 月 15 日正式发布 1.0 稳定版本，2025年9月18日发布1.90.0版本，当前版本为1.9"
+ },
+ {
+  "url": "http://www.baidu.com/link?url=CvGoEkUMoLqXU9plb00DBAHQ7TMaAAV0G40425GQr0jZCesc9rCaKa-eviT-ZsYX",
+  "title": "Rust 程序设计语言",
+  "snippet": "构建可靠且高效软件能力的 语言 。 为什么选择 Rust ? 高性能 Rust 速度惊人且内存利用率极高。由于没有运行时和垃圾回收,它能够胜任对性能要求特别高的服务,可以在嵌入式设备上运行,还能轻松和其他语言集成。 可靠性 Rust 丰富的类型系统和所有权模型保证了内存安全和线程安全,让您在编译期就能够消除各种各样的错... Rust编程语言官网"
+ },
+ {
+  "url": "https://www.baidu.com/baidu.php?url=060000KKXYb9K48fSdFaPdAKFeKI0D00VZbSlllv4ftUF9OIcsx2gIvPwnz1m1GOKzp7IXToPl4iSgvzqZLPGaxLAjGH_Ad_RBbrRI7LTndP9UHNTkKW741AT6vrCwWlKoEBjGnZRl3Sa19W7BZFllBOYg_0SEVbz6EHqivgII-W54VLaU_rENDhWfz7j1Ao6FlbbsAY3nZPIaBi9UAg-ZsRybKN.DY_NR2Ar5Od66u8utovTyKDDUlamrjQslr1H3SzAKMRh29LxGknXPByIhOG_tRLIh1G__LGvUbdeVXlekLLn4QrVqLQqAFBQqO4gHxEOllO1xVkIE4ELOqxuSUqSzlUQt8vUQ6lcELqxYwx-CI8JE4wkXPjO_pJO-Ov51xVkI_LetguPSOjvHpS8EDk7SOtoGELOqIx4Ev38LtLeOSE_OPSOuIP-SgUP-sIDgeSElcEzYrLojRkvImphr1oxIzLqDIKW1X1-WOUOdlQ5Z-Ot7AB1IO3PxzSNMWOcsXrENISLvOQtd------Ljqqg4ESkjSxSwYtVaEqq5_ObxleQQQQQQQQQQQQPL44E9YRPLQvOJnvwvyyfe_ZSEOsxQd____sHpSB2eHO3QQQ5YQPLl7hgOBO5JOeZ3OYXaetOtWG4p7XWtXNvWktXKSEOgOoO3MdX5YpgOSjOs5SOS1Ocex1T5UkO58B_____LxYxl5qZSWOwOCOYxl5qZSWOkxXZQu7gOkfec-2s1f_Ih1koz20.U1Yk0ZDqTMN1IaRznQZ6_t1HeqZR0ZKGm1Yk0ZfqYVxHeqZR_Xa11PUlzVm0pyYqnHfvnfKM5yq-TZnk0ZNG5yF9pywd0ZKGujYzr0KWpyfqnWfL0AdY5HDsnHIxnW0dnNtknjD4g1nvnj7xrHDLr0KopHYs0ZFY5iYk0AFG5HDdr7tznjf0UynqnH0kPdtznjRkg1DsnH-xn7t4nHT30Z7spyfqn0Kkmv-b5H00ThIYmyTqn0K8my-b5H00Uh7YTjYs0APdujYznjDdPHb3rH0Y0A7B5HKxn0K-ThTqn0KsTjYs0A4vTjYsQW0snj0snj0s0AdYTjYs0AwbUL0qn0KzpWYs0Aw-IWdsmsKhIjYs0ZKC5H00ULnqn0KBI1Ykn0K8IjYs0ZPl5fK9TdqGuAnqTZnVuLGCXZb0pywW5R9rffKspZw45fKYmgFMugfqn17xn1DYg1DknfKYIgnqnHTknjRYrj6znW6vnWfsnWfdnW00ThNkIjYkP1bYnWckn1fYPH0d0A-W5H00Tv-b5yDsuycsnHNBnj0kPWndm1c0mLPV5HTzfW7arHFjPYFAPHm3n1f0UAF15H00mynqnfKsUWYs0Z7VIjYs0Z7VT1Ys0Aw-I7qWTADqn0KlIjYs0AFvujYz0AIsIjYk0AI9IjYk0AdWgvuzUvYqn7tsg1Kxn7ts0Aw9UMNBuNqsUA78pyw15HKxn7tsg1Kxn0Ksmgwxuhk9u1Ys0AwWpyfqn1DYPHTzr0K-IA-b5iYk0A71TAPW5H00IgKGUhPW5H00Tydh5H00uhPdIjYs0A-1mvsqn0K9uAu_myTqnfK_uhnqn0KbmvPb5fKYTh7buHYznjn1njD0mhwGujY0mMfqnsKEmgwL5H00ULfqnfKETMKY5HcWnanvc1Dsnj0WPj0sPW61P1m3nBnzPH0sc1DknWT8nj0snj0sc1nWnH0snansczYWna3sn1bdPHDWni3snj0snj0Wninsc108nj0snj0sc10Wnansc10Wninsc10Wna3snanzPjb4c100mh78pv7Wm1Ysc10Wnans0Z91IZRqrjR1nHT4PWb0TNqv5H08njKxna3sn7tsQW0sg1D8njKxna3sn7tsQW0sg108n1Pxna31ndtsg1DLnjDkg100mMPxTZFEuA-b5H00ThqGuhk9u1YY0Ad-IjYs0APv5fKGTdqWTADqn0KWTjYs0AN1IjYs0Z7MIvfqn0KETjDqnW030ZKsPjYkn0KWThnqnHRLnH0&us=newvui&xst=T1YknHR4PHnvn1DdPHbdnjR3nHD3P-tkPjmkg10KI1Lidq5EYIik3Q5ndEo2d67k5gFdTLf6_Xa11P5EYIfKIHY3PHnkP1bvrf7Y5HDLrHfznWD1PjfKUgDqn0cs0BYKmv6quhPxTAnKUZRqn07WUWdBmy-bIf7zIjYs0HcLnHcvPH6vrj6&word=",
+  "title": "TRAE-Java AI智能 编程",
+  "snippet": "14分钟前有人下载 在Java开发领域,无论是创建企业级的服务层,数据访问层,还是复杂的JavaBean类 双11大促 北京引力弹弓科技有限公司 2026-11  广告"
+ },
+ {
+  "url": "https://www.baidu.com/baidu.php?url=060000KKXYb9K48fSqI2nBR35Btal38a6gI5TKwXIU8-gXiJCKzqeHHjQFYNV7eioFHsNo55fx-pNspGYRXNQRyerP4B6h2da0Qehsg8ge6clt-Z9nqMAzxndSZo0EA1-4033bZkex8XHseXRJQNozH_xYkGuVO06mP6orQRmVFalM4sAx4g1-1LC4C-f6tSS55MJXBW6SChpOcr9OR3qozZjSvp.Db_NR2Ar5Od66hHTSunPjzWxGEutJjQovgc6h8es_mc8E0k6BXl2PrMov_urMkdGer5ubzgNeVviOoWmYlXgFYq5ZFbLUrgW8_e2thH-34PLZu3qrHoXkSxl54ZYUE1eq5skOeNaeO_xgOuOdSLtOyPWoomJCRnTXZWeTrHl3TMd3rj6tJjQovgcs45osr3nrHltrZFqp7qHV2TrHl33mYlTrHl_YglyIQrZWqubltXQjkSyMHz4rMG34nheuztIdMugbzTEZF83e5ZGzmTMHvGYTjGo_5Z4mThe1LmThextrZF8q81jbLXxW9zUEgv3ThedS8ZF8tOZjbLXEs3ThexY3The1tTrHIeIhZF8vX8ZF8tqvZF8qUnrHIEos4PLM8s4Pv1_s4PLoqTrHGE94IIZ-Wh9stx-fEWxfHzO-OCOtjWYqheu9zInPHnRip531mt5Z4g_3_Z38Y_lyTrHGE84xCkmX5zOOSoe8glngOOvGyAp7W_Lqhzkf0.U1Yk0ZDqTMN1IaRznQZ6_t1HeqZR0ZKGm1Yk0ZfqdPo5LeZ6_t1FvUU40A-V5HDdn1f0u1dEugK1nfKdpHdBmy-bIfKspyfqnW60mv-b5HcYPsKVIjY1nWc3g1DsnHIxn1Dzn7tznjRkg1DsnH-xn1msnfKopHYs0ZFY5iYk0AFG5HDdr7tznjf0Uynqn1czr7tknjDLg1nknWKxnW0dnNtknjD4g100TgKGujYs0Z7Wpyfqn0KzuLw9u1Ys0A49pyfqn0K8mgws5H00mLNb5HfzrHDsP1DdPsK9mWYsg100ugFM5H00TZ0qn0K8IM0qna3snj0snj0sn0KVIZ0qn0KbuAqs5H00ThCqn0KbugmqTAn0uMfqn0KspjYs0Aq15H00mMTqnH00UMfqn0K1XWY0mgPxpywW5gK1QyIlpZ940A-bm1dcHbD0TA9YXHY0IA7zuvNY5Hnkg1nkP7tknHD0IZN15HDLPHbvrjfsP1n4PHc3rjmvn1f0ThNkIjYkP1bYnWckn1fYPH0d0A-W5H00Tv-b5yDsuycsnHNBnj0kPWndm1c0mLPV5HTzfW7arHFjPYFAPHm3n1f0UAF15H00mynqnfKsUWYs0Z7VIjYs0Z7VT1Ys0ZGY5H00mMub5H00uLKY5HD0uv7Y5HD0UyPxuMFEUHYsg1Kxn7tsg1Kxn0Kbmy4dmhNxTAk9Uh-bT1Y1PHcsnjcvPjIxn7tknjbYnW6snH9xn7tsg100TA7Ygvu_myTqn0Kbmv-b5HD1nH0LP0K-IA-b5HmY0A71TAPW5H00IgKGUhPW5H00Tydh5H00uhPdIjYs0A-1mvsqn0K9uAu_myTqnfK_uhnqn0KbmvPb5fKYTh7buHYznjcznjc0mhwGujY0Uvnqn6KBIjYk0Aq9IZTqn0KEIjYs0AqzTZfqnanscznsc10WnansQW0snj0snanscYwANansczYWna3snj0snj0Wni3snj0snj0Wnansc108nj0snj0sc10Wnansc10Wnansc10Wna3snansc100mh78pv7Wm1Ysc10Wnans0Z7xIWYsQW0sg108njKxna3sn7tkQW0sg108njKxna3sn7tsQWn1g108n1Pxn7tsg100mMPxTZFEuA-b5H00ThqGuhk9u1Ys0ZKzTvRqPHDz0Ad-IjYs0APv5fKGTdqWTADqn0KWTjYs0AN1IjYs0Z7MIvfqn0KETjDqn0KsTjfqn6KWThnqPHbdP1D&us=newvui&word=",
+  "title": "在线少儿 编程 -找优质产品-上淘宝热卖",
+  "snippet": "在线 编程 少儿-好物集结,大牌汇聚,放心购!在线下单,退换无忧,快来选购吧!超多品牌,好物集结,放心买好物,尽在淘宝,淘你满意! 五金配件 去看看 五金配件 官方正品 女装热卖 去看看 女装热卖 在线选购 住宅家具 去看看 住宅家具 现货热销 基础建材 去看看 基础建材 实时询价 查看更多相关信息 双11大促 淘宝热卖 2026-11  广告"
+ },
+ {
+  "url": "http://www.baidu.com/link?url=Ib0cPMsT5E5tEGAk68WdX_As19JKejjBcwfJ0N9Cx9qVU6vWB-IiuEFdgzVP-0NZ9Jnle8FKHe928wzbe-7HGCLF1UgMTVMubEX_zOlpQzBHgVSEsLRNPZ3ZFYqxRUd9NeuzuA3_Fq2WQNjuvWEtaQK2PI0z_bse6HRAbS2ZIEC",
+  "title": "rust 编程语言 - 精选笔记",
+  "snippet": "千万别学Rust语言。 这是网上的一篇技术文章,同时也是很多技术开发人员共同的心声。你百度一搜,能看到很多劝退别学Rust的交流信息。Rust真的很难学吗?是,你要是年龄大了,不搞底层开发或者智商不够跟我机智客一样,那可以听劝,别浪费生命和青春学Rust,比C++还能踩坑,生不如死。 现在新编程语言太多了,人都跟学不累死也被折腾死。Rust是系统级编程语言,而且它古怪的语法比如生命周期啥的,独树一帜,和以往编程语言截然不同,所以很多即便有不少C和C++编程语言的兄弟接触Rust也头大。所以我很识"
+ },
+ {
+  "url": "http://www.baidu.com/link?url=WyuqJWajw7_FhwX_OKkrzn5EuygDUXJoSjdG1_xk20AE_bHHa68PwDU6ZtYqf3ocvt4wyDPDtErVYeSghlqs23Vp_w8N3Dks5Q9HVx1HZ_uEtbCFanl-Q1arinRvHKqBKHULvujgw8KUyWXWW0n-f_",
+  "title": "rust 编程语言 的最新相关信息",
+  "snippet": "Discord弃用Electron转 Rust ,内存降至290MB Discord 终于要跟 Electron 说再见了。这个让开发者用网页技术做桌面应用的跨平台框架,向来以吃系统资源著称,而 Discord 现在正把桌面端应用整体迁往 Rust——一门为速度和内存安全而设计的现代编程语言。 Discord 首席技术官 Stanislav Vishnevskiy 在 X 上发文说明了这次迁移的来龙去脉:“我们从 2018 年起 网易 3天前  播报  暂停 谷歌“宠爱”升级, Rust 大"
+ },
+ {
+  "url": "http://www.baidu.com/link?url=-j8sDyutqX26hSJNsOL5HojoeN2zR30FmqejSV7K4dKU0mM3205f67HNC5vIlzKIhbtqdIzz7zQOm8jP_oMfqq",
+  "title": "Rust (一种由Mozilla开发的系统 编程语言 ) - 百度百科",
+  "snippet": "Rust 是一种由Mozilla主导开发的系统 编程语言 ，最初由Graydon Hoare于2006年开始设计。其设计核心目标是实现内存安全、并发和高性能，通过所有权、借用和生命周期等编译时检查机制，从根本上避免空指针、数据竞争等常见内存错误，且无需垃圾回收机制。 Rust 兼具... 运营模式 核心团队 重要事件 百度百科   播报  暂停"
+ },
+ {
+  "url": "http://www.baidu.com/link?url=XRj7aipIKF6XCHG1-jWvTNEcRNZwv3q4SCJ8MH0aVn7",
+  "title": "Rust Programming Language",
+  "snippet": "Rust has great documentation, a friendly compiler with useful error messages, and top-notch tooling — an integrated package manager and build tool, smart multi-editor support with auto-completion and type inspections, an auto-formatter, and more. ..."
+ },
+ {
+  "url": "http://www.baidu.com/link?url=Ib0cPMsT5E5tEGAk68WdXH43260Dwyh_b6GEZHMOYtQzp8cosQD-S--GAWrQ-G1I",
+  "title": "Rust 编程语言",
+  "snippet": "Rust 一门赋能每个人 构建可靠且高效软件的 语言 。 为什么选择 Rust? 性能 Rust 速度惊人且内存利用率高:没有运行时或垃圾回收器,它能够胜任对性能要求极高的服务,可以在嵌入式设备上运行,并且能轻松地与其他语言集成。 可靠性 Rust 丰富的类型系统和所有权模型能够保证内存安全和线程安全——这使得你能够在编译期... rust-lang.net.cn/"
+ },
+ {
+  "url": "http://www.baidu.com/link?url=sfWVx5zUMNNu0WwLlpPj4K6FYOtaTvz9HaZwdpOA1bVcKL7oKtW8RhHVYLfMqRBObn7DB6zsBObopiNhkh9zD_",
+  "title": "安装 Rust - Rust 程序设计语言",
+  "snippet": "在 Rust 开发环境中,所有工具都安装在 ~/.cargo/bin 目录中,您可以在这里找到包括 rust c 、 cargo 和 rustup 在内的 Rust 工具链。 Rust 开发者通常会将该目录加入 PATH 环境变量 中。在安装过程中, rustup 会尝试配置 PATH 。 由于不同平台、命令行 Shell 之间存在差异, rustup 中也可能存在 Bug,因此... Rust编程语言官网（旧版）"
+ },
+ {
+  "url": "https://www.baidu.com/baidu.php?url=060000KKXYb9K48fSOGyXVO_O22SzOl4Qs4dKQYnNDO0DhF6s-XpGIK4_oVtPLZUfAYRBdChcKp0VnklWvZuEFPsDENzXDniAxg0z_zPjpZe9e4s90Lwe-1I5wBnqvSCylGpTWQPBL4NP1yLL2ULjy_iqbIQZ-JG0gE3z4z6tpk0qdAqCA8f2aF9Y7BGChi6ScOizJtWPJ5M9tMEepyD94p-zVOr.Db_NR2Ar5Od66YSyW017osgn8w01T1MWuCG1_sYZOfS9C6k_lbksgFCnECsgFCnECqtUrG5L8mo_3eerEpMwohIGmSE_lILtWSwuugklYA2So5QvGYTjGo_H7Xe_3vIrOken-MZWdu4mub_YZOf-BEIbzUVvek3d4r5NM-swGhknUo5Zu8tILHdu4TI7hQDk8LqMuvTU5ZWdu4TDHlAFBE_3erPMWub_tN2s1f_TIOAEGR0.U1Yk0ZDqTMN1IaRznQZ6_t1HeqZR0ZKGm1Yk0ZfqdQrk3Q5nYn2s46KGUHYznWT0u1dEugK1nfKdpHdBmy-bIfKspyfqnW60mv-b5HcYPsKVIjYknjDLg1csPH7xnH0krNt1PW0kg1bkP19xnWfd0AVG5H00TMfqQHD0mhbqnHR3g1csP0KVm1YknjDLg1csPH7xnH0krNtsg1bkP19xnWfd0Z7spyfqn0Kkmv-b5H00ThIYmyTqn0K8my-b5H00Uh7YTjYs0APdujYvnj6snWDYn0K9mWYsg100ugFM5H00TZ0qn0K8IM0qna3snj0snj0sn0KVIZ0qn0KbuAqs5H00ThCqn0KbugmqTAn0uMfqn0KspjYs0Aq15H00mMTqnH00UMfqn0K1XWY0mgPxpywW5gK1QyIlpZ940A-bm1dcHbD0TA9YXHY0IA7zuvNY5Hnkg1nkP7tknHD0IZN15HDvrjDYPHT3nHm1PWndn1f4n1nk0ZF-TgfqnHT4PjcznHnYPjRsPfKGm1Ys0ZPGujd9nANBnjDdmW0snHm1Pynz0AP1UHYLnbckfWbzf1IawWRvrjnY0AkBT1Ys0A7W5HD0TA3qn0KkUgfqn0KkUgnqn0KbugwxmLK95H00XMfqn0KBIhfqn0KMTZfqnfKMmgfqnfKVmdqhThqV5HKxn7tsg1Kxn7ts0Aw9UMNBuNqsUA78pyw15HKxn7tsg1Kxn7ts0ZK9I7qhUA7M5H00uAPGujY1nHfdP1c30ANYpyfqQHD0mgPsmvnqn0KdTA-8mvnqn0KkUymqn0KhmLNY5H00pgPWUjYs0A7buhk9u1Yk0Akhm1Ys0AwWmvfq0Zwzmyw-5HcsnHbknfKBuA-b5fKEm1Yk0AFY5Hn0Uv7YI1Ys0AqY5HD0ULFsIjYzc10Wnznknj0sc1fsnjn4nj0snHbWnW0drHbWnW0drHb8nj0snj0sc1nWnH0snansczYWna3sn1bdPHDWni3snj0snj0Wninsc108nj0snj0sc10Wnansc10Wninsc10Wna3snanznjR4rins0AF9UhV9mvnqnansc10Wn0K3TLwd5HRsP16dP1Rv0Z7xIWYsQW0sg108njKxna3sn7tkQW0sg108njKxna3sn7tsQWn1g108n1Pxn7tsg100mMPxTZFEuA-b5H00ThqGuhk9u1YY0Ad-IjYs0APv5fKGTdqWTADqn0KWTjYs0AN1IjYs0Z7MIvfqn0KETjDqnW030ZKsPjYkn0KWThnqnH6zPH6&us=newvui&xst=T1YknHR4PHnvn1DdPHbdnjR3nHD3P-tznWIxn07L5Ii1_Xa11Pja_rmKTHdzIgPYcQZ6_t1HeqZR0gRqPH0LrjRLPHmKIjYkP1bYnWckn1fY0ydk5H0an0cV0yPC5yuWgLKW0ykd5H0Kmv3qmh7GuZRKTMfqn0D1nWfvrHcvnWfY&word=",
+  "title": "需要电脑/平板上课少儿 编程语言 -点击进入",
+  "snippet": "5小时前有人申请 少儿 编程 课程收费标准-想了解最新收费情况?点击进入查看! 新学赴山海 猿编程 2026-11  广告"
+ }
+]

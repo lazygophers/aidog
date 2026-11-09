@@ -12,6 +12,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 pub mod engines;
+pub mod searx_space;
 
 /// 官方 API base（测试经同名适配函数注入本地假上游 base，不在设置里放可覆盖字段）。
 pub const TAVILY_BASE: &str = "https://api.tavily.com";
@@ -635,3 +636,7 @@ mod test_search;
 #[cfg(test)]
 #[path = "test_engines.rs"]
 mod test_engines;
+
+#[cfg(test)]
+#[path = "test_engines_more.rs"]
+mod test_engines_more;
