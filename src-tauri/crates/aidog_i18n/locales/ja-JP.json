@@ -1187,6 +1187,7 @@
   "middleware.observeHint": "有効にするとヒットしてもブロックしません。リクエストは通常どおり転送・課金され、ログに記録されるだけなので、ルールの誤検知を確認できます。",
   "middleware.maskReversible": "復元可能（プレースホルダー、応答で自動復元）",
   "middleware.maskReversibleHint": "一致部分はプレースホルダーとして上流へ送られ、応答時に自動で元に戻ります",
+  "middleware.maskScopeAll": "すべての内容",
   "middleware.reversible": "復元可能",
   "middleware.pattern": "パターン／ターゲット",
   "middleware.patternHint": "マッチパターン／ターゲットパス／ヘッダー名",

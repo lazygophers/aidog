@@ -121,9 +121,21 @@ pub(crate) fn apply_reversible_mask_body(
 ) -> Result<ScrubMap, String> {
     let mut texts = collect_slots(body, wire, model);
     let before = (texts.system.clone(), texts.messages.clone());
-    let map = engine.apply_reversible_texts(settings, &mut texts, group_key, platform_id, req_headers)?;
+    let mut map = engine.apply_reversible_texts(settings, &mut texts, group_key, platform_id, req_headers)?;
     if before.0 != texts.system || before.1 != texts.messages {
         write_slots(body, wire, &texts);
+    }
+    // 「全部内容」步骤第二趟：在上一趟写回后的 body 上抽全部字符串叶子。分两趟而非同槽并存，
+    // 避免 scoped 与 all 规则改同一叶子时后写覆盖先写；上一趟的占位符对本趟不可见。
+    if engine.reversible_wants_all(settings, group_key, platform_id, model) {
+        let mut all = InboundTexts::new(model);
+        all.all = collect_all(body);
+        let before_all = all.all.clone();
+        let m2 = engine.apply_reversible_texts(settings, &mut all, group_key, platform_id, req_headers)?;
+        if before_all != all.all {
+            write_all(body, &all.all);
+        }
+        map.extend(&m2);
     }
     Ok(map)
 }
@@ -264,6 +276,76 @@ fn visit_str(v: &mut Value, f: &mut dyn FnMut(&str) -> Option<String>) {
     {
         *s = new;
     }
+}
+
+/// 「全部内容」范围遍历：body 内全部 JSON 字符串叶子，跳过下列写死名单（不可配置）。
+/// 收集与写回共用本函数，保证两趟顺序一致。
+///
+/// 跳过名单：
+/// - 顶层 `model`；
+/// - 工具调用 id：键 `id` / `tool_use_id` / `tool_call_id` / `call_id` 的字符串值；
+/// - thinking：`signature`，以及 `thinking` 文本（上游按签名校验原文，改了整请求被拒）；
+///   redacted_thinking 的 `data`；
+/// - 媒体 base64：`source.type == "base64"` 的 `data`、`input_audio.data`、
+///   gemini `inlineData|inline_data.data`、`file_data`、任何 `data:...;base64,` URL。
+fn visit_all(v: &mut Value, f: &mut dyn FnMut(&str) -> Option<String>) {
+    visit_all_node(v, true, None, f);
+}
+
+fn visit_all_node(
+    v: &mut Value,
+    top: bool,
+    parent_key: Option<&str>,
+    f: &mut dyn FnMut(&str) -> Option<String>,
+) {
+    match v {
+        Value::String(s) => {
+            if !(s.starts_with("data:") && s.contains(";base64,"))
+                && let Some(new) = f(s)
+            {
+                *s = new;
+            }
+        }
+        Value::Array(items) => items.iter_mut().for_each(|i| visit_all_node(i, false, None, f)),
+        Value::Object(obj) => {
+            let ty = obj.get("type").and_then(|t| t.as_str()).unwrap_or("").to_string();
+            for (k, val) in obj.iter_mut() {
+                let k = k.as_str();
+                let skip = (top && k == "model")
+                    || matches!(k, "id" | "tool_use_id" | "tool_call_id" | "call_id" | "file_data")
+                    || (k == "signature" && matches!(ty.as_str(), "thinking" | "redacted_thinking"))
+                    || (k == "thinking" && ty == "thinking")
+                    || (k == "data"
+                        && (ty == "redacted_thinking"
+                            || ty == "base64"
+                            || matches!(parent_key, Some("input_audio" | "inlineData" | "inline_data"))));
+                if skip && val.is_string() {
+                    continue;
+                }
+                visit_all_node(val, false, Some(k), f);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// 「全部内容」槽：抽出全部字符串叶子。
+fn collect_all(body: &mut Value) -> Vec<String> {
+    let mut out = Vec::new();
+    visit_all(body, &mut |s: &str| {
+        out.push(s.to_string());
+        None
+    });
+    out
+}
+
+fn write_all(body: &mut Value, slots: &[String]) {
+    let mut i = 0usize;
+    visit_all(body, &mut |_: &str| {
+        let next = slots.get(i).cloned();
+        i += 1;
+        next
+    });
 }
 
 // ───────────────────────── inject: system_append 写回 ─────────────────────────

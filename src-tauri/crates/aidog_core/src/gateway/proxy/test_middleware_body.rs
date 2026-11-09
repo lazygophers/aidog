@@ -437,3 +437,49 @@ fn inject_body_set_without_target_is_noop() {
     assert!(!run(&engine, &mut body, &Protocol::Anthropic));
     assert_eq!(body, original);
 }
+
+// ── 「全部内容」遍历：跳过名单 ──
+
+#[test]
+fn visit_all_walks_every_string_leaf_but_skip_list() {
+    let mut body = json!({
+        "model": "m-skip-0123456789abcdef",
+        "system": "SYS",
+        "messages": [
+            {"role": "user", "content": [
+                {"type": "text", "text": "TXT"},
+                {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "B64_SKIP"}},
+                {"type": "image_url", "image_url": {"url": "data:image/png;base64,URL_SKIP"}},
+                {"type": "input_audio", "input_audio": {"data": "AUDIO_SKIP", "format": "wav"}},
+                {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": "DOC_SKIP"}}
+            ]},
+            {"role": "assistant", "content": [
+                {"type": "thinking", "thinking": "THINK_SKIP", "signature": "SIG_SKIP"},
+                {"type": "redacted_thinking", "data": "RED_SKIP"},
+                {"type": "tool_use", "id": "ID_SKIP", "name": "NAME", "input": {"a": "ARG", "model": "NESTED_MODEL"}}
+            ], "tool_calls": [{"id": "TC_SKIP", "type": "function", "function": {"name": "F", "arguments": "ARGS"}}]},
+            {"role": "tool", "tool_call_id": "TCID_SKIP", "content": "TOOL_OUT"},
+            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "TUID_SKIP", "content": "RESULT"}]}
+        ],
+        "input": [{"type": "function_call_output", "call_id": "CALL_SKIP", "output": "FCO"}]
+    });
+    let seen = collect_all(&mut body);
+    for want in ["SYS", "TXT", "ARG", "NESTED_MODEL", "NAME", "ARGS", "TOOL_OUT", "RESULT", "FCO", "image/png", "user"] {
+        assert!(seen.iter().any(|s| s == want), "应遍历到 {want}: {seen:?}");
+    }
+    for skip in [
+        "m-skip-0123456789abcdef", "B64_SKIP", "data:image/png;base64,URL_SKIP", "AUDIO_SKIP", "DOC_SKIP",
+        "THINK_SKIP", "SIG_SKIP", "RED_SKIP", "ID_SKIP", "TC_SKIP", "TCID_SKIP", "TUID_SKIP", "CALL_SKIP",
+    ] {
+        assert!(!seen.iter().any(|s| s == skip), "跳过名单项 {skip} 不应被遍历: {seen:?}");
+    }
+}
+
+#[test]
+fn visit_all_write_back_same_order() {
+    let mut body = json!({"model": "m", "messages": [{"role": "user", "content": "A"}, {"role": "user", "content": [{"type": "text", "text": "B"}]}]});
+    visit_all(&mut body, &mut |s: &str| Some(format!("<{s}>")));
+    assert_eq!(body["messages"][0]["content"], "<A>");
+    assert_eq!(body["messages"][1]["content"][0]["text"], "<B>");
+    assert_eq!(body["model"], "m", "顶层 model 不改");
+}

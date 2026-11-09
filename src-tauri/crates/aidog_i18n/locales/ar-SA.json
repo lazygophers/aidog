@@ -1187,6 +1187,7 @@
   "middleware.observeHint": "عند التفعيل لا تحجب المطابقة الطلب: يُمرَّر الطلب ويُحتسب كالمعتاد ويُسجَّل في السجل فقط، للتحقق مما إذا كانت القاعدة تصيب طلبات سليمة.",
   "middleware.maskReversible": "قابل للاسترجاع (عنصر نائب، يُستعاد في الرد)",
   "middleware.maskReversibleHint": "يُرسل النص المطابق كعنصر نائب ويُستعاد تلقائيًا في الاستجابة",
+  "middleware.maskScopeAll": "كل المحتوى",
   "middleware.reversible": "قابل للاسترجاع",
   "middleware.pattern": "النمط / الهدف",
   "middleware.patternHint": "نمط المطابقة / مسار الهدف / اسم الترويسة",

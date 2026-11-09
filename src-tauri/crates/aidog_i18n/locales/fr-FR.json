@@ -1187,6 +1187,7 @@
   "middleware.observeHint": "Une fois activé, une correspondance ne bloque plus : la requête est transmise et facturée normalement et seulement consignée dans le journal, pour vérifier si la règle se déclenche à tort.",
   "middleware.maskReversible": "Réversible (jeton, restauré dans la réponse)",
   "middleware.maskReversibleHint": "Les correspondances partent en amont sous forme de jeton et sont restaurées automatiquement dans la réponse",
+  "middleware.maskScopeAll": "Tout le contenu",
   "middleware.reversible": "Réversible",
   "middleware.pattern": "Motif / Cible",
   "middleware.patternHint": "Motif de correspondance / chemin cible / nom d'en-tête",
