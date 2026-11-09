@@ -148,6 +148,38 @@ pub fn parse_rate_limit(headers: &axum::http::HeaderMap, now_ms: i64) -> Option<
     None
 }
 
+/// 订阅制窗口用量快照（`anthropic-ratelimit-unified-*`），一个窗口一条。
+/// 来源：Claude Code 2.1.318 客户端实现（官方文档只写「原样转发」未列头名）：
+/// `anthropic-ratelimit-unified-{5h|7d}-{utilization,reset,status,surpassed-threshold}`，
+/// utilization 为 0~1 小数，reset 为 unix **秒**。
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnifiedTier {
+    /// 与 `EstTier.name` 同词表：`five_hour` / `weekly_limit`
+    pub name: &'static str,
+    /// 利用率百分点（0-100）
+    pub utilization_pct: f64,
+    /// 窗口重置时刻（unix 毫秒）；头缺失 / 非法为 None
+    pub resets_at_ms: Option<i64>,
+}
+
+/// 从上游响应头提取订阅窗口用量。每窗口独立：utilization 缺失 / 非法 → 跳过该窗口；
+/// reset 非法只丢 reset 不丢窗口。一个都没有 → 空。
+pub fn parse_unified_tiers(headers: &axum::http::HeaderMap) -> Vec<UnifiedTier> {
+    let f = |name: String| -> Option<f64> {
+        headers.get(name)?.to_str().ok()?.trim().parse::<f64>().ok().filter(|v| v.is_finite())
+    };
+    [("5h", "five_hour"), ("7d", "weekly_limit")]
+        .into_iter()
+        .filter_map(|(w, name)| {
+            let util = f(format!("anthropic-ratelimit-unified-{w}-utilization")).filter(|u| *u >= 0.0)?;
+            let resets_at_ms = f(format!("anthropic-ratelimit-unified-{w}-reset"))
+                .filter(|r| *r > 0.0)
+                .map(|r| (r * 1000.0).round() as i64);
+            Some(UnifiedTier { name, utilization_pct: (util * 100.0).min(100.0), resets_at_ms })
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -244,5 +276,46 @@ mod tests {
         assert_eq!(RateLimit::from_json(&r.to_json()), Some(r));
         assert_eq!(RateLimit::from_json(""), None);
         assert_eq!(RateLimit::from_json("   "), None);
+    }
+
+    #[test]
+    fn unified_headers_parsed_to_tiers() {
+        let h = hm(&[
+            ("anthropic-ratelimit-unified-status", "allowed"),
+            ("anthropic-ratelimit-unified-5h-utilization", "0.42"),
+            ("anthropic-ratelimit-unified-5h-reset", "1758441600"),
+            ("anthropic-ratelimit-unified-7d-utilization", "0.07"),
+            ("anthropic-ratelimit-unified-7d-reset", "1758900000"),
+        ]);
+        let t = parse_unified_tiers(&h);
+        assert_eq!(t.len(), 2);
+        assert_eq!(t[0].name, "five_hour");
+        assert!((t[0].utilization_pct - 42.0).abs() < 1e-9);
+        assert_eq!(t[0].resets_at_ms, Some(1_758_441_600_000));
+        assert_eq!(t[1].name, "weekly_limit");
+        assert!((t[1].utilization_pct - 7.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn unified_malformed_fields_ignored_per_window() {
+        let h = hm(&[
+            ("anthropic-ratelimit-unified-5h-utilization", "abc"),
+            ("anthropic-ratelimit-unified-5h-reset", "1758441600"),
+            ("anthropic-ratelimit-unified-7d-utilization", "0.5"),
+            ("anthropic-ratelimit-unified-7d-reset", "soon"),
+        ]);
+        let t = parse_unified_tiers(&h);
+        assert_eq!(t.len(), 1, "5h 的 utilization 非法 → 整窗口跳过");
+        assert_eq!(t[0].name, "weekly_limit");
+        assert_eq!(t[0].resets_at_ms, None, "reset 非法只丢 reset");
+    }
+
+    #[test]
+    fn unified_absent_or_out_of_range_yields_empty() {
+        assert!(parse_unified_tiers(&hm(&[("content-type", "x")])).is_empty());
+        let h = hm(&[("anthropic-ratelimit-unified-5h-utilization", "-1")]);
+        assert!(parse_unified_tiers(&h).is_empty(), "负值非法");
+        let h = hm(&[("anthropic-ratelimit-unified-5h-utilization", "1.3")]);
+        assert!((parse_unified_tiers(&h)[0].utilization_pct - 100.0).abs() < 1e-9, "超 1 钳到 100");
     }
 }

@@ -7200,3 +7200,82 @@ async fn group_header_unknown_group_ws_404() {
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
+
+// ── anthropic-ratelimit-unified-*：响应头 → 平台卡片读的 est_coding_plan（本地假上游）──
+
+async fn spawn_unified_upstream(status: u16, ctype: &'static str, body: &'static str) -> String {
+    use axum::routing::any;
+    let app = axum::Router::new().fallback(any(move || async move {
+        (
+            axum::http::StatusCode::from_u16(status).unwrap(),
+            [
+                ("content-type", ctype),
+                ("anthropic-ratelimit-unified-status", "allowed"),
+                ("anthropic-ratelimit-unified-5h-utilization", "0.42"),
+                ("anthropic-ratelimit-unified-5h-reset", "4102444800"),
+                ("anthropic-ratelimit-unified-7d-utilization", "0.07"),
+                ("anthropic-ratelimit-unified-7d-reset", "4103000000"),
+            ],
+            body,
+        )
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.ok();
+    });
+    format!("http://{addr}")
+}
+
+/// 写库在后台 spawn：轮询至 est_coding_plan 出现 tier（上限 ~3s）。
+async fn wait_unified_plan(state: &Arc<ProxyState>) -> crate::gateway::estimate::EstCodingPlan {
+    for _ in 0..60 {
+        let plats = aidog_db::list_platforms(&state.db).await.unwrap();
+        let plan = crate::gateway::estimate::EstCodingPlan::from_json(&plats[0].est_coding_plan);
+        if !plan.tiers.is_empty() {
+            return plan;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    crate::gateway::estimate::EstCodingPlan::default()
+}
+
+fn assert_unified_plan(plan: &crate::gateway::estimate::EstCodingPlan) {
+    let five = plan.tiers.iter().find(|t| t.name == "five_hour").expect("five_hour tier");
+    assert!((five.est_utilization - 42.0).abs() < 1e-9, "got {}", five.est_utilization);
+    let wk = plan.tiers.iter().find(|t| t.name == "weekly_limit").expect("weekly_limit tier");
+    assert!((wk.est_utilization - 7.0).abs() < 1e-9);
+}
+
+#[tokio::test]
+async fn unified_headers_nonstream_200_update_subscription_usage() {
+    let upstream = spawn_unified_upstream(200, "application/json", ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gku1", &upstream).await;
+    let req = messages_request("gku1", r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#);
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_unified_plan(&wait_unified_plan(&state).await);
+}
+
+#[tokio::test]
+async fn unified_headers_stream_200_update_subscription_usage() {
+    let sse = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":5,\"output_tokens\":0}}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+    let upstream = spawn_unified_upstream(200, "text/event-stream", sse).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gku2", &upstream).await;
+    let req = messages_request("gku2", r#"{"model":"claude-3","stream":true,"messages":[{"role":"user","content":"hi"}]}"#);
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    assert_unified_plan(&wait_unified_plan(&state).await);
+}
+
+#[tokio::test]
+async fn unified_headers_on_429_update_subscription_usage() {
+    let upstream = spawn_unified_upstream(429, "application/json", r#"{"error":"rate limited"}"#).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gku3", &upstream).await;
+    let req = messages_request("gku3", r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#);
+    let _ = handle_proxy(AxumState(state.clone()), req).await;
+    assert_unified_plan(&wait_unified_plan(&state).await);
+}

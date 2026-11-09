@@ -43,6 +43,8 @@ pub(crate) async fn handle_non_success(
     let resp_headers_json = upstream_headers_to_json(resp.headers());
     // 回客户端时透传用；同样须在 text() 消费 resp 前取。
     let upstream_resp_headers = resp.headers().clone();
+    // 限流头（含 anthropic-ratelimit-unified-*）在 429 上最有价值：后台落库，不阻塞响应。
+    spawn_rate_limit(state, route.platform.id, &upstream_resp_headers, tracing::Span::current());
     let body = resp.text().await.unwrap_or_default();
     let duration_ms = start.elapsed().as_millis() as i64;
     let code = status.as_u16();

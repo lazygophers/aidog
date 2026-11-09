@@ -3,7 +3,7 @@ use aidog_db as db;
 use aidog_db::{Db, now};
 use aidog_stats::DbInitTables;
 // TODO-unknown: self
-use crate::gateway::estimate::{EstCodingPlan, EstTier};
+use crate::gateway::estimate::{EstCodingPlan, EstTier, UnifiedTier};
 use crate::gateway::models::*;
 use crate::gateway::quota::{CodingPlanInfo, PlatformQuota, QuotaTier};
 
@@ -955,4 +955,44 @@ mod verdict_apply {
         s.seed_from_rows(vec![row], NOW);
         assert!(s.quota_cooled(5, FAR));
     }
+}
+
+// ── 响应头订阅窗口用量 → est_coding_plan（卡片读的同一存储）──
+fn ut(name: &'static str, pct: f64, reset_ms: Option<i64>) -> UnifiedTier {
+    UnifiedTier { name, utilization_pct: pct, resets_at_ms: reset_ms }
+}
+
+#[tokio::test]
+async fn unified_tiers_written_and_idempotent() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let id = mk_platform(&db, false).await;
+    let reset5 = now() + 3_600_000;
+    let reset7 = now() + 86_400_000;
+    let tiers = [ut("five_hour", 42.0, Some(reset5)), ut("weekly_limit", 7.0, Some(reset7))];
+    assert!(write_unified_tiers(&db, id, &tiers, now()).await, "首次必写");
+    // 写后读回（platform.db）
+    let p = db::get_platform(&db, id).await.unwrap().unwrap();
+    let plan = EstCodingPlan::from_json(&p.est_coding_plan);
+    assert_eq!(plan.tiers.len(), 2);
+    let five = plan.tiers.iter().find(|t| t.name == "five_hour").unwrap();
+    assert!((five.est_utilization - 42.0).abs() < 1e-9);
+    assert_eq!(five.window_start, reset5 - 5 * 3_600_000, "window_start = reset - 周期");
+    let wk = plan.tiers.iter().find(|t| t.name == "weekly_limit").unwrap();
+    assert!((wk.est_utilization - 7.0).abs() < 1e-9);
+    // 同值再写 → 不写库（节流）
+    assert!(!write_unified_tiers(&db, id, &tiers, now()).await, "值未变不得再写");
+    // 值变 → 写，且另一窗口不动
+    assert!(write_unified_tiers(&db, id, &[ut("five_hour", 50.0, Some(reset5))], now()).await);
+    let plan = EstCodingPlan::from_json(&db::get_platform(&db, id).await.unwrap().unwrap().est_coding_plan);
+    assert!((plan.tiers.iter().find(|t| t.name == "five_hour").unwrap().est_utilization - 50.0).abs() < 1e-9);
+    assert!((plan.tiers.iter().find(|t| t.name == "weekly_limit").unwrap().est_utilization - 7.0).abs() < 1e-9);
+}
+
+#[tokio::test]
+async fn unified_tiers_empty_is_noop() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let id = mk_platform(&db, false).await;
+    assert!(!write_unified_tiers(&db, id, &[], now()).await);
+    let p = db::get_platform(&db, id).await.unwrap().unwrap();
+    assert!(p.est_coding_plan.is_empty() || EstCodingPlan::from_json(&p.est_coding_plan).tiers.is_empty());
 }

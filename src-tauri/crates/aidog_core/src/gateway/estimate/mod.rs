@@ -34,9 +34,9 @@ pub use anchors::{anchors_in, default_plan_quota_anchors};
 pub use db_ops::{
     apply_balance_delta, apply_coding_plan_delta, apply_quota_verdict, build_calibrated_coding_plan,
     calibrate_from_quota, estimate_after_request, read_estimate_state, seed_plan_anchor_if_empty,
-    spawn_refresh_at, write_rate_limit, write_real_quota,
+    spawn_refresh_at, write_rate_limit, write_real_quota, write_unified_tiers,
 };
 #[allow(unused_imports)]
 pub use model::{CALIBRATE_COUNT, CALIBRATE_INTERVAL_MS, EstCodingPlan, EstTier};
 #[allow(unused_imports)]
-pub use rate_limit::{RateLimit, parse_rate_limit};
+pub use rate_limit::{RateLimit, UnifiedTier, parse_rate_limit, parse_unified_tiers};
