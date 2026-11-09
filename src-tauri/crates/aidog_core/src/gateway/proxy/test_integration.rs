@@ -6978,3 +6978,54 @@ async fn mw_reversible_failure_is_503_zero_upstream_and_scoped() {
     assert_eq!(full.blocked_by, "router");
     assert_eq!(full.blocked_reason, "privacy_scrub_unavailable");
 }
+
+// ── Claude Code 网关提示头（request-class / agent-type）落 proxy_log（本地假上游，无真实外呼）──
+
+fn messages_request_hints(gk: &str, hints: &[(&str, &str)]) -> Request {
+    let mut b = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/messages")
+        .header("authorization", format!("Bearer {gk}"))
+        .header("content-type", "application/json");
+    for (k, v) in hints {
+        b = b.header(*k, *v);
+    }
+    b.body(Body::from(
+        r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#,
+    ))
+    .unwrap()
+}
+
+#[tokio::test]
+async fn claude_hint_headers_recorded_in_proxy_log() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_passthrough_group(&state, "gkhint", &up).await;
+
+    // 头名大小写不敏感（HeaderMap 归一小写；此处混写），值 trim。
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_hints(
+            "gkhint",
+            &[("X-Claude-Code-Request-Class", " subagent "), ("x-claude-code-agent-type", "Explore")],
+        ),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let log = last_log_for(&state, "gkhint").await;
+    assert_eq!((log.request_class.as_str(), log.agent_type.as_str()), ("subagent", "Explore"));
+
+    // 仅 request-class；未知值原样存。
+    handle_proxy(
+        AxumState(state.clone()),
+        messages_request_hints("gkhint", &[("x-claude-code-request-class", "brand_new")]),
+    )
+    .await;
+    let log = last_log_for(&state, "gkhint").await;
+    assert_eq!((log.request_class.as_str(), log.agent_type.as_str()), ("brand_new", ""));
+
+    // 无头 → 空串。
+    handle_proxy(AxumState(state.clone()), messages_request_hints("gkhint", &[])).await;
+    let log = last_log_for(&state, "gkhint").await;
+    assert_eq!((log.request_class.as_str(), log.agent_type.as_str()), ("", ""));
+}

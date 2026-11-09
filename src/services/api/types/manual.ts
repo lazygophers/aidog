@@ -757,6 +757,10 @@ export interface ProxyLogDetail {
   client: string;
   /** 入站原始 User-Agent（截断 256 字符）；空串 = 无（旧行 / 无 UA 头）。 */
   user_agent: string;
+  /** Claude Code 网关提示头 `x-claude-code-request-class`（main / subagent / workflow / compaction / auxiliary / side_reply，未知值原样）；空串 = 无。 */
+  request_class: string;
+  /** Claude Code 网关提示头 `x-claude-code-agent-type`（子代理自己的回合才有）；空串 = 无。 */
+  agent_type: string;
   created_at: number;
   updated_at: number;
   deleted_at: number;
