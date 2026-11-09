@@ -13,14 +13,19 @@
 mod budget;
 mod inbound;
 mod outbound;
+pub mod placeholder;
+mod reversible;
 mod validators;
 
 #[cfg(test)]
 mod test_budget;
 #[cfg(test)]
+mod test_reversible;
+#[cfg(test)]
 pub(crate) mod test_mod;
 
 pub use budget::{BUDGET_BLOCKED_REASON, BudgetState};
+pub use reversible::set_reversible_force_fail;
 pub use inbound::{InboundInject, InboundOutcome, InboundTexts};
 #[allow(unused_imports)]
 pub use outbound::{ErrorClassification, StreamMasker};
@@ -269,6 +274,29 @@ impl MiddlewareEngine {
         self.rebuild_from_rules(rules);
         tracing::debug!(rule_count = count, "middleware: cache reloaded");
         Ok(())
+    }
+
+    /// 同 [`snapshot`]，但锁中毒返回 Err（可还原 mask 不允许静默漏规则 = 原文外发）。
+    fn snapshot_checked(&self) -> Result<Vec<CompiledRule>, String> {
+        self.rules
+            .read()
+            .map(|g| g.clone())
+            .map_err(|_| "middleware rules lock poisoned".to_string())
+    }
+
+    pub(crate) fn request_rules_checked(
+        &self,
+        mount: Mount,
+        group_key: Option<&str>,
+        platform_id: Option<i64>,
+        model: &str,
+    ) -> Result<Vec<CompiledRule>, String> {
+        Ok(self
+            .snapshot_checked()?
+            .into_iter()
+            .filter(|c| !c.conditions.is_response_side())
+            .filter(|c| c.applies(mount, group_key, platform_id, model))
+            .collect())
     }
 
     fn snapshot(&self) -> Vec<CompiledRule> {

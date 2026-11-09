@@ -327,7 +327,7 @@ mod tests {
         assert!(out.starts_with("{{PII_EMAIL_"), "模型 span 应替换为占位符: {out}");
         assert!(out.ends_with(" klmno"), "未命中区域应原样保留: {out}");
         assert_eq!(map.len(), 1);
-        assert_eq!(crate::gateway::privacy::engine::restore(&out, &map), text, "往返无损");
+        assert_eq!(crate::gateway::privacy::restore(&out, &map), text, "往返无损");
     }
 
     /// review #6 红测试：refresh_model_gate 判据缺 `settings.enabled` → 总开关关仍探活。

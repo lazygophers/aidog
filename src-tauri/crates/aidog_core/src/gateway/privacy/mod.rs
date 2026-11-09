@@ -13,13 +13,15 @@ mod wire;
 mod tests;
 
 use std::collections::HashMap;
-use std::fmt;
 
 pub use wire::{
-    engine_unavailable, get_privacy_scrub_settings, privacy_gate, restore_json_escaped,
-    scrub_json, scrub_json_with_model, scrub_options, set_engine_unavailable, PrivacyGate,
-    PrivacyScrubSettings, StreamRestorer,
+    engine_unavailable, get_privacy_scrub_settings, privacy_gate, scrub_json,
+    scrub_json_with_model, scrub_options, set_engine_unavailable, PrivacyGate,
+    PrivacyScrubSettings,
 };
+
+// 占位符引擎唯一实现在中间件层。
+pub use aidog_middleware::placeholder::{restore_json_escaped, ScrubMap, StreamRestorer};
 
 pub use model::refresh_model_gate;
 
@@ -101,53 +103,6 @@ impl Default for ScrubOptions {
     }
 }
 
-/// 脱敏映射表：占位符 → 原值。原值不进 `Debug` / `Display`。
-pub struct ScrubMap {
-    inner: HashMap<String, String>,
-}
-
-impl ScrubMap {
-    fn new() -> Self {
-        Self {
-            inner: HashMap::new(),
-        }
-    }
-
-    fn insert(&mut self, placeholder: &str, original: &str) {
-        self.inner
-            .insert(placeholder.to_string(), original.to_string());
-    }
-
-    /// 占位符 → 原值，未登记返回 `None`。
-    pub fn get(&self, placeholder: &str) -> Option<&str> {
-        self.inner.get(placeholder).map(String::as_str)
-    }
-
-    /// 已登记的脱敏条目数。
-    pub fn len(&self) -> usize {
-        self.inner.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.inner.is_empty()
-    }
-
-    pub(crate) fn iter(&self) -> impl Iterator<Item = (&String, &String)> {
-        self.inner.iter()
-    }
-}
-
-impl fmt::Debug for ScrubMap {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_map()
-            .entries(
-                self.inner
-                    .iter()
-                    .map(|(p, o)| (p, format!("[REDACTED {}B]", o.len()))),
-            )
-            .finish()
-    }
-}
-
-pub use engine::{restore, scrub};
+pub use aidog_middleware::placeholder::restore;
+pub use engine::scrub;
 
