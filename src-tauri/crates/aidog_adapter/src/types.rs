@@ -199,7 +199,7 @@ pub fn mark_tool_error(content: &str, is_error: Option<bool>) -> String {
 }
 
 /// block 的纯文本视图：text 取原文，image 与其它类型降级为可读占位（不静默丢弃）。
-fn block_text_view(b: &serde_json::Value) -> String {
+pub fn block_text_view(b: &serde_json::Value) -> String {
     match b.get("type").and_then(|t| t.as_str()) {
         Some("text") => b
             .get("text")

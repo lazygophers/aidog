@@ -3020,6 +3020,7 @@ async fn prepare_outbound(
         // 下方 cap/strip/hoist 链也全按 &mut Value 写；Cow 只在「零改写」请求上省这一次拷贝，
         // 覆盖面太窄，不值当把整条链改成 to_mut。真正的全量拷贝已在 request.rs 从 raw 解析处省掉。
         let mut body = req_value.clone();
+        super::tool_search::emulate_value(&mut body, target.target_base_url.as_str());
         // model remap：透传下仍必须替换路由模型名（请求体 model 字段）
         if let Some(obj) = body.as_object_mut() {
             match target.target_protocol_enum {
@@ -3051,6 +3052,7 @@ async fn prepare_outbound(
         tracing::debug!(protocol = %target.target_protocol_enum.wire_str(), "same-protocol passthrough: skip request format conversion");
         (body, path)
     } else {
+        super::tool_search::emulate_chat_req(chat_req, target.target_base_url.as_str());
         adapter::convert_request(chat_req, target.target_protocol_enum, platform_protocol)
     };
 
