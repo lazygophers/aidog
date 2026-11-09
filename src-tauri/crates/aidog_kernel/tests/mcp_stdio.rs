@@ -11,6 +11,15 @@ use tokio::process::Command;
 async fn mcp_stdio_roundtrip() {
     let mut child = Command::new(env!("CARGO_BIN_EXE_aidog-kernel"))
         .arg("mcp")
+        // 全部免 key 引擎关闭：默认设置会真实外呼（见 test-no-real-calls.md），冒烟测试只验「未配置」路径。
+        .env(
+            "AIDOG_MCP_TOOLS_JSON",
+            serde_json::json!({"search": {"engines": aidog_search::engines::ENGINES
+                .iter()
+                .map(|e| (e.id.to_string(), false))
+                .collect::<std::collections::BTreeMap<_, _>>()}})
+            .to_string(),
+        )
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

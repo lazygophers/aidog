@@ -1,0 +1,52 @@
+[
+ {
+  "url": "https://rust-lang.org/",
+  "title": "Rust Programming Language",
+  "snippet": "Rust is blazingly fast and memory-efficient: with no runtime or garbage collector, it can power performance-critical services, run on …"
+ },
+ {
+  "url": "https://rust.facepunch.com/",
+  "title": "Rust - Explore, Build and Survive",
+  "snippet": "The only aim in Rust is to survive. Everything wants you to die - the island’s wildlife and other inhabitants, the environment, other …"
+ },
+ {
+  "url": "https://store.steampowered.com/app/252490/Rust/",
+  "title": "Save 50% on Rust on Steam",
+  "snippet": "There are no rules in Rust but the ones you make for yourself. Craft tools, armour, and weapons to defend yourself."
+ },
+ {
+  "url": "https://rust-lang.org/tools/install/",
+  "title": "Install Rust - Rust Programming Language",
+  "snippet": "To start using Rust , download the installer, then run the program and follow the onscreen instructions. You may need to install the …"
+ },
+ {
+  "url": "https://en.wikipedia.org/wiki/Rust_(programming_language)",
+  "title": "Rust (programming language ) - Wikipedia",
+  "snippet": "The first stable release, Rust 1.0, was published in May 2015. The project has been sponsored by the Rust Foundation since …"
+ },
+ {
+  "url": "https://rust.facepunch.com/play",
+  "title": "Rust - Play - Rust",
+  "snippet": "The only aim in Rust is to survive. Everything wants you to die - the island’s wildlife and other inhabitants, the environment, other …"
+ },
+ {
+  "url": "https://www.w3schools.com/rust/index.php",
+  "title": "Rust Tutorial - W3Schools",
+  "snippet": "Rust is a popular programming language used to build everything from web servers to game engines. Rust is known for being very …"
+ },
+ {
+  "url": "https://github.com/rust-lang/rust",
+  "title": "rust -lang / rust : Empowering everyone to build reliable and ... - GitHub",
+  "snippet": "Why Rust ? Performance: Fast and memory-efficient, suitable for critical services, embedded devices, and easily integrated with other …"
+ },
+ {
+  "url": "https://doc.rust-lang.org/book/",
+  "title": "The Rust Programming Language",
+  "snippet": "The Rust Programming Language by Steve Klabnik, Carol Nichols, and Chris Krycho, with contributions from the Rust Community …"
+ },
+ {
+  "url": "https://en.wikipedia.org/wiki/Rust_(video_game)",
+  "title": "Rust (video game ) - Wikipedia",
+  "snippet": "Rust is a 2018 multiplayer survival video game developed by Facepunch Studios. It was first released in early access in December …"
+ }
+]

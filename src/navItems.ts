@@ -11,6 +11,7 @@ export const BASE_NAV: NavItem[] = [
   { id: "notifications", icon: "notifications", labelKey: "nav.notifications", section: "nav.section.logStats" },
   { id: "skills", icon: "skills", labelKey: "nav.skills", section: "nav.section.extension" },
   { id: "mcp", icon: "mcp", labelKey: "nav.mcp", section: "nav.section.extension" },
+  { id: "tools", icon: "tools", labelKey: "nav.tools", section: "nav.section.extension" },
   { id: "middleware", icon: "middleware", labelKey: "appSettings.middlewareTab", section: "nav.section.extension" },
   {
     id: "settings",

@@ -1,0 +1,52 @@
+[
+ {
+  "url": "https://github.com/monoio-rs/monoio",
+  "title": "monoio-rs/monoio",
+  "snippet": "Rust async runtime based on io-uring."
+ },
+ {
+  "url": "https://github.com/smol-rs/smol",
+  "title": "smol-rs/smol",
+  "snippet": "A small and fast async runtime for Rust"
+ },
+ {
+  "url": "https://github.com/rustls/tokio-rustls",
+  "title": "rustls/tokio- rustls",
+  "snippet": "Async TLS for the Tokio runtime"
+ },
+ {
+  "url": "https://github.com/sparckles/Robyn",
+  "title": "sparckles/Robyn",
+  "snippet": "Robyn is a Super Fast Async Python Web Framework with a Rust runtime ."
+ },
+ {
+  "url": "https://github.com/NVIDIA/cuda-rust",
+  "title": "NVIDIA/cuda- rust",
+  "snippet": "NVIDIA's CUDA platform for Rust . Host runtime crates plus Tile (cutile-rs) and SIMT (cuda-oxide) kernel programming models in idiomatic Rust"
+ },
+ {
+  "url": "https://github.com/actix/actix-net",
+  "title": "actix/actix-net",
+  "snippet": "A collection of lower-level libraries for composable network services."
+ },
+ {
+  "url": "https://github.com/PyO3/pyo3-async-runtimes",
+  "title": "PyO3/pyo3- async -runtimes",
+  "snippet": "PyO3-based bridges between Python and Rust async runtimes"
+ },
+ {
+  "url": "https://github.com/compio-rs/compio",
+  "title": "compio-rs/compio",
+  "snippet": "A thread-per-core async Rust runtime with IOCP/io_uring/polling."
+ },
+ {
+  "url": "https://github.com/FutureSDR/FutureSDR",
+  "title": "FutureSDR/FutureSDR",
+  "snippet": "An Async SDR Runtime for Heterogeneous Architectures"
+ },
+ {
+  "url": "https://github.com/apache/asyncband",
+  "title": "apache/ asyncband",
+  "snippet": "This crate provides concurrency control and async coordination primitives that are runtime agnostic."
+ }
+]
