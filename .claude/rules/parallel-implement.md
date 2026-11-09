@@ -338,3 +338,14 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
 `cargo test --workspace` 在设了 `HTTP_PROXY` 的本机上，`aidog_kernel` search / media 共 4~5 个测试红，去掉代理变量后全绿（隐私票 01、MITM 票 01 两次实锤）。
 门禁命令前缀 `env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy`，派发 prompt 照贴；
 `ratelimit_all_over_limit_503_and_audit_log` 全量跑偶发红、单跑绿，按 §17 先单跑定性，仍未归因的记账本遗留。
+
+## 21. 「加功能」票派发前先审计存在性；外部协议字面量的来源分级（2026-11-09 网关提示头线）
+
+模型发现 / env 变量两项：派发 prompt 照 CLAUDE.md 旧文写「新增」，实际 `passthrough.rs::group_model_ids` 早已按分组返回、`ENV_VAR_DEFS`（`src/services/claude-settings-schema.ts:340`）早有该条目；
+一个 agent 重复加了 ENV_VAR_DEFS 条目，只有 `yarn test` 拦下。CLAUDE.md Local API 条同时是过时的。
+
+- 与 wayfinder-session.md §14 同源：派「新增 X」的实现票前，主会话先 grep 代码确认 X 不存在（枚举 / 表 / 常量表 / 路由）；已存在就把票改成「补差额」，prompt 写明现状 file:line。
+- agent 开工第一步同样 grep，发现已存在按「补差额」做，回报写「已有 / 本次补」；CLAUDE.md 文字与代码不符时顺手改文并在回报列出。
+- 往常量表（`ENV_VAR_DEFS`、registry 清单这类）加条目前先 grep 键名；门禁必含 `yarn test`，它是重复键的唯一拦截点。
+- 官方文档未列的协议字面量（头名等）若取自逆向 Claude Code 二进制：账本 / 回报标「逆向，版本 X」，代码常量处注明版本，遗留写复活条件（官方文档补列或改名时回头核对）。逆向值不得冒充第 1 类出处。
+- clippy 易踩两处：`collapsible_if`、`MutexGuard` 跨 `.await`（先取值后释放锁再 await）；门禁照旧 `--all-targets -D warnings`。

@@ -317,3 +317,9 @@ harness 隔离建的 agent worktree 自带 lock，收工直接 `/usr/bin/git wor
 - 先红用「先加桩使其编译，再跑断言红」，或「改坏实现→红→按行号还原」（parallel-implement.md §18）；禁在共享 checkout 上 stash。
 - lint / tsc 红先 `git status --short` 对照：红文件在他人脏文件集里 = 等其收工再复核，回报写明「红在他票在途文件」，不替对方修、不 stash 绕开。
 - 并行 agent 共改 locale / `log.rs` 这类共用文件时，已验证可行的做法是各自 `git add -p` 只暂存自己的 hunk（本线多次成功）。
+
+## 开工前核对索引：暂存区里不明来源的文件不动（2026-11-09）
+
+网关提示头线：一个 agent 开工发现索引里已躺着 5 个文件，不知谁暂存的。
+
+- 开工与提交前各跑一次 `/usr/bin/git diff --cached --stat`；不是自己暂存的文件不 `reset`、不带进提交（提交用 `git commit -- <路径>` 或先 `git apply --cached` 只暂存自己的 hunk），回报写明文件清单与「来源不明」。
