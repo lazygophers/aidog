@@ -235,6 +235,27 @@ CREATE INDEX IF NOT EXISTS idx_proxy_log_actual_model
                      );
          CREATE INDEX IF NOT EXISTS idx_api_call_log_created ON api_call_log(created_at);",
     )?;
+    // Migration 20261110-10（网关-网页搜索 票 03）：tool_log 表（工具执行日志，log.db）。
+    // 网关代执行 / HTTP MCP 每次工具调用一行；query / result 受 log_user_request 控制（关时写空串）。
+    // created_at 毫秒 Unix；engines 为各引擎明细 JSON。
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS tool_log (
+                       id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                       created_at   INTEGER NOT NULL DEFAULT 0,
+                       tool         TEXT NOT NULL DEFAULT '',
+                       trigger      TEXT NOT NULL DEFAULT '',
+                       group_name   TEXT NOT NULL DEFAULT '',
+                       platform     TEXT NOT NULL DEFAULT '',
+                       query        TEXT NOT NULL DEFAULT '',
+                       result_count INTEGER NOT NULL DEFAULT 0,
+                       engines      TEXT NOT NULL DEFAULT '[]',
+                       duration_ms  INTEGER NOT NULL DEFAULT 0,
+                       success      INTEGER NOT NULL DEFAULT 0,
+                       error        TEXT NOT NULL DEFAULT '',
+                       result       TEXT NOT NULL DEFAULT ''
+                     );
+         CREATE INDEX IF NOT EXISTS idx_tool_log_created ON tool_log(created_at);",
+    )?;
     Ok(())
 }
 

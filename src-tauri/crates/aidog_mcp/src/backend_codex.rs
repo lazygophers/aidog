@@ -1,4 +1,4 @@
-//! Codex agent 配置后端：`~/.codex/config.toml` 的 `[mcp_servers.<name>]`（TOML，仅 stdio）。
+//! Codex agent 配置后端：`~/.codex/config.toml` 的 `[mcp_servers.<name>]`（TOML，stdio + streamable http）。
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -42,9 +42,19 @@ fn toml_table_to_map(
     .unwrap_or_default()
 }
 
-/// 解析 codex `[mcp_servers.<name>]` 段 → McpConfigRaw（codex 仅 stdio）。
+/// 解析 codex `[mcp_servers.<name>]` 段 → McpConfigRaw（带 `url` = http，否则 stdio）。
 fn parse_codex_entry(v: &toml::Value) -> Option<McpConfigRaw> {
     let tbl = v.as_table()?;
+    if let Some(url) = tbl.get("url").and_then(|u| u.as_str()) {
+        return Some(McpConfigRaw {
+            transport: McpTransport::Http,
+            command: String::new(),
+            args: vec![],
+            env: BTreeMap::new(),
+            url: url.to_string(),
+            headers: toml_table_to_map(tbl.get("http_headers").and_then(|e| e.as_table())),
+        });
+    }
     let command = tbl
         .get("command")
         .and_then(|c| c.as_str())
@@ -72,6 +82,18 @@ fn parse_codex_entry(v: &toml::Value) -> Option<McpConfigRaw> {
 
 fn build_codex_entry(cfg: &McpConfigRaw) -> toml::Value {
     let mut tbl = toml::map::Map::new();
+    if cfg.transport == McpTransport::Http {
+        tbl.insert("url".to_string(), toml::Value::String(cfg.url.clone()));
+        if !cfg.headers.is_empty() {
+            let h: toml::map::Map<String, toml::Value> = cfg
+                .headers
+                .iter()
+                .map(|(k, v)| (k.clone(), toml::Value::String(v.clone())))
+                .collect();
+            tbl.insert("http_headers".to_string(), toml::Value::Table(h));
+        }
+        return toml::Value::Table(tbl);
+    }
     tbl.insert(
         "command".to_string(),
         toml::Value::String(cfg.command.clone()),
@@ -115,8 +137,8 @@ impl McpAgentBackend for CodexBackend {
     }
 
     fn write(&self, name: &str, cfg: &McpConfigRaw) -> Result<(), String> {
-        // codex 仅 stdio；非 stdio 调用方应已过滤，这里再保底跳过。
-        if cfg.transport != McpTransport::Stdio {
+        // codex 不支持 sse；调用方应已过滤，这里再保底跳过。
+        if cfg.transport == McpTransport::Sse {
             return Ok(());
         }
         let path = codex_config_path()?;

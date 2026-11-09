@@ -132,3 +132,25 @@ fn write_and_read_codex_toml_roundtrip() {
     assert_eq!(read_back.get("key").and_then(|v| v.as_str()), Some("value"));
     let _ = std::fs::remove_file(&path);
 }
+
+/// http 条目：`url` + `http_headers` 子表，往返不丢（Codex streamable HTTP 形状）。
+#[test]
+fn http_entry_roundtrips_url_and_headers() {
+    let cfg = McpConfigRaw {
+        transport: McpTransport::Http,
+        command: String::new(),
+        args: vec![],
+        env: BTreeMap::new(),
+        url: "http://127.0.0.1:9890/mcp".into(),
+        headers: BTreeMap::from([("Authorization".to_string(), "Bearer gk_x".to_string())]),
+    };
+    let entry = build_codex_entry(&cfg);
+    let tbl = entry.as_table().unwrap();
+    assert_eq!(tbl["url"].as_str(), Some("http://127.0.0.1:9890/mcp"));
+    assert_eq!(tbl["http_headers"]["Authorization"].as_str(), Some("Bearer gk_x"));
+    assert!(!tbl.contains_key("command"), "http 条目不带 command");
+    let back = parse_codex_entry(&entry).unwrap();
+    assert_eq!(back.transport, McpTransport::Http);
+    assert_eq!(back.url, "http://127.0.0.1:9890/mcp");
+    assert_eq!(back.headers.get("Authorization").unwrap(), "Bearer gk_x");
+}

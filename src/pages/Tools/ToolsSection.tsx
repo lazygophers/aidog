@@ -1,7 +1,7 @@
 // ─── 「扩展 → 工具」页主体：搜索（key 服务 + 免 key 引擎开关）/ 生图 / 生视频 ──
 // 设置键 scope=mcp_tools / key=settings。本节编辑 search（provider / 多 key 轮换 /
 // enabled / engines 开关 / SearXNG 实例 URL）与 image / video provider（base_url / api_key /
-// model，OpenAI images 兼容端点）；「一键写入」把 `aidog-kernel mcp`（stdio）写进本机
+// model，OpenAI images 兼容端点）；「一键写入」把 AiDog 的 HTTP MCP 地址（+ 分组 Bearer）写进本机
 // Claude Code / Codex 的 mcpServers（复用 aidog_mcp 机制，既有条目保留）。
 // 保存走通用 settingsApi（settings_set），api_key/keys 数组已被后端 SECRET_PATHS
 // 脱敏（***）与回填覆盖（secret_fields.rs，settings_set 已登记 RESTORERS）。
@@ -279,7 +279,7 @@ export function ToolsSection() {
         <span className="text-secondary" style={{ fontSize: 12 }}>
           {t(
             "tools.installHint",
-            "把 aidog-kernel mcp 以 stdio 写进本机 Claude Code（~/.claude.json）与 Codex（~/.codex/config.toml）的 mcpServers；既有条目保留，只更新同名 aidog 条目。",
+            "把 AiDog 的 HTTP MCP 地址（http://127.0.0.1:<代理端口>/mcp，默认分组 key 作 Bearer）写进本机 Claude Code（~/.claude.json）与 Codex（~/.codex/config.toml）的 mcpServers；既有条目保留，同名 aidog 条目（含旧 stdio 版）被替换。",
           )}
         </span>
       </div>

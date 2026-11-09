@@ -15,7 +15,7 @@
 //! 已配置 → 「未实现」（复活条件：用户配置视频 provider）。
 
 use aidog_search::{call, http_client};
-use aidog_core::mcp_tools::MediaProviderConfig;
+use crate::mcp_tools::MediaProviderConfig;
 
 /// `generate_image` 工具入口。
 pub async fn generate_image(

@@ -46,6 +46,7 @@ mod handler;
 mod headers;
 mod health;
 mod log;
+mod mcp_http;
 mod middleware_body;
 pub(crate) mod middleware_try;
 mod management;
@@ -108,6 +109,7 @@ pub(crate) use endpoint::{
 pub(crate) use finish::{AttemptCtx, finish_nonstream, finish_stream};
 pub(crate) use forward::{AttemptOutcome, ModelChain, finalize_proxy_502, forward_attempt, mark_rate_limited};
 pub(crate) use group_info::handle_group_info;
+pub(crate) use mcp_http::{handle_mcp, handle_mcp_get};
 pub(crate) use management::handle_management;
 pub(crate) use headers::{
     capture_request_headers, inject_trace_header, is_sensitive_log_header,
@@ -399,6 +401,8 @@ fn build_router(state: Arc<ProxyState>) -> Router {
     Router::new()
         .route("/api/group-info", post(handle_group_info))
         .route("/api/notify", post(handle_notify))
+        // HTTP 版 MCP（票 03）：Bearer 分组 key + 只许本机，早于分组解析与转发。
+        .route("/mcp", post(handle_mcp).get(handle_mcp_get))
         // 管理接口（ADR 0010）：本机限制 / 开关 / 凭据都在 handle_management 内，早于分组解析与转发。
         .route("/api/rpc/{*cmd}", post(handle_management))
         .route("/api/events", get(handle_management))

@@ -363,10 +363,10 @@ export function McpModals({ d }: { d: McpData }) {
                     )}
                   </div>
                 )}
-                {/* 非 stdio 传输：Codex 同步边界提示（票 06） */}
-                {editForm.transport !== "stdio" && (
+                {/* sse 传输：Codex 同步边界提示（Codex 支持 stdio 与 streamable http） */}
+                {editForm.transport === "sse" && (
                   <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-                    {t("mcp.codexStdioOnlyHint", "Codex 仅支持 stdio，此项不会同步到 Codex")}
+                    {t("mcp.codexNoSseHint", "Codex 不支持 sse，此项不会同步到 Codex")}
                   </div>
                 )}
               </>

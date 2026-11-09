@@ -76,9 +76,9 @@ async fn set_agent_writes_and_removes_config() {
 async fn set_agent_transport_incompatible_errs() {
     let _home = HomeGuard::new();
     let db = test_db().await;
-    // http transport — codex 仅支持 stdio
+    // sse transport — codex 不支持
     let mut p = payload("httpsrv");
-    p.transport = "http".into();
+    p.transport = "sse".into();
     p.command = String::new();
     p.url = "https://mcp.example.com".into();
     add_server(&db, p).await.unwrap();
@@ -241,10 +241,10 @@ async fn update_transport_switch_drops_unsupported_agent() {
         .await
         .unwrap();
 
-    // 切到 http → codex 不支持 → drop
+    // 切到 sse → codex 不支持 → drop
     let p = McpUpdatePayload {
         name: "srv".into(),
-        transport: "http".into(),
+        transport: "sse".into(),
         command: String::new(),
         args: vec![],
         env: Default::default(),

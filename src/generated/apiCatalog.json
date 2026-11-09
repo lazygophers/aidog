@@ -3309,6 +3309,65 @@
       "returns": "()"
     },
     {
+      "name": "tool_log_get",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "id",
+          "type": "i64"
+        }
+      ],
+      "returns": "Option<ToolLog>"
+    },
+    {
+      "name": "tool_log_list",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "filter",
+          "type": "Option<ToolLogFilter>"
+        },
+        {
+          "name": "limit",
+          "type": "Option<u32>"
+        },
+        {
+          "name": "offset",
+          "type": "Option<u32>"
+        }
+      ],
+      "returns": "ToolLogPage"
+    },
+    {
+      "name": "tool_log_retention_get",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "u32"
+    },
+    {
+      "name": "tool_log_retention_set",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "days",
+          "type": "u32"
+        }
+      ],
+      "returns": "()"
+    },
+    {
       "name": "tray_config_get",
       "category": "platform",
       "kind": "readonly",

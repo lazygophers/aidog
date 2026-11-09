@@ -19,9 +19,9 @@ fn transport_parse_and_support() {
     assert_eq!(McpTransport::parse("HTTP"), McpTransport::Http);
     assert_eq!(McpTransport::parse("Sse"), McpTransport::Sse);
     assert_eq!(McpTransport::parse(""), McpTransport::Stdio);
-    // codex 仅 stdio
+    // codex：stdio + streamable http（url + http_headers），不支持 sse
     assert!(McpTransport::Stdio.supported_by(McpAgent::Codex));
-    assert!(!McpTransport::Http.supported_by(McpAgent::Codex));
+    assert!(McpTransport::Http.supported_by(McpAgent::Codex));
     assert!(!McpTransport::Sse.supported_by(McpAgent::Codex));
     // claude 全支持
     assert!(McpTransport::Http.supported_by(McpAgent::ClaudeCode));

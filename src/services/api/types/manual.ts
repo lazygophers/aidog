@@ -141,7 +141,8 @@ export interface McpImportReport {
 /** 一键写入 agent 配置的报告（后端 McpSelfInstallReport，字段单词无 camelCase 差异）。 */
 export interface McpSelfInstallReport {
   name: string;
-  command: string;
+  /** 写入配置的 HTTP MCP 地址（http://127.0.0.1:<代理端口>/mcp）。 */
+  url: string;
   agents: McpAgentSlug[];
 }
 
