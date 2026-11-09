@@ -21,7 +21,6 @@ static GLOBAL_ALLOCATOR: MiMalloc = MiMalloc;
 mod ctx;
 mod mcp_server;
 mod media;
-mod search;
 
 use std::path::PathBuf;
 use std::sync::Arc;

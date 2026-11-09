@@ -7,8 +7,11 @@
 //! 统一出参 [`SearchHit`]（title / url / snippet），provider 特有字段丢弃；多 key 轮换
 //! （调用间递进起点），全 key 失败聚合报错。测试全打本地假上游（test-no-real-calls.md）。
 
-use aidog_core::mcp_tools::SearchProviderConfig;
+use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Duration;
+
+pub mod engines;
 
 /// 官方 API base（测试经同名适配函数注入本地假上游 base，不在设置里放可覆盖字段）。
 pub const TAVILY_BASE: &str = "https://api.tavily.com";
@@ -25,69 +28,237 @@ pub struct SearchHit {
     pub title: String,
     pub url: String,
     pub snippet: String,
+    /// 页面年龄 / 发布时间（provider 给了才有，原样字符串）。
+    pub page_age: Option<String>,
 }
+
+/// 搜索设置（`mcp_tools/settings` 的 `search` 段；`aidog_core::mcp_tools` 再导出）。
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
+pub struct SearchProviderConfig {
+    /// key 服务 id（tavily / brave / exa / firecrawl；其余词表见 `aidog_core::mcp_tools::SEARCH_PROVIDERS`）。
+    #[serde(default)]
+    pub provider: String,
+    /// API keys，多 key 轮换；至少 1 个非空才算配置了 key 服务。
+    #[serde(default)]
+    pub keys: Vec<String>,
+    /// key 服务启用开关（缺省 true）；false 时视同未配置 key 服务，走免 key 引擎。
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    /// SearXNG 引擎使用的实例 base_url（用户自填 / 从 searx.space 列表多选）。
+    #[serde(default)]
+    pub searxng_base_urls: Vec<String>,
+    /// 免 key 引擎开关覆盖（引擎 id → 开关）；缺项取 [`engines::ENGINES`] 的 `default_on`。
+    #[serde(default)]
+    pub engines: BTreeMap<String, bool>,
+}
+
+fn default_enabled() -> bool {
+    true
+}
+
+impl Default for SearchProviderConfig {
+    fn default() -> Self {
+        Self {
+            provider: String::new(),
+            keys: Vec::new(),
+            enabled: default_enabled(),
+            searxng_base_urls: Vec::new(),
+            engines: BTreeMap::new(),
+        }
+    }
+}
+
+impl SearchProviderConfig {
+    /// 是否已配置到可用（有 provider 且至少一个非空 key）。
+    pub fn is_configured(&self) -> bool {
+        !self.provider.is_empty() && self.keys.iter().any(|k| !k.trim().is_empty())
+    }
+}
+
+/// 单引擎 / key 服务一次调用的明细（工具日志消费）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct EngineReport {
+    pub engine: String,
+    pub count: usize,
+    pub latency_ms: u64,
+    pub error: Option<String>,
+}
+
+/// 一次搜索的完整结果：命中 + 各引擎明细 + 失败原因。
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SearchOutcome {
+    pub hits: Vec<SearchHit>,
+    pub engines: Vec<EngineReport>,
+    /// 实际走的路径：key 服务 id，或 `"engines"`（免 key 引擎并行）。
+    pub source: String,
+    /// 整体失败原因（None = 成功，可能 0 条）。
+    pub error: Option<String>,
+}
+
+/// 免 key 引擎并行查询的环境（测试注入本地假引擎 base；生产用 Default）。
+#[derive(Debug, Clone)]
+pub struct SearchEnv {
+    /// 引擎 id → base URL 覆盖（见 `engines::EngineCtx::base_or`）。
+    pub bases: std::collections::HashMap<String, String>,
+    /// 单引擎超时。
+    pub timeout: Duration,
+}
+
+impl Default for SearchEnv {
+    fn default() -> Self {
+        Self { bases: Default::default(), timeout: Duration::from_secs(ENGINE_TIMEOUT_SECS) }
+    }
+}
+
+/// 单引擎超时秒数。
+pub const ENGINE_TIMEOUT_SECS: u64 = 15;
+/// 合并后结果上限。
+pub const MERGE_CAP: usize = 10;
 
 /// web_fetch 的大小上限（票面「如 1MB」）：超过即截断，不报错。
 pub const FETCH_MAX_BYTES: usize = 1024 * 1024;
 /// web_fetch / web_search 单次出站超时。
 pub const FETCH_TIMEOUT_SECS: u64 = 30;
 
-pub(crate) fn http_client() -> Result<reqwest::Client, String> {
+pub fn http_client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(FETCH_TIMEOUT_SECS))
         .build()
         .map_err(|e| format!("build http client: {e}"))
 }
 
-/// `web_search` 工具入口：按设置分发到 provider 适配器。
+/// `web_search` 工具入口（只要命中列表；明细见 [`web_search_detailed`]）。
 pub async fn web_search(
     cfg: &SearchProviderConfig,
     query: &str,
     count: Option<usize>,
 ) -> Result<Vec<SearchHit>, String> {
-    if cfg.provider.is_empty() {
-        return Err("未配置搜索 provider（在 aidog 设置里选择并填 API key）".into());
+    let o = web_search_detailed(cfg, query, count, &SearchEnv::default()).await;
+    match o.error {
+        Some(e) => Err(e),
+        None => Ok(o.hits),
     }
-    if !cfg.enabled {
-        return Err(format!("搜索 provider `{}` 已禁用", cfg.provider));
+}
+
+/// 完整搜索：配了 key 的 key 服务优先（单独成功即返回）；否则并行查询已开的免 key 引擎。
+pub async fn web_search_detailed(
+    cfg: &SearchProviderConfig,
+    query: &str,
+    count: Option<usize>,
+    env: &SearchEnv,
+) -> SearchOutcome {
+    if cfg.enabled && cfg.is_configured() && cfg.provider != "searxng" {
+        return keyed_search(cfg, query, count, env).await;
     }
-    let keys: Vec<String> = cfg
-        .keys
+    engines_search(cfg, query, count, env).await
+}
+
+async fn keyed_search(
+    cfg: &SearchProviderConfig,
+    query: &str,
+    count: Option<usize>,
+    env: &SearchEnv,
+) -> SearchOutcome {
+    let p = cfg.provider.as_str();
+    let default_base = match p {
+        "tavily" => TAVILY_BASE,
+        "brave" => BRAVE_BASE,
+        "exa" => EXA_BASE,
+        "firecrawl" => FIRECRAWL_BASE,
+        // 未验证 provider：不猜端点，显式报错（票面纪律）。
+        _ => {
+            return SearchOutcome {
+                source: p.into(),
+                error: Some(format!("provider `{p}` 的公开搜索 API 未能从一手文档确认（unverified），未实现")),
+                ..Default::default()
+            };
+        }
+    };
+    let base = env.bases.get(p).map(String::as_str).unwrap_or(default_base);
+    let keys: Vec<String> = cfg.keys.iter().map(|k| k.trim().to_string()).filter(|k| !k.is_empty()).collect();
+    let t = std::time::Instant::now();
+    let r = search_with_keys(p, base, keys, query, count).await;
+    let latency_ms = t.elapsed().as_millis() as u64;
+    let (hits, error) = match r {
+        Ok(h) => (h, None),
+        Err(e) => (Vec::new(), Some(e)),
+    };
+    SearchOutcome {
+        engines: vec![EngineReport { engine: p.into(), count: hits.len(), latency_ms, error: error.clone() }],
+        hits,
+        source: p.into(),
+        error,
+    }
+}
+
+/// URL 去重键（同脚本）：百分号解码 + 去尾斜杠。
+fn dedup_key(url: &str) -> String {
+    percent_encoding::percent_decode_str(url).decode_utf8_lossy().trim_end_matches('/').to_string()
+}
+
+async fn engines_search(
+    cfg: &SearchProviderConfig,
+    query: &str,
+    count: Option<usize>,
+    env: &SearchEnv,
+) -> SearchOutcome {
+    let active: Vec<&engines::EngineDef> = engines::ENGINES
         .iter()
-        .map(|k| k.trim().to_string())
-        .filter(|k| !k.is_empty())
+        .filter(|e| cfg.engines.get(e.id).copied().unwrap_or(e.default_on))
         .collect();
-    match cfg.provider.as_str() {
-        "tavily" => search_with_keys("tavily", TAVILY_BASE, keys, query, count).await,
-        "brave" => search_with_keys("brave", BRAVE_BASE, keys, query, count).await,
-        "exa" => search_with_keys("exa", EXA_BASE, keys, query, count).await,
-        "firecrawl" => search_with_keys("firecrawl", FIRECRAWL_BASE, keys, query, count).await,
-        "searxng" => {
-            let urls: Vec<String> = cfg
-                .searxng_base_urls
-                .iter()
-                .map(|u| u.trim().trim_end_matches('/').to_string())
-                .filter(|u| !u.is_empty())
-                .collect();
-            if urls.is_empty() {
-                return Err("SearXNG 未配置实例 URL（searxng_base_urls）".into());
+    let mut out = SearchOutcome { source: "engines".into(), ..Default::default() };
+    if active.is_empty() {
+        out.error = Some("未配置搜索 provider（填 API key），且没有启用的免 key 引擎".into());
+        return out;
+    }
+    let ctx = engines::EngineCtx {
+        bases: env.bases.clone(),
+        searxng_urls: cfg.searxng_base_urls.iter().map(|u| u.trim().to_string()).filter(|u| !u.is_empty()).collect(),
+        timeout: env.timeout,
+    };
+    let runs = active.iter().map(|e| {
+        let ctx = &ctx;
+        async move {
+            let t = std::time::Instant::now();
+            let r = match tokio::time::timeout(ctx.timeout, (e.run)(ctx, query, MERGE_CAP)).await {
+                Ok(r) => r,
+                Err(_) => Err(format!("timeout ({}ms)", ctx.timeout.as_millis())),
+            };
+            (e.id, r, t.elapsed().as_millis() as u64)
+        }
+    });
+    let results = futures::future::join_all(runs).await;
+    let mut lists: Vec<Vec<SearchHit>> = Vec::new();
+    for (id, r, latency_ms) in results {
+        match r {
+            Ok(hits) => {
+                out.engines.push(EngineReport { engine: id.into(), count: hits.len(), latency_ms, error: None });
+                lists.push(hits);
             }
-            // 多实例按序尝试，首个成功实例的结果生效（实例本身无 key）。
-            let client = http_client()?;
-            let mut errs = Vec::new();
-            for u in &urls {
-                match searxng_search(&client, u, query, count).await {
-                    Ok(h) => return Ok(h),
-                    Err(e) => errs.push(format!("{u}: {e}")),
+            Err(e) => out.engines.push(EngineReport { engine: id.into(), count: 0, latency_ms, error: Some(e) }),
+        }
+    }
+    // 各引擎轮询交织（避免首个引擎占满上限），URL 去重。
+    let cap = count.unwrap_or(MERGE_CAP).clamp(1, MERGE_CAP);
+    let mut seen = std::collections::HashSet::new();
+    'merge: for i in 0..lists.iter().map(Vec::len).max().unwrap_or(0) {
+        for l in &lists {
+            if let Some(h) = l.get(i)
+                && seen.insert(dedup_key(&h.url))
+            {
+                out.hits.push(h.clone());
+                if out.hits.len() >= cap {
+                    break 'merge;
                 }
             }
-            Err(format!("全部 {} 个 SearXNG 实例失败: {}", urls.len(), errs.join("; ")))
         }
-        // 未验证 provider：不猜端点，显式报错（票面纪律）。
-        p => Err(format!(
-            "provider `{p}` 的公开搜索 API 未能从一手文档确认（unverified），未实现"
-        )),
     }
+    if out.engines.iter().all(|r| r.error.is_some()) {
+        let errs: Vec<String> =
+            out.engines.iter().map(|r| format!("{}: {}", r.engine, r.error.as_deref().unwrap_or_default())).collect();
+        out.error = Some(format!("所有引擎都失败: {}", errs.join("; ")));
+    }
+    out
 }
 
 /// 多 key 轮换：起点取自 [`ROTATION`]，逐 key 尝试，全失败聚合报错。
@@ -125,7 +296,7 @@ async fn search_with_keys(
     ))
 }
 
-pub(crate) async fn call(
+pub async fn call(
     req: reqwest::RequestBuilder,
 ) -> Result<serde_json::Value, String> {
     let resp = req.send().await.map_err(|e| format!("request: {e}"))?;
@@ -137,7 +308,7 @@ pub(crate) async fn call(
     serde_json::from_str(&body).map_err(|e| format!("parse json: {e}: {}", truncate_str(&body, 200)))
 }
 
-pub(crate) fn truncate_str(s: &str, max: usize) -> &str {
+pub fn truncate_str(s: &str, max: usize) -> &str {
     match s.char_indices().nth(max) {
         Some((i, _)) => &s[..i],
         None => s,
@@ -165,6 +336,7 @@ pub async fn tavily_search(
                     title: r["title"].as_str().unwrap_or_default().to_string(),
                     url: r["url"].as_str().unwrap_or_default().to_string(),
                     snippet: r["content"].as_str().unwrap_or_default().to_string(),
+                    page_age: None,
                 })
                 .collect()
         })
@@ -196,6 +368,7 @@ pub async fn brave_search(
                     title: r["title"].as_str().unwrap_or_default().to_string(),
                     url: r["url"].as_str().unwrap_or_default().to_string(),
                     snippet: r["description"].as_str().unwrap_or_default().to_string(),
+                    page_age: r["page_age"].as_str().map(str::to_string),
                 })
                 .collect()
         })
@@ -228,6 +401,7 @@ pub async fn exa_search(
                     url: r["url"].as_str().unwrap_or_default().to_string(),
                     // /search 缺省不带正文，text 仅在请求 contents 时出现；缺省留空。
                     snippet: r["text"].as_str().unwrap_or_default().to_string(),
+                    page_age: r["publishedDate"].as_str().map(str::to_string),
                 })
                 .collect()
         })
@@ -263,34 +437,7 @@ pub async fn firecrawl_search(
                         .or_else(|| r["markdown"].as_str())
                         .unwrap_or_default()
                         .to_string(),
-                })
-                .collect()
-        })
-        .unwrap_or_default())
-}
-
-/// SearXNG：GET {base}/search?q=…&format=json（实例需开启 JSON format，searxng webapp.py:640/696）。
-pub async fn searxng_search(
-    client: &reqwest::Client,
-    base_url: &str,
-    query: &str,
-    count: Option<usize>,
-) -> Result<Vec<SearchHit>, String> {
-    let mut req = client
-        .get(format!("{base_url}/search"))
-        .query(&[("q", query), ("format", "json")]);
-    if let Some(n) = count {
-        req = req.query(&[("count", n.to_string())]);
-    }
-    let v = call(req).await?;
-    Ok(v["results"]
-        .as_array()
-        .map(|a| {
-            a.iter()
-                .map(|r| SearchHit {
-                    title: r["title"].as_str().unwrap_or_default().to_string(),
-                    url: r["url"].as_str().unwrap_or_default().to_string(),
-                    snippet: r["content"].as_str().unwrap_or_default().to_string(),
+                    page_age: None,
                 })
                 .collect()
         })
@@ -484,3 +631,7 @@ pub fn format_hits(hits: &[SearchHit]) -> String {
 #[cfg(test)]
 #[path = "test_search.rs"]
 mod test_search;
+
+#[cfg(test)]
+#[path = "test_engines.rs"]
+mod test_engines;

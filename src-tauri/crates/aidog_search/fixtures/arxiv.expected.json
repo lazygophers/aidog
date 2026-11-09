@@ -1,0 +1,27 @@
+[
+ {
+  "url": "http://arxiv.org/abs/2610.09198v1",
+  "title": "Modular Responsiveness Verification of Rust Async Runtimes",
+  "snippet": "Asynchronous (async) programming is a popular paradigm for managing concurrency. Languages that provide async support typically have a runtime to manage asynchronous executions. These runtimes are critical infrastructure, yet verifying them has received little attention. One reason is that a propert"
+ },
+ {
+  "url": "http://arxiv.org/abs/2602.07455v1",
+  "title": "RustCompCert: A Verified and Verifying Compiler for a Sequential Subset of Rust",
+  "snippet": "We present our ongoing work on developing an end-to-end verified Rust compiler based on CompCert. It provides two guarantees: one is semantics preservation from Rust to assembly, i.e., the behaviors of source code includes the behaviors of target code, with which the properties verified at the sourc"
+ },
+ {
+  "url": "http://arxiv.org/abs/2211.14306v2",
+  "title": "RUST: Latent Neural Scene Representations from Unposed Imagery",
+  "snippet": "Inferring the structure of 3D scenes from 2D observations is a fundamental challenge in computer vision. Recently popularized approaches based on neural scene representations have achieved tremendous impact and have been applied across a variety of applications. One of the major remaining challenges"
+ },
+ {
+  "url": "http://arxiv.org/abs/2503.12511v3",
+  "title": "SACTOR: LLM-Driven Correct and Idiomatic C to Rust Translation with Static Analysis and FFI-Based Verification",
+  "snippet": "Translating software written in C to Rust has significant benefits in improving memory safety. However, manual translation is cumbersome, error-prone, and often produces unidiomatic code. Large language models (LLMs) have demonstrated promise in producing idiomatic translations, but offer no correct"
+ },
+ {
+  "url": "http://arxiv.org/abs/2310.17186v1",
+  "title": "Demystifying Compiler Unstable Feature Usage and Impacts in the Rust Ecosystem",
+  "snippet": "Rust programming language is gaining popularity rapidly in building reliable and secure systems due to its security guarantees and outstanding performance. To provide extra functionalities, the Rust compiler introduces Rust unstable features (RUF) to extend compiler functionality, syntax, and standa"
+ }
+]

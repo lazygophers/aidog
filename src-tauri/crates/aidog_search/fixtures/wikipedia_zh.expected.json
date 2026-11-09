@@ -1,0 +1,52 @@
+[
+ {
+  "url": "https://zh.wikipedia.org/wiki/Rust_%28%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80%29",
+  "title": "Rust (编程语言)",
+  "snippet": "Rust是由Mozilla主导开发的通用、编译型编程语言。设计准则为“安全、并发、实用”，支持函数式、並行式、过程式以及面向对象的程式設計风格。 Rust語言原本是Mozilla員工Graydon Hoare的個人專案，而Mozilla於2009年開始贊助這個專案"
+ },
+ {
+  "url": "https://zh.wikipedia.org/wiki/Rust",
+  "title": "Rust",
+  "snippet": "查看维基词典中的词条「rust」「rüst」或「růst」。 铁锈（Rust）是在水存在的环境中，铁和氧反应生成的氧化铁。Rust该词为英文单词，作为名词是指“铁锈”，作为动词是指生锈。 Rust也可能指： Rust (编程语言)，一种专注于性能和内存安全的编程语言 腐蚀 (游戏)，一款由Facepunch"
+ },
+ {
+  "url": "https://zh.wikipedia.org/wiki/RustDesk",
+  "title": "RustDesk",
+  "snippet": "RustDesk 是一款远程访问和远程控制软件，主要由 Rust 编写，可以远程维护计算机和其他设备。RustDesk 客户端适用于 Windows、macOS、iOS、Android 和 Linux 等操作系统。RustDesk 希望成为远程桌面软件（如 TeamViewer 或 AnyDesk）的开源替代品。因此，RustDesk"
+ },
+ {
+  "url": "https://zh.wikipedia.org/wiki/RedoxOS",
+  "title": "RedoxOS",
+  "snippet": "Redox是用Rust写就的类Unix微内核操作系统。Redox追求可用性、自由和安全性，目标是把Rust语言的创新（安全、并发、实用）带入到现代的微内核和整套的应用程序。 Redox为了实现它的目标，它有以下的一些设计决定： 使用Rust编程语言 使用微内核设计，类似于MINIX 包含可选的GUI界面"
+ },
+ {
+  "url": "https://zh.wikipedia.org/wiki/%E9%94%88%E5%B8%A6",
+  "title": "锈带",
+  "snippet": "锈带（英語：Rust Belt，又譯鐵鏽地帶）是對美国的自1980年代起工業衰退的一片地區的非正式稱呼。它主要由五大湖区城市群組成，不過界定不盡相同。「鏽」（Rust）指的是去工業化，或者由於曾經強大的工業部門萎縮而導致经济衰退、人口減少和城市衰退。該詞語在20世紀80年代起在美国流行開來。"
+ },
+ {
+  "url": "https://zh.wikipedia.org/wiki/%E8%85%90%E8%9A%80_%28%E6%B8%B8%E6%88%8F%29",
+  "title": "腐蚀 (游戏)",
+  "snippet": "《腐蚀》（英語：Rust）是一个开放世界的在线多人生存游戏，由Facepunch Studios（英语：Facepunch Studios）开发，2013年推出體驗版，2018年2月9日正式版發售，2021年6月1日登錄PS4、Xbox One。 玩家需要在游戏中收集资源、建造建筑、探索地图等，在 Steam"
+ },
+ {
+  "url": "https://zh.wikipedia.org/wiki/%E9%87%87%E6%A3%89%E6%9C%BA",
+  "title": "采棉机",
+  "snippet": "采棉机是一种收割棉花的机器，它可以缩短收割棉花的时间，以实现效率最大化。第一台采棉机是美國人约翰·丹尼尔·拉斯特（John Daniel Rust）和他的兄弟马克·拉斯特（Mack Rust）於20世纪20年代发明。 新型采棉机推动师市农机装备产业高质量发展. 人民网-新疆频道. 2020-10-10 [2021-03-27]"
+ },
+ {
+  "url": "https://zh.wikipedia.org/wiki/%E9%A6%AC%E5%81%95",
+  "title": "馬偕",
+  "snippet": "，與馬雅各齊名。在臺灣，一般人皆稱為「馬偕博士」或「馬偕牧師」。馬偕的一生被以「寧願燒盡，不願鏽壞」（Rather burn out, than rust out）讚賞，林昌華認為他的座右銘為&quot;All for Christ.&quot;。 馬偕的家族原是蘇格蘭高地（Scottish"
+ },
+ {
+  "url": "https://zh.wikipedia.org/wiki/Python",
+  "title": "Python",
+  "snippet": "Rust扩展的包，它具有健壮的JavaScript与Python双向外界函数接口（英语：Foreign function interface），还可通过wgpy利用上WebGPU/WebGL加速。 RustPython：用Rust编写的Python解释器，它可以嵌入到Rust"
+ },
+ {
+  "url": "https://zh.wikipedia.org/wiki/%E9%AD%AF%E6%96%AF%E7%89%B9_%28%E9%9B%BB%E5%BD%B1%29",
+  "title": "魯斯特 (電影)",
+  "snippet": "《魯斯特》（英語：Rust）是一部2024年美國西部片，由喬爾·蘇扎（英语：Joel Souza）自編自導並與亞歷·鮑德溫合作構思故事，鮑德溫、喬許·霍普金斯、派翠克·史考特·麥達莫（Patrick Scott McDermott）、法蘭西絲·費雪和崔維斯·費米爾主演。劇情講述一個13歲的男孩在18"
+ }
+]
