@@ -40,9 +40,9 @@ export function ListView({ filters, list, openDetail, copyRow }: {
   }, []);
   const {
     t, platforms, groups, filterPlatform, filterGroup, filterStatus, filterTime,
-    filterModel, filterActualModel, filterPath, filterObserved, filterType, filterSession,
+    filterModel, filterActualModel, filterPath, filterObserved, filterType, filterSession, filterPromptId, filterSessionId,
     setFilterPlatform, setFilterGroup, setFilterStatus, setFilterTime,
-    setFilterModel, setFilterActualModel, setFilterPath, setFilterObserved, setFilterType, setFilterSession,
+    setFilterModel, setFilterActualModel, setFilterPath, setFilterObserved, setFilterType, setFilterSession, setFilterPromptId, setFilterSessionId,
     modelOptions, actualModelOptions, hasFilter, clearFilter, platformMap, groupName,
   } = filters;
   const {
@@ -183,6 +183,23 @@ export function ListView({ filters, list, openDetail, copyRow }: {
           onChange={e => setFilterPath(e.target.value)}
           placeholder={t("logs.filterPath", "搜索路径（如 /v1/messages）")}
           style={{ fontSize: F.small, height: 30, maxWidth: 180, minWidth: 120 }}
+        />
+        {/* Claude Code 网关提示头：prompt-id / session-id 精确匹配 */}
+        <Input
+          type="text"
+          data-testid="log-filter-prompt-id"
+          value={filterPromptId}
+          onChange={e => setFilterPromptId(e.target.value)}
+          placeholder={t("logs.filterPromptId", "提示词 ID")}
+          style={{ fontSize: F.small, height: 30, maxWidth: 160, minWidth: 110 }}
+        />
+        <Input
+          type="text"
+          data-testid="log-filter-session-id"
+          value={filterSessionId}
+          onChange={e => setFilterSessionId(e.target.value)}
+          placeholder={t("logs.filterSessionId", "会话 ID")}
+          style={{ fontSize: F.small, height: 30, maxWidth: 160, minWidth: 110 }}
         />
         {/* 会话归组键（magpie 票 09 会话统计下钻）：仅导航入口带入，chip 展示 + 可移除 */}
         {filterSession && (

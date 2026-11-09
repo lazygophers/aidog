@@ -761,6 +761,20 @@ export interface ProxyLogDetail {
   request_class: string;
   /** Claude Code 网关提示头 `x-claude-code-agent-type`（子代理自己的回合才有）；空串 = 无。 */
   agent_type: string;
+  /** Claude Code 网关提示头 `x-claude-code-prompt-id`（同一用户提示词共享的 UUID）；空串 = 无。 */
+  prompt_id: string;
+  /** `x-claude-code-session-id`；空串 = 无。 */
+  session_id: string;
+  /** `x-claude-code-agent-id`（子代理）；空串 = 无。 */
+  agent_id: string;
+  /** `x-claude-code-parent-agent-id`（嵌套 Agent 的父）；空串 = 无。 */
+  parent_agent_id: string;
+  /** `x-claude-code-compaction`（auto / manual / reactive）；空串 = 无。 */
+  compaction: string;
+  /** `x-claude-code-context-compacted`（取值同 compaction）；空串 = 无。 */
+  context_compacted: string;
+  /** `x-claude-code-prev-tool-durations` 解码后的 `Name=ms;Name=ms`；空串 = 无。 */
+  prev_tool_durations: string;
   created_at: number;
   updated_at: number;
   deleted_at: number;

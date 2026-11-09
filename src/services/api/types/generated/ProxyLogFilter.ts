@@ -40,4 +40,12 @@ observed?: boolean | null,
 /**
  * 会话归组键：按 session_key 列精确匹配（magpie 票 09 会话统计下钻）
  */
-session_key?: string, };
+session_key?: string, 
+/**
+ * Claude Code `x-claude-code-prompt-id` 精确匹配
+ */
+prompt_id?: string, 
+/**
+ * Claude Code `x-claude-code-session-id` 精确匹配
+ */
+session_id?: string, };

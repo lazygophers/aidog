@@ -159,4 +159,16 @@ describe("useLogsFilters 类型筛选（隧道连接）", () => {
     act(() => r.result.current.clearFilter());
     expect(r.result.current.activeFilter.sources).toBeUndefined();
   });
+
+  it("prompt_id / session_id 筛选带入 activeFilter（trim），hasFilter 为真，clearFilter 复位", () => {
+    const r = renderHook(() => useLogsFilters());
+    act(() => { r.result.current.setFilterPromptId(" p-1 "); r.result.current.setFilterSessionId("s-1"); });
+    expect(r.result.current.activeFilter.prompt_id).toBe("p-1");
+    expect(r.result.current.activeFilter.session_id).toBe("s-1");
+    expect(r.result.current.hasFilter).toBe(true);
+    act(() => r.result.current.clearFilter());
+    expect(r.result.current.activeFilter.prompt_id).toBeUndefined();
+    expect(r.result.current.activeFilter.session_id).toBeUndefined();
+    expect(r.result.current.hasFilter).toBe(false);
+  });
 });

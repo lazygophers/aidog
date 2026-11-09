@@ -118,6 +118,7 @@ pub(crate) async fn handle_proxy_core(
 
     // ── 初始化日志条目 ──（后续逐字段填充；非零默认值仅 id/created_at/updated_at）
     let (request_class, agent_type) = super::client_detect::claude_hint_headers(req.headers());
+    let hints_ext = super::client_detect::claude_hint_ext(req.headers());
     let mut log = ProxyLog {
         id: request_id,
         created_at,
@@ -129,6 +130,7 @@ pub(crate) async fn handle_proxy_core(
         agent_type,
         ..Default::default()
     };
+    hints_ext.apply(&mut log);
 
     // ── 读取当前语言（用于错误消息翻译；从 ProxyState 缓存借） ──
     let lang = state.settings_cache.read().await.lang;

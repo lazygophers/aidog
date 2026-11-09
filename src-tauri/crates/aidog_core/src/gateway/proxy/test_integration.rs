@@ -7029,3 +7029,42 @@ async fn claude_hint_headers_recorded_in_proxy_log() {
     let log = last_log_for(&state, "gkhint").await;
     assert_eq!((log.request_class.as_str(), log.agent_type.as_str()), ("", ""));
 }
+
+#[tokio::test]
+async fn claude_hint_ids_recorded_in_proxy_log() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_passthrough_group(&state, "gkhint2", &up).await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_hints(
+            "gkhint2",
+            &[
+                ("x-claude-code-prompt-id", "11111111-2222-3333-4444-555555555555"),
+                ("x-claude-code-session-id", "sess-9"),
+                ("x-claude-code-agent-id", "ag-2"),
+                ("x-claude-code-parent-agent-id", "ag-1"),
+                ("x-claude-code-compaction", "manual"),
+                ("x-claude-code-context-compacted", "auto"),
+                ("x-claude-code-prev-tool-durations", "Bash=742;Read=9"),
+            ],
+        ),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let log = last_log_for(&state, "gkhint2").await;
+    assert_eq!(log.prompt_id, "11111111-2222-3333-4444-555555555555");
+    assert_eq!((log.session_id.as_str(), log.agent_id.as_str(), log.parent_agent_id.as_str()), ("sess-9", "ag-2", "ag-1"));
+    assert_eq!((log.compaction.as_str(), log.context_compacted.as_str()), ("manual", "auto"));
+    assert_eq!(log.prev_tool_durations, "Bash=742;Read=9");
+
+    // 无头 → 全空串。
+    handle_proxy(AxumState(state.clone()), messages_request_hints("gkhint2", &[])).await;
+    let log = last_log_for(&state, "gkhint2").await;
+    assert_eq!(
+        [&log.prompt_id, &log.session_id, &log.agent_id, &log.parent_agent_id, &log.compaction, &log.context_compacted, &log.prev_tool_durations]
+            .iter().filter(|s| !s.is_empty()).count(),
+        0
+    );
+}
