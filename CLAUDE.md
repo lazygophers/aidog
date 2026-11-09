@@ -41,6 +41,7 @@
 - 改 preset 的 `permissions.allow` 后同步两份全局拷贝（git 外，仓内改动不会带上）：`~/.claude/settings.json` 与 `~/.claude/settings.claude.json`；三处名单保持逐条一致。
 - 自检：`GITHUB_ACTIONS=true cargo test --workspace` 后对测试二进制 `strings | grep -c lazygophers/ccplugin`（非 oss 独有标记）应为 0，不设变量应 >0。
 - 风险：非 `oss` 预设（如 `lazygophers.json`）是个人配置且进公开 git，禁放密钥 / token / 内网地址，提交前过凭据扫描。
+- 改 `src-tauri/defaults/settings/lazygophers.json` 的任何键后跑 `yarn sync:preset-min-version`（从官方文档取各键所需 CLI 版本的最大值写入顶层 `minimumVersion`）并一并提交；`yarn sync:preset-min-version` 不带 `--write` 即校验，仅覆盖该预设，其它预设无此键。
 
 ### URL 构造
 - `base_url` 含版本前缀（如 `/v1`、`/api/paas/v4`）
