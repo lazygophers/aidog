@@ -247,11 +247,13 @@ pub fn endpoints_in(
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct RateLimitCaps {
     #[serde(default)]
-    pub concurrency: Option<u32>,
+    pub concurrency: Option<u64>,
     #[serde(default)]
-    pub rpm: Option<u32>,
+    pub rpm: Option<u64>,
     #[serde(default)]
-    pub tpm: Option<u32>,
+    pub tpm: Option<u64>,
+    // u64 而非 u32：aliyun rerank 档官方 TPM 达 4.98e9（help.aliyun.com/zh/model-studio/rate-limit），
+    // u32 上限 4.29e9 装不下（2026-11-09 registry 数据补齐轮）。
 }
 
 /// 分时段上限（形状同 peak 窗口，`end_hour` 可到 24）；命中时数字覆盖策略本体同名字段。
