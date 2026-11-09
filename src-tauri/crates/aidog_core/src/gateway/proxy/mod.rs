@@ -60,6 +60,7 @@ mod retry;
 mod settings_cache;
 mod stream;
 mod timeout;
+mod tool_search;
 mod tools;
 mod ws;
 mod tokenizer;

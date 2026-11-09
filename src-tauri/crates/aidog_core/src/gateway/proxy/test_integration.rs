@@ -7388,3 +7388,44 @@ async fn unified_headers_on_429_update_subscription_usage() {
     let _ = handle_proxy(AxumState(state.clone()), req).await;
     assert_unified_plan(&wait_unified_plan(&state).await);
 }
+
+// ── 工具按需加载模拟（ticket 05）：非官方上游出站 body ──
+
+const TS_REQ: &str = r#"{"model":"claude-3","max_tokens":8,"tools":[{"name":"ToolSearch","description":"d","input_schema":{"type":"object","properties":{}}},{"name":"mcp__a__loaded","description":"d","input_schema":{"type":"object","properties":{}},"defer_loading":true},{"name":"mcp__a__idle","description":"d","input_schema":{"type":"object","properties":{}},"defer_loading":true}],"messages":[{"role":"user","content":"go"},{"role":"assistant","content":[{"type":"tool_use","id":"t1","name":"ToolSearch","input":{"query":"x"}}]},{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":[{"type":"tool_reference","tool_name":"mcp__a__loaded"}]}]}]}"#;
+const OPENAI_OK_MIN: &str = r#"{"id":"c1","object":"chat.completion","model":"m","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}"#;
+
+/// 第三方 Anthropic 协议平台（同协议透传）：未点名延迟工具不下发，已点名去 defer_loading，
+/// tool_reference 换文字；非流式与流式请求侧一致。
+#[tokio::test]
+async fn tool_search_emulation_anthropic_third_party_passthrough() {
+    let (upstream, rec) = spawn_recording_upstream(ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkts1", &upstream).await;
+    for body in [TS_REQ.to_string(), TS_REQ.replacen(r#""max_tokens":8"#, r#""max_tokens":8,"stream":true"#, 1)] {
+        let _ = handle_proxy(AxumState(state.clone()), messages_request("gkts1", &body)).await;
+    }
+    let captured = rec.lock().unwrap().clone();
+    assert_eq!(captured.len(), 2);
+    for (_, b) in &captured {
+        let sent: serde_json::Value = serde_json::from_str(b).unwrap();
+        let names: Vec<&str> = sent["tools"].as_array().unwrap().iter().map(|t| t["name"].as_str().unwrap()).collect();
+        assert_eq!(names, ["ToolSearch", "mcp__a__loaded"], "{b}");
+        assert!(!b.contains("defer_loading") && !b.contains("tool_reference"), "{b}");
+        assert!(b.contains("已加载工具 mcp__a__loaded"), "{b}");
+    }
+}
+
+/// OpenAI 系平台（转换分支）：同样的剔除/降级在协议转换之前生效。
+#[tokio::test]
+async fn tool_search_emulation_openai_convert() {
+    let (upstream, rec) = spawn_recording_upstream(OPENAI_OK_MIN).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_platform(&state, "gkts2", Protocol::OpenAI, &upstream, "").await;
+    let _ = handle_proxy(AxumState(state.clone()), messages_request("gkts2", TS_REQ)).await;
+    let captured = rec.lock().unwrap().clone();
+    assert_eq!(captured.len(), 1);
+    let b = &captured[0].1;
+    assert!(b.contains("mcp__a__loaded") && !b.contains("mcp__a__idle"), "{b}");
+    assert!(!b.contains("defer_loading") && !b.contains("tool_reference"), "{b}");
+    assert!(b.contains("已加载工具 mcp__a__loaded"), "{b}");
+}
