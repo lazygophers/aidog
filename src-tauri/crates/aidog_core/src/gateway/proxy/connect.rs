@@ -837,7 +837,11 @@ pub(crate) async fn serve_plaintext<S>(
             // hyper::Request<Incoming> → axum::Request<axum::body::Body>：
             // parts（method/uri/headers）通用，body 收 Bytes 后 Body::from 包装。
             let req_path = req.uri().path().to_string();
-            let (parts, body) = req.into_parts();
+            let (mut parts, body) = req.into_parts();
+            // X-Aidog-Group 仅网关模式（客户端 base URL 指向 AiDog）生效；隧道请求发往真实上游
+            // 主机，头只可能是继承来的 ANTHROPIC_CUSTOM_HEADERS，忽略并剥掉（不转发官方上游），
+            // 归组沿用 CONNECT 绑定 / token 规则。
+            parts.headers.remove(super::endpoint::GROUP_HEADER);
             let bytes = match collect_body(body, 10 * 1024 * 1024).await {
                 Ok(b) => b,
                 Err(e) => {

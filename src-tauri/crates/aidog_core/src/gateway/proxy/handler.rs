@@ -139,7 +139,8 @@ pub(crate) async fn handle_proxy_core(
     let custom_key_channels = load_custom_key_channels(&state.db).await;
     let custom_key_headers = custom_key_header_names(&custom_key_channels);
     let key_cands = key_candidates(req.headers(), req.uri().query(), &custom_key_channels);
-    // X-Aidog-Group 显式选组（优先于 token / CONNECT 绑定）；头本身入口即剥，不转发上游。
+    // X-Aidog-Group 显式选组（网关模式下优先于 token；MITM 隧道请求在 serve_plaintext 已剥头，
+    // 故不会覆盖 CONNECT 绑定）；头本身入口即剥，不转发上游。
     let group_hint = super::endpoint::group_hint(req.headers());
 
     // ── 捕获请求头（自定义密钥通道头同敏感头脱敏）──
