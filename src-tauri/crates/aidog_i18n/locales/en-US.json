@@ -1165,6 +1165,7 @@
   "middleware.observeHint": "When on, a match no longer blocks: the request is forwarded and billed as usual and only recorded in the log, so you can check whether the rule misfires.",
   "middleware.maskReversible": "Reversible (placeholder, restored in the reply)",
   "middleware.maskReversibleHint": "Matched text is sent upstream as a placeholder and restored automatically in the response",
+  "middleware.maskScopeAll": "All content",
   "middleware.reversible": "Reversible",
   "middleware.pattern": "Pattern / Target",
   "middleware.patternHint": "Match pattern / target path / header name",

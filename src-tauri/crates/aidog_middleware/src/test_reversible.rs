@@ -121,3 +121,27 @@ fn force_fail_only_when_reversible_rule_in_scope() {
     assert!(in_scope.is_err(), "作用域内应报错");
     assert!(out_scope.is_ok(), "作用域外不受影响");
 }
+
+#[test]
+fn all_scope_applies_to_all_slot_not_only_system_messages() {
+    let e = MiddlewareEngine::new();
+    e.rebuild_from_rules(vec![mk_rule(1, "r", leaf(Target::RequestBody, "secret"), vec![rev_step(&["all"])])]);
+    assert!(e.reversible_wants_all(&settings_on(), None, 1, "test-model"));
+    let mut t = InboundTexts::new("test-model");
+    t.messages.push("m secret".into());
+    t.all.push("tool secret out".into());
+    let map = e.apply_reversible_texts(&settings_on(), &mut t, None, 1, None).unwrap();
+    assert!(!t.all[0].contains("secret"), "{:?}", t.all);
+    assert_eq!(restore(&t.all[0], &map), "tool secret out");
+}
+
+#[test]
+fn non_all_rule_does_not_want_all() {
+    let e = MiddlewareEngine::new();
+    e.rebuild_from_rules(vec![mk_rule(1, "r", leaf(Target::RequestBody, "secret"), vec![rev_step(&["messages"])])]);
+    assert!(!e.reversible_wants_all(&settings_on(), None, 1, "test-model"));
+    let mut t = InboundTexts::new("test-model");
+    t.all.push("tool secret out".into());
+    e.apply_reversible_texts(&settings_on(), &mut t, None, 1, None).unwrap();
+    assert_eq!(t.all[0], "tool secret out", "非 all 步骤不碰 all 槽");
+}
