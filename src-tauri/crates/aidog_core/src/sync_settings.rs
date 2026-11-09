@@ -308,6 +308,31 @@ pub(crate) async fn cc_proxy_password(db: &Db, group_key: &str) -> Result<String
     Ok(password)
 }
 
+/// `ANTHROPIC_CUSTOM_HEADERS`（Claude Code：换行分隔的 `Name: Value`）合并：保留用户其它行，
+/// 去掉旧的 `X-Aidog-Group` 行（名字不分大小写），`group_key` 为 Some 时追加新行。
+/// 返回值可能为空串（调用方照写，空串 = 中和全局文件里默认组漏进来的同名 key）。
+fn merge_custom_headers(existing: &str, group_key: Option<&str>) -> String {
+    let mut lines: Vec<String> = existing
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .filter(|l| {
+            !l.split_once(':')
+                .is_some_and(|(n, _)| n.trim().eq_ignore_ascii_case(gateway::proxy::GROUP_HEADER))
+        })
+        .map(str::to_string)
+        .collect();
+    if let Some(k) = group_key {
+        lines.push(format!("X-Aidog-Group: {k}"));
+    }
+    lines.join("\n")
+}
+
+/// group_key 能否安全写成请求头值（可见 ASCII + 空格、无首尾空白，杜绝 CR/LF 注入与服务端 trim 失配）。
+fn is_header_safe_group_key(k: &str) -> bool {
+    !k.is_empty() && k == k.trim() && k.chars().all(|c| c.is_ascii_graphic() || c == ' ')
+}
+
 /// aidog 管理的 env key（用户 env_vars 同名一律丢弃 + warn，防静默破坏路由/压缩语义）。
 const MANAGED_ENV_KEYS: &[&str] = &[
     "ANTHROPIC_BASE_URL",
@@ -556,6 +581,20 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
                     }
                     env_map.insert(key.to_string(), serde_json::Value::String(ev.value.clone()));
                 }
+                // X-Aidog-Group 显式选组头：非透传组写入（值 = group_key，与 AUTH_TOKEN 同口径）；
+                // 透传组 / 不安全 key 只清掉旧行并写回（可能为空串），防默认组写进全局文件的头
+                // 经深合并漏进来，把本组流量选到默认组。用户自己的头行（base / 组 env_vars）保留。
+                let existing_headers = env_map
+                    .get("ANTHROPIC_CUSTOM_HEADERS")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let hdr_key = (!skip_routing_env && is_header_safe_group_key(group_key))
+                    .then_some(group_key.as_str());
+                let merged = merge_custom_headers(existing_headers, hdr_key);
+                env_map.insert(
+                    "ANTHROPIC_CUSTOM_HEADERS".to_string(),
+                    serde_json::Value::String(merged),
+                );
             }
         }
 

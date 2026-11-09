@@ -1114,3 +1114,163 @@ async fn claude_json_section_not_written_without_default_group() {
     assert!(f.get(super::CLAUDE_JSON_KEY).is_none());
     assert!(!h.home().join(".claude.json").exists());
 }
+
+// ═══════════════ X-Aidog-Group 头写入 ANTHROPIC_CUSTOM_HEADERS ═══════════════
+
+#[test]
+fn merge_custom_headers_replaces_own_line_keeps_user_lines() {
+    use super::merge_custom_headers as m;
+    assert_eq!(m("", Some("g1")), "X-Aidog-Group: g1");
+    assert_eq!(m("X-Org-Route: prod", Some("g1")), "X-Org-Route: prod\nX-Aidog-Group: g1");
+    // 旧行（任意大小写 / 空白 / CRLF）替换而非重复，用户行保序
+    assert_eq!(
+        m("A: 1\r\n x-AIDOG-group : old \nB: 2\n\n", Some("g1")),
+        "A: 1\nB: 2\nX-Aidog-Group: g1"
+    );
+    // 无 key：只清旧行，可为空串
+    assert_eq!(m("X-Aidog-Group: old", None), "");
+    assert_eq!(m("A: 1\nX-Aidog-Group: old", None), "A: 1");
+}
+
+#[test]
+fn header_safe_group_key_rejects_crlf_and_non_ascii() {
+    use super::is_header_safe_group_key as ok;
+    assert!(ok("gk_1-a.b"));
+    assert!(!ok(""));
+    assert!(!ok("a\nb"));
+    assert!(!ok("a\r"));
+    assert!(!ok(" a"));
+    assert!(!ok("组a"));
+}
+
+async fn mk_group(db: &aidog_db::Db, name: &str, key: &str, env: Vec<(&str, &str)>) -> aidog_db::models::Group {
+    use crate::gateway::models::{CreateGroup, EnvVar, RoutingMode};
+    aidog_db::create_group(
+        db,
+        CreateGroup {
+            name: name.to_string(),
+            group_key: Some(key.to_string()),
+            routing_mode: RoutingMode::Failover,
+            auto_from_platform: String::new(),
+            request_timeout_secs: 0,
+            connect_timeout_secs: 0,
+            source_protocol: None,
+            max_retries: 2,
+            model_mappings: Vec::new(),
+            env_vars: env
+                .into_iter()
+                .map(|(k, v)| EnvVar { key: k.to_string(), value: v.to_string() })
+                .collect(),
+        },
+    )
+    .await
+    .unwrap()
+}
+
+fn read_group_settings(h: &aidog_db::test_support::HomeGuard, key: &str) -> serde_json::Value {
+    serde_json::from_str(
+        &std::fs::read_to_string(h.home().join(format!(".aidog/settings.{key}.json"))).unwrap(),
+    )
+    .unwrap()
+}
+
+/// 普通组写入头；组 env_vars 里的用户头行保留、旧 X-Aidog-Group 行被替换；默认组同款写入全局文件。
+#[tokio::test]
+async fn do_sync_group_settings_writes_group_header_and_merges_user_headers() {
+    use aidog_db::test_support::{HomeGuard, test_db};
+    let h = HomeGuard::new();
+    let db = test_db().await;
+    let plain = mk_group(&db, "plain", "gk_hdr_plain", vec![]).await;
+    let merged = mk_group(
+        &db,
+        "merged",
+        "gk_hdr_merged",
+        vec![("ANTHROPIC_CUSTOM_HEADERS", "X-Org-Route: prod\nx-aidog-group: stale")],
+    )
+    .await;
+    aidog_db::set_default_group(&db, Some(plain.id)).await.unwrap();
+
+    super::do_sync_group_settings(&db, 9913).await.unwrap();
+
+    assert_eq!(
+        read_group_settings(&h, "gk_hdr_plain")["env"]["ANTHROPIC_CUSTOM_HEADERS"],
+        "X-Aidog-Group: gk_hdr_plain"
+    );
+    assert_eq!(
+        read_group_settings(&h, "gk_hdr_merged")["env"]["ANTHROPIC_CUSTOM_HEADERS"],
+        "X-Org-Route: prod\nX-Aidog-Group: gk_hdr_merged"
+    );
+    // 默认组：路由 env 写进全局文件，头一并写入
+    let global: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(h.home().join(".claude/settings.json")).unwrap())
+            .unwrap();
+    assert_eq!(global["env"]["ANTHROPIC_AUTH_TOKEN"], "gk_hdr_plain");
+    assert_eq!(global["env"]["ANTHROPIC_CUSTOM_HEADERS"], "X-Aidog-Group: gk_hdr_plain");
+    let _ = merged;
+}
+
+/// 不安全的 group_key（非 ASCII）不写头行，key 仍写空串中和（防全局默认组的头漏进来）。
+#[tokio::test]
+async fn do_sync_group_settings_skips_group_header_for_unsafe_key() {
+    use aidog_db::test_support::{HomeGuard, test_db};
+    let h = HomeGuard::new();
+    let db = test_db().await;
+    mk_group(&db, "bad", "组_hdr", vec![("ANTHROPIC_CUSTOM_HEADERS", "X-Org-Route: prod")]).await;
+    super::do_sync_group_settings(&db, 9914).await.unwrap();
+    let v = read_group_settings(&h, "组_hdr");
+    assert_eq!(v["env"]["ANTHROPIC_CUSTOM_HEADERS"], "X-Org-Route: prod");
+}
+
+/// 纯 claude_code 透传组：路由 env 被跳过，头也不写（订阅流量不带 X-Aidog-Group 直连 Anthropic）；
+/// 用户头行保留，旧 X-Aidog-Group 行被清，空时写空串中和默认组的全局头。
+#[tokio::test]
+async fn do_sync_group_settings_pure_claude_code_group_has_no_group_header() {
+    use aidog_db::models::Protocol;
+    use aidog_db::test_support::{HomeGuard, test_db};
+    let h = HomeGuard::new();
+    let db = test_db().await;
+    let p = aidog_db::create_platform(
+        &db,
+        aidog_db::models::CreatePlatform {
+            name: "cc-sub".to_string(),
+            platform_type: Protocol::ClaudeCode,
+            base_url: "https://api.anthropic.com".to_string(),
+            api_key: String::new(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: Some(false),
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .unwrap();
+    for (name, key, env) in [
+        ("cc1", "gk_hdr_cc1", vec![]),
+        ("cc2", "gk_hdr_cc2", vec![("ANTHROPIC_CUSTOM_HEADERS", "X-Org-Route: prod\nX-Aidog-Group: x")]),
+    ] {
+        let g = mk_group(&db, name, key, env).await;
+        aidog_db::set_group_platforms(
+            &db,
+            g.id,
+            &[aidog_db::models::GroupPlatformInput {
+                platform_id: p.id,
+                priority: None,
+                weight: None,
+                level_priority: None,
+            }],
+        )
+        .await
+        .unwrap();
+    }
+    super::do_sync_group_settings(&db, 9915).await.unwrap();
+    assert_eq!(read_group_settings(&h, "gk_hdr_cc1")["env"]["ANTHROPIC_CUSTOM_HEADERS"], "");
+    assert_eq!(
+        read_group_settings(&h, "gk_hdr_cc2")["env"]["ANTHROPIC_CUSTOM_HEADERS"],
+        "X-Org-Route: prod"
+    );
+}

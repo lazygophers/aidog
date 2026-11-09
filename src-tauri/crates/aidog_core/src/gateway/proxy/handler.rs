@@ -139,6 +139,8 @@ pub(crate) async fn handle_proxy_core(
     let custom_key_channels = load_custom_key_channels(&state.db).await;
     let custom_key_headers = custom_key_header_names(&custom_key_channels);
     let key_cands = key_candidates(req.headers(), req.uri().query(), &custom_key_channels);
+    // X-Aidog-Group 显式选组（优先于 token / CONNECT 绑定）；头本身入口即剥，不转发上游。
+    let group_hint = super::endpoint::group_hint(req.headers());
 
     // ── 捕获请求头（自定义密钥通道头同敏感头脱敏）──
     log.request_headers = capture_request_headers(req.headers(), &custom_key_headers);
@@ -179,6 +181,7 @@ pub(crate) async fn handle_proxy_core(
     let orig_method = std::mem::take(req.method_mut());
     let orig_uri = std::mem::take(req.uri_mut());
     let mut orig_headers = std::mem::take(req.headers_mut());
+    orig_headers.remove(super::endpoint::GROUP_HEADER);
 
     // ── 读取请求体 ──
     let (_parts, body) = req.into_parts();
@@ -235,11 +238,9 @@ pub(crate) async fn handle_proxy_core(
     // token 在这里只用来挑清单（认得出就报该分组真配的模型，认不出就报默认清单），不做准入。
     if orig_method == axum::http::Method::GET && is_models_endpoint(&path) {
         // 例外：透传分组（ADR 0008）原样转发上游，客户端拿上游真实模型列表。
-        let group = match &bound_group {
-            Some(g) => Some((g.clone(), None)),
-            None => resolve_group(&state.db, &key_cands)
-                .await
-                .map(|(g, c)| (g, Some(c))),
+        let group = match (&bound_group, &group_hint) {
+            (Some(g), None) => Some((g.clone(), None)),
+            _ => resolve_group(&state.db, &key_cands, group_hint.as_deref()).await,
         };
         // 探测端点不受客户端白名单约束（定组前、无 UA 语义），故 ClientGate::Off。
         if let Some((g, matched_key)) = group
@@ -268,7 +269,7 @@ pub(crate) async fn handle_proxy_core(
             )
             .await;
         }
-        return handle_models_list(&state, &mut log, &log_settings, &path, &key_cands, start)
+        return handle_models_list(&state, &mut log, &log_settings, &path, &key_cands, group_hint.as_deref(), start)
         .await;
     }
 
@@ -276,11 +277,11 @@ pub(crate) async fn handle_proxy_core(
     // CONNECT 层绑定的 group 优先（spec cc-sub-mitm D2）：MITM 明文请求的 Authorization 是
     // 订阅 OAuth Bearer（resolve_group 必落空），归属由隧道绑定注入；绑定仅出现在 AI API
     // 端点请求（serve_plaintext 归属注入门），非 API 流量仍走下方 resolve_group → fallback。
-    let (group, matched_key) = match bound_group {
+    let (group, matched_key) = match bound_group.filter(|_| group_hint.is_none()) {
         Some(g) => (g, None),
         None => {
-            match resolve_group(&state.db, &key_cands).await {
-                Some((g, c)) => (g, Some(c)),
+            match resolve_group(&state.db, &key_cands, group_hint.as_deref()).await {
+                Some((g, c)) => (g, c),
                 None => {
                     // fallback 直通判定：MITM 解密的非 API 流量（Host ≠ 代理自身监听 host）
                     // 直通原 host 透明转发，落虚拟「未匹配」桶统计（不计费）。
