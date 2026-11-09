@@ -668,3 +668,13 @@ fn custom_key_header_names_exclude_default_channels() {
     ];
     assert_eq!(custom_key_header_names(&custom), ["x-token"]);
 }
+
+#[test]
+fn group_hint_trims_and_ignores_blank() {
+    let mut h = axum::http::HeaderMap::new();
+    assert_eq!(endpoint::group_hint(&h), None);
+    h.insert("x-aidog-group", "  g1 ".parse().unwrap());
+    assert_eq!(endpoint::group_hint(&h).as_deref(), Some("g1"));
+    h.insert("X-Aidog-Group", "   ".parse().unwrap());
+    assert_eq!(endpoint::group_hint(&h), None);
+}

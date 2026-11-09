@@ -155,16 +155,18 @@ pub(crate) async fn handle_ws_passthrough(
     let custom_key_channels = load_custom_key_channels(&state.db).await;
     let custom_key_headers = custom_key_header_names(&custom_key_channels);
     let key_cands = key_candidates(req.headers(), req.uri().query(), &custom_key_channels);
+    let group_hint = super::endpoint::group_hint(req.headers());
 
     let orig_uri = req.uri().clone();
     let mut orig_headers = req.headers().clone();
     log.request_headers = capture_request_headers(&orig_headers, &custom_key_headers);
+    orig_headers.remove(super::endpoint::GROUP_HEADER);
     log.request_url = redact_api_key_query(&orig_uri.to_string());
     // WS 无请求体无 model 字段；path 入 model 供统计/日志页辨认端点。
     log.model = orig_uri.path().to_string();
     log.is_stream = true;
 
-    let (group, matched_key) = match resolve_group(&state.db, &key_cands).await {
+    let (group, matched_key) = match resolve_group(&state.db, &key_cands, group_hint.as_deref()).await {
         Some(x) => x,
         None => {
             // 未发生上游握手：回应记用户侧两列（同 handle_proxy_core 未匹配分组口径）
@@ -239,7 +241,7 @@ pub(crate) async fn handle_ws_passthrough(
     let (url, inject) = super::passthrough::passthrough_outbound_auth(
         &platform,
         &super::passthrough::build_passthrough_url(&base, &orig_uri),
-        Some(&matched_key),
+        matched_key.as_ref(),
         &custom_key_headers,
         &mut orig_headers,
     );

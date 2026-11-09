@@ -7068,3 +7068,135 @@ async fn claude_hint_ids_recorded_in_proxy_log() {
         0
     );
 }
+
+// ═══════════════ X-Aidog-Group 显式选组头 ═══════════════
+
+/// 两个 Anthropic 分组各配一个记录头的假上游；返回 (A 上游记录, B 上游记录)。
+async fn setup_two_groups_recording(state: &Arc<ProxyState>) -> (SeenHeaders, SeenHeaders) {
+    let (up_a, seen_a) = spawn_header_recording_upstream(ANTHROPIC_OK).await;
+    let (up_b, seen_b) = spawn_header_recording_upstream(ANTHROPIC_OK).await;
+    setup_group_with_upstream(state, "hga", &up_a).await;
+    setup_group_with_upstream(state, "hgb", &up_b).await;
+    (seen_a, seen_b)
+}
+
+/// 头指向已存在分组 → 该组胜过 token 定的组；头不转发上游；值 trim。
+#[tokio::test]
+async fn group_header_overrides_token_and_is_not_forwarded() {
+    let state = make_state(test_db().await).await;
+    let (seen_a, seen_b) = setup_two_groups_recording(&state).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        request_with("/v1/messages", &[("authorization", "Bearer hga"), ("x-aidog-group", "  hgb  ")]),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(seen_a.lock().unwrap().len(), 0, "token 组不应被命中");
+    {
+        let seen = seen_b.lock().unwrap();
+        assert_eq!(seen.len(), 1, "头指向的组应被命中");
+        assert!(!seen[0].1.contains_key("x-aidog-group"), "头不得转发上游: {:?}", seen[0].1);
+    }
+    assert_eq!(last_log_for(&state, "hgb").await.status_code, 200);
+}
+
+/// 头指向不存在的分组 → 同未知 token：404，不回落 token 的组，上游零命中。
+#[tokio::test]
+async fn group_header_unknown_group_404_without_token_fallback() {
+    let state = make_state(test_db().await).await;
+    let (seen_a, seen_b) = setup_two_groups_recording(&state).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        request_with("/v1/messages", &[("authorization", "Bearer hga"), ("x-aidog-group", "nope")]),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    assert_eq!(seen_a.lock().unwrap().len() + seen_b.lock().unwrap().len(), 0);
+}
+
+/// 头缺席 / 空 / 全空白 → 行为不变，仍按 token 定组。
+#[tokio::test]
+async fn group_header_absent_or_blank_keeps_token_behaviour() {
+    let state = make_state(test_db().await).await;
+    let (seen_a, seen_b) = setup_two_groups_recording(&state).await;
+    for hdrs in [
+        vec![("authorization", "Bearer hga")],
+        vec![("authorization", "Bearer hga"), ("x-aidog-group", "")],
+        vec![("authorization", "Bearer hga"), ("x-aidog-group", "   ")],
+    ] {
+        let resp = handle_proxy(AxumState(state.clone()), request_with("/v1/messages", &hdrs)).await;
+        assert_eq!(resp.status(), StatusCode::OK, "{hdrs:?}");
+    }
+    assert_eq!(seen_a.lock().unwrap().len(), 3);
+    assert_eq!(seen_b.lock().unwrap().len(), 0);
+    // 空头不转发
+    assert!(seen_a.lock().unwrap().iter().all(|(_, h)| !h.contains_key("x-aidog-group")));
+}
+
+/// 无任何 token，只带头也能定组（订阅 OAuth Bearer 场景：Authorization 是别的东西）。
+#[tokio::test]
+async fn group_header_alone_selects_group_with_foreign_bearer() {
+    let state = make_state(test_db().await).await;
+    let (_seen_a, seen_b) = setup_two_groups_recording(&state).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        request_with("/v1/messages", &[("authorization", "Bearer sk-oauth-xyz"), ("x-aidog-group", "hgb")]),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(seen_b.lock().unwrap().len(), 1);
+}
+
+/// 透传平台：头选组后不转发该头；Authorization 里的非分组 key 被剥，换成平台 key。
+#[tokio::test]
+async fn group_header_passthrough_strips_header_and_foreign_auth() {
+    let (upstream, seen) = spawn_header_recording_upstream(r#"{"ok":true}"#).await;
+    let state = make_state(test_db().await).await;
+    setup_passthrough_platform_group(&state, "hgpt", &upstream).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        request_with("/v1/x", &[("authorization", "Bearer sk-client-own"), ("x-aidog-group", "hgpt")]),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let h = seen.lock().unwrap().last().cloned().expect("upstream not hit").1;
+    assert!(!h.contains_key("x-aidog-group"), "{h:?}");
+    assert_ne!(h.get("authorization").map(String::as_str), Some("Bearer sk-client-own"), "{h:?}");
+}
+
+/// /v1/models：头指向的组决定清单来源（透传组 → 原样转发上游），头不转发。
+#[tokio::test]
+async fn group_header_selects_group_for_models_list() {
+    let (upstream, seen) = spawn_header_recording_upstream(r#"{"data":[]}"#).await;
+    let state = make_state(test_db().await).await;
+    setup_passthrough_platform_group(&state, "hgm", &upstream).await;
+    let req = HttpRequest::builder()
+        .method("GET")
+        .uri("/v1/models")
+        .header("x-aidog-group", "hgm")
+        .body(Body::empty())
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let seen = seen.lock().unwrap();
+    assert_eq!(seen.len(), 1, "透传组应转发上游");
+    assert!(!seen[0].1.contains_key("x-aidog-group"));
+}
+
+/// WS 握手同一套：头指向未知组 → 404，不回落 token。
+#[tokio::test]
+async fn group_header_unknown_group_ws_404() {
+    let state = make_state(test_db().await).await;
+    let (_a, _b) = setup_two_groups_recording(&state).await;
+    let req = HttpRequest::builder()
+        .method("GET")
+        .uri("/v1/responses")
+        .header("authorization", "Bearer hga")
+        .header("x-aidog-group", "nope")
+        .header("upgrade", "websocket")
+        .header("connection", "Upgrade")
+        .body(Body::empty())
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}

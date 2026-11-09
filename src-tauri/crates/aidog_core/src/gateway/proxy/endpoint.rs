@@ -384,12 +384,26 @@ fn percent_decode(s: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-/// 按序拿密钥候选与分组 group_key 精确比对，第一个对上的胜（ADR 0009 决策 1）。
-/// 返回命中的分组与定组用的那个候选（透传出站原位替换要用）。
+/// 显式选组请求头：值 = 分组 group_key（与 token 同一命名空间）。命中时优先于密钥候选；
+/// 值未知则按「未匹配分组」处理，不回落到 token 定组。入口剥掉，不转发上游。
+pub(crate) const GROUP_HEADER: &str = "x-aidog-group";
+
+/// 读 `X-Aidog-Group`：trim 后非空才算有值（空 / 全空白 = 头缺席，保持 token 定组的现行为）。
+pub(crate) fn group_hint(headers: &axum::http::HeaderMap) -> Option<String> {
+    let v = headers.get(GROUP_HEADER)?;
+    let s = String::from_utf8_lossy(v.as_bytes()).trim().to_string();
+    (!s.is_empty()).then_some(s)
+}
+
+/// 定组：`hint`（X-Aidog-Group）有值时只认它——命中返回该组，未知返回 None（不回落 token）；
+/// 无 hint 时按序拿密钥候选与分组 group_key 精确比对，第一个对上的胜（ADR 0009 决策 1）。
+/// 返回命中的分组与定组用的那个候选（透传出站原位替换要用；hint 定组时取恰好等于 group_key
+/// 的候选，没有则 None，出站按平台配置注入）。
 pub(crate) async fn resolve_group(
     db: &Db,
     candidates: &[KeyCandidate],
-) -> Option<(Group, KeyCandidate)> {
+    hint: Option<&str>,
+) -> Option<(Group, Option<KeyCandidate>)> {
     let groups = match aidog_db::list_groups(db).await {
         Ok(g) => g,
         Err(e) => {
@@ -397,11 +411,21 @@ pub(crate) async fn resolve_group(
             return None;
         }
     };
+    if let Some(h) = hint {
+        let hit = groups.iter().find(|g| g.group_key == h).map(|g| {
+            let c = candidates.iter().find(|c| c.key == g.group_key).cloned();
+            (g.clone(), c)
+        });
+        if hit.is_none() {
+            tracing::warn!(group_count = groups.len(), "resolve_group: X-Aidog-Group names no group");
+        }
+        return hit;
+    }
     let hit = candidates.iter().find_map(|c| {
         groups
             .iter()
             .find(|g| g.group_key == c.key)
-            .map(|g| (g.clone(), c.clone()))
+            .map(|g| (g.clone(), Some(c.clone())))
     });
     if hit.is_none() {
         tracing::warn!(
