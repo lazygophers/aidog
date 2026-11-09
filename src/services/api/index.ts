@@ -20,5 +20,6 @@ export * from "./mcp";
 export * from "./exchange";
 export * from "./mitm";
 export * from "./toolLog";
+export * from "./search";
 export * from "./ui_extra";
 export * from "./profile";

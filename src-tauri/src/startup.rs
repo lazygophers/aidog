@@ -133,6 +133,7 @@ pub fn run() {
             aidog_core::kernel_settings::kernel_settings_get,
             aidog_core::kernel_settings::kernel_settings_set,
             aidog_core::kernel_settings::api_call_log_list,
+            aidog_core::proxy_cmd::search::search_searx_instances,
             aidog_core::proxy_cmd::tool_log::tool_log_list,
             aidog_core::proxy_cmd::tool_log::tool_log_get,
             aidog_core::proxy_cmd::tool_log::tool_log_retention_get,

@@ -1,0 +1,37 @@
+[
+ {
+  "url": "https://baike.so.com/doc/7590010-7864105.html",
+  "title": "rust语言 _360百科",
+  "snippet": "Rust 是一门系统 编程语言 ，专注于安全 ，尤其是并发安全，支持函数式和命令式以及泛型等 编程 范式的多范式语言。Rust在 语 法上和C++类似 ，但是设计者想要在保证性能的同时提供更好的内存安全。 Rust 最初是由Mozilla研究院的Graydon Hoare设计创造，... 详情>> 产生背景 - 主要功能 - 语言特点 - 版本记录 baike.so.com 反馈"
+ },
+ {
+  "url": "https://www.zhihu.com/topic/19674381/hot",
+  "title": "Rust ( 编程语言 ) - 知乎",
+  "snippet": "​分享​收藏Rust与TS语法对照表1狼不二狼不二世界如此青翠,我却如此腐朽语法字典【基础概念】 rust node/ts扩展名.rs.js执行命令 rust c xx.rsnode xx.js包管理Cargonpm配置文件Cargo.tomlpackage... www.zhihu.com 反馈"
+ },
+ {
+  "url": "https://ai.so.com/search/so413a1db022296a5296c8953321d8fddb?search=Rust%20%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80%E4%BB%8B%E7%BB%8D&src=so_result_natural_ask&srcg=so_result_natural_ask",
+  "title": "Rust 编程语言 介绍",
+  "snippet": ""
+ },
+ {
+  "url": "https://worktile.com/kb/ask/2467689.html",
+  "title": "编程语言rust 是什么意思 • Worktile社区",
+  "snippet": ""
+ },
+ {
+  "url": "https://blog.csdn.net/inthat/article/details/121491401",
+  "title": "Rust编程语言 入门教程(一)-什么是Rust_rust语言-CSDN博客",
+  "snippet": "官网: https://www. rust -lang.org/zh-CN/.Rust是Mozilla开发的 编程语言 ,作为C的替代,逐步应用于FIrefox(火狐)中.学习资料:https://learning- rust .github.io/... blog.csdn.net 反馈"
+ },
+ {
+  "url": "https://www.rustwiki.org.cn/docs/book/",
+  "title": "Rust 程序设计语言 | Rust 文档网",
+  "snippet": ""
+ },
+ {
+  "url": "https://blog.csdn.net/epubit17/article/details/117730920",
+  "title": "Rust编程语言 简介-CSDN博客",
+  "snippet": "Rust编译器 rust c最初是用Ocaml(一种函数式 编程语言 )编写的,并且于2011年由自身重新编译后成为自托管版本。.Servo项目利用前沿 编程语言 的特性向语言开发团队提供反馈,这反过来又影响了语言的演变... blog.csdn.net 反馈"
+ }
+]
