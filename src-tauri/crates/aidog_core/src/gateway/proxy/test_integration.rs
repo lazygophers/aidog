@@ -6945,3 +6945,180 @@ async fn privacy_detect_failure_fail_closed_503() {
     set_privacy_scrub(&state, false).await;
     crate::gateway::privacy::set_engine_unavailable(false);
 }
+
+// ══ 中间件可还原 mask（票 01）：上游收占位符、客户端收原文、四侧日志无原文 ══
+
+fn mw_mask_rule(
+    id: i64,
+    pattern: &str,
+    priority: i64,
+    mode: aidog_db::models::MaskMode,
+    groups: &[&str],
+) -> aidog_db::models::MiddlewareRule {
+    use aidog_db::models::*;
+    MiddlewareRule {
+        id,
+        name: format!("mask-{id}"),
+        description: String::new(),
+        conditions: ConditionNode::Leaf(ConditionLeaf {
+            target: Target::RequestBody,
+            field: String::new(),
+            match_type: MatchType::Regex,
+            pattern: pattern.into(),
+            validator: String::new(),
+        }),
+        actions: vec![ActionStep { kind: ActionKind::Mask, params: ActionParams { mode, ..Default::default() } }],
+        applies_to: AppliesTo { groups: groups.iter().map(|s| s.to_string()).collect(), ..Default::default() },
+        priority,
+        enabled: true,
+        is_builtin: false,
+        failed: false,
+        created_at: 0,
+        updated_at: 0,
+    }
+}
+
+const MW_EMAIL_RE: &str = r"[a-z]+@[a-z]+\.com";
+
+fn mw_placeholder() -> String {
+    aidog_middleware::placeholder::placeholder_for("MASK", PRIVACY_EMAIL)
+}
+
+async fn log_all_sides(state: &Arc<ProxyState>) {
+    set_log_settings(
+        state,
+        ProxyLogSettings { log_user_request: true, log_upstream_request: true, ..Default::default() },
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn mw_reversible_nonstream_roundtrip_and_four_side_logs() {
+    use aidog_db::models::MaskMode;
+    let _g = PRIVACY_TEST_LOCK.lock().await;
+    let ph = mw_placeholder();
+    let upstream_body: &'static str = Box::leak(
+        format!(
+            r#"{{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{{"type":"text","text":"echo {ph}"}}],"stop_reason":"end_turn","usage":{{"input_tokens":5,"output_tokens":3}}}}"#
+        )
+        .into_boxed_str(),
+    );
+    let (up, hits) = spawn_embedding_upstream(vec![(200, upstream_body)]).await;
+    let state = make_state(test_db().await).await;
+    state.middleware.rebuild_from_rules(vec![mw_mask_rule(1, MW_EMAIL_RE, 0, MaskMode::Reversible, &[])]);
+    setup_group_with_upstream(&state, "gkm1", &up).await;
+    log_all_sides(&state).await;
+
+    let req = format!(r#"{{"model":"claude-3","messages":[{{"role":"user","content":"mail {PRIVACY_EMAIL} hi"}}]}}"#);
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkm1", &req)).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let client = String::from_utf8_lossy(&axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap()).to_string();
+    assert!(client.contains(PRIVACY_EMAIL), "客户端应拿回原文: {client}");
+    assert!(!client.contains(&ph), "客户端不应见占位符: {client}");
+
+    let sent = hits.lock().unwrap()[0].1.clone();
+    assert!(sent.contains(&ph), "上游应收占位符: {sent}");
+    assert!(!sent.contains(PRIVACY_EMAIL), "原文禁出站: {sent}");
+
+    let log = last_log_for(&state, "gkm1").await;
+    for (side, body) in [
+        ("request_body", &log.request_body),
+        ("upstream_request_body", &log.upstream_request_body),
+        ("response_body", &log.response_body),
+        ("user_response_body", &log.user_response_body),
+    ] {
+        assert!(!body.contains(PRIVACY_EMAIL), "{side} 含原文: {body}");
+        assert!(body.contains(&ph), "{side} 应为占位符形态: {body}");
+    }
+}
+
+#[tokio::test]
+async fn mw_reversible_stream_restores_across_chunks() {
+    use aidog_db::models::MaskMode;
+    let _g = PRIVACY_TEST_LOCK.lock().await;
+    let ph = mw_placeholder();
+    let sse = format!(
+        "event: message_start\ndata: {{\"type\":\"message_start\",\"message\":{{\"usage\":{{\"input_tokens\":5,\"output_tokens\":0}}}}}}\n\nevent: content_block_delta\ndata: {{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{{\"type\":\"text_delta\",\"text\":\"token {ph} done\"}}}}\n\nevent: message_stop\ndata: {{\"type\":\"message_stop\"}}\n\n"
+    );
+    let cut = sse.find(&ph).unwrap() + ph.len() / 2;
+    let up = spawn_privacy_sse_upstream(vec![sse.as_bytes()[..cut].to_vec(), sse.as_bytes()[cut..].to_vec()]).await;
+    let state = make_state(test_db().await).await;
+    state.middleware.rebuild_from_rules(vec![mw_mask_rule(1, MW_EMAIL_RE, 0, MaskMode::Reversible, &[])]);
+    setup_group_with_upstream(&state, "gkm2", &up).await;
+    log_all_sides(&state).await;
+
+    let req = format!(r#"{{"model":"claude-3","stream":true,"messages":[{{"role":"user","content":"mail {PRIVACY_EMAIL}"}}]}}"#);
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkm2", &req)).await;
+    let client = String::from_utf8_lossy(&axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap()).to_string();
+    assert!(client.contains(PRIVACY_EMAIL), "流式客户端应拿原文: {client}");
+    assert!(!client.contains(&ph), "流式客户端不应见占位符: {client}");
+    let log = last_log_for(&state, "gkm2").await;
+    assert!(!log.user_response_body.contains(PRIVACY_EMAIL), "流式用户响应日志含原文: {}", log.user_response_body);
+    assert!(!log.request_body.contains(PRIVACY_EMAIL));
+    assert!(!log.upstream_request_body.contains(PRIVACY_EMAIL));
+}
+
+#[tokio::test]
+async fn mw_fixed_mask_behaviour_unchanged() {
+    use aidog_db::models::MaskMode;
+    let _g = PRIVACY_TEST_LOCK.lock().await;
+    let (up, hits) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
+    let state = make_state(test_db().await).await;
+    state.middleware.rebuild_from_rules(vec![mw_mask_rule(1, MW_EMAIL_RE, 0, MaskMode::Fixed, &[])]);
+    setup_group_with_upstream(&state, "gkm3", &up).await;
+    let req = format!(r#"{{"model":"claude-3","messages":[{{"role":"user","content":"mail {PRIVACY_EMAIL}"}}]}}"#);
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkm3", &req)).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let sent = hits.lock().unwrap()[0].1.clone();
+    assert!(sent.contains("****") && !sent.contains("{{PII_") && !sent.contains(PRIVACY_EMAIL), "{sent}");
+}
+
+#[tokio::test]
+async fn mw_two_reversible_rules_second_leaves_placeholder_alone() {
+    use aidog_db::models::MaskMode;
+    let _g = PRIVACY_TEST_LOCK.lock().await;
+    let ph = mw_placeholder();
+    let upstream_body: &'static str = Box::leak(
+        format!(
+            r#"{{"id":"m","type":"message","role":"assistant","model":"claude-3","content":[{{"type":"text","text":"echo {ph}"}}],"stop_reason":"end_turn","usage":{{"input_tokens":5,"output_tokens":3}}}}"#
+        )
+        .into_boxed_str(),
+    );
+    let (up, hits) = spawn_embedding_upstream(vec![(200, upstream_body)]).await;
+    let state = make_state(test_db().await).await;
+    state.middleware.rebuild_from_rules(vec![
+        mw_mask_rule(1, MW_EMAIL_RE, 1, MaskMode::Reversible, &[]),
+        mw_mask_rule(2, "PII|MASK|example", 2, MaskMode::Reversible, &[]),
+    ]);
+    setup_group_with_upstream(&state, "gkm4", &up).await;
+    let req = format!(r#"{{"model":"claude-3","messages":[{{"role":"user","content":"mail {PRIVACY_EMAIL}"}}]}}"#);
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkm4", &req)).await;
+    let client = String::from_utf8_lossy(&axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap()).to_string();
+    assert!(hits.lock().unwrap()[0].1.contains(&ph), "上游应见第一条的占位符");
+    assert!(client.contains(PRIVACY_EMAIL) && !client.contains("{{PII_"), "{client}");
+}
+
+#[tokio::test]
+async fn mw_reversible_failure_is_503_zero_upstream_and_scoped() {
+    use aidog_db::models::MaskMode;
+    let _g = PRIVACY_TEST_LOCK.lock().await;
+    let (up, hits) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
+    let state = make_state(test_db().await).await;
+    state.middleware.rebuild_from_rules(vec![mw_mask_rule(1, MW_EMAIL_RE, 0, MaskMode::Reversible, &["gkm5"])]);
+    setup_group_with_upstream(&state, "gkm5", &up).await;
+    setup_group_with_upstream(&state, "gkm5-other", &up).await;
+    let req = format!(r#"{{"model":"claude-3","messages":[{{"role":"user","content":"mail {PRIVACY_EMAIL}"}}]}}"#);
+
+    aidog_middleware::set_reversible_force_fail(true);
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkm5", &req)).await;
+    let other = handle_proxy(AxumState(state.clone()), messages_request("gkm5-other", &req)).await;
+    aidog_middleware::set_reversible_force_fail(false);
+
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(hits.lock().unwrap().len(), 1, "仅作用域外那次到达上游");
+    assert_eq!(other.status(), StatusCode::OK, "作用域外请求不受影响");
+    let full = last_log_for(&state, "gkm5").await;
+    assert_eq!(full.status_code, 503);
+    assert_eq!(full.blocked_by, "router");
+    assert_eq!(full.blocked_reason, "privacy_scrub_unavailable");
+}

@@ -294,6 +294,35 @@ async fn forward_attempt_model(
             Err(o) => return o.into(),
         };
 
+    // ── 中间件可还原 mask（Reversible Mask）：在最终出站 body 上执行（协议转换之后），
+    // 命中片段换成占位符；映射表只在本 attempt 内存，响应侧还原。应用失败 → fail-closed 503。
+    // 用户请求侧日志同步改成占位符形态（日志库任何列不留原文）。──
+    let mw_restore = {
+        let mw_settings = state.settings_cache.read().await.middleware_settings.clone();
+        match middleware_body::apply_reversible_mask_body(
+            &state.middleware,
+            &mw_settings,
+            &mut req_body,
+            target.target_protocol_enum,
+            &actual_model,
+            Some(&group.group_key),
+            route.platform.id as i64,
+            Some(&log.request_headers),
+        ) {
+            Ok(map) if map.is_empty() => None,
+            Ok(map) => {
+                log.request_body = map.mask_log_body(&log.request_body);
+                Some(Arc::new(map))
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "reversible mask failed: fail-closed 503");
+                return AttemptOutcome::Respond(
+                    block_privacy_fail_closed(state, log.clone(), log_settings, lang, start).await,
+                );
+            }
+        }
+    };
+
     // ── 票 02：出站隐私脱敏（设置 privacy/scrub 开启时）：对出站 JSON body 字符串值检测替换。
     // 映射表只在本 attempt 内存存活（响应侧还原后随作用域丢弃），不落盘、不进 proxy_log
     // 原文列——上游请求 / 响应 body 落库为占位符形态。设置关闭时零改动直通。──
@@ -553,6 +582,7 @@ async fn forward_attempt_model(
                 &upstream_resp_headers,
                 start,
                 privacy_map,
+                mw_restore,
                 body,
             )
             .await,
@@ -622,6 +652,7 @@ async fn forward_attempt_model(
             &upstream_resp_headers,
             start,
             privacy_map,
+            mw_restore,
         )
         .await,
     )

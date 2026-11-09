@@ -41,6 +41,8 @@ pub(crate) async fn finish_nonstream(
     // 票 02：出站脱敏映射表（None = 未开启，零改动直通）。响应侧整段还原；
     // log.response_body 已在上文按上游原文（占位符形态）捕获，原值不落库。
     privacy: Option<Arc<crate::gateway::privacy::ScrubMap>>,
+    // 中间件可还原 mask 映射表：响应在出站中间件之后还原；日志侧（user_response_body）保持占位符形态。
+    mw_restore: Option<Arc<crate::gateway::privacy::ScrubMap>>,
     body: Bytes,
 ) -> Response {
     let source_protocol = &ctx.source_protocol;
@@ -200,6 +202,15 @@ pub(crate) async fn finish_nonstream(
         String::new()
     };
 
+    // 中间件可还原 mask：日志已记占位符形态，下发客户端前还原（替换值做 JSON 转义）。
+    let body = match &mw_restore {
+        Some(map) => {
+            crate::gateway::privacy::restore_json_escaped(&String::from_utf8_lossy(&body), map)
+                .into_bytes()
+        }
+        None => body,
+    };
+
     // ── 透传上游响应头（黑名单剔除 content-encoding/content-length/hop-by-hop）──
     let mut filtered = filter_upstream_resp_headers(upstream_resp_headers, false);
     // 上游缺 content-type 时回退默认 application/json
@@ -279,6 +290,8 @@ pub(crate) async fn finish_stream<S>(
     // 票 02：出站脱敏映射表（None = 未开启，零改动直通）。流式经 StreamRestorer
     // 按占位符完整性切分还原（正文 / 工具参数 / 思维链统一在下发字节层）。
     privacy: Option<Arc<crate::gateway::privacy::ScrubMap>>,
+    // 中间件可还原 mask 映射表：还原在 masker / 旧隐私还原之后；client 侧日志记还原前形态。
+    mw_restore: Option<Arc<crate::gateway::privacy::ScrubMap>>,
 ) -> Response
 where
     S: futures::Stream<Item = reqwest::Result<Bytes>> + Unpin + Send + 'static,
@@ -338,6 +351,8 @@ where
     //   覆盖 passthrough / 转换两分支的正文、工具调用参数与思维链；上游原文聚合
     //   （push_upstream）不受影响，log 保持占位符形态。──
     let mut privacy_restorer = privacy.map(crate::gateway::privacy::StreamRestorer::new);
+    // 中间件可还原 mask 的还原窗口（串在旧隐私还原之后）；client 侧日志取其输入（占位符形态）。
+    let mut mw_restorer = mw_restore.map(crate::gateway::privacy::StreamRestorer::new);
 
     // ── 旁路聚合器：累积 token + 上游 SSE 原文 + 转换后下发客户端的 SSE。
     // 闭包内对其加同步锁是短临界区（push），禁持锁跨 await（闭包本身同步，不 await）。──
@@ -434,10 +449,23 @@ where
             if tail.is_empty() {
                 return Ok::<_, std::io::Error>(Bytes::new());
             }
-            let tail = Bytes::from(tail);
-            if record_client_body {
-                guard.agg.push_client(&tail);
-            }
+            let tail = match mw_restorer.as_mut() {
+                Some(r) => {
+                    if record_client_body && !tail.is_empty() {
+                        guard.agg.push_client(&Bytes::from(tail.clone()));
+                    }
+                    let mut s = r.push_bytes(tail.as_bytes());
+                    s.push_str(&r.finish());
+                    Bytes::from(s)
+                }
+                None => {
+                    let tail = Bytes::from(tail);
+                    if record_client_body {
+                        guard.agg.push_client(&tail);
+                    }
+                    tail
+                }
+            };
             return Ok::<_, std::io::Error>(tail);
         };
         let chunk = match chunk_result {
@@ -464,6 +492,11 @@ where
                 }
                 if !out.is_empty() && record_client_body {
                     guard.agg.push_client(&Bytes::from(out.clone()));
+                }
+                if let Some(r) = mw_restorer.as_mut() {
+                    let mut s = r.push_bytes(out.as_bytes());
+                    s.push_str(&r.finish());
+                    out = s;
                 }
                 out.push_str(&upstream_break_error_frame(&client_protocol));
                 out.push_str(
@@ -613,9 +646,20 @@ where
         };
 
         // 旁路累积下发客户端的 SSE（受 log_user_request 开关控制；push_client 同 O(1) 上限判断）
+        // 中间件可还原 mask 在场时：日志记还原前（占位符形态），再对下发字节还原。
         if record_client_body && !out_bytes.is_empty() {
             guard.agg.push_client(&out_bytes);
         }
+        let out_bytes = match mw_restorer.as_mut() {
+            Some(r) => {
+                let mut s = r.push_bytes(&out_bytes);
+                if has_stream_terminator(&text) {
+                    s.push_str(&r.finish());
+                }
+                Bytes::from(s)
+            }
+            None => out_bytes,
+        };
         // 正常结束：本 chunk 含 [DONE] 即触发 flush（token 已累加完整）；否则由断连 Drop 兜底。
         // flush 幂等（est_fired 守卫），[DONE] 与 Drop 二者只生效一次。flush 内仅 tokio::spawn，不阻塞转发。
         guard.flush_if_done(&text);
