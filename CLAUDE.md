@@ -39,7 +39,7 @@
 - 目录布局：`src-tauri/defaults/{settings,codex,pi}/<id>.json`，一份预设 = 一个文件，id = 文件名主干（发布后禁改名）；顶层必带 `_aidog_preset_name`（显示名，写出前剥离）。编译期清单由 `aidog_core/build.rs` 生成，前端经 command 取列表，≥2 份才弹选择框；默认预设固定 `oss`，缺 `oss` 构建失败。
 - `GITHUB_ACTIONS=true` 构建清单只含 `oss`（过滤逻辑 `aidog_core/src/preset_filter.rs`），本地 `make install` / `make release` 全量；`rerun-if-env-changed` 已登记。测试禁依赖份数。
 - 新增预设 = 在对应目录放一个 json 文件，不改 Rust / TS；需翻译显示名才加前端 id→key 映射 + 8 locale。
-- 改 preset 的 `permissions.allow` 后同步两份全局拷贝（git 外，仓内改动不会带上）：`~/.claude/settings.json` 与 `~/.claude/settings.claude.json`；三处名单保持逐条一致。
+- 改 preset 的 `permissions.allow` 后同步两份全局拷贝（git 外，仓内改动不会带上）：`~/.claude/settings.json` 与 `~/.claude/settings.claude.json`；三处名单保持逐条一致。`~/.claude/settings.claude.json` 是用户自维护的拷贝，AiDog 不写它（分组 settings 写在 `~/.aidog/settings.<group>.json`，`sync_settings.rs:623`）。
 - **`_aidog_claude_json` 段**（预设顶层可选）：Claude Code 的 Global config 键（`copyOnSelect` / `diffTool` / `autoInstallIdeExtension` 等，settings-reference「Global config settings」节）只从 `~/.claude.json` 读，写进 settings.json 无效。该段写 `~/.claude/settings.json` 与各分组 `settings.<group>.json` 前一律剥离（`sync_settings.rs` `CLAUDE_JSON_KEY`）；仅默认分组同步时把段内键合并写入 `~/.claude.json`（`merge_claude_json`：只覆盖段内键、其余保留、值已一致不写、文件非法 JSON 则拒写、原子写）；取消默认分组 / 卸载**不恢复**。段内键参与 `sync-preset-min-version.mjs` 的 minimumVersion 计算。
 - 自检：`GITHUB_ACTIONS=true cargo test --workspace` 后对测试二进制 `strings | grep -c lazygophers/ccplugin`（非 oss 独有标记）应为 0，不设变量应 >0。
 - 风险：非 `oss` 预设（如 `lazygophers.json`）是个人配置且进公开 git，禁放密钥 / token / 内网地址，提交前过凭据扫描。

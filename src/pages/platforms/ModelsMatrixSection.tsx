@@ -169,6 +169,7 @@ export function ModelsMatrixSection({
   const [activeCell, setActiveCell] = useState<CellKey | null>(null);
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [copyConfirmOpen, setCopyConfirmOpen] = useState(false);
   // 时段档视图（columns="time"）左菜单选中档
   const [selectedRuleIdx, setSelectedRuleIdx] = useState(0);
   // 候选列表（时段档列复用同源）。
@@ -224,6 +225,14 @@ export function ModelsMatrixSection({
       else delete nextModels[slot];
       return { ...r, models: nextModels };
     }));
+  };
+
+  // 「从模型配置复制」：「模型」tab 内置 8 槽链 + 内置槽开关整份写入本档（自定义槽不进时段档）。
+  const copyFromModels = (idx: number) => {
+    const copied: Partial<Record<ModelSlot, string[]>> = {};
+    for (const { key } of MODEL_SLOTS) if (models[key].length > 0) copied[key] = [...models[key]];
+    updateRule(idx, { models: copied, disabled_slots: platformBuiltinOff });
+    setCopyConfirmOpen(false);
   };
 
   const importFromPeak = () => {
@@ -372,6 +381,16 @@ export function ModelsMatrixSection({
                 >
                   {t("platform.time_windows_edit_button", "编辑时段")}
                 </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  style={{ fontSize: 12, padding: "4px 10px" }}
+                  data-testid="time-rule-copy-models"
+                  onClick={() => (MODEL_SLOTS.some(({ key }) => slotList(sel.models[key]).length > 0)
+                    ? setCopyConfirmOpen(true) : copyFromModels(selIdx))}
+                >
+                  {t("platform.time_windows_copy_models", "从模型配置复制")}
+                </Button>
               </div>
               {MODEL_SLOTS.map(({ key, labelKey }) => (
                 <SlotRow
@@ -379,7 +398,24 @@ export function ModelsMatrixSection({
                   count={slotList(sel.models[key]).length} cellMinWidth={0}
                   badge={dedicatedBadge(key, "time-slot-badge")} t={t}
                   toggle={enabledToggle(key, !ruleOff(sel).includes(key), (on) => setRuleSlotEnabled(selIdx, key, on), "time-slot-enabled")}
-                  hint={DEDICATED_MODEL_SLOTS.includes(key) && (
+                  hint={!DEDICATED_MODEL_SLOTS.includes(key) ? (
+                    // 聊天空槽落点：命中本档后空槽落到本档 default 链首，default 也空 → 透传请求模型名
+                    slotList(sel.models[key]).length === 0 && (() => {
+                      const head = slotList(sel.models.default)[0];
+                      return (
+                        <div
+                          id={`time-slot-fallback-${key}`}
+                          data-state={head ? "default" : "passthrough"}
+                          data-model={head}
+                          style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 2 }}
+                        >
+                          {head
+                            ? t("platform.timeSlotFallbackDefault", "落到本档 default：{{model}}", { model: head })
+                            : t("platform.timeSlotFallbackPassthrough", "透传请求模型名")}
+                        </div>
+                      );
+                    })()
+                  ) : (
                     slotList(sel.models[key]).length === 0 ? (
                       // 命中时段档整套替换：档内没填 = 时段内本平台不接此类请求
                       <div
@@ -423,6 +459,27 @@ export function ModelsMatrixSection({
           setTzMode={setTzMode}
           t={t}
         />
+
+        <Dialog open={copyConfirmOpen} onOpenChange={setCopyConfirmOpen}>
+          <DialogContent className="glass-elevated" style={{ maxWidth: 400 }}>
+            <DialogHeader>
+              <DialogTitle style={{ fontSize: 13 }}>
+                {t("platform.time_windows_copy_confirm_title", "覆盖本档模型配置？")}
+              </DialogTitle>
+              <DialogDescription style={{ fontSize: 12 }}>
+                {t("platform.time_windows_copy_confirm_body", "本档已有模型槽内容，将被「模型」tab 当前的内置槽模型与开关整份覆盖。")}
+              </DialogDescription>
+            </DialogHeader>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <Button variant="ghost" data-testid="time-rule-copy-cancel" onClick={() => setCopyConfirmOpen(false)}>
+                {t("action.cancel", "取消")}
+              </Button>
+              <Button data-testid="time-rule-copy-confirm" className="ripple" onClick={(e) => { makeRipple(e); copyFromModels(selIdx); }}>
+                {t("platform.time_windows_copy_confirm_button", "覆盖")}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={importModalOpen} onOpenChange={(v) => { if (!v) setImportModalOpen(false); }}>
           <DialogContent className="glass-elevated" style={{ maxWidth: 400 }}>
