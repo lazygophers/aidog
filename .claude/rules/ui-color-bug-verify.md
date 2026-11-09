@@ -51,3 +51,13 @@ SearchableProtocolSelect 在 Vite-only 下因 Tauri IPC 调用返回空，组件
 
 这是此场景下的合法降级，不是「静态推理替代 computed style」的一般许可——
 只要组件能挂载，仍优先跑真渲染（规则 1/2）。
+
+## 显示类 bug：先用只读 RPC 读用户实例的真实数据（2026-11-09 代理日志空行）
+
+「日志页展示全是空的」类问题，几分钟定位靠的是直接读真实行：对用户常驻 AiDog 发只读管理接口
+`POST 127.0.0.1:9890/api/rpc/proxy_log_list`、`proxy_log_get`（本机回环，见 CLAUDE.md「Local API」），
+看到 115 行 http-connect 非 AI 隧道空行，根因当场定论，不必先猜渲染层。
+
+- 只调 list / get 类只读命令；写命令、`pkill`、改设置一律不碰（perf-testing.md §1 的边界）。
+- context-mode 钩子会拦 `curl`：写一个 node `fetch` 脚本文件（放 `.tmp/<任务名>/`）再跑，收工删。
+- 有 `auth_token` 时带 Bearer；9890 不通就报「做了没验证」，不换端口试别的实例。

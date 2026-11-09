@@ -308,3 +308,12 @@ harness 隔离建的 agent worktree 自带 lock，收工直接 `/usr/bin/git wor
   串行做（见文首「默认」）；确需并行的实现才留在各自 worktree，只在合并阶段排队进主仓。
 - ff-only 失败且双方无冲突：改 `merge --no-ff`（使 `branch -d` 仍可删，不用 rebase 改写历史、
   不用 cherry-pick 后 `-D`）。
+
+## 取「先红」不要 stash/pop；共享 checkout 上 lint 中途红先看红文件归属（2026-11-09）
+
+隐私脱敏线：票 01 agent 为拿先红输出对共享 checkout 做 `git stash` / `pop`（已恢复，但同工作区有并行 agent 的脏文件，stash 会一并搬走）。
+同线 `make lint` 两次转红，红点都在另一票在途文件（`middleware_body.rs`、`test_integration.rs`），与本票 diff 无关。
+
+- 先红用「先加桩使其编译，再跑断言红」，或「改坏实现→红→按行号还原」（parallel-implement.md §18）；禁在共享 checkout 上 stash。
+- lint / tsc 红先 `git status --short` 对照：红文件在他人脏文件集里 = 等其收工再复核，回报写明「红在他票在途文件」，不替对方修、不 stash 绕开。
+- 并行 agent 共改 locale / `log.rs` 这类共用文件时，已验证可行的做法是各自 `git add -p` 只暂存自己的 hunk（本线多次成功）。

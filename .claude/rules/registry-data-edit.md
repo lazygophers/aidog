@@ -51,6 +51,10 @@ bump-registry-last-updated.mjs 的循环里 index.json 被 `continue` 跳过
 循环三轮才绿。包含/排除名单、键集对比这类清单断言失败时，先把门禁改成一次
 输出全部不匹配项（或临时收集再断言），看全了再一次性修，不逐条试错。
 
+2026-11-09 数据补齐轮二次实锤，且主因升级为门禁写法本身：`every_model_has_an_official_platform`
+逐条 panic，首报只见 1 条违规，修成收集式后一次见 12 条。补强：**新写清单断言直接写成
+收集全量式**（循环内收集违规清单、循环尾一次 panic 打印全部），不写逐条 panic 的门禁。
+
 ## 新必填字段上线 = 三件套（2026-10-01 supported_protocols 轮，c74507db1）
 
 给 model/platform 条目加一个 schema 必填字段时，三件事缺一不可，一次 session 内做齐：
@@ -104,6 +108,11 @@ per-platform `models/*.json` 的增删不自动反映到 `index.json` 的平台 
 shared-worktree.md「凡写主 checkout 的 agent 串行派」在 registry 大轮上的
 例外形态：文件集不相交才并行，共享文件永远单点收口。
 
+2026-11-09 数据补齐轮再验证并扩成四段形态：取证 agent 产值文件（`.scratch/<feature>/research/`
+下逐平台 json）→ 主会话抽核（24 条回源验证）→ 写入 agent 按文件集并行（platform.json /
+models / schema+代码三分）→ 收尾 agent 单点收口（逐档回填、盖戳、门禁、分批 commit）。
+两轮均全程零 index.lock、零盖戳误伤。
+
 ## schema 拦截 ≠ 数据没丢：按 schema 删键前 grep 读取层（2026-11-07 审计轮）
 
 「新必填字段上线 = 三件套」是加字段方向；本条是反向的删字段 / 禁键对称件。
@@ -119,3 +128,35 @@ base」静默变成「继承 base 价」。门禁绿 + schema 是契约，挡不
 有 → 先拍板（扩 schema 保留，或确认「删除 = 运行时行为变更」并留复活条件），
 不静默删。落选的「扩 schema 保留」要带复活条件写进报告遗留（本轮遗留㉑即此
 写法）。
+
+## 取证值文件的形状 = 落库目标字段的形状（2026-11-09 数据补齐轮）
+
+aihubmix 14 条图像档价，取证 agent 记的是区间串（「0.1395–0.2479 $/MP（720p/1080p）」），
+拍板阶段够用、落库阶段不够——无法按 `unit_tiers` 逐档回填，收尾 agent 被迫重取证一遍。
+规则：
+
+1. **派取证任务时把目标 schema 字段的档结构写进派发 prompt**（字段名、单位口径、
+   档位维度），值文件按最终可落库的逐档值记录。
+2. 判据：值文件每条数据能直接抄进 schema 字段；抄不进 = 取证未完成，不算结票。
+3. 区间串 / 摘要串（「$0.03–0.05/MP」级）在拍板阶段合法，落库阶段不算值。
+
+## 批量上量前 grep 全量反断言（2026-11-09 数据补齐轮）
+
+test_registry.rs 躺着「除 4 个 GLM 平台外其余平台不得有 rate_limit_policies」式全量
+反断言（单票时期写的），批量给 14 个平台落数据后必红。规则：
+
+1. 「样本扩大」类批量数据轮派单前，先 grep 门禁里的全量反断言
+   （`grep -nE '不得|只允许|除.*外|NO_[A-Z_]+' src-tauri/crates/aidog_db/src/test_registry.rs`
+   与 `scripts/check-registry.mjs`），命中名单写进派发 prompt。
+2. 数据扩大后反断言同轮同步：扩白名单，或改写成正向断言（本轮 commit 85d69bb75
+   「限频断言改正向」即此），不等门禁红再修。
+
+## 外部数值落库前量级核对（2026-11-09 数据补齐轮）
+
+aliyun rerank 档官方 TPM 4.98e9 超过 u32 上限 4.29e9，`RateLimitCaps` 首版 u32
+装不下，靠 cargo test 抓住后改 u64（`registry.rs:248` 字段注释即此出处）。规则：
+
+外部官方数值（TPM / RPM / 上下文窗口 / 价格）落库前，对目标字段做一次量级核对：
+grep struct 定义看整数宽度（u32 上限 4.29e9，u64 约 1.8e19），官方最大值超限 →
+先改字段类型再落库，禁截断 / 估算塞入。机械拦截候选：check-registry lint 加数值
+范围检查（未做，属代码改动，需要时开票）。
