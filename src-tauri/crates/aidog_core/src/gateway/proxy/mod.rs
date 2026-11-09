@@ -64,6 +64,7 @@ mod stream;
 mod timeout;
 mod tool_search;
 mod tools;
+mod web_takeover;
 mod ws;
 mod tokenizer;
 
