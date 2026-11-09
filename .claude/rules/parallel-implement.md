@@ -322,3 +322,19 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
 - 上文各节的 `/tmp/<名>.log` 一律落仓库 `.tmp/<任务名>/<名>.log`（`.gitignore` 已忽略），收工删该目录；
   命令前先 `mkdir -p .tmp/<任务名>`。
 - 上文 `CARGO_TARGET_DIR=/tmp/aidog-agent-target` 作废：主 checkout 用默认 `src-tauri/target`，仅 worktree 用 `<项目根>/.worktrees/.target`（见 shared-worktree.md「构建目录」）。
+
+## 19. implementer 的门禁链一律前台同步跑（2026-11-07 magpie 轮）
+
+票 12 两次卡死同一模式：agent 把门禁链挂后台 Bash，自己 idle 等「完成通知」，
+链早已跑完（`.tmp/<任务名>/gate.log` 里 `GATE_CHAIN_DONE` 在场）却没人唤醒，白白挂起。
+
+- 派出的 implementer 跑门禁一律 **Bash 前台同步**（长门禁设足 timeout），跑完接着做
+  下一步；禁挂后台再 idle 等通知——agent 自己就是等结果的人，没有别人会通知它。
+- 主会话侧：发现 implementer idle 且 `.tmp/<任务名>/gate.log` 已有 `GATE_CHAIN_DONE`，
+  SendMessage 唤醒续做，不重派。
+
+## 20. 本机 `HTTP_PROXY` 会让 aidog_kernel 的 search / media 测试假红（2026-11-09）
+
+`cargo test --workspace` 在设了 `HTTP_PROXY` 的本机上，`aidog_kernel` search / media 共 4~5 个测试红，去掉代理变量后全绿（隐私票 01、MITM 票 01 两次实锤）。
+门禁命令前缀 `env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy`，派发 prompt 照贴；
+`ratelimit_all_over_limit_503_and_audit_log` 全量跑偶发红、单跑绿，按 §17 先单跑定性，仍未归因的记账本遗留。
