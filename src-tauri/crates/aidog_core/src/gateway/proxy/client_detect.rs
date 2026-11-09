@@ -53,6 +53,24 @@ pub(crate) fn raw_user_agent(headers: &HeaderMap) -> String {
         .unwrap_or_default()
 }
 
+/// Claude Code 网关提示头（`x-claude-code-request-class` / `x-claude-code-agent-type`）的值上限。
+const CLAUDE_HINT_MAX_CHARS: usize = 64;
+
+/// Claude Code 网关提示头：`(request_class, agent_type)`。trim、截 64 字符；含非可打印 ASCII → 空串；
+/// 未知取值原样保留（不校验词表）。无头 → 空串。
+pub(crate) fn claude_hint_headers(headers: &HeaderMap) -> (String, String) {
+    let get = |name: &str| -> String {
+        headers
+            .get(name)
+            .and_then(|v| v.to_str().ok())
+            .map(str::trim)
+            .filter(|s| s.chars().all(|c| c.is_ascii_graphic() || c == ' '))
+            .map(|s| s.chars().take(CLAUDE_HINT_MAX_CHARS).collect())
+            .unwrap_or_default()
+    };
+    (get("x-claude-code-request-class"), get("x-claude-code-agent-type"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -61,6 +79,21 @@ mod tests {
         let mut h = HeaderMap::new();
         h.insert(USER_AGENT, s.parse().unwrap());
         h
+    }
+
+    #[test]
+    fn claude_hint_headers_sanitized() {
+        let mut h = HeaderMap::new();
+        assert_eq!(claude_hint_headers(&h), (String::new(), String::new()));
+        h.insert("x-claude-code-request-class", " main ".parse().unwrap());
+        h.insert("x-claude-code-agent-type", "general-purpose".parse().unwrap());
+        assert_eq!(claude_hint_headers(&h), ("main".into(), "general-purpose".into()));
+        // 非可打印 ASCII（含 UTF-8）→ 丢弃为空；超长 → 截 64
+        h.insert("x-claude-code-request-class", axum::http::HeaderValue::from_bytes("子代理".as_bytes()).unwrap());
+        h.insert("x-claude-code-agent-type", "a".repeat(100).parse().unwrap());
+        let (rc, at) = claude_hint_headers(&h);
+        assert_eq!(rc, "");
+        assert_eq!(at.len(), 64);
     }
 
     #[test]

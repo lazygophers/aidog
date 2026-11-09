@@ -127,6 +127,13 @@ pub struct ProxyLog {
     /// 存量行 '' = 未归组（D4a 不回填）。
     #[serde(default)]
     pub session_key: String,
+    /// Claude Code 网关提示头 `x-claude-code-request-class`（main / subagent / workflow / compaction /
+    /// auxiliary / side_reply …，未知值原样存）；空串 = 无该头 / 存量行。元数据：不受日志开关控制。
+    #[serde(default)]
+    pub request_class: String,
+    /// Claude Code 网关提示头 `x-claude-code-agent-type`（子代理自己的回合才有）；空串 = 无。
+    #[serde(default)]
+    pub agent_type: String,
 }
 
 /// `ProxyLog.user_agent` 字符上限（防畸形超长 UA 撑大行）。
@@ -617,6 +624,12 @@ pub struct ProxyLogSummary {
     pub down_bytes: i64,
     #[ts(type = "number")]
     pub created_at: i64,
+    /// Claude Code 请求类型提示头（见 `ProxyLog.request_class`）；空串 = 无
+    #[serde(default)]
+    pub request_class: String,
+    /// Claude Code 子代理类型提示头（见 `ProxyLog.agent_type`）；空串 = 无
+    #[serde(default)]
+    pub agent_type: String,
 }
 
 /// 分页探测结果（logs-query-ipc-slimming s2）：`items` 恒为 `limit` 行，`has_more` 由

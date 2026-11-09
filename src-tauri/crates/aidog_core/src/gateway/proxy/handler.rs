@@ -117,6 +117,7 @@ pub(crate) async fn handle_proxy_core(
     let log_settings = state.settings_cache.read().await.log_settings.clone();
 
     // ── 初始化日志条目 ──（后续逐字段填充；非零默认值仅 id/created_at/updated_at）
+    let (request_class, agent_type) = super::client_detect::claude_hint_headers(req.headers());
     let mut log = ProxyLog {
         id: request_id,
         created_at,
@@ -124,6 +125,8 @@ pub(crate) async fn handle_proxy_core(
         // 活请求头直读（不经落库后的 request_headers），不受 log_user_request 开关影响。
         client: super::client_detect::detect_client(req.headers()),
         user_agent: super::client_detect::raw_user_agent(req.headers()),
+        request_class,
+        agent_type,
         ..Default::default()
     };
 

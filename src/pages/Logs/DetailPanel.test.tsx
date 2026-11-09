@@ -103,6 +103,27 @@ describe("DetailPanel UA", () => {
   });
 });
 
+describe("DetailPanel Claude Code 网关提示头", () => {
+  it("已知请求类型映射为本地化标签，子代理类型原样展示", () => {
+    const d = { ...detailFixture([attempt(1, 200)]), request_class: "subagent", agent_type: "Explore" } as unknown as ProxyLogDetail;
+    renderPanel(d);
+    expect(screen.getByTestId("detail-request-class").textContent).toBe("子代理");
+    expect(screen.getByTestId("detail-agent-type").textContent).toBe("Explore");
+  });
+
+  it("未知请求类型原样展示", () => {
+    const d = { ...detailFixture([attempt(1, 200)]), request_class: "brand_new", agent_type: "" } as unknown as ProxyLogDetail;
+    renderPanel(d);
+    expect(screen.getByTestId("detail-request-class").textContent).toBe("brand_new");
+  });
+
+  it("旧日志无该头：占位 -", () => {
+    renderPanel(detailFixture([attempt(1, 200)]));
+    expect(screen.getByTestId("detail-request-class").textContent).toBe("-");
+    expect(screen.getByTestId("detail-agent-type").textContent).toBe("-");
+  });
+});
+
 describe("DetailPanel 独立页", () => {
   it("渲染为整页（非弹窗），返回按钮把 detail 置空", () => {
     const setDetail = vi.fn();

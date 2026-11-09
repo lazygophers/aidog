@@ -878,6 +878,8 @@ async fn process_connect_log(
         body_omitted: 0,
         // CONNECT 隧道无会话归组（无 JSON body 可派生）。
         session_key: String::new(),
+        request_class: String::new(),
+        agent_type: String::new(),
         up_bytes: req_bytes,
         down_bytes: resp_bytes,
     };
