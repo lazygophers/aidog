@@ -806,56 +806,15 @@ pub(crate) async fn handle_proxy_core(
     //   模型类 / 未知类只排除该组合，失败组合本次请求内不再选。
     //   2xx → 成功；不可重试错误 / error_rule non-retryable → 立即回客户端；流式开始后不换。
     //   每次尝试均 record 进 attempts；最大尝试次数用尽或无组合可选 → 返回 503。
-    let mut budget = CallBudget::new(group.max_retries);
     let mut attempts: Vec<ProxyAttempt> = Vec::new();
-    let mut excl = attempt_plan::Exclusions::default();
-    let mut planner = attempt_plan::AttemptPlanner::default();
-    let mut rate_slot = None;
-    let mut first_ranking = Some(candidates);
     // 重排按客户端请求的模型名（forward 会把 chat_req.model 改写成上游目标模型）。
-    let route_model = requested_model.clone();
-    // R3（2026-09-28）：本次请求内已 connect 失败的 base_url 集合。死站对同站兄弟条目同样
-    // 连不上（站级事实，与 key 无关），后续候选命中同 base_url 直接跳过，省一遍 15s connect 死等。
-    // 仅 connect 失败联动；429/401 等 key 级错误不联动（同站不同 key 仍各有机会）。
-    let mut dead_base_urls: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut attempt_loop =
+        attempt_plan::AttemptLoop::new(group.max_retries, RequestKind::Chat, &requested_model, client_gate.clone(), candidates);
+    let mut rate_slot = None;
 
-    loop {
-        // 最大尝试次数用尽（换平台与同平台换模型的上游调用都计）
-        if budget.exhausted() {
-            break;
-        }
-        let ranked = match first_ranking.take() {
-            Some(c) => c,
-            None => {
-                match planner
-                    .rerank(&state.db, &group, &route_model, &sched_ctx, client_gate.clone())
-                    .await
-                {
-                    Ok(c) => c,
-                    Err(e) => {
-                        // 重排时剩余候选全被限频挡掉：终态 503 沿用限频审计标记
-                        if e == "rate_limit" {
-                            mark_rate_limited(&mut log);
-                        }
-                        break;
-                    }
-                }
-            }
-        };
-        let Some(pick) = attempt_plan::pick_first(excl.apply(ranked), &dead_base_urls, &mut log) else {
-            // 重排时有平台被限频挡掉、其余都已排除：终态 503 沿用限频审计标记
-            if planner.saw_rate_limit {
-                mark_rate_limited(&mut log);
-            }
-            break;
-        };
-        let is_last_candidate = !pick.platform_alt || budget.next_is_last();
-        let (platform_id, model, base_url) = (
-            pick.route.platform.id,
-            pick.route.target_model.clone(),
-            pick.route.platform.base_url.clone(),
-        );
-
+    // 最大尝试次数用尽（换平台与同平台换模型的上游调用都计）/ 无组合可选 → 退出循环落 503
+    while let Some(pick) = attempt_loop.next(&state.db, &group, &sched_ctx, &mut log).await {
+        let is_last_candidate = !pick.platform_alt || attempt_loop.budget.next_is_last();
         match forward_attempt(
             &state,
             &mut log,
@@ -864,7 +823,7 @@ pub(crate) async fn handle_proxy_core(
             pick.model_alt,
             pick.candidate_total,
             is_last_candidate,
-            &mut budget,
+            &mut attempt_loop.budget,
             &mut rate_slot,
             &log_settings,
             lang,
@@ -882,12 +841,7 @@ pub(crate) async fn handle_proxy_core(
         .await
         {
             AttemptOutcome::Respond(r) => return r,
-            AttemptOutcome::Next { connect_failed } => {
-                if connect_failed {
-                    dead_base_urls.insert(base_url);
-                }
-                attempt_plan::record_exclusion(&mut excl, &mut attempts, platform_id, &model);
-            }
+            AttemptOutcome::Next { connect_failed } => attempt_loop.failed(&mut attempts, connect_failed),
         }
     } // ── end attempt loop ──
 

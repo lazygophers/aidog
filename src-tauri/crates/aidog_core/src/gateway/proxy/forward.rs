@@ -168,7 +168,7 @@ pub(crate) fn mark_rate_limited(log: &mut ProxyLog) {
 }
 
 /// 一次请求的上游调用配额（分组「最大尝试次数」，请求尝试-逐次重算 票 01）：
-/// 换平台与同平台换模型各调用一次都计 1，用尽即停；四类请求循环共用同一实现。
+/// 换平台与同平台换模型各调用一次都计 1，用尽即停；四类请求经 `AttemptLoop` 共用。
 pub(crate) struct CallBudget {
     max: usize,
     used: usize,
@@ -198,43 +198,6 @@ impl CallBudget {
             r.mark_retry_limit_untried(self.max as u32, tried);
         }
         last
-    }
-    /// 记一次上游调用；返回 true = 这是配额内最后一次（不再换模型 / 换平台）。
-    /// 最后一次时把其后仍「入选」的候选在路由快照里补记为 retry-limit。
-    pub(crate) fn begin_call(&mut self, log: &mut ProxyLog, platform_id: u64) -> bool {
-        self.used += 1;
-        let last = self.exhausted();
-        if last && let Some(r) = log.routing.as_mut() {
-            r.mark_retry_limit(self.max as u32, platform_id);
-        }
-        last
-    }
-}
-
-/// 同平台换模型的共用状态（票 06 聊天、票 07 embedding / rerank / jev 四条路径共用，单一实现）。
-/// 调用方循环：`X_attempt(chain.route(), .., chain.has_next(), &mut switched)`；`switched=true`
-/// 表示本次失败属模型类，`handle_non_success` 已完成「分类 → 换模型判定 → 留痕未记账」（链尽时
-/// 落回原逻辑记账一次），此时 `chain.advance()` 切到下一个模型并重置计时。每次换模型都计入 `CallBudget`。
-pub(crate) struct ModelChain {
-    route: RouteResult,
-    fallbacks: Vec<String>,
-}
-
-impl ModelChain {
-    pub(crate) fn new(mut route: RouteResult) -> Self {
-        let fallbacks = std::mem::take(&mut route.fallback_models);
-        Self { route, fallbacks }
-    }
-    pub(crate) fn route(&self) -> &RouteResult {
-        &self.route
-    }
-    pub(crate) fn has_next(&self) -> bool {
-        !self.fallbacks.is_empty()
-    }
-    /// 切到下一个模型；返回新的 (attempt_start, attempt_ts)。调用前须 `has_next()`。
-    pub(crate) fn advance(&mut self) -> (std::time::Instant, i64) {
-        self.route.target_model = self.fallbacks.remove(0);
-        (std::time::Instant::now(), aidog_db::now())
     }
 }
 
