@@ -64,6 +64,40 @@ pub async fn run_tool(
     if name != "web_search" && outcome.is_ok() {
         count = 1;
     }
+    write_log(ctx, name, subject, count, &engines, started, &outcome).await;
+    outcome
+}
+
+/// 网关代执行的搜索（票 04）：与 [`run_tool`] 的 `web_search` 同一引擎链与日志写入，但返回结构化命中，
+/// 并按 `keep` 过滤（域名白/黑名单）；日志的结果条数 / 正文取过滤后。引擎全失败 = `Err`。
+pub async fn run_web_search_hits(
+    ctx: &ToolCtx<'_>,
+    query: &str,
+    settings: &McpToolsSettings,
+    keep: impl Fn(&aidog_search::SearchHit) -> bool,
+) -> Result<Vec<aidog_search::SearchHit>, String> {
+    use aidog_search as search;
+    let started = std::time::Instant::now();
+    let o = search::web_search_detailed(&settings.search, query, None, &search::SearchEnv::default()).await;
+    let outcome = match o.error {
+        Some(e) => Err(e),
+        None => Ok(o.hits.into_iter().filter(|h| keep(h)).collect::<Vec<_>>()),
+    };
+    let logged = outcome.as_ref().map(|h| search::format_hits(h)).map_err(Clone::clone);
+    let count = outcome.as_ref().map_or(0, Vec::len);
+    write_log(ctx, "web_search", query.to_string(), count, &o.engines, started, &logged).await;
+    outcome
+}
+
+async fn write_log(
+    ctx: &ToolCtx<'_>,
+    name: &str,
+    subject: String,
+    count: usize,
+    engines: &[aidog_search::EngineReport],
+    started: std::time::Instant,
+    outcome: &Result<String, String>,
+) {
     let privacy_on = log_user_request(ctx.db).await;
     let row = ToolLog {
         tool: name.to_string(),
@@ -72,12 +106,12 @@ pub async fn run_tool(
         platform: ctx.platform.to_string(),
         query: if privacy_on { subject } else { String::new() },
         result_count: count as i64,
-        engines: engines_json(&engines),
+        engines: engines_json(engines),
         duration_ms: started.elapsed().as_millis() as i64,
         success: outcome.is_ok(),
         error: outcome.as_ref().err().cloned().unwrap_or_default(),
-        result: match (&outcome, privacy_on) {
-            (Ok(t), true) => search::truncate_str(t, RESULT_LOG_MAX_CHARS).to_string(),
+        result: match (outcome, privacy_on) {
+            (Ok(t), true) => aidog_search::truncate_str(t, RESULT_LOG_MAX_CHARS).to_string(),
             _ => String::new(),
         },
         ..Default::default()
@@ -85,7 +119,6 @@ pub async fn run_tool(
     if let Err(e) = aidog_db::insert_tool_log(ctx.db, &row).await {
         tracing::warn!(error = %e, tool = name, "write tool_log failed");
     }
-    outcome
 }
 
 fn engines_json(engines: &[aidog_search::EngineReport]) -> String {
