@@ -189,3 +189,149 @@ async fn notification_delivery_table_exists_in_memory_db() {
     assert_eq!(rows[0].channel, "webhook");
     assert_eq!(rows[0].duration_ms, 12);
 }
+
+// ── 票 03：内置脱敏规则升级为 reversible + all ──
+/// (规则名, 占位符 TYPE, 默认启用)。
+const REVERSIBLE_BUILTINS: &[(&str, &str, bool)] = &[
+    ("内置·密钥脱敏", "SECRET", true),
+    ("内置·邮箱脱敏", "EMAIL", true),
+    ("内置·私钥脱敏", "PRIVATE_KEY", true),
+    ("内置·Bearer token 脱敏", "BEARER_TOKEN", true),
+    ("内置·云厂商密钥脱敏", "CLOUD_SECRET", false),
+    ("内置·IP/MAC 地址脱敏", "IP_MAC", false),
+    ("内置·信用卡号脱敏", "BANK_CARD", false),
+    ("内置·IBAN 脱敏", "IBAN", false),
+    ("内置·中国身份证号脱敏", "ID_NUMBER", false),
+    ("内置·美国社保号脱敏", "US_SSN", false),
+];
+
+fn assert_reversible_all(r: &crate::models::MiddlewareRule, ty: &str) {
+    assert_eq!(r.actions.len(), 1, "{}", r.name);
+    let p = &r.actions[0].params;
+    assert_eq!(r.actions[0].kind, crate::models::ActionKind::Mask, "{}", r.name);
+    assert_eq!(p.mode, crate::models::MaskMode::Reversible, "{}", r.name);
+    assert_eq!(p.fields, vec!["all".to_string()], "{}", r.name);
+    assert_eq!(p.placeholder_type, ty, "{}", r.name);
+}
+
+#[tokio::test]
+async fn fresh_install_builtin_privacy_rules_are_reversible_all() {
+    let (db, dir) = test_support::three_file_db().await;
+    drop(db);
+    // 重开库再断言（落盘值，而非内存态）
+    let db = Db::new(dir.path().join("aidog.db").to_str().unwrap()).await.unwrap();
+    let rules = list_middleware_rules(&db).await.unwrap();
+    for (name, ty, enabled) in REVERSIBLE_BUILTINS {
+        let r = rules
+            .iter()
+            .find(|r| r.is_builtin && r.name == *name)
+            .unwrap_or_else(|| panic!("缺内置规则 {name}"));
+        assert_reversible_all(r, ty);
+        assert_eq!(r.enabled, *enabled, "{name} 启用默认值");
+    }
+}
+
+#[tokio::test]
+async fn upgrade_rewrites_old_builtin_actions_keeps_enabled() {
+    let (db, dir) = test_support::three_file_db().await;
+    // 模拟旧版本：密钥脱敏是 fixed + messages/system，且用户已手动关闭；删掉新规则
+    db.call_traced(None, std::panic::Location::caller(), |conn| {
+        conn.execute(
+            "UPDATE middleware_rule SET enabled = 0, actions = ?1 WHERE name = '内置·密钥脱敏' AND is_builtin = 1",
+            params![r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#],
+        )?;
+        conn.execute(
+            "DELETE FROM middleware_rule WHERE name IN ('内置·私钥脱敏','内置·Bearer token 脱敏')",
+            [],
+        )?;
+        crate::schema::seed_builtin_middleware_rules(conn)?;
+        Ok(())
+    })
+    .await
+    .unwrap();
+    drop(db);
+    let db = Db::new(dir.path().join("aidog.db").to_str().unwrap()).await.unwrap();
+    let rules = list_middleware_rules(&db).await.unwrap();
+    let secret = rules.iter().find(|r| r.name == "内置·密钥脱敏").unwrap();
+    assert_reversible_all(secret, "SECRET");
+    assert!(!secret.enabled, "升级不覆盖用户的启停态");
+    assert!(rules.iter().any(|r| r.name == "内置·私钥脱敏" && r.enabled));
+    assert!(rules.iter().any(|r| r.name == "内置·Bearer token 脱敏" && r.enabled));
+}
+
+/// 内置规则内容不可编辑（仅启停）——用户改不了内置动作，所以升级路径无「用户改过」分支。
+#[tokio::test]
+async fn builtin_actions_cannot_be_edited_by_user() {
+    let (db, _dir) = test_support::three_file_db().await;
+    let rules = list_middleware_rules(&db).await.unwrap();
+    let r = rules.iter().find(|r| r.name == "内置·密钥脱敏").unwrap();
+    let mut fixed = r.actions.clone();
+    fixed[0].params.mode = crate::models::MaskMode::Fixed;
+    fixed[0].params.fields = vec!["messages".into()];
+    let upd = crate::models::UpdateMiddlewareRule {
+        id: r.id,
+        name: r.name.clone(),
+        description: r.description.clone(),
+        conditions: r.conditions.clone(),
+        actions: fixed,
+        applies_to: r.applies_to.clone(),
+        priority: r.priority,
+        enabled: false,
+    };
+    let out = update_middleware_rule(&db, upd).await.unwrap();
+    assert_reversible_all(&out, "SECRET");
+    assert!(!out.enabled);
+}
+
+// ── 加分项：fixed + all 在创建/更新边界被拒 ──
+fn mask_step(mode: crate::models::MaskMode, fields: &[&str]) -> crate::models::ActionStep {
+    let p = crate::models::ActionParams {
+        mode,
+        fields: fields.iter().map(|s| s.to_string()).collect(),
+        ..Default::default()
+    };
+    crate::models::ActionStep { kind: crate::models::ActionKind::Mask, params: p }
+}
+
+#[tokio::test]
+async fn create_and_update_reject_fixed_mask_with_all() {
+    use crate::models::MaskMode::{Fixed, Reversible};
+    let (db, _dir) = test_support::three_file_db().await;
+    let conds: crate::models::ConditionNode = serde_json::from_str(
+        r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"x+"}]}"#,
+    )
+    .unwrap();
+    let mk = |actions| crate::models::CreateMiddlewareRule {
+        name: "u".into(),
+        description: String::new(),
+        conditions: conds.clone(),
+        actions,
+        applies_to: Default::default(),
+        priority: 1,
+        enabled: true,
+        is_builtin: false,
+    };
+    for fields in [&["all"][..], &["messages", "all"][..]] {
+        let err = create_middleware_rule(&db, mk(vec![mask_step(Fixed, fields)])).await.unwrap_err();
+        assert!(err.contains("reversible"), "{err}");
+    }
+    assert!(list_middleware_rules(&db).await.unwrap().iter().all(|r| r.name != "u"));
+    let mut bad = mask_step(Reversible, &["all"]);
+    bad.params.placeholder_type = "lower".into();
+    assert!(create_middleware_rule(&db, mk(vec![bad])).await.unwrap_err().contains("placeholder_type"));
+    // 合法：fixed + messages；reversible + all
+    let ok1 = create_middleware_rule(&db, mk(vec![mask_step(Fixed, &["messages"])])).await.unwrap();
+    create_middleware_rule(&db, mk(vec![mask_step(Reversible, &["all"])])).await.unwrap();
+    // 更新为 fixed + all 被拒
+    let upd = crate::models::UpdateMiddlewareRule {
+        id: ok1.id,
+        name: "u".into(),
+        description: String::new(),
+        conditions: conds.clone(),
+        actions: vec![mask_step(Fixed, &["all"])],
+        applies_to: Default::default(),
+        priority: 1,
+        enabled: true,
+    };
+    assert!(update_middleware_rule(&db, upd).await.unwrap_err().contains("reversible"));
+}

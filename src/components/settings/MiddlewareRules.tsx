@@ -412,6 +412,7 @@ function defaultParams(): ActionStep["params"] {
     override_body: null,
     observe: false,
     budget_usd: 0,
+    placeholder_type: "",
   };
 }
 

@@ -82,6 +82,7 @@ pub fn create_middleware_rule(
     let __db_caller = std::panic::Location::caller();
     async move {
         crate::models::validate_rule_phases(&input.conditions)?;
+        crate::models::validate_rule_actions(&input.actions)?;
         let ts = now();
         let conditions = serde_json::to_string(&input.conditions).map_err(|e| e.to_string())?;
         let actions = serde_json::to_string(&input.actions).map_err(|e| e.to_string())?;
@@ -124,6 +125,7 @@ pub fn update_middleware_rule(
     let __db_caller = std::panic::Location::caller();
     async move {
         crate::models::validate_rule_phases(&input.conditions)?;
+        crate::models::validate_rule_actions(&input.actions)?;
         let ts = now();
         let conditions = serde_json::to_string(&input.conditions).map_err(|e| e.to_string())?;
         let actions = serde_json::to_string(&input.actions).map_err(|e| e.to_string())?;

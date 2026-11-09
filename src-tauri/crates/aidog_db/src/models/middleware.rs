@@ -194,6 +194,9 @@ pub struct ActionParams {
     /// mask 的模式（缺省 fixed）
     #[serde(default)]
     pub mode: MaskMode,
+    /// mask（reversible）的占位符 TYPE 段（大写字母/数字/下划线）；空 = 按校验器派生，其余 `MASK`。
+    #[serde(default)]
+    pub placeholder_type: String,
     /// inject：system_append | body_set
     #[serde(default)]
     pub inject_mode: String,
@@ -230,6 +233,7 @@ impl Default for ActionParams {
             replacement: default_replacement(),
             fields: Vec::new(),
             mode: MaskMode::Fixed,
+            placeholder_type: String::new(),
             inject_mode: String::new(),
             target: String::new(),
             value: String::new(),
@@ -382,6 +386,24 @@ pub fn validate_rule_phases(node: &ConditionNode) -> Result<(), String> {
     }
     let mut phase = None;
     walk(node, &mut phase)
+}
+
+/// 动作校验（创建/更新规则的服务端边界）：固定文本 mask 不支持 `all`（全部内容）范围，
+/// `all` 只允许可还原模式（固定替换会破坏 tool_use 的 id/name/JSON 结构）。
+pub fn validate_rule_actions(actions: &[ActionStep]) -> Result<(), String> {
+    for s in actions {
+        let t = &s.params.placeholder_type;
+        if !t.bytes().all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_') {
+            return Err(format!("placeholder_type '{t}' must be [A-Z0-9_]+"));
+        }
+        if s.kind == ActionKind::Mask
+            && s.params.mode == MaskMode::Fixed
+            && s.params.fields.iter().any(|f| f == "all")
+        {
+            return Err("mask with fields 'all' requires mode 'reversible' (fixed replacement is not supported for all content)".into());
+        }
+    }
+    Ok(())
 }
 
 /// 预算闸门规则的当前窗口状态（票 06，`middleware_budget_status` 返回体）。
