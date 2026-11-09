@@ -24,6 +24,8 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
   const [filterGroup, setFilterGroup] = useState<string>(initialFilter?.groupKey ?? "");
   // 会话归组键（magpie 票 09 会话统计下钻）：仅导航入口带入，无独立下拉
   const [filterSession, setFilterSession] = useState<string>(initialFilter?.sessionKey ?? "");
+  const [filterPromptId, setFilterPromptId] = useState<string>("");
+  const [filterSessionId, setFilterSessionId] = useState<string>("");
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [filterTime, setFilterTime] = useState<TimePreset>("all");
   const [filterModel, setFilterModel] = useState<string>("");
@@ -57,10 +59,12 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
     if (filterType === "tunnel") f.sources = ["http-connect"];
     else if (filterType === "request") f.exclude_sources = [...f.exclude_sources!, "http-connect"];
     if (filterSession.trim()) f.session_key = filterSession.trim();
+    if (filterPromptId.trim()) f.prompt_id = filterPromptId.trim();
+    if (filterSessionId.trim()) f.session_id = filterSessionId.trim();
     return f;
-  }, [filterPlatform, filterGroup, filterStatus, filterTime, filterModel, filterActualModel, filterPath, filterObserved, filterType, filterSession]);
+  }, [filterPlatform, filterGroup, filterStatus, filterTime, filterModel, filterActualModel, filterPath, filterObserved, filterType, filterSession, filterPromptId, filterSessionId]);
 
-  const hasFilter = !!(filterPlatform || filterGroup || filterStatus || filterTime !== "all" || filterModel.trim() || filterActualModel.trim() || filterPath.trim() || filterObserved || filterType || filterSession.trim());
+  const hasFilter = !!(filterPlatform || filterGroup || filterStatus || filterTime !== "all" || filterModel.trim() || filterActualModel.trim() || filterPath.trim() || filterObserved || filterType || filterSession.trim() || filterPromptId.trim() || filterSessionId.trim());
 
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [actualModelOptions, setActualModelOptions] = useState<string[]>([]);
@@ -83,6 +87,8 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
     setFilterObserved("");
     setFilterType("");
     setFilterSession("");
+    setFilterPromptId("");
+    setFilterSessionId("");
   };
 
   const platformMap = useMemo(() => {
@@ -100,7 +106,8 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
 
   return {
     t,
-    platforms, groups, filterPlatform, filterGroup, filterStatus, filterTime, filterModel, filterActualModel, filterPath, filterObserved, filterType, filterSession,
+    platforms, groups, filterPlatform, filterGroup, filterStatus, filterTime, filterModel, filterActualModel, filterPath, filterObserved, filterType, filterSession, filterPromptId, filterSessionId,
+    setFilterPromptId, setFilterSessionId,
     setFilterPlatform, setFilterGroup, setFilterStatus, setFilterTime, setFilterModel, setFilterActualModel, setFilterPath, setFilterObserved, setFilterType, setFilterSession,
     activeFilter, hasFilter, clearFilter, modelOptions, actualModelOptions,
     platformMap, groupName,

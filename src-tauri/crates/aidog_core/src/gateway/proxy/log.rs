@@ -881,6 +881,13 @@ async fn process_connect_log(
         session_key: String::new(),
         request_class: String::new(),
         agent_type: String::new(),
+        prompt_id: String::new(),
+        session_id: String::new(),
+        agent_id: String::new(),
+        parent_agent_id: String::new(),
+        compaction: String::new(),
+        context_compacted: String::new(),
+        prev_tool_durations: String::new(),
         up_bytes: req_bytes,
         down_bytes: resp_bytes,
     };

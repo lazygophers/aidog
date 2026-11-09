@@ -138,6 +138,7 @@ pub(crate) async fn handle_ws_passthrough(
     let log_settings = state.settings_cache.read().await.log_settings.clone();
 
     let (request_class, agent_type) = super::client_detect::claude_hint_headers(req.headers());
+    let hints_ext = super::client_detect::claude_hint_ext(req.headers());
     let mut log = ProxyLog {
         id: request_id,
         created_at,
@@ -148,6 +149,7 @@ pub(crate) async fn handle_ws_passthrough(
         agent_type,
         ..Default::default()
     };
+    hints_ext.apply(&mut log);
 
     // 分组密钥候选与 handle_proxy_core 同一套（ADR 0009）。
     let custom_key_channels = load_custom_key_channels(&state.db).await;

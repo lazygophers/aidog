@@ -815,6 +815,21 @@ pub fn run_migrations_proxy_log_late(
             [],
         );
     }
+    // Migration 20261110-03: proxy_log 再加 7 列——Claude Code 网关提示头 prompt-id / session-id /
+    // agent-id / parent-agent-id / compaction / context-compacted / prev-tool-durations（入口解析，
+    // 元数据恒记录）。存量行 '' = 无，不回填。prompt_id / session_id 附窄索引供日志列表按它们筛选。
+    for col in ["prompt_id", "session_id", "agent_id", "parent_agent_id", "compaction", "context_compacted", "prev_tool_durations"] {
+        let _ = conn.execute(
+            &format!("ALTER TABLE proxy_log ADD COLUMN {col} TEXT NOT NULL DEFAULT ''"),
+            [],
+        );
+    }
+    for col in ["prompt_id", "session_id"] {
+        let _ = conn.execute(
+            &format!("CREATE INDEX IF NOT EXISTS idx_proxy_log_{col} ON proxy_log({col}) WHERE deleted_at = 0"),
+            [],
+        );
+    }
     Ok(())
 }
 

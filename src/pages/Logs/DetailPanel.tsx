@@ -10,7 +10,7 @@ import { CopyCurlButtons } from "./CopyCurlButtons";
 import { RoutingCanvas } from "./RoutingCanvas";
 import { useProtocolLabel } from "../../domains/platforms/useProtocolMeta";
 import type { Protocol } from "../../services/api";
-import { requestClassLabel } from "../../utils/requestClass";
+import { requestClassLabel, compactionLabel, parseToolDurations } from "../../utils/requestClass";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -88,6 +88,7 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
   const targetLabel = useProtocolLabel(detail.target_protocol as Protocol | undefined, i18n.language);
 
   const requestClassText = requestClassLabel(t, detail.request_class);
+  const toolDurations = parseToolDurations(detail.prev_tool_durations ?? "");
 
   return (
     <>
@@ -146,6 +147,25 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
         <MetaItem label={t("logs.userAgent", "UA")} value={detail.user_agent || "-"} copyText={detail.user_agent || undefined} testId="detail-user-agent" t={t} />
         <MetaItem label={t("logs.requestClassLabel", "请求类型")} value={requestClassText} copyText={detail.request_class || undefined} testId="detail-request-class" t={t} />
         <MetaItem label={t("logs.agentType", "子代理类型")} value={detail.agent_type || "-"} copyText={detail.agent_type || undefined} testId="detail-agent-type" t={t} />
+        <MetaItem label={t("logs.promptId", "提示词 ID")} value={detail.prompt_id || "-"} copyText={detail.prompt_id || undefined} testId="detail-prompt-id" t={t} />
+        <MetaItem label={t("logs.claudeSessionId", "会话 ID")} value={detail.session_id || "-"} copyText={detail.session_id || undefined} testId="detail-session-id" t={t} />
+        <MetaItem label={t("logs.agentId", "子代理 ID")} value={detail.agent_id || "-"} copyText={detail.agent_id || undefined} testId="detail-agent-id" t={t} />
+        <MetaItem label={t("logs.parentAgentId", "父代理 ID")} value={detail.parent_agent_id || "-"} copyText={detail.parent_agent_id || undefined} testId="detail-parent-agent-id" t={t} />
+        <MetaItem label={t("logs.compactionLabel", "压缩原因")} value={compactionLabel(t, detail.compaction ?? "")} copyText={detail.compaction || undefined} testId="detail-compaction" t={t} />
+        <MetaItem label={t("logs.contextCompacted", "压缩后首请求")} value={compactionLabel(t, detail.context_compacted ?? "")} copyText={detail.context_compacted || undefined} testId="detail-context-compacted" t={t} />
+        {toolDurations.length > 0 && (
+          <div style={{ gridColumn: "1 / -1" }} data-testid="detail-tool-durations">
+            <div style={{ fontSize: F.small, color: "var(--text-tertiary)", marginBottom: 4 }}>{t("logs.prevToolDurations", "上轮工具耗时")}</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {toolDurations.map((d, i) => (
+                <span key={i} data-testid="detail-tool-duration" style={{ display: "inline-flex", gap: 6, fontSize: F.small, padding: "2px 8px", borderRadius: 6, background: "var(--accent-subtle)" }}>
+                  <span style={{ fontFamily: "monospace" }}>{d.name}</span>
+                  <span>{d.ms} ms</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
         <MetaItem label={t("logs.sourceProtocol", "用户格式")} value={sourceLabel || detail.source_protocol || "-"} copyText={detail.source_protocol} t={t} />
         <MetaItem label={t("logs.targetProtocol", "请求格式")} value={targetLabel || detail.target_protocol || "-"} copyText={detail.target_protocol} t={t} />
         <MetaItem

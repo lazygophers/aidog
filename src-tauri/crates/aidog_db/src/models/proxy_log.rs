@@ -134,6 +134,27 @@ pub struct ProxyLog {
     /// Claude Code 网关提示头 `x-claude-code-agent-type`（子代理自己的回合才有）；空串 = 无。
     #[serde(default)]
     pub agent_type: String,
+    /// Claude Code 网关提示头 `x-claude-code-prompt-id`（同一用户提示词派生的请求共享的 UUID）；空串 = 无。
+    #[serde(default)]
+    pub prompt_id: String,
+    /// `x-claude-code-session-id`（Claude Code 会话 ID，区别于派生的 `session_key`）；空串 = 无。
+    #[serde(default)]
+    pub session_id: String,
+    /// `x-claude-code-agent-id`（子代理 ID）；空串 = 无。
+    #[serde(default)]
+    pub agent_id: String,
+    /// `x-claude-code-parent-agent-id`（嵌套 Agent 的父 Agent ID）；空串 = 无。
+    #[serde(default)]
+    pub parent_agent_id: String,
+    /// `x-claude-code-compaction`（auto / manual / reactive，未知值原样存）；空串 = 无。
+    #[serde(default)]
+    pub compaction: String,
+    /// `x-claude-code-context-compacted`（压缩后首个主对话请求，取值同 compaction）；空串 = 无。
+    #[serde(default)]
+    pub context_compacted: String,
+    /// `x-claude-code-prev-tool-durations`：百分号解码后的 `Name=ms;Name=ms`（≤4096 字节）；空串 = 无。
+    #[serde(default)]
+    pub prev_tool_durations: String,
 }
 
 /// `ProxyLog.user_agent` 字符上限（防畸形超长 UA 撑大行）。
@@ -688,6 +709,14 @@ pub struct ProxyLogFilter {
     #[serde(default)]
     #[ts(optional)]
     pub session_key: Option<String>,
+    /// Claude Code `x-claude-code-prompt-id` 精确匹配
+    #[serde(default)]
+    #[ts(optional)]
+    pub prompt_id: Option<String>,
+    /// Claude Code `x-claude-code-session-id` 精确匹配
+    #[serde(default)]
+    #[ts(optional)]
+    pub session_id: Option<String>,
 }
 
 /// 手动「立即清理」前的只读预估（三个数）。

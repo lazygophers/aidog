@@ -71,6 +71,89 @@ pub(crate) fn claude_hint_headers(headers: &HeaderMap) -> (String, String) {
     (get("x-claude-code-request-class"), get("x-claude-code-agent-type"))
 }
 
+/// Claude Code 网关提示头里除 request-class / agent-type 之外的七个（见 `claude_hint_ext`）。
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(crate) struct ClaudeHintsExt {
+    pub prompt_id: String,
+    pub session_id: String,
+    pub agent_id: String,
+    pub parent_agent_id: String,
+    pub compaction: String,
+    pub context_compacted: String,
+    pub prev_tool_durations: String,
+}
+
+impl ClaudeHintsExt {
+    pub(crate) fn apply(self, log: &mut aidog_db::models::ProxyLog) {
+        log.prompt_id = self.prompt_id;
+        log.session_id = self.session_id;
+        log.agent_id = self.agent_id;
+        log.parent_agent_id = self.parent_agent_id;
+        log.compaction = self.compaction;
+        log.context_compacted = self.context_compacted;
+        log.prev_tool_durations = self.prev_tool_durations;
+    }
+}
+
+/// 单个提示头的净化值：trim、仅可打印 ASCII（否则空串）、截 `cap` 字符；无头 → 空串。
+fn hint_value(headers: &HeaderMap, name: &str, cap: usize) -> String {
+    headers
+        .get(name)
+        .and_then(|v| v.to_str().ok())
+        .map(str::trim)
+        .filter(|s| s.chars().all(|c| c.is_ascii_graphic() || c == ' '))
+        .map(|s| s.chars().take(cap).collect())
+        .unwrap_or_default()
+}
+
+/// 百分号解码（`%XX`）；非法序列原样保留；解码后字节按 UTF-8 宽松还原。
+fn percent_decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        let hex = |c: u8| (c as char).to_digit(16);
+        if b[i] == b'%'
+            && i + 2 < b.len()
+            && let (Some(h), Some(l)) = (hex(b[i + 1]), hex(b[i + 2]))
+        {
+            out.push((h * 16 + l) as u8);
+            i += 3;
+            continue;
+        }
+        out.push(b[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// `x-claude-code-prev-tool-durations` 解码后的字节上限。
+const PREV_TOOL_DURATIONS_MAX_BYTES: usize = 4096;
+
+/// Claude Code 网关提示头（prompt-id / session-id / agent-id / parent-agent-id / compaction /
+/// context-compacted / prev-tool-durations）。id 与标记同 `claude_hint_headers` 净化、截 64；
+/// prev-tool-durations 先按 ASCII 净化再百分号解码，解码后截 4096 字节（不劈开字符）。
+pub(crate) fn claude_hint_ext(headers: &HeaderMap) -> ClaudeHintsExt {
+    let get = |name: &str| hint_value(headers, name, CLAUDE_HINT_MAX_CHARS);
+    let mut durations = percent_decode(&hint_value(headers, "x-claude-code-prev-tool-durations", usize::MAX));
+    if durations.len() > PREV_TOOL_DURATIONS_MAX_BYTES {
+        let mut end = PREV_TOOL_DURATIONS_MAX_BYTES;
+        while !durations.is_char_boundary(end) {
+            end -= 1;
+        }
+        durations.truncate(end);
+    }
+    ClaudeHintsExt {
+        prompt_id: get("x-claude-code-prompt-id"),
+        session_id: get("x-claude-code-session-id"),
+        agent_id: get("x-claude-code-agent-id"),
+        parent_agent_id: get("x-claude-code-parent-agent-id"),
+        compaction: get("x-claude-code-compaction"),
+        context_compacted: get("x-claude-code-context-compacted"),
+        prev_tool_durations: durations,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -94,6 +177,35 @@ mod tests {
         let (rc, at) = claude_hint_headers(&h);
         assert_eq!(rc, "");
         assert_eq!(at.len(), 64);
+    }
+
+    #[test]
+    fn claude_hint_ext_sanitized_and_decoded() {
+        let mut h = HeaderMap::new();
+        assert_eq!(claude_hint_ext(&h), ClaudeHintsExt::default());
+        h.insert("x-claude-code-prompt-id", " 6f1c0c1e-aaaa-bbbb-cccc-000000000001 ".parse().unwrap());
+        h.insert("x-claude-code-session-id", "sess-1".parse().unwrap());
+        h.insert("x-claude-code-agent-id", "agent-1".parse().unwrap());
+        h.insert("x-claude-code-parent-agent-id", "agent-0".parse().unwrap());
+        h.insert("x-claude-code-compaction", "auto".parse().unwrap());
+        h.insert("x-claude-code-context-compacted", "brand_new".parse().unwrap());
+        h.insert("x-claude-code-prev-tool-durations", "Bash=742;mcp__a%3Bb%3Dc%20d=9;%E5%B7%A5%E5%85%B7=3".parse().unwrap());
+        let x = claude_hint_ext(&h);
+        assert_eq!(x.prompt_id, "6f1c0c1e-aaaa-bbbb-cccc-000000000001");
+        assert_eq!((x.session_id.as_str(), x.agent_id.as_str(), x.parent_agent_id.as_str()), ("sess-1", "agent-1", "agent-0"));
+        assert_eq!((x.compaction.as_str(), x.context_compacted.as_str()), ("auto", "brand_new"));
+        assert_eq!(x.prev_tool_durations, "Bash=742;mcp__a;b=c d=9;工具=3");
+
+        // 非可打印 ASCII → 空；id 超长 → 截 64
+        h.insert("x-claude-code-prompt-id", axum::http::HeaderValue::from_bytes("提示".as_bytes()).unwrap());
+        h.insert("x-claude-code-session-id", "s".repeat(100).parse().unwrap());
+        // 坏百分号序列原样保留；解码后超 4096 字节截断（不劈开 UTF-8）
+        h.insert("x-claude-code-prev-tool-durations", format!("a%ZZ=1;{}", "%E5%B7%A5".repeat(2000)).parse().unwrap());
+        let x = claude_hint_ext(&h);
+        assert_eq!(x.prompt_id, "");
+        assert_eq!(x.session_id.len(), 64);
+        assert!(x.prev_tool_durations.starts_with("a%ZZ=1;工"));
+        assert!(x.prev_tool_durations.len() <= 4096 && x.prev_tool_durations.len() > 4000);
     }
 
     #[test]

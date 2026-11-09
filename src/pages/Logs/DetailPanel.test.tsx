@@ -124,6 +124,33 @@ describe("DetailPanel Claude Code 网关提示头", () => {
   });
 });
 
+describe("DetailPanel Claude Code 网关 id / 压缩 / 工具耗时", () => {
+  it("七个字段展示：压缩原因本地化，未知原样，工具耗时展开成列表", () => {
+    const d = {
+      ...detailFixture([attempt(1, 200)]),
+      prompt_id: "p-1", session_id: "s-1", agent_id: "ag-1", parent_agent_id: "ag-0",
+      compaction: "manual", context_compacted: "weird", prev_tool_durations: "Bash=742;Read=9",
+    } as unknown as ProxyLogDetail;
+    renderPanel(d);
+    expect(screen.getByTestId("detail-prompt-id").textContent).toBe("p-1");
+    expect(screen.getByTestId("detail-session-id").textContent).toBe("s-1");
+    expect(screen.getByTestId("detail-agent-id").textContent).toBe("ag-1");
+    expect(screen.getByTestId("detail-parent-agent-id").textContent).toBe("ag-0");
+    expect(screen.getByTestId("detail-compaction").textContent).toBe("手动");
+    expect(screen.getByTestId("detail-context-compacted").textContent).toBe("weird");
+    const rows = screen.getAllByTestId("detail-tool-duration");
+    expect(rows.map(r => r.textContent)).toEqual(["Bash742 ms", "Read9 ms"]);
+  });
+
+  it("旧日志无该头：占位 -，无工具耗时列表", () => {
+    renderPanel(detailFixture([attempt(1, 200)]));
+    for (const id of ["prompt-id", "session-id", "agent-id", "parent-agent-id", "compaction", "context-compacted"]) {
+      expect(screen.getByTestId(`detail-${id}`).textContent).toBe("-");
+    }
+    expect(screen.queryAllByTestId("detail-tool-duration")).toEqual([]);
+  });
+});
+
 describe("DetailPanel 独立页", () => {
   it("渲染为整页（非弹窗），返回按钮把 detail 置空", () => {
     const setDetail = vi.fn();
