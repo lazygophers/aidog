@@ -230,8 +230,13 @@ pub(crate) async fn handle_proxy_core(
     // 从单次解析的 JSON + 原始 headers 派生。
     log.session_key = super::log::derive_session_key(req_value_opt.as_ref(), &orig_headers);
 
+    // 带服务端网页工具的请求可能被网关代执行（不写代理日志，ADR 0012）：行在确定转发前不落库，
+    // 转发 / 失败路径各自的 upsert 照常建行。
+    let defer_log = super::web_takeover::has_web_server_tool(req_value_opt.as_ref());
     // Upsert #1: request received
-    upsert_log(&state, &log, &log_settings).await;
+    if !defer_log {
+        upsert_log(&state, &log, &log_settings).await;
+    }
 
     // ── 模型列表端点分流（必须在 resolve_group 之前）──
     // GET /v1/models | /models 永不 404：tokenless / 错 token 的模型发现探测此前在 resolve_group
@@ -344,7 +349,9 @@ pub(crate) async fn handle_proxy_core(
     let source_protocol = detect_source_protocol(&path);
     log.source_protocol = source_protocol.wire_str();
     tracing::info!(group = %group.name, source_protocol = %log.source_protocol, model = %log.model, "group resolved");
-    upsert_log(&state, &log, &log_settings).await;
+    if !defer_log {
+        upsert_log(&state, &log, &log_settings).await;
+    }
     // 入站客户端识别（只看 UA）：此后所有选平台转发的路径共用同一闸门（客户端白名单）。
     let client_gate = ClientGate::On(super::client_detect::client_probe(&orig_headers));
 
@@ -813,7 +820,14 @@ pub(crate) async fn handle_proxy_core(
     let mut rate_slot = None;
 
     // 最大尝试次数用尽（换平台与同平台换模型的上游调用都计）/ 无组合可选 → 退出循环落 503
+    let web_tool = super::web_takeover::detect(&req_value).filter(|_| matches!(source_protocol, Protocol::Anthropic));
     while let Some(pick) = attempt_loop.next(&state.db, &group, &sched_ctx, &mut log).await {
+        // 网关代执行服务端网页工具：按本次尝试选中的平台判定，官方 Anthropic 原样转发。
+        if let Some(wt) = &web_tool
+            && super::web_takeover::takes_over(&pick.route.platform.base_url)
+        {
+            return super::web_takeover::respond(&state, &group, &pick.route.platform.name, wt, &req_value, &requested_model, is_stream).await;
+        }
         let is_last_candidate = !pick.platform_alt || attempt_loop.budget.next_is_last();
         match forward_attempt(
             &state,
