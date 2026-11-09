@@ -49,7 +49,7 @@ function detailFixture(attempts: unknown[]) {
   } as unknown as ProxyLogDetail;
 }
 
-function renderPanel(detail: ProxyLogDetail | null, setDetail: (d: null) => void = () => {}) {
+function renderPanel(detail: ProxyLogDetail | null, setDetail: (d: null) => void = () => {}, onNavigate?: (id: string) => void) {
   return render(
     <DetailPanel
       d={{
@@ -63,6 +63,7 @@ function renderPanel(detail: ProxyLogDetail | null, setDetail: (d: null) => void
         platformMap: new Map(),
         groupName: (k) => k,
         setDetail,
+        onNavigate,
       }}
     />,
   );
@@ -110,5 +111,28 @@ describe("DetailPanel 独立页", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     fireEvent.click(screen.getByTestId("detail-back"));
     expect(setDetail).toHaveBeenCalledWith(null);
+  });
+});
+
+describe("DetailPanel 隧道行", () => {
+  const tunnel = () => ({
+    ...detailFixture([]),
+    source_protocol: "http-connect",
+    target_protocol: "http-connect",
+    blocked_reason: "mitm_opaque",
+    request_url: "api.anthropic.com:443",
+  }) as unknown as ProxyLogDetail;
+
+  it("未解密隧道：显示说明，链接跳 settings/mitm", () => {
+    const nav = vi.fn();
+    renderPanel(tunnel(), () => {}, nav);
+    expect(screen.getByTestId("detail-tunnel-notice")).not.toBeNull();
+    fireEvent.click(screen.getByTestId("detail-tunnel-mitm-link"));
+    expect(nav).toHaveBeenCalledWith("settings/mitm");
+  });
+
+  it("普通请求无隧道说明", () => {
+    renderPanel(detailFixture([attempt(1, 200)]));
+    expect(screen.queryByTestId("detail-tunnel-notice")).toBeNull();
   });
 });

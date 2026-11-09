@@ -209,7 +209,7 @@ function App() {
             {effectiveNav === "request-log" && <RequestLog />}
             {effectiveNav === "mitm-log" && <MitmLog />}
             {effectiveNav === "settings" && <AppSettings tab={settingsTab} onNotifSettingsChanged={(enabled) => setNotifEnabled(enabled)} />}
-            {effectiveNav === "logs" && <Logs initialFilter={navContext} />}
+            {effectiveNav === "logs" && <Logs initialFilter={navContext} onNavigate={handleNavigate} />}
             {effectiveNav === "stats" && <Stats initialFilter={navContext} />}
             {effectiveNav === "notifications" && <Notifications onNavigate={handleNavigate} />}
             {effectiveNav === "skills" && <Skills />}

@@ -604,6 +604,17 @@ pub struct ProxyLogSummary {
     /// 入站原始 User-Agent（见 `ProxyLog.user_agent`）；空串 = 无
     #[serde(default)]
     pub user_agent: String,
+    /// 请求 URL；CONNECT 隧道行 = 目标 `host:port`（列表直接展示，免逐行取详情）
+    #[serde(default)]
+    pub request_url: String,
+    /// 隧道上行字节数（migration 20261109-02，仅 http-connect 行有值，其余 0）
+    #[serde(default)]
+    #[ts(type = "number")]
+    pub up_bytes: i64,
+    /// 隧道下行字节数（同上）
+    #[serde(default)]
+    #[ts(type = "number")]
+    pub down_bytes: i64,
     #[ts(type = "number")]
     pub created_at: i64,
 }

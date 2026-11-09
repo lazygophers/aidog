@@ -31,6 +31,8 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
   const [filterPath, setFilterPath] = useState<string>("");
   // 中间件观察模式命中（票 04）："" = 全部；"observed" = 仅 blocked_reason='observe' 的行
   const [filterObserved, setFilterObserved] = useState<string>("");
+  // 日志类型（票 02）："" = 全部（含隧道连接）；"request" = 仅 AI 请求；"tunnel" = 仅隧道连接
+  const [filterType, setFilterType] = useState<string>("");
 
   useEffect(() => {
     platformApi.list().then(setPlatforms).catch(() => {});
@@ -52,11 +54,13 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
     if (filterActualModel.trim()) f.actual_model = filterActualModel.trim();
     if (filterPath.trim()) f.path = filterPath.trim();
     if (filterObserved === "observed") f.observed = true;
+    if (filterType === "tunnel") f.sources = ["http-connect"];
+    else if (filterType === "request") f.exclude_sources = [...f.exclude_sources!, "http-connect"];
     if (filterSession.trim()) f.session_key = filterSession.trim();
     return f;
-  }, [filterPlatform, filterGroup, filterStatus, filterTime, filterModel, filterActualModel, filterPath, filterObserved, filterSession]);
+  }, [filterPlatform, filterGroup, filterStatus, filterTime, filterModel, filterActualModel, filterPath, filterObserved, filterType, filterSession]);
 
-  const hasFilter = !!(filterPlatform || filterGroup || filterStatus || filterTime !== "all" || filterModel.trim() || filterActualModel.trim() || filterPath.trim() || filterObserved || filterSession.trim());
+  const hasFilter = !!(filterPlatform || filterGroup || filterStatus || filterTime !== "all" || filterModel.trim() || filterActualModel.trim() || filterPath.trim() || filterObserved || filterType || filterSession.trim());
 
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [actualModelOptions, setActualModelOptions] = useState<string[]>([]);
@@ -77,6 +81,7 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
     setFilterActualModel("");
     setFilterPath("");
     setFilterObserved("");
+    setFilterType("");
     setFilterSession("");
   };
 
@@ -95,8 +100,8 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
 
   return {
     t,
-    platforms, groups, filterPlatform, filterGroup, filterStatus, filterTime, filterModel, filterActualModel, filterPath, filterObserved, filterSession,
-    setFilterPlatform, setFilterGroup, setFilterStatus, setFilterTime, setFilterModel, setFilterActualModel, setFilterPath, setFilterObserved, setFilterSession,
+    platforms, groups, filterPlatform, filterGroup, filterStatus, filterTime, filterModel, filterActualModel, filterPath, filterObserved, filterType, filterSession,
+    setFilterPlatform, setFilterGroup, setFilterStatus, setFilterTime, setFilterModel, setFilterActualModel, setFilterPath, setFilterObserved, setFilterType, setFilterSession,
     activeFilter, hasFilter, clearFilter, modelOptions, actualModelOptions,
     platformMap, groupName,
   };

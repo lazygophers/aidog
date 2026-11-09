@@ -124,3 +124,39 @@ describe("useLogsFilters", () => {
     expect(r.result.current.filterSession).toBe("");
   });
 });
+
+describe("useLogsFilters 类型筛选（隧道连接）", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    platformApiMock.list.mockResolvedValue([]);
+    groupDetailApiMock.list.mockResolvedValue([]);
+    proxyLogApiMock.listFiltered.mockResolvedValue({ items: [], has_more: false });
+    proxyLogApiMock.distinctModels.mockResolvedValue([]);
+  });
+
+  it("默认包含隧道连接：不排除 http-connect，无 sources 限定", () => {
+    const r = renderHook(() => useLogsFilters());
+    expect(r.result.current.activeFilter.exclude_sources).not.toContain("http-connect");
+    expect(r.result.current.activeFilter.sources).toBeUndefined();
+  });
+
+  it("tunnel = 仅 http-connect", () => {
+    const r = renderHook(() => useLogsFilters());
+    act(() => r.result.current.setFilterType("tunnel"));
+    expect(r.result.current.activeFilter.sources).toEqual(["http-connect"]);
+    expect(r.result.current.hasFilter).toBe(true);
+  });
+
+  it("request = 排除 http-connect，保留默认排除", () => {
+    const r = renderHook(() => useLogsFilters());
+    act(() => r.result.current.setFilterType("request"));
+    expect(r.result.current.activeFilter.exclude_sources).toEqual(["test", "quota", "fetch-models", "http-connect"]);
+  });
+
+  it("clearFilter 复位类型", () => {
+    const r = renderHook(() => useLogsFilters());
+    act(() => r.result.current.setFilterType("tunnel"));
+    act(() => r.result.current.clearFilter());
+    expect(r.result.current.activeFilter.sources).toBeUndefined();
+  });
+});

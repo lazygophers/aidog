@@ -4,7 +4,7 @@ import { F } from "../../domains/shared/tokens";
 import { useReveal } from "../../utils/motion";
 import type { ProxyLogSummary } from "../../services/api";
 import type { TFunc } from "./types";
-import { formatDateTime } from "../../utils/formatters";
+import { formatDateTime, formatBytes } from "../../utils/formatters";
 import { JsonCodeEditor } from "../../components/shared";
 import { Button } from "@/components/ui/button";
 import {
@@ -248,9 +248,9 @@ export function ThCell({ children, sticky }: { children: React.ReactNode; sticky
   );
 }
 
-export function TdCell({ children, sticky }: { children: React.ReactNode; sticky?: boolean }) {
+export function TdCell({ children, sticky, colSpan }: { children: React.ReactNode; sticky?: boolean; colSpan?: number }) {
   return (
-    <TableCell style={{
+    <TableCell colSpan={colSpan} style={{
       padding: "10px 14px", whiteSpace: "nowrap",
       ...(sticky ? {
         position: "sticky" as const, right: 0, zIndex: 2,
@@ -297,6 +297,7 @@ export function blockedReasonLabel(reason: string, t: (k: string, d: string) => 
 
 export const LogRow = memo(function LogRow({ log, idx = 0, platformName, groupName, onOpen, onCopy, t }: LogRowProps) {
   const { ref, shown } = useReveal<HTMLTableRowElement>(idx * 60);
+  const tunnel = log.source_protocol === "http-connect";
   return (
     <TableRow
       ref={ref}
@@ -316,6 +317,21 @@ export const LogRow = memo(function LogRow({ log, idx = 0, platformName, groupNa
           )}
         </span>
       </TdCell>
+      {tunnel ? (
+        <TdCell colSpan={2}>
+          <span style={INLINE_FLEX_STYLE}>
+            <span style={MODEL_NAME_STYLE} data-testid="log-row-tunnel-host">{log.request_url}</span>
+            {log.blocked_reason === "mitm_opaque" && (
+              <span className="badge" style={RETRY_BADGE_STYLE} data-testid="log-row-opaque-badge">
+                {t("logs.tunnelOpaque", "未解密")}
+              </span>
+            )}
+            <span style={MODEL_NAME_STYLE} data-testid="log-row-bytes">
+              ↑{formatBytes(log.up_bytes)} ↓{formatBytes(log.down_bytes)}
+            </span>
+          </span>
+        </TdCell>
+      ) : (<>
       <TdCell>
         <span style={INLINE_FLEX_STYLE}>
           <span style={MODEL_NAME_STYLE}>{log.model || "-"}</span>
@@ -331,6 +347,7 @@ export const LogRow = memo(function LogRow({ log, idx = 0, platformName, groupNa
         </span>
       </TdCell>
       <TdCell><span style={MODEL_NAME_STYLE}>{log.actual_model || "-"}</span></TdCell>
+      </>)}
       <TdCell><span style={UA_CELL_STYLE} title={log.user_agent || undefined} data-testid="log-row-ua">{log.user_agent || log.client || "-"}</span></TdCell>
       <TdCell>
         <span style={{ color: log.status_code >= 200 && log.status_code < 300 ? "var(--color-success)" : "var(--color-danger)" }}>
@@ -342,8 +359,8 @@ export const LogRow = memo(function LogRow({ log, idx = 0, platformName, groupNa
         </span>
       </TdCell>
       <TdCell>{log.duration_ms}ms</TdCell>
-      <TdCell>{log.input_tokens || "-"}</TdCell>
-      <TdCell>{log.output_tokens || "-"}</TdCell>
+      <TdCell><span data-testid="log-row-input-tokens">{tunnel ? "" : log.input_tokens || "-"}</span></TdCell>
+      <TdCell><span data-testid="log-row-output-tokens">{tunnel ? "" : log.output_tokens || "-"}</span></TdCell>
       <TdCell sticky>
         <Button
           variant="ghost"

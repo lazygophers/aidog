@@ -19,12 +19,14 @@ import { Button } from "@/components/ui/button";
 
 /** DetailPanel 消费的字段：detail 段 + platformMap/groupName（list/detail 共用，来自 filters 段）。 */
 export type DetailPanelData = LogsDetailData & {
+  /** 跳转导航（隧道详情的 MITM 设置链接用） */
+  onNavigate?: (id: string) => void;
   platformMap: Map<number, string>;
   groupName: (k: string) => string;
 };
 
 export function DetailPanel({ d }: { d: DetailPanelData }) {
-  const { detail, t, copied, copiedId, setCopiedId, openDetail, copyDetail, platformMap, groupName, setDetail } = d;
+  const { detail, t, copied, copiedId, setCopiedId, openDetail, copyDetail, platformMap, groupName, setDetail, onNavigate } = d;
 
   if (!detail) return null;
   return (
@@ -40,6 +42,7 @@ export function DetailPanel({ d }: { d: DetailPanelData }) {
         platformMap={platformMap}
         groupName={groupName}
         onBack={() => setDetail(null)}
+        onNavigate={onNavigate}
       />
     </div>
   );
@@ -56,9 +59,10 @@ interface DetailBodyProps {
   platformMap: DetailPanelData["platformMap"];
   groupName: (k: string) => string;
   onBack: () => void;
+  onNavigate?: (id: string) => void;
 }
 
-function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copyDetail, platformMap, groupName, onBack }: DetailBodyProps) {
+function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copyDetail, platformMap, groupName, onBack, onNavigate }: DetailBodyProps) {
   const reqHeaders = safeParseJson(detail.request_headers);
   const reqBody = safeParseJson(detail.request_body);
   const upstreamHeaders = safeParseJson(detail.upstream_request_headers);
@@ -181,6 +185,16 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
         ) : null}
         <MetaItem label={t("logs.time", "时间")} value={formatDateTime(detail.created_at) || "-"} copyText={formatDateTime(detail.created_at) || "-"} t={t} />
       </div>
+
+      {/* 未解密隧道（代理日志-MITM隧道 票 02）：说明 + 跳 MITM 解密名单设置（不提供一键加入） */}
+      {detail.source_protocol === "http-connect" && detail.blocked_reason === "mitm_opaque" && (
+        <div className="glass-surface" data-testid="detail-tunnel-notice" style={{ padding: "12px 20px", display: "flex", alignItems: "center", gap: 10, fontSize: F.hint }}>
+          <span>{t("logs.tunnelOpaqueNotice", "目标地址不在 MITM 解密名单，内容未解密")}</span>
+          <Button variant="ghost" type="button" data-testid="detail-tunnel-mitm-link" onClick={() => onNavigate?.("settings/mitm")} style={{ fontSize: F.small, height: "auto", padding: "2px 8px", color: "var(--accent)" }}>
+            {t("logs.tunnelGoMitm", "前往 MITM 设置")}
+          </Button>
+        </div>
+      )}
 
       {/* ── 路由决策画布（票 02：请求→路由→平台→响应 workflow；快照为空显示占位）── */}
       <RoutingCanvas

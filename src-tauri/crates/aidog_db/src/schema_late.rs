@@ -759,6 +759,14 @@ pub fn run_migrations_proxy_log_late(
         [],
     );
     purge_non_ai_connect_rows(conn);
+    // Migration 20261109-02 (代理日志-MITM隧道 票 02): proxy_log 加隧道上/下行字节数两列，
+    // 仅 http-connect（AI 隧道）行写值，存量行 0 无需回填。
+    for col in ["up_bytes", "down_bytes"] {
+        let _ = conn.execute(
+            &format!("ALTER TABLE proxy_log ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0"),
+            [],
+        );
+    }
     Ok(())
 }
 
