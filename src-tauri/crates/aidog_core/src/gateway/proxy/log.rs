@@ -690,13 +690,19 @@ pub(crate) fn spawn_rate_limit(
     headers: &axum::http::HeaderMap,
     span: tracing::Span,
 ) {
-    let Some(rl) = super::estimate::parse_rate_limit(headers, aidog_db::now()) else {
+    let rl = super::estimate::parse_rate_limit(headers, aidog_db::now());
+    // 订阅窗口用量（anthropic-ratelimit-unified-*）：同走后台写，更新卡片读的 est_coding_plan。
+    let unified = super::estimate::parse_unified_tiers(headers);
+    if rl.is_none() && unified.is_empty() {
         return;
-    };
+    }
     let db = state.db.clone();
     tokio::spawn(
         async move {
-            super::estimate::write_rate_limit(&db, platform_id, &rl).await;
+            if let Some(rl) = rl {
+                super::estimate::write_rate_limit(&db, platform_id, &rl).await;
+            }
+            super::estimate::write_unified_tiers(&db, platform_id, &unified, aidog_db::now()).await;
         }
         .instrument(span),
     );

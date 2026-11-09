@@ -80,6 +80,70 @@ pub async fn write_rate_limit(db: &Db, platform_id: u64, rl: &super::RateLimit) 
     db.invalidate_group_details_cache();
 }
 
+/// 订阅窗口用量（`anthropic-ratelimit-unified-*` 响应头）落进 `est_coding_plan` 的对应 tier
+/// （与真查校准同一存储，卡片 `computeQuotaDisplay` 直接读）。一次闭包内 read-modify-write；
+/// 利用率与窗口起点都没变 → 不 UPDATE（节流，返回 false）。不碰 last_real_query_at /
+/// estimate_count：这是被动观测，不是真查，校准节奏不受影响。
+pub async fn write_unified_tiers(
+    db: &Db,
+    platform_id: u64,
+    tiers: &[super::UnifiedTier],
+    now_ms: i64,
+) -> bool {
+    if tiers.is_empty() {
+        return false;
+    }
+    let tiers = tiers.to_vec();
+    let r = db
+        .platform_write_conn()
+        .call(move |conn| {
+            let json: String = conn.query_row(
+                "SELECT est_coding_plan FROM platform WHERE id = ?1",
+                params![platform_id as i64],
+                |r| r.get(0),
+            )?;
+            let mut plan = EstCodingPlan::from_json(&json);
+            let mut changed = false;
+            for t in &tiers {
+                let prev = plan.tiers.iter().find(|p| p.name == t.name).cloned().unwrap_or_default();
+                let resets = t.resets_at_ms.map(|ms| ms.to_string());
+                let unit = if prev.unit.is_empty() { "tokens" } else { prev.unit.as_str() };
+                let new = calibrate_tier(&prev, t.name, t.utilization_pct, false, None, resets.as_deref(), now_ms, unit);
+                if (new.est_utilization - prev.est_utilization).abs() < 1e-9
+                    && new.window_start == prev.window_start
+                    && plan.tiers.iter().any(|p| p.name == t.name)
+                {
+                    continue;
+                }
+                changed = true;
+                match plan.tiers.iter_mut().find(|p| p.name == t.name) {
+                    Some(slot) => *slot = new,
+                    None => plan.tiers.push(new),
+                }
+            }
+            if changed {
+                conn.execute(
+                    "UPDATE platform SET est_coding_plan = ?1 WHERE id = ?2",
+                    params![plan.to_json(), platform_id as i64],
+                )?;
+            }
+            Ok(changed)
+        })
+        .await;
+    match r {
+        Ok(true) => {
+            db.invalidate_group_details_cache();
+            aidog_ctx::emit("proxy-log-updated", platform_id.into());
+            true
+        }
+        Ok(false) => false,
+        Err(e) => {
+            tracing::warn!(platform_id, error = %e, "write_unified_tiers failed");
+            false
+        }
+    }
+}
+
 /// 静态锚点播种（spec B2）：无查询 API 平台（bailian_coding）用 registry `plan_quotas`
 /// 的绝对额度作 has_base 锚点。仅当 est_coding_plan 为空时写（幂等，不覆盖已有预估/校准）。
 pub async fn seed_plan_anchor_if_empty(db: &Db, platform_id: u64, protocol: &str) -> bool {
