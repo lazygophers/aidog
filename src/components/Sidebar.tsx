@@ -74,6 +74,13 @@ const icons = {
       <path d="M7.75 5.25h2.5a2 2 0 0 1 2 2v2.75" />
     </svg>
   ),
+  middleware: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 2 2 5.5 9 9l7-3.5z" />
+      <path d="m2 9 7 3.5L16 9" />
+      <path d="m2 12.5 7 3.5 7-3.5" />
+    </svg>
+  ),
   about: (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="9" cy="9" r="7" />
