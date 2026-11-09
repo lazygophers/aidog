@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1794191265,
   "supported_protocols": [
     "gemini"
   ],
@@ -12,6 +12,7 @@
   "capabilities": [
     "audio"
   ],
+  "max_input_tokens": 131072,
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,

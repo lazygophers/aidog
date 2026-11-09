@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1794191265,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -22,6 +22,11 @@
   "price": {
     "currency": "USD",
     "unit": "second",
-    "unit_price": 0
+    "unit_price": 0.021,
+    "unit_tiers": [
+      { "tier": "480p", "unit_price": 0.021 },
+      { "tier": "720p", "unit_price": 0.044 },
+      { "tier": "1080p", "unit_price": 0.102 }
+    ]
   }
 }

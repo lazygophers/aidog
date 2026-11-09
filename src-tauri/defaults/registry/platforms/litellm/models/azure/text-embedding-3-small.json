@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794017726,
+  "last_updated": 1794191265,
   "supported_protocols": [
     "openai"
   ],
@@ -12,7 +12,7 @@
     "embedding"
   ],
   "max_input_tokens": 8192,
-  "context_window": 8191,
+  "context_window": 8192,
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,

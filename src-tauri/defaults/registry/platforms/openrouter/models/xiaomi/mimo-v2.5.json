@@ -4,7 +4,7 @@
   "canonical_model": "mimo-v2.5",
   "family": "mimo",
   "version": "2.5",
-  "max_input_tokens": 1048576,
+  "max_input_tokens": 1000000,
   "context_window": 1000000,
   "official": true,
   "max_output_tokens": 65536,
@@ -16,7 +16,7 @@
     "output": 0.000002,
     "cache_read": 2.8e-09
   },
-  "last_updated": 1794017726,
+  "last_updated": 1794191265,
   "supported_protocols": [
     "anthropic",
     "openai"
