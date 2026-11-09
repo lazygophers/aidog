@@ -927,6 +927,115 @@ async fn models_endpoint_tokenless_returns_static_anthropic() {
     );
 }
 
+// ── 网关模型发现：分组模型分类槽位链 ∪ 直通模型（Claude Code GET /v1/models）──
+
+/// 建分组 `gk`：一个 Anthropic 平台，sonnet 槽链 + extra.direct_models。
+async fn setup_group_models(
+    state: &Arc<ProxyState>,
+    gk: &str,
+    sonnet: &[&str],
+    direct: &[&str],
+) {
+    let plat = aidog_db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: format!("p-{gk}"),
+            platform_type: Protocol::Anthropic,
+            base_url: "http://unused.invalid".into(),
+            api_key: "sk-up".into(),
+            extra: serde_json::json!({ "direct_models": direct }).to_string(),
+            models: Some(PlatformModels {
+                sonnet: sonnet.iter().map(|s| s.to_string()).collect(),
+                ..Default::default()
+            }),
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .unwrap();
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: plat.id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+}
+
+async fn models_ids(state: &Arc<ProxyState>, headers: &[(&str, &str)]) -> Vec<String> {
+    let mut b = HttpRequest::builder().method("GET").uri("/v1/models");
+    for (k, v) in headers {
+        b = b.header(*k, *v);
+    }
+    let resp = handle_proxy(AxumState(state.clone()), b.body(Body::empty()).unwrap()).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    v["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|m| m["id"].as_str().unwrap().to_string())
+        .collect()
+}
+
+/// group token → 槽位链全部 ∪ 直通模型，去重；不含默认清单。
+#[tokio::test]
+async fn models_discovery_group_token_returns_slot_chain_union_direct() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let state = make_state(db).await;
+    setup_group_models(&state, "gdisc", &["claude-slot-a", "claude-slot-b"], &["claude-direct-x", "claude-slot-a"]).await;
+    let ids = models_ids(&state, &[("authorization", "Bearer gdisc")]).await;
+    assert_eq!(ids, vec!["claude-slot-a", "claude-slot-b", "claude-direct-x"]);
+}
+
+/// 无 token → 默认清单（不 404）。
+#[tokio::test]
+async fn models_discovery_tokenless_returns_default_list() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let state = make_state(db).await;
+    setup_group_models(&state, "gdisc", &["claude-slot-a"], &["claude-direct-x"]).await;
+    let ids = models_ids(&state, &[]).await;
+    assert!(ids.iter().any(|i| i == "claude-opus-4-8"));
+    assert!(!ids.iter().any(|i| i == "claude-direct-x"));
+}
+
+/// 未知分组 token → 仍是默认清单（探测不 404）。
+#[tokio::test]
+async fn models_discovery_unknown_group_returns_default_list() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let state = make_state(db).await;
+    setup_group_models(&state, "gdisc", &["claude-slot-a"], &["claude-direct-x"]).await;
+    let ids = models_ids(&state, &[("authorization", "Bearer nope")]).await;
+    assert!(ids.iter().any(|i| i == "claude-opus-4-8"));
+    assert!(!ids.iter().any(|i| i == "claude-direct-x"));
+}
+
+/// X-Aidog-Group 头胜过 token → 该组的并集。
+#[tokio::test]
+async fn models_discovery_group_header_selects_union() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let state = make_state(db).await;
+    setup_group_models(&state, "gda", &["claude-a1"], &["claude-da"]).await;
+    setup_group_models(&state, "gdb", &["claude-b1"], &["claude-db"]).await;
+    let ids = models_ids(&state, &[("authorization", "Bearer gda"), ("x-aidog-group", "gdb")]).await;
+    assert_eq!(ids, vec!["claude-b1", "claude-db"]);
+}
+
 /// POST /v1/messages/count_tokens → handle_count_tokens（透传优先 / 本地估算兜底）。
 #[tokio::test]
 async fn count_tokens_endpoint_returns_count() {

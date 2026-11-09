@@ -364,7 +364,7 @@ pub(crate) fn merge_group_model_names(
         .collect()
 }
 
-/// 带 group token 时的模型清单：该分组真正配着的模型（见 `merge_group_model_names`）。
+/// 带 group token 时的模型清单：该分组真正配着的模型（见 `merge_group_model_names`）∪ 各平台直通模型。
 ///
 /// 返回 `None` 表示「没有 token / token 认不出分组 / 该分组一个模型都没配」，调用方回落默认清单。
 async fn group_model_ids(
@@ -379,7 +379,18 @@ async fn group_model_ids(
         .iter()
         .map(|gp| gp.platform.models.clone())
         .collect();
-    let out = merge_group_model_names(&detail.group.model_mappings, &platform_models);
+    let mut out = merge_group_model_names(&detail.group.model_mappings, &platform_models);
+    // 并上各平台 extra.direct_models（直通模型）：Claude Code 网关模型发现要「分类槽位 ∪ 直通」。
+    for m in detail
+        .platforms
+        .iter()
+        .flat_map(|gp| aidog_db::models::PlatformExtra::parse(&gp.platform.extra).direct_models)
+    {
+        let m = m.trim().to_string();
+        if !m.is_empty() && !out.contains(&m) {
+            out.push(m);
+        }
+    }
     (!out.is_empty()).then_some(out)
 }
 
