@@ -38,11 +38,8 @@ pub(crate) async fn finish_nonstream(
     ctx: &AttemptCtx,
     upstream_resp_headers: &reqwest::header::HeaderMap,
     start: std::time::Instant,
-    // 票 02：出站脱敏映射表（None = 未开启，零改动直通）。响应侧整段还原；
-    // log.response_body 已在上文按上游原文（占位符形态）捕获，原值不落库。
-    privacy: Option<Arc<crate::gateway::privacy::ScrubMap>>,
     // 中间件可还原 mask 映射表：响应在出站中间件之后还原；日志侧（user_response_body）保持占位符形态。
-    mw_restore: Option<Arc<crate::gateway::privacy::ScrubMap>>,
+    mw_restore: Option<Arc<aidog_middleware::placeholder::ScrubMap>>,
     body: Bytes,
 ) -> Response {
     let source_protocol = &ctx.source_protocol;
@@ -124,17 +121,6 @@ pub(crate) async fn finish_nonstream(
     };
     let body = Bytes::from(body);
 
-    // ── 票 02：占位符还原（响应侧）：客户端拿回原值；替换值做 JSON 转义，保 JSON / SSE
-    //   结构不被 PEM 等多行原值打破。此时 log.response_body 已按上游原文（占位符形态）
-    //   捕获完毕，还原只影响下发客户端的字节。──
-    let body = match &privacy {
-        Some(map) if !map.is_empty() => {
-            let s = String::from_utf8_lossy(&body).to_string();
-            Bytes::from(crate::gateway::privacy::restore_json_escaped(&s, map))
-        }
-        _ => body,
-    };
-
     // ── 禁用思考的响应侧兑现（转换与透传两分支共用本 seam）──
     // 出站已按目标协议写了显式禁用参数，但 MiniMax-M2 这类内置思考模型不认，照回思维链
     // （实测 request 3ed5a698：整条响应只有 thinking 块）。按客户端协议剥掉思维链载体，
@@ -205,7 +191,7 @@ pub(crate) async fn finish_nonstream(
     // 中间件可还原 mask：日志已记占位符形态，下发客户端前还原（替换值做 JSON 转义）。
     let body = match &mw_restore {
         Some(map) => {
-            crate::gateway::privacy::restore_json_escaped(&String::from_utf8_lossy(&body), map)
+            aidog_middleware::placeholder::restore_json_escaped(&String::from_utf8_lossy(&body), map)
                 .into_bytes()
         }
         None => body,
@@ -287,11 +273,8 @@ pub(crate) async fn finish_stream<S>(
     ctx: &AttemptCtx,
     upstream_resp_headers: &reqwest::header::HeaderMap,
     start: std::time::Instant,
-    // 票 02：出站脱敏映射表（None = 未开启，零改动直通）。流式经 StreamRestorer
-    // 按占位符完整性切分还原（正文 / 工具参数 / 思维链统一在下发字节层）。
-    privacy: Option<Arc<crate::gateway::privacy::ScrubMap>>,
     // 中间件可还原 mask 映射表：还原在 masker / 旧隐私还原之后；client 侧日志记还原前形态。
-    mw_restore: Option<Arc<crate::gateway::privacy::ScrubMap>>,
+    mw_restore: Option<Arc<aidog_middleware::placeholder::ScrubMap>>,
 ) -> Response
 where
     S: futures::Stream<Item = reqwest::Result<Bytes>> + Unpin + Send + 'static,
@@ -350,9 +333,8 @@ where
     //   扣留至多 MAX_PLACEHOLDER_LEN 字节，跨块占位符攒齐再还原。应用在最终 out_bytes，
     //   覆盖 passthrough / 转换两分支的正文、工具调用参数与思维链；上游原文聚合
     //   （push_upstream）不受影响，log 保持占位符形态。──
-    let mut privacy_restorer = privacy.map(crate::gateway::privacy::StreamRestorer::new);
     // 中间件可还原 mask 的还原窗口（串在旧隐私还原之后）；client 侧日志取其输入（占位符形态）。
-    let mut mw_restorer = mw_restore.map(crate::gateway::privacy::StreamRestorer::new);
+    let mut mw_restorer = mw_restore.map(aidog_middleware::placeholder::StreamRestorer::new);
 
     // ── 旁路聚合器：累积 token + 上游 SSE 原文 + 转换后下发客户端的 SSE。
     // 闭包内对其加同步锁是短临界区（push），禁持锁跨 await（闭包本身同步，不 await）。──
@@ -438,14 +420,6 @@ where
             // 流末哨兵：冲刷尾窗残留（已含终止符的那块已冲刷过 → 此处为空串，幂等）。
             // 票 02：masker 尾窗先过还原窗口再整体冲出（顺序 = 原文顺序）。
             let tail = mw_masker.finish();
-            let tail = match privacy_restorer.as_mut() {
-                Some(r) => {
-                    let mut s = r.push_bytes(tail.as_bytes());
-                    s.push_str(&r.finish());
-                    s
-                }
-                None => tail,
-            };
             if tail.is_empty() {
                 return Ok::<_, std::io::Error>(Bytes::new());
             }
@@ -481,15 +455,7 @@ where
                 // 上游中断也要把滑窗扣住的正文先冲出去（在 error 帧之前，顺序即原文顺序），
                 // 否则最后 window 字节被静默吞掉。冲刷后 masker 为空，不再卡任何字节。
                 // 票 02：masker 尾窗过还原窗口后连同其残留一并冲出。
-                let masker_tail = mw_masker.finish();
-                let mut out = String::new();
-                match privacy_restorer.as_mut() {
-                    Some(r) => {
-                        out.push_str(&r.push_bytes(masker_tail.as_bytes()));
-                        out.push_str(&r.finish());
-                    }
-                    None => out.push_str(&masker_tail),
-                }
+                let mut out = mw_masker.finish();
                 if !out.is_empty() && record_client_body {
                     guard.agg.push_client(&Bytes::from(out.clone()));
                 }
@@ -634,17 +600,6 @@ where
 
         // ── 票 02 流式还原（中间件 masker 之后串联）：占位符换回原值；终止符帧顺带
         //   冲刷还原窗口残留（无终止符收尾由流末哨兵分支兜底）。──
-        let out_bytes = match privacy_restorer.as_mut() {
-            Some(r) => {
-                let mut s = r.push_bytes(&out_bytes);
-                if has_stream_terminator(&text) {
-                    s.push_str(&r.finish());
-                }
-                Bytes::from(s)
-            }
-            None => out_bytes,
-        };
-
         // 旁路累积下发客户端的 SSE（受 log_user_request 开关控制；push_client 同 O(1) 上限判断）
         // 中间件可还原 mask 在场时：日志记还原前（占位符形态），再对下发字节还原。
         if record_client_body && !out_bytes.is_empty() {

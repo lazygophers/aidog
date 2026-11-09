@@ -9,7 +9,6 @@ import { ApiTestPanel } from "./AppSettings/ApiTestPanel";
 import { ApiCatalogSection } from "./AppSettings/ApiCatalogSection";
 import { DisplayCurrencySection } from "../components/settings/DisplayCurrencySection";
 import { CustomModelSlotsSection } from "../components/settings/CustomModelSlotsSection";
-import { PrivacyScrubSection } from "../components/settings/PrivacyScrubSection";
 import { LogSettingsSection } from "./AppSettings/LogSettingsSection";
 import { SystemMiscSection, DbStatsSection, VersionToastSection } from "./AppSettings/SystemMiscSection";
 
@@ -94,7 +93,6 @@ function SystemTab() {
       <RevealedSection staggerMs={160}><SystemMiscSection s={s} /></RevealedSection>
       <RevealedSection staggerMs={160}><DisplayCurrencySection /></RevealedSection>
       <RevealedSection staggerMs={160}><CustomModelSlotsSection /></RevealedSection>
-      <RevealedSection staggerMs={160}><PrivacyScrubSection /></RevealedSection>
       <RevealedSection staggerMs={160}><LogSettingsSection s={s} /></RevealedSection>
       <RevealedSection staggerMs={160}><DbStatsSection s={s} /></RevealedSection>
       <RevealedSection staggerMs={160}><VersionToastSection s={s} /></RevealedSection>
