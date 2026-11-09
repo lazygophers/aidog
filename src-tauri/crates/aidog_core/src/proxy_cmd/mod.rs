@@ -6,4 +6,5 @@ pub mod mitm_stats;
 pub mod proxy;
 pub mod proxy_log;
 pub mod proxy_timeout;
+pub mod search;
 pub mod tool_log;

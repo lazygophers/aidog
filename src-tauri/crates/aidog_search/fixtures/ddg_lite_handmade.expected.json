@@ -1,0 +1,17 @@
+[
+ {
+  "url": "https://www.rust-lang.org/",
+  "title": "Rust Programming Language",
+  "snippet": "A language empowering everyone to build reliable software."
+ },
+ {
+  "url": "https://doc.rust-lang.org/book/",
+  "title": "The Rust Programming Language - The Book",
+  "snippet": "Affectionately nicknamed \"the book\"."
+ },
+ {
+  "url": "https://last.example/",
+  "title": "Last row has no snippet rows",
+  "snippet": ""
+ }
+]
