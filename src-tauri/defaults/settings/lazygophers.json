@@ -125,21 +125,33 @@
     },
     "sandbox": {
         "enabled": false,
+        "failIfUnavailable": true,
+        "allowUnsandboxedCommands": false,
+        "autoAllowBashIfSandboxed": true,
+        "excludedCommands": [
+            "docker *",
+            "gh *"
+        ],
         "filesystem": {
             "denyRead": [
-                "~/.aws",
-                "~/.config/gcloud",
-                "~/.claude/.credentials.json",
-                "~/.netrc",
                 "~/.pgpass",
-                "~/.kdbx"
+                "~/**/*.kdbx"
+            ],
+            "denyWrite": [
+                "~/.ssh",
+                "~/.aws",
+                "~/.kube",
+                "~/.config/gh",
+                "~/.config/gcloud",
+                "~/.docker/config.json"
             ],
             "allowWrite": [
                 "/tmp",
                 "/private/tmp",
                 "~/.cache",
-                "~/.local",
-                "~/.config",
+                "~/.local/share/mise",
+                "~/.local/state",
+                "~/.config/mise",
                 "~/Library/Caches",
                 "~/.mise",
                 "~/.asdf",
@@ -175,16 +187,66 @@
                 "~/.cabal",
                 "~/.opam",
                 "~/.conda",
-                "~/.docker",
                 "~/.terraform.d"
             ]
         },
         "network": {
-            "allowedDomains": [
-                "*"
-            ],
+            "strictAllowlist": true,
             "allowLocalBinding": true,
-            "allowAllUnixSockets": true
+            "allowedDomains": [
+                "github.com",
+                "*.github.com",
+                "*.githubusercontent.com",
+                "registry.npmjs.org",
+                "*.npmjs.org",
+                "registry.yarnpkg.com",
+                "crates.io",
+                "static.crates.io",
+                "index.crates.io",
+                "static.rust-lang.org",
+                "proxy.golang.org",
+                "sum.golang.org",
+                "pypi.org",
+                "files.pythonhosted.org",
+                "repo.maven.apache.org",
+                "repo1.maven.org",
+                "plugins.gradle.org",
+                "services.gradle.org",
+                "downloads.gradle.org",
+                "rubygems.org",
+                "index.rubygems.org",
+                "packagist.org",
+                "repo.packagist.org",
+                "api.nuget.org",
+                "builds.dotnet.microsoft.com",
+                "pub.dev",
+                "storage.googleapis.com",
+                "cdn.cocoapods.org",
+                "trunk.cocoapods.org",
+                "hackage.haskell.org",
+                "downloads.haskell.org",
+                "opam.ocaml.org",
+                "conda.anaconda.org",
+                "repo.anaconda.com",
+                "registry.terraform.io",
+                "releases.hashicorp.com",
+                "mise.jdx.dev",
+                "mise-versions.jdx.dev",
+                "nodejs.org",
+                "api.sdkman.io",
+                "jsr.io",
+                "deno.land"
+            ]
+        },
+        "credentials": {
+            "envVars": [
+                { "name": "GITHUB_TOKEN", "mode": "deny" },
+                { "name": "GH_TOKEN", "mode": "deny" },
+                { "name": "NPM_TOKEN", "mode": "deny" },
+                { "name": "AWS_ACCESS_KEY_ID", "mode": "deny" },
+                { "name": "AWS_SECRET_ACCESS_KEY", "mode": "deny" },
+                { "name": "AWS_SESSION_TOKEN", "mode": "deny" }
+            ]
         }
     },
     "workflowKeywordTriggerEnabled": false,
@@ -251,7 +313,6 @@
     },
     "useAutoModeDuringPlan": true,
     "skipAutoPermissionPrompt": true,
-    "skipDangerousModePermissionPrompt": true,
     "permissions": {
         "defaultMode": "bypassPermissions",
         "additionalDirectories": [
