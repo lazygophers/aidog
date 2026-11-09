@@ -54,8 +54,8 @@ fn replace_outside_placeholders(s: &str, f: &mut dyn FnMut(&str) -> String) -> S
     out
 }
 
-fn replace_segment(leaf: &RewriteLeaf, seg: &str, map: &mut ScrubMap) -> String {
-    let kind = kind_slug(leaf);
+fn replace_segment(leaf: &RewriteLeaf, ty: &str, seg: &str, map: &mut ScrubMap) -> String {
+    let kind = if ty.is_empty() { kind_slug(leaf) } else { ty };
     let ok = |hit: &str| !hit.is_empty() && validators::validate(&leaf.validator, hit);
     match leaf.match_type {
         MatchType::Regex => match leaf.regex.as_ref() {
@@ -167,7 +167,7 @@ impl MiddlewareEngine {
                     let mut out = s.to_string();
                     for leaf in &leaves {
                         out = replace_outside_placeholders(&out, &mut |seg| {
-                            replace_segment(leaf, seg, &mut map)
+                            replace_segment(leaf, &step.params.placeholder_type, seg, &mut map)
                         });
                     }
                     out

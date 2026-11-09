@@ -3,7 +3,7 @@
 use super::test_mod::*;
 use super::*;
 use crate::placeholder::{restore, PLACEHOLDER_RE};
-use aidog_db::models::{ActionKind, ActionParams, MaskMode};
+use aidog_db::models::{ActionKind, ActionParams, ActionStep, MaskMode};
 
 fn rev_step(fields: &[&str]) -> aidog_db::models::ActionStep {
     step(
@@ -144,4 +144,51 @@ fn non_all_rule_does_not_want_all() {
     t.all.push("tool secret out".into());
     e.apply_reversible_texts(&settings_on(), &mut t, None, 1, None).unwrap();
     assert_eq!(t.all[0], "tool secret out", "非 all 步骤不碰 all 槽");
+}
+
+/// 用真实内置规则（spec 的 conditions/actions JSON）跑一遍 `all` 槽，返回 (改写后文本, 映射表)。
+fn run_builtin(name: &str, text: &str) -> (String, placeholder::ScrubMap) {
+    let spec = aidog_db::builtin_rule_specs().iter().find(|s| s.name == name).unwrap_or_else(|| panic!("缺内置规则 {name}"));
+    let conditions: ConditionNode = serde_json::from_str(spec.conditions).unwrap();
+    let actions: Vec<ActionStep> = serde_json::from_str(spec.actions).unwrap();
+    let e = MiddlewareEngine::new();
+    e.rebuild_from_rules(vec![mk_rule(1, name, conditions, actions)]);
+    let mut t = InboundTexts::new("test-model");
+    t.all.push(text.to_string());
+    let map = e.apply_reversible_texts(&settings_on(), &mut t, None, 1, None).unwrap();
+    (t.all[0].clone(), map)
+}
+
+#[test]
+fn builtin_private_key_rule_masks_pem_block() {
+    let pem = "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA\nabc/def+ghi=\n-----END RSA PRIVATE KEY-----";
+    let (out, map) = run_builtin("内置·私钥脱敏", &format!("key:\n{pem}\nend"));
+    assert!(!out.contains("MIIEow") && !out.contains("PRIVATE KEY-----"), "{out}");
+    assert!(out.contains("{{PII_PRIVATE_KEY_"), "{out}");
+    assert_eq!(restore(&out, &map), format!("key:\n{pem}\nend"));
+    let (plain, _) = run_builtin("内置·私钥脱敏", "-----BEGIN PUBLIC KEY-----\nabc\n-----END PUBLIC KEY-----");
+    assert!(!plain.contains("PII_"), "公钥不命中");
+}
+
+#[test]
+fn builtin_bearer_rule_masks_token() {
+    let token = "eyJhbGciOiJIUzI1NiJ9.abcdefghijklmnop";
+    let (out, map) = run_builtin("内置·Bearer token 脱敏", &format!("Authorization: Bearer {token} ok"));
+    assert!(!out.contains(token), "{out}");
+    assert!(out.contains("{{PII_BEARER_TOKEN_"), "{out}");
+    assert_eq!(restore(&out, &map), format!("Authorization: Bearer {token} ok"));
+    let (short, _) = run_builtin("内置·Bearer token 脱敏", "the bearer of bad news");
+    assert!(!short.contains("PII_"), "普通英文词不命中");
+}
+
+#[test]
+fn builtin_placeholder_types_follow_spec() {
+    let (out, _) = run_builtin("内置·邮箱脱敏", "mail bob@example.com");
+    assert!(out.contains("{{PII_EMAIL_"), "{out}");
+    let (out, _) = run_builtin("内置·密钥脱敏", "k sk-abcdefghijklmnopqrstuv");
+    assert!(out.contains("{{PII_SECRET_"), "{out}");
+    let (out, _) = run_builtin("内置·信用卡号脱敏", "card 4111 1111 1111 1111");
+    assert!(out.contains("{{PII_BANK_CARD_"), "{out}");
+    let (out, _) = run_builtin("内置·美国社保号脱敏", "ssn 123-45-6789");
+    assert!(out.contains("{{PII_US_SSN_"), "{out}");
 }
