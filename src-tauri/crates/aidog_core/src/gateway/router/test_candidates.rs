@@ -4733,3 +4733,123 @@ async fn time_rule_embedding_out_of_window_uses_default() {
     assert!(platform_supports_kind(&p, RequestKind::Embedding, &dm, &rules(9, 10), now), "时段外读默认");
     assert!(!platform_supports_kind(&p, RequestKind::Embedding, &dm, &rules(22, 23), now), "时段内档无 embedding");
 }
+
+// ══ 时段档各自的启用开关（票 时段档-模型配置对齐/03）══
+
+/// 全天命中的时段档，带本档开关集合 `rule_off`；`never` = 窗口永不命中（days_of_month 取 32）。
+fn rule_extra(never: bool, rule_models: serde_json::Value, rule_off: serde_json::Value, extra_more: serde_json::Value) -> String {
+    let window = if never {
+        serde_json::json!({"start_hour":0,"end_hour":24,"days_of_month":[32]})
+    } else {
+        serde_json::json!({"start_hour":0,"end_hour":24})
+    };
+    let mut v = serde_json::json!({
+        "time_windows": [{"windows":[window],"models":rule_models,"disabled_slots":rule_off}]
+    });
+    if let (Some(o), Some(m)) = (v.as_object_mut(), extra_more.as_object()) {
+        for (k, x) in m {
+            o.insert(k.clone(), x.clone());
+        }
+    }
+    v.to_string()
+}
+
+/// 时段内本档关闭某槽 → 平台排除，原因 = 时段档开关（与默认开关区分）；单平台组同样拦。
+#[tokio::test]
+async fn time_rule_switch_off_in_window_excludes_with_rule_reason() {
+    let (db, _dir) = db::test_support::three_file_db().await;
+    let p1 = mk_db_platform(&db, "a").await;
+    let p2 = mk_db_platform(&db, "b").await;
+    let extra = rule_extra(false, serde_json::json!({"default":["d2"]}), serde_json::json!(["default"]), serde_json::json!({}));
+    set_models_extra(&db, p1.id, slot_default("d1"), &extra).await;
+    let g = mk_db_group(&db, "g", &[p1.id, p2.id]).await;
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    assert_eq!(cand_ids(&set), vec![p2.id]);
+    assert_eq!(reason_of(&set, p1.id), RouteReason::TimeRuleSlotDisabled);
+
+    let single = mk_db_group(&db, "g1", &[p1.id]).await;
+    let e = select_candidates_ctx(&db, &single, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect_err("single platform blocked");
+    assert_eq!(e, "slot_disabled");
+}
+
+/// 时段外 → 只看平台级开关（原因 = 默认开关）；本档的关闭开关不生效。
+#[tokio::test]
+async fn time_rule_out_of_window_uses_platform_switches() {
+    let (db, _dir) = db::test_support::three_file_db().await;
+    let p1 = mk_db_platform(&db, "a").await;
+    let p2 = mk_db_platform(&db, "b").await;
+    let p3 = mk_db_platform(&db, "c").await;
+    // p1：平台级关 default，本档开 → 时段外被排除（默认开关）
+    let e1 = rule_extra(true, serde_json::json!({"default":["d2"]}), serde_json::json!([]), serde_json::json!({"disabled_slots":["default"]}));
+    set_models_extra(&db, p1.id, slot_default("d1"), &e1).await;
+    // p3：平台级开，本档关 default → 时段外不排除
+    let e3 = rule_extra(true, serde_json::json!({"default":["d2"]}), serde_json::json!(["default"]), serde_json::json!({}));
+    set_models_extra(&db, p3.id, slot_default("d3"), &e3).await;
+    let g = mk_db_group(&db, "g", &[p1.id, p2.id, p3.id]).await;
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    let mut ids = cand_ids(&set);
+    ids.sort();
+    assert_eq!(ids, vec![p2.id, p3.id]);
+    assert_eq!(reason_of(&set, p1.id), RouteReason::ModelNotOnPlatform);
+}
+
+/// 时段内平台级关、本档开 → 不排除（时段内只看本档）。
+#[tokio::test]
+async fn time_rule_in_window_ignores_platform_level_builtin_switch() {
+    let (db, _dir) = db::test_support::three_file_db().await;
+    let p1 = mk_db_platform(&db, "a").await;
+    let p2 = mk_db_platform(&db, "b").await;
+    let extra = rule_extra(false, serde_json::json!({"default":["d2"]}), serde_json::json!([]), serde_json::json!({"disabled_slots":["default"]}));
+    set_models_extra(&db, p1.id, slot_default("d1"), &extra).await;
+    let g = mk_db_group(&db, "g", &[p1.id, p2.id]).await;
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    let mut ids = cand_ids(&set);
+    ids.sort();
+    assert_eq!(ids, vec![p1.id, p2.id]);
+}
+
+/// 自定义槽开关时段内外都按平台级：平台级关 → 时段内外都排除（默认开关）；本档里写的自定义槽名不生效。
+#[tokio::test]
+async fn time_rule_custom_slot_switch_follows_platform_level() {
+    db_set_custom_defs_fast_and_run(true).await;
+    db_set_custom_defs_fast_and_run(false).await;
+}
+
+async fn db_set_custom_defs_fast_and_run(never: bool) {
+    let (db, _dir) = db::test_support::three_file_db().await;
+    let p1 = mk_db_platform(&db, "off").await; // 平台级关 fast
+    let p2 = mk_db_platform(&db, "on").await; // 平台级开 fast，本档误写 fast（应被忽略）
+    let p3 = mk_db_platform(&db, "plain").await;
+    db::set_setting(
+        &db,
+        db::models::SetSettingInput {
+            scope: "model".into(),
+            key: "custom_model_slots".into(),
+            value: serde_json::json!([{"name": "fast"}]),
+        },
+    )
+    .await
+    .expect("defs");
+    let more_off = serde_json::json!({"custom_slots":{"fast":["f1"]},"disabled_slots":["fast"]});
+    let e1 = rule_extra(never, serde_json::json!({"default":["d2"]}), serde_json::json!([]), more_off);
+    set_models_extra(&db, p1.id, slot_default("d1"), &e1).await;
+    let more_on = serde_json::json!({"custom_slots":{"fast":["f1"]}});
+    let e2 = rule_extra(never, serde_json::json!({"default":["d2"]}), serde_json::json!(["fast"]), more_on);
+    set_models_extra(&db, p2.id, slot_default("d1"), &e2).await;
+    let g = mk_db_group(&db, "g", &[p1.id, p2.id, p3.id]).await;
+    let set = select_candidates_ctx(&db, &g, "claude-fast-1", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    let mut ids = cand_ids(&set);
+    ids.sort();
+    assert_eq!(ids, vec![p2.id, p3.id], "never={never}");
+    assert_eq!(reason_of(&set, p1.id), RouteReason::ModelNotOnPlatform, "never={never}");
+}

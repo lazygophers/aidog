@@ -1053,7 +1053,7 @@ async fn handle_single_platform(
 
     // 命中槽位被关闭：单平台组同样不 bypass（与高峰禁用同位次）；透传 / 无槽命中 / Tools 恒不拦。
     if let Some(c) = cache
-        && hits_disabled_slot(
+        && let Some(slot_reason) = disabled_slot_reason(
             &only.platform,
             c,
             kind,
@@ -1068,7 +1068,7 @@ async fn handle_single_platform(
         );
         return Err(RouteFail {
             reason: "slot_disabled".to_string(),
-            routing: single_snapshot(only, group.routing_mode, RouteReason::ModelNotOnPlatform),
+            routing: single_snapshot(only, group.routing_mode, slot_reason),
         });
     }
 
@@ -1630,10 +1630,11 @@ fn filter_candidates<'a>(
         // 槽位关闭维度（extra.disabled_slots）：命中槽位被关 → 排除；仅是路由排除，不碰 last_error / 惩罚 / 熔断。
         if let Some(model_name) = slot_model
             && let Some(cache) = extra_cache.get(&gp.platform.id)
-            && hits_disabled_slot(&gp.platform, cache, kind, now_ms, source_model, model_name)
+            && let Some(slot_reason) =
+                disabled_slot_reason(&gp.platform, cache, kind, now_ms, source_model, model_name)
         {
             slot_disabled_count += 1;
-            excluded.push((gp, RouteReason::ModelNotOnPlatform));
+            excluded.push((gp, slot_reason));
             continue;
         }
 
@@ -1893,23 +1894,37 @@ fn build_route_results(
         .collect()
 }
 
-/// 本次请求在该平台命中的槽位是否被关闭（`extra.disabled_slots`），或请求名所属档位族
-/// （opus/sonnet/haiku/gpt）的槽位被关闭——后者与该槽是否留空、实际落到哪个槽 / 透传无关。
-/// 平台透传（Passthrough 协议）/ Tools 恒 false；`default` 与自定义槽只看实际命中。
-fn hits_disabled_slot(
+/// 内置模型槽位名（时段档开关集合只收这些；自定义槽开关始终只存平台级）。
+const BUILTIN_SLOTS: [&str; 8] = ["default", "opus", "sonnet", "haiku", "gpt", "jev", "embedding", "rerank"];
+
+/// 本次请求在该平台命中的槽位是否被关闭，是则返回排除原因；请求名所属档位族
+/// （opus/sonnet/haiku/gpt）的槽位被关闭同样算——后者与该槽是否留空、实际落到哪个槽 / 透传无关。
+///
+/// 生效开关：命中时段档（且档带 `disabled_slots`）→ 内置槽看本档开关（原因 `TimeRuleSlotDisabled`），
+/// 自定义槽仍看平台级；未命中 / 档无开关集合 → 平台级 `extra.disabled_slots`（原因 `ModelNotOnPlatform`）。
+/// 平台透传（Passthrough 协议）/ Tools 恒 None；`default` 与自定义槽只看实际命中。
+fn disabled_slot_reason(
     platform: &Platform,
     cache: &ExtraCache,
     kind: RequestKind<'_>,
     now_ms: i64,
     source_model: &str,
     model_name: &str,
-) -> bool {
-    if cache.disabled_slots.is_empty() {
-        return false;
+) -> Option<RouteReason> {
+    let rule_off: Option<Vec<&str>> = time_windows::matched_time_rule(&cache.time_windows, now_ms)
+        .and_then(|(rule, _)| rule.get("disabled_slots")?.as_array().map(|a| a.iter().filter_map(|x| x.as_str()).collect()));
+    if cache.disabled_slots.is_empty() && rule_off.as_ref().is_none_or(|r| r.is_empty()) {
+        return None;
     }
     if matches!(platform.platform_type, Protocol::Passthrough) {
-        return false;
+        return None;
     }
+    let off = |name: &str| -> Option<RouteReason> {
+        match (&rule_off, BUILTIN_SLOTS.contains(&name)) {
+            (Some(r), true) => r.contains(&name).then_some(RouteReason::TimeRuleSlotDisabled),
+            _ => cache.disabled_slots.iter().any(|d| d == name).then_some(RouteReason::ModelNotOnPlatform),
+        }
+    };
     let slot: Option<String> = match kind {
         RequestKind::Chat => {
             let eff = resolve_effective_models(platform, &cache.time_windows, now_ms, source_model);
@@ -1937,9 +1952,13 @@ fn hits_disabled_slot(
         }
         RequestKind::Tools(_) => None,
     };
-    slot.is_some_and(|s| cache.disabled_slots.contains(&s))
-        || matches!(kind, RequestKind::Chat)
-            && request_tier_families(model_name).iter().any(|f| cache.disabled_slots.iter().any(|d| d == f))
+    slot.and_then(|s| off(&s)).or_else(|| {
+        if matches!(kind, RequestKind::Chat) {
+            request_tier_families(model_name).iter().find_map(|f| off(f))
+        } else {
+            None
+        }
+    })
 }
 
 /// 快照用完整链：无备选（链长 1）→ 空，使链长 1 的快照与改造前逐字一致。

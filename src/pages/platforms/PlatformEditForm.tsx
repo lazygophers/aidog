@@ -330,6 +330,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           apiKeyMissing={apiKeyMissing} endpointsCount={endpoints.length}
           rules={timemodels.timeModels} setRules={timemodels.setTimeModels} peak={timemodels.peak}
           tzMode={timemodels.windowsTz} setTzMode={timemodels.setWindowsTz}
+          disabledSlots={disabledSlots}
           t={t}
         />
           </>
