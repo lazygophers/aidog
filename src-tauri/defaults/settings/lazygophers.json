@@ -301,6 +301,7 @@
     "agentPushNotifEnabled": false,
     "inputNeededNotifEnabled": false,
     "disableRemoteControl": true,
+    "remoteControlAtStartup": false,
     "advisorModel": "opus",
     "fastModePerSessionOptIn": true,
     "askUserQuestionTimeout": "never",
