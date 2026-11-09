@@ -18,8 +18,12 @@
     "enableArtifact": false,
     "autoUpdatesChannel": "latest",
     "autoInstallIdeExtension": true,
+    "idleCompaction": true,
+    "fileCheckpointingEnabled": true,
     "skipDangerousModePermissionPrompt": true,
     "spinnerTipsEnabled": true,
+    "bashOutputMaxChars": 4000,
+      "claudeMdExcludes": ["**/vendor/**/CLAUDE.md", "**/node_modules/**/CLAUDE.md"],
     "crossSessionInbound": "accept",
     "spinnerTipsOverride": {
         "excludeDefault": true,
@@ -199,6 +203,7 @@
     "fastMode": false,
     "skillListingMaxDescChars": 1024,
     "feedbackSurveyRate": 0,
+    "feedbackDrafts": "off",
     "editorMode": "normal",
     "includeCoAuthoredBy": false,
     "isolatePeerMachines": true,
@@ -211,7 +216,8 @@
     "includeGitInstructions": false,
     "fallbackModel": [
         "opus",
-        "sonnet"
+        "sonnet",
+        "subagent"
     ],
     "companyAnnouncements": [],
     "autoMode": {
@@ -223,7 +229,7 @@
             "$defaults",
             "临时文件和目录（包括系统临时目录）下的所有文件/文件夹操作",
             "执行 Python/Bash/protoc 等脚本",
-            "对于`.scratch`/`.ask-ui`的操作"
+            "对于`.scratch`/`.ask-me`的操作"
         ],
         "soft_deny": [
             "$defaults"
@@ -243,14 +249,14 @@
         "commit": "",
         "pr": ""
     },
+    "useAutoModeDuringPlan": true,
+    "skipAutoPermissionPrompt": true,
+    "skipDangerousModePermissionPrompt": true,
     "permissions": {
         "defaultMode": "bypassPermissions",
         "additionalDirectories": [
             ".claude/",
-            ".ask-ui/",
-            ".wiki/",
-            ".scratch/",
-            "graphify-out/"
+            ".scratch/"
         ],
         "deny": [
             "Artifact",
@@ -446,7 +452,6 @@
             "Bash(git reset:*)",
             "Bash(git checkout:*)",
             "Bash(git switch:*)",
-            "ExitWorktree",
             "Bash(mysql:*)",
             "Bash(mariadb:*)",
             "Bash(mysqldump:*)",
@@ -571,14 +576,25 @@
             }
         ]
     },
+    "switchModelsOnFlag": true,
+    "modelPicker": {
+        "options": [
+          {
+            "model": "subagent",
+            "label": "Sub Agent",
+            "description": "给子代理使用的模型"
+          }
+        ]
+      },
+      "promptCacheTtl": "1h",
+        "subagentPromptCacheTtl": "5m",
+        "skillListingBudgetFraction": 0.01,
     "env": {
+      "CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS": "200000",
         "CLAUDE_CODE_SUBAGENT_MODEL": "subagent",
-        "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1",
-        "CLAUDE_CODE_DISABLE_ARTIFACT": "1",
         "DISABLE_TELEMETRY": "1",
         "DISABLE_ERROR_REPORTING": "1",
         "DISABLE_FEEDBACK_COMMAND": "1",
-        "CLAUDE_CODE_SEND_FEEDBACK": "0",
         "CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY": "3",
         "CLAUDE_CODE_FORK_SUBAGENT": "1",
         "CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION": "9999",
@@ -599,7 +615,6 @@
         "CLAUDE_CODE_EFFORT_LEVEL": "medium",
         "CLAUDE_CODE_DISABLE_FAST_MODE": "1",
         "ENABLE_TOOL_SEARCH": "true",
-        "ENABLE_PROMPT_CACHING_1H": "1",
         "CLAUDE_CODE_MCP_ALLOWLIST_ENV": "1",
         "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL": "1",
         "BASH_DEFAULT_TIMEOUT_MS": "600000",
