@@ -9,6 +9,10 @@
     "cleanupPeriodDays": 30,
     "disableClaudeAiConnectors": true,
     "effortLevel": "medium",
+    "modelSettings": {
+      "claude-opus-5-5": { "effortLevel": "medium" },
+      "claude-sonnet-5-5": { "effortLevel": "medium" }
+    },
     "emojiCompletionEnabled": false,
     "preferredNotifChannel": "terminal_bell",
     "prefersReducedMotion": true,
@@ -670,6 +674,7 @@
         "skillListingBudgetFraction": 0.01,
     "env": {
       "CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS": "200000",
+      "CLAUDE_CODE_EFFORT_LEVEL": "medium",
         "CLAUDE_CODE_SUBAGENT_MODEL": "subagent",
         "DISABLE_TELEMETRY": "1",
         "DISABLE_ERROR_REPORTING": "1",
