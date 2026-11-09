@@ -1,6 +1,10 @@
 {
     "_aidog_preset_name": "lazygophers",
-    "_aidog_claude_json": { "copyOnSelect": false, "diffTool": "terminal", "autoInstallIdeExtension": true },
+    "_aidog_claude_json": {
+        "copyOnSelect": false,
+        "diffTool": "terminal",
+        "autoInstallIdeExtension": true
+    },
     "$schema": "https://json.schemastore.org/claude-code-settings.json",
     "language": "zh-SG",
     "autoCompactEnabled": true,
@@ -10,8 +14,12 @@
     "disableClaudeAiConnectors": true,
     "effortLevel": "medium",
     "modelSettings": {
-      "claude-opus-5-5": { "effortLevel": "medium" },
-      "claude-sonnet-5-5": { "effortLevel": "medium" }
+        "claude-opus-5-5": {
+            "effortLevel": "medium"
+        },
+        "claude-sonnet-5-5": {
+            "effortLevel": "medium"
+        }
     },
     "emojiCompletionEnabled": false,
     "preferredNotifChannel": "terminal_bell",
@@ -21,7 +29,7 @@
     "showTurnDuration": true,
     "enableArtifact": false,
     "autoUpdatesChannel": "latest",
-    "minimumVersion": "2.1.290",
+    "minimumVersion": "2.1.311",
     "idleCompaction": true,
     "bashEditDiffEnabled": true,
     "fileCheckpointingEnabled": true,
@@ -29,7 +37,10 @@
     "spinnerTipsEnabled": true,
     "bashOutputMaxChars": 4000,
     "promptSuggestionEnabled": true,
-      "claudeMdExcludes": ["**/vendor/**/CLAUDE.md", "**/node_modules/**/CLAUDE.md"],
+    "claudeMdExcludes": [
+        "**/vendor/**/CLAUDE.md",
+        "**/node_modules/**/CLAUDE.md"
+    ],
     "crossSessionInbound": "accept",
     "spinnerTipsOverride": {
         "excludeDefault": true,
@@ -242,12 +253,30 @@
         },
         "credentials": {
             "envVars": [
-                { "name": "GITHUB_TOKEN", "mode": "deny" },
-                { "name": "GH_TOKEN", "mode": "deny" },
-                { "name": "NPM_TOKEN", "mode": "deny" },
-                { "name": "AWS_ACCESS_KEY_ID", "mode": "deny" },
-                { "name": "AWS_SECRET_ACCESS_KEY", "mode": "deny" },
-                { "name": "AWS_SESSION_TOKEN", "mode": "deny" }
+                {
+                    "name": "GITHUB_TOKEN",
+                    "mode": "deny"
+                },
+                {
+                    "name": "GH_TOKEN",
+                    "mode": "deny"
+                },
+                {
+                    "name": "NPM_TOKEN",
+                    "mode": "deny"
+                },
+                {
+                    "name": "AWS_ACCESS_KEY_ID",
+                    "mode": "deny"
+                },
+                {
+                    "name": "AWS_SECRET_ACCESS_KEY",
+                    "mode": "deny"
+                },
+                {
+                    "name": "AWS_SESSION_TOKEN",
+                    "mode": "deny"
+                }
             ]
         }
     },
@@ -440,6 +469,8 @@
             "Bash(sleep:*)"
         ],
         "allow": [
+            "SendMessage",
+            "ListAgents",
             "Bash(go mod *)",
             "Bash(yarn install)",
             "Bash(npm install)",
@@ -654,21 +685,54 @@
     "switchModelsOnFlag": true,
     "modelPicker": {
         "options": [
-          {
-            "model": "subagent",
-            "label": "Sub Agent",
-            "description": "给子代理使用的模型"
-          }
+            {
+                "model": "subagent",
+                "label": "Sub Agent",
+                "description": "给子代理使用的模型"
+            }
         ]
-      },
-      "promptCacheTtl": "1h",
-        "subagentPromptCacheTtl": "5m",
-        "skillListingBudgetFraction": 0.01,
+    },
+    "promptCacheTtl": "1h",
+    "subagentPromptCacheTtl": "5m",
+    "skillListingBudgetFraction": 0.01,
     "env": {
-      "CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS": "200000",
-      "CLAUDE_CODE_AUTO_CONNECT_IDE": "false",
-      "CLAUDE_CODE_ENABLE_CFC": "0",
-      "CLAUDE_CODE_EFFORT_LEVEL": "medium",
+        "MCP_DISCOVERY_CACHE": "1",
+        "FORCE_HYPERLINK": "1",
+        "CLAUDE_ENABLE_STREAM_WATCHDOG": "1",
+        "CLAUDE_CODE_WORKFLOW_MAX_CONCURRENT_AGENTS": "2",
+        "CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS": "1",
+        "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1",
+        "CLAUDE_CODE_ENABLE_AWAY_SUMMARY": "1",
+        "CLAUDE_CODE_DISABLE_NOTIFICATION_PRESENCE_CHECK": "1",
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+        "CLAUDE_CODE_DISABLE_MCP_TASK_BACKGROUND": "1",
+        "CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS": "1",
+        "CLAUDE_CODE_DISABLE_FILE_MENTIONS": "0",
+        "CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING": "0",
+        "CLAUDE_CODE_DISABLE_FAST_MODE": "1",
+        "CLAUDE_CODE_GATEWAY_HINT_HEADERS": "1",
+        "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1",
+        "CLAUDE_CODE_DISABLE_EXPLORE_PLAN_AGENTS": "1",
+        "CLAUDE_CODE_DISABLE_DANGEROUS_RM_TIMEOUT": "1",
+        "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "0",
+        "CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL": "1",
+        "CLAUDE_CODE_SUBAGENT_MODEL_FORCE": "1",
+        "CLAUDE_CODE_SIMPLE_SYSTEM_PROMPT": "1",
+        "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "0",
+        "CLAUDE_CODE_DISABLE_AGENT_VIEW": "0",
+        "CLAUDE_CODE_DISABLE_ARTIFACT": "1",
+        "CLAUDE_CODE_DISABLE_ATTACHMENTS": "1",
+        "CLAUDE_CODE_BG_TASKS_REPORT_RUNNING": "1",
+        "CLAUDE_CODE_AUTO_MODE_MODEL": "haiku",
+        "CLAUDE_CODE_WARN_DISK_FREE_GIB": "50",
+        "CLAUDE_CODE_WARN_MEMORY_FREE_GIB": "1",
+        "CLAUDE_CODE_FORCE_STRIKETHROUGH": "1",
+        "CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP": "0",
+        "CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS": "200000",
+        "CLAUDE_CODE_AUTO_CONNECT_IDE": "false",
+        "CLAUDE_CODE_ENABLE_CFC": "0",
+        "CLAUDE_CODE_WORKER_CHECKIN_SCHEDULE": "1800",
+        "CLAUDE_CODE_EFFORT_LEVEL": "medium",
         "CLAUDE_CODE_SUBAGENT_MODEL": "subagent",
         "DISABLE_TELEMETRY": "1",
         "DISABLE_ERROR_REPORTING": "1",
@@ -678,7 +742,7 @@
         "CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE": "1",
         "CLAUDE_CODE_PLUGIN_PREFER_HTTPS": "1",
         "CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF": "1",
-        "CLAUDE_CODE_DISABLE_CRON": "1",
+        "CLAUDE_CODE_DISABLE_CRON": "0",
         "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80",
         "CLAUDE_AUTO_BACKGROUND_TASKS": "1",
         "CLAUDE_CODE_ATTRIBUTION_HEADER": "0",
