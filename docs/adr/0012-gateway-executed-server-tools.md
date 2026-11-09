@@ -18,7 +18,7 @@ AiDog 已有的搜索能力只在 `aidog-kernel mcp` 这个 stdio 子进程里�
    流量统计不计这些请求。
 3. **工具按需加载模拟**：所有非 Anthropic 官方平台上，延迟加载的工具只在被 `tool_reference` 点名后才发往上游，
    `tool_reference` 块降级为文字。
-4. **HTTP MCP 取代 stdio MCP**：代理端口提供 `POST /mcp`（Bearer 分组名 + 只许本机），删除 `aidog-kernel mcp`
+4. **HTTP MCP 取代 stdio MCP**：代理端口提供 `POST /mcp`（Bearer 分组密钥（group_key，与 /api/group-info 一致） + 只许本机），删除 `aidog-kernel mcp`
    子命令；AiDog 写入客户端的 mcpServers 配置改为该地址。
 5. **搜索引擎内置**：免 key 引擎以 Rust 实现于 AiDog 内，出站使用浏览器指纹模拟；与 key 服务并列为可开关的引擎列表。
 
