@@ -533,6 +533,12 @@ const NO_OFFICIAL_CHANNEL: &[&str] = &[
     // id 前缀不同故此处按字符串匹配不到），nvidia NIM 条目本身 official:false。
     "deepseek-ai/deepseek-v4.1-flash",
 
+    // registry-数据补齐轮 2026-11-09。anthropic 官方渠道由 anthropic 平台的
+    // claude-sonnet-4-5 / claude-sonnet-4-6 条目承载（official:true），中转路由 id
+    // 前缀形态 `anthropic/claude-sonnet-4` 字符串匹配不到，anthropic 条目本身
+    // official:false。（先例：deepseek-ai/deepseek-v4.1-flash）
+    "anthropic/claude-sonnet-4",
+
     // 2026-10-29 审计轮新增。mistral 官方目录在售
     // （https://docs.mistral.ai/models/deepseek-v4-1-flash-1017/），DeepSeek 官方渠道由
     // deepseek 平台的 `deepseek-flash` 条目承载（official:true，mistral 路由 id 前缀
@@ -542,6 +548,26 @@ const NO_OFFICIAL_CHANNEL: &[&str] = &[
     // `glm-5.3-flash` 条目承载（official:true，mistral 路由 id 前缀不同），mistral 条目
     // 本身 official:false。（https://docs.mistral.ai/models/zai-glm-5-3-flash/）
     "zai-glm-5-3-flash",
+
+    // registry-数据补齐轮 2026-11-09 新增（以下 11 条同一模式：官方渠道由官方平台的
+    // official:true 条目承载，中转/聚合平台的路由 id 前缀形态字符串匹配不到，
+    // 中转条目本身 official:false。先例：deepseek-ai/deepseek-v4.1-flash）：
+    "deepseek/deepseek-r1", // deepseek 平台 deepseek-r1 承载
+    "deepseek/deepseek-r1-distill-llama-70b", // deepseek 平台同名条目承载
+    "minimax/minimax-m2", // minimax/minimax_en 平台 MiniMax-M2 承载
+    "minimax/minimax-m2.1", // minimax/minimax_en 平台 MiniMax-M2.1 承载
+    "qwen/qwen3-30b-a3b-thinking-2507", // bailian 同名条目承载
+    "qwen/qwen3-8b", // bailian 同名条目承载
+    "qwen/qwen3-coder-plus", // bailian 同名条目承载
+    "qwen/qwen3-max", // bailian 同名条目承载
+    "qwen/qwen3-next-80b-a3b-thinking", // bailian 同名条目承载
+    "qwen/qwen3.6-max-preview", // bailian / bailian_en 同名条目承载
+    "deepseek-ai/DeepSeek-V4-Flash", // deepseek 平台 deepseek-v4-flash 承载
+
+    // opencode zen 自营 free 档模型，opencode 平台即唯一在售渠道（官方），条目
+    // official:false 属漏标或有意（free 非正式），未定——按「推测值禁写入」不改
+    // 数据，先豁免。（先例：qwen3-coder-plus-2025-07-22）
+    "crouton-alpha-free",
 ];
 
 /// 每个 `model_id` 至少有一个 `official` 平台条目（模型维度列表默认展示官方条目，
@@ -1022,7 +1048,9 @@ async fn presets_cache_concurrent_reads_are_consistent() {
 }
 
 /// glm 四个内置限频策略可解析，V0~V3 官方并发数落在模型级；其余三个 GLM 平台是骨架；
-/// 四个 GLM 平台都带 1302/1305 码义；其余平台一律无该字段（本票只动 GLM）。
+/// 四个 GLM 平台都带 1302/1305 码义；其余带限频字段的平台（registry-数据补齐轮
+/// 落库 14 平台）经 default_rate_limit_policies / default_rate_limit_error_codes
+/// 全部可解析。
 #[test]
 fn glm_rate_limit_policies_parse() {
     let glm = default_rate_limit_policies("glm");
@@ -1043,8 +1071,19 @@ fn glm_rate_limit_policies_parse() {
         assert_eq!(codes.get("1305").map(String::as_str), Some("overloaded"), "{code}");
     }
     for (code, doc) in protocols() {
-        if !["glm", "glm_en", "glm_coding", "glm_coding_en"].contains(&code.as_str()) {
-            assert!(doc.get("rate_limit_policies").is_none() && doc.get("rate_limit_error_codes").is_none(), "{code}");
+        // 对 bundled presets() 断言而非 effective_presets()：后者走 OnceLock 缓存，
+        // 并行的缓存测试会临时装回只含测试平台的 DB 文档（CACHE_TEST_LOCK 不覆盖本测试）。
+        if doc.get("rate_limit_policies").is_some() {
+            match rate_limit_policies_in(presets(), code) {
+                RegistryLookup::Found(ps) => assert!(!ps.is_empty(), "{code} 解析为空"),
+                other => panic!("{code} 带 rate_limit_policies 但解析失败：{other:?}"),
+            }
+        }
+        if doc.get("rate_limit_error_codes").is_some() {
+            match rate_limit_error_codes_in(presets(), code) {
+                RegistryLookup::Found(cs) => assert!(!cs.is_empty(), "{code} 解析为空"),
+                other => panic!("{code} 带 rate_limit_error_codes 但解析失败：{other:?}"),
+            }
         }
     }
 }
