@@ -58,7 +58,8 @@ pub const STATS_AGG_HOURLY_SQL: &str = r#"-- Migration 20260727-16 (历史编号
 --  - sum_duration_ms 用 SUM 非 AVG，便于跨桶再聚合；avg 在查询时 = sum/request_count。
 --  - success_count = 2xx；error_count = 终态非 2xx（status_code 不在 200..300）。
 -- client / req_model（migration 20261030-02）：客户端代码 / 请求模型（proxy_log.model），存量行 ''=未知。
--- UNIQUE(time_hour,model,group_key,platform_id,client,req_model) 是 upsert 的 ON CONFLICT 目标键。
+-- request_class（migration 20261110-02）：Claude Code 请求类型（proxy_log.request_class），存量行 ''=未知。
+-- UNIQUE(time_hour,model,group_key,platform_id,client,req_model,request_class) 是 upsert 的 ON CONFLICT 目标键。
 CREATE TABLE IF NOT EXISTS stats_agg_hourly (
     id                INTEGER PRIMARY KEY AUTOINCREMENT,
     time_hour         TEXT NOT NULL,
@@ -67,6 +68,7 @@ CREATE TABLE IF NOT EXISTS stats_agg_hourly (
     platform_id       INTEGER NOT NULL DEFAULT 0,
     client            TEXT NOT NULL DEFAULT '',
     req_model         TEXT NOT NULL DEFAULT '',
+    request_class     TEXT NOT NULL DEFAULT '',
     request_count     INTEGER NOT NULL DEFAULT 0,
     success_count     INTEGER NOT NULL DEFAULT 0,
     error_count       INTEGER NOT NULL DEFAULT 0,
@@ -78,7 +80,7 @@ CREATE TABLE IF NOT EXISTS stats_agg_hourly (
     created_at        INTEGER NOT NULL DEFAULT 0,
     updated_at        INTEGER NOT NULL DEFAULT 0,
     deleted_at        INTEGER NOT NULL DEFAULT 0,
-    UNIQUE(time_hour, model, group_key, platform_id, client, req_model)
+    UNIQUE(time_hour, model, group_key, platform_id, client, req_model, request_class)
 );
 
 CREATE INDEX IF NOT EXISTS idx_stats_agg_time     ON stats_agg_hourly(time_hour);

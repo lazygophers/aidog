@@ -6,15 +6,18 @@ import type { FlowRow, Platform } from "../services/api";
 import { FlowChart, type FlowMetric } from "../components/charts/FlowChart";
 import { useDisplayCurrency } from "../utils/displayCurrency";
 import { clientLabel } from "../utils/clientLabel";
+import { RequestClassFilter } from "../components/RequestClassFilter";
 import { usePanel } from "./Home";
 
 const METRICS: FlowMetric[] = ["tokens", "requests", "cost"];
 
-export function HomeFlowCard({ rows, platforms, ungroupedLabel, loading }: {
+export function HomeFlowCard({ rows, platforms, ungroupedLabel, loading, requestClass, onRequestClassChange }: {
   rows: FlowRow[];
   platforms: Platform[];
   ungroupedLabel: string;
   loading: boolean;
+  requestClass: string;
+  onRequestClassChange: (v: string) => void;
 }) {
   useDisplayCurrency();
   const P = usePanel();
@@ -45,7 +48,9 @@ export function HomeFlowCard({ rows, platforms, ungroupedLabel, loading }: {
     <div data-testid="home-flow" data-loading={loading ? "yes" : "no"} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 12.5, fontWeight: 600, color: P.fg }}>{t("home.flow.title", "请求流量 · 24 小时")}</span>
-        <div style={{ display: "flex", gap: 4 }}>
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <RequestClassFilter value={requestClass} onChange={onRequestClassChange} labelColor={P.muted} />
+          <span style={{ width: 8 }} />
           {METRICS.map(m => (
             <button key={m} type="button" data-testid={`flow-metric-${m}`} data-state={metric === m ? "on" : "off"} onClick={() => setMetric(m)} style={btn(metric === m)}>
               {t(`group.flow.${m}`, m)}
