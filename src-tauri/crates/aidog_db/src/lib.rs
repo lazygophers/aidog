@@ -1206,6 +1206,8 @@ mod test_session_name;
 #[cfg(test)]
 mod test_models_list_migration;
 #[cfg(test)]
+mod test_connect_log_purge;
+#[cfg(test)]
 mod test_model_entry;
 #[cfg(test)]
 mod test_platform;
