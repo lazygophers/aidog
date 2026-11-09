@@ -192,6 +192,9 @@ pub struct InboundTexts<'a> {
     pub system: Vec<String>,
     /// 消息侧文本槽。
     pub messages: Vec<String>,
+    /// 「全部内容」范围槽：出站 body 全部 JSON 字符串叶子（已剔除跳过名单）。
+    /// 仅可还原 mask 用，调用方在 [`MiddlewareEngine::reversible_wants_all`] 为真时才填。
+    pub all: Vec<String>,
     /// 引擎产出的注入指令（调用方按协议写回）。
     pub injects: Vec<InboundInject>,
 }

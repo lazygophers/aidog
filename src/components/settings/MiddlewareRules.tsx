@@ -116,17 +116,20 @@ function MultiSelect<T extends number | string>({
   selected,
   onToggle,
   emptyLabel,
+  testId,
 }: {
   options: { value: T; label: string }[];
   selected: T[];
   onToggle: (v: T, on: boolean) => void;
   emptyLabel: string;
+  testId?: string;
 }) {
   const labels = options.filter((o) => selected.includes(o.value)).map((o) => o.label);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
+          data-testid={testId}
           variant="ghost"
           className="glass-surface"
           style={{
@@ -149,6 +152,7 @@ function MultiSelect<T extends number | string>({
         {options.map((o) => (
           <DropdownMenuCheckboxItem
             key={String(o.value)}
+            data-testid={testId ? `${testId}-opt-${o.value}` : undefined}
             checked={selected.includes(o.value)}
             onCheckedChange={(on) => onToggle(o.value, !!on)}
             onSelect={(e) => e.preventDefault()}
@@ -168,8 +172,10 @@ const MATCH_TYPES = ["contains", "regex", "exact"] as const;
 const ACTION_KINDS = ["mask", "block", "warn", "inject", "override", "classify", "budget_gate"] as const;
 // mask 的 fields 是闭集：Rust 侧 inbound.rs 只认 "messages" / "system"，
 // 写别的值等于什么都不 mask（静默失效），故这里用多选而非自由文本。
+// "all"（全部内容）只有可还原模式的 Rust 侧（reversible.rs）认，固定模式下不提供。
 const MASK_FIELDS = ["messages", "system"] as const;
-type MaskField = (typeof MASK_FIELDS)[number];
+const MASK_FIELDS_REVERSIBLE = [...MASK_FIELDS, "all"] as const;
+type MaskField = (typeof MASK_FIELDS_REVERSIBLE)[number];
 
 /** target 是否响应侧（与 Rust Target::is_response_side 对称）。 */
 function isResponseTarget(t: string): boolean {
@@ -461,7 +467,12 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
                   <Switch
                     data-testid="mask-mode-toggle"
                     checked={st.params.mode === "reversible"}
-                    onCheckedChange={(v) => setStep(i, { ...st, params: { ...st.params, mode: v ? "reversible" : "fixed" } })}
+                    onCheckedChange={(v) =>
+                      setStep(i, {
+                        ...st,
+                        params: { ...st.params, mode: v ? "reversible" : "fixed", fields: v ? st.params.fields : st.params.fields.filter((f) => f !== "all") },
+                      })
+                    }
                   />
                   {t("middleware.maskReversible", "可还原（占位符，响应自动还原）")}
                 </label>
@@ -479,12 +490,24 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
               {st.kind === "mask" && (
                 <div style={{ flex: "1 1 140px", minWidth: 140 }}>
                   <MultiSelect
-                    options={MASK_FIELDS.map((f) => ({ value: f, label: f }))}
-                    selected={st.params.fields.filter((f): f is MaskField => (MASK_FIELDS as readonly string[]).includes(f))}
+                    testId="mask-fields"
+                    options={(st.params.mode === "reversible" ? MASK_FIELDS_REVERSIBLE : MASK_FIELDS).map((f) => ({
+                      value: f,
+                      label: f === "all" ? t("middleware.maskScopeAll", "全部内容") : f,
+                    }))}
+                    selected={st.params.fields.filter((f): f is MaskField => (MASK_FIELDS_REVERSIBLE as readonly string[]).includes(f))}
                     onToggle={(v, on) =>
                       setStep(i, {
                         ...st,
-                        params: { ...st.params, fields: on ? [...st.params.fields, v] : st.params.fields.filter((x) => x !== v) },
+                        // all 是 messages + system 的超集：与二者互斥
+                        params: {
+                          ...st.params,
+                          fields: !on
+                            ? st.params.fields.filter((x) => x !== v)
+                            : v === "all"
+                              ? ["all"]
+                              : [...st.params.fields.filter((x) => x !== "all"), v],
+                        },
                       })
                     }
                     emptyLabel={t("middleware.maskFieldsAll", "全部字段（messages + system）")}

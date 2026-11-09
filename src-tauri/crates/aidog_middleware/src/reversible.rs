@@ -86,7 +86,7 @@ fn replace_segment(leaf: &RewriteLeaf, seg: &str, map: &mut ScrubMap) -> String 
 
 fn aggregate_visible(texts: &InboundTexts<'_>) -> String {
     let mut buf = String::new();
-    for t in texts.system.iter().chain(texts.messages.iter()) {
+    for t in texts.system.iter().chain(texts.messages.iter()).chain(texts.all.iter()) {
         buf.push_str(&PLACEHOLDER_RE.replace_all(t, ""));
         buf.push('\n');
     }
@@ -94,11 +94,32 @@ fn aggregate_visible(texts: &InboundTexts<'_>) -> String {
 }
 
 impl MiddlewareEngine {
+    /// 作用域内是否有 `fields` 含 `all` 的可还原 mask 步骤（调用方据此决定是否抽取全部字符串叶子）。
+    pub fn reversible_wants_all(
+        &self,
+        settings: &MiddlewareSettings,
+        group_key: Option<&str>,
+        platform_id: i64,
+        model: &str,
+    ) -> bool {
+        if !settings.enabled {
+            return false;
+        }
+        self.request_rules_checked(Mount::Any, group_key, Some(platform_id), model)
+            .map(|rules| {
+                rules
+                    .iter()
+                    .flat_map(|cr| cr.rule.actions.iter())
+                    .any(|s| is_reversible_step(s) && s.params.fields.iter().any(|f| f == "all"))
+            })
+            .unwrap_or(false)
+    }
+
     /// 可还原 mask 执行。返回本请求的映射表（无命中为空表）；`Err` = 应用失败，
     /// 调用方必须 fail-closed（503、不转发）。
     ///
     /// 只处理 `mode = reversible` 的 mask 步骤；其余步骤已在 chat_req / Value 层执行。
-    /// `fields` 限定 messages / system（空 = 两者）。
+    /// `fields` 限定 messages / system（空 = 两者）；含 `all` 的步骤只作用于 `texts.all`（全部字符串叶子）。
     pub fn apply_reversible_texts(
         &self,
         settings: &MiddlewareSettings,
@@ -138,8 +159,10 @@ impl MiddlewareEngine {
             let leaves = collect_patterns(&cr.conditions, Target::RequestBody);
             for step in cr.rule.actions.iter().filter(|s| is_reversible_step(s)) {
                 let fields = &step.params.fields;
-                let touch_system = fields.is_empty() || fields.iter().any(|f| f == "system");
-                let touch_messages = fields.is_empty() || fields.iter().any(|f| f == "messages");
+                // `all` 与 system/messages 是同一批文本的两种切法：含 all 的步骤只作用于 all 槽。
+                let touch_all = fields.iter().any(|f| f == "all");
+                let touch_system = !touch_all && (fields.is_empty() || fields.iter().any(|f| f == "system"));
+                let touch_messages = !touch_all && (fields.is_empty() || fields.iter().any(|f| f == "messages"));
                 let mut apply = |s: &str| -> String {
                     let mut out = s.to_string();
                     for leaf in &leaves {
@@ -149,6 +172,11 @@ impl MiddlewareEngine {
                     }
                     out
                 };
+                if touch_all {
+                    for t in texts.all.iter_mut() {
+                        *t = apply(t);
+                    }
+                }
                 if touch_system {
                     for t in texts.system.iter_mut() {
                         *t = apply(t);

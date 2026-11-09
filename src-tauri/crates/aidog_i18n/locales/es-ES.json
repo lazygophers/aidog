@@ -1165,6 +1165,7 @@
   "middleware.observeHint": "Al activarlo, una coincidencia ya no bloquea: la solicitud se reenvía y se factura con normalidad y solo se registra en el log, para comprobar si la regla se dispara por error.",
   "middleware.maskReversible": "Reversible (marcador, restaurado en la respuesta)",
   "middleware.maskReversibleHint": "El texto coincidente se envía como marcador y se restaura automáticamente en la respuesta",
+  "middleware.maskScopeAll": "Todo el contenido",
   "middleware.reversible": "Reversible",
   "middleware.pattern": "Patrón / destino",
   "middleware.patternHint": "Patrón de coincidencia / ruta destino / nombre de cabecera",

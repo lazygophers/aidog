@@ -7058,6 +7058,92 @@ async fn mw_reversible_stream_restores_across_chunks() {
     assert!(!log.upstream_request_body.contains(PRIVACY_EMAIL));
 }
 
+/// 「全部内容」范围：规则 = 内置密钥正则（含通用长随机 token 分支）+ reversible + fields=all。
+fn mw_all_secret_rule() -> aidog_db::models::MiddlewareRule {
+    use aidog_db::models::*;
+    let mut r = mw_mask_rule(1, aidog_db::BUILTIN_SECRET_PATTERN, 0, MaskMode::Reversible, &[]);
+    r.actions[0].params.fields = vec!["all".into()];
+    r
+}
+
+#[tokio::test]
+async fn mw_all_scope_masks_tool_result_and_restores_to_client() {
+    let _g = PRIVACY_TEST_LOCK.lock().await;
+    let secret = "sk-proj-abcdefghijklmnop1234";
+    let ph = aidog_middleware::placeholder::placeholder_for("MASK", secret);
+    let upstream_body: &'static str = Box::leak(
+        format!(
+            r#"{{"id":"m","type":"message","role":"assistant","model":"claude-3","content":[{{"type":"text","text":"saw {ph}"}}],"stop_reason":"end_turn","usage":{{"input_tokens":5,"output_tokens":3}}}}"#
+        )
+        .into_boxed_str(),
+    );
+    let (up, hits) = spawn_embedding_upstream(vec![(200, upstream_body)]).await;
+    let state = make_state(test_db().await).await;
+    state.middleware.rebuild_from_rules(vec![mw_all_secret_rule()]);
+    setup_group_with_upstream(&state, "gka1", &up).await;
+    log_all_sides(&state).await;
+    let req = format!(
+        r#"{{"model":"claude-3","messages":[{{"role":"user","content":"run"}},{{"role":"assistant","content":[{{"type":"tool_use","id":"toolu_1","name":"cat","input":{{"path":"/x"}}}}]}},{{"role":"user","content":[{{"type":"tool_result","tool_use_id":"toolu_1","content":"file has {secret} inside"}}]}}]}}"#
+    );
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gka1", &req)).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let client = String::from_utf8_lossy(&axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap()).to_string();
+    let sent = hits.lock().unwrap()[0].1.clone();
+    assert!(sent.contains(&ph) && !sent.contains(secret), "tool_result 内密钥应以占位符出站: {sent}");
+    assert!(client.contains(secret) && !client.contains(&ph), "客户端应拿回原文: {client}");
+    let log = last_log_for(&state, "gka1").await;
+    assert!(!log.upstream_request_body.contains(secret), "{}", log.upstream_request_body);
+    assert!(!log.request_body.contains(secret), "{}", log.request_body);
+}
+
+#[tokio::test]
+async fn mw_all_scope_skip_list_reaches_upstream_unchanged() {
+    let _g = PRIVACY_TEST_LOCK.lock().await;
+    // 每个值都能被密钥通用长随机 token 分支命中（字母数字前缀 + `_`/`-` + 15+ 含数字），
+    // 若不在跳过名单里就会被替换。
+    let model = "claude-opus-4-20250514-extended";
+    let sig = "sig_0123456789abcdefghijklmnopqr";
+    let tid = "toolu_01A09q90qiusdhfusdhf12";
+    let b64 = "iVBOR_w0KGgoAAAANSUhEUgAAAAEAAAAB01234567";
+    // redacted_thinking / image_url / input_audio / call_id 等形态由 test_middleware_body 的遍历单测覆盖
+    // （anthropic 转换层会丢弃这些块，到不了上游）。
+    let re = regex::Regex::new(aidog_db::BUILTIN_SECRET_PATTERN).unwrap();
+    for v in [model, sig, tid, b64] {
+        assert!(re.is_match(v), "夹具值必须会被密钥正则命中: {v}");
+    }
+    let secret = "sk-proj-abcdefghijklmnop1234";
+    let (up, hits) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
+    let state = make_state(test_db().await).await;
+    state.middleware.rebuild_from_rules(vec![mw_all_secret_rule()]);
+    setup_group_with_upstream(&state, "gka2", &up).await;
+    let req = serde_json::json!({
+        "model": model,
+        "messages": [
+            {"role": "user", "content": [
+                {"type": "text", "text": format!("leak {secret}")},
+                {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": b64}}
+            ]},
+            {"role": "assistant", "content": [
+                {"type": "thinking", "thinking": "t", "signature": sig},
+                {"type": "tool_use", "id": tid, "name": "cat", "input": {}}
+            ]},
+            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": tid, "content": "ok"}]}
+        ]
+    })
+    .to_string();
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gka2", &req)).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let sent: serde_json::Value = serde_json::from_str(&hits.lock().unwrap()[0].1).unwrap();
+    let c0 = &sent["messages"][0]["content"];
+    assert!(!c0[0]["text"].as_str().unwrap().contains(secret), "对照：普通文本里的密钥必须被替换: {c0}");
+    assert_eq!(sent["model"], model);
+    assert_eq!(c0[1]["source"]["data"], b64);
+    let c1 = &sent["messages"][1]["content"];
+    assert_eq!(c1[0]["signature"], sig);
+    assert_eq!(c1[1]["id"], tid);
+    assert_eq!(sent["messages"][2]["content"][0]["tool_use_id"], tid);
+}
+
 #[tokio::test]
 async fn mw_fixed_mask_behaviour_unchanged() {
     use aidog_db::models::MaskMode;

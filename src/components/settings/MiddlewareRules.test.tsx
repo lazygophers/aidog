@@ -326,4 +326,54 @@ describe("预算闸门 × 显示币种（票 04）", () => {
       ),
     );
   });
+  it("全部内容范围：仅可还原模式提供，选中后写入 fields=all，切回固定时清掉", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    listRules.mockResolvedValue([mk({ id: 4, name: "scope" })]);
+    updateRule.mockResolvedValue(mk({ id: 4, name: "scope" }));
+    render(<MiddlewareRulesPanel />);
+    await waitFor(() => expect(screen.getByText("scope")).toBeTruthy());
+    await user.click(screen.getByTitle("action.edit"));
+    await user.click(await screen.findByTestId("mask-mode-toggle"));
+    await user.click(screen.getByTestId("mask-fields"));
+    await user.click(await screen.findByTestId("mask-fields-opt-all"));
+    await user.click(screen.getByTestId("mask-fields"));
+    await user.click(screen.getByText("action.save"));
+    await waitFor(() =>
+      expect(updateRule).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actions: [expect.objectContaining({ params: expect.objectContaining({ mode: "reversible", fields: ["all"] }) })],
+        }),
+      ),
+    );
+  });
+
+  it("全部内容范围：从可还原切回固定时清掉 all", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    const rev = mk({ id: 5, name: "rv", actions: [{ kind: "mask", params: { replacement: "****", fields: ["all"], mode: "reversible" } }] });
+    listRules.mockResolvedValue([rev]);
+    updateRule.mockResolvedValue(rev);
+    render(<MiddlewareRulesPanel />);
+    await waitFor(() => expect(screen.getByText("rv")).toBeTruthy());
+    await user.click(screen.getByTitle("action.edit"));
+    await user.click(await screen.findByTestId("mask-mode-toggle"));
+    await user.click(screen.getByText("action.save"));
+    await waitFor(() =>
+      expect(updateRule).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actions: [expect.objectContaining({ params: expect.objectContaining({ mode: "fixed", fields: [] }) })],
+        }),
+      ),
+    );
+  });
+
+  it("固定模式的范围下拉不提供「全部内容」", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    listRules.mockResolvedValue([mk({ id: 6, name: "fx" })]);
+    render(<MiddlewareRulesPanel />);
+    await waitFor(() => expect(screen.getByText("fx")).toBeTruthy());
+    await user.click(screen.getByTitle("action.edit"));
+    await user.click(await screen.findByTestId("mask-fields"));
+    expect(await screen.findByTestId("mask-fields-opt-system")).toBeTruthy();
+    expect(screen.queryByTestId("mask-fields-opt-all")).toBeNull();
+  });
 });
