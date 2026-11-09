@@ -306,9 +306,10 @@ mod test_proxy_log;
 crate::tauri_command! {
 pub async fn stats_flow_breakdown(
     window: String,
-    group_key: Option<String>) -> Result<Vec<gateway::models::FlowRow>, String> {
+    group_key: Option<String>,
+    request_class: Option<String>) -> Result<Vec<gateway::models::FlowRow>, String> {
     let db = aidog_ctx::db();
-    aidog_stats::stats_flow_breakdown(db, &window, group_key.as_deref()).await
+    aidog_stats::stats_flow_breakdown(db, &window, group_key.as_deref(), request_class.as_deref()).await
 }
 }
 

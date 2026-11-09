@@ -529,6 +529,8 @@
   "group.flow.today": "今日",
   "group.flow.7d": "7 日間",
   "group.flow.tokens": "トークン",
+  "flow.requestClass.all": "すべて",
+  "flow.requestClass.unknown": "不明",
   "flow.client.unknown": "不明",
   "flow.client.other": "その他のクライアント",
   "flow.client.claude_code": "Claude Code",
