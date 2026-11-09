@@ -1,0 +1,12 @@
+[
+ {
+  "url": "https://www.rust-lang.org/",
+  "title": "Rust Programming Language",
+  "snippet": "A language empowering everyone to build reliable software."
+ },
+ {
+  "url": "https://doc.rust-lang.org/book/",
+  "title": "The Book link text",
+  "snippet": "Wrapper snippet only, no h2."
+ }
+]
