@@ -942,6 +942,8 @@
   "logs.routing.class.model": "Ошибка модели",
   "logs.routing.class.service": "Ошибка сервиса",
   "logs.routing.class.unknown": "Неизвестная ошибка",
+  "logs.routing.exclusion.pair": "Эта комбинация больше не выбирается в этом запросе",
+  "logs.routing.exclusion.platform": "Эта платформа больше не выбирается в этом запросе",
   "logs.routing.effect.breaker_count": "Счётчик брейкера",
   "logs.routing.effect.penalty_server": "Штраф сервера",
   "logs.routing.effect.penalty_client": "Штраф клиента",

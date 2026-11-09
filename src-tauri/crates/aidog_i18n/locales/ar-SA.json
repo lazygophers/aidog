@@ -942,6 +942,8 @@
   "logs.routing.class.model": "خطأ نموذج",
   "logs.routing.class.service": "خطأ خدمة",
   "logs.routing.class.unknown": "خطأ غير معروف",
+  "logs.routing.exclusion.pair": "لن يُعاد اختيار هذا الاقتران في هذا الطلب",
+  "logs.routing.exclusion.platform": "لن يُعاد اختيار هذه المنصة في هذا الطلب",
   "logs.routing.effect.breaker_count": "عدّ القاطع",
   "logs.routing.effect.penalty_server": "عقوبة الخادم",
   "logs.routing.effect.penalty_client": "عقوبة العميل",

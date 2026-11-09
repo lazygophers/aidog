@@ -5515,8 +5515,8 @@ async fn chain_service_errors_switch_platform_not_model() {
     }
 }
 
-/// 链耗尽：降权 / last_error 只记一次（scheduler 状态，非调用次数）；
-/// 三模型全 404 → 终态回包是最后一次错误，降权连败计数恰为 1。
+/// 链耗尽：模型类失败不碰平台健康（逐次重算，旧「链尽记一次」规则已废）；
+/// 三模型全 404 → 终态回包是最后一次错误，降权连败 0、last_error 空。
 #[tokio::test]
 async fn chain_exhausted_records_platform_failure_once() {
     let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (404, E404_MODEL), (404, E404_MODEL)]).await;
@@ -5526,11 +5526,11 @@ async fn chain_exhausted_records_platform_failure_once() {
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
     assert_eq!(hit_models(&hits), ["m-a", "m-b", "m-c"]);
     let p = aidog_db::list_platforms(&state.db).await.unwrap().remove(0);
-    assert_eq!(state.scheduler.penalty_consecutive(p.id), 1, "一次访问只算平台失败一次");
+    assert_eq!(state.scheduler.penalty_consecutive(p.id), 0, "模型类失败不降权");
     let log = last_log_for(&state, "gkc3").await;
     assert_eq!(log.attempts.len(), 3);
     assert!(log.attempts.iter().all(|a| a.chain_stop.is_none()), "耗尽不是提前终止");
-    assert!(p.last_error.starts_with("HTTP 404"), "{:?}", p.last_error);
+    assert!(p.last_error.is_empty(), "模型类失败不写 last_error: {:?}", p.last_error);
 }
 
 /// 连接失败（transport 错）属服务类：不换模型，链上剩余模型记 chain_stop=service，画布显示「跳过」而非「未选」。
@@ -6479,8 +6479,7 @@ async fn rc02_model_rate_limit_skip_recorded() {
     assert_eq!(log.attempts[1].model.as_deref(), Some("m-b"));
 }
 
-/// 平台级限频占位失败（候选筛选后被并发抢占）：推为 kind=rate_limit_platform；链上模型记 chain_stop=rate_limit。
-/// 复现：A 的假上游在收到请求时顺手占满 B 的并发位，A 500 后轮到 B，begin 失败。
+/// 重排尊重限频：A 的假上游在收到请求时顺手占满 B 的并发位，A 500 后重排挡掉 B，终态 503 + blocked_reason=rate_limit。
 #[tokio::test]
 async fn rc02_platform_rate_limit_skip_recorded() {
     use axum::routing::any;
@@ -6513,14 +6512,161 @@ async fn rc02_platform_rate_limit_skip_recorded() {
     assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(held.lock().unwrap().len(), 1, "B 并发位应已被占");
     let log = last_log_for(&state, "gkrc02i").await;
-    assert_eq!(log.attempts.len(), 2);
+    // 逐次重算：A 失败后重排时 B 已被并发占满，直接被路由层挡掉（不再进到 begin 失败），
+    // 只留 A 的一条尝试；终态 503 沿用限频审计标记。
+    assert_eq!(log.attempts.len(), 1);
     assert_eq!(log.attempts[0].status_code, 500);
-    let skip = &log.attempts[1];
-    assert_eq!(skip.kind.as_deref(), Some("rate_limit_platform"));
-    assert_eq!(skip.platform_id, b_id);
-    assert_eq!(skip.model.as_deref(), Some("m-b1"));
-    assert_eq!(skip.chain_stop.as_deref(), Some("rate_limit"));
+    assert_eq!(log.attempts[0].exclusion.as_deref(), Some("platform"));
+    assert_ne!(log.attempts[0].platform_id, b_id);
     assert_eq!(log.blocked_reason, "rate_limit");
+}
+
+// ══ 请求尝试-逐次重算 票 02：每次调用前按当前调度状态重排 + 按错误类排除 ══
+
+const E500_PLAIN: &str = r#"{"error":{"message":"boom"}}"#;
+
+/// 排除范围落在尝试记录上：模型类 → pair，服务类 → platform；成功 / 直返不带。
+#[tokio::test]
+async fn ra02_attempt_records_exclusion_scope() {
+    let (up1, _h1) = spawn_embedding_upstream(vec![(404, E404_MODEL), (500, E500_PLAIN)]).await;
+    let (up2, _h2) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(
+        &state,
+        "gkra02a",
+        &[
+            (&up1, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p1"),
+            (&up2, chain_models(&["m-c"]), Protocol::Anthropic, "p2"),
+        ],
+    )
+    .await;
+    assert_eq!(chain_send(&state, "gkra02a", CHAIN_REQ).await.status(), StatusCode::OK);
+    let log = last_log_for(&state, "gkra02a").await;
+    let scopes: Vec<_> = log.attempts.iter().map(|a| a.exclusion.as_deref()).collect();
+    assert_eq!(scopes, [Some("pair"), Some("platform"), None]);
+}
+
+/// 失败组合本次请求内不重复；每个组合恰好试一次。
+#[tokio::test]
+async fn ra02_failed_pair_never_repeated() {
+    let (up1, h1) = spawn_embedding_upstream(vec![(404, E404_MODEL); 6]).await;
+    let (up2, h2) = spawn_embedding_upstream(vec![(404, E404_MODEL); 6]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(
+        &state,
+        "gkra02b",
+        &[
+            (&up1, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p1"),
+            (&up2, chain_models(&["m-c", "m-d"]), Protocol::Anthropic, "p2"),
+        ],
+    )
+    .await;
+    let resp = chain_send(&state, "gkra02b", CHAIN_REQ).await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    assert_eq!(hit_models(&h1), ["m-a", "m-b"]);
+    assert_eq!(hit_models(&h2), ["m-c", "m-d"]);
+    assert_eq!(last_log_for(&state, "gkra02b").await.attempts.len(), 4);
+}
+
+/// 服务类失败每次记一次：两个平台各 500 → 各降权一次、attempts 两条（首次排除整平台）；
+/// 各自链上第二个模型不再被选。
+#[tokio::test]
+async fn ra02_service_failures_account_once_each() {
+    let (up1, h1) = spawn_embedding_upstream(vec![(500, E500_PLAIN); 4]).await;
+    let (up2, h2) = spawn_embedding_upstream(vec![(500, E500_PLAIN); 4]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(
+        &state,
+        "gkra02c",
+        &[
+            (&up1, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p1"),
+            (&up2, chain_models(&["m-c", "m-d"]), Protocol::Anthropic, "p2"),
+        ],
+    )
+    .await;
+    let _ = chain_send(&state, "gkra02c", CHAIN_REQ).await;
+    assert_eq!(hit_models(&h1), ["m-a"]);
+    assert_eq!(hit_models(&h2), ["m-c"]);
+    for n in ["gkra02c-p1", "gkra02c-p2"] {
+        let id = platform_id_of(&state, n).await;
+        assert_eq!(state.scheduler.penalty_consecutive(id), 1, "{n}");
+    }
+    let log = last_log_for(&state, "gkra02c").await;
+    assert_eq!(log.attempts.len(), 2);
+    assert_eq!(log.attempts[0].exclusion.as_deref(), Some("platform"));
+    assert_eq!(log.attempts[1].exclusion, None, "末次直接回客户端，没有后续可排除");
+}
+
+/// 模型类失败不碰平台健康（真三库读回）：breaker 计数、last_error、降权都不变；
+/// 同平台下一个模型被选中。
+#[tokio::test]
+async fn ra02_model_failure_leaves_platform_health_untouched() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, ANTHROPIC_OK)]).await;
+    let state = make_state(db).await;
+    setup_aux_group(&state, "gkra02d", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+    assert_eq!(chain_send(&state, "gkra02d", CHAIN_REQ).await.status(), StatusCode::OK);
+    assert_eq!(hit_models(&hits), ["m-a", "m-b"]);
+    let p = aidog_db::list_platforms(&state.db).await.unwrap().remove(0);
+    assert!(p.last_error.is_empty(), "{:?}", p.last_error);
+    assert!(matches!(state.scheduler.breaker_state(p.id), crate::gateway::scheduling::BreakerState::Closed { fails: 0 }));
+    assert_eq!(state.scheduler.penalty_consecutive(p.id), 0);
+}
+
+/// 第 1 次尝试期间调度状态变了（这里：P2 熔断打开）→ 第 2 次尝试重排，跳过 P2 直接选 P3。
+/// 旧实现按首次排序固定顺序会去撞 P2。
+#[tokio::test]
+async fn ra02_state_change_between_attempts_reranks() {
+    use axum::routing::any;
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let up1 = format!("http://{}", l.local_addr().unwrap());
+    let (up2, h2) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
+    let (up3, h3) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(
+        &state,
+        "gkra02e",
+        &[
+            (&up1, chain_models(&["m-a"]), Protocol::Anthropic, "p1"),
+            (&up2, chain_models(&["m-b"]), Protocol::Anthropic, "p2"),
+            (&up3, chain_models(&["m-c"]), Protocol::Anthropic, "p3"),
+        ],
+    )
+    .await;
+    let p2 = platform_id_of(&state, "gkra02e-p2").await;
+    let st = state.clone();
+    let app = axum::Router::new().fallback(any(move || {
+        let st = st.clone();
+        async move {
+            let th = crate::gateway::scheduling::BreakerThresholds { failure_threshold: 1, open_secs: 60, half_open_max: 1 };
+            st.scheduler.record_failure(p2, &th, aidog_db::now());
+            (axum::http::StatusCode::INTERNAL_SERVER_ERROR, [("content-type", "application/json")], E500_PLAIN)
+        }
+    }));
+    tokio::spawn(async move { axum::serve(l, app).await.ok(); });
+    assert_eq!(chain_send(&state, "gkra02e", CHAIN_REQ).await.status(), StatusCode::OK);
+    assert!(h2.lock().unwrap().is_empty(), "P2 熔断后不应再被选");
+    assert_eq!(hit_models(&h3), ["m-c"]);
+}
+
+/// 不可重试错误（400 硬错、非模型类）立即回客户端，不换平台也不换模型。
+#[tokio::test]
+async fn ra02_hard_400_returns_immediately() {
+    let (up1, h1) = spawn_embedding_upstream(vec![(400, r#"{"error":{"message":"bad field"}}"#); 3]).await;
+    let (up2, h2) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(
+        &state,
+        "gkra02f",
+        &[
+            (&up1, chain_models(&["m-a"]), Protocol::Anthropic, "p1"),
+            (&up2, chain_models(&["m-c"]), Protocol::Anthropic, "p2"),
+        ],
+    )
+    .await;
+    assert_eq!(chain_send(&state, "gkra02f", CHAIN_REQ).await.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(hit_models(&h1), ["m-a"]);
+    assert!(h2.lock().unwrap().is_empty());
 }
 
 // ─── 管理接口（ADR 0010）：/api/rpc/* 挂在代理端口 ───────────────────────────

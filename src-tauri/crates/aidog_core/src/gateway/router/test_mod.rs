@@ -38,7 +38,7 @@ pub(super) fn mk_platform(status: PlatformStatus, until: i64) -> Platform {
     }
 }
 
-pub(super) fn mk_platform_id(id: u64) -> Platform {
+pub(crate) fn mk_platform_id(id: u64) -> Platform {
     let mut p = mk_platform(PlatformStatus::Enabled, 0);
     p.id = id;
     p

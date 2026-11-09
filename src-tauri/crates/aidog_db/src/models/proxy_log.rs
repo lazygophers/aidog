@@ -457,6 +457,17 @@ impl RoutingSnapshot {
         }
     }
 
+    /// 逐次重算版（请求尝试-逐次重算）：重排后候选顺序随状态变化，「其后」不再有意义——
+    /// 凡仍是 selected 且从未尝试过（`tried` 之外）的候选一律标 retry-limit。
+    pub fn mark_retry_limit_untried(&mut self, max_attempts: u32, tried: &[u64]) {
+        self.max_retries = Some(max_attempts);
+        for e in &mut self.entries {
+            if e.reason == RouteReason::Selected && !tried.contains(&e.platform_id) {
+                e.reason = RouteReason::RetryLimit;
+            }
+        }
+    }
+
     /// 死站跳过补记（handler.rs 重试循环 R3）：把该候选标为 skipped-dead-upstream。
     pub fn mark_dead_upstream(&mut self, platform_id: u64) {
         for e in &mut self.entries {

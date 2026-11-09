@@ -920,6 +920,8 @@
   "logs.routing.class.model": "Model error",
   "logs.routing.class.service": "Service error",
   "logs.routing.class.unknown": "Unknown error",
+  "logs.routing.exclusion.pair": "This pair is not retried in this request",
+  "logs.routing.exclusion.platform": "This platform is not retried in this request",
   "logs.routing.effect.breaker_count": "Breaker count",
   "logs.routing.effect.penalty_server": "Server penalty",
   "logs.routing.effect.penalty_client": "Client penalty",

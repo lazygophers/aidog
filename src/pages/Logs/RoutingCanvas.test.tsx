@@ -42,8 +42,8 @@ const snapA: RoutingSnapshot = {
   ],
 };
 const attsA = [
-  att({ platform_id: 1, status_code: 502, error: "bad gateway", model: "m1", error_class: "model" }),
-  att({ platform_id: 1, status_code: 200, error: "empty", model: "m2", kind: "empty_200", error_class: "service", chain_stop: "service", effects: ["penalty_server"] }),
+  att({ platform_id: 1, status_code: 502, error: "bad gateway", model: "m1", error_class: "model", exclusion: "pair" }),
+  att({ platform_id: 1, status_code: 200, error: "empty", model: "m2", kind: "empty_200", error_class: "service", chain_stop: "service", effects: ["penalty_server"], exclusion: "platform" }),
   att({ platform_id: 2, status_code: 200, model: "mm", duration_ms: 4400, ttfb_ms: 300 }),
 ];
 
@@ -126,6 +126,11 @@ describe("RoutingCanvas 场景 A：换模型后换平台成功", () => {
     const s1 = c.querySelector('[data-node-id="s-1-1"]')!;
     expect(s1.querySelector('[data-testid="routing-step-stop"]')!.getAttribute("data-stop")).toBe("service");
     expect(s1.querySelector('[data-testid="routing-step-effect"]')!.getAttribute("data-effect")).toBe("penalty_server");
+    // 排除范围：模型类 → 只该组合；服务类 → 整个平台；成功那次不带
+    expect(s0.querySelector('[data-testid="routing-step-exclusion"]')!.getAttribute("data-scope")).toBe("pair");
+    expect(s0.querySelector('[data-testid="routing-step-exclusion"]')!.textContent).toBe("logs.routing.exclusion.pair");
+    expect(s1.querySelector('[data-testid="routing-step-exclusion"]')!.getAttribute("data-scope")).toBe("platform");
+    expect(c.querySelector('[data-node-id="s-2-0"] [data-testid="routing-step-exclusion"]')).toBeNull();
     expect(edgeLabel(c, "s-1-0->s-1-1")).toBe("next-model");
     expect(edgeLabel(c, "s-1-1->c-2")).toBe("switch-service");
   });

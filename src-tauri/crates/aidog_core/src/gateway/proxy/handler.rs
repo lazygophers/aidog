@@ -664,7 +664,7 @@ pub(crate) async fn handle_proxy_core(
         &chat_req.model,
         Some(&sched_ctx),
         RequestKind::Chat,
-        client_gate,
+        client_gate.clone(),
     )
     .await
     {
@@ -800,50 +800,72 @@ pub(crate) async fn handle_proxy_core(
         }
     }
 
-    // ── 重试编排：遍历候选，逐个 forward。
-    //   2xx → 成功（曾 auto_disabled 则恢复 enabled），进入下游成功处理直接 return。
-    //   401/402 → 内存 auth 冷却 5 分钟（不写 DB），换下个候选。
-    //   其他错误(5xx/超时/连接失败) → 换下个候选。
-    //   每次尝试均 record 进 attempts；最大尝试次数用尽或候选耗尽 → 返回最后一次错误。
+    // ── 尝试编排（请求尝试-逐次重算）：每次上游调用前，按当前调度状态（熔断 / 降权 / 冷却 / 余额 /
+    //   高峰禁用 / 路由模式）对未排除的「平台 + 模型」组合重排取第一。首次用上面已算好的排序；
+    //   之后每次失败：服务类（401/402/403/429、服务 5xx、超时、连接失败）排除整个平台，
+    //   模型类 / 未知类只排除该组合，失败组合本次请求内不再选。
+    //   2xx → 成功；不可重试错误 / error_rule non-retryable → 立即回客户端；流式开始后不换。
+    //   每次尝试均 record 进 attempts；最大尝试次数用尽或无组合可选 → 返回 503。
     let mut budget = CallBudget::new(group.max_retries);
     let mut attempts: Vec<ProxyAttempt> = Vec::new();
-    let candidate_total = candidates.len();
+    let mut excl = attempt_plan::Exclusions::default();
+    let mut planner = attempt_plan::AttemptPlanner::default();
+    let mut rate_slot = None;
+    let mut first_ranking = Some(candidates);
+    // 重排按客户端请求的模型名（forward 会把 chat_req.model 改写成上游目标模型）。
+    let route_model = requested_model.clone();
     // R3（2026-09-28）：本次请求内已 connect 失败的 base_url 集合。死站对同站兄弟条目同样
     // 连不上（站级事实，与 key 无关），后续候选命中同 base_url 直接跳过，省一遍 15s connect 死等。
     // 仅 connect 失败联动；429/401 等 key 级错误不联动（同站不同 key 仍各有机会）。
     let mut dead_base_urls: std::collections::HashSet<String> = std::collections::HashSet::new();
 
-    for (attempt_idx, route) in candidates.into_iter().enumerate() {
+    loop {
         // 最大尝试次数用尽（换平台与同平台换模型的上游调用都计）
         if budget.exhausted() {
             break;
         }
-        if dead_base_urls.contains(&route.platform.base_url) {
-            tracing::warn!(
-                platform = %route.platform.name, base_url = %route.platform.base_url,
-                "same-base_url sibling already failed to connect this request, skipping (R3)"
-            );
-            // 票 01：死站跳过候选补记进快照（不动 attempts 语义）。
-            if let Some(r) = log.routing.as_mut() {
-                r.mark_dead_upstream(route.platform.id);
+        let ranked = match first_ranking.take() {
+            Some(c) => c,
+            None => {
+                match planner
+                    .rerank(&state.db, &group, &route_model, &sched_ctx, client_gate.clone())
+                    .await
+                {
+                    Ok(c) => c,
+                    Err(e) => {
+                        // 重排时剩余候选全被限频挡掉：终态 503 沿用限频审计标记
+                        if e == "rate_limit" {
+                            mark_rate_limited(&mut log);
+                        }
+                        break;
+                    }
+                }
             }
-            continue;
-        }
-        let route_base_url = route.platform.base_url.clone();
-        let attempt_start = std::time::Instant::now();
-        let attempt_ts = aidog_db::now();
-        let is_last_candidate = attempt_idx + 1 >= candidate_total || budget.next_is_last();
+        };
+        let Some(pick) = attempt_plan::pick_first(excl.apply(ranked), &dead_base_urls, &mut log) else {
+            // 重排时有平台被限频挡掉、其余都已排除：终态 503 沿用限频审计标记
+            if planner.saw_rate_limit {
+                mark_rate_limited(&mut log);
+            }
+            break;
+        };
+        let is_last_candidate = !pick.platform_alt || budget.next_is_last();
+        let (platform_id, model, base_url) = (
+            pick.route.platform.id,
+            pick.route.target_model.clone(),
+            pick.route.platform.base_url.clone(),
+        );
 
         match forward_attempt(
             &state,
             &mut log,
             &mut attempts,
-            route,
-            candidate_total,
+            pick.route,
+            pick.model_alt,
+            pick.candidate_total,
             is_last_candidate,
             &mut budget,
-            attempt_start,
-            attempt_ts,
+            &mut rate_slot,
             &log_settings,
             lang,
             &group,
@@ -862,12 +884,12 @@ pub(crate) async fn handle_proxy_core(
             AttemptOutcome::Respond(r) => return r,
             AttemptOutcome::Next { connect_failed } => {
                 if connect_failed {
-                    dead_base_urls.insert(route_base_url);
+                    dead_base_urls.insert(base_url);
                 }
-                continue;
+                attempt_plan::record_exclusion(&mut excl, &mut attempts, platform_id, &model);
             }
         }
-    } // ── end retry loop (for candidate) ──
+    } // ── end attempt loop ──
 
     // 候选耗尽 / 最大尝试次数用尽且未在循环内 return（理论不可达：循环内每条路径均 return 或 continue，
     // 仅 budget.exhausted() 的 break 会落到这里）。返回 503 + 已记录的 attempts。

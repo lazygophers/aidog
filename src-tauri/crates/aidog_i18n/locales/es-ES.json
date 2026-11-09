@@ -920,6 +920,8 @@
   "logs.routing.class.model": "Error de modelo",
   "logs.routing.class.service": "Error de servicio",
   "logs.routing.class.unknown": "Error desconocido",
+  "logs.routing.exclusion.pair": "Esta combinación no se reintenta en esta solicitud",
+  "logs.routing.exclusion.platform": "Esta plataforma no se reintenta en esta solicitud",
   "logs.routing.effect.breaker_count": "Conteo de disyuntor",
   "logs.routing.effect.penalty_server": "Penalización servidor",
   "logs.routing.effect.penalty_client": "Penalización cliente",
