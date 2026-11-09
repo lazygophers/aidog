@@ -276,7 +276,7 @@
     "feedbackDrafts": "off",
     "editorMode": "normal",
     "includeCoAuthoredBy": false,
-    "isolatePeerMachines": false,
+    "isolatePeerMachines": true,
     "agentPushNotifEnabled": false,
     "inputNeededNotifEnabled": false,
     "disableRemoteControl": true,
@@ -322,7 +322,8 @@
     },
     "attribution": {
         "commit": "",
-        "pr": ""
+        "pr": "",
+        "sessionUrl": false
     },
     "useAutoModeDuringPlan": true,
     "skipAutoPermissionPrompt": true,
@@ -682,7 +683,6 @@
         "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80",
         "CLAUDE_AUTO_BACKGROUND_TASKS": "1",
         "CLAUDE_CODE_ATTRIBUTION_HEADER": "0",
-        "CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION": "1",
         "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
         "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
         "NO_PROXY": "localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,*.cn",
