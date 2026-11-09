@@ -3,7 +3,6 @@
     "$schema": "https://json.schemastore.org/claude-code-settings.json",
     "language": "zh-SG",
     "autoCompactEnabled": true,
-    "autoConnectIde": false,
     "autoMemoryEnabled": true,
     "autoScrollEnabled": true,
     "cleanupPeriodDays": 30,
@@ -666,6 +665,8 @@
         "skillListingBudgetFraction": 0.01,
     "env": {
       "CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS": "200000",
+      "CLAUDE_CODE_AUTO_CONNECT_IDE": "false",
+      "CLAUDE_CODE_ENABLE_CFC": "0",
       "CLAUDE_CODE_EFFORT_LEVEL": "medium",
         "CLAUDE_CODE_SUBAGENT_MODEL": "subagent",
         "DISABLE_TELEMETRY": "1",
