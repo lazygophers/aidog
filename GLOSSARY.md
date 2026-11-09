@@ -83,7 +83,8 @@ _Avoid_: integration point, surface, feature
 
 **Middleware Rule**:
 One proxy rewrite rule: a Condition Tree, an Action Chain, and an Applies To filter. It affects
-only the request sent upstream and the body returned downstream — never log recording.
+only the request sent upstream and the body returned downstream — never log recording, with
+one exception: text replaced by a Reversible Mask is logged in placeholder form on every side.
 _Avoid_: rule type, filter rule (the old 8-type names)
 
 **Condition Tree**:
@@ -101,6 +102,12 @@ _Avoid_: action type
 The filter on a rule — platforms, groups, models — that decides where it runs. Empty means all;
 multiple values mean any-of; rules stack by priority. Replaces the old three-level cascade.
 _Avoid_: scope, scope_ref
+
+**Reversible Mask**:
+The mode of the mask action that replaces each matched span in the request with a placeholder and
+automatically restores the original text in the response returned to the client — one request-side
+rule does both. The other mode, Fixed Mask, replaces with fixed text and never restores.
+_Avoid_: pseudonymize, privacy scrub, 隐私脱敏 as a separate feature
 
 **Builtin Rule**:
 A rule shipped by aidog. It can only be enabled or disabled — never edited or deleted. Upgrades
@@ -242,3 +249,17 @@ _避免_: 对话（统计口径里不用）、session id（泛指任何字符串
 **会话键（Session key）**:
 请求里提取出来的会话标识本身，每个请求一个值，同一次对话的请求共享同一个值。
 _避免_: 会话 ID、trace id
+
+## 代理日志与 MITM 观测
+
+**代理日志**（Proxy Log）：
+AI 请求的账本。每条记录一次 AI 请求的模型、token、费用与收发内容。唯一例外是发往已知 AI 平台、但未能解密的**未解密隧道**：它也记一条，只有元数据，用来提示有 AI 费用没算进去。
+_Avoid_: 请求日志（指两样东西时）、连接日志
+
+**MITM 观测记录**（MITM Observation Record）：
+经过 AiDog 代理的每一个连接的元数据：目标地址、是否解密、状态、耗时、上下行字节数。非 AI 连接只出现在这里，不进代理日志。
+_Avoid_: mitm 日志、旁路日志
+
+**未解密隧道**（Undecrypted Tunnel）：
+带着分组凭据经过 AiDog、但目标地址不在 MITM 解密名单里的连接。AiDog 只原样转发字节，看不到内容。
+_Avoid_: 盲转（未带分组凭据的普通转发也叫盲转）、opaque
