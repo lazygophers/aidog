@@ -69,7 +69,7 @@ async fn match_platform_by_host_hits_main_base_url() {
     assert!(miss.is_none(), "未命中任何平台 base_url host 必须返回 None");
 }
 
-/// upsert_connect_log：落一行 proxy_log，source_protocol=http-connect + tokens/cost=0。
+/// upsert_connect_log：AI 隧道落一行 proxy_log，source_protocol=http-connect + tokens/cost=0。
 /// 关键不变量：不走 upsert_log（不污染 stats_agg），字段语义正确。
 #[tokio::test]
 async fn upsert_connect_log_writes_http_connect_row() {
@@ -94,7 +94,7 @@ async fn upsert_connect_log_writes_http_connect_row() {
 
     let ctx = log::ConnectLogCtx {
         request_id: "conn-log-1".into(),
-        platform_id: 0,
+        platform_id: 7,
         conn_group_key: String::new(),
         start: std::time::Instant::now(),
         blocked_reason: "",
@@ -114,7 +114,7 @@ async fn upsert_connect_log_writes_http_connect_row() {
         "source_protocol 标记隧道"
     );
     assert_eq!(row.target_protocol, "http-connect");
-    assert_eq!(row.platform_id, 0, "未命中 → platform_id=0");
+    assert_eq!(row.platform_id, 7, "AI 隧道才写 proxy_log");
     assert_eq!(row.status_code, 200);
     assert_eq!(row.duration_ms, 42);
     assert_eq!(row.input_tokens, 0, "隧道不计费");
@@ -1240,6 +1240,27 @@ async fn bound_blind_relay_marks_mitm_opaque_row() {
     let group = aidog_db::create_group(&state.db, test_support::sample_group("cc-blind-g", vec![]))
         .await
         .unwrap();
+    // 上游 host 命中平台（AI 隧道）→ 两条隧道才写 proxy_log（非 AI 隧道只写 mitm_log）。
+    aidog_db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: "conn-blind-ai".into(),
+            platform_type: Protocol::Anthropic,
+            base_url: format!("http://127.0.0.1:{}/v1", upstream_addr.port()),
+            api_key: "sk-test".into(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .unwrap();
     let app = axum::Router::new()
         .route("/", axum::routing::get(handle_root))
         .route("/proxy", axum::routing::get(handle_root))
@@ -1373,4 +1394,75 @@ async fn bound_blind_relay_marks_mitm_opaque_row() {
     );
     assert_eq!(opaque.status_code, 200, "隧道建立成功 → status 200");
     assert_eq!(opaque.path, "", "盲转无 HTTP 路径（opaque 字节，未解密）");
+}
+
+
+// ===== 代理日志-MITM隧道 票 01：非 AI 隧道移出代理日志 =====
+
+fn connect_ctx(id: &str, platform_id: u64, reason: &'static str, bytes: i64) -> log::ConnectLogCtx {
+    log::ConnectLogCtx {
+        request_id: id.into(),
+        platform_id,
+        conn_group_key: String::new(),
+        start: std::time::Instant::now(),
+        blocked_reason: reason,
+        group_name: String::new(),
+        req_bytes: bytes,
+        resp_bytes: bytes,
+    }
+}
+
+async fn mitm_hosts(state: &Arc<ProxyState>) -> Vec<(String, bool)> {
+    state
+        .db
+        .call_read_traced(None, std::panic::Location::caller(), |c| {
+            let mut s = c.prepare("SELECT host, decrypted FROM mitm_log ORDER BY id")?;
+            Ok(s.query_map([], |r| Ok((r.get(0)?, r.get::<_, i64>(1)? != 0)))?
+                .collect::<Result<Vec<_>, _>>()?)
+        })
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn non_ai_opaque_tunnel_has_no_proxy_log_but_observation_row() {
+    let state = make_state().await;
+    let ctx = connect_ctx("t01-a", 0, log::MITM_OPAQUE_REASON, 10);
+    log::upsert_connect_log(&state, &ctx, "www.google-analytics.com:443".into(), 200, 5).await;
+    flush_log_queue(&state).await;
+    assert!(aidog_logs::get_proxy_log(&state.db, "t01-a").await.unwrap().is_none());
+    assert_eq!(
+        mitm_hosts(&state).await,
+        vec![("www.google-analytics.com".to_string(), false)]
+    );
+}
+
+#[tokio::test]
+async fn ai_opaque_tunnel_keeps_proxy_log_row() {
+    let state = make_state().await;
+    let ctx = connect_ctx("t01-b", 7, log::MITM_OPAQUE_REASON, 10);
+    log::upsert_connect_log(&state, &ctx, "api.example.com:443".into(), 200, 5).await;
+    flush_log_queue(&state).await;
+    let row = aidog_logs::get_proxy_log(&state.db, "t01-b").await.unwrap().expect("ai row");
+    assert_eq!(row.blocked_reason, log::MITM_OPAQUE_REASON);
+    assert_eq!(mitm_hosts(&state).await.len(), 1);
+}
+
+#[tokio::test]
+async fn non_ai_blind_tunnel_without_credentials_only_observation_row() {
+    let state = make_state().await;
+    let ctx = connect_ctx("t01-c", 0, "", 10);
+    log::upsert_connect_log(&state, &ctx, "cdn.example.net:443".into(), 200, 5).await;
+    flush_log_queue(&state).await;
+    assert!(aidog_logs::get_proxy_log(&state.db, "t01-c").await.unwrap().is_none());
+    assert_eq!(mitm_hosts(&state).await, vec![("cdn.example.net".to_string(), false)]);
+}
+
+#[tokio::test]
+async fn early_failure_without_bytes_writes_no_observation_row() {
+    let state = make_state().await;
+    let ctx = connect_ctx("t01-d", 0, "", 0);
+    log::upsert_connect_log(&state, &ctx, "down.example.net:443".into(), 502, 5).await;
+    flush_log_queue(&state).await;
+    assert!(mitm_hosts(&state).await.is_empty());
 }

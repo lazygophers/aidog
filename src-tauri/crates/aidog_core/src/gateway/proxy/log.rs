@@ -796,7 +796,7 @@ pub(crate) async fn upsert_connect_log(
 ///
 /// 字段语义（PRD 锁）:
 /// - `source_protocol`/`target_protocol` = `"http-connect"`（Logs 页区分隧道请求）
-/// - `platform_id` = host 命中平台 else 0
+/// - `platform_id` = host 命中平台 else 0；=0（非 AI 隧道）不写 proxy_log，只写 mitm_log
 /// - `request_url` = CONNECT target（`host:port`）
 /// - `status_code` = 200（隧道建立成功）/ 502（上游连不上）/ 499（客户端断）
 /// - tokens/cost = 0（P1 不解析 body）
@@ -818,9 +818,11 @@ async fn process_connect_log(
     let now = aidog_db::now();
     // 是否认证绑定的盲转（mitm_opaque）——cols move 掉 blocked_reason 前先取。
     let is_opaque = blocked_reason == aidog_logs::MITM_OPAQUE_REASON;
+    // 传过字节的隧道（含非认证盲转）都要有观测行；早断（TCP/TLS 失败，0 字节）维持原行为。
+    let want_mitm_row = is_opaque || req_bytes + resp_bytes > 0;
     // ponytail: host 从 request_url（"host:port"）剥端口，IPv6 字面量不处理——CONNECT 目标
     // 几乎恒为域名/IPv4，真出现时 host 记原样可用。先取（下面 cols move 掉 request_url）。
-    let host = if is_opaque {
+    let host = if want_mitm_row {
         request_url
             .rsplit_once(':')
             .map(|(h, _)| h)
@@ -877,13 +879,16 @@ async fn process_connect_log(
         // CONNECT 隧道无会话归组（无 JSON body 可派生）。
         session_key: String::new(),
     };
-    if let Err(e) = aidog_logs::insert_proxy_log_columns(&state.db, cols).await {
+    // 只有 AI 隧道（host 命中平台）进代理日志；非 AI 隧道只留 mitm_log 观测行。
+    if platform_id != 0
+        && let Err(e) = aidog_logs::insert_proxy_log_columns(&state.db, cols).await
+    {
         tracing::warn!(error = %e, "connect log insert failed (non-fatal)");
         return;
     }
-    // 认证绑定的盲转隧道（mitm_opaque）补一行 mitm_log 观测行（decrypted=false / body 恒空），
-    // MITM 观测页才能看到全部走代理的请求；其余（普通盲转 / 502/499 早断）不产生行。
-    if is_opaque {
+    // 传过字节的隧道补一行 mitm_log 观测行（decrypted=false / body 恒空），
+    // MITM 观测页才能看到全部走代理的请求；0 字节早断（502/499）不产生行（opaque 仍保留原行为）。
+    if want_mitm_row {
         let row = aidog_logs::MitmLogInsert {
             group_name,
             host,

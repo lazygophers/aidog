@@ -62,9 +62,10 @@ async fn count_mitm_opaque_filters_reason_and_window() {
         conn.execute(
             "INSERT INTO proxy_log (id, platform_id, group_key, model, source_protocol, \
              status_code, est_cost, blocked_by, blocked_reason, created_at, deleted_at) \
-             VALUES ('a', 0, '', 'm', 'anthropic', 0, 0, 'router', 'mitm_opaque', 5000, 0), \
-                    ('b', 0, '', 'm', 'anthropic', 0, 0, 'router', 'mitm_opaque', 9000, 0), \
-                    ('c', 0, '', 'm', 'anthropic', 0, 0, 'router', 'peak', 5000, 0)",
+             VALUES ('a', 2, '', 'm', 'anthropic', 0, 0, 'router', 'mitm_opaque', 5000, 0), \
+                    ('b', 3, '', 'm', 'anthropic', 0, 0, 'router', 'mitm_opaque', 9000, 0), \
+                    ('c', 0, '', 'm', 'anthropic', 0, 0, 'router', 'peak', 5000, 0), \
+                    ('d', 0, '', 'm', 'http-connect', 200, 0, '', 'mitm_opaque', 9000, 0)",
             [],
         )?;
         Ok(())

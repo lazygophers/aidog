@@ -530,6 +530,20 @@ fn translate_legacy_middleware_rules(conn: &Connection) -> SqlResult<usize> {
     Ok(translated)
 }
 
+/// Migration 20261109-01 (代理日志-MITM隧道 票 01) 实体：删 proxy_log 中非 AI 隧道行
+/// （source_protocol='http-connect' 且 platform_id=0；此后这类隧道只写 mitm_log）。
+/// 不可逆；mitm_log 不动；幂等（新版不再写此类行）。
+fn purge_non_ai_connect_rows(conn: &Connection) {
+    match conn.execute(
+        "DELETE FROM proxy_log WHERE source_protocol = 'http-connect' AND platform_id = 0",
+        [],
+    ) {
+        Ok(n) if n > 0 => tracing::info!(deleted = n, "migration 20261109-01: 非 AI 隧道行已清出 proxy_log"),
+        Ok(_) => {}
+        Err(e) => tracing::warn!(error = %e, "migration 20261109-01: 清理失败（旧 schema 或无表，跳过）"),
+    }
+}
+
 /// proxy_log 表的 late migrations（log.db 库内序 20260727-10..20，原 021–047 范围内的 proxy_log 部分）。
 ///
 /// 拆库后这些 DDL 跑在 log.db 写连接。`cpa_pids` 为原 046 需清理的 CPA 平台 ID
@@ -744,6 +758,7 @@ pub fn run_migrations_proxy_log_late(
          ON proxy_log(session_key, created_at) WHERE deleted_at = 0",
         [],
     );
+    purge_non_ai_connect_rows(conn);
     Ok(())
 }
 

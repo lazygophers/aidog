@@ -345,7 +345,7 @@ pub fn list_oauth_usage_samples<'a>(
     }
 }
 
-/// `blocked_reason='mitm_opaque'` 的 proxy_log 行数（统计页「未计入」提示行）。
+/// `blocked_reason='mitm_opaque'` 且 platform_id != 0（AI 隧道）的 proxy_log 行数（统计页「未计入」提示行）。
 /// since_ms=0 查全量。
 pub fn count_mitm_opaque(
     db: &Db,
@@ -357,7 +357,7 @@ pub fn count_mitm_opaque(
         // proxy_log.rs 先例）——主库读池在真机 WAL 拆库下 no such table。
         db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
             Ok(conn.query_row(
-                "SELECT COUNT(*) FROM proxy_log WHERE blocked_reason = ?1 AND created_at >= ?2",
+                "SELECT COUNT(*) FROM proxy_log WHERE blocked_reason = ?1 AND platform_id != 0 AND created_at >= ?2",
                 params![MITM_OPAQUE_REASON, since_ms],
                 |r| r.get::<_, i64>(0),
             )?)
