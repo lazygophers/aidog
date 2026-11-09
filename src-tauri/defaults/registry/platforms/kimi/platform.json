@@ -1,4 +1,54 @@
 {
+  "rate_limit_policies":   [
+    {
+      "id": "tier0",
+      "label": "Tier0（累计充值 ¥0，TPD 1,500,000）",
+      "source_url": "https://platform.kimi.com/docs/pricing/limits",
+      "concurrency": 1,
+      "rpm": 3,
+      "tpm": 500000
+    },
+    {
+      "id": "tier1",
+      "label": "Tier1（累计充值 ¥50）",
+      "source_url": "https://platform.kimi.com/docs/pricing/limits",
+      "concurrency": 15,
+      "rpm": 100,
+      "tpm": 2000000
+    },
+    {
+      "id": "tier2",
+      "label": "Tier2（累计充值 ¥100）",
+      "source_url": "https://platform.kimi.com/docs/pricing/limits",
+      "concurrency": 40,
+      "rpm": 100,
+      "tpm": 3000000
+    },
+    {
+      "id": "tier3",
+      "label": "Tier3（累计充值 ¥500）",
+      "source_url": "https://platform.kimi.com/docs/pricing/limits",
+      "concurrency": 50,
+      "rpm": 200,
+      "tpm": 3000000
+    },
+    {
+      "id": "tier4",
+      "label": "Tier4（累计充值 ¥5,000）",
+      "source_url": "https://platform.kimi.com/docs/pricing/limits",
+      "concurrency": 60,
+      "rpm": 200,
+      "tpm": 4000000
+    },
+    {
+      "id": "tier5",
+      "label": "Tier5（累计充值 ¥20,000）",
+      "source_url": "https://platform.kimi.com/docs/pricing/limits",
+      "concurrency": 100,
+      "rpm": 300,
+      "tpm": 5000000
+    }
+  ],
   "tools_endpoints": {
     "search": "https://api.moonshot.cn/v1/tools/search",
     "search_pro": "https://api.moonshot.cn/v1/tools/search_pro",
@@ -9,7 +59,7 @@
     "search_pro": {"per_1000": 15.0, "currency": "CNY"},
     "fetch": {"per_1000": 10.0, "currency": "CNY"}
   },
-  "last_updated": 1794017726,
+  "last_updated": 1794191265,
   "endpoints": {
     "default": [
       {

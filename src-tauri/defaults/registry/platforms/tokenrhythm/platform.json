@@ -1,4 +1,38 @@
 {
+  "peak":   [
+    {
+      "start_hour": 9,
+      "end_hour": 12,
+      "multiplier": 2,
+      "days_of_week": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "timezone": "Asia/Shanghai",
+      "models": [
+        "deepseek-*"
+      ]
+    },
+    {
+      "start_hour": 14,
+      "end_hour": 18,
+      "multiplier": 2,
+      "days_of_week": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "timezone": "Asia/Shanghai",
+      "models": [
+        "deepseek-*"
+      ]
+    }
+  ],
   "endpoints": {
     "default": [
       {
@@ -64,5 +98,5 @@
   ],
   "color": "#4958E8",
   "key_prefixes": ["sk_"],
-  "last_updated": 1793615839
+  "last_updated": 1794191265
 }

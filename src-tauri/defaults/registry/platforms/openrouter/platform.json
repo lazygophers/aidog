@@ -1,5 +1,19 @@
 {
-  "last_updated": 1794017726,
+  "rate_limit_policies":   [
+    {
+      "id": "free-model-lt10-credits",
+      "label": "Free 模型（累计充值 < 10 credits，另日上限 50 次）",
+      "source_url": "https://openrouter.ai/docs/api-reference/limits",
+      "rpm": 20
+    },
+    {
+      "id": "free-model-ge10-credits",
+      "label": "Free 模型（累计充值 ≥ 10 credits，另日上限 1000 次）",
+      "source_url": "https://openrouter.ai/docs/api-reference/limits",
+      "rpm": 20
+    }
+  ],
+  "last_updated": 1794191265,
   "endpoints": {
     "default": [
       {

@@ -1,5 +1,47 @@
 {
-  "last_updated": 1794017726,
+  "rate_limit_policies":   [
+    {
+      "id": "v0",
+      "label": "V0: cumulative top-up under $15",
+      "source_url": "https://platform.stepfun.ai/docs/en/guides/pricing/details",
+      "concurrency": 5,
+      "rpm": 100,
+      "tpm": 500000
+    },
+    {
+      "id": "v1",
+      "label": "V1: cumulative top-up $15 to $69",
+      "source_url": "https://platform.stepfun.ai/docs/en/guides/pricing/details",
+      "concurrency": 20,
+      "rpm": 400,
+      "tpm": 2000000
+    },
+    {
+      "id": "v2",
+      "label": "V2: cumulative top-up $70 to $299",
+      "source_url": "https://platform.stepfun.ai/docs/en/guides/pricing/details",
+      "concurrency": 30,
+      "rpm": 600,
+      "tpm": 3000000
+    },
+    {
+      "id": "v3",
+      "label": "V3: cumulative top-up $300 to $1,499",
+      "source_url": "https://platform.stepfun.ai/docs/en/guides/pricing/details",
+      "concurrency": 40,
+      "rpm": 800,
+      "tpm": 4000000
+    },
+    {
+      "id": "v4",
+      "label": "V4: cumulative top-up $1,500 and above",
+      "source_url": "https://platform.stepfun.ai/docs/en/guides/pricing/details",
+      "concurrency": 130,
+      "rpm": 2600,
+      "tpm": 13000000
+    }
+  ],
+  "last_updated": 1794191265,
   "endpoints": {
     "default": [
       {

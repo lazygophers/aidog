@@ -1,11 +1,53 @@
 {
+  "rate_limit_policies":   [
+    {
+      "id": "v0",
+      "label": "V0：累计充值不足 ¥100",
+      "source_url": "https://platform.stepfun.com/docs/zh/guides/pricing/rate-limits",
+      "concurrency": 5,
+      "rpm": 100,
+      "tpm": 500000
+    },
+    {
+      "id": "v1",
+      "label": "V1：累计充值 ¥100 – ¥499",
+      "source_url": "https://platform.stepfun.com/docs/zh/guides/pricing/rate-limits",
+      "concurrency": 20,
+      "rpm": 400,
+      "tpm": 2000000
+    },
+    {
+      "id": "v2",
+      "label": "V2：累计充值 ¥500 – ¥1,999",
+      "source_url": "https://platform.stepfun.com/docs/zh/guides/pricing/rate-limits",
+      "concurrency": 30,
+      "rpm": 600,
+      "tpm": 3000000
+    },
+    {
+      "id": "v3",
+      "label": "V3：累计充值 ¥2,000 – ¥9,999",
+      "source_url": "https://platform.stepfun.com/docs/zh/guides/pricing/rate-limits",
+      "concurrency": 40,
+      "rpm": 800,
+      "tpm": 4000000
+    },
+    {
+      "id": "v4",
+      "label": "V4：累计充值 ¥10,000 及以上",
+      "source_url": "https://platform.stepfun.com/docs/zh/guides/pricing/rate-limits",
+      "concurrency": 130,
+      "rpm": 2600,
+      "tpm": 13000000
+    }
+  ],
   "tools_endpoints": {
     "search": "https://api.stepfun.com/v1/search"
   },
   "tools_pricing": {
     "search": {"per_1000": 40.0, "currency": "CNY"}
   },
-  "last_updated": 1794017726,
+  "last_updated": 1794191265,
   "endpoints": {
     "default": [
       {

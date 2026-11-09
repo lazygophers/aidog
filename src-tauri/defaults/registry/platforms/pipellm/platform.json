@@ -1,5 +1,37 @@
 {
-  "last_updated": 1793290955,
+  "rate_limit_policies":   [
+    {
+      "id": "tier_0",
+      "label": "tier_0: no eligible payment",
+      "source_url": "https://docs.pipellm.ai/api-reference/rate-limits",
+      "rpm": 6
+    },
+    {
+      "id": "tier_1",
+      "label": "tier_1: eligible payments totaling at least $5",
+      "source_url": "https://docs.pipellm.ai/api-reference/rate-limits",
+      "rpm": 30
+    },
+    {
+      "id": "tier_2",
+      "label": "tier_2: eligible payments totaling at least $50, first eligible payment more than 7 days ago",
+      "source_url": "https://docs.pipellm.ai/api-reference/rate-limits",
+      "rpm": 120
+    },
+    {
+      "id": "tier_3",
+      "label": "tier_3: eligible payments totaling at least $250, first eligible payment more than 7 days ago",
+      "source_url": "https://docs.pipellm.ai/api-reference/rate-limits",
+      "rpm": 300
+    },
+    {
+      "id": "tier_4",
+      "label": "tier_4: eligible payments totaling at least $1,000, first eligible payment more than 14 days ago",
+      "source_url": "https://docs.pipellm.ai/api-reference/rate-limits",
+      "rpm": 600
+    }
+  ],
+  "last_updated": 1794191265,
   "endpoints": {
     "default": [
       {

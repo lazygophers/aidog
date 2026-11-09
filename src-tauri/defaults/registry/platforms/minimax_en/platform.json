@@ -1,5 +1,25 @@
 {
-  "last_updated": 1793615839,
+  "rate_limit_policies":   [
+    {
+      "id": "default",
+      "label": "LLM（MiniMax-M3.1-Flash / MiniMax-M3）：200 RPM / 10,000,000 TPM",
+      "source_url": "https://platform.minimax.io/docs/guides/rate-limits",
+      "rpm": 200,
+      "tpm": 10000000,
+      "models": {
+        "MiniMax-M3": {
+          "rpm": 200,
+          "tpm": 10000000
+        }
+      }
+    },
+    {
+      "id": "media",
+      "label": "视频：Hailuo series 20 RPM；Video Generation V2（MiniMax-H3）300 RPM + 30 max inflight tasks；音乐 120 RPM + CONN 20；T2A 语音 60 RPM；asr-1.0 CONN 2 / TPM 30,000（按音频秒计）",
+      "source_url": "https://platform.minimax.io/docs/guides/rate-limits"
+    }
+  ],
+  "last_updated": 1794191265,
   "endpoints": {
     "default": [
       {
