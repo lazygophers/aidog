@@ -13,6 +13,8 @@ pub const SCRIPT_WAITING: &str = "aidog-notify-waiting.py";
 /// 通用事件通知脚本文件名（N2 hook 事件通知）：读 stdin JSON 取 hook_event_name + 事件特有字段，
 /// POST `/api/notify` `{event, vars}`（不传 type，后端按 per_event 解析）。所有 CC 事件共用此脚本。
 pub const SCRIPT_EVENT_NOTIFY: &str = "aidog-notify.py";
+/// subagent 硬并发上限闸门脚本文件名（node 零依赖；lazygophers 预设 hooks 引用该路径）。
+pub const SCRIPT_SUBAGENT_CAP: &str = "aidog-subagent-cap.mjs";
 
 /// 旧版 bash hook 脚本文件名（迁移清理用，写新脚本时删除）。
 pub const LEGACY_SCRIPT_COMPLETE: &str = "aidog-notify-complete.sh";
@@ -32,6 +34,11 @@ pub struct ScriptPaths {
 
 /// 单个透传 var 字符串值最大长度（超出截断加省略号，防 prompt 等巨串进通知）。
 pub const EVENT_VAR_MAX_LEN: usize = 200;
+
+/// subagent 硬并发上限闸门脚本内容。include_str! 单一真值源（仓库内文件可跑 node 自检）。
+pub fn build_subagent_cap_script() -> String {
+    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/aidog-subagent-cap.mjs")).to_string()
+}
 
 /// 生成 hook 脚本内容（Python + PEP723，stdlib only）。
 ///

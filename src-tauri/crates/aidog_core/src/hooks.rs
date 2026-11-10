@@ -44,6 +44,12 @@ pub fn generate_hook_scripts(
     // waiting 脚本已并入通用事件脚本（N2），不再生成；仅清理历史 ~/.aidog/*.sh 残留。
     cleanup_legacy_root_script(aidog_hooks::LEGACY_SCRIPT_WAITING);
 
+    // subagent 硬并发上限闸门脚本（lazygophers 预设 hooks 引用该路径，node 直跑）。
+    let cap_path = scripts_dir.join(aidog_hooks::SCRIPT_SUBAGENT_CAP);
+    std::fs::write(&cap_path, aidog_hooks::build_subagent_cap_script())
+        .map_err(|e| format!("write subagent cap script: {e}"))?;
+    chmod755(&cap_path, aidog_hooks::SCRIPT_SUBAGENT_CAP)?;
+
     Ok(aidog_hooks::ScriptPaths {
         complete: write_type_script(
             aidog_hooks::SCRIPT_COMPLETE,
