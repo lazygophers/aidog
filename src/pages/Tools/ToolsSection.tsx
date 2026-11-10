@@ -258,6 +258,24 @@ export function ToolsSection() {
   const [searxList, setSearxList] = useState<SearxInstance[]>([]);
   const [searxBusy, setSearxBusy] = useState(false);
   const [searxError, setSearxError] = useState("");
+  const [searxAdd, setSearxAdd] = useState("");
+  // 行集合会话内累积（known）：已启用 URL ∪ 刷新拉到的公共实例 ∪ 手动添加，去重保序；
+  // 「全不选」清空启用集后行仍显示（known 不丢），删行才从 known 移除
+  const [searxKnown, setSearxKnown] = useState<string[]>([]);
+  useEffect(() => {
+    setSearxKnown((prev) => {
+      const seen = new Set(prev);
+      const rows = [...prev];
+      for (const u of [...linesOf(search.searxRaw), ...searxList.map((x) => x.url)]) {
+        if (!seen.has(u)) {
+          seen.add(u);
+          rows.push(u);
+        }
+      }
+      return rows.length === prev.length ? prev : rows;
+    });
+  }, [search.searxRaw, searxList]);
+  const enabledUrls = useMemo(() => new Set(linesOf(search.searxRaw)), [search.searxRaw]);
   const [installing, setInstalling] = useState(false);
   const [installMsg, setInstallMsg] = useState("");
   const [installOk, setInstallOk] = useState(false);
@@ -390,6 +408,36 @@ export function ToolsSection() {
   const toggleSearxUrl = (url: string) => {
     const lines = linesOf(search.searxRaw);
     setUrlsRaw((lines.includes(url) ? lines.filter((l) => l !== url) : [...lines, url]).join("\n"));
+  };
+  // 行内测试：耗时缓存仅本会话内存（searxTest），不持久化
+  const [searxTest, setSearxTest] = useState<Record<string, { testing: boolean; seconds: number | null; fail: boolean }>>({});
+
+  const testSearx = async (url: string) => {
+    setSearxTest((m) => ({ ...m, [url]: { testing: true, seconds: null, fail: false } }));
+    try {
+      const seconds = await searchApi.searxTest(url);
+      setSearxTest((m) => ({ ...m, [url]: { testing: false, seconds, fail: false } }));
+    } catch {
+      setSearxTest((m) => ({ ...m, [url]: { testing: false, seconds: null, fail: true } }));
+    }
+  };
+  const searxBatch = (urls: string[]) => setUrlsRaw(urls.join("\n"));
+  const searxAddUrl = () => {
+    const u = searxAdd.trim();
+    if (u === "") return;
+    setUrlsRaw([...new Set([...linesOf(search.searxRaw), u])].join("\n"));
+    setSearxAdd("");
+  };
+  const searxDelRow = (url: string) => {
+    setUrlsRaw(linesOf(search.searxRaw).filter((l) => l !== url).join("\n"));
+    setSearxList((l) => l.filter((x) => x.url !== url));
+    setSearxKnown((k) => k.filter((x) => x !== url));
+    setSearxTest((m) => {
+      if (!(url in m)) return m;
+      const n = { ...m };
+      delete n[url];
+      return n;
+    });
   };
 
   const refreshSearx = async () => {
@@ -596,49 +644,93 @@ export function ToolsSection() {
 
   const searxRow = (
     <div className="flex flex-col gap-1.5 px-2.5 pb-2.5 pl-[52px]">
-      <label className="flex flex-col gap-1 text-sm">
-        <span>{t("tools.searxngUrls")}</span>
-        <textarea
-          data-testid="mcp-tools-searxng-urls"
-          rows={3}
-          value={search.searxRaw}
-          onChange={(e) => setUrlsRaw(e.target.value)}
-          className="w-full resize-y rounded-md border border-input bg-card px-2.5 py-2 font-mono text-sm outline-none transition-colors focus:border-primary"
-        />
-      </label>
-      <div className="flex items-center gap-3">
+      <div className="text-sm font-medium text-secondary">{t("tools.searxngUrls")}</div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Button variant="outline" size="sm" data-testid="tools-searx-all" onClick={() => searxBatch(searxKnown)}>{t("tools.searxAll")}</Button>
+        <Button variant="outline" size="sm" data-testid="tools-searx-invert" onClick={() => searxBatch(searxKnown.filter((u) => !enabledUrls.has(u)))}>{t("tools.searxInvert")}</Button>
+        <Button variant="outline" size="sm" data-testid="tools-searx-none" onClick={() => searxBatch([])}>{t("tools.searxNone")}</Button>
+        <Button variant="outline" size="sm" data-testid="tools-searx-available" onClick={() => searxBatch(searxKnown.filter((u) => searxTest[u] && !searxTest[u].fail && searxTest[u].seconds != null))}>{t("tools.searxAvailable")}</Button>
+        <span className="flex-1" />
         <Button variant="outline" size="sm" data-testid="tools-searx-refresh" disabled={searxBusy} onClick={() => void refreshSearx()}>
           {searxBusy ? t("tools.searxRefreshing") : t("tools.searxRefresh")}
         </Button>
-        <span className="text-sm text-secondary">{t("tools.searxRefreshHint")}</span>
       </div>
       {searxError && (
         <span className="text-sm text-destructive" data-testid="tools-searx-error">{searxError}</span>
       )}
-      {searxList.length > 0 && (
-        <div className="flex max-h-[180px] flex-col gap-1 overflow-y-auto">
-          {searxList.map((inst, i) => {
-            const on = linesOf(search.searxRaw).includes(inst.url);
-            return (
+      <div className="flex max-h-[220px] flex-col gap-1 overflow-y-auto">
+        {searxKnown.map((url, i) => {
+          const on = enabledUrls.has(url);
+          const st = searxTest[url];
+          const listSec = searxList.find((x) => x.url === url)?.seconds ?? null;
+          const seconds = st?.fail || st?.testing ? null : (st?.seconds ?? listSec);
+          return (
+            <div
+              key={url}
+              data-testid={`tools-searx-row-${i}`}
+              data-state={on ? "on" : "off"}
+              onClick={() => toggleSearxUrl(url)}
+              className={cn(
+                "flex h-8 cursor-pointer items-center gap-2 rounded-md border px-2.5 text-sm transition-colors select-none",
+                on ? "border-primary bg-[var(--accent-subtle)] text-primary" : "border-border bg-card hover:border-primary",
+              )}
+            >
+              <span className={cn("grid size-3 shrink-0 place-items-center rounded-[3px] border", on ? "border-primary bg-primary" : "border-[var(--input)]")} />
+              <span className="min-w-0 flex-1 truncate font-mono text-sm">{url}</span>
+              {st?.testing ? (
+                <span data-testid={`tools-searx-sec-${i}`} className="shrink-0 text-xs text-secondary">{t("tools.searxTesting")}</span>
+              ) : (
+                <span
+                  data-testid={`tools-searx-sec-${i}`}
+                  className={cn("shrink-0 font-mono text-xs", st?.fail ? "text-destructive" : "text-secondary")}
+                >
+                  {st?.fail ? t("tools.searxFail") : seconds != null ? `${seconds.toFixed(2)}s` : ""}
+                </span>
+              )}
+              {st?.testing ? (
+                <Button variant="ghost" size="sm" disabled data-testid={`tools-searx-test-${i}`}>{t("tools.searxTesting")}</Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  data-testid={`tools-searx-test-${i}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void testSearx(url);
+                  }}
+                >
+                  {t("tools.searxTest")}
+                </Button>
+              )}
               <button
-                key={inst.url}
                 type="button"
-                data-testid={`tools-searx-inst-${i}`}
-                data-state={on ? "on" : "off"}
-                onClick={() => toggleSearxUrl(inst.url)}
-                className={cn(
-                  "inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-sm transition-colors",
-                  on ? "border-primary bg-[var(--accent-subtle)] text-primary" : "border-border bg-card hover:border-primary",
-                )}
+                data-testid={`tools-searx-del-${i}`}
+                aria-label={`${url} ✕`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  searxDelRow(url);
+                }}
+                className="grid size-6 shrink-0 place-items-center rounded text-secondary transition-colors hover:bg-[color-mix(in_srgb,var(--danger)_14%,transparent)] hover:text-destructive"
               >
-                <span className={cn("grid size-3 place-items-center rounded-[3px] border", on ? "border-primary bg-primary" : "border-[var(--input)]")} />
-                {inst.url}
-                {inst.seconds != null && <span className="text-secondary">{inst.seconds.toFixed(2)}s</span>}
+                <XIcon />
               </button>
-            );
-          })}
-        </div>
-      )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex items-center gap-1.5">
+        <input
+          data-testid="tools-searx-add"
+          value={searxAdd}
+          placeholder="https://…"
+          onChange={(e) => setSearxAdd(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") searxAddUrl();
+          }}
+          className="h-8 flex-1 rounded-md border border-input bg-card px-2.5 font-mono text-sm outline-none transition-colors focus:border-primary"
+        />
+        <Button variant="outline" size="sm" data-testid="tools-searx-add-btn" onClick={searxAddUrl}>{t("tools.searxAdd")}</Button>
+      </div>
     </div>
   );
 

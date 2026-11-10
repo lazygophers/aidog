@@ -2677,6 +2677,20 @@
       "returns": "Vec<SearxInstance>"
     },
     {
+      "name": "search_searx_test",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "url",
+          "type": "String"
+        }
+      ],
+      "returns": "f64"
+    },
+    {
       "name": "search_sources",
       "category": "proxy",
       "kind": "readonly",

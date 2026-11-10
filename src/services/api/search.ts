@@ -19,4 +19,6 @@ export const searchApi = {
   sources: () => invoke<SearchSource[]>("search_sources"),
   /** 手动拉取一次 searx.space 公共实例列表（用户点按钮才调用，不自动）。 */
   searxInstances: () => invoke<SearxInstance[]>("search_searx_instances"),
+  /** 单实例可用性探测：GET <url>/search?q=aidog&format=json，可用回耗时秒（用户点行内「测试」才调用）。 */
+  searxTest: (url: string) => invoke<number>("search_searx_test", { url }),
 };
