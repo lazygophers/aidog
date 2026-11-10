@@ -1,244 +1,302 @@
-// ToolsSection 就近测试：渲染真组件，mock settingsApi（transport 层），
-// 断言走 data-testid（frontend-refactor-tests.md）。
+// ToolsSection 就近测试（票 05 方向 A 总控台重写）：渲染真组件，mock transport 层 API，
+// 断言走 data-testid / data-state（frontend-refactor-tests.md）。
+// 拖拽排序：mock @dnd-kit/core 的 DndContext 捕获 onDragEnd，直接喂事件（落点判定列人工验收）。
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "../../test/render";
+import { act, fireEvent, render, screen, waitFor } from "../../test/render";
 
 const h = vi.hoisted(() => ({ get: vi.fn(), set: vi.fn() }));
 const m = vi.hoisted(() => ({ selfInstall: vi.fn() }));
+const sx = vi.hoisted(() => ({ searxInstances: vi.fn(), sources: vi.fn() }));
+const dnd = vi.hoisted(() => ({ onDragEnd: null as null | ((e: unknown) => void) }));
+
 vi.mock("../../services/transport", () => ({ invoke: vi.fn(), listen: vi.fn(async () => () => {}) }));
 vi.mock("../../services/api/settings", () => ({ settingsApi: { get: h.get, set: h.set } }));
-const sx = vi.hoisted(() => ({ searxInstances: vi.fn() }));
-vi.mock("../../services/api/search", () => ({ searchApi: { searxInstances: sx.searxInstances } }));
+vi.mock("../../services/api/search", () => ({ searchApi: { sources: sx.sources, searxInstances: sx.searxInstances } }));
 vi.mock("../../services/api/mcp", () => ({ mcpApi: { selfInstall: m.selfInstall } }));
 
-import { SEARCH_ENGINES, ToolsSection } from "./ToolsSection";
+vi.mock("@dnd-kit/core", async () => {
+  const actual = await vi.importActual<typeof import("@dnd-kit/core")>("@dnd-kit/core");
+  return {
+    ...actual,
+    DndContext: (p: { children?: ReactNode; onDragEnd?: (e: unknown) => void }) => {
+      dnd.onDragEnd = p.onDragEnd ?? null;
+      return <>{p.children}</>;
+    },
+  };
+});
 
-const DEFAULT_SOURCES = SEARCH_ENGINES.filter((e) => e.defaultOn).map((e) => e.id);
-const engineBox = (id: string) => screen.getByTestId(`tools-engine-${id}`) as HTMLInputElement;
+import { toolStatus, ToolsSection } from "./ToolsSection";
 
-const providerSelect = () => screen.getByTestId("mcp-tools-provider") as HTMLSelectElement;
-const enabledBox = () => screen.getByTestId("mcp-tools-enabled") as HTMLInputElement;
-const keysArea = () => screen.getByTestId("mcp-tools-keys") as HTMLTextAreaElement;
-const saved = () => screen.getByTestId("mcp-tools-save");
+const SETTINGS_SOURCES = ["tavily", "ddg", "google"];
+const SOURCE_LIST = [
+  { id: "tavily", kind: "keyed", needs_key: true, default_on: false, billing: "per_request" },
+  { id: "brave", kind: "keyed", needs_key: true, default_on: false, billing: "per_request" },
+  { id: "ddg", kind: "engine", needs_key: false, default_on: true, billing: "free" },
+  { id: "google", kind: "engine", needs_key: false, default_on: true, billing: "free" },
+  { id: "searxng", kind: "engine", needs_key: false, default_on: true, billing: "free" },
+];
+
+const railItem = (id: string) => screen.getByTestId(`tools-rail-${id}`);
+const statusPill = (tool: string) => screen.getByTestId(`tools-status-${tool}`);
+const statusOf = (tool: string) => statusPill(tool).getAttribute("data-state");
 
 beforeEach(() => {
   vi.clearAllMocks();
+  dnd.onDragEnd = null;
   h.get.mockResolvedValue(null);
   h.set.mockResolvedValue(undefined);
   m.selfInstall.mockReset();
   sx.searxInstances.mockReset();
+  sx.sources.mockResolvedValue(SOURCE_LIST);
 });
 
-describe("ToolsSection", () => {
-  it("未配置加载：provider 空、enabled 默认开，保存写出缺省形状", async () => {
-    render(<ToolsSection />);
-    await waitFor(() => expect(providerSelect().value).toBe(""));
-    expect(enabledBox().checked).toBe(true);
-    fireEvent.click(saved());
-    await waitFor(() =>
-      expect(h.set).toHaveBeenCalledWith("mcp_tools", "settings", {
-        search: { enabled: true, sources: DEFAULT_SOURCES, mode: "parallel", services: {}, searxng_base_urls: [] },
-      }),
-    );
+describe("toolStatus 纯函数", () => {
+  const keyed = new Set(["tavily"]);
+  it("web_search：enabled=false → disabled（无论 sources）", () => {
+    expect(toolStatus("web_search", { search: { enabled: false, sources: ["ddg"] } }, keyed)).toBe("disabled");
   });
-
-  it("已存 fetch 段（抓网页开关）保存搜索卡片时原样透传，不被覆盖丢失", async () => {
-    h.get.mockResolvedValue({ search: { enabled: true, sources: ["ddg"] }, fetch: { enabled: false } });
-    render(<ToolsSection />);
-    await waitFor(() => expect(providerSelect().value).toBe(""));
-    fireEvent.click(saved());
-    await waitFor(() => expect((h.set.mock.calls[0][2] as any).fetch).toEqual({ enabled: false }));
+  it("web_search：含免 key 引擎 → configured", () => {
+    expect(toolStatus("web_search", { search: { enabled: true, sources: ["ddg"] } }, keyed)).toBe("configured");
   });
+  it("web_search：只有 key 服务且有非空 key（含 *** ）→ configured", () => {
+    expect(toolStatus("web_search", { search: { enabled: true, sources: ["tavily"], services: { tavily: { keys: ["***"] } } } }, keyed)).toBe("configured");
+    expect(toolStatus("web_search", { search: { enabled: true, sources: ["tavily"], services: { tavily: { keys: ["k1"] } } } }, keyed)).toBe("configured");
+  });
+  it("web_search：只有 key 服务但 key 全空 → unconfigured", () => {
+    expect(toolStatus("web_search", { search: { enabled: true, sources: ["tavily"], services: { tavily: { keys: ["", "  "] } } } }, keyed)).toBe("unconfigured");
+    expect(toolStatus("web_search", { search: { enabled: true, sources: ["tavily"] } }, keyed)).toBe("unconfigured");
+  });
+  it("web_fetch：enabled=false → disabled；缺省 → configured", () => {
+    expect(toolStatus("web_fetch", { fetch: { enabled: false } })).toBe("disabled");
+    expect(toolStatus("web_fetch", {})).toBe("configured");
+  });
+  it("generate_image：缺 / 部分填写 → unconfigured；三项齐 → configured；无 disabled 态", () => {
+    expect(toolStatus("generate_image", {})).toBe("unconfigured");
+    expect(toolStatus("generate_image", { image: { base_url: "https://a", api_key: "", model: "" } })).toBe("unconfigured");
+    expect(toolStatus("generate_image", { image: { base_url: "https://a", api_key: "k", model: "m" } })).toBe("configured");
+  });
+});
 
-  it("已配置加载回填；保存保留 image 透传", async () => {
+describe("ToolsSection 总控台", () => {
+  it("rail 三态：搜索已配置（sources 有引擎）/ 抓网页已停用 / 生图未配置", async () => {
     h.get.mockResolvedValue({
-      search: { enabled: true, sources: ["tavily", "ddg"], mode: "sequential", services: { tavily: { keys: ["k1"] } }, searxng_base_urls: [] },
-      image: { base_url: "https://api.openai.com/v1", api_key: "img-k", model: "g" },
+      search: { enabled: true, sources: ["ddg"], mode: "parallel", services: {}, searxng_base_urls: [] },
+      fetch: { enabled: false },
     });
     render(<ToolsSection />);
-    await waitFor(() => expect(providerSelect().value).toBe("tavily"));
-    expect(keysArea().value).toBe("k1");
-    fireEvent.click(saved());
+    await waitFor(() => expect(statusOf("web_search")).toBe("configured"));
+    expect(statusOf("web_fetch")).toBe("disabled");
+    expect(statusOf("generate_image")).toBe("unconfigured");
+    expect(railItem("web_search").getAttribute("data-state")).toBe("configured");
+  });
+
+  it("执行路径图随模式与停用切换（草稿即时生效）；rail 状态按已存值，保存后才翻转", async () => {
+    h.get.mockResolvedValue({
+      search: { enabled: true, sources: ["ddg", "google"], mode: "sequential", services: {}, searxng_base_urls: [] },
+    });
+    render(<ToolsSection />);
+    await waitFor(() => expect(screen.getByTestId("tools-flow").getAttribute("data-state")).toBe("sequential"));
+    fireEvent.click(screen.getByTestId("tools-mode-parallel"));
+    expect(screen.getByTestId("tools-flow").getAttribute("data-state")).toBe("parallel");
+    const sw = screen.getByTestId("mcp-tools-enabled");
+    expect(sw.getAttribute("data-state")).toBe("checked");
+    fireEvent.click(sw);
+    expect(screen.getByTestId("tools-flow").getAttribute("data-state")).toBe("off");
+    // rail 状态按已存配置算：未保存前仍是 configured
+    expect(statusOf("web_search")).toBe("configured");
+    fireEvent.click(screen.getByTestId("mcp-tools-save"));
+    await waitFor(() => expect(statusOf("web_search")).toBe("disabled"));
+  });
+
+  it("每卡独立保存：搜索卡保存走读-改-写，保留最新 fetch / image；写出的 sources 保持拖动后顺序", async () => {
+    h.get.mockResolvedValue({
+      search: { enabled: true, sources: ["ddg", "google"], mode: "sequential", services: {}, searxng_base_urls: [] },
+      fetch: { enabled: true },
+      image: { base_url: "https://p/v1", api_key: "k", model: "m" },
+    });
+    // 保存前他卡被另一会话更新：重新 get 返回新值，读-改-写必须带上它而不是旧快照。
+    h.get.mockImplementation(async () => {
+      if (h.get.mock.calls.length > 1) {
+        return {
+          search: { enabled: true, sources: ["ddg", "google"], mode: "sequential", services: {}, searxng_base_urls: [] },
+          fetch: { enabled: false },
+          image: { base_url: "https://other/v9", api_key: "k9", model: "m9" },
+        };
+      }
+      return {
+        search: { enabled: true, sources: ["ddg", "google"], mode: "sequential", services: {}, searxng_base_urls: [] },
+        fetch: { enabled: true },
+        image: { base_url: "https://p/v1", api_key: "k", model: "m" },
+      };
+    });
+    render(<ToolsSection />);
+    await waitFor(() => expect(statusOf("web_search")).toBe("configured"));
+    // 拖动：把 google（active）拖到 ddg（over）之前
+    await waitFor(() => expect(dnd.onDragEnd).toBeTruthy());
+    act(() => dnd.onDragEnd!({ active: { id: "google" }, over: { id: "ddg" } }));
+    fireEvent.click(screen.getByTestId("mcp-tools-save"));
     await waitFor(() => {
       const call = h.set.mock.calls[0];
       expect(call[0]).toBe("mcp_tools");
-      expect((call[2] as any).image).toEqual({ base_url: "https://api.openai.com/v1", api_key: "img-k", model: "g" });
-      expect((call[2] as any).search.sources[0]).toBe("tavily");
-      expect((call[2] as any).search.mode).toBe("sequential");
-      expect((call[2] as any).search.services.tavily.keys).toEqual(["k1"]);
+      expect(call[1]).toBe("settings");
+      expect((call[2] as any).search.sources).toEqual(["google", "ddg"]);
+      expect((call[2] as any).fetch).toEqual({ enabled: false });
+      expect((call[2] as any).image).toEqual({ base_url: "https://other/v9", api_key: "k9", model: "m9" });
     });
   });
 
-  it("SearXNG 实例 URL 恒显示，保存按行解析（trim + 去空行）", async () => {
+  it("抓网页卡只写 fetch 段：保存保留 search / image 原值", async () => {
+    h.get.mockResolvedValue({
+      search: { enabled: true, sources: ["ddg"], mode: "parallel", services: { tavily: { keys: ["***"] } }, searxng_base_urls: ["http://s"] },
+      image: { base_url: "https://p/v1", api_key: "k", model: "m" },
+    });
     render(<ToolsSection />);
-    await waitFor(() => expect(providerSelect().value).toBe(""));
-    const urls = screen.getByTestId("mcp-tools-searxng-urls") as HTMLTextAreaElement;
-    fireEvent.change(urls, { target: { value: " http://a \nhttp://b/\n\n" } });
-    fireEvent.click(saved());
+    await waitFor(() => expect(statusOf("web_fetch")).toBe("configured"));
+    fireEvent.click(railItem("web_fetch")); // 方向 A：右侧单卡，先在 rail 选中抓网页
+    fireEvent.click(screen.getByTestId("mcp-tools-fetch-enabled"));
+    fireEvent.click(screen.getByTestId("tools-fetch-save"));
+    await waitFor(() => {
+      const next = h.set.mock.calls[0][2] as any;
+      expect(next.fetch).toEqual({ enabled: false });
+      expect(next.search.services.tavily.keys).toEqual(["***"]);
+      expect(next.search.searxng_base_urls).toEqual(["http://s"]);
+      expect(next.image).toEqual({ base_url: "https://p/v1", api_key: "k", model: "m" });
+    });
+  });
+
+  it("生图卡密码框默认隐藏、眼睛切换显隐；三字段齐保存写出 image", async () => {
+    render(<ToolsSection />);
+    await waitFor(() => expect(railItem("generate_image").getAttribute("data-state")).toBe("unconfigured"));
+    fireEvent.click(railItem("generate_image"));
+    const key = screen.getByTestId("mcp-tools-image-api-key") as HTMLInputElement;
+    expect(key.type).toBe("password");
+    fireEvent.click(screen.getByTestId("mcp-tools-image-api-key-eye"));
+    expect((screen.getByTestId("mcp-tools-image-api-key") as HTMLInputElement).type).toBe("text");
+    fireEvent.change(screen.getByTestId("mcp-tools-image-base-url"), { target: { value: "https://p/v1/" } });
+    fireEvent.change(key, { target: { value: "sk" } });
+    fireEvent.change(screen.getByTestId("mcp-tools-image-model"), { target: { value: "m1" } });
+    expect(statusOf("generate_image")).toBe("unconfigured"); // 保存前状态按已存值算
+    fireEvent.click(screen.getByTestId("tools-image-save"));
+    await waitFor(() => {
+      // settings 为空（全新安装）→ 只写本卡 image 段，其余段由后端缺省兜底
+      expect(h.set.mock.calls[0][2]).toEqual({
+        image: { base_url: "https://p/v1/", api_key: "sk", model: "m1" },
+      });
+    });
+    // 保存成功后快照更新，rail 状态变已配置
+    await waitFor(() => expect(statusOf("generate_image")).toBe("configured"));
+  });
+
+  it("key 服务行内密码框默认隐藏、可显隐、可增删；空行保存时剔除；*** 原样保留", async () => {
+    h.get.mockResolvedValue({
+      search: { enabled: true, sources: ["tavily"], mode: "sequential", services: { tavily: { keys: ["***"] } }, searxng_base_urls: [] },
+    });
+    render(<ToolsSection />);
+    await waitFor(() => expect(screen.getByTestId("tools-key-input-tavily-0")).toBeTruthy());
+    const input0 = () => screen.getByTestId("tools-key-input-tavily-0") as HTMLInputElement;
+    expect(input0().type).toBe("password");
+    expect(input0().value).toBe("***");
+    fireEvent.click(screen.getByTestId("tools-key-input-tavily-0-eye"));
+    expect((screen.getByTestId("tools-key-input-tavily-0") as HTMLInputElement).type).toBe("text");
+    fireEvent.click(screen.getByTestId("tools-key-add-tavily"));
+    fireEvent.change(screen.getByTestId("tools-key-input-tavily-1"), { target: { value: "  k2  " } });
+    fireEvent.click(screen.getByTestId("mcp-tools-save"));
+    await waitFor(() => {
+      expect((h.set.mock.calls[0][2] as any).search.services.tavily.keys).toEqual(["***", "k2"]);
+    });
+  });
+
+  it("来源池点选加入 / 移除已启用列表；「一起」含 key 服务出现计费提示，纯引擎不出现", async () => {
+    render(<ToolsSection />);
+    await waitFor(() => expect(screen.getByTestId("tools-src-chip-tavily")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("tools-src-chip-tavily"));
+    fireEvent.click(screen.getByTestId("tools-mode-parallel"));
+    expect(screen.getByTestId("tools-billing-warning")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("tools-src-remove-tavily"));
+    expect(screen.queryByTestId("tools-billing-warning")).toBeNull();
+    expect(screen.getByTestId("tools-src-chip-tavily").getAttribute("data-state")).toBe("off");
+  });
+
+  it("未保存离开：dirty 时经 registerNavGuard 拦截，确认后放行并还原草稿", async () => {
+    const { requestNavigation } = await import("../../utils/navGuard");
+    h.get.mockResolvedValue({ search: { enabled: true, sources: ["ddg"], mode: "parallel", services: {}, searxng_base_urls: [] } });
+    render(<ToolsSection />);
+    await waitFor(() => expect(statusOf("web_search")).toBe("configured"));
+    // dirty banner 未出现
+    expect(screen.queryByTestId("tools-unsaved-banner")).toBeNull();
+    fireEvent.click(screen.getByTestId("tools-mode-sequential"));
+    expect(screen.getByTestId("tools-unsaved-banner")).toBeTruthy();
+    // 导航被守卫拦截：出现居中 Dialog
+    let navigated = false;
+    act(() => requestNavigation(() => { navigated = true; }));
+    const dialog = await screen.findByTestId("tools-leave-dialog");
+    expect(dialog).toBeTruthy();
+    expect(navigated).toBe(false);
+    fireEvent.click(screen.getByTestId("tools-leave-confirm"));
+    expect(navigated).toBe(true);
+    // 放行后草稿还原：banner 消失、模式回到已存值
+    await waitFor(() => expect(screen.queryByTestId("tools-unsaved-banner")).toBeNull());
+    expect(screen.getByTestId("tools-flow").getAttribute("data-state")).toBe("parallel");
+  });
+
+  it("未保存离开 Dialog：取消留在本页，导航不发生", async () => {
+    h.get.mockResolvedValue({ search: { enabled: true, sources: ["ddg"], mode: "parallel", services: {}, searxng_base_urls: [] } });
+    render(<ToolsSection />);
+    await waitFor(() => expect(statusOf("web_search")).toBe("configured"));
+    fireEvent.click(screen.getByTestId("tools-mode-sequential"));
+    const { requestNavigation } = await import("../../utils/navGuard");
+    let navigated = false;
+    act(() => requestNavigation(() => { navigated = true; }));
+    await screen.findByTestId("tools-leave-dialog");
+    fireEvent.click(screen.getByTestId("tools-leave-cancel"));
+    expect(navigated).toBe(false);
+    expect(screen.queryByTestId("tools-leave-dialog")).toBeNull();
+  });
+
+  it("generate_video 与「未验证」标记不出现；搜索卡不含 video 字段写出", async () => {
+    render(<ToolsSection />);
+    await waitFor(() => expect(screen.getByTestId("tools-rail-web_search")).toBeTruthy());
+    expect(screen.queryByTestId(/video/i)).toBeNull();
+    expect(JSON.stringify(document.body.textContent)).not.toContain("generate_video");
+    expect(JSON.stringify(document.body.textContent)).not.toContain("未验证");
+    fireEvent.click(railItem("generate_image"));
+    fireEvent.click(screen.getByTestId("tools-image-save"));
+    await waitFor(() => {
+      expect((h.set.mock.calls[0][2] as any).video).toBeUndefined();
+    });
+  });
+
+  it("SearXNG 行：刷新公共列表只在点击时拉一次，勾选写入并随保存持久化", async () => {
+    h.get.mockResolvedValue({ search: { enabled: true, sources: ["searxng"], mode: "parallel", services: {}, searxng_base_urls: ["http://mine"] } });
+    sx.searxInstances.mockResolvedValue([{ url: "https://a.example/", seconds: 0.3 }]);
+    render(<ToolsSection />);
+    await waitFor(() => expect((screen.getByTestId("mcp-tools-searxng-urls") as HTMLTextAreaElement).value).toBe("http://mine"));
+    expect(sx.searxInstances).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId("tools-searx-refresh"));
+    await waitFor(() => expect(screen.getByTestId("tools-searx-inst-0")).toBeTruthy());
+    expect(sx.searxInstances).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByTestId("tools-searx-inst-0"));
+    fireEvent.click(screen.getByTestId("mcp-tools-save"));
     await waitFor(() =>
-      expect(h.set).toHaveBeenCalledWith("mcp_tools", "settings", {
-        search: {
-          enabled: true, sources: DEFAULT_SOURCES, mode: "parallel", services: {},
-          searxng_base_urls: ["http://a", "http://b/"],
-        },
-      }),
+      expect((h.set.mock.calls[0][2] as any).search.searxng_base_urls).toEqual(["http://mine", "https://a.example/"]),
     );
   });
 
-  it("引擎列表：默认取各引擎缺省开关；关掉 bing 后保存的 sources 不含 bing", async () => {
-    render(<ToolsSection />);
-    await waitFor(() => expect(providerSelect().value).toBe(""));
-    for (const e of SEARCH_ENGINES) expect(engineBox(e.id).checked, e.id).toBe(e.defaultOn);
-    fireEvent.click(engineBox("bing"));
-    expect(engineBox("bing").checked).toBe(false);
-    fireEvent.click(saved());
-    await waitFor(() => {
-      const call = h.set.mock.calls[0];
-      expect((call[2] as any).search.sources).toEqual(DEFAULT_SOURCES.filter((id) => id !== "bing"));
-    });
-  });
-
-  it("无 sources（未保存过）加载 = 引擎全取默认开；已存 sources 回填；URL 保留", async () => {
-    h.get.mockResolvedValue({
-      search: { searxng_base_urls: ["http://old"] },
-    });
-    const { unmount } = render(<ToolsSection />);
-    await waitFor(() => expect((screen.getByTestId("mcp-tools-searxng-urls") as HTMLTextAreaElement).value).toBe("http://old"));
-    expect(providerSelect().value).toBe("");
-    for (const e of SEARCH_ENGINES) expect(engineBox(e.id).checked, e.id).toBe(e.defaultOn);
-    unmount();
-
-    h.get.mockResolvedValue({ search: { enabled: true, sources: ["ddg"], services: {} } });
-    render(<ToolsSection />);
-    await waitFor(() => expect(engineBox("google").checked).toBe(false));
-    expect(engineBox("ddg").checked).toBe(true);
-    expect(engineBox("bing").checked).toBe(false);
-  });
-
-  it("key 多行解析：trim + 去空行", async () => {
-    render(<ToolsSection />);
-    await waitFor(() => expect(providerSelect().value).toBe(""));
-    fireEvent.change(providerSelect(), { target: { value: "tavily" } });
-    fireEvent.change(keysArea(), { target: { value: " k1 \nk2\n\nk3  " } });
-    fireEvent.click(saved());
-    await waitFor(() => {
-      const call = h.set.mock.calls[0];
-      expect((call[2] as any).search.services.tavily.keys).toEqual(["k1", "k2", "k3"]);
-    });
-  });
-
-  it("key 服务不在来源列表时 enabled 读作关；保存不丢该服务的 key 与总开关", async () => {
-    h.get.mockResolvedValue({
-      search: { enabled: false, sources: [], services: { brave: { keys: ["k"] }, exa: { keys: ["e"] } }, searxng_base_urls: [] },
-    });
-    render(<ToolsSection />);
-    await waitFor(() => expect(enabledBox().checked).toBe(false));
-    fireEvent.click(saved());
-    await waitFor(() => {
-      const search = (h.set.mock.calls[0][2] as any).search;
-      expect(search.enabled).toBe(false);
-      expect(search.sources).toEqual([]);
-      expect(search.services).toEqual({ brave: { keys: ["k"] }, exa: { keys: ["e"] } });
-    });
-  });
-
-  it("加载失败展示原文", async () => {
-    h.get.mockRejectedValue("db locked");
-    render(<ToolsSection />);
-    expect(await screen.findByTestId("mcp-tools-load-error")).toHaveTextContent("db locked");
-  });
-
-  it("保存失败展示原文", async () => {
-    h.set.mockRejectedValue("settings_set failed");
-    render(<ToolsSection />);
-    await waitFor(() => expect(providerSelect().value).toBe(""));
-    fireEvent.click(saved());
-    expect(await screen.findByTestId("mcp-tools-save-error")).toHaveTextContent("settings_set failed");
-  });
-
-  it("image 字段编辑后保存写出 image 对象；不写 video", async () => {
-    render(<ToolsSection />);
-    await waitFor(() => expect(providerSelect().value).toBe(""));
-    fireEvent.change(screen.getByTestId("mcp-tools-image-base-url"), { target: { value: "https://p/v1/" } });
-    fireEvent.change(screen.getByTestId("mcp-tools-image-api-key"), { target: { value: "sk" } });
-    fireEvent.change(screen.getByTestId("mcp-tools-image-model"), { target: { value: "m1" } });
-    fireEvent.click(saved());
-    await waitFor(() => {
-      const call = h.set.mock.calls[0];
-      expect((call[2] as any).image).toEqual({ base_url: "https://p/v1/", api_key: "sk", model: "m1" });
-      expect((call[2] as any).video).toBeUndefined();
-    });
-  });
-
-  it("一键安装成功：展示结果元素（i18n 资源空时落原始 key）", async () => {
+  it("一键写入本机 agent：成功 / 失败展示结果", async () => {
     m.selfInstall.mockResolvedValue({ name: "aidog", url: "http://127.0.0.1:9890/mcp", agents: ["claude-code", "codex"] });
     render(<ToolsSection />);
-    await waitFor(() => expect(providerSelect().value).toBe(""));
+    await waitFor(() => expect(screen.getByTestId("tools-rail-install")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("tools-rail-install"));
     fireEvent.click(screen.getByTestId("mcp-tools-install"));
     const res = await screen.findByTestId("mcp-tools-install-result");
     expect(res).toHaveTextContent("tools.installed");
     expect(m.selfInstall).toHaveBeenCalledTimes(1);
   });
 
-  it("一键安装失败展示原文", async () => {
-    m.selfInstall.mockRejectedValue("no kernel");
+  it("加载失败展示原文", async () => {
+    h.get.mockRejectedValue("db locked");
     render(<ToolsSection />);
-    await waitFor(() => expect(providerSelect().value).toBe(""));
-    fireEvent.click(screen.getByTestId("mcp-tools-install"));
-    expect(await screen.findByTestId("mcp-tools-install-result")).toHaveTextContent("no kernel");
-  });
-
-  it("新增 7 个引擎默认关、可见；其余 7 个默认开", async () => {
-    render(<ToolsSection />);
-    await waitFor(() => expect(engineBox("ddg").checked).toBe(true));
-    for (const id of ["ddg_lite", "yandex", "sogou", "so360", "baidu", "crossref", "pubmed"]) {
-      expect(engineBox(id).checked, id).toBe(false);
-    }
-    for (const id of ["ddg", "bing", "google", "arxiv", "searxng", "wikipedia", "github"]) {
-      expect(engineBox(id).checked, id).toBe(true);
-    }
-  });
-
-  it("SearXNG 公共列表：加载 / 打开页面从不自动拉取，只有点刷新才拉一次", async () => {
-    sx.searxInstances.mockResolvedValue([{ url: "https://a.example/", seconds: 0.3 }]);
-    render(<ToolsSection />);
-    await waitFor(() => expect(engineBox("ddg").checked).toBe(true));
-    expect(sx.searxInstances).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByTestId("tools-searx-refresh"));
-    await waitFor(() => expect(screen.getByTestId("tools-searx-inst-0")).toBeTruthy());
-    expect(sx.searxInstances).toHaveBeenCalledTimes(1);
-  });
-
-  it("刷新后多选写入实例 URL 并随保存持久化；自填 URL 保留；取消勾选移除", async () => {
-    h.get.mockResolvedValue({ search: { enabled: true, sources: [], services: {}, searxng_base_urls: ["http://mine"] } });
-    sx.searxInstances.mockResolvedValue([
-      { url: "https://a.example/", seconds: 0.3 },
-      { url: "https://b.example/", seconds: 1.2 },
-    ]);
-    render(<ToolsSection />);
-    await waitFor(() => expect((screen.getByTestId("mcp-tools-searxng-urls") as HTMLTextAreaElement).value).toBe("http://mine"));
-    fireEvent.click(screen.getByTestId("tools-searx-refresh"));
-    await waitFor(() => screen.getByTestId("tools-searx-inst-1"));
-    fireEvent.click(screen.getByTestId("tools-searx-inst-0"));
-    fireEvent.click(screen.getByTestId("tools-searx-inst-1"));
-    expect((screen.getByTestId("mcp-tools-searxng-urls") as HTMLTextAreaElement).value).toBe("http://mine\nhttps://a.example/\nhttps://b.example/");
-    fireEvent.click(screen.getByTestId("tools-searx-inst-0"));
-    expect((screen.getByTestId("mcp-tools-searxng-urls") as HTMLTextAreaElement).value).toBe("http://mine\nhttps://b.example/");
-    fireEvent.click(saved());
-    await waitFor(() =>
-      expect((h.set.mock.calls[0][2] as any).search.searxng_base_urls).toEqual(["http://mine", "https://b.example/"]),
-    );
-  });
-
-  it("已保存的实例在刷新列表里显示为已勾选；刷新失败显示错误", async () => {
-    h.get.mockResolvedValue({ search: { enabled: true, sources: [], services: {}, searxng_base_urls: ["https://a.example/"] } });
-    sx.searxInstances.mockResolvedValueOnce([{ url: "https://a.example/", seconds: null }]);
-    render(<ToolsSection />);
-    await waitFor(() => expect((screen.getByTestId("mcp-tools-searxng-urls") as HTMLTextAreaElement).value).toBe("https://a.example/"));
-    fireEvent.click(screen.getByTestId("tools-searx-refresh"));
-    await waitFor(() => expect((screen.getByTestId("tools-searx-inst-0") as HTMLInputElement).checked).toBe(true));
-    sx.searxInstances.mockRejectedValueOnce("searx.space: HTTP 500");
-    fireEvent.click(screen.getByTestId("tools-searx-refresh"));
-    await waitFor(() => expect(screen.getByTestId("tools-searx-error").textContent).toContain("HTTP 500"));
+    expect(await screen.findByTestId("mcp-tools-load-error")).toHaveTextContent("db locked");
   });
 });
