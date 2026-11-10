@@ -146,7 +146,7 @@ async fn initialize_list_and_notification() {
     let v = body_json(r).await;
     let mut names: Vec<String> = v["result"]["tools"].as_array().unwrap().iter().map(|t| t["name"].as_str().unwrap().to_string()).collect();
     names.sort();
-    assert_eq!(names, ["generate_image", "generate_video", "web_fetch", "web_search"]);
+    assert_eq!(names, ["generate_image", "web_fetch", "web_search"]);
 
     // 通知（无 id）→ 202 空体。
     let r = post(&state, bearer(&gk), "127.0.0.1:50000", json!({"jsonrpc":"2.0","method":"notifications/initialized"})).await;

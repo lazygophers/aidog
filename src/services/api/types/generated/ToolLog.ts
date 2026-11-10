@@ -9,7 +9,7 @@ export type ToolLog = { id: number,
  */
 created_at: number, 
 /**
- * web_search | web_fetch | generate_image | generate_video。
+ * web_search | web_fetch | generate_image（历史行可能含已移除的 generate_video）。
  */
 tool: string, 
 /**

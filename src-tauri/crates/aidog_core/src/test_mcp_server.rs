@@ -1,7 +1,7 @@
 //! mcp_server 单元测试（票 10 协议行为 + 票 11 tools/call 分发）。
 
 use super::*;
-use crate::mcp_tools::{MediaProviderConfig, McpToolsSettings, SearchProviderConfig};
+use crate::mcp_tools::{McpToolsSettings, SearchProviderConfig};
 use crate::tool_exec::{TRIGGER_MCP, ToolCtx};
 use aidog_db::test_support::test_db;
 use serde_json::{Value, json};
@@ -89,7 +89,7 @@ fn tools_list_returns_the_four_placeholders_with_schemas() {
     names.sort_unstable();
     assert_eq!(
         names,
-        vec!["generate_image", "generate_video", "web_fetch", "web_search"]
+        vec!["generate_image", "web_fetch", "web_search"]
     );
 
     for t in tools {
@@ -98,7 +98,7 @@ fn tools_list_returns_the_four_placeholders_with_schemas() {
         assert_eq!(t["inputSchema"]["type"], "object");
     }
 
-    // web_search.query 必填；web_fetch.url 必填；generate_image/generate_video.prompt 必填。
+    // web_search.query 必填；web_fetch.url 必填；generate_image.prompt 必填。
     let schema_of = |name: &str| -> Value {
         tools
             .iter()
@@ -113,9 +113,6 @@ fn tools_list_returns_the_four_placeholders_with_schemas() {
         .as_array()
         .is_some_and(|r| r.contains(&json!("url"))));
     assert!(schema_of("generate_image")["required"]
-        .as_array()
-        .is_some_and(|r| r.contains(&json!("prompt"))));
-    assert!(schema_of("generate_video")["required"]
         .as_array()
         .is_some_and(|r| r.contains(&json!("prompt"))));
 }
@@ -172,8 +169,8 @@ fn tools_call_unverified_provider_is_explicit_error() {
 }
 
 #[test]
-fn tools_call_media_unconfigured_is_explicit_error_and_video_impl_placeholder() {
-    // 票 12：未配置 → 明确「未配置」错误；视频已配置 → 「未实现」（D5 首版仅接口）。
+fn tools_call_media_unconfigured_is_explicit_error_and_video_removed() {
+    // 票 12：未配置 → 明确「未配置」错误；generate_video 已移除 → 未知工具。
     let result = call_tool("generate_image", json!({"prompt": "p"}), &McpToolsSettings::default());
     assert_eq!(result["isError"], true, "未配置必须 isError=true");
     let text = result["content"][0]["text"].as_str().unwrap();
@@ -182,21 +179,7 @@ fn tools_call_media_unconfigured_is_explicit_error_and_video_impl_placeholder() 
     let result = call_tool("generate_video", json!({"prompt": "p"}), &McpToolsSettings::default());
     assert_eq!(result["isError"], true);
     let text = result["content"][0]["text"].as_str().unwrap();
-    assert!(text.contains("未配置视频 provider"), "text={text}");
-
-    let configured = McpToolsSettings {
-        video: Some(MediaProviderConfig {
-            base_url: "https://v.example/v1".into(),
-            api_key: "k".into(),
-            model: "m".into(),
-        }),
-        ..Default::default()
-    };
-    let result = call_tool("generate_video", json!({"prompt": "p"}), &configured);
-    assert_eq!(result["isError"], true);
-    let text = result["content"][0]["text"].as_str().unwrap();
-    assert!(text.contains("未实现"), "配置了视频 provider 报未实现, text={text}");
-    assert!(!text.contains("未配置"), "已配置不得报未配置, text={text}");
+    assert!(text.contains("未知工具"), "text={text}");
 }
 
 #[test]
