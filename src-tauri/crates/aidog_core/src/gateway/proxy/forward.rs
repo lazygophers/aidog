@@ -78,7 +78,7 @@ pub(crate) async fn forward_attempt(
             let now = aidog_db::now();
             match state.scheduler.rate.begin(
                 route.platform.id,
-                &rl_cfg.platform_limits(now, requested_model),
+                &rl_cfg.platform_limits(now),
                 now,
                 rl_est,
             ) {
@@ -108,7 +108,7 @@ pub(crate) async fn forward_attempt(
     if let Some(a) = &access {
         let model = route.target_model.clone();
         let now = aidog_db::now();
-        if !a.enter_model(&model, &rl_cfg.model_limits(&model), now, rl_est) {
+        if !a.enter_model(&model, &rl_cfg.model_limits(&model, now), now, rl_est) {
             tracing::warn!(model = %model, "model-level rate limit reached, excluding pair");
             attempts.push(ProxyAttempt {
                 kind: Some("rate_limit_model".to_string()),

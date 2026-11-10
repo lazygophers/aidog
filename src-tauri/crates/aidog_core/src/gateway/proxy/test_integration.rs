@@ -6085,7 +6085,7 @@ async fn ratelimit_tpm_reserve_then_settle_to_usage() {
 async fn ratelimit_window_overrides_platform_limit() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
-    let extra = r#"{"rate_limits":{"rpm":100,"windows":[{"start_hour":0,"end_hour":24,"multiplier":1.0,"rpm":1}]}}"#;
+    let extra = r#"{"rate_limits":{"rpm":100,"rules":[{"start_hour":0,"end_hour":24,"rpm":1}]}}"#;
     setup_multi_platform_group(&state, "gkrl8", &[("A", &up, extra)]).await;
     assert_eq!(rl_status(&state, "gkrl8").await, StatusCode::OK);
     assert_eq!(rl_status(&state, "gkrl8").await, StatusCode::SERVICE_UNAVAILABLE);
@@ -6096,7 +6096,7 @@ async fn ratelimit_window_overrides_platform_limit() {
 async fn ratelimit_model_level_rpm_excludes_platform() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
-    let extra = r#"{"rate_limits":{"models":{"claude-3":{"rpm":1}}}}"#;
+    let extra = r#"{"rate_limits":{"rules":[{"models":["claude-3"],"rpm":1}]}}"#;
     setup_multi_platform_group(&state, "gkrl9", &[("A", &up, extra)]).await;
     assert_eq!(rl_status(&state, "gkrl9").await, StatusCode::OK);
     assert_eq!(rl_status(&state, "gkrl9").await, StatusCode::SERVICE_UNAVAILABLE);
@@ -6466,7 +6466,7 @@ async fn rc02_model_rate_limit_skip_recorded() {
     let (up, hits) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK), (200, ANTHROPIC_OK)]).await;
     let state = make_state(test_db().await).await;
     setup_aux_group(&state, "gkrc02h", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
-    set_platform_extra(&state, "gkrc02h-p", r#"{"rate_limits":{"models":{"m-a":{"rpm":1}}}}"#).await;
+    set_platform_extra(&state, "gkrc02h-p", r#"{"rate_limits":{"rules":[{"models":["m-a"],"rpm":1}]}}"#).await;
     assert_eq!(chain_send(&state, "gkrc02h", CHAIN_REQ).await.status(), StatusCode::OK);
     state.db.invalidate_group_details_cache();
     assert_eq!(chain_send(&state, "gkrc02h", CHAIN_REQ).await.status(), StatusCode::OK);
@@ -6500,7 +6500,7 @@ async fn rc02_platform_rate_limit_skip_recorded() {
         let (st, held) = (st.clone(), held2.clone());
         async move {
             let now = aidog_db::now();
-            let lim = crate::gateway::rate_limit::RateLimitsCfg::parse(b_extra).platform_limits(now, "");
+            let lim = crate::gateway::rate_limit::RateLimitsCfg::parse(b_extra).platform_limits(now);
             if let Some(a) = st.scheduler.rate.begin(b_id, &lim, now, 0) {
                 held.lock().unwrap().push(a);
             }

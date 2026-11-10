@@ -184,7 +184,7 @@ pub(crate) async fn handle_aux_model(
                 let now = aidog_db::now();
                 match state.scheduler.rate.begin(
                     route.platform.id,
-                    &rl_cfg.platform_limits(now, &requested_model),
+                    &rl_cfg.platform_limits(now),
                     now,
                     rl_est,
                 ) {
@@ -212,7 +212,7 @@ pub(crate) async fn handle_aux_model(
         }
         if let Some((_, Some(a))) = &rate_slot {
             let model = route.target_model.clone();
-            if !a.enter_model(&model, &rl_cfg.model_limits(&model), aidog_db::now(), rl_est) {
+            if !a.enter_model(&model, &rl_cfg.model_limits(&model, aidog_db::now()), aidog_db::now(), rl_est) {
                 tracing::warn!(model = %model, kind = spec.label, "model-level rate limit reached, excluding pair");
                 attempts.push(ProxyAttempt {
                     kind: Some("rate_limit_model".to_string()),

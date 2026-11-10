@@ -1216,6 +1216,8 @@ mod test_time_rule_dedicated_migration;
 #[cfg(test)]
 mod test_time_rule_slot_switch_migration;
 #[cfg(test)]
+mod test_rate_limit_rules_migration;
+#[cfg(test)]
 mod test_group_max_attempts;
 #[cfg(test)]
 mod test_connect_log_purge;
