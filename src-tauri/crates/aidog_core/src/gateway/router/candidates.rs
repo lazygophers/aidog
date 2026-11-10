@@ -661,6 +661,21 @@ async fn select_candidates_inner(
     }
 
     // ── 阶段 1: 候选分桶过滤 ──
+    // 自定义槽空置回落（拍板 2026-11-11）：请求命中全局自定义槽定义、且组内至少一个平台
+    // 填了任一命中槽 → 只由填了的平台承接（未填平台排除，原因 ModelNotOnPlatform）；
+    // 全组无平台填值或请求未命中定义 → 不限制（tier/default 链照旧，全空链透传现状保持）。
+    let custom_hit_gate: Option<HashSet<&str>> = match custom_defs.as_deref() {
+        Some(defs) => {
+            let hits: Vec<&str> = custom_defs_hit(defs, mapped_target_model.as_deref().unwrap_or(source_model))
+                .collect();
+            (!hits.is_empty()
+                && extra_cache
+                    .values()
+                    .any(|c| c.custom.iter().any(|e| hits.contains(&e.name.as_str()))))
+            .then(|| hits.into_iter().collect())
+        }
+        None => None,
+    };
     let FilteredCandidates {
         mut active,
         mut probe,
@@ -672,12 +687,14 @@ async fn select_candidates_inner(
         client_rejected_count,
         rate_limited_count,
         slot_disabled_count,
+        custom_unfilled_count,
     } = filter_candidates(
         &group_platforms,
         ctx,
         now_ms,
         source_model,
         Some(mapped_target_model.as_deref().unwrap_or(source_model)),
+        custom_hit_gate.as_ref(),
         &extra_cache,
         kind,
         &decision_models,
@@ -840,7 +857,11 @@ async fn select_candidates_inner(
         // 命中槽位被关闭而排除（extra.disabled_slots）：全部排除原因仅为 高峰禁用 + 槽位关闭 → 503
         // + blocked_reason='slot_disabled'（优先级高于 peak：高峰会自行恢复，槽位关闭需要用户改配置）。
         // 纯高峰禁用已在上方先返回 peak_disabled；与熔断 / 限频 / 禁用等其他原因混合则走下方兜底。
-        if slot_disabled_count > 0 && slot_disabled_count + peak_disabled_count == group_platforms.len() {
+        // custom_unfilled（混合组收紧排除）只在有平台填了命中槽时出现，此时该槽组的语义是
+        // 「该槽由填值平台承接」；全被排除且含槽位关闭 → slot_disabled（需要改配置），与既有归因一致。
+        if slot_disabled_count > 0
+            && slot_disabled_count + peak_disabled_count + custom_unfilled_count == group_platforms.len()
+        {
             tracing::info!(
                 group = %group.name, slot_disabled = slot_disabled_count,
                 "all candidates excluded by disabled slots; returning slot_disabled error for audit log"
@@ -1337,6 +1358,7 @@ fn select_direct_candidates(
         now_ms,
         direct_model,
         None, // 直通模型转发原名、不进槽位匹配 → 不做槽位关闭判定
+        None, // 直通链与自定义槽正交：不做混合组收紧
         extra_cache,
         kind,
         decision_models,
@@ -1550,6 +1572,8 @@ struct FilteredCandidates<'a> {
     rate_limited_count: usize,
     /// 因命中槽位被关闭（extra.disabled_slots）排除的平台数。
     slot_disabled_count: usize,
+    /// 因自定义槽混合组收紧（组内有平台填值、本平台未填）排除的平台数。
+    custom_unfilled_count: usize,
 }
 
 /// 遍历 group_platforms 按 auto_disabled 三态分桶（enabled / 过期试探），
@@ -1563,6 +1587,9 @@ fn filter_candidates<'a>(
     source_model: &str,
     // 请求模型名（映射后）；`None` = 不做槽位关闭判定（直通模型链）。
     slot_model: Option<&str>,
+    // 自定义槽混合组收紧（空置回落拍板 2026-11-11）：Some = 请求命中的自定义槽名集，
+    // 且组内至少一平台已填值 → 未填平台排除；`None` = 不限制（全组未填或请求未命中定义）。
+    custom_hit_gate: Option<&HashSet<&str>>,
     extra_cache: &ExtraCacheMap,
     kind: RequestKind<'_>,
     decision_models: &DecisionModels,
@@ -1579,6 +1606,7 @@ fn filter_candidates<'a>(
     let mut client_rejected_count = 0;
     let mut rate_limited_count = 0;
     let mut slot_disabled_count = 0;
+    let mut custom_unfilled_count = 0;
 
     let breaker_enabled = ctx.map(|c| c.settings.enabled).unwrap_or(false);
 
@@ -1647,6 +1675,18 @@ fn filter_candidates<'a>(
         {
             slot_disabled_count += 1;
             excluded.push((gp, slot_reason));
+            continue;
+        }
+
+        // 自定义槽混合组收紧（空置回落拍板 2026-11-11）：组内任一平台填了请求命中的自定义槽时，
+        // 请求只由填了的平台承接；未填该槽的平台不再落 tier/default 链或透传承接（排除）。
+        // 全组无平台填值 → gate 为 None，tier/default 链照旧（全空链透传现状保持）。
+        if let Some(hits) = custom_hit_gate
+            && let Some(cache) = extra_cache.get(&gp.platform.id)
+            && !cache.custom.iter().any(|e| hits.contains(e.name.as_str()))
+        {
+            custom_unfilled_count += 1;
+            excluded.push((gp, RouteReason::ModelNotOnPlatform));
             continue;
         }
 
@@ -1719,6 +1759,7 @@ fn filter_candidates<'a>(
         client_rejected_count,
         rate_limited_count,
         slot_disabled_count,
+        custom_unfilled_count,
     }
 }
 
