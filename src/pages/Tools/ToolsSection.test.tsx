@@ -42,6 +42,14 @@ describe("ToolsSection", () => {
     );
   });
 
+  it("已存 fetch 段（抓网页开关）保存搜索卡片时原样透传，不被覆盖丢失", async () => {
+    h.get.mockResolvedValue({ search: { enabled: true, sources: ["ddg"] }, fetch: { enabled: false } });
+    render(<ToolsSection />);
+    await waitFor(() => expect(providerSelect().value).toBe(""));
+    fireEvent.click(saved());
+    await waitFor(() => expect((h.set.mock.calls[0][2] as any).fetch).toEqual({ enabled: false }));
+  });
+
   it("已配置加载回填；保存保留 image 透传", async () => {
     h.get.mockResolvedValue({
       search: { enabled: true, sources: ["tavily", "ddg"], mode: "sequential", services: { tavily: { keys: ["k1"] } }, searxng_base_urls: [] },

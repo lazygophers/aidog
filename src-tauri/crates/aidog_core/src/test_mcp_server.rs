@@ -201,3 +201,26 @@ fn notifications_produce_no_response() {
         None
     );
 }
+
+#[tokio::test]
+async fn tools_call_web_fetch_disabled_is_tool_error_and_failed_tool_log() {
+    let db = test_db().await;
+    let ctx = ToolCtx { db: &db, trigger: TRIGGER_MCP, group: "g", platform: "" };
+    let mut s = McpToolsSettings::default();
+    s.fetch.enabled = false;
+    // URL 指向本机未监听端口：守卫生效则根本不发请求。
+    let r = handle_tools_call(&ctx, "web_fetch", &json!({"url": "http://127.0.0.1:9/x"}), &s).await;
+    assert_eq!(r["isError"], true, "{r}");
+    assert!(r["content"][0]["text"].as_str().unwrap().contains("web_fetch 已停用"), "{r}");
+    let rows = aidog_db::list_tool_logs(&db, &aidog_db::models::ToolLogFilter::default(), 10, 0).await.unwrap().rows;
+    assert_eq!(rows.len(), 1);
+    assert!(rows[0].tool == "web_fetch" && !rows[0].success && rows[0].error.contains("web_fetch 已停用"), "{:?}", rows[0]);
+}
+
+#[tokio::test]
+async fn tools_list_still_lists_web_fetch_when_disabled() {
+    // tools/list 是静态清单，不随 fetch.enabled 变化（handle_request 不读设置）。
+    let resp = handle_request(&req(7, "tools/list", json!({})), &test_db().await, "g").await.unwrap();
+    let names: Vec<&str> = result_of(&resp)["tools"].as_array().unwrap().iter().map(|t| t["name"].as_str().unwrap()).collect();
+    assert!(names.contains(&"web_fetch"));
+}
