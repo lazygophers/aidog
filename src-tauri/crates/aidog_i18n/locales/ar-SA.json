@@ -372,15 +372,36 @@
   "env.searchPlaceholder": "ابحث عن متغيرات البيئة…",
   "greet.button": "حيّي",
   "greet.placeholder": "أدخل اسماً...",
-  "group": {
-    "sourceProtocol": "بروتوكول المصدر",
-    "envVars": "متغيرات البيئة",
-    "envVarsHint": "متغيرات بيئة على مستوى المجموعة؛ تُحقن في Claude settings.env عند المزامنة وتُضاف كـ export عند نسخ أمر Codex.",
-    "envVarKey": "اسم المتغير (مثل ANTHROPIC_DEFAULT_OPUS_MODEL)",
-    "envVarValue": "القيمة",
-    "envVarReservedHint": "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY هي حقول توجيه aidog وسيتم تجاهلها عند الحفظ.",
-    "addEnvVar": "إضافة متغير بيئة"
-  },
+  "group": [
+    [
+      "sourceProtocol",
+      "بروتوكول المصدر"
+    ],
+    [
+      "envVars",
+      "متغيرات البيئة"
+    ],
+    [
+      "envVarsHint",
+      "متغيرات بيئة على مستوى المجموعة؛ تُحقن في Claude settings.env عند المزامنة وتُضاف كـ export عند نسخ أمر Codex."
+    ],
+    [
+      "envVarKey",
+      "اسم المتغير (مثل ANTHROPIC_DEFAULT_OPUS_MODEL)"
+    ],
+    [
+      "envVarValue",
+      "القيمة"
+    ],
+    [
+      "envVarReservedHint",
+      "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY هي حقول توجيه aidog وسيتم تجاهلها عند الحفظ."
+    ],
+    [
+      "addEnvVar",
+      "إضافة متغير بيئة"
+    ]
+  ],
   "group.add": "إضافة مجموعة",
   "group.addEnvVar": "إضافة متغير بيئة",
   "group.addMappingFailed": "فشل إضافة التعيين",
@@ -836,31 +857,100 @@
   "lang.label": "اللغة",
   "lang.ru-RU": "Русский",
   "lang.zh-Hans": "简体中文",
-  "logs": {
-    "actualModel": "النموذج الفعلي",
-    "body": "المحتوى",
-    "cacheTokens": "رموز التخزين المؤقت",
-    "clear": "مسح الكل",
-    "clearConfirm": "مسح كل السجلات؟ لا يمكن التراجع.",
-    "detail": "تفاصيل الطلب",
-    "duration": "المدة",
-    "empty": "لا توجد سجلات بعد.",
-    "group": "المجموعة",
-    "headers": "الترويسات",
-    "inputTokens": "رموز الإدخال",
-    "model": "النموذج",
-    "nonStreaming": "غير متدفق",
-    "outputTokens": "رموز الإخراج",
-    "request": "الطلب",
-    "response": "الاستجابة",
-    "responseBody": "محتوى الاستجابة",
-    "status": "الحالة",
-    "stream": "النقل",
-    "streamResponse": "(استجابة متدفقة، المحتوى غير مسجل)",
-    "streaming": "متدفق",
-    "time": "الوقت",
-    "total": "سجل"
-  },
+  "logs": [
+    [
+      "actualModel",
+      "النموذج الفعلي"
+    ],
+    [
+      "body",
+      "المحتوى"
+    ],
+    [
+      "cacheTokens",
+      "رموز التخزين المؤقت"
+    ],
+    [
+      "clear",
+      "مسح الكل"
+    ],
+    [
+      "clearConfirm",
+      "مسح كل السجلات؟ لا يمكن التراجع."
+    ],
+    [
+      "detail",
+      "تفاصيل الطلب"
+    ],
+    [
+      "duration",
+      "المدة"
+    ],
+    [
+      "empty",
+      "لا توجد سجلات بعد."
+    ],
+    [
+      "group",
+      "المجموعة"
+    ],
+    [
+      "headers",
+      "الترويسات"
+    ],
+    [
+      "inputTokens",
+      "رموز الإدخال"
+    ],
+    [
+      "model",
+      "النموذج"
+    ],
+    [
+      "nonStreaming",
+      "غير متدفق"
+    ],
+    [
+      "outputTokens",
+      "رموز الإخراج"
+    ],
+    [
+      "request",
+      "الطلب"
+    ],
+    [
+      "response",
+      "الاستجابة"
+    ],
+    [
+      "responseBody",
+      "محتوى الاستجابة"
+    ],
+    [
+      "status",
+      "الحالة"
+    ],
+    [
+      "stream",
+      "النقل"
+    ],
+    [
+      "streamResponse",
+      "(استجابة متدفقة، المحتوى غير مسجل)"
+    ],
+    [
+      "streaming",
+      "متدفق"
+    ],
+    [
+      "time",
+      "الوقت"
+    ],
+    [
+      "total",
+      "سجل"
+    ]
+  ],
   "logs.actualModel": "النموذج الفعلي",
   "logs.targetModel": "النموذج المستهدف",
   "logs.attemptCount": "{{n}}",
@@ -1150,43 +1240,84 @@
   "mcp.share.warning": "يحتوي المحتوى المشترك على env/headers بنص عادي (قد يتضمن رموز/أسرار). أرسله فقط إلى جهات موثوقة ولا تنشره علنًا.",
   "mcp.subtitle": "{{count}} خوادم",
   "mcp.title": "MCP",
-  "tools.title": "البحث / الصور",
-  "tools.desc": "اضبط البحث على الويب (خدمات المفاتيح والمحركات بلا مفتاح) ومزود الصور.",
-  "tools.provider": "مزود البحث",
-  "tools.providerNone": "غير مهيأ",
+  "tools.title": "الأدوات",
+  "tools.desc": "تكوين البحث في الويب (خدمات بمفتاح ومحركات مجانية) وجلب صفحات الويب وتوليد الصور؛ وربط الوكلاء المحليين.",
   "tools.enabled": "تفعيل البحث",
-  "tools.keys": "مفاتيح API (مفتاح لكل سطر؛ التدوير تلقائي للمفاتيح المتعددة)",
   "tools.searxngUrls": "عناوين مثيلات SearXNG (واحد في كل سطر؛ تُجرَّب بالترتيب؛ يُتخطى المحرك إذا كانت فارغة)",
   "tools.searxRefresh": "تحديث القائمة العامة",
   "tools.searxRefreshing": "جارٍ التحديث…",
   "tools.searxRefreshHint": "يجلب النُّسخ السليمة من searx.space مرة واحدة للاختيار المتعدد؛ يتصل بالإنترنت عند النقر فقط ولا يُحدَّث تلقائيًا.",
-  "tools.engines.title": "محركات بحث بلا مفتاح",
-  "tools.engines.desc": "عند عدم ضبط خدمة بمفتاح، تُستعلم المحركات المفعّلة بالتوازي وتُدمج النتائج حسب عنوان URL (حتى 10 نتائج)، ويُتخطى أي محرك يفشل.",
-  "tools.engines.ddg": "DuckDuckGo",
-  "tools.engines.bing": "Bing",
-  "tools.engines.google": "Google",
-  "tools.engines.searxng": "SearXNG",
-  "tools.engines.wikipedia": "Wikipedia",
-  "tools.engines.github": "GitHub",
-  "tools.engines.arxiv": "arXiv",
-  "tools.engines.ddg_lite": "DuckDuckGo Lite",
-  "tools.engines.yandex": "Yandex",
-  "tools.engines.sogou": "Sogou",
-  "tools.engines.so360": "360 Search",
-  "tools.engines.baidu": "Baidu",
-  "tools.engines.crossref": "Crossref",
-  "tools.engines.pubmed": "PubMed",
-  "tools.save": "حفظ",
   "tools.saved": "تم الحفظ",
-  "tools.providerDoubao": "دوباو (Doubao)",
-  "tools.providerYuanbao": "تيانسي يوانباو (Yuanbao)",
   "tools.apiKey": "مفتاح API",
   "tools.model": "اسم النموذج",
-  "tools.mediaTitle": "مزوّد الصور (نقطة نهاية متوافقة مع OpenAI images)",
-  "tools.imageTitle": "توليد الصور (generate_image)",
   "tools.install": "كتابة إعدادات الوكلاء المحليين بضغطة واحدة",
   "tools.installHint": "يكتب عنوان MCP عبر HTTP الخاص بـ AiDog (http://127.0.0.1:<منفذ الوكيل>/mcp، ومفتاح المجموعة الافتراضية كـ Bearer) في mcpServers لـ Claude Code (~/.claude.json) و Codex (~/.codex/config.toml) على هذا الجهاز؛ تُحفظ الإدخالات الموجودة ويُستبدل إدخال aidog بالاسم نفسه (بما في ذلك إدخال stdio القديم).",
   "tools.installed": "تمت الكتابة إلى إعدادات {{name}} ({{agents}}) — أعد تشغيل الوكيل لتصبح سارية",
+  "tools.nav.title": "نظرة عامة",
+  "tools.status.configured": "مُهيّأ",
+  "tools.status.unconfigured": "غير مُهيّأ",
+  "tools.status.disabled": "معطّل",
+  "tools.card.search": "البحث في الويب",
+  "tools.card.fetch": "جلب صفحات الويب",
+  "tools.card.image": "توليد الصور",
+  "tools.card.install": "ربط الوكلاء المحليين",
+  "tools.mode.label": "نمط التنفيذ",
+  "tools.mode.sequential": "تسلسلي",
+  "tools.mode.parallel": "متوازي",
+  "tools.mode.sequentialHint": "جرّب المصادر بترتيب القائمة؛ عند الفشل انتقل إلى التالي",
+  "tools.mode.parallelHint": "استعلم كل المصادر بالتوازي وادمج النتائج",
+  "tools.sources.pool": "مجموعة المصادر",
+  "tools.sources.keyed": "خدمات بمفتاح (مدفوعة)",
+  "tools.sources.engines": "محركات مجانية",
+  "tools.sources.enabled": "مفعّلة (اسحب لتحديد ترتيب المحاولة / الدمج)",
+  "tools.sources.empty": "لا مصادر مفعّلة بعد؛ اختر من مجموعة المصادر",
+  "tools.sources.dragHandle": "اسحب لإعادة الترتيب",
+  "tools.billingWarning": "النمط المتوازي يُحسب استدعاءً لكل مصدر بمفتاح مُعد",
+  "tools.fetch.desc": "يجلب محتوى صفحات الويب للنموذج؛ أدوات الويب التي ينفذها البوابة تخضع لهذا المفتاح أيضًا.",
+  "tools.fetch.enabled": "تفعيل جلب صفحات الويب",
+  "tools.disabled.search": "البحث معطّل؛ MCP web_search غير متاح",
+  "tools.disabled.fetch": "جلب صفحات الويب معطّل",
+  "tools.unsaved.badge": "تغييرات غير محفوظة",
+  "tools.unsaved.banner": "{{count}} بطاقة بتغييرات غير محفوظة",
+  "tools.unsaved.leaveTitle": "تغييرات غير محفوظة",
+  "tools.unsaved.leaveBody": "المغادرة ستتجاهل التغييرات غير المحفوظة في {{count}} بطاقة(بطاقات).",
+  "tools.unsaved.leaveConfirm": "تجاهل والمغادرة",
+  "tools.unsaved.leaveCancel": "البقاء في هذه الصفحة",
+  "tools.saveCard": "حفظ البطاقة",
+  "tools.key.show": "إظهار",
+  "tools.key.hide": "إخفاء",
+  "tools.key.add": "إضافة مفتاح",
+  "tools.flow.mcp": "استدعاء MCP",
+  "tools.flow.gateway": "تنفيذ عبر البوابة",
+  "tools.flow.sources": "مصدر",
+  "tools.flow.merge": "دمج وإزالة التكرار",
+  "tools.flow.log": "tool_log",
+  "tools.flow.off": "البحث معطّل أو لا مصدر مفعّل؛ تتجاوز الطلبات كل المصادر",
+  "tools.flow.failNext": "عند الفشل جرّب التالي",
+  "tools.flow.okReturn": "نجاح، إرجاع",
+  "tools.flow.concurrent": "متوازٍ",
+  "tools.source.ddg": "DuckDuckGo",
+  "tools.source.ddg_lite": "DuckDuckGo Lite",
+  "tools.source.bing": "Bing",
+  "tools.source.google": "Google",
+  "tools.source.yandex": "Yandex",
+  "tools.source.sogou": "سوجو",
+  "tools.source.baidu": "بايدو",
+  "tools.source.so360": "360 search",
+  "tools.source.arxiv": "arXiv",
+  "tools.source.crossref": "Crossref",
+  "tools.source.pubmed": "PubMed",
+  "tools.source.searxng": "SearXNG",
+  "tools.source.wikipedia": "ويكيبيديا",
+  "tools.source.github": "GitHub",
+  "tools.source.doubao": "دوباو",
+  "tools.source.tencent_yuanbao": "يوانباو تينسنت",
+  "tools.source.tavily": "Tavily",
+  "tools.source.brave": "Brave",
+  "tools.source.exa": "Exa",
+  "tools.source.firecrawl": "Firecrawl",
+  "tools.source.youcom": "You.com",
+  "tools.source.deepseek": "DeepSeek",
   "toolLog.allTools": "كل الأدوات",
   "toolLog.allTriggers": "كل المشغّلات",
   "toolLog.groupPlaceholder": "اسم المجموعة",
