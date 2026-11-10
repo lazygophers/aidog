@@ -31,11 +31,31 @@ impl MediaProviderConfig {
     }
 }
 
+/// 抓网页（web_fetch）设置：目前只有「启用」开关，缺省 true（旧配置无该键 = 启用，行为不变）。
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
+pub struct FetchConfig {
+    #[serde(default = "default_fetch_enabled")]
+    pub enabled: bool,
+}
+
+fn default_fetch_enabled() -> bool {
+    true
+}
+
+impl Default for FetchConfig {
+    fn default() -> Self {
+        Self { enabled: default_fetch_enabled() }
+    }
+}
+
 /// `mcp_tools/settings` 设置整体。字段缺省 = 未配置，对应工具回「未配置 provider」。
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Default)]
 pub struct McpToolsSettings {
     #[serde(default)]
     pub search: SearchProviderConfig,
+    /// 抓网页；缺省启用。
+    #[serde(default)]
+    pub fetch: FetchConfig,
     /// 生图 provider；None = generate_image 未配置。
     #[serde(default)]
     pub image: Option<MediaProviderConfig>,
@@ -102,6 +122,17 @@ mod test_mcp_tools {
         assert_eq!(partial.search.mode, aidog_search::SearchMode::Sequential, "缺省 mode = sequential");
         assert!(partial.search.enabled);
         assert_eq!(partial.image, None);
+    }
+
+    #[test]
+    fn fetch_defaults_enabled_and_old_config_without_key_is_enabled() {
+        assert!(McpToolsSettings::default().fetch.enabled);
+        let old: McpToolsSettings = serde_json::from_value(json!({"search": {"sources": ["tavily"]}})).unwrap();
+        assert!(old.fetch.enabled, "旧配置无 fetch 键 = 启用");
+        let empty_fetch: McpToolsSettings = serde_json::from_value(json!({"fetch": {}})).unwrap();
+        assert!(empty_fetch.fetch.enabled);
+        let off: McpToolsSettings = serde_json::from_value(json!({"fetch": {"enabled": false}})).unwrap();
+        assert!(!off.fetch.enabled);
     }
 
     #[test]

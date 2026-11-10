@@ -5,7 +5,7 @@
 // Claude Code / Codex 的 mcpServers（复用 aidog_mcp 机制，既有条目保留）。
 // 保存走通用 settingsApi（settings_set），api_key/keys 数组已被后端 SECRET_PATHS
 // 脱敏（***）与回填覆盖（secret_fields.rs，settings_set 已登记 RESTORERS）。
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { settingsApi } from "../../services/api/settings";
@@ -84,9 +84,13 @@ export function ToolsSection() {
   const [installMsg, setInstallMsg] = useState("");
   const [installOk, setInstallOk] = useState(false);
 
+  // fetch 段（抓网页开关，卡片在票 05）：本节不编辑，保存时原样带回，免得覆盖写丢失。
+  const fetchCfg = useRef<unknown>(undefined);
+
   const load = useCallback(async () => {
     try {
       const v = await settingsApi.get("mcp_tools", "settings");
+      fetchCfg.current = v?.fetch;
       const search = (v?.search ?? {}) as Record<string, any>;
       const sources: string[] = Array.isArray(search.sources) ? search.sources : [];
       const svc = (search.services ?? {}) as Record<string, { keys?: string[] }>;
@@ -128,6 +132,7 @@ export function ToolsSection() {
           services: provider ? { ...services, [provider]: { keys: linesOf(keysText) } } : services,
           searxng_base_urls: linesOf(urlsText),
         },
+        ...(fetchCfg.current !== undefined ? { fetch: fetchCfg.current } : {}),
         ...(hasMedia(image) ? { image } : {}),
       });
       setSaved(true);
