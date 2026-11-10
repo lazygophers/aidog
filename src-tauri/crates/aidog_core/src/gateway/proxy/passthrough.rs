@@ -344,7 +344,7 @@ pub(crate) async fn default_model_ids(db: &Db) -> Vec<String> {
     out
 }
 
-/// 合并出一个分组的候选模型名：`model_mappings` 的源模型名 + 各平台配着的模型槽位，
+/// 合并出一个分组的候选模型名：`model_mappings` 的源模型名 + 各平台配着的模型槽位（调用方传入含时段档的模型配置全集），
 /// 按出现顺序去重、剔空。纯函数，`/models` 端点与 pi 配置同步共用同一口径
 /// （`sync_settings::pi_model_candidates` 在本函数结果为空时才套用它自己的兜底清单）。
 ///
@@ -377,7 +377,7 @@ async fn group_model_ids(
     let platform_models: Vec<aidog_db::models::PlatformModels> = detail
         .platforms
         .iter()
-        .map(|gp| gp.platform.models.clone())
+        .flat_map(|gp| crate::gateway::time_windows::model_configs(&gp.platform.models, &gp.platform.extra))
         .collect();
     let mut out = merge_group_model_names(&detail.group.model_mappings, &platform_models);
     // 并上各平台 extra.direct_models（直通模型）：Claude Code 网关模型发现要「分类槽位 ∪ 直通」。

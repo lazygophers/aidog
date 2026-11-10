@@ -18,6 +18,17 @@ pub fn parse_platform_time_windows(extra: &str) -> Vec<serde_json::Value> {
         .collect()
 }
 
+/// 平台的「模型配置」全集：默认模型配置 ∪ 各时段档的模型配置（GLOSSARY「模型配置」）。
+/// 汇总类调用方（/models 清单、pi 候选、分组上下文窗口上限）用它代替只读 `platform.models`；
+/// 路由生效模型仍走 `resolve_time_windows`，不经此处。
+pub fn model_configs(default_models: &PlatformModels, extra: &str) -> Vec<PlatformModels> {
+    std::iter::once(default_models.clone())
+        .chain(parse_platform_time_windows(extra).iter().filter_map(|r| {
+            serde_json::from_value::<PlatformModels>(r.get("models")?.clone()).ok()
+        }))
+        .collect()
+}
+
 /// 按当前时段（epoch_ms UTC）first-match 命中 time_windows，返回命中的规则及其 models；无命中 → None。
 pub fn matched_time_rule(
     rules: &[serde_json::Value],
@@ -93,6 +104,19 @@ fn parse_peak_window(v: &serde_json::Value) -> Option<crate::gateway::peak::Time
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn model_configs_includes_default_and_each_window() {
+        use super::*;
+        let default = PlatformModels { default: vec!["d".into()], ..Default::default() };
+        let extra = r#"{"time_windows":[
+            {"windows":[{"start_hour":0,"end_hour":24}],"models":{"default":"w1","opus":["w2","w3"]}},
+            {"windows":[{"start_hour":1,"end_hour":2}],"models":{"sonnet":"w4"}}]}"#;
+        let cfgs = model_configs(&default, extra);
+        assert_eq!(cfgs.len(), 3);
+        let all: Vec<String> = cfgs.iter().flat_map(|c| c.all_values()).collect();
+        assert_eq!(all, vec!["d", "w1", "w2", "w3", "w4"]);
+        assert_eq!(model_configs(&default, "").len(), 1);
+    }
     use super::*;
 
     #[test]

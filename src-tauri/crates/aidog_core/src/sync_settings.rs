@@ -344,7 +344,7 @@ const MANAGED_ENV_KEYS: &[&str] = &[
 /// 组内可路由模型的真实上下文窗口**最大值**，注入 `CLAUDE_CODE_AUTO_COMPACT_WINDOW`
 /// 让 Claude Code 按后端真实窗口（而非假模型名的内置窗口）触发自动压缩。
 /// 候选 = 映射 target_model（空 = 透传 source_model）∪ 各平台**主对话槽位**模型
-/// （default / sonnet / opus）；haiku 杂活槽与 gpt（Codex 专用）不承接长上下文，故排除。
+/// （default / sonnet / opus；调用方传入的模型配置含各时段档，取最大）；haiku 杂活槽与 gpt（Codex 专用）不承接长上下文，故排除。
 /// registry 查不到的模型不计入（未知窗口不参与），一个都查不到 → None。
 ///
 /// 取 max 而非 min 是用户显式选择（2026-09-16）：窗口最宽的模型才是该组的实际容量上限，
@@ -497,16 +497,20 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
                 // 认定的窗口时，CC 压缩时机会偏晚 → 按组内模型窗口最小值收窄。
                 // 纯 claude_code 透传组 CC 认识真实模型，跳过（同 skip_routing_env）。
                 if !skip_routing_env {
-                    let platform_models: Vec<&aidog_db::models::PlatformModels> = group_details
+                    // 含各时段档的模型配置（路由可能落到时段档模型）
+                    let configs: Vec<aidog_db::models::PlatformModels> = group_details
                         .iter()
                         .find(|d| d.group.group_key == *group_key)
                         .map(|d| {
                             d.platforms
                                 .iter()
-                                .map(|gp| &gp.platform.models)
+                                .flat_map(|gp| {
+                                    gateway::time_windows::model_configs(&gp.platform.models, &gp.platform.extra)
+                                })
                                 .collect::<Vec<_>>()
                         })
                         .unwrap_or_default();
+                    let platform_models: Vec<&aidog_db::models::PlatformModels> = configs.iter().collect();
                     if let Some(window) =
                         group_max_context_window(db, &group.model_mappings, &platform_models).await
                     {
@@ -732,7 +736,7 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
                 &d.group.model_mappings,
                 &d.platforms
                     .iter()
-                    .map(|gp| gp.platform.models.clone())
+                    .flat_map(|gp| gateway::time_windows::model_configs(&gp.platform.models, &gp.platform.extra))
                     .collect::<Vec<_>>(),
                 &pi_fallback_models,
             ),
