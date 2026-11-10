@@ -160,7 +160,8 @@ pub(crate) use retry::{
     err_chain, error_response_headers, extract_error_message, filter_upstream_resp_headers,
     is_censorship_blocked, is_nonstream_body_valid, is_region_blocked, is_status_retryable,
     is_transport_retryable,
-    parse_quota_reset_at, resp_headers_to_log_json, transport_retry_backoff,
+    parse_quota_reset_at, parse_rate_limit_retry_ms, resp_headers_to_log_json,
+    transport_retry_backoff,
     truncate_attempt_error, truncate_peek_text, upstream_headers_json_for_log,
     upstream_headers_to_json,
 };
