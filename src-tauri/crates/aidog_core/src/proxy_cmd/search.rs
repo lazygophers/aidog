@@ -10,6 +10,14 @@ crate::tauri_command! {
 }
 
 crate::tauri_command! {
+    /// 单实例可用性探测（用户点行内「测试」时调用，AiDog 从不自动探测）：
+    /// GET `<url>/search?q=aidog&format=json`，2xx 且响应为 JSON 才算可用，回耗时秒。
+    pub async fn search_searx_test(url: String) -> Result<f64, String> {
+        aidog_search::searx_space::probe_instance(&url).await
+    }
+}
+
+crate::tauri_command! {
     /// 搜索来源清单（key 服务 + 免 key 引擎）的唯一真值源，前端只读；显示名走 i18n `tools.source.<id>`。
     pub async fn search_sources() -> Result<Vec<SearchSource>, String> {
         Ok(all_sources())
