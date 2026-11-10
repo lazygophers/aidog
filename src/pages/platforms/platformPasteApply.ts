@@ -49,7 +49,6 @@ export interface PlatformPasteCtx {
   setQuotaRequires: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   setDevinConfig: React.Dispatch<React.SetStateAction<DevinConfig>>;
   setBreakerFailureThreshold: React.Dispatch<React.SetStateAction<string>>;
-  setBreakerOpenSecs: React.Dispatch<React.SetStateAction<string>>;
   setBreakerHalfOpenMax: React.Dispatch<React.SetStateAction<string>>;
   setEditing: React.Dispatch<React.SetStateAction<Platform | null>>;
   setLockedGroupId: React.Dispatch<React.SetStateAction<number | null>>;
@@ -82,7 +81,7 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
     setName, setProtocol, setApiKey, setCodingPlan, setModels, setAvailableModels,
     setEndpoints, setManualBudgets, setExtra, setMockConfig,
     setQuotaVariantId, setQuotaCustomScript, setQuotaRequires, setDevinConfig,
-    setBreakerFailureThreshold, setBreakerOpenSecs, setBreakerHalfOpenMax,
+    setBreakerFailureThreshold, setBreakerHalfOpenMax,
     setEditing, setLockedGroupId, setJoinGroupIds,
     setFetchError, setSaveError,
     setShowPaste, setShowForm,
@@ -114,7 +113,6 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
     {
       const brk = parsePlatformBreaker(ex);
       setBreakerFailureThreshold(brk.failure_threshold > 0 ? String(brk.failure_threshold) : "");
-      setBreakerOpenSecs(brk.open_secs > 0 ? String(brk.open_secs) : "");
       setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
     }
     setEditing(null);

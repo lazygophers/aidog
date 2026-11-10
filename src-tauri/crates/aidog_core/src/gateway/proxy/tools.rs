@@ -222,14 +222,7 @@ async fn tools_attempt(
         String::new()
     };
 
-    let breaker_th = {
-        let (ft, os, hom) = sched_settings.effective_thresholds(&route.platform);
-        super::scheduling::BreakerThresholds {
-            failure_threshold: ft,
-            open_secs: os,
-            half_open_max: hom,
-        }
-    };
+    let breaker_th = super::scheduling::BreakerThresholds::resolve(sched_settings, &route.platform, group.routing_mode);
 
     let client = super::http_client::build_http_client(
         proxy_client,

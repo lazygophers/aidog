@@ -753,7 +753,6 @@ fn closed_loopback_target() -> String {
 #[tokio::test]
 async fn connect_failure_does_not_touch_breaker() {
     use crate::gateway::models::{CreatePlatform, Protocol};
-    use crate::gateway::scheduling::BreakerState;
     use aidog_db::test_support;
 
     let db = test_support::test_db().await;
@@ -801,12 +800,8 @@ async fn connect_failure_does_not_touch_breaker() {
     assert!(res.is_err(), "关闭端口必拒绝连接");
 
     // 网络失败不计熔断：breaker 保持 Closed{fails:0}（下一轮调度仍优先选择）。
-    let st = state.scheduler.breaker_state(p.id);
-    assert!(
-        matches!(st, BreakerState::Closed { fails: 0 }),
-        "TCP 失败不得计入熔断（网络失败不降权），实际: {:?}",
-        st
-    );
+    let fails = state.scheduler.breaker_fails(p.id);
+    assert_eq!(fails, 0, "TCP 失败不得计入熔断（网络失败不降权）");
     // inflight 必归零（record_ignored 内 dec_inflight）。
     assert_eq!(state.scheduler.inflight(p.id), 0, "失败后 inflight 必归零");
     // EMA 未被污染（record_ignored 不动 latency_ema_ms，仍 None）。

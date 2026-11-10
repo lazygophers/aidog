@@ -715,10 +715,9 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
   );
 }
 
-export function BreakerSection({ defaults, failure, setFailure, openSecs, setOpenSecs, halfOpenMax, setHalfOpenMax, t }: {
+export function BreakerSection({ defaults, failure, setFailure, halfOpenMax, setHalfOpenMax, t }: {
   defaults: SchedulingBreakerSettings | null;
   failure: string; setFailure: React.Dispatch<React.SetStateAction<string>>;
-  openSecs: string; setOpenSecs: React.Dispatch<React.SetStateAction<string>>;
   halfOpenMax: string; setHalfOpenMax: React.Dispatch<React.SetStateAction<string>>;
   t: TFunction;
 }) {
@@ -734,13 +733,6 @@ export function BreakerSection({ defaults, failure, setFailure, openSecs, setOpe
           placeholder={defaults ? t("platform.breakerInherit", "继承默认 {{n}}").replace("{{n}}", String(defaults.breaker_failure_threshold)) : t("platform.breakerInheritGeneric", "继承默认")}
           value={failure}
           onChange={e => setFailure(e.target.value)}
-        />
-        <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("platform.breakerOpenSecs", "熔断时长(秒)")}</span>
-        <Input
-          className="input" type="number" min={0} style={{ width: 140 }}
-          placeholder={defaults ? t("platform.breakerInherit", "继承默认 {{n}}").replace("{{n}}", String(defaults.breaker_open_secs)) : t("platform.breakerInheritGeneric", "继承默认")}
-          value={openSecs}
-          onChange={e => setOpenSecs(e.target.value)}
         />
         <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("platform.breakerHalfOpenMax", "半开探测数")}</span>
         <Input

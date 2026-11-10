@@ -1,12 +1,13 @@
 //! Group 智能调度 + 全局 Platform 级熔断器（内存状态）。
 //!
 //! 失败分类（2026-09-28 R1 修订：connect 失败计入熔断，推翻 2026-09-15 网络错一律不降权）：
-//! - 熔断器：**429-限流** 与 **connect 失败**（连接建立失败，站级死站信号）计入，临时性，
-//!   自动半开探测恢复（本模块）。connect 失败带本地网络保护：60s 滑窗内失败平台数达
-//!   本请求候选数一半 → 判本机网络问题，不计入（防断网误杀整组）。
-//! - auth 冷却：**401 鉴权 / 402 余额不足** → 固定 [`AUTH_COOLDOWN_MS`] 内存冷却，
-//!   不写 DB（平台 UI 仍是启用态），到点自动回调度。取代旧 auto_disabled 指数退避；
-//!   DB 存量 auto_disabled 行照旧按 until 过滤，成功时恢复（recover_platform_auto_disabled）。
+//! - 熔断器：**429-限流**（票 04 移出）与 **connect 失败**（连接建立失败，站级死站信号）计入，
+//!   另有 **401 / 403 仅在健康感知分组计入**，临时性（本模块）。connect 失败带本地网络保护：
+//!   60s 滑窗内失败平台数达本请求候选数一半 → 判本机网络问题，不计入（防断网误杀整组）。
+//! - auth 冷却：**402 余额不足**（所有分组）与 **401 / 403 鉴权**（非健康感知分组）→ 固定
+//!   [`AUTH_COOLDOWN_MS`] 内存冷却，不写 DB（平台 UI 仍是启用态），到点自动回调度。
+//!   取代旧 auto_disabled 指数退避；DB 存量 auto_disabled 行照旧按 until 过滤，成功时恢复
+//!   （recover_platform_auto_disabled）。
 //! - 配额冷却：429 配额耗尽 + 上游给出重置时间 → 冷却到该时刻。
 //! - 上游审核拒绝（`error.type=censorship_blocked`）→ 平台自动禁用 1 小时，换候选重试；
 //!   到期后允许探测，成功恢复。
@@ -17,20 +18,29 @@
 //!   与熔断/auth/配额冷却并行；纯内存态（与 EMA 同待遇，重启丢失可接受）。
 //!   例外：流式中途断连（2xx 已开始输出）不计；censorship 已 DB 禁用 1h 不叠加。
 //!
-//! 状态机三态：
+//! 熔断状态（票 03，2026-11-10）：平台级只记事实——连续熔断失败次数 `breaker_fails` 与最近失败时刻
+//! `breaker_last_fail_ms`；**是否踢出按请求所在分组的路由模式现算**（[`admission`]）：
 //! ```text
-//! Closed{fails}:  429-限流计 fail → fails+1；达 threshold → Open{until=now+open_secs}。成功 → fails=0。
-//! Open{until_ms}: 候选过滤直接踢出；now>=until → 转 HalfOpen{probes=0}。
-//! HalfOpen{probes}: 放行至多 half_open_max 个探测；任一成功 → Closed；任一失败 → Open{重置 until}。
+//! 健康感知分组：无次数阈值，fails>=1 即踢出到 last + min(1s·2^(fails-1), 10min)；窗口过后放行。
+//! 其他分组：fails>=failure_threshold 踢出到 last + 固定 60s；之后半开放行至多 half_open_max 个探测。
+//! 任意成功（含探测成功）→ 清零；距上次失败超 1 小时 → 清零（即使无成功）；探测失败 → 重新计时。
 //! ```
-//! 不计熔断：401/402（走 auth 冷却）、429-配额（走配额冷却）、5xx/网络错误/空响应
-//! （不降权）、客户端 4xx(非 429)、probe 请求。
+//! 不计熔断：402（走 auth 冷却）、429-配额（走配额冷却）、5xx/网络错误/空响应
+//! （不降权）、客户端 4xx(非 429)、probe 请求；401/403 在非健康感知分组走 auth 冷却。
 
 use std::collections::HashMap;
 use std::sync::RwLock;
 
 /// 401 权限 / 402 余额失败的内存冷却时长（毫秒）。
 pub const AUTH_COOLDOWN_MS: i64 = 5 * 60 * 1000;
+/// 非健康感知分组熔断踢出时长（毫秒，写死）。
+pub const BREAKER_OPEN_FIXED_MS: i64 = 60 * 1000;
+/// 健康感知分组熔断踢出起步时长（毫秒），连续失败每次 ×2。
+pub const BREAKER_BACKOFF_BASE_MS: i64 = 1000;
+/// 健康感知分组熔断踢出封顶时长（毫秒）。
+pub const BREAKER_BACKOFF_MAX_MS: i64 = 10 * 60 * 1000;
+/// 距上次熔断失败超过此时长，连续次数自动清零（毫秒）。
+pub const BREAKER_STREAK_RESET_MS: i64 = 60 * 60 * 1000;
 /// connect 失败本地网络保护滑窗（毫秒）：窗口内失败平台数达候选半数 → 判本地网络问题不熔断。
 const CONNECT_FAIL_WINDOW_MS: i64 = 60 * 1000;
 
@@ -59,23 +69,6 @@ impl PenaltyTier {
     }
 }
 
-/// 熔断三态。
-#[derive(Debug, Clone, PartialEq)]
-pub enum BreakerState {
-    /// 正常放行，记录连续失败次数。
-    Closed { fails: u32 },
-    /// 熔断打开，until_ms 之前候选过滤踢出。
-    Open { until_ms: i64 },
-    /// 半开探测，已发出 probes 个探测请求。
-    HalfOpen { probes: u32 },
-}
-
-impl Default for BreakerState {
-    fn default() -> Self {
-        BreakerState::Closed { fails: 0 }
-    }
-}
-
 /// 候选准入判定结果。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Admission {
@@ -90,7 +83,14 @@ pub enum Admission {
 /// per-platform 健康指标（内存）。
 #[derive(Debug, Clone, PartialEq)]
 pub struct PlatformHealth {
-    pub breaker: BreakerState,
+    /// 连续熔断失败次数（成功 / 距上次失败超 1 小时清零）。
+    pub breaker_fails: u32,
+    /// 最近一次计入熔断的失败时刻（unix ms，0 = 无）。
+    pub breaker_last_fail_ms: i64,
+    /// 半开探测已放行数（仅非健康感知分组；每次失败 / 成功清零）。
+    pub breaker_probes: u32,
+    /// 最近一次计入熔断时算出的踢出截止（仅快照展示；准入按请求分组模式现算，不读它）。
+    pub breaker_until_hint_ms: i64,
     /// 延迟 EMA（毫秒）；0 表示尚无样本。
     pub latency_ema_ms: f64,
     /// 当前在途请求数。
@@ -121,7 +121,10 @@ pub struct PlatformHealth {
 impl Default for PlatformHealth {
     fn default() -> Self {
         Self {
-            breaker: BreakerState::default(),
+            breaker_fails: 0,
+            breaker_last_fail_ms: 0,
+            breaker_probes: 0,
+            breaker_until_hint_ms: 0,
             latency_ema_ms: 0.0,
             inflight: 0,
             quota_cooldown_until_ms: 0,
@@ -140,8 +143,25 @@ impl Default for PlatformHealth {
 #[derive(Debug, Clone, Copy)]
 pub struct BreakerThresholds {
     pub failure_threshold: u32,
-    pub open_secs: u64,
     pub half_open_max: u32,
+    /// 请求所在分组是否健康感知模式：true = 无次数阈值、按时间翻倍踢出；false = 阈值 + 固定 60 秒。
+    pub health_aware: bool,
+}
+
+impl BreakerThresholds {
+    /// 解析某平台在某分组路由模式下的有效熔断参数（平台覆盖 / 全局默认 + 分组模式）。
+    pub fn resolve(
+        settings: &super::models::SchedulingBreakerSettings,
+        platform: &super::models::Platform,
+        mode: super::models::RoutingMode,
+    ) -> Self {
+        let (failure_threshold, half_open_max) = settings.effective_thresholds(platform);
+        Self {
+            failure_threshold,
+            half_open_max,
+            health_aware: mode == super::models::RoutingMode::HealthAware,
+        }
+    }
 }
 
 /// EMA 平滑系数（新样本权重）。0.3 ≈ 近 ~6 个样本窗口。
@@ -223,10 +243,15 @@ impl SchedulerState {
         if let Ok(mut g) = self.health.write() {
             for row in rows {
                 let mut h = PlatformHealth::default();
-                if row.breaker_state == "open" && row.breaker_until_ms > now_ms {
-                    h.breaker = BreakerState::Open {
-                        until_ms: row.breaker_until_ms,
-                    };
+                if row.breaker_fails > 0
+                    && row.breaker_last_fail_ms > 0
+                    && now_ms - row.breaker_last_fail_ms <= BREAKER_STREAK_RESET_MS
+                {
+                    h.breaker_fails = row.breaker_fails as u32;
+                    h.breaker_last_fail_ms = row.breaker_last_fail_ms;
+                    if row.breaker_until_ms > now_ms {
+                        h.breaker_until_hint_ms = row.breaker_until_ms;
+                    }
                 }
                 if row.quota_cooldown_until_ms > now_ms {
                     h.quota_cooldown_until_ms = row.quota_cooldown_until_ms;
@@ -296,9 +321,10 @@ impl SchedulerState {
         let row = {
             let Ok(g) = self.health.read() else { return };
             let Some(h) = g.get(&platform_id) else { return };
-            let (state, until) = match h.breaker {
-                BreakerState::Open { until_ms } => ("open", until_ms),
-                _ => ("closed", 0),
+            let (state, until) = if h.breaker_until_hint_ms > 0 {
+                ("open", h.breaker_until_hint_ms)
+            } else {
+                ("closed", 0)
             };
             aidog_db::health_state::PlatformHealthStateRow {
                 platform_id: platform_id as i64,
@@ -310,6 +336,8 @@ impl SchedulerState {
                 balance_cooldown_until_ms: h.balance_cooldown_until_ms,
                 last_connect_fail_ms: h.last_connect_fail_ms,
                 updated_at: aidog_db::now(),
+                breaker_fails: h.breaker_fails as i64,
+                breaker_last_fail_ms: h.breaker_last_fail_ms,
             }
         };
         tokio::spawn(async move {
@@ -445,13 +473,11 @@ impl SchedulerState {
                         code: 401,
                         until_ms: h.auth_cooldown_until_ms,
                     })
-                } else if let BreakerState::Open { until_ms } = h.breaker
-                    && until_ms > now_ms
-                {
+                } else if h.breaker_until_hint_ms > now_ms {
                     Some(PlatformCooldownSnapshot {
                         platform_id,
                         code: 503,
-                        until_ms,
+                        until_ms: h.breaker_until_hint_ms,
                     })
                 } else {
                     None
@@ -497,7 +523,8 @@ impl SchedulerState {
             .unwrap_or(0)
     }
 
-    /// 候选准入判定（候选过滤准入门）。在 now_ms 时刻惰性转移 Open→HalfOpen。
+    /// 候选准入判定（候选过滤准入门）。按 `thresholds.health_aware`（请求所在分组模式）现算，
+    /// 平台级状态只有失败次数与最近失败时刻。过期的连续次数在此惰性清零。
     /// `enabled=false`（熔断总开关关）→ 一律 Allow，旁路熔断。
     pub fn admission(
         &self,
@@ -514,26 +541,67 @@ impl SchedulerState {
             Err(_) => return Admission::Allow,
         };
         let h = g.entry(platform_id).or_default();
-        match h.breaker {
-            BreakerState::Closed { .. } => Admission::Allow,
-            BreakerState::Open { until_ms } => {
-                if now_ms >= until_ms {
-                    // 惰性转 HalfOpen，本次即作为首个探测放行。
-                    h.breaker = BreakerState::HalfOpen { probes: 1 };
-                    Admission::Probe
-                } else {
-                    Admission::Reject
-                }
+        Self::reset_stale_streak(h, now_ms);
+        match Self::blocked_until(h, thresholds) {
+            None => Admission::Allow,
+            Some(until) if now_ms < until => Admission::Reject,
+            // 窗口已过：健康感知直接放行（成功清零 / 失败翻倍）；其他分组半开限量探测。
+            Some(_) if thresholds.health_aware => Admission::Allow,
+            Some(_) if h.breaker_probes < thresholds.half_open_max => {
+                h.breaker_probes += 1;
+                Admission::Probe
             }
-            BreakerState::HalfOpen { probes } => {
-                if probes < thresholds.half_open_max {
-                    h.breaker = BreakerState::HalfOpen { probes: probes + 1 };
-                    Admission::Probe
-                } else {
-                    // 探测名额用尽，等待探测结果（暂不再放行）。
-                    Admission::Reject
-                }
-            }
+            // 探测名额用尽，等待探测结果（暂不再放行）。
+            Some(_) => Admission::Reject,
+        }
+    }
+
+    /// 只读：该平台此刻是否被熔断踢出（按分组模式；不改状态，不占探测名额）。
+    pub fn breaker_open(&self, platform_id: u64, thresholds: &BreakerThresholds, now_ms: i64) -> bool {
+        self.health.read().ok().is_some_and(|g| {
+            g.get(&platform_id).is_some_and(|h| {
+                h.breaker_fails > 0
+                    && now_ms - h.breaker_last_fail_ms <= BREAKER_STREAK_RESET_MS
+                    && Self::blocked_until(h, thresholds).is_some_and(|u| now_ms < u)
+            })
+        })
+    }
+
+    /// 连续熔断失败次数（无记录 → 0）。
+    pub fn breaker_fails(&self, platform_id: u64) -> u32 {
+        self.health
+            .read()
+            .ok()
+            .and_then(|g| g.get(&platform_id).map(|h| h.breaker_fails))
+            .unwrap_or(0)
+    }
+
+    /// 第 n 次连续熔断失败的踢出时长：1s·2^(n-1)，封顶 10 分钟。
+    fn backoff_ms(n: u32) -> i64 {
+        BREAKER_BACKOFF_BASE_MS
+            .saturating_mul(1i64 << n.saturating_sub(1).min(20))
+            .min(BREAKER_BACKOFF_MAX_MS)
+    }
+
+    /// 距上次熔断失败超 1 小时 → 连续次数与探测计数清零（即使中间无成功）。
+    fn reset_stale_streak(h: &mut PlatformHealth, now_ms: i64) {
+        if h.breaker_fails > 0 && now_ms - h.breaker_last_fail_ms > BREAKER_STREAK_RESET_MS {
+            h.breaker_fails = 0;
+            h.breaker_probes = 0;
+            h.breaker_until_hint_ms = 0;
+        }
+    }
+
+    /// 按分组模式算的踢出截止（None = 不踢出）。
+    fn blocked_until(h: &PlatformHealth, th: &BreakerThresholds) -> Option<i64> {
+        if h.breaker_fails == 0 {
+            None
+        } else if th.health_aware {
+            Some(h.breaker_last_fail_ms + Self::backoff_ms(h.breaker_fails))
+        } else if h.breaker_fails >= th.failure_threshold {
+            Some(h.breaker_last_fail_ms + BREAKER_OPEN_FIXED_MS)
+        } else {
+            None
         }
     }
 
@@ -548,17 +616,17 @@ impl SchedulerState {
         h.inflight = h.inflight.saturating_sub(1);
     }
 
-    /// 成功：更新延迟 EMA、breaker 转 Closed（含 HalfOpen→Closed）、inflight-1、清 connect 失败标记。
+    /// 成功：更新延迟 EMA、清熔断连续失败计数（含半开探测成功）、inflight-1、清 connect 失败标记。
     pub fn record_success(&self, platform_id: u64, latency_ms: i64) {
         let (needs_clear, breaker_was_nonclosed) = if let Ok(mut g) = self.health.write() {
             let h = g.entry(platform_id).or_default();
-            let non_default = h.breaker != BreakerState::Closed { fails: 0 }
+            let non_default = h.breaker_fails > 0
                 || h.quota_cooldown_until_ms > 0
                 || h.quota_verdict_until_ms > 0
                 || h.auth_cooldown_until_ms > 0
                 || h.balance_cooldown_until_ms > 0
                 || h.last_connect_fail_ms > 0;
-            let breaker_was_nonclosed = h.breaker != BreakerState::Closed { fails: 0 };
+            let breaker_was_nonclosed = h.breaker_fails > 0;
             Self::dec_inflight(h);
             let sample = latency_ms.max(0) as f64;
             h.latency_ema_ms = if h.latency_ema_ms <= 0.0 {
@@ -566,7 +634,10 @@ impl SchedulerState {
             } else {
                 EMA_ALPHA * sample + (1.0 - EMA_ALPHA) * h.latency_ema_ms
             };
-            h.breaker = BreakerState::Closed { fails: 0 };
+            h.breaker_fails = 0;
+            h.breaker_last_fail_ms = 0;
+            h.breaker_probes = 0;
+            h.breaker_until_hint_ms = 0;
             h.last_connect_fail_ms = 0;
             // 失败降权：成功一次清零回起步（下次失败从档位起步窗口重新计）。
             h.penalty_until_ms = 0;
@@ -594,8 +665,8 @@ impl SchedulerState {
         } else {
             false
         };
+        self.persist(platform_id);
         if opened {
-            self.persist(platform_id);
             // 通知体系票 01：熔断触发旁路发射，不改状态机行为。
             self.emit_breaker_event(platform_id, "breaker_on");
         }
@@ -635,8 +706,8 @@ impl SchedulerState {
             }
             opened = Self::apply_breaker_failure(h, thresholds, now_ms);
         }
+        self.persist(platform_id);
         if opened {
-            self.persist(platform_id);
             // 通知体系票 01：熔断触发旁路发射，不改状态机行为。
             self.emit_breaker_event(platform_id, "breaker_on");
         }
@@ -647,37 +718,24 @@ impl SchedulerState {
         h.last_connect_fail_ms > 0 && now_ms - h.last_connect_fail_ms < CONNECT_FAIL_WINDOW_MS
     }
 
-    /// 推进 breaker 失败计数；返回是否进入/维持 Open（持久化判据）。
+    /// 计入一次熔断失败：连续次数 +1（先清过期次数）、记失败时刻、探测计数清零。
+    /// 返回本次失败是否使平台从「未踢出」变为「踢出」（熔断通知判据；已在踢出中再败不重复通知）。
     fn apply_breaker_failure(
         h: &mut PlatformHealth,
         thresholds: &BreakerThresholds,
         now_ms: i64,
     ) -> bool {
-        let open_until = now_ms + thresholds.open_secs as i64 * 1000;
-        h.breaker = match h.breaker {
-            BreakerState::Closed { fails } => {
-                let next = fails + 1;
-                if next >= thresholds.failure_threshold {
-                    BreakerState::Open {
-                        until_ms: open_until,
-                    }
-                } else {
-                    BreakerState::Closed { fails: next }
-                }
-            }
-            // HalfOpen 探测失败 → 立即重新 Open。
-            BreakerState::HalfOpen { .. } => BreakerState::Open {
-                until_ms: open_until,
-            },
-            // Open 期间不应有 inflight 结果回流，但兜底重置 until。
-            BreakerState::Open { .. } => BreakerState::Open {
-                until_ms: open_until,
-            },
-        };
-        matches!(h.breaker, BreakerState::Open { .. })
+        Self::reset_stale_streak(h, now_ms);
+        let was_blocked = Self::blocked_until(h, thresholds).is_some();
+        h.breaker_fails = h.breaker_fails.saturating_add(1);
+        h.breaker_last_fail_ms = now_ms;
+        h.breaker_probes = 0;
+        let until = Self::blocked_until(h, thresholds);
+        h.breaker_until_hint_ms = until.unwrap_or(0);
+        until.is_some() && !was_blocked
     }
 
-    /// 不计入熔断的请求结束（网络错误/5xx/空响应/401/402/客户端 4xx 非 429）：仅 inflight-1，
+    /// 不计入熔断的请求结束（网络错误/5xx/空响应/402/客户端 4xx 非 429；401/403 非健康感知分组）：仅 inflight-1，
     /// 不动 breaker/EMA（网络类故障不降权）。
     pub fn record_ignored(&self, platform_id: u64) {
         if let Ok(mut g) = self.health.write()
@@ -685,15 +743,6 @@ impl SchedulerState {
         {
             Self::dec_inflight(h);
         }
-    }
-
-    /// 读取当前 breaker 状态副本（测试 / 诊断 / 路由快照只读判定）。
-    pub fn breaker_state(&self, platform_id: u64) -> BreakerState {
-        self.health
-            .read()
-            .ok()
-            .and_then(|g| g.get(&platform_id).map(|h| h.breaker.clone()))
-            .unwrap_or_default()
     }
 }
 
@@ -864,18 +913,26 @@ impl CacheSignalTable {
 mod tests {
     use super::*;
 
-    fn thresholds(ft: u32, open_secs: u64, hom: u32) -> BreakerThresholds {
+    fn thresholds(ft: u32, hom: u32) -> BreakerThresholds {
         BreakerThresholds {
             failure_threshold: ft,
-            open_secs,
             half_open_max: hom,
+            health_aware: false,
+        }
+    }
+
+    fn thresholds_ha(hom: u32) -> BreakerThresholds {
+        BreakerThresholds {
+            failure_threshold: 5,
+            half_open_max: hom,
+            health_aware: true,
         }
     }
 
     #[test]
     fn breaker_closed_to_open_to_halfopen_to_closed() {
         let s = SchedulerState::new();
-        let th = thresholds(3, 30, 2);
+        let th = thresholds(3, 2);
         let now = 1_000_000i64;
         // 初始 Closed → Allow
         assert_eq!(s.admission(1, &th, now, true), Admission::Allow);
@@ -888,18 +945,15 @@ mod tests {
         // 第 3 次失败 → Open
         s.inc_inflight(1);
         s.record_failure(1, &th, now);
-        assert!(matches!(s.breaker_state(1), BreakerState::Open { .. }));
+        assert!(s.breaker_fails(1) > 0);
         // Open 未到期 → Reject
         assert_eq!(s.admission(1, &th, now + 1000, true), Admission::Reject);
         // 到期 → HalfOpen 首个探测放行
-        let until_passed = now + 30 * 1000 + 1;
+        let until_passed = now + 60 * 1000 + 1;
         assert_eq!(s.admission(1, &th, until_passed, true), Admission::Probe);
         // 探测成功 → Closed
         s.record_success(1, 120);
-        assert!(matches!(
-            s.breaker_state(1),
-            BreakerState::Closed { fails: 0 }
-        ));
+        assert_eq!(s.breaker_fails(1), 0);
         assert_eq!(s.admission(1, &th, until_passed, true), Admission::Allow);
     }
 
@@ -907,54 +961,48 @@ mod tests {
     fn connect_failure_counts_into_breaker() {
         // R1：connect 失败计入熔断，threshold=1 → 单次即 Open。
         let s = SchedulerState::new();
-        let th = thresholds(1, 10, 2);
+        let th = thresholds(1, 2);
         let now = 1_000_000i64;
         s.inc_inflight(9);
         s.record_connect_failure(9, 4, &th, now);
-        assert!(matches!(s.breaker_state(9), BreakerState::Open { .. }));
+        assert!(s.breaker_fails(9) > 0);
     }
 
     #[test]
     fn connect_failure_local_network_guard() {
         // 保护条款：4 候选组，第 2 个平台也 connect 失败时失败平台数 2*2>=4 → 不计熔断。
         let s = SchedulerState::new();
-        let th = thresholds(1, 10, 2);
+        let th = thresholds(1, 2);
         let now = 1_000_000i64;
         s.inc_inflight(1);
         s.record_connect_failure(1, 4, &th, now); // 1*2 < 4 → 计入，Open
-        assert!(matches!(s.breaker_state(1), BreakerState::Open { .. }));
+        assert!(s.breaker_fails(1) > 0);
         s.inc_inflight(2);
         s.record_connect_failure(2, 4, &th, now + 1_000); // 2*2 >= 4 → 本地网络，不计
-        assert!(matches!(
-            s.breaker_state(2),
-            BreakerState::Closed { fails: 0 }
-        ));
+        assert_eq!(s.breaker_fails(2), 0);
         // 同平台重复失败不重复计数：平台 2 再败仍 2 个去重平台 → 依旧不计。
         s.inc_inflight(2);
         s.record_connect_failure(2, 4, &th, now + 2_000);
-        assert!(matches!(
-            s.breaker_state(2),
-            BreakerState::Closed { fails: 0 }
-        ));
+        assert_eq!(s.breaker_fails(2), 0);
     }
 
     #[test]
     fn connect_failure_window_expires() {
         // 60s 滑窗外不累计：平台 1 失败后过窗，平台 2 失败时去重数回落 1 → 计入。
         let s = SchedulerState::new();
-        let th = thresholds(1, 10, 2);
+        let th = thresholds(1, 2);
         let now = 1_000_000i64;
         s.inc_inflight(1);
         s.record_connect_failure(1, 4, &th, now);
         let later = now + 61 * 1000;
         s.inc_inflight(2);
         s.record_connect_failure(2, 4, &th, later);
-        assert!(matches!(s.breaker_state(2), BreakerState::Open { .. }));
+        assert!(s.breaker_fails(2) > 0);
     }
 
     #[test]
     fn seed_from_rows_restores_open_and_expires() {
-        // R4：持久化行恢复——未过期 Open/冷却恢复，过期行丢弃。
+        // R4：持久化行恢复——未过期熔断 / 冷却恢复，过期行丢弃。
         use aidog_db::health_state::PlatformHealthStateRow as Row;
         let s = SchedulerState::new();
         let now = 1_000_000i64;
@@ -964,12 +1012,14 @@ mod tests {
                     platform_id: 1,
                     breaker_state: "open".into(),
                     breaker_until_ms: now + 5_000,
+                    breaker_fails: 2,
+                    breaker_last_fail_ms: now - 55_000,
                     ..Default::default()
                 },
                 Row {
                     platform_id: 2,
                     breaker_state: "open".into(),
-                    breaker_until_ms: now - 1, // 已过期 → 丢弃
+                    breaker_until_ms: now - 1, // 展示截止已过、无连续失败计数 → 丢弃
                     ..Default::default()
                 },
                 Row {
@@ -980,11 +1030,12 @@ mod tests {
             ],
             now,
         );
-        assert!(matches!(
-            s.breaker_state(1),
-            BreakerState::Open { until_ms } if until_ms == now + 5_000
-        ));
-        assert_eq!(s.breaker_state(2), BreakerState::Closed { fails: 0 });
+        assert_eq!(s.breaker_fails(1), 2);
+        assert_eq!(
+            s.cooldown_snapshot(now).iter().find(|x| x.platform_id == 1).map(|x| x.until_ms),
+            Some(now + 5_000)
+        );
+        assert_eq!(s.breaker_fails(2), 0);
         assert!(s.quota_cooled(3, now));
     }
 
@@ -1015,7 +1066,7 @@ mod tests {
     #[test]
     fn cooldown_snapshot_priority_quota_over_balance_over_auth_over_breaker() {
         let s = SchedulerState::new();
-        let th = thresholds(1, 30, 2);
+        let th = thresholds(1, 2);
         let now = 1_000_000i64;
         // 平台 1：四态叠加 → 取最高优先级 429。
         s.set_quota_cooldown(1, now + 10_000);
@@ -1064,11 +1115,11 @@ mod tests {
     #[test]
     fn halfopen_failure_reopens() {
         let s = SchedulerState::new();
-        let th = thresholds(1, 30, 2);
+        let th = thresholds(1, 2);
         let now = 1_000_000i64;
         s.inc_inflight(2);
         s.record_failure(2, &th, now); // threshold=1 → Open
-        let passed = now + 30 * 1000 + 1;
+        let passed = now + 60 * 1000 + 1;
         assert_eq!(s.admission(2, &th, passed, true), Admission::Probe);
         // 探测失败 → 重新 Open
         s.record_failure(2, &th, passed);
@@ -1078,11 +1129,11 @@ mod tests {
     #[test]
     fn halfopen_limits_probes() {
         let s = SchedulerState::new();
-        let th = thresholds(1, 30, 2);
+        let th = thresholds(1, 2);
         let now = 1_000_000i64;
         s.inc_inflight(3);
         s.record_failure(3, &th, now);
-        let passed = now + 30 * 1000 + 1;
+        let passed = now + 60 * 1000 + 1;
         // half_open_max=2 → 放 2 个探测，第 3 个 Reject
         assert_eq!(s.admission(3, &th, passed, true), Admission::Probe);
         assert_eq!(s.admission(3, &th, passed, true), Admission::Probe);
@@ -1092,12 +1143,140 @@ mod tests {
     #[test]
     fn breaker_disabled_bypass() {
         let s = SchedulerState::new();
-        let th = thresholds(1, 30, 2);
+        let th = thresholds(1, 2);
         let now = 1_000_000i64;
         s.inc_inflight(4);
         s.record_failure(4, &th, now); // Open
         // enabled=false → 一律 Allow（总开关旁路）
         assert_eq!(s.admission(4, &th, now, false), Admission::Allow);
+    }
+
+    // ─── 票 03：熔断按时间翻倍（健康感知）+ 按请求分组模式判定 ───
+
+    /// 记一次计入熔断的失败（含 inflight 配平）。
+    fn fail(s: &SchedulerState, id: u64, th: &BreakerThresholds, now: i64) {
+        s.inc_inflight(id);
+        s.record_failure(id, th, now);
+    }
+
+    #[test]
+    fn health_aware_backoff_doubles_from_1s_and_caps_at_600s() {
+        let s = SchedulerState::new();
+        let th = thresholds_ha(2);
+        let mut now = 1_000_000i64;
+        // n=1..=12 → 窗口 1,2,4,…,512 秒，n=11 起封顶 600 秒。
+        let want_secs = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 600, 600];
+        for (i, secs) in want_secs.iter().enumerate() {
+            fail(&s, 1, &th, now);
+            assert_eq!(s.breaker_fails(1), i as u32 + 1);
+            let w = secs * 1000;
+            assert_eq!(s.admission(1, &th, now + w - 1, true), Admission::Reject, "n={} 窗口内踢出", i + 1);
+            assert_ne!(s.admission(1, &th, now + w, true), Admission::Reject, "n={} 到点放行", i + 1);
+            now += w; // 下一次失败紧接在窗口截止时刻（连续熔断，间隔 < 1 小时）
+        }
+    }
+
+    #[test]
+    fn health_aware_has_no_failure_threshold() {
+        let s = SchedulerState::new();
+        let th = thresholds_ha(2); // failure_threshold=5 被忽略
+        let now = 1_000_000i64;
+        fail(&s, 1, &th, now);
+        assert_eq!(s.admission(1, &th, now + 1, true), Admission::Reject, "首次失败即踢出");
+    }
+
+    #[test]
+    fn success_clears_streak_including_halfopen_probe() {
+        let s = SchedulerState::new();
+        let th = thresholds_ha(2);
+        let now = 1_000_000i64;
+        for i in 0..3 {
+            fail(&s, 1, &th, now + i);
+        }
+        assert_eq!(s.breaker_fails(1), 3);
+        // 窗口（4s）过后的探测成功 → 清零
+        let later = now + 5_000;
+        assert_ne!(s.admission(1, &th, later, true), Admission::Reject);
+        s.inc_inflight(1);
+        s.record_success(1, 50);
+        assert_eq!(s.breaker_fails(1), 0);
+        // 下次失败重新从 1 秒起
+        fail(&s, 1, &th, later);
+        assert_eq!(s.admission(1, &th, later + 999, true), Admission::Reject);
+        assert_ne!(s.admission(1, &th, later + 1000, true), Admission::Reject);
+    }
+
+    #[test]
+    fn streak_auto_resets_after_one_hour_without_success() {
+        let s = SchedulerState::new();
+        let th = thresholds_ha(2);
+        let now = 1_000_000i64;
+        for i in 0..4 {
+            fail(&s, 1, &th, now + i); // n=4 → 8s
+        }
+        // 距上次失败超过 1 小时：无成功也清零，新失败按 n=1（1 秒）算。
+        let later = now + 3 + 3_600_000 + 1;
+        fail(&s, 1, &th, later);
+        assert_eq!(s.breaker_fails(1), 1);
+        assert_eq!(s.admission(1, &th, later + 999, true), Admission::Reject);
+        assert_ne!(s.admission(1, &th, later + 1000, true), Admission::Reject);
+    }
+
+    #[test]
+    fn same_platform_judged_per_request_group_mode() {
+        let s = SchedulerState::new();
+        let ha = thresholds_ha(2);
+        let fo = thresholds(3, 2); // 故障转移：阈值 3
+        let now = 1_000_000i64;
+        fail(&s, 1, &ha, now); // 1 次失败
+        assert_eq!(s.admission(1, &ha, now + 500, true), Admission::Reject, "健康感知组：踢出");
+        assert_eq!(s.admission(1, &fo, now + 500, true), Admission::Allow, "故障转移组：未达阈值 3");
+        fail(&s, 1, &ha, now + 1_000);
+        fail(&s, 1, &ha, now + 3_000); // 累计 3 次
+        let t = now + 3_000;
+        assert_eq!(s.admission(1, &fo, t + 1, true), Admission::Reject, "故障转移组：达阈值 → 固定 60 秒");
+        assert_eq!(s.admission(1, &fo, t + 59_999, true), Admission::Reject);
+        assert_eq!(s.admission(1, &fo, t + 60_000, true), Admission::Probe, "60 秒后半开探测");
+    }
+
+    #[test]
+    fn health_aware_connect_failure_counts_without_threshold() {
+        let s = SchedulerState::new();
+        let th = thresholds_ha(2);
+        let now = 1_000_000i64;
+        s.inc_inflight(9);
+        assert!(s.record_connect_failure(9, 4, &th, now));
+        assert_eq!(s.admission(9, &th, now + 500, true), Admission::Reject);
+    }
+
+    #[test]
+    fn breaker_open_view_is_per_mode_and_readonly() {
+        let s = SchedulerState::new();
+        let ha = thresholds_ha(2);
+        let fo = thresholds(3, 2);
+        let now = 1_000_000i64;
+        fail(&s, 1, &ha, now);
+        assert!(s.breaker_open(1, &ha, now + 1));
+        assert!(!s.breaker_open(1, &fo, now + 1));
+        assert!(!s.breaker_open(1, &ha, now + 1000), "窗口过后不再踢出");
+    }
+
+    #[test]
+    fn seed_from_rows_restores_breaker_streak_and_ages_out() {
+        use aidog_db::health_state::PlatformHealthStateRow as Row;
+        let s = SchedulerState::new();
+        let th = thresholds_ha(2);
+        let now = 10_000_000i64;
+        s.seed_from_rows(
+            vec![
+                Row { platform_id: 1, breaker_fails: 3, breaker_last_fail_ms: now - 1_000, ..Default::default() },
+                Row { platform_id: 2, breaker_fails: 3, breaker_last_fail_ms: now - 3_600_001, ..Default::default() },
+            ],
+            now,
+        );
+        assert_eq!(s.breaker_fails(1), 3);
+        assert_eq!(s.admission(1, &th, now, true), Admission::Reject, "n=3 → 4 秒窗口，仍在窗内");
+        assert_eq!(s.breaker_fails(2), 0, "距上次失败超 1 小时的行丢弃");
     }
 
     #[test]
@@ -1121,7 +1300,7 @@ mod tests {
         assert_eq!(s.inflight(6), 2);
         s.record_success(6, 50);
         assert_eq!(s.inflight(6), 1);
-        s.record_failure(6, &thresholds(5, 30, 2), 0);
+        s.record_failure(6, &thresholds(5, 2), 0);
         assert_eq!(s.inflight(6), 0);
     }
 
@@ -1139,7 +1318,7 @@ mod tests {
         assert!(!s.quota_cooled(7, now + 5000));
         // 冷却不影响熔断维度（仍 Allow）
         assert_eq!(
-            s.admission(7, &thresholds(3, 30, 2), now, true),
+            s.admission(7, &thresholds(3, 2), now, true),
             Admission::Allow
         );
     }
@@ -1159,7 +1338,7 @@ mod tests {
         assert!(s.auth_cooled(8, now + AUTH_COOLDOWN_MS - 1));
         // 冷却不影响熔断维度（仍 Allow）
         assert_eq!(
-            s.admission(8, &thresholds(3, 30, 2), now, true),
+            s.admission(8, &thresholds(3, 2), now, true),
             Admission::Allow
         );
     }

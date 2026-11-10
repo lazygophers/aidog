@@ -951,6 +951,8 @@ mod verdict_apply {
             balance_cooldown_until_ms: 0,
             last_connect_fail_ms: 0,
             updated_at: NOW,
+            breaker_fails: 0,
+            breaker_last_fail_ms: 0,
         };
         s.seed_from_rows(vec![row], NOW);
         assert!(s.quota_cooled(5, FAR));

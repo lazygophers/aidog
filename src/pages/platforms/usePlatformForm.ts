@@ -126,7 +126,6 @@ export interface PlatformFormState {
   devinConfig: DevinConfig; setDevinConfig: React.Dispatch<React.SetStateAction<DevinConfig>>;
   manualBudgets: ManualBudget[]; setManualBudgets: React.Dispatch<React.SetStateAction<ManualBudget[]>>;
   breakerFailureThreshold: string; setBreakerFailureThreshold: React.Dispatch<React.SetStateAction<string>>;
-  breakerOpenSecs: string; setBreakerOpenSecs: React.Dispatch<React.SetStateAction<string>>;
   breakerHalfOpenMax: string; setBreakerHalfOpenMax: React.Dispatch<React.SetStateAction<string>>;
   breakerDefaults: SchedulingBreakerSettings | null;
   timemodels: ReturnType<typeof usePlatformTimeModels>;
@@ -246,7 +245,6 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [manualBudgets, setManualBudgets] = useState<ManualBudget[]>([]);
   // 熔断阈值覆盖（0/空 = 继承全局默认；编辑表单态）。空字符串表示继承。
   const [breakerFailureThreshold, setBreakerFailureThreshold] = useState<string>("");
-  const [breakerOpenSecs, setBreakerOpenSecs] = useState<string>("");
   const [breakerHalfOpenMax, setBreakerHalfOpenMax] = useState<string>("");
   const timemodels = usePlatformTimeModels();
   // mitm_stats（订阅透传 MITM 接入形态标记；仅 claude_code 协议表单暴露 UI）
@@ -370,7 +368,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setPassAuth({ ...DEFAULT_PASSTHROUGH_AUTH });
     setAppbuilderKey(""); setCustomSlotValues({}); setDisabledSlots([]);
     setManualBudgets([]);
-    setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
+    setBreakerFailureThreshold(""); setBreakerHalfOpenMax("");
     timemodels.reset(); setMitmStats(false);
     setAutoGroup(true); setJoinGroupIds([]); setLockedGroupId(null); setExpiresAt(0); setExpiryEnabled(false);
     // 关闭表单时复位「已消费的外部编辑导航 platformId」一次性 ref：否则经 onNavigate 进来的同一
@@ -435,7 +433,6 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     {
       const brk = parsePlatformBreaker(p.extra ?? "");
       setBreakerFailureThreshold(brk.failure_threshold > 0 ? String(brk.failure_threshold) : "");
-      setBreakerOpenSecs(brk.open_secs > 0 ? String(brk.open_secs) : "");
       setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
     }
     timemodels.hydrate(p.extra ?? "");
@@ -483,7 +480,6 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     {
       const brk = parsePlatformBreaker(p.extra ?? "");
       setBreakerFailureThreshold(brk.failure_threshold > 0 ? String(brk.failure_threshold) : "");
-      setBreakerOpenSecs(brk.open_secs > 0 ? String(brk.open_secs) : "");
       setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
     }
     timemodels.hydrate(p.extra ?? "");
@@ -620,7 +616,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setName, setProtocol, setApiKey, setCodingPlan, setModels, setAvailableModels,
     setEndpoints, setManualBudgets, setExtra, setMockConfig, setDevinConfig,
     setQuotaVariantId, setQuotaCustomScript, setQuotaRequires,
-    setBreakerFailureThreshold, setBreakerOpenSecs, setBreakerHalfOpenMax,
+    setBreakerFailureThreshold, setBreakerHalfOpenMax,
     setEditing, setLockedGroupId, setJoinGroupIds,
     setFetchError, setSaveError,
     setShowPaste, setShowForm, setExpiresAt, setExpiryEnabled,
@@ -684,7 +680,6 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     const toBreakerNum = (v: string) => Math.max(0, Math.floor(Number(v) || 0));
     extraPayload = serializePlatformBreaker(extraPayload, {
       failure_threshold: toBreakerNum(breakerFailureThreshold),
-      open_secs: toBreakerNum(breakerOpenSecs),
       half_open_max: toBreakerNum(breakerHalfOpenMax),
     });
     if (timemodels.uaRules.some(r => validateClientUaRule(r))) {
@@ -837,7 +832,6 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     devinConfig, setDevinConfig,
     manualBudgets, setManualBudgets,
     breakerFailureThreshold, setBreakerFailureThreshold,
-    breakerOpenSecs, setBreakerOpenSecs,
     breakerHalfOpenMax, setBreakerHalfOpenMax,
     breakerDefaults,
     timemodels,

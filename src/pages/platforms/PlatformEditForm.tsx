@@ -56,7 +56,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     availableModels, protocol: proto, fetching, fetchError, handleFetchModels, handleFillAll,
     manualBudgets, setManualBudgets,
     breakerDefaults, breakerFailureThreshold, setBreakerFailureThreshold,
-    breakerOpenSecs, setBreakerOpenSecs, breakerHalfOpenMax, setBreakerHalfOpenMax,
+    breakerHalfOpenMax, setBreakerHalfOpenMax,
     timemodels,
     rateLimits, setRateLimits,
     mitmStats, setMitmStats,
@@ -356,7 +356,6 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           <BreakerSection
             defaults={breakerDefaults}
             failure={breakerFailureThreshold} setFailure={setBreakerFailureThreshold}
-            openSecs={breakerOpenSecs} setOpenSecs={setBreakerOpenSecs}
             halfOpenMax={breakerHalfOpenMax} setHalfOpenMax={setBreakerHalfOpenMax}
             t={t}
           />

@@ -15,10 +15,6 @@ default_routing_mode: string,
  */
 breaker_failure_threshold: number, 
 /**
- * 全局默认 Open 持续秒数。
- */
-breaker_open_secs: number, 
-/**
  * 全局默认 HalfOpen 最大探测数。
  */
 breaker_half_open_max: number, 

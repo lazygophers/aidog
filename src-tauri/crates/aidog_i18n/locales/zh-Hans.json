@@ -1557,7 +1557,6 @@
   "platform.breakerHalfOpenMax": "半开探测数",
   "platform.breakerInherit": "继承默认 {{n}}",
   "platform.breakerInheritGeneric": "继承默认",
-  "platform.breakerOpenSecs": "熔断时长(秒)",
   "platform.breakerTitle": "熔断阈值",
   "platform.clientType": "客户端模拟",
   "platform.codingPlanBadge": "Coding Plan",

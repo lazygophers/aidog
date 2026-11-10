@@ -29,7 +29,6 @@ fn platform_payload(name: &str, base_url: &str) -> serde_json::Value {
         "auto_disabled_until": 0,
         "auto_disable_strikes": 0,
         "breaker_failure_threshold": 0,
-        "breaker_open_secs": 0,
         "breaker_half_open_max": 0,
         "est_balance_remaining": 0.0,
         "est_coding_plan": "",

@@ -1557,7 +1557,6 @@
   "platform.breakerHalfOpenMax": "Sondeos semi-abiertos",
   "platform.breakerInherit": "Heredar predeterminado {{n}}",
   "platform.breakerInheritGeneric": "Heredar predeterminado",
-  "platform.breakerOpenSecs": "Duración abierta (s)",
   "platform.breakerTitle": "Cortacircuitos",
   "platform.clientType": "Tipo de cliente",
   "platform.codingPlanBadge": "Coding Plan",

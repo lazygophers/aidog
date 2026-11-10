@@ -76,17 +76,16 @@ describe("parseMockConfig / serializeMockConfig", () => {
 });
 
 describe("parsePlatformBreaker / serializePlatformBreaker", () => {
-  const zero = { failure_threshold: 0, open_secs: 0, half_open_max: 0 };
+  const zero = { failure_threshold: 0, half_open_max: 0 };
   it("zero on blank/invalid/missing", () => {
     expect(parsePlatformBreaker("")).toEqual(zero);
     expect(parsePlatformBreaker("{bad")).toEqual(zero);
     expect(parsePlatformBreaker('{"x":1}')).toEqual(zero);
     expect(parsePlatformBreaker('{"breaker":7}')).toEqual(zero);
   });
-  it("coerces non-number fields to 0", () => {
+  it("coerces non-number fields to 0 and ignores stored open_secs", () => {
     const out = parsePlatformBreaker('{"breaker":{"failure_threshold":"x","open_secs":3}}');
-    expect(out.failure_threshold).toBe(0);
-    expect(out.open_secs).toBe(3);
+    expect(out).toEqual(zero);
   });
   it("removes breaker key when all zero", () => {
     const s = serializePlatformBreaker('{"mock":{}}', zero);
@@ -94,7 +93,7 @@ describe("parsePlatformBreaker / serializePlatformBreaker", () => {
     expect(JSON.parse(s).mock).toBeDefined();
   });
   it("writes breaker when non-zero, rebuilds on invalid/array", () => {
-    const b = { failure_threshold: 5, open_secs: 30, half_open_max: 2 };
+    const b = { failure_threshold: 5, half_open_max: 2 };
     expect(JSON.parse(serializePlatformBreaker("", b)).breaker).toEqual(b);
     expect(JSON.parse(serializePlatformBreaker("bad", b)).breaker).toEqual(b);
     expect(JSON.parse(serializePlatformBreaker("[]", b)).breaker).toEqual(b);

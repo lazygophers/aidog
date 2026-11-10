@@ -1579,7 +1579,6 @@
   "platform.breakerHalfOpenMax": "Sondes semi-ouvertes",
   "platform.breakerInherit": "Hériter du défaut {{n}}",
   "platform.breakerInheritGeneric": "Hériter du défaut",
-  "platform.breakerOpenSecs": "Durée d'ouverture (s)",
   "platform.breakerTitle": "Disjoncteur",
   "platform.clientType": "Type de client",
   "platform.codingPlanBadge": "Coding Plan",

@@ -27,7 +27,6 @@ fn platform_payload(name: &str, base_url: &str) -> serde_json::Value {
         "auto_disabled_until": 0,
         "auto_disable_strikes": 0,
         "breaker_failure_threshold": 0,
-        "breaker_open_secs": 0,
         "breaker_half_open_max": 0,
         "est_balance_remaining": 0.0,
         "est_coding_plan": "",
@@ -45,13 +44,12 @@ fn platform_payload(name: &str, base_url: &str) -> serde_json::Value {
 fn legacy_top_level_breaker_migrates_into_extra() {
     let mut row = platform_payload("Old", "https://a.example.com");
     row["breaker_failure_threshold"] = serde_json::json!(6);
-    row["breaker_open_secs"] = serde_json::json!(180);
     row["breaker_half_open_max"] = serde_json::json!(3);
     let extra = effective_extra_with_breaker(&row);
     let b = crate::gateway::models::parse_breaker(&extra);
     assert_eq!(
-        (b.failure_threshold, b.open_secs, b.half_open_max),
-        (6, 180, 3)
+        (b.failure_threshold, b.half_open_max),
+        (6, 3)
     );
 }
 
@@ -194,7 +192,6 @@ fn new_format_extra_breaker_preserved() {
         "{}",
         &crate::gateway::models::PlatformBreaker {
             failure_threshold: 9,
-            open_secs: 30,
             half_open_max: 1
         },
     ));
@@ -202,8 +199,8 @@ fn new_format_extra_breaker_preserved() {
     let extra = effective_extra_with_breaker(&row);
     let b = crate::gateway::models::parse_breaker(&extra);
     assert_eq!(
-        (b.failure_threshold, b.open_secs, b.half_open_max),
-        (9, 30, 1)
+        (b.failure_threshold, b.half_open_max),
+        (9, 1)
     );
 }
 
@@ -214,14 +211,14 @@ fn new_format_extra_as_object_breaker_preserved() {
     let mut row = platform_payload("ObjExtra", "https://a.example.com");
     // 模拟新导出：extra 是 obj（非 string），含 breaker。
     row["extra"] = serde_json::json!({
-        "breaker": { "failure_threshold": 4, "open_secs": 120, "half_open_max": 2 }
+        "breaker": { "failure_threshold": 4, "half_open_max": 2 }
     });
     // 新格式顶层无 breaker_* 字段 → 全 0。
     let extra = effective_extra_with_breaker(&row);
     let b = crate::gateway::models::parse_breaker(&extra);
     assert_eq!(
-        (b.failure_threshold, b.open_secs, b.half_open_max),
-        (4, 120, 2)
+        (b.failure_threshold, b.half_open_max),
+        (4, 2)
     );
 }
 
@@ -234,8 +231,8 @@ fn new_format_extra_missing_yields_empty() {
     assert!(extra.is_empty(), "缺失 extra 应回空字符串");
     let b = crate::gateway::models::parse_breaker(&extra);
     assert_eq!(
-        (b.failure_threshold, b.open_secs, b.half_open_max),
-        (0, 0, 0)
+        (b.failure_threshold, b.half_open_max),
+        (0, 0)
     );
 }
 

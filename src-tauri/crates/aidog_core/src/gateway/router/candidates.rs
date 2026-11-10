@@ -682,6 +682,7 @@ async fn select_candidates_inner(
         kind,
         &decision_models,
         client,
+        effective_mode,
     );
 
     // ── 阶段 2: 熔断全空回退透传 ──
@@ -1138,7 +1139,7 @@ async fn handle_single_platform(
     let mut routing = single_snapshot(only, group.routing_mode, RouteReason::Selected);
     routing.shortcut = Some(SingleShortcut {
         literal,
-        bypassed: bypassed_states(only, _ctx, now_ms, is_passthrough),
+        bypassed: bypassed_states(only, _ctx, now_ms, is_passthrough, group.routing_mode),
     });
     routing.entries[0].target_model = Some(target_model.clone());
     routing.entries[0].model_chain = full_chain(&target_model, &fallback_models);
@@ -1167,6 +1168,7 @@ fn bypassed_states(
     ctx: Option<&ScheduleCtx<'_>>,
     now_ms: i64,
     is_passthrough: bool,
+    mode: RoutingMode,
 ) -> Vec<ShortcutBypass> {
     let p = &only.platform;
     let mut v = Vec::new();
@@ -1179,7 +1181,7 @@ fn bypassed_states(
     }
     if let (Some(c), false) = (ctx, is_passthrough) {
         if c.settings.enabled
-            && matches!(c.scheduler.breaker_state(p.id), crate::gateway::scheduling::BreakerState::Open { until_ms } if now_ms < until_ms)
+            && c.scheduler.breaker_open(p.id, &BreakerThresholds::resolve(c.settings, p, mode), now_ms)
         {
             v.push(ShortcutBypass::Breaker);
         }
@@ -1339,6 +1341,7 @@ fn select_direct_candidates(
         kind,
         decision_models,
         client,
+        mode,
     );
     active.retain(|gp| in_direct(gp));
     probe.retain(|gp| in_direct(gp));
@@ -1564,6 +1567,7 @@ fn filter_candidates<'a>(
     kind: RequestKind<'_>,
     decision_models: &DecisionModels,
     client: ClientGate,
+    mode: RoutingMode,
 ) -> FilteredCandidates<'a> {
     let mut active = Vec::new();
     let mut probe = Vec::new();
@@ -1677,12 +1681,7 @@ fn filter_candidates<'a>(
         if let Some(c) = ctx
             && breaker_enabled
         {
-            let (ft, os, hom) = c.settings.effective_thresholds(&gp.platform);
-            let th = BreakerThresholds {
-                failure_threshold: ft,
-                open_secs: os,
-                half_open_max: hom,
-            };
+            let th = BreakerThresholds::resolve(c.settings, &gp.platform, mode);
             match c.scheduler.admission(gp.platform.id, &th, now_ms, true) {
                 Admission::Reject => {
                     breaker_rejected.push((gp, auto_state));

@@ -3391,14 +3391,7 @@ async fn send_upstream(
     let req_builder = req_builder.body(req_body_str);
 
     // ── 熔断指标：本次 forward 尝试前在途 +1；解析本平台有效阈值 ──
-    let breaker_th = {
-        let (ft, os, hom) = sched_settings.effective_thresholds(&route.platform);
-        super::scheduling::BreakerThresholds {
-            failure_threshold: ft,
-            open_secs: os,
-            half_open_max: hom,
-        }
-    };
+    let breaker_th = super::scheduling::BreakerThresholds::resolve(sched_settings, &route.platform, group.routing_mode);
     state.scheduler.inc_inflight(route.platform.id);
 
     // ── 发上游 + 同平台瞬时重试 ──

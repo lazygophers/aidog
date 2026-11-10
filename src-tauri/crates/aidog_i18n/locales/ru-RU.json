@@ -1579,7 +1579,6 @@
   "platform.breakerHalfOpenMax": "Полуоткрытые проверки",
   "platform.breakerInherit": "Наследовать по умолчанию {{n}}",
   "platform.breakerInheritGeneric": "Наследовать по умолчанию",
-  "platform.breakerOpenSecs": "Длительность размыкания (с)",
   "platform.breakerTitle": "Предохранитель",
   "platform.clientType": "Тип клиента",
   "platform.codingPlanBadge": "Coding Plan",

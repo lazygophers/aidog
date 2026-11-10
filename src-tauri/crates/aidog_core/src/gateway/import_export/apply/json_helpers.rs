@@ -34,10 +34,6 @@ pub(super) fn json_u32(v: &serde_json::Value, k: &str) -> u32 {
     json_i64(v, k).max(0) as u32
 }
 
-pub(super) fn json_u64(v: &serde_json::Value, k: &str) -> u64 {
-    json_i64(v, k).max(0) as u64
-}
-
 pub(super) fn json_f64(v: &serde_json::Value, k: &str) -> f64 {
     v.get(k).and_then(|x| x.as_f64()).unwrap_or(0.0)
 }

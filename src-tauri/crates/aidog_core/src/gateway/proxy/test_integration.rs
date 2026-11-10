@@ -3,7 +3,7 @@
 //! 覆盖成功转发 / 非 2xx failover / 早退分支（无 group 404 / bad body 400 / 健康端点）。
 
 use super::*;
-use crate::gateway::models::{CreatePlatform, GroupPlatformInput, Protocol};
+use crate::gateway::models::{CreatePlatform, GroupPlatformInput, Protocol, RoutingMode};
 use aidog_db::test_support::test_db;
 use aidog_middleware::MiddlewareEngine;
 use axum::body::Body;
@@ -810,6 +810,61 @@ async fn upstream_401_cools_platform_in_memory() {
         ),
         "auth 冷却到点必须失效"
     );
+}
+
+// ── 票 03：401 / 403 / 402 按请求所在分组的路由模式记账 ──
+
+async fn set_group_routing_mode(state: &Arc<ProxyState>, gk: &str, mode: RoutingMode) {
+    let g = aidog_db::list_groups(&state.db).await.unwrap().into_iter().find(|g| g.group_key == gk).unwrap();
+    aidog_db::update_group(&state.db, aidog_db::models::UpdateGroup {
+        id: g.id, name: None, routing_mode: Some(mode), request_timeout_secs: 0, connect_timeout_secs: 0,
+        source_protocol: None, max_retries: None, model_mappings: g.model_mappings.clone(),
+        env_vars: g.env_vars.clone(), is_default: None,
+    })
+    .await
+    .unwrap();
+    state.db.invalidate_group_details_cache();
+}
+
+/// 单平台组打一次上游状态码（最大尝试 1 次），返回 (连续熔断失败数, 鉴权/余额冷却是否生效, 平台 id)。
+async fn breaker_vs_cooldown(status: u16, mode: RoutingMode) -> (u32, bool, u64) {
+    let upstream = spawn_stub_upstream(status, r#"{"error":{"message":"denied"}}"#).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gk03", &upstream).await;
+    set_group_routing_mode(&state, "gk03", mode).await;
+    set_group_max_attempts(&state, "gk03", 1).await; // 只看单次失败的记账，不叠加尝试轮重试
+    let req = messages_request("gk03", r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#);
+    let _ = handle_proxy(AxumState(state.clone()), req).await;
+    flush_log_queue(&state).await;
+    let pid = aidog_db::list_platforms(&state.db).await.unwrap()[0].id;
+    (state.scheduler.breaker_fails(pid), state.scheduler.auth_cooled(pid, aidog_db::now() + 1000), pid)
+}
+
+#[tokio::test]
+async fn t03_health_aware_401_403_count_into_breaker_not_auth_cooldown() {
+    for status in [401u16, 403] {
+        let (fails, cooled, _) = breaker_vs_cooldown(status, RoutingMode::HealthAware).await;
+        assert_eq!(fails, 1, "{status}：健康感知分组计入熔断");
+        assert!(!cooled, "{status}：健康感知分组不走 5 分钟鉴权冷却");
+    }
+}
+
+#[tokio::test]
+async fn t03_other_modes_401_403_use_fixed_auth_cooldown_not_breaker() {
+    for status in [401u16, 403] {
+        let (fails, cooled, _) = breaker_vs_cooldown(status, RoutingMode::Failover).await;
+        assert_eq!(fails, 0, "{status}：非健康感知分组不计熔断");
+        assert!(cooled, "{status}：非健康感知分组走 5 分钟鉴权冷却");
+    }
+}
+
+#[tokio::test]
+async fn t03_402_balance_cooldown_in_both_modes() {
+    for mode in [RoutingMode::HealthAware, RoutingMode::Failover] {
+        let (fails, cooled, _) = breaker_vs_cooldown(402, mode).await;
+        assert_eq!(fails, 0, "{mode:?}：402 不计熔断");
+        assert!(cooled, "{mode:?}：402 固定 5 分钟冷却");
+    }
 }
 
 #[tokio::test]
@@ -6220,7 +6275,7 @@ async fn registry_code_overloaded_is_service_class_fails_over_without_cooldown()
     assert_eq!(resp.status(), StatusCode::OK, "1305 归 Service，应换平台");
     assert!(!state.scheduler.quota_cooled(first, aidog_db::now() + 1), "1305 不进限频冷却");
     assert!(
-        !matches!(state.scheduler.breaker_state(first), crate::gateway::scheduling::BreakerState::Closed { fails: 0 }),
+        state.scheduler.breaker_fails(first) != 0,
         "1305 计入熔断失败"
     );
 }
@@ -6620,7 +6675,7 @@ async fn ra02_model_failure_leaves_platform_health_untouched() {
     assert_eq!(hit_models(&hits), ["m-a", "m-b"]);
     let p = aidog_db::list_platforms(&state.db).await.unwrap().remove(0);
     assert!(p.last_error.is_empty(), "{:?}", p.last_error);
-    assert!(matches!(state.scheduler.breaker_state(p.id), crate::gateway::scheduling::BreakerState::Closed { fails: 0 }));
+    assert_eq!(state.scheduler.breaker_fails(p.id), 0);
     assert_eq!(state.scheduler.penalty_consecutive(p.id), 0);
 }
 
@@ -6649,8 +6704,14 @@ async fn ra02_state_change_between_attempts_reranks() {
     let app = axum::Router::new().fallback(any(move || {
         let st = st.clone();
         async move {
-            let th = crate::gateway::scheduling::BreakerThresholds { failure_threshold: 1, open_secs: 60, half_open_max: 1 };
-            st.scheduler.record_failure(p2, &th, aidog_db::now());
+            let th = crate::gateway::scheduling::BreakerThresholds { failure_threshold: 1, half_open_max: 1, health_aware: false };
+            // 分组为故障转移、全局阈值默认 5：连记 5 次才踢出（踢出按请求侧阈值现算）。
+            for _ in 0..5 {
+                // 故障转移分组、全局阈值默认 5：连记 5 次才踢出。
+                for _ in 0..5 {
+                    st.scheduler.record_failure(p2, &th, aidog_db::now());
+                }
+            }
             (axum::http::StatusCode::INTERNAL_SERVER_ERROR, [("content-type", "application/json")], E500_PLAIN)
         }
     }));
@@ -6705,8 +6766,14 @@ async fn ra03_aux_state_change_between_attempts_reranks() {
         let app = axum::Router::new().fallback(any(move || {
             let st = st.clone();
             async move {
-                let th = crate::gateway::scheduling::BreakerThresholds { failure_threshold: 1, open_secs: 60, half_open_max: 1 };
-                st.scheduler.record_failure(p2, &th, aidog_db::now());
+                let th = crate::gateway::scheduling::BreakerThresholds { failure_threshold: 1, half_open_max: 1, health_aware: false };
+                // 分组为故障转移、全局阈值默认 5：连记 5 次才踢出（踢出按请求侧阈值现算）。
+            for _ in 0..5 {
+                // 故障转移分组、全局阈值默认 5：连记 5 次才踢出。
+                for _ in 0..5 {
+                    st.scheduler.record_failure(p2, &th, aidog_db::now());
+                }
+            }
                 (axum::http::StatusCode::INTERNAL_SERVER_ERROR, [("content-type", "application/json")], E500_PLAIN)
             }
         }));
@@ -6759,7 +6826,7 @@ async fn ra03_aux_service_excludes_platform_model_switches_same_platform() {
         let plats = aidog_db::list_platforms(&state.db).await.unwrap();
         let pb = plats.iter().find(|p| p.id == p2).unwrap();
         assert!(pb.last_error.is_empty(), "{kind:?}: 模型类不写 last_error: {:?}", pb.last_error);
-        assert!(matches!(state.scheduler.breaker_state(p2), crate::gateway::scheduling::BreakerState::Closed { fails: 0 }), "{kind:?}");
+        assert_eq!(state.scheduler.breaker_fails(p2), 0, "{kind:?}");
     }
 }
 

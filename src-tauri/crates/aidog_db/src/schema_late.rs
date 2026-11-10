@@ -1029,13 +1029,12 @@ ALTER TABLE "group_new" RENAME TO "group";
             })?;
             mapped.filter_map(Result::ok).collect()
         };
-        for (id, extra, ft, os, hom) in rows {
-            if ft == 0 && os == 0 && hom == 0 {
+        for (id, extra, ft, _os, hom) in rows {
+            if ft == 0 && hom == 0 {
                 continue;
             }
             let breaker = crate::models::PlatformBreaker {
                 failure_threshold: ft.max(0) as u32,
-                open_secs: os.max(0) as u64,
                 half_open_max: hom.max(0) as u32,
             };
             let new_extra = crate::models::merge_breaker_into_extra(&extra, &breaker);
@@ -1281,6 +1280,16 @@ ALTER TABLE "group_new" RENAME TO "group";
     // （幂等：已存在时报错忽略，与上方各 `let _ =` ALTER 同 idiom）。
     let _ = conn.execute(
         "ALTER TABLE platform_health_state ADD COLUMN balance_cooldown_until_ms INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
+    // Migration 20261110-14（路由-尝试轮与熔断退避 票 03）：熔断按时间翻倍所需的连续失败次数与
+    // 最近失败时刻（准入按请求分组模式现算；原 breaker_until_ms 退为仅展示）。幂等同上。
+    let _ = conn.execute(
+        "ALTER TABLE platform_health_state ADD COLUMN breaker_fails INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE platform_health_state ADD COLUMN breaker_last_fail_ms INTEGER NOT NULL DEFAULT 0",
         [],
     );
     // Migration 20261105-02（额度用完排除）：真查判定冷却拆独立列，与 429 冷却分开记。

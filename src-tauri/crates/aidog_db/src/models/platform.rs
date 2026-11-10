@@ -423,14 +423,12 @@ pub struct Platform {
 
 /// 平台级熔断阈值覆盖，存于 `platform.extra` JSON 的嵌套对象 `breaker`。
 /// 每字段 0/缺省 = 继承全局 `SchedulingBreakerSettings` 默认（语义同旧顶层列）。
+/// 旧版的 `open_secs`（熔断时长）已删：存量值被 serde 忽略，下次写回 extra 时落盘即丢。
 #[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct PlatformBreaker {
     #[serde(default)]
     pub failure_threshold: u32,
-    #[serde(default)]
-    #[ts(type = "number")]
-    pub open_secs: u64,
     #[serde(default)]
     pub half_open_max: u32,
 }
@@ -560,14 +558,14 @@ impl PlatformExtra {
 }
 
 /// 把 breaker 阈值合并进 `extra` JSON 的 `breaker` 键（保留 extra 其余字段）。
-/// 三值全 0 时移除 `breaker` 键（无覆盖 → 继承全局，不留空对象）。空 extra → "{}" 起步。
+/// 两值全 0 时移除 `breaker` 键（无覆盖 → 继承全局，不留空对象）。空 extra → "{}" 起步。
 pub fn merge_breaker_into_extra(extra: &str, b: &PlatformBreaker) -> String {
     let mut root = serde_json::from_str::<serde_json::Value>(extra.trim())
         .ok()
         .filter(|v| v.is_object())
         .unwrap_or_else(|| serde_json::json!({}));
     let obj = root.as_object_mut().expect("object");
-    if b.failure_threshold == 0 && b.open_secs == 0 && b.half_open_max == 0 {
+    if b.failure_threshold == 0 && b.half_open_max == 0 {
         obj.remove("breaker");
     } else {
         obj.insert(
@@ -996,7 +994,6 @@ mod tests {
     fn parse_breaker_empty_returns_default() {
         let b = parse_breaker("");
         assert_eq!(b.failure_threshold, 0);
-        assert_eq!(b.open_secs, 0);
         assert_eq!(b.half_open_max, 0);
     }
 
@@ -1005,7 +1002,6 @@ mod tests {
         let extra = r#"{"breaker":{"failure_threshold":5,"open_secs":30,"half_open_max":2}}"#;
         let b = parse_breaker(extra);
         assert_eq!(b.failure_threshold, 5);
-        assert_eq!(b.open_secs, 30);
         assert_eq!(b.half_open_max, 2);
     }
 
@@ -1071,7 +1067,6 @@ mod tests {
         let extra = r#"{"proxy_enabled":true,"breaker":{"failure_threshold":3}}"#;
         let b = PlatformBreaker {
             failure_threshold: 0,
-            open_secs: 0,
             half_open_max: 0,
         };
         let out = merge_breaker_into_extra(extra, &b);
@@ -1091,20 +1086,18 @@ mod tests {
     fn merge_breaker_nonzero_inserts_breaker() {
         let b = PlatformBreaker {
             failure_threshold: 3,
-            open_secs: 60,
             half_open_max: 1,
         };
         let out = merge_breaker_into_extra("{}", &b);
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
         assert_eq!(v["breaker"]["failure_threshold"], 3);
-        assert_eq!(v["breaker"]["open_secs"], 60);
+        assert!(v["breaker"].get("open_secs").is_none());
     }
 
     #[test]
     fn merge_breaker_empty_extra_starts_empty_object() {
         let b = PlatformBreaker {
             failure_threshold: 1,
-            open_secs: 10,
             half_open_max: 0,
         };
         let out = merge_breaker_into_extra("", &b);

@@ -371,7 +371,7 @@ export function serializeMockConfig(extra: string, mock: MockConfig): string {
 
 
 export function parsePlatformBreaker(extra: string): PlatformBreaker {
-  const zero: PlatformBreaker = { failure_threshold: 0, open_secs: 0, half_open_max: 0 };
+  const zero: PlatformBreaker = { failure_threshold: 0, half_open_max: 0 };
   if (!extra.trim()) return zero;
   try {
     const parsed: unknown = JSON.parse(extra);
@@ -381,7 +381,6 @@ export function parsePlatformBreaker(extra: string): PlatformBreaker {
         const o = b as Record<string, unknown>;
         return {
           failure_threshold: typeof o.failure_threshold === "number" ? o.failure_threshold : 0,
-          open_secs: typeof o.open_secs === "number" ? o.open_secs : 0,
           half_open_max: typeof o.half_open_max === "number" ? o.half_open_max : 0,
         };
       }
@@ -392,7 +391,7 @@ export function parsePlatformBreaker(extra: string): PlatformBreaker {
   return zero;
 }
 
-/** 把 breaker 覆盖写回 extra JSON（保留其余键）。三值全 0 → 移除 breaker 键（无覆盖=继承全局）。 */
+/** 把 breaker 覆盖写回 extra JSON（保留其余键）。两值全 0 → 移除 breaker 键（无覆盖=继承全局）。 */
 
 
 export function serializePlatformBreaker(extra: string, b: PlatformBreaker): string {
@@ -407,7 +406,7 @@ export function serializePlatformBreaker(extra: string, b: PlatformBreaker): str
       /* 非法 JSON → 重建 */
     }
   }
-  if (b.failure_threshold === 0 && b.open_secs === 0 && b.half_open_max === 0) {
+  if (b.failure_threshold === 0 && b.half_open_max === 0) {
     delete obj.breaker;
   } else {
     obj.breaker = b;

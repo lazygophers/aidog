@@ -195,10 +195,6 @@ pub struct SchedulingBreakerSettings {
     /// 全局默认熔断失败阈值（连续失败达此数 → Open）。
     #[serde(default = "default_breaker_failure_threshold")]
     pub breaker_failure_threshold: u32,
-    /// 全局默认 Open 持续秒数。
-    #[serde(default = "default_breaker_open_secs")]
-    #[ts(type = "number")]
-    pub breaker_open_secs: u64,
     /// 全局默认 HalfOpen 最大探测数。
     #[serde(default = "default_breaker_half_open_max")]
     pub breaker_half_open_max: u32,
@@ -217,9 +213,6 @@ fn default_routing_mode_str() -> String {
 fn default_breaker_failure_threshold() -> u32 {
     5
 }
-fn default_breaker_open_secs() -> u64 {
-    60
-}
 fn default_breaker_half_open_max() -> u32 {
     2
 }
@@ -229,7 +222,6 @@ impl Default for SchedulingBreakerSettings {
         Self {
             default_routing_mode: default_routing_mode_str(),
             breaker_failure_threshold: default_breaker_failure_threshold(),
-            breaker_open_secs: default_breaker_open_secs(),
             breaker_half_open_max: default_breaker_half_open_max(),
             enabled: true,
             cache_affinity: false,
@@ -239,25 +231,20 @@ impl Default for SchedulingBreakerSettings {
 
 impl SchedulingBreakerSettings {
     /// 解析某平台的有效熔断阈值：平台字段非 0 用之，否则全局默认。
-    /// 返回 (failure_threshold, open_secs, half_open_max)。
-    pub fn effective_thresholds(&self, platform: &Platform) -> (u32, u64, u32) {
+    /// 返回 (failure_threshold, half_open_max)。熔断时长不再可配：健康感知按时间翻倍，其余写死 60 秒。
+    pub fn effective_thresholds(&self, platform: &Platform) -> (u32, u32) {
         let b = platform.breaker();
         let ft = if b.failure_threshold > 0 {
             b.failure_threshold
         } else {
             self.breaker_failure_threshold
         };
-        let os = if b.open_secs > 0 {
-            b.open_secs
-        } else {
-            self.breaker_open_secs
-        };
         let hom = if b.half_open_max > 0 {
             b.half_open_max
         } else {
             self.breaker_half_open_max
         };
-        (ft.max(1), os.max(1), hom.max(1))
+        (ft.max(1), hom.max(1))
     }
 
     /// 全局默认调度策略解析为 RoutingMode（GB 创建 Group 时取初值）。

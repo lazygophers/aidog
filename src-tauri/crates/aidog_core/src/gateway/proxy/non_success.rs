@@ -25,7 +25,7 @@ fn mark_exclusion(attempts: &mut [ProxyAttempt], class: UpstreamErrorClass) {
     }
 }
 
-/// 上游返回非 2xx 时的处理：记录 attempt、熔断计数（仅 429-限流）、401/402 auth 冷却、
+/// 上游返回非 2xx 时的处理：记录 attempt、熔断计数（429-限流；401/403 仅健康感知分组）、402 与非健康感知分组 401/403 的 auth 冷却、
 /// 中间件 error_rule 分类、决策 A 硬错圈定，决定 failover(Next) 还是返回客户端(Respond)。
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn handle_non_success(
@@ -170,12 +170,16 @@ pub(crate) async fn handle_non_success(
     let censorship_blocked = is_censorship_blocked(&body);
 
     // ── 熔断计数（2026-09-15 用户裁决：网络类故障不降权）：仅 429-限流（状态码 + 响应体
-    //    解析出的平台主动限流）计一次失败；5xx / 网络错误 / 空响应 / 401 / 402 / 其他客户端
-    //    4xx 一律不计（仅 inflight-1，不动 EMA，下一轮调度仍优先选择）。──
+    //    解析出的平台主动限流，以及健康感知分组的 401 / 403）计一次失败；5xx / 网络错误 / 空响应 / 402 /
+    //    其他客户端 4xx 一律不计（仅 inflight-1，不动 EMA，下一轮调度仍优先选择）。──
     // 副作用只观测：随下面各记账点收集，最后写回本次 attempt（模型类换模型已在上面提前返回，无副作用）。
     let mut effects: Vec<String> = Vec::new();
+    // 401 / 403 鉴权失败（区域封锁除外）：健康感知分组计入熔断按时间翻倍，其余分组走固定 5 分钟鉴权冷却。
+    let auth_failed = matches!(code, 401 | 403)
+        && !is_region_blocked(extracted_msg.as_deref().unwrap_or(&body));
     if registry_overloaded
         || (code == 429 && !is_429_quota_exhausted && !is_429_per_minute_rate_limit)
+        || (auth_failed && breaker_th.health_aware)
     {
         effects.push("breaker_count".to_string());
         state
@@ -247,8 +251,8 @@ pub(crate) async fn handle_non_success(
     }
 
     // ── 权限/余额冷却（内存固定 5 分钟，2026-09-15 取代旧 DB auto_disabled 指数退避）：
-    //   仅 401 鉴权失败、402 余额不足。403 一律不冷却（区域封锁常返 403，误伤代价高）；
-    //   区域封锁的 401 同样不冷却（is_region_blocked 按 message 文本分类）。不写 DB status：
+    //   402 余额不足（所有分组）与 401 / 403 鉴权失败（仅非健康感知分组；健康感知分组已在上面计入熔断）。
+    //   区域封锁的 401 / 403 不冷却也不计熔断（is_region_blocked 按 message 文本分类）。不写 DB status：
     //   平台 UI 仍是启用态，到点自动回调度；DB 存量 auto_disabled 行照旧按 until 过滤、成功时恢复。──
     if code == 402 {
         effects.push("cooldown_balance".to_string());
@@ -260,7 +264,7 @@ pub(crate) async fn handle_non_success(
             cooldown_ms = super::scheduling::AUTH_COOLDOWN_MS,
             "platform out of scheduling for balance cooldown (memory-only, not disabled)"
         );
-    } else if code == 401 && !is_region_blocked(extracted_msg.as_deref().unwrap_or(&body)) {
+    } else if auth_failed && !breaker_th.health_aware {
         effects.push("cooldown_auth".to_string());
         state
             .scheduler

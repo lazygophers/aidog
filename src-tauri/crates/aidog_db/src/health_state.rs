@@ -10,9 +10,14 @@ use rusqlite::params;
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct PlatformHealthStateRow {
     pub platform_id: i64,
-    /// "open"（熔断打开）| "closed"。HalfOpen 不落盘：重启视作已过期回 Closed。
+    /// "open"（最近一次熔断失败算出了未过期的踢出）| "closed"。仅展示用；准入按 breaker_fails / breaker_last_fail_ms 现算。
     pub breaker_state: String,
+    /// 最近一次计入熔断时算出的踢出截止（仅快照展示；准入按请求分组模式现算，不读它）。
     pub breaker_until_ms: i64,
+    /// 连续熔断失败次数（成功清零；距上次失败超 1 小时自动清零）。
+    pub breaker_fails: i64,
+    /// 最近一次计入熔断的失败时刻（unix ms）。
+    pub breaker_last_fail_ms: i64,
     pub quota_cooldown_until_ms: i64,
     /// 额度真查判定冷却截止（独立于 429 通道 `quota_cooldown_until_ms`；真查只读写自己这份，spec 第 17 条）。
     pub quota_verdict_until_ms: i64,
@@ -36,8 +41,8 @@ pub fn upsert_platform_health_state(
                 "INSERT INTO platform_health_state \
                  (platform_id, breaker_state, breaker_until_ms, quota_cooldown_until_ms, \
                   quota_verdict_until_ms, auth_cooldown_until_ms, balance_cooldown_until_ms, \
-                  last_connect_fail_ms, updated_at) \
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) \
+                  last_connect_fail_ms, updated_at, breaker_fails, breaker_last_fail_ms) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11) \
                  ON CONFLICT(platform_id) DO UPDATE SET \
                  breaker_state = excluded.breaker_state, \
                  breaker_until_ms = excluded.breaker_until_ms, \
@@ -46,7 +51,9 @@ pub fn upsert_platform_health_state(
                  auth_cooldown_until_ms = excluded.auth_cooldown_until_ms, \
                  balance_cooldown_until_ms = excluded.balance_cooldown_until_ms, \
                  last_connect_fail_ms = excluded.last_connect_fail_ms, \
-                 updated_at = excluded.updated_at",
+                 updated_at = excluded.updated_at, \
+                 breaker_fails = excluded.breaker_fails, \
+                 breaker_last_fail_ms = excluded.breaker_last_fail_ms",
                 params![
                     row.platform_id,
                     row.breaker_state,
@@ -56,7 +63,9 @@ pub fn upsert_platform_health_state(
                     row.auth_cooldown_until_ms,
                     row.balance_cooldown_until_ms,
                     row.last_connect_fail_ms,
-                    row.updated_at
+                    row.updated_at,
+                    row.breaker_fails,
+                    row.breaker_last_fail_ms
                 ],
             )?;
             Ok(())
@@ -77,7 +86,7 @@ pub fn load_platform_health_states(
             let mut stmt = conn.prepare(
                 "SELECT platform_id, breaker_state, breaker_until_ms, quota_cooldown_until_ms, \
                  quota_verdict_until_ms, auth_cooldown_until_ms, balance_cooldown_until_ms, \
-                 last_connect_fail_ms, updated_at \
+                 last_connect_fail_ms, updated_at, breaker_fails, breaker_last_fail_ms \
                  FROM platform_health_state",
             )?;
             let rows = stmt.query_map([], |r| {
@@ -91,6 +100,8 @@ pub fn load_platform_health_states(
                     balance_cooldown_until_ms: r.get(6)?,
                     last_connect_fail_ms: r.get(7)?,
                     updated_at: r.get(8)?,
+                    breaker_fails: r.get(9)?,
+                    breaker_last_fail_ms: r.get(10)?,
                 })
             })?;
             Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
