@@ -572,6 +572,7 @@ export const ENV_VAR_DEFS: EnvVarDef[] = [
   { key: "API_FORCE_IDLE_TIMEOUT", label: "API Idle Timeout (ms)", description: "覆盖 5 分钟流式响应空闲中断，0 = 关闭", type: "number", group: "performance" },
   { key: "CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS", label: "Byte Stream Idle Timeout (ms)", description: "字节级流式空闲看门狗超时", type: "number", group: "performance" },
   { key: "CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS", label: "Max Concurrent Subagents", description: "同一会话并发 subagent 上限（默认 20）", type: "number", group: "performance" },
+  { key: "CLAUDE_CODE_SUBAGENT_HARD_CAP", label: "Subagent Hard Cap (hook)", description: "钩子闸门硬并发上限，含 resume 已结束 agent 与 agent teams（默认 2，非法值回落 2）", type: "number", group: "performance" },
   { key: "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH", label: "Max Subagent Spawn Depth", description: "subagent 嵌套层数上限（默认 3）", type: "number", group: "performance" },
   { key: "CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION", label: "Max Subagents Per Session (no-op)", description: "v2.1.224 起为空操作，原为单会话 subagent 总数上限", type: "number", group: "performance" },
   { key: "CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION", label: "Max Web Searches", description: "单会话 WebSearch 调用上限（默认 200）", type: "number", group: "performance" },

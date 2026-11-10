@@ -78,3 +78,11 @@ fn complete_script_forwards_codex_thread_id() {
     assert!(s.contains(r#"get("thread-id")"#));
     assert!(s.contains(r#"vars_map["thread_id"]"#));
 }
+
+#[test]
+fn subagent_cap_script_is_bundled() {
+    let s = build_subagent_cap_script();
+    assert!(s.contains("CLAUDE_CODE_SUBAGENT_HARD_CAP"));
+    assert!(s.contains("--reset"));
+    assert!(s.contains("permissionDecision"));
+}

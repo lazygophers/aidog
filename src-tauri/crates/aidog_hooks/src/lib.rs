@@ -27,7 +27,8 @@ pub use claude_code::{
 pub use codex::{inject_codex_notify, remove_codex_notify};
 pub use scripts::{
     LEGACY_SCRIPT_COMPLETE, LEGACY_SCRIPT_WAITING, SCRIPT_COMPLETE, SCRIPT_EVENT_NOTIFY,
-    ScriptPaths, build_event_notify_script, build_hook_script,
+    SCRIPT_SUBAGENT_CAP, ScriptPaths, build_event_notify_script, build_hook_script,
+    build_subagent_cap_script,
 };
 
 /// hook 客户端类型。
