@@ -926,7 +926,6 @@ fn oss_preset_has_no_personal_items_and_keeps_privacy() {
     for k in [
         "hooks",
         "enabledPlugins",
-        "extraKnownMarketplaces",
         "language",
         "spinnerVerbs",
         "spinnerTipsOverride",
@@ -938,6 +937,11 @@ fn oss_preset_has_no_personal_items_and_keeps_privacy() {
         "effortLevel",
     ] {
         assert!(oss.get(k).is_none(), "oss 不应含 {k}");
+    }
+    // 用户 2026-11 明确加入 cloudflare 市场；仍禁其他个人市场
+    if let Some(m) = oss.get("extraKnownMarketplaces") {
+        let names: Vec<&String> = m.as_object().unwrap().keys().collect();
+        assert_eq!(names, ["cloudflare"], "oss 市场只允许 cloudflare");
     }
     let perms = &oss["permissions"];
     for k in ["defaultMode", "additionalDirectories", "allow"] {
