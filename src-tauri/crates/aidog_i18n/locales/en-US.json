@@ -1557,7 +1557,6 @@
   "platform.breakerHalfOpenMax": "Half-open probes",
   "platform.breakerInherit": "Inherit default {{n}}",
   "platform.breakerInheritGeneric": "Inherit default",
-  "platform.breakerOpenSecs": "Open duration (s)",
   "platform.breakerTitle": "Circuit breaker",
   "platform.clientType": "Client Type",
   "platform.codingPlanBadge": "Coding Plan",

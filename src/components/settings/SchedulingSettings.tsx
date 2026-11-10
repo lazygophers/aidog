@@ -43,7 +43,6 @@ function SchedSectionCard({
 const DEFAULT_SETTINGS: SchedulingBreakerSettings = {
   default_routing_mode: "health_aware",
   breaker_failure_threshold: 5,
-  breaker_open_secs: 60,
   breaker_half_open_max: 2,
   enabled: true,
   cache_affinity: false,
@@ -83,7 +82,7 @@ export function SchedulingSettingsTab() {
   const toggleCacheAffinity = () => persist({ ...settings, cache_affinity: !settings.cache_affinity });
 
   // 数字字段：钳为 ≥ 0 的整数后持久化（空 → 0）。
-  const setNum = (key: "breaker_failure_threshold" | "breaker_open_secs" | "breaker_half_open_max", v: string) =>
+  const setNum = (key: "breaker_failure_threshold" | "breaker_half_open_max", v: string) =>
     persist({ ...settings, [key]: Math.max(0, Math.floor(Number(v) || 0)) });
 
   if (loading) {
@@ -169,12 +168,6 @@ export function SchedulingSettingsTab() {
              type="number" min={0} style={{ width: 140 }}
             value={settings.breaker_failure_threshold}
             onChange={e => setNum("breaker_failure_threshold", e.target.value)}
-          />
-          <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("platform.breakerOpenSecs", "熔断时长(秒)")}</span>
-          <Input
-             type="number" min={0} style={{ width: 140 }}
-            value={settings.breaker_open_secs}
-            onChange={e => setNum("breaker_open_secs", e.target.value)}
           />
           <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("platform.breakerHalfOpenMax", "半开探测数")}</span>
           <Input

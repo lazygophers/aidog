@@ -119,7 +119,7 @@ async fn single_platform_forces_request_when_circuit_broken() {
     let now = db::now();
     let th = BreakerThresholds {
         failure_threshold: 1,
-        open_secs: 1800,
+        health_aware: false,
         half_open_max: 2,
     };
     sched.inc_inflight(p.id);
@@ -130,6 +130,7 @@ async fn single_platform_forces_request_when_circuit_broken() {
     // 总开关开，否则熔断维度不参与
     let settings = SchedulingBreakerSettings {
         enabled: true,
+        breaker_failure_threshold: 1, // 与测试里记失败用的阈值一致：踢出按请求侧阈值现算
         ..Default::default()
     };
     let ctx = ScheduleCtx {
@@ -797,7 +798,7 @@ async fn multi_platform_respects_status_and_falls_back_when_all_broken() {
     let now = db::now();
     let th = BreakerThresholds {
         failure_threshold: 1,
-        open_secs: 1800,
+        health_aware: false,
         half_open_max: 2,
     };
     // 仅 p1 熔断 Open，p2 健康
@@ -807,6 +808,7 @@ async fn multi_platform_respects_status_and_falls_back_when_all_broken() {
     let sticky = StickyTable::new();
     let settings = SchedulingBreakerSettings {
         enabled: true,
+        breaker_failure_threshold: 1, // 与测试里记失败用的阈值一致：踢出按请求侧阈值现算
         ..Default::default()
     };
     let ctx = ScheduleCtx {
@@ -2145,7 +2147,7 @@ async fn passthrough_bypasses_auto_disabled_breaker_and_cooldown() {
     let now = db::now();
     let th = BreakerThresholds {
         failure_threshold: 1,
-        open_secs: 1800,
+        health_aware: false,
         half_open_max: 2,
     };
     sched.inc_inflight(p.id);
@@ -2155,6 +2157,7 @@ async fn passthrough_bypasses_auto_disabled_breaker_and_cooldown() {
     sched.set_quota_cooldown(p.id, now + 3_600_000);
     let settings = SchedulingBreakerSettings {
         enabled: true,
+        breaker_failure_threshold: 1, // 与测试里记失败用的阈值一致：踢出按请求侧阈值现算
         ..Default::default()
     };
     let ctx = ScheduleCtx {
@@ -2341,7 +2344,7 @@ async fn snapshot_labels_breaker_rejected() {
     let now = db::now();
     let th = BreakerThresholds {
         failure_threshold: 1,
-        open_secs: 1800,
+        health_aware: false,
         half_open_max: 2,
     };
     sched.inc_inflight(broken.id);
@@ -2349,6 +2352,7 @@ async fn snapshot_labels_breaker_rejected() {
     let sticky = StickyTable::new();
     let settings = SchedulingBreakerSettings {
         enabled: true,
+        breaker_failure_threshold: 1, // 与测试里记失败用的阈值一致：踢出按请求侧阈值现算
         ..Default::default()
     };
     let ctx = ScheduleCtx {
@@ -3159,7 +3163,7 @@ async fn client_whitelist_not_revived_by_breaker_bypass() {
     let sched = SchedulerState::new();
     let th = BreakerThresholds {
         failure_threshold: 1,
-        open_secs: 1800,
+        health_aware: false,
         half_open_max: 2,
     };
     sched.inc_inflight(broken.id);
@@ -3167,6 +3171,7 @@ async fn client_whitelist_not_revived_by_breaker_bypass() {
     let sticky = StickyTable::new();
     let settings = SchedulingBreakerSettings {
         enabled: true,
+        breaker_failure_threshold: 1, // 与测试里记失败用的阈值一致：踢出按请求侧阈值现算
         ..Default::default()
     };
     let ctx = ScheduleCtx {
@@ -3434,7 +3439,7 @@ fn model_list_flattens_fallbacks_deduped() {
 fn open_breaker(sched: &SchedulerState, pid: u64, now: i64) {
     let th = BreakerThresholds {
         failure_threshold: 1,
-        open_secs: 1800,
+        health_aware: false,
         half_open_max: 2,
     };
     sched.inc_inflight(pid);
@@ -3453,6 +3458,7 @@ async fn rc01_literal_single_shortcut_lists_bypassed_states() {
     let sticky = StickyTable::new();
     let settings = SchedulingBreakerSettings {
         enabled: true,
+        breaker_failure_threshold: 1, // 与测试里记失败用的阈值一致：踢出按请求侧阈值现算
         ..Default::default()
     };
     let ctx = ScheduleCtx {
@@ -3541,6 +3547,7 @@ async fn rc01_breaker_backfill_tagged() {
     let sticky = StickyTable::new();
     let settings = SchedulingBreakerSettings {
         enabled: true,
+        breaker_failure_threshold: 1, // 与测试里记失败用的阈值一致：踢出按请求侧阈值现算
         ..Default::default()
     };
     let ctx = ScheduleCtx {

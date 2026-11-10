@@ -1579,7 +1579,6 @@
   "platform.breakerHalfOpenMax": "فحوص نصف مفتوحة",
   "platform.breakerInherit": "وراثة الافتراضي {{n}}",
   "platform.breakerInheritGeneric": "وراثة الافتراضي",
-  "platform.breakerOpenSecs": "مدة الفتح (ث)",
   "platform.breakerTitle": "قاطع الدائرة",
   "platform.clientType": "نوع العميل",
   "platform.codingPlanBadge": "Coding Plan",

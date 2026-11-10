@@ -17,6 +17,8 @@ async fn health_state_upsert_load_roundtrip() {
         balance_cooldown_until_ms: 1_650_000,
         last_connect_fail_ms: 1_000_000,
         updated_at: 900_000,
+        breaker_fails: 0,
+        breaker_last_fail_ms: 0,
     };
     upsert_platform_health_state(&db, row.clone())
         .await
