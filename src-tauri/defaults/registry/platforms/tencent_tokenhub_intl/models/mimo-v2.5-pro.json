@@ -1,0 +1,21 @@
+{
+  "last_updated": 1794288536,
+  "supported_protocols": [
+    "openai",
+    "openai_responses",
+    "anthropic"
+  ],
+  "model_id": "mimo-v2.5-pro",
+  "display_name": "MiMo-V2.5-Pro",
+  "canonical_model": "mimo-v2.5-pro",
+  "family": "mimo",
+  "version": "2.5",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.0000031862,
+    "output": 0.0000063724,
+    "cache_read": 2.64e-8
+  }
+}

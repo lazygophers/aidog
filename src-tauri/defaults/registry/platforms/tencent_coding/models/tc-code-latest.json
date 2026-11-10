@@ -1,0 +1,18 @@
+{
+  "last_updated": 1794288536,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "model_id": "tc-code-latest",
+  "display_name": "Auto (tc-code-latest)",
+  "canonical_model": "tc-code-latest",
+  "family": "hunyuan",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 7.2e-8,
+    "output": 7.2e-8
+  }
+}

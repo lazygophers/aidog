@@ -1,0 +1,29 @@
+{
+  "last_updated": 1794288536,
+  "supported_protocols": [
+    "openai",
+    "openai_responses",
+    "anthropic"
+  ],
+  "model_id": "minimax-m2.7",
+  "display_name": "MiniMax-M2.7",
+  "canonical_model": "MiniMax-M2.7",
+  "family": "minimax",
+  "version": "2.7",
+  "thinking_supported": true,
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 204800,
+  "max_output_tokens": 131072,
+  "context_window": 204800,
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000002197,
+    "output": 0.00000879,
+    "cache_read": 4.39e-7
+  }
+}

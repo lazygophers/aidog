@@ -1,0 +1,28 @@
+{
+  "last_updated": 1794288536,
+  "supported_protocols": [
+    "openai",
+    "openai_responses",
+    "anthropic"
+  ],
+  "model_id": "hy3",
+  "display_name": "Hy3",
+  "canonical_model": "hy3",
+  "family": "hunyuan",
+  "version": "3",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 196608,
+  "max_output_tokens": 131072,
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000001,
+    "output": 0.000004,
+    "cache_read": 2.5e-7
+  }
+}
