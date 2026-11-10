@@ -238,7 +238,6 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
   const [todaySeriesModels, setTodaySeriesModels] = useState<StatsSeries[]>([]);
   const [todaySeriesGroups, setTodaySeriesGroups] = useState<StatsSeries[]>([]);
   const [flowRows, setFlowRows] = useState<FlowRow[]>([]);
-  const [flowClass, setFlowClass] = useState("");
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
@@ -288,10 +287,10 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
     setLoading(false);
   }, []);
 
-  // 请求流量卡独立拉取：请求类型过滤器变更只重拉这一路，不牵动 KPI / 趋势。
+  // 请求流量卡独立拉取：只重拉这一路，不牵动 KPI / 趋势。
   const loadFlow = useCallback(
-    () => groupFlowApi.flow("24h", undefined, flowClass || undefined).then(setFlowRows).catch(() => setFlowRows([])),
-    [flowClass],
+    () => groupFlowApi.flow("24h").then(setFlowRows).catch(() => setFlowRows([])),
+    [],
   );
 
   useEffect(() => { load(); }, [load]);
@@ -477,7 +476,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
           className={`reveal${revealFlow.shown ? " in" : ""}`}
           style={{ padding: "14px 16px", borderBottom: `1px solid ${P.line}` }}
         >
-          <HomeFlowCard rows={flowRows} platforms={platforms} ungroupedLabel={ungroupedLabel} loading={loading} requestClass={flowClass} onRequestClassChange={setFlowClass} />
+          <HomeFlowCard rows={flowRows} platforms={platforms} ungroupedLabel={ungroupedLabel} loading={loading} />
         </div>
 
         {/* 3. 维度趋势（home-dim-trend）：2026-09-27 由面板外独立玻璃卡移入面板

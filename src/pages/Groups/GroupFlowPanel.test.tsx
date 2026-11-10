@@ -5,17 +5,6 @@ import { fireEvent } from "@testing-library/react";
 import { render, screen, waitFor } from "../../test/render";
 import type { FlowRow, LatestRouting } from "../../services/api";
 
-// Radix Select 在 jsdom 无法开面板：换成原生 select 壳（同 DisplayCurrencySection.test）。
-vi.mock("@/components/ui/select", () => ({
-  Select: ({ value, onValueChange, children }: { value: string; onValueChange: (v: string) => void; children: React.ReactNode }) => (
-    <select data-testid="request-class-filter" value={value} onChange={(e) => onValueChange(e.target.value)}>{children}</select>
-  ),
-  SelectTrigger: () => null,
-  SelectValue: () => null,
-  SelectContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  SelectItem: ({ value, children }: { value: string; children: React.ReactNode }) => <option value={value}>{children}</option>,
-}));
-
 vi.mock("../../services/api", async () => {
   const actual = await vi.importActual<typeof import("../../services/api")>("../../services/api");
   return {
@@ -32,8 +21,8 @@ import { GroupFlowPanel } from "./GroupFlowPanel";
 import { GroupSidePanels } from "./GroupSidePanels";
 
 const rows: FlowRow[] = [
-  { client: "claude_code", group_key: "gk", req_model: "opus", platform_id: 1, model: "m-a", requests: 10, tokens: 1000, est_cost: 0.1 },
-  { client: "", group_key: "gk", req_model: "opus", platform_id: 2, model: "m-b", requests: 5, tokens: 500, est_cost: 0.5 },
+  { client: "claude_code", group_key: "gk", req_model: "opus", request_class: "main", platform_id: 1, model: "m-a", requests: 10, tokens: 1000, est_cost: 0.1 },
+  { client: "", group_key: "gk", req_model: "opus", request_class: "main", platform_id: 2, model: "m-b", requests: 5, tokens: 500, est_cost: 0.5 },
 ];
 const gps = [
   { platform: { id: 1, platform_type: "glm_coding", status: "enabled" }, priority: 1, weight: 1, level_priority: 8 },
@@ -48,10 +37,10 @@ describe("GroupFlowPanel — 四列流向（请求流向票 04）", () => {
     vi.mocked(groupFlowApi.flow).mockResolvedValue(rows);
     render(<GroupFlowPanel groupKey="gk" gps={gps} />);
     await waitFor(() => expect(document.querySelector('[data-testid="flow-chart"]')).toBeTruthy());
-    for (const k of ["client", "req_model", "platform_id", "model"]) expect(document.querySelector(`[data-testid="flow-col-${k}"]`)).toBeTruthy();
+    for (const k of ["client", "request_class", "req_model", "platform_id", "model"]) expect(document.querySelector(`[data-testid="flow-col-${k}"]`)).toBeTruthy();
     expect(document.querySelector('[data-testid="flow-metric-tokens"]')!.getAttribute("data-state")).toBe("on");
     expect(document.querySelector('[data-testid="flow-node-client-"]')).toBeTruthy();
-    expect(groupFlowApi.flow).toHaveBeenCalledWith("7d", "gk", undefined);
+    expect(groupFlowApi.flow).toHaveBeenCalledWith("today", "gk");
   });
 
   it("度量切换改 data-state 且不重新拉取；窗口切换重新拉取", async () => {
@@ -61,21 +50,18 @@ describe("GroupFlowPanel — 四列流向（请求流向票 04）", () => {
     fireEvent.click(document.querySelector('[data-testid="flow-metric-cost"]')!);
     expect(document.querySelector('[data-testid="flow-metric-cost"]')!.getAttribute("data-state")).toBe("on");
     expect(groupFlowApi.flow).toHaveBeenCalledTimes(1);
-    fireEvent.click(document.querySelector('[data-testid="flow-win-today"]')!);
-    await waitFor(() => expect(groupFlowApi.flow).toHaveBeenLastCalledWith("today", "gk", undefined));
+    fireEvent.click(document.querySelector('[data-testid="flow-win-7d"]')!);
+    await waitFor(() => expect(groupFlowApi.flow).toHaveBeenLastCalledWith("7d", "gk"));
     expect(groupFlowApi.flow).toHaveBeenCalledTimes(2);
   });
 
-  it("请求类型过滤：变更后带类型重新拉取；'all' 回到不带类型", async () => {
+  it("默认窗口今日；请求类型是图的一列而非筛选项", async () => {
     vi.mocked(groupFlowApi.flow).mockResolvedValue(rows);
     render(<GroupFlowPanel groupKey="gk" gps={gps} />);
     await waitFor(() => expect(document.querySelector('[data-testid="flow-chart"]')).toBeTruthy());
-    const sel = document.querySelector('[data-testid="request-class-filter"]') as HTMLSelectElement;
-    expect(sel.value).toBe("all");
-    fireEvent.change(sel, { target: { value: "subagent" } });
-    await waitFor(() => expect(groupFlowApi.flow).toHaveBeenLastCalledWith("7d", "gk", "subagent"));
-    fireEvent.change(sel, { target: { value: "all" } });
-    await waitFor(() => expect(groupFlowApi.flow).toHaveBeenLastCalledWith("7d", "gk", undefined));
+    expect(document.querySelector('[data-testid="flow-win-today"]')!.getAttribute("data-state")).toBe("on");
+    expect(document.querySelector('[data-testid="request-class-filter"]')).toBeNull();
+    expect(document.querySelector('[data-testid="flow-node-request_class-main"]')).toBeTruthy();
   });
 
   it("空数据 → 空态", async () => {

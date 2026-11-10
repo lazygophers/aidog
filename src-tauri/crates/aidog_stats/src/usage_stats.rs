@@ -588,17 +588,15 @@ pub fn get_platform_hourly_rate(
     }
 }
 
-/// 请求流向聚合：窗口内 (client, group_key, req_model, platform_id, model) 六元组的请求数 / token / 费用。
-/// `group_key` 为 None = 首页全局；Some = 仅该分组。`request_class`：None / "" = 全部，"unknown" = 未知（空串列），其余精确匹配。不加 LIMIT（度量与占比由前端算）。
+/// 请求流向聚合：窗口内 (client, group_key, req_model, request_class, platform_id, model) 元组的请求数 / token / 费用。
 /// `group_key` 为 None = 首页全局；Some = 仅该分组。不加 LIMIT（度量与占比由前端算）。
 #[track_caller]
 pub fn stats_flow_breakdown<'a>(
     db: &'a Db,
     window: &'a str,
     group_key: Option<&'a str>,
-    request_class: Option<&'a str>,
 ) -> impl std::future::Future<Output = Result<Vec<aidog_db::models::FlowRow>, String>> + 'a {
-    stats_flow_breakdown_at(db, window, group_key, request_class, chrono::Utc::now().timestamp_millis())
+    stats_flow_breakdown_at(db, window, group_key, chrono::Utc::now().timestamp_millis())
 }
 
 /// `stats_flow_breakdown` 的可注入时钟版本（测试用边界夹具）。
@@ -607,7 +605,6 @@ pub fn stats_flow_breakdown_at<'a>(
     db: &'a Db,
     window: &'a str,
     group_key: Option<&'a str>,
-    request_class: Option<&'a str>,
     now_ms: i64,
 ) -> impl std::future::Future<Output = Result<Vec<aidog_db::models::FlowRow>, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
@@ -621,31 +618,25 @@ pub fn stats_flow_breakdown_at<'a>(
             other => return Err(format!("stats_flow_breakdown: unknown window {other:?}")),
         };
         let group_key = group_key.map(str::to_string);
-        // 请求类型过滤：None / "" = 全部；"unknown" = request_class=''；其余精确匹配。
-        let request_class = match request_class {
-            None | Some("") => None,
-            Some("unknown") => Some(String::new()),
-            Some(c) => Some(c.to_string()),
-        };
         db.call_read_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare_cached(
-                "SELECT client, group_key, req_model, platform_id, model, SUM(request_count), \
+                "SELECT client, group_key, req_model, request_class, platform_id, model, SUM(request_count), \
                         SUM(sum_input_tokens + sum_output_tokens + sum_cache_tokens), SUM(sum_est_cost) \
                  FROM stats_agg_hourly \
                  WHERE time_hour >= ?1 AND time_hour <= ?2 AND deleted_at = 0 AND (?3 IS NULL OR group_key = ?3) \
-                   AND (?4 IS NULL OR request_class = ?4) \
-                 GROUP BY client, group_key, req_model, platform_id, model ORDER BY 6 DESC",
+                 GROUP BY client, group_key, req_model, request_class, platform_id, model ORDER BY 7 DESC",
             )?;
-            let rows = stmt.query_map(params![since, end_key, group_key, request_class], |row| {
+            let rows = stmt.query_map(params![since, end_key, group_key], |row| {
                 Ok(aidog_db::models::FlowRow {
                     client: row.get(0)?,
                     group_key: row.get(1)?,
                     req_model: row.get(2)?,
-                    platform_id: row.get(3)?,
-                    model: row.get(4)?,
-                    requests: row.get(5)?,
-                    tokens: row.get(6)?,
-                    est_cost: row.get(7)?,
+                    request_class: row.get(3)?,
+                    platform_id: row.get(4)?,
+                    model: row.get(5)?,
+                    requests: row.get(6)?,
+                    tokens: row.get(7)?,
+                    est_cost: row.get(8)?,
                 })
             })?;
             Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
