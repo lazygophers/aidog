@@ -54,9 +54,9 @@ type TFn = (k: string, d: string, opts?: Record<string, unknown>) => string;
 export function resolveColor(color: PopoverTrayColor): string {
   if (color.mode === "preset") {
     const map: Record<string, string> = {
-      red: "var(--status-error, var(--color-danger))",
-      green: "var(--status-success, var(--color-success))",
-      orange: "var(--status-warning, var(--color-warning))",
+      red: "var(--color-danger)",
+      green: "var(--color-success)",
+      orange: "var(--color-warning)",
     };
     return map[color.value] || "var(--text-primary)";
   }
@@ -89,8 +89,8 @@ function ProxyStatus({ data }: { data: PopoverData }) {
       <span
         className={`popover-status-dot${data.proxy_running ? " popover-status-dot--pulse" : ""}`}
         style={{
-          background: data.proxy_running ? "var(--status-success, var(--color-success))" : "var(--text-tertiary)",
-          boxShadow: data.proxy_running ? "0 0 8px color-mix(in srgb, var(--status-success, var(--color-success)) 50%, transparent)" : undefined,
+          background: data.proxy_running ? "var(--color-success)" : "var(--text-tertiary)",
+          boxShadow: data.proxy_running ? "0 0 8px color-mix(in srgb, var(--color-success) 50%, transparent)" : undefined,
         }}
       />
       <span className="popover-header-text">

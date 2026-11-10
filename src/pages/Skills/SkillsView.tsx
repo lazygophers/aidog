@@ -542,8 +542,8 @@ function SkillRow({ skill, idx, busyKey, writeReady, selected, onSelect, onToggl
             gap: 6,
             padding: "5px 10px",
             borderRadius: "var(--radius-md)",
-            border: "1px solid var(--border-subtle)",
-            background: "var(--bg-subtle)",
+            border: "1px solid var(--border)",
+            background: "var(--secondary)",
             color: "var(--text-secondary)",
           }}
         >

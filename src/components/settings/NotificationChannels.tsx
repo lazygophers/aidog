@@ -112,7 +112,7 @@ function ChannelCard({ channel, settings, persist, test, setTest }: {
             onChange={v => setCfg(n => { n.channels.email = { ...(n.channels.email ?? { smtp_host: "", smtp_port: 0, username: "", password: "", from: "", to: "" }), to: v }; })} />
         </>)}
       </div>
-      {test.result && <div style={{ fontSize: 11, color: test.result.startsWith("✓") ? "var(--status-ok, #4ade80)" : "var(--status-error, #f87171)" }}>{test.result}</div>}
+      {test.result && <div style={{ fontSize: 11, color: test.result.startsWith("✓") ? "var(--color-success)" : "var(--color-danger)" }}>{test.result}</div>}
     </div>
   );
 }

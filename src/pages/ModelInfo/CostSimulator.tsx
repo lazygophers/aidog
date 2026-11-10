@@ -229,7 +229,7 @@ export function CostSimulator({ groups, labelMap }: {
             style={{
               width: "100%", marginTop: 8, border: "1px solid var(--border)", borderRadius: 7,
               padding: "7px 9px", fontSize: 11, fontFamily: "var(--font-mono, monospace)",
-              background: "var(--bg-card, #fff)", color: "inherit", resize: "vertical",
+              background: "var(--color-card)", color: "inherit", resize: "vertical",
             }}
           />
           <div style={{ marginTop: 8 }}>
@@ -257,7 +257,7 @@ export function CostSimulator({ groups, labelMap }: {
                 className="badge"
                 style={{
                   fontSize: 10, borderRadius: 4, padding: "2px 7px",
-                  background: primaryDto.is_peak ? "rgba(199,126,30,.13)" : "rgba(31,157,97,.12)",
+                  background: primaryDto.is_peak ? "var(--color-warning-bg)" : "var(--color-success-bg)",
                   color: primaryDto.is_peak ? "var(--warning, #C77E1E)" : "var(--success, #1F9D61)",
                 }}
               >
