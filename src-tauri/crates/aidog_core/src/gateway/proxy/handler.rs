@@ -821,14 +821,14 @@ pub(crate) async fn handle_proxy_core(
 
     // 最大尝试次数用尽（换平台与同平台换模型的上游调用都计）/ 无组合可选 → 退出循环落 503
     let web_tool = super::web_takeover::detect(&req_value).filter(|_| matches!(source_protocol, Protocol::Anthropic));
-    while let Some(pick) = attempt_loop.next(&state.db, &group, &sched_ctx, &mut log).await {
+    while let Some(pick) = attempt_loop.next(&state.db, &group, &sched_ctx, &mut log, attempts.len()).await {
         // 网关代执行服务端网页工具：按本次尝试选中的平台判定，官方 Anthropic 原样转发。
         if let Some(wt) = &web_tool
             && super::web_takeover::takes_over(&pick.route.platform.base_url)
         {
             return super::web_takeover::respond(&state, &group, &pick.route.platform.name, wt, &req_value, &requested_model, is_stream).await;
         }
-        let is_last_candidate = !pick.platform_alt || attempt_loop.budget.next_is_last();
+        let is_last_candidate = attempt_loop.budget.next_is_last();
         match forward_attempt(
             &state,
             &mut log,

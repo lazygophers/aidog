@@ -179,6 +179,9 @@ impl CallBudget {
     pub(crate) fn new(max_attempts: u32) -> Self {
         Self { max: (max_attempts as usize).max(1), used: 0 }
     }
+    pub(crate) fn max(&self) -> usize {
+        self.max
+    }
     pub(crate) fn exhausted(&self) -> bool {
         self.used >= self.max
     }

@@ -69,6 +69,20 @@ function renderPanel(detail: ProxyLogDetail | null, setDetail: (d: null) => void
   );
 }
 
+describe("DetailPanel attempt rounds", () => {
+  it("routing.round_starts 把尝试按轮分组：每行带所属轮号", () => {
+    const d = { ...detailFixture([attempt(1, 529), attempt(2, 529), attempt(1, 200)]), routing: { entries: [], round_starts: [2] } } as unknown as ProxyLogDetail;
+    renderPanel(d);
+    const rounds = screen.getAllByTestId("attempt-round").map((el) => el.getAttribute("data-round"));
+    expect(rounds).toEqual(["1", "1", "2"]);
+  });
+
+  it("旧日志（无 round_starts）不渲染轮号", () => {
+    renderPanel(detailFixture([attempt(1, 502), attempt(2, 200)]));
+    expect(screen.queryByTestId("attempt-round")).toBeNull();
+  });
+});
+
 describe("DetailPanel attempts model", () => {
   it("新日志每行展示当次模型", () => {
     renderPanel(detailFixture([attempt(1, 502, "m-a"), attempt(2, 200, "m-b")]));

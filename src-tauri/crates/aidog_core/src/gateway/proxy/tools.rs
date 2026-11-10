@@ -81,14 +81,14 @@ pub(crate) async fn handle_tools(
         10
     };
 
-    while let Some(pick) = attempt_loop.next(&state.db, group, &sched_ctx, log).await {
+    while let Some(pick) = attempt_loop.next(&state.db, group, &sched_ctx, log, attempts.len()).await {
         let attempt_start = std::time::Instant::now();
         let attempt_ts = aidog_db::now();
         let capped = attempt_loop.begin_call(log, &attempts, pick.route.platform.id);
         match tools_attempt(
             state, log, &mut attempts, log_settings, group, &pick.route, bytes, path,
             &proxy_client, req_timeout, conn_timeout, &sched_settings, start, lang,
-            attempt_start, attempt_ts, !pick.platform_alt || capped, pick.candidate_total,
+            attempt_start, attempt_ts, capped, pick.candidate_total,
         )
         .await
         {

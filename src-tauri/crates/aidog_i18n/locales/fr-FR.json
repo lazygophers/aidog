@@ -864,6 +864,7 @@
   "logs.actualModel": "Modèle réel",
   "logs.targetModel": "Modèle cible",
   "logs.attemptCount": "{{n}}",
+  "logs.attemptRound": "Tour {{n}}",
   "logs.routingDecision": "Décision de routage",
   "logs.routing.noSnapshot": "Aucune décision de routage",
   "logs.routing.request": "Requête",
