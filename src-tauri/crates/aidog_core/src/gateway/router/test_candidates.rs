@@ -4853,3 +4853,109 @@ async fn db_set_custom_defs_fast_and_run(never: bool) {
     assert_eq!(ids, vec![p2.id, p3.id], "never={never}");
     assert_eq!(reason_of(&set, p1.id), RouteReason::ModelNotOnPlatform, "never={never}");
 }
+
+// ══ 路由能力判定按生效时段档（票 模型配置-含时段档/02）══
+
+fn tier_rules(h0: i64, h1: i64, models: serde_json::Value) -> Vec<serde_json::Value> {
+    crate::gateway::time_windows::parse_platform_time_windows(
+        &serde_json::json!({"time_windows":[{"windows":[{"start_hour":h0,"end_hour":h1}],"models":models}]})
+            .to_string(),
+    )
+}
+
+/// 固定时刻 2023-11-14 22:13 UTC：22-23 点窗口命中，9-10 点未命中。
+const TIER_NOW: i64 = 1_700_000_000_000;
+
+/// 决策请求：档内读档的 jev 槽（默认没配 jev，档里配了 → 档内可路由；档外照旧不可）。
+#[tokio::test]
+async fn kind_decision_in_tier_uses_tier_jev() {
+    let db = mk_test_db().await;
+    let p = mk_embedding_platform(&db, "p", Protocol::OpenAI, slot_default("gpt")).await;
+    let dm = DecisionModels::default();
+    let jev = serde_json::json!({"jev":["j-night"]});
+    assert!(platform_supports_kind(&p, RequestKind::Decision, &dm, &tier_rules(22, 23, jev.clone()), TIER_NOW), "档内档配 jev");
+    assert!(!platform_supports_kind(&p, RequestKind::Decision, &dm, &tier_rules(9, 10, jev), TIER_NOW), "档外读默认（无 jev）");
+}
+
+/// 决策请求：默认配了 jev、档内档没有 jev → 档内不接决策；档外照旧接。
+#[tokio::test]
+async fn kind_decision_in_tier_without_jev_excludes() {
+    let db = mk_test_db().await;
+    let p = mk_embedding_platform(&db, "p", Protocol::OpenAI, PlatformModels { jev: vec!["j-day".into()], ..Default::default() }).await;
+    let dm = DecisionModels::default();
+    let chat = serde_json::json!({"default":["gpt"]});
+    assert!(!platform_supports_kind(&p, RequestKind::Decision, &dm, &tier_rules(22, 23, chat.clone()), TIER_NOW), "档内档无 jev");
+    assert!(platform_supports_kind(&p, RequestKind::Decision, &dm, &tier_rules(9, 10, chat), TIER_NOW), "档外读默认（有 jev）");
+}
+
+/// 聊天请求：默认只配专用槽（被剔除）、档内档配了聊天槽 → 档内不再剔除；档外照旧剔除。
+#[tokio::test]
+async fn kind_chat_in_tier_with_chat_slot_not_dedicated_only() {
+    let db = mk_test_db().await;
+    let p = mk_embedding_platform(&db, "p", Protocol::OpenAI, slot_embedding("emb")).await;
+    let dm = DecisionModels::default();
+    let chat = serde_json::json!({"default":["gpt"]});
+    assert!(platform_supports_kind(&p, RequestKind::Chat, &dm, &tier_rules(22, 23, chat.clone()), TIER_NOW), "档内档有聊天槽");
+    assert!(!platform_supports_kind(&p, RequestKind::Chat, &dm, &tier_rules(9, 10, chat), TIER_NOW), "档外读默认（纯专用）");
+}
+
+/// 聊天请求：默认有聊天槽、档内档只配专用槽 → 档内被剔除；档外照旧接。
+#[tokio::test]
+async fn kind_chat_in_tier_dedicated_only_excludes() {
+    let db = mk_test_db().await;
+    let p = mk_embedding_platform(&db, "p", Protocol::OpenAI, slot_default("gpt")).await;
+    let dm = DecisionModels::default();
+    let emb = serde_json::json!({"embedding":["emb"]});
+    assert!(!platform_supports_kind(&p, RequestKind::Chat, &dm, &tier_rules(22, 23, emb.clone()), TIER_NOW), "档内档纯专用");
+    assert!(platform_supports_kind(&p, RequestKind::Chat, &dm, &tier_rules(9, 10, emb), TIER_NOW), "档外读默认（有聊天槽）");
+}
+
+/// 单平台组 + 多平台组退化到只剩 1 个可用平台：聊天请求按档判定（all-day 档，不依赖时钟）。
+#[tokio::test]
+async fn route_chat_uses_tier_single_and_degraded_group() {
+    let db = mk_test_db().await;
+    let a = mk_embedding_platform(&db, "a", Protocol::OpenAI, slot_embedding("emb")).await;
+    set_extra(&db, a.id, &all_day_rule(serde_json::json!({"default":["gpt"]}))).await;
+    let single = mk_db_group(&db, "g-single", &[a.id]).await;
+    let set = select_candidates_ctx(&db, &single, "m", None, RequestKind::Chat)
+        .await
+        .expect("单平台组：档内有聊天槽，不剔除");
+    assert_eq!(set.candidates[0].platform.id, a.id);
+
+    let b = mk_embedding_platform(&db, "b", Protocol::OpenAI, slot_embedding("emb-b")).await;
+    let multi = mk_db_group(&db, "g-multi", &[a.id, b.id]).await;
+    let set = select_candidates_ctx(&db, &multi, "m", None, RequestKind::Chat)
+        .await
+        .expect("退化：b 纯专用被剔除，只剩 a");
+    assert_eq!(set.candidates.len(), 1);
+    assert_eq!(set.candidates[0].platform.id, a.id);
+}
+
+/// 单平台组 + 多平台组退化：决策请求按档的 jev 判定；档内档无 jev → no_decision_platform。
+#[tokio::test]
+async fn route_decision_uses_tier_single_and_degraded_group() {
+    let db = mk_test_db().await;
+    let a = mk_embedding_platform(&db, "a", Protocol::OpenAI, slot_default("gpt")).await;
+    set_extra(&db, a.id, &all_day_rule(serde_json::json!({"jev":["j"]}))).await;
+    let single = mk_db_group(&db, "g-single", &[a.id]).await;
+    let set = select_candidates_ctx(&db, &single, "m", None, RequestKind::Decision)
+        .await
+        .expect("单平台组：档内档有 jev");
+    assert_eq!(set.candidates[0].platform.id, a.id);
+
+    let b = mk_embedding_platform(&db, "b", Protocol::OpenAI, slot_default("gpt")).await;
+    let multi = mk_db_group(&db, "g-multi", &[a.id, b.id]).await;
+    let set = select_candidates_ctx(&db, &multi, "m", None, RequestKind::Decision)
+        .await
+        .expect("退化：b 无 jev 被剔除，只剩 a");
+    assert_eq!(set.candidates.len(), 1);
+    assert_eq!(set.candidates[0].platform.id, a.id);
+
+    let c = mk_embedding_platform(&db, "c", Protocol::OpenAI, PlatformModels { jev: vec!["j-day".into()], ..Default::default() }).await;
+    set_extra(&db, c.id, &all_day_rule(serde_json::json!({"default":["gpt"]}))).await;
+    let only_c = mk_db_group(&db, "g-c", &[c.id]).await;
+    let e = select_candidates_ctx(&db, &only_c, "m", None, RequestKind::Decision)
+        .await
+        .expect_err("档内档无 jev");
+    assert_eq!(e, "no_decision_platform");
+}
