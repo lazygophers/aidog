@@ -78,6 +78,9 @@ export function ToolsSection() {
   const [searxBusy, setSearxBusy] = useState(false);
   const [searxError, setSearxError] = useState("");
   const [engines, setEngines] = useState<Record<string, boolean>>(defaultEngineFlags);
+  // 过渡适配（票 02）：UI 仍是「一个 key 服务 + 引擎开关」，读写新形状；其余 key 服务与总开关原样带回，不丢 key。
+  const [services, setServices] = useState<Record<string, { keys: string[] }>>({});
+  const [searchEnabled, setSearchEnabled] = useState(true);
   const [image, setImage] = useState<MediaCfg>(EMPTY_MEDIA);
   const [installing, setInstalling] = useState(false);
   const [installMsg, setInstallMsg] = useState("");
@@ -87,12 +90,21 @@ export function ToolsSection() {
     try {
       const v = await settingsApi.get("mcp_tools", "settings");
       const search = (v?.search ?? {}) as Record<string, any>;
-      // 旧版把 searxng 当 key 服务选；现为引擎，旧值读作「未选」，实例 URL 原样保留。
-      setProvider(typeof search.provider === "string" && search.provider !== "searxng" ? search.provider : "");
-      const saved = (search.engines ?? {}) as Record<string, unknown>;
-      setEngines(Object.fromEntries(SEARCH_ENGINES.map((e) => [e.id, typeof saved[e.id] === "boolean" ? (saved[e.id] as boolean) : e.defaultOn])));
-      setEnabled(search.enabled !== false);
-      setKeysText(Array.isArray(search.keys) ? search.keys.join("\n") : "");
+      const sources: string[] = Array.isArray(search.sources) ? search.sources : [];
+      const svc = (search.services ?? {}) as Record<string, { keys?: string[] }>;
+      const norm: Record<string, { keys: string[] }> = {};
+      for (const [id, c] of Object.entries(svc)) norm[id] = { keys: Array.isArray(c?.keys) ? c.keys : [] };
+      setServices(norm);
+      setSearchEnabled(search.enabled !== false);
+      const listed = PROVIDERS.find((p) => sources.includes(p));
+      const p = listed ?? PROVIDERS.find((id) => (norm[id]?.keys.length ?? 0) > 0) ?? "";
+      setProvider(p);
+      setEnabled(listed !== undefined || p === "");
+      setKeysText(p ? (norm[p]?.keys ?? []).join("\n") : "");
+      // 无 sources（尚未保存过）= 全新安装，引擎取缺省开关（与后端 Default 一致）。
+      setEngines(Array.isArray(search.sources)
+        ? Object.fromEntries(SEARCH_ENGINES.map((e) => [e.id, sources.includes(e.id)]))
+        : defaultEngineFlags());
       setUrlsText(Array.isArray(search.searxng_base_urls) ? search.searxng_base_urls.join("\n") : "");
       setImage(readMedia(v?.image));
       setLoadError("");
@@ -109,11 +121,14 @@ export function ToolsSection() {
     try {
       await settingsApi.set("mcp_tools", "settings", {
         search: {
-          provider,
-          keys: linesOf(keysText),
-          enabled,
+          enabled: searchEnabled,
+          sources: [
+            ...(provider && enabled ? [provider] : []),
+            ...SEARCH_ENGINES.filter((e) => engines[e.id]).map((e) => e.id),
+          ],
+          mode: provider && enabled ? "sequential" : "parallel",
+          services: provider ? { ...services, [provider]: { keys: linesOf(keysText) } } : services,
           searxng_base_urls: linesOf(urlsText),
-          engines,
         },
         ...(hasMedia(image) ? { image } : {}),
       });

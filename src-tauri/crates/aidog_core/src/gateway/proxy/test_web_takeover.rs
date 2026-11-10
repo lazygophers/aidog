@@ -94,9 +94,7 @@ async fn setup(state: &Arc<ProxyState>, upstream: &str) -> (String, String) {
 /// 只开 searxng 引擎、指向假实例（其余免 key 引擎全关，禁真实外呼）。
 async fn use_fake_searx(state: &ProxyState, base: &str) {
     let mut s = McpToolsSettings::default();
-    for e in aidog_search::engines::ENGINES {
-        s.search.engines.insert(e.id.to_string(), e.id == "searxng");
-    }
+    s.search.sources = vec!["searxng".into()];
     s.search.searxng_base_urls = vec![base.to_string()];
     save_mcp_tools_settings(&state.db, &s).await.unwrap();
 }
