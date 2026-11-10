@@ -4,7 +4,11 @@
  * 请求流向聚合行（请求流向票 03）：stats_agg_hourly 按 (client, group_key, req_model, platform_id, model) GROUP BY。
  * 旧数据 client / req_model 为空串，前端显示「未知」。
  */
-export type FlowRow = { client: string, group_key: string, req_model: string, platform_id: number, model: string, requests: number, 
+export type FlowRow = { client: string, group_key: string, req_model: string, 
+/**
+ * Claude Code 请求类型（main / subagent ...）；旧数据为空串。
+ */
+request_class: string, platform_id: number, model: string, requests: number, 
 /**
  * input + output + cache
  */

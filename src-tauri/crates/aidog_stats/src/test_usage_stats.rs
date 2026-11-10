@@ -382,7 +382,7 @@ async fn flow_breakdown_filters_tokens_unknown_and_deleted() {
     // 软删行不计
     put_agg(&db, &t, "claude-code", "g1", "opus", 9, "m9", 99, (1, 1, 1), 9.0, 1).await;
 
-    let all = stats_flow_breakdown_at(&db, "24h", None, None, now).await.unwrap();
+    let all = stats_flow_breakdown_at(&db, "24h", None, now).await.unwrap();
     assert_eq!(all.len(), 4, "{all:?}");
     assert_eq!(all.iter().map(|r| r.requests).sum::<i64>(), 15);
     let cc = all.iter().find(|r| r.client == "claude-code" && r.group_key == "g1").unwrap();
@@ -393,16 +393,16 @@ async fn flow_breakdown_filters_tokens_unknown_and_deleted() {
     assert!(all.iter().all(|r| r.platform_id != 9), "deleted_at!=0 不计入");
     assert!(all.windows(2).all(|w| w[0].requests >= w[1].requests), "按请求数降序");
 
-    let g1 = stats_flow_breakdown_at(&db, "24h", Some("g1"), None, now).await.unwrap();
+    let g1 = stats_flow_breakdown_at(&db, "24h", Some("g1"), now).await.unwrap();
     assert_eq!(g1.len(), 3);
     assert!(g1.iter().all(|r| r.group_key == "g1"));
-    assert!(stats_flow_breakdown_at(&db, "24h", Some("nope"), None, now).await.unwrap().is_empty());
-    assert!(stats_flow_breakdown_at(&db, "bogus", None, None, now).await.is_err());
+    assert!(stats_flow_breakdown_at(&db, "24h", Some("nope"), now).await.unwrap().is_empty());
+    assert!(stats_flow_breakdown_at(&db, "bogus", None, now).await.is_err());
 }
 
-/// 请求类型过滤：None / Some("") = 全部；Some("unknown") = request_class=''；其余精确匹配。
+/// 请求类型是流向图的一个维度：同 (client, group, req_model, platform, model) 下按 request_class 分行，''= 未知。
 #[tokio::test]
-async fn flow_breakdown_filters_by_request_class() {
+async fn flow_breakdown_splits_by_request_class() {
     let (db, _dir) = three_file_db().await;
     let now = flow_now();
     let t = utc_ms_to_local_hour_key(now - 3_600_000);
@@ -419,17 +419,10 @@ async fn flow_breakdown_filters_by_request_class() {
         .await
         .unwrap();
     }
-    let total = |rows: Vec<aidog_db::models::FlowRow>| rows.iter().map(|r| r.requests).sum::<i64>();
-    let q = |c: Option<&'static str>| {
-        let db = &db;
-        async move { stats_flow_breakdown_at(db, "24h", None, c, now).await.unwrap() }
-    };
-    assert_eq!(total(q(None).await), 9, "None = 全部");
-    assert_eq!(total(q(Some("")).await), 9, "空串 = 全部");
-    assert_eq!(total(q(Some("main")).await), 2);
-    assert_eq!(total(q(Some("subagent")).await), 3);
-    assert_eq!(total(q(Some("unknown")).await), 4, "unknown = request_class=''");
-    assert!(q(Some("workflow")).await.is_empty());
+    let rows = stats_flow_breakdown_at(&db, "24h", None, now).await.unwrap();
+    let mut got: Vec<(String, i64)> = rows.iter().map(|r| (r.request_class.clone(), r.requests)).collect();
+    got.sort();
+    assert_eq!(got, vec![("".into(), 4), ("main".into(), 2), ("subagent".into(), 3)]);
 }
 
 #[tokio::test]
@@ -461,7 +454,7 @@ async fn flow_breakdown_window_edges() {
     let labels = |w: &'static str| {
         let db = &db;
         async move {
-            stats_flow_breakdown_at(db, w, None, None, now).await.unwrap().into_iter().map(|r| r.model).collect::<Vec<_>>()
+            stats_flow_breakdown_at(db, w, None, now).await.unwrap().into_iter().map(|r| r.model).collect::<Vec<_>>()
         }
     };
     let has = |v: &[String], s: &str| v.iter().any(|x| x == s);
@@ -490,7 +483,7 @@ async fn flow_breakdown_window_edges() {
     };
     let trend = query_stats(&db, &q).await.unwrap();
     let trend_total: i64 = trend.buckets.iter().map(|b| b.total_requests as i64).sum();
-    let flow_total: i64 = stats_flow_breakdown_at(&db, "24h", None, None, now).await.unwrap().iter().map(|r| r.requests).sum();
+    let flow_total: i64 = stats_flow_breakdown_at(&db, "24h", None, now).await.unwrap().iter().map(|r| r.requests).sum();
     assert_eq!(flow_total, trend_total);
     assert!(flow_total > 0);
 }
@@ -527,7 +520,7 @@ async fn flow_breakdown_7d_scale_guard() {
     .await
     .unwrap();
     let t0 = std::time::Instant::now();
-    let rows = stats_flow_breakdown_at(&db, "7d", None, None, now).await.unwrap();
+    let rows = stats_flow_breakdown_at(&db, "7d", None, now).await.unwrap();
     let el = t0.elapsed();
     println!("flow 7d scale: {n_rows} agg rows -> {} flow rows in {el:?}", rows.len());
     assert_eq!(rows.len(), 20 * 3 * 3, "六元组基数不随小时数膨胀");

@@ -11,9 +11,9 @@ export const groupFlowApi = {
   /** 近 7 天按日 × 平台用量（详情页右栏趋势卡 + 今日请求数）。 */
   daily: (groupKey: string) =>
     invoke<GroupDailyBreakdown[]>("group_daily_usage", { groupKey }),
-  /** 请求流向聚合（client/group/请求模型/平台/实际模型 六元组）。groupKey 缺省 = 首页全局；requestClass 缺省/空 = 全部，"unknown" = 未知。 */
-  flow: (window: "24h" | "today" | "7d", groupKey?: string, requestClass?: string) =>
-    invoke<FlowRow[]>("stats_flow_breakdown", { window, groupKey, requestClass }),
+  /** 请求流向聚合（client/group/请求模型/平台/实际模型 元组（含请求类型））。groupKey 缺省 = 首页全局。 */
+  flow: (window: "24h" | "today" | "7d", groupKey?: string) =>
+    invoke<FlowRow[]>("stats_flow_breakdown", { window, groupKey }),
 };
 
 export const groupUsageApi = {

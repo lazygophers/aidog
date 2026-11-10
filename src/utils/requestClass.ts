@@ -8,11 +8,6 @@ const FALLBACK: Record<string, string> = {
   side_reply: "旁路回复",
 };
 
-export const REQUEST_CLASSES = Object.keys(FALLBACK);
-
-/** 过滤器里「未知（request_class=''）」的取值；与后端 `stats_flow_breakdown` 约定一致。 */
-export const REQUEST_CLASS_UNKNOWN = "unknown";
-
 /** 请求类型显示名：已知值走词表，未知值原样展示，空串 -> "-"。 */
 export function requestClassLabel(t: (key: string, fallback: string) => string, v: string): string {
   if (!v) return "-";

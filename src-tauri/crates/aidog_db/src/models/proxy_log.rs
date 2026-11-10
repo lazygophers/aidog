@@ -500,6 +500,8 @@ pub struct FlowRow {
     pub client: String,
     pub group_key: String,
     pub req_model: String,
+    /// Claude Code 请求类型（main / subagent ...）；旧数据为空串。
+    pub request_class: String,
     #[ts(type = "number")]
     pub platform_id: i64,
     pub model: String,
