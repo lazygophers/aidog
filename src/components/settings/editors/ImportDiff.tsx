@@ -123,6 +123,25 @@ function isCcRuntimeIgnored(path: string): boolean {
 }
 
 /**
+ * Claude Code Global config 段（preset 顶层可选键）。同步时写入 `~/.claude.json`
+ * （`sync_settings.rs::merge_claude_json`），是用户可见变更而非内部状态，
+ * 推荐配置 diff 按段内子键照常对比（2026-11-10 用户报 copyOnSelect 变更不展示）。
+ * 其余 `_aidog_*` 键（statusline / hooks 开关等草稿态）仍按内部键跳过。
+ */
+export const CLAUDE_JSON_KEY = "_aidog_claude_json";
+
+/**
+ * 取出 `_aidog_*` 内部键（diff 树不展示它们，推荐配置应用时无条件带上）。
+ * `_aidog_claude_json` 例外：已进 diff 树随勾选走 applySelectedPaths，
+ * 不再无条件合并（自 Settings.tsx 外迁，纯函数便于单测）。
+ */
+export function pickAidogKeys(source: Record<string, any>): Record<string, any> {
+  return Object.fromEntries(
+    Object.entries(source).filter(([k]) => k.startsWith("_aidog_") && k !== CLAUDE_JSON_KEY),
+  );
+}
+
+/**
  * Build the diff tree between `current` config and `incoming` source.
  * Skips internal `_aidog_` keys. Object top-level keys expand to child entries.
  *
@@ -144,7 +163,9 @@ export function buildImportDiffTree(
   const nodes: DiffNode[] = [];
   const keys = new Set([...Object.keys(current), ...Object.keys(incoming)]);
   for (const key of keys) {
-    if (key.startsWith("_aidog_")) continue;
+    // `_aidog_claude_json` 仅推荐路径（skipRuntimeIgnore=true）入树；导入路径（用户
+    // settings.json）不该出现它，出现也按内部键跳过。
+    if (key.startsWith("_aidog_") && !(skipRuntimeIgnore && key === CLAUDE_JSON_KEY)) continue;
     const cur = current[key];
     const inc = incoming[key];
     if (JSON.stringify(cur) === JSON.stringify(inc)) continue;
@@ -195,7 +216,8 @@ export function buildImportDiffTree(
  * 区别是推荐路径不做 aidog managed 过滤（推荐值本就是 aidog 自己的默认）、
  * 也不做 CC runtime 过滤（defaults/settings/oss.json 是 aidog 单一事实源，新增 key
  * 如 hooks / language / 未来的键都要如实对比，2026-10-19 用户拍板：
- * 除 `_aidog_*` 内部键外全部对比）。
+ * 除 `_aidog_*` 内部键外全部对比；`_aidog_claude_json` 段写 ~/.claude.json 属
+ * 用户可见变更，例外入树）。
  * 推荐配置里没有、当前配置里有的键（含 statusLine 等物化残留）照常列为
  * 「删除」项，由用户逐项决定——删除后 Rust sync 仍会按 `_aidog_*` 重新物化。
  */
