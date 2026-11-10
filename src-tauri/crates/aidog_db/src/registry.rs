@@ -243,7 +243,7 @@ pub fn endpoints_in(
 
 // ── 限频策略（platform.json 顶层 `rate_limit_policies` / `rate_limit_error_codes`）──────────
 
-/// 一组上限：三项均 `None` = 不限（骨架策略）。平台级 / 模型级 / 时段窗口共用。
+/// 一组上限：三项均 `None` = 不限（骨架策略）。平台级 / 规则共用。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct RateLimitCaps {
     #[serde(default)]
@@ -256,14 +256,21 @@ pub struct RateLimitCaps {
     // u32 上限 4.29e9 装不下（2026-11-09 registry 数据补齐轮）。
 }
 
-/// 分时段上限（形状同 peak 窗口，`end_hour` 可到 24）；命中时数字覆盖策略本体同名字段。
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RateLimitWindow {
-    pub start_hour: u8,
-    pub end_hour: u8,
-    #[serde(default)]
+/// 一条限频规则（与运行时 `extra.rate_limits.rules[]` 同形，导入不转换）：至少一个条件
+/// （`models` 非空，或带时段字段），没填的上限 = 不限。条件由 `check-registry` lint 保证。
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct RateLimitRule {
+    /// 模型名精确值，或 `前缀*` 通配；每个模型各自计数。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub models: Vec<String>,
+    /// 时段字段形状同 peak 窗口（`end_hour` 可到 24）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_hour: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_hour: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timezone: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub days_of_week: Option<Vec<u8>>,
     #[serde(flatten)]
     pub caps: RateLimitCaps,
@@ -275,12 +282,11 @@ pub struct RateLimitPolicy {
     pub id: String,
     pub label: String,
     pub source_url: String,
+    /// 平台级上限（不带条件）。
     #[serde(flatten)]
     pub caps: RateLimitCaps,
     #[serde(default)]
-    pub models: BTreeMap<String, RateLimitCaps>,
-    #[serde(default)]
-    pub windows: Vec<RateLimitWindow>,
+    pub rules: Vec<RateLimitRule>,
 }
 
 /// 从任意一篇 presets 文档取某协议顶层字段 `key` 并反序列化；缺失 → `Absent`，损坏 → `Corrupt`（已记 error）。

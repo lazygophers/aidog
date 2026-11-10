@@ -46,10 +46,14 @@ const policy = (over = {}) => ({
   concurrency: 5,
   rpm: 60,
   tpm: 100000,
-  models: { "glm-4-plus": { concurrency: 20 } },
-  windows: [{ start_hour: 0, end_hour: 8, timezone: "Asia/Shanghai", days_of_week: [1, 2], concurrency: 10 }],
+  rules: [
+    { models: ["glm-4-plus"], concurrency: 20 },
+    { start_hour: 0, end_hour: 8, timezone: "Asia/Shanghai", days_of_week: [1, 2], concurrency: 10 },
+    { models: ["glm-4-plus"], start_hour: 9, end_hour: 18, rpm: 5 },
+  ],
   ...over,
 });
+const rules = (...rs) => policy({ rules: rs });
 const withPolicies = (...ps) => (d) => { d.rate_limit_policies = ps; };
 const bad = (mutate, re) => {
   const r = run(mutate);
@@ -57,7 +61,7 @@ const bad = (mutate, re) => {
   assert.match(r.out, re);
 };
 
-test("合法策略（全字段）与骨架策略（仅 id/label/source_url）通过", () => {
+test("合法策略（全字段 + 三类规则）与骨架策略（仅 id/label/source_url）通过", () => {
   const r = run(withPolicies(policy(), { id: "skeleton", label: "S", source_url: "https://docs.z.ai/x" }));
   assert.equal(r.code, 0, r.out);
 });
@@ -71,23 +75,41 @@ test("数字非正整数硬错（0 / 负数 / 小数 / 字符串）", () => {
 test("策略 id 重复硬错", () => {
   bad(withPolicies(policy(), policy()), /id 重复/);
 });
-test("windows 小时越界硬错", () => {
-  bad(withPolicies(policy({ windows: [{ start_hour: 24, end_hour: 8 }] })), /start_hour/);
-  bad(withPolicies(policy({ windows: [{ start_hour: 0, end_hour: 25 }] })), /end_hour/);
-  bad(withPolicies(policy({ windows: [{ start_hour: 0, end_hour: -1 }] })), /end_hour/);
+test("旧键 models（对象）/ windows 不再合法", () => {
+  bad(withPolicies(policy({ models: { "glm-4-plus": { concurrency: 1 } } })), /rate_limit_policies.*additional properties/);
+  bad(withPolicies(policy({ windows: [{ start_hour: 0, end_hour: 8 }] })), /rate_limit_policies.*additional properties/);
 });
-test("windows end_hour=24（当日结束）合法", () => {
-  const r = run(withPolicies(policy({ windows: [{ start_hour: 0, end_hour: 24 }] })));
+test("规则没有任何条件硬错（无 models、无时段）", () => {
+  bad(withPolicies(rules({ rpm: 5 })), /至少一个条件/);
+  bad(withPolicies(rules({ models: [], rpm: 5 })), /至少一个条件|models/);
+});
+test("规则时段小时越界硬错", () => {
+  bad(withPolicies(rules({ start_hour: 24, end_hour: 8 })), /start_hour/);
+  bad(withPolicies(rules({ start_hour: 0, end_hour: 25 })), /end_hour/);
+  bad(withPolicies(rules({ start_hour: 0, end_hour: -1 })), /end_hour/);
+});
+test("规则 start_hour / end_hour 不成对硬错", () => {
+  bad(withPolicies(rules({ start_hour: 1 })), /成对/);
+  bad(withPolicies(rules({ end_hour: 8 })), /成对/);
+});
+test("规则 end_hour=24（当日结束）合法；只选星期合法", () => {
+  const r = run(withPolicies(rules({ start_hour: 0, end_hour: 24 }, { days_of_week: [0, 6], rpm: 1 })));
   assert.equal(r.code, 0, r.out);
 });
-test("windows days_of_week 越界硬错", () => {
-  bad(withPolicies(policy({ windows: [{ start_hour: 0, end_hour: 8, days_of_week: [7] }] })), /days_of_week/);
+test("规则 days_of_week 越界硬错", () => {
+  bad(withPolicies(rules({ start_hour: 0, end_hour: 8, days_of_week: [7] })), /days_of_week/);
 });
-test("windows timezone 非法 IANA 硬错", () => {
-  bad(withPolicies(policy({ windows: [{ start_hour: 0, end_hour: 8, timezone: "Mars/Base" }] })), /timezone/);
+test("规则 timezone 非法 IANA 硬错", () => {
+  bad(withPolicies(rules({ start_hour: 0, end_hour: 8, timezone: "Mars/Base" })), /timezone/);
 });
-test("模型级键不在 models 目录硬错", () => {
-  bad(withPolicies(policy({ models: { "zz-not-a-model": { concurrency: 1 } } })), /不在 models 目录/);
+test("规则 models 项不在 models 目录硬错", () => {
+  bad(withPolicies(rules({ models: ["zz-not-a-model"], concurrency: 1 })), /不在 models 目录/);
+});
+test("规则 models 通配 prefix* 命中至少一个模型合法，零命中 / 单星号硬错", () => {
+  const ok = run(withPolicies(rules({ models: ["glm-4*"], concurrency: 1 })));
+  assert.equal(ok.code, 0, ok.out);
+  bad(withPolicies(rules({ models: ["zz-nothing*"], concurrency: 1 })), /通配.*零命中|不在 models 目录/);
+  bad(withPolicies(rules({ models: ["*"], concurrency: 1 })), /通配/);
 });
 test("error_codes 值不在词表硬错", () => {
   bad((d) => { d.rate_limit_error_codes = { "1302": "banana" }; }, /rate_limit_error_codes/);

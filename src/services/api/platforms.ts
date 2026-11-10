@@ -985,12 +985,29 @@ export interface RateLimitWindow {
   tpm?: number;
 }
 
-/** 平台级限频（extra.rate_limits）。models 键缺省回落平台级。 */
+/** 限频规则（extra.rate_limits.rules[] / registry rate_limit_policies[].rules[] 同形）：
+ *  至少一个条件（models 非空，或带时段字段）；没填的上限 = 不限。 */
+export interface RateLimitRule {
+  /** 模型名精确值或 `前缀*` 通配；每个模型各自计数。 */
+  models?: string[];
+  start_hour?: number;
+  end_hour?: number;
+  days_of_week?: number[];
+  timezone?: string;
+  concurrency?: number;
+  rpm?: number;
+  tpm?: number;
+}
+
+/** 平台级限频（extra.rate_limits）：顶层三项 = 平台级上限，rules = 带条件的规则。 */
 export interface RateLimitsConfig {
   concurrency?: number;
   rpm?: number;
   tpm?: number;
+  rules?: RateLimitRule[];
+  /** @deprecated 旧形状，运行时已不读（启动迁移已转 rules）；表单改造（票 03）后删除。 */
   models?: Record<string, RateLimitModelOverride>;
+  /** @deprecated 同上。 */
   windows?: RateLimitWindow[];
   /** 导入自 registry 内置策略时记录的来源策略 id（网关只透传不读）。 */
   source_policy_id?: string;

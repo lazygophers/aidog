@@ -55,15 +55,15 @@ yarn check:registry
 
 platform.json 顶层两个可选字段，语义：
 
-- `rate_limit_policies[]`：官方限频档位列表（如智谱用户并发权益 V0~V3，每项一个档位）。每项必带 `id`（平台内唯一，**发布后禁改名**：用户导入的副本靠它关联来源策略）、`label`（单字符串不译）、`source_url`（官方 https 出处）。可选数字 `concurrency`（在途请求数）/ `rpm` / `tpm`，全为正整数，省略 = 不限；`models.<model_id>` 给模型级上限（**键必须是该平台 `models/` 目录里存在的 model_id**）；`windows[]` 分时段上限（形状同 `peak` 窗口：start_hour / end_hour / days_of_week / timezone，end_hour 0~24（24 = 当日结束，与 peak 不同；start_hour 仍 0~23），first-match；命中窗口的数字覆盖策略本体同名字段）。
+- `rate_limit_policies[]`：官方限频档位列表（如智谱用户并发权益 V0~V3，每项一个档位）。每项必带 `id`（平台内唯一，**发布后禁改名**：用户导入的副本靠它关联来源策略）、`label`（单字符串不译）、`source_url`（官方 https 出处）。可选数字 `concurrency`（在途请求数）/ `rpm` / `tpm`，全为正整数，省略 = 不限（平台级上限，不带条件）；`rules[]` 限频规则，形状与运行时 `extra.rate_limits.rules[]` 完全相同，**导入时直接拷贝、不转换**。每条规则**至少一个条件**：`models`（非空数组）和 / 或时段字段（`start_hour` / `end_hour` 成对，`end_hour` 0~24（24 = 当日结束，与 peak 不同；`start_hour` 仍 0~23）；`days_of_week`、`timezone` 可选）；再填 `concurrency` / `rpm` / `tpm`，规则里没填的项在它生效期间不限（不沿用平台级）。`models` 每项必须是该平台 `models/` 目录里存在的 model_id，或 `前缀*` 通配（前缀非空、仅末尾一个 `*`、至少命中一个模型；运行时 `m.strip_suffix('*')` + `starts_with`）；多个模型各自计数。语义：只选时段 = 时段内整套替换平台级；选了模型 = 管该模型（模型 + 时段命中优先于只选模型）；同类规则时间重叠按列表顺序取第一条。旧键 `models`（对象）/ `windows` 已删，schema 拒收。
 - `rate_limit_error_codes`：上游响应体业务错误码 → 语义。键为纯数字码字符串，值词表 `rate_limit`（按每分钟限频冷却）/ `overloaded`（按服务类错误换平台）。词表在 schema enum 与 check-registry `RATE_LIMIT_CODE_VOCAB` 各一份（对称）。
 
 规范：
 
-1. **只填官方公开数值，禁推测、禁社区旁证、禁按相邻模型推算**。官方没有数的模型不写（模型级无键 = 不限，不是 0）。
+1. **只填官方公开数值，禁推测、禁社区旁证、禁按相邻模型推算**。官方没有数的模型不写（没有对应规则 = 不限，不是 0）。
 2. **骨架策略合法**：只有 `id` / `label` / `source_url`、数字全省略，表示「官方未公开 / 不限」（如各 coding 套餐，只公布档位高低无数值）。
 3. 与数据库 `platform.rate_limit` 列（上游响应头余量快照）无关，术语见根 `GLOSSARY.md`「限频策略」「限频快照」。
-4. 硬错由 `node scripts/check-registry.mjs` 报：缺 `source_url`、数字非正整数、`id` 重复、`windows` 小时 / 星期 / timezone 非法、模型级键不在 models 目录、错误码键非纯数字或值不在词表。每条有坏样本测试：`yarn test:registry-ratelimit`。
+4. 硬错由 `node scripts/check-registry.mjs` 报：缺 `source_url`、数字非正整数、`id` 重复、旧键 `models` / `windows`、规则无任何条件、`start_hour` / `end_hour` 不成对或越界、`days_of_week` 越界、`timezone` 非法、规则 `models` 项不在 models 目录（通配零命中同）、错误码键非纯数字或值不在词表。每条有坏样本测试：`yarn test:registry-ratelimit`。
 
 ## 目录结构约定
 

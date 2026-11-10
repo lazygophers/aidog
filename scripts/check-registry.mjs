@@ -214,7 +214,8 @@ for (const entry of indexDoc.platforms) {
     }
   }
   // 限频策略语义校验（形状由 schema 管；这里管 schema 表达不了的 + 与词表对称）：
-  // id 平台内唯一、windows.timezone 合法 IANA、模型级键须在本平台 models 目录、错误码语义词表。
+  // id 平台内唯一、规则至少一个条件、start/end_hour 成对、timezone 合法 IANA、
+  // 规则 models 项须在本平台 models 目录（或 `前缀*` 通配且至少命中一个）、错误码语义词表。
   {
     const relP = `platforms/${code}/platform.json`;
     const seenIds = new Set();
@@ -222,14 +223,25 @@ for (const entry of indexDoc.platforms) {
       const at = `rate_limit_policies[${i}]`;
       if (seenIds.has(p?.id)) failures.push([relP, `${at}.id 重复: ${p.id}`]);
       seenIds.add(p?.id);
-      for (const m of Object.keys(p?.models ?? {})) {
-        if (!idSet.has(m)) failures.push([relP, `${at}.models 键 ${m} 不在 models 目录`]);
-      }
-      for (const w of p?.windows ?? []) {
-        if (w?.timezone === undefined) continue;
-        try { new Intl.DateTimeFormat("en-US", { timeZone: w.timezone }); }
-        catch { failures.push([relP, `${at}.windows timezone 不是合法 IANA 名: ${w.timezone}`]); }
-      }
+      (p?.rules ?? []).forEach((r, j) => {
+        const rat = `${at}.rules[${j}]`;
+        const models = Array.isArray(r?.models) ? r.models : [];
+        const hasTime = r?.start_hour !== undefined || r?.end_hour !== undefined || r?.days_of_week !== undefined;
+        if (models.length === 0 && !hasTime) failures.push([relP, `${rat} 至少一个条件（models 非空，或带 start_hour/end_hour/days_of_week）`]);
+        if ((r?.start_hour === undefined) !== (r?.end_hour === undefined)) failures.push([relP, `${rat} start_hour / end_hour 须成对出现`]);
+        for (const m of models) {
+          if (typeof m !== "string") continue;
+          if (m.endsWith("*")) {
+            const prefix = m.slice(0, -1);
+            if (prefix === "" || prefix.includes("*")) failures.push([relP, `${rat}.models 通配只允许 \`前缀*\`（前缀非空、仅末尾一个 *）: ${m}`]);
+            else if (![...idSet].some((id) => id.startsWith(prefix))) failures.push([relP, `${rat}.models 通配 ${m} 零命中（models 目录无此前缀的模型）`]);
+          } else if (!idSet.has(m)) failures.push([relP, `${rat}.models 项 ${m} 不在 models 目录`]);
+        }
+        if (r?.timezone !== undefined) {
+          try { new Intl.DateTimeFormat("en-US", { timeZone: r.timezone }); }
+          catch { failures.push([relP, `${rat} timezone 不是合法 IANA 名: ${r.timezone}`]); }
+        }
+      });
     });
     for (const [k, v] of Object.entries(platformDoc.rate_limit_error_codes ?? {})) {
       if (!RATE_LIMIT_CODE_VOCAB.has(v)) failures.push([relP, `rate_limit_error_codes[${k}] 码义词表外: ${v}`]);

@@ -325,53 +325,34 @@
             "minimum": 1,
             "description": "【可选】平台级每分钟 token 数上限；省略 = 不限。"
           },
-          "models": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "concurrency": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "description": "【可选】该模型并发上限。"
-                },
-                "rpm": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "description": "【可选】该模型每分钟请求数上限。"
-                },
-                "tpm": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "description": "【可选】该模型每分钟 token 数上限。"
-                }
-              }
-            },
-            "description": "【可选】模型级上限；键必须是该平台 models/ 目录里存在的 model_id（由 check-registry lint 校验）。"
-          },
-          "windows": {
+          "rules": {
             "type": "array",
             "minItems": 1,
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": [
-                "start_hour",
-                "end_hour"
-              ],
               "properties": {
+                "models": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": "【可选】条件之一：限定模型（实际发往上游的模型名）。每项是该平台 models/ 目录里存在的 model_id，或 `前缀*` 通配（至少命中一个模型，由 check-registry lint 校验）；多个模型各自计数。"
+                },
                 "start_hour": {
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 23,
-                  "description": "【必填】窗口起始小时（窗口时区本地，0-23；跨天窗口 end < start）。"
+                  "description": "【可选】条件之二：时段起始小时（时段时区本地，0-23；跨天 end < start）。与 end_hour 成对出现（lint 校验）。"
                 },
                 "end_hour": {
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 24,
-                  "description": "【必填】窗口结束小时（窗口时区本地，0-24，24 = 当日结束；起始小时仍 0-23）。"
+                  "description": "【可选】时段结束小时（时段时区本地，0-24，24 = 当日结束）。与 start_hour 成对出现。"
                 },
                 "timezone": {
                   "type": "string",
@@ -386,26 +367,26 @@
                     "minimum": 0,
                     "maximum": 6
                   },
-                  "description": "【可选】窗口限定星期（窗口时区本地，0=周日 … 6=周六）；缺省 = 每天。"
+                  "description": "【可选】限定星期（时段时区本地，0=周日 … 6=周六）；缺省 = 每天。单独出现也算一个时段条件。"
                 },
                 "concurrency": {
                   "type": "integer",
                   "minimum": 1,
-                  "description": "【可选】窗口内覆盖策略本体的并发上限。"
+                  "description": "【可选】规则命中时的并发上限；没填的项在规则生效期间不限（不沿用平台级）。"
                 },
                 "rpm": {
                   "type": "integer",
                   "minimum": 1,
-                  "description": "【可选】窗口内覆盖策略本体的 RPM。"
+                  "description": "【可选】规则命中时的 RPM；没填 = 不限。"
                 },
                 "tpm": {
                   "type": "integer",
                   "minimum": 1,
-                  "description": "【可选】窗口内覆盖策略本体的 TPM。"
+                  "description": "【可选】规则命中时的 TPM；没填 = 不限。"
                 }
               }
             },
-            "description": "【可选】分时段上限（形状同 peak 窗口；first-match wins；命中窗口的数字覆盖策略本体同名字段，未写的沿用本体）。"
+            "description": "【可选】限频规则列表（顺序有意义：同类规则时间重叠时取第一条）。每条至少一个条件——`models` 非空，或带时段字段（start_hour/end_hour/days_of_week）——否则 lint 硬错。只选时段 = 时段内整套替换平台级上限；选了模型 = 管该模型。与运行时 `extra.rate_limits.rules` 同形，导入不转换。"
           }
         }
       },

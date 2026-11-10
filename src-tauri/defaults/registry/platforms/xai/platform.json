@@ -4,274 +4,244 @@
       "id": "tier0",
       "label": "Tier 0（累计消费 $0 默认，按模型 RPS/TPM；rpm=RPS×48 官方换算）",
       "source_url": "https://docs.x.ai/developers/rate-limits",
-      "models": {
-        "grok-4.7": {
+      "rules": [
+        {
+          "models": [
+            "grok-4.7",
+            "grok-4.6",
+            "grok-4.5"
+          ],
           "rpm": 7200,
           "tpm": 50000000
         },
-        "grok-4.6": {
-          "rpm": 7200,
-          "tpm": 50000000
-        },
-        "grok-4.5": {
-          "rpm": 7200,
-          "tpm": 50000000
-        },
-        "grok-4.3": {
+        {
+          "models": [
+            "grok-4.3",
+            "grok-4.20-0309-reasoning",
+            "grok-4.20-0309-non-reasoning",
+            "grok-build-0.1"
+          ],
           "rpm": 1776,
           "tpm": 10000000
         },
-        "grok-4.20-0309-reasoning": {
-          "rpm": 1776,
-          "tpm": 10000000
-        },
-        "grok-4.20-0309-non-reasoning": {
-          "rpm": 1776,
-          "tpm": 10000000
-        },
-        "grok-build-0.1": {
-          "rpm": 1776,
-          "tpm": 10000000
-        },
-        "grok-4.20-multi-agent-0309": {
+        {
+          "models": [
+            "grok-4.20-multi-agent-0309"
+          ],
           "rpm": 432,
           "tpm": 2500000
         },
-        "grok-imagine-image": {
+        {
+          "models": [
+            "grok-imagine-image",
+            "grok-imagine-image-2.0"
+          ],
           "rpm": 288
         },
-        "grok-imagine-image-2.0": {
-          "rpm": 288
-        },
-        "grok-imagine-video": {
-          "rpm": 480
-        },
-        "grok-imagine-video-1.5-lite": {
-          "rpm": 480
-        },
-        "grok-imagine-video-1.5": {
+        {
+          "models": [
+            "grok-imagine-video",
+            "grok-imagine-video-1.5-lite",
+            "grok-imagine-video-1.5"
+          ],
           "rpm": 480
         }
-      }
+      ]
     },
     {
       "id": "tier1",
       "label": "Tier 1（累计消费 $50，按模型 RPS/TPM；rpm=RPS×48 官方换算）",
       "source_url": "https://docs.x.ai/developers/rate-limits",
-      "models": {
-        "grok-4.7": {
+      "rules": [
+        {
+          "models": [
+            "grok-4.7",
+            "grok-4.6",
+            "grok-4.5"
+          ],
           "rpm": 8256,
           "tpm": 53000000
         },
-        "grok-4.6": {
-          "rpm": 8256,
-          "tpm": 53000000
-        },
-        "grok-4.5": {
-          "rpm": 8256,
-          "tpm": 53000000
-        },
-        "grok-4.3": {
+        {
+          "models": [
+            "grok-4.3",
+            "grok-4.20-0309-reasoning",
+            "grok-4.20-0309-non-reasoning",
+            "grok-build-0.1"
+          ],
           "rpm": 2400,
           "tpm": 15000000
         },
-        "grok-4.20-0309-reasoning": {
-          "rpm": 2400,
-          "tpm": 15000000
-        },
-        "grok-4.20-0309-non-reasoning": {
-          "rpm": 2400,
-          "tpm": 15000000
-        },
-        "grok-build-0.1": {
-          "rpm": 2400,
-          "tpm": 15000000
-        },
-        "grok-4.20-multi-agent-0309": {
+        {
+          "models": [
+            "grok-4.20-multi-agent-0309"
+          ],
           "rpm": 576,
           "tpm": 3700000
         },
-        "grok-imagine-image": {
+        {
+          "models": [
+            "grok-imagine-image",
+            "grok-imagine-image-2.0"
+          ],
           "rpm": 576
         },
-        "grok-imagine-image-2.0": {
-          "rpm": 576
-        },
-        "grok-imagine-video": {
-          "rpm": 960
-        },
-        "grok-imagine-video-1.5-lite": {
-          "rpm": 960
-        },
-        "grok-imagine-video-1.5": {
+        {
+          "models": [
+            "grok-imagine-video",
+            "grok-imagine-video-1.5-lite",
+            "grok-imagine-video-1.5"
+          ],
           "rpm": 960
         }
-      }
+      ]
     },
     {
       "id": "tier2",
       "label": "Tier 2（累计消费 $250，按模型 RPS/TPM；rpm=RPS×48 官方换算）",
       "source_url": "https://docs.x.ai/developers/rate-limits",
-      "models": {
-        "grok-4.7": {
+      "rules": [
+        {
+          "models": [
+            "grok-4.7",
+            "grok-4.6",
+            "grok-4.5"
+          ],
           "rpm": 9984,
           "tpm": 60000000
         },
-        "grok-4.6": {
-          "rpm": 9984,
-          "tpm": 60000000
-        },
-        "grok-4.5": {
-          "rpm": 9984,
-          "tpm": 60000000
-        },
-        "grok-4.3": {
+        {
+          "models": [
+            "grok-4.3",
+            "grok-4.20-0309-reasoning",
+            "grok-4.20-0309-non-reasoning",
+            "grok-build-0.1"
+          ],
           "rpm": 3600,
           "tpm": 25000000
         },
-        "grok-4.20-0309-reasoning": {
-          "rpm": 3600,
-          "tpm": 25000000
-        },
-        "grok-4.20-0309-non-reasoning": {
-          "rpm": 3600,
-          "tpm": 25000000
-        },
-        "grok-build-0.1": {
-          "rpm": 3600,
-          "tpm": 25000000
-        },
-        "grok-4.20-multi-agent-0309": {
+        {
+          "models": [
+            "grok-4.20-multi-agent-0309"
+          ],
           "rpm": 864,
           "tpm": 6200000
         },
-        "grok-imagine-image": {
+        {
+          "models": [
+            "grok-imagine-image",
+            "grok-imagine-image-2.0"
+          ],
           "rpm": 1200
         },
-        "grok-imagine-image-2.0": {
-          "rpm": 1200
-        },
-        "grok-imagine-video": {
-          "rpm": 1872
-        },
-        "grok-imagine-video-1.5-lite": {
-          "rpm": 1872
-        },
-        "grok-imagine-video-1.5": {
+        {
+          "models": [
+            "grok-imagine-video",
+            "grok-imagine-video-1.5-lite",
+            "grok-imagine-video-1.5"
+          ],
           "rpm": 1872
         }
-      }
+      ]
     },
     {
       "id": "tier3",
       "label": "Tier 3（累计消费 $1,000，按模型 RPS/TPM；rpm=RPS×48 官方换算）",
       "source_url": "https://docs.x.ai/developers/rate-limits",
-      "models": {
-        "grok-4.7": {
+      "rules": [
+        {
+          "models": [
+            "grok-4.7",
+            "grok-4.6",
+            "grok-4.5"
+          ],
           "rpm": 14976,
           "tpm": 74000000
         },
-        "grok-4.6": {
-          "rpm": 14976,
-          "tpm": 74000000
-        },
-        "grok-4.5": {
-          "rpm": 14976,
-          "tpm": 74000000
-        },
-        "grok-4.3": {
+        {
+          "models": [
+            "grok-4.3",
+            "grok-4.20-0309-reasoning",
+            "grok-4.20-0309-non-reasoning",
+            "grok-build-0.1"
+          ],
           "rpm": 6000,
           "tpm": 45000000
         },
-        "grok-4.20-0309-reasoning": {
-          "rpm": 6000,
-          "tpm": 45000000
-        },
-        "grok-4.20-0309-non-reasoning": {
-          "rpm": 6000,
-          "tpm": 45000000
-        },
-        "grok-build-0.1": {
-          "rpm": 6000,
-          "tpm": 45000000
-        },
-        "grok-4.20-multi-agent-0309": {
+        {
+          "models": [
+            "grok-4.20-multi-agent-0309"
+          ],
           "rpm": 1488,
           "tpm": 11000000
         },
-        "grok-imagine-image": {
+        {
+          "models": [
+            "grok-imagine-image",
+            "grok-imagine-image-2.0"
+          ],
           "rpm": 2400
         },
-        "grok-imagine-image-2.0": {
-          "rpm": 2400
-        },
-        "grok-imagine-video": {
-          "rpm": 3792
-        },
-        "grok-imagine-video-1.5-lite": {
-          "rpm": 3792
-        },
-        "grok-imagine-video-1.5": {
+        {
+          "models": [
+            "grok-imagine-video",
+            "grok-imagine-video-1.5-lite",
+            "grok-imagine-video-1.5"
+          ],
           "rpm": 3792
         }
-      }
+      ]
     },
     {
       "id": "tier4",
       "label": "Tier 4（累计消费 $5,000，按模型 RPS/TPM；rpm=RPS×48 官方换算）",
       "source_url": "https://docs.x.ai/developers/rate-limits",
-      "models": {
-        "grok-4.7": {
+      "rules": [
+        {
+          "models": [
+            "grok-4.7",
+            "grok-4.6",
+            "grok-4.5"
+          ],
           "rpm": 24000,
           "tpm": 100000000
         },
-        "grok-4.6": {
-          "rpm": 24000,
-          "tpm": 100000000
-        },
-        "grok-4.5": {
-          "rpm": 24000,
-          "tpm": 100000000
-        },
-        "grok-4.3": {
+        {
+          "models": [
+            "grok-4.3",
+            "grok-4.20-0309-reasoning",
+            "grok-4.20-0309-non-reasoning",
+            "grok-build-0.1"
+          ],
           "rpm": 9984,
           "tpm": 85000000
         },
-        "grok-4.20-0309-reasoning": {
-          "rpm": 9984,
-          "tpm": 85000000
-        },
-        "grok-4.20-0309-non-reasoning": {
-          "rpm": 9984,
-          "tpm": 85000000
-        },
-        "grok-build-0.1": {
-          "rpm": 9984,
-          "tpm": 85000000
-        },
-        "grok-4.20-multi-agent-0309": {
+        {
+          "models": [
+            "grok-4.20-multi-agent-0309"
+          ],
           "rpm": 2688,
           "tpm": 21000000
         },
-        "grok-imagine-image": {
+        {
+          "models": [
+            "grok-imagine-image",
+            "grok-imagine-image-2.0"
+          ],
           "rpm": 4800
         },
-        "grok-imagine-image-2.0": {
-          "rpm": 4800
-        },
-        "grok-imagine-video": {
-          "rpm": 7584
-        },
-        "grok-imagine-video-1.5-lite": {
-          "rpm": 7584
-        },
-        "grok-imagine-video-1.5": {
+        {
+          "models": [
+            "grok-imagine-video",
+            "grok-imagine-video-1.5-lite",
+            "grok-imagine-video-1.5"
+          ],
           "rpm": 7584
         }
-      }
+      ]
     }
   ],
-  "last_updated": 1794191265,
+  "last_updated": 1794291601,
   "endpoints": {
     "default": [
       {

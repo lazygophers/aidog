@@ -4,41 +4,44 @@
       "id": "default",
       "label": "Per-model limits, per team (all API keys in a team share): token-priced reasoning models 3,000 RPM / 4,000,000 TPM (contributor variants 150 RPM / 3,000,000 TPM); sam-3.1 3,000 RPM (no TPM); muse-image-1.0 150 RPM; muse-voice-transcribe-1.0 256 concurrent streams + 16,000 streams per hour",
       "source_url": "https://dev.meta.ai/docs/pricing-rate-limits",
-      "models": {
-        "muse-wonder-1.0": {
+      "rules": [
+        {
+          "models": [
+            "muse-wonder-1.0",
+            "muse-spark-1.1",
+            "muse-spark-1.2",
+            "muse-spark-1.3"
+          ],
           "rpm": 3000,
           "tpm": 4000000
         },
-        "muse-spark-1.1": {
-          "rpm": 3000,
-          "tpm": 4000000
-        },
-        "muse-spark-1.2": {
-          "rpm": 3000,
-          "tpm": 4000000
-        },
-        "muse-spark-1.3": {
-          "rpm": 3000,
-          "tpm": 4000000
-        },
-        "muse-spark-1.2-contributor": {
+        {
+          "models": [
+            "muse-spark-1.2-contributor",
+            "muse-spark-1.3-contributor"
+          ],
           "rpm": 150,
           "tpm": 3000000
         },
-        "muse-spark-1.3-contributor": {
-          "rpm": 150,
-          "tpm": 3000000
-        },
-        "sam-3.1": {
+        {
+          "models": [
+            "sam-3.1"
+          ],
           "rpm": 3000
         },
-        "muse-image-1.0": {
+        {
+          "models": [
+            "muse-image-1.0"
+          ],
           "rpm": 150
         },
-        "muse-voice-transcribe-1.0": {
+        {
+          "models": [
+            "muse-voice-transcribe-1.0"
+          ],
           "concurrency": 256
         }
-      }
+      ]
     },
     {
       "id": "background",
@@ -50,7 +53,7 @@
   "rate_limit_error_codes":   {
     "429": "rate_limit"
   },
-  "last_updated": 1794191265,
+  "last_updated": 1794291601,
   "endpoints": {
     "default": [
       {
