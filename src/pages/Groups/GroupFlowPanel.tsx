@@ -1,4 +1,4 @@
-// GroupFlowPanel — 分组页请求流向（请求流向票 04）：客户端 → 请求模型 → 平台 → 实际模型。
+// GroupFlowPanel — 分组页请求流向（请求流向票 04）：客户端 → 请求类型 → 请求模型 → 平台 → 实际模型。
 // 数据源 groupFlowApi.flow（stats_flow_breakdown）；度量切换 / 占比 / Top N 全在 FlowChart 前端算。
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -6,7 +6,7 @@ import { groupFlowApi, type FlowRow, type GroupPlatformDetail } from "../../serv
 import { FlowChart, type FlowMetric } from "../../components/charts/FlowChart";
 import { useDisplayCurrency } from "../../utils/displayCurrency";
 import { clientLabel } from "../../utils/clientLabel";
-import { RequestClassFilter } from "../../components/RequestClassFilter";
+import { requestClassLabel } from "../../utils/requestClass";
 
 type Window = "7d" | "today";
 const METRICS: FlowMetric[] = ["tokens", "requests", "cost"];
@@ -14,26 +14,26 @@ const METRICS: FlowMetric[] = ["tokens", "requests", "cost"];
 export function GroupFlowPanel({ groupKey, gps }: { groupKey: string; gps: GroupPlatformDetail[] }) {
   useDisplayCurrency();
   const { t } = useTranslation();
-  const [win, setWin] = useState<Window>("7d");
+  const [win, setWin] = useState<Window>("today");
   const [metric, setMetric] = useState<FlowMetric>("tokens");
-  const [requestClass, setRequestClass] = useState("");
   const [rows, setRows] = useState<FlowRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    groupFlowApi.flow(win, groupKey, requestClass || undefined)
+    groupFlowApi.flow(win, groupKey)
       .then(r => { if (!cancelled) setRows(r); })
       .catch(() => { if (!cancelled) setRows([]); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [groupKey, win, requestClass]);
+  }, [groupKey, win]);
 
   const columns = useMemo(() => {
     const platName = (id: string) => (id === "0" ? t("flow.platform.none", "未路由") : (gps.find(g => String(g.platform.id) === id)?.platform.platform_type ?? `#${id}`));
     return [
       { key: "client", title: t("flow.col.client", "客户端"), labelOf: (id: string) => clientLabel(t, id) },
+      { key: "request_class", title: t("flow.col.requestClass", "请求类型"), labelOf: (id: string) => (id === "" ? t("flow.requestClass.unknown", "未知") : requestClassLabel(t, id)) },
       { key: "req_model", title: t("flow.col.requestModel", "请求模型") },
       { key: "platform_id", title: t("flow.col.platform", "平台"), labelOf: platName },
       { key: "model", title: t("flow.col.actualModel", "实际模型") },
@@ -49,8 +49,6 @@ export function GroupFlowPanel({ groupKey, gps }: { groupKey: string; gps: Group
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 12.5, fontWeight: 600 }}>{t("group.flow.title", "请求流向")}</span>
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-          <RequestClassFilter value={requestClass} onChange={setRequestClass} />
-          <span style={{ width: 8 }} />
           {(["7d", "today"] as Window[]).map(w => (
             <button key={w} type="button" data-testid={`flow-win-${w}`} data-state={win === w ? "on" : "off"} onClick={() => setWin(w)} style={btn(win === w)}>
               {t(`group.flow.${w}`, w === "7d" ? "近 7 天" : "今天")}
