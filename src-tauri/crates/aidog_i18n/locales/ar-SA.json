@@ -864,6 +864,7 @@
   "logs.actualModel": "النموذج الفعلي",
   "logs.targetModel": "النموذج المستهدف",
   "logs.attemptCount": "{{n}}",
+  "logs.attemptRound": "الجولة {{n}}",
   "logs.routingDecision": "قرار التوجيه",
   "logs.routing.noSnapshot": "لا يوجد سجل توجيه",
   "logs.routing.request": "الطلب",

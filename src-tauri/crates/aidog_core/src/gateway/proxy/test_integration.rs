@@ -4339,12 +4339,14 @@ async fn routing_snapshot_marks_skipped_dead_upstream() {
     .await
     .unwrap();
 
+    set_group_max_attempts(&state, "gkdead", 2).await;
     let req = messages_request(
         "gkdead",
         r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
     );
     let resp = handle_proxy(AxumState(state.clone()), req).await;
-    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
+    // 第 1 轮同站兄弟被判死跳过 → 开第 2 轮清空后再打首平台，次数用尽回最后一次的上游错误（502）
 
     let log = last_log_for(&state, "gkdead").await;
     let rs = log.routing.expect("routing snapshot must be recorded");
@@ -5522,6 +5524,7 @@ async fn chain_exhausted_records_platform_failure_once() {
     let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (404, E404_MODEL), (404, E404_MODEL)]).await;
     let state = make_state(test_db().await).await;
     setup_aux_group(&state, "gkc3", &[(&up, chain_models(&["m-a", "m-b", "m-c"]), Protocol::Anthropic, "p")]).await;
+    set_group_max_attempts(&state, "gkc3", 3).await;
     let resp = chain_send(&state, "gkc3", CHAIN_REQ).await;
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
     assert_eq!(hit_models(&hits), ["m-a", "m-b", "m-c"]);
@@ -5543,13 +5546,14 @@ async fn chain_transport_error_records_chain_stop_service() {
     };
     let state = make_state(test_db().await).await;
     setup_aux_group(&state, "gkc3t", &[(&dead, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+    set_group_max_attempts(&state, "gkc3t", 2).await;
     let resp = chain_send(&state, "gkc3t", CHAIN_REQ).await;
     assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
     let log = last_log_for(&state, "gkc3t").await;
-    let last = log.attempts.last().unwrap();
-    assert_eq!(last.status_code, 0);
-    assert_eq!(last.model.as_deref(), Some("m-a"));
-    assert_eq!(last.chain_stop.as_deref(), Some("service"), "链上 m-b 未尝试，须记终止原因");
+    let first = log.attempts.iter().find(|a| a.kind.is_none()).unwrap(); // 同平台原地重试（kind=retry）不算
+    assert_eq!(first.status_code, 0);
+    assert_eq!(first.model.as_deref(), Some("m-a"));
+    assert_eq!(first.chain_stop.as_deref(), Some("service"), "链上 m-b 未尝试，须记终止原因（尝试轮内尚有次数时）");
 }
 
 /// 链中途成功：失败过的前序模型不留降权（连败为 0）。
@@ -5602,6 +5606,7 @@ async fn chain_unknown_4xx_switches_model_and_model_400_exhausted_fails_over_wit
     let (up3, hits3) = spawn_embedding_upstream(vec![(400, E400_INVALID_MODEL), (400, E400_INVALID_MODEL)]).await;
     let state = make_state(test_db().await).await;
     setup_aux_group(&state, "gkc4c", &[(&up3, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+    set_group_max_attempts(&state, "gkc4c", 2).await;
     assert_eq!(chain_send(&state, "gkc4c", CHAIN_REQ).await.status(), StatusCode::BAD_REQUEST);
     assert_eq!(hit_models(&hits3), ["m-a", "m-b"]);
 }
@@ -5742,6 +5747,7 @@ async fn chain_degenerate_and_literal_single_platform_behave_alike() {
     let (up, hits) = spawn_embedding_upstream(vec![(400, E400_INVALID_MODEL), (400, E400_INVALID_MODEL)]).await;
     let state = make_state(test_db().await).await;
     setup_aux_group(&state, "gkc8a", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "A")]).await;
+    set_group_max_attempts(&state, "gkc8a", 2).await;
     assert_eq!(chain_send(&state, "gkc8a", CHAIN_REQ).await.status(), StatusCode::BAD_REQUEST);
     assert_eq!(hit_models(&hits), ["m-a", "m-b"]);
 
@@ -5758,6 +5764,7 @@ async fn chain_degenerate_and_literal_single_platform_behave_alike() {
         ],
     )
     .await;
+    set_group_max_attempts(&state, "gkc8b", 2).await;
     set_platform_status(&state, "gkc8b-B", aidog_db::models::PlatformStatus::Disabled).await;
     assert_eq!(chain_send(&state, "gkc8b", CHAIN_REQ).await.status(), StatusCode::BAD_REQUEST);
     assert_eq!(hit_models(&hits), ["m-a", "m-b"]);
@@ -5803,6 +5810,7 @@ async fn chain_len1_and_direct_models_do_not_switch_model() {
     let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, ANTHROPIC_OK)]).await;
     let state = make_state(test_db().await).await;
     setup_multi_platform_group(&state, "gkc9b", &[("D", &up, r#"{"direct_models":["claude-x"]}"#)]).await;
+    set_group_max_attempts(&state, "gkc9b", 1).await;
     assert_eq!(chain_send(&state, "gkc9b", CHAIN_REQ).await.status(), StatusCode::NOT_FOUND);
     assert_eq!(hit_models(&hits), ["claude-x"]);
 }
@@ -5908,6 +5916,7 @@ async fn aux_chain_len_one_does_not_switch() {
         let state = make_state(test_db().await).await;
         let gk = format!("gka7l{}", kind as u8);
         setup_aux_chain(&state, &gk, kind, &[(&up, &["m-a"])]).await;
+        set_group_max_attempts(&state, &gk, 1).await;
         let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
         assert_ne!(resp.status(), StatusCode::OK, "{kind:?}");
         assert_eq!(hit_models(&hits), ["m-a"], "{kind:?}");
@@ -6479,7 +6488,7 @@ async fn rc02_model_rate_limit_skip_recorded() {
     assert_eq!(log.attempts[1].model.as_deref(), Some("m-b"));
 }
 
-/// 重排尊重限频：A 的假上游在收到请求时顺手占满 B 的并发位，A 500 后重排挡掉 B，终态 503 + blocked_reason=rate_limit。
+/// 重排尊重限频：A 的假上游在收到请求时顺手占满 B 的并发位，A 500 后重排挡掉 B（不进 begin 失败）；A 被排除后开新一轮再打 A。
 #[tokio::test]
 async fn rc02_platform_rate_limit_skip_recorded() {
     use axum::routing::any;
@@ -6491,6 +6500,7 @@ async fn rc02_platform_rate_limit_skip_recorded() {
         (&up_a, chain_models(&["m-a"]), Protocol::Anthropic, "pa"),
         (&up_b, chain_models(&["m-b1", "m-b2"]), Protocol::Anthropic, "pb"),
     ]).await;
+    set_group_max_attempts(&state, "gkrc02i", 2).await;
     let b_extra = r#"{"rate_limits":{"concurrency":1}}"#;
     set_platform_extra(&state, "gkrc02i-pb", b_extra).await;
     let b_id = platform_id_of(&state, "gkrc02i-pb").await;
@@ -6509,16 +6519,15 @@ async fn rc02_platform_rate_limit_skip_recorded() {
     }));
     tokio::spawn(async move { axum::serve(l, app).await.ok(); });
     let resp = chain_send(&state, "gkrc02i", CHAIN_REQ).await;
-    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR, "尝试轮：A 排除后无可选 → 开第 2 轮再打 A，次数用尽回最后一次的上游错误");
     assert_eq!(held.lock().unwrap().len(), 1, "B 并发位应已被占");
     let log = last_log_for(&state, "gkrc02i").await;
-    // 逐次重算：A 失败后重排时 B 已被并发占满，直接被路由层挡掉（不再进到 begin 失败），
-    // 只留 A 的一条尝试；终态 503 沿用限频审计标记。
-    assert_eq!(log.attempts.len(), 1);
-    assert_eq!(log.attempts[0].status_code, 500);
+    // 逐次重算：每次重排 B 都已被并发占满，直接被路由层挡掉（不再进到 begin 失败）；
+    // 只留 A 的两条尝试（两轮各一次）。
+    assert_eq!(log.attempts.len(), 2);
+    assert!(log.attempts.iter().all(|a| a.status_code == 500 && a.platform_id != b_id));
     assert_eq!(log.attempts[0].exclusion.as_deref(), Some("platform"));
-    assert_ne!(log.attempts[0].platform_id, b_id);
-    assert_eq!(log.blocked_reason, "rate_limit");
+    assert_eq!(log.routing.unwrap().round_starts, Some(Box::new(vec![1])));
 }
 
 // ══ 请求尝试-逐次重算 票 02：每次调用前按当前调度状态重排 + 按错误类排除 ══
@@ -6561,6 +6570,7 @@ async fn ra02_failed_pair_never_repeated() {
         ],
     )
     .await;
+    set_group_max_attempts(&state, "gkra02b", 4).await;
     let resp = chain_send(&state, "gkra02b", CHAIN_REQ).await;
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
     assert_eq!(hit_models(&h1), ["m-a", "m-b"]);
@@ -6584,6 +6594,7 @@ async fn ra02_service_failures_account_once_each() {
         ],
     )
     .await;
+    set_group_max_attempts(&state, "gkra02c", 2).await;
     let _ = chain_send(&state, "gkra02c", CHAIN_REQ).await;
     assert_eq!(hit_models(&h1), ["m-a"]);
     assert_eq!(hit_models(&h2), ["m-c"]);
@@ -7652,6 +7663,7 @@ async fn tool_search_emulation_anthropic_third_party_passthrough() {
     let (upstream, rec) = spawn_recording_upstream(ANTHROPIC_OK).await;
     let state = make_state(test_db().await).await;
     setup_group_with_upstream(&state, "gkts1", &upstream).await;
+    set_group_max_attempts(&state, "gkts1", 1).await;
     for body in [TS_REQ.to_string(), TS_REQ.replacen(r#""max_tokens":8"#, r#""max_tokens":8,"stream":true"#, 1)] {
         let _ = handle_proxy(AxumState(state.clone()), messages_request("gkts1", &body)).await;
     }
@@ -7833,4 +7845,80 @@ async fn ra01_decision_cap_counts_model_switches() {
     let resp = handle_proxy(AxumState(state.clone()), decision_request("gkra4", "whatever")).await;
     assert_ne!(resp.status(), StatusCode::OK);
     assert_eq!(hits.lock().unwrap().len(), 2);
+}
+
+// ══ 尝试轮：候选全排除且次数没用完 → 等 1 秒（测试注入 0）清空失败排除从头再来 ══
+
+const E529: &str = r#"{"error":{"message":"overloaded"}}"#;
+const E400_PLAIN: &str = r#"{"error":{"message":"bad request"}}"#;
+
+/// 单平台 529 两次后成功：同一平台在用满次数内被反复重试，最终 200；尝试记录 3 条，第 2、3 轮起点记进快照。
+#[tokio::test]
+async fn round_single_platform_529_then_ok() {
+    let (up, hits) = spawn_embedding_upstream(vec![(529, E529), (529, E529), (200, MB_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(&state, "gkrd1", &[(&up, chain_models(&["m-a"]), Protocol::Anthropic, "p")]).await;
+    let resp = chain_send(&state, "gkrd1", CHAIN_REQ).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(hits.lock().unwrap().len(), 3);
+    let log = last_log_for(&state, "gkrd1").await;
+    assert_eq!(log.attempts.len(), 3);
+    assert_eq!(log.routing.unwrap().round_starts, Some(Box::new(vec![1, 2])));
+}
+
+/// 两平台都失败 → 第二轮从头：p1 先被再次选中并成功，p2 只被打一次。
+#[tokio::test]
+async fn round_two_platforms_fail_then_second_round_from_top() {
+    let (up1, hits1) = spawn_embedding_upstream(vec![(529, E529), (200, MB_OK)]).await;
+    let (up2, hits2) = spawn_embedding_upstream(vec![(529, E529)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(
+        &state,
+        "gkrd2",
+        &[
+            (&up1, chain_models(&["m-a"]), Protocol::Anthropic, "p1"),
+            (&up2, chain_models(&["m-b"]), Protocol::Anthropic, "p2"),
+        ],
+    )
+    .await;
+    let resp = chain_send(&state, "gkrd2", CHAIN_REQ).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!((hits1.lock().unwrap().len(), hits2.lock().unwrap().len()), (2, 1));
+    let log = last_log_for(&state, "gkrd2").await;
+    assert_eq!(log.attempts.len(), 3);
+    assert_eq!(log.routing.unwrap().round_starts, Some(Box::new(vec![2])));
+}
+
+/// 总调用数仍受最大尝试次数约束：上限 3、上游一直 529 → 恰好 3 次调用后终止。
+#[tokio::test]
+async fn round_total_calls_bounded_by_max_attempts() {
+    let (up, hits) = spawn_embedding_upstream(vec![(529, E529); 8]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(&state, "gkrd3", &[(&up, chain_models(&["m-a"]), Protocol::Anthropic, "p")]).await;
+    set_group_max_attempts(&state, "gkrd3", 3).await;
+    let resp = chain_send(&state, "gkrd3", CHAIN_REQ).await;
+    assert_ne!(resp.status(), StatusCode::OK);
+    assert_eq!(hits.lock().unwrap().len(), 3);
+}
+
+/// 模型类失败同样进下一轮：链 [m-a, m-b] 两个都 404 后清空排除，第二轮从 m-a 再来。
+#[tokio::test]
+async fn round_model_class_failures_restart_chain() {
+    let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (404, E404_MODEL), (200, MB_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(&state, "gkrd4", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+    let resp = chain_send(&state, "gkrd4", CHAIN_REQ).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(hit_models(&hits), ["m-a", "m-b", "m-a"]);
+}
+
+/// 回归护栏（旧码已绿）：400 不换、不重试，上游只被打一次。
+#[tokio::test]
+async fn round_guard_400_returns_directly() {
+    let (up, hits) = spawn_embedding_upstream(vec![(400, E400_PLAIN), (200, MB_OK)]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(&state, "gkrd5", &[(&up, chain_models(&["m-a"]), Protocol::Anthropic, "p")]).await;
+    let resp = chain_send(&state, "gkrd5", CHAIN_REQ).await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(hits.lock().unwrap().len(), 1);
 }

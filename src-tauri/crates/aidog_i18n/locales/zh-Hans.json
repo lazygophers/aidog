@@ -842,6 +842,7 @@
   "logs.actualModel": "实际模型",
   "logs.targetModel": "目标模型",
   "logs.attemptCount": "{{n}} 次",
+  "logs.attemptRound": "第 {{n}} 轮",
   "logs.routingDecision": "路由决策",
   "logs.routing.noSnapshot": "无路由决策记录",
   "logs.routing.request": "请求",

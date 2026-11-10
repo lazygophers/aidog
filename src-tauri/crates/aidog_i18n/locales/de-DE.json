@@ -864,6 +864,7 @@
   "logs.actualModel": "Tatsächliches Modell",
   "logs.targetModel": "Zielmodell",
   "logs.attemptCount": "{{n}}",
+  "logs.attemptRound": "Runde {{n}}",
   "logs.routingDecision": "Routing-Entscheidung",
   "logs.routing.noSnapshot": "Keine Routing-Aufzeichnung",
   "logs.routing.request": "Anfrage",
