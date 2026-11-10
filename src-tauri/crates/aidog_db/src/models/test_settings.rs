@@ -51,7 +51,7 @@ fn platform_with_extra(extra: &str) -> Platform {
 fn parse_merge_breaker_roundtrip() {
     // 空 / 非法 / 无 breaker 键 → 全 0。
     assert_eq!(parse_breaker("").failure_threshold, 0);
-    assert_eq!(parse_breaker("not json").open_secs, 0);
+    assert_eq!(parse_breaker("not json").failure_threshold, 0);
     assert_eq!(parse_breaker(r#"{"mock":{}}"#).half_open_max, 0);
 
     // merge 写入 → 再解析一致，且保留 extra 其余键。
@@ -59,7 +59,6 @@ fn parse_merge_breaker_roundtrip() {
         r#"{"mock":{"x":1}}"#,
         &PlatformBreaker {
             failure_threshold: 4,
-            open_secs: 90,
             half_open_max: 2,
         },
     );
@@ -67,8 +66,8 @@ fn parse_merge_breaker_roundtrip() {
     assert_eq!(v["mock"]["x"], 1, "保留 extra 其余键");
     let b = parse_breaker(&merged);
     assert_eq!(
-        (b.failure_threshold, b.open_secs, b.half_open_max),
-        (4, 90, 2)
+        (b.failure_threshold, b.half_open_max),
+        (4, 2)
     );
 
     // 全 0 → 移除 breaker 键（无覆盖=继承全局）。
@@ -80,33 +79,31 @@ fn parse_merge_breaker_roundtrip() {
 
 #[test]
 fn effective_thresholds_extra_override_and_inherit() {
-    let global = SchedulingBreakerSettings::default(); // (5, 60, 2)
+    let global = SchedulingBreakerSettings::default(); // (5, 2)
 
     // 缺 extra.breaker → 全继承全局默认。
     let p_none = platform_with_extra("{}");
-    assert_eq!(global.effective_thresholds(&p_none), (5, 60, 2));
+    assert_eq!(global.effective_thresholds(&p_none), (5, 2));
 
     // extra.breaker 全覆盖。
     let p_all = platform_with_extra(&merge_breaker_into_extra(
         "{}",
         &PlatformBreaker {
             failure_threshold: 9,
-            open_secs: 120,
             half_open_max: 4,
         },
     ));
-    assert_eq!(global.effective_thresholds(&p_all), (9, 120, 4));
+    assert_eq!(global.effective_thresholds(&p_all), (9, 4));
 
-    // 单键覆盖（failure_threshold），其余继承全局；open_secs/half_open_max=0 → 用全局。
+    // 单键覆盖（failure_threshold），其余继承全局；half_open_max=0 → 用全局。
     let p_partial = platform_with_extra(&merge_breaker_into_extra(
         "{}",
         &PlatformBreaker {
             failure_threshold: 8,
-            open_secs: 0,
             half_open_max: 0,
         },
     ));
-    assert_eq!(global.effective_thresholds(&p_partial), (8, 60, 2));
+    assert_eq!(global.effective_thresholds(&p_partial), (8, 2));
 }
 
 // ── ProxyClientSettings::to_reqwest_proxy ──
@@ -221,4 +218,15 @@ fn effective_no_proxy_custom_wins() {
         ..Default::default()
     };
     assert_eq!(s.effective_no_proxy(), "internal.corp,10.0.0.0/8");
+}
+
+#[test]
+fn breaker_open_secs_removed_and_stored_value_ignored() {
+    // 票 03：熔断时长设置删除——存量 JSON 里的 breaker_open_secs 被 serde 忽略，序列化不再带出。
+    let s: SchedulingBreakerSettings =
+        serde_json::from_str(r#"{"breaker_open_secs":999,"breaker_failure_threshold":7}"#).unwrap();
+    assert_eq!(s.breaker_failure_threshold, 7);
+    assert!(serde_json::to_value(&s).unwrap().get("breaker_open_secs").is_none());
+    let p = platform_with_extra(r#"{"breaker":{"failure_threshold":3,"open_secs":30}}"#);
+    assert_eq!(s.effective_thresholds(&p), (3, 2));
 }

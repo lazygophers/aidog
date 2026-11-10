@@ -172,7 +172,6 @@ async fn platform_breaker_roundtrips_via_extra() {
         "{}",
         &crate::models::PlatformBreaker {
             failure_threshold: 7,
-            open_secs: 120,
             half_open_max: 3,
         },
     );
@@ -180,7 +179,6 @@ async fn platform_breaker_roundtrips_via_extra() {
     let got = get_platform(&db, p.id).await.unwrap().unwrap();
     let b = got.breaker();
     assert_eq!(b.failure_threshold, 7);
-    assert_eq!(b.open_secs, 120);
     assert_eq!(b.half_open_max, 3);
 
     // 缺省（空 extra）→ 全 0（继承全局默认）。
@@ -189,8 +187,8 @@ async fn platform_breaker_roundtrips_via_extra() {
         .unwrap();
     let b2 = get_platform(&db, p2.id).await.unwrap().unwrap().breaker();
     assert_eq!(
-        (b2.failure_threshold, b2.open_secs, b2.half_open_max),
-        (0, 0, 0)
+        (b2.failure_threshold, b2.half_open_max),
+        (0, 0)
     );
 
     // update 改 extra → breaker 跟随更新。
@@ -222,8 +220,8 @@ async fn platform_breaker_roundtrips_via_extra() {
     .unwrap();
     let b3 = get_platform(&db, p.id).await.unwrap().unwrap().breaker();
     assert_eq!(
-        (b3.failure_threshold, b3.open_secs, b3.half_open_max),
-        (0, 0, 0),
+        (b3.failure_threshold, b3.half_open_max),
+        (0, 0),
         "clear breaker via extra"
     );
 }

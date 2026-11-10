@@ -3,5 +3,6 @@
 /**
  * 平台级熔断阈值覆盖，存于 `platform.extra` JSON 的嵌套对象 `breaker`。
  * 每字段 0/缺省 = 继承全局 `SchedulingBreakerSettings` 默认（语义同旧顶层列）。
+ * 旧版的 `open_secs`（熔断时长）已删：存量值被 serde 忽略，下次写回 extra 时落盘即丢。
  */
-export type PlatformBreaker = { failure_threshold: number, open_secs: number, half_open_max: number, };
+export type PlatformBreaker = { failure_threshold: number, half_open_max: number, };

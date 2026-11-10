@@ -1579,7 +1579,6 @@
   "platform.breakerHalfOpenMax": "ハーフオープン探索数",
   "platform.breakerInherit": "既定値 {{n}} を継承",
   "platform.breakerInheritGeneric": "既定値を継承",
-  "platform.breakerOpenSecs": "遮断時間(秒)",
   "platform.breakerTitle": "サーキットブレーカー",
   "platform.clientType": "クライアントタイプ",
   "platform.codingPlanBadge": "Coding Plan",

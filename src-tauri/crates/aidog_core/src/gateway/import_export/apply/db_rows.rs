@@ -1,7 +1,7 @@
 //! db 行级 upsert：group / platform / group_platform / setting + auto-group。
 
 use super::json_helpers::{
-    json_bool, json_f64, json_i64, json_raw, json_str, json_u32, json_u64, now_ts,
+    json_bool, json_f64, json_i64, json_raw, json_str, json_u32, now_ts,
 };
 use aidog_db::Db;
 
@@ -185,23 +185,18 @@ pub(super) fn effective_extra_with_breaker(row: &serde_json::Value) -> String {
     let extra = json_str(row, "extra");
     // extra 内已有 breaker 覆盖 → 直接用。
     let has_extra_breaker = crate::gateway::models::parse_breaker(&extra);
-    if has_extra_breaker.failure_threshold != 0
-        || has_extra_breaker.open_secs != 0
-        || has_extra_breaker.half_open_max != 0
-    {
+    if has_extra_breaker.failure_threshold != 0 || has_extra_breaker.half_open_max != 0 {
         return extra;
     }
     let ft = json_u32(row, "breaker_failure_threshold");
-    let os = json_u64(row, "breaker_open_secs");
     let hom = json_u32(row, "breaker_half_open_max");
-    if ft == 0 && os == 0 && hom == 0 {
+    if ft == 0 && hom == 0 {
         return extra;
     }
     crate::gateway::models::merge_breaker_into_extra(
         &extra,
         &crate::gateway::models::PlatformBreaker {
             failure_threshold: ft,
-            open_secs: os,
             half_open_max: hom,
         },
     )

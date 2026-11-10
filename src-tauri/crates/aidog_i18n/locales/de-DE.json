@@ -1579,7 +1579,6 @@
   "platform.breakerHalfOpenMax": "Halb-offen-Prüfungen",
   "platform.breakerInherit": "Standard {{n}} erben",
   "platform.breakerInheritGeneric": "Standard erben",
-  "platform.breakerOpenSecs": "Offen-Dauer (s)",
   "platform.breakerTitle": "Schutzschalter",
   "platform.clientType": "Client-Typ",
   "platform.codingPlanBadge": "Coding Plan",

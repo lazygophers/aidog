@@ -108,7 +108,7 @@ fn breaker_union_autodisabled_admission() {
     let now = aidog_db::now();
     let th = BreakerThresholds {
         failure_threshold: 1,
-        open_secs: 1800,
+        health_aware: false,
         half_open_max: 2,
     };
     // p1 熔断 Open
@@ -132,7 +132,7 @@ fn breaker_does_not_overwrite_autodisabled() {
     let now = aidog_db::now();
     let th = BreakerThresholds {
         failure_threshold: 1,
-        open_secs: 1800,
+        health_aware: false,
         half_open_max: 2,
     };
     sched.inc_inflight(1);
@@ -140,11 +140,8 @@ fn breaker_does_not_overwrite_autodisabled() {
     // platform.status 仍是 Enabled（熔断不写 DB 三态）
     let p = mk_platform_id(1);
     assert_eq!(p.status, PlatformStatus::Enabled);
-    // 内存 breaker 是 Open
-    assert!(matches!(
-        sched.breaker_state(1),
-        super::super::scheduling::BreakerState::Open { .. }
-    ));
+    // 内存 breaker 已计入失败
+    assert!(sched.breaker_fails(1) > 0);
 }
 
 #[test]
