@@ -381,6 +381,41 @@ pub(crate) fn parse_quota_reset_at(
         .filter(|&t| t > now_ms && t - now_ms <= MAX_QUOTA_COOLDOWN_MS)
 }
 
+/// 从限频报错正文抓「重试提示」的时长（票 04 补充口径：正文里说了但不在标准字段，
+/// 也要尽力解析）。只认带触发词（try again in / retry after / 请 / 稍后 / 重试 / 再试 /
+/// wait 等）的「数值 + 时间单位」，支持中英文单位与紧凑复合式（2m32s / 1h5m）；
+/// 无触发词不猜（「已达到 5 小时的使用上限」这类配额文案不会被误当等待时长）。
+/// 上限钳到 MAX_QUOTA_COOLDOWN_MS（与配额冷却同款 24h 合理性上界，默认翻倍的 10 分钟
+/// 封顶不适用于上游明说的时长）。
+pub(crate) fn parse_rate_limit_retry_ms(text: &str) -> Option<i64> {
+    static RE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    let re = RE.get_or_init(|| {
+        regex::Regex::new(
+            r#"(?i)(?:try\s+again\s+in|retry\s+(?:after|in)|again\s+(?:in|after)|please\s+wait|wait\s*(?:for)?|请|稍后|重试|再试)[^0-9]{0,16}((?:\d+\s*(?:hours?|hrs?|h|小时))|(?:\d+\s*(?:minutes?|mins?|m|分钟|分))|(?:\d+\s*(?:seconds?|secs?|s|秒)))((?:\s*\d+\s*(?:minutes?|mins?|m|分钟|分))?(?:\s*\d+\s*(?:seconds?|secs?|s|秒))?)?"#,
+        )
+        .expect("static regex")
+    });
+    let caps = re.captures(text)?;
+    let seg = format!("{} {}", &caps[1], caps.get(2).map(|m| m.as_str()).unwrap_or(""));
+    let unit_ms = |units: &[&str]| -> Option<i64> {
+        for u in units {
+            let sub = regex::Regex::new(&format!(r"(\d+)\s*{}", u)).ok()?;
+            if let Some(c) = sub.captures(&seg) {
+                return c[1].parse::<i64>().ok();
+            }
+        }
+        None
+    };
+    let h = unit_ms(&["hours?", "hrs?", "h", "小时"]).unwrap_or(0);
+    let m = unit_ms(&["minutes?", "mins?", "m", "分钟", "分"]).unwrap_or(0);
+    let s = unit_ms(&["seconds?", "secs?", "s", "秒"]).unwrap_or(0);
+    let ms = (h * 3600 + m * 60 + s) * 1000;
+    if ms <= 0 {
+        return None;
+    }
+    Some(ms.clamp(1, MAX_QUOTA_COOLDOWN_MS))
+}
+
 /// 抓 body 里第一个 `YYYY-MM-DD HH:MM:SS`（允许 `T` 分隔），按本机时区转毫秒时间戳。
 fn parse_body_datetime_ms(body: &str) -> Option<i64> {
     use chrono::TimeZone;

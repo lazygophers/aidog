@@ -1662,16 +1662,26 @@ fn filter_candidates<'a>(
 
         // 冷却维度（内存态，与熔断总开关无关）：
         // - 配额冷却：429 配额耗尽 + 上游给出重置时间 → 重置前不调度（DB status 不变）。
+        // - 限频冷却（票 04）：其余 429 / 529 / registry 限频码 → 翻倍封顶 10 分钟不调度
+        //   （与配额冷却并存取较晚截止，归类同 cooldown_snapshot）。
         // - auth 冷却：401 权限 / 402 余额 → 固定 5 分钟不调度（内存态，DB status 不变，
         //   取代旧 auto_disabled 指数退避）。
         if let Some(c) = ctx
             && (c.scheduler.quota_cooled(gp.platform.id, now_ms)
+                || c.scheduler.rate_limit_cooled(gp.platform.id, now_ms)
                 || c.scheduler.auth_cooled(gp.platform.id, now_ms))
         {
-            let reason = if c.scheduler.quota_cooled(gp.platform.id, now_ms) {
-                RouteReason::QuotaCooldown
-            } else {
+            let reason = if c.scheduler.auth_cooled(gp.platform.id, now_ms)
+                && !(c.scheduler.quota_cooled(gp.platform.id, now_ms)
+                    || c.scheduler.rate_limit_cooled(gp.platform.id, now_ms))
+            {
                 RouteReason::AuthCooldown
+            } else if c.scheduler.rate_limit_cooldown_until_ms(gp.platform.id)
+                > c.scheduler.quota_cooldown_until_ms(gp.platform.id)
+            {
+                RouteReason::RateLimitCooldown
+            } else {
+                RouteReason::QuotaCooldown
             };
             excluded.push((gp, reason));
             continue;
