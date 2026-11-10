@@ -69,6 +69,17 @@ export function allModelValues(models: Partial<Record<(typeof MODEL_SLOTS)[numbe
   return result;
 }
 
+/** 平台「模型配置」全集：默认模型配置 ∪ 各时段档（extra.time_windows[].models）的模型，展平去重。
+ *  汇总计数 / 下拉用它；卡片主模型徽章仍用 allModelValues(p.models) 显示当前生效。 */
+export function allConfiguredModelValues(p: { models: Parameters<typeof allModelValues>[0]; extra?: string }): string[] {
+  let windows: { models?: Parameters<typeof allModelValues>[0] }[] = [];
+  try {
+    const tw = JSON.parse(p.extra || "{}").time_windows;
+    if (Array.isArray(tw)) windows = tw;
+  } catch { /* 非法 extra → 只有默认配置 */ }
+  return [...new Set([p.models, ...windows.map(w => w?.models ?? {})].flatMap(allModelValues))];
+}
+
 /** 配额展示数据：合并预估(est_*)与真查(quotaMap)，优先级与原列表逻辑一致。
  *  手动刷新校准过(preferReal)→优先真值；否则有预估→预估；冷启动→真查回退。 */
 export interface QuotaDisplay {

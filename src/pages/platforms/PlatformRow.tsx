@@ -10,7 +10,7 @@ import { formatNumber, formatMoney, formatAmount, formatPercent, formatDurationM
 import { isCurrentlyPeak } from "../../utils/timeWindow";
 import { ProtocolLogo } from "../../domains/platforms/ProtocolLogo";
 import { useProtocolMeta } from "../../domains/platforms/useProtocolMeta";
-import { allModelValues, computeQuotaDisplay, computeManualBudgetDisplay, tierLabel, formatResetCountdown, formatResetClock } from "../../domains/platforms/health";
+import { allConfiguredModelValues, computeQuotaDisplay, computeManualBudgetDisplay, tierLabel, formatResetCountdown, formatResetClock } from "../../domains/platforms/health";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
@@ -137,9 +137,9 @@ export function PlatformRow({
   const { isCpProtocol, defaultModels, peakWindows } = useProtocolMeta(p.platform_type, p.extra ?? "", lang);
   // 转发生效模型（PlatformCard 同口径）：显式槽位优先，没配回落 preset 默认。
   const configuredModels = useMemo(() => {
-    const explicit = allModelValues(p.models);
+    const explicit = allConfiguredModelValues(p);
     return explicit.length > 0 ? explicit : defaultModels;
-  }, [p.models, defaultModels]);
+  }, [p.models, p.extra, defaultModels]);
   const rateLimitsBundle = useMemo(() => parseRateLimitsBundle(p.extra ?? ""), [p.extra]);
   // 限频徽标计数：平台级 RPM/TPM 配置记 1 窗 + 额度窗口数（稿 5「限频 N 窗口」）。
   const rlBase = rateLimitsBundle.rate_limits;
@@ -384,7 +384,7 @@ export function PlatformRow({
         <StatCell v={sRate != null ? formatPercent(sRate, 1) : "—"} l={t("platform.col.successRate", "成功率")}
           tone={sRate == null ? "dim" : sRate >= 98 ? "ok" : sRate >= 90 ? "warn" : undefined} />
         <StatCell v={lastTest ? formatDurationMs(lastTest.duration_ms) : "—"} l={t("platform.col.latency", "延迟")} tone={lastTest ? undefined : "dim"} />
-        <StatCell v={String(configuredModels.length)} l={t("platform.col.models", "模型")} />
+        <StatCell testId="row-models-count" v={String(configuredModels.length)} l={t("platform.col.models", "模型")} />
 
         {/* 列 9：最近测速 */}
         <span data-testid="row-last-test" data-result={testOk == null ? "none" : testOk ? "ok" : "fail"}

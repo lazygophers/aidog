@@ -1274,3 +1274,38 @@ async fn do_sync_group_settings_pure_claude_code_group_has_no_group_header() {
         "X-Org-Route: prod"
     );
 }
+
+/// 时段档独有的模型计入分组上下文窗口上限与 pi 候选（模型配置 = 默认 ∪ 各时段档）。
+#[tokio::test]
+async fn group_summaries_count_time_window_models() {
+    use aidog_db::test_support::test_db;
+    let db = test_db().await;
+    let entry = |model_id: &str, ctx: i64| aidog_db::models::ModelEntry {
+        platform_code: "fixture".to_string(),
+        model_id: model_id.to_string(),
+        display_name: model_id.to_string(),
+        canonical_model: model_id.to_string(),
+        family: "fixture".to_string(),
+        version: String::new(),
+        predecessor: String::new(),
+        capabilities: vec!["text".to_string()],
+        builtin_tools_excluded: vec![],
+        max_input_tokens: Some(ctx),
+        max_output_tokens: None,
+        context_window: None,
+        official: true,
+        price_data: "{}".to_string(),
+        updated_at: 0,
+    };
+    aidog_db::upsert_model_entries(&db, vec![entry("tw-narrow", 131_072), entry("tw-wide", 2_097_152)])
+        .await
+        .unwrap();
+    let default = aidog_db::models::PlatformModels { default: vec!["tw-narrow".into()], ..Default::default() };
+    let extra = r#"{"time_windows":[{"windows":[{"start_hour":0,"end_hour":24}],"models":{"opus":"tw-wide"}}]}"#;
+    let cfgs = crate::gateway::time_windows::model_configs(&default, extra);
+
+    let refs: Vec<&aidog_db::models::PlatformModels> = cfgs.iter().collect();
+    assert_eq!(super::group_max_context_window(&db, &[], &refs).await, Some(2_097_152));
+    let names = super::pi_model_candidates(&[], &cfgs, &[]);
+    assert_eq!(names, vec!["tw-narrow", "tw-wide"]);
+}
