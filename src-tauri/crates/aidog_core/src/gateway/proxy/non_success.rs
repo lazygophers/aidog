@@ -164,30 +164,40 @@ pub(crate) async fn handle_non_success(
             && !is_429_quota_exhausted
             && is_per_minute_rate_limit(extracted_msg.as_deref().unwrap_or(&body)));
 
+    // ── 票 04（spec 决策 4）：其余 429（含配额耗尽但解析不到重置时间）、529、registry
+    //    overloaded 码 → 独立限频冷却通道（1s 起翻倍封顶 10 分钟、成功清零、不计熔断）。
+    //    配额耗尽 + 解析到重置时间、每分钟限流（含 registry rate_limit 码）走配额 /
+    //    整分边界冷却（票 04 ①「沿用现有」），不在本列。──
+    let quota_reset_until = is_429_quota_exhausted
+        .then(|| parse_quota_reset_at(retry_after.as_deref(), &body, aidog_db::now()))
+        .flatten();
+    // registry rate_limit 码归「每分钟限流」桶（上方已并入 per-minute 判定）→ 沿用现有
+    // 整分边界冷却（票 04 ①「每分钟限流 → 沿用现有配额冷却」），不进本通道。
+    let rate_limited_now = code == 529
+        || registry_overloaded
+        || (code == 429 && !is_429_per_minute_rate_limit && quota_reset_until.is_none());
+
     // 审核拒绝是平台级不可用：自动禁用一小时，并立即换下个候选。
     // 400 通常是请求硬错，但结构化 censorship_blocked 明确表示上游审核机制拒绝，换平台可能成功。
     // （提前到失败降权判定之前：censorship 已 DB 禁用 1h，不叠加排序降权。）
     let censorship_blocked = is_censorship_blocked(&body);
 
-    // ── 熔断计数（2026-09-15 用户裁决：网络类故障不降权）：仅 429-限流（状态码 + 响应体
-    //    解析出的平台主动限流，以及健康感知分组的 401 / 403）计一次失败；5xx / 网络错误 / 空响应 / 402 /
-    //    其他客户端 4xx 一律不计（仅 inflight-1，不动 EMA，下一轮调度仍优先选择）。──
+    // ── 熔断计数（2026-09-15 用户裁决：网络类故障不降权）：429 / 529 / registry 限频码已
+    //    移出（票 04 → 限频冷却，见下）；仅健康感知分组的 401 / 403 计一次失败；5xx / 网络错误 /
+    //    空响应 / 402 / 其他客户端 4xx 一律不计（仅 inflight-1，不动 EMA，下一轮调度仍优先选择）。
     // 副作用只观测：随下面各记账点收集，最后写回本次 attempt（模型类换模型已在上面提前返回，无副作用）。
     let mut effects: Vec<String> = Vec::new();
     // 401 / 403 鉴权失败（区域封锁除外）：健康感知分组计入熔断按时间翻倍，其余分组走固定 5 分钟鉴权冷却。
     let auth_failed = matches!(code, 401 | 403)
         && !is_region_blocked(extracted_msg.as_deref().unwrap_or(&body));
-    if registry_overloaded
-        || (code == 429 && !is_429_quota_exhausted && !is_429_per_minute_rate_limit)
-        || (auth_failed && breaker_th.health_aware)
-    {
+    if auth_failed && breaker_th.health_aware {
         effects.push("breaker_count".to_string());
         state
             .scheduler
             .record_failure(route.platform.id, breaker_th, aidog_db::now());
     } else {
-        // 每分钟限流不计熔断：quota cooldown 已按整分边界踢出候选，再计熔断会让
-        // breaker 在边界后继续踢（Open 60s 滑窗 > 边界剩余秒数），违背「1s 后可用」。
+        // 限频 / 每分钟限流不计熔断：限频走下方独立冷却通道（翻倍封顶 10 分钟），配额 /
+        // 每分钟走 quota cooldown，再计熔断会让 breaker 在冷却到点后继续踢出候选。
         state.scheduler.record_ignored(route.platform.id);
     }
 
@@ -230,10 +240,7 @@ pub(crate) async fn handle_non_success(
     //   **纯内存维度**（scheduler）：配额用完不是平台故障，不写 DB status——平台在 UI 仍是
     //   启用态，只是这段时间不进候选（select_candidates_ctx 的配额冷却过滤）。
     //   到点自动恢复调度，同时排一个真查把额度对齐真实（冷却期无请求 → 无请求驱动校准）。
-    if let Some(until) = is_429_quota_exhausted
-        .then(|| parse_quota_reset_at(retry_after.as_deref(), &body, aidog_db::now()))
-        .flatten()
-    {
+    if let Some(until) = quota_reset_until {
         effects.push("cooldown_quota".to_string());
         state.scheduler.set_quota_cooldown(route.platform.id, until);
         super::estimate::spawn_refresh_at(
@@ -247,6 +254,26 @@ pub(crate) async fn handle_non_success(
             platform = %route.platform.name, platform_id = route.platform.id,
             quota_cooldown_until = until,
             "platform out of scheduling until upstream quota reset (not disabled)"
+        );
+    }
+
+    // ── 限频冷却（票 04）：其余 429 / 529 / registry 限频码 → 1s 起翻倍封顶 10 分钟，
+    //    该平台任意一次成功清零；不计熔断（inflight 已在上方记账分支配平）。纯内存态，
+    //    冷却期间平台不进候选（candidates 冷却维度，RouteReason::RateLimitCooldown）。──
+    if rate_limited_now {
+        effects.push("cooldown_rate_limit".to_string());
+        // 票 04 补充口径：正文 / Retry-After 明说的等待时长优先，解析不出才默认翻倍。
+        let retry_hint = retry_after
+            .and_then(|v| v.trim().parse::<i64>().ok())
+            .map(|secs| secs * 1000)
+            .or_else(|| parse_rate_limit_retry_ms(&body));
+        state
+            .scheduler
+            .set_rate_limit_cooldown(route.platform.id, aidog_db::now(), retry_hint);
+        tracing::warn!(
+            platform = %route.platform.name, platform_id = route.platform.id,
+            cooldown_until_ms = state.scheduler.rate_limit_cooldown_until_ms(route.platform.id),
+            "platform rate limited; rate-limit cooldown with doubling backoff (not counted as breaker)"
         );
     }
 

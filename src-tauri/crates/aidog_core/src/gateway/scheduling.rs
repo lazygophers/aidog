@@ -8,7 +8,9 @@
 //!   [`AUTH_COOLDOWN_MS`] 内存冷却，不写 DB（平台 UI 仍是启用态），到点自动回调度。
 //!   取代旧 auto_disabled 指数退避；DB 存量 auto_disabled 行照旧按 until 过滤，成功时恢复
 //!   （recover_platform_auto_disabled）。
-//! - 配额冷却：429 配额耗尽 + 上游给出重置时间 → 冷却到该时刻。
+//! - 配额冷却：429 配额耗尽 + 上游给出重置时间 → 冷却到该时刻；每分钟限流 → 冷却到下一个整分边界。
+//! - 限频冷却（票 04，2026-11-10）：其余 429 / 529 / registry rate_limit_error_codes 码（rate_limit /
+//!   overloaded）→ 独立通道 1s 起翻倍封顶 10 分钟，任意成功清零，**不计熔断**（纯内存态）。
 //! - 上游审核拒绝（`error.type=censorship_blocked`）→ 平台自动禁用 1 小时，换候选重试；
 //!   到期后允许探测，成功恢复。
 //! - **失败降权（health-aware，2026-09-29）**：**全部失败**计入排序降权——熔断记失败 /
@@ -25,8 +27,9 @@
 //! 其他分组：fails>=failure_threshold 踢出到 last + 固定 60s；之后半开放行至多 half_open_max 个探测。
 //! 任意成功（含探测成功）→ 清零；距上次失败超 1 小时 → 清零（即使无成功）；探测失败 → 重新计时。
 //! ```
-//! 不计熔断：402（走 auth 冷却）、429-配额（走配额冷却）、5xx/网络错误/空响应
-//! （不降权）、客户端 4xx(非 429)、probe 请求；401/403 在非健康感知分组走 auth 冷却。
+//! 不计熔断：402（走 auth 冷却）、429 / 529 / registry 限频码（票 04 → 限频冷却）、
+//! 5xx/网络错误/空响应（不降权）、客户端 4xx(非 429)、probe 请求；
+//! 401/403 在非健康感知分组走 auth 冷却。
 
 use std::collections::HashMap;
 use std::sync::RwLock;
@@ -41,6 +44,10 @@ pub const BREAKER_BACKOFF_BASE_MS: i64 = 1000;
 pub const BREAKER_BACKOFF_MAX_MS: i64 = 10 * 60 * 1000;
 /// 距上次熔断失败超过此时长，连续次数自动清零（毫秒）。
 pub const BREAKER_STREAK_RESET_MS: i64 = 60 * 60 * 1000;
+/// 限频冷却起步窗口（毫秒），连续限频每次 ×2（票 04）。
+pub const RATE_LIMIT_COOLDOWN_BASE_MS: i64 = 1000;
+/// 限频冷却封顶窗口（毫秒）。
+pub const RATE_LIMIT_COOLDOWN_MAX_MS: i64 = 600 * 1000;
 /// connect 失败本地网络保护滑窗（毫秒）：窗口内失败平台数达候选半数 → 判本地网络问题不熔断。
 const CONNECT_FAIL_WINDOW_MS: i64 = 60 * 1000;
 
@@ -107,6 +114,11 @@ pub struct PlatformHealth {
     /// 402 余额不足冷却截止（unix ms，0 = 无）。与 401 同固定 AUTH_COOLDOWN_MS、
     /// 同写穿语义，独立通道（plat-select-status 2026-10-04：快照按 401 鉴权 / 402 余额分别归类）。
     pub balance_cooldown_until_ms: i64,
+    /// 限频冷却截止（unix ms，0 = 无）。票 04：其余 429 / 529 / registry 限频码 → 1s 起翻倍
+    /// 封顶 10 分钟，任意成功清零；不计熔断，纯内存态（不写 platform_health_state）。
+    pub rate_limit_cooldown_until_ms: i64,
+    /// 限频冷却连续次数（成功清零）：窗口 1s·2^(n−1) 封顶 [`RATE_LIMIT_COOLDOWN_MAX_MS`]。
+    pub rate_limit_fails: u32,
     /// 最近一次 connect 失败时刻（unix ms，0 = 无）。本地网络保护条款的滑窗判据
     /// （见 [`SchedulerState::record_connect_failure`]）。
     pub last_connect_fail_ms: i64,
@@ -131,6 +143,8 @@ impl Default for PlatformHealth {
             quota_verdict_until_ms: 0,
             auth_cooldown_until_ms: 0,
             balance_cooldown_until_ms: 0,
+            rate_limit_cooldown_until_ms: 0,
+            rate_limit_fails: 0,
             last_connect_fail_ms: 0,
             penalty_until_ms: 0,
             penalty_tier: PenaltyTier::Client,
@@ -436,6 +450,44 @@ impl SchedulerState {
         self.persist(platform_id);
     }
 
+    /// 限频冷却（票 04）：其余 429 / 529 / registry rate_limit_error_codes 码 → 连续第 n 次
+    /// 冷却 `RATE_LIMIT_COOLDOWN_BASE_MS`·2^(n−1) 封顶 [`RATE_LIMIT_COOLDOWN_MAX_MS`]
+    /// （取 max 不缩短）；该平台任意一次成功清零（[`Self::record_success`]）。
+    /// 不计熔断（不碰 breaker 字段、不发熔断事件）；inflight 配平由记账分支的
+    /// record_ignored / record_failure 负责（同 set_quota_cooldown，此处不再 dec）。
+    /// 纯内存态，不持久化（重启丢失可接受，同 penalty）。
+    /// `explicit_ms` = 上游报错正文 / Retry-After 解析出的等待时长（票 04 补充口径：
+    /// 正文说了就按它，不落默认翻倍）；None = 默认 1s 起 ×2 封顶 10 分钟。
+    pub fn set_rate_limit_cooldown(&self, platform_id: u64, now_ms: i64, explicit_ms: Option<i64>) {
+        if let Ok(mut g) = self.health.write() {
+            let h = g.entry(platform_id).or_default();
+            let n = h.rate_limit_fails.saturating_add(1);
+            let win = explicit_ms.unwrap_or_else(|| {
+                RATE_LIMIT_COOLDOWN_BASE_MS
+                    .saturating_mul(1i64 << (n - 1).min(20))
+                    .min(RATE_LIMIT_COOLDOWN_MAX_MS)
+            });
+            h.rate_limit_fails = n;
+            h.rate_limit_cooldown_until_ms = h
+                .rate_limit_cooldown_until_ms
+                .max(now_ms.saturating_add(win));
+        }
+    }
+
+    /// 该平台限频冷却截止（unix ms，0 = 无）。
+    pub fn rate_limit_cooldown_until_ms(&self, platform_id: u64) -> i64 {
+        self.health
+            .read()
+            .ok()
+            .and_then(|g| g.get(&platform_id).map(|h| h.rate_limit_cooldown_until_ms))
+            .unwrap_or(0)
+    }
+
+    /// 该平台此刻是否处于限频冷却中（到点自动失效，无需清理）。
+    pub fn rate_limit_cooled(&self, platform_id: u64, now_ms: i64) -> bool {
+        self.rate_limit_cooldown_until_ms(platform_id) > now_ms
+    }
+
     /// 该平台此刻是否处于 401/402 冷却中（两条通道任一活跃即冷却；到点自动失效，无需清理）。
     pub fn auth_cooled(&self, platform_id: u64, now_ms: i64) -> bool {
         self.health.read().ok().is_some_and(|g| {
@@ -455,12 +507,22 @@ impl SchedulerState {
         g.iter()
             .filter_map(|(&platform_id, h)| {
                 let quota_until = h.quota_cooldown_until_ms.max(h.quota_verdict_until_ms);
-                if quota_until > now_ms {
-                    Some(PlatformCooldownSnapshot {
-                        platform_id,
-                        code: 429,
-                        until_ms: quota_until,
-                    })
+                let rl_until = h.rate_limit_cooldown_until_ms;
+                // 票 04：配额冷却与限频冷却并存取较晚截止（限频更晚 → 按 529 归类，否则配额 429）。
+                if quota_until > now_ms || rl_until > now_ms {
+                    if rl_until > quota_until {
+                        Some(PlatformCooldownSnapshot {
+                            platform_id,
+                            code: 529,
+                            until_ms: rl_until,
+                        })
+                    } else {
+                        Some(PlatformCooldownSnapshot {
+                            platform_id,
+                            code: 429,
+                            until_ms: quota_until,
+                        })
+                    }
                 } else if h.balance_cooldown_until_ms > now_ms {
                     Some(PlatformCooldownSnapshot {
                         platform_id,
@@ -625,6 +687,7 @@ impl SchedulerState {
                 || h.quota_verdict_until_ms > 0
                 || h.auth_cooldown_until_ms > 0
                 || h.balance_cooldown_until_ms > 0
+                || h.rate_limit_cooldown_until_ms > 0
                 || h.last_connect_fail_ms > 0;
             let breaker_was_nonclosed = h.breaker_fails > 0;
             Self::dec_inflight(h);
@@ -638,6 +701,9 @@ impl SchedulerState {
             h.breaker_last_fail_ms = 0;
             h.breaker_probes = 0;
             h.breaker_until_hint_ms = 0;
+            // 限频冷却：任意一次成功清零（票 04）。
+            h.rate_limit_cooldown_until_ms = 0;
+            h.rate_limit_fails = 0;
             h.last_connect_fail_ms = 0;
             // 失败降权：成功一次清零回起步（下次失败从档位起步窗口重新计）。
             h.penalty_until_ms = 0;
@@ -1385,6 +1451,78 @@ mod tests {
         s.record_penalty(1, PenaltyTier::Server, now + 10);
         assert!(s.penalty_active(1, now + 10 + PENALTY_SERVER_BASE_MS - 1));
         assert!(!s.penalty_active(1, now + 10 + PENALTY_SERVER_BASE_MS));
+    }
+
+    // ─── 票 04：限频冷却（429/529 独立翻倍，不计熔断） ───
+
+    #[test]
+    fn rate_limit_cooldown_doubles_caps_and_success_clears() {
+        let s = SchedulerState::new();
+        let mut now = 1_000_000i64;
+        // n=1..=12 → 窗口 1,2,4,…,512 秒，n=11 起封顶 600 秒。
+        let want_secs = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 600, 600];
+        for (i, secs) in want_secs.iter().enumerate() {
+            s.set_rate_limit_cooldown(1, now, None);
+            let w = secs * 1000;
+            assert!(s.rate_limit_cooled(1, now), "n={} 立即冷却", i + 1);
+            assert!(s.rate_limit_cooled(1, now + w - 1), "n={} 窗口内冷却", i + 1);
+            assert!(!s.rate_limit_cooled(1, now + w), "n={} 到点放行", i + 1);
+            now += w;
+        }
+        // 任意一次成功清零：回起步 1 秒
+        s.record_success(1, 50);
+        assert!(!s.rate_limit_cooled(1, now));
+        s.set_rate_limit_cooldown(1, now, None);
+        assert!(s.rate_limit_cooled(1, now + 999), "成功后重新从 1 秒起");
+        assert!(!s.rate_limit_cooled(1, now + 1000));
+        // 快照归类：仅限频冷却 → code 529
+        s.set_rate_limit_cooldown(1, now, None);
+        let snap = s.cooldown_snapshot(now);
+        assert_eq!(snap.len(), 1);
+        assert_eq!(snap[0].code, 529);
+        // 未冷却的平台查询为 false
+        assert!(!s.rate_limit_cooled(99, now));
+    }
+
+    #[test]
+    fn rate_limit_cooldown_explicit_window_from_body_hint() {
+        let s = SchedulerState::new();
+        let now = 1_000_000i64;
+        // 正文说了 30s → 按 30s 冷却，不走默认 1s 翻倍
+        s.set_rate_limit_cooldown(1, now, Some(30_000));
+        assert!(s.rate_limit_cooled(1, now + 29_999), "30s 窗口内仍冷却");
+        assert!(!s.rate_limit_cooled(1, now + 30_000), "30s 到点放行");
+        // 另一平台二连仍按显式时长（不叠加默认翻倍）
+        s.set_rate_limit_cooldown(2, now, Some(5_000));
+        assert!(!s.rate_limit_cooled(2, now + 5_000));
+        // 同平台显式到点后默认翻倍接续（None，n=2 → 2s）
+        s.set_rate_limit_cooldown(1, now + 30_000, None);
+        assert!(s.rate_limit_cooled(1, now + 30_000 + 2_000 - 1));
+        assert!(!s.rate_limit_cooled(1, now + 30_000 + 2_000));
+    }
+
+    #[test]
+    fn rate_limit_cooldown_and_quota_take_later_deadline_in_snapshot() {
+        let s = SchedulerState::new();
+        let now = 1_000_000i64;
+        s.set_quota_cooldown(1, now + 1500);
+        s.set_rate_limit_cooldown(1, now, None); // n=1 → until now+1000
+        // 配额更晚 → 按 429 归类、取配额截止
+        let snap = s.cooldown_snapshot(now + 1);
+        assert_eq!(snap.len(), 1);
+        assert_eq!(snap[0].code, 429);
+        assert_eq!(snap[0].until_ms, now + 1500);
+        s.set_rate_limit_cooldown(1, now, None); // n=2 → until now+2000
+        // 限频更晚 → 按 529 归类、取限频截止
+        let snap = s.cooldown_snapshot(now + 1);
+        assert_eq!(snap[0].code, 529);
+        assert_eq!(snap[0].until_ms, now + 2000);
+        // 配额已过期只剩限频 → 仍 529
+        let snap = s.cooldown_snapshot(now + 1600);
+        assert_eq!(snap[0].code, 529);
+        assert_eq!(snap[0].until_ms, now + 2000);
+        // 两条通道都到点 → 不在快照
+        assert!(s.cooldown_snapshot(now + 2000).is_empty());
     }
 
     #[test]

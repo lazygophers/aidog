@@ -888,6 +888,82 @@ async fn upstream_403_does_not_auto_disable_platform() {
     );
 }
 
+// ── 票 04：429 / 529 / registry 限频码 → 独立限频冷却（翻倍封顶 10 分钟、成功清零、不计熔断）──
+
+/// 单平台组打一次上游限频状态码（最大尝试 1 次），返回 (限频冷却生效, 连续熔断失败数, 平台 id)。
+async fn rate_limit_hit(status: u16, body: &'static str) -> (bool, u32, u64) {
+    let upstream = spawn_stub_upstream(status, body).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gk04", &upstream).await;
+    set_group_max_attempts(&state, "gk04", 1).await; // 只看单次失败的记账
+    let req = messages_request("gk04", r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#);
+    let _ = handle_proxy(AxumState(state.clone()), req).await;
+    flush_log_queue(&state).await;
+    let pid = aidog_db::list_platforms(&state.db).await.unwrap()[0].id;
+    (
+        state.scheduler.rate_limit_cooled(pid, aidog_db::now() + 100),
+        state.scheduler.breaker_fails(pid),
+        pid,
+    )
+}
+
+#[tokio::test]
+async fn ticket04_plain_429_rate_limit_cooldown_no_breaker() {
+    // 其余 429（body 无配额 marker、无重置时间）→ 限频冷却；票 04 之前此路径计 breaker_count。
+    let (cooled, fails, _) =
+        rate_limit_hit(429, r#"{"error":{"message":"rate limited"}}"#).await;
+    assert!(cooled, "plain 429 应进限频冷却（1s 起步）");
+    assert_eq!(fails, 0, "plain 429 不再计熔断");
+}
+
+#[tokio::test]
+async fn ticket04_529_rate_limit_cooldown_no_breaker() {
+    let (cooled, fails, _) =
+        rate_limit_hit(529, r#"{"error":{"message":"site is overloaded"}}"#).await;
+    assert!(cooled, "529 应进限频冷却");
+    assert_eq!(fails, 0, "529 不计熔断");
+}
+
+#[tokio::test]
+async fn ticket04_body_hint_parsed_not_default_doubling() {
+    // 票 04 补充口径：正文里说了「try again in 30 seconds」（非标准字段）→ 按 30s 冷却，
+    // 不落默认 1s 翻倍（默认窗口下 now+29s 早已放行）。
+    let (cooled_long, fails, _) = rate_limit_hit(
+        429,
+        r#"{"error":{"message":"Rate limit exceeded. Please try again in 30 seconds."}}"#,
+    )
+    .await;
+    assert!(cooled_long);
+    assert_eq!(fails, 0);
+    let upstream = spawn_stub_upstream(
+        429,
+        r#"{"error":{"message":"Rate limit exceeded. Please try again in 30 seconds."}}"#,
+    )
+    .await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gk04h", &upstream).await;
+    set_group_max_attempts(&state, "gk04h", 1).await;
+    let _ = handle_proxy(AxumState(state.clone()), messages_request("gk04h", r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#)).await;
+    flush_log_queue(&state).await;
+    let pid = aidog_db::list_platforms(&state.db).await.unwrap()[0].id;
+    let now = aidog_db::now();
+    assert!(state.scheduler.rate_limit_cooled(pid, now + 29_000), "显式 30s 冷却窗口内");
+    assert!(!state.scheduler.rate_limit_cooled(pid, now + 30_000), "30s 到点放行（非默认翻倍）");
+}
+
+#[tokio::test]
+async fn ticket04_rate_limit_effect_recorded_in_attempts() {
+    let up = spawn_stub_upstream(429, r#"{"error":{"message":"rate limited"}}"#).await;
+    let state = make_state(test_db().await).await;
+    let pid = mk_platform_of(&state, Protocol::Anthropic, up).await;
+    group_of(&state, "gk04e", &[pid]).await;
+    let _ = handle_proxy(AxumState(state.clone()), messages_request("gk04e", HI)).await;
+    let a = last_log_for(&state, "gk04e").await.attempts.remove(0);
+    // 副作用记录（排序：penalty 先于 cooldown）：cooldown_rate_limit 取代旧 breaker_count。
+    // （默认平台失败降权落 server 档，rc02 的 Glm 400 落 client 档。）
+    assert_eq!(a.effects, ["penalty_server", "cooldown_rate_limit"]);
+}
+
 #[tokio::test]
 async fn upstream_401_region_blocked_does_not_auto_disable_platform() {
     // 区域封锁的 401 不自动禁用（换代理即恢复，禁用无意义）
@@ -6264,7 +6340,7 @@ async fn registry_code_rate_limit_cools_platform_to_minute_boundary() {
 }
 
 #[tokio::test]
-async fn registry_code_overloaded_is_service_class_fails_over_without_cooldown() {
+async fn registry_code_overloaded_is_service_class_fails_over_with_rate_limit_cooldown() {
     let bad = spawn_stub_upstream(400, r#"{"error":{"code":"1305","message":"该模型当前访问量过大"}}"#).await;
     let ok = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     let state = make_state(test_db().await).await;
@@ -6273,10 +6349,14 @@ async fn registry_code_overloaded_is_service_class_fails_over_without_cooldown()
     group_of(&state, "gkov1305", &[first, second]).await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request("gkov1305", HI)).await;
     assert_eq!(resp.status(), StatusCode::OK, "1305 归 Service，应换平台");
-    assert!(!state.scheduler.quota_cooled(first, aidog_db::now() + 1), "1305 不进限频冷却");
+    assert!(!state.scheduler.quota_cooled(first, aidog_db::now() + 1), "1305 不进配额冷却");
     assert!(
-        state.scheduler.breaker_fails(first) != 0,
-        "1305 计入熔断失败"
+        state.scheduler.rate_limit_cooled(first, aidog_db::now() + 1),
+        "1305 进限频冷却（票 04）"
+    );
+    assert!(
+        state.scheduler.breaker_fails(first) == 0,
+        "1305 不再计熔断（票 04）"
     );
 }
 
@@ -6459,7 +6539,7 @@ async fn rc02_error_class_code_meaning_and_effects() {
     #[allow(clippy::type_complexity)] // 测试表行，拆 type 反而难读
     let cases: [(Protocol, u16, &'static str, &str, Option<&str>, &[&str]); 5] = [
         (Protocol::Glm, 429, r#"{"error":{"code":"1302","message":"x"}}"#, "service", Some("rate_limit"), &["cooldown_minute"]),
-        (Protocol::Glm, 400, r#"{"error":{"code":"1305","message":"x"}}"#, "service", Some("overloaded"), &["breaker_count", "penalty_client"]),
+        (Protocol::Glm, 400, r#"{"error":{"code":"1305","message":"x"}}"#, "service", Some("overloaded"), &["penalty_client", "cooldown_rate_limit"]),
         (Protocol::Anthropic, 401, r#"{"error":{"message":"invalid api key"}}"#, "service", None, &["penalty_client", "cooldown_auth"]),
         (Protocol::Anthropic, 402, r#"{"error":{"message":"insufficient balance"}}"#, "service", None, &["penalty_client", "cooldown_balance"]),
         (Protocol::Anthropic, 500, r#"{"error":{"message":"service unavailable"}}"#, "service", None, &["penalty_server"]),
@@ -7917,6 +7997,7 @@ async fn ra01_decision_cap_counts_model_switches() {
 // ══ 尝试轮：候选全排除且次数没用完 → 等 1 秒（测试注入 0）清空失败排除从头再来 ══
 
 const E529: &str = r#"{"error":{"message":"overloaded"}}"#;
+const E503_SVC: &str = r#"{"error":{"message":"upstream unavailable"}}"#;
 const E400_PLAIN: &str = r#"{"error":{"message":"bad request"}}"#;
 
 /// 单平台 529 两次后成功：同一平台在用满次数内被反复重试，最终 200；尝试记录 3 条，第 2、3 轮起点记进快照。
@@ -7934,10 +8015,12 @@ async fn round_single_platform_529_then_ok() {
 }
 
 /// 两平台都失败 → 第二轮从头：p1 先被再次选中并成功，p2 只被打一次。
+/// 用 503（Service 类、无调度态冷却）：529 自票 04 起进跨请求限频冷却，尝试轮重启
+/// 不清调度态，529 版本会 503（冷却期间不进候选），不再能护栏「从头重试」机制。
 #[tokio::test]
 async fn round_two_platforms_fail_then_second_round_from_top() {
-    let (up1, hits1) = spawn_embedding_upstream(vec![(529, E529), (200, MB_OK)]).await;
-    let (up2, hits2) = spawn_embedding_upstream(vec![(529, E529)]).await;
+    let (up1, hits1) = spawn_embedding_upstream(vec![(503, E503_SVC), (200, MB_OK)]).await;
+    let (up2, hits2) = spawn_embedding_upstream(vec![(503, E503_SVC)]).await;
     let state = make_state(test_db().await).await;
     setup_aux_group(
         &state,

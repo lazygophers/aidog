@@ -18,6 +18,7 @@ const REASON_LABELS: Record<string, string> = {
   "breaker": "熔断",
   "quota-cooldown": "配额冷却",
   "auth-cooldown": "认证冷却",
+  "rate-limit-cooldown": "限频冷却",
   "unknown-protocol": "协议未知",
   "kind-unsupported": "请求类型不支持",
   "client-not-allowed": "客户端不被允许",

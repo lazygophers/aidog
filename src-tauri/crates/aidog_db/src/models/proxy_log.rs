@@ -232,6 +232,8 @@ pub enum RouteReason {
     QuotaCooldown,
     /// 认证冷却（401 权限 / 402 余额，内存态）
     AuthCooldown,
+    /// 限频冷却（429/529 独立通道，翻倍封顶 10 分钟，内存态，票 04）
+    RateLimitCooldown,
     /// 协议未知（DB platform_type 枚举外，票 06）
     UnknownProtocol,
     /// 请求类型不支持（Chat/Decision 维度剔除，jev-decision-proxy R2/R3）

@@ -72,7 +72,7 @@ export type RoutingMode =
 export type PlatformStatus = "enabled" | "disabled" | "auto_disabled";
 
 /** platform_error_status 条目（plat-select-status）：多选「按状态选」数据源。
- * source: "cooldown" = 实时调度态（429/402/401/503，until_ms 有值）；"log" = 24h 日志最近失败码（任意码）。 */
+ * source: "cooldown" = 实时调度态（429/529/402/401/503，until_ms 有值）；"log" = 24h 日志最近失败码（任意码）。 */
 export interface PlatformErrorStatus {
   platform_id: number;
   code: number;
