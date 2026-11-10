@@ -59,8 +59,12 @@ _Avoid_: 决策日志（那指 tracing 内存日志）、blocked_reason（那只
 _Avoid_: 账单（那是上游真实计费）
 
 **限频策略 (Rate Limit Policy)**:
-一组上限规则（并发 / RPM / TPM，平台级 + 模型级，可带时段窗口）。registry 内置的叫「内置策略」（`platform.json` 的 `rate_limit_policies`，只填官方值、带出处）；平台 `extra.rate_limits` 里的叫「平台限频配置」。
+一组上限：平台级上限（不带条件）加若干条限频规则。registry 内置的叫「内置策略」（`platform.json` 的 `rate_limit_policies`，只填官方值、带出处）；平台 `extra.rate_limits` 里的叫「平台限频配置」。
 _Avoid_: 限频快照（那是另一回事，见下）、额度窗口（`extra.quota_windows`，不属本概念）
+
+**限频规则 (Rate Limit Rule)**:
+限频策略里带条件的一条上限，条件至少选一个：模型、时段，或模型 + 时段。只选时段的规则在时段内替换平台级上限；选了模型的规则管该模型（按实际发往上游的模型名，多个模型各自计数），同一模型命中多条时条件多的优先。
+_Avoid_: 模型级覆盖、时段窗口（合并前的两种旧叫法）
 
 **限频快照 (Rate Limit Snapshot)**:
 数据库 `platform.rate_limit` 列，上游响应头里读到的余量数据，只读展示，不参与限流决策。
@@ -279,7 +283,7 @@ _Avoid_: 盲转（未带分组凭据的普通转发也叫盲转）、opaque
 ## 工具
 
 **工具（AiDog Tool）**:
-AiDog 自己提供、由 AiDog 执行的能力：网页搜索、抓网页、生图、生视频。客户端可通过 MCP 调用，也可由网关代执行时内部使用。配置集中在「扩展 → 工具」页。
+AiDog 自己提供、由 AiDog 执行的能力：网页搜索、抓网页、生图。客户端可通过 MCP 调用，也可由网关代执行时内部使用。配置集中在「扩展 → 工具」页。
 _避免_: MCP（指第三方 MCP 服务器管理）、插件
 
 **网关代执行（Gateway-executed server tool）**:

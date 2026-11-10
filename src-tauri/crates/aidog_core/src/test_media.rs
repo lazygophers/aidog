@@ -176,19 +176,3 @@ async fn image_item_without_url_or_b64_is_error() {
         .unwrap_err();
     assert!(e.contains("url") && e.contains("b64_json"), "e={e}");
 }
-
-#[tokio::test]
-async fn video_unconfigured_is_explicit_error() {
-    let e = generate_video(None, "p").await.unwrap_err();
-    assert!(e.contains("未配置视频 provider"), "e={e}");
-    let e = generate_video(Some(&MediaProviderConfig::default()), "p").await.unwrap_err();
-    assert!(e.contains("未配置视频 provider"), "全空配置也按未配置, e={e}");
-}
-
-#[tokio::test]
-async fn video_configured_is_not_implemented_error() {
-    let cfg = media_cfg("https://v.example/v1");
-    let e = generate_video(Some(&cfg), "p").await.unwrap_err();
-    assert!(e.contains("未实现"), "e={e}");
-    assert!(!e.contains("未配置"), "已配置不得报未配置, e={e}");
-}

@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 const PAGE_SIZE = 50;
-const TOOLS = ["web_search", "web_fetch", "generate_image", "generate_video"] as const;
+const TOOLS = ["web_search", "web_fetch", "generate_image"] as const;
 const TRIGGERS = ["gateway", "mcp"] as const;
 const MONO = "ui-monospace, SFMono-Regular, Menlo, monospace";
 

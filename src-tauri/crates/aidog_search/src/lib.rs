@@ -23,6 +23,49 @@ pub const FIRECRAWL_BASE: &str = "https://api.firecrawl.dev";
 /// 轮换游标：跨调用递进，起点 = 游标 % key 数，均摊分摊各 key 的用量。
 pub static ROTATION: AtomicUsize = AtomicUsize::new(0);
 
+/// key 服务 id 集合（搜索来源清单的 key 服务部分；单一真值源）。
+pub const KEY_SERVICES: &[&str] = &[
+    "tavily",
+    "brave",
+    "exa",
+    "firecrawl",
+    "youcom",
+    "deepseek",
+    "doubao",
+    "tencent_yuanbao",
+];
+
+/// 搜索来源条目（`search_sources` command 返回；显示名走前端 i18n `tools.source.<id>`）。
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SearchSource {
+    pub id: String,
+    /// `keyed`（key 服务）/ `engine`（免 key 引擎）。
+    pub kind: &'static str,
+    pub needs_key: bool,
+    pub default_on: bool,
+    /// `per_request`（按次计费）/ `free`；供「一起」模式的计费提示。
+    pub billing: &'static str,
+}
+
+/// 全部搜索来源：key 服务（按 [`KEY_SERVICES`] 序）在前，免 key 引擎（按 [`engines::ENGINES`] 序）在后。
+pub fn search_sources() -> Vec<SearchSource> {
+    let keyed = KEY_SERVICES.iter().map(|id| SearchSource {
+        id: (*id).into(),
+        kind: "keyed",
+        needs_key: true,
+        default_on: false,
+        billing: "per_request",
+    });
+    let free = engines::ENGINES.iter().map(|e| SearchSource {
+        id: e.id.into(),
+        kind: "engine",
+        needs_key: false,
+        default_on: e.default_on,
+        billing: "free",
+    });
+    keyed.chain(free).collect()
+}
+
 /// 搜索结果统一出参（provider 特有字段丢弃，spec D5a）。
 #[derive(Debug, Clone, PartialEq)]
 pub struct SearchHit {
@@ -36,7 +79,7 @@ pub struct SearchHit {
 /// 搜索设置（`mcp_tools/settings` 的 `search` 段；`aidog_core::mcp_tools` 再导出）。
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub struct SearchProviderConfig {
-    /// key 服务 id（tavily / brave / exa / firecrawl；其余词表见 `aidog_core::mcp_tools::SEARCH_PROVIDERS`）。
+    /// key 服务 id（词表见 [`KEY_SERVICES`]）。
     #[serde(default)]
     pub provider: String,
     /// API keys，多 key 轮换；至少 1 个非空才算配置了 key 服务。
@@ -640,3 +683,7 @@ mod test_engines;
 #[cfg(test)]
 #[path = "test_engines_more.rs"]
 mod test_engines_more;
+
+#[cfg(test)]
+#[path = "test_sources.rs"]
+mod test_sources;

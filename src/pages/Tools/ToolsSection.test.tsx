@@ -42,7 +42,7 @@ describe("ToolsSection", () => {
     );
   });
 
-  it("已配置加载回填；保存保留 image/video 透传", async () => {
+  it("已配置加载回填；保存保留 image 透传", async () => {
     h.get.mockResolvedValue({
       search: { provider: "tavily", keys: ["k1"], enabled: true, searxng_base_urls: [] },
       image: { base_url: "https://api.openai.com/v1", api_key: "img-k", model: "g" },
@@ -152,7 +152,7 @@ describe("ToolsSection", () => {
     expect(await screen.findByTestId("mcp-tools-save-error")).toHaveTextContent("settings_set failed");
   });
 
-  it("image 字段编辑后保存写出 image 对象；video 留空不写", async () => {
+  it("image 字段编辑后保存写出 image 对象；不写 video", async () => {
     render(<ToolsSection />);
     await waitFor(() => expect(providerSelect().value).toBe(""));
     fireEvent.change(screen.getByTestId("mcp-tools-image-base-url"), { target: { value: "https://p/v1/" } });

@@ -1,4 +1,4 @@
-//! generate_image / generate_video 的 provider 适配层（magpie 票 12，spec D5）。
+//! generate_image 的 provider 适配层（magpie 票 12，spec D5）。
 //!
 //! generate_image = OpenAI images API 兼容实现。端点与请求形状取自一手 spec：
 //! openai/openai-openapi（github）master openapi.yaml v2.3.0，path `/images/generations`，
@@ -10,9 +10,6 @@
 //! 带 `b64_json` → `data:image/png;base64,…` data URL 内嵌（免落盘，MCP text 可携带；
 //! 代价是消息体变大，取舍记录在票 ## Answer）。不发 `response_format`（可选参数，
 //! 两种响应形态都按数据判别）。
-//!
-//! generate_video 仅接口（spec D5 首版不实现）：未配置 → 明确「未配置视频 provider」；
-//! 已配置 → 「未实现」（复活条件：用户配置视频 provider）。
 
 use aidog_search::{call, http_client};
 use crate::mcp_tools::MediaProviderConfig;
@@ -66,19 +63,6 @@ impl ValuePreview for serde_json::Value {
     fn to_string_lossy_truncate(&self) -> String {
         aidog_search::truncate_str(&self.to_string(), 200).to_string()
     }
-}
-
-/// `generate_video` 工具入口（首版仅接口，D5；复活条件：用户配置视频 provider）。
-pub async fn generate_video(
-    cfg: Option<&MediaProviderConfig>,
-    _prompt: &str,
-) -> Result<String, String> {
-    if !cfg.is_some_and(|c| c.is_configured()) {
-        return Err(
-            "未配置视频 provider（在 aidog 设置里填写 base_url / API key / 模型名）".into(),
-        );
-    }
-    Err("生视频尚未实现（spec D5 首版仅接口；复活条件：配置视频 provider 后开放）".into())
 }
 
 #[cfg(test)]

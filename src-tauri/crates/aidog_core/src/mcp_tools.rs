@@ -1,28 +1,14 @@
-//! MCP 工具 provider 设置（magpie 票 10 落 schema，票 11 填 provider 实现，票 12 落 UI）。
+//! MCP 工具 provider 设置的数据形状与读取。
 //!
-//! 设置键：scope = `"mcp_tools"`，key = `"settings"`。本模块只定数据形状与读写；
-//! 不带 `tauri_command!`（命令与前端表单留票 12），内核 `mcp` 子命令（票 11）按这份
-//! 配置取搜索 / 生图 / 生视频 provider。
+//! 设置键：scope = `"mcp_tools"`，key = `"settings"`。写入走通用设置命令；内核 `mcp`
+//! 子命令与网关按这份配置取搜索 / 生图 provider。
 
 use aidog_db::{self as db, Db};
-
-/// 搜索 provider id 词表（spec D5a 的 9 家）。
-pub const SEARCH_PROVIDERS: [&str; 9] = [
-    "tavily",
-    "brave",
-    "exa",
-    "firecrawl",
-    "youcom",
-    "deepseek",
-    "doubao",
-    "tencent_yuanbao",
-    "searxng",
-];
 
 /// 搜索设置（定义在 `aidog_search`，供网关 / HTTP MCP / kernel 共用而不成环）。
 pub use aidog_search::SearchProviderConfig;
 
-/// 生图 / 生视频 provider 配置：OpenAI images 兼容端点（D5：走用户配置的平台，
+/// 生图 provider 配置：OpenAI images 兼容端点（D5：走用户配置的平台，
 /// `base_url` 含版本前缀，最终 URL = base_url + 端点路径，禁额外拼接）。
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Default)]
 pub struct MediaProviderConfig {
@@ -53,9 +39,6 @@ pub struct McpToolsSettings {
     /// 生图 provider；None = generate_image 未配置。
     #[serde(default)]
     pub image: Option<MediaProviderConfig>,
-    /// 生视频 provider；None = generate_video 未配置（首版未实现，D5 复活条件）。
-    #[serde(default)]
-    pub video: Option<MediaProviderConfig>,
 }
 
 /// 读设置。无记录 / 解析失败 → 默认值（全未配置），不 panic。
@@ -69,8 +52,9 @@ pub async fn load_mcp_tools_settings(db: &Db) -> McpToolsSettings {
     }
 }
 
-/// 写设置。
-pub async fn save_mcp_tools_settings(db: &Db, s: &McpToolsSettings) -> Result<(), String> {
+/// 写设置（仅测试夹具用，生产写入走设置命令）。
+#[cfg(test)]
+pub(crate) async fn save_mcp_tools_settings(db: &Db, s: &McpToolsSettings) -> Result<(), String> {
     let value =
         serde_json::to_value(s).map_err(|e| format!("serialize mcp_tools settings: {e}"))?;
     db::set_setting(
@@ -94,7 +78,7 @@ mod test_mcp_tools {
         let v = serde_json::to_value(&d).unwrap();
         assert_eq!(serde_json::from_value::<McpToolsSettings>(v).unwrap(), d);
 
-        // 票 11 落库的真实形状：只填 search，image/video 缺省。
+        // 票 11 落库的真实形状：只填 search，image 缺省。
         let partial: McpToolsSettings = serde_json::from_value(serde_json::json!({
             "search": {"provider": "tavily", "keys": ["k1", "k2"]}
         }))
@@ -103,7 +87,6 @@ mod test_mcp_tools {
         assert_eq!(partial.search.keys.len(), 2);
         assert!(partial.search.is_configured());
         assert_eq!(partial.image, None);
-        assert!(!partial.video.is_some_and(|c| c.is_configured()));
     }
 
     #[test]
@@ -160,11 +143,12 @@ mod test_mcp_tools {
     }
 
     #[test]
-    fn search_providers_word_list_matches_spec_d5a() {
-        // spec D5a 的 9 家；票 11 实现按此词表分发。
-        assert_eq!(
-            SEARCH_PROVIDERS,
-            ["tavily", "brave", "exa", "firecrawl", "youcom", "deepseek", "doubao", "tencent_yuanbao", "searxng"]
-        );
+    fn legacy_video_key_is_ignored() {
+        // 旧配置残留 video 键：serde 忽略未知字段，不报错。
+        let s: McpToolsSettings = serde_json::from_value(serde_json::json!({
+            "video": {"base_url": "https://v/v1", "api_key": "k", "model": "m"}
+        }))
+        .unwrap();
+        assert_eq!(s, McpToolsSettings::default());
     }
 }

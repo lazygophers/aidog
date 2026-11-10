@@ -58,7 +58,6 @@ pub async fn run_tool(
         "generate_image" => {
             crate::media::generate_image(settings.image.as_ref(), &subject, args["size"].as_str()).await
         }
-        "generate_video" => crate::media::generate_video(settings.video.as_ref(), &subject).await,
         _ => Err(format!("未知工具：`{name}`")),
     };
     if name != "web_search" && outcome.is_ok() {

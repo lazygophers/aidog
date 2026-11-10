@@ -1,6 +1,6 @@
-// ─── 「扩展 → 工具」页主体：搜索（key 服务 + 免 key 引擎开关）/ 生图 / 生视频 ──
+// ─── 「扩展 → 工具」页主体：搜索（key 服务 + 免 key 引擎开关）/ 生图 ──
 // 设置键 scope=mcp_tools / key=settings。本节编辑 search（provider / 多 key 轮换 /
-// enabled / engines 开关 / SearXNG 实例 URL）与 image / video provider（base_url / api_key /
+// enabled / engines 开关 / SearXNG 实例 URL）与 image provider（base_url / api_key /
 // model，OpenAI images 兼容端点）；「一键写入」把 AiDog 的 HTTP MCP 地址（+ 分组 Bearer）写进本机
 // Claude Code / Codex 的 mcpServers（复用 aidog_mcp 机制，既有条目保留）。
 // 保存走通用 settingsApi（settings_set），api_key/keys 数组已被后端 SECRET_PATHS
@@ -13,7 +13,7 @@ import { mcpApi } from "../../services/api/mcp";
 import { searchApi, type SearxInstance } from "../../services/api/search";
 import { Button } from "@/components/ui/button";
 
-// 搜索 key 服务（SearXNG 已并入下方免 key 引擎列表；其余词表见 aidog_core SEARCH_PROVIDERS）。
+// 搜索 key 服务（SearXNG 已并入下方免 key 引擎列表；词表真值源见 aidog_search KEY_SERVICES）。
 const PROVIDERS = [
   "tavily", "brave", "exa", "firecrawl",
   "youcom", "deepseek", "doubao", "tencent_yuanbao",
@@ -51,7 +51,7 @@ const providerLabel = (p: string, t: TFunction): string => {
 const linesOf = (s: string): string[] =>
   s.split("\n").map((l) => l.trim()).filter((l) => l !== "");
 
-/** 生图 / 生视频 provider 配置（MediaProviderConfig，snake_case 与后端对齐）。 */
+/** 生图 provider 配置（MediaProviderConfig，snake_case 与后端对齐）。 */
 type MediaCfg = { base_url: string; api_key: string; model: string };
 const EMPTY_MEDIA: MediaCfg = { base_url: "", api_key: "", model: "" };
 const readMedia = (v: unknown): MediaCfg => {
@@ -79,7 +79,6 @@ export function ToolsSection() {
   const [searxError, setSearxError] = useState("");
   const [engines, setEngines] = useState<Record<string, boolean>>(defaultEngineFlags);
   const [image, setImage] = useState<MediaCfg>(EMPTY_MEDIA);
-  const [video, setVideo] = useState<MediaCfg>(EMPTY_MEDIA);
   const [installing, setInstalling] = useState(false);
   const [installMsg, setInstallMsg] = useState("");
   const [installOk, setInstallOk] = useState(false);
@@ -96,7 +95,6 @@ export function ToolsSection() {
       setKeysText(Array.isArray(search.keys) ? search.keys.join("\n") : "");
       setUrlsText(Array.isArray(search.searxng_base_urls) ? search.searxng_base_urls.join("\n") : "");
       setImage(readMedia(v?.image));
-      setVideo(readMedia(v?.video));
       setLoadError("");
     } catch (e) {
       setLoadError(String(e));
@@ -118,7 +116,6 @@ export function ToolsSection() {
           engines,
         },
         ...(hasMedia(image) ? { image } : {}),
-        ...(hasMedia(video) ? { video } : {}),
       });
       setSaved(true);
     } catch (e) {
@@ -167,7 +164,7 @@ export function ToolsSection() {
 
   const mediaSection = (
     title: string,
-    kind: "image" | "video",
+    kind: "image",
     cfg: MediaCfg,
     onChange: (c: MediaCfg) => void,
   ) => (
@@ -211,9 +208,9 @@ export function ToolsSection() {
       style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}
     >
       <div>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("tools.title", "搜索 / 生图 / 生视频")}</div>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("tools.title", "搜索 / 生图")}</div>
         <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-          {t("tools.desc", "配置 web_search 联网搜索、generate_image 生图与 generate_video 的 provider。")}
+          {t("tools.desc", "配置 web_search 联网搜索与 generate_image 生图的 provider。")}
         </div>
       </div>
 
@@ -317,10 +314,9 @@ export function ToolsSection() {
       </div>
 
       <div style={{ fontSize: 12, fontWeight: 600 }}>
-        {t("tools.mediaTitle", "生图 / 生视频 provider（OpenAI images 兼容端点）")}
+        {t("tools.mediaTitle", "生图 provider（OpenAI images 兼容端点）")}
       </div>
       {mediaSection(t("tools.imageTitle", "生图（generate_image）"), "image", image, setImage)}
-      {mediaSection(t("tools.videoTitle", "生视频（generate_video，首版未实现）"), "video", video, setVideo)}
 
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <Button data-testid="mcp-tools-save" onClick={() => void save()}>
