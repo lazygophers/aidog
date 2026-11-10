@@ -49,3 +49,21 @@ describe("GroupEditPanel — 最大尝试次数输入限制", () => {
     expect(dispatchEdit).toHaveBeenLastCalledWith({ type: "patch", patch: { maxRetries: want } });
   });
 });
+
+describe("GroupEditPanel — 映射目标模型下拉含时段档模型", () => {
+  it("目标平台只有时段档模型 → 渲染下拉而非无候选回退", () => {
+    const plat = { id: 9, name: "P", platform_type: "openai", models: {}, status: "enabled",
+      extra: JSON.stringify({ time_windows: [{ windows: [], models: { default: "w1" } }] }) } as never;
+    render(
+      <GroupEditPanel
+        edit={{ ...EMPTY_EDIT, name: "g", mappings: [{ source_model: "s", target_platform_id: 9, target_model: "" }], target: { group: { id: 1, name: "g", group_key: "gk", extra: "", is_default: false } } } as never}
+        dispatchEdit={vi.fn()}
+        platforms={[plat]}
+        t={((k: string) => k) as never}
+        onCancel={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+    expect(screen.queryByTestId("mapping-target-model-select")).not.toBeNull();
+  });
+});

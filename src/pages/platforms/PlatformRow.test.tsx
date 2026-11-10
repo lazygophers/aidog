@@ -43,6 +43,11 @@ const base = {
 };
 
 describe("PlatformRow", () => {
+  it("「模型」计数含时段档独有模型", () => {
+    const p = { ...platform, models: { default: "a" }, extra: JSON.stringify({ time_windows: [{ windows: [], models: { default: "w1", opus: "w2" } }] }) } as never as Platform;
+    render(<PlatformRow {...base} platform={p} />);
+    expect(screen.getByTestId("row-models-count").textContent).toContain("3");
+  });
   it("行渲染：testid / 状态点 / 开关 on / 测速 ok", () => {
     render(<PlatformRow {...base} />);
     expect(screen.getByTestId("platform-row")).toBeTruthy();

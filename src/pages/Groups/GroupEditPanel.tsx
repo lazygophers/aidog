@@ -6,7 +6,7 @@ import codexIcon from "../../assets/platforms/openai.svg";
 import piIcon from "../../assets/platforms/pi.svg";
 import type { Platform, RoutingMode } from "../../services/api";
 import type { EditState, EditAction } from "../../domains/groups";
-import { allModelValues } from "../../domains/platforms";
+import { allConfiguredModelValues } from "../../domains/platforms";
 import { useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";
 import { F, S } from "../../domains/shared/tokens";
 import { ROUTING_MODES, routingModeLabel, routingModeDesc, buildClaudeCommand, buildCodexCommand, buildPiCommand, PlatformPicker, useProxyEnvVars,
@@ -154,7 +154,7 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {editMappings.map((m, i) => {
             const targetPlat = platforms.find(p => p.id === m.target_platform_id);
-            const models = targetPlat ? allModelValues(targetPlat.models) : [];
+            const models = targetPlat ? allConfiguredModelValues(targetPlat) : [];
             const priceMap = targetPlat ? allPrices.get(targetPlat.platform_type) : undefined;
             return (
               <div key={i} style={{
@@ -199,7 +199,7 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
                       ms[i] = { ...ms[i], target_model: v === "__none__" ? "" : v };
                       dispatchEdit({ type: "patch", patch: { mappings: ms } });
                     }}>
-                    <SelectTrigger style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}>
+                    <SelectTrigger data-testid="mapping-target-model-select" style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}>
                       <SelectValue placeholder={t("mapping.target", "目标模型")}>
                         {m.target_model ? (
                           <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>

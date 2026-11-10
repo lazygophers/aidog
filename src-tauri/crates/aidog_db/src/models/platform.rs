@@ -87,8 +87,8 @@ pub fn retry_count_of(attempts: &[ProxyAttempt]) -> i32 {
 
 /// 平台模型配置：8 个固定槽位（jev 为决策模型专用槽，见 jev-decision-proxy R2/R3；
 /// embedding / rerank 为向量化 / 重排序专用槽，见 .scratch/embedding-槽位/spec.md）。
-/// embedding / rerank 只读 `platform.models`，**不读** `effective_models`：time_windows 命中与 preset
-/// `models.peak` 命中都是整支替换为不含新槽位的 `PlatformModels`，故两槽天然不参与时段/高峰切换。
+/// embedding / rerank 路由读 `effective_models`（`candidates.rs` 现行为）；time_windows 档与 preset
+/// `models.peak` 档各自带完整 `PlatformModels`，两槽随命中的档整支替换。
 #[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct PlatformModels {
