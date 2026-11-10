@@ -505,8 +505,8 @@ mod tests {
     #[test]
     fn default_tools_pricing_reads_bundled_registry() {
         let ds = default_tools_pricing("deepseek").expect("deepseek tools_pricing bundled");
-        assert_eq!(ds["search"]["per_1000"].as_f64(), Some(5.0));
-        assert_eq!(ds["search"]["currency"].as_str(), Some("CNY"));
+        assert_eq!(ds["search"]["per_1000"].as_f64(), Some(0.75));
+        assert_eq!(ds["search"]["currency"].as_str(), Some("USD"));
         assert_eq!(ds["fetch"]["per_1000"].as_f64(), Some(5.0));
         let an = default_tools_pricing("anthropic").expect("anthropic tools_pricing bundled");
         assert_eq!(an["web_search"]["per_1000"].as_f64(), Some(10.0));

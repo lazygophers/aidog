@@ -258,7 +258,7 @@ async fn reopen_and_read(dir: &tempfile::TempDir) -> Db {
 const SEARCH_OK: &str = r#"{"results":[{"title":"t","url":"https://x","snippet":"s"}]}"#;
 const SEARCH_EMPTY: &str = r#"{"results":[]}"#;
 
-/// 用例 1：成功计费含汇率换算。deepseek search 成功 → est_cost = 5/1000 ÷ 6.6675（CNY→USD），
+/// 用例 1：成功计费。deepseek search 成功 → est_cost = 0.75/1000（官网 USD 价，不换汇；CNY 换算见 kimi 用例），
 /// model 列 = tools:search。proxy_log 行写后重开 DB 读回验证。
 #[tokio::test]
 async fn e2e_success_bills_per_call_with_fx() {
@@ -285,10 +285,10 @@ async fn e2e_success_bills_per_call_with_fx() {
     assert_eq!(row.platform_id, plat_id as u64);
     assert_eq!(row.model, "tools:search");
     assert_eq!(row.status_code, 200);
-    let expected = 5.0 / 1000.0 / crate::gateway::billing::CNY_PER_USD;
+    let expected = 0.75 / 1000.0;
     assert!(
         (row.est_cost - expected).abs() < 1e-9,
-        "est_cost = per_1000/1000 / CNY_PER_USD, got {}",
+        "est_cost = per_1000/1000 (USD), got {}",
         row.est_cost
     );
 }

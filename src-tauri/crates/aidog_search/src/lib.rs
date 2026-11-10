@@ -1,8 +1,7 @@
 //! web_search / web_fetch 的 provider 适配层（magpie 票 11，spec D5a）。
 //!
-//! 端点与鉴权均取自一手文档（票 ## Answer 有清单）：已验证 5 家（tavily / brave / exa /
-//! firecrawl / searxng）实现真实调用；未能从一手文档确认的 4 家（youcom / deepseek /
-//! doubao / tencent_yuanbao）按票面纪律**不猜端点**，调用一律返回明确的 unverified 错误。
+//! 端点与鉴权均取自一手文档：key 服务 8 家（tavily / brave / exa / firecrawl / youcom /
+//! deepseek / doubao / tencent_yuanbao）+ 免 key 引擎，全部实现真实调用。
 //!
 //! 统一出参 [`SearchHit`]（title / url / snippet），provider 特有字段丢弃；多 key 轮换
 //! （调用间递进起点），全 key 失败聚合报错。测试全打本地假上游（test-no-real-calls.md）。
@@ -19,6 +18,10 @@ pub const TAVILY_BASE: &str = "https://api.tavily.com";
 pub const BRAVE_BASE: &str = "https://api.search.brave.com";
 pub const EXA_BASE: &str = "https://api.exa.ai";
 pub const FIRECRAWL_BASE: &str = "https://api.firecrawl.dev";
+pub const DEEPSEEK_BASE: &str = "https://api.deepseek.com";
+pub const YOUCOM_BASE: &str = "https://ydc-index.io";
+pub const DOUBAO_BASE: &str = "https://open.feedcoopapi.com";
+pub const TENCENT_YUANBAO_BASE: &str = "https://api.wsa.cloud.tencent.com";
 
 /// 轮换游标：跨调用递进，起点 = 游标 % key 数，均摊分摊各 key 的用量。
 pub static ROTATION: AtomicUsize = AtomicUsize::new(0);
@@ -352,8 +355,11 @@ async fn keyed_search(
         "brave" => BRAVE_BASE,
         "exa" => EXA_BASE,
         "firecrawl" => FIRECRAWL_BASE,
-        // 未验证 provider：不猜端点，显式报错（票面纪律；票 03 补齐）。
-        _ => return Err(format!("provider `{p}` 的公开搜索 API 未能从一手文档确认（unverified），未实现")),
+        "deepseek" => DEEPSEEK_BASE,
+        "youcom" => YOUCOM_BASE,
+        "doubao" => DOUBAO_BASE,
+        "tencent_yuanbao" => TENCENT_YUANBAO_BASE,
+        _ => return Err(format!("未知 key 服务 `{p}`")),
     };
     let base = env.bases.get(p).map(String::as_str).unwrap_or(default_base);
     let keys: Vec<String> = cfg
@@ -409,6 +415,10 @@ async fn search_with_keys(
             "brave" => brave_search(&client, base, &keys[idx], query, count).await,
             "exa" => exa_search(&client, base, &keys[idx], query, count).await,
             "firecrawl" => firecrawl_search(&client, base, &keys[idx], query, count).await,
+            "deepseek" => deepseek_search(&client, base, &keys[idx], query, count).await,
+            "youcom" => youcom_search(&client, base, &keys[idx], query, count).await,
+            "doubao" => doubao_search(&client, base, &keys[idx], query, count).await,
+            "tencent_yuanbao" => tencent_yuanbao_search(&client, base, &keys[idx], query, count).await,
             other => return Err(format!("unknown provider `{other}`")),
         };
         match attempt {
@@ -569,6 +579,138 @@ pub async fn firecrawl_search(
                 .collect()
         })
         .unwrap_or_default())
+}
+
+fn str_of(v: &serde_json::Value) -> String {
+    v.as_str().unwrap_or_default().to_string()
+}
+
+/// DeepSeek：POST {base}/v1/tools/search，Bearer（api-docs.deepseek.com/guides/search）；count 1-50。
+pub async fn deepseek_search(
+    client: &reqwest::Client,
+    base: &str,
+    key: &str,
+    query: &str,
+    count: Option<usize>,
+) -> Result<Vec<SearchHit>, String> {
+    let mut body = serde_json::json!({ "query": query });
+    if let Some(n) = count {
+        body["count"] = serde_json::json!(n.clamp(1, 50));
+    }
+    let v = call(client.post(format!("{base}/v1/tools/search")).bearer_auth(key).json(&body)).await?;
+    Ok(v["results"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .map(|r| SearchHit {
+                    title: str_of(&r["title"]),
+                    url: str_of(&r["url"]),
+                    snippet: str_of(&r["snippet"]),
+                    page_age: r["date"].as_str().map(str::to_string),
+                })
+                .collect()
+        })
+        .unwrap_or_default())
+}
+
+/// You.com：POST {base}/v1/search，头 X-API-Key（docs.you.com/api-reference/search/v1-search）；count 1-100。
+pub async fn youcom_search(
+    client: &reqwest::Client,
+    base: &str,
+    key: &str,
+    query: &str,
+    count: Option<usize>,
+) -> Result<Vec<SearchHit>, String> {
+    let mut body = serde_json::json!({ "query": query });
+    if let Some(n) = count {
+        body["count"] = serde_json::json!(n.clamp(1, 100));
+    }
+    let v = call(client.post(format!("{base}/v1/search")).header("X-API-Key", key).json(&body)).await?;
+    Ok(v["results"]["web"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .map(|r| SearchHit {
+                    title: str_of(&r["title"]),
+                    url: str_of(&r["url"]),
+                    snippet: r["snippets"][0].as_str().or_else(|| r["description"].as_str()).unwrap_or_default().to_string(),
+                    page_age: r["page_age"].as_str().map(str::to_string),
+                })
+                .collect()
+        })
+        .unwrap_or_default())
+}
+
+/// 豆包（火山联网搜索）：POST {base}/search_api/web_search，Bearer（docs.volcengine.com Networkedsearch-2）。
+/// 业务错误是 HTTP 200 + `ResponseMetadata.Error`，必须看 body。
+pub async fn doubao_search(
+    client: &reqwest::Client,
+    base: &str,
+    key: &str,
+    query: &str,
+    count: Option<usize>,
+) -> Result<Vec<SearchHit>, String> {
+    let mut body = serde_json::json!({ "Query": query, "SearchType": "web" });
+    if let Some(n) = count {
+        body["Count"] = serde_json::json!(n.clamp(1, 50));
+    }
+    let v = call(client.post(format!("{base}/search_api/web_search")).bearer_auth(key).json(&body)).await?;
+    let err = &v["ResponseMetadata"]["Error"];
+    if err.is_object() {
+        return Err(format!("{}: {}", str_of(&err["Code"]), str_of(&err["Message"])));
+    }
+    Ok(v["Result"]["WebResults"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .map(|r| SearchHit {
+                    title: str_of(&r["Title"]),
+                    url: str_of(&r["Url"]),
+                    snippet: r["Summary"].as_str().filter(|s| !s.is_empty()).or_else(|| r["Snippet"].as_str()).unwrap_or_default().to_string(),
+                    page_age: r["PublishTime"].as_str().map(str::to_string),
+                })
+                .collect()
+        })
+        .unwrap_or_default())
+}
+
+/// 腾讯元宝（联网搜索 API Key 接入）：POST {base}/SearchPro，Bearer（cloud.tencent.com/document/product/1806/130615）。
+/// `Response.Pages[]` 每项是 JSON 字符串，需二次解析；`Cnt` 只接受 10/20/…/50，故向上取整后再截断。
+pub async fn tencent_yuanbao_search(
+    client: &reqwest::Client,
+    base: &str,
+    key: &str,
+    query: &str,
+    count: Option<usize>,
+) -> Result<Vec<SearchHit>, String> {
+    let mut body = serde_json::json!({ "Query": query });
+    // shortcut: ≤10 条不带 Cnt（极速版不支持该参数，缺省即 10）。
+    if let Some(n) = count.filter(|n| *n > 10) {
+        body["Cnt"] = serde_json::json!(n.div_ceil(10).min(5) * 10);
+    }
+    let v = call(client.post(format!("{base}/SearchPro")).bearer_auth(key).json(&body)).await?;
+    let resp = &v["Response"];
+    if resp["Error"].is_object() {
+        return Err(format!("{}: {}", str_of(&resp["Error"]["Code"]), str_of(&resp["Error"]["Message"])));
+    }
+    let pages = resp["Pages"].as_array().cloned().unwrap_or_default();
+    let mut hits: Vec<SearchHit> = pages
+        .iter()
+        .filter_map(|p| serde_json::from_str::<serde_json::Value>(p.as_str()?).ok())
+        .map(|p| SearchHit {
+            title: str_of(&p["title"]),
+            url: str_of(&p["url"]),
+            snippet: str_of(&p["passage"]),
+            page_age: p["date"].as_str().map(str::to_string),
+        })
+        .collect();
+    if hits.is_empty() && !pages.is_empty() {
+        return Err("Response.Pages 条目均无法解析为 JSON".into());
+    }
+    if let Some(n) = count {
+        hits.truncate(n);
+    }
+    Ok(hits)
 }
 
 /// `web_fetch` 工具入口：直抓 URL，HTML → 纯文本，1MB 截断 + 30s 超时。

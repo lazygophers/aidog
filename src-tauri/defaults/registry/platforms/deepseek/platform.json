@@ -16,8 +16,8 @@
   ],
   "tools_pricing": {
     "search": {
-      "per_1000": 5.0,
-      "currency": "CNY"
+      "per_1000": 0.75,
+      "currency": "USD"
     },
     "fetch": {
       "per_1000": 5.0,
@@ -141,5 +141,5 @@
     "search": "https://api.deepseek.com/v1/tools/search",
     "fetch": "https://api.deepseek.com/v1/tools/fetch"
   },
-  "last_updated": 1794191265
+  "last_updated": 1794285169
 }
