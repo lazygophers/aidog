@@ -104,6 +104,17 @@ pub(crate) fn request_tier_families(source_model: &str) -> Vec<&'static str> {
     TIER_FAMILIES.into_iter().filter(|f| lower.contains(f)).collect()
 }
 
+/// 请求名命中的全局自定义槽名（不看本平台是否填值；规则同 `match_custom`）。
+pub(crate) fn custom_defs_hit<'a>(
+    defs: &'a [CustomSlotDef],
+    source_model: &str,
+) -> impl Iterator<Item = &'a str> {
+    let lower = base_model_of(source_model).to_lowercase();
+    defs.iter()
+        .filter(move |d| if d.exact { lower == d.name } else { lower.contains(d.name.as_str()) })
+        .map(|d| d.name.as_str())
+}
+
 /// 返回命中槽位的完整有序模型链（链首 = 目标模型，恒非空）+ 命中来源。
 /// 顺序：自定义槽 → 内置 opus/sonnet/haiku/gpt → default → 透传（无槽位可用 → 透传名单元素链）。
 pub(crate) fn resolve_model_chain_with_custom(

@@ -4959,3 +4959,113 @@ async fn route_decision_uses_tier_single_and_degraded_group() {
         .expect_err("档内档无 jev");
     assert_eq!(e, "no_decision_platform");
 }
+
+// ── 自定义槽关闭不生效（路由-尝试轮与熔断退避 票 01）──
+
+async fn set_subagent_def(db: &db::Db) {
+    db::set_setting(
+        db,
+        db::models::SetSettingInput {
+            scope: "model".into(),
+            key: "custom_model_slots".into(),
+            value: serde_json::json!([{"name": "subagent", "match": "contains"}]),
+        },
+    )
+    .await
+    .expect("defs");
+}
+
+/// 根因 1：本平台未填 subagent 值但关了该槽，请求命中 subagent 规则 → 应排除（不回落看 default 开关）。
+#[tokio::test]
+async fn unfilled_custom_slot_disabled_excludes_platform() {
+    let (db, _dir) = db::test_support::three_file_db().await;
+    set_subagent_def(&db).await;
+    let p1 = mk_db_platform(&db, "off").await; // subagent 未填、已关
+    let p2 = mk_db_platform(&db, "on").await; // subagent 已填、开
+    set_models_extra(&db, p1.id, slot_default("d1"), r#"{"disabled_slots":["subagent"]}"#).await;
+    set_models_extra(&db, p2.id, slot_default("d2"), r#"{"custom_slots":{"subagent":["s2"]}}"#).await;
+    let g = mk_db_group(&db, "g", &[p1.id, p2.id]).await;
+    let set = select_candidates_ctx(&db, &g, "claude-subagent-x", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    assert_eq!(cand_ids(&set), vec![p2.id]);
+    assert_eq!(reason_of(&set, p1.id), RouteReason::ModelNotOnPlatform);
+}
+
+/// 根因 1（单平台组）：同样不 bypass。
+#[tokio::test]
+async fn unfilled_custom_slot_disabled_single_platform_rejects() {
+    let (db, _dir) = db::test_support::three_file_db().await;
+    set_subagent_def(&db).await;
+    let p = mk_db_platform(&db, "only").await;
+    set_models_extra(&db, p.id, slot_default("d1"), r#"{"disabled_slots":["subagent"]}"#).await;
+    let g = mk_db_group(&db, "single", &[p.id]).await;
+    let e = select_candidates_ctx(&db, &g, "claude-subagent-x", None, RequestKind::Chat)
+        .await
+        .expect_err("must reject");
+    assert_eq!(e, "slot_disabled");
+    // 请求名不命中 subagent 规则 → 放行
+    select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("non-matching request passes");
+}
+
+/// 根因 2：透传平台（ADR 0008 恒在线）——现状对照，不改。
+#[tokio::test]
+async fn passthrough_platform_ignores_disabled_slot_adr0008() {
+    let (db, _dir) = db::test_support::three_file_db().await;
+    set_subagent_def(&db).await;
+    let p1 = mk_db_platform_passthrough(&db, "pt", r#"{"disabled_slots":["subagent"]}"#, None).await;
+    let p2 = mk_db_platform(&db, "on").await;
+    set_models_extra(&db, p2.id, slot_default("d2"), r#"{"custom_slots":{"subagent":["s2"]}}"#).await;
+    let g = mk_db_group(&db, "g", &[p1.id, p2.id]).await;
+    let set = select_candidates_ctx(&db, &g, "claude-subagent-x", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    assert!(cand_ids(&set).contains(&p1.id), "passthrough stays online (ADR 0008)");
+}
+
+/// 根因 3（现状护栏，不改）：直通模型转发原名、不进槽位匹配，声明平台即使关了该槽仍被选中；
+/// 是否改为「直通也尊重槽开关」待用户拍板。
+#[tokio::test]
+async fn direct_model_ignores_disabled_slot() {
+    let (db, _dir) = db::test_support::three_file_db().await;
+    set_subagent_def(&db).await;
+    let p1 = mk_db_platform(&db, "direct").await;
+    let p2 = mk_db_platform(&db, "on").await;
+    set_models_extra(
+        &db,
+        p1.id,
+        slot_default("d1"),
+        r#"{"direct_models":["claude-subagent-x"],"disabled_slots":["subagent"],"custom_slots":{"subagent":["s1"]}}"#,
+    )
+    .await;
+    set_models_extra(&db, p2.id, slot_default("d2"), r#"{"custom_slots":{"subagent":["s2"]}}"#).await;
+    let g = mk_db_group(&db, "g", &[p1.id, p2.id]).await;
+    let set = select_candidates_ctx(&db, &g, "claude-subagent-x", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    assert_eq!(cand_ids(&set), vec![p1.id], "direct model: declared platform only, slot switch not consulted");
+}
+
+/// 对照：已填且已关的自定义槽（本就生效）+ 时段档命中 + 自定义槽关在平台级。
+#[tokio::test]
+async fn filled_custom_slot_disabled_excludes_with_time_rule_matched() {
+    let (db, _dir) = db::test_support::three_file_db().await;
+    set_subagent_def(&db).await;
+    let p1 = mk_db_platform(&db, "off").await;
+    let p2 = mk_db_platform(&db, "on").await;
+    let extra = serde_json::json!({
+        "custom_slots": {"subagent": ["s1"]},
+        "disabled_slots": ["subagent"],
+        "time_windows": [{"windows":[{"start_hour":0,"end_hour":24,"multiplier":1.0}],"models":{"default":["d9"]},"disabled_slots":[]}]
+    })
+    .to_string();
+    set_models_extra(&db, p1.id, slot_default("d1"), &extra).await;
+    set_models_extra(&db, p2.id, slot_default("d2"), r#"{"custom_slots":{"subagent":["s2"]}}"#).await;
+    let g = mk_db_group(&db, "g", &[p1.id, p2.id]).await;
+    let set = select_candidates_ctx(&db, &g, "claude-subagent-x", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    assert_eq!(cand_ids(&set), vec![p2.id]);
+}
