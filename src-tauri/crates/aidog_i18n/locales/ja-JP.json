@@ -864,6 +864,7 @@
   "logs.actualModel": "実際のモデル",
   "logs.targetModel": "ターゲットモデル",
   "logs.attemptCount": "{{n}} 回",
+  "logs.attemptRound": "第 {{n}} ラウンド",
   "logs.routingDecision": "ルーティング判断",
   "logs.routing.noSnapshot": "ルーティング記録なし",
   "logs.routing.request": "リクエスト",

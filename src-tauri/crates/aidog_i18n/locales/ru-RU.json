@@ -864,6 +864,7 @@
   "logs.actualModel": "Фактическая модель",
   "logs.targetModel": "Целевая модель",
   "logs.attemptCount": "{{n}}",
+  "logs.attemptRound": "Раунд {{n}}",
   "logs.routingDecision": "Решение маршрутизации",
   "logs.routing.noSnapshot": "Нет записи о маршрутизации",
   "logs.routing.request": "Запрос",

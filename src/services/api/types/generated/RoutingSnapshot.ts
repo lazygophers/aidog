@@ -25,4 +25,9 @@ shortcut?: SingleShortcut,
 /**
  * 分组 max_retries（路由画布 01）。旧日志 / 未进重试循环缺省 None。
  */
-max_retries?: number, };
+max_retries?: number, 
+/**
+ * 尝试轮（候选全排除后间隔 1 秒从头重来）的起点：每个元素 = 该轮开始时 `attempts` 已有的条数
+ * （第 N+1 轮的起点是第 N 个元素；空轮会产生相同的值）。缺省 None = 只有第 1 轮（含旧日志）。
+ */
+round_starts?: Array<number>, };

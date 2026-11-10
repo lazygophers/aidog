@@ -163,7 +163,7 @@ pub(crate) async fn handle_aux_model(
         10
     };
 
-    while let Some(pick) = attempt_loop.next(&state.db, group, &sched_ctx, log).await {
+    while let Some(pick) = attempt_loop.next(&state.db, group, &sched_ctx, log, attempts.len()).await {
         let route = pick.route;
         let attempt_start = std::time::Instant::now();
         let attempt_ts = aidog_db::now();
@@ -230,7 +230,7 @@ pub(crate) async fn handle_aux_model(
             }
         }
         let capped = attempt_loop.begin_call(log, &attempts, route.platform.id);
-        let is_last_candidate = !pick.platform_alt || capped;
+        let is_last_candidate = capped;
         let out = aux_attempt(
             spec, state, log, &mut attempts, log_settings, group, &route, &req_value,
             &requested_model, &proxy_client, req_timeout, conn_timeout, &sched_settings, start,

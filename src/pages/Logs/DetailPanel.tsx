@@ -252,6 +252,9 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {detail.attempts.map((a, i) => {
+              // 尝试轮：round_starts[k] = 第 k+2 轮开始时已有的尝试条数；缺省 = 只有第 1 轮
+              const roundStarts = detail.routing?.round_starts ?? [];
+              const round = 1 + roundStarts.filter((s) => s <= i).length;
               const ok = a.status_code >= 200 && a.status_code < 300;
               const platName = a.platform_name || platformMap.get(a.platform_id) || `#${a.platform_id}`;
               // 摘要串：平台名 | 状态码 | 耗时ms | 错误(若有)
@@ -271,6 +274,11 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
                       {a.model && (
                         <span data-testid="attempt-model" style={{ marginLeft: 6, fontSize: 11, fontWeight: 400, color: "var(--text-tertiary)" }}>
                           {a.model}
+                        </span>
+                      )}
+                      {roundStarts.length > 0 && (
+                        <span data-testid="attempt-round" data-round={round} className="badge" style={{ marginLeft: 6, fontSize: 11, padding: "0 6px", fontWeight: 400 }}>
+                          {t("logs.attemptRound", "第 {{n}} 轮").replace("{{n}}", String(round))}
                         </span>
                       )}
                     </span>

@@ -442,6 +442,12 @@ pub struct RoutingSnapshot {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional, type = "number")]
     pub max_retries: Option<u32>,
+    /// 尝试轮（候选全排除后间隔 1 秒从头重来）的起点：每个元素 = 该轮开始时 `attempts` 已有的条数
+    /// （第 N+1 轮的起点是第 N 个元素；空轮会产生相同的值）。缺省 None = 只有第 1 轮（含旧日志）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "Array<number>")]
+    // Box：RoutingSnapshot 随 RouteFail 走 Err 路径，多 24 字节会越过 clippy::result_large_err 的 128 字节线
+    pub round_starts: Option<Box<Vec<u32>>>,
 }
 
 impl RoutingSnapshot {
