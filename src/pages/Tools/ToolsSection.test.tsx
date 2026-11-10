@@ -7,12 +7,12 @@ import { act, fireEvent, render, screen, waitFor } from "../../test/render";
 
 const h = vi.hoisted(() => ({ get: vi.fn(), set: vi.fn() }));
 const m = vi.hoisted(() => ({ selfInstall: vi.fn() }));
-const sx = vi.hoisted(() => ({ searxInstances: vi.fn(), sources: vi.fn() }));
+const sx = vi.hoisted(() => ({ searxInstances: vi.fn(), searxTest: vi.fn(), sources: vi.fn() }));
 const dnd = vi.hoisted(() => ({ onDragEnd: null as null | ((e: unknown) => void) }));
 
 vi.mock("../../services/transport", () => ({ invoke: vi.fn(), listen: vi.fn(async () => () => {}) }));
 vi.mock("../../services/api/settings", () => ({ settingsApi: { get: h.get, set: h.set } }));
-vi.mock("../../services/api/search", () => ({ searchApi: { sources: sx.sources, searxInstances: sx.searxInstances } }));
+vi.mock("../../services/api/search", () => ({ searchApi: { sources: sx.sources, searxInstances: sx.searxInstances, searxTest: sx.searxTest } }));
 vi.mock("../../services/api/mcp", () => ({ mcpApi: { selfInstall: m.selfInstall } }));
 
 vi.mock("@dnd-kit/core", async () => {
@@ -48,6 +48,7 @@ beforeEach(() => {
   h.set.mockResolvedValue(undefined);
   m.selfInstall.mockReset();
   sx.searxInstances.mockReset();
+  sx.searxTest.mockReset();
   sx.sources.mockResolvedValue(SOURCE_LIST);
 });
 
@@ -267,20 +268,79 @@ describe("ToolsSection 总控台", () => {
     });
   });
 
-  it("SearXNG 行：刷新公共列表只在点击时拉一次，勾选写入并随保存持久化", async () => {
+  it("SearXNG 行式列表：已知 URL 合并去重渲染行，只在点击刷新时拉一次公共实例，勾选行写入并随保存持久化", async () => {
     h.get.mockResolvedValue({ search: { enabled: true, sources: ["searxng"], mode: "parallel", services: {}, searxng_base_urls: ["http://mine"] } });
     sx.searxInstances.mockResolvedValue([{ url: "https://a.example/", seconds: 0.3 }]);
     render(<ToolsSection />);
-    await waitFor(() => expect((screen.getByTestId("mcp-tools-searxng-urls") as HTMLTextAreaElement).value).toBe("http://mine"));
+    await waitFor(() => expect(screen.getByTestId("tools-searx-row-0")).toBeTruthy());
+    expect(screen.getByTestId("tools-searx-row-0").getAttribute("data-state")).toBe("on");
     expect(sx.searxInstances).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId("tools-searx-refresh"));
-    await waitFor(() => expect(screen.getByTestId("tools-searx-inst-0")).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId("tools-searx-row-1")).toBeTruthy());
+    expect(screen.getByTestId("tools-searx-row-1").textContent).toContain("https://a.example/");
     expect(sx.searxInstances).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByTestId("tools-searx-inst-0"));
+    expect(screen.getByTestId("tools-searx-row-1").getAttribute("data-state")).toBe("off");
+    fireEvent.click(screen.getByTestId("tools-searx-row-1"));
+    expect(screen.getByTestId("tools-searx-row-1").getAttribute("data-state")).toBe("on");
     fireEvent.click(screen.getByTestId("mcp-tools-save"));
     await waitFor(() =>
       expect((h.set.mock.calls[0][2] as any).search.searxng_base_urls).toEqual(["http://mine", "https://a.example/"]),
     );
+  });
+
+  it("SearXNG 批量按钮：全选 / 反选 / 全不选 / 选择所有可用（只勾本会话测速通过的，未测不算）", async () => {
+    h.get.mockResolvedValue({ search: { enabled: true, sources: ["searxng"], mode: "parallel", services: {}, searxng_base_urls: ["http://1", "http://2", "http://3"] } });
+    sx.searxTest.mockImplementation(async (url: string) => {
+      if (url === "http://2") throw new Error("connect timeout");
+      return url === "http://1" ? 0.12 : 0.2;
+    });
+    render(<ToolsSection />);
+    await waitFor(() => expect(screen.getByTestId("tools-searx-row-2")).toBeTruthy());
+    const state = (i: number) => screen.getByTestId(`tools-searx-row-${i}`).getAttribute("data-state");
+    // 初始全 on；反选 → 全 off
+    fireEvent.click(screen.getByTestId("tools-searx-invert"));
+    expect(state(0)).toBe("off");
+    expect(state(2)).toBe("off");
+    // 全选 → 全 on；全不选 → 全 off
+    fireEvent.click(screen.getByTestId("tools-searx-all"));
+    expect(state(1)).toBe("on");
+    fireEvent.click(screen.getByTestId("tools-searx-none"));
+    expect(state(1)).toBe("off");
+    // 逐行测速：1 / 3 可用（写回耗时），2 失败标红不可用
+    fireEvent.click(screen.getByTestId("tools-searx-test-0"));
+    await waitFor(() => expect(screen.getByTestId("tools-searx-sec-0").textContent).toContain("0.12"));
+    fireEvent.click(screen.getByTestId("tools-searx-test-1"));
+    await waitFor(() => expect(screen.getByTestId("tools-searx-sec-1").textContent).toBe("tools.searxFail"));
+    fireEvent.click(screen.getByTestId("tools-searx-test-2"));
+    await waitFor(() => expect(screen.getByTestId("tools-searx-sec-2").textContent).toContain("0.20"));
+    fireEvent.click(screen.getByTestId("tools-searx-available"));
+    expect(state(0)).toBe("on");
+    expect(state(1)).toBe("off");
+    expect(state(2)).toBe("on");
+    fireEvent.click(screen.getByTestId("mcp-tools-save"));
+    await waitFor(() => expect((h.set.mock.calls[0][2] as any).search.searxng_base_urls).toEqual(["http://1", "http://3"]));
+  });
+
+  it("SearXNG 行内添加与删除：trim 添加即启用并去重，删行移出启用集，保存持久化", async () => {
+    h.get.mockResolvedValue({ search: { enabled: true, sources: ["searxng"], mode: "parallel", services: {}, searxng_base_urls: ["http://1"] } });
+    render(<ToolsSection />);
+    await waitFor(() => expect(screen.getByTestId("tools-searx-row-0")).toBeTruthy());
+    fireEvent.change(screen.getByTestId("tools-searx-add"), { target: { value: "  http://new  " } });
+    fireEvent.click(screen.getByTestId("tools-searx-add-btn"));
+    expect((screen.getByTestId("tools-searx-add") as HTMLInputElement).value).toBe("");
+    expect(screen.getByTestId("tools-searx-row-1").textContent).toContain("http://new");
+    expect(screen.getByTestId("tools-searx-row-1").getAttribute("data-state")).toBe("on");
+    // 重复添加去重：不产生第二行
+    fireEvent.change(screen.getByTestId("tools-searx-add"), { target: { value: "http://new" } });
+    fireEvent.click(screen.getByTestId("tools-searx-add-btn"));
+    expect(screen.queryByTestId("tools-searx-row-2")).toBeNull();
+    // 删行：row-0（http://1）移除，http://new 顶到 row-0 且仍启用
+    fireEvent.click(screen.getByTestId("tools-searx-del-0"));
+    expect(screen.getByTestId("tools-searx-row-0").textContent).toContain("http://new");
+    expect(screen.getByTestId("tools-searx-row-0").getAttribute("data-state")).toBe("on");
+    expect(screen.queryByTestId("tools-searx-row-1")).toBeNull();
+    fireEvent.click(screen.getByTestId("mcp-tools-save"));
+    await waitFor(() => expect((h.set.mock.calls[0][2] as any).search.searxng_base_urls).toEqual(["http://new"]));
   });
 
   it("一键写入本机 agent：成功 / 失败展示结果", async () => {
