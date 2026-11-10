@@ -28,8 +28,9 @@ pub const SECRET_PATHS: &[&[&str]] = &[
     &["feishu", "url"],
 ];
 
-/// 平台 `extra`（JSON 串）里的密钥：透传平台的认证头配置（入站密钥通道，ADR 0009）。
-pub const SECRET_EXTRA_KEYS: &[&str] = &["auth_header", "auth_template"];
+/// 平台 `extra`（JSON 串）里的密钥：透传平台的认证头配置（入站密钥通道，ADR 0009）、
+/// 配额脚本 requires 的余额查询 Key（顶层与 `newapi` 嵌套两处，registry 仅此一个凭据型 requires 键）。
+pub const SECRET_EXTRA_KEYS: &[&str] = &["auth_header", "auth_template", "balance_api_key"];
 
 fn norm(k: &str) -> String {
     k.chars().filter(|c| *c != '_').flat_map(char::to_lowercase).collect()
@@ -72,19 +73,28 @@ fn walk(v: &mut Value, path: &mut Vec<String>, f: &mut dyn FnMut(&[String], &mut
 
 fn walk_extra(s: &mut String, path: &mut Vec<String>, f: &mut dyn FnMut(&[String], &mut String)) {
     let Ok(Value::Object(mut m)) = serde_json::from_str::<Value>(s) else { return };
-    let mut changed = false;
-    for (k, child) in m.iter_mut() {
-        if let (true, Value::String(inner)) = (is_extra_secret(k), child) {
-            path.push(norm(k));
-            let before = inner.clone();
-            f(path, inner);
-            path.pop();
-            changed |= *inner != before;
-        }
-    }
-    if changed {
+    if walk_extra_obj(&mut m, path, f) {
         *s = Value::Object(m).to_string();
     }
+}
+
+/// 递归：`newapi` 等子对象里的 `balance_api_key` 同样命中；路径带子对象名，回填按路径配对。
+fn walk_extra_obj(m: &mut serde_json::Map<String, Value>, path: &mut Vec<String>, f: &mut dyn FnMut(&[String], &mut String)) -> bool {
+    let mut changed = false;
+    for (k, child) in m.iter_mut() {
+        path.push(norm(k));
+        match child {
+            Value::String(inner) if is_extra_secret(k) => {
+                let before = inner.clone();
+                f(path, inner);
+                changed |= *inner != before;
+            }
+            Value::Object(sub) => changed |= walk_extra_obj(sub, path, f),
+            _ => {}
+        }
+        path.pop();
+    }
+    changed
 }
 
 /// 响应脱敏：非空密钥 → [`MASK`]。
@@ -223,6 +233,34 @@ mod tests {
         assert_eq!(v[0]["api_key"], MASK);
         let extra: Value = serde_json::from_str(v[0]["extra"].as_str().unwrap()).unwrap();
         assert_eq!(extra, json!({"auth_header": MASK, "auth_template": MASK, "other": 1}));
+    }
+
+    #[test]
+    fn balance_api_key_in_extra_masked_top_and_nested_and_restored() {
+        let extra = r#"{"balance_base_url":"https://b","balance_api_key":"bk-top","newapi":{"balance_api_key":"bk-nested","user_id":"9"},"org_id":"o"}"#;
+        let cfg = json!([{ "id": 1, "extra": extra }]);
+        let mut shown = cfg.clone();
+        mask_value(&mut shown);
+        let s = shown.to_string();
+        assert!(!s.contains("bk-top") && !s.contains("bk-nested"), "泄漏: {s}");
+        let e: Value = serde_json::from_str(shown[0]["extra"].as_str().unwrap()).unwrap();
+        assert_eq!(e["balance_api_key"], MASK);
+        assert_eq!(e["newapi"]["balance_api_key"], MASK);
+        assert_eq!(e["newapi"]["user_id"], "9");
+        assert_eq!(e["balance_base_url"], "https://b");
+        // 掩码原样回写 → 还原两处原值；改一处新值只改该处
+        let mut submit = shown[0].clone();
+        let mut e2 = e.clone();
+        e2["newapi"]["balance_api_key"] = json!("bk-new");
+        submit["extra"] = json!(e2.to_string());
+        restore_value(&mut submit, &cfg[0]);
+        let r: Value = serde_json::from_str(submit["extra"].as_str().unwrap()).unwrap();
+        assert_eq!(r["balance_api_key"], "bk-top");
+        assert_eq!(r["newapi"]["balance_api_key"], "bk-new");
+        let mut same = shown[0].clone();
+        restore_value(&mut same, &cfg[0]);
+        let r: Value = serde_json::from_str(same["extra"].as_str().unwrap()).unwrap();
+        assert_eq!(r["newapi"]["balance_api_key"], "bk-nested");
     }
 
     #[test]
