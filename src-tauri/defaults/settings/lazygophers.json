@@ -1,7 +1,7 @@
 {
     "_aidog_preset_name": "lazygophers",
     "_aidog_claude_json": {
-        "copyOnSelect": false,
+        "copyOnSelect": true,
         "diffTool": "terminal",
         "autoInstallIdeExtension": true
     },
