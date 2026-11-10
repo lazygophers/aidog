@@ -792,6 +792,13 @@
                 "source": "github"
             }
         },
+        "cloudflare": {
+            "autoUpdate": true,
+            "source": {
+                "repo": "cloudflare/skills",
+                "source": "github"
+            }
+        },
         "i-have-adhd": {
             "autoUpdate": true,
             "source": {
