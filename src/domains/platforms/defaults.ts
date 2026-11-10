@@ -1,4 +1,4 @@
-import type { Protocol, PlatformEndpoint, ModelSlot, ClientType, ClientVocabCategory, RateLimitModelOverride, RateLimitWindow } from "../../services/api";
+import type { Protocol, PlatformEndpoint, ModelSlot, ClientType, ClientVocabCategory, RateLimitRule } from "../../services/api";
 import { getDefaultsJson, getClientTypesJson, getClientVocab, hasCustomQuotaScript } from "../../services/api";
 import type { ProtocolOption } from "./constants";
 
@@ -58,8 +58,7 @@ export type RateLimitPolicy = {
   concurrency?: number;
   rpm?: number;
   tpm?: number;
-  models?: Record<string, RateLimitModelOverride>;
-  windows?: RateLimitWindow[];
+  rules?: RateLimitRule[];
 };
 
 type DefaultsDoc = {

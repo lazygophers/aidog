@@ -1057,13 +1057,16 @@ fn glm_rate_limit_policies_parse() {
     let ids: Vec<&str> = glm.iter().map(|p| p.id.as_str()).collect();
     assert_eq!(ids, ["v0", "v1", "v2", "v3"]);
     assert!(glm.iter().all(|p| p.source_url.starts_with("https://") && p.caps == RateLimitCaps::default()));
-    let plus: Vec<_> = glm.iter().map(|p| p.models["glm-4-plus"].concurrency).collect();
+    let plus: Vec<_> = glm
+        .iter()
+        .map(|p| p.rules.iter().find(|r| r.models.iter().any(|m| m == "glm-4-plus")).and_then(|r| r.caps.concurrency))
+        .collect();
     assert_eq!(plus, [Some(50), Some(100), Some(300), Some(500)]);
 
     for code in ["glm_en", "glm_coding", "glm_coding_en"] {
         let ps = default_rate_limit_policies(code);
         assert_eq!(ps.len(), 1, "{code}");
-        assert!(ps[0].models.is_empty() && ps[0].windows.is_empty() && ps[0].caps == RateLimitCaps::default());
+        assert!(ps[0].rules.is_empty() && ps[0].caps == RateLimitCaps::default());
     }
     for code in ["glm", "glm_en", "glm_coding", "glm_coding_en"] {
         let codes = default_rate_limit_error_codes(code);
@@ -1075,7 +1078,19 @@ fn glm_rate_limit_policies_parse() {
         // 并行的缓存测试会临时装回只含测试平台的 DB 文档（CACHE_TEST_LOCK 不覆盖本测试）。
         if doc.get("rate_limit_policies").is_some() {
             match rate_limit_policies_in(presets(), code) {
-                RegistryLookup::Found(ps) => assert!(!ps.is_empty(), "{code} 解析为空"),
+                RegistryLookup::Found(ps) => {
+                    assert!(!ps.is_empty(), "{code} 解析为空");
+                    // 规则至少一个条件（与 check-registry lint 同判据，收集式一次报全）
+                    let bad: Vec<String> = ps
+                        .iter()
+                        .flat_map(|p| p.rules.iter().enumerate().map(move |(i, r)| (p, i, r)))
+                        .filter(|(_, _, r)| {
+                            r.models.is_empty() && r.start_hour.is_none() && r.end_hour.is_none() && r.days_of_week.is_none()
+                        })
+                        .map(|(p, i, _)| format!("{}.rules[{i}]", p.id))
+                        .collect();
+                    assert!(bad.is_empty(), "{code} 规则无条件: {bad:?}");
+                }
                 other => panic!("{code} 带 rate_limit_policies 但解析失败：{other:?}"),
             }
         }

@@ -4,639 +4,425 @@
       "id": "dynamic-tier1",
       "label": "Dynamic rate limiting (soft limit) 等级1（月消费档位，TPM 保底值）",
       "source_url": "https://www.alibabacloud.com/help/en/model-studio/rate-limit",
-      "models": {
-        "qwen3.8-max": {
+      "rules": [
+        {
+          "models": [
+            "qwen3.8-max"
+          ],
           "tpm": 2000000
         },
-        "qwen3.8-flash": {
+        {
+          "models": [
+            "qwen3.8-flash"
+          ],
           "tpm": 2500000
         },
-        "qwen3.8-2.4t-a95b": {
+        {
+          "models": [
+            "qwen3.8-2.4t-a95b",
+            "qwen3.8-27b"
+          ],
           "tpm": 5000000
         },
-        "deepseek-v4-pro-0813": {
-          "tpm": 1200000
-        },
-        "qwen3.8-27b": {
-          "tpm": 5000000
-        },
-        "kimi-k3": {
+        {
+          "models": [
+            "deepseek-v4-pro-0813",
+            "kimi-k3"
+          ],
           "tpm": 1200000
         }
-      }
+      ]
     },
     {
       "id": "dynamic-tier2",
       "label": "Dynamic rate limiting (soft limit) 等级2（月消费档位，TPM 保底值）",
       "source_url": "https://www.alibabacloud.com/help/en/model-studio/rate-limit",
-      "models": {
-        "qwen3.8-max": {
-          "tpm": 5000000
-        },
-        "qwen3.8-flash": {
-          "tpm": 5000000
-        },
-        "qwen3.8-2.4t-a95b": {
-          "tpm": 5000000
-        },
-        "deepseek-v4-pro-0813": {
-          "tpm": 5000000
-        },
-        "qwen3.8-27b": {
-          "tpm": 5000000
-        },
-        "kimi-k3": {
+      "rules": [
+        {
+          "models": [
+            "qwen3.8-max",
+            "qwen3.8-flash",
+            "qwen3.8-2.4t-a95b",
+            "deepseek-v4-pro-0813",
+            "qwen3.8-27b",
+            "kimi-k3"
+          ],
           "tpm": 5000000
         }
-      }
+      ]
     },
     {
       "id": "dynamic-tier3",
       "label": "Dynamic rate limiting (soft limit) 等级3（月消费档位，TPM 保底值）",
       "source_url": "https://www.alibabacloud.com/help/en/model-studio/rate-limit",
-      "models": {
-        "qwen3.8-max": {
+      "rules": [
+        {
+          "models": [
+            "qwen3.8-max",
+            "qwen3.8-flash",
+            "deepseek-v4-pro-0813",
+            "kimi-k3"
+          ],
           "tpm": 10000000
         },
-        "qwen3.8-flash": {
-          "tpm": 10000000
-        },
-        "qwen3.8-2.4t-a95b": {
+        {
+          "models": [
+            "qwen3.8-2.4t-a95b",
+            "qwen3.8-27b"
+          ],
           "tpm": 5000000
-        },
-        "deepseek-v4-pro-0813": {
-          "tpm": 10000000
-        },
-        "qwen3.8-27b": {
-          "tpm": 5000000
-        },
-        "kimi-k3": {
-          "tpm": 10000000
         }
-      }
+      ]
     },
     {
       "id": "static",
       "label": "Static limits (per-model RPM+TPM, first-listed deployment scope)",
       "source_url": "https://www.alibabacloud.com/help/en/model-studio/rate-limit",
-      "models": {
-        "qwen3.7-max": {
+      "rules": [
+        {
+          "models": [
+            "qwen3.7-max",
+            "qwen3.7-max-preview",
+            "qwen3.7-max-2026-05-17",
+            "qwen-max",
+            "qwen3.5-plus-2026-04-20",
+            "qwen-plus",
+            "qwen-plus-latest",
+            "qwen3.6-35b-a3b",
+            "qwen3.6-27b",
+            "qwen3.5-397b-a17b",
+            "qwen3.5-122b-a10b",
+            "qwen3.5-27b"
+          ],
           "rpm": 600,
           "tpm": 1000000
         },
-        "qwen3.7-max-2026-06-08": {
+        {
+          "models": [
+            "qwen3.7-max-2026-06-08",
+            "qwen3.7-max-2026-05-20",
+            "qwen3.7-plus-2026-05-26",
+            "qwen3.6-plus-2026-04-02",
+            "qwen3.6-flash-2026-04-16",
+            "qwen3.5-plus-2026-02-15",
+            "qwen-plus-2025-04-28",
+            "qwen3.5-flash-2026-02-23"
+          ],
           "rpm": 60,
           "tpm": 1000000
         },
-        "qwen3.7-max-2026-05-20": {
-          "rpm": 60,
-          "tpm": 1000000
-        },
-        "qwen3.7-max-preview": {
-          "rpm": 600,
-          "tpm": 1000000
-        },
-        "qwen3.7-max-2026-05-17": {
-          "rpm": 600,
-          "tpm": 1000000
-        },
-        "qwen-max": {
-          "rpm": 600,
-          "tpm": 1000000
-        },
-        "qwen3.7-plus": {
+        {
+          "models": [
+            "qwen3.7-plus",
+            "qwen3.6-plus",
+            "qwen3.7-flash",
+            "qwen3.7-flash-2026-07-15",
+            "qwen3.6-flash",
+            "qwen3.5-plus",
+            "qwen3.5-flash"
+          ],
           "rpm": 15000,
           "tpm": 5000000
         },
-        "qwen3.7-plus-2026-05-26": {
-          "rpm": 60,
-          "tpm": 1000000
-        },
-        "qwen3.6-plus": {
-          "rpm": 15000,
-          "tpm": 5000000
-        },
-        "qwen3.6-plus-2026-04-02": {
-          "rpm": 60,
-          "tpm": 1000000
-        },
-        "qwen3.7-flash": {
-          "rpm": 15000,
-          "tpm": 5000000
-        },
-        "qwen3.7-flash-2026-07-15": {
-          "rpm": 15000,
-          "tpm": 5000000
-        },
-        "qwen3.6-flash": {
-          "rpm": 15000,
-          "tpm": 5000000
-        },
-        "qwen3.6-flash-2026-04-16": {
-          "rpm": 60,
-          "tpm": 1000000
-        },
-        "qwen3.5-plus": {
-          "rpm": 15000,
-          "tpm": 5000000
-        },
-        "qwen3.5-plus-2026-04-20": {
-          "rpm": 600,
-          "tpm": 1000000
-        },
-        "qwen3.5-plus-2026-02-15": {
-          "rpm": 60,
-          "tpm": 1000000
-        },
-        "qwen-plus": {
-          "rpm": 600,
-          "tpm": 1000000
-        },
-        "qwen-plus-latest": {
-          "rpm": 600,
-          "tpm": 1000000
-        },
-        "qwen-plus-2025-12-01": {
+        {
+          "models": [
+            "qwen-plus-2025-12-01"
+          ],
           "rpm": 120,
           "tpm": 1000000
         },
-        "qwen-plus-2025-07-14": {
+        {
+          "models": [
+            "qwen-plus-2025-07-14",
+            "qwen-plus-2025-01-25",
+            "qwen3.5-omni-flash",
+            "qwen3.5-omni-flash-2026-03-15",
+            "qwen3.5-omni-plus",
+            "qwen3.5-omni-plus-2026-03-15",
+            "qwen3-omni-flash",
+            "qwen3.5-omni-plus-realtime",
+            "qwen3.5-omni-plus-realtime-2026-03-15",
+            "qwen3.5-omni-flash-realtime",
+            "qwen3.5-omni-flash-realtime-2026-03-15",
+            "qwen3-omni-flash-realtime-2025-09-15",
+            "qwen-mt-plus",
+            "qwen-mt-flash",
+            "qwen-mt-lite",
+            "qwen-audio-3.0-realtime-plus",
+            "qwen-audio-3.0-realtime-flash"
+          ],
           "rpm": 60,
           "tpm": 100000
         },
-        "qwen-plus-2025-04-28": {
-          "rpm": 60,
-          "tpm": 1000000
-        },
-        "qwen-plus-2025-01-25": {
-          "rpm": 60,
-          "tpm": 100000
-        },
-        "qwen3.5-flash": {
-          "rpm": 15000,
-          "tpm": 5000000
-        },
-        "qwen3.5-flash-2026-02-23": {
-          "rpm": 60,
-          "tpm": 1000000
-        },
-        "qwen-flash": {
+        {
+          "models": [
+            "qwen-flash",
+            "qwen-flash-2025-07-28",
+            "qwen3-coder-flash",
+            "qwen3-coder-flash-2025-07-28",
+            "qwen3.5-35b-a3b"
+          ],
           "rpm": 600,
           "tpm": 5000000
         },
-        "qwen-flash-2025-07-28": {
-          "rpm": 600,
-          "tpm": 5000000
-        },
-        "qwen3.8-max": {
+        {
+          "models": [
+            "qwen3.8-max",
+            "qwen3.8-flash"
+          ],
           "rpm": 30000,
           "tpm": 5000000
         },
-        "qwen3.8-flash": {
-          "rpm": 30000,
-          "tpm": 5000000
-        },
-        "qwen3-vl-plus": {
+        {
+          "models": [
+            "qwen3-vl-plus",
+            "tongyi-intent-detect-v3"
+          ],
           "rpm": 1200,
           "tpm": 1000000
         },
-        "qwen3.5-omni-flash": {
-          "rpm": 60,
-          "tpm": 100000
-        },
-        "qwen3.5-omni-flash-2026-03-15": {
-          "rpm": 60,
-          "tpm": 100000
-        },
-        "qwen3.5-omni-plus": {
-          "rpm": 60,
-          "tpm": 100000
-        },
-        "qwen3.5-omni-plus-2026-03-15": {
-          "rpm": 60,
-          "tpm": 100000
-        },
-        "qwen3-omni-flash": {
-          "rpm": 60,
-          "tpm": 100000
-        },
-        "qwen3.5-omni-plus-realtime": {
-          "rpm": 60,
-          "tpm": 100000
-        },
-        "qwen3.5-omni-plus-realtime-2026-03-15": {
-          "rpm": 60,
-          "tpm": 100000
-        },
-        "qwen3.5-omni-flash-realtime": {
-          "rpm": 60,
-          "tpm": 100000
-        },
-        "qwen3.5-omni-flash-realtime-2026-03-15": {
-          "rpm": 60,
-          "tpm": 100000
-        },
-        "qwen3-omni-flash-realtime-2025-09-15": {
-          "rpm": 60,
-          "tpm": 100000
-        },
-        "qwen-vl-ocr": {
+        {
+          "models": [
+            "qwen-vl-ocr"
+          ],
           "rpm": 600,
           "tpm": 6000000
         },
-        "qwen-vl-ocr-2025-11-20": {
+        {
+          "models": [
+            "qwen-vl-ocr-2025-11-20"
+          ],
           "rpm": 1200,
           "tpm": 6000000
         },
-        "qwen3.5-ocr": {
+        {
+          "models": [
+            "qwen3.5-ocr"
+          ],
           "rpm": 6000,
           "tpm": 30000000
         },
-        "qwen3-coder-flash": {
-          "rpm": 600,
-          "tpm": 5000000
-        },
-        "qwen3-coder-flash-2025-07-28": {
-          "rpm": 600,
-          "tpm": 5000000
-        },
-        "qwen-mt-plus": {
-          "rpm": 60,
-          "tpm": 100000
-        },
-        "qwen-mt-flash": {
-          "rpm": 60,
-          "tpm": 100000
-        },
-        "qwen-mt-lite": {
-          "rpm": 60,
-          "tpm": 100000
-        },
-        "qwen-doc-turbo": {
+        {
+          "models": [
+            "qwen-doc-turbo"
+          ],
           "rpm": 600,
           "tpm": 3000000
         },
-        "qwen-deep-research": {
+        {
+          "models": [
+            "qwen-deep-research"
+          ],
           "rpm": 120,
           "tpm": 1200000
         },
-        "qwen3.6-35b-a3b": {
-          "rpm": 600,
-          "tpm": 1000000
-        },
-        "qwen3.6-27b": {
-          "rpm": 600,
-          "tpm": 1000000
-        },
-        "qwen3.5-397b-a17b": {
-          "rpm": 600,
-          "tpm": 1000000
-        },
-        "qwen3.5-122b-a10b": {
-          "rpm": 600,
-          "tpm": 1000000
-        },
-        "qwen3.5-27b": {
-          "rpm": 600,
-          "tpm": 1000000
-        },
-        "qwen3.5-35b-a3b": {
-          "rpm": 600,
-          "tpm": 5000000
-        },
-        "deepseek-v4-pro": {
+        {
+          "models": [
+            "deepseek-v4-pro",
+            "kimi-k3"
+          ],
           "rpm": 10000,
           "tpm": 1200000
         },
-        "deepseek-v4-flash-0731": {
+        {
+          "models": [
+            "deepseek-v4-flash-0731",
+            "deepseek-v4-pro-0813"
+          ],
           "rpm": 15000,
           "tpm": 1200000
         },
-        "deepseek-v4-pro-0813": {
-          "rpm": 15000,
-          "tpm": 1200000
-        },
-        "kimi-k2.7-code": {
+        {
+          "models": [
+            "kimi-k2.7-code",
+            "kimi-k2.6",
+            "MiniMax-M2.5",
+            "glm-5.2",
+            "glm-5.1",
+            "glm-5"
+          ],
           "rpm": 500,
           "tpm": 1000000
         },
-        "kimi-k2.6": {
-          "rpm": 500,
-          "tpm": 1000000
-        },
-        "kimi-k3": {
-          "rpm": 10000,
-          "tpm": 1200000
-        },
-        "MiniMax-M2.5": {
-          "rpm": 500,
-          "tpm": 1000000
-        },
-        "glm-5.2": {
-          "rpm": 500,
-          "tpm": 1000000
-        },
-        "glm-5.1": {
-          "rpm": 500,
-          "tpm": 1000000
-        },
-        "glm-5": {
-          "rpm": 500,
-          "tpm": 1000000
-        },
-        "wan2.7-image-pro": {
+        {
+          "models": [
+            "wan2.7-image-pro",
+            "wan2.7-image",
+            "wan2.6-image",
+            "wan2.6-t2i",
+            "wan2.5-t2i-preview",
+            "wan2.5-i2i-preview",
+            "happyhorse-1.1-t2v",
+            "happyhorse-1.1-i2v",
+            "happyhorse-1.1-r2v",
+            "happyhorse-1.0-t2v",
+            "happyhorse-1.0-i2v",
+            "happyhorse-1.0-r2v",
+            "happyhorse-1.0-video-edit",
+            "wan3.0-video-prime",
+            "wan3.0-video",
+            "wan2.7-t2v-2026-06-12",
+            "wan2.7-t2v-2026-04-25",
+            "wan2.7-t2v",
+            "wan2.6-t2v",
+            "wan2.5-t2v-preview",
+            "wan2.7-i2v-2026-04-25",
+            "wan2.7-i2v",
+            "wan2.6-i2v-flash",
+            "wan2.6-i2v",
+            "wan2.5-i2v-preview",
+            "wan2.7-videoedit",
+            "wan2.7-r2v",
+            "wan2.6-r2v-flash",
+            "wan2.6-r2v",
+            "wan2.7-r2v-2026-06-12"
+          ],
           "rpm": 5,
           "tpm": 5
         },
-        "wan2.7-image": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan2.6-image": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan2.6-t2i": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan2.5-t2i-preview": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan2.2-t2i-flash": {
+        {
+          "models": [
+            "wan2.2-t2i-flash",
+            "wan2.2-t2i-plus",
+            "wan2.1-t2i-turbo",
+            "wan2.1-t2i-plus",
+            "wanx2.1-imageedit",
+            "wan2.2-t2v-plus",
+            "wan2.1-t2v-turbo",
+            "wan2.1-t2v-plus",
+            "wan2.2-i2v-flash",
+            "wan2.2-i2v-plus",
+            "wan2.2-kf2v-flash",
+            "wan2.1-vace-plus"
+          ],
           "rpm": 2,
           "tpm": 2
         },
-        "wan2.2-t2i-plus": {
-          "rpm": 2,
-          "tpm": 2
-        },
-        "wan2.1-t2i-turbo": {
-          "rpm": 2,
-          "tpm": 2
-        },
-        "wan2.1-t2i-plus": {
-          "rpm": 2,
-          "tpm": 2
-        },
-        "wan2.5-i2i-preview": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wanx2.1-imageedit": {
-          "rpm": 2,
-          "tpm": 2
-        },
-        "happyhorse-1.1-t2v": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "happyhorse-1.1-i2v": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "happyhorse-1.1-r2v": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "happyhorse-1.0-t2v": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "happyhorse-1.0-i2v": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "happyhorse-1.0-r2v": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "happyhorse-1.0-video-edit": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan3.0-video-prime": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan3.0-video": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan2.7-t2v-2026-06-12": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan2.7-t2v-2026-04-25": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan2.7-t2v": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan2.6-t2v": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan2.5-t2v-preview": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan2.2-t2v-plus": {
-          "rpm": 2,
-          "tpm": 2
-        },
-        "wan2.1-t2v-turbo": {
-          "rpm": 2,
-          "tpm": 2
-        },
-        "wan2.1-t2v-plus": {
-          "rpm": 2,
-          "tpm": 2
-        },
-        "wan2.7-i2v-2026-04-25": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan2.7-i2v": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan2.6-i2v-flash": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan2.6-i2v": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan2.5-i2v-preview": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan2.2-i2v-flash": {
-          "rpm": 2,
-          "tpm": 2
-        },
-        "wan2.2-i2v-plus": {
-          "rpm": 2,
-          "tpm": 2
-        },
-        "wan2.2-kf2v-flash": {
-          "rpm": 2,
-          "tpm": 2
-        },
-        "wan2.1-kf2v-plus": {
+        {
+          "models": [
+            "wan2.1-kf2v-plus"
+          ],
           "rpm": 1,
           "tpm": 2
         },
-        "wan2.1-vace-plus": {
-          "rpm": 2,
-          "tpm": 2
-        },
-        "wan2.7-videoedit": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan2.7-r2v": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan2.6-r2v-flash": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan2.6-r2v": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan2.2-animate-move": {
+        {
+          "models": [
+            "wan2.2-animate-move",
+            "wan2.2-animate-mix",
+            "wan2.2-s2v"
+          ],
           "rpm": 5,
           "tpm": 1
         },
-        "wan2.2-animate-mix": {
-          "rpm": 5,
-          "tpm": 1
-        },
-        "wan2.7-r2v-2026-06-12": {
-          "rpm": 5,
-          "tpm": 5
-        },
-        "wan2.2-s2v-detect": {
+        {
+          "models": [
+            "wan2.2-s2v-detect"
+          ],
           "rpm": 5
         },
-        "wan2.2-s2v": {
-          "rpm": 5,
-          "tpm": 1
-        },
-        "qwen-audio-3.0-asr-flash": {
+        {
+          "models": [
+            "qwen-audio-3.0-asr-flash",
+            "qwen-audio-3.0-asr-flash-filetrans",
+            "fun-asr",
+            "fun-asr-flash-2026-06-15"
+          ],
           "rpm": 600
         },
-        "qwen-audio-3.0-asr-flash-filetrans": {
-          "rpm": 600
-        },
-        "qwen3-asr-flash-filetrans": {
+        {
+          "models": [
+            "qwen3-asr-flash-filetrans",
+            "qwen3-asr-flash"
+          ],
           "rpm": 100
         },
-        "qwen3-asr-flash": {
-          "rpm": 100
-        },
-        "qwen3-asr-flash-realtime": {
+        {
+          "models": [
+            "qwen3-asr-flash-realtime",
+            "fun-asr-realtime",
+            "paraformer-realtime-v2"
+          ],
           "rpm": 20
         },
-        "fun-asr": {
-          "rpm": 600
-        },
-        "fun-asr-flash-2026-06-15": {
-          "rpm": 600
-        },
-        "fun-asr-realtime": {
-          "rpm": 20
-        },
-        "paraformer-realtime-v2": {
-          "rpm": 20
-        },
-        "paraformer-v2": {
+        {
+          "models": [
+            "paraformer-v2"
+          ],
           "rpm": 1200
         },
-        "paraformer-8k-v2": {
+        {
+          "models": [
+            "paraformer-8k-v2"
+          ],
           "rpm": 20,
           "tpm": 100
         },
-        "qwen-audio-3.0-tts-plus": {
+        {
+          "models": [
+            "qwen-audio-3.0-tts-plus",
+            "qwen-audio-3.0-tts-flash",
+            "qwen3-tts-flash",
+            "qwen3-tts-flash-realtime",
+            "fun-music-preview",
+            "fun-music-v1"
+          ],
           "rpm": 180
         },
-        "qwen-audio-3.0-tts-flash": {
-          "rpm": 180
-        },
-        "cosyvoice-v3-plus": {
+        {
+          "models": [
+            "cosyvoice-v3-plus",
+            "cosyvoice-v3.5-plus"
+          ],
           "rpm": 3
         },
-        "cosyvoice-v3.5-plus": {
-          "rpm": 3
-        },
-        "qwen3-tts-flash": {
-          "rpm": 180
-        },
-        "qwen3-tts-flash-realtime": {
-          "rpm": 180
-        },
-        "qwen-audio-3.0-realtime-plus": {
-          "rpm": 60,
-          "tpm": 100000
-        },
-        "qwen-audio-3.0-realtime-flash": {
-          "rpm": 60,
-          "tpm": 100000
-        },
-        "qwen3-livetranslate-flash": {
+        {
+          "models": [
+            "qwen3-livetranslate-flash",
+            "qwen3-livetranslate-flash-2025-12-01"
+          ],
           "rpm": 100,
           "tpm": 100000
         },
-        "qwen3-livetranslate-flash-2025-12-01": {
-          "rpm": 100,
-          "tpm": 100000
-        },
-        "fun-music-preview": {
-          "rpm": 180
-        },
-        "fun-music-v1": {
-          "rpm": 180
-        },
-        "text-embedding-v4": {
+        {
+          "models": [
+            "text-embedding-v4"
+          ],
           "rpm": 1800,
           "tpm": 1000000
         },
-        "text-embedding-v3": {
+        {
+          "models": [
+            "text-embedding-v3"
+          ],
           "rpm": 6000,
           "tpm": 24000000
         },
-        "tongyi-embedding-vision-plus": {
+        {
+          "models": [
+            "tongyi-embedding-vision-plus"
+          ],
           "rpm": 600,
           "tpm": 200000
         },
-        "qwen3-rerank": {
+        {
+          "models": [
+            "qwen3-rerank"
+          ],
           "rpm": 5400,
           "tpm": 5000000000
         },
-        "tongyi-intent-detect-v3": {
-          "rpm": 1200,
-          "tpm": 1000000
-        },
-        "qwen-plus-character": {
-          "rpm": 120,
-          "tpm": 500000
-        },
-        "qwen-flash-character": {
+        {
+          "models": [
+            "qwen-plus-character",
+            "qwen-flash-character"
+          ],
           "rpm": 120,
           "tpm": 500000
         }
-      }
+      ]
     }
   ],
-  "last_updated": 1794191265,
+  "last_updated": 1794291601,
   "endpoints": {
     "default": [
       {

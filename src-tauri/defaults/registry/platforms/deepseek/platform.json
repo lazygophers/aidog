@@ -4,14 +4,20 @@
       "id": "default",
       "label": "账号级并发上限（deepseek-flash 2500 / deepseek-v4-pro 500）",
       "source_url": "https://api-docs.deepseek.com/quick_start/rate_limit",
-      "models": {
-        "deepseek-flash": {
+      "rules": [
+        {
+          "models": [
+            "deepseek-flash"
+          ],
           "concurrency": 2500
         },
-        "deepseek-v4-pro": {
+        {
+          "models": [
+            "deepseek-v4-pro"
+          ],
           "concurrency": 500
         }
-      }
+      ]
     }
   ],
   "tools_pricing": {
@@ -141,5 +147,5 @@
     "search": "https://api.deepseek.com/v1/tools/search",
     "fetch": "https://api.deepseek.com/v1/tools/fetch"
   },
-  "last_updated": 1794285169
+  "last_updated": 1794291601
 }
