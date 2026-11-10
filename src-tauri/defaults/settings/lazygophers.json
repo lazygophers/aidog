@@ -619,6 +619,17 @@
                         "statusMessage": "Enriching with GitNexus graph context..."
                     }
                 ]
+            },
+            {
+                "matcher": "Agent|SendMessage",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "mise exec node@22 -- node ~/.aidog/scripts/aidog-subagent-cap.mjs",
+                        "timeout": 10,
+                        "statusMessage": "Checking subagent concurrency cap..."
+                    }
+                ]
             }
         ],
         "Stop": [
@@ -678,6 +689,42 @@
                     {
                         "type": "command",
                         "command": "mise exec node@22 -- node ~/.claude/hooks/context-mode-cache-heal.mjs"
+                    }
+                ]
+            }
+        ],
+        "SubagentStart": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "mise exec node@22 -- node ~/.aidog/scripts/aidog-subagent-cap.mjs",
+                        "timeout": 10,
+                        "async": true
+                    }
+                ]
+            }
+        ],
+        "SubagentStop": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "mise exec node@22 -- node ~/.aidog/scripts/aidog-subagent-cap.mjs",
+                        "timeout": 10,
+                        "async": true
+                    }
+                ]
+            }
+        ],
+        "SessionEnd": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "mise exec node@22 -- node ~/.aidog/scripts/aidog-subagent-cap.mjs",
+                        "timeout": 10,
+                        "async": true
                     }
                 ]
             }
@@ -742,6 +789,7 @@
         "DISABLE_FEEDBACK_COMMAND": "1",
         "CLAUDE_CODE_FORK_SUBAGENT": "1",
         "CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS": "2",
+        "CLAUDE_CODE_SUBAGENT_HARD_CAP": "2",
         "CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE": "1",
         "CLAUDE_CODE_PLUGIN_PREFER_HTTPS": "1",
         "CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF": "1",
