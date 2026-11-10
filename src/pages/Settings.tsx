@@ -22,6 +22,7 @@ import {
   ImportDiffModal,
   buildImportDiffTree,
   buildRecommendedDiffTree,
+  pickAidogKeys,
   readManagedPaths,
   type DiffNode,
   type HooksConfig,
@@ -34,13 +35,6 @@ import { useReveal } from "../utils/motion";
 import { Input } from "@/components/ui/input";
 
 const CONFIG_KEY = "claude_code";
-
-/** 取出 `_aidog_*` 内部键（diff 树不展示它们，推荐配置仍要带上）。 */
-export function pickAidogKeys(source: Record<string, any>): Record<string, any> {
-  return Object.fromEntries(
-    Object.entries(source).filter(([k]) => k.startsWith("_aidog_")),
-  );
-}
 
 // Header + anchor-nav heights drive sticky offsets & scroll-spy margins.
 const HEADER_H = 58;
@@ -263,6 +257,7 @@ export function Settings() {
     const recommended = importDiff.kind === "recommended";
     // `_aidog_*` 是内部键，diff 树按约定跳过它们，所以推荐配置里的这部分（statusline /
     // hooks 开关）随勾选结果一起深合并进去，保持旧版「加载推荐配置」的行为。
+    // `_aidog_claude_json` 例外：已进 diff 树，随勾选走 applySelectedPaths。
     const base = recommended
       ? deepMerge(config, pickAidogKeys(importDiff.source))
       : config;

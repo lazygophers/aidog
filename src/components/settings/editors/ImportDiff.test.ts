@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildRecommendedDiffTree } from "./ImportDiff";
+import { buildImportDiffTree, buildRecommendedDiffTree, pickAidogKeys } from "./ImportDiff";
 import { applySelectedPaths } from "../applySelectedPaths";
 
 describe("buildRecommendedDiffTree", () => {
@@ -65,6 +65,38 @@ describe("buildRecommendedDiffTree", () => {
   it("跳过 _aidog_ 内部键", () => {
     const diff = buildRecommendedDiffTree({}, { _aidog_hooks: { enabled: true }, a: 1 });
     expect(diff.map((n) => n.path)).toEqual(["a"]);
+  });
+
+  it("推荐路径展示 _aidog_claude_json 段的键级变更（写 ~/.claude.json，非内部状态）", () => {
+    const diff = buildRecommendedDiffTree(
+      { _aidog_claude_json: { copyOnSelect: true } },
+      { _aidog_claude_json: { copyOnSelect: false, diffTool: "delta" }, a: 1 },
+    );
+    expect(diff.map((n) => n.path)).toEqual(["_aidog_claude_json", "a"]);
+    expect(diff[0].children?.map((c) => c.path).sort()).toEqual([
+      "_aidog_claude_json.copyOnSelect", "_aidog_claude_json.diffTool",
+    ]);
+    // 勾选结果逐路径生效
+    const next = applySelectedPaths(
+      { _aidog_claude_json: { copyOnSelect: true } },
+      { _aidog_claude_json: { copyOnSelect: false, diffTool: "delta" } },
+      new Set(["_aidog_claude_json.copyOnSelect"]),
+    );
+    expect(next).toEqual({ _aidog_claude_json: { copyOnSelect: false } });
+  });
+
+  it("导入路径（Claude Code settings.json）仍跳过 _aidog_claude_json", () => {
+    const diff = buildImportDiffTree({}, { _aidog_claude_json: { copyOnSelect: true } }, new Set());
+    expect(diff).toEqual([]);
+  });
+
+  it("pickAidogKeys 只取无条件合并的 _aidog_* 内部键，_aidog_claude_json 走勾选", () => {
+    const picked = pickAidogKeys({
+      _aidog_statusline: { enabled: true },
+      _aidog_claude_json: { copyOnSelect: false },
+      a: 1,
+    });
+    expect(picked).toEqual({ _aidog_statusline: { enabled: true } });
   });
 
   it("勾选后按路径落盘，未选中的保持原值", () => {

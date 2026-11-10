@@ -27,6 +27,7 @@ export {
   readManagedPaths,
   buildImportDiffTree,
   buildRecommendedDiffTree,
+  pickAidogKeys,
   ImportDiffModal,
 } from "./ImportDiff";
 export { PluginsSectionInline } from "./PluginsSection";
