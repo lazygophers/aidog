@@ -1460,3 +1460,30 @@ input[type="week"]::-webkit-calendar-picker-indicator {
     .prow-grid { grid-template-columns: 26px 34px minmax(0, 1.35fr) minmax(100px, 1fr) 108px; }
   }
 }
+
+/* 工具页执行路径图流动动画（票 05）：顺序模式源节点轮次点亮、并发模式整体呼吸；
+   纯 background/box-shadow 动画（无 position、无 layout 抖动）；prefers-reduced-motion 关闭。 */
+@layer components {
+  .tools-flow-src {
+    animation: tools-flow-lit-seq 4.8s ease-in-out infinite;
+  }
+  .tools-flow-src:nth-of-type(2) { animation-delay: 0.8s; }
+  .tools-flow-src:nth-of-type(3) { animation-delay: 1.6s; }
+  .tools-flow-src:nth-of-type(4) { animation-delay: 2.4s; }
+  .tools-flow-src:nth-of-type(5) { animation-delay: 3.2s; }
+  .tools-flow-src:nth-of-type(6) { animation-delay: 4s; }
+  .tools-flow-par .tools-flow-src {
+    animation: tools-flow-lit-par 2.4s ease-in-out infinite;
+  }
+}
+@keyframes tools-flow-lit-seq {
+  0%, 12%, 100% { background-color: transparent; box-shadow: none; }
+  4%, 8% { background-color: var(--accent-subtle); box-shadow: inset 0 0 0 1px var(--primary); }
+}
+@keyframes tools-flow-lit-par {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: var(--accent-subtle); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tools-flow-src { animation: none; }
+}

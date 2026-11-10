@@ -372,15 +372,36 @@
   "env.searchPlaceholder": "環境変数を検索…",
   "greet.button": "挨拶",
   "greet.placeholder": "名前を入力...",
-  "group": {
-    "sourceProtocol": "受信プロトコル",
-    "envVars": "環境変数",
-    "envVarsHint": "グループ単位のセッション環境変数。sync 時に Claude settings.env へ注入、Codex コマンド コピー時に export として先頭に付加します。",
-    "envVarKey": "変数名 (例: ANTHROPIC_DEFAULT_OPUS_MODEL)",
-    "envVarValue": "値",
-    "envVarReservedHint": "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY は aidog のルーティングフィールドのため、保存時に破棄されます。",
-    "addEnvVar": "環境変数を追加"
-  },
+  "group": [
+    [
+      "sourceProtocol",
+      "受信プロトコル"
+    ],
+    [
+      "envVars",
+      "環境変数"
+    ],
+    [
+      "envVarsHint",
+      "グループ単位のセッション環境変数。sync 時に Claude settings.env へ注入、Codex コマンド コピー時に export として先頭に付加します。"
+    ],
+    [
+      "envVarKey",
+      "変数名 (例: ANTHROPIC_DEFAULT_OPUS_MODEL)"
+    ],
+    [
+      "envVarValue",
+      "値"
+    ],
+    [
+      "envVarReservedHint",
+      "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY は aidog のルーティングフィールドのため、保存時に破棄されます。"
+    ],
+    [
+      "addEnvVar",
+      "環境変数を追加"
+    ]
+  ],
   "group.add": "グループ追加",
   "group.addEnvVar": "環境変数を追加",
   "group.addMappingFailed": "マッピングの追加に失敗しました",
@@ -836,31 +857,100 @@
   "lang.label": "言語",
   "lang.ru-RU": "Русский",
   "lang.zh-Hans": "简体中文",
-  "logs": {
-    "actualModel": "実際のモデル",
-    "body": "本文",
-    "cacheTokens": "キャッシュトークン",
-    "clear": "すべて消去",
-    "clearConfirm": "全ログ消去？元に戻せません。",
-    "detail": "リクエスト詳細",
-    "duration": "所要時間",
-    "empty": "ログまだなし",
-    "group": "グループ",
-    "headers": "ヘッダー",
-    "inputTokens": "入力トークン",
-    "model": "モデル",
-    "nonStreaming": "非ストリーミング",
-    "outputTokens": "出力トークン",
-    "request": "リクエスト",
-    "response": "レスポンス",
-    "responseBody": "レスポンス本文",
-    "status": "ステータス",
-    "stream": "転送",
-    "streamResponse": "（ストリーミング応答、内容は記録されません）",
-    "streaming": "ストリーミング",
-    "time": "時刻",
-    "total": "件"
-  },
+  "logs": [
+    [
+      "actualModel",
+      "実際のモデル"
+    ],
+    [
+      "body",
+      "本文"
+    ],
+    [
+      "cacheTokens",
+      "キャッシュトークン"
+    ],
+    [
+      "clear",
+      "すべて消去"
+    ],
+    [
+      "clearConfirm",
+      "全ログ消去？元に戻せません。"
+    ],
+    [
+      "detail",
+      "リクエスト詳細"
+    ],
+    [
+      "duration",
+      "所要時間"
+    ],
+    [
+      "empty",
+      "ログまだなし"
+    ],
+    [
+      "group",
+      "グループ"
+    ],
+    [
+      "headers",
+      "ヘッダー"
+    ],
+    [
+      "inputTokens",
+      "入力トークン"
+    ],
+    [
+      "model",
+      "モデル"
+    ],
+    [
+      "nonStreaming",
+      "非ストリーミング"
+    ],
+    [
+      "outputTokens",
+      "出力トークン"
+    ],
+    [
+      "request",
+      "リクエスト"
+    ],
+    [
+      "response",
+      "レスポンス"
+    ],
+    [
+      "responseBody",
+      "レスポンス本文"
+    ],
+    [
+      "status",
+      "ステータス"
+    ],
+    [
+      "stream",
+      "転送"
+    ],
+    [
+      "streamResponse",
+      "（ストリーミング応答、内容は記録されません）"
+    ],
+    [
+      "streaming",
+      "ストリーミング"
+    ],
+    [
+      "time",
+      "時刻"
+    ],
+    [
+      "total",
+      "件"
+    ]
+  ],
   "logs.actualModel": "実際のモデル",
   "logs.targetModel": "ターゲットモデル",
   "logs.attemptCount": "{{n}} 回",
@@ -1150,43 +1240,84 @@
   "mcp.share.warning": "共有内容には平文の env/headers（トークン/シークレットの可能性あり）が含まれます。信頼できる相手にのみ送信し、公開しないでください。",
   "mcp.subtitle": "{{count}} 件",
   "mcp.title": "MCP",
-  "tools.title": "検索 / 画像",
-  "tools.desc": "Web 検索（キー付きサービスとキー不要エンジン）と画像プロバイダーを設定します。",
-  "tools.provider": "検索プロバイダー",
-  "tools.providerNone": "未設定",
+  "tools.title": "ツール",
+  "tools.desc": "ウェブ検索（キー必要サービスとキー不要エンジン）・ウェブ取得・画像生成を設定し、ローカル agent と接続します。",
   "tools.enabled": "検索を有効化",
-  "tools.keys": "API キー（1 行に 1 個。複数キーは自動ローテーション）",
   "tools.searxngUrls": "SearXNG インスタンス URL（1 行 1 件、順に試行。空ならこのエンジンはスキップ）",
   "tools.searxRefresh": "公開リストを更新",
   "tools.searxRefreshing": "更新中…",
   "tools.searxRefreshHint": "searx.space から正常なインスタンスを一度だけ取得して複数選択できます。クリック時のみ通信し、自動更新はしません。",
-  "tools.engines.title": "キー不要の検索エンジン",
-  "tools.engines.desc": "キー付きサービスが未設定の場合、有効なエンジンを並列で検索し URL で重複排除して統合します（最大 10 件）。失敗したエンジンはスキップされます。",
-  "tools.engines.ddg": "DuckDuckGo",
-  "tools.engines.bing": "Bing",
-  "tools.engines.google": "Google",
-  "tools.engines.searxng": "SearXNG",
-  "tools.engines.wikipedia": "Wikipedia",
-  "tools.engines.github": "GitHub",
-  "tools.engines.arxiv": "arXiv",
-  "tools.engines.ddg_lite": "DuckDuckGo Lite",
-  "tools.engines.yandex": "Yandex",
-  "tools.engines.sogou": "Sogou",
-  "tools.engines.so360": "360 検索",
-  "tools.engines.baidu": "百度",
-  "tools.engines.crossref": "Crossref",
-  "tools.engines.pubmed": "PubMed",
-  "tools.save": "保存",
   "tools.saved": "保存しました",
-  "tools.providerDoubao": "豆包（Doubao）",
-  "tools.providerYuanbao": "騰訊元宝（Yuanbao）",
   "tools.apiKey": "API キー",
   "tools.model": "モデル名",
-  "tools.mediaTitle": "画像プロバイダー（OpenAI images 互換エンドポイント）",
-  "tools.imageTitle": "画像生成（generate_image）",
   "tools.install": "ローカル agent 設定に一括書き込み",
   "tools.installHint": "AiDog の HTTP MCP アドレス（http://127.0.0.1:<プロキシポート>/mcp、既定グループのキーを Bearer に使用）を、ローカルの Claude Code（~/.claude.json）と Codex（~/.codex/config.toml）の mcpServers に書き込みます。既存エントリは保持され、同名の aidog エントリ（旧 stdio 版を含む）は置き換えられます。",
   "tools.installed": "{{name}}（{{agents}}）の設定に書き込みました。対応する agent の再起動で有効になります",
+  "tools.nav.title": "概要",
+  "tools.status.configured": "設定済み",
+  "tools.status.unconfigured": "未設定",
+  "tools.status.disabled": "無効",
+  "tools.card.search": "ウェブ検索",
+  "tools.card.fetch": "ウェブ取得",
+  "tools.card.image": "画像生成",
+  "tools.card.install": "ローカル agent と接続",
+  "tools.mode.label": "実行モード",
+  "tools.mode.sequential": "順次",
+  "tools.mode.parallel": "同時",
+  "tools.mode.sequentialHint": "リスト順にソースを試し、失敗したら次へ",
+  "tools.mode.parallelHint": "全ソースに並行して問い合わせ、結果を統合",
+  "tools.sources.pool": "ソースプール",
+  "tools.sources.keyed": "キー必要サービス（課金）",
+  "tools.sources.engines": "キー不要エンジン",
+  "tools.sources.enabled": "有効（ドラッグで順序を変更）",
+  "tools.sources.empty": "有効なソースがありません。ソースプールから選択してください",
+  "tools.sources.dragHandle": "ドラッグで並べ替え",
+  "tools.billingWarning": "「同時」モードではキー設定済みの各ソースで 1 回ずつ課金されます",
+  "tools.fetch.desc": "モデル用にウェブページの本文を取得します。ゲートウェイ実行のウェブツールもこのスイッチに従います。",
+  "tools.fetch.enabled": "ウェブ取得を有効化",
+  "tools.disabled.search": "検索は無効です。MCP web_search は利用できません",
+  "tools.disabled.fetch": "ウェブ取得は無効です",
+  "tools.unsaved.badge": "未保存の変更あり",
+  "tools.unsaved.banner": "{{count}} 枚のカードに未保存の変更があります",
+  "tools.unsaved.leaveTitle": "未保存の変更があります",
+  "tools.unsaved.leaveBody": "離れると {{count}} 枚のカードの未保存の変更が破棄されます。",
+  "tools.unsaved.leaveConfirm": "保存せずに離れる",
+  "tools.unsaved.leaveCancel": "このページに留まる",
+  "tools.saveCard": "このカードを保存",
+  "tools.key.show": "表示",
+  "tools.key.hide": "隠す",
+  "tools.key.add": "キーを追加",
+  "tools.flow.mcp": "MCP 呼び出し",
+  "tools.flow.gateway": "ゲートウェイ実行",
+  "tools.flow.sources": "ソース",
+  "tools.flow.merge": "統合・重複排除",
+  "tools.flow.log": "tool_log",
+  "tools.flow.off": "検索が無効か有効なソースがなく、リクエストはどの検索ソースも経由しません",
+  "tools.flow.failNext": "失敗時は次へ",
+  "tools.flow.okReturn": "ヒットして返す",
+  "tools.flow.concurrent": "並行",
+  "tools.source.ddg": "DuckDuckGo",
+  "tools.source.ddg_lite": "DuckDuckGo Lite",
+  "tools.source.bing": "Bing",
+  "tools.source.google": "Google",
+  "tools.source.yandex": "Yandex",
+  "tools.source.sogou": "Sogou",
+  "tools.source.baidu": "Baidu",
+  "tools.source.so360": "360検索",
+  "tools.source.arxiv": "arXiv",
+  "tools.source.crossref": "Crossref",
+  "tools.source.pubmed": "PubMed",
+  "tools.source.searxng": "SearXNG",
+  "tools.source.wikipedia": "Wikipedia",
+  "tools.source.github": "GitHub",
+  "tools.source.doubao": "豆包（Doubao）",
+  "tools.source.tencent_yuanbao": "テンセント元宝（Yuanbao）",
+  "tools.source.tavily": "Tavily",
+  "tools.source.brave": "Brave",
+  "tools.source.exa": "Exa",
+  "tools.source.firecrawl": "Firecrawl",
+  "tools.source.youcom": "You.com",
+  "tools.source.deepseek": "DeepSeek",
   "toolLog.allTools": "すべてのツール",
   "toolLog.allTriggers": "すべての起動元",
   "toolLog.groupPlaceholder": "グループ名",

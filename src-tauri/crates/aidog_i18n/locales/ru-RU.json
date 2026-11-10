@@ -372,15 +372,36 @@
   "env.searchPlaceholder": "Поиск переменных окружения…",
   "greet.button": "Приветствовать",
   "greet.placeholder": "Введите имя...",
-  "group": {
-    "sourceProtocol": "Исходный протокол",
-    "envVars": "Переменные окружения",
-    "envVarsHint": "Переменные окружения уровня группы; при синхронизации добавляются в Claude settings.env, а при копировании команды Codex добавляются как export.",
-    "envVarKey": "Имя переменной (напр. ANTHROPIC_DEFAULT_OPUS_MODEL)",
-    "envVarValue": "Значение",
-    "envVarReservedHint": "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY — поля маршрутизации aidog и будут отброшены при сохранении.",
-    "addEnvVar": "Добавить переменную окружения"
-  },
+  "group": [
+    [
+      "sourceProtocol",
+      "Исходный протокол"
+    ],
+    [
+      "envVars",
+      "Переменные окружения"
+    ],
+    [
+      "envVarsHint",
+      "Переменные окружения уровня группы; при синхронизации добавляются в Claude settings.env, а при копировании команды Codex добавляются как export."
+    ],
+    [
+      "envVarKey",
+      "Имя переменной (напр. ANTHROPIC_DEFAULT_OPUS_MODEL)"
+    ],
+    [
+      "envVarValue",
+      "Значение"
+    ],
+    [
+      "envVarReservedHint",
+      "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY — поля маршрутизации aidog и будут отброшены при сохранении."
+    ],
+    [
+      "addEnvVar",
+      "Добавить переменную окружения"
+    ]
+  ],
   "group.add": "Добавить группу",
   "group.addEnvVar": "Добавить переменную окружения",
   "group.addMappingFailed": "Не удалось добавить сопоставление",
@@ -836,31 +857,100 @@
   "lang.label": "Язык",
   "lang.ru-RU": "Русский",
   "lang.zh-Hans": "简体中文",
-  "logs": {
-    "actualModel": "Фактическая модель",
-    "body": "Тело",
-    "cacheTokens": "Токены кэша",
-    "clear": "Очистить всё",
-    "clearConfirm": "Очистить весь журнал? Действие необратимо.",
-    "detail": "Детали запроса",
-    "duration": "Длительность",
-    "empty": "Журнал пуст.",
-    "group": "Группа",
-    "headers": "Заголовки",
-    "inputTokens": "Входные токены",
-    "model": "Модель",
-    "nonStreaming": "Непотоковый",
-    "outputTokens": "Выходные токены",
-    "request": "Запрос",
-    "response": "Ответ",
-    "responseBody": "Тело ответа",
-    "status": "Статус",
-    "stream": "Транспорт",
-    "streamResponse": "(Потоковый ответ, содержимое не записано)",
-    "streaming": "Потоковый",
-    "time": "Время",
-    "total": "записей"
-  },
+  "logs": [
+    [
+      "actualModel",
+      "Фактическая модель"
+    ],
+    [
+      "body",
+      "Тело"
+    ],
+    [
+      "cacheTokens",
+      "Токены кэша"
+    ],
+    [
+      "clear",
+      "Очистить всё"
+    ],
+    [
+      "clearConfirm",
+      "Очистить весь журнал? Действие необратимо."
+    ],
+    [
+      "detail",
+      "Детали запроса"
+    ],
+    [
+      "duration",
+      "Длительность"
+    ],
+    [
+      "empty",
+      "Журнал пуст."
+    ],
+    [
+      "group",
+      "Группа"
+    ],
+    [
+      "headers",
+      "Заголовки"
+    ],
+    [
+      "inputTokens",
+      "Входные токены"
+    ],
+    [
+      "model",
+      "Модель"
+    ],
+    [
+      "nonStreaming",
+      "Непотоковый"
+    ],
+    [
+      "outputTokens",
+      "Выходные токены"
+    ],
+    [
+      "request",
+      "Запрос"
+    ],
+    [
+      "response",
+      "Ответ"
+    ],
+    [
+      "responseBody",
+      "Тело ответа"
+    ],
+    [
+      "status",
+      "Статус"
+    ],
+    [
+      "stream",
+      "Транспорт"
+    ],
+    [
+      "streamResponse",
+      "(Потоковый ответ, содержимое не записано)"
+    ],
+    [
+      "streaming",
+      "Потоковый"
+    ],
+    [
+      "time",
+      "Время"
+    ],
+    [
+      "total",
+      "записей"
+    ]
+  ],
   "logs.actualModel": "Фактическая модель",
   "logs.targetModel": "Целевая модель",
   "logs.attemptCount": "{{n}}",
@@ -1150,43 +1240,84 @@
   "mcp.share.warning": "Общий контент содержит env/headers открытым текстом (могут содержать токены/секреты). Отправляйте только доверенным получателям; не публикуйте публично.",
   "mcp.subtitle": "{{count}} серверов",
   "mcp.title": "MCP",
-  "tools.title": "Поиск / изображения",
-  "tools.desc": "Настройка веб-поиска (сервисы с ключом и движки без ключа), а также провайдера изображений.",
-  "tools.provider": "Провайдер поиска",
-  "tools.providerNone": "Не настроено",
+  "tools.title": "Инструменты",
+  "tools.desc": "Настройка веб-поиска (сервисы с ключами и бесплатные движки), загрузки веб-страниц и генерации изображений; подключение локальных агентов.",
   "tools.enabled": "Включить поиск",
-  "tools.keys": "Ключи API (по одному в строке; несколько ключей чередуются автоматически)",
   "tools.searxngUrls": "URL экземпляров SearXNG (по одному в строке; пробуются по порядку; пусто — движок пропускается)",
   "tools.searxRefresh": "Обновить публичный список",
   "tools.searxRefreshing": "Обновление…",
   "tools.searxRefreshHint": "Один раз загружает рабочие экземпляры с searx.space для множественного выбора; выходит в сеть только по клику, автоматически не обновляется.",
-  "tools.engines.title": "Поисковые движки без ключа",
-  "tools.engines.desc": "Если сервис с ключом не настроен, включённые движки опрашиваются параллельно, результаты объединяются по URL (не более 10); сбойный движок пропускается.",
-  "tools.engines.ddg": "DuckDuckGo",
-  "tools.engines.bing": "Bing",
-  "tools.engines.google": "Google",
-  "tools.engines.searxng": "SearXNG",
-  "tools.engines.wikipedia": "Wikipedia",
-  "tools.engines.github": "GitHub",
-  "tools.engines.arxiv": "arXiv",
-  "tools.engines.ddg_lite": "DuckDuckGo Lite",
-  "tools.engines.yandex": "Яндекс",
-  "tools.engines.sogou": "Sogou",
-  "tools.engines.so360": "360 Search",
-  "tools.engines.baidu": "Baidu",
-  "tools.engines.crossref": "Crossref",
-  "tools.engines.pubmed": "PubMed",
-  "tools.save": "Сохранить",
   "tools.saved": "Сохранено",
-  "tools.providerDoubao": "Doubao",
-  "tools.providerYuanbao": "Tencent Yuanbao",
   "tools.apiKey": "API-ключ",
   "tools.model": "Имя модели",
-  "tools.mediaTitle": "Провайдер изображений (эндпоинт, совместимый с OpenAI images)",
-  "tools.imageTitle": "Изображение (generate_image)",
   "tools.install": "Записать в локальные конфиги агентов",
   "tools.installHint": "Записывает HTTP-адрес MCP AiDog (http://127.0.0.1:<порт прокси>/mcp, ключ группы по умолчанию как Bearer) в mcpServers локальных Claude Code (~/.claude.json) и Codex (~/.codex/config.toml); существующие записи сохраняются, одноимённая запись aidog (включая старую stdio) заменяется.",
   "tools.installed": "Записано в конфиг {{name}} ({{agents}}) — перезапустите агента, чтобы применилось",
+  "tools.nav.title": "Обзор",
+  "tools.status.configured": "Настроено",
+  "tools.status.unconfigured": "Не настроено",
+  "tools.status.disabled": "Отключено",
+  "tools.card.search": "Веб-поиск",
+  "tools.card.fetch": "Загрузка веб-страниц",
+  "tools.card.image": "Генерация изображений",
+  "tools.card.install": "Подключить локальных агентов",
+  "tools.mode.label": "Режим выполнения",
+  "tools.mode.sequential": "Последовательно",
+  "tools.mode.parallel": "Параллельно",
+  "tools.mode.sequentialHint": "Пробует источники по порядку списка; при сбое переходит к следующему",
+  "tools.mode.parallelHint": "Опрашивает все источники параллельно и объединяет результаты",
+  "tools.sources.pool": "Пул источников",
+  "tools.sources.keyed": "Сервисы с ключом (платные)",
+  "tools.sources.engines": "Бесплатные движки",
+  "tools.sources.enabled": "Включены (перетащите, чтобы задать порядок)",
+  "tools.sources.empty": "Источники ещё не включены; выберите из пула источников",
+  "tools.sources.dragHandle": "Перетащите для сортировки",
+  "tools.billingWarning": "Параллельный режим списывает один вызов за каждый настроенный ключевой источник",
+  "tools.fetch.desc": "Загружает содержимое веб-страниц для модели; выполняемые шлюзом веб-инструменты тоже подчиняются этому переключателю.",
+  "tools.fetch.enabled": "Включить загрузку веб-страниц",
+  "tools.disabled.search": "Поиск отключён; MCP web_search недоступен",
+  "tools.disabled.fetch": "Загрузка веб-страниц отключена",
+  "tools.unsaved.badge": "Несохранённые изменения",
+  "tools.unsaved.banner": "{{count}} карт(ы) с несохранёнными изменениями",
+  "tools.unsaved.leaveTitle": "Несохранённые изменения",
+  "tools.unsaved.leaveBody": "При уходе несохранённые изменения в {{count}} карте(картах) будут потеряны.",
+  "tools.unsaved.leaveConfirm": "Отменить и уйти",
+  "tools.unsaved.leaveCancel": "Остаться на странице",
+  "tools.saveCard": "Сохранить карту",
+  "tools.key.show": "Показать",
+  "tools.key.hide": "Скрыть",
+  "tools.key.add": "Добавить ключ",
+  "tools.flow.mcp": "Вызов MCP",
+  "tools.flow.gateway": "выполняется шлюзом",
+  "tools.flow.sources": "источник",
+  "tools.flow.merge": "объединение и дедупликация",
+  "tools.flow.log": "tool_log",
+  "tools.flow.off": "Поиск отключён или нет включённых источников; запросы обходят все источники",
+  "tools.flow.failNext": "при сбое — следующий",
+  "tools.flow.okReturn": "найдено, возврат",
+  "tools.flow.concurrent": "параллельно",
+  "tools.source.ddg": "DuckDuckGo",
+  "tools.source.ddg_lite": "DuckDuckGo Lite",
+  "tools.source.bing": "Bing",
+  "tools.source.google": "Google",
+  "tools.source.yandex": "Yandex",
+  "tools.source.sogou": "Sogou",
+  "tools.source.baidu": "Baidu",
+  "tools.source.so360": "360 Search",
+  "tools.source.arxiv": "arXiv",
+  "tools.source.crossref": "Crossref",
+  "tools.source.pubmed": "PubMed",
+  "tools.source.searxng": "SearXNG",
+  "tools.source.wikipedia": "Википедия",
+  "tools.source.github": "GitHub",
+  "tools.source.doubao": "Doubao",
+  "tools.source.tencent_yuanbao": "Tencent Yuanbao",
+  "tools.source.tavily": "Tavily",
+  "tools.source.brave": "Brave",
+  "tools.source.exa": "Exa",
+  "tools.source.firecrawl": "Firecrawl",
+  "tools.source.youcom": "You.com",
+  "tools.source.deepseek": "DeepSeek",
   "toolLog.allTools": "Все инструменты",
   "toolLog.allTriggers": "Все источники вызова",
   "toolLog.groupPlaceholder": "Имя группы",

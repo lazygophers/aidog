@@ -372,15 +372,36 @@
   "env.searchPlaceholder": "Umgebungsvariablen suchen…",
   "greet.button": "Begrüßen",
   "greet.placeholder": "Namen eingeben...",
-  "group": {
-    "sourceProtocol": "Quellprotokoll",
-    "envVars": "Umgebungsvariablen",
-    "envVarsHint": "Pro-Gruppe-Sitzungsumgebungsvariablen; werden beim Synchronisieren in Claude settings.env injiziert und beim Kopieren des Codex-Befehls als export vorangestellt.",
-    "envVarKey": "Variablenname (z.B. ANTHROPIC_DEFAULT_OPUS_MODEL)",
-    "envVarValue": "Wert",
-    "envVarReservedHint": "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY sind aidog-Routingfelder und werden beim Speichern verworfen.",
-    "addEnvVar": "Umgebungsvariable hinzufügen"
-  },
+  "group": [
+    [
+      "sourceProtocol",
+      "Quellprotokoll"
+    ],
+    [
+      "envVars",
+      "Umgebungsvariablen"
+    ],
+    [
+      "envVarsHint",
+      "Pro-Gruppe-Sitzungsumgebungsvariablen; werden beim Synchronisieren in Claude settings.env injiziert und beim Kopieren des Codex-Befehls als export vorangestellt."
+    ],
+    [
+      "envVarKey",
+      "Variablenname (z.B. ANTHROPIC_DEFAULT_OPUS_MODEL)"
+    ],
+    [
+      "envVarValue",
+      "Wert"
+    ],
+    [
+      "envVarReservedHint",
+      "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY sind aidog-Routingfelder und werden beim Speichern verworfen."
+    ],
+    [
+      "addEnvVar",
+      "Umgebungsvariable hinzufügen"
+    ]
+  ],
   "group.add": "Gruppe hinzufügen",
   "group.addEnvVar": "Umgebungsvariable hinzufügen",
   "group.addMappingFailed": "Zuordnung konnte nicht hinzugefügt werden",
@@ -836,31 +857,100 @@
   "lang.label": "Sprache",
   "lang.ru-RU": "Русский",
   "lang.zh-Hans": "简体中文",
-  "logs": {
-    "actualModel": "Tatsächliches Modell",
-    "body": "Body",
-    "cacheTokens": "Cache-Tokens",
-    "clear": "Alle löschen",
-    "clearConfirm": "Alle Protokolle löschen? Kann nicht rückgängig gemacht werden.",
-    "detail": "Anfragedetail",
-    "duration": "Dauer",
-    "empty": "Noch keine Protokolle.",
-    "group": "Gruppe",
-    "headers": "Header",
-    "inputTokens": "Eingabe-Tokens",
-    "model": "Modell",
-    "nonStreaming": "Nicht-Streaming",
-    "outputTokens": "Ausgabe-Tokens",
-    "request": "Anfrage",
-    "response": "Antwort",
-    "responseBody": "Antwort-Body",
-    "status": "Status",
-    "stream": "Übertragung",
-    "streamResponse": "(Streaming-Antwort, Inhalt nicht aufgezeichnet)",
-    "streaming": "Streaming",
-    "time": "Zeit",
-    "total": "Einträge"
-  },
+  "logs": [
+    [
+      "actualModel",
+      "Tatsächliches Modell"
+    ],
+    [
+      "body",
+      "Body"
+    ],
+    [
+      "cacheTokens",
+      "Cache-Tokens"
+    ],
+    [
+      "clear",
+      "Alle löschen"
+    ],
+    [
+      "clearConfirm",
+      "Alle Protokolle löschen? Kann nicht rückgängig gemacht werden."
+    ],
+    [
+      "detail",
+      "Anfragedetail"
+    ],
+    [
+      "duration",
+      "Dauer"
+    ],
+    [
+      "empty",
+      "Noch keine Protokolle."
+    ],
+    [
+      "group",
+      "Gruppe"
+    ],
+    [
+      "headers",
+      "Header"
+    ],
+    [
+      "inputTokens",
+      "Eingabe-Tokens"
+    ],
+    [
+      "model",
+      "Modell"
+    ],
+    [
+      "nonStreaming",
+      "Nicht-Streaming"
+    ],
+    [
+      "outputTokens",
+      "Ausgabe-Tokens"
+    ],
+    [
+      "request",
+      "Anfrage"
+    ],
+    [
+      "response",
+      "Antwort"
+    ],
+    [
+      "responseBody",
+      "Antwort-Body"
+    ],
+    [
+      "status",
+      "Status"
+    ],
+    [
+      "stream",
+      "Übertragung"
+    ],
+    [
+      "streamResponse",
+      "(Streaming-Antwort, Inhalt nicht aufgezeichnet)"
+    ],
+    [
+      "streaming",
+      "Streaming"
+    ],
+    [
+      "time",
+      "Zeit"
+    ],
+    [
+      "total",
+      "Einträge"
+    ]
+  ],
   "logs.actualModel": "Tatsächliches Modell",
   "logs.targetModel": "Zielmodell",
   "logs.attemptCount": "{{n}}",
@@ -1150,43 +1240,84 @@
   "mcp.share.warning": "Der geteilte Inhalt enthält env/headers im Klartext (können Tokens/Secrets enthalten). Nur an vertrauenswürdige Empfänger senden; niemals öffentlich veröffentlichen.",
   "mcp.subtitle": "{{count}} Server",
   "mcp.title": "MCP",
-  "tools.title": "Suche / Bild",
-  "tools.desc": "Websuche (Dienste mit Schlüssel und schlüssellose Engines) sowie den Bild-Anbieter konfigurieren.",
-  "tools.provider": "Suchprovider",
-  "tools.providerNone": "Nicht konfiguriert",
+  "tools.title": "Werkzeuge",
+  "tools.desc": "Websuche (Key-Dienste und freie Engines), Web-Abruf und Bilderzeugung konfigurieren; lokale Agents anbinden.",
   "tools.enabled": "Suche aktivieren",
-  "tools.keys": "API-Keys (einer pro Zeile; mehrere Keys rotieren automatisch)",
   "tools.searxngUrls": "SearXNG-Instanz-URLs (eine pro Zeile; der Reihe nach versucht; leer = Engine wird übersprungen)",
   "tools.searxRefresh": "Öffentliche Liste aktualisieren",
   "tools.searxRefreshing": "Aktualisiere…",
   "tools.searxRefreshHint": "Holt einmalig gesunde Instanzen von searx.space zur Mehrfachauswahl; verbindet sich nur beim Klick, nie automatisch.",
-  "tools.engines.title": "Schlüssellose Suchmaschinen",
-  "tools.engines.desc": "Ohne konfigurierten Schlüsseldienst werden die aktivierten Engines parallel abgefragt und nach URL zusammengeführt (max. 10 Ergebnisse); eine fehlschlagende Engine wird übersprungen.",
-  "tools.engines.ddg": "DuckDuckGo",
-  "tools.engines.bing": "Bing",
-  "tools.engines.google": "Google",
-  "tools.engines.searxng": "SearXNG",
-  "tools.engines.wikipedia": "Wikipedia",
-  "tools.engines.github": "GitHub",
-  "tools.engines.arxiv": "arXiv",
-  "tools.engines.ddg_lite": "DuckDuckGo Lite",
-  "tools.engines.yandex": "Yandex",
-  "tools.engines.sogou": "Sogou",
-  "tools.engines.so360": "360 Search",
-  "tools.engines.baidu": "Baidu",
-  "tools.engines.crossref": "Crossref",
-  "tools.engines.pubmed": "PubMed",
-  "tools.save": "Speichern",
   "tools.saved": "Gespeichert",
-  "tools.providerDoubao": "Doubao",
-  "tools.providerYuanbao": "Tencent Yuanbao",
   "tools.apiKey": "API-Schlüssel",
   "tools.model": "Modellname",
-  "tools.mediaTitle": "Bild-Provider (OpenAI-images-kompatibler Endpunkt)",
-  "tools.imageTitle": "Bild (generate_image)",
   "tools.install": "In lokale Agent-Konfigurationen schreiben",
   "tools.installHint": "Schreibt die HTTP-MCP-Adresse von AiDog (http://127.0.0.1:<Proxy-Port>/mcp, Schlüssel der Standardgruppe als Bearer) in die mcpServers von Claude Code (~/.claude.json) und Codex (~/.codex/config.toml); bestehende Einträge bleiben erhalten, der gleichnamige aidog-Eintrag (auch der alte stdio-Eintrag) wird ersetzt.",
   "tools.installed": "In Konfiguration von {{name}} ({{agents}}) geschrieben — Agent neu starten, damit es wirkt",
+  "tools.nav.title": "Übersicht",
+  "tools.status.configured": "Konfiguriert",
+  "tools.status.unconfigured": "Nicht konfiguriert",
+  "tools.status.disabled": "Deaktiviert",
+  "tools.card.search": "Websuche",
+  "tools.card.fetch": "Web-Abruf",
+  "tools.card.image": "Bilderzeugung",
+  "tools.card.install": "Lokale Agents anbinden",
+  "tools.mode.label": "Ausführungsmodus",
+  "tools.mode.sequential": "Sequenziell",
+  "tools.mode.parallel": "Parallel",
+  "tools.mode.sequentialHint": "Quellen in Listenreihenfolge versuchen; bei Fehler die nächste",
+  "tools.mode.parallelHint": "Alle Quellen parallel abfragen und Ergebnisse zusammenführen",
+  "tools.sources.pool": "Quellenpool",
+  "tools.sources.keyed": "Key-Dienste (kostenpflichtig)",
+  "tools.sources.engines": "Freie Engines",
+  "tools.sources.enabled": "Aktiviert (ziehen zum Festlegen der Reihenfolge)",
+  "tools.sources.empty": "Noch keine Quellen aktiviert; im Quellenpool auswählen",
+  "tools.sources.dragHandle": "Ziehen zum Umsortieren",
+  "tools.billingWarning": "Der Parallelmodus abrechnet einen Aufruf pro konfiguriertem Key-Dienst",
+  "tools.fetch.desc": "Ruft Webseiteninhalte für das Modell ab; auch die gateway-ausgeführten Web-Tools folgen diesem Schalter.",
+  "tools.fetch.enabled": "Web-Abruf aktivieren",
+  "tools.disabled.search": "Suche deaktiviert; MCP web_search nicht verfügbar",
+  "tools.disabled.fetch": "Web-Abruf deaktiviert",
+  "tools.unsaved.badge": "Ungespeicherte Änderungen",
+  "tools.unsaved.banner": "{{count}} Karte(n) mit ungespeicherten Änderungen",
+  "tools.unsaved.leaveTitle": "Ungespeicherte Änderungen",
+  "tools.unsaved.leaveBody": "Beim Verlassen werden ungespeicherte Änderungen in {{count}} Karte(n) verworfen.",
+  "tools.unsaved.leaveConfirm": "Verwerfen und verlassen",
+  "tools.unsaved.leaveCancel": "Auf dieser Seite bleiben",
+  "tools.saveCard": "Karte speichern",
+  "tools.key.show": "Anzeigen",
+  "tools.key.hide": "Verbergen",
+  "tools.key.add": "Key hinzufügen",
+  "tools.flow.mcp": "MCP-Aufruf",
+  "tools.flow.gateway": "gateway-ausgeführt",
+  "tools.flow.sources": "Quelle",
+  "tools.flow.merge": "Zusammenführen & Deduplizieren",
+  "tools.flow.log": "tool_log",
+  "tools.flow.off": "Suche deaktiviert oder keine Quelle aktiviert; Anfragen umgehen alle Quellen",
+  "tools.flow.failNext": "bei Fehler weiter zur nächsten",
+  "tools.flow.okReturn": "Treffer, zurück",
+  "tools.flow.concurrent": "parallel",
+  "tools.source.ddg": "DuckDuckGo",
+  "tools.source.ddg_lite": "DuckDuckGo Lite",
+  "tools.source.bing": "Bing",
+  "tools.source.google": "Google",
+  "tools.source.yandex": "Yandex",
+  "tools.source.sogou": "Sogou",
+  "tools.source.baidu": "Baidu",
+  "tools.source.so360": "360 Search",
+  "tools.source.arxiv": "arXiv",
+  "tools.source.crossref": "Crossref",
+  "tools.source.pubmed": "PubMed",
+  "tools.source.searxng": "SearXNG",
+  "tools.source.wikipedia": "Wikipedia",
+  "tools.source.github": "GitHub",
+  "tools.source.doubao": "Doubao",
+  "tools.source.tencent_yuanbao": "Tencent Yuanbao",
+  "tools.source.tavily": "Tavily",
+  "tools.source.brave": "Brave",
+  "tools.source.exa": "Exa",
+  "tools.source.firecrawl": "Firecrawl",
+  "tools.source.youcom": "You.com",
+  "tools.source.deepseek": "DeepSeek",
   "toolLog.allTools": "Alle Werkzeuge",
   "toolLog.allTriggers": "Alle Auslöser",
   "toolLog.groupPlaceholder": "Gruppenname",
