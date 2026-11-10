@@ -16,7 +16,7 @@ import {
   parseMitmStats, serializeMitmStats,
   parseRateLimitsBundle, serializeRateLimitsBundle, type RateLimitsBundle,
   parsePassthroughAuth, serializePassthroughAuth,
-  parseAppbuilderKey, serializeAppbuilderKey, validateClientUaRule,
+  parseAppbuilderKey, serializeAppbuilderKey, validateClientUaRule, rateLimitRuleError,
   parseCustomSlots, serializeCustomSlots, parseDisabledSlots, serializeDisabledSlots,
   DEFAULT_MOCK_CONFIG, DEFAULT_DEVIN_CONFIG, DEFAULT_PASSTHROUGH_AUTH,
   type Platform, type Protocol, type ModelSlot, type PlatformEndpoint,
@@ -689,6 +689,9 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     });
     if (timemodels.uaRules.some(r => validateClientUaRule(r))) {
       throw new Error(t("platform.client_ua_rules_invalid", "UA 规则有误：pattern 不能为空，正则须合法"));
+    }
+    if (rateLimits.rate_limits?.rules?.some(r => rateLimitRuleError(r))) {
+      throw new Error(t("platform.rateLimits.rulesInvalid", "限频规则有误：每条规则至少选一个模型或填一个时段，通配符只能是末尾单个 *"));
     }
     extraPayload = timemodels.serialize(extraPayload);
     // mitm_stats：false → 移除键（默认行为）；true → 写入。

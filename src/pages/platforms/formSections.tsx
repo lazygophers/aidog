@@ -7,6 +7,7 @@
 //   EndpointsSection 已移到 formSectionsEndpoints.tsx（体积大），通过末尾 re-export 暴露。
 import React, { useState, useEffect } from "react";
 import { RateLimitPolicyLibrary } from "./RateLimitPolicyLibrary";
+import { RateLimitRulesList, ruleToDraft, draftToRule, type RateLimitRuleDraft } from "./RateLimitRules";
 import type { TFunction } from "i18next";
 import { writeText } from "../../services/platform";
 import {
@@ -15,7 +16,7 @@ import {
   type DevinConfig, type PassthroughAuth, type SchedulingBreakerSettings, type GroupDetail,
   QUOTA_SCRIPT_SAMPLE, isUserQuotaScript, QUOTA_CUSTOM_VARIANT, resolveQuotaSelection,
 } from "../../services/api";
-import { rateLimitsSummary, clientCategoryState, toggleClientCategory, toggleClientVariant, validateClientUaRule, type ClientUaRule, type ClientUaRuleKind, type RateLimitsBundle, type RateLimitsConfig, type RateLimitModelOverride, type RateLimitWindow, type QuotaWindowConfig, type ClientVocabCategory } from "../../services/api";
+import { rateLimitsSummary, clientCategoryState, toggleClientCategory, toggleClientVariant, validateClientUaRule, type ClientUaRule, type ClientUaRuleKind, type RateLimitsBundle, type RateLimitsConfig, type QuotaWindowConfig, type ClientVocabCategory } from "../../services/api";
 import { Checkbox } from "@/components/ui/checkbox";
 import { newManualBudget, type TimeWindow, getDefaultPeak, getDefaultModelList, getDefaultPlanQuotas, type PlanQuotaTier, type QuotaScriptVariant, quotaVariantLabel } from "../../domains/platforms";
 import { isCurrentlyPeak, currentPeakMultiplier, utcToDisplay, displayToUtc, WINDOW_TIMEZONES, type TzMode } from "../../utils/timeWindow";
@@ -1489,18 +1490,12 @@ function quotaCustomScriptConfigured(customScript: string, variantId: string, va
  *  窗口时长 = 自由数字 + 单位（分钟/小时/天，2026-10-23 A2 定稿）；预算三选一
  *  token | 金额 $ | 次数（budget_points 已废，见 QuotaWindowConfig 注）。 */
 export type QuotaBudgetMode = "tokens" | "usd" | "count";
-/** 限频时段窗口编辑态（形状同 peak：小时 0-23/24、星期、时区；命中时上限覆盖平台级同名字段）。 */
-export interface RateLimitWindowDraft {
-  start: string; end: string; tz: string; days: number[];
-  concurrency: string; rpm: string; tpm: string;
-}
 export interface RateLimitsDraft {
   concurrency?: string;
   rpm: string;
   tpm: string;
-  models: { model: string; concurrency?: string; rpm: string; tpm: string }[];
+  rules: RateLimitRuleDraft[];
   windows: { num: string; unit: string; mode: QuotaBudgetMode; amount: string }[];
-  rlWindows?: RateLimitWindowDraft[];
   /** 策略库导入来源：编辑时原样带回，供「内置策略已更新」判定。 */
   source?: { id?: string; at?: number };
 }
@@ -1512,16 +1507,7 @@ export function bundleToDraft(b: RateLimitsBundle): RateLimitsDraft {
     concurrency: str(b.rate_limits?.concurrency),
     rpm: str(b.rate_limits?.rpm),
     tpm: str(b.rate_limits?.tpm),
-    models: Object.entries(b.rate_limits?.models ?? {}).map(([model, o]) => ({
-      model,
-      concurrency: str(o.concurrency),
-      rpm: str(o.rpm),
-      tpm: str(o.tpm),
-    })),
-    rlWindows: (b.rate_limits?.windows ?? []).map(w => ({
-      start: String(w.start_hour), end: String(w.end_hour), tz: w.timezone ?? "", days: [...(w.days_of_week ?? [])],
-      concurrency: str(w.concurrency), rpm: str(w.rpm), tpm: str(w.tpm),
-    })),
+    rules: (b.rate_limits?.rules ?? []).map(ruleToDraft),
     source: b.rate_limits?.source_policy_id ? { id: b.rate_limits.source_policy_id, at: b.rate_limits.source_last_updated } : undefined,
     windows: (b.quota_windows ?? []).map(w => {
       const sec = w.window;
@@ -1545,23 +1531,10 @@ export function draftToBundle(d: RateLimitsDraft): RateLimitsBundle {
   };
   const caps = (o: { concurrency?: string; rpm: string; tpm: string }) => ({ concurrency: num(o.concurrency ?? ""), rpm: num(o.rpm), tpm: num(o.tpm) });
   const hasCap = (c: { concurrency?: number; rpm?: number; tpm?: number }) => c.concurrency !== undefined || c.rpm !== undefined || c.tpm !== undefined;
-  const models: Record<string, RateLimitModelOverride> = {};
-  for (const m of d.models) {
-    const key = m.model.trim();
-    if (!key) continue;
-    const o = caps(m);
-    if (hasCap(o)) models[key] = o;
-  }
-  const rlWins: RateLimitWindow[] = [];
-  for (const w of d.rlWindows ?? []) {
-    const sh = Number(w.start), eh = Number(w.end), c = caps(w);
-    if (w.start.trim() === "" || w.end.trim() === "" || !Number.isInteger(sh) || !Number.isInteger(eh) || sh < 0 || sh > 23 || eh < 0 || eh > 24 || !hasCap(c)) continue;
-    rlWins.push({ start_hour: sh, end_hour: eh, timezone: w.tz.trim() || undefined, days_of_week: w.days.length > 0 ? [...w.days].sort() : undefined, ...c });
-  }
+  const rules = d.rules.map(draftToRule);
   const rate_limits: RateLimitsConfig = {
     ...caps(d),
-    models: Object.keys(models).length > 0 ? models : undefined,
-    windows: rlWins.length > 0 ? rlWins : undefined,
+    rules: rules.length > 0 ? rules : undefined,
     source_policy_id: d.source?.id,
     source_last_updated: d.source?.at,
   };
@@ -1581,15 +1554,16 @@ export function draftToBundle(d: RateLimitsDraft): RateLimitsBundle {
     if (q.budget_tokens !== undefined || q.budget_usd !== undefined || q.budget_count !== undefined) windows.push(q);
   }
   return {
-    rate_limits: hasCap(rate_limits) || rate_limits.models || rate_limits.windows ? rate_limits : undefined,
+    rate_limits: hasCap(rate_limits) || rate_limits.rules ? rate_limits : undefined,
     quota_windows: windows.length > 0 ? windows : undefined,
   };
 }
 
-export function RateLimitsSection({ bundle, setBundle, protocol, t }: {
+export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, t }: {
   bundle: RateLimitsBundle;
   setBundle: React.Dispatch<React.SetStateAction<RateLimitsBundle>>;
   protocol: Protocol;
+  modelOptions: string[];
   t: TFunction;
 }) {
   const [draft, setDraft] = useState<RateLimitsDraft>(() => bundleToDraft(bundle));
@@ -1607,13 +1581,11 @@ export function RateLimitsSection({ bundle, setBundle, protocol, t }: {
     setBundle(b);
   };
   const upd = <K extends keyof RateLimitsDraft>(k: K, v: RateLimitsDraft[K]) => commit({ ...draft, [k]: v });
-  const rlWins = draft.rlWindows ?? [];
-  const updWin = (i: number, patch: Partial<RateLimitWindowDraft>) => upd("rlWindows", rlWins.map((x, j) => j === i ? { ...x, ...patch } : x));
   // 导入 = 覆盖 rate_limits（quota_windows 不动）；不经 lastEmitted，让编辑态随新 bundle 重取。
   const importPolicy = (cfg: RateLimitsConfig) => setBundle({ ...bundle, rate_limits: cfg });
 
   const summary = rateLimitsSummary(bundle, n => t("platform.rateLimits.windowsCount", "{{n}} 个窗口", { n }));
-  const modelCount = Object.keys(bundle.rate_limits?.models ?? {}).length;
+  const ruleCount = bundle.rate_limits?.rules?.length ?? 0;
   const inputStyle = { fontSize: 12, height: 28, minWidth: 70 };
   const numStyle = { ...inputStyle, textAlign: "center", fontVariantNumeric: "tabular-nums" } as React.CSSProperties;
   const labelStyle = { fontSize: 11, opacity: 0.7, color: "var(--text-tertiary)" }; // 稿 .lb/.lb2 = fg-3
@@ -1632,9 +1604,9 @@ export function RateLimitsSection({ bundle, setBundle, protocol, t }: {
         ) : (
           <>
             <span style={C.pill("ok")}>{summary}</span>
-            {modelCount > 0 && (
+            {ruleCount > 0 && (
               <span style={C.pill("neutral")}>
-                {t("platform.rateLimits.modelCount", "{{n}} 个模型覆盖", { n: modelCount })}
+                {t("platform.rateLimits.ruleCount", "{{n}} 条规则", { n: ruleCount })}
               </span>
             )}
           </>
@@ -1666,51 +1638,10 @@ export function RateLimitsSection({ bundle, setBundle, protocol, t }: {
         </label>
       </div>
 
-      {/* 模型级覆盖 */}
+      {/* 限频规则：模型 / 时段条件 + 上限；重叠按列表顺序（可拖动） */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
-        <span style={labelStyle}>{t("platform.rateLimits.modelOverrides", "模型级覆盖（缺省回落平台级）")}</span>
-        {draft.models.map((m, i) => (
-          <div key={i} className={C.rowClass} style={C.row}>
-            <Input value={m.model} placeholder="model id" onChange={e => upd("models", draft.models.map((x, j) => j === i ? { ...x, model: e.target.value } : x))} style={{ ...inputStyle, flex: 1, minWidth: 110, fontFamily: "var(--font-mono, monospace)", fontSize: 11 }} />
-            <Input id={`rl-model-${i}-concurrency`} type="number" value={m.concurrency ?? ""} placeholder={t("platform.rateLimits.concurrencyShort", "并发")} onChange={e => upd("models", draft.models.map((x, j) => j === i ? { ...x, concurrency: e.target.value } : x))} style={numStyle} />
-            <Input type="number" value={m.rpm} placeholder="RPM" onChange={e => upd("models", draft.models.map((x, j) => j === i ? { ...x, rpm: e.target.value } : x))} style={numStyle} />
-            <Input type="number" value={m.tpm} placeholder="TPM" onChange={e => upd("models", draft.models.map((x, j) => j === i ? { ...x, tpm: e.target.value } : x))} style={numStyle} />
-            <Button variant="ghost" size="icon" className="btn-danger" style={{ height: 28, width: 28 }} onClick={() => upd("models", draft.models.filter((_, j) => j !== i))}>×</Button>
-          </div>
-        ))}
-        <button type="button" className={C.addBtnClass} onClick={() => upd("models", [...draft.models, { model: "", concurrency: "", rpm: "", tpm: "" }])}>
-          + {t("platform.rateLimits.addModel", "加模型覆盖")}
-        </button>
-      </div>
-
-      {/* 限频时段窗口：形状同高峰窗口（first-match；命中时上限覆盖上方同名字段） */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
-        <span style={labelStyle}>{t("platform.rateLimits.timeWindows", "时段窗口（命中时覆盖上方上限，按顺序 first-match）")}</span>
-        {rlWins.map((w, i) => (
-          <div key={i} id={`rl-win-${i}`} className={C.rowClass} style={{ ...C.row, flexWrap: "wrap" }}>
-            <Input id={`rl-win-${i}-start`} type="number" min={0} max={23} value={w.start} aria-label={t("platform.start_hour", "起")} placeholder="0" onChange={e => updWin(i, { start: e.target.value })} style={{ ...numStyle, width: 56, minWidth: 56 }} />
-            <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>–</span>
-            <Input id={`rl-win-${i}-end`} type="number" min={0} max={24} value={w.end} aria-label={t("platform.end_hour", "止")} placeholder="24" onChange={e => updWin(i, { end: e.target.value })} style={{ ...numStyle, width: 56, minWidth: 56 }} />
-            <Input id={`rl-win-${i}-tz`} value={w.tz} placeholder="UTC / Asia/Shanghai" aria-label={t("platform.rateLimits.windowTz", "时区")} onChange={e => updWin(i, { tz: e.target.value })} style={{ ...inputStyle, width: 130, fontFamily: "var(--font-mono, monospace)", fontSize: 11 }} />
-            <div style={{ display: "flex", gap: 2 }}>
-              {[0, 1, 2, 3, 4, 5, 6].map(d => (
-                <button key={d} type="button" id={`rl-win-${i}-day-${d}`} data-state={w.days.includes(d) ? "on" : "off"}
-                  className={C.addBtnClass} style={{ padding: "0 5px", minWidth: 22, ...(w.days.includes(d) ? { background: "var(--accent-subtle)", color: "var(--text-primary)" } : {}) }}
-                  onClick={() => updWin(i, { days: w.days.includes(d) ? w.days.filter(x => x !== d) : [...w.days, d] })}>
-                  {t(`platform.weekday_short.${d}`)}
-                </button>
-              ))}
-            </div>
-            <Input id={`rl-win-${i}-concurrency`} type="number" value={w.concurrency} placeholder={t("platform.rateLimits.concurrencyShort", "并发")} onChange={e => updWin(i, { concurrency: e.target.value })} style={numStyle} />
-            <Input id={`rl-win-${i}-rpm`} type="number" value={w.rpm} placeholder="RPM" onChange={e => updWin(i, { rpm: e.target.value })} style={numStyle} />
-            <Input id={`rl-win-${i}-tpm`} type="number" value={w.tpm} placeholder="TPM" onChange={e => updWin(i, { tpm: e.target.value })} style={numStyle} />
-            <Button variant="ghost" size="icon" className="btn-danger" style={{ height: 28, width: 28, marginLeft: "auto" }} onClick={() => upd("rlWindows", rlWins.filter((_, j) => j !== i))}>×</Button>
-          </div>
-        ))}
-        <button type="button" id="rl-add-window" className={C.addBtnClass}
-          onClick={() => upd("rlWindows", [...rlWins, { start: "0", end: "24", tz: "", days: [], concurrency: "", rpm: "", tpm: "" }])}>
-          + {t("platform.rateLimits.addWindow", "加时段窗口")}
-        </button>
+        <span style={labelStyle}>{t("platform.rateLimits.rules", "限频规则")}</span>
+        <RateLimitRulesList rules={draft.rules} onChange={rules => upd("rules", rules)} modelOptions={modelOptions} protocol={protocol} t={t} />
       </div>
 
       <RateLimitPolicyLibrary protocol={protocol} source={bundle.rate_limits?.source_policy_id ? { id: bundle.rate_limits.source_policy_id, at: bundle.rate_limits.source_last_updated } : undefined} onImport={importPolicy} t={t} />
