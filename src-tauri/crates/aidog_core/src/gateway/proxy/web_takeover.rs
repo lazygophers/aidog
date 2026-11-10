@@ -43,14 +43,17 @@ fn kind_of(tool: &Value) -> Option<Kind> {
     }
 }
 
-/// body 的 tools 里是否带服务端网页工具（入口早期判定：代执行的请求不写代理日志，见 handler）。
+/// body 的 tools 是否全是服务端网页工具（混有其它工具则不接管，照常转发模型；入口早期判定：代执行的请求不写代理日志，见 handler）。
 pub(crate) fn has_web_server_tool(body: Option<&Value>) -> bool {
-    body.and_then(|b| b.get("tools")).and_then(Value::as_array).is_some_and(|ts| ts.iter().any(|t| kind_of(t).is_some()))
+    body.and_then(|b| b.get("tools")).and_then(Value::as_array).is_some_and(|ts| !ts.is_empty() && ts.iter().all(|t| kind_of(t).is_some()))
 }
 
 /// 取请求声明的服务端网页工具；`tool_choice` 指名其一时取该工具，否则取第一个。
 pub(crate) fn detect(body: &Value) -> Option<WebTool> {
     let tools = body.get("tools")?.as_array()?;
+    if !tools.iter().all(|t| kind_of(t).is_some()) {
+        return None;
+    }
     let forced = body["tool_choice"]["name"].as_str();
     let tool = tools
         .iter()

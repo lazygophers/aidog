@@ -344,3 +344,32 @@ fn detect_and_extract_rules() {
     let f = WebTool { kind: Kind::Fetch, allowed: vec!["a.com".into()], blocked: vec![] };
     assert!(f.allows("https://docs.a.com/x") && !f.allows("https://b.com"));
 }
+
+fn client_tool() -> Value {
+    json!({"name":"Read","description":"read","input_schema":{"type":"object","properties":{}}})
+}
+
+#[test]
+fn mixed_tools_are_not_taken_over_but_web_only_is() {
+    let mixed = json!({"tools":[search_tool(), client_tool()]});
+    assert!(detect(&mixed).is_none(), "web 工具与其它工具并存时不得接管");
+    assert!(!has_web_server_tool(Some(&mixed)));
+    let web_only = json!({"tools":[search_tool()]});
+    assert!(detect(&web_only).is_some());
+    assert!(has_web_server_tool(Some(&web_only)));
+}
+
+#[tokio::test]
+async fn mixed_tools_request_is_forwarded_to_upstream() {
+    let (db, _d) = three_file_db().await;
+    let state = make_state(db).await;
+    let (up, up_hits) = spawn_fake(200, "application/json", "{}").await;
+    let (gk, _) = setup(&state, &up).await;
+    let body = json!({"model":"claude-3","max_tokens":64,"tools":[search_tool(), client_tool()],
+        "messages":[{"role":"user","content":"hi"}]})
+    .to_string();
+    let _ = send(&state, &gk, body).await;
+    assert!(up_hits.load(Ordering::SeqCst) >= 1, "混合 tools 必须转发到上游");
+    let (_, tool_rows) = proxy_log_count_and_tool_rows(&state).await;
+    assert!(tool_rows.is_empty(), "不得写网关代执行 tool_log");
+}
