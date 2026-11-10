@@ -54,18 +54,6 @@ fn tool_definitions() -> Vec<Value> {
                 "required": ["prompt"]
             }
         }),
-        json!({
-            "name": "generate_video",
-            "description": "文生视频：按提示词生成视频（首版未实现，配置视频 provider 后开放）。",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "prompt": {"type": "string", "description": "视频提示词"},
-                    "duration_seconds": {"type": "number", "description": "视频时长（秒，缺省由 provider 决定）"}
-                },
-                "required": ["prompt"]
-            }
-        }),
     ]
 }
 
