@@ -18,23 +18,25 @@
       "id": "media",
       "label": "视频：Hailuo 系列 20 RPM；Video Generation V2（MiniMax-H3）300 RPM + 最大并行 30 任务；音乐 Music Generation 充值用户 120 RPM + CONN 20（免费 3/3）；语音 T2A v2 免费 10 RPM、充值 20 RPM",
       "source_url": "https://platform.minimax.cn/docs/guides/rate-limits",
-      "models": {
-        "MiniMax-H3": {
+      "rules": [
+        {
+          "models": [
+            "MiniMax-H3"
+          ],
           "rpm": 300
         },
-        "MiniMax-Hailuo-02": {
-          "rpm": 20
-        },
-        "MiniMax-Hailuo-2.3": {
-          "rpm": 20
-        },
-        "MiniMax-Hailuo-2.3-Fast": {
+        {
+          "models": [
+            "MiniMax-Hailuo-02",
+            "MiniMax-Hailuo-2.3",
+            "MiniMax-Hailuo-2.3-Fast"
+          ],
           "rpm": 20
         }
-      }
+      ]
     }
   ],
-  "last_updated": 1794191265,
+  "last_updated": 1794291601,
   "endpoints": {
     "default": [
       {

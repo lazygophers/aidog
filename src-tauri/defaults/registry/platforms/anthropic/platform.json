@@ -4,253 +4,136 @@
       "id": "start",
       "label": "Start tier",
       "source_url": "https://docs.claude.com/en/api/rate-limits",
-      "models": {
-        "claude-fable-5": {
+      "rules": [
+        {
+          "models": [
+            "claude-fable-5",
+            "claude-fable-5-1",
+            "claude-mythos-5",
+            "claude-mythos-5-1"
+          ],
           "rpm": 4000,
           "tpm": 500000
         },
-        "claude-fable-5-1": {
-          "rpm": 4000,
-          "tpm": 500000
-        },
-        "claude-mythos-5": {
-          "rpm": 4000,
-          "tpm": 500000
-        },
-        "claude-mythos-5-1": {
-          "rpm": 4000,
-          "tpm": 500000
-        },
-        "claude-opus-5-5": {
+        {
+          "models": [
+            "claude-opus-5-5",
+            "claude-sonnet-5-5",
+            "claude-haiku-5-5"
+          ],
           "rpm": 4000,
           "tpm": 2000000
         },
-        "claude-opus-5": {
-          "rpm": 1000,
-          "tpm": 2000000
-        },
-        "claude-opus-4-8": {
-          "rpm": 1000,
-          "tpm": 2000000
-        },
-        "claude-opus-4-7": {
-          "rpm": 1000,
-          "tpm": 2000000
-        },
-        "claude-opus-4-6": {
-          "rpm": 1000,
-          "tpm": 2000000
-        },
-        "claude-opus-4-5": {
-          "rpm": 1000,
-          "tpm": 2000000
-        },
-        "claude-opus-4-5-20251101": {
-          "rpm": 1000,
-          "tpm": 2000000
-        },
-        "claude-sonnet-5-5": {
-          "rpm": 4000,
-          "tpm": 2000000
-        },
-        "claude-sonnet-5": {
-          "rpm": 1000,
-          "tpm": 2000000
-        },
-        "claude-sonnet-4-6": {
-          "rpm": 1000,
-          "tpm": 2000000
-        },
-        "claude-sonnet-4-5": {
-          "rpm": 1000,
-          "tpm": 2000000
-        },
-        "claude-sonnet-4-5-20250929": {
-          "rpm": 1000,
-          "tpm": 2000000
-        },
-        "claude-haiku-5-5": {
-          "rpm": 4000,
-          "tpm": 2000000
-        },
-        "claude-haiku-4-5": {
-          "rpm": 1000,
-          "tpm": 2000000
-        },
-        "claude-haiku-4-5-20251001": {
+        {
+          "models": [
+            "claude-opus-5",
+            "claude-opus-4-8",
+            "claude-opus-4-7",
+            "claude-opus-4-6",
+            "claude-opus-4-5",
+            "claude-opus-4-5-20251101",
+            "claude-sonnet-5",
+            "claude-sonnet-4-6",
+            "claude-sonnet-4-5",
+            "claude-sonnet-4-5-20250929",
+            "claude-haiku-4-5",
+            "claude-haiku-4-5-20251001"
+          ],
           "rpm": 1000,
           "tpm": 2000000
         }
-      }
+      ]
     },
     {
       "id": "build",
       "label": "Build tier",
       "source_url": "https://docs.claude.com/en/api/rate-limits",
-      "models": {
-        "claude-fable-5": {
+      "rules": [
+        {
+          "models": [
+            "claude-fable-5",
+            "claude-fable-5-1",
+            "claude-mythos-5",
+            "claude-mythos-5-1"
+          ],
           "rpm": 10000,
           "tpm": 1500000
         },
-        "claude-fable-5-1": {
-          "rpm": 10000,
-          "tpm": 1500000
-        },
-        "claude-mythos-5": {
-          "rpm": 10000,
-          "tpm": 1500000
-        },
-        "claude-mythos-5-1": {
-          "rpm": 10000,
-          "tpm": 1500000
-        },
-        "claude-opus-5-5": {
+        {
+          "models": [
+            "claude-opus-5-5",
+            "claude-sonnet-5-5",
+            "claude-haiku-5-5"
+          ],
           "rpm": 10000,
           "tpm": 5000000
         },
-        "claude-opus-5": {
-          "rpm": 5000,
-          "tpm": 5000000
-        },
-        "claude-opus-4-8": {
-          "rpm": 5000,
-          "tpm": 5000000
-        },
-        "claude-opus-4-7": {
-          "rpm": 5000,
-          "tpm": 5000000
-        },
-        "claude-opus-4-6": {
-          "rpm": 5000,
-          "tpm": 5000000
-        },
-        "claude-opus-4-5": {
-          "rpm": 5000,
-          "tpm": 5000000
-        },
-        "claude-opus-4-5-20251101": {
-          "rpm": 5000,
-          "tpm": 5000000
-        },
-        "claude-sonnet-5-5": {
-          "rpm": 10000,
-          "tpm": 5000000
-        },
-        "claude-sonnet-5": {
-          "rpm": 5000,
-          "tpm": 5000000
-        },
-        "claude-sonnet-4-6": {
-          "rpm": 5000,
-          "tpm": 5000000
-        },
-        "claude-sonnet-4-5": {
-          "rpm": 5000,
-          "tpm": 5000000
-        },
-        "claude-sonnet-4-5-20250929": {
-          "rpm": 5000,
-          "tpm": 5000000
-        },
-        "claude-haiku-5-5": {
-          "rpm": 10000,
-          "tpm": 5000000
-        },
-        "claude-haiku-4-5": {
-          "rpm": 5000,
-          "tpm": 5000000
-        },
-        "claude-haiku-4-5-20251001": {
+        {
+          "models": [
+            "claude-opus-5",
+            "claude-opus-4-8",
+            "claude-opus-4-7",
+            "claude-opus-4-6",
+            "claude-opus-4-5",
+            "claude-opus-4-5-20251101",
+            "claude-sonnet-5",
+            "claude-sonnet-4-6",
+            "claude-sonnet-4-5",
+            "claude-sonnet-4-5-20250929",
+            "claude-haiku-4-5",
+            "claude-haiku-4-5-20251001"
+          ],
           "rpm": 5000,
           "tpm": 5000000
         }
-      }
+      ]
     },
     {
       "id": "scale",
       "label": "Scale tier",
       "source_url": "https://docs.claude.com/en/api/rate-limits",
-      "models": {
-        "claude-fable-5": {
+      "rules": [
+        {
+          "models": [
+            "claude-fable-5",
+            "claude-fable-5-1",
+            "claude-mythos-5",
+            "claude-mythos-5-1"
+          ],
           "rpm": 13000,
           "tpm": 4000000
         },
-        "claude-fable-5-1": {
-          "rpm": 13000,
-          "tpm": 4000000
-        },
-        "claude-mythos-5": {
-          "rpm": 13000,
-          "tpm": 4000000
-        },
-        "claude-mythos-5-1": {
-          "rpm": 13000,
-          "tpm": 4000000
-        },
-        "claude-opus-5-5": {
+        {
+          "models": [
+            "claude-opus-5-5",
+            "claude-sonnet-5-5",
+            "claude-haiku-5-5"
+          ],
           "rpm": 13000,
           "tpm": 10000000
         },
-        "claude-opus-5": {
-          "rpm": 10000,
-          "tpm": 10000000
-        },
-        "claude-opus-4-8": {
-          "rpm": 10000,
-          "tpm": 10000000
-        },
-        "claude-opus-4-7": {
-          "rpm": 10000,
-          "tpm": 10000000
-        },
-        "claude-opus-4-6": {
-          "rpm": 10000,
-          "tpm": 10000000
-        },
-        "claude-opus-4-5": {
-          "rpm": 10000,
-          "tpm": 10000000
-        },
-        "claude-opus-4-5-20251101": {
-          "rpm": 10000,
-          "tpm": 10000000
-        },
-        "claude-sonnet-5-5": {
-          "rpm": 13000,
-          "tpm": 10000000
-        },
-        "claude-sonnet-5": {
-          "rpm": 10000,
-          "tpm": 10000000
-        },
-        "claude-sonnet-4-6": {
-          "rpm": 10000,
-          "tpm": 10000000
-        },
-        "claude-sonnet-4-5": {
-          "rpm": 10000,
-          "tpm": 10000000
-        },
-        "claude-sonnet-4-5-20250929": {
-          "rpm": 10000,
-          "tpm": 10000000
-        },
-        "claude-haiku-5-5": {
-          "rpm": 13000,
-          "tpm": 10000000
-        },
-        "claude-haiku-4-5": {
-          "rpm": 10000,
-          "tpm": 10000000
-        },
-        "claude-haiku-4-5-20251001": {
+        {
+          "models": [
+            "claude-opus-5",
+            "claude-opus-4-8",
+            "claude-opus-4-7",
+            "claude-opus-4-6",
+            "claude-opus-4-5",
+            "claude-opus-4-5-20251101",
+            "claude-sonnet-5",
+            "claude-sonnet-4-6",
+            "claude-sonnet-4-5",
+            "claude-sonnet-4-5-20250929",
+            "claude-haiku-4-5",
+            "claude-haiku-4-5-20251001"
+          ],
           "rpm": 10000,
           "tpm": 10000000
         }
-      }
+      ]
     }
   ],
-  "last_updated": 1794191265,
+  "last_updated": 1794291601,
   "tools_pricing": {
     "web_search": {
       "per_1000": 10.0

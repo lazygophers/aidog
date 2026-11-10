@@ -5,12 +5,15 @@ import { RateLimitPolicyLibrary } from "./RateLimitPolicyLibrary";
 import type { RateLimitPolicy } from "../../domains/platforms/defaults";
 
 const POLICIES: RateLimitPolicy[] = [
-  { id: "v0", label: "V0", source_url: "https://example.com/v0", concurrency: 50, models: { "glm-4-plus": { concurrency: 5 } } },
+  { id: "v0", label: "V0", source_url: "https://example.com/v0", concurrency: 50, rules: [{ models: ["glm-4-plus"], concurrency: 5 }] },
+  { id: "mw", label: "MW", source_url: "https://example.com/mw", rules: [{ models: ["glm-4-plus"], start_hour: 14, end_hour: 18, rpm: 5 }] },
   { id: "skel", label: "Skeleton", source_url: "https://example.com/s" },
   {
     id: "many", label: "Many", source_url: "https://example.com/m", concurrency: 1000, rpm: 60,
-    models: Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`m${i}`, { concurrency: i + 1 }])),
-    windows: [{ start_hour: 9, end_hour: 18, days_of_week: [1, 2, 3], timezone: "Asia/Shanghai", rpm: 30 }],
+    rules: [
+      ...Array.from({ length: 8 }, (_, i) => ({ models: [`m${i}`], concurrency: i + 1 })),
+      { start_hour: 9, end_hour: 18, days_of_week: [1, 2, 3], timezone: "Asia/Shanghai", rpm: 30 },
+    ],
   },
 ];
 
@@ -33,7 +36,7 @@ async function renderLib(source?: { id?: string; at?: number }) {
 }
 
 describe("RateLimitPolicyLibrary", () => {
-  it("导入：确认后覆盖写入，带 source_policy_id / source_last_updated 与模型级并发", async () => {
+  it("导入：确认后覆盖写入，规则原样拷贝（不转换），带 source_policy_id / source_last_updated", async () => {
     const { onImport } = await renderLib();
     fireEvent.click(byId("rl-policy-import-v0")!);
     expect(onImport).not.toHaveBeenCalled(); // 未确认不写
@@ -41,7 +44,7 @@ describe("RateLimitPolicyLibrary", () => {
     fireEvent.click(byId("rl-import-confirm-ok")!);
     expect(onImport).toHaveBeenCalledWith({
       concurrency: 50,
-      models: { "glm-4-plus": { concurrency: 5 } },
+      rules: [{ models: ["glm-4-plus"], concurrency: 5 }],
       source_policy_id: "v0",
       source_last_updated: 200,
     });
@@ -71,9 +74,10 @@ describe("RateLimitPolicyLibrary", () => {
     expect(byId("rl-policy-updated")).toBeNull();
   });
 
-  it("模型级：每个模型一行并带数字；平台级无数字时不显示骨架提示", async () => {
+  it("只选模型的规则：一条一行并带数字；平台级有数字时不显示骨架提示", async () => {
     await renderLib();
-    const row = byId("rl-policy-model-v0-glm-4-plus")!;
+    const row = byId("rl-policy-rule-v0-0")!;
+    expect(row.textContent).toContain("glm-4-plus");
     expect(row.textContent).toContain("5");
     expect(row.getAttribute("data-kind")).toBe("model");
     expect(byId("rl-policy-empty-v0")).toBeNull();
@@ -85,21 +89,23 @@ describe("RateLimitPolicyLibrary", () => {
     expect(byId("rl-policy-empty-v0")).toBeNull();
   });
 
-  it("时段窗口渲染小时 / 星期 / 时区 / 覆盖数字", async () => {
+  it("只选时段的规则渲染小时 / 星期 / 时区 / 数字", async () => {
     await renderLib();
-    const w = byId("rl-policy-win-many-0")!;
+    fireEvent.click(byId("rl-policy-toggle-many")!);
+    const w = byId("rl-policy-rule-many-8")!;
+    expect(w.getAttribute("data-kind")).toBe("window");
     expect(w.textContent).toContain("9");
     expect(w.textContent).toContain("18");
     expect(w.textContent).toContain("Asia/Shanghai");
     expect(w.textContent).toContain("30");
   });
 
-  it("模型多于 5 行默认折叠，可展开", async () => {
+  it("规则多于 5 行默认折叠，可展开", async () => {
     await renderLib();
-    expect(byId("rl-policy-model-many-m0")).not.toBeNull();
-    expect(byId("rl-policy-model-many-m7")).toBeNull();
+    expect(byId("rl-policy-rule-many-0")).not.toBeNull();
+    expect(byId("rl-policy-rule-many-7")).toBeNull();
     fireEvent.click(byId("rl-policy-toggle-many")!);
-    expect(byId("rl-policy-model-many-m7")).not.toBeNull();
+    expect(byId("rl-policy-rule-many-7")).not.toBeNull();
   });
 
   it("数字带标签且并发显示完整整数（无 CONC / 1.0K 缩写）", async () => {
@@ -109,7 +115,24 @@ describe("RateLimitPolicyLibrary", () => {
     expect(plat).toContain("RPM 60");
     expect(plat).not.toMatch(/CONC|1\.0K/);
     expect(byId("rl-policy-platform-v0")!.textContent).toBe("并发 50");
-    expect(byId("rl-policy-model-many-m0")!.textContent).toContain("并发 1");
-    expect(byId("rl-policy-win-many-0")!.textContent).toContain("RPM 30");
+    expect(byId("rl-policy-rule-many-0")!.textContent).toContain("并发 1");
+    fireEvent.click(byId("rl-policy-toggle-many")!);
+    expect(byId("rl-policy-rule-many-8")!.textContent).toContain("RPM 30");
+  });
+
+  it("模型 + 时段规则：同一行显示模型名与时段，并整条拷贝导入", async () => {
+    const { onImport } = await renderLib();
+    const row = byId("rl-policy-rule-mw-0")!;
+    expect(row.getAttribute("data-kind")).toBe("model-window");
+    expect(row.textContent).toContain("glm-4-plus");
+    expect(row.textContent).toContain("14:00–18:00");
+    fireEvent.click(byId("rl-policy-import-mw")!);
+    await waitFor(() => expect(byId("rl-import-confirm-ok")).not.toBeNull());
+    fireEvent.click(byId("rl-import-confirm-ok")!);
+    expect(onImport).toHaveBeenCalledWith({
+      rules: [{ models: ["glm-4-plus"], start_hour: 14, end_hour: 18, rpm: 5 }],
+      source_policy_id: "mw",
+      source_last_updated: 200,
+    });
   });
 });

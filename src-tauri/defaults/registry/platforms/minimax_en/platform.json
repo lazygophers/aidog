@@ -6,12 +6,15 @@
       "source_url": "https://platform.minimax.io/docs/guides/rate-limits",
       "rpm": 200,
       "tpm": 10000000,
-      "models": {
-        "MiniMax-M3": {
+      "rules": [
+        {
+          "models": [
+            "MiniMax-M3"
+          ],
           "rpm": 200,
           "tpm": 10000000
         }
-      }
+      ]
     },
     {
       "id": "media",
@@ -19,7 +22,7 @@
       "source_url": "https://platform.minimax.io/docs/guides/rate-limits"
     }
   ],
-  "last_updated": 1794191265,
+  "last_updated": 1794291601,
   "endpoints": {
     "default": [
       {
