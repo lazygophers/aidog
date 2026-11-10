@@ -1731,6 +1731,7 @@
   "platform.expiresAtSoon": "Expira pronto: {{time}}",
   "platform.fetchAuthError": "Error de autenticación de API key (HTTP {{code}}), verifique la clave de la plataforma",
   "platform.fetchEmpty": "No se encontraron modelos",
+  "platform.fetchKeptExisting": "Se mantuvieron los modelos rellenados manualmente; lista de candidatos actualizada",
   "platform.fetchModels": "Obtener modelos",
   "platform.fillAll": "Rellenar todo",
   "platform.fillAllHint": "Sobrescribe todos los huecos con el modelo predeterminado",

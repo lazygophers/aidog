@@ -1819,6 +1819,7 @@
   "platform.expiresAtSoon": "まもなく期限切れ：{{time}}",
   "platform.fetchAuthError": "APIキー認証失敗 (HTTP {{code}})、プラットフォームキーを確認してください",
   "platform.fetchEmpty": "モデルが見つかりません",
+  "platform.fetchKeptExisting": "手動入力のモデルを保持し、候補リストを更新しました",
   "platform.fetchModels": "モデル取得",
   "platform.fillAll": "一括入力",
   "platform.fillAllHint": "デフォルトモデルで空スロットを埋める",
