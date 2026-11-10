@@ -1424,3 +1424,39 @@ input[type="week"]::-webkit-calendar-picker-indicator {
     opacity: 1;
   }
 }
+
+/* 平台行 / 成员行共用 grid：容器 .prow-c（行外层 / 列头外包一层）随卡片宽度收列，不随视口。
+   列序：1 把手 2 图标 3 名称 4 余额 5 今日 6 成功率 7 延迟 8 模型 9 最近测速 10 操作；
+   按「最近测速 → 模型 → 延迟 → 成功率 → 今日」顺序依次隐藏；!important 压过列上的内联 display。 */
+@layer components {
+  .prow-c { container-type: inline-size; container-name: prow; }
+  .prow-grid { grid-template-columns: 26px 34px minmax(200px, 1.35fr) minmax(150px, 1fr) 74px 62px 58px 58px 150px 108px; }
+  @container prow (max-width: 1039px) {
+    .prow-grid { grid-template-columns: 26px 34px minmax(170px, 1.35fr) minmax(130px, 1fr) 74px 62px 58px 58px 108px; }
+    .prow-grid > :nth-child(9) { display: none !important; }
+    .prow-grid > :nth-child(10) { grid-column: 9; }
+  }
+  @container prow (max-width: 829px) {
+    .prow-grid { grid-template-columns: 26px 34px minmax(170px, 1.35fr) minmax(130px, 1fr) 74px 62px 58px 108px; }
+    .prow-grid > :nth-child(8) { display: none !important; }
+    .prow-grid > :nth-child(10) { grid-column: 8; }
+  }
+  @container prow (max-width: 759px) {
+    .prow-grid { grid-template-columns: 26px 34px minmax(170px, 1.35fr) minmax(130px, 1fr) 74px 62px 108px; }
+    .prow-grid > :nth-child(7) { display: none !important; }
+    .prow-grid > :nth-child(10) { grid-column: 7; }
+  }
+  @container prow (max-width: 689px) {
+    .prow-grid { grid-template-columns: 26px 34px minmax(170px, 1.35fr) minmax(130px, 1fr) 74px 108px; }
+    .prow-grid > :nth-child(6) { display: none !important; }
+    .prow-grid > :nth-child(10) { grid-column: 6; }
+  }
+  @container prow (max-width: 619px) {
+    .prow-grid { grid-template-columns: 26px 34px minmax(170px, 1.35fr) minmax(130px, 1fr) 108px; }
+    .prow-grid > :nth-child(5) { display: none !important; }
+    .prow-grid > :nth-child(10) { grid-column: 5; }
+  }
+  @container prow (max-width: 539px) {
+    .prow-grid { grid-template-columns: 26px 34px minmax(0, 1.35fr) minmax(100px, 1fr) 108px; }
+  }
+}

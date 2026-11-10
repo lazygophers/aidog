@@ -17,15 +17,14 @@ import {
 import { useDisplayCurrency } from "../../utils/displayCurrency";
 import { useBalanceCurrencies } from "../../utils/balanceCurrency";
 
-/** 行 grid 模板（稿真值，含未分组列头共用）。 */
-export const PLATFORM_ROW_GRID = "26px 34px minmax(200px,1.35fr) minmax(150px,1fr) 74px 62px 58px 58px 150px 108px";
+// 行 grid 列宽模板与窄屏收列规则见 globals.css 的 .prow-grid（行外层 .prow-c 是容器，随卡片宽度而非视口宽度）。
 
 /** 未分组段列头（稿 .cols），与行 grid 同列宽。 */
 export function PlatformRowCols({ t, riseDelay }: { t: TFunction; riseDelay?: number }) {
   return (
-    <div data-testid="platform-row-cols" className={riseDelay != null ? "aidog-anim-rise" : undefined}
+    <div className="prow-c"><div data-testid="platform-row-cols" className={`prow-grid${riseDelay != null ? " aidog-anim-rise" : ""}`}
       style={{
-      display: "grid", gridTemplateColumns: PLATFORM_ROW_GRID, gap: 10,
+      display: "grid", gap: 10,
       padding: "0 14px 0 8px", fontSize: 12, color: "var(--text-tertiary)", letterSpacing: "0.02em",
       ...(riseDelay != null ? { animationDelay: `${riseDelay}ms` } : {}),
     }}>
@@ -38,7 +37,7 @@ export function PlatformRowCols({ t, riseDelay }: { t: TFunction; riseDelay?: nu
       <span style={{ textAlign: "right" }}>{t("platform.col.models", "模型")}</span>
       <span>{t("platform.col.lastTest", "最近测速")}</span>
       <span style={{ textAlign: "right" }}>{t("platform.col.ops", "操作")}</span>
-    </div>
+    </div></div>
   );
 }
 
@@ -190,7 +189,7 @@ export function PlatformRow({
 
   return (
     <div data-testid="platform-row" data-platform-id={p.id} data-status={status} data-selected={selected ? "true" : undefined}
-      className={riseDelay != null ? "aidog-anim-rise" : undefined}
+      className={riseDelay != null ? "prow-c aidog-anim-rise" : "prow-c"}
       style={{
         position: "relative",
         opacity: enabled ? undefined : 0.62,
@@ -199,9 +198,9 @@ export function PlatformRow({
       }}>
       <div
         onClick={() => { if (!selecting) onToggleExpanded?.(!expanded); }}
-        className="aidog-row-hover"
+        className="aidog-row-hover prow-grid"
         style={{
-          display: "grid", gridTemplateColumns: PLATFORM_ROW_GRID, alignItems: "center", gap: STAT_GAP,
+          display: "grid", alignItems: "center", gap: STAT_GAP,
           padding: "11px 14px 11px 8px", borderBottom: "1px solid var(--border)",
           transition: "background .15s", cursor: "default",
         }}
