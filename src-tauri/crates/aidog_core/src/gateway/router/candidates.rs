@@ -196,8 +196,8 @@ impl DecisionModels {
 }
 
 /// 平台是否支持该请求类型（R2 / R3）：
-/// - Decision ⇔ `models.jev` 非空，或 `available_models` 含该平台 registry decision 能力模型；
-/// - Chat ⇔ 非纯专用槽平台（jev/embedding/rerank 配置且 5 聊天槽全空才剔除）；
+/// - Decision ⇔ 当前生效 `models.jev` 非空（时段档命中读档），或 `available_models` 含该平台 registry decision 能力模型；
+/// - Chat ⇔ 当前生效配置非纯专用槽平台（jev/embedding/rerank 配置且 5 聊天槽全空才剔除；时段档命中读档）；
 /// - Embedding ⇔ 当前生效 `models.embedding` 非空（时段档命中读档）且 有 OpenAI 系 endpoint（endpoints 含 OpenAI 系，或平台协议本身即 OpenAI 系）；
 /// - Tools(path) ⇔ 平台 tools_endpoints 含 path 与入站 path 相等条目（语义 3，strict 逐平台）。
 pub(crate) fn platform_supports_kind(
@@ -208,13 +208,18 @@ pub(crate) fn platform_supports_kind(
     now_ms: i64,
 ) -> bool {
     match kind {
+        // 读当前生效配置（同 Embedding）：时段档命中则整套替换，否则默认配置。
         RequestKind::Decision => {
-            platform.models.supports_decision_slot()
+            time_windows::resolve_time_windows(time_rules, &platform.models, now_ms)
+                .supports_decision_slot()
                 || decision_models
                     .first_in(platform, &platform.available_models)
                     .is_some()
         }
-        RequestKind::Chat => !platform.models.is_dedicated_only(),
+        RequestKind::Chat => {
+            !time_windows::resolve_time_windows(time_rules, &platform.models, now_ms)
+                .is_dedicated_only()
+        }
         // 读当前生效配置：时段档命中则整套替换（档内无此槽 = 时段内不接），否则默认配置。
         RequestKind::Embedding => {
             time_windows::resolve_time_windows(time_rules, &platform.models, now_ms)
