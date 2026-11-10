@@ -223,5 +223,14 @@
         "CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION": "1",
         "CLAUDE_CODE_GATEWAY_HINT_HEADERS": "1",
         "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY": "1"
+    },
+    "extraKnownMarketplaces": {
+        "cloudflare": {
+            "autoUpdate": true,
+            "source": {
+                "repo": "cloudflare/skills",
+                "source": "github"
+            }
+        }
     }
 }
