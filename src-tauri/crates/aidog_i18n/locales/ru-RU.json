@@ -1819,6 +1819,7 @@
   "platform.expiresAtSoon": "Скоро истекает: {{time}}",
   "platform.fetchAuthError": "Ошибка аутентификации API-ключа (HTTP {{code}}), проверьте ключ платформы",
   "platform.fetchEmpty": "Модели не найдены",
+  "platform.fetchKeptExisting": "Заполненные вручную модели сохранены; список кандидатов обновлён",
   "platform.fetchModels": "Загрузить",
   "platform.fillAll": "Заполнить все",
   "platform.fillAllHint": "Заполнить пустые слоты моделью по умолчанию",

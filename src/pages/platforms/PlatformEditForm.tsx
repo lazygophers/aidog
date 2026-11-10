@@ -53,7 +53,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     devinConfig, setDevinConfig,
     endpoints, setEndpoints,
     models, handleModelsChange, activeDropdown, setActiveDropdown,
-    availableModels, protocol: proto, fetching, fetchError, handleFetchModels, handleFillAll,
+    availableModels, protocol: proto, fetching, fetchError, fetchInfo, handleFetchModels, handleFillAll,
     manualBudgets, setManualBudgets,
     breakerDefaults, breakerFailureThreshold, setBreakerFailureThreshold,
     breakerHalfOpenMax, setBreakerHalfOpenMax,
@@ -260,7 +260,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           models={models} onModelsChange={handleModelsChange}
           activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown}
           availableModels={availableModels} protocol={proto}
-          fetchError={fetchError} fetching={fetching}
+          fetchError={fetchError} fetchInfo={fetchInfo} fetching={fetching}
           onFillAll={handleFillAll} onFetchModels={handleFetchModels}
           apiKeyMissing={apiKeyMissing} endpointsCount={endpoints.length} endpoints={endpoints}
           rules={timemodels.timeModels} setRules={timemodels.setTimeModels} peak={timemodels.peak}
@@ -336,7 +336,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           models={models} onModelsChange={handleModelsChange}
           activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown}
           availableModels={availableModels} protocol={proto}
-          fetchError={fetchError} fetching={fetching}
+          fetchError={fetchError} fetchInfo={fetchInfo} fetching={fetching}
           onFillAll={handleFillAll} onFetchModels={handleFetchModels}
           apiKeyMissing={apiKeyMissing} endpointsCount={endpoints.length}
           rules={timemodels.timeModels} setRules={timemodels.setTimeModels} peak={timemodels.peak}

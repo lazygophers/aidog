@@ -86,6 +86,8 @@ export interface PlatformFormState {
   setFetching: React.Dispatch<React.SetStateAction<boolean>>;
   fetchError: string;
   setFetchError: React.Dispatch<React.SetStateAction<string>>;
+  /** 一键获取 info 提示（非错误）：已保留手填模型 / 候选已更新 */
+  fetchInfo: string;
   saveError: string;
   setSaveError: React.Dispatch<React.SetStateAction<string>>;
   name: string; setName: React.Dispatch<React.SetStateAction<string>>;
@@ -186,6 +188,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [shareData, setShareData] = useState<{ share: SharePlatform; name: string } | null>(null);
   const [fetching, setFetching] = useState(false);
   const [fetchError, setFetchError] = useState("");
+  const [fetchInfo, setFetchInfo] = useState("");
   const [saveError, setSaveError] = useState("");
   // GroupsEmbedded 进入全屏视图态（创建/编辑分组）时为 true：隐藏下方分隔线 + 未分组平台列表，避免与全屏视图并列。
   const [groupFullscreen, setGroupFullscreen] = useState(false);
@@ -536,7 +539,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       push(ep.protocol as Protocol, ep.base_url);
     }
     if (tryList.length === 0) return;
-    setFetching(true); setFetchError("");
+    setFetching(true); setFetchError(""); setFetchInfo("");
     let lastError: FetchModelsError | null = null;
     let fetched = false;
     try {
@@ -548,8 +551,14 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
             continue;
           }
           setAvailableModels(modelIds);
-          const categorized = autoCategorize(modelIds);
-          setModels(slotsToForm(categorized));
+          // 任意槽位已填（用户手填过）→ 不覆写模型，只更新候选并提示；全空才自动填充。
+          const hasFilled = MODEL_SLOTS.some(s => models[s.key].length > 0);
+          if (hasFilled) {
+            setFetchInfo(t("platform.fetchKeptExisting"));
+          } else {
+            const categorized = autoCategorize(modelIds);
+            setModels(slotsToForm(categorized));
+          }
           lastError = null;
           fetched = true;
           break;
@@ -815,7 +824,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     pasteInitialText, setPasteInitialText, shareData, setShareData,
     groupFullscreen, setGroupFullscreen, showKey, setShowKey,
     testingPlatform, setTestingPlatform,
-    fetching, setFetching, fetchError, setFetchError, saveError, setSaveError,
+    fetching, setFetching, fetchError, setFetchError, fetchInfo, saveError, setSaveError,
     name, setName, protocol, setProtocol, codingPlan, setCodingPlan,
     apiKey, setApiKey,
     batchPreviewKeys, setBatchPreviewKeys,
