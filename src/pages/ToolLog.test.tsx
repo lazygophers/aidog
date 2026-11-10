@@ -106,4 +106,23 @@ describe("ToolLog", () => {
     render(<ToolLog />);
     expect(await screen.findByTestId("tool-log-empty")).toBeTruthy();
   });
+
+  it("统一页头：与工具页同一 section-title 标记 + 描述行", async () => {
+    setup([], 0);
+    render(<ToolLog />);
+    const header = await screen.findByTestId("tool-log-header");
+    expect(header.className).toContain("section-title");
+    expect(screen.getByTestId("tool-log-desc").textContent).toBe("toolLog.desc");
+  });
+
+  it("筛选下拉不含 generate_video；历史 generate_video 旧行仍原样显示工具名", async () => {
+    setup([{ ...ROW, id: 9, tool: "generate_video" }], 1);
+    render(<ToolLog />);
+    const select = (await screen.findByTestId("tool-log-filter-tool")) as HTMLSelectElement;
+    const opts = Array.from(select.options).map((o) => o.value);
+    expect(opts).not.toContain("generate_video");
+    expect(opts).toEqual(["", "web_search", "web_fetch", "generate_image"]);
+    const row = await screen.findByTestId("tool-log-row-9");
+    expect(row.textContent).toContain("generate_video");
+  });
 });

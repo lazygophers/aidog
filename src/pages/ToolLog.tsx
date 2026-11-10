@@ -1,11 +1,11 @@
 // 工具日志页（日志统计 → 工具日志）：网关代执行 / HTTP MCP 的每次工具调用。
 // 列表按 工具 / 触发方 / 分组 筛选分页；行点击展开内联详情（各引擎条数 / 耗时 / 错误 + 结果正文，按需拉取）。
 // 搜索词 / 结果正文受「记录用户请求原始信息」开关控制，关时为空串，详情显占位。保留天数独立于请求日志。
+// 页头与「工具」页统一（section-title + 描述行，票 05/06）；样式走 Tailwind + ui 组件，禁 inline style。
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toolLogApi, type ToolLog as ToolLogRow, type ToolLogFilter } from "../services/api";
 import { formatDateTime, formatDurationMs } from "../utils/formatters";
-import { F } from "../domains/shared/tokens";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -13,7 +13,8 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 const PAGE_SIZE = 50;
 const TOOLS = ["web_search", "web_fetch", "generate_image"] as const;
 const TRIGGERS = ["gateway", "mcp"] as const;
-const MONO = "ui-monospace, SFMono-Regular, Menlo, monospace";
+/** 筛选/表格单元 select 与输入框的统一控件样式（G3：小尺寸 + card 底 + border） */
+const CONTROL = "h-8 rounded-md border border-border bg-card px-2 text-xs";
 
 interface EngineDetail { engine: string; count: number; latency_ms: number; error: string | null }
 
@@ -30,30 +31,30 @@ function Detail({ row }: { row: ToolLogRow }) {
   const { t } = useTranslation();
   const engines = parseEngines(row.engines);
   return (
-    <div data-testid={`tool-log-detail-${row.id}`} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <div data-testid={`tool-log-detail-${row.id}`} className="flex flex-col gap-2">
       {row.platform && (
-        <div style={{ fontSize: F.hint }}>{t("toolLog.platform", "被绕开的平台")}：{row.platform}</div>
+        <div className="text-[13px] text-secondary">{t("toolLog.platform", "被绕开的平台")}：{row.platform}</div>
       )}
       {row.error && (
-        <div style={{ fontSize: F.hint, color: "var(--color-danger)" }}>{row.error}</div>
+        <div className="text-[13px] text-destructive">{row.error}</div>
       )}
       {engines.length > 0 && (
-        <table style={{ fontSize: 11, borderCollapse: "collapse" }}>
+        <table className="text-[11px]">
           <thead>
             <tr>
-              <th style={{ textAlign: "left", padding: "2px 8px" }}>{t("toolLog.engine", "引擎")}</th>
-              <th style={{ textAlign: "right", padding: "2px 8px" }}>{t("toolLog.count", "条数")}</th>
-              <th style={{ textAlign: "right", padding: "2px 8px" }}>{t("toolLog.latency", "耗时")}</th>
-              <th style={{ textAlign: "left", padding: "2px 8px" }}>{t("toolLog.error", "错误")}</th>
+              <th className="px-2 py-0.5 text-left font-normal">{t("toolLog.engine", "引擎")}</th>
+              <th className="px-2 py-0.5 text-right font-normal">{t("toolLog.count", "条数")}</th>
+              <th className="px-2 py-0.5 text-right font-normal">{t("toolLog.latency", "耗时")}</th>
+              <th className="px-2 py-0.5 text-left font-normal">{t("toolLog.error", "错误")}</th>
             </tr>
           </thead>
           <tbody>
             {engines.map((e) => (
               <tr key={e.engine} data-testid={`tool-log-engine-${e.engine}`}>
-                <td style={{ padding: "2px 8px" }}>{e.engine}</td>
-                <td style={{ textAlign: "right", padding: "2px 8px" }}>{e.count}</td>
-                <td style={{ textAlign: "right", padding: "2px 8px" }}>{formatDurationMs(e.latency_ms)}</td>
-                <td style={{ padding: "2px 8px", color: e.error ? "var(--color-danger)" : undefined }}>{e.error ?? ""}</td>
+                <td className="px-2 py-0.5">{e.engine}</td>
+                <td className="px-2 py-0.5 text-right">{e.count}</td>
+                <td className="px-2 py-0.5 text-right">{formatDurationMs(e.latency_ms)}</td>
+                <td className={`px-2 py-0.5 ${e.error ? "text-destructive" : ""}`}>{e.error ?? ""}</td>
               </tr>
             ))}
           </tbody>
@@ -61,11 +62,7 @@ function Detail({ row }: { row: ToolLogRow }) {
       )}
       <pre
         data-testid={`tool-log-result-${row.id}`}
-        style={{
-          margin: 0, padding: 6, borderRadius: "var(--radius-sm)",
-          background: "var(--bg-primary)", border: "1px solid var(--border)",
-          fontSize: 11, fontFamily: MONO, whiteSpace: "pre-wrap", wordBreak: "break-all", maxHeight: 240, overflow: "auto",
-        }}
+        className="m-0 max-h-60 overflow-auto whitespace-pre-wrap break-all rounded-md border border-border bg-card p-1.5 font-mono text-[11px]"
       >
         {row.result || t("toolLog.resultEmpty", "（正文未记录：请开启「记录用户请求原始信息」）")}
       </pre>
@@ -121,20 +118,24 @@ export function ToolLog() {
     setSaved(true);
   };
 
-  const selectStyle = { fontSize: 12, padding: "4px 6px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--bg-primary)" };
   const total = page?.total ?? 0;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div className="section-title">{t("page.toolLog", "工具日志")}</div>
+    <div className="flex flex-col gap-3">
+      <div>
+        <div data-testid="tool-log-header" className="section-title">{t("page.toolLog", "工具日志")}</div>
+        <div data-testid="tool-log-desc" className="mt-1 text-xs text-secondary">
+          {t("toolLog.desc", "网关代执行与 HTTP MCP 的每次工具调用流水")}
+        </div>
+      </div>
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", fontSize: 12 }}>
-        <select data-testid="tool-log-filter-tool" value={tool} style={selectStyle}
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <select data-testid="tool-log-filter-tool" value={tool} className={CONTROL}
           onChange={(e) => onFilter(setTool)(e.target.value)}>
           <option value="">{t("toolLog.allTools", "全部工具")}</option>
           {TOOLS.map((x) => <option key={x} value={x}>{x}</option>)}
         </select>
-        <select data-testid="tool-log-filter-trigger" value={trigger} style={selectStyle}
+        <select data-testid="tool-log-filter-trigger" value={trigger} className={CONTROL}
           onChange={(e) => onFilter(setTrigger)(e.target.value)}>
           <option value="">{t("toolLog.allTriggers", "全部触发方")}</option>
           {TRIGGERS.map((x) => <option key={x} value={x}>{t(`toolLog.trigger.${x}`, x)}</option>)}
@@ -142,7 +143,7 @@ export function ToolLog() {
         <Input data-testid="tool-log-filter-group" value={group} className="h-8 w-40 text-xs"
           placeholder={t("toolLog.groupPlaceholder", "分组名")}
           onChange={(e) => onFilter(setGroup)(e.target.value)} />
-        <span style={{ marginInlineStart: "auto" }} className="text-secondary">{t("toolLog.retentionDays", "保留天数（0 = 永久）")}</span>
+        <span className="ms-auto text-secondary">{t("toolLog.retentionDays", "保留天数（0 = 永久）")}</span>
         <Input data-testid="tool-log-retention-input" type="number" min={0} value={days} className="h-8 w-20 text-xs"
           onChange={(e) => { setDays(e.target.value); setSaved(false); }} />
         <Button data-testid="tool-log-retention-save" size="sm" variant="outline" onClick={saveRetention}>
@@ -151,9 +152,9 @@ export function ToolLog() {
       </div>
 
       {page === null ? (
-        <div className="text-tertiary" style={{ fontSize: F.hint }}>{t("status.loading", "加载中…")}</div>
+        <div className="text-[13px] text-tertiary">{t("status.loading", "加载中…")}</div>
       ) : page.rows.length === 0 ? (
-        <div data-testid="tool-log-empty" className="text-tertiary" style={{ fontSize: F.hint }}>
+        <div data-testid="tool-log-empty" className="text-[13px] text-tertiary">
           {t("toolLog.empty", "（暂无工具调用记录）")}
         </div>
       ) : (
@@ -166,32 +167,32 @@ export function ToolLog() {
                 <TableHead>{t("toolLog.triggerCol", "触发方")}</TableHead>
                 <TableHead>{t("toolLog.group", "分组")}</TableHead>
                 <TableHead>{t("toolLog.query", "搜索词 / URL")}</TableHead>
-                <TableHead style={{ textAlign: "right" }}>{t("toolLog.count", "条数")}</TableHead>
-                <TableHead style={{ textAlign: "right" }}>{t("toolLog.duration", "总耗时")}</TableHead>
-                <TableHead style={{ textAlign: "right" }}>{t("toolLog.status", "状态")}</TableHead>
+                <TableHead className="text-right">{t("toolLog.count", "条数")}</TableHead>
+                <TableHead className="text-right">{t("toolLog.duration", "总耗时")}</TableHead>
+                <TableHead className="text-right">{t("toolLog.status", "状态")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {page.rows.map((r) => (
                 <Fragment key={r.id}>
-                  <TableRow data-testid={`tool-log-row-${r.id}`} style={{ cursor: "pointer" }}
+                  <TableRow data-testid={`tool-log-row-${r.id}`} className="cursor-pointer"
                     onClick={() => toggle(r.id)} aria-expanded={openId === r.id}>
-                    <TableCell style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>{formatDateTime(r.created_at) ?? "-"}</TableCell>
-                    <TableCell style={{ padding: "6px 8px", fontFamily: MONO, fontSize: 11 }}>{openId === r.id ? "▾ " : "▸ "}{r.tool}</TableCell>
-                    <TableCell style={{ padding: "6px 8px" }}>{t(`toolLog.trigger.${r.trigger}`, r.trigger)}</TableCell>
-                    <TableCell style={{ padding: "6px 8px" }}>{r.group_name || "-"}</TableCell>
-                    <TableCell style={{ padding: "6px 8px", maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.query || "-"}</TableCell>
-                    <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{r.result_count}</TableCell>
-                    <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatDurationMs(r.duration_ms)}</TableCell>
-                    <TableCell style={{ textAlign: "right", padding: "6px 8px", color: r.success ? undefined : "var(--color-danger)" }}>
+                    <TableCell className="whitespace-nowrap">{formatDateTime(r.created_at) ?? "-"}</TableCell>
+                    <TableCell className="font-mono text-[11px]">{openId === r.id ? "▾ " : "▸ "}{r.tool}</TableCell>
+                    <TableCell>{t(`toolLog.trigger.${r.trigger}`, r.trigger)}</TableCell>
+                    <TableCell>{r.group_name || "-"}</TableCell>
+                    <TableCell className="max-w-[280px] truncate">{r.query || "-"}</TableCell>
+                    <TableCell className="text-right">{r.result_count}</TableCell>
+                    <TableCell className="text-right">{formatDurationMs(r.duration_ms)}</TableCell>
+                    <TableCell className={`text-right ${r.success ? "" : "text-destructive"}`}>
                       {r.success ? t("toolLog.ok", "成功") : t("toolLog.fail", "失败")}
                     </TableCell>
                   </TableRow>
                   {openId === r.id && (
                     <TableRow>
-                      <TableCell colSpan={8} style={{ padding: "6px 8px" }}>
+                      <TableCell colSpan={8}>
                         {details[r.id] === undefined ? (
-                          <div className="text-tertiary" style={{ fontSize: F.hint }}>{t("status.loading", "加载中…")}</div>
+                          <div className="text-[13px] text-tertiary">{t("status.loading", "加载中…")}</div>
                         ) : (
                           <Detail row={details[r.id] ?? r} />
                         )}
@@ -202,7 +203,7 @@ export function ToolLog() {
               ))}
             </TableBody>
           </Table>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12 }}>
+          <div className="flex items-center gap-2 text-xs">
             <Button data-testid="tool-log-prev" size="sm" variant="outline" disabled={offset === 0}
               onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>{t("toolLog.prev", "上一页")}</Button>
             <span className="text-secondary">{offset + 1}–{Math.min(offset + PAGE_SIZE, total)} / {total}</span>

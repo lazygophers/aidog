@@ -1318,6 +1318,7 @@
   "tools.source.firecrawl": "Firecrawl",
   "tools.source.youcom": "You.com",
   "tools.source.deepseek": "DeepSeek",
+  "toolLog.desc": "سجل استدعاءات الأدوات عبر تنفيذ البوابة و HTTP MCP",
   "toolLog.allTools": "كل الأدوات",
   "toolLog.allTriggers": "كل المشغّلات",
   "toolLog.groupPlaceholder": "اسم المجموعة",

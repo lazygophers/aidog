@@ -1230,6 +1230,7 @@
   "tools.source.firecrawl": "Firecrawl",
   "tools.source.youcom": "You.com",
   "tools.source.deepseek": "DeepSeek",
+  "toolLog.desc": "网关代执行与 HTTP MCP 的每次工具调用流水",
   "toolLog.allTools": "全部工具",
   "toolLog.allTriggers": "全部触发方",
   "toolLog.groupPlaceholder": "分组名",

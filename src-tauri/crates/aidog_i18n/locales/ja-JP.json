@@ -1318,6 +1318,7 @@
   "tools.source.firecrawl": "Firecrawl",
   "tools.source.youcom": "You.com",
   "tools.source.deepseek": "DeepSeek",
+  "toolLog.desc": "ゲートウェイ実行および HTTP MCP のツール呼び出し履歴",
   "toolLog.allTools": "すべてのツール",
   "toolLog.allTriggers": "すべての起動元",
   "toolLog.groupPlaceholder": "グループ名",

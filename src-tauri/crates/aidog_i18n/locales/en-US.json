@@ -1230,6 +1230,7 @@
   "tools.source.firecrawl": "Firecrawl",
   "tools.source.youcom": "You.com",
   "tools.source.deepseek": "DeepSeek",
+  "toolLog.desc": "Tool call history for gateway-executed and HTTP MCP calls",
   "toolLog.allTools": "All tools",
   "toolLog.allTriggers": "All triggers",
   "toolLog.groupPlaceholder": "Group name",
