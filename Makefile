@@ -77,6 +77,8 @@ lint: ## Run linters
 	yarn test:registry-ratelimit
 	@printf "$(CYAN)▶ Design token check...$(RESET)\n"
 	yarn check:tokens
+	@printf "$(CYAN)▶ Theme token reference check...$(RESET)\n"
+	yarn check:theme-tokens
 	@printf "$(CYAN)▶ Linting...$(RESET)\n"
 	cd $(TAURI_DIR) && cargo clippy --workspace --all-targets -- -D warnings
 
