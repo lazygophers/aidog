@@ -316,6 +316,30 @@ async fn web_fetch_takeover_returns_fetch_result_block() {
     assert_eq!((proxy_rows, rows.len(), rows[0].tool.as_str()), (0, 1, "web_fetch"));
 }
 
+#[tokio::test]
+async fn web_fetch_disabled_gives_fetch_error_block_and_failed_tool_log() {
+    let (db, _d) = three_file_db().await;
+    let state = make_state(db).await;
+    let (up, up_hits) = spawn_fake(200, "application/json", "{}").await;
+    let (page, page_hits) = spawn_fake(200, "text/html", "<html><body><p>should not be fetched</p></body></html>").await;
+    let (gk, _) = setup(&state, &up).await;
+    let mut s = McpToolsSettings::default();
+    s.fetch.enabled = false;
+    save_mcp_tools_settings(&state.db, &s).await.unwrap();
+    let body = json!({"model":"claude-3","max_tokens":64,"tools":[{"type":"web_fetch_20250910","name":"web_fetch"}],
+        "messages":[{"role":"user","content":[{"type":"text","text":format!("Fetch {page}/doc and summarize")}]}]})
+    .to_string();
+    let v = json_of(send(&state, &gk, body).await).await;
+    let c = v["content"].as_array().unwrap();
+    assert_eq!(c[1]["type"], "web_fetch_tool_result");
+    assert_eq!(c[1]["content"]["type"], "web_fetch_tool_result_error", "{v}");
+    assert_eq!(page_hits.load(Ordering::SeqCst), 0, "关闭后不得抓取");
+    assert_eq!(up_hits.load(Ordering::SeqCst), 0, "仍是网关代执行，不转发模型");
+    let (_, rows) = proxy_log_count_and_tool_rows(&state).await;
+    assert_eq!(rows.len(), 1);
+    assert!(!rows[0].success && rows[0].tool == "web_fetch" && rows[0].trigger == "gateway");
+}
+
 #[test]
 fn official_anthropic_platform_is_not_taken_over() {
     assert!(!takes_over("https://api.anthropic.com"));
