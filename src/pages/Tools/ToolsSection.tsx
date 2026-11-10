@@ -37,8 +37,6 @@ export const SEARCH_ENGINES = [
 ] as const;
 const defaultEngineFlags = (): Record<string, boolean> =>
   Object.fromEntries(SEARCH_ENGINES.map((e) => [e.id, e.defaultOn]));
-// 未能从一手文档确认公开搜索 API 的 4 家：不猜端点，调用回显式 unverified 错误。
-const UNVERIFIED = new Set(["youcom", "deepseek", "doubao", "tencent_yuanbao"]);
 
 const providerLabel = (p: string, t: TFunction): string => {
   switch (p) {
@@ -242,7 +240,6 @@ export function ToolsSection() {
           {PROVIDERS.map((p) => (
             <option key={p} value={p}>
               {providerLabel(p, t)}
-              {UNVERIFIED.has(p) ? ` ${t("tools.unverifiedBadge", "（未验证）")}` : ""}
             </option>
           ))}
         </select>

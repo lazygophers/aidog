@@ -168,12 +168,147 @@ async fn rotation_aggregates_errors_when_all_keys_fail() {
     assert!(err.contains("401"), "err={err}");
 }
 
+fn base(port: u16) -> String {
+    format!("http://127.0.0.1:{port}")
+}
+
 #[tokio::test]
-async fn unverified_providers_return_explicit_error() {
-    for p in ["youcom", "deepseek", "doubao", "tencent_yuanbao"] {
-        let sc = cfg(p, &["k"]);
-        let err = web_search(&sc, "q", None).await.unwrap_err();
-        assert!(err.contains("unverified"), "provider {p}: err={err}");
+async fn deepseek_bearer_and_parse() {
+    let port = spawn_stub(Arc::new(|method, path, headers, body| {
+        assert_eq!(method, "POST");
+        assert_eq!(path, "/v1/tools/search");
+        assert!(headers.iter().any(|h| h.starts_with("authorization: bearer ds-k1")), "headers={headers:?}");
+        assert!(body.contains("\"query\":\"q\"") && body.contains("\"count\":7"), "body={body}");
+        (
+            200,
+            "application/json".into(),
+            r#"{"results":[{"title":"D1","url":"https://d.example/1","snippet":"sn","summary":"long","date":"2026-06-01T00:00:00+00:00"}]}"#.into(),
+        )
+    }))
+    .await;
+    let hits = deepseek_search(&http_client().unwrap(), &base(port), "ds-k1", "q", Some(7)).await.unwrap();
+    assert_eq!(hits.len(), 1);
+    assert_eq!((hits[0].title.as_str(), hits[0].url.as_str(), hits[0].snippet.as_str()), ("D1", "https://d.example/1", "sn"));
+    assert_eq!(hits[0].page_age.as_deref(), Some("2026-06-01T00:00:00+00:00"));
+}
+
+#[tokio::test]
+async fn youcom_header_and_parse() {
+    let port = spawn_stub(Arc::new(|method, path, headers, body| {
+        assert_eq!(method, "POST");
+        assert_eq!(path, "/v1/search");
+        assert!(headers.iter().any(|h| h.starts_with("x-api-key: yc-k1")), "headers={headers:?}");
+        assert!(body.contains("\"count\":3"), "body={body}");
+        (
+            200,
+            "application/json".into(),
+            r#"{"results":{"web":[{"title":"Y1","url":"https://y.example/1","snippets":["s0","s1"],"description":"dd","page_age":"2024-12-18T00:00:00"},{"title":"Y2","url":"https://y.example/2","description":"only desc"}]}}"#.into(),
+        )
+    }))
+    .await;
+    let hits = youcom_search(&http_client().unwrap(), &base(port), "yc-k1", "q", Some(3)).await.unwrap();
+    assert_eq!(hits.len(), 2);
+    assert_eq!(hits[0].snippet, "s0", "snippets[0] 优先");
+    assert_eq!(hits[1].snippet, "only desc", "无 snippets 回落 description");
+    assert_eq!(hits[0].page_age.as_deref(), Some("2024-12-18T00:00:00"));
+}
+
+#[tokio::test]
+async fn doubao_bearer_and_parse() {
+    let port = spawn_stub(Arc::new(|method, path, headers, body| {
+        assert_eq!(method, "POST");
+        assert_eq!(path, "/search_api/web_search");
+        assert!(headers.iter().any(|h| h.starts_with("authorization: bearer db-k1")), "headers={headers:?}");
+        assert!(body.contains("\"Query\":\"q\"") && body.contains("\"SearchType\":\"web\"") && body.contains("\"Count\":5"), "body={body}");
+        (
+            200,
+            "application/json".into(),
+            r#"{"ResponseMetadata":{"RequestId":"r"},"Result":{"ResultCount":2,"WebResults":[{"Title":"B1","Url":"https://b.example/1","Summary":"sum","Snippet":"snip","PublishTime":"2025-05-30T19:35:24+08:00"},{"Title":"B2","Url":"https://b.example/2","Snippet":"snip only"}]}}"#.into(),
+        )
+    }))
+    .await;
+    let hits = doubao_search(&http_client().unwrap(), &base(port), "db-k1", "q", Some(5)).await.unwrap();
+    assert_eq!(hits.len(), 2);
+    assert_eq!(hits[0].snippet, "sum", "Summary 优先");
+    assert_eq!(hits[1].snippet, "snip only", "无 Summary 回落 Snippet");
+    assert_eq!(hits[0].page_age.as_deref(), Some("2025-05-30T19:35:24+08:00"));
+}
+
+#[tokio::test]
+async fn doubao_http_200_with_error_is_failure() {
+    let port = spawn_stub(Arc::new(|_m, _p, _h, _b| {
+        (
+            200,
+            "application/json".into(),
+            r#"{"ResponseMetadata":{"RequestId":"r","Error":{"CodeN":10406,"Code":"10406","Message":"free quota used up"}},"Result":null}"#.into(),
+        )
+    }))
+    .await;
+    let err = doubao_search(&http_client().unwrap(), &base(port), "k", "q", None).await.unwrap_err();
+    assert!(err.contains("10406") && err.contains("free quota used up"), "err={err}");
+}
+
+fn tencent_body(pages: &[&str]) -> String {
+    serde_json::json!({ "Response": { "Pages": pages } }).to_string()
+}
+
+#[tokio::test]
+async fn tencent_yuanbao_bearer_and_pages_double_parse() {
+    let p1 = r#"{"passage":"正文一","score":0.9,"date":"2024-06-07 19:00:51","title":"T1","url":"https://t.example/1","site":"网易","images":[],"favicon":"x"}"#;
+    let p2 = r#"{"passage":"正文二","title":"T2","url":"https://t.example/2"}"#;
+    let body = tencent_body(&[p1, "not json", p2]);
+    let port = spawn_stub(Arc::new(move |method, path, headers, req| {
+        assert_eq!(method, "POST");
+        assert_eq!(path, "/SearchPro");
+        assert!(headers.iter().any(|h| h.starts_with("authorization: bearer tc-k1")), "headers={headers:?}");
+        assert!(req.contains("\"Query\":\"q\"") && req.contains("\"Cnt\":20"), "req={req}");
+        (200, "application/json".into(), body.clone())
+    }))
+    .await;
+    // count=15 -> Cnt 向上取整到 20（官方枚举 10/20/30/40/50），结果再截到 15
+    let hits = tencent_yuanbao_search(&http_client().unwrap(), &base(port), "tc-k1", "q", Some(15)).await.unwrap();
+    assert_eq!(hits.len(), 2, "无法解析的单项跳过");
+    assert_eq!((hits[0].title.as_str(), hits[0].url.as_str(), hits[0].snippet.as_str()), ("T1", "https://t.example/1", "正文一"));
+    assert_eq!(hits[0].page_age.as_deref(), Some("2024-06-07 19:00:51"));
+    assert_eq!(hits[1].title, "T2");
+}
+
+#[tokio::test]
+async fn tencent_yuanbao_all_pages_unparsable_is_error() {
+    let body = tencent_body(&["garbage", "{bad"]);
+    let port = spawn_stub(Arc::new(move |_m, _p, _h, _b| (200, "application/json".into(), body.clone()))).await;
+    let err = tencent_yuanbao_search(&http_client().unwrap(), &base(port), "k", "q", None).await.unwrap_err();
+    assert!(err.contains("Pages"), "err={err}");
+}
+
+#[tokio::test]
+async fn tencent_yuanbao_response_error_is_failure() {
+    let port = spawn_stub(Arc::new(|_m, _p, _h, _b| {
+        (200, "application/json".into(), r#"{"Response":{"Error":{"Code":"AuthFailure","Message":"bad key"}}}"#.into())
+    }))
+    .await;
+    let err = tencent_yuanbao_search(&http_client().unwrap(), &base(port), "k", "q", None).await.unwrap_err();
+    assert!(err.contains("AuthFailure") && err.contains("bad key"), "err={err}");
+}
+
+#[tokio::test]
+async fn new_keyed_providers_rotate_keys_via_env_bases() {
+    // 经 web_search_detailed + SearchEnv.bases：首 key 401 -> 换第二个 key 成功（四家共用 search_with_keys）。
+    for (p, ok_body) in [
+        ("deepseek", r#"{"results":[{"title":"t","url":"https://e/1","snippet":"s"}]}"#),
+        ("youcom", r#"{"results":{"web":[{"title":"t","url":"https://e/1","description":"s"}]}}"#),
+        ("doubao", r#"{"ResponseMetadata":{},"Result":{"WebResults":[{"Title":"t","Url":"https://e/1","Snippet":"s"}]}}"#),
+        ("tencent_yuanbao", r#"{"Response":{"Pages":["{\"title\":\"t\",\"url\":\"https://e/1\",\"passage\":\"s\"}"]}}"#),
+    ] {
+        let ok = ok_body.to_string();
+        let port = spawn_stub(Arc::new(move |_m, _p, headers, _b| {
+            if headers.iter().any(|h| h.ends_with("good")) { (200, "application/json".into(), ok.clone()) } else { (401, "application/json".into(), "no".into()) }
+        }))
+        .await;
+        let env = SearchEnv { bases: [(p.to_string(), base(port))].into(), ..Default::default() };
+        let out = web_search_detailed(&cfg(p, &["bad", "good"]), "q", None, &env).await;
+        assert!(out.error.is_none(), "provider {p}: {:?}", out.error);
+        assert_eq!(out.hits.len(), 1, "provider {p}");
     }
 }
 

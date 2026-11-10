@@ -119,18 +119,6 @@ describe("ToolsSection", () => {
     });
   });
 
-  it("unverified provider 带未验证标记（不猜端点，后端回显式错误）", async () => {
-    render(<ToolsSection />);
-    await waitFor(() => expect(providerSelect().value).toBe(""));
-    // 测试环境 i18n 资源为空，回退不生效、选项文本落到原始 key——锚 key 名断言
-    for (const p of ["youcom", "deepseek", "doubao", "tencent_yuanbao"]) {
-      const opt = [...providerSelect().options].find((o) => o.value === p);
-      expect(opt, p).toBeTruthy();
-      expect(opt!.textContent).toContain("tools.unverifiedBadge");
-    }
-    expect([...providerSelect().options].find((o) => o.value === "tavily")!.textContent).not.toContain("tools.unverifiedBadge");
-  });
-
   it("key 服务不在来源列表时 enabled 读作关；保存不丢该服务的 key 与总开关", async () => {
     h.get.mockResolvedValue({
       search: { enabled: false, sources: [], services: { brave: { keys: ["k"] }, exa: { keys: ["e"] } }, searxng_base_urls: [] },
@@ -174,7 +162,7 @@ describe("ToolsSection", () => {
     });
   });
 
-  it("一键安装成功：展示结果元素（i18n 资源空时落原始 key，同 unverifiedBadge）", async () => {
+  it("一键安装成功：展示结果元素（i18n 资源空时落原始 key）", async () => {
     m.selfInstall.mockResolvedValue({ name: "aidog", url: "http://127.0.0.1:9890/mcp", agents: ["claude-code", "codex"] });
     render(<ToolsSection />);
     await waitFor(() => expect(providerSelect().value).toBe(""));

@@ -1150,3 +1150,11 @@ fn cny_entries_store_native_cny_and_resolve_to_usd() {
     approx(r.input_cost_per_token, 7.2e-8 / CNY_PER_USD, "kimi_coding 占位 input");
     approx(r.output_cost_per_token, 7.2e-8 / CNY_PER_USD, "kimi_coding 占位 output");
 }
+
+/// DeepSeek 搜索单价对齐官网（https://api-docs.deepseek.com/guides/search：Search $0.75 / 千次成功请求）。
+#[test]
+fn deepseek_search_price_is_official_usd() {
+    let s = &protocols()["deepseek"]["tools_pricing"]["search"];
+    assert_eq!(s["per_1000"].as_f64(), Some(0.75), "s={s}");
+    assert_eq!(s["currency"], "USD", "s={s}");
+}
