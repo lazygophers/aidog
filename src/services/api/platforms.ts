@@ -974,17 +974,6 @@ export interface RateLimitModelOverride {
   tpm?: number;
 }
 
-/** 限频时段窗口：时段字段同 peak 窗口，命中时其上限覆盖平台级同名字段（first-match）。 */
-export interface RateLimitWindow {
-  start_hour: number;
-  end_hour: number;
-  days_of_week?: number[];
-  timezone?: string;
-  concurrency?: number;
-  rpm?: number;
-  tpm?: number;
-}
-
 /** 限频规则（extra.rate_limits.rules[] / registry rate_limit_policies[].rules[] 同形）：
  *  至少一个条件（models 非空，或带时段字段）；没填的上限 = 不限。 */
 export interface RateLimitRule {
@@ -999,16 +988,21 @@ export interface RateLimitRule {
   tpm?: number;
 }
 
+/** 规则保存前校验：无条件（models 空且无时段字段）→ noCondition；通配符只允许末尾单个 `*` 且前缀非空 → badWildcard。 */
+export function rateLimitRuleError(r: RateLimitRule): "noCondition" | "badWildcard" | null {
+  const models = r.models ?? [];
+  const hasTime = r.start_hour !== undefined || r.end_hour !== undefined || (r.days_of_week?.length ?? 0) > 0;
+  if (models.length === 0 && !hasTime) return "noCondition";
+  if (models.some(m => m.includes("*") && (!m.endsWith("*") || m.length === 1 || m.indexOf("*") !== m.length - 1))) return "badWildcard";
+  return null;
+}
+
 /** 平台级限频（extra.rate_limits）：顶层三项 = 平台级上限，rules = 带条件的规则。 */
 export interface RateLimitsConfig {
   concurrency?: number;
   rpm?: number;
   tpm?: number;
   rules?: RateLimitRule[];
-  /** @deprecated 旧形状，运行时已不读（启动迁移已转 rules）；表单改造（票 03）后删除。 */
-  models?: Record<string, RateLimitModelOverride>;
-  /** @deprecated 同上。 */
-  windows?: RateLimitWindow[];
   /** 导入自 registry 内置策略时记录的来源策略 id（网关只透传不读）。 */
   source_policy_id?: string;
   /** 导入时该平台 platform.json 的 last_updated（Unix 秒）。 */
@@ -1040,8 +1034,7 @@ const isRateLimitsEmpty = (r: RateLimitsConfig | undefined) =>
   ((r.rpm ?? 0) === 0 &&
     (r.tpm ?? 0) === 0 &&
     (r.concurrency ?? 0) === 0 &&
-    (!r.models || Object.keys(r.models).length === 0) &&
-    (!r.windows || r.windows.length === 0));
+    (!r.rules || r.rules.length === 0));
 
 /** 从 platform.extra 解析限频配置（缺失/非法 → 空 bundle）。与 Rust 侧调度消费同一 JSON 形状（spec 票 02）。 */
 export function parseRateLimitsBundle(extra: string): RateLimitsBundle {
@@ -1063,7 +1056,7 @@ export function parseRateLimitsBundle(extra: string): RateLimitsBundle {
   }
 }
 
-/** 把限频配置写回 extra JSON（保留其余键）。空值（无 rpm/tpm/models、windows 空数组）→ 删键（无覆盖）。 */
+/** 把限频配置写回 extra JSON（保留其余键）。空值（无 rpm/tpm/concurrency/rules）→ 删键（无覆盖）。 */
 export function serializeRateLimitsBundle(extra: string, bundle: RateLimitsBundle): string {
   let obj: Record<string, unknown> = {};
   if (extra.trim()) {

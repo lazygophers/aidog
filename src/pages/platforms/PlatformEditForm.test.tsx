@@ -6,6 +6,7 @@ import { PlatformEditForm } from "./PlatformEditForm";
 vi.mock("../../domains/platforms", () => ({
   SearchableProtocolSelect: ({ value }: { value: string }) => <select aria-label="protocol" value={value} onChange={() => {}}><option value={value}>{value}</option></select>,
   MockConfigEditor: () => null,
+  allConfiguredModelValues: () => [],
 }));
 vi.mock("../../domains/platforms/defaults", () => ({
   getProtocolLabel: async (p: string) => p,

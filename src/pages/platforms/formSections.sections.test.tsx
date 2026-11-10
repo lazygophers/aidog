@@ -112,22 +112,23 @@ describe("ManualBudgetsFields — C 方向稿接线", () => {
 const bundle: RateLimitsBundle = {
   rate_limits: {
     rpm: 30, tpm: 150000,
-    models: { "gpt-5.4": { rpm: 10, tpm: 40000 } },
+    rules: [{ models: ["gpt-5.4"], rpm: 10, tpm: 40000 }],
   },
   quota_windows: [{ window: 18000, budget_tokens: 120000 }],
 };
 
 function renderRateLimits(b: RateLimitsBundle) {
   const setBundle = vi.fn();
-  const { container } = render(<RateLimitsSection bundle={b} setBundle={setBundle} protocol="glm" t={t} />);
+  const { container } = render(<RateLimitsSection bundle={b} setBundle={setBundle} protocol="glm" modelOptions={[]} t={t} />);
   return { container, setBundle };
 }
 
 describe("RateLimitsSection — C 方向稿接线", () => {
-  it("实时态条含 summary pill（30 RPM），行卡 = 模型覆盖 1 + 额度窗口 1", () => {
+  it("实时态条含 summary pill（30 RPM），规则行 1 + 额度窗口行卡 1", () => {
     const { container } = renderRateLimits(bundle);
     expect(container.textContent).toContain("30 RPM");
-    expect(container.querySelectorAll(".aidog-rowcard")).toHaveLength(2);
+    expect(container.querySelectorAll('[data-testid^="rl-rule-"][data-testid$="-handle"]')).toHaveLength(1);
+    expect(container.querySelectorAll(".aidog-rowcard")).toHaveLength(1);
   });
 
   it("+5 小时芯片 → 编辑态加一行；commit 净化丢空预算行（预算空不落 bundle）", () => {
@@ -163,28 +164,30 @@ describe("RateLimitsSection — 并发 / 时段窗口 / 策略库", () => {
   const byId = (id: string) => document.getElementById(id) as HTMLInputElement;
   const last = (fn: ReturnType<typeof vi.fn>) => fn.mock.calls.at(-1)![0] as RateLimitsBundle;
 
-  it("并发往返：平台级 + 模型级", () => {
-    const { setBundle } = renderRateLimits({ rate_limits: { concurrency: 8, models: { m1: { concurrency: 2 } } } });
+  it("并发往返：平台级 + 规则级", () => {
+    const { container, setBundle } = renderRateLimits({ rate_limits: { concurrency: 8, rules: [{ models: ["m1"], concurrency: 2 }] } });
+    const q = (id: string) => container.querySelector(`[data-testid="${id}"]`) as HTMLInputElement;
     expect(byId("rl-concurrency").value).toBe("8");
-    expect(byId("rl-model-0-concurrency").value).toBe("2");
+    expect(q("rl-rule-0-concurrency").value).toBe("2");
     fireEvent.change(byId("rl-concurrency"), { target: { value: "12" } });
-    expect(last(setBundle).rate_limits).toMatchObject({ concurrency: 12, models: { m1: { concurrency: 2 } } });
-    fireEvent.change(byId("rl-model-0-concurrency"), { target: { value: "3" } });
-    expect(last(setBundle).rate_limits?.models?.m1).toMatchObject({ concurrency: 3 });
+    expect(last(setBundle).rate_limits).toMatchObject({ concurrency: 12, rules: [{ models: ["m1"], concurrency: 2 }] });
+    fireEvent.change(q("rl-rule-0-concurrency"), { target: { value: "3" } });
+    expect(last(setBundle).rate_limits?.rules?.[0]).toMatchObject({ models: ["m1"], concurrency: 3 });
   });
 
-  it("时段窗口：加 → 编辑小时 / 星期 / 时区 / 上限 → 落 bundle；存量窗口读回", () => {
-    const { setBundle } = renderRateLimits({
-      rate_limits: { rpm: 10, windows: [{ start_hour: 22, end_hour: 6, timezone: "Asia/Shanghai", rpm: 50 }] },
+  it("时段规则：加 → 编辑小时 / 星期 / 上限 → 落 bundle；存量时段规则读回", () => {
+    const { container, setBundle } = renderRateLimits({
+      rate_limits: { rpm: 10, rules: [{ start_hour: 22, end_hour: 6, timezone: "Asia/Shanghai", rpm: 50 }] },
     });
-    expect(byId("rl-win-0-start").value).toBe("22");
-    expect(byId("rl-win-0-tz").value).toBe("Asia/Shanghai");
-    fireEvent.click(byId("rl-add-window"));
-    fireEvent.change(byId("rl-win-1-start"), { target: { value: "9" } });
-    fireEvent.change(byId("rl-win-1-end"), { target: { value: "18" } });
-    fireEvent.change(byId("rl-win-1-concurrency"), { target: { value: "4" } });
-    fireEvent.click(byId("rl-win-1-day-1"));
-    const w = last(setBundle).rate_limits?.windows;
+    const q = (id: string) => container.querySelector(`[data-testid="${id}"]`) as HTMLInputElement;
+    expect(q("rl-rule-0-start").value).toBe("22");
+    expect(q("rl-rule-0-tz").value).toBe("Asia/Shanghai");
+    fireEvent.click(q("rl-rules-add"));
+    fireEvent.change(q("rl-rule-1-start"), { target: { value: "9" } });
+    fireEvent.change(q("rl-rule-1-end"), { target: { value: "18" } });
+    fireEvent.change(q("rl-rule-1-concurrency"), { target: { value: "4" } });
+    fireEvent.click(q("rl-rule-1-day-1"));
+    const w = last(setBundle).rate_limits?.rules;
     expect(w).toHaveLength(2);
     expect(w![0]).toMatchObject({ start_hour: 22, end_hour: 6, timezone: "Asia/Shanghai", rpm: 50 });
     expect(w![1]).toMatchObject({ start_hour: 9, end_hour: 18, concurrency: 4, days_of_week: [1] });
