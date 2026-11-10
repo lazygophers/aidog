@@ -308,7 +308,7 @@ export function CcSwitchImportSection({
           </div>
 
           {/* 维度勾选条（级 2）*/}
-          <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "8px 12px", borderRadius: "var(--radius-md)", background: "var(--bg-subtle)", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "8px 12px", borderRadius: "var(--radius-md)", background: "var(--secondary)", flexWrap: "wrap" }}>
             <DimCheckbox
               checked={dims.d1}
               onChange={(v) => setDims((d) => ({ ...d, d1: v }))}

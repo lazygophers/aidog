@@ -292,7 +292,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
                         whiteSpace: "pre-wrap",
                         wordBreak: "break-word",
                         margin: 0,
-                        color: "var(--text)",
+                        color: "var(--text-primary)",
                       }}
                     >
                       {content.content}
@@ -340,7 +340,7 @@ function FileRow({ f, idx, on, onSelect }: FileRowProps) {
         justifyContent: "flex-start",
         background: on ? "var(--accent-subtle)" : "transparent",
         borderLeft: on ? "2px solid var(--accent)" : "2px solid transparent",
-        color: on ? "var(--accent)" : "var(--text)",
+        color: on ? "var(--accent)" : "var(--text-primary)",
         fontFamily: "var(--font-mono, monospace)",
         whiteSpace: "nowrap",
         overflow: "hidden",

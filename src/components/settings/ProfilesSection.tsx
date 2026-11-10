@@ -171,7 +171,7 @@ export function ProfilesSection() {
                 fontSize: 13,
                 padding: "8px 10px",
                 borderRadius: 8,
-                border: "1px solid var(--border-subtle, rgba(0,0,0,0.08))",
+                border: "1px solid var(--border)",
               }}
             >
               <div style={{ flex: 1, minWidth: 0 }}>

@@ -165,7 +165,7 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
                       <div style={{
                         display: "flex", alignItems: "center", gap: 14,
                         padding: "10px 16px", margin: "2px 0", borderRadius: 12,
-                        background: "var(--glass-bg, rgba(255,255,255,0.06))",
+                        background: "var(--bg-glass)",
                         border: "1.5px dashed var(--accent)",
                         opacity: 0.5, filter: "grayscale(0.8)",
                         pointerEvents: "none", transition: "all 150ms ease",
@@ -222,7 +222,7 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
                   <div style={{
                     display: "flex", alignItems: "center", gap: 14,
                     padding: "10px 16px", margin: "2px 0", borderRadius: 12,
-                    background: "var(--glass-bg, rgba(255,255,255,0.06))",
+                    background: "var(--bg-glass)",
                     border: "1.5px dashed var(--accent)",
                     opacity: 0.5, filter: "grayscale(0.8)",
                     pointerEvents: "none", transition: "all 150ms ease",

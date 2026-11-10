@@ -42,7 +42,7 @@ export class ErrorBoundary extends Component<Props, State> {
         <div style={{ fontSize: 13, color: "var(--text-secondary, #888)" }}>
           {i18n.t("errorBoundary.hint")}
         </div>
-        <pre data-testid="error-boundary-detail" style={{ margin: 0, padding: 12, borderRadius: 7, background: "var(--bg-subtle, #f4f4f5)", fontSize: 11.5, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 320, overflow: "auto" }}>
+        <pre data-testid="error-boundary-detail" style={{ margin: 0, padding: 12, borderRadius: 7, background: "var(--bg-elevated)", fontSize: 11.5, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 320, overflow: "auto" }}>
           {detail}
         </pre>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
