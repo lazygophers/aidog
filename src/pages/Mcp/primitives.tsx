@@ -74,7 +74,7 @@ export function McpRow({
                   fontSize: 11,
                   padding: "1px 5px",
                   borderRadius: 4,
-                  background: "var(--bg)",
+                  background: "var(--secondary)",
                   color: "var(--text-tertiary)",
                   fontFamily: "var(--font-mono)",
                 }}

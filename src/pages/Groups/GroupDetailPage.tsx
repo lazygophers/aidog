@@ -313,7 +313,7 @@ function MembersCard(props: {
             const gp = gps.find(g => g.platform.id === m.target_platform_id);
             return (
               <div key={mi} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 14px", fontSize: 12 }}>
-                <span className="chip" style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10.5, border: "1px solid #DDC9F5", color: "var(--primary)", borderRadius: 6, padding: "2px 8px", background: "var(--accent-subtle, #FAFBFC)" }}>{m.source_model}</span>
+                <span className="chip" style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10.5, border: "1px solid color-mix(in srgb, var(--primary) 35%, transparent)", color: "var(--primary)", borderRadius: 6, padding: "2px 8px", background: "var(--accent-subtle, #FAFBFC)" }}>{m.source_model}</span>
                 <span style={{ color: "var(--chart-2, #A377E8)" }}>⟶</span>
                 {gp && <span className="chip" style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10.5, border: "1px solid var(--border)", borderRadius: 6, padding: "2px 8px", background: "var(--secondary, #FAFBFC)" }}>{gp.platform.platform_type}</span>}
                 {gp && <span style={{ color: "var(--chart-2, #A377E8)" }}>⟶</span>}

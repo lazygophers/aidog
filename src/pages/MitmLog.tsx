@@ -30,7 +30,7 @@ function BodyBlock({ label, body, emptyText }: { label: string; body: string; em
       <div className="text-tertiary" style={{ fontSize: F.hint, fontWeight: 600, marginBottom: 2 }}>{label}</div>
       <pre style={{
         margin: 0, padding: 6, borderRadius: "var(--radius-sm)",
-        background: "var(--bg-primary)", border: "1px solid var(--border)",
+        background: "var(--bg-elevated)", border: "1px solid var(--border)",
         fontSize: 11, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
         whiteSpace: "pre-wrap", wordBreak: "break-all", maxHeight: 240, overflow: "auto",
       }}>

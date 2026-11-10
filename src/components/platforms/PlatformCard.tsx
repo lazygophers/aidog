@@ -294,7 +294,7 @@ export const PlatformCard = memo(function PlatformCard({
                     position: "absolute", top: -3, right: -3,
                     width: 10, height: 10, borderRadius: "50%",
                     background: HEALTH_COLORS[health],
-                    border: "2px solid var(--bg-primary)",
+                    border: "2px solid var(--color-card)",
                     boxShadow: `0 0 4px ${HEALTH_COLORS[health]}60`,
                   }}
                   title={p.last_error
@@ -544,7 +544,7 @@ export const PlatformCard = memo(function PlatformCard({
                           background: "var(--bg-glass)",
                           border: "1px solid var(--border)",
                         }}>
-                          <div style={{ height: 4, borderRadius: "var(--radius-sm)", background: "var(--bg-primary)", overflow: "hidden" }}>
+                          <div style={{ height: 4, borderRadius: "var(--radius-sm)", background: "var(--secondary)", overflow: "hidden" }}>
                             <div style={{
                               width: `${Math.max(0, Math.min(100, tier.remainPct))}%`, height: "100%",
                               background: tierColor, borderRadius: "var(--radius-sm)",
@@ -674,7 +674,7 @@ export const PlatformCard = memo(function PlatformCard({
                         background: "var(--bg-glass)",
                         border: "1px solid var(--border)",
                       }}>
-                        <div style={{ height: 5, borderRadius: "var(--radius-sm)", background: "var(--bg-primary)", overflow: "hidden" }}>
+                        <div style={{ height: 5, borderRadius: "var(--radius-sm)", background: "var(--secondary)", overflow: "hidden" }}>
                           <div style={{
                             width: `${Math.max(0, Math.min(100, tier.remainPct))}%`, height: "100%",
                             background: tierColor, borderRadius: "var(--radius-sm)",

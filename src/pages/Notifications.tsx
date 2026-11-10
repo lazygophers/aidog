@@ -76,7 +76,7 @@ function NotificationItem({ item, idx, t, onNavigate }: { item: Notification; id
             </span>
           )}
           {item.severity && item.severity !== "info" && (
-            <span style={{ fontSize: 11, padding: "0 5px", borderRadius: "var(--radius-sm)", background: item.severity === "error" ? "var(--status-error-bg, rgba(248,113,113,.15))" : "var(--status-warn-bg, rgba(251,191,36,.15))" }}>
+            <span style={{ fontSize: 11, padding: "0 5px", borderRadius: "var(--radius-sm)", background: item.severity === "error" ? "var(--color-danger-bg)" : "var(--color-warning-bg)" }}>
               {t(`notif.severity.${item.severity}`, item.severity)}
             </span>
           )}
@@ -104,7 +104,7 @@ function NotificationItem({ item, idx, t, onNavigate }: { item: Notification; id
               : deliveries.map(d => (
                 <div key={d.id} style={{ fontSize: 11, display: "flex", gap: 8 }}>
                   <span style={{ minWidth: 64 }}>{t(`notif.channel.${d.channel}`, d.channel)}</span>
-                  <span data-ok={d.status === "success" ? "yes" : "no"} style={{ minWidth: 44, color: d.status === "success" ? "var(--status-ok, #4ade80)" : "var(--status-error, #f87171)" }}>
+                  <span data-ok={d.status === "success" ? "yes" : "no"} style={{ minWidth: 44, color: d.status === "success" ? "var(--color-success)" : "var(--color-danger)" }}>
                     {d.status === "success" ? "✓" : "✗"} {d.duration_ms}ms
                   </span>
                   {d.error && <span className="text-tertiary" style={{ wordBreak: "break-all" }}>{d.error}</span>}

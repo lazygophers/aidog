@@ -139,7 +139,7 @@ function EventRow({
         gap: 8,
         padding: "10px 12px",
         borderRadius: 8,
-        background: "var(--bg-subtle, rgba(127,127,127,0.06))",
+        background: "var(--secondary)",
       }}
     >
       {children}

@@ -114,7 +114,7 @@ export function AgentUpdateSection() {
                   fontSize: 13,
                   padding: "8px 10px",
                   borderRadius: 8,
-                  border: "1px solid var(--border-subtle, rgba(0,0,0,0.08))",
+                  border: "1px solid var(--border)",
                   flexWrap: "wrap",
                 }}
               >
@@ -126,7 +126,7 @@ export function AgentUpdateSection() {
                 {s.source && (
                   <div
                     className="text-secondary"
-                    style={{ fontSize: 11, border: "1px solid var(--border-subtle, rgba(0,0,0,0.08))", borderRadius: 6, padding: "1px 6px" }}
+                    style={{ fontSize: 11, border: "1px solid var(--border)", borderRadius: 6, padding: "1px 6px" }}
                   >
                     {s.source}
                   </div>

@@ -173,14 +173,14 @@ function RuleEditor({ rule, onSave, onCancel }: {
             value={draft.condition ?? ""} onChange={e => { setDraft(d => ({ ...d, condition: e.target.value || null })); setDegrade(""); }} />
         )}
         {degrade && (
-          <div id="notif-rule-degrade" data-state="shown" style={{ fontSize: 11, color: "var(--status-warn, #fbbf24)" }}>
+          <div id="notif-rule-degrade" data-state="shown" style={{ fontSize: 11, color: "var(--color-warning)" }}>
             {t("notif.rules.degradeHint", "该表达式无法转成可视化（原因见下），已保留原文——请继续在文本模式编辑")}
             <div className="text-tertiary">{degrade}</div>
           </div>
         )}
       </div>
       {exprMsg && <div id={`notif-rule-exprmsg-${draft.id}`} data-ok={exprOk === "ok" ? "yes" : "no"}
-        style={{ fontSize: 11, color: exprMsg.startsWith("✓") ? "var(--status-ok, #4ade80)" : "var(--status-error, #f87171)" }}>{exprMsg}</div>}
+        style={{ fontSize: 11, color: exprMsg.startsWith("✓") ? "var(--color-success)" : "var(--color-danger)" }}>{exprMsg}</div>}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
         <span className="text-secondary" style={{ fontSize: 11 }}>{t("notif.rules.channels", "渠道")}</span>
         {ALL_CHANNELS.map(c => (

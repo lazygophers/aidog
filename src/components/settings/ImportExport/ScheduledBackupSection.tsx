@@ -120,7 +120,7 @@ export function ScheduledBackupSection() {
                 style={{
                   width: 90, padding: "6px 10px", fontSize: 13,
                   borderRadius: "var(--radius-md)", border: "1px solid var(--border)",
-                  background: "var(--bg-input)", color: "var(--text-primary)",
+                  background: "var(--bg-glass)", color: "var(--text-primary)",
                 }}
               />
               <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{t("settings.backup.hours", "小时")}</span>
@@ -165,7 +165,7 @@ export function ScheduledBackupSection() {
                 style={{
                   width: 90, padding: "6px 10px", fontSize: 13,
                   borderRadius: "var(--radius-md)", border: "1px solid var(--border)",
-                  background: "var(--bg-input)", color: "var(--text-primary)",
+                  background: "var(--bg-glass)", color: "var(--text-primary)",
                 }}
               />
               <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{t("settings.backup.days", "天（1-90）")}</span>
@@ -173,7 +173,7 @@ export function ScheduledBackupSection() {
           </div>
 
           {/* 状态 */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "10px 12px", borderRadius: "var(--radius-md)", background: "var(--bg-subtle)", fontSize: 12, color: "var(--text-secondary)" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "10px 12px", borderRadius: "var(--radius-md)", background: "var(--secondary)", fontSize: 12, color: "var(--text-secondary)" }}>
             <div>{t("settings.backup.lastBackup", "上次备份")}: <span style={{ color: "var(--text-primary)" }}>{formatBackupTime(settings.last_backup_at, t)}</span></div>
             {nextAt > 0 && (
               <div>{t("settings.backup.nextBackup", "下次预计")}: <span style={{ color: "var(--text-primary)" }}>{formatBackupTime(nextAt, t)}</span></div>
