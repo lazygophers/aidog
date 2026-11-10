@@ -10,12 +10,13 @@ import {
   SearchableProtocolSelect, MockConfigEditor,
   type ProtocolOption,
 } from "../../domains/platforms";
-import { buildProtocolsFromPresets } from "../../domains/platforms/defaults";
+import { buildProtocolsFromPresets, getProtocolUsageWarning } from "../../domains/platforms/defaults";
 import { useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";
 import { useThemeMode } from "../../themes/useThemeMode";
 import type { PlatformsState } from "./usePlatformsState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Alert } from "@/components/ui/alert";
 // 表单分区组件（9 个 section + FormSection / ApiKeyField / toDatetimeLocal）从此导入。
 // ponytail: 抽到 formSections.tsx 以控制本文件行数；主组件仅消费 props 派发。
 import {
@@ -104,6 +105,13 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     buildProtocolsFromPresets(i18n.language).then(list => { if (!cancelled) setPresets(list); });
     return () => { cancelled = true; };
   }, [i18n.language]);
+  // 平台使用风险提示（数据驱动：registry platform.json `usage_warning`，如腾讯 Coding Plan 条款）。
+  const [usageWarning, setUsageWarning] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    getProtocolUsageWarning(protocol, i18n.language).then(w => { if (!cancelled) setUsageWarning(w); });
+    return () => { cancelled = true; };
+  }, [protocol, i18n.language]);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* Edit page header */}
@@ -164,6 +172,9 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             codingPlan={codingPlan}
             onChange={handleProtocolChange}
           />
+          {usageWarning && (
+            <Alert variant="destructive" data-testid="platform-usage-warning">{usageWarning}</Alert>
+          )}
           {protocol === "unknown" && (
             <p role="alert">{t("platform.unknownProtocolSave", "请选择有效的协议类型后再保存")}</p>
           )}

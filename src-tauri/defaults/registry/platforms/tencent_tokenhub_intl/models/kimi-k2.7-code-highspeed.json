@@ -1,0 +1,29 @@
+{
+  "last_updated": 1794288536,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "kimi-k2.7-code-highspeed",
+  "display_name": "Kimi K2.7 Code HighSpeed",
+  "canonical_model": "kimi-k2.7-code-highspeed",
+  "family": "kimi",
+  "version": "2.7",
+  "thinking_supported": true,
+  "thinking_toggleable": false,
+  "capabilities": [
+    "text",
+    "vision",
+    "video",
+    "tool_use",
+    "reasoning"
+  ],
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000013,
+    "output": 0.000054,
+    "cache_read": 0.0000026
+  }
+}

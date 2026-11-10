@@ -1,0 +1,49 @@
+{
+  "last_updated": 1794288536,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "qwen3.5-plus",
+  "display_name": "Qwen3.5-Plus",
+  "canonical_model": "qwen3.5-plus",
+  "family": "qwen",
+  "version": "3.5",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 991808,
+  "max_output_tokens": 65536,
+  "context_window": 1000000,
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000002936,
+    "output": 0.000017614,
+    "cache_read": 2.94e-7,
+    "context_tiers": [
+      {
+        "min_tokens": 1,
+        "input": 0.000002936,
+        "output": 0.000017614,
+        "cache_read": 2.94e-7
+      },
+      {
+        "min_tokens": 131072,
+        "input": 0.000002936,
+        "output": 0.000017614,
+        "cache_read": 2.94e-7
+      },
+      {
+        "min_tokens": 262144,
+        "input": 0.00000367,
+        "output": 0.000022018,
+        "cache_read": 3.67e-7
+      }
+    ]
+  }
+}

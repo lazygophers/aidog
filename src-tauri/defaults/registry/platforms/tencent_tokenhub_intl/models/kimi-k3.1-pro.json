@@ -1,0 +1,33 @@
+{
+  "last_updated": 1794288536,
+  "supported_protocols": [
+    "openai",
+    "openai_responses",
+    "anthropic"
+  ],
+  "model_id": "kimi-k3.1-pro",
+  "display_name": "Kimi K3.1 Pro",
+  "canonical_model": "kimi-k3.1-pro",
+  "family": "kimi",
+  "version": "3.1",
+  "thinking_supported": true,
+  "thinking_toggleable": false,
+  "capabilities": [
+    "text",
+    "vision",
+    "video",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_output_tokens": 1048576,
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000014649,
+    "output": 0.000073247,
+    "cache_read": 0.000001465,
+    "cache_write": 0.000014649,
+    "cache_write_1h": 0.000029299
+  }
+}

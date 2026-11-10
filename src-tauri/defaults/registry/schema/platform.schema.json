@@ -520,6 +520,63 @@
       },
       "description": "【必填】8 locale 本地化显示名，全部必填非空。"
     },
+    "usage_warning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "en-US",
+        "zh-Hans",
+        "ar-SA",
+        "fr-FR",
+        "de-DE",
+        "ru-RU",
+        "ja-JP",
+        "es-ES"
+      ],
+      "properties": {
+        "en-US": {
+          "type": "string",
+          "minLength": 1,
+          "description": "【必填】英语风险提示文案"
+        },
+        "zh-Hans": {
+          "type": "string",
+          "minLength": 1,
+          "description": "【必填】简体中文风险提示文案"
+        },
+        "ar-SA": {
+          "type": "string",
+          "minLength": 1,
+          "description": "【必填】阿拉伯语风险提示文案（RTL）"
+        },
+        "fr-FR": {
+          "type": "string",
+          "minLength": 1,
+          "description": "【必填】法语风险提示文案"
+        },
+        "de-DE": {
+          "type": "string",
+          "minLength": 1,
+          "description": "【必填】德语风险提示文案"
+        },
+        "ru-RU": {
+          "type": "string",
+          "minLength": 1,
+          "description": "【必填】俄语风险提示文案"
+        },
+        "ja-JP": {
+          "type": "string",
+          "minLength": 1,
+          "description": "【必填】日语风险提示文案"
+        },
+        "es-ES": {
+          "type": "string",
+          "minLength": 1,
+          "description": "【必填】西班牙语风险提示文案"
+        }
+      },
+      "description": "【可选】平台使用风险提示（8 locale 本地化，全部必填非空）。存在时前端在平台添加/编辑页基础信息区显眼处展示警示条；缺省 = 不提示。"
+    },
     "source_urls": {
       "type": "object",
       "additionalProperties": false,

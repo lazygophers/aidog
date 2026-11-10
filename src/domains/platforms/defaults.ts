@@ -79,6 +79,8 @@ type DefaultsDoc = {
     models: { default?: Partial<Record<ModelSlot, string[]>>; peak?: Partial<Record<ModelSlot, string[]>> };
     model_list: { default?: string[] };
     name?: Partial<Record<DefaultsLocale, string>>;
+    /** 平台使用风险提示（platform.json `usage_warning`，8 locale）；absent = 不提示。 */
+    usage_warning?: Partial<Record<DefaultsLocale, string>>;
     /** 官方文档页 + 定价页 URL（registry `platform.json` 实为对象而非数组）。
      *  平台详情处以外链展示，供用户自行核对官方定价。 */
     source_urls?: { docs?: string; pricing?: string };
@@ -424,6 +426,13 @@ function resolveName(
 export async function getProtocolLabel(protocol: Protocol, locale?: string): Promise<string> {
   const doc = await loadDoc();
   return resolveName(doc.protocols[protocol]?.name, protocol, locale);
+}
+
+/** 取平台使用风险提示（本地化，三层回落同 resolveName）；未配置返空串 → 前端不渲染警示条。 */
+export async function getProtocolUsageWarning(protocol: Protocol, locale?: string): Promise<string> {
+  const w = (await loadDoc()).protocols[protocol]?.usage_warning;
+  const pick = (l: DefaultsLocale) => w?.[l]?.trim() || undefined;
+  return pick(normalizeDefaultsLocale(locale)) ?? pick("en-US") ?? "";
 }
 
 /** 取 protocol 官网首页 URL（平台详情处展示外链；未配置返空串）。 */

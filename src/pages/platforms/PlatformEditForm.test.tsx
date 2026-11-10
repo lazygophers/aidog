@@ -12,6 +12,7 @@ vi.mock("../../domains/platforms/defaults", () => ({
   getProtocolLabelMap: async () => ({}),
   getProtocolColorMap: async () => ({}),
   buildProtocolsFromPresets: async () => [],
+  getProtocolUsageWarning: async (p: string) => (p === "risky" ? "RISK-TEXT" : ""),
 }));
 vi.mock("./formSections", () => ({
   FormSection: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -66,6 +67,20 @@ describe("PlatformEditForm unknown protocol", () => {
   it("shows the protocol selector when editing a known platform", async () => {
     render(<PlatformEditForm s={state("openai")} />);
     await waitFor(() => expect(screen.getByRole("combobox", { name: "protocol" })).toHaveValue("openai"));
+  });
+});
+
+describe("PlatformEditForm usage warning", () => {
+  it("renders the preset usage warning in an alert when the protocol has one", async () => {
+    render(<PlatformEditForm s={state("openai", "risky" as "openai")} />);
+    const el = await screen.findByTestId("platform-usage-warning");
+    expect(el).toHaveTextContent("RISK-TEXT");
+    expect(el).toHaveAttribute("role", "alert");
+  });
+  it("renders no warning for a protocol without one", async () => {
+    render(<PlatformEditForm s={state("openai")} />);
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "protocol" })).toHaveValue("openai"));
+    expect(screen.queryByTestId("platform-usage-warning")).not.toBeInTheDocument();
   });
 });
 

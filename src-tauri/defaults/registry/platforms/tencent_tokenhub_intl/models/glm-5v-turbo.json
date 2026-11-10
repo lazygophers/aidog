@@ -1,0 +1,29 @@
+{
+  "last_updated": 1794288536,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "glm-5v-turbo",
+  "display_name": "GLM-5V-Turbo",
+  "canonical_model": "glm-5v-turbo",
+  "family": "glm",
+  "version": "5",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_output_tokens": 131072,
+  "context_window": 204800,
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.00000879,
+    "output": 0.000029298,
+    "cache_read": 0.000001758
+  }
+}

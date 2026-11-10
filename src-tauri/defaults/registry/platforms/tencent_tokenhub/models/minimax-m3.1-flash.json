@@ -1,0 +1,30 @@
+{
+  "last_updated": 1794288536,
+  "supported_protocols": [
+    "openai",
+    "openai_responses",
+    "anthropic"
+  ],
+  "model_id": "minimax-m3.1-flash",
+  "display_name": "MiniMax-M3.1-Flash",
+  "canonical_model": "MiniMax-M3.1-Flash",
+  "family": "minimax",
+  "version": "3.1",
+  "thinking_supported": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 524288,
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000001,
+    "output": 0.000004,
+    "cache_read": 1e-7
+  }
+}

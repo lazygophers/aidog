@@ -1,0 +1,149 @@
+{
+  "last_updated": 1794288536,
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "openai",
+        "base_url": "https://tokenhub.tencentmaas.com/v1"
+      },
+      {
+        "protocol": "anthropic",
+        "base_url": "https://tokenhub.tencentmaas.com"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": [
+        "hy4"
+      ]
+    }
+  },
+  "model_list": {
+    "default": [
+      "hy4",
+      "hy4-preview",
+      "hy3",
+      "hy-mt2-pro",
+      "hy-mt2-plus",
+      "hy-mt2-lite",
+      "hunyuan-role-latest",
+      "hy-role",
+      "deepseek/deepseek-flash",
+      "deepseek-v4-flash-202605",
+      "deepseek-v4-pro-202606",
+      "deepseek/deepseek-v4-flash-vision-exp",
+      "deepseek-v4.1-flash-1017",
+      "deepseek-v4.1-flash",
+      "deepseek-v4-pro-0813",
+      "deepseek-v4-pro",
+      "glm-5.3",
+      "glm-5.3-flash",
+      "glm-5.3-flashx",
+      "glm-5.2",
+      "glm-5v-turbo",
+      "kimi-k3.1-pro-highspeed",
+      "kimi-k3.1-pro",
+      "kimi-k3",
+      "kimi-k2.8-preview",
+      "kimi-k2.7-code-highspeed",
+      "kimi-k2.7-code",
+      "kimi-k2.6",
+      "minimax-m3.1-flash",
+      "minimax-m3",
+      "minimax-m2.7",
+      "mimo-v2.6-pro",
+      "mimo-v2.6-flash",
+      "mimo-v2.5-pro",
+      "step-5-preview"
+    ]
+  },
+  "name": {
+    "en-US": "Tencent Cloud TokenHub",
+    "zh-Hans": "腾讯云 TokenHub",
+    "ar-SA": "Tencent Cloud TokenHub",
+    "fr-FR": "Tencent Cloud TokenHub",
+    "de-DE": "Tencent Cloud TokenHub",
+    "ru-RU": "Tencent Cloud TokenHub",
+    "ja-JP": "テンセントクラウド TokenHub",
+    "es-ES": "Tencent Cloud TokenHub"
+  },
+  "source_urls": {
+    "docs": "https://cloud.tencent.com/document/product/1823/130079",
+    "pricing": "https://cloud.tencent.com/document/product/1823/130055"
+  },
+  "homepage": "https://cloud.tencent.com/product/tokenhub",
+  "logo_url": "",
+  "keywords": [
+    "腾讯云",
+    "tengxunyun",
+    "txy",
+    "tencent",
+    "tokenhub",
+    "混元",
+    "hunyuan",
+    "hy",
+    "腾讯云tokenhub"
+  ],
+  "color": "#0052D9",
+  "peak": [
+    {
+      "start_hour": 9,
+      "end_hour": 12,
+      "multiplier": 1,
+      "days_of_week": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "models": [
+        "deepseek/deepseek-flash",
+        "deepseek-v4-flash-202605",
+        "deepseek-v4-pro-202606",
+        "deepseek/deepseek-v4-flash-vision-exp",
+        "deepseek-v4.1-flash-1017",
+        "deepseek-v4.1-flash",
+        "deepseek-v4-pro-0813"
+      ],
+      "timezone": "Asia/Shanghai"
+    },
+    {
+      "start_hour": 14,
+      "end_hour": 18,
+      "multiplier": 1,
+      "days_of_week": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "models": [
+        "deepseek/deepseek-flash",
+        "deepseek-v4-flash-202605",
+        "deepseek-v4-pro-202606",
+        "deepseek/deepseek-v4-flash-vision-exp",
+        "deepseek-v4.1-flash-1017",
+        "deepseek-v4.1-flash",
+        "deepseek-v4-pro-0813"
+      ],
+      "timezone": "Asia/Shanghai"
+    }
+  ],
+  "tools_pricing": {
+    "yuanbao_search_fast": {
+      "per_1000": 14,
+      "currency": "CNY"
+    },
+    "yuanbao_search_standard": {
+      "per_1000": 20,
+      "currency": "CNY"
+    },
+    "yuanbao_search_flagship": {
+      "per_1000": 26,
+      "currency": "CNY"
+    }
+  }
+}

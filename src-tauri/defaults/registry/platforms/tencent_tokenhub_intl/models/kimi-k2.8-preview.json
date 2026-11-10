@@ -1,0 +1,29 @@
+{
+  "last_updated": 1794288536,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "kimi-k2.8-preview",
+  "display_name": "Kimi K2.8 Preview",
+  "canonical_model": "kimi-k2.8-preview",
+  "family": "kimi",
+  "version": "2.8",
+  "thinking_supported": true,
+  "thinking_toggleable": false,
+  "capabilities": [
+    "text",
+    "vision",
+    "video",
+    "tool_use",
+    "reasoning"
+  ],
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.0000065,
+    "output": 0.000027,
+    "cache_read": 0.0000017
+  }
+}

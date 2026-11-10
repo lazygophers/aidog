@@ -1,0 +1,23 @@
+{
+  "last_updated": 1794288536,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "hunyuan-role-latest",
+  "display_name": "Hy-Role-Latest",
+  "canonical_model": "hunyuan-role-latest",
+  "family": "hunyuan",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 28672,
+  "max_output_tokens": 4096,
+  "context_window": 32768,
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.0000024,
+    "output": 0.0000096
+  }
+}

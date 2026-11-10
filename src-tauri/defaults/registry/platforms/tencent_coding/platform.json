@@ -1,0 +1,70 @@
+{
+  "last_updated": 1794288536,
+  "is_coding_plan": true,
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "openai",
+        "base_url": "https://api.lkeap.cloud.tencent.com/coding/v3",
+        "coding_plan": true
+      },
+      {
+        "protocol": "anthropic",
+        "base_url": "https://api.lkeap.cloud.tencent.com/coding/anthropic",
+        "coding_plan": true
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": [
+        "tc-code-latest"
+      ]
+    }
+  },
+  "model_list": {
+    "default": [
+      "tc-code-latest"
+    ]
+  },
+  "name": {
+    "en-US": "Tencent Cloud Coding Plan",
+    "zh-Hans": "腾讯云 Coding Plan（编程套餐）",
+    "ar-SA": "Tencent Cloud Coding Plan",
+    "fr-FR": "Tencent Cloud Coding Plan",
+    "de-DE": "Tencent Cloud Coding Plan",
+    "ru-RU": "Tencent Cloud Coding Plan",
+    "ja-JP": "テンセントクラウド Coding Plan",
+    "es-ES": "Tencent Cloud Coding Plan"
+  },
+  "source_urls": {
+    "docs": "https://cloud.tencent.com/document/product/1823/130092",
+    "pricing": "https://cloud.tencent.com/document/product/1823/130092"
+  },
+  "homepage": "https://cloud.tencent.com/document/product/1823/130092",
+  "logo_url": "",
+  "keywords": [
+    "腾讯云编程套餐",
+    "tengxunyunbianchengtaocan",
+    "txybctc",
+    "腾讯编程",
+    "tencent coding",
+    "tencent coding plan",
+    "tc-code",
+    "codingplan"
+  ],
+  "color": "#0052D9",
+  "key_prefixes": [
+    "sk-sp-"
+  ],
+  "usage_warning": {
+    "zh-Hans": "腾讯云官方条款严禁 API 调用：Coding Plan 仅限在编程工具中使用，禁止以 API 调用的形式用于自动化脚本、自定义应用程序后端或任何非交互式批量调用场景；经 AiDog 网关转发可能被视为违规，导致订阅被暂停或 API Key 被封禁。",
+    "en-US": "Tencent Cloud's terms prohibit API calls: Coding Plan may only be used inside coding tools, and must not be used via API calls for automation scripts, custom application backends or any non-interactive batch calls. Forwarding through the AiDog gateway may be treated as a violation and can get your subscription suspended or your API Key banned.",
+    "ar-SA": "تحظر شروط Tencent Cloud استدعاءات API: يقتصر استخدام Coding Plan على أدوات البرمجة، ويُمنع استخدامه عبر استدعاءات API في السكربتات الآلية أو الواجهات الخلفية للتطبيقات المخصصة أو أي استدعاءات دفعية غير تفاعلية. قد يُعد التمرير عبر بوابة AiDog مخالفة وقد يؤدي إلى تعليق الاشتراك أو حظر مفتاح API.",
+    "fr-FR": "Les conditions de Tencent Cloud interdisent les appels API : le Coding Plan est réservé aux outils de programmation et ne doit pas servir, via API, à des scripts d'automatisation, des backends d'applications personnalisées ou des appels par lots non interactifs. Le transfert via la passerelle AiDog peut être considéré comme une violation et entraîner la suspension de l'abonnement ou le bannissement de la clé API.",
+    "de-DE": "Die Bedingungen von Tencent Cloud verbieten API-Aufrufe: Der Coding Plan darf nur in Coding-Tools genutzt werden, nicht per API für Automatisierungsskripte, eigene Anwendungs-Backends oder nicht interaktive Batch-Aufrufe. Die Weiterleitung über das AiDog-Gateway kann als Verstoß gelten und zur Sperrung des Abos oder des API-Keys führen.",
+    "ru-RU": "Условия Tencent Cloud запрещают вызовы API: Coding Plan разрешено использовать только в инструментах для программирования, нельзя применять его через API в скриптах автоматизации, бэкендах собственных приложений и любых неинтерактивных пакетных вызовах. Пересылка через шлюз AiDog может считаться нарушением и привести к приостановке подписки или блокировке API-ключа.",
+    "ja-JP": "Tencent Cloud の規約は API 呼び出しを禁止しています。Coding Plan はコーディングツール内でのみ使用でき、自動化スクリプト、独自アプリケーションのバックエンド、非対話型の一括呼び出しに API 経由で使うことはできません。AiDog ゲートウェイ経由の転送は違反とみなされ、サブスクリプションの停止や API キーの凍結につながる可能性があります。",
+    "es-ES": "Los términos de Tencent Cloud prohíben las llamadas API: el Coding Plan solo puede usarse dentro de herramientas de programación y no mediante API en scripts de automatización, backends de aplicaciones propias ni llamadas por lotes no interactivas. Reenviar a través de la pasarela AiDog puede considerarse una infracción y provocar la suspensión de la suscripción o el bloqueo de la API Key."
+  }
+}
