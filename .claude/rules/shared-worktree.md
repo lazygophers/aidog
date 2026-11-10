@@ -13,7 +13,9 @@
 
 - 写代码的 agent 默认直接在主 checkout 当前分支改，一次一个，前一个回报后再派下一个；
   串行即无 cargo 互斥、无基点漂移、无合并步骤。
-- **「有必要」只有三种**：① 两个写码 agent 必须同时跑，且各自改动文件集不相交；
+- **「有必要」只有三种**：① 两个写码 agent 必须同时跑，且各自改动文件集不相交，**且不在同一 cargo workspace crate**
+  （同 crate 不同模块文件集不相交也互踩：2026-11-10 两票并行同改 aidog_core，票 04 被迫等编译收敛；
+  cargo 一次锁整个 workspace，crate 层面没有「不相交」可用）；
   ② 要构建旧版本 / 基线二进制（perf-testing.md §6/§7 的 detach worktree）；
   ③ 主 checkout 正被别的会话占用（脏文件与本任务相交，无法并存）。
   其余理由（「隔离更干净」「怕改坏」）不算；改坏用 `git diff` 按行号还原。
@@ -39,7 +41,8 @@
 
 ## 硬规则
 
-1. **禁止 `git commit -a` / `git commit` 不带路径。** 一律 `git commit -- <路径> [<路径>…]`。
+1. **禁止 `git commit -a` / `git commit` 不带路径。** 一律 `git commit -- <路径> [<路径>…]`；
+   pathspec 精确到文件，禁目录级（例外见规则 6 的已核对暂存面提交）。
 2. **提交前逐 hunk 认领**：`git diff -- <文件>` 扫一遍，确认每一段改动都是自己写的。
    不是自己的就 `git add -p` 只挑自己的那几段，再 `git commit`（不带 `-a`）。
 3. `git status` 只认到**文件**这一层，**防不住同文件内跨 hunk 的误扫**——
@@ -57,6 +60,14 @@
    `git status --short`，无交集才可用；有交集就停，改手动处理
    （2026-09-29 按「先核实远端 diff 不碰 dirty 文件」用过一次，前置检查
    才是安全条件，autostash 本身不安全）。
+6. **`git commit -- <pathspec>` 提交的是工作区整文件，不是暂存面**（pathspec 提交忽略
+   索引、直接取匹配文件的工作区内容）。先 `git add -p` 挑完自己的 hunk、再用
+   `git commit -- <目录>` 收尾，别人的 hunk 照样被带走——pathspec 越宽扫走越多
+   （2026-11-10 闸门票 f6d840d69 目录级 pathspec 带走票 04 的 16 行 locale 键实锤）。
+   共改文件的选择性提交唯一安全流程：`git add -p` 只暂存自己的 hunk →
+   `git diff --cached --stat` 与 `git diff -- <文件>` 核对暂存面 == 想提交的内容 →
+   **不带 pathspec 的 `git commit`**（此时提交的就是暂存面，规则 1 的例外；
+   索引里有不明来源文件时按「开工前核对索引」节处理，不并入提交）。
 
 ## 文件所有权
 
