@@ -1211,14 +1211,14 @@ fn rate_limited(
     !rl.has_room(
         pid,
         "",
-        &cfg.platform_limits(now_ms, source_model),
+        &cfg.platform_limits(now_ms),
         now_ms,
         est,
     ) || (!source_model.is_empty()
         && !rl.has_room(
             pid,
             source_model,
-            &cfg.model_limits(source_model),
+            &cfg.model_limits(source_model, now_ms),
             now_ms,
             est,
         ))

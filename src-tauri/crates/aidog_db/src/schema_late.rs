@@ -1142,6 +1142,9 @@ ALTER TABLE "group_new" RENAME TO "group";
     // Migration 20261110-13 (时段档-模型配置对齐 票 03): 已有时段档补本档内置槽开关（取平台级开关，排除自定义槽名）。
     backfill_time_rule_slot_switches(conn);
 
+    // Migration 20261110-14 (限频规则-合并 票 01): extra.rate_limits 旧 models / windows → rules。
+    migrate_rate_limits_to_rules(conn);
+
     // Migration 20261110-12 (请求尝试-逐次重算 票 01): 全部分组 max_retries 置 10（一次性，标记门控）。
     reset_group_max_attempts(conn);
 
@@ -1622,6 +1625,116 @@ pub(crate) fn backfill_time_rule_slot_switches(conn: &Connection) -> u64 {
     }
     if updated > 0 {
         tracing::info!(updated, "migration 20261110-13: 时段档补本档内置槽开关完成");
+    }
+    updated
+}
+
+/// Migration 20261110-14（限频规则-合并 票 01）：`extra.rate_limits` 旧 `models`（对象）/ `windows`（数组）→ `rules`。
+/// - 无模型筛选的窗口 → 「只选时段」规则，未填的并发 / RPM / TPM 从平台级抄入（保持旧「没填沿用平台级」效果）；
+/// - 带 `models` 的窗口 → 「模型 + 时段」规则，模型名原样搬、不抄平台级，并 warn（请求名与上游名可能不同）；
+/// - 旧 `models.<m>` → 每模型一条「只选模型」规则；顺序：窗口在前、模型级在后、已有 `rules` 垫底。
+///
+/// 幂等：旧键删除，没有旧键即跳过。单事务；损坏 JSON 跳过并 warn。
+pub(crate) fn migrate_rate_limits_to_rules(conn: &Connection) -> u64 {
+    use serde_json::{Map, Value};
+    let rows: Vec<(i64, String)> = match conn.prepare("SELECT id, extra FROM platform") {
+        Ok(mut stmt) => stmt
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .ok()
+            .map(|iter| iter.filter_map(Result::ok).collect())
+            .unwrap_or_default(),
+        Err(_) => return 0,
+    };
+    if conn.execute_batch("BEGIN IMMEDIATE").is_err() {
+        return 0;
+    }
+    let pos = |v: &Value, k: &str| {
+        v.get(k).and_then(|x| x.as_i64().or_else(|| x.as_f64().map(|f| f as i64))).filter(|n| *n > 0)
+    };
+    let mut updated = 0u64;
+    for (id, extra) in rows {
+        if !extra.contains("rate_limits") {
+            continue;
+        }
+        let Ok(mut root) = serde_json::from_str::<Value>(&extra) else {
+            tracing::warn!(platform_id = id, "migration 20261110-14: extra 非法 JSON，跳过");
+            continue;
+        };
+        let Some(rl) = root.get_mut("rate_limits").and_then(Value::as_object_mut) else {
+            continue;
+        };
+        let old_models = rl.remove("models");
+        let old_windows = rl.remove("windows");
+        if old_models.is_none() && old_windows.is_none() {
+            continue;
+        }
+        let base = Value::Object(rl.clone());
+        let mut rules: Vec<Value> = Vec::new();
+        for w in old_windows.as_ref().and_then(Value::as_array).into_iter().flatten() {
+            let Some(mut o) = w.as_object().cloned() else { continue };
+            // 旧窗口缺 start_hour / end_hour 反序列化失败，从未生效，不转。
+            if !o.get("start_hour").is_some_and(Value::is_number) || !o.get("end_hour").is_some_and(Value::is_number) {
+                continue;
+            }
+            o.remove("multiplier");
+            let models: Vec<Value> = o
+                .remove("models")
+                .and_then(|m| m.as_array().cloned())
+                .map(|a| a.into_iter().filter(|m| m.as_str().is_some_and(|s| !s.trim().is_empty())).collect())
+                .unwrap_or_default();
+            if models.is_empty() {
+                let w_val = Value::Object(o.clone());
+                for k in ["concurrency", "rpm", "tpm"] {
+                    if pos(&w_val, k).is_none()
+                        && let Some(b) = pos(&base, k)
+                    {
+                        o.insert(k.into(), b.into());
+                    }
+                }
+            } else {
+                for m in &models {
+                    tracing::warn!(platform_id = id, model = %m,
+                        "migration 20261110-14: 窗口的请求模型筛选已转为「模型 + 时段」规则，规则按上游模型名匹配，请核对模型名");
+                }
+                o.insert("models".into(), Value::Array(models));
+            }
+            rules.push(Value::Object(o));
+        }
+        for (m, lim) in old_models.as_ref().and_then(Value::as_object).into_iter().flatten() {
+            let mut o = Map::new();
+            o.insert("models".into(), Value::Array(vec![Value::String(m.clone())]));
+            for k in ["concurrency", "rpm", "tpm"] {
+                if let Some(n) = pos(lim, k) {
+                    o.insert(k.into(), n.into());
+                }
+            }
+            if o.len() > 1 {
+                rules.push(Value::Object(o));
+            }
+        }
+        if let Some(existing) = rl.get("rules").and_then(Value::as_array) {
+            rules.extend(existing.iter().cloned());
+        }
+        rl.insert("rules".into(), Value::Array(rules));
+        let Ok(new_extra) = serde_json::to_string(&root) else {
+            continue;
+        };
+        if let Err(e) = conn.execute(
+            "UPDATE platform SET extra = ?1 WHERE id = ?2",
+            params![new_extra, id],
+        ) {
+            tracing::warn!(platform_id = id, error = %e, "migration 20261110-14: UPDATE 失败，整体回滚待下次重试");
+            let _ = conn.execute_batch("ROLLBACK");
+            return 0;
+        }
+        updated += 1;
+    }
+    if conn.execute_batch("COMMIT").is_err() {
+        let _ = conn.execute_batch("ROLLBACK");
+        return 0;
+    }
+    if updated > 0 {
+        tracing::info!(updated, "migration 20261110-14: 限频 models / windows → rules 完成");
     }
     updated
 }
