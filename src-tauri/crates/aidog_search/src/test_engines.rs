@@ -67,11 +67,7 @@ fn parse_searx_matches_oracle() {
 
 /// 只开指定引擎，其余全关（防止测试误打真实引擎）。
 fn only(ids: &[&str]) -> SearchProviderConfig {
-    let mut c = SearchProviderConfig::default();
-    for e in ENGINES {
-        c.engines.insert(e.id.to_string(), ids.contains(&e.id));
-    }
-    c
+    SearchProviderConfig { sources: ids.iter().map(|s| s.to_string()).collect(), mode: SearchMode::Parallel, ..Default::default() }
 }
 
 fn env_for(bases: &[(&str, u16)]) -> SearchEnv {
@@ -100,7 +96,7 @@ async fn parallel_merge_dedup_cap_and_reports() {
     let p2 = spawn_stub(serve(fx("bing.html"), "text/html")).await;
     let o = web_search_detailed(&only(&["ddg", "bing"]), "rust", None, &env_for(&[("ddg", p1), ("bing", p2)])).await;
     assert!(o.error.is_none(), "{:?}", o.error);
-    assert_eq!(o.source, "engines");
+    assert_eq!(o.source, "parallel");
     assert_eq!(o.hits.len(), MERGE_CAP);
     let mut urls: Vec<_> = o.hits.iter().map(|h| h.url.clone()).collect();
     urls.sort();
@@ -166,7 +162,7 @@ async fn engine_timeout_is_enforced() {
 #[tokio::test]
 async fn no_engine_enabled_is_explicit_unconfigured_error() {
     let o = web_search_detailed(&only(&[]), "rust", None, &SearchEnv::default()).await;
-    assert!(o.error.unwrap().contains("未配置"));
+    assert!(o.error.unwrap().contains("未启用任何搜索来源"));
 }
 
 #[tokio::test]
@@ -215,43 +211,32 @@ async fn keyed_provider_wins_over_engines() {
         (200, "application/json".into(), r#"{"results":[{"title":"T","url":"https://k.example/","content":"c"}]}"#.into())
     }))
     .await;
-    let mut cfg = only(&["ddg"]);
-    cfg.provider = "tavily".into();
-    cfg.keys = vec!["k".into()];
-    // ddg 未注入 base：若误走引擎路径会真实外呼，因此 key 服务必须先成功并返回
+    let mut cfg = only(&["tavily", "ddg"]);
+    cfg.mode = SearchMode::Sequential;
+    cfg.services.insert("tavily".into(), ServiceConfig { keys: vec!["k".into()] });
+    // ddg 未注入 base：若误走引擎路径会真实外呼，因此排首位的 key 服务成功后必须停
     let o = web_search_detailed(&cfg, "q", None, &env_for(&[("tavily", key_port)])).await;
-    assert_eq!(o.source, "tavily");
+    assert_eq!(o.source, "sequential");
     assert_eq!(o.hits.len(), 1);
     assert_eq!(o.engines.len(), 1);
+    assert_eq!(o.engines[0].engine, "tavily");
 }
 
 #[tokio::test]
-async fn disabled_keyed_provider_falls_through_to_engines() {
+async fn unlisted_keyed_service_is_not_called() {
     let p = spawn_stub(serve(fx("ddg.html"), "text/html")).await;
     let mut cfg = only(&["ddg"]);
-    cfg.provider = "tavily".into();
-    cfg.keys = vec!["k".into()];
-    cfg.enabled = false;
+    // 配了 key 但不在 sources：不调用（tavily 未注入 base，误调会真实外呼）
+    cfg.services.insert("tavily".into(), ServiceConfig { keys: vec!["k".into()] });
     let o = web_search_detailed(&cfg, "q", None, &env_for(&[("ddg", p)])).await;
-    assert_eq!(o.source, "engines");
+    assert_eq!(o.engines.len(), 1);
+    assert_eq!(o.source, "parallel");
     assert_eq!(o.hits.len(), 10);
 }
 
 #[test]
 fn quote_plus_matches_python() {
     assert_eq!(quote_plus("a b&c/é~*"), "a+b%26c%2F%C3%A9~%2A");
-}
-
-#[test]
-fn old_shape_settings_json_deserializes_unchanged() {
-    let c: SearchProviderConfig = serde_json::from_value(serde_json::json!({
-        "provider": "tavily", "keys": ["k1", "k2"], "enabled": false,
-        "searxng_base_urls": ["http://a"]
-    }))
-    .unwrap();
-    assert_eq!((c.provider.as_str(), c.keys.len(), c.enabled), ("tavily", 2, false));
-    assert_eq!(c.searxng_base_urls, vec!["http://a".to_string()]);
-    assert!(c.engines.is_empty(), "旧 JSON 无 engines 键 → 空覆盖 → 取默认开关");
 }
 
 #[test]

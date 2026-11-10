@@ -235,4 +235,27 @@ mod tests {
         let extra: Value = serde_json::from_str(new["extra"].as_str().unwrap()).unwrap();
         assert_eq!(extra["auth_header"], "x-k");
     }
+
+    #[test]
+    fn search_service_keys_are_masked_and_mask_restores_original() {
+        let cfg = json!({"value": {"search": {
+            "enabled": true, "sources": ["tavily", "exa"], "mode": "sequential",
+            "services": {"tavily": {"keys": ["tvly-1", "tvly-2"]}, "exa": {"keys": ["exa-1"]}},
+            "searxng_base_urls": ["http://s"]
+        }}});
+        let mut shown = cfg.clone();
+        mask_value(&mut shown);
+        let s = shown.to_string();
+        for leak in ["tvly-1", "tvly-2", "exa-1"] {
+            assert!(!s.contains(leak), "{leak} 泄漏: {s}");
+        }
+        assert_eq!(shown["value"]["search"]["services"]["tavily"]["keys"], json!([MASK, MASK]));
+        assert_eq!(shown["value"]["search"]["sources"], json!(["tavily", "exa"]), "非密钥字段不遮");
+        // 前端把遮罩原样提交（tavily 第 2 个 key 换新值）→ 同路径按序回填
+        let mut submit = shown.clone();
+        submit["value"]["search"]["services"]["tavily"]["keys"][1] = json!("tvly-new");
+        restore_value(&mut submit, &cfg);
+        assert_eq!(submit["value"]["search"]["services"]["tavily"]["keys"], json!(["tvly-1", "tvly-new"]));
+        assert_eq!(submit["value"]["search"]["services"]["exa"]["keys"], json!(["exa-1"]));
+    }
 }
