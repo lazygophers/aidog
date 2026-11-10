@@ -217,7 +217,7 @@ function FlowNode({ title, sub, io }: { title: string; sub?: string; io?: boolea
       )}
     >
       {title}
-      {sub && <span className="block text-[11px] font-normal text-secondary">{sub}</span>}
+      {sub && <span className="block text-xs font-normal text-secondary">{sub}</span>}
     </span>
   );
 }
@@ -227,7 +227,7 @@ function FlowArrow({ label, tone }: { label?: string; tone?: "ok" | "info" }) {
       <span className="h-px min-w-[12px] flex-1 border-t border-dashed border-[var(--input)]" />
       <span className={cn("size-1.5 rotate-45 border-t border-r", tone === "ok" ? "border-[var(--success)]" : tone === "info" ? "border-primary" : "border-[var(--muted-foreground)]")} />
       {label && (
-        <span className={cn("absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px]", tone === "ok" ? "text-[var(--success)]" : tone === "info" ? "text-primary" : "text-destructive")}>
+        <span className={cn("absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs", tone === "ok" ? "text-[var(--success)]" : tone === "info" ? "text-primary" : "text-destructive")}>
           {label}
         </span>
       )}
@@ -528,7 +528,7 @@ export function ToolsSection() {
   );
 
   const switchRow = (testid: string, checked: boolean, onToggle: () => void, label: string) => (
-    <label className="flex items-center gap-2.5 text-xs">
+    <label className="flex items-center gap-2.5 text-sm">
       <Switch data-testid={testid} checked={checked} onCheckedChange={onToggle} />
       {label}
     </label>
@@ -536,7 +536,7 @@ export function ToolsSection() {
 
   const poolGroup = (title: string, items: SearchSource[]) => (
     <div className="mb-3.5">
-      <div className="mb-1.5 text-xs font-semibold text-secondary">{title}</div>
+      <div className="mb-1.5 text-sm font-semibold text-secondary">{title}</div>
       <div className="flex flex-wrap gap-1.5">
         {items.map((src) => {
           const on = search.sources.includes(src.id);
@@ -548,7 +548,7 @@ export function ToolsSection() {
               data-state={on ? "on" : "off"}
               onClick={() => toggleSource(src.id)}
               className={cn(
-                "inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors",
+                "inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-sm transition-colors",
                 on
                   ? "border-primary bg-[var(--accent-subtle)] font-medium text-primary"
                   : "border-border bg-card hover:border-primary",
@@ -596,7 +596,7 @@ export function ToolsSection() {
 
   const searxRow = (
     <div className="flex flex-col gap-1.5 px-2.5 pb-2.5 pl-[52px]">
-      <label className="flex flex-col gap-1 text-xs">
+      <label className="flex flex-col gap-1 text-sm">
         <span>{t("tools.searxngUrls")}</span>
         <textarea
           data-testid="mcp-tools-searxng-urls"
@@ -610,10 +610,10 @@ export function ToolsSection() {
         <Button variant="outline" size="sm" data-testid="tools-searx-refresh" disabled={searxBusy} onClick={() => void refreshSearx()}>
           {searxBusy ? t("tools.searxRefreshing") : t("tools.searxRefresh")}
         </Button>
-        <span className="text-xs text-secondary">{t("tools.searxRefreshHint")}</span>
+        <span className="text-sm text-secondary">{t("tools.searxRefreshHint")}</span>
       </div>
       {searxError && (
-        <span className="text-xs text-destructive" data-testid="tools-searx-error">{searxError}</span>
+        <span className="text-sm text-destructive" data-testid="tools-searx-error">{searxError}</span>
       )}
       {searxList.length > 0 && (
         <div className="flex max-h-[180px] flex-col gap-1 overflow-y-auto">
@@ -627,7 +627,7 @@ export function ToolsSection() {
                 data-state={on ? "on" : "off"}
                 onClick={() => toggleSearxUrl(inst.url)}
                 className={cn(
-                  "inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors",
+                  "inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-sm transition-colors",
                   on ? "border-primary bg-[var(--accent-subtle)] text-primary" : "border-border bg-card hover:border-primary",
                 )}
               >
@@ -651,16 +651,16 @@ export function ToolsSection() {
       <div className="px-4 pb-4 pt-4">
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <div>
-            <div className="mb-2 flex items-center gap-2 text-xs font-semibold">
+            <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
               {t("tools.sources.pool")}
             </div>
             {poolGroup(t("tools.sources.keyed"), sourceList.filter((s) => s.kind === "keyed"))}
             {poolGroup(t("tools.sources.engines"), sourceList.filter((s) => s.kind === "engine"))}
           </div>
           <div>
-            <div className="mb-2 text-xs font-semibold text-secondary">{t("tools.sources.enabled")}</div>
+            <div className="mb-2 text-sm font-semibold text-secondary">{t("tools.sources.enabled")}</div>
             {search.sources.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-[var(--input)] px-4 py-4 text-center text-xs text-secondary">
+              <div className="rounded-lg border border-dashed border-[var(--input)] px-4 py-4 text-center text-sm text-secondary">
                 {t("tools.sources.empty")}
               </div>
             ) : (
@@ -681,12 +681,12 @@ export function ToolsSection() {
                       >
                         <GripIcon />
                       </button>
-                      <span className="grid size-5 place-items-center rounded bg-primary text-[11px] font-semibold text-primary-foreground">
+                      <span className="grid size-5 place-items-center rounded bg-primary text-xs font-semibold text-primary-foreground">
                         {search.sources.indexOf(item.id) + 1}
                       </span>
                       <b className="text-sm font-semibold">{sourceName(item.id)}</b>
                       {keyedIds.has(item.id) && (
-                        <span className="rounded bg-[var(--accent-subtle)] px-1 text-[11px] text-primary">key</span>
+                        <span className="rounded bg-[var(--accent-subtle)] px-1 text-xs text-primary">key</span>
                       )}
                       <span className="flex-1" />
                       <button
@@ -709,7 +709,7 @@ export function ToolsSection() {
         </div>
 
         <div className="mt-3.5 flex items-center gap-3">
-          <div className="text-xs font-semibold">{t("tools.mode.label")}</div>
+          <div className="text-sm font-semibold">{t("tools.mode.label")}</div>
           <div className="inline-flex rounded-lg border border-input bg-secondary p-0.5">
             <button
               type="button"
@@ -717,7 +717,7 @@ export function ToolsSection() {
               data-state={search.mode === "sequential" ? "active" : "inactive"}
               onClick={() => setMode("sequential")}
               className={cn(
-                "h-7 rounded-md px-3 text-xs font-medium transition-colors",
+                "h-7 rounded-md px-3 text-sm font-medium transition-colors",
                 search.mode === "sequential" ? "bg-card text-primary shadow-sm" : "text-secondary",
               )}
             >
@@ -729,20 +729,20 @@ export function ToolsSection() {
               data-state={search.mode === "parallel" ? "active" : "inactive"}
               onClick={() => setMode("parallel")}
               className={cn(
-                "h-7 rounded-md px-3 text-xs font-medium transition-colors",
+                "h-7 rounded-md px-3 text-sm font-medium transition-colors",
                 search.mode === "parallel" ? "bg-card text-primary shadow-sm" : "text-secondary",
               )}
             >
               {t("tools.mode.parallel")}
             </button>
           </div>
-          <span className="text-xs text-secondary">
+          <span className="text-sm text-secondary">
             {search.mode === "sequential" ? t("tools.mode.sequentialHint") : t("tools.mode.parallelHint")}
           </span>
         </div>
 
         {search.mode === "parallel" && search.sources.some((id) => keyedIds.has(id)) && (
-          <div data-testid="tools-billing-warning" className="mt-2 flex items-center gap-1.5 text-xs text-[var(--warning)]">
+          <div data-testid="tools-billing-warning" className="mt-2 flex items-center gap-1.5 text-sm text-[var(--warning)]">
             <span className="size-1.5 rounded-full bg-current" />
             {t("tools.billingWarning")}
           </div>
