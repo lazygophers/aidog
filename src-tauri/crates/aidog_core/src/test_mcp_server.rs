@@ -145,20 +145,16 @@ fn tools_call_web_search_unconfigured_is_explicit_error() {
 }
 
 #[test]
-fn tools_call_unverified_provider_is_explicit_error() {
-    // unverified provider 不打网络：入口处直接显式报错（票面纪律：不猜端点）。
+fn tools_call_keyed_provider_without_key_is_explicit_error() {
+    // 已选 key 服务但未配 key：入口处显式报错，不打网络。
     let settings = McpToolsSettings {
-        search: SearchProviderConfig {
-            sources: vec!["deepseek".into()],
-            services: [("deepseek".to_string(), aidog_search::ServiceConfig { keys: vec!["k".into()] })].into(),
-            ..Default::default()
-        },
+        search: SearchProviderConfig { sources: vec!["deepseek".into()], ..Default::default() },
         ..Default::default()
     };
     let result = call_tool("web_search", json!({"query": "q"}), &settings);
     assert_eq!(result["isError"], true);
     assert!(
-        result["content"][0]["text"].as_str().unwrap().contains("unverified"),
+        result["content"][0]["text"].as_str().unwrap().contains("未配置 API key"),
         "text={}",
         result["content"][0]["text"]
     );
