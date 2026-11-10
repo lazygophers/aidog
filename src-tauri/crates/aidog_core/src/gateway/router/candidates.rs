@@ -5,7 +5,7 @@ use super::super::peak;
 use super::super::scheduling::{Admission, BreakerThresholds, SchedulerState, StickyTable};
 use super::super::time_windows;
 use super::model_mapping::{
-    CustomSlotDef, CustomSlotEntry, build_custom_entries, parse_custom_defs,
+    CustomSlotDef, CustomSlotEntry, build_custom_entries, custom_defs_hit, parse_custom_defs,
     resolve_decision_model, request_tier_families, resolve_model_chain_with_custom,
 };
 use super::ordering::{
@@ -304,6 +304,8 @@ struct ExtraCache {
     rate: RateLimitsCfg,
     /// extra.custom_slots × 全局自定义槽位定义：本平台已填值的槽，按匹配顺序排好（仅聊天请求构建）。
     custom: Vec<CustomSlotEntry>,
+    /// 全局自定义槽定义（含本平台未填值的槽）：未填值的槽被关闭时，命中该槽规则的请求同样须排除。
+    custom_defs: Vec<CustomSlotDef>,
     /// extra.disabled_slots ∪ 旧键 extra.soft_disabled_slots（关闭的槽位名：内置或自定义）。
     disabled_slots: Vec<String>,
 }
@@ -338,6 +340,7 @@ impl ExtraCache {
             ua_rules,
             rate: RateLimitsCfg::parse(extra),
             custom,
+            custom_defs: custom_defs.map(<[_]>::to_vec).unwrap_or_default(),
             disabled_slots,
         }
     }
@@ -1959,7 +1962,10 @@ fn disabled_slot_reason(
     };
     slot.and_then(|s| off(&s)).or_else(|| {
         if matches!(kind, RequestKind::Chat) {
-            request_tier_families(model_name).iter().find_map(|f| off(f))
+            request_tier_families(model_name).iter().find_map(|f| off(f)).or_else(|| {
+                // 命中某自定义槽规则但本平台未填值（槽不入命中表、请求会回落别的槽）：关了该槽同样排除。
+                custom_defs_hit(&cache.custom_defs, model_name).find_map(off)
+            })
         } else {
             None
         }
