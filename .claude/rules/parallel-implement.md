@@ -269,7 +269,7 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
   prompt 只写「精确文本插入」描述、让 agent 自己拼编辑脚本，agent 侧同样发生生成流劣化
   （surgical-refactor.md §3 同模式）；agent 被中断后脚本垃圾直接落进数据文件。改法：把
   删垃圾 + 锚点插入的 python/node 脚本全文写进 prompt，agent 只负责跑与回报校验输出。
-- **harness 并发上限是环境变量 `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`（默认 2）**：用户说「不要管限制」
+- **harness 并发上限是环境变量 `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`（官方默认 20，需 Claude Code ≥ v2.1.217；ultracode / resume 已结束 agent / /subtask / workflow / teammate 不受此限）**：用户说「不要管限制」
   只解除本项目的 ≤2 约定，不改 harness；第 3 个派发报 `Concurrent subagent limit reached` 时不重试，
   任务排队，任一完成再派。
 - **主仓 `node_modules` 缺失**（票 07 observed，原因不明）：agent 在主仓补 `yarn install --immutable`，
