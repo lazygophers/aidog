@@ -54,11 +54,10 @@ pub(crate) async fn spawn_stub(handler: Handler) -> u16 {
 
 fn cfg(provider: &str, keys: &[&str]) -> SearchProviderConfig {
     SearchProviderConfig {
-        provider: provider.into(),
-        keys: keys.iter().map(|k| k.to_string()).collect(),
-        enabled: true,
-        searxng_base_urls: vec![],
-        engines: Default::default(),
+        sources: vec![provider.into()],
+        services: [(provider.to_string(), ServiceConfig { keys: keys.iter().map(|k| k.to_string()).collect() })].into(),
+        mode: SearchMode::Sequential,
+        ..Default::default()
     }
 }
 
@@ -180,12 +179,9 @@ async fn unverified_providers_return_explicit_error() {
 
 #[tokio::test]
 async fn nothing_configured_and_all_engines_off_is_explicit() {
-    let mut sc = SearchProviderConfig::default();
-    for e in crate::engines::ENGINES {
-        sc.engines.insert(e.id.to_string(), false);
-    }
+    let sc = SearchProviderConfig { sources: vec![], ..Default::default() };
     let err = web_search(&sc, "q", None).await.unwrap_err();
-    assert!(err.contains("未配置"), "err={err}");
+    assert!(err.contains("未启用任何搜索来源"), "err={err}");
 }
 
 #[tokio::test]

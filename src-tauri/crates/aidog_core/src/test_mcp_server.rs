@@ -132,9 +132,7 @@ fn call_tool(name: &str, args: Value, settings: &McpToolsSettings) -> Value {
 /// 未配 key 服务且关掉全部免 key 引擎的设置（默认设置会真实外呼，测试禁用）。
 fn settings_without_engines() -> McpToolsSettings {
     let mut s = McpToolsSettings::default();
-    for e in aidog_search::engines::ENGINES {
-        s.search.engines.insert(e.id.to_string(), false);
-    }
+    s.search.sources = vec![];
     s
 }
 
@@ -143,7 +141,7 @@ fn tools_call_web_search_unconfigured_is_explicit_error() {
     let result = call_tool("web_search", json!({"query": "q"}), &settings_without_engines());
     assert_eq!(result["isError"], true, "未配置必须 isError=true");
     let text = result["content"][0]["text"].as_str().unwrap();
-    assert!(text.contains("未配置"), "text={text}");
+    assert!(text.contains("未启用任何搜索来源"), "text={text}");
 }
 
 #[test]
@@ -151,11 +149,9 @@ fn tools_call_unverified_provider_is_explicit_error() {
     // unverified provider 不打网络：入口处直接显式报错（票面纪律：不猜端点）。
     let settings = McpToolsSettings {
         search: SearchProviderConfig {
-            provider: "deepseek".into(),
-            keys: vec!["k".into()],
-            enabled: true,
-            searxng_base_urls: vec![],
-            engines: Default::default(),
+            sources: vec!["deepseek".into()],
+            services: [("deepseek".to_string(), aidog_search::ServiceConfig { keys: vec!["k".into()] })].into(),
+            ..Default::default()
         },
         ..Default::default()
     };

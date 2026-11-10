@@ -76,47 +76,108 @@ pub struct SearchHit {
     pub page_age: Option<String>,
 }
 
+/// 搜索执行模式。
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum SearchMode {
+    /// 按 `sources` 顺序逐个试：报错 / 超时 / 0 条换下一个，首个非空即停。
+    #[default]
+    Sequential,
+    /// 并发查全部来源（等全部返回），合并 + URL 去重。
+    Parallel,
+}
+
+/// 单个 key 服务的配置（路径必须以 `keys` 结尾，管理接口脱敏按该后缀匹配）。
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Default)]
+pub struct ServiceConfig {
+    /// API keys，多 key 轮换。
+    #[serde(default)]
+    pub keys: Vec<String>,
+}
+
 /// 搜索设置（`mcp_tools/settings` 的 `search` 段；`aidog_core::mcp_tools` 再导出）。
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub struct SearchProviderConfig {
-    /// key 服务 id（词表见 [`KEY_SERVICES`]）。
-    #[serde(default)]
-    pub provider: String,
-    /// API keys，多 key 轮换；至少 1 个非空才算配置了 key 服务。
-    #[serde(default)]
-    pub keys: Vec<String>,
-    /// key 服务启用开关（缺省 true）；false 时视同未配置 key 服务，走免 key 引擎。
+    /// 「启用搜索」总开关（缺省 true）；false = 整个搜索停用（含免 key 引擎）。
     #[serde(default = "default_enabled")]
     pub enabled: bool,
+    /// 有序启用的来源（key 服务 id 或免 key 引擎 id，顺序即优先级）。
+    #[serde(default)]
+    pub sources: Vec<String>,
+    /// 执行模式（缺省顺序）。
+    #[serde(default)]
+    pub mode: SearchMode,
+    /// key 服务 id → 配置（key 本身与是否在 `sources` 里无关，取消勾选不删 key）。
+    #[serde(default)]
+    pub services: BTreeMap<String, ServiceConfig>,
     /// SearXNG 引擎使用的实例 base_url（用户自填 / 从 searx.space 列表多选）。
     #[serde(default)]
     pub searxng_base_urls: Vec<String>,
-    /// 免 key 引擎开关覆盖（引擎 id → 开关）；缺项取 [`engines::ENGINES`] 的 `default_on`。
-    #[serde(default)]
-    pub engines: BTreeMap<String, bool>,
 }
 
 fn default_enabled() -> bool {
     true
 }
 
+/// 全新安装的来源：`default_on` 的免 key 引擎，按 [`engines::ENGINES`] 序。
+fn default_sources() -> Vec<String> {
+    engines::ENGINES.iter().filter(|e| e.default_on).map(|e| e.id.to_string()).collect()
+}
+
 impl Default for SearchProviderConfig {
     fn default() -> Self {
         Self {
-            provider: String::new(),
-            keys: Vec::new(),
             enabled: default_enabled(),
+            sources: default_sources(),
+            mode: SearchMode::Parallel,
+            services: BTreeMap::new(),
             searxng_base_urls: Vec::new(),
-            engines: BTreeMap::new(),
         }
     }
 }
 
-impl SearchProviderConfig {
-    /// 是否已配置到可用（有 provider 且至少一个非空 key）。
-    pub fn is_configured(&self) -> bool {
-        !self.provider.is_empty() && self.keys.iter().any(|k| !k.trim().is_empty())
+/// 旧形状（`provider` / `keys` / `enabled` / `engines`）→ 新形状，原地改写 `search` 段。
+/// 返回是否有改动（调用方据此回写）。已含 `sources` 键、非对象 → 不动。幂等。
+///
+/// 口径（保持旧的实际效果）：旧 `enabled` 只管 key 服务，免 key 引擎恒落；新 `enabled` 管整个搜索，
+/// 故旧 enabled=false 但有引擎可用时迁移后 enabled=true、来源只含引擎。key 一律保留在 `services`。
+pub fn migrate_search_value(search: &mut serde_json::Value) -> bool {
+    let Some(old) = search.as_object() else { return false };
+    if old.contains_key("sources") {
+        return false;
     }
+    let old_enabled = old.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true);
+    let provider = old.get("provider").and_then(|v| v.as_str()).unwrap_or_default().trim().to_string();
+    let keys: Vec<String> = old
+        .get("keys")
+        .and_then(|v| v.as_array())
+        .map(|a| a.iter().filter_map(|k| k.as_str()).map(|k| k.trim().to_string()).filter(|k| !k.is_empty()).collect())
+        .unwrap_or_default();
+    let overrides = old.get("engines").and_then(|v| v.as_object());
+    let mut sources: Vec<String> = engines::ENGINES
+        .iter()
+        .filter(|e| overrides.and_then(|m| m.get(e.id)).and_then(|v| v.as_bool()).unwrap_or(e.default_on))
+        .map(|e| e.id.to_string())
+        .collect();
+    let has_keyed = !provider.is_empty() && provider != "searxng" && !keys.is_empty();
+    let mut services = serde_json::Map::new();
+    if has_keyed {
+        services.insert(provider.clone(), serde_json::json!({ "keys": keys }));
+    }
+    let keyed_first = has_keyed && old_enabled;
+    if keyed_first {
+        sources.insert(0, provider);
+    }
+    let enabled = old_enabled || !sources.is_empty();
+    let urls = old.get("searxng_base_urls").cloned().unwrap_or_else(|| serde_json::json!([]));
+    *search = serde_json::json!({
+        "enabled": enabled,
+        "sources": sources,
+        "mode": if keyed_first { "sequential" } else { "parallel" },
+        "services": services,
+        "searxng_base_urls": urls,
+    });
+    true
 }
 
 /// 单引擎 / key 服务一次调用的明细（工具日志消费）。
@@ -133,7 +194,7 @@ pub struct EngineReport {
 pub struct SearchOutcome {
     pub hits: Vec<SearchHit>,
     pub engines: Vec<EngineReport>,
-    /// 实际走的路径：key 服务 id，或 `"engines"`（免 key 引擎并行）。
+    /// 执行路径：`sequential` / `parallel`；`disabled`（搜索已停用）/ `none`（来源列表为空）。
     pub source: String,
     /// 整体失败原因（None = 成功，可能 0 条）。
     pub error: Option<String>,
@@ -184,55 +245,123 @@ pub async fn web_search(
     }
 }
 
-/// 完整搜索：配了 key 的 key 服务优先（单独成功即返回）；否则并行查询已开的免 key 引擎。
+/// 完整搜索：「启用搜索」关 → 直接报停用；否则按 `sources` + `mode` 执行（顺序 / 一起）。
 pub async fn web_search_detailed(
     cfg: &SearchProviderConfig,
     query: &str,
     count: Option<usize>,
     env: &SearchEnv,
 ) -> SearchOutcome {
-    if cfg.enabled && cfg.is_configured() && cfg.provider != "searxng" {
-        return keyed_search(cfg, query, count, env).await;
+    let mut out = SearchOutcome::default();
+    if !cfg.enabled {
+        out.source = "disabled".into();
+        out.error = Some("搜索已停用（「启用搜索」已关闭）".into());
+        return out;
     }
-    engines_search(cfg, query, count, env).await
+    let mut ids: Vec<&str> = Vec::new();
+    for s in cfg.sources.iter().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+        if !ids.contains(&s) {
+            ids.push(s);
+        }
+    }
+    if ids.is_empty() {
+        out.source = "none".into();
+        out.error = Some("未启用任何搜索来源（来源列表为空）".into());
+        return out;
+    }
+    let cap = count.unwrap_or(MERGE_CAP).clamp(1, MERGE_CAP);
+    let mut lists: Vec<Vec<SearchHit>> = Vec::new();
+    match cfg.mode {
+        SearchMode::Sequential => {
+            out.source = "sequential".into();
+            for id in ids {
+                let (r, rep) = run_source(cfg, env, id, query, count).await;
+                out.engines.push(rep);
+                if let Ok(h) = r
+                    && !h.is_empty()
+                {
+                    lists.push(h);
+                    break;
+                }
+            }
+        }
+        SearchMode::Parallel => {
+            out.source = "parallel".into();
+            for (r, rep) in futures::future::join_all(ids.into_iter().map(|id| run_source(cfg, env, id, query, count))).await {
+                out.engines.push(rep);
+                if let Ok(h) = r {
+                    lists.push(h);
+                }
+            }
+        }
+    }
+    out.hits = merge_hits(&lists, cap);
+    if out.engines.iter().all(|r| r.error.is_some()) {
+        let errs: Vec<String> =
+            out.engines.iter().map(|r| format!("{}: {}", r.engine, r.error.as_deref().unwrap_or_default())).collect();
+        out.error = Some(format!("所有来源都失败: {}", errs.join("; ")));
+    }
+    out
+}
+
+/// 跑单个来源（key 服务或免 key 引擎），带单来源超时；返回结果与日志明细。
+async fn run_source(
+    cfg: &SearchProviderConfig,
+    env: &SearchEnv,
+    id: &str,
+    query: &str,
+    count: Option<usize>,
+) -> (Result<Vec<SearchHit>, String>, EngineReport) {
+    let t = std::time::Instant::now();
+    let fut = async {
+        if KEY_SERVICES.contains(&id) {
+            keyed_search(cfg, env, id, query, count).await
+        } else if let Some(e) = engines::ENGINES.iter().find(|e| e.id == id) {
+            let ctx = engines::EngineCtx {
+                bases: env.bases.clone(),
+                searxng_urls: cfg.searxng_base_urls.iter().map(|u| u.trim().to_string()).filter(|u| !u.is_empty()).collect(),
+                timeout: env.timeout,
+            };
+            (e.run)(&ctx, query, MERGE_CAP).await
+        } else {
+            Err(format!("未知搜索来源 `{id}`"))
+        }
+    };
+    let r = match tokio::time::timeout(env.timeout, fut).await {
+        Ok(r) => r,
+        Err(_) => Err(format!("timeout ({}ms)", env.timeout.as_millis())),
+    };
+    let rep = EngineReport {
+        engine: id.into(),
+        count: r.as_ref().map_or(0, Vec::len),
+        latency_ms: t.elapsed().as_millis() as u64,
+        error: r.as_ref().err().cloned(),
+    };
+    (r, rep)
 }
 
 async fn keyed_search(
     cfg: &SearchProviderConfig,
+    env: &SearchEnv,
+    p: &str,
     query: &str,
     count: Option<usize>,
-    env: &SearchEnv,
-) -> SearchOutcome {
-    let p = cfg.provider.as_str();
+) -> Result<Vec<SearchHit>, String> {
     let default_base = match p {
         "tavily" => TAVILY_BASE,
         "brave" => BRAVE_BASE,
         "exa" => EXA_BASE,
         "firecrawl" => FIRECRAWL_BASE,
-        // 未验证 provider：不猜端点，显式报错（票面纪律）。
-        _ => {
-            return SearchOutcome {
-                source: p.into(),
-                error: Some(format!("provider `{p}` 的公开搜索 API 未能从一手文档确认（unverified），未实现")),
-                ..Default::default()
-            };
-        }
+        // 未验证 provider：不猜端点，显式报错（票面纪律；票 03 补齐）。
+        _ => return Err(format!("provider `{p}` 的公开搜索 API 未能从一手文档确认（unverified），未实现")),
     };
     let base = env.bases.get(p).map(String::as_str).unwrap_or(default_base);
-    let keys: Vec<String> = cfg.keys.iter().map(|k| k.trim().to_string()).filter(|k| !k.is_empty()).collect();
-    let t = std::time::Instant::now();
-    let r = search_with_keys(p, base, keys, query, count).await;
-    let latency_ms = t.elapsed().as_millis() as u64;
-    let (hits, error) = match r {
-        Ok(h) => (h, None),
-        Err(e) => (Vec::new(), Some(e)),
-    };
-    SearchOutcome {
-        engines: vec![EngineReport { engine: p.into(), count: hits.len(), latency_ms, error: error.clone() }],
-        hits,
-        source: p.into(),
-        error,
-    }
+    let keys: Vec<String> = cfg
+        .services
+        .get(p)
+        .map(|s| s.keys.iter().map(|k| k.trim().to_string()).filter(|k| !k.is_empty()).collect())
+        .unwrap_or_default();
+    search_with_keys(p, base, keys, query, count).await
 }
 
 /// URL 去重键（同脚本）：百分号解码 + 去尾斜杠。
@@ -240,69 +369,23 @@ fn dedup_key(url: &str) -> String {
     percent_encoding::percent_decode_str(url).decode_utf8_lossy().trim_end_matches('/').to_string()
 }
 
-async fn engines_search(
-    cfg: &SearchProviderConfig,
-    query: &str,
-    count: Option<usize>,
-    env: &SearchEnv,
-) -> SearchOutcome {
-    let active: Vec<&engines::EngineDef> = engines::ENGINES
-        .iter()
-        .filter(|e| cfg.engines.get(e.id).copied().unwrap_or(e.default_on))
-        .collect();
-    let mut out = SearchOutcome { source: "engines".into(), ..Default::default() };
-    if active.is_empty() {
-        out.error = Some("未配置搜索 provider（填 API key），且没有启用的免 key 引擎".into());
-        return out;
-    }
-    let ctx = engines::EngineCtx {
-        bases: env.bases.clone(),
-        searxng_urls: cfg.searxng_base_urls.iter().map(|u| u.trim().to_string()).filter(|u| !u.is_empty()).collect(),
-        timeout: env.timeout,
-    };
-    let runs = active.iter().map(|e| {
-        let ctx = &ctx;
-        async move {
-            let t = std::time::Instant::now();
-            let r = match tokio::time::timeout(ctx.timeout, (e.run)(ctx, query, MERGE_CAP)).await {
-                Ok(r) => r,
-                Err(_) => Err(format!("timeout ({}ms)", ctx.timeout.as_millis())),
-            };
-            (e.id, r, t.elapsed().as_millis() as u64)
-        }
-    });
-    let results = futures::future::join_all(runs).await;
-    let mut lists: Vec<Vec<SearchHit>> = Vec::new();
-    for (id, r, latency_ms) in results {
-        match r {
-            Ok(hits) => {
-                out.engines.push(EngineReport { engine: id.into(), count: hits.len(), latency_ms, error: None });
-                lists.push(hits);
-            }
-            Err(e) => out.engines.push(EngineReport { engine: id.into(), count: 0, latency_ms, error: Some(e) }),
-        }
-    }
-    // 各引擎轮询交织（避免首个引擎占满上限），URL 去重。
-    let cap = count.unwrap_or(MERGE_CAP).clamp(1, MERGE_CAP);
+/// 各来源轮询交织（避免首个来源占满上限），URL 去重，截到 `cap`。
+fn merge_hits(lists: &[Vec<SearchHit>], cap: usize) -> Vec<SearchHit> {
+    let mut hits = Vec::new();
     let mut seen = std::collections::HashSet::new();
     'merge: for i in 0..lists.iter().map(Vec::len).max().unwrap_or(0) {
-        for l in &lists {
+        for l in lists {
             if let Some(h) = l.get(i)
                 && seen.insert(dedup_key(&h.url))
             {
-                out.hits.push(h.clone());
-                if out.hits.len() >= cap {
+                hits.push(h.clone());
+                if hits.len() >= cap {
                     break 'merge;
                 }
             }
         }
     }
-    if out.engines.iter().all(|r| r.error.is_some()) {
-        let errs: Vec<String> =
-            out.engines.iter().map(|r| format!("{}: {}", r.engine, r.error.as_deref().unwrap_or_default())).collect();
-        out.error = Some(format!("所有引擎都失败: {}", errs.join("; ")));
-    }
-    out
+    hits
 }
 
 /// 多 key 轮换：起点取自 [`ROTATION`]，逐 key 尝试，全失败聚合报错。
@@ -687,3 +770,7 @@ mod test_engines_more;
 #[cfg(test)]
 #[path = "test_sources.rs"]
 mod test_sources;
+
+#[cfg(test)]
+#[path = "test_modes.rs"]
+mod test_modes;

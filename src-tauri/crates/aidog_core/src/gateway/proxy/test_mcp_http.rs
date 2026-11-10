@@ -90,9 +90,7 @@ async fn spawn_fake_searx() -> String {
 /// 只开 searxng 引擎、指向假实例（其余免 key 引擎全关，禁真实外呼）。
 async fn use_fake_searx(state: &ProxyState, base: &str) {
     let mut s = McpToolsSettings::default();
-    for e in aidog_search::engines::ENGINES {
-        s.search.engines.insert(e.id.to_string(), e.id == "searxng");
-    }
+    s.search.sources = vec!["searxng".into()];
     s.search.searxng_base_urls = vec![base.to_string()];
     save_mcp_tools_settings(&state.db, &s).await.unwrap();
 }
@@ -217,9 +215,7 @@ async fn failed_tool_call_logs_error_row() {
     let gk = seed_group(&state, "g0").await;
     // 全部引擎关闭 → 搜索失败。
     let mut s = McpToolsSettings::default();
-    for e in aidog_search::engines::ENGINES {
-        s.search.engines.insert(e.id.to_string(), false);
-    }
+    s.search.sources = vec![];
     save_mcp_tools_settings(&state.db, &s).await.unwrap();
     let r = post(&state, bearer(&gk), "127.0.0.1:50000",
         rpc(4, "tools/call", json!({"name":"web_search","arguments":{"query":"q"}}))).await;

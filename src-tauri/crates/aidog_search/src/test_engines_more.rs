@@ -26,11 +26,7 @@ fn assert_matches_oracle(hits: &[SearchHit], expected_file: &str) {
 }
 
 fn only(id: &str) -> SearchProviderConfig {
-    let mut c = SearchProviderConfig::default();
-    for e in ENGINES {
-        c.engines.insert(e.id.to_string(), e.id == id);
-    }
-    c
+    SearchProviderConfig { sources: vec![id.to_string()], ..Default::default() }
 }
 
 fn env_for(id: &str, port: u16) -> SearchEnv {

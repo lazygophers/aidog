@@ -13,7 +13,7 @@ vi.mock("../../services/api/mcp", () => ({ mcpApi: { selfInstall: m.selfInstall 
 
 import { SEARCH_ENGINES, ToolsSection } from "./ToolsSection";
 
-const ALL_ON = Object.fromEntries(SEARCH_ENGINES.map((e) => [e.id, e.defaultOn]));
+const DEFAULT_SOURCES = SEARCH_ENGINES.filter((e) => e.defaultOn).map((e) => e.id);
 const engineBox = (id: string) => screen.getByTestId(`tools-engine-${id}`) as HTMLInputElement;
 
 const providerSelect = () => screen.getByTestId("mcp-tools-provider") as HTMLSelectElement;
@@ -37,14 +37,14 @@ describe("ToolsSection", () => {
     fireEvent.click(saved());
     await waitFor(() =>
       expect(h.set).toHaveBeenCalledWith("mcp_tools", "settings", {
-        search: { provider: "", keys: [], enabled: true, searxng_base_urls: [], engines: ALL_ON },
+        search: { enabled: true, sources: DEFAULT_SOURCES, mode: "parallel", services: {}, searxng_base_urls: [] },
       }),
     );
   });
 
   it("已配置加载回填；保存保留 image 透传", async () => {
     h.get.mockResolvedValue({
-      search: { provider: "tavily", keys: ["k1"], enabled: true, searxng_base_urls: [] },
+      search: { enabled: true, sources: ["tavily", "ddg"], mode: "sequential", services: { tavily: { keys: ["k1"] } }, searxng_base_urls: [] },
       image: { base_url: "https://api.openai.com/v1", api_key: "img-k", model: "g" },
     });
     render(<ToolsSection />);
@@ -55,7 +55,9 @@ describe("ToolsSection", () => {
       const call = h.set.mock.calls[0];
       expect(call[0]).toBe("mcp_tools");
       expect((call[2] as any).image).toEqual({ base_url: "https://api.openai.com/v1", api_key: "img-k", model: "g" });
-      expect((call[2] as any).search.provider).toBe("tavily");
+      expect((call[2] as any).search.sources[0]).toBe("tavily");
+      expect((call[2] as any).search.mode).toBe("sequential");
+      expect((call[2] as any).search.services.tavily.keys).toEqual(["k1"]);
     });
   });
 
@@ -68,14 +70,14 @@ describe("ToolsSection", () => {
     await waitFor(() =>
       expect(h.set).toHaveBeenCalledWith("mcp_tools", "settings", {
         search: {
-          provider: "", keys: [], enabled: true,
-          searxng_base_urls: ["http://a", "http://b/"], engines: ALL_ON,
+          enabled: true, sources: DEFAULT_SOURCES, mode: "parallel", services: {},
+          searxng_base_urls: ["http://a", "http://b/"],
         },
       }),
     );
   });
 
-  it("引擎列表：默认取各引擎缺省开关；关掉 bing 后保存写出 engines.bing=false", async () => {
+  it("引擎列表：默认取各引擎缺省开关；关掉 bing 后保存的 sources 不含 bing", async () => {
     render(<ToolsSection />);
     await waitFor(() => expect(providerSelect().value).toBe(""));
     for (const e of SEARCH_ENGINES) expect(engineBox(e.id).checked, e.id).toBe(e.defaultOn);
@@ -84,13 +86,13 @@ describe("ToolsSection", () => {
     fireEvent.click(saved());
     await waitFor(() => {
       const call = h.set.mock.calls[0];
-      expect((call[2] as any).search.engines).toEqual({ ...ALL_ON, bing: false });
+      expect((call[2] as any).search.sources).toEqual(DEFAULT_SOURCES.filter((id) => id !== "bing"));
     });
   });
 
-  it("旧设置（无 engines 键）加载 = 全取默认开；已存 false 回填；provider=searxng 读作未选且 URL 保留", async () => {
+  it("无 sources（未保存过）加载 = 引擎全取默认开；已存 sources 回填；URL 保留", async () => {
     h.get.mockResolvedValue({
-      search: { provider: "searxng", keys: [], enabled: true, searxng_base_urls: ["http://old"] },
+      search: { searxng_base_urls: ["http://old"] },
     });
     const { unmount } = render(<ToolsSection />);
     await waitFor(() => expect((screen.getByTestId("mcp-tools-searxng-urls") as HTMLTextAreaElement).value).toBe("http://old"));
@@ -98,20 +100,22 @@ describe("ToolsSection", () => {
     for (const e of SEARCH_ENGINES) expect(engineBox(e.id).checked, e.id).toBe(e.defaultOn);
     unmount();
 
-    h.get.mockResolvedValue({ search: { provider: "", keys: [], enabled: true, engines: { google: false } } });
+    h.get.mockResolvedValue({ search: { enabled: true, sources: ["ddg"], services: {} } });
     render(<ToolsSection />);
     await waitFor(() => expect(engineBox("google").checked).toBe(false));
     expect(engineBox("ddg").checked).toBe(true);
+    expect(engineBox("bing").checked).toBe(false);
   });
 
   it("key 多行解析：trim + 去空行", async () => {
     render(<ToolsSection />);
     await waitFor(() => expect(providerSelect().value).toBe(""));
+    fireEvent.change(providerSelect(), { target: { value: "tavily" } });
     fireEvent.change(keysArea(), { target: { value: " k1 \nk2\n\nk3  " } });
     fireEvent.click(saved());
     await waitFor(() => {
       const call = h.set.mock.calls[0];
-      expect((call[2] as any).search.keys).toEqual(["k1", "k2", "k3"]);
+      expect((call[2] as any).search.services.tavily.keys).toEqual(["k1", "k2", "k3"]);
     });
   });
 
@@ -127,14 +131,18 @@ describe("ToolsSection", () => {
     expect([...providerSelect().options].find((o) => o.value === "tavily")!.textContent).not.toContain("tools.unverifiedBadge");
   });
 
-  it("enabled 关闭保留在保存值里", async () => {
-    h.get.mockResolvedValue({ search: { provider: "brave", keys: ["k"], enabled: false, searxng_base_urls: [] } });
+  it("key 服务不在来源列表时 enabled 读作关；保存不丢该服务的 key 与总开关", async () => {
+    h.get.mockResolvedValue({
+      search: { enabled: false, sources: [], services: { brave: { keys: ["k"] }, exa: { keys: ["e"] } }, searxng_base_urls: [] },
+    });
     render(<ToolsSection />);
     await waitFor(() => expect(enabledBox().checked).toBe(false));
     fireEvent.click(saved());
     await waitFor(() => {
-      const call = h.set.mock.calls[0];
-      expect((call[2] as any).search.enabled).toBe(false);
+      const search = (h.set.mock.calls[0][2] as any).search;
+      expect(search.enabled).toBe(false);
+      expect(search.sources).toEqual([]);
+      expect(search.services).toEqual({ brave: { keys: ["k"] }, exa: { keys: ["e"] } });
     });
   });
 
@@ -206,7 +214,7 @@ describe("ToolsSection", () => {
   });
 
   it("刷新后多选写入实例 URL 并随保存持久化；自填 URL 保留；取消勾选移除", async () => {
-    h.get.mockResolvedValue({ search: { provider: "", keys: [], enabled: true, searxng_base_urls: ["http://mine"] } });
+    h.get.mockResolvedValue({ search: { enabled: true, sources: [], services: {}, searxng_base_urls: ["http://mine"] } });
     sx.searxInstances.mockResolvedValue([
       { url: "https://a.example/", seconds: 0.3 },
       { url: "https://b.example/", seconds: 1.2 },
@@ -227,7 +235,7 @@ describe("ToolsSection", () => {
   });
 
   it("已保存的实例在刷新列表里显示为已勾选；刷新失败显示错误", async () => {
-    h.get.mockResolvedValue({ search: { provider: "", keys: [], enabled: true, searxng_base_urls: ["https://a.example/"] } });
+    h.get.mockResolvedValue({ search: { enabled: true, sources: [], services: {}, searxng_base_urls: ["https://a.example/"] } });
     sx.searxInstances.mockResolvedValueOnce([{ url: "https://a.example/", seconds: null }]);
     render(<ToolsSection />);
     await waitFor(() => expect((screen.getByTestId("mcp-tools-searxng-urls") as HTMLTextAreaElement).value).toBe("https://a.example/"));
