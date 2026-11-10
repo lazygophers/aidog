@@ -26,7 +26,7 @@ export type Protocol =
   | "glm" | "glm_coding" | "glm_en" | "glm_coding_en" | "kimi" | "kimi_en" | "kimi_coding" | "intern_inkstone" | "minimax" | "minimax_en" | "minimax_coding" | "codex" | "cline" | "cline_pass"
   | "bailian" | "bailian_en" | "bailian_coding" | "bailian_coding_en" | "qianfan_coding" | "xiaomi_mimo_coding" | "xiaomi_mimo_coding_en"
   // ── 国内官方平台 ──
-  | "deepseek" | "stepfun" | "stepfun_en" | "doubao" | "byteplus" | "qianfan"
+  | "deepseek" | "stepfun" | "stepfun_en" | "tencent_tokenhub" | "tencent_tokenhub_intl" | "tencent_coding" | "doubao" | "byteplus" | "qianfan"
   | "xiaomi_mimo" | "longcat" | "sensenova" | "sensenova_en"
   // ── 聚合平台 ──
   | "openrouter" | "siliconflow" | "siliconflow_en" | "aihubmix" | "dmxapi" | "modelscope"

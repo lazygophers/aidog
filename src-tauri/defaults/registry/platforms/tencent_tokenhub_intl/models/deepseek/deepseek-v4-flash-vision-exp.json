@@ -1,0 +1,36 @@
+{
+  "last_updated": 1794288536,
+  "supported_protocols": [
+    "openai",
+    "openai_responses",
+    "anthropic"
+  ],
+  "model_id": "deepseek/deepseek-v4-flash-vision-exp",
+  "display_name": "DeepSeek-V4-Flash-Vision-Exp 原厂直供",
+  "canonical_model": "deepseek-v4-flash-vision-exp",
+  "family": "deepseek",
+  "version": "4",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 393216,
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000001,
+    "output": 0.000004,
+    "cache_read": 2e-8,
+    "peak": {
+      "input": 0.000002,
+      "output": 0.000008,
+      "cache_read": 4e-8
+    }
+  }
+}

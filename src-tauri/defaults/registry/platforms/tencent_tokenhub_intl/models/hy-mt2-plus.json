@@ -1,0 +1,22 @@
+{
+  "last_updated": 1794288536,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "hy-mt2-plus",
+  "display_name": "Hy-MT2-Plus",
+  "canonical_model": "hy-mt2-plus",
+  "family": "hunyuan",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 4096,
+  "max_output_tokens": 4096,
+  "context_window": 8192,
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 5e-7,
+    "output": 0.000002
+  }
+}

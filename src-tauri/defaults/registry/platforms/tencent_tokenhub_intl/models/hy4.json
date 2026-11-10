@@ -1,0 +1,37 @@
+{
+  "last_updated": 1794288536,
+  "supported_protocols": [
+    "openai",
+    "openai_responses",
+    "anthropic"
+  ],
+  "model_id": "hy4",
+  "display_name": "Hy4",
+  "canonical_model": "hy4",
+  "family": "hunyuan",
+  "version": "4",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 983040,
+  "max_output_tokens": 65536,
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000003,
+    "output": 0.000009,
+    "cache_read": 1.5e-7,
+    "time_tiers": [
+      {
+        "start_at": 1798732800,
+        "input": 0.000006,
+        "output": 0.000018,
+        "cache_read": 3e-7
+      }
+    ]
+  }
+}

@@ -90,6 +90,12 @@ pub enum Protocol {
     StepFun,
     #[serde(rename = "stepfun_en")]
     StepFunEn,
+    #[serde(rename = "tencent_tokenhub")]
+    TencentTokenhub,
+    #[serde(rename = "tencent_tokenhub_intl")]
+    TencentTokenhubIntl,
+    #[serde(rename = "tencent_coding")]
+    TencentCoding,
     #[serde(rename = "doubao")]
     Doubao,
     #[serde(rename = "byteplus")]
