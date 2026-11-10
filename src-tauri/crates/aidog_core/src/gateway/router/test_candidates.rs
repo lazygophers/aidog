@@ -4111,15 +4111,88 @@ async fn disabled_custom_slot_excludes_and_passthrough_never() {
     .await
     .expect("defs");
     let g = mk_db_group(&db, "g", &[p1.id, p2.id]).await;
-    let hit = select_candidates_ctx(&db, &g, "claude-fast-1", None, RequestKind::Chat)
+    // 混合组收紧（空置回落拍板 2026-11-11）：p2 未填 fast 不再承接 → 全组排除，
+    // 且含槽位关闭 → slot_disabled 503（关闭优先于回落）
+    let e = select_candidates_ctx(&db, &g, "claude-fast-1", None, RequestKind::Chat)
         .await
-        .expect("route");
-    assert_eq!(cand_ids(&hit), vec![p2.id]);
+        .expect_err("filled platform has slot disabled, unfilled platform no longer serves");
+    assert_eq!(e, "slot_disabled");
     // p1 无 default 槽位、请求名不含 fast → 请求名透传，不排除
     let pass = select_candidates_ctx(&db, &g, "zzz", None, RequestKind::Chat)
         .await
         .expect("route");
     assert_eq!(cand_ids(&pass), vec![p1.id, p2.id]);
+}
+
+/// 全组无平台填 subagent 槽：命中定义的请求按普通聊天逻辑路由（default 链承接），不再字面透传。
+#[tokio::test]
+async fn custom_slot_unfilled_group_routes_default_chain() {
+    let (db, _dir) = db::test_support::three_file_db().await;
+    let p1 = mk_db_platform(&db, "a").await;
+    let p2 = mk_db_platform(&db, "b").await;
+    set_models_extra(&db, p1.id, slot_default("d1"), "").await;
+    set_models_extra(&db, p2.id, slot_default("d2"), "").await;
+    db::set_setting(
+        &db,
+        db::models::SetSettingInput {
+            scope: "model".into(),
+            key: "custom_model_slots".into(),
+            value: serde_json::json!([{"name": "subagent", "match": "exact"}]),
+        },
+    )
+    .await
+    .expect("defs");
+    let g = mk_db_group(&db, "g", &[p1.id, p2.id]).await;
+    let set = select_candidates_ctx(&db, &g, "subagent", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    assert_eq!(cand_ids(&set), vec![p1.id, p2.id]);
+    assert_eq!(set.candidates[0].target_model, "d1");
+    assert_ne!(set.candidates[0].target_model, "subagent", "不得字面透传");
+    assert_eq!(
+        set.routing.entries[0].model_via,
+        vec![ModelVia::SlotDefault]
+    );
+}
+
+/// 混合组（部分平台填了 subagent）：只由填了的平台承接，未填的平台不再落 default 链或透传。
+#[tokio::test]
+async fn custom_slot_mixed_group_only_filled_serves() {
+    let (db, _dir) = db::test_support::three_file_db().await;
+    let p1 = mk_db_platform(&db, "a").await;
+    let p2 = mk_db_platform(&db, "b").await;
+    set_models_extra(
+        &db,
+        p1.id,
+        PlatformModels {
+            default: chain(&["d1"]),
+            ..Default::default()
+        },
+        r#"{"custom_slots":{"subagent":["s1","s2"]}}"#,
+    )
+    .await;
+    set_models_extra(&db, p2.id, slot_default("d2"), "").await;
+    db::set_setting(
+        &db,
+        db::models::SetSettingInput {
+            scope: "model".into(),
+            key: "custom_model_slots".into(),
+            value: serde_json::json!([{"name": "subagent", "match": "exact"}]),
+        },
+    )
+    .await
+    .expect("defs");
+    let g = mk_db_group(&db, "g", &[p1.id, p2.id]).await;
+    let set = select_candidates_ctx(&db, &g, "subagent", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    assert_eq!(cand_ids(&set), vec![p1.id], "未填平台不得承接命中请求");
+    assert_eq!(set.candidates[0].target_model, "s1");
+    // 请求名不命中定义 → 两平台照旧（p2 落 default）
+    let other = select_candidates_ctx(&db, &g, "zzz", None, RequestKind::Chat)
+        .await
+        .expect("route");
+    assert_eq!(cand_ids(&other), vec![p1.id, p2.id]);
 }
 
 /// 单平台分组同样拒绝（不 bypass）：Err("slot_disabled")；槽位未命中则照常放行。
@@ -4857,8 +4930,10 @@ async fn db_set_custom_defs_fast_and_run(never: bool) {
         .expect("route");
     let mut ids = cand_ids(&set);
     ids.sort();
-    assert_eq!(ids, vec![p2.id, p3.id], "never={never}");
+    // p3 未填 fast：混合组收紧（空置回落拍板 2026-11-11）→ 只由填值平台承接
+    assert_eq!(ids, vec![p2.id], "never={never}");
     assert_eq!(reason_of(&set, p1.id), RouteReason::ModelNotOnPlatform, "never={never}");
+    assert_eq!(reason_of(&set, p3.id), RouteReason::ModelNotOnPlatform, "never={never}");
 }
 
 // ══ 路由能力判定按生效时段档（票 模型配置-含时段档/02）══
