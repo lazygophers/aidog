@@ -1731,6 +1731,7 @@
   "platform.expiresAtSoon": "Expiring soon: {{time}}",
   "platform.fetchAuthError": "API key auth failed (HTTP {{code}}), please check platform key",
   "platform.fetchEmpty": "No models found",
+  "platform.fetchKeptExisting": "Kept manually filled models; candidate list updated",
   "platform.fetchModels": "Fetch Models",
   "platform.fillAll": "Fill All",
   "platform.fillAllHint": "Overwrite all slots with the default model",

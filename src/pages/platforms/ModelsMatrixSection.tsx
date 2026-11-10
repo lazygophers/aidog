@@ -125,7 +125,7 @@ export function ModelsMatrixSection({
   availableModels, protocol,
   // tab 实例（columns="time"）的 card 标题覆盖（缺省「模型」）
   titleOverride,
-  fetchError, fetching,
+  fetchError, fetchInfo, fetching,
   onFillAll, onFetchModels, apiKeyMissing, endpointsCount, endpoints = [],
   // 时段档列 props
   rules, setRules, peak,
@@ -145,6 +145,8 @@ export function ModelsMatrixSection({
   availableModels: string[];
   protocol: Protocol;
   fetchError: string;
+  /** 一键获取非错误提示（如「已保留手填模型」）；空串不渲染 */
+  fetchInfo: string;
   fetching: boolean;
   onFillAll: () => void;
   onFetchModels: () => void;
@@ -535,6 +537,11 @@ export function ModelsMatrixSection({
       {fetchError && (
         <div style={{ fontSize: 12, color: "var(--color-danger)", padding: "2px 0" }}>
           {fetchError}
+        </div>
+      )}
+      {fetchInfo && (
+        <div data-testid="fetch-info" style={{ fontSize: 12, color: "var(--text-secondary)", padding: "2px 0" }}>
+          {fetchInfo}
         </div>
       )}
 

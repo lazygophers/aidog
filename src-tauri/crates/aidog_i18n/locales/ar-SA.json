@@ -1819,6 +1819,7 @@
   "platform.expiresAtSoon": "ينتهي قريبًا: {{time}}",
   "platform.fetchAuthError": "فشل مصادقة مفتاح API (HTTP {{code}})، يرجى التحقق من مفتاح المنصة",
   "platform.fetchEmpty": "لم يتم العثور على نماذج",
+  "platform.fetchKeptExisting": "تم الاحتفاظ بالنماذج المعبأة يدويًا، وتم تحديث قائمة المرشحين",
   "platform.fetchModels": "جلب النماذج",
   "platform.fillAll": "ملء الكل",
   "platform.fillAllHint": "ملء الحقول الفارغة بالنموذج الافتراضي",
