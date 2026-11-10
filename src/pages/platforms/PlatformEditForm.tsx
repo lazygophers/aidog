@@ -3,11 +3,11 @@
 //   不持有自己的 state；表单分区（endpoints/models/budgets/breaker/group/expires）
 //   均为 props 驱动的 JSX，无跨组件 setState。
 import { useEffect, useState } from "react";
-import { getClientVocab, type ClientVocabCategory } from "../../services/api";
+import { getClientVocab, serializePlatformTimeWindows, type ClientVocabCategory } from "../../services/api";
 import { useTranslation } from "react-i18next";
 import { SmartPasteModal } from "../../components/platforms/SmartPasteModal";
 import {
-  SearchableProtocolSelect, MockConfigEditor,
+  SearchableProtocolSelect, MockConfigEditor, allConfiguredModelValues,
   type ProtocolOption,
 } from "../../domains/platforms";
 import { buildProtocolsFromPresets, getProtocolUsageWarning } from "../../domains/platforms/defaults";
@@ -348,7 +348,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         )}
         {/* 限频（2026-10-20 从稳定性 tab 拆出；rate-limit-aware 票 04：extra.rate_limits / extra.quota_windows） */}
         {editing && !isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "ratelimits") && (
-          <RateLimitsSection bundle={rateLimits} setBundle={setRateLimits} protocol={protocol} t={t} />
+          <RateLimitsSection bundle={rateLimits} setBundle={setRateLimits} protocol={protocol} modelOptions={allConfiguredModelValues({ models, extra: serializePlatformTimeWindows("", timemodels.timeModels) })} t={t} />
         )}
 
         {/* 熔断（2026-10-20 从稳定性 tab 拆出）：Circuit Breaker 覆盖（仅编辑态可配；空 = 继承全局默认） */}

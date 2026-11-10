@@ -143,7 +143,7 @@ export function PlatformRow({
   const rateLimitsBundle = useMemo(() => parseRateLimitsBundle(p.extra ?? ""), [p.extra]);
   // 限频徽标计数：平台级 RPM/TPM 配置记 1 窗 + 额度窗口数（稿 5「限频 N 窗口」）。
   const rlBase = rateLimitsBundle.rate_limits;
-  const rlConfigured = !!(rlBase && ((rlBase.rpm ?? 0) > 0 || (rlBase.tpm ?? 0) > 0 || (rlBase.models && Object.keys(rlBase.models).length > 0)));
+  const rlConfigured = !!(rlBase && ((rlBase.rpm ?? 0) > 0 || (rlBase.tpm ?? 0) > 0 || (rlBase.rules?.length ?? 0) > 0));
   const qwCount = rateLimitsBundle.quota_windows?.length ?? 0;
   const rlCount = (rlConfigured ? 1 : 0) + qwCount;
   const disableDuringPeak = useMemo(() => {

@@ -491,10 +491,10 @@ describe("rate limits bundle parse/serialize", () => {
     expect(o.peak).toHaveLength(1);
   });
 
-  it("只有 concurrency / windows 的限频配置不被当空删掉，来源字段原样保留", () => {
+  it("只有 concurrency / rules 的限频配置不被当空删掉，来源字段原样保留", () => {
     const rl = { concurrency: 3, source_policy_id: "v1", source_last_updated: 9 };
     expect(JSON.parse(serializeRateLimitsBundle("", { rate_limits: rl })).rate_limits).toEqual(rl);
-    const w = { windows: [{ start_hour: 0, end_hour: 8, rpm: 10 }] };
+    const w = { rules: [{ start_hour: 0, end_hour: 8, rpm: 10 }] };
     expect(JSON.parse(serializeRateLimitsBundle("", { rate_limits: w })).rate_limits).toEqual(w);
   });
 
