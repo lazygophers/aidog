@@ -1318,6 +1318,7 @@
   "tools.source.firecrawl": "Firecrawl",
   "tools.source.youcom": "You.com",
   "tools.source.deepseek": "DeepSeek",
+  "toolLog.desc": "Журнал вызовов инструментов через шлюз и HTTP MCP",
   "toolLog.allTools": "Все инструменты",
   "toolLog.allTriggers": "Все источники вызова",
   "toolLog.groupPlaceholder": "Имя группы",
