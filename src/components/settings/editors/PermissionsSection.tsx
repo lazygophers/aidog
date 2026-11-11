@@ -249,7 +249,7 @@ function PermissionsEditor({ perms, updateField, t }: {
               {t(`settings.perm.toolLabel_${g.tool}`, g.label)}
               {count > 0 && (
                 <span style={{
-                  fontSize: 11, padding: "1px 5px", borderRadius: 8,
+                  fontSize: 14, padding: "1px 5px", borderRadius: 8,
                   background: active ? "var(--primary)" : "var(--bg-glass)",
                   color: active ? "var(--primary-foreground)" : "var(--text-tertiary)", fontWeight: 600,
                 }}>{count}</span>
@@ -349,9 +349,9 @@ function PermissionsEditor({ perms, updateField, t }: {
               >
                 {TOOL_GROUPS.map(g => (
                   <div key={g.tool} style={{ marginBottom: 8 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--accent)", marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>
                       {t(`settings.perm.toolLabel_${g.tool}`, g.label)}
-                      <span style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 400, fontFamily: '"SF Mono", "Fira Code", monospace' }}>
+                      <span style={{ fontSize: 14, color: "var(--text-tertiary)", fontWeight: 400, fontFamily: '"SF Mono", "Fira Code", monospace' }}>
                         {t(`settings.perm.syntax_${g.tool}`, g.syntax)}
                       </span>
                     </div>
@@ -359,7 +359,7 @@ function PermissionsEditor({ perms, updateField, t }: {
                       {g.examples.map(ex => (
                         <Button variant="ghost" key={ex} type="button" 
                           style={{
-                            padding: "3px 8px", fontSize: 13, fontWeight: 400,
+                            padding: "3px 8px", fontSize: 14, fontWeight: 400,
                             color: "var(--text-primary)", borderRadius: "var(--radius-sm)",
                             fontFamily: '"SF Mono", "Fira Code", monospace',
                           }}
@@ -410,7 +410,7 @@ function PermissionsEditor({ perms, updateField, t }: {
                 background: `${MODE_COLORS[r.mode]}08`,
               }}>
                 <span style={{
-                  fontSize: 11, fontWeight: 600, color: MODE_COLORS[r.mode],
+                  fontSize: 14, fontWeight: 600, color: MODE_COLORS[r.mode],
                   textTransform: "uppercase", width: 32, flexShrink: 0,
                 }}>{r.mode}</span>
                 <code style={{
@@ -418,7 +418,7 @@ function PermissionsEditor({ perms, updateField, t }: {
                   fontFamily: '"SF Mono", "Fira Code", monospace',
                   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                 }}>{r.pattern}</code>
-                <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
                   {ruleToolGroup(r.pattern)}
                 </span>
               </div>

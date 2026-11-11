@@ -45,17 +45,17 @@ export function Pagination({
   }
 
   const btnStyle: React.CSSProperties = {
-    fontSize: 12, padding: "4px 8px", minWidth: 28, textAlign: "center",
+    fontSize: 14, padding: "4px 8px", minWidth: 28, textAlign: "center",
   };
 
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span className="text-tertiary" style={{ fontSize: 12 }}>
+        <span className="text-tertiary" style={{ fontSize: 14 }}>
           {rangeStart}–{rangeEnd} / {total}
         </span>
         <Select value={String(pageSize)} onValueChange={v => onPageSizeChange(Number(v))}>
-          <SelectTrigger style={{ fontSize: 12, padding: "2px 6px", width: 80, height: 28 }}>
+          <SelectTrigger style={{ fontSize: 14, padding: "2px 6px", width: 80, height: 28 }}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -71,7 +71,7 @@ export function Pagination({
           onClick={() => onPageChange(currentPage - 1)}>←</Button>
         {pages.map((p, i) =>
           p === "ellipsis" ? (
-            <span key={`e${i}`} className="text-tertiary" style={{ fontSize: 12, padding: "0 4px" }}>…</span>
+            <span key={`e${i}`} className="text-tertiary" style={{ fontSize: 14, padding: "0 4px" }}>…</span>
           ) : (
             <Button key={p} variant={p === currentPage ? "default" : "ghost"}
               // 当前页走 default variant（primary 底），文字色交给 variant 自己的
@@ -92,7 +92,7 @@ export function Pagination({
             onChange={e => onJumpPageChange(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter") onJump(); }}
             placeholder="#"
-            style={{ width: 50, fontSize: 12, padding: "3px 6px", textAlign: "center", height: 28 }}
+            style={{ width: 50, fontSize: 14, padding: "3px 6px", textAlign: "center", height: 28 }}
           />
           <Button variant="ghost" style={btnStyle} onClick={onJump}>Go</Button>
         </div>

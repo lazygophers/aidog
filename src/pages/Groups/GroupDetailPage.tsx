@@ -20,7 +20,7 @@ import { useDisplayCurrency } from "../../utils/displayCurrency";
 
 // 设计稿 token 映射：pgtop / pgbody / acard / seclab / 统计带 / memrow 全部按 6-整体风格与分组页.html。
 const seclabStyle: React.CSSProperties = {
-  fontSize: 10, color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)",
+  fontSize: 14, color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)",
   letterSpacing: "1.2px", marginBottom: 8, textTransform: "uppercase",
 };
 const acardStyle: React.CSSProperties = {
@@ -33,9 +33,9 @@ function StatCard(props: { big: React.ReactNode; label: string; delt?: React.Rea
   return (
     <div style={acardStyle}>
       <div style={{ fontSize: 28, fontWeight: 600, letterSpacing: "-.5px", fontVariantNumeric: "tabular-nums" }}>{props.big}</div>
-      <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 2 }}>{props.label}</div>
+      <div style={{ fontSize: 14, color: "var(--text-tertiary)", marginTop: 2 }}>{props.label}</div>
       {props.delt != null && (
-        <div style={{ fontSize: 11, marginTop: 4, color: props.deltUp ? "var(--color-success, #1F9D61)" : "var(--color-danger, #D14B4B)" }}>{props.delt}</div>
+        <div style={{ fontSize: 14, marginTop: 4, color: props.deltUp ? "var(--color-success, #1F9D61)" : "var(--color-danger, #D14B4B)" }}>{props.delt}</div>
       )}
       {props.children}
     </div>
@@ -71,7 +71,7 @@ function TrendCard(props: { groupKey: string; t: TFunction; platName: (id: numbe
       <div style={seclabStyle}>7d</div>
       <div style={acardStyle} data-empty={rows.length === 0 ? "yes" : "no"}>
         {rows.length === 0 ? (
-          <div style={{ fontSize: 11.5, color: "var(--text-tertiary)", padding: "10px 0" }}>{props.t("group.flow.empty", "窗口内无请求")}</div>
+          <div style={{ fontSize: 14, color: "var(--text-tertiary)", padding: "10px 0" }}>{props.t("group.flow.empty", "窗口内无请求")}</div>
         ) : (
           <>
             {top.map(([pid], i) => (
@@ -85,7 +85,7 @@ function TrendCard(props: { groupKey: string; t: TFunction; platName: (id: numbe
                 })}
               </div>
             ))}
-            <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 9.5, marginTop: 6, color: "var(--text-tertiary)" }}>
+            <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 14, marginTop: 6, color: "var(--text-tertiary)" }}>
               {top.map(([pid], i) => <span key={pid}>{i > 0 ? " " : ""}<span style={{ color: chartColors[i] }}>■</span> {props.platName(pid)}</span>)}
               {" · "}{formatNumber(total7d)}
             </div>
@@ -160,21 +160,21 @@ function MembersCard(props: {
   const statusOptions = errStatus !== null
     ? buildStatusOptions(errStatus, fullPlats.map(p => p.id))
     : [];
-  const bactBtn: React.CSSProperties = { fontSize: 12, padding: "3px 9px", height: "auto", borderRadius: 6, background: "var(--secondary)", border: "1px solid var(--border)" };
+  const bactBtn: React.CSSProperties = { fontSize: 14, padding: "3px 9px", height: "auto", borderRadius: 6, background: "var(--secondary)", border: "1px solid var(--border)" };
   return (
     <div style={{ ...acardStyle, padding: 0, overflow: "hidden" }} data-testid="detail-members" data-group-id={detail.group.id}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
-        <b style={{ fontSize: 12.5 }}>{t("group.detail.members", "成员平台")} · {fullPlats.length}</b>
-        <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10.5, color: "var(--text-tertiary)" }}>{t("group.detail.byCandidateOrder", "按候选序")}</span>
+        <b style={{ fontSize: 14 }}>{t("group.detail.members", "成员平台")} · {fullPlats.length}</b>
+        <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 14, color: "var(--text-tertiary)" }}>{t("group.detail.byCandidateOrder", "按候选序")}</span>
         <div style={{ flex: 1 }} />
         {fullPlats.length > 0 && (
-          <Button variant="ghost" data-testid="detail-multi-select" style={{ height: "auto", padding: "4px 10px", fontSize: 11, ...(mode === "select" ? { background: "var(--accent-subtle)", color: "var(--primary)" } : {}) }}
+          <Button variant="ghost" data-testid="detail-multi-select" style={{ height: "auto", padding: "4px 10px", fontSize: 14, ...(mode === "select" ? { background: "var(--accent-subtle)", color: "var(--primary)" } : {}) }}
             onClick={() => { setMode("select"); setSelectedIds(new Set()); }}>
             {t("group.batchOps", "多选")}
           </Button>
         )}
         {props.onAddPlatform && (
-          <Button variant="outline" style={{ height: "auto", padding: "4px 10px", fontSize: 11 }} onClick={props.onAddPlatform}>
+          <Button variant="outline" style={{ height: "auto", padding: "4px 10px", fontSize: 14 }} onClick={props.onAddPlatform}>
             {t("group.detail.addPlatform", "＋ 添加平台")}
           </Button>
         )}
@@ -184,7 +184,7 @@ function MembersCard(props: {
         <div data-testid="detail-batchbar" style={{
           display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", flexWrap: "wrap",
           background: "var(--accent-subtle)", borderBottom: "1px solid color-mix(in srgb, var(--primary) 35%, transparent)",
-          fontSize: 12, color: "var(--text-secondary)",
+          fontSize: 14, color: "var(--text-secondary)",
         }}>
           <span style={{ fontWeight: 620, color: "var(--primary)" }}>{t("group.selectedCount", "已选 {{count}} 个", { count: selectedIds.size })}</span>
           <span style={{ width: 1, height: 14, background: "color-mix(in srgb, var(--foreground) 12%, transparent)" }} />
@@ -222,31 +222,31 @@ function MembersCard(props: {
               if (ids.size > 0) setSelectedIds(ids);
             }}
           >
-            <SelectTrigger style={{ fontSize: 12, height: "auto", padding: "3px 9px", minHeight: 26, width: "auto", background: "var(--secondary)" }}>
+            <SelectTrigger style={{ fontSize: 14, height: "auto", padding: "3px 9px", minHeight: 26, width: "auto", background: "var(--secondary)" }}>
               <SelectValue placeholder={t("group.selectByStatus", "按状态选")} />
             </SelectTrigger>
             <SelectContent>
               {statusOptions.map(o => (
-                <SelectItem key={o.code} value={String(o.code)} style={{ fontSize: 12 }}>
+                <SelectItem key={o.code} value={String(o.code)} style={{ fontSize: 14 }}>
                   {`${o.code} · ${t(`group.err.${o.code}`, `HTTP ${o.code}`)}（${o.count}）`}
                 </SelectItem>
               ))}
               {statusOptions.length === 0 && (
-                <SelectItem value="__none__" disabled style={{ fontSize: 12 }}>
+                <SelectItem value="__none__" disabled style={{ fontSize: 14 }}>
                   {errStatus === null ? "…" : t("group.selectByStatusNone", "无错误状态")}
                 </SelectItem>
               )}
             </SelectContent>
           </Select>
           <span data-testid="detail-batch-cancel" onClick={() => { setMode("view"); setSelectedIds(new Set()); }}
-            style={{ marginLeft: "auto", fontSize: 12, color: "var(--text-tertiary)", cursor: "pointer" }}>
+            style={{ marginLeft: "auto", fontSize: 14, color: "var(--text-tertiary)", cursor: "pointer" }}>
             {t("group.cancelMultiSelect", "取消多选")}
           </span>
         </div>
       )}
       {fullPlats.length > 0 && <PlatformRowCols t={t} />}
       {fullPlats.length === 0 ? (
-        <div style={{ fontSize: 12, color: "var(--text-tertiary)", padding: "18px 14px" }}>{t("group.empty", "暂无平台")}</div>
+        <div style={{ fontSize: 14, color: "var(--text-tertiary)", padding: "18px 14px" }}>{t("group.empty", "暂无平台")}</div>
       ) : fullPlats.map((p, idx) => {
         const gp = gps.find(g => g.platform.id === p.id);
         return (
@@ -295,7 +295,7 @@ function MembersCard(props: {
                         <svg width="9" height="14" viewBox="0 0 10 16" fill="currentColor"><circle cx="3" cy="3" r="1.4" /><circle cx="7" cy="3" r="1.4" /><circle cx="3" cy="8" r="1.4" /><circle cx="7" cy="8" r="1.4" /><circle cx="3" cy="13" r="1.4" /><circle cx="7" cy="13" r="1.4" /></svg>
                       </span>
                     )}
-                    <span title={t("group.candidates.posReason", "优先级 {{level}} / 序 {{prio}}", { level: gp?.level_priority, prio: gp?.priority })} style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10, color: "var(--text-tertiary)" }}>#{idx + 1}</span>
+                    <span title={t("group.candidates.posReason", "优先级 {{level}} / 序 {{prio}}", { level: gp?.level_priority, prio: gp?.priority })} style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 14, color: "var(--text-tertiary)" }}>#{idx + 1}</span>
                   </span>
                 }
               />
@@ -312,12 +312,12 @@ function MembersCard(props: {
           {detail.model_mappings.map((m, mi) => {
             const gp = gps.find(g => g.platform.id === m.target_platform_id);
             return (
-              <div key={mi} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 14px", fontSize: 12 }}>
-                <span className="chip" style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10.5, border: "1px solid color-mix(in srgb, var(--primary) 35%, transparent)", color: "var(--primary)", borderRadius: 6, padding: "2px 8px", background: "var(--accent-subtle, #FAFBFC)" }}>{m.source_model}</span>
+              <div key={mi} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 14px", fontSize: 14 }}>
+                <span className="chip" style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 14, border: "1px solid color-mix(in srgb, var(--primary) 35%, transparent)", color: "var(--primary)", borderRadius: 6, padding: "2px 8px", background: "var(--accent-subtle, #FAFBFC)" }}>{m.source_model}</span>
                 <span style={{ color: "var(--chart-2, #A377E8)" }}>⟶</span>
-                {gp && <span className="chip" style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10.5, border: "1px solid var(--border)", borderRadius: 6, padding: "2px 8px", background: "var(--secondary, #FAFBFC)" }}>{gp.platform.platform_type}</span>}
+                {gp && <span className="chip" style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 14, border: "1px solid var(--border)", borderRadius: 6, padding: "2px 8px", background: "var(--secondary, #FAFBFC)" }}>{gp.platform.platform_type}</span>}
                 {gp && <span style={{ color: "var(--chart-2, #A377E8)" }}>⟶</span>}
-                <span className="chip" style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10.5, border: "1px solid var(--border)", borderRadius: 6, padding: "2px 8px", background: "var(--secondary, #FAFBFC)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.target_model}</span>
+                <span className="chip" style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 14, border: "1px solid var(--border)", borderRadius: 6, padding: "2px 8px", background: "var(--secondary, #FAFBFC)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.target_model}</span>
                 <div style={{ flex: 1 }} />
                 <Button variant="ghost" size="icon" style={{ width: 22, height: 22, minWidth: 22 }} onClick={() => props.onDeleteMapping(detail.group.id, mi)} title={t("group.deleteMapping", "删除映射")}>
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 2l6 6M8 2l-6 6" /></svg>
@@ -384,9 +384,9 @@ export function GroupDetailPage(props: {
         </Button>
         <h1 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>{t("nav.groups", "分组")}</h1>
         {/* 当前组名必须上屏：详情页全页无组名时无法辨认展示的是哪个组 */}
-        <span style={{ fontSize: 13, fontWeight: 600 }}>{group.name}</span>
+        <span style={{ fontSize: 14, fontWeight: 600 }}>{group.name}</span>
         {/* 计数只显当前组自己的成员数；details.length/全量关联和是别的分组的信息，禁入详情页（2026-10-27 用户报） */}
-        <span style={{ fontSize: 11.5, color: "var(--text-tertiary)" }}>{detail.platforms.length} {t("group.platforms", "平台")}</span>
+        <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{detail.platforms.length} {t("group.platforms", "平台")}</span>
         <div style={{ flex: 1 }} />
         <GroupLastRequestBadge
           last={props.groupLast[group.group_key]}
@@ -400,17 +400,17 @@ export function GroupDetailPage(props: {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }} data-testid="detail-stats">
             <StatCard big={formatNumber(u?.today_tokens ?? 0)} label={t("group.detail.todayTokens", "今日 tokens")} />
             <StatCard big={formatMoney(u?.today_cost ?? 0)} label={t("group.stats.todayCost", "今日费用")} />
-            <StatCard big={<>{u && u.total_requests > 0 ? formatPercent(sRate, 1) : "—"}{u && u.total_requests > 0 ? <em style={{ fontStyle: "normal", fontSize: 13, color: "var(--text-tertiary)", fontWeight: 400 }}>%</em> : null}</>}
+            <StatCard big={<>{u && u.total_requests > 0 ? formatPercent(sRate, 1) : "—"}{u && u.total_requests > 0 ? <em style={{ fontStyle: "normal", fontSize: 14, color: "var(--text-tertiary)", fontWeight: 400 }}>%</em> : null}</>}
               label={t("group.detail.successRate", "成功率")}
               delt={u && u.total_requests > 0 ? (u.total_requests - u.success_count) + " " + t("group.detail.failedCount", "次失败") : undefined}
               deltUp={false} />
             <div style={{ ...acardStyle, borderColor: "var(--primary)", background: "linear-gradient(150deg, var(--accent-subtle, #FBF9FE), var(--card))" }} data-testid="detail-next-request">
-              <div style={{ fontSize: 10, letterSpacing: "1.2px", color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)" }}>
+              <div style={{ fontSize: 14, letterSpacing: "1.2px", color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)" }}>
                 {isLB ? t("group.next.lbTitle", "下一个请求 · 按权重") : t("group.next.title", "下一个请求")}
               </div>
               <div style={{ fontSize: 15, fontWeight: 700, marginTop: 5 }}>
                 {ordered.length === 0
-                  ? <span style={{ fontSize: 11.5, color: "var(--text-tertiary)" }}>{t("group.candidates.none", "无启用中的候选平台")}</span>
+                  ? <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("group.candidates.none", "无启用中的候选平台")}</span>
                   : isLB
                     ? t("group.next.distributed", { defaultValue: "按权重分布（{{n}} 个候选）", n: ordered.length })
                     : <>→ <b style={{ color: "var(--primary)" }}>{ordered[0].platform.platform_type}</b></>}
@@ -418,7 +418,7 @@ export function GroupDetailPage(props: {
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }}>
                 {ordered.map((g, i) => (
                   <span key={g.platform.id} style={{
-                    fontSize: 10.5, border: "1px solid " + (i === 0 && !isLB ? "var(--primary)" : "var(--border)"), borderRadius: 99,
+                    fontSize: 14, border: "1px solid " + (i === 0 && !isLB ? "var(--primary)" : "var(--border)"), borderRadius: 99,
                     padding: "2px 9px", color: i === 0 && !isLB ? "var(--primary)" : "var(--text-tertiary)",
                     fontWeight: i === 0 && !isLB ? 600 : 400, background: i === 0 && !isLB ? "var(--accent-subtle)" : "transparent",
                   }}>
@@ -426,7 +426,7 @@ export function GroupDetailPage(props: {
                   </span>
                 ))}
               </div>
-              <div style={{ fontSize: 10.5, color: "var(--text-tertiary)", marginTop: 7 }}>{routingModeLabel(t, group.routing_mode)}</div>
+              <div style={{ fontSize: 14, color: "var(--text-tertiary)", marginTop: 7 }}>{routingModeLabel(t, group.routing_mode)}</div>
             </div>
           </div>
           <div style={{ border: "1px solid var(--border)", borderRadius: 10, background: "var(--card)" }} data-testid="detail-flow">
@@ -456,12 +456,12 @@ export function GroupDetailPage(props: {
           <div style={{ marginTop: 14 }}>
             <div style={seclabStyle}>{t("group.detail.groupOps", "组操作")}</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <Button variant="outline" style={{ justifyContent: "flex-start", height: "auto", padding: "6px 10px", fontSize: 12 }}
+              <Button variant="outline" style={{ justifyContent: "flex-start", height: "auto", padding: "6px 10px", fontSize: 14 }}
                 disabled={gps.filter(gp => gp.platform.status === "enabled").length === 0 || props.groupTestRunning}
                 onClick={() => props.onTestGroup(group, gps)}>
                 {t("group.testAll", "一键测试本组")}
               </Button>
-              <Button variant="outline" style={{ justifyContent: "flex-start", height: "auto", padding: "6px 10px", fontSize: 12 }}
+              <Button variant="outline" style={{ justifyContent: "flex-start", height: "auto", padding: "6px 10px", fontSize: 14 }}
                 onClick={() => props.onEditGroup(detail)}>
                 {t("action.edit", "编辑")}
               </Button>

@@ -141,7 +141,7 @@ export function CopyButton({
           <DropdownMenuItem
             key={item.key}
             onSelect={() => runCopy(item.text)}
-            style={{ gap: 8, fontSize: 12, whiteSpace: "nowrap" }}
+            style={{ gap: 8, fontSize: 14, whiteSpace: "nowrap" }}
           >
             {item.icon ?? <span style={{ width: 14, display: "inline-block" }} />}
             <span>{item.label}</span>

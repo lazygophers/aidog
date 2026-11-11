@@ -44,7 +44,7 @@ export function MultiKeyPreview({
         <div className="section-title" style={{ fontSize: 14 }}>
           {t("platform.batch.previewTitle", "将创建 {{count}} 个平台", { count: keys.length })}
         </div>
-        <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+        <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
           {t("platform.batch.previewHint", "点击右上角「批量创建」提交，name 自动生成 {{base}}-key尾4位，撞名追号；除 Token 外全部配置与表单一致", { base: "{base}" })}
         </div>
       </div>
@@ -59,14 +59,14 @@ export function MultiKeyPreview({
               gridTemplateColumns: "24px minmax(120px, 1.5fr) minmax(80px, 1fr) minmax(120px, 1.5fr) minmax(90px, 1fr)",
               gap: 8, alignItems: "center",
               padding: "6px 8px", borderRadius: "var(--radius-sm)",
-              background: "var(--bg-elevated)", fontSize: 12,
+              background: "var(--bg-elevated)", fontSize: 14,
             }}
           >
             <span style={{ color: "var(--text-tertiary)" }}>#{i + 1}</span>
             <span style={{ fontWeight: 600, wordBreak: "break-all" }}>{previewNames[i] ?? ""}</span>
             <span style={{
               display: "inline-block", padding: "2px 6px", borderRadius: "var(--radius-sm)",
-              background: "var(--bg-glass)", fontSize: 11, fontWeight: 700, justifySelf: "start",
+              background: "var(--bg-glass)", fontSize: 14, fontWeight: 700, justifySelf: "start",
             }}>{protocol.toUpperCase()}</span>
             <span style={{ color: "var(--text-secondary)", wordBreak: "break-all" }}>{baseUrl || "—"}</span>
             <span style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)" }}>{maskTail(k)}</span>

@@ -37,10 +37,10 @@ export function CardEditor({
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 500 }}>
+          <div style={{ fontSize: 14, fontWeight: 500 }}>
             {t(TYPE_LABELS[item.item_type].key, TYPE_LABELS[item.item_type].fallback)}
           </div>
-          <div className="text-tertiary" style={{ fontSize: 11, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div className="text-tertiary" style={{ fontSize: 14, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {summary}
           </div>
         </div>
@@ -52,7 +52,7 @@ export function CardEditor({
         <Button
           variant="ghost"
           className="ripple"
-          style={{ fontSize: 12, padding: "2px 8px", height: 24, color: "var(--color-danger)" }}
+          style={{ fontSize: 14, padding: "2px 8px", height: 24, color: "var(--color-danger)" }}
           onClick={(e) => { makeRipple(e); onRemove(); }}
           title={t("common.delete", "删除")}
         >
@@ -65,13 +65,13 @@ export function CardEditor({
 
       {/* 尺寸选择 */}
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ fontSize: 11, color: "var(--text-secondary)", width: 36 }}>{t("popover.size", "尺寸")}</span>
+        <span style={{ fontSize: 14, color: "var(--text-secondary)", width: 36 }}>{t("popover.size", "尺寸")}</span>
         {SIZE_OPTIONS.map((s) => (
           <Button
             key={s}
             variant={size === s ? "default" : "outline"}
             style={{
-              fontSize: 11, padding: "2px 8px", height: 22,
+              fontSize: 14, padding: "2px 8px", height: 22,
             }}
             onClick={() => onUpdate({ size: s })}
             title={t(`popover.size_${s}`, s === "s" ? "小" : s === "l" ? "大" : "中")}
@@ -83,7 +83,7 @@ export function CardEditor({
 
       {/* 颜色编辑 */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 11, color: "var(--text-secondary)", width: 36 }}>{t("popover.color", "颜色")}</span>
+        <span style={{ fontSize: 14, color: "var(--text-secondary)", width: 36 }}>{t("popover.color", "颜色")}</span>
         {COLOR_PRESETS.map((c) => {
           const selected = c.mode === "follow"
             ? color.mode === "follow"
@@ -135,7 +135,7 @@ function CustomHexInput({
         if (isValidHex(v)) onChange(v.replace(/^#/, ""));
       }}
       style={{
-        fontSize: 11, width: 80, height: 22, padding: "2px 6px",
+        fontSize: 14, width: 80, height: 22, padding: "2px 6px",
         border: active ? "1px solid var(--accent)" : valid ? "1px solid var(--glass-border)" : "1px solid var(--color-danger)",
       }}
     />

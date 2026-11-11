@@ -94,7 +94,7 @@ export function StackedBarChart({
               align="left"
               iconType="square"
               iconSize={10}
-              wrapperStyle={{ fontSize: 11, color: "var(--text-secondary)" }}
+              wrapperStyle={{ fontSize: 14, color: "var(--text-secondary)" }}
               formatter={(v: unknown) => effConfig[String(v)]?.label ?? String(v)}
             />
           )}

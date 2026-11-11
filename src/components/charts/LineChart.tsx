@@ -181,7 +181,7 @@ export function LineChart({
               align="left"
               iconType="plainline"
               iconSize={12}
-              wrapperStyle={{ fontSize: 11, color: "var(--text-secondary)" }}
+              wrapperStyle={{ fontSize: 14, color: "var(--text-secondary)" }}
               formatter={(v: unknown) => effConfig[String(v)]?.label ?? String(v)}
             />
           )}

@@ -36,7 +36,7 @@ export function ScopeConfig({
             });
           }}
         >
-          <SelectTrigger style={{ fontSize: 12, width: "auto", minWidth: 100, height: 26 }}>
+          <SelectTrigger style={{ fontSize: 14, width: "auto", minWidth: 100, height: 26 }}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -84,7 +84,7 @@ function GroupSelect({ item, groups, t, onUpdate }: { item: PopoverItem; groups:
       value={item.scope_ref ?? "__none__"}
       onValueChange={(v) => onUpdate({ scope_ref: v === "__none__" ? null : v })}
     >
-      <SelectTrigger style={{ fontSize: 12, width: "auto", minWidth: 120, height: 26 }}>
+      <SelectTrigger style={{ fontSize: 14, width: "auto", minWidth: 120, height: 26 }}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -103,7 +103,7 @@ function PlatformSelect({ item, platforms, t, onUpdate }: { item: PopoverItem; p
       value={item.scope_ref ?? "__none__"}
       onValueChange={(v) => onUpdate({ scope_ref: v === "__none__" ? null : v })}
     >
-      <SelectTrigger style={{ fontSize: 12, width: "auto", minWidth: 120, height: 26 }}>
+      <SelectTrigger style={{ fontSize: 14, width: "auto", minWidth: 120, height: 26 }}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -122,7 +122,7 @@ function WindowSelect({ item, t, onUpdate, def }: { item: PopoverItem; t: (k: st
       value={item.time_window ?? def}
       onValueChange={(v) => onUpdate({ time_window: v as PopoverTrendWindow })}
     >
-      <SelectTrigger style={{ fontSize: 12, width: "auto", minWidth: 100, height: 26 }}>
+      <SelectTrigger style={{ fontSize: 14, width: "auto", minWidth: 100, height: 26 }}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

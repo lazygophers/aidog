@@ -61,7 +61,7 @@ export function DimensionHeatmap({
           display: "grid",
           gridTemplateColumns: `minmax(6em, 12em) repeat(${days.length}, 1fr)`,
           gap: 2,
-          fontSize: 9,
+          fontSize: 14,
           color: "var(--text-tertiary)",
           fontVariantNumeric: "tabular-nums",
           overflowX: days.length > 31 ? "auto" : undefined,

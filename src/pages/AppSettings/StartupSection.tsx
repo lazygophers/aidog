@@ -23,8 +23,8 @@ export function StartupSection({ s }: { s: SystemSettings }) {
         alignItems: "center",
       }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("proxy.autostart")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.autostart")}</div>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("proxy.autostartDesc")}
           </div>
         </div>
@@ -39,11 +39,11 @@ export function StartupSection({ s }: { s: SystemSettings }) {
         alignItems: "center",
       }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("proxy.bindLan")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.bindLan")}</div>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("proxy.bindLanDesc")}
           </div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("proxy.bindLanSecurity")}
           </div>
         </div>
@@ -58,8 +58,8 @@ export function StartupSection({ s }: { s: SystemSettings }) {
         alignItems: "center",
       }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("proxy.autolaunch")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.autolaunch")}</div>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("proxy.autolaunchDesc")}
           </div>
         </div>
@@ -75,8 +75,8 @@ export function StartupSection({ s }: { s: SystemSettings }) {
         alignItems: "center",
       }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("proxy.silentLaunch")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.silentLaunch")}</div>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("proxy.silentLaunchDesc")}
           </div>
         </div>

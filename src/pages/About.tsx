@@ -252,7 +252,7 @@ export function About() {
       {/* 版本信息 */}
       <div ref={revealVersion.ref} className={`glass-surface hover-lift reveal${revealVersion.shown ? " in" : ""}`} style={{ padding: "8px 20px" }}>
         {rows.length === 0 ? (
-          <div style={{ padding: "16px 0", fontSize: 13, color: "var(--text-secondary)" }}>
+          <div style={{ padding: "16px 0", fontSize: 14, color: "var(--text-secondary)" }}>
             {t("status.loading", "加载中…")}
           </div>
         ) : (
@@ -269,10 +269,10 @@ export function About() {
                 minWidth: 0,
               }}
             >
-              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", flex: "0 0 auto" }}>{r.label}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", flex: "0 0 auto" }}>{r.label}</div>
               <div
                 style={{
-                  fontSize: 13,
+                  fontSize: 14,
                   color: "var(--text-secondary)",
                   wordBreak: "break-all",
                   textAlign: "end",
@@ -293,11 +293,11 @@ export function About() {
       {/* 检查更新 */}
       <div ref={revealUpdate.ref} className={`glass-surface hover-lift reveal${revealUpdate.shown ? " in" : ""}`} style={{ padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
             {t("about.updateTitle", "软件更新")}
           </div>
           {updStatusText && (
-            <div style={{ fontSize: 12, color: updState === "error" ? "var(--color-danger)" : "var(--text-secondary)", wordBreak: "break-all" }}>
+            <div style={{ fontSize: 14, color: updState === "error" ? "var(--color-danger)" : "var(--text-secondary)", wordBreak: "break-all" }}>
               {updStatusText}
             </div>
           )}
@@ -314,7 +314,7 @@ export function About() {
             {updBusy ? t("about.checking", "检查中…") : t("about.checkUpdate", "检查更新")}
           </Button>
         ) : (
-          <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+          <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
             {t("about.updateDesktopOnly", "浏览器里不检查更新：升级内核请在部署它的机器上做")}
           </div>
         )}
@@ -322,7 +322,7 @@ export function About() {
 
       {/* GitHub 链接 */}
       <div ref={revealGithub.ref} className={`glass-surface hover-lift reveal${revealGithub.shown ? " in" : ""}`} style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
           {t("about.githubTitle", "GitHub")}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -331,7 +331,7 @@ export function About() {
               variant="default"
               className="ripple"
               key={b.key}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, height: "auto", padding: "6px 12px" }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, height: "auto", padding: "6px 12px" }}
               onClick={(e) => { makeRipple(e); openUrl(GITHUB_LINKS[b.key]); }}
             >
               <IconGlobe size={14} />
@@ -339,7 +339,7 @@ export function About() {
             </Button>
           ))}
         </div>
-        <div style={{ fontSize: 12, color: "var(--text-tertiary)", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
+        <div style={{ fontSize: 14, color: "var(--text-tertiary)", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
           {GITHUB_REPO}
         </div>
       </div>
@@ -348,10 +348,10 @@ export function About() {
       <div ref={revealDbKey.ref} className={`glass-surface hover-lift reveal${revealDbKey.shown ? " in" : ""}`} style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }} data-testid="about-db-key">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
               {t("about.dbKey.title", "数据库密钥")}
             </div>
-            <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+            <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
               {t("about.dbKey.desc", "本机数据库（SQLite / SQLCipher）的加密密钥，验证管理员身份后显示")}
             </div>
           </div>
@@ -363,17 +363,17 @@ export function About() {
         </div>
         {dbKey && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <code data-testid="about-db-key-value" style={{ flex: 1, minWidth: 0, fontSize: 12, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", wordBreak: "break-all", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-glass, rgba(127,127,127,.06))" }}>{dbKey}</code>
+            <code data-testid="about-db-key-value" style={{ flex: 1, minWidth: 0, fontSize: 14, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", wordBreak: "break-all", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-glass, rgba(127,127,127,.06))" }}>{dbKey}</code>
             <Button variant="outline" onClick={() => void navigator.clipboard.writeText(dbKey)}>{t("action.copy", "复制")}</Button>
           </div>
         )}
         {dbKey && (
-          <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+          <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
             {t("about.dbKey.hint", "sqlcipher 工具开库：")}<code style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{"PRAGMA key = \"x'{密钥}'\""}</code>
           </div>
         )}
         {dbKeyErr && (
-          <div className="toast" style={{ fontSize: 12, wordBreak: "break-all", color: "var(--color-danger)" }}>
+          <div className="toast" style={{ fontSize: 14, wordBreak: "break-all", color: "var(--color-danger)" }}>
             {t("about.dbKey.fail", "验证未通过或已取消")}
           </div>
         )}
@@ -383,10 +383,10 @@ export function About() {
       <div ref={revealCli.ref} className={`glass-surface hover-lift reveal${revealCli.shown ? " in" : ""}`} style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
               {t("about.localEnv.title", "本地环境")}
             </div>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
               {t("about.localEnv.subtitle", "Claude Code / Codex CLI 安装状态")}
             </div>
           </div>
@@ -394,7 +394,7 @@ export function About() {
             <Button
               variant="default"
               className="ripple"
-              style={{ fontSize: 13, padding: "6px 12px", height: "auto" }}
+              style={{ fontSize: 14, padding: "6px 12px", height: "auto" }}
               disabled={cliBusy !== ""}
               onClick={(e) => { makeRipple(e); handleCliCheck(); }}
             >
@@ -403,7 +403,7 @@ export function About() {
             <Button
               variant="default"
               className="ripple"
-              style={{ fontSize: 13, padding: "6px 12px", height: "auto" }}
+              style={{ fontSize: 14, padding: "6px 12px", height: "auto" }}
               disabled={cliBusy !== ""}
               onClick={(e) => { makeRipple(e); handleCliDiagnose(); }}
             >
@@ -430,7 +430,7 @@ export function About() {
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
                     {(() => {
                       const label = CLI_TOOL_LABELS[s.name as CliTool];
                       return t(label.key, label.fallback);
@@ -438,7 +438,7 @@ export function About() {
                   </span>
                   <span
                     style={{
-                      fontSize: 11,
+                      fontSize: 14,
                       padding: "2px 8px",
                       borderRadius: 4,
                       color: st.color,
@@ -453,7 +453,7 @@ export function About() {
                     <Button
                       variant="default"
                       className="ripple"
-                      style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
+                      style={{ fontSize: 14, padding: "4px 10px", height: "auto" }}
                       disabled={cliBusy !== "" || isPending}
                       onClick={(e) => { makeRipple(e); handleCliInstall(s.name as CliTool); }}
                     >
@@ -466,7 +466,7 @@ export function About() {
                     <Button
                       variant="default"
                       className="ripple"
-                      style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
+                      style={{ fontSize: 14, padding: "4px 10px", height: "auto" }}
                       disabled={cliBusy !== "" || isPending}
                       onClick={(e) => { makeRipple(e); handleCliUpgrade(s.name as CliTool); }}
                     >
@@ -479,7 +479,7 @@ export function About() {
                     <Button
                       variant="default"
                       className="ripple"
-                      style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
+                      style={{ fontSize: 14, padding: "4px 10px", height: "auto" }}
                       disabled={cliBusy !== "" || isPending}
                       onClick={(e) => { makeRipple(e); handleCliUpgrade(s.name as CliTool); }}
                       title={t("about.localEnv.brokenHint", "已损坏，尝试重新安装以修复")}
@@ -491,7 +491,7 @@ export function About() {
                   )}
                 </div>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 12, color: "var(--text-secondary)" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 14, color: "var(--text-secondary)" }}>
                 <div>
                   <span style={{ color: "var(--text-tertiary)" }}>{t("about.localEnv.version", "版本")}：</span>
                   <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
@@ -531,7 +531,7 @@ export function About() {
                     overflowX: "auto",
                   }}
                 >
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
                     {t("about.localEnv.installations", "共 {{count}} 处安装", { count: conflict.installations.length })}
                     {conflict.is_conflicting && (
                       <span style={{ color: "var(--color-warning)", marginLeft: 6 }}>
@@ -547,7 +547,7 @@ export function About() {
                         gap: 8,
                         alignItems: "center",
                         flexWrap: "wrap",
-                        fontSize: 11,
+                        fontSize: 14,
                         color: "var(--text-secondary)",
                       }}
                     >
@@ -587,7 +587,7 @@ export function About() {
                     </div>
                   ))}
                   {conflict.suggestion && (
-                    <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
+                    <div style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 2 }}>
                       <span style={{ color: "var(--text-tertiary)" }}>{t("about.localEnv.suggestion", "建议")}：</span>
                       {conflict.suggestion}
                     </div>
@@ -599,12 +599,12 @@ export function About() {
         })}
 
         {cliMsg && (
-          <div className="toast" style={{ fontSize: 12, wordBreak: "break-all", color: "var(--color-success)" }}>
+          <div className="toast" style={{ fontSize: 14, wordBreak: "break-all", color: "var(--color-success)" }}>
             {cliMsg}
           </div>
         )}
         {cliErr && (
-          <div className="toast" style={{ fontSize: 12, wordBreak: "break-all", color: "var(--color-danger)" }}>
+          <div className="toast" style={{ fontSize: 14, wordBreak: "break-all", color: "var(--color-danger)" }}>
             {cliErr}
           </div>
         )}

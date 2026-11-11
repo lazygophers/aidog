@@ -71,7 +71,7 @@ export function BatchDeleteModal({
 
         {hasCrossGroup && (
           <div style={{
-            fontSize: 12.5,
+            fontSize: 14,
             color: "var(--color-danger)",
             lineHeight: 1.55,
             padding: "8px 12px",
@@ -113,12 +113,12 @@ export function BatchDeleteModal({
                   <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="var(--color-danger)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                     <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
                   </svg>
-                  <span style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <span style={{ fontSize: 14, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {p.name}
                   </span>
                 </div>
                 {isCross && (
-                  <div style={{ fontSize: 11.5, color: "var(--color-danger)", paddingLeft: 18, lineHeight: 1.4 }}>
+                  <div style={{ fontSize: 14, color: "var(--color-danger)", paddingLeft: 18, lineHeight: 1.4 }}>
                     {t("group.batchDeleteCrossGroupItem", "属 {{count}} 组：{{groups}}", { count: groups.length, groups: groups.join("、") })}
                   </div>
                 )}

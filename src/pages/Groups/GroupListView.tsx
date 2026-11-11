@@ -114,7 +114,7 @@ export function GroupListView(props: GroupListViewProps) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
           {details.length > 0 && (
-            <span style={{ fontSize: 13, color: "var(--text-tertiary)" }}>
+            <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
               {details.length} {t("nav.groups").toLowerCase()}
             </span>
           )}
@@ -123,7 +123,7 @@ export function GroupListView(props: GroupListViewProps) {
           {/* 代理 base_url：只读小字 + 复制按钮 */}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <code style={{
-              fontSize: 12, color: "var(--text-secondary)", background: "var(--bg-glass)",
+              fontSize: 14, color: "var(--text-secondary)", background: "var(--bg-glass)",
               padding: "4px 8px", borderRadius: "var(--radius-sm)", whiteSpace: "nowrap",
             }}>{proxyBaseUrl}</code>
             <CopyButton text={proxyBaseUrl} label={t("group.copyBaseUrl", "复制代理地址")}
@@ -150,7 +150,7 @@ export function GroupListView(props: GroupListViewProps) {
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {details.length === 0 && (
             <div className="glass-surface" style={{ padding: 40, textAlign: "center" }}>
-              <div className="text-tertiary" style={{ fontSize: 13 }}>{t("group.empty")}</div>
+              <div className="text-tertiary" style={{ fontSize: 14 }}>{t("group.empty")}</div>
             </div>
           )}
           <SortableList<GroupRow>
@@ -224,7 +224,7 @@ export function GroupListView(props: GroupListViewProps) {
             <div ref={sentinelRef} style={{ height: 1 }} aria-hidden="true" />
           )}
           {loadingMore && (
-            <div className="text-tertiary" style={{ padding: 12, textAlign: "center", fontSize: 12 }}>
+            <div className="text-tertiary" style={{ padding: 12, textAlign: "center", fontSize: 14 }}>
               {t("status.loading")}
             </div>
           )}
@@ -313,13 +313,13 @@ function UnmatchedBucketCard({ stat: u, t }: { stat: PlatformUsageStats; t: TFun
       <CardHeader style={{ padding: 0, gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <CardTitle style={{ fontSize: 14, fontWeight: 600 }}>{t("group.unmatched", "未匹配")}</CardTitle>
-          <Badge variant="secondary" style={{ fontSize: 11, padding: "0 6px", fontWeight: 500 }}>
+          <Badge variant="secondary" style={{ fontSize: 14, padding: "0 6px", fontWeight: 500 }}>
             {t("group.unmatchedBadge", "虚拟桶")}
           </Badge>
         </div>
       </CardHeader>
       <CardContent style={{ padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-        <div className="text-tertiary" style={{ fontSize: 12, lineHeight: 1.5 }}>
+        <div className="text-tertiary" style={{ fontSize: 14, lineHeight: 1.5 }}>
           {t("group.unmatchedHint", "MITM 解密的非 API 流量未匹配分组时透明转发到原 host，不计费，仅统计请求数。")}
         </div>
         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>

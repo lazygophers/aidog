@@ -187,7 +187,7 @@ export function StackedAreaChart({
             align="left"
             iconType="square"
             iconSize={10}
-            wrapperStyle={{ fontSize: 11, color: textColor ?? "var(--text-secondary)" }}
+            wrapperStyle={{ fontSize: 14, color: textColor ?? "var(--text-secondary)" }}
             formatter={(v: unknown) => effConfig[String(v)]?.label ?? String(v)}
           />
         )}
@@ -247,13 +247,13 @@ export function StackedAreaChart({
             alignItems: "center",
             justifyContent: "center",
             gap: 4,
-            fontSize: 12,
+            fontSize: 14,
             color: textColor ?? "var(--text-secondary)",
           }}
         >
           <span>{t("charts.noData", "暂无数据")}</span>
           {emptyHint != null && (
-            <span style={{ fontSize: 11, opacity: 0.75 }}>{emptyHint}</span>
+            <span style={{ fontSize: 14, opacity: 0.75 }}>{emptyHint}</span>
           )}
         </div>
       );

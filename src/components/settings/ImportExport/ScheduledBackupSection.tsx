@@ -44,7 +44,7 @@ export function ScheduledBackupSection() {
   if (!settings) {
     return (
       <section className="glass" style={{ padding: 20 }}>
-        <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>…</div>
+        <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>…</div>
       </section>
     );
   }
@@ -95,7 +95,7 @@ export function ScheduledBackupSection() {
 
       {/* 总开关 */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <span style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: 500 }}>
+        <span style={{ fontSize: 14, color: "var(--text-primary)", fontWeight: 500 }}>
           {t("settings.backup.enable", "启用定时备份")}
         </span>
         <Switch checked={settings.enabled} onCheckedChange={(v) => patch({ enabled: v })} />
@@ -105,7 +105,7 @@ export function ScheduledBackupSection() {
         <>
           {/* 间隔 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
               {t("settings.backup.interval", "备份间隔（小时）")}
             </span>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -118,19 +118,19 @@ export function ScheduledBackupSection() {
                   patch({ interval_hours: v });
                 }}
                 style={{
-                  width: 90, padding: "6px 10px", fontSize: 13,
+                  width: 90, padding: "6px 10px", fontSize: 14,
                   borderRadius: "var(--radius-md)", border: "1px solid var(--border)",
                   background: "var(--bg-glass)", color: "var(--text-primary)",
                 }}
               />
-              <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{t("settings.backup.hours", "小时")}</span>
+              <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("settings.backup.hours", "小时")}</span>
               {INTERVAL_PRESETS.map((p) => (
                 <Button variant="outline"
                   key={p.hours}
                   onClick={() => patch({ interval_hours: p.hours })}
                   className="ie-chip"
                   style={{
-                    padding: "4px 10px", fontSize: 12, cursor: "pointer",
+                    padding: "4px 10px", fontSize: 14, cursor: "pointer",
                     borderRadius: "var(--radius-md)",
                     border: settings.interval_hours === p.hours
                       ? "1px solid var(--accent)"
@@ -149,7 +149,7 @@ export function ScheduledBackupSection() {
 
           {/* 保留天数 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
               {t("settings.backup.retention", "保留天数")}
             </span>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -163,22 +163,22 @@ export function ScheduledBackupSection() {
                   patch({ retention_days: v });
                 }}
                 style={{
-                  width: 90, padding: "6px 10px", fontSize: 13,
+                  width: 90, padding: "6px 10px", fontSize: 14,
                   borderRadius: "var(--radius-md)", border: "1px solid var(--border)",
                   background: "var(--bg-glass)", color: "var(--text-primary)",
                 }}
               />
-              <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{t("settings.backup.days", "天（1-90）")}</span>
+              <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("settings.backup.days", "天（1-90）")}</span>
             </div>
           </div>
 
           {/* 状态 */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "10px 12px", borderRadius: "var(--radius-md)", background: "var(--secondary)", fontSize: 12, color: "var(--text-secondary)" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "10px 12px", borderRadius: "var(--radius-md)", background: "var(--secondary)", fontSize: 14, color: "var(--text-secondary)" }}>
             <div>{t("settings.backup.lastBackup", "上次备份")}: <span style={{ color: "var(--text-primary)" }}>{formatBackupTime(settings.last_backup_at, t)}</span></div>
             {nextAt > 0 && (
               <div>{t("settings.backup.nextBackup", "下次预计")}: <span style={{ color: "var(--text-primary)" }}>{formatBackupTime(nextAt, t)}</span></div>
             )}
-            <div>{t("settings.backup.location", "备份位置")}: <code style={{ fontSize: 11, color: "var(--text-tertiary)" }}>~/.aidog/backups/</code></div>
+            <div>{t("settings.backup.location", "备份位置")}: <code style={{ fontSize: 14, color: "var(--text-tertiary)" }}>~/.aidog/backups/</code></div>
             {settings.last_backup_error && (
               <div style={{ color: "var(--color-danger)" }}>
                 {t("settings.backup.lastError", "上次错误")}: {settings.last_backup_error}
@@ -192,7 +192,7 @@ export function ScheduledBackupSection() {
               onClick={runNow}
               disabled={running}
               style={{
-                padding: "7px 16px", fontSize: 13, cursor: running ? "not-allowed" : "pointer",
+                padding: "7px 16px", fontSize: 14, cursor: running ? "not-allowed" : "pointer",
                 borderRadius: "var(--radius-md)", border: "1px solid var(--accent-edge)",
                 background: "var(--primary)", color: "var(--primary-foreground)",
                 opacity: running ? 0.6 : 1,
@@ -204,7 +204,7 @@ export function ScheduledBackupSection() {
               <Button variant="outline"
                 onClick={() => { revealItemInDir(lastResultPath).catch(() => {}); }}
                 style={{
-                  padding: "7px 14px", fontSize: 12, cursor: "pointer",
+                  padding: "7px 14px", fontSize: 14, cursor: "pointer",
                   borderRadius: "var(--radius-md)", border: "1px solid var(--border)",
                   background: "transparent", color: "var(--text-secondary)",
                 }}
@@ -222,7 +222,7 @@ export function ScheduledBackupSection() {
 
       {msg && (
         <div style={{
-          padding: "8px 12px", fontSize: 12, borderRadius: "var(--radius-md)",
+          padding: "8px 12px", fontSize: 14, borderRadius: "var(--radius-md)",
           color: msg.ok ? "var(--color-success)" : "var(--color-danger)",
           background: msg.ok ? "var(--color-success-bg)" : "var(--color-danger-bg)",
         }}>

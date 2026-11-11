@@ -88,14 +88,14 @@ export function BatchMoveGroupModal({
         </DialogHeader>
 
         <div style={{ marginBottom: 10 }}>
-          <span style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 500, display: "block", marginBottom: 4 }}>
+          <span style={{ fontSize: 14, color: "var(--text-secondary)", fontWeight: 500, display: "block", marginBottom: 4 }}>
             {t("group.batchMoveGroupTarget", "目标分组")}
           </span>
           <Select
             value={targetGroupId === "" ? undefined : String(targetGroupId)}
             onValueChange={(v) => setTargetGroupId(v === "" ? "" : Number(v))}
           >
-            <SelectTrigger style={{ fontSize: 13, width: "100%" }} className="input">
+            <SelectTrigger style={{ fontSize: 14, width: "100%" }} className="input">
               <SelectValue placeholder={t("group.batchMoveGroupSelect", "选择目标分组…")} />
             </SelectTrigger>
             <SelectContent>
@@ -110,7 +110,7 @@ export function BatchMoveGroupModal({
 
         {isCurrentGroup && (
           <div style={{
-            fontSize: 12, color: "var(--color-warning)", lineHeight: 1.5,
+            fontSize: 14, color: "var(--color-warning)", lineHeight: 1.5,
             marginBottom: 10, padding: "6px 10px", borderRadius: "var(--radius-sm)",
             background: "var(--bg-glass)", border: "1px solid var(--color-warning)",
           }}>
@@ -124,7 +124,7 @@ export function BatchMoveGroupModal({
           style={{ display: "flex", gap: 16, marginBottom: 12 }}
         >
           {(["move", "add"] as const).map(m => (
-            <div key={m} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13 }}>
+            <div key={m} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 14 }}>
               <RadioGroupItem value={m} id={`batch-move-${m}`} />
               <label htmlFor={`batch-move-${m}`} style={{ cursor: "pointer" }}>
                 {m === "move"
@@ -149,7 +149,7 @@ export function BatchMoveGroupModal({
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                 <path d="M2 6h8M8 4l2 2-2 2" />
               </svg>
-              <span style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span style={{ fontSize: 14, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {p.name}
               </span>
             </div>

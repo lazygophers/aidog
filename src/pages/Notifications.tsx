@@ -46,14 +46,14 @@ function NotificationItem({ item, idx, t, onNavigate }: { item: Notification; id
     >
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 2 }}>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>
+          <span style={{ fontSize: 14, fontWeight: 600 }}>
             {item.title
               ? `${item.title} · ${notifTypeLabel(item.notif_type, t)}`
               : notifTypeLabel(item.notif_type, t)}
           </span>
           <span
             style={{
-              fontSize: 11,
+              fontSize: 14,
               padding: "1px 6px",
               borderRadius: "var(--radius-sm)",
               background: "var(--accent-subtle)",
@@ -64,45 +64,45 @@ function NotificationItem({ item, idx, t, onNavigate }: { item: Notification; id
           </span>
         </div>
         {item.body && (
-          <div style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+          <div style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
             {item.body}
           </div>
         )}
-        <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ fontSize: 14, color: "var(--text-tertiary)", marginTop: 4, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <span>{formatDateTime(item.created_at) || "-"}</span>
           {item.source && (
-            <span id={`notif-src-${item.id}`} style={{ fontSize: 11, padding: "0 5px", borderRadius: "var(--radius-sm)", background: "var(--bg-glass)" }}>
+            <span id={`notif-src-${item.id}`} style={{ fontSize: 14, padding: "0 5px", borderRadius: "var(--radius-sm)", background: "var(--bg-glass)" }}>
               {t(`notif.source.${item.source}`, item.source)}
             </span>
           )}
           {item.severity && item.severity !== "info" && (
-            <span style={{ fontSize: 11, padding: "0 5px", borderRadius: "var(--radius-sm)", background: item.severity === "error" ? "var(--color-danger-bg)" : "var(--color-warning-bg)" }}>
+            <span style={{ fontSize: 14, padding: "0 5px", borderRadius: "var(--radius-sm)", background: item.severity === "error" ? "var(--color-danger-bg)" : "var(--color-warning-bg)" }}>
               {t(`notif.severity.${item.severity}`, item.severity)}
             </span>
           )}
           {item.source === "proxy" && onNavigate && (
-            <Button variant="ghost" style={{ fontSize: 11, height: "auto", padding: "1px 7px" }} onClick={() => onNavigate("platforms")}>
+            <Button variant="ghost" style={{ fontSize: 14, height: "auto", padding: "1px 7px" }} onClick={() => onNavigate("platforms")}>
               {t("notif.jump.platforms", "平台页")}
             </Button>
           )}
           {(item.source === "hook" || item.source === "proxy") && onNavigate && (
-            <Button variant="ghost" style={{ fontSize: 11, height: "auto", padding: "1px 7px" }} onClick={() => onNavigate("logs")}>
+            <Button variant="ghost" style={{ fontSize: 14, height: "auto", padding: "1px 7px" }} onClick={() => onNavigate("logs")}>
               {t("notif.jump.logs", "日志")}
             </Button>
           )}
           {item.source === "hook" && item.vars?.cwd && (
             <span style={{ fontFamily: "var(--font-mono, monospace)" }}>{item.vars.cwd}</span>
           )}
-          <Button variant="ghost" style={{ fontSize: 11, height: "auto", padding: "1px 7px" }} onClick={loadDeliveries}>
+          <Button variant="ghost" style={{ fontSize: 14, height: "auto", padding: "1px 7px" }} onClick={loadDeliveries}>
             {deliveries ? t("notif.inbox.hideDeliveries", "收起投递") : t("notif.inbox.showDeliveries", "投递记录")}
           </Button>
         </div>
         {deliveries && (
           <div id={`notif-deliveries-${item.id}`} data-count={deliveries.length} style={{ marginTop: 6, borderTop: "1px dashed var(--border)", paddingTop: 6 }}>
             {deliveries.length === 0
-              ? <span className="text-tertiary" style={{ fontSize: 11 }}>{t("notif.inbox.noDeliveries", "无外部投递记录（本地渠道不留痕）")}</span>
+              ? <span className="text-tertiary" style={{ fontSize: 14 }}>{t("notif.inbox.noDeliveries", "无外部投递记录（本地渠道不留痕）")}</span>
               : deliveries.map(d => (
-                <div key={d.id} style={{ fontSize: 11, display: "flex", gap: 8 }}>
+                <div key={d.id} style={{ fontSize: 14, display: "flex", gap: 8 }}>
                   <span style={{ minWidth: 64 }}>{t(`notif.channel.${d.channel}`, d.channel)}</span>
                   <span data-ok={d.status === "success" ? "yes" : "no"} style={{ minWidth: 44, color: d.status === "success" ? "var(--color-success)" : "var(--color-danger)" }}>
                     {d.status === "success" ? "✓" : "✗"} {d.duration_ms}ms
@@ -170,7 +170,7 @@ export function Notifications({ onNavigate }: { onNavigate?: (id: string) => voi
             <Button
               variant="ghost"
               className="ripple"
-              style={{ fontSize: 12, height: "auto", padding: "4px 10px" }}
+              style={{ fontSize: 14, height: "auto", padding: "4px 10px" }}
               onClick={(e) => { makeRipple(e); onNavigate("settings/notifications"); }}
             >
               {t("notifications.goSettings", "通知设置")}
@@ -179,7 +179,7 @@ export function Notifications({ onNavigate }: { onNavigate?: (id: string) => voi
           <Button
             variant="ghost"
             className="ripple"
-            style={{ fontSize: 12, height: "auto", padding: "4px 10px" }}
+            style={{ fontSize: 14, height: "auto", padding: "4px 10px" }}
             disabled={items.length === 0}
             onClick={(e) => { makeRipple(e); handleClear(); }}
           >
@@ -190,27 +190,27 @@ export function Notifications({ onNavigate }: { onNavigate?: (id: string) => voi
 
       {/* 筛选（票 04）：源 / 级别 / 时间 */}
       <div id="notif-filter-bar" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <label style={{ fontSize: 11, display: "flex", gap: 4, alignItems: "center" }}>
+        <label style={{ fontSize: 14, display: "flex", gap: 4, alignItems: "center" }}>
           <span className="text-secondary">{t("notif.filter.source", "来源")}</span>
-          <select className="input" style={{ fontSize: 12, padding: "2px 6px" }} value={fSource} onChange={e => setFSource(e.target.value)}>
+          <select className="input" style={{ fontSize: 14, padding: "2px 6px" }} value={fSource} onChange={e => setFSource(e.target.value)}>
             <option value="">{t("notif.filter.all", "全部")}</option>
             <option value="hook">hook</option>
             <option value="proxy">proxy</option>
             <option value="api">api</option>
           </select>
         </label>
-        <label style={{ fontSize: 11, display: "flex", gap: 4, alignItems: "center" }}>
+        <label style={{ fontSize: 14, display: "flex", gap: 4, alignItems: "center" }}>
           <span className="text-secondary">{t("notif.filter.severity", "级别")}</span>
-          <select className="input" style={{ fontSize: 12, padding: "2px 6px" }} value={fSeverity} onChange={e => setFSeverity(e.target.value)}>
+          <select className="input" style={{ fontSize: 14, padding: "2px 6px" }} value={fSeverity} onChange={e => setFSeverity(e.target.value)}>
             <option value="">{t("notif.filter.all", "全部")}</option>
             <option value="info">info</option>
             <option value="warn">warn</option>
             <option value="error">error</option>
           </select>
         </label>
-        <label style={{ fontSize: 11, display: "flex", gap: 4, alignItems: "center" }}>
+        <label style={{ fontSize: 14, display: "flex", gap: 4, alignItems: "center" }}>
           <span className="text-secondary">{t("notif.filter.time", "时间")}</span>
-          <select className="input" style={{ fontSize: 12, padding: "2px 6px" }} value={fTime} onChange={e => setFTime(e.target.value)}>
+          <select className="input" style={{ fontSize: 14, padding: "2px 6px" }} value={fTime} onChange={e => setFTime(e.target.value)}>
             <option value="">{t("notif.filter.all", "全部")}</option>
             <option value="24h">24h</option>
             <option value="7d">7d</option>
@@ -221,7 +221,7 @@ export function Notifications({ onNavigate }: { onNavigate?: (id: string) => voi
       {loading ? (
         <div className="text-secondary" style={{ padding: 20 }}>{t("status.loading", "加载中…")}</div>
       ) : items.length === 0 ? (
-        <div className="glass-surface text-secondary" style={{ padding: "40px 20px", textAlign: "center", fontSize: 13 }}>
+        <div className="glass-surface text-secondary" style={{ padding: "40px 20px", textAlign: "center", fontSize: 14 }}>
           {t("notif.inboxEmpty", "暂无通知")}
         </div>
       ) : (

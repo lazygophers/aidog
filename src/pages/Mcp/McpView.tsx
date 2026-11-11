@@ -21,7 +21,7 @@ export function McpView({ d }: { d: McpData }) {
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: "var(--text-primary)" }}>
           {t("mcp.title", "MCP")}
         </h1>
-        <span style={{ color: "var(--text-tertiary)", fontSize: 13 }}>
+        <span style={{ color: "var(--text-tertiary)", fontSize: 14 }}>
           {t("mcp.subtitle", { count: servers.length, defaultValue: `${servers.length}` })}
         </span>
         <div style={{ flex: 1 }} />
@@ -73,7 +73,7 @@ export function McpView({ d }: { d: McpData }) {
             border: `1px solid ${message.kind === "ok" ? "var(--success)" : "var(--danger)"}`,
             background: "var(--bg-elevated)",
             color: message.kind === "ok" ? "var(--success)" : "var(--danger)",
-            fontSize: 13,
+            fontSize: 14,
           }}
         >
           {message.text}

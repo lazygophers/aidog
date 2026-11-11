@@ -108,7 +108,7 @@ export function buildSparkMap(series: StatsSeries[], ungroupedLabel?: string): M
 const AMBER = "#e8c547";
 const AMBER_TEXT_DARK = "#8a6d1e"; // 浅色底上琥珀文字改深（对比度），洗底/描边两模式通用
 const tabButton = (active: boolean, p: PanelTokens, mode: string): CSSProperties => ({
-  fontSize: 11,
+  fontSize: 14,
   padding: "3px 10px",
   borderRadius: 6,
   border: `1px solid ${active ? "rgba(232,197,71,.4)" : p.line}`,

@@ -32,7 +32,7 @@ export function Topbar({ crumb, onOpenNotifications, notifHidden, onOpenSearch }
       }}
     >
       {/* 面包屑：section · page（mono 字族，page 段用界面字族加粗） */}
-      <nav id="g3-topbar-crumb" style={{ fontSize: 12, color: "var(--muted-foreground)", fontFamily: "var(--font-mono, monospace)", display: "flex", gap: 6, minWidth: 0 }}>
+      <nav id="g3-topbar-crumb" style={{ fontSize: 14, color: "var(--muted-foreground)", fontFamily: "var(--font-mono, monospace)", display: "flex", gap: 6, minWidth: 0 }}>
         {crumb[0] && <span style={{ whiteSpace: "nowrap" }}>{crumb[0]}</span>}
         {crumb[0] && <span style={{ opacity: 0.5 }}>/</span>}
         <b id="g3-topbar-crumb-page" style={{ color: "var(--foreground)", fontFamily: "inherit", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{crumb[1]}</b>
@@ -49,15 +49,15 @@ export function Topbar({ crumb, onOpenNotifications, notifHidden, onOpenSearch }
         style={{
           all: "unset", cursor: "pointer",
           display: "inline-flex", alignItems: "center", gap: 8,
-          fontSize: 12, color: "var(--muted-foreground)",
+          fontSize: 14, color: "var(--muted-foreground)",
           border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
           padding: "4px 10px", minWidth: 160,
         }}
       >
-        <span style={{ fontSize: 11 }}>⌕</span>
+        <span style={{ fontSize: 14 }}>⌕</span>
         <span style={{ flex: 1, textAlign: "start" }}>{t("topbar.search", "搜索（⌘K）")}</span>
         <kbd style={{
-          fontFamily: "var(--font-mono, monospace)", fontSize: 11,
+          fontFamily: "var(--font-mono, monospace)", fontSize: 14,
           border: "1px solid var(--border)", borderBottomWidth: 2, borderRadius: 5,
           padding: "0 6px", color: "var(--muted-foreground)",
           background: "var(--card)",

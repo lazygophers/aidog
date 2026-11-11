@@ -135,7 +135,7 @@ export function ShareModal<T extends object = Record<string, unknown>>({
   }, []);
 
   const fmtTabStyle = (active: boolean): CSSProperties => ({
-    fontSize: 12.5,
+    fontSize: 14,
     fontWeight: 600,
     padding: "5px 14px",
     borderRadius: "var(--radius-sm)",
@@ -161,7 +161,7 @@ export function ShareModal<T extends object = Record<string, unknown>>({
         {/* 安全警示 */}
         <div
           style={{
-            fontSize: 12.5,
+            fontSize: 14,
             color: "var(--color-danger)",
             lineHeight: 1.55,
             padding: "8px 12px",
@@ -207,7 +207,7 @@ export function ShareModal<T extends object = Record<string, unknown>>({
               background: "var(--bg-glass)",
               border: "1px solid var(--border)",
               fontFamily: "var(--font-mono, monospace)",
-              fontSize: 12.5,
+              fontSize: 14,
               lineHeight: 1.55,
               color: "var(--text-primary)",
               whiteSpace: "pre-wrap",
@@ -233,7 +233,7 @@ export function ShareModal<T extends object = Record<string, unknown>>({
               gap: 8,
             }}
           >
-            <div style={{ fontSize: 12.5, color: "var(--text-secondary)", fontWeight: 600 }}>
+            <div style={{ fontSize: 14, color: "var(--text-secondary)", fontWeight: 600 }}>
               {t("platform.share.scanToImport", "扫码导入")}
             </div>
             {qrDataUrl ? (
@@ -245,7 +245,7 @@ export function ShareModal<T extends object = Record<string, unknown>>({
             ) : (
               <div
                 style={{
-                  fontSize: 12,
+                  fontSize: 14,
                   color: "var(--text-secondary)",
                   textAlign: "center",
                   lineHeight: 1.55,
@@ -263,11 +263,11 @@ export function ShareModal<T extends object = Record<string, unknown>>({
 
         {/* 操作 */}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18, flexWrap: "wrap" }}>
-          <Button variant="ghost" style={{ fontSize: 13, padding: "6px 14px" }} onClick={onClose}>
+          <Button variant="ghost" style={{ fontSize: 14, padding: "6px 14px" }} onClick={onClose}>
             {t("action.close", "关闭")}
           </Button>
           <Button
-            style={{ fontSize: 13, padding: "6px 14px", minWidth: 96 }}
+            style={{ fontSize: 14, padding: "6px 14px", minWidth: 96 }}
             onClick={() => void copy(false)}
           >
             {copied ? t("platform.share.copiedBtn", "已复制") : t("platform.share.copyBtn", "复制")}

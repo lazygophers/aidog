@@ -69,7 +69,7 @@ export function PlatformPicker({ platformIds, options, onChange, t, labelMap }: 
                   width: 28, height: 28, borderRadius: "var(--radius-sm)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   background: "var(--accent-subtle)", color: "var(--accent)",
-                  fontSize: 11, fontWeight: 700, flexShrink: 0,
+                  fontSize: 14, fontWeight: 700, flexShrink: 0,
                 }}>
                   {p.platform_type.slice(0, 2).toUpperCase()}
                 </span>

@@ -172,7 +172,7 @@ export function CostSimulator({ groups, labelMap }: {
     <div style={{ display: "flex", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
       {/* 输入侧 */}
       <div className="glass-surface" style={{ flex: "1 1 320px", padding: 14 }}>
-        <div className="text-tertiary" style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8 }}>
+        <div className="text-tertiary" style={{ fontSize: 14, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8 }}>
           {t("simulator.pickModel")}
         </div>
         <Select value={canonical} onValueChange={setCanonical}>
@@ -188,13 +188,13 @@ export function CostSimulator({ groups, labelMap }: {
           </SelectContent>
         </Select>
 
-        <div className="text-tertiary" style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", margin: "14px 0 8px" }}>
+        <div className="text-tertiary" style={{ fontSize: 14, letterSpacing: 1.2, textTransform: "uppercase", margin: "14px 0 8px" }}>
           {t("simulator.tokens")}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 12px" }}>
           {DIMS.map(dim => (
             <div key={dim}>
-              <label className="text-secondary" style={{ fontSize: 11, display: "block", marginBottom: 2 }}>
+              <label className="text-secondary" style={{ fontSize: 14, display: "block", marginBottom: 2 }}>
                 {t(`simulator.dim.${dim}`)}
               </label>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -217,7 +217,7 @@ export function CostSimulator({ groups, labelMap }: {
         </div>
 
         <details style={{ marginTop: 12, borderTop: "1px dashed var(--border)", paddingTop: 10 }}>
-          <summary className="text-tertiary" style={{ fontSize: 12, cursor: "pointer" }}>
+          <summary className="text-tertiary" style={{ fontSize: 14, cursor: "pointer" }}>
             {t("simulator.pasteSummary")}
           </summary>
           <textarea
@@ -228,27 +228,27 @@ export function CostSimulator({ groups, labelMap }: {
             placeholder='{"model":"...","messages":[{"role":"user","content":"..."}]}'
             style={{
               width: "100%", marginTop: 8, border: "1px solid var(--border)", borderRadius: 7,
-              padding: "7px 9px", fontSize: 11, fontFamily: "var(--font-mono, monospace)",
+              padding: "7px 9px", fontSize: 14, fontFamily: "var(--font-mono, monospace)",
               background: "var(--color-card)", color: "inherit", resize: "vertical",
             }}
           />
           <div style={{ marginTop: 8 }}>
             <Button data-testid="sim-parse" size="sm" onClick={parsePaste}>{t("simulator.parse")}</Button>
           </div>
-          {hint && <div className="text-tertiary" data-testid="sim-hint" style={{ fontSize: 10.5, marginTop: 6 }}>{hint}</div>}
+          {hint && <div className="text-tertiary" data-testid="sim-hint" style={{ fontSize: 14, marginTop: 6 }}>{hint}</div>}
         </details>
       </div>
 
       {/* 输出侧 */}
       <div className="glass-surface" style={{ flex: "1 1 380px", padding: 14 }}>
-        <div className="text-tertiary" style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8 }}>
+        <div className="text-tertiary" style={{ fontSize: 14, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8 }}>
           {t("simulator.result")}
         </div>
         {primaryDto ? (
           <>
             <div data-testid="sim-total" style={{ fontSize: 28, fontWeight: 700, fontFamily: "var(--font-mono, monospace)" }}>
               {unsupported(primaryDto) ? "-" : formatMoney(primaryDto.est_cost)}
-              <small className="text-tertiary" style={{ fontSize: 12, fontWeight: 400 }}> {t("simulator.perRequest")}</small>
+              <small className="text-tertiary" style={{ fontSize: 14, fontWeight: 400 }}> {t("simulator.perRequest")}</small>
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "4px 0 12px" }}>
               <span
@@ -256,7 +256,7 @@ export function CostSimulator({ groups, labelMap }: {
                 data-state={primaryDto.is_peak ? "peak" : "off-peak"}
                 className="badge"
                 style={{
-                  fontSize: 10, borderRadius: 4, padding: "2px 7px",
+                  fontSize: 14, borderRadius: 4, padding: "2px 7px",
                   background: primaryDto.is_peak ? "var(--color-warning-bg)" : "var(--color-success-bg)",
                   color: primaryDto.is_peak ? "var(--warning, #C77E1E)" : "var(--success, #1F9D61)",
                 }}
@@ -267,7 +267,7 @@ export function CostSimulator({ groups, labelMap }: {
               </span>
             </div>
 
-            <Table style={{ fontSize: 11.5 }}>
+            <Table style={{ fontSize: 14 }}>
               <TableHeader>
                 <TableRow>
                   <TableHead>{t("simulator.colDim")}</TableHead>
@@ -291,7 +291,7 @@ export function CostSimulator({ groups, labelMap }: {
                 })}
               </TableBody>
             </Table>
-            <div className="text-tertiary" data-testid="sim-source" style={{ fontSize: 10.5, marginTop: 8 }}>
+            <div className="text-tertiary" data-testid="sim-source" style={{ fontSize: 14, marginTop: 8 }}>
               {t("simulator.priceSource")}: {primaryDto.price_source}
             </div>
           </>
@@ -301,7 +301,7 @@ export function CostSimulator({ groups, labelMap }: {
           </div>
         )}
 
-        <div className="text-tertiary" style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", margin: "14px 0 8px" }}>
+        <div className="text-tertiary" style={{ fontSize: 14, letterSpacing: 1.2, textTransform: "uppercase", margin: "14px 0 8px" }}>
           {t("simulator.compare")}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -321,13 +321,13 @@ export function CostSimulator({ groups, labelMap }: {
                   background: isLowest ? "var(--accent-subtle)" : "transparent",
                 }}
               >
-                <div style={{ fontSize: 12, fontWeight: 600 }}>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>
                   {labelMap[c.entry.platform_code] ?? c.entry.platform_code}
                 </div>
                 <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 16, fontWeight: 700, marginTop: 3 }}>
                   {dto ? (isUnsupported ? "-" : formatMoney(dto.est_cost)) : "…"}
                 </div>
-                <div className="text-tertiary" style={{ fontSize: 10, fontFamily: "var(--font-mono, monospace)" }}>
+                <div className="text-tertiary" style={{ fontSize: 14, fontFamily: "var(--font-mono, monospace)" }}>
                   {dto && isLowest && <span style={{ color: "var(--success, #1F9D61)" }}>{t("simulator.lowest")} </span>}
                   {dto && isUnsupported && t("simulator.unsupported")}
                   {c.entry.model_id !== group.canonical_model ? c.entry.model_id : ""}

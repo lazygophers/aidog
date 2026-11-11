@@ -41,9 +41,9 @@ export function ConflictRow({
           value={scopeLabel}
           label=""
         />
-        <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 13, wordBreak: "break-all" }}>{item.key}</span>
+        <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 14, wordBreak: "break-all" }}>{item.key}</span>
       </div>
-      <div style={{ fontSize: 12, color: "var(--text-tertiary)", lineHeight: 1.4 }}>{item.existing_summary}</div>
+      <div style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.4 }}>{item.existing_summary}</div>
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <Segmented
           value={current.kind}

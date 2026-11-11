@@ -158,7 +158,7 @@ export function Sub2ApiImportSection({
             {t("importExport.sub2api.title", "从 sub2api 导入")}
           </h3>
         </div>
-        <p style={{ margin: 0, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+        <p style={{ margin: 0, fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.5 }}>
           {t(
             "importExport.sub2api.desc",
             "导入 sub2api 管理后台导出的账号数据 JSON（仅取 platform / base_url / api_key）。导入将新建平台，不覆盖同名。",
@@ -173,7 +173,7 @@ export function Sub2ApiImportSection({
             onClick={handlePickFile}
             disabled={parsing || importing}
             
-            style={{ padding: "7px 16px", fontSize: 13 }}
+            style={{ padding: "7px 16px", fontSize: 14 }}
           >
             {t("importExport.sub2api.pickFile", "选择 JSON 文件")}
           </Button>
@@ -181,7 +181,7 @@ export function Sub2ApiImportSection({
             onClick={() => handleParseText(pasteText)}
             disabled={parsing || importing}
             style={{
-              padding: "7px 14px", fontSize: 12, cursor: "pointer",
+              padding: "7px 14px", fontSize: 14, cursor: "pointer",
               borderRadius: "var(--radius-md)", border: "1px solid var(--border)",
               background: "transparent", color: "var(--text-primary)",
             }}
@@ -210,13 +210,13 @@ export function Sub2ApiImportSection({
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Button variant="outline"
                 onClick={() => setSelected(new Set(accounts.map((_, i) => i)))}
-                style={{ background: "transparent", border: "none", color: "var(--accent)", fontSize: 13, fontWeight: 500, cursor: "pointer", padding: 0 }}
+                style={{ background: "transparent", border: "none", color: "var(--accent)", fontSize: 14, fontWeight: 500, cursor: "pointer", padding: 0 }}
               >
                 {t("importExport.selectAll", "全选")}
               </Button>
               <Button variant="outline"
                 onClick={() => setSelected(new Set())}
-                style={{ background: "transparent", border: "none", color: "var(--accent)", fontSize: 13, fontWeight: 500, cursor: "pointer", padding: 0 }}
+                style={{ background: "transparent", border: "none", color: "var(--accent)", fontSize: 14, fontWeight: 500, cursor: "pointer", padding: 0 }}
               >
                 {t("importExport.deselectAll", "反选")}
               </Button>
@@ -254,7 +254,7 @@ export function Sub2ApiImportSection({
                   >
                     {isSelected && <IconCheck size={12} color="var(--primary-foreground)" strokeWidth={2.5} />}
                   </span>
-                  <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 13 }}>{acc.name}</span>
+                  <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 14 }}>{acc.name}</span>
                   {/* Protocol 下拉手改 */}
                   <Select
                     
@@ -262,7 +262,7 @@ export function Sub2ApiImportSection({
                     onValueChange={(v) => setOverride(i, v as Protocol)}
                     
                   >
-<SelectTrigger style={{ fontSize: 12, padding: "4px 8px", width: "auto", minWidth: 140 }}><SelectValue/></SelectTrigger>
+<SelectTrigger style={{ fontSize: 14, padding: "4px 8px", width: "auto", minWidth: 140 }}><SelectValue/></SelectTrigger>
 <SelectContent>
                     {protocols.filter((p) => !p.codingPlan).map((p) => (
                       <SelectItem key={`${p.value}-${p.label}`} value={p.value}>{labelMap[p.value] || p.label}</SelectItem>
@@ -273,10 +273,10 @@ export function Sub2ApiImportSection({
                     <StatChip value={t("importExport.sub2api.unrecognized", "未识别·已兜底 OpenAI")} label="" level="warning" />
                   )}
                   {acc.baseUrl && (
-                    <code style={{ fontSize: 11, color: "var(--text-tertiary)", wordBreak: "break-all" }}>{acc.baseUrl}</code>
+                    <code style={{ fontSize: 14, color: "var(--text-tertiary)", wordBreak: "break-all" }}>{acc.baseUrl}</code>
                   )}
                   {acc.apiKey ? (
-                    <code style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{maskKey(acc.apiKey)}</code>
+                    <code style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{maskKey(acc.apiKey)}</code>
                   ) : (
                     <StatChip value={t("importExport.sub2api.noKey", "无密钥")} label="" level="warning" />
                   )}
@@ -287,7 +287,7 @@ export function Sub2ApiImportSection({
 
           {/* 加入分组 toggle */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)" }}>
-            <span style={{ fontSize: 13 }}>{t("importExport.sub2api.autoGroup", "导入后自动加入「sub2api」分组")}</span>
+            <span style={{ fontSize: 14 }}>{t("importExport.sub2api.autoGroup", "导入后自动加入「sub2api」分组")}</span>
             <Switch checked={autoGroup} onCheckedChange={setAutoGroup} />
           </div>
 
@@ -298,7 +298,7 @@ export function Sub2ApiImportSection({
               onClick={(e) => { makeRipple(e); handleImport(); }}
               disabled={importing || selectedCount === 0}
 
-              style={{ padding: "7px 16px", fontSize: 13 }}
+              style={{ padding: "7px 16px", fontSize: 14 }}
             >
               {importing
                 ? t("importExport.applying", "导入中…")
@@ -311,7 +311,7 @@ export function Sub2ApiImportSection({
       {error && (
         <div
           style={{
-            padding: "8px 12px", fontSize: 12, borderRadius: "var(--radius-md)",
+            padding: "8px 12px", fontSize: 14, borderRadius: "var(--radius-md)",
             color: "var(--color-danger)", background: "var(--color-danger-bg)",
             border: "1px solid var(--color-danger)",
           }}

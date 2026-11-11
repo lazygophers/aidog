@@ -41,7 +41,7 @@ export function GroupTestPanel({ groupName, rows, running, onClose, t }: {
   const fail = rows.filter(r => r.status === "fail").length;
   const done = ok + fail;
   const statusStyle = (s: GroupTestStatus): CSSProperties => ({
-    fontSize: 12, fontWeight: 600,
+    fontSize: 14, fontWeight: 600,
     color: s === "ok" ? "var(--success)" : s === "fail" ? "var(--danger)" : "var(--text-tertiary)",
   });
   const statusText = (r: GroupTestRow): string => {
@@ -68,7 +68,7 @@ export function GroupTestPanel({ groupName, rows, running, onClose, t }: {
             <IconClose size={16} />
           </Button>
         </div>
-        <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+        <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
           {running
             ? t("group.testAllProgress", "测试中… {{done}}/{{total}}", { done, total: rows.length })
             : t("group.testAllSummary", "完成：{{ok}} 成功 / {{fail}} 失败 / 共 {{total}}", { ok, fail, total: rows.length })}
@@ -84,7 +84,7 @@ export function GroupTestPanel({ groupName, rows, running, onClose, t }: {
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{
-                  fontSize: 13, flex: 1, minWidth: 0,
+                  fontSize: 14, flex: 1, minWidth: 0,
                   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                 }}>{r.name}</span>
                 <span style={statusStyle(r.status)}>{statusText(r)}</span>
@@ -93,7 +93,7 @@ export function GroupTestPanel({ groupName, rows, running, onClose, t }: {
                 <div
                   title={r.error}
                   style={{
-                    fontSize: 11, color: "var(--danger)",
+                    fontSize: 14, color: "var(--danger)",
                     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                   }}
                 >

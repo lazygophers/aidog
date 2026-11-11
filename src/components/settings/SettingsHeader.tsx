@@ -105,7 +105,7 @@ export function SettingsHeader({
             type="button"
             style={{
               position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
-              background: "none", border: "none", cursor: "pointer", color: "var(--text-tertiary)", fontSize: 12,
+              background: "none", border: "none", cursor: "pointer", color: "var(--text-tertiary)", fontSize: 14,
             }}
             onClick={() => onSearchChange("")}
           >

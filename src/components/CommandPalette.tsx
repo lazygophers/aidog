@@ -70,7 +70,7 @@ export function CommandPalette(props: {
         </DialogHeader>
         <div style={{ maxHeight: 320, overflow: "auto", padding: 6 }}>
           {hits.length === 0 ? (
-            <div data-testid="command-palette-empty" style={{ fontSize: 12.5, color: "var(--text-tertiary)", padding: "16px 10px", textAlign: "center" }}>
+            <div data-testid="command-palette-empty" style={{ fontSize: 14, color: "var(--text-tertiary)", padding: "16px 10px", textAlign: "center" }}>
               {t("topbar.paletteNoResults", "无匹配结果")}
             </div>
           ) : hits.map((it, i) => {
@@ -85,16 +85,16 @@ export function CommandPalette(props: {
                 onClick={() => jump(it.id)}
                 style={{
                   display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
-                  fontSize: 13, padding: "8px 10px", borderRadius: "var(--radius-sm)",
+                  fontSize: 14, padding: "8px 10px", borderRadius: "var(--radius-sm)",
                   background: sel ? "var(--accent-subtle)" : "transparent",
                   color: on ? "var(--primary)" : "var(--foreground)",
                   fontWeight: on ? 600 : 400,
                 }}>
                 <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t(it.labelKey)}</span>
                 {it.id.startsWith("settings/") && (
-                  <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10, color: "var(--text-tertiary)" }}>settings</span>
+                  <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 14, color: "var(--text-tertiary)" }}>settings</span>
                 )}
-                {sel && <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10, color: "var(--text-tertiary)" }}>↵</span>}
+                {sel && <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 14, color: "var(--text-tertiary)" }}>↵</span>}
               </div>
             );
           })}

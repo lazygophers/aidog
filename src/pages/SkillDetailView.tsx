@@ -133,7 +133,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
               {skill.source && (
                 <span
                   style={{
-                    fontSize: 11,
+                    fontSize: 14,
                     padding: "1px 6px",
                     borderRadius: 4,
                     background: "var(--accent-subtle)",
@@ -147,7 +147,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
                 <span
                   key={a}
                   style={{
-                    fontSize: 11,
+                    fontSize: 14,
                     padding: "1px 5px",
                     borderRadius: 3,
                     border: "1px solid var(--border)",
@@ -161,7 +161,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
             {path && (
               <span
                 style={{
-                  fontSize: 11,
+                  fontSize: 14,
                   color: "var(--text-secondary)",
                   fontFamily: "var(--font-mono, monospace)",
                   wordBreak: "break-all",
@@ -174,7 +174,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
           <Button
             variant="ghost"
             className="ripple"
-            style={{ fontSize: 12, flexShrink: 0 }}
+            style={{ fontSize: 14, flexShrink: 0 }}
             onClick={(e) => { makeRipple(e); onClose(); }}
             aria-label="close"
           >
@@ -196,7 +196,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
           >
             <div
               style={{
-                fontSize: 11,
+                fontSize: 14,
                 fontWeight: 600,
                 color: "var(--text-secondary)",
                 padding: "0 14px 6px",
@@ -206,12 +206,12 @@ export function SkillDetailView({ skill, onClose }: Props) {
               {t("skills.detail.files", { defaultValue: "文件" })} ({files.length})
             </div>
             {loadingList && (
-              <div style={{ padding: "8px 14px", fontSize: 12, color: "var(--text-secondary)" }}>
+              <div style={{ padding: "8px 14px", fontSize: 14, color: "var(--text-secondary)" }}>
                 …
               </div>
             )}
             {!loadingList && files.length === 0 && (
-              <div style={{ padding: "8px 14px", fontSize: 12, color: "var(--text-secondary)" }}>
+              <div style={{ padding: "8px 14px", fontSize: 14, color: "var(--text-secondary)" }}>
                 {t("skills.detail.empty", { defaultValue: "空" })}
               </div>
             )}
@@ -231,19 +231,19 @@ export function SkillDetailView({ skill, onClose }: Props) {
             {error && (
               <div
                 className="glass-surface"
-                style={{ fontSize: 13, color: "var(--color-danger)", padding: "10px 14px" }}
+                style={{ fontSize: 14, color: "var(--color-danger)", padding: "10px 14px" }}
               >
                 {t("skills.detail.readFailed", { defaultValue: "读取失败" })}: {error}
               </div>
             )}
             {!error && loadingFile && (
-              <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>…</div>
+              <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>…</div>
             )}
             {!error && !loadingFile && content && selectedFile && (
               <>
                 <div
                   style={{
-                    fontSize: 11,
+                    fontSize: 14,
                     color: "var(--text-secondary)",
                     marginBottom: 10,
                     display: "flex",
@@ -257,7 +257,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
                 {content.content === null ? (
                   <div
                     style={{
-                      fontSize: 13,
+                      fontSize: 14,
                       color: "var(--text-secondary)",
                       fontStyle: "italic",
                     }}
@@ -269,7 +269,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
                 ) : content.truncated ? (
                   <div
                     style={{
-                      fontSize: 11,
+                      fontSize: 14,
                       color: "var(--text-secondary)",
                       marginBottom: 8,
                     }}
@@ -279,7 +279,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
                 ) : null}
                 {content.content !== null &&
                   (isMd(selectedFile.rel_path) ? (
-                    <div className="markdown-body" style={{ fontSize: 13, lineHeight: 1.6 }}>
+                    <div className="markdown-body" style={{ fontSize: 14, lineHeight: 1.6 }}>
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {content.content}
                       </ReactMarkdown>
@@ -287,7 +287,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
                   ) : (
                     <pre
                       style={{
-                        fontSize: 12,
+                        fontSize: 14,
                         fontFamily: "var(--font-mono, monospace)",
                         whiteSpace: "pre-wrap",
                         wordBreak: "break-word",
@@ -301,7 +301,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
               </>
             )}
             {!error && !loadingFile && !content && !selected && (
-              <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+              <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
                 {t("skills.detail.noSkillMd", { defaultValue: "无 SKILL.md" })}
               </div>
             )}
@@ -335,7 +335,7 @@ function FileRow({ f, idx, on, onSelect }: FileRowProps) {
         width: "100%",
         textAlign: "left",
         padding: "5px 14px",
-        fontSize: 12,
+        fontSize: 14,
         height: "auto",
         justifyContent: "flex-start",
         background: on ? "var(--accent-subtle)" : "transparent",

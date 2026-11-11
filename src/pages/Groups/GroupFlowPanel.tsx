@@ -40,14 +40,14 @@ export function GroupFlowPanel({ groupKey, gps }: { groupKey: string; gps: Group
     ];
   }, [t, gps]);
 
-  const btn = (on: boolean) => ({ all: "unset" as const, cursor: "pointer", fontSize: 11, padding: "2px 9px", borderRadius: "var(--radius-sm)",
+  const btn = (on: boolean) => ({ all: "unset" as const, cursor: "pointer", fontSize: 14, padding: "2px 9px", borderRadius: "var(--radius-sm)",
     background: on ? "var(--accent-subtle)" : "transparent", color: on ? "var(--primary)" : "var(--text-secondary)" });
 
   return (
     <div id="g3-flow" data-loading={loading ? "yes" : "no"} className="glass-surface"
       style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 12.5, fontWeight: 600 }}>{t("group.flow.title", "请求流向")}</span>
+        <span style={{ fontSize: 14, fontWeight: 600 }}>{t("group.flow.title", "请求流向")}</span>
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
           {(["7d", "today"] as Window[]).map(w => (
             <button key={w} type="button" data-testid={`flow-win-${w}`} data-state={win === w ? "on" : "off"} onClick={() => setWin(w)} style={btn(win === w)}>
@@ -63,7 +63,7 @@ export function GroupFlowPanel({ groupKey, gps }: { groupKey: string; gps: Group
         </div>
       </div>
       {!loading && rows.length === 0 ? (
-        <div data-testid="flow-empty" className="text-secondary" style={{ fontSize: 12, padding: "18px 0", textAlign: "center" }}>
+        <div data-testid="flow-empty" className="text-secondary" style={{ fontSize: 14, padding: "18px 0", textAlign: "center" }}>
           {t("group.flow.empty", "窗口内无请求")}
         </div>
       ) : (

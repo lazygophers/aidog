@@ -51,7 +51,7 @@ export function PopoverLayout(d: PopoverConfigData) {
   } = d;
 
   if (loading) {
-    return <div className="text-secondary" style={{ fontSize: 13, padding: 20 }}>{t("common.loading", "加载中...")}</div>;
+    return <div className="text-secondary" style={{ fontSize: 14, padding: 20 }}>{t("common.loading", "加载中...")}</div>;
   }
 
   // 实时预览数据：用 draft config + 已轮询 stats 合成 PopoverData（与真实浮窗共用 renderGrid）。
@@ -68,8 +68,8 @@ export function PopoverLayout(d: PopoverConfigData) {
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* 说明 */}
       <PopoverSectionCard staggerMs={0} style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("popover.title", "浮窗展示")}</div>
-        <div className="text-secondary" style={{ fontSize: 12 }}>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("popover.title", "浮窗展示")}</div>
+        <div className="text-secondary" style={{ fontSize: 14 }}>
           {t("popover.descGrid", "托盘浮窗内容，可显隐、二维拖拽布局、设每行列数、每卡尺寸与颜色。")}
         </div>
       </PopoverSectionCard>
@@ -77,12 +77,12 @@ export function PopoverLayout(d: PopoverConfigData) {
       {/* 展示项布局编辑器 */}
       <PopoverSectionCard staggerMs={60} style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("popover.items", "展示项")}</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("popover.items", "展示项")}</div>
           <div style={{ position: "relative" }}>
             <Button
               variant="ghost"
               className="ripple"
-              style={{ fontSize: 12, padding: "4px 10px", height: 28 }}
+              style={{ fontSize: 14, padding: "4px 10px", height: 28 }}
               disabled={availableTypes.length === 0}
               onClick={(e) => { makeRipple(e); setShowAddMenu((v) => !v); }}
             >
@@ -97,7 +97,7 @@ export function PopoverLayout(d: PopoverConfigData) {
                   <Button
                     key={ty}
                     variant="ghost"
-                    style={{ fontSize: 12, padding: "6px 10px", height: 32, justifyContent: "flex-start", textAlign: "left" }}
+                    style={{ fontSize: 14, padding: "6px 10px", height: 32, justifyContent: "flex-start", textAlign: "left" }}
                     onClick={() => addItem(ty)}
                   >
                     {t(TYPE_LABELS[ty].key, TYPE_LABELS[ty].fallback)}
@@ -109,7 +109,7 @@ export function PopoverLayout(d: PopoverConfigData) {
         </div>
 
         {rowGroups.length === 0 ? (
-          <div className="text-tertiary" style={{ fontSize: 12, fontStyle: "italic", padding: "8px 0" }}>
+          <div className="text-tertiary" style={{ fontSize: 14, fontStyle: "italic", padding: "8px 0" }}>
             {t("popover.empty", "暂无展示项，点击「添加项」")}
           </div>
         ) : (
@@ -155,7 +155,7 @@ export function PopoverLayout(d: PopoverConfigData) {
                 <div
                   className="glass-surface hover-lift"
                   style={{
-                    padding: "8px 10px", borderRadius: 8, fontSize: 13, fontWeight: 500,
+                    padding: "8px 10px", borderRadius: 8, fontSize: 14, fontWeight: 500,
                     background: "var(--accent-subtle)", border: "1px solid var(--accent)",
                     boxShadow: "var(--shadow-lg)",
                   }}>
@@ -168,7 +168,7 @@ export function PopoverLayout(d: PopoverConfigData) {
 
         <Button
           variant="ghost"
-          style={{ fontSize: 11, padding: "2px 8px", height: 24, alignSelf: "flex-start", color: "var(--text-tertiary)" }}
+          style={{ fontSize: 14, padding: "2px 8px", height: 24, alignSelf: "flex-start", color: "var(--text-tertiary)" }}
           onClick={showLayoutHint}
         >
           {t("popover.rowHintBtn", "布局说明")}
@@ -177,13 +177,13 @@ export function PopoverLayout(d: PopoverConfigData) {
 
       {/* 实时预览（draft state，即改即见；与真实浮窗共用 renderGrid） */}
       <PopoverSectionCard staggerMs={120} style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("popover.preview", "实时预览")}</div>
-        <div className="text-secondary" style={{ fontSize: 11 }}>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("popover.preview", "实时预览")}</div>
+        <div className="text-secondary" style={{ fontSize: 14 }}>
           {t("popover.previewHint", "下方按当前布局即时渲染浮窗外观，无需保存。")}
         </div>
         <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}>
           {rowGroups.length === 0 ? (
-            <div className="text-tertiary" style={{ fontSize: 12, fontStyle: "italic" }}>
+            <div className="text-tertiary" style={{ fontSize: 14, fontStyle: "italic" }}>
               {t("popover.empty", "暂无展示项，点击「添加项」")}
             </div>
           ) : (
@@ -194,7 +194,7 @@ export function PopoverLayout(d: PopoverConfigData) {
         </div>
       </PopoverSectionCard>
 
-      {message && <div className="text-secondary" style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{message}</div>}
+      {message && <div className="text-secondary" style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{message}</div>}
     </div>
   );
 }

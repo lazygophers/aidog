@@ -30,7 +30,7 @@ export function HourHeatBar({ data, formatValue, ariaLabel }: HourHeatBarProps) 
     <div
       role="img"
       aria-label={ariaLabel}
-      style={{ display: "grid", gridTemplateColumns: "repeat(24, 1fr)", gap: 2, fontSize: 9, color: "var(--text-tertiary)" }}
+      style={{ display: "grid", gridTemplateColumns: "repeat(24, 1fr)", gap: 2, fontSize: 14, color: "var(--text-tertiary)" }}
     >
       {values.map((v, h) => (
         <div

@@ -110,12 +110,12 @@ export function ItemSelector({
                 <CheckBox checked={allOn} indeterminate={someOn} />
               </span>
               <SectionIcon name={groupIcon(g.gid)} size={14} style={{ color: "var(--text-secondary)" }} />
-              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{groupLabel(g.gid)}</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{groupLabel(g.gid)}</span>
               {/* 方案 C 后 skills 默认勾选；用户手动全清 skills 时提醒（npx 操作需留意） */}
               {hasSkills && skillsSel === 0 && (
                 <span
                   style={{
-                    fontSize: 11,
+                    fontSize: 14,
                     color: "var(--color-warning)",
                     background: "var(--color-warning-bg)",
                     padding: "2px 6px",
@@ -126,7 +126,7 @@ export function ItemSelector({
                   {t("importExport.skillsScopeHint", "未选 Skills（确认无需导入）")}
                 </span>
               )}
-              <span style={{ fontSize: 12, color: "var(--text-tertiary)", marginLeft: "auto" }}>
+              <span style={{ fontSize: 14, color: "var(--text-tertiary)", marginLeft: "auto" }}>
                 {gSel} / {g.items.length}
               </span>
             </div>
@@ -156,7 +156,7 @@ export function ItemSelector({
                     >
                       <CheckBox checked={on} />
                       <SectionIcon name={SCOPE_ICON[it.scope] ?? "folder"} size={12} style={{ color: "var(--text-tertiary)", flexShrink: 0 }} />
-                      <span style={{ fontSize: 13, color: "var(--text-primary)", wordBreak: "break-all", flex: 1 }}>{displayLabel}</span>
+                      <span style={{ fontSize: 14, color: "var(--text-primary)", wordBreak: "break-all", flex: 1 }}>{displayLabel}</span>
                       {it.conflict && (
                         <StatChip value={t("importExport.conflictTag", "冲突")} label="" level={"warning" as ColorLevel} />
                       )}

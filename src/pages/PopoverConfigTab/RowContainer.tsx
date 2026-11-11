@@ -30,15 +30,15 @@ export function RowContainer({
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+        <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
           {t("popover.rowLabel", "第 {{n}} 行", { n: row + 1 })}
         </span>
-        <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{t("popover.cols", "列数")}</span>
+        <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("popover.cols", "列数")}</span>
         {[1, 2, 3].map((c) => (
           <Button
             key={c}
             variant={cols === c ? "default" : "outline"}
-            style={{ fontSize: 11, padding: "2px 8px", height: 22 }}
+            style={{ fontSize: 14, padding: "2px 8px", height: 22 }}
             onClick={() => onSetCols(c)}
           >
             {c}

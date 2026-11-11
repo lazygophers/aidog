@@ -59,7 +59,7 @@ export function McpModals({ d }: { d: McpData }) {
             <DialogTitle style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>
               {t("mcp.scanTitle", "扫描导入 MCP")}
             </DialogTitle>
-            <span style={{ color: "var(--text-tertiary)", fontSize: 12 }}>
+            <span style={{ color: "var(--text-tertiary)", fontSize: 14 }}>
               {scanning ? t("mcp.scanning", "扫描中…") : `${scanItems.length}`}
             </span>
             <div style={{ flex: 1 }} />
@@ -86,11 +86,11 @@ export function McpModals({ d }: { d: McpData }) {
 
           <div style={{ maxHeight: "50vh", overflow: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
             {scanning ? (
-              <div style={{ padding: 24, textAlign: "center", color: "var(--text-tertiary)", fontSize: 13 }}>
+              <div style={{ padding: 24, textAlign: "center", color: "var(--text-tertiary)", fontSize: 14 }}>
                 {t("mcp.scanning", "扫描中…")}
               </div>
             ) : scanItems.length === 0 ? (
-              <div style={{ padding: 24, textAlign: "center", color: "var(--text-tertiary)", fontSize: 13 }}>
+              <div style={{ padding: 24, textAlign: "center", color: "var(--text-tertiary)", fontSize: 14 }}>
                 {t("mcp.scanEmpty", "两 agent 配置无 MCP")}
               </div>
             ) : (
@@ -110,7 +110,7 @@ export function McpModals({ d }: { d: McpData }) {
                       background: disabled ? "var(--bg-elevated)" : "transparent",
                       opacity: disabled ? 0.5 : 1,
                       cursor: disabled ? "not-allowed" : "pointer",
-                      fontSize: 13,
+                      fontSize: 14,
                     }}
                   >
                     <Checkbox
@@ -126,7 +126,7 @@ export function McpModals({ d }: { d: McpData }) {
                           <span
                             key={a}
                             style={{
-                              fontSize: 11,
+                              fontSize: 14,
                               padding: "1px 5px",
                               borderRadius: 4,
                               background: "var(--bg-elevated)",
@@ -137,12 +137,12 @@ export function McpModals({ d }: { d: McpData }) {
                           </span>
                         ))}
                         {disabled && (
-                          <span style={{ fontSize: 11, color: "var(--success)" }}>
+                          <span style={{ fontSize: 14, color: "var(--success)" }}>
                             {t("mcp.alreadyImported", "已导入")}
                           </span>
                         )}
                       </div>
-                      <div style={{ color: "var(--text-tertiary)", fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div style={{ color: "var(--text-tertiary)", fontSize: 14, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         <span title={cmdSummary(it)}>{cmdSummary(it)}</span>
                       </div>
                     </div>
@@ -180,7 +180,7 @@ export function McpModals({ d }: { d: McpData }) {
               {t("mcp.pasteTitle", "粘贴 JSON 导入")}
             </DialogTitle>
           </DialogHeader>
-          <p style={{ margin: "0 0 12px", fontSize: 12, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+          <p style={{ margin: "0 0 12px", fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
             {t("mcp.pasteHint", "粘贴 Claude 格式 MCP 配置（含 mcpServers 包裹或直接 名称→配置 映射）。同名跳过，导入后逐 agent 启用。")}
           </p>
           <JsonCodeEditor
@@ -215,7 +215,7 @@ export function McpModals({ d }: { d: McpData }) {
             <AlertDialogTitle style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>
               {t("mcp.deleteTitle", "删除 MCP")}
             </AlertDialogTitle>
-            <AlertDialogDescription style={{ margin: "12px 0", fontSize: 13, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+            <AlertDialogDescription style={{ margin: "12px 0", fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
               {deleteTarget && t("mcp.deleteConfirm", {
                 name: deleteTarget.name,
                 defaultValue: `将从 DB + 所有 enabled agent 配置移除「${deleteTarget.name}」，不可恢复`,
@@ -261,7 +261,7 @@ export function McpModals({ d }: { d: McpData }) {
                     onClick={() => setAddTab(tab)}
                     style={{
                       padding: "8px 14px",
-                      fontSize: 13,
+                      fontSize: 14,
                       cursor: "pointer",
                       background: "transparent",
                       border: "none",
@@ -280,20 +280,20 @@ export function McpModals({ d }: { d: McpData }) {
             )}
             {editTarget !== null || addTab === "manual" ? (
               <>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 14, color: "var(--text-secondary)" }}>
               <span>{t("mcp.field.name", "名称")}</span>
               <Input
                 value={editForm.name}
                 onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
               />
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 14, color: "var(--text-secondary)" }}>
               <span>{t("mcp.field.transport", "传输")}</span>
               <Select
                 value={editForm.transport}
                 onValueChange={(v) => setEditForm((f) => ({ ...f, transport: v as McpTransport }))}
               >
-                <SelectTrigger style={{ fontSize: 13 }}>
+                <SelectTrigger style={{ fontSize: 14 }}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -305,7 +305,7 @@ export function McpModals({ d }: { d: McpData }) {
             </div>
             {editForm.transport === "stdio" ? (
               <>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 14, color: "var(--text-secondary)" }}>
                   <span>{t("mcp.field.command", "命令")}</span>
                   <Input
                     value={editForm.command}
@@ -313,7 +313,7 @@ export function McpModals({ d }: { d: McpData }) {
                     onChange={(e) => setEditForm((f) => ({ ...f, command: e.target.value }))}
                   />
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 14, color: "var(--text-secondary)" }}>
                   <span>{t("mcp.field.args", "参数（每行一个）")}</span>
                   <Textarea
                     style={{ minHeight: 64, fontFamily: "var(--font-mono)" }}
@@ -329,7 +329,7 @@ export function McpModals({ d }: { d: McpData }) {
               </>
             ) : (
               <>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 14, color: "var(--text-secondary)" }}>
                   <span>{t("mcp.field.url", "URL")}</span>
                   <Input
                     value={editForm.url}
@@ -346,7 +346,7 @@ export function McpModals({ d }: { d: McpData }) {
             )}
                 {/* 推荐预填：必填 env 提示（票 09；键已预填、值留空） */}
                 {prefillMeta && prefillMeta.requiredEnvKeys.length > 0 && (
-                  <div style={{ fontSize: 11, color: "var(--warning)", lineHeight: 1.6 }}>
+                  <div style={{ fontSize: 14, color: "var(--warning)", lineHeight: 1.6 }}>
                     {t("mcp.requiredKeyHint", {
                       keys: prefillMeta.requiredEnvKeys.join(", "),
                       defaultValue: "{{keys}} 必填，申请地址：",
@@ -365,7 +365,7 @@ export function McpModals({ d }: { d: McpData }) {
                 )}
                 {/* sse 传输：Codex 同步边界提示（Codex 支持 stdio 与 streamable http） */}
                 {editForm.transport === "sse" && (
-                  <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                  <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
                     {t("mcp.codexNoSseHint", "Codex 不支持 sse，此项不会同步到 Codex")}
                   </div>
                 )}
@@ -439,14 +439,14 @@ function RecommendedPane({ d }: { d: McpData }) {
 
   if (d.recLoading) {
     return (
-      <div style={{ padding: 24, textAlign: "center", color: "var(--text-tertiary)", fontSize: 13 }}>
+      <div style={{ padding: 24, textAlign: "center", color: "var(--text-tertiary)", fontSize: 14 }}>
         {t("common.loading", "加载中…")}
       </div>
     );
   }
   if (entries.length === 0) {
     return (
-      <div style={{ padding: 24, textAlign: "center", color: "var(--text-tertiary)", fontSize: 13 }}>
+      <div style={{ padding: 24, textAlign: "center", color: "var(--text-tertiary)", fontSize: 14 }}>
         {t("mcp.recEmpty", "暂无推荐")}
       </div>
     );
@@ -463,7 +463,7 @@ function RecommendedPane({ d }: { d: McpData }) {
         if (items.length === 0) return null;
         return (
           <div key={cat}>
-            <div style={{ margin: "10px 0 6px", fontSize: 12, fontWeight: 600, color: "var(--text-tertiary)" }}>
+            <div style={{ margin: "10px 0 6px", fontSize: 14, fontWeight: 600, color: "var(--text-tertiary)" }}>
               {t(`mcp.category.${cat}`, cat)}
             </div>
             {items.map((e) => {
@@ -501,20 +501,20 @@ function RecommendedPane({ d }: { d: McpData }) {
                     <RecIcon slug={e.icon} name={e.display_name || e.name} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
                       {e.display_name || e.name}
                       {inst && (
-                        <span style={{ fontSize: 11, fontWeight: 500, color: "var(--success)" }}>
+                        <span style={{ fontSize: 14, fontWeight: 500, color: "var(--success)" }}>
                           {t("mcp.installed", "已安装")}
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 2 }}>
+                    <div style={{ fontSize: 14, color: "var(--text-tertiary)", marginTop: 2 }}>
                       {descFor(e, lang)}
                     </div>
                     <div
                       style={{
-                        fontSize: 11,
+                        fontSize: 14,
                         color: "var(--text-tertiary)",
                         fontFamily: "var(--font-mono, monospace)",
                         marginTop: 2,
