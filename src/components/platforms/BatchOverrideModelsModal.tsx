@@ -129,7 +129,7 @@ export function BatchOverrideModelsModal({
           style={{ display: "flex", gap: 16, marginBottom: 10, flexWrap: "wrap" }}
         >
           {(["manual", "preset", "copy"] as const).map(s => (
-            <div key={s} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13 }}>
+            <div key={s} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 14 }}>
               <RadioGroupItem value={s} id={`batch-override-src-${s}`} />
               <label htmlFor={`batch-override-src-${s}`} style={{ cursor: "pointer" }}>
                 {s === "manual" && t("group.batchOverrideSourceManual", "手输")}
@@ -145,7 +145,7 @@ export function BatchOverrideModelsModal({
             value={presetProtocol === "" ? undefined : presetProtocol}
             onValueChange={(v) => setPresetProtocol(v as Protocol)}
           >
-            <SelectTrigger style={{ fontSize: 13, width: "100%", marginBottom: 10 }} className="input">
+            <SelectTrigger style={{ fontSize: 14, width: "100%", marginBottom: 10 }} className="input">
               <SelectValue placeholder={t("group.batchOverridePresetSelect", "选择协议…")} />
             </SelectTrigger>
             <SelectContent>
@@ -160,7 +160,7 @@ export function BatchOverrideModelsModal({
             value={copyPlatformId === "" ? undefined : String(copyPlatformId)}
             onValueChange={(v) => setCopyPlatformId(v === "" ? "" : Number(v))}
           >
-            <SelectTrigger style={{ fontSize: 13, width: "100%", marginBottom: 10 }} className="input">
+            <SelectTrigger style={{ fontSize: 14, width: "100%", marginBottom: 10 }} className="input">
               <SelectValue placeholder={t("group.batchOverrideCopySelect", "选择平台…")} />
             </SelectTrigger>
             <SelectContent>
@@ -179,13 +179,13 @@ export function BatchOverrideModelsModal({
         }}>
           {MODEL_SLOTS.map(s => (
             <Fragment key={s.key}>
-              <span style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 500 }}>
+              <span style={{ fontSize: 14, color: "var(--text-secondary)", fontWeight: 500 }}>
                 {t(s.labelKey, s.key)}
               </span>
               <Input
                 className="input"
                 data-testid={`batch-slot-${s.key}`}
-                style={{ fontSize: 12, padding: "4px 8px", height: "auto" }}
+                style={{ fontSize: 14, padding: "4px 8px", height: "auto" }}
                 value={slots[s.key] ?? ""}
                 onChange={e => setSlots(prev => ({ ...prev, [s.key]: e.target.value }))}
               />
@@ -193,7 +193,7 @@ export function BatchOverrideModelsModal({
           ))}
         </div>
 
-        <div style={{ fontSize: 12.5, color: "var(--text-secondary)", marginBottom: 6 }}>
+        <div style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 6 }}>
           {t("group.batchOverrideDiffTitle", "覆盖预览（当前 → 新值）：")}
         </div>
         <div style={{
@@ -207,7 +207,7 @@ export function BatchOverrideModelsModal({
               padding: "5px 0", borderBottom: "1px solid var(--border)",
               display: "flex", flexDirection: "column", gap: 2,
             }}>
-              <div style={{ fontSize: 12.5, fontWeight: 600 }}>{p.name}</div>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>{p.name}</div>
               {MODEL_SLOTS.map(s => {
                 const cur = slotList(p.models?.[s.key]).join(", ");
                 const next = slots[s.key] ?? "";
@@ -217,7 +217,7 @@ export function BatchOverrideModelsModal({
                 return (
                   <div key={s.key} style={{
                     display: "grid", gridTemplateColumns: "auto 1fr auto 1fr",
-                    gap: "2px 6px", fontSize: 11.5, alignItems: "baseline",
+                    gap: "2px 6px", fontSize: 14, alignItems: "baseline",
                     paddingLeft: 8,
                   }}>
                     <span style={{ color: "var(--text-tertiary)", fontWeight: 500 }}>

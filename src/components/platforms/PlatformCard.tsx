@@ -272,7 +272,7 @@ export const PlatformCard = memo(function PlatformCard({
                   display: "flex", alignItems: "center", justifyContent: "center",
                   background: (cachedLogoUrl || logoSvg || favicon) ? "transparent" : `${color}15`,
                   border: `1px solid ${color}30`,
-                  color: color, fontSize: 12, fontWeight: 700, overflow: "hidden",
+                  color: color, fontSize: 14, fontWeight: 700, overflow: "hidden",
                 }}>
                   {cachedLogoUrl
                     ? <img src={cachedLogoUrl} alt={p.platform_type} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }}
@@ -385,7 +385,7 @@ export const PlatformCard = memo(function PlatformCard({
                     return (
                       <span
                         style={{
-                          fontSize: 12, whiteSpace: "nowrap", flex: "none",
+                          fontSize: 14, whiteSpace: "nowrap", flex: "none",
                           color: soon ? "var(--color-warning)" : "var(--text-tertiary)",
                           fontWeight: soon ? 600 : 500,
                         }}
@@ -399,7 +399,7 @@ export const PlatformCard = memo(function PlatformCard({
                   {/* 最近一次测试结果徽章（常驻；无记录不渲染） */}
                   {lastTest && <LastTestBadge result={lastTest} />}
                 </div>
-                <div className="text-secondary" style={{ fontSize: 12, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div className="text-secondary" style={{ fontSize: 14, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {/* unknown = DB platform_type 落了枚举外的值（票 06）：显式「未知协议」，提示重选平台类型 */}
                   {p.platform_type === "unknown" ? t("platform.unknownProtocol", "未知协议") : protocolLabel || p.platform_type} · {getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url}
                 </div>
@@ -407,7 +407,7 @@ export const PlatformCard = memo(function PlatformCard({
                 {platformMembership && platformMembership.length > 0 && (
                   <div style={{ marginTop: 3, display: "flex", gap: 4, flexWrap: "wrap" }}>
                     {platformMembership.map(gName => (
-                      <Badge key={gName} variant="secondary" style={{ fontSize: 12, padding: "1px 6px" }}>
+                      <Badge key={gName} variant="secondary" style={{ fontSize: 14, padding: "1px 6px" }}>
                         {gName}
                       </Badge>
                     ))}
@@ -483,9 +483,9 @@ export const PlatformCard = memo(function PlatformCard({
                       <BalanceBar remaining={mb.remaining} total={mb.amount} kind="usd" />
                     ) : (
                       <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
-                        <span style={{ fontWeight: 700, fontSize: 12, color: mb.depleted ? "var(--color-danger)" : mb.ratio < 0.2 ? "var(--color-warning)" : "var(--text-primary)" }}>
+                        <span style={{ fontWeight: 700, fontSize: 14, color: mb.depleted ? "var(--color-danger)" : mb.ratio < 0.2 ? "var(--color-warning)" : "var(--text-primary)" }}>
                           {formatNumber(Math.max(0, mb.remaining))}
-                          <span style={{ fontSize: 12, color: "var(--text-tertiary)", marginLeft: 3 }}>
+                          <span style={{ fontSize: 14, color: "var(--text-tertiary)", marginLeft: 3 }}>
                             / {formatNumber(mb.amount)} {mb.unit === "count" ? t("platform.manualBudgetUnitCountShort", "次") : "tok"}
                           </span>
                         </span>
@@ -494,7 +494,7 @@ export const PlatformCard = memo(function PlatformCard({
                         </div>
                       </div>
                     )}
-                    <span style={{ fontSize: 12, fontWeight: 700, color: mb.depleted ? "var(--color-danger)" : "var(--text-tertiary)" }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: mb.depleted ? "var(--color-danger)" : "var(--text-tertiary)" }}>
                       {mb.depleted
                         ? t("platform.manualBudgetDepleted", "额度耗尽")
                         : t("platform.manualBudgetLabel", "手动预算")}
@@ -505,12 +505,12 @@ export const PlatformCard = memo(function PlatformCard({
                 {/* Coding plan：已用 tokens + 预估金额（折叠态亦可见，配额档无此数据） */}
                 {hasCodingEndpoint && u && (
                   <div style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 8 }} title={t("platform.codingUsedHint", "本平台累计已用 tokens 与预估金额（基于实际请求估算）")}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 12, fontWeight: 700, color: "var(--text-secondary)" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 14, fontWeight: 700, color: "var(--text-secondary)" }}>
                       <IconBolt size={12} />
                       {formatNumber(total)}
-                      <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.6 }}>tok</span>
+                      <span style={{ fontSize: 14, fontWeight: 600, opacity: 0.6 }}>tok</span>
                     </span>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 12, fontWeight: 700, color: "var(--text-secondary)" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 14, fontWeight: 700, color: "var(--text-secondary)" }}>
                       <IconCost size={12} />
                       {formatMoney(u.total_cost)}
                     </span>
@@ -518,7 +518,7 @@ export const PlatformCard = memo(function PlatformCard({
                 )}
                 {/* B3 折算行：本周期（首个配额窗口 window_start 起）累计折算 $ + 手填套餐价 */}
                 {hasCodingEndpoint && p.coding_window_cost > 0 && (
-                  <span style={{ flexShrink: 0, fontSize: 11, color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>
+                  <span style={{ flexShrink: 0, fontSize: 14, color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>
                     {t("platform.codingWindowCost", "本周期折算")} {formatMoney(p.coding_window_cost)}
                     {planPrice != null && ` · ${t("platform.codingPlanPrice", "套餐")} ¥${planPrice}/月`}
                   </span>
@@ -551,14 +551,14 @@ export const PlatformCard = memo(function PlatformCard({
                               transition: "width 0.3s ease",
                             }} />
                           </div>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.1 }}>
-                            {value}<span style={{ fontSize: 12, fontWeight: 600, opacity: 0.65, marginLeft: 1 }}>{remainSuffix}</span>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.1 }}>
+                            {value}<span style={{ fontSize: 14, fontWeight: 600, opacity: 0.65, marginLeft: 1 }}>{remainSuffix}</span>
                           </span>
-                          <span style={{ fontSize: 12, color: "var(--text-tertiary)", whiteSpace: "nowrap", lineHeight: 1.1 }}>
+                          <span style={{ fontSize: 14, color: "var(--text-tertiary)", whiteSpace: "nowrap", lineHeight: 1.1 }}>
                             {tierLabel(tier.name)}{countdown && ` ·${countdown}`}
                           </span>
                           {resetClock && (
-                            <span style={{ fontSize: 12, color: "var(--text-tertiary)", whiteSpace: "nowrap", lineHeight: 1.1 }}>
+                            <span style={{ fontSize: 14, color: "var(--text-tertiary)", whiteSpace: "nowrap", lineHeight: 1.1 }}>
                               {resetClock}
                             </span>
                           )}
@@ -575,7 +575,7 @@ export const PlatformCard = memo(function PlatformCard({
                   <span
                     title={t("platform.rateLimitTitle", "上游速率限制余量（每分钟），来自 {{vendor}} 响应头", { vendor: rateLimit.vendor })}
                     style={{
-                      flexShrink: 0, fontSize: 12, whiteSpace: "nowrap",
+                      flexShrink: 0, fontSize: 14, whiteSpace: "nowrap",
                       color: rateLimitColor,
                     }}
                   >
@@ -587,16 +587,16 @@ export const PlatformCard = memo(function PlatformCard({
                   <div style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
                     <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}
                       title={t("platform.todayUsageLabel", "今日")}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: u.today_cost > 0 ? "var(--text-primary)" : "var(--text-tertiary)", fontVariantNumeric: "tabular-nums" }}>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: u.today_cost > 0 ? "var(--text-primary)" : "var(--text-tertiary)", fontVariantNumeric: "tabular-nums" }}>
                         {formatMoney(u.today_cost)}
                       </span>
-                      <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{t("platform.todayUsageLabel", "今日")}</span>
+                      <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("platform.todayUsageLabel", "今日")}</span>
                     </span>
                     <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: successRateLevel(sr, u.total_requests) === "danger" ? "var(--color-danger)" : successRateLevel(sr, u.total_requests) === "warning" ? "var(--color-warning)" : "var(--color-success)", fontVariantNumeric: "tabular-nums" }}>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: successRateLevel(sr, u.total_requests) === "danger" ? "var(--color-danger)" : successRateLevel(sr, u.total_requests) === "warning" ? "var(--color-warning)" : "var(--color-success)", fontVariantNumeric: "tabular-nums" }}>
                         {formatPercent(sr)}
                       </span>
-                      <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{t("platform.successRateLabel", "成功率")}</span>
+                      <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("platform.successRateLabel", "成功率")}</span>
                     </span>
                   </div>
                 )}
@@ -627,7 +627,7 @@ export const PlatformCard = memo(function PlatformCard({
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
-                      fontSize: 12, color: "var(--accent)",
+                      fontSize: 14, color: "var(--accent)",
                       textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4,
                     }}
                     onClick={(e) => e.stopPropagation()}
@@ -654,7 +654,7 @@ export const PlatformCard = memo(function PlatformCard({
             {/* 配额各档明细 */}
             {showQuota && quota.tiers.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span className="text-tertiary" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.quotaLabel", "额度")}</span>
+                <span className="text-tertiary" style={{ fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.quotaLabel", "额度")}</span>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {quota.tiers.map(tier => {
                     const isMcp = tier.name === "mcp_monthly";
@@ -681,10 +681,10 @@ export const PlatformCard = memo(function PlatformCard({
                             transition: "width 0.3s ease",
                           }} />
                         </div>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.1 }}>
-                          {value}<span style={{ fontSize: 12, fontWeight: 600, opacity: 0.65, marginLeft: 2 }}>{remainSuffix}</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.1 }}>
+                          {value}<span style={{ fontSize: 14, fontWeight: 600, opacity: 0.65, marginLeft: 2 }}>{remainSuffix}</span>
                         </span>
-                        <span style={{ fontSize: 12, color: "var(--text-tertiary)", display: "inline-flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
+                        <span style={{ fontSize: 14, color: "var(--text-tertiary)", display: "inline-flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
                           <span>{tierLabel(tier.name)}</span>
                           {countdown && (
                             <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
@@ -734,10 +734,10 @@ function EndpointsSection({
     <>
       {endpoints && endpoints.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span className="text-tertiary" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.endpoints", "Protocol Endpoints")}</span>
+          <span className="text-tertiary" style={{ fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.endpoints", "Protocol Endpoints")}</span>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {endpoints.map((ep, ei) => (
-              <Badge key={ei} variant="secondary" style={{ fontSize: 11, padding: "1px 6px", opacity: 0.85 }}>
+              <Badge key={ei} variant="secondary" style={{ fontSize: 14, padding: "1px 6px", opacity: 0.85 }}>
                 {labelMap?.[ep.protocol] || PROTOCOL_LABELS[ep.protocol] || ep.protocol}
                 {ep.coding_plan && <span style={{ color: "var(--color-success)", marginLeft: 2, fontWeight: 700 }}>Code</span>}
               </Badge>
@@ -747,13 +747,13 @@ function EndpointsSection({
       )}
       {configuredModels.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span className="text-tertiary" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.models")}</span>
+          <span className="text-tertiary" style={{ fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.models")}</span>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {configuredModels.map((m, mi) => (
-              <Badge key={mi} variant="secondary" style={{ fontSize: 12, padding: "2px 6px" }}>{m}</Badge>
+              <Badge key={mi} variant="secondary" style={{ fontSize: 14, padding: "2px 6px" }}>{m}</Badge>
             ))}
             {backupCount > 0 && (
-              <Badge variant="outline" data-testid="model-backup-count" style={{ fontSize: 12, padding: "2px 6px" }}>+{backupCount}</Badge>
+              <Badge variant="outline" data-testid="model-backup-count" style={{ fontSize: 14, padding: "2px 6px" }}>+{backupCount}</Badge>
             )}
           </div>
         </div>
@@ -786,7 +786,7 @@ function UsageSection({
       {usage && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span className="text-tertiary" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "已使用")}</span>
+            <span className="text-tertiary" style={{ fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "已使用")}</span>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               <StatChip icon={<IconBolt size={13} />} value={formatNumber(totalTokens)} label="tokens" />
               <StatChip icon={<IconCost size={13} />} value={formatMoney(totalCost)} label="cost" level={costLevel(totalCost)} />
@@ -794,7 +794,7 @@ function UsageSection({
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span className="text-tertiary" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.todayUsageLabel", "今日")}</span>
+            <span className="text-tertiary" style={{ fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.todayUsageLabel", "今日")}</span>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               <StatChip icon={<IconBolt size={13} />} value={formatNumber(usage.today_tokens)} label="tokens" />
               <StatChip icon={<IconCost size={13} />} value={formatMoney(usage.today_cost)} label="cost" level={costLevel(usage.today_cost)} />
@@ -804,7 +804,7 @@ function UsageSection({
       )}
       {!usage && usagePending && (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span className="text-tertiary" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "已使用")}</span>
+          <span className="text-tertiary" style={{ fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "已使用")}</span>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <span className="skeleton" style={{ width: 80, height: 24 }} aria-label={t("platform.usageLoading", "用量加载中")} />
             <span className="skeleton" style={{ width: 70, height: 24 }} />
@@ -865,7 +865,7 @@ function PlatformActionButtons({
       />
       {/* 模型测试按钮：passthrough 平台无模型语义（原样透传），隐藏快速/自定义测试 */}
       {platform.platform_type !== "passthrough" && (
-      <div style={{ display: "inline-flex", fontSize: 12 }}>
+      <div style={{ display: "inline-flex", fontSize: 14 }}>
         <Button
           variant="ghost"
           size="icon"
@@ -979,7 +979,7 @@ export function LevelPriorityControl({ value, onChange }: { value: number; onCha
     >
       <span
         className="text-tertiary"
-        style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.3 }}
+        style={{ fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}
         title={t("group.levelPriorityHint", "数值越大优先级越高（10=最高优先），仅在本分组生效")}
       >
         {t("group.levelPriority", "优先级")}
@@ -1006,7 +1006,7 @@ export function LevelPriorityControl({ value, onChange }: { value: number; onCha
           onBlur={commit}
           onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
           style={{
-            width: 38, height: "auto", textAlign: "center", fontSize: 12, fontWeight: 700,
+            width: 38, height: "auto", textAlign: "center", fontSize: 14, fontWeight: 700,
             padding: "2px 4px", borderRadius: "var(--radius-sm)",
             background: "var(--bg-glass)", border: "1px solid var(--border)",
             color: "var(--text-primary)",
@@ -1023,7 +1023,7 @@ export function LevelPriorityControl({ value, onChange }: { value: number; onCha
           <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M7 3v8M3 7h8" /></svg>
         </Button>
       </div>
-      <span className="text-tertiary" style={{ fontSize: 12, opacity: 0.7 }}>
+      <span className="text-tertiary" style={{ fontSize: 14, opacity: 0.7 }}>
         {t("group.levelPriorityMax", "10=最高优先")}
       </span>
     </div>
@@ -1046,7 +1046,7 @@ function LastTestBadge({ result }: { result: LastTestResult }) {
         onClick={hasBody ? () => setOpen(o => !o) : undefined}
         style={{
           display: "inline-flex", alignItems: "center", gap: 4,
-          fontSize: 12, fontWeight: 600, color,
+          fontSize: 14, fontWeight: 600, color,
           background: `color-mix(in srgb, ${color} 12%, transparent)`,
           border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
           borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap", maxWidth: "100%",

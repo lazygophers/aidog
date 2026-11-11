@@ -47,13 +47,13 @@ export function ProxyStatusSection({ s }: { s: SystemSettings }) {
             {running ? t("proxy.running") : t("proxy.stopped")}
           </div>
           {running && (
-            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
+            <div style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 2 }}>
               localhost:{proxyPort}
             </div>
           )}
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+          <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
             {t("proxy.port")}
           </label>
           <Input
@@ -89,7 +89,7 @@ export function ProxyStatusSection({ s }: { s: SystemSettings }) {
             background: "var(--color-danger-bg)",
           }}
         >
-          <span style={{ fontSize: 13, color: "var(--color-danger)", flex: 1 }}>
+          <span style={{ fontSize: 14, color: "var(--color-danger)", flex: 1 }}>
             {proxyStartError.kind === "addr_in_use"
               ? t("proxy.startFailedPortInUse", "端口 {{port}} 被占用，代理未启动", { port: proxyStartError.port })
               : t("proxy.startFailedOther", "端口 {{port}} 绑定失败，代理未启动", { port: proxyStartError.port })}
@@ -119,8 +119,8 @@ export function UpstreamProxySection({ s }: { s: SystemSettings }) {
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("proxy.upstreamProxy")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.upstreamProxy")}</div>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("proxy.upstreamProxyDesc")}
           </div>
         </div>
@@ -131,11 +131,11 @@ export function UpstreamProxySection({ s }: { s: SystemSettings }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+              <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                 {t("proxy.proxyType", "协议")}
               </label>
               <Select value={proxyClient.proxy_type} onValueChange={(v) => handleProxyClientChange({ proxy_type: v })}>
-                <SelectTrigger style={{ width: 100, height: 28, fontSize: 12 }}>
+                <SelectTrigger style={{ width: 100, height: 28, fontSize: 14 }}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -146,41 +146,41 @@ export function UpstreamProxySection({ s }: { s: SystemSettings }) {
               </Select>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+              <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                 {t("proxy.proxyHost", "地址")}
               </label>
               <Input
                 value={proxyClient.host}
                 onChange={(e) => handleProxyClientChange({ host: e.target.value })}
-                style={{ width: 120, height: 28, fontSize: 12 }}
+                style={{ width: 120, height: 28, fontSize: 14 }}
               />
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+              <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                 {t("proxy.proxyPort", "端口")}
               </label>
               <Input
                 type="number"
                 value={proxyClient.port}
                 onChange={(e) => handleProxyClientChange({ port: Number(e.target.value) || 7890 })}
-                style={{ width: 70, height: 28, fontSize: 12 }}
+                style={{ width: 70, height: 28, fontSize: 14 }}
               />
             </div>
           </div>
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+              <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                 {t("proxy.proxyUser", "用户名")}
               </label>
               <Input
                 value={proxyClient.username}
                 onChange={(e) => handleProxyClientChange({ username: e.target.value })}
                 placeholder={t("proxy.proxyUserPlaceholder", "可选")}
-                style={{ width: 100, height: 28, fontSize: 12 }}
+                style={{ width: 100, height: 28, fontSize: 14 }}
               />
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+              <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                 {t("proxy.proxyPass", "密码")}
               </label>
               <Input
@@ -188,15 +188,15 @@ export function UpstreamProxySection({ s }: { s: SystemSettings }) {
                 value={proxyClient.password}
                 onChange={(e) => handleProxyClientChange({ password: e.target.value })}
                 placeholder={t("proxy.proxyPassPlaceholder", "可选")}
-                style={{ width: 100, height: 28, fontSize: 12 }}
+                style={{ width: 100, height: 28, fontSize: 14 }}
               />
             </div>
           </div>
           {proxyClient.proxy_type === "socks5" && (
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600 }}>{t("proxy.dnsOverProxy", "DNS 走代理")}</div>
-                <div className="text-tertiary" style={{ fontSize: 11, marginTop: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.dnsOverProxy", "DNS 走代理")}</div>
+                <div className="text-tertiary" style={{ fontSize: 14, marginTop: 1 }}>
                   {t("proxy.dnsOverProxyDesc", "SOCKS5h: DNS 解析也走代理解析")}
                 </div>
               </div>
@@ -204,16 +204,16 @@ export function UpstreamProxySection({ s }: { s: SystemSettings }) {
             </div>
           )}
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            <label style={{ fontSize: 14, color: "var(--text-secondary)" }}>
               {t("proxy.noProxy", "不走代理")}
             </label>
             <Input
               value={proxyClient.no_proxy}
               onChange={(e) => handleProxyClientChange({ no_proxy: e.target.value })}
               placeholder={t("proxy.noProxyPlaceholder", "留空使用默认：内网、局域网、.cn、中国平台域名")}
-              style={{ width: "100%", height: 28, fontSize: 12 }}
+              style={{ width: "100%", height: 28, fontSize: 14 }}
             />
-            <div className="text-tertiary" style={{ fontSize: 11 }}>
+            <div className="text-tertiary" style={{ fontSize: 14 }}>
               {t("proxy.noProxyDesc", "逗号分隔：域名后缀、IP、CIDR；匹配的主机直连不走代理")}
             </div>
           </div>

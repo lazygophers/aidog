@@ -31,7 +31,7 @@ function BodyBlock({ label, body, emptyText }: { label: string; body: string; em
       <pre style={{
         margin: 0, padding: 6, borderRadius: "var(--radius-sm)",
         background: "var(--bg-elevated)", border: "1px solid var(--border)",
-        fontSize: 11, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+        fontSize: 14, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
         whiteSpace: "pre-wrap", wordBreak: "break-all", maxHeight: 240, overflow: "auto",
       }}>
         {body ? prettyJson(body) : emptyText}
@@ -96,7 +96,7 @@ export function MitmLog() {
                 >
                   <TableCell style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>{formatDateTime(r.created_at) ?? "-"}</TableCell>
                   <TableCell style={{ padding: "6px 8px" }}>{r.group_name || "-"}</TableCell>
-                  <TableCell style={{ padding: "6px 8px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11 }}>
+                  <TableCell style={{ padding: "6px 8px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 14 }}>
                     {openId === r.id ? "▾ " : "▸ "}{r.host}{r.path}
                   </TableCell>
                   <TableCell style={{ textAlign: "right", padding: "6px 8px", color: r.status_code >= 400 ? "var(--color-danger)" : undefined }}>{r.status_code}</TableCell>

@@ -185,11 +185,11 @@ export const GroupListItem = memo(function GroupListItem({
     ? buildStatusOptions(errStatus, fullPlats.map(p => p.id))
     : [];
 
-  const headBtn: React.CSSProperties = { fontSize: 12, height: 26, padding: "0 9px", borderRadius: 6 };
+  const headBtn: React.CSSProperties = { fontSize: 14, height: 26, padding: "0 9px", borderRadius: 6 };
   // 稿 5 .batchbar .bact：批量条按钮基础款
-  const bactBtn: React.CSSProperties = { fontSize: 12, padding: "3px 9px", height: "auto", borderRadius: 6, background: "var(--secondary)", border: "1px solid var(--border)" };
+  const bactBtn: React.CSSProperties = { fontSize: 14, padding: "3px 9px", height: "auto", borderRadius: 6, background: "var(--secondary)", border: "1px solid var(--border)" };
 
-  const gstatStyle: React.CSSProperties = { fontSize: 12, color: "var(--text-secondary)", display: "inline-flex", gap: 18, marginLeft: 10 };
+  const gstatStyle: React.CSSProperties = { fontSize: 14, color: "var(--text-secondary)", display: "inline-flex", gap: 18, marginLeft: 10 };
 
   return (
     <div
@@ -241,18 +241,18 @@ export const GroupListItem = memo(function GroupListItem({
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2.5L8 6l-4 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </span>
         {/* 组名 + 默认星标 */}
-        <span data-testid="group-section-name" style={{ fontSize: 13.5, fontWeight: 620, letterSpacing: "-0.005em", display: "inline-flex", alignItems: "center", gap: 5 }}>
+        <span data-testid="group-section-name" style={{ fontSize: 14, fontWeight: 620, letterSpacing: "-0.005em", display: "inline-flex", alignItems: "center", gap: 5 }}>
           {group.name}
           {group.is_default && (
-            <span title={t("group.isDefaultTitle", "默认分组")} style={{ color: "var(--color-warning)", fontSize: 10 }}>★</span>
+            <span title={t("group.isDefaultTitle", "默认分组")} style={{ color: "var(--color-warning)", fontSize: 14 }}>★</span>
           )}
           {group.auto_from_platform && (
-            <Badge variant="secondary" style={{ fontSize: 11, padding: "0 5px", fontWeight: 500 }}>auto</Badge>
+            <Badge variant="secondary" style={{ fontSize: 14, padding: "0 5px", fontWeight: 500 }}>auto</Badge>
           )}
         </span>
         {/* 计数（稿 .gcount） */}
         <span style={{
-          fontSize: 12, color: "var(--text-tertiary)", background: "var(--secondary)",
+          fontSize: 14, color: "var(--text-tertiary)", background: "var(--secondary)",
           border: "1px solid var(--border)", borderRadius: 99, padding: "1px 8px", whiteSpace: "nowrap",
         }}>
           {gps.length} {t("group.platforms", "平台")}
@@ -275,7 +275,7 @@ export const GroupListItem = memo(function GroupListItem({
         {/* 右侧操作（稿 .gactions：拖入提示 / 多选 / 设置 / ⋯） */}
         <span style={{ marginLeft: "auto", display: "inline-flex", gap: 6, alignItems: "center" }} onClick={e => e.stopPropagation()}>
           <span style={{
-            marginLeft: 2, fontSize: 12, color: "var(--text-tertiary)",
+            marginLeft: 2, fontSize: 14, color: "var(--text-tertiary)",
             border: "1px dashed var(--input)", borderRadius: 6, padding: "2px 8px",
             display: "inline-flex", alignItems: "center", gap: 5,
           }} title={t("group.dragPlatform", "拖拽排序 / 移动到其他分组")}>⠿ {t("group.dropHint", "拖入平台")}</span>
@@ -334,7 +334,7 @@ export const GroupListItem = memo(function GroupListItem({
         <div data-testid="group-batchbar" style={{
           display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", flexWrap: "wrap",
           background: "var(--accent-subtle)", borderBottom: "1px solid color-mix(in srgb, var(--primary) 35%, transparent)",
-          fontSize: 12, color: "var(--text-secondary)",
+          fontSize: 14, color: "var(--text-secondary)",
         }} onClick={e => e.stopPropagation()}>
           <span style={{ fontWeight: 620, color: "var(--primary)" }}>{t("group.selectedCount", "已选 {{count}} 个", { count: selectedIds.size })}</span>
           {/* 稿 5 .batchbar .sep：竖分隔线 */}
@@ -373,17 +373,17 @@ export const GroupListItem = memo(function GroupListItem({
               if (ids.size > 0) setSelectedIds(ids);
             }}
           >
-            <SelectTrigger style={{ fontSize: 12, height: "auto", padding: "3px 9px", minHeight: 26, width: "auto", background: "var(--secondary)" }}>
+            <SelectTrigger style={{ fontSize: 14, height: "auto", padding: "3px 9px", minHeight: 26, width: "auto", background: "var(--secondary)" }}>
               <SelectValue placeholder={t("group.selectByStatus", "按状态选")} />
             </SelectTrigger>
             <SelectContent>
               {statusOptions.map(o => (
-                <SelectItem key={o.code} value={String(o.code)} style={{ fontSize: 12 }}>
+                <SelectItem key={o.code} value={String(o.code)} style={{ fontSize: 14 }}>
                   {`${o.code} · ${t(`group.err.${o.code}`, `HTTP ${o.code}`)}（${o.count}）`}
                 </SelectItem>
               ))}
               {statusOptions.length === 0 && (
-                <SelectItem value="__none__" disabled style={{ fontSize: 12 }}>
+                <SelectItem value="__none__" disabled style={{ fontSize: 14 }}>
                   {errStatus === null ? "…" : t("group.selectByStatusNone", "无错误状态")}
                 </SelectItem>
               )}
@@ -391,7 +391,7 @@ export const GroupListItem = memo(function GroupListItem({
           </Select>
           {/* 稿 5 .batchbar .cancel：取消多选靠右 */}
           <span data-testid="group-batch-cancel" onClick={() => { setMode("view"); setSelectedIds(new Set()); }}
-            style={{ marginLeft: "auto", fontSize: 12, color: "var(--text-tertiary)", cursor: "pointer" }}>
+            style={{ marginLeft: "auto", fontSize: 14, color: "var(--text-tertiary)", cursor: "pointer" }}>
             {t("group.cancelMultiSelect", "取消多选")}
           </span>
         </div>
@@ -455,7 +455,7 @@ export const GroupListItem = memo(function GroupListItem({
         </div>
       )}
       {(forceExpanded || isExpanded || mode === "select") && fullPlats.length === 0 && (
-        <div className="text-tertiary" style={{ padding: "14px 16px", fontSize: 12 }} onClick={e => e.stopPropagation()}>
+        <div className="text-tertiary" style={{ padding: "14px 16px", fontSize: 14 }} onClick={e => e.stopPropagation()}>
           {t("group.noPlatforms", "暂无平台")}
         </div>
       )}
@@ -471,22 +471,22 @@ export const GroupListItem = memo(function GroupListItem({
           </AlertDialogHeader>
           <div style={{ maxHeight: 240, overflow: "auto", display: "flex", flexDirection: "column", gap: 10, margin: "4px 0" }}>
             {previewLoading ? (
-              <div className="text-secondary" style={{ fontSize: 12, padding: "8px 0" }}>{t("status.loading", "处理中…")}</div>
+              <div className="text-secondary" style={{ fontSize: 14, padding: "8px 0" }}>{t("status.loading", "处理中…")}</div>
             ) : !previewList || previewList.length === 0 ? (
-              <div className="text-secondary" style={{ fontSize: 12, padding: "8px 0" }}>{t("platform.purgeDisabledNone", "暂无失效平台")}</div>
+              <div className="text-secondary" style={{ fontSize: 14, padding: "8px 0" }}>{t("platform.purgeDisabledNone", "暂无失效平台")}</div>
             ) : (
               (["delete", "unassign"] as const).map((action) => {
                 const items = previewList.filter(c => c.action === action);
                 if (items.length === 0) return null;
                 return (
                   <div key={action} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <div className="text-tertiary" style={{ fontSize: 11, fontWeight: 600 }}>
+                    <div className="text-tertiary" style={{ fontSize: 14, fontWeight: 600 }}>
                       {action === "delete" ? t("platform.purgeDisabledActionDelete", "将永久删除") : t("platform.purgeDisabledActionUnassign", "将移出本分组")}
                     </div>
                     {items.map((c) => (
-                      <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+                      <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
                         <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
-                        <Badge variant="secondary" style={{ fontSize: 11, flexShrink: 0 }}>
+                        <Badge variant="secondary" style={{ fontSize: 14, flexShrink: 0 }}>
                           {c.reason === "auth_failed" ? t("platform.purgeDisabledReasonAuthFailed", "认证失效（401/403）") : t("platform.purgeDisabledReasonExpired", "已过期")}
                         </Badge>
                       </div>

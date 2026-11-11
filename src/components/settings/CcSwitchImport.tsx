@@ -251,7 +251,7 @@ export function CcSwitchImportSection({
           onClick={() => handleDetect()}
           disabled={detecting || reading}
           
-          style={{ padding: "7px 16px", fontSize: 13 }}
+          style={{ padding: "7px 16px", fontSize: 14 }}
         >
           {detecting
             ? t("importExport.ccswitch.detecting", "检测中…")
@@ -261,7 +261,7 @@ export function CcSwitchImportSection({
           onClick={handlePickDir}
           disabled={detecting || reading}
           style={{
-            padding: "7px 14px", fontSize: 12, cursor: "pointer",
+            padding: "7px 14px", fontSize: 14, cursor: "pointer",
             borderRadius: "var(--radius-md)", border: "1px solid var(--border)",
             background: "transparent", color: "var(--text-secondary)",
           }}
@@ -275,13 +275,13 @@ export function CcSwitchImportSection({
               label={t("importExport.ccswitch.providerCount", "个")}
               level="success"
             />
-            <code style={{ fontSize: 11, color: "var(--text-tertiary)", wordBreak: "break-all" }}>
+            <code style={{ fontSize: 14, color: "var(--text-tertiary)", wordBreak: "break-all" }}>
               {detection.path}
             </code>
           </div>
         )}
         {detection && !detection.found && (
-          <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+          <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
             {t("importExport.ccswitch.notDetected", "未检测到，可手动选择目录")}
           </span>
         )}
@@ -356,11 +356,11 @@ export function CcSwitchImportSection({
 
           {/* 批量分组归属（作用于本次导入的全部平台） */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)" }}>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
               {t("importExport.ccswitch.groupAssignHint", "导入后这些平台加入哪些分组（批量，作用于全部已导入平台）")}
             </div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-              <span style={{ fontSize: 13 }}>{t("importExport.ccswitch.autoGroup", "导入后自动加入「cc-switch」分组")}</span>
+              <span style={{ fontSize: 14 }}>{t("importExport.ccswitch.autoGroup", "导入后自动加入「cc-switch」分组")}</span>
               <Switch checked={batchAutoGroup} onCheckedChange={setBatchAutoGroup} />
             </div>
             {groupDetails.length > 0 && (
@@ -376,7 +376,7 @@ export function CcSwitchImportSection({
                         : [...prev, gd.group.id])}
                       style={{
                         display: "inline-flex", alignItems: "center",
-                        padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 500,
+                        padding: "4px 12px", borderRadius: 999, fontSize: 14, fontWeight: 500,
                         cursor: "pointer",
                         border: `1px solid ${checked ? "var(--accent-edge)" : "var(--border)"}`,
                         background: checked ? "var(--accent-subtle)" : "var(--bg-glass)",
@@ -398,7 +398,7 @@ export function CcSwitchImportSection({
               onClick={handlePreview}
               disabled={selectedCount === 0}
               style={{
-                padding: "7px 14px", fontSize: 13, cursor: "pointer",
+                padding: "7px 14px", fontSize: 14, cursor: "pointer",
                 borderRadius: "var(--radius-md)", border: "1px solid var(--border)",
                 background: "transparent", color: "var(--text-primary)",
                 opacity: selectedCount === 0 ? 0.5 : 1,
@@ -411,7 +411,7 @@ export function CcSwitchImportSection({
               onClick={(e) => { makeRipple(e); handleImport(); }}
               disabled={importing || selectedCount === 0}
 
-              style={{ padding: "7px 16px", fontSize: 13 }}
+              style={{ padding: "7px 16px", fontSize: 14 }}
             >
               {importing
                 ? t("importExport.applying", "导入中…")
@@ -446,7 +446,7 @@ export function CcSwitchImportSection({
       {error && (
         <div
           style={{
-            padding: "8px 12px", fontSize: 12, borderRadius: "var(--radius-md)",
+            padding: "8px 12px", fontSize: 14, borderRadius: "var(--radius-md)",
             color: "var(--color-danger)", background: "var(--color-danger-bg)",
             border: "1px solid var(--color-danger)",
           }}
@@ -481,8 +481,8 @@ function DimCheckbox({
         disabled={disabled}
         onCheckedChange={(v) => onChange(v === true)}
       />
-      <span style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: 500 }}>{label}</span>
-      {hint && <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{hint}</span>}
+      <span style={{ fontSize: 14, color: "var(--text-primary)", fontWeight: 500 }}>{label}</span>
+      {hint && <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{hint}</span>}
     </label>
   );
 }
@@ -539,13 +539,13 @@ function ProviderRow({
       >
         {selected && <IconCheck size={12} color="var(--primary-foreground)" strokeWidth={2.5} />}
       </span>
-      <span style={{ fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase" }}>
+      <span style={{ fontSize: 14, color: "var(--text-tertiary)", textTransform: "uppercase" }}>
         {provider.appType}
       </span>
-      <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 13 }}>{provider.name}</span>
+      <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 14 }}>{provider.name}</span>
       <StatChip value={matchLabel ?? matchProtocol} label={matchBadgeKey(matchedBy, t)} level={badgeLevel} />
       {provider.detectedBaseUrl && (
-        <code style={{ fontSize: 11, color: "var(--text-tertiary)", wordBreak: "break-all" }}>
+        <code style={{ fontSize: 14, color: "var(--text-tertiary)", wordBreak: "break-all" }}>
           {provider.detectedBaseUrl}
         </code>
       )}
@@ -580,10 +580,10 @@ function ConflictRowSimple({
         display: "flex", flexDirection: "column", gap: 8,
       }}
     >
-      <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 13, wordBreak: "break-all" }}>
+      <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 14, wordBreak: "break-all" }}>
         {item.key}
       </span>
-      <div style={{ fontSize: 12, color: "var(--text-tertiary)", lineHeight: 1.4 }}>{item.existing_summary}</div>
+      <div style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.4 }}>{item.existing_summary}</div>
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         {(["overwrite", "skip", "rename"] as const).map((kind, i) => {
           const active = current.kind === kind;
@@ -597,7 +597,7 @@ function ConflictRowSimple({
                 else onChange({ kind });
               }}
               style={{
-                padding: "5px 12px", fontSize: 12, fontWeight: active ? 600 : 500, cursor: "pointer",
+                padding: "5px 12px", fontSize: 14, fontWeight: active ? 600 : 500, cursor: "pointer",
                 border: "none",
                 borderLeft: i > 0 ? "1px solid var(--border)" : "none",
                 background: active ? "var(--accent-subtle)" : "transparent",

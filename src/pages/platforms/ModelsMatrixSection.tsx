@@ -96,11 +96,11 @@ function SlotRow({ testId, name, count, badge, title, hint, toggle, cellMinWidth
   return (
     <div style={rowStyle} className="model-matrix-row" data-testid={testId}>
       <div style={{ width: LABEL_W, flexShrink: 0, display: "flex", flexDirection: "column", gap: 1 }} title={title}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+        <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
           {badge}
         </span>
-        <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+        <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
           {t("platform.modelCount", "{{n}} 个模型", { n: count })}
         </span>
       </div>
@@ -277,7 +277,7 @@ export function ModelsMatrixSection({
   ) => (
     <label
       title={t("platform.slotEnabledHint")}
-      style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, fontSize: 12, color: "var(--text-tertiary)", cursor: "pointer" }}
+      style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, fontSize: 14, color: "var(--text-tertiary)", cursor: "pointer" }}
     >
       <Switch
         data-testid={`${testPrefix}-${slot}`}
@@ -292,7 +292,7 @@ export function ModelsMatrixSection({
   const dedicatedBadge = (key: ModelSlot, prefix = "slot-badge") => DEDICATED_MODEL_SLOTS.includes(key) ? (
     <span
       data-testid={`${prefix}-${key}`}
-      style={{ fontSize: 10, lineHeight: "16px", padding: "0 5px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", color: "var(--text-tertiary)", whiteSpace: "nowrap", flexShrink: 0 }}
+      style={{ fontSize: 14, lineHeight: "16px", padding: "0 5px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", color: "var(--text-tertiary)", whiteSpace: "nowrap", flexShrink: 0 }}
     >
       {t("platform.slotDedicated", "专用")}
     </span>
@@ -303,7 +303,7 @@ export function ModelsMatrixSection({
     const selIdx = Math.min(selectedRuleIdx, rules.length - 1);
     const sel = rules[selIdx];
     const btnMini = {
-      padding: "1px 4px", fontSize: 11, height: "auto", minWidth: "auto",
+      padding: "1px 4px", fontSize: 14, height: "auto", minWidth: "auto",
     } as const;
     return (
       <FormSection
@@ -313,7 +313,7 @@ export function ModelsMatrixSection({
             <Button
               variant="ghost"
               size="sm"
-              style={{ fontSize: 12, padding: "4px 10px", whiteSpace: "nowrap" }}
+              style={{ fontSize: 14, padding: "4px 10px", whiteSpace: "nowrap" }}
               data-testid="time-rule-import-peak"
               disabled={peak.length === 0}
               title={peak.length === 0 ? t("platform.time_windows_no_peak", "当前无高峰时段配置") : ""}
@@ -324,7 +324,7 @@ export function ModelsMatrixSection({
             <Button
               variant="ghost"
               size="sm"
-              style={{ fontSize: 12, padding: "4px 10px", color: "var(--accent)" }}
+              style={{ fontSize: 14, padding: "4px 10px", color: "var(--accent)" }}
               data-testid="time-rule-add"
               onClick={addRule}
             >
@@ -334,7 +334,7 @@ export function ModelsMatrixSection({
         )}
       >
         {rules.length === 0 ? (
-          <div style={{ fontSize: 13, color: "var(--text-tertiary)", fontStyle: "italic" }}>
+          <div style={{ fontSize: 14, color: "var(--text-tertiary)", fontStyle: "italic" }}>
             {t("platform.time_windows_empty", "未配置 → 全时段用默认模型档")}
           </div>
         ) : (
@@ -355,14 +355,14 @@ export function ModelsMatrixSection({
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: on ? "var(--text-primary)" : "var(--text-secondary)", flex: 1 }}>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: on ? "var(--text-primary)" : "var(--text-secondary)", flex: 1 }}>
                         {t("platform.time_windows_rule_n", "档 {{n}}", { n: idx + 1 })}
                       </span>
                       <Button variant="ghost" size="icon" style={{ ...btnMini }} disabled={idx === 0} onClick={() => moveUp(idx)} title={t("action.moveUp", "上移")}>↑</Button>
                       <Button variant="ghost" size="icon" style={{ ...btnMini }} disabled={idx === rules.length - 1} onClick={() => moveDown(idx)} title={t("action.moveDown", "下移")}>↓</Button>
                       <Button variant="ghost" size="icon" className="btn-danger" style={{ ...btnMini, color: "var(--color-danger)" }} onClick={() => removeRule(idx)} title={t("action.delete", "删除")}>×</Button>
                     </div>
-                    <span style={{ fontSize: 11, color: "var(--text-tertiary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <span style={{ fontSize: 14, color: "var(--text-tertiary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {describeWindows(rule.windows, tzMode, t)}
                     </span>
                   </div>
@@ -372,13 +372,13 @@ export function ModelsMatrixSection({
             {/* 右：选中档编辑器 */}
             <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
                   {describeWindows(sel.windows, tzMode, t)}
                 </span>
                 <Button
                   variant="ghost"
                   size="sm"
-                  style={{ fontSize: 12, padding: "4px 10px" }}
+                  style={{ fontSize: 14, padding: "4px 10px" }}
                   onClick={() => setEditingIdx(selIdx)}
                 >
                   {t("platform.time_windows_edit_button", "编辑时段")}
@@ -386,7 +386,7 @@ export function ModelsMatrixSection({
                 <Button
                   variant="ghost"
                   size="sm"
-                  style={{ fontSize: 12, padding: "4px 10px" }}
+                  style={{ fontSize: 14, padding: "4px 10px" }}
                   data-testid="time-rule-copy-models"
                   onClick={() => (MODEL_SLOTS.some(({ key }) => slotList(sel.models[key]).length > 0)
                     ? setCopyConfirmOpen(true) : copyFromModels(selIdx))}
@@ -409,7 +409,7 @@ export function ModelsMatrixSection({
                           id={`time-slot-fallback-${key}`}
                           data-state={head ? "default" : "passthrough"}
                           data-model={head}
-                          style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 2 }}
+                          style={{ fontSize: 14, color: "var(--text-tertiary)", marginTop: 2 }}
                         >
                           {head
                             ? t("platform.timeSlotFallbackDefault", "落到本档 default：{{model}}", { model: head })
@@ -423,7 +423,7 @@ export function ModelsMatrixSection({
                       <div
                         id={`time-slot-hint-${key}`}
                         data-state="empty"
-                        style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 2 }}
+                        style={{ fontSize: 14, color: "var(--text-tertiary)", marginTop: 2 }}
                       >
                         {t("platform.timeSlotDedicatedEmptyHint", "时段内本平台不接此类请求")}
                       </div>
@@ -431,7 +431,7 @@ export function ModelsMatrixSection({
                       <div
                         id={`time-slot-hint-${key}`}
                         data-state="warn"
-                        style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 2 }}
+                        style={{ fontSize: 14, color: "var(--text-tertiary)", marginTop: 2 }}
                       >
                         {t("platform.dedicatedSlotNoOpenAIEndpointHint")}
                       </div>
@@ -465,10 +465,10 @@ export function ModelsMatrixSection({
         <Dialog open={copyConfirmOpen} onOpenChange={setCopyConfirmOpen}>
           <DialogContent className="glass-elevated" style={{ maxWidth: 400 }}>
             <DialogHeader>
-              <DialogTitle style={{ fontSize: 13 }}>
+              <DialogTitle style={{ fontSize: 14 }}>
                 {t("platform.time_windows_copy_confirm_title", "覆盖本档模型配置？")}
               </DialogTitle>
-              <DialogDescription style={{ fontSize: 12 }}>
+              <DialogDescription style={{ fontSize: 14 }}>
                 {t("platform.time_windows_copy_confirm_body", "本档已有模型槽内容，将被「模型」tab 当前的内置槽模型与开关整份覆盖。")}
               </DialogDescription>
             </DialogHeader>
@@ -486,10 +486,10 @@ export function ModelsMatrixSection({
         <Dialog open={importModalOpen} onOpenChange={(v) => { if (!v) setImportModalOpen(false); }}>
           <DialogContent className="glass-elevated" style={{ maxWidth: 400 }}>
             <DialogHeader>
-              <DialogTitle style={{ fontSize: 13 }}>
+              <DialogTitle style={{ fontSize: 14 }}>
                 {t("platform.time_windows_import_confirm_title", "导入高峰时段配置？")}
               </DialogTitle>
-              <DialogDescription style={{ fontSize: 12 }}>
+              <DialogDescription style={{ fontSize: 14 }}>
                 {t("platform.time_windows_import_confirm_body", "将基于当前高峰时段（{{count}} 个窗口）创建新规则，独立可编辑。").replace("{{count}}", String(peak.length))}
               </DialogDescription>
             </DialogHeader>
@@ -515,7 +515,7 @@ export function ModelsMatrixSection({
           <Button
             variant="ghost"
             size="sm"
-            style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--text-secondary)" }}
+            style={{ fontSize: 14, gap: 4, padding: "4px 10px", color: "var(--text-secondary)" }}
             onClick={onFillAll}
             disabled={models.default.length === 0}
             title={t("platform.fillAllHint")}
@@ -525,7 +525,7 @@ export function ModelsMatrixSection({
           <Button
             variant="ghost"
             size="sm"
-            style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
+            style={{ fontSize: 14, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
             onClick={onFetchModels}
             disabled={apiKeyMissing || endpointsCount === 0 || fetching}
           >
@@ -535,12 +535,12 @@ export function ModelsMatrixSection({
       )}
     >
       {fetchError && (
-        <div style={{ fontSize: 12, color: "var(--color-danger)", padding: "2px 0" }}>
+        <div style={{ fontSize: 14, color: "var(--color-danger)", padding: "2px 0" }}>
           {fetchError}
         </div>
       )}
       {fetchInfo && (
-        <div data-testid="fetch-info" style={{ fontSize: 12, color: "var(--text-secondary)", padding: "2px 0" }}>
+        <div data-testid="fetch-info" style={{ fontSize: 14, color: "var(--text-secondary)", padding: "2px 0" }}>
           {fetchInfo}
         </div>
       )}
@@ -552,7 +552,7 @@ export function ModelsMatrixSection({
           <div style={rowStyle}>
             <div style={{ width: LABEL_W, flexShrink: 0 }} />
             {/* 默认列头 */}
-            <div style={{ flex: 1, minWidth: 80, textAlign: "center", fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
+            <div style={{ flex: 1, minWidth: 80, textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>
               {t("platform.modelDefault")}
             </div>
           </div>
@@ -566,7 +566,7 @@ export function ModelsMatrixSection({
                 <div
                   id={`slot-hint-${key}`}
                   data-state="warn"
-                  style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 2 }}
+                  style={{ fontSize: 14, color: "var(--text-tertiary)", marginTop: 2 }}
                 >
                   {t("platform.dedicatedSlotNoOpenAIEndpointHint")}
                 </div>
@@ -583,7 +583,7 @@ export function ModelsMatrixSection({
               badge={(
                 <span
                   data-testid={`custom-slot-badge-${name}`} data-state={match}
-                  style={{ fontSize: 10, lineHeight: "16px", padding: "0 5px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", color: "var(--text-secondary)", whiteSpace: "nowrap", flexShrink: 0 }}
+                  style={{ fontSize: 14, lineHeight: "16px", padding: "0 5px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", color: "var(--text-secondary)", whiteSpace: "nowrap", flexShrink: 0 }}
                 >
                   {t(match === "exact" ? "customSlots.matchExact" : "customSlots.matchContains")}
                 </span>
@@ -594,7 +594,7 @@ export function ModelsMatrixSection({
           ))}
 
           {rules.length === 0 && (
-            <div style={{ fontSize: 13, color: "var(--text-tertiary)", fontStyle: "italic", paddingLeft: LABEL_W + 8 }}>
+            <div style={{ fontSize: 14, color: "var(--text-tertiary)", fontStyle: "italic", paddingLeft: LABEL_W + 8 }}>
               {t("platform.time_windows_empty", "未配置 → 全时段用默认模型档")}
             </div>
           )}
@@ -619,10 +619,10 @@ export function ModelsMatrixSection({
       <Dialog open={importModalOpen} onOpenChange={(v) => { if (!v) setImportModalOpen(false); }}>
         <DialogContent className="glass-elevated" style={{ maxWidth: 400 }}>
           <DialogHeader>
-            <DialogTitle style={{ fontSize: 13 }}>
+            <DialogTitle style={{ fontSize: 14 }}>
               {t("platform.time_windows_import_confirm_title", "导入高峰时段配置？")}
             </DialogTitle>
-            <DialogDescription style={{ fontSize: 12 }}>
+            <DialogDescription style={{ fontSize: 14 }}>
               {t("platform.time_windows_import_confirm_body", "将基于当前高峰时段（{{count}} 个窗口）创建新规则，独立可编辑。").replace("{{count}}", String(peak.length))}
             </DialogDescription>
           </DialogHeader>

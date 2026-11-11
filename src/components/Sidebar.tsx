@@ -218,7 +218,7 @@ function DropdownItem({
         justifyContent: "flex-start",
         gap: 8,
         padding: "8px 10px",
-        fontSize: 13,
+        fontSize: 14,
         fontWeight: active ? 600 : 400,
         // 选中项的字与左侧竖条走 --accent / --accent-edge，不走 --primary：
         // --primary 是「填充色」，深色下是近黑（#101012），拿它当字色 = 近黑字压在
@@ -309,7 +309,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
           variant="ghost"
           title={collapsed ? t("sidebar.expand", "展开侧栏") : t("sidebar.collapse", "折叠侧栏")}
           onClick={toggleCollapsed}
-          style={{ padding: 4, width: 24, minWidth: 0, fontSize: 11, color: "var(--text-tertiary)", height: "auto" }}
+          style={{ padding: 4, width: 24, minWidth: 0, fontSize: 14, color: "var(--text-tertiary)", height: "auto" }}
         >
           {collapsed ? "»" : "«"}
         </Button>
@@ -334,7 +334,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                   style={{
                     justifyContent: "space-between",
                     padding: "8px 10px 4px",
-                    fontSize: 11,
+                    fontSize: 14,
                     fontWeight: 700,
                     color: "var(--text-tertiary)",
                     opacity: 0.7,
@@ -377,7 +377,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                   background: isActive ? "var(--accent-subtle)" : "transparent",
                   borderInlineStart: `2px solid ${isActive ? "var(--primary)" : "transparent"}`,
                   borderRadius: "var(--radius-sm)",
-                  fontSize: 12.5,
+                  fontSize: 14,
                   height: "auto",
                   position: "relative",
                 }}
@@ -417,7 +417,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                 {item.badge != null && item.badge > 0 && !collapsed && (
                   <span
                     style={{
-                      fontSize: 11,
+                      fontSize: 14,
                       fontWeight: 700,
                       minWidth: 16,
                       height: 16,
@@ -446,7 +446,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                     return groups.map((g) => (
                       <div key={g.key} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                         <div style={{
-                          fontSize: 11,
+                          fontSize: 14,
                           fontWeight: 600,
                           color: "var(--text-secondary)",
                           opacity: 0.6,
@@ -466,7 +466,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                                 justifyContent: "flex-start",
                                 padding: "7px 10px 7px 26px",
                                 fontWeight: childActive ? 600 : 400,
-                                fontSize: 12,
+                                fontSize: 14,
                                 color: childActive ? "var(--primary)" : "var(--text-secondary)",
                                 background: childActive ? "var(--accent-subtle)" : "transparent",
                                 borderRadius: "var(--radius-sm)",
@@ -506,7 +506,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
           gap: 8,
           alignItems: "center",
           padding: collapsed ? "6px 0" : "6px 8px",
-          fontSize: 11.5,
+          fontSize: 14,
           color: "var(--text-secondary)",
           whiteSpace: "nowrap",
         }}>
@@ -520,7 +520,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
             alignItems: "center",
             justifyContent: "center",
             fontWeight: 700,
-            fontSize: 11,
+            fontSize: 14,
             flexShrink: 0,
           }}>L</span>
           {!collapsed && (
@@ -543,7 +543,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
             <Button variant="ghost" className="ripple hover-lift" style={{
               width: "100%",
               justifyContent: "space-between",
-              fontSize: 12,
+              fontSize: 14,
               padding: "7px 10px",
               color: "var(--text-secondary)",
               height: "auto",

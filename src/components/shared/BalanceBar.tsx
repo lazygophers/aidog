@@ -47,12 +47,12 @@ export function BalanceBar({ remaining, total, kind = "usd", currency = "", leve
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 4, fontSize: 12 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 4, fontSize: 14 }}>
         <span className="counter" style={{ fontWeight: 700, color }}>
           {fmt(remaining)}
         </span>
         {hasTotal && showTotal && (
-          <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+          <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
             / {fmt(total!)}
           </span>
         )}
@@ -81,7 +81,7 @@ export function BalanceBar({ remaining, total, kind = "usd", currency = "", leve
         </div>
       )}
       {label && (
-        <span style={{ fontSize: 9, fontWeight: 700, color: "var(--text-tertiary)" }}>{label}</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-tertiary)" }}>{label}</span>
       )}
     </div>
   );

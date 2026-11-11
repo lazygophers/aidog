@@ -107,7 +107,7 @@ export function ScatterChart({
             axisLine={false}
             tickMargin={8}
             minTickGap={32}
-            label={{ value: xl, position: "insideBottomRight", offset: -2, fontSize: 11, fill: "var(--text-tertiary)" }}
+            label={{ value: xl, position: "insideBottomRight", offset: -2, fontSize: 14, fill: "var(--text-tertiary)" }}
           />
           <YAxis
             dataKey="y"
@@ -117,7 +117,7 @@ export function ScatterChart({
             tickFormatter={(v: number) => fmtY(v)}
             tickLine={false}
             axisLine={false}
-            label={{ value: yl, angle: -90, position: "insideLeft", fontSize: 11, fill: "var(--text-tertiary)" }}
+            label={{ value: yl, angle: -90, position: "insideLeft", fontSize: 14, fill: "var(--text-tertiary)" }}
           />
           {/* 点大小 ∝ counts：range 下限 24 保单请求可见，上限 400 防盖格 */}
           <ZAxis dataKey="count" range={[24, 400]} />
@@ -130,7 +130,7 @@ export function ScatterChart({
                   const p = item?.payload as ScatterPoint | undefined;
                   if (!p) return null;
                   return (
-                    <div className="flex flex-col gap-0.5 font-mono text-xs tabular-nums">
+                    <div className="flex flex-col gap-0.5 font-mono text-sm tabular-nums">
                       <span>{xl} · {fmtX(p.x)}</span>
                       <span>{yl} · {fmtY(p.y)}</span>
                       <span>{t("charts.scatterCount", { count: p.count })}</span>

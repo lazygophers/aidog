@@ -56,19 +56,19 @@ export function ApiTestPanel({ refreshKey = 0, onSent }: { refreshKey?: number; 
 
   return (
     <div className="glass-surface" data-testid="api-test" data-state={state} style={{ padding: "16px 20px" }}>
-      <div style={{ fontSize: 13, fontWeight: 600 }}>{t("apiTest.title")}</div>
-      <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>{t("apiTest.desc")}</div>
+      <div style={{ fontSize: 14, fontWeight: 600 }}>{t("apiTest.title")}</div>
+      <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>{t("apiTest.desc")}</div>
       {loadFailed && (
-        <div data-testid="api-test-settings-error" style={{ fontSize: 12, marginTop: 10 }}>{t("apiTest.settingsError")}</div>
+        <div data-testid="api-test-settings-error" style={{ fontSize: 14, marginTop: 10 }}>{t("apiTest.settingsError")}</div>
       )}
       {enabled === false && (
-        <div data-testid="api-test-disabled-hint" style={{ fontSize: 12, marginTop: 10 }}>{t("apiTest.disabledHint")}</div>
+        <div data-testid="api-test-disabled-hint" style={{ fontSize: 14, marginTop: 10 }}>{t("apiTest.disabledHint")}</div>
       )}
       <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
-        <select data-testid="api-test-command" value={command} onChange={(e) => onPick(e.target.value)} style={{ fontSize: 12, flex: 1 }}>
+        <select data-testid="api-test-command" value={command} onChange={(e) => onPick(e.target.value)} style={{ fontSize: 14, flex: 1 }}>
           {COMMANDS.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
         </select>
-        <span className="text-secondary" data-testid="api-test-kind" data-kind={cmd?.kind ?? ""} style={{ fontSize: 12 }}>
+        <span className="text-secondary" data-testid="api-test-kind" data-kind={cmd?.kind ?? ""} style={{ fontSize: 14 }}>
           {cmd?.kind === "mutating" ? t("apiCatalog.mutating") : t("apiCatalog.readonly")}
         </span>
         <Button
@@ -86,10 +86,10 @@ export function ApiTestPanel({ refreshKey = 0, onSent }: { refreshKey?: number; 
         onChange={(e) => setParams(e.target.value)}
         rows={4}
         spellCheck={false}
-        style={{ width: "100%", marginTop: 8, fontSize: 12, fontFamily: "monospace" }}
+        style={{ width: "100%", marginTop: 8, fontSize: 14, fontFamily: "monospace" }}
       />
       {outcome && (
-        <div data-testid="api-test-result" data-state={outcome.kind} style={{ marginTop: 10, fontSize: 12 }}>
+        <div data-testid="api-test-result" data-state={outcome.kind} style={{ marginTop: 10, fontSize: 14 }}>
           {outcome.kind === "proxy-down" && <div data-testid="api-test-proxy-down">{t("apiTest.proxyDown")}</div>}
           {outcome.kind === "failed" && <div data-testid="api-test-failed">{outcome.msg}</div>}
           {(outcome.kind === "ok" || outcome.kind === "error") && (
@@ -112,8 +112,8 @@ export function ApiTestPanel({ refreshKey = 0, onSent }: { refreshKey?: number; 
             <DialogTitle>{t("apiTest.confirmTitle")}</DialogTitle>
             <DialogDescription>{t("apiTest.confirmDesc")}</DialogDescription>
           </DialogHeader>
-          <code style={{ fontSize: 12, fontWeight: 600 }}>{command}</code>
-          <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", fontSize: 12, margin: 0 }}>{params}</pre>
+          <code style={{ fontSize: 14, fontWeight: 600 }}>{command}</code>
+          <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", fontSize: 14, margin: 0 }}>{params}</pre>
           <DialogFooter>
             <Button type="button" variant="outline" data-testid="api-test-confirm-cancel" onClick={() => setConfirming(false)}>
               {t("apiTest.cancel")}

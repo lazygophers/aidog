@@ -47,7 +47,7 @@ export function CcMitmAccessSection({
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Switch checked={enabled} onCheckedChange={onToggle} />
-          <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+          <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
             {t("platform.mitmStatsToggle", "启用（经 CONNECT 代理解密统计用量与参考成本）")}
           </span>
         </div>
@@ -55,7 +55,7 @@ export function CcMitmAccessSection({
         {/* Root CA 启用引导：MITM 未启用 / CA 未装时指路（装 CA 流程在 设置 → MITM，不在表单里重做） */}
         {enabled && caReady === false && (
           <div style={{
-            fontSize: 12, lineHeight: 1.5, color: "var(--text-secondary)",
+            fontSize: 14, lineHeight: 1.5, color: "var(--text-secondary)",
             padding: "8px 10px", borderRadius: "var(--radius-sm)",
             background: "color-mix(in srgb, var(--color-warning) 10%, transparent)",
             border: "1px solid color-mix(in srgb, var(--color-warning) 30%, transparent)",
@@ -67,12 +67,12 @@ export function CcMitmAccessSection({
         {/* export 语句（Desktop / 多 shell；密码/端口与 sync 注入 settings.json 的同一份） */}
         {exportLine && (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+            <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
               {t("platform.mitmExportLabel", "终端接入（Claude Desktop 忽略配置文件 env 块，须用 export 语句）：")}
             </span>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <code style={{
-                flex: 1, minWidth: 0, fontSize: 11, padding: "6px 8px",
+                flex: 1, minWidth: 0, fontSize: 14, padding: "6px 8px",
                 fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
                 background: "var(--bg-glass)", border: "1px solid var(--border)",
                 borderRadius: "var(--radius-sm)", wordBreak: "break-all",
@@ -80,7 +80,7 @@ export function CcMitmAccessSection({
               }}>
                 {exportLine}
               </code>
-              <Button variant="outline" size="sm" style={{ fontSize: 11, height: "auto", padding: "5px 10px" }}
+              <Button variant="outline" size="sm" style={{ fontSize: 14, height: "auto", padding: "5px 10px" }}
                 onClick={() => { writeText(exportLine); }}>
                 {t("action.copy", "复制")}
               </Button>
@@ -89,7 +89,7 @@ export function CcMitmAccessSection({
         )}
 
         {/* 三条接入须知（#96258 / undici decodeURIComponent / CC 启动只读一次 env） */}
-        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.7 }}>
+        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.7 }}>
           <li>{t("platform.mitmNoteRestart", "Claude Code 启动时只读一次代理环境变量：换组后须重启 Claude Code。")}</li>
           <li>{t("platform.mitmNoteName", "组名仅限字母、数字与 - _ . ；含其它字符的组改名后才能订阅透传。")}</li>
           <li>{t("platform.mitmNoteDesktop", "Claude Desktop 忽略配置文件的 env 块，须在终端用上面的 export 语句接入。")}</li>

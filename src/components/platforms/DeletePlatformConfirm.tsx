@@ -21,7 +21,7 @@ export function DeletePlatformConfirm({ open, name, busy, onConfirm, onCancel }:
         <DialogHeader>
           <DialogTitle>{t("platform.deleteConfirm.title", "删除平台？")}</DialogTitle>
         </DialogHeader>
-        <div style={{ fontSize: 12.5, color: "var(--text-secondary)", display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ fontSize: 14, color: "var(--text-secondary)", display: "flex", flexDirection: "column", gap: 6 }}>
           {name && <b style={{ color: "var(--foreground)" }}>{name}</b>}
           <span>{t("platform.deleteConfirm.body", "将删除该平台的密钥、端点与模型配置，并移出所在分组。")}</span>
           <span className="text-tertiary">{t("platform.deleteConfirm.logsKept", "历史请求日志保留，不受影响。")}</span>

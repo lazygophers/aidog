@@ -280,21 +280,21 @@ export function ListView({ filters, list, openDetail, copyRow }: {
       <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
         <AlertDialogContent className="glass-elevated" style={{ maxWidth: 380, padding: 20 }}>
           <AlertDialogHeader>
-            <AlertDialogTitle style={{ fontSize: 13, fontWeight: 600 }}>
+            <AlertDialogTitle style={{ fontSize: 14, fontWeight: 600 }}>
               {t("logs.clearConfirmTitle", "清空全部日志")}
             </AlertDialogTitle>
-            <AlertDialogDescription style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+            <AlertDialogDescription style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6 }}>
               {t("logs.clearConfirm", "确认清除所有日志？此操作不可撤销。")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel style={{ padding: "6px 14px", fontSize: 12 }}>
+            <AlertDialogCancel style={{ padding: "6px 14px", fontSize: 14 }}>
               {t("logs.cancel", "取消")}
             </AlertDialogCancel>
             <AlertDialogAction
               className="ripple"
               onClick={(e) => { makeRipple(e); handleClear(); }}
-              style={{ padding: "6px 14px", fontSize: 12, background: "var(--color-danger)" }}
+              style={{ padding: "6px 14px", fontSize: 14, background: "var(--color-danger)" }}
             >
               {t("logs.clear", "清除全部")}
             </AlertDialogAction>

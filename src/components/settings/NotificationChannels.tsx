@@ -18,12 +18,12 @@ function Field({ label, value, onChange, placeholder, password }: {
   label: string; value: string; onChange: (v: string) => void; placeholder?: string; password?: boolean;
 }) {
   return (
-    <label style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: 11, minWidth: 180, flex: 1 }}>
+    <label style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: 14, minWidth: 180, flex: 1 }}>
       <span className="text-secondary">{label}</span>
       <Input
         className="input"
         type={password ? "password" : "text"}
-        style={{ fontSize: 12 }}
+        style={{ fontSize: 14 }}
         value={value}
         placeholder={placeholder}
         onChange={e => onChange(e.target.value)}
@@ -66,10 +66,10 @@ function ChannelCard({ channel, settings, persist, test, setTest }: {
     <div id={`notif-channel-${channel}`} data-configured={configured ? "yes" : "no"}
       className="glass-surface" style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 12, fontWeight: 600 }}>
+        <span style={{ fontSize: 14, fontWeight: 600 }}>
           {t(`notif.channel.${channel}`, channel)}{configured ? "" : ` · ${t("notif.channels.bypass", "未配置=旁路")}`}
         </span>
-        <Button variant="ghost" size="sm" style={{ fontSize: 11, height: "auto", padding: "2px 8px" }}
+        <Button variant="ghost" size="sm" style={{ fontSize: 14, height: "auto", padding: "2px 8px" }}
           disabled={test.busy} onClick={handleTest}>
           {test.busy ? t("notif.channels.testing", "发送中…") : t("notif.channels.test", "测试发送")}
         </Button>
@@ -112,7 +112,7 @@ function ChannelCard({ channel, settings, persist, test, setTest }: {
             onChange={v => setCfg(n => { n.channels.email = { ...(n.channels.email ?? { smtp_host: "", smtp_port: 0, username: "", password: "", from: "", to: "" }), to: v }; })} />
         </>)}
       </div>
-      {test.result && <div style={{ fontSize: 11, color: test.result.startsWith("✓") ? "var(--color-success)" : "var(--color-danger)" }}>{test.result}</div>}
+      {test.result && <div style={{ fontSize: 14, color: test.result.startsWith("✓") ? "var(--color-success)" : "var(--color-danger)" }}>{test.result}</div>}
     </div>
   );
 }
@@ -123,8 +123,8 @@ export function NotificationChannelsSection({ settings, persist }: { settings: N
   return (
     <div className="glass-surface" style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
       <div>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("notif.channels.title", "外部渠道")}</div>
-        <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.channels.title", "外部渠道")}</div>
+        <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
           {t("notif.channels.desc", "无配置=旁路，配置即启用；投递失败自动重试（≤3），记录见收件箱「投递记录」")}
         </div>
       </div>

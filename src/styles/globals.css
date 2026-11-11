@@ -105,7 +105,7 @@
   /* G3 字族：IBM Plex Sans 自托管优先，中文回退 PingFang SC 链 */
   font-family: "IBM Plex Sans", Inter, -apple-system, BlinkMacSystemFont,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
   color: var(--text-primary);
   background: var(--app-bg-overlay, none), var(--bg-base);
@@ -419,7 +419,7 @@ body {
   border-radius: var(--radius-sm);
   background: var(--bg-glass);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
@@ -499,7 +499,7 @@ input[type="checkbox"] {
   border-radius: var(--radius-sm);
   background: var(--bg-glass);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 14px;
   font-family: inherit;
   outline: none;
   /* ponytail: backdrop-filter 已删，理由同 .btn（见上，globals.css:292 注释） */
@@ -608,7 +608,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   gap: 4px;
   padding: 2px 8px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -632,7 +632,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   background: var(--bg-base);
   border: 1px solid var(--border);
   font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.7;
   word-break: break-all;
   overflow-x: auto;
@@ -651,7 +651,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 .toast {
   padding: 12px 16px;
   border-radius: var(--radius-md);
-  font-size: 13px;
+  font-size: 14px;
   border: 1px solid var(--border);
   background: var(--bg-floating);
   /* ponytail: backdrop-filter 已删，理由同 .glass-elevated（见上，globals.css:231 注释） */
@@ -770,7 +770,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 }
 
 .section-desc {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-secondary);
   margin-top: 2px;
 }
@@ -1051,7 +1051,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: #f5f5f0;
   background: #151514;
@@ -1065,7 +1065,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 .cmd-kb:hover { border-color: rgba(232, 197, 71, 0.4); }
 .cmd-kb .k {
   font-family: "SF Mono", ui-monospace, Menlo, monospace;
-  font-size: 10px;
+  font-size: 14px;
   color: #8a8580;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 4px;
@@ -1243,7 +1243,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   }
 
   .aidog-addbtn {
-    font-size: 11px; padding: 5px 12px; border-radius: var(--radius-sm);
+    font-size: 14px; padding: 5px 12px; border-radius: var(--radius-sm);
     border: 1px dashed var(--border); background: none; color: var(--text-secondary);
     cursor: pointer; width: fit-content; transition: all .2s;
   }
@@ -1279,7 +1279,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
     width: 44px; max-height: 216px; overflow-y: auto;
   }
   .aidog-tpop-col button {
-    font-size: 11px; padding: 3px 0; border-radius: 6px; border: 0;
+    font-size: 14px; padding: 3px 0; border-radius: 6px; border: 0;
     background: none; color: var(--text-secondary); cursor: pointer;
     font-variant-numeric: tabular-nums;
   }
@@ -1308,7 +1308,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   }
   .rc-flow[data-layout="vertical"] { grid-template-columns: minmax(0, 1fr); width: auto; min-width: 0; gap: 22px; padding: 16px 16px 20px 40px; }
   .rc-col { display: flex; flex-direction: column; gap: 12px; position: relative; min-width: 0; }
-  .rc-col-title { font-size: 11px; color: var(--text-tertiary); display: flex; justify-content: space-between; gap: 8px; }
+  .rc-col-title { font-size: 14px; color: var(--text-tertiary); display: flex; justify-content: space-between; gap: 8px; }
   .rc-matrix { display: flex; flex-direction: column; gap: 22px; }
   .rc-row { display: grid; grid-template-columns: 210px 1fr; gap: 56px; align-items: center; }
   .rc-flow[data-layout="vertical"] .rc-row { grid-template-columns: minmax(0, 1fr); gap: 12px; }
@@ -1318,14 +1318,14 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   .rc-node {
     position: relative; min-width: 0; display: flex; flex-direction: column; gap: 4px;
     border-radius: 12px; padding: 10px 12px; background: var(--card); border: 1px solid var(--border);
-    font-size: 12px; color: var(--text-secondary);
+    font-size: 14px; color: var(--text-secondary);
   }
-  .rc-node h3 { margin: 0 0 2px; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; color: var(--text-primary); }
+  .rc-node h3 { margin: 0 0 2px; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; color: var(--text-primary); }
   .rc-ico {
-    width: 22px; height: 22px; border-radius: 7px; display: inline-grid; place-items: center; flex: none; font-size: 12px;
+    width: 22px; height: 22px; border-radius: 7px; display: inline-grid; place-items: center; flex: none; font-size: 14px;
     background: var(--accent-subtle); color: var(--primary);
   }
-  .rc-sub { font-size: 11px; color: var(--text-tertiary); overflow-wrap: anywhere; }
+  .rc-sub { font-size: 14px; color: var(--text-tertiary); overflow-wrap: anywhere; }
   .rc-node.win { border-color: var(--color-success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-success) 14%, transparent); }
   .rc-node.win .rc-ico, .rc-node[data-state="win"] .rc-ico { background: color-mix(in srgb, var(--color-success) 14%, transparent); color: var(--color-success); }
   .rc-node.fail, .rc-node.bad, .rc-node[data-state="fail"] { border-color: var(--color-danger); }
@@ -1337,14 +1337,14 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   .rc-cand { gap: 6px; }
   .rc-cand.out .rc-name { text-decoration: line-through; text-decoration-color: var(--text-tertiary); }
   .rc-cand-head { display: flex; align-items: center; gap: 8px; }
-  .rc-name { font-weight: 600; font-size: 13px; color: var(--text-primary); overflow-wrap: anywhere; }
-  .rc-ord { margin-left: auto; font-size: 10.5px; color: var(--text-tertiary); white-space: nowrap; }
+  .rc-name { font-weight: 600; font-size: 14px; color: var(--text-primary); overflow-wrap: anywhere; }
+  .rc-ord { margin-left: auto; font-size: 14px; color: var(--text-tertiary); white-space: nowrap; }
   .rc-tags { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
   .rc-step { min-width: 150px; max-width: 200px; flex: 0 0 auto; gap: 3px; }
-  .rc-step-model { font-weight: 500; font-size: 12px; color: var(--text-primary); overflow-wrap: anywhere; }
-  .rc-step-line { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 11.5px; }
+  .rc-step-model { font-weight: 500; font-size: 14px; color: var(--text-primary); overflow-wrap: anywhere; }
+  .rc-step-line { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 14px; }
   .rc-pill {
-    display: inline-flex; align-items: center; border-radius: 99px; padding: 1px 8px; font-size: 10.5px; white-space: nowrap;
+    display: inline-flex; align-items: center; border-radius: 99px; padding: 1px 8px; font-size: 14px; white-space: nowrap;
     border: 1px solid var(--border); color: var(--text-tertiary); margin-left: 4px;
   }
   .rc-tags .rc-pill, .rc-step-line .rc-pill, .rc-cand > .rc-pill { margin-left: 0; }
@@ -1356,12 +1356,12 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   .rc-checks li { display: flex; gap: 6px; align-items: baseline; }
   .rc-v { flex: 1 1 0; min-width: 0; }
   .rc-k { color: var(--text-tertiary); min-width: 64px; }
-  .rc-mark { font-family: ui-monospace, monospace; font-size: 11px; }
+  .rc-mark { font-family: ui-monospace, monospace; font-size: 14px; }
   .rc-mark.ok { color: var(--color-success); } .rc-mark.bad { color: var(--color-danger); }
   .rc-mark.warn { color: var(--color-warning); } .rc-mark.na, .rc-mark.unrec, .rc-mark.inferred { color: var(--text-tertiary); }
   .rc-checks li[data-state="inferred"] .rc-v { font-style: italic; color: var(--text-tertiary); }
   .rc-unrec {
-    font-size: 10.5px; color: var(--text-tertiary); padding: 0 6px; border-radius: 6px; border: 1px dashed var(--border);
+    font-size: 14px; color: var(--text-tertiary); padding: 0 6px; border-radius: 6px; border: 1px dashed var(--border);
     background: repeating-linear-gradient(135deg, transparent 0 5px, var(--accent-subtle) 5px 6px);
   }
   path.rc-edge { fill: none; stroke-width: 1.8; }
@@ -1371,7 +1371,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   path.rc-edge.eval { stroke: var(--primary); stroke-dasharray: 6 5; animation: rc-flow 1.2s linear infinite; }
   path.rc-ar.ok { fill: var(--color-success); } path.rc-ar.bad { fill: var(--color-danger); }
   path.rc-ar.out { fill: var(--text-tertiary); } path.rc-ar.eval { fill: var(--primary); }
-  .rc-elabel { font-size: 11px; paint-order: stroke; stroke: var(--card); stroke-width: 4px; }
+  .rc-elabel { font-size: 14px; paint-order: stroke; stroke: var(--card); stroke-width: 4px; }
   .rc-elabel.bad { fill: var(--color-danger); } .rc-elabel.ok { fill: var(--color-success); } .rc-elabel.eval { fill: var(--primary); }
   @keyframes rc-flow { to { stroke-dashoffset: -22; } }
   @media (prefers-reduced-motion: reduce) { path.rc-edge.eval { animation: none; } }
@@ -1389,7 +1389,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   .tray-chip {
     display: inline-flex; align-items: center; gap: 7px;
     border: 1px solid var(--input); background: var(--card); border-radius: 16px;
-    padding: 5px 12px 5px 9px; font-size: 12px; color: var(--foreground);
+    padding: 5px 12px 5px 9px; font-size: 14px; color: var(--foreground);
     cursor: pointer; transition: .15s; user-select: none; font-family: inherit;
   }
   .tray-chip:hover { border-color: var(--primary); color: var(--accent); background: var(--accent-subtle); }
@@ -1399,7 +1399,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
     color: var(--accent); cursor: default;
   }
   .tray-chip[data-state="loaded"] .tray-chip-v { color: var(--accent); }
-  .tray-chip-v { font-family: "Maple Mono NF", "Maple Mono", "SF Mono", ui-monospace, monospace; font-size: 11px; color: var(--muted-foreground); }
+  .tray-chip-v { font-family: "Maple Mono NF", "Maple Mono", "SF Mono", ui-monospace, monospace; font-size: 14px; color: var(--muted-foreground); }
 }
 
 /* 模型配置区行式增强（ModelsMatrixSection / ModelChainEditor）：

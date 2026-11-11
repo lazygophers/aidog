@@ -25,7 +25,7 @@ export function PlatformRowCols({ t, riseDelay }: { t: TFunction; riseDelay?: nu
     <div className="prow-c"><div data-testid="platform-row-cols" className={`prow-grid${riseDelay != null ? " aidog-anim-rise" : ""}`}
       style={{
       display: "grid", gap: 10,
-      padding: "0 14px 0 8px", fontSize: 12, color: "var(--text-tertiary)", letterSpacing: "0.02em",
+      padding: "0 14px 0 8px", fontSize: 14, color: "var(--text-tertiary)", letterSpacing: "0.02em",
       ...(riseDelay != null ? { animationDelay: `${riseDelay}ms` } : {}),
     }}>
       <span /><span />
@@ -63,7 +63,7 @@ export function LevelPriorityInput({ value, onChange, testId, title }: {
       }}
       onClick={(e) => e.stopPropagation()}
       style={{ width: 26, height: 18, lineHeight: 1, border: "1px solid var(--border)", borderRadius: 4,
-        background: "transparent", color: "var(--text-secondary)", cursor: "pointer", fontSize: 11, padding: 0,
+        background: "transparent", color: "var(--text-secondary)", cursor: "pointer", fontSize: 14, padding: 0,
         fontFamily: "var(--font-mono, monospace)", textAlign: "center", flexShrink: 0, marginLeft: 2 }} />
   );
 }
@@ -119,10 +119,10 @@ function StatCell({ v, l, tone, testId }: { v: string; l: string; tone?: "ok" | 
   return (
     <div data-testid={testId} style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
       <span className="num" style={{
-        fontSize: 13, fontWeight: 580, textAlign: "right", fontVariantNumeric: "tabular-nums",
+        fontSize: 14, fontWeight: 580, textAlign: "right", fontVariantNumeric: "tabular-nums",
         color: tone === "ok" ? "var(--color-success)" : tone === "warn" ? "var(--color-warning)" : tone === "dim" ? "var(--text-tertiary)" : "var(--foreground)",
       }}>{v}</span>
-      <span style={{ fontSize: 12, color: "var(--text-tertiary)", textAlign: "right" }}>{l}</span>
+      <span style={{ fontSize: 14, color: "var(--text-tertiary)", textAlign: "right" }}>{l}</span>
     </div>
   );
 }
@@ -164,7 +164,7 @@ export function PlatformRow({
   const testOk = manualResult ? manualResult === "ok" : lastTest ? lastTest.success : null;
   const ago = lastTest ? formatRelativeTime(lastTest.created_at) : null;
   const badgeStyle = (fg: string, bg: string, bd: string): React.CSSProperties => ({
-    fontSize: 12, fontWeight: 600, borderRadius: 5, padding: "1.5px 6px", whiteSpace: "nowrap", flexShrink: 0,
+    fontSize: 14, fontWeight: 600, borderRadius: 5, padding: "1.5px 6px", whiteSpace: "nowrap", flexShrink: 0,
     color: fg, background: bg, border: `1px solid ${bd}`,
   });
 
@@ -243,7 +243,7 @@ export function PlatformRow({
         {/* 列 3：身份（名 + 徽标 / 协议 · host） */}
         <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
           <span style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-            <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</span>
+            <span style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</span>
             {(isCpProtocol || hasCodingEndpoint) && (
               <span style={badgeStyle("var(--color-success)", "color-mix(in srgb, var(--color-success) 12%, transparent)", "color-mix(in srgb, var(--color-success) 32%, transparent)")}>
                 {t("platform.codingPlanBadge", "Coding Plan")}
@@ -282,7 +282,7 @@ export function PlatformRow({
                 value={levelPriority ?? 5} onChange={onLevelPriorityChange} />
             )}
           </span>
-          <span style={{ fontSize: 12, color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <span style={{ fontSize: 14, color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {p.platform_type} · {host}
           </span>
           {showLastOutcome && (() => {
@@ -291,7 +291,7 @@ export function PlatformRow({
             return (
               <span data-testid="row-last-outcome" data-result={failed ? "fail" : "ok"}
                 title={failed ? t("platform.lastErrorHint", "最近一次失败 · {{time}}\n{{error}}").replace("{{time}}", at ?? "-").replace("{{error}}", p.last_error) : undefined}
-                style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, fontSize: 12, color: failed ? "var(--color-danger)" : "var(--text-tertiary)" }}>
+                style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, fontSize: 14, color: failed ? "var(--color-danger)" : "var(--text-tertiary)" }}>
                 <span style={{ fontWeight: 600, flexShrink: 0 }}>
                   {failed ? t("platform.lastOutcomeFail", "失败") : t("platform.lastOutcomeOk", "正常")}
                 </span>
@@ -311,7 +311,7 @@ export function PlatformRow({
               return (
                 <span key={tier.name} data-testid="row-quota-tier" data-tier={tier.name}
                   title={`${tierLabel(tier.name)} ${t("platform.quotaRemainSuffix", "剩")} ${tier.remainPct.toFixed(0)}%${countdown ? ` · ${countdown}` : ""}`}
-                  style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text-tertiary)", minWidth: 0 }}>
+                  style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, color: "var(--text-tertiary)", minWidth: 0 }}>
                   <span style={{ width: 32, flexShrink: 0 }}>{tierLabel(tier.name)}</span>
                   <span style={{ flex: 1, height: 4, borderRadius: 99, background: "color-mix(in srgb, var(--foreground) 7%, transparent)", overflow: "hidden", display: "block" }}>
                     <span style={{ display: "block", height: "100%", borderRadius: 99, width: `${Math.max(0, Math.min(100, tier.remainPct))}%`, background: tierColor }} />
@@ -332,7 +332,7 @@ export function PlatformRow({
                 : p.balance_level === "yellow" || (pct != null && pct < 30) ? "var(--color-warning)" : "var(--color-success)";
               return (
                 <>
-                  <span style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-secondary)" }}>
+                  <span style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: "var(--text-secondary)" }}>
                     <span className="num" style={{ color: "var(--foreground)", fontWeight: 560, fontVariantNumeric: "tabular-nums" }}>
                       {isAcu ? formatAmount(quota.balanceRemaining, "") : formatMoney(quota.balanceRemaining)}
                     </span>
@@ -354,7 +354,7 @@ export function PlatformRow({
               const isUsd = mb.unit === "usd";
               return (
                 <>
-                  <span style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-secondary)" }}>
+                  <span style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: "var(--text-secondary)" }}>
                     <span data-testid="row-manual-remaining" className="num" style={{ color: mb.depleted ? "var(--color-danger)" : "var(--foreground)", fontWeight: 560, fontVariantNumeric: "tabular-nums" }}>
                       {isUsd ? formatMoney(Math.max(0, mb.remaining)) : formatNumber(Math.max(0, mb.remaining))}
                     </span>
@@ -369,12 +369,12 @@ export function PlatformRow({
               );
             })()
           ) : (
-            <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>—</span>
+            <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>—</span>
           )}
           {/* Coding plan 使用情况（对齐 PlatformCard：累计 tokens + 预估金额） */}
           {(isCpProtocol || hasCodingEndpoint) && u && (
             <span data-testid="row-coding-usage" title={t("platform.codingUsedHint", "本平台累计已用 tokens 与预估金额（基于实际请求估算）")}
-              style={{ fontSize: 11, color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)", whiteSpace: "nowrap" }}>
+              style={{ fontSize: 14, color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)", whiteSpace: "nowrap" }}>
               ⚡ {formatNumber(u.total_input_tokens + u.total_output_tokens)} · {formatMoney(u.total_cost)}
             </span>
           )}
@@ -388,7 +388,7 @@ export function PlatformRow({
 
         {/* 列 9：最近测速 */}
         <span data-testid="row-last-test" data-result={testOk == null ? "none" : testOk ? "ok" : "fail"}
-          style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)", minWidth: 0 }}>
+          style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, color: "var(--text-secondary)", minWidth: 0 }}>
           {testing ? (
             <span style={{ color: "var(--text-tertiary)" }}>{t("status.testing", "测试中…")}</span>
           ) : testOk == null ? (
@@ -397,7 +397,7 @@ export function PlatformRow({
             <>
               <span style={{
                 width: 15, height: 15, borderRadius: 5, display: "inline-flex", alignItems: "center", justifyContent: "center",
-                flexShrink: 0, fontSize: 12, fontWeight: 700,
+                flexShrink: 0, fontSize: 14, fontWeight: 700,
                 background: testOk ? "color-mix(in srgb, var(--color-success) 15%, transparent)" : "color-mix(in srgb, var(--color-danger) 15%, transparent)",
                 color: testOk ? "var(--color-success)" : "var(--color-danger)",
               }}>{testOk ? "✓" : "✕"}</span>
@@ -455,29 +455,29 @@ export function PlatformRow({
           display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 26,
         }}>
           <div>
-            <h4 style={{ fontSize: 12, fontWeight: 600, color: "var(--text-tertiary)", letterSpacing: "0.02em", margin: "0 0 9px" }}>
+            <h4 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-tertiary)", letterSpacing: "0.02em", margin: "0 0 9px" }}>
               {t("platform.detail.models", "模型（{{n}}）", { n: configuredModels.length })}
             </h4>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {configuredModels.slice(0, 12).map((m, i) => (
                 <span key={m} style={{
-                  fontSize: 12, padding: "3px 9px", borderRadius: 6, color: "var(--text-secondary)",
+                  fontSize: 14, padding: "3px 9px", borderRadius: 6, color: "var(--text-secondary)",
                   background: "var(--secondary)", border: "1px solid var(--border)",
                   ...(i === 0 ? { color: "var(--primary)", borderColor: "color-mix(in srgb, var(--primary) 40%, transparent)", background: "var(--accent-subtle)" } : {}),
                 }}>{m}</span>
               ))}
               {configuredModels.length > 12 && (
-                <span style={{ fontSize: 12, color: "var(--text-tertiary)", alignSelf: "center" }}>+{configuredModels.length - 12}</span>
+                <span style={{ fontSize: 14, color: "var(--text-tertiary)", alignSelf: "center" }}>+{configuredModels.length - 12}</span>
               )}
-              {configuredModels.length === 0 && <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>—</span>}
+              {configuredModels.length === 0 && <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>—</span>}
             </div>
           </div>
           <div>
-            <h4 style={{ fontSize: 12, fontWeight: 600, color: "var(--text-tertiary)", letterSpacing: "0.02em", margin: "0 0 9px" }}>
+            <h4 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-tertiary)", letterSpacing: "0.02em", margin: "0 0 9px" }}>
               {t("platform.detail.limits", "限频与预算")}
             </h4>
             {rlConfigured && (
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
                 <thead><tr>
                   <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>{t("platform.detail.window", "窗口")}</th>
                   <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>RPM</th>
@@ -493,7 +493,7 @@ export function PlatformRow({
               </table>
             )}
             {(rateLimitsBundle.quota_windows?.length ?? 0) > 0 && (
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, marginTop: 10 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, marginTop: 10 }}>
                 <thead><tr>
                   <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>{t("platform.detail.quotaWindow", "额度窗口")}</th>
                   <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>{t("platform.detail.budget", "预算")}</th>
@@ -514,7 +514,7 @@ export function PlatformRow({
               </table>
             )}
             {(p.manual_budgets ?? []).length > 0 && (
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, marginTop: 10 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, marginTop: 10 }}>
                 <thead><tr>
                   <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>{t("platform.detail.budget", "预算")}</th>
                   <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>{t("platform.detail.used", "已用")}</th>
@@ -534,10 +534,10 @@ export function PlatformRow({
               </table>
             )}
             {rlCount === 0 && (p.manual_budgets ?? []).length === 0 && (
-              <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>—</span>
+              <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>—</span>
             )}
             {hitWin && (
-              <div style={{ marginTop: 12, fontSize: 12, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 7 }}>
+              <div style={{ marginTop: 12, fontSize: 14, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 7 }}>
                 <span style={badgeStyle("var(--primary)", "color-mix(in srgb, var(--primary) 10%, transparent)", "color-mix(in srgb, var(--primary) 30%, transparent)")}>Peak</span>
                 {peakWindows.map((w, i) => (
                   <span key={i}>{w.start_hour}–{w.end_hour}{i < peakWindows.length - 1 ? " / " : ""}</span>

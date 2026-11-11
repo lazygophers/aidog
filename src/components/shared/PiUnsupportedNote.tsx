@@ -22,7 +22,7 @@ export function PiUnsupportedNote({ reasonKey, reasonFallback }: { reasonKey: st
         background: "var(--secondary)",
         border: "1px solid var(--border)",
         color: "var(--text-secondary)",
-        fontSize: 12,
+        fontSize: 14,
         lineHeight: 1.5,
       }}
     >

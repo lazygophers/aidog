@@ -212,12 +212,12 @@ function FlowNode({ title, sub, io }: { title: string; sub?: string; io?: boolea
   return (
     <span
       className={cn(
-        "rounded-md border px-2.5 py-1.5 text-xs font-semibold leading-tight whitespace-nowrap",
+        "rounded-md border px-2.5 py-1.5 text-sm font-semibold leading-tight whitespace-nowrap",
         io ? "border-input bg-secondary" : "border-input bg-card",
       )}
     >
       {title}
-      {sub && <span className="block text-xs font-normal text-secondary">{sub}</span>}
+      {sub && <span className="block text-sm font-normal text-secondary">{sub}</span>}
     </span>
   );
 }
@@ -227,7 +227,7 @@ function FlowArrow({ label, tone }: { label?: string; tone?: "ok" | "info" }) {
       <span className="h-px min-w-[12px] flex-1 border-t border-dashed border-[var(--input)]" />
       <span className={cn("size-1.5 rotate-45 border-t border-r", tone === "ok" ? "border-[var(--success)]" : tone === "info" ? "border-primary" : "border-[var(--muted-foreground)]")} />
       {label && (
-        <span className={cn("absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs", tone === "ok" ? "text-[var(--success)]" : tone === "info" ? "text-primary" : "text-destructive")}>
+        <span className={cn("absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-sm", tone === "ok" ? "text-[var(--success)]" : tone === "info" ? "text-primary" : "text-destructive")}>
           {label}
         </span>
       )}
@@ -497,7 +497,7 @@ export function ToolsSection() {
         <div
           data-testid="tools-flow"
           data-state="off"
-          className="flex items-center justify-center rounded-lg border border-dashed border-border px-4 py-5 text-xs text-secondary"
+          className="flex items-center justify-center rounded-lg border border-dashed border-border px-4 py-5 text-sm text-secondary"
         >
           {t("tools.flow.off")}
         </div>
@@ -560,7 +560,7 @@ export function ToolsSection() {
       {dirty[card] && (
         <span
           data-testid={`tools-dirty-${card}`}
-          className="flex items-center gap-1.5 text-xs text-[var(--warning)]"
+          className="flex items-center gap-1.5 text-sm text-[var(--warning)]"
         >
           <span className="size-1.5 rounded-full bg-current" />
           {t("tools.unsaved.badge")}
@@ -568,10 +568,10 @@ export function ToolsSection() {
       )}
       <span className="flex-1" />
       {savedCard === card && !dirty[card] && (
-        <span data-testid="mcp-tools-saved" className="text-xs text-[var(--success)]">{t("tools.saved")}</span>
+        <span data-testid="mcp-tools-saved" className="text-sm text-[var(--success)]">{t("tools.saved")}</span>
       )}
       {saveError && (
-        <span data-testid="mcp-tools-save-error" className="text-xs text-destructive">{saveError}</span>
+        <span data-testid="mcp-tools-save-error" className="text-sm text-destructive">{saveError}</span>
       )}
       <Button size="sm" data-testid={saveTestId} onClick={() => void saveCard(card)}>
         {t("tools.saveCard")}
@@ -693,11 +693,11 @@ export function ToolsSection() {
               <span className={cn("grid size-3 shrink-0 place-items-center rounded-[3px] border", on ? "border-primary bg-primary" : "border-[var(--input)]")} />
               <span className="min-w-0 flex-1 truncate font-mono text-sm">{url}</span>
               {st?.testing ? (
-                <span data-testid={`tools-searx-sec-${i}`} className="shrink-0 text-xs text-secondary">{t("tools.searxTesting")}</span>
+                <span data-testid={`tools-searx-sec-${i}`} className="shrink-0 text-sm text-secondary">{t("tools.searxTesting")}</span>
               ) : (
                 <span
                   data-testid={`tools-searx-sec-${i}`}
-                  className={cn("shrink-0 font-mono text-xs", st?.fail ? "text-destructive" : "text-secondary")}
+                  className={cn("shrink-0 font-mono text-sm", st?.fail ? "text-destructive" : "text-secondary")}
                 >
                   {st?.fail ? t("tools.searxFail") : seconds != null ? `${seconds.toFixed(2)}s` : ""}
                 </span>
@@ -788,12 +788,12 @@ export function ToolsSection() {
                       >
                         <GripIcon />
                       </button>
-                      <span className="grid size-5 place-items-center rounded bg-primary text-xs font-semibold text-primary-foreground">
+                      <span className="grid size-5 place-items-center rounded bg-primary text-sm font-semibold text-primary-foreground">
                         {search.sources.indexOf(item.id) + 1}
                       </span>
                       <b className="text-sm font-semibold">{sourceName(item.id)}</b>
                       {keyedIds.has(item.id) && (
-                        <span className="rounded bg-[var(--accent-subtle)] px-1 text-xs text-primary">key</span>
+                        <span className="rounded bg-[var(--accent-subtle)] px-1 text-sm text-primary">key</span>
                       )}
                       <span className="flex-1" />
                       <button
@@ -868,8 +868,8 @@ export function ToolsSection() {
         switchRow("mcp-tools-fetch-enabled", fetchOn, () => setFetchOn((v) => !v), t("tools.fetch.enabled")),
       )}
       <div className="flex flex-col gap-3 px-4 pb-4 pt-4">
-        <p className="text-xs text-secondary">{t("tools.fetch.desc")}</p>
-        <label className="flex items-center gap-2.5 text-xs">
+        <p className="text-sm text-secondary">{t("tools.fetch.desc")}</p>
+        <label className="flex items-center gap-2.5 text-sm">
           {t("tools.fetch.format")}
           <select
             data-testid="tools-fetch-format"
@@ -891,7 +891,7 @@ export function ToolsSection() {
     <section data-testid="mcp-tools-card-image" className="rounded-xl border border-border bg-card shadow-sm">
       {cardHeader(t("tools.card.image"))}
       <div className="flex flex-col gap-3 px-4 pb-4 pt-4">
-        <label className="flex items-center gap-2.5 text-xs">
+        <label className="flex items-center gap-2.5 text-sm">
           base_url
           <input
             data-testid="mcp-tools-image-base-url"
@@ -901,7 +901,7 @@ export function ToolsSection() {
             className="h-8 flex-1 rounded-md border border-input bg-card px-2.5 font-mono text-sm outline-none transition-colors focus:border-primary"
           />
         </label>
-        <label className="flex items-center gap-2.5 text-xs">
+        <label className="flex items-center gap-2.5 text-sm">
           {t("tools.apiKey")}
           <div className="flex-1">
             <SecretInput
@@ -914,7 +914,7 @@ export function ToolsSection() {
             />
           </div>
         </label>
-        <label className="flex items-center gap-2.5 text-xs">
+        <label className="flex items-center gap-2.5 text-sm">
           {t("tools.model")}
           <input
             data-testid="mcp-tools-image-model"
@@ -934,9 +934,9 @@ export function ToolsSection() {
       <div className="flex items-center gap-3.5 px-4 py-4">
         <div className="min-w-0 flex-1">
           <div className="text-sm">{t("tools.installHint")}</div>
-          <div className="mt-1 text-xs text-secondary">
-            {t("tools.install")} · <code className="rounded bg-secondary px-1 font-mono text-xs">~/.claude.json</code>{" "}
-            <code className="rounded bg-secondary px-1 font-mono text-xs">~/.codex/config.toml</code>
+          <div className="mt-1 text-sm text-secondary">
+            {t("tools.install")} · <code className="rounded bg-secondary px-1 font-mono text-sm">~/.claude.json</code>{" "}
+            <code className="rounded bg-secondary px-1 font-mono text-sm">~/.codex/config.toml</code>
           </div>
         </div>
         <Button data-testid="mcp-tools-install" disabled={installing} onClick={() => void install()}>
@@ -946,7 +946,7 @@ export function ToolsSection() {
       {installMsg && (
         <div
           data-testid="mcp-tools-install-result"
-          className={cn("px-4 pb-4 text-xs", installOk ? "text-[var(--success)]" : "text-destructive")}
+          className={cn("px-4 pb-4 text-sm", installOk ? "text-[var(--success)]" : "text-destructive")}
         >
           {installMsg}
         </div>
@@ -964,17 +964,17 @@ export function ToolsSection() {
     <div data-testid="mcp-tools-section" className="flex w-full flex-col gap-4">
       <div>
         <div className="section-title">{t("tools.title", "工具")}</div>
-        <div className="mt-1 text-xs text-secondary">{t("tools.desc")}</div>
+        <div className="mt-1 text-sm text-secondary">{t("tools.desc")}</div>
       </div>
 
       {loadError && (
-        <div className="text-xs text-destructive" data-testid="mcp-tools-load-error">{loadError}</div>
+        <div className="text-sm text-destructive" data-testid="mcp-tools-load-error">{loadError}</div>
       )}
 
       {unsavedCount > 0 && (
         <div
           data-testid="tools-unsaved-banner"
-          className="flex items-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--warning)_30%,transparent)] bg-[var(--color-warning-bg)] px-3 py-2 text-xs text-[var(--warning)]"
+          className="flex items-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--warning)_30%,transparent)] bg-[var(--color-warning-bg)] px-3 py-2 text-sm text-[var(--warning)]"
         >
           <span className="size-1.5 rounded-full bg-current" />
           {t("tools.unsaved.banner", { count: unsavedCount })}
@@ -983,7 +983,7 @@ export function ToolsSection() {
 
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[268px_1fr]">
         <aside className="flex flex-col gap-1.5">
-          <div className="mb-0.5 px-0.5 font-mono text-xs text-secondary">{t("tools.nav.title")}</div>
+          <div className="mb-0.5 px-0.5 font-mono text-sm text-secondary">{t("tools.nav.title")}</div>
           {railItems.map((item) => {
             const active = selected === item.id;
             return (
@@ -1002,7 +1002,7 @@ export function ToolsSection() {
               >
                 <span className="min-w-0 flex-1">
                   <b className="block text-sm font-semibold">{item.title}</b>
-                  {item.summary && <small className="block text-xs text-secondary">{item.summary}</small>}
+                  {item.summary && <small className="block text-sm text-secondary">{item.summary}</small>}
                 </span>
                 {item.tool && <StatusPill tool={item.tool} state={statusOf(item.tool)} />}
               </button>

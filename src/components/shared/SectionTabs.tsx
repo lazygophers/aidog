@@ -45,7 +45,7 @@ export function SectionTabs({ tabs, active, onChange }: {
               border: on ? "1px solid var(--border)" : "1px solid transparent",
               background: on ? "var(--bg-glass)" : "transparent",
               color: on ? "var(--text-primary)" : "var(--text-secondary)",
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: 600,
               padding: "6px 14px",
               borderRadius: "var(--radius-sm)",

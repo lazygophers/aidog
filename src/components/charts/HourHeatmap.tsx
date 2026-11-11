@@ -53,7 +53,7 @@ export function HourHeatmap({
           display: "grid",
           gridTemplateColumns: "3.5em repeat(24, 1fr)",
           gap: 2,
-          fontSize: 9,
+          fontSize: 14,
           color: "var(--text-tertiary)",
           fontVariantNumeric: "tabular-nums",
         }}

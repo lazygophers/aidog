@@ -19,14 +19,14 @@ export function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
 
   const numberField = (label: string, key: "status_code" | "delay_ms" | "input_tokens" | "output_tokens" | "cache_tokens" | "chunk_count", hint?: string) => (
     <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>{label}</span>
+      <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>{label}</span>
       <Input
         className="input"
         type="number"
         value={config[key]}
         onChange={(e) => setField(key, Number(e.target.value))}
       />
-      {hint && <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{hint}</span>}
+      {hint && <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{hint}</span>}
     </label>
   );
 
@@ -38,7 +38,7 @@ export function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
     numOpts?: { min?: number; max?: number; step?: number },
   ) => (
     <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>{label}</span>
+      <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>{label}</span>
       <Input
         className="input"
         type="number"
@@ -55,7 +55,7 @@ export function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
           setField(key, n);
         }}
       />
-      <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{hint}</span>
+      <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{hint}</span>
     </label>
   );
 
@@ -68,13 +68,13 @@ export function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
       padding: 12, borderRadius: "var(--radius-sm)",
       background: "var(--bg-glass)", border: "1px solid var(--border)",
     }}>
-      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
+      <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>
         {t("platform.mockConfig")}（{t("platform.mockConfigHint")}）
       </div>
 
       {/* 响应文本 */}
       <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>{t("platform.mockResponseText")}（response_text）</span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>{t("platform.mockResponseText")}（response_text）</span>
         <Textarea
           className="input"
           style={{ minHeight: 60, resize: "vertical" }}
@@ -84,7 +84,7 @@ export function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
       </label>
 
       <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>finish_reason</span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>finish_reason</span>
         <Input
           className="input"
           value={config.finish_reason}
@@ -107,7 +107,7 @@ export function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
       {/* error_mode + stream_override */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>{t("platform.mockErrorMode")}（error_mode）</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>{t("platform.mockErrorMode")}（error_mode）</span>
           <Select
             value={config.error_mode}
             onValueChange={(v) => setField("error_mode", v as MockErrorMode)}
@@ -123,7 +123,7 @@ export function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
           </Select>
         </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>{t("platform.mockStreamOverride")}（stream_override）</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>{t("platform.mockStreamOverride")}（stream_override）</span>
           <Select
             value={streamValue}
             onValueChange={(v) => {

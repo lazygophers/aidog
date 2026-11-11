@@ -280,8 +280,8 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
         style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("notif.masterToggle", "通知总开关")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.masterToggle", "通知总开关")}</div>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("notif.masterToggleDesc", "关闭后所有通知分发被旁路")}
           </div>
         </div>
@@ -297,8 +297,8 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
         style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("notif.dnd", "免打扰")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.dnd", "免打扰")}</div>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("notif.dndDesc", "开启后压掉弹窗/提示音/TTS/外部渠道，收件箱照常记录；规则可设「免打扰穿透」")}
           </div>
         </div>
@@ -321,14 +321,14 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
           style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}
         >
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{t("notif.permGuideTitle", "没收到系统通知？")}</div>
-            <div className="text-secondary" style={{ fontSize: 12, marginTop: 2, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.permGuideTitle", "没收到系统通知？")}</div>
+            <div className="text-secondary" style={{ fontSize: 14, marginTop: 2, lineHeight: 1.5 }}>
               {t("notif.permGuideDesc", "可能需在系统设置中允许 aidog 发送通知。")}
             </div>
           </div>
           <Button variant="ghost"
             className="ripple"
-            style={{ fontSize: 12, padding: "6px 12px", whiteSpace: "nowrap" }}
+            style={{ fontSize: 14, padding: "6px 12px", whiteSpace: "nowrap" }}
             onClick={(e) => { makeRipple(e); handleOpenNotifSettings(); }}
           >
             {t("notif.permGuideButton", "打开系统通知设置")}
@@ -343,8 +343,8 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{t("notif.ttsToggle", "语音播报")}</div>
-            <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.ttsToggle", "语音播报")}</div>
+            <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
               {t("notif.ttsToggleDesc", "启用后按类型配置朗读通知内容")}
             </div>
           </div>
@@ -355,7 +355,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
         </div>
         {settings.tts_enabled && (
           <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 8, borderTop: "1px solid var(--border)" }}>
-            <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+            <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
               {t("notif.ttsBackendLabel", "播报后端")}
             </label>
             <Select
@@ -364,7 +364,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
               value={settings.tts_backend}
               onValueChange={(v) => persist(prev => ({ ...prev, tts_backend: v as TtsBackend }))}
             >
-<SelectTrigger style={{ maxWidth: 220, padding: "4px 8px", fontSize: 12 }}><SelectValue/></SelectTrigger>
+<SelectTrigger style={{ maxWidth: 220, padding: "4px 8px", fontSize: 14 }}><SelectValue/></SelectTrigger>
 <SelectContent>
               {TTS_BACKENDS.map((b) => (
                 <SelectItem key={b} value={b}>{ttsBackendLabel(t, b)}</SelectItem>
@@ -380,10 +380,10 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
         staggerMs={180}
         style={{ padding: "12px 20px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", opacity: settings.enabled ? 1 : 0.55 }}
       >
-        <span style={{ fontSize: 12, fontWeight: 600 }}>{t("notif.testChannels", "通道测试")}</span>
+        <span style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.testChannels", "通道测试")}</span>
         <Button variant="ghost"
           className="ripple"
-          style={{ fontSize: 12, padding: "4px 10px" }}
+          style={{ fontSize: 14, padding: "4px 10px" }}
           onClick={(e) => { makeRipple(e); handleTestTts(); }}
           disabled={!settings.enabled}
           title={t("notif.testTtsTip", "仅测语音播报")}
@@ -392,7 +392,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
         </Button>
         <Button variant="ghost"
           className="ripple"
-          style={{ fontSize: 12, padding: "4px 10px" }}
+          style={{ fontSize: 14, padding: "4px 10px" }}
           onClick={(e) => { makeRipple(e); handleTestPopup(); }}
           disabled={!settings.enabled}
           title={t("notif.testPopupTip", "仅测系统弹窗")}
@@ -401,7 +401,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
         </Button>
         <Button variant="ghost"
           className="ripple"
-          style={{ fontSize: 12, padding: "4px 10px" }}
+          style={{ fontSize: 14, padding: "4px 10px" }}
           onClick={(e) => { makeRipple(e); handleTestBeep(); }}
           disabled={!settings.enabled}
           title={t("notif.testBeepTip", "仅测系统提示音")}
@@ -410,7 +410,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
         </Button>
         <Button variant="ghost"
           className="ripple"
-          style={{ fontSize: 12, padding: "4px 10px" }}
+          style={{ fontSize: 14, padding: "4px 10px" }}
           onClick={(e) => { makeRipple(e); handleTest(); }}
           disabled={!settings.enabled}
         >
@@ -430,8 +430,8 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{t("notif.retentionTitle", "通知历史自动清理")}</div>
-                <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.retentionTitle", "通知历史自动清理")}</div>
+                <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
                   {t("notif.retentionDesc", "超过保留天数的通知历史将被永久删除；关闭则永久保留")}
                 </div>
               </div>
@@ -444,7 +444,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
             </div>
             {cleanupOn && (
               <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 8, borderTop: "1px solid var(--border)" }}>
-                <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                   {t("notif.retentionDaysLabel", "保留天数")}
                 </label>
                 <Input
@@ -452,7 +452,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
 
                   min={1}
                   max={3650}
-                  style={{ maxWidth: 120, padding: "4px 8px", fontSize: 12 }}
+                  style={{ maxWidth: 120, padding: "4px 8px", fontSize: 14 }}
                   value={retention}
                   onChange={(e) => {
                     // 限 [1,3650]；非法输入回退 1（0 仅由开关切「不清理」）。
@@ -460,7 +460,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
                     persist(prev => ({ ...prev, inbox_retention_days: n }));
                   }}
                 />
-                <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("notif.retentionDaysUnit", "天")}</span>
+                <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>{t("notif.retentionDaysUnit", "天")}</span>
               </div>
             )}
           </NotifSectionCard>
@@ -473,8 +473,8 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
         style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("notif.defaultHooksTitle", "默认为所有分组注入通知 Hook")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.defaultHooksTitle", "默认为所有分组注入通知 Hook")}</div>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("notif.defaultHooksDesc", "开启后所有分组自动带 Claude Code hooks 与 Codex notify，无需逐个手动注入")}
             {hooksDisabled && <span style={{ marginLeft: 4 }}>· {t("notif.defaultHooksDisabledHint", "需先开启通知")}</span>}
           </div>
@@ -500,10 +500,10 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
       />
 
       {error && (
-        <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>{error}</div>
+        <div className="toast" style={{ fontSize: 14, wordBreak: "break-all" }}>{error}</div>
       )}
       {message && (
-        <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>{message}</div>
+        <div className="toast" style={{ fontSize: 14, wordBreak: "break-all" }}>{message}</div>
       )}
 
       {/* uv 询问 modal：通知 hook 脚本为 Python，uv 缺失时让用户选自动安装或回退 python3。
@@ -512,14 +512,14 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
         <DialogContent className="glass-elevated" style={{ maxWidth: 420, padding: "20px 24px" }}>
           <DialogHeader>
             <DialogTitle style={{ fontSize: 15, fontWeight: 600 }}>{t("notif.uvModalTitle", "未检测到 uv")}</DialogTitle>
-            <DialogDescription className="text-secondary" style={{ fontSize: 13, lineHeight: 1.5 }}>
+            <DialogDescription className="text-secondary" style={{ fontSize: 14, lineHeight: 1.5 }}>
               {t("notif.uvModalDesc", "通知 hook 脚本为 Python（PEP723），推荐用 uv 运行以隔离依赖。是否自动安装 uv？否则将使用系统 python3。")}
             </DialogDescription>
           </DialogHeader>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
             <Button variant="ghost"
               className="ripple"
-              style={{ fontSize: 12, padding: "6px 12px" }}
+              style={{ fontSize: 14, padding: "6px 12px" }}
               onClick={(e) => { makeRipple(e); handleUvCancel(); }}
               disabled={uvInstalling}
             >
@@ -527,7 +527,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
             </Button>
             <Button variant="ghost"
               className="ripple"
-              style={{ fontSize: 12, padding: "6px 12px" }}
+              style={{ fontSize: 14, padding: "6px 12px" }}
               onClick={(e) => { makeRipple(e); handleUvUsePython(); }}
               disabled={uvInstalling}
             >
@@ -535,7 +535,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
             </Button>
             <Button variant="default"
               className="ripple"
-              style={{ fontSize: 12, padding: "6px 12px" }}
+              style={{ fontSize: 14, padding: "6px 12px" }}
               onClick={(e) => { makeRipple(e); handleUvInstall(); }}
               disabled={uvInstalling}
             >

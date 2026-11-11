@@ -54,11 +54,11 @@ export function KernelSection({ onSaved }: { onSaved?: () => void } = {}) {
         style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("kernel.enabled")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("kernel.enabled")}</div>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("kernel.enabledDesc")}
           </div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("kernel.loopbackOnly")}
           </div>
         </div>
@@ -70,19 +70,19 @@ export function KernelSection({ onSaved }: { onSaved?: () => void } = {}) {
 
       {port !== null && (
         <div className="glass-surface" style={{ padding: "16px 20px" }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("kernel.address")}</div>
-          <code style={{ display: "block", marginTop: 6, fontSize: 12 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("kernel.address")}</div>
+          <code style={{ display: "block", marginTop: 6, fontSize: 14 }}>
             {`http://127.0.0.1:${port}/api/rpc/<command>`}
           </code>
-          <code style={{ display: "block", marginTop: 2, fontSize: 12 }}>
+          <code style={{ display: "block", marginTop: 2, fontSize: 14 }}>
             {`http://127.0.0.1:${port}/api/events`}
           </code>
         </div>
       )}
 
       <div className="glass-surface" style={{ padding: "16px 20px" }}>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("kernel.authToken")}</div>
-        <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("kernel.authToken")}</div>
+        <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
           {t("kernel.authTokenDesc")}
         </div>
         <input
@@ -93,12 +93,12 @@ export function KernelSection({ onSaved }: { onSaved?: () => void } = {}) {
           onBlur={() => {
             if (token !== settings.auth_token) persist({ ...settings, auth_token: token });
           }}
-          style={{ marginTop: 10, width: "100%", fontSize: 13, padding: "6px 10px" }}
+          style={{ marginTop: 10, width: "100%", fontSize: 14, padding: "6px 10px" }}
         />
       </div>
 
       {(error || saved) && (
-        <div className="text-secondary" style={{ fontSize: 12, padding: "0 20px" }}>
+        <div className="text-secondary" style={{ fontSize: 14, padding: "0 20px" }}>
           {error || saved}
         </div>
       )}

@@ -129,8 +129,8 @@ export function ProfilesSection() {
       style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}
     >
       <div>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("profile.title")}</div>
-        <div className="text-secondary" style={{ fontSize: 12, marginTop: 4 }}>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("profile.title")}</div>
+        <div className="text-secondary" style={{ fontSize: 14, marginTop: 4 }}>
           {t("profile.desc")}
         </div>
       </div>
@@ -154,7 +154,7 @@ export function ProfilesSection() {
       </div>
 
       {list.length === 0 ? (
-        <div className="text-secondary" style={{ fontSize: 12 }} data-testid="profiles-empty">
+        <div className="text-secondary" style={{ fontSize: 14 }} data-testid="profiles-empty">
           {t("profile.empty")}
         </div>
       ) : (
@@ -168,7 +168,7 @@ export function ProfilesSection() {
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
-                fontSize: 13,
+                fontSize: 14,
                 padding: "8px 10px",
                 borderRadius: 8,
                 border: "1px solid var(--border)",
@@ -176,7 +176,7 @@ export function ProfilesSection() {
             >
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600 }}>{p.name}</div>
-                <div className="text-secondary" style={{ fontSize: 11 }}>
+                <div className="text-secondary" style={{ fontSize: 14 }}>
                   {t("profile.created", { date: new Date(p.created_at * 1000).toLocaleString() })}
                 </div>
               </div>
@@ -204,12 +204,12 @@ export function ProfilesSection() {
       )}
 
       {message && (
-        <div className="toast" data-testid="profiles-message" style={{ fontSize: 12 }}>
+        <div className="toast" data-testid="profiles-message" style={{ fontSize: 14 }}>
           {message}
         </div>
       )}
       {error && (
-        <div role="alert" data-testid="profiles-error" style={{ color: "var(--color-danger)", fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+        <div role="alert" data-testid="profiles-error" style={{ color: "var(--color-danger)", fontSize: 14, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
           {error}
         </div>
       )}
@@ -248,13 +248,13 @@ export function ProfilesSection() {
               {t("profile.diffDesc", { count: diff?.items.length ?? 0 })}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, margin: "8px 0" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 14, margin: "8px 0" }}>
             {(diff?.items ?? []).map((item, i) => (
               <div key={`${item.target}-${i}`} data-testid={`profiles-diff-item-${i}`} data-op={item.op} style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
                 <span
                   style={{
                     fontFamily: "ui-monospace, monospace",
-                    fontSize: 11,
+                    fontSize: 14,
                     color: item.op === "delete" ? "var(--color-danger)" : "inherit",
                     flexShrink: 0,
                   }}

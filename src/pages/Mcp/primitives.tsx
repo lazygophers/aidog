@@ -55,7 +55,7 @@ export function McpRow({
         <div
           style={{
             color: "var(--text-tertiary)",
-            fontSize: 12,
+            fontSize: 14,
             marginTop: 3,
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -71,7 +71,7 @@ export function McpRow({
               <span
                 key={k}
                 style={{
-                  fontSize: 11,
+                  fontSize: 14,
                   padding: "1px 5px",
                   borderRadius: 4,
                   background: "var(--secondary)",
@@ -186,7 +186,7 @@ export function TransportBadge({ transport }: { transport: string }) {
     <Badge
       variant="outline"
       style={{
-        fontSize: 11,
+        fontSize: 14,
         fontWeight: 600,
         padding: "1px 6px",
         background: s.bg,
@@ -217,9 +217,9 @@ export function KVRows({
     onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+      <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
         {label}
-        <span style={{ color: "var(--text-tertiary)", marginLeft: 6, fontSize: 11 }}>
+        <span style={{ color: "var(--text-tertiary)", marginLeft: 6, fontSize: 14 }}>
           ({t("mcp.maskedHint", "未改值填 *** 保持原密钥")})
         </span>
       </span>
@@ -250,7 +250,7 @@ export function KVRows({
       <Button
         variant="outline"
         onClick={() => onChange([...rows, { k: "", v: "" }])}
-        style={{ alignSelf: "flex-start", padding: "5px 10px", fontSize: 12 }}
+        style={{ alignSelf: "flex-start", padding: "5px 10px", fontSize: 14 }}
       >
         + {t("mcp.addRow", "添加")}
       </Button>

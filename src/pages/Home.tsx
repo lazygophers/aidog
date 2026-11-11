@@ -191,7 +191,7 @@ function KpiCell({ label, value, spark, amber }: { label: string; value: string;
   const P = usePanel();
   return (
     <div style={{ padding: "14px 16px", minWidth: 0 }}>
-      <div style={{ fontFamily: P.mono, fontSize: 11, letterSpacing: ".1em", color: P.muted, whiteSpace: "nowrap" }}>
+      <div style={{ fontFamily: P.mono, fontSize: 14, letterSpacing: ".1em", color: P.muted, whiteSpace: "nowrap" }}>
         {label}
       </div>
       <div
@@ -607,7 +607,7 @@ function DimPanel({
     <div className="aidog-dimpanel" style={{ padding: "14px 16px", background: P.s1 }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 4, flexWrap: "wrap" }}>
         <b style={{ fontSize: F.small + 1, color: P.fg }}>{t(titleKey, titleDefault)}</b>
-        <span style={{ fontFamily: P.mono, fontSize: 11, color: P.muted }}>
+        <span style={{ fontFamily: P.mono, fontSize: 14, color: P.muted }}>
           TODAY · {t("home.dimMetric", "tokens / 花费 / 请求")}
         </span>
       </div>
@@ -661,22 +661,22 @@ function DimPanel({
                     }}
                   />
                 </span>
-                <span style={{ fontFamily: P.mono, fontSize: 11, color: P.muted, whiteSpace: "nowrap", minWidth: 64, textAlign: "end" }}>
+                <span style={{ fontFamily: P.mono, fontSize: 14, color: P.muted, whiteSpace: "nowrap", minWidth: 64, textAlign: "end" }}>
                   {formatNumber(dimTokens(r.d))}
                 </span>
-                <span style={{ fontFamily: P.mono, fontSize: 12, color: seriesColor(0), whiteSpace: "nowrap", minWidth: 56, textAlign: "end" }}>
+                <span style={{ fontFamily: P.mono, fontSize: 14, color: seriesColor(0), whiteSpace: "nowrap", minWidth: 56, textAlign: "end" }}>
                   {formatMoney(r.d.total_cost)}
                 </span>
-                <span style={{ fontFamily: P.mono, fontSize: 11, color: P.muted, whiteSpace: "nowrap", minWidth: 44, textAlign: "end" }}>
+                <span style={{ fontFamily: P.mono, fontSize: 14, color: P.muted, whiteSpace: "nowrap", minWidth: 44, textAlign: "end" }}>
                   {formatNumber(r.d.total_requests)}
                 </span>
-                <span className="aidog-dim-success" style={{ fontFamily: P.mono, fontSize: 11, color: P.muted, whiteSpace: "nowrap", minWidth: 42, textAlign: "end" }}>
+                <span className="aidog-dim-success" style={{ fontFamily: P.mono, fontSize: 14, color: P.muted, whiteSpace: "nowrap", minWidth: 42, textAlign: "end" }}>
                   {r.d.total_requests > 0 ? formatPercent((r.d.success_count / r.d.total_requests) * 100, 0) : "--"}
                 </span>
-                <span className="aidog-dim-cache" style={{ fontFamily: P.mono, fontSize: 11, color: P.muted, whiteSpace: "nowrap", minWidth: 42, textAlign: "end" }}>
+                <span className="aidog-dim-cache" style={{ fontFamily: P.mono, fontSize: 14, color: P.muted, whiteSpace: "nowrap", minWidth: 42, textAlign: "end" }}>
                   {r.other ? "--" : formatPercent(r.d.cache_rate, 0)}
                 </span>
-                <span className="aidog-dim-latency" style={{ fontFamily: P.mono, fontSize: 11, color: P.muted, whiteSpace: "nowrap", minWidth: 46, textAlign: "end" }}>
+                <span className="aidog-dim-latency" style={{ fontFamily: P.mono, fontSize: 14, color: P.muted, whiteSpace: "nowrap", minWidth: 46, textAlign: "end" }}>
                   {r.other || r.d.total_requests === 0 ? "--" : formatDurationMs(r.d.avg_duration_ms)}
                 </span>
                 {/* 行尾今日 token 迷你走势（跟随面板窗口）：逐小时走势，灰阶不与占比条抢焦点 */}

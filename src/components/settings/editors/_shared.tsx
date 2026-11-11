@@ -152,7 +152,7 @@ export function FieldLabel({ field, t, style, nonDefault, onReset, highlight }: 
               display: "inline-flex", alignItems: "center", gap: 3,
               padding: "1px 6px", borderRadius: 999, cursor: "pointer",
               border: "1px solid var(--accent)", background: "transparent",
-              color: "var(--accent)", fontSize: 11, fontWeight: 600, lineHeight: 1.4,
+              color: "var(--accent)", fontSize: 14, fontWeight: 600, lineHeight: 1.4,
             }}
           >
             <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--accent)", flexShrink: 0 }} />
@@ -717,14 +717,14 @@ export function PathInput({
               }}
             >
               <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                <span style={{ fontSize: 13, flexShrink: 0 }}>
+                <span style={{ fontSize: 14, flexShrink: 0 }}>
                   {s.is_dir ? <SectionIcon name="folder" size={13} /> : <SectionIcon name="file" size={13} />}
                 </span>
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {s.name}
                 </span>
               </span>
-              <span style={{ fontSize: 12, color: "var(--text-tertiary)", flexShrink: 0 }}>
+              <span style={{ fontSize: 14, color: "var(--text-tertiary)", flexShrink: 0 }}>
                 {formatTime(s.modified)}
               </span>
             </Button>

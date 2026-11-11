@@ -23,9 +23,9 @@ export function ChartCard({ title, subtitle, empty, emptyHint, className, childr
     <div className={cn("glass-surface flow-border", className)} style={{ padding: "16px 20px" }}>
       {title != null && (
         <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{title}</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{title}</div>
           {subtitle != null && (
-            <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>{subtitle}</div>
+            <div style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 2 }}>{subtitle}</div>
           )}
         </div>
       )}
@@ -41,9 +41,9 @@ export function ChartCard({ title, subtitle, empty, emptyHint, className, childr
             color: "var(--text-secondary)",
           }}
         >
-          <span style={{ fontSize: 13 }}>{t("charts.noData", "暂无数据")}</span>
+          <span style={{ fontSize: 14 }}>{t("charts.noData", "暂无数据")}</span>
           {emptyHint != null && (
-            <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{emptyHint}</span>
+            <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{emptyHint}</span>
           )}
         </div>
       ) : (

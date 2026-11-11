@@ -86,7 +86,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
   // ponytail: 单位 Select 复用，三 option (hour/day/week) 固定。
   const UnitSelect = ({ value, onChange }: { value: RetentionUnit; onChange: (u: RetentionUnit) => void }) => (
     <Select value={value} onValueChange={(v) => onChange(v as RetentionUnit)}>
-      <SelectTrigger style={{ width: 80, height: 28, fontSize: 12 }}>
+      <SelectTrigger style={{ width: 80, height: 28, fontSize: 14 }}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -108,8 +108,8 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{t("proxy.logRequests", "记录请求日志")}</div>
-            <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.logRequests", "记录请求日志")}</div>
+            <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
               {t("proxy.logRequestsDesc", "元数据（模型、耗时、Token、费用）恒记录；正文与请求头按下方开关控制")}
             </div>
           </div>
@@ -119,8 +119,8 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
             <div style={{ paddingTop: 8, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 600 }}>{t("proxy.logUserReq", "记录用户原始请求")}</div>
-                  <div className="text-tertiary" style={{ fontSize: 11, marginTop: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.logUserReq", "记录用户原始请求")}</div>
+                  <div className="text-tertiary" style={{ fontSize: 14, marginTop: 1 }}>
                     {t("proxy.logUserReqDesc", "用户发送的请求头和请求体")}
                   </div>
                 </div>
@@ -128,8 +128,8 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 600 }}>{t("proxy.logUpstreamReq", "记录实际上游请求")}</div>
-                  <div className="text-tertiary" style={{ fontSize: 11, marginTop: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.logUpstreamReq", "记录实际上游请求")}</div>
+                  <div className="text-tertiary" style={{ fontSize: 14, marginTop: 1 }}>
                     {t("proxy.logUpstreamReqDesc", "发送到上游平台的请求头和请求体")}
                   </div>
                 </div>
@@ -141,7 +141,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
             <div style={{ paddingTop: 8, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 8 }}>
               {logUserReq && (
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
+                  <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
                     {t("proxy.userReqRetention", "原始请求保留时间")}
                   </label>
                   <Input
@@ -149,10 +149,10 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                     min={0}
                     value={userReqRetention}
                     onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setUserReqRetention(v); updateLogSettings({ user_request_retention_days: v }); }}
-                    style={{ width: 70, height: 28, fontSize: 12 }}
+                    style={{ width: 70, height: 28, fontSize: 14 }}
                   />
                   {userReqRetention === 0 ? (
-                    <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                    <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
                       {t("proxy.logRetentionForever", "永久保留")}
                     </span>
                   ) : (
@@ -162,7 +162,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
               )}
               {logUpstreamReq && (
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
+                  <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
                     {t("proxy.upstreamReqRetention", "上游请求保留时间")}
                   </label>
                   <Input
@@ -170,10 +170,10 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                     min={0}
                     value={upstreamReqRetention}
                     onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setUpstreamReqRetention(v); updateLogSettings({ upstream_request_retention_days: v }); }}
-                    style={{ width: 70, height: 28, fontSize: 12 }}
+                    style={{ width: 70, height: 28, fontSize: 14 }}
                   />
                   {upstreamReqRetention === 0 ? (
-                    <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                    <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
                       {t("proxy.logRetentionForever", "永久保留")}
                     </span>
                   ) : (
@@ -182,7 +182,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                 </div>
               )}
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
+                <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
                   {t("proxy.logRetention", "日志记录保留时间")}
                 </label>
                 <Input
@@ -190,10 +190,10 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                   min={0}
                   value={logRetention}
                   onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setLogRetention(v); updateLogSettings({ retention_days: v }); }}
-                  style={{ width: 70, height: 28, fontSize: 12 }}
+                  style={{ width: 70, height: 28, fontSize: 14 }}
                 />
                 {logRetention === 0 ? (
-                  <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                  <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
                     {t("proxy.logRetentionForever", "永久保留")}
                   </span>
                 ) : (
@@ -210,20 +210,20 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
               onClick={() => setShowCleanupConfirm(true)}
               disabled={busy || logRetention === 0}
               title={logRetention === 0 ? t("logs.cleanupDisabledHint", "永久保留模式，无过期日志可清理") : undefined}
-              style={{ fontSize: 12, padding: "4px 12px", height: 28, opacity: busy ? 0.6 : 1 }}
+              style={{ fontSize: 14, padding: "4px 12px", height: 28, opacity: busy ? 0.6 : 1 }}
             >
               {busy ? t("logs.cleaning", "清理中...") : t("logs.cleanupExpired", "清理过期")}
             </Button>
             <Button variant="destructive"
               onClick={() => setShowClearConfirm(true)}
               disabled={busy}
-              style={{ fontSize: 12, padding: "4px 12px", height: 28, opacity: busy ? 0.6 : 1 }}
+              style={{ fontSize: 14, padding: "4px 12px", height: 28, opacity: busy ? 0.6 : 1 }}
             >
               {busy ? t("logs.cleaning", "清理中...") : t("logs.clear", "清除全部")}
             </Button>
           </div>
           {/* 预估三个数：超期行数 / 可回收 body 体积 / 库总大小。按钮旁常驻，清理后自动刷新。 */}
-          <div className="text-tertiary" style={{ fontSize: 11, marginTop: 2 }}>
+          <div className="text-tertiary" style={{ fontSize: 14, marginTop: 2 }}>
             {estimate
               ? t("logs.cleanupEstimate", "当前有 {{rows}} 行超期、占 {{bytes}}，库总大小 {{size}}", {
                   rows: formatNumber(estimate.overdue_rows),
@@ -236,7 +236,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
             <div
               className="toast"
               style={{
-                fontSize: 12,
+                fontSize: 14,
                 marginTop: 4,
                 color: message.type === "success"
                   ? "var(--color-success)"
@@ -258,8 +258,8 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{t("appLog.title", "应用日志")}</div>
-            <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>{t("appLog.title", "应用日志")}</div>
+            <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
               {t("appLog.desc", "控制台日志始终输出；以下设置仅影响日志文件")}
             </div>
           </div>
@@ -269,11 +269,11 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
         {logFileEnabled && (
           <div style={{ display: "flex", gap: 16, alignItems: "center", paddingTop: 8, borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+              <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                 {t("appLog.level", "日志级别")}
               </label>
               <Select value={logLevel} onValueChange={(v) => handleLogSettingsChange({ level: v })}>
-                <SelectTrigger style={{ width: 100, height: 28, fontSize: 12 }}>
+                <SelectTrigger style={{ width: 100, height: 28, fontSize: 14 }}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -284,7 +284,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
               </Select>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+              <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                 {t("appLog.retention", "保留时长")}
               </label>
               <Input
@@ -292,13 +292,13 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                 min={0}
                 value={logRetHours}
                 onChange={(e) => handleLogSettingsChange({ retention_hours: Math.max(0, Number(e.target.value)) })}
-                style={{ width: 70, height: 28, fontSize: 12 }}
+                style={{ width: 70, height: 28, fontSize: 14 }}
               />
-              <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+              <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
                 {t("appLog.retentionUnit", "小时")}
               </span>
             </div>
-            <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+            <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
               {logRetHours === 0 ? t("appLog.retentionForever", "永久保留") : ""}
             </span>
           </div>
@@ -309,10 +309,10 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
       <Dialog open={showCleanupConfirm} onOpenChange={(o) => { if (!busy) setShowCleanupConfirm(o); }}>
         <DialogContent className="glass-surface" style={{ maxWidth: 380, padding: 20, borderRadius: "var(--radius-lg)", gap: 16 }}>
           <DialogHeader>
-            <DialogTitle style={{ fontSize: 13, fontWeight: 600 }}>
+            <DialogTitle style={{ fontSize: 14, fontWeight: 600 }}>
               {t("logs.cleanupConfirmTitle", "清理过期日志")}
             </DialogTitle>
-            <DialogDescription style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+            <DialogDescription style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6 }}>
               {estimate
                 ? t("logs.cleanupConfirm", "将删除 {{rows}} 行过期日志，释放约 {{bytes}}（库当前 {{size}}）。此操作不可撤销。", {
                     rows: formatNumber(estimate.overdue_rows),
@@ -326,14 +326,14 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
             <Button variant="ghost"
               onClick={() => setShowCleanupConfirm(false)}
               disabled={busy}
-              style={{ padding: "6px 14px", fontSize: 12 }}
+              style={{ padding: "6px 14px", fontSize: 14 }}
             >
               {t("logs.cancel", "取消")}
             </Button>
             <Button variant="destructive"
               onClick={handleCleanupConfirm}
               disabled={busy}
-              style={{ padding: "6px 14px", fontSize: 12, opacity: busy ? 0.6 : 1 }}
+              style={{ padding: "6px 14px", fontSize: 14, opacity: busy ? 0.6 : 1 }}
             >
               {busy ? t("logs.cleaning", "清理中...") : t("logs.cleanupExpired", "清理过期")}
             </Button>
@@ -345,10 +345,10 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
       <Dialog open={showClearConfirm} onOpenChange={(o) => { if (!busy) setShowClearConfirm(o); }}>
         <DialogContent className="glass-surface" style={{ maxWidth: 380, padding: 20, borderRadius: "var(--radius-lg)", gap: 16 }}>
           <DialogHeader>
-            <DialogTitle style={{ fontSize: 13, fontWeight: 600 }}>
+            <DialogTitle style={{ fontSize: 14, fontWeight: 600 }}>
               {t("logs.clearConfirmTitle", "清空全部日志")}
             </DialogTitle>
-            <DialogDescription style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+            <DialogDescription style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6 }}>
               {t("logs.clearConfirm", "确认清除所有日志？此操作不可撤销。")}
             </DialogDescription>
           </DialogHeader>
@@ -356,14 +356,14 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
             <Button variant="ghost"
               onClick={() => setShowClearConfirm(false)}
               disabled={busy}
-              style={{ padding: "6px 14px", fontSize: 12 }}
+              style={{ padding: "6px 14px", fontSize: 14 }}
             >
               {t("logs.cancel", "取消")}
             </Button>
             <Button variant="destructive"
               onClick={handleClearConfirm}
               disabled={busy}
-              style={{ padding: "6px 14px", fontSize: 12, opacity: busy ? 0.6 : 1 }}
+              style={{ padding: "6px 14px", fontSize: 14, opacity: busy ? 0.6 : 1 }}
             >
               {busy ? t("logs.cleaning", "清理中...") : t("logs.clear", "清除全部")}
             </Button>

@@ -88,12 +88,12 @@ function ReportSection({
         gap: 4,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 600, color }}>
         {icon}
         {title}
       </div>
       {rows.map((r, i) => (
-        <div key={i} style={{ fontSize: 12, color: "var(--text-secondary)", paddingLeft: icon ? 19 : 0, wordBreak: "break-all" }}>
+        <div key={i} style={{ fontSize: 14, color: "var(--text-secondary)", paddingLeft: icon ? 19 : 0, wordBreak: "break-all" }}>
           {r}
         </div>
       ))}

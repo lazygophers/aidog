@@ -354,12 +354,12 @@ function ModelRow({ group, labelMap, onOpen }: {
             {primary ? (labelMap[primary.platform_code] ?? primary.platform_code) : "-"}
           </span>
           {primary?.official && (
-            <Badge variant="secondary" style={{ fontSize: 11, padding: "1px 5px", border: "none" }}>
+            <Badge variant="secondary" style={{ fontSize: 14, padding: "1px 5px", border: "none" }}>
               {t("modelInfo.official")}
             </Badge>
           )}
           {extra > 0 && (
-            <span className="text-tertiary" style={{ fontSize: 11 }}>
+            <span className="text-tertiary" style={{ fontSize: 14 }}>
               {t("modelInfo.morePlatforms").replace("{count}", String(extra))}
             </span>
           )}
@@ -413,7 +413,7 @@ function PlatformPane({ platformCodes, byPlatform, labelMap, active, onSelect, q
             <span style={{ fontSize: F.small, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {labelMap[code] ?? code}
             </span>
-            <span className="text-tertiary" style={{ fontSize: 11 }}>{byPlatform.get(code)?.length ?? 0}</span>
+            <span className="text-tertiary" style={{ fontSize: 14 }}>{byPlatform.get(code)?.length ?? 0}</span>
           </button>
         ))}
       </div>
@@ -461,7 +461,7 @@ function Th({ children }: { children: React.ReactNode }) {
   return (
     <TableHead style={{
       padding: "8px 12px", fontWeight: 600,
-      color: "var(--text-secondary)", whiteSpace: "nowrap", fontSize: 12, height: "auto",
+      color: "var(--text-secondary)", whiteSpace: "nowrap", fontSize: 14, height: "auto",
     }}>
       {children}
     </TableHead>

@@ -91,7 +91,7 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
       {!groupFullscreen && (<header data-testid="platforms-header" className="aidog-anim-rise" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24, paddingBottom: 4, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
           <h1 style={{ fontSize: 21, fontWeight: 650, letterSpacing: "-0.01em", margin: 0 }}>{t("page.platforms")}</h1>
-          <div data-testid="platforms-counter" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--text-secondary)" }}>
+          <div data-testid="platforms-counter" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "var(--text-secondary)" }}>
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--color-success)", boxShadow: "0 0 6px color-mix(in srgb, var(--color-success) 70%, transparent)", display: "inline-block" }} />
             <b className="num" style={{ color: "var(--foreground)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{headerActive}</b>
             <span style={{ opacity: 0.6 }}>/</span>
@@ -110,10 +110,10 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
               placeholder={t("platform.searchPlaceholder", "搜索平台...")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ flex: 1, minWidth: 0, height: "auto", border: "none", background: "transparent", padding: 0, fontSize: 12.5, boxShadow: "none" }}
+              style={{ flex: 1, minWidth: 0, height: "auto", border: "none", background: "transparent", padding: 0, fontSize: 14, boxShadow: "none" }}
             />
             <kbd style={{
-              fontFamily: "var(--font-mono, monospace)", fontSize: 12, color: "var(--text-tertiary)",
+              fontFamily: "var(--font-mono, monospace)", fontSize: 14, color: "var(--text-tertiary)",
               background: "var(--secondary)", border: "1px solid var(--border)", borderBottomWidth: 2,
               borderRadius: 4, padding: "1px 5px", whiteSpace: "nowrap",
             }}>⌘K</kbd>
@@ -143,7 +143,7 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
       {/* 全屏视图态（创建/编辑分组）时隐藏分隔线 + 未分组平台列表，避免与全屏视图并列 */}
       {/* 未分组段（稿 5：分隔标题 + 列头 + 行式列表；全屏视图态隐藏） */}
       {!groupFullscreen && (<>
-        <div data-testid="ungrouped-divider" className="aidog-anim-rise" style={{ display: "flex", alignItems: "center", gap: 12, margin: "34px 0 4px", color: "var(--text-tertiary)", fontSize: 12, animationDelay: "480ms" }}>
+        <div data-testid="ungrouped-divider" className="aidog-anim-rise" style={{ display: "flex", alignItems: "center", gap: 12, margin: "34px 0 4px", color: "var(--text-tertiary)", fontSize: 14, animationDelay: "480ms" }}>
           <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
           {t("platform.ungrouped", "未分组")} · {standalonePlatforms.length} {t("group.platforms", "平台")}
           <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
@@ -153,7 +153,7 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
         ) : (
           <div style={{ border: "1px solid var(--border)", borderRadius: 11, background: "var(--card)", overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
             {standalonePlatforms.length === 0 && (
-              <div className="text-tertiary" style={{ padding: 40, textAlign: "center", fontSize: 13 }}>{t("platform.empty")}</div>
+              <div className="text-tertiary" style={{ padding: 40, textAlign: "center", fontSize: 14 }}>{t("platform.empty")}</div>
             )}
             {standalonePlatforms.length > 0 && <PlatformRowCols t={t} riseDelay={500} />}
             <div ref={platListRef} style={{ display: "flex", flexDirection: "column" }}>
@@ -171,8 +171,8 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
                         pointerEvents: "none", transition: "all 150ms ease",
                       }}>
                         <div style={{ width: 10, height: 10, borderRadius: "50%", background: colorMap[standalonePlatforms[platDrag.from].platform_type] || "var(--accent)", flexShrink: 0 }} />
-                        <span style={{ fontSize: 13, fontWeight: 600 }}>{standalonePlatforms[platDrag.from].name}</span>
-                        <Badge variant="secondary" className="badge-muted" style={{ fontSize: 11 }}>{labelMap[standalonePlatforms[platDrag.from].platform_type] || standalonePlatforms[platDrag.from].platform_type}</Badge>
+                        <span style={{ fontSize: 14, fontWeight: 600 }}>{standalonePlatforms[platDrag.from].name}</span>
+                        <Badge variant="secondary" className="badge-muted" style={{ fontSize: 14 }}>{labelMap[standalonePlatforms[platDrag.from].platform_type] || standalonePlatforms[platDrag.from].platform_type}</Badge>
                       </div>
                     )}
                     {/* 未分组平台 pointer 拖拽加入分组（HTML5 DnD 在 WKWebView 失效故用 pointer events） */}
@@ -228,8 +228,8 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
                     pointerEvents: "none", transition: "all 150ms ease",
                   }}>
                     <div style={{ width: 10, height: 10, borderRadius: "50%", background: dc, flexShrink: 0 }} />
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>{dp.name}</span>
-                    <Badge variant="secondary" className="badge-muted" style={{ fontSize: 11 }}>{labelMap[dp.platform_type] || dp.platform_type}</Badge>
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>{dp.name}</span>
+                    <Badge variant="secondary" className="badge-muted" style={{ fontSize: 14 }}>{labelMap[dp.platform_type] || dp.platform_type}</Badge>
                   </div>
                 );
               })()}
@@ -255,7 +255,7 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
           pointerEvents: "none", zIndex: 3000,
           padding: "6px 12px", borderRadius: 8,
           background: "var(--primary)", color: "var(--primary-foreground)", border: "1px solid var(--accent-edge)",
-          fontSize: 12, fontWeight: 600,
+          fontSize: 14, fontWeight: 600,
           boxShadow: "0 4px 12px rgba(var(--shadow-rgb), 0.35)", opacity: 0.92,
         }}>
           {groupDrag.pname}
@@ -277,7 +277,7 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
           zIndex: 2000, pointerEvents: "none",
           padding: "10px 20px", borderRadius: 10,
           background: toast.ok ? "var(--color-success)" : "var(--color-danger)",
-          color: "var(--primary-foreground)", fontSize: 13, fontWeight: 600,
+          color: "var(--primary-foreground)", fontSize: 14, fontWeight: 600,
           boxShadow: "0 4px 20px rgba(var(--shadow-rgb), 0.25)",
           opacity: 0.95,
           transition: "opacity 0.3s",
@@ -298,16 +298,16 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
             </AlertDialogHeader>
             <div style={{ maxHeight: 240, overflow: "auto", display: "flex", flexDirection: "column", gap: 6, margin: "4px 0" }}>
               {previewLoading ? (
-                <div className="text-secondary" style={{ fontSize: 12, padding: "8px 0" }}>{t("status.loading", "处理中…")}</div>
+                <div className="text-secondary" style={{ fontSize: 14, padding: "8px 0" }}>{t("status.loading", "处理中…")}</div>
               ) : !previewList || previewList.length === 0 ? (
-                <div className="text-secondary" style={{ fontSize: 12, padding: "8px 0" }}>{t("platform.purgeDisabledNone", "暂无失效平台")}</div>
+                <div className="text-secondary" style={{ fontSize: 14, padding: "8px 0" }}>{t("platform.purgeDisabledNone", "暂无失效平台")}</div>
               ) : (
                 <>
-                  <div className="text-tertiary" style={{ fontSize: 11, fontWeight: 600 }}>{t("platform.purgeDisabledListTitle", "待清理平台清单")}</div>
+                  <div className="text-tertiary" style={{ fontSize: 14, fontWeight: 600 }}>{t("platform.purgeDisabledListTitle", "待清理平台清单")}</div>
                   {previewList.map((c) => (
-                    <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+                    <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
                       <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
-                      <Badge variant="secondary" style={{ fontSize: 11, flexShrink: 0 }}>
+                      <Badge variant="secondary" style={{ fontSize: 14, flexShrink: 0 }}>
                         {c.reason === "auth_failed" ? t("platform.purgeDisabledReasonAuthFailed", "认证失效（401/403）") : t("platform.purgeDisabledReasonExpired", "已过期")}
                       </Badge>
                     </div>

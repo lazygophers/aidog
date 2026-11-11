@@ -226,7 +226,7 @@ export function SkillInstallView({
           <Button
             variant="ghost"
             className="ripple"
-            style={{ fontSize: 12 }}
+            style={{ fontSize: 14 }}
             onClick={(e) => { makeRipple(e); onBack(); }}
             disabled={busyId !== null}
             title={t("skills.install.back", { defaultValue: "返回" })}
@@ -237,7 +237,7 @@ export function SkillInstallView({
             {t("skills.install.title", { defaultValue: "添加 Skills" })}
           </h2>
           {loading && (
-            <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
               {t("skills.install.searching", { defaultValue: "搜索中…" })}
             </span>
           )}
@@ -245,7 +245,7 @@ export function SkillInstallView({
         {/* 批量安装（勾选 ≥1 时可用） */}
         <Button
           className="ripple"
-          style={{ fontSize: 12 }}
+          style={{ fontSize: 14 }}
           disabled={busyId !== null || !writeReady || checked.size === 0}
           onClick={(e) => { makeRipple(e); void handleInstallBatch(); }}
         >
@@ -272,7 +272,7 @@ export function SkillInstallView({
           className="glass-surface"
           style={{
             padding: "8px 12px",
-            fontSize: 13,
+            fontSize: 14,
             color: "var(--text-secondary)",
           }}
         >
@@ -284,7 +284,7 @@ export function SkillInstallView({
       {error && (
         <div
           className="glass-surface"
-          style={{ padding: "12px 16px", fontSize: 13, color: "var(--color-danger)" }}
+          style={{ padding: "12px 16px", fontSize: 14, color: "var(--color-danger)" }}
         >
           {t("skills.install.loadFailed", { defaultValue: "加载失败" })}: {error}
         </div>
@@ -294,7 +294,7 @@ export function SkillInstallView({
       {!loading && !error && !hasKeyword && (
         <div
           className="glass-surface"
-          style={{ padding: "32px 16px", textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}
+          style={{ padding: "32px 16px", textAlign: "center", color: "var(--text-secondary)", fontSize: 14 }}
         >
           {t("skills.install.emptyHint", {
             defaultValue: "输入关键字开始搜索可安装的 skills",
@@ -306,7 +306,7 @@ export function SkillInstallView({
       {!loading && !error && hasKeyword && effectiveResults.length === 0 && (
         <div
           className="glass-surface"
-          style={{ padding: "32px 16px", textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}
+          style={{ padding: "32px 16px", textAlign: "center", color: "var(--text-secondary)", fontSize: 14 }}
         >
           {t("skills.install.noResults", { defaultValue: "无结果" })}
         </div>
@@ -382,7 +382,7 @@ function CatalogRow({ entry, idx, agents, already, checked, busyId, writeReady, 
             {already && (
               <span
                 style={{
-                  fontSize: 11,
+                  fontSize: 14,
                   padding: "1px 6px",
                   borderRadius: 4,
                   background: "var(--accent-subtle)",
@@ -395,7 +395,7 @@ function CatalogRow({ entry, idx, agents, already, checked, busyId, writeReady, 
           </div>
           <span
             style={{
-              fontSize: 11,
+              fontSize: 14,
               color: "var(--text-secondary)",
               fontFamily: "var(--font-mono, monospace)",
               wordBreak: "break-all",
@@ -404,7 +404,7 @@ function CatalogRow({ entry, idx, agents, already, checked, busyId, writeReady, 
             {entry.id}
           </span>
           {entry.description && (
-            <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
               {entry.description}
             </span>
           )}
@@ -413,7 +413,7 @@ function CatalogRow({ entry, idx, agents, already, checked, busyId, writeReady, 
               href={entry.repo_url}
               target="_blank"
               rel="noreferrer"
-              style={{ fontSize: 11, color: "var(--accent)" }}
+              style={{ fontSize: 14, color: "var(--accent)" }}
             >
               {entry.repo_url}
             </a>
@@ -421,7 +421,7 @@ function CatalogRow({ entry, idx, agents, already, checked, busyId, writeReady, 
         </div>
         <Button
           className="ripple"
-          style={{ fontSize: 12, flexShrink: 0 }}
+          style={{ fontSize: 14, flexShrink: 0 }}
           disabled={disabled}
           onClick={(e) => { makeRipple(e); onInstall(entry); }}
           title={
@@ -441,7 +441,7 @@ function CatalogRow({ entry, idx, agents, already, checked, busyId, writeReady, 
       </div>
       {/* agent 选择 */}
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+        <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
           {t("skills.install.selectAgent", { defaultValue: "安装到" })}:
         </span>
         {AGENTS.map((a) => {
@@ -457,7 +457,7 @@ function CatalogRow({ entry, idx, agents, already, checked, busyId, writeReady, 
                 alignItems: "center",
                 gap: 4,
                 opacity: on ? 1 : 0.4,
-                fontSize: 11,
+                fontSize: 14,
               }}
               onClick={(e) => { makeRipple(e); onToggle(entry.id, a); }}
               title={t(`skills.agent.${a}`, a)}

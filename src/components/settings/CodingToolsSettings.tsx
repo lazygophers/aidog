@@ -99,9 +99,9 @@ function ToggleCard({
       alignItems: "center",
     }}>
       <div style={{ flex: 1, minWidth: 0, paddingRight: 16 }}>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t(titleKey)}</div>
-        <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>{t(descKey)}</div>
-        <div className="text-tertiary" style={{ fontSize: 11, marginTop: 6, fontFamily: "ui-monospace, monospace" }}>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t(titleKey)}</div>
+        <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>{t(descKey)}</div>
+        <div className="text-tertiary" style={{ fontSize: 14, marginTop: 6, fontFamily: "ui-monospace, monospace" }}>
           {hint}
         </div>
       </div>
@@ -368,8 +368,8 @@ export function CodingToolsSettingsTab() {
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* 说明卡片 */}
       <CodingSectionCard staggerMs={0} style={{ padding: "16px 20px" }}>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("codingTools.cliIntegrationTitle", "CLI 集成")}</div>
-        <div className="text-secondary" style={{ fontSize: 12, marginTop: 4 }}>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("codingTools.cliIntegrationTitle", "CLI 集成")}</div>
+        <div className="text-secondary" style={{ fontSize: 14, marginTop: 4 }}>
           {t("codingTools.introDesc", "以下开关会写入 Claude Code CLI 的本地配置文件，使扩展与 CLI 走 aidog 代理并跳过首启引导。")}
         </div>
       </CodingSectionCard>
@@ -433,7 +433,7 @@ export function CodingToolsSettingsTab() {
       }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 600 }}>{t("codingTools.language.title")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("codingTools.language.desc")}
           </div>
         </div>
@@ -444,7 +444,7 @@ export function CodingToolsSettingsTab() {
           onValueChange={(v) => handleLanguageChange(v === "__none__" ? "" : v)}
           disabled={busy}
         >
-<SelectTrigger style={{ fontSize: 13, width: "auto", padding: "4px 28px 4px 8px" }}><SelectValue placeholder="—"/></SelectTrigger>
+<SelectTrigger style={{ fontSize: 14, width: "auto", padding: "4px 28px 4px 8px" }}><SelectValue placeholder="—"/></SelectTrigger>
 <SelectContent>
           {!language && <SelectItem value="__none__">—</SelectItem>}
           {LANGUAGE_GROUPS.map((g) => (
@@ -468,10 +468,10 @@ export function CodingToolsSettingsTab() {
       }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 600 }}>{t("codingTools.effort.title")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("codingTools.effort.desc")}
           </div>
-          <div className="text-tertiary" style={{ fontSize: 11, marginTop: 6, fontFamily: "ui-monospace, monospace" }}>
+          <div className="text-tertiary" style={{ fontSize: 14, marginTop: 6, fontFamily: "ui-monospace, monospace" }}>
             claude · effortLevel · codex · model_reasoning_effort
           </div>
         </div>
@@ -482,7 +482,7 @@ export function CodingToolsSettingsTab() {
           onValueChange={(v) => handleEffortChange(v === "__none__" ? "" : v)}
           disabled={busy}
         >
-<SelectTrigger style={{ fontSize: 13, width: "auto", padding: "4px 28px 4px 8px" }}><SelectValue placeholder="—"/></SelectTrigger>
+<SelectTrigger style={{ fontSize: 14, width: "auto", padding: "4px 28px 4px 8px" }}><SelectValue placeholder="—"/></SelectTrigger>
 <SelectContent>
           {!effort && <SelectItem value="__none__">—</SelectItem>}
           {EFFORT_OPTIONS.map((lv) => (
@@ -496,22 +496,22 @@ export function CodingToolsSettingsTab() {
           Codex 无 config 级 proxy 字段，由「复制启动命令」注入 env（另见 Groups 启动命令复制点）。 */}
       <CodingSectionCard staggerMs={420} style={{ padding: "16px 20px" }}>
         <div style={{ fontSize: 14, fontWeight: 600 }}>{t("codingTools.proxy.title")}</div>
-        <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+        <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
           {t("codingTools.proxy.desc")}
         </div>
-        <div className="text-tertiary" style={{ fontSize: 11, marginTop: 6, fontFamily: "ui-monospace, monospace" }}>
+        <div className="text-tertiary" style={{ fontSize: 14, marginTop: 6, fontFamily: "ui-monospace, monospace" }}>
           claude · env.HTTP_PROXY / HTTPS_PROXY / ALL_PROXY · NO_PROXY
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <label className="text-secondary" style={{ fontSize: 11, fontWeight: 600 }}>
+            <label className="text-secondary" style={{ fontSize: 14, fontWeight: 600 }}>
               {t("codingTools.proxy.title")}
             </label>
             <Input
 
               type="text"
               list="coding-proxy-url-presets"
-              style={{ fontSize: 13, padding: "4px 8px" }}
+              style={{ fontSize: 14, padding: "4px 8px" }}
               value={proxyDraft.url}
               placeholder="http://host:port"
               onChange={(e) => setProxyDraft((d) => ({ ...d, url: e.target.value }))}
@@ -528,13 +528,13 @@ export function CodingToolsSettingsTab() {
             </datalist>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <label className="text-secondary" style={{ fontSize: 11, fontWeight: 600 }}>
+            <label className="text-secondary" style={{ fontSize: 14, fontWeight: 600 }}>
               NO_PROXY
             </label>
             <Input
 
               type="text"
-              style={{ fontSize: 13, padding: "4px 8px" }}
+              style={{ fontSize: 14, padding: "4px 8px" }}
               value={proxyDraft.no}
               placeholder="localhost,127.0.0.1,*.local"
               onChange={(e) => setProxyDraft((d) => ({ ...d, no: e.target.value }))}
@@ -558,7 +558,7 @@ export function CodingToolsSettingsTab() {
             border: "1px solid var(--color-danger)",
             background: "var(--color-danger-bg)",
             color: "var(--color-danger)",
-            fontSize: 13,
+            fontSize: 14,
             lineHeight: 1.6,
             display: "flex",
             flexDirection: "column",
@@ -567,10 +567,10 @@ export function CodingToolsSettingsTab() {
           }}
         >
           <div style={{ fontWeight: 600 }}>{t("codingTools.errorTitle", "开关未生效")}</div>
-          <div style={{ fontFamily: "ui-monospace, monospace", fontSize: 12, opacity: 0.92 }}>
+          <div style={{ fontFamily: "ui-monospace, monospace", fontSize: 14, opacity: 0.92 }}>
             {error}
           </div>
-          <div style={{ fontSize: 12, opacity: 0.85 }}>
+          <div style={{ fontSize: 14, opacity: 0.85 }}>
             {t("codingTools.errorHint", "请检查该文件的 JSON 格式与读写权限后重试。")}
           </div>
         </div>

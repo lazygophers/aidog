@@ -37,15 +37,15 @@ export function GroupSidePanels({ group, gps }: { group: Group; gps: GroupPlatfo
       {/* ── 上：候选序 + 下一个请求 ── */}
       <div id="g3-candidates" className="glass-surface" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 12.5, fontWeight: 600 }}>{t("group.candidates.title", "候选序")}</span>
-          <span className="text-tertiary" style={{ fontSize: 11.5, fontFamily: "var(--font-mono, monospace)" }}>{routingModeLabel(t, group.routing_mode)}</span>
+          <span style={{ fontSize: 14, fontWeight: 600 }}>{t("group.candidates.title", "候选序")}</span>
+          <span className="text-tertiary" style={{ fontSize: 14, fontFamily: "var(--font-mono, monospace)" }}>{routingModeLabel(t, group.routing_mode)}</span>
         </div>
         {ordered.length === 0 ? (
-          <div className="text-secondary" style={{ fontSize: 12 }}>{t("group.candidates.none", "无启用中的候选平台")}</div>
+          <div className="text-secondary" style={{ fontSize: 14 }}>{t("group.candidates.none", "无启用中的候选平台")}</div>
         ) : (
           <>
             <div id="g3-next-request" style={{
-              fontSize: 12, padding: "6px 9px", borderRadius: "var(--radius-sm)",
+              fontSize: 14, padding: "6px 9px", borderRadius: "var(--radius-sm)",
               background: "var(--accent-subtle)", color: "var(--primary)",
               display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap",
             }}>
@@ -57,14 +57,14 @@ export function GroupSidePanels({ group, gps }: { group: Group; gps: GroupPlatfo
             </div>
             {ordered.map((g, i) => (
               <div key={g.platform.id} id={`g3-cand-${g.platform.id}`} style={{
-                display: "flex", gap: 8, alignItems: "center", fontSize: 11.5,
+                display: "flex", gap: 8, alignItems: "center", fontSize: 14,
                 padding: "3px 6px", borderRadius: "var(--radius-sm)",
                 background: i === 0 && !isLB ? "var(--accent-subtle)" : "transparent",
               }}>
                 <span className="text-tertiary" style={{ fontFamily: "var(--font-mono, monospace)", minWidth: 14 }}>{i + 1}</span>
                 <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.platform.platform_type}</span>
                 {g.platform.status !== "enabled" && (
-                  <span style={{ fontSize: 11, color: "var(--color-warning)" }}>{t("group.candidates.disabled", "停用")}</span>
+                  <span style={{ fontSize: 14, color: "var(--color-warning)" }}>{t("group.candidates.disabled", "停用")}</span>
                 )}
                 <span style={{ flex: 1 }} />
                 <span className="text-tertiary" title={t("group.candidates.posReason", "优先级 {{level}} / 序 {{prio}}", { level: g.level_priority, prio: g.priority })}>
@@ -78,12 +78,12 @@ export function GroupSidePanels({ group, gps }: { group: Group; gps: GroupPlatfo
 
       {/* ── 下：最近路由快照 ── */}
       <div id="g3-latest-routing" className="glass-surface" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
-        <span style={{ fontSize: 12.5, fontWeight: 600 }}>{t("group.routing.latest", "最近路由")}</span>
+        <span style={{ fontSize: 14, fontWeight: 600 }}>{t("group.routing.latest", "最近路由")}</span>
         {!latest ? (
-          <div className="text-secondary" style={{ fontSize: 12 }}>{t("group.routing.none", "暂无路由记录")}</div>
+          <div className="text-secondary" style={{ fontSize: 14 }}>{t("group.routing.none", "暂无路由记录")}</div>
         ) : (
           <>
-            <div style={{ fontSize: 11.5, display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 14, display: "flex", gap: 6, flexWrap: "wrap" }}>
               <b id="g3-latest-selected" style={{ fontFamily: "var(--font-mono, monospace)", color: "var(--primary)" }}>
                 {latest.snapshot.entries.find(e => e.reason === "selected")?.platform ?? `#${latest.platform_id}`}
               </b>
@@ -93,9 +93,9 @@ export function GroupSidePanels({ group, gps }: { group: Group; gps: GroupPlatfo
               <span className="text-tertiary">{formatDateTime(latest.created_at)}</span>
             </div>
             {latest.snapshot.entries.slice(0, 5).map((e, i) => (
-              <div key={i} style={{ display: "flex", gap: 8, fontSize: 11, alignItems: "center" }}>
+              <div key={i} style={{ display: "flex", gap: 8, fontSize: 14, alignItems: "center" }}>
                 <span data-reason={e.reason} style={{
-                  minWidth: 40, fontSize: 11, padding: "0 5px", borderRadius: 4,
+                  minWidth: 40, fontSize: 14, padding: "0 5px", borderRadius: 4,
                   background: e.reason === "selected" ? "var(--accent-subtle)" : "var(--secondary)",
                   color: e.reason === "selected" ? "var(--primary)" : "var(--muted-foreground)",
                 }}>{e.reason}</span>

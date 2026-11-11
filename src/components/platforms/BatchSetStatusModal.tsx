@@ -81,7 +81,7 @@ export function BatchSetStatusModal({
           style={{ display: "flex", gap: 16, marginBottom: 10 }}
         >
           {(["disabled", "enabled"] as const).map(s => (
-            <div key={s} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13 }}>
+            <div key={s} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 14 }}>
               <RadioGroupItem value={s} id={`batch-status-${s}`} />
               <label htmlFor={`batch-status-${s}`} style={{ cursor: "pointer" }}>
                 {s === "enabled"
@@ -94,7 +94,7 @@ export function BatchSetStatusModal({
 
         {willEmptyGroup && (
           <div style={{
-            fontSize: 12.5,
+            fontSize: 14,
             color: "var(--color-danger)",
             lineHeight: 1.55,
             marginBottom: 12,
@@ -119,7 +119,7 @@ export function BatchSetStatusModal({
               padding: "5px 0", borderBottom: "1px solid var(--border)",
             }}>
               <span style={{
-                fontSize: 11, fontWeight: 500, padding: "0 5px", borderRadius: "var(--radius-sm)",
+                fontSize: 14, fontWeight: 500, padding: "0 5px", borderRadius: "var(--radius-sm)",
                 ...(p.status === "enabled"
                   ? { color: "var(--color-success)", background: "color-mix(in srgb, var(--color-success) 14%, transparent)" }
                   : p.status === "auto_disabled"
@@ -132,7 +132,7 @@ export function BatchSetStatusModal({
                     ? t("platform.statusAutoDisabled", "熔断")
                     : t("platform.statusDisabled", "禁用")}
               </span>
-              <span style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span style={{ fontSize: 14, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {p.name}
               </span>
             </div>

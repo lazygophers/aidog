@@ -45,16 +45,16 @@ export function StatChip({ icon, value, label, color, level }: StatChipProps) {
         borderRadius: "999px",
         background: level ? levelBg(level) : "var(--bg-glass)",
         border: "1px solid var(--border)",
-        fontSize: 12,
+        fontSize: 14,
         fontWeight: 500,
         transition: "transform 200ms cubic-bezier(0.4,0,0.2,1), box-shadow 200ms cubic-bezier(0.4,0,0.2,1)",
       }}
     >
       {icon && (
-        <span style={{ fontSize: 13, display: "inline-flex", color: valueColor }}>{icon}</span>
+        <span style={{ fontSize: 14, display: "inline-flex", color: valueColor }}>{icon}</span>
       )}
       <span className="counter" style={{ fontWeight: 700, color: valueColor }}>{value}</span>
-      <span style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 500 }}>{label}</span>
+      <span style={{ fontSize: 14, color: "var(--text-tertiary)", fontWeight: 500 }}>{label}</span>
     </Badge>
   );
 }

@@ -81,20 +81,20 @@ export function AgentUpdateSection() {
       style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}
     >
       <div>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("agentUpdate.title", "Agent 版本更新")}</div>
-        <div className="text-secondary" style={{ fontSize: 12, marginTop: 4 }}>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("agentUpdate.title", "Agent 版本更新")}</div>
+        <div className="text-secondary" style={{ fontSize: 14, marginTop: 4 }}>
           {t("agentUpdate.desc", "检测各 agent 版本，并按安装来源执行对应的更新命令。")}
         </div>
       </div>
 
       {error && (
-        <div style={{ fontSize: 12, color: "var(--color-danger)" }} data-testid="agent-update-error">
+        <div style={{ fontSize: 14, color: "var(--color-danger)" }} data-testid="agent-update-error">
           {error}
         </div>
       )}
 
       {loading ? (
-        <div className="text-secondary" style={{ fontSize: 12 }}>
+        <div className="text-secondary" style={{ fontSize: 14 }}>
           {t("common.loading", "加载中…")}
         </div>
       ) : (
@@ -111,7 +111,7 @@ export function AgentUpdateSection() {
                   display: "flex",
                   alignItems: "center",
                   gap: 10,
-                  fontSize: 13,
+                  fontSize: 14,
                   padding: "8px 10px",
                   borderRadius: 8,
                   border: "1px solid var(--border)",
@@ -119,14 +119,14 @@ export function AgentUpdateSection() {
                 }}
               >
                 <div style={{ fontWeight: 600, minWidth: 90 }}>{toolLabel(s.tool)}</div>
-                <div className="text-secondary" style={{ fontSize: 12, fontFamily: "ui-monospace, Menlo, monospace" }}>
+                <div className="text-secondary" style={{ fontSize: 14, fontFamily: "ui-monospace, Menlo, monospace" }}>
                   {s.installed ? `v${s.version ?? "?"}` : t("agentUpdate.notInstalled", "未安装")}
                   {s.latest_version ? ` → v${s.latest_version}` : s.installed ? ` → ${t("agentUpdate.unknown", "未知")}` : ""}
                 </div>
                 {s.source && (
                   <div
                     className="text-secondary"
-                    style={{ fontSize: 11, border: "1px solid var(--border)", borderRadius: 6, padding: "1px 6px" }}
+                    style={{ fontSize: 14, border: "1px solid var(--border)", borderRadius: 6, padding: "1px 6px" }}
                   >
                     {s.source}
                   </div>
@@ -135,7 +135,7 @@ export function AgentUpdateSection() {
                 {echo && (
                   <div
                     data-testid={`agent-update-result-${s.tool}`}
-                    style={{ fontSize: 12, color: echo.ok ? "var(--color-success)" : "var(--color-danger)" }}
+                    style={{ fontSize: 14, color: echo.ok ? "var(--color-success)" : "var(--color-danger)" }}
                   >
                     {echo.text}
                   </div>
@@ -151,7 +151,7 @@ export function AgentUpdateSection() {
                     {busyTool === s.tool ? t("agentUpdate.updating", "更新中…") : t("agentUpdate.update", "更新")}
                   </Button>
                 ) : (
-                  <div className="text-secondary" data-testid={`agent-update-hint-${s.tool}`} style={{ fontSize: 12 }}>
+                  <div className="text-secondary" data-testid={`agent-update-hint-${s.tool}`} style={{ fontSize: 14 }}>
                     {t("agentUpdate.manualHint", "该安装方式暂不支持自动更新，请手动升级")}
                   </div>
                 )}

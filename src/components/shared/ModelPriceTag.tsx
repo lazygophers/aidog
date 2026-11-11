@@ -11,7 +11,7 @@ import {
 
 const BASE: CSSProperties = {
   color: "var(--text-tertiary)",
-  fontSize: 11,
+  fontSize: 14,
   lineHeight: 1.35,
   whiteSpace: "nowrap",
   flexShrink: 0,

@@ -43,7 +43,7 @@ export function EndpointsSection({ endpoints, setEndpoints, protocol, t }: {
         <Button
           variant="ghost"
           size="sm"
-          style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
+          style={{ fontSize: 14, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
           onClick={() => {
             setEndpoints([...endpoints, { protocol: "openai" as Protocol, base_url: "", client_type: defaultClientForProtocol("openai"), coding_plan: false }]);
           }}
@@ -53,7 +53,7 @@ export function EndpointsSection({ endpoints, setEndpoints, protocol, t }: {
       )}
     >
       {endpoints.length === 0 && (
-        <div style={{ fontSize: 12, color: "var(--text-tertiary)", padding: "4px 0", fontStyle: "italic" }}>
+        <div style={{ fontSize: 14, color: "var(--text-tertiary)", padding: "4px 0", fontStyle: "italic" }}>
           {t("platform.noEndpoints", "No additional endpoints")}
         </div>
       )}
@@ -138,7 +138,7 @@ export function EndpointsSection({ endpoints, setEndpoints, protocol, t }: {
               flexShrink: 0,
               width: 28, height: 28, minWidth: 28,
               padding: 0,
-              fontSize: 11, fontWeight: 700,
+              fontSize: 14, fontWeight: 700,
               color: ep.coding_plan ? "var(--color-success)" : "var(--text-tertiary)",
               background: ep.coding_plan ? "color-mix(in srgb, var(--color-success) 8%, transparent)" : "transparent",
               border: `1px solid ${ep.coding_plan ? "color-mix(in srgb, var(--color-success) 25%, transparent)" : "var(--border)"}`,

@@ -148,7 +148,7 @@ export function HooksSectionInline(props: {
                 onClick={() => setUserToggles((prev) => ({ ...prev, [eventId]: !isExpanded }))}>▶</span>
               <span style={{ fontSize: 16, fontWeight: 600, color: "var(--accent)" }}>{eventId}</span>
               {eventMeta && <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>— {t(`settings.hooks.event.${eventMeta.id}.desc`, eventMeta.desc)}</span>}
-              <span style={{ fontSize: 12, fontWeight: 600, padding: "2px 10px", borderRadius: 10,
+              <span style={{ fontSize: 14, fontWeight: 600, padding: "2px 10px", borderRadius: 10,
                 background: "var(--accent-subtle)", color: "var(--accent)", marginLeft: "auto" }}>
                 {count} handler{count !== 1 ? "s" : ""}
               </span>
@@ -175,7 +175,7 @@ export function HooksSectionInline(props: {
                           const selected = matcherTags.includes(opt);
                           return (
                             <Button variant="ghost" key={opt} type="button"  style={{
-                              fontSize: 13, padding: "4px 12px", borderRadius: 16,
+                              fontSize: 14, padding: "4px 12px", borderRadius: 16,
                               fontWeight: selected ? 600 : 400,
                               background: selected ? "var(--accent-subtle)" : "transparent",
                               color: selected ? "var(--accent)" : "var(--text-secondary)",
@@ -205,7 +205,7 @@ export function HooksSectionInline(props: {
                       display: "flex", flexDirection: "column", gap: 10,
                     }}>
                       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, padding: "3px 10px", borderRadius: 6,
+                        <span style={{ fontSize: 14, fontWeight: 600, padding: "3px 10px", borderRadius: 6,
                           background: "var(--bg-glass)", color: "var(--accent)", border: "1px solid var(--border)", flexShrink: 0 }}>
                           {t(`settings.hooks.handler.${handler.type}`, HANDLER_LABELS[handler.type])}
                         </span>

@@ -138,7 +138,7 @@ export function TestResultBody({ body }: TestResultBodyProps) {
         ref={ref}
         className={`reveal${shown ? " in" : ""}`}
         style={{
-          fontSize: 11,
+          fontSize: 14,
           color: "var(--text-secondary)",
           marginTop: 4,
           whiteSpace: "pre-wrap",
@@ -158,7 +158,7 @@ export function TestResultBody({ body }: TestResultBodyProps) {
       style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 4 }}
     >
       {parsed.rows.map((r, i) => (
-        <div key={i} style={{ display: "flex", gap: 6, fontSize: 11, lineHeight: 1.45 }}>
+        <div key={i} style={{ display: "flex", gap: 6, fontSize: 14, lineHeight: 1.45 }}>
           <span style={{ color: "var(--text-tertiary)", fontWeight: 600, flexShrink: 0 }}>{r.label}</span>
           <span style={{ color: "var(--text-secondary)", wordBreak: "break-word", whiteSpace: "pre-wrap" }}>
             {r.value}

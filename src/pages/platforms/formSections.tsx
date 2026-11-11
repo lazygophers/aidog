@@ -65,9 +65,9 @@ export function FormSection({ title, desc, action, children }: { title: string; 
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{title}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>{title}</div>
           {desc && (
-            <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.4, marginTop: 2 }}>{desc}</div>
+            <div style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.4, marginTop: 2 }}>{desc}</div>
           )}
         </div>
         {action && <div style={{ flexShrink: 0 }}>{action}</div>}
@@ -86,7 +86,7 @@ export function FormSection({ title, desc, action, children }: { title: string; 
 const C = {
   /** 分区头图标瓦片 */
   tile: (color: string): React.CSSProperties => ({
-    width: 30, height: 30, borderRadius: 9, flex: "none", fontSize: 13, fontWeight: 600,
+    width: 30, height: 30, borderRadius: 9, flex: "none", fontSize: 14, fontWeight: 600,
     display: "flex", alignItems: "center", justifyContent: "center",
     color, background: `color-mix(in srgb, ${color} 12%, transparent)`,
     border: `1px solid color-mix(in srgb, ${color} 32%, transparent)`,
@@ -95,7 +95,7 @@ const C = {
   pill: (tone: "neutral" | "hot" | "ok"): React.CSSProperties => {
     const c = tone === "hot" ? "var(--color-warning)" : tone === "ok" ? "var(--color-success)" : "var(--text-tertiary)";
     return {
-      fontSize: 10, fontWeight: 600, padding: "3px 9px", borderRadius: 6, whiteSpace: "nowrap",
+      fontSize: 14, fontWeight: 600, padding: "3px 9px", borderRadius: 6, whiteSpace: "nowrap",
       color: c,
       ...(tone === "neutral"
         ? { border: "1px solid var(--border)", background: "transparent" }
@@ -159,7 +159,7 @@ export function ApiKeyField({ value, onChange, show, onToggleShow, editing, plac
           onChange={(e) => onChange(e.target.value)}
           spellCheck={false}
           rows={Math.min(6, Math.max(2, value.split("\n").length))}
-          style={{ flex: 1, resize: "vertical", minHeight: 58, fontFamily: "var(--font-mono, monospace)", fontSize: 12, lineHeight: 1.6 }}
+          style={{ flex: 1, resize: "vertical", minHeight: 58, fontFamily: "var(--font-mono, monospace)", fontSize: 14, lineHeight: 1.6 }}
         />
       ) : (
       <Input
@@ -243,12 +243,12 @@ export function QuotaScriptFields({
   return (
     <>
       {customOnly ? (
-        <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+        <div style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
           {t("platform.quotaScript.noBuiltin", "该平台暂无内置查询脚本，可在下方自行编写；写好后平台卡片会出现刷新按钮。")}
         </div>
       ) : (
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+        <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
           {t("platform.quotaScript.variant", "脚本变体")}
         </div>
         <Select value={selection || QUOTA_CUSTOM_VARIANT} onValueChange={onVariantChange}>
@@ -263,7 +263,7 @@ export function QuotaScriptFields({
           </SelectContent>
         </Select>
         {fellBack && (
-          <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+          <div style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
             {t("platform.quotaScript.fellBack", "已选变体已失效，已回落到首个变体")}
           </div>
         )}
@@ -271,7 +271,7 @@ export function QuotaScriptFields({
       )}
       {selection === QUOTA_CUSTOM_VARIANT ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+          <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
             {t("platform.quotaScript.customLabel", "自定义 JS 脚本")}
           </div>
           <textarea
@@ -282,15 +282,15 @@ export function QuotaScriptFields({
             onChange={(e) => onCustomScriptChange(e.target.value)}
             spellCheck={false}
             rows={10}
-            style={{ resize: "vertical", minHeight: 120, fontFamily: "var(--font-mono, monospace)", fontSize: 12, lineHeight: 1.6 }}
+            style={{ resize: "vertical", minHeight: 120, fontFamily: "var(--font-mono, monospace)", fontSize: 14, lineHeight: 1.6 }}
           />
-          <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+          <div style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
             {t("platform.quotaScript.customHint", "ctx 提供 baseUrl / apiKey / extra（requires 参数在 extra 顶层）；可用 http.get / http.post 出站（走系统代理、记录日志）。")}
           </div>
         </div>
       ) : (selVariant?.requires ?? []).map(r => (
         <div key={r.key} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+          <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
             {quotaVariantLabel(r.label, r.key, locale)}
           </div>
           <Input
@@ -306,7 +306,7 @@ export function QuotaScriptFields({
           回填链现状见 notes/01；序列化写 extra.newapi.user_id）。 */}
       {protocol === "newapi" && selection !== QUOTA_CUSTOM_VARIANT && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+          <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
             {t("platform.newapiUserId", "用户 ID")}
           </div>
           <Input
@@ -335,7 +335,7 @@ export function DevinConfigSection({ config, onChange, t }: {
       desc={t("platform.devinConfigHint", "API Key 填 cog_ 前缀凭证；组织 ID 在「配额查询脚本」区配置")}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+        <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
           {t("platform.devinTimeout", "Session 超时（秒，可选）")}
         </div>
         <Input
@@ -348,7 +348,7 @@ export function DevinConfigSection({ config, onChange, t }: {
         />
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+        <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
           {t("platform.devinMode", "默认模式（可选）")}
         </div>
         {/* radix Select 禁 value="" → __none__ 哨兵映射回空串 */}
@@ -381,7 +381,7 @@ export function PassthroughConfigSection({ endpoints, setEndpoints, apiKey, setA
   return (
     <FormSection title={t("platform.sectionPassthrough", "透传配置")}>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>
           {t("platform.passthroughBaseUrl", "上游地址（Base URL）")}
         </div>
         <Input
@@ -398,7 +398,7 @@ export function PassthroughConfigSection({ endpoints, setEndpoints, apiKey, setA
             setEndpoints(next);
           }}
         />
-        <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+        <div style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
           {t("platform.passthroughBaseUrlHint", "填 host 根（如 https://api.anthropic.com）。纯透传会拼接客户端原始 path/query 直接转发，请勿带版本前缀。")}
         </div>
       </div>
@@ -406,7 +406,7 @@ export function PassthroughConfigSection({ endpoints, setEndpoints, apiKey, setA
         value={apiKey} onChange={setApiKey} show={showKey} onToggleShow={() => setShowKey(!showKey)}
         placeholder={t("platform.apiKeyOptional", "Token（可选，透传可留空）")}
       />
-      <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+      <div style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
         {t("platform.passthroughNote", "纯透传：客户端请求的 header（含订阅 OAuth 认证）与 body 原样转发，aidog 不做任何转换或认证注入。上方 Token 可留空。")}
       </div>
     </FormSection>
@@ -450,7 +450,7 @@ export function PassThroughSection({
       desc={t("platform.passthrough.note", "仅定义认证：客户端请求剥认证头后注入下方 apikey header，其余 header 与 body 原样转发；path/query 原样拼接 base_url。")}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>
           {t("platform.passthroughBaseUrl", "上游地址（Base URL）")}
         </div>
         <Input
@@ -467,7 +467,7 @@ export function PassThroughSection({
             setEndpoints(next);
           }}
         />
-        <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+        <div style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
           {t("platform.passthroughBaseUrlHint", "填 host 根（如 https://api.anthropic.com）。纯透传会拼接客户端原始 path/query 直接转发，请勿带版本前缀。")}
         </div>
       </div>
@@ -476,7 +476,7 @@ export function PassThroughSection({
         placeholder={t("platform.tokenPlaceholderEdit", "Token")}
       />
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+        <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
           {t("platform.passthrough.headerPreset", "认证 Header 预设")}
         </div>
         <Select
@@ -504,7 +504,7 @@ export function PassThroughSection({
       {selection === PASS_THROUGH_CUSTOM && (
         <>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
               {t("platform.passthrough.headerName", "Header 名")}
             </div>
             <Input
@@ -515,7 +515,7 @@ export function PassThroughSection({
             />
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
               {t("platform.passthrough.headerTemplate", "值模板")}
             </div>
             <Input
@@ -524,7 +524,7 @@ export function PassThroughSection({
               value={auth.auth_template}
               onChange={(e) => setAuth(prev => ({ ...prev, auth_template: e.target.value }))}
             />
-            <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+            <div style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
               {t("platform.passthrough.headerTemplateHint", "{key} 占位符会被替换为上方 apikey。")}
             </div>
           </div>
@@ -567,7 +567,7 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
           {budgets.length > 0 && ` · ${budgets.filter(b => b.enabled).length}/${budgets.length}`}
         </span>
         {budgets.length === 0 && (
-          <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+          <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
             {t("platform.manualBudgetEmpty", "暂无限额，点击「添加限额」开始配置。")}
           </span>
         )}
@@ -577,7 +577,7 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
             <>
               {tiers.length > 1 && (
                 <Select value={selectedTier?.id ?? ""} onValueChange={setTierId}>
-                  <SelectTrigger className="input" style={{ width: 120, flexShrink: 0, height: 28, fontSize: 12 }}>
+                  <SelectTrigger className="input" style={{ width: 120, flexShrink: 0, height: 28, fontSize: 14 }}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -588,7 +588,7 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
               <Button
                 variant="ghost"
                 size="sm"
-                style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--primary)" }} // 稿 .fillbtn = primary
+                style={{ fontSize: 14, gap: 4, padding: "4px 10px", color: "var(--primary)" }} // 稿 .fillbtn = primary
                 title={selectedTier?.source_url}
                 onClick={() => selectedTier && setBudgets(tierToBudgets(selectedTier))}
               >
@@ -682,7 +682,7 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
               /* 无窗口类型（总额/每日）：破折号占位保持行内对齐（设计稿 .dash） */
               <span style={{ color: "var(--text-tertiary)" }}>—</span>
             )}
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)", cursor: "pointer" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, color: "var(--text-secondary)", cursor: "pointer" }}>
               <Switch
                 checked={b.enabled}
                 onCheckedChange={v => update({ enabled: v === true })}
@@ -727,14 +727,14 @@ export function BreakerSection({ defaults, failure, setFailure, halfOpenMax, set
       desc={t("platform.breakerDesc", "连续失败达阈值后临时摘除该平台，冷却后半开探测恢复。留空 = 继承系统设置的全局默认值。")}
     >
       <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: "10px 12px" }}>
-        <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("platform.breakerFailureThreshold", "失败阈值")}</span>
+        <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>{t("platform.breakerFailureThreshold", "失败阈值")}</span>
         <Input
           className="input" type="number" min={0} style={{ width: 140 }}
           placeholder={defaults ? t("platform.breakerInherit", "继承默认 {{n}}").replace("{{n}}", String(defaults.breaker_failure_threshold)) : t("platform.breakerInheritGeneric", "继承默认")}
           value={failure}
           onChange={e => setFailure(e.target.value)}
         />
-        <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("platform.breakerHalfOpenMax", "半开探测数")}</span>
+        <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>{t("platform.breakerHalfOpenMax", "半开探测数")}</span>
         <Input
           className="input" type="number" min={0} style={{ width: 140 }}
           placeholder={defaults ? t("platform.breakerInherit", "继承默认 {{n}}").replace("{{n}}", String(defaults.breaker_half_open_max)) : t("platform.breakerInheritGeneric", "继承默认")}
@@ -892,8 +892,8 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                 variant="ghost"
                 size="sm"
                 style={tzMode === m
-                  ? { padding: "2px 8px", fontSize: 11, height: "auto", fontWeight: 400, background: "var(--foreground)", color: "var(--background)", borderColor: "transparent" }
-                  : { padding: "2px 8px", fontSize: 11, height: "auto", fontWeight: 400 }}
+                  ? { padding: "2px 8px", fontSize: 14, height: "auto", fontWeight: 400, background: "var(--foreground)", color: "var(--background)", borderColor: "transparent" }
+                  : { padding: "2px 8px", fontSize: 14, height: "auto", fontWeight: 400 }}
                 onClick={() => setTzMode(m)}
               >
                 {m === "local" ? t("platform.timezone_local", "本地") : t("platform.timezone_utc", "UTC+0")}
@@ -903,7 +903,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
           <Button
             variant="ghost"
             size="sm"
-            style={{ padding: "2px 8px", fontSize: 11, whiteSpace: "nowrap", height: "auto" }}
+            style={{ padding: "2px 8px", fontSize: 14, whiteSpace: "nowrap", height: "auto" }}
             disabled={!defaultCache || defaultCache.length === 0}
             title={!defaultCache || defaultCache.length === 0 ? t("platform.peak_no_default", "该平台无默认高峰配置") : ""}
             onClick={() => setModalOpen(true)}
@@ -930,7 +930,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
 
       {/* 高峰禁用开关：启用后该平台在 peak window 命中时从路由候选排除（不改 status，临时闸门）。 */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: "var(--radius-sm)", background: "var(--card)", border: "1px solid var(--border)" }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--text-secondary)", cursor: "pointer" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "var(--text-secondary)", cursor: "pointer" }}>
           <Switch
             checked={disableDuringPeak}
             onCheckedChange={v => setDisableDuringPeak(v === true)}
@@ -940,7 +940,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
         {/* 实时态徽标恒显（稿 2 badge-peak；2026-10-27 拍板 q6）：高峰编辑直接相关，off 态也报当前状态 */}
         <span
             style={{
-              fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 5, whiteSpace: "nowrap",
+              fontSize: 14, fontWeight: 600, padding: "2px 8px", borderRadius: 5, whiteSpace: "nowrap",
               color: nowPeak ? "var(--color-danger)" : "var(--text-tertiary)",
               background: nowPeak
                 ? "color-mix(in srgb, var(--color-danger) 12%, transparent)"
@@ -954,12 +954,12 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
               ? t("platform.currently_peak", "当前：高峰期")
               : t("platform.currently_off_peak", "当前：非高峰期")}
         </span>
-        <span style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.4 }}>
+        <span style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.4 }}>
           {t("platform.disable_during_peak_desc", "启用后该平台在高峰时段从路由候选排除（不改 status，临时闸门）。")}
         </span>
       </div>
       {windows.length === 0 && (
-        <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+        <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
           {t("platform.peak_empty", "未配置 → 按预设默认或 1.0（无调整）")}
         </div>
       )}
@@ -997,7 +997,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                 </>
               );
             })()}
-            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 14, color: "var(--text-secondary)" }}>
               {t("platform.multiplier", "倍率")}
               <Input
                 className="input" type="number" step={0.1} min={0} style={{ width: 84 }}
@@ -1007,13 +1007,13 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
             </label>
             {/* 窗口时区：__utc__ 哨兵 = 无 timezone 字段（= UTC，向后兼容）；
                 切换时区只改解释基准，存值数字不动（用户自定时段含义）。 */}
-            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 14, color: "var(--text-secondary)" }}>
               {t("platform.window_timezone", "时区")}
               <Select
                 value={w.timezone ?? "__utc__"}
                 onValueChange={(v) => update(idx, { timezone: v === "__utc__" ? undefined : v })}
               >
-                <SelectTrigger className="input" style={{ width: 150, fontSize: 11, height: 28 }}>
+                <SelectTrigger className="input" style={{ width: 150, fontSize: 14, height: 28 }}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1036,7 +1036,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                     title={t("platform.days_of_week", "星期（0=周日…6=周六，缺省=每天）")}
                     onClick={() => toggleDay(idx, di)}
                     style={{
-                      width: 22, height: 22, padding: 0, fontSize: 11, lineHeight: 1,
+                      width: 22, height: 22, padding: 0, fontSize: 14, lineHeight: 1,
                       borderRadius: "var(--radius-sm)", cursor: "pointer",
                       background: active ? "var(--primary)" : "transparent",
                       color: active ? "var(--primary-foreground)" : "var(--text-secondary)",
@@ -1061,14 +1061,14 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
           {/* 窗口预览行：24h spark（命中时段点亮）+ 可读时段（半开区间 [start, end) → end-1:59:59） */}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <PeakSpark w={w} />
-            <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.4, minWidth: 0 }}>
+            <div style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.4, minWidth: 0 }}>
               {formatWindowPreview(w, tzMode, t)}
             </div>
           </div>
           {/* model scope（受影响模型）：chip 多选 + 自由输入（支持 `prefix*` 通配）。
               absent / 空 = 全平台（标「全部模型」），UI 暴露 model 维度过滤可见性。 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+            <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
               {t("platform.peak_model_scope", "受影响模型")}
               {(!w.models || w.models.length === 0) && (
                 <span style={{ color: "var(--text-tertiary)", marginLeft: 4 }}>
@@ -1081,7 +1081,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                 <span
                   key={mi}
                   className="badge badge-muted"
-                  style={{ fontSize: 10, padding: "2px 6px", display: "inline-flex", alignItems: "center", gap: 4 }}
+                  style={{ fontSize: 14, padding: "2px 6px", display: "inline-flex", alignItems: "center", gap: 4 }}
                 >
                   {m}
                   <Button
@@ -1091,7 +1091,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                     style={{
                       width: "auto", height: "auto", minWidth: "auto",
                       border: "none", background: "transparent", color: "var(--text-tertiary)",
-                      cursor: "pointer", padding: 0, lineHeight: 1, fontSize: 12,
+                      cursor: "pointer", padding: 0, lineHeight: 1, fontSize: 14,
                     }}
                     title={t("platform.remove_window", "删除窗口")}
                   >
@@ -1101,7 +1101,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
               ))}
               <Input
                 className="input"
-                style={{ width: 160, fontSize: 11, padding: "2px 6px" }}
+                style={{ width: 160, fontSize: 14, padding: "2px 6px" }}
                 list={`peak-models-${idx}`}
                 placeholder={t("platform.peak_model_placeholder", "模型名或 前缀*")}
                 value={modelInput[idx] ?? ""}
@@ -1129,13 +1129,13 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
           {/* 生效期：start_at / end_at（Unix 秒 ↔ datetime-local），平铺恒显（稿 2）。
               非必填：空 = 立即可用 / 永久；福利期自动切换用（design §1.3）。 */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginTop: 2 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 14, color: "var(--text-secondary)" }}>
               {t("platform.peak_start_at", "生效起始")}
               <Input
                 id={`peak-start-${idx}`}
                 className="input"
                 type="datetime-local"
-                style={{ width: 180, fontSize: 11, padding: "2px 6px", colorScheme: themeMode }}
+                style={{ width: 180, fontSize: 14, padding: "2px 6px", colorScheme: themeMode }}
                 value={secToLocalInput(w.start_at)}
                 onChange={e => {
                   const sec = localInputToSec(e.target.value);
@@ -1143,13 +1143,13 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                 }}
               />
             </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 14, color: "var(--text-secondary)" }}>
               {t("platform.peak_end_at", "生效截止")}
               <Input
                 id={`peak-end-${idx}`}
                 className="input"
                 type="datetime-local"
-                style={{ width: 180, fontSize: 11, padding: "2px 6px", colorScheme: themeMode }}
+                style={{ width: 180, fontSize: 14, padding: "2px 6px", colorScheme: themeMode }}
                 value={secToLocalInput(w.end_at)}
                 onChange={e => {
                   const sec = localInputToSec(e.target.value);
@@ -1169,7 +1169,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
             <DialogTitle style={{ fontSize: 14 }}>
               {t("platform.peak_overwrite_confirm_title", "覆盖高峰配置？")}
             </DialogTitle>
-            <DialogDescription style={{ fontSize: 12 }}>
+            <DialogDescription style={{ fontSize: 14 }}>
               {t("platform.peak_overwrite_confirm_body", "当前高峰配置将被默认值替换（{{count}} 个窗口），此操作不可撤销。").replace("{{count}}", String(defaultCache?.length ?? 0))}
             </DialogDescription>
           </DialogHeader>
@@ -1206,7 +1206,7 @@ export function GroupAssignSection({ editing, lockedGroupId, groupDetails, autoG
       desc={t("platform.groupAssignDesc", "可同时创建默认分组并加入其他已有分组；都不选则该平台不在任何分组。")}
     >
       {lockedGroupId != null ? (
-        <div style={{ fontSize: 12, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ fontSize: 14, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
           <span className="badge badge-muted" style={{ padding: "0 6px" }}>
             {groupDetails.find(g => g.group.id === lockedGroupId)?.group.name ?? `#${lockedGroupId}`}
           </span>
@@ -1215,13 +1215,13 @@ export function GroupAssignSection({ editing, lockedGroupId, groupDetails, autoG
       ) : !editing ? (
         // 创建默认分组是「创建时一次性判断」，仅创建表单显示；编辑表单不再判断建组。
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <span style={{ fontSize: 13 }}>{t("platform.groupAssignAuto", "创建默认分组")}</span>
+          <span style={{ fontSize: 14 }}>{t("platform.groupAssignAuto", "创建默认分组")}</span>
           <Switch checked={autoGroup} onCheckedChange={setAutoGroup} />
         </div>
       ) : null}
       {lockedGroupId == null && groupDetails.length > 0 && (
         <>
-          <div style={{ fontSize: 12, color: "var(--text-secondary)", margin: "10px 0 6px" }}>
+          <div style={{ fontSize: 14, color: "var(--text-secondary)", margin: "10px 0 6px" }}>
             {t("platform.groupAssignJoin", "加入已有分组")}
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -1240,7 +1240,7 @@ export function GroupAssignSection({ editing, lockedGroupId, groupDetails, autoG
                       : [...prev, gd.group.id])}
                     style={{
                       display: "inline-flex", alignItems: "center", height: "auto",
-                      padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 500,
+                      padding: "4px 12px", borderRadius: 999, fontSize: 14, fontWeight: 500,
                       cursor: "pointer",
                       border: `1px solid ${checked ? "var(--accent-edge)" : "var(--border)"}`,
                       background: checked ? "var(--accent-subtle)" : "var(--bg-glass)",
@@ -1271,7 +1271,7 @@ export function ExpirySection({ expiresAt, setExpiresAt, expiryEnabled, setExpir
       desc={t("platform.expiresAtHint", "可选。到期后该平台自动从路由候选排除（等效禁用），改值或清空即恢复。")}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: expiryEnabled ? 8 : 0 }}>
-        <span style={{ fontSize: 13 }}>{t("platform.expiresAtEnable", "启用过期")}</span>
+        <span style={{ fontSize: 14 }}>{t("platform.expiresAtEnable", "启用过期")}</span>
         <Switch
           checked={expiryEnabled}
           onCheckedChange={(v) => {
@@ -1302,14 +1302,14 @@ export function ExpirySection({ expiresAt, setExpiresAt, expiryEnabled, setExpir
             <Button
               variant="ghost"
               size="sm"
-              style={{ fontSize: 12, padding: "4px 10px" }}
+              style={{ fontSize: 14, padding: "4px 10px" }}
               onClick={() => setExpiresAt(0)}
             >
               {t("platform.expiresAtClear", "清空")}
             </Button>
           )}
           {expiresAt > 0 && (
-            <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+            <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
               {(() => {
                 const nowMs = Date.now();
                 if (nowMs >= expiresAt) {
@@ -1578,9 +1578,9 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, t
 
   const summary = rateLimitsSummary(bundle, n => t("platform.rateLimits.windowsCount", "{{n}} 个窗口", { n }));
   const ruleCount = bundle.rate_limits?.rules?.length ?? 0;
-  const inputStyle = { fontSize: 12, height: 28, minWidth: 70 };
+  const inputStyle = { fontSize: 14, height: 28, minWidth: 70 };
   const numStyle = { ...inputStyle, textAlign: "center", fontVariantNumeric: "tabular-nums" } as React.CSSProperties;
-  const labelStyle = { fontSize: 11, opacity: 0.7, color: "var(--text-tertiary)" }; // 稿 .lb/.lb2 = fg-3
+  const labelStyle = { fontSize: 14, opacity: 0.7, color: "var(--text-tertiary)" }; // 稿 .lb/.lb2 = fg-3
   return (
     <FormSection
       title={t("platform.rateLimits.title", "限频")}
@@ -1655,7 +1655,7 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, t
               value={w.unit}
               onValueChange={(v) => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, unit: v } : x))}
             >
-              <SelectTrigger className="input" style={{ width: 76, flexShrink: 0, height: 28, fontSize: 12 }}>
+              <SelectTrigger className="input" style={{ width: 76, flexShrink: 0, height: 28, fontSize: 14 }}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1668,7 +1668,7 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, t
               value={w.mode}
               onValueChange={(v) => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, mode: v as QuotaBudgetMode, amount: "" } : x))}
             >
-              <SelectTrigger className="input" style={{ width: 96, flexShrink: 0, height: 28, fontSize: 12 }}>
+              <SelectTrigger className="input" style={{ width: 96, flexShrink: 0, height: 28, fontSize: 14 }}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1687,7 +1687,7 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, t
               onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))}
               style={{ ...numStyle, width: 96, minWidth: 96, flexShrink: 0 }}
             />
-            <span style={{ fontSize: 11, color: "var(--text-tertiary)", flexShrink: 0 }}>
+            <span style={{ fontSize: 14, color: "var(--text-tertiary)", flexShrink: 0 }}>
               {w.mode === "usd" ? "$" : w.mode === "count" ? t("platform.rateLimits.unitCount", "次") : "tokens"}
             </span>
             <Button variant="ghost" size="icon" className="btn-danger" style={{ height: 28, width: 28, marginLeft: "auto" }} onClick={() => upd("windows", draft.windows.filter((_, j) => j !== i))}>×</Button>
@@ -1740,7 +1740,7 @@ export function DirectModelsSection({ models, setModels, availableModels, protoc
             value={m}
             readOnly
             data-testid={`direct-model-${i}`}
-            style={{ flex: 1, minWidth: 110, fontFamily: "var(--font-mono, monospace)", fontSize: 11, height: 28 }}
+            style={{ flex: 1, minWidth: 110, fontFamily: "var(--font-mono, monospace)", fontSize: 14, height: 28 }}
           />
           <Button
             variant="ghost" size="icon" className="btn-danger" style={{ height: 28, width: 28 }}
@@ -1757,7 +1757,7 @@ export function DirectModelsSection({ models, setModels, availableModels, protoc
             source={source} exclude={models} protocol={protocol}
             placeholder={t("platform.direct_models_placeholder", "模型 id，如 claude-sonnet-4-5")}
             inputProps={{ "data-testid": "direct-model-input" }}
-            inputStyle={{ fontFamily: "var(--font-mono, monospace)", fontSize: 11, height: 28 }}
+            inputStyle={{ fontFamily: "var(--font-mono, monospace)", fontSize: 14, height: 28 }}
             t={t}
           />
         </div>
@@ -1805,7 +1805,7 @@ export function ClientWhitelistSection({ vocab, selected, setSelected, uaRules, 
           const catName = t(cat.nameKey, cat.code);
           return (
             <div key={cat.code} data-testid={`client-cat-${cat.code}`} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 600, color: "var(--text-primary)", cursor: "pointer" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600, color: "var(--text-primary)", cursor: "pointer" }}>
                 <Checkbox
                   data-testid={`client-cat-check-${cat.code}`}
                   checked={st === "all" ? true : st === "some" ? "indeterminate" : false}
@@ -1816,7 +1816,7 @@ export function ClientWhitelistSection({ vocab, selected, setSelected, uaRules, 
               {cat.variants.length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px", paddingInlineStart: 24 }}>
                   {cat.variants.map(v => (
-                    <label key={v.code} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text-secondary)", cursor: "pointer" }}>
+                    <label key={v.code} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, color: "var(--text-secondary)", cursor: "pointer" }}>
                       <Checkbox
                         data-testid={`client-var-check-${v.code}`}
                         checked={st === "all" || selected.includes(v.code)}
@@ -1832,10 +1832,10 @@ export function ClientWhitelistSection({ vocab, selected, setSelected, uaRules, 
         })}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
           {t("platform.client_ua_rules", "UA 规则")}
         </div>
-        <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+        <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
           {t("platform.client_ua_rules_desc", "只对内置词表认不出的客户端生效，命中任一条即放行；内置认出的客户端只看上面的勾选。均不区分大小写。")}
         </div>
         {uaRules.map((r, i) => {
@@ -1843,7 +1843,7 @@ export function ClientWhitelistSection({ vocab, selected, setSelected, uaRules, 
           return (
             <div key={i} className={C.rowClass} style={C.row} data-testid={`client-ua-rule-${i}`} data-state={err ? "invalid" : "valid"}>
               <select
-                className="input" style={{ fontSize: 12, width: 110, height: 28 }}
+                className="input" style={{ fontSize: 14, width: 110, height: 28 }}
                 data-testid={`client-ua-rule-kind-${i}`}
                 value={r.kind}
                 onChange={e => patchRule(i, { kind: e.target.value as ClientUaRuleKind })}
@@ -1859,10 +1859,10 @@ export function ClientWhitelistSection({ vocab, selected, setSelected, uaRules, 
                 placeholder={t("platform.client_ua_rule_placeholder", "UA 文本，如 openviking")}
                 aria-invalid={err ? true : undefined}
                 onChange={e => patchRule(i, { pattern: e.target.value })}
-                style={{ flex: 1, minWidth: 110, fontFamily: "var(--font-mono, monospace)", fontSize: 11, height: 28 }}
+                style={{ flex: 1, minWidth: 110, fontFamily: "var(--font-mono, monospace)", fontSize: 14, height: 28 }}
               />
               {err && (
-                <span style={{ fontSize: 11, color: "var(--danger, #c0392b)" }}>
+                <span style={{ fontSize: 14, color: "var(--danger, #c0392b)" }}>
                   {err === "empty"
                     ? t("platform.client_ua_rule_err_empty", "不能为空")
                     : t("platform.client_ua_rule_err_regex", "正则不合法")}
@@ -1907,7 +1907,7 @@ export function AppbuilderKeySection({ value, onChange, t }: {
         value={value}
         placeholder={t("platform.appbuilder_key_placeholder", "AppBuilder API Key（bce-v3/...）")}
         onChange={e => onChange(e.target.value)}
-        style={{ width: "100%", fontFamily: "var(--font-mono, monospace)", fontSize: 11, height: 28 }}
+        style={{ width: "100%", fontFamily: "var(--font-mono, monospace)", fontSize: 14, height: 28 }}
       />
     </FormSection>
   );

@@ -186,8 +186,8 @@ export function NotificationEventList({ perEvent, disabled, onUpdate }: Props) {
       style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}
     >
       <div>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("notif.eventListTitle", "逐 Hook 事件触发")}</div>
-        <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.eventListTitle", "逐 Hook 事件触发")}</div>
+        <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
           {t("notif.eventListDesc", "为每个 Claude Code hook 事件单独配置：是否触发、语音、弹窗、可选自定义文案（留空用该事件默认模板）。每事件可用入参不同，见下方提示。默认仅精选若干事件启用。")}
           {disabled && <span style={{ marginLeft: 4 }}>· {t("notif.defaultHooksDisabledHint", "需先开启通知")}</span>}
         </div>
@@ -208,10 +208,10 @@ export function NotificationEventList({ perEvent, disabled, onUpdate }: Props) {
                   aria-label={event}
                 />
                 {/* 事件名英文原样（CC 官方名，不翻译） */}
-                <code style={{ fontSize: 12, fontWeight: 600, minWidth: 150 }}>{event}</code>
+                <code style={{ fontSize: 14, fontWeight: 600, minWidth: 150 }}>{event}</code>
 
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("notif.fieldTts", "语音")}</span>
+                  <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>{t("notif.fieldTts", "语音")}</span>
                   <Switch
                     checked={es.tts}
                     disabled={disabled || !es.enabled}
@@ -220,7 +220,7 @@ export function NotificationEventList({ perEvent, disabled, onUpdate }: Props) {
                   />
                 </div>
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("notif.fieldPopup", "弹窗")}</span>
+                  <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>{t("notif.fieldPopup", "弹窗")}</span>
                   <Switch
                     checked={es.popup}
                     disabled={disabled || !es.enabled}
@@ -229,7 +229,7 @@ export function NotificationEventList({ perEvent, disabled, onUpdate }: Props) {
                   />
                 </div>
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("notif.fieldSound", "提示音")}</span>
+                  <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>{t("notif.fieldSound", "提示音")}</span>
                   <Switch
                     checked={es.sound !== false}
                     disabled={disabled || !es.enabled}
@@ -242,7 +242,7 @@ export function NotificationEventList({ perEvent, disabled, onUpdate }: Props) {
               {/* 第二行：模板 textarea（placeholder = 该事件专属默认模板） */}
               <Textarea
 
-                style={{ fontSize: 12, fontFamily: "var(--font-mono, monospace)", minHeight: 40, resize: "vertical", width: "100%", boxSizing: "border-box" }}
+                style={{ fontSize: 14, fontFamily: "var(--font-mono, monospace)", minHeight: 40, resize: "vertical", width: "100%", boxSizing: "border-box" }}
                 value={es.template}
                 disabled={!es.enabled}
                 placeholder={defaultTemplateForEvent(event)}
@@ -252,12 +252,12 @@ export function NotificationEventList({ perEvent, disabled, onUpdate }: Props) {
 
               {/* 第三行：该事件专属可用入参提示（每事件不同） */}
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>{t("notif.eventVarsHint", "可用入参")}</span>
+                <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>{t("notif.eventVarsHint", "可用入参")}</span>
                 {vars.map((v) => (
                   <code
                     key={v}
                     style={{
-                      fontSize: 11,
+                      fontSize: 14,
                       padding: "2px 6px",
                       borderRadius: "var(--radius-sm)",
                       background: "var(--accent-subtle)",
@@ -267,7 +267,7 @@ export function NotificationEventList({ perEvent, disabled, onUpdate }: Props) {
                     {v}
                   </code>
                 ))}
-                <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
                   {t("notif.optionalPlaceholderHint", "可选占位 {前缀|变量}：变量非空时输出「前缀+值」，为空整段消失，如 {project}{ · |session_name}")}
                 </span>
               </div>

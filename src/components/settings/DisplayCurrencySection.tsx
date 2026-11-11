@@ -59,10 +59,10 @@ export function DisplayCurrencySection() {
   return (
     <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
       <div>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("displayCurrency.title")}</div>
-        <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>{t("displayCurrency.desc")}</div>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("displayCurrency.title")}</div>
+        <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>{t("displayCurrency.desc")}</div>
       </div>
-      <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12 }}>
+      <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14 }}>
         {t("displayCurrency.select")}
         <Select value={code} onValueChange={setCode}>
           <SelectTrigger data-testid="currency-select" style={{ maxWidth: 160 }}><SelectValue /></SelectTrigger>
@@ -73,7 +73,7 @@ export function DisplayCurrencySection() {
           </SelectContent>
         </Select>
       </label>
-      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", alignItems: "center", gap: "8px 12px", fontSize: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", alignItems: "center", gap: "8px 12px", fontSize: 14 }}>
         {cur.table.map((r) => {
           const usd = r.code === "USD";
           return (
@@ -110,8 +110,8 @@ export function DisplayCurrencySection() {
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <Button data-testid="currency-save" size="sm" onClick={save}>{t("displayCurrency.save")}</Button>
-        {saved && <span className="text-secondary" style={{ fontSize: 12 }}>{t("displayCurrency.saved")}</span>}
-        {saveError && <span data-testid="currency-save-error" style={{ fontSize: 12, color: "var(--destructive, #d33)" }}>{saveError}</span>}
+        {saved && <span className="text-secondary" style={{ fontSize: 14 }}>{t("displayCurrency.saved")}</span>}
+        {saveError && <span data-testid="currency-save-error" style={{ fontSize: 14, color: "var(--destructive, #d33)" }}>{saveError}</span>}
       </div>
     </div>
   );

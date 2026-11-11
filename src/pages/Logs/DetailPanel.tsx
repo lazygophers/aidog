@@ -246,7 +246,7 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
         <div className="glass-surface hover-lift" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: F.body, fontWeight: 600 }}>{t("logs.attempts", "尝试记录")}</span>
-            <span className="badge" style={{ fontSize: 11, padding: "1px 6px", background: "color-mix(in srgb, var(--color-warning) 16%, transparent)", color: "var(--color-warning)" }}>
+            <span className="badge" style={{ fontSize: 14, padding: "1px 6px", background: "color-mix(in srgb, var(--color-warning) 16%, transparent)", color: "var(--color-warning)" }}>
               {t("logs.attemptCount", "{{n}} 次").replace("{{n}}", String(detail.attempts.length))}
             </span>
           </div>
@@ -267,23 +267,23 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
                   background: ok ? "color-mix(in srgb, var(--color-success) 8%, transparent)" : "color-mix(in srgb, var(--color-danger) 8%, transparent)",
                   border: `1px solid ${ok ? "color-mix(in srgb, var(--color-success) 25%, transparent)" : "color-mix(in srgb, var(--color-danger) 25%, transparent)"}`,
                 }}>
-                  <span style={{ fontSize: 11, color: "var(--text-tertiary)", fontFamily: "monospace" }}>#{i + 1}</span>
+                  <span style={{ fontSize: 14, color: "var(--text-tertiary)", fontFamily: "monospace" }}>#{i + 1}</span>
                   <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                     <span style={{ fontSize: F.small, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {platName}
                       {a.model && (
-                        <span data-testid="attempt-model" style={{ marginLeft: 6, fontSize: 11, fontWeight: 400, color: "var(--text-tertiary)" }}>
+                        <span data-testid="attempt-model" style={{ marginLeft: 6, fontSize: 14, fontWeight: 400, color: "var(--text-tertiary)" }}>
                           {a.model}
                         </span>
                       )}
                       {roundStarts.length > 0 && (
-                        <span data-testid="attempt-round" data-round={round} className="badge" style={{ marginLeft: 6, fontSize: 11, padding: "0 6px", fontWeight: 400 }}>
+                        <span data-testid="attempt-round" data-round={round} className="badge" style={{ marginLeft: 6, fontSize: 14, padding: "0 6px", fontWeight: 400 }}>
                           {t("logs.attemptRound", "第 {{n}} 轮").replace("{{n}}", String(round))}
                         </span>
                       )}
                     </span>
                     {a.error && (
-                      <span style={{ fontSize: 11, color: "var(--color-danger)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={a.error}>
+                      <span style={{ fontSize: 14, color: "var(--color-danger)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={a.error}>
                         {a.error}
                       </span>
                     )}
@@ -291,7 +291,7 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
                   <span style={{ fontSize: F.small, fontWeight: 600, color: ok ? "var(--color-success)" : "var(--color-danger)" }}>
                     {a.status_code === 0 ? t("logs.connFailed", "连接失败") : a.status_code}
                   </span>
-                  <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{a.duration_ms}ms</span>
+                  <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{a.duration_ms}ms</span>
                   <CopyButton text={summary} title={t("logs.copy", "复制")} />
                 </div>
               );

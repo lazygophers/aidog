@@ -104,7 +104,7 @@ export function TimePicker({ suffix, hour, minute, maxHour, onSet, t }: {
         fontVariantNumeric: "tabular-nums",
       }}
     >
-      <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{suffix}</span>
+      <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{suffix}</span>
       <input
         aria-label={suffix}
         inputMode="numeric"
@@ -126,7 +126,7 @@ export function TimePicker({ suffix, hour, minute, maxHour, onSet, t }: {
         }}
       />
       <span
-        style={{ color: "var(--text-tertiary)", fontSize: 9, cursor: "pointer" }}
+        style={{ color: "var(--text-tertiary)", fontSize: 14, cursor: "pointer" }}
         onClick={() => setOpen(o => !o)}
       >
         ▾
@@ -285,8 +285,8 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                   variant="ghost"
                   size="sm"
                   style={tzMode === m
-                    ? { padding: "2px 8px", fontSize: 11, height: "auto", fontWeight: 400, background: "var(--foreground)", color: "var(--background)", borderColor: "transparent" }
-                    : { padding: "2px 8px", fontSize: 11, height: "auto", fontWeight: 400 }}
+                    ? { padding: "2px 8px", fontSize: 14, height: "auto", fontWeight: 400, background: "var(--foreground)", color: "var(--background)", borderColor: "transparent" }
+                    : { padding: "2px 8px", fontSize: 14, height: "auto", fontWeight: 400 }}
                   onClick={() => setTzMode(m)}
                 >
                   {m === "local" ? t("platform.timezone_local", "本地") : t("platform.timezone_utc", "UTC+0")}
@@ -297,7 +297,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
         </DialogHeader>
 
         {local.length === 0 && (
-          <div style={{ fontSize: 12, color: "var(--text-tertiary)", fontStyle: "italic", marginBottom: 8 }}>
+          <div style={{ fontSize: 14, color: "var(--text-tertiary)", fontStyle: "italic", marginBottom: 8 }}>
             {t("platform.windows_edit_empty", "无窗口 → 永不命中")}
           </div>
         )}
@@ -342,7 +342,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                 {/* 人话摘要行：生效日 + 起止 + 时区（跨天带「次日」徽标） */}
                 <div style={{
                   display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap",
-                  fontSize: 12, color: "var(--text-secondary)", padding: "5px 10px",
+                  fontSize: 14, color: "var(--text-secondary)", padding: "5px 10px",
                   background: "var(--accent-subtle)", borderRadius: "var(--radius-sm)",
                 }}>
                   <span style={{
@@ -355,7 +355,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                   </span>
                   {isNextDay && (
                     <span style={{
-                      fontSize: 10, padding: "1px 6px", borderRadius: 4,
+                      fontSize: 14, padding: "1px 6px", borderRadius: 4,
                       border: "1px solid color-mix(in srgb, var(--color-warning) 40%, transparent)",
                       color: "var(--color-warning)",
                       background: "color-mix(in srgb, var(--color-warning) 8%, transparent)",
@@ -376,7 +376,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                       updateWindow(widx, { start_hour: utc.hour, start_minute: utc.minute });
                     }}
                   />
-                  <span style={{ color: "var(--text-tertiary)", fontSize: 12 }}>→</span>
+                  <span style={{ color: "var(--text-tertiary)", fontSize: 14 }}>→</span>
                   <TimePicker
                     suffix={t("platform.end_hour", "止")} hour={endDisp.hour} minute={endDisp.minute} maxHour={24}
                     t={t}
@@ -391,7 +391,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                     value={w.timezone ?? "__utc__"}
                     onValueChange={(v) => updateWindow(widx, { timezone: v === "__utc__" ? undefined : v })}
                   >
-                    <SelectTrigger className="input" style={{ width: 150, fontSize: 11, height: 28, marginLeft: "auto" }}>
+                    <SelectTrigger className="input" style={{ width: 150, fontSize: 14, height: 28, marginLeft: "auto" }}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -405,7 +405,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                   <Button
                     variant="ghost"
                     size="sm"
-                    style={{ padding: "2px 6px", fontSize: 10, color: "var(--color-danger)" }}
+                    style={{ padding: "2px 6px", fontSize: 14, color: "var(--color-danger)" }}
                     onClick={() => removeWindow(widx)}
                     title={t("action.delete", "删除")}
                   >
@@ -416,7 +416,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                 {/* 维度分段控件：无 / 周几 / 每月几日（互斥）。
                     容器带 radiogroup 语义（按钮 role=radio 必须有分组父级，ARIA 要求）。 */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 600 }}>
+                  <span style={{ fontSize: 14, color: "var(--text-tertiary)", fontWeight: 600 }}>
                     {t("platform.windows_dimension", "生效日")}
                   </span>
                   <div
@@ -435,8 +435,8 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                         variant="ghost"
                         size="sm"
                         style={dim === opt.key
-                          ? { padding: "2px 10px", fontSize: 11, height: "auto", fontWeight: 400, background: "var(--foreground)", color: "var(--background)", borderColor: "transparent" }
-                          : { padding: "2px 10px", fontSize: 11, height: "auto", fontWeight: 400 }}
+                          ? { padding: "2px 10px", fontSize: 14, height: "auto", fontWeight: 400, background: "var(--foreground)", color: "var(--background)", borderColor: "transparent" }
+                          : { padding: "2px 10px", fontSize: 14, height: "auto", fontWeight: 400 }}
                         onClick={() => switchDimension(widx, opt.key)}
                       >
                         {opt.label}
@@ -456,7 +456,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                           type="button"
                           variant={active ? "default" : "ghost"}
                           size="sm"
-                          style={{ padding: "1px 6px", fontSize: 10, minWidth: 24, height: "auto", fontWeight: 600 }}
+                          style={{ padding: "1px 6px", fontSize: 14, minWidth: 24, height: "auto", fontWeight: 600 }}
                           onClick={() => toggleWeekday(widx, di)}
                           title={t(`platform.weekday_short.${di}`)}
                         >
@@ -477,7 +477,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                           type="button"
                           variant={active ? "default" : "ghost"}
                           size="sm"
-                          style={{ padding: "1px 5px", fontSize: 10, minWidth: 26, height: "auto" }}
+                          style={{ padding: "1px 5px", fontSize: 14, minWidth: 26, height: "auto" }}
                           onClick={() => toggleDayOfMonth(widx, dom)}
                         >
                           {dom}
@@ -495,7 +495,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
         <Button
           variant="ghost"
           className="aidog-dashed-add"
-          style={{ width: "100%", padding: "4px 10px", fontSize: 11, marginTop: 4, justifyContent: "flex-start" }}
+          style={{ width: "100%", padding: "4px 10px", fontSize: 14, marginTop: 4, justifyContent: "flex-start" }}
           onClick={addWindow}
         >
           + {t("platform.windows_edit_add", "添加窗口")}

@@ -27,7 +27,7 @@ const nums = (p: RateLimitModelOverride, t: TFunction) => [
 ].filter(Boolean) as string[];
 
 const COLLAPSE_AT = 5;
-const detailStyle = { fontSize: 11, color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" } as const;
+const detailStyle = { fontSize: 14, color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" } as const;
 
 function ruleKind(r: RateLimitRule): "model" | "window" | "model-window" {
   const hasModels = (r.models ?? []).length > 0;
@@ -63,7 +63,7 @@ function PolicyDetail({ p, expanded, onToggle, t }: { p: RateLimitPolicy; expand
       )}
       {rules.length > 0 && (
         <div id={`rl-policy-rules-${p.id}`} style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-          <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+          <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
             {t("platform.rateLimits.policyRules", "限频规则（{{n}}）", { n: rules.length })}
           </span>
           {shown.map((r, i) => (
@@ -79,7 +79,7 @@ function PolicyDetail({ p, expanded, onToggle, t }: { p: RateLimitPolicy; expand
           ))}
           {rules.length > COLLAPSE_AT && (
             <button type="button" id={`rl-policy-toggle-${p.id}`} data-state={expanded ? "open" : "closed"} className="btn-ghost"
-              style={{ alignSelf: "flex-start", fontSize: 11, padding: "0 8px" }} onClick={onToggle}>
+              style={{ alignSelf: "flex-start", fontSize: 14, padding: "0 8px" }} onClick={onToggle}>
               {expanded
                 ? t("platform.rateLimits.policyCollapse", "收起")
                 : t("platform.rateLimits.policyExpand", "展开全部 {{n}} 条规则", { n: rules.length })}
@@ -112,11 +112,11 @@ export function RateLimitPolicyLibrary({ protocol, source, onImport, t }: {
   return (
     <div id="rl-policy-library" data-state={stale ? "stale" : source?.id ? "current" : "none"}
       style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
-      <span style={{ fontSize: 11, opacity: 0.7, color: "var(--text-tertiary)" }}>
+      <span style={{ fontSize: 14, opacity: 0.7, color: "var(--text-tertiary)" }}>
         {t("platform.rateLimits.policyLibrary", "策略库（内置限频策略）")}
       </span>
       {stale && (
-        <div id="rl-policy-updated" style={{ fontSize: 12, padding: "6px 10px", borderRadius: "var(--radius-sm)", background: "var(--accent-subtle)", color: "var(--text-primary)" }}>
+        <div id="rl-policy-updated" style={{ fontSize: 14, padding: "6px 10px", borderRadius: "var(--radius-sm)", background: "var(--accent-subtle)", color: "var(--text-primary)" }}>
           {t("platform.rateLimits.policyUpdated", "内置策略已更新，可重新导入")}
         </div>
       )}
@@ -124,12 +124,12 @@ export function RateLimitPolicyLibrary({ protocol, source, onImport, t }: {
         return (
           <div key={p.id} id={`rl-policy-${p.id}`} data-state={source?.id === p.id ? "imported" : "idle"}
             style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "6px 10px", borderRadius: "var(--radius-sm)", background: "var(--card)", border: "1px solid var(--border)" }}>
-            <strong style={{ fontSize: 12 }}>{p.label}</strong>
-            <a href={p.source_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "var(--primary)" }}>
+            <strong style={{ fontSize: 14 }}>{p.label}</strong>
+            <a href={p.source_url} target="_blank" rel="noreferrer" style={{ fontSize: 14, color: "var(--primary)" }}>
               {t("platform.rateLimits.policySource", "出处")}
             </a>
             <button type="button" id={`rl-policy-import-${p.id}`} className="btn-ghost"
-              style={{ marginLeft: "auto", fontSize: 11, padding: "2px 10px" }} onClick={() => setPending(p)}>
+              style={{ marginLeft: "auto", fontSize: 14, padding: "2px 10px" }} onClick={() => setPending(p)}>
               {t("platform.rateLimits.policyImport", "导入")}
             </button>
             <PolicyDetail p={p} expanded={!!expanded[p.id]} onToggle={() => setExpanded(e => ({ ...e, [p.id]: !e[p.id] }))} t={t} />

@@ -54,7 +54,7 @@ export function UpdatePromptModal({ update, onClose }: UpdatePromptModalProps) {
             <DialogDescription
               asChild
               style={{
-                fontSize: 13,
+                fontSize: 14,
                 color: "var(--text-secondary)",
                 lineHeight: 1.6,
                 maxHeight: 220,
@@ -73,7 +73,7 @@ export function UpdatePromptModal({ update, onClose }: UpdatePromptModalProps) {
           )}
         </DialogHeader>
         {error && (
-          <div style={{ fontSize: 12, color: "var(--color-danger)", marginBottom: 12, wordBreak: "break-all" }}>
+          <div style={{ fontSize: 14, color: "var(--color-danger)", marginBottom: 12, wordBreak: "break-all" }}>
             {error}
           </div>
         )}
@@ -81,7 +81,7 @@ export function UpdatePromptModal({ update, onClose }: UpdatePromptModalProps) {
           <Button
             variant="ghost"
             className="ripple hover-lift"
-            style={{ fontSize: 13, padding: "6px 14px" }}
+            style={{ fontSize: 14, padding: "6px 14px" }}
             onClick={(e) => { makeRipple(e); onClose(); }}
             disabled={busy}
           >
@@ -91,7 +91,7 @@ export function UpdatePromptModal({ update, onClose }: UpdatePromptModalProps) {
             variant="default"
             className="ripple hover-lift"
             style={{
-              fontSize: 13,
+              fontSize: 14,
               padding: "6px 14px",
               minWidth: 96,
               // 萤火虫：主 CTA 流光描边 + 呼吸 glow

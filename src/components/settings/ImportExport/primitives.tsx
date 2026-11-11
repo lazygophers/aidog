@@ -15,7 +15,7 @@ export function SectionHeader({ icon, title, desc }: { icon: string; title: stri
         <SectionIcon name={icon} size={18} style={{ color: "var(--accent)" }} />
         <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "var(--text-primary)" }}>{title}</h3>
       </div>
-      <p style={{ margin: 0, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>{desc}</p>
+      <p style={{ margin: 0, fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.5 }}>{desc}</p>
     </div>
   );
 }
@@ -29,7 +29,7 @@ export function TextButton({ onClick, children }: { onClick: () => void; childre
         background: "transparent",
         border: "none",
         color: "var(--accent)",
-        fontSize: 13,
+        fontSize: 14,
         fontWeight: 500,
         cursor: "pointer",
         padding: 0,
@@ -110,7 +110,7 @@ export function ScopeCard({
 
       <SectionIcon name={icon} size={20} style={{ color: on ? "var(--accent)" : "var(--text-secondary)" }} />
       <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", paddingRight: 24 }}>{label}</div>
-      <div style={{ fontSize: 12, color: "var(--text-tertiary)", lineHeight: 1.4 }}>{desc}</div>
+      <div style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.4 }}>{desc}</div>
     </div>
   );
 }
@@ -133,7 +133,7 @@ export function SuccessPathCard({ message }: { message: string }) {
       <IconCheck size={16} color="var(--color-success)" strokeWidth={2.5} style={{ flexShrink: 0 }} />
       <span
         style={{
-          fontSize: 13,
+          fontSize: 14,
           color: "var(--text-primary)",
           overflow: "hidden",
           textOverflow: "ellipsis",
@@ -181,7 +181,7 @@ export function DropZone({ onClick, active, title, hint }: { onClick: () => void
     >
       <SectionIcon name="file" size={28} style={{ color: lit ? "var(--accent)" : "var(--text-secondary)" }} />
       <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{title}</div>
-      <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{hint}</div>
+      <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{hint}</div>
     </div>
   );
 }
@@ -232,7 +232,7 @@ export function Chevron({ open }: { open: boolean }) {
 /** meta 行：左 label（次级）右 value（主）。 */
 export function MetaRow({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 13 }}>
+    <div style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 14 }}>
       <span style={{ color: "var(--text-tertiary)", minWidth: 72 }}>{label}</span>
       <span style={{ color: "var(--text-primary)", fontWeight: 500, wordBreak: "break-all" }}>{value}</span>
     </div>
@@ -266,7 +266,7 @@ export function Segmented({
             onClick={() => onSelect(opt.id)}
             style={{
               padding: "5px 12px",
-              fontSize: 12,
+              fontSize: 14,
               fontWeight: active ? 600 : 500,
               cursor: "pointer",
               border: "none",

@@ -39,10 +39,10 @@ export class ErrorBoundary extends Component<Props, State> {
         <div style={{ fontSize: 16, fontWeight: 600, color: "var(--color-danger, #D14B4B)" }}>
           {i18n.t("errorBoundary.title")}
         </div>
-        <div style={{ fontSize: 13, color: "var(--text-secondary, #888)" }}>
+        <div style={{ fontSize: 14, color: "var(--text-secondary, #888)" }}>
           {i18n.t("errorBoundary.hint")}
         </div>
-        <pre data-testid="error-boundary-detail" style={{ margin: 0, padding: 12, borderRadius: 7, background: "var(--bg-elevated)", fontSize: 11.5, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 320, overflow: "auto" }}>
+        <pre data-testid="error-boundary-detail" style={{ margin: 0, padding: 12, borderRadius: 7, background: "var(--bg-elevated)", fontSize: 14, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 320, overflow: "auto" }}>
           {detail}
         </pre>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>

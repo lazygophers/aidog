@@ -32,7 +32,7 @@ html, body {
   max-width: 480px;
   padding: 10px 14px;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-primary);
   /* 浮层本体固定深色实心背景 (窗口 transparent, 圆角外透明) */
   background: var(--bg-floating);
@@ -48,7 +48,7 @@ html, body {
   justify-content: center;
   min-height: 80px;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .popover-header {
@@ -82,7 +82,7 @@ html, body {
 }
 
 .popover-header-text {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--text-secondary);
   letter-spacing: 0.02em;
@@ -125,7 +125,7 @@ html, body {
 }
 .pc-s .popover-metric-value,
 .pc-s .popover-platform-value {
-  font-size: 13px;
+  font-size: 14px;
 }
 .pc-s .popover-metric-row {
   padding: 2px 0;
@@ -145,7 +145,7 @@ html, body {
 /* 富信息副标行（l 档显示同比 / 拆分 / 汇总） */
 .popover-metric-sub {
   margin-top: 3px;
-  font-size: 11px;
+  font-size: 14px;
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
   overflow: hidden;
@@ -169,7 +169,7 @@ html, body {
 
 .popover-entry-name {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 14px;
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -179,13 +179,13 @@ html, body {
 
 .popover-entry-value {
   font-weight: 600;
-  font-size: 13px;
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
 }
 
 .popover-stats-title {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-tertiary);
   text-transform: uppercase;
@@ -213,7 +213,7 @@ html, body {
 }
 
 .popover-stat-label {
-  font-size: 11px;
+  font-size: 14px;
   color: var(--text-tertiary);
 }
 
@@ -227,7 +227,7 @@ html, body {
 }
 
 .popover-metric-label {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-secondary);
   min-width: 0;
   overflow: hidden;
@@ -253,7 +253,7 @@ html, body {
 }
 
 .popover-platform-name {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-secondary);
   flex: 1;
   min-width: 0;
@@ -264,21 +264,21 @@ html, body {
 
 .popover-platform-value {
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);
   flex-shrink: 0;
 }
 
 .popover-platform-sub {
-  font-size: 11px;
+  font-size: 14px;
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
 }
 
 .popover-empty {
-  font-size: 11px;
+  font-size: 14px;
   color: var(--text-tertiary);
   font-style: italic;
   padding: 4px 0;
