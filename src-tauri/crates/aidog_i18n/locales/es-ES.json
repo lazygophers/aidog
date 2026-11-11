@@ -1160,6 +1160,8 @@
   "tools.searxRefreshing": "Actualizando…",
   "tools.searxRefreshHint": "Obtiene una vez las instancias sanas de searx.space para selección múltiple; solo se conecta al hacer clic, nunca automáticamente.",
   "tools.searxTest": "Probar",
+  "tools.searxTestAll": "Probar todo",
+  "tools.searxTestAllHint": "Prueba todas las instancias de abajo una por una; «Actualizar lista pública» solo obtiene instancias sanas de searx.space sin probar las direcciones añadidas.",
   "tools.searxTesting": "Probando…",
   "tools.searxFail": "No disponible",
   "tools.searxAdd": "Añadir",

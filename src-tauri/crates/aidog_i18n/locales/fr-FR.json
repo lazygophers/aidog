@@ -1248,6 +1248,8 @@
   "tools.searxRefreshing": "Actualisation…",
   "tools.searxRefreshHint": "Récupère une fois les instances saines depuis searx.space pour sélection multiple ; ne se connecte qu'au clic, jamais automatiquement.",
   "tools.searxTest": "Tester",
+  "tools.searxTestAll": "Tout tester",
+  "tools.searxTestAllHint": "Teste toutes les instances ci-dessous une par une ; « Actualiser la liste publique » récupère uniquement des instances saines depuis searx.space sans tester les adresses ajoutées.",
   "tools.searxTesting": "Test…",
   "tools.searxFail": "Indisponible",
   "tools.searxAdd": "Ajouter",

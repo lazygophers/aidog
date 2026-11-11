@@ -1160,6 +1160,8 @@
   "tools.searxRefreshing": "Refreshing…",
   "tools.searxRefreshHint": "Fetches healthy instances from searx.space once for multi-select; only goes online when you click, never refreshes automatically.",
   "tools.searxTest": "Test",
+  "tools.searxTestAll": "Test all",
+  "tools.searxTestAllHint": "Tests every instance below one by one; Refresh only fetches healthy instances from searx.space without testing added URLs.",
   "tools.searxTesting": "Testing…",
   "tools.searxFail": "Unavailable",
   "tools.searxAdd": "Add",

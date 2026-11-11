@@ -341,6 +341,25 @@ describe("ToolsSection 总控台", () => {
     await waitFor(() => expect((h.set.mock.calls[0][2] as any).search.searxng_base_urls).toEqual(["http://1", "http://3"]));
   });
 
+  it("SearXNG 一键测试：对全部已知行逐个测速，结果写回行内缓存，单条失败不中断，结束后按钮恢复", async () => {
+    h.get.mockResolvedValue({ search: { enabled: true, sources: ["searxng"], mode: "parallel", services: {}, searxng_base_urls: ["http://1", "http://2", "http://3"] } });
+    sx.searxTest.mockImplementation(async (url: string) => {
+      if (url === "http://2") throw new Error("connect timeout");
+      return url === "http://1" ? 0.5 : 0.7;
+    });
+    render(<ToolsSection />);
+    await waitFor(() => expect(screen.getByTestId("tools-searx-row-2")).toBeTruthy());
+    const allBtn = () => screen.getByTestId("tools-searx-test-all") as HTMLButtonElement;
+    fireEvent.click(allBtn());
+    expect(allBtn().disabled).toBe(true);
+    // 串行到最后一行结束 = 全部完成：耗时写回，失败行标红，按钮恢复可点
+    await waitFor(() => expect(screen.getByTestId("tools-searx-sec-2").textContent).toContain("0.70"));
+    expect(screen.getByTestId("tools-searx-sec-0").textContent).toContain("0.50");
+    expect(screen.getByTestId("tools-searx-sec-1").textContent).toBe("tools.searxFail");
+    expect(sx.searxTest).toHaveBeenCalledTimes(3);
+    expect(allBtn().disabled).toBe(false);
+  });
+
   it("SearXNG 行内添加与删除：trim 添加即启用并去重，删行移出启用集，保存持久化", async () => {
     h.get.mockResolvedValue({ search: { enabled: true, sources: ["searxng"], mode: "parallel", services: {}, searxng_base_urls: ["http://1"] } });
     render(<ToolsSection />);

@@ -1248,6 +1248,8 @@
   "tools.searxRefreshing": "Обновление…",
   "tools.searxRefreshHint": "Один раз загружает рабочие экземпляры с searx.space для множественного выбора; выходит в сеть только по клику, автоматически не обновляется.",
   "tools.searxTest": "Тест",
+  "tools.searxTestAll": "Тестировать все",
+  "tools.searxTestAllHint": "Проверяет все экземпляры ниже по очереди; «Обновить общий список» только загружает рабочие экземпляры с searx.space, не проверяя добавленные адреса.",
   "tools.searxTesting": "Тест…",
   "tools.searxFail": "Недоступен",
   "tools.searxAdd": "Добавить",
