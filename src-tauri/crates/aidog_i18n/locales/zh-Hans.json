@@ -1160,6 +1160,8 @@
   "tools.searxRefreshing": "刷新中…",
   "tools.searxRefreshHint": "从 searx.space 拉取一次健康实例供多选；仅在点击时联网，不会自动刷新。",
   "tools.searxTest": "测试",
+  "tools.searxTestAll": "一键测试",
+  "tools.searxTestAllHint": "对下方全部实例逐个测速；「刷新公共列表」只拉取 searx.space 的健康实例，不测已添加的地址。",
   "tools.searxTesting": "测试中…",
   "tools.searxFail": "不可用",
   "tools.searxAdd": "添加",

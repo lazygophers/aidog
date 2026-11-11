@@ -1248,6 +1248,8 @@
   "tools.searxRefreshing": "更新中…",
   "tools.searxRefreshHint": "searx.space から正常なインスタンスを一度だけ取得して複数選択できます。クリック時のみ通信し、自動更新はしません。",
   "tools.searxTest": "テスト",
+  "tools.searxTestAll": "一括テスト",
+  "tools.searxTestAllHint": "下の全インスタンスを一つずつテストします。「公開リストを更新」は searx.space の正常なインスタンスを取得するだけで、追加済みアドレスはテストしません。",
   "tools.searxTesting": "テスト中…",
   "tools.searxFail": "利用不可",
   "tools.searxAdd": "追加",

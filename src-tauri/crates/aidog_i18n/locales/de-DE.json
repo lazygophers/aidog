@@ -1248,6 +1248,8 @@
   "tools.searxRefreshing": "Aktualisiere…",
   "tools.searxRefreshHint": "Holt einmalig gesunde Instanzen von searx.space zur Mehrfachauswahl; verbindet sich nur beim Klick, nie automatisch.",
   "tools.searxTest": "Testen",
+  "tools.searxTestAll": "Alle testen",
+  "tools.searxTestAllHint": "Testet alle Instanzen unten nacheinander; „Öffentliche Liste aktualisieren“ ruft nur gesunde Instanzen von searx.space ab, ohne hinzugefügte Adressen zu testen.",
   "tools.searxTesting": "Teste…",
   "tools.searxFail": "Nicht erreichbar",
   "tools.searxAdd": "Hinzufügen",

@@ -425,6 +425,15 @@ export function ToolsSection() {
     }
   };
   const searxBatch = (urls: string[]) => setUrlsRaw(urls.join("\n"));
+  const [searxAllBusy, setSearxAllBusy] = useState(false);
+  const testSearxAll = async () => {
+    setSearxAllBusy(true);
+    try {
+      for (const u of searxKnown) await testSearx(u);
+    } finally {
+      setSearxAllBusy(false);
+    }
+  };
   const searxAddUrl = () => {
     const u = searxAdd.trim();
     if (u === "") return;
@@ -654,6 +663,9 @@ export function ToolsSection() {
         <Button variant="outline" size="sm" data-testid="tools-searx-none" onClick={() => searxBatch([])}>{t("tools.searxNone")}</Button>
         <Button variant="outline" size="sm" data-testid="tools-searx-available" onClick={() => searxBatch(searxKnown.filter((u) => searxTest[u] && !searxTest[u].fail && searxTest[u].seconds != null))}>{t("tools.searxAvailable")}</Button>
         <span className="flex-1" />
+        <Button variant="outline" size="sm" data-testid="tools-searx-test-all" title={t("tools.searxTestAllHint")} disabled={searxAllBusy} onClick={() => void testSearxAll()}>
+          {searxAllBusy ? t("tools.searxTesting") : t("tools.searxTestAll")}
+        </Button>
         <Button variant="outline" size="sm" data-testid="tools-searx-refresh" disabled={searxBusy} onClick={() => void refreshSearx()}>
           {searxBusy ? t("tools.searxRefreshing") : t("tools.searxRefresh")}
         </Button>
