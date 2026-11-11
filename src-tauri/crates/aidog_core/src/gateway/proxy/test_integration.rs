@@ -5838,6 +5838,7 @@ async fn chain_error_rule_non_retryable_blocks_model_switch() {
         enabled: true,
         is_builtin: false,
         failed: false,
+        user_modified: false,
         created_at: 0,
         updated_at: 0,
     }]);
@@ -6594,6 +6595,7 @@ async fn rc02_model_class_no_effects_and_error_rule_recorded() {
         enabled: true,
         is_builtin: false,
         failed: false,
+        user_modified: false,
         created_at: 0,
         updated_at: 0,
     }]);
@@ -7261,6 +7263,7 @@ fn mw_mask_rule(
         enabled: true,
         is_builtin: false,
         failed: false,
+        user_modified: false,
         created_at: 0,
         updated_at: 0,
     }

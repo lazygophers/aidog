@@ -13,4 +13,8 @@ export type MiddlewareRule = { id: number, name: string, description: string, co
 /**
  * 旧模型残留无法翻译 → 前端展示失败态引导手删；引擎跳过。
  */
-failed: boolean, created_at: number, updated_at: number, };
+failed: boolean, 
+/**
+ * 用户改过内容（区别于纯启停）：seed 不再覆盖该内置规则，「还原默认」清除本标记。
+ */
+user_modified: boolean, created_at: number, updated_at: number, };

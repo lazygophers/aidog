@@ -300,6 +300,9 @@ pub struct MiddlewareRule {
     /// 旧模型残留无法翻译 → 前端展示失败态引导手删；引擎跳过。
     #[serde(default)]
     pub failed: bool,
+    /// 用户改过内容（区别于纯启停）：seed 不再覆盖该内置规则，「还原默认」清除本标记。
+    #[serde(default)]
+    pub user_modified: bool,
     #[serde(default)]
     #[ts(type = "number")]
     pub created_at: i64,

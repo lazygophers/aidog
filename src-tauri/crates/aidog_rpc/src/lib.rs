@@ -206,6 +206,7 @@ rpc_routes! {
     mutating aidog_core::proxy_cmd::middleware::middleware_create_rule,
     mutating aidog_core::proxy_cmd::middleware::middleware_update_rule,
     mutating aidog_core::proxy_cmd::middleware::middleware_delete_rule,
+    mutating aidog_core::proxy_cmd::middleware::middleware_reset_rule,
     readonly aidog_core::proxy_cmd::middleware::middleware_budget_status,
     readonly aidog_core::proxy_cmd::middleware::middleware_settings_get,
     readonly aidog_core::proxy_cmd::middleware::middleware_try,

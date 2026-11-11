@@ -35,6 +35,7 @@ fn rule(id: i64, name: &str, pat: &str, mode: MaskMode, repl: &str) -> Middlewar
         enabled: true,
         is_builtin: false,
         failed: false,
+        user_modified: false,
         created_at: 0,
         updated_at: 0,
     }
