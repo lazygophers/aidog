@@ -14,7 +14,7 @@
 //! **block 不在本模块**：block 在分叉前判定并直接返回 403，两条路径本来就都生效。
 
 use aidog_db::models::MiddlewareSettings;
-use aidog_middleware::placeholder::ScrubMap;
+use aidog_middleware::placeholder::{ScrubMap, is_session_field};
 use aidog_middleware::{InboundInject, InboundTexts, MiddlewareEngine};
 use serde_json::Value;
 
@@ -283,6 +283,7 @@ fn visit_str(v: &mut Value, f: &mut dyn FnMut(&str) -> Option<String>) {
 ///
 /// 跳过名单：
 /// - 顶层 `model`；
+/// - session id 字段（`is_session_field`，硬边界：sessionId 不在过滤范围）；
 /// - 工具调用 id：键 `id` / `tool_use_id` / `tool_call_id` / `call_id` 的字符串值；
 /// - thinking：`signature`，以及 `thinking` 文本（上游按签名校验原文，改了整请求被拒）；
 ///   redacted_thinking 的 `data`；
@@ -312,6 +313,7 @@ fn visit_all_node(
             for (k, val) in obj.iter_mut() {
                 let k = k.as_str();
                 let skip = (top && k == "model")
+                    || is_session_field(top, parent_key, k)
                     || matches!(k, "id" | "tool_use_id" | "tool_call_id" | "call_id" | "file_data")
                     || (k == "signature" && matches!(ty.as_str(), "thinking" | "redacted_thinking"))
                     || (k == "thinking" && ty == "thinking")

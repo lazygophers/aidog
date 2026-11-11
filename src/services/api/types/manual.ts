@@ -768,6 +768,8 @@ export interface ProxyLogDetail {
   prompt_id: string;
   /** `x-claude-code-session-id`；空串 = 无。 */
   session_id: string;
+  /** 会话归组键（`derive_session_key` 派生：anthropic metadata.user_id 的 session UUID / openai 系 session_id / header x-session-id）；空串 = 无。 */
+  session_key: string;
   /** `x-claude-code-agent-id`（子代理）；空串 = 无。 */
   agent_id: string;
   /** `x-claude-code-parent-agent-id`（嵌套 Agent 的父）；空串 = 无。 */

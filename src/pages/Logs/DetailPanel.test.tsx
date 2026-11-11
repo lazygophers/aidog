@@ -44,6 +44,7 @@ function detailFixture(attempts: unknown[]) {
     upstream_request_headers: "{}",
     upstream_request_body: "{}",
     upstream_response_headers: "{}",
+    session_key: "",
     attempts,
     routing: null,
   } as unknown as ProxyLogDetail;
@@ -162,6 +163,12 @@ describe("DetailPanel Claude Code 网关 id / 压缩 / 工具耗时", () => {
       expect(screen.getByTestId(`detail-${id}`).textContent).toBe("-");
     }
     expect(screen.queryAllByTestId("detail-tool-duration")).toEqual([]);
+  });
+
+  it("会话 ID：session_id 头为空时回落派生 session_key", () => {
+    const d = { ...detailFixture([attempt(1, 200)]), session_id: "", session_key: "3f2b8c9e-1111-2222-3333-444455556666" } as unknown as ProxyLogDetail;
+    renderPanel(d);
+    expect(screen.getByTestId("detail-session-id").textContent).toBe("3f2b8c9e-1111-2222-3333-444455556666");
   });
 });
 
