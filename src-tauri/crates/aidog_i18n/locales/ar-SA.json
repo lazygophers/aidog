@@ -1248,6 +1248,8 @@
   "tools.searxRefreshing": "جارٍ التحديث…",
   "tools.searxRefreshHint": "يجلب النُّسخ السليمة من searx.space مرة واحدة للاختيار المتعدد؛ يتصل بالإنترنت عند النقر فقط ولا يُحدَّث تلقائيًا.",
   "tools.searxTest": "اختبار",
+  "tools.searxTestAll": "اختبار الكل",
+  "tools.searxTestAllHint": "يختبر جميع المثيلات أدناه واحداً تلو الآخر؛ «تحديث القائمة العامة» يجلب المثيلات السليمة من searx.space فقط دون اختبار العناوين المضافة.",
   "tools.searxTesting": "جارٍ الاختبار…",
   "tools.searxFail": "غير متاح",
   "tools.searxAdd": "إضافة",
