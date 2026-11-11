@@ -78,6 +78,37 @@ fn disabled_settings_is_noop() {
 }
 
 #[test]
+fn reversible_all_pass_preserves_session_fields() {
+    // 硬边界（用户 2026-11-11）：sessionId 不在中间件过滤范围。「全部内容」可还原 mask
+    // 命中 session UUID 时，根级 session_id 与 metadata.user_id / metadata.session_id
+    // 叶子必须原样保留（消息内容照常 mask）。
+    let uuid = "3f2b8c9e-1111-2222-3333-444455556666";
+    let mut r = rule(1, "all-pass", uuid, MaskMode::Reversible, "");
+    r.actions[0].params.fields = vec!["all".to_string()];
+    let e = MiddlewareEngine::new();
+    e.rebuild_from_rules(vec![r]);
+    let mut body = json!({
+        "session_id": uuid,
+        "metadata": {
+            "user_id": format!("user_x_account__session_{uuid}"),
+            "session_id": uuid,
+        },
+        "messages": [{ "role": "user", "content": format!("msg {uuid} end") }],
+    });
+    let map = apply_reversible_mask_body(&e, &on(), &mut body, &Protocol::Anthropic, "", None, 0, None).unwrap();
+    assert!(!map.is_empty(), "规则未命中，测试自检失败");
+    let m = body["messages"][0]["content"].as_str().unwrap();
+    assert!(!m.contains(uuid), "消息内容应被 mask，实际 {m}");
+    assert_eq!(body["session_id"], json!(uuid), "根级 session_id 被抹");
+    assert_eq!(
+        body["metadata"]["user_id"],
+        json!(format!("user_x_account__session_{uuid}")),
+        "metadata.user_id 被抹"
+    );
+    assert_eq!(body["metadata"]["session_id"], json!(uuid), "metadata.session_id 被抹");
+}
+
+#[test]
 fn disabled_rule_not_hit() {
     let mut r = rule(1, "off", "AAA", MaskMode::Fixed, "[K]");
     r.enabled = false;

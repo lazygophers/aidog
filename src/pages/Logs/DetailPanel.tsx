@@ -148,7 +148,7 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
         <MetaItem label={t("logs.requestClassLabel", "请求类型")} value={requestClassText} copyText={detail.request_class || undefined} testId="detail-request-class" t={t} />
         <MetaItem label={t("logs.agentType", "子代理类型")} value={detail.agent_type || "-"} copyText={detail.agent_type || undefined} testId="detail-agent-type" t={t} />
         <MetaItem label={t("logs.promptId", "提示词 ID")} value={detail.prompt_id || "-"} copyText={detail.prompt_id || undefined} testId="detail-prompt-id" t={t} />
-        <MetaItem label={t("logs.claudeSessionId", "会话 ID")} value={detail.session_id || "-"} copyText={detail.session_id || undefined} testId="detail-session-id" t={t} />
+        <MetaItem label={t("logs.claudeSessionId", "会话 ID")} value={detail.session_id || detail.session_key || "-"} copyText={detail.session_id || detail.session_key || undefined} testId="detail-session-id" t={t} />
         <MetaItem label={t("logs.agentId", "子代理 ID")} value={detail.agent_id || "-"} copyText={detail.agent_id || undefined} testId="detail-agent-id" t={t} />
         <MetaItem label={t("logs.parentAgentId", "父代理 ID")} value={detail.parent_agent_id || "-"} copyText={detail.parent_agent_id || undefined} testId="detail-parent-agent-id" t={t} />
         <MetaItem label={t("logs.compactionLabel", "压缩原因")} value={compactionLabel(t, detail.compaction ?? "")} copyText={detail.compaction || undefined} testId="detail-compaction" t={t} />
