@@ -31,11 +31,15 @@ impl MediaProviderConfig {
     }
 }
 
-/// 抓网页（web_fetch）设置：目前只有「启用」开关，缺省 true（旧配置无该键 = 启用，行为不变）。
+/// 抓网页（web_fetch）设置：「启用」开关（缺省 true）+ 返回格式（缺省 markdown；旧配置无该键
+/// → markdown，属行为变更但为拍板结果；非法值整个 settings 解析失败回落全默认值）。
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub struct FetchConfig {
     #[serde(default = "default_fetch_enabled")]
     pub enabled: bool,
+    /// 返回格式：markdown / html / text。
+    #[serde(default)]
+    pub format: aidog_search::FetchFormat,
 }
 
 fn default_fetch_enabled() -> bool {
@@ -44,7 +48,7 @@ fn default_fetch_enabled() -> bool {
 
 impl Default for FetchConfig {
     fn default() -> Self {
-        Self { enabled: default_fetch_enabled() }
+        Self { enabled: default_fetch_enabled(), format: Default::default() }
     }
 }
 

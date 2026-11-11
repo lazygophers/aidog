@@ -713,8 +713,20 @@ pub async fn tencent_yuanbao_search(
     Ok(hits)
 }
 
-/// `web_fetch` 工具入口：直抓 URL，HTML → 纯文本，1MB 截断 + 30s 超时。
-pub async fn fetch_url_text(url: &str) -> Result<String, String> {
+/// `web_fetch` 返回格式：markdown（默认，HTML 经 htmd 转 Markdown）/ html（原始 HTML 文本）/
+/// text（纯文本，剥标签）。非 HTML 内容（JSON / 纯文本）三种格式均原样返回。
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum FetchFormat {
+    #[default]
+    Markdown,
+    Html,
+    Text,
+}
+
+/// `web_fetch` 工具入口：直抓 URL，HTML 内容按 `format` 分流（markdown / html / text），
+/// 1MB 截断 + 30s 超时对三种格式一致生效（先截原文再转换）。
+pub async fn fetch_url_text(url: &str, format: FetchFormat) -> Result<String, String> {
     if !url.starts_with("http://") && !url.starts_with("https://") {
         return Err(format!("仅支持 http/https URL，收到 `{url}`"));
     }
@@ -750,14 +762,25 @@ pub async fn fetch_url_text(url: &str) -> Result<String, String> {
         body.extend_from_slice(&chunk);
     }
     let text = String::from_utf8_lossy(&body);
-    Ok(if is_html {
-        html_to_text(&text)
+    let converted = if is_html {
+        match format {
+            // 转换失败回落纯文本（本 crate 不依赖 tracing，失败不上报日志）；script/style 整块跳过
+            FetchFormat::Markdown => htmd::HtmlToMarkdown::builder()
+                .skip_tags(vec!["script", "style"])
+                .build()
+                .convert(&text)
+                .map(|s| s.trim().to_string())
+                .unwrap_or_else(|_| html_to_text(&text)),
+            FetchFormat::Html => text.into_owned(),
+            FetchFormat::Text => html_to_text(&text),
+        }
     } else {
         text.into_owned()
-    }
-    .trim()
-    .to_string()
-    + if truncated { "\n\n[内容超过 1MB，已截断]" } else { "" })
+    };
+    Ok(converted
+        .trim()
+        .to_string()
+        + if truncated { "\n\n[内容超过 1MB，已截断]" } else { "" })
 }
 
 /// 轻量 HTML → 纯文本：剥 script/style/注释/标签（块级标签转换行），解码常见实体。

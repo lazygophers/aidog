@@ -177,12 +177,19 @@ async fn execute(
                 (error_content(Kind::Fetch, "url_not_allowed"), format!("Web fetch blocked by domain filters: {url}"))
             } else {
                 match run_tool(&ctx, "web_fetch", &json!({"url": url}), &settings).await {
-                    Ok(page) => (
+                    Ok(page) => {
+                        let media_type = match settings.fetch.format {
+                            aidog_search::FetchFormat::Markdown => "text/markdown",
+                            aidog_search::FetchFormat::Html => "text/html",
+                            aidog_search::FetchFormat::Text => "text/plain",
+                        };
+                        (
                         json!({"type":"web_fetch_result","url":url,
-                            "content":{"type":"document","source":{"type":"text","media_type":"text/plain","data":page},"title":url},
+                            "content":{"type":"document","source":{"type":"text","media_type":media_type,"data":page},"title":url},
                             "retrieved_at": chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true)}),
                         format!("Fetched {url}."),
-                    ),
+                        )
+                    }
                     Err(e) => {
                         tracing::warn!(error = %e, "gateway web_fetch failed");
                         (error_content(Kind::Fetch, "url_not_accessible"), format!("Web fetch failed: {url}"))

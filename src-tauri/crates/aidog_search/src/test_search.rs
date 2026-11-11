@@ -329,7 +329,7 @@ async fn fetch_converts_html_to_text() {
         )
     }))
     .await;
-    let text = fetch_url_text(&format!("http://127.0.0.1:{port}/page")).await.unwrap();
+    let text = fetch_url_text(&format!("http://127.0.0.1:{port}/page"), FetchFormat::Text).await.unwrap();
     assert!(text.contains("Title A"), "text={text}");
     assert!(text.contains("Hello & welcome to <aidog>"), "text={text}");
     assert!(text.contains("line2"), "text={text}");
@@ -343,16 +343,71 @@ async fn fetch_converts_html_to_text() {
 async fn fetch_truncates_over_1mb() {
     let big = format!("<p>{}</p>", "x".repeat(2 * 1024 * 1024));
     let port = spawn_stub(Arc::new(move |_m, _p, _h, _b| (200, "text/html".into(), big.clone()))).await;
-    let text = fetch_url_text(&format!("http://127.0.0.1:{port}/big")).await.unwrap();
+    let text = fetch_url_text(&format!("http://127.0.0.1:{port}/big"), FetchFormat::Text).await.unwrap();
     assert!(text.chars().count() < 2 * 1024 * 1024, "必须截断");
     assert!(text.contains("[内容超过 1MB，已截断]"), "text 尾部={}", &text[text.len().saturating_sub(120)..]);
 }
 
 #[tokio::test]
+async fn fetch_markdown_format_converts_html_to_markdown() {
+    let port = spawn_stub(Arc::new(|_m, _p, _h, _b| {
+        (
+            200,
+            "text/html; charset=utf-8".into(),
+            "<html><head><style>.x{color:red}</style></head><body><h1>Title A</h1><script>alert(1)</script><p>Hello <a href=\"https://example.com/x\">link</a> &amp; welcome</p><br/>line2</body></html>".into(),
+        )
+    }))
+    .await;
+    let text = fetch_url_text(&format!("http://127.0.0.1:{port}/page"), FetchFormat::Markdown).await.unwrap();
+    // 标题 / 链接语法：markdown 特有，text/html 格式或纯文本不会有
+    assert!(text.contains("# Title A"), "标题语法: {text}");
+    assert!(text.contains("[link](https://example.com/x)"), "链接语法: {text}");
+    // script 内容仍剥掉
+    assert!(!text.contains("alert(1)"), "script 必须剥掉: {text}");
+    assert!(text.contains("Hello"), "正文保留: {text}");
+}
+
+#[tokio::test]
+async fn fetch_html_format_returns_raw_html() {
+    let port = spawn_stub(Arc::new(|_m, _p, _h, _b| {
+        (
+            200,
+            "text/html; charset=utf-8".into(),
+            "<html><body><h1>Title A</h1><p>keep <b>tags</b></p></body></html>".into(),
+        )
+    }))
+    .await;
+    let text = fetch_url_text(&format!("http://127.0.0.1:{port}/page"), FetchFormat::Html).await.unwrap();
+    assert!(text.contains("<h1>Title A</h1>"), "标签原样: {text}");
+    assert!(text.contains("<b>tags</b>"), "标签原样: {text}");
+}
+
+#[tokio::test]
+async fn fetch_non_html_content_ignores_format() {
+    let port = spawn_stub(Arc::new(|_m, _p, _h, _b| {
+        (200, "application/json".into(), r#"{"ok":true}"#.into())
+    }))
+    .await;
+    for fmt in [FetchFormat::Markdown, FetchFormat::Html, FetchFormat::Text] {
+        let text = fetch_url_text(&format!("http://127.0.0.1:{port}/api"), fmt).await.unwrap();
+        assert_eq!(text, r#"{"ok":true}"#, "非 HTML 原样: fmt={fmt:?}");
+    }
+}
+
+#[tokio::test]
+async fn fetch_markdown_truncation_marker_still_present() {
+    let big = format!("<html><body><h1>{}</h1></body></html>", "x".repeat(2 * 1024 * 1024));
+    let port = spawn_stub(Arc::new(move |_m, _p, _h, _b| (200, "text/html".into(), big.clone()))).await;
+    let text = fetch_url_text(&format!("http://127.0.0.1:{port}/big"), FetchFormat::Markdown).await.unwrap();
+    assert!(text.chars().count() < 2 * 1024 * 1024, "必须截断");
+    assert!(text.contains("[内容超过 1MB，已截断]"), "截断标记: {}", &text[text.len().saturating_sub(120)..]);
+}
+
+#[tokio::test]
 async fn fetch_rejects_non_http_scheme_and_http_error() {
-    assert!(fetch_url_text("ftp://x/file").await.unwrap_err().contains("http/https"));
+    assert!(fetch_url_text("ftp://x/file", FetchFormat::Text).await.unwrap_err().contains("http/https"));
     let port = spawn_stub(Arc::new(|_m, _p, _h, _b| (404, "text/plain".into(), "nope".into()))).await;
-    assert!(fetch_url_text(&format!("http://127.0.0.1:{port}/x")).await.unwrap_err().contains("404"));
+    assert!(fetch_url_text(&format!("http://127.0.0.1:{port}/x"), FetchFormat::Text).await.unwrap_err().contains("404"));
 }
 
 #[test]
