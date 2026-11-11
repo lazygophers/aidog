@@ -109,10 +109,22 @@ impl ScrubMap {
     }
 
     fn mask_value(&self, v: &mut Value) {
+        self.mask_value_at(v, true, None);
+    }
+
+    fn mask_value_at(&self, v: &mut Value, top: bool, parent_key: Option<&str>) {
         match v {
             Value::String(s) => *s = self.mask_text(s),
-            Value::Array(a) => a.iter_mut().for_each(|x| self.mask_value(x)),
-            Value::Object(m) => m.values_mut().for_each(|x| self.mask_value(x)),
+            Value::Array(a) => a.iter_mut().for_each(|x| self.mask_value_at(x, false, parent_key)),
+            Value::Object(m) => {
+                for (k, x) in m.iter_mut() {
+                    if is_session_field(top, parent_key, k) {
+                        // sessionId 硬边界：session 字段叶子原样保留。
+                        continue;
+                    }
+                    self.mask_value_at(x, false, Some(k));
+                }
+            }
             _ => {}
         }
     }
@@ -121,6 +133,16 @@ impl ScrubMap {
     fn max_placeholder_len(&self) -> usize {
         self.inner.keys().map(String::len).max().unwrap_or(0)
     }
+}
+
+/// sessionId 硬边界（用户 2026-11-11）：session id 不在中间件过滤范围。
+/// ① 顶层 `session_id`；② `metadata.user_id` / `metadata.session_id`
+/// （anthropic `metadata.user_id` 内含 `session_<uuid>`，同样保留）。
+/// 出站「全部内容」mask（`visit_all_node`）与日志 body 掩码（`mask_log_body`）共用，
+/// 保证出站 body 与日志副本口径一致。
+pub fn is_session_field(top: bool, parent_key: Option<&str>, key: &str) -> bool {
+    (top && key == "session_id")
+        || (parent_key == Some("metadata") && matches!(key, "user_id" | "session_id"))
 }
 
 impl fmt::Debug for ScrubMap {
@@ -271,6 +293,34 @@ mod tests {
         let mut m = ScrubMap::new();
         let p = m.register(kind, orig);
         (m, p)
+    }
+
+    #[test]
+    fn mask_log_body_preserves_session_fields() {
+        // 硬边界（用户 2026-11-11）：sessionId 不在中间件过滤范围。日志 body 掩码时
+        // session 字段叶子原样保留（消息内容照常替换占位符）。
+        let uuid = "3f2b8c9e-1111-2222-3333-444455556666";
+        let (m, p) = map_with("SECRET", uuid);
+        let body = serde_json::json!({
+            "session_id": uuid,
+            "metadata": {
+                "user_id": format!("user_x_account__session_{uuid}"),
+                "session_id": uuid,
+            },
+            "messages": [{ "role": "user", "content": format!("msg {uuid} end") }],
+        })
+        .to_string();
+        let masked = m.mask_log_body(&body);
+        let v: Value = serde_json::from_str(&masked).unwrap();
+        assert_eq!(v["session_id"], serde_json::json!(uuid), "根级 session_id 被抹");
+        assert_eq!(
+            v["metadata"]["user_id"],
+            serde_json::json!(format!("user_x_account__session_{uuid}")),
+            "metadata.user_id 被抹"
+        );
+        assert_eq!(v["metadata"]["session_id"], serde_json::json!(uuid), "metadata.session_id 被抹");
+        let c = v["messages"][0]["content"].as_str().unwrap();
+        assert!(c.contains(&p) && !c.contains(uuid), "消息内容应替换占位符，实际 {c}");
     }
 
     #[test]
