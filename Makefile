@@ -79,6 +79,8 @@ lint: ## Run linters
 	yarn check:tokens
 	@printf "$(CYAN)▶ Theme token reference check...$(RESET)\n"
 	yarn check:theme-tokens
+	@printf "$(CYAN)▶ Font size floor check...$(RESET)\n"
+	yarn check:font-size
 	@printf "$(CYAN)▶ Linting...$(RESET)\n"
 	cd $(TAURI_DIR) && cargo clippy --workspace --all-targets -- -D warnings
 
