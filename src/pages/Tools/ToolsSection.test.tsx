@@ -142,6 +142,7 @@ describe("ToolsSection 总控台", () => {
       expect(call[0]).toBe("mcp_tools");
       expect(call[1]).toBe("settings");
       expect((call[2] as any).search.sources).toEqual(["google", "ddg"]);
+      // 搜索卡保存原样保留他卡 fetch 段（可能无 format 键，读-改-写不改写它）
       expect((call[2] as any).fetch).toEqual({ enabled: false });
       expect((call[2] as any).image).toEqual({ base_url: "https://other/v9", api_key: "k9", model: "m9" });
     });
@@ -159,10 +160,29 @@ describe("ToolsSection 总控台", () => {
     fireEvent.click(screen.getByTestId("tools-fetch-save"));
     await waitFor(() => {
       const next = h.set.mock.calls[0][2] as any;
-      expect(next.fetch).toEqual({ enabled: false });
+      expect(next.fetch).toEqual({ enabled: false, format: "markdown" });
       expect(next.search.services.tavily.keys).toEqual(["***"]);
       expect(next.search.searxng_base_urls).toEqual(["http://s"]);
       expect(next.image).toEqual({ base_url: "https://p/v1", api_key: "k", model: "m" });
+    });
+  });
+
+  it("抓网页卡返回格式选择器：加载已存格式、改选后保存写出 format", async () => {
+    h.get.mockResolvedValue({
+      fetch: { enabled: true, format: "text" },
+    });
+    render(<ToolsSection />);
+    await waitFor(() => expect(statusOf("web_fetch")).toBe("configured"));
+    fireEvent.click(railItem("web_fetch"));
+    const sel = screen.getByTestId("tools-fetch-format") as HTMLSelectElement;
+    // 加载：已存 text → 选择器显示 text
+    expect(sel.value).toBe("text");
+    // 改选 html → 保存写出 { enabled: true, format: "html" }
+    fireEvent.change(sel, { target: { value: "html" } });
+    fireEvent.click(screen.getByTestId("tools-fetch-save"));
+    await waitFor(() => {
+      const next = h.set.mock.calls[0][2] as any;
+      expect(next.fetch).toEqual({ enabled: true, format: "html" });
     });
   });
 
