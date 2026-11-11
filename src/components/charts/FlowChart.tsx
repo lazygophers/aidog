@@ -298,7 +298,7 @@ export function FlowChart({ columns, rows, metric, surface = "var(--card)" }: Fl
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ direction: "ltr", minWidth: W, fontFamily: "var(--font-mono, monospace)" }} role="img"
         onMouseLeave={() => setHov(null)}>
         {columns.map((c, ci) => (
-          <text key={c.key} x={nx(ci)} y={12} fontSize={10.5} fill="var(--text-secondary)">{c.title}</text>
+          <text key={c.key} x={nx(ci)} y={12} fontSize={14} fill="var(--text-secondary)">{c.title}</text>
         ))}
         <style>{CSS}</style>
         <defs>
@@ -353,13 +353,13 @@ export function FlowChart({ columns, rows, metric, surface = "var(--card)" }: Fl
               style={{ opacity: on === false ? 0.35 : 1, transition: "opacity .18s", cursor: "pointer", ...(reduced ? { animationDelay: `${ci * 60}ms` } : {}) }}
               onMouseEnter={() => setHov({ kind: "node", key: n.key })} onMouseMove={move}>
               <rect x={nx(ci)} y={a[0]} width={NODE_W} height={a[1]} rx={2} fill={n.color} />
-              <text x={nx(ci) + NODE_W + 6} y={two ? cy - 2 : cy + 3.5} fontSize={10.5} fill="var(--foreground)" opacity={grow}
+              <text x={nx(ci) + NODE_W + 6} y={two ? cy - 2 : cy + 3.5} fontSize={14} fill="var(--foreground)" opacity={grow}
                 stroke={surface} strokeWidth={4} strokeLinejoin="round" paintOrder="stroke">
                 {label(ci, n.id).slice(0, 22)}<title>{label(ci, n.id)}</title>
-                {!two && <tspan fill="var(--text-tertiary)" dx={6} fontSize={10}>{fmtValue(metric, n.v)}<tspan data-testid="flow-pct" data-value={p} dx={6}>{formatPct(p)}</tspan></tspan>}
+                {!two && <tspan fill="var(--text-tertiary)" dx={6} fontSize={14}>{fmtValue(metric, n.v)}<tspan data-testid="flow-pct" data-value={p} dx={6}>{formatPct(p)}</tspan></tspan>}
               </text>
               {two && (
-                <text x={nx(ci) + NODE_W + 6} y={cy + 11} fontSize={10} fill="var(--text-tertiary)" opacity={grow}
+                <text x={nx(ci) + NODE_W + 6} y={cy + 11} fontSize={14} fill="var(--text-tertiary)" opacity={grow}
                   stroke={surface} strokeWidth={4} strokeLinejoin="round" paintOrder="stroke">
                   {fmtValue(metric, n.v)}
                   <tspan data-testid="flow-pct" data-value={p} dx={6}>{formatPct(p)}</tspan>
@@ -373,7 +373,7 @@ export function FlowChart({ columns, rows, metric, surface = "var(--card)" }: Fl
         <div data-testid="flow-tooltip" style={{
           position: "fixed", left: pt.x + 12, top: pt.y + 12, zIndex: 60, pointerEvents: "none", maxWidth: 280,
           background: "var(--popover)", color: "var(--popover-foreground)", border: "1px solid var(--border)",
-          borderRadius: 6, padding: "6px 9px", fontSize: 11.5, boxShadow: "0 8px 24px -8px rgba(0,0,0,.45)",
+          borderRadius: 6, padding: "6px 9px", fontSize: 14, boxShadow: "0 8px 24px -8px rgba(0,0,0,.45)",
         }}>
           <div style={{ wordBreak: "break-all" }}>{tip.title}</div>
           <div style={{ fontFamily: "var(--font-mono, monospace)", color: "var(--text-secondary)" }}>

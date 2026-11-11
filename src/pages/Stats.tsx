@@ -527,7 +527,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
               key={p}
               variant={preset === p ? "default" : "ghost"}
               style={{
-                fontSize: 12,
+                fontSize: 14,
                 padding: "4px 10px",
                 height: "auto",
                 ...(preset === p
@@ -547,7 +547,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
 
         {/* Granularity */}
         <Select value={granularity} onValueChange={v => setGranularity(v as "daily" | "hourly")}>
-          <SelectTrigger style={{ fontSize: 12, width: 90, height: 30 }}>
+          <SelectTrigger style={{ fontSize: 14, width: 90, height: 30 }}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -558,7 +558,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
 
         {/* Group by */}
         <Select value={groupBy} onValueChange={v => setGroupBy(v as "platform" | "model" | "group")}>
-          <SelectTrigger style={{ fontSize: 12, width: 110, height: 30 }}>
+          <SelectTrigger style={{ fontSize: 14, width: 110, height: 30 }}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -607,7 +607,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
         />
         {/* Filter: coding plan（订阅套餐平台，spec B3） */}
         <Select value={filterCodingPlan ? "coding" : "all"} onValueChange={v => setFilterCodingPlan(v === "coding")}>
-          <SelectTrigger style={{ fontSize: 12, width: 130, height: 30 }}>
+          <SelectTrigger style={{ fontSize: 14, width: 130, height: 30 }}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -707,7 +707,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                 aria-selected={activeTab === id}
                 variant={activeTab === id ? "default" : "ghost"}
                 style={{
-                  fontSize: 12,
+                  fontSize: 14,
                   padding: "4px 10px",
                   height: "auto",
                   ...(activeTab === id
@@ -731,7 +731,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <Select value={trendBy} onValueChange={v => setTrendBy(v as typeof trendBy)}>
-                  <SelectTrigger style={{ fontSize: 12, width: 110, height: 30 }}>
+                  <SelectTrigger style={{ fontSize: 14, width: 110, height: 30 }}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -747,7 +747,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                     variant={!trendStacked ? "default" : "ghost"}
                     aria-pressed={!trendStacked}
                     style={{
-                      fontSize: 12, padding: "4px 10px", height: "auto",
+                      fontSize: 14, padding: "4px 10px", height: "auto",
                       ...(!trendStacked
                         ? {
                             background: "var(--accent-subtle)",
@@ -764,7 +764,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                     variant={trendStacked ? "default" : "ghost"}
                     aria-pressed={trendStacked}
                     style={{
-                      fontSize: 12, padding: "4px 10px", height: "auto",
+                      fontSize: 14, padding: "4px 10px", height: "auto",
                       ...(trendStacked
                         ? {
                             background: "var(--accent-subtle)",
@@ -853,7 +853,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                     aria-pressed={densityView === v}
                     variant={densityView === v ? "default" : "ghost"}
                     style={{
-                      fontSize: 12,
+                      fontSize: 14,
                       padding: "4px 10px",
                       height: "auto",
                       ...(densityView === v
@@ -947,7 +947,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                     </span>
                   </div>
                   <Select value={String(sessionDays)} onValueChange={v => setSessionDays(Number(v))}>
-                    <SelectTrigger style={{ fontSize: 12, width: 110, height: 30 }}>
+                    <SelectTrigger style={{ fontSize: 14, width: 110, height: 30 }}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1169,7 +1169,7 @@ interface PagerProps {
 function Pager({ page, pageCount, onPrev, onNext, t }: PagerProps) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: F.small }}>
-      <Button variant="outline" style={{ fontSize: 12, padding: "3px 10px", height: "auto" }} disabled={page <= 0} onClick={onPrev}>
+      <Button variant="outline" style={{ fontSize: 14, padding: "3px 10px", height: "auto" }} disabled={page <= 0} onClick={onPrev}>
         {t("stats.prevPage", "上一页")}
       </Button>
       <span style={{ color: "var(--text-secondary)" }}>
@@ -1178,7 +1178,7 @@ function Pager({ page, pageCount, onPrev, onNext, t }: PagerProps) {
             于是 {{current}} 原样印在界面上。Flutter 侧传的就是 current。 */}
         {t("stats.pageOf", "{{current}} / {{total}}", { current: page + 1, total: pageCount })}
       </span>
-      <Button variant="outline" style={{ fontSize: 12, padding: "3px 10px", height: "auto" }} disabled={page >= pageCount - 1} onClick={onNext}>
+      <Button variant="outline" style={{ fontSize: 14, padding: "3px 10px", height: "auto" }} disabled={page >= pageCount - 1} onClick={onNext}>
         {t("stats.nextPage", "下一页")}
       </Button>
     </div>

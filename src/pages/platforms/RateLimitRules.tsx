@@ -60,8 +60,8 @@ export function draftToRule(d: RateLimitRuleDraft): RateLimitRule {
   return out;
 }
 
-const numStyle = { fontSize: 12, height: 28, minWidth: 70, textAlign: "center", fontVariantNumeric: "tabular-nums" } as React.CSSProperties;
-const miniLabel = { fontSize: 11, color: "var(--text-tertiary)" } as const;
+const numStyle = { fontSize: 14, height: 28, minWidth: 70, textAlign: "center", fontVariantNumeric: "tabular-nums" } as React.CSSProperties;
+const miniLabel = { fontSize: 14, color: "var(--text-tertiary)" } as const;
 
 function ModelsPicker({ i, value, onChange, options, protocol, t }: {
   i: number; value: string[]; onChange: (v: string[]) => void; options: string[]; protocol: Protocol; t: TFunction;
@@ -77,8 +77,8 @@ function ModelsPicker({ i, value, onChange, options, protocol, t }: {
     <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", flex: "1 1 260px", minWidth: 200 }}>
       {value.map(m => (
         <span key={m} data-testid={`rl-rule-${i}-chip-${m}`} className="model-chip"
-          style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
-          <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 11 }}>{m}</span>
+          style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", fontSize: 14, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
+          <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 14 }}>{m}</span>
           <button type="button" data-testid={`rl-rule-${i}-chip-remove-${m}`} className="model-chip-remove"
             aria-label={t("platform.modelChain.remove", "移除")}
             onClick={() => onChange(value.filter(x => x !== m))}
@@ -135,11 +135,11 @@ export function RateLimitRulesList({ rules, onChange, modelOptions, protocol, t 
                 <Input data-testid={`rl-rule-${i}-start`} type="number" min={0} max={23} value={r.start} placeholder="0" aria-label={t("platform.start_hour", "起")} onChange={e => upd(i, { start: e.target.value })} style={{ ...numStyle, width: 56, minWidth: 56 }} />
                 <span style={miniLabel}>–</span>
                 <Input data-testid={`rl-rule-${i}-end`} type="number" min={0} max={24} value={r.end} placeholder="24" aria-label={t("platform.end_hour", "止")} onChange={e => upd(i, { end: e.target.value })} style={{ ...numStyle, width: 56, minWidth: 56 }} />
-                <Input data-testid={`rl-rule-${i}-tz`} value={r.tz} placeholder="UTC / Asia/Shanghai" aria-label={t("platform.rateLimits.windowTz", "时区")} onChange={e => upd(i, { tz: e.target.value })} style={{ fontSize: 11, height: 28, width: 130, fontFamily: "var(--font-mono, monospace)" }} />
+                <Input data-testid={`rl-rule-${i}-tz`} value={r.tz} placeholder="UTC / Asia/Shanghai" aria-label={t("platform.rateLimits.windowTz", "时区")} onChange={e => upd(i, { tz: e.target.value })} style={{ fontSize: 14, height: 28, width: 130, fontFamily: "var(--font-mono, monospace)" }} />
                 <div style={{ display: "flex", gap: 2 }}>
                   {[0, 1, 2, 3, 4, 5, 6].map(d => (
                     <button key={d} type="button" data-testid={`rl-rule-${i}-day-${d}`} data-state={r.days.includes(d) ? "on" : "off"}
-                      className="btn-ghost" style={{ padding: "0 5px", minWidth: 22, fontSize: 11, ...(r.days.includes(d) ? { background: "var(--accent-subtle)", color: "var(--text-primary)" } : {}) }}
+                      className="btn-ghost" style={{ padding: "0 5px", minWidth: 22, fontSize: 14, ...(r.days.includes(d) ? { background: "var(--accent-subtle)", color: "var(--text-primary)" } : {}) }}
                       onClick={() => upd(i, { days: (r.days.includes(d) ? r.days.filter(x => x !== d) : [...r.days, d]).sort((a, b) => a - b) })}>
                       {t(`platform.weekday_short.${d}`)}
                     </button>
@@ -150,13 +150,13 @@ export function RateLimitRulesList({ rules, onChange, modelOptions, protocol, t 
                 <Input data-testid={`rl-rule-${i}-tpm`} type="number" min={0} value={r.tpm} placeholder="TPM" onChange={e => upd(i, { tpm: e.target.value })} style={numStyle} />
               </div>
               {err && (
-                <span role="alert" data-testid={`rl-rule-${i}-error`} data-state={err} style={{ fontSize: 11, color: "var(--destructive, #c0392b)" }}>{errText(err)}</span>
+                <span role="alert" data-testid={`rl-rule-${i}-error`} data-state={err} style={{ fontSize: 14, color: "var(--destructive, #c0392b)" }}>{errText(err)}</span>
               )}
             </div>
           );
         }}
       />
-      <button type="button" data-testid="rl-rules-add" className="btn-ghost" style={{ alignSelf: "flex-start", fontSize: 11, padding: "2px 10px" }}
+      <button type="button" data-testid="rl-rules-add" className="btn-ghost" style={{ alignSelf: "flex-start", fontSize: 14, padding: "2px 10px" }}
         onClick={() => onChange([...rules, newRuleDraft()])}>
         + {t("platform.rateLimits.addRule", "加限频规则")}
       </button>

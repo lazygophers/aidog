@@ -18,7 +18,7 @@ export function Pill({ color, title, onClick, expanded, children, style }: {
     <div
       style={{
         display: "inline-flex", alignItems: "center", gap: 4,
-        fontSize: 12, fontWeight: 600, color,
+        fontSize: 14, fontWeight: 600, color,
         background: `color-mix(in srgb, ${color} 12%, transparent)`,
         border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
         borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap",

@@ -28,27 +28,27 @@ export function ApiCallLogSection({ refreshKey = 0 }: { refreshKey?: number }) {
     <div className="glass-surface" data-testid="api-call-log" data-state={state} style={{ padding: "16px 20px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("apiCallLog.title")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("apiCallLog.title")}</div>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("apiCallLog.desc")}
           </div>
         </div>
-        <button type="button" data-testid="api-call-log-refresh" onClick={load} style={{ fontSize: 12 }}>
+        <button type="button" data-testid="api-call-log-refresh" onClick={load} style={{ fontSize: 14 }}>
           {t("apiCallLog.refresh")}
         </button>
       </div>
       {failed && (
-        <div className="text-secondary" data-testid="api-call-log-error" style={{ fontSize: 12, marginTop: 10 }}>
+        <div className="text-secondary" data-testid="api-call-log-error" style={{ fontSize: 14, marginTop: 10 }}>
           {t("apiCallLog.loadFailed")}
         </div>
       )}
       {state === "empty" && (
-        <div className="text-secondary" data-testid="api-call-log-empty" style={{ fontSize: 12, marginTop: 10 }}>
+        <div className="text-secondary" data-testid="api-call-log-empty" style={{ fontSize: 14, marginTop: 10 }}>
           {t("apiCallLog.empty")}
         </div>
       )}
       {state === "ready" && rows && (
-        <table style={{ width: "100%", marginTop: 10, fontSize: 12, borderCollapse: "collapse" }}>
+        <table style={{ width: "100%", marginTop: 10, fontSize: 14, borderCollapse: "collapse" }}>
           <thead>
             <tr className="text-secondary" style={{ textAlign: "start" }}>
               <th>{t("apiCallLog.colTime")}</th>

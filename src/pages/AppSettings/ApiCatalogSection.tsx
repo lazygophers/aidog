@@ -17,11 +17,11 @@ function CurlBlock({ testId, text }: { testId: string; text: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 4 }}>
-      <code data-testid={testId} style={{ flex: 1, fontSize: 11, wordBreak: "break-all" }}>{text}</code>
+      <code data-testid={testId} style={{ flex: 1, fontSize: 14, wordBreak: "break-all" }}>{text}</code>
       <button
         type="button"
         data-testid={`${testId}-copy`}
-        style={{ fontSize: 11 }}
+        style={{ fontSize: 14 }}
         onClick={() => {
           void navigator.clipboard?.writeText(text);
           setCopied(true);
@@ -38,10 +38,10 @@ function StaticList({ group, items, port }: { group: "local" | "forward"; items:
   const { t } = useTranslation();
   return (
     <div className="glass-surface" data-testid={`api-${group}`} style={{ padding: "16px 20px" }}>
-      <div style={{ fontSize: 13, fontWeight: 600 }}>{t(`apiCatalog.${group}Title`)}</div>
-      <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>{t(`apiCatalog.${group}Desc`)}</div>
+      <div style={{ fontSize: 14, fontWeight: 600 }}>{t(`apiCatalog.${group}Title`)}</div>
+      <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>{t(`apiCatalog.${group}Desc`)}</div>
       {items.map((e) => (
-        <div key={e.id} data-testid={`api-${group}-${e.id}`} style={{ marginTop: 10, fontSize: 12 }}>
+        <div key={e.id} data-testid={`api-${group}-${e.id}`} style={{ marginTop: 10, fontSize: 14 }}>
           <code>{`${e.method} ${e.path}`}</code>
           <CurlBlock testId={`api-${group}-curl-${e.id}`} text={curlForStatic(e, port)} />
         </div>
@@ -78,26 +78,26 @@ export function ApiCatalogSection({ refreshKey = 0 }: { refreshKey?: number }) {
         data-port={port ?? ""}
         style={{ padding: "16px 20px" }}
       >
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("apiCatalog.title")}</div>
-        <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>{t("apiCatalog.desc")}</div>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("apiCatalog.title")}</div>
+        <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>{t("apiCatalog.desc")}</div>
         <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
           <input
             data-testid="api-catalog-search"
             value={query}
             placeholder={t("apiCatalog.search")}
             onChange={(e) => setQuery(e.target.value)}
-            style={{ flex: 1, fontSize: 12 }}
+            style={{ flex: 1, fontSize: 14 }}
           />
-          <select data-testid="api-catalog-category" value={category} onChange={(e) => setCategory(e.target.value)} style={{ fontSize: 12 }}>
+          <select data-testid="api-catalog-category" value={category} onChange={(e) => setCategory(e.target.value)} style={{ fontSize: 14 }}>
             <option value="">{t("apiCatalog.allCategories")}</option>
             {CATEGORIES.map((c) => <option key={c} value={c} data-testid={`api-catalog-category-opt-${c}`}>{catLabel(c)}</option>)}
           </select>
-          <span className="text-secondary" data-testid="api-catalog-count" style={{ fontSize: 12 }}>
+          <span className="text-secondary" data-testid="api-catalog-count" style={{ fontSize: 14 }}>
             {t("apiCatalog.count", { count: rows.length })}
           </span>
         </div>
         {rows.length === 0 && (
-          <div className="text-secondary" data-testid="api-catalog-empty" style={{ fontSize: 12, marginTop: 10 }}>
+          <div className="text-secondary" data-testid="api-catalog-empty" style={{ fontSize: 14, marginTop: 10 }}>
             {t("apiCatalog.empty")}
           </div>
         )}
@@ -107,7 +107,7 @@ export function ApiCatalogSection({ refreshKey = 0 }: { refreshKey?: number }) {
             data-testid={`api-cmd-${c.name}`}
             data-kind={c.desktopOnly ? "desktop" : c.kind}
             data-secret={String(c.exportsSecret)}
-            style={{ marginTop: 12, fontSize: 12 }}
+            style={{ marginTop: 12, fontSize: 14 }}
           >
             <code style={{ fontWeight: 600 }}>{c.name}</code>
             <span className="text-secondary" data-testid={`api-cmd-category-${c.name}`}>{` · ${catLabel(c.category)} · `}</span>

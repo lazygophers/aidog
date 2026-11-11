@@ -42,14 +42,14 @@ export function ModelChainEditor({
             data-state={id === value[0] ? "primary" : "backup"}
             className="model-chip"
             style={{
-              display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 9px", fontSize: 12,
+              display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 9px", fontSize: 14,
               borderRadius: "var(--radius-sm)", border: "1px solid var(--border)",
               background: id === value[0] ? "var(--accent-subtle)" : "transparent",
             }}
           >
             <span
               style={{
-                fontSize: 10, fontWeight: 600, width: 15, height: 15, borderRadius: 4,
+                fontSize: 14, fontWeight: 600, width: 15, height: 15, borderRadius: 4,
                 display: "grid", placeItems: "center", flexShrink: 0,
                 background: id === value[0] ? "var(--primary)" : "var(--muted)",
                 color: id === value[0] ? "var(--primary-foreground)" : "var(--muted-foreground)",

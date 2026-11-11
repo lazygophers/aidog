@@ -431,7 +431,7 @@ export function ImportExportTab() {
 
         {/* 逐项预览：scope 选定后 debounce 自动拉全量条目勾选（默认全选）。 */}
         {previewing && (
-          <div style={{ fontSize: 13, color: "var(--text-tertiary)", display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ fontSize: 14, color: "var(--text-tertiary)", display: "flex", alignItems: "center", gap: 8 }}>
             <span
               className="spin"
               style={{
@@ -461,7 +461,7 @@ export function ImportExportTab() {
           />
         )}
         {!previewing && exportPreview && exportPreview.items.length === 0 && (
-          <div style={{ fontSize: 13, color: "var(--text-tertiary)" }}>
+          <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
             {t("importExport.exportEmpty", "所选范围暂无可导出条目")}
           </div>
         )}
@@ -604,7 +604,7 @@ export function ImportExportTab() {
             background: "var(--color-danger-bg)",
             border: "1px solid var(--color-danger)",
             color: "var(--color-danger)",
-            fontSize: 13,
+            fontSize: 14,
           }}
         >
           {error}

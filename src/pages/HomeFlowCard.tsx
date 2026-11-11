@@ -40,13 +40,13 @@ export function HomeFlowCard({ rows, platforms, ungroupedLabel, loading }: {
     ];
   }, [t, platforms, ungroupedLabel]);
 
-  const btn = (on: boolean) => ({ all: "unset" as const, cursor: "pointer", fontSize: 11, padding: "2px 9px", borderRadius: "var(--radius-sm)",
+  const btn = (on: boolean) => ({ all: "unset" as const, cursor: "pointer", fontSize: 14, padding: "2px 9px", borderRadius: "var(--radius-sm)",
     background: on ? "var(--accent-subtle)" : "transparent", color: on ? "var(--primary)" : P.muted });
 
   return (
     <div data-testid="home-flow" data-loading={loading ? "yes" : "no"} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 12.5, fontWeight: 600, color: P.fg }}>{t("home.flow.title", "请求流量 · 24 小时")}</span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: P.fg }}>{t("home.flow.title", "请求流量 · 24 小时")}</span>
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
           {METRICS.map(m => (
             <button key={m} type="button" data-testid={`flow-metric-${m}`} data-state={metric === m ? "on" : "off"} onClick={() => setMetric(m)} style={btn(metric === m)}>
@@ -56,7 +56,7 @@ export function HomeFlowCard({ rows, platforms, ungroupedLabel, loading }: {
         </div>
       </div>
       {!loading && rows.length === 0 ? (
-        <div data-testid="flow-empty" style={{ fontSize: 12, padding: "18px 0", textAlign: "center", color: P.muted }}>
+        <div data-testid="flow-empty" style={{ fontSize: 14, padding: "18px 0", textAlign: "center", color: P.muted }}>
           {t("group.flow.empty", "窗口内无请求")}
         </div>
       ) : (

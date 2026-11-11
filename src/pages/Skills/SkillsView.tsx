@@ -57,7 +57,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{t("skills.title", "Skills")}</h2>
           {refreshing && !installedLoading && (
-            <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
               {t("skills.refreshing", "刷新中…")}
             </span>
           )}
@@ -65,7 +65,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Button
             className="ripple"
-            style={{ fontSize: 12 }}
+            style={{ fontSize: 14 }}
             disabled={!writeReady || scopeInvalid || busyKey !== null}
             onClick={(e) => { makeRipple(e); setSubView("install"); }}
             title={t("skills.install.addBtn", "添加 Skills")}
@@ -75,7 +75,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
           <Button
             variant="outline"
             className="ripple"
-            style={{ fontSize: 12 }}
+            style={{ fontSize: 14 }}
             disabled={busyKey !== null}
             onClick={(e) => { makeRipple(e); setPasteText(""); setMessage(null); setPasteOpen(true); }}
             title={t("skills.importFromShare", "从分享导入")}
@@ -85,7 +85,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
           <Button
             variant="outline"
             className="ripple"
-            style={{ fontSize: 12 }}
+            style={{ fontSize: 14 }}
             disabled={scopeInvalid || busyKey !== null || refreshing}
             onClick={(e) => { makeRipple(e); refreshInstalled(); }}
             title={t("skills.refresh", "刷新")}
@@ -95,7 +95,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
           <Button
             variant="outline"
             className="ripple"
-            style={{ fontSize: 12 }}
+            style={{ fontSize: 14 }}
             disabled={!writeReady || scopeInvalid || busyKey !== null}
             onClick={(e) => { makeRipple(e); handleUpdate(); }}
           >
@@ -104,7 +104,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
           <Button
             variant="destructive"
             className="ripple"
-            style={{ fontSize: 12 }}
+            style={{ fontSize: 14 }}
             disabled={!writeReady || scopeInvalid || busyKey !== null || installed.length === 0}
             onClick={(e) => { makeRipple(e); setConfirmUninstall(true); }}
           >
@@ -113,7 +113,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
           <Button
             variant="destructive"
             className="ripple"
-            style={{ fontSize: 12 }}
+            style={{ fontSize: 14 }}
             disabled={!writeReady || scopeInvalid || busyKey !== null || selectedNames.size === 0}
             onClick={(e) => { makeRipple(e); setConfirmUninstallBatch(true); }}
           >
@@ -124,7 +124,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
           <Button
             variant="outline"
             className="ripple"
-            style={{ fontSize: 12 }}
+            style={{ fontSize: 14 }}
             disabled={!writeReady || scopeInvalid || busyKey !== null || installed.length === 0}
             onClick={(e) => { makeRipple(e); setAlignOpen(true); }}
           >
@@ -142,7 +142,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
           className="glass-surface"
           style={{
             padding: "12px 16px",
-            fontSize: 13,
+            fontSize: 14,
             color: "var(--text-secondary)",
             borderInlineStart: "3px solid var(--accent)",
           }}
@@ -168,7 +168,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
             className="glass-elevated"
             style={{
               padding: "10px 16px",
-              fontSize: 12,
+              fontSize: 14,
               whiteSpace: "pre-wrap",
               wordBreak: "break-word",
               display: "flex",
@@ -217,7 +217,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
             <span style={{ fontSize: 40, fontWeight: 800, lineHeight: 1, color: "var(--accent)" }}>
               {total}
             </span>
-            <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
               {t("skills.total", "已安装总计")}
             </span>
           </div>
@@ -227,14 +227,14 @@ export function SkillsView({ s }: { s: SkillsData }) {
                 <img src={AGENT_ICONS[a]} alt={t(`skills.agent.${a}`, a)} className="hover-lift" style={{ width: 22, height: 22 }} />
                 <div style={{ display: "flex", flexDirection: "column" }}>
                   <span style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.1 }}>{agentCounts[a]}</span>
-                  <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                  <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
                     {t(`skills.agent.${a}`, a)}
                   </span>
                 </div>
                 <Button
                   variant="outline"
                   className="ripple"
-                  style={{ fontSize: 11, padding: "3px 8px" }}
+                  style={{ fontSize: 14, padding: "3px 8px" }}
                   disabled={!writeReady || scopeInvalid || busyKey !== null || installed.length === 0 || agentCounts[a] === installed.length}
                   onClick={(e) => { makeRipple(e); handleEnableAll(a); }}
                   title={t("skills.enableAll", "全部启用")}
@@ -248,7 +248,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
               <img src={piIcon} alt="pi" className="hover-lift" style={{ width: 22, height: 22 }} />
               <div style={{ display: "flex", flexDirection: "column" }}>
                 <span style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.1 }}>{total}</span>
-                <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
                   {t("skills.piAlwaysOnDesc", "pi 扫公共 skill 目录，无需逐个启用")}
                 </span>
               </div>
@@ -258,10 +258,10 @@ export function SkillsView({ s }: { s: SkillsData }) {
 
         {/* 右: scope 筛选 (右对齐) */}
         <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
             <span className="text-secondary">{t("skills.scope", "范围")}</span>
             <Select value={scopeKind} onValueChange={(v) => setScopeKind(v as "global" | "project")}>
-              <SelectTrigger style={{ width: "auto", fontSize: 13 }}>
+              <SelectTrigger style={{ width: "auto", fontSize: 14 }}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -278,7 +278,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
                 value={projectPath}
                 onChange={(e) => setProjectPath(e.target.value)}
               />
-              <Button variant="outline" style={{ fontSize: 12 }} onClick={pickProjectDir}>
+              <Button variant="outline" style={{ fontSize: 14 }} onClick={pickProjectDir}>
                 {t("skills.browse", "浏览…")}
               </Button>
             </div>
@@ -290,13 +290,13 @@ export function SkillsView({ s }: { s: SkillsData }) {
       {!installedLoading && installed.length > 0 && (
         <div style={{ display: "flex", gap: 8 }}>
           <Input
-            style={{ flex: 1, fontSize: 13 }}
+            style={{ flex: 1, fontSize: 14 }}
             placeholder={t("skills.searchPlaceholder", "搜索 skills...")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
           <Select value={enabledFilter} onValueChange={(v) => setEnabledFilter(v as "all" | "enabled" | "disabled")}>
-            <SelectTrigger style={{ width: "auto", fontSize: 13 }}>
+            <SelectTrigger style={{ width: "auto", fontSize: 14 }}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -313,11 +313,11 @@ export function SkillsView({ s }: { s: SkillsData }) {
         {installedLoading ? (
           <div className="text-secondary" style={{ padding: 12 }}>{t("status.loading", "加载中…")}</div>
         ) : installed.length === 0 ? (
-          <div className="glass-surface text-secondary" style={{ padding: "24px 16px", textAlign: "center", fontSize: 13 }}>
+          <div className="glass-surface text-secondary" style={{ padding: "24px 16px", textAlign: "center", fontSize: 14 }}>
             {t("skills.installedEmpty", "当前范围下暂无已安装 skills")}
           </div>
         ) : filteredInstalled.length === 0 ? (
-          <div className="glass-surface text-secondary" style={{ padding: "24px 16px", textAlign: "center", fontSize: 13 }}>
+          <div className="glass-surface text-secondary" style={{ padding: "24px 16px", textAlign: "center", fontSize: 14 }}>
             {t("skills.searchEmpty", "没有匹配的 skills")}
           </div>
         ) : (
@@ -398,7 +398,7 @@ function SkillRow({ skill, idx, busyKey, writeReady, selected, onSelect, onToggl
             type="button"
             variant="ghost"
             title={t("skills.detail.view", "查看详情")}
-            style={{ fontSize: 13, fontWeight: 600, padding: 0, height: "auto" }}
+            style={{ fontSize: 14, fontWeight: 600, padding: 0, height: "auto" }}
             onClick={() => onDetail(skill)}
           >
             {skill.name}
@@ -416,7 +416,7 @@ function SkillRow({ skill, idx, busyKey, writeReady, selected, onSelect, onToggl
               }}
               title={skill.source_url ?? skill.source}
               style={{
-                fontSize: 11,
+                fontSize: 14,
                 padding: "2px 8px",
                 borderRadius: 6,
                 background: "var(--accent-subtle)",
@@ -434,7 +434,7 @@ function SkillRow({ skill, idx, busyKey, writeReady, selected, onSelect, onToggl
               variant="outline"
               title={t("skills.sourceType", "来源类型")}
               style={{
-                fontSize: 11,
+                fontSize: 14,
                 padding: "2px 6px",
                 background: "var(--bg-floating)",
                 color: "var(--text-secondary)",
@@ -450,7 +450,7 @@ function SkillRow({ skill, idx, busyKey, writeReady, selected, onSelect, onToggl
               variant="outline"
               title={t("skills.pluginName", "plugin 来源")}
               style={{
-                fontSize: 11,
+                fontSize: 14,
                 padding: "2px 6px",
                 background: "var(--bg-floating)",
                 color: "var(--text-secondary)",
@@ -463,7 +463,7 @@ function SkillRow({ skill, idx, busyKey, writeReady, selected, onSelect, onToggl
             <span
               title={`${t("skills.updatedAt", "更新时间")}: ${formatDateTime(skill.updated_at) ?? skill.updated_at}`}
               style={{
-                fontSize: 11,
+                fontSize: 14,
                 color: "var(--text-secondary)",
               }}
             >
@@ -472,11 +472,11 @@ function SkillRow({ skill, idx, busyKey, writeReady, selected, onSelect, onToggl
           )}
         </div>
         {skill.description?.trim() && (
-          <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>{skill.description}</div>
+          <div style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 4 }}>{skill.description}</div>
         )}
         {/* 安装时间次要行（紧凑） */}
         {skill.installed_at && (
-          <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2, opacity: 0.8 }}>
+          <div style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 2, opacity: 0.8 }}>
             <span>{t("skills.installedAt", "安装于")}: </span>
             <span title={skill.installed_at}>{formatDateTime(skill.installed_at)}</span>
             {skill.skill_folder_hash && (
@@ -526,7 +526,7 @@ function SkillRow({ skill, idx, busyKey, writeReady, selected, onSelect, onToggl
                 className="hover-lift"
                 style={{ width: 18, height: 18, filter: enabled ? "none" : "grayscale(1)" }}
               />
-              <span style={{ fontSize: 11, fontWeight: 600 }}>
+              <span style={{ fontSize: 14, fontWeight: 600 }}>
                 {busy ? t("skills.toggling", "…") : enabled ? t("skills.on", "启用") : t("skills.off", "未启用")}
               </span>
             </Button>
@@ -548,7 +548,7 @@ function SkillRow({ skill, idx, busyKey, writeReady, selected, onSelect, onToggl
           }}
         >
           <img src={piIcon} alt="pi" style={{ width: 18, height: 18 }} />
-          <span style={{ fontSize: 11, fontWeight: 600 }}>{t("skills.piAlwaysOn", "常开")}</span>
+          <span style={{ fontSize: 14, fontWeight: 600 }}>{t("skills.piAlwaysOn", "常开")}</span>
         </span>
       </div>
       {/* 分享（仅 catalog 来源可分享：source 缺失的手动 symlink skill 隐藏按钮） */}
@@ -556,7 +556,7 @@ function SkillRow({ skill, idx, busyKey, writeReady, selected, onSelect, onToggl
         <Button
           variant="outline"
           className="ripple"
-          style={{ fontSize: 11, padding: "4px 10px", flexShrink: 0 }}
+          style={{ fontSize: 14, padding: "4px 10px", flexShrink: 0 }}
           onClick={(e) => { makeRipple(e); onShare(skill); }}
           title={t("skills.share", "分享")}
         >
@@ -567,7 +567,7 @@ function SkillRow({ skill, idx, busyKey, writeReady, selected, onSelect, onToggl
       <Button
         variant="destructive"
         className="ripple"
-        style={{ fontSize: 11, padding: "4px 10px", flexShrink: 0 }}
+        style={{ fontSize: 14, padding: "4px 10px", flexShrink: 0 }}
         disabled={!writeReady || busyKey !== null}
         onClick={(e) => { makeRipple(e); onUninstall(skill); }}
         title={t("skills.uninstall", "卸载")}

@@ -90,11 +90,11 @@ export function CustomModelSlotsSection() {
   return (
     <div className="glass-surface" data-testid="custom-slots-section" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
       <div>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("customSlots.title")}</div>
-        <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>{t("customSlots.desc")}</div>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("customSlots.title")}</div>
+        <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>{t("customSlots.desc")}</div>
       </div>
       {list.map((s) => (
-        <div key={s.name} data-testid={`slot-row-${s.name}`} data-match={s.match} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12 }}>
+        <div key={s.name} data-testid={`slot-row-${s.name}`} data-match={s.match} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14 }}>
           <span style={{ fontWeight: 600, minWidth: 120 }}>{s.name}</span>
           <select
             data-testid={`slot-match-${s.name}`}
@@ -122,11 +122,11 @@ export function CustomModelSlotsSection() {
         <Button size="sm" data-testid="slot-add" onClick={add}>{t("customSlots.add")}</Button>
       </div>
       {error && (
-        <div data-testid="slot-error" data-state={error} style={{ fontSize: 12, color: "var(--destructive, #d33)" }}>
+        <div data-testid="slot-error" data-state={error} style={{ fontSize: 14, color: "var(--destructive, #d33)" }}>
           {errorLabel(error)}
         </div>
       )}
-      {saveError && <div data-testid="slot-save-error" style={{ fontSize: 12, color: "var(--destructive, #d33)" }}>{saveError}</div>}
+      {saveError && <div data-testid="slot-save-error" style={{ fontSize: 14, color: "var(--destructive, #d33)" }}>{saveError}</div>}
       <AlertDialog open={pending !== null} onOpenChange={(o) => { if (!o) setPending(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>

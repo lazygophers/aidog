@@ -89,9 +89,9 @@ export function GaugeChart({
           <span style={{ fontSize: size / 7, fontWeight: 600 }}>
             {formatPercent(fraction * 100, 0)}
           </span>
-          <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>{fmt(value)}</span>
+          <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>{fmt(value)}</span>
           {label != null && (
-            <span style={{ fontSize: 11, color: "var(--text-tertiary)", maxWidth: "70%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <span style={{ fontSize: 14, color: "var(--text-tertiary)", maxWidth: "70%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {label}
             </span>
           )}

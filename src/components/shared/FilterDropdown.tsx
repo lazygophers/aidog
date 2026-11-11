@@ -90,7 +90,7 @@ export function FilterDropdown({ width, value, onChange, allLabel, searchPlaceho
         <div style={{ overflowY: "auto", maxHeight: 250, display: "flex", flexDirection: "column", gap: 2 }}>
           <FilterOption label={allLabel} active={value === ""} onClick={() => { onChange(""); setOpen(false); setSearch(""); }} />
           {filtered.length === 0 ? (
-            <div style={{ fontSize: 12, color: "var(--text-tertiary)", padding: "6px 8px" }}>{emptyLabel}</div>
+            <div style={{ fontSize: 14, color: "var(--text-tertiary)", padding: "6px 8px" }}>{emptyLabel}</div>
           ) : (
             filtered.map(o => (
               <FilterOption

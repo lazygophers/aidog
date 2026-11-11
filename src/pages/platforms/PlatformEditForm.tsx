@@ -392,7 +392,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         )}
 
         {saveError && (
-          <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>
+          <div className="toast" style={{ fontSize: 14, wordBreak: "break-all" }}>
             {saveError}
           </div>
         )}

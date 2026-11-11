@@ -374,10 +374,10 @@ function ConditionNodeEditor({ node, onChange, onRemove, removeLabel, depth }: N
         <div style={{ flex: 1 }} />
         {!isNot && (
           <>
-            <Button variant="ghost" style={{ fontSize: 11 }} onClick={() => addChild(true)}>
+            <Button variant="ghost" style={{ fontSize: 14 }} onClick={() => addChild(true)}>
               + {t("middleware.addLeaf", "条件")}
             </Button>
-            <Button variant="ghost" style={{ fontSize: 11 }} onClick={() => addChild(false)}>
+            <Button variant="ghost" style={{ fontSize: 14 }} onClick={() => addChild(false)}>
               + {t("middleware.addGroup", "子组")}
             </Button>
           </>
@@ -444,7 +444,7 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
       {steps.map((st, i) => (
         <div key={i} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: 8, display: "flex", flexDirection: "column", gap: 6, background: "var(--bg-glass)" }}>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <span style={{ fontSize: 11, color: "var(--text-tertiary)", width: 18 }}>{i + 1}</span>
+            <span style={{ fontSize: 14, color: "var(--text-tertiary)", width: 18 }}>{i + 1}</span>
             <Select value={st.kind} onValueChange={(v) => setStep(i, { ...st, kind: v as ActionKind })}>
               <SelectTrigger style={{ fontSize: F.hint, width: "auto", minWidth: 110, flexShrink: 0 }}><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -454,8 +454,8 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
               </SelectContent>
             </Select>
             <div style={{ flex: 1 }} />
-            <Button variant="ghost" style={{ fontSize: 11 }} onClick={() => move(i, -1)} disabled={i === 0}>↑</Button>
-            <Button variant="ghost" style={{ fontSize: 11 }} onClick={() => move(i, 1)} disabled={i === steps.length - 1}>↓</Button>
+            <Button variant="ghost" style={{ fontSize: 14 }} onClick={() => move(i, -1)} disabled={i === 0}>↑</Button>
+            <Button variant="ghost" style={{ fontSize: 14 }} onClick={() => move(i, 1)} disabled={i === steps.length - 1}>↓</Button>
             <Button variant="ghost" onClick={() => remove(i)} title={t("action.delete", "删除")} style={{ color: "var(--text-tertiary)" }}>
               <IconClose size={12} />
             </Button>
@@ -464,7 +464,7 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
           {(st.kind === "mask" || st.kind === "override") && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
               {st.kind === "mask" && (
-                <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11 }}>
+                <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 14 }}>
                   <Switch
                     data-testid="mask-mode-toggle"
                     checked={st.params.mode === "reversible"}
@@ -519,14 +519,14 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
           )}
           {st.kind === "block" && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-              <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11 }}>
+              <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 14 }}>
                 <Switch
                   checked={st.params.observe}
                   onCheckedChange={(v) => setStep(i, { ...st, params: { ...st.params, observe: v } })}
                 />
                 {t("middleware.observe", "观察模式")}
               </label>
-              <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+              <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
                 {t("middleware.observeHint", "开启后命中不拦截：请求照常转发并计费，只在日志里记一笔，用来验证规则是否误伤")}
               </span>
             </div>
@@ -562,7 +562,7 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
           )}
           {st.kind === "budget_gate" && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>$</span>
+              <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>$</span>
               <Input
                 style={{ fontSize: F.hint, minWidth: 110, flex: "0 1 160px" }}
                 type="number"
@@ -574,7 +574,7 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
                   setStep(i, { ...st, params: { ...st.params, budget_usd: Number(e.target.value) || 0 } })
                 }
               />
-              <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+              <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
                 {t("middleware.budgetHint", "本自然月内作用范围的累计花费达到该金额后，请求被拒绝（每月 1 号归零）")}
               </span>
             </div>
@@ -588,7 +588,7 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
                   onChange={(v) => setStep(i, { ...st, params: { ...st.params, category: v } })}
                 />
               </div>
-              <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 11 }}>
+              <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 14 }}>
                 <Switch checked={st.params.retryable} onCheckedChange={(v) => setStep(i, { ...st, params: { ...st.params, retryable: v } })} />
                 retryable
               </label>
@@ -772,7 +772,7 @@ export function RuleForm({ rule, readOnly, onSave, onCancel }: RuleFormProps) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: S.gap }}>
       {readOnly && (
-        <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+        <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
           {t("middleware.builtinReadonlyHint", "内置规则只可启停，内容不可修改")}
         </div>
       )}
@@ -799,11 +799,11 @@ export function RuleForm({ rule, readOnly, onSave, onCancel }: RuleFormProps) {
         </span>
         <div style={{ flex: 1 }} />
         {mode === "cards" ? (
-          <Button variant="ghost" style={{ fontSize: 11 }} onClick={switchToDsl}>
+          <Button variant="ghost" style={{ fontSize: 14 }} onClick={switchToDsl}>
             {t("middleware.toDsl", "DSL 源码")}
           </Button>
         ) : (
-          <Button variant="ghost" style={{ fontSize: 11 }} onClick={switchToCards} disabled={!!dslError}>
+          <Button variant="ghost" style={{ fontSize: 14 }} onClick={switchToCards} disabled={!!dslError}>
             {t("middleware.toCards", "卡片模式")}
           </Button>
         )}
@@ -821,7 +821,7 @@ export function RuleForm({ rule, readOnly, onSave, onCancel }: RuleFormProps) {
           <Textarea
             style={{
               fontFamily: '"SF Mono", "Fira Code", monospace',
-              fontSize: 12,
+              fontSize: 14,
               lineHeight: 1.6,
               minHeight: 120,
               resize: "vertical",
@@ -840,16 +840,16 @@ export function RuleForm({ rule, readOnly, onSave, onCancel }: RuleFormProps) {
             }}
             spellCheck={false}
           />
-          <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+          <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
             {t("middleware.dslHint", '语法: ALL(...)/ANY(...)/叶子，叶子 = target[.field] contains|regex|exact "pattern"')}
           </div>
           {dslError && (
-            <div style={{ fontSize: 11, color: "var(--color-danger)", wordBreak: "break-all" }}>{dslError}</div>
+            <div style={{ fontSize: 14, color: "var(--color-danger)", wordBreak: "break-all" }}>{dslError}</div>
           )}
         </label>
       )}
       {phaseError && (
-        <div style={{ fontSize: 11, color: "var(--color-danger)" }}>{phaseError}</div>
+        <div style={{ fontSize: 14, color: "var(--color-danger)" }}>{phaseError}</div>
       )}
 
       {/* 动作链 */}
@@ -885,7 +885,7 @@ export function RuleForm({ rule, readOnly, onSave, onCancel }: RuleFormProps) {
       </div>
 
       {saveError && (
-        <div style={{ fontSize: 11, color: "var(--color-danger)", wordBreak: "break-all" }}>{saveError}</div>
+        <div style={{ fontSize: 14, color: "var(--color-danger)", wordBreak: "break-all" }}>{saveError}</div>
       )}
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
@@ -974,23 +974,23 @@ function RuleRow({ rule, budget, onEdit, onToggle, onDelete }: RuleRowProps) {
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontSize: F.hint, fontWeight: 600 }}>{rule.name}</span>
           {rule.is_builtin && (
-            <span className="badge badge-accent" style={{ fontSize: 11 }}>
+            <span className="badge badge-accent" style={{ fontSize: 14 }}>
               {t("middleware.builtin", "内置")}
             </span>
           )}
           {rule.failed && (
-            <span className="badge" style={{ fontSize: 11, color: "var(--color-danger)" }}>
+            <span className="badge" style={{ fontSize: 14, color: "var(--color-danger)" }}>
               {t("middleware.failed", "失效")}
             </span>
           )}
-          <span className="badge" style={{ fontSize: 11 }}>
+          <span className="badge" style={{ fontSize: 14 }}>
             {actionsSummary(t, rule.actions)}
           </span>
           {hasReversible(rule.actions) && (
             <span
               data-testid="rule-reversible-badge"
               className="badge"
-              style={{ fontSize: 11 }}
+              style={{ fontSize: 14 }}
               title={t("middleware.maskReversibleHint", "命中片段以占位符发往上游，响应返回时自动还原")}
             >
               {t("middleware.reversible", "可还原")}
@@ -999,14 +999,14 @@ function RuleRow({ rule, budget, onEdit, onToggle, onDelete }: RuleRowProps) {
           {hasObserve(rule.actions) && (
             <span
               className="badge"
-              style={{ fontSize: 11, color: "var(--color-warning)" }}
+              style={{ fontSize: 14, color: "var(--color-warning)" }}
               title={t("middleware.observeHint", "开启后命中不拦截：请求照常转发并计费，只在日志里记一笔，用来验证规则是否误伤")}
             >
               {t("middleware.observe", "观察模式")}
             </span>
           )}
           {!!appliesSummary(rule.applies_to) && (
-            <span className="badge" style={{ fontSize: 11 }}>
+            <span className="badge" style={{ fontSize: 14 }}>
               {appliesSummary(rule.applies_to)}
             </span>
           )}
@@ -1014,7 +1014,7 @@ function RuleRow({ rule, budget, onEdit, onToggle, onDelete }: RuleRowProps) {
         {!rule.failed && (
           <div
             style={{
-              fontSize: 11,
+              fontSize: 14,
               color: "var(--text-tertiary)",
               marginTop: 3,
               fontFamily: '"SF Mono", "Fira Code", monospace',
@@ -1049,14 +1049,14 @@ function RuleRow({ rule, budget, onEdit, onToggle, onDelete }: RuleRowProps) {
                 }}
               />
             </div>
-            <span data-testid="budget-used" style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+            <span data-testid="budget-used" style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
               {t("middleware.budgetUsed", "本月已用")} {formatMoney(budget.spent_usd)} /{" "}
               {formatMoney(budget.budget_usd)}
             </span>
             <span
               data-testid="budget-remaining"
               style={{
-                fontSize: 11,
+                fontSize: 14,
                 color: budget.remaining_usd <= 0 ? "var(--color-danger)" : "var(--text-tertiary)",
               }}
             >
@@ -1238,7 +1238,7 @@ export function MiddlewareRulesPanel() {
       />
 
       {error && (
-        <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>
+        <div className="toast" style={{ fontSize: 14, wordBreak: "break-all" }}>
           {error}
         </div>
       )}
@@ -1296,8 +1296,8 @@ export function MiddlewareSettingsTab() {
         style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("middleware.masterToggle", "中间件总开关")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("middleware.masterToggle", "中间件总开关")}</div>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("middleware.masterToggleDesc", "关闭后全部规则旁路，请求 / 响应不经过中间件处理")}
           </div>
         </div>
@@ -1309,12 +1309,12 @@ export function MiddlewareSettingsTab() {
         staggerMs={60}
         style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12, opacity: settings.enabled ? 1 : 0.55 }}
       >
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("middleware.globalRules", "规则列表")}</div>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("middleware.globalRules", "规则列表")}</div>
         <MiddlewareRulesPanel />
       </MwSectionCard>
 
       {error && (
-        <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>
+        <div className="toast" style={{ fontSize: 14, wordBreak: "break-all" }}>
           {error}
         </div>
       )}

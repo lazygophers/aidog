@@ -103,8 +103,8 @@ export function SchedulingSettingsTab() {
         style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("scheduling.masterToggle", "熔断总开关")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("scheduling.masterToggle", "熔断总开关")}</div>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("scheduling.masterToggleDesc", "关闭后旁路熔断：失败平台不再被临时摘除")}
           </div>
         </div>
@@ -117,8 +117,8 @@ export function SchedulingSettingsTab() {
         style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("scheduling.cacheAffinity", "缓存亲和")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("scheduling.cacheAffinity", "缓存亲和")}</div>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("scheduling.cacheAffinityDesc", "响应带缓存时对话保持绑定回答它的平台；连续两次无缓存自动解绑")}
           </div>
         </div>
@@ -131,8 +131,8 @@ export function SchedulingSettingsTab() {
         style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}
       >
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("scheduling.defaultRoutingMode", "默认调度策略")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("scheduling.defaultRoutingMode", "默认调度策略")}</div>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("scheduling.defaultRoutingModeDesc", "Group 未单独指定时使用的全局默认策略")}
           </div>
         </div>
@@ -157,19 +157,19 @@ export function SchedulingSettingsTab() {
         style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12, opacity: settings.enabled ? 1 : 0.55 }}
       >
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("scheduling.breakerDefaults", "全局熔断默认")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("scheduling.breakerDefaults", "全局熔断默认")}</div>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("scheduling.breakerDefaultsDesc", "平台未单独覆盖（留空 / 0）时使用的默认熔断阈值")}
           </div>
         </div>
         <div style={rowStyle}>
-          <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("platform.breakerFailureThreshold", "失败阈值")}</span>
+          <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>{t("platform.breakerFailureThreshold", "失败阈值")}</span>
           <Input
              type="number" min={0} style={{ width: 140 }}
             value={settings.breaker_failure_threshold}
             onChange={e => setNum("breaker_failure_threshold", e.target.value)}
           />
-          <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("platform.breakerHalfOpenMax", "半开探测数")}</span>
+          <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>{t("platform.breakerHalfOpenMax", "半开探测数")}</span>
           <Input
              type="number" min={0} style={{ width: 140 }}
             value={settings.breaker_half_open_max}
@@ -179,7 +179,7 @@ export function SchedulingSettingsTab() {
       </SchedSectionCard>
 
       {error && (
-        <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>
+        <div className="toast" style={{ fontSize: 14, wordBreak: "break-all" }}>
           {error}
         </div>
       )}

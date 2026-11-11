@@ -119,14 +119,14 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
         borderLeft: `3px solid ${r.success ? "var(--color-success)" : "var(--color-danger)"}`,
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontWeight: 600, fontSize: 12 }}>{r.model}</div>
-          <div style={{ display: "flex", gap: 8, fontSize: 11, color: "var(--text-secondary)" }}>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>{r.model}</div>
+          <div style={{ display: "flex", gap: 8, fontSize: 14, color: "var(--text-secondary)" }}>
             <span style={{ display: "inline-flex" }}>{r.success ? <IconCheck size={12} color="var(--color-success)" /> : <IconClose size={12} color="var(--color-danger)" />}</span>
             {r.duration_ms > 0 && <span>{r.duration_ms}ms</span>}
             {r.output_tokens > 0 && <span>{r.input_tokens + r.output_tokens} tok</span>}
           </div>
         </div>
-        {r.error && <div style={{ fontSize: 11, color: "var(--color-danger)", marginTop: 4 }}>{r.error}</div>}
+        {r.error && <div style={{ fontSize: 14, color: "var(--color-danger)", marginTop: 4 }}>{r.error}</div>}
         {r.response_preview && <TestResultBody body={r.response_preview} />}
       </div>
     );
@@ -140,7 +140,7 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
       }}>
         <DialogHeader style={{ display: "block" }}>
           <DialogTitle style={{ fontSize: 15, fontWeight: 700 }}>{t("test.title", "模型测试")}</DialogTitle>
-          <DialogDescription className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <DialogDescription className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {platform.name} · {protocolLabel || platform.platform_type}
           </DialogDescription>
         </DialogHeader>
@@ -150,7 +150,7 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
             <Button key={m.key}
               variant={mode === m.key ? "default" : "outline"}
               className="ripple"
-              style={{ fontSize: 11, padding: "4px 8px", height: "auto" }}
+              style={{ fontSize: 14, padding: "4px 8px", height: "auto" }}
               onClick={(e) => { makeRipple(e); setMode(m.key); setSelectedModels([]); setResults([]); }}
             >{m.label}</Button>
           ))}
@@ -162,7 +162,7 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
               <Button key={m}
                 variant={selectedModels.includes(m) ? "default" : "outline"}
                 className="ripple"
-                style={{ fontSize: 11, padding: "3px 8px", height: "auto" }}
+                style={{ fontSize: 14, padding: "3px 8px", height: "auto" }}
                 onClick={(e) => { makeRipple(e); toggleModel(m); }}
               >{m}</Button>
             ))}
@@ -170,14 +170,14 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
         )}
 
         {mode === "custom" && (
-          <Textarea style={{ fontSize: 12, minHeight: 60, resize: "vertical" }}
+          <Textarea style={{ fontSize: 14, minHeight: 60, resize: "vertical" }}
             placeholder={t("test.promptPlaceholder", "输入测试提示词...")}
             value={customPrompt} onChange={e => setCustomPrompt(e.target.value)} />
         )}
 
         <Button variant="default"
           className="ripple"
-          style={{ fontSize: 13, padding: "8px 16px", height: "auto", alignSelf: "flex-start" }}
+          style={{ fontSize: 14, padding: "8px 16px", height: "auto", alignSelf: "flex-start" }}
           onClick={(e) => { makeRipple(e); runTest(); }}
           disabled={running || (needsModelSelect && selectedModels.length === 0 && mode !== "batch" && allModels.length === 0)}
         >
@@ -188,7 +188,7 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
 
         {results.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{t("test.results", "测试结果")}</div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>{t("test.results", "测试结果")}</div>
             {results.map((r, i) => (
               <TestResultItem key={i} r={r} idx={i} />
             ))}

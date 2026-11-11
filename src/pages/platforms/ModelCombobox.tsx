@@ -66,7 +66,7 @@ export function ModelCombobox({
           <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
             <Input
               className="input"
-              style={{ width: "100%", fontSize: 13, padding: "6px 8px", paddingRight: hasDropdown ? 24 : undefined, ...inputStyle }}
+              style={{ width: "100%", fontSize: 14, padding: "6px 8px", paddingRight: hasDropdown ? 24 : undefined, ...inputStyle }}
               placeholder={placeholder ?? t("platform.models_placeholder", "模型名")}
               {...inputProps}
               value={value}
@@ -119,7 +119,7 @@ export function ModelCombobox({
               justifyContent: "flex-start",
               gap: 8,
               padding: "6px 12px",
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: value === m ? 600 : 400,
               color: value === m ? "var(--accent)" : "var(--text-primary)",
               background: value === m ? "var(--accent-subtle)" : "transparent",

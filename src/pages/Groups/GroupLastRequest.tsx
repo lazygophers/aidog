@@ -12,7 +12,7 @@ export function GroupLastRequest({ last, onOpen }: { last: Last | undefined; onO
   const label = t("group.lastRequest.label", "最近请求");
   if (!last) {
     return (
-      <span data-testid="group-last-request" data-state="none" style={{ fontSize: 12, color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>
+      <span data-testid="group-last-request" data-state="none" style={{ fontSize: 14, color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>
         {label} · {t("group.lastRequest.none", "暂无请求")}
       </span>
     );
@@ -30,7 +30,7 @@ export function GroupLastRequest({ last, onOpen }: { last: Last | undefined; onO
       role={onOpen ? "button" : undefined}
       title={onOpen ? t("group.lastRequest.viewLog", "查看日志详情") : undefined}
       onClick={onOpen ? (e) => { e.stopPropagation(); onOpen(last.id); } : undefined}
-      style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, minWidth: 0, cursor: onOpen ? "pointer" : undefined }}
+      style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, minWidth: 0, cursor: onOpen ? "pointer" : undefined }}
     >
       <span style={{ color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>{label}</span>
       <b style={{ color, fontWeight: 600 }}>{stateText}</b>

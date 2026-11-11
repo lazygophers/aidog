@@ -166,13 +166,13 @@ export function SearchableProtocolSelect({
         }}
         onKeyDown={handleTriggerKey}
       >
-        <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, color: "var(--text-primary)", fontSize: 13 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, color: "var(--text-primary)", fontSize: 14 }}>
           <ProtocolLogo protocol={value} size={20} />
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedLabel}</span>
         </span>
         {/* 萤火虫箭头 (对齐 select.tsx group-data-[state=open]:rotate-180) */}
         <span style={{
-          fontSize: 11, color: "var(--text-tertiary)",
+          fontSize: 14, color: "var(--text-tertiary)",
           transition: "transform 200ms ease",
           transform: open ? "rotate(180deg)" : "rotate(0deg)",
         }}>▼</span>
@@ -198,14 +198,14 @@ export function SearchableProtocolSelect({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoFocus
-            style={{ fontSize: 12, padding: "6px 10px", marginBottom: 4, width: "100%" }}
+            style={{ fontSize: 14, padding: "6px 10px", marginBottom: 4, width: "100%" }}
             onBlur={() => { setTimeout(() => { setOpen(false); setQuery(""); }, 150); }}
             onKeyDown={handleInputKey}
           />
           {/* 选项列表 */}
           <div style={{ maxHeight: 256, overflowY: "auto" }} ref={scrollRef}>
             {filtered.length === 0 && (
-              <div style={{ padding: "8px 12px", fontSize: 12, color: "var(--text-tertiary)" }}>
+              <div style={{ padding: "8px 12px", fontSize: 14, color: "var(--text-tertiary)" }}>
                 No match
               </div>
             )}
@@ -221,7 +221,7 @@ export function SearchableProtocolSelect({
                   // outline 仅键盘高亮 (无障碍标识), 默认态默认透明
                   style={{
                     display: "flex", width: "100%", justifyContent: "flex-start", textAlign: "left",
-                    padding: "7px 12px", fontSize: 13, height: "auto",
+                    padding: "7px 12px", fontSize: 14, height: "auto",
                     fontWeight: isActive ? 500 : 400,
                     color: "var(--text-primary)",
                     background: isActive || isHighlighted ? "var(--accent-subtle)" : "transparent",
@@ -246,7 +246,7 @@ export function SearchableProtocolSelect({
                       marginLeft: 6, padding: "1px 5px", borderRadius: "var(--radius-sm)",
                       background: "color-mix(in srgb, var(--color-success) 20%, transparent)",
                       color: "var(--color-success, var(--color-success))",
-                      fontSize: 11, fontWeight: 600,
+                      fontSize: 14, fontWeight: 600,
                     }}>
                       Code
                     </span>

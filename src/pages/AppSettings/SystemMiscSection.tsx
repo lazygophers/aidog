@@ -31,13 +31,13 @@ export function SystemMiscSection({ s }: { s: SystemSettings }) {
         flexDirection: "column",
         gap: 12,
       }}>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("proxy.timeout", "超时设置")}</div>
-        <div className="text-secondary" style={{ fontSize: 12 }}>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.timeout", "超时设置")}</div>
+        <div className="text-secondary" style={{ fontSize: 14 }}>
           {t("proxy.timeoutDesc", "系统默认超时，分组和模型级别可覆盖")}
         </div>
         <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 4 }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+            <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
               {t("proxy.requestTimeout", "请求超时")}
             </label>
             <Input
@@ -47,10 +47,10 @@ export function SystemMiscSection({ s }: { s: SystemSettings }) {
               onChange={(e) => handleTimeoutChange(Math.max(0, Number(e.target.value)), connTimeout)}
               style={{ width: 80 }}
             />
-            <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{t("unit.sec", "秒")}</span>
+            <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("unit.sec", "秒")}</span>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+            <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
               {t("proxy.connectTimeout", "连接超时")}
             </label>
             <Input
@@ -60,7 +60,7 @@ export function SystemMiscSection({ s }: { s: SystemSettings }) {
               onChange={(e) => handleTimeoutChange(reqTimeout, Math.max(0, Number(e.target.value)))}
               style={{ width: 80 }}
             />
-            <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{t("unit.sec", "秒")}</span>
+            <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("unit.sec", "秒")}</span>
           </div>
         </div>
       </div>
@@ -74,8 +74,8 @@ export function SystemMiscSection({ s }: { s: SystemSettings }) {
         gap: 12,
       }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("proxy.btcGlobal", "内置工具兼容总开关")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.btcGlobal", "内置工具兼容总开关")}</div>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("proxy.btcGlobalDesc", "开启后所有平台转发时剔除 Claude Code 内置工具定义（ToolSearch/Read/Bash 等），用于不支持内置工具的第三方模型；默认关闭 = 请求原样转发")}
           </div>
         </div>
@@ -106,8 +106,8 @@ export function DbStatsSection({ s }: { s: SystemSettings }) {
         alignItems: "center",
       }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("settings.dbCompact", "立即压缩数据库")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("settings.dbCompact", "立即压缩数据库")}</div>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("settings.dbCompactHint", "全量 VACUUM，期间代理请求将短暂排队")}
           </div>
         </div>
@@ -116,7 +116,7 @@ export function DbStatsSection({ s }: { s: SystemSettings }) {
           onClick={requestDbCompact}
           disabled={dbCompacting}
           style={{
-            padding: "7px 16px", fontSize: 13,
+            padding: "7px 16px", fontSize: 14,
             opacity: dbCompacting ? 0.6 : 1,
           }}
         >
@@ -128,21 +128,21 @@ export function DbStatsSection({ s }: { s: SystemSettings }) {
       <AlertDialog open={dbCompactConfirm} onOpenChange={setDbCompactConfirm}>
         <AlertDialogContent className="glass-elevated" style={{ maxWidth: 380, padding: 20 }}>
           <AlertDialogHeader>
-            <AlertDialogTitle style={{ fontSize: 13, fontWeight: 600 }}>
+            <AlertDialogTitle style={{ fontSize: 14, fontWeight: 600 }}>
               {t("settings.dbCompact", "立即压缩数据库")}
             </AlertDialogTitle>
-            <AlertDialogDescription style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+            <AlertDialogDescription style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6 }}>
               {t("settings.dbCompactHint", "全量 VACUUM，期间代理请求将短暂排队")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel style={{ padding: "6px 14px", fontSize: 12 }}>
+            <AlertDialogCancel style={{ padding: "6px 14px", fontSize: 14 }}>
               {t("common.cancel", "取消")}
             </AlertDialogCancel>
             <AlertDialogAction
               className="ripple"
               onClick={(e) => { makeRipple(e); runDbCompact(); }}
-              style={{ padding: "6px 14px", fontSize: 12 }}
+              style={{ padding: "6px 14px", fontSize: 14 }}
             >
               {t("settings.dbCompact", "立即压缩数据库")}
             </AlertDialogAction>
@@ -158,13 +158,13 @@ export function DbStatsSection({ s }: { s: SystemSettings }) {
         gap: 12,
       }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("stats.aggSettings", "聚合统计")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("stats.aggSettings", "聚合统计")}</div>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("stats.aggSettingsHint", "使用统计独立累计，不受请求日志开关影响")}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
+          <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
             {t("stats.aggRetention", "统计保留天数")}
           </label>
           <Input
@@ -174,12 +174,12 @@ export function DbStatsSection({ s }: { s: SystemSettings }) {
             onChange={(e) => handleStatsRetentionChange(Math.max(0, Number(e.target.value)))}
             style={{ width: 70 }}
           />
-          <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+          <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
             {statsRetention === 0 ? t("proxy.logRetentionForever", "永久保留") : t("unit.days", "天")}
           </span>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-          <div className="text-secondary" style={{ fontSize: 12 }}>
+          <div className="text-secondary" style={{ fontSize: 14 }}>
             {t("stats.rebuildHint", "从历史请求日志全量重建聚合统计表")}
           </div>
           <Button
@@ -187,7 +187,7 @@ export function DbStatsSection({ s }: { s: SystemSettings }) {
             onClick={handleStatsRebuild}
             disabled={statsRebuilding}
             style={{
-              padding: "7px 16px", fontSize: 13,
+              padding: "7px 16px", fontSize: 14,
               opacity: statsRebuilding ? 0.6 : 1, whiteSpace: "nowrap",
             }}
           >
@@ -219,8 +219,8 @@ export function VersionToastSection({ s }: { s: SystemSettings }) {
         alignItems: "center",
       }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("settings.autoUpdate")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("settings.autoUpdate")}</div>
+          <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {t("settings.autoUpdateHint")}
           </div>
         </div>
@@ -235,9 +235,9 @@ export function VersionToastSection({ s }: { s: SystemSettings }) {
           justifyContent: "space-between",
           alignItems: "center",
         }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("app.version")}</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("app.version")}</div>
           <div style={{
-            fontSize: 13,
+            fontSize: 14,
             fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
             color: "var(--text-secondary)",
           }}>v{appVersion}</div>

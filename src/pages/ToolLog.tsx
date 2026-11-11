@@ -14,7 +14,7 @@ const PAGE_SIZE = 50;
 const TOOLS = ["web_search", "web_fetch", "generate_image"] as const;
 const TRIGGERS = ["gateway", "mcp"] as const;
 /** 筛选/表格单元 select 与输入框的统一控件样式（G3：小尺寸 + card 底 + border） */
-const CONTROL = "h-8 rounded-md border border-border bg-card px-2 text-xs";
+const CONTROL = "h-8 rounded-md border border-border bg-card px-2 text-sm";
 
 interface EngineDetail { engine: string; count: number; latency_ms: number; error: string | null }
 
@@ -33,13 +33,13 @@ function Detail({ row }: { row: ToolLogRow }) {
   return (
     <div data-testid={`tool-log-detail-${row.id}`} className="flex flex-col gap-2">
       {row.platform && (
-        <div className="text-[13px] text-secondary">{t("toolLog.platform", "被绕开的平台")}：{row.platform}</div>
+        <div className="text-sm text-secondary">{t("toolLog.platform", "被绕开的平台")}：{row.platform}</div>
       )}
       {row.error && (
-        <div className="text-[13px] text-destructive">{row.error}</div>
+        <div className="text-sm text-destructive">{row.error}</div>
       )}
       {engines.length > 0 && (
-        <table className="text-[11px]">
+        <table className="text-sm">
           <thead>
             <tr>
               <th className="px-2 py-0.5 text-left font-normal">{t("toolLog.engine", "引擎")}</th>
@@ -62,7 +62,7 @@ function Detail({ row }: { row: ToolLogRow }) {
       )}
       <pre
         data-testid={`tool-log-result-${row.id}`}
-        className="m-0 max-h-60 overflow-auto whitespace-pre-wrap break-all rounded-md border border-border bg-card p-1.5 font-mono text-[11px]"
+        className="m-0 max-h-60 overflow-auto whitespace-pre-wrap break-all rounded-md border border-border bg-card p-1.5 font-mono text-sm"
       >
         {row.result || t("toolLog.resultEmpty", "（正文未记录：请开启「记录用户请求原始信息」）")}
       </pre>
@@ -124,12 +124,12 @@ export function ToolLog() {
     <div className="flex flex-col gap-3">
       <div>
         <div data-testid="tool-log-header" className="section-title">{t("page.toolLog", "工具日志")}</div>
-        <div data-testid="tool-log-desc" className="mt-1 text-xs text-secondary">
+        <div data-testid="tool-log-desc" className="mt-1 text-sm text-secondary">
           {t("toolLog.desc", "网关代执行与 HTTP MCP 的每次工具调用流水")}
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 text-xs">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
         <select data-testid="tool-log-filter-tool" value={tool} className={CONTROL}
           onChange={(e) => onFilter(setTool)(e.target.value)}>
           <option value="">{t("toolLog.allTools", "全部工具")}</option>
@@ -140,11 +140,11 @@ export function ToolLog() {
           <option value="">{t("toolLog.allTriggers", "全部触发方")}</option>
           {TRIGGERS.map((x) => <option key={x} value={x}>{t(`toolLog.trigger.${x}`, x)}</option>)}
         </select>
-        <Input data-testid="tool-log-filter-group" value={group} className="h-8 w-40 text-xs"
+        <Input data-testid="tool-log-filter-group" value={group} className="h-8 w-40 text-sm"
           placeholder={t("toolLog.groupPlaceholder", "分组名")}
           onChange={(e) => onFilter(setGroup)(e.target.value)} />
         <span className="ms-auto text-secondary">{t("toolLog.retentionDays", "保留天数（0 = 永久）")}</span>
-        <Input data-testid="tool-log-retention-input" type="number" min={0} value={days} className="h-8 w-20 text-xs"
+        <Input data-testid="tool-log-retention-input" type="number" min={0} value={days} className="h-8 w-20 text-sm"
           onChange={(e) => { setDays(e.target.value); setSaved(false); }} />
         <Button data-testid="tool-log-retention-save" size="sm" variant="outline" onClick={saveRetention}>
           {saved ? t("toolLog.saved", "已保存") : t("toolLog.save", "保存")}
@@ -152,9 +152,9 @@ export function ToolLog() {
       </div>
 
       {page === null ? (
-        <div className="text-[13px] text-tertiary">{t("status.loading", "加载中…")}</div>
+        <div className="text-sm text-tertiary">{t("status.loading", "加载中…")}</div>
       ) : page.rows.length === 0 ? (
-        <div data-testid="tool-log-empty" className="text-[13px] text-tertiary">
+        <div data-testid="tool-log-empty" className="text-sm text-tertiary">
           {t("toolLog.empty", "（暂无工具调用记录）")}
         </div>
       ) : (
@@ -178,7 +178,7 @@ export function ToolLog() {
                   <TableRow data-testid={`tool-log-row-${r.id}`} className="cursor-pointer"
                     onClick={() => toggle(r.id)} aria-expanded={openId === r.id}>
                     <TableCell className="whitespace-nowrap">{formatDateTime(r.created_at) ?? "-"}</TableCell>
-                    <TableCell className="font-mono text-[11px]">{openId === r.id ? "▾ " : "▸ "}{r.tool}</TableCell>
+                    <TableCell className="font-mono text-sm">{openId === r.id ? "▾ " : "▸ "}{r.tool}</TableCell>
                     <TableCell>{t(`toolLog.trigger.${r.trigger}`, r.trigger)}</TableCell>
                     <TableCell>{r.group_name || "-"}</TableCell>
                     <TableCell className="max-w-[280px] truncate">{r.query || "-"}</TableCell>
@@ -192,7 +192,7 @@ export function ToolLog() {
                     <TableRow>
                       <TableCell colSpan={8}>
                         {details[r.id] === undefined ? (
-                          <div className="text-[13px] text-tertiary">{t("status.loading", "加载中…")}</div>
+                          <div className="text-sm text-tertiary">{t("status.loading", "加载中…")}</div>
                         ) : (
                           <Detail row={details[r.id] ?? r} />
                         )}
@@ -203,7 +203,7 @@ export function ToolLog() {
               ))}
             </TableBody>
           </Table>
-          <div className="flex items-center gap-2 text-xs">
+          <div className="flex items-center gap-2 text-sm">
             <Button data-testid="tool-log-prev" size="sm" variant="outline" disabled={offset === 0}
               onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>{t("toolLog.prev", "上一页")}</Button>
             <span className="text-secondary">{offset + 1}–{Math.min(offset + PAGE_SIZE, total)} / {total}</span>

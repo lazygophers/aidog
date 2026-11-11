@@ -25,12 +25,12 @@ const NONE = "__none__";
 export const ROW_STYLE: React.CSSProperties = { cursor: "pointer" };
 export const INLINE_FLEX_STYLE: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 6 };
 export const PLATFORM_NAME_STYLE: React.CSSProperties = { fontSize: F.small, color: "var(--text-secondary)" };
-export const RETRY_BADGE_STYLE: React.CSSProperties = { fontSize: 11, padding: "1px 5px", background: "color-mix(in srgb, var(--color-warning) 16%, transparent)", color: "var(--color-warning)" };
+export const RETRY_BADGE_STYLE: React.CSSProperties = { fontSize: 14, padding: "1px 5px", background: "color-mix(in srgb, var(--color-warning) 16%, transparent)", color: "var(--color-warning)" };
 export const MODEL_NAME_STYLE: React.CSSProperties = { fontWeight: 500, fontSize: F.small };
-export const SSE_BADGE_STYLE: React.CSSProperties = { fontSize: 11, padding: "1px 5px", background: "var(--accent-subtle)", color: "var(--accent)" };
+export const SSE_BADGE_STYLE: React.CSSProperties = { fontSize: 14, padding: "1px 5px", background: "var(--accent-subtle)", color: "var(--accent)" };
 export const ACTION_BTN_STYLE: React.CSSProperties = { padding: 2 };
 export const UA_CELL_STYLE: React.CSSProperties = { display: "inline-block", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", verticalAlign: "bottom", fontSize: F.small, color: "var(--text-secondary)" };
-export const GROUP_BADGE_STYLE: React.CSSProperties = { fontSize: 11 };
+export const GROUP_BADGE_STYLE: React.CSSProperties = { fontSize: 14 };
 
 // ponytail: CopyButton 自管 copied state（不挤占父级 copied/copiedId），复用已 import 的 writeText + 现有 copy/check svg 对
 const COPY_ICON_STYLE: React.CSSProperties = {
@@ -121,7 +121,7 @@ export function RequestTabs({
             >
               {item.title}
               <span style={{ fontSize: F.small, color: "var(--text-tertiary)", fontWeight: 400 }}>{item.subtitle}</span>
-              {item.protocol && <span className="badge" style={{ fontSize: 11, padding: "1px 5px" }}>{item.protocol}</span>}
+              {item.protocol && <span className="badge" style={{ fontSize: 14, padding: "1px 5px" }}>{item.protocol}</span>}
               {item.statusCode != null && item.statusCode > 0 && (
                 <span style={{
                   fontSize: F.small, fontWeight: 600,
@@ -396,18 +396,18 @@ export function Pagination({
   const rangeEnd = rangeStart + resultCount - 1;
 
   const btnStyle: React.CSSProperties = {
-    fontSize: 12, padding: "4px 8px", minWidth: 28, textAlign: "center", height: "auto",
+    fontSize: 14, padding: "4px 8px", minWidth: 28, textAlign: "center", height: "auto",
   };
 
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span className="text-tertiary" style={{ fontSize: 12 }}>
+        <span className="text-tertiary" style={{ fontSize: 14 }}>
           {resultCount > 0 ? `${rangeStart}–${rangeEnd}` : rangeStart}
           {!hasMore && currentPage <= 1 ? "" : ` · ${t(hasMore ? "logs.hasMore" : "logs.noMore", hasMore ? "还有更多" : "已到底")}`}
         </span>
         <label style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-          <span className="text-tertiary" style={{ fontSize: 12 }}>{t("logs.pageSize", "每页")}</span>
+          <span className="text-tertiary" style={{ fontSize: 14 }}>{t("logs.pageSize", "每页")}</span>
           <Select
             value={String(pageSize)}
             onValueChange={v => onPageSizeChange(Number(v))}
