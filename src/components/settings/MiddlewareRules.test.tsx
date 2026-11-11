@@ -17,11 +17,13 @@ const cny = { code: "CNY", symbol: "¥", decimals: 2, rate: 7, table: [] };
 
 const listRules = vi.hoisted(() => vi.fn());
 const updateRule = vi.hoisted(() => vi.fn());
+const resetRule = vi.hoisted(() => vi.fn());
 const budgetStatus = vi.hoisted(() => vi.fn());
 vi.mock("../../services/api/scheduling", () => ({
   middlewareApi: {
     listRules: (...a: unknown[]) => listRules(...a),
     updateRule: (...a: unknown[]) => updateRule(...a),
+    resetRule: (...a: unknown[]) => resetRule(...a),
     budgetStatus: () => budgetStatus(),
   },
 }));
@@ -50,6 +52,7 @@ const mk = (over: Partial<MiddlewareRule>): MiddlewareRule => ({
   enabled: true,
   is_builtin: false,
   failed: false,
+  user_modified: false,
   created_at: 0,
   updated_at: 0,
   ...over,
@@ -58,6 +61,7 @@ const mk = (over: Partial<MiddlewareRule>): MiddlewareRule => ({
 beforeEach(() => {
   listRules.mockReset();
   updateRule.mockReset();
+  resetRule.mockReset();
   platformList.mockReset().mockResolvedValue([]);
   groupList.mockReset().mockResolvedValue([]);
   budgetStatus.mockReset().mockResolvedValue([]);
@@ -74,7 +78,7 @@ describe("MiddlewareRulesPanel（统一引擎列表）", () => {
     expect(screen.queryByText("导入默认规则")).toBeNull();
   });
 
-  it("内置规则：可启停 + 查看详情（只读表单），无删除按钮", async () => {
+  it("内置规则：可启停 + 可编辑保存，无删除按钮", async () => {
     listRules.mockResolvedValue([mk({ id: 2, name: "内置·密钥脱敏", is_builtin: true })]);
     render(<MiddlewareRulesPanel />);
     await waitFor(() => expect(screen.getByText("内置·密钥脱敏")).toBeTruthy());
@@ -83,10 +87,32 @@ describe("MiddlewareRulesPanel（统一引擎列表）", () => {
     expect(screen.getByRole("switch")).toBeTruthy();
     // 删除按钮不存在（内置内容归 seed 管）
     expect(screen.queryByTitle("action.delete")).toBeNull();
-    // 点编辑 → 只读查看表单：无保存按钮，有只读提示
+    // 点编辑 → 可编辑表单：有保存按钮，无只读提示
     await userEvent.click(screen.getByTitle("action.edit"));
-    await waitFor(() => expect(screen.getByText("middleware.builtinReadonlyHint")).toBeTruthy());
-    expect(screen.queryByText("action.save")).toBeNull();
+    await waitFor(() => expect(screen.getByText("action.save")).toBeTruthy());
+  });
+
+  it("已修改的内置规则：显示修改徽标 + 还原按钮，点还原调用 resetRule", async () => {
+    listRules.mockResolvedValue([
+      mk({ id: 2, name: "内置·密钥脱敏", is_builtin: true, user_modified: true }),
+    ]);
+    resetRule.mockResolvedValue(mk({ id: 2, name: "内置·密钥脱敏", is_builtin: true, user_modified: false }));
+    const user = userEvent.setup();
+    render(<MiddlewareRulesPanel />);
+    await waitFor(() => expect(screen.getByText("内置·密钥脱敏")).toBeTruthy());
+    expect(screen.getByText("middleware.modified")).toBeTruthy();
+    await user.click(screen.getByTitle("middleware.resetBuiltin"));
+    await waitFor(() => expect(resetRule).toHaveBeenCalledWith(2));
+  });
+
+  it("未修改的内置规则：无修改徽标、无还原按钮", async () => {
+    listRules.mockResolvedValue([
+      mk({ id: 2, name: "内置·密钥脱敏", is_builtin: true, user_modified: false }),
+    ]);
+    render(<MiddlewareRulesPanel />);
+    await waitFor(() => expect(screen.getByText("内置·密钥脱敏")).toBeTruthy());
+    expect(screen.queryByText("middleware.modified")).toBeNull();
+    expect(screen.queryByTitle("middleware.resetBuiltin")).toBeNull();
   });
 
   it("Failed Rule：显示失效徽标 + 仅删除按钮", async () => {

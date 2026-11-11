@@ -88,7 +88,7 @@ async fn builtin_rule_cannot_be_deleted() {
 }
 
 #[tokio::test]
-async fn builtin_rule_update_only_allows_toggle() {
+async fn builtin_rule_content_edit_allowed_marks_user_modified() {
     let db = test_db().await;
     let rules = db::list_middleware_rules(&db).await.unwrap();
     let builtin = rules
@@ -96,8 +96,8 @@ async fn builtin_rule_update_only_allows_toggle() {
         .find(|r| r.is_builtin)
         .expect("builtin rules seeded")
         .clone();
-    // 仅翻转 enabled：允许
-    db::update_middleware_rule(
+    // 仅翻转 enabled：允许，不置 user_modified
+    let toggled = db::update_middleware_rule(
         &db,
         UpdateMiddlewareRule {
             id: builtin.id,
@@ -112,21 +112,24 @@ async fn builtin_rule_update_only_allows_toggle() {
     )
     .await
     .unwrap();
-    // 改名：拒绝（内容归 seed 管）
+    assert!(!toggled.user_modified, "纯启停不置 user_modified");
+    // 内容编辑允许，但改名禁（seed / 还原默认按 name 定位规格）
+    let mut renamed = builtin.clone();
+    renamed.name = "renamed-builtin".to_string();
     let err = db::update_middleware_rule(
         &db,
         UpdateMiddlewareRule {
             id: builtin.id,
-            name: "hijacked".to_string(),
-            description: builtin.description.clone(),
-            conditions: builtin.conditions.clone(),
-            actions: builtin.actions.clone(),
-            applies_to: builtin.applies_to.clone(),
-            priority: builtin.priority,
-            enabled: builtin.enabled,
+            name: renamed.name.clone(),
+            description: renamed.description.clone(),
+            conditions: renamed.conditions.clone(),
+            actions: renamed.actions.clone(),
+            applies_to: renamed.applies_to.clone(),
+            priority: renamed.priority,
+            enabled: renamed.enabled,
         },
     )
     .await
     .unwrap_err();
-    assert!(err.contains("only supports enable/disable"), "{err}");
+    assert!(err.contains("cannot be renamed"), "{err}");
 }

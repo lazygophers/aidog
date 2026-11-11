@@ -188,6 +188,7 @@ pub fn run() {
             aidog_core::proxy_cmd::middleware::middleware_create_rule,
             aidog_core::proxy_cmd::middleware::middleware_update_rule,
             aidog_core::proxy_cmd::middleware::middleware_delete_rule,
+            aidog_core::proxy_cmd::middleware::middleware_reset_rule,
             aidog_core::proxy_cmd::middleware::middleware_budget_status,
             aidog_core::proxy_cmd::middleware::middleware_settings_get,
             aidog_core::proxy_cmd::middleware::middleware_try,

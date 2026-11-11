@@ -778,14 +778,19 @@ pub fn seed_builtin_middleware_rules_counted(conn: &rusqlite::Connection) -> Sql
     let mut inserted = 0u32;
     let mut updated = 0u32;
     for spec in builtin_rule_specs() {
-        let exists: Option<i64> = conn
+        let exists: Option<(i64, i64)> = conn
             .query_row(
-                "SELECT id FROM middleware_rule WHERE name = ?1 AND is_builtin = 1 LIMIT 1",
+                "SELECT id, user_modified FROM middleware_rule WHERE name = ?1 AND is_builtin = 1 LIMIT 1",
                 params![spec.name],
-                |r| r.get(0),
+                |r| Ok((r.get(0)?, r.get(1)?)),
             )
             .optional()?;
-        if let Some(id) = exists {
+        if let Some((id, user_modified)) = exists {
+            // 用户改过内容（20261111-01）→ 跳过覆盖：用户版本优先，默认值随版本升级
+            // 的自动生效只对未修改的规则成立；「还原默认」清 user_modified 后恢复。
+            if user_modified == 1 {
+                continue;
+            }
             conn.execute(
                 "UPDATE middleware_rule SET
                    description = ?2, conditions = ?3, actions = ?4, priority = ?5,
@@ -820,6 +825,12 @@ pub fn seed_builtin_middleware_rules_counted(conn: &rusqlite::Connection) -> Sql
         inserted += 1;
     }
     Ok((inserted, updated))
+}
+
+/// 按名称取内置规则规格（「还原默认」用）。DB 行的 name 找不到规格（理论不发生：
+/// 内置行只由本 seed 按规格建）→ None。
+pub fn builtin_rule_spec_by_name(name: &str) -> Option<&'static BuiltinRuleSpec> {
+    builtin_rule_specs().iter().find(|s| s.name == name)
 }
 
 #[cfg(test)]

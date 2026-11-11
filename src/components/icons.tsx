@@ -48,6 +48,14 @@ export const IconEdit = ({ size, color, strokeWidth, style }: IconProps) => (
   </svg>
 );
 
+/** ↺ 还原 */
+export const IconRotateCcw = ({ size, color, strokeWidth, style }: IconProps) => (
+  <svg {...base(size, color, strokeWidth, style)}>
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
+  </svg>
+);
+
 /** ⚡ tokens */
 export const IconBolt = ({ size, color, strokeWidth, style }: IconProps) => (
   <svg {...base(size, color, strokeWidth, style)}><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z" /></svg>

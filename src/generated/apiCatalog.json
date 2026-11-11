@@ -1316,6 +1316,20 @@
       "returns": "Vec<MiddlewareRule>"
     },
     {
+      "name": "middleware_reset_rule",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "id",
+          "type": "i64"
+        }
+      ],
+      "returns": "MiddlewareRule"
+    },
+    {
       "name": "middleware_settings_get",
       "category": "proxy",
       "kind": "readonly",

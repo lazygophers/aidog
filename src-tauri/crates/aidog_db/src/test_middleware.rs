@@ -259,28 +259,313 @@ async fn upgrade_rewrites_old_builtin_actions_keeps_enabled() {
     assert!(rules.iter().any(|r| r.name == "内置·Bearer token 脱敏" && r.enabled));
 }
 
-/// 内置规则内容不可编辑（仅启停）——用户改不了内置动作，所以升级路径无「用户改过」分支。
+/// 内置规则内容可编辑（20261111-01 用户可配置内置规则）：内容编辑置 user_modified，
+/// 纯启停不置；user_modified=1 后 seed 跳过覆盖（用户版本优先）。
 #[tokio::test]
-async fn builtin_actions_cannot_be_edited_by_user() {
+async fn builtin_edit_marks_user_modified_and_seed_respects_it() {
+    let (db, _dir) = test_support::three_file_db().await;
+    let rules = list_middleware_rules(&db).await.unwrap();
+    let r = rules.iter().find(|r| r.name == "内置·密钥脱敏").unwrap();
+
+    // 纯启停：不置标记
+    let toggled = update_middleware_rule(
+        &db,
+        crate::models::UpdateMiddlewareRule {
+            id: r.id,
+            name: r.name.clone(),
+            description: r.description.clone(),
+            conditions: r.conditions.clone(),
+            actions: r.actions.clone(),
+            applies_to: r.applies_to.clone(),
+            priority: r.priority,
+            enabled: !r.enabled,
+        },
+    )
+    .await
+    .unwrap();
+    assert!(!toggled.user_modified, "纯启停不置 user_modified");
+
+    // 内容编辑：置标记 + 内容生效
+    let mut fixed = r.actions.clone();
+    fixed[0].params.mode = crate::models::MaskMode::Fixed;
+    fixed[0].params.fields = vec!["messages".into()];
+    let out = update_middleware_rule(
+        &db,
+        crate::models::UpdateMiddlewareRule {
+            id: r.id,
+            name: r.name.clone(),
+            description: r.description.clone(),
+            conditions: r.conditions.clone(),
+            actions: fixed,
+            applies_to: r.applies_to.clone(),
+            priority: r.priority,
+            enabled: r.enabled,
+        },
+    )
+    .await
+    .unwrap();
+    assert!(out.user_modified, "内容编辑置 user_modified");
+    assert_eq!(out.actions[0].params.mode, crate::models::MaskMode::Fixed);
+
+    // seed 再跑：用户版本保留
+    db
+        .call_traced(None, std::panic::Location::caller(), |conn| {
+            crate::schema::seed_builtin_middleware_rules(conn)?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    let rules2 = list_middleware_rules(&db).await.unwrap();
+    let r2 = rules2.iter().find(|r| r.name == "内置·密钥脱敏").unwrap();
+    assert!(r2.user_modified, "seed 不清用户修改标记");
+    assert_eq!(
+        r2.actions[0].params.mode,
+        crate::models::MaskMode::Fixed,
+        "seed 跳过 user_modified=1 的内置规则"
+    );
+}
+
+/// 未修改的内置规则：seed 仍按规格覆盖内容（默认值随版本升级自动生效的回归护栏）。
+#[tokio::test]
+async fn unmodified_builtin_content_overwritten_by_seed() {
+    let (db, _dir) = test_support::three_file_db().await;
+    // SQL 直改内容（不经过 update 命令 → user_modified 保持 0），模拟旧版默认内容
+    db
+        .call_traced(None, std::panic::Location::caller(), |conn| {
+            conn.execute(
+                "UPDATE middleware_rule SET actions = ?1 WHERE name = '内置·密钥脱敏' AND is_builtin = 1",
+                params![r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#],
+            )?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    db
+        .call_traced(None, std::panic::Location::caller(), |conn| {
+            crate::schema::seed_builtin_middleware_rules(conn)?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    let rules = list_middleware_rules(&db).await.unwrap();
+    let r = rules.iter().find(|r| r.name == "内置·密钥脱敏").unwrap();
+    assert_reversible_all(r, "SECRET");
+    assert!(!r.user_modified);
+}
+
+/// 「还原默认」：内容 + enabled 回规格值、user_modified 清零；之后 seed 恢复覆盖。
+#[tokio::test]
+async fn reset_middleware_rule_to_builtin_restores_spec() {
     let (db, _dir) = test_support::three_file_db().await;
     let rules = list_middleware_rules(&db).await.unwrap();
     let r = rules.iter().find(|r| r.name == "内置·密钥脱敏").unwrap();
     let mut fixed = r.actions.clone();
     fixed[0].params.mode = crate::models::MaskMode::Fixed;
     fixed[0].params.fields = vec!["messages".into()];
-    let upd = crate::models::UpdateMiddlewareRule {
-        id: r.id,
-        name: r.name.clone(),
-        description: r.description.clone(),
-        conditions: r.conditions.clone(),
-        actions: fixed,
-        applies_to: r.applies_to.clone(),
-        priority: r.priority,
-        enabled: false,
-    };
-    let out = update_middleware_rule(&db, upd).await.unwrap();
+    update_middleware_rule(
+        &db,
+        crate::models::UpdateMiddlewareRule {
+            id: r.id,
+            name: r.name.clone(),
+            description: r.description.clone(),
+            conditions: r.conditions.clone(),
+            actions: fixed,
+            applies_to: r.applies_to.clone(),
+            priority: r.priority,
+            enabled: false,
+        },
+    )
+    .await
+    .unwrap();
+
+    let out = reset_middleware_rule_to_builtin(&db, r.id).await.unwrap();
     assert_reversible_all(&out, "SECRET");
-    assert!(!out.enabled);
+    assert!(out.enabled, "enabled 回规格 default_enabled");
+    assert!(!out.user_modified, "还原清除修改标记");
+
+    // 还原后再启停 + seed：内容仍是规格值（user_modified=0 → 恢复随升级覆盖）
+    update_middleware_rule(
+        &db,
+        crate::models::UpdateMiddlewareRule {
+            id: r.id,
+            name: out.name.clone(),
+            description: out.description.clone(),
+            conditions: out.conditions.clone(),
+            actions: out.actions.clone(),
+            applies_to: out.applies_to.clone(),
+            priority: out.priority,
+            enabled: false,
+        },
+    )
+    .await
+    .unwrap();
+    db
+        .call_traced(None, std::panic::Location::caller(), |conn| {
+            crate::schema::seed_builtin_middleware_rules(conn)?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    let rules2 = list_middleware_rules(&db).await.unwrap();
+    let r2 = rules2.iter().find(|r| r.name == "内置·密钥脱敏").unwrap();
+    assert_reversible_all(r2, "SECRET");
+    assert!(!r2.enabled, "seed 保留用户启停态");
+}
+
+/// 非内置规则不可还原（「还原默认」只对内置规则有意义）。
+#[tokio::test]
+async fn reset_rejects_non_builtin_rule() {
+    let (db, _dir) = test_support::three_file_db().await;
+    let rules = list_middleware_rules(&db).await.unwrap();
+    let user_rule = rules.iter().find(|r| !r.is_builtin);
+    let Some(r) = user_rule else {
+        // 无用户规则时现建一条
+        let created = create_middleware_rule(
+            &db,
+            crate::models::CreateMiddlewareRule {
+                name: "user-x".into(),
+                description: String::new(),
+                conditions: crate::models::ConditionNode::Leaf(crate::models::ConditionLeaf {
+                    target: crate::models::Target::RequestBody,
+                    field: String::new(),
+                    match_type: crate::models::MatchType::Contains,
+                    pattern: "x".into(),
+                    validator: String::new(),
+                }),
+                actions: vec![],
+                applies_to: Default::default(),
+                priority: 0,
+                enabled: true,
+                is_builtin: false,
+            },
+        )
+        .await
+        .unwrap();
+        let err = reset_middleware_rule_to_builtin(&db, created.id)
+            .await
+            .unwrap_err();
+        assert!(err.contains("not a builtin"), "{err}");
+        return;
+    };
+    let err = reset_middleware_rule_to_builtin(&db, r.id).await.unwrap_err();
+    assert!(err.contains("not a builtin"), "{err}");
+}
+
+/// 内置规则禁改名：update 改 name → Err（seed 按 name 幂等、还原默认按 name 定位规格，
+/// 改名会让 seed 重复 INSERT、还原 None）；seed 再跑不产生重复内置行。
+#[tokio::test]
+async fn builtin_rule_rename_rejected() {
+    let (db, _dir) = test_support::three_file_db().await;
+    let rules = list_middleware_rules(&db).await.unwrap();
+    let r = rules.iter().find(|r| r.is_builtin).unwrap();
+    let err = update_middleware_rule(
+        &db,
+        crate::models::UpdateMiddlewareRule {
+            id: r.id,
+            name: "renamed-x".into(),
+            description: r.description.clone(),
+            conditions: r.conditions.clone(),
+            actions: r.actions.clone(),
+            applies_to: r.applies_to.clone(),
+            priority: r.priority,
+            enabled: r.enabled,
+        },
+    )
+    .await
+    .unwrap_err();
+    assert!(err.contains("cannot be renamed"), "{err}");
+    // seed 再跑：不因「按名查不到」重复 INSERT
+    db
+        .call_traced(None, std::panic::Location::caller(), |conn| {
+            crate::schema::seed_builtin_middleware_rules(conn)?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    let rules2 = list_middleware_rules(&db).await.unwrap();
+    assert_eq!(
+        rules2.iter().filter(|r| r.is_builtin).count(),
+        rules.iter().filter(|r| r.is_builtin).count(),
+        "seed 不重复 INSERT 内置行"
+    );
+}
+
+/// 还原默认：applies_to 一并回 '{}'（INSERT 硬编码初值）。
+#[tokio::test]
+async fn reset_restores_applies_to_to_default() {
+    let (db, _dir) = test_support::three_file_db().await;
+    let rules = list_middleware_rules(&db).await.unwrap();
+    let r = rules.iter().find(|r| r.is_builtin).unwrap().clone();
+    let mut applies = r.applies_to.clone();
+    applies.platforms = vec![999];
+    update_middleware_rule(
+        &db,
+        crate::models::UpdateMiddlewareRule {
+            id: r.id,
+            name: r.name.clone(),
+            description: r.description.clone(),
+            conditions: r.conditions.clone(),
+            actions: r.actions.clone(),
+            applies_to: applies,
+            priority: r.priority,
+            enabled: r.enabled,
+        },
+    )
+    .await
+    .unwrap();
+    let out = reset_middleware_rule_to_builtin(&db, r.id).await.unwrap();
+    assert_eq!(
+        serde_json::to_value(&out.applies_to).unwrap(),
+        serde_json::json!({"platforms": [], "groups": [], "models": []}),
+        "还原后 applies_to 回默认"
+    );
+    assert!(!out.user_modified);
+}
+
+/// 用户把内容改回与内置规格一致 → user_modified 清零（恢复随升级被默认覆盖）。
+#[tokio::test]
+async fn builtin_edit_back_to_spec_clears_user_modified() {
+    let (db, _dir) = test_support::three_file_db().await;
+    let rules = list_middleware_rules(&db).await.unwrap();
+    let r = rules.iter().find(|r| r.name == "内置·密钥脱敏").unwrap().clone();
+    let orig = r.clone();
+    // 改内容 → 置标记
+    let mut fixed = r.actions.clone();
+    fixed[0].params.mode = crate::models::MaskMode::Fixed;
+    fixed[0].params.fields = vec!["messages".into()];
+    let out = update_middleware_rule(
+        &db,
+        crate::models::UpdateMiddlewareRule {
+            id: r.id,
+            name: r.name.clone(),
+            description: r.description.clone(),
+            conditions: r.conditions.clone(),
+            actions: fixed,
+            applies_to: r.applies_to.clone(),
+            priority: r.priority,
+            enabled: r.enabled,
+        },
+    )
+    .await
+    .unwrap();
+    assert!(out.user_modified, "内容编辑置 user_modified");
+    // 改回规格内容 → 清标记
+    let back = update_middleware_rule(
+        &db,
+        crate::models::UpdateMiddlewareRule {
+            id: r.id,
+            name: orig.name.clone(),
+            description: orig.description.clone(),
+            conditions: orig.conditions.clone(),
+            actions: orig.actions.clone(),
+            applies_to: orig.applies_to.clone(),
+            priority: orig.priority,
+            enabled: r.enabled,
+        },
+    )
+    .await
+    .unwrap();
+    assert!(!back.user_modified, "改回规格内容清 user_modified");
 }
 
 // ── 加分项：fixed + all 在创建/更新边界被拒 ──
