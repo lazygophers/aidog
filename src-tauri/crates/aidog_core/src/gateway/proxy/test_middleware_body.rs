@@ -27,6 +27,7 @@ fn rule(conditions: ConditionNode, actions: Vec<ActionStep>) -> MiddlewareRule {
         enabled: true,
         is_builtin: false,
         failed: false,
+        user_modified: false,
         created_at: 0,
         updated_at: 0,
     }

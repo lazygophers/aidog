@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS setting (
                        enabled      INTEGER NOT NULL DEFAULT 1,
                        is_builtin   INTEGER NOT NULL DEFAULT 0,
                        failed       INTEGER NOT NULL DEFAULT 0,
+                       user_modified INTEGER NOT NULL DEFAULT 0,
                        created_at   INTEGER NOT NULL,
                        updated_at   INTEGER NOT NULL
                      );
@@ -59,6 +60,12 @@ CREATE TABLE IF NOT EXISTS setting (
     // Migration 20260727-06 (原 014): proxy_log blocked_by/blocked_reason → run_migrations_proxy_log_early
     // Migration 20260727-07 (原 015): 内置预设中间件规则 seed（C4）。
     // is_builtin=1 默认 enabled；幂等——按 (name, is_builtin=1) 唯一判定，已存在跳过（尊重用户禁用状态，不重新启用）。
+    // user_modified 列（20261111-01，内置规则用户可配置）：存量库先补列再 seed，
+    // 新库 CREATE 已含（ALTER 报错忽略，let _ idiom）。
+    let _ = conn.execute(
+        "ALTER TABLE middleware_rule ADD COLUMN user_modified INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
     seed_builtin_middleware_rules(conn)?;
     // Migration 20260727-08 (原 016): Platform 级熔断配置列 → run_migrations_platform_late（platform 表已迁 platform.db）
     // Migration 20260727-09 (原 017/018): notification 表 → run_migrations_proxy_log_early（落 log.db）

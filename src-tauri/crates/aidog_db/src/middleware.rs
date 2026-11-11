@@ -4,7 +4,7 @@ use rusqlite::{Result as SqlResult, params};
 use crate::models::{CreateMiddlewareRule, MiddlewareRule, UpdateMiddlewareRule};
 
 /// middleware_rule 全列序（INSERT 列子集 + SELECT 共用，与表定义列序一致）。
-const MIDDLEWARE_RULE_COLUMNS: &str = "id, name, description, conditions, actions, applies_to, priority, enabled, is_builtin, failed, created_at, updated_at";
+const MIDDLEWARE_RULE_COLUMNS: &str = "id, name, description, conditions, actions, applies_to, priority, enabled, is_builtin, failed, created_at, updated_at, user_modified";
 
 /// 从查询行构造 MiddlewareRule。JSON 列解析失败不在此兜底（迁移后 schema 保证可解析）；
 /// 若手改 DB 产生坏行，list 时 serde 失败由 unwrap_or 兜底为 failed 标记（前端引导手删）。
@@ -32,6 +32,7 @@ fn row_to_middleware_rule(row: &rusqlite::Row) -> SqlResult<MiddlewareRule> {
         enabled: row.get::<_, i64>(7)? == 1,
         is_builtin: row.get::<_, i64>(8)? == 1,
         failed: row.get::<_, i64>(9)? == 1 || json_failed,
+        user_modified: row.get::<_, i64>(12)? == 1,
         created_at: row.get(10)?,
         updated_at: row.get(11)?,
     })
@@ -52,6 +53,19 @@ fn default_failed_conditions() -> crate::models::ConditionNode {
 /// DB failed 列置位，或 conditions JSON 解析失败（读时兜底置 failed 的行 DB 列仍为 0）。
 pub fn is_effective_failed(db_failed: i64, conditions_json: &str) -> bool {
     db_failed == 1 || serde_json::from_str::<crate::models::ConditionNode>(conditions_json).is_err()
+}
+
+/// 内置规格 JSON 串经类型化 round-trip 归一化后与输入值语义比较（同
+/// norm_c/norm_a 的归一化口径：spec 存紧凑 JSON，省略 serde default 字段）。
+fn spec_typed_json_eq<T: serde::de::DeserializeOwned + serde::Serialize>(
+    spec_json: &str,
+    input: &serde_json::Value,
+) -> bool {
+    serde_json::from_str::<T>(spec_json)
+        .ok()
+        .map(|v| serde_json::to_value(&v).unwrap_or_default())
+        .as_ref()
+        == Some(input)
 }
 
 /// 列出全部中间件规则（按 priority 升序，再 id 升序）。引擎 reload 与前端列表共用。
@@ -132,21 +146,77 @@ pub fn update_middleware_rule(
         let applies_to = serde_json::to_string(&input.applies_to).map_err(|e| e.to_string())?;
         db
         .call_traced(None, __db_caller, move |conn| {
-            // 内置规则只允许启停（票 02）：整体改写会破坏 seed 强制覆盖语义。
-            let (is_builtin, old_name, old_desc, old_priority): (i64, String, String, i64) = conn.query_row(
-                "SELECT is_builtin, name, description, priority FROM middleware_rule WHERE id = ?1",
+            // 内置规则内容可编辑（20261111-01 用户可配置内置规则）：内容有实质变化
+            // → 置 user_modified=1（seed 不再覆盖）；纯启停不置标记。
+            let (is_builtin, old_name, old_desc, old_priority, old_conditions, old_actions, old_applies, old_user_modified): (i64, String, String, i64, String, String, String, i64) = conn.query_row(
+                "SELECT is_builtin, name, description, priority, conditions, actions, applies_to, user_modified FROM middleware_rule WHERE id = ?1",
                 params![input.id],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?)),
             )?;
             if is_builtin == 1 {
-                if old_name != input.name || old_desc != input.description || old_priority != input.priority {
+                // 内置规则禁改名（seed 按 name 幂等判定、还原默认按 name 定位规格；
+                // 改名会让 seed 重复 INSERT / 还原找不到规格）。内容编辑放开。
+                if input.name != old_name {
                     return Err(tokio_rusqlite::Error::Other(
-                        "builtin middleware rule only supports enable/disable (content managed by seed)".into(),
+                        "builtin middleware rule cannot be renamed".into(),
                     ));
                 }
+                // JSON 列按语义比较：旧值经类型化 round-trip 归一化（seed 存的紧凑 JSON
+                // 省略 serde default 字段，直接比字符串/裸 Value 会假判「改过」）。
+                // 旧值解析失败（failed 行）→ 视为已改。
+                let norm_c = serde_json::from_str::<crate::models::ConditionNode>(&old_conditions)
+                    .ok()
+                    .map(|v| serde_json::to_value(&v).unwrap_or_default());
+                let norm_a = serde_json::from_str::<Vec<crate::models::ActionStep>>(&old_actions)
+                    .ok()
+                    .map(|v| serde_json::to_value(&v).unwrap_or_default());
+                let norm_p = serde_json::from_str::<crate::models::AppliesTo>(&old_applies)
+                    .ok()
+                    .map(|v| serde_json::to_value(&v).unwrap_or_default());
+                let input_c = serde_json::to_value(&input.conditions).unwrap_or_default();
+                let input_a = serde_json::to_value(&input.actions).unwrap_or_default();
+                let input_p = serde_json::to_value(&input.applies_to).unwrap_or_default();
+                let content_changed = old_desc != input.description
+                    || old_priority != input.priority
+                    || norm_c.as_ref() != Some(&input_c)
+                    || norm_a.as_ref() != Some(&input_a)
+                    || norm_p.as_ref() != Some(&input_p);
+                // 内容改回与内置规格完全一致 → 清 user_modified（恢复随升级被默认覆盖）。
+                // applies_to 也须回默认（还原路径落 '{}'）。
+                let matches_spec = crate::schema::builtin_rule_spec_by_name(&old_name)
+                    .is_some_and(|s| {
+                        s.description == input.description
+                            && s.priority == input.priority
+                            && spec_typed_json_eq::<crate::models::ConditionNode>(s.conditions, &input_c)
+                            && spec_typed_json_eq::<Vec<crate::models::ActionStep>>(s.actions, &input_a)
+                            && input_p
+                                == serde_json::to_value(crate::models::AppliesTo::default())
+                                    .unwrap_or_default()
+                    });
+                let user_modified = if matches_spec {
+                    0
+                } else if content_changed {
+                    1
+                } else {
+                    old_user_modified
+                };
                 let affected = conn.execute(
-                    "UPDATE middleware_rule SET enabled = ?2, updated_at = ?3 WHERE id = ?1",
-                    params![input.id, if input.enabled { 1 } else { 0 }, ts],
+                    "UPDATE middleware_rule SET
+                       name = ?2, description = ?3, conditions = ?4, actions = ?5, applies_to = ?6,
+                       priority = ?7, enabled = ?8, user_modified = ?9, updated_at = ?10
+                     WHERE id = ?1",
+                    params![
+                        input.id,
+                        input.name,
+                        input.description,
+                        conditions,
+                        actions,
+                        applies_to,
+                        input.priority,
+                        if input.enabled { 1 } else { 0 },
+                        user_modified,
+                        ts,
+                    ],
                 )?;
                 if affected == 0 {
                     return Err(tokio_rusqlite::Error::Other(
@@ -220,6 +290,61 @@ pub fn delete_middleware_rule(
         })
         .await
         .map_err(|e| format!("delete middleware rule: {e}"))
+    }
+}
+
+/// 「还原默认」（内置规则）：按 name 取内置规格，内容 + applies_to + enabled 回规格值，
+/// user_modified / failed 清零。此后 seed 恢复「未修改 → 随版本升级覆盖默认」。
+/// 非内置行 / 规格缺失（理论不发生）→ Err。
+#[track_caller]
+pub fn reset_middleware_rule_to_builtin(
+    db: &Db,
+    id: i64,
+) -> impl std::future::Future<Output = Result<MiddlewareRule, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+    let (name, is_builtin): (String, i64) = db
+        .call_read_traced(None, __db_caller, move |conn| {
+            conn.query_row(
+                "SELECT name, is_builtin FROM middleware_rule WHERE id = ?1",
+                params![id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .map_err(tokio_rusqlite::Error::from)
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+    if is_builtin != 1 {
+        return Err(format!("middleware rule {id} is not a builtin rule"));
+    }
+    let spec = crate::schema::builtin_rule_spec_by_name(&name)
+        .ok_or_else(|| format!("no builtin spec found for rule '{name}'"))?;
+    let ts = now();
+    db
+    .call_traced(None, __db_caller, move |conn| {
+        conn.execute(
+            "UPDATE middleware_rule SET
+               description = ?2, conditions = ?3, actions = ?4, priority = ?5,
+               applies_to = '{}', enabled = ?6, user_modified = 0, failed = 0, updated_at = ?7
+             WHERE id = ?1",
+            params![
+                id,
+                spec.description,
+                spec.conditions,
+                spec.actions,
+                spec.priority,
+                spec.default_enabled as i64,
+                ts
+            ],
+        )?;
+        let mut stmt = conn.prepare(&format!(
+            "SELECT {MIDDLEWARE_RULE_COLUMNS} FROM middleware_rule WHERE id = ?1"
+        ))?;
+        stmt.query_row(params![id], row_to_middleware_rule)
+            .map_err(tokio_rusqlite::Error::from)
+    })
+    .await
+    .map_err(|e| format!("reset middleware rule to builtin: {e}"))
     }
 }
 

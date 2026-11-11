@@ -26,6 +26,7 @@ pub(crate) fn mk_rule(
         enabled: true,
         is_builtin: false,
         failed: false,
+        user_modified: false,
         created_at: 0,
         updated_at: 0,
     }

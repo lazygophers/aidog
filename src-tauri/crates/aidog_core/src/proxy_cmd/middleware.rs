@@ -53,6 +53,21 @@ pub async fn middleware_delete_rule(
 }
 
 crate::tauri_command! {
+/// 「还原默认」（内置规则）：内容与启停回内置规格值、清除修改标记，此后 seed
+/// 恢复随版本升级覆盖默认；写库后自动 reload 引擎缓存。
+pub async fn middleware_reset_rule(
+    id: i64) -> Result<MiddlewareRule, String> {
+    let db = aidog_ctx::db();
+    let engine = aidog_ctx::ctx().middleware();
+    let rule = aidog_db::reset_middleware_rule_to_builtin(db, id).await?;
+    if let Err(e) = engine.reload(db).await {
+        tracing::warn!(command = "middleware_reset_rule", error = %e, "engine reload failed");
+    }
+    Ok(rule)
+}
+}
+
+crate::tauri_command! {
 /// 票 06：全部预算闸门规则的当前自然月窗口状态（已用 / 剩余，前端规则行展示）。
 pub async fn middleware_budget_status() -> Result<Vec<MiddlewareBudgetStatus>, String> {
     let db = aidog_ctx::db();

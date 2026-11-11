@@ -205,7 +205,8 @@ pub fn run_migrations_late(
                         "ALTER TABLE middleware_rule ADD COLUMN conditions TEXT NOT NULL DEFAULT '';
                          ALTER TABLE middleware_rule ADD COLUMN actions TEXT NOT NULL DEFAULT '[]';
                          ALTER TABLE middleware_rule ADD COLUMN applies_to TEXT NOT NULL DEFAULT '{}';
-                         ALTER TABLE middleware_rule ADD COLUMN failed INTEGER NOT NULL DEFAULT 0;",
+                         ALTER TABLE middleware_rule ADD COLUMN failed INTEGER NOT NULL DEFAULT 0;
+                         ALTER TABLE middleware_rule ADD COLUMN user_modified INTEGER NOT NULL DEFAULT 0;",
                     )?;
         let translated = translate_legacy_middleware_rules(conn)?;
         conn.execute_batch(

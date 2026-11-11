@@ -20,7 +20,7 @@ import {
 } from "../../services/api";
 import { formatMoney } from "../../utils/formatters";
 import { F, S } from "./editors";
-import { IconClose, IconEdit } from "../icons";
+import { IconClose, IconEdit, IconRotateCcw } from "../icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -696,13 +696,11 @@ function AppliesToEditor({ value, onChange }: { value: AppliesTo; onChange: (a: 
 
 interface RuleFormProps {
   rule?: MiddlewareRule;
-  /** 只读查看模式（内置规则：可看详情，不可改不可存） */
-  readOnly?: boolean;
   onSave: (draft: CreateMiddlewareRule) => Promise<void>;
   onCancel: () => void;
 }
 
-export function RuleForm({ rule, readOnly, onSave, onCancel }: RuleFormProps) {
+export function RuleForm({ rule, onSave, onCancel }: RuleFormProps) {
   const { t } = useTranslation();
   const [name, setName] = useState(rule?.name ?? "");
   const [description, setDescription] = useState(rule?.description ?? "");
@@ -771,14 +769,7 @@ export function RuleForm({ rule, readOnly, onSave, onCancel }: RuleFormProps) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: S.gap }}>
-      {readOnly && (
-        <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-          {t("middleware.builtinReadonlyHint", "内置规则只可启停，内容不可修改")}
-        </div>
-      )}
-
-      {/* 只读模式：pointer-events 阻断全部交互控件（含 Radix Select），文本仍可选中复制 */}
-      <div style={readOnly ? { pointerEvents: "none", userSelect: "text", display: "flex", flexDirection: "column", gap: S.gap } : { display: "flex", flexDirection: "column", gap: S.gap }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: S.gap }}>
       <Input
         style={{ fontSize: F.body }}
         placeholder={t("middleware.name", "规则名称")}
@@ -890,19 +881,17 @@ export function RuleForm({ rule, readOnly, onSave, onCancel }: RuleFormProps) {
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
         <Button variant="outline" style={{ fontSize: F.hint }} onClick={onCancel} disabled={saving}>
-          {readOnly ? t("action.close", "关闭") : t("action.cancel", "取消")}
+          {t("action.cancel", "取消")}
         </Button>
-        {!readOnly && (
-          <Button
-            variant="default"
-            className="ripple"
-            style={{ fontSize: F.hint }}
-            onClick={(e) => { makeRipple(e); handleSave(); }}
-            disabled={saving || !name || !!phaseError || (mode === "dsl" && !!dslError)}
-          >
-            {t("action.save", "保存")}
-          </Button>
-        )}
+        <Button
+          variant="default"
+          className="ripple"
+          style={{ fontSize: F.hint }}
+          onClick={(e) => { makeRipple(e); handleSave(); }}
+          disabled={saving || !name || !!phaseError || (mode === "dsl" && !!dslError)}
+        >
+          {t("action.save", "保存")}
+        </Button>
       </div>
     </div>
   );
@@ -916,11 +905,9 @@ export function RuleFormDialog({
   ...formProps
 }: RuleFormProps & { open: boolean; onOpenChange: (v: boolean) => void }) {
   const { t } = useTranslation();
-  const title = formProps.readOnly
-    ? t("middleware.viewRule", "查看规则")
-    : formProps.rule
-      ? t("middleware.editRule", "编辑规则")
-      : t("middleware.addRule", "新增规则");
+  const title = formProps.rule
+    ? t("middleware.editRule", "编辑规则")
+    : t("middleware.addRule", "新增规则");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -952,9 +939,10 @@ interface RuleRowProps {
   onEdit: (rule: MiddlewareRule) => void;
   onToggle: (rule: MiddlewareRule) => void;
   onDelete: (id: number) => void;
+  onReset: (id: number) => void;
 }
 
-function RuleRow({ rule, budget, onEdit, onToggle, onDelete }: RuleRowProps) {
+function RuleRow({ rule, budget, onEdit, onToggle, onDelete, onReset }: RuleRowProps) {
   useDisplayCurrency();
   const { t } = useTranslation();
   return (
@@ -976,6 +964,15 @@ function RuleRow({ rule, budget, onEdit, onToggle, onDelete }: RuleRowProps) {
           {rule.is_builtin && (
             <span className="badge badge-accent" style={{ fontSize: 14 }}>
               {t("middleware.builtin", "内置")}
+            </span>
+          )}
+          {rule.is_builtin && rule.user_modified && (
+            <span
+              className="badge"
+              style={{ fontSize: 14, color: "var(--color-warning)" }}
+              title={t("middleware.modifiedHint", "已按你的修改生效；还原后恢复随版本升级自动更新内置默认")}
+            >
+              {t("middleware.modified", "已修改")}
             </span>
           )}
           {rule.failed && (
@@ -1074,10 +1071,20 @@ function RuleRow({ rule, budget, onEdit, onToggle, onDelete }: RuleRowProps) {
         title={t("middleware.enabled", "启用")}
       />
 
-      {/* 内置规则可点开查看详情（表单只读）；Failed 规则（含内置残留）只可删除 */}
+      {/* 内置规则已修改时提供还原默认；Failed 规则（含内置残留）只可删除 */}
       {!rule.failed && (
         <Button variant="ghost" onClick={() => onEdit(rule)} title={t("action.edit", "编辑")}>
           <IconEdit size={14} />
+        </Button>
+      )}
+      {rule.is_builtin && rule.user_modified && !rule.failed && (
+        <Button
+          variant="ghost"
+          onClick={() => onReset(rule.id)}
+          title={t("middleware.resetBuiltin", "还原默认")}
+          style={{ color: "var(--text-tertiary)" }}
+        >
+          <IconRotateCcw size={14} />
         </Button>
       )}
       {!rule.is_builtin || rule.failed ? (
@@ -1172,6 +1179,16 @@ export function MiddlewareRulesPanel() {
     }
   };
 
+  const handleReset = async (id: number) => {
+    try {
+      await middlewareApi.resetRule(id);
+      await load(true);
+    } catch (e) {
+      console.error("reset middleware rule failed", e);
+      setError(String(e));
+    }
+  };
+
   const openEdit = (rule: MiddlewareRule) => {
     setEditingRule(rule);
     setShowForm(true);
@@ -1207,6 +1224,7 @@ export function MiddlewareRulesPanel() {
               onEdit={openEdit}
               onToggle={handleToggle}
               onDelete={handleDelete}
+              onReset={handleReset}
             />
           ))}
         </div>
@@ -1229,7 +1247,6 @@ export function MiddlewareRulesPanel() {
           }
         }}
         rule={editingRule}
-        readOnly={editingRule?.is_builtin}
         onSave={handleSave}
         onCancel={() => {
           setShowForm(false);
