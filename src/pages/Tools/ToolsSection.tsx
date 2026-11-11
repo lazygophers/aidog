@@ -240,10 +240,11 @@ export function ToolsSection() {
   const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState<SearchDraft>(DEFAULT_SEARCH);
   const [fetchOn, setFetchOn] = useState(true);
+  const [fetchFormat, setFetchFormat] = useState("markdown");
   const [image, setImage] = useState<MediaCfg>(EMPTY_MEDIA);
   const [snap, setSnap] = useState(() => ({
     search: JSON.stringify(DEFAULT_SEARCH),
-    fetch: JSON.stringify(true),
+    fetch: JSON.stringify({ enabled: true, format: "markdown" }),
     image: JSON.stringify(EMPTY_MEDIA),
   }));
   const [sourceList, setSourceList] = useState<SearchSource[]>([]);
@@ -251,7 +252,7 @@ export function ToolsSection() {
   const [pendingNav, setPendingNav] = useState<{ proceed: () => void } | null>(null);
   const [savedCard, setSavedCard] = useState<"search" | "fetch" | "image" | "">("");
   // 最近一次持久化的三卡值：rail 状态按已存配置算，草稿改动不影响状态显示
-  const [saved, setSaved] = useState(() => ({ search: DEFAULT_SEARCH, fetch: true, image: EMPTY_MEDIA }));
+  const [saved, setSaved] = useState(() => ({ search: DEFAULT_SEARCH, fetch: { enabled: true, format: "markdown" }, image: EMPTY_MEDIA }));
   const [saveError, setSaveError] = useState("");
   const [revealed, setRevealed] = useState<ReadonlySet<string>>(new Set());
   // SearXNG 公共实例（只在点按钮时拉一次）
@@ -284,16 +285,18 @@ export function ToolsSection() {
     try {
       const v = ((await settingsApi.get("mcp_tools", "settings")) ?? {}) as Record<string, unknown>;
       const s = readSearch(v.search);
-      const f = (v.fetch ?? {}) as { enabled?: unknown };
+      const f = (v.fetch ?? {}) as { enabled?: unknown; format?: unknown };
       const fOn = typeof f.enabled === "boolean" ? f.enabled : true;
+      const fFmt = f.format === "html" || f.format === "text" ? f.format : "markdown";
       const img = readMedia(v.image);
       setSearch(s);
       setFetchOn(fOn);
+      setFetchFormat(fFmt);
       setImage(img);
-      setSaved({ search: s, fetch: fOn, image: img });
+      setSaved({ search: s, fetch: { enabled: fOn, format: fFmt }, image: img });
       setSnap({
         search: JSON.stringify(s),
-        fetch: JSON.stringify(fOn),
+        fetch: JSON.stringify({ enabled: fOn, format: fFmt }),
         image: JSON.stringify(img),
       });
       setSavedCard("");
@@ -323,7 +326,7 @@ export function ToolsSection() {
 
   const dirty = {
     search: JSON.stringify(search) !== snap.search,
-    fetch: JSON.stringify(fetchOn) !== snap.fetch,
+    fetch: JSON.stringify({ enabled: fetchOn, format: fetchFormat }) !== snap.fetch,
     image: JSON.stringify(image) !== snap.image,
   };
   const unsavedCount = Number(dirty.search) + Number(dirty.fetch) + Number(dirty.image);
@@ -353,8 +356,8 @@ export function ToolsSection() {
         next.search = cleanSearch(search);
         savedValue = search;
       } else if (card === "fetch") {
-        next.fetch = { enabled: fetchOn };
-        savedValue = fetchOn;
+        next.fetch = { enabled: fetchOn, format: fetchFormat };
+        savedValue = { enabled: fetchOn, format: fetchFormat };
       } else {
         if (hasMedia(image)) next.image = image;
         else delete next.image;
@@ -474,7 +477,7 @@ export function ToolsSection() {
 
   // ── 执行路径图（随模式 / 停用切换）与 rail 状态（按已存值）──
   const liveSettings = useMemo(
-    () => ({ search: saved.search, fetch: { enabled: saved.fetch }, image: saved.image }),
+    () => ({ search: saved.search, fetch: saved.fetch, image: saved.image }),
     [saved],
   );
   const statusOf = (tool: ToolId) => toolStatus(tool, liveSettings, keyedIds);
@@ -852,8 +855,21 @@ export function ToolsSection() {
         t("tools.card.fetch"),
         switchRow("mcp-tools-fetch-enabled", fetchOn, () => setFetchOn((v) => !v), t("tools.fetch.enabled")),
       )}
-      <div className="px-4 pb-4 pt-4">
+      <div className="flex flex-col gap-3 px-4 pb-4 pt-4">
         <p className="text-xs text-secondary">{t("tools.fetch.desc")}</p>
+        <label className="flex items-center gap-2.5 text-xs">
+          {t("tools.fetch.format")}
+          <select
+            data-testid="tools-fetch-format"
+            value={fetchFormat}
+            onChange={(e) => setFetchFormat(e.target.value as "markdown" | "html" | "text")}
+            className="h-8 flex-1 rounded-md border border-input bg-card px-2.5 text-sm outline-none transition-colors focus:border-primary"
+          >
+            <option value="markdown">{t("tools.fetch.formatMarkdown")}</option>
+            <option value="html">{t("tools.fetch.formatHtml")}</option>
+            <option value="text">{t("tools.fetch.formatText")}</option>
+          </select>
+        </label>
       </div>
       {cardFooter("fetch", "tools-fetch-save")}
     </section>

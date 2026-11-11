@@ -55,7 +55,7 @@ pub async fn run_tool(
             }
         }
         "web_fetch" if !settings.fetch.enabled => Err("web_fetch 已停用（「启用抓网页」已关闭）".into()),
-        "web_fetch" => search::fetch_url_text(&subject).await,
+        "web_fetch" => search::fetch_url_text(&subject, settings.fetch.format).await,
         "generate_image" => {
             crate::media::generate_image(settings.image.as_ref(), &subject, args["size"].as_str()).await
         }
