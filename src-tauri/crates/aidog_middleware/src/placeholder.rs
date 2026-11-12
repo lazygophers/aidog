@@ -285,12 +285,12 @@ impl DeltaTextRestorer {
     fn push(&mut self, text: &str) -> String {
         self.pending.push_str(text);
         let bytes = self.pending.as_bytes();
-        let mut emit_len = bytes.len();
+        let mut emit_len = bytes.len() - tail_head_prefix_len(bytes);
         if let Some(i) = last_head_occurrence(bytes)
             && bytes.len() - i < self.map.max_placeholder_len().max(MIN_PLACEHOLDER_LEN)
             && !starts_with_registered_placeholder(bytes, i, &self.map)
         {
-            emit_len = i;
+            emit_len = emit_len.min(i);
         }
         let safe = self.pending[..emit_len].to_string();
         self.pending.drain(..emit_len);
@@ -353,7 +353,12 @@ impl SseStreamRestorer {
         let data_lines = lines
             .iter()
             .enumerate()
-            .filter_map(|(index, line)| line.strip_prefix("data: ").map(|data| (index, data)))
+            .filter_map(|(index, line)| {
+                line.strip_prefix("data:")
+                    .map(|data| data.strip_prefix(' ').unwrap_or(data))
+                    .or_else(|| (*line == "data").then_some(""))
+                    .map(|data| (index, data))
+            })
             .collect::<Vec<_>>();
         let json = data_lines.iter().map(|(_, data)| *data).collect::<Vec<_>>().join("\n");
         if !json.is_empty() && json != "[DONE]"
@@ -545,6 +550,28 @@ mod tests {
     }
 
     #[test]
+    fn sse_restorer_reassembles_placeholder_prefix_across_deltas() {
+        let mut map = ScrubMap::new();
+        let placeholder = map.register("EMAIL", "a\"b\nc");
+        let map = Arc::new(map);
+        for split in 1..placeholder.len() {
+            let first = serde_json::json!({"choices":[{"index":0,"delta":{"content":&placeholder[..split]}}]});
+            let second = serde_json::json!({"choices":[{"index":0,"delta":{"content":&placeholder[split..]}}]});
+            let frames = format!("data: {first}\n\ndata: {second}\n\n");
+            let mut restorer = SseStreamRestorer::new(map.clone());
+            let mut restored = restorer.push_bytes(frames.as_bytes());
+            restored.push_str(&restorer.finish());
+            let contents = restored
+                .split("\n\n")
+                .filter_map(|frame| frame.strip_prefix("data: "))
+                .map(|data| serde_json::from_str::<Value>(data).unwrap())
+                .filter_map(|event| event["choices"][0]["delta"]["content"].as_str().map(str::to_owned))
+                .collect::<String>();
+            assert_eq!(contents, "a\"b\nc", "split={split}");
+        }
+    }
+
+    #[test]
     fn sse_restorer_preserves_anthropic_metadata_and_restores_isolated_blocks() {
         let mut map = ScrubMap::new();
         let text_placeholder = map.register("EMAIL", "restored-text");
@@ -566,7 +593,9 @@ mod tests {
             "delta": {"type": "input_json_delta", "partial_json": &tool_placeholder}
         });
         let first_lines = serde_json::to_string_pretty(&first).unwrap();
-        let first_data = first_lines.lines().map(|line| format!("data: {line}\n")).collect::<String>();
+        let first_data = first_lines.lines().enumerate().map(|(index, line)| {
+            if index % 2 == 0 { format!("data:{line}\n") } else { format!("data: {line}\n") }
+        }).collect::<String>();
         let frames = format!(
             "event: content_block_delta\nid: 7\nretry: 2500\n{first_data}\nevent: content_block_delta\ndata: {tool}\n\nevent: content_block_delta\ndata: {second}\n\nevent: message_stop\ndata: {{}}\n\n"
         );
