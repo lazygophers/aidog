@@ -30,7 +30,7 @@ export function GroupFlowPanel({ groupKey, gps }: { groupKey: string; gps: Group
   }, [groupKey, win]);
 
   const columns = useMemo(() => {
-    const platName = (id: string) => (id === "0" ? t("flow.platform.none", "未路由") : (gps.find(g => String(g.platform.id) === id)?.platform.platform_type ?? `#${id}`));
+    const platName = (id: string) => (id === "0" ? t("flow.platform.none", "未路由") : (gps.find(g => String(g.platform.id) === id)?.platform.name ?? `#${id}`));
     return [
       { key: "client", title: t("flow.col.client", "客户端"), labelOf: (id: string) => clientLabel(t, id) },
       { key: "request_class", title: t("flow.col.requestClass", "请求类型"), labelOf: (id: string) => (id === "" ? t("flow.requestClass.unknown", "未知") : requestClassLabel(t, id)) },
