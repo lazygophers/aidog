@@ -29,7 +29,7 @@ export function HomeFlowCard({ rows, platforms, ungroupedLabel, loading }: {
   })), [rows]);
 
   const columns = useMemo(() => {
-    const platName = (id: string) => (id === "0" ? t("flow.platform.none", "未路由") : (platforms.find(p => String(p.id) === id)?.platform_type ?? `#${id}`));
+    const platName = (id: string) => (id === "0" ? t("flow.platform.none", "未路由") : (platforms.find(p => String(p.id) === id)?.name ?? `#${id}`));
     return [
       { key: "client", title: t("flow.col.client", "客户端"), labelOf: (id: string) => clientLabel(t, id) },
       { key: "requestClass", title: t("flow.col.requestClass", "请求类型"), labelOf: (id: string) => (id === "" ? t("flow.requestClass.unknown", "未知") : requestClassLabel(t, id)) },

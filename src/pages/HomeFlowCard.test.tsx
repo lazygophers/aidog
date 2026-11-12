@@ -34,6 +34,13 @@ describe("HomeFlowCard", () => {
     expect(document.querySelector('[data-testid="flow-node-group-"]')).toBeTruthy();
   });
 
+  it("平台列显示平台 name 而非 platform_type 协议码", () => {
+    render(<HomeFlowCard rows={[row({})]} platforms={[{ id: 7, name: "测试平台甲", platform_type: "newapi" }] as unknown as Platform[]} ungroupedLabel="u" loading={false} />);
+    const node = document.querySelector('[data-testid="flow-node-platform-7"]')!;
+    expect(node.textContent).toContain("测试平台甲");
+    expect(node.textContent).not.toContain("newapi");
+  });
+
   it("platform_id=0 / 空 req_model 有显示名", () => {
     render(<HomeFlowCard rows={[row({ platform_id: 0, req_model: "" })]} platforms={plats} ungroupedLabel="u" loading={false} />);
     expect(document.querySelector('[data-testid="flow-node-platform-0"]')!.textContent).not.toContain("#0");

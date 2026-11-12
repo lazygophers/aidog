@@ -64,6 +64,18 @@ describe("GroupFlowPanel — 四列流向（请求流向票 04）", () => {
     expect(document.querySelector('[data-testid="flow-node-request_class-main"]')).toBeTruthy();
   });
 
+  it("平台列显示平台 name 而非 platform_type 协议码", async () => {
+    const named = [
+      { platform: { id: 1, name: "测试平台甲", platform_type: "newapi", status: "enabled" }, priority: 1, weight: 1, level_priority: 8 },
+    ] as never;
+    vi.mocked(groupFlowApi.flow).mockResolvedValue(rows);
+    render(<GroupFlowPanel groupKey="gk" gps={named} />);
+    await waitFor(() => expect(document.querySelector('[data-testid="flow-chart"]')).toBeTruthy());
+    const node = document.querySelector('[data-testid="flow-node-platform_id-1"]')!;
+    expect(node.textContent).toContain("测试平台甲");
+    expect(node.textContent).not.toContain("newapi");
+  });
+
   it("空数据 → 空态", async () => {
     vi.mocked(groupFlowApi.flow).mockResolvedValueOnce([]);
     render(<GroupFlowPanel groupKey="gk" gps={gps} />);
