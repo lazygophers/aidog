@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794459958,
+  "last_updated": 1794460950,
   "endpoints": {
     "default": [
       {
@@ -54,5 +54,33 @@
     "bendiwangguan",
     "bdwg"
   ],
-  "color": "#9C5CE8"
+  "color": "#9C5CE8",
+  "quota_url_match": ["127.0.0.1:3425", "localhost:3425"],
+  "quota_scripts": [
+    {
+      "id": "default",
+      "name": {
+        "en-US": "Quota Query",
+        "zh-Hans": "额度查询",
+        "ar-SA": "استعلام الحصة",
+        "fr-FR": "Requête de quota",
+        "de-DE": "Kontingentabfrage",
+        "ru-RU": "Запрос квоты",
+        "ja-JP": "クォータ照会",
+        "es-ES": "Consulta de cuota"
+      },
+      "requires": [],
+      "returns": {
+        "balance": true,
+        "coding_plan": true,
+        "mcp": false,
+        "tiers": [
+          "five_hour",
+          "weekly_limit",
+          "monthly"
+        ]
+      },
+      "script": "function httpErr(e) {\n  var m = e && e.message ? String(e.message) : String(e);\n  if (m.indexOf(\"HTTP \") === 0) return m;\n  if (m.indexOf(\"JSON parse: \") === 0) return \"Parse: \" + m.slice(12);\n  return \"Network: \" + m;\n}\nfunction moneyNum(t) {\n  var out = \"\";\n  var dot = false;\n  for (var i = 0; i < t.length; i++) {\n    var ch = t.charAt(i);\n    if (ch >= \"0\" && ch <= \"9\") { out += ch; }\n    else if (ch === \".\" && !dot && out !== \"\") { out += ch; dot = true; }\n  }\n  if (out === \"\" || out === \".\") return null;\n  var n = Number(out);\n  return isNaN(n) ? null : n;\n}\nfunction tierName(wn) {\n  var s = String(wn).toLowerCase().split(\" \").join(\"\");\n  if (s.indexOf(\"week\") !== -1 || s.indexOf(\"7d\") !== -1 || s.indexOf(\"seven\") !== -1) return \"weekly_limit\";\n  if (s.indexOf(\"5h\") !== -1 || s.indexOf(\"five\") !== -1) return \"five_hour\";\n  if (s.indexOf(\"month\") !== -1 || s.indexOf(\"30d\") !== -1) return \"monthly\";\n  return null;\n}\nvar base = String(ctx.baseUrl || \"\");\nwhile (base.length > 0 && base.charAt(base.length - 1) === \"/\") base = base.slice(0, -1);\nif (base.length > 3 && base.slice(-3) === \"/v1\") base = base.slice(0, -3);\nif (base === \"\") return { success: false, error: \"Missing ctx.baseUrl\" };\nvar body;\ntry {\n  body = http.get(base + \"/v1/magpie/quotas?kept=1\", {});\n} catch (e) {\n  return { success: false, error: httpErr(e) };\n}\nif (body == null || typeof body !== \"object\" || Array.isArray(body) || !Array.isArray(body.data)) {\n  return { success: false, error: \"HTTP 200 but no data array\" };\n}\nvar items = body.data;\nvar plan = null;\nvar dropped = [];\nvar notes = [];\nvar balNumSum = 0.0;\nvar balNumUnit = null;\nvar balNumCount = 0;\nvar balText = null;\nvar entryErr = null;\nfor (var i = 0; i < items.length; i++) {\n  var q = items[i];\n  if (q == null || typeof q !== \"object\" || Array.isArray(q)) continue;\n  var kind = typeof q.kind === \"string\" ? q.kind : \"\";\n  if (kind === \"subscription\") continue;\n  var entryFailed = typeof q.error === \"string\" && q.error !== \"\";\n  if (kind === \"balance\") {\n    if (entryFailed) { entryErr = q.error; continue; }\n    if (Array.isArray(q.windows)) {\n      for (var w = 0; w < q.windows.length; w++) {\n        var win = q.windows[w];\n        if (win != null && typeof win.balance === \"number\") {\n          balNumSum += win.balance;\n          if (balNumUnit === null && typeof win.unit === \"string\" && win.unit !== \"\") balNumUnit = win.unit;\n          balNumCount++;\n        }\n      }\n    }\n    if (balText === null && typeof q.balance === \"string\" && q.balance.trim() !== \"\") balText = q.balance;\n  } else if (kind === \"plan\" && plan === null) {\n    var lvl = typeof q.plan === \"string\" && q.plan !== \"\" ? q.plan : null;\n    var tiers = [];\n    if (Array.isArray(q.windows)) {\n      for (var j = 0; j < q.windows.length; j++) {\n        var win = q.windows[j];\n        if (win == null || typeof win !== \"object\" || Array.isArray(win)) continue;\n        if (win.text === true || win.unlimited === true) { dropped.push(String(win.name)); continue; }\n        var used = typeof win.used === \"number\" ? win.used\n          : (typeof win.remaining === \"number\" ? 100 - win.remaining : null);\n        if (used === null) { dropped.push(String(win.name)); continue; }\n        var tn = tierName(win.name);\n        if (tn === null) { dropped.push(String(win.name)); continue; }\n        tiers.push({\n          name: tn,\n          utilization: used,\n          resets_at: typeof win.resetsAt === \"string\" && win.resetsAt !== \"\" ? win.resetsAt : null,\n          unit: \"prompt_count\"\n        });\n      }\n    }\n    if (tiers.length > 0) plan = { level: lvl, tiers: tiers };\n  }\n}\nif (plan !== null && dropped.length > 0) notes.push(\"dropped windows: \" + dropped.join(\", \"));\nif (entryErr !== null) notes.push(\"balance entry error: \" + entryErr);\nvar balance = null;\nif (balNumCount > 0) {\n  balance = { remaining: balNumSum, total: null, used: null, currency: balNumUnit, is_valid: true };\n  if (balText !== null) notes.push(\"text balance ignored; using numeric windows sum\");\n} else if (balText !== null) {\n  var mv = moneyNum(balText);\n  if (mv !== null) {\n    balance = {\n      remaining: mv,\n      total: null,\n      used: null,\n      currency: balText.indexOf(\"$\") !== -1 ? \"USD\" : (balText.indexOf(\"¥\") !== -1 ? \"CNY\" : null),\n      is_valid: true\n    };\n  } else {\n    notes.push(\"balance text not parseable: \" + balText);\n  }\n}\nreturn {\n  success: true,\n  error: notes.length > 0 ? notes.join(\"; \") : null,\n  balance: balance,\n  coding_plan: plan\n};"
+    }
+  ]
 }
