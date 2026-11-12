@@ -351,3 +351,34 @@ fn file_sha(b: &[u8]) -> String {
     let out = h.finalize();
     out.iter().map(|b| format!("{b:02x}")).collect()
 }
+
+/// atomic_write 并发互斥：固定临时文件名 `<fname>.aidogtmp` 下，两个写者交错时
+/// A 的 rename 抢走共享 tmp，B 的 chmod/rename 报 ENOENT（生产日志 2026-11-12
+/// `merge ~/.claude.json failed ... chmod .claude.json.aidogtmp: No such file`）。
+/// 多线程并发写同一路径，全部调用必须成功且落盘内容是本次写入值之一。
+#[test]
+fn atomic_write_concurrent_calls_all_succeed() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("target.json");
+    let path_c = path.clone();
+    let handles: Vec<_> = (0..8)
+        .map(|w| {
+            let path_t = path_c.clone();
+            std::thread::spawn(move || {
+                for i in 0..50 {
+                    let content = format!("{{\"w\":{w},\"i\":{i}}}");
+                    super::atomic_write(&path_t, &content, None)
+                        .unwrap_or_else(|e| panic!("write {w}/{i} failed: {e}"));
+                }
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().expect("thread panicked");
+    }
+    let final_content = std::fs::read_to_string(&path).expect("final read");
+    assert!(
+        final_content.starts_with("{\"w\":") && final_content.ends_with("}"),
+        "final content should be one of the written values, got {final_content}"
+    );
+}
