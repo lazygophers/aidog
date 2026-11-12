@@ -15,12 +15,13 @@ import {
   type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit,
   type DevinConfig, type PassthroughAuth, type SchedulingBreakerSettings, type GroupDetail,
   QUOTA_SCRIPT_SAMPLE, isUserQuotaScript, QUOTA_CUSTOM_VARIANT, resolveQuotaSelection,
+  quotaApi, type PlatformQuota,
 } from "../../services/api";
 import { rateLimitsSummary, clientCategoryState, toggleClientCategory, toggleClientVariant, validateClientUaRule, type ClientUaRule, type ClientUaRuleKind, type RateLimitsBundle, type RateLimitsConfig, type QuotaWindowConfig, type ClientVocabCategory } from "../../services/api";
 import { Checkbox } from "@/components/ui/checkbox";
 import { newManualBudget, type TimeWindow, getDefaultPeak, getDefaultModelList, getDefaultPlanQuotas, type PlanQuotaTier, type QuotaScriptVariant, quotaVariantLabel } from "../../domains/platforms";
 import { isCurrentlyPeak, currentPeakMultiplier, utcToDisplay, displayToUtc, WINDOW_TIMEZONES, type TzMode } from "../../utils/timeWindow";
-import { formatDateTime, pad } from "../../utils/formatters";
+import { formatAmount, formatDateTime, formatPercent, pad } from "../../utils/formatters";
 import type { ThemeMode } from "../../themes/types";
 import { ModelCombobox, useModelCandidates } from "./ModelCombobox";
 import { Button } from "@/components/ui/button";
@@ -1350,6 +1351,7 @@ export function QuotaSection({
   quotaSource, onSourceChange,
   protocol, variants, variantId, onVariantChange, customScript, onCustomScriptChange,
   requires, onRequiresChange, locale,
+  baseUrl, apiKey, platformId,
   budgets, setBudgets, editing, t,
 }: {
   quotaSource: "auto" | "manual";
@@ -1363,12 +1365,37 @@ export function QuotaSection({
   requires: Record<string, string>;
   onRequiresChange: (key: string, value: string) => void;
   locale?: string;
+  /** 测试按钮用：当前表单主端点 base_url / key 字段 / 编辑中的平台 id（新建 = null）。 */
+  baseUrl?: string;
+  apiKey?: string;
+  platformId?: number | null;
   budgets: ManualBudget[];
   setBudgets: React.Dispatch<React.SetStateAction<ManualBudget[]>>;
   editing: boolean;
   t: TFunction;
 }) {
   const [confirmTarget, setConfirmTarget] = useState<"auto" | "manual" | null>(null);
+
+  // 测试按钮：就地执行一次配额查询并内联展示结果（后端 platform_query_quota 成功时自行 persist）。
+  const [testRunning, setTestRunning] = useState(false);
+  const [testResult, setTestResult] = useState<PlatformQuota | null>(null);
+  const runQuotaTest = async () => {
+    if (testRunning) return;
+    setTestRunning(true);
+    try {
+      setTestResult(await quotaApi.query(baseUrl ?? "", apiKey ?? "", platformId ?? null));
+    } catch (e) {
+      setTestResult({
+        success: false,
+        error: e instanceof Error ? e.message : String(e),
+        queried_at: Date.now(),
+        balance: null,
+        coding_plan: null,
+      });
+    } finally {
+      setTestRunning(false);
+    }
+  };
 
   const { selection, customOnly, fellBack } = resolveQuotaSelection(customScript, variantId, variants);
   const selVariant = selection === QUOTA_CUSTOM_VARIANT ? null : variants.find(v => v.id === selection) ?? null;
@@ -1430,6 +1457,60 @@ export function QuotaSection({
             locale={locale} t={t} customOnly={customOnly} selection={selection}
             fellBack={fellBack} selVariant={selVariant}
           />
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
+            <Button
+              data-testid="quota-test-button"
+              variant="outline"
+              size="sm"
+              disabled={!scriptConfigured || testRunning}
+              onClick={runQuotaTest}
+            >
+              {testRunning ? t("platform.quotaSection.testing", "查询中…") : t("platform.quotaSection.test", "测试")}
+            </Button>
+            {!scriptConfigured && (
+              <div data-testid="quota-test-hint" style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+                {t("platform.quotaSection.testNoScript", "先配置查询脚本（选择变体或编写自定义脚本）再测试。")}
+              </div>
+            )}
+            {testResult && (
+              <div data-testid="quota-test-result" style={{ fontSize: 14, lineHeight: 1.6 }}>
+                {testResult.success ? (
+                  <>
+                    {testResult.balance && (
+                      <div data-testid="quota-test-balance">
+                        {t("platform.quotaSection.testBalance", "余额")}
+                        {": "}
+                        {formatAmount(testResult.balance.remaining, testResult.balance.currency)}
+                        {testResult.balance.total != null && ` / ${formatAmount(testResult.balance.total, testResult.balance.currency)}`}
+                        {testResult.balance.used != null && ` (${t("platform.quotaSection.testUsed", "已用")} ${formatAmount(testResult.balance.used, testResult.balance.currency)})`}
+                      </div>
+                    )}
+                    {testResult.coding_plan?.tiers.map(tier => (
+                      <div key={tier.name}>
+                        {tier.name}: {formatPercent(tier.utilization)}
+                      </div>
+                    ))}
+                    <div>
+                      {t("platform.quotaSection.testQueriedAt", "查询时间")}
+                      {": "}
+                      {formatDateTime(testResult.queried_at) ?? "-"}
+                    </div>
+                    {testResult.error && (
+                      <div data-testid="quota-test-note" style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
+                        {t("platform.quotaSection.testNote", "附注")}
+                        {": "}
+                        {testResult.error}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div data-testid="quota-test-error" style={{ color: "var(--destructive)" }}>
+                    {testResult.error ?? t("platform.quotaSection.testFail", "查询失败")}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </TabsContent>
         <TabsContent value="manual">
           <ManualBudgetsFields

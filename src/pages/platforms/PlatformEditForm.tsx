@@ -291,6 +291,9 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             onCustomScriptChange={setQuotaCustomScript}
             requires={quotaRequires}
             onRequiresChange={(k, v) => setQuotaRequires(prev => ({ ...prev, [k]: v }))}
+            baseUrl={getPrimaryBaseUrl(protocol, endpoints)}
+            apiKey={apiKey}
+            platformId={editing?.id ?? null}
             locale={i18n.language}
             budgets={manualBudgets} setBudgets={setManualBudgets}
             editing={!!editing}
