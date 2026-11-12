@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794291601,
+  "last_updated": 1794459958,
   "platforms": [
     {
       "code": "aihubmix",
@@ -6074,6 +6074,18 @@
       "models": [
         "LongCat-2.0.json",
         "LongCat-2.5-Preview.json"
+      ]
+    },
+    {
+      "code": "magpie",
+      "name": "Magpie",
+      "platform_file": "platforms/magpie/platform.json",
+      "models_dir": "platforms/magpie/models",
+      "models": [
+        "claude-fable-5-1.json",
+        "claude-haiku-5-5.json",
+        "claude-opus-4-6.json",
+        "gpt-5.6.json"
       ]
     },
     {
