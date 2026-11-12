@@ -38,6 +38,18 @@ async fn migrate_auto_vacuum_is_idempotent() {
     assert_eq!(av, 2, "auto_vacuum should be INCREMENTAL");
 }
 
+/// db_file_size 在加密文件库上可用：SQLCipher 的 PRAGMA page_size 在加密库返回 TEXT
+/// （列名 cipher_page_size），i64 直取报 Invalid column type（生产日志 2026-11-12 实锤，
+/// 阈值 VACUUM 永久跳过）。内存库无 SQLCipher 行为，必须用 three_file_db。
+#[tokio::test]
+async fn db_file_size_works_on_encrypted_file_db() {
+    let (db, _dir) = three_file_db().await;
+    let size = db_file_size(&db)
+        .await
+        .expect("db_file_size on encrypted file db");
+    assert!(size > 0, "size should be positive");
+}
+
 /// compact_database 全量 VACUUM 返回 before/after 字节，after <= before（压缩单调非增）。
 #[tokio::test]
 async fn compact_database_returns_sizes() {

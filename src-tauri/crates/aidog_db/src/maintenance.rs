@@ -339,7 +339,27 @@ pub fn db_file_size(db: &Db) -> impl std::future::Future<Output = Result<i64, St
 /// `PRAGMA page_count * PRAGMA page_size` = 当前 DB 文件占用的逻辑字节数。
 fn db_size_bytes(conn: &Connection) -> SqlResult<i64> {
     let pages: i64 = conn.query_row("PRAGMA page_count", [], |r| r.get(0))?;
-    let page_size: i64 = conn.query_row("PRAGMA page_size", [], |r| r.get(0))?;
+    // SQLCipher 加密库上 PRAGMA page_size 返回 TEXT 且列名变 cipher_page_size，
+    // i64 直取报 Invalid column type；经 Value 中转按实际类型解析。
+    let page_size = match conn
+        .query_row("PRAGMA page_size", [], |r| r.get::<_, rusqlite::types::Value>(0))?
+    {
+        rusqlite::types::Value::Integer(v) => v,
+        rusqlite::types::Value::Text(ref s) => s.parse::<i64>().map_err(|_| {
+            rusqlite::Error::InvalidColumnType(
+                0,
+                "page_size".into(),
+                rusqlite::types::Type::Text,
+            )
+        })?,
+        _ => {
+            return Err(rusqlite::Error::InvalidColumnType(
+                0,
+                "page_size".into(),
+                rusqlite::types::Type::Null,
+            ))
+        }
+    };
     Ok(pages * page_size)
 }
 

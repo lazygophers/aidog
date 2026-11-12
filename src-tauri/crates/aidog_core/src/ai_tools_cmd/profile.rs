@@ -296,7 +296,16 @@ pub(crate) fn atomic_write(path: &Path, content: &str, mode: Option<u32>) -> Res
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .ok_or_else(|| format!("no file name for {}", path.display()))?;
-    let tmp = parent.join(format!("{fname}.aidogtmp"));
+    // 临时名带 pid + 进程内序号：固定 `.aidogtmp` 名在并发写同一路径时被另一写者的
+    // rename 抢走，chmod/rename 报 ENOENT（生产日志 2026-11-12 实锤）；时间戳在
+    // macOS 微秒级时钟下同刻碰撞，序号保证进程内唯一，pid 保证进程间唯一。
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static TMP_SEQ: AtomicU64 = AtomicU64::new(0);
+    let tmp = parent.join(format!(
+        "{fname}.{}.{}.aidogtmp",
+        std::process::id(),
+        TMP_SEQ.fetch_add(1, Ordering::Relaxed)
+    ));
     let write = || -> Result<(), String> {
         std::fs::write(&tmp, content).map_err(|e| format!("write {}: {e}", tmp.display()))?;
         #[cfg(unix)]
