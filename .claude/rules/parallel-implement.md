@@ -179,6 +179,12 @@ mitm_bypass 测试读加密列断言明文——子集门禁全绿，合并到 m
 路径（如 review 挡合并）时，把顺序重排或将轻票收给主会话自己干，而不是派完才发现
 卡在队尾。
 
+- **在途账本与实际占槽同步**（2026-11-11 ~ 11-12 中间件 / session id 轮实锤）：agent 回报并
+  TaskStop 后，主会话当场把任务状态文件里该 agent 的占槽条目标成已释放——TaskStop 不清
+  账本，派发 hook 按自己的账本计数且条目约 4 小时才过期。被「并发 subagent 上限 N 已满」
+  拦时先核对账本：条目对应 agent 已回报 / 已结束却未释放的，释放后立即重派，不干等自动
+  过期，也不硬重试（本轮同一 hook 拦了 3 次，其中 2 次拦的是槽实际已空的活）。
+
 ## 9. 整体 revert 旧提交撤功能：逐 hunk 归属复核（2026-10-29 去抽屉轮）
 
 去抽屉用 revert 15f85b503 + 91571e2b8 压成一提交（cc2fa3d87）。整体 revert 会连同旧提交里
@@ -320,7 +326,10 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
 用户原话：「Debug 的产出或者是这些前端的产出，能不能都限制在当前目录，而不是每次都去 temp 目录下面的临时文件里面创建，让它们每次都在同一个地方？这样更便于清理和管理。」
 
 - 上文各节的 `/tmp/<名>.log` 一律落仓库 `.tmp/<任务名>/<名>.log`（`.gitignore` 已忽略），收工删该目录；
-  命令前先 `mkdir -p .tmp/<任务名>`。
+  命令前先 `mkdir -p .tmp/<任务名>`。**先红（`red*.log`）与门禁日志例外：实现 agent 不删**——
+  留到 review 核对与合并完成后由收尾 agent / 主会话清（2026-11-11 ~ 11-12 轮实锤：实现 agent
+  收工清了 `.tmp`，review 时「先红证据不可核」（`.tmp/` 全目录 grep 零命中），被迫补跑门禁补证；
+  派发 prompt 交代清场边界时带上这句）。
 - 上文 `CARGO_TARGET_DIR=/tmp/aidog-agent-target` 作废：主 checkout 用默认 `src-tauri/target`，仅 worktree 用 `<项目根>/.worktrees/.target`（见 shared-worktree.md「构建目录」）。
 
 ## 19. implementer 的门禁链一律前台同步跑（2026-11-07 magpie 轮）
