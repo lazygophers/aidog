@@ -51,6 +51,10 @@ check: ## Run TypeScript + Rust type checks
 
 .PHONY: lint
 lint: ## Run linters
+	@printf "$(CYAN)▶ TypeScript check...$(RESET)\n"
+	npx tsc --noEmit
+	@printf "$(CYAN)▶ TypeScript check (tests)...$(RESET)\n"
+	npx tsc -p tsconfig.test.json --noEmit
 	@printf "$(CYAN)▶ Registry schema check...$(RESET)\n"
 	yarn check:registry
 	@printf "$(CYAN)▶ Defaults JSON syntax check...$(RESET)\n"

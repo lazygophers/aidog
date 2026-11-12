@@ -429,7 +429,13 @@ export function ToolsSection() {
   const testSearxAll = async () => {
     setSearxAllBusy(true);
     try {
-      for (const u of searxKnown) await testSearx(u);
+      let next = 0;
+      await Promise.all(Array.from({ length: Math.min(5, searxKnown.length) }, async () => {
+        while (next < searxKnown.length) {
+          const url = searxKnown[next++];
+          await testSearx(url);
+        }
+      }));
     } finally {
       setSearxAllBusy(false);
     }

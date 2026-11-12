@@ -333,10 +333,15 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     } else {
       setEndpoints([]);
     }
-    // Auto-fill 默认模型预设（与 endpoints 同步随协议切换）。
-    // 仅填预设有值的槽位，其余保持空；未覆盖平台返回空对象 = 不改动。
-    const defaultModels = await getDefaultModels(newProtocol);
-    setModels(slotsToForm(defaultModels));
+    // 保留已填写的模型链，仅用预设填充空槽位。
+    const defaultModels = slotsToForm(await getDefaultModels(newProtocol));
+    setModels(prev => {
+      const next = { ...prev };
+      for (const slot of MODEL_SLOTS) {
+        if (next[slot.key].length === 0) next[slot.key] = defaultModels[slot.key];
+      }
+      return next;
+    });
     // 切到 mock 时用当前 extra 初始化 mock 配置编辑器
     if (newProtocol === "mock") {
       setMockConfig(parseMockConfig(extra));
