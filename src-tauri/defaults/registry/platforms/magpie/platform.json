@@ -1,0 +1,58 @@
+{
+  "last_updated": 1794459958,
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "http://127.0.0.1:3425"
+      },
+      {
+        "protocol": "openai",
+        "base_url": "http://127.0.0.1:3425/v1"
+      },
+      {
+        "protocol": "openai_responses",
+        "base_url": "http://127.0.0.1:3425/v1"
+      }
+    ]
+  },
+  "models": {
+    "default": {}
+  },
+  "model_list": {
+    "default": [
+      "claude-fable-5-1",
+      "claude-haiku-5-5",
+      "claude-opus-4-6",
+      "gpt-5.6"
+    ]
+  },
+  "name": {
+    "en-US": "Magpie",
+    "zh-Hans": "Magpie",
+    "ar-SA": "Magpie",
+    "fr-FR": "Magpie",
+    "de-DE": "Magpie",
+    "ru-RU": "Magpie",
+    "ja-JP": "Magpie",
+    "es-ES": "Magpie"
+  },
+  "source_urls": {
+    "docs": "https://github.com/yetone/magpie",
+    "pricing": "https://github.com/yetone/magpie"
+  },
+  "homepage": "https://usemagpie.ai",
+  "logo_url": "",
+  "keywords": [
+    "magpie",
+    "meique",
+    "mq",
+    "喜鹊",
+    "xique",
+    "xq",
+    "本地网关",
+    "bendiwangguan",
+    "bdwg"
+  ],
+  "color": "#9C5CE8"
+}
