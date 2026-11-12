@@ -14,6 +14,7 @@ pub mod script;
 pub use http::{BalanceInfo, CodingPlanInfo, PlatformQuota, QuotaTier};
 pub use script::CustomQueryCtx;
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use aidog_db::Db;
@@ -144,7 +145,26 @@ pub async fn query_quota(
     api_key: &str,
     platform_id: i64,
 ) -> PlatformQuota {
-    let row = platform_row(db, platform_id).await;
+    query_quota_with_draft_requires(db, base_url, api_key, platform_id, None).await
+}
+
+pub async fn query_quota_with_draft_requires(
+    db: Option<&Arc<Db>>,
+    base_url: &str,
+    api_key: &str,
+    platform_id: i64,
+    draft_requires: Option<&HashMap<String, String>>,
+) -> PlatformQuota {
+    let mut row = platform_row(db, platform_id).await;
+    if let (Some(platform), Some(requires)) = (row.as_mut(), draft_requires)
+        && let Ok(mut extra) = serde_json::from_str::<serde_json::Value>(&platform.extra)
+        && let Some(object) = extra.as_object_mut()
+    {
+        object.extend(requires.iter().map(|(key, value)| {
+            (key.clone(), serde_json::Value::String(value.clone()))
+        }));
+        platform.extra = extra.to_string();
+    }
     QUOTA_PLATFORM_ID
         .scope(
             platform_id,

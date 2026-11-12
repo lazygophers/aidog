@@ -20,7 +20,7 @@ const VARIANT: QuotaScriptVariant = {
   name: { "en-US": "Official" },
   requires: [],
   returns: { balance: true },
-  script: "",
+  script: "return { success: true };",
 };
 
 function okQuota(): PlatformQuota {
@@ -39,6 +39,8 @@ function renderSection(opts: {
   customScript?: string;
   baseUrl?: string;
   apiKey?: string;
+  requires?: Record<string, string>;
+  variants?: QuotaScriptVariant[];
 } = {}) {
   const onSourceChange = vi.fn();
   const { container, getByText } = render(
@@ -46,12 +48,12 @@ function renderSection(opts: {
       quotaSource={opts.quotaSource ?? "auto"}
       onSourceChange={onSourceChange}
       protocol="deepseek"
-      variants={[VARIANT]}
+      variants={opts.variants ?? [VARIANT]}
       variantId=""
       onVariantChange={vi.fn()}
       customScript={opts.customScript ?? ""}
       onCustomScriptChange={vi.fn()}
-      requires={{}}
+      requires={opts.requires ?? {}}
       onRequiresChange={vi.fn()}
       baseUrl={opts.baseUrl ?? "https://x.test"}
       apiKey={opts.apiKey ?? "k-123"}
@@ -109,8 +111,13 @@ describe("QuotaSection（quota-ia 票 03）", () => {
 });
 
 describe("QuotaSection 测试按钮", () => {
-  it("无脚本配置：按钮禁用并显示提示", () => {
+  it("默认回落到内置脚本时按钮可用", () => {
     const r = renderSection();
+    expect(r.container.querySelector('[data-testid="quota-test-button"]')).toBeEnabled();
+  });
+
+  it("无可执行脚本：按钮禁用并显示提示", () => {
+    const r = renderSection({ variants: [] });
     expect(r.container.querySelector('[data-testid="quota-test-button"]')).not.toBeNull();
     expect(r.container.querySelector('[data-testid="quota-test-button"]')).toBeDisabled();
     expect(r.container.querySelector('[data-testid="quota-test-hint"]')?.textContent).toContain("查询脚本");
@@ -119,14 +126,14 @@ describe("QuotaSection 测试按钮", () => {
   it("点击后调 quotaApi.query 一次；查询中防重复点击", async () => {
     let release!: (v: PlatformQuota) => void;
     quotaQueryMock.mockReturnValue(new Promise<PlatformQuota>((res) => { release = res; }));
-    const r = renderSection({ customScript: "function q(){}" });
+    const r = renderSection({ customScript: "function q(){}", requires: { magpie_name: "draft-account" } });
     const btn = r.container.querySelector('[data-testid="quota-test-button"]') as HTMLButtonElement;
     expect(btn).not.toBeNull();
     expect(btn).toBeEnabled();
     fireEvent.click(btn);
     fireEvent.click(btn);
     expect(quotaQueryMock).toHaveBeenCalledTimes(1);
-    expect(quotaQueryMock).toHaveBeenCalledWith("https://x.test", "k-123", undefined);
+    expect(quotaQueryMock).toHaveBeenCalledWith("https://x.test", "k-123", undefined, { magpie_name: "draft-account" });
     release({ success: false, error: "x", queried_at: 0, balance: null, coding_plan: null });
     await waitFor(() => expect(r.container.querySelector('[data-testid="quota-test-result"]')).not.toBeNull());
   });

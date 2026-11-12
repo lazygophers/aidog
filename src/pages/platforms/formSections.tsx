@@ -1413,7 +1413,7 @@ export function QuotaSection({
     if (testRunning) return;
     setTestRunning(true);
     try {
-      setTestResult(await quotaApi.query(baseUrl ?? "", apiKey ?? "", platformId ?? undefined));
+      setTestResult(await quotaApi.query(baseUrl ?? "", apiKey ?? "", platformId ?? undefined, requires));
     } catch (e) {
       setTestResult({
         success: false,
@@ -1461,6 +1461,7 @@ export function QuotaSection({
 
   // 切 tab：对侧有用户数据才确认（票 03：无配置静默切换，有配置弹窗列出将清什么）。
   const scriptConfigured = quotaCustomScriptConfigured(customScript, variantId, variants);
+  const scriptAvailable = isUserQuotaScript(customScript) || Boolean(selVariant?.script?.trim());
   const budgetConfigured = budgets.length > 0;
   const trySwitch = (target: "auto" | "manual") => {
     if (target === quotaSource) return;
@@ -1492,12 +1493,12 @@ export function QuotaSection({
               data-testid="quota-test-button"
               variant="outline"
               size="sm"
-              disabled={!scriptConfigured || testRunning}
+              disabled={!scriptAvailable || testRunning}
               onClick={runQuotaTest}
             >
               {testRunning ? t("platform.quotaSection.testing", "查询中…") : t("platform.quotaSection.test", "测试")}
             </Button>
-            {!scriptConfigured && (
+            {!scriptAvailable && (
               <div data-testid="quota-test-hint" style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
                 {t("platform.quotaSection.testNoScript", "先配置查询脚本（选择变体或编写自定义脚本）再测试。")}
               </div>

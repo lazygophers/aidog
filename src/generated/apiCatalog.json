@@ -2041,6 +2041,10 @@
         {
           "name": "platformId",
           "type": "Option<u64>"
+        },
+        {
+          "name": "draftRequires",
+          "type": "Option<HashMap<String, String>>"
         }
       ],
       "returns": "PlatformQuota"

@@ -267,9 +267,11 @@ async fn magpie_names_discovery_returns_names_and_rejects_duplicates() {
         .await
         .unwrap();
     assert_eq!(names, ["Codex", "Claude"]);
-    let requests = requests.lock().unwrap();
-    assert_eq!(requests[0].path, "/v1/magpie/quotas?kept=1");
-    assert_eq!(requests[0].authorization, "Bearer sk-test");
+    {
+        let requests = requests.lock().unwrap();
+        assert_eq!(requests[0].path, "/v1/magpie/quotas?kept=1");
+        assert_eq!(requests[0].authorization, "Bearer sk-test");
+    }
 
     let duplicate = spawn_stub(200, r#"{"data":[{"name":"Codex"},{"name":"Codex"}]}"#).await;
     let error = crate::quota::discover_magpie_quota_names(None, &duplicate, "sk-test")

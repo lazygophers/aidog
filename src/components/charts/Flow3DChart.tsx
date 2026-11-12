@@ -426,7 +426,7 @@ export function Flow3DChart({ columns, rows, metric, surface }: FlowChartProps) 
   const chip = (c: string) => <span style={{ width: 12, height: 12, borderRadius: 3, background: c, flex: "none", display: "inline-block" }} />;
   const ofTotal = (v: number) => `${fmtV(v)} · ${t("flow.3d.ofTotal", { p: formatPct(v / total * 100), defaultValue: "占全部 {{p}}" })}`;
   const totStyle = { marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border)", fontFamily: MONO, fontWeight: 600 } as const;
-  const secStyle = { marginTop: 8, color: "var(--text-secondary)", fontSize: 12 } as const;
+  const secStyle = { marginTop: 8, color: "var(--text-secondary)", fontSize: 14 } as const;
 
   const pathCard = (p: P3) => {
     const half = Math.ceil(L / 2);
@@ -463,7 +463,7 @@ export function Flow3DChart({ columns, rows, metric, surface }: FlowChartProps) 
       ? [...(mid > n.ci ? [mid] : []), L - 1].map(l => [t("flow.3d.toCol", { col: columns[l].title, defaultValue: "去往{{col}}" }), l])
       : [0, ...(L - 3 > 0 ? [L - 3] : [])].map(l => [t("flow.3d.fromCol", { col: columns[l].title, defaultValue: "来自{{col}}" }), l]);
     return (<>
-      <div style={{ fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}>{n.name}<span style={{ fontWeight: 400, fontSize: 12, color: "var(--text-secondary)" }}>{columns[n.ci].title}</span></div>
+      <div style={{ fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}>{n.name}<span style={{ fontWeight: 400, fontSize: 14, color: "var(--text-secondary)" }}>{columns[n.ci].title}</span></div>
       <div style={{ fontFamily: MONO, fontWeight: 600 }}>{t("flow.3d.via", "经过此节点")} {ofTotal(n.flow)}</div>
       <div style={{ display: "grid", gridTemplateColumns: secs.length > 1 ? "1fr 1fr" : "1fr", gap: "0 16px" }}>
         {secs.map(([title, l]) => <div key={l}><div style={secStyle}>{title}</div>{dist(n, l)}</div>)}
@@ -477,17 +477,17 @@ export function Flow3DChart({ columns, rows, metric, surface }: FlowChartProps) 
       onMouseEnter={() => applyFocus(f)} onMouseLeave={() => applyFocus(null)}
       style={{ display: "grid", gridTemplateColumns: "14px 1fr", gap: "2px 10px", padding: 8, borderRadius: 8, background: on ? "var(--accent-subtle)" : "transparent" }}>
       <span style={{ width: 14, height: 14, borderRadius: 3, marginTop: 3, background: color }} />
-      <div style={{ fontSize: 13, lineHeight: 1.45, wordBreak: "break-word" }}>{name}</div>
-      <div style={{ gridColumn: 2, fontFamily: MONO, fontSize: 13, color: "var(--text-secondary)" }}>{fmtV(v)} · {formatPct(v / total * 100)}</div>
+      <div style={{ fontSize: 14, lineHeight: 1.45, wordBreak: "break-word" }}>{name}</div>
+      <div style={{ gridColumn: 2, fontFamily: MONO, fontSize: 14, color: "var(--text-secondary)" }}>{fmtV(v)} · {formatPct(v / total * 100)}</div>
     </div>
   );
 
   return (
-    <div ref={wrapRef} data-testid="flow-3d" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 240px", height: 500, fontSize: 13 }}>
+    <div ref={wrapRef} data-testid="flow-3d" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 240px", height: 500, fontSize: 14 }}>
       <div style={{ position: "relative", overflow: "hidden", minWidth: 0 }}>
         <canvas ref={cvRef} aria-label={t("flow.3d.aria", "请求流向立体图")} style={{ display: "block", width: "100%", height: "100%", cursor: "grab", touchAction: "none" }} />
         <button type="button" data-testid="flow-3d-reset" onClick={() => Object.assign(camRef.current, VIEW0)}
-          style={{ position: "absolute", top: 6, right: 8, cursor: "pointer", fontSize: 13, padding: "2px 9px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "transparent", color: "var(--text-secondary)" }}>
+          style={{ position: "absolute", top: 6, right: 8, cursor: "pointer", fontSize: 14, padding: "2px 9px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "transparent", color: "var(--text-secondary)" }}>
           {t("flow.3d.reset", "重置视角")}
         </button>
         <div data-testid="flow-3d-info" role="status" style={{ position: "absolute", left: 12, bottom: 12, width: focus ? 420 : "auto", maxWidth: "calc(100% - 24px)", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,.14)", padding: "10px 12px", lineHeight: 1.5, pointerEvents: "none", color: "var(--foreground)" }}>

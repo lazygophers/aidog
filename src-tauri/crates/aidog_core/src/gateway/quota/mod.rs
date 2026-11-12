@@ -5,7 +5,7 @@
 
 pub use aidog_adapter::quota::{
     BalanceInfo, CodingPlanInfo, PlatformQuota, QuotaTier, discover_magpie_quota_names, query_quota,
-    query_quota_for,
+    query_quota_for, query_quota_with_draft_requires,
 };
 
 pub use aidog_adapter::devin::quota::query_quota_devin;
