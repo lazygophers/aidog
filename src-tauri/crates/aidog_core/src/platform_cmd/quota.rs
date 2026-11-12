@@ -5,6 +5,14 @@ use std::sync::Arc;
 use gateway::quota::PlatformQuota;
 
 crate::tauri_command! {
+pub async fn platform_magpie_quota_names(
+    base_url: String, api_key: String) -> Result<Vec<String>, String> {
+    let db = Arc::new(aidog_ctx::db().clone());
+    gateway::quota::discover_magpie_quota_names(Some(&db), &base_url, &api_key).await
+}
+}
+
+crate::tauri_command! {
 pub async fn platform_query_quota(
     base_url: String, api_key: String,
     platform_id: Option<u64>) -> Result<PlatformQuota, String> {

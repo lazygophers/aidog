@@ -225,7 +225,7 @@ export { QUOTA_CUSTOM_VARIANT };
 /** QuotaScriptSection 的裸内容（合区后由 QuotaSection 的 Tab 内渲染；本组件保留旧签名供测试）。 */
 export function QuotaScriptFields({
   protocol, variants, onVariantChange, customScript, onCustomScriptChange, requires, onRequiresChange, locale, t,
-  customOnly, selection, fellBack, selVariant,
+  customOnly, selection, fellBack, selVariant, baseUrl, apiKey,
 }: {
   protocol: Protocol;
   variants: QuotaScriptVariant[];
@@ -240,7 +240,19 @@ export function QuotaScriptFields({
   selection: string;
   fellBack: boolean;
   selVariant: QuotaScriptVariant | null;
+  baseUrl?: string;
+  apiKey?: string;
 }) {
+  const [magpieNames, setMagpieNames] = useState<string[]>([]);
+  const [magpieNamesLoading, setMagpieNamesLoading] = useState(false);
+  const [magpieNamesError, setMagpieNamesError] = useState<string | null>(null);
+  const loadMagpieNames = async () => {
+    setMagpieNamesLoading(true);
+    setMagpieNamesError(null);
+    try { setMagpieNames(await quotaApi.magpieNames(baseUrl ?? "", apiKey ?? "")); }
+    catch (e) { setMagpieNamesError(e instanceof Error ? e.message : String(e)); }
+    finally { setMagpieNamesLoading(false); }
+  };
   return (
     <>
       {customOnly ? (
@@ -294,13 +306,31 @@ export function QuotaScriptFields({
           <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
             {quotaVariantLabel(r.label, r.key, locale)}
           </div>
-          <Input
-            className="input"
-            type="text"
-            placeholder={r.key}
-            value={requires[r.key] ?? ""}
-            onChange={(e) => onRequiresChange(r.key, e.target.value)}
-          />
+          {r.key === "magpie_name" ? (
+            <>
+              <div style={{ display: "flex", gap: 8 }}>
+                <Select value={requires.magpie_name || "__none__"} onValueChange={v => onRequiresChange("magpie_name", v === "__none__" ? "" : v)}>
+                  <SelectTrigger className="input" data-testid="magpie-account-select"><SelectValue placeholder={t("platform.quotaScript.magpiePlaceholder", "Select Magpie account")} /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">{t("platform.quotaScript.magpieSelectAccount", "Select account")}</SelectItem>
+                    {magpieNames.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Button type="button" variant="outline" disabled={magpieNamesLoading} onClick={() => void loadMagpieNames()}>
+                  {magpieNamesLoading ? t("platform.quotaScript.magpieLoadingNames", "Loading…") : t("platform.quotaScript.magpieLoadNames", "Load names")}
+                </Button>
+              </div>
+              {magpieNamesError && <div role="alert">{magpieNamesError}</div>}
+            </>
+          ) : (
+            <Input
+              className="input"
+              type="text"
+              placeholder={r.key}
+              value={requires[r.key] ?? ""}
+              onChange={(e) => onRequiresChange(r.key, e.target.value)}
+            />
+          )}
         </div>
       ))}
       {/* New API 用户 ID：非 requires 字段，保留旧表单入口（查询结果 newapi_user_id 的回填目标，
@@ -1383,7 +1413,7 @@ export function QuotaSection({
     if (testRunning) return;
     setTestRunning(true);
     try {
-      setTestResult(await quotaApi.query(baseUrl ?? "", apiKey ?? "", platformId ?? null));
+      setTestResult(await quotaApi.query(baseUrl ?? "", apiKey ?? "", platformId ?? undefined));
     } catch (e) {
       setTestResult({
         success: false,
@@ -1455,7 +1485,7 @@ export function QuotaSection({
             customScript={customScript} onCustomScriptChange={onCustomScriptChange}
             requires={requires} onRequiresChange={onRequiresChange}
             locale={locale} t={t} customOnly={customOnly} selection={selection}
-            fellBack={fellBack} selVariant={selVariant}
+            fellBack={fellBack} selVariant={selVariant} baseUrl={baseUrl} apiKey={apiKey}
           />
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
             <Button

@@ -4,7 +4,8 @@
 //! `gateway::quota::*` 调用路径不变。
 
 pub use aidog_adapter::quota::{
-    BalanceInfo, CodingPlanInfo, PlatformQuota, QuotaTier, query_quota, query_quota_for,
+    BalanceInfo, CodingPlanInfo, PlatformQuota, QuotaTier, discover_magpie_quota_names, query_quota,
+    query_quota_for,
 };
 
 pub use aidog_adapter::devin::quota::query_quota_devin;

@@ -925,6 +925,8 @@ export const modelTestApi = {
 
 
 export const quotaApi = {
+  magpieNames: (baseUrl: string, apiKey: string) =>
+    invoke<string[]>("platform_magpie_quota_names", { baseUrl, apiKey }),
   query: (baseUrl: string, apiKey: string, platformId?: number) =>
     invoke<PlatformQuota>("platform_query_quota", { baseUrl, apiKey, platformId: platformId ?? null }),
   queryNewapi: (baseUrl: string, apiKey: string, extra: string, platformId?: number) =>

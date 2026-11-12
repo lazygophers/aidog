@@ -5,7 +5,7 @@
 //! Parse 锁前缀、Network 锁前缀。
 use super::http::make_quota_log_for_script;
 use super::script::{CustomQueryCtx, run_custom_query};
-use super::test_stub::spawn_stub;
+use super::test_stub::{spawn_capture, spawn_stub};
 use aidog_db::registry;
 
 /// bundled registry 某协议首条变体脚本正文。
@@ -258,4 +258,55 @@ async fn novita_scales_by_1e4_and_zero_invalid() {
     let b2 = q2.balance.unwrap();
     assert_eq!(b2.remaining, 0.0);
     assert!(!b2.is_valid);
+}
+
+#[tokio::test]
+async fn magpie_names_discovery_returns_names_and_rejects_duplicates() {
+    let (stub, requests) = spawn_capture(vec![("/v1/magpie/quotas", 200, r#"{"data":[{"name":"Codex"},{"name":"Claude"}]}"#)]).await;
+    let names = crate::quota::discover_magpie_quota_names(None, &format!("{stub}/v1/"), "sk-test")
+        .await
+        .unwrap();
+    assert_eq!(names, ["Codex", "Claude"]);
+    let requests = requests.lock().unwrap();
+    assert_eq!(requests[0].path, "/v1/magpie/quotas?kept=1");
+    assert_eq!(requests[0].authorization, "Bearer sk-test");
+
+    let duplicate = spawn_stub(200, r#"{"data":[{"name":"Codex"},{"name":"Codex"}]}"#).await;
+    let error = crate::quota::discover_magpie_quota_names(None, &duplicate, "sk-test")
+        .await
+        .unwrap_err();
+    assert!(error.contains("duplicate name"), "{error}");
+
+    let invalid = spawn_stub(200, r#"{"data":[{}]}"#).await;
+    let error = crate::quota::discover_magpie_quota_names(None, &invalid, "sk-test")
+        .await
+        .unwrap_err();
+    assert!(error.contains("without a name"), "{error}");
+}
+
+#[tokio::test]
+async fn magpie_selects_named_subscription_and_parses_weekly_window() {
+    let stub = spawn_stub(
+        200,
+        r#"{"data":[{"name":"Codex","kind":"subscription","plan":"pro","windows":[{"name":"7 days","used":3,"remaining":97,"resetsAt":"2026-11-19T00:00:00Z"},{"name":"Image generation","used":5,"remaining":95}]},{"name":"Other","kind":"subscription","plan":"team","windows":[{"name":"7 days","used":88,"remaining":12}]}]}"#,
+    )
+    .await;
+    let q = run(&script_for("magpie"), &stub, r#"{"magpie_name":"Codex"}"#).await;
+    assert!(q.success, "{:?}", q.error);
+    let plan = q.coding_plan.unwrap();
+    assert_eq!(plan.level.as_deref(), Some("pro"));
+    assert_eq!(plan.tiers.len(), 1, "unknown image quota must be ignored");
+    assert_eq!(plan.tiers[0].name, "weekly_limit");
+    assert_eq!(plan.tiers[0].utilization, 3.0);
+    assert_eq!(plan.tiers[0].resets_at.as_deref(), Some("2026-11-19T00:00:00Z"));
+    assert!(q.balance.is_none());
+
+    let balance_stub = spawn_stub(
+        200,
+        r#"{"data":[{"name":"Codex","kind":"balance","windows":[{"balance":12.5,"unit":"USD"}]},{"name":"Other","kind":"balance","windows":[{"balance":90,"unit":"USD"}]}]}"#,
+    )
+    .await;
+    let q = run(&script_for("magpie"), &balance_stub, r#"{"magpie_name":"Codex"}"#).await;
+    assert!(q.success, "{:?}", q.error);
+    assert_eq!(q.balance.unwrap().remaining, 12.5);
 }
