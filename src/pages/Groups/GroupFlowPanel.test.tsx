@@ -76,6 +76,26 @@ describe("GroupFlowPanel — 四列流向（请求流向票 04）", () => {
     expect(node.textContent).not.toContain("newapi");
   });
 
+  it("默认桑基；切换按钮在桑基与 3D 间来回切；重挂载回到桑基且不写 localStorage", async () => {
+    const spy = vi.spyOn(Storage.prototype, "setItem");
+    vi.mocked(groupFlowApi.flow).mockResolvedValue(rows);
+    const { unmount } = render(<GroupFlowPanel groupKey="gk" gps={gps} />);
+    await waitFor(() => expect(document.querySelector('[data-testid="flow-chart"]')).toBeTruthy());
+    expect(document.querySelector('[data-testid="flow-3d"]')).toBeNull();
+    fireEvent.click(document.querySelector('[data-testid="flow-view-toggle"]')!);
+    expect(document.querySelector('[data-testid="flow-3d"]')).toBeTruthy();
+    expect(document.querySelector('[data-testid="flow-chart"]')).toBeNull();
+    fireEvent.click(document.querySelector('[data-testid="flow-view-toggle"]')!);
+    expect(document.querySelector('[data-testid="flow-chart"]')).toBeTruthy();
+    fireEvent.click(document.querySelector('[data-testid="flow-view-toggle"]')!);
+    unmount();
+    render(<GroupFlowPanel groupKey="gk" gps={gps} />);
+    await waitFor(() => expect(document.querySelector('[data-testid="flow-chart"]')).toBeTruthy());
+    expect(document.querySelector('[data-testid="flow-3d"]')).toBeNull();
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
   it("空数据 → 空态", async () => {
     vi.mocked(groupFlowApi.flow).mockResolvedValueOnce([]);
     render(<GroupFlowPanel groupKey="gk" gps={gps} />);

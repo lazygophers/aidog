@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { groupFlowApi, type FlowRow, type GroupPlatformDetail } from "../../services/api";
 import { FlowChart, type FlowMetric } from "../../components/charts/FlowChart";
+import { Flow3DChart } from "../../components/charts/Flow3DChart";
 import { useDisplayCurrency } from "../../utils/displayCurrency";
 import { clientLabel } from "../../utils/clientLabel";
 import { requestClassLabel } from "../../utils/requestClass";
@@ -16,6 +17,8 @@ export function GroupFlowPanel({ groupKey, gps }: { groupKey: string; gps: Group
   const { t } = useTranslation();
   const [win, setWin] = useState<Window>("today");
   const [metric, setMetric] = useState<FlowMetric>("tokens");
+  // 视图选择只放组件 state，不持久化：重挂载回到桑基
+  const [view, setView] = useState<"sankey" | "3d">("sankey");
   const [rows, setRows] = useState<FlowRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -49,6 +52,10 @@ export function GroupFlowPanel({ groupKey, gps }: { groupKey: string; gps: Group
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 14, fontWeight: 600 }}>{t("group.flow.title", "请求流向")}</span>
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <button type="button" data-testid="flow-view-toggle" data-state={view} onClick={() => setView(v => (v === "3d" ? "sankey" : "3d"))} style={btn(false)}>
+            {view === "3d" ? t("flow.view.sankey", "桑基图") : t("flow.view.3d", "3D 视图")}
+          </button>
+          <span style={{ width: 8 }} />
           {(["7d", "today"] as Window[]).map(w => (
             <button key={w} type="button" data-testid={`flow-win-${w}`} data-state={win === w ? "on" : "off"} onClick={() => setWin(w)} style={btn(win === w)}>
               {t(`group.flow.${w}`, w === "7d" ? "近 7 天" : "今天")}
@@ -67,7 +74,9 @@ export function GroupFlowPanel({ groupKey, gps }: { groupKey: string; gps: Group
           {t("group.flow.empty", "窗口内无请求")}
         </div>
       ) : (
-        <div id="g3-flow-svg"><FlowChart columns={columns} rows={rows as unknown as Record<string, string | number>[]} metric={metric} /></div>
+        <div id="g3-flow-svg">{view === "3d"
+          ? <Flow3DChart columns={columns} rows={rows as unknown as Record<string, string | number>[]} metric={metric} />
+          : <FlowChart columns={columns} rows={rows as unknown as Record<string, string | number>[]} metric={metric} />}</div>
       )}
     </div>
   );
