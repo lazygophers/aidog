@@ -28,7 +28,8 @@
 - agent 收工当场清掉自己建的东西：临时日志、补丁、截图、临时 json、临时目录（位置见下条）。
 - **临时产物收回仓库目录（2026-11-05 改）**：用户原话「Debug 的产出或者是这些前端的产出，能不能都限制在当前目录，
   而不是每次都去 temp 目录下面的临时文件里面创建，让它们每次都在同一个地方？这样更便于清理和管理。」
-  - 临时日志 / 补丁 / 脚本 / 截图：放仓库 `.tmp/<任务名>/`（已在 `.gitignore`），收工删该目录；
+  - 临时日志 / 补丁 / 脚本 / 截图：放仓库 `.tmp/<任务名>/`（已在 `.gitignore`），收工删该目录
+    （先红 / 门禁日志除外，留到 review 与合并后删——见 parallel-implement.md §18）；
     `/tmp/<任务>-*.log` 写法作废（旧文中出现的 `/tmp/x.log` 一律读作 `.tmp/<任务名>/x.log`）。
   - cargo / 前端构建目录见下「构建目录」节。
   - 例外：跨会话互斥锁 `/tmp/aidog-cargo.lock` 留在 /tmp（锁不是产物）。
@@ -68,6 +69,20 @@
    `git diff --cached --stat` 与 `git diff -- <文件>` 核对暂存面 == 想提交的内容 →
    **不带 pathspec 的 `git commit`**（此时提交的就是暂存面，规则 1 的例外；
    索引里有不明来源文件时按「开工前核对索引」节处理，不并入提交）。
+   agent 驱动不了交互式 `git add -p`，非交互等价手法见下「非交互选择性暂存」节。
+
+### 非交互选择性暂存：patch 过滤（2026-11-11 ~ 11-12 中间件 / session id 轮实锤）
+
+agent 的 Bash 驱动不了交互式 `git add -p`；共改文件只取自己 hunk 用 patch 过滤，本轮
+closer agent 用此法完成 `test_middleware_try.rs` 双任务 hunk 拆分与 `lazygophers.json`
+外来段排除，零误扫：
+
+1. `git diff -- <文件> > .tmp/<任务名>/sel.patch`；
+2. 过滤脚本（python / node，**落盘成文件再跑**）按 hunk 头 `@@` 只保留自己的 hunk；
+3. patch 文件必须以换行结尾——缺结尾换行 `git apply` 报 `corrupt patch`（本轮实锤：
+   过滤脚本补结尾换行后三份 patch `--check` 全过）；
+4. `git apply --cached --check` → `git apply --cached` → `git diff --cached` 逐行核对
+   暂存面 == 想提交的内容 → 不带 pathspec 的 `git commit`。
 
 ## 文件所有权
 
