@@ -50,3 +50,4 @@ Edit 小步锚点替换 / 行切片脚本从未出）。这是生成流劣化，
    不内联）；
 3. **禁止**在已劣化的长输出上继续打补丁——垃圾密度随长度涨，修补成本超过重写；
 4. 长 heredoc 是重灾区：拆成多次短 heredoc append，或落 /tmp 模板文件后 cp。
+5. **API 断连同样打断长输出**（2026-11-12 请求流向 3D 稿：设计 agent 一次成型写长 HTML 时三次 `Connection lost mid-response` / ECONNRESET 中止）。派长 HTML / 长文件的 agent 时，prompt 写明「分段写盘，每段落盘后再写下一段」；断连后对同一 agent SendMessage 续做（已落盘段保留），不重派从头写。
