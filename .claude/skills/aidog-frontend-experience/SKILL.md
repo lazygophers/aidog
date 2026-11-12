@@ -1,6 +1,6 @@
 ---
 name: aidog-frontend-experience
-description: aidog（Tauri+React 桌面应用）前端体验优化——UI 视觉、布局、人机交互三合一。落地 Liquid Glass 风格、8 语言 i18n+阿拉伯 RTL、无路由本地 state 导航 + navGuard 离页拦截、formatters/shared 组件复用、主题 light/dark 双变量。视觉重构阶段调用 huashu-design skill 取设计品味。触发词：UI 优化、界面优化、视觉、好看、布局、对齐、间距、交互、体验、liquid glass、玻璃拟态、RTL、暗色、主题、组件复用、设计。
+description: aidog（Tauri+React 桌面应用）前端体验优化——UI 视觉、布局、人机交互三合一。落地 Liquid Glass 风格、8 语言 i18n+阿拉伯 RTL、无路由本地 state 导航 + navGuard 离页拦截、formatters/shared 组件复用、主题 light/dark 双变量。视觉重构阶段调用 huashu-design skill 取设计品味。触发词：UI 优化、界面优化、视觉、好看、布局、对齐、间距、交互、体验、liquid glass、玻璃拟态、RTL、暗色、主题、组件复用、设计、设计稿、图表、可视化。
 when_to_use: 改 aidog 前端 UI/布局/交互；新增页面或组件想保持风格一致；觉得某页"难用/不好看/挤"；做暗色或 RTL 适配；统一数值格式或抽公共组件时
 ---
 
@@ -43,6 +43,12 @@ aidog 是 Tauri 2.0 + React 19 + TS 桌面应用。本 skill 把「UI 视觉 / �
 小改（改一个间距、补一个 hover 态）→ 跳过，直接 Step 3。
 
 🔴 CHECKPOINT：整页视觉重构属高影响改动，改前把方案（截图/描述）给用户确认，再动手。禁直接重写整页。
+
+**图型 / 可视化方向未定时，先收敛用户脑中的图像，再出 HTML 稿**（2026-11-11 ~ 11-12 请求流向轮：桑基变体 → 非桑基三图 → 完整链路三方向连续四轮全否，单轮 HTML agent 9~19 万 token；第五轮用户自己说出「3d 立体交叉」才一稿收敛，账本 `.scratch/memory/2026-11-12.md`「请求流向」各节）：
+
+1. 第一张表单就问三件事：要回答的具体问题（例：「子代理请求多少走了 subagent 分组」）、心里像什么（参考图 / 产品名 / 一句形容，可接受 3D、非传统图形）、现有图哪里不行。
+2. 方向探索用低成本形态：表单内 ASCII 线框或参考图链接，一屏一种结构；用户点中方向后才派 agent 出完整 HTML 稿。
+3. 一轮全否就停止出稿，下一张表单只问「哪里不对 + 想要的样子」，不盲出下一组方向。
 
 ### Step 3：实施（贴齐约束表）
 

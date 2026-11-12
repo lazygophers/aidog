@@ -367,3 +367,9 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
 - 「命中即不调模型 / 整体接管」的 spec 要列混合形态并拍板：票 04 开工后才暴露「web 服务端工具 + 客户端工具同请求也整体跳过模型」，按 spec 未加守卫，记成偏差遗留。spec 阶段逐条问「请求同时带别的工具 / 别的块时是接管、拆分还是放行」（同 wayfinder-session.md §11 等效退化形态）。
 - 先红覆盖要逐类核：票 04 改坏两处只红 4/7，SSE 序列 / 域名过滤 / 引擎失败三类改坏仍绿。改坏反证须每个断言类别各改坏一次，仍绿的类别补断言再交付。
 - worktree 并行线（ws-01-engines）合并门禁期间磁盘写满（`No space left on device`），34G 的 `.worktrees/.target` 随后才删：合并前先 `df -h .`，余量不足先报主会话（删缓存要授权，shared-worktree.md），不带着满盘跑全量门禁；合并后当场删 worktree 与其 target。
+
+## 25. 设计稿类 agent 不开隔离；并发账本对失败 agent 不释放；自检零命中不算缺失（2026-11-12 请求流向 3D 轮）
+
+- **只产 `.scratch/` 设计稿 / 报告、不改代码的 agent 派发时不带 `isolation`**：隔离 agent 的 Write 工具被限在自己的 worktree，写主仓 `.scratch/<feature>/design-demos/` 只能先写 worktree 再 `cat` 拼回主仓，多一步且易留副本。隔离只用于 shared-worktree.md 文首「有必要」三种写码情形。
+- **并发上限账本（`src-tauri/crates/aidog_hooks/scripts/aidog-subagent-cap.mjs`，状态在 `~/.aidog/subagent-cap/<session_id>.json`）对 failed / 被 kill 的 agent 同样不释放**，与 §8 的 TaskStop 情形同病。被拦且确认在途 agent 已全部结束时，跑 `node src-tauri/crates/aidog_hooks/scripts/aidog-subagent-cap.mjs --reset <session_id>` 清零后重派。`--reset` 清的是该会话全部登记，仍有 running agent 时不跑（会让在途数少算）。
+- **agent 用 grep 字面词自检「某内容没保留」得零命中，不构成缺失结论**：3D 稿设计 agent 自报「三条跨层事实没保留」，实为 grep「事实」二字零命中，数据其实在页里。主会话采信「缺失」类自报前，按内容本身（具体数据值、节点名）再 grep 一次（同 registry-data-edit.md「grep 零命中只说明 pattern 不匹配」）。
