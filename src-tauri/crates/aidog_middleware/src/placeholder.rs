@@ -406,7 +406,7 @@ impl SseStreamRestorer {
             for (choice_index, choice) in choices.iter_mut().enumerate() {
                 let choice_id = choice.get("index").and_then(Value::as_u64).unwrap_or(choice_index as u64);
                 if let Some(delta) = choice.get_mut("delta") {
-                    if let Some(text) = delta.get_mut("content").and_then(|value| value.as_str()).map(str::to_owned) {
+                    if let Some(text) = delta.get("content").and_then(Value::as_str).map(str::to_owned) {
                         let key = format!("choice:{choice_id}:content");
                         *delta.get_mut("content").unwrap() = Value::String(self.field_push(key, &text));
                     }
