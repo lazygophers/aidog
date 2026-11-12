@@ -217,6 +217,10 @@ pub enum Protocol {
     /// xAI Grok API（api.x.ai/v1，OpenAI 兼容）
     #[serde(rename = "xai")]
     XAI,
+    /// Magpie（yetone/magpie 本地 LLM 网关，usemagpie.ai）：本地监听 127.0.0.1:3425，
+    /// anthropic / openai / openai_responses 三协议兼容网关。
+    #[serde(rename = "magpie")]
+    Magpie,
     // ── 中转平台 ──
     #[serde(rename = "newapi")]
     NewApi,

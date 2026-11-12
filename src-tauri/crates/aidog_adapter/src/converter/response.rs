@@ -266,7 +266,7 @@ pub fn to_client_sse(
         | Pateway | CcSub | ApiKeyFun | SudoCode | ClaudeApi | ClaudeCN | RunApi | RelaxyCode
         | CrazyRouter | SssAiCode | Compshare | CompshareCoding | Micu | CTok | EFlowCode
         | LemonData | PipeLlm | OpenCode | OpenCodeZen | TokenRhythm | NewApi | Devin
-        | TypeSafe | CommandCode | LiteLLM | Meta | Mistral | XAI
+        | TypeSafe | CommandCode | LiteLLM | Meta | Mistral | XAI | Magpie
         // Passthrough 非 wire 协议（透传平台在 handler 拦截，不经 converter）；编译完备性挂 anthropic 渲染
         // Unknown 同理（票 06：未知协议平台被 router 排除，正常路径不经 converter）
         | Passthrough | Unknown => to_anthropic_sse(event),
