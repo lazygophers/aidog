@@ -272,6 +272,186 @@ impl StreamRestorer {
     }
 }
 
+struct DeltaTextRestorer {
+    pending: String,
+    map: Arc<ScrubMap>,
+}
+
+impl DeltaTextRestorer {
+    fn new(map: Arc<ScrubMap>) -> Self {
+        Self { pending: String::new(), map }
+    }
+
+    fn push(&mut self, text: &str) -> String {
+        self.pending.push_str(text);
+        let bytes = self.pending.as_bytes();
+        let mut emit_len = bytes.len();
+        if let Some(i) = last_head_occurrence(bytes)
+            && bytes.len() - i < self.map.max_placeholder_len().max(MIN_PLACEHOLDER_LEN)
+            && !starts_with_registered_placeholder(bytes, i, &self.map)
+        {
+            emit_len = i;
+        }
+        let safe = self.pending[..emit_len].to_string();
+        self.pending.drain(..emit_len);
+        restore(&safe, &self.map)
+    }
+
+    fn has_pending(&self) -> bool {
+        !self.pending.is_empty()
+    }
+}
+
+struct DeferredSseFrame {
+    original: String,
+    restored: String,
+}
+
+/// SSE-aware counterpart to `StreamRestorer`; each logical delta field keeps separate state.
+pub struct SseStreamRestorer {
+    map: Arc<ScrubMap>,
+    bytes: Vec<u8>,
+    fields: HashMap<String, DeltaTextRestorer>,
+    deferred: Vec<DeferredSseFrame>,
+}
+
+impl SseStreamRestorer {
+    pub fn new(map: Arc<ScrubMap>) -> Self {
+        Self { map, bytes: Vec::new(), fields: HashMap::new(), deferred: Vec::new() }
+    }
+
+    pub fn push_bytes(&mut self, data: &[u8]) -> String {
+        self.bytes.extend_from_slice(data);
+        let mut output = String::new();
+        while let Some((end, delimiter_len)) = sse_frame_delimiter(&self.bytes) {
+            let frame = String::from_utf8_lossy(&self.bytes[..end + delimiter_len]).into_owned();
+            self.bytes.drain(..end + delimiter_len);
+            output.push_str(&self.process_frame(frame));
+        }
+        output
+    }
+
+    pub fn finish(&mut self) -> String {
+        let mut output = String::new();
+        if !self.bytes.is_empty() {
+            let frame = String::from_utf8_lossy(&self.bytes).into_owned();
+            self.bytes.clear();
+            output.push_str(&self.process_frame(frame));
+        }
+        if self.fields.values().any(DeltaTextRestorer::has_pending) {
+            output.push_str(&self.deferred.drain(..).map(|f| f.original).collect::<String>());
+        } else {
+            output.push_str(&self.deferred.drain(..).map(|f| f.restored).collect::<String>());
+        }
+        output
+    }
+
+    fn process_frame(&mut self, original: String) -> String {
+        let mut restored = original.clone();
+        let body = original.trim_end_matches(['\r', '\n']);
+        let lines = body.lines().collect::<Vec<_>>();
+        let data_lines = lines
+            .iter()
+            .enumerate()
+            .filter_map(|(index, line)| line.strip_prefix("data: ").map(|data| (index, data)))
+            .collect::<Vec<_>>();
+        let json = data_lines.iter().map(|(_, data)| *data).collect::<Vec<_>>().join("\n");
+        if !json.is_empty() && json != "[DONE]"
+            && let Ok(mut event) = serde_json::from_str::<Value>(&json)
+        {
+            self.restore_event_text(&mut event);
+            if let Ok(json) = serde_json::to_string(&event) {
+                let first_data_line = data_lines[0].0;
+                restored = lines
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(index, line)| {
+                        if index == first_data_line {
+                            Some(format!("data: {json}"))
+                        } else if data_lines.iter().any(|(data_index, _)| *data_index == index) {
+                            None
+                        } else {
+                            Some((*line).to_string())
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                if original.ends_with("\r\n\r\n") {
+                    restored.push_str("\r\n\r\n");
+                } else if original.ends_with("\n\n") {
+                    restored.push_str("\n\n");
+                } else if original.ends_with('\n') {
+                    restored.push('\n');
+                }
+            }
+        }
+        if self.fields.values().any(DeltaTextRestorer::has_pending) {
+            self.deferred.push(DeferredSseFrame { original, restored });
+            String::new()
+        } else if self.deferred.is_empty() {
+            restored
+        } else {
+            self.deferred.push(DeferredSseFrame { original, restored });
+            self.deferred.drain(..).map(|f| f.restored).collect()
+        }
+    }
+
+    fn restore_event_text(&mut self, event: &mut Value) {
+        if let Some(choices) = event.get_mut("choices").and_then(Value::as_array_mut) {
+            for (choice_index, choice) in choices.iter_mut().enumerate() {
+                let choice_id = choice.get("index").and_then(Value::as_u64).unwrap_or(choice_index as u64);
+                if let Some(delta) = choice.get_mut("delta") {
+                    if let Some(text) = delta.get_mut("content").and_then(|value| value.as_str()).map(str::to_owned) {
+                        let key = format!("choice:{choice_id}:content");
+                        *delta.get_mut("content").unwrap() = Value::String(self.field_push(key, &text));
+                    }
+                    if let Some(calls) = delta.get_mut("tool_calls").and_then(Value::as_array_mut) {
+                        for (call_index, call) in calls.iter_mut().enumerate() {
+                            let index = call.get("index").and_then(Value::as_u64).unwrap_or(call_index as u64);
+                            if let Some(arguments) = call.pointer_mut("/function/arguments")
+                                && let Some(text) = arguments.as_str().map(str::to_owned)
+                            {
+                                let key = format!("choice:{choice_id}:tool:{index}:arguments");
+                                *arguments = Value::String(self.field_push(key, &text));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if let Some(index) = event.get("index").and_then(Value::as_u64)
+            && let Some(delta) = event.get_mut("delta")
+        {
+            let (field, key) = match delta.get("type").and_then(Value::as_str) {
+                Some("text_delta") => ("text", "text"),
+                Some("input_json_delta") => ("partial_json", "tool_json"),
+                _ => ("", ""),
+            };
+            if !field.is_empty()
+                && let Some(text) = delta.get(field).and_then(|value| value.as_str()).map(str::to_owned)
+            {
+                let path = format!("block:{index}:{key}");
+                *delta.get_mut(field).unwrap() = Value::String(self.field_push(path, &text));
+            }
+        }
+    }
+
+    fn field_push(&mut self, key: String, text: &str) -> String {
+        self.fields.entry(key).or_insert_with(|| DeltaTextRestorer::new(self.map.clone())).push(text)
+    }
+}
+
+fn sse_frame_delimiter(bytes: &[u8]) -> Option<(usize, usize)> {
+    let lf = bytes.windows(2).position(|window| window == b"\n\n");
+    let crlf = bytes.windows(4).position(|window| window == b"\r\n\r\n");
+    match (lf, crlf) {
+        (Some(lf), Some(crlf)) if crlf < lf => Some((crlf, 4)),
+        (Some(lf), _) => Some((lf, 2)),
+        (None, Some(crlf)) => Some((crlf, 4)),
+        (None, None) => None,
+    }
+}
+
 fn is_char_boundary(bytes: &[u8], cut: usize) -> bool {
     cut == 0 || cut >= bytes.len() || (bytes[cut] & 0b1100_0000) != 0b1000_0000
 }
@@ -342,6 +522,106 @@ mod tests {
         }
         out.push_str(&r.finish());
         assert_eq!(out, "mail me: bob@example.com thanks");
+    }
+
+    #[test]
+    fn stream_restorer_reassembles_placeholder_across_sse_deltas() {
+        let mut map = ScrubMap::new();
+        let placeholder = map.register("EMAIL", "restored-address");
+        let split = 12;
+        let first = serde_json::json!({"choices":[{"index":0,"delta":{"content":&placeholder[..split]}}]});
+        let second = serde_json::json!({"choices":[{"index":0,"delta":{"content":&placeholder[split..]}}]});
+        let frames = format!("data: {first}\r\n\r\ndata: {second}\r\n\r\ndata: [DONE]\r\n\r\n");
+        let mut restorer = SseStreamRestorer::new(Arc::new(map));
+        let mut restored = restorer.push_bytes(frames.as_bytes());
+        restored.push_str(&restorer.finish());
+        let contents = restored
+            .split("\r\n\r\n")
+            .filter_map(|frame| frame.strip_prefix("data: "))
+            .filter_map(|data| serde_json::from_str::<Value>(data).ok())
+            .filter_map(|event| event["choices"][0]["delta"]["content"].as_str().map(str::to_owned))
+            .collect::<String>();
+        assert_eq!(contents, "restored-address");
+    }
+
+    #[test]
+    fn sse_restorer_preserves_anthropic_metadata_and_restores_isolated_blocks() {
+        let mut map = ScrubMap::new();
+        let text_placeholder = map.register("EMAIL", "restored-text");
+        let tool_placeholder = map.register("SECRET", "restored-tool");
+        let split = 12;
+        let first = serde_json::json!({
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "text_delta", "text": &text_placeholder[..split]}
+        });
+        let second = serde_json::json!({
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "text_delta", "text": &text_placeholder[split..]}
+        });
+        let tool = serde_json::json!({
+            "type": "content_block_delta",
+            "index": 1,
+            "delta": {"type": "input_json_delta", "partial_json": &tool_placeholder}
+        });
+        let first_lines = serde_json::to_string_pretty(&first).unwrap();
+        let first_data = first_lines.lines().map(|line| format!("data: {line}\n")).collect::<String>();
+        let frames = format!(
+            "event: content_block_delta\nid: 7\nretry: 2500\n{first_data}\nevent: content_block_delta\ndata: {tool}\n\nevent: content_block_delta\ndata: {second}\n\nevent: message_stop\ndata: {{}}\n\n"
+        );
+        let mut restorer = SseStreamRestorer::new(Arc::new(map));
+        let mut restored = restorer.push_bytes(frames.as_bytes());
+        restored.push_str(&restorer.finish());
+
+        let frame = restored
+            .split("\n\n")
+            .find(|frame| frame.contains("id: 7"))
+            .unwrap();
+        assert!(frame.contains("event: content_block_delta"));
+        assert!(frame.contains("id: 7"));
+        assert!(frame.contains("retry: 2500"));
+        let event = frame
+            .lines()
+            .filter_map(|line| line.strip_prefix("data: "))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let event: Value = serde_json::from_str(&event).unwrap();
+        assert_eq!(event["type"], "content_block_delta");
+        let text = restored
+            .split("\n\n")
+            .filter(|frame| frame.contains("content_block_delta"))
+            .filter_map(|frame| frame.lines().find_map(|line| line.strip_prefix("data: ")))
+            .filter_map(|data| serde_json::from_str::<Value>(data).ok())
+            .filter(|event| event["index"] == 0)
+            .filter_map(|event| event["delta"]["text"].as_str().map(str::to_owned))
+            .collect::<String>();
+        assert_eq!(text, "restored-text");
+
+        let tool_event = restored
+            .split("\n\n")
+            .filter(|frame| frame.contains("content_block_delta"))
+            .filter_map(|frame| frame.lines().find_map(|line| line.strip_prefix("data: ")))
+            .filter_map(|data| serde_json::from_str::<Value>(data).ok())
+            .find(|event| event["index"] == 1)
+            .unwrap();
+        assert_eq!(tool_event["delta"]["partial_json"], "restored-tool");
+    }
+
+    #[test]
+    fn sse_restorer_flushes_unfinished_placeholder_before_terminal_event() {
+        let mut map = ScrubMap::new();
+        let placeholder = map.register("EMAIL", "restored-address");
+        let partial = &placeholder[..12];
+        let frame = format!(
+            "event: content_block_delta\ndata: {}\n\nevent: message_stop\ndata: {{}}\n\n",
+            serde_json::json!({"index":0,"delta":{"type":"text_delta","text":partial}})
+        );
+        let mut restorer = SseStreamRestorer::new(Arc::new(map));
+        let mut restored = restorer.push_bytes(frame.as_bytes());
+        restored.push_str(&restorer.finish());
+        assert!(restored.find(partial).unwrap() < restored.find("event: message_stop").unwrap());
+        assert!(restored.contains("event: message_stop"));
     }
 
     #[test]

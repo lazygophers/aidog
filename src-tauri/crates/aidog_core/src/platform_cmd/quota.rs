@@ -1,5 +1,6 @@
 use crate::gateway;
 use aidog_db::{self as db, Db};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use gateway::quota::PlatformQuota;
@@ -15,13 +16,13 @@ pub async fn platform_magpie_quota_names(
 crate::tauri_command! {
 pub async fn platform_query_quota(
     base_url: String, api_key: String,
-    platform_id: Option<u64>) -> Result<PlatformQuota, String> {
+    platform_id: Option<u64>, draft_requires: Option<HashMap<String, String>>) -> Result<PlatformQuota, String> {
     quota_command_adapter(
         aidog_ctx::db(),
         "platform_query_quota",
         &base_url,
         &api_key,
-        QuotaQueryKind::Auto,
+        QuotaQueryKind::Auto(draft_requires.as_ref()),
         platform_id,
         true,
     )
@@ -70,7 +71,7 @@ pub async fn platform_query_quota_devin(
 /// 返回的 Future 借用闭包入参，生命周期过不了编译；枚举静态分派无此问题。
 enum QuotaQueryKind<'a> {
     /// base_url 启发式 + 行协议脚本路由（`query_quota`）
-    Auto,
+    Auto(Option<&'a HashMap<String, String>>),
     /// New API 两步查询，携带 extra
     NewApi(&'a str),
     /// Devin ACU 查询，携带 extra（需含 org_id）
@@ -96,8 +97,11 @@ async fn quota_command_adapter(
     let db_arc = Arc::new(db.clone());
     let pid = platform_id.unwrap_or(0) as i64;
     let q = match kind {
-        QuotaQueryKind::Auto => {
-            gateway::quota::query_quota(Some(&db_arc), base_url, api_key, pid).await
+        QuotaQueryKind::Auto(draft_requires) => {
+            gateway::quota::query_quota_with_draft_requires(
+                Some(&db_arc), base_url, api_key, pid, draft_requires,
+            )
+            .await
         }
         QuotaQueryKind::NewApi(extra) => {
             gateway::quota::query_quota_newapi(Some(&db_arc), base_url, api_key, extra, pid).await
@@ -221,7 +225,7 @@ mod tests {
     async fn adapter_preserves_query_failures_for_all_three_commands() {
         let db = Db::new(":memory:").await.unwrap();
         for (command, kind, tiers) in [
-            ("platform_query_quota", QuotaQueryKind::Auto, true),
+            ("platform_query_quota", QuotaQueryKind::Auto(None), true),
             (
                 "platform_query_quota_newapi",
                 QuotaQueryKind::NewApi("{}"),

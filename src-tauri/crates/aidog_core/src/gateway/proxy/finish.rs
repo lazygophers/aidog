@@ -334,7 +334,7 @@ where
     //   覆盖 passthrough / 转换两分支的正文、工具调用参数与思维链；上游原文聚合
     //   （push_upstream）不受影响，log 保持占位符形态。──
     // 中间件可还原 mask 的还原窗口（串在旧隐私还原之后）；client 侧日志取其输入（占位符形态）。
-    let mut mw_restorer = mw_restore.map(aidog_middleware::placeholder::StreamRestorer::new);
+    let mut mw_restorer = mw_restore.map(aidog_middleware::placeholder::SseStreamRestorer::new);
 
     // ── 旁路聚合器：累积 token + 上游 SSE 原文 + 转换后下发客户端的 SSE。
     // 闭包内对其加同步锁是短临界区（push），禁持锁跨 await（闭包本身同步，不 await）。──
