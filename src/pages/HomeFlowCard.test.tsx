@@ -1,5 +1,5 @@
 // HomeFlowCard 测试（请求流向票 05）：选择器只锚 data-testid / data-state / data-loading，不断言文案。
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "../test/render";
 import { HomeFlowCard } from "./HomeFlowCard";
 import type { FlowRow, Platform } from "../services/api";
@@ -53,6 +53,31 @@ describe("HomeFlowCard", () => {
     fireEvent.click(screen.getByTestId("flow-metric-cost"));
     expect(screen.getByTestId("flow-metric-cost").getAttribute("data-state")).toBe("on");
     expect(screen.getByTestId("flow-metric-tokens").getAttribute("data-state")).toBe("off");
+  });
+
+  it("默认桑基；切换按钮在桑基与 3D 间来回切", () => {
+    render(<HomeFlowCard rows={[row({})]} platforms={plats} ungroupedLabel="u" loading={false} />);
+    expect(screen.getByTestId("flow-chart")).toBeTruthy();
+    expect(screen.queryByTestId("flow-3d")).toBeNull();
+    fireEvent.click(screen.getByTestId("flow-view-toggle"));
+    expect(screen.queryByTestId("flow-3d")).toBeTruthy();
+    expect(screen.queryByTestId("flow-chart")).toBeNull();
+    fireEvent.click(screen.getByTestId("flow-view-toggle"));
+    expect(screen.getByTestId("flow-chart")).toBeTruthy();
+    expect(screen.queryByTestId("flow-3d")).toBeNull();
+  });
+
+  it("视图选择不持久化：重挂载回到桑基，不写 localStorage", () => {
+    const spy = vi.spyOn(Storage.prototype, "setItem");
+    const { unmount } = render(<HomeFlowCard rows={[row({})]} platforms={plats} ungroupedLabel="u" loading={false} />);
+    fireEvent.click(screen.getByTestId("flow-view-toggle"));
+    expect(screen.queryByTestId("flow-3d")).toBeTruthy();
+    unmount();
+    render(<HomeFlowCard rows={[row({})]} platforms={plats} ungroupedLabel="u" loading={false} />);
+    expect(screen.getByTestId("flow-chart")).toBeTruthy();
+    expect(screen.queryByTestId("flow-3d")).toBeNull();
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
   });
 
   it("请求类型不再是筛选项", () => {

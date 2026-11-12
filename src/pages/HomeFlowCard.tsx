@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { FlowRow, Platform } from "../services/api";
 import { FlowChart, type FlowMetric } from "../components/charts/FlowChart";
+import { Flow3DChart } from "../components/charts/Flow3DChart";
 import { useDisplayCurrency } from "../utils/displayCurrency";
 import { clientLabel } from "../utils/clientLabel";
 import { requestClassLabel } from "../utils/requestClass";
@@ -21,6 +22,8 @@ export function HomeFlowCard({ rows, platforms, ungroupedLabel, loading }: {
   const P = usePanel();
   const { t } = useTranslation();
   const [metric, setMetric] = useState<FlowMetric>("tokens");
+  // 视图选择只放组件 state，不持久化：重挂载回到桑基
+  const [view, setView] = useState<"sankey" | "3d">("sankey");
 
   // 列 key 同时是 FlowChart 的 testid 后缀（flow-col-<key>），故把 FlowRow 字段改名成规格里的列名。
   const chartRows = useMemo(() => rows.map(r => ({
@@ -48,6 +51,10 @@ export function HomeFlowCard({ rows, platforms, ungroupedLabel, loading }: {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 14, fontWeight: 600, color: P.fg }}>{t("home.flow.title", "请求流量 · 24 小时")}</span>
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <button type="button" data-testid="flow-view-toggle" data-state={view} onClick={() => setView(v => (v === "3d" ? "sankey" : "3d"))} style={btn(false)}>
+            {view === "3d" ? t("flow.view.sankey", "桑基图") : t("flow.view.3d", "3D 视图")}
+          </button>
+          <span style={{ width: 8 }} />
           {METRICS.map(m => (
             <button key={m} type="button" data-testid={`flow-metric-${m}`} data-state={metric === m ? "on" : "off"} onClick={() => setMetric(m)} style={btn(metric === m)}>
               {t(`group.flow.${m}`, m)}
@@ -60,7 +67,9 @@ export function HomeFlowCard({ rows, platforms, ungroupedLabel, loading }: {
           {t("group.flow.empty", "窗口内无请求")}
         </div>
       ) : (
-        <FlowChart columns={columns} rows={chartRows} metric={metric} surface={P.s1} />
+        (view === "3d"
+          ? <Flow3DChart columns={columns} rows={chartRows} metric={metric} surface={P.s1} />
+          : <FlowChart columns={columns} rows={chartRows} metric={metric} surface={P.s1} />)
       )}
     </div>
   );
