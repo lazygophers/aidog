@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useRef } from "react";
 import { platformApi } from "../../services/api";
+import { mockIPC } from "@tauri-apps/api/mocks";
+import { __resetDefaultsCacheForTests } from "../../domains/platforms/defaults";
 import { usePlatformForm } from "./usePlatformForm";
 
 function useForm() {
@@ -27,6 +29,21 @@ function useForm() {
   };
   return usePlatformForm(deps as any);
 }
+
+describe("protocol changes", () => {
+  it("preserves filled model chains and fills empty slots from the new preset", async () => {
+    __resetDefaultsCacheForTests();
+    mockIPC((cmd: string) => cmd === "get_defaults_json" ? JSON.stringify({
+      protocols: { gemini: { endpoints: { default: [] }, models: { default: { default: ["preset"], sonnet: ["preset-sonnet"] } }, model_list: { default: [] } } },
+    }) : null);
+    const { result } = renderHook(() => useForm());
+    act(() => result.current.setModels({ default: ["custom", "fallback"], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [] }));
+    await act(() => result.current.handleProtocolChange("gemini"));
+    expect(result.current.models.default).toEqual(["custom", "fallback"]);
+    expect(result.current.models.sonnet).toEqual(["preset-sonnet"]);
+    __resetDefaultsCacheForTests();
+  });
+});
 
 describe("unknown protocol repair", () => {
   beforeEach(() => {

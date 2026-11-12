@@ -1978,6 +1978,24 @@
       "returns": "Vec<Platform>"
     },
     {
+      "name": "platform_magpie_quota_names",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "baseUrl",
+          "type": "String"
+        },
+        {
+          "name": "apiKey",
+          "type": "String"
+        }
+      ],
+      "returns": "Vec<String>"
+    },
+    {
       "name": "platform_purge_disabled",
       "category": "platform",
       "kind": "mutating",

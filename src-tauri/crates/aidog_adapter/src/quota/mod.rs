@@ -51,6 +51,52 @@ pub async fn run_quota_script(
     .await
 }
 
+/// Magpie-only read path for the account names shown by its quota selector.
+pub async fn discover_magpie_quota_names(
+    db: Option<&Arc<Db>>,
+    base_url: &str,
+    api_key: &str,
+) -> Result<Vec<String>, String> {
+    if api_key.trim().is_empty() {
+        return Err("API key is empty".into());
+    }
+    let mut base = base_url.trim_end_matches('/');
+    if let Some(stripped) = base.strip_suffix("/v1") {
+        base = stripped;
+    }
+    if base.is_empty() {
+        return Err("Missing Magpie base URL".into());
+    }
+    let url = format!("{base}/v1/magpie/quotas?kept=1");
+    let body = http::quota_script_request(
+        db,
+        http::http_client(db).await,
+        reqwest::Method::GET,
+        &url,
+        None,
+        vec![("Authorization".to_string(), format!("Bearer {api_key}"))],
+        0,
+    )
+    .await?;
+    let items = body
+        .get("data")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| "Magpie response has no data array".to_string())?;
+    let mut names = Vec::with_capacity(items.len());
+    for item in items {
+        let name = item
+            .get("name")
+            .and_then(serde_json::Value::as_str)
+            .filter(|name| !name.trim().is_empty())
+            .ok_or_else(|| "Magpie response contains an item without a name".to_string())?;
+        if names.iter().any(|existing| existing == name) {
+            return Err(format!("Magpie returned duplicate name: {name}"));
+        }
+        names.push(name.to_string());
+    }
+    Ok(names)
+}
+
 async fn run_script_at(
     db: Option<&Arc<Db>>,
     protocol_code: &str,

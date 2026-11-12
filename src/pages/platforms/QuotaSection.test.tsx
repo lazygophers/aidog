@@ -126,7 +126,7 @@ describe("QuotaSection 测试按钮", () => {
     fireEvent.click(btn);
     fireEvent.click(btn);
     expect(quotaQueryMock).toHaveBeenCalledTimes(1);
-    expect(quotaQueryMock).toHaveBeenCalledWith("https://x.test", "k-123", null);
+    expect(quotaQueryMock).toHaveBeenCalledWith("https://x.test", "k-123", undefined);
     release({ success: false, error: "x", queried_at: 0, balance: null, coding_plan: null });
     await waitFor(() => expect(r.container.querySelector('[data-testid="quota-test-result"]')).not.toBeNull());
   });

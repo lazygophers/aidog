@@ -360,6 +360,32 @@ describe("ToolsSection 总控台", () => {
     expect(allBtn().disabled).toBe(false);
   });
 
+  it("SearXNG 一键测试固定并发 5，完成一项后补位并测完全部实例", async () => {
+    const urls = Array.from({ length: 7 }, (_, i) => `http://instance-${i}`);
+    const pending: Array<() => void> = [];
+    sx.searxTest.mockImplementation(() => new Promise<number>((resolve) => {
+      pending.push(() => resolve(0.5));
+    }));
+    h.get.mockResolvedValue({ search: { sources: ["searxng"], searxng_base_urls: urls } });
+    render(<ToolsSection />);
+    await waitFor(() => expect(screen.getByTestId("tools-searx-row-6")).toBeTruthy());
+    const button = screen.getByTestId("tools-searx-test-all");
+    fireEvent.click(button);
+    expect(sx.searxTest).toHaveBeenCalledTimes(5);
+    expect(button).toBeDisabled();
+    await act(async () => { pending.shift()!(); });
+    expect(sx.searxTest).toHaveBeenCalledTimes(6);
+    await act(async () => { pending.shift()!(); });
+    expect(sx.searxTest).toHaveBeenCalledTimes(7);
+    expect(button).toBeDisabled();
+    await act(async () => { pending.splice(0).forEach((resolve) => resolve()); });
+    expect(button).toBeEnabled();
+    expect(sx.searxTest.mock.calls.map(([url]) => url)).toEqual(urls);
+    for (let i = 0; i < urls.length; i++) {
+      expect(screen.getByTestId(`tools-searx-sec-${i}`).textContent).toContain("0.50");
+    }
+  });
+
   it("SearXNG 行内添加与删除：trim 添加即启用并去重，删行移出启用集，保存持久化", async () => {
     h.get.mockResolvedValue({ search: { enabled: true, sources: ["searxng"], mode: "parallel", services: {}, searxng_base_urls: ["http://1"] } });
     render(<ToolsSection />);
