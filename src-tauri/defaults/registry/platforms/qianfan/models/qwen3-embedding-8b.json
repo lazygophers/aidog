@@ -1,9 +1,10 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic"
   ],
   "model_id": "qwen3-embedding-8b",
+  "max_input_tokens": 8192,
   "display_name": "Qwen3 Embedding 8B",
   "canonical_model": "Qwen3-Embedding-8B",
   "version": "3",

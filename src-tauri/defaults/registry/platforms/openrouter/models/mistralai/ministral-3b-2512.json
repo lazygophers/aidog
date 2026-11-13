@@ -1,5 +1,6 @@
 {
   "model_id": "mistralai/ministral-3b-2512",
+  "thinking_supported": false,
   "display_name": "Mistral: Ministral 3 3B 2512",
   "canonical_model": "ministral-3b-2512",
   "family": "ministral",
@@ -14,7 +15,7 @@
     "output": 1e-07,
     "cache_read": 1e-08
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"

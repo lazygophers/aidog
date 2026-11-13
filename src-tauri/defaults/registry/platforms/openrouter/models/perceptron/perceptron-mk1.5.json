@@ -1,9 +1,11 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "perceptron/perceptron-mk1.5",
+  "max_output_tokens": 8192,
+  "thinking_supported": true,
   "display_name": "Perceptron: Perceptron Mk1.5",
   "canonical_model": "perceptron-mk1-5",
   "capabilities": [

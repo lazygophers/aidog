@@ -1,6 +1,8 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1794592077,
   "model_id": "deepseek/deepseek-v4-flash-fast",
+  "max_output_tokens": 393216,
+  "thinking_supported": true,
   "display_name": "DeepSeek V4 Flash Fast",
   "canonical_model": "deepseek-v4-flash-fast",
   "family": "deepseek",

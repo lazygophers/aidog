@@ -1,9 +1,10 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic"
   ],
   "model_id": "qwen3-embedding-0.6b",
+  "max_input_tokens": 8192,
   "display_name": "Qwen3 Embedding 0.6b",
   "canonical_model": "Qwen3-Embedding-0.6B",
   "family": "qwen",

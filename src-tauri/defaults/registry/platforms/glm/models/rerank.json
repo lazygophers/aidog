@@ -1,10 +1,11 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "rerank",
+  "max_input_tokens": 4096,
   "canonical_model": "rerank",
   "family": "rerank",
   "display_name": "Rerank",

@@ -1,9 +1,11 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "anthropic/claude-sonnet-5.5",
+  "max_output_tokens": 128000,
+  "thinking_supported": true,
   "display_name": "Anthropic: Claude Sonnet 5.5",
   "canonical_model": "claude-sonnet-5-5",
   "family": "claude",

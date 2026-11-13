@@ -1,9 +1,10 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "gpt-realtime-mini",
+  "max_input_tokens": 32000,
   "display_name": "GPT Realtime Mini",
   "canonical_model": "gpt-realtime-mini",
   "capabilities": [

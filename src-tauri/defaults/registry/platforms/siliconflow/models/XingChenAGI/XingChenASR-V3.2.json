@@ -1,10 +1,11 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "XingChenAGI/XingChenASR-V3.2",
+  "display_name": "XingChenASR V3.2",
   "canonical_model": "XingChenASR-V3.2",
   "capabilities": [
     "audio"
