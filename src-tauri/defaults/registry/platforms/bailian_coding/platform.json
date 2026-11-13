@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794582130,
+  "last_updated": 1794582694,
   "is_coding_plan": true,
   "endpoints": {
     "default": [
@@ -26,7 +26,9 @@
       "qwen3.6-plus",
       "glm-5",
       "MiniMax-M2.5",
-      "qwen3.5-plus"
+      "qwen3.5-plus",
+      "MiniMax/MiniMax-M2.5",
+      "kimi/kimi-k2.5"
     ]
   },
   "name": {
