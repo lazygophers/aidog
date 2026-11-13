@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793615839,
+  "last_updated": 1794582694,
   "endpoints": {
     "default": [
       {
@@ -85,7 +85,8 @@
       "gpt-6.1-sol",
       "gpt-rosalind-research",
       "gpt-live-1",
-      "omni-moderation-latest"
+      "omni-moderation-latest",
+      "gpt-6.1-terra"
     ]
   },
   "name": {
