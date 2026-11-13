@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793615839,
+  "last_updated": 1794582130,
   "is_coding_plan": true,
   "endpoints": {
     "default": [
@@ -29,19 +29,6 @@
       "qwen3.5-plus"
     ]
   },
-  "peak": [
-    {
-      "start_hour": 8,
-      "end_hour": 22,
-      "multiplier": 2,
-      "timezone": "Asia/Shanghai",
-      "models": [
-        "deepseek-v4-pro-0813",
-        "deepseek-v4-flash-0731",
-        "deepseek-v4.1-flash"
-      ]
-    }
-  ],
   "name": {
     "en-US": "Bailian Coding",
     "zh-Hans": "百炼编程",
