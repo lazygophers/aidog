@@ -1,9 +1,11 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "mistralai/mistral-large-2512",
+  "max_output_tokens": 209715,
+  "thinking_supported": false,
   "display_name": "Mistral: Mistral Large 3 2512",
   "canonical_model": "mistral-large-2512",
   "family": "mistral",

@@ -1,11 +1,12 @@
 {
   "max_input_tokens": 256000,
-  "last_updated": 1794028978,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "kimi/kimi-k2.7-code-highspeed",
+  "max_output_tokens": 262144,
   "display_name": "Kimi K2.7 Code Highspeed",
   "canonical_model": "kimi-k2.7-code-highspeed",
   "version": "2.7",

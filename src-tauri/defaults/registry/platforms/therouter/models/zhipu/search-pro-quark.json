@@ -1,11 +1,12 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "zhipu/search-pro-quark",
+  "display_name": "GLM Search Pro (Quark)",
   "canonical_model": "search-pro-quark",
   "capabilities": [],
   "official": true,

@@ -1,9 +1,10 @@
 {
-  "last_updated": 1794191265,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "gemini"
   ],
   "model_id": "lyria-3.5",
+  "context_window": 131072,
   "canonical_model": "lyria-3.5",
   "family": "lyria",
   "version": "3.5",

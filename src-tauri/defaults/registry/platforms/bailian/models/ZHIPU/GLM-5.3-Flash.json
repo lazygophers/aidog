@@ -1,10 +1,12 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "ZHIPU/GLM-5.3-Flash",
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 131072,
   "display_name": "GLM-5.3-Flash",
   "canonical_model": "glm-5.3-flash",
   "family": "glm",

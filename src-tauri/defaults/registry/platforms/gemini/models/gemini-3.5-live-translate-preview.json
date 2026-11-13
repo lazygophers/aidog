@@ -1,9 +1,10 @@
 {
-  "last_updated": 1794191265,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "gemini"
   ],
   "model_id": "gemini-3.5-live-translate-preview",
+  "context_window": 131072,
   "canonical_model": "gemini-3.5-live-translate-preview",
   "family": "gemini",
   "version": "3.5",

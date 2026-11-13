@@ -1,7 +1,8 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794592077,
   "supported_protocols": ["anthropic", "openai", "openai_responses"],
   "model_id": "glm-4-7-251222",
+  "display_name": "GLM-4.7 251222",
   "canonical_model": "glm-4-7-251222",
   "family": "glm",
   "version": "4.7",

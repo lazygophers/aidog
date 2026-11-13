@@ -1,9 +1,10 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "google/diffusiongemma-26b-a4b-it",
+  "display_name": "DiffusionGemma 26B A4B IT",
   "canonical_model": "diffusiongemma-26b-a4b-it",
   "capabilities": [
     "text",

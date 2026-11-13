@@ -1,11 +1,13 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "intern/internvl3.5",
+  "display_name": "InternVL3.5",
+  "thinking_supported": false,
   "canonical_model": "internvl3.5",
   "capabilities": [
     "text"

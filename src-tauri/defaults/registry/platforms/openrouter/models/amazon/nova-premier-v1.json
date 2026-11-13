@@ -1,5 +1,6 @@
 {
   "model_id": "amazon/nova-premier-v1",
+  "thinking_supported": false,
   "display_name": "Amazon: Nova Premier 1.0",
   "canonical_model": "nova-premier-v1",
   "family": "nova",
@@ -14,7 +15,7 @@
     "output": 1.25e-05,
     "cache_read": 6.25e-07
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"
