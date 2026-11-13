@@ -126,7 +126,6 @@ export const PlatformCard = memo(function PlatformCard({
     () => computeQuotaDisplay(p, quotaRaw, quotaPreferReal, balCcys[String(p.id)]),
     [p, quotaRaw, quotaPreferReal, balCcys, dispCur],
   );
-  const hasCodingEndpoint = (p.endpoints ?? []).some(ep => ep.coding_plan);
   // 上游速率限制快照：窗口通常 1 分钟，超 5 分钟的旧值不再代表现状，宁可不显示。
   const rateLimit = useMemo(() => {
     const rl = parseRateLimit(p.rate_limit ?? "");
@@ -149,13 +148,6 @@ export const PlatformCard = memo(function PlatformCard({
     const rem = rateLimit.requests_remaining ?? rateLimit.tokens_remaining;
     return rem != null ? formatNumber(rem) : "";
   })();
-  // B3 折算行：手填套餐月价（platform.extra.plan_price，¥/月），有才显示套餐段
-  const planPrice = (() => {
-    try {
-      const v = (JSON.parse(p.extra || "{}") as Record<string, unknown>).plan_price;
-      return typeof v === "number" ? v : undefined;
-    } catch { return undefined; }
-  })();
   // 协议元数据聚合 hook（替代 5 个独立 async effect：colorMap / isCp / models+peak /
   //   homepage / label+labelMap）。docPromise 单例缓存 → 单次 Promise.all 聚合 →
   //   100 卡 = 100 次 then（不再 600+ 链）；每卡仅一次 setState。
@@ -175,6 +167,7 @@ export const PlatformCard = memo(function PlatformCard({
   // 配额查询入口按 quota_scripts 派生（quota-scripts T6，替代 mock/claude_code 硬编码；
   //   索引未就绪回落旧启发式，见 platformHasQuotaScript）。
   const quotaCapable = platformHasQuotaScript(p);
+  const hasCodingEndpoint = (p.endpoints ?? []).some(ep => ep.coding_plan);
   const showQuota = quotaCapable && quota.hasData;
   // ④ 延迟档：可查 quota 的平台数据未回（quotaPending）→ 余额区显骨架而非空白/est 旧值闪烁
   const showQuotaSkeleton = quotaCapable && !quota.hasData && quotaPending;
@@ -190,16 +183,12 @@ export const PlatformCard = memo(function PlatformCard({
 
   // 余额行的显示条件 = 行内各块条件的**并集**，每块再各自判一次。
   //
-  // 原先整行锁在 `showQuota`（= quotaCapable && quota.hasData）之后，后果是
-  // 「速率余量」「coding 已用 tokens」「本周期折算」这三块明明早有数据，却因为配额没查
-  // 回来 / 该平台压根不支持配额查询而一起被挡住。这三块与配额是互不相干的维度，
-  // 不该共享同一个到达条件。与 `platform_card_view.dart:133` 的 showBalanceRow 对齐。
+  // 原先整行锁在 `showQuota`（= quotaCapable && quota.hasData）之后，会挡住配额之外的速率余量。
+  // 与 `platform_card_view.dart:133` 的 showBalanceRow 对齐。
   const showBalanceRow =
     quota.balanceRemaining != null ||
     !!(mb && mb.hasData) ||
     quota.tiers.length > 0 ||
-    (hasCodingEndpoint && !!u) ||
-    (hasCodingEndpoint && p.coding_window_cost > 0) ||
     rateLimit != null ||
     (isCcMitm && ccPlanHasData) ||
     // 终稿统计带：折叠态也要能看到 今日成本/成功率（usage 一到就显示，无需展开）
@@ -502,27 +491,6 @@ export const PlatformCard = memo(function PlatformCard({
                     </span>
                   </div>
                 )}
-                {/* Coding plan：已用 tokens + 预估金额（折叠态亦可见，配额档无此数据） */}
-                {hasCodingEndpoint && u && (
-                  <div style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 8 }} title={t("platform.codingUsedHint", "本平台累计已用 tokens 与预估金额（基于实际请求估算）")}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 14, fontWeight: 700, color: "var(--text-secondary)" }}>
-                      <IconBolt size={12} />
-                      {formatNumber(total)}
-                      <span style={{ fontSize: 14, fontWeight: 600, opacity: 0.6 }}>tok</span>
-                    </span>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 14, fontWeight: 700, color: "var(--text-secondary)" }}>
-                      <IconCost size={12} />
-                      {formatMoney(u.total_cost)}
-                    </span>
-                  </div>
-                )}
-                {/* B3 折算行：本周期（首个配额窗口 window_start 起）累计折算 $ + 手填套餐价 */}
-                {hasCodingEndpoint && p.coding_window_cost > 0 && (
-                  <span style={{ flexShrink: 0, fontSize: 14, color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>
-                    {t("platform.codingWindowCost", "本周期折算")} {formatMoney(p.coding_window_cost)}
-                    {planPrice != null && ` · ${t("platform.codingPlanPrice", "套餐")} ¥${planPrice}/月`}
-                  </span>
-                )}
                 {/* Coding plan tiers */}
                 {quota.balanceRemaining == null && quota.tiers.length > 0 && (
                   <div style={{ flexShrink: 0, display: "flex", gap: 4, flexWrap: "wrap", maxWidth: 300 }}>
@@ -585,13 +553,15 @@ export const PlatformCard = memo(function PlatformCard({
                 {/* ── 终稿统计带：今日成本 + 成功率（折叠态可见，usage 到即显）── */}
                 {u && (
                   <div style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
-                    <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}
-                      title={t("platform.todayUsageLabel", "今日")}>
-                      <span style={{ fontSize: 14, fontWeight: 600, color: u.today_cost > 0 ? "var(--text-primary)" : "var(--text-tertiary)", fontVariantNumeric: "tabular-nums" }}>
-                        {formatMoney(u.today_cost)}
+                    {!hasCodingEndpoint && (
+                      <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}
+                        title={t("platform.todayUsageLabel", "今日")}>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: u.today_cost > 0 ? "var(--text-primary)" : "var(--text-tertiary)", fontVariantNumeric: "tabular-nums" }}>
+                          {formatMoney(u.today_cost)}
+                        </span>
+                        <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("platform.todayUsageLabel", "今日")}</span>
                       </span>
-                      <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("platform.todayUsageLabel", "今日")}</span>
-                    </span>
+                    )}
                     <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>
                       <span style={{ fontSize: 14, fontWeight: 600, color: successRateLevel(sr, u.total_requests) === "danger" ? "var(--color-danger)" : successRateLevel(sr, u.total_requests) === "warning" ? "var(--color-warning)" : "var(--color-success)", fontVariantNumeric: "tabular-nums" }}>
                         {formatPercent(sr)}
