@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793615839,
+  "last_updated": 1794582694,
   "endpoints": {
     "default": [
       {
@@ -871,7 +871,8 @@
       "xiaomi-mimo-v2.5-pro-free",
       "xiaomi-mimo-v2.6-flash-free",
       "xiaomi-mimo-v2.6-pro-free",
-      "zai-glm-5-turbo"
+      "zai-glm-5-turbo",
+      "decision-model-preview"
     ]
   },
   "peak": [
