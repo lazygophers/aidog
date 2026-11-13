@@ -782,8 +782,7 @@
         "FORCE_AUTOUPDATE_PLUGINS": "1",
         "DO_NOT_TRACK": "1",
         "ENABLE_TOOL_SEARCH": "true",
-        "MAX_MCP_OUTPUT_TOKENS": "15000",
-        "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL": "1"
+        "MAX_MCP_OUTPUT_TOKENS": "15000"
     },
     "enabledPlugins": {
         "caveman@caveman": true,
