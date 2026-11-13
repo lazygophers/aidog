@@ -264,16 +264,14 @@ describe("PlatformCard", () => {
     expect(mockService.onCustomTest).toHaveBeenCalledWith(basePlatform);
   });
 
-  it("余额行门控: 平台不支持配额查询，coding 已用 tokens 仍然显示", () => {
-    // 回归 2026-09-22：原先整行锁在 `showQuota = quotaCapable && quota.hasData` 之后，
-    // 于是「coding 已用 tokens」这块明明有数据也被一起挡住。它与配额是两个维度。
-    vi.mocked(platformHasQuotaScript).mockReturnValueOnce(false);
+  it("余额行不把 Coding Plan 请求消费预估显示成余额", () => {
     render(
       <PlatformCard
         {...baseProps}
         platform={{
           ...basePlatform,
           endpoints: [{ protocol: "anthropic", base_url: "https://x", coding_plan: true }],
+          coding_window_cost: 2,
         } as Platform}
         usage={{
           total_requests: 10,
@@ -288,8 +286,10 @@ describe("PlatformCard", () => {
         } as PlatformUsageStats}
       />,
     );
-    // 10000 tokens 经 formatNumber → "10K"（与 React/Flutter 同一份格式化口径）
-    expect(screen.getByTitle("platform.codingUsedHint")).toBeInTheDocument();
+    expect(screen.queryByTitle("platform.codingUsedHint")).not.toBeInTheDocument();
+    expect(screen.queryByText(/platform\.codingWindowCost/)).not.toBeInTheDocument();
+    expect(screen.queryByText("$2.00")).not.toBeInTheDocument();
+    expect(screen.queryByText("$0.10")).not.toBeInTheDocument();
   });
 
   it("高峰徽标: 时段来自 preset 默认（用户没自配也要显）", () => {
