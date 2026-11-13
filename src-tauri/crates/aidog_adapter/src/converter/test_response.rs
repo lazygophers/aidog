@@ -541,7 +541,8 @@ fn convert_response_gemini_to_anthropic() {
         "usageMetadata": {
             "promptTokenCount": 5,
             "candidatesTokenCount": 3,
-            "totalTokenCount": 8
+            "totalTokenCount": 8,
+            "cachedContentTokenCount": 2
         }
     });
     let out = convert_response(&upstream, &Protocol::Gemini, &Protocol::Anthropic, "claude")
@@ -553,8 +554,9 @@ fn convert_response_gemini_to_anthropic() {
     assert_eq!(content[0]["type"], "text");
     assert_eq!(content[0]["text"], "Hello from Gemini");
     assert_eq!(out["stop_reason"], "end_turn", "STOP→end_turn");
-    assert_eq!(out["usage"]["input_tokens"], 5);
+    assert_eq!(out["usage"]["input_tokens"], 3);
     assert_eq!(out["usage"]["output_tokens"], 3);
+    assert_eq!(out["usage"]["cache_read_input_tokens"], 2);
 }
 
 // ── N×N 矩阵测试：openai→gemini ──

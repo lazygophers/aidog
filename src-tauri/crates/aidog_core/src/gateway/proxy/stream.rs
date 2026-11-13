@@ -639,10 +639,12 @@ pub(crate) fn accumulate_sse_usage(
     acc_tool_fetch: &std::sync::atomic::AtomicI32,
 ) {
     use std::sync::atomic::Ordering::Relaxed;
-    // usage 可能在顶层，也可能在 message.usage（Anthropic message_start）
+    // usage 可能在顶层，也可能在 message.usage（Anthropic message_start）。
+    // Gemini 原生响应使用顶层 usageMetadata。
     let usage = json
         .get("usage")
-        .or_else(|| json.get("message").and_then(|m| m.get("usage")));
+        .or_else(|| json.get("message").and_then(|m| m.get("usage")))
+        .or_else(|| json.get("usageMetadata"));
     let usage = match usage {
         Some(u) => u,
         None => return,
@@ -651,6 +653,7 @@ pub(crate) fn accumulate_sse_usage(
     if let Some(i) = usage
         .get("input_tokens")
         .or_else(|| usage.get("prompt_tokens"))
+        .or_else(|| usage.get("promptTokenCount"))
         .and_then(|v| v.as_i64())
     {
         acc_in.fetch_max((i - in_input).max(0) as i32, Relaxed);
@@ -658,6 +661,7 @@ pub(crate) fn accumulate_sse_usage(
     if let Some(o) = usage
         .get("output_tokens")
         .or_else(|| usage.get("completion_tokens"))
+        .or_else(|| usage.get("candidatesTokenCount"))
         .and_then(|v| v.as_i64())
     {
         acc_out.fetch_max(o as i32, Relaxed);
@@ -758,6 +762,10 @@ fn usage_cache_arms(
         let in_input = c + cache_write.unwrap_or(0);
         return (Some(c), cache_write, None, in_input);
     }
+    if let Some(c) = plain("cachedContentTokenCount") {
+        // Gemini promptTokenCount includes cachedContentTokenCount.
+        return (Some(c), None, None, c);
+    }
     if let Some(c) = plain("cache_tokens") {
         return (Some(c), None, None, 0);
     }
@@ -784,7 +792,7 @@ pub(crate) fn extract_usage(body: &str) -> (i32, i32, i32, i32, i32, Vec<(String
         Ok(v) => v,
         Err(_) => return (0, 0, 0, 0, 0, Vec::new()),
     };
-    let usage = match v.get("usage") {
+    let usage = match v.get("usage").or_else(|| v.get("usageMetadata")) {
         Some(u) => u,
         None => return (0, 0, 0, 0, 0, Vec::new()),
     };
@@ -795,6 +803,7 @@ pub(crate) fn extract_usage(body: &str) -> (i32, i32, i32, i32, i32, Vec<(String
     let input = (usage
         .get("input_tokens")
         .or_else(|| usage.get("prompt_tokens"))
+        .or_else(|| usage.get("promptTokenCount"))
         .and_then(|v| v.as_i64())
         .unwrap_or(0)
         - in_input)
@@ -802,6 +811,7 @@ pub(crate) fn extract_usage(body: &str) -> (i32, i32, i32, i32, i32, Vec<(String
     let output = usage
         .get("output_tokens")
         .or_else(|| usage.get("completion_tokens"))
+        .or_else(|| usage.get("candidatesTokenCount"))
         .and_then(|v| v.as_i64())
         .unwrap_or(0) as i32;
     (

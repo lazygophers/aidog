@@ -368,6 +368,7 @@ fn parse_gemini_response_with_function_call() {
         serde_json::json!({"operation": "add", "x": 1, "y": 2})
     );
     assert_eq!(parsed.stop_reason, "end_turn");
+    assert_eq!(parsed.input_tokens, 10);
     assert_eq!(parsed.cache_read_tokens, 5);
 }
 

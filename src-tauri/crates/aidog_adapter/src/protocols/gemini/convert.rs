@@ -479,6 +479,7 @@ pub fn parse_gemini_response(
         .and_then(|u| u.get("cachedContentTokenCount"))
         .and_then(|v| v.as_i64())
         .unwrap_or(0);
+    let input_tokens = (input_tokens - cache_read_tokens).max(0);
 
     Some(crate::converter::NonStreamResponse {
         id,
