@@ -382,3 +382,12 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
 - **只产 `.scratch/` 设计稿 / 报告、不改代码的 agent 派发时不带 `isolation`**：隔离 agent 的 Write 工具被限在自己的 worktree，写主仓 `.scratch/<feature>/design-demos/` 只能先写 worktree 再 `cat` 拼回主仓，多一步且易留副本。隔离只用于 shared-worktree.md 文首「有必要」三种写码情形。
 - **并发上限账本（`src-tauri/crates/aidog_hooks/scripts/aidog-subagent-cap.mjs`，状态在 `~/.aidog/subagent-cap/<session_id>.json`）对 failed / 被 kill 的 agent 同样不释放**，与 §8 的 TaskStop 情形同病。被拦且确认在途 agent 已全部结束时，跑 `node src-tauri/crates/aidog_hooks/scripts/aidog-subagent-cap.mjs --reset <session_id>` 清零后重派。`--reset` 清的是该会话全部登记，仍有 running agent 时不跑（会让在途数少算）。
 - **agent 用 grep 字面词自检「某内容没保留」得零命中，不构成缺失结论**：3D 稿设计 agent 自报「三条跨层事实没保留」，实为 grep「事实」二字零命中，数据其实在页里。主会话采信「缺失」类自报前，按内容本身（具体数据值、节点名）再 grep 一次（同 registry-data-edit.md「grep 零命中只说明 pattern 不匹配」）。
+
+## 26. 规划 / 调研 agent 防断连丢结论；探索报告转交；前序数字先复核（2026-11-13 架构加深规划轮）
+
+4 个规划 agent 共断连约 9 次（`SSL certificate hostname mismatch`、`ECONNRESET`、一次 `model_not_found`）。前几次 agent 把结论攒在上下文里、零落盘，断连即全丢；改成下面三条后才稳定推进。§18 管实现 agent 的半成品，本条管规划 / 调研 agent。
+
+- **派发 prompt 写落盘节奏**：「开工 5 次工具调用内写出 spec / 票骨架到目标路径，之后每得一条结论当场写进文件」。断连后对同一 agent `SendMessage` 续做，已落盘部分保留；不重派从头来（长 HTML 同理，见 surgical-refactor.md §3.5）。
+- **同一 agent 连断 3 次**：按「同一问题连续三轮」停手，用 ask-me 问用户续做 / 重派 / 换拆法，不自行硬重试（本轮用户选「直接重派」）。
+- **探索 agent 的报告走 subagent JSONL 文件传递**：下游 agent 要用时，把 JSONL 复制到 `.tmp/<任务名>/`，让下游自己写脚本（落盘成文件再跑）提取最后一条 assistant 消息；报告全文不经主会话转贴。
+- **前序探索报告的数字是假设**：本轮规划 agent 复核推翻多处（限频占位重复 2 份非 4 份；路由「4 入口」实为 1 死包装 + 1 测试垫片；分享导入漏水合 12 类非 6 类），还发现探索漏掉的真 bug（5a5304129 只改了无渲染者的 PlatformCard）。规划 agent 的 prompt 写明「探索报告的计数、调用点、死码判断先 grep 复核，再写进 spec」（§6 同口径）。
