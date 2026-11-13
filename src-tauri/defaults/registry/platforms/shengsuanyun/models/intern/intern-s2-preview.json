@@ -1,11 +1,13 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "intern/intern-s2-preview",
+  "display_name": "Intern-S2-Preview",
+  "thinking_supported": false,
   "canonical_model": "intern-s2-preview",
   "family": "intern",
   "version": "2",

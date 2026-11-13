@@ -1,9 +1,11 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "writer/palmyra-med-70b-32k",
+  "context_window": 32768,
+  "thinking_supported": false,
   "canonical_model": "palmyra-med-70b-32k",
   "family": "palmyra",
   "capabilities": [],

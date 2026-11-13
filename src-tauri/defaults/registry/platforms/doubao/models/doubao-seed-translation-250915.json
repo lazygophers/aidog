@@ -1,11 +1,12 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai",
     "openai_responses"
   ],
   "model_id": "doubao-seed-translation-250915",
+  "display_name": "Doubao Seed Translation 250915",
   "canonical_model": "doubao-seed-translation-250915",
   "family": "doubao-seed-translation",
   "capabilities": [

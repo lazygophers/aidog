@@ -1,10 +1,12 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "XGenerationLab/XiYanSQL-QwenCoder-32B-2504",
+  "display_name": "XiYanSQL-QwenCoder-32B-2504",
+  "thinking_supported": false,
   "canonical_model": "xiyansql-qwencoder-32b-2504",
   "family": "xiyansql",
   "capabilities": [

@@ -1,9 +1,11 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "ibm/granite-34b-code-instruct",
+  "context_window": 8192,
+  "thinking_supported": false,
   "canonical_model": "granite-34b-code-instruct",
   "family": "granite",
   "capabilities": [],

@@ -1,10 +1,11 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "embedding-2",
+  "max_input_tokens": 8192,
   "canonical_model": "embedding-2",
   "family": "embedding",
   "version": "2",

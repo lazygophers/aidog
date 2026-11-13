@@ -1,10 +1,12 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "BAAI/bge-large-en-v1.5",
+  "max_input_tokens": 512,
+  "context_window": 512,
   "display_name": "Bge Large En V1.5",
   "canonical_model": "bge-large-en-v1.5",
   "family": "bge",

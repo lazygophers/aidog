@@ -1,10 +1,12 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "glm-4-airx",
+  "max_input_tokens": 8192,
+  "max_output_tokens": 4095,
   "canonical_model": "glm-4-airx",
   "family": "glm",
   "version": "4",

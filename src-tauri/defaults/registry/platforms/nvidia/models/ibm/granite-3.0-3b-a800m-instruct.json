@@ -1,9 +1,10 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "ibm/granite-3.0-3b-a800m-instruct",
+  "thinking_supported": false,
   "canonical_model": "granite-3.0-3b-a800m-instruct",
   "family": "granite",
   "capabilities": [],

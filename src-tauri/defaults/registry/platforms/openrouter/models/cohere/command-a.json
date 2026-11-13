@@ -1,5 +1,6 @@
 {
   "model_id": "cohere/command-a",
+  "thinking_supported": false,
   "display_name": "Cohere: Command A",
   "canonical_model": "command-a",
   "family": "command",
@@ -12,7 +13,7 @@
     "input": 2.5e-06,
     "output": 1e-05
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"
