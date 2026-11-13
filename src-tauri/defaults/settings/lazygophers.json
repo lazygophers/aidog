@@ -799,10 +799,7 @@
         "DO_NOT_TRACK": "1",
         "ENABLE_TOOL_SEARCH": "true",
         "MAX_MCP_OUTPUT_TOKENS": "15000",
-        "MCP_TIMEOUT": "60000",
-        "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL": "1",
-        "BASH_DEFAULT_TIMEOUT_MS": "600000",
-        "BASH_MAX_TIMEOUT_MS": "3600000"
+        "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL": "1"
     },
     "enabledPlugins": {
         "caveman@caveman": true,
