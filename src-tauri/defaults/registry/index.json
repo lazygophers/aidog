@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794585772,
+  "last_updated": 1794586585,
   "platforms": [
     {
       "code": "aihubmix",
@@ -1876,7 +1876,6 @@
       "platform_file": "platforms/codex/platform.json",
       "models_dir": "platforms/codex/models",
       "models": [
-        "gpt-5.3-codex-spark.json",
         "gpt-5.5.json",
         "gpt-5.6-luna.json",
         "gpt-5.6-sol.json",
