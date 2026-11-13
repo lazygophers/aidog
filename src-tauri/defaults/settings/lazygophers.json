@@ -614,7 +614,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "mise exec node@22 -- node ~/.claude/hooks/gitnexus/gitnexus-hook.cjs",
+                        "command": "mise exec node@24 -- node ~/.claude/hooks/gitnexus/gitnexus-hook.cjs",
                         "timeout": 10,
                         "statusMessage": "Enriching with GitNexus graph context..."
                     }
@@ -625,7 +625,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "mise exec node@22 -- node ~/.aidog/scripts/aidog-subagent-cap.mjs",
+                        "command": "mise exec node@24 -- node ~/.aidog/scripts/aidog-subagent-cap.mjs",
                         "timeout": 10,
                         "statusMessage": "Checking subagent concurrency cap..."
                     }
@@ -657,7 +657,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "mise exec node@22 -- node ~/.claude/hooks/gitnexus/gitnexus-hook.cjs",
+                        "command": "mise exec node@24 -- node ~/.claude/hooks/gitnexus/gitnexus-hook.cjs",
                         "timeout": 10,
                         "statusMessage": "Checking GitNexus index freshness..."
                     }
@@ -688,7 +688,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "mise exec node@22 -- node ~/.claude/hooks/context-mode-cache-heal.mjs"
+                        "command": "mise exec node@24 -- node ~/.claude/hooks/context-mode-cache-heal.mjs"
                     }
                 ]
             }
@@ -698,7 +698,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "mise exec node@22 -- node ~/.aidog/scripts/aidog-subagent-cap.mjs",
+                        "command": "mise exec node@24 -- node ~/.aidog/scripts/aidog-subagent-cap.mjs",
                         "timeout": 10,
                         "async": true
                     }
@@ -710,7 +710,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "mise exec node@22 -- node ~/.aidog/scripts/aidog-subagent-cap.mjs",
+                        "command": "mise exec node@24 -- node ~/.aidog/scripts/aidog-subagent-cap.mjs",
                         "timeout": 10,
                         "async": true
                     }
@@ -722,7 +722,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "mise exec node@22 -- node ~/.aidog/scripts/aidog-subagent-cap.mjs",
+                        "command": "mise exec node@24 -- node ~/.aidog/scripts/aidog-subagent-cap.mjs",
                         "timeout": 10,
                         "async": true
                     }
@@ -745,31 +745,15 @@
     "skillListingBudgetFraction": 0.01,
     "env": {
       "ANTHROPIC_CUSTOM_HEADERS": "",
-        "MCP_DISCOVERY_CACHE": "1",
         "FORCE_HYPERLINK": "1",
-        "CLAUDE_ENABLE_STREAM_WATCHDOG": "1",
-        "CLAUDE_CODE_WORKFLOW_MAX_CONCURRENT_AGENTS": "3",
-        "CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS": "1",
+        "CLAUDE_CODE_WORKFLOW_MAX_CONCURRENT_AGENTS": "2",
         "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1",
-        "CLAUDE_CODE_ENABLE_AWAY_SUMMARY": "1",
-        "CLAUDE_CODE_DISABLE_NOTIFICATION_PRESENCE_CHECK": "1",
-        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
-        "CLAUDE_CODE_DISABLE_MCP_TASK_BACKGROUND": "1",
-        "CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS": "0",
-        "CLAUDE_CODE_DISABLE_FILE_MENTIONS": "0",
         "CLAUDE_CODE_DISABLE_FAST_MODE": "1",
-        "CLAUDE_CODE_GATEWAY_HINT_HEADERS": "1",
-        "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY": "1",
         "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1",
-        "CLAUDE_CODE_DISABLE_EXPLORE_PLAN_AGENTS": "1",
-        "CLAUDE_CODE_DISABLE_DANGEROUS_RM_TIMEOUT": "1",
         "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "0",
         "CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL": "1",
-        "CLAUDE_CODE_SUBAGENT_MODEL_FORCE": "1",
         "CLAUDE_CODE_DISABLE_AGENT_VIEW": "0",
-        "CLAUDE_CODE_DISABLE_ARTIFACT": "1",
         "CLAUDE_CODE_DISABLE_ATTACHMENTS": "1",
-        "CLAUDE_CODE_BG_TASKS_REPORT_RUNNING": "1",
         "CLAUDE_CODE_AUTO_MODE_MODEL": "haiku",
         "CLAUDE_CODE_WARN_DISK_FREE_GIB": "50",
         "CLAUDE_CODE_WARN_MEMORY_FREE_GIB": "1",
@@ -806,7 +790,7 @@
         "i-have-adhd@i-have-adhd": true,
         "ponytail@ponytail": true,
         "context-mode@context-mode": true,
-        "openviking-memory@openviking": true
+        "openviking-memory@openviking": false
     },
     "extraKnownMarketplaces": {
         "caveman": {
