@@ -4,6 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 /**
  * Proxy Status section（原 L258-314）。
@@ -104,11 +108,14 @@ export function ProxyStatusSection({ s }: { s: SystemSettings }) {
 }
 
 /**
- * Upstream Proxy section（原 L406-517）。操作 proxyClient。
+ * 代理配置 section（issue #64 T02，原「上游代理」）。
+ * 无启用总开关：配置输入恒可见；「其它请求使用代理」独立开关（others_enabled，
+ * 管不属于任何平台的出站请求）；「为全部平台开启」批量写各平台 extra.proxy_enabled。
  */
 export function UpstreamProxySection({ s }: { s: SystemSettings }) {
   const { t } = useTranslation();
   const { proxyClient, handleProxyClientChange } = s;
+  const { proxyAllConfirm, setProxyAllConfirm, proxyAllBusy, runEnableProxyForAll } = s;
 
   return (
     <div className="glass-surface" style={{
@@ -124,101 +131,136 @@ export function UpstreamProxySection({ s }: { s: SystemSettings }) {
             {t("proxy.upstreamProxyDesc")}
           </div>
         </div>
-        <Switch checked={proxyClient.others_enabled} onCheckedChange={(c) => handleProxyClientChange({ others_enabled: c })} />
+        <Button data-testid="enable-proxy-all-button" variant="outline" disabled={proxyAllBusy}
+          onClick={() => setProxyAllConfirm(true)}>
+          {proxyAllBusy
+            ? t("proxy.enableForAllBusy", "写入中…")
+            : t("proxy.enableForAllPlatforms", "为全部平台开启")}
+        </Button>
       </div>
 
-      {proxyClient.others_enabled && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
-          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-                {t("proxy.proxyType", "协议")}
-              </label>
-              <Select value={proxyClient.proxy_type} onValueChange={(v) => handleProxyClientChange({ proxy_type: v })}>
-                <SelectTrigger style={{ width: 100, height: 28, fontSize: 14 }}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="socks5">SOCKS5</SelectItem>
-                  <SelectItem value="http">HTTP</SelectItem>
-                  <SelectItem value="https">HTTPS</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-                {t("proxy.proxyHost", "地址")}
-              </label>
-              <Input
-                value={proxyClient.host}
-                onChange={(e) => handleProxyClientChange({ host: e.target.value })}
-                style={{ width: 120, height: 28, fontSize: 14 }}
-              />
-            </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-                {t("proxy.proxyPort", "端口")}
-              </label>
-              <Input
-                type="number"
-                value={proxyClient.port}
-                onChange={(e) => handleProxyClientChange({ port: Number(e.target.value) || 7890 })}
-                style={{ width: 70, height: 28, fontSize: 14 }}
-              />
-            </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+              {t("proxy.proxyType", "协议")}
+            </label>
+            <Select value={proxyClient.proxy_type} onValueChange={(v) => handleProxyClientChange({ proxy_type: v })}>
+              <SelectTrigger style={{ width: 100, height: 28, fontSize: 14 }}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="socks5">SOCKS5</SelectItem>
+                <SelectItem value="http">HTTP</SelectItem>
+                <SelectItem value="https">HTTPS</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-                {t("proxy.proxyUser", "用户名")}
-              </label>
-              <Input
-                value={proxyClient.username}
-                onChange={(e) => handleProxyClientChange({ username: e.target.value })}
-                placeholder={t("proxy.proxyUserPlaceholder", "可选")}
-                style={{ width: 100, height: 28, fontSize: 14 }}
-              />
-            </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-                {t("proxy.proxyPass", "密码")}
-              </label>
-              <Input
-                type="password"
-                value={proxyClient.password}
-                onChange={(e) => handleProxyClientChange({ password: e.target.value })}
-                placeholder={t("proxy.proxyPassPlaceholder", "可选")}
-                style={{ width: 100, height: 28, fontSize: 14 }}
-              />
-            </div>
-          </div>
-          {proxyClient.proxy_type === "socks5" && (
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.dnsOverProxy", "DNS 走代理")}</div>
-                <div className="text-tertiary" style={{ fontSize: 14, marginTop: 1 }}>
-                  {t("proxy.dnsOverProxyDesc", "SOCKS5h: DNS 解析也走代理解析")}
-                </div>
-              </div>
-              <Switch checked={proxyClient.dns_over_proxy} onCheckedChange={(c) => handleProxyClientChange({ dns_over_proxy: c })} />
-            </div>
-          )}
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <label style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-              {t("proxy.noProxy", "不走代理")}
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+              {t("proxy.proxyHost", "地址")}
             </label>
             <Input
-              value={proxyClient.no_proxy}
-              onChange={(e) => handleProxyClientChange({ no_proxy: e.target.value })}
-              placeholder={t("proxy.noProxyPlaceholder", "留空使用默认：内网、局域网、.cn、中国平台域名")}
-              style={{ width: "100%", height: 28, fontSize: 14 }}
+              data-testid="proxy-host-input"
+              value={proxyClient.host}
+              onChange={(e) => handleProxyClientChange({ host: e.target.value })}
+              placeholder="127.0.0.1"
+              style={{ width: 120, height: 28, fontSize: 14 }}
             />
-            <div className="text-tertiary" style={{ fontSize: 14 }}>
-              {t("proxy.noProxyDesc", "逗号分隔：域名后缀、IP、CIDR；匹配的主机直连不走代理")}
-            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+              {t("proxy.proxyPort", "端口")}
+            </label>
+            <Input
+              data-testid="proxy-port-input"
+              type="number"
+              value={proxyClient.port}
+              onChange={(e) => handleProxyClientChange({ port: Number(e.target.value) || 7890 })}
+              placeholder="7890"
+              style={{ width: 70, height: 28, fontSize: 14 }}
+            />
           </div>
         </div>
-      )}
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+              {t("proxy.proxyUser", "用户名")}
+            </label>
+            <Input
+              value={proxyClient.username}
+              onChange={(e) => handleProxyClientChange({ username: e.target.value })}
+              placeholder={t("proxy.proxyUserPlaceholder", "可选")}
+              style={{ width: 100, height: 28, fontSize: 14 }}
+            />
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+              {t("proxy.proxyPass", "密码")}
+            </label>
+            <Input
+              type="password"
+              value={proxyClient.password}
+              onChange={(e) => handleProxyClientChange({ password: e.target.value })}
+              placeholder={t("proxy.proxyPassPlaceholder", "可选")}
+              style={{ width: 100, height: 28, fontSize: 14 }}
+            />
+          </div>
+        </div>
+        {proxyClient.proxy_type === "socks5" && (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.dnsOverProxy", "DNS 走代理")}</div>
+              <div className="text-tertiary" style={{ fontSize: 14, marginTop: 1 }}>
+                {t("proxy.dnsOverProxyDesc", "SOCKS5h: DNS 解析也走代理解析")}
+              </div>
+            </div>
+            <Switch checked={proxyClient.dns_over_proxy} onCheckedChange={(c) => handleProxyClientChange({ dns_over_proxy: c })} />
+          </div>
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <label style={{ fontSize: 14, color: "var(--text-secondary)" }}>
+            {t("proxy.noProxy", "不走代理")}
+          </label>
+          <Input
+            value={proxyClient.no_proxy}
+            onChange={(e) => handleProxyClientChange({ no_proxy: e.target.value })}
+            placeholder={t("proxy.noProxyPlaceholder", "留空使用默认：内网、局域网、.cn、中国平台域名")}
+            style={{ width: "100%", height: 28, fontSize: 14 }}
+          />
+          <div className="text-tertiary" style={{ fontSize: 14 }}>
+            {t("proxy.noProxyDesc", "逗号分隔：域名后缀、IP、CIDR；匹配的主机直连不走代理")}
+          </div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.othersUseProxy", "其它请求使用代理")}</div>
+            <div className="text-tertiary" style={{ fontSize: 14, marginTop: 1 }}>
+              {t("proxy.othersUseProxyDesc", "不属于任何平台的出站请求，如 Logo 同步、MCP 推荐、技能安装")}
+            </div>
+          </div>
+          <Switch data-testid="others-use-proxy" checked={proxyClient.others_enabled} onCheckedChange={(c) => handleProxyClientChange({ others_enabled: c })} />
+        </div>
+      </div>
+
+      <AlertDialog open={proxyAllConfirm} onOpenChange={setProxyAllConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("proxy.enableForAllConfirmTitle", "为全部平台开启代理？")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("proxy.enableForAllConfirmDesc", "将把所有平台的「使用代理」设为开启，不修改代理地址。")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="enable-proxy-all-cancel" onClick={() => setProxyAllConfirm(false)}>
+              {t("action.cancel", "取消")}
+            </AlertDialogCancel>
+            <AlertDialogAction data-testid="enable-proxy-all-confirm" onClick={() => { void runEnableProxyForAll(); }}>
+              {t("action.confirm", "确认")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { getAppVersion } from "../../services/platform";
-import { proxyApi, isProxyStartError, proxyLogApi, proxyTimeoutApi, builtinToolCompatGlobalApi, appLogApi, dbApi, statsApi, statsSettingsApi, autoUpdateApi, type ProxyLogSettings, type AppLogSettings, type ProxyClientSettings, type ProxyStartError, type RetentionUnit } from "../../services/api";
+import { proxyApi, isProxyStartError, proxyLogApi, proxyTimeoutApi, builtinToolCompatGlobalApi, appLogApi, dbApi, statsApi, statsSettingsApi, autoUpdateApi, platformApi, serializeProxyEnabled, type ProxyLogSettings, type AppLogSettings, type ProxyClientSettings, type ProxyStartError, type RetentionUnit } from "../../services/api";
+import { broadcastProxyConfigChanged } from "../../domains/platforms/proxyConfig";
 
 /**
  * system tab 全部 state + actions（AppSettings 拆分自原 L21-240）。
@@ -100,6 +101,8 @@ export function useSystemSettings() {
       try {
         const pc = await proxyApi.getProxyClientSettings();
         setProxyClient(pc);
+        // 通知「代理」徽标等消费方取最新 host（跨页共享读，见 proxyConfig.ts）
+        broadcastProxyConfigChanged();
       } catch { /* defaults */ }
       try {
         const ss = await statsSettingsApi.get();
@@ -177,7 +180,34 @@ export function useSystemSettings() {
     setProxyClient(next);
     try {
       await proxyApi.setProxyClientSettings(next);
+      // host 变化影响平台行「代理」徽标显隐（地址为空不显示）：广播让已挂载消费方重取。
+      broadcastProxyConfigChanged();
     } catch (e: any) { setMessage(e.toString()); }
+  };
+
+  // 「为全部平台开启」（issue #64 T02）：二次确认后逐平台写 extra.proxy_enabled=true，
+  // 不动代理地址；写完广播平台列表刷新（usePlatformsState 监听 aidog-platforms-changed）。
+  const [proxyAllConfirm, setProxyAllConfirm] = useState(false);
+  const [proxyAllBusy, setProxyAllBusy] = useState(false);
+  const runEnableProxyForAll = async () => {
+    setProxyAllConfirm(false);
+    setProxyAllBusy(true);
+    try {
+      const list = (await platformApi.list()) || [];
+      let ok = 0;
+      for (const p of list) {
+        try {
+          await platformApi.update({ id: p.id, extra: serializeProxyEnabled(p.extra ?? "", true) });
+          ok++;
+        } catch { /* 单平台失败不中断其余 */ }
+      }
+      window.dispatchEvent(new Event("aidog-platforms-changed"));
+      setMessage(t("proxy.enableForAllDone", "已为 {{n}} 个平台开启代理", { n: String(ok) }));
+    } catch (e: any) {
+      setMessage(e.toString());
+    } finally {
+      setProxyAllBusy(false);
+    }
   };
 
   const buildLogSettings = (): ProxyLogSettings => ({
@@ -284,6 +314,7 @@ export function useSystemSettings() {
     handleAutostartChange, handleBindLanChange,
     handleAutolaunchChange, handleSilentLaunchChange,
     handleProxyClientChange, updateLogSettings,
+    proxyAllConfirm, setProxyAllConfirm, proxyAllBusy, runEnableProxyForAll,
     requestDbCompact, runDbCompact, handleStatsRetentionChange, handleStatsRebuild,
     handleTimeoutChange, handleLogSettingsChange, handleAutoUpdateChange, handleBtcGlobalChange,
   };
