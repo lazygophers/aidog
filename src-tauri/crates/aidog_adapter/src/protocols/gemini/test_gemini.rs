@@ -310,7 +310,8 @@ fn parse_gemini_response_with_thinking() {
         "usageMetadata": {
             "promptTokenCount": 20,
             "candidatesTokenCount": 30,
-            "totalTokenCount": 50
+            "thoughtsTokenCount": 7,
+            "totalTokenCount": 57
         }
     });
 
@@ -324,7 +325,7 @@ fn parse_gemini_response_with_thinking() {
     );
     assert_eq!(parsed.stop_reason, "end_turn");
     assert_eq!(parsed.input_tokens, 20);
-    assert_eq!(parsed.output_tokens, 30);
+    assert_eq!(parsed.output_tokens, 37);
     assert!(parsed.tool_uses.is_empty());
 }
 
@@ -458,6 +459,34 @@ fn render_gemini_text_only() {
         "Hello world"
     );
     assert_eq!(out["modelVersion"], "gemini-pro");
+    assert_eq!(out["usageMetadata"]["promptTokenCount"], 10);
+    assert_eq!(out["usageMetadata"]["candidatesTokenCount"], 5);
+    assert_eq!(out["usageMetadata"]["totalTokenCount"], 15);
+    assert!(out["usageMetadata"].get("completionTokenCount").is_none());
+}
+
+#[test]
+fn render_gemini_preserves_cached_prompt_tokens() {
+    use super::render_gemini_response;
+    use crate::converter::NonStreamResponse;
+
+    let r = NonStreamResponse {
+        id: "test".to_string(),
+        model: "gemini-pro".to_string(),
+        text: Some("Hello world".to_string()),
+        tool_uses: vec![],
+        stop_reason: "end_turn".to_string(),
+        input_tokens: 3,
+        output_tokens: 4,
+        cache_read_tokens: 2,
+        reasoning: None,
+    };
+
+    let out = render_gemini_response(&r).unwrap();
+    assert_eq!(out["usageMetadata"]["promptTokenCount"], 5);
+    assert_eq!(out["usageMetadata"]["cachedContentTokenCount"], 2);
+    assert_eq!(out["usageMetadata"]["candidatesTokenCount"], 4);
+    assert_eq!(out["usageMetadata"]["totalTokenCount"], 9);
 }
 
 #[test]

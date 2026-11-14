@@ -594,7 +594,8 @@ fn convert_response_openai_to_gemini() {
         "Response from OpenAI"
     );
     assert_eq!(out["usageMetadata"]["promptTokenCount"], 10);
-    assert_eq!(out["usageMetadata"]["completionTokenCount"], 5);
+    assert_eq!(out["usageMetadata"]["candidatesTokenCount"], 5);
+    assert!(out["usageMetadata"].get("completionTokenCount").is_none());
 }
 
 // ── 本案重放：request cd7ff24d 场景 ──

@@ -649,6 +649,23 @@ pub(crate) fn accumulate_sse_usage(
         Some(u) => u,
         None => return,
     };
+    if let Some(gemini) = adapter::parse_gemini_usage_metadata(usage) {
+        let previous_cache = acc_cache.load(Relaxed) as i64;
+        let cache = previous_cache.max(gemini.cached_content_tokens);
+        if gemini.cached_content_tokens > 0 {
+            acc_cache.fetch_max(gemini.cached_content_tokens as i32, Relaxed);
+        }
+        let input = (gemini.prompt_tokens - cache).max(0) as i32;
+        if gemini.cached_content_tokens > 0 || previous_cache > 0 {
+            // Gemini may report cachedContentTokenCount only on the final frame. Store the
+            // corrected ordinary input so an earlier uncached value cannot win forever.
+            acc_in.store(input, Relaxed);
+        } else {
+            acc_in.fetch_max(input, Relaxed);
+        }
+        acc_out.fetch_max(gemini.output_tokens() as i32, Relaxed);
+        return;
+    }
     let (cache_read, cache_write, cache_write_1h, in_input) = usage_cache_arms(usage);
     if let Some(i) = usage
         .get("input_tokens")
@@ -762,10 +779,6 @@ fn usage_cache_arms(
         let in_input = c + cache_write.unwrap_or(0);
         return (Some(c), cache_write, None, in_input);
     }
-    if let Some(c) = plain("cachedContentTokenCount") {
-        // Gemini promptTokenCount includes cachedContentTokenCount.
-        return (Some(c), None, None, c);
-    }
     if let Some(c) = plain("cache_tokens") {
         return (Some(c), None, None, 0);
     }
@@ -796,6 +809,16 @@ pub(crate) fn extract_usage(body: &str) -> (i32, i32, i32, i32, i32, Vec<(String
         Some(u) => u,
         None => return (0, 0, 0, 0, 0, Vec::new()),
     };
+    if let Some(gemini) = adapter::parse_gemini_usage_metadata(usage) {
+        return (
+            gemini.input_tokens() as i32,
+            gemini.output_tokens() as i32,
+            gemini.cached_content_tokens as i32,
+            0,
+            0,
+            Vec::new(),
+        );
+    }
     // Cache tokens（arm 绑定见 usage_cache_arms）：Anthropic (cache_read_input_tokens),
     // OpenAI (prompt_tokens_details.cached_tokens), responses (input_tokens_details.*),
     // DeepSeek (prompt_cache_hit_tokens), generic (cache_tokens)
@@ -803,7 +826,6 @@ pub(crate) fn extract_usage(body: &str) -> (i32, i32, i32, i32, i32, Vec<(String
     let input = (usage
         .get("input_tokens")
         .or_else(|| usage.get("prompt_tokens"))
-        .or_else(|| usage.get("promptTokenCount"))
         .and_then(|v| v.as_i64())
         .unwrap_or(0)
         - in_input)
@@ -811,7 +833,6 @@ pub(crate) fn extract_usage(body: &str) -> (i32, i32, i32, i32, i32, Vec<(String
     let output = usage
         .get("output_tokens")
         .or_else(|| usage.get("completion_tokens"))
-        .or_else(|| usage.get("candidatesTokenCount"))
         .and_then(|v| v.as_i64())
         .unwrap_or(0) as i32;
     (
