@@ -1,6 +1,6 @@
 - 本项目授权自动 `git commit`：所有文件变更完成后立即提交，无需等待明确指令
 - 提交信息格式：`<type>(<scope>): <description>`，type 遵循 conventional commits（feat / fix / chore / style / refactor / docs）
-- **git 授权（2026-09-12 永久授权，2026-11-06 收回 push）**：创建/合并 PR（仅在任务验收标准全部满足后）、code review、切换分支（checkout / switch）无需逐次确认。**禁止主动 `git push`**（用户 2026-11-06：「任何时候都不主动推送」），仅在用户当轮明说时推送；创建 PR 需先推送分支，故创建 PR 同样仅在用户当轮明说推送时才可做（push 禁令优先）。高危项仍需当轮明示：force push、改历史、删分支/删远端 ref
+- **git 授权（2026-09-12 永久授权；2026-11-06 收回 push；2026-11-15 issue 分支恢复 push）**：合并 PR（仅在任务验收标准全部满足后）、code review、切换分支（checkout / switch）无需逐次确认。**issue 工作分支 push 到 origin 并创建 PR = 永久授权**（用户 2026-11-15：「所有的issuse的开发都是独立的worktree并且提交pr」）；**其余分支（含 master）仍禁主动 push**，仅在用户当轮明说时推送。issue 分支 push 前核 `git rev-list --count origin/master..<分支>` 只含本 issue 提交、分支从 `origin/master` 开，细则见 `.claude/rules/shared-worktree.md`「推送只走 origin」节与「issue 开发：独立 worktree + PR」节。高危项仍需当轮明示：force push、改历史、删分支/删远端 ref
 - **`.git/index.lock` 残留自动清理，无需询问用户（2026-11-05 用户授权）**：判据 `pgrep -fl 'git '` 无 git 进程且锁文件 0 字节才删；有 git 进程或非 0 字节不删（别的会话正在写）
 - `cd src-tauri && cargo clippy` 的 warning 必须清干净
 
