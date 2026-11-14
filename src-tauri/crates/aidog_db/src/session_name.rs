@@ -21,13 +21,13 @@ pub fn get_session_name_cache<'a>(
     async move {
         let (client, sid) = (client.to_string(), session_id.to_string());
         db.call_read_traced(None, __db_caller, move |conn| {
-            Ok(conn
+            conn
                 .query_row(
                     "SELECT value FROM session_name_cache WHERE client = ?1 AND session_id = ?2",
                     params![client, sid],
                     |r| r.get::<_, String>(0),
                 )
-                .optional()?)
+                .optional()
         })
         .await
         .map_err(|e| format!("get session_name_cache: {e}"))
