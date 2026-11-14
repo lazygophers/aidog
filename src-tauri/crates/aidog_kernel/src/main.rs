@@ -169,6 +169,7 @@ async fn run(opts: Options) -> Result<(), String> {
                 .await
         })
     }));
+    aidog_core::gateway::http_client::install_non_platform_client_factories();
 
     // 先开 DB 再初始化日志：app log 设置的单一事实源是 DB settings 表。
     let db_path = data_dir.join("aidog.db");

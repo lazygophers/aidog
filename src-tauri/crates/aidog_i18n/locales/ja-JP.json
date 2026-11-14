@@ -2360,6 +2360,7 @@
   "proxy.enableForAllConfirmTitle": "すべてのプラットフォームでプロキシを有効にしますか？",
   "proxy.enableForAllConfirmDesc": "すべてのプラットフォームの「プロキシを使用」をオンにします。プロキシアドレスは変更されません。",
   "proxy.enableForAllDone": "{{n}} 個のプラットフォームでプロキシを有効にしました",
+  "proxy.enableForAllPartial": "{{n}} 個のプラットフォームでプロキシを有効にしました（{{f}} 件失敗）",
   "proxy.upstreamReqRetention": "アップストリームリクエスト保持時間",
   "proxy.userReqRetention": "ユーザーリクエスト保持時間",
   "displayCurrency.title": "表示通貨",

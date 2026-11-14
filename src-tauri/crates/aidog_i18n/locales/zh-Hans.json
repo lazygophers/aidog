@@ -2272,6 +2272,7 @@
   "proxy.enableForAllConfirmTitle": "为全部平台开启代理？",
   "proxy.enableForAllConfirmDesc": "将把所有平台的「使用代理」设为开启，不修改代理地址。",
   "proxy.enableForAllDone": "已为 {{n}} 个平台开启代理",
+  "proxy.enableForAllPartial": "已为 {{n}} 个平台开启代理，{{f}} 个失败",
   "proxy.upstreamReqRetention": "上游请求保留时间",
   "proxy.userReqRetention": "原始请求保留时间",
   "displayCurrency.title": "显示币种",
