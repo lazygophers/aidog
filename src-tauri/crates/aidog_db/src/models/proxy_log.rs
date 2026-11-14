@@ -450,9 +450,29 @@ pub struct RoutingSnapshot {
     #[ts(optional, type = "Array<number>")]
     // Box：RoutingSnapshot 随 RouteFail 走 Err 路径，多 24 字节会越过 clippy::result_large_err 的 128 字节线
     pub round_starts: Option<Box<Vec<u32>>>,
+    /// 本地限频 / 上游限频冷却挡掉候选时，最早可再放行的时刻（Unix 秒，向上取整）：429 的 `Retry-After` 取它。
+    /// 缺省 None = 无已知时刻（含旧日志）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "number")]
+    // u32 秒而非 i64 毫秒：恰好落进结构体内的对齐空隙，RouteFail 不越过 clippy::result_large_err 的 128 字节线
+    pub retry_at_s: Option<std::num::NonZeroU32>,
 }
 
 impl RoutingSnapshot {
+    /// 记一个限频放行时刻（Unix 毫秒），与已有值取最早；秒级向上取整。
+    pub fn note_retry_at_ms(&mut self, at_ms: i64) {
+        let s = u32::try_from((at_ms.max(0) + 999) / 1000).ok().and_then(std::num::NonZeroU32::new);
+        self.retry_at_s = match (self.retry_at_s, s) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (a, b) => a.or(b),
+        };
+    }
+
+    /// 最早放行时刻（Unix 毫秒）。
+    pub fn retry_at_ms(&self) -> Option<i64> {
+        self.retry_at_s.map(|s| i64::from(s.get()) * 1000)
+    }
+
     /// 最大尝试次数用尽补记（路由画布 01 / 请求尝试 01）：上限那次调用落在 `after_platform_id`，
     /// 其后的入选候选永不会被尝试 → 标 retry-limit。
     pub fn mark_retry_limit(&mut self, max_attempts: u32, after_platform_id: u64) {
