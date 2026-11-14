@@ -151,7 +151,7 @@ pub(crate) async fn handle_proxy_core(
     // ── Claude Code 连接预热探测分流（必须在读 body / 首次 upsert_log 之前）──
     // 客户端启动对 base_url 发 `HEAD /api/hello`（base_url 带 /proxy 前缀 → `/proxy/api/hello`），
     // 无 Authorization → 走 resolve_group 必 404。
-    // 新需求：探测也进入「请求日志」页，source_protocol=test；仍不碰上游、不解析 body。
+    // 新需求：探测也进入「请求记录」页（request_log 表），kind=test；仍不碰上游、不解析 body。
     if is_hello_endpoint(&path) {
         log.source_protocol = "test".into();
         log.request_url =
@@ -163,7 +163,11 @@ pub(crate) async fn handle_proxy_core(
         log.response_body = log.user_response_body.clone();
         log.done = true;
         log.duration_ms = start.elapsed().as_millis() as i32;
-        upsert_log(&state, &log, &log_settings).await;
+        // 探测落请求记录（request_log，独立于 proxy_log）；写失败只告警，不影响探测应答。
+        if let Err(e) = aidog_logs::upsert_request_log(&state.db, log.clone()).await {
+            tracing::warn!(error = %e, "hello probe: request_log 写入失败");
+        }
+        aidog_ctx::emit("proxy-log-updated", 0u64.into());
         return handle_root().await;
     }
 
