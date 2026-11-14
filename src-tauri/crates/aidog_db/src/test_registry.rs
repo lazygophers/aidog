@@ -578,6 +578,7 @@ const NO_OFFICIAL_CHANNEL: &[&str] = &[
     "kwaipilot/kat-coder-air-v2.5", // therouter 页标 Deprecated 已删，atlascloud 仍售
     "kwaipilot/kat-coder-pro-v2.5", // 同上
     "nex-agi/nex-n2-pro", // therouter 页标 Deprecated 已删，novita 仍售
+    "deepseek-v3", // 追证轮 2026-11-14：qianfan 官方列表已无此条目已删，aihubmix 仍售（official:false）
 
     // gemini Vertex 收尾轮 2026-11-14 新增（以下 15 条同一模式：Vertex 侧条目随
     // Anthropic 退役 / Vertex 官方停用 / 现行文档缺席已删，聚合/中转平台仍在售，
