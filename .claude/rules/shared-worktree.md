@@ -19,6 +19,7 @@
   ② 要构建旧版本 / 基线二进制（perf-testing.md §6/§7 的 detach worktree）；
   ③ 主 checkout 正被别的会话占用（脏文件与本任务相交，无法并存）。
   其余理由（「隔离更干净」「怕改坏」）不算；改坏用 `git diff` 按行号还原。
+  第四种：GitHub issue 开发（2026-11-15 用户拍板，一 issue 一 worktree 一 PR，见文末「issue 开发：独立 worktree + PR」节）。
 - 用了 worktree 就写明是哪一种，验收标准全部满足后当场合回并删除；未满足时保留 worktree；下文各节是「用了 worktree 时」的卫生规则。
 
 ## 减少磁盘残留（2026-11-04）
@@ -328,12 +329,22 @@ harness 隔离建的 agent worktree 自带 lock，收工直接 `/usr/bin/git wor
 历史：`no-mistakes` 远端（目录 `/Users/luoxin/.no-mistakes/repos/9d3abbd5e514.git` 已不存在）
 已于 2026-10-29 `git remote remove`。现行做法：推送只走 `origin`（GitHub `lazygophers/aidog`），
 先 `git fetch origin && git rev-list --left-right --count origin/master...master`，左边为 0
-（纯快进）才 `git push origin master`；origin 是公开远端，推送前仍按全局规则向用户确认一次。2026-11-06 起不主动推送，也不主动发起推送提问；用户当轮明说才按上述快进检查推送。
+（纯快进）才 `git push origin master`；origin 是公开远端，推送前仍按全局规则向用户确认一次。2026-11-06 起不主动推送；2026-11-15 起 issue 工作分支例外（见下节），其余分支（含 master）仍只在用户当轮明说时按上述快进检查推送。
 
 PR 分支同此：**从 `origin/master` 开分支，不从本地 HEAD**（2026-11-14 issue 61 轮实锤：本地 master
 领先 origin 19 提交，从本地 HEAD 开的 PR 分支带 7 个他线未推送提交，直推会把它们借 PR 发上 origin）；
 单提交用 cherry-pick；push 前核 `git rev-list --count origin/master..<分支>`，只含本任务提交才推。
 全局 git-worktree.md「所有开发基于 origin/master」缺「push 前核提交数」这步，本条补齐（仅项目级）。
+
+## issue 开发：独立 worktree + PR（2026-11-15）
+
+用户原话：「所有的issuse的开发都是独立的worktree并且提交pr」。GitHub issue 的开发不受文首「尽可能不要 worktree」约束，一 issue 一 worktree 一 PR：
+
+1. 分支从 `origin/master` 开，命名 `issue-<编号>-<短slug>`；worktree 路径 `<仓库根>/.worktrees/issue-<编号>-<短slug>`。建/删/查走 `/usr/bin/git` 直跑（见「rtk 包装」节），建完 `rev-parse --show-toplevel` 验一次。
+2. push 该分支到 origin + 创建 PR 永久授权（CLAUDE.md git 授权条）；push 前核 `git rev-list --count origin/master..<分支>` 只含本 issue 提交（「推送只走 origin」节的快进检查照跑）。master 与非 issue 分支不在授权内。
+3. PR 仅在该 issue 验收标准全部满足后创建；PR 合并（验收满足后）无需逐次确认，合并回 master 在主仓做，照「共享 checkout 合回 master」节只挪指针、不动工作区脏文件。
+4. 多 issue 并行 = 多 worktree，共用 `<项目根>/.worktrees/.target` 独立 target；同刻只允许一个 cargo（见「构建目录」节）。
+5. PR 合入或废弃后清理 worktree 与分支（全局 `~/.claude/rules/workflow/git-worktree.md`「分支合入或废弃后清理」）。
 
 ## 多个 agent 同时动主 checkout 的 master：串行（2026-10-29）
 
