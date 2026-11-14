@@ -371,6 +371,16 @@ pub(crate) async fn handle_non_success(
         ),
         None => (code, body.clone()),
     };
+    // GLM 家族上游 529（过载）回客户端按 429：客户端对 429 才退避重试；尝试记录与冷却计账仍按上游原码 529。
+    let out_code = if out_code == 529
+        && matches!(
+            route.platform.platform_type,
+            Protocol::Glm | Protocol::GlmCoding | Protocol::GlmEn | Protocol::GlmCodingEn
+        ) {
+        429
+    } else {
+        out_code
+    };
     // 透传上游响应头（与 2xx 路径同一条黑名单），理由见 error_response_headers 的文档注释。
     let filtered = error_response_headers(&upstream_resp_headers, body_overridden);
 

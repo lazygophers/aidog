@@ -245,7 +245,8 @@ pub(crate) async fn handle_aux_model(
     }
 
     // 候选耗尽且循环内未 return（同 decision.rs / handler.rs 兜底，理论不可达）。
-    log.status_code = 503;
+    let status = exhausted_status(log);
+    log.status_code = status.as_u16() as i32;
     log.done = true;
     let err_body = format!(
         "{}: all candidates exhausted",
@@ -258,7 +259,7 @@ pub(crate) async fn handle_aux_model(
     log.retry_count = aidog_db::models::retry_count_of(&attempts);
     log.attempts = std::mem::take(&mut attempts);
     upsert_log(state, log, log_settings).await;
-    let mut r = (StatusCode::SERVICE_UNAVAILABLE, err_body).into_response();
+    let mut r = (status, err_body).into_response();
     inject_trace_header(&mut r);
     r
 }

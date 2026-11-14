@@ -872,10 +872,14 @@ async fn select_candidates_inner(
             });
         }
         // 整组所有候选被平台限频排除 → 返特殊 Err，caller 落审计 proxy_log
-        // (blocked_by='router', blocked_reason='rate_limit', est_cost=0, status_code=503)。
-        if rate_limited_count > 0 && rate_limited_count == group_platforms.len() {
+        // (blocked_by='router', blocked_reason='rate_limit', est_cost=0, status_code=429)。
+        // 只要有平台被限频（本地 extra.rate_limits）或上游 429 / 529 限频冷却挡掉就归限频（混合原因同），
+        // 其余候选皆为配置 / 额度 / 白名单类排除：限频窗口过后可恢复，客户端该退避重试而非收 400。
+        let rate_limited_total = rate_limited_count
+            + excluded.iter().filter(|(_, r)| *r == RouteReason::RateLimitCooldown).count();
+        if rate_limited_total > 0 {
             tracing::info!(
-                group = %group.name, rate_limited = rate_limited_count,
+                group = %group.name, rate_limited = rate_limited_total,
                 "all candidates rate-limited; returning rate_limit error for audit log"
             );
             return Err(RouteFail {
