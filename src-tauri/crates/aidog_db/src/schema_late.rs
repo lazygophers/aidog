@@ -1853,8 +1853,8 @@ pub(crate) fn backfill_time_rule_dedicated_models(conn: &Connection) -> u64 {
 /// 旧总开关 `enabled` 语义删除（issue #64）：
 /// - setting(scope=proxy,key=proxy_client) 旧 JSON 的 `enabled` → 新字段 `others_enabled`，
 ///   主机保留条件 = 旧 enabled=true 或 主机≠旧出厂默认 127.0.0.1，否则清空；
-/// - 平台 `extra.proxy_enabled` 缺键的行写入旧 enabled 值（显式值保留，含 true——旧语义下
-///   全局关时它本来就不生效，保持升级后行为不变）。
+/// - 平台 `extra.proxy_enabled` 缺键的行写入旧 enabled 值；旧 enabled=false 时显式 true
+///   覆写为 false（spec 第 4 步：旧语义下全局关时它不生效，保持升级后走向不变）。
 ///
 /// 跨库两段（设置在主库、平台行在 platform.db），由 init_tables_raw 依序调用：
 /// - `migrate_proxy_client_setting_main`：重写 setting JSON + 主库 migration_done 标记；
@@ -1915,7 +1915,7 @@ pub(crate) fn migrate_proxy_client_setting_main(conn: &Connection) -> Option<boo
     obj.get("others_enabled").and_then(|f| f.as_bool())
 }
 
-/// 平台段：extra 缺 `proxy_enabled` 键的行写入 legacy 值；显式值（含 true）保留。
+/// 平台段：extra 缺 `proxy_enabled` 键的行写入 legacy 值；legacy=false 时显式 true 覆写 false。
 /// 标记与数据同事务；损坏 JSON 跳过并 warn。返回被改动的平台行数。
 pub(crate) fn migrate_proxy_client_setting_platform(conn: &Connection, legacy: bool) -> u64 {
     const ID: &str = "20261114-01";
@@ -1951,8 +1951,12 @@ pub(crate) fn migrate_proxy_client_setting_platform(conn: &Connection, legacy: b
         let Some(obj) = root.as_object_mut() else {
             continue;
         };
-        if obj.contains_key("proxy_enabled") {
-            continue;
+        // spec 第 3 步：显式值保留（legacy=true 全保留；legacy=false 显式 false 不动）。
+        // spec 第 4 步：legacy=false 且显式 true → 覆写 false（旧语义下全局关时它不生效）。
+        match obj.get("proxy_enabled") {
+            Some(serde_json::Value::Bool(false)) => continue,
+            Some(_) if legacy => continue,
+            _ => {}
         }
         obj.insert("proxy_enabled".into(), serde_json::Value::Bool(legacy));
         let Ok(new_extra) = serde_json::to_string(&root) else {
@@ -3644,10 +3648,15 @@ mod tests {
         let raw4: String = plat.query_row("SELECT extra FROM platform WHERE id = 4", [], |r| r.get(0)).unwrap();
         assert_eq!(raw4, "not-json", "损坏 JSON 行原样跳过");
 
-        // 场景 B：新 conn，旧 enabled=false + 自定义主机 → 主机保留、others=false、平台回填 false。
+        // 场景 B：新 conn，旧 enabled=false + 自定义主机 → 主机保留、others=false、平台回填 false
+        // （含显式 true：旧语义下它不生效，升级后必须归 false 保持走向不变）。
         let (main, plat) = proxy_mig_conns();
         set_legacy_setting(&main, r#"{"enabled":false,"host":"10.0.0.5","port":1080}"#);
-        plat.execute("INSERT INTO platform (id, extra) VALUES (1, '{}')", []).unwrap();
+        plat.execute(
+            "INSERT INTO platform (id, extra) VALUES (1, '{}'), (2, '{\"proxy_enabled\":true}')",
+            [],
+        )
+        .unwrap();
         let legacy = migrate_proxy_client_setting_main(&main);
         assert_eq!(legacy, Some(false));
         migrate_proxy_client_setting_platform(&plat, legacy.unwrap());
@@ -3658,6 +3667,11 @@ mod tests {
         assert_eq!(v["others_enabled"], false);
         assert_eq!(v["host"], "10.0.0.5", "自定义主机保留");
         assert_eq!(proxy_extra_of(&plat, 1)["proxy_enabled"], false);
+        assert_eq!(
+            proxy_extra_of(&plat, 2)["proxy_enabled"],
+            false,
+            "显式 true + 旧全局关 → 归 false（旧语义下不生效，保持走向不变）"
+        );
 
         // 场景 C：旧 enabled=false + 默认主机 → 主机清空（= 未配置代理）、平台回填 false。
         let (main, plat) = proxy_mig_conns();
@@ -3673,7 +3687,7 @@ mod tests {
         assert_eq!(v["host"], "", "默认主机 + 关 → 清空");
 
         // 场景 D：非 JSON 设置 → 跳过返回 None。
-        let (main, plat) = proxy_mig_conns();
+        let (main, _plat) = proxy_mig_conns();
         set_legacy_setting(&main, "garbage");
         assert_eq!(migrate_proxy_client_setting_main(&main), None);
 
@@ -3783,6 +3797,68 @@ mod tests {
         )
         .unwrap();
         assert_eq!(extra1_again, extra1, "二次启动幂等");
+    }
+
+    /// three_file_db 端到端（spec 第 4 步）：旧 enabled=false + 平台显式 true，
+    /// 重开 DB 后归 false，二次重开幂等。
+    #[tokio::test]
+    async fn proxy_migration_three_file_legacy_false_overwrite() {
+        use crate::test_support::three_file_db;
+        let (db, _dir) = three_file_db().await;
+        db.call_traced(None, std::panic::Location::caller(), |conn| {
+            conn.execute(
+                "INSERT INTO setting (scope, key, value) VALUES ('proxy', 'proxy_client', ?1)",
+                [r#"{"enabled":false,"host":"127.0.0.1","port":7890}"#],
+            )
+            .unwrap();
+            conn.execute("DELETE FROM migration_done WHERE id = '20261114-01'", []).ok();
+            Ok(())
+        })
+        .await
+        .unwrap();
+        db.call_platform_traced(None, std::panic::Location::caller(), |conn| {
+            conn.execute_batch(
+                "INSERT INTO platform (id, name, extra) VALUES (1, 'a', '{\"proxy_enabled\":true,\"k\":1}');",
+            )
+            .unwrap();
+            conn.execute("DELETE FROM migration_done WHERE id = '20261114-01'", []).ok();
+            Ok(())
+        })
+        .await
+        .unwrap();
+
+        let main_path = _dir.path().join("aidog.db");
+        drop(db);
+        let db2 = crate::Db::new(main_path.to_str().unwrap()).await.unwrap();
+        let no_backfill: crate::schema::BackfillFn =
+            std::sync::Arc::new(|_c: &rusqlite::Connection, _m: &std::collections::HashMap<String, i64>| Ok(()));
+        crate::schema::init_tables_raw(&db2, no_backfill).await.unwrap();
+        let extra: serde_json::Value = serde_json::from_str(
+            &db2.call_read_platform_traced(None, std::panic::Location::caller(), |conn| {
+                Ok(conn.query_row::<String, _, _>("SELECT extra FROM platform WHERE id = 1", [], |r| r.get(0)).unwrap())
+            })
+            .await
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(extra["proxy_enabled"], false, "旧全局关 + 显式 true → 归 false");
+        assert_eq!(extra["k"], 1, "extra 其余键保留");
+
+        // 二次重开：幂等。
+        drop(db2);
+        let db3 = crate::Db::new(main_path.to_str().unwrap()).await.unwrap();
+        let no_backfill2: crate::schema::BackfillFn =
+            std::sync::Arc::new(|_c: &rusqlite::Connection, _m: &std::collections::HashMap<String, i64>| Ok(()));
+        crate::schema::init_tables_raw(&db3, no_backfill2).await.unwrap();
+        let extra2: serde_json::Value = serde_json::from_str(
+            &db3.call_read_platform_traced(None, std::panic::Location::caller(), |conn| {
+                Ok(conn.query_row::<String, _, _>("SELECT extra FROM platform WHERE id = 1", [], |r| r.get(0)).unwrap())
+            })
+            .await
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(extra2, extra, "二次启动幂等");
     }
 }
 
