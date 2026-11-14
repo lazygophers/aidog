@@ -1858,70 +1858,78 @@ pub(crate) fn backfill_time_rule_dedicated_models(conn: &Connection) -> u64 {
 ///
 /// 跨库两段（设置在主库、平台行在 platform.db），由 init_tables_raw 依序调用：
 /// - `migrate_proxy_client_setting_main`：重写 setting JSON + 主库 migration_done 标记；
-///   返回 legacy enabled（Some=需回填平台；None=无旧设置行，跳过平台段）。
+///   返回 legacy enabled（Some=需回填平台；None=没有可迁移的旧设置）。
 /// - `migrate_proxy_client_setting_platform`：回填平台 extra，platform.db migration_done
 ///   标记同事务；legacy 值从重写后的 setting 行读出（两标记跨库乱序不丢值）。
 ///
 /// 幂等：标记门控（同 20261110-11 先例）；损坏 JSON 跳过并 warn。
 pub(crate) fn migrate_proxy_client_setting_main(conn: &Connection) -> Option<bool> {
     const ID: &str = "20261114-01";
-    let Ok(mut stmt) = conn
-        .prepare("SELECT value FROM setting WHERE scope='proxy' AND key='proxy_client' AND deleted_at = 0")
-    else {
-        return None;
-    };
-    let raw: Option<String> = stmt
-        .query_row([], |r| r.get(0))
-        .ok();
-    let Some(raw) = raw else {
-        return None; // 无旧设置行（新装 / 已删除）→ 无迁移面
-    };
-    let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&raw) else {
-        tracing::warn!("migration 20261114-01: proxy_client 设置非合法 JSON，跳过迁移（保留原值）");
-        return None;
-    };
-    let legacy_enabled = v.get("enabled").and_then(|f| f.as_bool()).unwrap_or(false);
-    let obj = v.as_object_mut()?;
     if conn
         .execute("CREATE TABLE IF NOT EXISTS migration_done (id TEXT PRIMARY KEY)", [])
         .is_err()
+        || conn.execute_batch("BEGIN IMMEDIATE").is_err()
     {
         return None;
     }
-    let done = conn
-        .query_row("SELECT 1 FROM migration_done WHERE id = ?1", [ID], |_| Ok(()))
-        .is_ok();
-    if !done {
-        // 主机保留条件：旧 enabled=true 或 主机≠旧出厂默认 127.0.0.1；否则清空。
+    let result = (|| {
+        if conn
+            .query_row("SELECT 1 FROM migration_done WHERE id = ?1", [ID], |_| Ok(()))
+            .is_ok()
+        {
+            let raw: String = conn
+                .query_row("SELECT value FROM setting WHERE scope='proxy' AND key='proxy_client' AND deleted_at = 0", [], |r| r.get(0))
+                .ok()?;
+            let v: serde_json::Value = serde_json::from_str(&raw).ok()?;
+            return v.get("others_enabled").and_then(|f| f.as_bool());
+        }
+        let raw: Option<String> = conn
+            .query_row("SELECT value FROM setting WHERE scope='proxy' AND key='proxy_client' AND deleted_at = 0", [], |r| r.get(0))
+            .ok();
+        let Some(raw) = raw else {
+            conn.execute("INSERT INTO migration_done (id) VALUES (?1)", [ID]).ok()?;
+            return None;
+        };
+        let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&raw) else {
+            tracing::warn!("migration 20261114-01: proxy_client 设置非合法 JSON，跳过迁移（保留原值）");
+            return None;
+        };
+        let Some(legacy_enabled) = v.get("enabled").and_then(|f| f.as_bool()) else {
+            // 无旧 enabled 字段表示新格式；只立标记，保留用户已保存的值。
+            conn.execute("INSERT INTO migration_done (id) VALUES (?1)", [ID]).ok()?;
+            return None;
+        };
+        let obj = v.as_object_mut()?;
         let host = obj.get("host").and_then(|f| f.as_str()).unwrap_or("").to_string();
         let keep_host = legacy_enabled || host.trim() != "127.0.0.1";
         obj.insert("others_enabled".into(), serde_json::Value::Bool(legacy_enabled));
         obj.insert("host".into(), serde_json::Value::String(if keep_host { host } else { String::new() }));
         obj.remove("enabled");
-        if let Err(e) = conn.execute(
+        conn.execute(
             "UPDATE setting SET value = ?1 WHERE scope='proxy' AND key='proxy_client' AND deleted_at = 0",
-            [serde_json::to_string(&obj).unwrap_or_default()],
-        ) {
-            tracing::warn!(error = %e, "migration 20261114-01: setting 重写失败，下次启动重试");
-            return None;
-        }
-        if conn.execute("INSERT INTO migration_done (id) VALUES (?1)", [ID]).is_err() {
-            tracing::warn!("migration 20261114-01: 主库标记写入失败，下次启动重试");
-            return None;
-        }
+            [serde_json::to_string(&v).ok()?],
+        )
+        .ok()?;
+        conn.execute("INSERT INTO migration_done (id) VALUES (?1)", [ID]).ok()?;
+        Some(legacy_enabled)
+    })();
+    if conn.execute_batch(if result.is_some() || conn.query_row("SELECT 1 FROM migration_done WHERE id = ?1", [ID], |_| Ok(())).is_ok() { "COMMIT" } else { "ROLLBACK" }).is_err() {
+        let _ = conn.execute_batch("ROLLBACK");
+        return None;
     }
-    // 标记已立或刚立：legacy 值 = 行内 others_enabled（两标记跨库乱序不丢值）。
-    // 旧 JSON 无 enabled 且标记已立（异常形态）→ None，不回填平台。
-    obj.get("others_enabled").and_then(|f| f.as_bool())
+    result
 }
 
 /// 平台段：extra 缺 `proxy_enabled` 键的行写入 legacy 值；legacy=false 时显式 true 覆写 false。
-/// 标记与数据同事务；损坏 JSON 跳过并 warn。返回被改动的平台行数。
-pub(crate) fn migrate_proxy_client_setting_platform(conn: &Connection, legacy: bool) -> u64 {
+/// `legacy=None` = 无旧 `enabled` 可迁移（无旧行 / 新格式 / 损坏 JSON）→ 仅立标记不回填，
+/// 平台缺省键按缺省直连语义保持缺键（裁决：无 legacy 即无迁移面，评论建议二选一的后者）。
+/// 标记与数据同事务（SELECT 移入事务内，评论硬问题 1）；损坏 JSON 跳过并 warn。返回被改动的平台行数。
+pub(crate) fn migrate_proxy_client_setting_platform(conn: &Connection, legacy: Option<bool>) -> u64 {
     const ID: &str = "20261114-01";
     if conn
         .execute("CREATE TABLE IF NOT EXISTS migration_done (id TEXT PRIMARY KEY)", [])
         .is_err()
+        || conn.execute_batch("BEGIN IMMEDIATE").is_err()
     {
         return 0;
     }
@@ -1929,6 +1937,13 @@ pub(crate) fn migrate_proxy_client_setting_platform(conn: &Connection, legacy: b
         .query_row("SELECT 1 FROM migration_done WHERE id = ?1", [ID], |_| Ok(()))
         .is_ok();
     if done {
+        let _ = conn.execute_batch("COMMIT");
+        return 0;
+    }
+    if legacy.is_none() {
+        // 仅立标记：无迁移面，平台缺省键保持缺键（缺省直连语义）。
+        let _ = conn.execute("INSERT INTO migration_done (id) VALUES (?1)", [ID]);
+        let _ = conn.execute_batch("COMMIT");
         return 0;
     }
     let rows: Vec<(i64, String)> = match conn.prepare("SELECT id, extra FROM platform") {
@@ -1937,11 +1952,11 @@ pub(crate) fn migrate_proxy_client_setting_platform(conn: &Connection, legacy: b
             .ok()
             .map(|iter| iter.filter_map(Result::ok).collect())
             .unwrap_or_default(),
-        Err(_) => return 0,
+        Err(_) => {
+            let _ = conn.execute_batch("ROLLBACK");
+            return 0;
+        }
     };
-    if conn.execute_batch("BEGIN IMMEDIATE").is_err() {
-        return 0;
-    }
     let mut updated = 0u64;
     for (id, extra) in rows {
         let Ok(mut root) = serde_json::from_str::<serde_json::Value>(&extra) else {
@@ -1955,10 +1970,10 @@ pub(crate) fn migrate_proxy_client_setting_platform(conn: &Connection, legacy: b
         // spec 第 4 步：legacy=false 且显式 true → 覆写 false（旧语义下全局关时它不生效）。
         match obj.get("proxy_enabled") {
             Some(serde_json::Value::Bool(false)) => continue,
-            Some(_) if legacy => continue,
+            Some(_) if legacy == Some(true) => continue,
             _ => {}
         }
-        obj.insert("proxy_enabled".into(), serde_json::Value::Bool(legacy));
+        obj.insert("proxy_enabled".into(), serde_json::Value::Bool(legacy.unwrap_or(false)));
         let Ok(new_extra) = serde_json::to_string(&root) else {
             continue;
         };
@@ -3633,7 +3648,7 @@ mod tests {
         set_legacy_setting(&main, r#"{"enabled":true,"host":"127.0.0.1","port":7890,"no_proxy":""}"#);
         let legacy = migrate_proxy_client_setting_main(&main);
         assert_eq!(legacy, Some(true));
-        migrate_proxy_client_setting_platform(&plat, legacy.unwrap());
+        migrate_proxy_client_setting_platform(&plat, legacy);
         let v: serde_json::Value = serde_json::from_str(
             &main.query_row::<String, _, _>("SELECT value FROM setting WHERE scope='proxy' AND key='proxy_client'", [], |r| r.get(0)).unwrap(),
         )
@@ -3659,7 +3674,7 @@ mod tests {
         .unwrap();
         let legacy = migrate_proxy_client_setting_main(&main);
         assert_eq!(legacy, Some(false));
-        migrate_proxy_client_setting_platform(&plat, legacy.unwrap());
+        migrate_proxy_client_setting_platform(&plat, legacy);
         let v: serde_json::Value = serde_json::from_str(
             &main.query_row::<String, _, _>("SELECT value FROM setting WHERE scope='proxy' AND key='proxy_client'", [], |r| r.get(0)).unwrap(),
         )
@@ -3679,7 +3694,7 @@ mod tests {
         plat.execute("INSERT INTO platform (id, extra) VALUES (1, '{}')", []).unwrap();
         let legacy = migrate_proxy_client_setting_main(&main);
         assert_eq!(legacy, Some(false));
-        migrate_proxy_client_setting_platform(&plat, legacy.unwrap());
+        migrate_proxy_client_setting_platform(&plat, legacy);
         let v: serde_json::Value = serde_json::from_str(
             &main.query_row::<String, _, _>("SELECT value FROM setting WHERE scope='proxy' AND key='proxy_client'", [], |r| r.get(0)).unwrap(),
         )
@@ -3691,22 +3706,65 @@ mod tests {
         set_legacy_setting(&main, "garbage");
         assert_eq!(migrate_proxy_client_setting_main(&main), None);
 
-        // 场景 E：无设置行 → None（新装跳过平台段）。
-        let (main, _plat) = proxy_mig_conns();
+        // 场景 E：无设置行 → None（无 legacy，平台段仅立标记不回填）。
+        let (main, plat) = proxy_mig_conns();
         assert_eq!(migrate_proxy_client_setting_main(&main), None);
+        assert_eq!(migrate_proxy_client_setting_platform(&plat, None), 0);
+        let n_main: i64 = main.query_row("SELECT COUNT(*) FROM migration_done WHERE id = '20261114-01'", [], |r| r.get(0)).unwrap();
+        let n_plat: i64 = plat.query_row("SELECT COUNT(*) FROM migration_done WHERE id = '20261114-01'", [], |r| r.get(0)).unwrap();
+        assert_eq!(n_main, 1, "无旧行也必须立主库标记");
+        assert_eq!(n_plat, 1, "无旧行也必须立平台标记");
+
+        // 场景 F（评论阻塞项，修复前红）：无旧行升级 → 用户保存新格式行 → 重启 → 配置不被覆盖。
+        {
+            let (main, plat) = proxy_mig_conns();
+            // boot1：升级启动，无旧行 → 两段各立标记、零回填。
+            let legacy1 = migrate_proxy_client_setting_main(&main);
+            assert_eq!(legacy1, None);
+            migrate_proxy_client_setting_platform(&plat, legacy1);
+            // 用户在新界面保存代理配置（新格式，默认主机，others_enabled=true）+ 平台显式开。
+            main.execute(
+                "INSERT INTO setting (scope, key, value) VALUES ('proxy', 'proxy_client', ?1)",
+                [r#"{"host":"127.0.0.1","port":7890,"others_enabled":true,"no_proxy":""}"#],
+            ).unwrap();
+            plat.execute(
+                "INSERT INTO platform (id, extra) VALUES (1, '{\"proxy_enabled\":true}')",
+                [],
+            ).unwrap();
+            // boot2：重启迁移重跑，用户配置必须原样保留。
+            let legacy2 = migrate_proxy_client_setting_main(&main);
+            migrate_proxy_client_setting_platform(&plat, legacy2);
+            let v: serde_json::Value = serde_json::from_str(
+                &main.query_row::<String, _, _>("SELECT value FROM setting WHERE scope='proxy' AND key='proxy_client'", [], |r| r.get(0)).unwrap(),
+            ).unwrap();
+            assert_eq!(v["others_enabled"], true, "others_enabled 不得被改写");
+            assert_eq!(v["host"], "127.0.0.1", "默认主机 + 用户配置不得被清空");
+            assert_eq!(proxy_extra_of(&plat, 1)["proxy_enabled"], true, "平台显式 true 不得被改写");
+        }
+
+        // 场景 G（评论硬问题 3）：标记缺失但行已是新格式（模拟主库写入中途失败后重跑）
+        // → 补写标记，行原样不改。
+        {
+            let (main, _plat) = proxy_mig_conns();
+            main.execute(
+                "INSERT INTO setting (scope, key, value) VALUES ('proxy', 'proxy_client', ?1)",
+                [r#"{"host":"10.0.0.9","port":1080,"others_enabled":true}"#],
+            ).unwrap();
+            assert_eq!(migrate_proxy_client_setting_main(&main), None);
+        }
 
         // 幂等：场景 A 重跑两函数，所有值不变。
         let (main, plat) = proxy_mig_conns();
         set_legacy_setting(&main, r#"{"enabled":true,"host":"127.0.0.1"}"#);
         plat.execute("INSERT INTO platform (id, extra) VALUES (1, '{}')", []).unwrap();
-        let legacy = migrate_proxy_client_setting_main(&main).unwrap();
+        let legacy = migrate_proxy_client_setting_main(&main);
         migrate_proxy_client_setting_platform(&plat, legacy);
         let before_setting: String = main.query_row("SELECT value FROM setting WHERE scope='proxy' AND key='proxy_client'", [], |r| r.get(0)).unwrap();
         let before_extra = proxy_extra_of(&plat, 1);
         // 二次执行：main 返回重写后行的 others_enabled（平台段因标记跳过）。
         let legacy2 = migrate_proxy_client_setting_main(&main);
         assert_eq!(legacy2, Some(true));
-        let n = migrate_proxy_client_setting_platform(&plat, legacy2.unwrap());
+        let n = migrate_proxy_client_setting_platform(&plat, legacy2);
         assert_eq!(n, 0, "标记已立，平台段零改动");
         let after_setting: String = main.query_row("SELECT value FROM setting WHERE scope='proxy' AND key='proxy_client'", [], |r| r.get(0)).unwrap();
         assert_eq!(after_setting, before_setting);

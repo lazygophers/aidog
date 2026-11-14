@@ -96,7 +96,8 @@ pub fn err_quota(msg: &str) -> PlatformQuota {
 
 /// 系统代理感知的 client 构建器（aidog_core 启动时注入 build_http_client_scoped；
 /// 未注入（裸测试）回落直连）。第二参 = 平台行 extra JSON（issue #64 T04：余额查询按
-/// 平台归属判定代理）；None / 空白 = 非平台归属（others_enabled）。
+/// 平台归属判定代理）；None = 非平台归属（others_enabled）；空白 = 平台缺省直连
+/// （review 需求轴 3：统一平台归属，不回落 others_enabled）。
 pub type QuotaClientBuilder = std::sync::Arc<
     dyn Fn(&Arc<Db>, Option<&str>) -> std::pin::Pin<Box<dyn std::future::Future<Output = reqwest::Client> + Send>>
         + Send
@@ -109,14 +110,14 @@ pub fn set_client_builder(f: QuotaClientBuilder) {
     let _ = CLIENT_BUILDER.set(f);
 }
 
-/// 按平台归属构建出站 client：`platform_extra` = 平台行 extra；None / 空白 = 非平台归属。
+/// 按平台归属构建出站 client：`platform_extra` = 平台行 extra；None = 非平台归属；
+/// 空白 = 平台缺省直连。
 pub(super) async fn http_client_with(
     db: Option<&Arc<Db>>,
     platform_extra: Option<&str>,
 ) -> reqwest::Client {
-    let extra = platform_extra.map(str::trim).filter(|s| !s.is_empty());
     match (db, CLIENT_BUILDER.get()) {
-        (Some(db), Some(f)) => f(db, extra).await,
+        (Some(db), Some(f)) => f(db, platform_extra).await,
         _ => reqwest::Client::builder()
             .timeout(Duration::from_secs(10))
             .build()
