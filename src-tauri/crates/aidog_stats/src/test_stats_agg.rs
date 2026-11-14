@@ -29,11 +29,11 @@ async fn upsert_stats_agg_accumulates_and_classifies() {
     upsert_stats_agg(&db, mk(500)).await.unwrap(); // 终态非 2xx → error
 
     let (req, succ, err, inp, cost): (i64, i64, i64, i64, f64) = db.call_traced(None, std::panic::Location::caller(), |conn| {
-            Ok(conn.query_row(
+            conn.query_row(
                 "SELECT request_count, success_count, error_count, sum_input_tokens, sum_est_cost \
                  FROM stats_agg_hourly WHERE model='glm-4-plus' AND group_key='g1' AND platform_id=1",
                 [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
-            )?)
+            )
         }).await.unwrap();
     assert_eq!(req, 3, "3 次累加同一桶");
     assert_eq!(succ, 2, "2 条 2xx");
@@ -138,7 +138,7 @@ async fn agg_backfill_idempotent() {
     rebuild_stats_agg_from_logs(&db).await.unwrap();
     let n1: i64 = db
         .call_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)
+            c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))
         })
         .await
         .unwrap();
@@ -152,7 +152,7 @@ async fn agg_backfill_idempotent() {
     .unwrap();
     let n2: i64 = db
         .call_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)
+            c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))
         })
         .await
         .unwrap();
@@ -190,12 +190,12 @@ async fn agg_rebuild_dedups_raw_models_to_same_actual_model() {
 
     let (rows, reqs): (i64, i64) = db
         .call_traced(None, std::panic::Location::caller(), |conn| {
-            Ok(conn.query_row(
+            conn.query_row(
                 "SELECT COUNT(*), COALESCE(SUM(request_count),0) FROM stats_agg_hourly \
                  WHERE model = 'glm-4-plus' AND group_key = 'g1' AND platform_id = 1",
                 [],
                 |r| Ok((r.get(0)?, r.get(1)?)),
-            )?)
+            )
         })
         .await
         .unwrap();
@@ -226,7 +226,7 @@ async fn cleanup_stats_agg_removes_old_rows() {
 
     let before: i64 = db
         .call_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)
+            c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))
         })
         .await
         .unwrap();
@@ -237,7 +237,7 @@ async fn cleanup_stats_agg_removes_old_rows() {
 
     let after: i64 = db
         .call_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)
+            c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))
         })
         .await
         .unwrap();
@@ -314,12 +314,12 @@ async fn rebuild_overwrites_existing_row_no_doubling() {
 
     let (req, inp): (i64, i64) = db
         .call_traced(None, std::panic::Location::caller(), |conn| {
-            Ok(conn.query_row(
+            conn.query_row(
                 "SELECT request_count, sum_input_tokens FROM stats_agg_hourly \
                  WHERE model='glm-4-plus' AND group_key='g1' AND platform_id=1",
                 [],
                 |r| Ok((r.get(0)?, r.get(1)?)),
-            )?)
+            )
         })
         .await
         .unwrap();
@@ -359,12 +359,12 @@ async fn rebuild_preserves_rows_without_matching_proxy_log() {
 
     let (req, inp): (i64, i64) = db
         .call_traced(None, std::panic::Location::caller(), |conn| {
-            Ok(conn.query_row(
+            conn.query_row(
                 "SELECT request_count, sum_input_tokens FROM stats_agg_hourly \
                  WHERE model='orphan-model' AND group_key='g-orphan' AND platform_id=7",
                 [],
                 |r| Ok((r.get(0)?, r.get(1)?)),
-            )?)
+            )
         })
         .await
         .unwrap();
@@ -448,21 +448,21 @@ async fn correct_count_tokens_removes_orphan_buckets_and_overwrites_backed_ones(
     );
 
     let (inp, cost): (i64, f64) = db.call_traced(None, std::panic::Location::caller(), |conn| {
-            Ok(conn.query_row(
+            conn.query_row(
                 "SELECT sum_input_tokens, sum_est_cost FROM stats_agg_hourly WHERE group_key='g-ct'",
                 [], |r| Ok((r.get(0)?, r.get(1)?)),
-            )?)
+            )
         }).await.unwrap();
     assert_eq!(inp, 10, "有 backing 行的桶按真值覆盖，不保留 9999 虚高");
     assert!((cost - 1.0).abs() < 1e-9, "cost 同样覆盖为真值");
 
     let orphans: i64 = db
         .call_traced(None, std::panic::Location::caller(), |conn| {
-            Ok(conn.query_row(
+            conn.query_row(
                 "SELECT COUNT(*) FROM stats_agg_hourly WHERE group_key='g-ct-only'",
                 [],
                 |r| r.get(0),
-            )?)
+            )
         })
         .await
         .unwrap();
@@ -510,7 +510,7 @@ async fn cleanup_stats_agg_keeps_everything_when_retention_is_zero() {
 
     let n: i64 = db
         .call_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)
+            c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))
         })
         .await
         .unwrap();
@@ -546,11 +546,11 @@ async fn rebuild_after_migration_does_not_double_count_legacy_rows() {
         let db = db.clone();
         async move {
             db.call_read_traced(None, std::panic::Location::caller(), |c| {
-                Ok(c.query_row(
+                c.query_row(
                     "SELECT COALESCE(SUM(request_count),0) FROM stats_agg_hourly",
                     [],
                     |r| r.get::<_, i64>(0),
-                )?)
+                )
             })
             .await
             .unwrap()
@@ -561,11 +561,11 @@ async fn rebuild_after_migration_does_not_double_count_legacy_rows() {
     assert_eq!(total(&db).await, 1, "rebuild 后只剩真值，不双计");
     let legacy: i64 = db
         .call_read_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row(
+            c.query_row(
                 "SELECT COUNT(*) FROM stats_agg_hourly WHERE client='' AND req_model=''",
                 [],
                 |r| r.get(0),
-            )?)
+            )
         })
         .await
         .unwrap();
@@ -593,13 +593,13 @@ async fn rebuild_keeps_real_empty_client_empty_model_row() {
     rebuild_stats_agg_from_logs(&db).await.unwrap();
     let (rows, reqs, empty): (i64, i64, i64) = db
         .call_read_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row(
+            c.query_row(
                 "SELECT COUNT(*), SUM(request_count), \
                  COALESCE(SUM(CASE WHEN client='' AND req_model='' THEN request_count END),0) \
                  FROM stats_agg_hourly",
                 [],
                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-            )?)
+            )
         })
         .await
         .unwrap();

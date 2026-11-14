@@ -31,7 +31,7 @@ async fn migrate_auto_vacuum_is_idempotent() {
     // auto_vacuum 保持 INCREMENTAL
     let av: i64 = db
         .call_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row("PRAGMA auto_vacuum", [], |r| r.get(0))?)
+            c.query_row("PRAGMA auto_vacuum", [], |r| r.get(0))
         })
         .await
         .unwrap();
@@ -96,10 +96,10 @@ async fn cleanup_user_request_fields_clears_old_bodies() {
         .unwrap();
 
     let (req_h, req_body, ur_h, resp_body, req_url): (String, String, String, String, String) = db.call_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row(
+            c.query_row(
                 "SELECT request_headers, request_body, user_response_headers, user_response_body, request_url FROM proxy_log WHERE id='maint-u1'",
                 [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
-            )?)
+            )
         }).await.unwrap();
     // 用户侧「原始信息」全集（headers + body + url）均清空。
     assert_eq!(req_h, "", "request_headers should be cleared");
@@ -111,11 +111,11 @@ async fn cleanup_user_request_fields_clears_old_bodies() {
     // Row still exists
     let cnt: i64 = db
         .call_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row(
+            c.query_row(
                 "SELECT COUNT(*) FROM proxy_log WHERE id='maint-u1'",
                 [],
                 |r| r.get(0),
-            )?)
+            )
         })
         .await
         .unwrap();
@@ -145,10 +145,10 @@ async fn cleanup_upstream_request_fields_clears_old_bodies() {
         .unwrap();
 
     let (up_h, up_req, up_resp_h, resp, up_url): (String, String, String, String, String) = db.call_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row(
+            c.query_row(
                 "SELECT upstream_request_headers, upstream_request_body, upstream_response_headers, response_body, upstream_request_url FROM proxy_log WHERE id='maint-up1'",
                 [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
-            )?)
+            )
         }).await.unwrap();
     // 上游侧「原始信息」全集（headers + body + 上游响应正文 + url）均清空。
     assert_eq!(up_h, "", "upstream_request_headers should be cleared");
@@ -158,7 +158,7 @@ async fn cleanup_upstream_request_fields_clears_old_bodies() {
     assert_eq!(up_url, "", "upstream_request_url should be cleared (upstream side, 2026-10-22)");
     // 用户侧 request_url 属另一档，不得被上游档误清。
     let user_url: String = db.call_traced(None, std::panic::Location::caller(), |c| {
-        Ok(c.query_row("SELECT request_url FROM proxy_log WHERE id='maint-up1'", [], |r| r.get(0))?)
+        c.query_row("SELECT request_url FROM proxy_log WHERE id='maint-up1'", [], |r| r.get(0))
     }).await.unwrap();
     assert_eq!(user_url, "url", "upstream tier must not clear user-side request_url");
 }
@@ -187,11 +187,11 @@ async fn cleanup_upstream_request_fields_clears_field_trace() {
 
     let (ft, cnt): (String, i64) = db
         .call_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row(
+            c.query_row(
                 "SELECT field_trace, COUNT(*) FROM proxy_log WHERE id='maint-ft1'",
                 [],
                 |r| Ok((r.get(0)?, r.get(1)?)),
-            )?)
+            )
         })
         .await
         .unwrap();
@@ -294,11 +294,11 @@ async fn purge_all_soft_deleted_purges_old_across_tables() {
     // platform: 至少 1 行删（旧软删）；未软删平台保留
     let p_alive: i64 = db
         .call_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row(
+            c.query_row(
                 "SELECT COUNT(*) FROM platform WHERE deleted_at = 0",
                 [],
                 |r| r.get(0),
-            )?)
+            )
         })
         .await
         .unwrap();
@@ -311,22 +311,22 @@ async fn purge_all_soft_deleted_purges_old_across_tables() {
     // proxy_log: 旧软删删，近期软删保留，未软删保留
     let old_cnt: i64 = db
         .call_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row(
+            c.query_row(
                 "SELECT COUNT(*) FROM proxy_log WHERE id = 'pl-old'",
                 [],
                 |r| r.get(0),
-            )?)
+            )
         })
         .await
         .unwrap();
     assert_eq!(old_cnt, 0, "old soft-deleted proxy_log should be deleted");
     let recent_cnt: i64 = db
         .call_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row(
+            c.query_row(
                 "SELECT COUNT(*) FROM proxy_log WHERE id = 'pl-recent'",
                 [],
                 |r| r.get(0),
-            )?)
+            )
         })
         .await
         .unwrap();
@@ -339,11 +339,11 @@ async fn purge_all_soft_deleted_purges_old_across_tables() {
     // setting: 旧软删行删
     let stale: i64 = db
         .call_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row(
+            c.query_row(
                 "SELECT COUNT(*) FROM setting WHERE scope='test' AND key='stale'",
                 [],
                 |r| r.get(0),
-            )?)
+            )
         })
         .await
         .unwrap();

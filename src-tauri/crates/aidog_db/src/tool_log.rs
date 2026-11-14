@@ -110,7 +110,7 @@ pub fn get_tool_log(
                 l.result = r.get(12)?;
                 Ok(l)
             })?;
-            Ok(it.next().transpose()?)
+            it.next().transpose()
         })
         .await
         .map_err(|e| e.to_string())

@@ -311,12 +311,12 @@ where
 /// 异步分支用 [`gen_child_id`] 在父 id 后追加 `.xxxxxx` 形成可 grep 的父子树
 /// （顶级 `a3f9k2` / 二级 `a3f9k2.b7x1mq`）。
 pub fn gen_trace_id() -> String {
-    // ponytail: rand 0.8 已在依赖内，字符表抽样 + thread_rng，避免手写取模偏置。
+    // ponytail: rand 已在依赖内，字符表抽样 + rand::rng()，避免手写取模偏置。
     const CHARSET: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     (0..6)
         .map(|_| {
-            let idx = rand::Rng::gen_range(&mut rng, 0..CHARSET.len());
+            let idx = rand::RngExt::random_range(&mut rng, 0..CHARSET.len());
             CHARSET[idx] as char
         })
         .collect()

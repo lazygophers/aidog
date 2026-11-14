@@ -36,21 +36,22 @@ serde_json = { version = "1", features = ["preserve_order"] }
 serde_yml = "0.0.13"
 # YAML 解析（CPA config 导入）
 serde_yaml = "0.9"
-toml = "0.8"
+toml = "1.2"
 url = "2"
 # 异步运行时 / 并发
 tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros", "io-util", "process"] }
 futures = "0.3"
 # 存储
-rusqlite = { version = "0.32", features = ["bundled-sqlcipher", "trace"] }
-tokio-rusqlite = "0.6"
+rusqlite = { version = "0.42", features = ["bundled-sqlcipher", "trace"] }
+tokio-rusqlite = "0.9"
 # Web / 代理
 axum = { version = "0.8", features = ["json", "ws"] }
-# WS 透传（ADR 0008 票 03）：上游 ws 客户端；native-tls 与 reqwest default-tls 对齐。
-tokio-tungstenite = { version = "0.26", features = ["native-tls"] }
+# WS 透传（ADR 0008 票 03）：上游 ws 客户端；native-tls 后端为有意保留（reqwest 0.13 已默认
+#   rustls/aws-lc，两栈不同系；出站 TLS 行为见 PR 人工验收项 1）。
+tokio-tungstenite = { version = "0.29", features = ["native-tls"] }
 hyper-util = { version = "0.1", features = ["server", "server-auto"] }
 hyper = { version = "1", features = ["http1", "http2"] }
-reqwest = { version = "0.12", features = ["stream", "json", "socks", "gzip", "brotli", "deflate", "zstd"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "charset", "http2", "system-proxy", "stream", "json", "query", "socks", "gzip", "brotli", "deflate", "zstd"] }
 # 通知外部渠道 email（SMTP，通知体系票 03）：builder + tokio1 + rustls TLS。
 lettre = { version = "0.11", default-features = false, features = ["builder", "smtp-transport", "tokio1", "tokio1-rustls-tls"] }
 # 票 08 无界面内核：`--ui` 形态的静态前端资源（ServeDir + SPA fallback）与 SSE 事件流。
@@ -64,27 +65,28 @@ tracing-appender = "0.2"
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.10"
-dirs = "6"
+dirs = "7"
 regex = "1"
 semver = "1"
 ipnet = "2"
 # Rust→TS 类型 codegen（c1b：单一真值 Rust struct，禁手写 TS 与之漂移）
-ts-rs = { version = "10", features = ["no-serde-warnings"] }
+ts-rs = { version = "12", features = ["no-serde-warnings"] }
 # 仅非 macOS 构建使用；macOS 直接走系统 `say`，避开 tts 的废弃 cocoa/block 依赖。
 tts = "0.26"
 # TTS / 加密 / 杂项
 aes-gcm = "0.11"
 keyring = "4"
 sha2 = "0.11"
-sha1 = "0.10"
+sha1 = "0.11"
+base64 = "0.23"
 hmac = "0.13"
-rand = "0.8"
+rand = "0.10"
 # MITM TLS（rustls 生态）
 rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
 rustls-pemfile = "2"
 rcgen = { version = "0.14", features = ["x509-parser", "pem"] }
 tokio-rustls = "0.26"
-webpki-roots = "0.26"
+webpki-roots = "1"
 # 测试期 dev-deps（C3+ 各 commands crate dev-deps 引）
 tempfile = "3"
 flate2 = "1"
@@ -100,7 +102,7 @@ dashmap = "6"
 #     evidence: https://raw.githubusercontent.com/huggingface/tokenizers/v0.21.4/tokenizers/Cargo.toml
 #     default = ["progressbar", "onig", "esaxx_fast"]
 tiktoken-rs = "0.12"
-tokenizers = { version = "0.21", default-features = false, features = ["fancy-regex"] }
+tokenizers = { version = "0.23", default-features = false, features = ["fancy-regex"] }
 # 压缩格式支持（CPA config 导入）
 tar = "0.4"
 # macOS 托盘小字 attributedTitle（core refresh_tray_menu + root tray_render 共用同版本）
@@ -137,18 +139,13 @@ name = "aidog_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { workspace = true }
 
 [dev-dependencies]
-# gzip round-trip 回归测试：构造压缩字节验证解压链路 → extract_usage 解析 token。
-# flate2 是 reqwest gzip feature 的内部依赖，dev-deps 仅供测试显式构造 gzip 输入。
-flate2 = "1"
-# 文件系统隔离测试（codex profile / FS 写入路径），用 tempdir 避免污染真实 ~/.codex。
-tempfile = "3"
 # Tauri `test` feature 仅测试期启用：提供 mock_builder / MockRuntime，用于为 #[command] 薄壳
 # 构造 App + manage(Db) → app.state::<Db>() 获取 State，覆盖 commands/ 层转发路径。
 # 不进生产构建（dev-dependencies 作用域），features 与主 tauri 依赖合并。
-tauri = { version = "2", features = ["test"] }
+tauri = { workspace = true, features = ["test"] }
 
 [dependencies]
 # C2 core-extract：gateway/shared/sync/hooks/tray_render/logging 全部下沉 aidog_core。
@@ -165,81 +162,32 @@ aidog_adapter = { path = "crates/aidog_adapter" }
 aidog_rpc = { path = "crates/aidog_rpc" }
 # O7：入口设 #[global_allocator]（见 src/main.rs）
 mimalloc = { workspace = true }
-tauri = { version = "2", features = ["protocol-asset", "tray-icon", "macos-private-api"] }
-tauri-plugin-opener = "2"
-tauri-plugin-notification = "2"
-tauri-plugin-fs = "2"
-tauri-plugin-dialog = "2"
-tauri-plugin-autostart = "2"
-tauri-plugin-updater = "2"
-tauri-plugin-process = "2"
-tauri-plugin-clipboard-manager = "2"
+tauri = { workspace = true }
+tauri-plugin-opener = { workspace = true }
+tauri-plugin-notification = { workspace = true }
+tauri-plugin-fs = { workspace = true }
+tauri-plugin-dialog = { workspace = true }
+tauri-plugin-autostart = { workspace = true }
+tauri-plugin-updater = { workspace = true }
+tauri-plugin-process = { workspace = true }
+tauri-plugin-clipboard-manager = { workspace = true }
 # aidog:// deep link 协议注册 + macOS RunEvent::Opened / Win/Linux CLI arg 唤起分发。
-tauri-plugin-deep-link = "2"
-serde = { version = "1", features = ["derive"] }
+tauri-plugin-deep-link = { workspace = true }
+serde = { workspace = true }
 # deep link URL parse（tauri-plugin-deep-link 透传依赖；显式声明以便命名 Url 类型解析 path/query）。
-url = "2"
-serde_json = { version = "1", features = ["preserve_order"] }
-toml = "0.8"
-uuid = { version = "1", features = ["v4"] }
-chrono = { version = "0.4", features = ["serde"] }
-chrono-tz = "0.10"
-rusqlite = { version = "0.32", features = ["bundled-sqlcipher", "trace"] }
-tokio-rusqlite = "0.6"
-tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros", "io-util", "process"] }
-axum = { version = "0.8", features = ["json", "ws"] }
-# WS 透传（ADR 0008 票 03）：上游 ws 客户端；native-tls 与 reqwest default-tls 对齐。
-tokio-tungstenite = { version = "0.26", features = ["native-tls"] }
-# hyper-util 显式声明：CONNECT 隧道需 `server::conn::auto::upgrade::downcast::<TcpStream>`
-# 取回 axum::serve 被 Rewind<T> 包装的底层 TcpStream + 预读缓冲（research 结论 1）。
-# axum 间接依赖不传 server/server-auto feature，必须显式开启。
-hyper-util = { version = "0.1", features = ["server", "server-auto"] }
-# hyper 显式声明：CONNECT upgrade 取 `hyper::upgrade::on(req)`。axum 间接依赖已锁 1.10.1。
-# http2 显式开启：P3 ST6 MITM 明文隧道用 hyper-util `auto::Builder` 按 H2 preface 分发 h1/h2，
-# auto Builder 需 hyper http2 feature 才能服务 h2 客户端（feature unification 经 reqwest→http2
-# 已传递开启，此处显式声明避免未来 reqwest feature 变动致 h2 runtime fail）。
-hyper = { version = "1", features = ["http1", "http2"] }
-reqwest = { version = "0.12", features = ["stream", "json", "socks", "gzip", "brotli", "deflate", "zstd"] }
-futures = "0.3"
-dirs = "6"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
-tracing-appender = "0.2"
-# 中间件规则引擎正则匹配。regex crate 编译期 size_limit/dfa_size_limit 抗 ReDoS（无回溯引擎）。
-regex = "1"
-# 导入导出子系统加密容器：AES-256-GCM + SHA256/HMAC + 安全随机。
-aes-gcm = "0.11"
-sha2 = "0.11"
-hmac = "0.13"
-rand = "0.8"
-serde_yml = "0.0.13"
-# CLI 工具更新检测（semver 比对）
-semver = "1"
+url = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
 
 # P3 MITM 解密隧道（CONNECT 升级，ST1+ST2+ST3）。
 # rustls 0.23 已是 tauri/rustls-platform-verifier 的间接依赖（Cargo.lock 已锁 0.23.40），
 # 这里显式声明 + ring provider 让 ca.rs 的 ResolvesServerCert / CertifiedKey 类型可用。
-# rcgen 0.14 由 rustls 团队管理，版本同源；动态签 leaf 证书 + 自签 Root CA。
-#   features: x509-parser 是 Issuer::from_ca_cert_pem 的前置（按 CA cert PEM 重建 issuer），
-#   pem 让 Certificate::pem() / KeyPair::serialize_pem 可用。
-# tokio-rustls 0.26 已是 reqwest/rustls-platform-verifier 间接依赖，显式声明用 TlsAcceptor/TlsConnector。
-rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
-rustls-pemfile = "2"
-rcgen = { version = "0.14", features = ["x509-parser", "pem"] }
-tokio-rustls = "0.26"
-# ST3 tls.rs connect_upstream 用 Mozilla 内置 root store 验证上游真证书。
-# 内置 roots（无系统依赖，跨平台一致，确定性可测）；版本与 rustls 0.23 生态对齐。
-webpki-roots = "0.26"
-# ST9 CA 清理：macOS `security delete-certificate -Z` 与 Windows `certutil -delstore Root`
-# 均按 SHA-1 thumbprint 定位证书（capability mitm-ca.json validator `^[0-9A-Fa-f]+$`）。
-# 与 sha2 0.10 同生态（共享 digest 0.10 trait），版本对齐避免重复编译。
-sha1 = "0.10"
-# MITM 白名单 ipcidr 规则（Clash IP-CIDR 语义）：CONNECT 目标 host 段为 IP 字面时做 CIDR contains。
-# 轻量纯 Rust，IPv4+IPv6；不做域名→IP 解析（仅匹配字面 IP 目标，GeoIP/DNS 用户明确不要）。
-ipnet = "2"
+rustls = { workspace = true }
 # 装 MITM 假 CA 到系统信任库（macOS security / Windows certutil / Linux update-ca-certificates）。
 # scope 在 capabilities/mitm-ca.json 限定仅装 CA 命令，默认 capability 不开放 shell。
-tauri-plugin-shell = "2"
+tauri-plugin-shell = { workspace = true }
 
 # macOS 托盘小字：直接操作 NSStatusItem button 的 attributedTitle（NSAttributedString + 小号 NSFont）。
 # 版本与 Tauri 2.11 内部依赖对齐（tauri 透传 tray_icon::TrayIcon，其 ns_status_item() 返回 objc2-app-kit NSStatusItem）。

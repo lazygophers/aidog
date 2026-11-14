@@ -242,7 +242,7 @@ async fn call_traced_reopens_after_panic_kills_thread() {
     // 基线：正常查 1。
     let n: i64 = db
         .call_traced(None, std::panic::Location::caller(), |conn| {
-            Ok(conn.query_row("SELECT 1", [], |r| r.get(0))?)
+            conn.query_row("SELECT 1", [], |r| r.get(0))
         })
         .await
         .expect("baseline call_traced ok");
@@ -264,7 +264,7 @@ async fn call_traced_reopens_after_panic_kills_thread() {
     // 直接调用方（write_conn）仍拿到死连接 — 验证未自动恢复：
     let r_dead: tokio_rusqlite::Result<i64> = db
         .write_conn()
-        .call(|conn| Ok(conn.query_row("SELECT 1", [], |r| r.get(0))?))
+        .call(|conn| -> rusqlite::Result<i64> { conn.query_row("SELECT 1", [], |r| r.get(0)) })
         .await;
     assert!(
         matches!(r_dead, Err(tokio_rusqlite::Error::ConnectionClosed)),
@@ -274,7 +274,7 @@ async fn call_traced_reopens_after_panic_kills_thread() {
     // 关键断言：call_traced 自动重开 + 重试，不返 ConnectionClosed。
     let n: i64 = db
         .call_traced(None, std::panic::Location::caller(), |conn| {
-            Ok(conn.query_row("SELECT 1", [], |r| r.get(0))?)
+            conn.query_row("SELECT 1", [], |r| r.get(0))
         })
         .await
         .expect("call_traced should auto-reopen and retry");
@@ -283,7 +283,7 @@ async fn call_traced_reopens_after_panic_kills_thread() {
     // 槽位已替换：write_conn() 现在也指向新连接。
     let n: i64 = db
         .write_conn()
-        .call(|conn| Ok(conn.query_row("SELECT 1", [], |r| r.get(0))?))
+        .call(|conn| -> rusqlite::Result<i64> { conn.query_row("SELECT 1", [], |r| r.get(0)) })
         .await
         .expect("write_conn() should now work after call_traced swapped the slot");
     assert_eq!(n, 1);
@@ -317,7 +317,7 @@ async fn call_read_traced_retries_on_dead_pool_slot() {
     // 基线：读路径正常。
     let n: i64 = db
         .call_read_traced(None, std::panic::Location::caller(), |conn| {
-            Ok(conn.query_row("SELECT 1", [], |r| r.get(0))?)
+            conn.query_row("SELECT 1", [], |r| r.get(0))
         })
         .await
         .expect("baseline read ok");
@@ -332,7 +332,7 @@ async fn call_read_traced_retries_on_dead_pool_slot() {
     for _ in 0..(READ_POOL_SIZE * 4) {
         let n: i64 = db
             .call_read_traced(None, std::panic::Location::caller(), |conn| {
-                Ok(conn.query_row("SELECT 1", [], |r| r.get(0))?)
+                conn.query_row("SELECT 1", [], |r| r.get(0))
             })
             .await
             .expect("call_read_traced should retry on dead slot, never surface ConnectionClosed");
@@ -359,7 +359,7 @@ async fn call_traced_skips_reopen_for_memory_db() {
 
     let r: tokio_rusqlite::Result<i64> = db
         .call_traced(None, std::panic::Location::caller(), |conn| {
-            Ok(conn.query_row("SELECT 1", [], |r| r.get(0))?)
+            conn.query_row("SELECT 1", [], |r| r.get(0))
         })
         .await;
     assert!(
@@ -402,12 +402,12 @@ async fn migration_20261001_02_proxy_log_body_omitted_column() {
     let db = test_db().await;
     let fresh: i64 = db
         .call_read_proxy_log_traced(None, std::panic::Location::caller(), |conn| {
-            Ok(conn.query_row(
+            conn.query_row(
                 "SELECT COUNT(*) FROM pragma_table_info('proxy_log') \
                  WHERE name='body_omitted' AND [notnull]=1",
                 [],
                 |r| r.get(0),
-            )?)
+            )
         })
         .await
         .unwrap();

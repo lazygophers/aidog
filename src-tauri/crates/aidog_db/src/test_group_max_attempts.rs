@@ -27,7 +27,7 @@ async fn run(db: &Db, reset: bool) -> u64 {
 async fn max_of(db: &Db, name: &str) -> u32 {
     let name = name.to_string();
     db.call_read_platform_traced(None, std::panic::Location::caller(), move |c| {
-        Ok(c.query_row("SELECT max_retries FROM \"group\" WHERE name = ?1", [name], |r| r.get::<_, u32>(0))?)
+        c.query_row("SELECT max_retries FROM \"group\" WHERE name = ?1", [name], |r| r.get::<_, u32>(0))
     })
     .await
     .unwrap()

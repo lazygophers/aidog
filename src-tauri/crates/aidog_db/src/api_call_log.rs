@@ -63,7 +63,7 @@ pub fn list_api_call_logs(
                     source: r.get(7)?,
                 })
             })?;
-            Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+            rows.collect::<rusqlite::Result<Vec<_>>>()
         })
         .await
         .map_err(|e| e.to_string())

@@ -164,7 +164,7 @@ pub fn migrate_auto_vacuum(
         // 主库：探测 auto_vacuum，非 INCREMENTAL 则 VACUUM 重建切换模式。
         let main_current: i64 = db
             .call_traced(None, __db_caller, |c| {
-                Ok(c.query_row("PRAGMA auto_vacuum", [], |r| r.get::<_, i64>(0))?)
+                c.query_row("PRAGMA auto_vacuum", [], |r| r.get::<_, i64>(0))
             })
             .await
             .map_err(|e| format!("probe main auto_vacuum: {e}"))?;
@@ -189,7 +189,7 @@ pub fn migrate_auto_vacuum(
         if !db.is_memory() {
             let platform_current: i64 = db
                 .call_platform_traced(None, __db_caller, |c| {
-                    Ok(c.query_row("PRAGMA auto_vacuum", [], |r| r.get::<_, i64>(0))?)
+                    c.query_row("PRAGMA auto_vacuum", [], |r| r.get::<_, i64>(0))
                 })
                 .await
                 .map_err(|e| format!("probe platform auto_vacuum: {e}"))?;
@@ -207,7 +207,7 @@ pub fn migrate_auto_vacuum(
             }
             let proxy_current: i64 = db
                 .call_proxy_log_traced(None, __db_caller, |c| {
-                    Ok(c.query_row("PRAGMA auto_vacuum", [], |r| r.get::<_, i64>(0))?)
+                    c.query_row("PRAGMA auto_vacuum", [], |r| r.get::<_, i64>(0))
                 })
                 .await
                 .map_err(|e| format!("probe proxy_log auto_vacuum: {e}"))?;
@@ -318,18 +318,18 @@ pub fn db_file_size(db: &Db) -> impl std::future::Future<Output = Result<i64, St
     let __db_caller = std::panic::Location::caller();
     async move {
         let main_size = db
-            .call_traced(None, __db_caller, |c| Ok(db_size_bytes(c)?))
+            .call_traced(None, __db_caller, |c| db_size_bytes(c))
             .await
             .map_err(|e| format!("db_file_size main: {e}"))?;
         if db.is_memory() {
             return Ok(main_size);
         }
         let platform_size = db
-            .call_platform_traced(None, __db_caller, |c| Ok(db_size_bytes(c)?))
+            .call_platform_traced(None, __db_caller, |c| db_size_bytes(c))
             .await
             .map_err(|e| format!("db_file_size platform: {e}"))?;
         let proxy_size = db
-            .call_proxy_log_traced(None, __db_caller, |c| Ok(db_size_bytes(c)?))
+            .call_proxy_log_traced(None, __db_caller, |c| db_size_bytes(c))
             .await
             .map_err(|e| format!("db_file_size proxy_log: {e}"))?;
         Ok(main_size + platform_size + proxy_size)
@@ -441,11 +441,11 @@ pub fn count_proxy_logs(db: &Db) -> impl std::future::Future<Output = Result<u32
     async move {
         // proxy_log 在 log.db（proxy-log-db-split s3），走专用读池。
         db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
-            Ok(conn.query_row(
+            conn.query_row(
                 "SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0",
                 [],
                 |row| row.get(0),
-            )?)
+            )
         })
         .await
         .map_err(|e| e.to_string())

@@ -18,7 +18,7 @@ pub async fn upsert_group_row(
     let effective_name = effective_name.to_string();
     // config-db-split：group 表落 platform.db，走 platform 写连接。
     db.platform_write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<()> {
             let tx = conn.transaction()?;
             let existing_id: Option<i64> = tx
                 .query_row(
@@ -97,7 +97,7 @@ pub(super) async fn upsert_platform_row(
     let effective = effective_name.to_string();
     // config-db-split：platform 表落 platform.db，走 platform 写连接。
     db.platform_write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<()> {
             let tx = conn.transaction()?;
             let now = now_ts();
             insert_platform_row(&tx, &effective, &row, now)?;
@@ -211,9 +211,10 @@ pub async fn relink_group_platform(
     let p = platform_name.to_string();
     // config-db-split：group/platform/group_platform 表落 platform.db，走 platform 写连接。
     db.platform_write_conn()
-        .call(move |conn| {
-            let tx = conn.transaction()?;
-            let gid: Option<i64> = tx
+        .call(
+            move |conn| -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+                let tx = conn.transaction()?;
+                let gid: Option<i64> = tx
                 .query_row(
                     "SELECT id FROM \"group\" WHERE name = ?1 AND deleted_at = 0",
                     [&g],
@@ -239,9 +240,7 @@ pub async fn relink_group_platform(
                     tx.commit()?;
                     Ok(())
                 }
-                _ => Err(tokio_rusqlite::Error::Other(
-                    format!("missing group/platform: {g} / {p}").into(),
-                )),
+                _ => Err(format!("missing group/platform: {g} / {p}").into()),
             }
         })
         .await
@@ -263,7 +262,7 @@ pub async fn relink_group_platform(
 pub async fn snapshot_platform_ids(db: &Db) -> Result<std::collections::BTreeSet<i64>, String> {
     // config-db-split：platform 表落 platform.db，走 platform 写连接。
     db.platform_write_conn()
-        .call(|conn| {
+        .call(|conn| -> rusqlite::Result<std::collections::BTreeSet<i64>> {
             let mut stmt = conn.prepare("SELECT id FROM platform WHERE deleted_at = 0")?;
             let ids = stmt
                 .query_map([], |r| r.get::<_, i64>(0))?
@@ -287,7 +286,7 @@ pub async fn ensure_group_and_attach(
     let before = before.clone();
     // config-db-split：group/platform/group_platform 表落 platform.db，走 platform 写连接。
     db.platform_write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<()> {
             let tx = conn.transaction()?;
             // 1. ensure group by name（命中复用；未命中 create 生成 group_key）。
             let gid: i64 = match tx
@@ -353,7 +352,7 @@ pub(super) async fn upsert_setting_row(
     // 收口内防双重加密原样保留；非串值原样（该 scope 语义上必为串）。
     let value = aidog_db::encrypt_setting_value(&scope, value_json)?;
     db.write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<()> {
             let now = now_ts();
             conn.execute(
                 "INSERT INTO setting (scope, key, value, created_at, updated_at)
@@ -375,18 +374,19 @@ pub(super) async fn upsert_middleware_rule_by_name(
 ) -> Result<(), String> {
     let r = rule.clone();
     db.write_conn()
-        .call(move |conn| {
-            let now = now_ts();
-            let existing_id: Option<i64> = conn
+        .call(
+            move |conn| -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+                let now = now_ts();
+                let existing_id: Option<i64> = conn
                 .query_row(
                     "SELECT id FROM middleware_rule WHERE name = ?1",
                     [&r.name],
                     |row| row.get(0),
                 )
                 .ok();
-            let conditions = serde_json::to_string(&r.conditions).map_err(|e| tokio_rusqlite::Error::Other(e.into()))?;
-            let actions = serde_json::to_string(&r.actions).map_err(|e| tokio_rusqlite::Error::Other(e.into()))?;
-            let applies_to = serde_json::to_string(&r.applies_to).map_err(|e| tokio_rusqlite::Error::Other(e.into()))?;
+            let conditions = serde_json::to_string(&r.conditions)?;
+            let actions = serde_json::to_string(&r.actions)?;
+            let applies_to = serde_json::to_string(&r.applies_to)?;
             if let Some(id) = existing_id {
                 conn.execute(
                     "UPDATE middleware_rule SET

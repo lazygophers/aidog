@@ -4306,7 +4306,7 @@ async fn single_platform_disabled_tier_slot_rejects_by_family() {
 async fn set_est_coding_plan(db: &db::Db, id: u64, json: &str) {
     let json = json.to_string();
     db.platform_write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<()> {
             conn.execute(
                 "UPDATE platform SET est_coding_plan = ?1 WHERE id = ?2",
                 rusqlite::params![json, id as i64],

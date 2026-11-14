@@ -49,11 +49,11 @@ async fn r3_platform_type_roundtrip() {
     let pid = p.id as i64;
     let stored: String = db
         .call_traced(None, std::panic::Location::caller(), move |conn| {
-            Ok(conn.query_row(
+            conn.query_row(
                 "SELECT platform_type FROM platform WHERE id = ?1",
                 params![pid],
                 |r| r.get(0),
-            )?)
+            )
         })
         .await
         .unwrap();

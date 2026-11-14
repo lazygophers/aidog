@@ -104,7 +104,7 @@ async fn proxy_log_count(state: &Arc<ProxyState>) -> i64 {
     state
         .db
         .call_read_traced(None, std::panic::Location::caller(), |conn| {
-            Ok(conn.query_row("SELECT COUNT(*) FROM proxy_log", [], |r| r.get(0))?)
+            conn.query_row("SELECT COUNT(*) FROM proxy_log", [], |r| r.get(0))
         })
         .await
         .expect("count proxy_log")
@@ -267,11 +267,11 @@ async fn mitm_bypass_writes_mitm_log_not_proxy_log() {
     let sample: (f64, f64, String) = state
         .db
         .call_read_traced(None, std::panic::Location::caller(), |conn| {
-            Ok(conn.query_row(
+            conn.query_row(
                 "SELECT five_hour_pct, seven_day_pct, raw FROM oauth_usage_sample",
                 [],
                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-            )?)
+            )
         })
         .await
         .expect("read oauth_usage_sample");
@@ -513,11 +513,11 @@ async fn mitm_oauth_meta_body_follows_config_and_profile_sampled() {
     let profile: (String, i64) = state
         .db
         .call_read_traced(None, std::panic::Location::caller(), |conn| {
-            Ok(conn.query_row(
+            conn.query_row(
                 "SELECT tier, COUNT(*) FROM cc_oauth_profile WHERE group_name = 'g1' GROUP BY tier",
                 [],
                 |r| Ok((r.get(0)?, r.get(1)?)),
-            )?)
+            )
         })
         .await
         .expect("read cc_oauth_profile");

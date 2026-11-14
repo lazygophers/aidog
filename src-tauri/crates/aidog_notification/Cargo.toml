@@ -19,7 +19,6 @@ tokio = { workspace = true }
 lettre = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
-chrono = { workspace = true }
 
 # tts.rs 的 CrossPlatform 后端；macOS 走系统 `say`，不需要它。
 [target.'cfg(not(target_os = "macos"))'.dependencies]
@@ -30,7 +29,6 @@ tts = { workspace = true }
 test-util = []
 
 [dev-dependencies]
-tracing-subscriber = { workspace = true }
 tokio = { workspace = true }
 tempfile = { workspace = true }
 aidog_stats = { path = "../aidog_stats" }

@@ -381,11 +381,11 @@ pub fn count_model_entries(db: &Db) -> impl std::future::Future<Output = Result<
     let __db_caller = std::panic::Location::caller();
     async move {
         db.call_read_traced(None, __db_caller, move |conn| {
-            Ok(conn.query_row(
+            conn.query_row(
                 "SELECT COUNT(*) FROM model_entry WHERE deleted_at = 0",
                 [],
                 |r| r.get(0),
-            )?)
+            )
         })
         .await
         .map_err(|e| e.to_string())
@@ -399,11 +399,11 @@ pub fn count_platform_presets(
     let __db_caller = std::panic::Location::caller();
     async move {
         db.call_read_traced(None, __db_caller, move |conn| {
-            Ok(conn.query_row(
+            conn.query_row(
                 "SELECT COUNT(*) FROM platform_preset WHERE deleted_at = 0",
                 [],
                 |r| r.get(0),
-            )?)
+            )
         })
         .await
         .map_err(|e| e.to_string())
@@ -494,7 +494,7 @@ pub fn get_model_entry<'a>(
                 let mut stmt = conn.prepare_cached(&format!(
                     "SELECT {MODEL_ENTRY_COLUMNS} FROM model_entry WHERE platform_code = ?1 AND model_id = ?2 AND deleted_at = 0"
                 ))?;
-                Ok(stmt.query_row(params![code, id], row_to_model_entry).optional()?)
+                stmt.query_row(params![code, id], row_to_model_entry).optional()
             })
             .await
             .map_err(|e| e.to_string())?;
@@ -525,7 +525,7 @@ pub fn get_model_entry_any_platform<'a>(
                     "SELECT {MODEL_ENTRY_COLUMNS} FROM model_entry WHERE model_id = ?1 AND deleted_at = 0
                      ORDER BY official DESC, platform_code LIMIT 1"
                 ))?;
-                Ok(stmt.query_row(params![id], row_to_model_entry).optional()?)
+                stmt.query_row(params![id], row_to_model_entry).optional()
             })
             .await
             .map_err(|e| e.to_string())?;
@@ -680,11 +680,11 @@ pub fn select_platform_presets(
             let mut stmt = conn.prepare(
                 "SELECT code, preset_data, updated_at FROM platform_preset WHERE deleted_at = 0 ORDER BY code",
             )?;
-            Ok(stmt
+            stmt
                 .query_map([], |r| {
                     Ok(PlatformPreset { code: r.get(0)?, preset_data: r.get(1)?, updated_at: r.get(2)? })
                 })?
-                .collect::<SqlResult<Vec<_>>>()?)
+                .collect::<SqlResult<Vec<_>>>()
         })
         .await
         .map_err(|e| e.to_string())
@@ -732,13 +732,13 @@ pub async fn preset_entry(db: &Db, code: &str) -> Result<Option<serde_json::Valu
     let owned = code.to_string();
     let row: Option<String> = db
         .call_read_traced(None, std::panic::Location::caller(), move |conn| {
-            Ok(conn
+            conn
                 .query_row(
                     "SELECT preset_data FROM platform_preset WHERE code = ?1 AND deleted_at = 0",
                     params![owned],
                     |r| r.get::<_, String>(0),
                 )
-                .optional()?)
+                .optional()
         })
         .await
         .map_err(|e| e.to_string())?;

@@ -124,22 +124,22 @@ async fn fresh_install_is_new_shape_and_proxy_log_has_client() {
     let (db, _dir) = three_file_db().await;
     let proxy_log_client: i64 = db
         .call_read_proxy_log_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row(
+            c.query_row(
                 "SELECT COUNT(*) FROM pragma_table_info('proxy_log') WHERE name='client' AND [notnull]=1",
                 [],
                 |r| r.get(0),
-            )?)
+            )
         })
         .await
         .unwrap();
     assert_eq!(proxy_log_client, 1, "proxy_log.client 存在且 NOT NULL");
     let agg_cols: i64 = db
         .call_read_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row(
+            c.query_row(
                 "SELECT COUNT(*) FROM pragma_table_info('stats_agg_hourly') WHERE name IN ('client','req_model','request_class')",
                 [],
                 |r| r.get(0),
-            )?)
+            )
         })
         .await
         .unwrap();
@@ -166,11 +166,11 @@ async fn cross_db_move_from_old_shape_log_db_into_new_shape_main() {
         .unwrap();
     let (n, client, req_model): (i64, String, String) = db
         .call_read_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row(
+            c.query_row(
                 "SELECT request_count, client, req_model FROM stats_agg_hourly WHERE model='legacy-m'",
                 [],
                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-            )?)
+            )
         })
         .await
         .unwrap();
