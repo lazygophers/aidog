@@ -46,15 +46,16 @@ rusqlite = { version = "0.42", features = ["bundled-sqlcipher", "trace"] }
 tokio-rusqlite = "0.9"
 # Web / 代理
 axum = { version = "0.8", features = ["json", "ws"] }
-# WS 透传（ADR 0008 票 03）：上游 ws 客户端；native-tls 与 reqwest default-tls 对齐。
-tokio-tungstenite = { version = "0.30", features = ["native-tls"] }
+# WS 透传（ADR 0008 票 03）：上游 ws 客户端；native-tls 后端为有意保留（reqwest 0.13 已默认
+#   rustls/aws-lc，两栈不同系；出站 TLS 行为见 PR 人工验收项 1）。
+tokio-tungstenite = { version = "0.29", features = ["native-tls"] }
 hyper-util = { version = "0.1", features = ["server", "server-auto"] }
 hyper = { version = "1", features = ["http1", "http2"] }
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "charset", "http2", "system-proxy", "stream", "json", "query", "socks", "gzip", "brotli", "deflate", "zstd"] }
 # 通知外部渠道 email（SMTP，通知体系票 03）：builder + tokio1 + rustls TLS。
 lettre = { version = "0.11", default-features = false, features = ["builder", "smtp-transport", "tokio1", "tokio1-rustls-tls"] }
 # 票 08 无界面内核：`--ui` 形态的静态前端资源（ServeDir + SPA fallback）与 SSE 事件流。
-tower-http = { version = "0.7", features = ["fs"] }
+tower-http = { version = "0.6", features = ["fs"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 # 日志
 tracing = "0.1"
@@ -77,6 +78,7 @@ aes-gcm = "0.11"
 keyring = "4"
 sha2 = "0.11"
 sha1 = "0.11"
+base64 = "0.23"
 hmac = "0.13"
 rand = "0.10"
 # MITM TLS（rustls 生态）

@@ -765,7 +765,7 @@ async fn per_request_fee_deducted_from_balance_and_manual_budget() {
                     id as i64
                 ],
             )?;
-            Ok(())
+            Ok::<(), rusqlite::Error>(())
         })
         .await
         .unwrap();
