@@ -280,7 +280,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent className="aidog-anim-pop" style={{ maxWidth: 520, padding: 16 }}>
         <DialogHeader>
-          <DialogTitle style={{ margin: "0 0 12px", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <DialogTitle style={{ margin: "0 0 12px", paddingRight: 32, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <span>{t("platform.windows_edit_title", "编辑时段窗口")}</span>
             {/* tz 切换：与 formSections.tsx PeakSection 同款样式，windows 存储恒 UTC+0，仅展示/输入换算 */}
             <div style={{ display: "flex", gap: 4, padding: 2, background: "var(--bg-glass)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
