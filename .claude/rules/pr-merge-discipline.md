@@ -27,3 +27,14 @@ code review 报出但裁决不修的项（判断题非违规），当轮写进 s
 auth.anthropic.com 抓包 / 零主动轮询观测 / 盲转无感 / #91703 实测），并同步账本
 **遗留**段。全量授权下合并不等用户点头，但清单不出现在当轮回复 = 验收义务
 静默蒸发。
+
+## 3. 审查他人 PR：只读 refs、先核对象存在、分歧先取证（2026-11-14 #159 / #162 / #158 / #63 批次）
+
+- **主 checkout 不动**：`git fetch origin pull/<N>/head:refs/remotes/pr/<N>`，审查用
+  `git diff origin/master...refs/remotes/pr/<N>` 与 `git show refs/remotes/pr/<N>:<path>`，不 checkout、不开 worktree
+  （该批次主 checkout 正处于合并中途，checkout 会丢现场）。审完 `.tmp/<任务名>/` 删净。
+- **派写代码 agent 前先核对象**：用户给的 PR 号先 `gh pr view <N>`（#163 不存在，答案是 #162，一次表单才对上）；
+  「修复重复」「修一下」这类短指令先 `git status` 看有无 `MERGE_HEAD` / 冲突文件——本地合并冲突与 PR 代码缺陷
+  两种解读都成立时，先问再派（该批次按 PR 缺陷派了修复 agent，用户更正为本地冲突，agent 留下半截合并的 worktree，事后删除）。
+- **两条审查轴结论相反时，发评论前主会话先取证**（grep 调用链 / 读迁移代码，parallel-implement.md §6 同口径）。
+  取证不到才在评论里标「两轴分歧、待作者确认」并写明缺哪条事实；#158「主库提交后崩溃窗口」是前提未取证就交了作者。
