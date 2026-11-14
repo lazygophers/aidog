@@ -21,7 +21,7 @@ pub(crate) struct NonSuccessCtx<'a> {
 /// 失败后继续（换组合）时给最后一条尝试记录打排除范围：服务类 → 整个平台，其余（模型类 / 未知类）→ 只该组合。
 fn mark_exclusion(attempts: &mut [ProxyAttempt], class: UpstreamErrorClass) {
     if let Some(a) = attempts.last_mut() {
-        a.exclusion = Some(if class == UpstreamErrorClass::Service { "platform" } else { "pair" }.to_string());
+        a.exclusion = Some(if class == UpstreamErrorClass::Service { ExcludeScope::Platform } else { ExcludeScope::Pair });
     }
 }
 
