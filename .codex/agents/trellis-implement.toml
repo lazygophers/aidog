@@ -71,6 +71,8 @@ Rules:
 - If you modify `.trellis/scripts/`, keep `packages/cli/src/templates/trellis/scripts/` in sync.
 - Do not make destructive git changes unless explicitly asked.
 
+Do not finish while acceptance criteria remain unmet; ask the user instead of listing them as follow-ups.
+
 Before finishing, summarize:
 - Files changed
 - Tests/checks run
