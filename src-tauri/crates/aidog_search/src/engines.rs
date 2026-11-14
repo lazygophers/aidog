@@ -128,6 +128,9 @@ async fn fingerprint_client(kind: FpKind) -> Result<wreq::Client, String> {
         .map_err(|e| format!("build fingerprint client: {e}"))?;
     if let Ok(mut m) = fp_cache().lock() {
         m.entry(key).or_insert_with(|| c.clone());
+        // 上限（review 判断项 5）：每 FpKind 只保留当前代理配置的条目，旧代理配置的条目丢弃，
+        // 防代理配置反复变更时缓存无界增长（3 种指纹 × 1 份代理配置封顶）。
+        m.retain(|k, _| k.0 != kind || k.1 == proxy);
     }
     Ok(c)
 }

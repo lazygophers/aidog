@@ -130,7 +130,11 @@ pub async fn platform_fetch_models(
     let use_proxy = gateway::http_client::should_use_proxy(
         &settings,
         match proxy_enabled {
-            Some(v) => gateway::http_client::ProxyAttribution::Platform(Some(v)),
+            Some(v) => {
+                gateway::http_client::ProxyAttribution::Platform(
+                    gateway::http_client::ProxySwitch::from_flag(Some(v)),
+                )
+            }
             None => gateway::http_client::ProxyAttribution::NonPlatform,
         },
     );

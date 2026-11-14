@@ -781,9 +781,10 @@ async fn mitm_official_flags_count_disabled_platforms() {
     .await
     .unwrap();
     let flags = super::mitm_bypass::mitm_group_official_proxy_flags(&db, "g-mitm").await;
+    use crate::gateway::http_client::ProxySwitch;
     assert_eq!(
         flags,
-        vec![Some(true), None, Some(false)],
+        vec![ProxySwitch::On, ProxySwitch::Default, ProxySwitch::Off],
         "官方 3 个全计入（含禁用），非官方不计入"
     );
     // 任一显式开 → 旁路走代理（seam 语义，见 http_client seam_mitm_bypass_any_on_and_empty_fallback）

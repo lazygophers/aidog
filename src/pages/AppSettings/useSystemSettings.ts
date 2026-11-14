@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { getAppVersion } from "../../services/platform";
 import { proxyApi, isProxyStartError, proxyLogApi, proxyTimeoutApi, builtinToolCompatGlobalApi, appLogApi, dbApi, statsApi, statsSettingsApi, autoUpdateApi, type ProxyLogSettings, type AppLogSettings, type ProxyClientSettings, type ProxyStartError, type RetentionUnit } from "../../services/api";
-import { broadcastProxyConfigChanged, enableProxyForAllPlatforms } from "../../domains/platforms/proxyConfig";
+import { broadcastProxyConfigChanged } from "../../domains/platforms/proxyConfig";
+import { enableProxyForAllPlatforms } from "../../domains/platforms/proxyBatch";
 
 /**
  * system tab 全部 state + actions（AppSettings 拆分自原 L21-240）。
