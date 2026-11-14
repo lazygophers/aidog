@@ -758,3 +758,42 @@ fn mitm_noop_platform_update() -> aidog_db::UpdatePlatform {
         quota_source: None,
     }
 }
+
+/// issue #64 T05 路径接入测试补例：旁路归属集合含**禁用**的官方平台（#64「分组内任一
+/// 官方平台…被禁用的平台也计入」），非官方 base_url 不计入；缺键 = None。
+/// get_group_platforms 只剔软删（deleted_at=0 过滤），status 不过滤——本测试锁死该语义。
+#[tokio::test]
+async fn mitm_official_flags_count_disabled_platforms() {
+    let db = test_support::test_db().await;
+    db.call_platform_traced(None, std::panic::Location::caller(), |conn| {
+        conn.execute_batch(
+            "INSERT INTO platform (id, name, platform_type, base_url, extra, created_at, updated_at, deleted_at, status) VALUES
+             (1, 'official-on',  'anthropic', 'https://api.anthropic.com', '{\"proxy_enabled\":true}',  0, 0, 0, 'enabled'),
+             (2, 'official-key-missing', 'anthropic', 'https://api.anthropic.com', '{}', 0, 0, 0, 'enabled'),
+             (3, 'official-disabled', 'anthropic', 'https://api.anthropic.com', '{\"proxy_enabled\":false}', 0, 0, 0, 'disabled'),
+             (4, 'non-official', 'openai', 'https://api.openai.com', '{\"proxy_enabled\":true}', 0, 0, 0, 'enabled');
+             INSERT INTO \"group\" (id, name, routing_mode, model_mappings, created_at, updated_at, deleted_at) VALUES (1, 'g-mitm', '\"failover\"', '[]', 0, 0, 0);
+             INSERT INTO group_platform (group_id, platform_id, created_at) VALUES (1, 1, 0), (1, 2, 0), (1, 3, 0), (1, 4, 0);",
+        )
+        .unwrap();
+        Ok(())
+    })
+    .await
+    .unwrap();
+    let flags = super::mitm_bypass::mitm_group_official_proxy_flags(&db, "g-mitm").await;
+    assert_eq!(
+        flags,
+        vec![Some(true), None, Some(false)],
+        "官方 3 个全计入（含禁用），非官方不计入"
+    );
+    // 任一显式开 → 旁路走代理（seam 语义，见 http_client seam_mitm_bypass_any_on_and_empty_fallback）
+    let settings = crate::gateway::models::ProxyClientSettings {
+        host: "127.0.0.1".into(),
+        others_enabled: false,
+        ..Default::default()
+    };
+    assert!(crate::gateway::http_client::should_use_proxy(
+        &settings,
+        crate::gateway::http_client::ProxyAttribution::MitmBypass(&flags)
+    ));
+}

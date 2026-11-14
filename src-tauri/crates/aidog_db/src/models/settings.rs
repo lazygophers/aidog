@@ -156,6 +156,21 @@ impl ProxyClientSettings {
         }
     }
 
+    /// 代理完整 URI（scheme 按 proxy_type / socks5h 派生，与 to_reqwest_proxy 同源）；
+    /// host 空 → None。给非 reqwest 栈（aidog_search wreq 指纹 client）共用的单一真值。
+    pub fn proxy_uri(&self) -> Option<String> {
+        if self.host.trim().is_empty() {
+            return None;
+        }
+        let scheme = match self.proxy_type.as_str() {
+            "socks5" if self.dns_over_proxy => "socks5h",
+            "socks5" => "socks5",
+            "https" => "https",
+            _ => "http",
+        };
+        Some(format!("{}://{}:{}", scheme, self.host, self.port))
+    }
+
     /// Build a reqwest::Proxy from settings. Returns None if host empty (未配置代理).
     pub fn to_reqwest_proxy(&self) -> Option<reqwest::Proxy> {
         if self.host.trim().is_empty() {

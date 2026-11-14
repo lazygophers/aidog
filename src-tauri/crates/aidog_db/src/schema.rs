@@ -370,6 +370,8 @@ pub fn init_tables_raw(
         // 旧总开关 enabled → others_enabled + 平台 extra.proxy_enabled 回填（细节见 schema_late.rs
         // migrate_proxy_client_setting）。跨库：旧设置在主库 setting 表，平台行在 platform.db，
         // 故两阶段各拿各的 conn；内存库 fallback 两 handle 同物理连接，顺序调用等价。
+        // 两段每启动都调：无 legacy（无旧行 / 新格式 / 损坏 JSON）时平台段仅立标记不回填，
+        // 保证两库标记都落地、后续启动不再进入迁移分支（评论阻塞项修复）。
         {
             let legacy: Option<bool> = db
                 .call_traced(None, __db_caller, |conn| {
@@ -377,14 +379,12 @@ pub fn init_tables_raw(
                 })
                 .await
                 .unwrap_or(None);
-            if let Some(legacy) = legacy {
-                db.call_platform_traced(None, __db_caller, move |conn| {
-                    crate::schema_late::migrate_proxy_client_setting_platform(conn, legacy);
-                    Ok(())
-                })
-                .await
-                .map_err(|e| e.to_string())?;
-            }
+            db.call_platform_traced(None, __db_caller, move |conn| {
+                crate::schema_late::migrate_proxy_client_setting_platform(conn, legacy);
+                Ok(())
+            })
+            .await
+            .map_err(|e| e.to_string())?;
         }
 
         // Phase 4: 主库 DROP × 4（仅 Phase 3 成功后达；cli_proxy_provider 随 CLI 代理移除，只清不迁）。
