@@ -568,6 +568,16 @@ const NO_OFFICIAL_CHANNEL: &[&str] = &[
     // official:false 属漏标或有意（free 非正式），未定——按「推测值禁写入」不改
     // 数据，先豁免。（先例：qwen3-coder-plus-2025-07-22）
     "crouton-alpha-free",
+
+    // 默认配置-数据审计轮 2026-11-14 新增（以下 6 条同一模式：官方渠道条目随官方
+    // 下架/退役已删，聚合/中转平台仍在售，条目 official:false，official 平台集合
+    // 已无该 model_id 的承载条目）：
+    "baidu/ernie-4.5-turbo-128k", // qianfan 官方已下架，therouter/compshare 仍售
+    "ernie-4.5-turbo-20260402", // qianfan 官方已下架，qianfan_coding 仍售
+    "glm-4-7-251222", // byteplus 官方标 Retired 已删，doubao/litellm 仍售
+    "kwaipilot/kat-coder-air-v2.5", // therouter 页标 Deprecated 已删，atlascloud 仍售
+    "kwaipilot/kat-coder-pro-v2.5", // 同上
+    "nex-agi/nex-n2-pro", // therouter 页标 Deprecated 已删，novita 仍售
 ];
 
 /// 每个 `model_id` 至少有一个 `official` 平台条目（模型维度列表默认展示官方条目，
