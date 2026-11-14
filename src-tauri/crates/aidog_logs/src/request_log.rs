@@ -103,7 +103,7 @@ pub fn list_request_logs<'a>(
                     created_at: r.get(7)?,
                 })
             })?;
-            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+            rows.collect::<SqlResult<Vec<_>>>()
         })
         .await
         .map_err(|e| e.to_string())
@@ -121,7 +121,7 @@ pub fn count_request_logs<'a>(
         db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let (w, p) = build_where(&filter);
             let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
-            Ok(conn.query_row(&format!("SELECT COUNT(*) FROM request_log{w}"), refs.as_slice(), |r| r.get(0))?)
+            conn.query_row(&format!("SELECT COUNT(*) FROM request_log{w}"), refs.as_slice(), |r| r.get(0))
         })
         .await
         .map_err(|e| e.to_string())
@@ -138,7 +138,7 @@ pub fn get_request_log<'a>(
     async move {
         let id = id.to_string();
         db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
-            Ok(conn
+            conn
                 .query_row(
                     &format!("SELECT {COLUMNS} FROM request_log WHERE id = ?1"),
                     params![id],
@@ -169,7 +169,7 @@ pub fn get_request_log<'a>(
                         })
                     },
                 )
-                .optional()?)
+                .optional()
         })
         .await
         .map_err(|e| e.to_string())

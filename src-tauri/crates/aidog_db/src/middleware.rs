@@ -81,7 +81,7 @@ pub fn list_middleware_rules(
         db.call_read_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(&sql)?;
             let rows = stmt.query_map([], row_to_middleware_rule)?;
-            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+            rows.collect::<SqlResult<Vec<_>>>()
         })
         .await
         .map_err(|e| e.to_string())
@@ -124,7 +124,7 @@ pub fn create_middleware_rule(
                 "SELECT {MIDDLEWARE_RULE_COLUMNS} FROM middleware_rule WHERE id = ?1"
             ))?;
             stmt.query_row(params![id], row_to_middleware_rule)
-                .map_err(tokio_rusqlite::Error::from)
+                
         })
         .await
         .map_err(|e| format!("create middleware rule: {e}"))
@@ -157,8 +157,9 @@ pub fn update_middleware_rule(
                 // 内置规则禁改名（seed 按 name 幂等判定、还原默认按 name 定位规格；
                 // 改名会让 seed 重复 INSERT / 还原找不到规格）。内容编辑放开。
                 if input.name != old_name {
-                    return Err(tokio_rusqlite::Error::Other(
-                        "builtin middleware rule cannot be renamed".into(),
+                    return Err(rusqlite::Error::SqliteFailure(
+                        rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_MISUSE),
+                        Some("builtin middleware rule cannot be renamed".to_string()),
                     ));
                 }
                 // JSON 列按语义比较：旧值经类型化 round-trip 归一化（seed 存的紧凑 JSON
@@ -219,8 +220,9 @@ pub fn update_middleware_rule(
                     ],
                 )?;
                 if affected == 0 {
-                    return Err(tokio_rusqlite::Error::Other(
-                        format!("middleware rule {} not found", input.id).into(),
+                    return Err(rusqlite::Error::SqliteFailure(
+                        rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_MISUSE),
+                        Some(format!("middleware rule {} not found", input.id)),
                     ));
                 }
                 let mut stmt = conn.prepare(&format!(
@@ -228,7 +230,7 @@ pub fn update_middleware_rule(
                 ))?;
                 return stmt
                     .query_row(params![input.id], row_to_middleware_rule)
-                    .map_err(tokio_rusqlite::Error::from);
+                    ;
             }
             let affected = conn.execute(
                 "UPDATE middleware_rule SET
@@ -248,15 +250,16 @@ pub fn update_middleware_rule(
                 ],
             )?;
             if affected == 0 {
-                return Err(tokio_rusqlite::Error::Other(
-                    format!("middleware rule {} not found", input.id).into(),
+                return Err(rusqlite::Error::SqliteFailure(
+                    rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_MISUSE),
+                    Some(format!("middleware rule {} not found", input.id)),
                 ));
             }
             let mut stmt = conn.prepare(&format!(
                 "SELECT {MIDDLEWARE_RULE_COLUMNS} FROM middleware_rule WHERE id = ?1"
             ))?;
             stmt.query_row(params![input.id], row_to_middleware_rule)
-                .map_err(tokio_rusqlite::Error::from)
+                
         })
         .await
         .map_err(|e| format!("update middleware rule: {e}"))
@@ -278,11 +281,12 @@ pub fn delete_middleware_rule(
                     params![id],
                     |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
                 )
-                .map_err(tokio_rusqlite::Error::from)?;
+                ?;
             // failed 判定与 row_to_middleware_rule 对齐：DB 列或 conditions JSON 解析失败均算失效
             if is_builtin == 1 && !is_effective_failed(failed, &conditions) {
-                return Err(tokio_rusqlite::Error::Other(
-                    "builtin middleware rule cannot be deleted (toggle enabled instead)".into(),
+                return Err(rusqlite::Error::SqliteFailure(
+                    rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_MISUSE),
+                    Some("builtin middleware rule cannot be deleted (toggle enabled instead)".to_string()),
                 ));
             }
             conn.execute("DELETE FROM middleware_rule WHERE id = ?1", params![id])?;
@@ -310,7 +314,7 @@ pub fn reset_middleware_rule_to_builtin(
                 params![id],
                 |r| Ok((r.get(0)?, r.get(1)?)),
             )
-            .map_err(tokio_rusqlite::Error::from)
+            
         })
         .await
         .map_err(|e| e.to_string())?;
@@ -341,7 +345,7 @@ pub fn reset_middleware_rule_to_builtin(
             "SELECT {MIDDLEWARE_RULE_COLUMNS} FROM middleware_rule WHERE id = ?1"
         ))?;
         stmt.query_row(params![id], row_to_middleware_rule)
-            .map_err(tokio_rusqlite::Error::from)
+            
     })
     .await
     .map_err(|e| format!("reset middleware rule to builtin: {e}"))
@@ -470,7 +474,7 @@ pub fn list_notifications(
                 "SELECT id, notif_type, title, body, source, severity, vars_json, action_key, created_at FROM notification ORDER BY created_at DESC, id DESC LIMIT ?1",
             )?;
             let rows = stmt.query_map(params![limit], map_notification)?;
-            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+            rows.collect::<SqlResult<Vec<_>>>()
         })
         .await
         .map_err(|e| e.to_string())
@@ -523,7 +527,7 @@ pub fn list_notifications_filtered<'a>(
             let bind: Vec<&dyn rusqlite::ToSql> =
                 vals.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
             let rows = stmt.query_map(bind.as_slice(), map_notification)?;
-            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+            rows.collect::<SqlResult<Vec<_>>>()
         })
         .await
         .map_err(|e| e.to_string())
@@ -595,7 +599,7 @@ pub fn list_notification_deliveries<'a>(
                 Some(k) => stmt.query_map(params![k, limit], map_delivery)?,
                 None => stmt.query_map(params![limit], map_delivery)?,
             };
-            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+            rows.collect::<SqlResult<Vec<_>>>()
         })
         .await
         .map_err(|e| e.to_string())

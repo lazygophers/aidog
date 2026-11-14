@@ -51,7 +51,7 @@ pub fn quota_snapshots<'a>(
                     "SELECT platform_id, est_balance_remaining, created_at FROM quota_snapshot \
                      WHERE created_at >= ?1 AND created_at <= ?2",
                 )
-                .map_err(|e| tokio_rusqlite::Error::Other(e.into()))?;
+                ?;
             let rows = stmt
                 .query_map(params![start, end], |r| {
                     Ok(QuotaSnapshot {
@@ -60,9 +60,9 @@ pub fn quota_snapshots<'a>(
                         created_at: r.get(2)?,
                     })
                 })
-                .map_err(|e| tokio_rusqlite::Error::Other(e.into()))?
+                ?
                 .collect::<Result<Vec<_>, _>>()
-                .map_err(|e| tokio_rusqlite::Error::Other(e.into()))?;
+                ?;
             let mut rows = rows;
             if let Some(pid) = platform_id {
                 rows.retain(|s| s.platform_id == pid);
