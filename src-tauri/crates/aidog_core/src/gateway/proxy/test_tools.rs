@@ -492,6 +492,82 @@ async fn e2e_connect_failure_records_platform_exclusion_then_fails_over() {
     assert_eq!(scopes, [Some("platform"), None]);
 }
 
+/// 票 01（issue 55）：搜索转发 connect 失败必须回报 connect_failed=true，
+/// 同 base_url 的兄弟平台按 R3 在本次请求内被跳过——attempts 无其记录，路由快照标 skipped-dead-upstream。
+#[tokio::test]
+async fn e2e_connect_failure_skips_sibling_same_base_url() {
+    let _guard = TOOLS_E2E_LOCK.lock().await;
+    let (db, _dir) = three_file_db().await;
+    let state = make_state(db).await;
+    // 死站：取一个空闲端口后立即释放（connect refused）。
+    let dead = {
+        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = l.local_addr().unwrap();
+        drop(l);
+        format!("http://{addr}")
+    };
+    store_tools_preset_redirect(&dead, &["deepseek"]);
+    let mk = |name: &str| CreatePlatform {
+        name: name.into(),
+        platform_type: Protocol::DeepSeek,
+        base_url: dead.clone(),
+        api_key: "sk-tools".into(),
+        extra: String::new(),
+        models: None,
+        available_models: None,
+        endpoints: None,
+        manual_budgets: None,
+        auto_group: None,
+        join_group_ids: None,
+        expires_at: None,
+        quota_source: None,
+    };
+    let p1 = aidog_db::create_platform(&state.db, mk("ds1")).await.unwrap();
+    let p2 = aidog_db::create_platform(&state.db, mk("ds2")).await.unwrap();
+    let group = aidog_db::create_group(&state.db, sample_group("gdead55", vec![])).await.unwrap();
+    aidog_db::set_group_platforms(&state.db, group.id, &[
+        GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1), level_priority: Some(0) },
+        GroupPlatformInput { platform_id: p2.id, priority: Some(1), weight: Some(1), level_priority: Some(0) },
+    ]).await.unwrap();
+    aidog_db::update_group(&state.db, aidog_db::models::UpdateGroup {
+        id: group.id, name: None, routing_mode: None, request_timeout_secs: 0, connect_timeout_secs: 0,
+        source_protocol: None, max_retries: Some(2), model_mappings: vec![], env_vars: vec![], is_default: None,
+    }).await.unwrap();
+    state.db.invalidate_group_details_cache();
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        tools_request("gdead55", "/v1/tools/search", r#"{"text_query":"x"}"#),
+    )
+    .await;
+    crate::gateway::registry::invalidate_presets_cache();
+    assert_ne!(resp.status(), StatusCode::OK, "两个同站平台都 connect 失败，终态非 2xx");
+
+    flush_log_queue(&state).await;
+    let fresh = reopen_and_read(&_dir).await;
+    let logs = aidog_logs::list_proxy_logs(&fresh, 10, 0).await.unwrap();
+    let row = aidog_logs::get_proxy_log(&fresh, &logs[0].id).await.unwrap().unwrap();
+    // 路由快照：先试的标 selected，同站兄弟标 skipped-dead-upstream（R3 死站联动；
+    // 次数耗尽开新一轮后同站平台可能被重试——R3 跳过是轮内语义，快照留痕是本次请求级）。
+    let tried: Vec<u64> = row.attempts.iter().map(|a| a.platform_id).collect();
+    assert!(
+        tried.contains(&(p1.id as u64)),
+        "首平台必须被尝试过，attempts platform_ids = {tried:?}"
+    );
+    let rs = row.routing.expect("routing snapshot must be recorded");
+    let reasons: Vec<_> = rs.entries.iter().map(|e| e.reason).collect();
+    assert_eq!(
+        reasons.iter().filter(|r| **r == aidog_db::models::RouteReason::Selected).count(),
+        1,
+        "reasons = {reasons:?}"
+    );
+    assert_eq!(
+        reasons.iter().filter(|r| **r == aidog_db::models::RouteReason::SkippedDeadUpstream).count(),
+        1,
+        "reasons = {reasons:?}"
+    );
+}
+
 /// 用例 5：组内无声明平台 → 400 + no_tools_platform 白名单 reason，落审计 proxy_log。
 #[tokio::test]
 async fn e2e_no_tools_platform_returns_400() {
