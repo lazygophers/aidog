@@ -488,8 +488,8 @@ async fn e2e_connect_failure_records_platform_exclusion_then_fails_over() {
     let fresh = reopen_and_read(&dir).await;
     let logs = aidog_logs::list_proxy_logs(&fresh, 10, 0).await.unwrap();
     let row = aidog_logs::get_proxy_log(&fresh, &logs[0].id).await.unwrap().unwrap();
-    let scopes: Vec<_> = row.attempts.iter().map(|a| a.exclusion.as_deref()).collect();
-    assert_eq!(scopes, [Some("platform"), None]);
+    let scopes: Vec<_> = row.attempts.iter().map(|a| a.exclusion).collect();
+    assert_eq!(scopes, [Some(ExcludeScope::Platform), None]);
 }
 
 /// 票 01（issue 55）：搜索转发 connect 失败必须回报 connect_failed=true，
