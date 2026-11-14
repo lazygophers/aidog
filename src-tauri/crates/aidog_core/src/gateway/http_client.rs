@@ -237,6 +237,23 @@ pub async fn build_http_client(
     client
 }
 
+/// 按归属构建（issue #64 T04）：`platform_extra` = 平台行 extra JSON（平台归属，读
+/// `extra.proxy_enabled`）；`None` / 空白 = 非平台归属（others_enabled）。quota 注入与
+/// model_fetch 共用。
+pub async fn build_http_client_scoped(
+    db: &Arc<Db>,
+    timeout_secs: u64,
+    conn_timeout_secs: u64,
+    platform_extra: Option<&str>,
+) -> reqwest::Client {
+    let settings = load_proxy_client_settings(db).await;
+    let use_proxy = match platform_extra.map(str::trim).filter(|s| !s.is_empty()) {
+        Some(extra) => platform_should_use_proxy(&settings, extra),
+        None => should_use_proxy(&settings, ProxyAttribution::NonPlatform),
+    };
+    build_http_client(&settings, timeout_secs, conn_timeout_secs, use_proxy).await
+}
+
 /// Convenience: build client for 非平台出站（归属 NonPlatform，读「其它请求使用代理」）。
 /// 非请求路径用（model_fetch/price_sync/logo_sync/quota）：现读 DB settings 再委托。
 pub async fn build_http_client_system(
@@ -466,5 +483,76 @@ mod tests {
             0,
             "use_proxy=false 时 reqwest 必须禁 env proxy（.no_proxy），stub proxy 不应被连"
         );
+    }
+
+    /// stub HTTP 代理：计请求数并回 200（issue #64 T04/T05 行为测试共用 idiom）。
+    async fn spawn_hit_counting_proxy() -> (
+        std::net::SocketAddr,
+        std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    ) {
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let hits = Arc::new(AtomicUsize::new(0));
+        let h = hits.clone();
+        let app = axum::Router::new().fallback(axum::routing::any(move || {
+            let h = h.clone();
+            async move {
+                h.fetch_add(1, Ordering::SeqCst);
+                (axum::http::StatusCode::OK, "")
+            }
+        }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await.ok() });
+        (addr, hits)
+    }
+
+    /// issue #64 T04：`build_http_client_scoped` 按平台 extra / 非平台开关切换代理。
+    /// others_enabled=true + 平台 proxy_enabled=false → 平台关压过其它开（直连）；
+    /// 平台 true / 非平台归属 → 走代理（stub proxy 计数）。直连目标用非回环域名，
+    /// 测试构建的 LoopbackOnlyResolver 直接拒解（test-no-real-calls 护栏兼做直连断言）。
+    #[tokio::test]
+    async fn scoped_client_follows_platform_extra_switch() {
+        let (proxy_addr, hits) = spawn_hit_counting_proxy().await;
+        let db = Arc::new(aidog_db::test_support::test_db().await);
+        aidog_db::set_setting(
+            &db,
+            aidog_db::SetSettingInput {
+                scope: "proxy".into(),
+                key: "proxy_client".into(),
+                value: serde_json::json!({
+                    "proxy_type": "http",
+                    "host": "127.0.0.1",
+                    "port": proxy_addr.port(),
+                    "others_enabled": true,
+                    // 覆盖 DEFAULT_NO_PROXY（其中含 127.0.0.1，会让代理目标绕过代理）
+                    "no_proxy": "nothing.invalid",
+                }),
+            },
+        )
+        .await
+        .unwrap();
+
+        let url = "http://example.invalid/x"; // 直连必被 resolver 拦；走代理则由 proxy 端应答
+
+        // 平台开 → 走代理
+        let c = build_http_client_scoped(&db, 0, 5, Some(r#"{"proxy_enabled":true}"#)).await;
+        c.get(url).send().await.expect("proxy_enabled=true must proxy");
+        assert_eq!(hits.load(std::sync::atomic::Ordering::SeqCst), 1);
+
+        // 平台关（others_enabled=true 也压不过）→ 直连 → resolver 拦
+        let c = build_http_client_scoped(&db, 0, 5, Some(r#"{"proxy_enabled":false}"#)).await;
+        assert!(
+            c.get(url).send().await.is_err(),
+            "platform proxy_enabled=false must direct-connect despite others_enabled=true"
+        );
+        assert_eq!(hits.load(std::sync::atomic::Ordering::SeqCst), 1);
+
+        // 非平台归属（None / 空白 extra）→ others_enabled=true → 走代理
+        let c = build_http_client_scoped(&db, 0, 5, None).await;
+        c.get(url).send().await.expect("None attribution must follow others_enabled");
+        let c = build_http_client_scoped(&db, 0, 5, Some("  ")).await;
+        c.get(url).send().await.expect("blank extra = non-platform attribution");
+        assert_eq!(hits.load(std::sync::atomic::Ordering::SeqCst), 3);
     }
 }

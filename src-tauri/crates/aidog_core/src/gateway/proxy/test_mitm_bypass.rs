@@ -549,3 +549,212 @@ async fn core_mitm_observed_row_written() {
     assert!(resp_body.contains("msg"));
     assert_eq!(*resp_bytes, 340);
 }
+
+/// stub HTTP 代理：计请求数并回 200（issue #64 T05 行为测试）。
+async fn spawn_hit_counting_proxy() -> (
+    std::net::SocketAddr,
+    std::sync::Arc<std::sync::atomic::AtomicUsize>,
+) {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let hits = std::sync::Arc::new(AtomicUsize::new(0));
+    let h = hits.clone();
+    let app = axum::Router::new().fallback(axum::routing::any(move || {
+        let h = h.clone();
+        async move {
+            h.fetch_add(1, Ordering::SeqCst);
+            (StatusCode::OK, "")
+        }
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, app).await.ok() });
+    (addr, hits)
+}
+
+/// 建组 + 单平台（官方 Anthropic host 与否、extra 可指定），返回平台行。
+async fn mitm_group_with_platform(
+    state: &Arc<ProxyState>,
+    name: &str,
+    base_url: &str,
+    extra: &str,
+) -> aidog_db::models::Platform {
+    use crate::gateway::models::{CreatePlatform, GroupPlatformInput, Protocol};
+    let plat = aidog_db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: name.into(),
+            platform_type: Protocol::Anthropic,
+            base_url: base_url.to_string(),
+            api_key: "sk-up".into(),
+            extra: extra.to_string(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .unwrap();
+    let group =
+        aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(name, vec![]))
+            .await
+            .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: plat.id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+    plat
+}
+
+/// issue #64 T05：MITM 旁路按连接绑定分组的官方平台（base_url host = api.anthropic.com，
+/// **禁用平台也计入**）proxy_enabled 集合判定代理；任一显式开 → 走代理；组无官方平台 /
+/// 未绑定分组 / 全无开关 → 回落 others_enabled（此处 false → 直连）。本地 stub，不真实外呼。
+#[tokio::test]
+async fn mitm_bypass_proxy_follows_group_official_platforms() {
+    use crate::gateway::models::ProxyClientSettings;
+    use std::sync::atomic::Ordering;
+
+    let (proxy_addr, hits) = spawn_hit_counting_proxy().await;
+    let upstream = spawn_stub_upstream().await;
+    let state = make_state().await;
+    {
+        let mut c = state.settings_cache.write().await;
+        c.proxy_client = ProxyClientSettings {
+            proxy_type: "http".into(),
+            host: "127.0.0.1".into(),
+            port: proxy_addr.port(),
+            others_enabled: false,
+            // 覆盖 DEFAULT_NO_PROXY（含 127.0.0.1，会让目标绕过代理）
+            no_proxy: "nothing.invalid".into(),
+            ..Default::default()
+        };
+    }
+    let settings = settings_logging();
+
+    // ── 1. 组内官方平台（禁用态）proxy_enabled=true → 旁路走代理 ──
+    let plat = mitm_group_with_platform(
+        &state,
+        "mitmon",
+        "https://api.anthropic.com",
+        r#"{"proxy_enabled":true}"#,
+    )
+    .await;
+    // 禁用平台也计入集合（get_group_platforms 不过滤 status/enabled）
+    aidog_db::update_platform(
+        &state.db,
+        aidog_db::UpdatePlatform {
+            id: plat.id,
+            enabled: Some(false),
+            ..mitm_noop_platform_update()
+        },
+    )
+    .await
+    .unwrap();
+    let resp = handle_mitm_observed(
+        &state,
+        MitmRoute::Bypass,
+        format!("{upstream}/telemetry"),
+        "browser-intake-us5-datadoghq.com",
+        "/telemetry",
+        Method::POST,
+        HeaderMap::new(),
+        Bytes::from(r#"{"e":"metric"}"#),
+        "mitmon",
+        &settings,
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(hits.load(Ordering::SeqCst), 1, "官方平台（禁用态）开 → 旁路走代理");
+
+    // ── 2. 组内官方平台无开关 → 回落 others_enabled=false → 直连 ──
+    mitm_group_with_platform(&state, "mitmoff", "https://api.anthropic.com", "{}").await;
+    let resp = handle_mitm_observed(
+        &state,
+        MitmRoute::Bypass,
+        format!("{upstream}/telemetry"),
+        "browser-intake-us5-datadoghq.com",
+        "/telemetry",
+        Method::POST,
+        HeaderMap::new(),
+        Bytes::from(r#"{"e":"metric"}"#),
+        "mitmoff",
+        &settings,
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(hits.load(Ordering::SeqCst), 1, "官方平台无开关 → 回落 others_enabled 直连");
+
+    // ── 3. 组内无官方平台（非 anthropic host，开关开也不算）→ 直连 ──
+    mitm_group_with_platform(
+        &state,
+        "mitmnon",
+        "https://third-party.example",
+        r#"{"proxy_enabled":true}"#,
+    )
+    .await;
+    let resp = handle_mitm_observed(
+        &state,
+        MitmRoute::Bypass,
+        format!("{upstream}/telemetry"),
+        "browser-intake-us5-datadoghq.com",
+        "/telemetry",
+        Method::POST,
+        HeaderMap::new(),
+        Bytes::from(r#"{"e":"metric"}"#),
+        "mitmnon",
+        &settings,
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(hits.load(Ordering::SeqCst), 1, "非官方 host 不进集合 → 直连");
+
+    // ── 4. 未绑定分组（group_name 空）→ 回落 others_enabled=false → 直连 ──
+    let resp = handle_mitm_observed(
+        &state,
+        MitmRoute::Bypass,
+        format!("{upstream}/telemetry"),
+        "browser-intake-us5-datadoghq.com",
+        "/telemetry",
+        Method::POST,
+        HeaderMap::new(),
+        Bytes::from(r#"{"e":"metric"}"#),
+        "",
+        &settings,
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(hits.load(Ordering::SeqCst), 1, "未绑定分组 → 回落非平台规则直连");
+}
+
+/// UpdatePlatform 全 None 底版（测试内改一两个字段用）。
+fn mitm_noop_platform_update() -> aidog_db::UpdatePlatform {
+    aidog_db::UpdatePlatform {
+        id: 0,
+        name: None,
+        platform_type: None,
+        base_url: None,
+        api_key: None,
+        extra: None,
+        models: None,
+        available_models: None,
+        endpoints: None,
+        enabled: None,
+        status: None,
+        manual_budgets: None,
+        join_group_ids: None,
+        expires_at: None,
+        quota_source: None,
+    }
+}
