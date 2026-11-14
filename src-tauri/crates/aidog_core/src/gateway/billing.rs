@@ -185,7 +185,7 @@ pub async fn calc_est_cost_detail(
     let tool_counts: Vec<&(String, i64)> =
         tool_counts.iter().filter(|(k, _)| k != SEARCH_UNITS_KEY).collect();
     // 条目 `price.unit=="request"`：est_cost = unit_price × 次数（缺次数按 1 次/请求），不乘 peak 倍率。
-    let request_fee = resolved.request_unit_price.map_or(0.0, |up| up * search_units.max(1) as f64);
+    let request_fee = resolved.request_fee(search_units);
     // 票 16 B3：按次费只在有计数时查 tools_pricing（空计数零开销，也不触发 warn）。
     let tool_fee = if tool_counts.is_empty() {
         0.0

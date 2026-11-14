@@ -5215,6 +5215,77 @@ async fn aux_request_deducts_balance_by_est_cost() {
     );
 }
 
+/// 评审 R1：chat 按次计价条目（price.unit="request"）上游缺 usage（token 全 0）时
+/// 不再被 spawn_estimate 的「无 token 跳过」漏掉——缺次数按 1 次扣 request_fee；
+/// 纯 token 计价条目 token 全 0 照旧跳过（不扣费、不进预估链），无双扣。
+#[tokio::test]
+async fn chat_per_request_price_no_usage_deducts_once() {
+    const NO_USAGE_OK: &str = r#"{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn"}"#;
+    async fn run(gk: &str, price: &str) -> aidog_db::models::Platform {
+        let upstream = spawn_stub_upstream(200, NO_USAGE_OK).await;
+        let (db, _dir) = aidog_db::test_support::three_file_db().await;
+        let state = make_state(db).await;
+        aidog_db::upsert_model_entries(&state.db, vec![ModelEntry {
+            platform_code: "anthropic".into(),
+            model_id: "claude-3".into(),
+            display_name: "claude-3".into(),
+            canonical_model: "claude-3".into(),
+            capabilities: vec![],
+            ..embedding_entry(price)
+        }])
+        .await
+        .unwrap();
+        setup_group_with_upstream(&state, gk, &upstream).await;
+        let plats = aidog_db::list_platforms(&state.db).await.unwrap();
+        let plat_id = plats.iter().find(|p| p.name == "stub").unwrap().id;
+        let quota = crate::gateway::quota::PlatformQuota {
+            success: true,
+            error: None,
+            queried_at: aidog_db::now(),
+            balance: Some(crate::gateway::quota::BalanceInfo {
+                remaining: 100.0,
+                total: None,
+                used: None,
+                currency: "USD".into(),
+                is_valid: true,
+            }),
+            coding_plan: None,
+            newapi_user_id: None,
+        };
+        crate::gateway::estimate::calibrate_from_quota(&state.db, plat_id, &quota, false).await;
+
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            messages_request(gk, r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#),
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let mut p = aidog_db::get_platform(&state.db, plat_id).await.unwrap().unwrap();
+        for _ in 0..100 {
+            if p.estimate_count > 0 {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            p = aidog_db::get_platform(&state.db, plat_id).await.unwrap().unwrap();
+        }
+        p
+    }
+
+    // 按次计价：缺 usage 按 1 次扣 unit_price，余额 100 - 0.002
+    let p = run("gkcr1", r#"{"unit":"request","unit_price":0.002}"#).await;
+    assert!(p.estimate_count > 0, "按次计价 chat 缺 usage 也必须进预估链");
+    assert!(
+        (p.est_balance_remaining - (100.0 - 0.002)).abs() < 1e-9,
+        "got {}",
+        p.est_balance_remaining
+    );
+
+    // 纯 token 计价：缺 usage 照旧跳过，余额不动
+    let p = run("gkcr2", r#"{"input":2e-8,"output":0}"#).await;
+    assert_eq!(p.estimate_count, 0, "纯 token 计价缺 usage 不得进预估链");
+    assert!((p.est_balance_remaining - 100.0).abs() < 1e-9, "got {}", p.est_balance_remaining);
+}
+
 /// 无候选 → 503 + no_rerank_platform（槽位空 / 非 OpenAI 系 / 只配了 embedding 槽）。
 #[tokio::test]
 async fn rerank_no_candidate_503_and_audit_log() {

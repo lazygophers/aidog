@@ -651,21 +651,14 @@ pub(crate) fn spawn_estimate(
     request_units: i64,
     span: tracing::Span,
 ) {
-    // 无 token 且无按次费（请求失败 / 无 usage）则跳过；独立搜索请求 token 全 0 但有
-    // 按次费 / 按次计量次数（rerank 缺省 1 次），不能跳。
-    if input_tokens <= 0
-        && output_tokens <= 0
-        && cache_tokens <= 0
-        && tool_cost_usd <= 0.0
-        && request_units <= 0
-    {
-        return;
-    }
+    // 跳过判定在 estimate_after_request 内部、价格解析之后（评审 R1）：纯 token 计价
+    // 条目上游缺 usage（token 全 0）→ 不扣不刷托盘；按次计价条目 token 全 0 仍按 1 次
+    // 扣 request_fee，chat 不漏扣。同步段无法拿价格解析，不再提前 return。
     let ptype = platform_type.wire_str();
     let db = state.db.clone();
     tokio::spawn(
         async move {
-            super::estimate::estimate_after_request(
+            let processed = super::estimate::estimate_after_request(
                 &db,
                 platform_id,
                 &ptype,
@@ -684,7 +677,9 @@ pub(crate) fn spawn_estimate(
             )
             .await;
             // 预估更新后通知主线程刷新托盘（emit 事件，避免后台线程直接操作 tray）
-            aidog_ctx::emit_unit("tray-refresh");
+            if processed {
+                aidog_ctx::emit_unit("tray-refresh");
+            }
         }
         .instrument(span),
     );

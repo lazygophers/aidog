@@ -632,6 +632,7 @@ async fn balance_fx(db: &Db, platform_id: u64, fallback_cny: bool) -> f64 {
 /// - 余额平台（非 coding plan）：扣金额。
 /// - coding plan 平台：更新 utilization。
 /// - 命中校准阈值 → 触发真查覆盖（锁外 await）。
+/// - 返回是否实际处理（无任何可扣项且条目非按次计价时跳过，返回 false）。
 #[allow(clippy::too_many_arguments)]
 pub async fn estimate_after_request(
     db: &Db,
@@ -651,7 +652,7 @@ pub async fn estimate_after_request(
     tool_cost_usd: f64,
     // 按次计量次数（rerank：search_units；embedding/chat 路径 0 = 缺次数按 1 次估，同 billing.rs）。
     request_units: i64,
-) {
+) -> bool {
     // 判峰时刻与 calc_est_cost 同源：用请求发起时刻（created_at_ms），不用完成后的 now()
     // —— 跨峰边界请求（17:59 发 18:05 完）此前两套口径对不上。缺时间戳（0）才退 now()。
     let at_ms = if created_at_ms > 0 { created_at_ms } else { now() };
@@ -683,11 +684,22 @@ pub async fn estimate_after_request(
         .map_or(raw_mult, |r| r.multiplier(raw_mult));
     let source_cny = resolved.as_ref().is_some_and(|r| r.source_cny);
     // 条目 `price.unit` 按次计价：费 = unit_price × 次数（缺次数按 1 次/请求，与 billing.rs 同口径）。
-    let request_fee = resolved
-        .as_ref()
-        .and_then(|r| r.request_unit_price)
-        .map_or(0.0, |up| up * request_units.max(1) as f64);
+    let request_fee = resolved.as_ref().map_or(0.0, |r| r.request_fee(request_units));
     let resolved_price = resolved.map(|r| r.price);
+
+    // 跳过判定（原在 spawn_estimate 同步段，评审 R1 移入价格解析之后）：上游缺 usage
+    // （token 全 0）且无按次费 / 按次计量次数时，纯 token 计价条目无任何可扣项 → 跳过
+    // （含校准）；按次计价条目 request_unit_price 存在 → 仍按 1 次扣 request_fee，
+    // chat 缺 usage 不再漏扣。字段集与原跳过条件一致（不含 cache_write，保持原语义）。
+    if input_tokens <= 0
+        && output_tokens <= 0
+        && cache_tokens <= 0
+        && tool_cost_usd <= 0.0
+        && request_units <= 0
+        && request_fee <= 0.0
+    {
+        return false;
+    }
 
     // 1. 增量预估
     if is_coding_plan {
@@ -753,6 +765,7 @@ pub async fn estimate_after_request(
     {
         run_calibration(db, platform_id, base_url, api_key, is_coding_plan).await;
     }
+    true
 }
 
 #[cfg(test)]
