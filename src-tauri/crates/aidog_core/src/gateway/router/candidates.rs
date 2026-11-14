@@ -933,7 +933,7 @@ async fn select_candidates_inner(
                 routing,
             });
         }
-        // 客户端白名单拦下了候选：全部平台都因白名单被拦 → 417（`client_not_allowed`）；
+        // 客户端白名单拦下了候选：全部平台都因白名单被拦 → 403（`client_not_allowed`）；
         // 与其他排除原因并存 → 503（`client_not_allowed_mixed`，落库 blocked_reason 同名）。
         if client_rejected_count > 0 {
             let reason = if client_rejected_count == group_platforms.len() {
@@ -1112,7 +1112,7 @@ async fn handle_single_platform(
 
     // 客户端白名单（票 05）：与 filter_candidates 同位次——手动禁用 / 审核硬停 / 高峰禁用等既有硬停
     // 先判，之后、status bypass 与透传豁免之前拦截（独立维度，透传平台同样受约束，ADR 0008 修订）。
-    // 单平台无「混合原因」概念：唯一候选被白名单拦 = 全部候选被拦 → 417。
+    // 单平台无「混合原因」概念：唯一候选被白名单拦 = 全部候选被拦 → 403。
     if let ClientGate::On(probe) = &client
         && cache
             .is_some_and(|c| !client_allowed(&c.allowed_clients, &c.ua_rules, &probe.ua, probe.hit))
@@ -1469,7 +1469,7 @@ fn select_direct_candidates(
     };
 
     if ordered.is_empty() {
-        // 声明平台全因客户端白名单被拦（票 05）→ 417；白名单与其他不可用原因并存沿用原错误。
+        // 声明平台全因客户端白名单被拦（票 05）→ 403；白名单与其他不可用原因并存沿用原错误。
         let client_rejected = routing
             .entries
             .iter()
