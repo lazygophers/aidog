@@ -1020,6 +1020,29 @@
       "returns": "gateway::models::PlatformUsageStats"
     },
     {
+      "name": "holiday_calendar_get",
+      "category": "defaults",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "code",
+          "type": "String"
+        }
+      ],
+      "returns": "aidog_db::registry::HolidayCalendar"
+    },
+    {
+      "name": "holiday_calendar_list",
+      "category": "defaults",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<aidog_db::registry::HolidayCalendarSummary>"
+    },
+    {
       "name": "import_apply",
       "category": "backup",
       "kind": "mutating",

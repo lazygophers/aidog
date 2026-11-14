@@ -3937,5 +3937,13 @@
   "agentUpdate.confirmDesc": "Führt das Update-Kommando der Installationsquelle aus; Dateien können geladen werden. Fortfahren?",
   "agentUpdate.manualHint": "Diese Installationsquelle unterstützt keine automatischen Updates; bitte manuell aktualisieren",
   "agentUpdate.success": "Aktualisiert: v{{before}} → v{{after}}",
-  "agentUpdate.failed": "Update fehlgeschlagen"
+  "agentUpdate.failed": "Update fehlgeschlagen",
+  "platform.windows_dim_workday": "Arbeitstage",
+  "platform.windows_dim_holiday": "Feiertage",
+  "platform.holidayCalendar": "Feiertagskalender",
+  "platform.holidayCalendar.dayType": "Tagestyp",
+  "platform.holidayCalendar.inherit": "Kalender übernehmen",
+  "platform.holidayCalendar.loadFailed": "Kalenderdaten nicht verfügbar; Wochentagsregel wird verwendet",
+  "platform.holidayCalendar.weekday": "Wochentag",
+  "platform.holidayCalendar.yearUnavailable": "Der Kalender deckt das aktuelle Jahr nicht ab; Wochentagsregel wird verwendet"
 }

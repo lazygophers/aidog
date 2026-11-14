@@ -1,0 +1,36 @@
+{
+  "code": "DE-BY",
+  "extends": "DE",
+  "name": {
+    "zh-Hans": "巴伐利亚州",
+    "en-US": "Bavaria",
+    "ar-SA": "بافاريا",
+    "fr-FR": "Bavière",
+    "de-DE": "Bayern",
+    "ru-RU": "Бавария",
+    "ja-JP": "バイエルン州",
+    "es-ES": "Baviera"
+  },
+  "source_urls": [
+    "https://www.gesetze-im-internet.de/einigvtr/art_2.html",
+    "https://www.gesetze-bayern.de/Content/Document/BayFTG-1"
+  ],
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-01-06",
+        "2026-06-04",
+        "2026-11-01"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-01-06",
+        "2027-05-27",
+        "2027-11-01"
+      ],
+      "workdays": []
+    }
+  }
+}

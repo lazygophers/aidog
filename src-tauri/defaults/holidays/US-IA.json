@@ -1,0 +1,28 @@
+{
+  "code": "US-IA",
+  "extends": "US",
+  "name": {
+    "ar-SA": "آيوا",
+    "de-DE": "Iowa",
+    "en-US": "Iowa",
+    "es-ES": "Iowa",
+    "fr-FR": "Iowa",
+    "ja-JP": "アイオワ州",
+    "ru-RU": "Айова",
+    "zh-Hans": "爱荷华州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-02-12", "2026-07-04", "2026-11-27"],
+      "workdays": ["2026-06-19", "2026-10-12"]
+    },
+    "2027": {
+      "holidays": ["2027-02-12", "2027-07-04", "2027-11-26", "2027-12-25"],
+      "workdays": ["2027-06-18", "2027-10-11"]
+    }
+  },
+  "source_urls": [
+    "https://www.legis.iowa.gov/docs/code/1C.1.pdf",
+    "https://www.legis.iowa.gov/docs/code/1C.2.pdf"
+  ]
+}

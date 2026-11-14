@@ -1127,7 +1127,9 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   .spin,
   .flow-border:hover::after,
   .toast,
-  .card-item {
+  .card-item,
+  .aidog-anim-pop,
+  .aidog-anim-rise {
     animation: none;
   }
   .proxy-status-glow { animation: none; opacity: 0.6; }

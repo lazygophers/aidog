@@ -133,7 +133,7 @@
       ]
     }
   ],
-  "last_updated": 1794291601,
+  "last_updated": 1794646329,
   "tools_pricing": {
     "web_search": {
       "per_1000": 10.0
@@ -197,6 +197,7 @@
     "pricing": "https://www.anthropic.com/pricing"
   },
   "homepage": "https://www.anthropic.com",
+  "holiday_calendar": "US-CA",
   "logo_url": "anthropic",
   "keywords": [
     "claude",

@@ -3849,5 +3849,13 @@
   "agentUpdate.confirmDesc": "This runs the update command for this tool's install source and may download files. Continue?",
   "agentUpdate.manualHint": "This install source does not support automatic updates; upgrade manually",
   "agentUpdate.success": "Updated: v{{before}} → v{{after}}",
-  "agentUpdate.failed": "Update failed"
+  "agentUpdate.failed": "Update failed",
+  "platform.windows_dim_workday": "Workdays",
+  "platform.windows_dim_holiday": "Holidays",
+  "platform.holidayCalendar": "Holiday calendar",
+  "platform.holidayCalendar.dayType": "Day type",
+  "platform.holidayCalendar.inherit": "Inherit calendar",
+  "platform.holidayCalendar.loadFailed": "Calendar data could not be loaded; using weekday rules",
+  "platform.holidayCalendar.weekday": "Weekdays",
+  "platform.holidayCalendar.yearUnavailable": "Calendar does not cover the current year; using weekday rules"
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { ClientType, Protocol } from "../../services/api";
 import {
   buildClientTypesFromPresets,
+  getDefaultHolidayCalendar,
   getDefaultModels,
   getDefaultPeak,
   getProtocolColorMap,
@@ -51,6 +52,7 @@ export interface ProtocolMeta {
    *  此前 PlatformCard 只读用户侧，导致 glm_coding / deepseek 这类自带预设 peak 的
    *  平台不显高峰徽标。 */
   peakWindows: TimeWindow[];
+  holidayCalendar?: string;
 }
 
 const INITIAL: ProtocolMeta = {
@@ -75,10 +77,11 @@ export function useProtocolMeta(
     let cancelled = false;
     (async () => {
       // 单次 Promise.all 聚合 5 派生（docPromise 单例缓存，无 N 次 RPC）
-      const [colorMap, isCp, peakWindows, homepage, sourceUrls, protocolLabel, labelMap] = await Promise.all([
+      const [colorMap, isCp, peakWindows, defaultCalendar, homepage, sourceUrls, protocolLabel, labelMap] = await Promise.all([
         getProtocolColorMap(),
         isCodingPlanProtocol(protocol),
         getDefaultPeak(protocol),
+        getDefaultHolidayCalendar(protocol),
         getProtocolHomepage(protocol),
         getProtocolSourceUrls(protocol),
         getProtocolLabel(protocol, lang),
@@ -88,7 +91,12 @@ export function useProtocolMeta(
       // 高峰判定：用户 extra.peak 优先 → preset default；命中则取 models.peak 分支
       const userPh = parsePlatformPeak(extra);
       const phWindows = userPh.length > 0 ? userPh : peakWindows;
-      const isPeak = isCurrentlyPeak(phWindows, Date.now());
+      let holidayCalendar = defaultCalendar;
+      try {
+        const configured = JSON.parse(extra || "{}").holiday_calendar;
+        if (typeof configured === "string") holidayCalendar = configured;
+      } catch { /* malformed extra falls back to registry default */ }
+      const isPeak = isCurrentlyPeak(phWindows, Date.now(), "", holidayCalendar);
       const modelsBranch = await getDefaultModels(protocol, isPeak);
       if (cancelled) return;
       setMeta({
@@ -100,6 +108,7 @@ export function useProtocolMeta(
         protocolLabel,
         labelMap,
         peakWindows: phWindows,
+        holidayCalendar,
       });
     })();
     return () => { cancelled = true; };

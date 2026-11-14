@@ -29,6 +29,19 @@ pub fn utc_time(epoch_ms: i64) -> (i32, i32, i32, i32) {
 /// t 在 `tz`（IANA 名，None/非法 = UTC）的**本地**全时间分量（DST 由 tz 数据库处理）。
 /// 窗口时区解析的统一入口：`hit` 的 hour/weekday/day_of_month 均以此值比较。
 /// 与前端 `utils/timeWindow.ts::wallTimeInTz` 对称（跨层一致）。
+pub fn wall_date(epoch_ms: i64, tz: Option<&str>) -> String {
+    let dt = DateTime::<Utc>::from_timestamp_millis(epoch_ms)
+        .unwrap_or_else(|| DateTime::<Utc>::from_timestamp(0, 0).unwrap());
+    let local = match tz {
+        Some(name) => match name.parse::<chrono_tz::Tz>() {
+            Ok(z) => dt.with_timezone(&z).naive_local(),
+            Err(_) => dt.naive_utc(),
+        },
+        None => dt.naive_utc(),
+    };
+    local.format("%Y-%m-%d").to_string()
+}
+
 pub fn wall_time(epoch_ms: i64, tz: Option<&str>) -> (i32, i32, i32, i32) {
     // ponytail: chrono 已是依赖，直接用，免手算 1970-01-01=Thursday 偏移。
     let dt = DateTime::<Utc>::from_timestamp_millis(epoch_ms)
@@ -51,15 +64,40 @@ pub fn wall_time(epoch_ms: i64, tz: Option<&str>) -> (i32, i32, i32, i32) {
     (hour, minute, weekday, day_of_month)
 }
 
+fn day_type_matches(day_type: &str, calendar_is_workday: Option<bool>, weekday: i32) -> bool {
+    let is_workday = calendar_is_workday.unwrap_or((1..=5).contains(&weekday));
+    (day_type == "workday") == is_workday
+}
+
 /// 当前时刻命中窗口？支持 minute 精度 + days_of_week / days_of_month 过滤。
 ///
 /// - 时间比较用绝对分钟半开区间 `[start_min, end_min)`：
 ///   - 同天 (end_min > start_min)：`start_min <= t_min && t_min < end_min`
 ///   - 跨天 (end_min <= start_min)：`t_min >= start_min || t_min < end_min`
 ///   - 退化 (end_min == start_min)：全天命中（兼容旧 hour 精度 start==end 语义）
+/// - day_type 存在时优先于 days_of_week（旧配置同时存在时按互斥语义归一化）
 /// - days_of_week / days_of_month 同时 Some → AND（UI 保证互斥，此为兜底）
-pub(crate) fn hit(w: &TimeWindow, hour: i32, minute: i32, weekday: i32, day_of_month: i32) -> bool {
-    if let Some(days) = &w.days_of_week
+pub(crate) fn hit(
+    w: &TimeWindow,
+    hour: i32,
+    minute: i32,
+    weekday: i32,
+    day_of_month: i32,
+    date: &str,
+) -> bool {
+    if let Some(day_type) = w.day_type.as_deref()
+        && !day_type_matches(
+            day_type,
+            w.holiday_calendar
+                .as_deref()
+                .and_then(|code| aidog_db::registry::holiday_calendar_is_workday(code, date)),
+            weekday,
+        )
+    {
+        return false;
+    }
+    if w.day_type.is_none()
+        && let Some(days) = &w.days_of_week
         && !days.contains(&weekday)
     {
         return false;
@@ -98,7 +136,8 @@ pub fn resolve_multiplier(windows: &[TimeWindow], epoch_ms: i64, request_model: 
         }
         // 每窗口各自时区的本地时刻（timezone 缺省 = UTC，向后兼容）
         let (hour, minute, weekday, day_of_month) = wall_time(epoch_ms, w.timezone.as_deref());
-        if !hit(w, hour, minute, weekday, day_of_month) {
+        let date = wall_date(epoch_ms, w.timezone.as_deref());
+        if !hit(w, hour, minute, weekday, day_of_month, &date) {
             continue;
         }
         if !window_models_hit(w, request_model) {
@@ -121,8 +160,9 @@ pub fn is_in_peak_window(windows: &[TimeWindow], epoch_ms: i64, request_model: &
     let epoch_sec = epoch_ms / 1000;
     windows.iter().any(|w| {
         let (hour, minute, weekday, day_of_month) = wall_time(epoch_ms, w.timezone.as_deref());
+        let date = wall_date(epoch_ms, w.timezone.as_deref());
         period_active(w, epoch_sec)
-            && hit(w, hour, minute, weekday, day_of_month)
+            && hit(w, hour, minute, weekday, day_of_month, &date)
             && window_models_hit(w, request_model)
     })
 }
@@ -174,11 +214,24 @@ fn model_match(pattern: &str, request_model: &str) -> bool {
 /// 混合源取某平台 peak 窗口：用户 `extra.peak` 覆盖优先；空/缺 → bundled preset 默认。
 /// 等价于 `db::stats_today::platform_peak` 的纯函数版（无 DB 查询），供路由层直接用。
 pub fn peak_for(extra: &str, protocol: &str) -> Vec<TimeWindow> {
-    let user = parse_platform_peak(extra);
-    if !user.is_empty() {
-        return user;
+    let mut windows = parse_platform_peak(extra);
+    if windows.is_empty() {
+        windows = default_peak(protocol);
     }
-    default_peak(protocol)
+    let registry_calendar = aidog_db::registry::default_holiday_calendar(protocol);
+    let extra_calendar = crate::gateway::models::PlatformExtra::parse(extra)
+        .rest
+        .get("holiday_calendar")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned);
+    if let Some(code) = extra_calendar.or(registry_calendar) {
+        for window in &mut windows {
+            if window.holiday_calendar.is_none() {
+                window.holiday_calendar = Some(code.clone());
+            }
+        }
+    }
+    windows
 }
 
 /// 从 `platform.extra` JSON 解析 `disable_during_peak` 字段；缺失/非法/非 bool → false（默认）。
@@ -231,12 +284,56 @@ pub fn peak_models_in(
 
 /// 从 `platform.extra` JSON 字符串解析 `peak` 字段；非法 / 缺失 → 空。
 pub fn parse_platform_peak(extra: &str) -> Vec<TimeWindow> {
-    crate::gateway::models::PlatformExtra::parse(extra).peak
+    let parsed = crate::gateway::models::PlatformExtra::parse(extra);
+    let mut windows = parsed.peak;
+    if let Some(code) = parsed
+        .rest
+        .get("holiday_calendar")
+        .and_then(serde_json::Value::as_str)
+    {
+        for window in &mut windows {
+            if window.holiday_calendar.is_none() {
+                window.holiday_calendar = Some(code.to_owned());
+            }
+        }
+    }
+    windows
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn day_type_uses_calendar_and_weekday_fallback() {
+        assert!(day_type_matches("holiday", Some(false), 5));
+        assert!(day_type_matches("workday", Some(true), 0));
+        assert!(day_type_matches("workday", None, 1));
+        assert!(!day_type_matches("workday", None, 0));
+
+        let workday: TimeWindow = serde_json::from_str(
+            r#"{"start_hour":0,"end_hour":24,"multiplier":1.0,"day_type":"workday","holiday_calendar":"missing"}"#,
+        ).unwrap();
+        assert!(hit(&workday, 12, 0, 1, 2, "2026-11-02"));
+        assert!(!hit(&workday, 12, 0, 0, 1, "2026-11-01"));
+
+        let holiday: TimeWindow = serde_json::from_str(
+            r#"{"start_hour":0,"end_hour":24,"multiplier":1.0,"day_type":"holiday","holiday_calendar":"GB"}"#,
+        )
+        .unwrap();
+        assert!(hit(&holiday, 12, 0, 5, 3, "2026-04-03"));
+    }
+
+    #[test]
+    fn day_type_and_days_of_week_are_mutually_exclusive_at_runtime() {
+        let window: TimeWindow = serde_json::from_str(
+            r#"{"start_hour":0,"end_hour":24,"multiplier":1.0,"day_type":"workday","days_of_week":[0]}"#,
+        )
+        .unwrap();
+        assert!(hit(&window, 12, 0, 1, 2, "2026-11-02"));
+        assert!(!hit(&window, 12, 0, 0, 1, "2026-11-01"));
+    }
+
     #[test]
     fn utc_hour_weekday_sunday() {
         // 2024-01-07T02:50:00Z 是 Sunday 02:50 UTC（timestamp 1704595800）
@@ -482,7 +579,6 @@ mod tests {
         assert!(default_peak_models("__never_exists__").is_none());
     }
 
-
     #[test]
     fn models_empty_list_local_semantics() {
         // 已知跨层分歧：Rust Some([]) = 无 pattern 命中 → miss；TS timeWindow windowModelsHit 空列表 = 不限定。
@@ -496,12 +592,17 @@ mod tests {
             start_minute: None,
             end_minute: None,
             days_of_month: None,
+            day_type: None,
+            holiday_calendar: None,
             models: Some(vec![]),
             start_at: None,
             end_at: None,
         };
         let ms = 1_782_462_600_000; // 2026-06-26T08:30Z，UTC 08:30 落 [6,10)
-        assert_eq!(resolve_multiplier(std::slice::from_ref(&w), ms, "gpt-4"), 1.0);
+        assert_eq!(
+            resolve_multiplier(std::slice::from_ref(&w), ms, "gpt-4"),
+            1.0
+        );
         assert!(!is_in_peak_window(&[w], ms, "gpt-4"));
     }
 
@@ -538,7 +639,11 @@ mod tests {
             resolve_multiplier(&windows, noon, "deepseek-ai/DeepSeek-V4-Flash-0731"),
             2.0
         );
-        assert!(is_in_peak_window(&windows, noon, "tencent/Hunyuan-A13B-Instruct"));
+        assert!(is_in_peak_window(
+            &windows,
+            noon,
+            "tencent/Hunyuan-A13B-Instruct"
+        ));
         assert!(!is_in_peak_window(&windows, noon, "tencent/Hy4-preview"));
         // 2026-11-09T22:00Z = 北京 06:00：deepseek off（2-8）×1.0，hunyuan off ×1.0
         let dawn = 1_794_261_600_000_i64;
@@ -618,5 +723,4 @@ mod tests {
             );
         }
     }
-
 }

@@ -1,0 +1,33 @@
+{
+  "code": "DE-TH",
+  "extends": "DE",
+  "name": {
+    "zh-Hans": "图林根州",
+    "en-US": "Thuringia",
+    "ar-SA": "تورينغن",
+    "fr-FR": "Thuringe",
+    "de-DE": "Thüringen",
+    "ru-RU": "Тюрингия",
+    "ja-JP": "テューリンゲン州",
+    "es-ES": "Turingia"
+  },
+  "source_urls": [
+    "https://www.gesetze-im-internet.de/einigvtr/art_2.html"
+  ],
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-09-20",
+        "2026-10-31"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-09-20",
+        "2027-10-31"
+      ],
+      "workdays": []
+    }
+  }
+}

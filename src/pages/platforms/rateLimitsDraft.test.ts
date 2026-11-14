@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { bundleToDraft, draftToBundle, type RateLimitsDraft } from "./formSections";
 import { parseRateLimitsBundle, serializeRateLimitsBundle, type RateLimitsBundle } from "../../services/api";
+import { draftToRule, ruleToDraft } from "./RateLimitRules";
 
 const D = (over: Partial<RateLimitsDraft> = {}): RateLimitsDraft => ({
   rpm: "", tpm: "", rules: [], windows: [], ...over,
@@ -62,6 +63,13 @@ describe("rateLimits draft helpers", () => {
     const b: RateLimitsBundle = { rate_limits: { concurrency: 5, rpm: 60, rules, source_policy_id: "v0", source_last_updated: 9 } };
     expect(draftToBundle(bundleToDraft(b))).toEqual(b);
     expect(parseRateLimitsBundle(serializeRateLimitsBundle("{}", draftToBundle(bundleToDraft(b))))).toEqual(b);
+  });
+
+  it("限频规则保留工作日/节假日及日历覆盖，并清除互斥星期条件", () => {
+    const rule = { start_hour: 9, end_hour: 17, days_of_week: [1, 2], day_type: "holiday" as const, holiday_calendar: "GB" };
+    const draft = ruleToDraft(rule);
+    expect(draft).toMatchObject({ dayType: "holiday", holidayCalendar: "GB" });
+    expect(draftToRule(draft)).toEqual({ start_hour: 9, end_hour: 17, day_type: "holiday", holiday_calendar: "GB" });
   });
 
   it("只有 rules（无平台级上限）也不被当成空配置删掉", () => {

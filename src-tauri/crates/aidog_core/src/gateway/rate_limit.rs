@@ -31,9 +31,15 @@ impl Limits {
     fn from_value(v: &Value) -> Self {
         let pos = |k: &str| {
             let x = v.get(k)?;
-            x.as_i64().or_else(|| x.as_f64().map(|f| f as i64)).filter(|n| *n > 0)
+            x.as_i64()
+                .or_else(|| x.as_f64().map(|f| f as i64))
+                .filter(|n| *n > 0)
         };
-        Self { concurrency: pos("concurrency"), rpm: pos("rpm"), tpm: pos("tpm") }
+        Self {
+            concurrency: pos("concurrency"),
+            rpm: pos("rpm"),
+            tpm: pos("tpm"),
+        }
     }
 
     pub fn is_unlimited(&self) -> bool {
@@ -51,14 +57,24 @@ struct Rule {
 
 impl Rule {
     /// 无条件（models 空且无时段）→ None（丢弃并 warn）。
-    fn from_value(v: &Value) -> Option<Self> {
+    fn from_value(v: &Value, platform_calendar: Option<&str>) -> Option<Self> {
         let models: Vec<String> = v
             .get("models")
             .and_then(Value::as_array)
-            .map(|a| a.iter().filter_map(|m| m.as_str().map(str::trim)).filter(|m| !m.is_empty()).map(String::from).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|m| m.as_str().map(str::trim))
+                    .filter(|m| !m.is_empty())
+                    .map(String::from)
+                    .collect()
+            })
             .unwrap_or_default();
-        let has_time = ["start_hour", "end_hour"].iter().any(|k| v.get(k).is_some_and(|x| !x.is_null()))
-            || v.get("days_of_week").and_then(Value::as_array).is_some_and(|d| !d.is_empty());
+        let has_time = ["start_hour", "end_hour", "day_type"]
+            .iter()
+            .any(|k| v.get(k).is_some_and(|x| !x.is_null()))
+            || v.get("days_of_week")
+                .and_then(Value::as_array)
+                .is_some_and(|d| !d.is_empty());
         let time = if has_time {
             // 时段字段形状同 peak 窗口；缺省补 0~24 全天，multiplier 对限频无意义，补 1.0 过 TimeWindow 反序列化，
             // `models` 是规则自己的条件，不交给窗口判定。
@@ -68,6 +84,11 @@ impl Rule {
             o.entry("start_hour").or_insert(Value::from(0));
             o.entry("end_hour").or_insert(Value::from(24));
             o.entry("multiplier").or_insert(Value::from(1.0));
+            if !o.contains_key("holiday_calendar")
+                && let Some(code) = platform_calendar
+            {
+                o.insert("holiday_calendar".into(), Value::from(code));
+            }
             Some(serde_json::from_value::<TimeWindow>(tw).ok()?)
         } else {
             None
@@ -76,16 +97,24 @@ impl Rule {
             tracing::warn!("rate_limits.rules: 规则没有任何条件（模型 / 时段），已丢弃");
             return None;
         }
-        Some(Self { models, time, limits: Limits::from_value(v) })
+        Some(Self {
+            models,
+            time,
+            limits: Limits::from_value(v),
+        })
     }
 
     fn time_hit(&self, now_ms: i64) -> bool {
-        self.time.as_ref().is_none_or(|tw| peak::is_in_peak_window(std::slice::from_ref(tw), now_ms, ""))
+        self.time
+            .as_ref()
+            .is_none_or(|tw| peak::is_in_peak_window(std::slice::from_ref(tw), now_ms, ""))
     }
 
     /// 模型名精确匹配，或 `prefix*` 后缀通配（迁移自旧窗口的 models 保持原匹配语义）。
     fn model_hit(&self, model: &str) -> bool {
-        self.models.iter().any(|m| m == model || m.strip_suffix('*').is_some_and(|p| model.starts_with(p)))
+        self.models
+            .iter()
+            .any(|m| m == model || m.strip_suffix('*').is_some_and(|p| model.starts_with(p)))
     }
 }
 
@@ -100,6 +129,10 @@ impl RateLimitsCfg {
     /// 缺失 / 非法 JSON → 空（不限）。`source_policy_id` / `source_last_updated` 不在执行路径上，
     /// 整个 `extra` 原样留在 DB，不会被这里丢掉。旧键 `models` / `windows` 不再读（启动迁移已转 rules）。
     pub fn parse(extra: &str) -> Self {
+        Self::parse_with_calendar(extra, None)
+    }
+
+    pub fn parse_with_calendar(extra: &str, registry_calendar: Option<&str>) -> Self {
         if !extra.contains("rate_limits") {
             return Self::default();
         }
@@ -109,12 +142,23 @@ impl RateLimitsCfg {
         let Some(rl) = root.get("rate_limits").filter(|v| v.is_object()) else {
             return Self::default();
         };
+        let platform_calendar = root
+            .get("holiday_calendar")
+            .and_then(Value::as_str)
+            .or(registry_calendar);
         let rules = rl
             .get("rules")
             .and_then(Value::as_array)
-            .map(|a| a.iter().filter_map(Rule::from_value).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|rule| Rule::from_value(rule, platform_calendar))
+                    .collect()
+            })
             .unwrap_or_default();
-        Self { base: Limits::from_value(rl), rules }
+        Self {
+            base: Limits::from_value(rl),
+            rules,
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -136,7 +180,11 @@ impl RateLimitsCfg {
     /// 模型级上限（模型 = 实际发往上游的模型名）：首个命中的「模型 + 时段」> 首个「只选模型」> 不限。
     pub fn model_limits(&self, model: &str, now_ms: i64) -> Limits {
         let mut model_only = None;
-        for r in self.rules.iter().filter(|r| !r.models.is_empty() && r.model_hit(model)) {
+        for r in self
+            .rules
+            .iter()
+            .filter(|r| !r.models.is_empty() && r.model_hit(model))
+        {
             match r.time {
                 Some(_) if r.time_hit(now_ms) => return r.limits,
                 None => {
@@ -179,7 +227,11 @@ impl Inner {
             return false;
         }
         if let Some(t) = lim.tpm {
-            let used: i64 = self.tokens.iter().map(|(_, c)| c.load(Ordering::Relaxed)).sum();
+            let used: i64 = self
+                .tokens
+                .iter()
+                .map(|(_, c)| c.load(Ordering::Relaxed))
+                .sum();
             if used > 0 && used + est.max(1) > t {
                 return false;
             }
@@ -229,7 +281,11 @@ impl RateLimiter {
         }
         match self.bucket(pid, model, false) {
             None => true,
-            Some(b) => b.0.lock().map(|mut g| g.has_room(lim, now, est)).unwrap_or(true),
+            Some(b) => {
+                b.0.lock()
+                    .map(|mut g| g.has_room(lim, now, est))
+                    .unwrap_or(true)
+            }
         }
     }
 
@@ -249,8 +305,18 @@ impl RateLimiter {
 
     /// 平台级占位（一次访问只占一次，换模型不重复占）。超限返回 None。
     /// 平台级不限时也返回 `Access`（模型级可能仍要占位）。
-    pub fn begin(self: &Arc<Self>, pid: u64, lim: &Limits, now: i64, est: i64) -> Option<Arc<Access>> {
-        let platform = if lim.is_unlimited() { None } else { Some(self.take(pid, "", lim, now, est)?) };
+    pub fn begin(
+        self: &Arc<Self>,
+        pid: u64,
+        lim: &Limits,
+        now: i64,
+        est: i64,
+    ) -> Option<Arc<Access>> {
+        let platform = if lim.is_unlimited() {
+            None
+        } else {
+            Some(self.take(pid, "", lim, now, est)?)
+        };
         Some(Arc::new(Access {
             limiter: self.clone(),
             pid,
@@ -270,7 +336,9 @@ pub struct Access {
 impl Access {
     /// 换到 `model` 时重判并占模型级上限（上一个模型的名额先释放）。超限返回 false，调用方换下一个模型。
     pub fn enter_model(&self, model: &str, lim: &Limits, now: i64, est: i64) -> bool {
-        let Ok(mut s) = self.slots.lock() else { return true };
+        let Ok(mut s) = self.slots.lock() else {
+            return true;
+        };
         s[1] = None;
         if lim.is_unlimited() {
             return true;
@@ -298,7 +366,10 @@ impl Access {
 }
 
 /// 把 `access` 绑到响应体上：body 被丢弃（发完 / 客户端断连）时释放并发。
-pub(crate) fn hold_until_body_done(resp: axum::response::Response, access: Arc<Access>) -> axum::response::Response {
+pub(crate) fn hold_until_body_done(
+    resp: axum::response::Response,
+    access: Arc<Access>,
+) -> axum::response::Response {
     use futures::StreamExt;
     let (parts, body) = resp.into_parts();
     let stream = body.into_data_stream().map(move |chunk| {
@@ -313,7 +384,11 @@ mod tests {
     use super::*;
 
     fn lim(c: Option<i64>, r: Option<i64>, t: Option<i64>) -> Limits {
-        Limits { concurrency: c, rpm: r, tpm: t }
+        Limits {
+            concurrency: c,
+            rpm: r,
+            tpm: t,
+        }
     }
 
     const H: i64 = 3_600_000;
@@ -335,8 +410,15 @@ mod tests {
         );
         assert_eq!(c.base, lim(Some(5), Some(60), Some(1000)));
         assert_eq!(c.model_limits("m", 0), lim(Some(2), None, None));
-        assert!(c.model_limits("old", 0).is_unlimited(), "旧键 models 不再读");
-        assert_eq!(c.platform_limits(day0() + 12 * H), c.base, "旧键 windows 不再读；无条件规则被丢弃");
+        assert!(
+            c.model_limits("old", 0).is_unlimited(),
+            "旧键 models 不再读"
+        );
+        assert_eq!(
+            c.platform_limits(day0() + 12 * H),
+            c.base,
+            "旧键 windows 不再读；无条件规则被丢弃"
+        );
         assert!(RateLimitsCfg::parse("").is_empty());
         assert!(RateLimitsCfg::parse("not-json rate_limits").is_empty());
         assert!(RateLimitsCfg::parse(r#"{"rate_limits":{}}"#).is_empty());
@@ -345,11 +427,19 @@ mod tests {
 
     #[test]
     fn time_only_rule_replaces_platform_and_unfilled_is_unlimited() {
-        let c = cfg(r#"{"rpm":60,"concurrency":5,"rules":[{"start_hour":0,"end_hour":1,"concurrency":10}]}"#);
+        let c = cfg(
+            r#"{"rpm":60,"concurrency":5,"rules":[{"start_hour":0,"end_hour":1,"concurrency":10}]}"#,
+        );
         // 命中：整套替换，rpm 没填 = 不限
-        assert_eq!(c.platform_limits(day0() + 30 * 60_000), lim(Some(10), None, None));
+        assert_eq!(
+            c.platform_limits(day0() + 30 * 60_000),
+            lim(Some(10), None, None)
+        );
         // 时段外：平台级
-        assert_eq!(c.platform_limits(day0() + 12 * H), lim(Some(5), Some(60), None));
+        assert_eq!(
+            c.platform_limits(day0() + 12 * H),
+            lim(Some(5), Some(60), None)
+        );
     }
 
     #[test]
@@ -360,41 +450,56 @@ mod tests {
         assert_eq!(c.platform_limits(day0() + 3 * H).rpm, Some(1));
         assert_eq!(c.platform_limits(day0() + 12 * H).rpm, Some(9));
         // 时区：上海 20~22 = UTC 12~14
-        let c = cfg(r#"{"rpm":9,"rules":[{"start_hour":20,"end_hour":22,"timezone":"Asia/Shanghai","rpm":1}]}"#);
+        let c = cfg(
+            r#"{"rpm":9,"rules":[{"start_hour":20,"end_hour":22,"timezone":"Asia/Shanghai","rpm":1}]}"#,
+        );
         assert_eq!(c.platform_limits(day0() + 13 * H).rpm, Some(1));
         assert_eq!(c.platform_limits(day0() + 20 * H).rpm, Some(9));
         // 星期：2023-11-14 是周二(2)；只选周三 → 不命中
         let tue = day0();
         assert_eq!((tue / 86_400_000 + 4) % 7, 2);
-        let c = cfg(r#"{"rpm":9,"rules":[{"start_hour":0,"end_hour":24,"days_of_week":[3],"rpm":1}]}"#);
+        let c =
+            cfg(r#"{"rpm":9,"rules":[{"start_hour":0,"end_hour":24,"days_of_week":[3],"rpm":1}]}"#);
         assert_eq!(c.platform_limits(tue + 5 * H).rpm, Some(9));
-        let c = cfg(r#"{"rpm":9,"rules":[{"start_hour":0,"end_hour":24,"days_of_week":[2],"rpm":1}]}"#);
+        let c =
+            cfg(r#"{"rpm":9,"rules":[{"start_hour":0,"end_hour":24,"days_of_week":[2],"rpm":1}]}"#);
         assert_eq!(c.platform_limits(tue + 5 * H).rpm, Some(1));
     }
 
     #[test]
     fn overlapping_time_only_rules_first_in_list_wins() {
-        let c = cfg(r#"{"rules":[{"start_hour":0,"end_hour":24,"rpm":1},{"start_hour":0,"end_hour":24,"rpm":2}]}"#);
+        let c = cfg(
+            r#"{"rules":[{"start_hour":0,"end_hour":24,"rpm":1},{"start_hour":0,"end_hour":24,"rpm":2}]}"#,
+        );
         assert_eq!(c.platform_limits(day0() + H).rpm, Some(1));
     }
 
     #[test]
     fn model_layer_priority_model_time_over_model_only_over_unlimited() {
-        let c = cfg(
-            r#"{"rules":[
+        let c = cfg(r#"{"rules":[
                 {"models":["m"],"rpm":100},
                 {"models":["m"],"start_hour":0,"end_hour":1,"concurrency":3},
-                {"models":["m"],"start_hour":0,"end_hour":24,"rpm":7}]}"#,
-        );
+                {"models":["m"],"start_hour":0,"end_hour":24,"rpm":7}]}"#);
         // 模型 + 时段命中（列表里排在「只选模型」之后也优先）：整条生效，没填的 rpm 不限；同类重叠取第一条
-        assert_eq!(c.model_limits("m", day0() + 30 * 60_000), lim(Some(3), None, None));
+        assert_eq!(
+            c.model_limits("m", day0() + 30 * 60_000),
+            lim(Some(3), None, None)
+        );
         // 1 点后只剩第三条模型 + 时段（全天）
-        assert_eq!(c.model_limits("m", day0() + 5 * H), lim(None, Some(7), None));
+        assert_eq!(
+            c.model_limits("m", day0() + 5 * H),
+            lim(None, Some(7), None)
+        );
         // 其他模型：不限
         assert!(c.model_limits("other", day0()).is_unlimited());
         // 去掉全天条后：时段外回落「只选模型」
-        let c = cfg(r#"{"rules":[{"models":["m"],"rpm":100},{"models":["m"],"start_hour":0,"end_hour":1,"concurrency":3}]}"#);
-        assert_eq!(c.model_limits("m", day0() + 5 * H), lim(None, Some(100), None));
+        let c = cfg(
+            r#"{"rules":[{"models":["m"],"rpm":100},{"models":["m"],"start_hour":0,"end_hour":1,"concurrency":3}]}"#,
+        );
+        assert_eq!(
+            c.model_limits("m", day0() + 5 * H),
+            lim(None, Some(100), None)
+        );
     }
 
     #[test]
@@ -404,7 +509,10 @@ mod tests {
         );
         assert_eq!(c.model_limits("a", 0).rpm, Some(3));
         assert_eq!(c.model_limits("b", 0).rpm, Some(3));
-        assert!(c.model_limits("c", 0).is_unlimited(), "只选时段规则不进模型层");
+        assert!(
+            c.model_limits("c", 0).is_unlimited(),
+            "只选时段规则不进模型层"
+        );
     }
 
     #[test]
@@ -414,8 +522,14 @@ mod tests {
         let acc = rl.begin(1, &Limits::default(), 0, 0).unwrap();
         assert!(acc.enter_model("a", &c.model_limits("a", 0), 0, 0));
         let acc2 = rl.begin(1, &Limits::default(), 1, 0).unwrap();
-        assert!(!acc2.enter_model("a", &c.model_limits("a", 1), 1, 0), "a 的 rpm 已满");
-        assert!(acc2.enter_model("b", &c.model_limits("b", 1), 1, 0), "b 独立计数");
+        assert!(
+            !acc2.enter_model("a", &c.model_limits("a", 1), 1, 0),
+            "a 的 rpm 已满"
+        );
+        assert!(
+            acc2.enter_model("b", &c.model_limits("b", 1), 1, 0),
+            "b 独立计数"
+        );
     }
 
     #[test]
@@ -429,10 +543,16 @@ mod tests {
     fn rpm_sliding_window() {
         let rl = Arc::new(RateLimiter::default());
         let l = lim(None, Some(2), None);
-        let (a, b) = (rl.begin(1, &l, 1000, 0).unwrap(), rl.begin(1, &l, 2000, 0).unwrap());
+        let (a, b) = (
+            rl.begin(1, &l, 1000, 0).unwrap(),
+            rl.begin(1, &l, 2000, 0).unwrap(),
+        );
         assert!(rl.begin(1, &l, 3000, 0).is_none(), "第 3 个超限");
         assert!(!rl.has_room(1, "", &l, 3000, 0));
-        assert!(rl.begin(1, &l, 1000 + WINDOW_MS, 0).is_some(), "60s 后最早一条滑出");
+        assert!(
+            rl.begin(1, &l, 1000 + WINDOW_MS, 0).is_some(),
+            "60s 后最早一条滑出"
+        );
         drop((a, b));
     }
 
@@ -468,7 +588,10 @@ mod tests {
         let other = rl.begin(1, &Limits::default(), 0, 0).unwrap();
         assert!(other.enter_model("m1", &full, 0, 0));
         let acc = rl.begin(1, &plat, 1, 0).unwrap();
-        assert!(!acc.enter_model("m1", &full, 1, 0), "m1 模型级满 → 换下一个");
+        assert!(
+            !acc.enter_model("m1", &full, 1, 0),
+            "m1 模型级满 → 换下一个"
+        );
         assert!(acc.enter_model("m2", &full, 1, 0), "m2 重新判定通过");
         // 平台级 rpm 只记了 begin 那一次
         let b = rl.bucket(1, "", false).unwrap();

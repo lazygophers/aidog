@@ -1,0 +1,37 @@
+{
+  "code": "GB-NIR",
+  "source_urls": [
+    "https://www.gov.uk/bank-holidays.json"
+  ],
+  "extends": "GB",
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-03-17",
+        "2026-04-06",
+        "2026-07-13",
+        "2026-08-31"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-03-17",
+        "2027-03-29",
+        "2027-07-12",
+        "2027-08-30"
+      ],
+      "workdays": []
+    }
+  },
+  "name": {
+    "zh-Hans": "北爱尔兰",
+    "en-US": "Northern Ireland",
+    "ar-SA": "أيرلندا الشمالية",
+    "fr-FR": "Irlande du Nord",
+    "de-DE": "Nordirland",
+    "ru-RU": "Северная Ирландия",
+    "ja-JP": "北アイルランド",
+    "es-ES": "Irlanda del Norte"
+  }
+}

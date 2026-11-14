@@ -65,6 +65,7 @@
     "docs": "https://docs.bigmodel.cn/cn/coding-plan/quick-start",
     "pricing": "https://docs.bigmodel.cn/cn/coding-plan/overview"
   },
+  "holiday_calendar": "CN",
   "homepage": "https://www.zhipuai.cn",
   "logo_url": "zdotai",
   "keywords": [
@@ -84,7 +85,7 @@
   ],
   "color": "#3B5FEC",
   "peak": [{"start_hour":14,"end_hour":18,"multiplier":3,"days_of_week":[1,2,3,4,5],"models":["glm-5.3"],"timezone":"Asia/Shanghai"},{"start_hour":14,"end_hour":18,"multiplier":1.2,"days_of_week":[1,2,3,4,5],"models":["glm-5.3-flash"],"timezone":"Asia/Shanghai"}],
-  "last_updated": 1794017726,
+  "last_updated": 1794650107,
   "quota_url_match": [
     "bigmodel.cn",
     "api.z.ai"

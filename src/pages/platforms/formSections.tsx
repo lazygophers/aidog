@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { TimePicker } from "./WindowsEditModal";
+import { HolidayCalendarSelect } from "./HolidayCalendarSelect";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -820,7 +821,7 @@ function formatWindowPreview(w: TimeWindow, tzMode: TzMode, t: TFunction): strin
   return `${startStr} - ${endStr}（${tzLabel}）${nextDayLabel ? `（${nextDayLabel}）` : ""}`;
 }
 
-export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDuringPeak, setDisableDuringPeak, protocol, themeMode, t }: {
+export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDuringPeak, setDisableDuringPeak, protocol, platformCalendar, themeMode, t }: {
   windows: TimeWindow[];
   setWindows: React.Dispatch<React.SetStateAction<TimeWindow[]>>;
   tzMode: TzMode;
@@ -828,6 +829,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
   disableDuringPeak: boolean;
   setDisableDuringPeak: React.Dispatch<React.SetStateAction<boolean>>;
   protocol: Protocol;
+  platformCalendar?: string;
   themeMode: ThemeMode;
   t: TFunction;
 }) {
@@ -907,8 +909,8 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
   };
 
   // 高峰禁用预览：实时算（基于当前 windows + now）。无窗口 → 视为非高峰（不会触发排除）。
-  const nowPeak = isCurrentlyPeak(windows, Date.now());
-  const nowMult = currentPeakMultiplier(windows, Date.now());
+  const nowPeak = isCurrentlyPeak(windows, Date.now(), "", platformCalendar);
+  const nowMult = currentPeakMultiplier(windows, Date.now(), "", platformCalendar);
 
   return (
     <FormSection
@@ -1056,7 +1058,21 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                 </SelectContent>
               </Select>
             </label>
-            <div style={{ display: "flex", gap: 2 }}>
+            <Select
+              value={w.day_type ?? "__week__"}
+              onValueChange={value => update(idx, { day_type: value === "__week__" ? undefined : value as "workday" | "holiday", days_of_week: undefined, holiday_calendar: value === "__week__" ? undefined : w.holiday_calendar })}
+            >
+              <SelectTrigger className="input" style={{ width: 125, height: 28, fontSize: 14 }} aria-label={t("platform.holidayCalendar.dayType", "日期类型")}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__week__">{t("platform.holidayCalendar.weekday", "星期")}</SelectItem>
+                <SelectItem value="workday">{t("platform.windows_dim_workday", "工作日")}</SelectItem>
+                <SelectItem value="holiday">{t("platform.windows_dim_holiday", "节假日")}</SelectItem>
+              </SelectContent>
+            </Select>
+            {w.day_type && <HolidayCalendarSelect value={w.holiday_calendar} inheritedValue={platformCalendar} timezone={w.timezone} onChange={holiday_calendar => update(idx, { holiday_calendar })} t={t} />}
+            {!w.day_type && <div style={{ display: "flex", gap: 2 }}>
               {[0, 1, 2, 3, 4, 5, 6].map(di => {
                 const active = (w.days_of_week ?? []).includes(di);
                 return (
@@ -1078,7 +1094,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                   </Button>
                 );
               })}
-            </div>
+            </div>}
             <Button
               variant="ghost"
               size="icon"
@@ -1663,11 +1679,12 @@ export function draftToBundle(d: RateLimitsDraft): RateLimitsBundle {
   };
 }
 
-export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, t }: {
+export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, platformCalendar, t }: {
   bundle: RateLimitsBundle;
   setBundle: React.Dispatch<React.SetStateAction<RateLimitsBundle>>;
   protocol: Protocol;
   modelOptions: string[];
+  platformCalendar?: string;
   t: TFunction;
 }) {
   const [draft, setDraft] = useState<RateLimitsDraft>(() => bundleToDraft(bundle));
@@ -1745,7 +1762,7 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, t
       {/* 限频规则：模型 / 时段条件 + 上限；重叠按列表顺序（可拖动） */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
         <span style={labelStyle}>{t("platform.rateLimits.rules", "限频规则")}</span>
-        <RateLimitRulesList rules={draft.rules} onChange={rules => upd("rules", rules)} modelOptions={modelOptions} protocol={protocol} t={t} />
+        <RateLimitRulesList rules={draft.rules} onChange={rules => upd("rules", rules)} modelOptions={modelOptions} protocol={protocol} platformCalendar={platformCalendar} t={t} />
       </div>
 
       <RateLimitPolicyLibrary protocol={protocol} source={bundle.rate_limits?.source_policy_id ? { id: bundle.rate_limits.source_policy_id, at: bundle.rate_limits.source_last_updated } : undefined} onImport={importPolicy} t={t} />

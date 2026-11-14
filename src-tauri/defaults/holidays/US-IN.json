@@ -1,0 +1,29 @@
+{
+  "code": "US-IN",
+  "extends": "US",
+  "name": {
+    "ar-SA": "إنديانا",
+    "de-DE": "Indiana",
+    "en-US": "Indiana",
+    "es-ES": "Indiana",
+    "fr-FR": "Indiana",
+    "ja-JP": "インディアナ州",
+    "ru-RU": "Индиана",
+    "zh-Hans": "印第安纳州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-04-03", "2026-05-05", "2026-07-04", "2026-11-03", "2026-11-27", "2026-12-24"],
+      "workdays": ["2026-02-16", "2026-06-19"]
+    },
+    "2027": {
+      "holidays": ["2027-03-26", "2027-05-04", "2027-07-04", "2027-11-02", "2027-11-26", "2027-12-23", "2027-12-25", "2027-12-31"],
+      "workdays": ["2027-02-15", "2027-06-18"]
+    }
+  },
+  "source_urls": [
+    "https://www.in.gov/spd/benefits/state-holidays",
+    "https://www.in.gov/dA/131f93c46a/2026-Holidays-Memorandum.pdf?language_id=1",
+    "https://www.in.gov/spd/benefits/files/2027%20Holidays%20Memorandum.pdf"
+  ]
+}

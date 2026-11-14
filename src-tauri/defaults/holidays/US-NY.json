@@ -1,0 +1,28 @@
+{
+  "code": "US-NY",
+  "extends": "US",
+  "name": {
+    "ar-SA": "نيويورك",
+    "de-DE": "New York",
+    "en-US": "New York",
+    "es-ES": "Nueva York",
+    "fr-FR": "New York",
+    "ja-JP": "ニューヨーク州",
+    "ru-RU": "Нью-Йорк",
+    "zh-Hans": "纽约州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-07-04"],
+      "workdays": ["2026-07-03"]
+    },
+    "2027": {
+      "holidays": ["2027-06-19", "2027-07-04", "2027-12-25"],
+      "workdays": ["2027-06-18", "2027-12-24"]
+    }
+  },
+  "source_urls": [
+    "https://www.cs.ny.gov/attendance_leave/2026_legal_holidays.cfm",
+    "https://www.cs.ny.gov/attendance_leave/2027_legal_holidays.cfm"
+  ]
+}

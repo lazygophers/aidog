@@ -3849,5 +3849,13 @@
   "agentUpdate.confirmDesc": "Se ejecutará el comando de actualización del origen de instalación; puede requerir descargas. ¿Continuar?",
   "agentUpdate.manualHint": "Este origen de instalación no admite actualizaciones automáticas; actualiza manualmente",
   "agentUpdate.success": "Actualizado: v{{before}} → v{{after}}",
-  "agentUpdate.failed": "Error al actualizar"
+  "agentUpdate.failed": "Error al actualizar",
+  "platform.windows_dim_workday": "Días laborables",
+  "platform.windows_dim_holiday": "Festivos",
+  "platform.holidayCalendar": "Calendario de festivos",
+  "platform.holidayCalendar.dayType": "Tipo de día",
+  "platform.holidayCalendar.inherit": "Heredar calendario",
+  "platform.holidayCalendar.loadFailed": "No se pudo cargar el calendario; se usa la regla del día de la semana",
+  "platform.holidayCalendar.weekday": "Día de la semana",
+  "platform.holidayCalendar.yearUnavailable": "El calendario no cubre el año actual; se usa la regla del día de la semana"
 }

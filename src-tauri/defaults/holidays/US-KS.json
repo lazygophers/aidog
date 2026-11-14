@@ -1,0 +1,27 @@
+{
+  "code": "US-KS",
+  "extends": "US",
+  "name": {
+    "ar-SA": "كانساس",
+    "de-DE": "Kansas",
+    "en-US": "Kansas",
+    "es-ES": "Kansas",
+    "fr-FR": "Kansas",
+    "ja-JP": "カンザス州",
+    "ru-RU": "Канзас",
+    "zh-Hans": "堪萨斯州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-07-04"],
+      "workdays": ["2026-06-19", "2026-07-03"]
+    },
+    "2027": {
+      "holidays": ["2027-07-04"],
+      "workdays": ["2027-06-18", "2027-07-05"]
+    }
+  },
+  "source_urls": [
+    "https://www.kslegislature.gov/b2025_26/laws/035_000_0000_chapter/035_001_0000_article/035_001_0007_section/035_001_0007_k/"
+  ]
+}

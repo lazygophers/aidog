@@ -3937,5 +3937,13 @@
   "agentUpdate.confirmDesc": "インストール元に応じた更新コマンドを実行します。ダウンロードが行われる場合があります。続行しますか？",
   "agentUpdate.manualHint": "このインストール元は自動更新に対応していません。手動でアップグレードしてください",
   "agentUpdate.success": "更新完了：v{{before}} → v{{after}}",
-  "agentUpdate.failed": "更新に失敗しました"
+  "agentUpdate.failed": "更新に失敗しました",
+  "platform.windows_dim_workday": "営業日",
+  "platform.windows_dim_holiday": "祝日",
+  "platform.holidayCalendar": "祝日カレンダー",
+  "platform.holidayCalendar.dayType": "日付の種類",
+  "platform.holidayCalendar.inherit": "上位のカレンダーを継承",
+  "platform.holidayCalendar.loadFailed": "カレンダーを読み込めません。曜日ルールを使用します",
+  "platform.holidayCalendar.weekday": "曜日",
+  "platform.holidayCalendar.yearUnavailable": "カレンダーに今年のデータがありません。曜日ルールを使用します"
 }

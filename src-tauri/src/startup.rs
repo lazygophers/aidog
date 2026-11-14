@@ -334,6 +334,8 @@ pub fn run() {
             aidog_core::cli_env::agent_update_apply,
             // Platform defaults JSON（内置 const，无远端同步）
             aidog_core::defaults::get_defaults_json,
+            aidog_core::defaults::holiday_calendar_list,
+            aidog_core::defaults::holiday_calendar_get,
             aidog_core::defaults::get_protocol_logo_path,
             aidog_core::defaults::get_protocol_logo_data_url,
             aidog_core::defaults::sync_protocol_logo,

@@ -1,0 +1,32 @@
+{
+  "code": "DE-BE",
+  "extends": "DE",
+  "name": {
+    "zh-Hans": "柏林州",
+    "en-US": "Berlin",
+    "ar-SA": "برلين",
+    "fr-FR": "Berlin",
+    "de-DE": "Berlin",
+    "ru-RU": "Берлин",
+    "ja-JP": "ベルリン州",
+    "es-ES": "Berlín"
+  },
+  "source_urls": [
+    "https://www.gesetze-im-internet.de/einigvtr/art_2.html",
+    "https://www.berlin.de/sen/inneres/buerger-und-staat/verfassungs-und-verwaltungsrecht/artikel.1435639.php"
+  ],
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-03-08"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-03-08"
+      ],
+      "workdays": []
+    }
+  }
+}

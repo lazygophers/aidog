@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794017726,
+  "last_updated": 1794648844,
   "is_coding_plan": true,
   "endpoints": {
     "default": [
@@ -46,6 +46,7 @@
     "pricing": "https://www.kimi.com/membership/pricing"
   },
   "homepage": "https://www.kimi.com/code/",
+  "holiday_calendar": "CN",
   "logo_url": "moonshotai",
   "keywords": [
     "kimi编程",

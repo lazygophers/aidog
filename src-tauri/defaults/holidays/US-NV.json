@@ -1,0 +1,27 @@
+{
+  "code": "US-NV",
+  "extends": "US",
+  "name": {
+    "ar-SA": "نيفادا",
+    "de-DE": "Nevada",
+    "en-US": "Nevada",
+    "es-ES": "Nevada",
+    "fr-FR": "Nevada",
+    "ja-JP": "ネバダ州",
+    "ru-RU": "Невада",
+    "zh-Hans": "内华达州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-10-30", "2026-11-27"],
+      "workdays": ["2026-10-12"]
+    },
+    "2027": {
+      "holidays": ["2027-10-29", "2027-11-26"],
+      "workdays": ["2027-10-11"]
+    }
+  },
+  "source_urls": [
+    "https://www.leg.state.nv.us/NRS/NRS-236.html#NRS236Sec015"
+  ]
+}

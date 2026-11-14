@@ -65,6 +65,12 @@ test("合法策略（全字段 + 三类规则）与骨架策略（仅 id/label/s
   const r = run(withPolicies(policy(), { id: "skeleton", label: "S", source_url: "https://docs.z.ai/x" }));
   assert.equal(r.code, 0, r.out);
 });
+test("peak day_type 必须互斥并显式指定官方日历", () => {
+  const valid = run((d) => { d.peak = [{ start_hour: 9, end_hour: 12, multiplier: 2, day_type: "workday", holiday_calendar: "CN" }]; });
+  assert.equal(valid.code, 0, valid.out);
+  bad((d) => { d.peak = [{ start_hour: 9, end_hour: 12, multiplier: 2, day_type: "workday" }]; }, /必须显式指定 holiday_calendar/);
+  bad((d) => { d.peak = [{ start_hour: 9, end_hour: 12, multiplier: 2, day_type: "workday", holiday_calendar: "CN", days_of_week: [1] }]; }, /day_type|days_of_week/);
+});
 test("缺 source_url 硬错", () => {
   const p = policy(); delete p.source_url;
   bad(withPolicies(p), /source_url/);
@@ -82,6 +88,12 @@ test("旧键 models（对象）/ windows 不再合法", () => {
 test("规则没有任何条件硬错（无 models、无时段）", () => {
   bad(withPolicies(rules({ rpm: 5 })), /至少一个条件/);
   bad(withPolicies(rules({ models: [], rpm: 5 })), /至少一个条件|models/);
+});
+test("规则 day_type 支持工作日/节假日，且与 days_of_week 互斥", () => {
+  const valid = run(withPolicies(rules({ day_type: "workday", holiday_calendar: "CN", rpm: 5 })));
+  assert.equal(valid.code, 0, valid.out);
+  bad(withPolicies(rules({ day_type: "workday", days_of_week: [1], rpm: 5 })), /day_type.*days_of_week|day_type/);
+  bad(withPolicies(rules({ day_type: "weekend", rpm: 5 })), /day_type/);
 });
 test("规则时段小时越界硬错", () => {
   bad(withPolicies(rules({ start_hour: 24, end_hour: 8 })), /start_hour/);

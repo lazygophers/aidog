@@ -21,6 +21,8 @@ export type TimeWindow = {
   timezone?: string;
   /** 可选；0=Sunday…6=Saturday；absent = 每天适用 */
   days_of_week?: number[];
+  day_type?: "workday" | "holiday";
+  holiday_calendar?: string;
   /** 分钟精度起点 (0-59)；缺省 = 0（仅 hour 精度，向后兼容旧数据）。
    *  与 Rust `TimeWindow.start_minute` 对称（serde Option，#[serde(default)]）。 */
   start_minute?: number;
@@ -96,6 +98,8 @@ type DefaultsDoc = {
     key_prefixes?: string[];
     /** 智能识别兜底平台标记（如 newapi）：粘贴含可识别协议的 base_url 但未命中任何 hosts 时胜出。 */
     paste_fallback?: boolean;
+    /** 平台 registry 默认节假日日历。用户可在 platform.extra.holiday_calendar 覆盖。 */
+    holiday_calendar?: string;
     /** 高峰/低峰时段倍率（多窗口，UTC+0 基准）。
      *  preset 给 per-protocol 默认；用户覆盖存 platform.extra.peak。
      *  absent / 空数组 = 无调整（multiplier 1.0）。
@@ -335,6 +339,10 @@ export async function getDefaultModelList(protocol: Protocol): Promise<string[]>
   if (!entry) return [];
   const list = pickBranch<string[]>(entry.model_list, []);
   return [...list];
+}
+
+export async function getDefaultHolidayCalendar(protocol: Protocol): Promise<string | undefined> {
+  return (await loadDoc()).protocols[protocol]?.holiday_calendar;
 }
 
 /** preset 该协议的 peak 默认（用户覆盖存 platform.extra.peak；absent/空 = 1.0 无调整）。

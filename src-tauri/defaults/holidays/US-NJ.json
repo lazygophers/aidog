@@ -1,0 +1,28 @@
+{
+  "code": "US-NJ",
+  "extends": "US",
+  "name": {
+    "ar-SA": "نيوجيرسي",
+    "de-DE": "New Jersey",
+    "en-US": "New Jersey",
+    "es-ES": "Nueva Jersey",
+    "fr-FR": "New Jersey",
+    "ja-JP": "ニュージャージー州",
+    "ru-RU": "Нью-Джерси",
+    "zh-Hans": "新泽西州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-04-03", "2026-11-03"],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": ["2027-03-26", "2027-11-02", "2027-12-31"],
+      "workdays": []
+    }
+  },
+  "source_urls": [
+    "https://www.nj.gov/treasury/omb/payroll/pdf/calendar2026.pdf",
+    "https://www.nj.gov/treasury/omb/payroll/pdf/calendar2027.pdf"
+  ]
+}

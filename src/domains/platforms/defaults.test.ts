@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { mockIPC, clearMocks } from "@tauri-apps/api/mocks";
 import {
+  getDefaultHolidayCalendar,
   getDefaultModels,
   getDefaultModelList,
   getDefaultEndpoints,
@@ -59,6 +60,7 @@ const DEFAULTS_MOCK = JSON.stringify({
       }],
     },
     deepseek: {
+      holiday_calendar: "CN",
       endpoints: { default: [{ protocol: "openai", base_url: "https://api.deepseek.com/v1", client_type: "default" }] },
       // 单分支（向后兼容：无 peak 分支）
       models: { default: { default: ["deepseek-v4-flash"] } },
@@ -82,6 +84,12 @@ beforeEach(() => mockIPC((cmd: string) => (cmd === "get_defaults_json" ? DEFAULT
 
 afterAll(() => {
   clearMocks();
+});
+
+describe("getDefaultHolidayCalendar", () => {
+  it("reads the platform calendar from registry defaults", async () => {
+    expect(await getDefaultHolidayCalendar("deepseek" as Protocol)).toBe("CN");
+  });
 });
 
 describe("getDefaultModels — PRD 07-11 peak 分支", () => {

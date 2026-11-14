@@ -19,8 +19,166 @@ use std::sync::{Arc, OnceLock, RwLock};
 
 include!(concat!(env!("OUT_DIR"), "/registry_includes.rs"));
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HolidayCalendarYear {
+    #[serde(default)]
+    pub holidays: Vec<String>,
+    #[serde(default)]
+    pub workdays: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HolidayCalendar {
+    pub code: String,
+    pub name: BTreeMap<String, String>,
+    #[serde(default)]
+    pub source_urls: Vec<String>,
+    #[serde(default)]
+    pub extends: Option<String>,
+    #[serde(default)]
+    pub years: BTreeMap<String, HolidayCalendarYear>,
+}
+
+static HOLIDAY_CALENDARS: OnceLock<RwLock<BTreeMap<String, HolidayCalendar>>> = OnceLock::new();
 static PRESETS: OnceLock<Arc<Value>> = OnceLock::new();
 static PRESETS_JSON: OnceLock<String> = OnceLock::new();
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HolidayCalendarSummary {
+    pub code: String,
+    pub name: BTreeMap<String, String>,
+}
+
+/// Calendar list reads only names; full date tables load and cache on first code lookup.
+pub fn holiday_calendar_list() -> Vec<HolidayCalendarSummary> {
+    holiday_calendar_list_from(HOLIDAY_CALENDAR_FILES)
+}
+
+#[derive(Deserialize)]
+struct HolidayCalendarHeader {
+    name: BTreeMap<String, String>,
+}
+
+pub(crate) fn holiday_calendar_list_from(files: &[(&str, &str)]) -> Vec<HolidayCalendarSummary> {
+    files
+        .iter()
+        .filter_map(|(code, raw)| {
+            let header: HolidayCalendarHeader = serde_json::from_str(raw).ok()?;
+            Some(HolidayCalendarSummary {
+                code: (*code).to_owned(),
+                name: header.name,
+            })
+        })
+        .collect()
+}
+
+fn merge_holiday_calendar(calendar: &mut HolidayCalendar, parent: HolidayCalendar) {
+    for (year, parent_data) in parent.years {
+        let local = calendar.years.entry(year).or_insert(HolidayCalendarYear {
+            holidays: Vec::new(),
+            workdays: Vec::new(),
+        });
+        local.holidays.extend(parent_data.holidays);
+        local.workdays.extend(parent_data.workdays);
+        local.holidays.sort();
+        local.holidays.dedup();
+        local.workdays.sort();
+        local.workdays.dedup();
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn holiday_calendar_get_from(
+    code: &str,
+    files: &[(&str, &str)],
+) -> Option<HolidayCalendar> {
+    holiday_calendar_load_from(code, &mut Vec::new(), files)
+}
+
+#[cfg(test)]
+fn holiday_calendar_load_from(
+    code: &str,
+    visiting: &mut Vec<String>,
+    files: &[(&str, &str)],
+) -> Option<HolidayCalendar> {
+    if visiting.iter().any(|entry| entry == code) {
+        return None;
+    }
+    let raw = files.iter().find(|(candidate, _)| *candidate == code)?.1;
+    let mut calendar: HolidayCalendar = serde_json::from_str(raw).ok()?;
+    visiting.push(code.to_owned());
+    if let Some(parent) = calendar.extends.as_deref()
+        && let Some(parent) = holiday_calendar_load_from(parent, visiting, files)
+    {
+        merge_holiday_calendar(&mut calendar, parent);
+    }
+    visiting.pop();
+    Some(calendar)
+}
+
+fn holiday_calendar_load(code: &str, visiting: &mut Vec<String>) -> Option<HolidayCalendar> {
+    if let Some(calendar) = HOLIDAY_CALENDARS
+        .get_or_init(|| RwLock::new(BTreeMap::new()))
+        .read()
+        .ok()?
+        .get(code)
+        .cloned()
+    {
+        return Some(calendar);
+    }
+    if visiting.iter().any(|entry| entry == code) {
+        return None;
+    }
+    let raw = HOLIDAY_CALENDAR_FILES
+        .iter()
+        .find(|(candidate, _)| *candidate == code)?
+        .1;
+    let mut calendar: HolidayCalendar = serde_json::from_str(raw).ok()?;
+    visiting.push(code.to_owned());
+    if let Some(parent) = calendar.extends.as_deref()
+        && let Some(parent) = holiday_calendar_load(parent, visiting)
+    {
+        merge_holiday_calendar(&mut calendar, parent);
+    }
+    visiting.pop();
+    HOLIDAY_CALENDARS
+        .get_or_init(|| RwLock::new(BTreeMap::new()))
+        .write()
+        .ok()?
+        .insert(code.to_owned(), calendar.clone());
+    Some(calendar)
+}
+
+/// Returns the calendar with inherited region dates merged, or None when its code is unknown.
+pub fn holiday_calendar_get(code: &str) -> Option<HolidayCalendar> {
+    holiday_calendar_load(code, &mut Vec::new())
+}
+
+fn holiday_calendar_day_type(calendar: &HolidayCalendar, date: &str) -> Option<bool> {
+    let year = date.get(..4)?;
+    let data = calendar.years.get(year)?;
+    if data.workdays.iter().any(|d| d == date) {
+        Some(true)
+    } else if data.holidays.iter().any(|d| d == date) {
+        Some(false)
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn holiday_calendar_is_workday_from(
+    code: &str,
+    date: &str,
+    files: &[(&str, &str)],
+) -> Option<bool> {
+    holiday_calendar_day_type(&holiday_calendar_get_from(code, files)?, date)
+}
+
+/// Some(true) = workday, Some(false) = holiday, None = calendar/year missing.
+pub fn holiday_calendar_is_workday(code: &str, date: &str) -> Option<bool> {
+    holiday_calendar_day_type(&holiday_calendar_get(code)?, date)
+}
 
 fn parse(what: &str, json: &str) -> Map<String, Value> {
     match serde_json::from_str(json) {
@@ -194,6 +352,15 @@ pub fn presets_json() -> &'static str {
 ///
 /// 读 [`effective_presets`]（DB 同步值优先）：否则平台保存会把刚同步下来的新 `base_url`
 /// 重置回二进制内置的旧值。
+pub fn default_holiday_calendar(protocol: &str) -> Option<String> {
+    let raw = PLATFORM_FILES.iter().find(|(code, _)| *code == protocol)?.1;
+    serde_json::from_str::<Value>(raw)
+        .ok()?
+        .get("holiday_calendar")?
+        .as_str()
+        .map(str::to_owned)
+}
+
 pub fn default_endpoints(protocol: &str) -> Vec<crate::models::PlatformEndpoint> {
     endpoints_in(&effective_presets(), protocol).unwrap_or_default()
 }
@@ -235,10 +402,12 @@ pub fn endpoints_in(
             e
         })
         .collect();
-    serde_json::from_value(Value::Array(filled)).map(RegistryLookup::Found).unwrap_or_else(|e| {
-        tracing::error!(error = %e, protocol, "registry endpoints 配置损坏：解析失败");
-        RegistryLookup::Corrupt(e.to_string())
-    })
+    serde_json::from_value(Value::Array(filled))
+        .map(RegistryLookup::Found)
+        .unwrap_or_else(|e| {
+            tracing::error!(error = %e, protocol, "registry endpoints 配置损坏：解析失败");
+            RegistryLookup::Corrupt(e.to_string())
+        })
 }
 
 // ── 限频策略（platform.json 顶层 `rate_limit_policies` / `rate_limit_error_codes`）──────────
@@ -272,6 +441,10 @@ pub struct RateLimitRule {
     pub timezone: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub days_of_week: Option<Vec<u8>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub day_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub holiday_calendar: Option<String>,
     #[serde(flatten)]
     pub caps: RateLimitCaps,
 }
@@ -295,7 +468,11 @@ fn top_level_in<T: serde::de::DeserializeOwned>(
     protocol: &str,
     key: &str,
 ) -> RegistryLookup<T> {
-    let Some(v) = doc.get("protocols").and_then(|p| p.get(protocol)).and_then(|e| e.get(key)) else {
+    let Some(v) = doc
+        .get("protocols")
+        .and_then(|p| p.get(protocol))
+        .and_then(|e| e.get(key))
+    else {
         return RegistryLookup::Absent;
     };
     match serde_json::from_value(v.clone()) {
@@ -318,7 +495,10 @@ pub fn default_rate_limit_policies(protocol: &str) -> Vec<RateLimitPolicy> {
 }
 
 /// 上游业务错误码 → 语义（`rate_limit` / `overloaded`）。
-pub fn rate_limit_error_codes_in(doc: &Value, protocol: &str) -> RegistryLookup<BTreeMap<String, String>> {
+pub fn rate_limit_error_codes_in(
+    doc: &Value,
+    protocol: &str,
+) -> RegistryLookup<BTreeMap<String, String>> {
     top_level_in(doc, protocol, "rate_limit_error_codes")
 }
 

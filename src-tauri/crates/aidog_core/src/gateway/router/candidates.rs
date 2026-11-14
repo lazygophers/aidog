@@ -6,13 +6,13 @@ use super::super::scheduling::{Admission, BreakerThresholds, SchedulerState, Sti
 use super::super::time_windows;
 use super::model_mapping::{
     CustomSlotDef, CustomSlotEntry, build_custom_entries, custom_defs_hit, parse_custom_defs,
-    resolve_decision_model, request_tier_families, resolve_model_chain_with_custom,
+    request_tier_families, resolve_decision_model, resolve_model_chain_with_custom,
 };
 use super::ordering::{
-    HealthOrderKey, PaceSmartKey, apply_coding_plan_priority, apply_sticky,
-    coding_remaining_ratio, compute_pace_smart_keys, expiry_sort_key, is_coding_plan,
-    next_rotate_offset, order_health_aware, order_load_balance, order_pace, order_rotate,
-    order_smart, order_usage, pace_falls_back_to_usage, smart_falls_back_to_health_aware,
+    HealthOrderKey, PaceSmartKey, apply_coding_plan_priority, apply_sticky, coding_remaining_ratio,
+    compute_pace_smart_keys, expiry_sort_key, is_coding_plan, next_rotate_offset,
+    order_health_aware, order_load_balance, order_pace, order_rotate, order_smart, order_usage,
+    pace_falls_back_to_usage, smart_falls_back_to_health_aware,
 };
 use super::{RouteResult, candidate_state, sole_platform};
 use crate::client_vocab::{
@@ -314,17 +314,50 @@ impl ExtraCache {
     /// `platform_type` 直接取自 `Platform` 顶层字段（非 extra 内字段，caller 传入）。
     /// `custom_defs`：`Some` = 聊天请求，按全局定义解析自定义槽；`None` = 非聊天请求，跳过（也不 warn 孤儿键）。
     fn new(extra: &str, platform_type: &Protocol, custom_defs: Option<&[CustomSlotDef]>) -> Self {
-        let time_windows = time_windows::parse_platform_time_windows(extra);
-        let peak_windows = peak::peak_for(extra, &platform_type.wire_str());
-        let disable_during_peak = peak::parse_disable_during_peak(extra);
         let parsed = db::models::PlatformExtra::parse(extra);
+        let registry_calendar =
+            aidog_db::registry::default_holiday_calendar(&platform_type.wire_str());
+        let platform_calendar = parsed
+            .rest
+            .get("holiday_calendar")
+            .and_then(serde_json::Value::as_str)
+            .or(registry_calendar.as_deref());
+        let mut time_windows = time_windows::parse_platform_time_windows(extra);
+        let mut peak_windows = peak::peak_for(extra, &platform_type.wire_str());
+        if let Some(code) = platform_calendar {
+            for window in time_windows.iter_mut().flat_map(|rule| {
+                rule.get_mut("windows")
+                    .and_then(serde_json::Value::as_array_mut)
+                    .into_iter()
+                    .flatten()
+            }) {
+                if let Some(object) = window.as_object_mut() {
+                    object
+                        .entry("holiday_calendar")
+                        .or_insert_with(|| serde_json::Value::from(code));
+                }
+            }
+            for window in &mut peak_windows {
+                if window.holiday_calendar.is_none() {
+                    window.holiday_calendar = Some(code.to_owned());
+                }
+            }
+        }
+        let disable_during_peak = peak::parse_disable_during_peak(extra);
         let ua_rules = compile_ua_rules(&parsed.client_ua_rules);
         let custom = custom_defs
             .map(|defs| build_custom_entries(defs, parsed.rest.get("custom_slots")))
             .unwrap_or_default();
         let mut disabled_slots: Vec<String> = Vec::new();
         for key in ["disabled_slots", "soft_disabled_slots"] {
-            for s in parsed.rest.get(key).and_then(|v| v.as_array()).into_iter().flatten().filter_map(|x| x.as_str()) {
+            for s in parsed
+                .rest
+                .get(key)
+                .and_then(|v| v.as_array())
+                .into_iter()
+                .flatten()
+                .filter_map(|x| x.as_str())
+            {
                 if !disabled_slots.iter().any(|d| d == s) {
                     disabled_slots.push(s.to_owned());
                 }
@@ -338,7 +371,7 @@ impl ExtraCache {
             direct_models,
             allowed_clients,
             ua_rules,
-            rate: RateLimitsCfg::parse(extra),
+            rate: RateLimitsCfg::parse_with_calendar(extra, registry_calendar.as_deref()),
             custom,
             custom_defs: custom_defs.map(<[_]>::to_vec).unwrap_or_default(),
             disabled_slots,
@@ -466,7 +499,8 @@ pub async fn select_candidates_preloaded(
     // 所有路径（成功 / 路由失败 / 透传 / embedding / tools）统一补记 max_retries：画布以它判「新格式快照」，
     // 此前只有 handler 主循环的 mark_retry_limit 写，其余路径的新日志被误显「未记录」。
     let stamp = |r: &mut RoutingSnapshot| r.max_retries = r.max_retries.or(Some(group.max_retries));
-    match select_candidates_inner(db, group, group_platforms, source_model, ctx, kind, client).await {
+    match select_candidates_inner(db, group, group_platforms, source_model, ctx, kind, client).await
+    {
         Ok(mut set) => {
             stamp(&mut set.routing);
             Ok(set)
@@ -666,8 +700,9 @@ async fn select_candidates_inner(
     // 全组无平台填值或请求未命中定义 → 不限制（tier/default 链照旧，全空链透传现状保持）。
     let custom_hit_gate: Option<HashSet<&str>> = match custom_defs.as_deref() {
         Some(defs) => {
-            let hits: Vec<&str> = custom_defs_hit(defs, mapped_target_model.as_deref().unwrap_or(source_model))
-                .collect();
+            let hits: Vec<&str> =
+                custom_defs_hit(defs, mapped_target_model.as_deref().unwrap_or(source_model))
+                    .collect();
             (!hits.is_empty()
                 && extra_cache
                     .values()
@@ -860,7 +895,8 @@ async fn select_candidates_inner(
         // custom_unfilled（混合组收紧排除）只在有平台填了命中槽时出现，此时该槽组的语义是
         // 「该槽由填值平台承接」；全被排除且含槽位关闭 → slot_disabled（需要改配置），与既有归因一致。
         if slot_disabled_count > 0
-            && slot_disabled_count + peak_disabled_count + custom_unfilled_count == group_platforms.len()
+            && slot_disabled_count + peak_disabled_count + custom_unfilled_count
+                == group_platforms.len()
         {
             tracing::info!(
                 group = %group.name, slot_disabled = slot_disabled_count,
@@ -1202,7 +1238,11 @@ fn bypassed_states(
     }
     if let (Some(c), false) = (ctx, is_passthrough) {
         if c.settings.enabled
-            && c.scheduler.breaker_open(p.id, &BreakerThresholds::resolve(c.settings, p, mode), now_ms)
+            && c.scheduler.breaker_open(
+                p.id,
+                &BreakerThresholds::resolve(c.settings, p, mode),
+                now_ms,
+            )
         {
             v.push(ShortcutBypass::Breaker);
         }
@@ -1234,20 +1274,15 @@ fn rate_limited(
         _ => 0,
     };
     let rl = &ctx.scheduler.rate;
-    !rl.has_room(
-        pid,
-        "",
-        &cfg.platform_limits(now_ms),
-        now_ms,
-        est,
-    ) || (!source_model.is_empty()
-        && !rl.has_room(
-            pid,
-            source_model,
-            &cfg.model_limits(source_model, now_ms),
-            now_ms,
-            est,
-        ))
+    !rl.has_room(pid, "", &cfg.platform_limits(now_ms), now_ms, est)
+        || (!source_model.is_empty()
+            && !rl.has_room(
+                pid,
+                source_model,
+                &cfg.model_limits(source_model, now_ms),
+                now_ms,
+                est,
+            ))
 }
 
 /// 单平台组快照（票 01）：唯一候选一个条目，排除时带原因。
@@ -1953,7 +1988,16 @@ fn build_route_results(
 }
 
 /// 内置模型槽位名（时段档开关集合只收这些；自定义槽开关始终只存平台级）。
-const BUILTIN_SLOTS: [&str; 8] = ["default", "opus", "sonnet", "haiku", "gpt", "jev", "embedding", "rerank"];
+const BUILTIN_SLOTS: [&str; 8] = [
+    "default",
+    "opus",
+    "sonnet",
+    "haiku",
+    "gpt",
+    "jev",
+    "embedding",
+    "rerank",
+];
 
 /// 本次请求在该平台命中的槽位是否被关闭，是则返回排除原因；请求名所属档位族
 /// （opus/sonnet/haiku/gpt）的槽位被关闭同样算——后者与该槽是否留空、实际落到哪个槽 / 透传无关。
@@ -1970,7 +2014,11 @@ fn disabled_slot_reason(
     model_name: &str,
 ) -> Option<RouteReason> {
     let rule_off: Option<Vec<&str>> = time_windows::matched_time_rule(&cache.time_windows, now_ms)
-        .and_then(|(rule, _)| rule.get("disabled_slots")?.as_array().map(|a| a.iter().filter_map(|x| x.as_str()).collect()));
+        .and_then(|(rule, _)| {
+            rule.get("disabled_slots")?
+                .as_array()
+                .map(|a| a.iter().filter_map(|x| x.as_str()).collect())
+        });
     if cache.disabled_slots.is_empty() && rule_off.as_ref().is_none_or(|r| r.is_empty()) {
         return None;
     }
@@ -1979,8 +2027,14 @@ fn disabled_slot_reason(
     }
     let off = |name: &str| -> Option<RouteReason> {
         match (&rule_off, BUILTIN_SLOTS.contains(&name)) {
-            (Some(r), true) => r.contains(&name).then_some(RouteReason::TimeRuleSlotDisabled),
-            _ => cache.disabled_slots.iter().any(|d| d == name).then_some(RouteReason::ModelNotOnPlatform),
+            (Some(r), true) => r
+                .contains(&name)
+                .then_some(RouteReason::TimeRuleSlotDisabled),
+            _ => cache
+                .disabled_slots
+                .iter()
+                .any(|d| d == name)
+                .then_some(RouteReason::ModelNotOnPlatform),
         }
     };
     let slot: Option<String> = match kind {
@@ -2001,21 +2055,26 @@ fn disabled_slot_reason(
             eff.jev_slot().map(|_| "jev".into())
         }
         RequestKind::Embedding => {
-            let eff = effective_models_for(kind, platform, &cache.time_windows, now_ms, source_model);
+            let eff =
+                effective_models_for(kind, platform, &cache.time_windows, now_ms, source_model);
             slot_filled(&eff.embedding).map(|_| "embedding".into())
         }
         RequestKind::Rerank => {
-            let eff = effective_models_for(kind, platform, &cache.time_windows, now_ms, source_model);
+            let eff =
+                effective_models_for(kind, platform, &cache.time_windows, now_ms, source_model);
             slot_filled(&eff.rerank).map(|_| "rerank".into())
         }
         RequestKind::Tools(_) => None,
     };
     slot.and_then(|s| off(&s)).or_else(|| {
         if matches!(kind, RequestKind::Chat) {
-            request_tier_families(model_name).iter().find_map(|f| off(f)).or_else(|| {
-                // 命中某自定义槽规则但本平台未填值（槽不入命中表、请求会回落别的槽）：关了该槽同样排除。
-                custom_defs_hit(&cache.custom_defs, model_name).find_map(off)
-            })
+            request_tier_families(model_name)
+                .iter()
+                .find_map(|f| off(f))
+                .or_else(|| {
+                    // 命中某自定义槽规则但本平台未填值（槽不入命中表、请求会回落别的槽）：关了该槽同样排除。
+                    custom_defs_hit(&cache.custom_defs, model_name).find_map(off)
+                })
         } else {
             None
         }

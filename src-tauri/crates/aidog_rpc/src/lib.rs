@@ -322,6 +322,8 @@ rpc_routes! {
     readonly aidog_core::cli_env::cli_check_updates,
     readonly aidog_core::cli_env::agent_update_check,
     mutating aidog_core::cli_env::agent_update_apply,
+    readonly aidog_core::defaults::holiday_calendar_list,
+    readonly aidog_core::defaults::holiday_calendar_get,
     readonly aidog_core::defaults::get_defaults_json,
     readonly aidog_core::defaults::get_protocol_logo_path,
     readonly aidog_core::defaults::get_protocol_logo_data_url,

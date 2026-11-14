@@ -414,6 +414,30 @@ export function serializePlatformBreaker(extra: string, b: PlatformBreaker): str
   return JSON.stringify(obj);
 }
 
+/** 从 platform.extra 解析用户覆盖的节假日日历；缺失时继承 registry 默认。 */
+export function parsePlatformHolidayCalendar(extra?: string): string | undefined {
+  if (!extra?.trim()) return undefined;
+  try {
+    const value = (JSON.parse(extra) as Record<string, unknown>).holiday_calendar;
+    return typeof value === "string" && value.trim() ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function serializePlatformHolidayCalendar(extra: string, calendar: string | undefined): string {
+  let obj: Record<string, unknown> = {};
+  if (extra.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(extra);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) obj = parsed as Record<string, unknown>;
+    } catch { /* ignore */ }
+  }
+  if (calendar) obj.holiday_calendar = calendar;
+  else delete obj.holiday_calendar;
+  return JSON.stringify(obj);
+}
+
 /** 从 platform.extra JSON 解析 peak 窗口（用户覆盖）。
  *  缺失 / 非法 / 空数组 → []（caller 退 preset 默认或 1.0）。 */
 export function parsePlatformPeak(extra: string): TimeWindow[] {
@@ -983,6 +1007,8 @@ export interface RateLimitRule {
   start_hour?: number;
   end_hour?: number;
   days_of_week?: number[];
+  day_type?: "workday" | "holiday";
+  holiday_calendar?: string;
   timezone?: string;
   concurrency?: number;
   rpm?: number;
@@ -992,7 +1018,7 @@ export interface RateLimitRule {
 /** 规则保存前校验：无条件（models 空且无时段字段）→ noCondition；通配符只允许末尾单个 `*` 且前缀非空 → badWildcard。 */
 export function rateLimitRuleError(r: RateLimitRule): "noCondition" | "badWildcard" | null {
   const models = r.models ?? [];
-  const hasTime = r.start_hour !== undefined || r.end_hour !== undefined || (r.days_of_week?.length ?? 0) > 0;
+  const hasTime = r.start_hour !== undefined || r.end_hour !== undefined || (r.days_of_week?.length ?? 0) > 0 || r.day_type !== undefined;
   if (models.length === 0 && !hasTime) return "noCondition";
   if (models.some(m => m.includes("*") && (!m.endsWith("*") || m.length === 1 || m.indexOf("*") !== m.length - 1))) return "badWildcard";
   return null;

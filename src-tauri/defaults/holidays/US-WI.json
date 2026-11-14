@@ -1,0 +1,27 @@
+{
+  "code": "US-WI",
+  "extends": "US",
+  "name": {
+    "ar-SA": "ويسكونسن",
+    "de-DE": "Wisconsin",
+    "en-US": "Wisconsin",
+    "es-ES": "Wisconsin",
+    "fr-FR": "Wisconsin",
+    "ja-JP": "ウィスコンシン州",
+    "ru-RU": "Висконсин",
+    "zh-Hans": "威斯康星州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-12-24", "2026-12-31"],
+      "workdays": ["2026-02-16", "2026-06-19", "2026-07-03", "2026-10-12", "2026-11-11"]
+    },
+    "2027": {
+      "holidays": ["2027-12-31"],
+      "workdays": ["2027-02-15", "2027-06-18", "2027-10-11", "2027-11-11"]
+    }
+  },
+  "source_urls": [
+    "https://docs.legis.wisconsin.gov/statutes/statutes/230/ii/35"
+  ]
+}
