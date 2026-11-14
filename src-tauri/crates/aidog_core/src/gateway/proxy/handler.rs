@@ -356,7 +356,7 @@ pub(crate) async fn handle_proxy_core(
     let client_gate = ClientGate::On(super::client_detect::client_probe(&orig_headers));
 
     // ── 透传平台（ADR 0008）认领协议子端点：下方三个分流按协议处理、不认识透传平台 ──
-    // 白名单拦下整组 → 直接 417/503，不得落回协议分支（那些分支各自有闸门，但此处先收口）。
+    // 白名单拦下整组 → 直接 403/503，不得落回协议分支（那些分支各自有闸门，但此处先收口）。
     if is_responses_subendpoint(&path)
         || is_count_tokens_endpoint(&path)
         || is_decision_endpoint(&path)
@@ -686,7 +686,7 @@ pub(crate) async fn handle_proxy_core(
             //（blocked_by='router', blocked_reason='no_chat_platform', status_code=400，R7）。
             // 直通模型声明平台全不可用（直接模型转发）→ 同样落审计
             //（blocked_by='router', blocked_reason='direct_model_unavailable', 503）。
-            // 客户端白名单拦下候选（blocked_reason='client_not_allowed'）：全拦 417，与其他原因并存 503。
+            // 客户端白名单拦下候选（blocked_reason='client_not_allowed'）：全拦 403，与其他原因并存 503。
             if e == "no_chat_platform"
                 || e == "peak_disabled"
                 || e == "rate_limit"
