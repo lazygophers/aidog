@@ -3,16 +3,16 @@ use aidog_db::models::ProxyClientSettings;
 use std::process::Command;
 
 fn proxy_settings(
-    enabled: bool,
+    configured: bool,
     ty: &str,
     user: &str,
     pass: &str,
     dns_over_proxy: bool,
 ) -> ProxyClientSettings {
     ProxyClientSettings {
-        enabled,
+        others_enabled: true,
         proxy_type: ty.to_string(),
-        host: "1.2.3.4".to_string(),
+        host: if configured { "1.2.3.4".to_string() } else { String::new() },
         port: 7890,
         username: user.to_string(),
         password: pass.to_string(),
@@ -24,6 +24,14 @@ fn proxy_settings(
 #[test]
 fn proxy_env_url_disabled_is_none() {
     let s = proxy_settings(false, "http", "", "", true);
+    assert_eq!(proxy_env_url(&s), None);
+}
+
+/// 「其它请求使用代理」关 → None（即便代理地址已配置）。
+#[test]
+fn proxy_env_url_others_switch_off_is_none() {
+    let mut s = proxy_settings(true, "http", "", "", true);
+    s.others_enabled = false;
     assert_eq!(proxy_env_url(&s), None);
 }
 

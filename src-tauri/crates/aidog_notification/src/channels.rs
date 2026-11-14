@@ -239,8 +239,33 @@ async fn send_once(
     }
 }
 
-fn http_client() -> reqwest::Result<reqwest::Client> {
-    reqwest::Client::builder().timeout(Duration::from_secs(10)).build()
+// ── 出站代理接入（issue #64：webhook 类外部通知属非平台出站，受「其它请求使用代理」控制）。
+// 本 crate 不依赖 aidog_core（防环），代理决策由外壳注入工厂（quota set_client_builder 同 idiom）；
+// 未注入（测试 / 裸用）回落直连 builder。
+
+/// 注入的通知出站工厂：返回代理感知 client（外壳内读 proxy_client 设置 →
+/// `should_use_proxy(NonPlatform)` → `build_http_client`）。
+pub type WebhookClientFactory = std::sync::Arc<
+    dyn Fn() -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<reqwest::Client, String>> + Send>>
+        + Send
+        + Sync,
+>;
+static CLIENT_FACTORY: std::sync::OnceLock<WebhookClientFactory> = std::sync::OnceLock::new();
+
+/// 注入通知出站工厂（幂等，重复调用保留首个）。
+pub fn set_client_factory(f: WebhookClientFactory) {
+    let _ = CLIENT_FACTORY.set(f);
+}
+
+/// 通知出站 client：先试注入工厂，未注入回落直连 builder。
+async fn http_client() -> Result<reqwest::Client, String> {
+    match CLIENT_FACTORY.get() {
+        Some(f) => f().await,
+        None => reqwest::Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .map_err(|e| format!("build http client: {e}")),
+    }
 }
 
 /// 通用 webhook：模板（默认 `{"title":"{title}","body":"{body}"}`）做 `{title}`/`{body}`
@@ -253,7 +278,7 @@ async fn send_webhook(cfg: &WebhookCfg, title: &str, body: &str) -> Result<(), S
         cfg.template.as_str()
     };
     let payload = tpl.replace("{title}", title).replace("{body}", body);
-    let client = http_client().map_err(|e| format!("build client: {e}"))?;
+    let client = http_client().await?;
     let resp = client
         .post(&cfg.url)
         .header(reqwest::header::CONTENT_TYPE, "application/json")
@@ -271,7 +296,7 @@ async fn send_telegram(cfg: &TelegramCfg, title: &str, body: &str) -> Result<(),
         cfg.api_base.as_str()
     };
     let url = format!("{base}/bot{}/sendMessage", cfg.bot_token);
-    let client = http_client().map_err(|e| format!("build client: {e}"))?;
+    let client = http_client().await?;
     let resp = client
         .post(&url)
         .json(&json!({"chat_id": cfg.chat_id, "text": format!("{title}\n{body}")}))
@@ -287,7 +312,7 @@ async fn send_url_webhook(
     cfg: &UrlWebhookCfg,
     payload: serde_json::Value,
 ) -> Result<(), String> {
-    let client = http_client().map_err(|e| format!("build client: {e}"))?;
+    let client = http_client().await?;
     let resp = client
         .post(&cfg.url)
         .json(&payload)
