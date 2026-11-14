@@ -158,6 +158,12 @@ impl PriceResolution {
     pub fn multiplier(&self, multiplier: f64) -> f64 {
         if self.peak_applied { 1.0 } else { multiplier }
     }
+
+    /// 按次计价费（USD）：`unit_price × units`（缺次数按 1 次/请求），条目非按次计价返回 0。
+    /// 不乘 peak 倍率（按次价无峰谷差）。billing.rs 与 estimate/db_ops.rs 共用此一口径。
+    pub fn request_fee(&self, units: i64) -> f64 {
+        self.request_unit_price.map_or(0.0, |up| up * units.max(1) as f64)
+    }
 }
 
 /// 三价字段非 null 覆盖 base（null 字段继承 base）。`apply_context_tier` / `apply_tiers` 共用。
