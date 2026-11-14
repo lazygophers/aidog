@@ -244,6 +244,7 @@ pub(crate) async fn finish_nonstream(
         coding_plan,
         created_at_ms,
         chat_tool_cost_usd(&route.platform.platform_type, &log.tool_call_counts),
+        0, // chat 路径无按次计量次数
         tracing::Span::current(),
     );
 
