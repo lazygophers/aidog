@@ -454,6 +454,40 @@ mod tests {
         assert!(parse_platform_peak("{}").is_empty());
     }
 
+    #[test]
+    fn tencent_weekends() {
+        use chrono::Datelike;
+
+        let calendar = aidog_db::registry::holiday_calendar_get("CN").unwrap();
+        let workdays = &calendar.years["2027"].workdays;
+        assert_eq!(workdays.len(), 5);
+        for protocol in ["tencent_tokenhub", "tencent_tokenhub_intl"] {
+            let windows = peak_in(aidog_db::registry::presets(), protocol);
+            assert_eq!(windows.len(), 2, "{protocol}");
+            for hour in [10, 15] {
+                for date in workdays {
+                    let ms = DateTime::parse_from_rfc3339(&format!("{date}T{hour:02}:00:00+08:00"))
+                        .unwrap()
+                        .timestamp_millis();
+                    let day = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap();
+                    assert!(day.weekday().number_from_monday() >= 6, "{date}");
+                    assert!(
+                        !is_in_peak_window(&windows, ms, ""),
+                        "{protocol} {date} {hour}"
+                    );
+                }
+                let weekday =
+                    DateTime::parse_from_rfc3339(&format!("2027-03-01T{hour:02}:00:00+08:00"))
+                        .unwrap()
+                        .timestamp_millis();
+                assert!(
+                    is_in_peak_window(&windows, weekday, ""),
+                    "{protocol} weekday {hour}"
+                );
+            }
+        }
+    }
+
     // ── default_peak ──
 
     #[test]
