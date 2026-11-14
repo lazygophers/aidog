@@ -282,6 +282,40 @@ fn resolve_price_from_second_unit_sets_second_divisor() {
     assert_eq!(r.price.source, "model_entry+second");
 }
 
+/// issue 157：`PriceResolution::request_fee` 计数语义 —— request/image/mp（PerRequest）
+/// 缺计数按 1 次估（#156 rerank 回归）；char（÷1000）/ second（÷1）按实际计数，
+/// 缺计数 → 0（不兜底成一次的价格，不可估算记 0）。
+#[test]
+fn request_fee_count_units_need_count_others_default_one() {
+    let char_pd = serde_json::json!({"price": {"unit": "char", "unit_price": 0.015}});
+    let second_pd = serde_json::json!({"price": {"unit": "second", "unit_price": 0.0025}});
+    let request_pd = serde_json::json!({"price": {"unit": "request", "unit_price": 0.1}});
+    let char = resolve_price_from(Some(&char_pd), false, 3.0, 15.0, 0, 0);
+    let second = resolve_price_from(Some(&second_pd), false, 3.0, 15.0, 0, 0);
+    let request = resolve_price_from(Some(&request_pd), false, 3.0, 15.0, 0, 0);
+
+    // PerRequest（rerank 回归，#156 语义不变）
+    assert_eq!(request.request_fee(0), 0.1, "request 缺计数按 1 次估");
+    assert_eq!(request.request_fee(-5), 0.1, "负数计数视为缺失，按 1 次估");
+    assert!((request.request_fee(3) - 0.3).abs() < 1e-12, "request 有计数照乘");
+    // Counted：有计数按 `units ÷ divisor × unit_price`
+    assert!(
+        (char.request_fee(10000) - 0.15).abs() < 1e-12,
+        "char：1 万字符 ÷ 1000 × $0.015 = $0.15"
+    );
+    assert!(
+        (second.request_fee(30) - 0.075).abs() < 1e-12,
+        "second：30 秒 × $0.0025 = $0.075"
+    );
+    // Counted：缺计数 → 0（不可估算）
+    assert_eq!(char.request_fee(0), 0.0, "char 无计数 → 0（不可估算）");
+    assert_eq!(second.request_fee(0), 0.0, "second 无计数 → 0（不可估算）");
+    // 条目非按次计价 → 恒 0
+    let token_pd = serde_json::json!({"price": {"input": 3.0, "output": 15.0}});
+    let token = resolve_price_from(Some(&token_pd), false, 3.0, 15.0, 1000, 0);
+    assert_eq!(token.request_fee(100), 0.0, "token 条目无按次单价 → 0");
+}
+
 #[test]
 fn time_tiers_switches_per_call_price_at_start_at() {
     // stepfun stepaudio-3-asr-max 真实形状：按次条目（CNY ¥/秒）time_tiers 定时切价，
