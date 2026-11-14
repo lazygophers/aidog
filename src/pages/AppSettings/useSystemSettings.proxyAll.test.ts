@@ -8,6 +8,7 @@ import {
   statsSettingsApi, autoUpdateApi, platformApi,
 } from "../../services/api";
 import { useSystemSettings } from "./useSystemSettings";
+import { enableProxyForAllPlatforms } from "../../domains/platforms/proxyConfig";
 
 vi.mock("../../services/platform", () => ({ getAppVersion: () => Promise.resolve("") }));
 
@@ -63,5 +64,27 @@ describe("useSystemSettings 为全部平台开启 + 代理配置广播", () => {
     expect(proxyApi.setProxyClientSettings).toHaveBeenCalled();
     expect(seen).toContain("aidog-proxy-config-changed");
     window.removeEventListener("aidog-proxy-config-changed", onEvt);
+  });
+});
+
+// review smell 4：批量执行体移入 domains/platforms/proxyConfig 后，失败数统计直接测执行体。
+describe("enableProxyForAllPlatforms 失败数统计", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("单平台失败不中断其余，返回成功/失败数并广播平台刷新", async () => {
+    vi.spyOn(platformApi, "list").mockResolvedValue(plats);
+    const upd = vi
+      .spyOn(platformApi, "update")
+      .mockResolvedValueOnce(undefined as never)
+      .mockRejectedValueOnce(new Error("boom"))
+      .mockResolvedValue(undefined as never);
+    const seen: string[] = [];
+    const onEvt = (e: Event) => seen.push(e.type);
+    window.addEventListener("aidog-platforms-changed", onEvt);
+    const r = await enableProxyForAllPlatforms();
+    expect(r).toEqual({ ok: 1, failed: 1 });
+    expect(upd).toHaveBeenCalledTimes(2);
+    expect(seen).toContain("aidog-platforms-changed");
+    window.removeEventListener("aidog-platforms-changed", onEvt);
   });
 });

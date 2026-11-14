@@ -2272,6 +2272,7 @@
   "proxy.enableForAllConfirmTitle": "Enable proxy for all platforms?",
   "proxy.enableForAllConfirmDesc": "This turns on \"Use proxy\" for every platform. The proxy address is not changed.",
   "proxy.enableForAllDone": "Proxy enabled for {{n}} platforms",
+  "proxy.enableForAllPartial": "Proxy enabled for {{n}} platforms, {{f}} failed",
   "proxy.upstreamReqRetention": "Upstream request retention time",
   "proxy.userReqRetention": "User request retention time",
   "displayCurrency.title": "Display currency",
