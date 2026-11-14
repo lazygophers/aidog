@@ -169,13 +169,8 @@ async fn relay_passthrough(
     // 透传出站归属：平台分支带 extra（读 `extra.proxy_enabled`，issue #64 T04；
     // 空白 extra = 平台缺省直连，不回落 others_enabled——review 需求轴 3）；
     // 无平台分支（claude_code 订阅透传 / 未匹配直通）= 非平台归属（读「其它请求使用代理」）。
-    let use_proxy = match opts.platform_extra {
-        Some(extra) => super::http_client::platform_should_use_proxy(&proxy_client, extra),
-        None => super::http_client::should_use_proxy(
-            &proxy_client,
-            super::http_client::ProxyAttribution::NonPlatform,
-        ),
-    };
+    // 判定收口 scoped_use_proxy（review 判断项 1，与 build_http_client_scoped 同源）。
+    let use_proxy = super::http_client::scoped_use_proxy(&proxy_client, opts.platform_extra);
     let client = super::http_client::build_http_client(&proxy_client, req_timeout, conn_timeout, use_proxy)
         .await;
 

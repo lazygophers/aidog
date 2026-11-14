@@ -87,13 +87,13 @@ pub fn platform_proxy_enabled(extra: &str) -> Option<bool> {
 
 /// 出站归属：本次出站属于哪一类（issue #64 T01，代理判定唯一 seam 的输入）。
 pub enum ProxyAttribution<'a> {
-    /// 平台出站：该平台 `extra.proxy_enabled` 开关值（None = 未配置 → 直连）。
-    Platform(Option<bool>),
+    /// 平台出站：该平台 `extra.proxy_enabled` 三态开关（构造一律走 `ProxySwitch`）。
+    Platform(ProxySwitch),
     /// 非平台出站（余额/logo/model_fetch/skills 等）：读「其它请求使用代理」。
     NonPlatform,
-    /// MITM 旁路出站：连接绑定分组内官方平台的开关集合（元素 = 各平台 `extra.proxy_enabled`）。
+    /// MITM 旁路出站：连接绑定分组内官方平台的三态开关集合（元素 = 各平台 `extra.proxy_enabled`）。
     /// 任一显式开即走代理；集合为空回落非平台规则（已接入 `mitm_bypass.rs`）。
-    MitmBypass(&'a [Option<bool>]),
+    MitmBypass(&'a [ProxySwitch]),
 }
 
 /// 平台代理开关三态（review smell 3：封装裸 `Option<bool>`，语义单点在此）。
@@ -127,8 +127,8 @@ impl ProxySwitch {
     }
 
     /// 旁路集合语义：任一显式开即开。
-    pub fn any_on(flags: &[Option<bool>]) -> bool {
-        flags.contains(&Some(true))
+    pub fn any_on(flags: &[ProxySwitch]) -> bool {
+        flags.contains(&Self::On)
     }
 }
 
@@ -142,7 +142,7 @@ pub fn should_use_proxy(settings: &ProxyClientSettings, attribution: ProxyAttrib
     }
     match attribution {
         // 平台开关：缺省（Default）按直连（后端防御，不跟随全局）。
-        ProxyAttribution::Platform(flag) => ProxySwitch::from_flag(flag).allows_proxy(),
+        ProxyAttribution::Platform(s) => s.allows_proxy(),
         ProxyAttribution::NonPlatform => settings.others_enabled,
         // 分组内官方平台任一显式开即走代理；集合为空回落非平台规则。
         ProxyAttribution::MitmBypass(flags) => {
@@ -157,10 +157,7 @@ pub fn should_use_proxy(settings: &ProxyClientSettings, attribution: ProxyAttrib
 
 /// 平台出站判定便捷封装：extra JSON → `proxy_enabled` 三态 → should_use_proxy。
 pub fn platform_should_use_proxy(settings: &ProxyClientSettings, extra: &str) -> bool {
-    should_use_proxy(
-        settings,
-        ProxyAttribution::Platform(platform_proxy_enabled(extra)),
-    )
+    should_use_proxy(settings, ProxyAttribution::Platform(ProxySwitch::from_extra(extra)))
 }
 
 /// 测试构建专用护栏：只解析回环主机名，其余一律报错点名主机，杜绝测试真实外呼
@@ -273,6 +270,17 @@ pub async fn build_http_client(
     client
 }
 
+/// 归属判定单点（issue #64 review 判断项 1）：`Some(extra)` = 平台归属（读
+/// `extra.proxy_enabled`，空白/缺键/损坏 = 平台缺省直连）；`None` = 非平台归属
+/// （others_enabled）。`build_http_client_scoped` 与透传 `relay_passthrough` 共用，
+/// 禁再抄第二份 match。
+pub fn scoped_use_proxy(settings: &ProxyClientSettings, platform_extra: Option<&str>) -> bool {
+    match platform_extra {
+        Some(extra) => platform_should_use_proxy(settings, extra),
+        None => should_use_proxy(settings, ProxyAttribution::NonPlatform),
+    }
+}
+
 /// 按归属构建（issue #64 T04）：`platform_extra` = 平台行 extra JSON（平台归属，读
 /// `extra.proxy_enabled`，空白/缺键/损坏 → 缺省直连）；`None` = 非平台归属（others_enabled）。
 /// quota 注入与 model_fetch 共用。空白 extra 归平台归属（review 需求轴 3：缺省直连，
@@ -284,10 +292,7 @@ pub async fn build_http_client_scoped(
     platform_extra: Option<&str>,
 ) -> reqwest::Client {
     let settings = load_proxy_client_settings(db).await;
-    let use_proxy = match platform_extra {
-        Some(extra) => platform_should_use_proxy(&settings, extra),
-        None => should_use_proxy(&settings, ProxyAttribution::NonPlatform),
-    };
+    let use_proxy = scoped_use_proxy(&settings, platform_extra);
     build_http_client(&settings, timeout_secs, conn_timeout_secs, use_proxy).await
 }
 
@@ -303,20 +308,26 @@ pub async fn build_http_client_system(
     build_http_client(&settings, timeout_secs, conn_timeout_secs, use_proxy).await
 }
 
-/// 注册 search / notification 出站 client 工厂（issue #64 review hard issue 2）。
-/// 插入 aidog_ctx 的单例 DB 延迟到调用时读取（外壳启动时注册早于开库）；无 DB 时返回错误。
-/// 依赖方向保持 core → search / notification，不形成反向依赖环。
-pub fn install_non_platform_client_factories() {
-    aidog_search::set_client_factory(Arc::new(|| {
+/// 构造 search 出站 client 工厂（无 DB → Err，调用方显式处理；不静默回落直连绕过代理判定）。
+/// 拆出独立函数供测试直接调用——全局 OnceLock 注入有跨测试污染（register 后 media 等测试
+/// 的回落路径被改写）。
+fn search_client_factory() -> aidog_search::ClientFactory {
+    Arc::new(|| {
         Box::pin(async {
+            // Err = 调用方显式处理（http_client_aware 的 Result 语义），不静默回落直连：
+            // DB 未就绪时直连会绕过「其它请求使用代理」判定。
             let Some(db) = aidog_ctx::try_db() else {
                 return Err("proxy-aware search client requested before DB init".to_string());
             };
             let db = Arc::new(db.clone());
             Ok(build_http_client_system(&db, 30, 10).await)
         })
-    }));
-    aidog_search::set_fingerprint_proxy_provider(Arc::new(|| {
+    })
+}
+
+/// 构造指纹出站代理提供器（判定生效：读「其它请求使用代理」，关/未配 = None = 直连）。
+fn fingerprint_proxy_provider() -> aidog_search::FingerprintProxyProvider {
+    Arc::new(|| {
         Box::pin(async {
             let db = aidog_ctx::try_db()?;
             let db = Arc::new(db.clone());
@@ -331,16 +342,30 @@ pub fn install_non_platform_client_factories() {
                 })
             })?
         })
-    }));
-    aidog_notification::channels::set_client_factory(Arc::new(|| {
+    })
+}
+
+/// 构造 notification 出站 client 工厂（无 DB → Err，同 search 工厂语义）。
+fn notification_client_factory() -> aidog_notification::channels::WebhookClientFactory {
+    Arc::new(|| {
         Box::pin(async {
+            // Err = 调用方显式处理（同 search 工厂）：不静默回落直连绕过代理判定。
             let Some(db) = aidog_ctx::try_db() else {
                 return Err("proxy-aware notification client requested before DB init".to_string());
             };
             let db = Arc::new(db.clone());
             Ok(build_http_client_system(&db, 10, 0).await)
         })
-    }));
+    })
+}
+
+/// 注册 search / notification 出站 client 工厂（issue #64 review hard issue 2）。
+/// 插入 aidog_ctx 的单例 DB 延迟到调用时读取（外壳启动时注册早于开库）；无 DB 时返回错误。
+/// 依赖方向保持 core → search / notification，不形成反向依赖环。
+pub fn install_non_platform_client_factories() {
+    aidog_search::set_client_factory(search_client_factory());
+    aidog_search::set_fingerprint_proxy_provider(fingerprint_proxy_provider());
+    aidog_notification::channels::set_client_factory(notification_client_factory());
 }
 
 #[cfg(test)]
@@ -433,9 +458,9 @@ mod tests {
             others_enabled: true,
             ..Default::default()
         };
-        assert!(!should_use_proxy(&s, ProxyAttribution::Platform(Some(true))));
+        assert!(!should_use_proxy(&s, ProxyAttribution::Platform(ProxySwitch::On)));
         assert!(!should_use_proxy(&s, ProxyAttribution::NonPlatform));
-        let flags = [Some(true), Some(false)];
+        let flags = [ProxySwitch::On, ProxySwitch::Off];
         assert!(!should_use_proxy(&s, ProxyAttribution::MitmBypass(&flags)));
         // 空白主机同样视为未配置
         let s2 = ProxyClientSettings {
@@ -449,10 +474,10 @@ mod tests {
     #[test]
     fn seam_platform_explicit_and_missing() {
         let s = seam_settings(false);
-        assert!(should_use_proxy(&s, ProxyAttribution::Platform(Some(true))));
-        assert!(!should_use_proxy(&s, ProxyAttribution::Platform(Some(false))));
+        assert!(should_use_proxy(&s, ProxyAttribution::Platform(ProxySwitch::On)));
+        assert!(!should_use_proxy(&s, ProxyAttribution::Platform(ProxySwitch::Off)));
         // 缺省 = 直连（后端防御，不跟随全局）
-        assert!(!should_use_proxy(&s, ProxyAttribution::Platform(None)));
+        assert!(!should_use_proxy(&s, ProxyAttribution::Platform(ProxySwitch::Default)));
         // 便捷封装同语义
         assert!(platform_should_use_proxy(&s, r#"{"proxy_enabled":true}"#));
         assert!(!platform_should_use_proxy(&s, r#"{"proxy_enabled":false}"#));
@@ -479,11 +504,11 @@ mod tests {
         let s = seam_settings(false);
         assert!(should_use_proxy(
             &s,
-            ProxyAttribution::Platform(Some(true))
+            ProxyAttribution::Platform(ProxySwitch::On)
         ));
         assert!(!should_use_proxy(
             &s,
-            ProxyAttribution::Platform(Some(false))
+            ProxyAttribution::Platform(ProxySwitch::Off)
         ));
         assert!(!should_use_proxy(&s, ProxyAttribution::NonPlatform));
         assert!(should_use_proxy(
@@ -507,16 +532,31 @@ mod tests {
     fn seam_mitm_bypass_any_on_and_empty_fallback() {
         let s = seam_settings(false);
         // 任一显式开 → 走代理
-        let flags = [Some(false), Some(true), None];
+        let flags = [ProxySwitch::Off, ProxySwitch::On, ProxySwitch::Default];
         assert!(should_use_proxy(&s, ProxyAttribution::MitmBypass(&flags)));
         // 全关（显式 false / 缺省）→ 直连
-        let all_off = [Some(false), None];
+        let all_off = [ProxySwitch::Off, ProxySwitch::Default];
         assert!(!should_use_proxy(&s, ProxyAttribution::MitmBypass(&all_off)));
         // 集合为空 → 回落非平台规则
-        let empty: [Option<bool>; 0] = [];
+        let empty: [ProxySwitch; 0] = [];
         assert!(!should_use_proxy(&s, ProxyAttribution::MitmBypass(&empty)));
         let s_on = seam_settings(true);
         assert!(should_use_proxy(&s_on, ProxyAttribution::MitmBypass(&empty)));
+    }
+
+    /// 判断项 7：非平台出站工厂构造后调用即生效（工厂被调用、判定生效）。直接调构造函数
+    /// 不碰全局 OnceLock（install 的全局注入有跨测试污染，首跑实锤改写 media 回落路径）：
+    /// 测试进程无 DB → 工厂 Err「before DB init」（调用方显式处理，不静默回落直连）。
+    #[tokio::test]
+    async fn non_platform_factories_built_and_invoked() {
+        let r = search_client_factory()().await;
+        let e = r.expect_err("无 DB 时工厂必须 Err，不得静默回落直连");
+        assert!(e.contains("before DB init"), "{e}");
+        let n = notification_client_factory()().await;
+        let en = n.expect_err("notification 工厂同语义");
+        assert!(en.contains("before DB init"), "{en}");
+        // 指纹提供器：无 DB → None（直连），调用链走通。
+        assert!(fingerprint_proxy_provider()().await.is_none());
     }
 
     // ── build_http_client 禁 env proxy 回归（修 HTTP/2 stream CANCEL 根因）──

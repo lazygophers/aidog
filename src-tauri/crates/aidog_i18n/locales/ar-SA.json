@@ -2360,7 +2360,7 @@
   "proxy.enableForAllConfirmTitle": "تمكين الوكيل لكل المنصات؟",
   "proxy.enableForAllConfirmDesc": "سيُفعّل «استخدام الوكيل» لكل المنصات دون تغيير عنوان الوكيل.",
   "proxy.enableForAllDone": "تم تمكين الوكيل لـ {{n}} منصة",
-  "proxy.enableForAllPartial": "تم تفعيل البروكسي لـ {{n}} منصات، وفشل {{f}}",
+  "proxy.enableForAllPartial": "تم تمكين الوكيل لـ {{n}} منصة، وفشل {{f}}",
   "proxy.upstreamReqRetention": "مدة الاحتفاظ بطلب المنبع",
   "proxy.userReqRetention": "مدة الاحتفاظ بطلب المستخدم",
   "displayCurrency.title": "عملة العرض",
