@@ -373,6 +373,7 @@ async fn estimate_after_request_balance_path_no_calibration() {
         false, // 非 coding plan
         0,     // created_at
         0.0,
+        0,
     )
     .await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
@@ -412,6 +413,7 @@ async fn estimate_after_request_applies_peak_multiplier() {
         false,
         0,
         0.0,
+        0,
     )
     .await;
 
@@ -457,6 +459,7 @@ async fn estimate_after_request_coding_path_no_calibration() {
         true,
         0,
         0.0,
+        0,
     )
     .await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
@@ -607,6 +610,7 @@ async fn run_est(db: &Db, id: u64, tool_usd: f64, in_tok: i64, out_tok: i64) {
         false,
         0,
         tool_usd,
+        0,
     )
     .await;
 }
@@ -728,6 +732,7 @@ async fn tool_fee_not_multiplied_by_peak() {
         false,
         0,
         0.5,
+        0,
     )
     .await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
@@ -736,6 +741,84 @@ async fn tool_fee_not_multiplied_by_peak() {
         "got {}",
         p.est_balance_remaining
     );
+}
+
+// ── issue #61：按次计价（unit:request）入余额与手动预算，与 est_cost 同口径 ──
+#[tokio::test]
+async fn per_request_fee_deducted_from_balance_and_manual_budget() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, false).await;
+    seed_entry(
+        &db,
+        "deepseek",
+        "unit-model",
+        r#"{"price":{"unit":"request","unit_price":0.002}}"#,
+    )
+    .await;
+    // 手动预算：usd 总额 10（无预算时 apply_manual_budgets no-op，必须先有预算）
+    db.platform_write_conn()
+        .call(move |conn| {
+            conn.execute(
+                "UPDATE platform SET manual_budgets = ?1 WHERE id = ?2",
+                rusqlite::params![
+                    r#"[{"id":"b1","kind":"total","unit":"usd","amount":10.0,"enabled":true}]"#,
+                    id as i64
+                ],
+            )?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    write_real_quota(&db, id, 100.0, "", now()).await.unwrap();
+    estimate_after_request(
+        &db,
+        id,
+        "deepseek",
+        "https://example.com",
+        "sk",
+        "unit-model",
+        "",
+        0, // token 全 0：纯按次请求不得被「无 token 跳过」丢掉
+        0,
+        0,
+        0,
+        false,
+        0,
+        0.0,
+        1, // request_units
+    )
+    .await;
+    let p = db::get_platform(&db, id).await.unwrap().unwrap();
+    assert!(p.estimate_count >= 1, "纯按次请求必须进入预估链");
+    assert!(
+        (p.est_balance_remaining - 99.998).abs() < 1e-12,
+        "got {}",
+        p.est_balance_remaining
+    );
+    let budgets = p.manual_budgets;
+    assert!(
+        (budgets[0].consumed - 0.002).abs() < 1e-12,
+        "got {}",
+        budgets[0].consumed
+    );
+    // 与日志 est_cost 同口径：同 (platform, model, tokens) 解析 = unit_price × 1 次
+    let est = crate::gateway::billing::calc_est_cost_detail(
+        &db,
+        "unit-model",
+        "deepseek",
+        "",
+        0,
+        0,
+        0,
+        0,
+        0,
+        id as i64,
+        0,
+        &[(crate::gateway::billing::SEARCH_UNITS_KEY.to_string(), 1)],
+    )
+    .await
+    .est_cost;
+    assert!((est - 0.002).abs() < 1e-12, "got {est}");
 }
 
 // ── apply_quota_verdict：真查判定写入调度器额度冷却 ──

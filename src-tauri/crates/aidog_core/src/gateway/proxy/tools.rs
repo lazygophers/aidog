@@ -400,6 +400,7 @@ async fn tools_attempt(
         route.platform.endpoints.iter().any(|ep| ep.coding_plan),
         log.created_at,
         log.est_cost,
+        0, // tools 按次费已并入 tool_cost_usd，无 search_units
         tracing::Span::current(),
     );
 

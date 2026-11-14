@@ -5128,6 +5128,93 @@ async fn rerank_cost_matrix() {
     }
 }
 
+/// issue #61：rerank（按次计价）与 embedding（token 计价）成功后余额按 est_cost 扣减。
+/// USD 余额 100：rerank unit_price 0.002 × 2 次 = 0.004；embedding 8 tokens × 2e-8 = 1.6e-7。
+/// spawn_estimate 在后台，轮询 estimate_count（有界）等落库。
+#[tokio::test]
+async fn aux_request_deducts_balance_by_est_cost() {
+    async fn run(
+        gk: &str,
+        path: &str,
+        body: &'static str,
+        resp: &'static str,
+        slot: PlatformModels,
+        entry: ModelEntry,
+    ) -> (aidog_db::models::ProxyLog, aidog_db::models::Platform) {
+        let (up, _h) = spawn_embedding_upstream(vec![(200, resp)]).await;
+        let (db, _dir) = aidog_db::test_support::three_file_db().await;
+        let state = make_state(db).await;
+        aidog_db::upsert_model_entries(&state.db, vec![entry]).await.unwrap();
+        setup_aux_group(&state, gk, &[(&up, slot, Protocol::OpenAI, "a")]).await;
+        let plats = aidog_db::list_platforms(&state.db).await.unwrap();
+        let plat_id = plats.iter().find(|p| p.name == format!("{gk}-a")).unwrap().id;
+        let quota = crate::gateway::quota::PlatformQuota {
+            success: true,
+            error: None,
+            queried_at: aidog_db::now(),
+            balance: Some(crate::gateway::quota::BalanceInfo {
+                remaining: 100.0,
+                total: None,
+                used: None,
+                currency: "USD".into(),
+                is_valid: true,
+            }),
+            coding_plan: None,
+            newapi_user_id: None,
+        };
+        crate::gateway::estimate::calibrate_from_quota(&state.db, plat_id, &quota, false).await;
+
+        let r = handle_proxy(AxumState(state.clone()), embedding_request(gk, body, path)).await;
+        assert_eq!(r.status(), StatusCode::OK);
+        let log = last_log_for(&state, gk).await;
+        let mut p = aidog_db::get_platform(&state.db, plat_id).await.unwrap().unwrap();
+        for _ in 0..100 {
+            if p.estimate_count > 0 {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            p = aidog_db::get_platform(&state.db, plat_id).await.unwrap().unwrap();
+        }
+        (log, p)
+    }
+
+    // rerank：按次计价，Cohere search_units=2 → 0.002 × 2 = 0.004
+    let (log, p) = run(
+        "gkb1",
+        "/v1/rerank",
+        RR_REQ,
+        RR_COHERE,
+        rerank_slot("rr-slot"),
+        rerank_entry(r#"{"unit":"request","unit_price":0.002}"#),
+    )
+    .await;
+    assert!(p.estimate_count > 0, "rerank 必须进入余额预估链");
+    assert!((log.est_cost - 0.004).abs() < 1e-12, "est {}", log.est_cost);
+    assert!(
+        (p.est_balance_remaining - (100.0 - 0.004)).abs() < 1e-9,
+        "got {}",
+        p.est_balance_remaining
+    );
+
+    // embedding：token 计价，8 tokens × 2e-8 = 1.6e-7
+    let (log, p) = run(
+        "gkb2",
+        "/v1/embeddings",
+        EMB_REQ,
+        EMB_RESPONSE,
+        PlatformModels { embedding: vec!["emb-slot".into()], ..Default::default() },
+        embedding_entry(r#"{"input":2e-8,"output":0}"#),
+    )
+    .await;
+    assert!(p.estimate_count > 0, "embedding 必须进入余额预估链");
+    assert!((log.est_cost - 8.0 * 2e-8).abs() < 1e-15, "est {}", log.est_cost);
+    assert!(
+        (p.est_balance_remaining - (100.0 - 8.0 * 2e-8)).abs() < 1e-12,
+        "got {}",
+        p.est_balance_remaining
+    );
+}
+
 /// 无候选 → 503 + no_rerank_platform（槽位空 / 非 OpenAI 系 / 只配了 embedding 槽）。
 #[tokio::test]
 async fn rerank_no_candidate_503_and_audit_log() {

@@ -647,10 +647,18 @@ pub(crate) fn spawn_estimate(
     is_coding_plan: bool,
     created_at_ms: i64,
     tool_cost_usd: f64,
+    // 按次计量次数（rerank：search_units；embedding/chat 路径 0）。> 0 时纯按次请求不被跳过。
+    request_units: i64,
     span: tracing::Span,
 ) {
-    // 无 token 且无按次费（请求失败 / 无 usage）则跳过；独立搜索请求 token 全 0 但有按次费，不能跳。
-    if input_tokens <= 0 && output_tokens <= 0 && cache_tokens <= 0 && tool_cost_usd <= 0.0 {
+    // 无 token 且无按次费（请求失败 / 无 usage）则跳过；独立搜索请求 token 全 0 但有
+    // 按次费 / 按次计量次数（rerank 缺省 1 次），不能跳。
+    if input_tokens <= 0
+        && output_tokens <= 0
+        && cache_tokens <= 0
+        && tool_cost_usd <= 0.0
+        && request_units <= 0
+    {
         return;
     }
     let ptype = platform_type.wire_str();
@@ -672,6 +680,7 @@ pub(crate) fn spawn_estimate(
                 is_coding_plan,
                 created_at_ms,
                 tool_cost_usd,
+                request_units,
             )
             .await;
             // 预估更新后通知主线程刷新托盘（emit 事件，避免后台线程直接操作 tray）

@@ -649,6 +649,8 @@ pub async fn estimate_after_request(
     created_at_ms: i64,
     // 按次工具费（USD，tools_cost 已换算；不乘 peak 倍率——官方按次价无峰谷差，见 billing.rs tools_cost 注释）。
     tool_cost_usd: f64,
+    // 按次计量次数（rerank：search_units；embedding/chat 路径 0 = 缺次数按 1 次估，同 billing.rs）。
+    request_units: i64,
 ) {
     // 判峰时刻与 calc_est_cost 同源：用请求发起时刻（created_at_ms），不用完成后的 now()
     // —— 跨峰边界请求（17:59 发 18:05 完）此前两套口径对不上。缺时间戳（0）才退 now()。
@@ -680,6 +682,11 @@ pub async fn estimate_after_request(
         .as_ref()
         .map_or(raw_mult, |r| r.multiplier(raw_mult));
     let source_cny = resolved.as_ref().is_some_and(|r| r.source_cny);
+    // 条目 `price.unit` 按次计价：费 = unit_price × 次数（缺次数按 1 次/请求，与 billing.rs 同口径）。
+    let request_fee = resolved
+        .as_ref()
+        .and_then(|r| r.request_unit_price)
+        .map_or(0.0, |up| up * request_units.max(1) as f64);
     let resolved_price = resolved.map(|r| r.price);
 
     // 1. 增量预估
@@ -703,7 +710,8 @@ pub async fn estimate_after_request(
                 price.cache_write_input_token_cost,
             ) * peak_mult
         });
-        let cost = (token_usd + tool_cost_usd) * balance_fx(db, platform_id, source_cny).await;
+        let cost = (token_usd + tool_cost_usd + request_fee)
+            * balance_fx(db, platform_id, source_cny).await;
         let _ = apply_balance_delta(db, platform_id, cost).await;
     }
 
@@ -726,7 +734,8 @@ pub async fn estimate_after_request(
                 ) * peak_mult
             })
             .unwrap_or(0.0)
-            + tool_cost_usd;
+            + tool_cost_usd
+            + request_fee;
         let _ = crate::gateway::manual_budget::apply_manual_budgets(
             db,
             platform_id,
