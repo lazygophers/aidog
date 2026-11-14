@@ -12,7 +12,7 @@ const RAW: &str = r#"{"email":"u@example.com","account_uuid":"acct-42"}"#;
 async fn raw_col(db: &aidog_db::Db, sql: &str) -> String {
     let sql = sql.to_string();
     db.call_read_traced(None, std::panic::Location::caller(), move |conn| {
-        Ok(conn.query_row(&sql, [], |r| r.get::<_, String>(0))?)
+        conn.query_row(&sql, [], |r| r.get::<_, String>(0))
     })
     .await
     .unwrap()

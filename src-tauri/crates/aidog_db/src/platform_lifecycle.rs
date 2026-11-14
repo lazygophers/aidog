@@ -142,7 +142,7 @@ pub fn find_purge_candidates(
                             .unwrap_or("expired");
                         Ok((id, name, reason))
                     })?;
-                    Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+                    rows.collect::<SqlResult<Vec<_>>>()
                 })
                 .await
                 .map_err(|e| e.to_string())?;
@@ -196,7 +196,7 @@ pub fn find_purge_candidates(
                             .unwrap_or("expired");
                         Ok((id, name, reason))
                     })?;
-                    Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+                    rows.collect::<SqlResult<Vec<_>>>()
                 })
                 .await
                 .map_err(|e| e.to_string())?;
@@ -206,11 +206,11 @@ pub fn find_purge_candidates(
                     // 该平台跨全库的活跃分组成员数（deleted_at=0 过滤，避免软删残留误判独占）。
                     let member_count: i64 = db
                     .call_platform_traced(None, __db_caller, move |conn| {
-                        Ok(conn.query_row(
+                        conn.query_row(
                             "SELECT COUNT(*) FROM group_platform WHERE platform_id = ?1 AND deleted_at = 0",
                             params![id],
                             |r| r.get::<_, i64>(0),
-                        )?)
+                        )
                     })
                     .await
                     .map_err(|e| e.to_string())?;
@@ -388,7 +388,7 @@ pub fn get_tray_platform(
         .call_platform_traced(None, __db_caller, |conn| {
             let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE show_in_tray = 1 AND deleted_at = 0 LIMIT 1");
             let mut stmt = conn.prepare(&sql)?;
-            Ok(stmt.query_row([], row_to_platform).optional()?)
+            stmt.query_row([], row_to_platform).optional()
         })
         .await
         .map_err(|e| e.to_string())
