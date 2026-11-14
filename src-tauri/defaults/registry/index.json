@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794629974,
+  "last_updated": 1794632081,
   "platforms": [
     {
       "code": "aihubmix",
@@ -6383,7 +6383,6 @@
       "models": [
         "01-ai/yi-large.json",
         "adept/fuyu-8b.json",
-        "ai21labs/jamba-1.5-large-instruct.json",
         "aisingapore/sea-lion-7b-instruct.json",
         "bigcode/starcoder2-15b.json",
         "databricks/dbrx-instruct.json",
@@ -6442,10 +6441,6 @@
         "poolside/laguna-xs-2.1.json",
         "snowflake/arctic-embed-l.json",
         "stepfun-ai/step-3.7-flash.json",
-        "writer/palmyra-creative-122b.json",
-        "writer/palmyra-fin-70b-32k.json",
-        "writer/palmyra-med-70b-32k.json",
-        "writer/palmyra-med-70b.json",
         "zyphra/zamba2-7b-instruct.json"
       ]
     },
@@ -7134,9 +7129,7 @@
         "bge-large-en.json",
         "bge-large-zh.json",
         "deepseek-ocr.json",
-        "deepseek-v3.1.json",
         "deepseek-v3.2.json",
-        "deepseek-v3.json",
         "deepseek-v4-flash.json",
         "deepseek-v4-pro.json",
         "embedding-v1.json",

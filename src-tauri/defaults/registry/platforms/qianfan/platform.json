@@ -5,7 +5,7 @@
   "tools_pricing": {
     "ai_search_chat": {"per_1000": 36.0, "currency": "CNY"}
   },
-  "last_updated": 1794625890,
+  "last_updated": 1794632081,
   "endpoints": {
     "default": [
       {
@@ -58,9 +58,7 @@
       "qwen3.5-27b",
       "qwen3.5-35b-a3b",
       "qwen3.5-397b-a17b",
-      "tao-8k",
-      "deepseek-v3",
-      "deepseek-v3.1"
+      "tao-8k"
     ]
   },
   "name": {
