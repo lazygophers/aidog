@@ -316,12 +316,12 @@ async fn body_clear_and_row_delete_use_their_own_retention() {
 
     let (u_req, u_resp, up_req, up_resp): (String, String, String, String) = db
         .call_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row(
+            c.query_row(
                 "SELECT request_body, user_response_body, upstream_request_body, response_body \
                  FROM proxy_log WHERE id='tiers-1'",
                 [],
                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
-            )?)
+            )
         })
         .await
         .unwrap();

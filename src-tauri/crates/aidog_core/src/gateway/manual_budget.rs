@@ -223,7 +223,7 @@ pub async fn apply_manual_budgets(
         return Ok(());
     }
     db.platform_write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<()> {
             let json: String = conn.query_row(
                 "SELECT manual_budgets FROM platform WHERE id = ?1",
                 params![platform_id as i64],
@@ -515,9 +515,9 @@ mod tests {
         let holder = tokio::spawn(async move {
             db_for_hold
                 .platform_write_conn()
-                .call(|conn| {
+                .call(|conn| -> rusqlite::Result<()> {
                     std::thread::sleep(std::time::Duration::from_secs(3));
-                    Ok(conn.query_row("SELECT 1", [], |_r| Ok(()))?)
+                    conn.query_row("SELECT 1", [], |_r| Ok(()))
                 })
                 .await
                 .unwrap();
