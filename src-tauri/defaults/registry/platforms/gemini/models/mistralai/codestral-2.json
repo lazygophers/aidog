@@ -1,9 +1,9 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1794629974,
   "supported_protocols": [
     "gemini"
   ],
-  "model_id": "mistralai/codestral-2",
+  "display_name": "Codestral 2",  "model_id": "mistralai/codestral-2",
   "canonical_model": "codestral-2",
   "family": "codestral",
   "version": "2",
