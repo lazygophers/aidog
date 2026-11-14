@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794592077,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "openai"
   ],
@@ -7,6 +7,7 @@
   "max_output_tokens": 128000,
   "thinking_supported": true,
   "display_name": "OpenAI: GPT-6.1 Sol Pro",
+  "version": "6.1",
   "canonical_model": "gpt-6-1-sol-pro",
   "family": "gpt",
   "capabilities": [

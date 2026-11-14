@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794592077,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "openai"
   ],
@@ -7,6 +7,7 @@
   "max_output_tokens": 128000,
   "thinking_supported": true,
   "display_name": "Anthropic: Claude Sonnet 5.5 (batch)",
+  "version": "5.5",
   "canonical_model": "claude-sonnet-5-5",
   "family": "claude",
   "capabilities": [

@@ -1,9 +1,10 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "nvidia/nemotron-parse",
+  "display_name": "Nemotron Parse",
   "canonical_model": "nemotron-parse",
   "family": "nemotron",
   "thinking_supported": true,

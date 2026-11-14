@@ -1,9 +1,10 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "meta/codellama-70b",
+  "display_name": "Codellama 70b",
   "canonical_model": "codellama-70b",
   "family": "codellama",
   "capabilities": [],

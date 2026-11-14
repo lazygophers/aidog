@@ -1,9 +1,10 @@
 {
-  "last_updated": 1794592077,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "databricks/dbrx-instruct",
+  "display_name": "Dbrx Instruct",
   "thinking_supported": false,
   "canonical_model": "dbrx-instruct",
   "family": "dbrx",

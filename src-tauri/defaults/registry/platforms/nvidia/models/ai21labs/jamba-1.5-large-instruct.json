@@ -1,9 +1,10 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "ai21labs/jamba-1.5-large-instruct",
+  "display_name": "Jamba 1 5 Large Instruct",
   "canonical_model": "jamba-1.5-large-instruct",
   "family": "jamba",
   "capabilities": [
