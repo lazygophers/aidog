@@ -368,23 +368,41 @@ pub fn init_tables_raw(
 
         // Migration 20261114-01 (proxy-platform-switch T01): 出站代理判定收口一次性迁移。
         // 旧总开关 enabled → others_enabled + 平台 extra.proxy_enabled 回填（细节见 schema_late.rs
-        // migrate_proxy_client_setting）。跨库：旧设置在主库 setting 表，平台行在 platform.db，
-        // 故两阶段各拿各的 conn；内存库 fallback 两 handle 同物理连接，顺序调用等价。
-        // 两段每启动都调：无 legacy（无旧行 / 新格式 / 损坏 JSON）时平台段仅立标记不回填，
-        // 保证两库标记都落地、后续启动不再进入迁移分支（评论阻塞项修复）。
+        // read_proxy_client_legacy / migrate_proxy_client_setting_*）。跨库：旧设置在主库
+        // setting 表，平台行在 platform.db，故两阶段各拿各的 conn；内存库 fallback 两 handle
+        // 同物理连接，顺序调用等价。
+        // 顺序（评论必改 1）：只读预检拿 legacy → 平台段（回填 + 平台标记同事务）→ 主段
+        // （改写 + 主库标记同事务）。预检失败（锁冲突 / 损坏 JSON）→ 跳过平台段与主段、
+        // 两库标记都不写，warn 后下次启动重试；不 panic、不阻断启动。
         {
-            let legacy: Option<bool> = db
+            let legacy = db
                 .call_traced(None, __db_caller, |conn| {
-                    Ok(crate::schema_late::migrate_proxy_client_setting_main(conn))
+                    Ok(crate::schema_late::read_proxy_client_legacy(conn))
                 })
-                .await
-                .unwrap_or(None);
-            db.call_platform_traced(None, __db_caller, move |conn| {
-                crate::schema_late::migrate_proxy_client_setting_platform(conn, legacy);
-                Ok(())
-            })
-            .await
-            .map_err(|e| e.to_string())?;
+                .await;
+            match legacy {
+                Err(e) => tracing::warn!(
+                    error = %e,
+                    "migration 20261114-01: 主库预检失败，跳过平台回填与主库改写（标记未写，下次启动重试）"
+                ),
+                Ok(Err(())) => tracing::warn!(
+                    "migration 20261114-01: proxy_client 设置损坏，跳过本轮迁移（标记未写，下次启动重试）"
+                ),
+                Ok(Ok(legacy)) => {
+                    db.call_platform_traced(None, __db_caller, move |conn| {
+                        crate::schema_late::migrate_proxy_client_setting_platform(conn, legacy);
+                        Ok(())
+                    })
+                    .await
+                    .map_err(|e| e.to_string())?;
+                    db.call_traced(None, __db_caller, |conn| {
+                        crate::schema_late::migrate_proxy_client_setting_main(conn);
+                        Ok(())
+                    })
+                    .await
+                    .map_err(|e| e.to_string())?;
+                }
+            }
         }
 
         // Phase 4: 主库 DROP × 4（仅 Phase 3 成功后达；cli_proxy_provider 随 CLI 代理移除，只清不迁）。
