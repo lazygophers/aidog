@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794017726,
+  "last_updated": 1794651308,
   "endpoints": {
     "default": [
       {
@@ -47,6 +47,7 @@
     "ja-JP": "Mistral API",
     "es-ES": "Mistral API"
   },
+  "holiday_calendar": "FR",
   "source_urls": {
     "docs": "https://docs.mistral.ai/",
     "pricing": "https://mistral.ai/pricing/"
