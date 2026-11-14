@@ -1,0 +1,33 @@
+{
+  "code": "US-PA",
+  "extends": "US",
+  "name": {
+    "zh-Hans": "宾夕法尼亚州",
+    "en-US": "Pennsylvania",
+    "ar-SA": "بنسلفانيا",
+    "fr-FR": "Pennsylvanie",
+    "de-DE": "Pennsylvania",
+    "ru-RU": "Пенсильвания",
+    "ja-JP": "ペンシルベニア州",
+    "es-ES": "Pensilvania"
+  },
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-11-27"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-11-26",
+        "2027-12-31"
+      ],
+      "workdays": []
+    }
+  },
+  "source_urls": [
+    "https://www.pa.gov/content/dam/copapwp-pagov/en/budget/documents/for-commonwealth-agencies-and-employees/for-agencies/payroll/2026-calendar.pdf",
+    "https://www.pa.gov/content/dam/copapwp-pagov/en/budget/documents/for-commonwealth-agencies-and-employees/for-agencies/payroll/2027-calendar.pdf"
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "code": "CH-GL",
+  "extends": "CH",
+  "name": {
+    "zh-Hans": "格拉鲁斯州",
+    "en-US": "Glarus",
+    "ar-SA": "غلاروس",
+    "fr-FR": "Glaris",
+    "de-DE": "Glarus",
+    "ru-RU": "Гларус",
+    "ja-JP": "グラールス州",
+    "es-ES": "Glaris"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-01-01", "2026-04-03", "2026-04-05", "2026-04-06", "2026-04-09", "2026-05-14", "2026-05-24", "2026-05-25", "2026-09-20", "2026-11-01", "2026-12-25", "2026-12-26"],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": ["2027-01-01", "2027-03-26", "2027-03-28", "2027-03-29", "2027-04-01", "2027-05-06", "2027-05-16", "2027-05-17", "2027-09-19", "2027-11-01", "2027-12-25", "2027-12-26"],
+      "workdays": []
+    }
+  },
+  "source_urls": [
+    "https://gesetze.gl.ch/app/de/texts_of_law/IX-B.21.1",
+    "https://www.lebendige-traditionen.ch/de/naefelser-fahrt",
+    "https://www.lebendige-traditionen.ch/dam/de/sd-web/PlbD6ZC5qtFb/naefelser_fahrt.pdf"
+  ]
+}

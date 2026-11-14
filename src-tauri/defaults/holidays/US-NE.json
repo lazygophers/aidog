@@ -1,0 +1,40 @@
+{
+  "code": "US-NE",
+  "extends": "US",
+  "name": {
+    "zh-Hans": "内布拉斯加州",
+    "en-US": "Nebraska",
+    "ar-SA": "نبراسكا",
+    "fr-FR": "Nebraska",
+    "de-DE": "Nebraska",
+    "ru-RU": "Небраска",
+    "ja-JP": "ネブラスカ州",
+    "es-ES": "Nebraska"
+  },
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-04-24",
+        "2026-07-04",
+        "2026-11-27"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-04-30",
+        "2027-06-19",
+        "2027-07-04",
+        "2027-11-26",
+        "2027-12-25",
+        "2027-12-31"
+      ],
+      "workdays": []
+    }
+  },
+  "source_urls": [
+    "https://das.nebraska.gov/personnel/holiday.html",
+    "https://nebraskalegislature.gov/laws/statutes.php?statute=84-1001",
+    "https://nebraskalegislature.gov/laws/statutes.php?statute=25-2221"
+  ]
+}

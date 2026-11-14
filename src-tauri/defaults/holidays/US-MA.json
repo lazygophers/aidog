@@ -14,14 +14,15 @@
   "years": {
     "2026": {
       "holidays": ["2026-04-20", "2026-07-04"],
-      "workdays": ["2026-07-03", "2026-10-12"]
+      "workdays": ["2026-07-03"]
     },
     "2027": {
       "holidays": ["2027-04-19", "2027-06-19", "2027-07-04", "2027-12-25"],
-      "workdays": ["2027-06-18", "2027-10-11", "2027-12-24"]
+      "workdays": ["2027-06-18", "2027-12-24", "2027-12-31"]
     }
   },
   "source_urls": [
-    "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleI/Chapter4/Section7"
+    "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleI/Chapter4/Section7",
+    "https://www.sec.state.ma.us/divisions/cis/holiday-info.htm"
   ]
 }

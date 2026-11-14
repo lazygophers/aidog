@@ -1,0 +1,42 @@
+{
+  "code": "US-NM",
+  "extends": "US",
+  "name": {
+    "zh-Hans": "新墨西哥州",
+    "en-US": "New Mexico",
+    "ar-SA": "نيومكسيكو",
+    "fr-FR": "Nouveau-Mexique",
+    "de-DE": "New Mexico",
+    "ru-RU": "Нью-Мексико",
+    "ja-JP": "ニューメキシコ州",
+    "es-ES": "Nuevo México"
+  },
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-07-04",
+        "2026-11-27"
+      ],
+      "workdays": [
+        "2026-02-16"
+      ]
+    },
+    "2027": {
+      "holidays": [
+        "2027-06-19",
+        "2027-07-04",
+        "2027-11-26",
+        "2027-12-25",
+        "2027-12-31"
+      ],
+      "workdays": [
+        "2027-02-15"
+      ]
+    }
+  },
+  "source_urls": [
+    "https://www.spo.state.nm.us/about-us/general-memorandums/",
+    "https://www.spo.state.nm.us/2026/11/04/general-memorandum-2026-007/",
+    "https://www.spo.state.nm.us/2025/12/12/general-memorandum-2025-015/"
+  ]
+}

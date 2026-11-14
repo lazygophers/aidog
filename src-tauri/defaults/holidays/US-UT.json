@@ -1,0 +1,39 @@
+{
+  "code": "US-UT",
+  "extends": "US",
+  "name": {
+    "zh-Hans": "犹他州",
+    "en-US": "Utah",
+    "ar-SA": "يوتا",
+    "fr-FR": "Utah",
+    "de-DE": "Utah",
+    "ru-RU": "Юта",
+    "ja-JP": "ユタ州",
+    "es-ES": "Utah"
+  },
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-06-15",
+        "2026-07-24"
+      ],
+      "workdays": [
+        "2026-06-19"
+      ]
+    },
+    "2027": {
+      "holidays": [
+        "2027-06-21",
+        "2027-07-23",
+        "2027-12-31"
+      ],
+      "workdays": [
+        "2027-06-18"
+      ]
+    }
+  },
+  "source_urls": [
+    "https://www.utcourts.gov/en/about/miscellaneous/law-library/holidays.html",
+    "https://finance.utah.gov/wp-content/uploads/2026PP.pdf"
+  ]
+}

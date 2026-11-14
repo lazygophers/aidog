@@ -1,0 +1,48 @@
+{
+  "code": "US-KY",
+  "extends": "US",
+  "name": {
+    "zh-Hans": "肯塔基州",
+    "en-US": "Kentucky",
+    "ar-SA": "كنتاكي",
+    "fr-FR": "Kentucky",
+    "de-DE": "Kentucky",
+    "ru-RU": "Кентукки",
+    "ja-JP": "ケンタッキー州",
+    "es-ES": "Kentucky"
+  },
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-07-04",
+        "2026-11-27",
+        "2026-12-24",
+        "2026-12-31"
+      ],
+      "workdays": [
+        "2026-02-16",
+        "2026-10-12"
+      ]
+    },
+    "2027": {
+      "holidays": [
+        "2027-06-19",
+        "2027-07-04",
+        "2027-11-26",
+        "2027-12-23",
+        "2027-12-25",
+        "2027-12-30",
+        "2027-12-31"
+      ],
+      "workdays": [
+        "2027-02-15",
+        "2027-10-11"
+      ]
+    }
+  },
+  "source_urls": [
+    "https://extranet.personnel.ky.gov/pages/leave.aspx",
+    "https://personnel.ky.gov/holidays-and-leave",
+    "https://apps.legislature.ky.gov/law/statutes/statute.aspx?id=1386"
+  ]
+}

@@ -16,10 +16,13 @@
       "holidays": [
         "2026-01-01",
         "2026-04-03",
+        "2026-04-05",
         "2026-04-06",
         "2026-05-01",
         "2026-05-14",
+        "2026-05-24",
         "2026-05-25",
+        "2026-09-20",
         "2026-12-25",
         "2026-12-26"
       ],
@@ -29,10 +32,13 @@
       "holidays": [
         "2027-01-01",
         "2027-03-26",
+        "2027-03-28",
         "2027-03-29",
         "2027-05-01",
         "2027-05-06",
+        "2027-05-16",
         "2027-05-17",
+        "2027-09-19",
         "2027-12-25",
         "2027-12-26"
       ],
@@ -40,6 +46,7 @@
     }
   },
   "source_urls": [
-    "https://www.zh.ch/de/wirtschaft-arbeit/arbeitsbedingungen/arbeitsssicherheit-gesundheitsschutz/arbeits-ruhezeiten/feiertage.html"
+    "https://www.zh.ch/de/wirtschaft-arbeit/arbeitsbedingungen/arbeitsssicherheit-gesundheitsschutz/arbeits-ruhezeiten/feiertage.html",
+    "https://www.zh.ch/de/politik-staat/gesetze-beschluesse/gesetzessammlung/zhlex-ls/erlass-822_4-2000_06_26-2004_05_01-045.html"
   ]
 }

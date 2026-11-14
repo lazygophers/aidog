@@ -1,0 +1,46 @@
+{
+  "code": "CH-VD",
+  "extends": "CH",
+  "name": {
+    "zh-Hans": "沃州",
+    "en-US": "Vaud",
+    "ar-SA": "فو",
+    "fr-FR": "Vaud",
+    "de-DE": "Waadt",
+    "ru-RU": "Во",
+    "ja-JP": "ヴォー州",
+    "es-ES": "Vaud"
+  },
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-01-01",
+        "2026-01-02",
+        "2026-04-03",
+        "2026-04-06",
+        "2026-05-14",
+        "2026-05-25",
+        "2026-09-21",
+        "2026-12-25"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-01-01",
+        "2027-01-02",
+        "2027-03-26",
+        "2027-03-29",
+        "2027-05-06",
+        "2027-05-17",
+        "2027-09-20",
+        "2027-12-25"
+      ],
+      "workdays": []
+    }
+  },
+  "source_urls": [
+    "https://www.vd.ch/formation/jours-feries-et-vacances-scolaires/jours-feries-et-vacances-scolaires-2026",
+    "https://www.vd.ch/formation/jours-feries-et-vacances-scolaires/jours-feries-et-vacances-scolaires-2027"
+  ]
+}

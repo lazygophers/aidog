@@ -1,0 +1,43 @@
+{
+  "code": "US-OR",
+  "extends": "US",
+  "name": {
+    "zh-Hans": "俄勒冈州",
+    "en-US": "Oregon",
+    "ar-SA": "أوريغون",
+    "fr-FR": "Oregon",
+    "de-DE": "Oregon",
+    "ru-RU": "Орегон",
+    "ja-JP": "オレゴン州",
+    "es-ES": "Oregón"
+  },
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-07-04",
+        "2026-11-27"
+      ],
+      "workdays": [
+        "2026-10-12"
+      ]
+    },
+    "2027": {
+      "holidays": [
+        "2027-06-19",
+        "2027-07-04",
+        "2027-11-26",
+        "2027-12-25",
+        "2027-12-31"
+      ],
+      "workdays": [
+        "2027-10-11"
+      ]
+    }
+  },
+  "source_urls": [
+    "https://www.oregon.gov/DAS/pages/calendar.aspx",
+    "https://www.oregon.gov/das/Policies/60-010-01.attachment.pdf",
+    "https://www.oregon.gov/das/Policies/60-010-01.pdf",
+    "https://www.oregonlegislature.gov/bills_laws/ors/ors187.html"
+  ]
+}

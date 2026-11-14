@@ -1,0 +1,42 @@
+{
+  "code": "US-MI",
+  "extends": "US",
+  "name": {
+    "zh-Hans": "密歇根州",
+    "en-US": "Michigan",
+    "ar-SA": "ميشيغان",
+    "fr-FR": "Michigan",
+    "de-DE": "Michigan",
+    "ru-RU": "Мичиган",
+    "ja-JP": "ミシガン州",
+    "es-ES": "Míchigan"
+  },
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-11-03",
+        "2026-11-27",
+        "2026-12-24",
+        "2026-12-31"
+      ],
+      "workdays": [
+        "2026-10-12"
+      ]
+    },
+    "2027": {
+      "holidays": [
+        "2027-11-26",
+        "2027-12-23",
+        "2027-12-30",
+        "2027-12-31"
+      ],
+      "workdays": [
+        "2027-10-11"
+      ]
+    }
+  },
+  "source_urls": [
+    "https://www.michigan.gov/som/government/state-holidays",
+    "https://www.michigan.gov/-/media/Project/Websites/mdcs/REGS/Reg508.pdf?rev=3b02aeca889c4799947185dcf7c30a18&hash=03A108834F375FC421C08DC9E7FAC337"
+  ]
+}

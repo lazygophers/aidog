@@ -15,10 +15,15 @@
     "2026": {
       "holidays": [],
       "workdays": []
+    },
+    "2027": {
+      "holidays": ["2027-12-31"],
+      "workdays": []
     }
   },
   "source_urls": [
     "https://dhr.idaho.gov/information-for-state-employees/",
-    "https://dhr.idaho.gov/wp-content/uploads/2026/01/2026_Portal_Calendar.pdf"
+    "https://dhr.idaho.gov/wp-content/uploads/2026/01/2026_Portal_Calendar.pdf",
+    "https://dhr.idaho.gov/wp-content/uploads/2026/07/DHR-20_Holiday.pdf"
   ]
 }
