@@ -366,6 +366,27 @@ pub fn init_tables_raw(
         .await
         .map_err(|e| e.to_string())?;
 
+        // Migration 20261114-01 (proxy-platform-switch T01): 出站代理判定收口一次性迁移。
+        // 旧总开关 enabled → others_enabled + 平台 extra.proxy_enabled 回填（细节见 schema_late.rs
+        // migrate_proxy_client_setting）。跨库：旧设置在主库 setting 表，平台行在 platform.db，
+        // 故两阶段各拿各的 conn；内存库 fallback 两 handle 同物理连接，顺序调用等价。
+        {
+            let legacy: Option<bool> = db
+                .call_traced(None, __db_caller, |conn| {
+                    Ok(crate::schema_late::migrate_proxy_client_setting_main(conn))
+                })
+                .await
+                .unwrap_or(None);
+            if let Some(legacy) = legacy {
+                db.call_platform_traced(None, __db_caller, move |conn| {
+                    crate::schema_late::migrate_proxy_client_setting_platform(conn, legacy);
+                    Ok(())
+                })
+                .await
+                .map_err(|e| e.to_string())?;
+            }
+        }
+
         // Phase 4: 主库 DROP × 4（仅 Phase 3 成功后达；cli_proxy_provider 随 CLI 代理移除，只清不迁）。
         // crash 前未达 Phase 4 → 下次启动 Phase 1 仍能读到 3 表（read 幂等）+ Phase 3 INSERT OR IGNORE
         // 跳过已回填行（id 冲突），无重复无丢失。

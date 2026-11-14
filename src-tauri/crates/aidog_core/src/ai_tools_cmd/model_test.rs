@@ -414,7 +414,8 @@ crate::tauri_command! {
         let db_arc = std::sync::Arc::new(db.clone());
         let proxy_client_settings = gateway::http_client::load_proxy_client_settings(&db_arc).await;
         let client = gateway::http_client::build_http_client(
-            &proxy_client_settings, 30, 10, Some(&ctx.platform.extra), None,
+            &proxy_client_settings, 30, 10,
+            gateway::http_client::platform_should_use_proxy(&proxy_client_settings, &ctx.platform.extra),
         ).await;
 
         tracing::info!(method = "POST", url = %http_ctx.url, "model test request");

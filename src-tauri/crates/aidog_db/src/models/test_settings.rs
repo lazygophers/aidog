@@ -109,11 +109,11 @@ fn effective_thresholds_extra_override_and_inherit() {
 // ── ProxyClientSettings::to_reqwest_proxy ──
 
 #[test]
-fn to_reqwest_proxy_disabled_returns_none() {
+fn to_reqwest_proxy_empty_host_returns_none() {
     let s = ProxyClientSettings {
-        enabled: false,
+        others_enabled: true,
         proxy_type: "socks5".into(),
-        host: "127.0.0.1".into(),
+        host: String::new(),
         port: 7890,
         username: "".into(),
         password: "".into(),
@@ -124,9 +124,9 @@ fn to_reqwest_proxy_disabled_returns_none() {
 }
 
 #[test]
-fn to_reqwest_proxy_enabled_socks5_returns_some() {
+fn to_reqwest_proxy_socks5_no_dns_over() {
     let s = ProxyClientSettings {
-        enabled: true,
+        others_enabled: true,
         proxy_type: "socks5".into(),
         host: "127.0.0.1".into(),
         port: 7890,
@@ -139,9 +139,9 @@ fn to_reqwest_proxy_enabled_socks5_returns_some() {
 }
 
 #[test]
-fn to_reqwest_proxy_socks5h_dns_over_proxy() {
+fn to_reqwest_proxy_socks5_dns_over() {
     let s = ProxyClientSettings {
-        enabled: true,
+        others_enabled: true,
         proxy_type: "socks5".into(),
         host: "127.0.0.1".into(),
         port: 7890,
@@ -156,7 +156,7 @@ fn to_reqwest_proxy_socks5h_dns_over_proxy() {
 #[test]
 fn to_reqwest_proxy_http_type() {
     let s = ProxyClientSettings {
-        enabled: true,
+        others_enabled: true,
         proxy_type: "http".into(),
         host: "127.0.0.1".into(),
         port: 8080,
@@ -171,7 +171,7 @@ fn to_reqwest_proxy_http_type() {
 #[test]
 fn to_reqwest_proxy_https_type() {
     let s = ProxyClientSettings {
-        enabled: true,
+        others_enabled: true,
         proxy_type: "https".into(),
         host: "127.0.0.1".into(),
         port: 8080,
@@ -186,7 +186,7 @@ fn to_reqwest_proxy_https_type() {
 #[test]
 fn to_reqwest_proxy_with_auth() {
     let s = ProxyClientSettings {
-        enabled: true,
+        others_enabled: true,
         proxy_type: "socks5".into(),
         host: "127.0.0.1".into(),
         port: 7890,
@@ -196,6 +196,20 @@ fn to_reqwest_proxy_with_auth() {
         no_proxy: String::new(),
     };
     assert!(s.to_reqwest_proxy().is_some());
+}
+
+/// 旧总开关 `enabled` 语义已删（issue #64 T01）：反序列化忽略旧值，序列化不再带出。
+#[test]
+fn proxy_settings_legacy_enabled_ignored() {
+    let s: ProxyClientSettings = serde_json::from_str(
+        r#"{"enabled":true,"host":"10.0.0.5","port":1080,"others_enabled":false}"#,
+    )
+    .unwrap();
+    assert!(!s.others_enabled, "旧 enabled=true 不得泄入 others_enabled");
+    assert_eq!(s.host, "10.0.0.5");
+    let v = serde_json::to_value(&s).unwrap();
+    assert!(v.get("enabled").is_none());
+    assert_eq!(v["others_enabled"], false);
 }
 
 #[test]
