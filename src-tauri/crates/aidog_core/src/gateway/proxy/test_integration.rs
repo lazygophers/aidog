@@ -3044,6 +3044,8 @@ async fn stage_prepare_send_preserves_remapped_body_and_upstream_log() {
     assert_eq!(row.upstream_request_body, captured[0].1);
     assert_eq!(row.target_protocol, "gemini");
     assert_eq!(row.model, "gemini-src");
+    assert_eq!(row.input_tokens, 5, "Gemini prompt tokens must be logged");
+    assert_eq!(row.output_tokens, 3, "Gemini candidate tokens must be logged");
     assert!(row.done);
 }
 

@@ -138,6 +138,44 @@ fn accumulate_sse_usage_openai_stream_final_usage() {
     assert_eq!(c.load(Relaxed), 512);
 }
 
+/// Gemini 非流式 usageMetadata：promptTokenCount 含缓存时，普通输入必须扣除缓存。
+#[test]
+fn extract_usage_gemini_usage_metadata() {
+    let body = r#"{"usageMetadata":{"promptTokenCount":100,"candidatesTokenCount":30,"cachedContentTokenCount":5}}"#;
+    assert_eq!(extract_usage(body), (95, 30, 5, 0, 0, Vec::new()));
+}
+
+/// Gemini 流式 usageMetadata：多帧累计取最大 output，并保持缓存扣减口径。
+#[test]
+fn accumulate_sse_usage_gemini_usage_metadata() {
+    use std::sync::atomic::{AtomicI32, Ordering::Relaxed};
+    let i = AtomicI32::new(0);
+    let o = AtomicI32::new(0);
+    let c = AtomicI32::new(0);
+    let cw = AtomicI32::new(0);
+    let cw1h = AtomicI32::new(0);
+    let s = AtomicI32::new(0);
+    let f = AtomicI32::new(0);
+
+    let frame = |output| {
+        serde_json::json!({
+            "candidates": [{"content": {"parts": [{"text": "partial"}]}}],
+            "usageMetadata": {
+                "promptTokenCount": 100,
+                "candidatesTokenCount": output,
+                "cachedContentTokenCount": 5
+            }
+        })
+    };
+    accumulate_sse_usage(&frame(10), &i, &o, &c, &cw, &cw1h, &s, &f);
+    accumulate_sse_usage(&frame(15), &i, &o, &c, &cw, &cw1h, &s, &f);
+    accumulate_sse_usage(&frame(7), &i, &o, &c, &cw, &cw1h, &s, &f);
+
+    assert_eq!(i.load(Relaxed), 95);
+    assert_eq!(o.load(Relaxed), 15);
+    assert_eq!(c.load(Relaxed), 5);
+}
+
 // ── Responses API 子端点识别：精确放行 create，拦所有子端点 ──
 #[test]
 fn gzip_decompressed_anthropic_usage_extracts_tokens() {
