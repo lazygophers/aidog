@@ -579,7 +579,7 @@ pub fn list_proxy_logs(
                  FROM proxy_log WHERE deleted_at = 0 ORDER BY created_at DESC LIMIT ?1 OFFSET ?2",
             )?;
             let rows = stmt.query_map(params![limit, offset], row_to_proxy_log_summary)?;
-            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+            rows.collect::<SqlResult<Vec<_>>>()
         })
         .await
         .map_err(|e| e.to_string())
@@ -664,7 +664,7 @@ pub fn filtered_count_proxy_logs<'a>(
             let (where_sql, p) = build_filter_where(&filter);
             let sql = format!("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0{where_sql}");
             let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
-            Ok(conn.query_row(&sql, refs.as_slice(), |row| row.get(0))?)
+            conn.query_row(&sql, refs.as_slice(), |row| row.get(0))
         })
         .await
         .map_err(|e| e.to_string())
@@ -693,7 +693,7 @@ pub fn latest_error_codes_since(
                 stmt.query_map(params![cutoff_ms], |r| {
                     Ok((r.get::<_, i64>(0)?, r.get::<_, i32>(1)?))
                 })?;
-            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+            rows.collect::<SqlResult<Vec<_>>>()
         })
         .await
         .map_err(|e| e.to_string())
@@ -739,7 +739,7 @@ pub fn list_request_logs<'a>(
             let mut stmt = conn.prepare(&sql)?;
             let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
             let mapped = stmt.query_map(refs.as_slice(), row_to_proxy_log_summary)?;
-            Ok(mapped.collect::<SqlResult<Vec<_>>>()?)
+            mapped.collect::<SqlResult<Vec<_>>>()
         })
         .await
         .map_err(|e| e.to_string())
@@ -917,7 +917,7 @@ pub fn distinct_models_proxy_log<'a>(
             let mut stmt = conn.prepare(&sql)?;
             let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
             let rows = stmt.query_map(refs.as_slice(), |row| row.get::<_, String>(0))?;
-            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+            rows.collect::<SqlResult<Vec<_>>>()
         })
         .await
         .map_err(|e| e.to_string())
@@ -936,7 +936,7 @@ pub fn get_proxy_log<'a>(
             let mut stmt = conn.prepare_cached(&format!(
                 "SELECT {PROXY_LOG_COLUMNS} FROM proxy_log WHERE id = ?1 AND deleted_at = 0"
             ))?;
-            Ok(stmt.query_row(params![id], row_to_proxy_log).optional()?)
+            stmt.query_row(params![id], row_to_proxy_log).optional()
         })
         .await
         .map_err(|e| e.to_string())
@@ -1391,7 +1391,7 @@ pub fn last_success_platform_id(
                  ORDER BY created_at DESC LIMIT 1",
             )?;
             let mut rows = stmt.query_map(params![group_key], |r| r.get::<_, i64>(0))?;
-            Ok(rows.next().transpose()?)
+            rows.next().transpose()
         })
         .await
         .map_err(|e| e.to_string())

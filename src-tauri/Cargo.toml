@@ -42,8 +42,8 @@ url = "2"
 tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros", "io-util", "process"] }
 futures = "0.3"
 # 存储
-rusqlite = { version = "0.32", features = ["bundled-sqlcipher", "trace"] }
-tokio-rusqlite = "0.6"
+rusqlite = { version = "0.42", features = ["bundled-sqlcipher", "trace"] }
+tokio-rusqlite = "0.9"
 # Web / 代理
 axum = { version = "0.8", features = ["json", "ws"] }
 # WS 透传（ADR 0008 票 03）：上游 ws 客户端；native-tls 与 reqwest default-tls 对齐。
@@ -69,16 +69,16 @@ regex = "1"
 semver = "1"
 ipnet = "2"
 # Rust→TS 类型 codegen（c1b：单一真值 Rust struct，禁手写 TS 与之漂移）
-ts-rs = { version = "10", features = ["no-serde-warnings"] }
+ts-rs = { version = "12", features = ["no-serde-warnings"] }
 # 仅非 macOS 构建使用；macOS 直接走系统 `say`，避开 tts 的废弃 cocoa/block 依赖。
 tts = "0.26"
 # TTS / 加密 / 杂项
 aes-gcm = "0.11"
 keyring = "4"
 sha2 = "0.11"
-sha1 = "0.10"
+sha1 = "0.11"
 hmac = "0.13"
-rand = "0.8"
+rand = "0.10"
 # MITM TLS（rustls 生态）
 rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
 rustls-pemfile = "2"
@@ -100,7 +100,7 @@ dashmap = "6"
 #     evidence: https://raw.githubusercontent.com/huggingface/tokenizers/v0.21.4/tokenizers/Cargo.toml
 #     default = ["progressbar", "onig", "esaxx_fast"]
 tiktoken-rs = "0.12"
-tokenizers = { version = "0.21", default-features = false, features = ["fancy-regex"] }
+tokenizers = { version = "0.23", default-features = false, features = ["fancy-regex"] }
 # 压缩格式支持（CPA config 导入）
 tar = "0.4"
 # macOS 托盘小字 attributedTitle（core refresh_tray_menu + root tray_render 共用同版本）
