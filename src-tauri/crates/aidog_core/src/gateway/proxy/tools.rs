@@ -282,7 +282,8 @@ async fn tools_attempt(
             )
             .await;
             if !is_last_candidate {
-                return AttemptOutcome::Next { connect_failed: false };
+                // connect 失败须回报（R3 死站联动跳过同 base_url 兄弟平台；对齐 decision/aux_model/forward）。
+                return AttemptOutcome::Next { connect_failed: e.is_connect() };
             }
             let msg = format!("{}: {detail}", i18n::t(lang, ErrorKey::Upstream));
             return AttemptOutcome::Respond(finalize_proxy_502(
