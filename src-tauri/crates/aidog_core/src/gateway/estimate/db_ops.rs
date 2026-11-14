@@ -683,7 +683,8 @@ pub async fn estimate_after_request(
         .as_ref()
         .map_or(raw_mult, |r| r.multiplier(raw_mult));
     let source_cny = resolved.as_ref().is_some_and(|r| r.source_cny);
-    // 条目 `price.unit` 按次计价：费 = unit_price × 次数（缺次数按 1 次/请求，与 billing.rs 同口径）。
+    // 条目 `price.unit` 按次/按量计价：费 = `request_fee(request_units)`（与 billing.rs 同口径：
+    // request 类缺计数按 1 次/请求；char/second 缺计数 → 0 不扣减，issue 157）。
     let request_fee = resolved.as_ref().map_or(0.0, |r| r.request_fee(request_units));
     let resolved_price = resolved.map(|r| r.price);
 
@@ -691,6 +692,8 @@ pub async fn estimate_after_request(
     // （token 全 0）且无按次费 / 按次计量次数时，纯 token 计价条目无任何可扣项 → 跳过
     // （含校准）；按次计价条目 request_unit_price 存在 → 仍按 1 次扣 request_fee，
     // chat 缺 usage 不再漏扣。字段集与原跳过条件一致（不含 cache_write，保持原语义）。
+    // char/second 缺计数：request_fee=0 → 走跳过（余额/预算路径无 `+unestimable` 标记是
+    // 有意为之——该标记只进日志 `price_source`，扣 0 本身已表达不可估算）。
     if input_tokens <= 0
         && output_tokens <= 0
         && cache_tokens <= 0
