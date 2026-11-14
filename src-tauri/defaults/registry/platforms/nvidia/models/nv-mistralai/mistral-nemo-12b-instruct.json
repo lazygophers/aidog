@@ -1,9 +1,10 @@
 {
-  "last_updated": 1794592077,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "nv-mistralai/mistral-nemo-12b-instruct",
+  "display_name": "Mistral Nemo 12b Instruct",
   "context_window": 131072,
   "canonical_model": "mistral-nemo-12b-instruct",
   "family": "mistral",

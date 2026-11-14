@@ -1,9 +1,10 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "nvidia/llama-3.1-nemoguard-8b-content-safety",
+  "display_name": "Llama 3 1 Nemoguard 8b Content Safety",
   "canonical_model": "llama-3.1-nemoguard-8b-content-safety",
   "family": "nemoguard",
   "capabilities": [],

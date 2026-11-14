@@ -1,9 +1,10 @@
 {
-  "last_updated": 1794592077,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "ibm/granite-8b-code-instruct",
+  "display_name": "Granite 8b Code Instruct",
   "context_window": 4096,
   "thinking_supported": false,
   "canonical_model": "granite-8b-code-instruct",

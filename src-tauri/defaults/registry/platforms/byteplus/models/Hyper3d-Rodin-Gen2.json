@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794592077,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "anthropic",
     "openai",
@@ -7,6 +7,7 @@
   ],
   "model_id": "Hyper3d-Rodin-Gen2",
   "display_name": "Hyper3D Rodin Gen2",
+  "version": "2",
   "canonical_model": "Hyper3d-Rodin-Gen2",
   "family": "hyper3d",
   "capabilities": [],

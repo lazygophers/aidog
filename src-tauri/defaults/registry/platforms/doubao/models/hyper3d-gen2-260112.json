@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794592077,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "anthropic",
     "openai",
@@ -7,6 +7,7 @@
   ],
   "model_id": "hyper3d-gen2-260112",
   "display_name": "Hyper3D gen2 260112",
+  "version": "2",
   "canonical_model": "hyper3d-gen2-260112",
   "family": "hyper3d",
   "capabilities": [],

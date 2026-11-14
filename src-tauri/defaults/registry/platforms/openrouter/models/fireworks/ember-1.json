@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794592077,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "openai"
   ],
@@ -7,6 +7,7 @@
   "max_output_tokens": 943718,
   "thinking_supported": true,
   "display_name": "Fireworks: Ember-1",
+  "version": "1",
   "canonical_model": "ember-1",
   "capabilities": [
     "text",
