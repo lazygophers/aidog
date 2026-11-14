@@ -21,6 +21,7 @@ import { rateLimitsSummary, clientCategoryState, toggleClientCategory, toggleCli
 import { Checkbox } from "@/components/ui/checkbox";
 import { newManualBudget, type TimeWindow, getDefaultPeak, getDefaultModelList, getDefaultPlanQuotas, type PlanQuotaTier, type QuotaScriptVariant, quotaVariantLabel } from "../../domains/platforms";
 import { isCurrentlyPeak, currentPeakMultiplier, utcToDisplay, displayToUtc, WINDOW_TIMEZONES, type TzMode } from "../../utils/timeWindow";
+import { useProxyConfigured } from "../../domains/platforms/proxyConfig";
 import { formatAmount, formatDateTime, formatPercent, pad } from "../../utils/formatters";
 import type { ThemeMode } from "../../themes/types";
 import { ModelCombobox, useModelCandidates } from "./ModelCombobox";
@@ -75,6 +76,35 @@ export function FormSection({ title, desc, action, children }: { title: string; 
       </div>
       {children}
     </div>
+  );
+}
+
+/** 使用代理开关（issue #64 T03）：写平台 extra.proxy_enabled；全局代理地址为空时提示「暂按直连」。 */
+export function ProxyEnabledSection({ enabled, onChange, t }: { enabled: boolean; onChange: (v: boolean) => void; t: TFunction }) {
+  // 全局代理地址是否已配置（设置页「代理配置」host 非空）：为空时开关可照常操作，实际直连。
+  const proxyConfigured = useProxyConfigured();
+  return (
+    <FormSection title={t("platform.useProxy", "使用代理")}>
+      <div data-testid="platform-use-proxy-row" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "9px 12px", borderRadius: "var(--radius-sm)", background: "var(--card)", border: "1px solid var(--border)" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, cursor: "pointer" }}>
+          <Switch data-testid="platform-use-proxy" checked={enabled} onCheckedChange={v => onChange(v === true)} />
+          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{t("platform.useProxy", "使用代理")}</span>
+        </label>
+        {!proxyConfigured && (
+          <span data-testid="proxy-unconfigured-hint" style={{
+            fontSize: 14, fontWeight: 600, padding: "2px 8px", borderRadius: 5, whiteSpace: "nowrap",
+            color: "var(--color-warning)",
+            background: "color-mix(in srgb, var(--color-warning) 12%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--color-warning) 30%, transparent)",
+          }}>
+            {t("platform.proxyUnconfiguredHint", "代理未配置，暂按直连")}
+          </span>
+        )}
+        <span style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.4 }}>
+          {t("platform.useProxyDesc", "该平台的出站请求经「设置 → 代理配置」的代理地址转发。")}
+        </span>
+      </div>
+    </FormSection>
   );
 }
 

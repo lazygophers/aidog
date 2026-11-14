@@ -161,6 +161,16 @@ describe("api namespaces (bulk invoke smoke)", () => {
     expect(payload).toHaveProperty("orderedIds");
   });
 
+  it("passes optional proxyEnabled to platform_fetch_models", async () => {
+    const handler = vi.fn(() => null);
+    mockIPC(handler);
+    await api.platformApi.fetchModels("openai", "u", "k", true);
+    expect(handler.mock.calls[0]).toEqual([
+      "platform_fetch_models",
+      { protocol: "openai", baseUrl: "u", apiKey: "k", proxyEnabled: true },
+    ]);
+  });
+
   // 枚举 index 导出的每个 *Api namespace → 每个方法用多组参数调用 → 不抛。
   // 硬编码清单会漏掉新增 namespace（曾漏 mitmApi/piApi/cliEnvApi 等 6 个），
   // 所以从 `import * as api` 动态发现，新增 namespace 自动进入 smoke。

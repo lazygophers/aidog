@@ -742,6 +742,17 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     return () => window.removeEventListener("aidog-platform-test-completed", handler);
   }, [refreshLastTest]);
 
+  // 设置页「为全部平台开启」（issue #64 T02）批量写 extra 后广播：全量 refetch 平台 +
+  // 分组成员详情，刷新「代理」徽标（分组页平台行读 groupDetails 的 extra 快照）。
+  useEffect(() => {
+    const handler = () => {
+      void refreshPlatforms();
+      handleGroupsChanged();
+    };
+    window.addEventListener("aidog-platforms-changed", handler);
+    return () => window.removeEventListener("aidog-platforms-changed", handler);
+  }, [refreshPlatforms, handleGroupsChanged]);
+
   // ════════════ SLICE AGGREGATION (arch-deepen/c7-god-surface) ════════════
   // ponytail: 60 字段 god interface → 4 子系统 slice + params echo (顶层 8 字段)。
   //   内部 state/handler 实现零改，仅 reshape 返回 surface；所有 setter 经 listDeps/form 注入路径保留。
