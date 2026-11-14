@@ -5,7 +5,7 @@
   "tools_pricing": {
     "web_search": {"per_1000": 10.0, "currency": "CNY"}
   },
-  "last_updated": 1794291601,
+  "last_updated": 1794650107,
   "endpoints": {
     "default": [
       {
@@ -339,6 +339,7 @@
     "docs": "https://docs.bigmodel.cn/cn/guide/start/quick-start",
     "pricing": "https://open.bigmodel.cn/pricing"
   },
+  "holiday_calendar": "CN",
   "homepage": "https://www.zhipuai.cn",
   "logo_url": "zdotai",
   "keywords": [
