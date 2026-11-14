@@ -29,6 +29,7 @@ vi.mock("./formSections", () => ({
   ExpirySection: () => null,
   QuotaSection: () => null,
   ClientWhitelistSection: () => null,
+  ProxyEnabledSection: () => null,
 }));
 vi.mock("../../services/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../services/api")>()),

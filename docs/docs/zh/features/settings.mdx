@@ -15,6 +15,14 @@ import { ProductDemo } from '../../../theme/components/ProductDemo';
 
 按当前源码，设置页至少覆盖：`system`、`coding_tools`、`claude`、`codex`、`middleware`、`scheduling`、`notifications`、`pricing`、`tray`、`popover`、`importexport`、`mitm`。相关命令分散在 `src/services/api/` 和 `src-tauri/src/startup.rs`。
 
+## 代理配置
+
+在「系统设置」的代理配置中填写 HTTP、HTTPS 或 SOCKS5 代理地址、认证和 DNS 规则。主机留空时，所有出站请求直连；免代理名单命中时优先直连。
+
+「其它请求使用代理」控制不属于某个平台的出站请求，例如 Logo 同步、MCP 推荐拉取、技能安装和内核其它出站。每个平台另有「使用代理」开关；开启后，该平台的请求使用已配置代理，并仍受免代理名单约束。代理地址为空时平台请求也会直连。
+
+老用户升级后，原有请求的代理走向由一次性迁移保留。更改代理配置或平台开关后立即生效，无需重启。
+
 ## 文档演示边界
 
 上方演示是固定 fixture，只表示页面状态，不代表真实设置内容。

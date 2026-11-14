@@ -16,7 +16,8 @@ import { useProtocolMeta } from "../../domains/platforms/useProtocolMeta";
 import { getPrimaryBaseUrl } from "../../pages/platforms/usePlatformQuota";
 import type { HealthStatus } from "../../domains/platforms";
 import { isCurrentlyPeak } from "../../utils/timeWindow";
-import { parseDisableDuringPeak, parseMitmStats, parseRateLimitsBundle, rateLimitsSummary } from "../../services/api";
+import { parseDisableDuringPeak, parseMitmStats, parseRateLimitsBundle, parseProxyEnabled, rateLimitsSummary } from "../../services/api";
+import { useProxyConfigured } from "../../domains/platforms/proxyConfig";
 import { useCcMitmInfo, CcMitmRefreshWarning, CcMitmTrendSection, CcPlanBalance } from "./CcMitmInfo";
 import { Pill } from "./Pill";
 import { Button } from "@/components/ui/button";
@@ -176,6 +177,8 @@ export const PlatformCard = memo(function PlatformCard({
   // cc-sub-mitm 票 12：claude_code + mitm_stats 开 → 订阅窗口趋势 + refresh 失败警示。
   // claude_code 独占分组 → membership 首个即组名（CONNECT 认证的 username）。
   const isCcMitm = p.platform_type === "claude_code" && parseMitmStats(p.extra ?? "");
+  // 「代理」徽标显示条件之一：全局代理地址非空（跨页共享读，见 proxyConfig.ts）
+  const proxyConfigured = useProxyConfigured();
   const ccGroupName = platformMembership?.[0];
   const ccMitm = useCcMitmInfo(isCcMitm, ccGroupName);
   // balance-full：套餐档位 / 窗口剩余任一有数据 → 余额行展示（与配额等维度互不相干）。
@@ -319,6 +322,14 @@ export const PlatformCard = memo(function PlatformCard({
                       </svg>
                       {t("platform.autoDisabled", "自动禁用")}
                     </Pill>
+                  )}
+                  {/* 「代理」徽标（issue #64 T03）：平台开关开 且 全局代理地址非空才显示（地址空 = 实际直连） */}
+                  {parseProxyEnabled(p.extra ?? "") && proxyConfigured && (
+                    <span data-testid="card-proxy-badge" style={{ display: "inline-flex" }}>
+                      <Pill color="var(--text-secondary)" title={t("platform.useProxyDesc", "该平台的出站请求经「设置 → 代理配置」的代理地址转发。")}>
+                        {t("platform.proxyBadge", "代理")}
+                      </Pill>
+                    </span>
                   )}
                   {(rateLimitsBundle.rate_limits || rateLimitsBundle.quota_windows) && (
                     <Pill color="var(--text-secondary)" title={t("platform.rateLimits.badgeHint", "已配限频；超限自动排除候选（后续版本生效）")} style={{ flex: "none", background: "var(--bg-glass)", border: "1px solid var(--border)" }}>
