@@ -5,7 +5,7 @@
   "tools_pricing": {
     "ai_search_chat": {"per_1000": 36.0, "currency": "CNY"}
   },
-  "last_updated": 1793615839,
+  "last_updated": 1794625890,
   "endpoints": {
     "default": [
       {
@@ -16,7 +16,6 @@
   },
   "models": {
     "default": {
-      "default": ["ernie-4.5-turbo-128k"]
     }
   },
   "model_list": {
@@ -24,11 +23,6 @@
       "ernie-5.1",
       "ernie-5.0-thinking-latest",
       "ernie-5.0",
-      "ernie-4.5-turbo-vl",
-      "ernie-4.5-turbo-128k",
-      "ernie-4.5-turbo-32k",
-      "ernie-4.5-turbo-20260402",
-      "ernie-x1-turbo-32k",
       "ernie-x1.1-preview",
       "ernie-x1.1",
       "bce-reranker-base",
@@ -36,7 +30,6 @@
       "bge-large-zh",
       "deepseek-ocr",
       "deepseek-v3.2",
-      "deepseek-v3.2-think",
       "deepseek-v4-flash",
       "deepseek-v4-pro",
       "embedding-v1",
@@ -49,7 +42,6 @@
       "glm-5.3",
       "glm-5.3-flash",
       "kimi-k2.6",
-      "musesteamer-air-i2v",
       "musesteamer-air-image",
       "paddleocr-vl-0.9b",
       "pp-structurev3",
