@@ -774,15 +774,12 @@ pub struct ProxyLogFilter {
     #[serde(default)]
     #[ts(optional)]
     pub path: Option<String>,
-    /// None=全部; Some(non-empty)=source_protocol IN (...) 包含筛选（如 ["test","quota"]）
+    /// None=全部; Some(non-empty)=source_protocol IN (...) 包含筛选（如 ["http-connect"]）
     #[serde(default)]
     #[ts(optional)]
     pub sources: Option<Vec<String>>,
-    /// None=不排; Some(non-empty)=source_protocol NOT IN (...) 排除筛选。
-    /// Logs 主页传 ["test","quota"] → 仅留纯代理转发，test/quota 仅请求日志页可见。
-    /// 该谓词非恒真：test/quota 行真实写入 proxy_log（model_test.rs / quota/http.rs），不可跳过。
-    /// source_protocol 列 `NOT NULL DEFAULT ''`（schema_early.rs:119），故 SQL 侧无需
-    /// `OR source_protocol IS NULL` 防御（logs-query-ipc-slimming s3 已删该死分支）。
+    /// None=不排; Some(non-empty)=source_protocol NOT IN (...) 排除筛选（如 ["http-connect"]）。
+    /// source_protocol 列 `NOT NULL DEFAULT ''`（schema_early.rs:119），故 SQL 侧无需 `OR IS NULL` 防御。
     #[serde(default)]
     #[ts(optional)]
     pub exclude_sources: Option<Vec<String>>,
