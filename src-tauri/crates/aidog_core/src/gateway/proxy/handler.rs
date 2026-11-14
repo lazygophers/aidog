@@ -877,6 +877,7 @@ pub(crate) async fn handle_proxy_core(
     log.attempts = std::mem::take(&mut attempts);
     upsert_log(&state, &log, &log_settings).await;
     let mut r = (status, err_body).into_response();
+    add_retry_after(&mut r, &log);
     inject_trace_header(&mut r);
     r
 }

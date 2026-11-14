@@ -8155,3 +8155,113 @@ async fn non_glm_upstream_529_stays_529() {
     let resp = handle_proxy(AxumState(state.clone()), messages_request("gkan529", HI)).await;
     assert_eq!(resp.status().as_u16(), 529);
 }
+
+// ── 限频-429 r2：配置类路由失败选码 + 429 的 Retry-After ──
+
+fn retry_after_secs(resp: &Response) -> Option<u64> {
+    resp.headers().get("retry-after")?.to_str().ok()?.parse().ok()
+}
+
+/// 回归护栏 + 选码：各路由失败原因的状态码。
+#[test]
+fn route_fallback_status_per_reason() {
+    for (err, want) in [
+        ("group has no platforms", StatusCode::NOT_IMPLEMENTED),
+        ("group's only platform is manually disabled", StatusCode::SERVICE_UNAVAILABLE),
+        ("group's only platform is censorship-blocked", StatusCode::from_u16(451).unwrap()),
+        ("no_tools_platform", StatusCode::NOT_FOUND),
+        ("no available platform (all disabled, backing off, or circuit-broken)", StatusCode::SERVICE_UNAVAILABLE),
+        ("no_chat_platform", StatusCode::BAD_REQUEST),
+    ] {
+        assert_eq!(route_fallback_status(err), want, "{err}");
+    }
+}
+
+#[tokio::test]
+async fn empty_group_returns_501() {
+    let state = make_state(test_db().await).await;
+    aidog_db::create_group(&state.db, aidog_db::test_support::sample_group("gkempty", vec![])).await.unwrap();
+    assert_eq!(rl_status(&state, "gkempty").await, StatusCode::NOT_IMPLEMENTED);
+}
+
+#[tokio::test]
+async fn single_manually_disabled_returns_503() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkdis1", &[("A", &up, "")]).await;
+    set_platform_status(&state, "A", aidog_db::models::PlatformStatus::Disabled).await;
+    assert_eq!(rl_status(&state, "gkdis1").await, StatusCode::SERVICE_UNAVAILABLE);
+}
+
+/// 回归护栏（旧码已绿）：白名单拦下一个、另一个限频 → 混合原因仍 429。
+#[tokio::test]
+async fn whitelist_mixed_with_ratelimit_stays_429() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkwlrl", &[("A", &up, WL_CC_EXTRA), ("B", &up, RPM1)]).await;
+    let send = || handle_proxy(AxumState(state.clone()), messages_request_ua("gkwlrl", Some("curl/8.4.0")));
+    assert_eq!(send().await.status(), StatusCode::OK);
+    assert_eq!(send().await.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(last_log_for(&state, "gkwlrl").await.blocked_reason, "rate_limit");
+}
+
+#[tokio::test]
+async fn ratelimit_429_carries_retry_after() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkra1", &[("A", &up, RPM1), ("B", &up, RPM1)]).await;
+    for _ in 0..2 {
+        assert_eq!(rl_status(&state, "gkra1").await, StatusCode::OK);
+    }
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkra1", None)).await;
+    assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
+    let secs = retry_after_secs(&resp).expect("Retry-After");
+    assert!((1..=61).contains(&secs), "{secs}");
+
+    // 单平台组同样带
+    setup_multi_platform_group(&state, "gkra2", &[("C", &up, RPM1)]).await;
+    assert_eq!(rl_status(&state, "gkra2").await, StatusCode::OK);
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkra2", None)).await;
+    assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert!(retry_after_secs(&resp).is_some_and(|s| (1..=61).contains(&s)));
+}
+
+/// 上游限频冷却挡掉整组 → 429，Retry-After 取冷却剩余秒数。
+#[tokio::test]
+async fn upstream_cooldown_429_carries_retry_after() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkra3", &[("A", &up, ""), ("B", &up, "")]).await;
+    for n in ["A", "B"] {
+        let pid = platform_id_of(&state, n).await;
+        state.scheduler.set_rate_limit_cooldown(pid, aidog_db::now(), Some(30_000));
+    }
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkra3", None)).await;
+    assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert!(retry_after_secs(&resp).is_some_and(|s| (29..=31).contains(&s)));
+}
+
+#[test]
+fn add_retry_after_rounds_up_and_only_on_429() {
+    let mut log = ProxyLog::default();
+    let mut snap = aidog_db::models::RoutingSnapshot::default();
+    snap.note_retry_at_ms(aidog_db::now() + 5_500);
+    log.routing = Some(snap);
+    let mut r = (StatusCode::TOO_MANY_REQUESTS, "x").into_response();
+    add_retry_after(&mut r, &log);
+    assert!(retry_after_secs(&r).is_some_and(|s| (5..=7).contains(&s)));
+    let mut r = (StatusCode::SERVICE_UNAVAILABLE, "x").into_response();
+    add_retry_after(&mut r, &log);
+    assert!(r.headers().get("retry-after").is_none());
+    // 已过期 → 最小 1
+    log.routing = Some(aidog_db::models::RoutingSnapshot::default());
+    log.routing.as_mut().unwrap().note_retry_at_ms(aidog_db::now() - 10_000);
+    let mut r = (StatusCode::TOO_MANY_REQUESTS, "x").into_response();
+    add_retry_after(&mut r, &log);
+    assert_eq!(retry_after_secs(&r), Some(1));
+    // 无已知时刻 → 不带
+    log.routing = None;
+    let mut r = (StatusCode::TOO_MANY_REQUESTS, "x").into_response();
+    add_retry_after(&mut r, &log);
+    assert!(r.headers().get("retry-after").is_none());
+}
