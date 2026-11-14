@@ -19,8 +19,6 @@ tracing-subscriber = { workspace = true }
 tracing-appender = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
-chrono-tz = { workspace = true }
-dashmap = { workspace = true }
 ts-rs = { workspace = true }
 rand = { workspace = true }
 regex = { workspace = true }
@@ -30,4 +28,4 @@ tempfile = { workspace = true }
 aes-gcm = { workspace = true }
 keyring = { workspace = true }
 # base64 已在依赖树（aidog_core 0.22），非新增外部 crate；密文列值与 keychain 钥编解码用
-base64 = "0.22"
+base64 = "0.23"
