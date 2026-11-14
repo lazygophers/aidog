@@ -614,15 +614,20 @@ pub fn migrate_request_log(conn: &Connection) -> SqlResult<()> {
         CREATE INDEX IF NOT EXISTS idx_request_log_created ON request_log(created_at);
         CREATE INDEX IF NOT EXISTS idx_request_log_platform_kind ON request_log(platform_id, kind, created_at);",
     )?;
-    // 旧库无 proxy_log 表（极早期 / 单测裸连接）时跳过搬迁。
-    let has_proxy_log: bool = conn
-        .query_row(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='proxy_log'",
-            [],
-            |r| r.get::<_, i64>(0),
-        )?
-        > 0;
-    if !has_proxy_log {
+    // 源表缺任一要搬的列（极早期 schema / 单测里的最小表）时无可搬之物，干净跳过；
+    // 列齐全后的任何错误一律向上传播（迁移失败不得被吞）。
+    const SRC_COLS: [&str; 19] = [
+        "id", "source_protocol", "group_key", "platform_id", "target_protocol", "status_code",
+        "upstream_status_code", "duration_ms", "user_agent", "request_url", "request_headers",
+        "request_body", "user_response_headers", "user_response_body", "upstream_request_url",
+        "upstream_request_headers", "upstream_request_body", "upstream_response_headers", "response_body",
+    ];
+    let have: Vec<String> = conn
+        .prepare("PRAGMA table_info(proxy_log)")?
+        .query_map([], |r| r.get::<_, String>(1))?
+        .collect::<SqlResult<_>>()?;
+    let complete = SRC_COLS.iter().all(|c| have.iter().any(|h| h == c)) && have.iter().any(|h| h == "created_at");
+    if !complete {
         return Ok(());
     }
     let tx = conn.unchecked_transaction()?;

@@ -56,6 +56,7 @@
 - 「原始信息」= headers + body + 上游响应正文 + url，**均受 log_user_request / log_upstream_request 开关控制**（gate 在 `from_log` 与 `strip_raw_sides`，两处列集必须一致，`raw_field_sides_match` 测试互证）。关开关后这些列入库即清空。按侧归类：用户侧 (request_headers/request_body/user_response_headers/user_response_body/request_url) 受 log_user_request；上游侧 (upstream_request_headers/upstream_request_body/upstream_response_headers/response_body/field_trace/upstream_request_url) 受 log_upstream_request。开关开启时入库的 Authorization 等敏感头已脱敏 `[REDACTED]`。流式日志终态由显式 `done` 列判定（终态 = status!=0 且 done=1；流式 flush/断连兜底/非流式终态/中断补写置位），`[stream]` 占位哨兵已废（2026-08-24 票 06），body 列不承载控制语义。
 - 3 级 retention：user_request_retention_days(7d) / upstream_request_retention_days(7d) / retention_days(90d)
 - retention 清理对称清空整侧「原始信息」（headers + body，UPDATE SET=''），不删行；retention_days 删整行
+- **请求记录（测试 / 余额 / 拉模型 / hello 探测）独立表 `request_log`（log.db，2026-11-14）**：不进 proxy_log，不含 model / actual_model / token / cost 列；写入走 `aidog_logs::upsert_request_log`（同 ProxyLogSettings 两侧原始信息开关），读走 `request_log_list/count/get`；平台卡「最近测试」`get_last_test_result` 读本表 `kind='test'`；retention 复用 proxy_log 的三级设置（同一闭包内清 request_log）。迁移 20261114-01 把旧 proxy_log 中 source_protocol∈(test,quota,fetch-models) 行搬入后删除。
 
 ### Group 统计
 - Group 卡片的 usage stats 按 `group_key` 聚合（后端 `get_group_usage_stats` in `aidog_stats/src/usage_stats.rs`，读 `stats_agg_hourly` 小时聚合表 + command `group_usage_stats` in `aidog_core/src/proxy_cmd/proxy_log.rs` + api `groupUsageApi.stats`），只含本分组请求，被多 group 共享的平台不重复计入。前端 Groups.tsx `fetchGroupStats` 对每个 group 调一次。

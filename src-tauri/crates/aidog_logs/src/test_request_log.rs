@@ -161,3 +161,18 @@ async fn retention_reuses_proxy_log_settings() {
     assert!(get_request_log(&db, "old").await.unwrap().is_none());
     assert!(get_request_log(&db, "new").await.unwrap().is_some());
 }
+
+/// 迁移失败不得被吞：request_log 已存在但结构不兼容 → INSERT 报错向上传播，proxy_log 行原样保留（事务回滚）。
+#[test]
+fn migration_real_failure_propagates_and_keeps_proxy_log_rows() {
+    let conn = rusqlite::Connection::open_in_memory().unwrap();
+    let cols = "id, source_protocol, group_key, platform_id, target_protocol, status_code, upstream_status_code, duration_ms, user_agent, request_url, request_headers, request_body, user_response_headers, user_response_body, upstream_request_url, upstream_request_headers, upstream_request_body, upstream_response_headers, response_body, created_at";
+    conn.execute_batch(&format!(
+        "CREATE TABLE proxy_log ({cols}); INSERT INTO proxy_log ({cols}) VALUES ('x','test','g',1,'',200,200,1,'','','','','','','','','','','',1);
+         CREATE TABLE request_log (id TEXT PRIMARY KEY);"
+    ))
+    .unwrap();
+    assert!(aidog_db::schema_late::migrate_request_log(&conn).is_err());
+    let n: i64 = conn.query_row("SELECT COUNT(*) FROM proxy_log", [], |r| r.get(0)).unwrap();
+    assert_eq!(n, 1, "失败回滚后 proxy_log 行必须还在");
+}
