@@ -75,6 +75,17 @@ pub async fn calc_est_cost(
 /// `ProxyLog.tool_call_counts` 里携带 rerank 按次计量次数的保留键（不是工具名，不进 tools_pricing）。
 pub const SEARCH_UNITS_KEY: &str = "__search_units";
 
+/// 按量计费乘数（issue 157）：`divisor=None`（request/image/mp 按次）缺计数按 1 次估；
+/// `Some(d)`（char d=1000 / second d=1）按实际计数 `count ÷ d × unit_price`，
+/// 无计数 → 0（不兜底成一次的价格，不可估算记 0）。
+fn request_fee(up: Option<f64>, divisor: Option<f64>, count: i64) -> f64 {
+    up.map_or(0.0, |up| match divisor {
+        Some(divisor) if count > 0 => up * count as f64 / divisor,
+        Some(_) => 0.0,
+        None => up * count.max(1) as f64,
+    })
+}
+
 /// 计价明细（票 11 模拟器）：`est_cost` 之外带计价依据——`price_source` 取
 /// `ResolvedPrice::source`（条目价 / fallback / unsupported），`is_peak` / `multiplier`
 /// 供高峰徽标展示（`peak_applied` 不出 Rust，效果已由 multiplier=1.0 表达）。
@@ -151,6 +162,7 @@ pub async fn calc_est_cost_detail(
         peak_applied: false,
         source_cny: false,
         request_unit_price: None,
+        unit_divisor: None,
     });
 
     let multiplier = if created_at_ms <= 0 {
@@ -185,7 +197,11 @@ pub async fn calc_est_cost_detail(
     let tool_counts: Vec<&(String, i64)> =
         tool_counts.iter().filter(|(k, _)| k != SEARCH_UNITS_KEY).collect();
     // 条目 `price.unit=="request"`：est_cost = unit_price × 次数（缺次数按 1 次/请求），不乘 peak 倍率。
-    let request_fee = resolved.request_unit_price.map_or(0.0, |up| up * search_units.max(1) as f64);
+    let request_fee = request_fee(
+        resolved.request_unit_price,
+        resolved.unit_divisor,
+        search_units,
+    );
     // 票 16 B3：按次费只在有计数时查 tools_pricing（空计数零开销，也不触发 warn）。
     let tool_fee = if tool_counts.is_empty() {
         0.0
@@ -639,6 +655,27 @@ mod tests {
         .await;
         assert!((cost - 0.003).abs() < 1e-9, "无声明按次费记 0, got {cost}");
     }
+
+    /// issue 157：按量计费乘数 —— request/image/mp（divisor=None）缺计数按 1 次
+    /// （rerank 回归：乘数不变）；char（d=1000）/ second（d=1）按实际计数，
+    /// 无计数 → 0（不兜底成一次的价格，不可估算记 0）。
+    #[test]
+    fn request_fee_count_units_need_count_others_default_one() {
+        assert_eq!(request_fee(Some(0.1), None, 0), 0.1, "request 缺计数按 1 次估");
+        assert!((request_fee(Some(0.1), None, 3) - 0.3).abs() < 1e-12, "request 有计数照乘");
+        assert!(
+            (request_fee(Some(0.015), Some(1000.0), 10000) - 0.15).abs() < 1e-12,
+            "char：1 万字符 ÷ 1000 × $0.015 = $0.15"
+        );
+        assert!(
+            (request_fee(Some(0.0025), Some(1.0), 30) - 0.075).abs() < 1e-12,
+            "second：30 秒 × $0.0025 = $0.075"
+        );
+        assert_eq!(request_fee(Some(0.015), Some(1000.0), 0), 0.0, "char 无计数 → 0（不可估算）");
+        assert_eq!(request_fee(Some(0.0025), Some(1.0), 0), 0.0, "second 无计数 → 0（不可估算）");
+        assert_eq!(request_fee(Some(0.1), None, -5), 0.1, "负数计数视为缺失，按 1 次估");
+    }
+
 }
 
 /// ⑤ cache_write 独立计价：cache_write_tokens × cache_write 价（1.25× input 例），

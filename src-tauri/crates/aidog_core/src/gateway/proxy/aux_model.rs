@@ -467,7 +467,8 @@ async fn aux_attempt(
     log.input_tokens = input;
     log.output_tokens = output;
     if let Some(units) = spec.extract_units {
-        // 按次计量次数经内存 ProxyLog 透传，calc_est_cost 仅在条目 `price.unit=="request"` 时消费。
+        // 按次计量次数经内存 ProxyLog 透传，calc_est_cost 按条目 `price.unit` 消费
+        // （request/image/mp 按次；char/second 按字符数/时长换算，issue 157）。
         log.tool_call_counts
             .push((crate::gateway::billing::SEARCH_UNITS_KEY.to_string(), units(&body_str)));
     }
