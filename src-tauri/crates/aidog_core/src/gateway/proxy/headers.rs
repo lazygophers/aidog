@@ -440,40 +440,9 @@ pub(crate) fn capture_request_headers(
     Value::Object(h).to_string()
 }
 
-/// 为 Coding Plan 端点注入平台特有字段
-/// - Kimi Code Plan: 注入 prompt_cache_key（必填，用 group + model hash 作会话标识）
-pub fn inject_coding_plan_fields(body: &mut Value, protocol: &super::models::Protocol) {
-    match protocol {
-        super::models::Protocol::Kimi => {
-            // Kimi Code Plan 要求 prompt_cache_key 以提升缓存命中率
-            // 用模型名 + 短随机串生成会话级 cache key
-            if let Some(obj) = body.as_object_mut() {
-                let model = obj
-                    .get("model")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown");
-                let session_id = format!(
-                    "aidog-{}-{:06x}",
-                    model,
-                    std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_secs()
-                        / 300 // 5-minute window
-                );
-                obj.insert("prompt_cache_key".to_string(), Value::String(session_id));
-            }
-        }
-        _ => {
-            // GLM / MiniMax / 百炼 等 coding plan 暂无额外字段
-        }
-    }
-}
-
-/// Coding Plan 的 API 路径覆盖（当前各平台 base_url 已区分 coding/normal，api_path 无需变更）
-pub fn override_coding_plan_path(_api_path: &mut String, _protocol: &super::models::Protocol) {
-    // 预留：后续若有平台需 coding plan 专用 api_path 可在此扩展
-}
+// issue 68：coding plan 注入迁入 aidog_adapter::platform::hooks（适配器差异钩子的默认实现），
+// re-export 保持 headers:: / proxy:: 路径与既有调用（model_test.rs）、测试不变。
+pub use aidog_adapter::platform::hooks::{inject_coding_plan_fields, override_coding_plan_path};
 
 #[cfg(test)]
 #[path = "test_headers.rs"]
