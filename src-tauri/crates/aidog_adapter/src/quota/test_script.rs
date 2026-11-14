@@ -173,7 +173,7 @@ async fn script_http_error_propagates() {
 }
 
 /// 出站走 CLIENT_BUILDER 注入的 client（app_setup 注系统代理 client 的同一通道），
-/// 成功出站落 proxy_log（group_key="[quota:script]"，source_protocol="quota"）。
+/// 成功出站落 request_log（group_key="[quota:script]"，source_protocol="quota"）。
 /// 注入的 builder 返回直连 + 超时 client（与缺省回落一致），经 AtomicBool 标记断言
 /// 确被调用——不改变行为，避免污染同进程并行测试。
 #[tokio::test]
@@ -203,12 +203,12 @@ async fn script_outbound_uses_injected_client_and_persists_log() {
         "出站须走 CLIENT_BUILDER 注入的 client（db=Some 时）"
     );
 
-    let logs = aidog_logs::list_proxy_logs(&db, 100, 0).await.unwrap();
+    let logs = aidog_logs::list_request_logs(&db, &Default::default(), 100, 0).await.unwrap();
     let hit = logs
         .iter()
         .find(|l| l.group_key == "[quota:script]")
-        .expect("成功出站须落 proxy_log");
-    assert_eq!(hit.source_protocol, "quota");
+        .expect("成功出站须落 request_log");
+    assert_eq!(hit.kind, "quota");
     assert_eq!(hit.status_code, 200);
 }
 
@@ -225,15 +225,15 @@ async fn script_zero_platform_id_keeps_outer_platform_scope_for_log() {
         .await;
     assert!(q.success, "脚本须跑通本地 stub: {:?}", q.error);
 
-    let logs = aidog_logs::list_proxy_logs(&db, 100, 0).await.unwrap();
+    let logs = aidog_logs::list_request_logs(&db, &Default::default(), 100, 0).await.unwrap();
     let hit = logs
         .iter()
         .find(|l| l.group_key == "[quota:script]")
-        .expect("成功出站须落 proxy_log");
+        .expect("成功出站须落 request_log");
     assert_eq!(hit.platform_id, 287);
 }
 
-/// 非 2xx 出站同样落 proxy_log（upstream_status_code 原样），错误文案可被脚本 catch。
+/// 非 2xx 出站同样落 request_log（upstream_status_code 原样），错误文案可被脚本 catch。
 #[tokio::test]
 async fn script_outbound_error_persists_log() {
     let url = spawn_stub(500, r#"{"e":"x"}"#).await;
@@ -255,11 +255,11 @@ async fn script_outbound_error_persists_log() {
         "脚本须能 catch 非 2xx"
     );
 
-    let logs = aidog_logs::list_proxy_logs(&db, 100, 0).await.unwrap();
+    let logs = aidog_logs::list_request_logs(&db, &Default::default(), 100, 0).await.unwrap();
     let hit = logs
         .iter()
         .find(|l| l.group_key == "[quota:script]")
-        .expect("非 2xx 出站也须落 proxy_log");
+        .expect("非 2xx 出站也须落 request_log");
     assert_eq!(hit.status_code, 500);
 }
 

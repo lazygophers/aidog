@@ -2,7 +2,7 @@
 
 import { invoke } from "../transport";
 import { listen, type UnlistenFn } from "../transport";
-import type { ProxySettings, ProxyStartError, ProxyClientSettings, ProxyLogSummary, RequestLogSummary, RequestLogFilter, ProxyLogPage, ProxyLogDetail, ProxyLogSettings, ProxyTimeoutSettings, ProxyLogFilter, CleanupEstimate } from "./types";
+import type { ProxySettings, ProxyStartError, ProxyClientSettings, RequestLogSummary, RequestLogFilter, ProxyLogPage, ProxyLogDetail, ProxyLogSettings, ProxyTimeoutSettings, ProxyLogFilter, CleanupEstimate } from "./types";
 
 // proxy_start 失败时 invoke() 以 ProxyStartError 结构体（非纯字符串）reject（Rust 侧
 // serde 序列化的 struct，Tauri 原样传回 JS）。类型守卫供调用方判别 kind，别用字符串匹配。
