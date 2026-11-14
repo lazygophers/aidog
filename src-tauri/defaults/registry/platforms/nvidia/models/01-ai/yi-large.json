@@ -1,9 +1,10 @@
 {
-  "last_updated": 1794592077,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "01-ai/yi-large",
+  "display_name": "Yi Large",
   "thinking_supported": false,
   "canonical_model": "yi-large",
   "family": "yi",

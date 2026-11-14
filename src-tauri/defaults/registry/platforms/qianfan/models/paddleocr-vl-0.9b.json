@@ -1,10 +1,11 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "anthropic"
   ],
   "model_id": "paddleocr-vl-0.9b",
   "display_name": "Paddleocr VL 0.9b",
+  "version": "0.9",
   "canonical_model": "paddleocr-vl-0.9b",
   "family": "paddleocr",
   "capabilities": [

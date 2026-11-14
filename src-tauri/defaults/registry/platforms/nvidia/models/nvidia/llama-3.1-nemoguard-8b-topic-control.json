@@ -1,9 +1,10 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "nvidia/llama-3.1-nemoguard-8b-topic-control",
+  "display_name": "Llama 3 1 Nemoguard 8b Topic Control",
   "canonical_model": "llama-3.1-nemoguard-8b-topic-control",
   "family": "nemoguard",
   "capabilities": [],

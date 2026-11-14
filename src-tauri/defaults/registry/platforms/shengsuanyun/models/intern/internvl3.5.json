@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794592077,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -7,6 +7,7 @@
   ],
   "model_id": "intern/internvl3.5",
   "display_name": "InternVL3.5",
+  "version": "3.5",
   "thinking_supported": false,
   "canonical_model": "internvl3.5",
   "capabilities": [

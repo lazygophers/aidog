@@ -1,9 +1,10 @@
 {
-  "last_updated": 1794592077,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "writer/palmyra-fin-70b-32k",
+  "display_name": "Palmyra Fin 70b 32k",
   "thinking_supported": false,
   "canonical_model": "palmyra-fin-70b-32k",
   "family": "palmyra",

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794592077,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "anthropic",
     "openai",
@@ -7,6 +7,7 @@
   ],
   "model_id": "hitem3d-2-0-251223",
   "display_name": "Hitem3D 2.0 251223",
+  "version": "2.0",
   "canonical_model": "hitem3d-2-0-251223",
   "family": "hitem3d",
   "capabilities": [],

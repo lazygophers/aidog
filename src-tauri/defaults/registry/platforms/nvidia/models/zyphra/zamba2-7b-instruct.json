@@ -1,9 +1,10 @@
 {
-  "last_updated": 1794592077,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "zyphra/zamba2-7b-instruct",
+  "display_name": "Zamba2 7b Instruct",
   "context_window": 16000,
   "thinking_supported": false,
   "canonical_model": "zamba2-7b-instruct",

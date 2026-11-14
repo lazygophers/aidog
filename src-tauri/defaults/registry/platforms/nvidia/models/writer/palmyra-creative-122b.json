@@ -1,9 +1,10 @@
 {
-  "last_updated": 1794592077,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "writer/palmyra-creative-122b",
+  "display_name": "Palmyra Creative 122b",
   "thinking_supported": false,
   "canonical_model": "palmyra-creative-122b",
   "family": "palmyra",
