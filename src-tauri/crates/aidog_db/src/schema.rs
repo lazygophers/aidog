@@ -366,6 +366,45 @@ pub fn init_tables_raw(
         .await
         .map_err(|e| e.to_string())?;
 
+        // Migration 20261114-01 (proxy-platform-switch T01): 出站代理判定收口一次性迁移。
+        // 旧总开关 enabled → others_enabled + 平台 extra.proxy_enabled 回填（细节见 schema_late.rs
+        // read_proxy_client_legacy / migrate_proxy_client_setting_*）。跨库：旧设置在主库
+        // setting 表，平台行在 platform.db，故两阶段各拿各的 conn；内存库 fallback 两 handle
+        // 同物理连接，顺序调用等价。
+        // 顺序（评论必改 1）：只读预检拿 legacy → 平台段（回填 + 平台标记同事务）→ 主段
+        // （改写 + 主库标记同事务）。预检失败（锁冲突 / 损坏 JSON）→ 跳过平台段与主段、
+        // 两库标记都不写，warn 后下次启动重试；不 panic、不阻断启动。
+        {
+            let legacy = db
+                .call_traced(None, __db_caller, |conn| {
+                    Ok(crate::schema_late::read_proxy_client_legacy(conn))
+                })
+                .await;
+            match legacy {
+                Err(e) => tracing::warn!(
+                    error = %e,
+                    "migration 20261114-01: 主库预检失败，跳过平台回填与主库改写（标记未写，下次启动重试）"
+                ),
+                Ok(Err(())) => tracing::warn!(
+                    "migration 20261114-01: proxy_client 设置损坏，跳过本轮迁移（标记未写，下次启动重试）"
+                ),
+                Ok(Ok(legacy)) => {
+                    db.call_platform_traced(None, __db_caller, move |conn| {
+                        crate::schema_late::migrate_proxy_client_setting_platform(conn, legacy);
+                        Ok(())
+                    })
+                    .await
+                    .map_err(|e| e.to_string())?;
+                    db.call_traced(None, __db_caller, |conn| {
+                        crate::schema_late::migrate_proxy_client_setting_main(conn);
+                        Ok(())
+                    })
+                    .await
+                    .map_err(|e| e.to_string())?;
+                }
+            }
+        }
+
         // Phase 4: 主库 DROP × 4（仅 Phase 3 成功后达；cli_proxy_provider 随 CLI 代理移除，只清不迁）。
         // crash 前未达 Phase 4 → 下次启动 Phase 1 仍能读到 3 表（read 幂等）+ Phase 3 INSERT OR IGNORE
         // 跳过已回填行（id 冲突），无重复无丢失。

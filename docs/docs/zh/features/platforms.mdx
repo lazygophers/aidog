@@ -17,6 +17,8 @@ import { ProductDemo } from '../../../theme/components/ProductDemo';
 
 平台配置保存上游 Base URL、API Key、协议、模型、状态、extra JSON 和配额相关字段。`extra` 中当前有 mock、New API、Devin、breaker、peak、disable_during_peak、time_windows 等结构化子项，前端解析函数集中在 `src/services/api/platforms.ts`。
 
+每个平台的「使用代理」开关控制该平台全部出站请求，包括普通请求转发、透传请求、余额查询、拉取模型列表和模型测试。开启后使用系统设置中的代理配置，但免代理名单命中时仍直连；关闭时直连。代理地址未配置时，开启开关也会直连，并显示未配置提示。新建平台时，代理地址已填写则默认开启；地址为空则默认关闭。平台列表中的「代理」标记表示该平台开关已开启，不代表代理地址一定已配置。
+
 ## 文档演示边界
 
 上方演示来自 `docs/theme/fixtures/productDemo.ts` 的固定脱敏数据，不读取本机数据库、Tauri IPC 或 Local API。真实字段、按钮和错误处理以 `src/pages/platforms/` 与 `src/components/platforms/` 当前源码为准。

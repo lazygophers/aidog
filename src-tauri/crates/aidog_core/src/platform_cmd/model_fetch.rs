@@ -119,11 +119,26 @@ crate::tauri_command! {
 pub async fn platform_fetch_models(
     protocol: Protocol,
     base_url: String,
-    api_key: String) -> Result<Vec<String>, FetchModelsError> {
+    api_key: String,
+    proxy_enabled: Option<bool>) -> Result<Vec<String>, FetchModelsError> {
     let db = aidog_ctx::db();
     tracing::debug!(command = "platform_fetch_models", protocol = ?protocol, base_url = %base_url, api_key = "[REDACTED]", "command invoked");
     let db_arc = Arc::new(db.clone());
-    let client = gateway::http_client::build_http_client_system(&db_arc, 30, 10).await;
+    // issue #64 T04：创建态拉模型按表单「使用代理」开关判定出站——Some(v) = 平台归属；
+    // None（旧前端不传参）= 非平台归属，读「其它请求使用代理」（行为兼容）。
+    let settings = gateway::http_client::load_proxy_client_settings(&db_arc).await;
+    let use_proxy = gateway::http_client::should_use_proxy(
+        &settings,
+        match proxy_enabled {
+            Some(v) => {
+                gateway::http_client::ProxyAttribution::Platform(
+                    gateway::http_client::ProxySwitch::from_flag(Some(v)),
+                )
+            }
+            None => gateway::http_client::ProxyAttribution::NonPlatform,
+        },
+    );
+    let client = gateway::http_client::build_http_client(&settings, 30, 10, use_proxy).await;
 
     let start = std::time::Instant::now();
     let request_id = uuid::Uuid::new_v4().simple().to_string();
