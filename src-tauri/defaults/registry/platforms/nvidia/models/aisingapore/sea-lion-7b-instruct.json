@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794627749,
+  "last_updated": 1794632081,
   "supported_protocols": [
     "openai"
   ],
@@ -9,6 +9,8 @@
   "family": "sea-lion",
   "capabilities": [],
   "official": true,
+  "max_input_tokens": 2048,
+  "context_window": 2048,
   "price": {
     "currency": "USD",
     "input": 0.0,
