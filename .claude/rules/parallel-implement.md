@@ -303,6 +303,7 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
 门禁命令写 `cargo test --workspace --no-fail-fast > .tmp/<任务名>/x.log 2>&1; echo EXIT=$?`。
 计时断言（如 `aidog_stats::test_usage_stats::flow_breakdown_7d_scale_guard`，并发编译后首轮曾超时）
 首轮红先单跑该测试一次：绿 = 负载抖动，记账本遗留；仍红才按回归处理。
+同族挂钟断言：`aidog_core::gateway::proxy::test_integration::mock_platform_ttft_and_inter_chunk_split`（`test_integration.rs:1366`，ttft 阈值 40–160ms、chunk 间隔 ≤60ms）。2026-10-19 曾单跑稳定红、全量偶绿（进程首请求冷启动多 150–220ms，基线同红，非回归），b6f0bd0cf 加预热请求后已修；再红先查机器负载 / 内存压力，不当回归。
 
 ## 18. 网络断连中断、先红严格性、票状态词、带密钥写命令登记（2026-11-04 ~ 11-05）
 
