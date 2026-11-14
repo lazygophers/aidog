@@ -4,6 +4,18 @@ use super::{ManualBudget, PlatformStatus, Protocol};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+/// 失败的排除范围：`pair`（只排除该「平台 + 模型」组合，模型类 / 未知类）/
+/// `platform`（排除整个平台，服务类 / 连接失败 / 限频占位失败）。未排除（成功、不可重试直返）为 None。
+/// 反序列化时未知字符串（历史日志）回落 `platform`（与旧 `parse` 的缺省语义一致）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "lowercase")]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub enum ExcludeScope {
+    Pair,
+    #[serde(other)]
+    Platform,
+}
+
 /// proxy_log.attempts JSON 数组元素：每次平台尝试的快照。
 #[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
@@ -60,11 +72,10 @@ pub struct ProxyAttempt {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[ts(optional, as = "Option<Vec<String>>")]
     pub effects: Vec<String>,
-    /// 本次失败在请求内的排除范围：`pair`（只排除该「平台 + 模型」组合，模型类 / 未知类）/
-    /// `platform`（排除整个平台，服务类 / 连接失败 / 限频占位失败）。未排除（成功、不可重试直返）为 None。
+    /// 本次失败在请求内的排除范围；未排除（成功、不可重试直返）为 None。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
-    pub exclusion: Option<String>,
+    pub exclusion: Option<ExcludeScope>,
 }
 
 /// 序列化 attempts 列（出错回退空数组）

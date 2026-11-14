@@ -94,7 +94,7 @@ pub(crate) async fn forward_attempt(
                         error: "platform rate limit reached".to_string(),
                         ts: attempt_ts,
                         model: Some(route.target_model.clone()),
-                        exclusion: Some("platform".to_string()),
+                        exclusion: Some(ExcludeScope::Platform),
                         ..Default::default()
                     });
                     mark_rate_limited(log);
@@ -117,7 +117,7 @@ pub(crate) async fn forward_attempt(
                 error: "model rate limit reached".to_string(),
                 ts: attempt_ts,
                 model: Some(model),
-                exclusion: Some("pair".to_string()),
+                exclusion: Some(ExcludeScope::Pair),
                 ..Default::default()
             });
             mark_rate_limited(log);

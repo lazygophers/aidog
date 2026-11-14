@@ -9,25 +9,6 @@ use aidog_db::models::GroupPlatformDetail;
 use std::time::Duration;
 use std::collections::HashSet;
 
-/// 排除范围，字符串形态即 `ProxyAttempt.exclusion` 的取值。
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum ExcludeScope {
-    Pair,
-    Platform,
-}
-
-impl ExcludeScope {
-    pub(crate) fn as_str(self) -> &'static str {
-        match self {
-            Self::Pair => "pair",
-            Self::Platform => "platform",
-        }
-    }
-    fn parse(s: &str) -> Self {
-        if s == "pair" { Self::Pair } else { Self::Platform }
-    }
-}
-
 /// 本次请求内已排除的平台 / 组合。
 #[derive(Default)]
 pub(crate) struct Exclusions {
@@ -120,7 +101,7 @@ pub(crate) fn record_exclusion(
     model: &str,
 ) {
     let scope = match attempts.last_mut() {
-        Some(a) => ExcludeScope::parse(a.exclusion.get_or_insert_with(|| ExcludeScope::Platform.as_str().to_string())),
+        Some(a) => *a.exclusion.get_or_insert(ExcludeScope::Platform),
         None => ExcludeScope::Platform,
     };
     excl.add(scope, platform_id, model);
@@ -379,6 +360,20 @@ mod tests {
         assert!(l.new_round(&mut log, 1).await);
         assert_eq!(l.excl.apply(vec![rr(1, &["a"])]).len(), 1);
         assert!(l.dead_base_urls.is_empty());
+    }
+
+    /// 行为锁定（票 02）：历史日志的三种旧 JSON 形态反序列化在 exclusion 类型化前后一致。
+    #[test]
+    fn legacy_exclusion_json_shapes_deserialize_unchanged() {
+        let base = r#"{"platform_id":1,"platform_name":"p","status_code":500,"duration_ms":10,"ts":1"#;
+        let pair: ProxyAttempt =
+            serde_json::from_str(&format!("{base},\"exclusion\":\"pair\"}}")).unwrap();
+        assert_eq!(pair.exclusion, Some(ExcludeScope::Pair));
+        let platform: ProxyAttempt =
+            serde_json::from_str(&format!("{base},\"exclusion\":\"platform\"}}")).unwrap();
+        assert_eq!(platform.exclusion, Some(ExcludeScope::Platform));
+        let missing: ProxyAttempt = serde_json::from_str(&format!("{base}}}")).unwrap();
+        assert_eq!(missing.exclusion, None);
     }
 
     #[test]

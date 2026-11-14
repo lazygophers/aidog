@@ -6821,7 +6821,7 @@ async fn rc02_platform_rate_limit_skip_recorded() {
     // 只留 A 的两条尝试（两轮各一次）。
     assert_eq!(log.attempts.len(), 2);
     assert!(log.attempts.iter().all(|a| a.status_code == 500 && a.platform_id != b_id));
-    assert_eq!(log.attempts[0].exclusion.as_deref(), Some("platform"));
+    assert_eq!(log.attempts[0].exclusion, Some(ExcludeScope::Platform));
     assert_eq!(log.routing.unwrap().round_starts, Some(Box::new(vec![1])));
 }
 
@@ -6846,8 +6846,8 @@ async fn ra02_attempt_records_exclusion_scope() {
     .await;
     assert_eq!(chain_send(&state, "gkra02a", CHAIN_REQ).await.status(), StatusCode::OK);
     let log = last_log_for(&state, "gkra02a").await;
-    let scopes: Vec<_> = log.attempts.iter().map(|a| a.exclusion.as_deref()).collect();
-    assert_eq!(scopes, [Some("pair"), Some("platform"), None]);
+    let scopes: Vec<_> = log.attempts.iter().map(|a| a.exclusion).collect();
+    assert_eq!(scopes, [Some(ExcludeScope::Pair), Some(ExcludeScope::Platform), None]);
 }
 
 /// 失败组合本次请求内不重复；每个组合恰好试一次。
@@ -6899,7 +6899,7 @@ async fn ra02_service_failures_account_once_each() {
     }
     let log = last_log_for(&state, "gkra02c").await;
     assert_eq!(log.attempts.len(), 2);
-    assert_eq!(log.attempts[0].exclusion.as_deref(), Some("platform"));
+    assert_eq!(log.attempts[0].exclusion, Some(ExcludeScope::Platform));
     assert_eq!(log.attempts[1].exclusion, None, "末次直接回客户端，没有后续可排除");
 }
 
@@ -7037,8 +7037,8 @@ async fn ra03_aux_connect_failure_excludes_platform_and_dead_siblings() {
         let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
         assert_eq!(resp.status(), StatusCode::OK, "{kind:?}");
         let log = last_log_for(&state, &gk).await;
-        let scopes: Vec<_> = log.attempts.iter().map(|a| (a.model.as_deref(), a.exclusion.as_deref())).collect();
-        assert_eq!(scopes, [(Some("m-a"), Some("platform")), (Some("m-c"), None)], "{kind:?}");
+        let scopes: Vec<_> = log.attempts.iter().map(|a| (a.model.as_deref(), a.exclusion)).collect();
+        assert_eq!(scopes, [(Some("m-a"), Some(ExcludeScope::Platform)), (Some("m-c"), None)], "{kind:?}");
         assert_eq!(hit_models(&h3), ["m-c"], "{kind:?}");
     }
 }
@@ -7058,8 +7058,8 @@ async fn ra03_aux_service_excludes_platform_model_switches_same_platform() {
         assert_eq!(hit_models(&h1), ["m-a"], "{kind:?}: 服务类失败后该平台其他模型不再选");
         assert_eq!(hit_models(&h2), ["m-c", "m-d"], "{kind:?}");
         let log = last_log_for(&state, &gk).await;
-        let scopes: Vec<_> = log.attempts.iter().map(|a| a.exclusion.as_deref()).collect();
-        assert_eq!(scopes, [Some("platform"), Some("pair"), None], "{kind:?}");
+        let scopes: Vec<_> = log.attempts.iter().map(|a| a.exclusion).collect();
+        assert_eq!(scopes, [Some(ExcludeScope::Platform), Some(ExcludeScope::Pair), None], "{kind:?}");
         let (p1, p2) = (platform_id_of(&state, &format!("{gk}-pa")).await, platform_id_of(&state, &format!("{gk}-pb")).await);
         assert_eq!(state.scheduler.penalty_consecutive(p1), 1, "{kind:?}: 服务类记一次");
         assert_eq!(state.scheduler.penalty_consecutive(p2), 0, "{kind:?}: 模型类不降权");
