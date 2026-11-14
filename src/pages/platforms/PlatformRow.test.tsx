@@ -21,6 +21,12 @@ import { PlatformRow } from "./PlatformRow";
 import { setDisplayCurrency, USD_DISPLAY } from "../../utils/displayCurrency";
 import type { Platform, PlatformUsageStats, LastTestResult } from "../../../services/api";
 
+// 全局代理地址是否已配置（「代理」徽标显示条件之一，issue #64 T03）：模块级可变桩注入
+const proxyCfg = vi.hoisted(() => ({ configured: false }));
+vi.mock("../../domains/platforms/proxyConfig", () => ({
+  useProxyConfigured: () => proxyCfg.configured,
+}));
+
 const platform = {
   id: 7, name: "DeepSeek", platform_type: "deepseek", base_url: "https://api.deepseek.com/v1",
   extra: "{}", models: {}, available_models: [], endpoints: [],
@@ -78,6 +84,22 @@ describe("PlatformRow", () => {
     const disabled = { ...platform, status: "auto_disabled" } as never as Platform;
     render(<PlatformRow {...base} platform={disabled} lastTest={undefined} />);
     expect(screen.getByTestId("row-status-dot").getAttribute("title")).toBe("auto_disabled");
+  });
+
+  describe("「代理」徽标显隐（开关 × 全局代理地址，issue #64 T03）", () => {
+    it.each([
+      [true, true, true],   // 开关开 + 地址非空 → 显示
+      [true, false, false], // 开关开 + 地址为空 → 隐藏（实际直连）
+      [false, true, false], // 开关关 + 地址非空 → 隐藏
+      [false, false, false], // 双关 → 隐藏
+    ] as [boolean, boolean, boolean][])("proxy_enabled=%s 全局地址=%s → 徽标%s", (enabled, configured, shown) => {
+      proxyCfg.configured = configured;
+      const p = { ...platform, extra: JSON.stringify({ proxy_enabled: enabled }) } as never as Platform;
+      render(<PlatformRow {...base} platform={p} />);
+      const badge = screen.queryByTestId("row-proxy-badge");
+      if (shown) expect(badge).toBeTruthy();
+      else expect(badge).toBeNull();
+    });
   });
 
   describe("显示币种切换后费用文本变化（票 04）", () => {
