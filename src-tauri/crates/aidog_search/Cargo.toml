@@ -22,5 +22,5 @@ scraper = "0.29"
 htmd = "0.5.6"
 # 免 key 引擎出站的浏览器 TLS/HTTP2 指纹模拟（仅引擎抓取用，不影响代理转发）。
 # wreq-util 取 0.2（配 wreq 0.16）：3.0.0-rc 系依赖 wreq 6.0.0-rc.31，该版本在当前工具链编译失败。
-wreq = { version = "0.16", features = ["system-proxy"] }
+wreq = { version = "0.16", features = ["system-proxy", "socks"] }
 wreq-util = "0.2"

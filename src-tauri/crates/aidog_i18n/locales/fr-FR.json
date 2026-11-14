@@ -2360,6 +2360,7 @@
   "proxy.enableForAllConfirmTitle": "Activer le proxy pour toutes les plateformes ?",
   "proxy.enableForAllConfirmDesc": "Active « Utiliser le proxy » pour toutes les plateformes, sans modifier l'adresse du proxy.",
   "proxy.enableForAllDone": "Proxy activé pour {{n}} plateformes",
+  "proxy.enableForAllPartial": "Proxy activé pour {{n}} plateformes, {{f}} en échec",
   "proxy.upstreamReqRetention": "Durée de rétention de la requête amont",
   "proxy.userReqRetention": "Durée de rétention de la requête utilisateur",
   "displayCurrency.title": "Devise d'affichage",

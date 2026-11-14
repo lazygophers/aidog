@@ -33,7 +33,7 @@ pub fn healthy_instances(json: &str) -> Vec<SearxInstance> {
 
 /// 手动刷新：GET 一次 searx.space 列表。仅由管理命令（用户点按钮）调用，AiDog 不自动拉取。
 pub async fn fetch_searx_instances(url: &str) -> Result<Vec<SearxInstance>, String> {
-    let r = crate::http_client()?.get(url).send().await.map_err(|e| format!("searx.space: {e}"))?;
+    let r = crate::http_client_aware().await?.get(url).send().await.map_err(|e| format!("searx.space: {e}"))?;
     if !r.status().is_success() {
         return Err(format!("searx.space: HTTP {}", r.status().as_u16()));
     }
@@ -51,7 +51,7 @@ pub async fn fetch_searx_instances(url: &str) -> Result<Vec<SearxInstance>, Stri
 pub async fn probe_instance(url: &str) -> Result<f64, String> {
     let u = format!("{}/search?q=aidog&format=json", url.trim_end_matches('/'));
     let t0 = std::time::Instant::now();
-    let r = crate::http_client()?
+    let r = crate::http_client_aware().await?
         .get(&u)
         .header("Accept", "application/json")
         .send()

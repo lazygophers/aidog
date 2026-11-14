@@ -75,38 +75,61 @@ pub fn quote_plus(s: &str) -> String {
 // ---------- 出站（浏览器指纹） ----------
 
 /// 浏览器指纹客户端（仅免 key 引擎抓取用；代理转发不经此）。
-fn client() -> Result<&'static wreq::Client, String> {
-    static C: OnceLock<Result<wreq::Client, String>> = OnceLock::new();
-    C.get_or_init(|| {
-        wreq::Client::builder()
-            .emulation(wreq_util::Emulation::Chrome149)
-            .build()
-            .map_err(|e| format!("build fingerprint client: {e}"))
-    })
-    .as_ref()
-    .map_err(Clone::clone)
+/// 指纹客户端种类（review egress 接入：构建差异 + 代理配置入缓存键）。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+enum FpKind {
+    /// Chrome 指纹（默认引擎抓取）
+    Chrome,
+    /// Chrome 指纹 + 不跟随跳转（百度 / 搜狗的 /link 跳转要读 Location / meta refresh）
+    ChromeNoRedir,
+    /// 朴素无指纹（NCBI eutils 对 Chrome TLS 指纹直接 reset，同脚本 _e_pubmed）
+    Plain,
 }
 
-/// 不跟随跳转的指纹客户端（百度 / 搜狗的 /link 跳转要读 Location / meta refresh）。
-fn client_noredir() -> Result<&'static wreq::Client, String> {
-    static C: OnceLock<Result<wreq::Client, String>> = OnceLock::new();
-    C.get_or_init(|| {
-        wreq::Client::builder()
-            .emulation(wreq_util::Emulation::Chrome149)
-            .redirect(wreq::redirect::Policy::none())
-            .build()
-            .map_err(|e| format!("build fingerprint client: {e}"))
-    })
-    .as_ref()
-    .map_err(Clone::clone)
+/// 指纹客户端缓存：key = (种类, 代理配置)，代理设置变更自动重建
+/// （同 gateway http_client ClientCache idiom；issue #64 非平台出站受「其它请求使用代理」控制）。
+type FpCache = std::collections::HashMap<(FpKind, Option<crate::FingerprintProxy>), wreq::Client>;
+
+fn fp_cache() -> &'static std::sync::Mutex<FpCache> {
+    static C: OnceLock<std::sync::Mutex<FpCache>> = OnceLock::new();
+    C.get_or_init(Default::default)
 }
 
-/// 朴素客户端（无指纹）：NCBI eutils 对 Chrome TLS 指纹直接 reset（同脚本 _e_pubmed）。
-fn client_plain() -> Result<&'static wreq::Client, String> {
-    static C: OnceLock<Result<wreq::Client, String>> = OnceLock::new();
-    C.get_or_init(|| wreq::Client::builder().build().map_err(|e| format!("build client: {e}")))
-        .as_ref()
-        .map_err(Clone::clone)
+/// 按种类 + 注入的代理提供器构指纹客户端（缓存命中即返 clone；wreq Client 内部 Arc，clone 便宜）。
+async fn fingerprint_client(kind: FpKind) -> Result<wreq::Client, String> {
+    let proxy = crate::fingerprint_proxy().await;
+    let key = (kind, proxy.clone());
+    if let Some(c) = fp_cache().lock().ok().and_then(|m| m.get(&key).cloned()) {
+        return Ok(c);
+    }
+    let mut b = match kind {
+        FpKind::Chrome => wreq::Client::builder().emulation(wreq_util::Emulation::Chrome149),
+        FpKind::ChromeNoRedir => wreq::Client::builder()
+            .emulation(wreq_util::Emulation::Chrome149)
+            .redirect(wreq::redirect::Policy::none()),
+        FpKind::Plain => wreq::Client::builder(),
+    };
+    match &proxy {
+        Some(cfg) => {
+            let mut p = wreq::Proxy::all(&cfg.uri).map_err(|e| format!("build proxy {}: {e}", cfg.uri))?;
+            if !cfg.username.is_empty() {
+                p = p.basic_auth(&cfg.username, &cfg.password);
+            }
+            if !cfg.no_proxy.trim().is_empty() {
+                p = p.no_proxy(wreq::NoProxy::from_string(&cfg.no_proxy));
+            }
+            b = b.proxy(p);
+        }
+        // 未配置代理：显式 .no_proxy() 关闭 wreq 默认 system-proxy feature 的环境代理读取。
+        None => b = b.no_proxy(),
+    }
+    let c = b
+        .build()
+        .map_err(|e| format!("build fingerprint client: {e}"))?;
+    if let Ok(mut m) = fp_cache().lock() {
+        m.entry(key).or_insert_with(|| c.clone());
+    }
+    Ok(c)
 }
 
 const HTML_HEADERS: [(&str, &str); 2] = [
@@ -115,7 +138,7 @@ const HTML_HEADERS: [(&str, &str); 2] = [
 ];
 
 async fn get_text(url: &str, headers: &[(&str, &str)]) -> Result<String, String> {
-    get_text_with(client()?, url, headers).await
+    get_text_with(&fingerprint_client(FpKind::Chrome).await?, url, headers).await
 }
 
 async fn get_text_with(c: &wreq::Client, url: &str, headers: &[(&str, &str)]) -> Result<String, String> {
@@ -619,7 +642,8 @@ fn e_sogou<'a>(ctx: &'a EngineCtx, q: &'a str, _limit: usize) -> BoxFuture<'a, R
                 if it.url.starts_with("/link") {
                     let hdr = [("Referer", "https://www.sogou.com/")];
                     let real = async {
-                        let r = client_noredir().ok()?.get(format!("{b}{}", it.url)).header(hdr[0].0, hdr[0].1).send().await.ok()?;
+                        let Ok(c) = fingerprint_client(FpKind::ChromeNoRedir).await else { return None };
+                        let r = c.get(format!("{b}{}", it.url)).header(hdr[0].0, hdr[0].1).send().await.ok()?;
                         let loc = r.headers().get("location").and_then(|v| v.to_str().ok()).map(String::from);
                         let body: String = r.text().await.ok()?.chars().take(500).collect();
                         loc.or_else(|| meta.captures(&body).map(|c| c[1].to_string()))
@@ -653,7 +677,8 @@ fn e_baidu<'a>(ctx: &'a EngineCtx, q: &'a str, limit: usize) -> BoxFuture<'a, Re
                         _ => it.url.clone(),
                     };
                     let loc = async {
-                        let r = client_noredir().ok()?.get(target).send().await.ok()?;
+                        let Ok(c) = fingerprint_client(FpKind::ChromeNoRedir).await else { return None };
+                        let r = c.get(target).send().await.ok()?;
                         r.headers().get("location").and_then(|v| v.to_str().ok()).map(String::from)
                     }
                     .await;
@@ -682,9 +707,9 @@ fn e_crossref<'a>(ctx: &'a EngineCtx, q: &'a str, limit: usize) -> BoxFuture<'a,
 fn e_pubmed<'a>(ctx: &'a EngineCtx, q: &'a str, limit: usize) -> BoxFuture<'a, Result<Vec<SearchHit>, String>> {
     Box::pin(async move {
         let b = ctx.base_or("pubmed", || "https://eutils.ncbi.nlm.nih.gov".into());
-        let c = client_plain()?;
+        let c = fingerprint_client(FpKind::Plain).await?;
         let search = get_text_with(
-            c,
+            &c,
             &format!("{b}/entrez/eutils/esearch.fcgi?db=pubmed&term={}&retmode=json&retmax={limit}&retstart=0", quote_plus(q)),
             &[],
         )
@@ -695,7 +720,7 @@ fn e_pubmed<'a>(ctx: &'a EngineCtx, q: &'a str, limit: usize) -> BoxFuture<'a, R
             return Ok(Vec::new());
         }
         let summary = get_text_with(
-            c,
+            &c,
             &format!("{b}/entrez/eutils/esummary.fcgi?db=pubmed&id={}&retmode=json", ids.join(",")),
             &[],
         )

@@ -2360,6 +2360,7 @@
   "proxy.enableForAllConfirmTitle": "Включить прокси для всех платформ?",
   "proxy.enableForAllConfirmDesc": "Включает «Использовать прокси» для всех платформ, не меняя адрес прокси.",
   "proxy.enableForAllDone": "Прокси включён для {{n}} платформ",
+  "proxy.enableForAllPartial": "Прокси включён для {{n}} платформ, {{f}} с ошибкой",
   "proxy.upstreamReqRetention": "Время хранения запросов к апстриму",
   "proxy.userReqRetention": "Время хранения запросов пользователя",
   "displayCurrency.title": "Валюта отображения",

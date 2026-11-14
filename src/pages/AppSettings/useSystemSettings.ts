@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { getAppVersion } from "../../services/platform";
-import { proxyApi, isProxyStartError, proxyLogApi, proxyTimeoutApi, builtinToolCompatGlobalApi, appLogApi, dbApi, statsApi, statsSettingsApi, autoUpdateApi, platformApi, serializeProxyEnabled, type ProxyLogSettings, type AppLogSettings, type ProxyClientSettings, type ProxyStartError, type RetentionUnit } from "../../services/api";
-import { broadcastProxyConfigChanged } from "../../domains/platforms/proxyConfig";
+import { proxyApi, isProxyStartError, proxyLogApi, proxyTimeoutApi, builtinToolCompatGlobalApi, appLogApi, dbApi, statsApi, statsSettingsApi, autoUpdateApi, type ProxyLogSettings, type AppLogSettings, type ProxyClientSettings, type ProxyStartError, type RetentionUnit } from "../../services/api";
+import { broadcastProxyConfigChanged, enableProxyForAllPlatforms } from "../../domains/platforms/proxyConfig";
 
 /**
  * system tab 全部 state + actions（AppSettings 拆分自原 L21-240）。
@@ -193,16 +193,10 @@ export function useSystemSettings() {
     setProxyAllConfirm(false);
     setProxyAllBusy(true);
     try {
-      const list = (await platformApi.list()) || [];
-      let ok = 0;
-      for (const p of list) {
-        try {
-          await platformApi.update({ id: p.id, extra: serializeProxyEnabled(p.extra ?? "", true) });
-          ok++;
-        } catch { /* 单平台失败不中断其余 */ }
-      }
-      window.dispatchEvent(new Event("aidog-platforms-changed"));
-      setMessage(t("proxy.enableForAllDone", "已为 {{n}} 个平台开启代理", { n: String(ok) }));
+      const { ok, failed } = await enableProxyForAllPlatforms();
+      setMessage(failed > 0
+        ? t("proxy.enableForAllPartial", "已为 {{n}} 个平台开启代理，{{f}} 个失败", { n: String(ok), f: String(failed) })
+        : t("proxy.enableForAllDone", "已为 {{n}} 个平台开启代理", { n: String(ok) }));
     } catch (e: any) {
       setMessage(e.toString());
     } finally {

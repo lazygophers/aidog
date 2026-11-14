@@ -62,6 +62,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 .await
         })
     }));
+    aidog_core::gateway::http_client::install_non_platform_client_factories();
 
     // 先开 DB 再初始化日志：app log 设置单一事实源 = DB settings 表（禁独立文件）。
     // 历史 ~/.aidog/log_settings.json 在此一次性迁移进 DB 后删除。
