@@ -11,7 +11,8 @@ license = { workspace = true }
 aidog_db = { path = "../aidog_db" }
 aidog_logs = { path = "../aidog_logs" }
 boa_engine = "0.22"
-reqwest = { version = "0.13", default-features = false, features = ["rustls", "charset", "http2", "system-proxy", "json", "query", "gzip", "socks"] }
+# feature 并集继承 workspace（workspace 构建按并集编译，单独构建多开 stream/brotli/deflate/zstd）
+reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
