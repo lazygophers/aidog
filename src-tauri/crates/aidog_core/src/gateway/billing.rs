@@ -148,9 +148,7 @@ pub async fn calc_est_cost_detail(
             cache_write_1h_input_token_cost: 0.0,
             source: "fallback".to_string(),
         },
-        peak_applied: false,
-        source_cny: false,
-        request_unit_price: None,
+        ..Default::default()
     });
 
     let multiplier = if created_at_ms <= 0 {
@@ -184,7 +182,8 @@ pub async fn calc_est_cost_detail(
         .sum();
     let tool_counts: Vec<&(String, i64)> =
         tool_counts.iter().filter(|(k, _)| k != SEARCH_UNITS_KEY).collect();
-    // 条目 `price.unit=="request"`：est_cost = unit_price × 次数（缺次数按 1 次/请求），不乘 peak 倍率。
+    // 条目 `price.unit` 按次/按量计价：est_cost = unit_price × 次数（request 类缺次数按
+    // 1 次/请求；char/second 缺计数 → 0 不可估算），不乘 peak 倍率。口径在 `request_fee` 方法。
     let request_fee = resolved.request_fee(search_units);
     // 票 16 B3：按次费只在有计数时查 tools_pricing（空计数零开销，也不触发 warn）。
     let tool_fee = if tool_counts.is_empty() {
@@ -194,9 +193,15 @@ pub async fn calc_est_cost_detail(
             tool_counts.iter().map(|(k, c)| (k.as_str(), *c)).collect();
         tools_cost(default_tools_pricing(platform_type).as_ref(), &refs)
     };
+    // char/second 缺计数 → 不可估算：price_source 加标记，与免费 / 0 区分（issue 157）。
+    let unestimable = resolved.is_unestimable(search_units);
     EstCostDetail {
         est_cost: token_cost + tool_fee + request_fee,
-        price_source: rp.source.clone(),
+        price_source: if unestimable {
+            format!("{}+unestimable", rp.source)
+        } else {
+            rp.source.clone()
+        },
         is_peak,
         multiplier,
     }
