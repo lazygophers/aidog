@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
   notificationApi,
   type Notification,
@@ -13,13 +14,13 @@ import { formatDateTime } from "../utils/formatters";
 import { Button } from "@/components/ui/button";
 import { useReveal, makeRipple } from "../components/shared";
 
-function notifTypeLabel(type: string, t: (k: string, f: string) => string): string {
+function notifTypeLabel(type: string, t: TFunction): string {
   return t(`notif.type.${type}`, type);
 }
 
 // 单条通知卡：抽离以加 reveal stagger（idx*60），避免 map 内直挂 hook。
 // 票 04：来源徽标（hook/proxy/api）+ 来源跳转（proxy→平台页、hook→日志页）+ 投递记录展开。
-function NotificationItem({ item, idx, t, onNavigate }: { item: Notification; idx: number; t: (k: string, f: string, opt?: Record<string, unknown>) => string; onNavigate?: (id: string) => void }) {
+function NotificationItem({ item, idx, t, onNavigate }: { item: Notification; idx: number; t: TFunction; onNavigate?: (id: string) => void }) {
   const { ref, shown } = useReveal<HTMLDivElement>(idx * 60);
   const [deliveries, setDeliveries] = useState<NotificationDelivery[] | null>(null);
   const loadDeliveries = async () => {
