@@ -409,3 +409,6 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
 - 门禁写 `cargo test --workspace --no-fail-fast > .tmp/<任务>/t.log 2>&1; echo EXIT=$?`，回报必须带 EXIT 值；只贴 `passed` 计数不算（本轮第三轮漏捕获）。
 - 跑到一半 `No space left on device`：先报主会话，不删 `target`（别的会话已整体清过一次）。
 
+## 29. 长门禁被 harness 自动转后台：EXIT 只认日志文件（2026-11-14 request_log 拆表）
+
+`cargo test --workspace` 前台跑满约 180s 被 harness 自动转后台，agent 丢了 `EXIT=` 行。命令按 §15 写成 `cmd > .tmp/<任务>/x.log 2>&1; echo EXIT=$?`，并设 `timeout: 600000`；被转后台后从日志末行读 `EXIT=`（等 harness 完成通知，不轮询），日志无 `EXIT=` 行即「没跑完」。
