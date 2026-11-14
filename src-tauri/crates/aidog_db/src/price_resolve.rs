@@ -147,6 +147,10 @@ pub struct PriceResolution {
     /// 单价（USD/unit，已换算币种）；Some 时 token 价全 0，调用方按 `unit_price × 次数`
     /// 计费（chat 路径无图/次/像素计数时按 1 次估）。
     pub request_unit_price: Option<f64>,
+    /// 按量计价基数（issue 157）：`char` → Some(1000.0)（`unit_price` 为 $/1K chars，
+    /// 计费 `字符数 ÷ 1000 × unit_price`）；`second` → Some(1.0)；request/image/mp →
+    /// None（缺计数按 1 次估）。
+    pub unit_divisor: Option<f64>,
 }
 
 impl PriceResolution {
@@ -268,6 +272,7 @@ pub fn resolve_price_from(
             peak_applied: false,
             source_cny: false,
             request_unit_price: None,
+            unit_divisor: None,
         };
     };
     // 旧形状行（价格平铺顶层）已由 `parse_price_data` 归一化，这里只认 `price` 子树
@@ -287,6 +292,7 @@ pub fn resolve_price_from(
             peak_applied: false,
             source_cny: false,
             request_unit_price: None,
+            unit_divisor: None,
         };
     }
     // 按次计价（`unit:"request"` + `unit_price`，如 Cohere rerank；`unit:"image"` 按图同理，
@@ -329,6 +335,11 @@ pub fn resolve_price_from(
             peak_applied: false,
             source_cny: is_cny,
             request_unit_price: Some(if is_cny { up / CNY_PER_USD } else { up }),
+            unit_divisor: match unit {
+                Some("char") => Some(1000.0),
+                Some("second") => Some(1.0),
+                _ => None,
+            },
         };
     }
     let num =|k: &str| price_obj.get(k).and_then(Value::as_f64).unwrap_or(0.0);
@@ -389,6 +400,7 @@ pub fn resolve_price_from(
         peak_applied,
         source_cny,
         request_unit_price: None,
+        unit_divisor: None,
     }
 }
 
