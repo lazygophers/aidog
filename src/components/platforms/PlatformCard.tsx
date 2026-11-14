@@ -151,7 +151,7 @@ export const PlatformCard = memo(function PlatformCard({
   // 协议元数据聚合 hook（替代 5 个独立 async effect：colorMap / isCp / models+peak /
   //   homepage / label+labelMap）。docPromise 单例缓存 → 单次 Promise.all 聚合 →
   //   100 卡 = 100 次 then（不再 600+ 链）；每卡仅一次 setState。
-  const { color, isCpProtocol, defaultModels, homepage, sourceUrls, protocolLabel, labelMap, peakWindows } =
+  const { color, isCpProtocol, defaultModels, homepage, sourceUrls, protocolLabel, labelMap, peakWindows, holidayCalendar } =
     useProtocolMeta(p.platform_type, p.extra ?? "", i18n.language);
   const configuredModels = (() => {
     // 模型徽章 = 转发生效模型（2026-09-27 拍板）：显式槽位优先，没配则 preset 默认
@@ -329,7 +329,7 @@ export const PlatformCard = memo(function PlatformCard({
                     </Pill>
                   )}
                   {/* 高峰禁用中徽标（独立维度，与 status 正交）：开关 on && now 在 peak window 命中 → 实时显 */}
-                  {disableDuringPeak && isCurrentlyPeak(peakWindows, Date.now()) && (
+                  {disableDuringPeak && isCurrentlyPeak(peakWindows, Date.now(), "", holidayCalendar) && (
                     <Pill color="var(--color-warning)" title={t("platform.disable_during_peak_desc", "启用后该平台在高峰时段从路由候选排除（不改 status，临时闸门）。")} style={{ flex: "none" }}>
                       {t("platform.peak_disabled_badge", "高峰禁用中")}
                     </Pill>
@@ -341,9 +341,9 @@ export const PlatformCard = memo(function PlatformCard({
                     const phWindows = peakWindows;
                     if (phWindows.length === 0) return null;
                     const nowMs = Date.now();
-                    if (!isCurrentlyPeak(phWindows, nowMs)) return null;
+                    if (!isCurrentlyPeak(phWindows, nowMs, "", holidayCalendar)) return null;
                     // 复用 isCurrentlyPeak 单窗口调用找当前命中窗口（取其 model scope）。
-                    const hitWin = phWindows.find(w => isCurrentlyPeak([w], nowMs));
+                    const hitWin = phWindows.find(w => isCurrentlyPeak([w], nowMs, "", holidayCalendar));
                     const models = hitWin?.models;
                     const hasScope = models && models.length > 0;
                     const tooltip = hasScope

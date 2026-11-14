@@ -182,16 +182,19 @@ pub async fn calc_est_cost_detail(
         .filter(|(k, _)| k == SEARCH_UNITS_KEY)
         .map(|(_, c)| *c)
         .sum();
-    let tool_counts: Vec<&(String, i64)> =
-        tool_counts.iter().filter(|(k, _)| k != SEARCH_UNITS_KEY).collect();
+    let tool_counts: Vec<&(String, i64)> = tool_counts
+        .iter()
+        .filter(|(k, _)| k != SEARCH_UNITS_KEY)
+        .collect();
     // 条目 `price.unit=="request"`：est_cost = unit_price × 次数（缺次数按 1 次/请求），不乘 peak 倍率。
-    let request_fee = resolved.request_unit_price.map_or(0.0, |up| up * search_units.max(1) as f64);
+    let request_fee = resolved
+        .request_unit_price
+        .map_or(0.0, |up| up * search_units.max(1) as f64);
     // 票 16 B3：按次费只在有计数时查 tools_pricing（空计数零开销，也不触发 warn）。
     let tool_fee = if tool_counts.is_empty() {
         0.0
     } else {
-        let refs: Vec<(&str, i64)> =
-            tool_counts.iter().map(|(k, c)| (k.as_str(), *c)).collect();
+        let refs: Vec<(&str, i64)> = tool_counts.iter().map(|(k, c)| (k.as_str(), *c)).collect();
         tools_cost(default_tools_pricing(platform_type).as_ref(), &refs)
     };
     EstCostDetail {
@@ -250,9 +253,10 @@ pub fn tools_cost(tools_pricing: Option<&serde_json::Value>, counts: &[(&str, i6
         {
             Some(per_1000) if per_1000 > 0.0 => {
                 let usd = per_1000 / 1000.0 * *count as f64;
-                let is_cny =
-                    entry.and_then(|e| e.get("currency")).and_then(serde_json::Value::as_str)
-                        == Some("CNY");
+                let is_cny = entry
+                    .and_then(|e| e.get("currency"))
+                    .and_then(serde_json::Value::as_str)
+                    == Some("CNY");
                 cost += if is_cny { usd / CNY_PER_USD } else { usd };
             }
             _ => undeclared.push(key),
@@ -295,7 +299,10 @@ pub fn default_tools_endpoints(protocol: &str) -> Option<BTreeMap<String, String
 }
 
 /// [`default_tools_endpoints`] 的纯函数核心：从任意一篇 presets 文档取某协议的 tools_endpoints。
-pub fn tools_endpoints_in(doc: &serde_json::Value, protocol: &str) -> Option<BTreeMap<String, String>> {
+pub fn tools_endpoints_in(
+    doc: &serde_json::Value,
+    protocol: &str,
+) -> Option<BTreeMap<String, String>> {
     let proto_obj = doc.get("protocols").and_then(|p| p.get(protocol))?;
     let val = proto_obj.get("tools_endpoints")?;
     match serde_json::from_value::<BTreeMap<String, String>>(val.clone()) {
@@ -323,7 +330,9 @@ pub fn tools_url_path(url: &str) -> &str {
 pub fn tools_url_matches(url: &str, path: &str) -> bool {
     let p = path.trim_end_matches('/');
     let declared = tools_url_path(url);
-    declared == p || p.strip_prefix("/proxy").is_some_and(|rest| declared == rest)
+    declared == p
+        || p.strip_prefix("/proxy")
+            .is_some_and(|rest| declared == rest)
 }
 
 #[cfg(test)]
@@ -339,13 +348,41 @@ mod tests {
         let db = Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
 
-        let cost = calc_est_cost(&db, "any-model", "passthrough", "", 1000, 2000, 0, 0, 0, 1, 1, &[]).await;
+        let cost = calc_est_cost(
+            &db,
+            "any-model",
+            "passthrough",
+            "",
+            1000,
+            2000,
+            0,
+            0,
+            0,
+            1,
+            1,
+            &[],
+        )
+        .await;
         assert_eq!(
             cost, 0.0,
             "passthrough platform must short-circuit to 0 before fallback"
         );
         // 非 passthrough 对照：走 fallback 默认价，非 0
-        let other = calc_est_cost(&db, "unknown-model", "anthropic", "", 1000, 0, 0, 0, 0, 0, 0, &[]).await;
+        let other = calc_est_cost(
+            &db,
+            "unknown-model",
+            "anthropic",
+            "",
+            1000,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            &[],
+        )
+        .await;
         assert!(
             other > 0.0,
             "non-passthrough unknown model falls back to default price, got {other}"
@@ -360,7 +397,21 @@ mod tests {
         let db = Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
 
-        let cost = calc_est_cost(&db, "any-model", "unknown", "", 1000, 2000, 0, 0, 0, 1, 1, &[]).await;
+        let cost = calc_est_cost(
+            &db,
+            "any-model",
+            "unknown",
+            "",
+            1000,
+            2000,
+            0,
+            0,
+            0,
+            1,
+            1,
+            &[],
+        )
+        .await;
         assert_eq!(
             cost, 0.0,
             "unknown protocol must short-circuit to 0 before fallback"
@@ -377,6 +428,8 @@ mod tests {
             start_minute: None,
             end_minute: None,
             days_of_month: None,
+            day_type: None,
+            holiday_calendar: None,
             models: None,
             start_at: None,
             end_at: None,
@@ -411,7 +464,19 @@ mod tests {
         let mult = super::super::peak::resolve_multiplier(&windows, created_at_ms, "claude-3");
         assert_eq!(mult, 2.0);
         let base = 1000.0 * 3.0 / 1_000_000.0;
-        let cost = est_cost_from(1000, 0, 0, 0, 0, 3.0 / 1_000_000.0, 0.0, 0.0, 0.0, 0.0, mult);
+        let cost = est_cost_from(
+            1000,
+            0,
+            0,
+            0,
+            0,
+            3.0 / 1_000_000.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            mult,
+        );
         assert!((cost - base * 2.0).abs() < 1e-12);
     }
 
@@ -456,14 +521,27 @@ mod tests {
 
     #[tokio::test]
     async fn calc_est_cost_uses_supplied_platform_extra() {
-        let _ = tracing_subscriber::fmt().with_env_filter("sql=debug").try_init();
+        let _ = tracing_subscriber::fmt()
+            .with_env_filter("sql=debug")
+            .try_init();
         use aidog_stats::DbInitTables;
         let db = Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
         let created_at_ms = 1_767_254_400_000; // 2026-01-01 08:00 UTC
         let extra = r#"{"peak":[{"start_hour":6,"end_hour":10,"multiplier":2.0}]}"#;
         let cost = calc_est_cost(
-            &db, "unknown-model", "anthropic", extra, 1000, 0, 0, 0, 0, 1, created_at_ms, &[],
+            &db,
+            "unknown-model",
+            "anthropic",
+            extra,
+            1000,
+            0,
+            0,
+            0,
+            0,
+            1,
+            created_at_ms,
+            &[],
         )
         .await;
         assert!((cost - 0.003 * 2.0).abs() < 1e-12, "cost = {cost}");
@@ -517,13 +595,51 @@ mod tests {
     #[test]
     fn default_tools_endpoints_reads_bundled_registry() {
         let expected: &[(&str, &[(&str, &str)])] = &[
-            ("deepseek", &[("search", "https://api.deepseek.com/v1/tools/search"), ("fetch", "https://api.deepseek.com/v1/tools/fetch")]),
-            ("kimi", &[("search", "https://api.moonshot.cn/v1/tools/search"), ("search_pro", "https://api.moonshot.cn/v1/tools/search_pro"), ("fetch", "https://api.moonshot.cn/v1/tools/fetch")]),
-            ("kimi_en", &[("search", "https://api.moonshot.ai/v1/tools/search"), ("search_pro", "https://api.moonshot.ai/v1/tools/search_pro"), ("fetch", "https://api.moonshot.ai/v1/tools/fetch")]),
-            ("glm", &[("web_search", "https://open.bigmodel.cn/api/paas/v4/web_search")]),
-            ("glm_en", &[("web_search", "https://api.z.ai/api/paas/v4/web_search")]),
-            ("stepfun", &[("search", "https://api.stepfun.com/v1/search")]),
-            ("qianfan", &[("ai_search_chat", "https://qianfan.baidubce.com/v2/ai_search/chat/completions")]),
+            (
+                "deepseek",
+                &[
+                    ("search", "https://api.deepseek.com/v1/tools/search"),
+                    ("fetch", "https://api.deepseek.com/v1/tools/fetch"),
+                ],
+            ),
+            (
+                "kimi",
+                &[
+                    ("search", "https://api.moonshot.cn/v1/tools/search"),
+                    ("search_pro", "https://api.moonshot.cn/v1/tools/search_pro"),
+                    ("fetch", "https://api.moonshot.cn/v1/tools/fetch"),
+                ],
+            ),
+            (
+                "kimi_en",
+                &[
+                    ("search", "https://api.moonshot.ai/v1/tools/search"),
+                    ("search_pro", "https://api.moonshot.ai/v1/tools/search_pro"),
+                    ("fetch", "https://api.moonshot.ai/v1/tools/fetch"),
+                ],
+            ),
+            (
+                "glm",
+                &[(
+                    "web_search",
+                    "https://open.bigmodel.cn/api/paas/v4/web_search",
+                )],
+            ),
+            (
+                "glm_en",
+                &[("web_search", "https://api.z.ai/api/paas/v4/web_search")],
+            ),
+            (
+                "stepfun",
+                &[("search", "https://api.stepfun.com/v1/search")],
+            ),
+            (
+                "qianfan",
+                &[(
+                    "ai_search_chat",
+                    "https://qianfan.baidubce.com/v2/ai_search/chat/completions",
+                )],
+            ),
         ];
         for (code, eps) in expected {
             // 纯函数直读 bundled（不经 effective_presets 缓存）：tools 端到端测试会向全局
@@ -558,7 +674,7 @@ mod tests {
         let pw1h = 6.0 / 1_000_000.0; // 2× input
         let cost = est_cost_from(0, 0, 0, 100, 50, 0.0, 0.0, 0.0, pw5m, pw1h, 1.0);
         let expected = 100.0 * pw5m + 50.0 * pw1h;
-        assert!( (cost - expected).abs() < 1e-12, "cost = {cost}");
+        assert!((cost - expected).abs() < 1e-12, "cost = {cost}");
         // 反证：若 1h 桶误按 5m 价计，结果会低 50×(6.0-3.75)/1M
         assert!(cost > 150.0 * pw5m);
     }
@@ -607,14 +723,39 @@ mod tests {
         db.init_tables().await.expect("init tables");
         let counts = vec![("web_search".to_string(), 100i64)];
         let with_tools = calc_est_cost(
-            &db, "unknown-model", "anthropic", "", 1000, 0, 0, 0, 0, 0, 0, &counts,
+            &db,
+            "unknown-model",
+            "anthropic",
+            "",
+            1000,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            &counts,
         )
         .await;
         let token_only = calc_est_cost(
-            &db, "unknown-model", "anthropic", "", 1000, 0, 0, 0, 0, 0, 0, &[],
+            &db,
+            "unknown-model",
+            "anthropic",
+            "",
+            1000,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            &[],
         )
         .await;
-        assert!((token_only - 0.003).abs() < 1e-9, "token only = {token_only}");
+        assert!(
+            (token_only - 0.003).abs() < 1e-9,
+            "token only = {token_only}"
+        );
         assert!(
             (with_tools - (0.003 + 100.0 * 10.0 / 1000.0)).abs() < 1e-9,
             "est = token + 按次, got {with_tools}"
@@ -634,7 +775,18 @@ mod tests {
         );
         let counts = vec![("web_search".to_string(), 100i64)];
         let cost = calc_est_cost(
-            &db, "unknown-model", "openai", "", 1000, 0, 0, 0, 0, 0, 0, &counts,
+            &db,
+            "unknown-model",
+            "openai",
+            "",
+            1000,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            &counts,
         )
         .await;
         assert!((cost - 0.003).abs() < 1e-9, "无声明按次费记 0, got {cost}");
@@ -648,7 +800,19 @@ fn est_cost_from_cache_write_priced_separately() {
     let input_cost = 3.0 / 1_000_000.0;
     let cache_read_cost = 0.3 / 1_000_000.0;
     let cache_write_cost = 3.75 / 1_000_000.0; // 1.25× input
-    let cost = est_cost_from(0, 0, 1000, 2000, 0, input_cost, 0.0, cache_read_cost, cache_write_cost, 0.0, 1.0);
+    let cost = est_cost_from(
+        0,
+        0,
+        1000,
+        2000,
+        0,
+        input_cost,
+        0.0,
+        cache_read_cost,
+        cache_write_cost,
+        0.0,
+        1.0,
+    );
     assert!((cost - (1000.0 * cache_read_cost + 2000.0 * cache_write_cost)).abs() < 1e-12);
     // 反证：若 write 误按 read 价计，结果会低 2000×(3.75-0.3)/1M
     assert!(cost > 2000.0 * cache_read_cost);

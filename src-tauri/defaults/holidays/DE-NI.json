@@ -1,0 +1,31 @@
+{
+  "code": "DE-NI",
+  "extends": "DE",
+  "name": {
+    "zh-Hans": "下萨克森州",
+    "en-US": "Lower Saxony",
+    "ar-SA": "سكسونيا السفلى",
+    "fr-FR": "Basse-Saxe",
+    "de-DE": "Niedersachsen",
+    "ru-RU": "Нижняя Саксония",
+    "ja-JP": "ニーダーザクセン州",
+    "es-ES": "Baja Sajonia"
+  },
+  "source_urls": [
+    "https://www.gesetze-im-internet.de/einigvtr/art_2.html"
+  ],
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-10-31"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-10-31"
+      ],
+      "workdays": []
+    }
+  }
+}

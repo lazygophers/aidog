@@ -3937,5 +3937,13 @@
   "agentUpdate.confirmDesc": "سيتم تشغيل أمر التحديث الخاص بمصدر التثبيت وقد يتطلب تنزيل ملفات. هل تريد المتابعة؟",
   "agentUpdate.manualHint": "مصدر التثبيت هذا لا يدعم التحديث التلقائي؛ يرجى الترقية يدويًا",
   "agentUpdate.success": "تم التحديث: v{{before}} → v{{after}}",
-  "agentUpdate.failed": "فشل التحديث"
+  "agentUpdate.failed": "فشل التحديث",
+  "platform.windows_dim_workday": "أيام العمل",
+  "platform.windows_dim_holiday": "العطلات الرسمية",
+  "platform.holidayCalendar": "تقويم العطلات",
+  "platform.holidayCalendar.dayType": "نوع اليوم",
+  "platform.holidayCalendar.inherit": "وراثة التقويم",
+  "platform.holidayCalendar.loadFailed": "تعذر تحميل بيانات التقويم؛ سيُستخدم يوم الأسبوع",
+  "platform.holidayCalendar.weekday": "أيام الأسبوع",
+  "platform.holidayCalendar.yearUnavailable": "لا يغطي التقويم السنة الحالية؛ سيُستخدم يوم الأسبوع"
 }

@@ -3937,5 +3937,13 @@
   "agentUpdate.confirmDesc": "La commande de mise à jour de cette source d'installation sera exécutée ; un téléchargement peut être nécessaire. Continuer ?",
   "agentUpdate.manualHint": "Cette source d'installation ne prend pas en charge les mises à jour automatiques ; mettez à jour manuellement",
   "agentUpdate.success": "Mis à jour : v{{before}} → v{{after}}",
-  "agentUpdate.failed": "Échec de la mise à jour"
+  "agentUpdate.failed": "Échec de la mise à jour",
+  "platform.windows_dim_workday": "Jours ouvrés",
+  "platform.windows_dim_holiday": "Jours fériés",
+  "platform.holidayCalendar": "Calendrier des jours fériés",
+  "platform.holidayCalendar.dayType": "Type de jour",
+  "platform.holidayCalendar.inherit": "Hériter du calendrier",
+  "platform.holidayCalendar.loadFailed": "Impossible de charger le calendrier ; règle du jour de la semaine utilisée",
+  "platform.holidayCalendar.weekday": "Jour de la semaine",
+  "platform.holidayCalendar.yearUnavailable": "Le calendrier ne couvre pas l’année en cours ; règle du jour de la semaine utilisée"
 }

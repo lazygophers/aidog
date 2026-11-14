@@ -1,0 +1,33 @@
+{
+  "code": "DE-MV",
+  "extends": "DE",
+  "name": {
+    "zh-Hans": "梅克伦堡-前波美拉尼亚州",
+    "en-US": "Mecklenburg-Western Pomerania",
+    "ar-SA": "مكلنبورغ-فوربومرن",
+    "fr-FR": "Mecklembourg-Poméranie-Occidentale",
+    "de-DE": "Mecklenburg-Vorpommern",
+    "ru-RU": "Мекленбург-Передняя Померания",
+    "ja-JP": "メクレンブルク＝フォアポンメルン州",
+    "es-ES": "Mecklemburgo-Pomerania Occidental"
+  },
+  "source_urls": [
+    "https://www.gesetze-im-internet.de/einigvtr/art_2.html"
+  ],
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-03-08",
+        "2026-10-31"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-03-08",
+        "2027-10-31"
+      ],
+      "workdays": []
+    }
+  }
+}

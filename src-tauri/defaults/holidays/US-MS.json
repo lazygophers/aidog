@@ -1,0 +1,23 @@
+{
+  "code": "US-MS",
+  "extends": "US",
+  "name": {
+    "ar-SA": "ميسيسيبي",
+    "de-DE": "Mississippi",
+    "en-US": "Mississippi",
+    "es-ES": "Misisipi",
+    "fr-FR": "Mississippi",
+    "ja-JP": "ミシシッピ州",
+    "ru-RU": "Миссисипи",
+    "zh-Hans": "密西西比州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-04-27"],
+      "workdays": []
+    }
+  },
+  "source_urls": [
+    "https://www.dfa.ms.gov/state-holiday-calendar"
+  ]
+}

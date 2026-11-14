@@ -1,0 +1,32 @@
+{
+  "code": "DE-HB",
+  "extends": "DE",
+  "name": {
+    "zh-Hans": "不来梅州",
+    "en-US": "Bremen",
+    "ar-SA": "بريمن",
+    "fr-FR": "Brême",
+    "de-DE": "Bremen",
+    "ru-RU": "Бремен",
+    "ja-JP": "ブレーメン州",
+    "es-ES": "Bremen"
+  },
+  "source_urls": [
+    "https://www.gesetze-im-internet.de/einigvtr/art_2.html",
+    "https://www.transparenz.bremen.de/metainformationen/gesetz-ueber-die-sonn-gedenk-und-feiertage-vom-12-november-1954-296390?template=20_gp_ifg_meta_detail_d"
+  ],
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-10-31"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-10-31"
+      ],
+      "workdays": []
+    }
+  }
+}

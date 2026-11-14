@@ -1,0 +1,49 @@
+{
+  "code": "IE",
+  "name": {
+    "zh-Hans": "爱尔兰",
+    "en-US": "Ireland",
+    "ar-SA": "أيرلندا",
+    "fr-FR": "Irlande",
+    "de-DE": "Irland",
+    "ru-RU": "Ирландия",
+    "ja-JP": "アイルランド",
+    "es-ES": "Irlanda"
+  },
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-01-01",
+        "2026-02-02",
+        "2026-03-17",
+        "2026-04-06",
+        "2026-05-04",
+        "2026-06-01",
+        "2026-08-03",
+        "2026-10-26",
+        "2026-12-25",
+        "2026-12-26"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-01-01",
+        "2027-02-01",
+        "2027-03-17",
+        "2027-03-29",
+        "2027-05-03",
+        "2027-06-07",
+        "2027-08-02",
+        "2027-10-25",
+        "2027-12-25",
+        "2027-12-26"
+      ],
+      "workdays": []
+    }
+  },
+  "source_urls": [
+    "https://www.workplacerelations.ie/en/what_you_should_know/public-holidays/",
+    "https://www.irishstatutebook.ie/eli/1997/act/20/schedule/2/enacted/en/html"
+  ]
+}

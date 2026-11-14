@@ -1,0 +1,31 @@
+{
+  "code": "DE-HH",
+  "extends": "DE",
+  "name": {
+    "zh-Hans": "汉堡州",
+    "en-US": "Hamburg",
+    "ar-SA": "هامبورغ",
+    "fr-FR": "Hambourg",
+    "de-DE": "Hamburg",
+    "ru-RU": "Гамбург",
+    "ja-JP": "ハンブルク州",
+    "es-ES": "Hamburgo"
+  },
+  "source_urls": [
+    "https://www.gesetze-im-internet.de/einigvtr/art_2.html"
+  ],
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-10-31"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-10-31"
+      ],
+      "workdays": []
+    }
+  }
+}

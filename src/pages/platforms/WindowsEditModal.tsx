@@ -5,6 +5,7 @@ import { type TzMode, utcToDisplay, displayToUtc, WINDOW_TIMEZONES } from "../..
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { makeRipple } from "../../components/shared";
+import { HolidayCalendarSelect } from "./HolidayCalendarSelect";
 import {
   Dialog,
   DialogContent,
@@ -23,9 +24,10 @@ const pad = (n: number) => String(n).padStart(2, "0");
  *  - "month"  → days_of_month 多选（1-31），days_of_week=undefined
  *
  *  互斥语义：切换维度时清空另一维度字段（PRD 决策：UI radio 单选）。 */
-type Dimension = "none" | "week" | "month";
+type Dimension = "none" | "week" | "month" | "workday" | "holiday";
 
 function dimensionOf(w: TimeWindow): Dimension {
+  if (w.day_type) return w.day_type;
   if (w.days_of_month && w.days_of_month.length > 0) return "month";
   if (w.days_of_week && w.days_of_week.length > 0) return "week";
   return "none";
@@ -179,9 +181,10 @@ export function TimePicker({ suffix, hour, minute, maxHour, onSet, t }: {
 /** WindowsEditModal — 列头点击弹窗编辑时段档 windows（C 方向稿：摘要行 + 时间步进器 + 生效日分段控件）。
  *  内部持 localCopy state（windows 副本），编辑不直接改 props；确认 → onSave(localCopy) + onClose。
  *  Dialog 走 Radix Portal（替代 shared/Modal，liquid glass 居中由 Portal 保证）。 */
-export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTzMode, t }: {
+export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTzMode, platformCalendar, t }: {
   open: boolean;
   windows: TimeWindow[];
+  platformCalendar?: string;
   onSave: (w: TimeWindow[]) => void;
   onClose: () => void;
   tzMode: TzMode;
@@ -226,9 +229,10 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
   const switchDimension = (widx: number, dim: Dimension) => {
     setLocal(cur => cur.map((w, i) => {
       if (i !== widx) return w;
-      if (dim === "week")   return { ...w, days_of_week:   w.days_of_week   && w.days_of_week.length   > 0 ? w.days_of_week   : undefined, days_of_month: undefined };
-      if (dim === "month")  return { ...w, days_of_month:  w.days_of_month  && w.days_of_month.length  > 0 ? w.days_of_month  : undefined, days_of_week: undefined };
-      return { ...w, days_of_week: undefined, days_of_month: undefined };
+      if (dim === "week")   return { ...w, day_type: undefined, holiday_calendar: undefined, days_of_week: w.days_of_week?.length ? w.days_of_week : undefined, days_of_month: undefined };
+      if (dim === "month")  return { ...w, day_type: undefined, holiday_calendar: undefined, days_of_month: w.days_of_month?.length ? w.days_of_month : undefined, days_of_week: undefined };
+      if (dim === "workday" || dim === "holiday") return { ...w, day_type: dim, days_of_week: undefined, days_of_month: undefined };
+      return { ...w, day_type: undefined, holiday_calendar: undefined, days_of_week: undefined, days_of_month: undefined };
     }));
     setUiDim(cur => cur.map((d, i) => i === widx ? dim : d));
   };
@@ -268,6 +272,8 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
     { key: "none" as const,  label: t("platform.windows_dim_none", "每天") },
     { key: "week" as const,  label: t("platform.windows_dim_week", "周几") },
     { key: "month" as const, label: t("platform.windows_dim_month", "每月几日") },
+    { key: "workday" as const, label: t("platform.windows_dim_workday", "工作日") },
+    { key: "holiday" as const, label: t("platform.windows_dim_holiday", "节假日") },
   ];
 
   return (
@@ -325,7 +331,9 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                 ? (w.days_of_month && w.days_of_month.length > 0
                     ? w.days_of_month.join("·")
                     : t("platform.windows_dim_month", "每月几日"))
-                : t("platform.windows_dim_none", "每天");
+                : dim === "workday" || dim === "holiday"
+                  ? t(`platform.windows_dim_${dim}`, dim === "workday" ? "工作日" : "节假日")
+                  : t("platform.windows_dim_none", "每天");
             const tzLabel = w.timezone ?? (tzMode === "local"
               ? t("platform.timezone_local", "本地")
               : t("platform.timezone_utc", "UTC+0"));
@@ -485,6 +493,15 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                       );
                     })}
                   </div>
+                )}
+                {(dim === "workday" || dim === "holiday") && (
+                  <HolidayCalendarSelect
+                    value={w.holiday_calendar}
+                    inheritedValue={platformCalendar}
+                    timezone={w.timezone}
+                    onChange={holiday_calendar => updateWindow(widx, { holiday_calendar })}
+                    t={t}
+                  />
                 )}
               </div>
             );

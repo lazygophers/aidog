@@ -1,0 +1,24 @@
+{
+  "code": "US-ID",
+  "extends": "US",
+  "name": {
+    "ar-SA": "أيداهو",
+    "de-DE": "Idaho",
+    "en-US": "Idaho",
+    "es-ES": "Idaho",
+    "fr-FR": "Idaho",
+    "ja-JP": "アイダホ州",
+    "ru-RU": "Айдахо",
+    "zh-Hans": "爱达荷州"
+  },
+  "years": {
+    "2026": {
+      "holidays": [],
+      "workdays": []
+    }
+  },
+  "source_urls": [
+    "https://dhr.idaho.gov/information-for-state-employees/",
+    "https://dhr.idaho.gov/wp-content/uploads/2026/01/2026_Portal_Calendar.pdf"
+  ]
+}

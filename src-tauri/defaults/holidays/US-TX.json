@@ -1,0 +1,48 @@
+{
+  "code": "US-TX",
+  "extends": "US",
+  "name": {
+    "ar-SA": "تكساس",
+    "de-DE": "Texas",
+    "en-US": "Texas",
+    "es-ES": "Texas",
+    "fr-FR": "Texas",
+    "ja-JP": "テキサス州",
+    "ru-RU": "Техас",
+    "zh-Hans": "得克萨斯州"
+  },
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-11-27",
+        "2026-12-24",
+        "2026-12-26"
+      ],
+      "workdays": [
+        "2026-06-19",
+        "2026-07-03",
+        "2026-10-12"
+      ]
+    },
+    "2027": {
+      "holidays": [
+        "2027-06-19",
+        "2027-11-26",
+        "2027-12-24",
+        "2027-12-25",
+        "2027-12-26"
+      ],
+      "workdays": [
+        "2027-06-18",
+        "2027-07-05",
+        "2027-10-11"
+      ]
+    }
+  },
+  "source_urls": [
+    "https://hr.sao.texas.gov/holidays/",
+    "https://hr.sao.texas.gov/Documents/Holidays/Holidays2026.pdf",
+    "https://hr.sao.texas.gov/Documents/Holidays/Holidays2027.pdf",
+    "https://statutes.capitol.texas.gov/Docs/GV/htm/GV.662.htm"
+  ]
+}

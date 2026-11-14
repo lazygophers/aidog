@@ -1,0 +1,29 @@
+{
+  "code": "US-GA",
+  "extends": "US",
+  "name": {
+    "ar-SA": "جورجيا",
+    "de-DE": "Georgia",
+    "en-US": "Georgia",
+    "es-ES": "Georgia",
+    "fr-FR": "Géorgie",
+    "ja-JP": "ジョージア州",
+    "ru-RU": "Джорджия",
+    "zh-Hans": "佐治亚州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-04-03", "2026-11-27", "2026-12-24"],
+      "workdays": ["2026-02-16"]
+    },
+    "2027": {
+      "holidays": ["2027-03-26", "2027-11-26", "2027-12-23"],
+      "workdays": ["2027-02-15"]
+    }
+  },
+  "source_urls": [
+    "https://team.georgia.gov/all-articles/state-georgia-holiday-schedule",
+    "https://team.georgia.gov/sites/default/files/2025-10/2026%20State%20Holidays%20Memo%20-%2009.04.25.pdf",
+    "https://team.georgia.gov/sites/default/files/2026-09/2027%20State%20Holidays%20Memo.pdf"
+  ]
+}

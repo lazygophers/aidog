@@ -18,6 +18,7 @@
     "test:cov": "vitest run --coverage",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:registry": "node scripts/check-registry.mjs",
+    "check:holidays": "node scripts/check-holidays.mjs",
     "check:defaults": "node scripts/check-defaults-json.mjs",
     "sync:preset-min-version": "node scripts/sync-preset-min-version.mjs --write",
     "check:modal": "node scripts/check-modal-centering.mjs",

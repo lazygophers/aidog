@@ -1,0 +1,29 @@
+{
+  "code": "US-IL",
+  "extends": "US",
+  "name": {
+    "ar-SA": "إلينوي",
+    "de-DE": "Illinois",
+    "en-US": "Illinois",
+    "es-ES": "Illinois",
+    "fr-FR": "Illinois",
+    "ja-JP": "イリノイ州",
+    "ru-RU": "Иллинойс",
+    "zh-Hans": "伊利诺伊州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-02-12", "2026-11-03", "2026-11-27"],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": ["2027-02-12", "2027-11-26"],
+      "workdays": []
+    }
+  },
+  "source_urls": [
+    "https://cms.illinois.gov/personnel/employeeresources/stateholidays.html",
+    "https://cms.illinois.gov/content/dam/soi/en/web/cms/personnel/employeeresources/documents/state-holidays.pdf",
+    "https://ftp.ilga.gov/ILCS/Ch%200010/Act%200005/001000050K2A-1.1.html"
+  ]
+}

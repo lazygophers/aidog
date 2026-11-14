@@ -1,0 +1,27 @@
+{
+  "code": "US-OH",
+  "extends": "US",
+  "name": {
+    "ar-SA": "أوهايو",
+    "de-DE": "Ohio",
+    "en-US": "Ohio",
+    "es-ES": "Ohio",
+    "fr-FR": "Ohio",
+    "ja-JP": "オハイオ州",
+    "ru-RU": "Огайо",
+    "zh-Hans": "俄亥俄州"
+  },
+  "years": {
+    "2026": {
+      "holidays": [],
+      "workdays": ["2026-07-03"]
+    },
+    "2027": {
+      "holidays": [],
+      "workdays": ["2027-06-18", "2027-12-24"]
+    }
+  },
+  "source_urls": [
+    "https://codes.ohio.gov/ohio-revised-code/section-1.14"
+  ]
+}

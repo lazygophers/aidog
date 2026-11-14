@@ -1,0 +1,31 @@
+{
+  "code": "DE-SH",
+  "extends": "DE",
+  "name": {
+    "zh-Hans": "石勒苏益格-荷尔斯泰因州",
+    "en-US": "Schleswig-Holstein",
+    "ar-SA": "شليسفيغ-هولشتاين",
+    "fr-FR": "Schleswig-Holstein",
+    "de-DE": "Schleswig-Holstein",
+    "ru-RU": "Шлезвиг-Гольштейн",
+    "ja-JP": "シュレースヴィヒ＝ホルシュタイン州",
+    "es-ES": "Schleswig-Holstein"
+  },
+  "source_urls": [
+    "https://www.gesetze-im-internet.de/einigvtr/art_2.html"
+  ],
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-10-31"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-10-31"
+      ],
+      "workdays": []
+    }
+  }
+}

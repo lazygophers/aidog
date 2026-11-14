@@ -9,13 +9,37 @@ use crate::gateway::models::PlatformModels;
 /// 从 `platform.extra` JSON 字符串解析 `time_windows` 字段；非法 / 缺失 → 空。
 pub fn parse_platform_time_windows(extra: &str) -> Vec<serde_json::Value> {
     // 验证每个元素都有 windows 和 models 字段（PlatformExtra.time_windows 未内嵌此校验）
-    crate::gateway::models::PlatformExtra::parse(extra)
+    let mut rules: Vec<_> = crate::gateway::models::PlatformExtra::parse(extra)
         .time_windows
         .into_iter()
         .filter(|item| {
             item.is_object() && item.get("windows").is_some() && item.get("models").is_some()
         })
-        .collect()
+        .collect();
+    let platform_calendar = serde_json::from_str::<serde_json::Value>(extra)
+        .ok()
+        .and_then(|root| {
+            root.get("holiday_calendar")
+                .and_then(|value| value.as_str())
+                .map(str::to_owned)
+        });
+    if let Some(code) = platform_calendar {
+        for rule in &mut rules {
+            if let Some(windows) = rule
+                .get_mut("windows")
+                .and_then(|value| value.as_array_mut())
+            {
+                for window in windows {
+                    if let Some(object) = window.as_object_mut() {
+                        object
+                            .entry("holiday_calendar")
+                            .or_insert_with(|| serde_json::Value::from(code.clone()));
+                    }
+                }
+            }
+        }
+    }
+    rules
 }
 
 /// 平台的「模型配置」全集：默认模型配置 ∪ 各时段档的模型配置（GLOSSARY「模型配置」）。
@@ -34,14 +58,24 @@ pub fn matched_time_rule(
     rules: &[serde_json::Value],
     epoch_ms: i64,
 ) -> Option<(&serde_json::Value, PlatformModels)> {
-    // 复用 peak 的 utc_time 和 hit 判定（含 minute + day_of_month）
-    let (hour, minute, weekday, day_of_month) = crate::gateway::peak::utc_time(epoch_ms);
-
     for rule in rules {
         if let Some(windows) = rule.get("windows").and_then(|w| w.as_array()) {
             for w in windows {
                 if let Some(parsed) = parse_peak_window(w)
-                    && crate::gateway::peak::hit(&parsed, hour, minute, weekday, day_of_month)
+                    && {
+                        let (hour, minute, weekday, day_of_month) =
+                            crate::gateway::peak::wall_time(epoch_ms, parsed.timezone.as_deref());
+                        let date =
+                            crate::gateway::peak::wall_date(epoch_ms, parsed.timezone.as_deref());
+                        crate::gateway::peak::hit(
+                            &parsed,
+                            hour,
+                            minute,
+                            weekday,
+                            day_of_month,
+                            &date,
+                        )
+                    }
                     && let Some(models_val) = rule.get("models")
                     && let Ok(models) = serde_json::from_value::<PlatformModels>(models_val.clone())
                 {
@@ -80,6 +114,10 @@ fn parse_peak_window(v: &serde_json::Value) -> Option<crate::gateway::peak::Time
         end_minute: Option<i32>,
         #[serde(default)]
         days_of_month: Option<Vec<i32>>,
+        #[serde(default)]
+        day_type: Option<String>,
+        #[serde(default)]
+        holiday_calendar: Option<String>,
         /// 窗口时区（IANA；缺省 UTC）。与 peak 窗口同字段，time_windows 时段切换同样按此时区解释。
         #[serde(default)]
         timezone: Option<String>,
@@ -95,6 +133,8 @@ fn parse_peak_window(v: &serde_json::Value) -> Option<crate::gateway::peak::Time
         start_minute: helper.start_minute,
         end_minute: helper.end_minute,
         days_of_month: helper.days_of_month,
+        day_type: helper.day_type,
+        holiday_calendar: helper.holiday_calendar,
         timezone: helper.timezone,
         models: None,
         start_at: None,
@@ -107,7 +147,10 @@ mod tests {
     #[test]
     fn model_configs_includes_default_and_each_window() {
         use super::*;
-        let default = PlatformModels { default: vec!["d".into()], ..Default::default() };
+        let default = PlatformModels {
+            default: vec!["d".into()],
+            ..Default::default()
+        };
         let extra = r#"{"time_windows":[
             {"windows":[{"start_hour":0,"end_hour":24}],"models":{"default":"w1","opus":["w2","w3"]}},
             {"windows":[{"start_hour":1,"end_hour":2}],"models":{"sonnet":"w4"}}]}"#;
@@ -241,6 +284,23 @@ mod tests {
         let ms2 = (1704067200 + 15 * 3600) * 1000;
         let result2 = resolve_time_windows(&[rule], &default, ms2);
         assert_eq!(result2.default, vec!["default-model"]);
+    }
+
+    #[test]
+    fn resolve_time_windows_uses_window_timezone() {
+        let default = PlatformModels {
+            default: vec!["default-model".into()],
+            ..Default::default()
+        };
+        let rule = serde_json::json!({
+            "windows": [{"start_hour": 9, "end_hour": 12, "timezone": "Asia/Shanghai"}],
+            "models": {"default": "local-time-model"}
+        });
+        // 2024-01-01T01:00:00Z is 09:00 in Shanghai.
+        assert_eq!(
+            resolve_time_windows(&[rule], &default, 1_704_070_800_000).default,
+            vec!["local-time-model"]
+        );
     }
 
     #[test]

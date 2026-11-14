@@ -1,0 +1,23 @@
+{
+  "code": "US-CA",
+  "extends": "US",
+  "name": {
+    "ar-SA": "كاليفورنيا",
+    "de-DE": "Kalifornien",
+    "en-US": "California",
+    "es-ES": "California",
+    "fr-FR": "Californie",
+    "ja-JP": "カリフォルニア州",
+    "ru-RU": "Калифорния",
+    "zh-Hans": "加利福尼亚州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-03-31", "2026-11-27"],
+      "workdays": ["2026-06-19", "2026-07-03", "2026-10-12"]
+    }
+  },
+  "source_urls": [
+    "https://www.sos.ca.gov/state-holidays"
+  ]
+}

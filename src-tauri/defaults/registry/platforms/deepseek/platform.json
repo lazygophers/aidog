@@ -88,18 +88,14 @@
     "sdqs"
   ],
   "color": "#1E88E5",
+  "holiday_calendar": "CN",
   "peak": [
     {
       "start_hour": 9,
       "end_hour": 12,
       "multiplier": 2,
-      "days_of_week": [
-        1,
-        2,
-        3,
-        4,
-        5
-      ],
+      "day_type": "workday",
+      "holiday_calendar": "CN",
       "models": [
         "deepseek-flash",
         "deepseek-v4*"
@@ -110,13 +106,8 @@
       "start_hour": 14,
       "end_hour": 18,
       "multiplier": 2,
-      "days_of_week": [
-        1,
-        2,
-        3,
-        4,
-        5
-      ],
+      "day_type": "workday",
+      "holiday_calendar": "CN",
       "models": [
         "deepseek-flash",
         "deepseek-v4*"
@@ -147,5 +138,5 @@
     "search": "https://api.deepseek.com/v1/tools/search",
     "fetch": "https://api.deepseek.com/v1/tools/fetch"
   },
-  "last_updated": 1794291601
+  "last_updated": 1794597248
 }

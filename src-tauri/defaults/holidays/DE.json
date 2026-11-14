@@ -1,0 +1,48 @@
+{
+  "code": "DE",
+  "name": {
+    "zh-Hans": "德国",
+    "en-US": "Germany",
+    "ar-SA": "ألمانيا",
+    "fr-FR": "Allemagne",
+    "de-DE": "Deutschland",
+    "ru-RU": "Германия",
+    "ja-JP": "ドイツ",
+    "es-ES": "Alemania"
+  },
+  "source_urls": [
+    "https://www.gesetze-im-internet.de/einigvtr/art_2.html",
+    "https://bravors.brandenburg.de/gesetze/ftg_2015",
+    "https://www.hamburg.de/resource/blob/134374/7a4a9de67fd46caec0947c11bf23316d/bsb-feiertage-data.pdf"
+  ],
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-01-01",
+        "2026-04-03",
+        "2026-04-06",
+        "2026-05-01",
+        "2026-05-14",
+        "2026-05-25",
+        "2026-10-03",
+        "2026-12-25",
+        "2026-12-26"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-01-01",
+        "2027-03-26",
+        "2027-03-29",
+        "2027-05-01",
+        "2027-05-06",
+        "2027-05-17",
+        "2027-10-03",
+        "2027-12-25",
+        "2027-12-26"
+      ],
+      "workdays": []
+    }
+  }
+}

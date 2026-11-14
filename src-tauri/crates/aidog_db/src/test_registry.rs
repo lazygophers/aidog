@@ -275,7 +275,10 @@ fn default_endpoints_present_for_direct_vendors() {
 fn glm_coding_keeps_peak_branches() {
     let glm = &protocols()["glm_coding"];
     assert!(glm["peak"].as_array().is_some_and(|a| !a.is_empty()));
-    assert_eq!(glm["models"]["peak"]["default"], serde_json::json!(["glm-5.3-flash"]));
+    assert_eq!(
+        glm["models"]["peak"]["default"],
+        serde_json::json!(["glm-5.3-flash"])
+    );
     assert_eq!(glm["is_coding_plan"], true);
 }
 
@@ -291,25 +294,39 @@ fn glm_coding_keeps_peak_branches() {
 #[test]
 fn siliconflow_per_model_peak_pricing() {
     let sf = &protocols()["siliconflow"];
-    let windows = sf["peak"]
-        .as_array()
-        .expect("siliconflow peak 窗口数组");
+    let windows = sf["peak"].as_array().expect("siliconflow peak 窗口数组");
     assert_eq!(
         windows.len(),
         2,
         "官方时段价只有 hunyuan 与 deepseek-flash 两组；增删窗口先核官方定价页"
     );
     let (hy, ds) = (&windows[0], &windows[1]);
-    assert_eq!(hy["start_hour"], serde_json::json!(9), "hunyuan 高峰起点：北京 9 点");
-    assert_eq!(hy["end_hour"], serde_json::json!(18), "hunyuan 高峰终点：北京 18 点");
+    assert_eq!(
+        hy["start_hour"],
+        serde_json::json!(9),
+        "hunyuan 高峰起点：北京 9 点"
+    );
+    assert_eq!(
+        hy["end_hour"],
+        serde_json::json!(18),
+        "hunyuan 高峰终点：北京 18 点"
+    );
     assert_eq!(hy["multiplier"], serde_json::json!(1.25));
     assert_eq!(hy["timezone"], serde_json::json!("Asia/Shanghai"));
     assert_eq!(
         hy["models"],
         serde_json::json!(["tencent/Hunyuan-A13B-Instruct"])
     );
-    assert_eq!(ds["start_hour"], serde_json::json!(8), "deepseek flash 高峰起点（跨天窗 8→2）");
-    assert_eq!(ds["end_hour"], serde_json::json!(2), "deepseek flash 跨天终点：覆盖 8-24∪0-2");
+    assert_eq!(
+        ds["start_hour"],
+        serde_json::json!(8),
+        "deepseek flash 高峰起点（跨天窗 8→2）"
+    );
+    assert_eq!(
+        ds["end_hour"],
+        serde_json::json!(2),
+        "deepseek flash 跨天终点：覆盖 8-24∪0-2"
+    );
     assert_eq!(ds["multiplier"], serde_json::json!(2.0));
     assert_eq!(ds["timezone"], serde_json::json!("Asia/Shanghai"));
     assert_eq!(
@@ -325,24 +342,44 @@ fn siliconflow_per_model_peak_pricing() {
             .iter()
             .find(|(c, f, _)| *c == "siliconflow" && *f == rel)
             .unwrap_or_else(|| panic!("siliconflow 缺模型条目 {rel}"));
-        serde_json::from_str::<Value>(json)
-            .expect("model json")["price"]
-            .clone()
+        serde_json::from_str::<Value>(json).expect("model json")["price"].clone()
     };
     let approx = |a: f64, b: f64| (a - b).abs() <= b * 1e-9;
     let p = price_of("deepseek-ai/DeepSeek-V4-Flash-0731.json");
-    assert!(approx(p["input"].as_f64().unwrap(), 1.5e-6), "v4-0731 input");
-    assert!(approx(p["output"].as_f64().unwrap(), 4.5e-6), "v4-0731 output");
-    assert!(approx(p["cache_read"].as_f64().unwrap(), 0.15e-6), "v4-0731 cache_read");
+    assert!(
+        approx(p["input"].as_f64().unwrap(), 1.5e-6),
+        "v4-0731 input"
+    );
+    assert!(
+        approx(p["output"].as_f64().unwrap(), 4.5e-6),
+        "v4-0731 output"
+    );
+    assert!(
+        approx(p["cache_read"].as_f64().unwrap(), 0.15e-6),
+        "v4-0731 cache_read"
+    );
     let p = price_of("deepseek-ai/DeepSeek-V4.1-Flash.json");
-    assert!(approx(p["input"].as_f64().unwrap(), 1.0e-6), "v4.1-flash input");
-    assert!(approx(p["output"].as_f64().unwrap(), 4.0e-6), "v4.1-flash output");
-    assert!(approx(p["cache_read"].as_f64().unwrap(), 0.02e-6), "v4.1-flash cache_read");
+    assert!(
+        approx(p["input"].as_f64().unwrap(), 1.0e-6),
+        "v4.1-flash input"
+    );
+    assert!(
+        approx(p["output"].as_f64().unwrap(), 4.0e-6),
+        "v4.1-flash output"
+    );
+    assert!(
+        approx(p["cache_read"].as_f64().unwrap(), 0.02e-6),
+        "v4.1-flash cache_read"
+    );
     // hunyuan 条目维持官方 off 价（0.8 / 3.2 CNY/M），无 cache_read（官方无缓存计价行）
     let p = price_of("tencent/Hunyuan-A13B-Instruct.json");
     assert!(approx(p["input"].as_f64().unwrap(), 0.8e-6));
     assert!(approx(p["output"].as_f64().unwrap(), 3.2e-6));
-    assert_eq!(p["cache_read"], serde_json::json!(0), "hunyuan 官方无缓存计价行 = 0，禁缺键回落兜底单价");
+    assert_eq!(
+        p["cache_read"],
+        serde_json::json!(0),
+        "hunyuan 官方无缓存计价行 = 0，禁缺键回落兜底单价"
+    );
 }
 
 /// devin 官方双档价（促销档 → list 档）：docs.devin.ai/desktop/models 页内嵌
@@ -358,18 +395,22 @@ fn devin_swe2_promo_list_tiers() {
             .iter()
             .find(|(c, f, _)| *c == "devin" && *f == rel)
             .unwrap_or_else(|| panic!("devin 缺模型条目 {rel}"));
-        serde_json::from_str::<Value>(json).expect("model json")["price"]
-            .clone()
+        serde_json::from_str::<Value>(json).expect("model json")["price"].clone()
     };
-    for uid in [
-        "swe-2-medium.json",
-        "swe-2-high.json",
-        "swe-2-max.json",
-    ] {
+    for uid in ["swe-2-medium.json", "swe-2-high.json", "swe-2-max.json"] {
         let p = price_of(uid);
-        assert!(approx(p["input"].as_f64().unwrap(), 0.5e-6), "{uid} 促销 input 0.50 $/M");
-        assert!(approx(p["output"].as_f64().unwrap(), 2.5e-6), "{uid} 促销 output 2.50 $/M");
-        assert!(approx(p["cache_read"].as_f64().unwrap(), 0.05e-6), "{uid} 促销 cache_read 0.05 $/M");
+        assert!(
+            approx(p["input"].as_f64().unwrap(), 0.5e-6),
+            "{uid} 促销 input 0.50 $/M"
+        );
+        assert!(
+            approx(p["output"].as_f64().unwrap(), 2.5e-6),
+            "{uid} 促销 output 2.50 $/M"
+        );
+        assert!(
+            approx(p["cache_read"].as_f64().unwrap(), 0.05e-6),
+            "{uid} 促销 cache_read 0.05 $/M"
+        );
         let tiers = p["time_tiers"]
             .as_array()
             .expect("time_tiers 数组（促销→list 双档）");
@@ -380,12 +421,25 @@ fn devin_swe2_promo_list_tiers() {
             serde_json::json!(1798790400),
             "{uid} list 起点 2027-01-01 08:00 UTC（促销至 2026-12-31 Pacific）"
         );
-        assert!(approx(t["input"].as_f64().unwrap(), 3.0e-6), "{uid} list input 3.00 $/M");
-        assert!(approx(t["output"].as_f64().unwrap(), 15.0e-6), "{uid} list output 15.00 $/M");
-        assert!(approx(t["cache_read"].as_f64().unwrap(), 0.3e-6), "{uid} list cache_read 0.30 $/M");
+        assert!(
+            approx(t["input"].as_f64().unwrap(), 3.0e-6),
+            "{uid} list input 3.00 $/M"
+        );
+        assert!(
+            approx(t["output"].as_f64().unwrap(), 15.0e-6),
+            "{uid} list output 15.00 $/M"
+        );
+        assert!(
+            approx(t["cache_read"].as_f64().unwrap(), 0.3e-6),
+            "{uid} list cache_read 0.30 $/M"
+        );
     }
     let p = price_of("swe-check.json");
-    assert_eq!(p["free"], serde_json::json!(true), "swe-check 全 0 价须显式 free，否则回落兜底单价");
+    assert_eq!(
+        p["free"],
+        serde_json::json!(true),
+        "swe-check 全 0 价须显式 free，否则回落兜底单价"
+    );
     assert_eq!(p["input"], serde_json::json!(0.0));
     assert_eq!(p["output"], serde_json::json!(0.0));
 }
@@ -441,12 +495,29 @@ fn devin_uid_rename_and_legacy_cleanup() {
     for (rel, uid, label) in official {
         let e = entry_of(rel);
         assert_eq!(e["model_id"], serde_json::json!(uid), "{rel} uid");
-        assert_eq!(e["canonical_model"], serde_json::json!(uid), "{rel} canonical");
-        assert_eq!(e["display_name"], serde_json::json!(label), "{rel} 官方现名");
+        assert_eq!(
+            e["canonical_model"],
+            serde_json::json!(uid),
+            "{rel} canonical"
+        );
+        assert_eq!(
+            e["display_name"],
+            serde_json::json!(label),
+            "{rel} 官方现名"
+        );
         let p = &e["price"];
-        assert!(approx(p["input"].as_f64().unwrap(), 0.5e-6), "{rel} input 0.50 $/M");
-        assert!(approx(p["output"].as_f64().unwrap(), 2.5e-6), "{rel} output 2.50 $/M");
-        assert!(approx(p["cache_read"].as_f64().unwrap(), 0.2e-6), "{rel} cache_read 0.20 $/M");
+        assert!(
+            approx(p["input"].as_f64().unwrap(), 0.5e-6),
+            "{rel} input 0.50 $/M"
+        );
+        assert!(
+            approx(p["output"].as_f64().unwrap(), 2.5e-6),
+            "{rel} output 2.50 $/M"
+        );
+        assert!(
+            approx(p["cache_read"].as_f64().unwrap(), 0.2e-6),
+            "{rel} cache_read 0.20 $/M"
+        );
     }
     // index.json devin 清单 = 磁盘 7 文件（3 改名 + 4 现役）
     let index = parse("index.json", INDEX_JSON);
@@ -483,10 +554,22 @@ fn meta_sam31_per_image_pricing() {
         .unwrap_or_else(|| panic!("meta 缺模型条目 sam-3.1.json"));
     let entry = serde_json::from_str::<Value>(json).expect("model json");
     assert_eq!(entry["official"], serde_json::json!(true), "官方价一手来源");
-    assert_eq!(entry["model_id"], serde_json::json!("sam-3.1"), "请求名 = 官方 models 页 <code> 字面");
+    assert_eq!(
+        entry["model_id"],
+        serde_json::json!("sam-3.1"),
+        "请求名 = 官方 models 页 <code> 字面"
+    );
     let p = &entry["price"];
-    assert_eq!(p["unit"], serde_json::json!("image"), "SAM 3.1 官方按图计费，非 token");
-    assert_eq!(p["unit_price"], serde_json::json!(0.0025), "$2.50 / 1,000 images");
+    assert_eq!(
+        p["unit"],
+        serde_json::json!("image"),
+        "SAM 3.1 官方按图计费，非 token"
+    );
+    assert_eq!(
+        p["unit_price"],
+        serde_json::json!(0.0025),
+        "$2.50 / 1,000 images"
+    );
     assert_eq!(p["currency"], serde_json::json!("USD"));
 }
 
@@ -518,7 +601,7 @@ const NO_OFFICIAL_CHANNEL: &[&str] = &[
     // 其余 4 条（gpt-6-luna / gpt-6-sol / gpt-image-2.5-flare / gpt-image-2.5-sunburst）
     // 已由 openai 官方平台 2026-09-25 补 official 条目（官方一手价）后移除。
     "gpt-image-2-t",
-// New Novita-only reseller entries with no official platform in registry.
+    // New Novita-only reseller entries with no official platform in registry.
     "deepseek/deepseek-v4.1-flash-p",
     "deepseek/deepseek-v4.1-flash",
     "qwen/qwen3-embedding-0.6b",
@@ -526,19 +609,16 @@ const NO_OFFICIAL_CHANNEL: &[&str] = &[
     "inclusionai/ling-3.0-flash-vl",
     "inclusionai/ling-3.0-flash-sante",
     "baai/bge-m3",
-
     // 以下 1 条：nvidia 2026-09-24 对齐轮新增。build.nvidia.com 在售
     // （https://build.nvidia.com/deepseek-ai/deepseek-v4.1-flash），DeepSeek 官方渠道由
     // openrouter/shengsuanyun 的 `deepseek/deepseek-v4.1-flash` 条目承载（official:true，
     // id 前缀不同故此处按字符串匹配不到），nvidia NIM 条目本身 official:false。
     "deepseek-ai/deepseek-v4.1-flash",
-
     // registry-数据补齐轮 2026-11-09。anthropic 官方渠道由 anthropic 平台的
     // claude-sonnet-4-5 / claude-sonnet-4-6 条目承载（official:true），中转路由 id
     // 前缀形态 `anthropic/claude-sonnet-4` 字符串匹配不到，anthropic 条目本身
     // official:false。（先例：deepseek-ai/deepseek-v4.1-flash）
     "anthropic/claude-sonnet-4",
-
     // 2026-10-29 审计轮新增。mistral 官方目录在售
     // （https://docs.mistral.ai/models/deepseek-v4-1-flash-1017/），DeepSeek 官方渠道由
     // deepseek 平台的 `deepseek-flash` 条目承载（official:true，mistral 路由 id 前缀
@@ -548,22 +628,20 @@ const NO_OFFICIAL_CHANNEL: &[&str] = &[
     // `glm-5.3-flash` 条目承载（official:true，mistral 路由 id 前缀不同），mistral 条目
     // 本身 official:false。（https://docs.mistral.ai/models/zai-glm-5-3-flash/）
     "zai-glm-5-3-flash",
-
     // registry-数据补齐轮 2026-11-09 新增（以下 11 条同一模式：官方渠道由官方平台的
     // official:true 条目承载，中转/聚合平台的路由 id 前缀形态字符串匹配不到，
     // 中转条目本身 official:false。先例：deepseek-ai/deepseek-v4.1-flash）：
-    "deepseek/deepseek-r1", // deepseek 平台 deepseek-r1 承载
+    "deepseek/deepseek-r1",                   // deepseek 平台 deepseek-r1 承载
     "deepseek/deepseek-r1-distill-llama-70b", // deepseek 平台同名条目承载
-    "minimax/minimax-m2", // minimax/minimax_en 平台 MiniMax-M2 承载
-    "minimax/minimax-m2.1", // minimax/minimax_en 平台 MiniMax-M2.1 承载
-    "qwen/qwen3-30b-a3b-thinking-2507", // bailian 同名条目承载
-    "qwen/qwen3-8b", // bailian 同名条目承载
-    "qwen/qwen3-coder-plus", // bailian 同名条目承载
-    "qwen/qwen3-max", // bailian 同名条目承载
-    "qwen/qwen3-next-80b-a3b-thinking", // bailian 同名条目承载
-    "qwen/qwen3.6-max-preview", // bailian / bailian_en 同名条目承载
-    "deepseek-ai/DeepSeek-V4-Flash", // deepseek 平台 deepseek-v4-flash 承载
-
+    "minimax/minimax-m2",                     // minimax/minimax_en 平台 MiniMax-M2 承载
+    "minimax/minimax-m2.1",                   // minimax/minimax_en 平台 MiniMax-M2.1 承载
+    "qwen/qwen3-30b-a3b-thinking-2507",       // bailian 同名条目承载
+    "qwen/qwen3-8b",                          // bailian 同名条目承载
+    "qwen/qwen3-coder-plus",                  // bailian 同名条目承载
+    "qwen/qwen3-max",                         // bailian 同名条目承载
+    "qwen/qwen3-next-80b-a3b-thinking",       // bailian 同名条目承载
+    "qwen/qwen3.6-max-preview",               // bailian / bailian_en 同名条目承载
+    "deepseek-ai/DeepSeek-V4-Flash",          // deepseek 平台 deepseek-v4-flash 承载
     // opencode zen 自营 free 档模型，opencode 平台即唯一在售渠道（官方），条目
     // official:false 属漏标或有意（free 非正式），未定——按「推测值禁写入」不改
     // 数据，先豁免。（先例：qwen3-coder-plus-2025-07-22）
@@ -671,7 +749,11 @@ fn quota_scripts_parse_fields_and_defaults() {
 #[test]
 fn quota_scripts_in_and_selection() {
     // bundled 文档：glm 有脚本、kimi_en 无
-    assert!(!quota_scripts_in(presets(), "glm").unwrap_or_default().is_empty());
+    assert!(
+        !quota_scripts_in(presets(), "glm")
+            .unwrap_or_default()
+            .is_empty()
+    );
     assert_eq!(
         quota_scripts_in(presets(), "kimi_en"),
         RegistryLookup::Absent
@@ -857,13 +939,25 @@ fn every_registry_platform_code_parses_as_protocol() {
 #[test]
 fn derive_client_type_for_platform_resolves_alias_via_registry_endpoints() {
     // 别名平台 → registry 默认端点的 client_type（endpoints_in 缺省已按协议补派生）
-    assert_eq!(derive_client_type_for_platform(PlatformCode("newapi")), "codex_tui");
+    assert_eq!(
+        derive_client_type_for_platform(PlatformCode("newapi")),
+        "codex_tui"
+    );
     // glm_coding registry 第一条端点是 openai 协议（/api/coding/paas/v4）→ codex_tui
-    assert_eq!(derive_client_type_for_platform(PlatformCode("glm_coding")), "codex_tui");
+    assert_eq!(
+        derive_client_type_for_platform(PlatformCode("glm_coding")),
+        "codex_tui"
+    );
     // 纯 wire 协议名直接派生（registry 有条目，同样命中端点派生）
-    assert_eq!(derive_client_type_for_platform(PlatformCode("anthropic")), "claude_code");
+    assert_eq!(
+        derive_client_type_for_platform(PlatformCode("anthropic")),
+        "claude_code"
+    );
     // registry 无该平台条目 → 回落协议级派生，未知 → "default"
-    assert_eq!(derive_client_type_for_platform(PlatformCode("no-such-platform")), "default");
+    assert_eq!(
+        derive_client_type_for_platform(PlatformCode("no-such-platform")),
+        "default"
+    );
 }
 
 /// 类型混用防（票 07）：喂错命名空间必须在编译期断掉，不再可能静默落 default。
@@ -881,8 +975,14 @@ fn derive_client_type_newtypes_reject_cross_namespace_at_compile_time() {
     // 裸 &str 直喂两个入口：编译错，须显式声明命名空间（PlatformCode / WireProtocolName）。
     // 运行期等价断言：别名仍不可经协议级入口拿非 default 形态。
     assert_eq!(derive_client_type(WireProtocolName("newapi")), "default");
-    assert_eq!(derive_client_type(WireProtocolName("anthropic")), "claude_code");
-    assert_eq!(derive_client_type(WireProtocolName("openai_responses")), "codex_tui");
+    assert_eq!(
+        derive_client_type(WireProtocolName("anthropic")),
+        "claude_code"
+    );
+    assert_eq!(
+        derive_client_type(WireProtocolName("openai_responses")),
+        "codex_tui"
+    );
 }
 
 // ── 票 14：registry 读边界 ─────────────────────────────────────────
@@ -902,10 +1002,14 @@ fn endpoints_in_distinguishes_absent_from_corrupt() {
         RegistryLookup::Absent
     ));
     let bare = serde_json::json!({"protocols": {"ghost": {"name": {"en-US": "Ghost"}}}});
-    assert!(matches!(endpoints_in(&bare, "ghost"), RegistryLookup::Absent));
+    assert!(matches!(
+        endpoints_in(&bare, "ghost"),
+        RegistryLookup::Absent
+    ));
 
     // 配置坏了（测试内临时构造，不碰真数据）：endpoints.default 存在但形状错
-    let broken = serde_json::json!({"protocols": {"ghost": {"endpoints": {"default": "not-an-array"}}}});
+    let broken =
+        serde_json::json!({"protocols": {"ghost": {"endpoints": {"default": "not-an-array"}}}});
     assert!(matches!(
         endpoints_in(&broken, "ghost"),
         RegistryLookup::Corrupt(_)
@@ -967,10 +1071,7 @@ async fn preset_cache_upsert_invalidates_and_refresh_reloads() {
     upsert_platform_presets(&db, row("https://v2.example"))
         .await
         .unwrap();
-    assert!(
-        cached_presets().is_none(),
-        "upsert 后 merged 缓存必须作废"
-    );
+    assert!(cached_presets().is_none(), "upsert 后 merged 缓存必须作废");
     // 并发的外部 invalidate 只会清缓存回落 bundled（无 alpha）；轮询重装直到新值可见。
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
     loop {
@@ -1056,10 +1157,18 @@ fn glm_rate_limit_policies_parse() {
     let glm = default_rate_limit_policies("glm");
     let ids: Vec<&str> = glm.iter().map(|p| p.id.as_str()).collect();
     assert_eq!(ids, ["v0", "v1", "v2", "v3"]);
-    assert!(glm.iter().all(|p| p.source_url.starts_with("https://") && p.caps == RateLimitCaps::default()));
+    assert!(
+        glm.iter()
+            .all(|p| p.source_url.starts_with("https://") && p.caps == RateLimitCaps::default())
+    );
     let plus: Vec<_> = glm
         .iter()
-        .map(|p| p.rules.iter().find(|r| r.models.iter().any(|m| m == "glm-4-plus")).and_then(|r| r.caps.concurrency))
+        .map(|p| {
+            p.rules
+                .iter()
+                .find(|r| r.models.iter().any(|m| m == "glm-4-plus"))
+                .and_then(|r| r.caps.concurrency)
+        })
         .collect();
     assert_eq!(plus, [Some(50), Some(100), Some(300), Some(500)]);
 
@@ -1070,8 +1179,16 @@ fn glm_rate_limit_policies_parse() {
     }
     for code in ["glm", "glm_en", "glm_coding", "glm_coding_en"] {
         let codes = default_rate_limit_error_codes(code);
-        assert_eq!(codes.get("1302").map(String::as_str), Some("rate_limit"), "{code}");
-        assert_eq!(codes.get("1305").map(String::as_str), Some("overloaded"), "{code}");
+        assert_eq!(
+            codes.get("1302").map(String::as_str),
+            Some("rate_limit"),
+            "{code}"
+        );
+        assert_eq!(
+            codes.get("1305").map(String::as_str),
+            Some("overloaded"),
+            "{code}"
+        );
     }
     for (code, doc) in protocols() {
         // 对 bundled presets() 断言而非 effective_presets()：后者走 OnceLock 缓存，
@@ -1085,7 +1202,10 @@ fn glm_rate_limit_policies_parse() {
                         .iter()
                         .flat_map(|p| p.rules.iter().enumerate().map(move |(i, r)| (p, i, r)))
                         .filter(|(_, _, r)| {
-                            r.models.is_empty() && r.start_hour.is_none() && r.end_hour.is_none() && r.days_of_week.is_none()
+                            r.models.is_empty()
+                                && r.start_hour.is_none()
+                                && r.end_hour.is_none()
+                                && r.days_of_week.is_none()
                         })
                         .map(|(p, i, _)| format!("{}.rules[{i}]", p.id))
                         .collect();
@@ -1118,14 +1238,13 @@ fn glm_rate_limit_policies_parse() {
 /// - kimi_coding kimi-for-coding：订阅占位价 1e-8（ddc136bbe），×7.2 后仍 ≈0
 #[test]
 fn cny_entries_store_native_cny_and_resolve_to_usd() {
-    use crate::{price_resolve::resolve_price_from, CNY_PER_USD};
+    use crate::{CNY_PER_USD, price_resolve::resolve_price_from};
     let price_of = |code: &str, file: &str| -> Value {
         let (_, _, json) = MODEL_FILES
             .iter()
             .find(|(c, f, _)| *c == code && *f == file)
             .unwrap_or_else(|| panic!("{code} 缺模型条目 {file}"));
-        serde_json::from_str::<Value>(json).expect("model json")["price"]
-            .clone()
+        serde_json::from_str::<Value>(json).expect("model json")["price"].clone()
     };
     let resolve = |p: &Value| {
         let pd = serde_json::json!({ "price": p });
@@ -1139,31 +1258,94 @@ fn cny_entries_store_native_cny_and_resolve_to_usd() {
     };
 
     let r = resolve(&price_of("compshare", "zai-org/glm-4.6.json"));
-    approx(r.input_cost_per_token, 2.0e-6 / CNY_PER_USD, "compshare glm-4.6 input");
-    approx(r.output_cost_per_token, 8.0e-6 / CNY_PER_USD, "compshare glm-4.6 output");
-    approx(r.cache_read_input_token_cost, 0.4e-6 / CNY_PER_USD, "compshare glm-4.6 cache_read");
+    approx(
+        r.input_cost_per_token,
+        2.0e-6 / CNY_PER_USD,
+        "compshare glm-4.6 input",
+    );
+    approx(
+        r.output_cost_per_token,
+        8.0e-6 / CNY_PER_USD,
+        "compshare glm-4.6 output",
+    );
+    approx(
+        r.cache_read_input_token_cost,
+        0.4e-6 / CNY_PER_USD,
+        "compshare glm-4.6 cache_read",
+    );
 
     let r = resolve(&price_of("glm", "glm-4-32b-0414-128k.json"));
-    approx(r.input_cost_per_token, 0.72e-6 / CNY_PER_USD, "glm-4-32b input");
+    approx(
+        r.input_cost_per_token,
+        0.72e-6 / CNY_PER_USD,
+        "glm-4-32b input",
+    );
 
     let r = resolve(&price_of("minimax", "MiniMax-M2.json"));
-    approx(r.input_cost_per_token, 2.1e-6 / CNY_PER_USD, "minimax M2 input");
-    approx(r.output_cost_per_token, 8.4e-6 / CNY_PER_USD, "minimax M2 output");
-    approx(r.cache_read_input_token_cost, 0.21e-6 / CNY_PER_USD, "minimax M2 cache_read");
-    approx(r.cache_write_input_token_cost, 2.625e-6 / CNY_PER_USD, "minimax M2 cache_write");
+    approx(
+        r.input_cost_per_token,
+        2.1e-6 / CNY_PER_USD,
+        "minimax M2 input",
+    );
+    approx(
+        r.output_cost_per_token,
+        8.4e-6 / CNY_PER_USD,
+        "minimax M2 output",
+    );
+    approx(
+        r.cache_read_input_token_cost,
+        0.21e-6 / CNY_PER_USD,
+        "minimax M2 cache_read",
+    );
+    approx(
+        r.cache_write_input_token_cost,
+        2.625e-6 / CNY_PER_USD,
+        "minimax M2 cache_write",
+    );
 
-    let r = resolve(&price_of("siliconflow", "Pro/deepseek-ai/DeepSeek-V3.2.json"));
-    approx(r.input_cost_per_token, 4.0e-6 / CNY_PER_USD, "sf V3.2 input");
-    approx(r.output_cost_per_token, 6.0e-6 / CNY_PER_USD, "sf V3.2 output");
-    approx(r.cache_read_input_token_cost, 0.4e-6 / CNY_PER_USD, "sf V3.2 cache_read");
+    let r = resolve(&price_of(
+        "siliconflow",
+        "Pro/deepseek-ai/DeepSeek-V3.2.json",
+    ));
+    approx(
+        r.input_cost_per_token,
+        4.0e-6 / CNY_PER_USD,
+        "sf V3.2 input",
+    );
+    approx(
+        r.output_cost_per_token,
+        6.0e-6 / CNY_PER_USD,
+        "sf V3.2 output",
+    );
+    approx(
+        r.cache_read_input_token_cost,
+        0.4e-6 / CNY_PER_USD,
+        "sf V3.2 cache_read",
+    );
 
     let r = resolve(&price_of("bailian", "qwen3-vl-8b-thinking.json"));
-    approx(r.input_cost_per_token, 0.8424e-6 / CNY_PER_USD, "bailian qwen3-vl-8b input");
-    approx(r.output_cost_per_token, 9.828e-6 / CNY_PER_USD, "bailian qwen3-vl-8b output");
+    approx(
+        r.input_cost_per_token,
+        0.8424e-6 / CNY_PER_USD,
+        "bailian qwen3-vl-8b input",
+    );
+    approx(
+        r.output_cost_per_token,
+        9.828e-6 / CNY_PER_USD,
+        "bailian qwen3-vl-8b output",
+    );
 
     let r = resolve(&price_of("kimi_coding", "kimi-for-coding.json"));
-    approx(r.input_cost_per_token, 7.2e-8 / CNY_PER_USD, "kimi_coding 占位 input");
-    approx(r.output_cost_per_token, 7.2e-8 / CNY_PER_USD, "kimi_coding 占位 output");
+    approx(
+        r.input_cost_per_token,
+        7.2e-8 / CNY_PER_USD,
+        "kimi_coding 占位 input",
+    );
+    approx(
+        r.output_cost_per_token,
+        7.2e-8 / CNY_PER_USD,
+        "kimi_coding 占位 output",
+    );
 }
 
 /// DeepSeek 搜索单价对齐官网（https://api-docs.deepseek.com/guides/search：Search $0.75 / 千次成功请求）。
@@ -1172,4 +1354,67 @@ fn deepseek_search_price_is_official_usd() {
     let s = &protocols()["deepseek"]["tools_pricing"]["search"];
     assert_eq!(s["per_1000"].as_f64(), Some(0.75), "s={s}");
     assert_eq!(s["currency"], "USD", "s={s}");
+}
+
+#[test]
+fn holiday_calendar_fixture_lists_loads_inherits_and_classifies_dates() {
+    const FIXTURE: &[(&str, &str)] = &[
+        (
+            "AA",
+            r#"{"code":"AA","name":{"en-US":"A"},"years":{"2026":{"holidays":["2026-01-01"],"workdays":["2026-01-03"]}}}"#,
+        ),
+        (
+            "AA-BB",
+            r#"{"code":"AA-BB","name":{"en-US":"A region"},"extends":"AA","years":{"2026":{"holidays":["2026-12-25"],"workdays":[]}}}"#,
+        ),
+    ];
+
+    let list = holiday_calendar_list_from(FIXTURE);
+    assert_eq!(list.len(), 2);
+    assert_eq!(list[1].name["en-US"], "A region");
+    let summary = serde_json::to_value(&list[1]).unwrap();
+    assert_eq!(summary["name"]["en-US"], "A region");
+    assert!(summary.get("names").is_none());
+
+    let merged = holiday_calendar_get_from("AA-BB", FIXTURE).unwrap();
+    let dates = &merged.years["2026"];
+    assert_eq!(dates.holidays, ["2026-01-01", "2026-12-25"]);
+    assert_eq!(dates.workdays, ["2026-01-03"]);
+    assert_eq!(holiday_calendar_is_workday_from("AA-BB", "2026-01-03", FIXTURE), Some(true));
+    assert_eq!(holiday_calendar_is_workday_from("AA-BB", "2026-01-01", FIXTURE), Some(false));
+    assert_eq!(holiday_calendar_is_workday_from("AA-BB", "2026-01-05", FIXTURE), None);
+    assert!(holiday_calendar_get_from("NOT-A-CALENDAR", FIXTURE).is_none());
+}
+
+#[test]
+fn holiday_calendar_list_does_not_parse_year_data() {
+    let calendars = holiday_calendar_list_from(&[(
+        "AA",
+        r#"{"code":"AA","name":{"en-US":"A"},"years":["date payload is deferred"]}"#,
+    )]);
+    assert_eq!(calendars.len(), 1);
+    assert_eq!(calendars[0].name["en-US"], "A");
+}
+
+#[test]
+fn bundled_holiday_calendars_parse_and_merge_real_region_dates() {
+    let calendars = holiday_calendar_list();
+    assert_eq!(calendars.len(), HOLIDAY_CALENDAR_FILES.len());
+
+    for summary in calendars {
+        let calendar = holiday_calendar_get(&summary.code)
+            .unwrap_or_else(|| panic!("bundled calendar {} failed to parse", summary.code));
+        assert_eq!(calendar.code, summary.code);
+        assert!(calendar.years.contains_key("2026"), "{} lacks 2026", summary.code);
+    }
+
+    let england = holiday_calendar_get("GB-ENG").expect("bundled GB-ENG calendar");
+    assert!(
+        england.years["2026"].holidays.contains(&"2026-01-01".to_owned()),
+        "GB-ENG must include inherited GB holidays"
+    );
+    assert!(
+        england.years["2026"].holidays.contains(&"2026-04-06".to_owned()),
+        "GB-ENG must include region holidays"
+    );
 }

@@ -1,0 +1,28 @@
+{
+  "code": "US-FL",
+  "extends": "US",
+  "name": {
+    "ar-SA": "فلوريدا",
+    "de-DE": "Florida",
+    "en-US": "Florida",
+    "es-ES": "Florida",
+    "fr-FR": "Floride",
+    "ja-JP": "フロリダ州",
+    "ru-RU": "Флорида",
+    "zh-Hans": "佛罗里达州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-11-27"],
+      "workdays": ["2026-02-16", "2026-06-19", "2026-10-12"]
+    },
+    "2027": {
+      "holidays": ["2027-11-26"],
+      "workdays": ["2027-02-15", "2027-06-18", "2027-10-11"]
+    }
+  },
+  "source_urls": [
+    "https://www.dms.myflorida.com/workforce_operations/human_resource_management/for_state_personnel_system_hr_practitioners/state_holidays",
+    "https://www.leg.state.fl.us/Statutes/index.cfm?App_mode=Display_Statute&URL=0100-0199/0110/Sections/0110.117.html"
+  ]
+}

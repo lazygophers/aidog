@@ -1,0 +1,27 @@
+{
+  "code": "US-RI",
+  "extends": "US",
+  "name": {
+    "ar-SA": "رود آيلاند",
+    "de-DE": "Rhode Island",
+    "en-US": "Rhode Island",
+    "es-ES": "Rhode Island",
+    "fr-FR": "Rhode Island",
+    "ja-JP": "ロードアイランド州",
+    "ru-RU": "Род-Айленд",
+    "zh-Hans": "罗得岛州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-05-04", "2026-07-06", "2026-08-10", "2026-11-03"],
+      "workdays": ["2026-07-03"]
+    },
+    "2027": {
+      "holidays": ["2027-05-04", "2027-06-21", "2027-07-05", "2027-08-09", "2027-12-27"],
+      "workdays": ["2027-06-18", "2027-12-24"]
+    }
+  },
+  "source_urls": [
+    "https://webserver.rilegislature.gov/Statutes/TITLE25/25-1/25-1-1.htm"
+  ]
+}

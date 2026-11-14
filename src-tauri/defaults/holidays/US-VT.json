@@ -1,0 +1,27 @@
+{
+  "code": "US-VT",
+  "extends": "US",
+  "name": {
+    "ar-SA": "فيرمونت",
+    "de-DE": "Vermont",
+    "en-US": "Vermont",
+    "es-ES": "Vermont",
+    "fr-FR": "Vermont",
+    "ja-JP": "バーモント州",
+    "ru-RU": "Вермонт",
+    "zh-Hans": "佛蒙特州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-03-03", "2026-08-17"],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": ["2027-03-02", "2027-08-16"],
+      "workdays": []
+    }
+  },
+  "source_urls": [
+    "https://legislature.vermont.gov/statutes/section/01/007/00371"
+  ]
+}

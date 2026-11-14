@@ -35,6 +35,19 @@ crate::tauri_command! {
 }
 
 crate::tauri_command! {
+    pub async fn holiday_calendar_list() -> Result<Vec<aidog_db::registry::HolidayCalendarSummary>, String> {
+        Ok(aidog_db::registry::holiday_calendar_list())
+    }
+}
+
+crate::tauri_command! {
+    pub async fn holiday_calendar_get(code: String) -> Result<aidog_db::registry::HolidayCalendar, String> {
+        aidog_db::registry::holiday_calendar_get(&code)
+            .ok_or_else(|| format!("unknown holiday calendar: {code}"))
+    }
+}
+
+crate::tauri_command! {
     // 原 `pub fn`（同步 I/O）；转 async 以适配 tauri_command! 宏。
     /// 返回 protocol logo 缓存文件路径（前端 `convertFileSrc` 用）。文件不存在/无缓存目录返空串。
     pub async fn get_protocol_logo_path(protocol: String) -> Result<String, String> {

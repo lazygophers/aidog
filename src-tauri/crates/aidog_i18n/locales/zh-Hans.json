@@ -3849,5 +3849,13 @@
   "agentUpdate.confirmDesc": "将按该工具的安装来源执行更新命令，可能需要下载。确认继续？",
   "agentUpdate.manualHint": "该安装方式暂不支持自动更新，请手动升级",
   "agentUpdate.success": "已更新：v{{before}} → v{{after}}",
-  "agentUpdate.failed": "更新失败"
+  "agentUpdate.failed": "更新失败",
+  "platform.windows_dim_workday": "工作日",
+  "platform.windows_dim_holiday": "节假日",
+  "platform.holidayCalendar": "节假日日历",
+  "platform.holidayCalendar.dayType": "日期类型",
+  "platform.holidayCalendar.inherit": "继承上级日历",
+  "platform.holidayCalendar.loadFailed": "日历数据加载失败，将按星期判断",
+  "platform.holidayCalendar.weekday": "星期",
+  "platform.holidayCalendar.yearUnavailable": "日历未覆盖当前年份，将按星期判断"
 }

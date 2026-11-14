@@ -1,0 +1,32 @@
+{
+  "code": "DE-HE",
+  "extends": "DE",
+  "name": {
+    "zh-Hans": "黑森州",
+    "en-US": "Hesse",
+    "ar-SA": "هيسن",
+    "fr-FR": "Hesse",
+    "de-DE": "Hessen",
+    "ru-RU": "Гессен",
+    "ja-JP": "ヘッセン州",
+    "es-ES": "Hesse"
+  },
+  "source_urls": [
+    "https://www.gesetze-im-internet.de/einigvtr/art_2.html",
+    "https://innen.hessen.de/buerger-staat/feiertage"
+  ],
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-06-04"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-05-27"
+      ],
+      "workdays": []
+    }
+  }
+}

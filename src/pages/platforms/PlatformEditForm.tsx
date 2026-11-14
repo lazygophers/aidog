@@ -3,14 +3,15 @@
 //   不持有自己的 state；表单分区（endpoints/models/budgets/breaker/group/expires）
 //   均为 props 驱动的 JSX，无跨组件 setState。
 import { useEffect, useState } from "react";
-import { getClientVocab, serializePlatformTimeWindows, type ClientVocabCategory } from "../../services/api";
+import { getClientVocab, serializePlatformTimeWindows, parsePlatformHolidayCalendar, serializePlatformHolidayCalendar, type ClientVocabCategory } from "../../services/api";
 import { useTranslation } from "react-i18next";
 import { SmartPasteModal } from "../../components/platforms/SmartPasteModal";
 import {
   SearchableProtocolSelect, MockConfigEditor, allConfiguredModelValues,
   type ProtocolOption,
 } from "../../domains/platforms";
-import { buildProtocolsFromPresets, getProtocolUsageWarning } from "../../domains/platforms/defaults";
+import { buildProtocolsFromPresets, getProtocolUsageWarning, getDefaultHolidayCalendar } from "../../domains/platforms/defaults";
+import { HolidayCalendarSelect } from "./HolidayCalendarSelect";
 import { useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";
 import { useThemeMode } from "../../themes/useThemeMode";
 import type { PlatformsState } from "./usePlatformsState";
@@ -38,7 +39,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
   // ponytail: slice 化后 form 字段全部从 s.form 读，list/quota slice 本视图不直接消费。
   const {
     editing, showPaste, pasteInitialText, setShowPaste, setPasteInitialText,
-    name, setName, protocol, codingPlan, handleProtocolChange,
+    name, setName, protocol, codingPlan, handleProtocolChange, extra, setExtra,
     isMock, isPassthrough, isPassThrough, keyOptional, apiKeyMissing,
     passAuth, setPassAuth,
   appbuilderKey = "", setAppbuilderKey,
@@ -107,6 +108,14 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
   }, [i18n.language]);
   // 平台使用风险提示（数据驱动：registry platform.json `usage_warning`，如腾讯 Coding Plan 条款）。
   const [usageWarning, setUsageWarning] = useState("");
+  const [defaultHolidayCalendar, setDefaultHolidayCalendar] = useState<string>();
+  useEffect(() => {
+    let cancelled = false;
+    setDefaultHolidayCalendar(undefined);
+    getDefaultHolidayCalendar(protocol).then(code => { if (!cancelled) setDefaultHolidayCalendar(code); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [protocol]);
+  const platformCalendar = parsePlatformHolidayCalendar(extra) ?? defaultHolidayCalendar;
   useEffect(() => {
     let cancelled = false;
     getProtocolUsageWarning(protocol, i18n.language).then(w => { if (!cancelled) setUsageWarning(w); });
@@ -171,6 +180,12 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             value={protocol}
             codingPlan={codingPlan}
             onChange={handleProtocolChange}
+          />
+          <HolidayCalendarSelect
+            value={parsePlatformHolidayCalendar(extra)}
+            inheritedValue={defaultHolidayCalendar}
+            onChange={calendar => setExtra(current => serializePlatformHolidayCalendar(current, calendar))}
+            t={t}
           />
           {usageWarning && (
             <Alert variant="destructive" data-testid="platform-usage-warning">{usageWarning}</Alert>
@@ -308,6 +323,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             tzMode={timemodels.windowsTz} setTzMode={timemodels.setWindowsTz}
             disableDuringPeak={timemodels.disableDuringPeak} setDisableDuringPeak={timemodels.setDisableDuringPeak}
             protocol={protocol}
+            platformCalendar={platformCalendar}
             themeMode={themeMode}
             t={t}
           />
@@ -345,13 +361,14 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           rules={timemodels.timeModels} setRules={timemodels.setTimeModels} peak={timemodels.peak}
           tzMode={timemodels.windowsTz} setTzMode={timemodels.setWindowsTz}
           disabledSlots={disabledSlots}
+          platformCalendar={platformCalendar}
           t={t}
         />
           </>
         )}
         {/* 限频（2026-10-20 从稳定性 tab 拆出；rate-limit-aware 票 04：extra.rate_limits / extra.quota_windows） */}
         {editing && !isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "ratelimits") && (
-          <RateLimitsSection bundle={rateLimits} setBundle={setRateLimits} protocol={protocol} modelOptions={allConfiguredModelValues({ models, extra: serializePlatformTimeWindows("", timemodels.timeModels) })} t={t} />
+          <RateLimitsSection bundle={rateLimits} setBundle={setRateLimits} protocol={protocol} modelOptions={allConfiguredModelValues({ models, extra: serializePlatformTimeWindows("", timemodels.timeModels) })} platformCalendar={platformCalendar} t={t} />
         )}
 
         {/* 熔断（2026-10-20 从稳定性 tab 拆出）：Circuit Breaker 覆盖（仅编辑态可配；空 = 继承全局默认） */}

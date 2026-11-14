@@ -1,0 +1,28 @@
+{
+  "code": "US-NH",
+  "extends": "US",
+  "name": {
+    "ar-SA": "نيوهامبشير",
+    "de-DE": "New Hampshire",
+    "en-US": "New Hampshire",
+    "es-ES": "Nuevo Hampshire",
+    "fr-FR": "New Hampshire",
+    "ja-JP": "ニューハンプシャー州",
+    "ru-RU": "Нью-Гэмпшир",
+    "zh-Hans": "新罕布什尔州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-11-03"],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [],
+      "workdays": []
+    }
+  },
+  "source_urls": [
+    "https://gc.nh.gov/rsa/html/XXV/288/288-1.htm",
+    "https://gc.nh.gov/rsa/html/LXIII/653/653-7.htm"
+  ]
+}

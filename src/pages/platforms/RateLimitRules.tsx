@@ -7,12 +7,14 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { rateLimitRuleError, type Protocol, type RateLimitRule } from "../../services/api";
 import { ModelCombobox } from "./ModelCombobox";
+import { HolidayCalendarSelect } from "./HolidayCalendarSelect";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 
 /** 编辑态：数字一律字符串持有（空串 = 未填）；id 仅供拖动排序，不落库。 */
 export interface RateLimitRuleDraft {
   id: string;
   models: string[];
-  start: string; end: string; tz: string; days: number[];
+  start: string; end: string; tz: string; days: number[]; dayType?: "workday" | "holiday"; holidayCalendar?: string;
   concurrency: string; rpm: string; tpm: string;
 }
 
@@ -31,6 +33,7 @@ export function ruleToDraft(r: RateLimitRule): RateLimitRuleDraft {
     end: r.end_hour !== undefined ? String(r.end_hour) : "",
     tz: r.timezone ?? "",
     days: [...(r.days_of_week ?? [])],
+    dayType: r.day_type, holidayCalendar: r.holiday_calendar,
     concurrency: str(r.concurrency), rpm: str(r.rpm), tpm: str(r.tpm),
   };
 }
@@ -52,7 +55,10 @@ export function draftToRule(d: RateLimitRuleDraft): RateLimitRule {
   if (sh !== undefined) out.start_hour = sh;
   if (eh !== undefined) out.end_hour = eh;
   if (d.tz.trim()) out.timezone = d.tz.trim();
-  if (d.days.length > 0) out.days_of_week = [...d.days];
+  if (d.dayType) {
+    out.day_type = d.dayType;
+    if (d.holidayCalendar) out.holiday_calendar = d.holidayCalendar;
+  } else if (d.days.length > 0) out.days_of_week = [...d.days];
   const c = pos(d.concurrency), rpm = pos(d.rpm), tpm = pos(d.tpm);
   if (c !== undefined) out.concurrency = c;
   if (rpm !== undefined) out.rpm = rpm;
@@ -101,11 +107,12 @@ function ModelsPicker({ i, value, onChange, options, protocol, t }: {
   );
 }
 
-export function RateLimitRulesList({ rules, onChange, modelOptions, protocol, t }: {
+export function RateLimitRulesList({ rules, onChange, modelOptions, protocol, platformCalendar, t }: {
   rules: RateLimitRuleDraft[];
   onChange: (next: RateLimitRuleDraft[]) => void;
   modelOptions: string[];
   protocol: Protocol;
+  platformCalendar?: string;
   t: TFunction;
 }) {
   const upd = (i: number, patch: Partial<RateLimitRuleDraft>) => onChange(rules.map((r, j) => (j === i ? { ...r, ...patch } : r)));
@@ -136,7 +143,16 @@ export function RateLimitRulesList({ rules, onChange, modelOptions, protocol, t 
                 <span style={miniLabel}>–</span>
                 <Input data-testid={`rl-rule-${i}-end`} type="number" min={0} max={24} value={r.end} placeholder="24" aria-label={t("platform.end_hour", "止")} onChange={e => upd(i, { end: e.target.value })} style={{ ...numStyle, width: 56, minWidth: 56 }} />
                 <Input data-testid={`rl-rule-${i}-tz`} value={r.tz} placeholder="UTC / Asia/Shanghai" aria-label={t("platform.rateLimits.windowTz", "时区")} onChange={e => upd(i, { tz: e.target.value })} style={{ fontSize: 14, height: 28, width: 130, fontFamily: "var(--font-mono, monospace)" }} />
-                <div style={{ display: "flex", gap: 2 }}>
+                <Select value={r.dayType ?? "__week__"} onValueChange={v => upd(i, { dayType: v === "__week__" ? undefined : v as "workday" | "holiday", days: [], holidayCalendar: v === "__week__" ? undefined : r.holidayCalendar })}>
+                  <SelectTrigger className="input" style={{ width: 120, height: 28, fontSize: 14 }} aria-label={t("platform.holidayCalendar.dayType", "日期类型")}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__week__">{t("platform.holidayCalendar.weekday", "星期")}</SelectItem>
+                    <SelectItem value="workday">{t("platform.windows_dim_workday", "工作日")}</SelectItem>
+                    <SelectItem value="holiday">{t("platform.windows_dim_holiday", "节假日")}</SelectItem>
+                  </SelectContent>
+                </Select>
+                {r.dayType && <HolidayCalendarSelect value={r.holidayCalendar} inheritedValue={platformCalendar} timezone={r.tz} onChange={holidayCalendar => upd(i, { holidayCalendar })} t={t} />}
+                {!r.dayType && <div style={{ display: "flex", gap: 2 }}>
                   {[0, 1, 2, 3, 4, 5, 6].map(d => (
                     <button key={d} type="button" data-testid={`rl-rule-${i}-day-${d}`} data-state={r.days.includes(d) ? "on" : "off"}
                       className="btn-ghost" style={{ padding: "0 5px", minWidth: 22, fontSize: 14, ...(r.days.includes(d) ? { background: "var(--accent-subtle)", color: "var(--text-primary)" } : {}) }}
@@ -144,7 +160,7 @@ export function RateLimitRulesList({ rules, onChange, modelOptions, protocol, t 
                       {t(`platform.weekday_short.${d}`)}
                     </button>
                   ))}
-                </div>
+                </div>}
                 <Input data-testid={`rl-rule-${i}-concurrency`} type="number" min={0} value={r.concurrency} placeholder={t("platform.rateLimits.concurrencyShort", "并发")} onChange={e => upd(i, { concurrency: e.target.value })} style={numStyle} />
                 <Input data-testid={`rl-rule-${i}-rpm`} type="number" min={0} value={r.rpm} placeholder="RPM" onChange={e => upd(i, { rpm: e.target.value })} style={numStyle} />
                 <Input data-testid={`rl-rule-${i}-tpm`} type="number" min={0} value={r.tpm} placeholder="TPM" onChange={e => upd(i, { tpm: e.target.value })} style={numStyle} />

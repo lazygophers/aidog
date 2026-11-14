@@ -261,7 +261,7 @@ describe("WindowsEditModal — 维度分段控件 ARIA 分组", () => {
     renderModal([{ start_hour: 0, end_hour: 24, multiplier: 1.0 }]);
     const groups = document.body.querySelectorAll('[role="radiogroup"][aria-label]');
     expect(groups.length).toBeGreaterThan(0);
-    expect(groups[groups.length - 1].querySelectorAll('[role="radio"]').length).toBe(3);
+    expect(groups[groups.length - 1].querySelectorAll('[role="radio"]').length).toBe(5);
   });
 });
 
