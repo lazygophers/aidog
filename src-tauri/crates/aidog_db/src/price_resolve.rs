@@ -135,22 +135,33 @@ pub(crate) fn parse_price_data(raw: &str) -> Value {
     v
 }
 
+/// 按次计价费的计数语义（issue 157 / #156）。取代裸 `Option<f64>` 基数字段：
+/// 单价 × 计数 ÷ 基数 的「基数」取值语义由枚举编码，缺计数的处理跟着走。
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub enum UnitBasis {
+    /// request / image / mp：按次计价，缺计数（≤0）按 1 次/请求估（#156 rerank 语义）。
+    #[default]
+    PerRequest,
+    /// char / second：按量计价，`divisor` 是单价基数（char 1000 = `unit_price` 为 $/1K chars、
+    /// second 1 = $/秒）；缺计数（≤0）→ 费 0（不可估算，不兜底成一次的价格，issue 157）。
+    Counted { divisor: f64 },
+}
+
 /// 价格解析结果。`peak_applied` 只在 Rust 内部流转（不进 TS 契约）：
 /// true 表示价格已是高峰绝对价，调用方须把平台倍率视为 1.0。
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct PriceResolution {
     pub price: ResolvedPrice,
     pub peak_applied: bool,
     /// 条目原币种为 CNY（单价已换算成 USD）；余额币种未知时据此推断余额币种。
     pub source_cny: bool,
-    /// 条目 `price.unit` 为 `"request"`（按次）/ `"image"`（按图）/ `"mp"`（按百万像素）的
-    /// 单价（USD/unit，已换算币种）；Some 时 token 价全 0，调用方按 `unit_price × 次数`
-    /// 计费（chat 路径无图/次/像素计数时按 1 次估）。
+    /// 条目 `price.unit` 为 `"request"`（按次）/ `"image"`（按图）/ `"mp"`（按百万像素）/
+    /// `"char"`（按千字符）/ `"second"`（按秒）的单价（USD/unit，已换算币种）；
+    /// Some 时 token 价全 0，调用方按 [`PriceResolution::request_fee`] 计费。
     pub request_unit_price: Option<f64>,
-    /// 按量计价基数（issue 157）：`char` → Some(1000.0)（`unit_price` 为 $/1K chars，
-    /// 计费 `字符数 ÷ 1000 × unit_price`）；`second` → Some(1.0)；request/image/mp →
-    /// None（缺计数按 1 次估）。
-    pub unit_divisor: Option<f64>,
+    /// 计数语义：request/image/mp → `PerRequest`；char → `Counted { divisor: 1000.0 }`；
+    /// second → `Counted { divisor: 1.0 }`（issue 157）。
+    pub unit_basis: UnitBasis,
 }
 
 impl PriceResolution {
@@ -275,10 +286,7 @@ pub fn resolve_price_from(
     let Some(pd) = pd else {
         return PriceResolution {
             price: fallback(),
-            peak_applied: false,
-            source_cny: false,
-            request_unit_price: None,
-            unit_divisor: None,
+            ..Default::default()
         };
     };
     // 旧形状行（价格平铺顶层）已由 `parse_price_data` 归一化，这里只认 `price` 子树
@@ -295,10 +303,7 @@ pub fn resolve_price_from(
         cache_write_1h_input_token_cost: 0.0,
                 source: "model_entry+free".to_string(),
             },
-            peak_applied: false,
-            source_cny: false,
-            request_unit_price: None,
-            unit_divisor: None,
+            ..Default::default()
         };
     }
     // 按次计价（`unit:"request"` + `unit_price`，如 Cohere rerank；`unit:"image"` 按图同理，
@@ -341,10 +346,10 @@ pub fn resolve_price_from(
             peak_applied: false,
             source_cny: is_cny,
             request_unit_price: Some(if is_cny { up / CNY_PER_USD } else { up }),
-            unit_divisor: match unit {
-                Some("char") => Some(1000.0),
-                Some("second") => Some(1.0),
-                _ => None,
+            unit_basis: match unit {
+                Some("char") => UnitBasis::Counted { divisor: 1000.0 },
+                Some("second") => UnitBasis::Counted { divisor: 1.0 },
+                _ => UnitBasis::PerRequest,
             },
         };
     }
@@ -406,7 +411,7 @@ pub fn resolve_price_from(
         peak_applied,
         source_cny,
         request_unit_price: None,
-        unit_divisor: None,
+        unit_basis: UnitBasis::PerRequest,
     }
 }
 

@@ -260,11 +260,11 @@ fn resolve_price_from_mp_unit_bills_per_megapixel() {
 #[test]
 fn resolve_price_from_char_unit_sets_kilo_divisor() {
     // issue 157：`unit:"char"`（TTS，$ / 1K chars）——resolve 层区分按量单位，
-    // unit_divisor=1000，billing 层按「字符数 ÷ 1000 × unit_price」计费。
+    // unit_basis=Counted{divisor:1000}，billing 层按「字符数 ÷ 1000 × unit_price」计费。
     let pd = serde_json::json!({"price": {"currency": "USD", "unit": "char", "unit_price": 0.015}});
     let r = resolve_price_from(Some(&pd), false, 3.0, 15.0, 0, 0);
     assert_eq!(r.request_unit_price, Some(0.015), "char 单价 USD/1K 字符");
-    assert_eq!(r.unit_divisor, Some(1000.0), "char 基数 1K 字符");
+    assert_eq!(r.unit_basis, UnitBasis::Counted { divisor: 1000.0 }, "char 基数 1K 字符");
     assert_eq!(r.price.input_cost_per_token, 0.0, "按量条目 token 价全 0，不吃 fallback");
     assert_eq!(r.price.output_cost_per_token, 0.0);
     assert_eq!(r.price.source, "model_entry+char");
@@ -273,12 +273,12 @@ fn resolve_price_from_char_unit_sets_kilo_divisor() {
 
 #[test]
 fn resolve_price_from_second_unit_sets_second_divisor() {
-    // issue 157：`unit:"second"`（$/sec）——unit_divisor=1（无 K 级基数），
+    // issue 157：`unit:"second"`（$/sec）——unit_basis=Counted{divisor:1}（无 K 级基数），
     // billing 层按「秒数 × unit_price」计费。
     let pd = serde_json::json!({"price": {"currency": "USD", "unit": "second", "unit_price": 0.0025}});
     let r = resolve_price_from(Some(&pd), false, 3.0, 15.0, 0, 0);
     assert_eq!(r.request_unit_price, Some(0.0025), "second 单价 USD/秒");
-    assert_eq!(r.unit_divisor, Some(1.0), "second 无 K 级基数");
+    assert_eq!(r.unit_basis, UnitBasis::Counted { divisor: 1.0 }, "second 无 K 级基数");
     assert_eq!(r.price.source, "model_entry+second");
 }
 
