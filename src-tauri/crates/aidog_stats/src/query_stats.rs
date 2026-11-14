@@ -25,7 +25,7 @@ pub fn query_stats<'a>(
         let needs_auto_map = matches!(query.granularity.as_deref(), Some("minute") | Some("5min"));
         let auto_map = if needs_auto_map {
             db.call_read_platform_traced(None, __db_caller, |conn| {
-                load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+                load_auto_from_map(conn)
             })
             .await
             .map_err(|e| format!("query_stats load auto_map: {e}"))?
@@ -34,7 +34,7 @@ pub fn query_stats<'a>(
         };
         let platform_names = db
             .call_read_platform_traced(None, __db_caller, |conn| {
-                platform_id_name_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+                platform_id_name_map(conn)
             })
             .await
             .map_err(|e| format!("query_stats load platform_names: {e}"))?;
@@ -42,14 +42,14 @@ pub fn query_stats<'a>(
         if needs_auto_map {
             db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
                 query_stats_inner(conn, &query, &auto_map, &platform_names, &coding_ids)
-                    .map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+                    
             })
             .await
             .map_err(|e| e.to_string())
         } else {
             db.call_read_traced(None, __db_caller, move |conn| {
                 query_stats_inner(conn, &query, &auto_map, &platform_names, &coding_ids)
-                    .map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+                    
             })
             .await
             .map_err(|e| e.to_string())
@@ -68,7 +68,7 @@ async fn coding_id_filter(
         return Ok(None);
     }
     db.call_read_platform_traced(None, caller, |conn| {
-        coding_plan_id_set(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+        coding_plan_id_set(conn)
     })
     .await
     .map(Some)
@@ -93,7 +93,7 @@ pub fn query_stats_batch(
             .any(|q| matches!(q.granularity.as_deref(), Some("minute") | Some("5min")));
         let auto_map = if any_minute {
             db.call_read_platform_traced(None, __db_caller, |conn| {
-                load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+                load_auto_from_map(conn)
             })
             .await
             .map_err(|e| format!("query_stats_batch load auto_map: {e}"))?
@@ -102,7 +102,7 @@ pub fn query_stats_batch(
         };
         let platform_names = db
             .call_read_platform_traced(None, __db_caller, |conn| {
-                platform_id_name_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+                platform_id_name_map(conn)
             })
             .await
             .map_err(|e| format!("query_stats_batch load platform_names: {e}"))?;
@@ -140,7 +140,7 @@ pub fn query_stats_batch(
                     for q in &pick {
                         out.push(
                             query_stats_inner(conn, q, &am, &pn, &ci)
-                                .map_err(|e| tokio_rusqlite::Error::Other(e.into()))?,
+                                ?,
                         );
                     }
                     Ok(out)
@@ -160,7 +160,7 @@ pub fn query_stats_batch(
                     for q in &pick {
                         out.push(
                             query_stats_inner(conn, q, &auto_map, &platform_names, &coding_ids)
-                                .map_err(|e| tokio_rusqlite::Error::Other(e.into()))?,
+                                ?,
                         );
                     }
                     Ok(out)
@@ -286,7 +286,7 @@ fn query_stats_inner_agg(
     _auto_map: &HashMap<String, i64>,
     platform_names: &HashMap<i64, String>,
     coding_ids: &Option<HashSet<i64>>,
-) -> Result<StatsResult, String> {
+) -> rusqlite::Result<StatsResult> {
     let coding_set = coding_effective_set(query, coding_ids);
     // 维度基数上限（D3）：dimension_data 与 series 共用，缺省 50（原硬编码值）。
     let limit = query.limit.unwrap_or(50) as usize;
@@ -336,8 +336,8 @@ fn query_stats_inner_agg(
              COALESCE(SUM(sum_input_tokens),0), COALESCE(SUM(sum_output_tokens),0), COALESCE(SUM(sum_cache_tokens),0), \
              COALESCE(SUM(sum_duration_ms),0), COALESCE(SUM(sum_est_cost),0.0) \
              FROM stats_agg_hourly WHERE {where_sql}"
-        ))
-        .map_err(|e| e.to_string())?
+        ))?
+        
         .query_row(refs.as_slice(), |row| {
             let total: i64 = row.get(0).unwrap_or(0);
             let success: i64 = row.get(1).unwrap_or(0);
@@ -354,8 +354,7 @@ fn query_stats_inner_agg(
                 avg_duration_ms: if total > 0 { sum_dur as f64 / total as f64 } else { 0.0 },
                 total_cost: row.get(6).unwrap_or(0.0),
             })
-        })
-        .map_err(|e| format!("agg overview: {e}"))?;
+        })?;
 
     // ── Time buckets ──
     // hourly → 整个 time_hour 桶；daily → 取前 10 字符（YYYY-MM-DD）。
@@ -370,8 +369,8 @@ fn query_stats_inner_agg(
              COALESCE(SUM(sum_cache_tokens),0), COALESCE(SUM(sum_duration_ms),0), \
              COALESCE(SUM(sum_est_cost),0.0) \
              FROM stats_agg_hourly WHERE {where_sql} GROUP BY b ORDER BY b"
-        ))
-        .map_err(|e| e.to_string())?
+        ))?
+        
         .query_map(refs.as_slice(), |row| {
             let req: i64 = row.get(1).unwrap_or(0);
             let sum_dur: i64 = row.get(7).unwrap_or(0);
@@ -386,8 +385,8 @@ fn query_stats_inner_agg(
                 avg_duration_ms: if req > 0 { sum_dur as f64 / req as f64 } else { 0.0 },
                 total_cost: row.get(8).unwrap_or(0.0),
             })
-        })
-        .map_err(|e| format!("agg buckets: {e}"))?
+        })?
+        
         .filter_map(|r| r.ok())
         .collect();
 
@@ -403,8 +402,8 @@ fn query_stats_inner_agg(
                  FROM stats_agg_hourly WHERE {where_sql} GROUP BY platform_id ORDER BY 2 DESC LIMIT {limit}"
             );
             let rows: Vec<(i64, DimensionEntry)> = conn
-                .prepare(&dim_sql)
-                .map_err(|e| e.to_string())?
+                .prepare(&dim_sql)?
+                
                 .query_map(refs.as_slice(), |row| {
                     let pid: i64 = row.get(0).unwrap_or(0);
                     let req: i64 = row.get(1).unwrap_or(0);
@@ -433,8 +432,8 @@ fn query_stats_inner_agg(
                             total_cost: row.get(7).unwrap_or(0.0),
                         },
                     ))
-                })
-                .map_err(|e| format!("agg dimension: {e}"))?
+                })?
+                
                 .filter_map(|r| r.ok())
                 .collect();
             // platform_names 由调用方跨库预查自 platform 库传入（agg 走主库读池，无 platform 表）。
@@ -465,8 +464,8 @@ fn query_stats_inner_agg(
                  COALESCE(SUM(sum_duration_ms),0), COALESCE(SUM(sum_est_cost),0.0) \
                  FROM stats_agg_hourly WHERE {dim_where} GROUP BY {dim_col} ORDER BY 2 DESC LIMIT {limit}"
             );
-            conn.prepare(&dim_sql)
-                .map_err(|e| e.to_string())?
+            conn.prepare(&dim_sql)?
+                
                 .query_map(refs.as_slice(), |row| {
                     let req: i64 = row.get(1).unwrap_or(0);
                     let input: i64 = row.get(3).unwrap_or(0);
@@ -491,8 +490,8 @@ fn query_stats_inner_agg(
                         },
                         total_cost: row.get(7).unwrap_or(0.0),
                     })
-                })
-                .map_err(|e| format!("agg dimension: {e}"))?
+                })?
+                
                 .filter_map(|r| r.ok())
                 .collect()
         }
@@ -524,8 +523,8 @@ fn query_stats_inner_agg(
              COALESCE(SUM(sum_cache_tokens),0), COALESCE(SUM(sum_duration_ms),0), \
              COALESCE(SUM(sum_est_cost),0.0) \
              FROM stats_agg_hourly WHERE {series_where} GROUP BY d, b ORDER BY d, b"
-        ))
-        .map_err(|e| e.to_string())?
+        ))?
+        
         .query_map(refs.as_slice(), |row| {
             let req: i64 = row.get(2).unwrap_or(0);
             let sum_dur: i64 = row.get(8).unwrap_or(0);
@@ -547,8 +546,8 @@ fn query_stats_inner_agg(
                 total_cost: row.get(9).unwrap_or(0.0),
             };
             Ok((d, b))
-        })
-        .map_err(|e| format!("agg series: {e}"))?
+        })?
+        
         .filter_map(|r| r.ok())
         .for_each(|(d, b)| {
             smap.entry(d).or_default().insert(b.time_bucket.clone(), b);
@@ -599,10 +598,9 @@ fn query_stats_inner_agg(
     let available_models: Vec<String> = conn
         .prepare(&format!(
             "SELECT DISTINCT model FROM stats_agg_hourly WHERE {am_where} AND model != '' ORDER BY model"
-        ))
-        .map_err(|e| e.to_string())?
-        .query_map(am_refs.as_slice(), |row| row.get::<_, String>(0))
-        .map_err(|e| format!("agg available_models: {e}"))?
+        ))?
+        
+        .query_map(am_refs.as_slice(), |row| row.get::<_, String>(0))?
         .filter_map(|r| r.ok())
         .collect();
 
@@ -621,7 +619,7 @@ pub(crate) fn query_stats_inner(
     auto_map: &HashMap<String, i64>,
     platform_names: &HashMap<i64, String>,
     coding_ids: &Option<HashSet<i64>>,
-) -> Result<StatsResult, String> {
+) -> rusqlite::Result<StatsResult> {
     let end = query
         .end
         .unwrap_or_else(|| chrono::Utc::now().timestamp_millis());
@@ -715,8 +713,8 @@ pub(crate) fn query_stats_inner(
              COALESCE(input_tokens,0), COALESCE(output_tokens,0), COALESCE(cache_tokens,0), \
              COALESCE(duration_ms,0), COALESCE(est_cost,0.0), platform_id, group_key, actual_model \
              FROM proxy_log WHERE {where_sql}"
-        ))
-        .map_err(|e| e.to_string())?
+        ))?
+        
         .query_map(refs.as_slice(), |r| {
             let platform_id: i64 = r.get(7)?;
             let group_key: String = r.get(8)?;
@@ -733,8 +731,8 @@ pub(crate) fn query_stats_inner(
                 group_key,
                 actual_model: r.get(9)?,
             })
-        })
-        .map_err(|e| format!("minute rows: {e}"))?
+        })?
+        
         .filter_map(|r| r.ok())
         .collect();
 
@@ -1014,8 +1012,8 @@ pub(crate) fn query_stats_inner(
     let mut model_set: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     conn.prepare(&format!(
         "SELECT platform_id, group_key, actual_model, model FROM proxy_log WHERE {am_where}"
-    ))
-    .map_err(|e| e.to_string())?
+    ))?
+    
     .query_map(am_refs.as_slice(), |r| {
         let platform_id: i64 = r.get(0)?;
         let group_key: String = r.get(1)?;
@@ -1029,8 +1027,7 @@ pub(crate) fn query_stats_inner(
                 model
             },
         ))
-    })
-    .map_err(|e| format!("available_models: {e}"))?
+    })?
     .filter_map(|r| r.ok())
     .for_each(|(eff_pid, m)| {
         if !keep(eff_pid) {

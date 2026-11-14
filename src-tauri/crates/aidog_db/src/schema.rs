@@ -186,7 +186,7 @@ fn read_platform_tables_out(conn: &rusqlite::Connection, table: &str) -> TableRo
     let sql = format!("SELECT * FROM {table}");
     match conn.prepare(&sql) {
         Ok(mut stmt) => {
-            let cols: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
+            let cols: Vec<String> = stmt.column_names().map(|s| s.to_string()).collect();
             let col_count = stmt.column_count();
             match stmt.query_map([], move |r| {
                 (0..col_count)

@@ -429,7 +429,7 @@ async fn import_restores_credentials_on_new_db() {
 /// 读回 platform.models 原始列（走 platform 写连接，三文件库下错路由当场 no such table）。
 async fn raw_models_column(db: &aidog_db::Db) -> String {
     db.platform_write_conn()
-        .call(|conn| Ok(conn.query_row("SELECT models FROM platform LIMIT 1", [], |r| r.get::<_, String>(0))?))
+        .call(|conn| -> rusqlite::Result<String> { conn.query_row("SELECT models FROM platform LIMIT 1", [], |r| r.get::<_, String>(0)) })
         .await
         .unwrap()
 }

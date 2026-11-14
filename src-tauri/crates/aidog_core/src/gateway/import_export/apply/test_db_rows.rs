@@ -57,7 +57,7 @@ fn legacy_top_level_breaker_migrates_into_extra() {
 async fn insert_test_platform(db: &Db, name: &str) -> i64 {
     let name = name.to_string();
     db.write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<i64> {
             conn.execute(
                 "INSERT INTO platform (name, created_at, updated_at) VALUES (?1, 0, 0)",
                 rusqlite::params![name],
@@ -71,7 +71,7 @@ async fn insert_test_platform(db: &Db, name: &str) -> i64 {
 async fn group_id_by_name(db: &Db, name: &str) -> Option<i64> {
     let name = name.to_string();
     db.write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<Option<i64>> {
             Ok(conn
                 .query_row(
                     "SELECT id FROM \"group\" WHERE name = ?1 AND deleted_at = 0",
@@ -86,7 +86,7 @@ async fn group_id_by_name(db: &Db, name: &str) -> Option<i64> {
 
 async fn link_count(db: &Db, gid: i64) -> i64 {
     db.write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<i64> {
             Ok(conn
                 .query_row(
                     "SELECT COUNT(*) FROM group_platform WHERE group_id = ?1 AND deleted_at = 0",
@@ -120,7 +120,7 @@ async fn ensure_group_creates_when_absent() {
     // 校验 group_key 生成。
     let gkey: String = db
         .write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<String> {
             Ok(conn
                 .query_row(
                     "SELECT group_key FROM \"group\" WHERE id = ?1",
@@ -159,7 +159,7 @@ async fn ensure_group_idempotent() {
     // 组数确认只有一个。
     let group_count: i64 = db
         .write_conn()
-        .call(|conn| {
+        .call(|conn| -> rusqlite::Result<i64> {
             Ok(conn
                 .query_row(
                     "SELECT COUNT(*) FROM \"group\" WHERE name = 'sub2api' AND deleted_at = 0",
@@ -251,7 +251,7 @@ async fn new_format_missing_config_fields_write_default_json() {
     });
     let now = 0_i64;
     db.write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<()> {
             let tx = conn.transaction()?;
             super::insert_platform_row(&tx, "Clean", &row, now)?;
             tx.commit()?;
@@ -263,8 +263,8 @@ async fn new_format_missing_config_fields_write_default_json() {
     // 读回 DB 列值，校验写的是标准空 JSON（非空串）。
     let (models, available, endpoints): (String, String, String) = db
         .write_conn()
-        .call(move |conn| {
-            Ok(conn.query_row(
+        .call(move |conn| -> rusqlite::Result<(String, String, String)> {
+            conn.query_row(
                 "SELECT models, available_models, endpoints FROM platform WHERE name = 'Clean'",
                 [],
                 |r| {
@@ -274,7 +274,7 @@ async fn new_format_missing_config_fields_write_default_json() {
                         r.get::<_, String>(2)?,
                     ))
                 },
-            )?)
+            )
         })
         .await
         .unwrap();
@@ -298,7 +298,7 @@ async fn import_insert_duplicate_name_gets_suffix() {
     for _ in 0..2 {
         let row = row.clone();
         db.write_conn()
-            .call(move |conn| {
+            .call(move |conn| -> rusqlite::Result<()> {
                 let tx = conn.transaction()?;
                 super::insert_platform_row(&tx, "Same", &row, now)?;
                 tx.commit()?;
@@ -309,7 +309,7 @@ async fn import_insert_duplicate_name_gets_suffix() {
     }
     let names: Vec<String> = db
         .write_conn()
-        .call(|conn| {
+        .call(|conn| -> rusqlite::Result<Vec<String>> {
             let mut stmt = conn.prepare("SELECT name FROM platform WHERE deleted_at = 0")?;
             let v = stmt
                 .query_map([], |r| r.get(0))?
