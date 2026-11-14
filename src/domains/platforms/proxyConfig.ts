@@ -2,8 +2,9 @@
 // 消费者：平台行/卡片「代理」徽标、平台编辑页「使用代理」提示、新建平台预填（issue #64 T02/T03）。
 // docPromise 单次 RPC 缓存 idiom：首次读取共享一次 invoke；useSystemSettings 加载/保存后
 // 调 broadcastProxyConfigChanged() 广播事件，挂载中的消费者重取，避免跨页缓存漂移。
+// 平台批量代理写入在 proxyBatch.ts（review 判断项 3 职责拆分）。
 import { useEffect, useState } from "react";
-import { proxyApi, platformApi, serializeProxyEnabled } from "../../services/api";
+import { proxyApi } from "../../services/api";
 
 /** 代理配置变更广播事件（设置页加载/保存后触发，消费者重取 host）。 */
 export const PROXY_CONFIG_EVENT = "aidog-proxy-config-changed";
@@ -66,23 +67,4 @@ export function useProxyConfigured(): boolean {
     };
   }, []);
   return configured;
-}
-
-/** 「为全部平台开启」执行体（issue #64 T02；review smell 4：移出系统设置 hook + 失败数统计）。
- * 逐平台写 extra.proxy_enabled=true（保留其余键），返回成功/失败数；写完广播平台列表刷新
- * （usePlatformsState 监听 aidog-platforms-changed）。单平台失败不中断其余。 */
-export async function enableProxyForAllPlatforms(): Promise<{ ok: number; failed: number }> {
-  const list = (await platformApi.list()) || [];
-  let ok = 0;
-  let failed = 0;
-  for (const p of list) {
-    try {
-      await platformApi.update({ id: p.id, extra: serializeProxyEnabled(p.extra ?? "", true) });
-      ok++;
-    } catch {
-      failed++;
-    }
-  }
-  window.dispatchEvent(new Event("aidog-platforms-changed"));
-  return { ok, failed };
 }

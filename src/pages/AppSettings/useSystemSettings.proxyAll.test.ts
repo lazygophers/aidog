@@ -8,7 +8,7 @@ import {
   statsSettingsApi, autoUpdateApi, platformApi,
 } from "../../services/api";
 import { useSystemSettings } from "./useSystemSettings";
-import { enableProxyForAllPlatforms } from "../../domains/platforms/proxyConfig";
+import { enableProxyForAllPlatforms } from "../../domains/platforms/proxyBatch";
 
 vi.mock("../../services/platform", () => ({ getAppVersion: () => Promise.resolve("") }));
 

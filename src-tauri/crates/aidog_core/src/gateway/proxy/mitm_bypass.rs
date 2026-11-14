@@ -93,9 +93,9 @@ pub(crate) fn classify_mitm_route(host: &str, path: &str, method: &Method) -> Mi
 }
 
 /// 连接绑定分组内官方平台（base_url host = `api.anthropic.com`，禁用也计入）的
-/// `extra.proxy_enabled` 开关集合（issue #64 T05）。组不存在 / DB 失败 / 非官方平台 → 空集合
-/// （判定回落非平台规则）。
-pub(super) async fn mitm_group_official_proxy_flags(db: &Db, group_name: &str) -> Vec<Option<bool>> {
+/// `extra.proxy_enabled` 三态开关集合（issue #64 T05）。组不存在 / DB 失败 / 非官方平台 →
+/// 空集合（判定回落非平台规则）。
+pub(super) async fn mitm_group_official_proxy_flags(db: &Db, group_name: &str) -> Vec<http_client::ProxySwitch> {
     if group_name.trim().is_empty() {
         return Vec::new();
     }
@@ -119,7 +119,7 @@ pub(super) async fn mitm_group_official_proxy_flags(db: &Db, group_name: &str) -
                 .as_deref()
                 == Some("api.anthropic.com")
         })
-        .map(|d| http_client::platform_proxy_enabled(&d.platform.extra))
+        .map(|d| http_client::ProxySwitch::from_extra(&d.platform.extra))
         .collect()
 }
 
