@@ -159,10 +159,7 @@ pub async fn calc_est_cost_detail(
             cache_write_1h_input_token_cost: 0.0,
             source: "fallback".to_string(),
         },
-        peak_applied: false,
-        source_cny: false,
-        request_unit_price: None,
-        unit_divisor: None,
+        ..Default::default()
     });
 
     let multiplier = if created_at_ms <= 0 {
