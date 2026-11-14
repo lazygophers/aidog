@@ -39,6 +39,18 @@ pub fn fmt_caller(loc: &std::panic::Location<'_>) -> String {
     format!("{short}:{}", loc.line())
 }
 
+/// rusqlite 0.42 `Connection::trace_v2(SQLITE_TRACE_PROFILE, ..)` 回调。独立自由 fn
+/// （而非闭包）：`TraceEvent<'_>` 带 HRTB 生命周期，闭包参数注解不出 HRTB 会报
+/// 「implementation of FnMut is not general enough」；fn 项天然 higher-ranked。
+pub fn sql_trace_event(e: rusqlite::trace::TraceEvent<'_>) {
+    if let rusqlite::trace::TraceEvent::Profile(stmt, dur) = e {
+        match stmt.expanded_sql() {
+            Some(sql) => sql_profile_callback(&sql, dur),
+            None => sql_profile_callback(&stmt.sql(), dur),
+        }
+    }
+}
+
 /// rusqlite `Connection::profile` 回调（裸 `fn(&str, Duration)`，不可捕获状态）。
 /// 在 SQL 执行**后**触发，一次拿到 SQL 文本 + 执行耗时。读取 DB 线程的
 /// `CURRENT_DB_CTX`（由 `call_traced` 设置）拼出 request_id + 调用位置 + 耗时。

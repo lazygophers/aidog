@@ -15,7 +15,7 @@ severity: string,
 /**
  * 模板变量快照（来源跳转用：platform_id / cwd / session 等；旧行空 map）。
  */
-vars: { [key in string]?: string }, 
+vars: { [key in string]: string }, 
 /**
  * 触发操作 key（投递记录关联 + 日志串联；旧行空）。
  */

@@ -27,7 +27,6 @@ pub use helpers::*;
 pub use models::*;
 pub use schema::*;
 pub use settings::*;
-pub(crate) use trace::*;
 pub use trace::{CURRENT_DB_CTX, DbCallCtx, fmt_caller};
 
 /// 只读连接池大小（单点可调）。WAL 模式下「单写 + 多读并发」红利由这 N 条只读连接吃下，
@@ -269,7 +268,7 @@ impl Db {
             .map_err(|e| e.to_string())?;
         // pragma 是 connection 级状态，绑定后台线程那条物理连接，设一次永久生效。
         // WAL 下 synchronous=NORMAL 安全；单连接模型下 busy_timeout 实际罕触发，设置无害。
-        conn.call(move |c| {
+        conn.call(move |c| -> rusqlite::Result<()> {
             c.execute_batch(&format!(
                 "{key_sql} \
                  PRAGMA journal_mode=WAL; \
@@ -294,7 +293,11 @@ impl Db {
             // request_id / 调用位置经 call_traced 设的 thread-local 读出。超长字段值由
             // log_util::truncate_sql_literals 截断；仅影响日志输出，不碰 DB 写入。
             // 不再注册 trace 回调，避免同一 SQL 被 trace+profile 重复打印。
-            c.profile(Some(sql_profile_callback));
+            c.trace_v2(
+                rusqlite::trace::TraceEventCodes::SQLITE_TRACE_PROFILE,
+                Some(crate::trace::sql_trace_event),
+            )
+            .expect("register sql profile trace_v2 callback");
             Ok(())
         })
         .await
@@ -373,7 +376,7 @@ impl Db {
         let conn = AsyncConnection::open(path)
             .await
             .map_err(|e| e.to_string())?;
-        conn.call(move |c| {
+        conn.call(move |c| -> rusqlite::Result<()> {
             c.execute_batch(
                 &format!("{key_sql} PRAGMA journal_mode=WAL; \
                  PRAGMA foreign_keys=ON; \
@@ -388,7 +391,11 @@ impl Db {
             if table_count == 0 {
                 c.execute_batch("PRAGMA auto_vacuum = INCREMENTAL;")?;
             }
-            c.profile(Some(sql_profile_callback));
+            c.trace_v2(
+                rusqlite::trace::TraceEventCodes::SQLITE_TRACE_PROFILE,
+                Some(crate::trace::sql_trace_event),
+            )
+            .expect("register sql profile trace_v2 callback");
             Ok(())
         })
         .await
@@ -405,7 +412,7 @@ impl Db {
         let conn = AsyncConnection::open(path)
             .await
             .map_err(|e| e.to_string())?;
-        conn.call(move |c| {
+        conn.call(move |c| -> rusqlite::Result<()> {
             c.execute_batch(
                 &format!("{key_sql} PRAGMA journal_mode=WAL; \
                  PRAGMA foreign_keys=ON; \
@@ -420,7 +427,11 @@ impl Db {
             if table_count == 0 {
                 c.execute_batch("PRAGMA auto_vacuum = INCREMENTAL;")?;
             }
-            c.profile(Some(sql_profile_callback));
+            c.trace_v2(
+                rusqlite::trace::TraceEventCodes::SQLITE_TRACE_PROFILE,
+                Some(crate::trace::sql_trace_event),
+            )
+            .expect("register sql profile trace_v2 callback");
             Ok(())
         })
         .await
@@ -495,9 +506,13 @@ impl Db {
                  PRAGMA foreign_keys=ON; \
                  PRAGMA busy_timeout=5000;{cache_pragma}"
             );
-            c.call(move |c| {
+            c.call(move |c| -> rusqlite::Result<()> {
                 c.execute_batch(&batch)?;
-                c.profile(Some(sql_profile_callback));
+                c.trace_v2(
+                rusqlite::trace::TraceEventCodes::SQLITE_TRACE_PROFILE,
+                Some(crate::trace::sql_trace_event),
+            )
+            .expect("register sql profile trace_v2 callback");
                 Ok(())
             })
             .await
@@ -550,9 +565,9 @@ impl Db {
         req: Option<&str>,
         caller: &'static std::panic::Location<'static>,
         f: F,
-    ) -> impl std::future::Future<Output = tokio_rusqlite::Result<R>>
+    ) -> impl std::future::Future<Output = Result<R, tokio_rusqlite::Error>>
     where
-        F: FnOnce(&mut Connection) -> tokio_rusqlite::Result<R> + Send + 'static,
+        F: FnOnce(&mut Connection) -> Result<R, rusqlite::Error> + Send + 'static,
         R: Send + 'static,
     {
         // 在调用方线程（投递 DB 前）解析链路 id：显式 req > 环境 span 捕获 > 兜底生成。
@@ -577,8 +592,12 @@ impl Db {
                     let f = cell1
                         .lock()
                         .expect("f cell poisoned")
-                        .take()
-                        .ok_or(tokio_rusqlite::Error::ConnectionClosed)?;
+                        .take();
+                    let f = f
+                        // take 失败 = closure 已被消费（后台线程曾死）。panic 杀死
+                        // 本连接的后台线程，本 call 与后续 call 均返 ConnectionClosed，
+                        // 由外层重开重试逻辑接管（与旧行为等价）。
+                        .expect("db call closure consumed before first run");
                     f(conn)
                 })
                 .await;
@@ -645,9 +664,9 @@ impl Db {
         req: Option<&str>,
         caller: &'static std::panic::Location<'static>,
         f: F,
-    ) -> impl std::future::Future<Output = tokio_rusqlite::Result<R>>
+    ) -> impl std::future::Future<Output = Result<R, tokio_rusqlite::Error>>
     where
-        F: FnOnce(&mut Connection) -> tokio_rusqlite::Result<R> + Send + 'static,
+        F: FnOnce(&mut Connection) -> Result<R, rusqlite::Error> + Send + 'static,
         R: Send + 'static,
     {
         // 与 call_traced 一致：调用方线程（投递前）解析链路 id，span 在此活跃。
@@ -668,8 +687,12 @@ impl Db {
                     let f = cell1
                         .lock()
                         .expect("f cell poisoned")
-                        .take()
-                        .ok_or(tokio_rusqlite::Error::ConnectionClosed)?;
+                        .take();
+                    let f = f
+                        // take 失败 = closure 已被消费（后台线程曾死）。panic 杀死
+                        // 本连接的后台线程，本 call 与后续 call 均返 ConnectionClosed，
+                        // 由外层重开重试逻辑接管（与旧行为等价）。
+                        .expect("db call closure consumed before first run");
                     f(conn)
                 })
                 .await;
@@ -715,9 +738,9 @@ impl Db {
         req: Option<&str>,
         caller: &'static std::panic::Location<'static>,
         f: F,
-    ) -> impl std::future::Future<Output = tokio_rusqlite::Result<R>>
+    ) -> impl std::future::Future<Output = Result<R, tokio_rusqlite::Error>>
     where
-        F: FnOnce(&mut Connection) -> tokio_rusqlite::Result<R> + Send + 'static,
+        F: FnOnce(&mut Connection) -> Result<R, rusqlite::Error> + Send + 'static,
         R: Send + 'static,
     {
         let req = req
@@ -741,8 +764,12 @@ impl Db {
                     let f = cell1
                         .lock()
                         .expect("f cell poisoned")
-                        .take()
-                        .ok_or(tokio_rusqlite::Error::ConnectionClosed)?;
+                        .take();
+                    let f = f
+                        // take 失败 = closure 已被消费（后台线程曾死）。panic 杀死
+                        // 本连接的后台线程，本 call 与后续 call 均返 ConnectionClosed，
+                        // 由外层重开重试逻辑接管（与旧行为等价）。
+                        .expect("db call closure consumed before first run");
                     f(conn)
                 })
                 .await;
@@ -796,9 +823,9 @@ impl Db {
         req: Option<&str>,
         caller: &'static std::panic::Location<'static>,
         f: F,
-    ) -> impl std::future::Future<Output = tokio_rusqlite::Result<R>>
+    ) -> impl std::future::Future<Output = Result<R, tokio_rusqlite::Error>>
     where
-        F: FnOnce(&mut Connection) -> tokio_rusqlite::Result<R> + Send + 'static,
+        F: FnOnce(&mut Connection) -> Result<R, rusqlite::Error> + Send + 'static,
         R: Send + 'static,
     {
         let req = req
@@ -818,8 +845,12 @@ impl Db {
                     let f = cell1
                         .lock()
                         .expect("f cell poisoned")
-                        .take()
-                        .ok_or(tokio_rusqlite::Error::ConnectionClosed)?;
+                        .take();
+                    let f = f
+                        // take 失败 = closure 已被消费（后台线程曾死）。panic 杀死
+                        // 本连接的后台线程，本 call 与后续 call 均返 ConnectionClosed，
+                        // 由外层重开重试逻辑接管（与旧行为等价）。
+                        .expect("db call closure consumed before first run");
                     f(conn)
                 })
                 .await;
@@ -864,9 +895,9 @@ impl Db {
         req: Option<&str>,
         caller: &'static std::panic::Location<'static>,
         f: F,
-    ) -> impl std::future::Future<Output = tokio_rusqlite::Result<R>>
+    ) -> impl std::future::Future<Output = Result<R, tokio_rusqlite::Error>>
     where
-        F: FnOnce(&mut Connection) -> tokio_rusqlite::Result<R> + Send + 'static,
+        F: FnOnce(&mut Connection) -> Result<R, rusqlite::Error> + Send + 'static,
         R: Send + 'static,
     {
         let req = req
@@ -890,8 +921,12 @@ impl Db {
                     let f = cell1
                         .lock()
                         .expect("f cell poisoned")
-                        .take()
-                        .ok_or(tokio_rusqlite::Error::ConnectionClosed)?;
+                        .take();
+                    let f = f
+                        // take 失败 = closure 已被消费（后台线程曾死）。panic 杀死
+                        // 本连接的后台线程，本 call 与后续 call 均返 ConnectionClosed，
+                        // 由外层重开重试逻辑接管（与旧行为等价）。
+                        .expect("db call closure consumed before first run");
                     f(conn)
                 })
                 .await;
@@ -945,9 +980,9 @@ impl Db {
         req: Option<&str>,
         caller: &'static std::panic::Location<'static>,
         f: F,
-    ) -> impl std::future::Future<Output = tokio_rusqlite::Result<R>>
+    ) -> impl std::future::Future<Output = Result<R, tokio_rusqlite::Error>>
     where
-        F: FnOnce(&mut Connection) -> tokio_rusqlite::Result<R> + Send + 'static,
+        F: FnOnce(&mut Connection) -> Result<R, rusqlite::Error> + Send + 'static,
         R: Send + 'static,
     {
         let req = req
@@ -967,8 +1002,12 @@ impl Db {
                     let f = cell1
                         .lock()
                         .expect("f cell poisoned")
-                        .take()
-                        .ok_or(tokio_rusqlite::Error::ConnectionClosed)?;
+                        .take();
+                    let f = f
+                        // take 失败 = closure 已被消费（后台线程曾死）。panic 杀死
+                        // 本连接的后台线程，本 call 与后续 call 均返 ConnectionClosed，
+                        // 由外层重开重试逻辑接管（与旧行为等价）。
+                        .expect("db call closure consumed before first run");
                     f(conn)
                 })
                 .await;
@@ -1088,8 +1127,8 @@ impl Db {
     /// 用于验证 `call_read_traced` 在某槽位死亡时能透明重试到下一条。
     pub async fn kill_next_read_slot(&self) {
         let conn = self.2.pick();
-        let _: tokio_rusqlite::Result<()> =
-            conn.call(|_c| panic!("test: kill read pool slot")).await;
+        let _: Result<(), tokio_rusqlite::Error> =
+            conn.call::<_, (), rusqlite::Error>(|_c| panic!("test: kill read pool slot")).await;
     }
 }
 
@@ -1123,14 +1162,18 @@ async fn reopen_write_conn(path: &str) -> Result<AsyncConnection, String> {
     let conn = AsyncConnection::open(path)
         .await
         .map_err(|e| e.to_string())?;
-    conn.call(move |c| {
+    conn.call(move |c| -> rusqlite::Result<()> {
         c.execute_batch(
             &format!("{key_sql} PRAGMA journal_mode=WAL; \
              PRAGMA foreign_keys=ON; \
              PRAGMA busy_timeout=5000; \
              PRAGMA synchronous=NORMAL;",
         ))?;
-        c.profile(Some(sql_profile_callback));
+        c.trace_v2(
+                rusqlite::trace::TraceEventCodes::SQLITE_TRACE_PROFILE,
+                Some(crate::trace::sql_trace_event),
+            )
+            .expect("register sql profile trace_v2 callback");
         Ok(())
     })
     .await

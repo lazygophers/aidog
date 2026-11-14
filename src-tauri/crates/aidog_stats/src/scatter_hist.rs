@@ -25,14 +25,14 @@ pub fn scatter_histogram<'a>(
         // proxy_log 在 log.db，读闭包内不能现取。
         let auto_map = db
             .call_read_platform_traced(None, __db_caller, |conn| {
-                load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+                load_auto_from_map(conn)
             })
             .await
             .map_err(|e| format!("scatter_histogram load auto_map: {e}"))?;
         let coding_ids = coding_id_filter(db, &query.filter_coding_plan, __db_caller).await?;
         db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
             scatter_hist_inner(conn, &query, &auto_map, &coding_ids)
-                .map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+                
         })
         .await
         .map_err(|e| e.to_string())
@@ -50,7 +50,7 @@ async fn coding_id_filter(
         return Ok(None);
     }
     db.call_read_platform_traced(None, caller, |conn| {
-        coding_plan_id_set(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+        coding_plan_id_set(conn)
     })
     .await
     .map(Some)
@@ -66,7 +66,7 @@ fn scatter_hist_inner(
     query: &ScatterHistogramQuery,
     auto_map: &HashMap<String, i64>,
     coding_ids: &Option<HashSet<i64>>,
-) -> Result<ScatterHistogram, String> {
+) -> rusqlite::Result<ScatterHistogram> {
     let end = query
         .end
         .unwrap_or_else(|| chrono::Utc::now().timestamp_millis());
@@ -114,18 +114,15 @@ fn scatter_hist_inner(
             .prepare(&format!(
                 "SELECT COALESCE(duration_ms,0), COALESCE(est_cost,0.0), platform_id, group_key \
                  FROM proxy_log WHERE {where_sql}"
-            ))
-            .map_err(|e| e.to_string())?;
-        let mut rows = stmt
-            .query(refs.as_slice())
-            .map_err(|e| format!("scatter rows: {e}"))?;
-        while let Some(r) = rows.next().map_err(|e| format!("scatter next: {e}"))? {
-            let platform_id: i64 = r.get(2).map_err(|e| e.to_string())?;
-            let group_key: String = r.get(3).map_err(|e| e.to_string())?;
+            ))?;
+        let mut rows = stmt.query(refs.as_slice())?;
+        while let Some(r) = rows.next()? {
+            let platform_id: i64 = r.get(2)?;
+            let group_key: String = r.get(3)?;
             let eff_pid = resolve_eff_pid(platform_id, group_key.as_str(), auto_map);
             if keep(eff_pid) {
-                let dur: f64 = r.get::<_, i64>(0).map_err(|e| e.to_string())? as f64;
-                let cost: f64 = r.get(1).map_err(|e| e.to_string())?;
+                let dur: f64 = r.get::<_, i64>(0)? as f64;
+                let cost: f64 = r.get(1)?;
                 points.push((dur, cost));
             }
         }

@@ -312,7 +312,7 @@ impl SchedulerState {
             let pid = platform_id;
             let ptype: String = db
                 .platform_write_conn()
-                .call(move |conn| {
+                .call(move |conn| -> rusqlite::Result<String> {
                     Ok(conn
                         .query_row(
                             "SELECT platform_type FROM platform WHERE id = ?1",

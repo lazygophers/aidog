@@ -26,11 +26,11 @@ async fn insert_log(db: &Db, id: &str, tokens: i64) {
 /// 经读路径（call_read_traced）统计 setting 行数。
 async fn read_count(db: &Db) -> i64 {
     db.call_read_traced(None, std::panic::Location::caller(), |conn| {
-        Ok(conn.query_row(
+        conn.query_row(
             "SELECT COUNT(*) FROM setting WHERE scope = 'test' AND deleted_at = 0",
             [],
             |r| r.get(0),
-        )?)
+        )
     })
     .await
     .expect("read count")
@@ -174,7 +174,7 @@ async fn concurrent_reads_not_blocked_by_writes() {
 #[tokio::test]
 async fn drop_last_clone_closes_every_connection() {
     async fn alive(c: &AsyncConnection) -> bool {
-        c.call(|c| Ok(c.query_row("SELECT 1", [], |r| r.get::<_, i64>(0))?))
+        c.call(|c| -> rusqlite::Result<i64> { c.query_row("SELECT 1", [], |r| r.get::<_, i64>(0)) })
             .await
             .is_ok()
     }

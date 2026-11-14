@@ -142,13 +142,13 @@ pub fn get_cc_oauth_profile<'a>(
     let group = group_name.to_string();
     async move {
         db.call_read_traced(None, __db_caller, move |conn| {
-            Ok(conn
+            conn
                 .query_row(
                     "SELECT tier, updated_at FROM cc_oauth_profile WHERE group_name = ?1",
                     params![group],
                     |r| Ok(CcProfileDto { tier: r.get(0)?, updated_at: r.get(1)? }),
                 )
-                .optional()?)
+                .optional()
         })
         .await
         .map_err(|e| format!("get cc_oauth_profile: {e}"))
@@ -170,13 +170,13 @@ pub fn get_mitm_bypass_detail(
     let __db_caller = std::panic::Location::caller();
     async move {
         db.call_read_traced(None, __db_caller, move |conn| {
-            Ok(conn
+            conn
                 .query_row(
                     "SELECT request_body, response_body FROM mitm_log WHERE id = ?1",
                     params![id],
                     |r| Ok(MitmBypassDetail { request_body: r.get(0)?, response_body: r.get(1)? }),
                 )
-                .optional()?)
+                .optional()
         })
         .await
         .map_err(|e| format!("get mitm_bypass_detail: {e}"))
@@ -356,11 +356,11 @@ pub fn count_mitm_opaque(
         // proxy_log 表读侧必须走 proxy_log 专用读池（call_read_proxy_log_traced，同 crate
         // proxy_log.rs 先例）——主库读池在真机 WAL 拆库下 no such table。
         db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
-            Ok(conn.query_row(
+            conn.query_row(
                 "SELECT COUNT(*) FROM proxy_log WHERE blocked_reason = ?1 AND platform_id != 0 AND created_at >= ?2",
                 params![MITM_OPAQUE_REASON, since_ms],
                 |r| r.get::<_, i64>(0),
-            )?)
+            )
         })
         .await
         .map_err(|e| format!("count mitm_opaque: {e}"))

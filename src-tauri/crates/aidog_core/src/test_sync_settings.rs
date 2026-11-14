@@ -823,7 +823,7 @@ async fn cc_proxy_password_stable_and_encrypted_at_rest() {
                 [],
                 |r| r.get(0),
             )
-            .map_err(tokio_rusqlite::Error::from)
+            
         })
         .await
         .unwrap();

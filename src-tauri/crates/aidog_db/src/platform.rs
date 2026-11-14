@@ -325,7 +325,7 @@ pub fn list_platforms(
             let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE deleted_at = 0 ORDER BY sort_order, created_at");
             let mut stmt = conn.prepare(&sql)?;
             let rows = stmt.query_map([], row_to_platform)?;
-            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+            rows.collect::<SqlResult<Vec<_>>>()
         })
         .await
         .map_err(|e| e.to_string())
@@ -353,7 +353,7 @@ pub fn list_passthrough_extras(
                  AND platform_type IN ('\"passthrough\"', 'passthrough')",
             )?;
             let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
-            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+            rows.collect::<SqlResult<Vec<_>>>()
         })
         .await
         .map_err(|e| e.to_string())?;
@@ -377,7 +377,7 @@ pub fn get_platforms_by_ids<'a>(
     let ids = ids.to_vec();
     async move {
         db.call_read_platform_traced(None, __db_caller, move |conn| {
-            Ok(load_platforms_by_ids(conn, &ids)?)
+            load_platforms_by_ids(conn, &ids)
         })
         .await
         .map_err(|e| e.to_string())
@@ -395,9 +395,9 @@ pub fn get_platform(
             let sql =
                 format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE id = ?1 AND deleted_at = 0");
             let mut stmt = conn.prepare(&sql)?;
-            Ok(stmt
+            stmt
                 .query_row(params![id as i64], row_to_platform)
-                .optional()?)
+                .optional()
         })
         .await
         .map_err(|e| e.to_string())
@@ -662,7 +662,7 @@ pub fn recover_platform_auto_disabled(
 /// 不经 call_platform_traced 重连重试——热路径性能优先，连接死亡由上层重试兜底）。
 pub async fn set_platform_last_error(db: &Db, id: u64, err: Option<String>) -> Result<(), String> {
     db.platform_write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<()> {
             match err {
                 Some(msg) => conn.execute(
                     "UPDATE platform SET last_error = ?1, last_error_at = ?2 WHERE id = ?3",
@@ -684,7 +684,7 @@ pub async fn set_platform_last_error(db: &Db, id: u64, err: Option<String>) -> R
 /// est_balance_remaining 内嵌于 GroupDetail.platforms；list_group_details 非代理热路径，失效廉价。
 pub async fn apply_balance_delta(db: &Db, platform_id: u64, cost: f64) -> Result<(), String> {
     db.platform_write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<()> {
             conn.execute(
                 "UPDATE platform SET est_balance_remaining = est_balance_remaining - ?1, estimate_count = estimate_count + 1 WHERE id = ?2",
                 params![cost, platform_id as i64],

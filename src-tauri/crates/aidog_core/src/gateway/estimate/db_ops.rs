@@ -10,12 +10,12 @@ use aidog_db::{Db, now};
 /// 读取平台校准状态（短持锁）
 pub async fn read_estimate_state(db: &Db, platform_id: u64) -> Result<(i64, i64), String> {
     db.platform_write_conn()
-        .call(move |conn| {
-            Ok(conn.query_row(
+        .call(move |conn| -> rusqlite::Result<(i64, i64)> {
+            conn.query_row(
                 "SELECT last_real_query_at, estimate_count FROM platform WHERE id = ?1",
                 params![platform_id as i64],
                 |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
-            )?)
+            )
         })
         .await
         .map_err(|e| e.to_string())
@@ -34,7 +34,7 @@ pub async fn apply_coding_plan_delta(
     tokens: f64,
 ) -> Result<(), String> {
     db.platform_write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<()> {
             let json: String = conn.query_row(
                 "SELECT est_coding_plan FROM platform WHERE id = ?1",
                 params![platform_id as i64],
@@ -65,7 +65,7 @@ pub async fn write_rate_limit(db: &Db, platform_id: u64, rl: &super::RateLimit) 
     }
     let r = db
         .platform_write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<()> {
             conn.execute(
                 "UPDATE platform SET rate_limit = ?1 WHERE id = ?2",
                 params![json, platform_id as i64],
@@ -96,7 +96,7 @@ pub async fn write_unified_tiers(
     let tiers = tiers.to_vec();
     let r = db
         .platform_write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<bool> {
             let json: String = conn.query_row(
                 "SELECT est_coding_plan FROM platform WHERE id = ?1",
                 params![platform_id as i64],
@@ -153,7 +153,7 @@ pub async fn seed_plan_anchor_if_empty(db: &Db, platform_id: u64, protocol: &str
     }
     let json: String = db
         .platform_write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<String> {
             Ok(conn
                 .query_row(
                     "SELECT est_coding_plan FROM platform WHERE id = ?1",
@@ -187,7 +187,7 @@ pub async fn write_real_quota(
 ) -> Result<(), String> {
     let est_coding_plan_json = est_coding_plan_json.to_string();
     db.platform_write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<()> {
             conn.execute(
                 "UPDATE platform SET est_balance_remaining = ?1, est_coding_plan = ?2, last_real_query_at = ?3, estimate_count = 0 WHERE id = ?4",
                 params![est_balance, est_coding_plan_json, now_ms, platform_id as i64],
@@ -298,7 +298,7 @@ pub async fn calibrate_from_quota_with(
     }
     let prev_json: String = db
         .platform_write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<String> {
             Ok(conn
                 .query_row(
                     "SELECT est_coding_plan FROM platform WHERE id = ?1",
@@ -545,7 +545,7 @@ async fn maybe_emit_quota_forecast(db: &Db, platform_id: u64, platform_type: &st
     let pid = platform_id;
     let json: String = db
         .platform_write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<String> {
             Ok(conn
                 .query_row(
                     "SELECT est_coding_plan FROM platform WHERE id = ?1",

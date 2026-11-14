@@ -163,7 +163,7 @@ fn create_key_file(path: &std::path::Path, key: &[u8; KEY_LEN]) -> Result<[u8; K
 
 fn new_random_key() -> [u8; KEY_LEN] {
     let mut k = [0u8; KEY_LEN];
-    rand::RngCore::fill_bytes(&mut rand::thread_rng(), &mut k);
+    rand::Rng::fill_bytes(&mut rand::rng(), &mut k);
     k
 }
 
@@ -211,7 +211,7 @@ pub(crate) fn encrypt_with(key: &[u8; KEY_LEN], plain: &str) -> Result<String, S
     }
     let cipher = Aes256Gcm::new(key.into());
     let mut nonce_bytes = [0u8; NONCE_LEN];
-    rand::RngCore::fill_bytes(&mut rand::thread_rng(), &mut nonce_bytes);
+    rand::Rng::fill_bytes(&mut rand::rng(), &mut nonce_bytes);
     let nonce: Nonce<Aes256Gcm> = nonce_bytes.into();
     let ct = cipher
         .encrypt(&nonce, plain.as_bytes())

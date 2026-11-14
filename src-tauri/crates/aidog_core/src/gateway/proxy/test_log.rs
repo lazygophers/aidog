@@ -105,13 +105,13 @@ fn terminal_log(id: &str) -> ProxyLog {
 async fn agg_request_count(db: &aidog_db::Db, id_group: &str) -> i64 {
     let g = id_group.to_string();
     db.write_conn()
-        .call(move |c| {
-            Ok(c.query_row(
+        .call(move |c| -> rusqlite::Result<i64> {
+            c.query_row(
                 "SELECT COALESCE(SUM(request_count),0), COALESCE(SUM(sum_input_tokens),0) \
                      FROM stats_agg_hourly WHERE group_key = ?1",
                 rusqlite::params![g],
                 |r| r.get::<_, i64>(0),
-            )?)
+            )
         })
         .await
         .unwrap()

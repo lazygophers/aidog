@@ -74,7 +74,7 @@ pub fn get_setting<'a>(
                     }))
                 })
                 .optional()
-                .map_err(tokio_rusqlite::Error::from)
+                
             }
         })
         .await
@@ -165,7 +165,7 @@ pub fn list_setting_keys<'a>(
                 "SELECT key FROM setting WHERE scope = ?1 AND deleted_at = 0 ORDER BY key",
             )?;
             let rows = stmt.query_map(params![scope], |row| row.get(0))?;
-            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+            rows.collect::<SqlResult<Vec<_>>>()
         })
         .await
         .map_err(|e| e.to_string())
@@ -190,7 +190,7 @@ pub fn list_all_settings_raw(
                     row.get::<_, String>(2)?,
                 ))
             })?;
-            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+            rows.collect::<SqlResult<Vec<_>>>()
         })
         .await
         .map_err(|e| e.to_string())

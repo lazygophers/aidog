@@ -58,13 +58,13 @@ pub const TEST_TRIVIA: &[(&str, &str)] = &[
 /// prompt 每次随机 → 防指纹；expected 为归一化后用于子串校验的极短答案。
 #[allow(dead_code)]
 pub fn random_test_challenge() -> (String, String) {
-    use rand::Rng;
-    let mut rng = rand::thread_rng();
-    if rng.gen_bool(0.5) {
+    use rand::RngExt;
+    let mut rng = rand::rng();
+    if rng.random_bool(0.5) {
         // 算术：两位数 10..=99
-        let a: i64 = rng.gen_range(10..=99);
-        let b: i64 = rng.gen_range(10..=99);
-        match rng.gen_range(0..3) {
+        let a: i64 = rng.random_range(10..=99);
+        let b: i64 = rng.random_range(10..=99);
+        match rng.random_range(0..3) {
             0 => (format!("{} 加 {} 等于多少？", a, b), (a + b).to_string()),
             1 => {
                 // 保证非负，便于关键词在开头
@@ -77,7 +77,7 @@ pub fn random_test_challenge() -> (String, String) {
             _ => (format!("{} 乘以 {} 等于多少？", a, b), (a * b).to_string()),
         }
     } else {
-        let (q, ans) = TEST_TRIVIA[rng.gen_range(0..TEST_TRIVIA.len())];
+        let (q, ans) = TEST_TRIVIA[rng.random_range(0..TEST_TRIVIA.len())];
         (q.to_string(), ans.to_string())
     }
 }

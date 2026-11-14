@@ -104,7 +104,7 @@ pub fn load_platform_health_states(
                     breaker_last_fail_ms: r.get(10)?,
                 })
             })?;
-            Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+            rows.collect::<rusqlite::Result<Vec<_>>>()
         })
         .await
         .map_err(|e| format!("load platform_health_state: {e}"))

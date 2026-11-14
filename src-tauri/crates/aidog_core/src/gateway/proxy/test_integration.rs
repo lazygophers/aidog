@@ -3148,13 +3148,13 @@ async fn only_log_of(state: &Arc<ProxyState>, gk: &str) -> aidog_db::models::Pro
 async fn agg_counts(db: &aidog_db::Db, gk: &str) -> (i64, i64) {
     let g = gk.to_string();
     db.write_conn()
-        .call(move |c| {
-            Ok(c.query_row(
+        .call(move |c| -> rusqlite::Result<(i64, i64)> {
+            c.query_row(
                 "SELECT COALESCE(SUM(request_count),0), COALESCE(SUM(error_count),0) \
                  FROM stats_agg_hourly WHERE group_key = ?1",
                 rusqlite::params![g],
                 |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
-            )?)
+            )
         })
         .await
         .unwrap()
@@ -5360,22 +5360,22 @@ async fn client_and_req_model_land_in_log_and_stats_agg() {
         .unwrap();
     let log_client: String = reopened
         .call_read_proxy_log_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row(
+            c.query_row(
                 "SELECT client FROM proxy_log WHERE group_key = 'gk_flow'",
                 [],
                 |r| r.get(0),
-            )?)
+            )
         })
         .await
         .unwrap();
     assert_eq!(log_client, "claude_code");
     let (client, req_model, model): (String, String, String) = reopened
         .call_read_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row(
+            c.query_row(
                 "SELECT client, req_model, model FROM stats_agg_hourly WHERE group_key = 'gk_flow'",
                 [],
                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-            )?)
+            )
         })
         .await
         .unwrap();
@@ -7220,11 +7220,11 @@ async fn mgmt_call_log_records_metadata_without_bodies() {
     let dump: String = state
         .db
         .call_read_proxy_log_traced(None, std::panic::Location::caller(), |conn| {
-            Ok(conn.query_row(
+            conn.query_row(
                 "SELECT group_concat(command || user_agent || source, '|') FROM api_call_log",
                 [],
                 |r| r.get::<_, String>(0),
-            )?)
+            )
         })
         .await
         .unwrap();
