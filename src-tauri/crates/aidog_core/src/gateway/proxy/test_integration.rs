@@ -4131,6 +4131,87 @@ async fn passthrough_platform_relays_unparseable_requests_verbatim() {
     assert_eq!((log.input_tokens, log.output_tokens), (7, 2));
 }
 
+/// stub HTTP 代理：计请求数并回 200（issue #64 T04 透传 / T05 旁路行为测试共用）。
+async fn spawn_hit_counting_proxy() -> (
+    std::net::SocketAddr,
+    Arc<std::sync::atomic::AtomicUsize>,
+) {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let hits = Arc::new(AtomicUsize::new(0));
+    let h = hits.clone();
+    let app = axum::Router::new().fallback(axum::routing::any(move || {
+        let h = h.clone();
+        async move {
+            h.fetch_add(1, Ordering::SeqCst);
+            (StatusCode::OK, "")
+        }
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, app).await.ok() });
+    (addr, hits)
+}
+
+/// issue #64 T04：透传平台出站按平台 `extra.proxy_enabled` 判定代理（stub proxy 计数）。
+/// others_enabled=false：平台开 → 走代理；平台无开关 → 直连上游（不跟随其它请求开关）。
+#[tokio::test]
+async fn passthrough_platform_extra_proxy_switch() {
+    use crate::gateway::models::ProxyClientSettings;
+    use std::sync::atomic::Ordering;
+
+    let (proxy_addr, hits) = spawn_hit_counting_proxy().await;
+    let upstream = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    {
+        let mut c = state.settings_cache.write().await;
+        c.proxy_client = ProxyClientSettings {
+            proxy_type: "http".into(),
+            host: "127.0.0.1".into(),
+            port: proxy_addr.port(),
+            others_enabled: false,
+            // 覆盖 DEFAULT_NO_PROXY（含 127.0.0.1，会让上游目标绕过代理）
+            no_proxy: "nothing.invalid".into(),
+            ..Default::default()
+        };
+    }
+
+    // 平台开 → 透传出站走代理
+    setup_passthrough_platform_group_extra(
+        &state,
+        "gkptpxon",
+        &upstream,
+        r#"{"proxy_enabled":true}"#,
+    )
+    .await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request(
+            "gkptpxon",
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+        ),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(hits.load(Ordering::SeqCst), 1, "平台 proxy_enabled=true → 透传出站走代理");
+
+    // 平台无开关（extra 空）→ 直连上游，代理不计数
+    setup_passthrough_platform_group_extra(&state, "gkptpxoff", &upstream, "").await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request(
+            "gkptpxoff",
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+        ),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        1,
+        "平台无 proxy_enabled → 直连（缺省不跟随 others_enabled）"
+    );
+}
+
 // ═══════════════ ADR 0009：入站密钥通道 + 未匹配分组日志 ═══════════════
 
 /// 记录每次上游请求 (uri, 小写头名→值) 的 stub 上游，返回固定 body。
