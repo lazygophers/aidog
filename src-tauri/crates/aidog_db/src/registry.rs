@@ -92,11 +92,12 @@ pub(crate) fn holiday_calendar_get_from(
     code: &str,
     files: &[(&str, &str)],
 ) -> Option<HolidayCalendar> {
-    holiday_calendar_load_from(code, &mut Vec::new(), files)
+    holiday_calendar_load_uncached(code, &mut Vec::new(), files)
 }
 
-#[cfg(test)]
-fn holiday_calendar_load_from(
+/// 缓存旁路核心（[`holiday_calendar_load`] 与测试版 [`holiday_calendar_get_from`] 共用）：
+/// 解析 code 的继承链并合并父日历，不碰缓存。
+fn holiday_calendar_load_uncached(
     code: &str,
     visiting: &mut Vec<String>,
     files: &[(&str, &str)],
@@ -108,7 +109,7 @@ fn holiday_calendar_load_from(
     let mut calendar: HolidayCalendar = serde_json::from_str(raw).ok()?;
     visiting.push(code.to_owned());
     if let Some(parent) = calendar.extends.as_deref()
-        && let Some(parent) = holiday_calendar_load_from(parent, visiting, files)
+        && let Some(parent) = holiday_calendar_load_uncached(parent, visiting, files)
     {
         merge_holiday_calendar(&mut calendar, parent);
     }
@@ -117,32 +118,12 @@ fn holiday_calendar_load_from(
 }
 
 fn holiday_calendar_load(code: &str, visiting: &mut Vec<String>) -> Option<HolidayCalendar> {
-    if let Some(calendar) = HOLIDAY_CALENDARS
-        .get_or_init(|| RwLock::new(BTreeMap::new()))
-        .read()
-        .ok()?
-        .get(code)
-        .cloned()
-    {
+    let calendars = HOLIDAY_CALENDARS.get_or_init(|| RwLock::new(BTreeMap::new()));
+    if let Some(calendar) = calendars.read().ok()?.get(code).cloned() {
         return Some(calendar);
     }
-    if visiting.iter().any(|entry| entry == code) {
-        return None;
-    }
-    let raw = HOLIDAY_CALENDAR_FILES
-        .iter()
-        .find(|(candidate, _)| *candidate == code)?
-        .1;
-    let mut calendar: HolidayCalendar = serde_json::from_str(raw).ok()?;
-    visiting.push(code.to_owned());
-    if let Some(parent) = calendar.extends.as_deref()
-        && let Some(parent) = holiday_calendar_load(parent, visiting)
-    {
-        merge_holiday_calendar(&mut calendar, parent);
-    }
-    visiting.pop();
-    HOLIDAY_CALENDARS
-        .get_or_init(|| RwLock::new(BTreeMap::new()))
+    let calendar = holiday_calendar_load_uncached(code, visiting, HOLIDAY_CALENDAR_FILES)?;
+    calendars
         .write()
         .ok()?
         .insert(code.to_owned(), calendar.clone());
@@ -176,7 +157,15 @@ pub(crate) fn holiday_calendar_is_workday_from(
 }
 
 /// Some(true) = workday, Some(false) = holiday, None = calendar/year missing.
+/// 热路径（peak `hit` 每窗口调用）：命中缓存时持读锁按引用判定，零 clone；
+/// 未命中走 [`holiday_calendar_get`] 冷路径（每日历仅首次解析 + 一次 clone）。
 pub fn holiday_calendar_is_workday(code: &str, date: &str) -> Option<bool> {
+    let calendars = HOLIDAY_CALENDARS.get_or_init(|| RwLock::new(BTreeMap::new()));
+    if let Ok(guard) = calendars.read()
+        && let Some(calendar) = guard.get(code)
+    {
+        return holiday_calendar_day_type(calendar, date);
+    }
     holiday_calendar_day_type(&holiday_calendar_get(code)?, date)
 }
 

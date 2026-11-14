@@ -29,19 +29,6 @@ pub fn utc_time(epoch_ms: i64) -> (i32, i32, i32, i32) {
 /// t 在 `tz`（IANA 名，None/非法 = UTC）的**本地**全时间分量（DST 由 tz 数据库处理）。
 /// 窗口时区解析的统一入口：`hit` 的 hour/weekday/day_of_month 均以此值比较。
 /// 与前端 `utils/timeWindow.ts::wallTimeInTz` 对称（跨层一致）。
-pub fn wall_date(epoch_ms: i64, tz: Option<&str>) -> String {
-    let dt = DateTime::<Utc>::from_timestamp_millis(epoch_ms)
-        .unwrap_or_else(|| DateTime::<Utc>::from_timestamp(0, 0).unwrap());
-    let local = match tz {
-        Some(name) => match name.parse::<chrono_tz::Tz>() {
-            Ok(z) => dt.with_timezone(&z).naive_local(),
-            Err(_) => dt.naive_utc(),
-        },
-        None => dt.naive_utc(),
-    };
-    local.format("%Y-%m-%d").to_string()
-}
-
 pub fn wall_time(epoch_ms: i64, tz: Option<&str>) -> (i32, i32, i32, i32) {
     // ponytail: chrono 已是依赖，直接用，免手算 1970-01-01=Thursday 偏移。
     let dt = DateTime::<Utc>::from_timestamp_millis(epoch_ms)
@@ -62,6 +49,22 @@ pub fn wall_time(epoch_ms: i64, tz: Option<&str>) -> (i32, i32, i32, i32) {
     let weekday = (wd_chrono + 1) % 7;
     let day_of_month = local.day() as i32;
     (hour, minute, weekday, day_of_month)
+}
+
+/// t 在 `tz`（IANA 名，None/非法 = UTC）的**本地**日期串（YYYY-MM-DD，DST 由 tz 数据库处理）。
+/// `hit` 的 day_type 日历判定以此值查表。与前端 `utils/timeWindow.ts::wallTimeInTz` 同一
+/// 本地时刻口径（跨层一致）。
+pub fn wall_date(epoch_ms: i64, tz: Option<&str>) -> String {
+    let dt = DateTime::<Utc>::from_timestamp_millis(epoch_ms)
+        .unwrap_or_else(|| DateTime::<Utc>::from_timestamp(0, 0).unwrap());
+    let local = match tz {
+        Some(name) => match name.parse::<chrono_tz::Tz>() {
+            Ok(z) => dt.with_timezone(&z).naive_local(),
+            Err(_) => dt.naive_utc(),
+        },
+        None => dt.naive_utc(),
+    };
+    local.format("%Y-%m-%d").to_string()
 }
 
 fn day_type_matches(day_type: &str, calendar_is_workday: Option<bool>, weekday: i32) -> bool {
@@ -211,6 +214,40 @@ fn model_match(pattern: &str, request_model: &str) -> bool {
     }
 }
 
+/// 节假日日历注入的共用 helper（peak_for / parse_platform_peak / candidates 三处共用）：
+/// `calendar` Some 且窗口未显式指定 `holiday_calendar` → 填入；None → 不动。
+pub(crate) fn inject_holiday_calendar(windows: &mut [TimeWindow], calendar: Option<&str>) {
+    if let Some(code) = calendar {
+        for window in windows {
+            if window.holiday_calendar.is_none() {
+                window.holiday_calendar = Some(code.to_owned());
+            }
+        }
+    }
+}
+
+/// [`inject_holiday_calendar`] 的 serde_json::Value 形态（time_windows 规则的 `windows` 数组用），
+/// 语义相同：窗口对象已有 `holiday_calendar` 键则不动。
+pub(crate) fn inject_holiday_calendar_into_value_windows(
+    rules: &mut [serde_json::Value],
+    calendar: Option<&str>,
+) {
+    if let Some(code) = calendar {
+        for rule in rules.iter_mut().flat_map(|rule| {
+            rule.get_mut("windows")
+                .and_then(serde_json::Value::as_array_mut)
+                .into_iter()
+                .flatten()
+        }) {
+            if let Some(object) = rule.as_object_mut() {
+                object
+                    .entry("holiday_calendar")
+                    .or_insert_with(|| serde_json::Value::from(code));
+            }
+        }
+    }
+}
+
 /// 混合源取某平台 peak 窗口：用户 `extra.peak` 覆盖优先；空/缺 → bundled preset 默认。
 /// 等价于 `db::stats_today::platform_peak` 的纯函数版（无 DB 查询），供路由层直接用。
 pub fn peak_for(extra: &str, protocol: &str) -> Vec<TimeWindow> {
@@ -224,13 +261,7 @@ pub fn peak_for(extra: &str, protocol: &str) -> Vec<TimeWindow> {
         .get("holiday_calendar")
         .and_then(serde_json::Value::as_str)
         .map(str::to_owned);
-    if let Some(code) = extra_calendar.or(registry_calendar) {
-        for window in &mut windows {
-            if window.holiday_calendar.is_none() {
-                window.holiday_calendar = Some(code.clone());
-            }
-        }
-    }
+    inject_holiday_calendar(&mut windows, extra_calendar.or(registry_calendar).as_deref());
     windows
 }
 
@@ -286,17 +317,13 @@ pub fn peak_models_in(
 pub fn parse_platform_peak(extra: &str) -> Vec<TimeWindow> {
     let parsed = crate::gateway::models::PlatformExtra::parse(extra);
     let mut windows = parsed.peak;
-    if let Some(code) = parsed
-        .rest
-        .get("holiday_calendar")
-        .and_then(serde_json::Value::as_str)
-    {
-        for window in &mut windows {
-            if window.holiday_calendar.is_none() {
-                window.holiday_calendar = Some(code.to_owned());
-            }
-        }
-    }
+    inject_holiday_calendar(
+        &mut windows,
+        parsed
+            .rest
+            .get("holiday_calendar")
+            .and_then(serde_json::Value::as_str),
+    );
     windows
 }
 

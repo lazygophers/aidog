@@ -23,22 +23,7 @@ pub fn parse_platform_time_windows(extra: &str) -> Vec<serde_json::Value> {
                 .and_then(|value| value.as_str())
                 .map(str::to_owned)
         });
-    if let Some(code) = platform_calendar {
-        for rule in &mut rules {
-            if let Some(windows) = rule
-                .get_mut("windows")
-                .and_then(|value| value.as_array_mut())
-            {
-                for window in windows {
-                    if let Some(object) = window.as_object_mut() {
-                        object
-                            .entry("holiday_calendar")
-                            .or_insert_with(|| serde_json::Value::from(code.clone()));
-                    }
-                }
-            }
-        }
-    }
+    crate::gateway::peak::inject_holiday_calendar_into_value_windows(&mut rules, platform_calendar.as_deref());
     rules
 }
 
