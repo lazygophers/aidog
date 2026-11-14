@@ -1,5 +1,4 @@
 {
-  "holiday_calendar": "US-CA",
   "endpoints": {
     "default": [
       {
@@ -134,5 +133,5 @@
       "timezone": "Asia/Shanghai"
     }
   ],
-  "last_updated": 1794657886
+  "last_updated": 1794674061
 }
