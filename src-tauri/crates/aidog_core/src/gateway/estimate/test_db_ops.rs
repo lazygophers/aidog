@@ -821,6 +821,84 @@ async fn per_request_fee_deducted_from_balance_and_manual_budget() {
     assert!((est - 0.002).abs() < 1e-12, "got {est}");
 }
 
+// ── issue 157：char / second 按量计价 —— 余额路径缺计数不扣减，est_cost 端到端 ──
+
+/// char 条目缺计数：余额与手动预算均不扣减（不兜底成一次的价格，#157 问题不得转移到余额扣减）。
+#[tokio::test]
+async fn char_unit_missing_count_not_deducted_from_balance() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, false).await;
+    seed_entry(
+        &db,
+        "deepseek",
+        "char-model",
+        r#"{"price":{"unit":"char","unit_price":0.015}}"#,
+    )
+    .await;
+    write_real_quota(&db, id, 100.0, "", now()).await.unwrap();
+    let processed = estimate_after_request(
+        &db,
+        id,
+        "deepseek",
+        "https://example.com",
+        "sk",
+        "char-model",
+        "",
+        0, // token 全 0：纯按量请求无计数时无可扣项
+        0,
+        0,
+        0,
+        false,
+        0,
+        0.0,
+        0, // 缺计数（TTS 入口未建，issue 157）
+    )
+    .await;
+    assert!(!processed, "char 缺计数 → request_fee 0 → 无可扣项，跳过预估");
+    let p = db::get_platform(&db, id).await.unwrap().unwrap();
+    assert!(
+        (p.est_balance_remaining - 100.0).abs() < 1e-12,
+        "余额不得按 1 次扣减，got {}",
+        p.est_balance_remaining
+    );
+    assert_eq!(p.estimate_count, 0, "跳过路径不得计入预估次数");
+}
+
+/// calc_est_cost 端到端：char 条目 + SEARCH_UNITS_KEY=10000 → est_cost = 0.15；
+/// 无计数 → est_cost 0 且 price_source 标 +unestimable（与免费可区分）。
+#[tokio::test]
+async fn char_unit_est_cost_end_to_end() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, false).await;
+    seed_entry(
+        &db,
+        "deepseek",
+        "char-model",
+        r#"{"price":{"unit":"char","unit_price":0.015}}"#,
+    )
+    .await;
+    let counts = vec![(crate::gateway::billing::SEARCH_UNITS_KEY.to_string(), 10000i64)];
+    let detail = crate::gateway::billing::calc_est_cost_detail(
+        &db, "char-model", "deepseek", "", 0, 0, 0, 0, 0, id as i64, 0, &counts,
+    )
+    .await;
+    assert!(
+        (detail.est_cost - 0.15).abs() < 1e-12,
+        "1 万字符 ÷ 1000 × $0.015 = $0.15, got {}",
+        detail.est_cost
+    );
+    let none = crate::gateway::billing::calc_est_cost_detail(
+        &db, "char-model", "deepseek", "", 0, 0, 0, 0, 0, id as i64, 0, &[],
+    )
+    .await;
+    assert_eq!(none.est_cost, 0.0, "char 缺计数 → est_cost 0（不可估算）");
+    assert!(
+        none.price_source.ends_with("+unestimable"),
+        "price_source 须标不可估算，got {}",
+        none.price_source
+    );
+}
+
 // ── apply_quota_verdict：真查判定写入调度器额度冷却 ──
 mod verdict_apply {
     use super::*;

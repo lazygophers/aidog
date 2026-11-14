@@ -170,10 +170,20 @@ impl PriceResolution {
         if self.peak_applied { 1.0 } else { multiplier }
     }
 
-    /// 按次计价费（USD）：`unit_price × units`（缺次数按 1 次/请求），条目非按次计价返回 0。
-    /// 不乘 peak 倍率（按次价无峰谷差）。billing.rs 与 estimate/db_ops.rs 共用此一口径。
+    /// 按次计价费（USD）。billing.rs 与 estimate/db_ops.rs 共用此一口径：
+    /// - `PerRequest`（request/image/mp）：`unit_price × units`，缺计数（≤0）按 1 次/请求估
+    ///   （#156 rerank 语义）。
+    /// - `Counted { divisor }`（char / second）：`unit_price × units ÷ divisor`；
+    ///   缺计数（≤0）→ 0（不可估算，不兜底成一次的价格，issue 157）。
+    ///
+    /// 不乘 peak 倍率（按次/按量价无峰谷差）。
     pub fn request_fee(&self, units: i64) -> f64 {
-        self.request_unit_price.map_or(0.0, |up| up * units.max(1) as f64)
+        let Some(up) = self.request_unit_price else { return 0.0 };
+        match self.unit_basis {
+            UnitBasis::Counted { divisor } if units > 0 => up * units as f64 / divisor,
+            UnitBasis::Counted { .. } => 0.0,
+            UnitBasis::PerRequest => up * units.max(1) as f64,
+        }
     }
 }
 
