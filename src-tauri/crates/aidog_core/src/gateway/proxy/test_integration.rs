@@ -143,7 +143,7 @@ fn hello_endpoint_matches_prefixed_paths() {
 }
 
 /// Claude Code 启动预热探测 `HEAD /proxy/api/hello`（无 Authorization）：
-/// 应 200 + 落 request log（source_protocol=test），方便用户从请求日志页看到探测请求。
+/// 应 200 + 落请求记录（request_log 表，kind=test；不进 proxy_log），方便用户从请求记录页看到探测请求。
 #[tokio::test]
 async fn hello_probe_returns_ok_and_records_request_log() {
     let state = make_state(test_db().await).await;
@@ -165,15 +165,19 @@ async fn hello_probe_returns_ok_and_records_request_log() {
         let resp = handle_proxy(AxumState(state.clone()), req).await;
         assert_eq!(resp.status(), StatusCode::OK, "method={method}");
         flush_log_queue(&state).await;
-        let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
+        let logs = aidog_logs::list_request_logs(&state.db, &Default::default(), 100, 0)
             .await
             .unwrap();
-        let id = logs.last().expect("hello log missing").id.clone();
-        ids.push(id);
+        assert_eq!(logs.len(), ids.len() + 1, "method={method}");
+        ids.push(logs[0].id.clone());
     }
     assert_eq!(ids.len(), 2);
+    assert!(
+        aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap().is_empty(),
+        "探测行不得进 proxy_log"
+    );
     for id in ids {
-        let row = aidog_logs::get_proxy_log(&state.db, &id)
+        let row = aidog_logs::get_request_log(&state.db, &id)
             .await
             .unwrap()
             .unwrap();
