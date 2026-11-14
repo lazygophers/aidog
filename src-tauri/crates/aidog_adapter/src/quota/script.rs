@@ -35,7 +35,8 @@ use boa_engine::{
 };
 
 use super::http::{
-    PlatformQuota, QUOTA_PLATFORM_ID, err_quota, http_client, now_millis, quota_script_request,
+    PlatformQuota, QUOTA_PLATFORM_ID, err_quota, http_client_with, now_millis,
+    quota_script_request,
 };
 use std::sync::Arc;
 
@@ -73,7 +74,8 @@ pub async fn run_custom_query(
     // protocol_code 是平台别名（newapi/deepseek/...），走平台级派生而非协议级。
     let default_ua = aidog_db::client_types_const::simulation_user_agent_for_platform(&ctx.protocol_code);
     let outbound = Outbound {
-        client: http_client(db).await,
+        // issue #64 T04：脚本出站按平台归属判定代理——ctx.extra 即平台行 extra。
+        client: http_client_with(db, Some(&ctx.extra)).await,
         db: db.cloned(),
         platform_id: effective_platform_id,
         default_ua,

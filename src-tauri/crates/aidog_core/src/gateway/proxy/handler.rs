@@ -757,6 +757,7 @@ pub(crate) async fn handle_proxy_core(
                 orig_headers,
                 bytes,
                 &base_url,
+                Some(&first.platform.extra),
                 start,
                 lang,
             )

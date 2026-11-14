@@ -53,10 +53,13 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
 
     // aidog_adapter::quota 出站 client 构建器注入（读 DB 代理设置 + 全局缓存；
     // 未注入时 adapter 侧回落直连）。adapter 不依赖 core，经回调单向提供。
-    aidog_adapter::quota::http::set_client_builder(std::sync::Arc::new(|db| {
+    // 第二参 = 平台行 extra：余额查询按平台归属判定代理（issue #64 T04）。
+    aidog_adapter::quota::http::set_client_builder(std::sync::Arc::new(|db, platform_extra| {
         let db = db.clone();
+        let extra = platform_extra.map(str::to_string);
         Box::pin(async move {
-            aidog_core::gateway::http_client::build_http_client_system(&db, 10, 5).await
+            aidog_core::gateway::http_client::build_http_client_scoped(&db, 10, 5, extra.as_deref())
+                .await
         })
     }));
 

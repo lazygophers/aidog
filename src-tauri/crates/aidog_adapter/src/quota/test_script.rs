@@ -179,12 +179,16 @@ async fn script_http_error_propagates() {
 #[tokio::test]
 async fn script_outbound_uses_injected_client_and_persists_log() {
     use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Mutex;
 
     use crate::quota::http::set_client_builder;
 
     static BUILDER_CALLED: AtomicBool = AtomicBool::new(false);
-    set_client_builder(Arc::new(|_db| {
+    /// 捕获 builder 收到的平台 extra（issue #64 T04：脚本路径须把 ctx.extra 原样传给构建器）。
+    static BUILDER_EXTRA: Mutex<Option<String>> = Mutex::new(None);
+    set_client_builder(Arc::new(|_db, extra| {
         BUILDER_CALLED.store(true, Ordering::SeqCst);
+        *BUILDER_EXTRA.lock().unwrap() = extra.map(str::to_string);
         Box::pin(async {
             reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(10))
@@ -201,6 +205,11 @@ async fn script_outbound_uses_injected_client_and_persists_log() {
     assert!(
         BUILDER_CALLED.load(Ordering::SeqCst),
         "出站须走 CLIENT_BUILDER 注入的 client（db=Some 时）"
+    );
+    assert_eq!(
+        BUILDER_EXTRA.lock().unwrap().as_deref(),
+        Some(qctx().extra.as_str()),
+        "builder 须收到平台行 extra 原文（issue #64 T04 平台归属判定输入）"
     );
 
     let logs = aidog_logs::list_proxy_logs(&db, 100, 0).await.unwrap();

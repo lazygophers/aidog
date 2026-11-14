@@ -92,6 +92,37 @@ pub(crate) fn classify_mitm_route(host: &str, path: &str, method: &Method) -> Mi
     }
 }
 
+/// 连接绑定分组内官方平台（base_url host = `api.anthropic.com`，禁用也计入）的
+/// `extra.proxy_enabled` 开关集合（issue #64 T05）。组不存在 / DB 失败 / 非官方平台 → 空集合
+/// （判定回落非平台规则）。
+async fn mitm_group_official_proxy_flags(db: &Db, group_name: &str) -> Vec<Option<bool>> {
+    if group_name.trim().is_empty() {
+        return Vec::new();
+    }
+    let Ok(groups) = aidog_db::list_groups(db).await else {
+        tracing::warn!("mitm bypass proxy attribution: list_groups failed");
+        return Vec::new();
+    };
+    let Some(group) = groups.iter().find(|g| g.name == group_name) else {
+        return Vec::new();
+    };
+    let Ok(details) = aidog_db::get_group_platforms(db, group.id).await else {
+        tracing::warn!("mitm bypass proxy attribution: get_group_platforms failed → 回落非平台规则");
+        return Vec::new();
+    };
+    details
+        .iter()
+        .filter(|d| {
+            reqwest::Url::parse(&d.platform.base_url)
+                .ok()
+                .and_then(|u| u.host_str().map(str::to_ascii_lowercase))
+                .as_deref()
+                == Some("api.anthropic.com")
+        })
+        .map(|d| http_client::platform_proxy_enabled(&d.platform.extra))
+        .collect()
+}
+
 /// 旁路 / 观测请求处理：透明转发到 `url` + mitm_log / oauth_usage_sample 落库。
 ///
 /// `url` 为完整目标 URL——生产调用方（serve_plaintext）传 `https://{CONNECT host}{path?query}`；
@@ -132,11 +163,13 @@ pub(crate) async fn handle_mitm_observed(
     } else {
         10
     };
-    // MITM 旁路归属（issue #64：分组官方平台开关集合判定）在后续票接入；
-    // 本票临时等价 = 非平台归属，读「其它请求使用代理」。
+    // MITM 旁路归属（issue #64 T05）：连接绑定分组内官方平台（base_url host =
+    // api.anthropic.com，禁用也计入）的 proxy_enabled 集合，任一显式开 → 走代理；
+    // 组无官方平台 / 未绑定分组 → 集合空，回落非平台规则（读「其它请求使用代理」）。
+    let official_flags = mitm_group_official_proxy_flags(&state.db, group_name).await;
     let use_proxy = http_client::should_use_proxy(
         &proxy_client,
-        http_client::ProxyAttribution::NonPlatform,
+        http_client::ProxyAttribution::MitmBypass(&official_flags),
     );
     let client = http_client::build_http_client(&proxy_client, 0, conn_timeout, use_proxy).await;
 
