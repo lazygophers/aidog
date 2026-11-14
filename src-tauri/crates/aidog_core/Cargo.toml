@@ -35,7 +35,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 # logo 缓存文件 → data: URL（浏览器形态没有 asset:// 协议，见 defaults.rs）。
-base64 = "0.22"
+base64 = "0.23"
 aidog_ctx = { path = "../aidog_ctx" }
 aidog_db = { path = "../aidog_db" }
 aidog_i18n = { path = "../aidog_i18n" }
@@ -64,25 +64,18 @@ hyper-util = { workspace = true }
 reqwest = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-tracing-appender = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 dirs = { workspace = true }
 regex = { workspace = true }
-ipnet = { workspace = true }
 aes-gcm = { workspace = true }
 sha2 = { workspace = true }
-sha1 = { workspace = true }
 hmac = { workspace = true }
 rand = { workspace = true }
 rustls = { workspace = true }
 rustls-pemfile = { workspace = true }
-rcgen = { workspace = true }
 tokio-rustls = { workspace = true }
-webpki-roots = { workspace = true }
-# 压缩格式支持（CPA config 导入）
-tar = { workspace = true }
 flate2 = { workspace = true }
 # test_support 模块（pub 暴露给 root package 测试跨 crate 引，非 #[cfg(test)] gate）
 # 含 `tempfile::TempDir` 字段，编译进 release。tempfile 轻量（纯 std 封装），代价可接受。
