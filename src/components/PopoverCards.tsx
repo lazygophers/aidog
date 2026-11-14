@@ -5,6 +5,7 @@
 
 import React from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import type {
   TodayStats,
   PopoverConfig,
@@ -47,7 +48,7 @@ export interface PopoverData {
   proxy_port: number;
 }
 
-type TFn = (k: string, d: string, opts?: Record<string, unknown>) => string;
+type TFn = TFunction<"translation", undefined>;
 
 // ─── Helpers ────────────────────────────────────────────────
 
