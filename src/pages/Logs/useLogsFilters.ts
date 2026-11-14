@@ -42,9 +42,8 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
   }, []);
 
   const activeFilter: ProxyLogFilter = useMemo(() => {
-    // ponytail: Logs 主页默认排除 test/quota 两类（已迁到 RequestLog 新页），
-    // 徽章链 get_last_test_result 是独立 query，不经 list_proxy_logs，不受此影响。
-    const f: ProxyLogFilter = { exclude_sources: ["test", "quota", "fetch-models"] };
+    // 测试 / 余额 / 拉模型记录已迁到独立表 request_log，proxy_log 里不再有，无需默认排除。
+    const f: ProxyLogFilter = {};
     if (filterPlatform) f.platform_id = Number(filterPlatform);
     if (filterGroup) f.group_key = filterGroup === NO_GROUP_SENTINEL ? "" : filterGroup;
     if (filterStatus === "success") f.status = 200;
@@ -57,7 +56,7 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
     if (filterPath.trim()) f.path = filterPath.trim();
     if (filterObserved === "observed") f.observed = true;
     if (filterType === "tunnel") f.sources = ["http-connect"];
-    else if (filterType === "request") f.exclude_sources = [...f.exclude_sources!, "http-connect"];
+    else if (filterType === "request") f.exclude_sources = ["http-connect"];
     if (filterSession.trim()) f.session_key = filterSession.trim();
     if (filterPromptId.trim()) f.prompt_id = filterPromptId.trim();
     if (filterSessionId.trim()) f.session_id = filterSessionId.trim();
@@ -69,9 +68,8 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [actualModelOptions, setActualModelOptions] = useState<string[]>([]);
   useEffect(() => {
-    // 模型下拉同样排除 test/quota，避免列出主列表不存在的模型。
     // 后端 DISTINCT 直出选项（logs-query-ipc-slimming s4），请求模型 / 实际模型各取各列。
-    const f: ProxyLogFilter = { exclude_sources: ["test", "quota", "fetch-models"] };
+    const f: ProxyLogFilter = {};
     proxyLogApi.distinctModels(f, false, 200).then(setModelOptions).catch(() => {});
     proxyLogApi.distinctModels(f, true, 200).then(setActualModelOptions).catch(() => {});
   }, []);

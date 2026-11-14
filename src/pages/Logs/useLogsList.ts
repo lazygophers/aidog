@@ -26,7 +26,7 @@ export function useLogsList(activeFilter: ProxyLogFilter, hasFilter: boolean) {
     const seq = ++loadSeqRef.current;
     if (!silent) setLoading(true);
     try {
-      // 始终走 filtered 路径：activeFilter 默认带 exclude_sources=["test","quota"]
+      // 始终走 filtered 路径：activeFilter 可带 sources / exclude_sources
       // logs-query-ipc-slimming s2：不再跟精确 COUNT（转发期 500ms 轮询下是全表扫浪费），
       // 改 has_more 探测「有没有下一页」，分页 UI 相应退化（见 primitives.tsx Pagination）。
       const page = await proxyLogApi.listFiltered(activeFilter, pageSize, offset);

@@ -779,18 +779,9 @@ fn build_filter_where(
         let placeholders: Vec<String> = (0..srcs.len())
             .map(|i| format!("?{}", idx + i as u32))
             .collect();
-        // logs-query-ipc-slimming s3：不再加 `OR source_protocol IS NULL` 防御分支。
-        // schema_early.rs:119 `source_protocol TEXT NOT NULL DEFAULT ''` 是 DB 级约束，
-        // 该列在 log.db 实表上不可能为 NULL（`NULL NOT IN (...)` 恒返 NULL 会被 WHERE
-        // 过滤的场景在此表上恒不触发），OR 分支是永假的死代码，删之不改变任何结果集。
-        //
-        // ⚠️ 本段谓词本身（`source_protocol NOT IN (...)`）**非恒真/非死代码**：Logs 主页
-        // 默认 exclude_sources=["test","quota","fetch-models"]（useLogsFilters.ts），而这三类值
-        // 会被真实写入 proxy_log（ai_tools_cmd/model_test.rs:157 `source_protocol: "test"`、
-        // gateway/quota/http.rs:187 `source_protocol: "quota"`、
-        // platform_cmd/model_fetch.rs `source_protocol: "fetch-models"`）。跳过此谓词会让
-        // 测试/quota/模型拉取请求泄漏进主 Logs 列表，是行为回归，故**不跳过**（详见
-        // research/s3-predicate.md 的恒真判定）。
+        // source_protocol 列 `NOT NULL DEFAULT ''`（schema_early.rs:119），无需 `OR IS NULL` 防御。
+        // 当前唯一调用方：Logs 主页「请求」类型筛选排除 http-connect 隧道行（test / quota / fetch-models
+        // 已分表到 request_log，不再靠本谓词排除）。
         parts.push(format!(
             "AND source_protocol NOT IN ({})",
             placeholders.join(", ")
