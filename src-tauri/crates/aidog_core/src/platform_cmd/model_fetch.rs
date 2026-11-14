@@ -187,7 +187,7 @@ pub async fn platform_fetch_models(
         Ok(r) => r,
         Err(e) => {
             tracing::error!("fetch models request failed: {e}");
-            if let Err(le) = aidog_logs::upsert_proxy_log(
+            if let Err(le) = aidog_logs::upsert_request_log(
                 db,
                 make_log(0, 502, "{}", &format!("upstream error: {e}"), &url),
             )
@@ -207,7 +207,7 @@ pub async fn platform_fetch_models(
         Ok(body) => body,
         Err(e) => {
             tracing::error!(url = %url, "read body failed: {e}");
-            if let Err(le) = aidog_logs::upsert_proxy_log(
+            if let Err(le) = aidog_logs::upsert_request_log(
                 db,
                 make_log(
                     status.as_u16() as i32,
@@ -229,7 +229,7 @@ pub async fn platform_fetch_models(
     // 记录 fetch-models 请求到 proxy_log（成功响应，保留原文便于排查）
     let upstream_status = status.as_u16() as i32;
     if let Err(le) =
-        aidog_logs::upsert_proxy_log(db, make_log(upstream_status, upstream_status, &response_headers, &body, &url))
+        aidog_logs::upsert_request_log(db, make_log(upstream_status, upstream_status, &response_headers, &body, &url))
             .await
     {
         tracing::warn!(command = "platform_fetch_models", error = %le, "persist fetch-models log failed");

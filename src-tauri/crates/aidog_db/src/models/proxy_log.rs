@@ -700,6 +700,45 @@ pub struct ProxyLogSummary {
     pub agent_type: String,
 }
 
+/// 请求记录（测试 / 余额 / 拉模型）列表行。独立表 `request_log`（log.db），不含模型与 token。
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct RequestLogSummary {
+    pub id: String,
+    /// 来源：test / quota / fetch-models
+    pub kind: String,
+    pub group_key: String,
+    #[ts(type = "number")]
+    pub platform_id: u64,
+    pub status_code: i32,
+    pub duration_ms: i32,
+    pub user_agent: String,
+    #[ts(type = "number")]
+    pub created_at: i64,
+}
+
+/// 请求记录筛选：kind / 平台 / 状态 / 时间。
+#[derive(Debug, Clone, Default, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct RequestLogFilter {
+    #[serde(default)]
+    #[ts(optional)]
+    pub kind: Option<String>,
+    #[serde(default)]
+    #[ts(optional, type = "number | null")]
+    pub platform_id: Option<u64>,
+    /// None=全部; Some(200)=仅成功; Some(-1)=仅失败
+    #[serde(default)]
+    #[ts(optional)]
+    pub status: Option<i32>,
+    #[serde(default)]
+    #[ts(optional, type = "number | null")]
+    pub time_start: Option<i64>,
+    #[serde(default)]
+    #[ts(optional, type = "number | null")]
+    pub time_end: Option<i64>,
+}
+
 /// 分页探测结果（logs-query-ipc-slimming s2）：`items` 恒为 `limit` 行，`has_more` 由
 /// `LIMIT limit+1` 探测出的第 limit+1 行是否存在决定（该行本身不下发，仅用于置位）。
 /// 替代精确 `COUNT(*)` 全表扫，前端分页 UI 退化为「有更多/没有更多」，不再展示精确总数/总页数。
