@@ -69,6 +69,8 @@ mod ws;
 mod tokenizer;
 
 #[cfg(test)]
+mod test_adapter_dispatch;
+#[cfg(test)]
 mod test_agg_dedup;
 #[cfg(test)]
 mod test_bind;
