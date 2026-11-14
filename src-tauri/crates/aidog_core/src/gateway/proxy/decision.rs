@@ -22,7 +22,7 @@ pub(crate) fn kind_route_error_message(e: &str) -> String {
         }
         // spec-独立搜索转发 语义 4：不区分「无人声明该 path」vs「声明平台全不可用」，同一措辞。
         "no_tools_platform" => {
-            "分组内没有可用的搜索平台：组内平台未声明该搜索端点，或全部不可用".to_string()
+            "分组内没有可用的搜索平台：组内平台未声明该搜索端点".to_string()
         }
         other => format!("route error: {other}"),
     }
@@ -43,11 +43,22 @@ pub(crate) fn quota_exhausted_message(lang: Lang, q: QuotaExhausted) -> String {
     }
 }
 
-/// 路由兜底失败的状态码：「no available platform (all disabled, backing off, or circuit-broken)」
-/// 是熔断 / 冷却 / 禁用的暂时不可用 → 503；其余（无分组平台等请求侧问题）→ 400。
+/// 路由兜底失败的状态码（依据 RFC 9110 §15）：
+/// - `group has no platforms`：分组没配上游，服务端不具备完成请求的能力 → 501（§15.6.2）；
+/// - `group's only platform is manually disabled`：管理员停用，类计划维护 → 503（§15.6.4）；
+/// - `no available platform…`：熔断 / 冷却 / 禁用的暂时不可用 → 503（§15.6.4）；
+/// - `no_tools_platform`：分组内没有平台声明该搜索端点，该端点对此分组不存在 → 404（§15.5.5）；
+/// - `group's only platform is censorship-blocked`：上游内容审核拒绝（用户裁决 2026-11-14）→ 451（RFC 7725）；
+/// - 其余（`no_chat_platform` 等）→ 400。
 pub(crate) fn route_fallback_status(err: &str) -> StatusCode {
-    if err.starts_with("no available platform") {
+    if err == "group has no platforms" {
+        StatusCode::NOT_IMPLEMENTED
+    } else if err == "group's only platform is censorship-blocked" {
+        StatusCode::UNAVAILABLE_FOR_LEGAL_REASONS
+    } else if err == "group's only platform is manually disabled" || err.starts_with("no available platform") {
         StatusCode::SERVICE_UNAVAILABLE
+    } else if err == "no_tools_platform" {
+        StatusCode::NOT_FOUND
     } else {
         StatusCode::BAD_REQUEST
     }
@@ -61,7 +72,7 @@ pub(crate) fn route_fallback_status(err: &str) -> StatusCode {
 /// - `unknown_protocol`（整组候选皆未知协议，票 06）→ 503 + `blocked_reason='unknown_protocol'`；
 /// - `direct_model_unavailable`（声明直通模型的平台全不可用）→ 503 + `blocked_reason='direct_model_unavailable'`；
 /// - `rate_limit`（限频，含混合原因）→ 429；`no available platform…`（熔断 / 冷却 / 禁用的暂时不可用）→ 503；
-/// - 其余（`no_decision_platform` / `no_chat_platform` …）→ 400 + `blocked_reason`=Err 字符串。
+/// - 其余按 [`route_fallback_status`]（501 / 503 / 404 / 451 / 400）+ `blocked_reason`=Err 字符串。
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn route_fail_response(
     state: &Arc<ProxyState>,
@@ -174,6 +185,7 @@ pub(crate) async fn route_fail_response(
     log.duration_ms = start.elapsed().as_millis() as i32;
     upsert_log(state, log, log_settings).await;
     let mut r = (status, client_msg).into_response();
+    add_retry_after(&mut r, log);
     inject_trace_header(&mut r);
     r
 }
@@ -326,6 +338,7 @@ pub(crate) async fn handle_decision(
     log.attempts = std::mem::take(&mut attempts);
     upsert_log(state, log, log_settings).await;
     let mut r = (status, err_body).into_response();
+    add_retry_after(&mut r, log);
     inject_trace_header(&mut r);
     r
 }
