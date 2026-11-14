@@ -1849,6 +1849,191 @@ pub(crate) fn backfill_time_rule_dedicated_models(conn: &Connection) -> u64 {
     updated
 }
 
+/// Migration 20261114-01（proxy-platform-switch T01）：出站代理判定收口一次性迁移。
+/// 旧总开关 `enabled` 语义删除（issue #64）：
+/// - setting(scope=proxy,key=proxy_client) 旧 JSON 的 `enabled` → 新字段 `others_enabled`，
+///   主机保留条件 = 旧 enabled=true 或 主机≠旧出厂默认 127.0.0.1，否则清空；
+/// - 平台 `extra.proxy_enabled` 缺键的行写入旧 enabled 值；旧 enabled=false 时显式 true
+///   覆写为 false（spec 第 4 步：旧语义下全局关时它不生效，保持升级后走向不变）。
+///
+/// 只读预检（migration 20261114-01）：仅当主库标记不存在且旧 `enabled` 键存在时返回
+/// `Ok(Some(enabled))`。三态区分（评论必改 1）：
+/// - `Ok(None)` = 无旧值（标记已立 / 无旧行 / 新格式无 `enabled` 键）→ 平台段仅立标记不回填；
+/// - `Err` = 失败（建表 / 建表后查询失败 / 损坏 JSON）→ caller 跳过平台段且不立平台标记，
+///   下次启动重试（不再把主库段失败混同「无旧值」导致平台回填被永久跳过）。
+pub(crate) fn read_proxy_client_legacy(conn: &Connection) -> Result<Option<bool>, ()> {
+    use rusqlite::OptionalExtension;
+    const ID: &str = "20261114-01";
+    if conn
+        .execute("CREATE TABLE IF NOT EXISTS migration_done (id TEXT PRIMARY KEY)", [])
+        .is_err()
+    {
+        return Err(());
+    }
+    // 查询失败（锁冲突等）≠ 「标记不存在」：一律 Err，禁混同无旧值（评论必改 1 同类）。
+    let marker = conn
+        .query_row("SELECT 1 FROM migration_done WHERE id = ?1", [ID], |_| Ok(()))
+        .optional()
+        .map_err(|_| ())?;
+    if marker.is_some() {
+        return Ok(None);
+    }
+    let raw: Option<String> = conn
+        .query_row("SELECT value FROM setting WHERE scope='proxy' AND key='proxy_client' AND deleted_at = 0", [], |r| r.get(0))
+        .optional()
+        .map_err(|_| ())?;
+    let Some(raw) = raw else {
+        return Ok(None);
+    };
+    let v: serde_json::Value = serde_json::from_str(&raw).map_err(|_| ())?;
+    match v.get("enabled").and_then(|f| f.as_bool()) {
+        Some(b) => Ok(Some(b)),
+        None => Ok(None),
+    }
+}
+
+/// 主段（最后执行）：重写 setting JSON（enabled → others_enabled + 主机保留规则）+
+/// 主库标记，同一事务。损坏 JSON / 事务失败 → 不立标记，下次启动重试。
+/// 由 caller 在 `read_proxy_client_legacy` 成功后调用；标记已立时 no-op。
+pub(crate) fn migrate_proxy_client_setting_main(conn: &Connection) {
+    const ID: &str = "20261114-01";
+    if conn
+        .execute("CREATE TABLE IF NOT EXISTS migration_done (id TEXT PRIMARY KEY)", [])
+        .is_err()
+        || conn.execute_batch("BEGIN IMMEDIATE").is_err()
+    {
+        return;
+    }
+    let result: Result<(), ()> = (|| {
+        if conn
+            .query_row("SELECT 1 FROM migration_done WHERE id = ?1", [ID], |_| Ok(()))
+            .is_ok()
+        {
+            return Ok(()); // 已迁移，no-op（评审指出的多余分支随重构消失）。
+        }
+        let raw: Option<String> = conn
+            .query_row("SELECT value FROM setting WHERE scope='proxy' AND key='proxy_client' AND deleted_at = 0", [], |r| r.get(0))
+            .ok();
+        let Some(raw) = raw else {
+            // 无旧行 → 仅立标记（无迁移面）。
+            conn.execute("INSERT INTO migration_done (id) VALUES (?1)", [ID]).map_err(|_| ())?;
+            return Ok(());
+        };
+        let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&raw) else {
+            tracing::warn!("migration 20261114-01: proxy_client 设置非合法 JSON，不迁移不立标记（下次启动重试）");
+            return Err(());
+        };
+        let Some(legacy_enabled) = v.get("enabled").and_then(|f| f.as_bool()) else {
+            // 无旧 enabled 字段表示新格式；只立标记，保留用户已保存的值。
+            conn.execute("INSERT INTO migration_done (id) VALUES (?1)", [ID]).map_err(|_| ())?;
+            return Ok(());
+        };
+        let obj = v.as_object_mut().ok_or(())?;
+        let host = obj.get("host").and_then(|f| f.as_str()).unwrap_or("").to_string();
+        let keep_host = legacy_enabled || host.trim() != "127.0.0.1";
+        obj.insert("others_enabled".into(), serde_json::Value::Bool(legacy_enabled));
+        obj.insert("host".into(), serde_json::Value::String(if keep_host { host } else { String::new() }));
+        obj.remove("enabled");
+        conn.execute(
+            "UPDATE setting SET value = ?1 WHERE scope='proxy' AND key='proxy_client' AND deleted_at = 0",
+            [serde_json::to_string(&v).map_err(|_| ())?],
+        )
+        .map_err(|_| ())?;
+        conn.execute("INSERT INTO migration_done (id) VALUES (?1)", [ID]).map_err(|_| ())?;
+        Ok(())
+    })();
+    match result {
+        Ok(()) => {
+            let _ = conn.execute_batch("COMMIT");
+        }
+        Err(()) => {
+            let _ = conn.execute_batch("ROLLBACK");
+        }
+    }
+}
+
+/// 平台段：extra 缺 `proxy_enabled` 键的行写入 legacy 值；legacy=false 时显式 true 覆写 false。
+/// `legacy=None` = 无旧值（无旧行 / 新格式）→ 仅立标记不回填，平台缺省键保持缺键（缺省直连）。
+/// 在主段之前执行（caller 顺序：read_proxy_client_legacy → 平台段 → 主段）：平台标记与回填
+/// 同一事务（SELECT 移入事务内，评论硬问题 1），主段失败时平台段已先行完成，下次启动只重试主段。
+/// 损坏 JSON 跳过并 warn（caller 层预检失败时不进入本函数）。返回被改动的平台行数。
+pub(crate) fn migrate_proxy_client_setting_platform(conn: &Connection, legacy: Option<bool>) -> u64 {
+    const ID: &str = "20261114-01";
+    if conn
+        .execute("CREATE TABLE IF NOT EXISTS migration_done (id TEXT PRIMARY KEY)", [])
+        .is_err()
+        || conn.execute_batch("BEGIN IMMEDIATE").is_err()
+    {
+        return 0;
+    }
+    let done = conn
+        .query_row("SELECT 1 FROM migration_done WHERE id = ?1", [ID], |_| Ok(()))
+        .is_ok();
+    if done {
+        let _ = conn.execute_batch("COMMIT");
+        return 0;
+    }
+    if legacy.is_none() {
+        // 仅立标记：无迁移面，平台缺省键保持缺键（缺省直连语义）。
+        let _ = conn.execute("INSERT INTO migration_done (id) VALUES (?1)", [ID]);
+        let _ = conn.execute_batch("COMMIT");
+        return 0;
+    }
+    let rows: Vec<(i64, String)> = match conn.prepare("SELECT id, extra FROM platform") {
+        Ok(mut stmt) => stmt
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .ok()
+            .map(|iter| iter.filter_map(Result::ok).collect())
+            .unwrap_or_default(),
+        Err(_) => {
+            let _ = conn.execute_batch("ROLLBACK");
+            return 0;
+        }
+    };
+    let mut updated = 0u64;
+    for (id, extra) in rows {
+        let Ok(mut root) = serde_json::from_str::<serde_json::Value>(&extra) else {
+            tracing::warn!(platform_id = id, "migration 20261114-01: extra 非法 JSON，跳过");
+            continue;
+        };
+        let Some(obj) = root.as_object_mut() else {
+            continue;
+        };
+        // spec 第 3 步：显式值保留（legacy=true 全保留；legacy=false 显式 false 不动）。
+        // spec 第 4 步：legacy=false 且显式 true → 覆写 false（旧语义下全局关时它不生效）。
+        match obj.get("proxy_enabled") {
+            Some(serde_json::Value::Bool(false)) => continue,
+            Some(_) if legacy == Some(true) => continue,
+            _ => {}
+        }
+        obj.insert("proxy_enabled".into(), serde_json::Value::Bool(legacy.unwrap_or(false)));
+        let Ok(new_extra) = serde_json::to_string(&root) else {
+            continue;
+        };
+        if let Err(e) = conn.execute(
+            "UPDATE platform SET extra = ?1 WHERE id = ?2",
+            rusqlite::params![new_extra, id],
+        ) {
+            tracing::warn!(platform_id = id, error = %e, "migration 20261114-01: UPDATE 失败，整体回滚待下次重试");
+            let _ = conn.execute_batch("ROLLBACK");
+            return 0;
+        }
+        updated += 1;
+    }
+    if conn
+        .execute("INSERT INTO migration_done (id) VALUES (?1)", [ID])
+        .is_err()
+        || conn.execute_batch("COMMIT").is_err()
+    {
+        let _ = conn.execute_batch("ROLLBACK");
+        return 0;
+    }
+    if updated > 0 {
+        tracing::info!(updated, "migration 20261114-01: 平台 extra.proxy_enabled 回填完成");
+    }
+    updated
+}
+
 /// Migration 20261110-12（请求尝试-逐次重算 票 01）：「最大重试」改义为「最大尝试次数」（总调用数 1–10），
 /// 旧值（默认 2）按旧语义偏小，一次性把所有分组置 10（用户决策「全部改成 10」）。
 /// 本仓迁移每次启动都重跑，故以 `migration_done` 标记行门控（同 20261110-11），否则重启会覆盖用户之后的设置；
@@ -3442,5 +3627,415 @@ mod tests {
             );
         }
     }
+
+    // ── Migration 20261114-01（proxy-platform-switch T01）──
+
+    /// 迁移矩阵（原始 conn 直测逻辑 + 幂等）：旧 enabled 开/关 × 主机默认/自定义 ×
+    /// 平台字段缺省/true/false。两 conn 模拟 main / platform.db。
+    fn proxy_mig_conns() -> (Connection, Connection) {
+        let main = Connection::open_in_memory().unwrap();
+        main.execute_batch(
+            "CREATE TABLE setting (scope TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL, created_at INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL DEFAULT 0, deleted_at INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (scope, key));
+             CREATE TABLE migration_done (id TEXT PRIMARY KEY);",
+        )
+        .unwrap();
+        let plat = Connection::open_in_memory().unwrap();
+        plat.execute_batch(
+            "CREATE TABLE platform (id INTEGER PRIMARY KEY, extra TEXT NOT NULL DEFAULT '{}');
+             CREATE TABLE migration_done (id TEXT PRIMARY KEY);",
+        )
+        .unwrap();
+        (main, plat)
+    }
+
+    fn set_legacy_setting(main: &Connection, json: &str) {
+        main.execute(
+            "INSERT INTO setting (scope, key, value) VALUES ('proxy', 'proxy_client', ?1)",
+            [json],
+        )
+        .unwrap();
+    }
+
+    fn proxy_extra_of(plat: &Connection, id: i64) -> serde_json::Value {
+        let raw: String = plat
+            .query_row("SELECT extra FROM platform WHERE id = ?1", [id], |r| r.get(0))
+            .unwrap();
+        serde_json::from_str(&raw).unwrap()
+    }
+
+    /// 场景 A：旧 enabled=true + 默认主机 → 主机保留、others=true、全平台回填 true（除显式行）。
+    /// 必改 2：断言两库标记已写入。
+    #[test]
+    fn proxy_migration_a_legacy_true_backfills() {
+        let (main, plat) = proxy_mig_conns();
+        plat.execute_batch(
+            "INSERT INTO platform (id, extra) VALUES
+             (1, '{}'),
+             (2, '{\"proxy_enabled\":true}'),
+             (3, '{\"proxy_enabled\":false,\"k\":1}'),
+             (4, 'not-json');",
+        )
+        .unwrap();
+        set_legacy_setting(&main, r#"{"enabled":true,"host":"127.0.0.1","port":7890,"no_proxy":""}"#);
+        let legacy = read_proxy_client_legacy(&main).unwrap();
+        assert_eq!(legacy, Some(true));
+        migrate_proxy_client_setting_platform(&plat, legacy);
+        migrate_proxy_client_setting_main(&main);
+        let v: serde_json::Value = serde_json::from_str(
+            &main.query_row::<String, _, _>("SELECT value FROM setting WHERE scope='proxy' AND key='proxy_client'", [], |r| r.get(0)).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(v["others_enabled"], true);
+        assert_eq!(v["host"], "127.0.0.1", "enabled=true → 主机保留");
+        assert!(v.get("enabled").is_none(), "旧 enabled 键删除");
+        assert_eq!(proxy_extra_of(&plat, 1)["proxy_enabled"], true, "缺省行回填 true");
+        assert_eq!(proxy_extra_of(&plat, 2)["proxy_enabled"], true, "显式 true 保留");
+        assert_eq!(proxy_extra_of(&plat, 3)["proxy_enabled"], false, "显式 false 保留");
+        assert_eq!(proxy_extra_of(&plat, 3)["k"], 1, "其余键保留");
+        let raw4: String = plat.query_row("SELECT extra FROM platform WHERE id = 4", [], |r| r.get(0)).unwrap();
+        assert_eq!(raw4, "not-json", "损坏 JSON 行原样跳过");
+        for conn in [&main, &plat] {
+            let n: i64 = conn.query_row("SELECT COUNT(*) FROM migration_done WHERE id = '20261114-01'", [], |r| r.get(0)).unwrap();
+            assert_eq!(n, 1, "迁移标记必须已写入");
+        }
+    }
+
+    /// 场景 B：旧 enabled=false + 自定义主机 → 主机保留、others=false、平台回填 false
+    /// （含显式 true：旧语义下它不生效，升级后必须归 false 保持走向不变）。
+    #[test]
+    fn proxy_migration_b_legacy_false_custom_host() {
+        let (main, plat) = proxy_mig_conns();
+        set_legacy_setting(&main, r#"{"enabled":false,"host":"10.0.0.5","port":1080}"#);
+        plat.execute(
+            "INSERT INTO platform (id, extra) VALUES (1, '{}'), (2, '{\"proxy_enabled\":true}')",
+            [],
+        )
+        .unwrap();
+        let legacy = read_proxy_client_legacy(&main).unwrap();
+        assert_eq!(legacy, Some(false));
+        migrate_proxy_client_setting_platform(&plat, legacy);
+        migrate_proxy_client_setting_main(&main);
+        let v: serde_json::Value = serde_json::from_str(
+            &main.query_row::<String, _, _>("SELECT value FROM setting WHERE scope='proxy' AND key='proxy_client'", [], |r| r.get(0)).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(v["others_enabled"], false);
+        assert_eq!(v["host"], "10.0.0.5", "自定义主机保留");
+        assert_eq!(proxy_extra_of(&plat, 1)["proxy_enabled"], false);
+        assert_eq!(
+            proxy_extra_of(&plat, 2)["proxy_enabled"],
+            false,
+            "显式 true + 旧全局关 → 归 false（旧语义下不生效，保持走向不变）"
+        );
+    }
+
+    /// 场景 C：旧 enabled=false + 默认主机 → 主机清空（= 未配置代理）、平台回填 false。
+    #[test]
+    fn proxy_migration_c_legacy_false_default_host_clears() {
+        let (main, plat) = proxy_mig_conns();
+        set_legacy_setting(&main, r#"{"enabled":false,"host":"127.0.0.1","port":7890}"#);
+        plat.execute("INSERT INTO platform (id, extra) VALUES (1, '{}')", []).unwrap();
+        let legacy = read_proxy_client_legacy(&main).unwrap();
+        assert_eq!(legacy, Some(false));
+        migrate_proxy_client_setting_platform(&plat, legacy);
+        migrate_proxy_client_setting_main(&main);
+        let v: serde_json::Value = serde_json::from_str(
+            &main.query_row::<String, _, _>("SELECT value FROM setting WHERE scope='proxy' AND key='proxy_client'", [], |r| r.get(0)).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(v["host"], "", "默认主机 + 关 → 清空");
+        assert_eq!(proxy_extra_of(&plat, 1)["proxy_enabled"], false);
+    }
+
+    /// 场景 D：非 JSON 设置 → 预检 Err（失败类：不立标记、平台段不执行，下次启动重试）。
+    #[test]
+    fn proxy_migration_d_corrupt_json_read_fails() {
+        let (main, _plat) = proxy_mig_conns();
+        set_legacy_setting(&main, "garbage");
+        assert!(read_proxy_client_legacy(&main).is_err());
+        migrate_proxy_client_setting_main(&main);
+        let n: i64 = main.query_row("SELECT COUNT(*) FROM migration_done WHERE id = '20261114-01'", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 0, "损坏 JSON 不得立主库标记（下次启动重试）");
+        let raw: String = main.query_row("SELECT value FROM setting WHERE scope='proxy' AND key='proxy_client'", [], |r| r.get(0)).unwrap();
+        assert_eq!(raw, "garbage", "损坏 JSON 原值保留");
+    }
+
+    /// 场景 E：无设置行 → 无旧值（平台段仅立标记不回填）。
+    #[test]
+    fn proxy_migration_e_no_row_marker_only() {
+        let (main, plat) = proxy_mig_conns();
+        assert_eq!(read_proxy_client_legacy(&main), Ok(None));
+        assert_eq!(migrate_proxy_client_setting_platform(&plat, None), 0);
+        migrate_proxy_client_setting_main(&main);
+        let n_main: i64 = main.query_row("SELECT COUNT(*) FROM migration_done WHERE id = '20261114-01'", [], |r| r.get(0)).unwrap();
+        let n_plat: i64 = plat.query_row("SELECT COUNT(*) FROM migration_done WHERE id = '20261114-01'", [], |r| r.get(0)).unwrap();
+        assert_eq!(n_main, 1, "无旧行也必须立主库标记");
+        assert_eq!(n_plat, 1, "无旧行也必须立平台标记");
+    }
+
+    /// 场景 F（评论阻塞项）：无旧行升级 → 用户保存新格式行 → 重启 → 配置不被覆盖。
+    #[test]
+    fn proxy_migration_f_no_legacy_then_user_save_preserved() {
+        let (main, plat) = proxy_mig_conns();
+        // boot1：升级启动，无旧行 → 两段各立标记、零回填。
+        let legacy1 = read_proxy_client_legacy(&main).unwrap();
+        assert_eq!(legacy1, None);
+        migrate_proxy_client_setting_platform(&plat, legacy1);
+        migrate_proxy_client_setting_main(&main);
+        // 用户在新界面保存代理配置（新格式，默认主机，others_enabled=true）+ 平台显式开。
+        main.execute(
+            "INSERT INTO setting (scope, key, value) VALUES ('proxy', 'proxy_client', ?1)",
+            [r#"{"host":"127.0.0.1","port":7890,"others_enabled":true,"no_proxy":""}"#],
+        ).unwrap();
+        plat.execute(
+            "INSERT INTO platform (id, extra) VALUES (1, '{\"proxy_enabled\":true}')",
+            [],
+        ).unwrap();
+        // boot2：重启迁移重跑，用户配置必须原样保留。
+        let legacy2 = read_proxy_client_legacy(&main).unwrap();
+        assert_eq!(legacy2, None, "主库标记已立，预检必须返回无旧值");
+        migrate_proxy_client_setting_platform(&plat, legacy2);
+        migrate_proxy_client_setting_main(&main);
+        let v: serde_json::Value = serde_json::from_str(
+            &main.query_row::<String, _, _>("SELECT value FROM setting WHERE scope='proxy' AND key='proxy_client'", [], |r| r.get(0)).unwrap(),
+        ).unwrap();
+        assert_eq!(v["others_enabled"], true, "others_enabled 不得被改写");
+        assert_eq!(v["host"], "127.0.0.1", "默认主机 + 用户配置不得被清空");
+        assert_eq!(proxy_extra_of(&plat, 1)["proxy_enabled"], true, "平台显式 true 不得被改写");
+    }
+
+    /// 场景 G（评论硬问题 3，必改 2 断言加强）：标记缺失但行已是新格式（模拟主库写入中途
+    /// 失败后重跑）→ 补写标记，行原样不改。
+    #[test]
+    fn proxy_migration_g_marker_missing_row_untouched() {
+        let (main, _plat) = proxy_mig_conns();
+        main.execute(
+            "INSERT INTO setting (scope, key, value) VALUES ('proxy', 'proxy_client', ?1)",
+            [r#"{"host":"10.0.0.9","port":1080,"others_enabled":true}"#],
+        ).unwrap();
+        assert_eq!(read_proxy_client_legacy(&main), Ok(None));
+        migrate_proxy_client_setting_main(&main);
+        let n: i64 = main.query_row("SELECT COUNT(*) FROM migration_done WHERE id = '20261114-01'", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 1, "标记必须已补写");
+        let raw: String = main.query_row("SELECT value FROM setting WHERE scope='proxy' AND key='proxy_client'", [], |r| r.get(0)).unwrap();
+        assert_eq!(raw, r#"{"host":"10.0.0.9","port":1080,"others_enabled":true}"#, "行原样不改");
+    }
+
+    /// 幂等：完整迁移重跑一次，所有值不变、平台段零改动。
+    #[test]
+    fn proxy_migration_idempotent_rerun() {
+        let (main, plat) = proxy_mig_conns();
+        set_legacy_setting(&main, r#"{"enabled":true,"host":"127.0.0.1"}"#);
+        plat.execute("INSERT INTO platform (id, extra) VALUES (1, '{}')", []).unwrap();
+        let legacy = read_proxy_client_legacy(&main).unwrap();
+        migrate_proxy_client_setting_platform(&plat, legacy);
+        migrate_proxy_client_setting_main(&main);
+        let before_setting: String = main.query_row("SELECT value FROM setting WHERE scope='proxy' AND key='proxy_client'", [], |r| r.get(0)).unwrap();
+        let before_extra = proxy_extra_of(&plat, 1);
+        // 二次执行：预检返回无旧值（标记已立），两段零改动。
+        let legacy2 = read_proxy_client_legacy(&main).unwrap();
+        assert_eq!(legacy2, None);
+        let n = migrate_proxy_client_setting_platform(&plat, legacy2);
+        assert_eq!(n, 0, "标记已立，平台段零改动");
+        migrate_proxy_client_setting_main(&main);
+        let after_setting: String = main.query_row("SELECT value FROM setting WHERE scope='proxy' AND key='proxy_client'", [], |r| r.get(0)).unwrap();
+        assert_eq!(after_setting, before_setting);
+        assert_eq!(proxy_extra_of(&plat, 1), before_extra);
+    }
+
+    /// 主库段失败路径（必改 2）：损坏 JSON → 预检 Err → 平台标记不写；修复 JSON 后下次
+    /// 启动重试成功（证明失败不是「永久跳过」）。
+    #[test]
+    fn proxy_migration_main_failure_retries_next_boot() {
+        let (main, plat) = proxy_mig_conns();
+        plat.execute("INSERT INTO platform (id, extra) VALUES (1, '{}')", []).unwrap();
+        set_legacy_setting(&main, "garbage");
+        // boot1：预检失败 → caller 跳过平台段与主段（两库标记都不写）。
+        assert!(read_proxy_client_legacy(&main).is_err());
+        let n: i64 = plat.query_row("SELECT COUNT(*) FROM migration_done WHERE id = '20261114-01'", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 0, "预检失败不得立平台标记");
+        // 用户修复 JSON（写回旧格式）→ boot2 正常回填。
+        main.execute(
+            "UPDATE setting SET value = ?1 WHERE scope='proxy' AND key='proxy_client'",
+            [r#"{"enabled":true,"host":"127.0.0.1"}"#],
+        ).unwrap();
+        let legacy = read_proxy_client_legacy(&main).unwrap();
+        assert_eq!(legacy, Some(true));
+        migrate_proxy_client_setting_platform(&plat, legacy);
+        migrate_proxy_client_setting_main(&main);
+        assert_eq!(proxy_extra_of(&plat, 1)["proxy_enabled"], true, "修复后下次启动完成回填");
+    }
+
+    /// 真实 BEGIN 失败路径（必改 2）：另一连接持 EXCLUSIVE 锁 → 预检 Err、主段静默不写标记、
+    /// 不 panic；释放锁后正常迁移（值未被锁冲突破坏）。
+    #[test]
+    fn proxy_migration_lock_conflict_retries() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("main.db");
+        let holder = Connection::open(&path).unwrap();
+        holder.execute_batch(
+            "CREATE TABLE setting (scope TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL, created_at INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL DEFAULT 0, deleted_at INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (scope, key));
+             CREATE TABLE migration_done (id TEXT PRIMARY KEY);
+             INSERT INTO setting (scope, key, value) VALUES ('proxy', 'proxy_client', '{\"enabled\":true,\"host\":\"127.0.0.1\"}');",
+        ).unwrap();
+        holder.execute_batch("BEGIN EXCLUSIVE").unwrap();
+        let main = Connection::open(&path).unwrap();
+        assert!(read_proxy_client_legacy(&main).is_err(), "持锁期间预检必须报失败而非无旧值");
+        migrate_proxy_client_setting_main(&main); // 锁冲突静默返回，不得 panic
+        drop(holder); // 释放锁（开事务随连接关闭回滚）
+        let legacy = read_proxy_client_legacy(&main).unwrap();
+        assert_eq!(legacy, Some(true), "锁释放后旧值仍可读");
+        let n: i64 = main.query_row("SELECT COUNT(*) FROM migration_done WHERE id = '20261114-01'", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 0, "锁冲突期间不得立标记");
+    }
+
+    /// three_file_db 端到端：真实启动路径（init_tables_raw 跨库调用）+ 重开 DB 读回 + 幂等。
+    /// 内存 fallback 测不出错路由，文件库两 conn 分离（db-pool-routing.md）。
+    #[tokio::test]
+    async fn proxy_migration_three_file_reopen() {
+        use crate::test_support::three_file_db;
+        let (db, _dir) = three_file_db().await;
+        // 植入旧数据（init 已跑过、迁移当时无迁移面：无设置行 → None，平台段未跑）。
+        db.call_traced(None, std::panic::Location::caller(), |conn| {
+            conn.execute(
+                "INSERT INTO setting (scope, key, value) VALUES ('proxy', 'proxy_client', ?1)",
+                [r#"{"enabled":true,"host":"127.0.0.1","port":7890}"#],
+            )
+            .unwrap();
+            conn.execute("DELETE FROM migration_done WHERE id = '20261114-01'", []).ok();
+            Ok(())
+        })
+        .await
+        .unwrap();
+        db.call_platform_traced(None, std::panic::Location::caller(), |conn| {
+            conn.execute_batch(
+                "INSERT INTO platform (id, name, extra) VALUES
+                 (1, 'a', '{}'),
+                 (2, 'b', '{\"proxy_enabled\":false}');",
+            )
+            .unwrap();
+            conn.execute("DELETE FROM migration_done WHERE id = '20261114-01'", []).ok();
+            Ok(())
+        })
+        .await
+        .unwrap();
+
+        // 重开 DB + 显式 init_tables_raw（Db::new 不跑迁移，three_file_db 同式）：
+        // init_tables_raw 重跑 → 迁移在真实启动路径执行。
+        let main_path = _dir.path().join("aidog.db");
+        drop(db);
+        let db2 = crate::Db::new(main_path.to_str().unwrap()).await.unwrap();
+        let no_backfill: crate::schema::BackfillFn =
+            std::sync::Arc::new(|_c: &rusqlite::Connection, _m: &std::collections::HashMap<String, i64>| Ok(()));
+        crate::schema::init_tables_raw(&db2, no_backfill.clone()).await.unwrap();
+        let setting: serde_json::Value = serde_json::from_str(
+            &db2.call_read_traced(None, std::panic::Location::caller(), |conn| {
+                Ok(conn.query_row::<String, _, _>("SELECT value FROM setting WHERE scope='proxy' AND key='proxy_client'", [], |r| r.get(0)).unwrap())
+            })
+            .await
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(setting["others_enabled"], true);
+        assert_eq!(setting["host"], "127.0.0.1");
+        assert!(setting.get("enabled").is_none());
+        let extra1: serde_json::Value = serde_json::from_str(
+            &db2.call_read_platform_traced(None, std::panic::Location::caller(), |conn| {
+                Ok(conn.query_row::<String, _, _>("SELECT extra FROM platform WHERE id = 1", [], |r| r.get(0)).unwrap())
+            })
+            .await
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(extra1["proxy_enabled"], true, "缺省行回填旧 enabled=true");
+        let extra2: serde_json::Value = serde_json::from_str(
+            &db2.call_read_platform_traced(None, std::panic::Location::caller(), |conn| {
+                Ok(conn.query_row::<String, _, _>("SELECT extra FROM platform WHERE id = 2", [], |r| r.get(0)).unwrap())
+            })
+            .await
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(extra2["proxy_enabled"], false, "显式 false 保留");
+
+        // 三次重开：幂等，值不变。
+        drop(db2);
+        let db3 = crate::Db::new(main_path.to_str().unwrap()).await.unwrap();
+        let no_backfill2: crate::schema::BackfillFn =
+            std::sync::Arc::new(|_c: &rusqlite::Connection, _m: &std::collections::HashMap<String, i64>| Ok(()));
+        crate::schema::init_tables_raw(&db3, no_backfill2).await.unwrap();
+        let extra1_again: serde_json::Value = serde_json::from_str(
+            &db3.call_read_platform_traced(None, std::panic::Location::caller(), |conn| {
+                Ok(conn.query_row::<String, _, _>("SELECT extra FROM platform WHERE id = 1", [], |r| r.get(0)).unwrap())
+            })
+            .await
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(extra1_again, extra1, "二次启动幂等");
+    }
+
+    /// three_file_db 端到端（spec 第 4 步）：旧 enabled=false + 平台显式 true，
+    /// 重开 DB 后归 false，二次重开幂等。
+    #[tokio::test]
+    async fn proxy_migration_three_file_legacy_false_overwrite() {
+        use crate::test_support::three_file_db;
+        let (db, _dir) = three_file_db().await;
+        db.call_traced(None, std::panic::Location::caller(), |conn| {
+            conn.execute(
+                "INSERT INTO setting (scope, key, value) VALUES ('proxy', 'proxy_client', ?1)",
+                [r#"{"enabled":false,"host":"127.0.0.1","port":7890}"#],
+            )
+            .unwrap();
+            conn.execute("DELETE FROM migration_done WHERE id = '20261114-01'", []).ok();
+            Ok(())
+        })
+        .await
+        .unwrap();
+        db.call_platform_traced(None, std::panic::Location::caller(), |conn| {
+            conn.execute_batch(
+                "INSERT INTO platform (id, name, extra) VALUES (1, 'a', '{\"proxy_enabled\":true,\"k\":1}');",
+            )
+            .unwrap();
+            conn.execute("DELETE FROM migration_done WHERE id = '20261114-01'", []).ok();
+            Ok(())
+        })
+        .await
+        .unwrap();
+
+        let main_path = _dir.path().join("aidog.db");
+        drop(db);
+        let db2 = crate::Db::new(main_path.to_str().unwrap()).await.unwrap();
+        let no_backfill: crate::schema::BackfillFn =
+            std::sync::Arc::new(|_c: &rusqlite::Connection, _m: &std::collections::HashMap<String, i64>| Ok(()));
+        crate::schema::init_tables_raw(&db2, no_backfill).await.unwrap();
+        let extra: serde_json::Value = serde_json::from_str(
+            &db2.call_read_platform_traced(None, std::panic::Location::caller(), |conn| {
+                Ok(conn.query_row::<String, _, _>("SELECT extra FROM platform WHERE id = 1", [], |r| r.get(0)).unwrap())
+            })
+            .await
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(extra["proxy_enabled"], false, "旧全局关 + 显式 true → 归 false");
+        assert_eq!(extra["k"], 1, "extra 其余键保留");
+
+        // 二次重开：幂等。
+        drop(db2);
+        let db3 = crate::Db::new(main_path.to_str().unwrap()).await.unwrap();
+        let no_backfill2: crate::schema::BackfillFn =
+            std::sync::Arc::new(|_c: &rusqlite::Connection, _m: &std::collections::HashMap<String, i64>| Ok(()));
+        crate::schema::init_tables_raw(&db3, no_backfill2).await.unwrap();
+        let extra2: serde_json::Value = serde_json::from_str(
+            &db3.call_read_platform_traced(None, std::panic::Location::caller(), |conn| {
+                Ok(conn.query_row::<String, _, _>("SELECT extra FROM platform WHERE id = 1", [], |r| r.get(0)).unwrap())
+            })
+            .await
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(extra2, extra, "二次启动幂等");
+    }
 }
+
 

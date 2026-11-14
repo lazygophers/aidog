@@ -184,8 +184,7 @@ pub(crate) async fn handle_responses_subendpoint(
         &proxy_client,
         req_timeout,
         conn_timeout,
-        Some(&platform.extra),
-        None,
+        super::http_client::platform_should_use_proxy(&proxy_client, &platform.extra),
     )
     .await;
 

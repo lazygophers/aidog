@@ -24,6 +24,7 @@ import {
   DevinConfigSection, PassthroughConfigSection, PassThroughSection, EndpointsSection,
   BreakerSection, PeakSection, RateLimitsSection, GroupAssignSection,
   ExpirySection, QuotaSection, DirectModelsSection, AppbuilderKeySection, ClientWhitelistSection,
+  ProxyEnabledSection,
 } from "./formSections";
 import { ModelsMatrixSection } from "./ModelsMatrixSection";
 import { CcMitmAccessSection } from "./CcMitmAccessSection";
@@ -60,6 +61,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     timemodels,
     rateLimits, setRateLimits,
     mitmStats, setMitmStats,
+    proxyEnabled, setProxyEnabled,
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds, lockedGroupId,
     expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,
     saveError,
@@ -272,6 +274,15 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           t={t}
         />
         </>
+        )}
+
+        {/* 使用代理（issue #64 T03）：写 extra.proxy_enabled；mock 无出站不渲染 */}
+        {!isMock && (
+          <ProxyEnabledSection
+            enabled={proxyEnabled}
+            onChange={setProxyEnabled}
+            t={t}
+          />
         )}
 
         {/* ── 高级设置（2026-10-08）：顶部 sticky 分段条 + panels；左菜单样式只用于时段档 tab 内部 ── */}

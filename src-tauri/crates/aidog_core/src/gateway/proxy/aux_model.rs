@@ -320,8 +320,7 @@ async fn aux_attempt(
         proxy_client,
         req_timeout,
         conn_timeout,
-        Some(&route.platform.extra),
-        None,
+        super::http_client::platform_should_use_proxy(proxy_client, &route.platform.extra),
     )
     .await;
     let rb = client

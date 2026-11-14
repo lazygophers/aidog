@@ -160,10 +160,16 @@ async fn run(opts: Options) -> Result<(), String> {
     };
 
     // adapter 出站 client 构建器注入（与桌面壳 app_setup 同一句，未注入时 adapter 回落直连）。
-    aidog_adapter::quota::http::set_client_builder(Arc::new(|db| {
+    // 第二参 = 平台行 extra：余额查询按平台归属判定代理（issue #64 T04）。
+    aidog_adapter::quota::http::set_client_builder(Arc::new(|db, platform_extra| {
         let db = db.clone();
-        Box::pin(async move { aidog_core::gateway::http_client::build_http_client_system(&db, 10, 5).await })
+        let extra = platform_extra.map(str::to_string);
+        Box::pin(async move {
+            aidog_core::gateway::http_client::build_http_client_scoped(&db, 10, 5, extra.as_deref())
+                .await
+        })
     }));
+    aidog_core::gateway::http_client::install_non_platform_client_factories();
 
     // 先开 DB 再初始化日志：app log 设置的单一事实源是 DB settings 表。
     let db_path = data_dir.join("aidog.db");

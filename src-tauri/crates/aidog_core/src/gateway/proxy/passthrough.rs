@@ -3,7 +3,7 @@ use super::*;
 /// 透传分支差异项（两 caller 各自设置后调 relay_passthrough 共享骨架）。
 /// ponytail: 抽公共 relay 骨架消除 ~150 行双写漂移；StreamLogGuard 配置在此类型下游
 /// relay_passthrough 内单点设，禁 caller 重复设 guard.record_*（曾致 flush 跳过 user_response_body 回写 bug）。
-pub(crate) struct PassthroughOpts {
+pub(crate) struct PassthroughOpts<'a> {
     /// 写入 log.source_protocol / log.target_protocol。
     /// - handle_passthrough: "claude_code"
     /// - forward_passthrough_to_orig_host: "passthrough_unmatched"
@@ -32,10 +32,13 @@ pub(crate) struct PassthroughOpts {
     /// 透传平台（platform_id, 名称）：Some 时本次转发记一条真实 ProxyAttempt（路由画布据此连响应）；
     /// 无平台的直通 / claude_code 订阅透传为 None（不属于平台路由）。
     pub attempt_platform: Option<(u64, String)>,
+    /// 透传平台行 extra JSON（issue #64 T04：出站按平台归属判定代理）；无平台分支
+    /// （未匹配直通）为 None（非平台归属）。
+    pub platform_extra: Option<&'a str>,
 }
 
 /// 透传平台一次转发的 attempt 快照（连接失败 status=0；否则为上游状态码，非 2xx 附 `HTTP n`）。
-fn push_passthrough_attempt(log: &mut ProxyLog, opts: &PassthroughOpts, status_code: i32, error: String, ts: i64, start: std::time::Instant) {
+fn push_passthrough_attempt(log: &mut ProxyLog, opts: &PassthroughOpts<'_>, status_code: i32, error: String, ts: i64, start: std::time::Instant) {
     let Some((platform_id, platform_name)) = &opts.attempt_platform else { return };
     let ms = start.elapsed().as_millis() as i64;
     log.attempts.push(ProxyAttempt {
@@ -62,6 +65,7 @@ pub(crate) async fn handle_passthrough(
     orig_headers: axum::http::HeaderMap,
     bytes: axum::body::Bytes,
     base_url: &str,
+    platform_extra: Option<&str>,
     start: std::time::Instant,
     lang: Lang,
 ) -> Response {
@@ -76,6 +80,8 @@ pub(crate) async fn handle_passthrough(
         strip_inbound_auth: false,
         auth_inject: None,
         attempt_platform: None,
+        // claude_code 订阅透传出站同样按该平台开关判定（issue #64：平台开关覆盖该平台全部出站）。
+        platform_extra,
     };
     relay_passthrough(
         state,
@@ -138,7 +144,7 @@ async fn relay_passthrough(
     bytes: axum::body::Bytes,
     start: std::time::Instant,
     lang: Lang,
-    opts: &PassthroughOpts,
+    opts: &PassthroughOpts<'_>,
 ) -> Response {
     log.source_protocol = opts.protocol_tag.to_string();
     log.target_protocol = opts.protocol_tag.to_string();
@@ -160,9 +166,13 @@ async fn relay_passthrough(
     } else {
         10
     };
-    let client =
-        super::http_client::build_http_client(&proxy_client, req_timeout, conn_timeout, None, None)
-            .await;
+    // 透传出站归属：平台分支带 extra（读 `extra.proxy_enabled`，issue #64 T04；
+    // 空白 extra = 平台缺省直连，不回落 others_enabled——review 需求轴 3）；
+    // 无平台分支（claude_code 订阅透传 / 未匹配直通）= 非平台归属（读「其它请求使用代理」）。
+    // 判定收口 scoped_use_proxy（review 判断项 1，与 build_http_client_scoped 同源）。
+    let use_proxy = super::http_client::scoped_use_proxy(&proxy_client, opts.platform_extra);
+    let client = super::http_client::build_http_client(&proxy_client, req_timeout, conn_timeout, use_proxy)
+        .await;
 
     // 原样转发 header，剔除 hop-by-hop（Host / Content-Length 由 reqwest 按目标 URL + body 重设）；
     // forward 分支额外剥 Proxy-* 协商头（避免上游收到代理协商头）。
@@ -667,6 +677,7 @@ pub(crate) async fn handle_passthrough_platform(
         strip_inbound_auth: true,
         auth_inject,
         attempt_platform: Some((platform.id, platform.name.clone())),
+        platform_extra: Some(platform.extra.as_str()),
     };
     relay_passthrough(
         state,
@@ -859,6 +870,7 @@ pub(crate) async fn forward_passthrough_to_orig_host(
         strip_inbound_auth: false,
         auth_inject: None,
         attempt_platform: None,
+        platform_extra: None,
     };
     relay_passthrough(
         state,
@@ -935,7 +947,7 @@ async fn relay_passthrough_nonstream(
     resp_status: axum::http::StatusCode,
     resp_header_map: axum::http::HeaderMap,
     start: std::time::Instant,
-    opts: &PassthroughOpts,
+    opts: &PassthroughOpts<'_>,
 ) -> Response {
     // body 读取失败（读一半上游断连）不能吞成 200 空 body——转换路径有 is_nonstream_body_valid
     // 闸，透传路径此前无等价闸，客户端拿到「成功」的空回答且日志无错（审计发现 14）。
@@ -996,7 +1008,7 @@ async fn relay_passthrough_stream(
     state: &Arc<ProxyState>,
     log: &mut ProxyLog,
     log_settings: &ProxyLogSettings,
-    opts: &PassthroughOpts,
+    opts: &PassthroughOpts<'_>,
     resp: reqwest::Response,
     status: reqwest::StatusCode,
     resp_status: axum::http::StatusCode,

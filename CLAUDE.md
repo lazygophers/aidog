@@ -51,6 +51,12 @@
 - `provider_api_path()` 只返回 `/chat/completions`
 - 最终 URL = `base_url + provider_api_path`，禁止额外拼接
 
+### 出站代理（issue #64）
+- **判定唯一 seam**：`gateway/http_client.rs::should_use_proxy`（纯函数，输入 `ProxyClientSettings` + `ProxyAttribution`）。共同前置：代理主机为空 → 恒直连；免代理名单在 HTTP client 层按域名排除，优先于一切开关。
+- **归属三态**：`Platform`（平台 `extra.proxy_enabled`，None 缺省直连）/ `NonPlatform`（读 `others_enabled`「其它请求使用代理」）/ `MitmBypass`（连接绑定分组内官方平台开关集合，任一显式开即走代理，集合为空回落 NonPlatform）。
+- **覆盖面**：平台开关覆盖该平台全部出站（聊天等 7 类既有路径 + 透传转发 + 余额查询 + 拉取模型列表/模型测试）；非平台出站（Logo 同步、MCP 推荐拉取、技能安装等）一律走 `build_http_client_system`（NonPlatform）。
+- **老用户升级**：一次性迁移保证升级后请求走向不变；代理配置无总开关，出厂默认地址为空。
+
 ### Proxy 日志
 - ProxyLogSettings 控制 2 级记录（master switch 已删 2026-10-22，元数据恒落库）：用户原始请求(log_user_request) / 上游请求(log_upstream_request)。**元数据（token / cost / status / model / duration 等）无开关恒记录**。
 - 「原始信息」= headers + body + 上游响应正文 + url，**均受 log_user_request / log_upstream_request 开关控制**（gate 在 `from_log` 与 `strip_raw_sides`，两处列集必须一致，`raw_field_sides_match` 测试互证）。关开关后这些列入库即清空。按侧归类：用户侧 (request_headers/request_body/user_response_headers/user_response_body/request_url) 受 log_user_request；上游侧 (upstream_request_headers/upstream_request_body/upstream_response_headers/response_body/field_trace/upstream_request_url) 受 log_upstream_request。开关开启时入库的 Authorization 等敏感头已脱敏 `[REDACTED]`。流式日志终态由显式 `done` 列判定（终态 = status!=0 且 done=1；流式 flush/断连兜底/非流式终态/中断补写置位），`[stream]` 占位哨兵已废（2026-08-24 票 06），body 列不承载控制语义。

@@ -11,7 +11,7 @@
 //! 代价是消息体变大，取舍记录在票 ## Answer）。不发 `response_format`（可选参数，
 //! 两种响应形态都按数据判别）。
 
-use aidog_search::{call, http_client};
+use aidog_search::{call, http_client_aware};
 use crate::mcp_tools::MediaProviderConfig;
 
 /// `generate_image` 工具入口。
@@ -23,7 +23,7 @@ pub async fn generate_image(
     let cfg = cfg.filter(|c| c.is_configured()).ok_or(
         "未配置图片 provider（在 aidog 设置里填写 base_url / API key / 模型名）",
     )?;
-    let client = http_client()?;
+    let client = http_client_aware().await?;
     let mut body = serde_json::json!({
         "model": cfg.model.trim(),
         "prompt": prompt,

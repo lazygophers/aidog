@@ -95,12 +95,16 @@ pub struct BuiltinToolCompatGlobalSettings {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct ProxyClientSettings {
+    /// 「其它请求使用代理」开关（非平台出站：余额/logo/model_fetch/skills/透传临时等价等）。
+    /// 旧总开关 `enabled` 已删（issue #64 T01）：反序列化忽略旧值，仅一次性迁移读取
+    /// （schema_late.rs migrate_proxy_client_setting）；平台出站看平台 `extra.proxy_enabled`。
     #[serde(default)]
-    pub enabled: bool,
+    pub others_enabled: bool,
     /// "socks5" | "http" | "https"
     #[serde(default = "default_proxy_type")]
     pub proxy_type: String,
-    #[serde(default = "default_proxy_host")]
+    /// 出厂默认空串 = 未配置代理（判定「已填写代理」= 主机非空；前端占位提示 127.0.0.1）
+    #[serde(default)]
     pub host: String,
     #[serde(default = "default_proxy_port")]
     pub port: u16,
@@ -123,9 +127,6 @@ pub const DEFAULT_NO_PROXY: &str = "localhost,127.0.0.1,::1,0.0.0.0,10.0.0.0/8,1
 fn default_proxy_type() -> String {
     "socks5".to_string()
 }
-fn default_proxy_host() -> String {
-    "127.0.0.1".to_string()
-}
 fn default_proxy_port() -> u16 {
     7890
 }
@@ -133,9 +134,9 @@ fn default_proxy_port() -> u16 {
 impl Default for ProxyClientSettings {
     fn default() -> Self {
         Self {
-            enabled: false,
+            others_enabled: false,
             proxy_type: default_proxy_type(),
-            host: default_proxy_host(),
+            host: String::new(),
             port: default_proxy_port(),
             username: String::new(),
             password: String::new(),
@@ -155,9 +156,24 @@ impl ProxyClientSettings {
         }
     }
 
-    /// Build a reqwest::Proxy from settings. Returns None if not enabled.
+    /// 代理完整 URI（scheme 按 proxy_type / socks5h 派生，与 to_reqwest_proxy 同源）；
+    /// host 空 → None。给非 reqwest 栈（aidog_search wreq 指纹 client）共用的单一真值。
+    pub fn proxy_uri(&self) -> Option<String> {
+        if self.host.trim().is_empty() {
+            return None;
+        }
+        let scheme = match self.proxy_type.as_str() {
+            "socks5" if self.dns_over_proxy => "socks5h",
+            "socks5" => "socks5",
+            "https" => "https",
+            _ => "http",
+        };
+        Some(format!("{}://{}:{}", scheme, self.host, self.port))
+    }
+
+    /// Build a reqwest::Proxy from settings. Returns None if host empty (未配置代理).
     pub fn to_reqwest_proxy(&self) -> Option<reqwest::Proxy> {
-        if !self.enabled {
+        if self.host.trim().is_empty() {
             return None;
         }
         let scheme = match self.proxy_type.as_str() {

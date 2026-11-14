@@ -235,6 +235,62 @@ pub fn http_client() -> Result<reqwest::Client, String> {
         .map_err(|e| format!("build http client: {e}"))
 }
 
+// ── 出站代理接入（issue #64：web_search / web_fetch / media 属非平台出站，受
+// 「其它请求使用代理」控制）。本 crate 不依赖 aidog_core（防环），代理决策由外壳
+// 经工厂注入（quota set_client_builder 同 idiom）；未注入（测试 / 裸用）回落直连。
+
+/// 注入的 reqwest 出站工厂：返回代理感知 client（外壳内读 proxy_client 设置 →
+/// `should_use_proxy(NonPlatform)` → `build_http_client`）。
+pub type ClientFactory = std::sync::Arc<
+    dyn Fn() -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<reqwest::Client, String>> + Send>>
+        + Send
+        + Sync,
+>;
+static CLIENT_FACTORY: std::sync::OnceLock<ClientFactory> = std::sync::OnceLock::new();
+
+/// 注入 reqwest 出站工厂（幂等，重复调用保留首个）。
+pub fn set_client_factory(f: ClientFactory) {
+    let _ = CLIENT_FACTORY.set(f);
+}
+
+/// 生产出站（web_search / web_fetch / media）：先试注入工厂，未注入回落 [`http_client`] 直连。
+pub async fn http_client_aware() -> Result<reqwest::Client, String> {
+    match CLIENT_FACTORY.get() {
+        Some(f) => f().await,
+        None => http_client(),
+    }
+}
+
+/// 浏览器指纹出站（免 key 引擎抓取）的代理配置：uri（socks5h/http(s)，同
+/// ProxyClientSettings::proxy_uri）+ 生效 no_proxy 名单。
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct FingerprintProxy {
+    pub uri: String,
+    pub username: String,
+    pub password: String,
+    pub no_proxy: String,
+}
+
+pub type FingerprintProxyProvider = std::sync::Arc<
+    dyn Fn() -> std::pin::Pin<Box<dyn std::future::Future<Output = Option<FingerprintProxy>> + Send>>
+        + Send
+        + Sync,
+>;
+static FINGERPRINT_PROXY: std::sync::OnceLock<FingerprintProxyProvider> = std::sync::OnceLock::new();
+
+/// 注入指纹出站代理提供器（幂等）。None 返回 = 直连。
+pub fn set_fingerprint_proxy_provider(f: FingerprintProxyProvider) {
+    let _ = FINGERPRINT_PROXY.set(f);
+}
+
+/// 指纹出站代理配置（engines.rs 构 wreq client 用）；未注入 / 提供器返 None = 直连。
+pub(crate) async fn fingerprint_proxy() -> Option<FingerprintProxy> {
+    match FINGERPRINT_PROXY.get() {
+        Some(f) => f().await,
+        None => None,
+    }
+}
+
 /// `web_search` 工具入口（只要命中列表；明细见 [`web_search_detailed`]）。
 pub async fn web_search(
     cfg: &SearchProviderConfig,
@@ -405,7 +461,7 @@ async fn search_with_keys(
     if keys.is_empty() {
         return Err(format!("provider `{provider}` 未配置 API key"));
     }
-    let client = http_client()?;
+    let client = http_client_aware().await?;
     let start = ROTATION.fetch_add(1, Ordering::Relaxed) % keys.len();
     let mut errs = Vec::new();
     for i in 0..keys.len() {
@@ -730,7 +786,7 @@ pub async fn fetch_url_text(url: &str, format: FetchFormat) -> Result<String, St
     if !url.starts_with("http://") && !url.starts_with("https://") {
         return Err(format!("仅支持 http/https URL，收到 `{url}`"));
     }
-    let client = http_client()?;
+    let client = http_client_aware().await?;
     let resp = client
         .get(url)
         .send()

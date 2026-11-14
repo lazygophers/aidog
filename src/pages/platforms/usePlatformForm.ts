@@ -17,6 +17,7 @@ import {
   parseRateLimitsBundle, serializeRateLimitsBundle, type RateLimitsBundle,
   parsePassthroughAuth, serializePassthroughAuth,
   parseAppbuilderKey, serializeAppbuilderKey, validateClientUaRule, rateLimitRuleError,
+  parseProxyEnabled, serializeProxyEnabled,
   parseCustomSlots, serializeCustomSlots, parseDisabledSlots, serializeDisabledSlots,
   DEFAULT_MOCK_CONFIG, DEFAULT_DEVIN_CONFIG, DEFAULT_PASSTHROUGH_AUTH,
   type Platform, type Protocol, type ModelSlot, type PlatformEndpoint,
@@ -38,6 +39,7 @@ import { usePlatformTimeModels } from "./usePlatformTimeModels";
 import { QUOTA_CUSTOM_VARIANT } from "./formSections";
 import { slotsToForm, slotList } from "../../domains/platforms/slotValue";
 import { applyPaste as applyPasteImpl, runBatchCreateFromPaste as runBatchCreateFromPasteImpl, previewBatchNames, type PlatformPasteCtx } from "./platformPasteApply";
+import { getProxyHostConfigured } from "../../domains/platforms/proxyConfig";
 
 /** owner（usePlatformsState）注入的 list 侧依赖。所有 form handler 需要的 list state/setters 走此通道。 */
 export interface PlatformFormListDeps {
@@ -133,6 +135,8 @@ export interface PlatformFormState {
   timemodels: ReturnType<typeof usePlatformTimeModels>;
   /** mitm_stats 开关（cc-sub-mitm 票 12：Claude Code 订阅平台 MITM 接入形态标记，存 platform.extra.mitm_stats）。 */
   mitmStats: boolean; setMitmStats: React.Dispatch<React.SetStateAction<boolean>>;
+  /** 使用代理开关（issue #64 T03，存 platform.extra.proxy_enabled；显式 bool）。 */
+  proxyEnabled: boolean; setProxyEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   /** 限频配置（rate-limit-aware 票 04：extra.rate_limits + extra.quota_windows，弹窗编辑）。 */
   rateLimits: RateLimitsBundle; setRateLimits: React.Dispatch<React.SetStateAction<RateLimitsBundle>>;
   autoGroup: boolean; setAutoGroup: React.Dispatch<React.SetStateAction<boolean>>;
@@ -252,6 +256,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const timemodels = usePlatformTimeModels();
   // mitm_stats（订阅透传 MITM 接入形态标记；仅 claude_code 协议表单暴露 UI）
   const [mitmStats, setMitmStats] = useState<boolean>(false);
+  // 使用代理（issue #64 T03，extra.proxy_enabled）
+  const [proxyEnabled, setProxyEnabled] = useState<boolean>(false);
   // 限频配置（rate-limit-aware 票 04：编辑弹窗整体读写，无独立子字段 state）
   const [rateLimits, setRateLimits] = useState<RateLimitsBundle>({});
   // 分组归属选项：auto_group（是否建默认分组，默认勾）+ join_group_ids（加入的已有分组）。
@@ -378,6 +384,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerHalfOpenMax("");
     timemodels.reset(); setMitmStats(false);
+    setProxyEnabled(false);
     setAutoGroup(true); setJoinGroupIds([]); setLockedGroupId(null); setExpiresAt(0); setExpiryEnabled(false);
     // 关闭表单时复位「已消费的外部编辑导航 platformId」一次性 ref：否则经 onNavigate 进来的同一
     // 平台第二次编辑会被 consumedEditPidRef 短路（initialFilter.platformId 值不变，effect 亦不重跑）。
@@ -395,6 +402,9 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     }
     // chips 渲染依赖 groupDetails，确保已加载。
     groupDetailApi.list().then(setGroupDetails).catch(() => {});
+    // 使用代理预填（issue #64 T03）：全局代理地址非空默认开、为空默认关；一次性写入 state，
+    // 不做渲染期回落（禁 value={x || DEFAULT} 模式）。
+    getProxyHostConfigured().then(on => setProxyEnabled(on)).catch(() => setProxyEnabled(false));
     setShowForm(true);
   };
 
@@ -449,6 +459,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setDevinConfig(parseDevinConfig(p.extra ?? ""));
     setPassAuth(parsePassthroughAuth(p.extra ?? ""));
     setAppbuilderKey(parseAppbuilderKey(p.extra ?? "")); setCustomSlotValues(parseCustomSlots(p.extra ?? "")); setDisabledSlots(parseDisabledSlots(p.extra ?? ""));
+    setProxyEnabled(parseProxyEnabled(p.extra ?? ""));
     setLockedGroupId(null);
     try {
       const gds = await groupDetailApi.list();
@@ -496,6 +507,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setDevinConfig(parseDevinConfig(p.extra ?? ""));
     setPassAuth(parsePassthroughAuth(p.extra ?? ""));
     setAppbuilderKey(parseAppbuilderKey(p.extra ?? "")); setCustomSlotValues(parseCustomSlots(p.extra ?? "")); setDisabledSlots(parseDisabledSlots(p.extra ?? ""));
+    setProxyEnabled(parseProxyEnabled(p.extra ?? ""));
     setLockedGroupId(null);
     // 反查源平台当前手动组成员（排除其 auto 分组），作为「加入已有分组」初始值。
     try {
@@ -550,7 +562,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     try {
       for (const { proto, url } of tryList) {
         try {
-          const modelIds = await platformApi.fetchModels(proto, url, apiKey);
+          const modelIds = await platformApi.fetchModels(proto, url, apiKey, proxyEnabled);
           if (modelIds.length === 0) {
             // 空列表（200 但无 data）不 break，继续试下一 endpoint，但记录为「可能拉不到」
             continue;
@@ -705,6 +717,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     extraPayload = timemodels.serialize(extraPayload);
     // mitm_stats：false → 移除键（默认行为）；true → 写入。
     extraPayload = serializeMitmStats(extraPayload, mitmStats);
+    // 使用代理（issue #64 T03）：显式写 bool（新建预填 / 编辑开关两态都落库）。
+    extraPayload = serializeProxyEnabled(extraPayload, proxyEnabled);
     // 限频配置（rate-limit-aware 票 04）：空 bundle → 删键（无覆盖）。
     extraPayload = serializeRateLimitsBundle(extraPayload, rateLimits);
     const manualBudgetsPayload: ManualBudget[] = isPassthrough || isPassThrough ? [] : manualBudgets;
@@ -850,6 +864,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     breakerDefaults,
     timemodels,
     mitmStats, setMitmStats,
+    proxyEnabled, setProxyEnabled,
     rateLimits, setRateLimits,
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds,
     expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,

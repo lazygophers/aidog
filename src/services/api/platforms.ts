@@ -480,6 +480,35 @@ export function serializeDisableDuringPeak(extra: string, enabled: boolean): str
   return JSON.stringify(obj);
 }
 
+/** 从 platform.extra JSON 解析「使用代理」开关（issue #64 T03）。
+ *  严格布尔 true 才算开（与 Rust platform_proxy_enabled 的 Some(true) 对称）；
+ *  缺失 / 非法 / false → false（后端缺省按直连）。 */
+export function parseProxyEnabled(extra: string): boolean {
+  if (!extra.trim()) return false;
+  try {
+    const parsed: unknown = JSON.parse(extra);
+    if (parsed && typeof parsed === "object" && "proxy_enabled" in parsed) {
+      return (parsed as { proxy_enabled: unknown }).proxy_enabled === true;
+    }
+  } catch { /* ignore */ }
+  return false;
+}
+
+/** 把「使用代理」写回 extra JSON（保留其余键）。显式写 boolean（T01：新建平台由前端预填显式值）。 */
+export function serializeProxyEnabled(extra: string, enabled: boolean): string {
+  let obj: Record<string, unknown> = {};
+  if (extra.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(extra);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        obj = parsed as Record<string, unknown>;
+      }
+    } catch { /* ignore */ }
+  }
+  obj.proxy_enabled = enabled;
+  return JSON.stringify(obj);
+}
+
 /** 从 platform.extra JSON 解析直通模型列表（直接模型转发）。缺失 / 非法 / 含非字符串 → 过滤后返回。 */
 export function parseDirectModels(extra: string): string[] {
   if (!extra.trim()) return [];
@@ -856,8 +885,8 @@ export const platformApi = {
   errorStatus: () =>
     invoke<PlatformErrorStatus[]>("platform_error_status"),
 
-  fetchModels: (protocol: Protocol, baseUrl: string, apiKey: string) =>
-    invoke<string[]>("platform_fetch_models", { protocol, baseUrl, apiKey }),
+  fetchModels: (protocol: Protocol, baseUrl: string, apiKey: string, proxyEnabled?: boolean) =>
+    invoke<string[]>("platform_fetch_models", { protocol, baseUrl, apiKey, proxyEnabled }),
 
   usageStats: (platformId: number) =>
     invoke<PlatformUsageStats>("platform_usage_stats", { platformId }),

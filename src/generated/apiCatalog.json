@@ -1950,6 +1950,10 @@
         {
           "name": "apiKey",
           "type": "String"
+        },
+        {
+          "name": "proxyEnabled",
+          "type": "Option<bool>"
         }
       ],
       "returns": "Vec<String>"
