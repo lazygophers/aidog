@@ -400,7 +400,7 @@ crate::tauri_command! {
             if cfg.delay_ms > 0 {
                 tokio::time::sleep(std::time::Duration::from_millis(cfg.delay_ms)).await;
             }
-            if let Err(le) = aidog_logs::upsert_proxy_log(db, build_test_proxy_log(
+            if let Err(le) = aidog_logs::upsert_request_log(db, build_test_proxy_log(
                 &http_ctx, ctx.platform.id, &http_ctx.target_protocol,
                 "", 200, 200, r#"{"content-type":"application/json"}"#, "",
                 result.input_tokens, result.output_tokens,
@@ -440,7 +440,7 @@ crate::tauri_command! {
                     error: format!("request failed: {e}"),
                 };
                 tracing::warn!(command = "model_test", platform_id = ctx.platform.id, error = %e, "model test request failed");
-                if let Err(le) = aidog_logs::upsert_proxy_log(db, build_test_proxy_log(
+                if let Err(le) = aidog_logs::upsert_request_log(db, build_test_proxy_log(
                     &http_ctx, ctx.platform.id, &http_ctx.target_protocol,
                     &format!("upstream error: {e}"), 0, 502, "", &format!("upstream error: {e}"), 0, 0,
                 )).await {
@@ -477,7 +477,7 @@ crate::tauri_command! {
                 error: format!("HTTP {}", status),
             };
             tracing::warn!(command = "model_test", platform_id = ctx.platform.id, %status, "model test non-success upstream status");
-            if let Err(le) = aidog_logs::upsert_proxy_log(db, build_test_proxy_log(
+            if let Err(le) = aidog_logs::upsert_request_log(db, build_test_proxy_log(
                 &http_ctx, ctx.platform.id, &http_ctx.target_protocol,
                 &body, upstream_status_code, upstream_status_code,
                 &upstream_resp_headers, &body, 0, 0,
@@ -489,7 +489,7 @@ crate::tauri_command! {
 
         let result = handle_success_response(&ctx, &http_ctx, &body, &http_ctx.target_protocol);
 
-        if let Err(le) = aidog_logs::upsert_proxy_log(db, build_test_proxy_log(
+        if let Err(le) = aidog_logs::upsert_request_log(db, build_test_proxy_log(
             &http_ctx, ctx.platform.id, &http_ctx.target_protocol,
             &body, upstream_status_code, if result.success { 200 } else { 422 },
             &upstream_resp_headers, &body, result.input_tokens, result.output_tokens,

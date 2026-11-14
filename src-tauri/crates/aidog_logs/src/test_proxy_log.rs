@@ -847,60 +847,6 @@ async fn filtered_list_model_type_actual() {
     assert_eq!(rows[0].id, "mta-1");
 }
 
-/// list_request_logs：默认 sources=[test,quota,fetch-models]，排除纯代理转发行。
-#[tokio::test]
-async fn list_request_logs_filters_test_and_quota() {
-    let db = test_db().await;
-    let now = now();
-
-    // 三行：1 条 test + 1 条 quota + 1 条 anthropic 代理转发
-    let mut l_test = sample_log("t1", "g", now);
-    l_test.source_protocol = "test".into();
-    let mut l_quota = sample_log("q1", "g", now - 100);
-    l_quota.source_protocol = "quota".into();
-    let mut l_fwd = sample_log("f1", "g", now - 50);
-    l_fwd.source_protocol = "anthropic".into();
-    let mut l_fetch = sample_log("fm1", "g", now - 25);
-    l_fetch.source_protocol = "fetch-models".into();
-    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_test, false, false))
-        .await
-        .unwrap();
-    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_quota, false, false))
-        .await
-        .unwrap();
-    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_fwd, false, false))
-        .await
-        .unwrap();
-    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_fetch, false, false))
-        .await
-        .unwrap();
-
-    // 默认 sources 兜底 → 仅返 test + quota + fetch-models 三行（按 created_at DESC：t1, fm1, q1）
-    let filter_default = aidog_db::models::ProxyLogFilter::default();
-    let rows = list_request_logs(&db, &filter_default, 10, 0)
-        .await
-        .unwrap();
-    assert_eq!(
-        rows.len(),
-        3,
-        "default sources should exclude anthropic forward"
-    );
-    assert_eq!(rows[0].id, "t1");
-    assert_eq!(rows[1].id, "fm1");
-    assert_eq!(rows[2].id, "q1");
-
-    // 显式 sources 覆盖：传 [anthropic] → 仅返代理转发行
-    let filter_override = aidog_db::models::ProxyLogFilter {
-        sources: Some(vec!["anthropic".into()]),
-        ..Default::default()
-    };
-    let rows2 = list_request_logs(&db, &filter_override, 10, 0)
-        .await
-        .unwrap();
-    assert_eq!(rows2.len(), 1);
-    assert_eq!(rows2[0].id, "f1");
-}
-
 /// exclude_sources：Logs 主页排除 test/quota → 仅纯代理转发。
 /// 契约：list_proxy_logs/exclude_sources 走同一 build_filter_where；这里用 filtered_list 验证。
 #[tokio::test]

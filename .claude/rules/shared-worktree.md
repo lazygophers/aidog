@@ -161,6 +161,11 @@ perf-backend 收尾轮：PreToolUse hook 把 `git worktree add` 改写经 rtk �
 - **前端构建**：用仓库默认输出目录，不再 `--outDir /tmp/aidog-agent-dist`。
 - 下文「（已废止 2026-11-05）」的段落里所有 `/tmp/aidog-agent-target`、`/tmp/aidog-agent-dist` 写法同样作废，
   其中的互斥锁、`cargo clean -p aidog_db`、`touch build.rs`、串味核对手法仍有效，目录按本节替换。
+- **`.worktrees/.target` 同一时刻只允许一个 cargo**（2026-11-14 issue 61 轮实锤三连）：并行会话同时在
+  该目录跑 `cargo test --workspace` 会互相冲掉产物——`ident_case` extern 丢失、doctest `E0463`、
+  二进制被删，各会话各自持 `/tmp/aidog-cargo.lock` 独占重跑才拿到绿（锁手法见下节，仍有效）。
+  **假红判据**：extern 丢失 / doctest E0463 / 二进制消失这类「不该红的红」，先怀疑并发重建，
+  取锁独占重跑再归因，不在假红上改代码。
 
 ## agent / detach worktree 复用单一 CARGO_TARGET_DIR（已废止 2026-11-05：目录改为上节；2026-10-22 立，2026-10-30 改）
 
@@ -324,6 +329,11 @@ harness 隔离建的 agent worktree 自带 lock，收工直接 `/usr/bin/git wor
 已于 2026-10-29 `git remote remove`。现行做法：推送只走 `origin`（GitHub `lazygophers/aidog`），
 先 `git fetch origin && git rev-list --left-right --count origin/master...master`，左边为 0
 （纯快进）才 `git push origin master`；origin 是公开远端，推送前仍按全局规则向用户确认一次。2026-11-06 起不主动推送，也不主动发起推送提问；用户当轮明说才按上述快进检查推送。
+
+PR 分支同此：**从 `origin/master` 开分支，不从本地 HEAD**（2026-11-14 issue 61 轮实锤：本地 master
+领先 origin 19 提交，从本地 HEAD 开的 PR 分支带 7 个他线未推送提交，直推会把它们借 PR 发上 origin）；
+单提交用 cherry-pick；push 前核 `git rev-list --count origin/master..<分支>`，只含本任务提交才推。
+全局 git-worktree.md「所有开发基于 origin/master」缺「push 前核提交数」这步，本条补齐（仅项目级）。
 
 ## 多个 agent 同时动主 checkout 的 master：串行（2026-10-29）
 

@@ -584,6 +584,71 @@ fn purge_non_ai_connect_rows(conn: &Connection) {
     }
 }
 
+/// Migration 20261114-01: 请求记录（测试 / 余额 / 拉模型）独立建表 `request_log`（log.db），
+/// 不含 model / actual_model / token / cost 列；并把 proxy_log 里 source_protocol 属这三类的存量行
+/// 搬进新表后从 proxy_log 删除（不可逆；单事务；INSERT OR IGNORE + 删后无源行 → 重跑幂等）。
+pub fn migrate_request_log(conn: &Connection) -> SqlResult<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS request_log (
+            id TEXT PRIMARY KEY,
+            kind TEXT NOT NULL DEFAULT '',
+            group_key TEXT NOT NULL DEFAULT '',
+            platform_id INTEGER NOT NULL DEFAULT 0,
+            target_protocol TEXT NOT NULL DEFAULT '',
+            status_code INTEGER NOT NULL DEFAULT 0,
+            upstream_status_code INTEGER NOT NULL DEFAULT 0,
+            duration_ms INTEGER NOT NULL DEFAULT 0,
+            user_agent TEXT NOT NULL DEFAULT '',
+            request_url TEXT NOT NULL DEFAULT '',
+            request_headers TEXT NOT NULL DEFAULT '',
+            request_body TEXT NOT NULL DEFAULT '',
+            user_response_headers TEXT NOT NULL DEFAULT '',
+            user_response_body TEXT NOT NULL DEFAULT '',
+            upstream_request_url TEXT NOT NULL DEFAULT '',
+            upstream_request_headers TEXT NOT NULL DEFAULT '',
+            upstream_request_body TEXT NOT NULL DEFAULT '',
+            upstream_response_headers TEXT NOT NULL DEFAULT '',
+            response_body TEXT NOT NULL DEFAULT '',
+            created_at INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_request_log_created ON request_log(created_at);
+        CREATE INDEX IF NOT EXISTS idx_request_log_platform_kind ON request_log(platform_id, kind, created_at);",
+    )?;
+    // 旧库无 proxy_log 表（极早期 / 单测裸连接）时跳过搬迁。
+    let has_proxy_log: bool = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='proxy_log'",
+            [],
+            |r| r.get::<_, i64>(0),
+        )?
+        > 0;
+    if !has_proxy_log {
+        return Ok(());
+    }
+    let tx = conn.unchecked_transaction()?;
+    let moved = tx.execute(
+        "INSERT OR IGNORE INTO request_log (id, kind, group_key, platform_id, target_protocol, status_code, \
+            upstream_status_code, duration_ms, user_agent, request_url, request_headers, request_body, \
+            user_response_headers, user_response_body, upstream_request_url, upstream_request_headers, \
+            upstream_request_body, upstream_response_headers, response_body, created_at) \
+         SELECT id, source_protocol, group_key, platform_id, target_protocol, status_code, \
+            upstream_status_code, duration_ms, user_agent, request_url, request_headers, request_body, \
+            user_response_headers, user_response_body, upstream_request_url, upstream_request_headers, \
+            upstream_request_body, upstream_response_headers, response_body, created_at \
+         FROM proxy_log WHERE source_protocol IN ('test', 'quota', 'fetch-models')",
+        [],
+    )?;
+    tx.execute(
+        "DELETE FROM proxy_log WHERE source_protocol IN ('test', 'quota', 'fetch-models')",
+        [],
+    )?;
+    tx.commit()?;
+    if moved > 0 {
+        tracing::info!(moved, "migration 20261114-01: 请求记录已从 proxy_log 搬入 request_log");
+    }
+    Ok(())
+}
+
 /// proxy_log 表的 late migrations（log.db 库内序 20260727-10..20，原 021–047 范围内的 proxy_log 部分）。
 ///
 /// 拆库后这些 DDL 跑在 log.db 写连接。`cpa_pids` 为原 046 需清理的 CPA 平台 ID
@@ -831,6 +896,7 @@ pub fn run_migrations_proxy_log_late(
             [],
         );
     }
+    migrate_request_log(conn)?;
     Ok(())
 }
 
