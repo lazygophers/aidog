@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794627749,
+  "last_updated": 1794632081,
   "supported_protocols": [
     "openai"
   ],
@@ -9,6 +9,9 @@
   "family": "llama",
   "capabilities": [],
   "official": true,
+  "version": "0.1",
+  "max_input_tokens": 4000,
+  "context_window": 4000,
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
