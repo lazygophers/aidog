@@ -1831,7 +1831,7 @@ async fn disable_platform_named(state: &Arc<ProxyState>, name: &str) {
     state.db.invalidate_group_details_cache();
 }
 
-/// responses 子端点五种方法各一例：白名单拦下 → 417 + 审计行；放行 UA → 200；
+/// responses 子端点五种方法各一例：白名单拦下 → 403 + 审计行；放行 UA → 200；
 /// 未配白名单的组零变化。
 #[tokio::test]
 async fn whitelist_responses_subendpoints_all_methods() {
@@ -1849,9 +1849,9 @@ async fn whitelist_responses_subendpoints_all_methods() {
     ];
     for (method, uri) in cases {
         let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrwl", method, uri, Some("curl/8.4.0"))).await;
-        assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "{method} {uri}");
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN, "{method} {uri}");
         let log = last_log_for(&state, "gkrwl").await;
-        assert_eq!(log.status_code, 417, "{method} {uri}");
+        assert_eq!(log.status_code, 403, "{method} {uri}");
         assert_eq!(log.blocked_by, "router");
         assert_eq!(log.blocked_reason, "client_not_allowed");
         assert_eq!(log.est_cost, 0.0);
@@ -1863,9 +1863,9 @@ async fn whitelist_responses_subendpoints_all_methods() {
         assert_eq!(resp.status(), StatusCode::OK, "no whitelist {method} {uri}");
     }
 
-    // 无 UA → 认不出 → 417
+    // 无 UA → 认不出 → 403
     let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrwl", "GET", "/v1/responses/resp_1", None)).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
 
 /// 票 06 缺口收口：组内有透传平台时 responses 子端点先被透传路径认领，同样受白名单约束。
@@ -1875,7 +1875,7 @@ async fn whitelist_responses_subendpoint_on_passthrough_group_417() {
     let state = make_state(test_db().await).await;
     setup_passthrough_platform_group_extra(&state, "gkprs", &upstream, WL_CC_EXTRA).await;
     let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkprs", "GET", "/v1/responses/resp_1", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     assert_client_417_log(&state, "gkprs", "curl/8.4.0").await;
     assert_eq!(seen.lock().unwrap().len(), 0, "blocked request must not reach upstream");
     let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkprs", "GET", "/v1/responses/resp_1", Some("claude-cli/2.0.1 (external, cli)"))).await;
@@ -1883,8 +1883,8 @@ async fn whitelist_responses_subendpoint_on_passthrough_group_417() {
     assert_eq!(seen.lock().unwrap().len(), 1);
 }
 
-/// 被拦平台跳过、落到未配白名单的平台；等效退化（只剩被拦平台 + 禁用平台）→ 417（同聊天路径单平台口径）；
-/// 字面单平台组被拦 → 417。blocked_reason 恒为 client_not_allowed（responses 只认 enabled，无「真混合」形态，混合 503 见聊天路径）。
+/// 被拦平台跳过、落到未配白名单的平台；等效退化（只剩被拦平台 + 禁用平台）→ 403（同聊天路径单平台口径）；
+/// 字面单平台组被拦 → 403。blocked_reason 恒为 client_not_allowed（responses 只认 enabled，无「真混合」形态，混合 503 见聊天路径）。
 #[tokio::test]
 async fn whitelist_responses_fallthrough_degenerate_and_mixed() {
     let state = make_state(test_db().await).await;
@@ -1897,14 +1897,14 @@ async fn whitelist_responses_fallthrough_degenerate_and_mixed() {
 
     disable_platform_named(&state, "FB").await;
     let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrfall", "GET", "/v1/responses/x", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     let log = last_log_for(&state, "gkrfall").await;
     assert_eq!((log.blocked_by.as_str(), log.blocked_reason.as_str()), ("router", "client_not_allowed"));
-    assert_eq!(log.status_code, 417);
+    assert_eq!(log.status_code, 403);
 
     setup_multi_platform_group(&state, "gkrsole", &[("SA", &up, WL_CC_EXTRA)]).await;
     let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrsole", "GET", "/v1/responses/x", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
 
 fn ws_handshake_req(gk: &str, ua: Option<&str>) -> Request {
@@ -1922,8 +1922,8 @@ fn ws_handshake_req(gk: &str, ua: Option<&str>) -> Request {
     b.body(Body::empty()).unwrap()
 }
 
-/// WS 握手：白名单拦下 → 握手阶段直接 HTTP 417（无 101、不连上游）+ 审计行；无 UA 同拦；
-/// 放行 UA / 未配白名单 → 越过闸门走到上游连接（reset 上游 → 502，非 417，无 blocked_reason）。
+/// WS 握手：白名单拦下 → 握手阶段直接 HTTP 403（无 101、不连上游）+ 审计行；无 UA 同拦；
+/// 放行 UA / 未配白名单 → 越过闸门走到上游连接（reset 上游 → 502，非 403，无 blocked_reason）。
 /// 单透传平台即「等效退化形态」：select_candidates 单平台短路绕过过滤，由 ws.rs 对选中平台再判。
 #[tokio::test]
 async fn whitelist_ws_handshake_rejects_417_and_allows() {
@@ -1933,10 +1933,10 @@ async fn whitelist_ws_handshake_rejects_417_and_allows() {
 
     for ua in [Some("curl/8.4.0"), None] {
         let resp = handle_proxy(AxumState(state.clone()), ws_handshake_req("gkws", ua)).await;
-        assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "ua={ua:?}");
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN, "ua={ua:?}");
         assert!(resp.headers().get("upgrade").is_none(), "拒绝时不升级");
         let log = last_log_for(&state, "gkws").await;
-        assert_eq!(log.status_code, 417);
+        assert_eq!(log.status_code, 403);
         assert_eq!(log.blocked_by, "router");
         assert_eq!(log.blocked_reason, "client_not_allowed");
         assert_eq!(log.upstream_status_code, 0, "未连上游");
@@ -1959,7 +1959,7 @@ const UA_RULE_EXTRA: &str = r#"{"client_ua_rules":[{"kind":"contains","pattern":
 const UA_RULE_PLUS_CC_EXTRA: &str = r#"{"allowed_clients":["claude_code"],"client_ua_rules":[{"kind":"prefix","pattern":"openviking/"}]}"#;
 const OV_UA: &str = "OpenViking/0.5.2 (darwin)";
 
-/// 多平台组（普通路由路径）：只写规则没勾内置 → 认不出的 UA 规则命中放行；其余未知 / 无 UA → 417；
+/// 多平台组（普通路由路径）：只写规则没勾内置 → 认不出的 UA 规则命中放行；其余未知 / 无 UA → 403；
 /// 内置认出（curl）即使规则含 curl 也拒（内置优先）；claude-cli 被内置认出且未勾 → 拒。
 #[tokio::test]
 async fn ua_rules_multi_platform_group() {
@@ -1971,7 +1971,7 @@ async fn ua_rules_multi_platform_group() {
     assert_eq!(last_log_for(&state, "gkur").await.client, "ua:OpenViking");
     for ua in [Some("Other/1.0"), None, Some("curl/8.4.0"), Some("claude-cli/2.0.1 (external, cli)")] {
         let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkur", ua)).await;
-        assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "{ua:?}");
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN, "{ua:?}");
         assert_client_417_log(&state, "gkur", ua.unwrap_or("")).await;
     }
 }
@@ -1997,8 +1997,8 @@ async fn ua_rules_combined_with_ticked_clients() {
     for (ua, want) in [
         ("claude-cli/2.0.1 (external, cli)", StatusCode::OK),
         (OV_UA, StatusCode::OK),
-        ("curl/8.4.0", StatusCode::EXPECTATION_FAILED),
-        ("Other/1.0", StatusCode::EXPECTATION_FAILED),
+        ("curl/8.4.0", StatusCode::FORBIDDEN),
+        ("Other/1.0", StatusCode::FORBIDDEN),
     ] {
         let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurc", Some(ua))).await;
         assert_eq!(resp.status(), want, "{ua}");
@@ -2014,17 +2014,17 @@ async fn ua_rules_literal_single_and_degenerate_single() {
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurl", Some(OV_UA))).await;
     assert_eq!(resp.status(), StatusCode::OK, "字面单平台：规则命中放行");
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurl", Some("Other/1.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "字面单平台：未命中 417");
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN, "字面单平台：未命中 403");
     assert_client_417_log(&state, "gkurl", "Other/1.0").await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurl", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "字面单平台：内置认出且未勾 → 拒（规则含 curl 也不救）");
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN, "字面单平台：内置认出且未勾 → 拒（规则含 curl 也不救）");
 
     setup_multi_platform_group(&state, "gkurd", &[("DA", &up, UA_RULE_EXTRA), ("DB", &up, "")]).await;
     set_platform_status(&state, "DB", aidog_db::models::PlatformStatus::Disabled).await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurd", Some(OV_UA))).await;
     assert_eq!(resp.status(), StatusCode::OK, "等效单平台：规则命中放行");
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurd", Some("Other/1.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "等效单平台：不得静默打到唯一平台");
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN, "等效单平台：不得静默打到唯一平台");
     assert_client_417_log(&state, "gkurd", "Other/1.0").await;
 }
 
@@ -2036,7 +2036,7 @@ async fn ua_rules_beat_status_bypass_single_platform() {
     setup_multi_platform_group(&state, "gkurb", &[("A", &up, UA_RULE_EXTRA)]).await;
     set_platform_status(&state, "A", aidog_db::models::PlatformStatus::AutoDisabled).await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurb", Some("Other/1.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurb", Some(OV_UA))).await;
     assert_eq!(resp.status(), StatusCode::OK, "规则命中的客户端仍享受 bypass");
 }
@@ -2051,7 +2051,7 @@ async fn ua_rules_responses_subendpoints() {
         let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkurr", method, uri, Some(OV_UA))).await;
         assert_eq!(resp.status(), StatusCode::OK, "{method} {uri}");
         let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkurr", method, uri, Some("Other/1.0"))).await;
-        assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "{method} {uri}");
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN, "{method} {uri}");
         assert_client_417_log(&state, "gkurr", "Other/1.0").await;
     }
 }
@@ -2074,7 +2074,7 @@ async fn ua_rules_passthrough_chat_and_ws() {
             .unwrap()
     };
     let resp = handle_proxy(AxumState(state.clone()), post("Other/1.0")).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     assert_eq!(seen.lock().unwrap().len(), 0, "blocked request must not reach upstream");
     let resp = handle_proxy(AxumState(state.clone()), post(OV_UA)).await;
     assert_eq!(resp.status(), StatusCode::OK);
@@ -2083,7 +2083,7 @@ async fn ua_rules_passthrough_chat_and_ws() {
     let dead = spawn_reset_upstream().await;
     setup_passthrough_platform_group_extra(&state, "gkurws", &dead, UA_RULE_EXTRA).await;
     let resp = handle_proxy(AxumState(state.clone()), ws_handshake_req("gkurws", Some("Other/1.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     assert_client_417_log(&state, "gkurws", "Other/1.0").await;
     let resp = handle_proxy(AxumState(state.clone()), ws_handshake_req("gkurws", Some(OV_UA))).await;
     assert_eq!(resp.status(), StatusCode::BAD_GATEWAY, "规则命中 → 越过闸门走到上游连接");
@@ -3760,17 +3760,17 @@ async fn decision_no_platform_400_and_audit_log() {
     setup_group_with_upstream(&state, "gknone", "https://example.invalid").await;
 
     let resp = handle_proxy(AxumState(state.clone()), decision_request("gknone", "m")).await;
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
     let log = last_log_for(&state, "gknone").await;
-    assert_eq!(log.status_code, 400);
+    assert_eq!(log.status_code, 404);
     assert_eq!(log.blocked_by, "router");
     assert_eq!(log.blocked_reason, "no_decision_platform");
     assert_eq!(log.est_cost, 0.0);
 }
 
-/// R3 端到端：聊天请求打到只有纯决策平台的分组 → 400 + blocked_reason=no_chat_platform。
+/// R3 端到端：聊天请求打到只有纯决策平台的分组 → 404 + blocked_reason=no_chat_platform。
 #[tokio::test]
-async fn chat_no_chat_platform_400_and_audit_log() {
+async fn chat_no_chat_platform_404_and_audit_log() {
     let state = make_state(test_db().await).await;
     setup_decision_group(
         &state,
@@ -3789,9 +3789,9 @@ async fn chat_no_chat_platform_400_and_audit_log() {
         messages_request("gknochat", r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
     )
     .await;
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
     let log = last_log_for(&state, "gknochat").await;
-    assert_eq!(log.status_code, 400);
+    assert_eq!(log.status_code, 404);
     assert_eq!(log.blocked_by, "router");
     assert_eq!(log.blocked_reason, "no_chat_platform");
     assert_eq!(log.est_cost, 0.0);
@@ -4009,7 +4009,7 @@ async fn chat_peak_disabled_toggle_off_restores_routing() {
 /// 503 + proxy_log blocked_by='router', blocked_reason='unknown_protocol', est_cost=0。
 /// DB 直写脏值模拟降级读新数据（UpdatePlatform API 走 Option<Protocol>，写不进枚举外值）。
 #[tokio::test]
-async fn chat_unknown_protocol_503_and_audit_log() {
+async fn chat_unknown_protocol_500_and_audit_log() {
     let state = make_state(test_db().await).await;
     setup_group_with_upstream(&state, "gkunknown", "https://example.invalid").await;
     for p in aidog_db::list_platforms(&state.db).await.unwrap() {
@@ -4033,9 +4033,9 @@ async fn chat_unknown_protocol_503_and_audit_log() {
         messages_request("gkunknown", r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
     )
     .await;
-    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
     let log = last_log_for(&state, "gkunknown").await;
-    assert_eq!(log.status_code, 503);
+    assert_eq!(log.status_code, 500);
     assert_eq!(log.blocked_by, "router");
     assert_eq!(log.blocked_reason, "unknown_protocol");
     assert_eq!(log.est_cost, 0.0, "unknown protocol must not be priced");
@@ -4964,10 +4964,10 @@ async fn embedding_cost_registry_free_and_fallback() {
     }
 }
 
-/// 无候选 → 503 + blocked_reason=no_embedding_platform（三文件库，读回）。
+/// 无候选 → 404 + blocked_reason=no_embedding_platform（三文件库，读回）。
 /// 三种成因：槽位未配 / 槽位纯空白 / 非 OpenAI 系协议平台。
 #[tokio::test]
-async fn embedding_no_candidate_503_and_audit_log() {
+async fn embedding_no_candidate_404_and_audit_log() {
     let (db, _dir) = aidog_db::test_support::three_file_db().await;
     let state = make_state(db).await;
     let (up, hits) = spawn_embedding_upstream(vec![]).await;
@@ -4980,9 +4980,9 @@ async fn embedding_no_candidate_503_and_audit_log() {
             embedding_request(gk, EMB_REQ, "/v1/embeddings"),
         )
         .await;
-        assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE, "{gk}");
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND, "{gk}");
         let log = last_log_for(&state, gk).await;
-        assert_eq!(log.status_code, 503);
+        assert_eq!(log.status_code, 404);
         assert_eq!(log.blocked_by, "router");
         assert_eq!(log.blocked_reason, "no_embedding_platform");
         assert_eq!(log.est_cost, 0.0);
@@ -5128,9 +5128,9 @@ async fn rerank_cost_matrix() {
     }
 }
 
-/// 无候选 → 503 + no_rerank_platform（槽位空 / 非 OpenAI 系 / 只配了 embedding 槽）。
+/// 无候选 → 404 + no_rerank_platform（槽位空 / 非 OpenAI 系 / 只配了 embedding 槽）。
 #[tokio::test]
-async fn rerank_no_candidate_503_and_audit_log() {
+async fn rerank_no_candidate_404_and_audit_log() {
     let (db, _dir) = aidog_db::test_support::three_file_db().await;
     let state = make_state(db).await;
     let (up, hits) = spawn_embedding_upstream(vec![]).await;
@@ -5144,7 +5144,7 @@ async fn rerank_no_candidate_503_and_audit_log() {
             embedding_request(gk, RR_REQ, "/v1/rerank"),
         )
         .await;
-        assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE, "{gk}");
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND, "{gk}");
         let log = last_log_for(&state, gk).await;
         assert_eq!((log.blocked_by.as_str(), log.blocked_reason.as_str()), ("router", "no_rerank_platform"));
         assert_eq!(log.est_cost, 0.0);
@@ -5284,8 +5284,8 @@ const WL_CC_EXTRA: &str = r#"{"allowed_clients":["claude_code"]}"#;
 const PEAK_ALL_DAY_EXTRA: &str =
     r#"{"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#;
 
-/// 全部候选被白名单拦下 → 417 + 审计行（router / client_not_allowed / est_cost 0 / 原始 UA）；
-/// claude_code 与其变体命中 → 200；无 UA → 417。
+/// 全部候选被白名单拦下 → 403 + 审计行（router / client_not_allowed / est_cost 0 / 原始 UA）；
+/// claude_code 与其变体命中 → 200；无 UA → 403。
 #[tokio::test]
 async fn whitelist_all_blocked_417_and_hit_matrix() {
     let state = make_state(test_db().await).await;
@@ -5293,11 +5293,11 @@ async fn whitelist_all_blocked_417_and_hit_matrix() {
     setup_multi_platform_group(&state, "gkwl", &[("A", &up, WL_CC_EXTRA), ("B", &up, WL_CC_EXTRA)]).await;
 
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkwl", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
-    assert!(String::from_utf8_lossy(&body).contains("client not allowed"), "417 body states reason");
+    assert!(String::from_utf8_lossy(&body).contains("client not allowed"), "403 body states reason");
     let log = last_log_for(&state, "gkwl").await;
-    assert_eq!(log.status_code, 417);
+    assert_eq!(log.status_code, 403);
     assert_eq!(log.blocked_by, "router");
     assert_eq!(log.blocked_reason, "client_not_allowed");
     assert_eq!(log.est_cost, 0.0);
@@ -5306,9 +5306,9 @@ async fn whitelist_all_blocked_417_and_hit_matrix() {
     let snap = log.routing.expect("routing snapshot");
     assert!(snap.entries.iter().all(|e| e.reason == aidog_db::models::RouteReason::ClientNotAllowed));
 
-    // 无 UA → 认不出 → 417
+    // 无 UA → 认不出 → 403
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkwl", None)).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 
     // claude_code 本体与变体（勾大类 = 全变体）→ 200
     for ua in ["claude-cli/2.0.1 (external, cli)", "claude-cli/2.0 (external, claude-vscode)"] {
@@ -5362,10 +5362,10 @@ async fn set_platform_status(state: &Arc<ProxyState>, name: &str, status: aidog_
     state.db.invalidate_group_details_cache();
 }
 
-/// 断言最近一条日志是白名单 417 审计行（router / client_not_allowed / est_cost 0 / 原始 UA）。
+/// 断言最近一条日志是白名单 403 审计行（router / client_not_allowed / est_cost 0 / 原始 UA）。
 async fn assert_client_417_log(state: &Arc<ProxyState>, gk: &str, ua: &str) {
     let log = last_log_for(state, gk).await;
-    assert_eq!(log.status_code, 417, "{gk}");
+    assert_eq!(log.status_code, 403, "{gk}");
     assert_eq!(log.blocked_by, "router");
     assert_eq!(log.blocked_reason, "client_not_allowed");
     assert_eq!(log.est_cost, 0.0);
@@ -5373,7 +5373,7 @@ async fn assert_client_417_log(state: &Arc<ProxyState>, gk: &str, ua: &str) {
 }
 
 /// 等效退化形态（票 05）：多平台组只剩 1 个 Enabled 平台 → sole_platform 单平台短路，
-/// guard 在短路之内：白名单拦下 → 417，不得静默打到唯一平台；放行 UA 照常 200。
+/// guard 在短路之内：白名单拦下 → 403，不得静默打到唯一平台；放行 UA 照常 200。
 #[tokio::test]
 async fn whitelist_degenerate_single_enabled_returns_417() {
     let state = make_state(test_db().await).await;
@@ -5381,23 +5381,23 @@ async fn whitelist_degenerate_single_enabled_returns_417() {
     setup_multi_platform_group(&state, "gkdeg", &[("A", &up, WL_CC_EXTRA), ("B", &up, "")]).await;
     set_platform_status(&state, "B", aidog_db::models::PlatformStatus::Disabled).await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkdeg", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     assert_client_417_log(&state, "gkdeg", "curl/8.4.0").await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkdeg", Some("claude-cli/2.0.1 (external, cli)"))).await;
     assert_eq!(resp.status(), StatusCode::OK);
 }
 
-/// 字面单平台组（len==1）：417；放行 UA 200；无白名单存量不变。与等效退化形态分开验证。
+/// 字面单平台组（len==1）：403；放行 UA 200；无白名单存量不变。与等效退化形态分开验证。
 #[tokio::test]
 async fn whitelist_literal_single_platform_group_417() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     setup_multi_platform_group(&state, "gklit", &[("A", &up, WL_CC_EXTRA)]).await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gklit", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     assert_client_417_log(&state, "gklit", "curl/8.4.0").await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gklit", None)).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "no UA = unrecognized");
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN, "no UA = unrecognized");
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gklit", Some("claude-cli/2.0.1 (external, cli)"))).await;
     assert_eq!(resp.status(), StatusCode::OK);
 
@@ -5414,7 +5414,7 @@ async fn whitelist_beats_status_bypass_single_platform() {
     setup_multi_platform_group(&state, "gkbyp", &[("A", &up, WL_CC_EXTRA)]).await;
     set_platform_status(&state, "A", aidog_db::models::PlatformStatus::AutoDisabled).await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkbyp", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     assert_client_417_log(&state, "gkbyp", "curl/8.4.0").await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkbyp", Some("claude-cli/2.0.1 (external, cli)"))).await;
     assert_eq!(resp.status(), StatusCode::OK, "regression: allowed client still bypasses status");
@@ -5432,7 +5432,7 @@ async fn whitelist_single_platform_with_peak_disabled_keeps_peak_error() {
     assert_eq!(last_log_for(&state, "gksp").await.blocked_reason, "peak");
 }
 
-/// 直通模型链：声明平台全被白名单拦 → 417；放行 UA 命中声明平台；声明平台一部分被拦、
+/// 直通模型链：声明平台全被白名单拦 → 403；放行 UA 命中声明平台；声明平台一部分被拦、
 /// 其余不可用 → 沿用 direct_model_unavailable（503）。
 #[tokio::test]
 async fn whitelist_direct_model_chain() {
@@ -5441,7 +5441,7 @@ async fn whitelist_direct_model_chain() {
     let direct_wl = r#"{"direct_models":["claude-3"],"allowed_clients":["claude_code"]}"#;
     setup_multi_platform_group(&state, "gkdir", &[("A", &up, direct_wl), ("B", &up, "")]).await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkdir", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "B 未声明 direct_models：不得借道落到 B");
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN, "B 未声明 direct_models：不得借道落到 B");
     assert_client_417_log(&state, "gkdir", "curl/8.4.0").await;
     let a_id = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == "A").unwrap().id;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkdir", Some("claude-cli/2.0.1 (external, cli)"))).await;
@@ -5484,7 +5484,7 @@ async fn whitelist_constrains_passthrough_platform() {
         ("POST", "/v1/embeddings", r#"{"model":"m","input":"x"}"#),
     ] {
         let resp = handle_proxy(AxumState(state.clone()), send(method, path, body, Some("curl/8.4.0"))).await;
-        assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "{method} {path} {body}");
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN, "{method} {path} {body}");
         assert_client_417_log(&state, "gkpt", "curl/8.4.0").await;
     }
     assert_eq!(seen.lock().unwrap().len(), 0, "blocked requests must not reach upstream");
@@ -5499,7 +5499,7 @@ async fn whitelist_constrains_passthrough_platform() {
 }
 
 /// 嵌入 / rerank / 决策端点：各 handler 自己的选平台入口接了白名单闸门。平台带槽位（过得了
-/// 槽位筛选），无 UA（认不出）→ 整组被白名单拦下 → 417 + 审计行；放行 UA 不在本例（无头请求）。
+/// 槽位筛选），无 UA（认不出）→ 整组被白名单拦下 → 403 + 审计行；放行 UA 不在本例（无头请求）。
 #[tokio::test]
 async fn whitelist_constrains_aux_and_decision_routes() {
     let (up, hits) = spawn_embedding_upstream(vec![(200, EMB_RESPONSE)]).await;
@@ -5513,9 +5513,9 @@ async fn whitelist_constrains_aux_and_decision_routes() {
     set_platform_extra(&state, "gkaux-wa", WL_CC_EXTRA).await;
     for (body, path) in [(EMB_REQ, "/v1/embeddings"), (RR_REQ, "/v1/rerank")] {
         let resp = handle_proxy(AxumState(state.clone()), embedding_request("gkaux", body, path)).await;
-        assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "{path}");
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN, "{path}");
         let log = last_log_for(&state, "gkaux").await;
-        assert_eq!((log.status_code, log.blocked_by.as_str(), log.blocked_reason.as_str()), (417, "router", "client_not_allowed"), "{path}");
+        assert_eq!((log.status_code, log.blocked_by.as_str(), log.blocked_reason.as_str()), (403, "router", "client_not_allowed"), "{path}");
     }
     assert!(hits.lock().unwrap().is_empty(), "不得打到上游");
 
@@ -5524,7 +5524,7 @@ async fn whitelist_constrains_aux_and_decision_routes() {
     setup_decision_group(&state, "gkaux-dec", &dup, jev, None, Protocol::TypeSafe).await;
     set_platform_extra(&state, "stub-gkaux-dec", WL_CC_EXTRA).await;
     let resp = handle_proxy(AxumState(state.clone()), decision_request("gkaux-dec", "whatever")).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "decision");
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN, "decision");
     assert_eq!(last_log_for(&state, "gkaux-dec").await.blocked_reason, "client_not_allowed");
 }
 
@@ -7863,7 +7863,7 @@ async fn set_all_day_rule(state: &Arc<ProxyState>, name: &str, models: serde_jso
 /// 时段内整组档里都没有 embedding / rerank → 503 + 对应 blocked_reason，且不打上游；
 /// 档里有值的平台照常用档值发往上游。
 #[tokio::test]
-async fn time_rule_without_embedding_or_rerank_503_and_with_uses_rule() {
+async fn time_rule_without_embedding_or_rerank_404_and_with_uses_rule() {
     let (db, _dir) = aidog_db::test_support::three_file_db().await;
     let state = make_state(db).await;
     let (up, hits) = spawn_embedding_upstream(vec![(200, EMB_RESPONSE)]).await;
@@ -7876,7 +7876,7 @@ async fn time_rule_without_embedding_or_rerank_503_and_with_uses_rule() {
         ("/v1/rerank", RR_REQ, "no_rerank_platform"),
     ] {
         let resp = handle_proxy(AxumState(state.clone()), embedding_request("gkt1", req, path)).await;
-        assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE, "{path}");
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND, "{path}");
         let log = last_log_for(&state, "gkt1").await;
         assert_eq!((log.blocked_by.as_str(), log.blocked_reason.as_str()), ("router", reason), "{path}");
     }
@@ -8171,7 +8171,8 @@ fn route_fallback_status_per_reason() {
         ("group's only platform is censorship-blocked", StatusCode::from_u16(451).unwrap()),
         ("no_tools_platform", StatusCode::NOT_FOUND),
         ("no available platform (all disabled, backing off, or circuit-broken)", StatusCode::SERVICE_UNAVAILABLE),
-        ("no_chat_platform", StatusCode::BAD_REQUEST),
+        ("no_chat_platform", StatusCode::NOT_FOUND),
+        ("no_decision_platform", StatusCode::NOT_FOUND),
     ] {
         assert_eq!(route_fallback_status(err), want, "{err}");
     }
