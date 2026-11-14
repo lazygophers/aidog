@@ -699,13 +699,14 @@ pub(crate) async fn handle_proxy_core(
             {
                 return route_fail_response(&state, &mut log, &log_settings, &e, start, lang).await;
             }
+            let status = route_fallback_status(&e);
             log.response_body = format!("route error: {e}");
-            log.status_code = 400;
+            log.status_code = status.as_u16() as i32;
             log.done = true;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log, &log_settings).await;
             let mut r = (
-                StatusCode::BAD_REQUEST,
+                status,
                 format!("{}: {e}", i18n::t(lang, ErrorKey::Route)),
             )
                 .into_response();
@@ -861,7 +862,8 @@ pub(crate) async fn handle_proxy_core(
 
     // 候选耗尽 / 最大尝试次数用尽且未在循环内 return（理论不可达：循环内每条路径均 return 或 continue，
     // 仅 budget.exhausted() 的 break 会落到这里）。返回 503 + 已记录的 attempts。
-    log.status_code = 503;
+    let status = exhausted_status(&log);
+    log.status_code = status.as_u16() as i32;
     log.done = true;
     let err_body = format!(
         "{}: all candidates exhausted",
@@ -874,7 +876,7 @@ pub(crate) async fn handle_proxy_core(
     log.retry_count = aidog_db::models::retry_count_of(&attempts);
     log.attempts = std::mem::take(&mut attempts);
     upsert_log(&state, &log, &log_settings).await;
-    let mut r = (StatusCode::SERVICE_UNAVAILABLE, err_body).into_response();
+    let mut r = (status, err_body).into_response();
     inject_trace_header(&mut r);
     r
 }

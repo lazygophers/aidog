@@ -167,6 +167,15 @@ pub(crate) fn mark_rate_limited(log: &mut ProxyLog) {
     log.blocked_reason = "rate_limit".to_string();
 }
 
+/// 候选耗尽终态状态码：被限频挡掉（`mark_rate_limited` 已标）→ 429（客户端应退避重试），其余 503。
+pub(crate) fn exhausted_status(log: &ProxyLog) -> StatusCode {
+    if log.blocked_reason == "rate_limit" {
+        StatusCode::TOO_MANY_REQUESTS
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    }
+}
+
 /// 一次请求的上游调用配额（分组「最大尝试次数」，请求尝试-逐次重算 票 01）：
 /// 换平台与同平台换模型各调用一次都计 1，用尽即停；四类请求经 `AttemptLoop` 共用。
 pub(crate) struct CallBudget {

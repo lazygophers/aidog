@@ -6124,7 +6124,7 @@ async fn ratelimit_rpm_nplus1_switches_platform() {
     assert_eq!(last_log_for(&state, "gkrl1").await.platform_id, b, "3rd request excluded A -> B");
 }
 
-/// 用户故事 8：整组超限 → 503 + blocked_reason='rate_limit' 落库。
+/// 用户故事 8：整组超限 → 429 + blocked_reason='rate_limit' 落库。
 #[tokio::test]
 async fn ratelimit_all_over_limit_503_and_audit_log() {
     let state = make_state(test_db().await).await;
@@ -6132,26 +6132,26 @@ async fn ratelimit_all_over_limit_503_and_audit_log() {
     setup_multi_platform_group(&state, "gkrl2", &[("A", &up, RPM1), ("B", &up, RPM1)]).await;
     assert_eq!(rl_status(&state, "gkrl2").await, StatusCode::OK);
     assert_eq!(rl_status(&state, "gkrl2").await, StatusCode::OK);
-    assert_eq!(rl_status(&state, "gkrl2").await, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(rl_status(&state, "gkrl2").await, StatusCode::TOO_MANY_REQUESTS);
     let log = last_log_for(&state, "gkrl2").await;
-    assert_eq!(log.status_code, 503);
+    assert_eq!(log.status_code, 429);
     assert_eq!(log.blocked_by, "router");
     assert_eq!(log.blocked_reason, "rate_limit");
     assert_eq!(log.est_cost, 0.0);
 }
 
-/// 用户故事 9：字面单平台组超限同样 503，不 bypass（guard 在单平台短路之内）。
+/// 用户故事 9：字面单平台组超限同样 429，不 bypass（guard 在单平台短路之内）。
 #[tokio::test]
 async fn ratelimit_literal_single_platform_group_503() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     setup_multi_platform_group(&state, "gkrl3", &[("A", &up, RPM1)]).await;
     assert_eq!(rl_status(&state, "gkrl3").await, StatusCode::OK);
-    assert_eq!(rl_status(&state, "gkrl3").await, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(rl_status(&state, "gkrl3").await, StatusCode::TOO_MANY_REQUESTS);
     assert_eq!(last_log_for(&state, "gkrl3").await.blocked_reason, "rate_limit");
 }
 
-/// 用户故事 10：多平台组只剩 1 个 Enabled 平台（等效单平台）超限 → 503，不静默打上游。
+/// 用户故事 10：多平台组只剩 1 个 Enabled 平台（等效单平台）超限 → 429，不静默打上游。
 #[tokio::test]
 async fn ratelimit_degenerate_single_enabled_503() {
     let state = make_state(test_db().await).await;
@@ -6159,7 +6159,7 @@ async fn ratelimit_degenerate_single_enabled_503() {
     setup_multi_platform_group(&state, "gkrl4", &[("A", &up, RPM1), ("B", &up, "")]).await;
     set_platform_status(&state, "B", aidog_db::models::PlatformStatus::Disabled).await;
     assert_eq!(rl_status(&state, "gkrl4").await, StatusCode::OK);
-    assert_eq!(rl_status(&state, "gkrl4").await, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(rl_status(&state, "gkrl4").await, StatusCode::TOO_MANY_REQUESTS);
     assert_eq!(last_log_for(&state, "gkrl4").await.blocked_reason, "rate_limit");
 }
 
@@ -6188,7 +6188,7 @@ async fn ratelimit_concurrency_limits_and_releases() {
     assert_eq!(last_log_for(&state, "gkrl5").await.platform_id, a, "并发已释放");
 }
 
-/// 并发释放覆盖流式断连：单平台组并发 1，流式请求在途 → 第二个 503；客户端丢弃响应后释放 → 再次 200。
+/// 并发释放覆盖流式断连：单平台组并发 1，流式请求在途 → 第二个 429；客户端丢弃响应后释放 → 再次 200。
 #[tokio::test]
 async fn ratelimit_concurrency_released_on_stream_disconnect() {
     let state = make_state(test_db().await).await;
@@ -6196,7 +6196,7 @@ async fn ratelimit_concurrency_released_on_stream_disconnect() {
     setup_multi_platform_group(&state, "gkrl6", &[("A", &hang, r#"{"rate_limits":{"concurrency":1}}"#)]).await;
     let r1 = handle_proxy(AxumState(state.clone()), messages_request_stream("gkrl6")).await;
     assert_eq!(r1.status(), StatusCode::OK);
-    assert_eq!(rl_status(&state, "gkrl6").await, StatusCode::SERVICE_UNAVAILABLE, "流在途占着并发");
+    assert_eq!(rl_status(&state, "gkrl6").await, StatusCode::TOO_MANY_REQUESTS, "流在途占着并发");
     drop(r1); // 客户端断连
     let r3 = handle_proxy(AxumState(state.clone()), messages_request_stream("gkrl6")).await;
     assert_eq!(r3.status(), StatusCode::OK, "断连后并发释放");
@@ -6217,7 +6217,7 @@ async fn ratelimit_tpm_reserve_then_settle_to_usage() {
     assert_eq!(r1.status(), StatusCode::OK, "空窗口放行大请求");
     assert_eq!(rl_status(&state, "gkrl7").await, StatusCode::OK, "预占已按 usage(8) 修正，否则这里被挡");
     assert_eq!(rl_status(&state, "gkrl7").await, StatusCode::OK, "16 + 小估算 <= 20");
-    assert_eq!(rl_status(&state, "gkrl7").await, StatusCode::SERVICE_UNAVAILABLE, "24 >= 20");
+    assert_eq!(rl_status(&state, "gkrl7").await, StatusCode::TOO_MANY_REQUESTS, "24 >= 20");
     assert_eq!(last_log_for(&state, "gkrl7").await.blocked_reason, "rate_limit");
 }
 
@@ -6229,7 +6229,7 @@ async fn ratelimit_window_overrides_platform_limit() {
     let extra = r#"{"rate_limits":{"rpm":100,"rules":[{"start_hour":0,"end_hour":24,"rpm":1}]}}"#;
     setup_multi_platform_group(&state, "gkrl8", &[("A", &up, extra)]).await;
     assert_eq!(rl_status(&state, "gkrl8").await, StatusCode::OK);
-    assert_eq!(rl_status(&state, "gkrl8").await, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(rl_status(&state, "gkrl8").await, StatusCode::TOO_MANY_REQUESTS);
 }
 
 /// 模型级上限：extra.rate_limits.models.<请求模型> 超限 → 该平台被排除（候选筛选阶段）。
@@ -6240,7 +6240,7 @@ async fn ratelimit_model_level_rpm_excludes_platform() {
     let extra = r#"{"rate_limits":{"rules":[{"models":["claude-3"],"rpm":1}]}}"#;
     setup_multi_platform_group(&state, "gkrl9", &[("A", &up, extra)]).await;
     assert_eq!(rl_status(&state, "gkrl9").await, StatusCode::OK);
-    assert_eq!(rl_status(&state, "gkrl9").await, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(rl_status(&state, "gkrl9").await, StatusCode::TOO_MANY_REQUESTS);
 }
 
 /// 回归：没配 rate_limits 的平台不受影响。
@@ -6261,7 +6261,7 @@ fn oversize_chat_body() -> String {
     )
 }
 
-/// 筛选与 begin 同一估算：窗口已有占用时，估算超出剩余 TPM 的大请求在筛选阶段就被排除 → 503 + rate_limit
+/// 筛选与 begin 同一估算：窗口已有占用时，估算超出剩余 TPM 的大请求在筛选阶段就被排除 → 429 + rate_limit
 /// （旧：筛选估算 0 放行，begin 必败，末候选回无 blocked_reason 的通用 503）。
 #[tokio::test]
 async fn ratelimit_tpm_oversize_request_single_platform_503_rate_limit() {
@@ -6270,7 +6270,7 @@ async fn ratelimit_tpm_oversize_request_single_platform_503_rate_limit() {
     setup_multi_platform_group(&state, "gkrl11", &[("A", &up, r#"{"rate_limits":{"tpm":100}}"#)]).await;
     assert_eq!(rl_status(&state, "gkrl11").await, StatusCode::OK, "小请求占用窗口 (usage 8)");
     let r = handle_proxy(AxumState(state.clone()), messages_request("gkrl11", &oversize_chat_body())).await;
-    assert_eq!(r.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(r.status(), StatusCode::TOO_MANY_REQUESTS);
     let log = last_log_for(&state, "gkrl11").await;
     assert_eq!((log.blocked_by.as_str(), log.blocked_reason.as_str()), ("router", "rate_limit"));
 }
@@ -6284,11 +6284,11 @@ async fn ratelimit_tpm_oversize_request_equivalent_single_503_rate_limit() {
     set_platform_status(&state, "B", aidog_db::models::PlatformStatus::Disabled).await;
     assert_eq!(rl_status(&state, "gkrl12").await, StatusCode::OK);
     let r = handle_proxy(AxumState(state.clone()), messages_request("gkrl12", &oversize_chat_body())).await;
-    assert_eq!(r.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(r.status(), StatusCode::TOO_MANY_REQUESTS);
     assert_eq!(last_log_for(&state, "gkrl12").await.blocked_reason, "rate_limit");
 }
 
-/// aux（embedding / rerank / jev）同样占限频名额：rpm=1 → 第二个请求 503 + rate_limit（路由层整组限频同语义）。
+/// aux（embedding / rerank / jev）同样占限频名额：rpm=1 → 第二个请求 429 + rate_limit（路由层整组限频同语义）。
 #[tokio::test]
 async fn ratelimit_embedding_takes_slot_rpm1() {
     let (up, _hits) = spawn_embedding_upstream(vec![(200, EMB_RESPONSE), (200, EMB_RESPONSE)]).await;
@@ -6297,7 +6297,7 @@ async fn ratelimit_embedding_takes_slot_rpm1() {
     set_platform_extra(&state, "gkrl13-a", RPM1).await;
     let send = || handle_proxy(AxumState(state.clone()), embedding_request("gkrl13", EMB_REQ, "/v1/embeddings"));
     assert_eq!(send().await.status(), StatusCode::OK);
-    assert_eq!(send().await.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(send().await.status(), StatusCode::TOO_MANY_REQUESTS);
     let log = last_log_for(&state, "gkrl13").await;
     assert_eq!((log.blocked_by.as_str(), log.blocked_reason.as_str()), ("router", "rate_limit"));
 }
@@ -8074,4 +8074,84 @@ async fn round_guard_400_returns_directly() {
     let resp = chain_send(&state, "gkrd5", CHAIN_REQ).await;
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     assert_eq!(hits.lock().unwrap().len(), 1);
+}
+
+// ── 限频 / 暂时不可用的客户端状态码（用户 2026-11-14：限频 429、冷却 / 熔断 503、GLM 529 → 429）──
+
+/// 混合原因（限频 + 额度冷却 + 手动禁用）：有平台被限频挡掉 → 429 + blocked_reason='rate_limit'（原先落兜底 400）。
+#[tokio::test]
+async fn mixed_rate_limit_quota_cooldown_disabled_returns_429() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkmix1", &[("A", &up, RPM1), ("B", &up, ""), ("C", &up, "")]).await;
+    set_platform_status(&state, "B", aidog_db::models::PlatformStatus::Disabled).await;
+    let c = platform_id_of(&state, "C").await;
+    state.scheduler.set_quota_cooldown(c, aidog_db::now() + 600_000);
+    assert_eq!(rl_status(&state, "gkmix1").await, StatusCode::OK);
+    assert_eq!(rl_status(&state, "gkmix1").await, StatusCode::TOO_MANY_REQUESTS);
+    let log = last_log_for(&state, "gkmix1").await;
+    assert_eq!(log.status_code, 429);
+    assert_eq!(log.blocked_by, "router");
+    assert_eq!(log.blocked_reason, "rate_limit");
+}
+
+/// 上游 429 / 529 触发的限频冷却整组生效 → 429（原先落兜底 400）。
+#[tokio::test]
+async fn all_rate_limit_cooldown_returns_429() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkcd1", &[("A", &up, ""), ("B", &up, "")]).await;
+    for n in ["A", "B"] {
+        let id = platform_id_of(&state, n).await;
+        state.scheduler.set_rate_limit_cooldown(id, aidog_db::now(), Some(600_000));
+    }
+    assert_eq!(rl_status(&state, "gkcd1").await, StatusCode::TOO_MANY_REQUESTS);
+}
+
+/// 无限频、仅冷却 / 禁用混合的暂时不可用 → 503（原先兜底 400）。
+#[tokio::test]
+async fn transient_no_available_platform_returns_503() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkno1", &[("A", &up, ""), ("B", &up, ""), ("C", &up, "")]).await;
+    set_platform_status(&state, "C", aidog_db::models::PlatformStatus::Disabled).await;
+    for n in ["A", "B"] {
+        let id = platform_id_of(&state, n).await;
+        state.scheduler.set_quota_cooldown(id, aidog_db::now() + 600_000);
+    }
+    assert_eq!(rl_status(&state, "gkno1").await, StatusCode::SERVICE_UNAVAILABLE);
+}
+
+/// 候选耗尽终态：限频占位挡过 → 429，否则 503。
+#[test]
+fn exhausted_status_follows_rate_limit_mark() {
+    let mut log = ProxyLog::default();
+    assert_eq!(exhausted_status(&log), StatusCode::SERVICE_UNAVAILABLE);
+    mark_rate_limited(&mut log);
+    assert_eq!(exhausted_status(&log), StatusCode::TOO_MANY_REQUESTS);
+}
+
+/// GLM 家族上游 529 → 回客户端 429；尝试记录仍是上游原码 529。
+#[tokio::test]
+async fn glm_upstream_529_returned_as_429() {
+    let up = spawn_stub_upstream(529, r#"{"error":{"message":"overloaded"}}"#).await;
+    let state = make_state(test_db().await).await;
+    let pid = mk_platform_of(&state, Protocol::Glm, up).await;
+    group_of(&state, "gkglm529", &[pid]).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkglm529", HI)).await;
+    assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
+    let log = last_log_for(&state, "gkglm529").await;
+    assert_eq!(log.status_code, 429);
+    assert_eq!(log.attempts[0].status_code, 529);
+}
+
+/// 非 GLM 平台的 529 照旧透传。
+#[tokio::test]
+async fn non_glm_upstream_529_stays_529() {
+    let up = spawn_stub_upstream(529, r#"{"error":{"message":"overloaded"}}"#).await;
+    let state = make_state(test_db().await).await;
+    let pid = mk_platform_of(&state, Protocol::Anthropic, up).await;
+    group_of(&state, "gkan529", &[pid]).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkan529", HI)).await;
+    assert_eq!(resp.status().as_u16(), 529);
 }
