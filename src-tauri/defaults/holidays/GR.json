@@ -1,0 +1,51 @@
+{
+  "code": "GR",
+  "name": {
+    "zh-Hans": "希腊",
+    "en-US": "Greece",
+    "ar-SA": "اليونان",
+    "fr-FR": "Grèce",
+    "de-DE": "Griechenland",
+    "ru-RU": "Греция",
+    "ja-JP": "ギリシャ",
+    "es-ES": "Grecia"
+  },
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-01-01",
+        "2026-01-06",
+        "2026-03-25",
+        "2026-04-13",
+        "2026-05-01",
+        "2026-08-15",
+        "2026-10-28",
+        "2026-12-25",
+        "2026-12-26"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-01-01",
+        "2027-01-06",
+        "2027-03-25",
+        "2027-05-01",
+        "2027-05-03",
+        "2027-08-15",
+        "2027-10-28",
+        "2027-12-25",
+        "2027-12-26"
+      ],
+      "workdays": []
+    }
+  },
+  "source_urls": [
+    "https://ypergasias.gov.gr/ergasiakes-scheseis/atomikes-ergasiakes-sxeseis/chronika-oria-ergasias/",
+    "https://ypergasias.gov.gr/wp-content/uploads/2021/09/%CE%BD.-4808-2021-%CE%A6%CE%95%CE%9A-%CE%91-101.pdf",
+    "https://ypergasias.gov.gr/wp-content/uploads/2021/09/%CE%92.%CE%94.-748-1966-%CE%A6%CE%95%CE%9A-%CE%91-179.pdf",
+    "https://search.et.gr/fek/?fekId=551989",
+    "https://ia37rg02wpsa01.blob.core.windows.net/fek/01/2017/20170100061.pdf",
+    "https://eures.europa.eu/living-and-working/living-and-working-conditions-europe/living-and-working-conditions-greece_en"
+  ]
+}

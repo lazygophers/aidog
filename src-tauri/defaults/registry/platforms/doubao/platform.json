@@ -33,8 +33,9 @@
       ]
     }
   ],
-  "last_updated": 1794191265,
+  "last_updated": 1794657886,
   "is_coding_plan": true,
+  "holiday_calendar": "CN",
   "endpoints": {
     "default": [
       {

@@ -1,4 +1,5 @@
 {
+  "holiday_calendar": "HK",
   "endpoints": {
     "default": [
       {
@@ -215,5 +216,5 @@
       "timezone": "Asia/Shanghai"
     }
   ],
-  "last_updated": 1793615839
+  "last_updated": 1794657886
 }

@@ -1,0 +1,58 @@
+{
+  "code": "HU",
+  "name": {
+    "zh-Hans": "匈牙利",
+    "en-US": "Hungary",
+    "ar-SA": "المجر",
+    "fr-FR": "Hongrie",
+    "de-DE": "Ungarn",
+    "ru-RU": "Венгрия",
+    "ja-JP": "ハンガリー",
+    "es-ES": "Hungría"
+  },
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-01-01",
+        "2026-01-02",
+        "2026-03-15",
+        "2026-04-03",
+        "2026-04-06",
+        "2026-05-01",
+        "2026-05-25",
+        "2026-08-20",
+        "2026-08-21",
+        "2026-10-23",
+        "2026-11-01",
+        "2026-12-24",
+        "2026-12-25",
+        "2026-12-26"
+      ],
+      "workdays": [
+        "2026-01-10",
+        "2026-08-08"
+      ]
+    },
+    "2027": {
+      "holidays": [
+        "2027-01-01",
+        "2027-03-15",
+        "2027-03-26",
+        "2027-03-29",
+        "2027-05-01",
+        "2027-05-17",
+        "2027-08-20",
+        "2027-10-23",
+        "2027-11-01",
+        "2027-12-24",
+        "2027-12-25",
+        "2027-12-26"
+      ],
+      "workdays": []
+    }
+  },
+  "source_urls": [
+    "https://www.magyarkozlony.hu/hivatalos-lapok/eVPwo1zo3oc7qzap5LKe6aee410272328/dokumentumok/5f99848e5821a00d49f56fdd5709bfec0f4532b4/letoltes",
+    "https://www.magyarkozlony.hu/hivatalos-lapok/uCe3bIA5q7xDbHoaHjSK6807e49645b42/dokumentumok/3a537c5a3854b43c0bc726320385ebbb3cd89d13/letoltes"
+  ]
+}

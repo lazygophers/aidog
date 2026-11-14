@@ -5,7 +5,8 @@
   "tools_pricing": {
     "ai_search_chat": {"per_1000": 36.0, "currency": "CNY"}
   },
-  "last_updated": 1793615839,
+  "last_updated": 1794657886,
+  "holiday_calendar": "CN",
   "endpoints": {
     "default": [
       {

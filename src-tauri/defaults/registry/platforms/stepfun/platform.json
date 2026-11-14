@@ -47,7 +47,8 @@
   "tools_pricing": {
     "search": {"per_1000": 40.0, "currency": "CNY"}
   },
-  "last_updated": 1794191265,
+  "last_updated": 1794657886,
+  "holiday_calendar": "CN",
   "endpoints": {
     "default": [
       {

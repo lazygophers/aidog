@@ -33,6 +33,7 @@
       ]
     }
   ],
+  "holiday_calendar": "CN",
   "endpoints": {
     "default": [
       {
@@ -98,5 +99,5 @@
   ],
   "color": "#4958E8",
   "key_prefixes": ["sk_"],
-  "last_updated": 1794191265
+  "last_updated": 1794657886
 }
