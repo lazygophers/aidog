@@ -160,9 +160,13 @@ async fn relay_passthrough(
     } else {
         10
     };
-    let client =
-        super::http_client::build_http_client(&proxy_client, req_timeout, conn_timeout, None, None)
-            .await;
+    // 透传出站归属 = 非平台（issue #64 T01 临时等价：读「其它请求使用代理」；后续票按透传归属接入）。
+    let use_proxy = super::http_client::should_use_proxy(
+        &proxy_client,
+        super::http_client::ProxyAttribution::NonPlatform,
+    );
+    let client = super::http_client::build_http_client(&proxy_client, req_timeout, conn_timeout, use_proxy)
+        .await;
 
     // 原样转发 header，剔除 hop-by-hop（Host / Content-Length 由 reqwest 按目标 URL + body 重设）；
     // forward 分支额外剥 Proxy-* 协商头（避免上游收到代理协商头）。

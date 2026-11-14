@@ -132,7 +132,13 @@ pub(crate) async fn handle_mitm_observed(
     } else {
         10
     };
-    let client = http_client::build_http_client(&proxy_client, 0, conn_timeout, None, None).await;
+    // MITM 旁路归属（issue #64：分组官方平台开关集合判定）在后续票接入；
+    // 本票临时等价 = 非平台归属，读「其它请求使用代理」。
+    let use_proxy = http_client::should_use_proxy(
+        &proxy_client,
+        http_client::ProxyAttribution::NonPlatform,
+    );
+    let client = http_client::build_http_client(&proxy_client, 0, conn_timeout, use_proxy).await;
 
     // 原样转发 header（剥 hop-by-hop + Proxy-* 协商头，与 forward_passthrough_to_orig_host 同款）。
     let mut fwd_headers = passthrough_headers(&orig_headers);

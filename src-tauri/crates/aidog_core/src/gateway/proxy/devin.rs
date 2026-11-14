@@ -235,8 +235,7 @@ pub(crate) async fn handle_devin(
         &proxy_client,
         req_timeout,
         conn_timeout,
-        Some(&platform.extra),
-        None,
+        http_client::platform_should_use_proxy(&proxy_client, &platform.extra),
     )
     .await;
 

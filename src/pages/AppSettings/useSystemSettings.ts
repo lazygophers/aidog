@@ -41,7 +41,7 @@ export function useSystemSettings() {
   const [statsRebuilding, setStatsRebuilding] = useState(false);
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(true);
   const [proxyClient, setProxyClient] = useState<ProxyClientSettings>({
-    enabled: false, proxy_type: "socks5", host: "127.0.0.1", port: 7890,
+    others_enabled: false, proxy_type: "socks5", host: "", port: 7890,
     username: "", password: "", dns_over_proxy: true, no_proxy: "",
   });
 

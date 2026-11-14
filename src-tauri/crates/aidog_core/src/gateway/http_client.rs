@@ -73,7 +73,7 @@ fn global_client_cache() -> &'static Arc<RwLock<ClientCache>> {
 
 /// Parse platform `extra` JSON for `proxy_enabled` field.
 /// Returns:
-/// - `None` = field missing → follow system default
+/// - `None` = field missing → 缺省按直连
 /// - `Some(true)` = explicitly enabled
 /// - `Some(false)` = explicitly disabled
 pub fn platform_proxy_enabled(extra: &str) -> Option<bool> {
@@ -83,6 +83,48 @@ pub fn platform_proxy_enabled(extra: &str) -> Option<bool> {
     serde_json::from_str::<serde_json::Value>(extra)
         .ok()
         .and_then(|v| v.get("proxy_enabled").and_then(|f| f.as_bool()))
+}
+
+/// 出站归属：本次出站属于哪一类（issue #64 T01，代理判定唯一 seam 的输入）。
+pub enum ProxyAttribution<'a> {
+    /// 平台出站：该平台 `extra.proxy_enabled` 开关值（None = 未配置 → 直连）。
+    Platform(Option<bool>),
+    /// 非平台出站（余额/logo/model_fetch/skills 等）：读「其它请求使用代理」。
+    NonPlatform,
+    /// MITM 旁路出站：连接绑定分组内官方平台的开关集合（元素 = 各平台 `extra.proxy_enabled`）。
+    /// 任一显式开即走代理；集合为空回落非平台规则。实际接入在后续票，本枚举先定义归属。
+    MitmBypass(&'a [Option<bool>]),
+}
+
+/// 代理判定 seam（纯函数）：本次出站是否走代理。
+/// 共同前置：代理主机为空 → 恒直连。免代理名单仍由 HTTP 客户端在走代理时按域名排除
+/// （名单优先于平台开关，现状不变），不入本判定。
+pub fn should_use_proxy(settings: &ProxyClientSettings, attribution: ProxyAttribution<'_>) -> bool {
+    // 共同前置：代理主机为空 = 未配置代理，恒直连。
+    if settings.host.trim().is_empty() {
+        return false;
+    }
+    match attribution {
+        // 平台开关：缺省（None）按直连（后端防御，不跟随全局）。
+        ProxyAttribution::Platform(flag) => flag.unwrap_or(false),
+        ProxyAttribution::NonPlatform => settings.others_enabled,
+        // 分组内官方平台任一显式开即走代理；集合为空回落非平台规则。
+        ProxyAttribution::MitmBypass(flags) => {
+            if flags.is_empty() {
+                settings.others_enabled
+            } else {
+                flags.iter().any(|f| f == &Some(true))
+            }
+        }
+    }
+}
+
+/// 平台出站判定便捷封装：extra JSON → `proxy_enabled` 三态 → should_use_proxy。
+pub fn platform_should_use_proxy(settings: &ProxyClientSettings, extra: &str) -> bool {
+    should_use_proxy(
+        settings,
+        ProxyAttribution::Platform(platform_proxy_enabled(extra)),
+    )
 }
 
 /// 测试构建专用护栏：只解析回环主机名，其余一律报错点名主机，杜绝测试真实外呼
@@ -109,10 +151,8 @@ impl reqwest::dns::Resolve for LoopbackOnlyResolver {
 }
 
 /// Build a reqwest client with optional proxy and timeout.
-/// `force_proxy`: overrides platform-level setting for callers that always want proxy or never.
-/// - `None` = check system proxy + platform `proxy_enabled`
-/// - `Some(true)` = always use system proxy if configured
-/// - `Some(false)` = never use proxy
+/// `use_proxy` 由 caller 经判定 seam（`should_use_proxy`）算出后传入——本函数只消费判定结果，
+/// 不再做任何归属/开关判定（issue #64 T01）。
 ///
 /// `settings` 由 caller 传入：请求路径从 ProxyState 缓存借（避免每请求 DB 读），
 /// 非请求路径用 `load_proxy_client_settings(db).await` 现读现用。
@@ -122,18 +162,8 @@ pub async fn build_http_client(
     settings: &ProxyClientSettings,
     timeout_secs: u64,
     conn_timeout_secs: u64,
-    platform_extra: Option<&str>,
-    force_proxy: Option<bool>,
+    use_proxy: bool,
 ) -> reqwest::Client {
-    let use_proxy = match force_proxy {
-        Some(v) => v && settings.enabled,
-        None => {
-            let platform_ok = platform_extra
-                .and_then(platform_proxy_enabled)
-                .unwrap_or(true); // field missing → follow system
-            settings.enabled && platform_ok
-        }
-    };
 
     let cache_key = (
         use_proxy,
@@ -207,7 +237,7 @@ pub async fn build_http_client(
     client
 }
 
-/// Convenience: build client without platform context (always follows system proxy).
+/// Convenience: build client for 非平台出站（归属 NonPlatform，读「其它请求使用代理」）。
 /// 非请求路径用（model_fetch/price_sync/logo_sync/quota）：现读 DB settings 再委托。
 pub async fn build_http_client_system(
     db: &Arc<Db>,
@@ -215,7 +245,8 @@ pub async fn build_http_client_system(
     conn_timeout_secs: u64,
 ) -> reqwest::Client {
     let settings = load_proxy_client_settings(db).await;
-    build_http_client(&settings, timeout_secs, conn_timeout_secs, None, None).await
+    let use_proxy = should_use_proxy(&settings, ProxyAttribution::NonPlatform);
+    build_http_client(&settings, timeout_secs, conn_timeout_secs, use_proxy).await
 }
 
 #[cfg(test)]
@@ -236,7 +267,7 @@ mod tests {
     /// 护栏：测试构建下连非回环主机必须响亮失败并点名主机（test-no-real-calls.md）。
     #[tokio::test]
     async fn test_build_blocks_non_loopback_host() {
-        let c = build_http_client(&ProxyClientSettings::default(), 5, 5, None, None).await;
+        let c = build_http_client(&ProxyClientSettings::default(), 5, 5, false).await;
         let e = c.get("https://open.bigmodel.cn/").send().await.unwrap_err();
         let chain = err_chain(&e);
         assert!(chain.contains("blocked non-loopback host open.bigmodel.cn"), "{chain}");
@@ -254,7 +285,7 @@ mod tests {
             let _ = s.read(&mut b).await;
             s.write_all(b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\nconnection: close\r\n\r\nok").await.unwrap();
         });
-        let c = build_http_client(&ProxyClientSettings::default(), 5, 5, None, None).await;
+        let c = build_http_client(&ProxyClientSettings::default(), 5, 5, false).await;
         let r = c.get(format!("http://localhost:{port}/")).send().await.unwrap();
         assert_eq!(r.text().await.unwrap(), "ok");
     }
@@ -289,6 +320,78 @@ mod tests {
     #[test]
     fn platform_proxy_enabled_invalid_json_returns_none() {
         assert_eq!(platform_proxy_enabled("not-json"), None);
+    }
+
+    // ── 代理判定 seam（issue #64 T01）──
+
+    fn seam_settings(others: bool) -> ProxyClientSettings {
+        ProxyClientSettings {
+            others_enabled: others,
+            host: "127.0.0.1".into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn seam_empty_host_always_direct() {
+        let s = ProxyClientSettings {
+            host: String::new(),
+            others_enabled: true,
+            ..Default::default()
+        };
+        assert!(!should_use_proxy(&s, ProxyAttribution::Platform(Some(true))));
+        assert!(!should_use_proxy(&s, ProxyAttribution::NonPlatform));
+        let flags = [Some(true), Some(false)];
+        assert!(!should_use_proxy(&s, ProxyAttribution::MitmBypass(&flags)));
+        // 空白主机同样视为未配置
+        let s2 = ProxyClientSettings {
+            host: "   ".into(),
+            others_enabled: true,
+            ..Default::default()
+        };
+        assert!(!should_use_proxy(&s2, ProxyAttribution::NonPlatform));
+    }
+
+    #[test]
+    fn seam_platform_explicit_and_missing() {
+        let s = seam_settings(false);
+        assert!(should_use_proxy(&s, ProxyAttribution::Platform(Some(true))));
+        assert!(!should_use_proxy(&s, ProxyAttribution::Platform(Some(false))));
+        // 缺省 = 直连（后端防御，不跟随全局）
+        assert!(!should_use_proxy(&s, ProxyAttribution::Platform(None)));
+        // 便捷封装同语义
+        assert!(platform_should_use_proxy(&s, r#"{"proxy_enabled":true}"#));
+        assert!(!platform_should_use_proxy(&s, r#"{"proxy_enabled":false}"#));
+        assert!(!platform_should_use_proxy(&s, "{}"));
+        assert!(!platform_should_use_proxy(&s, ""));
+    }
+
+    #[test]
+    fn seam_non_platform_switch() {
+        assert!(should_use_proxy(
+            &seam_settings(true),
+            ProxyAttribution::NonPlatform
+        ));
+        assert!(!should_use_proxy(
+            &seam_settings(false),
+            ProxyAttribution::NonPlatform
+        ));
+    }
+
+    #[test]
+    fn seam_mitm_bypass_any_on_and_empty_fallback() {
+        let s = seam_settings(false);
+        // 任一显式开 → 走代理
+        let flags = [Some(false), Some(true), None];
+        assert!(should_use_proxy(&s, ProxyAttribution::MitmBypass(&flags)));
+        // 全关（显式 false / 缺省）→ 直连
+        let all_off = [Some(false), None];
+        assert!(!should_use_proxy(&s, ProxyAttribution::MitmBypass(&all_off)));
+        // 集合为空 → 回落非平台规则
+        let empty: [Option<bool>; 0] = [];
+        assert!(!should_use_proxy(&s, ProxyAttribution::MitmBypass(&empty)));
+        let s_on = seam_settings(true);
+        assert!(should_use_proxy(&s_on, ProxyAttribution::MitmBypass(&empty)));
     }
 
     // ── build_http_client 禁 env proxy 回归（修 HTTP/2 stream CANCEL 根因）──
@@ -338,7 +441,7 @@ mod tests {
         // 4. test_db（proxy_client settings 默认空 → use_proxy=false）。
         let db = aidog_db::test_support::test_db().await;
         let settings = load_proxy_client_settings(&db).await;
-        let client = build_http_client(&settings, 0, 0, None, None).await;
+        let client = build_http_client(&settings, 0, 0, false).await;
 
         // 5. 请求上游：use_proxy=false + .no_proxy() → 直连上游，不连 stub proxy。
         let url = format!("http://{up_addr}/");

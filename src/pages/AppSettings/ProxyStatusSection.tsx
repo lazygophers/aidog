@@ -124,10 +124,10 @@ export function UpstreamProxySection({ s }: { s: SystemSettings }) {
             {t("proxy.upstreamProxyDesc")}
           </div>
         </div>
-        <Switch checked={proxyClient.enabled} onCheckedChange={(c) => handleProxyClientChange({ enabled: c })} />
+        <Switch checked={proxyClient.others_enabled} onCheckedChange={(c) => handleProxyClientChange({ others_enabled: c })} />
       </div>
 
-      {proxyClient.enabled && (
+      {proxyClient.others_enabled && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
