@@ -9,6 +9,4 @@ license = { workspace = true }
 # 2026-08-16）。
 [dependencies]
 aidog_db = { path = "../aidog_db" }
-serde = { workspace = true }
 serde_json = { workspace = true }
-tracing = { workspace = true }

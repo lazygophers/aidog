@@ -8,9 +8,10 @@ import type {
   Platform,
 } from "../../services/api";
 import { GROUP_TYPES, TREND_WINDOWS } from "./constants";
+import type { TFunction } from "i18next";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-type TFn = (k: string, d: string, o?: Record<string, unknown>) => string;
+type TFn = TFunction<"translation", undefined>;
 
 export function ScopeConfig({
   item, t, platforms, groups, onUpdate,
