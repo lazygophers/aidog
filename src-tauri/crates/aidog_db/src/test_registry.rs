@@ -578,6 +578,25 @@ const NO_OFFICIAL_CHANNEL: &[&str] = &[
     "kwaipilot/kat-coder-air-v2.5", // therouter 页标 Deprecated 已删，atlascloud 仍售
     "kwaipilot/kat-coder-pro-v2.5", // 同上
     "nex-agi/nex-n2-pro", // therouter 页标 Deprecated 已删，novita 仍售
+
+    // gemini Vertex 收尾轮 2026-11-14 新增（以下 15 条同一模式：Vertex 侧条目随
+    // Anthropic 退役 / Vertex 官方停用 / 现行文档缺席已删，聚合/中转平台仍在售，
+    // official:false，官方渠道条目已删故字符串匹配不到）：
+    "claude-3-5-haiku", // litellm 仍售
+    "claude-3-5-haiku@20241022", // 同上
+    "claude-3-5-sonnet", // 同上
+    "claude-3-5-sonnet@20240620", // 同上
+    "claude-3-haiku", // litellm / aihubmix 仍售
+    "claude-3-haiku@20240307", // 同上
+    "claude-3-opus", // litellm 仍售
+    "claude-3-opus@20240229", // aihubmix 仍售
+    "claude-3-sonnet", // litellm 仍售
+    "claude-3-sonnet@20240229", // 同上
+    "codestral@2405", // litellm 仍售，Vertex 现行 Mistral 页无此别名
+    "codestral@latest", // 同上
+    "mistral-large@latest", // 同上
+    "mistral-nemo@2407", // 同上
+    "mistral-nemo@latest", // 同上
 ];
 
 /// 每个 `model_id` 至少有一个 `official` 平台条目（模型维度列表默认展示官方条目，
