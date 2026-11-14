@@ -185,6 +185,12 @@ impl PriceResolution {
             UnitBasis::PerRequest => up * units.max(1) as f64,
         }
     }
+
+    /// char/second（`Counted`）缺计数（≤0）= 不可估算：费已按 0 记（见 [`Self::request_fee`]），
+    /// 调用方可用本判定在日志 `price_source` 上与免费条目区分（issue 157）。
+    pub fn is_unestimable(&self, units: i64) -> bool {
+        matches!(self.unit_basis, UnitBasis::Counted { .. }) && units <= 0
+    }
 }
 
 /// 三价字段非 null 覆盖 base（null 字段继承 base）。`apply_context_tier` / `apply_tiers` 共用。
@@ -322,7 +328,15 @@ pub fn resolve_price_from(
     // 按次价的定时切换 / 多档：time 档 `unit_price` > `unit_tiers` 第一档 > 顶层 `unit_price`
     // （计费链拿不到图像尺寸/分辨率参数，`unit_tiers` 按档位顺序取第一档兜底）。
     let unit = price_obj.get("unit").and_then(Value::as_str);
-    if matches!(unit, Some("request") | Some("image") | Some("second") | Some("char") | Some("mp"))
+    // unit 字符串 → 计数语义的唯一判定入口（下方按次分支与构造点都消费这里的结果，
+    // 不再各自 `matches!` 字符串）。None = 非 unit 计价条目，落 token 计价链。
+    let unit_basis = match unit {
+        Some("char") => Some(UnitBasis::Counted { divisor: 1000.0 }),
+        Some("second") => Some(UnitBasis::Counted { divisor: 1.0 }),
+        Some("request") | Some("image") | Some("mp") => Some(UnitBasis::PerRequest),
+        _ => None,
+    };
+    if unit_basis.is_some()
         && let Some(top_up) = price_obj.get("unit_price").and_then(Value::as_f64)
     {
         let mut source = format!("model_entry+{}", unit.unwrap_or("request"));
@@ -356,11 +370,7 @@ pub fn resolve_price_from(
             peak_applied: false,
             source_cny: is_cny,
             request_unit_price: Some(if is_cny { up / CNY_PER_USD } else { up }),
-            unit_basis: match unit {
-                Some("char") => UnitBasis::Counted { divisor: 1000.0 },
-                Some("second") => UnitBasis::Counted { divisor: 1.0 },
-                _ => UnitBasis::PerRequest,
-            },
+            unit_basis: unit_basis.unwrap_or_default(),
         };
     }
     let num =|k: &str| price_obj.get(k).and_then(Value::as_f64).unwrap_or(0.0);

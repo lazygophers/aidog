@@ -193,9 +193,8 @@ pub async fn calc_est_cost_detail(
             tool_counts.iter().map(|(k, c)| (k.as_str(), *c)).collect();
         tools_cost(default_tools_pricing(platform_type).as_ref(), &refs)
     };
-    // char/second（Counted）缺计数 → 不可估算：price_source 加标记，与免费 / 0 区分（issue 157）。
-    let unestimable =
-        matches!(resolved.unit_basis, aidog_db::UnitBasis::Counted { .. }) && search_units <= 0;
+    // char/second 缺计数 → 不可估算：price_source 加标记，与免费 / 0 区分（issue 157）。
+    let unestimable = resolved.is_unestimable(search_units);
     EstCostDetail {
         est_cost: token_cost + tool_fee + request_fee,
         price_source: if unestimable {
@@ -645,7 +644,6 @@ mod tests {
         .await;
         assert!((cost - 0.003).abs() < 1e-9, "无声明按次费记 0, got {cost}");
     }
-
 }
 
 /// ⑤ cache_write 独立计价：cache_write_tokens × cache_write 价（1.25× input 例），
