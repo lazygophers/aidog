@@ -24,35 +24,49 @@ fn every_registry_platform_has_adapter_registration() {
     );
 }
 
-/// 家族示例（issue 68）：Kimi 家族成员覆盖 coding_plan 注入差异，
-/// 行为与基座的协议级分派臂逐字节等价（注入条件同源：端点 coding_plan flag）。
+/// 家族示例（issue 68）：KimiAdapter 覆盖 coding_plan 注入差异，只登记在 kimi 上；
+/// 产出与基座的 Kimi 协议臂一致（注入条件同源：端点 coding_plan flag）。
 #[test]
-fn kimi_family_overrides_coding_plan_with_base_equivalent_behavior() {
-    for code in ["kimi", "kimi_en", "kimi_coding"] {
-        let pa = super::adapter_for(code);
-        let mut body = json!({ "model": "kimi-for-coding" });
-        let mut path = String::from("/chat/completions");
-        pa.inject_coding_plan(&mut body, &mut path, &Protocol::Kimi);
-        assert!(
-            body.get("prompt_cache_key").is_some(),
-            "code {code} 未注入 prompt_cache_key"
-        );
-        assert_eq!(path, "/chat/completions");
-    }
+fn kimi_adapter_coding_plan_matches_base_kimi_arm() {
+    let pa = super::adapter_for("kimi");
+    let mut body = json!({ "model": "kimi-for-coding" });
+    pa.inject_coding_plan(&mut body, &Protocol::Kimi);
+    assert!(
+        body.get("prompt_cache_key").is_some(),
+        "kimi 未注入 prompt_cache_key"
+    );
     // 基座默认按平台协议分派：platform=Kimi 同样注入；非 Kimi 协议不注入。
     let mut via_base = json!({ "model": "kimi-for-coding" });
-    super::adapter_for("anthropic").inject_coding_plan(&mut via_base, &mut String::new(), &Protocol::Kimi);
+    super::adapter_for("anthropic").inject_coding_plan(&mut via_base, &Protocol::Kimi);
     assert!(via_base.get("prompt_cache_key").is_some());
     let mut non_kimi = json!({ "model": "m" });
-    super::adapter_for("anthropic").inject_coding_plan(&mut non_kimi, &mut String::new(), &Protocol::Anthropic);
+    super::adapter_for("anthropic").inject_coding_plan(&mut non_kimi, &Protocol::Anthropic);
     assert!(non_kimi.get("prompt_cache_key").is_none());
     // 家族适配器与基座 Kimi 臂产出同形状（除时间窗口随机段外的键集合一致）。
     let mut member = json!({ "model": "k3" });
-    KimiAdapter.inject_coding_plan(&mut member, &mut String::new(), &Protocol::Kimi);
+    KimiAdapter.inject_coding_plan(&mut member, &Protocol::Kimi);
     assert_eq!(
         member.as_object().unwrap().keys().collect::<Vec<_>>(),
         via_base.as_object().unwrap().keys().collect::<Vec<_>>()
     );
+}
+
+/// 行为零变化门禁（review 必改 1）：kimi_coding / kimi_en 不注入 prompt_cache_key。
+/// 迁移前 headers.rs 仅对 Protocol::Kimi 注入，KimiCoding / KimiEn 走 no-op 臂；
+/// KimiAdapter 只登记在 kimi 上，这两个 code 走基座（协议臂 no-op）。
+#[test]
+fn kimi_coding_and_kimi_en_do_not_inject_prompt_cache_key() {
+    for (code, proto) in [
+        ("kimi_coding", Protocol::KimiCoding),
+        ("kimi_en", Protocol::KimiEn),
+    ] {
+        let mut body = json!({ "model": "kimi-for-coding" });
+        super::adapter_for(code).inject_coding_plan(&mut body, &proto);
+        assert!(
+            body.get("prompt_cache_key").is_none(),
+            "code {code} 不应注入 prompt_cache_key（仅 Protocol::Kimi 注入）"
+        );
+    }
 }
 
 /// 基座默认实现与协议构件逐字节等价（issue 68：初始映射与现状等价的单元面）。

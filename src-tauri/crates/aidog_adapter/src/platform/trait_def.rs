@@ -70,10 +70,15 @@ pub trait PlatformAdapter: Send + Sync {
     // ══ 平台差异钩子（家族成员覆盖差异；默认 = 现状通用行为）══
 
     /// Coding Plan 端点注入（端点 `coding_plan` flag 命中时调用）。默认按平台协议分派
-    /// （Kimi 协议注入 prompt_cache_key），与历史 headers.rs 同名函数等价。
-    fn inject_coding_plan(&self, body: &mut Value, api_path: &mut String, platform: &Protocol) {
+    /// （仅 Kimi 协议注入 prompt_cache_key），与历史 headers.rs 同名函数等价。
+    fn inject_coding_plan(&self, body: &mut Value, platform: &Protocol) {
         hooks::inject_coding_plan_fields(body, platform);
-        hooks::override_coding_plan_path(api_path, platform);
+    }
+
+    /// 同协议透传分支：无签名 thinking 块清洗（仅 Anthropic wire 上游），
+    /// 返回剥除块数（与 `converter::strip_unsigned_thinking_blocks` 等价）。
+    fn strip_unsigned_thinking_blocks(&self, body: &mut Value) -> usize {
+        crate::protocols::strip_unsigned_thinking_blocks(body)
     }
 
     /// max_tokens 出站裁剪（body 层，键名按 wire 协议）。返回 Some((原值, 裁后值)) = 发生了裁剪。

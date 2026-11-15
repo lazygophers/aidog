@@ -17,14 +17,15 @@ struct GenericAdapter;
 
 impl PlatformAdapter for GenericAdapter {}
 
-/// 家族示例：Kimi 家族（kimi / kimi_en / kimi_coding，platform_type 均为 Kimi）。
-/// 基座默认的 coding_plan 注入按平台协议分派（Kimi 协议注入 prompt_cache_key）；
-/// 家族成员改为无条件注入（本钩子只在端点 `coding_plan` flag 命中时被调用，
-/// 触发条件与基座一致），行为与基座等价——演示「成员只覆盖差异」。
+/// 家族示例：KimiAdapter 只登记在 `kimi` 上（platform_type = Kimi）。
+/// 基座默认的 coding_plan 注入按平台协议分派（仅 Kimi 协议注入 prompt_cache_key）；
+/// 家族成员的无条件注入在 platform=kimi 时与基座 Kimi 臂产出一致——演示「成员只覆盖差异」。
+/// `kimi_en` / `kimi_coding` 是独立协议（KimiEn / KimiCoding），走默认基座，不注入
+/// （迁移前 headers.rs 同为 no-op，review 必改 1：行为零变化）。
 pub struct KimiAdapter;
 
 impl PlatformAdapter for KimiAdapter {
-    fn inject_coding_plan(&self, body: &mut Value, _api_path: &mut String, _platform: &Protocol) {
+    fn inject_coding_plan(&self, body: &mut Value, _platform: &Protocol) {
         hooks::inject_kimi_prompt_cache_key(body);
     }
 }
@@ -61,8 +62,8 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("glm_en", &GENERIC),
     ("intern_inkstone", &GENERIC),
     ("kimi", &KIMI),
-    ("kimi_coding", &KIMI),
-    ("kimi_en", &KIMI),
+    ("kimi_coding", &GENERIC),
+    ("kimi_en", &GENERIC),
     ("litellm", &GENERIC),
     ("longcat", &GENERIC),
     ("magpie", &GENERIC),

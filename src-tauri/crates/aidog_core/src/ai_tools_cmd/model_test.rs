@@ -149,11 +149,10 @@ fn prepare_http_request(ctx: &TestContext) -> Result<HttpRequestContext, String>
         return Err("base_url 缺失，请在平台 endpoints 配置上游地址".to_string());
     }
 
-    let (mut req_body, mut api_path) =
+    let (mut req_body, api_path) =
         adapter::convert_request(&ctx.chat_req, &target_protocol, &ctx.platform.platform_type);
     if coding_plan {
         gateway::proxy::inject_coding_plan_fields(&mut req_body, &target_protocol);
-        gateway::proxy::override_coding_plan_path(&mut api_path, &target_protocol);
     }
     let req_body_str = serde_json::to_string(&req_body).unwrap_or_default();
     let base_url = target_base_url.trim_end_matches('/');
