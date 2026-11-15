@@ -219,10 +219,12 @@ pub fn parse_responses_response(
 
         // 提取 function_call（tool_use）：兼容两种形态
         //   ① 嵌套：item: {function_call: {id, name, arguments}}
-        //   ② 扁平：item: {type:"function_call", id, name, arguments}
+        //   ② 扁平：item: {type:"function_call", id/call_id, name, arguments}
+        // 官方字段是 call_id；旧 id 字段回落兼容。
         if let Some(fc) = item.get("function_call") {
             let id = fc
-                .get("id")
+                .get("call_id")
+                .or_else(|| fc.get("id"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
@@ -231,16 +233,20 @@ pub fn parse_responses_response(
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
+            // arguments 是 JSON 字符串；解析失败兜底空对象（与 parse_openai_response 对齐，
+            // 避免下游 render 再次 to_string 造成双重编码）
             let args = fc
                 .get("arguments")
-                .cloned()
+                .and_then(|v| v.as_str())
+                .and_then(|s| serde_json::from_str::<Value>(s).ok())
                 .unwrap_or_else(|| Value::Object(Default::default()));
             if !id.is_empty() || !name.is_empty() {
                 tool_uses.push((id, name, args));
             }
         } else if item.get("type").and_then(|v| v.as_str()) == Some("function_call") {
             let id = item
-                .get("id")
+                .get("call_id")
+                .or_else(|| item.get("id"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
@@ -251,7 +257,8 @@ pub fn parse_responses_response(
                 .to_string();
             let args = item
                 .get("arguments")
-                .cloned()
+                .and_then(|v| v.as_str())
+                .and_then(|s| serde_json::from_str::<Value>(s).ok())
                 .unwrap_or_else(|| Value::Object(Default::default()));
             if !id.is_empty() || !name.is_empty() {
                 tool_uses.push((id, name, args));
@@ -357,8 +364,10 @@ pub fn render_responses_response(r: &crate::converter::NonStreamResponse) -> Opt
         output.push(serde_json::json!({
             "type": "function_call",
             "id": id,
+            "call_id": id,
             "name": name,
-            "arguments": input,
+            // 官方 arguments 是 JSON 字符串
+            "arguments": serde_json::to_string(input).unwrap_or_else(|_| "{}".to_string()),
         }));
     }
 
@@ -1092,8 +1101,9 @@ mod tests {
         assert_eq!(out["output"][0]["content"][0]["text"], "Let me check");
         assert_eq!(out["output"][1]["type"], "function_call");
         assert_eq!(out["output"][1]["id"], "tool-1");
+        assert_eq!(out["output"][1]["call_id"], "tool-1", "官方 call_id 字段");
         assert_eq!(out["output"][1]["name"], "read_file");
-        assert_eq!(out["output"][1]["arguments"]["path"], "/tmp");
+        assert_eq!(out["output"][1]["arguments"], "{\"path\":\"/tmp\"}", "官方 arguments 是 JSON 字符串");
     }
 
     #[test]
@@ -1260,7 +1270,7 @@ mod tests {
                     "type": "function_call",
                     "id": "call_abc",
                     "name": "search",
-                    "arguments": {"query": "weather"}
+                    "arguments": "{\"query\": \"weather\"}"
                 }
             ],
             "usage": {
