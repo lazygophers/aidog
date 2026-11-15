@@ -1,5 +1,6 @@
 {
   "model_id": "anthracite-org/magnum-v4-72b",
+  "thinking_supported": false,
   "display_name": "Magnum v4 72B",
   "canonical_model": "magnum-v4-72b",
   "family": "magnum",
@@ -13,7 +14,7 @@
     "input": 2.5e-06,
     "output": 5e-06
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"

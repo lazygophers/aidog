@@ -30,4 +30,9 @@ max_retries?: number,
  * 尝试轮（候选全排除后间隔 1 秒从头重来）的起点：每个元素 = 该轮开始时 `attempts` 已有的条数
  * （第 N+1 轮的起点是第 N 个元素；空轮会产生相同的值）。缺省 None = 只有第 1 轮（含旧日志）。
  */
-round_starts?: Array<number>, };
+round_starts?: Array<number>, 
+/**
+ * 本地限频 / 上游限频冷却挡掉候选时，最早可再放行的时刻（Unix 秒，向上取整）：429 的 `Retry-After` 取它。
+ * 缺省 None = 无已知时刻（含旧日志）。
+ */
+retry_at_s?: number, };

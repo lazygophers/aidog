@@ -1,9 +1,9 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1794629974,
   "supported_protocols": [
     "gemini"
   ],
-  "model_id": "openai/gpt-oss-120b-maas",
+  "display_name": "gpt-oss 120B",  "model_id": "openai/gpt-oss-120b-maas",
   "canonical_model": "gpt-oss-120b-maas",
   "family": "gpt",
   "capabilities": [
@@ -13,8 +13,8 @@
   "max_output_tokens": 131072,
   "context_window": 131072,
   "official": true,
-  "thinking_supported": true,
-  "thinking_toggleable": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "currency": "USD",
     "input": 1.5e-07,

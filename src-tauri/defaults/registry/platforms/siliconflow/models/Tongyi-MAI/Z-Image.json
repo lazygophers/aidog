@@ -1,10 +1,11 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "Tongyi-MAI/Z-Image",
+  "display_name": "Z-Image",
   "canonical_model": "Z-Image",
   "family": "z-image",
   "capabilities": [

@@ -1,11 +1,13 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "nvidia/nemotron-nano-30b",
+  "display_name": "Nemotron Nano 30B",
+  "thinking_supported": true,
   "canonical_model": "nemotron-nano-30b",
   "family": "nemotron",
   "version": "3",

@@ -373,6 +373,7 @@ async fn estimate_after_request_balance_path_no_calibration() {
         false, // 非 coding plan
         0,     // created_at
         0.0,
+        0,
     )
     .await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
@@ -412,6 +413,7 @@ async fn estimate_after_request_applies_peak_multiplier() {
         false,
         0,
         0.0,
+        0,
     )
     .await;
 
@@ -457,6 +459,7 @@ async fn estimate_after_request_coding_path_no_calibration() {
         true,
         0,
         0.0,
+        0,
     )
     .await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
@@ -607,6 +610,7 @@ async fn run_est(db: &Db, id: u64, tool_usd: f64, in_tok: i64, out_tok: i64) {
         false,
         0,
         tool_usd,
+        0,
     )
     .await;
 }
@@ -728,6 +732,7 @@ async fn tool_fee_not_multiplied_by_peak() {
         false,
         0,
         0.5,
+        0,
     )
     .await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
@@ -735,6 +740,162 @@ async fn tool_fee_not_multiplied_by_peak() {
         (p.est_balance_remaining - 99.5).abs() < 1e-9,
         "got {}",
         p.est_balance_remaining
+    );
+}
+
+// ── issue #61：按次计价（unit:request）入余额与手动预算，与 est_cost 同口径 ──
+#[tokio::test]
+async fn per_request_fee_deducted_from_balance_and_manual_budget() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, false).await;
+    seed_entry(
+        &db,
+        "deepseek",
+        "unit-model",
+        r#"{"price":{"unit":"request","unit_price":0.002}}"#,
+    )
+    .await;
+    // 手动预算：usd 总额 10（无预算时 apply_manual_budgets no-op，必须先有预算）
+    db.platform_write_conn()
+        .call(move |conn| {
+            conn.execute(
+                "UPDATE platform SET manual_budgets = ?1 WHERE id = ?2",
+                rusqlite::params![
+                    r#"[{"id":"b1","kind":"total","unit":"usd","amount":10.0,"enabled":true}]"#,
+                    id as i64
+                ],
+            )?;
+            Ok::<(), rusqlite::Error>(())
+        })
+        .await
+        .unwrap();
+    write_real_quota(&db, id, 100.0, "", now()).await.unwrap();
+    estimate_after_request(
+        &db,
+        id,
+        "deepseek",
+        "https://example.com",
+        "sk",
+        "unit-model",
+        "",
+        0, // token 全 0：纯按次请求不得被「无 token 跳过」丢掉
+        0,
+        0,
+        0,
+        false,
+        0,
+        0.0,
+        1, // request_units
+    )
+    .await;
+    let p = db::get_platform(&db, id).await.unwrap().unwrap();
+    assert!(p.estimate_count >= 1, "纯按次请求必须进入预估链");
+    assert!(
+        (p.est_balance_remaining - 99.998).abs() < 1e-12,
+        "got {}",
+        p.est_balance_remaining
+    );
+    let budgets = p.manual_budgets;
+    assert!(
+        (budgets[0].consumed - 0.002).abs() < 1e-12,
+        "got {}",
+        budgets[0].consumed
+    );
+    // 与日志 est_cost 同口径：同 (platform, model, tokens) 解析 = unit_price × 1 次
+    let est = crate::gateway::billing::calc_est_cost_detail(
+        &db,
+        "unit-model",
+        "deepseek",
+        "",
+        0,
+        0,
+        0,
+        0,
+        0,
+        id as i64,
+        0,
+        &[(crate::gateway::billing::SEARCH_UNITS_KEY.to_string(), 1)],
+    )
+    .await
+    .est_cost;
+    assert!((est - 0.002).abs() < 1e-12, "got {est}");
+}
+
+// ── issue 157：char / second 按量计价 —— 余额路径缺计数不扣减，est_cost 端到端 ──
+
+/// char 条目缺计数：余额与手动预算均不扣减（不兜底成一次的价格，#157 问题不得转移到余额扣减）。
+#[tokio::test]
+async fn char_unit_missing_count_not_deducted_from_balance() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, false).await;
+    seed_entry(
+        &db,
+        "deepseek",
+        "char-model",
+        r#"{"price":{"unit":"char","unit_price":0.015}}"#,
+    )
+    .await;
+    write_real_quota(&db, id, 100.0, "", now()).await.unwrap();
+    let processed = estimate_after_request(
+        &db,
+        id,
+        "deepseek",
+        "https://example.com",
+        "sk",
+        "char-model",
+        "",
+        0, // token 全 0：纯按量请求无计数时无可扣项
+        0,
+        0,
+        0,
+        false,
+        0,
+        0.0,
+        0, // 缺计数（TTS 入口未建，issue 157）
+    )
+    .await;
+    assert!(!processed, "char 缺计数 → request_fee 0 → 无可扣项，跳过预估");
+    let p = db::get_platform(&db, id).await.unwrap().unwrap();
+    assert!(
+        (p.est_balance_remaining - 100.0).abs() < 1e-12,
+        "余额不得按 1 次扣减，got {}",
+        p.est_balance_remaining
+    );
+    assert_eq!(p.estimate_count, 0, "跳过路径不得计入预估次数");
+}
+
+/// calc_est_cost 端到端：char 条目 + SEARCH_UNITS_KEY=10000 → est_cost = 0.15；
+/// 无计数 → est_cost 0 且 price_source 标 +unestimable（与免费可区分）。
+#[tokio::test]
+async fn char_unit_est_cost_end_to_end() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, false).await;
+    seed_entry(
+        &db,
+        "deepseek",
+        "char-model",
+        r#"{"price":{"unit":"char","unit_price":0.015}}"#,
+    )
+    .await;
+    let counts = vec![(crate::gateway::billing::SEARCH_UNITS_KEY.to_string(), 10000i64)];
+    let detail = crate::gateway::billing::calc_est_cost_detail(
+        &db, "char-model", "deepseek", "", 0, 0, 0, 0, 0, id as i64, 0, &counts,
+    )
+    .await;
+    assert!(
+        (detail.est_cost - 0.15).abs() < 1e-12,
+        "1 万字符 ÷ 1000 × $0.015 = $0.15, got {}",
+        detail.est_cost
+    );
+    let none = crate::gateway::billing::calc_est_cost_detail(
+        &db, "char-model", "deepseek", "", 0, 0, 0, 0, 0, id as i64, 0, &[],
+    )
+    .await;
+    assert_eq!(none.est_cost, 0.0, "char 缺计数 → est_cost 0（不可估算）");
+    assert!(
+        none.price_source.ends_with("+unestimable"),
+        "price_source 须标不可估算，got {}",
+        none.price_source
     );
 }
 

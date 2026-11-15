@@ -1,0 +1,37 @@
+{
+  "code": "CH-FR",
+  "extends": "CH",
+  "name": {
+    "zh-Hans": "弗里堡州",
+    "en-US": "Fribourg",
+    "ar-SA": "فريبورغ",
+    "fr-FR": "Fribourg",
+    "de-DE": "Freiburg",
+    "ru-RU": "Фрибур",
+    "ja-JP": "フリブール州",
+    "es-ES": "Friburgo"
+  },
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-01-01",
+        "2026-04-03",
+        "2026-05-14",
+        "2026-12-25"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-01-01",
+        "2027-03-26",
+        "2027-05-06",
+        "2027-12-25"
+      ],
+      "workdays": []
+    }
+  },
+  "source_urls": [
+    "https://bdlf.fr.ch/app/fr/texts_of_law/866.1.1"
+  ]
+}

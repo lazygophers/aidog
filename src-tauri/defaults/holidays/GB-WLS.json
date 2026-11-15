@@ -1,0 +1,27 @@
+{
+  "code": "GB-WLS",
+  "source_urls": [
+    "https://www.gov.uk/bank-holidays.json"
+  ],
+  "extends": "GB-ENG",
+  "years": {
+    "2026": {
+      "holidays": [],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [],
+      "workdays": []
+    }
+  },
+  "name": {
+    "zh-Hans": "威尔士",
+    "en-US": "Wales",
+    "ar-SA": "ويلز",
+    "fr-FR": "Pays de Galles",
+    "de-DE": "Wales",
+    "ru-RU": "Уэльс",
+    "ja-JP": "ウェールズ",
+    "es-ES": "Gales"
+  }
+}

@@ -33,7 +33,7 @@ use aes_gcm::{
     aead::{Aead, KeyInit, Nonce as AeadNonce},
 };
 use hmac::{Hmac, KeyInit as HmacKeyInit, Mac};
-use rand::RngCore;
+use rand::Rng;
 use sha2::{Digest, Sha256};
 
 /// 文件魔数。
@@ -97,7 +97,7 @@ pub fn encrypt(plaintext: &[u8]) -> Result<Vec<u8>, String> {
     // 随机密钥与 nonce。
     let mut key = [0u8; KEY_LEN];
     let mut nonce_bytes = [0u8; NONCE_LEN];
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     rng.fill_bytes(&mut key);
     rng.fill_bytes(&mut nonce_bytes);
 

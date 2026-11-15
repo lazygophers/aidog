@@ -1,13 +1,16 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794632081,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "meta/codellama-70b",
+  "display_name": "Codellama 70b",
   "canonical_model": "codellama-70b",
   "family": "codellama",
   "capabilities": [],
   "official": true,
+  "max_input_tokens": 16000,
+  "context_window": 16000,
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {

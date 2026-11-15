@@ -1,11 +1,13 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "BAAI/bge-large-zh-v1.5",
+  "max_input_tokens": 512,
+  "context_window": 512,
   "display_name": "Bge Large Zh V1.5",
   "canonical_model": "bge-large-zh-v1.5",
   "family": "bge",

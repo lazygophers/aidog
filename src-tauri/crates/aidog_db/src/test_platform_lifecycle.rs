@@ -21,11 +21,11 @@ async fn r9_soft_delete_platform() {
     let pid = p.id as i64;
     let deleted_at: i64 = db
         .call_traced(None, std::panic::Location::caller(), move |conn| {
-            Ok(conn.query_row(
+            conn.query_row(
                 "SELECT deleted_at FROM platform WHERE id = ?1",
                 params![pid],
                 |r| r.get(0),
-            )?)
+            )
         })
         .await
         .unwrap();
@@ -168,11 +168,11 @@ async fn delete_platform_preserves_groups_with_other_members() {
     let pid = p_del.id as i64;
     let stale: i64 = db
         .call_traced(None, std::panic::Location::caller(), move |conn| {
-            Ok(conn.query_row(
+            conn.query_row(
                 "SELECT COUNT(*) FROM group_platform WHERE platform_id = ?1",
                 params![pid],
                 |r| r.get(0),
-            )?)
+            )
         })
         .await
         .unwrap();
@@ -226,11 +226,11 @@ async fn delete_platform_keeps_orphan_auto_group_empty() {
     let pid = p.id as i64;
     let stale: i64 = db
         .call_traced(None, std::panic::Location::caller(), move |conn| {
-            Ok(conn.query_row(
+            conn.query_row(
                 "SELECT COUNT(*) FROM group_platform WHERE platform_id = ?1",
                 params![pid],
                 |r| r.get(0),
-            )?)
+            )
         })
         .await
         .unwrap();
@@ -376,11 +376,11 @@ async fn purge_auto_disabled_group_exclusive_deletes_shared_unassigns() {
     let pid_a = p_a.id as i64;
     let stale_a: i64 = db
         .call_traced(None, std::panic::Location::caller(), move |conn| {
-            Ok(conn.query_row(
+            conn.query_row(
                 "SELECT COUNT(*) FROM group_platform WHERE platform_id = ?1",
                 params![pid_a],
                 |r| r.get(0),
-            )?)
+            )
         })
         .await
         .unwrap();
@@ -835,11 +835,11 @@ async fn purge_old_soft_deleted_removes_expired_rows() {
     let pid = p.id as i64;
     let exists: i64 = db
         .call_traced(None, std::panic::Location::caller(), move |c| {
-            Ok(c.query_row(
+            c.query_row(
                 "SELECT COUNT(*) FROM platform WHERE id = ?1",
                 params![pid],
                 |r| r.get(0),
-            )?)
+            )
         })
         .await
         .unwrap();

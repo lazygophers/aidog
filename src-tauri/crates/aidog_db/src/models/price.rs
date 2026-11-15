@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 /// 价格解析结果
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct ResolvedPrice {
     pub input_cost_per_token: f64,

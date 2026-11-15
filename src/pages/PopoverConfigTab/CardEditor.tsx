@@ -1,6 +1,7 @@
 // ─── 卡片编辑体（标题 / 摘要 / 显隐 / 删除 / scope 配置 / 尺寸 / 颜色）──
 // 自 PopoverConfigTab.tsx 外迁（arch 阶段6 S5）。
 import { useState, useEffect } from "react";
+import type { TFunction } from "i18next";
 import type { PopoverItem, Group, Platform } from "../../services/api";
 import { SIZE_OPTIONS, COLOR_PRESETS, TYPE_LABELS, defaultColor, isValidHex } from "./constants";
 import { ScopeConfig } from "./ScopeConfig";
@@ -9,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { makeRipple } from "../../components/shared";
 
-type TFn = (k: string, d: string, o?: Record<string, unknown>) => string;
+type TFn = TFunction<"translation", undefined>;
 
 export function CardEditor({
   item, t, platforms, groups, summary, onToggleVisible, onRemove, onUpdate,

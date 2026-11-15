@@ -35,10 +35,7 @@
       "claude-sonnet-4-5",
       "claude-sonnet-4-6",
       "claude-sonnet-5",
-      "deepseek-v4-flash",
       "deepseek-v4-pro",
-      "gemini-3-flash",
-      "gemini-3.1-pro",
       "gemini-3.5-flash",
       "gemini-3.5-flash-lite",
       "gemini-3.6-flash",
@@ -72,12 +69,10 @@
       "kimi-k2.6",
       "kimi-k2.7-code",
       "kimi-k3",
-      "mimo-v2.5-free",
       "minimax-m2.5",
       "minimax-m2.7",
       "minimax-m3",
       "muse-spark-1.2",
-      "nemotron-3-ultra-free",
       "nemotron-3.5-lightning-free",
       "qwen3.5-plus",
       "qwen3.6-plus",
@@ -117,8 +112,7 @@
       "end_hour": 12,
       "multiplier": 1.0,
       "models": [
-        "deepseek-v4-pro",
-        "deepseek-v4-flash"
+        "deepseek-v4-pro"
       ],
       "timezone": "Asia/Shanghai"
     },
@@ -127,11 +121,9 @@
       "end_hour": 18,
       "multiplier": 1.0,
       "models": [
-        "deepseek-v4-pro",
-        "deepseek-v4-flash"
+        "deepseek-v4-pro"
       ],
       "timezone": "Asia/Shanghai"
     }
   ],
-  "last_updated": 1793615839
-}
+  "last_updated": 1794674061}

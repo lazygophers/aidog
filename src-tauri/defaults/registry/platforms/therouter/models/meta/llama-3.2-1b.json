@@ -1,11 +1,12 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "meta/llama-3.2-1b",
+  "display_name": "Llama 3.2 1B",
   "canonical_model": "llama-3.2-1b",
   "family": "llama",
   "version": "3.2",

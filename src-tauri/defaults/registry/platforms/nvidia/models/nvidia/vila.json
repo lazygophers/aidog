@@ -1,9 +1,11 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "nvidia/vila",
+  "display_name": "Vila Model Card",
+  "thinking_supported": false,
   "canonical_model": "vila",
   "family": "vila",
   "capabilities": [

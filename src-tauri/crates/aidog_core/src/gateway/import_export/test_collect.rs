@@ -219,7 +219,7 @@ async fn collect_claude_code_global_reads_file() {
 async fn insert_platform_with_extra(db: &aidog_db::Db, name: &str, extra: &str) -> i64 {
     let name = name.to_string();
     let extra = extra.to_string();
-    db.write_conn().call(move |conn| {
+    db.write_conn().call(move |conn| -> rusqlite::Result<i64> {
         conn.execute(
             "INSERT INTO platform (name, platform_type, base_url, api_key, extra, created_at, updated_at)
              VALUES (?1, '\"anthropic\"', 'https://x.example.com', 'sk', ?2, 0, 0)",

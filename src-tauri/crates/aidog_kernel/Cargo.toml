@@ -33,7 +33,6 @@ axum = { workspace = true }
 tokio = { workspace = true, features = ["signal", "io-std"] }
 tower-http = { workspace = true }
 futures = { workspace = true }
-serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 rustls = { workspace = true }

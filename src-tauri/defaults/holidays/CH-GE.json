@@ -1,0 +1,46 @@
+{
+  "code": "CH-GE",
+  "extends": "CH",
+  "name": {
+    "zh-Hans": "日内瓦州",
+    "en-US": "Geneva",
+    "ar-SA": "جنيف",
+    "fr-FR": "Genève",
+    "de-DE": "Genf",
+    "ru-RU": "Женева",
+    "ja-JP": "ジュネーヴ州",
+    "es-ES": "Ginebra"
+  },
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-01-01",
+        "2026-04-03",
+        "2026-04-06",
+        "2026-05-14",
+        "2026-05-25",
+        "2026-09-10",
+        "2026-12-25",
+        "2026-12-31"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-01-01",
+        "2027-03-26",
+        "2027-03-29",
+        "2027-05-06",
+        "2027-05-17",
+        "2027-09-09",
+        "2027-12-25",
+        "2027-12-31"
+      ],
+      "workdays": []
+    }
+  },
+  "source_urls": [
+    "https://www.ge.ch/vacances-scolaires-jours-feries/jours-feries-officiels",
+    "https://silgeneve.ch/legis/program/books/rsg/pdf/rsg_j1_45.pdf"
+  ]
+}

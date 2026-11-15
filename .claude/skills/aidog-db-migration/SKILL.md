@@ -149,6 +149,7 @@ cd src-tauri && cargo test                         # db.rs 有 #[test]
 6. ❌ rebuild 表忘重建索引 —— DROP TABLE 带走索引。
 7. ❌ rebuild 表 INSERT SELECT 不过滤软删行 —— 历史 `deleted_at` 行撞新 UNIQUE。
 8. ❌ 只改 SQL 不改 db.rs/models.rs/api.ts —— 全链失配运行时炸。
+9. ❌ 为让缺列的老测试夹具过关，把 migration 改成吞错（warn 后继续）—— 真实库的迁移失败会被静默掩盖。保持失败即报错，只在前置列确实不存在时显式 skip，并补测试夹具（2026-11-14 request_log 拆表：implementer 吞错、主会话改回严格失败 + 缺列才 skip）。
 
 ## 相关
 
