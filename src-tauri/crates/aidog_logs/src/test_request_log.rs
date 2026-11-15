@@ -176,3 +176,23 @@ fn migration_real_failure_propagates_and_keeps_proxy_log_rows() {
     let n: i64 = conn.query_row("SELECT COUNT(*) FROM proxy_log", [], |r| r.get(0)).unwrap();
     assert_eq!(n, 1, "失败回滚后 proxy_log 行必须还在");
 }
+
+#[tokio::test]
+async fn test_log_overwrites_platform_extra_last_test() {
+    let (db, _dir) = three_file_db().await;
+    set_raw(&db, true).await;
+    let pid = aidog_db::test_support::insert_test_platform(&db, "lt").await;
+    upsert_request_log(&db, oob("t1", "test", pid, 200, 100)).await.unwrap();
+    let mut fail = oob("t2", "test", pid, 500, 200);
+    fail.response_body = "boom".into();
+    upsert_request_log(&db, fail).await.unwrap();
+    // 非 test 类记录不碰 last_test
+    upsert_request_log(&db, oob("q1", "quota", pid, 200, 300)).await.unwrap();
+    let p = aidog_db::get_platform(&db, pid).await.unwrap().unwrap();
+    let extra: serde_json::Value = serde_json::from_str(&p.extra).unwrap();
+    let lt = &extra["last_test"];
+    assert_eq!(lt["status_code"], 500);
+    assert_eq!(lt["success"], false);
+    assert_eq!(lt["created_at"], 200);
+    assert_eq!(lt["error"], "boom");
+}

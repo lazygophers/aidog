@@ -863,3 +863,22 @@ async fn passthrough_extras_cache_hit_and_invalidation() {
     }).await.unwrap();
     assert_eq!(*list_passthrough_extras(&db).await.unwrap(), vec![r#"{"auth_header":"X-New"}"#.to_string()], "update extra 后缓存失效重查");
 }
+
+#[tokio::test]
+async fn update_platform_keeps_stored_last_test() {
+    let db = test_db().await;
+    let p = create_platform(&db, sample_platform("keep")).await.unwrap();
+    update_extra_key(&db, "platform", p.id, "last_test", serde_json::json!({"status_code": 200})).await.unwrap();
+    // 表单带旧副本 extra（无 last_test / 带陈旧 last_test）保存，库内 last_test 不得丢或被覆盖。
+    for incoming in [r#"{"a":1}"#, r#"{"a":1,"last_test":{"status_code":500}}"#] {
+        let u = update_platform(&db, UpdatePlatform {
+            id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
+            extra: Some(incoming.to_string()), models: None, available_models: None, endpoints: None,
+            enabled: None, status: None, manual_budgets: None, join_group_ids: None, expires_at: None,
+            quota_source: None,
+        }).await.unwrap();
+        let v: serde_json::Value = serde_json::from_str(&u.extra).unwrap();
+        assert_eq!(v["a"], 1);
+        assert_eq!(v["last_test"]["status_code"], 200, "incoming={incoming}");
+    }
+}

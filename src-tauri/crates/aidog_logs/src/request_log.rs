@@ -20,7 +20,14 @@ pub fn upsert_request_log(
         let settings = log_settings(db).await;
         let mut log = log;
         strip_raw_sides(&mut log, !settings.log_user_request, !settings.log_upstream_request);
-        db.call_proxy_log_traced(None, __db_caller, move |conn| {
+        // 测试结果同步写平台 extra.last_test，新结果覆盖旧值；写失败只告警，不影响日志写入。
+        let last_test = (log.source_protocol == "test" && log.platform_id > 0).then(|| {
+            (
+                log.platform_id,
+                LastTestResult::from_row(log.status_code, log.duration_ms, log.created_at, &log.response_body),
+            )
+        });
+        let res = db.call_proxy_log_traced(None, __db_caller, move |conn| {
             conn.execute(
                 &format!("INSERT OR REPLACE INTO request_log ({COLUMNS}) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)"),
                 params![
@@ -35,7 +42,14 @@ pub fn upsert_request_log(
             Ok(())
         })
         .await
-        .map_err(|e| format!("upsert request log: {e}"))
+        .map_err(|e| format!("upsert request log: {e}"));
+        if res.is_ok()
+            && let Some((pid, r)) = last_test
+            && let Err(e) = aidog_db::update_extra_key(db, "platform", pid, "last_test", serde_json::json!(r)).await
+        {
+            tracing::warn!(platform_id = pid, error = %e, "persist last_test to platform extra failed");
+        }
+        res
     }
 }
 

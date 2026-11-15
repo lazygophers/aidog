@@ -138,6 +138,19 @@ pub fn get_last_test_result(
 {
     let __db_caller = std::panic::Location::caller();
     async move {
+        // 优先读平台 extra.last_test（写入时覆盖，不随日志清理消失）；没有（升级前测过的平台）回落 request_log。
+        let stored = db
+            .call_read_platform_traced(None, __db_caller, move |conn| {
+                conn.query_row("SELECT extra FROM \"platform\" WHERE id = ?1", [platform_id as i64], |r| r.get::<_, String>(0))
+                    .optional()
+            })
+            .await
+            .map_err(|e| format!("last test result: {e}"))?
+            .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+            .and_then(|v| serde_json::from_value::<aidog_db::models::LastTestResult>(v.get("last_test")?.clone()).ok());
+        if stored.is_some() {
+            return Ok(stored);
+        }
         // request_log 在 log.db，走专用读池。
         db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let pid = platform_id as i64;
@@ -155,24 +168,9 @@ pub fn get_last_test_result(
                 Ok((status_code, duration_ms, created_at, response_body))
             })?;
             match rows.next().transpose()? {
-                Some((status_code, duration_ms, created_at, response_body)) => {
-                    let success = (200..300).contains(&status_code);
-                    let error = if success {
-                        String::new()
-                    } else {
-                        response_body.chars().take(200).collect()
-                    };
-                    // 正文截断 ~4000 字符，供前端 JSON 解析结构化展示（成功/失败均带）。
-                    let body_full: String = response_body.chars().take(4000).collect();
-                    Ok(Some(aidog_db::models::LastTestResult {
-                        success,
-                        status_code,
-                        duration_ms,
-                        created_at,
-                        error,
-                        response_body: body_full,
-                    }))
-                }
+                Some((status_code, duration_ms, created_at, response_body)) => Ok(Some(
+                    aidog_db::models::LastTestResult::from_row(status_code, duration_ms, created_at, &response_body),
+                )),
                 None => Ok(None),
             }
         })
