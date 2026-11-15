@@ -461,3 +461,11 @@ impl-68 的门禁和 fix-68 的取锁等待都曾挂后台后 idle。当前 harn
 - 命令输出供后续步骤使用时，执行 agent 前台阻塞运行并设置足够 timeout；命令和退出码按 §29 一起写入日志。
 - 若 harness 自动转后台，执行 agent 回报命令和日志路径后继续做不依赖该结果的工作；主会话收到完成通知后读日志，再通知 agent 续做。
 - 取锁等待脚本同样前台运行。主会话若发现执行 agent idle 且日志已有结果，读日志后 SendMessage 唤醒续做，不重派。
+
+## 33. 查进度走 SendMessage 原 agent；挂死 agent 的 TaskStop 接管判据（2026-11-15 issue 69 轮）
+
+主会话想查在途 agent 进度时派了新 Agent 去读会话状态文件，回报的全是无关并行线信息（新 agent 没有原 agent 上下文，状态文件里的并行线全是噪音）。同轮另一收尾 agent 在 `gh pr merge` 上挂死近 1 小时（5 次调用挂 1 小时），SendMessage 无响应，TaskStop 后新 agent 接管 15 次调用完成。
+
+- **查进度 / 催办一律 SendMessage 原 agent（或 ListAgents 看状态）**，不派新 agent 读文件。派新 agent 只在两处合法：接管挂死 agent（下条）、原 agent 已结束且要独立取证。
+- **挂死判据与接管**：agent 在外呼命令（`gh pr merge` / push / 长门禁）上久挂（如 30 分钟无新调用），SendMessage 催收 1 次无响应（等约 10 分钟）→ `TaskStop` + 重派接管 agent。接管 prompt 照 §28 带现场核对清单（worktree 状态 / diff / 最后报错 / 日志路径），并写明「原 agent 已 TaskStop，从核对现场接续，不重做已完成步骤」。
+- 接管 agent 与原 agent 汇报口径一致：贴命令原文 + EXIT 值，接管完成的合并照常走 pr-merge-discipline 的核对义务。
