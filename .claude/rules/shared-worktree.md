@@ -162,6 +162,7 @@ perf-backend 收尾轮：PreToolUse hook 把 `git worktree add` 改写经 rtk �
 - **前端构建**：用仓库默认输出目录，不再 `--outDir /tmp/aidog-agent-dist`。
 - 下文「（已废止 2026-11-05）」的段落里所有 `/tmp/aidog-agent-target`、`/tmp/aidog-agent-dist` 写法同样作废，
   其中的互斥锁、`cargo clean -p aidog_db`、`touch build.rs`、串味核对手法仍有效，目录按本节替换。
+- **取锁排队超约 30 分钟，改用隔离构建**（2026-11-15：三个 agent 等 `/tmp/aidog-cargo.lock` 超 1 小时，他会话不经锁直接跑 cargo；用户原话「能不能在独立的环境测试，测试换成后移除各种缓存」）：每个构建一个 detach worktree（`/usr/bin/git worktree add --detach`），`CARGO_TARGET_DIR=<该 worktree>/target-iso` + `CARGO_PROFILE_DEV_DEBUG=0`，不取锁、多个构建串行排队；开跑前 `df -h` 余量 ≥15G（余量不够三份并行全量编译）；改动从主 checkout 用精确路径提交；门禁绿后 `rm -rf` 该 target-iso 并 `worktree remove --force`。代价：每次全量编译，无增量缓存。持锁的 agent 改走此路径后，主会话释放其持有的锁（先确认无 cargo 进程）。
 - **`.worktrees/.target` 同一时刻只允许一个 cargo**（2026-11-14 issue 61 轮实锤三连）：并行会话同时在
   该目录跑 `cargo test --workspace` 会互相冲掉产物——`ident_case` extern 丢失、doctest `E0463`、
   二进制被删，各会话各自持 `/tmp/aidog-cargo.lock` 独占重跑才拿到绿（锁手法见下节，仍有效）。
