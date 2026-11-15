@@ -1,0 +1,35 @@
+{
+  "code": "US-LA",
+  "extends": "US",
+  "name": {
+    "zh-Hans": "路易斯安那州",
+    "en-US": "Louisiana",
+    "ar-SA": "لويزيانا",
+    "fr-FR": "Louisiane",
+    "de-DE": "Louisiana",
+    "ru-RU": "Луизиана",
+    "ja-JP": "ルイジアナ州",
+    "es-ES": "Luisiana"
+  },
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-01-02",
+        "2026-02-17",
+        "2026-04-03",
+        "2026-07-04",
+        "2026-11-03",
+        "2026-11-27",
+        "2026-12-24",
+        "2026-12-31"
+      ],
+      "workdays": [
+        "2026-10-12"
+      ]
+    }
+  },
+  "source_urls": [
+    "https://www.doa.la.gov/doa/hr/state-holiday-calendar/",
+    "https://www.civilservice.louisiana.gov/files/HRHandbook/JobAid/11-Understanding%20State%20Holidays.pdf"
+  ]
+}

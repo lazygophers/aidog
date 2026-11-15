@@ -13,8 +13,7 @@
       "rpm": 20
     }
   ],
-  "last_updated": 1794582130,
-  "endpoints": {
+  "last_updated": 1794651308,  "endpoints": {
     "default": [
       {
         "protocol": "anthropic",
@@ -461,6 +460,7 @@
     "ja-JP": "OpenRouter",
     "es-ES": "OpenRouter"
   },
+  "holiday_calendar": "US-NY",
   "source_urls": {
     "docs": "https://openrouter.ai/docs",
     "pricing": "https://openrouter.ai/docs/models"

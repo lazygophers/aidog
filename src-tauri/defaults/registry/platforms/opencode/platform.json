@@ -1,6 +1,6 @@
 {
-  "last_updated": 1794582694,
-  "endpoints": {
+  "last_updated": 1794657886,
+  "holiday_calendar": "US-CA",  "endpoints": {
     "default": [
       {
         "protocol": "openai",
