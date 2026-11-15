@@ -43,13 +43,15 @@ export function platformCategories(
 ): Set<ErrorCategory> {
   const out = new Set<ErrorCategory>();
   const err = p.last_error ?? "";
-  const code = item?.code === 529 ? 429 : item?.code ?? 0;
   const errCode = Number(/^HTTP (\d{3})/.exec(err)?.[1] ?? 0);
+  // 无状态项时回落 last_error 解析出的状态码，与状态项同一路径分类
+  let code = item?.code ?? errCode;
+  if (code === 529) code = 429;
   let cat = errorCategory(code);
-  if ((code === 401 || errCode === 401) && RE_TOKEN_EXPIRED.test(err)) cat = "token_expired";
+  if (code === 401 && RE_TOKEN_EXPIRED.test(err)) cat = "token_expired";
   else if (cat === "rate_limit" && RE_QUOTA.test(err)) cat = "quota";
   if (cat) out.add(cat);
-  if (err.includes("censorship_blocked") || errCode === 451) out.add("censorship");
+  if (err.includes("censorship_blocked")) out.add("censorship");
   const timeout = RE_TIMEOUT.test(err);
   if (timeout) out.add("timeout");
   else if (err.startsWith("upstream error:") && RE_CONNECT.test(err)) out.add("connect");

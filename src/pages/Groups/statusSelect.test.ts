@@ -34,12 +34,20 @@ describe("platformCategories", () => {
     expect(cats(plat(1, { last_error: "HTTP 429: slow down" }), 429)).toEqual(["rate_limit"]);
     expect(cats(plat(1), 529)).toEqual(["rate_limit"]);
   });
+  it("last_error status code is the fallback for all code categories when no status item", () => {
+    expect(cats(plat(1, { last_error: "HTTP 429: quota exceeded" }))).toEqual(["quota"]);
+    expect(cats(plat(1, { last_error: "HTTP 429: too many requests" }))).toEqual(["rate_limit"]);
+    expect(cats(plat(1, { last_error: "HTTP 529: overloaded" }))).toEqual(["rate_limit"]);
+    expect(cats(plat(1, { last_error: "HTTP 402: payment required" }))).toEqual(["balance"]);
+    expect(cats(plat(1, { last_error: "HTTP 403: forbidden" }))).toEqual(["key_invalid"]);
+    expect(cats(plat(1, { last_error: "HTTP 503: unavailable" }))).toEqual(["server"]);
+  });
   it("timeout / connect failure from last_error", () => {
     expect(cats(plat(1, { last_error: "upstream error: Connect: operation timed out" }))).toEqual(["timeout"]);
     expect(cats(plat(1, { last_error: "request Timeout" }))).toEqual(["timeout"]);
     expect(cats(plat(1, { last_error: "upstream error: connection closed before message completed" }))).toEqual(["connect"]);
     expect(cats(plat(1, { last_error: "upstream error: dns error" }))).toEqual(["connect"]);
-    expect(cats(plat(1, { last_error: "HTTP 500: connect failed" }))).toEqual([]);
+    expect(cats(plat(1, { last_error: "HTTP 500: connect failed" }))).toEqual(["server"]);
   });
   it("platform expired when expires_at > 0 and <= now", () => {
     expect(cats(plat(1, { expires_at: NOW - 1 }))).toEqual(["expired"]);
