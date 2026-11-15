@@ -7386,6 +7386,86 @@ async fn ui_served_at_ui_and_not_at_old_api_ui() {
     }
 }
 
+/// 设了凭据：浏览器无凭据访问 `/ui/` 得登录页（401 + html）；POST 口令换 Cookie
+/// （HttpOnly / SameSite=Strict / Path=/，不含明文口令）；Cookie 同时放行 `/ui/*` 与 `/api/rpc/*`；
+/// 错口令 401 且不发 Cookie；Bearer 仍可用。
+#[tokio::test]
+async fn ui_login_cookie_grants_ui_and_rpc_when_token_set() {
+    install_mgmt_test_router();
+    let state = make_state(test_db().await).await;
+    let token = "p&ss+w d%1";
+    set_mgmt(&state, true, token).await;
+    let base = spawn_proxy_router(state.clone()).await;
+    let c = no_redirect_client();
+    let login = |t: &str| {
+        let body = url::form_urlencoded::Serializer::new(String::new()).append_pair("token", t).finish();
+        c.post(format!("{base}/ui/login"))
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body(body)
+            .send()
+    };
+
+    // 无凭据：登录页
+    let r = c.get(format!("{base}/ui/")).send().await.unwrap();
+    assert_eq!(r.status(), 401);
+    assert!(r.headers()["content-type"].to_str().unwrap().starts_with("text/html"));
+    let html = r.text().await.unwrap();
+    assert!(html.contains("<form") && html.contains("/ui/login"), "{html}");
+    assert!(!html.contains("UI-INDEX"));
+
+    // 错口令：401、有错误提示、无 Cookie
+    let r = login("wrong").await.unwrap();
+    assert_eq!(r.status(), 401);
+    assert!(r.headers().get("set-cookie").is_none());
+    assert!(r.headers()["content-type"].to_str().unwrap().starts_with("text/html"));
+
+    // 对口令：303 回 /ui/，Set-Cookie 属性齐全且不含明文
+    let r = login(token).await.unwrap();
+    assert_eq!(r.status(), 303);
+    assert_eq!(r.headers().get("location").unwrap(), "/ui/");
+    let sc = r.headers().get("set-cookie").unwrap().to_str().unwrap().to_string();
+    for a in ["HttpOnly", "SameSite=Strict", "Path=/"] {
+        assert!(sc.contains(a), "{a}: {sc}");
+    }
+    assert!(!sc.contains(token) && !sc.contains("p&ss"), "Cookie 不得含明文口令: {sc}");
+    let cookie = sc.split(';').next().unwrap().to_string();
+
+    // Cookie 放行 /ui/* 与 RPC；伪造的 Cookie 不行
+    let r = c.get(format!("{base}/ui/")).header("cookie", &cookie).send().await.unwrap();
+    assert_eq!(r.status(), 200);
+    assert_eq!(r.text().await.unwrap(), "UI-INDEX");
+    let r = c.post(format!("{base}/api/rpc/ping")).header("cookie", &cookie).send().await.unwrap();
+    assert_eq!(r.status(), 200);
+    let r = c.get(format!("{base}/api/events")).header("cookie", "aidog_ui_session=forged").send().await.unwrap();
+    assert_eq!(r.status(), 401);
+    let r = c.post(format!("{base}/api/rpc/ping")).send().await.unwrap();
+    assert_eq!(r.status(), 401);
+
+    // Bearer 照旧
+    let r = c.get(format!("{base}/ui/")).bearer_auth(token).send().await.unwrap();
+    assert_eq!(r.status(), 200);
+
+    // 换口令后旧 Cookie 失效
+    set_mgmt(&state, true, "other").await;
+    let r = c.get(format!("{base}/ui/")).header("cookie", &cookie).send().await.unwrap();
+    assert_eq!(r.status(), 401);
+}
+
+/// 没设凭据：不出登录页，`/ui/` 直接 200；`/ui/login` 的 POST 不发 Cookie。
+#[tokio::test]
+async fn ui_no_login_page_when_no_token() {
+    install_mgmt_test_router();
+    let state = make_state(test_db().await).await;
+    set_mgmt(&state, true, "").await;
+    let base = spawn_proxy_router(state.clone()).await;
+    let c = no_redirect_client();
+    let r = c.get(format!("{base}/ui/")).send().await.unwrap();
+    assert_eq!(r.status(), 200);
+    assert_eq!(r.text().await.unwrap(), "UI-INDEX");
+    let r = c.post(format!("{base}/ui/login")).body("token=x").send().await.unwrap();
+    assert!(r.headers().get("set-cookie").is_none());
+}
+
 /// 桌面 `/ui`：查表函数托管，命中原样 + MIME，未命中回落 index，index 也没有则 404。
 #[tokio::test]
 async fn ui_router_from_assets_serves_lookup_with_index_fallback() {
