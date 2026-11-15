@@ -148,6 +148,13 @@ export interface PlatformsState extends PlatformsStateParams {
   getPrimaryBaseUrl: (proto: Protocol, eps: PlatformEndpoint[]) => string;
 }
 
+/** 未分组行外层 pointerdown 是否让位：交互元素，或来自 portal 内容（菜单 portal 到 body，React 事件仍冒泡到此）。 */
+export function shouldSkipStandaloneDrag(e: { currentTarget: EventTarget; target: EventTarget }): boolean {
+  if (!(e.currentTarget as HTMLElement).contains(e.target as Node)) return true;
+  // 让位：reorder handle（pointer 排序）+ 交互元素（按钮/输入）
+  return !!(e.target as HTMLElement).closest(".drag-handle-inline, button, a, input, [role=button]");
+}
+
 export function usePlatformsState(params: PlatformsStateParams): PlatformsState {
   const { t } = useTranslation();
   const { onNavigate, initialFilter, groupsReloadRef } = params;
@@ -275,9 +282,7 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
   };
   const onStandaloneGroupPointerDown = (e: React.PointerEvent, p: Platform) => {
     if (e.button !== 0) return;
-    const tgt = e.target as HTMLElement;
-    // 让位：reorder handle（pointer 排序）+ 交互元素（按钮/输入）
-    if (tgt.closest(".drag-handle-inline, button, a, input, [role=button]")) return;
+    if (shouldSkipStandaloneDrag(e)) return;
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     setGroupDrag({ pid: p.id, pname: p.name, x: e.clientX, y: e.clientY });
