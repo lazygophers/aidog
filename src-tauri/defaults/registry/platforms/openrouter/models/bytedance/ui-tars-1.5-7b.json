@@ -1,5 +1,6 @@
 {
   "model_id": "bytedance/ui-tars-1.5-7b",
+  "thinking_supported": false,
   "display_name": "ByteDance: UI-TARS 7B ",
   "canonical_model": "ui-tars-1.5-7b",
   "family": "ui-tars",
@@ -14,7 +15,7 @@
     "output": 2e-07,
     "cache_read": 1e-07
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"

@@ -1,0 +1,36 @@
+{
+  "code": "GB-SCT",
+  "source_urls": [
+    "https://www.gov.uk/bank-holidays.json"
+  ],
+  "extends": "GB",
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-01-02",
+        "2026-06-15",
+        "2026-08-03",
+        "2026-11-30"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-01-04",
+        "2027-08-02",
+        "2027-11-30"
+      ],
+      "workdays": []
+    }
+  },
+  "name": {
+    "zh-Hans": "苏格兰",
+    "en-US": "Scotland",
+    "ar-SA": "اسكتلندا",
+    "fr-FR": "Écosse",
+    "de-DE": "Schottland",
+    "ru-RU": "Шотландия",
+    "ja-JP": "スコットランド",
+    "es-ES": "Escocia"
+  }
+}

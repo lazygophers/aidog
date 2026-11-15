@@ -1,11 +1,13 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "nvidia/nemotron-super-120b",
+  "display_name": "Nemotron Super 120B",
+  "thinking_supported": true,
   "canonical_model": "nemotron-super-120b",
   "family": "nemotron",
   "version": "3",

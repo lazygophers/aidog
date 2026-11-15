@@ -465,20 +465,14 @@ pub fn parse_gemini_response(
     }
     .to_string();
 
-    // usageMetadata
-    let usage = body.get("usageMetadata");
-    let input_tokens = usage
-        .and_then(|u| u.get("promptTokenCount"))
-        .and_then(|v| v.as_i64())
-        .unwrap_or(0);
-    let output_tokens = usage
-        .and_then(|u| u.get("candidatesTokenCount"))
-        .and_then(|v| v.as_i64())
-        .unwrap_or(0);
+    let usage = body
+        .get("usageMetadata")
+        .and_then(parse_gemini_usage_metadata);
+    let input_tokens = usage.as_ref().map_or(0, |usage| usage.input_tokens());
+    let output_tokens = usage.as_ref().map_or(0, |usage| usage.output_tokens());
     let cache_read_tokens = usage
-        .and_then(|u| u.get("cachedContentTokenCount"))
-        .and_then(|v| v.as_i64())
-        .unwrap_or(0);
+        .as_ref()
+        .map_or(0, |usage| usage.cached_content_tokens);
 
     Some(crate::converter::NonStreamResponse {
         id,
@@ -493,11 +487,74 @@ pub fn parse_gemini_response(
     })
 }
 
+/// Gemini 的 usageMetadata 计费口径。
+///
+/// `promptTokenCount` 包含缓存 token；thinking 模型的 `thoughtsTokenCount` 与
+/// `candidatesTokenCount` 都属于 output token。保留原始 prompt 值，流式路径可以在
+/// 缓存字段晚到时重新扣减，而不会把第一次未扣缓存的结果永久保留。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GeminiUsageMetadata {
+    pub prompt_tokens: i64,
+    pub candidates_tokens: i64,
+    pub thoughts_tokens: i64,
+    pub cached_content_tokens: i64,
+}
+
+impl GeminiUsageMetadata {
+    pub fn input_tokens(self) -> i64 {
+        (self.prompt_tokens - self.cached_content_tokens).max(0)
+    }
+
+    pub fn output_tokens(self) -> i64 {
+        self.candidates_tokens
+            .saturating_add(self.thoughts_tokens)
+            .max(0)
+    }
+}
+
+/// 从 Gemini `usageMetadata` 读取普通输入、候选输出、thinking 输出和缓存 token。
+/// 返回 None 表示对象不是 Gemini usageMetadata，便于调用方继续处理其它协议。
+pub fn parse_gemini_usage_metadata(usage: &Value) -> Option<GeminiUsageMetadata> {
+    let has_gemini_field = [
+        "promptTokenCount",
+        "candidatesTokenCount",
+        "thoughtsTokenCount",
+        "cachedContentTokenCount",
+    ]
+    .into_iter()
+    .any(|key| usage.get(key).is_some());
+    if !has_gemini_field {
+        return None;
+    }
+    Some(GeminiUsageMetadata {
+        prompt_tokens: usage
+            .get("promptTokenCount")
+            .and_then(Value::as_i64)
+            .unwrap_or(0)
+            .max(0),
+        candidates_tokens: usage
+            .get("candidatesTokenCount")
+            .and_then(Value::as_i64)
+            .unwrap_or(0)
+            .max(0),
+        thoughts_tokens: usage
+            .get("thoughtsTokenCount")
+            .and_then(Value::as_i64)
+            .unwrap_or(0)
+            .max(0),
+        cached_content_tokens: usage
+            .get("cachedContentTokenCount")
+            .and_then(Value::as_i64)
+            .unwrap_or(0)
+            .max(0),
+    })
+}
+
 /// 渲染归一响应为 Gemini API 非流式响应体。
 ///
 /// 映射规则：
 /// - candidates[0].content.parts[]: {text} + {thought:true,text:reasoning} + {functionCall}
-/// - usageMetadata: promptTokenCount/completionTokenTotal/totalTokenCount
+/// - usageMetadata: promptTokenCount/candidatesTokenCount/cachedContentTokenCount/totalTokenCount
 pub fn render_gemini_response(r: &crate::converter::NonStreamResponse) -> Option<Value> {
     let mut parts = Vec::new();
 
@@ -545,6 +602,16 @@ pub fn render_gemini_response(r: &crate::converter::NonStreamResponse) -> Option
         _ => "STOP",
     };
 
+    let prompt_tokens = r.input_tokens.saturating_add(r.cache_read_tokens);
+    let mut usage = serde_json::json!({
+        "promptTokenCount": prompt_tokens,
+        "candidatesTokenCount": r.output_tokens,
+        "totalTokenCount": prompt_tokens.saturating_add(r.output_tokens),
+    });
+    if r.cache_read_tokens > 0 {
+        usage["cachedContentTokenCount"] = serde_json::json!(r.cache_read_tokens);
+    }
+
     Some(serde_json::json!({
         "candidates": [{
             "content": {
@@ -554,11 +621,7 @@ pub fn render_gemini_response(r: &crate::converter::NonStreamResponse) -> Option
             "finishReason": finish_reason,
             "index": 0,
         }],
-        "usageMetadata": {
-            "promptTokenCount": r.input_tokens,
-            "completionTokenCount": r.output_tokens,
-            "totalTokenCount": r.input_tokens + r.output_tokens,
-        },
+        "usageMetadata": usage,
         "modelVersion": r.model,
     }))
 }

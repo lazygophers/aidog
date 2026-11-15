@@ -120,8 +120,9 @@ if (event === "PreToolUse") {
     // agent / 新 teammate）占新槽。只按 agent_id 匹配：按名字 SendMessage 的活 agent
     // 在满额时会被误拒（保守方向，安全优先）。
     const target = String(input.to ?? input.agentId ?? input.id ?? "");
+    // 回报主对话（team-lead / main）不是 agent，不占槽。
     const live = target && st.agents.some((a) => a.id === target);
-    if (!live && st.agents.length >= cap()) deny();
+    if (!live && target !== "team-lead" && target !== "main" && st.agents.length >= cap()) deny();
   }
 }
 process.exit(0);

@@ -1,11 +1,12 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "deepseek-v4-pro-sg",
+  "display_name": "DeepSeek-V4-Pro",
   "canonical_model": "deepseek-v4-pro-sg",
   "family": "deepseek",
   "version": "4",

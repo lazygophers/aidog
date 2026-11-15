@@ -85,6 +85,7 @@ pub(crate) async fn forward_attempt(
                 Some(a) => Some(a),
                 None => {
                     tracing::warn!(platform = %route.platform.name, "rate limit reached at acquire, skipping candidate");
+                    note_retry_at(log, state.scheduler.rate.free_at(route.platform.id, "", &rl_cfg.platform_limits(now), now, rl_est));
                     attempts.push(ProxyAttempt {
                         kind: Some("rate_limit_platform".to_string()),
                         // 整个平台都没轮到：平台上还有模型时记终止原因，画布给它们标「跳过」
@@ -110,6 +111,7 @@ pub(crate) async fn forward_attempt(
         let now = aidog_db::now();
         if !a.enter_model(&model, &rl_cfg.model_limits(&model, now), now, rl_est) {
             tracing::warn!(model = %model, "model-level rate limit reached, excluding pair");
+            note_retry_at(log, state.scheduler.rate.free_at(route.platform.id, &model, &rl_cfg.model_limits(&model, now), now, rl_est));
             attempts.push(ProxyAttempt {
                 kind: Some("rate_limit_model".to_string()),
                 platform_id: route.platform.id,
@@ -165,6 +167,32 @@ pub(crate) async fn forward_attempt(
 pub(crate) fn mark_rate_limited(log: &mut ProxyLog) {
     log.blocked_by = "router".to_string();
     log.blocked_reason = "rate_limit".to_string();
+}
+
+/// 候选耗尽终态状态码：被限频挡掉（`mark_rate_limited` 已标）→ 429（客户端应退避重试），其余 503。
+pub(crate) fn exhausted_status(log: &ProxyLog) -> StatusCode {
+    if log.blocked_reason == "rate_limit" {
+        StatusCode::TOO_MANY_REQUESTS
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    }
+}
+
+/// 429 回复带 `Retry-After`（整数秒，向上取整，最小 1）：取路由快照里记的最早放行时刻；无已知时刻不带。
+pub(crate) fn add_retry_after(r: &mut axum::response::Response, log: &ProxyLog) {
+    if r.status() != StatusCode::TOO_MANY_REQUESTS {
+        return;
+    }
+    let Some(at) = log.routing.as_ref().and_then(|x| x.retry_at_ms()) else { return };
+    let secs = ((at - aidog_db::now()).max(0) + 999) / 1000;
+    r.headers_mut().insert(axum::http::header::RETRY_AFTER, secs.max(1).into());
+}
+
+/// 记一次限频放行时刻（取最早）进路由快照。
+pub(crate) fn note_retry_at(log: &mut ProxyLog, at_ms: Option<i64>) {
+    if let (Some(at), Some(r)) = (at_ms, log.routing.as_mut()) {
+        r.note_retry_at_ms(at);
+    }
 }
 
 /// 一次请求的上游调用配额（分组「最大尝试次数」，请求尝试-逐次重算 票 01）：
@@ -3299,8 +3327,7 @@ async fn send_upstream(
         &proxy_client,
         req_timeout,
         conn_timeout,
-        Some(&route.platform.extra),
-        None,
+        super::http_client::platform_should_use_proxy(&proxy_client, &route.platform.extra),
     )
     .await;
 

@@ -41,13 +41,13 @@ pub(crate) async fn handle_responses_subendpoint(
         Err(e) => {
             tracing::warn!(group = %group.name, error = %e, "responses subendpoint: get_group_platforms failed");
             log.response_body = format!("group platforms error: {e}");
-            log.status_code = 503;
+            log.status_code = 500;
             log.done = true;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(state, log, log_settings).await;
             return {
                 let mut r = (
-                    StatusCode::SERVICE_UNAVAILABLE,
+                    StatusCode::INTERNAL_SERVER_ERROR,
                     format!("{}: {e}", i18n::t(lang, ErrorKey::Route)),
                 )
                     .into_response();
@@ -184,8 +184,7 @@ pub(crate) async fn handle_responses_subendpoint(
         &proxy_client,
         req_timeout,
         conn_timeout,
-        Some(&platform.extra),
-        None,
+        super::http_client::platform_should_use_proxy(&proxy_client, &platform.extra),
     )
     .await;
 

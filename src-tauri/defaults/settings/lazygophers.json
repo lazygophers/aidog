@@ -762,7 +762,6 @@
         "CLAUDE_CODE_AUTO_CONNECT_IDE": "false",
         "CLAUDE_CODE_ENABLE_CFC": "0",
         "CLAUDE_CODE_WORKER_CHECKIN_SCHEDULE": "1800",
-        "CLAUDE_CODE_EFFORT_LEVEL": "medium",
         "CLAUDE_CODE_SUBAGENT_MODEL": "subagent",
         "DISABLE_TELEMETRY": "1",
         "DISABLE_ERROR_REPORTING": "1",

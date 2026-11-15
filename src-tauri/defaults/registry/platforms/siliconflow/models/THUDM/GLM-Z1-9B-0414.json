@@ -1,10 +1,11 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "THUDM/GLM-Z1-9B-0414",
+  "thinking_supported": true,
   "display_name": "GLM Z1 9B 0414",
   "canonical_model": "GLM-Z1-9B-0414",
   "version": "z1",

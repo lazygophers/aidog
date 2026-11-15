@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794191265,
+  "last_updated": 1794632081,
   "model_id": "claude-fable-5",
   "display_name": "Claude Fable 5",
   "canonical_model": "claude-fable-5",
@@ -12,6 +12,7 @@
   "context_window": 1000000,
   "max_output_tokens": 128000,
   "official": false,
+  "thinking_supported": true,
   "supported_protocols": [
     "anthropic"
   ],

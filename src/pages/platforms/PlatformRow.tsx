@@ -5,7 +5,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { TFunction } from "i18next";
 import type { Platform, PlatformUsageStats, PlatformQuota, LastTestResult } from "../../services/api";
-import { parseRateLimitsBundle } from "../../services/api";
+import { parseRateLimitsBundle, parseProxyEnabled } from "../../services/api";
+import { useProxyConfigured } from "../../domains/platforms/proxyConfig";
 import { formatNumber, formatMoney, formatAmount, formatPercent, formatDurationMs, formatRelativeTime, successRate as calcSuccessRate } from "../../utils/formatters";
 import { isCurrentlyPeak } from "../../utils/timeWindow";
 import { ProtocolLogo } from "../../domains/platforms/ProtocolLogo";
@@ -134,7 +135,7 @@ export function PlatformRow({
   onEdit, onShare, onDuplicate, onViewLogs, onQuickTest, onDelete, onLevelPriorityChange,
 }: PlatformRowProps) {
   const dispCur = useDisplayCurrency();
-  const { isCpProtocol, defaultModels, peakWindows } = useProtocolMeta(p.platform_type, p.extra ?? "", lang);
+  const { isCpProtocol, defaultModels, peakWindows, holidayCalendar } = useProtocolMeta(p.platform_type, p.extra ?? "", lang);
   // 转发生效模型（PlatformCard 同口径）：显式槽位优先，没配回落 preset 默认。
   const configuredModels = useMemo(() => {
     const explicit = allConfiguredModelValues(p);
@@ -149,9 +150,15 @@ export function PlatformRow({
   const disableDuringPeak = useMemo(() => {
     try { return !!JSON.parse(p.extra || "{}").disable_during_peak; } catch { return false; }
   }, [p.extra]);
+  // 「代理」徽标（issue #64 T03）：平台开关开 且 全局代理地址非空才显示（地址空 = 实际直连）。
+  const proxyConfigured = useProxyConfigured();
+  const showProxyBadge = useMemo(
+    () => parseProxyEnabled(p.extra ?? "") && proxyConfigured,
+    [p.extra, proxyConfigured],
+  );
   const nowMs = Date.now();
-  const inPeak = isCurrentlyPeak(peakWindows, nowMs);
-  const hitWin = inPeak ? peakWindows.find(w => isCurrentlyPeak([w], nowMs)) : undefined;
+  const inPeak = isCurrentlyPeak(peakWindows, nowMs, "", holidayCalendar);
+  const hitWin = inPeak ? peakWindows.find(w => isCurrentlyPeak([w], nowMs, "", holidayCalendar)) : undefined;
   // 配额列统一口径（同 PlatformCard）：真查校准（quotaPreferReal）→ est 预估 → 无数据。
   const balCcys = useBalanceCurrencies();
   const quota = useMemo(() => computeQuotaDisplay(p, quotaRaw, !!quotaPreferReal, balCcys[String(p.id)]), [p, quotaRaw, quotaPreferReal, balCcys, dispCur]);
@@ -252,6 +259,11 @@ export function PlatformRow({
             {p.platform_type === "claude_code" && (
               <span style={badgeStyle("var(--primary)", "var(--accent-subtle)", "color-mix(in srgb, var(--primary) 40%, transparent)")}>
                 {t("platform.subBadge", "订阅")}
+              </span>
+            )}
+            {showProxyBadge && (
+              <span data-testid="row-proxy-badge" title={t("platform.useProxyDesc", "该平台的出站请求经「设置 → 代理配置」的代理地址转发。")} style={badgeStyle("var(--text-secondary)", "color-mix(in srgb, var(--foreground) 5%, transparent)", "var(--border)")}>
+                {t("platform.proxyBadge", "代理")}
               </span>
             )}
             {rlCount > 0 && (

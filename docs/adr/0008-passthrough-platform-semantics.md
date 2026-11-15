@@ -37,3 +37,21 @@
 - est_cost 用户可配单价：多一个配置项，第一版不需要，将来可加（复活条件：用户主动要求估算透传流量费用）。
 - 状态机照 claude_code 先例（隐藏 tab 但参与）：兜底平台被 auto_disabled 与用户预期不符，弃。复活条件：用户抱怨上游挂了每次都要等超时。
 - query 鉴权仅限 WS：暴露面更小，但用户明示全量兼容，弃。
+
+## 修订：透传平台与直通模型不看槽开关（2026-11-10，路由票 01，用户拍板）
+
+1. **透传平台不看内置槽 / 自定义槽开关**（`disabled_slots`），维持本 ADR 的绕过语义：`disabled_slot_reason` 对 `Protocol::Passthrough` 直接返回 `None`（`gateway/router/candidates.rs:1985`），护栏测试 `passthrough_platform_ignores_disabled_slot_adr0008`（`gateway/router/test_candidates.rs:5097`）。
+2. **直通模型（`extra.direct_models`）声明优先**，转发请求原名，不判槽开关。
+3. 同轮修复：未填值的自定义槽，平台级开关关闭时仍按 `custom_defs_hit` 排除该平台（`ModelNotOnPlatform`）。
+4. 落选：透传 / 直通也遵守槽开关。复活条件：用户再报「直通 / 透传平台关槽仍被选中」并要求生效。
+5. 直通守卫为 `direct_ids 非空 && 组内平台数 > 1`（`candidates.rs:620-621`），字面单平台组配置 `direct_models` 会被忽略并走原 bypass 链（账本 `.scratch/memory/2026-10-28.md:17`）。复活条件：要求单平台组也报错时改守卫。
+
+来源：`.scratch/memory/2026-11-10.md`「路由票 01」。
+
+## 已裁决不修
+
+| 事项 | 不修理由 | 复活条件 | 裁决日期 | 来源 |
+|---|---|---|---|---|
+| 透传流式中途断流 / 非流式 body 读失败：attempt 按响应头 2xx 记成功，不改为失败 | 响应头已决定状态，改动面超出本期 | 用户反馈透传失败被画成成功 | 2026-11-04 | `.scratch/memory/2026-11-04.md:244` |
+| 透传流与 aux（embedding / rerank）请求不结算 TPM | 账本未记具体理由 | 账本未记，推测为用户要求这些路径计入 TPM | 2026-11-04 | `2026-11-04.md:137` |
+| `claude_code` 订阅透传路径（`handle_passthrough`，`passthrough.rs:56`，未设 `strip_inbound_auth`，默认 `false`，`passthrough.rs:76`）不剥 `api-key` / `x-goog-api-key` / `?key=` | 设计上原样转发客户端认证 | 账本未记 | 2026-10-22 | `.scratch/memory/2026-10-22.md:39` |

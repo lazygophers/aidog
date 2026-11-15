@@ -1,9 +1,11 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "nvidia/nemotron-4-340b-instruct",
+  "display_name": "Nemotron 4 340b Instruct",
+  "thinking_supported": false,
   "canonical_model": "nemotron-4-340b-instruct",
   "family": "nemotron",
   "capabilities": [

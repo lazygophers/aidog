@@ -111,7 +111,7 @@ pub(crate) use endpoint::{
     select_endpoint_for_decision, select_endpoint_for_openai_family, is_embedding_endpoint, is_rerank_endpoint,
     KeyCandidate, KeyChannel, custom_key_header_names, key_candidates, load_custom_key_channels};
 pub(crate) use finish::{AttemptCtx, finish_nonstream, finish_stream};
-pub(crate) use forward::{AttemptOutcome, CallBudget, finalize_proxy_502, forward_attempt, mark_rate_limited};
+pub(crate) use forward::{AttemptOutcome, add_retry_after, note_retry_at, CallBudget, exhausted_status, finalize_proxy_502, forward_attempt, mark_rate_limited};
 pub(crate) use group_info::handle_group_info;
 pub(crate) use mcp_http::{handle_mcp, handle_mcp_get};
 pub(crate) use management::handle_management;
@@ -151,7 +151,7 @@ pub(crate) use passthrough::{
 };
 // kind_route_error_message 仅测试 unqualified 消费（no_tools_platform 分支），同 is_official_anthropic_host 先例。
 #[allow(unused_imports)]
-pub(crate) use decision::{handle_decision, kind_route_error_message, route_fail_response};
+pub(crate) use decision::{handle_decision, kind_route_error_message, route_fail_response, route_fallback_status};
 pub(crate) use tools::handle_tools;
 pub(crate) use responses::{handle_responses_subendpoint, is_responses_subendpoint};
 pub(crate) use retry::{

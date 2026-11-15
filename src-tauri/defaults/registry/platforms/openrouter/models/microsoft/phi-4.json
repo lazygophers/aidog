@@ -1,5 +1,6 @@
 {
   "model_id": "microsoft/phi-4",
+  "thinking_supported": false,
   "display_name": "Microsoft: Phi 4",
   "canonical_model": "phi-4",
   "family": "phi",
@@ -13,7 +14,7 @@
     "input": 7e-08,
     "output": 1.4e-07
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"

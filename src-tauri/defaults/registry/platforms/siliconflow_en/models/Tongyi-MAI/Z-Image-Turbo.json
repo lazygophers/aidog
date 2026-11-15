@@ -1,10 +1,11 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "Tongyi-MAI/Z-Image-Turbo",
+  "display_name": "Z-Image-Turbo",
   "canonical_model": "Z-Image-Turbo",
   "family": "z-image",
   "capabilities": [

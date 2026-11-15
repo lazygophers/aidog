@@ -1,0 +1,42 @@
+{
+  "code": "CH-NE",
+  "extends": "CH",
+  "name": {
+    "zh-Hans": "纳沙泰尔州",
+    "en-US": "Neuchâtel",
+    "ar-SA": "نوشاتيل",
+    "fr-FR": "Neuchâtel",
+    "de-DE": "Neuenburg",
+    "ru-RU": "Невшатель",
+    "ja-JP": "ヌーシャテル州",
+    "es-ES": "Neuchâtel"
+  },
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-01-01",
+        "2026-03-01",
+        "2026-04-03",
+        "2026-05-01",
+        "2026-05-14",
+        "2026-12-25"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-01-01",
+        "2027-03-01",
+        "2027-03-26",
+        "2027-05-01",
+        "2027-05-06",
+        "2027-12-25"
+      ],
+      "workdays": []
+    }
+  },
+  "source_urls": [
+    "https://www.ne.ch/themes/economie-et-emploi/jours-feries-officiels",
+    "https://rsn.ne.ch/DATA/program/books/rsne/pdf/94102.pdf"
+  ]
+}

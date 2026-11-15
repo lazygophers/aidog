@@ -1,11 +1,14 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai",
     "openai_responses"
   ],
   "model_id": "skylark-embedding-vision-251215",
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "display_name": "Skylark Embedding Vision 251215",
   "canonical_model": "skylark-embedding-vision-251215",
   "family": "skylark",
   "capabilities": [

@@ -143,7 +143,7 @@ fn hello_endpoint_matches_prefixed_paths() {
 }
 
 /// Claude Code 启动预热探测 `HEAD /proxy/api/hello`（无 Authorization）：
-/// 应 200 + 落 request log（source_protocol=test），方便用户从请求日志页看到探测请求。
+/// 应 200 + 落请求记录（request_log 表，kind=test；不进 proxy_log），方便用户从请求记录页看到探测请求。
 #[tokio::test]
 async fn hello_probe_returns_ok_and_records_request_log() {
     let state = make_state(test_db().await).await;
@@ -165,15 +165,19 @@ async fn hello_probe_returns_ok_and_records_request_log() {
         let resp = handle_proxy(AxumState(state.clone()), req).await;
         assert_eq!(resp.status(), StatusCode::OK, "method={method}");
         flush_log_queue(&state).await;
-        let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
+        let logs = aidog_logs::list_request_logs(&state.db, &Default::default(), 100, 0)
             .await
             .unwrap();
-        let id = logs.last().expect("hello log missing").id.clone();
-        ids.push(id);
+        assert_eq!(logs.len(), ids.len() + 1, "method={method}");
+        ids.push(logs[0].id.clone());
     }
     assert_eq!(ids.len(), 2);
+    assert!(
+        aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap().is_empty(),
+        "探测行不得进 proxy_log"
+    );
     for id in ids {
-        let row = aidog_logs::get_proxy_log(&state.db, &id)
+        let row = aidog_logs::get_request_log(&state.db, &id)
             .await
             .unwrap()
             .unwrap();
@@ -1831,7 +1835,7 @@ async fn disable_platform_named(state: &Arc<ProxyState>, name: &str) {
     state.db.invalidate_group_details_cache();
 }
 
-/// responses 子端点五种方法各一例：白名单拦下 → 417 + 审计行；放行 UA → 200；
+/// responses 子端点五种方法各一例：白名单拦下 → 403 + 审计行；放行 UA → 200；
 /// 未配白名单的组零变化。
 #[tokio::test]
 async fn whitelist_responses_subendpoints_all_methods() {
@@ -1849,9 +1853,9 @@ async fn whitelist_responses_subendpoints_all_methods() {
     ];
     for (method, uri) in cases {
         let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrwl", method, uri, Some("curl/8.4.0"))).await;
-        assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "{method} {uri}");
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN, "{method} {uri}");
         let log = last_log_for(&state, "gkrwl").await;
-        assert_eq!(log.status_code, 417, "{method} {uri}");
+        assert_eq!(log.status_code, 403, "{method} {uri}");
         assert_eq!(log.blocked_by, "router");
         assert_eq!(log.blocked_reason, "client_not_allowed");
         assert_eq!(log.est_cost, 0.0);
@@ -1863,9 +1867,9 @@ async fn whitelist_responses_subendpoints_all_methods() {
         assert_eq!(resp.status(), StatusCode::OK, "no whitelist {method} {uri}");
     }
 
-    // 无 UA → 认不出 → 417
+    // 无 UA → 认不出 → 403
     let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrwl", "GET", "/v1/responses/resp_1", None)).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
 
 /// 票 06 缺口收口：组内有透传平台时 responses 子端点先被透传路径认领，同样受白名单约束。
@@ -1875,7 +1879,7 @@ async fn whitelist_responses_subendpoint_on_passthrough_group_417() {
     let state = make_state(test_db().await).await;
     setup_passthrough_platform_group_extra(&state, "gkprs", &upstream, WL_CC_EXTRA).await;
     let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkprs", "GET", "/v1/responses/resp_1", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     assert_client_417_log(&state, "gkprs", "curl/8.4.0").await;
     assert_eq!(seen.lock().unwrap().len(), 0, "blocked request must not reach upstream");
     let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkprs", "GET", "/v1/responses/resp_1", Some("claude-cli/2.0.1 (external, cli)"))).await;
@@ -1883,8 +1887,8 @@ async fn whitelist_responses_subendpoint_on_passthrough_group_417() {
     assert_eq!(seen.lock().unwrap().len(), 1);
 }
 
-/// 被拦平台跳过、落到未配白名单的平台；等效退化（只剩被拦平台 + 禁用平台）→ 417（同聊天路径单平台口径）；
-/// 字面单平台组被拦 → 417。blocked_reason 恒为 client_not_allowed（responses 只认 enabled，无「真混合」形态，混合 503 见聊天路径）。
+/// 被拦平台跳过、落到未配白名单的平台；等效退化（只剩被拦平台 + 禁用平台）→ 403（同聊天路径单平台口径）；
+/// 字面单平台组被拦 → 403。blocked_reason 恒为 client_not_allowed（responses 只认 enabled，无「真混合」形态，混合 503 见聊天路径）。
 #[tokio::test]
 async fn whitelist_responses_fallthrough_degenerate_and_mixed() {
     let state = make_state(test_db().await).await;
@@ -1897,14 +1901,14 @@ async fn whitelist_responses_fallthrough_degenerate_and_mixed() {
 
     disable_platform_named(&state, "FB").await;
     let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrfall", "GET", "/v1/responses/x", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     let log = last_log_for(&state, "gkrfall").await;
     assert_eq!((log.blocked_by.as_str(), log.blocked_reason.as_str()), ("router", "client_not_allowed"));
-    assert_eq!(log.status_code, 417);
+    assert_eq!(log.status_code, 403);
 
     setup_multi_platform_group(&state, "gkrsole", &[("SA", &up, WL_CC_EXTRA)]).await;
     let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrsole", "GET", "/v1/responses/x", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
 
 fn ws_handshake_req(gk: &str, ua: Option<&str>) -> Request {
@@ -1922,8 +1926,8 @@ fn ws_handshake_req(gk: &str, ua: Option<&str>) -> Request {
     b.body(Body::empty()).unwrap()
 }
 
-/// WS 握手：白名单拦下 → 握手阶段直接 HTTP 417（无 101、不连上游）+ 审计行；无 UA 同拦；
-/// 放行 UA / 未配白名单 → 越过闸门走到上游连接（reset 上游 → 502，非 417，无 blocked_reason）。
+/// WS 握手：白名单拦下 → 握手阶段直接 HTTP 403（无 101、不连上游）+ 审计行；无 UA 同拦；
+/// 放行 UA / 未配白名单 → 越过闸门走到上游连接（reset 上游 → 502，非 403，无 blocked_reason）。
 /// 单透传平台即「等效退化形态」：select_candidates 单平台短路绕过过滤，由 ws.rs 对选中平台再判。
 #[tokio::test]
 async fn whitelist_ws_handshake_rejects_417_and_allows() {
@@ -1933,10 +1937,10 @@ async fn whitelist_ws_handshake_rejects_417_and_allows() {
 
     for ua in [Some("curl/8.4.0"), None] {
         let resp = handle_proxy(AxumState(state.clone()), ws_handshake_req("gkws", ua)).await;
-        assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "ua={ua:?}");
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN, "ua={ua:?}");
         assert!(resp.headers().get("upgrade").is_none(), "拒绝时不升级");
         let log = last_log_for(&state, "gkws").await;
-        assert_eq!(log.status_code, 417);
+        assert_eq!(log.status_code, 403);
         assert_eq!(log.blocked_by, "router");
         assert_eq!(log.blocked_reason, "client_not_allowed");
         assert_eq!(log.upstream_status_code, 0, "未连上游");
@@ -1959,7 +1963,7 @@ const UA_RULE_EXTRA: &str = r#"{"client_ua_rules":[{"kind":"contains","pattern":
 const UA_RULE_PLUS_CC_EXTRA: &str = r#"{"allowed_clients":["claude_code"],"client_ua_rules":[{"kind":"prefix","pattern":"openviking/"}]}"#;
 const OV_UA: &str = "OpenViking/0.5.2 (darwin)";
 
-/// 多平台组（普通路由路径）：只写规则没勾内置 → 认不出的 UA 规则命中放行；其余未知 / 无 UA → 417；
+/// 多平台组（普通路由路径）：只写规则没勾内置 → 认不出的 UA 规则命中放行；其余未知 / 无 UA → 403；
 /// 内置认出（curl）即使规则含 curl 也拒（内置优先）；claude-cli 被内置认出且未勾 → 拒。
 #[tokio::test]
 async fn ua_rules_multi_platform_group() {
@@ -1971,7 +1975,7 @@ async fn ua_rules_multi_platform_group() {
     assert_eq!(last_log_for(&state, "gkur").await.client, "ua:OpenViking");
     for ua in [Some("Other/1.0"), None, Some("curl/8.4.0"), Some("claude-cli/2.0.1 (external, cli)")] {
         let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkur", ua)).await;
-        assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "{ua:?}");
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN, "{ua:?}");
         assert_client_417_log(&state, "gkur", ua.unwrap_or("")).await;
     }
 }
@@ -1997,8 +2001,8 @@ async fn ua_rules_combined_with_ticked_clients() {
     for (ua, want) in [
         ("claude-cli/2.0.1 (external, cli)", StatusCode::OK),
         (OV_UA, StatusCode::OK),
-        ("curl/8.4.0", StatusCode::EXPECTATION_FAILED),
-        ("Other/1.0", StatusCode::EXPECTATION_FAILED),
+        ("curl/8.4.0", StatusCode::FORBIDDEN),
+        ("Other/1.0", StatusCode::FORBIDDEN),
     ] {
         let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurc", Some(ua))).await;
         assert_eq!(resp.status(), want, "{ua}");
@@ -2014,17 +2018,17 @@ async fn ua_rules_literal_single_and_degenerate_single() {
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurl", Some(OV_UA))).await;
     assert_eq!(resp.status(), StatusCode::OK, "字面单平台：规则命中放行");
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurl", Some("Other/1.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "字面单平台：未命中 417");
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN, "字面单平台：未命中 403");
     assert_client_417_log(&state, "gkurl", "Other/1.0").await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurl", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "字面单平台：内置认出且未勾 → 拒（规则含 curl 也不救）");
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN, "字面单平台：内置认出且未勾 → 拒（规则含 curl 也不救）");
 
     setup_multi_platform_group(&state, "gkurd", &[("DA", &up, UA_RULE_EXTRA), ("DB", &up, "")]).await;
     set_platform_status(&state, "DB", aidog_db::models::PlatformStatus::Disabled).await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurd", Some(OV_UA))).await;
     assert_eq!(resp.status(), StatusCode::OK, "等效单平台：规则命中放行");
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurd", Some("Other/1.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "等效单平台：不得静默打到唯一平台");
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN, "等效单平台：不得静默打到唯一平台");
     assert_client_417_log(&state, "gkurd", "Other/1.0").await;
 }
 
@@ -2036,7 +2040,7 @@ async fn ua_rules_beat_status_bypass_single_platform() {
     setup_multi_platform_group(&state, "gkurb", &[("A", &up, UA_RULE_EXTRA)]).await;
     set_platform_status(&state, "A", aidog_db::models::PlatformStatus::AutoDisabled).await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurb", Some("Other/1.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurb", Some(OV_UA))).await;
     assert_eq!(resp.status(), StatusCode::OK, "规则命中的客户端仍享受 bypass");
 }
@@ -2051,7 +2055,7 @@ async fn ua_rules_responses_subendpoints() {
         let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkurr", method, uri, Some(OV_UA))).await;
         assert_eq!(resp.status(), StatusCode::OK, "{method} {uri}");
         let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkurr", method, uri, Some("Other/1.0"))).await;
-        assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "{method} {uri}");
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN, "{method} {uri}");
         assert_client_417_log(&state, "gkurr", "Other/1.0").await;
     }
 }
@@ -2074,7 +2078,7 @@ async fn ua_rules_passthrough_chat_and_ws() {
             .unwrap()
     };
     let resp = handle_proxy(AxumState(state.clone()), post("Other/1.0")).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     assert_eq!(seen.lock().unwrap().len(), 0, "blocked request must not reach upstream");
     let resp = handle_proxy(AxumState(state.clone()), post(OV_UA)).await;
     assert_eq!(resp.status(), StatusCode::OK);
@@ -2083,7 +2087,7 @@ async fn ua_rules_passthrough_chat_and_ws() {
     let dead = spawn_reset_upstream().await;
     setup_passthrough_platform_group_extra(&state, "gkurws", &dead, UA_RULE_EXTRA).await;
     let resp = handle_proxy(AxumState(state.clone()), ws_handshake_req("gkurws", Some("Other/1.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     assert_client_417_log(&state, "gkurws", "Other/1.0").await;
     let resp = handle_proxy(AxumState(state.clone()), ws_handshake_req("gkurws", Some(OV_UA))).await;
     assert_eq!(resp.status(), StatusCode::BAD_GATEWAY, "规则命中 → 越过闸门走到上游连接");
@@ -2902,7 +2906,7 @@ async fn spawn_recording_upstream(
     (format!("http://{addr}"), rec)
 }
 
-const GEMINI_OK: &str = r#"{"candidates":[{"content":{"parts":[{"text":"hi"}],"role":"model"},"finishReason":"STOP","index":0}],"usageMetadata":{"promptTokenCount":5,"candidatesTokenCount":3,"totalTokenCount":8}}"#;
+const GEMINI_OK: &str = r#"{"candidates":[{"content":{"parts":[{"text":"hi"}],"role":"model"},"finishReason":"STOP","index":0}],"usageMetadata":{"promptTokenCount":5,"candidatesTokenCount":3,"thoughtsTokenCount":1,"totalTokenCount":9,"cachedContentTokenCount":2}}"#;
 
 /// 注册 Gemini 平台 + 显式 Gemini endpoint（同协议透传命中），group 带
 /// `gemini-src → gemini-target` 模型改写。
@@ -3044,6 +3048,44 @@ async fn stage_prepare_send_preserves_remapped_body_and_upstream_log() {
     assert_eq!(row.upstream_request_body, captured[0].1);
     assert_eq!(row.target_protocol, "gemini");
     assert_eq!(row.model, "gemini-src");
+    assert_eq!(row.input_tokens, 3, "Gemini prompt tokens must exclude cache");
+    assert_eq!(row.output_tokens, 4, "Gemini candidate and thought tokens must be logged");
+    assert_eq!(row.cache_tokens, 2, "Gemini cached prompt tokens must be logged");
+    assert!(row.est_cost > 0.0, "Gemini usage must produce a non-zero estimated cost");
+    assert!(row.done);
+}
+
+#[tokio::test]
+async fn gemini_cross_protocol_usage_is_logged_and_response_is_converted() {
+    let (upstream, _rec) = spawn_recording_upstream(GEMINI_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_platform(&state, "gem-cross", Protocol::Gemini, &upstream, "").await;
+
+    let request = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/messages")
+        .header("authorization", "Bearer gem-cross")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+        ))
+        .unwrap();
+    let response = handle_proxy(AxumState(state.clone()), request).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), 1 << 20)
+        .await
+        .unwrap();
+    let response_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(response_json["usage"]["input_tokens"], 3);
+    assert_eq!(response_json["usage"]["output_tokens"], 4);
+    assert_eq!(response_json["usage"]["cache_read_input_tokens"], 2);
+
+    let row = only_log_of(&state, "gem-cross").await;
+    assert_eq!(row.target_protocol, "gemini");
+    assert_eq!(row.input_tokens, 3);
+    assert_eq!(row.output_tokens, 4);
+    assert_eq!(row.cache_tokens, 2);
+    assert!(row.est_cost > 0.0, "Gemini converted usage must produce a non-zero estimated cost");
     assert!(row.done);
 }
 
@@ -3148,13 +3190,13 @@ async fn only_log_of(state: &Arc<ProxyState>, gk: &str) -> aidog_db::models::Pro
 async fn agg_counts(db: &aidog_db::Db, gk: &str) -> (i64, i64) {
     let g = gk.to_string();
     db.write_conn()
-        .call(move |c| {
-            Ok(c.query_row(
+        .call(move |c| -> rusqlite::Result<(i64, i64)> {
+            c.query_row(
                 "SELECT COALESCE(SUM(request_count),0), COALESCE(SUM(error_count),0) \
                  FROM stats_agg_hourly WHERE group_key = ?1",
                 rusqlite::params![g],
                 |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
-            )?)
+            )
         })
         .await
         .unwrap()
@@ -3760,17 +3802,17 @@ async fn decision_no_platform_400_and_audit_log() {
     setup_group_with_upstream(&state, "gknone", "https://example.invalid").await;
 
     let resp = handle_proxy(AxumState(state.clone()), decision_request("gknone", "m")).await;
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
     let log = last_log_for(&state, "gknone").await;
-    assert_eq!(log.status_code, 400);
+    assert_eq!(log.status_code, 404);
     assert_eq!(log.blocked_by, "router");
     assert_eq!(log.blocked_reason, "no_decision_platform");
     assert_eq!(log.est_cost, 0.0);
 }
 
-/// R3 端到端：聊天请求打到只有纯决策平台的分组 → 400 + blocked_reason=no_chat_platform。
+/// R3 端到端：聊天请求打到只有纯决策平台的分组 → 404 + blocked_reason=no_chat_platform。
 #[tokio::test]
-async fn chat_no_chat_platform_400_and_audit_log() {
+async fn chat_no_chat_platform_404_and_audit_log() {
     let state = make_state(test_db().await).await;
     setup_decision_group(
         &state,
@@ -3789,9 +3831,9 @@ async fn chat_no_chat_platform_400_and_audit_log() {
         messages_request("gknochat", r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
     )
     .await;
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
     let log = last_log_for(&state, "gknochat").await;
-    assert_eq!(log.status_code, 400);
+    assert_eq!(log.status_code, 404);
     assert_eq!(log.blocked_by, "router");
     assert_eq!(log.blocked_reason, "no_chat_platform");
     assert_eq!(log.est_cost, 0.0);
@@ -4009,7 +4051,7 @@ async fn chat_peak_disabled_toggle_off_restores_routing() {
 /// 503 + proxy_log blocked_by='router', blocked_reason='unknown_protocol', est_cost=0。
 /// DB 直写脏值模拟降级读新数据（UpdatePlatform API 走 Option<Protocol>，写不进枚举外值）。
 #[tokio::test]
-async fn chat_unknown_protocol_503_and_audit_log() {
+async fn chat_unknown_protocol_500_and_audit_log() {
     let state = make_state(test_db().await).await;
     setup_group_with_upstream(&state, "gkunknown", "https://example.invalid").await;
     for p in aidog_db::list_platforms(&state.db).await.unwrap() {
@@ -4033,9 +4075,9 @@ async fn chat_unknown_protocol_503_and_audit_log() {
         messages_request("gkunknown", r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
     )
     .await;
-    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
     let log = last_log_for(&state, "gkunknown").await;
-    assert_eq!(log.status_code, 503);
+    assert_eq!(log.status_code, 500);
     assert_eq!(log.blocked_by, "router");
     assert_eq!(log.blocked_reason, "unknown_protocol");
     assert_eq!(log.est_cost, 0.0, "unknown protocol must not be priced");
@@ -4129,6 +4171,87 @@ async fn passthrough_platform_relays_unparseable_requests_verbatim() {
     let log = last_log_for(&state, "gkraw").await;
     assert_eq!(log.status_code, 200);
     assert_eq!((log.input_tokens, log.output_tokens), (7, 2));
+}
+
+/// stub HTTP 代理：计请求数并回 200（issue #64 T04 透传 / T05 旁路行为测试共用）。
+async fn spawn_hit_counting_proxy() -> (
+    std::net::SocketAddr,
+    Arc<std::sync::atomic::AtomicUsize>,
+) {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let hits = Arc::new(AtomicUsize::new(0));
+    let h = hits.clone();
+    let app = axum::Router::new().fallback(axum::routing::any(move || {
+        let h = h.clone();
+        async move {
+            h.fetch_add(1, Ordering::SeqCst);
+            (StatusCode::OK, "")
+        }
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, app).await.ok() });
+    (addr, hits)
+}
+
+/// issue #64 T04：透传平台出站按平台 `extra.proxy_enabled` 判定代理（stub proxy 计数）。
+/// others_enabled=false：平台开 → 走代理；平台无开关 → 直连上游（不跟随其它请求开关）。
+#[tokio::test]
+async fn passthrough_platform_extra_proxy_switch() {
+    use crate::gateway::models::ProxyClientSettings;
+    use std::sync::atomic::Ordering;
+
+    let (proxy_addr, hits) = spawn_hit_counting_proxy().await;
+    let upstream = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    {
+        let mut c = state.settings_cache.write().await;
+        c.proxy_client = ProxyClientSettings {
+            proxy_type: "http".into(),
+            host: "127.0.0.1".into(),
+            port: proxy_addr.port(),
+            others_enabled: false,
+            // 覆盖 DEFAULT_NO_PROXY（含 127.0.0.1，会让上游目标绕过代理）
+            no_proxy: "nothing.invalid".into(),
+            ..Default::default()
+        };
+    }
+
+    // 平台开 → 透传出站走代理
+    setup_passthrough_platform_group_extra(
+        &state,
+        "gkptpxon",
+        &upstream,
+        r#"{"proxy_enabled":true}"#,
+    )
+    .await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request(
+            "gkptpxon",
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+        ),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(hits.load(Ordering::SeqCst), 1, "平台 proxy_enabled=true → 透传出站走代理");
+
+    // 平台无开关（extra 空）→ 直连上游，代理不计数
+    setup_passthrough_platform_group_extra(&state, "gkptpxoff", &upstream, "").await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request(
+            "gkptpxoff",
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+        ),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        1,
+        "平台无 proxy_enabled → 直连（缺省不跟随 others_enabled）"
+    );
 }
 
 // ═══════════════ ADR 0009：入站密钥通道 + 未匹配分组日志 ═══════════════
@@ -4964,10 +5087,10 @@ async fn embedding_cost_registry_free_and_fallback() {
     }
 }
 
-/// 无候选 → 503 + blocked_reason=no_embedding_platform（三文件库，读回）。
+/// 无候选 → 404 + blocked_reason=no_embedding_platform（三文件库，读回）。
 /// 三种成因：槽位未配 / 槽位纯空白 / 非 OpenAI 系协议平台。
 #[tokio::test]
-async fn embedding_no_candidate_503_and_audit_log() {
+async fn embedding_no_candidate_404_and_audit_log() {
     let (db, _dir) = aidog_db::test_support::three_file_db().await;
     let state = make_state(db).await;
     let (up, hits) = spawn_embedding_upstream(vec![]).await;
@@ -4980,9 +5103,9 @@ async fn embedding_no_candidate_503_and_audit_log() {
             embedding_request(gk, EMB_REQ, "/v1/embeddings"),
         )
         .await;
-        assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE, "{gk}");
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND, "{gk}");
         let log = last_log_for(&state, gk).await;
-        assert_eq!(log.status_code, 503);
+        assert_eq!(log.status_code, 404);
         assert_eq!(log.blocked_by, "router");
         assert_eq!(log.blocked_reason, "no_embedding_platform");
         assert_eq!(log.est_cost, 0.0);
@@ -5128,9 +5251,167 @@ async fn rerank_cost_matrix() {
     }
 }
 
-/// 无候选 → 503 + no_rerank_platform（槽位空 / 非 OpenAI 系 / 只配了 embedding 槽）。
+/// issue #61：rerank（按次计价）与 embedding（token 计价）成功后余额按 est_cost 扣减。
+/// USD 余额 100：rerank unit_price 0.002 × 2 次 = 0.004；embedding 8 tokens × 2e-8 = 1.6e-7。
+/// spawn_estimate 在后台，轮询 estimate_count（有界）等落库。
 #[tokio::test]
-async fn rerank_no_candidate_503_and_audit_log() {
+async fn aux_request_deducts_balance_by_est_cost() {
+    async fn run(
+        gk: &str,
+        path: &str,
+        body: &'static str,
+        resp: &'static str,
+        slot: PlatformModels,
+        entry: ModelEntry,
+    ) -> (aidog_db::models::ProxyLog, aidog_db::models::Platform) {
+        let (up, _h) = spawn_embedding_upstream(vec![(200, resp)]).await;
+        let (db, _dir) = aidog_db::test_support::three_file_db().await;
+        let state = make_state(db).await;
+        aidog_db::upsert_model_entries(&state.db, vec![entry]).await.unwrap();
+        setup_aux_group(&state, gk, &[(&up, slot, Protocol::OpenAI, "a")]).await;
+        let plats = aidog_db::list_platforms(&state.db).await.unwrap();
+        let plat_id = plats.iter().find(|p| p.name == format!("{gk}-a")).unwrap().id;
+        let quota = crate::gateway::quota::PlatformQuota {
+            success: true,
+            error: None,
+            queried_at: aidog_db::now(),
+            balance: Some(crate::gateway::quota::BalanceInfo {
+                remaining: 100.0,
+                total: None,
+                used: None,
+                currency: "USD".into(),
+                is_valid: true,
+            }),
+            coding_plan: None,
+            newapi_user_id: None,
+        };
+        crate::gateway::estimate::calibrate_from_quota(&state.db, plat_id, &quota, false).await;
+
+        let r = handle_proxy(AxumState(state.clone()), embedding_request(gk, body, path)).await;
+        assert_eq!(r.status(), StatusCode::OK);
+        let log = last_log_for(&state, gk).await;
+        let mut p = aidog_db::get_platform(&state.db, plat_id).await.unwrap().unwrap();
+        for _ in 0..100 {
+            if p.estimate_count > 0 {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            p = aidog_db::get_platform(&state.db, plat_id).await.unwrap().unwrap();
+        }
+        (log, p)
+    }
+
+    // rerank：按次计价，Cohere search_units=2 → 0.002 × 2 = 0.004
+    let (log, p) = run(
+        "gkb1",
+        "/v1/rerank",
+        RR_REQ,
+        RR_COHERE,
+        rerank_slot("rr-slot"),
+        rerank_entry(r#"{"unit":"request","unit_price":0.002}"#),
+    )
+    .await;
+    assert!(p.estimate_count > 0, "rerank 必须进入余额预估链");
+    assert!((log.est_cost - 0.004).abs() < 1e-12, "est {}", log.est_cost);
+    assert!(
+        (p.est_balance_remaining - (100.0 - 0.004)).abs() < 1e-9,
+        "got {}",
+        p.est_balance_remaining
+    );
+
+    // embedding：token 计价，8 tokens × 2e-8 = 1.6e-7
+    let (log, p) = run(
+        "gkb2",
+        "/v1/embeddings",
+        EMB_REQ,
+        EMB_RESPONSE,
+        PlatformModels { embedding: vec!["emb-slot".into()], ..Default::default() },
+        embedding_entry(r#"{"input":2e-8,"output":0}"#),
+    )
+    .await;
+    assert!(p.estimate_count > 0, "embedding 必须进入余额预估链");
+    assert!((log.est_cost - 8.0 * 2e-8).abs() < 1e-15, "est {}", log.est_cost);
+    assert!(
+        (p.est_balance_remaining - (100.0 - 8.0 * 2e-8)).abs() < 1e-12,
+        "got {}",
+        p.est_balance_remaining
+    );
+}
+
+/// 评审 R1：chat 按次计价条目（price.unit="request"）上游缺 usage（token 全 0）时
+/// 不再被 spawn_estimate 的「无 token 跳过」漏掉——缺次数按 1 次扣 request_fee；
+/// 纯 token 计价条目 token 全 0 照旧跳过（不扣费、不进预估链），无双扣。
+#[tokio::test]
+async fn chat_per_request_price_no_usage_deducts_once() {
+    const NO_USAGE_OK: &str = r#"{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn"}"#;
+    async fn run(gk: &str, price: &str) -> aidog_db::models::Platform {
+        let upstream = spawn_stub_upstream(200, NO_USAGE_OK).await;
+        let (db, _dir) = aidog_db::test_support::three_file_db().await;
+        let state = make_state(db).await;
+        aidog_db::upsert_model_entries(&state.db, vec![ModelEntry {
+            platform_code: "anthropic".into(),
+            model_id: "claude-3".into(),
+            display_name: "claude-3".into(),
+            canonical_model: "claude-3".into(),
+            capabilities: vec![],
+            ..embedding_entry(price)
+        }])
+        .await
+        .unwrap();
+        setup_group_with_upstream(&state, gk, &upstream).await;
+        let plats = aidog_db::list_platforms(&state.db).await.unwrap();
+        let plat_id = plats.iter().find(|p| p.name == "stub").unwrap().id;
+        let quota = crate::gateway::quota::PlatformQuota {
+            success: true,
+            error: None,
+            queried_at: aidog_db::now(),
+            balance: Some(crate::gateway::quota::BalanceInfo {
+                remaining: 100.0,
+                total: None,
+                used: None,
+                currency: "USD".into(),
+                is_valid: true,
+            }),
+            coding_plan: None,
+            newapi_user_id: None,
+        };
+        crate::gateway::estimate::calibrate_from_quota(&state.db, plat_id, &quota, false).await;
+
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            messages_request(gk, r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#),
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let mut p = aidog_db::get_platform(&state.db, plat_id).await.unwrap().unwrap();
+        for _ in 0..100 {
+            if p.estimate_count > 0 {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            p = aidog_db::get_platform(&state.db, plat_id).await.unwrap().unwrap();
+        }
+        p
+    }
+
+    // 按次计价：缺 usage 按 1 次扣 unit_price，余额 100 - 0.002
+    let p = run("gkcr1", r#"{"unit":"request","unit_price":0.002}"#).await;
+    assert!(p.estimate_count > 0, "按次计价 chat 缺 usage 也必须进预估链");
+    assert!(
+        (p.est_balance_remaining - (100.0 - 0.002)).abs() < 1e-9,
+        "got {}",
+        p.est_balance_remaining
+    );
+
+    // 纯 token 计价：缺 usage 照旧跳过，余额不动
+    let p = run("gkcr2", r#"{"input":2e-8,"output":0}"#).await;
+    assert_eq!(p.estimate_count, 0, "纯 token 计价缺 usage 不得进预估链");
+    assert!((p.est_balance_remaining - 100.0).abs() < 1e-9, "got {}", p.est_balance_remaining);
+}
+
+/// 无候选 → 404 + no_rerank_platform（槽位空 / 非 OpenAI 系 / 只配了 embedding 槽）。
+#[tokio::test]
+async fn rerank_no_candidate_404_and_audit_log() {
     let (db, _dir) = aidog_db::test_support::three_file_db().await;
     let state = make_state(db).await;
     let (up, hits) = spawn_embedding_upstream(vec![]).await;
@@ -5144,7 +5425,7 @@ async fn rerank_no_candidate_503_and_audit_log() {
             embedding_request(gk, RR_REQ, "/v1/rerank"),
         )
         .await;
-        assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE, "{gk}");
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND, "{gk}");
         let log = last_log_for(&state, gk).await;
         assert_eq!((log.blocked_by.as_str(), log.blocked_reason.as_str()), ("router", "no_rerank_platform"));
         assert_eq!(log.est_cost, 0.0);
@@ -5202,22 +5483,22 @@ async fn client_and_req_model_land_in_log_and_stats_agg() {
         .unwrap();
     let log_client: String = reopened
         .call_read_proxy_log_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row(
+            c.query_row(
                 "SELECT client FROM proxy_log WHERE group_key = 'gk_flow'",
                 [],
                 |r| r.get(0),
-            )?)
+            )
         })
         .await
         .unwrap();
     assert_eq!(log_client, "claude_code");
     let (client, req_model, model): (String, String, String) = reopened
         .call_read_traced(None, std::panic::Location::caller(), |c| {
-            Ok(c.query_row(
+            c.query_row(
                 "SELECT client, req_model, model FROM stats_agg_hourly WHERE group_key = 'gk_flow'",
                 [],
                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-            )?)
+            )
         })
         .await
         .unwrap();
@@ -5284,8 +5565,8 @@ const WL_CC_EXTRA: &str = r#"{"allowed_clients":["claude_code"]}"#;
 const PEAK_ALL_DAY_EXTRA: &str =
     r#"{"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#;
 
-/// 全部候选被白名单拦下 → 417 + 审计行（router / client_not_allowed / est_cost 0 / 原始 UA）；
-/// claude_code 与其变体命中 → 200；无 UA → 417。
+/// 全部候选被白名单拦下 → 403 + 审计行（router / client_not_allowed / est_cost 0 / 原始 UA）；
+/// claude_code 与其变体命中 → 200；无 UA → 403。
 #[tokio::test]
 async fn whitelist_all_blocked_417_and_hit_matrix() {
     let state = make_state(test_db().await).await;
@@ -5293,11 +5574,11 @@ async fn whitelist_all_blocked_417_and_hit_matrix() {
     setup_multi_platform_group(&state, "gkwl", &[("A", &up, WL_CC_EXTRA), ("B", &up, WL_CC_EXTRA)]).await;
 
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkwl", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
-    assert!(String::from_utf8_lossy(&body).contains("client not allowed"), "417 body states reason");
+    assert!(String::from_utf8_lossy(&body).contains("client not allowed"), "403 body states reason");
     let log = last_log_for(&state, "gkwl").await;
-    assert_eq!(log.status_code, 417);
+    assert_eq!(log.status_code, 403);
     assert_eq!(log.blocked_by, "router");
     assert_eq!(log.blocked_reason, "client_not_allowed");
     assert_eq!(log.est_cost, 0.0);
@@ -5306,9 +5587,9 @@ async fn whitelist_all_blocked_417_and_hit_matrix() {
     let snap = log.routing.expect("routing snapshot");
     assert!(snap.entries.iter().all(|e| e.reason == aidog_db::models::RouteReason::ClientNotAllowed));
 
-    // 无 UA → 认不出 → 417
+    // 无 UA → 认不出 → 403
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkwl", None)).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 
     // claude_code 本体与变体（勾大类 = 全变体）→ 200
     for ua in ["claude-cli/2.0.1 (external, cli)", "claude-cli/2.0 (external, claude-vscode)"] {
@@ -5362,10 +5643,10 @@ async fn set_platform_status(state: &Arc<ProxyState>, name: &str, status: aidog_
     state.db.invalidate_group_details_cache();
 }
 
-/// 断言最近一条日志是白名单 417 审计行（router / client_not_allowed / est_cost 0 / 原始 UA）。
+/// 断言最近一条日志是白名单 403 审计行（router / client_not_allowed / est_cost 0 / 原始 UA）。
 async fn assert_client_417_log(state: &Arc<ProxyState>, gk: &str, ua: &str) {
     let log = last_log_for(state, gk).await;
-    assert_eq!(log.status_code, 417, "{gk}");
+    assert_eq!(log.status_code, 403, "{gk}");
     assert_eq!(log.blocked_by, "router");
     assert_eq!(log.blocked_reason, "client_not_allowed");
     assert_eq!(log.est_cost, 0.0);
@@ -5373,7 +5654,7 @@ async fn assert_client_417_log(state: &Arc<ProxyState>, gk: &str, ua: &str) {
 }
 
 /// 等效退化形态（票 05）：多平台组只剩 1 个 Enabled 平台 → sole_platform 单平台短路，
-/// guard 在短路之内：白名单拦下 → 417，不得静默打到唯一平台；放行 UA 照常 200。
+/// guard 在短路之内：白名单拦下 → 403，不得静默打到唯一平台；放行 UA 照常 200。
 #[tokio::test]
 async fn whitelist_degenerate_single_enabled_returns_417() {
     let state = make_state(test_db().await).await;
@@ -5381,23 +5662,23 @@ async fn whitelist_degenerate_single_enabled_returns_417() {
     setup_multi_platform_group(&state, "gkdeg", &[("A", &up, WL_CC_EXTRA), ("B", &up, "")]).await;
     set_platform_status(&state, "B", aidog_db::models::PlatformStatus::Disabled).await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkdeg", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     assert_client_417_log(&state, "gkdeg", "curl/8.4.0").await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkdeg", Some("claude-cli/2.0.1 (external, cli)"))).await;
     assert_eq!(resp.status(), StatusCode::OK);
 }
 
-/// 字面单平台组（len==1）：417；放行 UA 200；无白名单存量不变。与等效退化形态分开验证。
+/// 字面单平台组（len==1）：403；放行 UA 200；无白名单存量不变。与等效退化形态分开验证。
 #[tokio::test]
 async fn whitelist_literal_single_platform_group_417() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     setup_multi_platform_group(&state, "gklit", &[("A", &up, WL_CC_EXTRA)]).await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gklit", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     assert_client_417_log(&state, "gklit", "curl/8.4.0").await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gklit", None)).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "no UA = unrecognized");
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN, "no UA = unrecognized");
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gklit", Some("claude-cli/2.0.1 (external, cli)"))).await;
     assert_eq!(resp.status(), StatusCode::OK);
 
@@ -5414,7 +5695,7 @@ async fn whitelist_beats_status_bypass_single_platform() {
     setup_multi_platform_group(&state, "gkbyp", &[("A", &up, WL_CC_EXTRA)]).await;
     set_platform_status(&state, "A", aidog_db::models::PlatformStatus::AutoDisabled).await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkbyp", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     assert_client_417_log(&state, "gkbyp", "curl/8.4.0").await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkbyp", Some("claude-cli/2.0.1 (external, cli)"))).await;
     assert_eq!(resp.status(), StatusCode::OK, "regression: allowed client still bypasses status");
@@ -5432,7 +5713,7 @@ async fn whitelist_single_platform_with_peak_disabled_keeps_peak_error() {
     assert_eq!(last_log_for(&state, "gksp").await.blocked_reason, "peak");
 }
 
-/// 直通模型链：声明平台全被白名单拦 → 417；放行 UA 命中声明平台；声明平台一部分被拦、
+/// 直通模型链：声明平台全被白名单拦 → 403；放行 UA 命中声明平台；声明平台一部分被拦、
 /// 其余不可用 → 沿用 direct_model_unavailable（503）。
 #[tokio::test]
 async fn whitelist_direct_model_chain() {
@@ -5441,7 +5722,7 @@ async fn whitelist_direct_model_chain() {
     let direct_wl = r#"{"direct_models":["claude-3"],"allowed_clients":["claude_code"]}"#;
     setup_multi_platform_group(&state, "gkdir", &[("A", &up, direct_wl), ("B", &up, "")]).await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkdir", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "B 未声明 direct_models：不得借道落到 B");
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN, "B 未声明 direct_models：不得借道落到 B");
     assert_client_417_log(&state, "gkdir", "curl/8.4.0").await;
     let a_id = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == "A").unwrap().id;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkdir", Some("claude-cli/2.0.1 (external, cli)"))).await;
@@ -5484,7 +5765,7 @@ async fn whitelist_constrains_passthrough_platform() {
         ("POST", "/v1/embeddings", r#"{"model":"m","input":"x"}"#),
     ] {
         let resp = handle_proxy(AxumState(state.clone()), send(method, path, body, Some("curl/8.4.0"))).await;
-        assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "{method} {path} {body}");
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN, "{method} {path} {body}");
         assert_client_417_log(&state, "gkpt", "curl/8.4.0").await;
     }
     assert_eq!(seen.lock().unwrap().len(), 0, "blocked requests must not reach upstream");
@@ -5499,7 +5780,7 @@ async fn whitelist_constrains_passthrough_platform() {
 }
 
 /// 嵌入 / rerank / 决策端点：各 handler 自己的选平台入口接了白名单闸门。平台带槽位（过得了
-/// 槽位筛选），无 UA（认不出）→ 整组被白名单拦下 → 417 + 审计行；放行 UA 不在本例（无头请求）。
+/// 槽位筛选），无 UA（认不出）→ 整组被白名单拦下 → 403 + 审计行；放行 UA 不在本例（无头请求）。
 #[tokio::test]
 async fn whitelist_constrains_aux_and_decision_routes() {
     let (up, hits) = spawn_embedding_upstream(vec![(200, EMB_RESPONSE)]).await;
@@ -5513,9 +5794,9 @@ async fn whitelist_constrains_aux_and_decision_routes() {
     set_platform_extra(&state, "gkaux-wa", WL_CC_EXTRA).await;
     for (body, path) in [(EMB_REQ, "/v1/embeddings"), (RR_REQ, "/v1/rerank")] {
         let resp = handle_proxy(AxumState(state.clone()), embedding_request("gkaux", body, path)).await;
-        assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "{path}");
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN, "{path}");
         let log = last_log_for(&state, "gkaux").await;
-        assert_eq!((log.status_code, log.blocked_by.as_str(), log.blocked_reason.as_str()), (417, "router", "client_not_allowed"), "{path}");
+        assert_eq!((log.status_code, log.blocked_by.as_str(), log.blocked_reason.as_str()), (403, "router", "client_not_allowed"), "{path}");
     }
     assert!(hits.lock().unwrap().is_empty(), "不得打到上游");
 
@@ -5524,7 +5805,7 @@ async fn whitelist_constrains_aux_and_decision_routes() {
     setup_decision_group(&state, "gkaux-dec", &dup, jev, None, Protocol::TypeSafe).await;
     set_platform_extra(&state, "stub-gkaux-dec", WL_CC_EXTRA).await;
     let resp = handle_proxy(AxumState(state.clone()), decision_request("gkaux-dec", "whatever")).await;
-    assert_eq!(resp.status(), StatusCode::EXPECTATION_FAILED, "decision");
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN, "decision");
     assert_eq!(last_log_for(&state, "gkaux-dec").await.blocked_reason, "client_not_allowed");
 }
 
@@ -6124,7 +6405,7 @@ async fn ratelimit_rpm_nplus1_switches_platform() {
     assert_eq!(last_log_for(&state, "gkrl1").await.platform_id, b, "3rd request excluded A -> B");
 }
 
-/// 用户故事 8：整组超限 → 503 + blocked_reason='rate_limit' 落库。
+/// 用户故事 8：整组超限 → 429 + blocked_reason='rate_limit' 落库。
 #[tokio::test]
 async fn ratelimit_all_over_limit_503_and_audit_log() {
     let state = make_state(test_db().await).await;
@@ -6132,26 +6413,26 @@ async fn ratelimit_all_over_limit_503_and_audit_log() {
     setup_multi_platform_group(&state, "gkrl2", &[("A", &up, RPM1), ("B", &up, RPM1)]).await;
     assert_eq!(rl_status(&state, "gkrl2").await, StatusCode::OK);
     assert_eq!(rl_status(&state, "gkrl2").await, StatusCode::OK);
-    assert_eq!(rl_status(&state, "gkrl2").await, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(rl_status(&state, "gkrl2").await, StatusCode::TOO_MANY_REQUESTS);
     let log = last_log_for(&state, "gkrl2").await;
-    assert_eq!(log.status_code, 503);
+    assert_eq!(log.status_code, 429);
     assert_eq!(log.blocked_by, "router");
     assert_eq!(log.blocked_reason, "rate_limit");
     assert_eq!(log.est_cost, 0.0);
 }
 
-/// 用户故事 9：字面单平台组超限同样 503，不 bypass（guard 在单平台短路之内）。
+/// 用户故事 9：字面单平台组超限同样 429，不 bypass（guard 在单平台短路之内）。
 #[tokio::test]
 async fn ratelimit_literal_single_platform_group_503() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     setup_multi_platform_group(&state, "gkrl3", &[("A", &up, RPM1)]).await;
     assert_eq!(rl_status(&state, "gkrl3").await, StatusCode::OK);
-    assert_eq!(rl_status(&state, "gkrl3").await, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(rl_status(&state, "gkrl3").await, StatusCode::TOO_MANY_REQUESTS);
     assert_eq!(last_log_for(&state, "gkrl3").await.blocked_reason, "rate_limit");
 }
 
-/// 用户故事 10：多平台组只剩 1 个 Enabled 平台（等效单平台）超限 → 503，不静默打上游。
+/// 用户故事 10：多平台组只剩 1 个 Enabled 平台（等效单平台）超限 → 429，不静默打上游。
 #[tokio::test]
 async fn ratelimit_degenerate_single_enabled_503() {
     let state = make_state(test_db().await).await;
@@ -6159,7 +6440,7 @@ async fn ratelimit_degenerate_single_enabled_503() {
     setup_multi_platform_group(&state, "gkrl4", &[("A", &up, RPM1), ("B", &up, "")]).await;
     set_platform_status(&state, "B", aidog_db::models::PlatformStatus::Disabled).await;
     assert_eq!(rl_status(&state, "gkrl4").await, StatusCode::OK);
-    assert_eq!(rl_status(&state, "gkrl4").await, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(rl_status(&state, "gkrl4").await, StatusCode::TOO_MANY_REQUESTS);
     assert_eq!(last_log_for(&state, "gkrl4").await.blocked_reason, "rate_limit");
 }
 
@@ -6188,7 +6469,7 @@ async fn ratelimit_concurrency_limits_and_releases() {
     assert_eq!(last_log_for(&state, "gkrl5").await.platform_id, a, "并发已释放");
 }
 
-/// 并发释放覆盖流式断连：单平台组并发 1，流式请求在途 → 第二个 503；客户端丢弃响应后释放 → 再次 200。
+/// 并发释放覆盖流式断连：单平台组并发 1，流式请求在途 → 第二个 429；客户端丢弃响应后释放 → 再次 200。
 #[tokio::test]
 async fn ratelimit_concurrency_released_on_stream_disconnect() {
     let state = make_state(test_db().await).await;
@@ -6196,7 +6477,7 @@ async fn ratelimit_concurrency_released_on_stream_disconnect() {
     setup_multi_platform_group(&state, "gkrl6", &[("A", &hang, r#"{"rate_limits":{"concurrency":1}}"#)]).await;
     let r1 = handle_proxy(AxumState(state.clone()), messages_request_stream("gkrl6")).await;
     assert_eq!(r1.status(), StatusCode::OK);
-    assert_eq!(rl_status(&state, "gkrl6").await, StatusCode::SERVICE_UNAVAILABLE, "流在途占着并发");
+    assert_eq!(rl_status(&state, "gkrl6").await, StatusCode::TOO_MANY_REQUESTS, "流在途占着并发");
     drop(r1); // 客户端断连
     let r3 = handle_proxy(AxumState(state.clone()), messages_request_stream("gkrl6")).await;
     assert_eq!(r3.status(), StatusCode::OK, "断连后并发释放");
@@ -6217,7 +6498,7 @@ async fn ratelimit_tpm_reserve_then_settle_to_usage() {
     assert_eq!(r1.status(), StatusCode::OK, "空窗口放行大请求");
     assert_eq!(rl_status(&state, "gkrl7").await, StatusCode::OK, "预占已按 usage(8) 修正，否则这里被挡");
     assert_eq!(rl_status(&state, "gkrl7").await, StatusCode::OK, "16 + 小估算 <= 20");
-    assert_eq!(rl_status(&state, "gkrl7").await, StatusCode::SERVICE_UNAVAILABLE, "24 >= 20");
+    assert_eq!(rl_status(&state, "gkrl7").await, StatusCode::TOO_MANY_REQUESTS, "24 >= 20");
     assert_eq!(last_log_for(&state, "gkrl7").await.blocked_reason, "rate_limit");
 }
 
@@ -6229,7 +6510,7 @@ async fn ratelimit_window_overrides_platform_limit() {
     let extra = r#"{"rate_limits":{"rpm":100,"rules":[{"start_hour":0,"end_hour":24,"rpm":1}]}}"#;
     setup_multi_platform_group(&state, "gkrl8", &[("A", &up, extra)]).await;
     assert_eq!(rl_status(&state, "gkrl8").await, StatusCode::OK);
-    assert_eq!(rl_status(&state, "gkrl8").await, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(rl_status(&state, "gkrl8").await, StatusCode::TOO_MANY_REQUESTS);
 }
 
 /// 模型级上限：extra.rate_limits.models.<请求模型> 超限 → 该平台被排除（候选筛选阶段）。
@@ -6240,7 +6521,7 @@ async fn ratelimit_model_level_rpm_excludes_platform() {
     let extra = r#"{"rate_limits":{"rules":[{"models":["claude-3"],"rpm":1}]}}"#;
     setup_multi_platform_group(&state, "gkrl9", &[("A", &up, extra)]).await;
     assert_eq!(rl_status(&state, "gkrl9").await, StatusCode::OK);
-    assert_eq!(rl_status(&state, "gkrl9").await, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(rl_status(&state, "gkrl9").await, StatusCode::TOO_MANY_REQUESTS);
 }
 
 /// 回归：没配 rate_limits 的平台不受影响。
@@ -6261,7 +6542,7 @@ fn oversize_chat_body() -> String {
     )
 }
 
-/// 筛选与 begin 同一估算：窗口已有占用时，估算超出剩余 TPM 的大请求在筛选阶段就被排除 → 503 + rate_limit
+/// 筛选与 begin 同一估算：窗口已有占用时，估算超出剩余 TPM 的大请求在筛选阶段就被排除 → 429 + rate_limit
 /// （旧：筛选估算 0 放行，begin 必败，末候选回无 blocked_reason 的通用 503）。
 #[tokio::test]
 async fn ratelimit_tpm_oversize_request_single_platform_503_rate_limit() {
@@ -6270,7 +6551,7 @@ async fn ratelimit_tpm_oversize_request_single_platform_503_rate_limit() {
     setup_multi_platform_group(&state, "gkrl11", &[("A", &up, r#"{"rate_limits":{"tpm":100}}"#)]).await;
     assert_eq!(rl_status(&state, "gkrl11").await, StatusCode::OK, "小请求占用窗口 (usage 8)");
     let r = handle_proxy(AxumState(state.clone()), messages_request("gkrl11", &oversize_chat_body())).await;
-    assert_eq!(r.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(r.status(), StatusCode::TOO_MANY_REQUESTS);
     let log = last_log_for(&state, "gkrl11").await;
     assert_eq!((log.blocked_by.as_str(), log.blocked_reason.as_str()), ("router", "rate_limit"));
 }
@@ -6284,11 +6565,11 @@ async fn ratelimit_tpm_oversize_request_equivalent_single_503_rate_limit() {
     set_platform_status(&state, "B", aidog_db::models::PlatformStatus::Disabled).await;
     assert_eq!(rl_status(&state, "gkrl12").await, StatusCode::OK);
     let r = handle_proxy(AxumState(state.clone()), messages_request("gkrl12", &oversize_chat_body())).await;
-    assert_eq!(r.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(r.status(), StatusCode::TOO_MANY_REQUESTS);
     assert_eq!(last_log_for(&state, "gkrl12").await.blocked_reason, "rate_limit");
 }
 
-/// aux（embedding / rerank / jev）同样占限频名额：rpm=1 → 第二个请求 503 + rate_limit（路由层整组限频同语义）。
+/// aux（embedding / rerank / jev）同样占限频名额：rpm=1 → 第二个请求 429 + rate_limit（路由层整组限频同语义）。
 #[tokio::test]
 async fn ratelimit_embedding_takes_slot_rpm1() {
     let (up, _hits) = spawn_embedding_upstream(vec![(200, EMB_RESPONSE), (200, EMB_RESPONSE)]).await;
@@ -6297,7 +6578,7 @@ async fn ratelimit_embedding_takes_slot_rpm1() {
     set_platform_extra(&state, "gkrl13-a", RPM1).await;
     let send = || handle_proxy(AxumState(state.clone()), embedding_request("gkrl13", EMB_REQ, "/v1/embeddings"));
     assert_eq!(send().await.status(), StatusCode::OK);
-    assert_eq!(send().await.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(send().await.status(), StatusCode::TOO_MANY_REQUESTS);
     let log = last_log_for(&state, "gkrl13").await;
     assert_eq!((log.blocked_by.as_str(), log.blocked_reason.as_str()), ("router", "rate_limit"));
 }
@@ -7062,11 +7343,11 @@ async fn mgmt_call_log_records_metadata_without_bodies() {
     let dump: String = state
         .db
         .call_read_proxy_log_traced(None, std::panic::Location::caller(), |conn| {
-            Ok(conn.query_row(
+            conn.query_row(
                 "SELECT group_concat(command || user_agent || source, '|') FROM api_call_log",
                 [],
                 |r| r.get::<_, String>(0),
-            )?)
+            )
         })
         .await
         .unwrap();
@@ -7863,7 +8144,7 @@ async fn set_all_day_rule(state: &Arc<ProxyState>, name: &str, models: serde_jso
 /// 时段内整组档里都没有 embedding / rerank → 503 + 对应 blocked_reason，且不打上游；
 /// 档里有值的平台照常用档值发往上游。
 #[tokio::test]
-async fn time_rule_without_embedding_or_rerank_503_and_with_uses_rule() {
+async fn time_rule_without_embedding_or_rerank_404_and_with_uses_rule() {
     let (db, _dir) = aidog_db::test_support::three_file_db().await;
     let state = make_state(db).await;
     let (up, hits) = spawn_embedding_upstream(vec![(200, EMB_RESPONSE)]).await;
@@ -7876,7 +8157,7 @@ async fn time_rule_without_embedding_or_rerank_503_and_with_uses_rule() {
         ("/v1/rerank", RR_REQ, "no_rerank_platform"),
     ] {
         let resp = handle_proxy(AxumState(state.clone()), embedding_request("gkt1", req, path)).await;
-        assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE, "{path}");
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND, "{path}");
         let log = last_log_for(&state, "gkt1").await;
         assert_eq!((log.blocked_by.as_str(), log.blocked_reason.as_str()), ("router", reason), "{path}");
     }
@@ -8074,4 +8355,195 @@ async fn round_guard_400_returns_directly() {
     let resp = chain_send(&state, "gkrd5", CHAIN_REQ).await;
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     assert_eq!(hits.lock().unwrap().len(), 1);
+}
+
+// ── 限频 / 暂时不可用的客户端状态码（用户 2026-11-14：限频 429、冷却 / 熔断 503、GLM 529 → 429）──
+
+/// 混合原因（限频 + 额度冷却 + 手动禁用）：有平台被限频挡掉 → 429 + blocked_reason='rate_limit'（原先落兜底 400）。
+#[tokio::test]
+async fn mixed_rate_limit_quota_cooldown_disabled_returns_429() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkmix1", &[("A", &up, RPM1), ("B", &up, ""), ("C", &up, "")]).await;
+    set_platform_status(&state, "B", aidog_db::models::PlatformStatus::Disabled).await;
+    let c = platform_id_of(&state, "C").await;
+    state.scheduler.set_quota_cooldown(c, aidog_db::now() + 600_000);
+    assert_eq!(rl_status(&state, "gkmix1").await, StatusCode::OK);
+    assert_eq!(rl_status(&state, "gkmix1").await, StatusCode::TOO_MANY_REQUESTS);
+    let log = last_log_for(&state, "gkmix1").await;
+    assert_eq!(log.status_code, 429);
+    assert_eq!(log.blocked_by, "router");
+    assert_eq!(log.blocked_reason, "rate_limit");
+}
+
+/// 上游 429 / 529 触发的限频冷却整组生效 → 429（原先落兜底 400）。
+#[tokio::test]
+async fn all_rate_limit_cooldown_returns_429() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkcd1", &[("A", &up, ""), ("B", &up, "")]).await;
+    for n in ["A", "B"] {
+        let id = platform_id_of(&state, n).await;
+        state.scheduler.set_rate_limit_cooldown(id, aidog_db::now(), Some(600_000));
+    }
+    assert_eq!(rl_status(&state, "gkcd1").await, StatusCode::TOO_MANY_REQUESTS);
+}
+
+/// 无限频、仅冷却 / 禁用混合的暂时不可用 → 503（原先兜底 400）。
+#[tokio::test]
+async fn transient_no_available_platform_returns_503() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkno1", &[("A", &up, ""), ("B", &up, ""), ("C", &up, "")]).await;
+    set_platform_status(&state, "C", aidog_db::models::PlatformStatus::Disabled).await;
+    for n in ["A", "B"] {
+        let id = platform_id_of(&state, n).await;
+        state.scheduler.set_quota_cooldown(id, aidog_db::now() + 600_000);
+    }
+    assert_eq!(rl_status(&state, "gkno1").await, StatusCode::SERVICE_UNAVAILABLE);
+}
+
+/// 候选耗尽终态：限频占位挡过 → 429，否则 503。
+#[test]
+fn exhausted_status_follows_rate_limit_mark() {
+    let mut log = ProxyLog::default();
+    assert_eq!(exhausted_status(&log), StatusCode::SERVICE_UNAVAILABLE);
+    mark_rate_limited(&mut log);
+    assert_eq!(exhausted_status(&log), StatusCode::TOO_MANY_REQUESTS);
+}
+
+/// GLM 家族上游 529 → 回客户端 429；尝试记录仍是上游原码 529。
+#[tokio::test]
+async fn glm_upstream_529_returned_as_429() {
+    let up = spawn_stub_upstream(529, r#"{"error":{"message":"overloaded"}}"#).await;
+    let state = make_state(test_db().await).await;
+    let pid = mk_platform_of(&state, Protocol::Glm, up).await;
+    group_of(&state, "gkglm529", &[pid]).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkglm529", HI)).await;
+    assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
+    let log = last_log_for(&state, "gkglm529").await;
+    assert_eq!(log.status_code, 429);
+    assert_eq!(log.attempts[0].status_code, 529);
+}
+
+/// 非 GLM 平台的 529 照旧透传。
+#[tokio::test]
+async fn non_glm_upstream_529_stays_529() {
+    let up = spawn_stub_upstream(529, r#"{"error":{"message":"overloaded"}}"#).await;
+    let state = make_state(test_db().await).await;
+    let pid = mk_platform_of(&state, Protocol::Anthropic, up).await;
+    group_of(&state, "gkan529", &[pid]).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkan529", HI)).await;
+    assert_eq!(resp.status().as_u16(), 529);
+}
+
+// ── 限频-429 r2：配置类路由失败选码 + 429 的 Retry-After ──
+
+fn retry_after_secs(resp: &Response) -> Option<u64> {
+    resp.headers().get("retry-after")?.to_str().ok()?.parse().ok()
+}
+
+/// 回归护栏 + 选码：各路由失败原因的状态码。
+#[test]
+fn route_fallback_status_per_reason() {
+    for (err, want) in [
+        ("group has no platforms", StatusCode::NOT_IMPLEMENTED),
+        ("group's only platform is manually disabled", StatusCode::SERVICE_UNAVAILABLE),
+        ("group's only platform is censorship-blocked", StatusCode::from_u16(451).unwrap()),
+        ("no_tools_platform", StatusCode::NOT_FOUND),
+        ("no available platform (all disabled, backing off, or circuit-broken)", StatusCode::SERVICE_UNAVAILABLE),
+        ("no_chat_platform", StatusCode::NOT_FOUND),
+        ("no_decision_platform", StatusCode::NOT_FOUND),
+    ] {
+        assert_eq!(route_fallback_status(err), want, "{err}");
+    }
+}
+
+#[tokio::test]
+async fn empty_group_returns_501() {
+    let state = make_state(test_db().await).await;
+    aidog_db::create_group(&state.db, aidog_db::test_support::sample_group("gkempty", vec![])).await.unwrap();
+    assert_eq!(rl_status(&state, "gkempty").await, StatusCode::NOT_IMPLEMENTED);
+}
+
+#[tokio::test]
+async fn single_manually_disabled_returns_503() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkdis1", &[("A", &up, "")]).await;
+    set_platform_status(&state, "A", aidog_db::models::PlatformStatus::Disabled).await;
+    assert_eq!(rl_status(&state, "gkdis1").await, StatusCode::SERVICE_UNAVAILABLE);
+}
+
+/// 回归护栏（旧码已绿）：白名单拦下一个、另一个限频 → 混合原因仍 429。
+#[tokio::test]
+async fn whitelist_mixed_with_ratelimit_stays_429() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkwlrl", &[("A", &up, WL_CC_EXTRA), ("B", &up, RPM1)]).await;
+    let send = || handle_proxy(AxumState(state.clone()), messages_request_ua("gkwlrl", Some("curl/8.4.0")));
+    assert_eq!(send().await.status(), StatusCode::OK);
+    assert_eq!(send().await.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(last_log_for(&state, "gkwlrl").await.blocked_reason, "rate_limit");
+}
+
+#[tokio::test]
+async fn ratelimit_429_carries_retry_after() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkra1", &[("A", &up, RPM1), ("B", &up, RPM1)]).await;
+    for _ in 0..2 {
+        assert_eq!(rl_status(&state, "gkra1").await, StatusCode::OK);
+    }
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkra1", None)).await;
+    assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
+    let secs = retry_after_secs(&resp).expect("Retry-After");
+    assert!((1..=61).contains(&secs), "{secs}");
+
+    // 单平台组同样带
+    setup_multi_platform_group(&state, "gkra2", &[("C", &up, RPM1)]).await;
+    assert_eq!(rl_status(&state, "gkra2").await, StatusCode::OK);
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkra2", None)).await;
+    assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert!(retry_after_secs(&resp).is_some_and(|s| (1..=61).contains(&s)));
+}
+
+/// 上游限频冷却挡掉整组 → 429，Retry-After 取冷却剩余秒数。
+#[tokio::test]
+async fn upstream_cooldown_429_carries_retry_after() {
+    let state = make_state(test_db().await).await;
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_multi_platform_group(&state, "gkra3", &[("A", &up, ""), ("B", &up, "")]).await;
+    for n in ["A", "B"] {
+        let pid = platform_id_of(&state, n).await;
+        state.scheduler.set_rate_limit_cooldown(pid, aidog_db::now(), Some(30_000));
+    }
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkra3", None)).await;
+    assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert!(retry_after_secs(&resp).is_some_and(|s| (29..=31).contains(&s)));
+}
+
+#[test]
+fn add_retry_after_rounds_up_and_only_on_429() {
+    let mut log = ProxyLog::default();
+    let mut snap = aidog_db::models::RoutingSnapshot::default();
+    snap.note_retry_at_ms(aidog_db::now() + 5_500);
+    log.routing = Some(snap);
+    let mut r = (StatusCode::TOO_MANY_REQUESTS, "x").into_response();
+    add_retry_after(&mut r, &log);
+    assert!(retry_after_secs(&r).is_some_and(|s| (5..=7).contains(&s)));
+    let mut r = (StatusCode::SERVICE_UNAVAILABLE, "x").into_response();
+    add_retry_after(&mut r, &log);
+    assert!(r.headers().get("retry-after").is_none());
+    // 已过期 → 最小 1
+    log.routing = Some(aidog_db::models::RoutingSnapshot::default());
+    log.routing.as_mut().unwrap().note_retry_at_ms(aidog_db::now() - 10_000);
+    let mut r = (StatusCode::TOO_MANY_REQUESTS, "x").into_response();
+    add_retry_after(&mut r, &log);
+    assert_eq!(retry_after_secs(&r), Some(1));
+    // 无已知时刻 → 不带
+    log.routing = None;
+    let mut r = (StatusCode::TOO_MANY_REQUESTS, "x").into_response();
+    add_retry_after(&mut r, &log);
+    assert!(r.headers().get("retry-after").is_none());
 }

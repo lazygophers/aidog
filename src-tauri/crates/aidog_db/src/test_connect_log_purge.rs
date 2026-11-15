@@ -26,7 +26,7 @@ async fn migration_purges_only_non_ai_connect_rows() {
     let ids: Vec<String> = db
         .call_read_proxy_log_traced(None, std::panic::Location::caller(), |c| {
             let mut s = c.prepare("SELECT id FROM proxy_log ORDER BY id")?;
-            Ok(s.query_map([], |r| r.get(0))?.collect::<Result<Vec<_>, _>>()?)
+            s.query_map([], |r| r.get(0))?.collect::<Result<Vec<_>, _>>()
         })
         .await
         .unwrap();

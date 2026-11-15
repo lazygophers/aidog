@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1794632081,
   "model_id": "MiniMaxAI/MiniMax-M3",
   "display_name": "MiniMax M3",
   "canonical_model": "MiniMax-M3",
@@ -11,6 +11,7 @@
   "max_input_tokens": 1000000,
   "context_window": 1000000,
   "official": false,
+  "thinking_supported": true,
   "supported_protocols": [
     "openai",
     "openai_responses"

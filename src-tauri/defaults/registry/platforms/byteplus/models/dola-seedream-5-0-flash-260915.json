@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "anthropic",
     "openai",
@@ -7,6 +7,7 @@
   ],
   "model_id": "dola-seedream-5-0-flash-260915",
   "display_name": "Dola-Seedream-5.0-Flash-260915",
+  "version": "5.0",
   "canonical_model": "dola-seedream-5-0-flash-260915",
   "family": "doubao-seedream",
   "capabilities": [
