@@ -110,8 +110,8 @@ pub fn convert_response(
     client_protocol: &Protocol,
     model: &str,
 ) -> Option<Value> {
-    // 同 wire family（wire == client 语义协议）→ 跳过 parse/render（避免不必要转换）
-    if wire_protocol.same_wire_family(client_protocol) {
+    // 只有响应形态完全相同才跳过转换。
+    if wire_protocol == client_protocol {
         return None;
     }
 
