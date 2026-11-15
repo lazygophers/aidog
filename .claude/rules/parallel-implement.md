@@ -189,6 +189,10 @@ mitm_bypass 测试读加密列断言明文——子集门禁全绿，合并到 m
   又派了一个验证代理，与仍在跑的 review agent 构成双提交竞态（同 worktree 两家都可能 commit），
   事后 TaskStop 重复方才收敛。催促不是新开代理的指令：先 ListAgents 核对在途，同任务只留一个
   收口方，收口 agent 还在跑就等它，不为催促新开重复代理。
+- **同一工作区同一时刻只派一个写 agent**（2026-11-15 依赖更新轮实锤）：两个 agent 同时进同一
+  worktree，一方 `git stash` 掉另一方在途脏改动，pop 撞车互相覆盖。派发前按工作区（主 checkout /
+  各 worktree）记归属账：一个工作区一个在途写入 agent；要并行就开新 worktree（shared-worktree.md
+  文首「有必要」三情形），不往同一工作区塞第二个。
 
 ## 9. 整体 revert 旧提交撤功能：逐 hunk 归属复核（2026-10-29 去抽屉轮）
 
@@ -350,12 +354,24 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
   下一步；禁挂后台再 idle 等通知——agent 自己就是等结果的人，没有别人会通知它。
 - 主会话侧：发现 implementer idle 且 `.tmp/<任务名>/gate.log` 已有 `GATE_CHAIN_DONE`，
   SendMessage 唤醒续做，不重派。
+- **主会话侧只读门禁优先主对话后台 Bash 自跑**（2026-11-15 依赖更新轮，用户结论「主对话自己跑
+  门禁全程比派 agent 跑门禁更稳」）：门禁是纯验证、红了也不由它修时，主对话直接后台 Bash 跑
+  （`cmd > .tmp/<任务名>/gate.log 2>&1; echo EXIT=$?`，等完成通知读日志），比派专职门禁 agent
+  少一层唤醒 / 回报链路，EXIT 与日志直接可读；门禁红需要改代码才派 implementer。这是对全局
+  「主对话只调度」的项目级收窄，仅限只读验证类命令。
 
-## 20. 本机 `HTTP_PROXY` 会让 aidog_kernel 的 search / media 测试假红（2026-11-09）
+## 20. 本机代理与 DNS：测试假红与下载失败两向对症（2026-11-09 / 2026-11-15 依赖更新轮）
 
-`cargo test --workspace` 在设了 `HTTP_PROXY` 的本机上，`aidog_kernel` search / media 共 4~5 个测试红，去掉代理变量后全绿（隐私票 01、MITM 票 01 两次实锤）。
+**测试方向**：`cargo test --workspace` 在设了 `HTTP_PROXY` 的本机上，`aidog_kernel` search / media 共 4~5 个测试红，去掉代理变量后全绿（隐私票 01、MITM 票 01 两次实锤）。
 门禁命令前缀 `env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy`，派发 prompt 照贴；
 `ratelimit_all_over_limit_503_and_audit_log` 全量跑偶发红、单跑绿，按 §17 先单跑定性，仍未归因的记账本遗留。
+
+**下载方向**（2026-11-15 依赖更新轮）：本机 DNS 反复故障、时好时坏，各工具对症药不同——
+yarn 不走 `HTTP_PROXY`（`registry.yarnpkg.com` 直连 ENOTFOUND，node/curl 实测），用
+`YARN_NPM_REGISTRY_SERVER=https://registry.npmjs.org` + 清代理；cargo `rsproxy.cn` 直连解析失败时
+配代理 `http://127.0.0.1:7890`；git push SSL 偶发失败就重试（`gh pr merge` 与 git push 链路不同，
+push 失败不等于 merge 不可做，核对义务见 pr-merge-discipline.md §4）。报「网络问题」前先说清
+哪个工具、哪个域名、哪种失败（ENOTFOUND / SSL / timeout），不笼统归因。
 
 ## 21. 「加功能」票派发前先审计存在性；外部协议字面量的来源分级（2026-11-09 网关提示头线）
 
@@ -410,6 +426,31 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
 - 门禁写 `cargo test --workspace --no-fail-fast > .tmp/<任务>/t.log 2>&1; echo EXIT=$?`，回报必须带 EXIT 值；只贴 `passed` 计数不算（本轮第三轮漏捕获）。
 - 跑到一半 `No space left on device`：先报主会话，不删 `target`（别的会话已整体清过一次）。
 
+## 28. 子 agent 保持单层；中断续做先核现场；收口前独立审查（2026-11-14 issue 64）
+
+issue 64 收口时，`resume-ui` 与 `fix-migration` 无视「直接亲自执行」提示又派子 agent，造成多层嵌套；429 限额中断后续做 agent 还需重查半成品；独立审查则发现迁移 spec 偏差并及时修正。
+
+- **被派出的 agent 自己完成获派工作**：不再调用 Agent 派子 agent。发现任务拆分或并行能省时，先把建议、依赖关系和当前现场回报主会话，由主会话决定是否另派。派发 prompt 写明「你是执行 agent；直接完成任务，不派生子 agent；需要拆分时回报主会话」。
+- **429 或会话中断后的续做先验现场**：接手 prompt 指明中断原因，并要求先核对工作区状态、diff、最后报错、未跟踪文件和既有门禁日志；逐 hunk 判断已完成内容与待办，再接着做。不得重写已有改动或沿用未经复核的旧门禁结论。回报已采信的改动、未完成项及重跑的验证输出。
+- **收口前安排独立审查**：实现与修复完成后、最终门禁和交付前，派独立审查 agent 对照原始需求 / spec 检查行为与边界；修完审查发现后再跑相关门禁。审查报告逐项标明依据和处置；「按 spec 属拍板设计」等不修项须有对应条款依据。
+
+
 ## 29. 长门禁被 harness 自动转后台：EXIT 只认日志文件（2026-11-14 request_log 拆表）
 
 `cargo test --workspace` 前台跑满约 180s 被 harness 自动转后台，agent 丢了 `EXIT=` 行。命令按 §15 写成 `cmd > .tmp/<任务>/x.log 2>&1; echo EXIT=$?`，并设 `timeout: 600000`；被转后台后从日志末行读 `EXIT=`（等 harness 完成通知，不轮询），日志无 `EXIT=` 行即「没跑完」。
+
+## 30. 更新派发指令须裁决冲突；门禁前台运行给出正面命令（2026-11-14 issue 157）
+
+issue 157 中主会话多次收窄、恢复收口 agent 的推送 / PR 范围，指令互相矛盾；实现 agent 也忽略「暂缓提交」，按仓库自动提交规则提交。实现 agent 还三次把编译或门禁挂后台后 idle 等通知，§19 的禁止项未阻止复发。
+
+- **更新派发范围时给出完整的新边界**：每条会覆盖先前派发内容的更新，都写明「以本条为准」、完整的当前允许动作与暂停动作；同时核对它是否与用户当轮明确授权、项目级授权冲突。明确写出冲突及裁决依据；无法确定时暂停冲突动作并回报主会话，不自行选择旧授权或新指令。
+- **用户明确暂停某动作时，执行 agent 立即暂停该动作**：包括仓库规则原本自动授权的提交、推送或建 PR。主会话更新授权后，才恢复该动作；不得把此前授权当作继续执行的依据。
+- **门禁前台同步执行**：派发 prompt 给出可直接采用的命令形态：`cmd > .tmp/<任务>/x.log 2>&1; echo EXIT=$?`，并设置足够长的 Bash timeout（如 `600000`）。agent 跑完后核对 EXIT 行；若 harness 自动转后台，按 §29 等完成通知并读日志，不另起轮询。
+
+## 31. 同会话多 agent 并行：锁等待、归属、临时目录、审计结论时效（2026-11-15 项目记忆提升轮）
+
+- **cargo 锁被占时等锁，不杀等待循环**：`/tmp/aidog-cargo.lock` 被他会话持有，issues agent 杀掉锁等待循环后无法重跑 flaky 测试。取锁用 shared-worktree.md「构建目录」节的 node 轮询脚本，等到为止；锁超过合理时长再按该节判据（无 cargo 进程）处理，不绕过锁直接跑 cargo，也不放弃重跑。
+- **脏文件归属先核对再下结论**：agent 把同会话兄弟 agent 的并行改动误称「别的会话的」。说归属前先对照主会话派发清单与 `git status --short`；清单内的 agent 改动属本会话，不当外来脏文件回避或上报。
+- **`.tmp/<任务名>/` 清理前核对在用者**：收尾 agent 删了 `.tmp/memory-promotion`，另一 agent 仍在用它放临时文件。收尾删目录前确认同任务全部 agent 已回报；多个 agent 共用任务名时，各用子目录 `.tmp/<任务名>/<agent名>/`，只删自己的。
+- **审计结论落笔前复核时效**：「某测试每次必红」类审计断言已过期，只被写入 agent 复跑才发现。引用审计结论写进 issue / 规则前，用当前 HEAD 跑一次对应命令（同 §26「前序数字先复核」）。
+- **zsh 变量后接 `:` 要加花括号**：`$B:src` 被当作 `:s` 修饰符展开，写 `${B}:src`（例：`git show "${B}:src/x.rs"`）。

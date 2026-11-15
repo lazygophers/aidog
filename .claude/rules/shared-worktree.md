@@ -167,6 +167,14 @@ perf-backend 收尾轮：PreToolUse hook 把 `git worktree add` 改写经 rtk �
   二进制被删，各会话各自持 `/tmp/aidog-cargo.lock` 独占重跑才拿到绿（锁手法见下节，仍有效）。
   **假红判据**：extern 丢失 / doctest E0463 / 二进制消失这类「不该红的红」，先怀疑并发重建，
   取锁独占重跑再归因，不在假红上改代码。
+- **锁只约束守约的会话，磁盘保护押容量不押锁**（2026-11-15 依赖更新轮实锤）：另一会话不经
+  `/tmp/aidog-cargo.lock` 直接跑 cargo，锁协议拦不住它；`.worktrees/.target` 全程靠「开跑前
+  `df -h <target>`，余量 <10G 不开跑 + 编译期间挂磁盘看门狗」挡住写满盘（<3G 自动停自己的构建
+  进程并回报，两度生效）。看门狗只停自己 pid 记录的进程，禁宽泛 pkill / 删共享缓存
+  （perf-testing.md §1、本文件「减少磁盘残留」节）。
+- **磁盘吃紧先压产物体积再编**（同轮实锤）：看门狗拦下的是带调试信息的构建撑满盘——大盘重编
+  （依赖升级全量重验）先用瘦身 profile（如 `CARGO_PROFILE_DEV_DEBUG=0`）验，产物小一个量级，
+  绿了再按需重出完整产物；复用已有 target 缓存（本轮 18G）能大幅减少新增写入。
 
 ## agent / detach worktree 复用单一 CARGO_TARGET_DIR（已废止 2026-11-05：目录改为上节；2026-10-22 立，2026-10-30 改）
 
@@ -335,6 +343,9 @@ PR 分支同此：**从 `origin/master` 开分支，不从本地 HEAD**（2026-1
 领先 origin 19 提交，从本地 HEAD 开的 PR 分支带 7 个他线未推送提交，直推会把它们借 PR 发上 origin）；
 单提交用 cherry-pick；push 前核 `git rev-list --count origin/master..<分支>`，只含本任务提交才推。
 全局 git-worktree.md「所有开发基于 origin/master」缺「push 前核提交数」这步，本条补齐（仅项目级）。
+2026-11-15 依赖更新轮复发同病：`git fetch` DNS 失败后改基于**本地** master 建分支，把主仓未推送提交带进
+PR（事后 rebase 修复）。fetch 失败不是回落本地 master 的许可——先修网络重试 fetch（对症药见
+parallel-implement.md §20 下载方向），fetch 不成不建分支、不开工。
 
 ## issue 开发：独立 worktree + PR（2026-11-15）
 
@@ -370,3 +381,11 @@ PR 分支同此：**从 `origin/master` 开分支，不从本地 HEAD**（2026-1
 网关提示头线：一个 agent 开工发现索引里已躺着 5 个文件，不知谁暂存的。
 
 - 开工与提交前各跑一次 `/usr/bin/git diff --cached --stat`；不是自己暂存的文件不 `reset`、不带进提交（提交用 `git commit -- <路径>` 或先 `git apply --cached` 只暂存自己的 hunk），回报写明文件清单与「来源不明」。
+
+## 在用 worktree 会被其他会话清理：阶段性 commit（2026-11-15 PR #159 修正轮）
+
+fix-159 agent 的 worktree `.worktrees/fix/char-second-est-cost` 与本地分支在任务中途被另一会话的「清理已合并工作区」agent 删除，未提交的全部工作丢失（远端分支完好，靠重放恢复）。清理方按「分支已合并/已推远端」判定可删，不会知道有 agent 正在做活——共享环境里 worktree 不是私有保险箱。
+
+- **worktree 内工作跨轮次存在（预计多轮、要等 review / 合并）时，阶段性成果尽早 commit 到 worktree 分支**：每完成一个可验证单元（编译过 + 相关测试绿）就 commit 一次；implementer 回报「完成」前的最后一步是 commit。项目 CLAUDE.md 自动 commit 授权覆盖 worktree 分支，push 禁令不变。
+- **清理 worktree 前核对在途**：`git -C <worktree> status --short` 非空（有未提交改动）或分支未合入 master 就不删，回报主会话裁决；清理由 AI 执行时同样适用，禁 `worktree remove --force` 硬闯脏 worktree。
+- **被删后恢复**：远端分支完好时 `git fetch origin && /usr/bin/git worktree add <路径> origin/<分支>` 重建，再重放丢失的未提交部分；本地分支还在时直接 `worktree add <路径> <分支>`。
