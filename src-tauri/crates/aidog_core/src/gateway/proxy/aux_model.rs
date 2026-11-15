@@ -1,5 +1,5 @@
 //! 辅助模型请求（`/v1/embeddings`、`/v1/rerank`）的共享转发骨架，仿 `decision.rs`：
-//! 解析 JSON → `select_candidates_ctx(spec.kind)` → 重试编排 → OpenAI 系 endpoint →
+//! 解析 JSON → `select_candidates_gated(spec.kind)` → 重试编排 → OpenAI 系 endpoint →
 //! `join_upstream_path(base_url, spec.api_path)` → 仅改写 `model` 为槽位值 → 转发 →
 //! 2xx 回写响应 `model` 为客户端原名 → 记账。不支持流式。
 //!

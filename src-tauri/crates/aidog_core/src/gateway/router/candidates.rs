@@ -410,27 +410,9 @@ async fn compute_health_order_keys(
     keys
 }
 
-/// 根据分组路由规则选择**有序候选平台列表**，用于失败逐个重试。
-///
-/// 排序：
-/// - Failover：按 priority 升序
-/// - LoadBalance：按权重加权随机决定首选，其余按权重降序排在后面（保证不同候选都能被试到）
-///
-/// 过滤：status==Enabled 优先纳入；auto_disabled 且已过退避试探时间的平台排在**末尾**惰性试探。
-/// 显式 model_mapping 命中时，映射目标平台排在候选首位（最高优先），其余候选作为 failover 后备。
-/// 无调度上下文重载（保持旧调用兼容，如测试 / 内部）：用默认（无熔断指标，仅 auto_disabled 过滤）。
-#[allow(dead_code)]
-pub async fn select_candidates(
-    db: &db::Db,
-    group: &Group,
-    source_model: &str,
-) -> Result<CandidateSet, RouteFail> {
-    select_candidates_ctx(db, group, source_model, None, RequestKind::Chat).await
-}
-
-/// 带调度上下文的候选选取。`ctx=None` 时退化为无熔断 / 无指标的旧行为（仅 auto_disabled 过滤）。
-/// `kind` 按请求类型过滤候选（jev-decision-proxy R2–R6；Tools 见 spec-独立搜索转发 语义 3）。
-pub async fn select_candidates_ctx(
+/// 测试专用候选选取入口：保留无客户端白名单闸门的测试调用形状。
+#[cfg(test)]
+pub async fn select_candidates_for_test(
     db: &db::Db,
     group: &Group,
     source_model: &str,
@@ -440,7 +422,7 @@ pub async fn select_candidates_ctx(
     select_candidates_gated(db, group, source_model, ctx, kind, ClientGate::Off).await
 }
 
-/// [`select_candidates_ctx`] + 客户端白名单闸门（普通过滤 / 单平台 / 直通链 / 透传均受约束）。
+/// 带客户端白名单闸门的候选选取（普通过滤 / 单平台 / 直通链 / 透传均受约束）。
 pub async fn select_candidates_gated(
     db: &db::Db,
     group: &Group,
