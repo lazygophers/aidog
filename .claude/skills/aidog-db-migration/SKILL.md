@@ -93,6 +93,8 @@ CREATE INDEX IF NOT EXISTS idx_foo_name ON foo(name);
 
 仍用 NNN 编号，SQL 是 `UPDATE ... WHERE ...`。带幂等守（`WHERE NOT EXISTS` / `WHERE col = ''`）。
 
+**启动期迁移每次启动都会跑**（`init_tables` 无版本表）：对 proxy_log 等 GB 级表做全表 UPDATE/DELETE，每次启动数秒到数十秒（2026-11-15：6.5 GB log.db 启动慢，226a6581c）。一次性的数据迁移包进 `schema_late.rs::run_once(conn, "<日期-序号-名>", |c| ..)`，由 `migration_done` 表记账只跑一次；谓词用不上偏索引的语句必须如此。
+
 ---
 
 ## 3. 执行机制
@@ -150,6 +152,7 @@ cd src-tauri && cargo test                         # db.rs 有 #[test]
 7. ❌ rebuild 表 INSERT SELECT 不过滤软删行 —— 历史 `deleted_at` 行撞新 UNIQUE。
 8. ❌ 只改 SQL 不改 db.rs/models.rs/api.ts —— 全链失配运行时炸。
 9. ❌ 为让缺列的老测试夹具过关，把 migration 改成吞错（warn 后继续）—— 真实库的迁移失败会被静默掩盖。保持失败即报错，只在前置列确实不存在时显式 skip，并补测试夹具（2026-11-14 request_log 拆表：implementer 吞错、主会话改回严格失败 + 缺列才 skip）。
+10. ❌ 在启动路径直接写无 `run_once` 门控的大表 UPDATE/DELETE —— 每次启动全表扫描（见 D 节）。
 
 ## 相关
 
