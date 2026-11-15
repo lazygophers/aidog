@@ -230,17 +230,36 @@ async fn forward_attempt_model(
     // 替换模型名
     chat_req.model = actual_model.clone();
 
+    // 票 10：预取两处出站整形读库进 OutboundCtx（M4「单入口 shape(body)」落选形状的前置：
+    // 读库进 ctx 后整形链可再收成纯函数单入口）。上限按 (平台协议裸名, 实际请求模型) 查
+    // model_entry —— 同一模型在不同平台上限可不同。
+    let model_max = aidog_db::model_max_output_tokens(
+        &state.db,
+        &route.platform.platform_type.wire_str(),
+        &actual_model,
+    )
+    .await
+    .ok()
+    .flatten();
+    let model_forces_thinking = model_forces_thinking(
+        &state.db,
+        &route.platform.platform_type.wire_str(),
+        &actual_model,
+    )
+    .await;
 
-    let Prepared { mut req_body, url } = match prepare_outbound(
+    let Prepared { mut req_body, url } = match prepare_outbound(OutboundCtx {
         state,
         group,
-        &route,
+        route: &route,
         log,
         chat_req,
         req_value,
-        &mut header_injects,
-        &target,
-        actual_model.clone(),
+        header_injects: &mut header_injects,
+        target: &target,
+        actual_model: actual_model.clone(),
+        model_max,
+        model_forces_thinking,
         is_stream,
         lang,
         log_settings,
@@ -249,7 +268,7 @@ async fn forward_attempt_model(
         attempt_start,
         attempt_ts,
         disable_thinking,
-    )
+    })
         .await
         {
             Ok(v) => v,
@@ -849,39 +868,58 @@ struct Prepared {
     url: String,
 }
 
-#[allow(clippy::too_many_arguments, clippy::result_large_err)]
-async fn prepare_outbound(
-    state: &Arc<ProxyState>,
-    group: &Group,
-    route: &RouteResult,
-    log: &mut ProxyLog,
-    chat_req: &mut ChatRequest,
-    req_value: &Value,
-    header_injects: &mut Vec<(String, String)>,
-    target: &TargetSel<'_>,
+/// 阶段 2（prepare_outbound）的入参聚合（票 10，参照 NonSuccessCtx 先例）：
+/// 17 个散参收成一个结构。`model_max` / `model_forces_thinking` 由调用方预取
+/// （spec M4「单入口 shape(body)」落选形状的前置：读库进 ctx 后，整形链可再收纯函数单入口）。
+struct OutboundCtx<'a> {
+    state: &'a Arc<ProxyState>,
+    group: &'a Group,
+    route: &'a RouteResult,
+    log: &'a mut ProxyLog,
+    chat_req: &'a mut ChatRequest,
+    req_value: &'a Value,
+    header_injects: &'a mut Vec<(String, String)>,
+    target: &'a TargetSel<'a>,
     actual_model: String,
+    model_max: Option<i64>,
+    model_forces_thinking: bool,
     is_stream: bool,
     lang: Lang,
-    log_settings: &ProxyLogSettings,
+    log_settings: &'a ProxyLogSettings,
     start: std::time::Instant,
-    attempts: &mut Vec<ProxyAttempt>,
+    attempts: &'a mut Vec<ProxyAttempt>,
     attempt_start: std::time::Instant,
     attempt_ts: i64,
     disable_thinking: bool,
-) -> Result<Prepared, StageExit> {
+}
+
+#[allow(clippy::result_large_err)]
+async fn prepare_outbound(ctx: OutboundCtx<'_>) -> Result<Prepared, StageExit> {
+    let OutboundCtx {
+        state,
+        group,
+        route,
+        log,
+        chat_req,
+        req_value,
+        header_injects,
+        target,
+        actual_model,
+        model_max,
+        model_forces_thinking,
+        is_stream,
+        lang,
+        log_settings,
+        start,
+        attempts,
+        attempt_start,
+        attempt_ts,
+        disable_thinking,
+    } = ctx;
     // ── max_tokens 出站裁剪（convert_request 前）──
     // 客户端 max_tokens 超过选定模型上限时裁剪到上限；未传 / 模型无上限则不动（Q3 保守）。
     // 此处裁 chat_req（转换分支的入参，同时是 token 估算口径）；出站 body 上的同上限复裁
     // 见下方 `cap_body_max_tokens` 调用点（透传分支唯一生效处）。
-    // 上限按 (平台协议裸名, 实际请求模型) 查 model_entry —— 同一模型在不同平台上限可不同。
-    let model_max = aidog_db::model_max_output_tokens(
-        &state.db,
-        &route.platform.platform_type.wire_str(),
-        &actual_model,
-    )
-    .await
-    .ok()
-    .flatten();
     // 票 11：转换分支在这里就把 chat_req 裁到位，下方 body 层的 `cap_body_max_tokens` 因此
     // 是幂等复裁、不再命中 → 留痕会漏掉整条转换路径。故在此处记住「裁过」，与 body 层的留痕合并。
     let mut capped_on_chat_req = false;
@@ -1103,8 +1141,8 @@ async fn prepare_outbound(
     // MiniMax-M2 等内置思考模型上游仍无法真正禁用，响应不剥离。
     //
     // 强制思考模型（registry `thinking_toggleable: false`，MiniMax-M3.1-Flash 实证 400 code 2013
-    // "requires adaptive thinking"）：显式禁用参数一个都不写出站。仅当请求带显式禁用才查
-    // registry（多数请求零额外 DB 读）。
+    // "requires adaptive thinking"）：显式禁用参数一个都不写出站。票 10 起该 registry 读由
+    // 调用方预取进 OutboundCtx（M4 单入口前置），不再按需读。
     let explicit_disable = disable_thinking
         || req_body
             .get("thinking")
@@ -1117,13 +1155,7 @@ async fn prepare_outbound(
             .and_then(|r| r.get("effort"))
             .and_then(Value::as_str)
             == Some("none");
-    let forced_thinking = explicit_disable
-        && model_forces_thinking(
-            &state.db,
-            &route.platform.platform_type.wire_str(),
-            &actual_model,
-        )
-        .await;
+    let forced_thinking = explicit_disable && model_forces_thinking;
     apply_disable_thinking(
         &mut req_body,
         disable_thinking,

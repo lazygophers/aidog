@@ -8450,3 +8450,205 @@ async fn exhausted_503_lock_aux_and_chat() {
     assert_eq!(log.status_code, 500);
     assert!(!log.attempts.is_empty());
 }
+
+// ──────────────────────────────────────────────────────────────
+// 票 10：出站整形顺序不变量（max_tokens cap 留痕不丢不重 / disable_thinking × 字段兜底透传终态）
+// ──────────────────────────────────────────────────────────────
+
+/// 注册一个 OpenAI 平台（endpoint 协议 openai，base_url=stub）+ group 关联。
+async fn setup_openai_group(state: &Arc<ProxyState>, gk: &str, base_url: &str) {
+    use crate::gateway::models::PlatformEndpoint;
+    let plat = aidog_db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: "oi".into(),
+            platform_type: Protocol::OpenAI,
+            base_url: base_url.to_string(),
+            api_key: "sk-oi".into(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: Some(vec![PlatformEndpoint {
+                protocol: Protocol::OpenAI,
+                base_url: base_url.to_string(),
+                client_type: "default".to_string(),
+                coding_plan: false,
+            }]),
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .unwrap();
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: plat.id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+}
+
+/// 落一条 model_entry：`max_output_tokens = 4096`（cap 顺序锁的上限口径）。
+async fn seed_model_cap(db: &aidog_db::Db, model: &str) {
+    aidog_db::upsert_model_entries(
+        db,
+        vec![aidog_db::models::ModelEntry {
+            platform_code: "openai".to_string(),
+            model_id: model.to_string(),
+            display_name: String::new(),
+            canonical_model: model.to_string(),
+            family: String::new(),
+            version: String::new(),
+            predecessor: String::new(),
+            capabilities: vec![],
+            builtin_tools_excluded: vec![],
+            max_input_tokens: None,
+            max_output_tokens: Some(4096),
+            context_window: None,
+            official: true,
+            price_data: "{}".to_string(),
+            updated_at: 0,
+        }],
+    )
+    .await
+    .unwrap();
+}
+
+/// (a) 转换分支：anthropic 入站 → openai 平台（convert_request），客户端 max_tokens 超模型上限
+/// → chat_req 层裁剪生效、body 层幂等复裁不再命中 → field_trace 恰一条 `cap:max_tokens`
+/// （不丢不重），出站 body 的 max_tokens 裁到模型上限。
+#[tokio::test]
+async fn max_tokens_cap_converter_branch_traces_once() {
+    let (upstream, rec) = spawn_recording_upstream(OPENAI_OK_MIN).await;
+    let state = make_state(test_db().await).await;
+    setup_openai_group(&state, "gkcap1", &upstream).await;
+    seed_model_cap(&state.db, "m-cap").await;
+    set_log_settings(&state, ProxyLogSettings {
+        log_upstream_request: true,
+        ..Default::default()
+    }).await;
+
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/messages")
+        .header("authorization", "Bearer gkcap1")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"model":"m-cap","max_tokens":100000,"messages":[{"role":"user","content":"hi"}]}"#
+                .to_string(),
+        ))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let captured = rec.lock().unwrap().clone();
+    assert_eq!(captured.len(), 1, "上游应恰收到一次请求: {captured:?}");
+    let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+    assert_eq!(
+        sent["max_tokens"], serde_json::json!(4096),
+        "转换分支出站 max_tokens 应裁到模型上限: {sent}"
+    );
+
+    let log = last_log_for(&state, "gkcap1").await;
+    assert_eq!(
+        log.field_trace.matches("cap:max_tokens").count(),
+        1,
+        "cap 留痕恰一条（不丢不重）: {:?}",
+        log.field_trace
+    );
+}
+
+/// (a) 透传分支：openai 入站 → openai 平台（same-protocol passthrough），chat_req 层裁剪不适用
+/// （透传不走 convert_request），body 层 cap 是唯一生效点 → field_trace 恰一条 `cap:max_tokens`，
+/// 出站 body 的 max_tokens 裁到模型上限。
+#[tokio::test]
+async fn max_tokens_cap_passthrough_branch_traces_once() {
+    let (upstream, rec) = spawn_recording_upstream(OPENAI_OK_MIN).await;
+    let state = make_state(test_db().await).await;
+    setup_openai_group(&state, "gkcap2", &upstream).await;
+    seed_model_cap(&state.db, "m-cap").await;
+    set_log_settings(&state, ProxyLogSettings {
+        log_upstream_request: true,
+        ..Default::default()
+    }).await;
+
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/chat/completions")
+        .header("authorization", "Bearer gkcap2")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"model":"m-cap","max_tokens":100000,"messages":[{"role":"user","content":"hi"}]}"#
+                .to_string(),
+        ))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let captured = rec.lock().unwrap().clone();
+    assert_eq!(captured.len(), 1, "上游应恰收到一次请求: {captured:?}");
+    let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+    assert_eq!(
+        sent["max_tokens"], serde_json::json!(4096),
+        "透传分支出站 max_tokens 应裁到模型上限: {sent}"
+    );
+
+    let log = last_log_for(&state, "gkcap2").await;
+    assert_eq!(
+        log.field_trace.matches("cap:max_tokens").count(),
+        1,
+        "cap 留痕恰一条（不丢不重）: {:?}",
+        log.field_trace
+    );
+}
+
+/// (b) disable_thinking 与字段兜底透传同时命中的 body 终态（顺序锁）：
+/// 本地扩展字段 `disable_thinking` 必剥除、按目标协议写出显式禁用参数（anthropic →
+/// `thinking.type=disabled`）；未建模顶层字段 `top_k` 照常透传出站。
+#[tokio::test]
+async fn disable_thinking_and_field_passthrough_body_end_state() {
+    let (upstream, rec) = spawn_recording_upstream(ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkdt", &upstream).await;
+
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/messages")
+        .header("authorization", "Bearer gkdt")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}],"disable_thinking":true,"top_k":5}"#
+                .to_string(),
+        ))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let captured = rec.lock().unwrap().clone();
+    assert_eq!(captured.len(), 1, "上游应恰收到一次请求: {captured:?}");
+    let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+    assert!(
+        sent.get("disable_thinking").is_none(),
+        "本地扩展字段必剥除: {sent}"
+    );
+    assert_eq!(
+        sent["thinking"]["type"], "disabled",
+        "禁用按目标协议写出显式参数: {sent}"
+    );
+    assert_eq!(
+        sent["top_k"], serde_json::json!(5),
+        "未建模字段兜底透传出站: {sent}"
+    );
+}
