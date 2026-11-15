@@ -143,7 +143,7 @@ pub(crate) async fn handle_aux_model(
     let mut attempt_loop = AttemptLoop::new(group.max_retries, spec.kind, &requested_model, client, candidates);
     let mut attempts: Vec<ProxyAttempt> = Vec::new();
     // 平台限频占位跨调用保存：同平台连续调用复用（平台级只占一次），换平台时释放上一个。
-    let mut rate_slot: Option<(u64, Option<Arc<crate::gateway::rate_limit::Access>>)> = None;
+    let mut rate_slot = RateSlot::default();
 
     let (system_timeout, proxy_client) = {
         let c = state.settings_cache.read().await;
@@ -167,65 +167,24 @@ pub(crate) async fn handle_aux_model(
 
         // 平台限频占位（与 forward_attempt 同口径）：begin 占平台级，enter_model 占模型级；
         // 占位失败不发请求（不计次数）：平台级排除整个平台，模型级只排除该组合。
-        if log.blocked_reason == "rate_limit" {
-            log.blocked_by.clear();
-            log.blocked_reason.clear();
-        }
-        let rl_cfg = crate::gateway::rate_limit::RateLimitsCfg::parse(&route.platform.extra);
-        let rl_est = if rl_cfg.has_tpm() { estimate_input_tokens(&req_value, &requested_model) } else { 0 };
-        if rate_slot.as_ref().map(|(pid, _)| *pid) != Some(route.platform.id) {
-            rate_slot = None; // 释放上一平台的占位
-            let access = if rl_cfg.is_empty() {
-                None
-            } else {
-                let now = aidog_db::now();
-                match state.scheduler.rate.begin(
-                    route.platform.id,
-                    &rl_cfg.platform_limits(now),
-                    now,
-                    rl_est,
-                ) {
-                    Some(a) => Some(a),
-                    None => {
-                        tracing::warn!(platform = %route.platform.name, kind = spec.label, "rate limit reached at acquire, skipping candidate");
-                        attempts.push(ProxyAttempt {
-                            kind: Some("rate_limit_platform".to_string()),
-                            chain_stop: pick.model_alt.then(|| "rate_limit".to_string()),
-                            platform_id: route.platform.id,
-                            platform_name: route.platform.name.clone(),
-                            error: "platform rate limit reached".to_string(),
-                            ts: attempt_ts,
-                            model: Some(route.target_model.clone()),
-                            exclusion: Some(ExcludeScope::Platform),
-                            ..Default::default()
-                        });
-                        mark_rate_limited(log);
-                        attempt_loop.failed(&mut attempts, false);
-                        continue;
-                    }
-                }
-            };
-            rate_slot = Some((route.platform.id, access));
-        }
-        if let Some((_, Some(a))) = &rate_slot {
-            let model = route.target_model.clone();
-            if !a.enter_model(&model, &rl_cfg.model_limits(&model, aidog_db::now()), aidog_db::now(), rl_est) {
-                tracing::warn!(model = %model, kind = spec.label, "model-level rate limit reached, excluding pair");
-                attempts.push(ProxyAttempt {
-                    kind: Some("rate_limit_model".to_string()),
-                    platform_id: route.platform.id,
-                    platform_name: route.platform.name.clone(),
-                    error: "model rate limit reached".to_string(),
-                    ts: attempt_ts,
-                    model: Some(model),
-                    exclusion: Some(ExcludeScope::Pair),
-                    ..Default::default()
-                });
-                mark_rate_limited(log);
+        let _access = match rate_slot.enter(
+            state,
+            log,
+            &mut attempts,
+            RateSlotCtx {
+                route: &route,
+                requested_model: &requested_model,
+                req_value: &req_value,
+                model_alt: pick.model_alt,
+                label: spec.label,
+            },
+        ) {
+            Ok(access) => access,
+            Err(()) => {
                 attempt_loop.failed(&mut attempts, false);
                 continue;
             }
-        }
+        };
         let capped = attempt_loop.begin_call(log, &attempts, route.platform.id);
         let scope = super::call_scope::CallScope {
             state,
@@ -252,23 +211,7 @@ pub(crate) async fn handle_aux_model(
         }
     }
 
-    // 候选耗尽且循环内未 return（同 decision.rs / handler.rs 兜底，理论不可达）。
-    log.status_code = 503;
-    log.done = true;
-    let err_body = format!(
-        "{}: all candidates exhausted",
-        i18n::t(lang, ErrorKey::Upstream)
-    );
-    log.response_body = "all candidates exhausted".to_string();
-    log.user_response_body = err_body.clone();
-    log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
-    log.duration_ms = start.elapsed().as_millis() as i32;
-    log.retry_count = aidog_db::models::retry_count_of(&attempts);
-    log.attempts = std::mem::take(&mut attempts);
-    upsert_log(state, log, log_settings).await;
-    let mut r = (StatusCode::SERVICE_UNAVAILABLE, err_body).into_response();
-    inject_trace_header(&mut r);
-    r
+    AttemptLoop::exhausted(state, log, &mut attempts, start, log_settings, lang).await
 }
 
 /// 单候选尝试（endpoint 选择 → 建请求 → 发送 → 非 2xx 沿用 handle_non_success → 2xx 记账终态）。

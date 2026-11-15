@@ -8386,3 +8386,67 @@ async fn lock_aux_decision_success_resets_state() {
         assert!(state.scheduler.latency_ema(p1).unwrap_or(0.0) > 0.0, "{kind:?}: 成功记延迟 EMA");
     }
 }
+
+
+// ══ issue 55 票 05：终态 503 行为锁定 ══
+
+/// 次数/轮数用尽 → 统一 503："all candidates exhausted"、attempts 留痕、retry_count 与
+/// attempts 一致。限频占位只有聊天与 aux（embedding / rerank）持有（decision / tools
+/// 有意豁免，票 06 范围），故 503 终态 E2E 仅此三类可达；decision 实测终态 500、
+/// tools 实测终态 502，见下方回归与 exhausted 单元测试。
+/// 触发器：单平台 concurrency=1，首个 500 后名额仍被 Access 持有，重排被限频挡下，
+/// 占位失败不计次数、轮数耗尽 → AttemptLoop 走到统一终态。
+#[tokio::test]
+async fn exhausted_503_lock_aux_and_chat() {
+    for kind in [AuxKind::Emb, AuxKind::Rerank] {
+        let up = spawn_stub_upstream(500, E500_PLAIN).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkt05{}", kind as u8);
+        setup_aux_chain(&state, &gk, kind, &[(&up, &["m-a"])]).await;
+        let pid = platform_id_of(&state, &format!("{gk}-pa")).await;
+        aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
+            id: pid, name: None, platform_type: None, base_url: None, api_key: None,
+            extra: Some(r#"{"rate_limits":{"concurrency":1}}"#.into()),
+            models: None, available_models: None, endpoints: None, enabled: None, status: None,
+            manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
+        }).await.unwrap();
+        state.db.invalidate_group_details_cache();
+        set_group_max_attempts(&state, &gk, 3).await;
+
+        let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
+        assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE, "{kind:?}");
+        let body = axum::body::to_bytes(resp.into_body(), 4096).await.unwrap();
+        assert!(String::from_utf8_lossy(&body).contains("all candidates exhausted"), "{kind:?}");
+        let log = last_log_for(&state, &gk).await;
+        assert_eq!(log.status_code, 503, "{kind:?}");
+        assert!(!log.attempts.is_empty(), "{kind:?}: attempts 留痕");
+        assert_eq!(log.retry_count, aidog_db::models::retry_count_of(&log.attempts), "{kind:?}");
+    }
+
+    // 聊天：同样的单平台并发占位形态 → 统一 503。
+    let up = spawn_stub_upstream(500, E500_PLAIN).await;
+    let state = make_state(test_db().await).await;
+    setup_multi_platform_group(&state, "gkt05c", &[("A", &up, r#"{"rate_limits":{"concurrency":1}}"#)]).await;
+    set_group_max_attempts(&state, "gkt05c", 3).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkt05c", None)).await;
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let body = axum::body::to_bytes(resp.into_body(), 4096).await.unwrap();
+    assert!(String::from_utf8_lossy(&body).contains("all candidates exhausted"));
+    let log = last_log_for(&state, "gkt05c").await;
+    assert_eq!(log.status_code, 503);
+    assert!(!log.attempts.is_empty());
+    assert_eq!(log.retry_count, aidog_db::models::retry_count_of(&log.attempts));
+
+    // decision 无限频占位（票 06 豁免）：单平台 500 上游 → 末次原样回传 500（真实行为回归，
+    // 不落 503 终态；此为实测锁定，不是本次改动引入）。
+    let up = spawn_stub_upstream(500, E500_PLAIN).await;
+    let state = make_state(test_db().await).await;
+    let gk = "gkt05jev";
+    setup_aux_chain(&state, gk, AuxKind::Jev, &[(&up, &["m-a"])]).await;
+    set_group_max_attempts(&state, gk, 3).await;
+    let resp = handle_proxy(AxumState(state.clone()), AuxKind::Jev.request(gk)).await;
+    assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR, "decision 500 终态（实测行为）");
+    let log = last_log_for(&state, gk).await;
+    assert_eq!(log.status_code, 500);
+    assert!(!log.attempts.is_empty());
+}
