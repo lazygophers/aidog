@@ -824,7 +824,7 @@ pub(crate) async fn handle_proxy_core(
     // 重排按客户端请求的模型名（forward 会把 chat_req.model 改写成上游目标模型）。
     let mut attempt_loop =
         attempt_plan::AttemptLoop::new(group.max_retries, RequestKind::Chat, &requested_model, client_gate.clone(), candidates);
-    let mut rate_slot = None;
+    let mut rate_slot = RateSlot::default();
 
     // 最大尝试次数用尽（换平台与同平台换模型的上游调用都计）/ 无组合可选 → 退出循环落 503
     let web_tool = super::web_takeover::detect(&req_value).filter(|_| matches!(source_protocol, Protocol::Anthropic));
@@ -866,24 +866,7 @@ pub(crate) async fn handle_proxy_core(
         }
     } // ── end attempt loop ──
 
-    // 候选耗尽 / 最大尝试次数用尽且未在循环内 return（理论不可达：循环内每条路径均 return 或 continue，
-    // 仅 budget.exhausted() 的 break 会落到这里）。返回 503 + 已记录的 attempts。
-    log.status_code = 503;
-    log.done = true;
-    let err_body = format!(
-        "{}: all candidates exhausted",
-        i18n::t(lang, ErrorKey::Upstream)
-    );
-    log.response_body = "all candidates exhausted".to_string();
-    log.user_response_body = err_body.clone();
-    log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
-    log.duration_ms = start.elapsed().as_millis() as i32;
-    log.retry_count = aidog_db::models::retry_count_of(&attempts);
-    log.attempts = std::mem::take(&mut attempts);
-    upsert_log(&state, &log, &log_settings).await;
-    let mut r = (StatusCode::SERVICE_UNAVAILABLE, err_body).into_response();
-    inject_trace_header(&mut r);
-    r
+    attempt_plan::AttemptLoop::exhausted(&state, &mut log, &mut attempts, start, &log_settings, lang).await
 }
 
 /// 路由失败快照：补上路由耗时（路由画布 01）。

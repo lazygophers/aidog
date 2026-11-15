@@ -107,23 +107,7 @@ pub(crate) async fn handle_tools(
         }
     }
 
-    // 候选耗尽且循环内未 return（同 decision.rs 兜底，理论不可达）。
-    log.status_code = 503;
-    log.done = true;
-    let err_body = format!(
-        "{}: all candidates exhausted",
-        i18n::t(lang, ErrorKey::Upstream)
-    );
-    log.response_body = "all candidates exhausted".to_string();
-    log.user_response_body = err_body.clone();
-    log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
-    log.duration_ms = start.elapsed().as_millis() as i32;
-    log.retry_count = aidog_db::models::retry_count_of(&attempts);
-    log.attempts = std::mem::take(&mut attempts);
-    upsert_log(state, log, log_settings).await;
-    let mut r = (StatusCode::SERVICE_UNAVAILABLE, err_body).into_response();
-    inject_trace_header(&mut r);
-    r
+    super::attempt_plan::AttemptLoop::exhausted(state, log, &mut attempts, start, log_settings, lang).await
 }
 
 /// strict 成功判定（语义 7 + 逐平台表）：HTTP 200 **且**响应体含结果字段才算成功、计 1 次；

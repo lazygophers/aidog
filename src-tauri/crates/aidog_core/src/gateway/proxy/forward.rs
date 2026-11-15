@@ -41,7 +41,7 @@ pub(crate) async fn forward_attempt(
     candidate_total: usize,
     is_last_candidate: bool,
     budget: &mut CallBudget,
-    rate_slot: &mut Option<(u64, Option<Arc<crate::gateway::rate_limit::Access>>)>,
+    rate_slot: &mut RateSlot,
     log_settings: &ProxyLogSettings,
     lang: Lang,
     group: &Group,
@@ -59,71 +59,21 @@ pub(crate) async fn forward_attempt(
     let attempt_ts = aidog_db::now();
     // 平台限频（extra.rate_limits）：一次访问平台级只占一次；候选筛选后仍可能被并发抢占，
     // 占位失败按「该平台不可用」排除。模型级在每个模型开始前重判。
-    let rl_cfg = crate::gateway::rate_limit::RateLimitsCfg::parse(&route.platform.extra);
-    // 上一次调用的限频标记不带进本次；只有最后一次失败仍是限频，才以 blocked_reason='rate_limit' 落库。
-    if log.blocked_reason == "rate_limit" {
-        log.blocked_by.clear();
-        log.blocked_reason.clear();
-    }
-    let rl_est = if rl_cfg.has_tpm() {
-        super::count_tokens::estimate_input_tokens(req_value, requested_model)
-    } else {
-        0
+    let access = match rate_slot.enter(
+        state,
+        log,
+        attempts,
+        RateSlotCtx {
+            route: &route,
+            requested_model,
+            req_value,
+            model_alt,
+            label: "chat",
+        },
+    ) {
+        Ok(access) => access,
+        Err(()) => return AttemptOutcome::Next { connect_failed: false },
     };
-    if rate_slot.as_ref().map(|(pid, _)| *pid) != Some(route.platform.id) {
-        *rate_slot = None; // 释放上一平台的占位
-        let access = if rl_cfg.is_empty() {
-            None
-        } else {
-            let now = aidog_db::now();
-            match state.scheduler.rate.begin(
-                route.platform.id,
-                &rl_cfg.platform_limits(now),
-                now,
-                rl_est,
-            ) {
-                Some(a) => Some(a),
-                None => {
-                    tracing::warn!(platform = %route.platform.name, "rate limit reached at acquire, skipping candidate");
-                    attempts.push(ProxyAttempt {
-                        kind: Some("rate_limit_platform".to_string()),
-                        // 整个平台都没轮到：平台上还有模型时记终止原因，画布给它们标「跳过」
-                        chain_stop: model_alt.then(|| "rate_limit".to_string()),
-                        platform_id: route.platform.id,
-                        platform_name: route.platform.name.clone(),
-                        error: "platform rate limit reached".to_string(),
-                        ts: attempt_ts,
-                        model: Some(route.target_model.clone()),
-                        exclusion: Some(ExcludeScope::Platform),
-                        ..Default::default()
-                    });
-                    mark_rate_limited(log);
-                    return AttemptOutcome::Next { connect_failed: false };
-                }
-            }
-        };
-        *rate_slot = Some((route.platform.id, access));
-    }
-    let access: Option<Arc<crate::gateway::rate_limit::Access>> = rate_slot.as_ref().and_then(|(_, a)| a.clone());
-    if let Some(a) = &access {
-        let model = route.target_model.clone();
-        let now = aidog_db::now();
-        if !a.enter_model(&model, &rl_cfg.model_limits(&model, now), now, rl_est) {
-            tracing::warn!(model = %model, "model-level rate limit reached, excluding pair");
-            attempts.push(ProxyAttempt {
-                kind: Some("rate_limit_model".to_string()),
-                platform_id: route.platform.id,
-                platform_name: route.platform.name.clone(),
-                error: "model rate limit reached".to_string(),
-                ts: attempt_ts,
-                model: Some(model),
-                exclusion: Some(ExcludeScope::Pair),
-                ..Default::default()
-            });
-            mark_rate_limited(log);
-            return AttemptOutcome::Next { connect_failed: false };
-        }
-    }
     let tried: Vec<u64> = attempts.iter().map(|a| a.platform_id).chain([route.platform.id]).collect();
     let capped = budget.begin_call_untried(log, &tried);
     let mut switched = false;
@@ -159,12 +109,6 @@ pub(crate) async fn forward_attempt(
         }
         (out, _) => out,
     }
-}
-
-/// 限频占位失败：末候选走「全部耗尽」503 时据此落 blocked_reason（与路由层整组限频审计同值）。
-pub(crate) fn mark_rate_limited(log: &mut ProxyLog) {
-    log.blocked_by = "router".to_string();
-    log.blocked_reason = "rate_limit".to_string();
 }
 
 /// 一次请求的上游调用配额（分组「最大尝试次数」，请求尝试-逐次重算 票 01）：
