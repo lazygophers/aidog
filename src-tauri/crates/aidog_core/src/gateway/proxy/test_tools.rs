@@ -803,3 +803,164 @@ async fn e2e_chat_server_tool_use_fee_deducted_from_balance() {
     let deducted = 100.0 - p.est_balance_remaining;
     assert!((deducted - 0.02).abs() < 1e-3, "tool fee 0.02 USD expected, deducted {deducted}");
 }
+
+// ══ 票 04 CallScope 行为锁定（重构前先绿，重构后同批仍绿）══
+
+/// 死站：取一个空闲端口后立即释放（connect refused）。
+async fn spawn_dead_base() -> String {
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    format!("http://{}", l.local_addr().unwrap())
+}
+
+/// 同 store_tools_preset_redirect，但基文档取 effective_presets（已含前次重定向）：
+/// 链式多次调用可把多个协议分别指向不同 stub（store_tools_preset_redirect 每次从
+/// bundled 克隆，链式调用会互相覆盖）。
+fn store_tools_redirect_accum(stub: &str, codes: &[&str]) {
+    let mut doc = crate::gateway::registry::effective_presets().as_ref().clone();
+    let protos = doc.get_mut("protocols").and_then(|p| p.as_object_mut()).unwrap();
+    for c in codes {
+        let po = protos.get_mut(*c).and_then(|p| p.as_object_mut()).unwrap();
+        let te = po.get_mut("tools_endpoints").and_then(|t| t.as_object_mut()).unwrap();
+        let redirected: serde_json::Map<String, Value> = te
+            .iter()
+            .map(|(k, v)| {
+                let path = crate::gateway::billing::tools_url_path(v.as_str().unwrap_or(""));
+                (k.clone(), Value::String(format!("{stub}{path}")))
+            })
+            .collect();
+        *te = redirected;
+    }
+    crate::gateway::registry::store_presets_cache(doc);
+}
+
+/// 起一个「收请求后永不应答」的上游：request_timeout 到点 → 读超时（非 connect）。
+async fn spawn_silent_upstream() -> String {
+    use tokio::io::AsyncReadExt;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        while let Ok((mut stream, _)) = listener.accept().await {
+            tokio::spawn(async move {
+                let mut buf = [0u8; 8192];
+                let _ = stream.read(&mut buf).await;
+                std::future::pending::<()>().await;
+            });
+        }
+    });
+    format!("http://{addr}")
+}
+
+/// connect 失败（候选 ≥3 绕开本地网络保护）：熔断计数 + 降权 + last_error + attempt.status_code=0。
+#[tokio::test]
+async fn lock_tools_connect_failure_records_accounting() {
+    let _guard = TOOLS_E2E_LOCK.lock().await;
+    crate::gateway::registry::invalidate_presets_cache();
+    let dead = spawn_dead_base().await;
+    let (stubb, _cb) = spawn_capture_upstream(200, r#"{"search_results":[{"title":"t"}]}"#).await;
+    let (stubc, _cc) = spawn_capture_upstream(200, r#"{"search_results":[{"title":"t"}]}"#).await;
+    crate::gateway::registry::invalidate_presets_cache();
+    store_tools_redirect_accum(&dead, &["deepseek"]);
+    store_tools_redirect_accum(&stubb, &["kimi"]);
+    store_tools_redirect_accum(&stubc, &["kimi_en"]);
+    let state = make_state(aidog_db::test_support::test_db().await).await;
+    let mk = |name: &str, pt: Protocol, base: &str| CreatePlatform {
+        name: name.into(), platform_type: pt, base_url: base.to_string(),
+        api_key: "sk-tools".into(), extra: String::new(), models: None,
+        available_models: None, endpoints: None, manual_budgets: None, auto_group: None,
+        join_group_ids: None, expires_at: None, quota_source: None,
+    };
+    let p1r = aidog_db::create_platform(&state.db, mk("ds", Protocol::DeepSeek, &dead)).await.unwrap();
+    let p2r = aidog_db::create_platform(&state.db, mk("kimi", Protocol::Kimi, &stubb)).await.unwrap();
+    let p3r = aidog_db::create_platform(&state.db, mk("kimi_en", Protocol::KimiEn, &stubc)).await.unwrap();
+    let group = aidog_db::create_group(&state.db, sample_group("gkt04t", vec![])).await.unwrap();
+    aidog_db::set_group_platforms(&state.db, group.id, &[
+        GroupPlatformInput { platform_id: p1r.id, priority: Some(0), weight: Some(1), level_priority: Some(0) },
+        GroupPlatformInput { platform_id: p2r.id, priority: Some(1), weight: Some(1), level_priority: Some(0) },
+        GroupPlatformInput { platform_id: p3r.id, priority: Some(2), weight: Some(1), level_priority: Some(0) },
+    ]).await.unwrap();
+
+    let resp = handle_proxy(AxumState(state.clone()), tools_request("gkt04t", "/v1/tools/search", r#"{"text_query":"x"}"#)).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(state.scheduler.breaker_fails(p1r.id), 1, "connect 失败计熔断");
+    assert_eq!(state.scheduler.penalty_consecutive(p1r.id), 1, "connect 失败计降权");
+    let p = aidog_db::get_platform(&state.db, p1r.id).await.unwrap().unwrap();
+    assert!(!p.last_error.is_empty(), "connect 失败写 last_error");
+    flush_log_queue(&state).await;
+    let logs = aidog_logs::list_proxy_logs(&state.db, 10, 0).await.unwrap();
+    let row = aidog_logs::get_proxy_log(&state.db, &logs.iter().find(|l| l.group_key == "gkt04t").unwrap().id).await.unwrap().unwrap();
+    assert_eq!(row.attempts[0].status_code, 0, "传输失败 attempt 无状态码");
+    assert_eq!(row.attempts.last().unwrap().status_code, 200);
+    crate::gateway::registry::invalidate_presets_cache();
+}
+
+/// 非 connect 传输失败（读超时）：不碰熔断，仅 ignored + 降权 + last_error。
+#[tokio::test]
+async fn lock_tools_read_timeout_no_breaker() {
+    let _guard = TOOLS_E2E_LOCK.lock().await;
+    crate::gateway::registry::invalidate_presets_cache();
+    let up = spawn_silent_upstream().await;
+    store_tools_preset_redirect(&up, &["deepseek"]);
+    let state = make_state(aidog_db::test_support::test_db().await).await;
+    state.settings_cache.write().await.system_timeout.request_timeout_secs = 1;
+    let mk = |name: &str, pt: Protocol, base: &str| CreatePlatform {
+        name: name.into(), platform_type: pt, base_url: base.to_string(),
+        api_key: "sk-tools".into(), extra: String::new(), models: None,
+        available_models: None, endpoints: None, manual_budgets: None, auto_group: None,
+        join_group_ids: None, expires_at: None, quota_source: None,
+    };
+    let p1r = aidog_db::create_platform(&state.db, mk("ds", Protocol::DeepSeek, &up)).await.unwrap();
+    let group = aidog_db::create_group(&state.db, sample_group("gkt04u", vec![])).await.unwrap();
+    aidog_db::set_group_platforms(&state.db, group.id, &[
+        GroupPlatformInput { platform_id: p1r.id, priority: Some(0), weight: Some(1), level_priority: Some(0) },
+    ]).await.unwrap();
+
+    let resp = handle_proxy(AxumState(state.clone()), tools_request("gkt04u", "/v1/tools/search", r#"{"text_query":"x"}"#)).await;
+    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
+    assert_eq!(state.scheduler.breaker_fails(p1r.id), 0, "非 connect 不计熔断");
+    assert!(state.scheduler.penalty_consecutive(p1r.id) >= 1, "读超时计降权");
+    let p = aidog_db::get_platform(&state.db, p1r.id).await.unwrap().unwrap();
+    assert!(!p.last_error.is_empty());
+    flush_log_queue(&state).await;
+    let logs = aidog_logs::list_proxy_logs(&state.db, 10, 0).await.unwrap();
+    let row = aidog_logs::get_proxy_log(&state.db, &logs.iter().find(|l| l.group_key == "gkt04u").unwrap().id).await.unwrap().unwrap();
+    assert_eq!(row.attempts.last().unwrap().status_code, 0);
+    crate::gateway::registry::invalidate_presets_cache();
+}
+
+/// 2xx 成功：last_error 清空 + AutoDisabled → Enabled + EMA。
+#[tokio::test]
+async fn lock_tools_success_resets_state() {
+    let _guard = TOOLS_E2E_LOCK.lock().await;
+    crate::gateway::registry::invalidate_presets_cache();
+    let (stub, _cap) = spawn_capture_upstream(200, r#"{"results":[{"url":"https://x"}]}"#).await;
+    store_tools_preset_redirect(&stub, &["deepseek"]);
+    let state = make_state(aidog_db::test_support::test_db().await).await;
+    let mk = |name: &str, pt: Protocol, base: &str| CreatePlatform {
+        name: name.into(), platform_type: pt, base_url: base.to_string(),
+        api_key: "sk-tools".into(), extra: String::new(), models: None,
+        available_models: None, endpoints: None, manual_budgets: None, auto_group: None,
+        join_group_ids: None, expires_at: None, quota_source: None,
+    };
+    let p1r = aidog_db::create_platform(&state.db, mk("ds", Protocol::DeepSeek, &stub)).await.unwrap();
+    let group = aidog_db::create_group(&state.db, sample_group("gkt04v", vec![])).await.unwrap();
+    aidog_db::set_group_platforms(&state.db, group.id, &[
+        GroupPlatformInput { platform_id: p1r.id, priority: Some(0), weight: Some(1), level_priority: Some(0) },
+    ]).await.unwrap();
+    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
+        id: p1r.id, name: None, platform_type: None, base_url: None, api_key: None, extra: None,
+        models: None, available_models: None, endpoints: None, enabled: None,
+        status: Some(aidog_db::models::PlatformStatus::AutoDisabled), manual_budgets: None,
+        join_group_ids: None, expires_at: None, quota_source: None,
+    }).await.unwrap();
+    aidog_db::set_platform_last_error(&state.db, p1r.id, Some("HTTP 500 boom".into())).await.unwrap();
+    state.scheduler.record_penalty(p1r.id, super::scheduling::PenaltyTier::Server, aidog_db::now());
+
+    let resp = handle_proxy(AxumState(state.clone()), tools_request("gkt04v", "/v1/tools/search", r#"{"text_query":"x"}"#)).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let p = aidog_db::get_platform(&state.db, p1r.id).await.unwrap().unwrap();
+    assert_eq!(p.last_error, "", "成功后 last_error 清空");
+    assert_eq!(p.status, aidog_db::models::PlatformStatus::Enabled, "AutoDisabled → Enabled");
+    assert_eq!(state.scheduler.penalty_consecutive(p1r.id), 0, "成功清降权");
+    assert!(state.scheduler.latency_ema(p1r.id).is_some(), "成功记延迟 EMA");
+    crate::gateway::registry::invalidate_presets_cache();
+}

@@ -70,6 +70,8 @@ mod web_takeover;
 mod ws;
 mod tokenizer;
 
+mod call_scope;
+
 #[cfg(test)]
 mod test_agg_dedup;
 #[cfg(test)]
