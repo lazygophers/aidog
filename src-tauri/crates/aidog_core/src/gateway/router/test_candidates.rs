@@ -1,4 +1,6 @@
-use super::super::super::scheduling::{Admission, BreakerThresholds, SchedulerState, StickyTable};
+use super::super::super::scheduling::{
+    Admission, BreakerThresholds, PenaltyTier, SchedulerState, StickyTable,
+};
 use super::super::ordering::{apply_coding_plan_priority, is_coding_plan};
 use super::super::test_mod::{mk_gp, mk_gp_cp};
 use super::*;
@@ -5150,4 +5152,115 @@ async fn filled_custom_slot_disabled_excludes_with_time_rule_matched() {
         .await
         .expect("route");
     assert_eq!(cand_ids(&set), vec![p2.id]);
+}
+
+// ── 票 08 顺序锁（spec M3，旧实现即绿）：同一请求内多次重排 ──
+
+/// ① 分组平台列表只在首次重排读库（AttemptPlanner 缓存）：重排间往组里加平台，
+/// 第二次重排不得纳入；② 健康排序键（降权维度）每次重排现算：重排间给当前排首平台
+/// 记服务类降权，下一次重排它掉出首位。降权与熔断指标是逐次重算语义的边界：
+/// 永不进 RouteInputs 缓存（M3 落选形状）。
+#[tokio::test]
+async fn planner_rerank_caches_platforms_and_recomputes_health_each_time() {
+    let db = mk_test_db().await;
+    let p1 = mk_db_platform(&db, "GLM").await;
+    let p2 = mk_db_platform(&db, "Kimi").await;
+    let g = mk_ha_group(
+        &db,
+        "planner-lock",
+        vec![
+            GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1), level_priority: Some(0) },
+            GroupPlatformInput { platform_id: p2.id, priority: Some(0), weight: Some(1), level_priority: Some(0) },
+        ],
+    )
+    .await;
+
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+        rate_body: None,
+    };
+    let mut planner = crate::gateway::proxy::attempt_plan::AttemptPlanner::default();
+    let model = "claude-opus-4-8";
+
+    let set1 = planner
+        .rerank(&db, &g, model, &ctx, RequestKind::Chat, ClientGate::Off)
+        .await
+        .expect("first rerank");
+    assert_eq!(set1.len(), 2, "组内两平台都在候选: {set1:?}");
+
+    // ① 平台列表缓存：重排间新增第三个平台，第二次重排不得看到（一次请求只读一次库）。
+    let p3 = mk_db_platform(&db, "DeepSeek").await;
+    db::set_group_platforms(
+        &db,
+        g.id,
+        &[
+            GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1), level_priority: Some(0) },
+            GroupPlatformInput { platform_id: p2.id, priority: Some(0), weight: Some(1), level_priority: Some(0) },
+            GroupPlatformInput { platform_id: p3.id, priority: Some(0), weight: Some(1), level_priority: Some(0) },
+        ],
+    )
+    .await
+    .expect("set group platforms");
+    let set2 = planner
+        .rerank(&db, &g, model, &ctx, RequestKind::Chat, ClientGate::Off)
+        .await
+        .expect("second rerank");
+    assert_eq!(set2.len(), 2, "第二次重排复用缓存的分组平台列表，不纳入新增平台: {set2:?}");
+    assert!(set2.iter().all(|r| r.platform.id != p3.id), "新平台不得出现在第二次重排结果");
+
+    // ② 健康排序键逐次现算：当前排首平台记服务类降权 → 下一次重排掉出首位。
+    let first = set2[0].platform.id;
+    sched.record_penalty(first, PenaltyTier::Server, db::now());
+    let set3 = planner
+        .rerank(&db, &g, model, &ctx, RequestKind::Chat, ClientGate::Off)
+        .await
+        .expect("third rerank");
+    assert_ne!(
+        set3.first().map(|r| r.platform.id),
+        Some(first),
+        "服务类降权后掉出首位（降权维度重排间现算）: {set3:?}"
+    );
+}
+
+/// 票 08：`RouteInputs::load` 三库拆分 handle 路由验证（db-pool-routing.md）。
+/// `get_group_platforms` 走 platform.db、`get_setting` 走主库；内存库 fallback 三 handle
+/// 复用同一连接、错路由不可见，必须用三独立文件路径构库才测得出。
+#[tokio::test]
+async fn route_inputs_load_reads_split_db_handles() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let p1 = mk_db_platform(&db, "GLM").await;
+    let p2 = mk_db_platform(&db, "Kimi").await;
+    let g = mk_ha_group(
+        &db,
+        "route-inputs",
+        vec![
+            GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1), level_priority: Some(0) },
+            GroupPlatformInput { platform_id: p2.id, priority: Some(0), weight: Some(1), level_priority: Some(0) },
+        ],
+    )
+    .await;
+
+    // 聊天请求：platform.db 读池 + 主库 settings 读池都走到（错路由当场 no such table）。
+    let chat = RouteInputs::load(&db, &g, RequestKind::Chat)
+        .await
+        .expect("load chat inputs");
+    assert_eq!(chat.group_platforms.len(), 2);
+    assert!(
+        chat.group_platforms.iter().any(|gp| gp.platform.id == p1.id),
+        "分组平台列表来自 platform.db"
+    );
+    assert!(chat.custom_defs.is_some(), "聊天请求读自定义槽位定义（settings 内存缓存读）");
+
+    // 决策请求：decision_models 分支执行（空 registry → 空 map），custom_defs 不读。
+    let decision = RouteInputs::load(&db, &g, RequestKind::Decision)
+        .await
+        .expect("load decision inputs");
+    assert_eq!(decision.group_platforms.len(), 2);
+    assert!(decision.custom_defs.is_none(), "非聊天请求不读自定义槽位定义");
 }

@@ -180,7 +180,7 @@ impl RequestKind<'_> {
 
 /// registry 中 capabilities 含 `decision` 的模型，按 `platform_code → model_id 集合` 键控（R2 推导源）：
 /// 能力看**该平台自己的** registry 条目（同名模型在别的平台有 decision 能力不算）。
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(crate) struct DecisionModels(HashMap<String, HashSet<String>>);
 
 impl DecisionModels {
@@ -410,6 +410,49 @@ async fn compute_health_order_keys(
     keys
 }
 
+/// 每请求稳定的读库输入（票 08，spec M3）：同一次请求内多次重排值不变，首次重排读一次库，
+/// 之后由调用方（[`crate::gateway::proxy::attempt_plan::AttemptPlanner`]）缓存复用。
+/// 健康排序键与成功计数**不在此列**——逐次重算语义要求每次重排现读（M3 落选形状）。
+#[derive(Clone)]
+pub(crate) struct RouteInputs {
+    pub(crate) group_platforms: Vec<GroupPlatformDetail>,
+    pub(crate) decision_models: DecisionModels,
+    /// 自定义槽位定义（仅聊天请求读取；`None` = 非聊天请求不参与）。
+    pub(crate) custom_defs: Option<Vec<CustomSlotDef>>,
+}
+
+impl RouteInputs {
+    /// 一次读齐三处每请求稳定输入：分组平台列表（platform.db 读池）、registry decision
+    /// 能力模型（仅决策请求）、自定义槽位定义（仅聊天请求，settings 内存缓存读）。
+    pub(crate) async fn load(
+        db: &db::Db,
+        group: &Group,
+        kind: RequestKind<'_>,
+    ) -> Result<Self, RouteFail> {
+        let group_platforms =
+            db::get_group_platforms(db, group.id).await.map_err(RouteFail::from)?;
+        let decision_models = if kind == RequestKind::Decision {
+            load_decision_models(db).await
+        } else {
+            DecisionModels::default()
+        };
+        let custom_defs = if kind == RequestKind::Chat {
+            let v = db::get_setting(db, "model", "custom_model_slots")
+                .await
+                .ok()
+                .flatten();
+            Some(parse_custom_defs(v.as_ref()))
+        } else {
+            None
+        };
+        Ok(Self {
+            group_platforms,
+            decision_models,
+            custom_defs,
+        })
+    }
+}
+
 /// 测试专用候选选取入口：保留无客户端白名单闸门的测试调用形状。
 #[cfg(test)]
 pub async fn select_candidates_for_test(
@@ -436,10 +479,10 @@ pub async fn select_candidates_gated(
 
 /// [`select_candidates_gated`] 的重排入口（请求尝试-逐次重算）：`group_platforms=Some` 复用已读出的
 /// 分组平台列表（一次请求只读一次库），其余状态（熔断 / 降权 / 冷却等）取调用时刻的 `ctx`。
-pub async fn select_candidates_preloaded(
+pub(crate) async fn select_candidates_preloaded(
     db: &db::Db,
     group: &Group,
-    group_platforms: Option<Vec<GroupPlatformDetail>>,
+    preloaded: Option<RouteInputs>,
     source_model: &str,
     ctx: Option<&ScheduleCtx<'_>>,
     kind: RequestKind<'_>,
@@ -448,7 +491,7 @@ pub async fn select_candidates_preloaded(
     // 所有路径（成功 / 路由失败 / 透传 / embedding / tools）统一补记 max_retries：画布以它判「新格式快照」，
     // 此前只有 handler 主循环的 mark_retry_limit 写，其余路径的新日志被误显「未记录」。
     let stamp = |r: &mut RoutingSnapshot| r.max_retries = r.max_retries.or(Some(group.max_retries));
-    match select_candidates_inner(db, group, group_platforms, source_model, ctx, kind, client).await {
+    match select_candidates_inner(db, group, preloaded, source_model, ctx, kind, client).await {
         Ok(mut set) => {
             stamp(&mut set.routing);
             Ok(set)
@@ -463,7 +506,7 @@ pub async fn select_candidates_preloaded(
 async fn select_candidates_inner(
     db: &db::Db,
     group: &Group,
-    preloaded: Option<Vec<GroupPlatformDetail>>,
+    preloaded: Option<RouteInputs>,
     source_model: &str,
     ctx: Option<&ScheduleCtx<'_>>,
     kind: RequestKind<'_>,
@@ -476,23 +519,20 @@ async fn select_candidates_inner(
     let mapped_target_model = mapping.map(|m| m.target_model.clone());
     let mapped_platform_id = mapping.map(|m| m.target_platform_id).filter(|id| *id != 0);
 
-    let group_platforms = match preloaded {
+    // 票 08：三处每请求稳定读库收进 RouteInputs::load —— `preloaded=Some` 时零读库复用
+    // （AttemptPlanner 缓存），None 时此处一次读齐。健康排序键 / 成功计数仍逐次现读（下文）。
+    let RouteInputs {
+        group_platforms,
+        decision_models,
+        custom_defs,
+    } = match preloaded {
         Some(v) => v,
-        None => db::get_group_platforms(db, group.id)
-            .await
-            .map_err(RouteFail::from)?,
+        None => RouteInputs::load(db, group, kind).await?,
     };
     if group_platforms.is_empty() {
         return Err("group has no platforms".to_string().into());
     }
 
-    // ── 阶段 -0.5: 请求类型维度（jev-decision-proxy）──
-    // 决策请求一次性取 registry decision 能力模型集合（禁逐平台查库）；聊天请求零查询。
-    let decision_models = if kind == RequestKind::Decision {
-        load_decision_models(db).await
-    } else {
-        DecisionModels::default()
-    };
     // R6：分组 model_mappings 显式指定的目标平台不支持该请求类型 → 直接报错（不忽略映射）。
     if let Some(target_id) = mapped_platform_id
         && let Some(gp) = group_platforms
@@ -518,16 +558,6 @@ async fn select_candidates_inner(
 
     // ── 阶段 -1: 预解析所有 platform.extra（避免每个候选重复解析）──
     // ponytail: 在入口处统一解析 time_windows 和 peak，缓存传递给 helper 函数
-    // 自定义槽位定义（仅聊天请求；settings 内存缓存读，非 DB 往返）。
-    let custom_defs: Option<Vec<CustomSlotDef>> = if kind == RequestKind::Chat {
-        let v = db::get_setting(db, "model", "custom_model_slots")
-            .await
-            .ok()
-            .flatten();
-        Some(parse_custom_defs(v.as_ref()))
-    } else {
-        None
-    };
     let extra_cache: ExtraCacheMap = group_platforms
         .iter()
         .map(|gp| {
