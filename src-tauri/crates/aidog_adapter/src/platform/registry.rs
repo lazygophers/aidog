@@ -30,8 +30,14 @@ impl PlatformAdapter for KimiAdapter {
     }
 }
 
+/// 智谱 GLM 家族基座（issue 75）。
+pub struct GlmFamilyAdapter;
+
+impl PlatformAdapter for GlmFamilyAdapter {}
+
 static GENERIC: GenericAdapter = GenericAdapter;
 static KIMI: KimiAdapter = KimiAdapter;
+static GLM: GlmFamilyAdapter = GlmFamilyAdapter;
 
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 初始映射全部为默认家族基座，Kimi 家族覆盖 coding_plan 注入差异，行为与基座协议臂等价）。
@@ -56,10 +62,10 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("devin", &GENERIC),
     ("doubao", &GENERIC),
     ("gemini", &GENERIC),
-    ("glm", &GENERIC),
-    ("glm_coding", &GENERIC),
-    ("glm_coding_en", &GENERIC),
-    ("glm_en", &GENERIC),
+    ("glm", &GLM),
+    ("glm_coding", &GLM),
+    ("glm_coding_en", &GLM),
+    ("glm_en", &GLM),
     ("intern_inkstone", &GENERIC),
     ("kimi", &KIMI),
     ("kimi_coding", &GENERIC),
