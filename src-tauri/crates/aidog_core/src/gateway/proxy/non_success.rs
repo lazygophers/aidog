@@ -83,9 +83,11 @@ pub(crate) async fn handle_non_success(
     //   不换模型也不换平台；其余（Model / Unknown）且链上还有下一个模型 → 只留痕不记账，换模型重发。
     //   无备选（has_next_model=false）：模型类错误换平台或回客户端都不记账；服务类每次失败记账一次。
     let code_meaning = registry_code_meaning(&route.platform.platform_type.wire_str(), &body);
+    // issue 68：错误体分类经平台适配器分派（registry 码义优先级不变，miss 才走适配器默认分类）。
+    let pa = aidog_adapter::platform::adapter_for(&route.platform.platform_type.wire_str());
     let class = match code_meaning.as_deref() {
         Some("rate_limit" | "overloaded") => UpstreamErrorClass::Service,
-        _ => classify_upstream_error(code, &body),
+        _ => pa.classify_error(code, &body),
     };
     let rule_blocks = err_class.as_ref().is_some_and(|c| !c.retryable);
     let switch_model = has_next_model && class != UpstreamErrorClass::Service && !rule_blocks;

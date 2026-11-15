@@ -54,9 +54,11 @@ pub(crate) async fn finish_nonstream(
     } else {
         ctx.quota_base_url.clone()
     };
-    // usage 借用：lossy 不经 to_string 中转
+    // usage 借用：lossy 不经 to_string 中转。
+    // issue 68：usage 抽取经平台适配器分派（默认实现 = stream::extract_usage 同一实现）。
+    let pa = aidog_adapter::platform::adapter_for(&route.platform.platform_type.wire_str());
     let (input_tokens, output_tokens, cache_tokens, cache_write_tokens, cache_write_1h_tokens, tool_counts) =
-        extract_usage(String::from_utf8_lossy(&body).as_ref());
+        pa.extract_usage(String::from_utf8_lossy(&body).as_ref());
 
     // 实际模型口径（统计按上游自报模型聚合，2026-09-21）：actual_model 从路由目标模型改为
     // 上游响应自报的模型名，缺失回退客户端请求模型（用户口径，不回退路由映射名）。
@@ -107,7 +109,7 @@ pub(crate) async fn finish_nonstream(
     // 这里补齐：同协议透传跳过；否则按 (wire=target, client=source) 转换。返回 None 表示无需转换，透传原文。
     let body = if !same_protocol_passthrough {
         let upstream_json: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
-        match adapter::convert_response(
+        match pa.convert_response(
             &upstream_json,
             target_protocol_enum,
             source_protocol,
@@ -304,6 +306,8 @@ where
     // 流式：转换 SSE 格式为 Anthropic 格式返回
     // 同协议透传时（passthrough_response），下方闭包内原样 relay 上游 SSE，仅提取 usage。
     let passthrough_response = same_protocol_passthrough;
+    // issue 68：流式事件解析经平台适配器分派（聚合器按适配器 parse_sse_frame 解帧）。
+    let pa = aidog_adapter::platform::adapter_for(&route.platform.platform_type.wire_str());
     let protocol = target_protocol_enum.clone();
     let client_protocol = source_protocol.clone();
     // client_protocol 被 move 进 map 闭包，ping 包装在闭包之后按客户端 wire 分流，故另留一份。
@@ -549,7 +553,7 @@ where
             let mut output = String::new();
             // 上游帧格式（`data: ` 分帧 / DONE 哨兵 / 各协议 JSON 解析）知识全部收在 adapter 侧，
             // 此处只负责 model 字段改写 + 按客户端协议渲染下发。
-            for event in guard.agg.parse_sse_events_and_usage(&line_ready_text, &protocol) {
+            for event in guard.agg.parse_sse_events_and_usage(&line_ready_text, pa, &protocol) {
                 let event = if !model_for_sse.is_empty() {
                     match event {
                         ChatStreamEvent::Start { id, model: _ } => ChatStreamEvent::Start {

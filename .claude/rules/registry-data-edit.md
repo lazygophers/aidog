@@ -73,6 +73,49 @@ per-model 值、不是 endpoint 协议），新增第三种这类专用值时先
 
 先例：supported_protocols（c74507db1）、price.free（显式免费标记，同日 jev 轮）。
 
+## 跨分支合并冲突的 registry JSON 解法（2026-11-15 PR #63 轮）
+
+feature 分支与 master 各自盖过戳后再合并，registry JSON 必冲突：master 侧是
+bump 脚本推高的时间戳，分支侧是功能字段（本例 17 个 platform.json 的
+holiday_calendar + index.json 顶层 last_updated）。解法统一：
+
+1. **功能字段保留分支侧，`last_updated` 取两边最大**——冲突点只有时间戳与
+   功能字段的交叠，功能内容永不丢；两边都只动时间戳的文件（index.json）取 max。
+2. 解完跑 `bump-registry-last-updated.mjs`（把解后时间戳推到当前）+
+   `check-registry` 门禁，随 merge commit 一起交付。
+3. 同 merge 里 master 新增的测试夹具构造点不必然要补新字段：字段带 serde
+   默认值时夹具照常编译（本例 billing.rs 自动合并成功，cargo check EXIT=0
+   证实，派发时预期的「手工补夹具两行」是多余的）。夹具要不要补，以
+   cargo check 实测为准，不按预期预改。
+
+## 非 registry 数据目录豁免盖戳约定：先证明灌种层不存在，再写 ADR（2026-11-15 holidays / ADR 0013）
+
+「新必填字段上线 = 三件套」与 last_updated 盖戳约定默认适用于 registry 数据
+（有 DB 灌种机制参与）。新数据目录（如编译期内置的 `holidays/` 日历）偏离该
+约定（无 last_updated、无 schema）之前，先 grep 证明豁免成立：
+
+1. 灌种层证据三查：build.rs 是否编译期 `include_str!`（`aidog_db/build.rs:84-102`
+   静态表）→ 内存缓存层是否读 DB（`registry.rs:42`）→ schema 目录 grep 该
+   目录名零命中。三查都成立 = 无任何 DB 灌种机制可参与，盖戳纯增重。
+2. 豁免成立 → 给该目录的更新机制写一行真值源说明并落 ADR（本例 ADR 0013：
+   改 JSON → rerun-if-changed 重编 → check-holidays 门禁），审查质疑时引
+   ADR 应答；不成立 → 照常进三件套。
+3. 判据：**有没有消费者经 DB 读它**，不是「是不是 JSON 数据」。134 份文件
+   全量盖 last_updated 是审查提议与落选方案，理由记进 PR 回复与 ADR。
+
+## 外部取证的失败与地址语义（2026-11-14 节假日日历轮）
+
+1. **搜索无结果 / 403 / 404 / DNS·TLS 失败 ≠ 官方未公布。** 缺年、缺依据类
+   缺口保留「未知」状态列进缺口清单，不写成「官方未发布」；凭记忆或候选日期
+   补齐消除警告是更大的错误。同一条外部检索路线连败多轮（DDG 202、Bing/Google
+   零结果、内置搜索 400）即停，冻结阻塞与缺口清单，不再重复同类取证。
+2. **地址语义三不等**：注册地址 ≠ 邮寄地址（本例 opencode_zen：原写入依据的
+   2443 Fillmore St 是条款里仲裁 opt-out 邮寄地址，复抓条款原文发现无法律
+   实体名、适用法特拉华，US-CA 默认当场撤）；软件厂商地址 ≠ 自托管平台的
+   运营主体所在地（litellm「install on your servers」→ 不设厂商所在地默认）。
+   「主体所在地」类取证要拿到法律实体名 + 注册/隐私政策的注册地双证；拿不到
+   就不设默认，不拿邮寄地址、厂商地址顶替。
+
 ## 摘要型抓取工具的输出是假设不是事实（2026-10-15）
 
 registry-refresh 轮：webReader（MCP 网页摘要）第二次抓 docs.bigmodel.cn 套餐页
