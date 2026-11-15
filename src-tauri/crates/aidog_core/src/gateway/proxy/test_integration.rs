@@ -7215,11 +7215,24 @@ async fn ra03_aux_budget_cap_counts_model_switches() {
 
 /// 装一个只带 `/rpc/ping` 的测试路由（真路由表在 `aidog_rpc`，由内核测试覆盖）。
 fn install_mgmt_test_router() {
+    // 与内核 `with_ui` 同形：nest_service("/ui", ServeDir)。目录进程内泄漏一份（路由全局只装一次）。
+    static UI_DIR: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+    let dir = UI_DIR.get_or_init(|| {
+        let d = tempfile::tempdir().unwrap().keep();
+        std::fs::create_dir_all(d.join("assets")).unwrap();
+        std::fs::write(d.join("index.html"), "UI-INDEX").unwrap();
+        std::fs::write(d.join("assets/x.js"), "UI-JS").unwrap();
+        d
+    });
+    let serve = tower_http::services::ServeDir::new(dir)
+        .fallback(tower_http::services::ServeFile::new(dir.join("index.html")));
     super::install_management_router(
-        axum::Router::new().route(
-            "/rpc/ping",
-            axum::routing::post(|| async { axum::Json(serde_json::json!({"pong": true})) }),
-        ),
+        axum::Router::new()
+            .route(
+                "/rpc/ping",
+                axum::routing::post(|| async { axum::Json(serde_json::json!({"pong": true})) }),
+            )
+            .nest_service("/ui", serve),
     );
 }
 
@@ -7257,7 +7270,7 @@ async fn mgmt_rpc_disabled_returns_not_enabled_and_does_not_forward() {
     let state = make_state(test_db().await).await;
     set_mgmt(&state, false, "").await;
     let base = spawn_proxy_router(state.clone()).await;
-    for path in ["/api/rpc/ping", "/api/events", "/api/ui/", "/api/ui/x.js"] {
+    for path in ["/api/rpc/ping", "/api/events", "/ui", "/ui/", "/ui/x.js"] {
         let r = mgmt_client().request(
             if path == "/api/rpc/ping" { reqwest::Method::POST } else { reqwest::Method::GET },
             format!("{base}{path}"),
@@ -7315,6 +7328,89 @@ async fn mgmt_rpc_unknown_command_is_404_and_other_paths_still_route() {
     assert!(aidog_logs::list_proxy_logs(&state.db, 50, 0).await.unwrap().is_empty());
     let root: serde_json::Value = c.get(format!("{base}/")).send().await.unwrap().json().await.unwrap();
     assert_eq!(root["service"], "aidog");
+}
+
+fn no_redirect_client() -> reqwest::Client {
+    reqwest::Client::builder().no_proxy().redirect(reqwest::redirect::Policy::none()).build().unwrap()
+}
+
+/// `GET /`：Accept 含 text/html → 302 /ui；其余（JSON / 无 Accept）与 `/proxy` 仍是健康 JSON。
+#[tokio::test]
+async fn root_redirects_browsers_to_ui_but_keeps_health_json() {
+    install_mgmt_test_router();
+    let state = make_state(test_db().await).await;
+    let base = spawn_proxy_router(state.clone()).await;
+    let c = no_redirect_client();
+    let r = c.get(format!("{base}/")).header("accept", "text/html,application/xhtml+xml").send().await.unwrap();
+    assert_eq!(r.status(), 302);
+    assert_eq!(r.headers().get("location").unwrap(), "/ui");
+    for accept in [Some("application/json"), Some("*/*"), None] {
+        let mut rb = c.get(format!("{base}/"));
+        if let Some(a) = accept {
+            rb = rb.header("accept", a);
+        }
+        let r = rb.send().await.unwrap();
+        assert_eq!(r.status(), 200, "{accept:?}");
+        assert_eq!(r.json::<serde_json::Value>().await.unwrap()["service"], "aidog", "{accept:?}");
+    }
+    let r = c.get(format!("{base}/proxy")).header("accept", "text/html").send().await.unwrap();
+    assert_eq!(r.status(), 200, "/proxy 不跳转");
+    assert_eq!(r.json::<serde_json::Value>().await.unwrap()["service"], "aidog");
+}
+
+/// `/ui/` 静态资源 + SPA 回落（子路径不得 panic：MatchedPath 嵌套断言）；`/ui` 308 到 `/ui/`
+/// （vite base "./" 的资源相对路径靠尾斜杠）；旧 `/api/ui/*` 不再提供界面。
+#[tokio::test]
+async fn ui_served_at_ui_and_not_at_old_api_ui() {
+    install_mgmt_test_router();
+    let state = make_state(test_db().await).await;
+    let base = spawn_proxy_router(state.clone()).await;
+    let c = no_redirect_client();
+    let get = |p: &str| c.get(format!("{base}{p}")).send();
+    let r = get("/ui/").await.unwrap();
+    assert_eq!(r.status(), 200);
+    assert_eq!(r.text().await.unwrap(), "UI-INDEX");
+    let r = get("/ui/assets/x.js").await.unwrap();
+    assert_eq!(r.status(), 200);
+    assert_eq!(r.text().await.unwrap(), "UI-JS");
+    let r = get("/ui/some/spa/route").await.unwrap();
+    assert_eq!(r.text().await.unwrap(), "UI-INDEX", "SPA 回落");
+    let r = get("/ui").await.unwrap();
+    assert_eq!(r.status(), 308);
+    assert_eq!(r.headers().get("location").unwrap(), "/ui/");
+    for p in ["/api/ui", "/api/ui/", "/api/ui/assets/x.js"] {
+        let r = get(p).await.unwrap();
+        let (st, body) = (r.status(), r.text().await.unwrap());
+        assert_ne!(st, 200, "{p}");
+        assert!(!body.contains("UI-"), "{p}: 旧路径不得再出界面");
+    }
+}
+
+/// 桌面 `/ui`：查表函数托管，命中原样 + MIME，未命中回落 index，index 也没有则 404。
+#[tokio::test]
+async fn ui_router_from_assets_serves_lookup_with_index_fallback() {
+    let lookup = |p: &str| match p {
+        "index.html" => Some((b"IDX".to_vec(), "text/html".to_string())),
+        "assets/a.js" => Some((b"JS".to_vec(), "text/javascript".to_string())),
+        _ => None,
+    };
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", l.local_addr().unwrap());
+    let app = super::ui_router_from_assets(lookup);
+    tokio::spawn(async move { axum::serve(l, app).await.ok() });
+    let c = mgmt_client();
+    let r = c.get(format!("{base}/ui/")).send().await.unwrap();
+    assert_eq!(r.headers().get("content-type").unwrap(), "text/html");
+    assert_eq!(r.text().await.unwrap(), "IDX");
+    let r = c.get(format!("{base}/ui/assets/a.js")).send().await.unwrap();
+    assert_eq!(r.headers().get("content-type").unwrap(), "text/javascript");
+    assert_eq!(r.text().await.unwrap(), "JS");
+    assert_eq!(c.get(format!("{base}/ui/x/y")).send().await.unwrap().text().await.unwrap(), "IDX");
+    let empty = super::ui_router_from_assets(|_: &str| None);
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", l.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(l, empty).await.ok() });
+    assert_eq!(c.get(format!("{base}/ui/")).send().await.unwrap().status(), 404);
 }
 
 /// 调用记录（API 票 03）：落行、字段正确、来源可区分、正文（请求体）不入库。

@@ -105,4 +105,6 @@ aidog_notification = { path = "../aidog_notification", features = ["test-util"] 
 # start_paused = true：ping 注入测试要把 tokio 时钟拨快，否则单测要真等 95 秒。
 tokio = { workspace = true, features = ["test-util"] }
 tempfile = { workspace = true }
+# 管理接口 /ui 静态托管测试（与内核 with_ui 同形）
+tower-http = { workspace = true }
 flate2 = { workspace = true }
