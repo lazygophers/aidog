@@ -3,9 +3,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "../test/render";
 
+const plat = { id: 11, name: "P11", platform_type: "openai", status: "enabled", enabled: true, models: {}, extra: "{}" };
 const g1 = {
   group: { id: 1, name: "First", group_key: "k1", routing_mode: "failover", is_default: false },
-  platforms: [], model_mappings: [],
+  platforms: [{ platform: plat, priority: 1, weight: 1, level_priority: 5 }], model_mappings: [],
 };
 const g2 = {
   group: { id: 2, name: "Work", group_key: "k2", routing_mode: "failover", is_default: false },
@@ -46,5 +47,15 @@ describe("GroupsEmbedded — 列表→详情全链", () => {
     await waitFor(() => expect(document.querySelector('[data-testid="detail-members"]')).toBeTruthy());
     expect(document.querySelector('[data-testid="detail-members"]')!.getAttribute("data-group-id")).toBe("2");
     expect(screen.getByText("Work")).toBeTruthy();
+  });
+
+  // 回归：列表分支漏渲染 sharedModals（fa236ce94），多选工具栏「改状态」点了无弹窗。
+  it("列表视图：多选 → 全选 → 改状态 弹出批量改状态 modal", async () => {
+    render(<GroupsEmbedded onToast={() => {}} />);
+    await waitFor(() => expect(screen.getAllByTestId("group-section-detail").length).toBe(2));
+    fireEvent.click(await screen.findByTestId("group-batch-start"));
+    fireEvent.click(await screen.findByText(/selectAll|全选|Select all/i));
+    fireEvent.click(await screen.findByText(/batchSetStatus$|改状态|Set status/i));
+    expect(await screen.findByText(/batchSetStatusTitle|批量改状态|Batch set status/i)).toBeTruthy();
   });
 });
