@@ -429,7 +429,6 @@ dependencies = [
 name = "aidog_test_util"
 version = "0.1.20"
 dependencies = [
- "aidog_core",
  "aidog_db",
  "aidog_middleware",
  "aidog_stats",
