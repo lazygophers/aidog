@@ -19,6 +19,12 @@ async fn migration_purges_only_non_ai_connect_rows() {
     })
     .await
     .unwrap();
+    // 迁移是一次性的（migration_done 标记）；清标记模拟尚未迁移的旧库
+    db.call_proxy_log_traced(None, std::panic::Location::caller(), |c| {
+        c.execute("DELETE FROM migration_done WHERE id = '20261109-01-purge'", [])
+    })
+    .await
+    .unwrap();
     // 重跑 init（= 重启）触发 log.db 迁移，再读回
     crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
         .await

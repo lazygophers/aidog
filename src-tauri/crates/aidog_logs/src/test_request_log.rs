@@ -127,6 +127,12 @@ async fn migration_moves_rows_and_is_idempotent() {
         l.group_key = "g".into();
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l, false, false)).await.unwrap();
     }
+    // 模拟尚未迁移的旧库：迁移是一次性的（migration_done 标记），清标记后才会再搬。
+    db.call_proxy_log_traced(None, std::panic::Location::caller(), |c| {
+        c.execute("DELETE FROM migration_done WHERE id = '20261114-01-move'", [])
+    })
+    .await
+    .unwrap();
     for _ in 0..2 {
         db.call_proxy_log_traced(None, std::panic::Location::caller(), |c| {
             aidog_db::schema_late::migrate_request_log(c)
