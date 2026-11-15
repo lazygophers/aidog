@@ -417,6 +417,8 @@ fn build_router(state: Arc<ProxyState>) -> Router {
         // Web 界面（桌面内置资源 / 内核 --ui）：同一套闸门，路径在代理端口根下的 /ui。
         .route("/ui", get(handle_management))
         .route("/ui/", get(handle_management))
+        // 设了凭据时浏览器用口令换 Cookie（登录表单 POST）；GET 走同一闸门出登录页。
+        .route("/ui/login", get(handle_management).post(handle_management))
         .route("/ui/{*rest}", get(handle_management))
         // 健康端点：客户端（Claude Code / Codex 启动探测等）会命中代理根 URL（含 / 前缀），
         // 无 Authorization 不应进 handle_proxy 走 404，也不应落 proxy_log 污染统计。
