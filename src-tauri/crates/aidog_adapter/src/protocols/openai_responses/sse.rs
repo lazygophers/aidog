@@ -2,8 +2,9 @@
 //!
 //! Responses / Completions 客户端的流式输出此前一律走 Chat Completions 分块渲染，
 //! 客户端按自身协议解析失败。本模块把中立 [`ChatStreamEvent`] 渲染为官方 Responses
-//! 事件序列：`response.created` → 各 output item 的 added / delta / done →
-//! `response.completed`（或 `response.incomplete`）。
+//! 事件序列：`response.created` → `response.in_progress` → 各 output item 的
+//! added / delta / done → `response.completed`（或 `response.incomplete`）。
+//! 事件名与 Response 对象字段对齐 openai-python 官方类型定义。
 //! 出处: <https://platform.openai.com/docs/api-reference/responses-streaming>
 
 use serde_json::{Value, json};
@@ -18,11 +19,12 @@ pub struct ResponsesSseState {
     response_id: String,
     model: String,
     created: bool,
+    created_at: i64,
     finished: bool,
     /// 文本 message item：(item_id, output_index, 已累计全文)
     text_item: Option<(String, u64, String)>,
-    /// reasoning item：(item_id, output_index, 已累计全文)
-    reasoning_item: Option<(String, u64, String)>,
+    /// reasoning item：(item_id, output_index, 已累计全文, summary_part_added)
+    reasoning_item: Option<(String, u64, String, bool)>,
     /// 中立 tool index → (item_id, output_index, call_id, name, 已累计 arguments)
     tool_items: std::collections::HashMap<u32, (String, u64, String, String, String)>,
     /// item 输出顺序 = 创建顺序
@@ -40,7 +42,7 @@ impl ResponsesSseState {
                 }
                 self.response_id = id.clone();
                 self.model = model.clone();
-                Some(self.emit_created())
+                Some(self.ensure_created(model))
             }
             ChatStreamEvent::Delta { text } => {
                 let mut out = self.ensure_created(model);
@@ -101,13 +103,25 @@ impl ResponsesSseState {
                             },
                         }),
                     ));
-                    self.reasoning_item = Some((item_id, idx, String::new()));
+                    self.reasoning_item = Some((item_id, idx, String::new(), false));
                 }
-                let (item_id, idx) = {
-                    let (item_id, idx, acc) = self.reasoning_item.as_mut().unwrap();
+                let (item_id, idx, part_added) = {
+                    let (item_id, idx, acc, part_added) = self.reasoning_item.as_mut().unwrap();
                     acc.push_str(text);
-                    (item_id.clone(), *idx)
+                    (item_id.clone(), *idx, *part_added)
                 };
+                // 首个 summary delta 前须发 summary_part.added（官方序列）
+                if !part_added {
+                    out.push_str(&self.frame(
+                        "response.reasoning_summary_part.added",
+                        json!({
+                            "type": "response.reasoning_summary_part.added",
+                            "item_id": item_id, "output_index": idx, "summary_index": 0,
+                            "part": { "type": "summary_text", "text": "" },
+                        }),
+                    ));
+                    self.reasoning_item.as_mut().unwrap().3 = true;
+                }
                 // 思维链走官方 summary 流（summary_index 0）：Codex 等客户端按此事件渲染思考。
                 out.push_str(&self.frame(
                     "response.reasoning_summary_text.delta",
@@ -193,11 +207,21 @@ impl ResponsesSseState {
                 let mut out = self.ensure_created(model);
                 let incomplete =
                     matches!(finish_reason.as_deref(), Some("length") | Some("max_tokens"));
-                // 关闭各 item：content_part.done / output_item.done 按 output_index 升序回放全量内容
-                let mut items: Vec<(u64, Value)> = Vec::new();
+                // 关闭各 item：每个 item 的 done 帧组按 output_index 升序回放全量内容
+                // (output_index, done 帧组, item 全量回放)
+                let mut closures: Vec<(u64, String, Value)> = Vec::new();
                 if let Some((item_id, idx, acc)) = self.text_item.clone() {
                     let text = acc.clone();
-                    out.push_str(&self.frame(
+                    let mut frames = String::new();
+                    frames.push_str(&self.frame(
+                        "response.output_text.done",
+                        json!({
+                            "type": "response.output_text.done",
+                            "item_id": item_id, "output_index": idx, "content_index": 0,
+                            "text": text,
+                        }),
+                    ));
+                    frames.push_str(&self.frame(
                         "response.content_part.done",
                         json!({
                             "type": "response.content_part.done",
@@ -205,36 +229,60 @@ impl ResponsesSseState {
                             "part": { "type": "output_text", "text": text, "annotations": [] },
                         }),
                     ));
-                    items.push((
-                        idx,
-                        json!({
-                            "id": item_id, "type": "message", "status": "completed",
-                            "role": "assistant",
-                            "content": [{ "type": "output_text", "text": text, "annotations": [] }],
-                        }),
-                    ));
+                    let item = json!({
+                        "id": item_id, "type": "message", "status": "completed",
+                        "role": "assistant",
+                        "content": [{ "type": "output_text", "text": text, "annotations": [] }],
+                    });
+                    closures.push((idx, frames, item));
                 }
-                if let Some((item_id, idx, acc)) = self.reasoning_item.clone() {
+                if let Some((item_id, idx, acc, _)) = self.reasoning_item.clone() {
                     let text = acc.clone();
-                    items.push((
-                        idx,
+                    let mut frames = String::new();
+                    frames.push_str(&self.frame(
+                        "response.reasoning_summary_text.done",
                         json!({
-                            "id": item_id, "type": "reasoning",
-                            "summary": [{ "type": "summary_text", "text": text }],
+                            "type": "response.reasoning_summary_text.done",
+                            "item_id": item_id, "output_index": idx, "summary_index": 0,
+                            "text": text,
                         }),
                     ));
-                }
-                for (item_id, idx, call_id, name, acc) in self.tool_items.values() {
-                    items.push((
-                        *idx,
+                    frames.push_str(&self.frame(
+                        "response.reasoning_summary_part.done",
                         json!({
-                            "id": item_id, "type": "function_call", "status": "completed",
-                            "call_id": call_id, "name": name, "arguments": acc,
+                            "type": "response.reasoning_summary_part.done",
+                            "item_id": item_id, "output_index": idx, "summary_index": 0,
+                            "part": { "type": "summary_text", "text": text },
                         }),
                     ));
+                    let item = json!({
+                        "id": item_id, "type": "reasoning",
+                        "summary": [{ "type": "summary_text", "text": text }],
+                    });
+                    closures.push((idx, frames, item));
                 }
-                items.sort_by_key(|(idx, _)| *idx);
-                for (idx, item) in &items {
+                let tool_closures: Vec<(String, u64, String, String, String)> =
+                    self.tool_items.values().cloned().collect();
+                for (item_id, idx, call_id, name, acc) in tool_closures {
+                    let arguments = acc.clone();
+                    let mut frames = String::new();
+                    frames.push_str(&self.frame(
+                        "response.function_call_arguments.done",
+                        json!({
+                            "type": "response.function_call_arguments.done",
+                            "item_id": item_id, "output_index": idx,
+                            "arguments": arguments,
+                        }),
+                    ));
+                    let item = json!({
+                        "id": item_id, "type": "function_call", "status": "completed",
+                        "call_id": call_id, "name": name, "arguments": arguments,
+                    });
+                    closures.push((idx, frames, item));
+                }
+                closures.sort_by_key(|(idx, _, _)| *idx);
+                for (idx, frames, item) in &closures {
+                    out.push_str(frames);
                     out.push_str(&self.frame(
                         "response.output_item.done",
                         json!({
@@ -248,14 +296,19 @@ impl ResponsesSseState {
                 let usage = self.usage.map(|(i, o)| {
                     json!({ "input_tokens": i, "output_tokens": o, "total_tokens": i + o })
                 });
-                let response = json!({
+                let mut response = json!({
                     "id": self.response_id,
                     "object": "response",
                     "status": status,
+                    "created_at": self.created_at,
                     "model": self.model,
-                    "output": items.into_iter().map(|(_, i)| i).collect::<Vec<_>>(),
+                    "output": closures.into_iter().map(|(_, _, i)| i).collect::<Vec<_>>(),
                     "usage": usage,
                 });
+                if incomplete {
+                    response["incomplete_details"] =
+                        json!({ "reason": "max_output_tokens" });
+                }
                 let event_name = if incomplete {
                     "response.incomplete"
                 } else {
@@ -286,22 +339,42 @@ impl ResponsesSseState {
         self.emit_created()
     }
 
+    /// created + in_progress 两帧（官方序列：created 之后紧跟 in_progress，同一 response 对象）。
     fn emit_created(&mut self) -> String {
         self.created = true;
-        self.frame(
+        self.created_at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        let response = json!({
+            "id": self.response_id,
+            "object": "response",
+            "status": "in_progress",
+            "created_at": self.created_at,
+            "model": self.model,
+            "output": [],
+            "usage": Value::Null,
+        });
+        let mut out = self.frame(
             "response.created",
+            json!({ "type": "response.created", "response": response }),
+        );
+        out.push_str(&self.frame(
+            "response.in_progress",
             json!({
-                "type": "response.created",
+                "type": "response.in_progress",
                 "response": {
                     "id": self.response_id,
                     "object": "response",
                     "status": "in_progress",
+                    "created_at": self.created_at,
                     "model": self.model,
                     "output": [],
                     "usage": Value::Null,
                 },
             }),
-        )
+        ));
+        out
     }
 
     /// 拼一帧并递增 sequence_number。
