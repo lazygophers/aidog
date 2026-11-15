@@ -2906,7 +2906,7 @@ async fn spawn_recording_upstream(
     (format!("http://{addr}"), rec)
 }
 
-const GEMINI_OK: &str = r#"{"candidates":[{"content":{"parts":[{"text":"hi"}],"role":"model"},"finishReason":"STOP","index":0}],"usageMetadata":{"promptTokenCount":5,"candidatesTokenCount":3,"totalTokenCount":8}}"#;
+const GEMINI_OK: &str = r#"{"candidates":[{"content":{"parts":[{"text":"hi"}],"role":"model"},"finishReason":"STOP","index":0}],"usageMetadata":{"promptTokenCount":5,"candidatesTokenCount":3,"thoughtsTokenCount":1,"totalTokenCount":9,"cachedContentTokenCount":2}}"#;
 
 /// 注册 Gemini 平台 + 显式 Gemini endpoint（同协议透传命中），group 带
 /// `gemini-src → gemini-target` 模型改写。
@@ -3048,6 +3048,44 @@ async fn stage_prepare_send_preserves_remapped_body_and_upstream_log() {
     assert_eq!(row.upstream_request_body, captured[0].1);
     assert_eq!(row.target_protocol, "gemini");
     assert_eq!(row.model, "gemini-src");
+    assert_eq!(row.input_tokens, 3, "Gemini prompt tokens must exclude cache");
+    assert_eq!(row.output_tokens, 4, "Gemini candidate and thought tokens must be logged");
+    assert_eq!(row.cache_tokens, 2, "Gemini cached prompt tokens must be logged");
+    assert!(row.est_cost > 0.0, "Gemini usage must produce a non-zero estimated cost");
+    assert!(row.done);
+}
+
+#[tokio::test]
+async fn gemini_cross_protocol_usage_is_logged_and_response_is_converted() {
+    let (upstream, _rec) = spawn_recording_upstream(GEMINI_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_platform(&state, "gem-cross", Protocol::Gemini, &upstream, "").await;
+
+    let request = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/messages")
+        .header("authorization", "Bearer gem-cross")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+        ))
+        .unwrap();
+    let response = handle_proxy(AxumState(state.clone()), request).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), 1 << 20)
+        .await
+        .unwrap();
+    let response_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(response_json["usage"]["input_tokens"], 3);
+    assert_eq!(response_json["usage"]["output_tokens"], 4);
+    assert_eq!(response_json["usage"]["cache_read_input_tokens"], 2);
+
+    let row = only_log_of(&state, "gem-cross").await;
+    assert_eq!(row.target_protocol, "gemini");
+    assert_eq!(row.input_tokens, 3);
+    assert_eq!(row.output_tokens, 4);
+    assert_eq!(row.cache_tokens, 2);
+    assert!(row.est_cost > 0.0, "Gemini converted usage must produce a non-zero estimated cost");
     assert!(row.done);
 }
 
