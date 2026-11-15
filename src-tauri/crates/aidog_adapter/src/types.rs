@@ -445,6 +445,30 @@ impl Tool {
         matches!(self.tool_type.as_deref(), Some(t) if t != "custom" && t != "function")
     }
 
+    /// issue #74：Anthropic 服务端工具 → 目标协议原生能力键映射表。
+    /// `Some(键)` = 可映射，由各协议 converter 映射下发；`None` = 该目标无对应能力，
+    /// `client_tools` 整条丢弃并由 `forward.rs` 在 field_trace 留 `drop:<name>` 痕。
+    /// 映射依据（官方文档，核对日期 2026-11-16）：
+    /// - Responses `web_search` 工具（`filters.allowed_domains/blocked_domains` + `user_location`）:
+    ///   https://developers.openai.com/api/docs/guides/tools-web-search
+    /// - Gemini REST `Tool` 资源 `googleSearch` / `urlContext`:
+    ///   https://ai.google.dev/api/caching#Tool 、https://ai.google.dev/gemini-api/docs/url-context
+    ///
+    /// bash_* 各目标均无等价物；OpenAI Chat 目标无任何服务端工具 → 全部丢弃留痕。
+    /// web_fetch_* 仅 Gemini 有对应（url_context），Responses 侧未核对到官方工具形态，不映射。
+    pub fn native_server_tool(&self, target_protocol: &str) -> Option<&'static str> {
+        if !self.is_server_tool() {
+            return None;
+        }
+        let t = self.tool_type.as_deref()?;
+        match target_protocol {
+            "openai_responses" => t.starts_with("web_search").then_some("web_search"),
+            "gemini" if t.starts_with("web_search") => Some("google_search"),
+            "gemini" if t.starts_with("web_fetch") => Some("url_context"),
+            _ => None,
+        }
+    }
+
     /// 出站给 Anthropic 的 `input_schema`：服务端工具且 schema 是入站兜底的空对象时不写出
     /// （服务端工具的 schema 由上游持有，多送一个空 schema 会被判成参数错误）。
     pub fn outbound_input_schema(&self) -> Option<serde_json::Value> {
@@ -461,18 +485,24 @@ fn default_input_schema() -> serde_json::Value {
     serde_json::json!({})
 }
 
-/// 目标协议不支持服务端工具时的统一降级：整条不下发并 warn 留痕。
-/// 退化成空 schema 的假 function 更糟——模型会反复调用一个没有执行方的工具，对话卡死。
-/// 全部被丢弃时返回空 Vec，调用方应据此不写 `tools` 键（空数组会被 OpenAI 判成参数错误）。
+/// 目标协议无法执行的服务端工具统一降级：整条不下发并 warn 留痕。可映射的服务端工具
+/// （[`Tool::native_server_tool`] 返 Some）由各协议 converter 映射下发（issue #74），
+/// 不退化成假 function——模型会反复调用一个没有执行方的工具，对话卡死。
+/// 返回值只含客户端 function（可映射服务端工具不进，它们不是 function）；全部被丢弃时
+/// 返回空 Vec，调用方应据此不写 `tools` 键（空数组会被 OpenAI 判成参数错误）。
 pub fn client_tools<'a>(tools: &'a [Tool], target_protocol: &str) -> Vec<&'a Tool> {
     let (dropped, keep): (Vec<&Tool>, Vec<&Tool>) = tools.iter().partition(|t| t.is_server_tool());
-    if !dropped.is_empty() {
-        let names: Vec<&str> = dropped.iter().map(|t| t.name.as_str()).collect();
+    let unmapped: Vec<&&Tool> = dropped
+        .iter()
+        .filter(|t| t.native_server_tool(target_protocol).is_none())
+        .collect();
+    if !unmapped.is_empty() {
+        let names: Vec<&str> = unmapped.iter().map(|t| t.name.as_str()).collect();
         tracing::warn!(
             target_protocol,
-            dropped = dropped.len(),
+            dropped = unmapped.len(),
             ?names,
-            "server-side tools dropped: 目标协议无法执行 Anthropic 服务端工具"
+            "server-side tools dropped: 目标协议无该服务端工具的对应能力"
         );
     }
     keep
@@ -588,6 +618,50 @@ pub enum ChatStreamEvent {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    // ── issue #74：服务端工具 → 目标协议原生能力映射表 ──
+
+    fn server_tool(name: &str, tool_type: &str) -> Tool {
+        Tool {
+            name: name.into(),
+            description: None,
+            input_schema: json!({}),
+            tool_type: Some(tool_type.into()),
+            cache_control: None,
+            extra: None,
+        }
+    }
+
+    #[test]
+    fn native_server_tool_mapping_table() {
+        let ws = server_tool("web_search", "web_search_20250305");
+        let wf = server_tool("web_fetch", "web_fetch_20250910");
+        let bash = server_tool("bash", "bash_20250124");
+        let f = Tool {
+            name: "get_weather".into(),
+            description: None,
+            input_schema: json!({"type":"object"}),
+            tool_type: None,
+            cache_control: None,
+            extra: None,
+        };
+
+        // Responses：web_search_* → web_search；其余不映射
+        assert_eq!(ws.native_server_tool("openai_responses"), Some("web_search"));
+        assert_eq!(wf.native_server_tool("openai_responses"), None);
+        assert_eq!(bash.native_server_tool("openai_responses"), None);
+        // Gemini：web_search_* → google_search、web_fetch_* → url_context；bash 不映射
+        assert_eq!(ws.native_server_tool("gemini"), Some("google_search"));
+        assert_eq!(wf.native_server_tool("gemini"), Some("url_context"));
+        assert_eq!(bash.native_server_tool("gemini"), None);
+        // OpenAI Chat：无服务端工具
+        assert_eq!(ws.native_server_tool("openai"), None);
+        assert_eq!(wf.native_server_tool("openai"), None);
+        assert_eq!(bash.native_server_tool("openai"), None);
+        // 非服务端（客户端 function）恒 None
+        assert_eq!(f.native_server_tool("openai_responses"), None);
+        assert_eq!(f.native_server_tool("gemini"), None);
+    }
 
     // ── MessageContent helper ──
 
