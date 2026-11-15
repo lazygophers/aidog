@@ -37,7 +37,6 @@ async fn spawn_recording_upstream(resp_body: &'static str) -> (String, Arc<Mutex
 async fn setup_user_endpoint_group(
     state: &Arc<ProxyState>,
     gk: &str,
-    platform_type: Protocol,
     ep_protocol: Protocol,
     base_url: &str,
 ) {
@@ -45,7 +44,7 @@ async fn setup_user_endpoint_group(
         &state.db,
         CreatePlatform {
             name: "stub".into(),
-            platform_type,
+            platform_type: Protocol::OpenAI,
             base_url: base_url.to_string(),
             api_key: "sk-up".into(),
             extra: String::new(),
@@ -93,7 +92,7 @@ const ANTHROPIC_OK: &str = r#"{"id":"msg_1","type":"message","role":"assistant",
 async fn outbound_follows_user_endpoint_protocol_and_base_url() {
     let (upstream, hits) = spawn_recording_upstream(OPENAI_OK).await;
     let state = make_state(test_db().await).await;
-    setup_user_endpoint_group(&state, "gkuep", Protocol::OpenAI, Protocol::OpenAI, &upstream).await;
+    setup_user_endpoint_group(&state, "gkuep", Protocol::OpenAI, &upstream).await;
 
     let req = HttpRequest::builder()
         .method("POST")
@@ -125,7 +124,7 @@ async fn outbound_follows_user_endpoint_protocol_and_base_url() {
 async fn outbound_follows_endpoint_protocol_after_user_change() {
     let (upstream, hits) = spawn_recording_upstream(ANTHROPIC_OK).await;
     let state = make_state(test_db().await).await;
-    setup_user_endpoint_group(&state, "gkchg", Protocol::OpenAI, Protocol::OpenAI, &upstream).await;
+    setup_user_endpoint_group(&state, "gkchg", Protocol::OpenAI, &upstream).await;
 
     let req = HttpRequest::builder()
         .method("POST")
@@ -200,7 +199,29 @@ async fn glm_outbound_body(platform_type: Protocol, ep: Protocol, gk: &str) -> s
     let resp_ok = if ep == Protocol::Anthropic { ANTHROPIC_OK } else { OPENAI_OK };
     let (upstream, hits) = spawn_recording_upstream(resp_ok).await;
     let state = make_state(test_db().await).await;
-    setup_user_endpoint_group(&state, gk, platform_type, ep, &upstream).await;
+    // 厂商直连协议建库端点被锁成 preset 域名，用 fixture 直写 DB 指向本地假上游
+    let pid = aidog_db::test_support::create_platform_at_fake_upstream(
+        &state.db,
+        platform_type.clone(),
+        &upstream,
+        std::slice::from_ref(&ep),
+    )
+    .await;
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: pid,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
     let req = HttpRequest::builder()
         .method("POST")
         .uri("/chat/completions")
@@ -211,7 +232,9 @@ async fn glm_outbound_body(platform_type: Protocol, ep: Protocol, gk: &str) -> s
         ))
         .unwrap();
     let resp = handle_proxy(AxumState(state.clone()), req).await;
-    assert_eq!(resp.status(), StatusCode::OK);
+    let status = resp.status();
+    let resp_body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(status, StatusCode::OK, "{platform_type:?}/{ep:?}: {}", String::from_utf8_lossy(&resp_body));
     flush_log_queue(&state).await;
     let hits = hits.lock().unwrap();
     assert_eq!(hits.len(), 1, "上游应恰好收到一次请求: {hits:?}");
