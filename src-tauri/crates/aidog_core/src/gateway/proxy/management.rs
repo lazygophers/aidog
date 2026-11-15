@@ -8,6 +8,30 @@ pub fn install_management_router(router: axum::Router) {
     let _ = MANAGEMENT_ROUTER.set(router);
 }
 
+/// 用「路径 → (字节, MIME)」查表函数托管 `/ui/*`（桌面版：Tauri 打进二进制的前端资源，与 webview 同一份 dist）。
+/// 查不到的路径回落 index.html（SPA）；index 也没有 → 404。与 `management_router()` `merge` 后一起装入。
+pub fn ui_router_from_assets<F>(lookup: F) -> axum::Router
+where
+    F: Fn(&str) -> Option<(Vec<u8>, String)> + Clone + Send + Sync + 'static,
+{
+    let handler = move |uri: axum::http::Uri| {
+        let lookup = lookup.clone();
+        async move {
+            let rest = uri.path().strip_prefix("/ui").unwrap_or("").trim_start_matches('/');
+            let hit = if rest.is_empty() { None } else { lookup(rest) };
+            match hit.or_else(|| lookup("index.html")) {
+                Some((bytes, mime)) => {
+                    ([(axum::http::header::CONTENT_TYPE, mime)], bytes).into_response()
+                }
+                None => StatusCode::NOT_FOUND.into_response(),
+            }
+        }
+    };
+    axum::Router::new()
+        .route("/ui/", axum::routing::get(handler.clone()))
+        .route("/ui/{*rest}", axum::routing::get(handler))
+}
+
 pub(super) fn json_response(status: StatusCode, body: &str) -> Response {
     let mut r = (status, [("content-type", "application/json")], body.to_string()).into_response();
     inject_trace_header(&mut r);
@@ -19,7 +43,7 @@ pub const SOURCE_HEADER: &str = "x-aidog-source";
 pub const SETTINGS_TEST_SOURCE: &str = "settings-test";
 
 /// 调用记录里的命令名：`/api/rpc/<命令>` 取末段，`/api/events` 记 `events`；
-/// `/api/ui/*` 是静态资源，不记。
+/// `/ui*` 是静态资源，不记。
 fn call_log_command(path: &str) -> Option<String> {
     if let Some(cmd) = path.strip_prefix("/api/rpc/") {
         // 命令名来自请求路径，入库截断防超长串撑库。
@@ -32,7 +56,7 @@ fn req_header(req: &Request, name: &str) -> String {
     req.headers().get(name).and_then(|v| v.to_str().ok()).unwrap_or("").to_string()
 }
 
-/// `/api/rpc/*`、`/api/events`、`/api/ui/*`：本机限制 → 开关 → 可选凭据，通过后把去掉
+/// `/api/rpc/*`、`/api/events`、`/ui*`：本机限制 → 开关 → 可选凭据，通过后把去掉
 /// `/api` 前缀的请求交给外壳装进来的路由。注册在分组解析与转发之前（与 group-info 同层）。
 /// 每次调用（含被拒的）落一行 `api_call_log` 元数据，绝不记正文。
 pub(crate) async fn handle_management(
@@ -103,6 +127,17 @@ async fn handle_management_inner(
             r#"{"error":"management_api_unavailable","message":"管理接口路由未装载"}"#,
         );
     };
+    // `/ui` 无尾斜杠时界面里 vite base "./" 的资源会落到根下，补斜杠（过了闸门才跳）。
+    if req.uri().path() == "/ui" {
+        let loc = match req.uri().query() {
+            Some(q) => format!("/ui/?{q}"),
+            None => "/ui/".to_string(),
+        };
+        return (StatusCode::PERMANENT_REDIRECT, [(axum::http::header::LOCATION, loc)]).into_response();
+    }
+    // 外层路由已写入 MatchedPath；内层 nest_service（内核静态托管）再写会触发
+    // matched_path.rs 的断言 panic，先摘掉。
+    req.extensions_mut().remove::<axum::extract::MatchedPath>();
     let stripped = req.uri().path().strip_prefix("/api").unwrap_or(req.uri().path());
     let pq = match req.uri().query() {
         Some(q) => format!("{stripped}?{q}"),
