@@ -41,6 +41,7 @@ mod aux_model;
 mod decision;
 mod devin;
 mod endpoint;
+mod failure_verdict;
 mod finish;
 mod attempt_plan;
 mod forward;
@@ -79,6 +80,8 @@ mod test_connect;
 mod test_e2e_mitm;
 #[cfg(test)]
 mod test_group_info;
+#[cfg(test)]
+mod test_failure_verdict;
 #[cfg(test)]
 mod test_integration;
 #[cfg(test)]
