@@ -17,8 +17,9 @@ mod ordering;
 #[allow(unused_imports)]
 pub use candidates::{
     CandidateSet, ClientGate, ClientProbe, QuotaExhausted, RequestKind, RouteFail, ScheduleCtx,
-    select_candidates_gated, select_candidates_preloaded,
+    select_candidates_gated,
 };
+pub(crate) use candidates::{RouteInputs, select_candidates_preloaded};
 #[cfg(test)]
 pub use candidates::select_candidates_for_test;
 
