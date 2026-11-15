@@ -17,6 +17,8 @@ pub(crate) struct NonSuccessCtx<'a> {
     pub switched: &'a mut bool,
     /// 本次尝试的首字节耗时（毫秒，响应头已到）。
     pub ttfb_ms: Option<i64>,
+    /// 当前排序里的候选数（connect 失败熔断的本地网络保护分母，apply 用）。
+    pub candidate_total: usize,
 }
 
 /// 失败后继续（换组合）时给最后一条尝试记录打排除范围：服务类 → 整个平台，其余（模型类 / 未知类）→ 只该组合。
@@ -42,7 +44,7 @@ pub(crate) async fn handle_non_success(
     breaker_th: &super::scheduling::BreakerThresholds,
     ctx: NonSuccessCtx<'_>,
 ) -> AttemptOutcome {
-    let NonSuccessCtx { url, start, attempt_start, attempt_ts, is_last_candidate, log_settings, requested_model, has_next_model, switched, ttfb_ms } = ctx;
+    let NonSuccessCtx { url, start, attempt_start, attempt_ts, is_last_candidate, log_settings, requested_model, has_next_model, switched, ttfb_ms, candidate_total } = ctx;
     // Retry-After 须在 resp 被 text() 消费前取（429 配额冷却用，见 judge）
     let retry_after = resp
         .headers()
@@ -119,7 +121,7 @@ pub(crate) async fn handle_non_success(
         model: Some(route.target_model.clone()),
         ..Default::default()
     });
-    apply(&v, state, route, breaker_th, &failure).await;
+    apply(&v, state, route, breaker_th, &failure, candidate_total).await;
     if let Some(a) = attempts.last_mut() {
         a.effects = v.effects.iter().map(|e| e.as_str().to_string()).collect();
     }

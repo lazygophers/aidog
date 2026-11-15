@@ -430,8 +430,14 @@ pub(crate) async fn handle_proxy_core(
     // 进 parse_incoming_request 必失败。决策请求原样转发仅改写 model（jev-decision-proxy §3.4），
     // 经 router 复用过滤 / 冷却 / 熔断（不照抄 responses.rs 绕过路由的做法）。
     if is_decision_endpoint(&path) {
-        return handle_decision(&state, &mut log, &log_settings, &group, &bytes, start, lang, client_gate)
-            .await;
+        return handle_decision(
+            &state,
+            &mut log,
+            &group,
+            &bytes,
+            super::call_scope::ReqCtx { log_settings: &log_settings, start, lang, client: client_gate },
+        )
+        .await;
     }
 
     // ── 向量化请求分流（必须在 parse_incoming_request 之前）──
@@ -442,12 +448,9 @@ pub(crate) async fn handle_proxy_core(
             &super::aux_model::EMBEDDING,
             &state,
             &mut log,
-            &log_settings,
             &group,
             &bytes,
-            start,
-            lang,
-            client_gate,
+            super::call_scope::ReqCtx { log_settings: &log_settings, start, lang, client: client_gate },
         )
         .await;
     }
@@ -459,12 +462,9 @@ pub(crate) async fn handle_proxy_core(
             &super::aux_model::RERANK,
             &state,
             &mut log,
-            &log_settings,
             &group,
             &bytes,
-            start,
-            lang,
-            client_gate,
+            super::call_scope::ReqCtx { log_settings: &log_settings, start, lang, client: client_gate },
         )
         .await;
     }
@@ -474,7 +474,14 @@ pub(crate) async fn handle_proxy_core(
     // （tools.rs），不进聊天转发链。全库无声明 → is_tools_endpoint false，行为与现状一致
     //（语义 11 零回归）。
     if is_tools_endpoint(&path) {
-        return handle_tools(&state, &mut log, &log_settings, &group, &bytes, &path, start, lang, client_gate)
+        return handle_tools(
+            &state,
+            &mut log,
+            &group,
+            &bytes,
+            &path,
+            super::call_scope::ReqCtx { log_settings: &log_settings, start, lang, client: client_gate },
+        )
             .await;
     }
 
