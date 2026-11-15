@@ -3,11 +3,13 @@ use serde_json::json;
 
 #[test]
 fn openai_family_cross_shape_nonstream() {
-    let chat = json!({"id":"id", "model":"model", "choices":[{"message":{"role":"assistant","content":"hello"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":4}});
-    let responses = json!({"id":"id", "model":"model", "output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hello"}]}],"usage":{"input_tokens":3,"output_tokens":4}});
+    let chat = json!({"id":"id", "model":"model", "choices":[{"message":{"role":"assistant","content":"hello","tool_calls":[{"id":"call_1","type":"function","function":{"name":"get_weather","arguments":"{\"city\":\"SF\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":3,"completion_tokens":4}});
+    let responses = json!({"id":"id", "model":"model", "output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hello"}]},{"type":"function_call","call_id":"call_1","name":"get_weather","arguments":"{\"city\":\"SF\"}"}],"usage":{"input_tokens":3,"output_tokens":4}});
     let completions = json!({"id":"id", "model":"model", "choices":[{"text":"hello","finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":4}});
     let cases = [(&Protocol::OpenAI, &chat), (&Protocol::OpenAIResponses, &responses), (&Protocol::OpenAICompletions, &completions)];
     for (wire, body) in cases {
+        // legacy Completions wire 无 tools API，不携带工具调用；其余 wire 都带 call_1
+        let has_tool = wire != &Protocol::OpenAICompletions;
         for (client, _) in cases {
             let out = convert_response(body, wire, client, "model");
             if wire == client {
@@ -21,17 +23,50 @@ fn openai_family_cross_shape_nonstream() {
                     assert_eq!(out["choices"][0]["message"]["content"], "hello");
                     assert_eq!(out["usage"]["prompt_tokens"], 3);
                     assert_eq!(out["usage"]["completion_tokens"], 4);
+                    // tool 字段：Chat 形态 = message.tool_calls（id/type/function.name/arguments）
+                    if has_tool {
+                        let tc = &out["choices"][0]["message"]["tool_calls"][0];
+                        assert_eq!(tc["id"], "call_1", "{wire:?}→chat tool_calls[0].id");
+                        assert_eq!(tc["type"], "function", "{wire:?}→chat tool_calls[0].type");
+                        assert_eq!(tc["function"]["name"], "get_weather", "{wire:?}→chat tool name");
+                        assert_eq!(
+                            tc["function"]["arguments"], "{\"city\":\"SF\"}",
+                            "{wire:?}→chat tool arguments 须为 JSON 字符串"
+                        );
+                    }
                 }
                 Protocol::OpenAIResponses => {
                     assert_eq!(out["output"][0]["role"], "assistant");
                     assert_eq!(out["output"][0]["content"][0]["text"], "hello");
                     assert_eq!(out["usage"]["input_tokens"], 3);
                     assert_eq!(out["usage"]["output_tokens"], 4);
+                    // tool 字段：Responses 形态 = output[] 的 function_call item（call_id/name/arguments）
+                    let fc = out["output"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|i| i["type"] == "function_call");
+                    if has_tool {
+                        let fc = fc.expect("function_call item 必须在 output 中");
+                        assert_eq!(fc["call_id"], "call_1", "{wire:?}→responses function_call.call_id");
+                        assert_eq!(fc["name"], "get_weather", "{wire:?}→responses function_call.name");
+                        assert!(
+                            fc.get("arguments").is_some(),
+                            "{wire:?}→responses function_call.arguments 必须在"
+                        );
+                    } else {
+                        assert!(fc.is_none(), "{wire:?}→responses 不该有 function_call");
+                    }
                 }
                 Protocol::OpenAICompletions => {
                     assert_eq!(out["choices"][0]["text"], "hello");
                     assert_eq!(out["usage"]["prompt_tokens"], 3);
                     assert_eq!(out["usage"]["completion_tokens"], 4);
+                    // legacy Completions 无 tool_calls API：tool 调用被丢弃，不得出现该字段
+                    assert!(
+                        out["choices"][0].get("tool_calls").is_none(),
+                        "{wire:?}→completions 不该有 tool_calls（legacy 无此 API）"
+                    );
                 }
                 _ => unreachable!(),
             }
@@ -530,6 +565,40 @@ fn render_anthropic_reasoning_with_tools() {
     assert_eq!(content[1]["type"], "text");
     assert_eq!(content[1]["text"], "Calling function");
     assert_eq!(content[2]["type"], "tool_use");
+}
+
+// ── Responses function_call：render 写 call_id（官方字段），parse 优先 call_id 回落 id ──
+#[test]
+fn responses_function_call_call_id_roundtrip() {
+    let r = crate::converter::NonStreamResponse {
+        id: "resp-1".to_string(),
+        model: "m".to_string(),
+        text: None,
+        tool_uses: vec![("call_abc".to_string(), "ls".to_string(), json!({}))],
+        stop_reason: "tool_use".to_string(),
+        input_tokens: 1,
+        output_tokens: 2,
+        cache_read_tokens: 0,
+        reasoning: None,
+    };
+    let out = crate::protocols::openai_responses::render_responses_response(&r).unwrap();
+    let fc = &out["output"][0];
+    assert_eq!(fc["type"], "function_call");
+    assert_eq!(fc["call_id"], "call_abc", "render 必须写官方 call_id 字段");
+    assert_eq!(fc["id"], "call_abc", "保留既有 id 字段");
+    assert_eq!(fc["name"], "ls");
+    assert_eq!(fc["arguments"], "{}", "官方 arguments 是 JSON 字符串");
+
+    // parse：扁平 item 优先 call_id；只有旧 id 字段时回落 id
+    let with_call_id = json!({"id":"r1","model":"m","output":[{"type":"function_call","call_id":"call_9","name":"ls","arguments":"{}"}]});
+    let parsed =
+        crate::protocols::openai_responses::parse_responses_response(&with_call_id, "fb").unwrap();
+    assert_eq!(parsed.tool_uses[0].0, "call_9", "parse 优先读 call_id");
+
+    let with_id_only = json!({"id":"r2","model":"m","output":[{"type":"function_call","id":"call_8","name":"ls","arguments":"{}"}]});
+    let parsed =
+        crate::protocols::openai_responses::parse_responses_response(&with_id_only, "fb").unwrap();
+    assert_eq!(parsed.tool_uses[0].0, "call_8", "缺 call_id 时回落 id");
 }
 
 // ── N×N 矩阵测试：anthropic→openai ──
