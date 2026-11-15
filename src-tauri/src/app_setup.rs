@@ -280,7 +280,17 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         aidog_core::tauri_ctx::set_ui_probe(crate::ui_window::exists);
         // 管理接口（ADR 0010）：路由表与内核共用 aidog_rpc，挂在代理端口的 /api/ 下，
         // 开关 / 本机限制 / 凭据由代理侧 handle_management 把关。
-        aidog_core::gateway::proxy::install_management_router(aidog_rpc::management_router());
+        // /ui：直接托管 Tauri 内嵌的前端资源（与 webview 同一份 dist，不另带拷贝）。
+        let resolver_app = app.handle().clone();
+        let ui = aidog_core::gateway::proxy::ui_router_from_assets(move |path: &str| {
+            resolver_app
+                .asset_resolver()
+                .get(format!("/{path}"))
+                .map(|a| (a.bytes, a.mime_type))
+        });
+        aidog_core::gateway::proxy::install_management_router(
+            aidog_rpc::management_router().merge(ui),
+        );
     }
 
     // 定时备份调度器 (常驻 loop, 启动首次检查补「关机错过」)。

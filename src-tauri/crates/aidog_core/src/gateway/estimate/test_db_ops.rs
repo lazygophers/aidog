@@ -214,7 +214,7 @@ async fn calibrate_from_quota_aligns_coding_plan() {
         }),
         newapi_user_id: None,
     };
-    calibrate_from_quota(&db, id, &quota, true).await;
+    calibrate_from_quota(&db, id, &quota).await;
 
     let after = db::get_platform(&db, id).await.unwrap().unwrap();
     assert_eq!(after.estimate_count, 0, "校准重置 count");
@@ -250,6 +250,61 @@ async fn calibrate_from_quota_aligns_coding_plan() {
     assert!(snaps.is_empty());
 }
 
+fn plan_quota(util: f64) -> PlatformQuota {
+    PlatformQuota {
+        success: true,
+        error: None,
+        queried_at: now(),
+        balance: None,
+        coding_plan: Some(CodingPlanInfo {
+            tiers: vec![QuotaTier {
+                name: "weekly_limit".into(),
+                utilization: util,
+                resets_at: None,
+                limit: None,
+                remaining: None,
+                unit: None,
+            }],
+            level: None,
+        }),
+        newapi_user_id: None,
+    }
+}
+
+// 请求后校准路径传的是端点 coding_plan 标记（Codex 平台为 false）：套餐判定必须看真查结果，
+// 不能因标记为 false 把已有套餐清空。
+#[tokio::test]
+async fn calibrate_from_quota_endpoint_flag_false_still_keeps_plan() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, false).await;
+    calibrate_from_quota(&db, id, &plan_quota(42.0)).await;
+    let after = db::get_platform(&db, id).await.unwrap().unwrap();
+    let stored = EstCodingPlan::from_json(&after.est_coding_plan);
+    assert_eq!(stored.tiers.len(), 1, "套餐档位应写入，got {:?}", after.est_coding_plan);
+    assert!((stored.tiers[0].est_utilization - 42.0).abs() < 1e-9);
+}
+
+// 查询成功但不含套餐：保留库里已有套餐与余额，不清空。
+#[tokio::test]
+async fn calibrate_from_quota_success_without_plan_keeps_existing_plan() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, true).await;
+    calibrate_from_quota(&db, id, &plan_quota(42.0)).await;
+    let before = db::get_platform(&db, id).await.unwrap().unwrap();
+    assert!(!before.est_coding_plan.is_empty());
+    let empty = PlatformQuota {
+        success: true,
+        error: None,
+        queried_at: now(),
+        balance: None,
+        coding_plan: None,
+        newapi_user_id: None,
+    };
+    calibrate_from_quota(&db, id, &empty).await;
+    let after = db::get_platform(&db, id).await.unwrap().unwrap();
+    assert_eq!(after.est_coding_plan, before.est_coding_plan, "套餐不应被清空");
+}
+
 // ── calibrate_from_quota：余额平台 est_balance 严格对齐真实 ──
 #[tokio::test]
 async fn calibrate_from_quota_aligns_balance() {
@@ -273,7 +328,7 @@ async fn calibrate_from_quota_aligns_balance() {
         coding_plan: None,
         newapi_user_id: None,
     };
-    calibrate_from_quota(&db, id, &quota, false).await;
+    calibrate_from_quota(&db, id, &quota).await;
 
     let after = db::get_platform(&db, id).await.unwrap().unwrap();
     assert!(
@@ -315,7 +370,7 @@ async fn calibrate_from_quota_failure_preserves() {
         coding_plan: None,
         newapi_user_id: None,
     };
-    calibrate_from_quota(&db, id, &quota, false).await;
+    calibrate_from_quota(&db, id, &quota).await;
 
     let after = db::get_platform(&db, id).await.unwrap().unwrap();
     // 不重置：count 保留、last_real_query_at 保留、est 不变
@@ -631,7 +686,7 @@ async fn balance_cny_platform_cny_model_matches_pre_fx_behaviour() {
     let id = mk_platform(&db, false).await;
     seed_cny_model(&db).await;
     write_real_quota(&db, id, 100.0, "", now()).await.unwrap();
-    calibrate_from_quota(&db, id, &quota_with_ccy(100.0, "CNY"), false).await;
+    calibrate_from_quota(&db, id, &quota_with_ccy(100.0, "CNY")).await;
     run_est(&db, id, 0.0, 1000, 500).await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
     // 换算前：CNY 价直接扣 CNY 余额 = 1000*0.001 + 500*0.002 = 2.0
@@ -647,7 +702,7 @@ async fn balance_usd_platform_cny_model_deducts_usd() {
     let db = mem_db().await;
     let id = mk_platform(&db, false).await;
     seed_cny_model(&db).await;
-    calibrate_from_quota(&db, id, &quota_with_ccy(100.0, "USD"), false).await;
+    calibrate_from_quota(&db, id, &quota_with_ccy(100.0, "USD")).await;
     run_est(&db, id, 0.0, 1000, 500).await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
     let usd = 2.0 / aidog_db::CNY_PER_USD;
@@ -698,7 +753,7 @@ async fn balance_missing_currency_usd_model_deducts_usd() {
 async fn tool_fee_deducted_with_zero_tokens_and_converted_for_cny_balance() {
     let db = mem_db().await;
     let id = mk_platform(&db, false).await;
-    calibrate_from_quota(&db, id, &quota_with_ccy(100.0, "CNY"), false).await;
+    calibrate_from_quota(&db, id, &quota_with_ccy(100.0, "CNY")).await;
     // token 全 0 + 按次费 0.5 USD：不早退，CNY 余额扣 0.5 × 6.6675
     run_est(&db, id, 0.5, 0, 0).await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
@@ -715,7 +770,7 @@ async fn tool_fee_deducted_with_zero_tokens_and_converted_for_cny_balance() {
 async fn tool_fee_not_multiplied_by_peak() {
     let db = mem_db().await;
     let id = mk_platform(&db, false).await;
-    calibrate_from_quota(&db, id, &quota_with_ccy(100.0, "USD"), false).await;
+    calibrate_from_quota(&db, id, &quota_with_ccy(100.0, "USD")).await;
     let extra = r#"{"peak":[{"start_hour":0,"end_hour":24,"multiplier":2.0}]}"#;
     estimate_after_request(
         &db,
@@ -1092,9 +1147,9 @@ mod verdict_apply {
             }),
             newapi_user_id: None,
         };
-        calibrate_from_quota_with(&db, id, &mk(100.0), true, Some(sched.clone())).await;
+        calibrate_from_quota_with(&db, id, &mk(100.0), Some(sched.clone())).await;
         assert!(sched.quota_cooled(id, now() + 86_400_000 * 365));
-        calibrate_from_quota_with(&db, id, &mk(20.0), true, Some(sched.clone())).await;
+        calibrate_from_quota_with(&db, id, &mk(20.0), Some(sched.clone())).await;
         assert!(!sched.quota_cooled(id, now()));
     }
 
