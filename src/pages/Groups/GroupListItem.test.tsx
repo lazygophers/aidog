@@ -1,7 +1,7 @@
 // GroupListItem 就近测试：showLastOutcome 透传（分组列表与详情平台功能对齐，差距一）。
 // 选择器锚稳定 testid + data-result；不断言 locale 文案。
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "../../test/render";
+import { render, screen, fireEvent } from "../../test/render";
 
 // 币种 store 首次订阅的 refresh 固定回 USD（空操作）。
 vi.mock("../../services/api/currency", () => ({
@@ -61,5 +61,25 @@ describe("GroupListItem — showLastOutcome 透传（对齐详情页）", () => 
     const p = { ...platform, last_error: "", last_error_at: 0 } as never as Platform;
     render(<GroupListItem {...baseProps} platforms={[p]} detail={{ ...detail, platforms: [{ platform: { id: 1 }, priority: 1, weight: 1, level_priority: 5 }] } as never} />);
     expect(screen.getByTestId("row-last-outcome").getAttribute("data-result")).toBe("ok");
+  });
+});
+
+describe("GroupListItem — 删除分组菜单项", () => {
+  const openMenu = () => fireEvent.pointerDown(screen.getByText("⋯"), { button: 0, ctrlKey: false });
+
+  it("手动分组：点击「删除分组」回调 onDelete(group.id)", async () => {
+    const onDelete = vi.fn();
+    render(<GroupListItem {...baseProps} onDelete={onDelete} />);
+    openMenu();
+    fireEvent.click(await screen.findByText("删除分组"));
+    expect(onDelete).toHaveBeenCalledWith(3);
+  });
+
+  it("auto 分组带平台：后端 delete_group 已允许（2026-10-27 拍板），菜单必须仍给「删除分组」", async () => {
+    const auto = { ...detail, group: { ...detail.group, auto_from_platform: 1 } } as never as GroupDetail;
+    render(<GroupListItem {...baseProps} detail={auto} />);
+    openMenu();
+    await screen.findByText("一键测试本组全部平台");
+    expect(screen.queryByText("删除分组")).not.toBeNull();
   });
 });
