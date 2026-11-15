@@ -321,9 +321,7 @@ export const GroupListItem = memo(function GroupListItem({
               <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(buildClaudeCommand(group.group_key)); }}>{t("group.menuCopyClaude", "Claude 启动命令")}</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(buildCodexCommand(group.group_key, [...(group.env_vars ?? []), ...proxyVars])); }}>{t("group.menuCopyCodex", "Codex 启动命令")}</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(buildPiCommand(group.group_key, [...(group.env_vars ?? []), ...proxyVars])); }}>{t("group.menuCopyPi", "pi 启动命令")}</DropdownMenuItem>
-              {(!group.auto_from_platform || gps.length === 0) && (
-                <DropdownMenuItem style={{ color: "var(--color-danger)" }} onSelect={() => onDelete(group.id)}>{t("group.delete", "删除分组")}</DropdownMenuItem>
-              )}
+              <DropdownMenuItem style={{ color: "var(--color-danger)" }} onSelect={() => onDelete(group.id)}>{t("group.delete", "删除分组")}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </span>
