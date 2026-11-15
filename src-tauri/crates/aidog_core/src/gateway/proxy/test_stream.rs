@@ -138,6 +138,56 @@ fn accumulate_sse_usage_openai_stream_final_usage() {
     assert_eq!(c.load(Relaxed), 512);
 }
 
+/// Gemini 非流式 usageMetadata：promptTokenCount 含缓存时，普通输入必须扣除缓存。
+#[test]
+fn extract_usage_gemini_usage_metadata() {
+    let body = r#"{"usageMetadata":{"promptTokenCount":100,"candidatesTokenCount":30,"thoughtsTokenCount":7,"cachedContentTokenCount":5}}"#;
+    assert_eq!(extract_usage(body), (95, 37, 5, 0, 0, Vec::new()));
+}
+
+#[test]
+fn extract_usage_gemini_usage_metadata_without_cache() {
+    let body = r#"{"usageMetadata":{"promptTokenCount":100,"candidatesTokenCount":30,"thoughtsTokenCount":7}}"#;
+    assert_eq!(extract_usage(body), (100, 37, 0, 0, 0, Vec::new()));
+}
+
+/// Gemini 流式 usageMetadata：缓存字段晚到时修正 input，output 包含 thinking token。
+#[test]
+fn accumulate_sse_usage_gemini_usage_metadata() {
+    use std::sync::atomic::{AtomicI32, Ordering::Relaxed};
+    let i = AtomicI32::new(0);
+    let o = AtomicI32::new(0);
+    let c = AtomicI32::new(0);
+    let cw = AtomicI32::new(0);
+    let cw1h = AtomicI32::new(0);
+    let s = AtomicI32::new(0);
+    let f = AtomicI32::new(0);
+
+    let frame = |output, thoughts, cache| {
+        let mut usage = serde_json::json!({
+            "promptTokenCount": 100,
+            "candidatesTokenCount": output,
+            "thoughtsTokenCount": thoughts
+        });
+        if let Some(cache) = cache {
+            usage["cachedContentTokenCount"] = serde_json::json!(cache);
+        }
+        serde_json::json!({
+            "candidates": [{"content": {"parts": [{"text": "partial"}]}}],
+            "usageMetadata": usage
+        })
+    };
+    accumulate_sse_usage(&frame(10, 2, None), &i, &o, &c, &cw, &cw1h, &s, &f);
+    assert_eq!(i.load(Relaxed), 100);
+    assert_eq!(o.load(Relaxed), 12);
+    accumulate_sse_usage(&frame(15, 3, Some(5)), &i, &o, &c, &cw, &cw1h, &s, &f);
+    accumulate_sse_usage(&frame(7, 1, None), &i, &o, &c, &cw, &cw1h, &s, &f);
+
+    assert_eq!(i.load(Relaxed), 95);
+    assert_eq!(o.load(Relaxed), 18);
+    assert_eq!(c.load(Relaxed), 5);
+}
+
 // ── Responses API 子端点识别：精确放行 create，拦所有子端点 ──
 #[test]
 fn gzip_decompressed_anthropic_usage_extracts_tokens() {
