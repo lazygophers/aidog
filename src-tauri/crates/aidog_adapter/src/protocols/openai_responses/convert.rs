@@ -103,14 +103,42 @@ pub fn to_responses(req: &ChatRequest) -> ResponsesRequest {
             .collect::<Vec<_>>()
             .join("\n"),
     });
-    // 服务端工具在 Responses 侧无执行方，整条不下发；全被丢弃时不写 tools 键
+    // 服务端工具过滤：不可映射的整条不下发；可映射的（web_search_*，issue #74，
+    // 依据见 `Tool::native_server_tool` 注释）映射为 Responses 原生工具下发
     let kept_tools: Vec<&Tool> = req
         .tools
         .as_deref()
         .map(|ts| client_tools(ts, "openai_responses"))
         .unwrap_or_default();
     let tools = {
-        let mapped: Vec<Value> = kept_tools.iter().map(|tool| serde_json::json!({"type":"function","name":tool.name,"description":tool.description,"parameters":tool.input_schema})).collect();
+        let mut mapped: Vec<Value> = kept_tools.iter().map(|tool| serde_json::json!({"type":"function","name":tool.name,"description":tool.description,"parameters":tool.input_schema})).collect();
+        // issue #74：web_search_* → {"type":"web_search"}。Anthropic 的 allowed_domains /
+        // blocked_domains → filters；user_location 原样透传。多版本条目去重（同键首个生效）。
+        // 依据：https://developers.openai.com/api/docs/guides/tools-web-search（核对日期 2026-11-16）
+        let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::new();
+        for t in req.tools.as_deref().unwrap_or(&[]) {
+            if let Some(key) = t.native_server_tool("openai_responses")
+                && seen.insert(key)
+            {
+                let mut obj = serde_json::json!({ "type": key });
+                if let Some(extra) = &t.extra {
+                    let mut filters = serde_json::Map::new();
+                    if let Some(a) = extra.get("allowed_domains") {
+                        filters.insert("allowed_domains".into(), a.clone());
+                    }
+                    if let Some(b) = extra.get("blocked_domains") {
+                        filters.insert("blocked_domains".into(), b.clone());
+                    }
+                    if !filters.is_empty() {
+                        obj["filters"] = Value::Object(filters);
+                    }
+                    if let Some(ul) = extra.get("user_location") {
+                        obj["user_location"] = ul.clone();
+                    }
+                }
+                mapped.push(obj);
+            }
+        }
         (!mapped.is_empty()).then_some(Value::Array(mapped))
     };
     // tool_choice：Responses 侧是扁平形态 {type:"function",name}，与 from_responses 的解析互逆；
