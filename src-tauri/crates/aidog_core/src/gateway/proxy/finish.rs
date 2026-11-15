@@ -388,9 +388,10 @@ where
     // guard.agg.feed_sse_usage 的 sse_line_buf 同型 idiom）。只在转换分支（!passthrough_response）
     // 使用；passthrough 分支原样 relay 字节，无需按行解析，零改动。
     let mut sse_line_buf = SseLineReassembler::new();
-    // Anthropic 系客户端流式渲染状态机：跨 chunk 维护 content block index 分配与开块表
-    // （tool/thinking 块完整 content_block_start·stop 序列；ticket 08）。
-    let mut client_sse_state = adapter::AnthropicSseState::default();
+    // 客户端流式渲染状态机：跨 chunk 维护状态（issue 70）——Anthropic 系 content block
+    // index 分配与开块表（tool/thinking 块完整 content_block_start·stop 序列；ticket 08），
+    // Responses 客户端 response item 生命周期与 sequence_number；按协议按需换轨。
+    let mut client_sse_state = adapter::ClientSseState::default();
     // 行内思维链标签（`<thinking>` / `<think>`）跨 chunk 分离器：部分上游把思考写进正文文本而非
     // 结构化思维链字段，不分流则标签原样渲染到客户端界面。与 client_sse_state 同生命周期
     // （逐 chunk 顺序 poll，闭包内独占可变捕获）。
