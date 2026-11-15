@@ -74,6 +74,14 @@ _Avoid_: 模型级覆盖、时段窗口（合并前的两种旧叫法）
 数据库 `platform.rate_limit` 列，上游响应头里读到的余量数据，只读展示，不参与限流决策。
 _Avoid_: 限频策略（那是用户 / registry 声明的上限规则）
 
+**失败裁决 (Failure Verdict)**:
+一次上游调用失败后的分类与处置判定，收在 `gateway/proxy/failure_verdict.rs`：`judge` 纯函数产出排除范围（`ExcludeScope`：pair=只排除该「平台 + 模型」组合 / platform=排除整个平台）或终态直返，`apply` 统一执行副作用。模型类失败永不碰平台健康的单一出口。
+_Avoid_: 错误分类（那是 `classify_upstream_error` 的上游一步）、重试策略（那是用户配置）
+
+**调用作用域 (CallScope)**:
+单次上游调用（一个「平台 + 模型」组合）的记账收口，`gateway/proxy/call_scope.rs`：传输失败与成功记账（熔断指标 / 恢复 auto_disabled / attempts 记录）统一从 `CallScope` 与 `commit_success` 走，聊天与四类辅助请求共用。
+_Avoid_: 尝试作用域（指整个 AttemptLoop）、会话（客户端会话）
+
 **Client**:
 A program that sends requests to aidog: AI coding CLIs, IDE plugins, language SDKs, and HTTP tools. Identified by User-Agent against a two-level vocabulary (category → variant).
 _Avoid_: agent, tool, harness
