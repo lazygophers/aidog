@@ -2,6 +2,7 @@
 
 pub mod converter;
 pub mod dsml;
+pub mod platform;
 pub mod protocols;
 pub mod quota;
 pub mod reasoning_tags;
