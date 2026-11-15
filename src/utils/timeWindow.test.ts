@@ -10,6 +10,7 @@ import {
   utcToDisplay,
   displayToUtc,
   LOCAL_OFFSET_MINUTES,
+  setHolidayCalendarData,
 } from "./timeWindow";
 import type { TimeWindow } from "../domains/platforms/defaults";
 import goldenFixture from "../../src-tauri/crates/aidog_core/src/gateway/testdata/peak_golden.json";
@@ -152,6 +153,35 @@ describe("peak golden fixture — wall_time（与 Rust 同一份真值）", () =
 describe("peak golden fixture — resolve / is_peak（与 Rust 同一份真值）", () => {
   it.each(goldenFixture.resolve_cases as unknown as GoldenResolveCase[])("$name", (c) => {
     expect(isCurrentlyPeak(c.windows, c.ms, c.model)).toBe(c.in_peak);
+  });
+});
+
+describe("工作日 / 节假日窗口", () => {
+  it("按窗口时区和日历区分节假日、调休补班日", () => {
+    setHolidayCalendarData("CN", {
+      "2026": { holidays: ["2026-10-01"], workdays: ["2026-09-27"] },
+    });
+    const workday = { start_hour: 0, end_hour: 24, multiplier: 2, timezone: "Asia/Shanghai", day_type: "workday", holiday_calendar: "CN" } as TimeWindow;
+    const holiday = { ...workday, day_type: "holiday" as const };
+    expect(isCurrentlyPeak([workday], Date.parse("2026-10-01T01:00:00Z"))).toBe(false);
+    expect(isCurrentlyPeak([holiday], Date.parse("2026-10-01T01:00:00Z"))).toBe(true);
+    expect(isCurrentlyPeak([workday], Date.parse("2026-09-26T16:00:00Z"))).toBe(true);
+    expect(isCurrentlyPeak([holiday], Date.parse("2026-09-26T16:00:00Z"))).toBe(false);
+  });
+
+  it("day_type takes precedence over legacy days_of_week in malformed stored windows", () => {
+    const window = { start_hour: 0, end_hour: 24, multiplier: 2, day_type: "workday", days_of_week: [0] } as TimeWindow;
+    expect(isCurrentlyPeak([window], Date.parse("2026-11-02T12:00:00Z"))).toBe(true);
+  });
+
+  it("windows inherit platform calendar unless they override it", () => {
+    setHolidayCalendarData("PLATFORM", { "2026": { holidays: ["2026-10-01"], workdays: [] } });
+    setHolidayCalendarData("OVERRIDE", { "2026": { holidays: [], workdays: ["2026-10-01"] } });
+    const inherited = { start_hour: 0, end_hour: 24, multiplier: 2, timezone: "UTC", day_type: "holiday" } as TimeWindow;
+    const overridden = { ...inherited, holiday_calendar: "OVERRIDE" };
+    const now = Date.parse("2026-10-01T12:00:00Z");
+    expect(isCurrentlyPeak([inherited], now, "", "PLATFORM")).toBe(true);
+    expect(isCurrentlyPeak([overridden], now, "", "PLATFORM")).toBe(false);
   });
 });
 

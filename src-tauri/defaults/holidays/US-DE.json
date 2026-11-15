@@ -1,0 +1,27 @@
+{
+  "code": "US-DE",
+  "extends": "US",
+  "name": {
+    "ar-SA": "ديلاوير",
+    "de-DE": "Delaware",
+    "en-US": "Delaware",
+    "es-ES": "Delaware",
+    "fr-FR": "Delaware",
+    "ja-JP": "デラウェア州",
+    "ru-RU": "Делавэр",
+    "zh-Hans": "特拉华州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-04-03", "2026-11-03", "2026-11-27"],
+      "workdays": ["2026-10-12"]
+    },
+    "2027": {
+      "holidays": ["2027-03-26", "2027-11-26"],
+      "workdays": ["2027-10-11"]
+    }
+  },
+  "source_urls": [
+    "https://delcode.delaware.gov/title1/c005/index.html"
+  ]
+}

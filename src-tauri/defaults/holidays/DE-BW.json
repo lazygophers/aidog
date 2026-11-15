@@ -1,0 +1,36 @@
+{
+  "code": "DE-BW",
+  "extends": "DE",
+  "name": {
+    "zh-Hans": "巴登-符腾堡州",
+    "en-US": "Baden-Württemberg",
+    "ar-SA": "بادن-فورتمبيرغ",
+    "fr-FR": "Bade-Wurtemberg",
+    "de-DE": "Baden-Württemberg",
+    "ru-RU": "Баден-Вюртемберг",
+    "ja-JP": "バーデン＝ヴュルテンベルク州",
+    "es-ES": "Baden-Württemberg"
+  },
+  "source_urls": [
+    "https://www.gesetze-im-internet.de/einigvtr/art_2.html",
+    "https://www.landesrecht-bw.de/bsbw/document/jlr-FeiertGBWrahmen"
+  ],
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-01-06",
+        "2026-06-04",
+        "2026-11-01"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-01-06",
+        "2027-05-27",
+        "2027-11-01"
+      ],
+      "workdays": []
+    }
+  }
+}

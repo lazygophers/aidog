@@ -1,0 +1,33 @@
+{
+  "code": "GB-ENG",
+  "source_urls": [
+    "https://www.gov.uk/bank-holidays.json"
+  ],
+  "extends": "GB",
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-04-06",
+        "2026-08-31"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-03-29",
+        "2027-08-30"
+      ],
+      "workdays": []
+    }
+  },
+  "name": {
+    "zh-Hans": "英格兰",
+    "en-US": "England",
+    "ar-SA": "إنجلترا",
+    "fr-FR": "Angleterre",
+    "de-DE": "England",
+    "ru-RU": "Англия",
+    "ja-JP": "イングランド",
+    "es-ES": "Inglaterra"
+  }
+}

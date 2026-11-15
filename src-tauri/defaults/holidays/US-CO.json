@@ -1,0 +1,24 @@
+{
+  "code": "US-CO",
+  "extends": "US",
+  "name": {
+    "ar-SA": "كولورادو",
+    "de-DE": "Colorado",
+    "en-US": "Colorado",
+    "es-ES": "Colorado",
+    "fr-FR": "Colorado",
+    "ja-JP": "コロラド州",
+    "ru-RU": "Колорадо",
+    "zh-Hans": "科罗拉多州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-10-05", "2026-11-27", "2026-12-24"],
+      "workdays": ["2026-10-12"]
+    }
+  },
+  "source_urls": [
+    "https://dhr.colorado.gov/sites/dhr/files/documents/Calendar%20Year%202026%20Holiday%20Schedule_0_0.pdf",
+    "https://dhr.colorado.gov/state-employees/time-off-leave"
+  ]
+}

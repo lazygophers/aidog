@@ -213,6 +213,14 @@ for (const entry of indexDoc.platforms) {
       }
     }
   }
+  // 节假日日历窗口校验（day_type 与 days_of_week 互斥；内置 peak 必须固定官方日历）。
+  {
+    const relP = `platforms/${code}/platform.json`;
+    for (const [i, w] of (platformDoc.peak ?? []).entries()) {
+      if (w?.day_type !== undefined && w?.days_of_week !== undefined) failures.push([relP, `peak[${i}] day_type 与 days_of_week 互斥`]);
+      if (w?.day_type && !w?.holiday_calendar) failures.push([relP, `peak[${i}] 使用 day_type 时必须显式指定 holiday_calendar`]);
+    }
+  }
   // 限频策略语义校验（形状由 schema 管；这里管 schema 表达不了的 + 与词表对称）：
   // id 平台内唯一、规则至少一个条件、start/end_hour 成对、timezone 合法 IANA、
   // 规则 models 项须在本平台 models 目录（或 `前缀*` 通配且至少命中一个）、错误码语义词表。
@@ -226,8 +234,9 @@ for (const entry of indexDoc.platforms) {
       (p?.rules ?? []).forEach((r, j) => {
         const rat = `${at}.rules[${j}]`;
         const models = Array.isArray(r?.models) ? r.models : [];
-        const hasTime = r?.start_hour !== undefined || r?.end_hour !== undefined || r?.days_of_week !== undefined;
-        if (models.length === 0 && !hasTime) failures.push([relP, `${rat} 至少一个条件（models 非空，或带 start_hour/end_hour/days_of_week）`]);
+        const hasTime = r?.start_hour !== undefined || r?.end_hour !== undefined || r?.days_of_week !== undefined || r?.day_type !== undefined;
+        if (r?.day_type !== undefined && r?.days_of_week !== undefined) failures.push([relP, `${rat} day_type 与 days_of_week 互斥`]);
+        if (models.length === 0 && !hasTime) failures.push([relP, `${rat} 至少一个条件（models 非空，或带 start_hour/end_hour/days_of_week/day_type）`]);
         if ((r?.start_hour === undefined) !== (r?.end_hour === undefined)) failures.push([relP, `${rat} start_hour / end_hour 须成对出现`]);
         for (const m of models) {
           if (typeof m !== "string") continue;

@@ -1,6 +1,6 @@
 {
-  "last_updated": 1794625890,
-  "endpoints": {
+  "last_updated": 1794657886,
+  "holiday_calendar": "CN",  "endpoints": {
     "default": [
       {
         "protocol": "anthropic",

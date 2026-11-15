@@ -1,6 +1,5 @@
 {
-  "last_updated": 1794582130,
-  "endpoints": {
+  "last_updated": 1794651308,  "endpoints": {
     "default": [
       {
         "protocol": "openai",
@@ -54,6 +53,7 @@
     "ja-JP": "Mistral API",
     "es-ES": "Mistral API"
   },
+  "holiday_calendar": "FR",
   "source_urls": {
     "docs": "https://docs.mistral.ai/",
     "pricing": "https://mistral.ai/pricing/"

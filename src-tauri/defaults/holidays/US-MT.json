@@ -1,0 +1,28 @@
+{
+  "code": "US-MT",
+  "extends": "US",
+  "name": {
+    "ar-SA": "مونتانا",
+    "de-DE": "Montana",
+    "en-US": "Montana",
+    "es-ES": "Montana",
+    "fr-FR": "Montana",
+    "ja-JP": "モンタナ州",
+    "ru-RU": "Монтана",
+    "zh-Hans": "蒙大拿州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-11-03"],
+      "workdays": ["2026-06-19"]
+    },
+    "2027": {
+      "holidays": [],
+      "workdays": ["2027-06-18"]
+    }
+  },
+  "source_urls": [
+    "https://leg.mt.gov/bills/mca/title_0010/chapter_0001/part_0020/section_0160/0010-0010-0020-0160.html",
+    "https://mca.legmt.gov/bills/mca/title_0130/chapter_0010/part_0010/section_0040/0130-0010-0010-0040.html"
+  ]
+}
