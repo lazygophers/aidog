@@ -2146,6 +2146,12 @@
   "platform.windows_edit_add": "إضافة نافذة",
   "platform.windows_edit_empty": "لا نوافذ ← لا تطابق أبداً",
   "platform.windows_edit_title": "تحرير النوافذ الزمنية",
+  "platform.holidayCalendar": "تقويم العطلات",
+  "platform.holidayCalendar.dayType": "نوع اليوم",
+  "platform.holidayCalendar.inherit": "وراثة التقويم",
+  "platform.holidayCalendar.loadFailed": "تعذر تحميل بيانات التقويم؛ سيُستخدم يوم الأسبوع",
+  "platform.holidayCalendar.weekday": "أيام الأسبوع",
+  "platform.holidayCalendar.yearUnavailable": "لا يغطي التقويم السنة الحالية؛ سيُستخدم يوم الأسبوع",
   "popover.addItem": "إضافة عنصر",
   "popover.color": "اللون",
   "popover.colorFollow": "تتبع",
@@ -3949,5 +3955,7 @@
   "agentUpdate.confirmDesc": "سيتم تشغيل أمر التحديث الخاص بمصدر التثبيت وقد يتطلب تنزيل ملفات. هل تريد المتابعة؟",
   "agentUpdate.manualHint": "مصدر التثبيت هذا لا يدعم التحديث التلقائي؛ يرجى الترقية يدويًا",
   "agentUpdate.success": "تم التحديث: v{{before}} → v{{after}}",
-  "agentUpdate.failed": "فشل التحديث"
+  "agentUpdate.failed": "فشل التحديث",
+  "platform.windows_dim_workday": "أيام العمل",
+  "platform.windows_dim_holiday": "العطلات الرسمية"
 }
