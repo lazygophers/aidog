@@ -283,6 +283,11 @@ pub struct ScheduleCtx<'a> {
     /// Sticky 模式 session 键（group_key + 客户端稳定标识，调用侧拼接）。
     pub sticky_key: Option<String>,
     /// 请求体：限频筛选按它估算输入 token（与转发时 `begin` 同口径）。`None` = 估算 0（非聊天辅助请求）。
+    ///
+    /// 限频占位范围（有意豁免，2026-11-13 拍板）：占位（并发 / RPM / TPM 计数，`RateSlot`）
+    /// 只发生在聊天（forward.rs）与向量化 / 重排序（aux_model.rs）；决策（decision.rs）与
+    /// 搜索转发（tools.rs）传 `None`，只被 [`rate_limited`] 只读筛选、不占名额。复活条件：
+    /// 按 RPM 计费的上游被决策请求打穿时改为占位（届时接入 `RateSlot`）。
     pub rate_body: Option<&'a serde_json::Value>,
 }
 
@@ -1230,6 +1235,11 @@ fn bypassed_states(
 
 /// 平台限频只读判定：平台级（含时段窗口覆盖）与请求模型级任一放不下即超限。
 /// 模型级只查请求模型名（目标模型此时未解析，换模型后的上限在转发时重判）。
+///
+/// 本函数**只读不占位**：不写并发 / RPM / TPM 计数。占位只发生在聊天 / 向量化 / 重排序
+/// 转发路径（`RateSlot::enter`）；决策 / 搜索转发请求同样过本筛（`rate_body: None` 估算 0）
+/// 但不占名额——有意豁免（2026-11-13 拍板，见 [`ScheduleCtx::rate_body`] 注释）。
+/// 复活条件：按 RPM 计费的上游被决策请求打穿，改为占位（届时接入 `RateSlot`）。
 fn rate_limited(
     ctx: &ScheduleCtx<'_>,
     pid: u64,

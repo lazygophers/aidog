@@ -229,6 +229,8 @@ pub(crate) async fn handle_decision(
     log.model = requested_model.clone();
 
     // ── 路由选候选（复用过滤 / 冷却 / 熔断；Decision 类型过滤见 candidates.rs）──
+    // 限频：`rate_body: None` = 只被路由层限频筛选只读判定，不占并发 / RPM / TPM 名额
+    // （有意豁免，2026-11-13 拍板；全貌与复活条件见 candidates.rs `ScheduleCtx::rate_body`）。
     let sched_settings = aidog_db::get_scheduling_settings(&state.db).await;
     let sched_ctx = ScheduleCtx {
         scheduler: &state.scheduler,
