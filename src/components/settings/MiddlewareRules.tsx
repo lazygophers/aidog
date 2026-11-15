@@ -84,7 +84,8 @@ function AutoTextarea({
   const ref = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    // 支持 field-sizing 的引擎由 CSS 自动撑高；Safari < 26.2 / 旧 WebKitGTK 走下面的 JS 回退
+    if (!el || CSS.supports?.("field-sizing", "content")) return;
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
   }, [value]);
@@ -96,6 +97,7 @@ function AutoTextarea({
       style={{
         fontSize: F.hint,
         overflow: "hidden",
+        fieldSizing: "content",
         wordBreak: "break-all",
         ...(mono ? { fontFamily: '"SF Mono", "Fira Code", monospace' } : {}),
         ...style,
