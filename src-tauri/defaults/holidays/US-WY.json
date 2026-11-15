@@ -1,0 +1,27 @@
+{
+  "code": "US-WY",
+  "extends": "US",
+  "name": {
+    "ar-SA": "وايومنغ",
+    "de-DE": "Wyoming",
+    "en-US": "Wyoming",
+    "es-ES": "Wyoming",
+    "fr-FR": "Wyoming",
+    "ja-JP": "ワイオミング州",
+    "ru-RU": "Вайоминг",
+    "zh-Hans": "怀俄明州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-06-20", "2026-07-04"],
+      "workdays": ["2026-06-19", "2026-07-03"]
+    },
+    "2027": {
+      "holidays": ["2027-06-19", "2027-07-04"],
+      "workdays": ["2027-06-18"]
+    }
+  },
+  "source_urls": [
+    "https://wyoleg.gov/statutes/compress/title08.pdf"
+  ]
+}

@@ -314,10 +314,21 @@ impl ExtraCache {
     /// `platform_type` 直接取自 `Platform` 顶层字段（非 extra 内字段，caller 传入）。
     /// `custom_defs`：`Some` = 聊天请求，按全局定义解析自定义槽；`None` = 非聊天请求，跳过（也不 warn 孤儿键）。
     fn new(extra: &str, platform_type: &Protocol, custom_defs: Option<&[CustomSlotDef]>) -> Self {
-        let time_windows = time_windows::parse_platform_time_windows(extra);
-        let peak_windows = peak::peak_for(extra, &platform_type.wire_str());
-        let disable_during_peak = peak::parse_disable_during_peak(extra);
         let parsed = db::models::PlatformExtra::parse(extra);
+        // 节假日日历：extra 内 `holiday_calendar` 优先，缺省回落 registry 平台条目的内置日历。
+        let registry_calendar =
+            aidog_db::registry::default_holiday_calendar(&platform_type.wire_str());
+        let platform_calendar = parsed
+            .rest
+            .get("holiday_calendar")
+            .and_then(serde_json::Value::as_str)
+            .or(registry_calendar.as_deref());
+        let mut time_windows = time_windows::parse_platform_time_windows(extra);
+        peak::inject_holiday_calendar_into_value_windows(&mut time_windows, platform_calendar);
+        let mut peak_windows = peak::peak_for(extra, &platform_type.wire_str());
+        // peak_for 已按 extra.or(registry) 注入过，此处兜底（or 语义，只填缺省）。
+        peak::inject_holiday_calendar(&mut peak_windows, platform_calendar);
+        let disable_during_peak = peak::parse_disable_during_peak(extra);
         let ua_rules = compile_ua_rules(&parsed.client_ua_rules);
         let custom = custom_defs
             .map(|defs| build_custom_entries(defs, parsed.rest.get("custom_slots")))
@@ -338,7 +349,7 @@ impl ExtraCache {
             direct_models,
             allowed_clients,
             ua_rules,
-            rate: RateLimitsCfg::parse(extra),
+            rate: RateLimitsCfg::parse_with_calendar(extra, registry_calendar.as_deref()),
             custom,
             custom_defs: custom_defs.map(<[_]>::to_vec).unwrap_or_default(),
             disabled_slots,

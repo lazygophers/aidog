@@ -1,0 +1,28 @@
+{
+  "code": "US-OK",
+  "extends": "US",
+  "name": {
+    "ar-SA": "أوكلاهوما",
+    "de-DE": "Oklahoma",
+    "en-US": "Oklahoma",
+    "es-ES": "Oklahoma",
+    "fr-FR": "Oklahoma",
+    "ja-JP": "オクラホマ州",
+    "ru-RU": "Оклахома",
+    "zh-Hans": "俄克拉何马州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-11-27", "2026-12-24"],
+      "workdays": ["2026-06-19", "2026-10-12"]
+    },
+    "2027": {
+      "holidays": ["2027-11-26", "2027-12-23"],
+      "workdays": ["2027-06-18", "2027-10-11"]
+    }
+  },
+  "source_urls": [
+    "https://oklahoma.gov/omes/divisions/human-capital-management/employee-benefits/leave-holidays/holidays.html",
+    "https://oksenate.gov/sites/default/files/2022-05/os25.pdf"
+  ]
+}

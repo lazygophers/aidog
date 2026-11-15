@@ -5,7 +5,7 @@
   "tools_pricing": {
     "web_search": {"per_1000": 10.0, "currency": "USD"}
   },
-  "last_updated": 1793758439,
+  "last_updated": 1794650107,
   "endpoints": {
     "default": [
       {
@@ -78,6 +78,7 @@
     "docs": "https://docs.z.ai/guides/overview/quick-start",
     "pricing": "https://docs.z.ai/guides/overview/pricing"
   },
+  "holiday_calendar": "SG",
   "homepage": "https://z.ai",
   "logo_url": "zdotai",
   "keywords": [

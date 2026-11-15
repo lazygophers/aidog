@@ -1,0 +1,26 @@
+{
+  "code": "CH",
+  "name": {
+    "zh-Hans": "瑞士",
+    "en-US": "Switzerland",
+    "ar-SA": "سويسرا",
+    "fr-FR": "Suisse",
+    "de-DE": "Schweiz",
+    "ru-RU": "Швейцария",
+    "ja-JP": "スイス",
+    "es-ES": "Suiza"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-08-01"],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": ["2027-08-01"],
+      "workdays": []
+    }
+  },
+  "source_urls": [
+    "https://www.seco.admin.ch/de/faq-freizeit-und-feiertage"
+  ]
+}

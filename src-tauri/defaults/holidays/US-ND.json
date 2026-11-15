@@ -1,0 +1,27 @@
+{
+  "code": "US-ND",
+  "extends": "US",
+  "name": {
+    "ar-SA": "داكوتا الشمالية",
+    "de-DE": "Norddakota",
+    "en-US": "North Dakota",
+    "es-ES": "Dakota del Norte",
+    "fr-FR": "Dakota du Nord",
+    "ja-JP": "ノースダコタ州",
+    "ru-RU": "Северная Дакота",
+    "zh-Hans": "北达科他州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-04-03"],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": ["2027-03-26"],
+      "workdays": []
+    }
+  },
+  "source_urls": [
+    "https://ndlegis.gov/cencode/t01c03.pdf"
+  ]
+}
