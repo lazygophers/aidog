@@ -9,7 +9,6 @@
 - `command_macro.rs` 的 `tauri_command!` 宏双展开：feature `desktop` 出 `#[tauri::command]`，feature `http` 出 `<命令名>::http` 的 axum handler（两者默认都开）。**用本宏定义命令的 crate 必须自己声明这两个 feature 并转发给 aidog_core**（cfg 在展开处求值）：现有 aidog_backup 已声明。
 - `http_command.rs`：参数按 camelCase→snake_case 取（对齐 Tauri v2 与前端实际发的键）、返回值序列化、Err → 非 2xx + 同样的 JSON body。
 - `aidog_ctx` 的 `AppCtx` trait（进程级 OnceLock 单例）必须**零 tauri 依赖**：命令拿 db / middleware / proxy handle / emit 一律走它，`aidog_core/src/tauri_ctx.rs` 是唯一接 `AppHandle` 的地方，无头内核（票 08）实现同一 trait。
-- `aidog_test_util` 依赖 `aidog_core`，故 `aidog_core` 不可反向 dev-dep。
 - `src/services/api/` 是目录不是单文件；`src/pages/Settings.tsx` 是编排容器，子组件在 `src/components/settings/`。
 
 > command 注册表在 `src-tauri/src/startup.rs` 的 `tauri::generate_handler![...]`，**它是前端 invoke 名的唯一真值源**（invoke 名取 `#[tauri::command]` 函数名，与模块路径无关）。搬迁命令后用该集合零差集自比对即可证明 invoke 名未变。
