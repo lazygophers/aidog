@@ -277,7 +277,7 @@ impl Protocol {
             .unwrap_or(Protocol::Unknown)
     }
 
-    /// 判定两个协议是否属于同一「wire family」（可互相跳过响应转换 / 共用错误体与 SSE 渲染）。
+    /// 判定两个协议是否属于同一「wire family」（共用错误体与 SSE 渲染；响应体转换已要求精确相等）。
     /// openai / openai_completions / openai_responses 三者共享同一渲染族；其余协议仅与自身同族。
     ///
     /// 注意：这与「端点透传精确匹配」是两回事——透传要求 body 结构完全一致
