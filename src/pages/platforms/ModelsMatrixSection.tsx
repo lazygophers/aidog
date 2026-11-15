@@ -134,6 +134,7 @@ export function ModelsMatrixSection({
   // 自定义槽位（全局定义 + 本平台值）：仅默认列视图渲染；缺省无自定义行
   customSlotDefs = [], customSlotValues = {}, onCustomSlotChange,
   disabledSlots = [], onSlotEnabledChange,
+  platformCalendar,
   t,
 }: {
   columns?: "default" | "time";
@@ -165,6 +166,7 @@ export function ModelsMatrixSection({
   /** 关闭的槽位名（内置 + 自定义）；命中该槽位的请求不会路由到本平台。时段档视图里仅用作新建档开关的预填来源。 */
   disabledSlots?: string[];
   onSlotEnabledChange?: (slot: string, enabled: boolean) => void;
+  platformCalendar?: string;
   t: TFunction;
 }) {
   // 矩阵内部 UI 临时态
@@ -459,6 +461,7 @@ export function ModelsMatrixSection({
           onClose={() => setEditingIdx(null)}
           tzMode={tzMode}
           setTzMode={setTzMode}
+          platformCalendar={platformCalendar}
           t={t}
         />
 

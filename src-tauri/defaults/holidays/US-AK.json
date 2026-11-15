@@ -1,0 +1,28 @@
+{
+  "code": "US-AK",
+  "extends": "US",
+  "name": {
+    "ar-SA": "ألاسكا",
+    "de-DE": "Alaska",
+    "en-US": "Alaska",
+    "es-ES": "Alaska",
+    "fr-FR": "Alaska",
+    "ja-JP": "アラスカ州",
+    "ru-RU": "Аляска",
+    "zh-Hans": "阿拉斯加州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-03-30", "2026-10-19"],
+      "workdays": ["2026-10-12"]
+    },
+    "2027": {
+      "holidays": ["2027-03-29", "2027-10-18", "2027-12-31"],
+      "workdays": ["2027-10-11"]
+    }
+  },
+  "source_urls": [
+    "https://doa.alaska.gov/dof/payroll/resource/calendar2026-holiday-B.pdf",
+    "https://doa.alaska.gov/dof/payroll/resource/calendar2027-holiday-B-BW.pdf"
+  ]
+}

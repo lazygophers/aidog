@@ -57,7 +57,9 @@ lint: ## Run linters
 	npx tsc -p tsconfig.test.json --noEmit
 	@printf "$(CYAN)▶ Registry schema check...$(RESET)\n"
 	yarn check:registry
-	@printf "$(CYAN)▶ Defaults JSON syntax check...$(RESET)\n"
+	@printf "$(CYAN)▶ Holiday calendar check...$(RESET)\n"
+	yarn check:holidays
+	@printf "$(CYAN)▶ Defaults JSON syntax check...$(RESET)\n"}
 	yarn check:defaults
 	@printf "$(CYAN)▶ i18n key completeness...$(RESET)\n"
 	yarn check:i18n

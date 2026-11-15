@@ -1,0 +1,27 @@
+{
+  "code": "US-CT",
+  "extends": "US",
+  "name": {
+    "ar-SA": "كونيتيكت",
+    "de-DE": "Connecticut",
+    "en-US": "Connecticut",
+    "es-ES": "Connecticut",
+    "fr-FR": "Connecticut",
+    "ja-JP": "コネチカット州",
+    "ru-RU": "Коннектикут",
+    "zh-Hans": "康涅狄格州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-02-12"],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": ["2027-02-12"],
+      "workdays": []
+    }
+  },
+  "source_urls": [
+    "https://www.cga.ct.gov/current/pub/chap_002.htm#sec_1-4"
+  ]
+}

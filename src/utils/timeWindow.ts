@@ -4,6 +4,29 @@
  *  for: 平台列表徽标 + 编辑表单预览 + Groups 指示（D7/D8/D9 共用此 helper）。 */
 import type { TimeWindow } from "../domains/platforms/defaults";
 
+export type HolidayCalendarYears = Record<string, { holidays: string[]; workdays: string[] }>;
+const holidayCalendars = new Map<string, HolidayCalendarYears>();
+export function setHolidayCalendarData(code: string, years: HolidayCalendarYears): void {
+  holidayCalendars.set(code, years);
+}
+
+function dayKind(date: string, weekday: number, calendarCode?: string): "workday" | "holiday" {
+  const days = calendarCode ? holidayCalendars.get(calendarCode)?.[date.slice(0, 4)] : undefined;
+  if (days?.workdays.includes(date)) return "workday";
+  if (days?.holidays.includes(date)) return "holiday";
+  return weekday >= 1 && weekday <= 5 ? "workday" : "holiday";
+}
+
+function localDateInTz(ms: number, timeZone: string | undefined): string {
+  const format = (zone: string) => new Intl.DateTimeFormat("en-CA", {
+    timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date(ms));
+  let parts: Intl.DateTimeFormatPart[];
+  try { parts = format(timeZone || "UTC"); } catch { parts = format("UTC"); }
+  const get = (type: string) => parts.find(part => part.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
 /** 时区展示模式：本地 or UTC+0。存储永远 UTC+0，仅展示/输入层换算。 */
 export type TzMode = "local" | "utc";
 
@@ -119,11 +142,17 @@ function hit(
   dayOfMonth: number,
   requestModel: string,
   epochSec: number,
+  localDate: string,
+  platformCalendar?: string,
 ): boolean {
   // 生效期判定（与 Rust period_active 对称，优先级最高）
   if (w.start_at !== undefined && epochSec < w.start_at) return false;
   if (w.end_at !== undefined && epochSec >= w.end_at) return false;
-  if (w.days_of_week && !w.days_of_week.includes(weekday)) return false;
+  if (w.day_type) {
+    if (dayKind(localDate, weekday, w.holiday_calendar ?? platformCalendar) !== w.day_type) return false;
+  } else if (w.days_of_week && !w.days_of_week.includes(weekday)) {
+    return false;
+  }
   if (w.days_of_month && !w.days_of_month.includes(dayOfMonth)) return false;
   const tMin = hour * 60 + minute;
   const startMin = w.start_hour * 60 + clampMinute(w.start_minute ?? 0);
@@ -179,12 +208,13 @@ export function isCurrentlyPeak(
   windows: TimeWindow[] | undefined | null,
   nowMs: number,
   requestModel: string = "",
+  platformCalendar?: string,
 ): boolean {
   if (!windows || windows.length === 0) return false;
   const epochSec = Math.floor(nowMs / 1000);
   return windows.some((w) => {
     const { hour, minute, weekday, dayOfMonth } = wallTimeInTz(nowMs, w.timezone);
-    return hit(w, hour, minute, weekday, dayOfMonth, requestModel, epochSec);
+    return hit(w, hour, minute, weekday, dayOfMonth, requestModel, epochSec, localDateInTz(nowMs, w.timezone), platformCalendar);
   });
 }
 
@@ -194,12 +224,13 @@ export function currentPeakMultiplier(
   windows: TimeWindow[] | undefined | null,
   nowMs: number,
   requestModel: string = "",
+  platformCalendar?: string,
 ): number {
   if (!windows || windows.length === 0) return 1.0;
   const epochSec = Math.floor(nowMs / 1000);
   for (const w of windows) {
     const { hour, minute, weekday, dayOfMonth } = wallTimeInTz(nowMs, w.timezone);
-    if (hit(w, hour, minute, weekday, dayOfMonth, requestModel, epochSec)) {
+    if (hit(w, hour, minute, weekday, dayOfMonth, requestModel, epochSec, localDateInTz(nowMs, w.timezone), platformCalendar)) {
       return typeof w.multiplier === "number" && w.multiplier > 0 ? w.multiplier : 1.0;
     }
   }

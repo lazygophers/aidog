@@ -1,0 +1,41 @@
+{
+  "code": "US-AR",
+  "extends": "US",
+  "name": {
+    "zh-Hans": "阿肯色州",
+    "en-US": "Arkansas",
+    "ar-SA": "أركنساس",
+    "fr-FR": "Arkansas",
+    "de-DE": "Arkansas",
+    "ru-RU": "Арканзас",
+    "ja-JP": "アーカンソー州",
+    "es-ES": "Arkansas"
+  },
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-07-04",
+        "2026-12-24"
+      ],
+      "workdays": [
+        "2026-06-19",
+        "2026-10-12"
+      ]
+    },
+    "2027": {
+      "holidays": [
+        "2027-07-04",
+        "2027-12-25"
+      ],
+      "workdays": [
+        "2027-06-18",
+        "2027-10-11"
+      ]
+    }
+  },
+  "source_urls": [
+    "https://www.sos.arkansas.gov/about-the-office/news/state-holiday-calendar/",
+    "https://www.sos.arkansas.gov/uploads/holidays_2026.pdf",
+    "https://sas.arkansas.gov/wp-content/uploads/52-Holidays-and-Birthday-Leave-5.23.2025.pdf"
+  ]
+}

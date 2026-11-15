@@ -51,13 +51,13 @@ struct Rule {
 
 impl Rule {
     /// 无条件（models 空且无时段）→ None（丢弃并 warn）。
-    fn from_value(v: &Value) -> Option<Self> {
+    fn from_value(v: &Value, platform_calendar: Option<&str>) -> Option<Self> {
         let models: Vec<String> = v
             .get("models")
             .and_then(Value::as_array)
             .map(|a| a.iter().filter_map(|m| m.as_str().map(str::trim)).filter(|m| !m.is_empty()).map(String::from).collect())
             .unwrap_or_default();
-        let has_time = ["start_hour", "end_hour"].iter().any(|k| v.get(k).is_some_and(|x| !x.is_null()))
+        let has_time = ["start_hour", "end_hour", "day_type"].iter().any(|k| v.get(k).is_some_and(|x| !x.is_null()))
             || v.get("days_of_week").and_then(Value::as_array).is_some_and(|d| !d.is_empty());
         let time = if has_time {
             // 时段字段形状同 peak 窗口；缺省补 0~24 全天，multiplier 对限频无意义，补 1.0 过 TimeWindow 反序列化，
@@ -68,6 +68,11 @@ impl Rule {
             o.entry("start_hour").or_insert(Value::from(0));
             o.entry("end_hour").or_insert(Value::from(24));
             o.entry("multiplier").or_insert(Value::from(1.0));
+            if !o.contains_key("holiday_calendar")
+                && let Some(code) = platform_calendar
+            {
+                o.insert("holiday_calendar".into(), Value::from(code));
+            }
             Some(serde_json::from_value::<TimeWindow>(tw).ok()?)
         } else {
             None
@@ -100,6 +105,11 @@ impl RateLimitsCfg {
     /// 缺失 / 非法 JSON → 空（不限）。`source_policy_id` / `source_last_updated` 不在执行路径上，
     /// 整个 `extra` 原样留在 DB，不会被这里丢掉。旧键 `models` / `windows` 不再读（启动迁移已转 rules）。
     pub fn parse(extra: &str) -> Self {
+        Self::parse_with_calendar(extra, None)
+    }
+
+    /// `registry_calendar`：registry 平台条目缺省的节假日日历（extra 内 `holiday_calendar` 优先）。
+    pub fn parse_with_calendar(extra: &str, registry_calendar: Option<&str>) -> Self {
         if !extra.contains("rate_limits") {
             return Self::default();
         }
@@ -109,10 +119,18 @@ impl RateLimitsCfg {
         let Some(rl) = root.get("rate_limits").filter(|v| v.is_object()) else {
             return Self::default();
         };
+        let platform_calendar = root
+            .get("holiday_calendar")
+            .and_then(Value::as_str)
+            .or(registry_calendar);
         let rules = rl
             .get("rules")
             .and_then(Value::as_array)
-            .map(|a| a.iter().filter_map(Rule::from_value).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|rule| Rule::from_value(rule, platform_calendar))
+                    .collect()
+            })
             .unwrap_or_default();
         Self { base: Limits::from_value(rl), rules }
     }

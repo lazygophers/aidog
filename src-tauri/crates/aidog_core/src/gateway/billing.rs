@@ -382,6 +382,8 @@ mod tests {
             start_minute: None,
             end_minute: None,
             days_of_month: None,
+            day_type: None,
+            holiday_calendar: None,
             models: None,
             start_at: None,
             end_at: None,
