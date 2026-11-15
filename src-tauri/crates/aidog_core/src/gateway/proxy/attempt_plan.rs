@@ -5,7 +5,6 @@
 //! 聊天、向量化 / 重排序、决策、搜索四类请求的循环共用 [`AttemptLoop`]（票 02 聊天、票 03 其余三类）。
 
 use super::*;
-use aidog_db::models::GroupPlatformDetail;
 use std::time::Duration;
 use std::collections::HashSet;
 
@@ -107,10 +106,12 @@ pub(crate) fn record_exclusion(
     excl.add(scope, platform_id, model);
 }
 
-/// 重排器：分组平台列表首次重排时读一次库，之后各次重排复用（一次请求只读一次）。
+/// 重排器：每请求稳定的读库输入（票 08 [`RouteInputs`]）首次重排时读一次库，之后各次
+/// 重排复用（一次请求一次读库）。健康排序键 / 成功计数不缓存——逐次重排现读（顺序锁
+/// `planner_rerank_caches_platforms_and_recomputes_health_each_time`）。
 #[derive(Default)]
 pub(crate) struct AttemptPlanner {
-    platforms: Option<Vec<GroupPlatformDetail>>,
+    inputs: Option<RouteInputs>,
     /// 最近一次重排里是否有平台因限频被路由层挡掉（终态 503 据此沿用限频审计标记）。
     pub(crate) saw_rate_limit: bool,
 }
@@ -126,11 +127,11 @@ impl AttemptPlanner {
         kind: RequestKind<'_>,
         client: ClientGate,
     ) -> Result<Vec<RouteResult>, String> {
-        if self.platforms.is_none() {
-            self.platforms = Some(aidog_db::get_group_platforms(db, group.id).await.map_err(|e| e.to_string())?);
+        if self.inputs.is_none() {
+            self.inputs = Some(RouteInputs::load(db, group, kind).await.map_err(|e| e.to_string())?);
         }
-        let platforms = self.platforms.clone().unwrap_or_default();
-        select_candidates_preloaded(db, group, Some(platforms), source_model, Some(ctx), kind, client)
+        let inputs = self.inputs.clone().expect("inputs loaded above");
+        select_candidates_preloaded(db, group, Some(inputs), source_model, Some(ctx), kind, client)
             .await
             .map(|s| {
                 self.saw_rate_limit = s.routing.entries.iter().any(|e| e.reason == aidog_db::models::RouteReason::RateLimited);
