@@ -555,6 +555,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         let state =
             tauri::async_runtime::block_on(aidog_core::menubar::collect_state(aidog_ctx::db()));
         aidog_core::menubar::render(state);
+        aidog_core::dock_icon::install();
     }
 
     #[cfg(not(target_os = "macos"))]
