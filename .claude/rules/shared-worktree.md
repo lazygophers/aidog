@@ -344,8 +344,12 @@ PR 分支同此：**从 `origin/master` 开分支，不从本地 HEAD**（2026-1
 单提交用 cherry-pick；push 前核 `git rev-list --count origin/master..<分支>`，只含本任务提交才推。
 全局 git-worktree.md「所有开发基于 origin/master」缺「push 前核提交数」这步，本条补齐（仅项目级）。
 2026-11-15 依赖更新轮复发同病：`git fetch` DNS 失败后改基于**本地** master 建分支，把主仓未推送提交带进
-PR（事后 rebase 修复）。fetch 失败不是回落本地 master 的许可——先修网络重试 fetch（对症药见
-parallel-implement.md §20 下载方向），fetch 不成不建分支、不开工。
+PR（事后 rebase 修复）。fetch 失败不是回落本地 master 的许可；未能取得 `origin/master` 时，不建分支、不开工。
+2026-11-15 issue 68 轮记录：直连 push 两次 DNS 解析失败，改经本机 7890 代理后成功（PUSH_EXIT=0）。这是该次环境的结果，不构成其他环境或错误类型的操作建议。
+
+## 授权推送只推到授权时的 sha（2026-11-15）
+
+用户授权「推 8 个提交」期间，master 又多了另一会话的提交。推送范围以授权当时的 sha 为界：`git push origin <授权sha>:refs/heads/<分支>`，不用裸 `git push`（会带上后来者）。推前 `git rev-list --count origin/<分支>..<授权sha>` 核对等于授权数；多出的提交留待其所属会话的授权。
 
 ## issue 开发：独立 worktree + PR（2026-11-15）
 
@@ -389,3 +393,11 @@ fix-159 agent 的 worktree `.worktrees/fix/char-second-est-cost` 与本地分支
 - **worktree 内工作跨轮次存在（预计多轮、要等 review / 合并）时，阶段性成果尽早 commit 到 worktree 分支**：每完成一个可验证单元（编译过 + 相关测试绿）就 commit 一次；implementer 回报「完成」前的最后一步是 commit。项目 CLAUDE.md 自动 commit 授权覆盖 worktree 分支，push 禁令不变。
 - **清理 worktree 前核对在途**：`git -C <worktree> status --short` 非空（有未提交改动）或分支未合入 master 就不删，回报主会话裁决；清理由 AI 执行时同样适用，禁 `worktree remove --force` 硬闯脏 worktree。
 - **被删后恢复**：远端分支完好时 `git fetch origin && /usr/bin/git worktree add <路径> origin/<分支>` 重建，再重放丢失的未提交部分；本地分支还在时直接 `worktree add <路径> <分支>`。
+
+## push 预检条件设计：禁用 `--is-ancestor origin/master <分支>`（2026-11-15 issue 69 轮）
+
+收尾 agent 把 push 预检写成 `merge-base --is-ancestor origin/master <分支>`（origin/master 是分支祖先），origin/master 一前进该条件必失败，被拦一次。正确的预检已有成文（「推送只走 origin」节的 `git rev-list --count origin/master..<分支>` 只含本任务提交）。
+
+- **预检查的是「分支相对 origin/master 只含自己的提交」，不是「origin/master 是分支祖先」**：写预检条件前对照「推送只走 origin」节的既有判据，不发明新的祖先关系条件。
+- 预检因 origin/master 前进失败时的正解：`git fetch origin && git merge origin/master`（进分支）解冲突后重跑预检再 push；这不是 push 禁令的例外，是预检失败的标准处置。本地 master 领先 origin 的 ff-only 同步失败属正常（见「多个 agent 同时动主 checkout 的 master」节），留待 master 管理方处理。
+

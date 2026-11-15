@@ -182,7 +182,7 @@ export const GroupListItem = memo(function GroupListItem({
 
   // 按状态选选项（plat-select-status）。
   const statusOptions = errStatus !== null
-    ? buildStatusOptions(errStatus, fullPlats.map(p => p.id))
+    ? buildStatusOptions(errStatus, fullPlats)
     : [];
 
   const headBtn: React.CSSProperties = { fontSize: 14, height: 26, padding: "0 9px", borderRadius: 6 };
