@@ -255,10 +255,17 @@ pub fn to_client_sse(
     match source_protocol {
         OpenAI => super::super::openai::to_openai_sse(event, model),
         OpenAIResponses => {
-            // 无状态路径（错误帧 / mock / devin 伪流式）：每事件独立临时状态，
-            // 事件词汇是 Responses 的，但没有跨 chunk 的 item 生命周期。
-            let mut st = super::super::openai_responses::ResponsesSseState::default();
-            st.push(event, model)
+            // Responses 是有状态协议（response.created / sequence_number / item 生命周期），
+            // 多事件流必须走 to_client_sse_stateful + ClientSseState；无状态入口只服务
+            // 单发终态帧（错误帧路径的 Stop）：输出 created → completed 自包含收尾序列。
+            // 非终态事件经此入口会重复 created / 重置 sequence_number / item 永不闭合 → None。
+            match event {
+                ChatStreamEvent::Stop { .. } => {
+                    let mut st = super::super::openai_responses::ResponsesSseState::default();
+                    st.push(event, model)
+                }
+                _ => None,
+            }
         }
         OpenAICompletions => super::super::openai_completions::to_completions_sse(event, model),
         Gemini => super::super::gemini::to_gemini_sse(event, model),
