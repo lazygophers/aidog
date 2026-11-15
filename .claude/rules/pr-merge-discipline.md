@@ -60,8 +60,17 @@ incomplete; keep this PR in draft」残留到 round 4、「Tauri 未验收」行
 不是本地最终验证过的树。#162：本地 rebase 重 base 后 push 失败，GitHub 合的是 bdec7bc64 旧基版本——
 #158+#162 组合态全量测试只对本地树做过，合并版本与验证版本不一致。
 
-- `gh pr merge` 前核对：`git ls-remote origin <分支>` 的 sha == 本地分支 HEAD 才 merge；不等先重试 push。
+- READY 必须绑定完整 head SHA（40 位）；READY 后 head 改变，旧结论失效。fetch 新 head 后审查增量 diff、确认受影响的必要测试和 CI 均通过，再更新 READY 与 SHA。
+- 合并前比较 GitHub 当前 head 与 READY SHA；优先使用平台支持的 SHA 条件并发检查：`gh pr merge <PR> --match-head-commit <完整SHA>`。不支持该条件时，先用 `git ls-remote origin <分支>` 与本地 READY SHA 比较，一致才合并；否则停止并重新审查增量。
 - 已发生不等：合并后 `git fetch && git diff <本地验证commit>..origin/master` 核对差异仅含 base 差异
   （#162 差异仅为 base 的 #158 改动）、无内容丢失；实际合入的 sha 写进账本交付行。
 - **多 PR 同动 Cargo.lock / 同 crate：合并后对合并态跑一次全量测试再清理**（本轮 detach worktree 验
   #158+#162 组合，38 suites 全绿后才清 worktree/分支）——GitHub 文本合并零冲突 ≠ 语义组合已验证。
+- **PR head 在 READY 判定后变更，旧结论作废**（2026-11-15 issue 68 轮：head 0bef8a39d → 5ff4ea541，
+  作者合 origin/master 解冲突 + 测试修复）：fetch 新 head 后核对增量 diff，确认新改动在审查范围内、
+  必要测试和 CI 通过、冲突解法保留两侧意图，再更新 READY 与完整 SHA。合并冲突解法涉及行为两侧真值的
+  （本轮 usageMetadata 双真值），增量核对要独立源码比对，不以 GitHub 零冲突放行。
+
+## 6. 对端会话不可达时记录待转达信息（2026-11-15 issue 68 轮）
+
+对端不可达时，记录待联系的接收对象、待转达内容、对应完整 SHA、已执行的联系尝试及结果，并标记状态为「待补发」；待对端恢复联系后，按现有授权补发并记录结果与状态。兄弟会话代存不等于送达。PR 评论须在已有发布授权范围内使用；评论本身不证明对端已读。若下一步依赖对方审查结论，仍须等待结论，不能以发布请求代替审查。
