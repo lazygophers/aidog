@@ -50,6 +50,10 @@ fn responses_stream_text_full_sequence() {
     assert!(text_done_pos < part_done_pos, "output_text.done 须在 content_part.done 之前: {names:?}");
     let text_done = &f[text_done_pos].1;
     assert_eq!(text_done["text"], "Hello", "done 帧带全量文本");
+    // openai-python 必填 logprobs：response_text_delta_event.py / response_text_done_event.py 无默认值，缺字段严格反序列化拒帧
+    for (e, d) in f.iter().filter(|(e, _)| e == "response.output_text.delta" || e == "response.output_text.done") {
+        assert!(d["logprobs"].is_array(), "{e} 缺必填 logprobs 数组: {d}");
+    }
 
     let created = &f[0].1["response"];
     assert_eq!(created["id"], "chatcmpl-1");
