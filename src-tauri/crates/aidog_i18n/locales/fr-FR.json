@@ -2142,6 +2142,12 @@
   "platform.windows_edit_add": "Ajouter une fenêtre",
   "platform.windows_edit_empty": "Aucune fenêtre → aucune correspondance",
   "platform.windows_edit_title": "Modifier les fenêtres temporelles",
+  "platform.holidayCalendar": "Calendrier des jours fériés",
+  "platform.holidayCalendar.dayType": "Type de jour",
+  "platform.holidayCalendar.inherit": "Hériter du calendrier",
+  "platform.holidayCalendar.loadFailed": "Impossible de charger le calendrier ; règle du jour de la semaine utilisée",
+  "platform.holidayCalendar.weekday": "Jour de la semaine",
+  "platform.holidayCalendar.yearUnavailable": "Le calendrier ne couvre pas l’année en cours ; règle du jour de la semaine utilisée",
   "popover.addItem": "Ajouter",
   "popover.color": "Couleur",
   "popover.colorFollow": "Suivre",
@@ -3939,11 +3945,5 @@
   "agentUpdate.success": "Mis à jour : v{{before}} → v{{after}}",
   "agentUpdate.failed": "Échec de la mise à jour",
   "platform.windows_dim_workday": "Jours ouvrés",
-  "platform.windows_dim_holiday": "Jours fériés",
-  "platform.holidayCalendar": "Calendrier des jours fériés",
-  "platform.holidayCalendar.dayType": "Type de jour",
-  "platform.holidayCalendar.inherit": "Hériter du calendrier",
-  "platform.holidayCalendar.loadFailed": "Impossible de charger le calendrier ; règle du jour de la semaine utilisée",
-  "platform.holidayCalendar.weekday": "Jour de la semaine",
-  "platform.holidayCalendar.yearUnavailable": "Le calendrier ne couvre pas l’année en cours ; règle du jour de la semaine utilisée"
+  "platform.windows_dim_holiday": "Jours fériés"
 }

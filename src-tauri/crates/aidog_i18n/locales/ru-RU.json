@@ -2142,6 +2142,12 @@
   "platform.windows_edit_add": "Добавить окно",
   "platform.windows_edit_empty": "Нет окон → нет совпадений",
   "platform.windows_edit_title": "Изменить временные окна",
+  "platform.holidayCalendar": "Календарь праздников",
+  "platform.holidayCalendar.dayType": "Тип дня",
+  "platform.holidayCalendar.inherit": "Наследовать календарь",
+  "platform.holidayCalendar.loadFailed": "Не удалось загрузить календарь; используется правило дня недели",
+  "platform.holidayCalendar.weekday": "День недели",
+  "platform.holidayCalendar.yearUnavailable": "Календарь не охватывает текущий год; используется правило дня недели",
   "popover.addItem": "Добавить",
   "popover.color": "Цвет",
   "popover.colorFollow": "Следовать",
@@ -3939,11 +3945,5 @@
   "agentUpdate.success": "Обновлено: v{{before}} → v{{after}}",
   "agentUpdate.failed": "Не удалось обновить",
   "platform.windows_dim_workday": "Рабочие дни",
-  "platform.windows_dim_holiday": "Праздничные дни",
-  "platform.holidayCalendar": "Календарь праздников",
-  "platform.holidayCalendar.dayType": "Тип дня",
-  "platform.holidayCalendar.inherit": "Наследовать календарь",
-  "platform.holidayCalendar.loadFailed": "Не удалось загрузить календарь; используется правило дня недели",
-  "platform.holidayCalendar.weekday": "День недели",
-  "platform.holidayCalendar.yearUnavailable": "Календарь не охватывает текущий год; используется правило дня недели"
+  "platform.windows_dim_holiday": "Праздничные дни"
 }

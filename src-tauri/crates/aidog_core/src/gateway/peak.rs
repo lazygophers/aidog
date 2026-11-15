@@ -513,6 +513,39 @@ mod tests {
                 );
             }
         }
+
+        // 2026：bundled CN 日历 2026 数据在位（CN.json years.2026）。补班周末（workdays 列表）
+        // 与普通周末都不命中 days_of_week=[1..5] 工作日窗口（窗口无 day_type，日历不参与判定）。
+        let workdays_2026 = &calendar.years["2026"].workdays;
+        assert_eq!(workdays_2026.len(), 6);
+        for date in ["2026-02-14", "2026-02-15"] {
+            let day = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap();
+            assert!(day.weekday().number_from_monday() >= 6, "{date} not weekend");
+            let ms =
+                DateTime::parse_from_rfc3339(&format!("{date}T10:00:00+08:00"))
+                    .unwrap()
+                    .timestamp_millis();
+            for protocol in ["tencent_tokenhub", "tencent_tokenhub_intl"] {
+                assert!(
+                    !is_in_peak_window(&peak_in(aidog_db::registry::presets(), protocol), ms, ""),
+                    "{protocol} 2026 weekend {date}"
+                );
+            }
+        }
+
+        // SG 日历（tencent_tokenhub_intl 平台默认日历）：day_type 判定走 SG 数据，不按星期。
+        assert_eq!(
+            aidog_db::registry::default_holiday_calendar("tencent_tokenhub_intl").as_deref(),
+            Some("SG")
+        );
+        // 2027-03-10 是 SG 2027 假日（SG.json years.2027.holidays，周三）→ day_type=holiday 命中
+        let sg_holiday: TimeWindow = serde_json::from_str(
+            r#"{"start_hour":0,"end_hour":24,"multiplier":1.0,"day_type":"holiday","holiday_calendar":"SG"}"#,
+        )
+        .unwrap();
+        assert!(hit(&sg_holiday, 12, 0, 3, 10, "2027-03-10"));
+        // 2027-03-11 周四非 SG 假日 → holiday 窗口不命中
+        assert!(!hit(&sg_holiday, 12, 0, 4, 11, "2027-03-11"));
     }
 
     // ── default_peak ──

@@ -2142,6 +2142,12 @@
   "platform.windows_edit_add": "Fenster hinzufügen",
   "platform.windows_edit_empty": "Keine Fenster → niemals Übereinstimmung",
   "platform.windows_edit_title": "Zeitfenster bearbeiten",
+  "platform.holidayCalendar": "Feiertagskalender",
+  "platform.holidayCalendar.dayType": "Tagestyp",
+  "platform.holidayCalendar.inherit": "Kalender übernehmen",
+  "platform.holidayCalendar.loadFailed": "Kalenderdaten nicht verfügbar; Wochentagsregel wird verwendet",
+  "platform.holidayCalendar.weekday": "Wochentag",
+  "platform.holidayCalendar.yearUnavailable": "Der Kalender deckt das aktuelle Jahr nicht ab; Wochentagsregel wird verwendet",
   "popover.addItem": "Hinzufügen",
   "popover.color": "Farbe",
   "popover.colorFollow": "Folgen",
@@ -3939,11 +3945,5 @@
   "agentUpdate.success": "Aktualisiert: v{{before}} → v{{after}}",
   "agentUpdate.failed": "Update fehlgeschlagen",
   "platform.windows_dim_workday": "Arbeitstage",
-  "platform.windows_dim_holiday": "Feiertage",
-  "platform.holidayCalendar": "Feiertagskalender",
-  "platform.holidayCalendar.dayType": "Tagestyp",
-  "platform.holidayCalendar.inherit": "Kalender übernehmen",
-  "platform.holidayCalendar.loadFailed": "Kalenderdaten nicht verfügbar; Wochentagsregel wird verwendet",
-  "platform.holidayCalendar.weekday": "Wochentag",
-  "platform.holidayCalendar.yearUnavailable": "Der Kalender deckt das aktuelle Jahr nicht ab; Wochentagsregel wird verwendet"
+  "platform.windows_dim_holiday": "Feiertage"
 }

@@ -2054,6 +2054,12 @@
   "platform.windows_edit_add": "添加窗口",
   "platform.windows_edit_empty": "无窗口 → 永不命中",
   "platform.windows_edit_title": "编辑时段窗口",
+  "platform.holidayCalendar": "节假日日历",
+  "platform.holidayCalendar.dayType": "日期类型",
+  "platform.holidayCalendar.inherit": "继承上级日历",
+  "platform.holidayCalendar.loadFailed": "日历数据加载失败，将按星期判断",
+  "platform.holidayCalendar.weekday": "星期",
+  "platform.holidayCalendar.yearUnavailable": "日历未覆盖当前年份，将按星期判断",
   "popover.addItem": "添加项",
   "popover.color": "颜色",
   "popover.colorFollow": "跟随",
@@ -3851,11 +3857,5 @@
   "agentUpdate.success": "已更新：v{{before}} → v{{after}}",
   "agentUpdate.failed": "更新失败",
   "platform.windows_dim_workday": "工作日",
-  "platform.windows_dim_holiday": "节假日",
-  "platform.holidayCalendar": "节假日日历",
-  "platform.holidayCalendar.dayType": "日期类型",
-  "platform.holidayCalendar.inherit": "继承上级日历",
-  "platform.holidayCalendar.loadFailed": "日历数据加载失败，将按星期判断",
-  "platform.holidayCalendar.weekday": "星期",
-  "platform.holidayCalendar.yearUnavailable": "日历未覆盖当前年份，将按星期判断"
+  "platform.windows_dim_holiday": "节假日"
 }
