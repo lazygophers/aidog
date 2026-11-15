@@ -1,8 +1,8 @@
 //! 平台出站差异钩子的默认实现（家族基座）。
 //!
 //! 均为 aidog_core gateway/proxy 原样搬家的纯函数（行为不变，出处见各函数 doc）：
-//! `cap_max_tokens` 原 `gateway/router/mod.rs`；`inject_coding_plan_fields` /
-//! `override_coding_plan_path` 原 `gateway/proxy/headers.rs`；其余原 `gateway/proxy/forward.rs`。
+//! `cap_max_tokens` 原 `gateway/router/mod.rs`；`inject_coding_plan_fields` 原
+//! `gateway/proxy/headers.rs`；其余原 `gateway/proxy/forward.rs`。
 
 use aidog_db::models::Protocol;
 use serde_json::Value;
@@ -417,12 +417,6 @@ pub fn inject_coding_plan_fields(body: &mut Value, protocol: &aidog_db::models::
         }
     }
 }
-
-/// Coding Plan 的 API 路径覆盖（当前各平台 base_url 已区分 coding/normal，api_path 无需变更）
-pub fn override_coding_plan_path(_api_path: &mut String, _protocol: &aidog_db::models::Protocol) {
-    // 预留：后续若有平台需 coding plan 专用 api_path 可在此扩展
-}
-
 
 /// Kimi 家族 coding plan 注入（原 `headers.rs::inject_coding_plan_fields` Kimi 臂原样搬出，
 /// 供 KimiAdapter 覆盖 [`inject_coding_plan_fields`] 的分派复用）。
