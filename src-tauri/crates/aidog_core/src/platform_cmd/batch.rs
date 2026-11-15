@@ -7,8 +7,7 @@
 //! - batch_move_group: 移组/加组（操作 group_platform 关联）
 
 use crate::gateway::models::{BatchReport, PlatformModels, PlatformStatus, UpdatePlatform};
-use aidog_db::{self as db, now};
-use rusqlite::params;
+use aidog_db as db;
 
 crate::tauri_command! {
 /// 批量删除平台（物理删 = 软删 platform + 清所有 group_platform 关联）
@@ -170,66 +169,7 @@ pub async fn batch_move_group(
     }
 
     let n = ids.len() as u64;
-    for platform_id in ids {
-        let pid = platform_id as i64;
-        let target = target_group_id as i64;
-
-        if is_move {
-            // move: 先清所有现组关联，再加目标组
-            db.call_traced(None, std::panic::Location::caller(), move |conn| {
-                // 清除该平台的所有现组关联
-                conn.execute(
-                    "DELETE FROM group_platform WHERE platform_id = ?1 AND deleted_at = 0",
-                    params![pid],
-                )?;
-                // 清除目标组内该平台的所有历史行（含软删残留），避免 UNIQUE 冲突
-                conn.execute(
-                    "DELETE FROM group_platform WHERE group_id = ?1 AND platform_id = ?2",
-                    params![target, pid],
-                )?;
-                // 加入目标组
-                let ts = now();
-                conn.execute(
-                    "INSERT INTO group_platform (group_id, platform_id, priority, weight, created_at, updated_at) VALUES (?1, ?2, 0, 1, ?3, ?3)",
-                    params![target, pid, ts],
-                )?;
-                Ok(())
-            })
-            .await
-            .map_err(|e| format!("move platform {platform_id}: {e}"))?;
-        } else {
-            // add: 仅加目标组（若不在）
-            let already_in_target: i64 = db
-                .call_read_traced(None, std::panic::Location::caller(), move |conn| {
-                    let mut stmt = conn.prepare(
-                        "SELECT COUNT(*) FROM group_platform WHERE group_id = ?1 AND platform_id = ?2 AND deleted_at = 0",
-                    )?;
-                    let count: i64 = stmt.query_row(params![target, pid], |r| r.get(0))?;
-                    Ok(count)
-                })
-                .await
-                .map_err(|e| e.to_string())?;
-
-            if already_in_target == 0 {
-                db.call_traced(None, std::panic::Location::caller(), move |conn| {
-                    // 清除目标组内该平台的所有历史行（含软删残留），避免 UNIQUE 冲突
-                    conn.execute(
-                        "DELETE FROM group_platform WHERE group_id = ?1 AND platform_id = ?2",
-                        params![target, pid],
-                    )?;
-                    // 加入目标组
-                    let ts = now();
-                    conn.execute(
-                        "INSERT INTO group_platform (group_id, platform_id, priority, weight, created_at, updated_at) VALUES (?1, ?2, 0, 1, ?3, ?3)",
-                        params![target, pid, ts],
-                    )?;
-                    Ok(())
-                })
-                .await
-                .map_err(|e| format!("add platform {platform_id}: {e}"))?;
-            }
-        }
-    }
+    db::batch_move_group_platforms(db, &ids, target_group_id, is_move).await?;
 
     // 刷新分组缓存（公共方法）
     db.invalidate_hot_caches();
