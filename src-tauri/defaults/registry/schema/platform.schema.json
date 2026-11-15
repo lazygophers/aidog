@@ -85,6 +85,11 @@
       "type": "boolean",
       "description": "【可选】编码套餐（coding plan）协议标记：true = 整套协议走 coding 套餐（独立子域 / 配额计费）。router/ordering.rs 优先普通平台；前端 ProtocolOption.codingPlan / PlatformCard 徽标据此派生。coding 套餐一律是独立协议条目（禁与普通版同 code 双 preset）。"
     },
+    "holiday_calendar": {
+      "type": "string",
+      "minLength": 1,
+      "description": "【可选】该平台默认节假日日历代码；规则窗口可单独覆盖。"
+    },
     "paste_fallback": {
       "type": "boolean",
       "description": "【可选】智能识别兜底平台标记：粘贴文案含 base_url 但未命中任何 preset 的 hosts 时（不要求协议可识别，中转站裸域常见），命中本标记的平台胜出（自建中转站场景，如 newapi），压过 keyword 扫描（防误落具体厂商平台）。文本无 base_url 时不触发。同标记多平台取文档序首个；禁在代码硬编码平台名。"
@@ -222,6 +227,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
+        "not": { "required": ["days_of_week", "day_type"] },
         "required": [
           "start_hour",
           "end_hour",
@@ -258,7 +264,17 @@
               "minimum": 0,
               "maximum": 6
             },
-            "description": "【可选】窗口限定的星期（窗口时区本地，0=周日 … 6=周六）；缺省 = 每天。"
+            "description": "【可选】窗口限定的星期（窗口时区本地，0=周日 … 6=周六）；缺省 = 每天。与 day_type 互斥。"
+          },
+          "day_type": {
+            "type": "string",
+            "enum": ["workday", "holiday"],
+            "description": "【可选】窗口按节假日日历限定工作日或节假日；与 days_of_week 互斥。"
+          },
+          "holiday_calendar": {
+            "type": "string",
+            "minLength": 1,
+            "description": "【可选】覆盖平台默认节假日日历。"
           },
           "models": {
             "type": "array",
@@ -331,6 +347,7 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
+              "not": { "required": ["days_of_week", "day_type"] },
               "properties": {
                 "models": {
                   "type": "array",
@@ -367,7 +384,17 @@
                     "minimum": 0,
                     "maximum": 6
                   },
-                  "description": "【可选】限定星期（时段时区本地，0=周日 … 6=周六）；缺省 = 每天。单独出现也算一个时段条件。"
+                  "description": "【可选】限定星期（时段时区本地，0=周日 … 6=周六）；缺省 = 每天。单独出现也算一个时段条件；与 day_type 互斥。"
+                },
+                "day_type": {
+                  "type": "string",
+                  "enum": ["workday", "holiday"],
+                  "description": "【可选】按节假日日历限定工作日或节假日；与 days_of_week 互斥。"
+                },
+                "holiday_calendar": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "【可选】覆盖平台默认节假日日历。"
                 },
                 "concurrency": {
                   "type": "integer",

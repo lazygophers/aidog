@@ -59,7 +59,7 @@
     "search_pro": {"per_1000": 15.0, "currency": "CNY"},
     "fetch": {"per_1000": 10.0, "currency": "CNY"}
   },
-  "last_updated": 1794191265,
+  "last_updated": 1794648844,
   "endpoints": {
     "default": [
       {
@@ -102,6 +102,7 @@
     "pricing": "https://platform.moonshot.cn/docs/pricing/chat"
   },
   "homepage": "https://www.moonshot.cn",
+  "holiday_calendar": "CN",
   "logo_url": "moonshotai",
   "keywords": [
     "moonshot",
