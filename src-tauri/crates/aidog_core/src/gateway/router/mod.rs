@@ -16,9 +16,11 @@ mod ordering;
 
 #[allow(unused_imports)]
 pub use candidates::{
-    CandidateSet, ClientGate, ClientProbe, QuotaExhausted, RequestKind, RouteFail, ScheduleCtx, select_candidates, select_candidates_ctx,
+    CandidateSet, ClientGate, ClientProbe, QuotaExhausted, RequestKind, RouteFail, ScheduleCtx,
     select_candidates_gated, select_candidates_preloaded,
 };
+#[cfg(test)]
+pub use candidates::select_candidates_for_test;
 
 /// 出站 max_tokens 裁剪（convert_request 前调用）。
 ///
