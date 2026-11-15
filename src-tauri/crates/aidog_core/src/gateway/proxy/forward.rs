@@ -859,6 +859,33 @@ async fn model_forces_thinking(db: &aidog_db::Db, platform_code: &str, model_id:
 
 
 
+/// 出站协议转换丢弃的音视频字段。OpenAI Chat 仅接受 base64 audio；其余不支持的块记入 field_trace。
+/// 2026-11-15 官方契约：Anthropic `ContentBlockParam` 无 audio/video（https://platform.claude.com/docs/en/api/messages）；
+/// Responses `input` 的内容块无 audio（https://developers.openai.com/api/reference/resources/responses/methods/create）；
+/// Chat Completions 支持 base64 input_audio（https://developers.openai.com/api/docs/guides/audio-chat-completions）。
+/// 上述目标均未提供 video content 输入形状。
+fn dropped_media_fields(req: &aidog_adapter::types::ChatRequest, wire: &Protocol) -> Vec<String> {
+    req.messages
+        .iter()
+        .flat_map(|message| message.content.blocks())
+        .filter_map(|block| match block {
+            aidog_adapter::types::ContentBlock::Media { media_type, data, .. } => {
+                let kind = media_type.split_once('/')?.0;
+                if !matches!(kind, "audio" | "video") {
+                    return None;
+                }
+                let dropped = match wire {
+                    &Protocol::OpenAI => kind != "audio" || data.is_none(),
+                    &Protocol::Anthropic | &Protocol::OpenAIResponses => true,
+                    _ => false,
+                };
+                dropped.then(|| kind.to_string())
+            }
+            _ => None,
+        })
+        .collect()
+}
+
 /// 把本次出站的三类改写合成 `proxy_log.field_trace` 的 token 串（票 10；票 11 抽成纯函数）。
 ///
 /// - `capped_on_chat_req` / `capped_on_body`：`max_tokens` 被裁到模型上限的两个来源，
@@ -1180,8 +1207,8 @@ mod test_field_trace {
 /// 票 11 对账补的两处：Gemini 源的生成参数下钻取值、`cap:max_tokens` 两来源合一。
 #[cfg(test)]
 mod test_fa11_reconciliation {
-    use super::Protocol;
-    use super::build_field_trace;
+    use super::{Protocol, build_field_trace, dropped_media_fields};
+    use aidog_adapter::types::{ChatRequest, ContentBlock, Message, MessageContent, Role};
     use aidog_adapter::platform::hooks::apply_field_passthrough;
     use serde_json::json;
 
@@ -1301,6 +1328,54 @@ mod test_fa11_reconciliation {
             "",
             "未裁剪不记"
         );
+    }
+
+    fn media_request(media_type: &str, data: Option<&str>) -> ChatRequest {
+        ChatRequest {
+            model: "m".into(),
+            messages: vec![Message {
+                role: Role::User,
+                content: MessageContent::Blocks(vec![ContentBlock::Media {
+                    media_type: media_type.into(),
+                    data: data.map(str::to_owned),
+                    url: None,
+                }]),
+            }],
+            system: None,
+            max_tokens: None,
+            temperature: None,
+            top_p: None,
+            stream: None,
+            tools: None,
+            tool_choice: None,
+            thinking_budget: None,
+            thinking_mode: None,
+            extra: None,
+        }
+    }
+
+    #[test]
+    fn anthropic_media_drops_are_recorded() {
+        let req = media_request("audio/wav", Some("AAAA"));
+        assert_eq!(build_field_trace(false, false, false, &dropped_media_fields(&req, &Protocol::Anthropic)), "drop:audio");
+    }
+
+    #[test]
+    fn responses_media_drops_are_recorded() {
+        let req = media_request("video/mp4", Some("AAAA"));
+        assert_eq!(build_field_trace(false, false, false, &dropped_media_fields(&req, &Protocol::OpenAIResponses)), "drop:video");
+    }
+
+    #[test]
+    fn openai_url_audio_drop_is_recorded() {
+        let req = media_request("audio/wav", None);
+        assert_eq!(build_field_trace(false, false, false, &dropped_media_fields(&req, &Protocol::OpenAI)), "drop:audio");
+    }
+
+    #[test]
+    fn openai_video_drop_is_recorded() {
+        let req = media_request("video/mp4", Some("AAAA"));
+        assert_eq!(build_field_trace(false, false, false, &dropped_media_fields(&req, &Protocol::OpenAI)), "drop:video");
     }
 
     /// 三类改写按固定序拼接；全无改写时空串（不产生噪音记录）。
@@ -2871,11 +2946,15 @@ async fn prepare_outbound(
     // 票 10：留痕落 log（无丢弃无改写时写空串，不产生噪音记录；本值随后续 upsert 入库，
     // 受 log_upstream_request 开关与 upstream_request_retention_days 清理约束）。
     // 每个候选平台重跑本段 → 无条件赋值，换平台重试时不残留上一候选的留痕。
+    let mut dropped_fields = dropped;
+    if !target.same_protocol_passthrough {
+        dropped_fields.extend(dropped_media_fields(chat_req, target.target_protocol_enum));
+    }
     log.field_trace = build_field_trace(
         capped_on_chat_req,
         capped_on_body.is_some(),
         middleware_changed,
-        &dropped,
+        &dropped_fields,
     );
 
     // ── 官方 OpenAI 输出长度键改写（票 05）──
