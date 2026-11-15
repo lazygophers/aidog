@@ -7,7 +7,7 @@ import type { TFunction } from "i18next";
 import type { GroupDetail, GroupLastRequest, Platform, PlatformErrorStatus, PlatformUsageStats } from "../../services/api";
 import { GroupLastRequest as GroupLastRequestBadge } from "./GroupLastRequest";
 import { groupFlowApi, platformApi } from "../../services/api";
-import { buildStatusOptions, idsForCode } from "./statusSelect";
+import { buildStatusOptions, idsForSelection, PLATFORM_STATUS_OPTIONS } from "./statusSelect";
 import { GroupSidePanels, staticOrder } from "./GroupSidePanels";
 import type { CardsSnapshot } from "./GroupListItem";
 import { GroupFlowPanel } from "./GroupFlowPanel";
@@ -211,14 +211,15 @@ function MembersCard(props: {
           {/* 按状态选（plat-select-status）：动态错误码选项；口径同列表页。 */}
           <Select
             onOpenChange={(open) => {
-              if (open && errStatus === null) {
+              if (open) {
                 platformApi.errorStatus()
                   .then(r => setErrStatus(r.filter(i => !(i.source === "cooldown" && i.until_ms !== null && i.until_ms < Date.now()))))
                   .catch(() => setErrStatus([]));
               }
             }}
+            value=""
             onValueChange={(v) => {
-              const ids = idsForCode(errStatus ?? [], fullPlats.map(p => p.id), Number(v));
+              const ids = idsForSelection(v, errStatus ?? [], fullPlats);
               if (ids.size > 0) setSelectedIds(ids);
             }}
           >
@@ -226,16 +227,16 @@ function MembersCard(props: {
               <SelectValue placeholder={t("group.selectByStatus", "按状态选")} />
             </SelectTrigger>
             <SelectContent>
+              {PLATFORM_STATUS_OPTIONS.map(o => (
+                <SelectItem key={o.value} value={o.value} data-testid={`group-batch-status-opt-${o.value}`} style={{ fontSize: 14 }}>
+                  {`${t(o.labelKey, o.fallback)}（${fullPlats.filter(p => p.status === o.status).length}）`}
+                </SelectItem>
+              ))}
               {statusOptions.map(o => (
                 <SelectItem key={o.code} value={String(o.code)} style={{ fontSize: 14 }}>
                   {`${o.code} · ${t(`group.err.${o.code}`, `HTTP ${o.code}`)}（${o.count}）`}
                 </SelectItem>
               ))}
-              {statusOptions.length === 0 && (
-                <SelectItem value="__none__" disabled style={{ fontSize: 14 }}>
-                  {errStatus === null ? "…" : t("group.selectByStatusNone", "无错误状态")}
-                </SelectItem>
-              )}
             </SelectContent>
           </Select>
           <span data-testid="detail-batch-cancel" onClick={() => { setMode("view"); setSelectedIds(new Set()); }}
