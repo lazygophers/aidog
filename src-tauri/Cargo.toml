@@ -103,8 +103,6 @@ dashmap = "6"
 #     default = ["progressbar", "onig", "esaxx_fast"]
 tiktoken-rs = "0.12"
 tokenizers = { version = "0.23", default-features = false, features = ["fancy-regex"] }
-# 压缩格式支持（CPA config 导入）
-tar = "0.4"
 # macOS 托盘小字 attributedTitle（core refresh_tray_menu + root tray_render 共用同版本）
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSString", "NSDictionary", "NSAttributedString", "NSGeometry", "NSValue"] }
