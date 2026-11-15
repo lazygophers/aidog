@@ -1372,6 +1372,12 @@ mod test_fa11_reconciliation {
         assert_eq!(build_field_trace(false, false, false, &dropped_media_fields(&req, &Protocol::OpenAI)), "drop:audio");
     }
 
+    #[test]
+    fn openai_video_drop_is_recorded() {
+        let req = media_request("video/mp4", Some("AAAA"));
+        assert_eq!(build_field_trace(false, false, false, &dropped_media_fields(&req, &Protocol::OpenAI)), "drop:video");
+    }
+
     /// 三类改写按固定序拼接；全无改写时空串（不产生噪音记录）。
     #[test]
     fn fa11_field_trace_composition_and_empty() {
