@@ -860,8 +860,8 @@ async fn model_forces_thinking(db: &aidog_db::Db, platform_code: &str, model_id:
 
 
 /// 出站协议转换丢弃的音视频字段。OpenAI Chat 仅接受 base64 audio；其余不支持的块记入 field_trace。
-/// 2026-11-15 官方契约：Anthropic Messages 接受 text/image（https://platform.claude.com/docs/en/build-with-claude/vision）；
-/// Responses 输入文档限 text/image（https://developers.openai.com/api/docs/guides/migrate-to-responses）；
+/// 2026-11-15 官方契约：Anthropic `ContentBlockParam` 无 audio/video（https://platform.claude.com/docs/en/api/messages）；
+/// Responses `input` 的内容块无 audio（https://developers.openai.com/api/reference/resources/responses/methods/create）；
 /// Chat Completions 支持 base64 input_audio（https://developers.openai.com/api/docs/guides/audio-chat-completions）。
 /// 上述目标均未提供 video content 输入形状。
 fn dropped_media_fields(req: &aidog_adapter::types::ChatRequest, wire: &Protocol) -> Vec<String> {
