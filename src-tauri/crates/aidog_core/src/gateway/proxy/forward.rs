@@ -416,6 +416,7 @@ async fn forward_attempt_model(
                 has_next_model,
                 switched,
                 ttfb_ms: Some(ttfb_ms),
+                candidate_total,
             },
         )
         .await;
@@ -494,33 +495,8 @@ async fn forward_attempt_model(
         () => {{
             // 熔断指标：成功 → 更新延迟 EMA + breaker Closed/HalfOpen→Closed + inflight-1。
             // 注意流式此处为「首个有效内容」延迟（peek 已收到内容）；作为延迟近似记入 EMA。
-            state.scheduler.record_success(route.platform.id, attempt_latency_ms);
-            // 最近一次成功 → 清本平台 last_error。不读路由缓存快照判空（失败写库不失效缓存，快照会陈旧）；
-            // 无错时 SQL 的 `last_error != ''` 条件使 UPDATE 零行。
-            let _ = aidog_db::set_platform_last_error(&state.db, route.platform.id, None).await;
-            attempts.push(ProxyAttempt {
-                chain_stop: None,
-                ttfb_ms: Some(ttfb_ms),
-                platform_id: route.platform.id,
-                platform_name: route.platform.name.clone(),
-                status_code: status.as_u16() as i32,
-                error: String::new(),
-                duration_ms: attempt_latency_ms,
-                ts: attempt_ts,
-                model: Some(route.target_model.clone()),
-                ..Default::default()
-            });
-            if route.platform.status == super::models::PlatformStatus::AutoDisabled {
-                if let Err(e) = aidog_db::recover_platform_auto_disabled(&state.db, route.platform.id).await {
-                    tracing::error!(platform_id = route.platform.id, error = %e, "recover auto-disabled platform failed");
-                } else {
-                    tracing::info!(platform = %route.platform.name, platform_id = route.platform.id, "platform recovered from auto-disabled (2xx)");
-                    // status 列变了（auto_disabled → enabled）：复用 proxy-log-updated 通知前端
-                    // 停留页面轻刷（refreshStats 合并 status）。此处不一定紧跟日志终态写
-                    // （单请求多 attempt / 早退路径），自 notify 防 UI 状态陈旧。
-                    aidog_ctx::emit("proxy-log-updated", route.platform.id.into());
-                }
-            }
+            super::call_scope::commit_success(state, &route, attempts, status.as_u16(), Some(ttfb_ms), attempt_latency_ms, attempt_ts).await;
+            // 成功后把 attempts 收进 log（guard 快照与 finish 终态写依赖此前填充；原宏同语义）。
             log.platform_id = route.platform.id;
             log.retry_count = aidog_db::models::retry_count_of(&attempts);
             log.attempts = std::mem::take(attempts);
@@ -3446,70 +3422,28 @@ async fn send_upstream(
                 // R1（2026-09-28，推翻 2026-09-15「网络类故障不降权」）：connect 失败计入熔断
                 // （死站滞留候选的根治），带本地网络保护（60s 滑窗失败平台数达候选半数不计数）；
                 // 其余 transport 错误（读超时/中途掐线）仍不降权仅 inflight-1。
-                let mut effects = Vec::new();
-                if e.is_connect() {
-                    if state.scheduler.record_connect_failure(
-                        route.platform.id,
-                        candidate_total,
-                        &breaker_th,
-                        aidog_db::now(),
-                    ) {
-                        effects.push("breaker_count".to_string());
-                    }
-                } else {
-                    state.scheduler.record_ignored(route.platform.id);
+                // 票 04：judge(Transport) + apply 记账收口到 CallScope::transport_failed。
+                let scope = super::call_scope::CallScope {
+                    state,
+                    group,
+                    route,
+                    log_settings,
+                    lang,
+                    start,
+                    attempt_start,
+                    attempt_ts,
+                    is_last_candidate,
+                    candidate_total,
+                    has_next_model,
+                    breaker_th,
+                    proxy_client: &proxy_client,
+                    req_timeout,
+                    conn_timeout,
+                };
+                match scope.transport_failed(log, attempts, &e, &url).await {
+                    AttemptOutcome::Respond(r) => return Err(StageExit::Respond(r)),
+                    AttemptOutcome::Next { connect_failed } => return Err(StageExit::Retry { connect_failed }),
                 }
-                effects.push("penalty_server".to_string());
-                // 失败降权（health-aware，2026-09-29）：connect 失败（已计熔断）与读超时/
-                // 中途掐线/TLS 等 transport 错（原 record_ignored）均计入服务端/网络档降权，
-                // 与熔断并行。此分支在响应头到达前，同请求同平台仅计这一次。
-                state.scheduler.record_penalty(
-                    route.platform.id,
-                    super::scheduling::PenaltyTier::Server,
-                    aidog_db::now(),
-                );
-                let detail = err_chain(&e);
-                tracing::error!(url = %url, platform = %route.platform.name, error = %detail, duration_ms = start.elapsed().as_millis() as i64, "upstream request failed (502)");
-                let upstream_err = format!("upstream error: {detail}");
-                attempts.push(ProxyAttempt {
-                    // transport 错（连接失败 / 超时）属服务类：不换模型直接换平台，链上剩余模型记「跳过」
-                    chain_stop: has_next_model.then(|| "service".to_string()),
-                    error_class: Some("service".to_string()),
-                    effects,
-                    platform_id: route.platform.id,
-                    platform_name: route.platform.name.clone(),
-                    status_code: 0,
-                    error: upstream_err.clone(),
-                    duration_ms: attempt_start.elapsed().as_millis() as i64,
-                    ts: attempt_ts,
-                    model: Some(route.target_model.clone()),
-                    ..Default::default()
-                });
-                let _ = aidog_db::set_platform_last_error(
-                    &state.db,
-                    route.platform.id,
-                    Some(upstream_err.clone()),
-                )
-                .await;
-                if !is_last_candidate {
-                    return Err(StageExit::Retry {
-                        connect_failed: e.is_connect(),
-                    });
-                }
-                let msg = format!("{}: {detail}", i18n::t(lang, ErrorKey::Upstream));
-                return Err(StageExit::Respond(
-                    finalize_proxy_502(
-                        state,
-                        log,
-                        attempts,
-                        route.platform.id,
-                        upstream_err,
-                        msg,
-                        start,
-                        log_settings,
-                    )
-                    .await,
-                ));
             }
         }
     };

@@ -1,7 +1,7 @@
 //! 失败裁决（spec M1 / issue 55 票 03）：「判定」抽成纯函数 [`judge`]，「落地」收口到
 //! [`apply`]。judge 无 I/O、无时钟（now 走入参），同一输入恒产同一 Verdict；
-//! apply 是 scheduler / DB 记账副作用的唯一落地点。本票只处理 HTTP 非 2xx 输入；
-//! 传输失败（`Failure::Transport`）在票 04 并入。
+//! apply 是 scheduler / DB 记账副作用的唯一落地点。输入两种形态：HTTP 非 2xx
+//! （`Failure::Http`）与传输层失败（`Failure::Transport`，票 04 并入）。
 
 use super::*;
 
@@ -15,6 +15,11 @@ pub(crate) enum Failure<'a> {
         /// registry 码义（`rate_limit` / `overloaded`），调用方按平台 wire 协议查出
         /// （`registry_code_meaning`）；码义优先于通用状态码分类。
         code_meaning: Option<&'a str>,
+    },
+    /// 传输层失败（连接失败 / 读超时 / 中途断连，票 04）：无 HTTP 响应可读。
+    /// `is_connect` = 连接建立失败（reqwest `is_connect`，R3 死站联动 + 熔断计数判据）。
+    Transport {
+        is_connect: bool,
     },
 }
 
@@ -107,7 +112,36 @@ pub(crate) fn judge(f: &Failure, c: &JudgeCtx) -> Verdict {
         body,
         retry_after,
         code_meaning,
-    } = f;
+    } = f
+    else {
+        // ── 传输失败（票 04，spec M2）：属服务类——排除整个平台；connect 失败计熔断
+        //    （阈值 / 本地网络保护在 record_connect_failure 内现算），全部计服务档降权；
+        //    写 last_error（blame）；非末位换候选、末位直返。不换模型（服务类）。──
+        let Failure::Transport { is_connect } = f else {
+            unreachable!("Failure 只有 Http / Transport 两个变体")
+        };
+        return Verdict {
+            class: UpstreamErrorClass::Service,
+            scope: ExcludeScope::Platform,
+            blame: true,
+            effects: {
+                let mut effects = Vec::new();
+                if *is_connect {
+                    effects.push(HealthEffect::BreakerCount);
+                }
+                // 失败降权（health-aware，2026-09-29）：全部 transport 错计服务端/网络档，
+                // 与熔断并行（对齐抽取前四类请求的内联实现）。
+                effects.push(HealthEffect::Penalty(super::scheduling::PenaltyTier::Server));
+                effects
+            },
+            next: if c.is_last_candidate {
+                Next::Return
+            } else {
+                Next::SwitchPlatform
+            },
+            connect_failed: *is_connect,
+        };
+    };
     let class = match code_meaning.as_deref() {
         Some("rate_limit" | "overloaded") => UpstreamErrorClass::Service,
         _ => classify_upstream_error(*code, body),
@@ -249,10 +283,13 @@ pub(crate) fn judge(f: &Failure, c: &JudgeCtx) -> Verdict {
 }
 
 /// 唯一记账落地点：把 [`Verdict`] 落到 scheduler / DB。DB 写失败沿用现状
-/// 「记 tracing::error 不上抛」。
+/// 「记 tracing::error 不上抛」。返回 true = BreakerCount 效果真的计了熔断
+/// （传输失败路径的本地网络保护可能放行不计；HTTP 路径计了恒 true），调用方据此决定
+/// attempt 的 `breaker_count` 效果留痕。
 ///
 /// 熔断 / inflight 配平由 effects 推导：换模型路径不碰 scheduler（旧早退语义）；
-/// 计 BreakerCount → record_failure（健康感知 401/403）；否则 record_ignored
+/// 计 BreakerCount → 传输失败走 record_connect_failure（本地网络保护 + 模式化阈值）、
+/// HTTP 走 record_failure（健康感知 401/403）；否则 record_ignored
 /// （inflight-1：链尽换平台、非 auth 的主路径。旧实现 record_ignored 从不落字符串）。
 pub(crate) async fn apply(
     v: &Verdict,
@@ -260,16 +297,31 @@ pub(crate) async fn apply(
     route: &RouteResult,
     th: &super::scheduling::BreakerThresholds,
     f: &Failure<'_>,
-) {
-    let Failure::Http { code, body, .. } = f;
+    candidate_total: usize,
+) -> bool {
     let pid = route.platform.id;
     let now = aidog_db::now();
+    let code = match f {
+        Failure::Http { code, body, .. } => Some((*code, *body)),
+        Failure::Transport { .. } => None,
+    };
+    let mut breaker_counted = false;
 
-    // 熔断计数（2026-09-15 用户裁决：网络类故障不降权）：仅健康感知分组的 401/403 计一次；
-    // 429 / 529 / registry 限频码 / 5xx / 402 / 其他 4xx 一律不计（仅 inflight-1）。
+    // 熔断计数（2026-09-15 用户裁决：网络类故障不降权）：HTTP 路径仅健康感知分组的 401/403
+    // 计一次；传输路径 connect 失败计（阈值 / 本地网络保护在 record_connect_failure 内现算）；
+    // 429 / 529 / registry 限频码 / 5xx / 402 / 其他 4xx / 非 connect 传输一律不计（仅 inflight-1）。
     if !matches!(v.next, Next::SwitchModel) {
         if v.effects.iter().any(|e| matches!(e, HealthEffect::BreakerCount)) {
-            state.scheduler.record_failure(pid, th, now);
+            match f {
+                Failure::Transport { .. } => {
+                    breaker_counted =
+                        state.scheduler.record_connect_failure(pid, candidate_total, th, now);
+                }
+                Failure::Http { .. } => {
+                    state.scheduler.record_failure(pid, th, now);
+                    breaker_counted = true;
+                }
+            }
         } else {
             state.scheduler.record_ignored(pid);
         }
@@ -277,7 +329,10 @@ pub(crate) async fn apply(
 
     // 记本平台最近一次错误（卡片展示）。本平台失败即覆盖，自身下次成功时清空（commit_2xx）。
     // 换候选成功不清失败平台的 last_error。模型类失败不写（blame=false）。
-    if v.blame {
+    // 传输失败的 last_error 由调用方写（错误文本在 reqwest::Error，不在本函数输入里）。
+    if let Some((code, body)) = code
+        && v.blame
+    {
         let detail = extract_error_message(body).unwrap_or_else(|| truncate_attempt_error(body));
         let _ = aidog_db::set_platform_last_error(
             &state.db,
@@ -334,7 +389,7 @@ pub(crate) async fn apply(
             HealthEffect::CooldownBalance => {
                 state.scheduler.set_balance_cooldown(pid, now);
                 tracing::warn!(
-                    platform = %route.platform.name, platform_id = pid, status = code,
+                    platform = %route.platform.name, platform_id = pid, status = code.map(|(c, _)| c),
                     cooldown_ms = super::scheduling::AUTH_COOLDOWN_MS,
                     "platform out of scheduling for balance cooldown (memory-only, not disabled)"
                 );
@@ -342,7 +397,7 @@ pub(crate) async fn apply(
             HealthEffect::CooldownAuth => {
                 state.scheduler.set_auth_cooldown(pid, now);
                 tracing::warn!(
-                    platform = %route.platform.name, platform_id = pid, status = code,
+                    platform = %route.platform.name, platform_id = pid, status = code.map(|(c, _)| c),
                     cooldown_ms = super::scheduling::AUTH_COOLDOWN_MS,
                     "platform out of scheduling for fixed auth cooldown (memory-only, not disabled)"
                 );
@@ -363,6 +418,7 @@ pub(crate) async fn apply(
             }
         }
     }
+    breaker_counted
 }
 
 #[cfg(test)]
@@ -526,5 +582,28 @@ mod tests {
         uniq.sort_unstable();
         uniq.dedup();
         assert_eq!(uniq.len(), all.len(), "as_str 两两不同");
+    }
+
+    // 票 04：Transport 形态判定——connect → 熔断计数 + 服务档降权 + connect_failed 回报；
+    // 非 connect → 仅降权；均属服务类（scope=Platform、blame 写 last_error、不换模型）。
+    #[test]
+    fn judge_transport_failure_is_service_platform_blame() {
+        // connect 失败、非末位：换平台 + 熔断 + 降权
+        let v = judge(&Failure::Transport { is_connect: true }, &ctx(false, false, false, false));
+        assert_eq!(v.class, UpstreamErrorClass::Service);
+        assert_eq!(v.scope, ExcludeScope::Platform);
+        assert!(v.blame);
+        let got: Vec<&str> = v.effects.iter().map(|e| e.as_str()).collect();
+        assert_eq!(got, ["breaker_count", "penalty_server"]);
+        assert!(matches!(v.next, Next::SwitchPlatform));
+        assert!(v.connect_failed);
+        // 非 connect：无熔断，仅降权
+        let v = judge(&Failure::Transport { is_connect: false }, &ctx(true, false, false, false));
+        let got: Vec<&str> = v.effects.iter().map(|e| e.as_str()).collect();
+        assert_eq!(got, ["penalty_server"]);
+        assert!(!v.connect_failed);
+        // 末位：直返
+        let v = judge(&Failure::Transport { is_connect: true }, &ctx(false, false, true, false));
+        assert!(matches!(v.next, Next::Return));
     }
 }

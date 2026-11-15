@@ -8233,3 +8233,156 @@ async fn round_guard_400_returns_directly() {
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     assert_eq!(hits.lock().unwrap().len(), 1);
 }
+
+// ══ 票 04 CallScope 行为锁定（重构前先绿，重构后同批仍绿）══
+// 三例断言面（四类请求 × connect 失败 / 非 connect 传输失败 / 2xx 成功）只看
+// 调度状态与 attempt 元数据，不看实现内部调用。
+
+/// 系统超时压到 1 秒：上游收请求后不应答 → reqwest 读超时（is_timeout，非 connect）。
+async fn set_short_timeouts(state: &Arc<ProxyState>) {
+    let mut c = state.settings_cache.write().await;
+    c.system_timeout.request_timeout_secs = 1;
+    c.system_timeout.connect_timeout_secs = 1;
+}
+
+/// 起一个「收请求后永不应答」的上游：request_timeout 到点 → 读超时（非 connect 传输失败）。
+async fn spawn_silent_upstream() -> String {
+    use tokio::io::AsyncReadExt;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        while let Ok((mut stream, _)) = listener.accept().await {
+            tokio::spawn(async move {
+                let mut buf = [0u8; 8192];
+                let _ = stream.read(&mut buf).await;
+                std::future::pending::<()>().await;
+            });
+        }
+    });
+    format!("http://{addr}")
+}
+
+/// connect 失败（候选 ≥3 绕开本地网络保护）：熔断计数 + 降权 + last_error +
+/// attempt.status_code=0；失败平台被整平台排除后次候选成功。
+#[tokio::test]
+async fn lock_chat_connect_failure_records_accounting() {
+    let dead = ra03_dead_base().await;
+    let upb = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let upc = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_multi_platform_group(&state, "gkt04a", &[("pa", &dead, ""), ("pb", &upb, ""), ("pc", &upc, "")]).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkt04a", r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#)).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let p1 = platform_id_of(&state, "pa").await;
+    assert_eq!(state.scheduler.breaker_fails(p1), 1, "connect 失败计熔断");
+    assert_eq!(state.scheduler.penalty_consecutive(p1), 1, "connect 失败计服务档降权");
+    let p = aidog_db::get_platform(&state.db, p1).await.unwrap().unwrap();
+    assert!(!p.last_error.is_empty(), "connect 失败写 last_error: {:?}", p.last_error);
+    let log = last_log_for(&state, "gkt04a").await;
+    assert_eq!(log.attempts[0].status_code, 0, "传输失败 attempt 无状态码");
+    assert_eq!(log.attempts.last().unwrap().status_code, 200);
+}
+
+/// 非 connect 传输失败（读超时）：不碰熔断，仅 ignored + 降权 + last_error + attempt.status_code=0。
+#[tokio::test]
+async fn lock_chat_read_timeout_no_breaker() {
+    let up = spawn_silent_upstream().await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkt04b", &up).await;
+    set_short_timeouts(&state).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkt04b", r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#)).await;
+    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
+    let p1 = platform_id_of(&state, "stub").await;
+    assert_eq!(state.scheduler.breaker_fails(p1), 0, "非 connect 不计熔断");
+    assert!(state.scheduler.penalty_consecutive(p1) >= 1, "读超时计服务档降权");
+    let p = aidog_db::get_platform(&state.db, p1).await.unwrap().unwrap();
+    assert!(!p.last_error.is_empty());
+    let log = last_log_for(&state, "gkt04b").await;
+    assert_eq!(log.attempts.last().unwrap().status_code, 0);
+}
+
+/// 2xx 成功：EMA 记延迟（breaker_fails 清零）+ last_error 清空 + AutoDisabled → Enabled。
+#[tokio::test]
+async fn lock_chat_success_resets_state() {
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkt04c", &up).await;
+    set_platform_status(&state, "stub", aidog_db::models::PlatformStatus::AutoDisabled).await;
+    let p1 = platform_id_of(&state, "stub").await;
+    aidog_db::set_platform_last_error(&state.db, p1, Some("HTTP 500 boom".into())).await.unwrap();
+    state.scheduler.record_penalty(p1, super::scheduling::PenaltyTier::Server, aidog_db::now());
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkt04c", r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#)).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let p = aidog_db::get_platform(&state.db, p1).await.unwrap().unwrap();
+    assert_eq!(p.last_error, "", "成功后 last_error 清空");
+    assert_eq!(p.status, aidog_db::models::PlatformStatus::Enabled, "AutoDisabled → Enabled");
+    assert_eq!(state.scheduler.breaker_fails(p1), 0, "成功清熔断计数");
+    assert_eq!(state.scheduler.penalty_consecutive(p1), 0, "成功清降权");
+    let ema = state.scheduler.latency_ema(p1);
+    assert!(ema.unwrap_or(0.0) > 0.0, "成功记延迟 EMA，实际 {ema:?}");
+}
+
+/// connect 失败（aux emb/rerank 与 decision 同批锁定）：熔断计数 + 降权 + last_error +
+/// attempt.status_code=0，次候选成功。
+#[tokio::test]
+async fn lock_aux_decision_connect_failure_records_accounting() {
+    for kind in AUX_KINDS {
+        let dead = ra03_dead_base().await;
+        let (upb, _hb) = spawn_embedding_upstream(vec![(200, kind.ok_body())]).await;
+        let (upc, _hc) = spawn_embedding_upstream(vec![(200, kind.ok_body())]).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkt04d{}", kind as u8);
+        setup_aux_chain(&state, &gk, kind, &[(&dead, &["m-a"]), (&upb, &["m-b"]), (&upc, &["m-c"])]).await;
+        let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
+        assert_eq!(resp.status(), StatusCode::OK, "{kind:?}");
+        let p1 = platform_id_of(&state, &format!("{gk}-pa")).await;
+        assert_eq!(state.scheduler.breaker_fails(p1), 1, "{kind:?}: connect 失败计熔断");
+        assert_eq!(state.scheduler.penalty_consecutive(p1), 1, "{kind:?}: connect 失败计降权");
+        let p = aidog_db::get_platform(&state.db, p1).await.unwrap().unwrap();
+        assert!(!p.last_error.is_empty(), "{kind:?}");
+        let log = last_log_for(&state, &gk).await;
+        assert_eq!(log.attempts[0].status_code, 0, "{kind:?}");
+        assert_eq!(log.attempts.last().unwrap().status_code, 200, "{kind:?}");
+    }
+}
+
+/// 非 connect 传输失败（读超时，aux emb/rerank 与 decision）：不碰熔断，仅 ignored + 降权。
+#[tokio::test]
+async fn lock_aux_decision_read_timeout_no_breaker() {
+    for kind in AUX_KINDS {
+        let up = spawn_silent_upstream().await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkt04e{}", kind as u8);
+        setup_aux_chain(&state, &gk, kind, &[(&up, &["m-a"])]).await;
+        set_short_timeouts(&state).await;
+        let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
+        assert_eq!(resp.status(), StatusCode::BAD_GATEWAY, "{kind:?}");
+        let p1 = platform_id_of(&state, &format!("{gk}-pa")).await;
+        assert_eq!(state.scheduler.breaker_fails(p1), 0, "{kind:?}: 非 connect 不计熔断");
+        assert!(state.scheduler.penalty_consecutive(p1) >= 1, "{kind:?}: 读超时计降权");
+        let p = aidog_db::get_platform(&state.db, p1).await.unwrap().unwrap();
+        assert!(!p.last_error.is_empty(), "{kind:?}");
+        let log = last_log_for(&state, &gk).await;
+        assert_eq!(log.attempts.last().unwrap().status_code, 0, "{kind:?}");
+    }
+}
+
+/// 2xx 成功（aux emb/rerank 与 decision）：last_error 清空 + AutoDisabled → Enabled + EMA。
+#[tokio::test]
+async fn lock_aux_decision_success_resets_state() {
+    for kind in AUX_KINDS {
+        let (up, _hits) = spawn_embedding_upstream(vec![(200, kind.ok_body())]).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkt04f{}", kind as u8);
+        setup_aux_chain(&state, &gk, kind, &[(&up, &["m-a"])]).await;
+        set_platform_status(&state, &format!("{gk}-pa"), aidog_db::models::PlatformStatus::AutoDisabled).await;
+        let p1 = platform_id_of(&state, &format!("{gk}-pa")).await;
+        aidog_db::set_platform_last_error(&state.db, p1, Some("HTTP 500 boom".into())).await.unwrap();
+        let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
+        assert_eq!(resp.status(), StatusCode::OK, "{kind:?}");
+        let p = aidog_db::get_platform(&state.db, p1).await.unwrap().unwrap();
+        assert_eq!(p.last_error, "", "{kind:?}: 成功后 last_error 清空");
+        assert_eq!(p.status, aidog_db::models::PlatformStatus::Enabled, "{kind:?}: AutoDisabled → Enabled");
+        assert!(state.scheduler.latency_ema(p1).unwrap_or(0.0) > 0.0, "{kind:?}: 成功记延迟 EMA");
+    }
+}
