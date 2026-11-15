@@ -79,6 +79,7 @@ master 基线本身带红（该轮：vitest 1 红、flutter 4 红、aidog_db 2 �
 - 派活后开工前核对基点：`git -C <worktree> rev-parse HEAD` 对比主 checkout HEAD；
   落后就先 rebase / 重建 worktree，再让 agent 动手。agent 运行期间主 checkout 前进
   （别的会话提交）同样造成漂移——合并前再对一次，不等开工时那一次管全程。
+- **基点落后会让 agent 停下提问**（2026-11-15：harness worktree agent 基于旧提交 c8f485591，落后本地 master，一个 agent 停下来问）：派发 prompt 写明目标基点 sha，并要求「开工先 `git -C <worktree> rev-parse HEAD`，不等于该 sha 就先 `git merge --ff-only <sha>` 或 rebase，再动手，不停下提问」。
 - 基点已落后且补丁已产出：按 shared-worktree.md「采信半成品」三前提处理——逐 hunk
   重审 + 主会话全量重跑门禁，不采信 agent 侧门禁结论。
 - **数据落库与代码票并行时，基点漂移的是数据**（2026-10-29 计费线票 19）：agent 基点
