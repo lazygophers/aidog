@@ -1179,6 +1179,51 @@ fn accumulate_sse_usage_responses_input_tokens_details() {
     assert_eq!(cw1h.load(Relaxed), 0);
 }
 
+/// issue 72：Responses 流式的 usage 内嵌在 `response.completed` 的 `response.usage`，
+/// 顶层无 `usage` 键——补读该键位，计费旁路不漏计。
+#[test]
+fn accumulate_sse_usage_responses_completed_nested_usage() {
+    use std::sync::atomic::{AtomicI32, Ordering::Relaxed};
+    let i = AtomicI32::new(0);
+    let o = AtomicI32::new(0);
+    let c = AtomicI32::new(0);
+    let cw = AtomicI32::new(0);
+    let cw1h = AtomicI32::new(0);
+    let s = AtomicI32::new(0);
+    let f = AtomicI32::new(0);
+    let v: Value = serde_json::json!({
+        "type": "response.completed",
+        "response": {
+            "id": "r1",
+            "usage": {
+                "input_tokens": 100,
+                "output_tokens": 5,
+                "input_tokens_details": { "cached_tokens": 30 }
+            }
+        }
+    });
+    accumulate_sse_usage(&v, &i, &o, &c, &cw, &cw1h, &s, &f);
+    assert_eq!(i.load(Relaxed), 70);
+    assert_eq!(o.load(Relaxed), 5);
+    assert_eq!(c.load(Relaxed), 30);
+    assert_eq!(cw.load(Relaxed), 0);
+}
+
+/// issue 72 探针：feed_sse_usage 两帧 Gemini SSE，末帧才带 cachedContentTokenCount——
+/// 验证行重组 + gemini 晚到缓存修正链路（隔离集成层）。
+#[test]
+fn feed_sse_usage_gemini_late_cache_probe() {
+    let agg = StreamAggregator::new();
+    let sse = concat!(
+        "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"he\"}]}}],\"usageMetadata\":{\"promptTokenCount\":5,\"candidatesTokenCount\":2,\"thoughtsTokenCount\":1}}\n\n",
+        "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"llo\"}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":5,\"candidatesTokenCount\":3,\"thoughtsTokenCount\":1,\"cachedContentTokenCount\":2}}\n\n",
+    );
+    agg.feed_sse_usage(sse);
+    assert_eq!(agg.tokens_in.load(std::sync::atomic::Ordering::Relaxed), 3);
+    assert_eq!(agg.tokens_out.load(std::sync::atomic::Ordering::Relaxed), 4);
+    assert_eq!(agg.tokens_cache.load(std::sync::atomic::Ordering::Relaxed), 2);
+}
+
 /// B3：anthropic `cache_creation.ephemeral_5m/1h_input_tokens` 拆桶——
 /// 1h 桶独立返回第 5 元，不再整体丢弃；est = 5m×pw5m + 1h×pw1h。
 #[test]
