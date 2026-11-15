@@ -41,6 +41,7 @@ glm_coding / kimi_coding 的 coding plan 变体。要点：
 
 - **分派**：`registry.rs::quota_code_for_base_url` 读各协议 `quota_url_match` 小写子串匹配，命中的
   首个协议 code。同族多协议共享关键词时 base 变体排前（serde Map 按协议名序）。
+- **子串匹配的限制**（2026-11-12 magpie 轮遗留，2026-11-15 记入）：`quota_url_match` 是 base_url 小写 `contains` 匹配（`registry.rs:473-490`），关键词含端口 / 主机时，用户改端口或域名后不命中（本地 magpie 即此），属机制限制，无修复计划；关键词尽量取不含端口的域名片段，平台允许用户改地址时在交付说明里写明。
 - **执行脚本解析**（`resolve_quota_script` 回落链，顺序不可换）：
   ① 平台 `quota_script` 物化列非空（用户保存时固化，远程同步不换）→
   ② `platform.extra.quota_custom_script` 用户手写 →

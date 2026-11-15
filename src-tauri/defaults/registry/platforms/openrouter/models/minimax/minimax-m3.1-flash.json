@@ -1,6 +1,7 @@
 {
   "model_id": "minimax/minimax-m3.1-flash",
   "display_name": "MiniMax: MiniMax M3.1 Flash",
+  "version": "3.1",
   "canonical_model": "MiniMax-M3.1-Flash",
   "family": "minimax",
   "max_input_tokens": 1048576,
@@ -15,7 +16,7 @@
     "output": 6e-7,
     "cache_read": 1.5e-8
   },
-  "last_updated": 1794017726,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "anthropic",
     "openai"

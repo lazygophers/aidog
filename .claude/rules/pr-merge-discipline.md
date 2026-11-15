@@ -27,3 +27,27 @@ code review 报出但裁决不修的项（判断题非违规），当轮写进 s
 auth.anthropic.com 抓包 / 零主动轮询观测 / 盲转无感 / #91703 实测），并同步账本
 **遗留**段。全量授权下合并不等用户点头，但清单不出现在当轮回复 = 验收义务
 静默蒸发。
+
+## 3. 审查他人 PR：只读 refs、先核对象存在、分歧先取证（2026-11-14 #159 / #162 / #158 / #63 批次）
+
+- **主 checkout 不动**：`git fetch origin pull/<N>/head:refs/remotes/pr/<N>`，审查用
+  `git diff origin/master...refs/remotes/pr/<N>` 与 `git show refs/remotes/pr/<N>:<path>`，不 checkout、不开 worktree
+  （该批次主 checkout 正处于合并中途，checkout 会丢现场）。审完 `.tmp/<任务名>/` 删净。
+- **派写代码 agent 前先核对象**：用户给的 PR 号先 `gh pr view <N>`（#163 不存在，答案是 #162，一次表单才对上）；
+  「修复重复」「修一下」这类短指令先 `git status` 看有无 `MERGE_HEAD` / 冲突文件——本地合并冲突与 PR 代码缺陷
+  两种解读都成立时，先问再派（该批次按 PR 缺陷派了修复 agent，用户更正为本地冲突，agent 留下半截合并的 worktree，事后删除）。
+- **两条审查轴结论相反时，发评论前主会话先取证**（grep 调用链 / 读迁移代码，parallel-implement.md §6 同口径）。
+  取证不到才在评论里标「两轴分歧、待作者确认」并写明缺哪条事实；#158「主库提交后崩溃窗口」是前提未取证就交了作者。
+- **审查完成后自动发 PR 评论**（2026-11-15 提升自私有 memory；用户 2026-11-14 原话「如果是审查pr，都自动发送评论」）：审查 PR 出结论后（含复审）直接 `gh pr comment <N> --body-file .tmp/<任务名>/body.md` 发出，不等用户再说；正文专业书面语，不含本地绝对路径、密钥、人设称呼与语气词；发完删 `.tmp/<任务名>/`。范围仅限审查 PR 的评论，不扩展到 push / merge（push 仍需当轮明说）。
+
+## 4. push 失败后合并：先核对 GitHub 端分支版本（2026-11-15 #162 实锤）
+
+`git push` SSL 偶发失败而 `gh pr merge` 照样成功时，GitHub 合进 master 的是 **push 成功的那个旧版本**，
+不是本地最终验证过的树。#162：本地 rebase 重 base 后 push 失败，GitHub 合的是 bdec7bc64 旧基版本——
+#158+#162 组合态全量测试只对本地树做过，合并版本与验证版本不一致。
+
+- `gh pr merge` 前核对：`git ls-remote origin <分支>` 的 sha == 本地分支 HEAD 才 merge；不等先重试 push。
+- 已发生不等：合并后 `git fetch && git diff <本地验证commit>..origin/master` 核对差异仅含 base 差异
+  （#162 差异仅为 base 的 #158 改动）、无内容丢失；实际合入的 sha 写进账本交付行。
+- **多 PR 同动 Cargo.lock / 同 crate：合并后对合并态跑一次全量测试再清理**（本轮 detach worktree 验
+  #158+#162 组合，38 suites 全绿后才清 worktree/分支）——GitHub 文本合并零冲突 ≠ 语义组合已验证。

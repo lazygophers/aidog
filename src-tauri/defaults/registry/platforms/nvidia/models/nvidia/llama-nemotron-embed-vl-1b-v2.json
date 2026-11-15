@@ -1,9 +1,10 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "nvidia/llama-nemotron-embed-vl-1b-v2",
+  "display_name": "Llama-Nemotron-Embed-VL-1B-v2",
   "canonical_model": "llama-nemotron-embed-vl-1b-v2",
   "family": "nemotron",
   "capabilities": [

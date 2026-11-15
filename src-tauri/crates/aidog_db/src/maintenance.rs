@@ -393,6 +393,12 @@ pub fn cleanup_user_request_fields(
                  WHERE created_at < ?1 AND (request_headers != '' OR request_body != '' OR user_response_headers != '' OR user_response_body != '' OR request_url != '')",
                 params![cutoff],
             )?;
+            // 请求记录（request_log）复用同一 retention：只清用户侧原始信息，不删行。
+            conn.execute(
+                "UPDATE request_log SET request_headers = '', request_body = '', user_response_headers = '', user_response_body = '', request_url = '' \
+                 WHERE created_at < ?1 AND (request_headers != '' OR request_body != '' OR user_response_headers != '' OR user_response_body != '' OR request_url != '')",
+                params![cutoff],
+            )?;
             Ok(())
         })
         .await
@@ -426,6 +432,11 @@ pub fn cleanup_upstream_request_fields(
             conn.execute(
                 "UPDATE proxy_log SET upstream_request_headers = '', upstream_request_body = '', upstream_response_headers = '', response_body = '', field_trace = '', upstream_request_url = '' \
                  WHERE created_at < ?1 AND (upstream_request_headers != '' OR upstream_request_body != '' OR upstream_response_headers != '' OR response_body != '' OR field_trace != '' OR upstream_request_url != '')",
+                params![cutoff],
+            )?;
+            conn.execute(
+                "UPDATE request_log SET upstream_request_headers = '', upstream_request_body = '', upstream_response_headers = '', response_body = '', upstream_request_url = '' \
+                 WHERE created_at < ?1 AND (upstream_request_headers != '' OR upstream_request_body != '' OR upstream_response_headers != '' OR response_body != '' OR upstream_request_url != '')",
                 params![cutoff],
             )?;
             Ok(())

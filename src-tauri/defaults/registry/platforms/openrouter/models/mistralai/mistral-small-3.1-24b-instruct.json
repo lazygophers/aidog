@@ -1,5 +1,6 @@
 {
   "model_id": "mistralai/mistral-small-3.1-24b-instruct",
+  "thinking_supported": false,
   "display_name": "Mistral: Mistral Small 3.1 24B",
   "canonical_model": "mistral-small-3.1-24b-instruct",
   "family": "mistral",
@@ -13,7 +14,7 @@
     "input": 3.51e-07,
     "output": 5.55e-07
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"

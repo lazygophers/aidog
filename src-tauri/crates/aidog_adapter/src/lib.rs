@@ -21,6 +21,7 @@ pub use converter::{
     split_stream_inline_reasoning, to_client_sse, to_client_sse_stateful,
 };
 pub use protocols::*;
+pub use protocols::gemini::parse_gemini_usage_metadata;
 pub use dsml::{DsmlSseRewriter, convert_dsml_in_body};
 pub use reasoning_tags::InlineReasoningSplitter;
 pub use thinking_strip::{SseThinkingStripper, strip_thinking_in_body};

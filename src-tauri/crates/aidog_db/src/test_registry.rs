@@ -568,6 +568,36 @@ const NO_OFFICIAL_CHANNEL: &[&str] = &[
     // official:false 属漏标或有意（free 非正式），未定——按「推测值禁写入」不改
     // 数据，先豁免。（先例：qwen3-coder-plus-2025-07-22）
     "crouton-alpha-free",
+
+    // 默认配置-数据审计轮 2026-11-14 新增（以下 6 条同一模式：官方渠道条目随官方
+    // 下架/退役已删，聚合/中转平台仍在售，条目 official:false，official 平台集合
+    // 已无该 model_id 的承载条目）：
+    "baidu/ernie-4.5-turbo-128k", // qianfan 官方已下架，therouter/compshare 仍售
+    "ernie-4.5-turbo-20260402", // qianfan 官方已下架，qianfan_coding 仍售
+    "glm-4-7-251222", // byteplus 官方标 Retired 已删，doubao/litellm 仍售
+    "kwaipilot/kat-coder-air-v2.5", // therouter 页标 Deprecated 已删，atlascloud 仍售
+    "kwaipilot/kat-coder-pro-v2.5", // 同上
+    "nex-agi/nex-n2-pro", // therouter 页标 Deprecated 已删，novita 仍售
+    "deepseek-v3", // 追证轮 2026-11-14：qianfan 官方列表已无此条目已删，aihubmix 仍售（official:false）
+
+    // gemini Vertex 收尾轮 2026-11-14 新增（以下 15 条同一模式：Vertex 侧条目随
+    // Anthropic 退役 / Vertex 官方停用 / 现行文档缺席已删，聚合/中转平台仍在售，
+    // official:false，官方渠道条目已删故字符串匹配不到）：
+    "claude-3-5-haiku", // litellm 仍售
+    "claude-3-5-haiku@20241022", // 同上
+    "claude-3-5-sonnet", // 同上
+    "claude-3-5-sonnet@20240620", // 同上
+    "claude-3-haiku", // litellm / aihubmix 仍售
+    "claude-3-haiku@20240307", // 同上
+    "claude-3-opus", // litellm 仍售
+    "claude-3-opus@20240229", // aihubmix 仍售
+    "claude-3-sonnet", // litellm 仍售
+    "claude-3-sonnet@20240229", // 同上
+    "codestral@2405", // litellm 仍售，Vertex 现行 Mistral 页无此别名
+    "codestral@latest", // 同上
+    "mistral-large@latest", // 同上
+    "mistral-nemo@2407", // 同上
+    "mistral-nemo@latest", // 同上
 ];
 
 /// 每个 `model_id` 至少有一个 `official` 平台条目（模型维度列表默认展示官方条目，

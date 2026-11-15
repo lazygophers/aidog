@@ -132,6 +132,8 @@ pub(crate) struct AttemptPlanner {
     platforms: Option<Vec<GroupPlatformDetail>>,
     /// 最近一次重排里是否有平台因限频被路由层挡掉（终态 503 据此沿用限频审计标记）。
     pub(crate) saw_rate_limit: bool,
+    /// 最近一次重排里限频 / 冷却挡掉的候选最早可放行时刻（Unix 毫秒），429 的 `Retry-After` 取它。
+    pub(crate) retry_at_ms: Option<i64>,
 }
 
 impl AttemptPlanner {
@@ -153,9 +155,13 @@ impl AttemptPlanner {
             .await
             .map(|s| {
                 self.saw_rate_limit = s.routing.entries.iter().any(|e| e.reason == aidog_db::models::RouteReason::RateLimited);
+                self.retry_at_ms = s.routing.retry_at_ms();
                 s.candidates
             })
-            .map_err(|e| e.to_string())
+            .map_err(|e| {
+                self.retry_at_ms = e.routing.retry_at_ms();
+                e.to_string()
+            })
     }
 }
 
@@ -226,6 +232,7 @@ impl<'k> AttemptLoop<'k> {
                             // 重排时剩余候选全被限频挡掉：终态 503 沿用限频审计标记
                             if rate_limited {
                                 mark_rate_limited(log);
+                                note_retry_at(log, self.planner.retry_at_ms);
                             }
                             return None;
                         }
@@ -242,6 +249,7 @@ impl<'k> AttemptLoop<'k> {
             if !self.new_round(log, attempts_len).await {
                 if rate_limited {
                     mark_rate_limited(log);
+                    note_retry_at(log, self.planner.retry_at_ms);
                 }
                 return None;
             }

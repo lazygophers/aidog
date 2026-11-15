@@ -2649,6 +2649,34 @@
       "returns": "()"
     },
     {
+      "name": "request_log_count",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "filter",
+          "type": "RequestLogFilter"
+        }
+      ],
+      "returns": "u32"
+    },
+    {
+      "name": "request_log_get",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "id",
+          "type": "String"
+        }
+      ],
+      "returns": "Option<ProxyLog>"
+    },
+    {
       "name": "request_log_list",
       "category": "proxy",
       "kind": "readonly",
@@ -2657,7 +2685,7 @@
       "params": [
         {
           "name": "filter",
-          "type": "ProxyLogFilter"
+          "type": "RequestLogFilter"
         },
         {
           "name": "limit",
@@ -2668,7 +2696,7 @@
           "type": "u32"
         }
       ],
-      "returns": "Vec<ProxyLogSummary>"
+      "returns": "Vec<RequestLogSummary>"
     },
     {
       "name": "scatter_histogram",

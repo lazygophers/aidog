@@ -1,11 +1,13 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "ali/qwen-plus-latest:thinking",
+  "display_name": "Qwen-Plus (Thinking)",
+  "thinking_supported": true,
   "canonical_model": "qwen-plus-latest:thinking",
   "family": "qwen",
   "capabilities": [

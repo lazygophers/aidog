@@ -1,11 +1,12 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai",
     "openai_responses"
   ],
   "model_id": "doubao-seed-2-0-mini-260428",
+  "display_name": "Doubao Seed 2.0 Mini 260428",
   "canonical_model": "doubao-seed-2-0-mini-260428",
   "family": "doubao-seed",
   "version": "2.0",

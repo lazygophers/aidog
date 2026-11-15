@@ -1,13 +1,17 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794632081,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "meta/llama2-70b",
+  "display_name": "Llama2 70b",
   "canonical_model": "llama2-70b",
   "family": "llama",
   "capabilities": [],
   "official": true,
+  "version": "0.1",
+  "max_input_tokens": 4000,
+  "context_window": 4000,
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {

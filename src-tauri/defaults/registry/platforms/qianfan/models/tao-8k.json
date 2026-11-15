@@ -1,9 +1,11 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic"
   ],
   "model_id": "tao-8k",
+  "max_input_tokens": 8192,
+  "thinking_supported": false,
   "display_name": "Tao 8K",
   "canonical_model": "tao-8k",
   "family": "tao",

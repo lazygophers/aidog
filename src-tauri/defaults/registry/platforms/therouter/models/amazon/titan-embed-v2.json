@@ -1,11 +1,12 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "amazon/titan-embed-v2",
+  "display_name": "Amazon Titan Text Embeddings V2",
   "canonical_model": "titan-embed-v2",
   "family": "titan",
   "version": "2",

@@ -1,9 +1,10 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "nvidia/riva-translate-4b-instruct-v2",
+  "display_name": "Riva-Translate-4B-Instruct-v2",
   "canonical_model": "riva-translate-4b-instruct-v2",
   "family": "riva",
   "capabilities": [],

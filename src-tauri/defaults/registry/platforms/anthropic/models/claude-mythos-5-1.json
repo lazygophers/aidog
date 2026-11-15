@@ -1,5 +1,8 @@
 {
   "model_id": "claude-mythos-5-1",
+  "display_name": "Claude Mythos 5.1",
+  "thinking_supported": true,
+  "thinking_toggleable": false,
   "canonical_model": "claude-mythos-5-1",
   "family": "claude",
   "version": "5.1",
@@ -18,5 +21,5 @@
     "output": 5e-05,
     "cache_read": 2.5e-07
   },
-  "last_updated": 1794017726
+  "last_updated": 1794627749
 }

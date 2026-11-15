@@ -1,5 +1,6 @@
 {
   "model_id": "mistralai/mistral-saba",
+  "thinking_supported": false,
   "display_name": "Mistral: Saba",
   "canonical_model": "mistral-saba",
   "family": "mistral",
@@ -13,7 +14,7 @@
     "output": 6e-07,
     "cache_read": 2e-08
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"
