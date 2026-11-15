@@ -69,6 +69,8 @@ mod ws;
 mod tokenizer;
 
 #[cfg(test)]
+mod test_adapter_dispatch;
+#[cfg(test)]
 mod test_agg_dedup;
 #[cfg(test)]
 mod test_bind;
@@ -95,7 +97,6 @@ pub(crate) use handler::handle_proxy_core;
 pub use headers::{
     apply_client_headers, apply_client_headers_for_model, build_upstream_headers,
     build_upstream_headers_for_model, inject_coding_plan_fields,
-    override_coding_plan_path,
 };
 // redact_key 仅 headers 内部消费，但作为对外 API 一致性保留可达路径 `gateway::proxy::redact_key`。
 #[allow(unused_imports)]
@@ -156,7 +157,7 @@ pub(crate) use tools::handle_tools;
 pub(crate) use responses::{handle_responses_subendpoint, is_responses_subendpoint};
 pub(crate) use retry::{
     RESP_HEADER_BLACKLIST, StreamPeek, TRANSPORT_RETRY_MAX, classify_429, classify_stream_first,
-    is_per_minute_rate_limit, UpstreamErrorClass, classify_upstream_error, registry_code_meaning,
+    is_per_minute_rate_limit, UpstreamErrorClass, registry_code_meaning,
     err_chain, error_response_headers, extract_error_message, filter_upstream_resp_headers,
     is_censorship_blocked, is_nonstream_body_valid, is_region_blocked, is_status_retryable,
     is_transport_retryable,
