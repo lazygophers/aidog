@@ -16,9 +16,9 @@ pub mod mock;
 pub mod newapi;
 
 pub use converter::{
-    AnthropicSseState, convert_request, convert_response, parse_incoming_request, parse_sse,
-    decision_api_path, parse_upstream_sse, passthrough_api_path, response_model, response_model_or,
-    split_stream_inline_reasoning, to_client_sse, to_client_sse_stateful,
+    AnthropicSseState, ClientSseState, convert_request, convert_response, parse_incoming_request,
+    parse_sse, decision_api_path, parse_upstream_sse, passthrough_api_path, response_model,
+    response_model_or, split_stream_inline_reasoning, to_client_sse, to_client_sse_stateful,
 };
 pub use protocols::*;
 pub use protocols::gemini::parse_gemini_usage_metadata;

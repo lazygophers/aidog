@@ -827,3 +827,39 @@ fn ping_renders_for_anthropic_client_only() {
         );
     }
 }
+
+// ── issue 70 复现：Responses / Completions 客户端的流式输出被渲染成 Chat Completions SSE ──
+// 现状：to_client_sse / to_client_sse_stateful 把 OpenAIResponses / OpenAICompletions
+// 都交给 to_openai_sse。修复后 Responses 客户端应收到 Responses 事件序列、
+// Completions 客户端应收到 text_completion 分块。
+#[test]
+fn responses_client_stream_must_render_responses_events() {
+    let out = to_client_sse(
+        &ChatStreamEvent::Delta {
+            text: "Hi".to_string(),
+        },
+        &Protocol::OpenAIResponses,
+        "gpt-5",
+    )
+    .expect("Responses 客户端文本增量必须渲染");
+    assert!(
+        out.contains("response.output_text.delta"),
+        "Responses 客户端应收到 response.output_text.delta 事件，实际是 Chat 分块: {out:?}"
+    );
+}
+
+#[test]
+fn completions_client_stream_must_render_text_completion_chunks() {
+    let out = to_client_sse(
+        &ChatStreamEvent::Delta {
+            text: "Hi".to_string(),
+        },
+        &Protocol::OpenAICompletions,
+        "gpt-5",
+    )
+    .expect("Completions 客户端文本增量必须渲染");
+    assert!(
+        out.contains("\"object\":\"text_completion\""),
+        "Completions 客户端应收到 text_completion 分块，实际是 Chat 分块: {out:?}"
+    );
+}

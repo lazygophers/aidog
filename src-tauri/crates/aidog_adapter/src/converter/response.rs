@@ -228,20 +228,21 @@ pub fn render_anthropic_response(r: &NonStreamResponse) -> Value {
 /// 编译器强制在此补处理，不会静默落入错误分支。
 /// 带状态的客户端 SSE 渲染：Anthropic 系客户端走 [`AnthropicSseState`] 状态机
 /// （block index 分配 / content_block_start·stop / thinking block 完整序列），
-/// OpenAI / Gemini 出站无状态，与 [`to_client_sse`] 一致。
+/// Responses 客户端走 [`ResponsesSseState`]（issue 70），OpenAI / Completions / Gemini
+/// 出站无状态，与 [`to_client_sse`] 一致。
 pub fn to_client_sse_stateful(
     event: &ChatStreamEvent,
-    state: &mut AnthropicSseState,
+    state: &mut ClientSseState,
     source_protocol: &Protocol,
-    _model: &str,
+    model: &str,
 ) -> Option<String> {
     use Protocol::*;
     match source_protocol {
-        OpenAI | OpenAIResponses | OpenAICompletions => {
-            super::super::openai::to_openai_sse(event, _model)
-        }
-        Gemini => super::super::gemini::to_gemini_sse(event, _model),
-        _ => state.push(event),
+        OpenAI => super::super::openai::to_openai_sse(event, model),
+        OpenAIResponses => state.as_responses().push(event, model),
+        OpenAICompletions => super::super::openai_completions::to_completions_sse(event, model),
+        Gemini => super::super::gemini::to_gemini_sse(event, model),
+        _ => state.as_anthropic().push(event),
     }
 }
 
@@ -252,9 +253,14 @@ pub fn to_client_sse(
 ) -> Option<String> {
     use Protocol::*;
     match source_protocol {
-        OpenAI | OpenAIResponses | OpenAICompletions => {
-            super::super::openai::to_openai_sse(event, model)
+        OpenAI => super::super::openai::to_openai_sse(event, model),
+        OpenAIResponses => {
+            // 无状态路径（错误帧 / mock / devin 伪流式）：每事件独立临时状态，
+            // 事件词汇是 Responses 的，但没有跨 chunk 的 item 生命周期。
+            let mut st = super::super::openai_responses::ResponsesSseState::default();
+            st.push(event, model)
         }
+        OpenAICompletions => super::super::openai_completions::to_completions_sse(event, model),
         Gemini => super::super::gemini::to_gemini_sse(event, model),
         Anthropic | Mock | ClaudeCode | Glm | GlmCoding | GlmEn | GlmCodingEn | Kimi | KimiEn
         | KimiCoding | InternInkstone | MiniMax | MiniMaxEn | MinimaxCoding | Codex | Cline | ClinePass | Bailian | BailianCoding
@@ -463,6 +469,44 @@ mod response_model_tests {
 #[cfg(test)]
 #[path = "test_response.rs"]
 mod test_response;
+
+/// 客户端 SSE 渲染状态（issue 70）：按 client_protocol 持有对应状态机。
+/// Anthropic 系走 [`AnthropicSseState`]；Responses 客户端走
+/// [`ResponsesSseState`](super::super::openai_responses::ResponsesSseState)；
+/// OpenAI / Completions / Gemini 出站无状态，不占此结构。
+pub enum ClientSseState {
+    Anthropic(AnthropicSseState),
+    Responses(super::super::openai_responses::ResponsesSseState),
+}
+
+impl Default for ClientSseState {
+    fn default() -> Self {
+        ClientSseState::Anthropic(AnthropicSseState::default())
+    }
+}
+
+impl ClientSseState {
+    /// 按需换轨到 Responses 状态（调用方通常按默认构造了 Anthropic 状态）。
+    fn as_responses(&mut self) -> &mut super::super::openai_responses::ResponsesSseState {
+        if !matches!(self, ClientSseState::Responses(_)) {
+            *self = ClientSseState::Responses(Default::default());
+        }
+        match self {
+            ClientSseState::Responses(s) => s,
+            _ => unreachable!(),
+        }
+    }
+
+    fn as_anthropic(&mut self) -> &mut AnthropicSseState {
+        if !matches!(self, ClientSseState::Anthropic(_)) {
+            *self = ClientSseState::Anthropic(Default::default());
+        }
+        match self {
+            ClientSseState::Anthropic(s) => s,
+            _ => unreachable!(),
+        }
+    }
+}
 
 /// Anthropic SSE 出站状态机：跨 chunk 维护 block index 分配与开块表。
 ///
