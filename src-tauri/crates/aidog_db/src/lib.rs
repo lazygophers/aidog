@@ -1265,6 +1265,8 @@ mod test_group_max_attempts;
 #[cfg(test)]
 mod test_connect_log_purge;
 #[cfg(test)]
+mod test_startup_once;
+#[cfg(test)]
 mod test_model_entry;
 #[cfg(test)]
 mod test_platform;
