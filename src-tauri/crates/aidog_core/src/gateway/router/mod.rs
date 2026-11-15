@@ -20,18 +20,9 @@ pub use candidates::{
     select_candidates_gated, select_candidates_preloaded,
 };
 
-/// 出站 max_tokens 裁剪（convert_request 前调用）。
-///
-/// 保守策略（Q3）：仅当客户端显式传了 max_tokens **且**超过模型上限时裁剪到上限；
-/// 未传（None）不注入默认值；模型无上限记录（None）不裁剪。
-///
-/// 返回 (裁剪后值, 是否发生裁剪)。
-pub fn cap_max_tokens(req_max: Option<u32>, model_max: Option<i64>) -> (Option<u32>, bool) {
-    match (req_max, model_max) {
-        (Some(req), Some(limit)) if limit > 0 && (req as i64) > limit => (Some(limit as u32), true),
-        _ => (req_max, false),
-    }
-}
+// issue 68：出站 max_tokens 裁剪纯函数迁入 aidog_adapter::platform::hooks（平台适配器框架），
+// 此处 re-export 保持 `router::cap_max_tokens` 路径与既有调用 / 测试不变。
+pub use aidog_adapter::platform::hooks::cap_max_tokens;
 
 /// 路由结果
 #[derive(Debug, Clone)]

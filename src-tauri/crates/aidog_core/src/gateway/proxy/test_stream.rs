@@ -1340,7 +1340,7 @@ fn parse_sse_events_and_usage_single_pass() {
         "data: {\"type\": \"message_delta\", \"delta\": {\"stop_reason\": \"end_turn\"}, \"usage\": {\"input_tokens\": 723, \"output_tokens\": 2922}}\n\n",
         "data: [DONE]\n\n",
     );
-    let events = agg.parse_sse_events_and_usage(text, &Protocol::Anthropic);
+    let events = agg.parse_sse_events_and_usage(text, aidog_adapter::platform::adapter_for("anthropic"), &Protocol::Anthropic);
     // 事件齐全：Start（model 已观察）/ Delta / Stop（[DONE] 哨兵）
     assert!(matches!(&events[0], ChatStreamEvent::Start { model, .. } if model == "glm-5.3"));
     assert!(matches!(&events[1], ChatStreamEvent::Delta { text } if text == "hi"));
@@ -1357,7 +1357,7 @@ fn parse_sse_events_and_usage_single_pass() {
 fn parse_sse_events_and_usage_skips_non_data_lines_and_bad_json() {
     let agg = StreamAggregator::new();
     let text = "event: ping\ndata: not-json\n: comment\nsome plain line\n";
-    let events = agg.parse_sse_events_and_usage(text, &Protocol::Anthropic);
+    let events = agg.parse_sse_events_and_usage(text, aidog_adapter::platform::adapter_for("anthropic"), &Protocol::Anthropic);
     assert!(events.is_empty());
     assert!(agg.peek_served_model().is_none());
 }

@@ -129,7 +129,7 @@ async fn migration_moves_rows_and_is_idempotent() {
     }
     for _ in 0..2 {
         db.call_proxy_log_traced(None, std::panic::Location::caller(), |c| {
-            Ok(aidog_db::schema_late::migrate_request_log(c)?)
+            aidog_db::schema_late::migrate_request_log(c)
         })
         .await
         .unwrap();
