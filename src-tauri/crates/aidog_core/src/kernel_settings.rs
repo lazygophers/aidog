@@ -1,6 +1,6 @@
 //! 管理接口设置（ADR 0010）：开关 + 可选 Bearer 凭据。
 //!
-//! 管理接口（`POST /api/rpc/<命令>`、`GET /api/events`、内核 `--ui` 的 `/api/ui/`）挂在
+//! 管理接口（`POST /api/rpc/<命令>`、`GET /api/events`、内核 `--ui` 的 `/ui/`）挂在
 //! **代理端口**上，桌面版与内核版一致；只接受本机连接（复用 `/api/*` 既有的非回环拒绝，
 //! 与代理的 `bind_lan` 无关）。设置键仍叫 `kernel/settings`（持久化兼容）。
 //!
