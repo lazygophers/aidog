@@ -25,6 +25,10 @@ dev + Playwright（系统 Chrome channel）起真 app 读 getComputedStyle，30 
 3. 结论落在读出来的值上（「13% 透明近黑」），不落在推理链上（「按顺序应该被
    覆盖」）。见 CLAUDE.md 的 accent token 语义条目：本仓 `--accent` 是文字色，
    shadcn `bg-accent` idiom 在 dark 下系统性错位，静态推理最容易在这里翻车。
+4. **agent 自报的视觉验证结论（无遮挡 / 无重叠 / 动画正常）采信前自己真渲染
+   截图核对几何。** 2026-11-14 节假日日历轮：验收 agent 报「无重叠」，截图
+   反证关闭按钮 X 压住 UTC 按钮；reduced-motion 动画同样靠真组件浏览器几何
+   断言（相交断言先红）才修干净。几何类断言红 = 真先红，比「目测正常」强一级。
 
 ## 全库同类 bug 审计流程（2026-09-30 accent 全量修复 3411cbc1a）
 
