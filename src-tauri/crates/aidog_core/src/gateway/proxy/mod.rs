@@ -72,6 +72,7 @@ mod ws;
 mod tokenizer;
 
 mod call_scope;
+mod outbound_shape;
 
 #[cfg(test)]
 mod test_agg_dedup;
@@ -85,6 +86,8 @@ mod test_e2e_mitm;
 mod test_group_info;
 #[cfg(test)]
 mod test_failure_verdict;
+#[cfg(test)]
+mod test_outbound_shape;
 #[cfg(test)]
 mod test_integration;
 #[cfg(test)]
