@@ -1,9 +1,10 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "gpt-6-astra",
+  "max_input_tokens": 922000,
   "canonical_model": "gpt-6-astra",
   "display_name": "GPT-6 Astra",
   "capabilities": [

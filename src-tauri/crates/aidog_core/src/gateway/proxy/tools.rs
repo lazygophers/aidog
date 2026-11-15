@@ -98,7 +98,8 @@ pub(crate) async fn handle_tools(
     }
 
     // 候选耗尽且循环内未 return（同 decision.rs 兜底，理论不可达）。
-    log.status_code = 503;
+    let status = exhausted_status(log);
+    log.status_code = status.as_u16() as i32;
     log.done = true;
     let err_body = format!(
         "{}: all candidates exhausted",
@@ -111,7 +112,8 @@ pub(crate) async fn handle_tools(
     log.retry_count = aidog_db::models::retry_count_of(&attempts);
     log.attempts = std::mem::take(&mut attempts);
     upsert_log(state, log, log_settings).await;
-    let mut r = (StatusCode::SERVICE_UNAVAILABLE, err_body).into_response();
+    let mut r = (status, err_body).into_response();
+    add_retry_after(&mut r, log);
     inject_trace_header(&mut r);
     r
 }
@@ -228,8 +230,7 @@ async fn tools_attempt(
         proxy_client,
         req_timeout,
         conn_timeout,
-        Some(&route.platform.extra),
-        None,
+        super::http_client::platform_should_use_proxy(proxy_client, &route.platform.extra),
     )
     .await;
     let rb = client.post(&url).header("Content-Type", "application/json");
@@ -400,6 +401,7 @@ async fn tools_attempt(
         route.platform.endpoints.iter().any(|ep| ep.coding_plan),
         log.created_at,
         log.est_cost,
+        0, // tools 按次费已并入 tool_cost_usd，无 search_units
         tracing::Span::current(),
     );
 

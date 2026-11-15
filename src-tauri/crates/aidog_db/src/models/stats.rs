@@ -26,6 +26,12 @@ pub struct TimeWindow {
     /// 月内日过滤（1-31）；缺省 = 不过滤；与 `days_of_week` 在 UI 层互斥（hit 层同时 Some 时取 AND 兜底）。
     #[serde(default)]
     pub days_of_month: Option<Vec<i32>>,
+    /// 节假日日历类型过滤；与 `days_of_week` 互斥。
+    #[serde(default)]
+    pub day_type: Option<String>,
+    /// 节假日日历覆盖码；缺省时由平台选择或 registry 默认补足。
+    #[serde(default)]
+    pub holiday_calendar: Option<String>,
     /// model scope（model 维度过滤，PRD 07-09 D2）；缺省 / None = 全平台模型生效（向后兼容）。
     /// 元素支持 `"glm-5.2*"` 后缀通配（覆盖 `glm-5.2` / `glm-5.2-turbo`），exact-first。
     /// 与 TS `TimeWindow.models?: string[]` 对称（跨层一致，见 cross-layer-rules.md）。
@@ -152,7 +158,6 @@ pub struct StatsResult {
     #[serde(default)]
     pub series: Vec<StatsSeries>,
 }
-
 
 /// 散点直方图查询（chart-engine D2 / #33）：时间窗 + 可选 filter，
 /// filter 语义对齐 `StatsQuery` 的同名 `filter_*` 字段（不含粒度/分组/序列维度——

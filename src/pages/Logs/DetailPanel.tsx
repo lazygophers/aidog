@@ -24,10 +24,12 @@ export type DetailPanelData = LogsDetailData & {
   onNavigate?: (id: string) => void;
   platformMap: Map<number, string>;
   groupName: (k: string) => string;
+  /** 请求记录详情：不展示模型 / token / 路由决策（request_log 不存这些）。 */
+  slim?: boolean;
 };
 
 export function DetailPanel({ d }: { d: DetailPanelData }) {
-  const { detail, t, copied, copiedId, setCopiedId, openDetail, copyDetail, platformMap, groupName, setDetail, onNavigate } = d;
+  const { detail, t, copied, copiedId, setCopiedId, openDetail, copyDetail, platformMap, groupName, setDetail, onNavigate, slim } = d;
 
   if (!detail) return null;
   return (
@@ -44,6 +46,7 @@ export function DetailPanel({ d }: { d: DetailPanelData }) {
         groupName={groupName}
         onBack={() => setDetail(null)}
         onNavigate={onNavigate}
+        slim={slim}
       />
     </div>
   );
@@ -61,9 +64,10 @@ interface DetailBodyProps {
   groupName: (k: string) => string;
   onBack: () => void;
   onNavigate?: (id: string) => void;
+  slim?: boolean;
 }
 
-function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copyDetail, platformMap, groupName, onBack, onNavigate }: DetailBodyProps) {
+function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copyDetail, platformMap, groupName, onBack, onNavigate, slim }: DetailBodyProps) {
   const reqHeaders = safeParseJson(detail.request_headers);
   const reqBody = safeParseJson(detail.request_body);
   const upstreamHeaders = safeParseJson(detail.upstream_request_headers);
@@ -141,8 +145,10 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
       <div className="glass-surface hover-lift" style={{ padding: 20, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 14 }}>
         <MetaItem label={t("logs.group", "分组")} value={groupName(detail.group_key)} copyText={detail.group_key} t={t} />
         <MetaItem label={t("logs.platform", "平台")} value={platformMap.get(detail.platform_id) || "-"} copyText={platformMap.get(detail.platform_id)} t={t} />
+        {!slim && (<>
         <MetaItem label={t("logs.model", "请求模型")} value={detail.model || "-"} copyText={detail.model} t={t} />
         <MetaItem label={t("logs.actualModel", "实际模型")} value={detail.actual_model && detail.actual_model !== detail.model ? detail.actual_model : "-"} copyText={detail.actual_model && detail.actual_model !== detail.model ? detail.actual_model : undefined} t={t} />
+        </>)}
         <MetaItem label={t("logs.client", "客户端")} value={detail.client || "-"} copyText={detail.client || undefined} testId="detail-client" t={t} />
         <MetaItem label={t("logs.userAgent", "UA")} value={detail.user_agent || "-"} copyText={detail.user_agent || undefined} testId="detail-user-agent" t={t} />
         <MetaItem label={t("logs.requestClassLabel", "请求类型")} value={requestClassText} copyText={detail.request_class || undefined} testId="detail-request-class" t={t} />
@@ -202,9 +208,11 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
         />
         <MetaItem label={t("logs.stream", "传输")} value={detail.is_stream ? t("logs.streaming", "流式") : t("logs.nonStreaming", "非流式")} copyText={detail.is_stream ? t("logs.streaming", "流式") : t("logs.nonStreaming", "非流式")} t={t} />
         <MetaItem label={t("logs.duration", "耗时")} value={`${detail.duration_ms} ms`} copyText={`${detail.duration_ms} ms`} t={t} />
+        {!slim && (<>
         <MetaItem label={t("logs.inputTokens", "输入 Token")} value={`${detail.input_tokens}`} copyText={`${detail.input_tokens}`} t={t} />
         <MetaItem label={t("logs.outputTokens", "输出 Token")} value={`${detail.output_tokens}`} copyText={`${detail.output_tokens}`} t={t} />
         <MetaItem label={t("logs.cacheTokens", "缓存 Token")} value={`${detail.cache_tokens}`} copyText={`${detail.cache_tokens}`} t={t} />
+        </>)}
         {detail.body_omitted ? (
           <MetaItem label={t("logs.bodyOmitted", "正文已省略")} value={t("logs.bodyOmittedHint", "写入过载，仅元数据")} t={t} />
         ) : null}
@@ -221,6 +229,7 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
         </div>
       )}
 
+      {!slim && (<>
       {/* ── 路由决策画布（票 02：请求→路由→平台→响应 workflow；快照为空显示占位）── */}
       <RoutingCanvas
         routing={detail.routing}
@@ -299,6 +308,8 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
           </div>
         </div>
       )}
+
+      </>)}
 
       {/* ── 用户请求 / 上游请求 Tab ── */}
       <RequestTabs

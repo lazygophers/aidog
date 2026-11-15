@@ -1,5 +1,6 @@
 {
   "model_id": "tencent/hy-mt2-1.8b",
+  "thinking_supported": false,
   "display_name": "Tencent: Hy-MT2-1.8B",
   "canonical_model": "hy-mt2-1.8b",
   "family": "hunyuan",
@@ -12,7 +13,7 @@
     "input": 4.4e-08,
     "output": 1.77e-07
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"

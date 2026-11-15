@@ -1,6 +1,7 @@
 {
   "model_id": "openai/gpt-6.1-terra",
   "display_name": "OpenAI: GPT-6.1 Terra",
+  "version": "6.1",
   "canonical_model": "gpt-6.1-terra",
   "family": "gpt",
   "max_input_tokens": 1050000,
@@ -24,7 +25,7 @@
       }
     ]
   },
-  "last_updated": 1794017726,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "anthropic",
     "openai"

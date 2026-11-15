@@ -1,11 +1,12 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "baidu/ernie-4.5-turbo-128k",
+  "thinking_supported": true,
   "display_name": "ERNIE 4.5 Turbo 128K",
   "canonical_model": "ernie-4.5-turbo-128k",
   "version": "4.5",

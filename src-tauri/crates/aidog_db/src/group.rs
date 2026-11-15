@@ -296,7 +296,7 @@ pub fn list_groups(db: &Db) -> impl std::future::Future<Output = Result<Vec<Grou
         .call_read_platform_traced(None, __db_caller, |conn| {
             let mut stmt = conn.prepare(&format!("SELECT {GROUP_COLUMNS} FROM \"group\" WHERE deleted_at = 0 ORDER BY sort_order, created_at"))?;
             let rows = stmt.query_map([], row_to_group)?;
-            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+            rows.collect::<SqlResult<Vec<_>>>()
         })
         .await
         .map_err(|e| e.to_string())?;
@@ -318,9 +318,9 @@ pub fn get_group(
             let mut stmt = conn.prepare(&format!(
                 "SELECT {GROUP_COLUMNS} FROM \"group\" WHERE id = ?1 AND deleted_at = 0"
             ))?;
-            Ok(stmt
+            stmt
                 .query_row(params![id as i64], row_to_group)
-                .optional()?)
+                .optional()
         })
         .await
         .map_err(|e| e.to_string())

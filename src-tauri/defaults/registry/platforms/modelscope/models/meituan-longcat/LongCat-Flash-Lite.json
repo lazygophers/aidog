@@ -1,10 +1,11 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "meituan-longcat/LongCat-Flash-Lite",
+  "display_name": "LongCat-Flash-Lite",
   "canonical_model": "longcat-flash-lite",
   "family": "longcat",
   "capabilities": [

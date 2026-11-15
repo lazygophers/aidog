@@ -1,10 +1,12 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "kimi/kimi-k2.7-code",
+  "max_input_tokens": 229376,
+  "max_output_tokens": 16384,
   "display_name": "Kimi K2.7 Code",
   "canonical_model": "kimi-k2.7-code",
   "version": "2.7",

@@ -1,5 +1,6 @@
 {
   "model_id": "mancer/weaver",
+  "thinking_supported": false,
   "display_name": "Mancer: Weaver (alpha)",
   "canonical_model": "weaver",
   "family": "weaver",
@@ -12,7 +13,7 @@
     "input": 4e-07,
     "output": 7.5e-07
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"

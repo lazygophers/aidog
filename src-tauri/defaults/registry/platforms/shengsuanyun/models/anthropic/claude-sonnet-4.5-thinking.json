@@ -1,11 +1,13 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "anthropic/claude-sonnet-4.5:thinking",
+  "display_name": "Claude Sonnet 4.5 Thinking",
+  "thinking_supported": true,
   "canonical_model": "claude-sonnet-4.5:thinking",
   "family": "claude",
   "version": "4.5",

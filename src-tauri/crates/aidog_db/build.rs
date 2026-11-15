@@ -81,10 +81,31 @@ fn main() {
         }
     }
 
+    let holidays = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../defaults/holidays");
+    println!("cargo:rerun-if-changed={}", holidays.display());
+    let mut holiday_files = Vec::new();
+    if holidays.is_dir() {
+        collect(&holidays, &mut holiday_files);
+    }
+    let mut holiday_calendar_files = String::new();
+    for f in holiday_files {
+        let code = f
+            .strip_prefix(&holidays)
+            .expect("holiday calendar under defaults/holidays")
+            .with_extension("")
+            .to_string_lossy()
+            .replace('\\', "/");
+        let _ = writeln!(
+            holiday_calendar_files,
+            "    ({code:?}, include_str!({f:?})),"
+        );
+    }
+
     let _ = write!(
         src,
         "pub static PLATFORM_FILES: &[(&str, &str)] = &[\n{platform_files}];\n\
-         pub static MODEL_FILES: &[(&str, &str, &str)] = &[\n{model_files}];\n"
+         pub static MODEL_FILES: &[(&str, &str, &str)] = &[\n{model_files}];\n\
+         pub static HOLIDAY_CALENDAR_FILES: &[(&str, &str)] = &[\n{holiday_calendar_files}];\n"
     );
 
     let out =

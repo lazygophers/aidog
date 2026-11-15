@@ -128,7 +128,7 @@ pub fn get_platform_usage_stats(
     }
 }
 
-/// 取某 platform 最近一条 `source_protocol='test'` 的 proxy_log（model_test 落日志时 platform_id 为真实 id，
+/// 取某 platform 最近一条 `kind='test'` 的 request_log（model_test 落日志时 platform_id 为真实 id，
 /// 无需 auto_from_platform 回溯）。返回 None 表示该平台从未测试过。
 #[track_caller]
 pub fn get_last_test_result(
@@ -138,13 +138,13 @@ pub fn get_last_test_result(
 {
     let __db_caller = std::panic::Location::caller();
     async move {
-        // proxy_log 在 log.db（proxy-log-db-split s3），走专用读池。
+        // request_log 在 log.db，走专用读池。
         db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let pid = platform_id as i64;
             let mut stmt = conn.prepare_cached(
                 "SELECT status_code, duration_ms, created_at, response_body \
-                 FROM proxy_log \
-                 WHERE deleted_at = 0 AND platform_id = ?1 AND source_protocol = 'test' \
+                 FROM request_log \
+                 WHERE platform_id = ?1 AND kind = 'test' \
                  ORDER BY created_at DESC LIMIT 1",
             )?;
             let mut rows = stmt.query_map([&pid], |row| {
@@ -337,7 +337,7 @@ pub fn platform_usage_stats_all(
         // 先 platform 库预查 auto_map（recent 的 eff_pid 内存回溯需要），再两阶段读（主库聚合 + log.db 近 5 条）。
         let auto_map = db
             .call_read_platform_traced(None, __db_caller, |conn| {
-                load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+                load_auto_from_map(conn)
             })
             .await
             .map_err(|e| format!("all platform usage stats load auto_map: {e}"))?;
@@ -545,13 +545,13 @@ pub fn get_group_hourly_rate<'a>(
         let group_key = group_key.to_string();
         // stats_agg_hourly 已迁回主库（stats-agg-to-main-db s1），走主库读池。
         db.call_read_traced(None, __db_caller, move |conn| {
-            Ok(hourly_rate_inner(
+            hourly_rate_inner(
                 conn,
                 now_ms,
                 &window_key,
                 "group_key = ?2",
                 &[&group_key],
-            )?)
+            )
         })
         .await
         .map_err(|e| format!("group hourly rate: {e}"))
@@ -575,13 +575,13 @@ pub fn get_platform_hourly_rate(
         // stats_agg_hourly 已迁回主库（stats-agg-to-main-db s1），走主库读池。
         db.call_read_traced(None, __db_caller, move |conn| {
             let pid = platform_id as i64;
-            Ok(hourly_rate_inner(
+            hourly_rate_inner(
                 conn,
                 now_ms,
                 &window_key,
                 "platform_id = ?2",
                 &[&pid],
-            )?)
+            )
         })
         .await
         .map_err(|e| format!("platform hourly rate: {e}"))
@@ -639,7 +639,7 @@ pub fn stats_flow_breakdown_at<'a>(
                     est_cost: row.get(8)?,
                 })
             })?;
-            Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+            rows.collect::<rusqlite::Result<Vec<_>>>()
         })
         .await
         .map_err(|e| format!("stats flow breakdown: {e}"))
@@ -674,7 +674,7 @@ pub fn group_daily_breakdown<'a>(
                     est_cost: row.get(3)?,
                 })
             })?;
-            Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+            rows.collect::<rusqlite::Result<Vec<_>>>()
         })
         .await
         .map_err(|e| format!("group daily breakdown: {e}"))
@@ -740,7 +740,6 @@ pub fn group_last_requests<'a>(
                 "SELECT id, status_code, created_at, duration_ms, blocked_reason, attempts, \
                  substr(response_body, 1, 200) \
                  FROM proxy_log WHERE group_key = ?1 AND deleted_at = 0 \
-                 AND source_protocol NOT IN ('test', 'quota', 'fetch-models') \
                  ORDER BY created_at DESC LIMIT 1",
             )?;
             let mut map = std::collections::HashMap::new();
