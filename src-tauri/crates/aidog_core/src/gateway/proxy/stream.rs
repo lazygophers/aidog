@@ -647,7 +647,8 @@ pub(crate) fn accumulate_sse_usage(
     let usage = json
         .get("usage")
         .or_else(|| json.get("message").and_then(|m| m.get("usage")))
-        .or_else(|| json.get("usageMetadata"));
+        .or_else(|| json.get("usageMetadata"))
+        .or_else(|| json.get("response").and_then(|r| r.get("usage")));
     let usage = match usage {
         Some(u) => u,
         None => return,
