@@ -964,3 +964,32 @@ async fn lock_tools_success_resets_state() {
     assert!(state.scheduler.latency_ema(p1r.id).is_some(), "成功记延迟 EMA");
     crate::gateway::registry::invalidate_presets_cache();
 }
+
+
+/// issue 55 票 05：tools 无限频占位（票 06 豁免），503 终态 E2E 实测不可达
+/// （connect 失败死站形态下旧实现即 502 终态）。锁定真实行为：单平台死站 → 502，
+/// attempts 留痕、retry_count 与 attempts 一致。
+#[tokio::test]
+async fn exhausted_503_lock_tools() {
+    let _guard = TOOLS_E2E_LOCK.lock().await;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let dead = format!("http://{}", listener.local_addr().unwrap());
+    drop(listener);
+    let (db, _dir) = three_file_db().await;
+    let state = make_state(db).await;
+    setup_platform_group(&state, "gkt05t", "ds", Protocol::DeepSeek, "", &dead, 0).await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        tools_request("gkt05t", "/v1/tools/search", r#"{"query":"rust"}"#),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY, "tools 死站实测 502 终态（真实行为回归）");
+    flush_log_queue(&state).await;
+    let logs = aidog_logs::list_proxy_logs(&state.db, 50, 0).await.unwrap();
+    let row = logs.iter().find(|l| l.group_key == "gkt05t").expect("tools 请求必落 proxy_log");
+    assert_eq!(row.status_code, 502);
+    let full = aidog_logs::get_proxy_log(&state.db, &row.id).await.unwrap().unwrap();
+    assert!(!full.attempts.is_empty(), "attempts 必须留痕");
+    assert_eq!(full.retry_count, aidog_db::models::retry_count_of(&full.attempts));
+}
