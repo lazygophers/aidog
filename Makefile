@@ -14,26 +14,35 @@ RESET := \033[0m
 TAURI_SIGNING_PRIVATE_KEY ?= $(shell cat $(HOME)/.tauri/aidog.key 2>/dev/null)
 export TAURI_SIGNING_PRIVATE_KEY
 
+# 前端依赖栈: 缺 node/cargo/yarn 给出安装提示; package.json / yarn.lock 比 node_modules 新则按 lockfile 重装
+node_modules/.yarn-state.yml: package.json yarn.lock
+	@command -v node >/dev/null || { printf "$(BOLD)❌ 缺 node: 安装 Node.js (https://nodejs.org 或 mise/nvm)$(RESET)\n"; exit 1; }
+	@command -v cargo >/dev/null || { printf "$(BOLD)❌ 缺 cargo: 安装 Rust (https://rustup.rs)$(RESET)\n"; exit 1; }
+	@command -v yarn >/dev/null || corepack enable >/dev/null 2>&1 || { printf "$(BOLD)❌ 缺 yarn: 执行 corepack enable (或 npm i -g corepack)$(RESET)\n"; exit 1; }
+	@printf "$(CYAN)▶ 安装前端依赖 (yarn install --immutable)…$(RESET)\n"
+	yarn install --immutable
+	@touch $@
+
 ##@ Build
 
 .PHONY: run
-run: ## Start dev server with hot reload (frontend + Rust HMR)
+run: node_modules/.yarn-state.yml ## Start dev server with hot reload (frontend + Rust HMR)
 	@printf "$(GREEN)▶ Starting Tauri dev server...$(RESET)\n"
 	yarn tauri dev
 
 .PHONY: build
-build: ## Build frontend (tsc && vite build)
+build: node_modules/.yarn-state.yml ## Build frontend (tsc && vite build)
 	@printf "$(CYAN)▶ Building frontend...$(RESET)\n"
 	yarn build
 
 .PHONY: release
-release: ## Build local installer for current platform → $(TAURI_DIR)/target/release/bundle/
+release: node_modules/.yarn-state.yml ## Build local installer for current platform → $(TAURI_DIR)/target/release/bundle/
 	@printf "$(GREEN)▶ Building release installer ($(PRODUCT_NAME))...$(RESET)\n"
 	yarn tauri build
 	@printf "$(GREEN)✔ Bundles → $(TAURI_DIR)/target/release/bundle/$(RESET)\n"
 
 .PHONY: release-debug
-release-debug: ## Build installer with debug symbols (faster, larger)
+release-debug: node_modules/.yarn-state.yml ## Build installer with debug symbols (faster, larger)
 	@printf "$(GREEN)▶ Building debug installer ($(PRODUCT_NAME))...$(RESET)\n"
 	yarn tauri build --debug
 	@printf "$(GREEN)✔ Bundles → $(TAURI_DIR)/target/debug/bundle/$(RESET)\n"
@@ -113,7 +122,7 @@ version-check: ## Verify manifests match .version
 	node scripts/sync-version.mjs --check
 
 .PHONY: install
-install: ## Release build + 安装 AiDog.app 到 /Applications (自动 kill 运行中实例)
+install: node_modules/.yarn-state.yml ## Release build + 安装 AiDog.app 到 /Applications (自动 kill 运行中实例)
 	@printf "$(GREEN)▶ Building release installer ($(PRODUCT_NAME))…$(RESET)\n"
 	yarn tauri build --bundles app --config '{"bundle":{"createUpdaterArtifacts":false}}'
 	@test -d "$(APP_BUNDLE)" || { printf "$(BOLD)❌ build 产物缺失: $(APP_BUNDLE)$(RESET)\n"; exit 1; }

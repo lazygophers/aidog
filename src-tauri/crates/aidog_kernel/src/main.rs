@@ -2,11 +2,11 @@
 //!
 //! ```text
 //! aidog-kernel          纯内核：代理转发 + 定时任务
-//! aidog-kernel --ui     额外在代理端口的 /api/ui/ 提供 Web 界面
+//! aidog-kernel --ui     额外在代理端口的 /ui/ 提供 Web 界面
 //! ```
 //!
 //! 管理接口（`POST /api/rpc/<命令>`、`GET /api/events`，ADR 0010）与桌面版一样挂在**代理端口**
-//! 上，两种形态都有，由设置里的开关统一启停；`--ui` 只决定是否多提供 `/api/ui/` 网页界面。
+//! 上，两种形态都有，由设置里的开关统一启停；`--ui` 只决定是否多提供 `/ui/` 网页界面。
 //! 日志同时进标准输出与 `~/.aidog/logs/`。
 //!
 //! 与桌面壳（root package `aidog`）的关系：命令体、代理、调度全部共用同一批 crate，
@@ -33,13 +33,13 @@ aidog-kernel — aidog 的无界面内核
 
 用法:
   aidog-kernel              纯内核（代理转发 + 定时任务）
-  aidog-kernel --ui         额外在 http://127.0.0.1:<代理端口>/api/ui/ 提供 Web 界面
+  aidog-kernel --ui         额外在 http://127.0.0.1:<代理端口>/ui/ 提供 Web 界面
 
 管理接口 /api/rpc/<命令> 与 /api/events 挂在代理端口上（只接受本机连接），
 由「设置 → API」里的开关统一启停；--ui 要求该开关为开。
 
 选项:
-  --ui              提供 Web 界面（/api/ui/）。管理接口开关关着时启动失败
+  --ui              提供 Web 界面（/ui/）。管理接口开关关着时启动失败
   --ui-dir <PATH>   Web 界面静态资源目录（默认取环境变量 AIDOG_UI_DIR，再回落
                     <可执行文件目录>/ui，最后 ./dist）
   -h, --help        打印本帮助
@@ -207,7 +207,7 @@ async fn run(opts: Options) -> Result<(), String> {
     startup_tasks(&db).await;
     spawn_scheduled_jobs();
 
-    // 管理接口（ADR 0010）：挂在代理端口上，开关在设置里。`--ui` 只多提供 /api/ui/，
+    // 管理接口（ADR 0010）：挂在代理端口上，开关在设置里。`--ui` 只多提供 /ui/，
     // 且要求开关为开 —— 否则会得到一个打不开的界面。
     let kernel_settings = load_kernel_settings(&db).await;
     check_ui_allowed(&opts, &kernel_settings)?;
@@ -230,7 +230,7 @@ async fn run(opts: Options) -> Result<(), String> {
     // 界面地址同时进标准输出与锁文件：前者给拉起我们的父进程，后者给下一个抢锁失败的实例。
     if opts.ui {
         let line = format!(
-            "{LISTEN_LINE_PREFIX}http://127.0.0.1:{}/api/ui/",
+            "{LISTEN_LINE_PREFIX}http://127.0.0.1:{}/ui/",
             proxy_settings.port
         );
         println!("{line}");
@@ -242,7 +242,7 @@ async fn run(opts: Options) -> Result<(), String> {
     Ok(())
 }
 
-/// `--ui` 要求管理接口开关为开：关着时 `/api/ui/` 只会回「未启用」，不如启动就失败并说明原因。
+/// `--ui` 要求管理接口开关为开：关着时 `/ui/` 只会回「未启用」，不如启动就失败并说明原因。
 fn check_ui_allowed(
     opts: &Options,
     settings: &aidog_core::kernel_settings::KernelSettings,
@@ -255,18 +255,18 @@ fn check_ui_allowed(
     Ok(())
 }
 
-/// 在管理接口路由上加 `/ui`（= 代理端口的 `/api/ui/`）：静态资源 + SPA 回落，只在该前缀内回落。
+/// 在管理接口路由上加 `/ui`（代理端口根下的 `/ui/`）：静态资源 + SPA 回落，只在该前缀内回落。
 /// 目录不存在只 warn：前端资源缺失不该让管理接口一起挂掉。
 fn with_ui(router: axum::Router, ui_dir: Option<PathBuf>) -> axum::Router {
     match ui_dir {
         Some(dir) if dir.is_dir() => {
             let serve = tower_http::services::ServeDir::new(&dir)
                 .fallback(tower_http::services::ServeFile::new(dir.join("index.html")));
-            tracing::info!(dir = %dir.display(), "kernel: serving web UI assets at /api/ui/");
+            tracing::info!(dir = %dir.display(), "kernel: serving web UI assets at /ui/");
             router.nest_service("/ui", serve)
         }
         other => {
-            tracing::warn!(dir = ?other, "kernel: web UI asset directory not found, /api/ui/ unavailable");
+            tracing::warn!(dir = ?other, "kernel: web UI asset directory not found, /ui/ unavailable");
             router
         }
     }

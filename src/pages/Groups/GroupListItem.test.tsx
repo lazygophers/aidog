@@ -120,4 +120,21 @@ describe("GroupListItem — 多选「按状态选」", () => {
     await user.click(await screen.findByTestId("group-batch-status-opt-s:enabled"));
     expect(checked()).toEqual([1]);
   });
+
+  it("错误码按语义分类出选项（429/503 → 限频/服务异常），选中只勾对应平台，无命中的分类不出现", async () => {
+    vi.spyOn(platformApi, "errorStatus").mockResolvedValue([
+      { platform_id: 1, code: 429, source: "log", until_ms: null },
+      { platform_id: 3, code: 503, source: "log", until_ms: null },
+    ]);
+    render(<GroupListItem {...baseProps} platforms={plats} detail={det} />);
+    fireEvent.click(screen.getByTestId("group-batch-start"));
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("group-batch-status-select"));
+    expect(await screen.findByTestId("group-batch-status-opt-c:rate_limit")).toBeTruthy();
+    expect(screen.queryByTestId("group-batch-status-opt-c:server")).not.toBeNull();
+    expect(screen.queryByTestId("group-batch-status-opt-c:balance")).toBeNull();
+    expect(screen.queryByTestId("group-batch-status-opt-429")).toBeNull();
+    await user.click(screen.getByTestId("group-batch-status-opt-c:server"));
+    expect(checked()).toEqual([3]);
+  });
 });

@@ -382,8 +382,8 @@ export const GroupListItem = memo(function GroupListItem({
                 </SelectItem>
               ))}
               {statusOptions.map(o => (
-                <SelectItem key={o.code} value={String(o.code)} data-testid={`group-batch-status-opt-${o.code}`} style={{ fontSize: 14 }}>
-                  {`${o.code} · ${t(`group.err.${o.code}`, `HTTP ${o.code}`)}（${o.count}）`}
+                <SelectItem key={o.value} value={o.value} data-testid={`group-batch-status-opt-${o.value}`} style={{ fontSize: 14 }}>
+                  {`${t(o.labelKey, o.fallback)}（${o.count}）`}
                 </SelectItem>
               ))}
             </SelectContent>

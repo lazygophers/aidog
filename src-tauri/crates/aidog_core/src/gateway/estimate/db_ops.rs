@@ -262,16 +262,8 @@ pub async fn calibrate_from_quota(
     db: &Db,
     platform_id: u64,
     quota: &PlatformQuota,
-    is_coding_plan: bool,
 ) {
-    calibrate_from_quota_with(
-        db,
-        platform_id,
-        quota,
-        is_coding_plan,
-        crate::gateway::scheduling::global(),
-    )
-    .await
+    calibrate_from_quota_with(db, platform_id, quota, crate::gateway::scheduling::global()).await
 }
 
 /// [`calibrate_from_quota`] 的可注入 scheduler 版本（测试传自己的实例，不碰进程级全局）。
@@ -279,11 +271,10 @@ pub async fn calibrate_from_quota_with(
     db: &Db,
     platform_id: u64,
     quota: &PlatformQuota,
-    is_coding_plan: bool,
     scheduler: Option<std::sync::Arc<crate::gateway::scheduling::SchedulerState>>,
 ) {
     if !quota.success {
-        tracing::warn!(platform_id, is_coding_plan, error = ?quota.error, "calibrate_from_quota skipped: upstream quota query failed, keeping estimates");
+        tracing::warn!(platform_id, error = ?quota.error, "calibrate_from_quota skipped: upstream quota query failed, keeping estimates");
         return;
     }
     // 额度冷却只认真查返回值（quota 参数），不看估算外推；手动刷新 / 自动校准 / 冷启动 / 重置定时
@@ -310,6 +301,12 @@ pub async fn calibrate_from_quota_with(
         .await
         .unwrap_or_default();
     let prev = EstCodingPlan::from_json(&prev_json);
+    // 套餐 / 余额只看真查结果，不看调用方的端点标记（请求后校准传的端点标记对 Codex 等平台为 false，
+    // 曾因此清空套餐）。真查成功但两者都没返回：保留库里已有套餐，不覆盖。
+    let is_coding_plan = quota.coding_plan.is_some();
+    if !is_coding_plan && quota.balance.is_none() && !prev_json.is_empty() {
+        return;
+    }
     let est_balance = if is_coding_plan {
         0.0
     } else {
@@ -318,7 +315,7 @@ pub async fn calibrate_from_quota_with(
     let coding_json = if is_coding_plan {
         build_calibrated_coding_plan(&prev, quota).to_json()
     } else {
-        String::new()
+        prev_json
     };
     let result = write_real_quota(db, platform_id, est_balance, &coding_json, now()).await;
     if !is_coding_plan
@@ -372,8 +369,7 @@ fn spawn_backoff_chain(db: Db, platform_id: u64) {
                     platform_id as i64,
                 )
                 .await;
-                let is_coding_plan = quota.coding_plan.is_some();
-                calibrate_from_quota(&db, platform_id, &quota, is_coding_plan).await;
+                calibrate_from_quota(&db, platform_id, &quota).await;
                 if BACKOFF_CHAINS.is_active(platform_id) {
                     Probe::Exhausted
                 } else {
@@ -487,8 +483,7 @@ pub fn spawn_refresh_at(
         let quota =
             crate::gateway::quota::query_quota(Some(&db), &base_url, &api_key, platform_id as i64)
                 .await;
-        let is_coding_plan = quota.coding_plan.is_some();
-        calibrate_from_quota(&db, platform_id, &quota, is_coding_plan).await;
+        calibrate_from_quota(&db, platform_id, &quota).await;
         aidog_ctx::emit_unit("tray-refresh");
         tracing::info!(platform_id, "quota refreshed at upstream reset time");
     });
@@ -503,7 +498,6 @@ async fn run_calibration(
     platform_id: u64,
     base_url: &str,
     api_key: &str,
-    is_coding_plan: bool,
 ) {
     // 锁外 async 真查（构造 Arc<Db> 供 http_client 读系统代理设置）
     let db_arc = std::sync::Arc::new(db.clone());
@@ -515,7 +509,7 @@ async fn run_calibration(
     if quota.success {
         clear_calibration_attempt(platform_id);
     }
-    calibrate_from_quota(db, platform_id, &quota, is_coding_plan).await;
+    calibrate_from_quota(db, platform_id, &quota).await;
 }
 
 /// 配额预测告警提前量（分钟）：距耗尽不足该值时告警。spec 预置规则默认 30（票 02 可由规则覆盖）。
@@ -766,7 +760,7 @@ pub async fn estimate_after_request(
         && should_calibrate(now(), last_real, count)
         && claim_calibration_attempt(platform_id, now())
     {
-        run_calibration(db, platform_id, base_url, api_key, is_coding_plan).await;
+        run_calibration(db, platform_id, base_url, api_key).await;
     }
     true
 }
