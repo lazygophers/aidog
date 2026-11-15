@@ -34,8 +34,7 @@
     }
   ],
   "last_updated": 1794657886,
-  "holiday_calendar": "SG",
-  "endpoints": {
+  "holiday_calendar": "SG",  "endpoints": {
     "default": [
       {
         "protocol": "anthropic",
@@ -62,15 +61,12 @@
       "seed-2-0-code-preview-260328",
       "seed-2-0-lite-260428",
       "seed-2-0-mini-260428",
-      "seed-1-8-251228",
-      "seed-1-6-250915",
       "glm-5-2-260617",
       "deepseek-v4-pro-ga-260813",
       "deepseek-v4-flash-ga-260731",
       "deepseek-v4-flash-260425",
       "deepseek-v4-pro-260425",
       "dola-seed-2-1-turbo-260628",
-      "seed-1-6-250615",
       "seed-1-6-flash-250615",
       "seed-1-6-flash-250715",
       "seed-2-0-lite-260215",
@@ -85,7 +81,6 @@
       "Hyper3d-Rodin-Gen2",
       "seedance-1-0-pro-250528",
       "seedance-1-0-pro-fast-251015",
-      "seedance-1-5-pro-251215",
       "seededit-3-0-i2i-250628",
       "seedream-4-0-250828",
       "seedream-4-5-251128",
@@ -93,8 +88,7 @@
       "skylark-embedding-vision-251215",
       "glm-5-3-flash-260828",
       "deepseek-v4-1-flash-260910",
-      "dola-seedream-5-0-flash-260915",
-      "glm-4-7-251222"
+      "dola-seedream-5-0-flash-260915"
     ]
   },
   "name": {

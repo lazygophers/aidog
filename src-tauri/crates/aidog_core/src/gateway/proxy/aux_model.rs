@@ -245,7 +245,8 @@ pub(crate) async fn handle_aux_model(
     }
 
     // 候选耗尽且循环内未 return（同 decision.rs / handler.rs 兜底，理论不可达）。
-    log.status_code = 503;
+    let status = exhausted_status(log);
+    log.status_code = status.as_u16() as i32;
     log.done = true;
     let err_body = format!(
         "{}: all candidates exhausted",
@@ -258,7 +259,8 @@ pub(crate) async fn handle_aux_model(
     log.retry_count = aidog_db::models::retry_count_of(&attempts);
     log.attempts = std::mem::take(&mut attempts);
     upsert_log(state, log, log_settings).await;
-    let mut r = (StatusCode::SERVICE_UNAVAILABLE, err_body).into_response();
+    let mut r = (status, err_body).into_response();
+    add_retry_after(&mut r, log);
     inject_trace_header(&mut r);
     r
 }
@@ -320,8 +322,7 @@ async fn aux_attempt(
         proxy_client,
         req_timeout,
         conn_timeout,
-        Some(&route.platform.extra),
-        None,
+        super::http_client::platform_should_use_proxy(proxy_client, &route.platform.extra),
     )
     .await;
     let rb = client
@@ -466,11 +467,39 @@ async fn aux_attempt(
     let (input, output) = (spec.extract_usage)(&body_str);
     log.input_tokens = input;
     log.output_tokens = output;
-    if let Some(units) = spec.extract_units {
-        // 按次计量次数经内存 ProxyLog 透传，calc_est_cost 仅在条目 `price.unit=="request"` 时消费。
-        log.tool_call_counts
-            .push((crate::gateway::billing::SEARCH_UNITS_KEY.to_string(), units(&body_str)));
-    }
+    // 按次计量次数（rerank：search_units，缺省 1；embedding None → 0）。
+    let request_units = match spec.extract_units {
+        Some(units) => {
+            let n = units(&body_str);
+            // 按量计数经内存 ProxyLog 透传，calc_est_cost 按条目 `price.unit` 消费
+            // （request/image/mp 按次；char/second 按字符数/时长换算，issue 157）。
+            log.tool_call_counts
+                .push((crate::gateway::billing::SEARCH_UNITS_KEY.to_string(), n));
+            n
+        }
+        None => 0,
+    };
+
+    // issue #61：embedding / rerank 请求入余额与手动预算预估（此前完全不触发）。
+    // spawn_estimate 后台执行，不阻塞响应；base_url / api_key 仅供校准真查用。
+    spawn_estimate(
+        state,
+        route.platform.id,
+        &route.platform.platform_type,
+        route.platform.base_url.clone(),
+        route.platform.api_key.clone(),
+        actual_model.clone(),
+        route.platform.extra.clone(),
+        input,
+        output,
+        0, // embedding / rerank 无缓存 token
+        0,
+        route.platform.endpoints.iter().any(|ep| ep.coding_plan),
+        log.created_at,
+        0.0, // tools 按次费与 aux 请求无关
+        request_units,
+        tracing::Span::current(),
+    );
 
     log.status_code = status.as_u16() as i32;
     log.done = true;

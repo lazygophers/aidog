@@ -1,7 +1,6 @@
 {
   "last_updated": 1794657886,
-  "holiday_calendar": "US-DE",
-  "endpoints": {
+  "holiday_calendar": "US-DE",  "endpoints": {
     "default": [
       {
         "protocol": "anthropic",
@@ -74,14 +73,12 @@
       "doubao/doubao-1-5-vision-pro-32k",
       "doubao/doubao-seed-1-6",
       "doubao/doubao-seed-1-6-flash",
-      "doubao/doubao-seed-1-6-vision",
       "doubao/doubao-seed-1-8",
       "doubao/doubao-seed-2-0-code",
       "doubao/doubao-seed-2-0-lite",
       "doubao/doubao-seed-2-0-mini",
       "doubao/doubao-seed-2-0-pro",
       "doubao/doubao-seed-character",
-      "doubao/doubao-seed-code",
       "google/gemini-2.5-flash",
       "google/gemini-3.8-flash",
       "google/gemini-3.7-flash",
@@ -99,8 +96,6 @@
       "google/gemma-4-26b-a4b-it",
       "google/gemma-4-31b-it",
       "inclusionai/ling-flash-2",
-      "kwaipilot/kat-coder-air-v2.5",
-      "kwaipilot/kat-coder-pro-v2.5",
       "meituan/longcat-2.0",
       "meta/llama-3.1-405b",
       "meta/llama-3.1-70b",
@@ -139,7 +134,6 @@
       "moonshot/kimi-k2.7-code",
       "moonshot/kimi-k2.7-code-highspeed",
       "moonshot/kimi-k3",
-      "nex-agi/nex-n2-pro",
       "nvidia/nemotron-nano-30b",
       "nvidia/nemotron-super-120b",
       "openai/gpt-4.1",
@@ -206,7 +200,6 @@
       "qwen/qwen3-235b-thinking",
       "qwen/qwen3-30b",
       "qwen/qwen3-30b-a3b-thinking-2507",
-      "qwen/qwen3-30b-thinking",
       "qwen/qwen3-32b",
       "qwen/qwen3-8b",
       "qwen/qwen3-coder-30b",

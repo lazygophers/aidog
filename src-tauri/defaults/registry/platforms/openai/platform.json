@@ -1,7 +1,6 @@
 {
   "last_updated": 1794657886,
-  "holiday_calendar": "US-CA",
-  "endpoints": {
+  "holiday_calendar": "US-CA",  "endpoints": {
     "default": [
       {
         "protocol": "openai",
@@ -86,7 +85,8 @@
       "gpt-6.1-sol",
       "gpt-rosalind-research",
       "gpt-live-1",
-      "omni-moderation-latest"
+      "omni-moderation-latest",
+      "gpt-6.1-terra"
     ]
   },
   "name": {

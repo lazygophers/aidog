@@ -580,11 +580,18 @@ async fn run_and_check_async(mut cmd: TokioCommand, label: &str) -> Result<(), S
 /// 从 npm registry 获取指定包的 latest 版本。
 async fn fetch_npm_latest(pkg: &str) -> Option<String> {
     let url = format!("https://registry.npmjs.org/{}/latest", pkg);
-    let client = reqwest::Client::builder()
-        .no_proxy()
-        .timeout(std::time::Duration::from_secs(8))
-        .build()
-        .ok()?;
+    let client = if let Some(db) = aidog_ctx::try_db() {
+        let db = std::sync::Arc::new(db.clone());
+        crate::gateway::http_client::build_http_client_system(&db, 8, 0).await
+    } else {
+        // 无 ctx（内核启动早期 / 测试）= 有意直连：版本检测非代理出站关键面，DB 未就绪时
+        // 只影响「最新版本」提示，不静默走错代理（与 search/notification 工厂的 Err 语义不同）。
+        reqwest::Client::builder()
+            .no_proxy()
+            .timeout(std::time::Duration::from_secs(8))
+            .build()
+            .ok()?
+    };
     let resp = client.get(&url).send().await.ok()?;
     if !resp.status().is_success() {
         tracing::warn!(package = pkg, status = %resp.status(), "npm registry request failed");

@@ -599,8 +599,7 @@
     }
   ],
   "last_updated": 1794657886,
-  "holiday_calendar": "CN",
-  "endpoints": {
+  "holiday_calendar": "CN",  "endpoints": {
     "default": [
       {
         "protocol": "openai",
@@ -1046,7 +1045,8 @@
       "wanx2.1-t2v-plus",
       "wanx2.1-t2v-turbo",
       "wanx2.1-vace-plus",
-      "xiaomi/mimo-v2.5-pro"
+      "xiaomi/mimo-v2.5-pro",
+      "decision-model-preview"
     ]
   },
   "peak": [

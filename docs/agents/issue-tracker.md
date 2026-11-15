@@ -32,3 +32,5 @@ Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
 ## Migration note
 
 2026-09-14: migrated from GitHub Issues back to local markdown tickets (`.scratch/<feature-slug>/`). History: 2026-09-12 local→GitHub, now GitHub→local again. GitHub Issues (`lazygophers/aidog`) 保留为历史存档（含已关闭票 #23–#41）；新工作一律走 `.scratch/`。`.scratch/memory.md`（会话交接记忆，用户全局约定）不是票库，不受影响。
+
+2026-11-15 更新：GitHub Issues 再次作为开发任务入口活跃使用（issue 61 / 64 / 157 / 160 各轮即此）；经 GitHub issue 派下的**开发任务**按 `.claude/rules/shared-worktree.md`「GitHub issue 开发」节执行——独立 worktree + 分支 + PR（分支从 origin/master 开、带 issue 号，默认授权 push 并建 PR）。`.scratch/` 本地票仍照旧。

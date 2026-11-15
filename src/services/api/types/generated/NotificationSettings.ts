@@ -24,12 +24,12 @@ tts_backend: TtsBackend,
 /**
  * 按类型配置（key = NotifType 字面量）。缺省键视为全 true + Full。
  */
-per_type: { [key in string]?: TypeSetting }, 
+per_type: { [key in string]: TypeSetting }, 
 /**
  * 按事件配置（key = CC 事件名，见 CC_HOOK_EVENTS）。N2 hook 事件通知。
  * 旧配置无此字段 → 空 map（serde default），前端按默认目录展示，用户开启才写入。
  */
-per_event: { [key in string]?: EventSetting }, 
+per_event: { [key in string]: EventSetting }, 
 /**
  * 收件箱历史自动清理保留天数。default 7。`0` = 不清理（永久保留）。
  * 清理为硬删（参 proxy_log retention 模式），避 SQLite 体积单调增长。

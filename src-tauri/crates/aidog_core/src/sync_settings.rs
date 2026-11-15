@@ -290,9 +290,9 @@ pub(crate) async fn cc_proxy_password(db: &Db, group_key: &str) -> Result<String
     {
         return Ok(s.to_string());
     }
-    use rand::Rng;
-    let password: String = rand::thread_rng()
-        .sample_iter(&rand::distributions::Alphanumeric)
+    use rand::RngExt;
+    let password: String = rand::rng()
+        .sample_iter(rand::distr::Alphanumeric)
         .take(16)
         .map(char::from)
         .collect();

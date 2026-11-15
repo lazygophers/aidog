@@ -151,7 +151,7 @@ pub(crate) async fn handle_proxy_core(
     // ── Claude Code 连接预热探测分流（必须在读 body / 首次 upsert_log 之前）──
     // 客户端启动对 base_url 发 `HEAD /api/hello`（base_url 带 /proxy 前缀 → `/proxy/api/hello`），
     // 无 Authorization → 走 resolve_group 必 404。
-    // 新需求：探测也进入「请求日志」页，source_protocol=test；仍不碰上游、不解析 body。
+    // 新需求：探测也进入「请求记录」页（request_log 表），kind=test；仍不碰上游、不解析 body。
     if is_hello_endpoint(&path) {
         log.source_protocol = "test".into();
         log.request_url =
@@ -163,7 +163,11 @@ pub(crate) async fn handle_proxy_core(
         log.response_body = log.user_response_body.clone();
         log.done = true;
         log.duration_ms = start.elapsed().as_millis() as i32;
-        upsert_log(&state, &log, &log_settings).await;
+        // 探测落请求记录（request_log，独立于 proxy_log）；写失败只告警，不影响探测应答。
+        if let Err(e) = aidog_logs::upsert_request_log(&state.db, log.clone()).await {
+            tracing::warn!(error = %e, "hello probe: request_log 写入失败");
+        }
+        aidog_ctx::emit("proxy-log-updated", 0u64.into());
         return handle_root().await;
     }
 
@@ -356,7 +360,7 @@ pub(crate) async fn handle_proxy_core(
     let client_gate = ClientGate::On(super::client_detect::client_probe(&orig_headers));
 
     // ── 透传平台（ADR 0008）认领协议子端点：下方三个分流按协议处理、不认识透传平台 ──
-    // 白名单拦下整组 → 直接 417/503，不得落回协议分支（那些分支各自有闸门，但此处先收口）。
+    // 白名单拦下整组 → 直接 403/503，不得落回协议分支（那些分支各自有闸门，但此处先收口）。
     if is_responses_subendpoint(&path)
         || is_count_tokens_endpoint(&path)
         || is_decision_endpoint(&path)
@@ -686,7 +690,7 @@ pub(crate) async fn handle_proxy_core(
             //（blocked_by='router', blocked_reason='no_chat_platform', status_code=400，R7）。
             // 直通模型声明平台全不可用（直接模型转发）→ 同样落审计
             //（blocked_by='router', blocked_reason='direct_model_unavailable', 503）。
-            // 客户端白名单拦下候选（blocked_reason='client_not_allowed'）：全拦 417，与其他原因并存 503。
+            // 客户端白名单拦下候选（blocked_reason='client_not_allowed'）：全拦 403，与其他原因并存 503。
             if e == "no_chat_platform"
                 || e == "peak_disabled"
                 || e == "rate_limit"
@@ -699,13 +703,14 @@ pub(crate) async fn handle_proxy_core(
             {
                 return route_fail_response(&state, &mut log, &log_settings, &e, start, lang).await;
             }
+            let status = route_fallback_status(&e);
             log.response_body = format!("route error: {e}");
-            log.status_code = 400;
+            log.status_code = status.as_u16() as i32;
             log.done = true;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log, &log_settings).await;
             let mut r = (
-                StatusCode::BAD_REQUEST,
+                status,
                 format!("{}: {e}", i18n::t(lang, ErrorKey::Route)),
             )
                 .into_response();
@@ -757,6 +762,7 @@ pub(crate) async fn handle_proxy_core(
                 orig_headers,
                 bytes,
                 &base_url,
+                Some(&first.platform.extra),
                 start,
                 lang,
             )
@@ -861,7 +867,8 @@ pub(crate) async fn handle_proxy_core(
 
     // 候选耗尽 / 最大尝试次数用尽且未在循环内 return（理论不可达：循环内每条路径均 return 或 continue，
     // 仅 budget.exhausted() 的 break 会落到这里）。返回 503 + 已记录的 attempts。
-    log.status_code = 503;
+    let status = exhausted_status(&log);
+    log.status_code = status.as_u16() as i32;
     log.done = true;
     let err_body = format!(
         "{}: all candidates exhausted",
@@ -874,7 +881,8 @@ pub(crate) async fn handle_proxy_core(
     log.retry_count = aidog_db::models::retry_count_of(&attempts);
     log.attempts = std::mem::take(&mut attempts);
     upsert_log(&state, &log, &log_settings).await;
-    let mut r = (StatusCode::SERVICE_UNAVAILABLE, err_body).into_response();
+    let mut r = (status, err_body).into_response();
+    add_retry_after(&mut r, &log);
     inject_trace_header(&mut r);
     r
 }

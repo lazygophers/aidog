@@ -206,6 +206,32 @@ impl Inner {
     }
 }
 
+impl Inner {
+    /// 窗口滑动到能放下为止的最早时刻（调用前已 `prune`）。
+    fn free_at(&self, lim: &Limits, now: i64, est: i64) -> i64 {
+        let mut at = now;
+        if let Some(r) = lim.rpm {
+            let over = self.hits.len() as i64 - r;
+            if over >= 0 {
+                at = at.max(self.hits.get(over as usize).map_or(now, |t| *t) + WINDOW_MS);
+            }
+        }
+        if let Some(t) = lim.tpm {
+            let mut left: i64 = self.tokens.iter().map(|(_, c)| c.load(Ordering::Relaxed)).sum();
+            if left > 0 && left + est.max(1) > t {
+                for (ts, c) in &self.tokens {
+                    left -= c.load(Ordering::Relaxed);
+                    if left <= 0 || left + est.max(1) <= t {
+                        at = at.max(*ts + WINDOW_MS);
+                        break;
+                    }
+                }
+            }
+        }
+        at
+    }
+}
+
 #[derive(Default)]
 struct Bucket(Mutex<Inner>);
 
@@ -249,6 +275,20 @@ impl RateLimiter {
             None => true,
             Some(b) => b.0.lock().map(|mut g| g.has_room(lim, now, est)).unwrap_or(true),
         }
+    }
+
+    /// 放不下时该桶最早可放下一个请求的时刻（毫秒）；放得下 / 无桶 / 不限 = None。
+    /// 并发占满没有已知释放时刻，按 `now`（调用方取整后至少 1 秒）。
+    pub fn free_at(&self, pid: u64, model: &str, lim: &Limits, now: i64, est: i64) -> Option<i64> {
+        if lim.is_unlimited() {
+            return None;
+        }
+        let b = self.bucket(pid, model, false)?;
+        let mut g = b.0.lock().ok()?;
+        if g.has_room(lim, now, est) {
+            return None;
+        }
+        Some(g.free_at(lim, now, est))
     }
 
     fn take(&self, pid: u64, model: &str, lim: &Limits, now: i64, est: i64) -> Option<Item> {
@@ -493,5 +533,25 @@ mod tests {
         assert_eq!(b.0.lock().unwrap().hits.len(), 1);
         drop(acc);
         assert_eq!(b.0.lock().unwrap().in_flight, 0, "平台级并发随 Access 释放");
+    }
+
+    #[test]
+    fn free_at_reports_earliest_slot() {
+        let rl = Arc::new(RateLimiter::default());
+        // 放得下 / 无桶 = None
+        assert_eq!(rl.free_at(1, "", &lim(None, Some(2), None), 1000, 0), None);
+        let l = lim(None, Some(2), None);
+        rl.begin(1, &l, 1000, 0).unwrap();
+        rl.begin(1, &l, 2000, 0).unwrap();
+        assert_eq!(rl.free_at(1, "", &l, 3000, 0), Some(1000 + WINDOW_MS), "最早一条滑出时放行");
+        // 并发占满：无已知释放时刻，按 now
+        let c = lim(Some(1), None, None);
+        let _hold = rl.begin(2, &c, 5000, 0).unwrap();
+        assert_eq!(rl.free_at(2, "", &c, 6000, 0), Some(6000));
+        // TPM：两笔 400 + 600 占满 1000，再来 300 需滑出第一笔
+        let t = lim(None, None, Some(1000));
+        rl.begin(3, &t, 1000, 400).unwrap();
+        rl.begin(3, &t, 2000, 600).unwrap();
+        assert_eq!(rl.free_at(3, "", &t, 3000, 300), Some(1000 + WINDOW_MS));
     }
 }

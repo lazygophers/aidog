@@ -23,6 +23,6 @@
 ## 写什么
 
 - 取该平台**当前主力型号**填 `default` 槽；官方主力分档（如 Anthropic 的 opus/sonnet/haiku）才填其它槽。
-- 型号名以官方文档为准（memory `registry-verify-before-create`：推测 id 禁写入）；过时由 `fetchModels` 上游拉取覆盖。
+- 型号名以官方文档为准（见 `.claude/rules/registry-data-edit.md`「推测的 model_id 禁写入 registry」：推测 id 禁写入）；过时由 `fetchModels` 上游拉取覆盖。
 - peak 分支仅当平台有官方峰时换模机制才加，加了必须同步 `peak` 时段窗口 + `models.peak`，且 model_list 超集不变量仍成立。
 - 改完跑 `node scripts/check-registry.mjs` + `node scripts/bump-registry-last-updated.mjs` 盖戳。

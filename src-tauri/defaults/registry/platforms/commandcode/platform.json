@@ -1,7 +1,6 @@
 {
   "last_updated": 1794657886,
-  "holiday_calendar": "US-CA",
-  "is_coding_plan": true,
+  "holiday_calendar": "US-CA",  "is_coding_plan": true,
   "name": {
     "en-US": "Command Code",
     "zh-Hans": "Command Code",
@@ -55,8 +54,7 @@
       "sonnet": ["claude-sonnet-5-5"],
       "opus": ["claude-opus-5-5"],
       "haiku": ["claude-haiku-4-5-20251001"],
-      "gpt": ["gpt-6-sol"],
-      "jev": ["typesafe/jev"]
+      "gpt": ["gpt-6-sol"]
     }
   },
   "model_list": {
@@ -107,8 +105,6 @@
       "gpt-6-luna",
       "gpt-6-sol",
       "gpt-6.1-sol",
-      "inclusionai/ling-3.0-flash-sante:free",
-      "inclusionai/ling-3.1-flash:free",
       "meituan/LongCat-2.0",
       "meta/muse-spark-1.1",
       "meta/muse-spark-1.2",
@@ -121,9 +117,7 @@
       "moonshotai/Kimi-K2.7-Code-Highspeed",
       "moonshotai/Kimi-K3",
       "nvidia/nemotron-3-ultra-550b-a55b",
-      "poolside/laguna-s-2.1-free",
       "sakana/fugu-ultra",
-      "stealth/space-bunny-alpha",
       "stepfun/Step-3.5-Flash",
       "stepfun/Step-3.7-Flash",
       "stepfun/Step-5-Preview",
@@ -131,12 +125,7 @@
       "tencent/hy4-preview",
       "thinkingmachines/inkling",
       "thinkingmachines/inkling-small",
-      "typesafe/jev",
-      "xai/grok-4.5",
-      "xai/grok-4.6",
       "xai/grok-4.7",
-      "xiaomi/mimo-v2.5",
-      "xiaomi/mimo-v2.5-pro",
       "xiaomi/mimo-v2.6-flash",
       "xiaomi/mimo-v2.6-pro",
       "xiaomi/mimo-v2.6-pro-ultraspeed",

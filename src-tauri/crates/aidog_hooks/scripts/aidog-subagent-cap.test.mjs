@@ -71,7 +71,14 @@ try {
   run({ session_id: S, hook_event_name: "SessionEnd" });
   assert.throws(() => readFileSync(file(S), "utf8"), /ENOENT/);
 
-  console.log("subagent-cap self-test: 7 groups all green");
+  // 8. 回报主对话（team-lead / main）不占槽：满额也放行；未登记普通 agent 仍拒。
+  start("s8", "d1");
+  start("s8", "d2");
+  allow(gate("s8", "SendMessage", { to: "team-lead" }));
+  allow(gate("s8", "SendMessage", { to: "main" }));
+  denyMsg(gate("s8", "SendMessage", { to: "stranger" }));
+
+  console.log("subagent-cap self-test: 8 groups all green");
 } finally {
   rmSync(home, { recursive: true, force: true });
 }

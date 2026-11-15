@@ -492,9 +492,9 @@ async fn e2e_connect_failure_records_platform_exclusion_then_fails_over() {
     assert_eq!(scopes, [Some("platform"), None]);
 }
 
-/// 用例 5：组内无声明平台 → 400 + no_tools_platform 白名单 reason，落审计 proxy_log。
+/// 用例 5：组内无声明平台 → 404 + no_tools_platform 白名单 reason，落审计 proxy_log。
 #[tokio::test]
-async fn e2e_no_tools_platform_returns_400() {
+async fn e2e_no_tools_platform_returns_404() {
     let _guard = TOOLS_E2E_LOCK.lock().await;
     let (db, dir) = three_file_db().await;
     let state = make_state(db).await;
@@ -516,7 +516,7 @@ async fn e2e_no_tools_platform_returns_400() {
         tools_request("g1", "/v1/tools/search", r#"{"query":"x"}"#),
     )
     .await;
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
     flush_log_queue(&state).await;
     crate::gateway::registry::invalidate_presets_cache();
 

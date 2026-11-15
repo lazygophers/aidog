@@ -607,6 +607,7 @@ impl StreamLogGuard {
                 est.coding_plan,
                 final_log.created_at,
                 super::log::chat_tool_cost_usd(&est.platform_type, &final_log.tool_call_counts),
+                0, // chat 路径无按次计量次数
                 self.req_span.clone(),
             );
         }
@@ -639,18 +640,38 @@ pub(crate) fn accumulate_sse_usage(
     acc_tool_fetch: &std::sync::atomic::AtomicI32,
 ) {
     use std::sync::atomic::Ordering::Relaxed;
-    // usage 可能在顶层，也可能在 message.usage（Anthropic message_start）
+    // usage 可能在顶层，也可能在 message.usage（Anthropic message_start）。
+    // Gemini 原生响应使用顶层 usageMetadata。
     let usage = json
         .get("usage")
-        .or_else(|| json.get("message").and_then(|m| m.get("usage")));
+        .or_else(|| json.get("message").and_then(|m| m.get("usage")))
+        .or_else(|| json.get("usageMetadata"));
     let usage = match usage {
         Some(u) => u,
         None => return,
     };
+    if let Some(gemini) = adapter::parse_gemini_usage_metadata(usage) {
+        let previous_cache = acc_cache.load(Relaxed) as i64;
+        let cache = previous_cache.max(gemini.cached_content_tokens);
+        if gemini.cached_content_tokens > 0 {
+            acc_cache.fetch_max(gemini.cached_content_tokens as i32, Relaxed);
+        }
+        let input = (gemini.prompt_tokens - cache).max(0) as i32;
+        if gemini.cached_content_tokens > 0 || previous_cache > 0 {
+            // Gemini may report cachedContentTokenCount only on the final frame. Store the
+            // corrected ordinary input so an earlier uncached value cannot win forever.
+            acc_in.store(input, Relaxed);
+        } else {
+            acc_in.fetch_max(input, Relaxed);
+        }
+        acc_out.fetch_max(gemini.output_tokens() as i32, Relaxed);
+        return;
+    }
     let (cache_read, cache_write, cache_write_1h, in_input) = usage_cache_arms(usage);
     if let Some(i) = usage
         .get("input_tokens")
         .or_else(|| usage.get("prompt_tokens"))
+        .or_else(|| usage.get("promptTokenCount"))
         .and_then(|v| v.as_i64())
     {
         acc_in.fetch_max((i - in_input).max(0) as i32, Relaxed);
@@ -658,6 +679,7 @@ pub(crate) fn accumulate_sse_usage(
     if let Some(o) = usage
         .get("output_tokens")
         .or_else(|| usage.get("completion_tokens"))
+        .or_else(|| usage.get("candidatesTokenCount"))
         .and_then(|v| v.as_i64())
     {
         acc_out.fetch_max(o as i32, Relaxed);
@@ -784,10 +806,20 @@ pub(crate) fn extract_usage(body: &str) -> (i32, i32, i32, i32, i32, Vec<(String
         Ok(v) => v,
         Err(_) => return (0, 0, 0, 0, 0, Vec::new()),
     };
-    let usage = match v.get("usage") {
+    let usage = match v.get("usage").or_else(|| v.get("usageMetadata")) {
         Some(u) => u,
         None => return (0, 0, 0, 0, 0, Vec::new()),
     };
+    if let Some(gemini) = adapter::parse_gemini_usage_metadata(usage) {
+        return (
+            gemini.input_tokens() as i32,
+            gemini.output_tokens() as i32,
+            gemini.cached_content_tokens as i32,
+            0,
+            0,
+            Vec::new(),
+        );
+    }
     // Cache tokens（arm 绑定见 usage_cache_arms）：Anthropic (cache_read_input_tokens),
     // OpenAI (prompt_tokens_details.cached_tokens), responses (input_tokens_details.*),
     // DeepSeek (prompt_cache_hit_tokens), generic (cache_tokens)

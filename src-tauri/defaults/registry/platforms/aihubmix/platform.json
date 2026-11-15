@@ -1,7 +1,6 @@
 {
   "last_updated": 1794657886,
-  "holiday_calendar": "US-DE",
-  "endpoints": {
+  "holiday_calendar": "US-DE",  "endpoints": {
     "default": [
       {
         "protocol": "anthropic",
@@ -872,7 +871,8 @@
       "xiaomi-mimo-v2.5-pro-free",
       "xiaomi-mimo-v2.6-flash-free",
       "xiaomi-mimo-v2.6-pro-free",
-      "zai-glm-5-turbo"
+      "zai-glm-5-turbo",
+      "decision-model-preview"
     ]
   },
   "peak": [

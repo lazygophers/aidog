@@ -5,8 +5,8 @@ use std::process::Command;
 
 /// 由上游代理设置构造 npm/npx 用的代理 URL。
 ///
-/// - 未启用（`enabled == false`）→ `None`（保持直连，不注入 env）。
-/// - 启用 → `Some("{scheme}://[user:pass@]host:port")`。
+/// - 未配置代理（`host` 为空）→ `None`（保持直连，不注入 env）。
+/// - 已配置 → `Some("{scheme}://[user:pass@]host:port")`。
 /// - scheme：`socks5` 且 `dns_over_proxy` → `socks5h`（DNS 走代理）；否则按 proxy_type
 ///   映射（`socks5`/`https`/其余 → `http`），与 `ProxyClientSettings::to_reqwest_proxy` 一致。
 ///
@@ -17,7 +17,8 @@ use std::process::Command;
 /// 生成的 URL 可能被 npm/node 解析歧义（同 npm 自身约定：env 代理 URL 的凭证需调用方自行编码）。
 /// 与 `to_reqwest_proxy`（用 `proxy.basic_auth` 内部处理）的差异仅在此边界场景显现。
 pub fn proxy_env_url(settings: &ProxyClientSettings) -> Option<String> {
-    if !settings.enabled {
+    // 非平台出站（skills 抓取）：读「其它请求使用代理」开关；主机空 = 未配置代理。
+    if !settings.others_enabled || settings.host.trim().is_empty() {
         return None;
     }
     let scheme = match settings.proxy_type.as_str() {
