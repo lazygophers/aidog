@@ -82,6 +82,7 @@ impl ResponsesSseState {
                         "type": "response.output_text.delta",
                         "item_id": item_id, "output_index": idx, "content_index": 0,
                         "delta": text,
+                        "logprobs": [],
                     }),
                 ));
                 Some(out)
@@ -219,6 +220,7 @@ impl ResponsesSseState {
                             "type": "response.output_text.done",
                             "item_id": item_id, "output_index": idx, "content_index": 0,
                             "text": text,
+                            "logprobs": [],
                         }),
                     ));
                     frames.push_str(&self.frame(
