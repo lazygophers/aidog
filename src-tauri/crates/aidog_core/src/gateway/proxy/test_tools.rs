@@ -650,7 +650,7 @@ async fn e2e_tool_fee_deducted_from_cny_balance() {
         coding_plan: None,
         newapi_user_id: None,
     };
-    crate::gateway::estimate::calibrate_from_quota(&state.db, plat_id, &quota, false).await;
+    crate::gateway::estimate::calibrate_from_quota(&state.db, plat_id, &quota).await;
 
     let resp = handle_proxy(
         AxumState(state.clone()),
@@ -701,7 +701,7 @@ async fn e2e_chat_server_tool_use_fee_deducted_from_balance() {
         coding_plan: None,
         newapi_user_id: None,
     };
-    crate::gateway::estimate::calibrate_from_quota(&state.db, plat_id, &quota, false).await;
+    crate::gateway::estimate::calibrate_from_quota(&state.db, plat_id, &quota).await;
 
     let resp = handle_proxy(
         AxumState(state.clone()),

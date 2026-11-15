@@ -5285,7 +5285,7 @@ async fn aux_request_deducts_balance_by_est_cost() {
             coding_plan: None,
             newapi_user_id: None,
         };
-        crate::gateway::estimate::calibrate_from_quota(&state.db, plat_id, &quota, false).await;
+        crate::gateway::estimate::calibrate_from_quota(&state.db, plat_id, &quota).await;
 
         let r = handle_proxy(AxumState(state.clone()), embedding_request(gk, body, path)).await;
         assert_eq!(r.status(), StatusCode::OK);
@@ -5375,7 +5375,7 @@ async fn chat_per_request_price_no_usage_deducts_once() {
             coding_plan: None,
             newapi_user_id: None,
         };
-        crate::gateway::estimate::calibrate_from_quota(&state.db, plat_id, &quota, false).await;
+        crate::gateway::estimate::calibrate_from_quota(&state.db, plat_id, &quota).await;
 
         let resp = handle_proxy(
             AxumState(state.clone()),
