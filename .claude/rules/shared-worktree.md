@@ -347,6 +347,10 @@ PR 分支同此：**从 `origin/master` 开分支，不从本地 HEAD**（2026-1
 PR（事后 rebase 修复）。fetch 失败不是回落本地 master 的许可；未能取得 `origin/master` 时，不建分支、不开工。
 2026-11-15 issue 68 轮记录：直连 push 两次 DNS 解析失败，改经本机 7890 代理后成功（PUSH_EXIT=0）。这是该次环境的结果，不构成其他环境或错误类型的操作建议。
 
+## 授权推送只推到授权时的 sha（2026-11-15）
+
+用户授权「推 8 个提交」期间，master 又多了另一会话的提交。推送范围以授权当时的 sha 为界：`git push origin <授权sha>:refs/heads/<分支>`，不用裸 `git push`（会带上后来者）。推前 `git rev-list --count origin/<分支>..<授权sha>` 核对等于授权数；多出的提交留待其所属会话的授权。
+
 ## issue 开发：独立 worktree + PR（2026-11-15）
 
 用户原话：「所有的issuse的开发都是独立的worktree并且提交pr」。GitHub issue 的开发不受文首「尽可能不要 worktree」约束，一 issue 一 worktree 一 PR：
