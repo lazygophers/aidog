@@ -209,7 +209,7 @@ pub fn parse_responses_response(
                     if let Some(text) = c.get("text").and_then(|v| v.as_str()) {
                         reasoning_parts.push(text.to_string());
                     }
-                } else if ctype == "text"
+                } else if matches!(ctype, "text" | "output_text")
                     && let Some(text) = c.get("text").and_then(|v| v.as_str())
                 {
                     text_parts.push(text.to_string());
@@ -320,9 +320,9 @@ pub fn parse_responses_response(
 /// 渲染归一响应为 OpenAI Responses API 非流式响应体。
 ///
 /// 映射规则：
-/// - output[]: text item（type=text） + reasoning summary item（type=summary） + function_call item
+/// - output[]: assistant message item + reasoning summary item + function_call item
 /// - status: completed
-/// - usage: prompt_tokens/completion_tokens
+/// - usage: input_tokens/output_tokens
 pub fn render_responses_response(r: &crate::converter::NonStreamResponse) -> Option<Value> {
     let mut output = Vec::new();
 
@@ -331,8 +331,14 @@ pub fn render_responses_response(r: &crate::converter::NonStreamResponse) -> Opt
         && !text.is_empty()
     {
         output.push(serde_json::json!({
-            "type": "text",
-            "text": text,
+            "type": "message",
+            "role": "assistant",
+            "status": "completed",
+            "content": [{
+                "type": "output_text",
+                "text": text,
+                "annotations": [],
+            }],
         }));
     }
 
@@ -356,11 +362,17 @@ pub fn render_responses_response(r: &crate::converter::NonStreamResponse) -> Opt
         }));
     }
 
-    // 兜底：既无 text 也无 tool_use（异常上游）→ 空 text item，保证 output 非空
+    // 兜底：既无 text 也无 tool_use（异常上游）→ 空 assistant message，保证 output 非空
     if output.is_empty() {
         output.push(serde_json::json!({
-            "type": "text",
-            "text": "",
+            "type": "message",
+            "role": "assistant",
+            "status": "completed",
+            "content": [{
+                "type": "output_text",
+                "text": "",
+                "annotations": [],
+            }],
         }));
     }
 
@@ -370,8 +382,8 @@ pub fn render_responses_response(r: &crate::converter::NonStreamResponse) -> Opt
         "status": "completed",
         "output": output,
         "usage": {
-            "prompt_tokens": r.input_tokens,
-            "completion_tokens": r.output_tokens,
+            "input_tokens": r.input_tokens,
+            "output_tokens": r.output_tokens,
             "total_tokens": r.input_tokens + r.output_tokens,
         }
     }))
@@ -1018,8 +1030,12 @@ mod tests {
         assert_eq!(out["model"], "gpt-5");
         assert_eq!(out["status"], "completed");
         assert_eq!(out["output"].as_array().unwrap().len(), 1);
-        assert_eq!(out["output"][0]["type"], "text");
-        assert_eq!(out["output"][0]["text"], "Hello world");
+        assert_eq!(out["output"][0]["type"], "message");
+        assert_eq!(out["output"][0]["role"], "assistant");
+        assert_eq!(out["output"][0]["content"][0]["type"], "output_text");
+        assert_eq!(out["output"][0]["content"][0]["text"], "Hello world");
+        assert_eq!(out["usage"]["input_tokens"], 10);
+        assert_eq!(out["usage"]["output_tokens"], 5);
     }
 
     #[test]
@@ -1041,8 +1057,9 @@ mod tests {
 
         let out = render_responses_response(&r).unwrap();
         assert_eq!(out["output"].as_array().unwrap().len(), 2);
-        assert_eq!(out["output"][0]["type"], "text");
-        assert_eq!(out["output"][0]["text"], "Answer");
+        assert_eq!(out["output"][0]["type"], "message");
+        assert_eq!(out["output"][0]["role"], "assistant");
+        assert_eq!(out["output"][0]["content"][0]["text"], "Answer");
         assert_eq!(out["output"][1]["type"], "summary");
         assert_eq!(out["output"][1]["text"], "Thinking...");
     }
@@ -1070,7 +1087,9 @@ mod tests {
 
         let out = render_responses_response(&r).unwrap();
         assert_eq!(out["output"].as_array().unwrap().len(), 2);
-        assert_eq!(out["output"][0]["type"], "text");
+        assert_eq!(out["output"][0]["type"], "message");
+        assert_eq!(out["output"][0]["role"], "assistant");
+        assert_eq!(out["output"][0]["content"][0]["text"], "Let me check");
         assert_eq!(out["output"][1]["type"], "function_call");
         assert_eq!(out["output"][1]["id"], "tool-1");
         assert_eq!(out["output"][1]["name"], "read_file");
@@ -1099,9 +1118,9 @@ mod tests {
         };
 
         let out = render_responses_response(&r).unwrap();
-        // text + summary + function_call
+        // message + summary + function_call
         assert_eq!(out["output"].as_array().unwrap().len(), 3);
-        assert_eq!(out["output"][0]["type"], "text");
+        assert_eq!(out["output"][0]["type"], "message");
         assert_eq!(out["output"][1]["type"], "summary");
         assert_eq!(out["output"][2]["type"], "function_call");
     }
@@ -1181,8 +1200,10 @@ mod tests {
 
         let out = render_responses_response(&r).unwrap();
         assert_eq!(out["output"].as_array().unwrap().len(), 1);
-        assert_eq!(out["output"][0]["type"], "text");
-        assert_eq!(out["output"][0]["text"], "");
+        assert_eq!(out["output"][0]["type"], "message");
+        assert_eq!(out["output"][0]["role"], "assistant");
+        assert_eq!(out["output"][0]["content"][0]["type"], "output_text");
+        assert_eq!(out["output"][0]["content"][0]["text"], "");
     }
 
     // --- parse_responses_response 测试 ---
@@ -1202,8 +1223,9 @@ mod tests {
                     ]
                 },
                 {
-                    "type": "text",
-                    "text": "Final answer here."
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "Final answer here."}]
                 }
             ],
             "usage": {
@@ -1233,7 +1255,7 @@ mod tests {
             "status": "completed",
             "model": "gpt-5",
             "output": [
-                {"type": "text", "text": "I'll call a function."},
+                {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "I'll call a function."}]},
                 {
                     "type": "function_call",
                     "id": "call_abc",
@@ -1267,7 +1289,7 @@ mod tests {
             "status": "completed",
             "model": "gpt-5",
             "output": [
-                {"type": "text", "text": "Simple response"}
+                {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Simple response"}]}
             ],
             "usage": {
                 "input_tokens": 10,

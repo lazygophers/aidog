@@ -1,6 +1,44 @@
 use super::*;
 use serde_json::json;
 
+#[test]
+fn openai_family_cross_shape_nonstream() {
+    let chat = json!({"id":"id", "model":"model", "choices":[{"message":{"role":"assistant","content":"hello"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":4}});
+    let responses = json!({"id":"id", "model":"model", "output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hello"}]}],"usage":{"input_tokens":3,"output_tokens":4}});
+    let completions = json!({"id":"id", "model":"model", "choices":[{"text":"hello","finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":4}});
+    let cases = [(&Protocol::OpenAI, &chat), (&Protocol::OpenAIResponses, &responses), (&Protocol::OpenAICompletions, &completions)];
+    for (wire, body) in cases {
+        for (client, _) in cases {
+            let out = convert_response(body, wire, client, "model");
+            if wire == client {
+                assert!(out.is_none(), "{wire:?} same-shape must pass through");
+                continue;
+            }
+            let out = out.unwrap_or_else(|| panic!("{wire:?} to {client:?} must convert"));
+            match client {
+                Protocol::OpenAI => {
+                    assert_eq!(out["choices"][0]["message"]["role"], "assistant");
+                    assert_eq!(out["choices"][0]["message"]["content"], "hello");
+                    assert_eq!(out["usage"]["prompt_tokens"], 3);
+                    assert_eq!(out["usage"]["completion_tokens"], 4);
+                }
+                Protocol::OpenAIResponses => {
+                    assert_eq!(out["output"][0]["role"], "assistant");
+                    assert_eq!(out["output"][0]["content"][0]["text"], "hello");
+                    assert_eq!(out["usage"]["input_tokens"], 3);
+                    assert_eq!(out["usage"]["output_tokens"], 4);
+                }
+                Protocol::OpenAICompletions => {
+                    assert_eq!(out["choices"][0]["text"], "hello");
+                    assert_eq!(out["usage"]["prompt_tokens"], 3);
+                    assert_eq!(out["usage"]["completion_tokens"], 4);
+                }
+                _ => unreachable!(),
+            }
+        }
+    }
+}
+
 // ── 非流式 openai→anthropic 响应转换：reasoning + content + tool_calls 并存(finish_reason=tool_calls) ──
 // 复现 request 1ef25294 场景：上游 message 同时含 reasoning_content / content / tool_calls。
 #[test]
