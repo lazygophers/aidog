@@ -158,7 +158,7 @@ function MembersCard(props: {
     }
   }, [props.batchDoneSignal, mode]);
   const statusOptions = errStatus !== null
-    ? buildStatusOptions(errStatus, fullPlats.map(p => p.id))
+    ? buildStatusOptions(errStatus, fullPlats)
     : [];
   const bactBtn: React.CSSProperties = { fontSize: 14, padding: "3px 9px", height: "auto", borderRadius: 6, background: "var(--secondary)", border: "1px solid var(--border)" };
   return (
