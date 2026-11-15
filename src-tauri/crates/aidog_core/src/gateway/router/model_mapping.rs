@@ -156,7 +156,7 @@ pub(crate) fn resolve_model_chain_with_custom(
 /// - 都不满足（理论不可达：路由过滤已剔除不支持决策的平台）→ 透传原始模型名（剥 budget 后缀）。
 ///
 /// `decision_models`：registry decision 能力模型（按平台键控），
-/// 由 `select_candidates_ctx` 入口一次性查库构建，禁逐平台查库。
+/// 由候选路由入口一次性查库构建，禁逐平台查库。
 pub(crate) fn resolve_decision_model(
     models: &PlatformModels,
     platform: &Platform,

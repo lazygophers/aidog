@@ -575,7 +575,7 @@ pub(crate) async fn handle_proxy_core(
         chat_req.model.clone()
     };
     log.model = requested_model.clone();
-    // 路由按 `chat_req.model` 选候选（下方 select_candidates_ctx），gemini 源此处仍为空，
+    // 路由按 `chat_req.model` 选候选（下方 select_candidates_gated），gemini 源此处仍为空，
     // 补齐后模型映射与出站 path 才拿得到模型名。其余协议 model 本就来自 body，此赋值等价空操作。
     if chat_req.model.is_empty() {
         chat_req.model = requested_model.clone();
