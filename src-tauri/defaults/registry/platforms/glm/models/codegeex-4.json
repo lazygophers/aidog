@@ -1,10 +1,11 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "codegeex-4",
+  "max_input_tokens": 131072,
   "canonical_model": "codegeex-4",
   "family": "codegeex",
   "version": "4",

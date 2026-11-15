@@ -688,6 +688,7 @@ async fn select_candidates_inner(
         rate_limited_count,
         slot_disabled_count,
         custom_unfilled_count,
+        retry_at_ms,
     } = filter_candidates(
         &group_platforms,
         ctx,
@@ -825,6 +826,9 @@ async fn select_candidates_inner(
         eval_ms: None,
         ..Default::default()
     };
+    if let Some(at) = retry_at_ms {
+        routing.note_retry_at_ms(at);
+    }
 
     // ── 阶段 5: 空候选处理 ──
     if ordered.is_empty() {
@@ -872,10 +876,14 @@ async fn select_candidates_inner(
             });
         }
         // 整组所有候选被平台限频排除 → 返特殊 Err，caller 落审计 proxy_log
-        // (blocked_by='router', blocked_reason='rate_limit', est_cost=0, status_code=503)。
-        if rate_limited_count > 0 && rate_limited_count == group_platforms.len() {
+        // (blocked_by='router', blocked_reason='rate_limit', est_cost=0, status_code=429)。
+        // 只要有平台被限频（本地 extra.rate_limits）或上游 429 / 529 限频冷却挡掉就归限频（混合原因同），
+        // 其余候选皆为配置 / 额度 / 白名单类排除：限频窗口过后可恢复，客户端该退避重试而非收 400。
+        let rate_limited_total = rate_limited_count
+            + excluded.iter().filter(|(_, r)| *r == RouteReason::RateLimitCooldown).count();
+        if rate_limited_total > 0 {
             tracing::info!(
-                group = %group.name, rate_limited = rate_limited_count,
+                group = %group.name, rate_limited = rate_limited_total,
                 "all candidates rate-limited; returning rate_limit error for audit log"
             );
             return Err(RouteFail {
@@ -925,7 +933,7 @@ async fn select_candidates_inner(
                 routing,
             });
         }
-        // 客户端白名单拦下了候选：全部平台都因白名单被拦 → 417（`client_not_allowed`）；
+        // 客户端白名单拦下了候选：全部平台都因白名单被拦 → 403（`client_not_allowed`）；
         // 与其他排除原因并存 → 503（`client_not_allowed_mixed`，落库 blocked_reason 同名）。
         if client_rejected_count > 0 {
             let reason = if client_rejected_count == group_platforms.len() {
@@ -1104,7 +1112,7 @@ async fn handle_single_platform(
 
     // 客户端白名单（票 05）：与 filter_candidates 同位次——手动禁用 / 审核硬停 / 高峰禁用等既有硬停
     // 先判，之后、status bypass 与透传豁免之前拦截（独立维度，透传平台同样受约束，ADR 0008 修订）。
-    // 单平台无「混合原因」概念：唯一候选被白名单拦 = 全部候选被拦 → 417。
+    // 单平台无「混合原因」概念：唯一候选被白名单拦 = 全部候选被拦 → 403。
     if let ClientGate::On(probe) = &client
         && cache
             .is_some_and(|c| !client_allowed(&c.allowed_clients, &c.ua_rules, &probe.ua, probe.hit))
@@ -1123,15 +1131,17 @@ async fn handle_single_platform(
     if !is_passthrough
         && let Some(c) = _ctx
         && let Some(cache) = cache
-        && rate_limited(c, only.platform.id, &cache.rate, now_ms, source_model)
+        && let Some(at) = rate_limit_free_at(c, only.platform.id, &cache.rate, now_ms, source_model)
     {
         tracing::info!(
             group = %group.name, platform = %only.platform.name,
             "single-platform group: rate-limited, request blocked"
         );
+        let mut routing = single_snapshot(only, group.routing_mode, RouteReason::RateLimited);
+        routing.note_retry_at_ms(at);
         return Err(RouteFail {
             reason: "rate_limit".to_string(),
-            routing: single_snapshot(only, group.routing_mode, RouteReason::RateLimited),
+            routing,
         });
     }
 
@@ -1216,17 +1226,17 @@ fn bypassed_states(
     v
 }
 
-/// 平台限频只读判定：平台级（含时段窗口覆盖）与请求模型级任一放不下即超限。
-/// 模型级只查请求模型名（目标模型此时未解析，换模型后的上限在转发时重判）。
-fn rate_limited(
+/// 平台限频只读判定：平台级（含时段窗口覆盖）与请求模型级任一放不下即超限，返回最早可放行时刻（毫秒）；
+/// 放得下 = None。模型级只查请求模型名（目标模型此时未解析，换模型后的上限在转发时重判）。
+fn rate_limit_free_at(
     ctx: &ScheduleCtx<'_>,
     pid: u64,
     cfg: &RateLimitsCfg,
     now_ms: i64,
     source_model: &str,
-) -> bool {
+) -> Option<i64> {
     if cfg.is_empty() {
-        return false;
+        return None;
     }
     // 与 forward.rs 的 `begin` 同一估算，否则大请求过筛后 begin 必败。
     let est = match ctx.rate_body {
@@ -1234,20 +1244,11 @@ fn rate_limited(
         _ => 0,
     };
     let rl = &ctx.scheduler.rate;
-    !rl.has_room(
-        pid,
-        "",
-        &cfg.platform_limits(now_ms),
-        now_ms,
-        est,
-    ) || (!source_model.is_empty()
-        && !rl.has_room(
-            pid,
-            source_model,
-            &cfg.model_limits(source_model, now_ms),
-            now_ms,
-            est,
-        ))
+    let platform = rl.free_at(pid, "", &cfg.platform_limits(now_ms), now_ms, est);
+    let model = (!source_model.is_empty())
+        .then(|| rl.free_at(pid, source_model, &cfg.model_limits(source_model, now_ms), now_ms, est))
+        .flatten();
+    platform.into_iter().chain(model).max()
 }
 
 /// 单平台组快照（票 01）：唯一候选一个条目，排除时带原因。
@@ -1468,7 +1469,7 @@ fn select_direct_candidates(
     };
 
     if ordered.is_empty() {
-        // 声明平台全因客户端白名单被拦（票 05）→ 417；白名单与其他不可用原因并存沿用原错误。
+        // 声明平台全因客户端白名单被拦（票 05）→ 403；白名单与其他不可用原因并存沿用原错误。
         let client_rejected = routing
             .entries
             .iter()
@@ -1574,6 +1575,8 @@ struct FilteredCandidates<'a> {
     slot_disabled_count: usize,
     /// 因自定义槽混合组收紧（组内有平台填值、本平台未填）排除的平台数。
     custom_unfilled_count: usize,
+    /// 被本地限频 / 上游限频冷却挡掉的候选里，最早可再放行的时刻（Unix 毫秒）。
+    retry_at_ms: Option<i64>,
 }
 
 /// 遍历 group_platforms 按 auto_disabled 三态分桶（enabled / 过期试探），
@@ -1607,6 +1610,7 @@ fn filter_candidates<'a>(
     let mut rate_limited_count = 0;
     let mut slot_disabled_count = 0;
     let mut custom_unfilled_count = 0;
+    let mut retry_at_ms: Option<i64> = None;
 
     let breaker_enabled = ctx.map(|c| c.settings.enabled).unwrap_or(false);
 
@@ -1693,8 +1697,9 @@ fn filter_candidates<'a>(
         // 平台限频维度（extra.rate_limits，内存计数；独立于 status，与高峰禁用同型临时闸门）。
         if let Some(c) = ctx
             && let Some(cache) = extra_cache.get(&gp.platform.id)
-            && rate_limited(c, gp.platform.id, &cache.rate, now_ms, source_model)
+            && let Some(at) = rate_limit_free_at(c, gp.platform.id, &cache.rate, now_ms, source_model)
         {
+            retry_at_ms = Some(retry_at_ms.map_or(at, |m: i64| m.min(at)));
             rate_limited_count += 1;
             excluded.push((gp, RouteReason::RateLimited));
             continue;
@@ -1719,6 +1724,8 @@ fn filter_candidates<'a>(
             } else if c.scheduler.rate_limit_cooldown_until_ms(gp.platform.id)
                 > c.scheduler.quota_cooldown_until_ms(gp.platform.id)
             {
+                let at = c.scheduler.rate_limit_cooldown_until_ms(gp.platform.id);
+                retry_at_ms = Some(retry_at_ms.map_or(at, |m: i64| m.min(at)));
                 RouteReason::RateLimitCooldown
             } else {
                 RouteReason::QuotaCooldown
@@ -1760,6 +1767,7 @@ fn filter_candidates<'a>(
         rate_limited_count,
         slot_disabled_count,
         custom_unfilled_count,
+        retry_at_ms,
     }
 }
 

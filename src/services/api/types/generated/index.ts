@@ -66,6 +66,8 @@ export * from "./SessionStats";
 export * from "./ProxyLogSettings";
 export * from "./ProxyLogSummary";
 export * from "./ProxyTimeoutSettings";
+export * from "./RequestLogFilter";
+export * from "./RequestLogSummary";
 export * from "./ResolvedPrice";
 export * from "./RetentionUnit";
 export * from "./RowMeta";

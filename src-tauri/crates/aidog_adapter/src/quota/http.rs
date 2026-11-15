@@ -413,7 +413,7 @@ fn make_quota_log(
 /// 落库 quota 日志 (仅 db 可写时; 测试传 None 跳过)。
 async fn persist_quota_log(db: Option<&Arc<Db>>, log: aidog_db::models::ProxyLog) {
     if let Some(d) = db
-        && let Err(e) = aidog_logs::upsert_proxy_log(d, log).await
+        && let Err(e) = aidog_logs::upsert_request_log(d, log).await
     {
         tracing::warn!(error = %e, "persist quota log failed");
     }

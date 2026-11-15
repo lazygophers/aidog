@@ -1,5 +1,6 @@
 {
   "model_id": "openrouter/pareto-code",
+  "thinking_supported": true,
   "display_name": "Pareto Code Router",
   "canonical_model": "pareto-code",
   "family": "openrouter",
@@ -11,7 +12,7 @@
     "input": 0,
     "output": 0
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"

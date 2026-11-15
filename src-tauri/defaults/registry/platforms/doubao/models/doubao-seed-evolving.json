@@ -1,11 +1,13 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai",
     "openai_responses"
   ],
   "model_id": "doubao-seed-evolving",
+  "display_name": "Doubao Seed Evolving",
+  "thinking_supported": true,
   "canonical_model": "doubao-seed-evolving",
   "family": "doubao-seed-evolving",
   "capabilities": [

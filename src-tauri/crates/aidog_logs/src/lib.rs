@@ -3,6 +3,9 @@
 
 mod mitm_log;
 mod proxy_log;
+mod request_log;
+#[cfg(test)]
+mod test_request_log;
 #[cfg(test)]
 mod test_mitm_log;
 #[cfg(test)]
@@ -13,3 +16,5 @@ mod test_proxy_log;
 
 pub use mitm_log::*;
 pub use proxy_log::*;
+pub use request_log::*;
+

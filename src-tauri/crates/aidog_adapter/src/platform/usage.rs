@@ -83,10 +83,20 @@ pub fn extract_usage(body: &str) -> (i32, i32, i32, i32, i32, Vec<(String, i64)>
         Ok(v) => v,
         Err(_) => return (0, 0, 0, 0, 0, Vec::new()),
     };
-    let usage = match v.get("usage") {
+    let usage = match v.get("usage").or_else(|| v.get("usageMetadata")) {
         Some(u) => u,
         None => return (0, 0, 0, 0, 0, Vec::new()),
     };
+    if let Some(gemini) = crate::parse_gemini_usage_metadata(usage) {
+        return (
+            gemini.input_tokens() as i32,
+            gemini.output_tokens() as i32,
+            gemini.cached_content_tokens as i32,
+            0,
+            0,
+            Vec::new(),
+        );
+    }
     // Cache tokens（arm 绑定见 usage_cache_arms）：Anthropic (cache_read_input_tokens),
     // OpenAI (prompt_tokens_details.cached_tokens), responses (input_tokens_details.*),
     // DeepSeek (prompt_cache_hit_tokens), generic (cache_tokens)

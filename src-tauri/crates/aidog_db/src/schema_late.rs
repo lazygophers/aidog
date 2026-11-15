@@ -584,6 +584,76 @@ fn purge_non_ai_connect_rows(conn: &Connection) {
     }
 }
 
+/// Migration 20261114-01: 请求记录（测试 / 余额 / 拉模型）独立建表 `request_log`（log.db），
+/// 不含 model / actual_model / token / cost 列；并把 proxy_log 里 source_protocol 属这三类的存量行
+/// 搬进新表后从 proxy_log 删除（不可逆；单事务；INSERT OR IGNORE + 删后无源行 → 重跑幂等）。
+pub fn migrate_request_log(conn: &Connection) -> SqlResult<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS request_log (
+            id TEXT PRIMARY KEY,
+            kind TEXT NOT NULL DEFAULT '',
+            group_key TEXT NOT NULL DEFAULT '',
+            platform_id INTEGER NOT NULL DEFAULT 0,
+            target_protocol TEXT NOT NULL DEFAULT '',
+            status_code INTEGER NOT NULL DEFAULT 0,
+            upstream_status_code INTEGER NOT NULL DEFAULT 0,
+            duration_ms INTEGER NOT NULL DEFAULT 0,
+            user_agent TEXT NOT NULL DEFAULT '',
+            request_url TEXT NOT NULL DEFAULT '',
+            request_headers TEXT NOT NULL DEFAULT '',
+            request_body TEXT NOT NULL DEFAULT '',
+            user_response_headers TEXT NOT NULL DEFAULT '',
+            user_response_body TEXT NOT NULL DEFAULT '',
+            upstream_request_url TEXT NOT NULL DEFAULT '',
+            upstream_request_headers TEXT NOT NULL DEFAULT '',
+            upstream_request_body TEXT NOT NULL DEFAULT '',
+            upstream_response_headers TEXT NOT NULL DEFAULT '',
+            response_body TEXT NOT NULL DEFAULT '',
+            created_at INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_request_log_created ON request_log(created_at);
+        CREATE INDEX IF NOT EXISTS idx_request_log_platform_kind ON request_log(platform_id, kind, created_at);",
+    )?;
+    // 源表缺任一要搬的列（极早期 schema / 单测里的最小表）时无可搬之物，干净跳过；
+    // 列齐全后的任何错误一律向上传播（迁移失败不得被吞）。
+    const SRC_COLS: [&str; 19] = [
+        "id", "source_protocol", "group_key", "platform_id", "target_protocol", "status_code",
+        "upstream_status_code", "duration_ms", "user_agent", "request_url", "request_headers",
+        "request_body", "user_response_headers", "user_response_body", "upstream_request_url",
+        "upstream_request_headers", "upstream_request_body", "upstream_response_headers", "response_body",
+    ];
+    let have: Vec<String> = conn
+        .prepare("PRAGMA table_info(proxy_log)")?
+        .query_map([], |r| r.get::<_, String>(1))?
+        .collect::<SqlResult<_>>()?;
+    let complete = SRC_COLS.iter().all(|c| have.iter().any(|h| h == c)) && have.iter().any(|h| h == "created_at");
+    if !complete {
+        return Ok(());
+    }
+    let tx = conn.unchecked_transaction()?;
+    let moved = tx.execute(
+        "INSERT OR IGNORE INTO request_log (id, kind, group_key, platform_id, target_protocol, status_code, \
+            upstream_status_code, duration_ms, user_agent, request_url, request_headers, request_body, \
+            user_response_headers, user_response_body, upstream_request_url, upstream_request_headers, \
+            upstream_request_body, upstream_response_headers, response_body, created_at) \
+         SELECT id, source_protocol, group_key, platform_id, target_protocol, status_code, \
+            upstream_status_code, duration_ms, user_agent, request_url, request_headers, request_body, \
+            user_response_headers, user_response_body, upstream_request_url, upstream_request_headers, \
+            upstream_request_body, upstream_response_headers, response_body, created_at \
+         FROM proxy_log WHERE source_protocol IN ('test', 'quota', 'fetch-models')",
+        [],
+    )?;
+    tx.execute(
+        "DELETE FROM proxy_log WHERE source_protocol IN ('test', 'quota', 'fetch-models')",
+        [],
+    )?;
+    tx.commit()?;
+    if moved > 0 {
+        tracing::info!(moved, "migration 20261114-01: 请求记录已从 proxy_log 搬入 request_log");
+    }
+    Ok(())
+}
+
 /// proxy_log 表的 late migrations（log.db 库内序 20260727-10..20，原 021–047 范围内的 proxy_log 部分）。
 ///
 /// 拆库后这些 DDL 跑在 log.db 写连接。`cpa_pids` 为原 046 需清理的 CPA 平台 ID
@@ -831,6 +901,7 @@ pub fn run_migrations_proxy_log_late(
             [],
         );
     }
+    migrate_request_log(conn)?;
     Ok(())
 }
 

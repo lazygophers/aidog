@@ -16,7 +16,7 @@
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,
-  "price": {
+"price": {
     "currency": "USD",
     "unit": "char",
     "unit_price": 0.03

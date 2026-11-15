@@ -1,9 +1,10 @@
 {
-  "last_updated": 1794191265,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "gemini"
   ],
   "model_id": "gemini-3.8-flash-lite-tts",
+  "context_window": 8192,
   "display_name": "Gemini 3.8 Flash-Lite TTS",
   "canonical_model": "gemini-3.8-flash-lite-tts",
   "version": "3.8",
