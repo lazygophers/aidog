@@ -22,7 +22,7 @@ pub(crate) fn kind_route_error_message(e: &str) -> String {
         }
         // spec-独立搜索转发 语义 4：不区分「无人声明该 path」vs「声明平台全不可用」，同一措辞。
         "no_tools_platform" => {
-            "分组内没有可用的搜索平台：组内平台未声明该搜索端点，或全部不可用".to_string()
+            "分组内没有可用的搜索平台：组内平台未声明该搜索端点".to_string()
         }
         other => format!("route error: {other}"),
     }
@@ -43,14 +43,36 @@ pub(crate) fn quota_exhausted_message(lang: Lang, q: QuotaExhausted) -> String {
     }
 }
 
+/// 路由兜底失败的状态码（依据 RFC 9110 §15）：
+/// - `group has no platforms`：分组没配上游，服务端不具备完成请求的能力 → 501（§15.6.2）；
+/// - `group's only platform is manually disabled`：管理员停用，类计划维护 → 503（§15.6.4）；
+/// - `no available platform…`：熔断 / 冷却 / 禁用的暂时不可用 → 503（§15.6.4）；
+/// - `no_tools_platform` / `no_chat_platform` / `no_decision_platform`：分组内没有平台能服务该类请求，该端点对此分组不存在 → 404（§15.5.5）；
+/// - `group's only platform is censorship-blocked`：上游内容审核拒绝（用户裁决 2026-11-14）→ 451（RFC 7725）；
+/// - 其余 → 400。
+pub(crate) fn route_fallback_status(err: &str) -> StatusCode {
+    if err == "group has no platforms" {
+        StatusCode::NOT_IMPLEMENTED
+    } else if err == "group's only platform is censorship-blocked" {
+        StatusCode::UNAVAILABLE_FOR_LEGAL_REASONS
+    } else if err == "group's only platform is manually disabled" || err.starts_with("no available platform") {
+        StatusCode::SERVICE_UNAVAILABLE
+    } else if matches!(err, "no_tools_platform" | "no_chat_platform" | "no_decision_platform") {
+        StatusCode::NOT_FOUND
+    } else {
+        StatusCode::BAD_REQUEST
+    }
+}
+
 /// 按请求类型 route fail 落库（R7，聊天 / 决策两路径共用）：`blocked_by='router'`、`est_cost=0`。
 /// - `peak_disabled`（整组被高峰禁用排除）→ 503 + `blocked_reason='peak'`；
 /// - `slot_disabled`（整组因命中槽位被关闭排除）→ 503 + `blocked_reason='slot_disabled'`；
-/// - `client_not_allowed`（全部候选被客户端白名单拦）→ 417 + `blocked_reason='client_not_allowed'`；
+/// - `client_not_allowed`（全部候选被客户端白名单拦）→ 403（§15.5.4）+ `blocked_reason='client_not_allowed'`；
 ///   `client_not_allowed_mixed`（白名单与其他排除原因并存）→ 503 + `blocked_reason='client_not_allowed_mixed'`；
-/// - `unknown_protocol`（整组候选皆未知协议，票 06）→ 503 + `blocked_reason='unknown_protocol'`；
+/// - `unknown_protocol`（整组候选皆未知协议，票 06）→ 500（§15.6.1，用户裁决 2026-11-14）+ `blocked_reason='unknown_protocol'`；
 /// - `direct_model_unavailable`（声明直通模型的平台全不可用）→ 503 + `blocked_reason='direct_model_unavailable'`；
-/// - 其余（`no_decision_platform` / `no_chat_platform` …）→ 400 + `blocked_reason`=Err 字符串。
+/// - `rate_limit`（限频，含混合原因）→ 429；`no available platform…`（熔断 / 冷却 / 禁用的暂时不可用）→ 503；
+/// - 其余按 [`route_fallback_status`]（501 / 503 / 404 / 451 / 400）+ `blocked_reason`=Err 字符串。
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn route_fail_response(
     state: &Arc<ProxyState>,
@@ -100,11 +122,11 @@ pub(crate) async fn route_fail_response(
         inject_trace_header(&mut r);
         return r;
     } else if err == "rate_limit" {
-        // 整组平台限频超限（extra.rate_limits）：503 + blocked_reason='rate_limit'。
+        // 平台限频超限（extra.rate_limits）/ 上游限频冷却，无可用平台（含混合原因）：429 + blocked_reason='rate_limit'。
         log.blocked_reason = "rate_limit".to_string();
         log.response_body = format!("route error: {err}");
         (
-            StatusCode::SERVICE_UNAVAILABLE,
+            StatusCode::TOO_MANY_REQUESTS,
             format!("{}: {err}", i18n::t(lang, ErrorKey::Route)),
         )
     } else if err == "slot_disabled" {
@@ -116,30 +138,30 @@ pub(crate) async fn route_fail_response(
             format!("{}: {err}", i18n::t(lang, ErrorKey::Route)),
         )
     } else if err == "unknown_protocol" {
-        // 整组候选皆未知协议（票 06，用户裁决 2026-10-16）：DB 数据条件而非客户端错误 → 503，
+        // 整组候选皆未知协议（票 06）：DB 数据错误而非客户端错误或暂时不可用 → 500（用户裁决 2026-11-14，原 503），
         // est_cost 0 不计价（billing.rs 对 "unknown" 同 passthrough 先例短路）。
         log.blocked_reason = "unknown_protocol".to_string();
         log.response_body = format!("route error: {err}");
         (
-            StatusCode::SERVICE_UNAVAILABLE,
+            StatusCode::INTERNAL_SERVER_ERROR,
             format!("{}: {err}", i18n::t(lang, ErrorKey::Route)),
         )
     } else if err == "client_not_allowed" || err == "client_not_allowed_mixed" {
-        // 客户端白名单：全部候选被拦 → 417 + client_not_allowed；与其他排除原因并存 → 503 + client_not_allowed_mixed。
+        // 客户端白名单：全部候选被拦 → 403 + client_not_allowed；与其他排除原因并存 → 503 + client_not_allowed_mixed。
         log.blocked_reason = err.to_string();
         let (status, msg) = if err == "client_not_allowed" {
-            (StatusCode::EXPECTATION_FAILED, "client not allowed: no platform in this group accepts this client")
+            (StatusCode::FORBIDDEN, "client not allowed: no platform in this group accepts this client")
         } else {
             (StatusCode::SERVICE_UNAVAILABLE, "no available platform: some blocked by client whitelist, others unavailable")
         };
         log.response_body = format!("route error: {msg}");
         (status, format!("{}: {msg}", i18n::t(lang, ErrorKey::Route)))
     } else if err == "no_embedding_platform" || err == "no_rerank_platform" {
-        // 分组无可用向量化/重排序平台（槽位全空 / 无 OpenAI 系 endpoint）：配置条件而非客户端错误 → 503。
+        // 分组无可用向量化/重排序平台（槽位全空 / 无 OpenAI 系 endpoint）：该端点对此分组不存在 → 404（用户裁决 2026-11-14，原 503）。
         log.blocked_reason = err.to_string();
         log.response_body = format!("route error: {err}");
         (
-            StatusCode::SERVICE_UNAVAILABLE,
+            StatusCode::NOT_FOUND,
             format!("{}: {err}", i18n::t(lang, ErrorKey::Route)),
         )
     } else if err == "direct_model_unavailable" {
@@ -155,7 +177,7 @@ pub(crate) async fn route_fail_response(
         let msg = kind_route_error_message(err);
         log.response_body = msg.clone();
         (
-            StatusCode::BAD_REQUEST,
+            route_fallback_status(err),
             format!("{}: {}", i18n::t(lang, ErrorKey::Route), msg),
         )
     };
@@ -163,6 +185,7 @@ pub(crate) async fn route_fail_response(
     log.duration_ms = start.elapsed().as_millis() as i32;
     upsert_log(state, log, log_settings).await;
     let mut r = (status, client_msg).into_response();
+    add_retry_after(&mut r, log);
     inject_trace_header(&mut r);
     r
 }
@@ -300,7 +323,8 @@ pub(crate) async fn handle_decision(
     }
 
     // 候选耗尽且循环内未 return（同 handler.rs 兜底，理论不可达）。
-    log.status_code = 503;
+    let status = exhausted_status(log);
+    log.status_code = status.as_u16() as i32;
     log.done = true;
     let err_body = format!(
         "{}: all candidates exhausted",
@@ -313,7 +337,8 @@ pub(crate) async fn handle_decision(
     log.retry_count = aidog_db::models::retry_count_of(&attempts);
     log.attempts = std::mem::take(&mut attempts);
     upsert_log(state, log, log_settings).await;
-    let mut r = (StatusCode::SERVICE_UNAVAILABLE, err_body).into_response();
+    let mut r = (status, err_body).into_response();
+    add_retry_after(&mut r, log);
     inject_trace_header(&mut r);
     r
 }

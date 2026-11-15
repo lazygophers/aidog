@@ -1,9 +1,10 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic"
   ],
   "model_id": "bge-large-zh",
+  "max_input_tokens": 512,
   "display_name": "Bge Large Zh",
   "canonical_model": "bge-large-zh",
   "family": "bge",

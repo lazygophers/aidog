@@ -1,5 +1,6 @@
 {
   "model_id": "inference-net/schematron-v2-small",
+  "thinking_supported": false,
   "display_name": "Inference.net: Schematron V2 Small",
   "canonical_model": "schematron-v2-small",
   "family": "schematron",
@@ -14,7 +15,7 @@
     "output": 2.3e-07,
     "cache_read": 5e-08
   },
-  "last_updated": 1794017726,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"

@@ -15,6 +15,8 @@ tools: Read, Edit, Glob, Grep, Bash, Skill
 - 根因 > 症状。禁用 try/catch 吞异常、禁加魔法 sleep、禁改测试迁就 bug。
 - 最小改动面。一次只修一个根因，禁顺手大重构。
 - 每条诊断有引用：`file:line` / 报错原文 / inspect 输出 / 测试结果。
+- 门禁与先红测试一律 Bash 前台同步跑（长命令设足 timeout），带 `> .tmp/<任务>/x.log 2>&1; echo EXIT=$?` 取退出码；本 agent 自己就是等结果的人，挂后台后无人唤醒。
+- 选 HTTP 状态码先查 RFC 9110 并在回报写依据（如 429 限频、451 审核、501 无实现、404 无该类资源），不默认 400/503。
 
 ## aidog 三层 bug 高发区
 

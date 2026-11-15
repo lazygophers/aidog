@@ -3,16 +3,15 @@ import { useTranslation } from "react-i18next";
 import { writeText } from "../services/platform";
 import {
   requestLogApi,
-  proxyLogApi,
   platformApi,
   onProxyLogUpdated,
-  type ProxyLogSummary,
+  type RequestLogSummary,
   type ProxyLogDetail,
-  type ProxyLogFilter,
+  type RequestLogFilter,
   type Platform,
 } from "../services/api";
 import { F } from "../domains/shared/tokens";
-import { LogRow, Pagination, FilterSelect, ThCell } from "./Logs/primitives";
+import { RequestLogRow, Pagination, FilterSelect, ThCell } from "./Logs/primitives";
 import { DetailPanel } from "./Logs/DetailPanel";
 import { useDetailScroll } from "./Logs/useDetailScroll";
 import { timePresetToRange, type TimePreset } from "./Logs/types";
@@ -21,21 +20,16 @@ import { makeRipple } from "@/utils/motion";
 import { Button } from "@/components/ui/button";
 import { TableHeader, TableBody } from "@/components/ui/table";
 
-// ponytail: RequestLog 自管 list + filter + detail state；复用 Logs/primitives (LogRow/Pagination/ThCell/FilterSelect)
-// + Logs/DetailPanel（ProxyLogDetail 经 proxyLogApi.get 取回 — request_log_list 仅摘要行）。
+// ponytail: RequestLog 自管 list + filter + detail state；复用 Logs/primitives (Pagination/ThCell/FilterSelect)
+// + Logs/DetailPanel(slim)（详情经 requestLogApi.get 取回 — request_log_list 仅摘要行）。
+// 数据来自独立表 request_log（与代理日志 proxy_log 不同表），无模型 / token。
 // 详情为独立全页：detail 非空时替换列表（筛选 / 分页 state 在本组件，返回后保持）。
 // 筛选维度: 类型(test/quota) / 平台 / 状态 / 时间 — 独立于 Logs 主页。
-// 后端 request_log_list 默认 sources=[test,quota,fetch-models]（db 兜底），前端 filter.sources 显式覆盖。
 
 const DEFAULT_PAGE_SIZE = 20;
 
-/** 类型筛选值 → 映射到后端 sources 字段 */
+/** 类型筛选值 → 后端 kind；all = 不筛（test / quota / fetch-models 全部） */
 type TypeFilter = "all" | "test" | "quota";
-
-function typeToSources(t: TypeFilter): string[] | undefined {
-  if (t === "all") return undefined; // 后端默认 [test,quota,fetch-models]
-  return [t];
-}
 
 function buildMarkdown(d: ProxyLogDetail): string {
   const fj = (s: string) => { try { return JSON.stringify(JSON.parse(s), null, 2); } catch { return s; } };
@@ -44,8 +38,6 @@ function buildMarkdown(d: ProxyLogDetail): string {
     ``,
     `## Meta`,
     `- Group: ${d.group_key}`,
-    `- Model: ${d.model || "-"}`,
-    `- Actual Model: ${d.actual_model || "-"}`,
     `- Source Protocol: ${d.source_protocol || "-"}`,
     `- Target Protocol: ${d.target_protocol || "-"}`,
     `- Status: ${d.status_code}`,
@@ -76,7 +68,7 @@ function buildMarkdown(d: ProxyLogDetail): string {
 
 export function RequestLog() {
   const { t } = useTranslation();
-  const [logs, setLogs] = useState<ProxyLogSummary[]>([]);
+  const [logs, setLogs] = useState<RequestLogSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -98,10 +90,9 @@ export function RequestLog() {
     platformApi.list().then(setPlatforms).catch(() => {});
   }, []);
 
-  const activeFilter: ProxyLogFilter = useMemo(() => {
-    const f: ProxyLogFilter = {};
-    const srcs = typeToSources(filterType);
-    if (srcs) f.sources = srcs;
+  const activeFilter: RequestLogFilter = useMemo(() => {
+    const f: RequestLogFilter = {};
+    if (filterType !== "all") f.kind = filterType;
     if (filterPlatform) f.platform_id = Number(filterPlatform);
     if (filterStatus === "success") f.status = 200;
     else if (filterStatus === "error") f.status = -1;
@@ -116,13 +107,9 @@ export function RequestLog() {
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      // ponytail: request_log_list 不返 count；复用 proxy_log_count_filtered（同 build_filter_where）
-      // 作精确 total。filter 等价（sources/exclude_sources/platform_id/... 同语义）。
-      const countFilter: ProxyLogFilter = { ...activeFilter };
-      if (!countFilter.sources) countFilter.sources = ["test", "quota", "fetch-models"];
       const [items, count] = await Promise.all([
         requestLogApi.list(activeFilter, pageSize, offset),
-        proxyLogApi.countFiltered(countFilter),
+        requestLogApi.count(activeFilter),
       ]);
       setLogs(items || []);
       setTotal(count);
@@ -138,7 +125,7 @@ export function RequestLog() {
 
   const openDetail = useCallback(async (id: string) => {
     try {
-      const d = await proxyLogApi.get(id);
+      const d = await requestLogApi.get(id);
       if (d) setDetail(d);
     } catch (e) { console.error(e); }
   }, []);
@@ -153,14 +140,14 @@ export function RequestLog() {
 
   const copyRow = useCallback(async (id: string) => {
     try {
-      const d = await proxyLogApi.get(id);
+      const d = await requestLogApi.get(id);
       if (d) await copyDetail(d);
     } catch (err) { console.error(err); }
   }, [copyDetail]);
 
   const refreshDetail = useCallback(() => {
     if (!detail) return;
-    proxyLogApi.get(detail.id).then(d => { if (d) setDetail(d); }).catch(() => {});
+    requestLogApi.get(detail.id).then(d => { if (d) setDetail(d); }).catch(() => {});
   }, [detail]);
   useEffect(() => onProxyLogUpdated(() => { refreshDetail(); }, 1000), [refreshDetail]);
 
@@ -187,7 +174,7 @@ export function RequestLog() {
   const detailData = useMemo(() => ({
     t, detail, copied, copiedId, setCopiedId,
     openDetail, copyDetail, platformMap, groupName,
-    setDetail,
+    setDetail, slim: true,
   }), [t, detail, copied, copiedId, openDetail, copyDetail, platformMap]);
 
   useDetailScroll(detail !== null);
@@ -224,12 +211,14 @@ export function RequestLog() {
             placeholder={t("requestLog.filterType", "类型")}
           />
           {/* Platform */}
-          <FilterSelect
-            value={filterPlatform}
-            onChange={setFilterPlatform}
-            options={platforms.map(p => ({ value: String(p.id), label: p.name }))}
-            placeholder={t("logs.filterPlatform", "平台")}
-          />
+          <span data-testid="request-log-filter-platform" style={{ display: "contents" }}>
+            <FilterSelect
+              value={filterPlatform}
+              onChange={setFilterPlatform}
+              options={platforms.map(p => ({ value: String(p.id), label: p.name }))}
+              placeholder={t("logs.filterPlatform", "平台")}
+            />
+          </span>
           {/* Status */}
           <FilterSelect
             value={filterStatus}
@@ -274,23 +263,17 @@ export function RequestLog() {
                 <TableHeader>
                   <ThCell>{t("logs.time")}</ThCell>
                   <ThCell>{t("logs.group")}</ThCell>
-                  <ThCell>{t("logs.platform", "平台")}</ThCell>
-                  <ThCell>{t("logs.model", "请求模型")}</ThCell>
-                  <ThCell>{t("logs.actualModel", "实际模型")}</ThCell>
+                  <ThCell>{t("logs.userAgent", "UA")}</ThCell>
                   <ThCell>{t("logs.status")}</ThCell>
                   <ThCell>{t("logs.duration")}</ThCell>
-                  <ThCell>{t("logs.inputTokens")}</ThCell>
-                  <ThCell>{t("logs.outputTokens")}</ThCell>
                   <ThCell sticky>{""}</ThCell>
                 </TableHeader>
                 <TableBody>
                   {logs.map((log, idx) => (
-                    <LogRow
+                    <RequestLogRow
                       key={log.id}
                       log={log}
                       idx={idx}
-                      platformName={platformMap.get(log.platform_id) || "-"}
-                      groupName={groupName(log.group_key)}
                       onOpen={openDetail}
                       onCopy={copyRow}
                       t={t}

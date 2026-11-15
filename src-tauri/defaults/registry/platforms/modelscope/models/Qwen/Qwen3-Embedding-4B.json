@@ -1,13 +1,14 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "Qwen/Qwen3-Embedding-4B",
+  "max_input_tokens": 32768,
   "display_name": "Qwen3 Embedding 4B",
   "canonical_model": "Qwen3-Embedding-4B",
-  "context_window": 8192,
+  "context_window": 32768,
   "capabilities": [
     "embedding"
   ],

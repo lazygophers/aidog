@@ -1,9 +1,10 @@
 {
-  "last_updated": 1794017726,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "chat-latest",
+  "display_name": "Chat Latest",
   "canonical_model": "chat-latest",
   "family": "chat",
   "version": "latest",

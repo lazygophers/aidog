@@ -1,5 +1,6 @@
 {
   "model_id": "thedrummer/skyfall-36b-v2",
+  "thinking_supported": false,
   "display_name": "TheDrummer: Skyfall 36B V2",
   "canonical_model": "skyfall-36b-v2",
   "family": "skyfall",
@@ -14,7 +15,7 @@
     "output": 8e-07,
     "cache_read": 2.5e-07
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"

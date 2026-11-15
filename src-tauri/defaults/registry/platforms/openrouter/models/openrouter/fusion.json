@@ -1,5 +1,6 @@
 {
   "model_id": "openrouter/fusion",
+  "thinking_supported": false,
   "display_name": "OpenRouter: Fusion",
   "canonical_model": "fusion",
   "family": "openrouter",
@@ -11,7 +12,7 @@
     "input": 0,
     "output": 0
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"

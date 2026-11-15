@@ -1,9 +1,10 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "google/gemma-2b",
+  "display_name": "Gemma 2b",
   "canonical_model": "gemma-2b",
   "family": "gemma",
   "capabilities": [],

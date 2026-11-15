@@ -1,9 +1,10 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic"
   ],
   "model_id": "embedding-v1",
+  "max_input_tokens": 384,
   "display_name": "Embedding V1",
   "canonical_model": "embedding-v1",
   "family": "embedding",

@@ -174,6 +174,8 @@ pub fn run() {
             aidog_core::proxy_cmd::proxy_log::proxy_log_cleanup_estimate,
             // Request Logs (test/quota page)
             aidog_core::proxy_cmd::proxy_log::request_log_list,
+            aidog_core::proxy_cmd::proxy_log::request_log_count,
+            aidog_core::proxy_cmd::proxy_log::request_log_get,
             // Stats aggregation settings + rebuild
             aidog_core::platform_cmd::stats::stats_settings_get,
             aidog_core::platform_cmd::stats::stats_settings_set,

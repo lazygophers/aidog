@@ -1,9 +1,10 @@
 {
-  "last_updated": 1794017726,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "gemini"
   ],
   "model_id": "gemini-flash-lite-latest",
+  "display_name": "Gemini Flash-Lite (latest)",
   "canonical_model": "gemini-flash-lite-latest",
   "family": "gemini",
   "capabilities": [

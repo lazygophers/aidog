@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794022183,
+  "last_updated": 1794586585,
   "endpoints": {
     "default": [
       {
@@ -18,7 +18,6 @@
       "gpt-5.6-sol",
       "gpt-5.6-terra",
       "gpt-5.5",
-      "gpt-5.3-codex-spark",
       "gpt-5.6",
       "gpt-5.6-luna"
     ]
