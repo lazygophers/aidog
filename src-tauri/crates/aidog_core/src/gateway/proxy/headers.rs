@@ -441,8 +441,8 @@ pub(crate) fn capture_request_headers(
 }
 
 // issue 68：coding plan 注入迁入 aidog_adapter::platform::hooks（适配器差异钩子的默认实现），
-// re-export 保持 headers:: / proxy:: 路径与既有调用（model_test.rs）、测试不变。
-pub use aidog_adapter::platform::hooks::{inject_coding_plan_fields, override_coding_plan_path};
+// re-export 保持 headers:: / proxy:: 路径与既有调用（model_test.rs）不变。
+pub use aidog_adapter::platform::hooks::inject_coding_plan_fields;
 
 #[cfg(test)]
 #[path = "test_headers.rs"]

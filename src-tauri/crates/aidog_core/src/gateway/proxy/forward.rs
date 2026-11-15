@@ -2676,7 +2676,7 @@ async fn prepare_outbound(
     // issue 68：按平台 code 取出站适配器（registry code = platform_type 的 wire 名），
     // 请求构造 / 响应解析 / 差异钩子全部经它分派，不再直接按 wire 协议调通用转换。
     let pa = aidog_adapter::platform::adapter_for(&route.platform.platform_type.wire_str());
-    let (mut req_body, mut api_path) = if target.same_protocol_passthrough {
+    let (mut req_body, api_path) = if target.same_protocol_passthrough {
         // O3 判定：保留 clone。model remap 对几乎每个透传请求都要改写 body（&mut 必需），
         // 下方 cap/strip/hoist 链也全按 &mut Value 写；Cow 只在「零改写」请求上省这一次拷贝，
         // 覆盖面太窄，不值当把整条链改成 to_mut。真正的全量拷贝已在 request.rs 从 raw 解析处省掉。
@@ -2700,7 +2700,7 @@ async fn prepare_outbound(
         // 非 Anthropic 上游合成的 thinking 块（reasoning_content / 行内 `<thinking>` 标签转换而来），
         // 这类块没有 Anthropic 签名，原样上送官方端点判 400。转换分支早有同语义丢弃，此处补齐透传分支。
         if target.target_protocol_enum.same_wire_family(&Protocol::Anthropic) {
-            let removed = adapter::strip_unsigned_thinking_blocks(&mut body);
+            let removed = pa.strip_unsigned_thinking_blocks(&mut body);
             if removed > 0 {
                 tracing::info!(
                     removed,
@@ -2717,9 +2717,10 @@ async fn prepare_outbound(
         pa.build_request(chat_req, target.target_protocol_enum, platform_protocol)
     };
 
-    // Coding Plan 特殊处理：注入平台特有字段 + 覆盖 API 路径（issue 68：经适配器钩子分派）
+    // Coding Plan 特殊处理：注入平台特有字段（issue 68：经适配器钩子分派；
+    // 原 override_coding_plan_path 空 hook 已删——api_path 无需覆盖）。
     if target.coding_plan {
-        pa.inject_coding_plan(&mut req_body, &mut api_path, platform_protocol);
+        pa.inject_coding_plan(&mut req_body, platform_protocol);
     }
 
     // disable_thinking：aidog 本地扩展字段（客户端请求禁用思考）。非标字段任何上游不认 →
