@@ -344,8 +344,8 @@ PR 分支同此：**从 `origin/master` 开分支，不从本地 HEAD**（2026-1
 单提交用 cherry-pick；push 前核 `git rev-list --count origin/master..<分支>`，只含本任务提交才推。
 全局 git-worktree.md「所有开发基于 origin/master」缺「push 前核提交数」这步，本条补齐（仅项目级）。
 2026-11-15 依赖更新轮复发同病：`git fetch` DNS 失败后改基于**本地** master 建分支，把主仓未推送提交带进
-PR（事后 rebase 修复）。fetch 失败不是回落本地 master 的许可——先修网络重试 fetch（对症药见
-parallel-implement.md §20 下载方向），fetch 不成不建分支、不开工。
+PR（事后 rebase 修复）。fetch 失败不是回落本地 master 的许可；未能取得 `origin/master` 时，不建分支、不开工。
+2026-11-15 issue 68 轮记录：直连 push 两次 DNS 解析失败，改经本机 7890 代理后成功（PUSH_EXIT=0）。这是该次环境的结果，不构成其他环境或错误类型的操作建议。
 
 ## issue 开发：独立 worktree + PR（2026-11-15）
 
