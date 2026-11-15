@@ -1,7 +1,8 @@
 // GroupListItem 就近测试：showLastOutcome 透传（分组列表与详情平台功能对齐，差距一）。
 // 选择器锚稳定 testid + data-result；不断言 locale 文案。
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeAll } from "vitest";
 import { render, screen, fireEvent } from "../../test/render";
+import userEvent from "@testing-library/user-event";
 
 // 币种 store 首次订阅的 refresh 固定回 USD（空操作）。
 vi.mock("../../services/api/currency", () => ({
@@ -11,6 +12,7 @@ vi.mock("../../services/api/currency", () => ({
 
 import { GroupListItem } from "./GroupListItem";
 import type { CardsSnapshot } from "./GroupListItem";
+import { platformApi } from "../../services/api";
 import type { GroupDetail, Platform } from "../../services/api";
 
 const platform = {
@@ -81,5 +83,41 @@ describe("GroupListItem — 删除分组菜单项", () => {
     openMenu();
     await screen.findByText("一键测试本组全部平台");
     expect(screen.queryByText("删除分组")).not.toBeNull();
+  });
+});
+
+describe("GroupListItem — 多选「按状态选」", () => {
+  const mk = (id: number, status: string) => ({ ...platform, id, name: `P${id}`, status, last_error: "", last_error_at: 0 }) as never as Platform;
+  const plats = [mk(1, "enabled"), mk(2, "disabled"), mk(3, "disabled"), mk(4, "auto_disabled")];
+  const det = {
+    ...detail,
+    platforms: plats.map((p, i) => ({ platform: { id: p.id }, priority: i, weight: 1, level_priority: 5 })),
+  } as never as GroupDetail;
+
+  const checked = () =>
+    screen.getAllByTestId("platform-row")
+      .filter(r => r.querySelector('[role="checkbox"]')?.getAttribute("aria-checked") === "true")
+      .map(r => Number(r.getAttribute("data-platform-id")));
+
+  // jsdom 缺 Radix Select 依赖的 pointer capture / scrollIntoView。
+  beforeAll(() => {
+    Element.prototype.hasPointerCapture ??= () => false;
+    Element.prototype.setPointerCapture ??= () => {};
+    Element.prototype.releasePointerCapture ??= () => {};
+    Element.prototype.scrollIntoView ??= () => {};
+  });
+
+  it("选「禁用」→ 只勾选 status=disabled 的平台；再选「启用」可重新触发", async () => {
+    vi.spyOn(platformApi, "errorStatus").mockResolvedValue([]);
+    render(<GroupListItem {...baseProps} platforms={plats} detail={det} />);
+    fireEvent.click(screen.getByTestId("group-batch-start"));
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("group-batch-status-select"));
+    await user.click(await screen.findByTestId("group-batch-status-opt-s:disabled"));
+    expect(checked().sort()).toEqual([2, 3]);
+
+    await user.click(screen.getByTestId("group-batch-status-select"));
+    await user.click(await screen.findByTestId("group-batch-status-opt-s:enabled"));
+    expect(checked()).toEqual([1]);
   });
 });
