@@ -205,6 +205,73 @@ fn openai_family_client_without_include_usage_gets_no_usage_chunk() {
     }
 }
 
+/// 跑一条 wire → client 流水线，finish 帧与 usage 帧拆成两个网络 chunk 喂入
+/// （复审必改①的触发形态：单文本整流覆盖不到）。返回客户端收到的 SSE 全文。
+fn run_stream_split_chunks(
+    wire: &Protocol,
+    client: &Protocol,
+    include_usage: bool,
+    chunks: [&str; 2],
+) -> String {
+    let mut state = ClientSseState::default();
+    let mut out = String::new();
+    for chunk in chunks {
+        for e in parse_upstream_sse(chunk, wire) {
+            out.push_str(
+                &to_client_sse_stateful(&e, &mut state, client, "m", include_usage)
+                    .unwrap_or_default(),
+            );
+        }
+    }
+    out.push_str(&state.flush().unwrap_or_default());
+    out
+}
+
+#[test]
+fn openai_wire_finish_and_usage_in_separate_chunks_still_deliver_usage() {
+    // openai 官方分帧：chunk 1 = delta + finish 块，chunk 2 = usage 块 + [DONE]。
+    // 复审必改①：finish 块先到时不得立即终结（旧实现立即发 finish + usage(0) + [DONE]，
+    // 晚到 usage 再发重复 [DONE]，标准 SDK 读首个 [DONE] 即停 → usage=0）。
+    let chunk1 = format!(
+        "data: {}\n\ndata: {}\n\n",
+        json!({"choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":null}]}),
+        json!({"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}),
+    );
+    let chunk2 = format!(
+        "data: {}\n\ndata: [DONE]\n\n",
+        json!({"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":9,"total_tokens":19,"prompt_tokens_details":{"cached_tokens":6}}}),
+    );
+    for client in [Protocol::OpenAI, Protocol::OpenAICompletions] {
+        let out = run_stream_split_chunks(
+            &Protocol::OpenAI,
+            &client,
+            true,
+            [&chunk1, &chunk2],
+        );
+        let frames = frames_json(&out);
+        let u: Vec<&serde_json::Value> = frames
+            .iter()
+            .filter(|j| j.get("usage").is_some() && !j.get("usage").unwrap().is_null())
+            .collect();
+        assert_eq!(u.len(), 1, "{client:?} 应恰有一个 usage 块: {out:?}");
+        let u = u[0]["usage"].as_object().unwrap();
+        assert_eq!(u["prompt_tokens"], 10, "{client:?} 跨 chunk usage 丢值: {out:?}");
+        assert_eq!(u["completion_tokens"], 9, "{client:?} 跨 chunk usage 丢值: {out:?}");
+        // [DONE] 只出现一次，且在 usage 块之后（标准 SDK 读首个 [DONE] 即停）
+        assert_eq!(
+            out.matches("data: [DONE]").count(),
+            1,
+            "{client:?} [DONE] 哨兵重复: {out:?}"
+        );
+        let done_pos = out.find("data: [DONE]").unwrap();
+        let usage_pos = out.find("\"prompt_tokens\"").unwrap();
+        assert!(usage_pos < done_pos, "{client:?} usage 必须在 [DONE] 之前: {out:?}");
+        // finish 块仍在 usage 块之前（官方顺序 finish → usage → [DONE]）
+        let finish_pos = out.find("\"finish_reason\":\"stop\"").unwrap();
+        assert!(finish_pos < usage_pos, "{client:?} finish 块须先于 usage 块: {out:?}");
+    }
+}
+
 #[test]
 fn ungated_clients_get_usage_without_include_usage_flag() {
     // Anthropic / Gemini / Responses 客户端无 include_usage 门控（官方契约恒回传 usage）
