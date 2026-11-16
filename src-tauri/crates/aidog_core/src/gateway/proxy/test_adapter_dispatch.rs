@@ -196,6 +196,11 @@ async fn outbound_follows_endpoint_protocol_after_user_change() {
 
 /// GLM 家族四个成员 × 端点协议，入站带 aidog 扩展 `disable_thinking: true`，返回上游收到的 body。
 async fn glm_outbound_body(platform_type: Protocol, ep: Protocol, gk: &str) -> serde_json::Value {
+    outbound_body_for_model(platform_type, ep, gk, "glm-test").await
+}
+
+/// 同 `glm_outbound_body`，请求模型名可指定（用于命中 registry 条目的 `thinking_toggleable`）。
+async fn outbound_body_for_model(platform_type: Protocol, ep: Protocol, gk: &str, model: &str) -> serde_json::Value {
     let resp_ok = if ep == Protocol::Anthropic { ANTHROPIC_OK } else { OPENAI_OK };
     let (upstream, hits) = spawn_recording_upstream(resp_ok).await;
     let state = make_state(test_db().await).await;
@@ -228,7 +233,9 @@ async fn glm_outbound_body(platform_type: Protocol, ep: Protocol, gk: &str) -> s
         .header("authorization", format!("Bearer {gk}"))
         .header("content-type", "application/json")
         .body(Body::from(
-            r#"{"model":"glm-test","max_tokens":32,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#,
+            serde_json::json!({"model": model, "max_tokens": 32, "disable_thinking": true,
+                "messages": [{"role": "user", "content": "hi"}]})
+            .to_string(),
         ))
         .unwrap();
     let resp = handle_proxy(AxumState(state.clone()), req).await;
@@ -1161,6 +1168,22 @@ async fn kimi_family_openai_endpoint_disables_thinking_with_official_param() {
         );
         assert!(body.get("chat_template_kwargs").is_none(), "{pt:?} 不应写 chat_template_kwargs: {body}");
         assert!(body.get("disable_thinking").is_none(), "{pt:?} 私有字段应剥除: {body}");
+    }
+}
+
+/// issue 76（护栏）：不可关闭思考的真实 registry 模型（chat.md「kimi-k2.7-code 和
+/// kimi-k2.7-code-highspeed … 仅支持 "enabled"，传 "disabled" 会报错」；K3「不使用 `thinking` 参数」），
+/// openai 端点禁思考时不写任何 `thinking` 键。
+#[tokio::test]
+async fn kimi_forced_thinking_models_send_no_thinking_on_openai_endpoint() {
+    for pt in [Protocol::Kimi, Protocol::KimiEn] {
+        for model in ["kimi-k2.7-code", "kimi-k2.7-code-highspeed", "kimi-k3"] {
+            let tag = format!("ft{}", model.replace(['.', '-'], ""));
+            let body = outbound_body_for_model(pt.clone(), Protocol::OpenAI, &kimi_gk(&pt, &tag), model).await;
+            assert!(body.get("thinking").is_none(), "{pt:?}/{model} 不应写 thinking: {body}");
+            assert!(body.get("chat_template_kwargs").is_none(), "{pt:?}/{model}: {body}");
+            assert!(body.get("disable_thinking").is_none(), "{pt:?}/{model}: {body}");
+        }
     }
 }
 
