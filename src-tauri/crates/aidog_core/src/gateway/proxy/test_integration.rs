@@ -898,7 +898,7 @@ async fn set_group_routing_mode(state: &Arc<ProxyState>, gk: &str, mode: Routing
     aidog_db::update_group(&state.db, aidog_db::models::UpdateGroup {
         id: g.id, name: None, routing_mode: Some(mode), request_timeout_secs: 0, connect_timeout_secs: 0,
         source_protocol: None, max_retries: None, model_mappings: g.model_mappings.clone(),
-        env_vars: g.env_vars.clone(), is_default: None,
+        is_default: None,
     })
     .await
     .unwrap();
@@ -8548,7 +8548,7 @@ async fn set_group_max_attempts(state: &Arc<ProxyState>, gk: &str, n: u32) {
     aidog_db::update_group(&state.db, aidog_db::models::UpdateGroup {
         id: g.id, name: None, routing_mode: None, request_timeout_secs: 0, connect_timeout_secs: 0,
         source_protocol: None, max_retries: Some(n), model_mappings: g.model_mappings.clone(),
-        env_vars: g.env_vars.clone(), is_default: None,
+        is_default: None,
     })
     .await
     .unwrap();

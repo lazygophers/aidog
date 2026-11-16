@@ -86,7 +86,6 @@ mod tests {
             max_retries: 2,
             model_mappings: vec![],
             is_default: false,
-            env_vars: vec![],
             extra: String::new(),
         }
     }

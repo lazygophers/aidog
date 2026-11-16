@@ -435,7 +435,7 @@ async fn e2e_cap_one_stops_failover() {
     ]).await.unwrap();
     aidog_db::update_group(&state.db, aidog_db::models::UpdateGroup {
         id: group.id, name: None, routing_mode: None, request_timeout_secs: 0, connect_timeout_secs: 0,
-        source_protocol: None, max_retries: Some(1), model_mappings: vec![], env_vars: vec![], is_default: None,
+        source_protocol: None, max_retries: Some(1), model_mappings: vec![], is_default: None,
     }).await.unwrap();
     state.db.invalidate_group_details_cache();
 
@@ -531,7 +531,7 @@ async fn e2e_connect_failure_skips_sibling_same_base_url() {
     ]).await.unwrap();
     aidog_db::update_group(&state.db, aidog_db::models::UpdateGroup {
         id: group.id, name: None, routing_mode: None, request_timeout_secs: 0, connect_timeout_secs: 0,
-        source_protocol: None, max_retries: Some(2), model_mappings: vec![], env_vars: vec![], is_default: None,
+        source_protocol: None, max_retries: Some(2), model_mappings: vec![], is_default: None,
     }).await.unwrap();
     state.db.invalidate_group_details_cache();
 

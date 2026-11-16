@@ -13,7 +13,7 @@ function setup() {
   const dispatchEdit = vi.fn();
   render(
     <GroupEditPanel
-      edit={{ ...EMPTY_EDIT, name: "g", maxRetries: 4, target: { group: { id: 1, name: "g", group_key: "gk", extra: "", env_vars: [] }, platforms: [], model_mappings: [] } as never }}
+      edit={{ ...EMPTY_EDIT, name: "g", maxRetries: 4, target: { group: { id: 1, name: "g", group_key: "gk", extra: "" }, platforms: [], model_mappings: [] } as never }}
       dispatchEdit={dispatchEdit}
       platforms={[]}
       t={((k: string) => k) as never}

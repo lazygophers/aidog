@@ -265,104 +265,6 @@ async fn write_default_claude_settings_drops_legacy_marker() {
     assert!(managed.contains(&"env.ANTHROPIC_AUTH_TOKEN".to_string()));
 }
 
-/// do_sync_group_settings ignores retired group env_vars while preserving aidog routing fields.
-#[tokio::test]
-async fn do_sync_group_settings_does_not_inject_group_env_vars() {
-    use crate::gateway::models::{CreateGroup, EnvVar, RoutingMode};
-    use aidog_db::test_support::{HomeGuard, test_db};
-    let h = HomeGuard::new();
-    let db = test_db().await;
-
-    let g = aidog_db::create_group(
-        &db,
-        CreateGroup {
-            name: "env-test".to_string(),
-            group_key: Some("gk_envtest".to_string()),
-            routing_mode: RoutingMode::Failover,
-            auto_from_platform: String::new(),
-            request_timeout_secs: 0,
-            connect_timeout_secs: 0,
-            source_protocol: None,
-            max_retries: 2,
-            model_mappings: vec![aidog_db::models::ModelMapping {
-                source_model: "claude-sonnet-5".to_string(),
-                target_platform_id: 0,
-                target_model: "deepseek-chat".to_string(),
-                request_timeout_secs: 0,
-                connect_timeout_secs: 0,
-            }],
-            env_vars: vec![
-                EnvVar {
-                    key: "CLAUDE_CODE_MAX_OUTPUT_TOKENS".to_string(),
-                    value: "32000".to_string(),
-                },
-                // 保护字段：同名须被丢弃
-                EnvVar {
-                    key: "ANTHROPIC_BASE_URL".to_string(),
-                    value: "http://evil.example/proxy".to_string(),
-                },
-                EnvVar {
-                    key: "ANTHROPIC_AUTH_TOKEN".to_string(),
-                    value: "leaked".to_string(),
-                },
-                EnvVar {
-                    key: "CLAUDE_CODE_AUTO_COMPACT_WINDOW".to_string(),
-                    value: "evil".to_string(),
-                },
-                EnvVar {
-                    key: "CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT".to_string(),
-                    value: "evil".to_string(),
-                },
-            ],
-        },
-    )
-    .await
-    .unwrap();
-
-    super::do_sync_group_settings(&db, 9911).await.unwrap();
-
-    let written: serde_json::Value = serde_json::from_str(
-        &std::fs::read_to_string(h.home().join(".aidog/settings.gk_envtest.json")).unwrap(),
-    )
-    .unwrap();
-
-    // Group variables are no longer merged into Claude Code settings.
-    assert!(
-        written["env"]
-            .get("CLAUDE_CODE_MAX_OUTPUT_TOKENS")
-            .is_none()
-    );
-    // aidog 强写的 proxy 路由字段未被用户覆盖
-    assert_eq!(
-        written["env"]["ANTHROPIC_BASE_URL"],
-        "http://127.0.0.1:9911/proxy"
-    );
-    assert_eq!(written["env"]["ANTHROPIC_AUTH_TOKEN"], "gk_envtest");
-    // 压缩窗口对齐 env 注入（组内有 registry 模型 deepseek-chat）
-    let compact = written["env"]["CLAUDE_CODE_AUTO_COMPACT_WINDOW"]
-        .as_str()
-        .expect("CLAUDE_CODE_AUTO_COMPACT_WINDOW must be injected for non-passthrough group")
-        .parse::<i64>()
-        .expect("must be plain integer");
-    assert!(
-        (100_000..=1_000_000).contains(&compact),
-        "window must clamp into CC legal range, got {compact}"
-    );
-    assert_eq!(
-        written["env"]["CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT"], "1",
-        "未识别模型被动压缩开关必须注入"
-    );
-    // Managed values continue to come from sync logic, not legacy group env_vars.
-    assert_ne!(
-        written["env"]["CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT"],
-        "evil"
-    );
-    assert_ne!(written["env"]["CLAUDE_CODE_AUTO_COMPACT_WINDOW"], "evil");
-
-    // 清掉这组避免污染其它测试（test_db 用内存库，但 sync 写了真实 HOME 下的文件）
-    aidog_db::delete_group(&db, g.id).await.unwrap();
-}
-
 /// group_max_context_window：haiku（杂活槽）/ gpt（Codex 专用）不参与窗口计算。
 /// 构造成杂活槽窗口**最宽**，取 max 时若误把它算进来就会被拉到 1048576；
 /// 正确结果必须停在主对话槽（glm-4.5 / glm-4.6 均远小于 1M）。
@@ -538,7 +440,6 @@ async fn do_sync_group_settings_skips_routing_env_for_pure_claude_code_group() {
             source_protocol: None,
             max_retries: 2,
             model_mappings: Vec::new(),
-            env_vars: Vec::new(),
         },
     )
     .await
@@ -589,7 +490,6 @@ async fn do_sync_group_settings_skips_routing_env_for_pure_claude_code_group() {
             source_protocol: None,
             max_retries: 2,
             model_mappings: Vec::new(),
-            env_vars: Vec::new(),
         },
     )
     .await
@@ -678,11 +578,10 @@ async fn do_sync_group_settings_skips_routing_env_for_pure_claude_code_group() {
 }
 
 /// pure cc 组 HTTPS_PROXY 注入的边界：组名不 URL-safe → 不写坏配置（该组 env 无
-/// HTTPS_PROXY），其余组照常同步落盘，整体返回 Err 提示改名；用户 env_vars 里的
-/// HTTPS_PROXY 对 pure cc 组是托管字段，同名丢弃。
+/// HTTPS_PROXY），其余组照常同步落盘，整体返回 Err 提示改名。
 #[tokio::test]
 async fn do_sync_group_settings_blocks_url_unsafe_cc_group_name() {
-    use crate::gateway::models::{CreateGroup, EnvVar, RoutingMode};
+    use crate::gateway::models::{CreateGroup, RoutingMode};
     use aidog_db::models::Protocol;
     use aidog_db::test_support::{HomeGuard, test_db};
 
@@ -720,7 +619,7 @@ async fn do_sync_group_settings_blocks_url_unsafe_cc_group_name() {
     let cc_bad = mk_platform(&db, "cc-sub2", Protocol::ClaudeCode, "").await;
     let normal = mk_platform(&db, "normal", Protocol::Anthropic, "sk-x").await;
 
-    let mk_group = |db: &aidog_db::Db, name: &str, key: &str, evs: Vec<EnvVar>| {
+    let mk_group = |db: &aidog_db::Db, name: &str, key: &str| {
         let db = db.clone();
         let name = name.to_string();
         let key = key.to_string();
@@ -737,18 +636,13 @@ async fn do_sync_group_settings_blocks_url_unsafe_cc_group_name() {
                     source_protocol: None,
                     max_retries: 2,
                     model_mappings: Vec::new(),
-                    env_vars: evs,
                 },
             )
             .await
             .unwrap()
         }
     };
-    let g_ok = mk_group(&db, "ok.cc_1", "gk_ok", vec![EnvVar {
-        key: "HTTPS_PROXY".to_string(),
-        value: "http://evil.example:1".to_string(),
-    }])
-    .await;
+    let g_ok = mk_group(&db, "ok.cc_1", "gk_ok").await;
     aidog_db::set_group_platforms(
         &db,
         g_ok.id,
@@ -757,7 +651,7 @@ async fn do_sync_group_settings_blocks_url_unsafe_cc_group_name() {
     .await
     .unwrap();
     // 组名含空格：不 URL-safe
-    let g_bad = mk_group(&db, "bad name!", "gk_bad", Vec::new()).await;
+    let g_bad = mk_group(&db, "bad name!", "gk_bad").await;
     aidog_db::set_group_platforms(
         &db,
         g_bad.id,
@@ -765,7 +659,7 @@ async fn do_sync_group_settings_blocks_url_unsafe_cc_group_name() {
     )
     .await
     .unwrap();
-    let g_norm = mk_group(&db, "norm", "gk_norm2", Vec::new()).await;
+    let g_norm = mk_group(&db, "norm", "gk_norm2").await;
     aidog_db::set_group_platforms(
         &db,
         g_norm.id,
@@ -871,7 +765,6 @@ async fn preset_display_name_never_reaches_written_settings() {
             source_protocol: None,
             max_retries: 2,
             model_mappings: vec![],
-            env_vars: vec![],
         },
     )
     .await
@@ -1058,7 +951,6 @@ async fn claude_json_section_stripped_and_merged_for_default_group() {
         source_protocol: None,
         max_retries: 2,
         model_mappings: vec![],
-        env_vars: vec![],
     };
     let g = aidog_db::create_group(&db, mk("cj-default", "gk_cjdef")).await.unwrap();
     aidog_db::create_group(&db, mk("cj-other", "gk_cjoth")).await.unwrap();
@@ -1114,7 +1006,6 @@ async fn claude_json_section_not_written_without_default_group() {
             source_protocol: None,
             max_retries: 2,
             model_mappings: vec![],
-            env_vars: vec![],
         },
     )
     .await
@@ -1156,8 +1047,8 @@ fn header_safe_group_key_rejects_crlf_and_non_ascii() {
     assert!(!ok("组a"));
 }
 
-async fn mk_group(db: &aidog_db::Db, name: &str, key: &str, env: Vec<(&str, &str)>) -> aidog_db::models::Group {
-    use crate::gateway::models::{CreateGroup, EnvVar, RoutingMode};
+async fn mk_group(db: &aidog_db::Db, name: &str, key: &str) -> aidog_db::models::Group {
+    use crate::gateway::models::{CreateGroup, RoutingMode};
     aidog_db::create_group(
         db,
         CreateGroup {
@@ -1170,10 +1061,6 @@ async fn mk_group(db: &aidog_db::Db, name: &str, key: &str, env: Vec<(&str, &str
             source_protocol: None,
             max_retries: 2,
             model_mappings: Vec::new(),
-            env_vars: env
-                .into_iter()
-                .map(|(k, v)| EnvVar { key: k.to_string(), value: v.to_string() })
-                .collect(),
         },
     )
     .await
@@ -1187,20 +1074,14 @@ fn read_group_settings(h: &aidog_db::test_support::HomeGuard, key: &str) -> serd
     .unwrap()
 }
 
-/// 普通组写入 X-Aidog-Group 头（组 env_vars 功能已移除，env_vars 不再并入头行）；默认组同款写入全局文件。
+/// 普通组写入 X-Aidog-Group 头；默认组同款写入全局文件。
 #[tokio::test]
 async fn do_sync_group_settings_writes_group_header_and_merges_user_headers() {
     use aidog_db::test_support::{HomeGuard, test_db};
     let h = HomeGuard::new();
     let db = test_db().await;
-    let plain = mk_group(&db, "plain", "gk_hdr_plain", vec![]).await;
-    let merged = mk_group(
-        &db,
-        "merged",
-        "gk_hdr_merged",
-        vec![("ANTHROPIC_CUSTOM_HEADERS", "X-Org-Route: prod\nx-aidog-group: stale")],
-    )
-    .await;
+    let plain = mk_group(&db, "plain", "gk_hdr_plain").await;
+    let merged = mk_group(&db, "merged", "gk_hdr_merged").await;
     aidog_db::set_default_group(&db, Some(plain.id)).await.unwrap();
 
     super::do_sync_group_settings(&db, 9913).await.unwrap();
@@ -1228,14 +1109,14 @@ async fn do_sync_group_settings_skips_group_header_for_unsafe_key() {
     use aidog_db::test_support::{HomeGuard, test_db};
     let h = HomeGuard::new();
     let db = test_db().await;
-    mk_group(&db, "bad", "组_hdr", vec![("ANTHROPIC_CUSTOM_HEADERS", "X-Org-Route: prod")]).await;
+    mk_group(&db, "bad", "组_hdr").await;
     super::do_sync_group_settings(&db, 9914).await.unwrap();
     let v = read_group_settings(&h, "组_hdr");
     assert_eq!(v["env"]["ANTHROPIC_CUSTOM_HEADERS"], "");
 }
 
 /// 纯 claude_code 透传组：路由 env 被跳过，头不写，写空串中和默认组的全局头
-/// （订阅流量不带 X-Aidog-Group 直连 Anthropic；组 env_vars 功能已移除）。
+/// （订阅流量不带 X-Aidog-Group 直连 Anthropic）。
 #[tokio::test]
 async fn do_sync_group_settings_pure_claude_code_group_has_no_group_header() {
     use aidog_db::models::Protocol;
@@ -1262,11 +1143,8 @@ async fn do_sync_group_settings_pure_claude_code_group_has_no_group_header() {
     )
     .await
     .unwrap();
-    for (name, key, env) in [
-        ("cc1", "gk_hdr_cc1", vec![]),
-        ("cc2", "gk_hdr_cc2", vec![("ANTHROPIC_CUSTOM_HEADERS", "X-Org-Route: prod\nX-Aidog-Group: x")]),
-    ] {
-        let g = mk_group(&db, name, key, env).await;
+    for (name, key) in [("cc1", "gk_hdr_cc1"), ("cc2", "gk_hdr_cc2")] {
+        let g = mk_group(&db, name, key).await;
         aidog_db::set_group_platforms(
             &db,
             g.id,

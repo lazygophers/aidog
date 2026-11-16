@@ -22,7 +22,6 @@ export * from "./RuleAction";
 export * from "./Target";
 export * from "./CreateMiddlewareRule";
 export * from "./DimensionEntry";
-export * from "./EnvVar";
 export * from "./EventSetting";
 export * from "./Group";
 export * from "./GroupDetail";

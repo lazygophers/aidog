@@ -161,7 +161,6 @@ pub fn sample_group(name: &str, mappings: Vec<ModelMapping>) -> CreateGroup {
         source_protocol: None,
         max_retries: 10,
         model_mappings: mappings,
-        env_vars: Vec::new(),
     }
 }
 
