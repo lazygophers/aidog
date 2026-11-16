@@ -9,7 +9,7 @@
 
 use serde_json::{Value, json};
 
-use crate::types::ChatStreamEvent;
+use crate::types::{ChatStreamEvent, Usage};
 
 /// Responses SSE 出站状态机：跨 chunk 维护 sequence_number、output item 开闭表、
 /// 各 item 累计内容与 usage（终止帧需要全量回放）。
@@ -29,7 +29,9 @@ pub struct ResponsesSseState {
     tool_items: std::collections::HashMap<u32, (String, u64, String, String, String)>,
     /// item 输出顺序 = 创建顺序
     next_output: u64,
-    usage: Option<(i64, i64)>,
+    /// 跨帧累积 usage（issue 71）：`response.completed` / `response.incomplete` 终帧回传，
+    /// 缓存读走 `input_tokens_details.cached_tokens`。
+    usage: Option<Usage>,
 }
 
 impl ResponsesSseState {
@@ -295,8 +297,18 @@ impl ResponsesSseState {
                     ));
                 }
                 let status = if incomplete { "incomplete" } else { "completed" };
-                let usage = self.usage.map(|(i, o)| {
-                    json!({ "input_tokens": i, "output_tokens": o, "total_tokens": i + o })
+                let usage = self.usage.as_ref().map(|u| {
+                    let mut j = json!({
+                        "input_tokens": u.prompt_tokens.unwrap_or(0),
+                        "output_tokens": u.completion_tokens.unwrap_or(0),
+                        "total_tokens": u.effective_total().unwrap_or(0),
+                    });
+                    if let Some(cr) = u.cache_read_tokens
+                        && cr > 0
+                    {
+                        j["input_tokens_details"] = json!({ "cached_tokens": cr });
+                    }
+                    j
                 });
                 let mut response = json!({
                     "id": self.response_id,
@@ -320,10 +332,10 @@ impl ResponsesSseState {
                 Some(out)
             }
             ChatStreamEvent::Usage { usage } => {
-                self.usage = Some((
-                    usage.prompt_tokens.unwrap_or(0) as i64,
-                    usage.completion_tokens.unwrap_or(0) as i64,
-                ));
+                match &mut self.usage {
+                    Some(stored) => stored.merge_partial(usage),
+                    None => self.usage = Some(usage.clone()),
+                }
                 None
             }
             // openai wire 没有 ping 事件，无处安放；keep-alive 由网关侧自发（aidog_core::gateway::proxy::stream::with_idle_ping）。

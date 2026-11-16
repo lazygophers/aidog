@@ -534,11 +534,51 @@ pub struct Choice {
     pub finish_reason: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Usage {
     pub prompt_tokens: Option<u32>,
     pub completion_tokens: Option<u32>,
     pub total_tokens: Option<u32>,
+    /// 缓存读（anthropic `cache_read_input_tokens` / openai `prompt_tokens_details.cached_tokens`
+    /// / gemini `cachedContentTokenCount`）；issue 71 流式 usage 回传。
+    #[serde(default)]
+    pub cache_read_tokens: Option<u32>,
+    /// 缓存写（anthropic `cache_creation_input_tokens`）；其余协议无对应字段，恒 None。
+    #[serde(default)]
+    pub cache_write_tokens: Option<u32>,
+}
+
+impl Usage {
+    /// 逐字段合并：`next` 中 Some 的字段覆盖 `self`，None 的字段保留原值。
+    /// 上游各帧 usage 部分携带（anthropic message_start 带输入、message_delta 只带输出），
+    /// 累积出全量；不能整值覆盖——后到的部分帧会把先前的真实值清零。
+    pub fn merge_partial(&mut self, next: &Usage) {
+        if next.prompt_tokens.is_some() {
+            self.prompt_tokens = next.prompt_tokens;
+        }
+        if next.completion_tokens.is_some() {
+            self.completion_tokens = next.completion_tokens;
+        }
+        if next.total_tokens.is_some() {
+            self.total_tokens = next.total_tokens;
+        }
+        if next.cache_read_tokens.is_some() {
+            self.cache_read_tokens = next.cache_read_tokens;
+        }
+        if next.cache_write_tokens.is_some() {
+            self.cache_write_tokens = next.cache_write_tokens;
+        }
+    }
+
+    /// total 缺失时按 prompt + completion 兜底（渲染 openai / responses / gemini 客户端
+    /// 的 total 字段用；两端都缺时返回 None）。
+    pub fn effective_total(&self) -> Option<u32> {
+        self.total_tokens
+            .or_else(|| match (self.prompt_tokens, self.completion_tokens) {
+                (Some(p), Some(c)) => Some(p.saturating_add(c)),
+                _ => None,
+            })
+    }
 }
 
 // ─── Streaming ─────────────────────────────────────────────

@@ -567,6 +567,12 @@ async fn forward_attempt_model(
         eff_api_key: eff_api_key.clone(),
         quota_base_url: target.target_base_url.clone(),
         disable_thinking,
+        // issue 71：OpenAI Chat / Completions 客户端的 usage 块门控（stream_options.include_usage）
+        include_usage: req_value
+            .get("stream_options")
+            .and_then(|v| v.get("include_usage"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
         rate: rate.clone(),
         cache_key: sched_settings
             .cache_affinity
