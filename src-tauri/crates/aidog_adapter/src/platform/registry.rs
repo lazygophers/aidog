@@ -108,7 +108,32 @@ impl PlatformAdapter for KimiAdapter {
 ///   （迁移前转发层同为 no-op），行为不变。
 /// - 未证实（保持基座默认）：工具调用、图片与多模态、system 提示、max_tokens 上限。
 ///
-/// 覆写范围：`classify_error` 的业务码 1212（issue 114；字符串与整数两种形态，issue 115）与 `apply_disable_thinking` 的 `Protocol::OpenAI` 臂；
+/// 成员 `glm_coding_en`（GLM 编码套餐国际版，api.z.ai Coding Plan；issue 116，核对日期 2026-11-16）：
+/// 与家族基座无已证实的出站差异，登记为 `GLM`；逐项核对结论（官方原文关键句）：
+/// - 端点协议：「GLM Coding Plan supports both the Anthropic and OpenAI protocols」，「Anthropic Messages |
+///   `https://api.z.ai/api/anthropic`」「OpenAI Chat Completions | `https://api.z.ai/api/coding/paas/v4`」，
+///   与 registry 内置默认一致；运行时只用用户平台配置的端点。同页另列「OpenAI Responses |
+///   `https://api.z.ai/api/v1`」，registry 未内置，用户可手配。https://docs.z.ai/devpack/quick-start
+/// - 保留式思考：「enabled by default on the Coding Plan endpoint and disabled by default on the standard API
+///   endpoint」，开关为请求字段 `clear_thinking`。aidog 不写 `clear_thinking`，即按官方端点默认，不覆盖。
+///   https://docs.z.ai/guides/capabilities/thinking-mode
+/// - 思考开关 / usage / 流式：同家族基座（`thinking.type`、`prompt_tokens_details.cached_tokens`、
+///   `delta.reasoning_content`、「a `data: [DONE]`」结束）。https://docs.z.ai/api-reference/llm/chat-completion
+/// - 错误体：同 `glm_en` 英文码表，1212 由家族覆写归模型类。错误码页称「a top-level error object that includes
+///   a `code` and `message` value」，而 chat-completion OpenAPI 的失败响应 schema 为顶层 `Error`
+///   （`code: integer` + `message`，无 `error` 包裹）；两份一手文档形态冲突，覆写两种形态都认。
+///   https://docs.z.ai/api-reference/api-code
+/// - 套餐码：「1311 | 429 | Your current subscription plan does not yet include access to `${model_name}`」
+///   语义是模型权限，但 HTTP 429 先于业务码归服务类（换平台并计入平台健康），不覆盖；复活条件：
+///   套餐用户反馈因模型权限换平台而拖累平台健康时重开。1313（Fair Usage 限频）与 1316–1319（5 小时 / 7 天
+///   用量上限）同为 HTTP 429，未登记进 registry `rate_limit_error_codes`（registry 数据跟进项）。
+/// - coding_plan 注入：registry 端点标 `coding_plan: true`，基座按平台协议分派对 `GlmCodingEn` 为 no-op
+///   （迁移前转发层同为 no-op），行为不变。
+/// - 未证实（保持基座默认）：工具调用、图片与多模态（套餐视觉经 Vision MCP 提供，非请求字段）、
+///   system 提示、max_tokens 上限。
+///
+/// 覆写范围：`classify_error` 的业务码 1212（issue 114；字符串与整数两种形态，issue 115；`error` 包裹与顶层
+/// 两种位置，issue 116）与 `apply_disable_thinking` 的 `Protocol::OpenAI` 臂；
 /// 后者中 `Protocol::OpenAICompletions`
 /// 不在覆写范围内（家族四个成员的内置默认端点仅 openai / anthropic，无 openai_completions），
 /// 用户若手配 openai_completions 端点仍走基座 `chat_template_kwargs` 写法。
@@ -136,11 +161,14 @@ impl PlatformAdapter for GlmFamilyAdapter {
     /// 差异：业务码 1212（当前模型不支持该调用方式）归模型类，不依赖文案语言——国际版英文文案
     /// 不命中基座特征词（https://docs.z.ai/api-reference/api-code）。其余同基座。
     /// `code` 接受字符串与整数两种形态：错误码页示例为字符串，OpenAPI `Error.code` 为 `type: integer`
-    /// （https://docs.z.ai/api-reference/llm/chat-completion）。
+    /// （https://docs.z.ai/api-reference/llm/chat-completion）。该 OpenAPI 失败响应的 schema 即 `Error`
+    /// 本身（顶层 `code` / `message`，无 `error` 包裹），故无 `error` 对象时读顶层，与基座读法一致（issue 116）。
     fn classify_error(&self, status: u16, body: &str) -> error::UpstreamErrorClass {
         let is_1212 = !matches!(status, 401 | 402 | 403 | 429)
-            && serde_json::from_str::<Value>(body)
-                .is_ok_and(|v| v["error"]["code"] == "1212" || v["error"]["code"] == 1212);
+            && serde_json::from_str::<Value>(body).is_ok_and(|v| {
+                let code = &v.get("error").unwrap_or(&v)["code"];
+                code == "1212" || code == 1212
+            });
         if is_1212 {
             return error::UpstreamErrorClass::Model;
         }

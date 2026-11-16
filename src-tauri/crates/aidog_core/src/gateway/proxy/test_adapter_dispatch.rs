@@ -791,7 +791,9 @@ async fn glm_coding_openai_endpoint_error_body() {
     let pa = aidog_adapter::platform::adapter_for("glm_coding");
     assert_eq!(pa.classify_error(400, GLM_ERR_1211), UpstreamErrorClass::Model);
     let e1309 = r#"{"error":{"code":"1309","message":"您的 GLM Coding Plan 套餐已到期，暂无法使用，前往官方续订后即可恢复"}}"#;
-    assert_eq!(pa.classify_error(429, e1309), UpstreamErrorClass::Service);
+    // 官方 1309 恒为 HTTP 429，状态码先于业务码归服务类；断言 429 无法失败，改验非 429 状态下
+    // 业务码覆写只认 1212，1309 不被当作模型类（issue 116，PR #181 审查跟进）。
+    assert_eq!(pa.classify_error(400, e1309), UpstreamErrorClass::Unknown);
     let (status, resp, hits) = glm_member_call(
         Protocol::GlmCoding,
         Protocol::OpenAI,
@@ -885,6 +887,180 @@ async fn glm_coding_anthropic_endpoint_error_body() {
     assert!(resp.contains("1211"), "{resp}");
 }
 
+// ══ issue 116：GLM 编码套餐国际版（z.ai）成员 `glm_coding_en` 逐端点协议护栏 ══
+// 官方出处（核对日期 2026-11-16）：
+// - 接入端点 https://docs.z.ai/devpack/quick-start（Anthropic `/api/anthropic`、OpenAI `/api/coding/paas/v4`）
+// - 保留式思考 https://docs.z.ai/guides/capabilities/thinking-mode（Coding Plan 端点默认开启，aidog 不写 clear_thinking）
+// - 错误码 https://docs.z.ai/api-reference/api-code（英文文案；1211 / 1212 / 套餐 13xx 均同 bigmodel 码表）
+// - OpenAPI https://docs.z.ai/api-reference/llm/chat-completion（失败响应 `Error` 为顶层 `{code: integer, message}`）
+
+/// OpenAPI `Error` 形态：顶层 `code` / `message`，无 `error` 包裹。
+const GLM_EN_ERR_1212_FLAT: &str =
+    r#"{"code":1212,"message":"Current model does not support `${method}` call method"}"#;
+
+/// issue 116：错误码页示例为 `error` 包裹，OpenAPI 失败响应为顶层 `{code, message}`；
+/// 两种形态的 1212 都归模型类（家族四成员，与基座 `error` 缺省回落顶层的读法一致）。
+#[test]
+fn glm_family_error_1212_flat_shape_classified_as_model() {
+    use aidog_adapter::platform::error::UpstreamErrorClass;
+    for code in ["glm", "glm_en", "glm_coding", "glm_coding_en"] {
+        let pa = aidog_adapter::platform::adapter_for(code);
+        assert_eq!(pa.classify_error(400, GLM_EN_ERR_1212_FLAT), UpstreamErrorClass::Model, "{code}");
+        assert_eq!(pa.classify_error(429, GLM_EN_ERR_1212_FLAT), UpstreamErrorClass::Service, "{code}");
+    }
+}
+
+/// issue 116：`glm_coding_en` openai 端点非流式——入站 anthropic 转 openai 打 `/chat/completions`，不写 `clear_thinking`；
+/// 响应回 anthropic：reasoning_content → thinking 块，cached_tokens → cache_read_input_tokens。
+#[tokio::test]
+async fn glm_coding_en_openai_endpoint_non_stream_request_response_usage() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::GlmCodingEn,
+        Protocol::OpenAI,
+        "gk116on",
+        "/v1/messages",
+        GLM_ANTHROPIC_IN,
+        (200, "application/json", GLM_OPENAI_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits.len(), 1, "{hits:?}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(up["model"], "glm-test");
+    assert_eq!(up["messages"][0]["role"], "user", "{up}");
+    assert!(up.get("clear_thinking").is_none(), "保留式思考按官方端点默认，不写 clear_thinking: {up}");
+    let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(v["stop_reason"], "end_turn", "{v}");
+    let content = v["content"].as_array().unwrap();
+    assert!(content.iter().any(|b| b["type"] == "thinking" && b["thinking"] == "think"), "{v}");
+    assert!(content.iter().any(|b| b["type"] == "text" && b["text"] == "hi"), "{v}");
+    assert_eq!(v["usage"]["cache_read_input_tokens"], 4, "{v}");
+    assert_eq!(v["usage"]["output_tokens"], 3, "{v}");
+}
+
+/// issue 116：`glm_coding_en` openai 端点流式——reasoning_content / content 增量转 anthropic 事件，`[DONE]` 收尾为 message_stop。
+#[tokio::test]
+async fn glm_coding_en_openai_endpoint_stream() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::GlmCodingEn,
+        Protocol::OpenAI,
+        "gk116os",
+        "/v1/messages",
+        GLM_ANTHROPIC_IN_STREAM,
+        (200, "text/event-stream", GLM_OPENAI_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(up["stream"], true, "{up}");
+    assert!(resp.contains("thinking_delta") && resp.contains("think"), "{resp}");
+    assert!(resp.contains("text_delta") && resp.contains("\"hi\""), "{resp}");
+    assert!(resp.contains("message_stop"), "{resp}");
+}
+
+/// issue 116：`glm_coding_en` 错误——官方英文 1211 归模型类并原样回客户端（400 + 1211）。
+#[tokio::test]
+async fn glm_coding_en_openai_endpoint_error_body() {
+    let pa = aidog_adapter::platform::adapter_for("glm_coding_en");
+    assert_eq!(
+        pa.classify_error(400, GLM_EN_ERR_1211),
+        aidog_adapter::platform::error::UpstreamErrorClass::Model
+    );
+    let (status, resp, hits) = glm_member_call(
+        Protocol::GlmCodingEn,
+        Protocol::OpenAI,
+        "gk116oe",
+        "/v1/messages",
+        GLM_ANTHROPIC_IN,
+        (400, "application/json", GLM_EN_ERR_1211),
+    )
+    .await;
+    assert!(!hits.is_empty());
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("1211"), "{resp}");
+}
+
+/// issue 116：`glm_coding_en` usage 抽取——openai 臂 input 扣除 cached_tokens，cache_read = cached_tokens。
+#[tokio::test]
+async fn glm_coding_en_usage_extraction_openai_and_anthropic() {
+    let pa = aidog_adapter::platform::adapter_for("glm_coding_en");
+    let (i, o, c, cw, _, _) = pa.extract_usage(GLM_OPENAI_RESP);
+    assert_eq!((i, o, c, cw), (6, 3, 4, 0));
+    let (i, o, c, cw, _, _) = pa.extract_usage(GLM_ANTHROPIC_RESP);
+    assert_eq!((i, o, c, cw), (6, 3, 4, 0));
+}
+
+/// issue 116：`glm_coding_en` 的 coding_plan 端点注入为 no-op（迁移前转发层同为 no-op，行为不变）。
+#[test]
+fn glm_coding_en_coding_plan_injection_is_noop() {
+    let pa = aidog_adapter::platform::adapter_for("glm_coding_en");
+    let mut body = serde_json::from_str::<serde_json::Value>(GLM_OPENAI_IN).unwrap();
+    let before = body.clone();
+    pa.inject_coding_plan(&mut body, &Protocol::GlmCodingEn);
+    assert_eq!(body, before);
+}
+
+/// issue 116：`glm_coding_en` anthropic 端点非流式——入站 openai 转 anthropic 打 `/v1/messages`，响应回 openai 形状。
+#[tokio::test]
+async fn glm_coding_en_anthropic_endpoint_non_stream_request_response_usage() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::GlmCodingEn,
+        Protocol::Anthropic,
+        "gk116an",
+        "/chat/completions",
+        GLM_OPENAI_IN,
+        (200, "application/json", GLM_ANTHROPIC_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits.len(), 1, "{hits:?}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(up["max_tokens"], 32, "{up}");
+    assert_eq!(up["messages"][0]["role"], "user", "{up}");
+    let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(v["choices"][0]["message"]["content"], "hi", "{v}");
+    assert_eq!(v["choices"][0]["finish_reason"], "stop", "{v}");
+    assert_eq!(v["usage"]["completion_tokens"], 3, "{v}");
+}
+
+/// issue 116：`glm_coding_en` anthropic 端点流式——anthropic 事件转 openai chunk，结尾 `[DONE]`。
+#[tokio::test]
+async fn glm_coding_en_anthropic_endpoint_stream() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::GlmCodingEn,
+        Protocol::Anthropic,
+        "gk116as",
+        "/chat/completions",
+        GLM_OPENAI_IN_STREAM,
+        (200, "text/event-stream", GLM_ANTHROPIC_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    assert!(resp.contains("\"hi\""), "{resp}");
+    assert!(resp.contains("[DONE]"), "{resp}");
+}
+
+/// issue 116：`glm_coding_en` anthropic 端点错误——官方英文错误体原样回客户端（400 + 1211）。
+#[tokio::test]
+async fn glm_coding_en_anthropic_endpoint_error_body() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::GlmCodingEn,
+        Protocol::Anthropic,
+        "gk116ae",
+        "/chat/completions",
+        GLM_OPENAI_IN,
+        (400, "application/json", GLM_EN_ERR_1211),
+    )
+    .await;
+    assert!(!hits.is_empty());
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("1211"), "{resp}");
+}
+
 /// issue 115（PR #180 审查跟进）：端到端换平台——两平台 GLM 家族分组，A 回 400 + 英文 1212，B 回 200。
 /// 1212 归模型类：客户端拿到 B 的 200，A 只被打一次，A 的 last_error 与熔断计数不动。
 #[tokio::test]
@@ -931,6 +1107,13 @@ async fn glm_family_1212_fails_over_without_touching_platform_health() {
     let status = resp.status();
     let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
     flush_log_queue(&state).await;
+    // 先断言 A 的尝试裁决（issue 116，PR #181 审查跟进）：400 从不碰平台健康，下方 last_error /
+    // 熔断断言单独无法区分分类；1212 若落未知类或服务类，此处 error_class / exclusion 即红。
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let id = logs.iter().find(|l| l.group_key == "gk115fo").expect("log row missing").id.clone();
+    let log = aidog_logs::get_proxy_log(&state.db, &id).await.unwrap().unwrap();
+    assert_eq!(log.attempts[0].error_class.as_deref(), Some("model"), "{:?}", log.attempts);
+    assert_eq!(serde_json::to_value(log.attempts[0].exclusion).unwrap(), "pair", "{:?}", log.attempts);
     assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
     assert_eq!(hits_a.lock().unwrap().len(), 1, "A 应恰好被打一次");
     assert_eq!(hits_b.lock().unwrap().len(), 1, "B 应接住请求");
