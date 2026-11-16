@@ -49,5 +49,6 @@ export function subscribeDisplayCurrency(cb: () => void): () => void {
 
 /** 组件内调用以订阅币种变化；formatMoney 自身读同一 store，组件只需让自己重渲染。 */
 export function useDisplayCurrency(): DisplayCurrency {
-  return useSyncExternalStore(subscribeDisplayCurrency, getDisplayCurrency);
+  // 第三参 getServerSnapshot：Next/Turbopack 的 prerender 走服务端渲染，useSyncExternalStore 缺它即报错（baseline 回归，与 quota 样例内联同轮暴露）
+  return useSyncExternalStore(subscribeDisplayCurrency, getDisplayCurrency, getDisplayCurrency);
 }
