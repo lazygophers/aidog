@@ -18,16 +18,81 @@ struct GenericAdapter;
 
 impl PlatformAdapter for GenericAdapter {}
 
-/// 家族示例：KimiAdapter 只登记在 `kimi` 上（platform_type = Kimi）。
-/// 基座默认的 coding_plan 注入按平台协议分派（仅 Kimi 协议注入 prompt_cache_key）；
-/// 家族成员的无条件注入在 platform=kimi 时与基座 Kimi 臂产出一致——演示「成员只覆盖差异」。
-/// `kimi_en` / `kimi_coding` 是独立协议（KimiEn / KimiCoding），走默认基座，不注入
-/// （迁移前 headers.rs 同为 no-op，review 必改 1：行为零变化）。
-pub struct KimiAdapter;
+/// 月之暗面 Kimi 家族基座（issue 76；成员 kimi / kimi_en / kimi_coding 共用，
+/// 成员差异见各成员 issue 117 / 118 / 119）。
+///
+/// 家族共性取证（官方文档原文，核对日期 2026-11-16；platform.moonshot.cn 已 301 到 platform.kimi.com，
+/// 中国站与国际站同一文档结构）：
+/// - 思考开关（openai 端点）：kimi-k2.6「`thinking.type` | 默认 `"enabled"`，传 `"disabled"` 可关闭思考」；
+///   kimi-k2.7-code 系列「仅支持 `"enabled"`，传 `"disabled"` 会报错」；K3 系列「始终开启思考 … 使用顶层
+///   `reasoning_effort` … 不使用 `thinking` 参数」。文档无 `chat_template_kwargs`，故覆写 openai 臂（见下）；
+///   不可关闭的模型（kimi / kimi_en 的 kimi-k2.7-code、kimi-k2.7-code-highspeed、kimi-k3、kimi-k3.1-pro、
+///   kimi-k3.1-pro-highspeed）在 registry 标 `thinking_toggleable: false`，走基座强制思考剥除、不写 `thinking`，
+///   不在此覆盖；kimi_coding 条目未标注（成员 issue 119 核对）。
+///   https://platform.kimi.com/docs/api/chat.md https://platform.kimi.ai/docs/api/chat.md
+///   https://platform.kimi.com/docs/guide/use-thinking-models.md
+///   上述取证只覆盖开放平台模型，openai 臂覆写仅对 kimi / kimi_en 生效；kimi_coding 的 openai 端点
+///   禁思考保持基座行为（写 `chat_template_kwargs.enable_thinking=false`、不剥 temperature），
+///   语义推迟到成员 issue 119。重开依据（Kimi Code 模型页原文，核对日期 2026-11-16）：
+///   「off / none / disabled … K3 系列、K2.8 Preview 与 K2.7 Code Highspeed：关闭 thinking 后，请求均由
+///   K2.8 Preview（无思考）处理」「K3.1 Pro 系列：关闭思考的请求会被拒绝（HTTP 400）」；该页无 temperature
+///   固定值说明。https://www.kimi.com/code/docs/kimi-code/models.html
+/// - 流式：「先接收 `delta.reasoning_content`，再接收 `delta.content`；`finish_reason="stop"` 表示生成结束，
+///   其后的统计块 `choices` 为空，需从顶层 `usage` 读取用量」，以 `data: [DONE]` 结束；与基座 openai 构件一致。
+///   `finish_reason` 取值 stop / length / tool_calls，同基座映射。
+/// - usage（openai 端点）：`usage.prompt_tokens_details.cached_tokens`（缓存读取），基座已抽取并从 input 扣除。
+///   另有 `prompt_tokens_details.cache_write_tokens`（缓存写入，计入 `prompt_tokens`），基座按 input 计；
+///   官方价目 K3.1 Pro / K3 的 5m 缓存写入单价与输入单价相同、其余模型无缓存写入，且「Chat Completions 的响应
+///   不回显实际应用的 mode/ttl」无法区分 1h 档，故不覆盖（流式 usage 累计也不经适配器，见 PR 遗留）。
+/// - usage（anthropic 端点）：`cache_read_input_tokens` / `cache_creation_input_tokens` /
+///   `cache_creation.ephemeral_5m|1h_input_tokens`，「总输入 = input_tokens + cache_read_input_tokens +
+///   cache_creation_input_tokens」，与基座 anthropic 臂一致。https://platform.kimi.com/docs/api/messages.md
+/// - 错误体：openai 端点 `{"error":{"type","message"}}`，anthropic 端点 `{"type":"error","error":{"type","message"}}`；
+///   404 `resource_not_found_error`「Model not found, or this account does not have permission to access the model」
+///   由基座特征 `not_found_error` 归模型类；401 / 403 / 429 由基座按状态码归服务类。
+///   https://platform.kimi.com/docs/api/errors.md https://platform.kimi.ai/docs/api/errors.md
+/// - 工具调用 / 图片 / system：标准 OpenAI 形状（`tools[].function`、`finish_reason: "tool_calls"`、
+///   `image_url` 内容块、`role: "system"`），与基座一致，不覆盖。
+///   https://platform.kimi.com/docs/guide/use-kimi-vision-model.md
+/// - coding_plan 注入：沿用基座按平台协议分派（仅 `Protocol::Kimi` 注入 `prompt_cache_key`，
+///   `kimi_en` / `kimi_coding` no-op），行为不变；chat.md 称「对于 Kimi Code Plan，此字段为必填」，
+///   是否对 `kimi_coding` 启用归成员 issue 119。
+/// - 未证实（保持基座默认）：anthropic 端点的 `thinking` 请求参数（messages.md 未列出）、
+///   `content_filter` 错误类型（当前归「未知」类）。
+pub struct KimiFamilyAdapter {
+    /// openai 端点禁思考是否写官方 `thinking` 并剥 temperature（kimi / kimi_en 为 true，kimi_coding 为 false）。
+    official_openai_thinking: bool,
+}
 
-impl PlatformAdapter for KimiAdapter {
-    fn inject_coding_plan(&self, body: &mut Value, _platform: &Protocol) {
-        hooks::inject_kimi_prompt_cache_key(body);
+impl PlatformAdapter for KimiFamilyAdapter {
+    /// 差异：openai 端点禁思考写官方 `thinking.type=disabled`，不写基座第三方端点用的
+    /// vLLM 式 `chat_template_kwargs.enable_thinking`（Kimi Chat Completions 文档无此参数）。
+    /// 写出值与基座 anthropic 臂相同，故按 anthropic 臂执行；其余 wire 与强制思考路径同基座。
+    /// 关思考时一并剥客户端 `temperature`：kimi-k2.6「思考模式固定 `1.0`，非思考模式固定 `0.6`」，
+    /// 「表中“固定”表示该参数不可修改：传入其他值会报错，建议不要显式传入」。`top_p` / `n` /
+    /// `presence_penalty` / `frequency_penalty` 两种模式下固定值相同，关思考不改变其合法性，不在此处理。
+    /// https://platform.kimi.com/docs/api/models-overview.md https://platform.kimi.ai/docs/api/models-overview.md
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        let wire = match wire {
+            Protocol::OpenAI if self.official_openai_thinking => {
+                if disable
+                    && !forced_thinking
+                    && let Some(obj) = body.as_object_mut()
+                {
+                    obj.remove("temperature");
+                }
+                &Protocol::Anthropic
+            }
+            w => w,
+        };
+        hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking)
     }
 }
 
@@ -177,11 +242,12 @@ impl PlatformAdapter for GlmFamilyAdapter {
 }
 
 static GENERIC: GenericAdapter = GenericAdapter;
-static KIMI: KimiAdapter = KimiAdapter;
+static KIMI: KimiFamilyAdapter = KimiFamilyAdapter { official_openai_thinking: true };
+static KIMI_CODING: KimiFamilyAdapter = KimiFamilyAdapter { official_openai_thinking: false };
 static GLM: GlmFamilyAdapter = GlmFamilyAdapter;
 
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
-/// 初始映射全部为默认家族基座，Kimi 家族覆盖 coding_plan 注入差异，行为与基座协议臂等价）。
+/// 未列入家族适配器的平台走默认家族基座）。
 static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("aihubmix", &GENERIC),
     ("anthropic", &GENERIC),
@@ -209,8 +275,8 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("glm_en", &GLM),
     ("intern_inkstone", &GENERIC),
     ("kimi", &KIMI),
-    ("kimi_coding", &GENERIC),
-    ("kimi_en", &GENERIC),
+    ("kimi_coding", &KIMI_CODING),
+    ("kimi_en", &KIMI),
     ("litellm", &GENERIC),
     ("longcat", &GENERIC),
     ("magpie", &GENERIC),
