@@ -61,7 +61,7 @@ jobs:
           key: ${{ runner.os }}-apt-${{ hashFiles('.github/workflows/release.yml') }}
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 22
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
