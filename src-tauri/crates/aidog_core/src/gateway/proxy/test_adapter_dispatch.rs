@@ -1364,6 +1364,83 @@ async fn kimi_family_anthropic_endpoint_non_stream_and_stream() {
     }
 }
 
+/// issue 76 跟进（先红）：openai 客户端直发 `tool_choice:"required"`（同协议透传），
+/// kimi-k2.6 / kimi-k2.7-code 出站降级为 `"auto"`——models-overview.md 对这两列
+/// 「传 `"required"` 会报错」。anthropic 入站的 `tool_choice` 对象当前在入站解析即 400
+/// （`ToolChoice` untagged 不认 `{"type":"any"}`，types.rs 既有缺口），到不了出站，
+/// 故本组测试走透传（真实可达路径）。
+#[tokio::test]
+async fn kimi_family_openai_tool_choice_required_downgraded_for_affected_models() {
+    for pt in KIMI_OFFICIAL_THINKING {
+        for model in ["kimi-k2.6", "kimi-k2.7-code"] {
+            let body = format!(
+                r#"{{"model":"{model}","max_tokens":32,"tool_choice":"required","tools":[{{"type":"function","function":{{"name":"get_weather","description":"w","parameters":{{"type":"object","properties":{{}}}}}}}}],"messages":[{{"role":"user","content":"hi"}}]}}"#
+            );
+            let body: &'static str = Box::leak(body.into_boxed_str());
+            let (status, resp, hits) = glm_member_call(
+                pt.clone(),
+                Protocol::OpenAI,
+                &kimi_gk(&pt, "tcany"),
+                "/chat/completions",
+                body,
+                (200, "application/json", KIMI_OPENAI_RESP),
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK, "{pt:?}/{model}: {resp}");
+            let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+            assert_eq!(
+                up.get("tool_choice"),
+                Some(&serde_json::json!("auto")),
+                "{pt:?}/{model} 应降级为 auto: {up}"
+            );
+        }
+    }
+}
+
+/// issue 76 跟进（反证）：K3 系列接受 `"required"`（models-overview.md K3 列 `"auto"` / `"none"` /
+/// `"required"`），不降级；anthropic wire 不在范围；kimi_coding 保持现状（成员 issue 119）。
+#[tokio::test]
+async fn kimi_family_tool_choice_required_not_downgraded_outside_affected_scope() {
+    const K3_IN: &str = r#"{"model":"kimi-k3","max_tokens":32,"tool_choice":"required","tools":[{"type":"function","function":{"name":"get_weather","description":"w","parameters":{"type":"object","properties":{}}}}],"messages":[{"role":"user","content":"hi"}]}"#;
+    for pt in KIMI_OFFICIAL_THINKING {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::OpenAI,
+            &kimi_gk(&pt, "tck3"),
+            "/chat/completions",
+            K3_IN,
+            (200, "application/json", KIMI_OPENAI_RESP),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+        assert_eq!(
+            up.get("tool_choice"),
+            Some(&serde_json::json!("required")),
+            "{pt:?}/kimi-k3 应保持 required: {up}"
+        );
+    }
+    // kimi_coding 保持现状（成员 issue 119）。
+    const CD_IN: &str = r#"{"model":"kimi-k2.6","max_tokens":32,"tool_choice":"required","tools":[{"type":"function","function":{"name":"get_weather","description":"w","parameters":{"type":"object","properties":{}}}}],"messages":[{"role":"user","content":"hi"}]}"#;
+    let pt = Protocol::KimiCoding;
+    let (status, resp, hits) = glm_member_call(
+        pt.clone(),
+        Protocol::OpenAI,
+        &kimi_gk(&pt, "tccd"),
+        "/chat/completions",
+        CD_IN,
+        (200, "application/json", KIMI_OPENAI_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+    let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(
+        up.get("tool_choice"),
+        Some(&serde_json::json!("required")),
+        "{pt:?} 应保持 required: {up}"
+    );
+}
+
 async fn make_state(db: aidog_db::Db) -> Arc<ProxyState> {
     let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
