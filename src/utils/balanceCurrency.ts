@@ -77,7 +77,7 @@ function subscribe(cb: () => void): () => void {
 
 /** 组件内订阅：币种映射变化时重渲染；返回当前映射（平台 id 字符串键）。 */
 export function useBalanceCurrencies(): Record<string, string> {
-  return useSyncExternalStore(subscribe, getBalanceCurrencies);
+  return useSyncExternalStore(subscribe, getBalanceCurrencies, getBalanceCurrencies);
 }
 
 /** 原币种余额 → USD。ccy 空 / 非 CNY 视 USD；币种表未加载（无 CNY 行）时原样返回。 */
