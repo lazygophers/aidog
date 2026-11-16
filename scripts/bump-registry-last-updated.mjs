@@ -74,7 +74,7 @@ const stamp = (p) => {
 
   let next;
   if (Object.hasOwn(before, "last_updated")) {
-    next = raw.replace(/^(\s*)"last_updated": -?\d+(,?)$/m, `$1"last_updated": ${now}$2`);
+    next = raw.replace(/^(\s*"last_updated": )-?\d+/m, `$1${now}`); // 不锚行尾：index.json 的 last_updated 与下个键同行
   } else {
     if (!raw.startsWith("{\n")) throw new Error("非预期格式：首行不是单独的 '{'");
     next = raw.replace(/^\{\n/, `{\n  "last_updated": ${now},\n`);

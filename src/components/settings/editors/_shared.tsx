@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useReveal, makeRipple, JsonCodeEditor } from "../../shared";
+import { isImeComposing } from "../../../utils/ime";
 
 /** Toggle switch — shadcn Switch under the hood, legacy `active`/`onChange` props kept for callers */
 export function Toggle({
@@ -349,10 +350,11 @@ export function StringListEditor({
           
           style={{ flex: 1, fontSize: F.body, padding: S.inputPad }}
           placeholder={addLabel}
+          data-testid="string-list-draft"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && draft.trim()) {
+            if (e.key === "Enter" && !isImeComposing(e) && draft.trim()) {
               onChange([...items, draft.trim()]);
               setDraft("");
             }

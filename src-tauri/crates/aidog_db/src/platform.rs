@@ -501,6 +501,16 @@ pub fn update_platform(
         let manual_now = is_manual_quota_source(&quota_source);
         let mut manual_budgets = manual_budgets; // 显式 mut：切 auto 时整组清空
         let mut extra = input.extra.unwrap_or_else(|| existing.extra.clone());
+        // last_test 只由测试写入；表单带回的 extra 可能缺它或带陈旧副本，保存时以库内值为准。
+        if let Some(lt) = serde_json::from_str::<serde_json::Value>(&existing.extra)
+            .ok()
+            .and_then(|v| v.get("last_test").cloned())
+            && let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&extra)
+            && let Some(o) = v.as_object_mut()
+        {
+            o.insert("last_test".into(), lt);
+            extra = v.to_string();
+        }
         if source_switched && manual_now {
             extra = strip_quota_script_extra_keys(&extra);
         } else if source_switched && !manual_now {

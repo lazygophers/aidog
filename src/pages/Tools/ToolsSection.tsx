@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from "../../components/ui/dialog";
 import { cn } from "../../lib/utils";
+import { isImeComposing } from "../../utils/ime";
 
 export type ToolId = "web_search" | "web_fetch" | "generate_image";
 export type ToolState = "configured" | "unconfigured" | "disabled";
@@ -746,7 +747,7 @@ export function ToolsSection() {
           placeholder="https://…"
           onChange={(e) => setSearxAdd(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") searxAddUrl();
+            if (e.key === "Enter" && !isImeComposing(e)) searxAddUrl();
           }}
           className="h-8 flex-1 rounded-md border border-input bg-card px-2.5 font-mono text-sm outline-none transition-colors focus:border-primary"
         />

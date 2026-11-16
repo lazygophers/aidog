@@ -628,7 +628,7 @@ pub struct PlatformUsageStats {
 
 /// 平台「最近一次测试结果」（来自 proxy_log 中 source_protocol='test' 的最新一条）。
 /// 供 PlatformCard 常驻徽章消费：ok/fail + 耗时 + 时间。
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct LastTestResult {
     /// status_code ∈ [200, 300) → true
@@ -642,6 +642,21 @@ pub struct LastTestResult {
     pub error: String,
     /// 测试响应正文（成功/失败均带），截断 ~4000 字符；供前端 JSON 解析结构化展示。
     pub response_body: String,
+}
+
+impl LastTestResult {
+    /// 由一条测试请求记录的字段构造：2xx 为成功；失败时 error 取正文前 200 字符；正文截断 4000 字符。
+    pub fn from_row(status_code: i32, duration_ms: i32, created_at: i64, response_body: &str) -> Self {
+        let success = (200..300).contains(&status_code);
+        Self {
+            success,
+            status_code,
+            duration_ms,
+            created_at,
+            error: if success { String::new() } else { response_body.chars().take(200).collect() },
+            response_body: response_body.chars().take(4000).collect(),
+        }
+    }
 }
 
 /// Summary row for list view (excludes large body fields)

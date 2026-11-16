@@ -791,22 +791,30 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 
 /* ── Scrollbar ── */
 
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+/* 旧引擎（Safari < 26.2）回退；支持标准属性的引擎走上面的规则 */
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
 
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
-}
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--text-tertiary);
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+  }
 }
 
 /* ── RTL ── */
