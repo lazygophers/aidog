@@ -1441,6 +1441,92 @@ async fn kimi_family_tool_choice_required_not_downgraded_outside_affected_scope(
     );
 }
 
+// ══ issue 117：Kimi（月之暗面）成员 `kimi` 护栏 ══
+// 官方出处（核对日期 2026-11-16）：
+// - Chat Completions https://platform.kimi.com/docs/api/chat.md
+//   （prompt_cache_key「对于 Kimi Code Plan，此字段为必填以提高缓存命中率。对于其他多轮对话
+//   Agent，也建议使用此字段」——标准平台可选）
+// 思考 / tool_choice / temperature / usage / 流式 / 错误体逐项核对结论同家族基座（出处见
+// kimi_family_* 各测试头注与 registry.rs 成员节），本成员无代码差异，登记 KimiFamilyAdapter；
+// 本节只补家族循环未覆盖的 coding_plan 端点 prompt_cache_key 注入端到端护栏。
+
+/// 建 Kimi 平台（单 openai 端点指向假上游，coding_plan 按参指定）并挂进分组，收一条入站请求，
+/// 返回上游收到的出站体。
+async fn kimi_member_outbound(gk: &str, coding_plan: bool) -> serde_json::Value {
+    let (base, hits) = spawn_glm_upstream(200, "application/json", KIMI_OPENAI_RESP).await;
+    let state = make_state(test_db().await).await;
+    let pid = aidog_db::test_support::create_platform_at_fake_upstream(
+        &state.db,
+        Protocol::Kimi,
+        &base,
+        &[Protocol::OpenAI],
+    )
+    .await;
+    // fixture 恒 coding_plan:false，按用例直写 DB 覆盖端点
+    let eps = aidog_db::serialize_endpoints(&[PlatformEndpoint {
+        protocol: Protocol::OpenAI,
+        base_url: base.clone(),
+        client_type: "default".to_string(),
+        coding_plan,
+    }]);
+    state
+        .db
+        .call_platform_traced(None, std::panic::Location::caller(), move |conn| {
+            conn.execute("UPDATE platform SET endpoints=?1 WHERE id=?2", rusqlite::params![eps, pid as i64])?;
+            Ok(())
+        })
+        .await
+        .expect("set coding_plan endpoint");
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: pid,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/messages")
+        .header("authorization", format!("Bearer {gk}"))
+        .header("content-type", "application/json")
+        .body(Body::from(GLM_ANTHROPIC_IN))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    let status = resp.status();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
+    flush_log_queue(&state).await;
+    let hits = hits.lock().unwrap();
+    assert_eq!(hits.len(), 1, "上游应恰好收到一次请求: {hits:?}");
+    serde_json::from_str(&hits[0].1).unwrap()
+}
+
+/// issue 117（护栏）：coding_plan 端点出站注入 prompt_cache_key（迁移自转发层的既有行为，
+/// 家族按平台协议分派仅 `Protocol::Kimi` 注入，aidog- 前缀会话键）；非 coding_plan 端点不注入。
+#[tokio::test]
+async fn kimi_member_coding_plan_endpoint_injects_prompt_cache_key() {
+    let body = kimi_member_outbound("gk117cp", true).await;
+    assert!(
+        body.get("prompt_cache_key")
+            .and_then(|v| v.as_str())
+            .is_some_and(|s| s.starts_with("aidog-")),
+        "coding_plan 端点应注入 prompt_cache_key: {body}"
+    );
+    let body = kimi_member_outbound("gk117cn", false).await;
+    assert!(
+        body.get("prompt_cache_key").is_none(),
+        "非 coding_plan 端点不应注入 prompt_cache_key: {body}"
+    );
+}
+
 async fn make_state(db: aidog_db::Db) -> Arc<ProxyState> {
     let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
