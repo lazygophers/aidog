@@ -1,5 +1,3 @@
-import type { EnvVar } from "../../services/api";
-
 /** Build the `claude` CLI invocation for a given group settings file */
 export function buildClaudeCommand(settingsName: string): string {
   return [
@@ -21,17 +19,11 @@ export function shellSquote(s: string): string {
  * `AIDOG_KEY=<group>`（auth token=分组名，aidog 据此路由）+ `codex -p <group>`
  * 选 `~/.codex/<group>.config.toml` profile + bypass approvals/sandbox。
  *
- * Codex config.toml 不支持 env 注入（research/codex-env-support.md），用户 env_vars
- * 经前置 `export KEY=VALUE;` 注入 codex 进程环境。AIDOG_KEY 为 aidog 路由 token，
- * 用户同名变量须丢弃（shell 后者覆盖前者会破坏路由）。
+ * `AIDOG_KEY=<group>` is the router token; user variables live in Codex config.toml.
  */
-export function buildCodexCommand(groupKey: string, envVars?: EnvVar[]): string {
+export function buildCodexCommand(groupKey: string): string {
   const g = shellSquote(groupKey);
-  const exports = (envVars ?? [])
-    .filter(ev => ev.key.trim() !== "" && ev.value !== "" && ev.key !== "AIDOG_KEY")
-    .map(ev => `export ${ev.key}=${shellSquote(ev.value)};`);
   return [
-    ...exports,
     `AIDOG_KEY=${g}`,
     "codex",
     "-p",
@@ -51,12 +43,8 @@ export const PI_PROVIDER_PREFIX = "aidog-";
  * provider `aidog-<group>`，用 `--provider` 选组。token 已写进该 provider 的 apiKey，
  * 因此命令行不带任何路由 env。
  */
-export function buildPiCommand(groupKey: string, envVars?: EnvVar[]): string {
-  const exports = (envVars ?? [])
-    .filter(ev => ev.key.trim() !== "" && ev.value !== "")
-    .map(ev => `export ${ev.key}=${shellSquote(ev.value)};`);
+export function buildPiCommand(groupKey: string): string {
   return [
-    ...exports,
     "pi",
     "--provider",
     shellSquote(`${PI_PROVIDER_PREFIX}${groupKey}`),

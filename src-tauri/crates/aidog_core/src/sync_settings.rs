@@ -333,14 +333,6 @@ fn is_header_safe_group_key(k: &str) -> bool {
     !k.is_empty() && k == k.trim() && k.chars().all(|c| c.is_ascii_graphic() || c == ' ')
 }
 
-/// aidog 管理的 env key（用户 env_vars 同名一律丢弃 + warn，防静默破坏路由/压缩语义）。
-const MANAGED_ENV_KEYS: &[&str] = &[
-    "ANTHROPIC_BASE_URL",
-    "ANTHROPIC_AUTH_TOKEN",
-    "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
-    "CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT",
-];
-
 /// 组内可路由模型的真实上下文窗口**最大值**，注入 `CLAUDE_CODE_AUTO_COMPACT_WINDOW`
 /// 让 Claude Code 按后端真实窗口（而非假模型名的内置窗口）触发自动压缩。
 /// 候选 = 映射 target_model（空 = 透传 source_model）∪ 各平台**主对话槽位**模型
@@ -562,32 +554,9 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
                         blocked_cc_renames.push(group.name.clone());
                     }
                 }
-                // 注入用户自定义 env_vars（group 维度）。aidog 强写的 proxy 路由字段与
-                // 压缩窗口字段禁止覆盖 —— 同名 key 丢弃 + warn。
-                for ev in &group.env_vars {
-                    let key = ev.key.trim();
-                    if key.is_empty() {
-                        continue;
-                    }
-                    if MANAGED_ENV_KEYS.contains(&key) {
-                        tracing::warn!(
-                            group = %group_key, env_key = %key,
-                            "user env_var skipped: aidog-managed field, cannot override"
-                        );
-                        continue;
-                    }
-                    // pure cc 组的 HTTPS_PROXY 是 aidog 托管字段（注入见上），同名丢弃；
-                    // 其余组 HTTPS_PROXY 仍归用户（出站代理语义，proxy_url_from_config 消费）。
-                    if key == "HTTPS_PROXY" && skip_routing_env {
-                        tracing::warn!(group = %group_key,
-                            "user env_var skipped: HTTPS_PROXY is aidog-managed for pure claude_code groups");
-                        continue;
-                    }
-                    env_map.insert(key.to_string(), serde_json::Value::String(ev.value.clone()));
-                }
                 // X-Aidog-Group 显式选组头：非透传组写入（值 = group_key，与 AUTH_TOKEN 同口径）；
                 // 透传组 / 不安全 key 只清掉旧行并写回（可能为空串），防默认组写进全局文件的头
-                // 经深合并漏进来，把本组流量选到默认组。用户自己的头行（base / 组 env_vars）保留。
+                // 经深合并漏进来，把本组流量选到默认组。用户自己的头行（base）保留。
                 let existing_headers = env_map
                     .get("ANTHROPIC_CUSTOM_HEADERS")
                     .and_then(|v| v.as_str())

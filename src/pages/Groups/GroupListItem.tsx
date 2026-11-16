@@ -10,7 +10,7 @@ import { PlatformCardActions, PlatformCardService } from "../../components/platf
 import { PlatformRow } from "../platforms/PlatformRow";
 import { GroupLastRequest as GroupLastRequestBadge } from "./GroupLastRequest";
 import type { DragHandleProps } from "../../components/SortableList";
-import { buildClaudeCommand, buildCodexCommand, buildPiCommand, useProxyEnvVars } from "../../domains/groups";
+import { buildClaudeCommand, buildCodexCommand, buildPiCommand } from "../../domains/groups";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -125,9 +125,7 @@ export const GroupListItem = memo(function GroupListItem({
 }: GroupListItemProps) {
   useDisplayCurrency();
   const { group, platforms: gps, model_mappings } = detail;
-  // 代理 env（claude settings.json env 段），前置 export 注入 codex 启动命令（codex 无 config proxy）。
   const { i18n } = useTranslation();
-  const proxyVars = useProxyEnvVars();
 
   // ── per-group 多选模式（本地 state, 不持久化）──
   const [mode, setMode] = useState<"view" | "select">("view");
@@ -319,8 +317,8 @@ export const GroupListItem = memo(function GroupListItem({
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(group.group_key); }}>{t("group.menuCopyKey", "API Key")}</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(buildClaudeCommand(group.group_key)); }}>{t("group.menuCopyClaude", "Claude 启动命令")}</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(buildCodexCommand(group.group_key, [...(group.env_vars ?? []), ...proxyVars])); }}>{t("group.menuCopyCodex", "Codex 启动命令")}</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(buildPiCommand(group.group_key, [...(group.env_vars ?? []), ...proxyVars])); }}>{t("group.menuCopyPi", "pi 启动命令")}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(buildCodexCommand(group.group_key)); }}>{t("group.menuCopyCodex", "Codex 启动命令")}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(buildPiCommand(group.group_key)); }}>{t("group.menuCopyPi", "pi 启动命令")}</DropdownMenuItem>
               <DropdownMenuItem style={{ color: "var(--color-danger)" }} onSelect={() => onDelete(group.id)}>{t("group.delete", "删除分组")}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

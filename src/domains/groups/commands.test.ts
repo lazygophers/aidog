@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildPiCommand } from "./commands";
+import { buildCodexCommand, buildPiCommand } from "./commands";
 
 describe("buildPiCommand", () => {
   it("selects the aidog provider for the group", () => {
@@ -11,12 +11,10 @@ describe("buildPiCommand", () => {
     expect(buildPiCommand("teamA")).not.toContain("ANTHROPIC_");
   });
 
-  it("exports user env vars ahead of the command", () => {
-    const cmd = buildPiCommand("g", [
-      { key: "HTTP_PROXY", value: "http://127.0.0.1:7890" },
-      { key: "EMPTY", value: "" },
-    ]);
-    expect(cmd).toBe("export HTTP_PROXY='http://127.0.0.1:7890'; pi --provider 'aidog-g'");
+  it("does not prepend removed group environment variables", () => {
+    expect(buildPiCommand("g")).toBe("pi --provider 'aidog-g'");
+    expect(buildCodexCommand("g")).toContain("AIDOG_KEY='g' codex");
+    expect(buildCodexCommand("g")).not.toContain("export ");
   });
 
   it("quotes a group key containing shell metacharacters", () => {

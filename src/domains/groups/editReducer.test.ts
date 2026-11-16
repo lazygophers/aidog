@@ -43,25 +43,21 @@ describe("editReducer", () => {
         request_timeout_secs: 60,
         connect_timeout_secs: 10,
       }],
-      envVars: [{ key: "K", value: "V" }],
       reqTimeout: 30,
       connTimeout: 5,
       maxRetries: 3,
     });
   });
 
-  it("open：mappings/envVars 是新对象（非原 detail 对象引用），不会互相污染", () => {
+  it("open：mappings 是新对象，不会污染原 detail", () => {
     const detail = makeDetail();
     const next = editReducer(EMPTY_EDIT, { type: "open", detail });
     expect(next.mappings[0]).not.toBe(detail.model_mappings[0]);
-    expect(next.envVars[0]).not.toBe(detail.group.env_vars[0]);
   });
 
-  it("reset：无论当前态如何，回落到 EMPTY_EDIT（含隐私默认 env）", () => {
+  it("reset：无论当前态如何，回落到 EMPTY_EDIT", () => {
     const dirty = editReducer(EMPTY_EDIT, { type: "open", detail: makeDetail() });
-    const next = editReducer(dirty, { type: "reset" });
-    expect(next).toBe(EMPTY_EDIT);
-    expect(next.envVars.length).toBeGreaterThan(0);
+    expect(editReducer(dirty, { type: "reset" })).toBe(EMPTY_EDIT);
   });
 
   it("patch：浅合并，未 patch 的字段保留原值", () => {
