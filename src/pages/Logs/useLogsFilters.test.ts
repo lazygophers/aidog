@@ -1,5 +1,5 @@
 // useLogsFilters.test — c8 三段切分后 filters 段的行为回归。
-// 覆盖 activeFilter 派生（exclude_sources 默认值/NO_GROUP_SENTINEL 映射/请求模型/实际模型独立带）、
+// 覆盖 activeFilter 派生（无默认 exclude/NO_GROUP_SENTINEL 映射/请求模型/实际模型独立带）、
 // hasFilter 判定、clearFilter 复位。mock 策略同 usePlatformsState.test：整包拦截 services/api。
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
@@ -31,10 +31,10 @@ describe("useLogsFilters", () => {
     proxyLogApiMock.distinctModels.mockImplementation(async (_f, actual) => (actual ? ["glm-4"] : ["claude-3"]));
   });
 
-  it("初始 activeFilter 只带 exclude_sources 默认值", async () => {
+  it("初始 activeFilter 为空（request_log 已分表，无默认 exclude_sources）", async () => {
     const r = renderHook(() => useLogsFilters());
     await waitFor(() => expect(platformApiMock.list).toHaveBeenCalled());
-    expect(r.result.current.activeFilter).toEqual({ exclude_sources: ["test", "quota", "fetch-models"] });
+    expect(r.result.current.activeFilter).toEqual({});
     expect(r.result.current.hasFilter).toBe(false);
   });
 
@@ -136,7 +136,7 @@ describe("useLogsFilters 类型筛选（隧道连接）", () => {
 
   it("默认包含隧道连接：不排除 http-connect，无 sources 限定", () => {
     const r = renderHook(() => useLogsFilters());
-    expect(r.result.current.activeFilter.exclude_sources).not.toContain("http-connect");
+    expect(r.result.current.activeFilter.exclude_sources ?? []).not.toContain("http-connect");
     expect(r.result.current.activeFilter.sources).toBeUndefined();
   });
 
@@ -150,7 +150,7 @@ describe("useLogsFilters 类型筛选（隧道连接）", () => {
   it("request = 排除 http-connect，保留默认排除", () => {
     const r = renderHook(() => useLogsFilters());
     act(() => r.result.current.setFilterType("request"));
-    expect(r.result.current.activeFilter.exclude_sources).toEqual(["test", "quota", "fetch-models", "http-connect"]);
+    expect(r.result.current.activeFilter.exclude_sources).toEqual(["http-connect"]);
   });
 
   it("clearFilter 复位类型", () => {

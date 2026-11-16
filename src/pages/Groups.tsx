@@ -902,6 +902,8 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
 
   // ── List view ──
   return (
+    <>
+    {sharedModals}
     <GroupListView
       details={details}
       platforms={platforms}
@@ -946,5 +948,6 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       onBatchSetStatus={handleBatchSetStatus}
       onBatchMoveGroup={handleBatchMoveGroup}
     />
+    </>
   );
 }

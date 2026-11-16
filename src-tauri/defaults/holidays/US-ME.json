@@ -1,0 +1,27 @@
+{
+  "code": "US-ME",
+  "extends": "US",
+  "name": {
+    "ar-SA": "مين",
+    "de-DE": "Maine",
+    "en-US": "Maine",
+    "es-ES": "Maine",
+    "fr-FR": "Maine",
+    "ja-JP": "メイン州",
+    "ru-RU": "Мэн",
+    "zh-Hans": "缅因州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-04-20", "2026-11-27"],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": ["2027-04-19", "2027-11-26"],
+      "workdays": []
+    }
+  },
+  "source_urls": [
+    "https://www.maine.gov/bhr/state-employees/holiday-schedule"
+  ]
+}

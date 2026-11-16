@@ -1,5 +1,6 @@
 {
   "model_id": "gryphe/mythomax-l2-13b",
+  "thinking_supported": false,
   "display_name": "MythoMax 13B",
   "canonical_model": "mythomax-l2-13b",
   "family": "mythomax",
@@ -12,7 +13,7 @@
     "input": 8e-08,
     "output": 1.1e-07
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"

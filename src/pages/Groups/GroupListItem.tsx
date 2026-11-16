@@ -2,7 +2,7 @@ import { Fragment, memo, useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import type { GroupDetail, GroupLastRequest, GroupPlatformDetail, Platform, PlatformUsageStats, PurgeCandidate, PlatformErrorStatus } from "../../services/api";
-import { buildStatusOptions, idsForCode } from "./statusSelect";
+import { buildStatusOptions, idsForSelection, PLATFORM_STATUS_OPTIONS } from "./statusSelect";
 import { platformApi } from "../../services/api";
 import { formatMoney, formatPercent, formatNumber, successRate as calcSuccessRate } from "../../utils/formatters";
 import { makeRipple } from "../../components/shared";
@@ -182,7 +182,7 @@ export const GroupListItem = memo(function GroupListItem({
 
   // 按状态选选项（plat-select-status）。
   const statusOptions = errStatus !== null
-    ? buildStatusOptions(errStatus, fullPlats.map(p => p.id))
+    ? buildStatusOptions(errStatus, fullPlats)
     : [];
 
   const headBtn: React.CSSProperties = { fontSize: 14, height: 26, padding: "0 9px", borderRadius: 6 };
@@ -280,7 +280,7 @@ export const GroupListItem = memo(function GroupListItem({
             display: "inline-flex", alignItems: "center", gap: 5,
           }} title={t("group.dragPlatform", "拖拽排序 / 移动到其他分组")}>⠿ {t("group.dropHint", "拖入平台")}</span>
           {gps.length > 0 && (
-            <Button variant="ghost" className="ripple" style={{ ...headBtn, ...(mode === "select" ? { background: "var(--accent-subtle)", color: "var(--primary)", border: "1px solid color-mix(in srgb, var(--primary) 45%, transparent)" } : {}) }}
+            <Button variant="ghost" className="ripple" data-testid="group-batch-start" style={{ ...headBtn, ...(mode === "select" ? { background: "var(--accent-subtle)", color: "var(--primary)", border: "1px solid color-mix(in srgb, var(--primary) 45%, transparent)" } : {}) }}
               onClick={(e) => { makeRipple(e); setMode("select"); setSelectedIds(new Set()); }}>
               {t("group.batchOps", "多选")}
             </Button>
@@ -321,9 +321,7 @@ export const GroupListItem = memo(function GroupListItem({
               <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(buildClaudeCommand(group.group_key)); }}>{t("group.menuCopyClaude", "Claude 启动命令")}</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(buildCodexCommand(group.group_key, [...(group.env_vars ?? []), ...proxyVars])); }}>{t("group.menuCopyCodex", "Codex 启动命令")}</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(buildPiCommand(group.group_key, [...(group.env_vars ?? []), ...proxyVars])); }}>{t("group.menuCopyPi", "pi 启动命令")}</DropdownMenuItem>
-              {(!group.auto_from_platform || gps.length === 0) && (
-                <DropdownMenuItem style={{ color: "var(--color-danger)" }} onSelect={() => onDelete(group.id)}>{t("group.delete", "删除分组")}</DropdownMenuItem>
-              )}
+              <DropdownMenuItem style={{ color: "var(--color-danger)" }} onSelect={() => onDelete(group.id)}>{t("group.delete", "删除分组")}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </span>
@@ -362,31 +360,32 @@ export const GroupListItem = memo(function GroupListItem({
           {/* 按状态选（plat-select-status）：动态错误码选项；口径 = 实时调度态优先回落 24h 日志最近失败码。 */}
           <Select
             onOpenChange={(open) => {
-              if (open && errStatus === null) {
+              if (open) {
                 platformApi.errorStatus()
                   .then(r => setErrStatus(r.filter(i => !(i.source === "cooldown" && i.until_ms !== null && i.until_ms < Date.now()))))
                   .catch(() => setErrStatus([]));
               }
             }}
+            value=""
             onValueChange={(v) => {
-              const ids = idsForCode(errStatus ?? [], fullPlats.map(p => p.id), Number(v));
+              const ids = idsForSelection(v, errStatus ?? [], fullPlats);
               if (ids.size > 0) setSelectedIds(ids);
             }}
           >
-            <SelectTrigger style={{ fontSize: 14, height: "auto", padding: "3px 9px", minHeight: 26, width: "auto", background: "var(--secondary)" }}>
+            <SelectTrigger data-testid="group-batch-status-select" style={{ fontSize: 14, height: "auto", padding: "3px 9px", minHeight: 26, width: "auto", background: "var(--secondary)" }}>
               <SelectValue placeholder={t("group.selectByStatus", "按状态选")} />
             </SelectTrigger>
             <SelectContent>
-              {statusOptions.map(o => (
-                <SelectItem key={o.code} value={String(o.code)} style={{ fontSize: 14 }}>
-                  {`${o.code} · ${t(`group.err.${o.code}`, `HTTP ${o.code}`)}（${o.count}）`}
+              {PLATFORM_STATUS_OPTIONS.map(o => (
+                <SelectItem key={o.value} value={o.value} data-testid={`group-batch-status-opt-${o.value}`} style={{ fontSize: 14 }}>
+                  {`${t(o.labelKey, o.fallback)}（${fullPlats.filter(p => p.status === o.status).length}）`}
                 </SelectItem>
               ))}
-              {statusOptions.length === 0 && (
-                <SelectItem value="__none__" disabled style={{ fontSize: 14 }}>
-                  {errStatus === null ? "…" : t("group.selectByStatusNone", "无错误状态")}
+              {statusOptions.map(o => (
+                <SelectItem key={o.value} value={o.value} data-testid={`group-batch-status-opt-${o.value}`} style={{ fontSize: 14 }}>
+                  {`${t(o.labelKey, o.fallback)}（${o.count}）`}
                 </SelectItem>
-              )}
+              ))}
             </SelectContent>
           </Select>
           {/* 稿 5 .batchbar .cancel：取消多选靠右 */}

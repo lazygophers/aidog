@@ -183,7 +183,7 @@ pub(crate) async fn handle_ws_passthrough(
     upsert_log(&state, &log, &log_settings).await;
 
     // 候选：无模型名（WS 无 body），RequestKind::Chat；候选里第一个透传平台服务本连接。
-    // 客户端白名单（票 06）：握手阶段判定，拒绝在 101 之前以普通 HTTP 响应返回（417 / 503），
+    // 客户端白名单（票 06）：握手阶段判定，拒绝在 101 之前以普通 HTTP 响应返回（403 / 503），
     // 无需 WS 关闭码 1008。多平台组走 select_candidates_gated；单平台短路会绕过候选过滤，
     // 故下方对选中的透传平台再判一次（等效退化形态仍受约束）。
     let lang = state.settings_cache.read().await.lang;

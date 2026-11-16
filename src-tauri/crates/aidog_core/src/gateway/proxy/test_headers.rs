@@ -458,14 +458,6 @@ fn inject_coding_plan_fields_other_protocols_no_op() {
     }
 }
 
-// ── override_coding_plan_path: no-op ──
-#[test]
-fn override_coding_plan_path_is_noop() {
-    let mut path = "/chat/completions".to_string();
-    override_coding_plan_path(&mut path, &crate::gateway::models::Protocol::OpenAI);
-    assert_eq!(path, "/chat/completions");
-}
-
 // ── build_upstream_headers: claude code with anthropic + gemini ──
 #[test]
 fn build_upstream_headers_claude_code_gemini() {

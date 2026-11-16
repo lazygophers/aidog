@@ -1,12 +1,14 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "ali/qwen3.5-4b",
+  "thinking_supported": false,
   "display_name": "Qwen3.5-4B",
+  "version": "3.5",
   "canonical_model": "qwen3.5-4b",
   "capabilities": [
     "text",

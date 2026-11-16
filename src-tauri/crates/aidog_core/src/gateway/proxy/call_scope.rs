@@ -47,8 +47,7 @@ impl CallScope<'_> {
             self.proxy_client,
             self.req_timeout,
             self.conn_timeout,
-            Some(&self.route.platform.extra),
-            None,
+            super::http_client::platform_should_use_proxy(self.proxy_client, &self.route.platform.extra),
         )
         .await
     }

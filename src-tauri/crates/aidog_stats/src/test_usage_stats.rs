@@ -530,7 +530,6 @@ async fn flow_breakdown_7d_scale_guard() {
 // ── 分组最近一次请求：log.db 读池，三文件库验证路由 ─────────────────────────────
 
 /// 三分组：gA 最新=失败（attempts 带 error）、gB 最新=成功（更早是失败）、gC 无请求；
-/// gA 另有更新的 test/quota 行必须被跳过（与 Logs 主页 exclude_sources 一致）。
 #[tokio::test]
 async fn group_last_requests_picks_latest_per_group() {
     let (db, _dir) = three_file_db().await;
@@ -556,7 +555,6 @@ async fn group_last_requests_picks_latest_per_group() {
     let rows = vec![
         put("a1", "gA", base + 10, 200, "anthropic"),
         a_fail,
-        put("a3", "gA", base + 30, 200, "test"),
         put("b1", "gB", base + 10, 500, "anthropic"),
         put("b2", "gB", base + 20, 200, "anthropic"),
     ];
@@ -572,4 +570,24 @@ async fn group_last_requests_picks_latest_per_group() {
     let b = m.get("gB").expect("gB 应有");
     assert_eq!((b.id.as_str(), b.status_code, b.error.as_str()), ("b2", 200, ""));
     assert!(!m.contains_key("gC"), "无请求的分组不出现");
+}
+
+/// 平台卡「最近测试」徽章：读 request_log（kind='test'，取最新一条），三文件库验证路由。
+#[tokio::test]
+async fn last_test_result_reads_request_log() {
+    let (db, _dir) = three_file_db().await;
+    let base = chrono::Utc::now().timestamp_millis();
+    let mk = |id: &str, kind: &str, status: i32, at: i64| {
+        let mut l = sample_log(id, "g", at);
+        l.platform_id = 7;
+        l.status_code = status;
+        l.response_body = "boom".into();
+        l.out_of_band(&format!("[{kind}]"), kind)
+    };
+    for l in [mk("t1", "test", 200, base), mk("t2", "test", 500, base + 10), mk("q1", "quota", 200, base + 20)] {
+        aidog_logs::upsert_request_log(&db, l).await.unwrap();
+    }
+    let r = get_last_test_result(&db, 7).await.unwrap().expect("有测试记录");
+    assert_eq!((r.success, r.status_code), (false, 500));
+    assert!(get_last_test_result(&db, 8).await.unwrap().is_none());
 }

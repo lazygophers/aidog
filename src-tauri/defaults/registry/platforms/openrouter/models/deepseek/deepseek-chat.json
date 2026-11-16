@@ -1,6 +1,7 @@
 {
   "model_id": "deepseek/deepseek-chat",
   "display_name": "DeepSeek: DeepSeek V3",
+  "version": "3",
   "canonical_model": "deepseek-chat",
   "family": "deepseek",
   "max_input_tokens": 163840,
@@ -14,7 +15,7 @@
     "input": 3.2e-07,
     "output": 8.9e-07
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "anthropic",
     "openai"

@@ -1,0 +1,36 @@
+{
+  "code": "DE-BB",
+  "extends": "DE",
+  "name": {
+    "zh-Hans": "勃兰登堡州",
+    "en-US": "Brandenburg",
+    "ar-SA": "براندنبورغ",
+    "fr-FR": "Brandebourg",
+    "de-DE": "Brandenburg",
+    "ru-RU": "Бранденбург",
+    "ja-JP": "ブランデンブルク州",
+    "es-ES": "Brandeburgo"
+  },
+  "source_urls": [
+    "https://www.gesetze-im-internet.de/einigvtr/art_2.html",
+    "https://bravors.brandenburg.de/gesetze/ftg_2015"
+  ],
+  "years": {
+    "2026": {
+      "holidays": [
+        "2026-04-05",
+        "2026-05-24",
+        "2026-10-31"
+      ],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [
+        "2027-03-28",
+        "2027-05-16",
+        "2027-10-31"
+      ],
+      "workdays": []
+    }
+  }
+}

@@ -21,6 +21,7 @@ import { rateLimitsSummary, clientCategoryState, toggleClientCategory, toggleCli
 import { Checkbox } from "@/components/ui/checkbox";
 import { newManualBudget, type TimeWindow, getDefaultPeak, getDefaultModelList, getDefaultPlanQuotas, type PlanQuotaTier, type QuotaScriptVariant, quotaVariantLabel } from "../../domains/platforms";
 import { isCurrentlyPeak, currentPeakMultiplier, utcToDisplay, displayToUtc, WINDOW_TIMEZONES, type TzMode } from "../../utils/timeWindow";
+import { useProxyConfigured } from "../../domains/platforms/proxyConfig";
 import { formatAmount, formatDateTime, formatPercent, pad } from "../../utils/formatters";
 import type { ThemeMode } from "../../themes/types";
 import { ModelCombobox, useModelCandidates } from "./ModelCombobox";
@@ -28,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { TimePicker } from "./WindowsEditModal";
+import { HolidayCalendarSelect } from "./HolidayCalendarSelect";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -75,6 +77,35 @@ export function FormSection({ title, desc, action, children }: { title: string; 
       </div>
       {children}
     </div>
+  );
+}
+
+/** 使用代理开关（issue #64 T03）：写平台 extra.proxy_enabled；全局代理地址为空时提示「暂按直连」。 */
+export function ProxyEnabledSection({ enabled, onChange, t }: { enabled: boolean; onChange: (v: boolean) => void; t: TFunction }) {
+  // 全局代理地址是否已配置（设置页「代理配置」host 非空）：为空时开关可照常操作，实际直连。
+  const proxyConfigured = useProxyConfigured();
+  return (
+    <FormSection title={t("platform.useProxy", "使用代理")}>
+      <div data-testid="platform-use-proxy-row" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "9px 12px", borderRadius: "var(--radius-sm)", background: "var(--card)", border: "1px solid var(--border)" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, cursor: "pointer" }}>
+          <Switch data-testid="platform-use-proxy" checked={enabled} onCheckedChange={v => onChange(v === true)} />
+          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{t("platform.useProxy", "使用代理")}</span>
+        </label>
+        {!proxyConfigured && (
+          <span data-testid="proxy-unconfigured-hint" style={{
+            fontSize: 14, fontWeight: 600, padding: "2px 8px", borderRadius: 5, whiteSpace: "nowrap",
+            color: "var(--color-warning)",
+            background: "color-mix(in srgb, var(--color-warning) 12%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--color-warning) 30%, transparent)",
+          }}>
+            {t("platform.proxyUnconfiguredHint", "代理未配置，暂按直连")}
+          </span>
+        )}
+        <span style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.4 }}>
+          {t("platform.useProxyDesc", "该平台的出站请求经「设置 → 代理配置」的代理地址转发。")}
+        </span>
+      </div>
+    </FormSection>
   );
 }
 
@@ -820,7 +851,7 @@ function formatWindowPreview(w: TimeWindow, tzMode: TzMode, t: TFunction): strin
   return `${startStr} - ${endStr}（${tzLabel}）${nextDayLabel ? `（${nextDayLabel}）` : ""}`;
 }
 
-export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDuringPeak, setDisableDuringPeak, protocol, themeMode, t }: {
+export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDuringPeak, setDisableDuringPeak, protocol, platformCalendar, themeMode, t }: {
   windows: TimeWindow[];
   setWindows: React.Dispatch<React.SetStateAction<TimeWindow[]>>;
   tzMode: TzMode;
@@ -828,6 +859,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
   disableDuringPeak: boolean;
   setDisableDuringPeak: React.Dispatch<React.SetStateAction<boolean>>;
   protocol: Protocol;
+  platformCalendar?: string;
   themeMode: ThemeMode;
   t: TFunction;
 }) {
@@ -907,8 +939,8 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
   };
 
   // 高峰禁用预览：实时算（基于当前 windows + now）。无窗口 → 视为非高峰（不会触发排除）。
-  const nowPeak = isCurrentlyPeak(windows, Date.now());
-  const nowMult = currentPeakMultiplier(windows, Date.now());
+  const nowPeak = isCurrentlyPeak(windows, Date.now(), "", platformCalendar);
+  const nowMult = currentPeakMultiplier(windows, Date.now(), "", platformCalendar);
 
   return (
     <FormSection
@@ -1056,7 +1088,21 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                 </SelectContent>
               </Select>
             </label>
-            <div style={{ display: "flex", gap: 2 }}>
+            <Select
+              value={w.day_type ?? "__week__"}
+              onValueChange={value => update(idx, { day_type: value === "__week__" ? undefined : value as "workday" | "holiday", days_of_week: undefined, holiday_calendar: value === "__week__" ? undefined : w.holiday_calendar })}
+            >
+              <SelectTrigger className="input" style={{ width: 125, height: 28, fontSize: 14 }} aria-label={t("platform.holidayCalendar.dayType", "日期类型")}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__week__">{t("platform.holidayCalendar.weekday", "星期")}</SelectItem>
+                <SelectItem value="workday">{t("platform.windows_dim_workday", "工作日")}</SelectItem>
+                <SelectItem value="holiday">{t("platform.windows_dim_holiday", "节假日")}</SelectItem>
+              </SelectContent>
+            </Select>
+            {w.day_type && <HolidayCalendarSelect value={w.holiday_calendar} inheritedValue={platformCalendar} timezone={w.timezone} onChange={holiday_calendar => update(idx, { holiday_calendar })} t={t} />}
+            {!w.day_type && <div style={{ display: "flex", gap: 2 }}>
               {[0, 1, 2, 3, 4, 5, 6].map(di => {
                 const active = (w.days_of_week ?? []).includes(di);
                 return (
@@ -1078,7 +1124,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                   </Button>
                 );
               })}
-            </div>
+            </div>}
             <Button
               variant="ghost"
               size="icon"
@@ -1663,11 +1709,12 @@ export function draftToBundle(d: RateLimitsDraft): RateLimitsBundle {
   };
 }
 
-export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, t }: {
+export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, platformCalendar, t }: {
   bundle: RateLimitsBundle;
   setBundle: React.Dispatch<React.SetStateAction<RateLimitsBundle>>;
   protocol: Protocol;
   modelOptions: string[];
+  platformCalendar?: string;
   t: TFunction;
 }) {
   const [draft, setDraft] = useState<RateLimitsDraft>(() => bundleToDraft(bundle));
@@ -1745,7 +1792,7 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, t
       {/* 限频规则：模型 / 时段条件 + 上限；重叠按列表顺序（可拖动） */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
         <span style={labelStyle}>{t("platform.rateLimits.rules", "限频规则")}</span>
-        <RateLimitRulesList rules={draft.rules} onChange={rules => upd("rules", rules)} modelOptions={modelOptions} protocol={protocol} t={t} />
+        <RateLimitRulesList rules={draft.rules} onChange={rules => upd("rules", rules)} modelOptions={modelOptions} protocol={protocol} platformCalendar={platformCalendar} t={t} />
       </div>
 
       <RateLimitPolicyLibrary protocol={protocol} source={bundle.rate_limits?.source_policy_id ? { id: bundle.rate_limits.source_policy_id, at: bundle.rate_limits.source_last_updated } : undefined} onImport={importPolicy} t={t} />

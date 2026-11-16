@@ -1,11 +1,13 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "minimax/m2",
+  "display_name": "MiniMax M2",
+  "thinking_supported": true,
   "canonical_model": "m2",
   "family": "minimax",
   "version": "2",

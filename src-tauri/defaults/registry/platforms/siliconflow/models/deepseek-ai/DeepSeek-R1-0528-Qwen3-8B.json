@@ -1,11 +1,12 @@
 {
   "max_input_tokens": 128000,
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B",
+  "max_output_tokens": 16384,
   "display_name": "DeepSeek-R1-0528-Qwen3-8B",
   "canonical_model": "DeepSeek-R1-0528-Qwen3-8B",
   "version": "r1",

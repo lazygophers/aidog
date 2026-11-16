@@ -299,7 +299,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
         gap: 8,
       }}>
         <img
-          src="/logo.svg"
+          src={`${import.meta.env.BASE_URL}logo.svg`}
           alt="logo"
           style={{ width: 26, height: 26, flexShrink: 0 }}
         />

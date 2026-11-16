@@ -15,6 +15,9 @@ pub(crate) enum Failure<'a> {
         /// registry 码义（`rate_limit` / `overloaded`），调用方按平台 wire 协议查出
         /// （`registry_code_meaning`）；码义优先于通用状态码分类。
         code_meaning: Option<&'a str>,
+        /// 平台 wire 协议名（issue 68）：错误体分类经平台适配器分派
+        /// （registry 码义优先级不变，miss 才走适配器默认分类）。
+        wire: &'a str,
     },
     /// 传输层失败（连接失败 / 读超时 / 中途断连，票 04）：无 HTTP 响应可读。
     /// `is_connect` = 连接建立失败（reqwest `is_connect`，R3 死站联动 + 熔断计数判据）。
@@ -98,8 +101,9 @@ pub(crate) struct Verdict {
 /// 纯函数：对一次上游非 2xx 失败做全部裁决。不读状态、不写任何东西、不取时钟。
 ///
 /// 判定序（与抽取前 `handle_non_success` 逐行为对应）：
-/// 1. 类别：registry 码义（rate_limit / overloaded）→ Service；否则 `classify_upstream_error`
-///    （429/402/401/403 与 censorship_blocked 直接 Service；其余读 body 特征）。
+/// 1. 类别：registry 码义（rate_limit / overloaded）→ Service；否则经平台适配器分派
+///    （默认实现 = `classify_upstream_error`：429/402/401/403 与 censorship_blocked 直接
+///    Service；其余读 body 特征；Kimi 等平台适配器可覆盖）。
 /// 2. 同平台换模型（spec D5）：非 Service 且规则未拦且链上有下一个 → 只留痕不记账。
 /// 3. 模型类链尽且非末位 → 换平台，仅 inflight 配平（record_ignored），不碰平台健康。
 /// 4. 其余进入主裁决：429 三形态（配额耗尽带/不带重置时间、每分钟限流、其余）、529、
@@ -112,6 +116,7 @@ pub(crate) fn judge(f: &Failure, c: &JudgeCtx) -> Verdict {
         body,
         retry_after,
         code_meaning,
+        wire,
     } = f
     else {
         // ── 传输失败（票 04，spec M2）：属服务类——排除整个平台；connect 失败计熔断
@@ -144,7 +149,8 @@ pub(crate) fn judge(f: &Failure, c: &JudgeCtx) -> Verdict {
     };
     let class = match code_meaning.as_deref() {
         Some("rate_limit" | "overloaded") => UpstreamErrorClass::Service,
-        _ => classify_upstream_error(*code, body),
+        // issue 68：错误体分类经平台适配器分派（registry 码义优先级不变，miss 才走适配器默认分类）。
+        _ => aidog_adapter::platform::adapter_for(wire).classify_error(*code, body),
     };
     let rule_blocks = c.rule_non_retryable;
     // ── 同平台换模型（票 06，spec D5）：先于 is_status_retryable（400/422 不换平台）与全部记账。
@@ -438,7 +444,7 @@ mod tests {
     }
 
     fn http(code: u16, body: &'static str) -> Failure<'static> {
-        Failure::Http { code, body, retry_after: None, code_meaning: None }
+        Failure::Http { code, body, retry_after: None, code_meaning: None, wire: "generic" }
     }
 
     // ── 表驱动：形态 → (class, scope, blame, effects 字符串, next) ──

@@ -1,5 +1,6 @@
 {
   "model_id": "relace/relace-search",
+  "thinking_supported": false,
   "display_name": "Relace: Relace Search",
   "canonical_model": "relace-search",
   "family": "relace",
@@ -12,7 +13,7 @@
     "input": 1e-06,
     "output": 3e-06
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"

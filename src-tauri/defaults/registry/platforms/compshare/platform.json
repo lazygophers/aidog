@@ -1,6 +1,6 @@
 {
-  "last_updated": 1793615839,
-  "endpoints": {
+  "last_updated": 1794657886,
+  "holiday_calendar": "CN",  "endpoints": {
     "default": [
       {
         "protocol": "anthropic",
@@ -40,15 +40,12 @@
       "baidu/ernie-4.5-turbo-128k",
       "baidu/ernie-4.5-turbo-vl-32k",
       "deepseek-v4-flash-0731",
-      "deepseek-v4-flash-0731-sg",
       "deepseek-v4-flash-sg",
       "deepseek-v4-flash-vision-exp",
       "deepseek-v4-pro-0813",
       "deepseek-v4-pro-0813-sg",
       "deepseek-v4-pro-sg",
       "deepseek-v4.1-flash",
-      "doubao-1-5-pro-32k-character-250715",
-      "doubao-seed-1-6-lite-251015",
       "doubao-seed-2-0-code-preview-260215",
       "doubao-seed-2-0-lite-260215",
       "doubao-seed-2-0-mini-260215",
@@ -95,7 +92,6 @@
       "cicada-tts",
       "cicada-video-lip-sync",
       "doubao-seedance-2-0-fast-260128",
-      "doubao-seedream-4.5",
       "doubao-seedream-5-0-260128",
       "doubao-seedream-5-0-pro-260628",
       "doubao-web-search-custom",

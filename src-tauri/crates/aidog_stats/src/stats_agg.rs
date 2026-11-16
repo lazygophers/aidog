@@ -255,7 +255,7 @@ pub fn upsert_stats_agg(
         // platform_id=0（auto 分组）才需 auto_map 回溯；主库读槽预查 move 进写闭包。
         let auto_map = if input.platform_id == 0 {
             db.call_read_platform_traced(None, __db_caller, |conn| {
-                load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+                load_auto_from_map(conn)
             })
             .await
             .map_err(|e| format!("upsert stats agg load auto_map: {e}"))?
@@ -333,7 +333,7 @@ pub fn rebuild_stats_agg_from_logs(
     async move {
         let auto_map = db
             .call_read_platform_traced(None, __db_caller, |conn| {
-                load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+                load_auto_from_map(conn)
             })
             .await
             .map_err(|e| format!("rebuild stats agg load auto_map: {e}"))?;
@@ -341,7 +341,7 @@ pub fn rebuild_stats_agg_from_logs(
         let agg = db
             .call_read_proxy_log_traced(None, __db_caller, move |conn| {
                 aggregate_proxy_logs(conn, &auto_map)
-                    .map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+                    
             })
             .await
             .map_err(|e| format!("rebuild stats agg aggregate: {e}"))?;
@@ -404,7 +404,7 @@ pub async fn correct_count_tokens_agg_once_if_needed(db: &Db) -> Result<bool, St
     // 禁同闭包跨库读。① log.db 读池跑聚合；② 主库写槽 upsert + 删孤儿。
     let auto_map = db
         .call_read_platform_traced(None, __db_caller, |conn| {
-            load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+            load_auto_from_map(conn)
         })
         .await
         .map_err(|e| format!("correct count_tokens agg load auto_map: {e}"))?;
@@ -412,7 +412,7 @@ pub async fn correct_count_tokens_agg_once_if_needed(db: &Db) -> Result<bool, St
     let agg = db
         .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             aggregate_proxy_logs(conn, &auto_map)
-                .map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+                
         })
         .await
         .map_err(|e| format!("correct count_tokens agg aggregate: {e}"))?;

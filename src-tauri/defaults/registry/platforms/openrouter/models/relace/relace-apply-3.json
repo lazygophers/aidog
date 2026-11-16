@@ -1,5 +1,6 @@
 {
   "model_id": "relace/relace-apply-3",
+  "thinking_supported": false,
   "display_name": "Relace: Relace Apply 3",
   "canonical_model": "relace-apply-3",
   "family": "relace",
@@ -13,7 +14,7 @@
     "input": 8.5e-07,
     "output": 1.25e-06
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"
