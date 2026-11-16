@@ -201,7 +201,8 @@ url = "http://127.0.0.1:9890/mcp"
 
 fn enabled_hooks() -> Value {
     let mut cfg = json!({});
-    sqz_apply_hooks(&mut cfg, true).unwrap();
+    let mut hl = SqzHookLedger::default();
+    sqz_apply_hooks_ledger(&mut cfg, true, &mut hl).unwrap();
     cfg
 }
 
@@ -235,6 +236,7 @@ fn status_off_when_one_server_unwrapped() {
 
 #[test]
 fn hooks_disable_keeps_user_hooks() {
+    let mut hl = SqzHookLedger::default();
     let mut cfg = json!({"hooks": {
         "PostToolUse": [{"matcher": "Bash", "hooks": [
             {"type": "command", "command": "my-lint"},
@@ -242,19 +244,24 @@ fn hooks_disable_keeps_user_hooks() {
         ]}],
         "SessionStart": [{"matcher": "compact", "hooks": [{"type": "command", "command": "sqz resume"}]}]
     }});
-    sqz_apply_hooks(&mut cfg, true).unwrap();
+    sqz_apply_hooks_ledger(&mut cfg, true, &mut hl).unwrap();
     assert!(has_hook(&cfg, "PreCompact", "sqz hook precompact"));
     // 已有的 claude-post 不重复加
     assert_eq!(cfg["hooks"]["PostToolUse"].as_array().unwrap().len(), 1);
 
-    sqz_apply_hooks(&mut cfg, false).unwrap();
+    sqz_apply_hooks_ledger(&mut cfg, false, &mut hl).unwrap();
+    // 开启前已有的 claude-post（记入 preexisting）保留；开启时新加的 precompact 删除。
     assert_eq!(
         cfg,
         json!({"hooks": {
-            "PostToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "my-lint"}]}],
+            "PostToolUse": [{"matcher": "Bash", "hooks": [
+                {"type": "command", "command": "my-lint"},
+                {"type": "command", "command": "sqz hook claude-post"}
+            ]}],
             "SessionStart": [{"matcher": "compact", "hooks": [{"type": "command", "command": "sqz resume"}]}]
         }})
     );
+    assert!(!has_hook(&cfg, "PreCompact", "sqz hook precompact"));
 }
 
 #[test]
@@ -429,14 +436,15 @@ fn sqz_file_transaction_rolls_back_when_second_write_fails() {
     );
 }
 
-#[test]
-fn sqz_files_refuse_invalid_json_and_write_nothing() {
+#[tokio::test]
+async fn sqz_files_refuse_invalid_json_and_write_nothing() {
     let tmp = tempfile::tempdir().unwrap();
+    let db = aidog_db::test_support::test_db().await;
     let p = paths_in(tmp.path());
     std::fs::write(&p.claude_json, "{bad").unwrap();
     let cx = p.codex.join("config.toml");
     std::fs::write(&cx, "[mcp_servers.a]\ncommand = \"x\"\n").unwrap();
-    assert!(sqz_apply_files(&p, true).is_err());
+    assert!(sqz_apply_files_ledger(&p, true, &db).await.is_err());
     assert_eq!(std::fs::read_to_string(&p.claude_json).unwrap(), "{bad");
     assert_eq!(
         std::fs::read_to_string(&cx).unwrap(),
@@ -444,28 +452,31 @@ fn sqz_files_refuse_invalid_json_and_write_nothing() {
     );
 }
 
-#[test]
-fn sqz_enable_creates_missing_codex_config_directory() {
+#[tokio::test]
+async fn sqz_enable_creates_missing_codex_config_directory() {
+    let db = aidog_db::test_support::test_db().await;
     let tmp = tempfile::tempdir().unwrap();
     let p = Paths {
         claude_json: tmp.path().join("claude.json"),
         codex: tmp.path().join("codex"),
     };
     std::fs::write(&p.claude_json, "{}").unwrap();
-    sqz_apply_files(&p, true).unwrap();
+    let _ = &db;
+    sqz_apply_files_ledger(&p, true, &db).await.unwrap();
     let config = p.codex.join("config.toml");
     let parsed: toml::Table = toml::from_str(&std::fs::read_to_string(config).unwrap()).unwrap();
     assert!(toml_is(&parsed["mcp_servers"]["sqz"], Kind::SelfServer));
 }
 
-#[test]
-fn sqz_files_refuse_invalid_toml_and_write_nothing() {
+#[tokio::test]
+async fn sqz_files_refuse_invalid_toml_and_write_nothing() {
     let tmp = tempfile::tempdir().unwrap();
+    let db = aidog_db::test_support::test_db().await;
     let p = paths_in(tmp.path());
     std::fs::write(&p.claude_json, "{\"settings\": true}").unwrap();
     let cx = p.codex.join("config.toml");
     std::fs::write(&cx, "[mcp_servers.a\ncommand = \"x\"").unwrap();
-    assert!(sqz_apply_files(&p, true).is_err());
+    assert!(sqz_apply_files_ledger(&p, true, &db).await.is_err());
     assert_eq!(
         std::fs::read_to_string(&p.claude_json).unwrap(),
         "{\"settings\": true}"
@@ -476,9 +487,10 @@ fn sqz_files_refuse_invalid_toml_and_write_nothing() {
     );
 }
 
-#[test]
-fn sqz_files_enable_then_disable_round_trip_on_disk() {
+#[tokio::test]
+async fn sqz_files_enable_then_disable_round_trip_on_disk() {
     let tmp = tempfile::tempdir().unwrap();
+    let db = aidog_db::test_support::test_db().await;
     let p = paths_in(tmp.path());
     std::fs::write(
         &p.claude_json,
@@ -488,12 +500,13 @@ fn sqz_files_enable_then_disable_round_trip_on_disk() {
     let cx = p.codex.join("config.toml");
     std::fs::write(&cx, "[mcp_servers.a]\ncommand = \"x\"\nargs = [\"—y\"]\n").unwrap();
 
-    sqz_apply_files(&p, true).unwrap();
+    let _ = &db;
+    sqz_apply_files_ledger(&p, true, &db).await.unwrap();
     assert_eq!(
         sqz_file_missing(&p, &enabled_hooks()).unwrap(),
         Vec::<String>::new()
     );
-    sqz_apply_files(&p, false).unwrap();
+    sqz_apply_files_ledger(&p, false, &db).await.unwrap();
     let v: Value = serde_json::from_str(&std::fs::read_to_string(&p.claude_json).unwrap()).unwrap();
     assert_eq!(v, claude_fixture());
     let t: toml::Table = toml::from_str(&std::fs::read_to_string(&cx).unwrap()).unwrap();
@@ -583,4 +596,92 @@ fn rtk_codex_disable_errors_when_rtk_md_block_unlocatable() {
 
     let err = rtk_codex_disable(&codex, &rec).unwrap_err();
     assert!(err.contains("RTK.md"), "error must name the file, got: {err}");
+}
+
+/// ── sqz own-write ledger：关闭只删 aidog 写入的内容 ──────────────────
+/// 用户自装的同形条目（手写 sqz-mcp stdio / 手加钩子 / 手写包装）关闭时必须原样保留：
+/// 无记录可对上的条目一律不删（不再按形状猜）。
+#[test]
+fn sqz_disable_via_ledger_spares_user_written_entries() {
+    // 1. 用户自写的 sqz-mcp --transport stdio 顶层服务（形状与 aidog 写的一样）
+    let mut cj = json!({"mcpServers": {
+        "mine": {"type": "stdio", "command": "sqz-mcp", "args": ["—transport", "stdio"]}
+    }});
+    let mut ledger = SqzLedger::default();
+    assert!(!sqz_apply_claude_json_ledger(&mut cj, false, &mut ledger).unwrap());
+    assert_eq!(
+        cj["mcpServers"]["mine"],
+        json!({"type": "stdio", "command": "sqz-mcp", "args": ["—transport", "stdio"]}),
+        "user-written self server must survive disable"
+    );
+
+    // 2. 用户手加的 sqz 钩子：开启时已被记为 preexisting → 关闭不删
+    let mut cfg = json!({"hooks": {
+        "PreCompact": [{"hooks": [{"type": "command", "command": "sqz hook precompact"}]}]
+    }});
+    let mut hook_ledger = SqzHookLedger {
+        preexisting: vec![("PreCompact".into(), "sqz hook precompact".into())],
+    };
+    sqz_apply_hooks_ledger(&mut cfg, false, &mut hook_ledger).unwrap();
+    assert!(
+        has_hook(&cfg, "PreCompact", "sqz hook precompact"),
+        "user-written hook recorded as preexisting must survive"
+    );
+
+    // 3. 用户手写的包装层：无记录 → 不还原
+    let mut cj2 = json!({"mcpServers": {
+        "rea": {"type": "stdio", "command": "sqz-mcp", "args": ["proxy", "—-", "mise", "exec", "node@22"]}
+    }});
+    sqz_apply_claude_json_ledger(&mut cj2, false, &mut ledger).unwrap();
+    assert_eq!(cj2["mcpServers"]["rea"]["command"], "sqz-mcp", "user-written wrapper must survive");
+}
+
+/// aidog 开启时记 ledger、关闭时按 ledger 精确还原（含用户改过键名后仍能对上）。
+#[test]
+fn sqz_enable_records_ledger_and_disable_restores_exactly() {
+    let mut cj = claude_fixture();
+    let mut ledger = SqzLedger::default();
+    sqz_apply_claude_json_ledger(&mut cj, true, &mut ledger).unwrap();
+    assert!(!ledger.is_empty(), "enable must record changes");
+
+    // 用户改名 aidog 加的 self server（其余未动）
+    if let Some(m) = cj.get_mut("mcpServers").and_then(Value::as_object_mut) {
+        let renamed = m.remove("sqz").expect("aidog-added self server");
+        m.insert("sqz-mcp-self".to_string(), renamed);
+    }
+
+    sqz_apply_claude_json_ledger(&mut cj, false, &mut ledger).unwrap();
+    let s = &cj["mcpServers"];
+    // 被包装的上游全部还原
+    assert_eq!(s["rea"]["command"], "mise");
+    assert_eq!(s["gitnexus"]["command"], "mise");
+    assert_eq!(
+        cj["projects"]["/p"]["mcpServers"]["local"]["command"],
+        "node"
+    );
+    // 用户改名后的 self server 仍被删（ledger 记录的是写入时的内容对，不靠名字）
+    assert!(s.get("sqz-mcp-self").is_none(), "aidog-added self server must be removed even after rename");
+}
+
+/// codex 侧同构：ledger 记录 → 关闭还原，用户自写条目保留。
+#[test]
+fn sqz_codex_ledger_round_trip_spares_user_entries() {
+    let text = r#"
+[mcp_servers.aidog-mine]
+command = "sqz-mcp"
+args = ["--transport", "stdio"]
+
+[mcp_servers.up]
+command = "x"
+args = ["—y"]
+"#;
+    let mut t: toml::Table = toml::from_str(text).unwrap();
+    let mut ledger = SqzLedger::default();
+    sqz_apply_codex_ledger(&mut t, true, &mut ledger).unwrap();
+
+    sqz_apply_codex_ledger(&mut t, false, &mut ledger).unwrap();
+    let servers = &t["mcp_servers"];
+    assert!(servers.get("aidog-mine").is_some(), "user-written codex server must survive");
+    assert!(servers.get("sqz").is_none(), "aidog-added codex self server must be removed");
+    assert_eq!(servers["up"]["command"], toml::Value::String("x".into()));
 }
