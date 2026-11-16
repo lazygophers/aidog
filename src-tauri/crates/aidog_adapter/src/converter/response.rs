@@ -35,7 +35,102 @@ pub fn response_model_or(body: &Value, fallback_model: &str) -> String {
     response_model(body).unwrap_or_else(|| fallback_model.to_string())
 }
 
-pub fn parse_sse(data: &Value, wire_protocol: &Protocol) -> Option<ChatStreamEvent> {
+/// 上游单帧 `data:` JSON → 中立事件流（0..n 个）。
+///
+/// issue 71：帧内携带 usage 时（anthropic message_start/message_delta、openai 末块、
+/// gemini usageMetadata、responses response.completed、completions 末块）先产出
+/// `ChatStreamEvent::Usage`，再产出该帧的原有事件（Stop 等）——渲染侧靠 Usage 先于 Stop
+/// 把 usage 合并进终止帧。官方 openai 的 usage 与 finish 分帧发送（finish 块先到），
+/// 此时 Usage 晚于 Stop 单独产出，渲染状态机兜住两种顺序。
+pub fn parse_sse(data: &Value, wire_protocol: &Protocol) -> Vec<ChatStreamEvent> {
+    let mut events = Vec::new();
+    if let Some(usage) = wire_usage(data, wire_protocol) {
+        events.push(ChatStreamEvent::Usage { usage });
+    }
+    if let Some(event) = parse_sse_single(data, wire_protocol) {
+        events.push(event);
+    }
+    events
+}
+
+/// 解析上游帧内 usage 为中立 [`Usage`]（issue 71）。None = 该帧 / 该协议不携带。
+fn wire_usage(data: &Value, wire_protocol: &Protocol) -> Option<Usage> {
+    let (prompt, completion, total, cache_read, cache_write) = match wire_protocol {
+        // anthropic：message_start 在 message.usage 带输入与缓存；message_delta 在
+        // usage 只带输出（部分帧），由 Usage::merge_partial 跨帧合并。
+        Protocol::Anthropic => {
+            let usage = data
+                .get("usage")
+                .or_else(|| data.get("message").and_then(|m| m.get("usage")))?;
+            (
+                usage.get("input_tokens"),
+                usage.get("output_tokens"),
+                None,
+                usage.get("cache_read_input_tokens"),
+                usage.get("cache_creation_input_tokens"),
+            )
+        }
+        // gemini：promptTokenCount 原样保留（含缓存），输出 = candidates + thoughts（与
+        // 非流式 parse_gemini_usage_metadata 同口径）；缓存读 = cachedContentTokenCount。
+        Protocol::Gemini => {
+            let usage = data.get("usageMetadata")?;
+            let completion = usage
+                .get("candidatesTokenCount")
+                .and_then(Value::as_u64)
+                .unwrap_or(0)
+                .saturating_add(
+                    usage
+                        .get("thoughtsTokenCount")
+                        .and_then(Value::as_u64)
+                        .unwrap_or(0),
+                );
+            return Some(Usage {
+                prompt_tokens: usage.get("promptTokenCount").and_then(Value::as_u64).map(|v| v as u32),
+                completion_tokens: Some(completion as u32),
+                total_tokens: usage.get("totalTokenCount").and_then(Value::as_u64).map(|v| v as u32),
+                cache_read_tokens: usage.get("cachedContentTokenCount").and_then(Value::as_u64).map(|v| v as u32),
+                cache_write_tokens: None,
+            });
+        }
+        // responses：usage 嵌在 response 对象内。
+        Protocol::OpenAIResponses => {
+            let usage = data.get("response")?.get("usage")?;
+            (
+                usage.get("input_tokens"),
+                usage.get("output_tokens"),
+                usage.get("total_tokens"),
+                usage
+                    .get("input_tokens_details")
+                    .and_then(|d| d.get("cached_tokens")),
+                None,
+            )
+        }
+        // openai chat 与 legacy completions：顶层 usage。
+        _ => {
+            let usage = data.get("usage")?;
+            (
+                usage.get("prompt_tokens"),
+                usage.get("completion_tokens"),
+                usage.get("total_tokens"),
+                usage
+                    .get("prompt_tokens_details")
+                    .and_then(|d| d.get("cached_tokens")),
+                None,
+            )
+        }
+    };
+    let num = |v: Option<&Value>| v.and_then(Value::as_u64).map(|n| n as u32);
+    Some(Usage {
+        prompt_tokens: num(prompt),
+        completion_tokens: num(completion),
+        total_tokens: num(total),
+        cache_read_tokens: num(cache_read),
+        cache_write_tokens: num(cache_write),
+    })
+}
+
+/// 上游单帧原有事件解析（issue 71 前的 parse_sse 行为）。
+fn parse_sse_single(data: &Value, wire_protocol: &Protocol) -> Option<ChatStreamEvent> {
     match wire_protocol {
         Protocol::Anthropic => super::super::anthropic::parse_anthropic_sse(data),
         Protocol::Gemini => super::super::gemini::parse_gemini_sse(data),
@@ -65,13 +160,28 @@ pub fn parse_upstream_sse(text: &str, wire_protocol: &Protocol) -> Vec<ChatStrea
             });
             continue;
         }
-        if let Ok(json) = serde_json::from_str::<Value>(data)
-            && let Some(event) = parse_sse(&json, wire_protocol)
-        {
-            events.push(event);
+        if let Ok(json) = serde_json::from_str::<Value>(data) {
+            events.extend(parse_sse(&json, wire_protocol));
         }
     }
-    events
+    hoist_usage_before_stop(events)
+}
+
+/// 把晚于 Stop 的 Usage 事件上提到最近的 Stop 之前（issue 71）。openai 官方分帧
+/// finish 块 → usage 块，解析出的事件序为 Stop, Usage；各客户端渲染状态机按
+/// 「Usage 先于 Stop → 合并进终止帧」处理，故渲染前统一上提。
+pub fn hoist_usage_before_stop(events: Vec<ChatStreamEvent>) -> Vec<ChatStreamEvent> {
+    let mut out: Vec<ChatStreamEvent> = Vec::with_capacity(events.len());
+    for e in events {
+        if let ChatStreamEvent::Usage { .. } = e
+            && let Some(pos) = out.iter().rposition(|o| matches!(o, ChatStreamEvent::Stop { .. }))
+        {
+            out.insert(pos, e);
+        } else {
+            out.push(e);
+        }
+    }
+    out
 }
 
 /// 非流式响应内部归一表示（基于 Anthropic 语义：text + tool_use 块 + stop_reason + usage）。
@@ -229,19 +339,24 @@ pub fn render_anthropic_response(r: &NonStreamResponse) -> Value {
 /// 带状态的客户端 SSE 渲染：Anthropic 系客户端走 [`AnthropicSseState`] 状态机
 /// （block index 分配 / content_block_start·stop / thinking block 完整序列），
 /// Responses 客户端走 [`ResponsesSseState`]（issue 70），OpenAI / Completions / Gemini
-/// 出站无状态，与 [`to_client_sse`] 一致。
+/// 走各自轻量状态机（issue 71：usage 累积与 [DONE]/终止帧时序）。
+///
+/// `include_usage` 只对 OpenAI Chat / legacy Completions 客户端生效（官方契约：usage 块
+/// 仅当请求带 `stream_options.include_usage` 时下发）；Anthropic / Gemini / Responses
+/// 客户端恒回传 usage，该参数忽略。
 pub fn to_client_sse_stateful(
     event: &ChatStreamEvent,
     state: &mut ClientSseState,
     source_protocol: &Protocol,
     model: &str,
+    include_usage: bool,
 ) -> Option<String> {
     use Protocol::*;
     match source_protocol {
-        OpenAI => super::super::openai::to_openai_sse(event, model),
+        OpenAI => state.as_openai(include_usage).push(event, model),
         OpenAIResponses => state.as_responses().push(event, model),
-        OpenAICompletions => super::super::openai_completions::to_completions_sse(event, model),
-        Gemini => super::super::gemini::to_gemini_sse(event, model),
+        OpenAICompletions => state.as_completions(include_usage).push(event, model),
+        Gemini => state.as_gemini().push(event, model),
         _ => state.as_anthropic().push(event),
     }
 }
@@ -477,13 +592,20 @@ mod response_model_tests {
 #[path = "test_response.rs"]
 mod test_response;
 
-/// 客户端 SSE 渲染状态（issue 70）：按 client_protocol 持有对应状态机。
+#[cfg(test)]
+#[path = "test_usage_matrix.rs"]
+mod test_usage_matrix;
+
+/// 客户端 SSE 渲染状态（issue 70 / issue 71）：按 client_protocol 持有对应状态机。
 /// Anthropic 系走 [`AnthropicSseState`]；Responses 客户端走
 /// [`ResponsesSseState`](super::super::openai_responses::ResponsesSseState)；
-/// OpenAI / Completions / Gemini 出站无状态，不占此结构。
+/// OpenAI / Completions / Gemini 走各自轻量状态机（issue 71）。
 pub enum ClientSseState {
     Anthropic(AnthropicSseState),
     Responses(super::super::openai_responses::ResponsesSseState),
+    OpenAi(super::super::openai::OpenAiSseState),
+    Completions(super::super::openai_completions::CompletionsSseState),
+    Gemini(super::super::gemini::GeminiSseState),
 }
 
 impl Default for ClientSseState {
@@ -513,6 +635,71 @@ impl ClientSseState {
             _ => unreachable!(),
         }
     }
+
+    fn as_openai(&mut self, include_usage: bool) -> &mut super::super::openai::OpenAiSseState {
+        if !matches!(self, ClientSseState::OpenAi(_)) {
+            *self = ClientSseState::OpenAi(super::super::openai::OpenAiSseState::new(include_usage));
+        }
+        match self {
+            ClientSseState::OpenAi(s) => s,
+            _ => unreachable!(),
+        }
+    }
+
+    fn as_completions(
+        &mut self,
+        include_usage: bool,
+    ) -> &mut super::super::openai_completions::CompletionsSseState {
+        if !matches!(self, ClientSseState::Completions(_)) {
+            *self = ClientSseState::Completions(
+                super::super::openai_completions::CompletionsSseState::new(include_usage),
+            );
+        }
+        match self {
+            ClientSseState::Completions(s) => s,
+            _ => unreachable!(),
+        }
+    }
+
+    fn as_gemini(&mut self) -> &mut super::super::gemini::GeminiSseState {
+        if !matches!(self, ClientSseState::Gemini(_)) {
+            *self = ClientSseState::Gemini(Default::default());
+        }
+        match self {
+            ClientSseState::Gemini(s) => s,
+            _ => unreachable!(),
+        }
+    }
+
+    /// 流末冲刷（issue 71）：OpenAI Chat / Completions 客户端把 `[DONE]` 哨兵压到 usage 块
+    /// 之后（官方顺序 finish → usage → [DONE]），流结束仍无 usage 时在此补发；其余协议
+    /// 无哨兵 / 无待冲刷内容 → None。
+    pub fn flush(&mut self) -> Option<String> {
+        match self {
+            ClientSseState::Anthropic(s) => s.flush(),
+            ClientSseState::OpenAi(s) => s.flush(),
+            ClientSseState::Completions(s) => s.flush(),
+            ClientSseState::Gemini(s) => s.flush(),
+            ClientSseState::Responses(_) => None,
+        }
+    }
+
+    /// 流被错误帧提前终止时调用：错误帧已含各协议自身的终止哨兵 / 终态载荷，标记后
+    /// [`ClientSseState::flush`] 不再补发（openai 系免双 `[DONE]`、anthropic 免双
+    /// message_stop、gemini 免终帧重复）。
+    pub fn mark_done(&mut self) {
+        match self {
+            ClientSseState::Anthropic(s) => {
+                s.stop_seen = true;
+                s.finish_reason = None;
+                s.terminated = true;
+            }
+            ClientSseState::OpenAi(s) => s.mark_done(),
+            ClientSseState::Completions(s) => s.mark_done(),
+            ClientSseState::Gemini(s) => s.mark_done(),
+            ClientSseState::Responses(_) => {}
+        }
+    }
 }
 
 /// Anthropic SSE 出站状态机：跨 chunk 维护 block index 分配与开块表。
@@ -532,6 +719,16 @@ pub struct AnthropicSseState {
     thinking_just_opened: Option<bool>,
     /// 中立 tool index → wire block index（已开块）
     tool_wire: std::collections::HashMap<u32, u32>,
+    /// 跨帧累积的 usage（issue 71）：anthropic 上游 message_start 带输入与缓存、
+    /// message_delta 只带输出，`Usage::merge_partial` 合并后在 message_delta 终帧回传。
+    pending_usage: Usage,
+    /// Stop 已见标记：anthropic 上游 message_delta 与 message_stop 各产出一个 Stop，
+    /// 第二次重复不再关块 / 不再改写终帧内容。
+    stop_seen: bool,
+    /// Stop 携带的 finish_reason（终帧内容压到 flush 才渲染，issue 71）。
+    finish_reason: Option<String>,
+    /// 流被错误帧提前终止（mark_done）：flush 不再补终帧。
+    terminated: bool,
 }
 
 impl AnthropicSseState {
@@ -628,8 +825,16 @@ impl AnthropicSseState {
                 }
             }
             ChatStreamEvent::Stop { finish_reason } => {
+                // 重复 Stop（anthropic message_delta + message_stop / [DONE] 哨兵）只处理一次
+                if self.stop_seen {
+                    return None;
+                }
+                self.stop_seen = true;
+                self.finish_reason = finish_reason.clone();
+                // issue 71：message_delta（含 usage 终值）压到流末 flush 才发——openai 系上游
+                // 的 usage 帧晚于 finish 帧到达（甚至跨 chunk），立即发终帧会把 usage 定格成 0。
+                // 此处只关全部开块（text / thinking / tool × n），wire index 升序。
                 let mut parts = Vec::new();
-                // 关全部开块（text / thinking / tool × n），wire index 升序
                 let mut closes: Vec<u32> = Vec::new();
                 if let Some(i) = self.text_index {
                     closes.push(i);
@@ -645,19 +850,40 @@ impl AnthropicSseState {
                         serde_json::json!({ "type": "content_block_stop", "index": c })
                     ));
                 }
-                parts.push(format!(
-                    "event: message_delta\ndata: {}\n\nevent: message_stop\ndata: {{\"type\":\"message_stop\"}}\n\n",
-                    serde_json::json!({
-                        "type": "message_delta",
-                        "delta": { "stop_reason": anthropic_stop_reason(finish_reason.as_deref()), "stop_sequence": null },
-                        "usage": { "output_tokens": 0 }
-                    })
-                ));
-                Some(parts.join(""))
+                if parts.is_empty() {
+                    None
+                } else {
+                    Some(parts.join(""))
+                }
             }
-            ChatStreamEvent::Usage { .. } => None,
+            ChatStreamEvent::Usage { usage } => {
+                self.pending_usage.merge_partial(usage);
+                None
+            }
             ChatStreamEvent::Ping => Some("event: ping\ndata: {\"type\":\"ping\"}\n\n".to_string()),
         }
+    }
+
+    /// 流末冲刷（issue 71）：Stop 已见时在此发 message_delta（stop_reason + 全量 usage）+
+    /// message_stop。usage 帧晚于 finish 帧到达时，这里拿到的才是终值。
+    pub fn flush(&mut self) -> Option<String> {
+        if !self.stop_seen || self.terminated {
+            return None;
+        }
+        let reason = self.finish_reason.take().unwrap_or_default();
+        Some(format!(
+            "event: message_delta\ndata: {}\n\nevent: message_stop\ndata: {{\"type\":\"message_stop\"}}\n\n",
+            serde_json::json!({
+                "type": "message_delta",
+                "delta": { "stop_reason": anthropic_stop_reason(Some(reason.as_str())), "stop_sequence": null },
+                "usage": {
+                    "input_tokens": self.pending_usage.prompt_tokens.unwrap_or(0),
+                    "output_tokens": self.pending_usage.completion_tokens.unwrap_or(0),
+                    "cache_read_input_tokens": self.pending_usage.cache_read_tokens.unwrap_or(0),
+                    "cache_creation_input_tokens": self.pending_usage.cache_write_tokens.unwrap_or(0),
+                }
+            })
+        ))
     }
 
     fn alloc_block(&mut self) -> u32 {

@@ -1386,9 +1386,11 @@ fn parse_sse_events_and_usage_single_pass() {
         "data: [DONE]\n\n",
     );
     let events = agg.parse_sse_events_and_usage(text, aidog_adapter::platform::adapter_for("anthropic"), &Protocol::Anthropic);
-    // 事件齐全：Start（model 已观察）/ Delta / Stop（[DONE] 哨兵）
-    assert!(matches!(&events[0], ChatStreamEvent::Start { model, .. } if model == "glm-5.3"));
-    assert!(matches!(&events[1], ChatStreamEvent::Delta { text } if text == "hi"));
+    // 事件齐全：Usage（issue 71，message_start 帧内 usage 先产出）/ Start（model 已观察）/
+    // Delta / Stop（[DONE] 哨兵；message_delta 帧的 Usage 已上提到它前面）
+    assert!(matches!(&events[0], ChatStreamEvent::Usage { .. }));
+    assert!(matches!(&events[1], ChatStreamEvent::Start { model, .. } if model == "glm-5.3"));
+    assert!(matches!(&events[2], ChatStreamEvent::Delta { text } if text == "hi"));
     assert!(matches!(events.last(), Some(ChatStreamEvent::Stop { .. })));
     // usage 同一次解析里累计（与 feed_sse_usage 同 accumulate_sse_usage 口径）
     assert_eq!(agg.tokens_in.load(Relaxed), 723, "fetch_max 取大值");

@@ -22,10 +22,15 @@ pub fn build_sse_chunks(cfg: &MockConfig, source_protocol: &Protocol, model: &st
     });
 
     let mut state = converter::ClientSseState::default();
-    events
+    let mut out: Vec<String> = events
         .iter()
-        .filter_map(|e| converter::to_client_sse_stateful(e, &mut state, source_protocol, model))
-        .collect()
+        .filter_map(|e| converter::to_client_sse_stateful(e, &mut state, source_protocol, model, false))
+        .collect();
+    // issue 71：终帧与 [DONE] 压到流末 flush
+    if let Some(s) = state.flush() {
+        out.push(s);
+    }
+    out
 }
 
 /// 将文本切成 n 块（n<=1 或文本空则单块）。

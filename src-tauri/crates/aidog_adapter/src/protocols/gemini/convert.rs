@@ -993,19 +993,7 @@ pub fn to_gemini_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
             }],
             "modelVersion": model,
         }),
-        ChatStreamEvent::Stop { finish_reason } => {
-            let reason = match finish_reason.as_deref() {
-                Some("end_turn") | Some("stop") => "STOP",
-                Some("max_tokens") => "MAX_TOKENS",
-                _ => "STOP",
-            };
-            serde_json::json!({
-                "candidates": [{
-                    "finishReason": reason,
-                    "content": { "parts": [], "role": "model" }
-                }]
-            })
-        }
+        ChatStreamEvent::Stop { finish_reason } => gemini_stop_frame(finish_reason.as_deref(), None),
         ChatStreamEvent::Usage { .. } => return None,
         // gemini wire 没有 ping 事件，同 openai。
         ChatStreamEvent::Ping => return None,
@@ -1027,6 +1015,90 @@ pub fn to_gemini_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
         }
     };
     Some(format!("data: {}\n\n", json))
+}
+
+/// Gemini 终止帧（finishReason + 可选 usageMetadata）：`usage = None` 时不带 usageMetadata
+/// （无状态入口旧行为）；`Some` 时回传全量 usage（issue 71，字段映射与
+/// [`parse_gemini_usage_metadata`] 读侧对称）。仅 `data:` 行，无 [DONE] 哨兵。
+fn gemini_stop_frame(finish_reason: Option<&str>, usage: Option<&Usage>) -> serde_json::Value {
+    let reason = match finish_reason {
+        Some("end_turn") | Some("stop") => "STOP",
+        Some("max_tokens") => "MAX_TOKENS",
+        _ => "STOP",
+    };
+    let mut frame = serde_json::json!({
+        "candidates": [{
+            "finishReason": reason,
+            "content": { "parts": [], "role": "model" }
+        }]
+    });
+    if let Some(usage) = usage {
+        let prompt = usage.prompt_tokens.unwrap_or(0);
+        let completion = usage.completion_tokens.unwrap_or(0);
+        let mut meta = serde_json::json!({
+            "promptTokenCount": prompt,
+            "candidatesTokenCount": completion,
+            "totalTokenCount": usage.effective_total().unwrap_or(prompt.saturating_add(completion)),
+        });
+        if let Some(cr) = usage.cache_read_tokens
+            && cr > 0
+        {
+            meta["cachedContentTokenCount"] = serde_json::json!(cr);
+        }
+        frame["usageMetadata"] = meta;
+    }
+    frame
+}
+
+/// Gemini 客户端流式状态机（issue 71）：usage 跨帧累积，finishReason + usageMetadata
+/// 终帧压到流末 flush 才发（openai 系上游 usage 帧晚于 finish 帧到达，立即发会把 usage
+/// 定格成 0；Gemini 官方形态本就是末帧 finishReason + usageMetadata 同帧，流式无 [DONE]）。
+#[derive(Default)]
+pub struct GeminiSseState {
+    pending_usage: Usage,
+    stop_seen: bool,
+    finish_reason: Option<String>,
+    /// 流被错误帧提前终止（mark_done）：flush 不再补终帧。
+    terminated: bool,
+}
+
+impl GeminiSseState {
+    pub fn push(&mut self, event: &ChatStreamEvent, model: &str) -> Option<String> {
+        match event {
+            ChatStreamEvent::Usage { usage } => {
+                self.pending_usage.merge_partial(usage);
+                None
+            }
+            ChatStreamEvent::Stop { finish_reason } => {
+                if self.stop_seen {
+                    return None;
+                }
+                self.stop_seen = true;
+                self.finish_reason = finish_reason.clone();
+                None
+            }
+            other => to_gemini_sse(other, model),
+        }
+    }
+
+    /// 流末冲刷：发 finishReason + usageMetadata 终帧。
+    pub fn flush(&mut self) -> Option<String> {
+        if !self.stop_seen || self.terminated {
+            return None;
+        }
+        let reason = self.finish_reason.take().unwrap_or_default();
+        Some(format!(
+            "data: {}\n\n",
+            gemini_stop_frame(Some(reason.as_str()), Some(&self.pending_usage))
+        ))
+    }
+
+    /// 流被错误帧提前终止：错误帧按 Gemini 形态自带错误载荷，不再补终帧。
+    pub fn mark_done(&mut self) {
+        self.stop_seen = true;
+        self.finish_reason = None;
+        self.terminated = true;
+    }
 }
 
 #[cfg(test)]

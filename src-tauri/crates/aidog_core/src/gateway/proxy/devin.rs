@@ -1208,6 +1208,7 @@ pub(crate) fn build_devin_sse_seq(
         &mut state,
         source_protocol,
         model,
+        false,
     ) {
         out.push(s);
     }
@@ -1219,6 +1220,7 @@ pub(crate) fn build_devin_sse_seq(
                 &mut state,
                 source_protocol,
                 model,
+                false,
             )
         {
             out.push(s);
@@ -1231,7 +1233,12 @@ pub(crate) fn build_devin_sse_seq(
         &mut state,
         source_protocol,
         model,
+        false,
     ) {
+        out.push(s);
+    }
+    // issue 71：anthropic / gemini / openai 系的终帧与 [DONE] 压到流末 flush
+    if let Some(s) = state.flush() {
         out.push(s);
     }
     out
@@ -1562,7 +1569,8 @@ mod tests {
             &["world".into()],
             "end_turn",
         );
-        assert_eq!(chunks.len(), 3, "anthropic seq: {:?}", chunks);
+        // Start + Delta + Stop(closes) + flush（message_delta+message_stop 压到流末，issue 71）
+        assert_eq!(chunks.len(), 4, "anthropic seq: {:?}", chunks);
         // Start: event: message_start
         assert!(
             chunks[0].contains("event: message_start"),
@@ -1590,21 +1598,27 @@ mod tests {
             "anthropic delta text: {}",
             chunks[1]
         );
-        // Stop: message_delta + message_stop, stop_reason=end_turn
+        // Stop: 关块（content_block_stop）；终帧压到流末 flush（issue 71）
         assert!(
-            chunks[2].contains("event: message_delta"),
+            chunks[2].contains("event: content_block_stop"),
+            "anthropic stop closes: {}",
+            chunks[2]
+        );
+        // flush: message_delta + message_stop, stop_reason=end_turn
+        assert!(
+            chunks[3].contains("event: message_delta"),
             "anthropic stop delta: {}",
-            chunks[2]
+            chunks[3]
         );
         assert!(
-            chunks[2].contains("event: message_stop"),
+            chunks[3].contains("event: message_stop"),
             "anthropic message_stop: {}",
-            chunks[2]
+            chunks[3]
         );
         assert!(
-            chunks[2].contains("end_turn"),
+            chunks[3].contains("end_turn"),
             "anthropic stop_reason: {}",
-            chunks[2]
+            chunks[3]
         );
     }
 

@@ -1168,7 +1168,9 @@ fn ticket08_anthropic_sse_state_machine() {
             finish_reason: Some("tool_use".into()),
         },
     ];
-    let frames: Vec<String> = events.iter().filter_map(|e| st.push(e)).collect();
+    let mut frames: Vec<String> = events.iter().filter_map(|e| st.push(e)).collect();
+    // issue 71：message_delta（stop_reason + usage 终帧）压到流末 flush
+    frames.push(st.flush().unwrap_or_default());
     let wire = frames.join("");
 
     // thinking 走独立 block + thinking_delta（非 text_delta）
@@ -1246,7 +1248,9 @@ fn ticket08_multi_tool_interleaved() {
             finish_reason: Some("tool_use".into()),
         },
     ];
-    let frames: Vec<String> = events.iter().filter_map(|e| st.push(e)).collect();
+    let mut frames: Vec<String> = events.iter().filter_map(|e| st.push(e)).collect();
+    // issue 71：message_delta（stop_reason + usage 终帧）压到流末 flush
+    frames.push(st.flush().unwrap_or_default());
     let wire = frames.join("");
     assert!(wire.contains("\"id\":\"a\""));
     assert!(wire.contains("\"id\":\"b\""));
@@ -1293,7 +1297,9 @@ fn ticket08_text_only_state_machine_no_regression() {
             finish_reason: None,
         },
     ];
-    let wire: String = events.iter().filter_map(|e| st.push(e)).collect();
+    let mut wire: String = events.iter().filter_map(|e| st.push(e)).collect();
+    // issue 71：message_delta（stop_reason + usage 终帧）压到流末 flush
+    wire.push_str(&st.flush().unwrap_or_default());
     assert!(wire.contains("message_start"));
     assert!(wire.contains("\"text\":\"h\"") && wire.contains("\"text\":\"i\""));
     assert!(wire.contains("message_stop"));
