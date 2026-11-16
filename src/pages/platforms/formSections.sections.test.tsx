@@ -56,6 +56,8 @@ function renderBudgets(budgets: ManualBudget[], tiers: PlanQuotaTier[] = []) {
   return { container, setBudgets, setTierId };
 }
 
+const ENABLE_TESTID = ["quota", "window", "enabled", "0"].join("-");
+
 describe("ManualBudgetsFields — C 方向稿接线", () => {
   it("实时态条：N 个限额 + 启用计数；空态提示并存", () => {
     const { container } = renderBudgets([budget({ enabled: true }), budget({ id: "b2", enabled: false })]);
@@ -478,5 +480,48 @@ describe("ClientWhitelistSection — 客户端白名单（票 03）", () => {
     expect(q("client-wl-count")!.textContent).toContain("1");
     fireEvent.click(q("client-wl-clear")!);
     expect(rules()).toEqual([]);
+  });
+});
+
+// ── RateLimitsSection — 额度窗口执行（2026-11-16）：启用开关 + 重置方式 ──
+import { bundleToDraft, draftToBundle } from "./formSections";
+
+describe("额度窗口 执行字段（enabled / reset_mode）", () => {
+  it("旧 bundle（无新键）→ 编辑态缺省 enabled=true / resetMode=sliding", () => {
+    const d = bundleToDraft({ quota_windows: [{ window: 18000, budget_tokens: 120000 }] });
+    expect(d.windows[0].enabled).toBe(true);
+    expect(d.windows[0].resetMode).toBe("sliding");
+  });
+
+  it("draftToBundle：缺省值不写键（serde 缺省兼容），非缺省显式写出", () => {
+    const d = bundleToDraft({ quota_windows: [{ window: 18000, budget_tokens: 120000 }] });
+    const out = draftToBundle(d).quota_windows![0];
+    expect("enabled" in out).toBe(false, "缺省开启不写键");
+    expect("reset_mode" in out).toBe(false, "缺省 sliding 不写键");
+    // 非缺省
+    const off = draftToBundle({ ...d, windows: [{ ...d.windows[0], enabled: false, resetMode: "calendar_day" }] }).quota_windows![0];
+    expect(off.enabled).toBe(false);
+    expect(off.reset_mode).toBe("calendar_day");
+    // 预算字段保留
+    expect(off.budget_tokens).toBe(120000);
+  });
+
+  it("渲染：窗口行带启用开关与重置方式控件（data-testid）", () => {
+    const { container } = renderRateLimits(bundle);
+    const sw = container.querySelector(`[data-testid="${ENABLE_TESTID}"]`);
+    expect(sw, "启用开关渲染").toBeTruthy();
+    expect(sw!.getAttribute("aria-checked") ?? sw!.getAttribute("data-state")).toBeTruthy();
+    const reset = container.querySelector('[data-testid="quota-window-reset-0"]');
+    expect(reset, "重置方式下拉渲染").toBeTruthy();
+  });
+
+  it("关闭开关 → commit 携带 enabled:false，预算与窗口时长不变", () => {
+    const { container, setBundle } = renderRateLimits(bundle);
+    const sw = container.querySelector(`[data-testid="${ENABLE_TESTID}"]`) as HTMLElement;
+    fireEvent.click(sw);
+    const next = setBundle.mock.calls.at(-1)![0] as RateLimitsBundle;
+    expect(next.quota_windows?.[0].enabled).toBe(false);
+    expect(next.quota_windows?.[0].window).toBe(18000);
+    expect(next.quota_windows?.[0].budget_tokens).toBe(120000);
   });
 });

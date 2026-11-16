@@ -250,6 +250,8 @@ pub enum RouteReason {
     SkippedDeadUpstream,
     /// 直通模型链：平台未声明该直通模型，被丢弃（路由画布 01）
     NotDeclared,
+    /// 额度窗口耗尽（extra.quota_windows 执行，2026-11-16）：任一 enabled 窗口超限，临时性维度
+    QuotaWindowExhausted,
     /// 入选但因最大尝试次数用尽从未尝试（路由画布 01；上限见 `RoutingSnapshot.max_retries`）
     RetryLimit,
 }

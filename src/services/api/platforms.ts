@@ -1077,6 +1077,10 @@ export interface QuotaWindowConfig {
   budget_usd?: number;
   /** 请求次数预算。 */
   budget_count?: number;
+  /** 是否启用此窗口（缺省 true；后端 serde 缺省同值，2026-11-16 执行上线）。 */
+  enabled?: boolean;
+  /** 窗口重置机制：sliding（默认，首笔请求起算）/ calendar_day（自然日对齐）/ calendar_hour（自然小时对齐）。 */
+  reset_mode?: "sliding" | "calendar_day" | "calendar_hour";
   /** @deprecated 存量兼容，UI 不再暴露；编辑保存后清除。 */
   budget_points?: number;
 }

@@ -429,6 +429,7 @@ async fn estimate_after_request_balance_path_no_calibration() {
         0,     // created_at
         0.0,
         0,
+        false,
     )
     .await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
@@ -469,6 +470,7 @@ async fn estimate_after_request_applies_peak_multiplier() {
         0,
         0.0,
         0,
+        false,
     )
     .await;
 
@@ -515,6 +517,7 @@ async fn estimate_after_request_coding_path_no_calibration() {
         0,
         0.0,
         0,
+        false,
     )
     .await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
@@ -666,6 +669,7 @@ async fn run_est(db: &Db, id: u64, tool_usd: f64, in_tok: i64, out_tok: i64) {
         0,
         tool_usd,
         0,
+        false,
     )
     .await;
 }
@@ -788,6 +792,7 @@ async fn tool_fee_not_multiplied_by_peak() {
         0,
         0.5,
         0,
+        false,
     )
     .await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
@@ -841,6 +846,7 @@ async fn per_request_fee_deducted_from_balance_and_manual_budget() {
         0,
         0.0,
         1, // request_units
+        false,
     )
     .await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
@@ -907,6 +913,7 @@ async fn char_unit_missing_count_not_deducted_from_balance() {
         0,
         0.0,
         0, // 缺计数（TTS 入口未建，issue 157）
+        false,
     )
     .await;
     assert!(!processed, "char 缺计数 → request_fee 0 → 无可扣项，跳过预估");
