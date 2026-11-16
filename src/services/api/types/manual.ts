@@ -518,6 +518,8 @@ export interface TimeModelRule {
   models: import("./generated/PlatformModels").PlatformModels;
   /** 本档内置槽启用开关（关闭的内置槽名；与平台级 extra.disabled_slots 同形）。缺省 = 沿用平台级。 */
   disabled_slots?: string[];
+  /** false = 本档关掉（网关视为不存在，落到下一档）；缺省 = 开。开着不写该键。 */
+  enabled?: boolean;
 }
 
 export type MockErrorMode = "none" | "http_error" | "rate_limit_429" | "timeout";

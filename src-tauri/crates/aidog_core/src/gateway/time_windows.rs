@@ -7,13 +7,17 @@
 use crate::gateway::models::PlatformModels;
 
 /// 从 `platform.extra` JSON 字符串解析 `time_windows` 字段；非法 / 缺失 → 空。
+/// `enabled: false` 的档（用户关掉）视为不存在：命中判定、模型配置全集、「未配时段档」判定都看不到它。
 pub fn parse_platform_time_windows(extra: &str) -> Vec<serde_json::Value> {
     // 验证每个元素都有 windows 和 models 字段（PlatformExtra.time_windows 未内嵌此校验）
     let mut rules: Vec<_> = crate::gateway::models::PlatformExtra::parse(extra)
         .time_windows
         .into_iter()
         .filter(|item| {
-            item.is_object() && item.get("windows").is_some() && item.get("models").is_some()
+            item.is_object()
+                && item.get("windows").is_some()
+                && item.get("models").is_some()
+                && item.get("enabled").and_then(serde_json::Value::as_bool) != Some(false)
         })
         .collect();
     let platform_calendar = serde_json::from_str::<serde_json::Value>(extra)
@@ -146,6 +150,30 @@ mod tests {
         assert_eq!(model_configs(&default, "").len(), 1);
     }
     use super::*;
+
+    #[test]
+    fn disabled_rule_is_skipped_and_falls_through() {
+        let default = PlatformModels {
+            default: vec!["d".into()],
+            ..Default::default()
+        };
+        let extra = r#"{"time_windows":[
+            {"enabled":false,"windows":[{"start_hour":0,"end_hour":24}],"models":{"default":"off"}},
+            {"enabled":true,"windows":[{"start_hour":0,"end_hour":24}],"models":{"default":"on"}}]}"#;
+        let rules = parse_platform_time_windows(extra);
+        assert_eq!(
+            resolve_time_windows(&rules, &default, 1_700_000_000_000).default,
+            vec!["on"],
+            "关掉的档跳过，落到下一档"
+        );
+        let all: Vec<String> = model_configs(&default, extra).iter().flat_map(|c| c.all_values()).collect();
+        assert_eq!(all, vec!["d", "on"], "关掉的档的模型不进模型配置全集");
+        // 全关 = 未配时段档：空 → 路由走 preset models.peak / platform.models 兜底
+        assert!(parse_platform_time_windows(
+            r#"{"time_windows":[{"enabled":false,"windows":[{"start_hour":0,"end_hour":24}],"models":{"default":"off"}}]}"#
+        )
+        .is_empty());
+    }
 
     #[test]
     fn parse_extra_empty_returns_empty() {

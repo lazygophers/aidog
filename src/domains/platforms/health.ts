@@ -72,10 +72,11 @@ export function allModelValues(models: Partial<Record<(typeof MODEL_SLOTS)[numbe
 /** 平台「模型配置」全集：默认模型配置 ∪ 各时段档（extra.time_windows[].models）的模型，展平去重。
  *  汇总计数 / 下拉用它；卡片主模型徽章仍用 allModelValues(p.models) 显示当前生效。 */
 export function allConfiguredModelValues(p: { models: Parameters<typeof allModelValues>[0]; extra?: string }): string[] {
-  let windows: { models?: Parameters<typeof allModelValues>[0] }[] = [];
+  let windows: { models?: Parameters<typeof allModelValues>[0]; enabled?: boolean }[] = [];
   try {
     const tw = JSON.parse(p.extra || "{}").time_windows;
-    if (Array.isArray(tw)) windows = tw;
+    // 关掉的档（enabled:false）视为不存在，与 Rust parse_platform_time_windows 对称
+    if (Array.isArray(tw)) windows = tw.filter(w => w?.enabled !== false);
   } catch { /* 非法 extra → 只有默认配置 */ }
   return [...new Set([p.models, ...windows.map(w => w?.models ?? {})].flatMap(allModelValues))];
 }
