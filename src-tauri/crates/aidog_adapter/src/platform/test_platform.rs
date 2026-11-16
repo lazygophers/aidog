@@ -1,8 +1,7 @@
 //! 平台适配器框架门禁测试（issue 68）。
 
 use super::error::UpstreamErrorClass;
-use super::registry::KimiAdapter;
-use super::{hooks, PlatformAdapter};
+use super::hooks;
 use crate::types::ChatRequest;
 use aidog_db::models::Protocol;
 use serde_json::json;
@@ -24,7 +23,7 @@ fn every_registry_platform_has_adapter_registration() {
     );
 }
 
-/// 家族示例（issue 68）：KimiAdapter 覆盖 coding_plan 注入差异，只登记在 kimi 上；
+/// Kimi 家族（issue 76）：coding_plan 注入沿用基座按平台协议分派，kimi 注入 prompt_cache_key，
 /// 产出与基座的 Kimi 协议臂一致（注入条件同源：端点 coding_plan flag）。
 #[test]
 fn kimi_adapter_coding_plan_matches_base_kimi_arm() {
@@ -44,7 +43,7 @@ fn kimi_adapter_coding_plan_matches_base_kimi_arm() {
     assert!(non_kimi.get("prompt_cache_key").is_none());
     // 家族适配器与基座 Kimi 臂产出同形状（除时间窗口随机段外的键集合一致）。
     let mut member = json!({ "model": "k3" });
-    KimiAdapter.inject_coding_plan(&mut member, &Protocol::Kimi);
+    super::adapter_for("kimi_coding").inject_coding_plan(&mut member, &Protocol::Kimi);
     assert_eq!(
         member.as_object().unwrap().keys().collect::<Vec<_>>(),
         via_base.as_object().unwrap().keys().collect::<Vec<_>>()
@@ -53,7 +52,7 @@ fn kimi_adapter_coding_plan_matches_base_kimi_arm() {
 
 /// 行为零变化门禁（review 必改 1）：kimi_coding / kimi_en 不注入 prompt_cache_key。
 /// 迁移前 headers.rs 仅对 Protocol::Kimi 注入，KimiCoding / KimiEn 走 no-op 臂；
-/// KimiAdapter 只登记在 kimi 上，这两个 code 走基座（协议臂 no-op）。
+/// 家族适配器不覆盖注入，这两个 code 按平台协议分派走基座 no-op 臂（issue 76）。
 #[test]
 fn kimi_coding_and_kimi_en_do_not_inject_prompt_cache_key() {
     for (code, proto) in [
