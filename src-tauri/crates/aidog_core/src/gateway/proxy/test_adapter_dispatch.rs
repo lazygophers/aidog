@@ -1122,6 +1122,182 @@ async fn glm_family_1212_fails_over_without_touching_platform_health() {
     assert_eq!(state.scheduler.breaker_fails(a), 0, "模型类失败不计熔断");
 }
 
+// ══ issue 76：月之暗面 Kimi 家族基座（kimi / kimi_en / kimi_coding）逐端点协议护栏 ══
+// 官方出处（核对日期 2026-11-16）：
+// - Chat Completions https://platform.kimi.com/docs/api/chat.md 、https://platform.kimi.ai/docs/api/chat.md
+//   （kimi-k2.6「`thinking.type` 默认 "enabled"，传 "disabled" 可关闭思考」；usage
+//   `prompt_tokens_details.cached_tokens`；流式先 `delta.reasoning_content` 后 `delta.content`，`data: [DONE]` 结束）
+// - Messages https://platform.kimi.com/docs/api/messages.md
+//   （usage `cache_read_input_tokens`；错误体 `{"type":"error","error":{"type","message"}}`）
+// - 错误码 https://platform.kimi.com/docs/api/errors.md 、https://platform.kimi.ai/docs/api/errors.md
+//   （404 `resource_not_found_error`「Model not found, or this account does not have permission to access the model」）
+
+const KIMI_FAMILY: [Protocol; 3] = [Protocol::Kimi, Protocol::KimiEn, Protocol::KimiCoding];
+
+const KIMI_OPENAI_RESP: &str = r#"{"id":"chatcmpl-1","object":"chat.completion","created":1,"model":"kimi-test","choices":[{"index":0,"message":{"role":"assistant","content":"hi","reasoning_content":"think"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13,"prompt_tokens_details":{"cached_tokens":4}}}"#;
+const KIMI_OPENAI_SSE: &str = "data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"kimi-test\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"finish_reason\":null}]}\n\n\
+data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"kimi-test\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"think\"},\"finish_reason\":null}]}\n\n\
+data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"kimi-test\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"},\"finish_reason\":\"stop\"}]}\n\n\
+data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"kimi-test\",\"choices\":[],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":3,\"total_tokens\":13,\"prompt_tokens_details\":{\"cached_tokens\":4}}}\n\n\
+data: [DONE]\n\n";
+const KIMI_ERR_404: &str = r#"{"error":{"type":"resource_not_found_error","message":"Model not found, or this account does not have permission to access the model"}}"#;
+const KIMI_ANTHROPIC_ERR_404: &str = r#"{"type":"error","error":{"type":"resource_not_found_error","message":"Model not found, or this account does not have permission to access the model"}}"#;
+const KIMI_ANTHROPIC_RESP: &str = r#"{"id":"msg_k","type":"message","role":"assistant","model":"kimi-test","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3,"cache_read_input_tokens":4}}"#;
+
+fn kimi_gk(pt: &Protocol, tag: &str) -> String {
+    format!("gk76{}{tag}", pt.wire_str().replace('_', ""))
+}
+
+/// issue 76（先红）：Kimi 家族 openai 端点禁思考写官方 `thinking.type=disabled`，
+/// 不写 vLLM 式 `chat_template_kwargs`（Kimi Chat Completions 文档无此参数）。
+#[tokio::test]
+async fn kimi_family_openai_endpoint_disables_thinking_with_official_param() {
+    for pt in KIMI_FAMILY {
+        let body = glm_outbound_body(pt.clone(), Protocol::OpenAI, &kimi_gk(&pt, "dto")).await;
+        assert_eq!(
+            body.get("thinking"),
+            Some(&serde_json::json!({"type": "disabled"})),
+            "{pt:?} openai 端点应写 thinking.type=disabled: {body}"
+        );
+        assert!(body.get("chat_template_kwargs").is_none(), "{pt:?} 不应写 chat_template_kwargs: {body}");
+        assert!(body.get("disable_thinking").is_none(), "{pt:?} 私有字段应剥除: {body}");
+    }
+}
+
+/// issue 76（护栏）：anthropic 端点禁思考同基座。
+#[tokio::test]
+async fn kimi_family_anthropic_endpoint_disables_thinking() {
+    for pt in KIMI_FAMILY {
+        let body = glm_outbound_body(pt.clone(), Protocol::Anthropic, &kimi_gk(&pt, "dta")).await;
+        assert_eq!(body.get("thinking"), Some(&serde_json::json!({"type": "disabled"})), "{pt:?}: {body}");
+        assert!(body.get("disable_thinking").is_none(), "{pt:?}: {body}");
+    }
+}
+
+/// issue 76（护栏）：openai 端点非流式——请求转换、reasoning_content → thinking 块、cached_tokens → cache_read。
+#[tokio::test]
+async fn kimi_family_openai_endpoint_non_stream() {
+    for pt in KIMI_FAMILY {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::OpenAI,
+            &kimi_gk(&pt, "on"),
+            "/v1/messages",
+            GLM_ANTHROPIC_IN,
+            (200, "application/json", KIMI_OPENAI_RESP),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits[0].0, "/chat/completions", "{pt:?}");
+        let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+        assert_eq!(up["messages"][0]["role"], "user", "{pt:?}: {up}");
+        let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
+        assert_eq!(v["stop_reason"], "end_turn", "{pt:?}: {v}");
+        let content = v["content"].as_array().unwrap();
+        assert!(content.iter().any(|b| b["type"] == "thinking" && b["thinking"] == "think"), "{pt:?}: {v}");
+        assert!(content.iter().any(|b| b["type"] == "text" && b["text"] == "hi"), "{pt:?}: {v}");
+        assert_eq!(v["usage"]["cache_read_input_tokens"], 4, "{pt:?}: {v}");
+    }
+}
+
+/// issue 76（护栏）：openai 端点流式——reasoning_content / content 增量转 anthropic 事件，`[DONE]` 收尾。
+#[tokio::test]
+async fn kimi_family_openai_endpoint_stream() {
+    for pt in KIMI_FAMILY {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::OpenAI,
+            &kimi_gk(&pt, "os"),
+            "/v1/messages",
+            GLM_ANTHROPIC_IN_STREAM,
+            (200, "text/event-stream", KIMI_OPENAI_SSE),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+        assert_eq!(up["stream"], true, "{pt:?}: {up}");
+        assert!(resp.contains("thinking_delta") && resp.contains("think"), "{pt:?}: {resp}");
+        assert!(resp.contains("text_delta") && resp.contains("\"hi\""), "{pt:?}: {resp}");
+        assert!(resp.contains("message_stop"), "{pt:?}: {resp}");
+    }
+}
+
+/// issue 76（护栏）：404 `resource_not_found_error` 归模型类；两种端点的官方错误体原样回客户端。
+#[tokio::test]
+async fn kimi_family_error_body() {
+    use aidog_adapter::platform::error::UpstreamErrorClass;
+    for pt in KIMI_FAMILY {
+        let pa = aidog_adapter::platform::adapter_for(&pt.wire_str());
+        assert_eq!(pa.classify_error(404, KIMI_ERR_404), UpstreamErrorClass::Model, "{pt:?}");
+        assert_eq!(pa.classify_error(404, KIMI_ANTHROPIC_ERR_404), UpstreamErrorClass::Model, "{pt:?}");
+        for (ep, inbound_path, inbound, err) in [
+            (Protocol::OpenAI, "/v1/messages", GLM_ANTHROPIC_IN, KIMI_ERR_404),
+            (Protocol::Anthropic, "/chat/completions", GLM_OPENAI_IN, KIMI_ANTHROPIC_ERR_404),
+        ] {
+            let (status, resp, hits) = glm_member_call(
+                pt.clone(),
+                ep.clone(),
+                &kimi_gk(&pt, &format!("e{}", ep.wire_str())),
+                inbound_path,
+                inbound,
+                (404, "application/json", err),
+            )
+            .await;
+            assert!(!hits.is_empty(), "{pt:?}/{ep:?}");
+            assert_eq!(status, StatusCode::NOT_FOUND, "{pt:?}/{ep:?}: {resp}");
+            assert!(resp.contains("resource_not_found_error"), "{pt:?}/{ep:?}: {resp}");
+        }
+    }
+}
+
+/// issue 76（护栏）：非流式 usage 抽取——openai 臂 input 扣除 cached_tokens，anthropic 臂读 cache_read_input_tokens。
+#[test]
+fn kimi_family_usage_extraction() {
+    for pt in KIMI_FAMILY {
+        let pa = aidog_adapter::platform::adapter_for(&pt.wire_str());
+        let (i, o, c, cw, _, _) = pa.extract_usage(KIMI_OPENAI_RESP);
+        assert_eq!((i, o, c, cw), (6, 3, 4, 0), "{pt:?}");
+        let (i, o, c, cw, _, _) = pa.extract_usage(KIMI_ANTHROPIC_RESP);
+        assert_eq!((i, o, c, cw), (6, 3, 4, 0), "{pt:?}");
+    }
+}
+
+/// issue 76（护栏）：anthropic 端点非流式 + 流式——入站 openai 转 anthropic 打 `/v1/messages`，响应回 openai 形状。
+#[tokio::test]
+async fn kimi_family_anthropic_endpoint_non_stream_and_stream() {
+    for pt in KIMI_FAMILY {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::Anthropic,
+            &kimi_gk(&pt, "an"),
+            "/chat/completions",
+            GLM_OPENAI_IN,
+            (200, "application/json", KIMI_ANTHROPIC_RESP),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits[0].0, "/v1/messages", "{pt:?}");
+        let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+        assert_eq!(up["max_tokens"], 32, "{pt:?}: {up}");
+        let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
+        assert_eq!(v["choices"][0]["message"]["content"], "hi", "{pt:?}: {v}");
+        assert_eq!(v["usage"]["completion_tokens"], 3, "{pt:?}: {v}");
+
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::Anthropic,
+            &kimi_gk(&pt, "as"),
+            "/chat/completions",
+            GLM_OPENAI_IN_STREAM,
+            (200, "text/event-stream", GLM_ANTHROPIC_SSE),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits[0].0, "/v1/messages", "{pt:?}");
+        assert!(resp.contains("\"hi\"") && resp.contains("[DONE]"), "{pt:?}: {resp}");
+    }
+}
+
 async fn make_state(db: aidog_db::Db) -> Arc<ProxyState> {
     let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {

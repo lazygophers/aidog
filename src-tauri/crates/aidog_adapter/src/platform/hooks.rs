@@ -417,24 +417,3 @@ pub fn inject_coding_plan_fields(body: &mut Value, protocol: &aidog_db::models::
         }
     }
 }
-
-/// Kimi 家族 coding plan 注入（原 `headers.rs::inject_coding_plan_fields` Kimi 臂原样搬出，
-/// 供 KimiAdapter 覆盖 [`inject_coding_plan_fields`] 的分派复用）。
-pub fn inject_kimi_prompt_cache_key(body: &mut Value) {
-    if let Some(obj) = body.as_object_mut() {
-        let model = obj
-            .get("model")
-            .and_then(|v| v.as_str())
-            .unwrap_or("unknown");
-        let session_id = format!(
-            "aidog-{}-{:06x}",
-            model,
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs()
-                / 300 // 5-minute window
-        );
-        obj.insert("prompt_cache_key".to_string(), Value::String(session_id));
-    }
-}
