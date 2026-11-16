@@ -503,3 +503,84 @@ fn sqz_files_enable_then_disable_round_trip_on_disk() {
     );
     assert!(t["mcp_servers"].get("sqz").is_none());
 }
+
+/// 用户自装的 `sqz-mcp proxy --custom x`（未知旗标组合）关闭时不还原——旧逻辑按
+/// Wrapped 撕开会把上游命令撕成 `--custom`；照 Plain 处理，原样保留。
+#[test]
+fn sqz_disable_leaves_unknown_flag_proxy_shape_untouched() {
+    let original = json!({"mcpServers": {
+        "user": {"type": "stdio", "command": "sqz-mcp", "args": ["proxy", "--custom", "x"]}
+    }});
+    let mut v = original.clone();
+    assert!(!sqz_apply_claude_json(&mut v, false).unwrap());
+    assert_eq!(v, original, "unknown flag combination must not be unwrapped");
+}
+
+/// 未知旗标组合照 Plain 处理：开启时再包一层，关闭时可还原回用户原始形状。
+#[test]
+fn sqz_unknown_flag_shape_is_wrapped_and_restored() {
+    let original = json!({"mcpServers": {
+        "user": {"type": "stdio", "command": "sqz-mcp", "args": ["proxy", "--custom", "x"]}
+    }});
+    let mut v = original.clone();
+    assert!(sqz_apply_claude_json(&mut v, true).unwrap());
+    assert_eq!(
+        v["mcpServers"]["user"]["args"],
+        json!(["proxy", "--", "sqz-mcp", "proxy", "--custom", "x"])
+    );
+    assert!(sqz_apply_claude_json(&mut v, false).unwrap());
+    assert_eq!(v, original);
+}
+
+/// 用户旗标经 dash_norm 归一（`—no-desc` 同 `--no-desc`）也应识别为已知形状并还原。
+#[test]
+fn sqz_unwrap_tolerates_em_dash_flags() {
+    let original = json!({"mcpServers": {
+        "u": {"type": "stdio", "command": "sqz-mcp", "args": ["proxy", "—no-desc", "—", "mise", "exec"]}
+    }});
+    let mut v = original.clone();
+    assert!(sqz_apply_claude_json(&mut v, false).unwrap());
+    assert_eq!(v["mcpServers"]["u"]["command"], "mise");
+    assert_eq!(v["mcpServers"]["u"]["args"], json!(["exec"]));
+}
+
+/// RTK.md 前插内容后，rtk 段按段边界定位删除，前插内容保留。
+#[test]
+fn rtk_codex_disable_removes_rtk_md_block_even_with_user_prelude() {
+    let tmp = tempfile::tempdir().unwrap();
+    let codex = paths_in(tmp.path()).codex;
+    std::fs::write(codex.join("AGENTS.md"), "user agents line\n").unwrap();
+
+    let mut rec = RtkCodexRecord::default();
+    let before = snapshot(&codex);
+    fake_rtk_init(&codex);
+    record_changes(&mut rec, before, snapshot(&codex));
+
+    let rtk = std::fs::read_to_string(codex.join("RTK.md")).unwrap();
+    std::fs::write(codex.join("RTK.md"), format!("# My preamble\n\n{rtk}")).unwrap();
+
+    rtk_codex_disable(&codex, &rec).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(codex.join("RTK.md")).unwrap(),
+        "# My preamble\n\n",
+        "rtk block must be removed, user preamble kept"
+    );
+}
+
+/// 记录的 rtk 段在当前文件中定位不到（用户整份重写）→ 报明确错误而非静默成功。
+#[test]
+fn rtk_codex_disable_errors_when_rtk_md_block_unlocatable() {
+    let tmp = tempfile::tempdir().unwrap();
+    let codex = paths_in(tmp.path()).codex;
+    std::fs::write(codex.join("AGENTS.md"), "user agents line\n").unwrap();
+
+    let mut rec = RtkCodexRecord::default();
+    let before = snapshot(&codex);
+    fake_rtk_init(&codex);
+    record_changes(&mut rec, before, snapshot(&codex));
+
+    std::fs::write(codex.join("RTK.md"), "totally rewritten by user\n").unwrap();
+
+    let err = rtk_codex_disable(&codex, &rec).unwrap_err();
+    assert!(err.contains("RTK.md"), "error must name the file, got: {err}");
+}

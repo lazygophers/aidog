@@ -86,15 +86,16 @@ fn read_installed_json() -> Result<Value, String> {
     serde_json::from_str(&text).map_err(|e| format!("parse {}: {e}", path.display()))
 }
 
-/// enabledPlugins 全局原始值（空对象兜底；不回落 oss 预设——编辑面只改插件键，
-/// 回落会把整份预设灌回 `claude_code`）。
+/// 有效全局配置：同 `do_sync_group_settings`（`sync_settings.rs:394`），DB 空或缺省时回落
+/// 内置 oss 预设。插件开关整份写回 `claude_code`，若空时落空对象，分组同步会采纳该小对象、
+/// 整份覆盖 `~/.claude/settings.json`（hooks / env 等预设键全丢）。
 async fn load_claude_raw(db: &aidog_db::Db) -> Value {
     aidog_db::get_setting(db, "global", "claude_code")
         .await
         .ok()
         .flatten()
-        .filter(|v| v.is_object())
-        .unwrap_or_else(|| Value::Object(Default::default()))
+        .filter(|v| v.as_object().is_some_and(|o| !o.is_empty()))
+        .unwrap_or_else(crate::sync_settings::bundled_oss_preset)
 }
 
 pub(crate) fn claude_views(_installed: &Value, _cfg: &Value) -> Vec<ClaudePluginView> {
