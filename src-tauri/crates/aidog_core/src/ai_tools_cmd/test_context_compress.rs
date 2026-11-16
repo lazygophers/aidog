@@ -1,0 +1,505 @@
+//! 上下文压缩单元测试（随 context_compress.rs 1:1）。全部落 tempdir，不碰真实
+//! ~/.claude、~/.claude.json、~/.codex，不调用真实 rtk / sqz。
+use super::*;
+use serde_json::json;
+
+fn paths_in(tmp: &Path) -> Paths {
+    let codex = tmp.join("codex");
+    std::fs::create_dir_all(&codex).unwrap();
+    Paths {
+        claude_json: tmp.join("claude.json"),
+        codex,
+    }
+}
+
+fn claude_fixture() -> Value {
+    json!({
+        "userID": "u",
+        "mcpServers": {
+            "rea": {"type": "stdio", "command": "mise", "args": ["exec", "node@22", "—-", "npx", "-y", "rea-agents", "mcp"]},
+            "gitnexus": {"command": "mise", "args": ["exec", "node@24", "—", "npx", "-y", "gitnexus"], "env": {"K": "v"}},
+            "web": {"type": "http", "url": "http://127.0.0.1:9890/mcp", "headers": {"Authorization": "Bearer x"}},
+            "events": {"type": "sse", "url": "http://x/sse"}
+        },
+        "projects": {
+            "/p": {"mcpServers": {"local": {"type": "stdio", "command": "node", "args": ["srv.js", "—flag"]}}, "other": 1}
+        }
+    })
+}
+
+#[test]
+fn resolve_uses_home_and_codex_home() {
+    let g = aidog_db::test_support::HomeGuard::new();
+    let p = Paths::resolve().unwrap();
+    assert_eq!(p.claude_json, g.home().join(".claude.json"));
+    assert_eq!(p.codex, g.home().join(".codex"));
+}
+
+#[test]
+fn claude_json_wrap_unwrap_round_trip_keeps_non_ascii_and_http() {
+    let original = claude_fixture();
+    let mut v = original.clone();
+    assert!(sqz_apply_claude_json(&mut v, true).unwrap());
+
+    let s = &v["mcpServers"];
+    assert_eq!(s["rea"]["command"], "sqz-mcp");
+    assert_eq!(
+        s["rea"]["args"],
+        json!([
+            "proxy",
+            "--",
+            "mise",
+            "exec",
+            "node@22",
+            "—-",
+            "npx",
+            "-y",
+            "rea-agents",
+            "mcp"
+        ])
+    );
+    assert_eq!(s["gitnexus"]["env"], json!({"K": "v"}));
+    assert_eq!(s["web"], original["mcpServers"]["web"]);
+    assert_eq!(s["events"], original["mcpServers"]["events"]);
+    assert_eq!(
+        v["projects"]["/p"]["mcpServers"]["local"]["args"],
+        json!(["proxy", "--", "node", "srv.js", "—flag"])
+    );
+    assert_eq!(
+        s["sqz"],
+        json!({"type": "stdio", "command": "sqz-mcp", "args": ["--transport", "stdio"]})
+    );
+    assert_eq!(
+        sqz_missing(&enabled_hooks(), &v, None),
+        ["codex:unavailable"]
+    );
+
+    // 再开一次：不重复包装
+    let once = v.clone();
+    assert!(!sqz_apply_claude_json(&mut v, true).unwrap());
+    assert_eq!(v, once);
+
+    assert!(sqz_apply_claude_json(&mut v, false).unwrap());
+    assert_eq!(v, original);
+    // 字节级：序列化后与原始一致（含 em dash）
+    assert_eq!(
+        serde_json::to_string(&v).unwrap(),
+        serde_json::to_string(&original).unwrap()
+    );
+}
+
+#[test]
+fn sqz_self_server_uses_free_name_without_overwriting_existing_entries() {
+    let mut v = json!({"mcpServers": {
+        "sqz": {"type": "http", "url": "http://sqz"},
+        "sqz-mcp": {"type": "http", "url": "http://sqz-mcp"},
+        "sqz-mcp-self": {"type": "http", "url": "http://user-self"}
+    }});
+    assert!(sqz_apply_claude_json(&mut v, true).unwrap());
+    assert_eq!(v["mcpServers"]["sqz-mcp-self-2"]["command"], SQZ_BIN);
+    assert_eq!(
+        v["mcpServers"]["sqz"],
+        json!({"type": "http", "url": "http://sqz"})
+    );
+    assert_eq!(
+        v["mcpServers"]["sqz-mcp"],
+        json!({"type": "http", "url": "http://sqz-mcp"})
+    );
+    assert_eq!(
+        v["mcpServers"]["sqz-mcp-self"],
+        json!({"type": "http", "url": "http://user-self"})
+    );
+}
+
+#[test]
+fn custom_sqz_mcp_command_is_wrapped_and_restored_without_becoming_self_server() {
+    let original = json!({"mcpServers": {
+        "custom": {"type": "stdio", "command": "sqz-mcp", "args": ["worker", "--profile", "user"]}
+    }});
+    let mut v = original.clone();
+    assert!(sqz_apply_claude_json(&mut v, true).unwrap());
+    assert_eq!(
+        v["mcpServers"]["custom"]["args"],
+        json!(["proxy", "--", "sqz-mcp", "worker", "--profile", "user"])
+    );
+    assert!(
+        v["mcpServers"]
+            .as_object()
+            .unwrap()
+            .values()
+            .any(|server| json_is(server, Kind::SelfServer))
+    );
+    assert!(sqz_apply_claude_json(&mut v, false).unwrap());
+    assert_eq!(v, original);
+}
+
+#[test]
+fn user_wrapped_server_is_not_double_wrapped_and_unwraps_to_rest() {
+    let mut v = json!({"mcpServers": {
+        "rea": {"type": "stdio", "command": "sqz-mcp", "args": ["proxy", "—-", "mise", "exec", "node@22", "--", "npx", "rea"]},
+        "lazy": {"command": "sqz-mcp", "args": ["proxy", "--lazy-tools", "--", "graphify-mcp"]},
+        "sqz": {"type": "stdio", "command": "sqz-mcp", "args": ["—transport", "stdio"]}
+    }});
+    let before = v.clone();
+    assert!(!sqz_apply_claude_json(&mut v, true).unwrap());
+    assert_eq!(v, before);
+
+    assert!(sqz_apply_claude_json(&mut v, false).unwrap());
+    let s = &v["mcpServers"];
+    assert_eq!(s["rea"]["command"], "mise");
+    assert_eq!(
+        s["rea"]["args"],
+        json!(["exec", "node@22", "--", "npx", "rea"])
+    );
+    assert_eq!(s["lazy"]["command"], "graphify-mcp");
+    assert_eq!(s["lazy"]["args"], json!([]));
+    assert!(s.get("sqz").is_none());
+}
+
+#[test]
+fn codex_toml_wrap_unwrap_round_trip() {
+    let text = r#"model = "gpt-5"
+
+[mcp_servers.gitnexus]
+command = "mise"
+args = ["exec", "node@24", "—", "npx", "-y", "gitnexus"]
+
+[mcp_servers.gitnexus.env]
+K = "v"
+
+[mcp_servers.aidog]
+url = "http://127.0.0.1:9890/mcp"
+"#;
+    let original: toml::Table = toml::from_str(text).unwrap();
+    let mut t = original.clone();
+    assert!(sqz_apply_codex(&mut t, true).unwrap());
+    let g = &t["mcp_servers"]["gitnexus"];
+    assert_eq!(g["command"].as_str(), Some("sqz-mcp"));
+    let args: Vec<&str> = g["args"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|a| a.as_str().unwrap())
+        .collect();
+    assert_eq!(
+        args,
+        [
+            "proxy", "--", "mise", "exec", "node@24", "—", "npx", "-y", "gitnexus"
+        ]
+    );
+    assert_eq!(g["env"]["K"].as_str(), Some("v"));
+    assert_eq!(t["mcp_servers"]["aidog"], original["mcp_servers"]["aidog"]);
+    assert_eq!(t["mcp_servers"]["sqz"]["command"].as_str(), Some("sqz-mcp"));
+
+    let once = t.clone();
+    assert!(!sqz_apply_codex(&mut t, true).unwrap());
+    assert_eq!(t, once);
+
+    assert!(sqz_apply_codex(&mut t, false).unwrap());
+    assert_eq!(t, original);
+}
+
+fn enabled_hooks() -> Value {
+    let mut cfg = json!({});
+    sqz_apply_hooks(&mut cfg, true).unwrap();
+    cfg
+}
+
+#[test]
+fn status_off_when_one_server_unwrapped() {
+    let mut cj = claude_fixture();
+    sqz_apply_claude_json(&mut cj, true).unwrap();
+    let mut cx: toml::Table = toml::from_str("[mcp_servers.a]\ncommand = \"x\"\n").unwrap();
+    sqz_apply_codex(&mut cx, true).unwrap();
+    assert!(sqz_missing(&enabled_hooks(), &cj, Some(&cx)).is_empty());
+
+    cj["projects"]["/p"]["mcpServers"]["new"] = json!({"command": "y", "args": []});
+    assert_eq!(
+        sqz_missing(&enabled_hooks(), &cj, Some(&cx)),
+        ["wrap:claude:/p:new"]
+    );
+    assert_eq!(
+        sqz_missing(&json!({}), &cj, Some(&cx)),
+        ["hook:PostToolUse", "hook:PreCompact", "wrap:claude:/p:new"]
+    );
+    let bare: toml::Table = toml::from_str("[mcp_servers.a]\ncommand = \"x\"\n").unwrap();
+    assert_eq!(
+        sqz_missing(&enabled_hooks(), &cj, Some(&bare)),
+        ["wrap:claude:/p:new", "wrap:codex:a", "self:codex"]
+    );
+    assert_eq!(
+        sqz_missing(&enabled_hooks(), &cj, None),
+        ["wrap:claude:/p:new", "codex:unavailable"]
+    );
+}
+
+#[test]
+fn hooks_disable_keeps_user_hooks() {
+    let mut cfg = json!({"hooks": {
+        "PostToolUse": [{"matcher": "Bash", "hooks": [
+            {"type": "command", "command": "my-lint"},
+            {"type": "command", "command": "sqz hook claude-post"}
+        ]}],
+        "SessionStart": [{"matcher": "compact", "hooks": [{"type": "command", "command": "sqz resume"}]}]
+    }});
+    sqz_apply_hooks(&mut cfg, true).unwrap();
+    assert!(has_hook(&cfg, "PreCompact", "sqz hook precompact"));
+    // 已有的 claude-post 不重复加
+    assert_eq!(cfg["hooks"]["PostToolUse"].as_array().unwrap().len(), 1);
+
+    sqz_apply_hooks(&mut cfg, false).unwrap();
+    assert_eq!(
+        cfg,
+        json!({"hooks": {
+            "PostToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "my-lint"}]}],
+            "SessionStart": [{"matcher": "compact", "hooks": [{"type": "command", "command": "sqz resume"}]}]
+        }})
+    );
+}
+
+#[test]
+fn rtk_claude_hook_matches_user_shape() {
+    let mut cfg = json!({"model": "x"});
+    add_hook(&mut cfg, "PreToolUse", None, RTK_CLAUDE_CMD).unwrap();
+    assert_eq!(
+        cfg["hooks"]["PreToolUse"],
+        json!([{"hooks": [{"type": "command", "command": "rtk hook claude"}]}])
+    );
+    remove_hook(&mut cfg, "PreToolUse", RTK_CLAUDE_CMD);
+    assert_eq!(cfg, json!({"model": "x"}));
+}
+
+/// 模拟 `rtk init -g --codex`（rtk 1.2.0 隔离 HOME 实测产物形状）。
+fn fake_rtk_init(codex: &Path) {
+    let rtk_md = codex.join("RTK.md");
+    std::fs::write(
+        &rtk_md,
+        "<!-- rtk-owned: written by `rtk init --codex` -->\n\n# Command output\n",
+    )
+    .unwrap();
+    let hooks = codex.join("hooks.json");
+    let mut v: Value = std::fs::read_to_string(&hooks)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_else(|| json!({}));
+    add_hook(&mut v, "PreToolUse", Some("Bash"), RTK_CODEX_CMD).unwrap();
+    std::fs::write(&hooks, serde_json::to_string_pretty(&v).unwrap()).unwrap();
+    let agents = codex.join("AGENTS.md");
+    let cur = std::fs::read_to_string(&agents).unwrap_or_default();
+    std::fs::write(&agents, format!("{cur}\n@{}\n", rtk_md.display())).unwrap();
+}
+
+#[test]
+fn rtk_codex_disable_restores_exactly_what_was_recorded() {
+    let tmp = tempfile::tempdir().unwrap();
+    let codex = paths_in(tmp.path()).codex;
+    std::fs::write(codex.join("AGENTS.md"), "user agents line\n").unwrap();
+    std::fs::write(codex.join("config.toml"), "model = \"m\"\n").unwrap();
+
+    let mut rec = RtkCodexRecord::default();
+    let before = snapshot(&codex);
+    fake_rtk_init(&codex);
+    record_changes(&mut rec, before, snapshot(&codex));
+    assert_eq!(rec.len(), 3);
+    assert!(rtk_codex_on(&codex));
+
+    // 再开一次不丢最早的 before
+    let before = snapshot(&codex);
+    record_changes(&mut rec, before, snapshot(&codex));
+    assert_eq!(
+        rec["AGENTS.md"].before.as_deref(),
+        Some("user agents line\n")
+    );
+
+    rtk_codex_disable(&codex, &rec).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(codex.join("AGENTS.md")).unwrap(),
+        "user agents line\n"
+    );
+    assert!(!codex.join("RTK.md").exists());
+    assert!(!codex.join("hooks.json").exists());
+    assert_eq!(
+        std::fs::read_to_string(codex.join("config.toml")).unwrap(),
+        "model = \"m\"\n"
+    );
+    assert!(!rtk_codex_on(&codex));
+}
+
+#[test]
+fn rtk_codex_disable_keeps_hook_not_written_by_aidog() {
+    let tmp = tempfile::tempdir().unwrap();
+    let codex = paths_in(tmp.path()).codex;
+    let mut hooks = json!({});
+    add_hook(&mut hooks, "PreToolUse", Some("Bash"), RTK_CODEX_CMD).unwrap();
+    std::fs::write(
+        codex.join("hooks.json"),
+        serde_json::to_string_pretty(&hooks).unwrap(),
+    )
+    .unwrap();
+
+    let mut rec = RtkCodexRecord::default();
+    let before = snapshot(&codex);
+    fake_rtk_init(&codex);
+    record_changes(&mut rec, before, snapshot(&codex));
+    assert!(!rec.contains_key("hooks.json"));
+
+    rtk_codex_disable(&codex, &rec).unwrap();
+    let current: Value =
+        serde_json::from_str(&std::fs::read_to_string(codex.join("hooks.json")).unwrap()).unwrap();
+    assert!(has_hook(&current, "PreToolUse", RTK_CODEX_CMD));
+}
+
+#[test]
+fn rtk_codex_disable_after_user_edits_removes_only_rtk_parts() {
+    let tmp = tempfile::tempdir().unwrap();
+    let codex = paths_in(tmp.path()).codex;
+    std::fs::write(codex.join("AGENTS.md"), "user agents line\n").unwrap();
+
+    let mut rec = RtkCodexRecord::default();
+    let before = snapshot(&codex);
+    fake_rtk_init(&codex);
+    record_changes(&mut rec, before, snapshot(&codex));
+
+    // 用户事后改了生成说明，并追加了自己的指令
+    let rtk = std::fs::read_to_string(codex.join("RTK.md")).unwrap();
+    std::fs::write(codex.join("RTK.md"), format!("{rtk}# My RTK note\n")).unwrap();
+    let agents = std::fs::read_to_string(codex.join("AGENTS.md")).unwrap();
+    std::fs::write(codex.join("AGENTS.md"), format!("{agents}my rule\n")).unwrap();
+    let mut hooks: Value =
+        serde_json::from_str(&std::fs::read_to_string(codex.join("hooks.json")).unwrap()).unwrap();
+    add_hook(&mut hooks, "Stop", None, "my-stop").unwrap();
+    std::fs::write(
+        codex.join("hooks.json"),
+        serde_json::to_string(&hooks).unwrap(),
+    )
+    .unwrap();
+
+    rtk_codex_disable(&codex, &rec).unwrap();
+    let agents = std::fs::read_to_string(codex.join("AGENTS.md")).unwrap();
+    assert!(agents.contains("user agents line\n") && agents.contains("my rule\n"));
+    assert!(!agents.contains("RTK.md"));
+    assert_eq!(
+        std::fs::read_to_string(codex.join("RTK.md")).unwrap(),
+        "# My RTK note\n"
+    );
+    let hooks: Value =
+        serde_json::from_str(&std::fs::read_to_string(codex.join("hooks.json")).unwrap()).unwrap();
+    assert_eq!(
+        hooks,
+        json!({"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "my-stop"}]}]}})
+    );
+    assert!(!rtk_codex_on(&codex));
+}
+
+#[test]
+fn sqz_file_transaction_rolls_back_when_second_write_fails() {
+    let tmp = tempfile::tempdir().unwrap();
+    let claude = tmp.path().join("claude.json");
+    let codex = tmp.path().join("config.toml");
+    std::fs::write(&codex, "model = \"before\"\n").unwrap();
+    let mut writes = 0;
+    let result = write_transaction(
+        vec![
+            (claude.clone(), "{\"hooks\": {}}".to_string(), None),
+            (
+                codex.clone(),
+                "model = \"after\"\n".to_string(),
+                Some("model = \"before\"\n".to_string()),
+            ),
+        ],
+        |path, content| {
+            writes += 1;
+            if writes == 2 {
+                return Err("simulated second-write failure".into());
+            }
+            std::fs::write(path, content).map_err(|e| e.to_string())
+        },
+        |path| std::fs::remove_file(path).map_err(|e| e.to_string()),
+    );
+
+    assert!(
+        result
+            .unwrap_err()
+            .contains("simulated second-write failure")
+    );
+    assert!(!claude.exists());
+    assert_eq!(
+        std::fs::read_to_string(codex).unwrap(),
+        "model = \"before\"\n"
+    );
+}
+
+#[test]
+fn sqz_files_refuse_invalid_json_and_write_nothing() {
+    let tmp = tempfile::tempdir().unwrap();
+    let p = paths_in(tmp.path());
+    std::fs::write(&p.claude_json, "{bad").unwrap();
+    let cx = p.codex.join("config.toml");
+    std::fs::write(&cx, "[mcp_servers.a]\ncommand = \"x\"\n").unwrap();
+    assert!(sqz_apply_files(&p, true).is_err());
+    assert_eq!(std::fs::read_to_string(&p.claude_json).unwrap(), "{bad");
+    assert_eq!(
+        std::fs::read_to_string(&cx).unwrap(),
+        "[mcp_servers.a]\ncommand = \"x\"\n"
+    );
+}
+
+#[test]
+fn sqz_enable_creates_missing_codex_config_directory() {
+    let tmp = tempfile::tempdir().unwrap();
+    let p = Paths {
+        claude_json: tmp.path().join("claude.json"),
+        codex: tmp.path().join("codex"),
+    };
+    std::fs::write(&p.claude_json, "{}").unwrap();
+    sqz_apply_files(&p, true).unwrap();
+    let config = p.codex.join("config.toml");
+    let parsed: toml::Table = toml::from_str(&std::fs::read_to_string(config).unwrap()).unwrap();
+    assert!(toml_is(&parsed["mcp_servers"]["sqz"], Kind::SelfServer));
+}
+
+#[test]
+fn sqz_files_refuse_invalid_toml_and_write_nothing() {
+    let tmp = tempfile::tempdir().unwrap();
+    let p = paths_in(tmp.path());
+    std::fs::write(&p.claude_json, "{\"settings\": true}").unwrap();
+    let cx = p.codex.join("config.toml");
+    std::fs::write(&cx, "[mcp_servers.a\ncommand = \"x\"").unwrap();
+    assert!(sqz_apply_files(&p, true).is_err());
+    assert_eq!(
+        std::fs::read_to_string(&p.claude_json).unwrap(),
+        "{\"settings\": true}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&cx).unwrap(),
+        "[mcp_servers.a\ncommand = \"x\""
+    );
+}
+
+#[test]
+fn sqz_files_enable_then_disable_round_trip_on_disk() {
+    let tmp = tempfile::tempdir().unwrap();
+    let p = paths_in(tmp.path());
+    std::fs::write(
+        &p.claude_json,
+        serde_json::to_string_pretty(&claude_fixture()).unwrap(),
+    )
+    .unwrap();
+    let cx = p.codex.join("config.toml");
+    std::fs::write(&cx, "[mcp_servers.a]\ncommand = \"x\"\nargs = [\"—y\"]\n").unwrap();
+
+    sqz_apply_files(&p, true).unwrap();
+    assert_eq!(
+        sqz_file_missing(&p, &enabled_hooks()).unwrap(),
+        Vec::<String>::new()
+    );
+    sqz_apply_files(&p, false).unwrap();
+    let v: Value = serde_json::from_str(&std::fs::read_to_string(&p.claude_json).unwrap()).unwrap();
+    assert_eq!(v, claude_fixture());
+    let t: toml::Table = toml::from_str(&std::fs::read_to_string(&cx).unwrap()).unwrap();
+    assert_eq!(
+        t["mcp_servers"]["a"]["args"].as_array().unwrap()[0].as_str(),
+        Some("—y")
+    );
+    assert!(t["mcp_servers"].get("sqz").is_none());
+}
