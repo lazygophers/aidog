@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Switch } from "../components/ui/switch";
-import { configApi, settingsApi } from "../services/api";
+import { configApi, settingsApi, settingsPresetApi } from "../services/api";
 import { variablesApi, type Variable } from "../services/api/variables";
 const KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
 
@@ -15,8 +15,16 @@ export function Variables() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    Promise.all([settingsApi.get("global", "claude_code"), settingsApi.get("global", "extension_variables")]).then(([config, saved]) => {
-      const value = config ?? {};
+    Promise.all([settingsApi.get("global", "claude_code"), settingsApi.get("global", "extension_variables")]).then(async ([config, saved]) => {
+      // DB 空（从未保存过）时回落内置 oss 预设：保存是整份写回 claude_code，
+      // 空对象起笔会让分组同步整份覆盖预设（hooks / env 等全丢），与插件页同病。
+      let value = config ?? {};
+      if (!Object.keys(value).length) {
+        const presets = await settingsPresetApi.list("claude");
+        const preset = presets.find(p => p.id === "oss");
+        if (!preset) throw new Error("Missing oss settings preset");
+        value = preset.config;
+      }
       const env = (value.env ?? {}) as Record<string, string>;
       const records = (saved ?? []) as Variable[];
       const byKey = new Map(records.map(item => [item.key, item]));
