@@ -591,3 +591,26 @@ async fn last_test_result_reads_request_log() {
     assert_eq!((r.success, r.status_code), (false, 500));
     assert!(get_last_test_result(&db, 8).await.unwrap().is_none());
 }
+
+#[tokio::test]
+async fn get_last_test_result_prefers_platform_extra() {
+    let (db, _dir) = three_file_db().await;
+    let pid = insert_test_platform(&db, "lt").await;
+    // request_log 里是旧的失败记录，extra.last_test 是较新的成功结果：以 extra 为准。
+    let log = sample_log("old", "[test]", 100).out_of_band("[test]", "test");
+    let mut log = log;
+    log.platform_id = pid;
+    log.status_code = 500;
+    upsert_request_log(&db, log).await.unwrap();
+    aidog_db::update_extra_key(
+        &db,
+        "platform",
+        pid,
+        "last_test",
+        serde_json::json!({"success": true, "status_code": 200, "duration_ms": 9, "created_at": 999, "error": "", "response_body": "ok"}),
+    )
+    .await
+    .unwrap();
+    let r = get_last_test_result(&db, pid).await.unwrap().expect("有结果");
+    assert_eq!((r.success, r.status_code, r.created_at), (true, 200, 999));
+}

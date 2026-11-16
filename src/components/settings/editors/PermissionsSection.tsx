@@ -10,6 +10,7 @@ import { FieldRow, JsonEditor, Toggle } from "./_shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { isImeComposing } from "../../../utils/ime";
 
 type RuleMode = "allow" | "ask" | "deny";
 
@@ -320,7 +321,7 @@ function PermissionsEditor({ perms, updateField, t }: {
             value={draftRule}
             onChange={(e) => setDraftRule(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && draftRule.trim()) {
+              if (e.key === "Enter" && !isImeComposing(e) && draftRule.trim()) {
                 syncRules([...rules, { pattern: draftRule.trim(), mode: draftMode }]);
                 setDraftRule("");
               }

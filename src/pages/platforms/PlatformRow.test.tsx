@@ -54,6 +54,10 @@ describe("PlatformRow", () => {
     render(<PlatformRow {...base} platform={p} />);
     expect(screen.getByTestId("row-models-count").textContent).toContain("3");
   });
+  it("手动测速 ok 但无最近测速记录：不崩，状态为 ok", () => {
+    render(<PlatformRow {...base} lastTest={undefined} manualResult="ok" />);
+    expect(screen.getByTestId("row-last-test").getAttribute("data-result")).toBe("ok");
+  });
   it("行渲染：testid / 状态点 / 开关 on / 测速 ok", () => {
     render(<PlatformRow {...base} />);
     expect(screen.getByTestId("platform-row")).toBeTruthy();
