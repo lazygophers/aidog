@@ -279,6 +279,7 @@ pub fn run() {
             aidog_core::ai_tools_cmd::subagents::subagents_save,
             aidog_core::ai_tools_cmd::subagents::subagents_delete,
             aidog_core::ai_tools_cmd::subagents::subagents_import,
+            aidog_core::ai_tools_cmd::subagents::subagents_import_preview,
             // Context compression (扩展 → 上下文压缩：RTK / sqz)
             aidog_core::ai_tools_cmd::context_compress::context_compress_status,
             aidog_core::ai_tools_cmd::context_compress::context_compress_install,

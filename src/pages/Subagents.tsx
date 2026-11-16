@@ -8,6 +8,7 @@ import {
   subagentsApi,
   type Subagent,
   type SubagentAgent,
+  type SubagentImportCandidate,
   type SubagentImportReport,
   type SubagentView,
 } from "../services/api/subagents";
@@ -45,6 +46,8 @@ export function Subagents() {
   const [importOpen, setImportOpen] = useState(false);
   const [source, setSource] = useState("");
   const [importAgents, setImportAgents] = useState<SubagentAgent[]>([]);
+  const [cands, setCands] = useState<SubagentImportCandidate[] | null>(null);
+  const [checked, setChecked] = useState<string[]>([]);
   const [report, setReport] = useState<SubagentImportReport | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -90,7 +93,7 @@ export function Subagents() {
           <p className="text-sm text-muted-foreground">{t("subagents.desc")}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" data-testid="subagent-import" onClick={() => { setReport(null); setImportOpen(true); }}>
+          <Button variant="outline" data-testid="subagent-import" onClick={() => { setReport(null); setCands(null); setChecked([]); setImportOpen(true); }}>
             {t("subagents.import")}
           </Button>
           <Button data-testid="subagent-add" onClick={() => setEditing({ old: null, draft: { ...EMPTY } })}>
@@ -229,12 +232,48 @@ export function Subagents() {
             <DialogTitle>{t("subagents.importTitle")}</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-3">
-            <Input
-              data-testid="subagent-import-source"
-              value={source}
-              placeholder={t("subagents.importSource")}
-              onChange={(e) => setSource(e.target.value)}
-            />
+            <div className="flex gap-2">
+              <Input
+                data-testid="subagent-import-source"
+                value={source}
+                placeholder={t("subagents.importSource")}
+                onChange={(e) => setSource(e.target.value)}
+              />
+              <Button
+                variant="outline"
+                data-testid="subagent-import-scan"
+                disabled={busy || !source.trim()}
+                onClick={() =>
+                  void run(async () => {
+                    const c = await subagentsApi.preview(source.trim());
+                    setCands(c);
+                    setChecked(c.map((x) => x.rel));
+                  })
+                }
+              >
+                {t("subagents.importScan")}
+              </Button>
+            </div>
+            {cands !== null &&
+              (cands.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t("subagents.importEmpty")}</p>
+              ) : (
+                <div className="flex max-h-48 flex-col gap-1 overflow-y-auto">
+                  {cands.map((c) => (
+                    <label key={c.rel} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        data-testid={`subagent-import-cand-${c.rel}`}
+                        checked={checked.includes(c.rel)}
+                        onCheckedChange={(on) =>
+                          setChecked(on ? [...checked, c.rel] : checked.filter((x) => x !== c.rel))
+                        }
+                      />
+                      <span className="font-mono text-xs">{c.rel}</span>
+                      <span className="truncate text-muted-foreground">{c.description}</span>
+                    </label>
+                  ))}
+                </div>
+              ))}
             <div className="flex items-center gap-4 text-sm">
               {t("subagents.agents")}
               {AGENTS.map((a) => (
@@ -257,6 +296,7 @@ export function Subagents() {
                   updated: report.updated.length,
                   have: report.have.length,
                   edited: report.edited.length,
+                  conflicts: report.conflicts.length,
                 })}
               </p>
             )}
@@ -268,7 +308,7 @@ export function Subagents() {
               disabled={busy || !source.trim()}
               onClick={() =>
                 void run(async () => {
-                  setReport(await subagentsApi.import(source.trim(), importAgents));
+                  setReport(await subagentsApi.import(source.trim(), importAgents, cands === null ? undefined : checked));
                   setList(await subagentsApi.list());
                 })
               }
