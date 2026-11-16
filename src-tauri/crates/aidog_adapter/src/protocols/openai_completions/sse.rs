@@ -69,12 +69,16 @@ fn completions_usage_chunk(usage: &Usage, model: &str) -> String {
 }
 
 /// legacy Completions 客户端流式状态机（issue 71）：与 [`super::super::openai::OpenAiSseState`]
-/// 同一时序模型——usage 块仅当 `stream_options.include_usage` 时下发，[DONE] 压到 usage 之后。
+/// 同一时序模型——usage 块仅当 `stream_options.include_usage` 时下发，终帧（finish +
+/// usage + [DONE]）压到流末 flush 才发，finish 帧与 usage 帧跨 chunk 时 usage 不定格成 0。
 pub struct CompletionsSseState {
     include_usage: bool,
     pending_usage: Usage,
-    finish_emitted: bool,
+    finish_seen: bool,
+    finish_reason: Option<String>,
     done_sent: bool,
+    /// flush 渲染 finish / usage 块需要 model；push 时记下（单流内恒定）。
+    model: String,
 }
 
 impl CompletionsSseState {
@@ -82,51 +86,50 @@ impl CompletionsSseState {
         Self {
             include_usage,
             pending_usage: Usage::default(),
-            finish_emitted: false,
+            finish_seen: false,
+            finish_reason: None,
             done_sent: false,
+            model: String::new(),
         }
     }
 
     pub fn push(&mut self, event: &ChatStreamEvent, model: &str) -> Option<String> {
+        self.model = model.to_string();
         match event {
             ChatStreamEvent::Usage { usage } => {
                 if !self.include_usage {
                     return None;
                 }
                 self.pending_usage.merge_partial(usage);
-                if self.finish_emitted {
-                    let mut out = completions_usage_chunk(&self.pending_usage, model);
-                    out.push_str("data: [DONE]\n\n");
-                    self.done_sent = true;
-                    Some(out)
-                } else {
-                    None
-                }
+                None // usage 随终帧一起在 flush 发
             }
             ChatStreamEvent::Stop { finish_reason } => {
-                if self.finish_emitted {
-                    return None;
+                if self.finish_seen {
+                    return None; // 重复 Stop / [DONE] 哨兵
                 }
-                self.finish_emitted = true;
-                let mut out = completions_finish_chunk(finish_reason.as_deref(), model);
-                if self.include_usage {
-                    out.push_str(&completions_usage_chunk(&self.pending_usage, model));
-                }
-                out.push_str("data: [DONE]\n\n");
-                self.done_sent = true;
-                Some(out)
+                self.finish_seen = true;
+                self.finish_reason = finish_reason.clone();
+                None // finish 块压到流末 flush，等 usage 到齐
             }
             other => to_completions_sse(other, model),
         }
     }
 
-    /// 流末冲刷：等 usage 未等到时补发 [DONE]。
+    /// 流末冲刷：Stop 已见时在此发 finish 块 + usage 块 + [DONE]；未见 Stop 仅补 [DONE]。
     pub fn flush(&mut self) -> Option<String> {
         if self.done_sent {
             return None;
         }
         self.done_sent = true;
-        Some("data: [DONE]\n\n".to_string())
+        if !self.finish_seen {
+            return Some("data: [DONE]\n\n".to_string());
+        }
+        let mut out = completions_finish_chunk(self.finish_reason.as_deref(), &self.model);
+        if self.include_usage {
+            out.push_str(&completions_usage_chunk(&self.pending_usage, &self.model));
+        }
+        out.push_str("data: [DONE]\n\n");
+        Some(out)
     }
 
     /// 流被错误帧提前终止：不再补发 [DONE]。
