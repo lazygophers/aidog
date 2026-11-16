@@ -925,7 +925,6 @@ fn oss_preset_has_no_personal_items_and_keeps_privacy() {
     let oss = read_preset("oss");
     for k in [
         "hooks",
-        "enabledPlugins",
         "language",
         "spinnerVerbs",
         "spinnerTipsOverride",
@@ -938,11 +937,19 @@ fn oss_preset_has_no_personal_items_and_keeps_privacy() {
     ] {
         assert!(oss.get(k).is_none(), "oss 不应含 {k}");
     }
-    // 用户 2026-11 明确加入 cloudflare 市场；仍禁其他个人市场
-    if let Some(m) = oss.get("extraKnownMarketplaces") {
-        let names: Vec<&String> = m.as_object().unwrap().keys().collect();
-        assert_eq!(names, ["cloudflare"], "oss 市场只允许 cloudflare");
-    }
+    assert_eq!(
+        oss["enabledPlugins"],
+        json!({ "answer-me-with-html@answer-me-with-html": true }),
+        "oss 仅启用随预设提供的 answer-me-with-html 插件"
+    );
+    // answer-me-with-html 随预设提供；用户 2026-11 明确加入 cloudflare 市场
+    let m = oss.get("extraKnownMarketplaces").expect("oss 必须声明 extraKnownMarketplaces");
+    let names: Vec<&String> = m.as_object().unwrap().keys().collect();
+    assert_eq!(
+        names,
+        ["answer-me-with-html", "cloudflare"],
+        "oss 仅允许 answer-me-with-html 和 cloudflare 市场"
+    );
     let perms = &oss["permissions"];
     for k in ["defaultMode", "additionalDirectories", "allow"] {
         assert!(perms.get(k).is_none(), "oss permissions 不应含 {k}");
