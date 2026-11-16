@@ -136,48 +136,6 @@ pub(crate) fn rename_openai_max_tokens_key(body: &mut Value, wire: &Protocol, up
     true
 }
 
-/// `disable_thinking` 请求字段处理（aidog 本地扩展）。字段存在即剥（非标，透传恐 400）；
-/// 值为 true 时先剔掉客户端带来的开启型思考参数，再按目标 wire 协议写入**显式禁用参数**。
-///
-/// **为什么不只剔参数**（用户决策 2026-08-26，request d1c87c9c 实证）：旧实现只剔不写，
-/// 上游收不到任何禁用指令 → 按自身默认（思考开启）执行。实测 MiniMax-M2 把 300 max_tokens
-/// 全烧在 thinking block 上，正文一个字没输出。语义因此改为「按协议显式告知上游关闭思考」。
-///
-/// 协议映射：
-/// - anthropic → `thinking: {"type": "disabled"}`
-/// - gemini → `generationConfig.thinkingConfig.thinkingBudget = 0`
-/// - openai_responses → `reasoning: {"effort": "none"}`
-/// - openai / openai_completions → 官方 host 用 `reasoning_effort: "none"`（官方拒未知顶层字段），
-///   第三方 OpenAI 兼容端点用 `chat_template_kwargs.enable_thinking = false`（vLLM/SGLang/GLM/Qwen 通行写法）
-///
-/// 上游硬限制不在本函数职责内：MiniMax M2.x 接受 `thinking.type=disabled` 但模型照样思考，
-/// 响应侧不做剥离（用户决策：剥了也救不回被思考烧光的 max_tokens）。
-///
-
-/// 剥「显式禁用思考」形态的参数（保留开启型值）：`thinking.type=disabled`、
-/// `reasoning.effort=none`、`reasoning_effort=none`。强制思考模型专用。
-pub(crate) fn strip_disable_shaped_params(obj: &mut serde_json::Map<String, Value>) {
-    let is_disabled_thinking = obj
-        .get("thinking")
-        .and_then(|t| t.get("type"))
-        .and_then(Value::as_str)
-        == Some("disabled");
-    if is_disabled_thinking {
-        obj.remove("thinking");
-    }
-    let effort_none = obj
-        .get("reasoning")
-        .and_then(|r| r.get("effort"))
-        .and_then(Value::as_str)
-        == Some("none");
-    if effort_none {
-        obj.remove("reasoning");
-    }
-    if obj.get("reasoning_effort").and_then(Value::as_str) == Some("none") {
-        obj.remove("reasoning_effort");
-    }
-}
-
 /// 官方 OpenAI 端点判定（host == api.openai.com）。官方 Chat Completions 对未知顶层字段
 /// 返回 400 `unknown_parameter`，因此禁思考只能走官方认的 `reasoning_effort`。
 /// host 提取与 `is_official_anthropic_host` 同 idiom。

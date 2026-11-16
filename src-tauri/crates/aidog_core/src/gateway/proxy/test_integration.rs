@@ -8771,16 +8771,17 @@ async fn lock_aux_decision_success_resets_state() {
 }
 
 
-// ══ issue 55 票 05：终态 503 行为锁定 ══
+// ══ issue 55 票 05：次数用尽终态口径（2026-11-16 拍板：限频占位耗尽 → 429，取代票 05 原 503）══
 
-/// 次数/轮数用尽 → 统一 503："all candidates exhausted"、attempts 留痕、retry_count 与
-/// attempts 一致。限频占位只有聊天与 aux（embedding / rerank）持有（decision / tools
-/// 有意豁免，票 06 范围），故 503 终态 E2E 仅此三类可达；decision 实测终态 500、
+/// 次数/轮数用尽 → 限频占位被标（mark_rate_limited）的聊天与 aux（embedding / rerank）
+/// 终态 429（exhausted_status + Retry-After 口径，2026-11-16 用户拍板取代票 05 的 503）：
+/// "all candidates exhausted" body、attempts 留痕、retry_count 与 attempts 一致。
+/// decision / tools 无限频占位（票 06 豁免）不走 exhausted_status；decision 实测终态 500、
 /// tools 实测终态 502，见下方回归与 exhausted 单元测试。
 /// 触发器：单平台 concurrency=1，首个 500 后名额仍被 Access 持有，重排被限频挡下，
 /// 占位失败不计次数、轮数耗尽 → AttemptLoop 走到统一终态。
 #[tokio::test]
-async fn exhausted_503_lock_aux_and_chat() {
+async fn exhausted_429_lock_aux_and_chat() {
     for kind in [AuxKind::Emb, AuxKind::Rerank] {
         let up = spawn_stub_upstream(500, E500_PLAIN).await;
         let state = make_state(test_db().await).await;
@@ -8797,26 +8798,26 @@ async fn exhausted_503_lock_aux_and_chat() {
         set_group_max_attempts(&state, &gk, 3).await;
 
         let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
-        assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE, "{kind:?}");
+        assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS, "{kind:?}");
         let body = axum::body::to_bytes(resp.into_body(), 4096).await.unwrap();
         assert!(String::from_utf8_lossy(&body).contains("all candidates exhausted"), "{kind:?}");
         let log = last_log_for(&state, &gk).await;
-        assert_eq!(log.status_code, 503, "{kind:?}");
+        assert_eq!(log.status_code, 429, "{kind:?}");
         assert!(!log.attempts.is_empty(), "{kind:?}: attempts 留痕");
         assert_eq!(log.retry_count, aidog_db::models::retry_count_of(&log.attempts), "{kind:?}");
     }
 
-    // 聊天：同样的单平台并发占位形态 → 统一 503。
+    // 聊天：同样的单平台并发占位形态 → 429（同 exhausted_status 口径）。
     let up = spawn_stub_upstream(500, E500_PLAIN).await;
     let state = make_state(test_db().await).await;
     setup_multi_platform_group(&state, "gkt05c", &[("A", &up, r#"{"rate_limits":{"concurrency":1}}"#)]).await;
     set_group_max_attempts(&state, "gkt05c", 3).await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkt05c", None)).await;
-    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
     let body = axum::body::to_bytes(resp.into_body(), 4096).await.unwrap();
     assert!(String::from_utf8_lossy(&body).contains("all candidates exhausted"));
     let log = last_log_for(&state, "gkt05c").await;
-    assert_eq!(log.status_code, 503);
+    assert_eq!(log.status_code, 429);
     assert!(!log.attempts.is_empty());
     assert_eq!(log.retry_count, aidog_db::models::retry_count_of(&log.attempts));
 
