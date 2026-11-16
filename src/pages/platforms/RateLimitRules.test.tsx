@@ -15,7 +15,7 @@ vi.mock("@dnd-kit/core", async (orig) => {
   };
 });
 vi.mock("../../domains/platforms/modelPrices", () => ({ useModelPrices: () => new Map() }));
-import { RateLimitRulesList, type RateLimitRuleDraft } from "./RateLimitRules";
+import { RateLimitRulesList, draftToRule, ruleToDraft, type RateLimitRuleDraft } from "./RateLimitRules";
 
 const t = ((key: string, fallback?: string) => fallback ?? key) as never;
 const R = (over: Partial<RateLimitRuleDraft> = {}): RateLimitRuleDraft => ({
@@ -107,6 +107,20 @@ describe("RateLimitRulesList", () => {
     fireEvent.focus(input("rl-rule-0-model-input"));
     fireEvent.mouseDown(document.body.querySelector('[data-testid="model-option-glm-5"]')!);
     expect((onChange.mock.calls[0][0] as RateLimitRuleDraft[])[0].models).toEqual(["glm-5"]);
+  });
+
+  it("规则开关：关掉写出 enabled:false 且行变淡，开着不写该键", () => {
+    const { q, onChange } = mount([R({ id: "a", models: ["m"] }), R({ id: "b", models: ["n"], enabled: false })]);
+    expect(q("rl-rule-0")?.getAttribute("data-state")).toBe("on");
+    expect(q("rl-rule-1")?.getAttribute("data-state")).toBe("off");
+    fireEvent.click(q("rl-rule-0-enabled")!);
+    const off = (onChange.mock.calls[0][0] as RateLimitRuleDraft[])[0];
+    expect(draftToRule(off).enabled).toBe(false);
+    fireEvent.click(q("rl-rule-1-enabled")!);
+    const on = (onChange.mock.calls[1][0] as RateLimitRuleDraft[])[1];
+    expect("enabled" in draftToRule(on)).toBe(false);
+    expect(ruleToDraft({ models: ["m"], enabled: false }).enabled).toBe(false);
+    expect(ruleToDraft({ models: ["m"] }).enabled).not.toBe(false);
   });
 
   it("拖动落点后按新顺序回调", () => {
