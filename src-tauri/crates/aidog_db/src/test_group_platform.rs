@@ -281,7 +281,6 @@ async fn sync_platform_manual_groups_adds_removes_preserves_auto() {
             source_protocol: None,
             max_retries: 2,
             model_mappings: vec![],
-            env_vars: vec![],
         },
     )
     .await

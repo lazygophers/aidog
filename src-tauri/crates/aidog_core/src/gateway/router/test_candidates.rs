@@ -88,7 +88,6 @@ async fn mk_db_group_mode(
             source_protocol: Some("anthropic".into()),
             max_retries: 2,
             model_mappings: vec![],
-            env_vars: vec![],
         },
     )
     .await
@@ -693,7 +692,6 @@ async fn model_mapping_prioritizes_target_platform() {
                 request_timeout_secs: 0,
                 connect_timeout_secs: 0,
             }],
-            env_vars: vec![],
         },
     )
     .await
@@ -884,7 +882,6 @@ async fn failover_prefers_coding_plan_over_priority() {
             source_protocol: Some("anthropic".into()),
             max_retries: 2,
             model_mappings: vec![],
-            env_vars: vec![],
         },
     )
     .await
@@ -947,7 +944,6 @@ async fn failover_intra_coding_plan_bucket_keeps_priority() {
             source_protocol: Some("anthropic".into()),
             max_retries: 2,
             model_mappings: vec![],
-            env_vars: vec![],
         },
     )
     .await
@@ -1009,7 +1005,6 @@ async fn load_balance_coding_plan_bucket_first() {
             source_protocol: Some("anthropic".into()),
             max_retries: 2,
             model_mappings: vec![],
-            env_vars: vec![],
         },
     )
     .await
@@ -1107,7 +1102,6 @@ async fn explicit_mapping_overrides_coding_plan_preference() {
                 request_timeout_secs: 0,
                 connect_timeout_secs: 0,
             }],
-            env_vars: vec![],
         },
     )
     .await
@@ -1198,7 +1192,6 @@ async fn failover_prefers_earliest_expiry_within_same_priority() {
             source_protocol: Some("anthropic".into()),
             max_retries: 2,
             model_mappings: vec![],
-            env_vars: vec![],
         },
     )
     .await
@@ -1276,7 +1269,6 @@ async fn failover_priority_dominates_over_expiry_in_db() {
             source_protocol: Some("anthropic".into()),
             max_retries: 2,
             model_mappings: vec![],
-            env_vars: vec![],
         },
     )
     .await
@@ -1869,7 +1861,6 @@ async fn mapping_target_kind_mismatch_errs() {
                 request_timeout_secs: 0,
                 connect_timeout_secs: 0,
             }],
-            env_vars: vec![],
             is_default: None,
         },
     )
@@ -1910,7 +1901,6 @@ async fn with_mapping(
                 request_timeout_secs: 0,
                 connect_timeout_secs: 0,
             }],
-            env_vars: vec![],
             is_default: None,
         },
     )
@@ -4337,7 +4327,6 @@ async fn mk_ha_group(
             source_protocol: Some("anthropic".into()),
             max_retries: 2,
             model_mappings: vec![],
-            env_vars: vec![],
         },
     )
     .await
@@ -4518,7 +4507,6 @@ async fn mk_db_group_equal_prio(db: &db::Db, name: &str, platform_ids: &[u64], m
             source_protocol: Some("anthropic".into()),
             max_retries: 2,
             model_mappings: vec![],
-            env_vars: vec![],
         },
     )
     .await
@@ -4703,7 +4691,6 @@ async fn smart_mode_falls_back_to_health_aware_when_no_data() {
             source_protocol: Some("anthropic".into()),
             max_retries: 2,
             model_mappings: vec![],
-            env_vars: vec![],
         },
     )
     .await

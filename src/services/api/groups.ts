@@ -1,7 +1,7 @@
 // groups.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "../transport";
-import type { RoutingMode, Group, GroupPlatformDetail, ModelMapping, EnvVar, GroupDetail, PlatformUsageStats, GroupDailyBreakdown, GroupLastRequest, LatestRouting, FlowRow } from "./types";
+import type { RoutingMode, Group, GroupPlatformDetail, ModelMapping, GroupDetail, PlatformUsageStats, GroupDailyBreakdown, GroupLastRequest, LatestRouting, FlowRow } from "./types";
 
 // ── G3 分组页（整体风格票 03）：flow 拆分 + 最近路由快照（只读命令）──
 export const groupFlowApi = {
@@ -63,8 +63,6 @@ export const groupApi = {
     /** 分组级最大重试次数（0 = 不重试） */
     max_retries?: number;
     model_mappings?: ModelMapping[];
-    /** 用户自定义环境变量（整体替换；同名 ANTHROPIC_BASE_URL/ANTHROPIC_AUTH_TOKEN 后端跳过） */
-    env_vars?: EnvVar[];
   }) => invoke<Group>("group_update", { input }),
 
   delete: (id: number) => invoke<void>("group_delete", { id }),

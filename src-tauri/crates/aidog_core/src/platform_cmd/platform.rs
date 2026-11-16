@@ -17,7 +17,6 @@ pub(crate) async fn create_auto_group_for(db: &Db, platform: &Platform) -> Resul
             source_protocol: None,
             max_retries: 10,
             model_mappings: Vec::new(),
-            env_vars: Vec::new(),
         },
     )
     .await?;

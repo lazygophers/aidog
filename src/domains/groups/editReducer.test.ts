@@ -8,7 +8,6 @@ function makeDetail(overrides: Partial<GroupDetail["group"]> = {}): GroupDetail 
       group_key: "g1",
       name: "Group 1",
       routing_mode: "roundrobin" as any,
-      env_vars: [{ key: "K", value: "V" }],
       request_timeout_secs: 30,
       connect_timeout_secs: 5,
       max_retries: 3,

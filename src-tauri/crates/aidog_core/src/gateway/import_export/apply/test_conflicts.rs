@@ -124,7 +124,6 @@ async fn detect_conflicts_group_key_conflict() {
             source_protocol: None,
             max_retries: 1,
             model_mappings: vec![],
-            env_vars: vec![],
         },
     )
     .await
@@ -214,7 +213,6 @@ async fn detect_conflicts_group_fallback_to_name_when_no_group_key() {
             source_protocol: None,
             max_retries: 1,
             model_mappings: vec![],
-            env_vars: vec![],
         },
     )
     .await

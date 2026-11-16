@@ -50,7 +50,7 @@ async fn create_and_update_reject_out_of_range() {
     for bad in [0u32, 11] {
         let r = update_group(&db, UpdateGroup {
             id: g.id, name: None, routing_mode: None, request_timeout_secs: 0, connect_timeout_secs: 0,
-            source_protocol: None, max_retries: Some(bad), model_mappings: vec![], env_vars: vec![], is_default: None,
+            source_protocol: None, max_retries: Some(bad), model_mappings: vec![], is_default: None,
         })
         .await;
         assert!(r.is_err(), "update {bad}");

@@ -19,7 +19,6 @@ fn sample_group_input(name: &str) -> CreateGroup {
         source_protocol: None,
         max_retries: 2,
         model_mappings: vec![],
-        env_vars: vec![],
     }
 }
 

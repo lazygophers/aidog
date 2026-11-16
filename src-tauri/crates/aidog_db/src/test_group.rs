@@ -59,7 +59,6 @@ async fn group_max_retries_roundtrip() {
             source_protocol: None,
             max_retries: Some(1),
             model_mappings: vec![],
-            env_vars: vec![],
             is_default: None,
         },
     )
@@ -142,7 +141,6 @@ async fn update_group_changes_name() {
             source_protocol: None,
             max_retries: None,
             model_mappings: vec![],
-            env_vars: vec![],
             is_default: None,
         },
     )
@@ -170,7 +168,6 @@ async fn update_group_changes_routing_mode() {
             source_protocol: None,
             max_retries: None,
             model_mappings: vec![],
-            env_vars: vec![],
             is_default: None,
         },
     )
@@ -196,7 +193,6 @@ async fn update_group_timeouts() {
             source_protocol: None,
             max_retries: None,
             model_mappings: vec![],
-            env_vars: vec![],
             is_default: None,
         },
     )
@@ -422,4 +418,23 @@ async fn create_group_with_source_protocol() {
     input.source_protocol = Some("openai".to_string());
     let g = create_group(&db, input).await.unwrap();
     assert_eq!(g.source_protocol, "openai");
+}
+
+// ── env_vars 死字段下线：Group 序列化不再携带该键；update 往返不丢相邻列 ──
+#[tokio::test]
+async fn group_serialization_drops_retired_env_vars_and_update_roundtrip_keeps_neighbors() {
+    let db = test_db().await;
+    let g = create_group(&db, sample_group("ev", vec![])).await.unwrap();
+    let fetched = get_group(&db, g.id).await.unwrap().unwrap();
+    let v = serde_json::to_value(&fetched).unwrap();
+    assert!(
+        v.get("env_vars").is_none(),
+        "retired env_vars must be gone from Group serialization, got keys: {:?}",
+        v.as_object().map(|o| o.keys().collect::<Vec<_>>())
+    );
+    // 相邻列（is_default / extra，紧挨被删列）在 update 往返后不串位
+    set_default_group(&db, Some(g.id)).await.unwrap();
+    let fetched = get_group(&db, g.id).await.unwrap().unwrap();
+    assert!(fetched.is_default, "is_default must survive column removal");
+    assert_eq!(fetched.extra, "", "extra must not be shifted onto another column");
 }
