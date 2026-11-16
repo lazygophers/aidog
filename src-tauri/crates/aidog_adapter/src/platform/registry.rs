@@ -26,7 +26,9 @@ impl PlatformAdapter for GenericAdapter {}
 /// - 思考开关（openai 端点）：kimi-k2.6「`thinking.type` | 默认 `"enabled"`，传 `"disabled"` 可关闭思考」；
 ///   kimi-k2.7-code 系列「仅支持 `"enabled"`，传 `"disabled"` 会报错」；K3 系列「始终开启思考 … 使用顶层
 ///   `reasoning_effort` … 不使用 `thinking` 参数」。文档无 `chat_template_kwargs`，故覆写 openai 臂（见下）；
-///   不可关闭的模型由 registry `thinking_toggleable: false` 走基座强制思考剥除，不在此覆盖。
+///   不可关闭的模型（kimi / kimi_en 的 kimi-k2.7-code、kimi-k2.7-code-highspeed、kimi-k3、kimi-k3.1-pro、
+///   kimi-k3.1-pro-highspeed）在 registry 标 `thinking_toggleable: false`，走基座强制思考剥除、不写 `thinking`，
+///   不在此覆盖；kimi_coding 条目未标注（成员 issue 119 核对）。
 ///   https://platform.kimi.com/docs/api/chat.md https://platform.kimi.ai/docs/api/chat.md
 ///   https://platform.kimi.com/docs/guide/use-thinking-models.md
 /// - 流式：「先接收 `delta.reasoning_content`，再接收 `delta.content`；`finish_reason="stop"` 表示生成结束，
