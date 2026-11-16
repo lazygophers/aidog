@@ -34,6 +34,13 @@ describe("allConfiguredModelValues", () => {
     ] });
     expect(allConfiguredModelValues({ models: { default: "a" }, extra })).toEqual(["a", "w1", "w2", "w3"]);
   });
+  it("关掉的时段档（enabled:false）视为不存在，与 Rust model_configs 对称", () => {
+    const extra = JSON.stringify({ time_windows: [
+      { windows: [], models: { default: "off" }, enabled: false },
+      { windows: [], models: { default: "on" }, enabled: true },
+    ] });
+    expect(allConfiguredModelValues({ models: { default: "a" }, extra })).toEqual(["a", "on"]);
+  });
   it("extra 缺省 / 非法 JSON → 只有默认配置", () => {
     expect(allConfiguredModelValues({ models: { default: "a" } })).toEqual(["a"]);
     expect(allConfiguredModelValues({ models: { default: "a" }, extra: "{bad" })).toEqual(["a"]);

@@ -48,6 +48,22 @@ describe("时段档行的启用开关", () => {
   });
 });
 
+describe("时段档整档开关（enabled）", () => {
+  const q = (id: string) => document.body.querySelector(`[data-testid="${id}"]`) as HTMLElement;
+  it("关掉写出 enabled:false 且档变淡，开着不写该键", () => {
+    const { setRules } = mountTime({ rules: [
+      { windows: [], models: {} },
+      { windows: [], models: {}, enabled: false },
+    ] });
+    expect(q("tw-0").getAttribute("data-state")).toBe("on");
+    expect(q("tw-1").getAttribute("data-state")).toBe("off");
+    fireEvent.click(q("tw-0-enabled"));
+    expect(JSON.parse(JSON.stringify(setRules.mock.calls.at(-1)![0]))[0]).toEqual({ windows: [], models: {}, enabled: false });
+    fireEvent.click(q("tw-1-enabled"));
+    expect("enabled" in JSON.parse(JSON.stringify(setRules.mock.calls.at(-1)![0]))[1]).toBe(false);
+  });
+});
+
 describe("新建档开关按「模型」tab 当前内置槽开关预填", () => {
   it("「添加时段档」：预填平台级内置槽开关，排除自定义槽名", () => {
     const { container, setRules } = mountTime({ disabledSlots: ["opus", "fast", "embedding"] });

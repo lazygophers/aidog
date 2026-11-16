@@ -345,11 +345,15 @@ export function ModelsMatrixSection({
             <div style={{ flexShrink: 0, width: 200, display: "flex", flexDirection: "column", gap: 4 }}>
               {rules.map((rule, idx) => {
                 const on = idx === selIdx;
+                const enabled = rule.enabled !== false;
                 return (
                   <div
                     key={idx}
+                    data-testid={`tw-${idx}`}
+                    data-state={enabled ? "on" : "off"}
                     onClick={() => setSelectedRuleIdx(idx)}
                     style={{
+                      opacity: enabled ? 1 : 0.55,
                       display: "flex", flexDirection: "column", gap: 2,
                       padding: "7px 10px", borderRadius: "var(--radius-sm)", cursor: "pointer",
                       background: on ? "var(--accent-subtle)" : "transparent",
@@ -357,6 +361,10 @@ export function ModelsMatrixSection({
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <Switch data-testid={`tw-${idx}-enabled`} checked={enabled}
+                        aria-label={t("platform.rateLimits.ruleEnabled", "启用此规则（关掉后视为不存在）")}
+                        title={t("platform.rateLimits.ruleEnabled", "启用此规则（关掉后视为不存在）")}
+                        onCheckedChange={(v) => updateRule(idx, { enabled: v === true ? undefined : false })} />
                       <span style={{ fontSize: 14, fontWeight: 600, color: on ? "var(--text-primary)" : "var(--text-secondary)", flex: 1 }}>
                         {t("platform.time_windows_rule_n", "档 {{n}}", { n: idx + 1 })}
                       </span>
