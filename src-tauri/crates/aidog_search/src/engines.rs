@@ -86,9 +86,18 @@ enum FpKind {
     Plain,
 }
 
+/// 引擎出站 HTTP 客户端：桌面（mac/win）用 wreq 浏览器指纹；linux 只跑 CI 不发版，
+/// wreq(BoringSSL) 的 `-l static=crypto/ssl` 与 SQLCipher 的 `-l dylib=crypto` 在 linux rustc
+/// 同名 native lib 去重后 static 落选（BoringSSL 不链接），换 reqwest(rustls) 避让（Cargo.toml 注）。
+#[cfg(target_os = "linux")]
+use reqwest as engine_http;
+#[cfg(not(target_os = "linux"))]
+use wreq as engine_http;
+
 /// 指纹客户端缓存：key = (种类, 代理配置)，代理设置变更自动重建
 /// （同 gateway http_client ClientCache idiom；issue #64 非平台出站受「其它请求使用代理」控制）。
-type FpCache = std::collections::HashMap<(FpKind, Option<crate::FingerprintProxy>), wreq::Client>;
+type FpCache =
+    std::collections::HashMap<(FpKind, Option<crate::FingerprintProxy>), engine_http::Client>;
 
 fn fp_cache() -> &'static std::sync::Mutex<FpCache> {
     static C: OnceLock<std::sync::Mutex<FpCache>> = OnceLock::new();
@@ -96,27 +105,45 @@ fn fp_cache() -> &'static std::sync::Mutex<FpCache> {
 }
 
 /// 按种类 + 注入的代理提供器构指纹客户端（缓存命中即返 clone；wreq Client 内部 Arc，clone 便宜）。
-async fn fingerprint_client(kind: FpKind) -> Result<wreq::Client, String> {
+async fn fingerprint_client(kind: FpKind) -> Result<engine_http::Client, String> {
     let proxy = crate::fingerprint_proxy().await;
     let key = (kind, proxy.clone());
     if let Some(c) = fp_cache().lock().ok().and_then(|m| m.get(&key).cloned()) {
         return Ok(c);
     }
-    let mut b = match kind {
-        FpKind::Chrome => wreq::Client::builder().emulation(wreq_util::Emulation::Chrome149),
-        FpKind::ChromeNoRedir => wreq::Client::builder()
-            .emulation(wreq_util::Emulation::Chrome149)
-            .redirect(wreq::redirect::Policy::none()),
-        FpKind::Plain => wreq::Client::builder(),
+    let mut b = {
+        #[cfg(not(target_os = "linux"))]
+        {
+            match kind {
+                FpKind::Chrome => {
+                    engine_http::Client::builder().emulation(wreq_util::Emulation::Chrome149)
+                }
+                FpKind::ChromeNoRedir => engine_http::Client::builder()
+                    .emulation(wreq_util::Emulation::Chrome149)
+                    .redirect(engine_http::redirect::Policy::none()),
+                FpKind::Plain => engine_http::Client::builder(),
+            }
+        }
+        #[cfg(target_os = "linux")]
+        {
+            // linux 无指纹模拟（reqwest 无 emulation）；ChromeNoRedir 的不跟随跳转语义保留
+            let b = engine_http::Client::builder();
+            if matches!(kind, FpKind::ChromeNoRedir) {
+                b.redirect(engine_http::redirect::Policy::none())
+            } else {
+                b
+            }
+        }
     };
     match &proxy {
         Some(cfg) => {
-            let mut p = wreq::Proxy::all(&cfg.uri).map_err(|e| format!("build proxy {}: {e}", cfg.uri))?;
+            let mut p =
+                engine_http::Proxy::all(&cfg.uri).map_err(|e| format!("build proxy {}: {e}", cfg.uri))?;
             if !cfg.username.is_empty() {
                 p = p.basic_auth(&cfg.username, &cfg.password);
             }
             if !cfg.no_proxy.trim().is_empty() {
-                p = p.no_proxy(wreq::NoProxy::from_string(&cfg.no_proxy));
+                p = p.no_proxy(engine_http::NoProxy::from_string(&cfg.no_proxy));
             }
             b = b.proxy(p);
         }
@@ -144,7 +171,11 @@ async fn get_text(url: &str, headers: &[(&str, &str)]) -> Result<String, String>
     get_text_with(&fingerprint_client(FpKind::Chrome).await?, url, headers).await
 }
 
-async fn get_text_with(c: &wreq::Client, url: &str, headers: &[(&str, &str)]) -> Result<String, String> {
+async fn get_text_with(
+    c: &engine_http::Client,
+    url: &str,
+    headers: &[(&str, &str)],
+) -> Result<String, String> {
     let mut req = c.get(url);
     for (k, v) in headers {
         req = req.header(*k, *v);
