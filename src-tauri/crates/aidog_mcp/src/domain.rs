@@ -197,7 +197,8 @@ pub async fn share_server(db: &Db, name: &str) -> Result<serde_json::Value, Stri
     Ok(serde_json::json!({ "mcpServers": serde_json::Value::Object(servers) }))
 }
 
-/// per-agent 启用/禁用：改 DB enabled_agents + 同步写/删 agent 配置。
+/// per-agent 启用/禁用：先写/删 agent 配置文件，成功才改 DB enabled_agents
+///（文件失败不落 DB）。
 pub async fn set_agent_enabled(
     db: &Db,
     name: &str,
@@ -231,16 +232,22 @@ pub async fn set_agent_enabled(
         .map(|a| a.slug())
         .collect::<Vec<_>>()
         .join(",");
-    store::set_mcp_server_enabled_agents(db, name, &csv).await?;
-
-    // 同步 agent 配置文件。
-    let be = backend_for(agent);
-    if enabled {
-        let cfg = row.to_raw_cfg();
-        be.write(name, &cfg)?;
-    } else {
-        be.remove(name)?;
+    // 先写/删 agent 配置文件，全部成功才落 DB：任一文件操作失败时不改 DB
+    // （避免「UI 显示已启用但 agent 配置文件从未写入」的静默失配），报错点名 agent。
+    // 块作用域：Box<dyn McpAgentBackend> 非 Send，必须在 DB await 前析构（否则 http
+    // handler 的 future 变 !Send，aidog_rpc Handler bound 编译失败）。
+    {
+        let be = backend_for(agent);
+        if enabled {
+            let cfg = row.to_raw_cfg();
+            be.write(name, &cfg)
+                .map_err(|e| format!("write {} config: {e}", agent.slug()))?;
+        } else {
+            be.remove(name)
+                .map_err(|e| format!("remove {} config: {e}", agent.slug()))?;
+        }
     }
+    store::set_mcp_server_enabled_agents(db, name, &csv).await?;
     Ok(())
 }
 
