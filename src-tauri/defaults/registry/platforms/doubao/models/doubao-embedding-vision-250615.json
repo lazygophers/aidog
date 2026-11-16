@@ -1,11 +1,13 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai",
     "openai_responses"
   ],
   "model_id": "doubao-embedding-vision-250615",
+  "max_input_tokens": 131072,
+  "display_name": "Doubao Embedding Vision 250615",
   "canonical_model": "doubao-embedding-vision-250615",
   "family": "doubao-embedding",
   "capabilities": [

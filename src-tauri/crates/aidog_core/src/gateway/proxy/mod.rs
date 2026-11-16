@@ -75,6 +75,8 @@ mod call_scope;
 mod outbound_shape;
 
 #[cfg(test)]
+mod test_adapter_dispatch;
+#[cfg(test)]
 mod test_agg_dedup;
 #[cfg(test)]
 mod test_bind;
@@ -96,7 +98,9 @@ mod test_mitm_bypass;
 // 对外路径保持 `gateway::proxy::X` 不变：re-export 全部对外 pub 项。
 pub use endpoint::{is_opencode_zen, opencode_zen_fallback, resolve_opencode_zen_key};
 pub use handler::handle_proxy;
-pub use management::{SETTINGS_TEST_SOURCE, SOURCE_HEADER, install_management_router};
+pub use management::{
+    SETTINGS_TEST_SOURCE, SOURCE_HEADER, install_management_router, ui_router_from_assets,
+};
 /// settings_set 写 DB 后调此重建 ProxyState 设置缓存（跨 crate：commands_config 调用）。
 pub use settings_cache::refresh_proxy_settings_cache;
 // ST5：明文 MITM 路径灌入用（CONNECT 分流已移至 handle_proxy_inner，core 只处理 AI 请求，
@@ -105,7 +109,6 @@ pub(crate) use handler::handle_proxy_core;
 pub use headers::{
     apply_client_headers, apply_client_headers_for_model, build_upstream_headers,
     build_upstream_headers_for_model, inject_coding_plan_fields,
-    override_coding_plan_path,
 };
 // redact_key 仅 headers 内部消费，但作为对外 API 一致性保留可达路径 `gateway::proxy::redact_key`。
 #[allow(unused_imports)]
@@ -121,7 +124,7 @@ pub(crate) use endpoint::{
     select_endpoint_for_decision, select_endpoint_for_openai_family, is_embedding_endpoint, is_rerank_endpoint,
     KeyCandidate, KeyChannel, custom_key_header_names, key_candidates, load_custom_key_channels};
 pub(crate) use finish::{AttemptCtx, finish_nonstream, finish_stream};
-pub(crate) use forward::{AttemptOutcome, CallBudget, finalize_proxy_502, forward_attempt};
+pub(crate) use forward::{AttemptOutcome, add_retry_after, note_retry_at, CallBudget, exhausted_status, finalize_proxy_502, forward_attempt};
 pub(crate) use rate_slot::{RateSlot, RateSlotCtx, mark_rate_limited};
 pub(crate) use group_info::handle_group_info;
 pub(crate) use mcp_http::{handle_mcp, handle_mcp_get};
@@ -139,7 +142,7 @@ pub(crate) use non_success::{handle_non_success, NonSuccessCtx};
 // is_official_anthropic_host 仅 headers 内部 + 测试消费；重导出供 test_passthrough 可达。
 #[allow(unused_imports)]
 pub(crate) use headers::is_official_anthropic_host;
-pub(crate) use health::{handle_root, is_hello_endpoint};
+pub(crate) use health::{handle_root, handle_root_or_ui, is_hello_endpoint};
 // remove_log_snapshot/spawn_log_writer/LogMsg 仅测试文件 unqualified 消费（本 mod.rs 走 log:: 全限定路径）；
 // 非 test cfg 下重导出未被引用，同 is_official_anthropic_host 先例 allow。
 #[cfg(test)]
@@ -162,12 +165,12 @@ pub(crate) use passthrough::{
 };
 // kind_route_error_message 仅测试 unqualified 消费（no_tools_platform 分支），同 is_official_anthropic_host 先例。
 #[allow(unused_imports)]
-pub(crate) use decision::{handle_decision, kind_route_error_message, route_fail_response};
+pub(crate) use decision::{handle_decision, kind_route_error_message, route_fail_response, route_fallback_status};
 pub(crate) use tools::handle_tools;
 pub(crate) use responses::{handle_responses_subendpoint, is_responses_subendpoint};
 pub(crate) use retry::{
     RESP_HEADER_BLACKLIST, StreamPeek, TRANSPORT_RETRY_MAX, classify_429, classify_stream_first,
-    is_per_minute_rate_limit, UpstreamErrorClass, classify_upstream_error, registry_code_meaning,
+    is_per_minute_rate_limit, UpstreamErrorClass, registry_code_meaning,
     err_chain, error_response_headers, extract_error_message, filter_upstream_resp_headers,
     is_censorship_blocked, is_nonstream_body_valid, is_region_blocked, is_status_retryable,
     is_transport_retryable,
@@ -422,13 +425,16 @@ fn build_router(state: Arc<ProxyState>) -> Router {
         // 管理接口（ADR 0010）：本机限制 / 开关 / 凭据都在 handle_management 内，早于分组解析与转发。
         .route("/api/rpc/{*cmd}", post(handle_management))
         .route("/api/events", get(handle_management))
-        .route("/api/ui", get(handle_management))
-        .route("/api/ui/", get(handle_management))
-        .route("/api/ui/{*rest}", get(handle_management))
+        // Web 界面（桌面内置资源 / 内核 --ui）：同一套闸门，路径在代理端口根下的 /ui。
+        .route("/ui", get(handle_management))
+        .route("/ui/", get(handle_management))
+        // 设了凭据时浏览器用口令换 Cookie（登录表单 POST）；GET 走同一闸门出登录页。
+        .route("/ui/login", get(handle_management).post(handle_management))
+        .route("/ui/{*rest}", get(handle_management))
         // 健康端点：客户端（Claude Code / Codex 启动探测等）会命中代理根 URL（含 / 前缀），
         // 无 Authorization 不应进 handle_proxy 走 404，也不应落 proxy_log 污染统计。
         // 仅返回 200 + 身份 JSON，跳过组路由 / 日志 / 上游。
-        .route("/", get(handle_root))
+        .route("/", get(handle_root_or_ui))
         .route("/proxy", get(handle_root))
         .fallback(handle_proxy)
         .with_state(state.clone())

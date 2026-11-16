@@ -1,0 +1,27 @@
+{
+  "code": "US-MO",
+  "extends": "US",
+  "name": {
+    "ar-SA": "ميزوري",
+    "de-DE": "Missouri",
+    "en-US": "Missouri",
+    "es-ES": "Misuri",
+    "fr-FR": "Missouri",
+    "ja-JP": "ミズーリ州",
+    "ru-RU": "Миссури",
+    "zh-Hans": "密苏里州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-02-12", "2026-05-08", "2026-07-04"],
+      "workdays": ["2026-07-03"]
+    },
+    "2027": {
+      "holidays": ["2027-02-12", "2027-05-08", "2027-06-19", "2027-07-04", "2027-12-25"],
+      "workdays": ["2027-06-18", "2027-12-24"]
+    }
+  },
+  "source_urls": [
+    "https://revisor.mo.gov/main/OneSection.aspx?section=9.010"
+  ]
+}

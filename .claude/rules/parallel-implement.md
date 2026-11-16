@@ -79,6 +79,7 @@ master 基线本身带红（该轮：vitest 1 红、flutter 4 红、aidog_db 2 �
 - 派活后开工前核对基点：`git -C <worktree> rev-parse HEAD` 对比主 checkout HEAD；
   落后就先 rebase / 重建 worktree，再让 agent 动手。agent 运行期间主 checkout 前进
   （别的会话提交）同样造成漂移——合并前再对一次，不等开工时那一次管全程。
+- **基点落后会让 agent 停下提问**（2026-11-15：harness worktree agent 基于旧提交 c8f485591，落后本地 master，一个 agent 停下来问）：派发 prompt 写明目标基点 sha，并要求「开工先 `git -C <worktree> rev-parse HEAD`，不等于该 sha 就先 `git merge --ff-only <sha>` 或 rebase，再动手，不停下提问」。
 - 基点已落后且补丁已产出：按 shared-worktree.md「采信半成品」三前提处理——逐 hunk
   重审 + 主会话全量重跑门禁，不采信 agent 侧门禁结论。
 - **数据落库与代码票并行时，基点漂移的是数据**（2026-10-29 计费线票 19）：agent 基点
@@ -120,6 +121,11 @@ master 基线本身带红（该轮：vitest 1 红、flutter 4 红、aidog_db 2 �
   `effective_presets`（billing.rs:281-283），属误报；成因是只读了纯函数测试直读
   `presets()` 的路径。「双源 / 不对称 / 死码」类发现，采信前 grep 两侧调用链到同一个
   源头再决定修不修。
+- **reviewer 报的「数据缺失」类断言，动手补之前先对官方/一手原文**（2026-11-14
+  节假日日历轮）：审阅报 NY 缺 2026-07-06，官方 2026 日历实列 4 Sat Independence
+  Day 脚注 (b) pass day、脚注 (c) 仅适用周日——审阅前提为假，盲从会补错日期。
+  数据对错的一手真值源是官方原文（第 1 类），审阅 agent 的比对结论是第 4 类下游，
+  冲突时以官方原文裁决。
 
 ## 7. agent 门禁结论的假绿盲区（2026-10-20 obs 轮实锤）
 
@@ -185,6 +191,15 @@ mitm_bypass 测试读加密列断言明文——子集门禁全绿，合并到 m
   拦时先核对账本：条目对应 agent 已回报 / 已结束却未释放的，释放后立即重派，不干等自动
   过期，也不硬重试（本轮同一 hook 拦了 3 次，其中 2 次拦的是槽实际已空的活）。
 
+- **用户催促 / 说「继续」时同样先数在途**（2026-11-14 issue 61 轮实锤）：用户说「继续」后主会话
+  又派了一个验证代理，与仍在跑的 review agent 构成双提交竞态（同 worktree 两家都可能 commit），
+  事后 TaskStop 重复方才收敛。催促不是新开代理的指令：先 ListAgents 核对在途，同任务只留一个
+  收口方，收口 agent 还在跑就等它，不为催促新开重复代理。
+- **同一工作区同一时刻只派一个写 agent**（2026-11-15 依赖更新轮实锤）：两个 agent 同时进同一
+  worktree，一方 `git stash` 掉另一方在途脏改动，pop 撞车互相覆盖。派发前按工作区（主 checkout /
+  各 worktree）记归属账：一个工作区一个在途写入 agent；要并行就开新 worktree（shared-worktree.md
+  文首「有必要」三情形），不往同一工作区塞第二个。
+
 ## 9. 整体 revert 旧提交撤功能：逐 hunk 归属复核（2026-10-29 去抽屉轮）
 
 去抽屉用 revert 15f85b503 + 91571e2b8 压成一提交（cc2fa3d87）。整体 revert 会连同旧提交里
@@ -245,6 +260,9 @@ completed 的后台 subagent 不会从列表消失，界面一直显示最后一
   后立即回传）：agent 长时间 idle 且无回报时，先 `ls` 它应落盘的产出文件（报告路径
   在派发 prompt 里写死），文件在 = 工作已完成只是回报链路丢了，SendMessage 催交；
   不在才走 §15 中断 checklist 续做。重派 = 白烧一遍取证 / 实现成本。
+- **停止后通知仍会来，忽略即可**（2026-11-14 issue 61 轮实锤）：TaskStop 掉的 agent 的
+  mailbox 唤醒仍可能送来重复回报 / idle 通知（本轮 impl agent 停止后又来两次 idle 通知），
+  忽略，不回信、不重派、不再 TaskStop。
 
 ## 14. 渲染类 UI 票：门禁全绿不等于视觉验收（2026-10-30 流向图）
 
@@ -261,7 +279,7 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
 ## 15. 门禁退出码不进管道；agent 中断后的续做 checklist（2026-10-30 ~ 11-02 平台-客户端白名单线）
 
 - **门禁命令禁管到 `tail` / `head` 再取退出码**：合并 agent 把 `yarn test:cov` 管到 `tail -15`，
-  退出码与 `Tests` 行一并丢失（票 03 合并），靠票 08 合并补证。命令写 `cmd > .tmp/<任务名>/x.log 2>&1; echo EXIT=$?`，
+  退出码与 `Tests` 行一并丢失（票 03 合并），靠票 08 合并补证。命令写 `{ cmd; rc=$?; echo EXIT=$rc; } > .tmp/<任务名>/x.log 2>&1`，
   再 `grep -E 'Tests |Test Files' .tmp/<任务名>/x.log`；派发 prompt 把这条写死。
 - **会话中途退出会让后台 agent 中断**（本线 2 次：规划 agent、票 05）。续做按此顺序核对现场，再派续做 agent：
   1. 票 `Status:` 是否停在 `claimed`（未写 `## Answer` = 没结票）；
@@ -286,15 +304,16 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
 
 ## 16. 先红输出全量落文件，禁 `head -N` 截断
 
-新增测试的「先红」证据：`cmd > .tmp/<任务名>/red.log 2>&1; echo EXIT=$?`，再对每个新测试名各 grep 一次
+新增测试的「先红」证据：`{ cmd; rc=$?; echo EXIT=$rc; } > .tmp/<任务名>/red.log 2>&1`，再对每个新测试名各 grep 一次
 `FAILED|failed|<测试名>`；管到 `head` / `tail` 会截掉新测试的失败行，无法确认它先红过。
 
 ## 17. 门禁里的计时断言偶发红：`--no-fail-fast` 取全量，重跑定性
 
 `cargo test --workspace` 遇一个 suite 失败就停，后面的 suite 不跑，拿不到全量结果。
-门禁命令写 `cargo test --workspace --no-fail-fast > .tmp/<任务名>/x.log 2>&1; echo EXIT=$?`。
+门禁命令写 `{ cargo test --workspace --no-fail-fast; rc=$?; echo EXIT=$rc; } > .tmp/<任务名>/x.log 2>&1`。
 计时断言（如 `aidog_stats::test_usage_stats::flow_breakdown_7d_scale_guard`，并发编译后首轮曾超时）
 首轮红先单跑该测试一次：绿 = 负载抖动，记账本遗留；仍红才按回归处理。
+同族挂钟断言：`aidog_core::gateway::proxy::test_integration::mock_platform_ttft_and_inter_chunk_split`（`test_integration.rs:1366`，ttft 阈值 40–160ms、chunk 间隔 ≤60ms）。2026-10-19 曾单跑稳定红、全量偶绿（进程首请求冷启动多 150–220ms，基线同红，非回归），b6f0bd0cf 加预热请求后已修；再红先查机器负载 / 内存压力，不当回归。
 
 ## 18. 网络断连中断、先红严格性、票状态词、带密钥写命令登记（2026-11-04 ~ 11-05）
 
@@ -304,13 +323,13 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
   「前一 agent 因断网中止，先 `git diff` 逐 hunk 核对再接着做」，不让它从头重写。
 - **先红要严格**：2026-11-04.md:24 策略库 4 条「测试与组件同写、未拍到真先红」，2026-11-05.md:92 生成脚本
   「非严格先红，事后改坏三处反证」，11-05.md:27 review 因「先红输出未见」无法核实 Spec。
-  派发 prompt 要求：先只写测试跑出红（`> .tmp/<任务名>/red.log 2>&1; echo EXIT=$?`），回报**贴 EXIT 值与失败测试名**，
+  派发 prompt 要求：先只写测试跑出红（`{ cmd; rc=$?; echo EXIT=$rc; } > .tmp/<任务名>/red.log 2>&1`），回报**贴 EXIT 值与失败测试名**，
   再写实现；确实做不到（测试与实现不可分）写明原因并改用「改坏实现→红→按行号还原」反证，回报标「非严格先红」。
   回报只写「先红已验」而无 EXIT 值和失败名，按没验处理。
   **红必须是断言红，不是编译红**（2026-11-05 模型-自定义槽位：4 张票 3 张非严格——符号缺失编译红、夹具缺项红、写完实现再换回）：
   先加桩（新符号只给签名 + 默认返回值，夹具补全）使测试编译通过，再跑出断言失败；票 03 桩先行即得真先红。
   review 修复补的测试同样适用（2026-11-06 38ca3d577 仍非严格先红，靠改坏 decision.rs 反证）：派 review-fix agent 时 prompt 照贴本条。
-- **`make lint` 整条跑**（2026-11-06 额度线遗留「make lint 未整条跑，仅分项跑」）：收尾门禁以 `make lint > .tmp/<任务名>/lint.log 2>&1; echo EXIT=$?` 为准，
+- **`make lint` 整条跑**（2026-11-06 额度线遗留「make lint 未整条跑，仅分项跑」）：收尾门禁以 `{ make lint; rc=$?; echo EXIT=$rc; } > .tmp/<任务名>/lint.log 2>&1` 为准，
   分项绿不算；收尾 agent 回报贴 EXIT 值，没跑写「做了没验证」。
 - **绕开脏文件另建模块只是权宜**（2026-11-06 statusline 回退放进 fallback.py 因 engine.py 被他线占用）：占用解除后并回原模块，
   账本遗留写明并入条件；不把「文件被占」当拆文件的设计理由。
@@ -337,16 +356,21 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
 票 12 两次卡死同一模式：agent 把门禁链挂后台 Bash，自己 idle 等「完成通知」，
 链早已跑完（`.tmp/<任务名>/gate.log` 里 `GATE_CHAIN_DONE` 在场）却没人唤醒，白白挂起。
 
-- 派出的 implementer 跑门禁一律 **Bash 前台同步**（长门禁设足 timeout），跑完接着做
-  下一步；禁挂后台再 idle 等通知——agent 自己就是等结果的人，没有别人会通知它。
-- 主会话侧：发现 implementer idle 且 `.tmp/<任务名>/gate.log` 已有 `GATE_CHAIN_DONE`，
-  SendMessage 唤醒续做，不重派。
+- **执行 agent 的依赖性命令前台运行**：门禁结果、编译产物或锁获取是下一步输入时，Bash 前台运行并设足 timeout；若 harness 自动转后台，主会话接收完成通知并读取日志，再通知 agent 续做。执行 agent 不得自行挂后台后 idle 等通知。
+- 主会话发现执行 agent idle 且 `.tmp/<任务名>/gate.log` 已有完成标记或退出码时，读取日志并 SendMessage 唤醒续做，不重派。
+- **主会话侧只读门禁优先主对话后台 Bash 自跑**（2026-11-15 依赖更新轮，用户结论「主对话自己跑
+  门禁全程比派 agent 跑门禁更稳」）：门禁是纯验证、红了也不由它修时，主对话直接后台 Bash 跑
+  （`{ cmd; rc=$?; echo EXIT=$rc; } > .tmp/<任务名>/gate.log 2>&1`，退出码与命令输出写入同一日志；若自动转后台，主会话接收完成通知后读日志并通知续做），比派专职门禁 agent
+  少一层唤醒 / 回报链路，EXIT 与日志直接可读；门禁红需要改代码才派 implementer。这是对全局
+  「主对话只调度」的项目级收窄，仅限只读验证类命令。
 
-## 20. 本机 `HTTP_PROXY` 会让 aidog_kernel 的 search / media 测试假红（2026-11-09）
+## 20. 本机代理测试假红与下载故障记录（2026-11-09 / 2026-11-15）
 
-`cargo test --workspace` 在设了 `HTTP_PROXY` 的本机上，`aidog_kernel` search / media 共 4~5 个测试红，去掉代理变量后全绿（隐私票 01、MITM 票 01 两次实锤）。
+**测试方向**：`cargo test --workspace` 在设了 `HTTP_PROXY` 的本机上，`aidog_kernel` search / media 共 4~5 个测试红，去掉代理变量后全绿（隐私票 01、MITM 票 01 两次实锤）。
 门禁命令前缀 `env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy`，派发 prompt 照贴；
 `ratelimit_all_over_limit_503_and_audit_log` 全量跑偶发红、单跑绿，按 §17 先单跑定性，仍未归因的记账本遗留。
+
+**下载方向记录**（2026-11-15 依赖更新轮）：当轮记录 `registry.yarnpkg.com` 直连返回 `ENOTFOUND`；该记录不构成 DNS 故障的普遍归因或代理、镜像配置建议。git push 的 SSL 失败与 GitHub 合并结果分别核验，规则见 pr-merge-discipline.md §5。
 
 ## 21. 「加功能」票派发前先审计存在性；外部协议字面量的来源分级（2026-11-09 网关提示头线）
 
@@ -382,3 +406,66 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
 - **只产 `.scratch/` 设计稿 / 报告、不改代码的 agent 派发时不带 `isolation`**：隔离 agent 的 Write 工具被限在自己的 worktree，写主仓 `.scratch/<feature>/design-demos/` 只能先写 worktree 再 `cat` 拼回主仓，多一步且易留副本。隔离只用于 shared-worktree.md 文首「有必要」三种写码情形。
 - **并发上限账本（`src-tauri/crates/aidog_hooks/scripts/aidog-subagent-cap.mjs`，状态在 `~/.aidog/subagent-cap/<session_id>.json`）对 failed / 被 kill 的 agent 同样不释放**，与 §8 的 TaskStop 情形同病。被拦且确认在途 agent 已全部结束时，跑 `node src-tauri/crates/aidog_hooks/scripts/aidog-subagent-cap.mjs --reset <session_id>` 清零后重派。`--reset` 清的是该会话全部登记，仍有 running agent 时不跑（会让在途数少算）。
 - **agent 用 grep 字面词自检「某内容没保留」得零命中，不构成缺失结论**：3D 稿设计 agent 自报「三条跨层事实没保留」，实为 grep「事实」二字零命中，数据其实在页里。主会话采信「缺失」类自报前，按内容本身（具体数据值、节点名）再 grep 一次（同 registry-data-edit.md「grep 零命中只说明 pattern 不匹配」）。
+
+## 26. 规划 / 调研 agent 防断连丢结论；探索报告转交；前序数字先复核（2026-11-13 架构加深规划轮）
+
+4 个规划 agent 共断连约 9 次（`SSL certificate hostname mismatch`、`ECONNRESET`、一次 `model_not_found`）。前几次 agent 把结论攒在上下文里、零落盘，断连即全丢；改成下面三条后才稳定推进。§18 管实现 agent 的半成品，本条管规划 / 调研 agent。
+
+- **派发 prompt 写落盘节奏**：「开工 5 次工具调用内写出 spec / 票骨架到目标路径，之后每得一条结论当场写进文件」。断连后对同一 agent `SendMessage` 续做，已落盘部分保留；不重派从头来（长 HTML 同理，见 surgical-refactor.md §3.5）。
+- **同一 agent 连断 3 次**：按「同一问题连续三轮」停手，用 ask-me 问用户续做 / 重派 / 换拆法，不自行硬重试（本轮用户选「直接重派」）。
+- **探索 agent 的报告走 subagent JSONL 文件传递**：下游 agent 要用时，把 JSONL 复制到 `.tmp/<任务名>/`，让下游自己写脚本（落盘成文件再跑）提取最后一条 assistant 消息；报告全文不经主会话转贴。
+- **前序探索报告的数字是假设**：本轮规划 agent 复核推翻多处（限频占位重复 2 份非 4 份；路由「4 入口」实为 1 死包装 + 1 测试垫片；分享导入漏水合 12 类非 6 类），还发现探索漏掉的真 bug（5a5304129 只改了无渲染者的 PlatformCard）。规划 agent 的 prompt 写明「探索报告的计数、调用点、死码判断先 grep 复核，再写进 spec」（§6 同口径）。
+
+## 27. 状态码 / 错误码规范化票：派发 prompt 带语义表与 RFC 依据；`&&` 门禁链不丢 cargo 退出码（2026-11-14 路由失败状态码）
+
+三轮归一路由失败状态码（791805b2e / 3f1e6a0b0 / afea58bcd）：首轮 agent 无依据一律落 503，用户追加「不要什么都是 503，选最合适的」才重做两轮。
+
+- 派发 prompt 列「失败原因 → 状态码 + RFC 9110 依据」表（限频 429、审核 451、无实现 501、无该类资源 404、白名单 403、内部读库失败 500），写明可用 4xx/5xx 之外的码；表由主会话先拍板，agent 只实现。
+- 改状态码必同轮改：全部断言该码的测试名（旧名含 `400` 的会误导）、CLAUDE.md 对应描述、locale 文案；回报列出未同步项。
+- 门禁写 `{ cargo test --workspace --no-fail-fast; rc=$?; echo EXIT=$rc; } > .tmp/<任务>/t.log 2>&1`，回报必须带 EXIT 值；只贴 `passed` 计数不算（本轮第三轮漏捕获）。
+- 跑到一半 `No space left on device`：先报主会话，不删 `target`（别的会话已整体清过一次）。
+
+## 28. 子 agent 保持单层；中断续做先核现场；收口前独立审查（2026-11-14 issue 64）
+
+issue 64 收口时，`resume-ui` 与 `fix-migration` 无视「直接亲自执行」提示又派子 agent，造成多层嵌套；429 限额中断后续做 agent 还需重查半成品；独立审查则发现迁移 spec 偏差并及时修正。
+
+- **被派出的 agent 自己完成获派工作**：不再调用 Agent 派子 agent。发现任务拆分或并行能省时，先把建议、依赖关系和当前现场回报主会话，由主会话决定是否另派。派发 prompt 写明「你是执行 agent；直接完成任务，不派生子 agent；需要拆分时回报主会话」。
+- **429 或会话中断后的续做先验现场**：接手 prompt 指明中断原因，并要求先核对工作区状态、diff、最后报错、未跟踪文件和既有门禁日志；逐 hunk 判断已完成内容与待办，再接着做。不得重写已有改动或沿用未经复核的旧门禁结论。回报已采信的改动、未完成项及重跑的验证输出。
+- **收口前安排独立审查**：实现与修复完成后、最终门禁和交付前，派独立审查 agent 对照原始需求 / spec 检查行为与边界；修完审查发现后再跑相关门禁。审查报告逐项标明依据和处置；「按 spec 属拍板设计」等不修项须有对应条款依据。
+
+
+## 29. 长门禁被 harness 自动转后台：EXIT 只认日志文件（2026-11-14 request_log 拆表）
+
+`cargo test --workspace` 前台跑满约 180s 被 harness 自动转后台，agent 丢了 `EXIT=` 行。命令及退出码必须同写日志：`{ cmd; rc=$?; echo EXIT=$rc; } > .tmp/<任务>/x.log 2>&1`，并设 `timeout: 600000`。若 harness 自动转后台，主会话接收完成通知后读取日志；日志无 `EXIT=` 行即「没跑完」，再通知执行 agent 续做，不另起轮询。
+
+## 30. 更新派发指令须裁决冲突；门禁前台运行给出正面命令（2026-11-14 issue 157）
+
+issue 157 中主会话多次收窄、恢复收口 agent 的推送 / PR 范围，指令互相矛盾；实现 agent 也忽略「暂缓提交」，按仓库自动提交规则提交。实现 agent 还三次把编译或门禁挂后台后 idle 等通知，§19 的禁止项未阻止复发。
+
+- **更新派发范围时给出完整的新边界**：每条会覆盖先前派发内容的更新，都写明「以本条为准」、完整的当前允许动作与暂停动作；同时核对它是否与用户当轮明确授权、项目级授权冲突。明确写出冲突及裁决依据；无法确定时暂停冲突动作并回报主会话，不自行选择旧授权或新指令。
+- **用户明确暂停某动作时，执行 agent 立即暂停该动作**：包括仓库规则原本自动授权的提交、推送或建 PR。主会话更新授权后，才恢复该动作；不得把此前授权当作继续执行的依据。
+- **执行 agent 的依赖性命令前台运行**：门禁、编译、取锁等命令的结果供下一步使用时，给出完整命令与足够长的 Bash timeout（如 `600000`）。命令及退出码须同写日志：`{ cmd; rc=$?; echo EXIT=$rc; } > .tmp/<任务>/x.log 2>&1`。若 harness 自动转后台，主会话接收完成通知后读日志并通知 agent 续做；agent 不自行 idle 等通知。
+
+## 31. 同会话多 agent 并行：锁等待、归属、临时目录、审计结论时效（2026-11-15 项目记忆提升轮）
+
+- **cargo 锁被占时等锁，不杀等待循环**：`/tmp/aidog-cargo.lock` 被他会话持有，issues agent 杀掉锁等待循环后无法重跑 flaky 测试。取锁用 shared-worktree.md「构建目录」节的 node 轮询脚本，等到为止；锁超过合理时长再按该节判据（无 cargo 进程）处理，不绕过锁直接跑 cargo，也不放弃重跑。
+- **脏文件归属先核对再下结论**：agent 把同会话兄弟 agent 的并行改动误称「别的会话的」。说归属前先对照主会话派发清单与 `git status --short`；清单内的 agent 改动属本会话，不当外来脏文件回避或上报。
+- **`.tmp/<任务名>/` 清理前核对在用者**：收尾 agent 删了 `.tmp/memory-promotion`，另一 agent 仍在用它放临时文件。收尾删目录前确认同任务全部 agent 已回报；多个 agent 共用任务名时，各用子目录 `.tmp/<任务名>/<agent名>/`，只删自己的。
+- **审计结论落笔前复核时效**：「某测试每次必红」类审计断言已过期，只被写入 agent 复跑才发现。引用审计结论写进 issue / 规则前，用当前 HEAD 跑一次对应命令（同 §26「前序数字先复核」）。
+- **zsh 变量后接 `:` 要加花括号**：`$B:src` 被当作 `:s` 修饰符展开，写 `${B}:src`（例：`git show "${B}:src/x.rs"`）。
+
+## 32. 执行 agent 的依赖性命令前台运行；自动后台由主会话接续（2026-11-15 issue 68 轮）
+
+impl-68 的门禁和 fix-68 的取锁等待都曾挂后台后 idle。当前 harness 的后台完成通知只送达主会话队列，不唤醒执行 agent。
+
+- 命令输出供后续步骤使用时，执行 agent 前台阻塞运行并设置足够 timeout；命令和退出码按 §29 一起写入日志。
+- 若 harness 自动转后台，执行 agent 回报命令和日志路径后继续做不依赖该结果的工作；主会话收到完成通知后读日志，再通知 agent 续做。
+- 取锁等待脚本同样前台运行。主会话若发现执行 agent idle 且日志已有结果，读日志后 SendMessage 唤醒续做，不重派。
+
+## 33. 查进度走 SendMessage 原 agent；挂死 agent 的 TaskStop 接管判据（2026-11-15 issue 69 轮）
+
+主会话想查在途 agent 进度时派了新 Agent 去读会话状态文件，回报的全是无关并行线信息（新 agent 没有原 agent 上下文，状态文件里的并行线全是噪音）。同轮另一收尾 agent 在 `gh pr merge` 上挂死近 1 小时（5 次调用挂 1 小时），SendMessage 无响应，TaskStop 后新 agent 接管 15 次调用完成。
+
+- **查进度 / 催办一律 SendMessage 原 agent（或 ListAgents 看状态）**，不派新 agent 读文件。派新 agent 只在两处合法：接管挂死 agent（下条）、原 agent 已结束且要独立取证。
+- **挂死判据与接管**：agent 在外呼命令（`gh pr merge` / push / 长门禁）上久挂（如 30 分钟无新调用），SendMessage 催收 1 次无响应（等约 10 分钟）→ `TaskStop` + 重派接管 agent。接管 prompt 照 §28 带现场核对清单（worktree 状态 / diff / 最后报错 / 日志路径），并写明「原 agent 已 TaskStop，从核对现场接续，不重做已完成步骤」。
+- 接管 agent 与原 agent 汇报口径一致：贴命令原文 + EXIT 值，接管完成的合并照常走 pr-merge-discipline 的核对义务。

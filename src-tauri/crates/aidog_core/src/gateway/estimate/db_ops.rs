@@ -10,12 +10,12 @@ use aidog_db::{Db, now};
 /// 读取平台校准状态（短持锁）
 pub async fn read_estimate_state(db: &Db, platform_id: u64) -> Result<(i64, i64), String> {
     db.platform_write_conn()
-        .call(move |conn| {
-            Ok(conn.query_row(
+        .call(move |conn| -> rusqlite::Result<(i64, i64)> {
+            conn.query_row(
                 "SELECT last_real_query_at, estimate_count FROM platform WHERE id = ?1",
                 params![platform_id as i64],
                 |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
-            )?)
+            )
         })
         .await
         .map_err(|e| e.to_string())
@@ -34,7 +34,7 @@ pub async fn apply_coding_plan_delta(
     tokens: f64,
 ) -> Result<(), String> {
     db.platform_write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<()> {
             let json: String = conn.query_row(
                 "SELECT est_coding_plan FROM platform WHERE id = ?1",
                 params![platform_id as i64],
@@ -65,7 +65,7 @@ pub async fn write_rate_limit(db: &Db, platform_id: u64, rl: &super::RateLimit) 
     }
     let r = db
         .platform_write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<()> {
             conn.execute(
                 "UPDATE platform SET rate_limit = ?1 WHERE id = ?2",
                 params![json, platform_id as i64],
@@ -96,7 +96,7 @@ pub async fn write_unified_tiers(
     let tiers = tiers.to_vec();
     let r = db
         .platform_write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<bool> {
             let json: String = conn.query_row(
                 "SELECT est_coding_plan FROM platform WHERE id = ?1",
                 params![platform_id as i64],
@@ -153,7 +153,7 @@ pub async fn seed_plan_anchor_if_empty(db: &Db, platform_id: u64, protocol: &str
     }
     let json: String = db
         .platform_write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<String> {
             Ok(conn
                 .query_row(
                     "SELECT est_coding_plan FROM platform WHERE id = ?1",
@@ -187,7 +187,7 @@ pub async fn write_real_quota(
 ) -> Result<(), String> {
     let est_coding_plan_json = est_coding_plan_json.to_string();
     db.platform_write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<()> {
             conn.execute(
                 "UPDATE platform SET est_balance_remaining = ?1, est_coding_plan = ?2, last_real_query_at = ?3, estimate_count = 0 WHERE id = ?4",
                 params![est_balance, est_coding_plan_json, now_ms, platform_id as i64],
@@ -262,16 +262,8 @@ pub async fn calibrate_from_quota(
     db: &Db,
     platform_id: u64,
     quota: &PlatformQuota,
-    is_coding_plan: bool,
 ) {
-    calibrate_from_quota_with(
-        db,
-        platform_id,
-        quota,
-        is_coding_plan,
-        crate::gateway::scheduling::global(),
-    )
-    .await
+    calibrate_from_quota_with(db, platform_id, quota, crate::gateway::scheduling::global()).await
 }
 
 /// [`calibrate_from_quota`] 的可注入 scheduler 版本（测试传自己的实例，不碰进程级全局）。
@@ -279,11 +271,10 @@ pub async fn calibrate_from_quota_with(
     db: &Db,
     platform_id: u64,
     quota: &PlatformQuota,
-    is_coding_plan: bool,
     scheduler: Option<std::sync::Arc<crate::gateway::scheduling::SchedulerState>>,
 ) {
     if !quota.success {
-        tracing::warn!(platform_id, is_coding_plan, error = ?quota.error, "calibrate_from_quota skipped: upstream quota query failed, keeping estimates");
+        tracing::warn!(platform_id, error = ?quota.error, "calibrate_from_quota skipped: upstream quota query failed, keeping estimates");
         return;
     }
     // 额度冷却只认真查返回值（quota 参数），不看估算外推；手动刷新 / 自动校准 / 冷启动 / 重置定时
@@ -298,7 +289,7 @@ pub async fn calibrate_from_quota_with(
     }
     let prev_json: String = db
         .platform_write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<String> {
             Ok(conn
                 .query_row(
                     "SELECT est_coding_plan FROM platform WHERE id = ?1",
@@ -310,6 +301,12 @@ pub async fn calibrate_from_quota_with(
         .await
         .unwrap_or_default();
     let prev = EstCodingPlan::from_json(&prev_json);
+    // 套餐 / 余额只看真查结果，不看调用方的端点标记（请求后校准传的端点标记对 Codex 等平台为 false，
+    // 曾因此清空套餐）。真查成功但两者都没返回：保留库里已有套餐，不覆盖。
+    let is_coding_plan = quota.coding_plan.is_some();
+    if !is_coding_plan && quota.balance.is_none() && !prev_json.is_empty() {
+        return;
+    }
     let est_balance = if is_coding_plan {
         0.0
     } else {
@@ -318,7 +315,7 @@ pub async fn calibrate_from_quota_with(
     let coding_json = if is_coding_plan {
         build_calibrated_coding_plan(&prev, quota).to_json()
     } else {
-        String::new()
+        prev_json
     };
     let result = write_real_quota(db, platform_id, est_balance, &coding_json, now()).await;
     if !is_coding_plan
@@ -372,8 +369,7 @@ fn spawn_backoff_chain(db: Db, platform_id: u64) {
                     platform_id as i64,
                 )
                 .await;
-                let is_coding_plan = quota.coding_plan.is_some();
-                calibrate_from_quota(&db, platform_id, &quota, is_coding_plan).await;
+                calibrate_from_quota(&db, platform_id, &quota).await;
                 if BACKOFF_CHAINS.is_active(platform_id) {
                     Probe::Exhausted
                 } else {
@@ -487,8 +483,7 @@ pub fn spawn_refresh_at(
         let quota =
             crate::gateway::quota::query_quota(Some(&db), &base_url, &api_key, platform_id as i64)
                 .await;
-        let is_coding_plan = quota.coding_plan.is_some();
-        calibrate_from_quota(&db, platform_id, &quota, is_coding_plan).await;
+        calibrate_from_quota(&db, platform_id, &quota).await;
         aidog_ctx::emit_unit("tray-refresh");
         tracing::info!(platform_id, "quota refreshed at upstream reset time");
     });
@@ -503,7 +498,6 @@ async fn run_calibration(
     platform_id: u64,
     base_url: &str,
     api_key: &str,
-    is_coding_plan: bool,
 ) {
     // 锁外 async 真查（构造 Arc<Db> 供 http_client 读系统代理设置）
     let db_arc = std::sync::Arc::new(db.clone());
@@ -515,7 +509,7 @@ async fn run_calibration(
     if quota.success {
         clear_calibration_attempt(platform_id);
     }
-    calibrate_from_quota(db, platform_id, &quota, is_coding_plan).await;
+    calibrate_from_quota(db, platform_id, &quota).await;
 }
 
 /// 配额预测告警提前量（分钟）：距耗尽不足该值时告警。spec 预置规则默认 30（票 02 可由规则覆盖）。
@@ -545,7 +539,7 @@ async fn maybe_emit_quota_forecast(db: &Db, platform_id: u64, platform_type: &st
     let pid = platform_id;
     let json: String = db
         .platform_write_conn()
-        .call(move |conn| {
+        .call(move |conn| -> rusqlite::Result<String> {
             Ok(conn
                 .query_row(
                     "SELECT est_coding_plan FROM platform WHERE id = ?1",
@@ -683,7 +677,8 @@ pub async fn estimate_after_request(
         .as_ref()
         .map_or(raw_mult, |r| r.multiplier(raw_mult));
     let source_cny = resolved.as_ref().is_some_and(|r| r.source_cny);
-    // 条目 `price.unit` 按次计价：费 = unit_price × 次数（缺次数按 1 次/请求，与 billing.rs 同口径）。
+    // 条目 `price.unit` 按次/按量计价：费 = `request_fee(request_units)`（与 billing.rs 同口径：
+    // request 类缺计数按 1 次/请求；char/second 缺计数 → 0 不扣减，issue 157）。
     let request_fee = resolved.as_ref().map_or(0.0, |r| r.request_fee(request_units));
     let resolved_price = resolved.map(|r| r.price);
 
@@ -691,6 +686,8 @@ pub async fn estimate_after_request(
     // （token 全 0）且无按次费 / 按次计量次数时，纯 token 计价条目无任何可扣项 → 跳过
     // （含校准）；按次计价条目 request_unit_price 存在 → 仍按 1 次扣 request_fee，
     // chat 缺 usage 不再漏扣。字段集与原跳过条件一致（不含 cache_write，保持原语义）。
+    // char/second 缺计数：request_fee=0 → 走跳过（余额/预算路径无 `+unestimable` 标记是
+    // 有意为之——该标记只进日志 `price_source`，扣 0 本身已表达不可估算）。
     if input_tokens <= 0
         && output_tokens <= 0
         && cache_tokens <= 0
@@ -763,7 +760,7 @@ pub async fn estimate_after_request(
         && should_calibrate(now(), last_real, count)
         && claim_calibration_attempt(platform_id, now())
     {
-        run_calibration(db, platform_id, base_url, api_key, is_coding_plan).await;
+        run_calibration(db, platform_id, base_url, api_key).await;
     }
     true
 }

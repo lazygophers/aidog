@@ -1,9 +1,11 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "nvidia/neva-22b",
+  "display_name": "Neva 22b",
+  "thinking_supported": false,
   "canonical_model": "neva-22b",
   "family": "neva",
   "capabilities": [

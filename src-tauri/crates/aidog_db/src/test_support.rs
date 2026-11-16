@@ -286,7 +286,7 @@ pub async fn insert_proxy_log_at(db: &Db, created_at: i64) -> String {
 /// 辅助：COUNT(*) FROM proxy_log（含 tombstone，不过滤 deleted_at）。
 pub async fn count_all_proxy_logs(db: &Db) -> i64 {
     db.call_traced(None, std::panic::Location::caller(), |conn| {
-        Ok(conn.query_row("SELECT COUNT(*) FROM proxy_log", [], |r| r.get(0))?)
+        conn.query_row("SELECT COUNT(*) FROM proxy_log", [], |r| r.get(0))
     })
     .await
     .unwrap()

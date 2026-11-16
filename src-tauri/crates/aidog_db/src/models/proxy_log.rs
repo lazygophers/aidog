@@ -450,9 +450,29 @@ pub struct RoutingSnapshot {
     #[ts(optional, type = "Array<number>")]
     // Box：RoutingSnapshot 随 RouteFail 走 Err 路径，多 24 字节会越过 clippy::result_large_err 的 128 字节线
     pub round_starts: Option<Box<Vec<u32>>>,
+    /// 本地限频 / 上游限频冷却挡掉候选时，最早可再放行的时刻（Unix 秒，向上取整）：429 的 `Retry-After` 取它。
+    /// 缺省 None = 无已知时刻（含旧日志）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "number")]
+    // u32 秒而非 i64 毫秒：恰好落进结构体内的对齐空隙，RouteFail 不越过 clippy::result_large_err 的 128 字节线
+    pub retry_at_s: Option<std::num::NonZeroU32>,
 }
 
 impl RoutingSnapshot {
+    /// 记一个限频放行时刻（Unix 毫秒），与已有值取最早；秒级向上取整。
+    pub fn note_retry_at_ms(&mut self, at_ms: i64) {
+        let s = u32::try_from((at_ms.max(0) + 999) / 1000).ok().and_then(std::num::NonZeroU32::new);
+        self.retry_at_s = match (self.retry_at_s, s) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (a, b) => a.or(b),
+        };
+    }
+
+    /// 最早放行时刻（Unix 毫秒）。
+    pub fn retry_at_ms(&self) -> Option<i64> {
+        self.retry_at_s.map(|s| i64::from(s.get()) * 1000)
+    }
+
     /// 最大尝试次数用尽补记（路由画布 01 / 请求尝试 01）：上限那次调用落在 `after_platform_id`，
     /// 其后的入选候选永不会被尝试 → 标 retry-limit。
     pub fn mark_retry_limit(&mut self, max_attempts: u32, after_platform_id: u64) {
@@ -680,6 +700,45 @@ pub struct ProxyLogSummary {
     pub agent_type: String,
 }
 
+/// 请求记录（测试 / 余额 / 拉模型）列表行。独立表 `request_log`（log.db），不含模型与 token。
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct RequestLogSummary {
+    pub id: String,
+    /// 来源：test / quota / fetch-models
+    pub kind: String,
+    pub group_key: String,
+    #[ts(type = "number")]
+    pub platform_id: u64,
+    pub status_code: i32,
+    pub duration_ms: i32,
+    pub user_agent: String,
+    #[ts(type = "number")]
+    pub created_at: i64,
+}
+
+/// 请求记录筛选：kind / 平台 / 状态 / 时间。
+#[derive(Debug, Clone, Default, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct RequestLogFilter {
+    #[serde(default)]
+    #[ts(optional)]
+    pub kind: Option<String>,
+    #[serde(default)]
+    #[ts(optional, type = "number | null")]
+    pub platform_id: Option<u64>,
+    /// None=全部; Some(200)=仅成功; Some(-1)=仅失败
+    #[serde(default)]
+    #[ts(optional)]
+    pub status: Option<i32>,
+    #[serde(default)]
+    #[ts(optional, type = "number | null")]
+    pub time_start: Option<i64>,
+    #[serde(default)]
+    #[ts(optional, type = "number | null")]
+    pub time_end: Option<i64>,
+}
+
 /// 分页探测结果（logs-query-ipc-slimming s2）：`items` 恒为 `limit` 行，`has_more` 由
 /// `LIMIT limit+1` 探测出的第 limit+1 行是否存在决定（该行本身不下发，仅用于置位）。
 /// 替代精确 `COUNT(*)` 全表扫，前端分页 UI 退化为「有更多/没有更多」，不再展示精确总数/总页数。
@@ -715,15 +774,12 @@ pub struct ProxyLogFilter {
     #[serde(default)]
     #[ts(optional)]
     pub path: Option<String>,
-    /// None=全部; Some(non-empty)=source_protocol IN (...) 包含筛选（如 ["test","quota"]）
+    /// None=全部; Some(non-empty)=source_protocol IN (...) 包含筛选（如 ["http-connect"]）
     #[serde(default)]
     #[ts(optional)]
     pub sources: Option<Vec<String>>,
-    /// None=不排; Some(non-empty)=source_protocol NOT IN (...) 排除筛选。
-    /// Logs 主页传 ["test","quota"] → 仅留纯代理转发，test/quota 仅请求日志页可见。
-    /// 该谓词非恒真：test/quota 行真实写入 proxy_log（model_test.rs / quota/http.rs），不可跳过。
-    /// source_protocol 列 `NOT NULL DEFAULT ''`（schema_early.rs:119），故 SQL 侧无需
-    /// `OR source_protocol IS NULL` 防御（logs-query-ipc-slimming s3 已删该死分支）。
+    /// None=不排; Some(non-empty)=source_protocol NOT IN (...) 排除筛选（如 ["http-connect"]）。
+    /// source_protocol 列 `NOT NULL DEFAULT ''`（schema_early.rs:119），故 SQL 侧无需 `OR IS NULL` 防御。
     #[serde(default)]
     #[ts(optional)]
     pub exclude_sources: Option<Vec<String>>,

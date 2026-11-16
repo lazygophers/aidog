@@ -51,13 +51,13 @@ struct Rule {
 
 impl Rule {
     /// 无条件（models 空且无时段）→ None（丢弃并 warn）。
-    fn from_value(v: &Value) -> Option<Self> {
+    fn from_value(v: &Value, platform_calendar: Option<&str>) -> Option<Self> {
         let models: Vec<String> = v
             .get("models")
             .and_then(Value::as_array)
             .map(|a| a.iter().filter_map(|m| m.as_str().map(str::trim)).filter(|m| !m.is_empty()).map(String::from).collect())
             .unwrap_or_default();
-        let has_time = ["start_hour", "end_hour"].iter().any(|k| v.get(k).is_some_and(|x| !x.is_null()))
+        let has_time = ["start_hour", "end_hour", "day_type"].iter().any(|k| v.get(k).is_some_and(|x| !x.is_null()))
             || v.get("days_of_week").and_then(Value::as_array).is_some_and(|d| !d.is_empty());
         let time = if has_time {
             // 时段字段形状同 peak 窗口；缺省补 0~24 全天，multiplier 对限频无意义，补 1.0 过 TimeWindow 反序列化，
@@ -68,6 +68,11 @@ impl Rule {
             o.entry("start_hour").or_insert(Value::from(0));
             o.entry("end_hour").or_insert(Value::from(24));
             o.entry("multiplier").or_insert(Value::from(1.0));
+            if !o.contains_key("holiday_calendar")
+                && let Some(code) = platform_calendar
+            {
+                o.insert("holiday_calendar".into(), Value::from(code));
+            }
             Some(serde_json::from_value::<TimeWindow>(tw).ok()?)
         } else {
             None
@@ -100,6 +105,11 @@ impl RateLimitsCfg {
     /// 缺失 / 非法 JSON → 空（不限）。`source_policy_id` / `source_last_updated` 不在执行路径上，
     /// 整个 `extra` 原样留在 DB，不会被这里丢掉。旧键 `models` / `windows` 不再读（启动迁移已转 rules）。
     pub fn parse(extra: &str) -> Self {
+        Self::parse_with_calendar(extra, None)
+    }
+
+    /// `registry_calendar`：registry 平台条目缺省的节假日日历（extra 内 `holiday_calendar` 优先）。
+    pub fn parse_with_calendar(extra: &str, registry_calendar: Option<&str>) -> Self {
         if !extra.contains("rate_limits") {
             return Self::default();
         }
@@ -109,10 +119,18 @@ impl RateLimitsCfg {
         let Some(rl) = root.get("rate_limits").filter(|v| v.is_object()) else {
             return Self::default();
         };
+        let platform_calendar = root
+            .get("holiday_calendar")
+            .and_then(Value::as_str)
+            .or(registry_calendar);
         let rules = rl
             .get("rules")
             .and_then(Value::as_array)
-            .map(|a| a.iter().filter_map(Rule::from_value).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|rule| Rule::from_value(rule, platform_calendar))
+                    .collect()
+            })
             .unwrap_or_default();
         Self { base: Limits::from_value(rl), rules }
     }
@@ -188,6 +206,32 @@ impl Inner {
     }
 }
 
+impl Inner {
+    /// 窗口滑动到能放下为止的最早时刻（调用前已 `prune`）。
+    fn free_at(&self, lim: &Limits, now: i64, est: i64) -> i64 {
+        let mut at = now;
+        if let Some(r) = lim.rpm {
+            let over = self.hits.len() as i64 - r;
+            if over >= 0 {
+                at = at.max(self.hits.get(over as usize).map_or(now, |t| *t) + WINDOW_MS);
+            }
+        }
+        if let Some(t) = lim.tpm {
+            let mut left: i64 = self.tokens.iter().map(|(_, c)| c.load(Ordering::Relaxed)).sum();
+            if left > 0 && left + est.max(1) > t {
+                for (ts, c) in &self.tokens {
+                    left -= c.load(Ordering::Relaxed);
+                    if left <= 0 || left + est.max(1) <= t {
+                        at = at.max(*ts + WINDOW_MS);
+                        break;
+                    }
+                }
+            }
+        }
+        at
+    }
+}
+
 #[derive(Default)]
 struct Bucket(Mutex<Inner>);
 
@@ -231,6 +275,20 @@ impl RateLimiter {
             None => true,
             Some(b) => b.0.lock().map(|mut g| g.has_room(lim, now, est)).unwrap_or(true),
         }
+    }
+
+    /// 放不下时该桶最早可放下一个请求的时刻（毫秒）；放得下 / 无桶 / 不限 = None。
+    /// 并发占满没有已知释放时刻，按 `now`（调用方取整后至少 1 秒）。
+    pub fn free_at(&self, pid: u64, model: &str, lim: &Limits, now: i64, est: i64) -> Option<i64> {
+        if lim.is_unlimited() {
+            return None;
+        }
+        let b = self.bucket(pid, model, false)?;
+        let mut g = b.0.lock().ok()?;
+        if g.has_room(lim, now, est) {
+            return None;
+        }
+        Some(g.free_at(lim, now, est))
     }
 
     fn take(&self, pid: u64, model: &str, lim: &Limits, now: i64, est: i64) -> Option<Item> {
@@ -475,5 +533,25 @@ mod tests {
         assert_eq!(b.0.lock().unwrap().hits.len(), 1);
         drop(acc);
         assert_eq!(b.0.lock().unwrap().in_flight, 0, "平台级并发随 Access 释放");
+    }
+
+    #[test]
+    fn free_at_reports_earliest_slot() {
+        let rl = Arc::new(RateLimiter::default());
+        // 放得下 / 无桶 = None
+        assert_eq!(rl.free_at(1, "", &lim(None, Some(2), None), 1000, 0), None);
+        let l = lim(None, Some(2), None);
+        rl.begin(1, &l, 1000, 0).unwrap();
+        rl.begin(1, &l, 2000, 0).unwrap();
+        assert_eq!(rl.free_at(1, "", &l, 3000, 0), Some(1000 + WINDOW_MS), "最早一条滑出时放行");
+        // 并发占满：无已知释放时刻，按 now
+        let c = lim(Some(1), None, None);
+        let _hold = rl.begin(2, &c, 5000, 0).unwrap();
+        assert_eq!(rl.free_at(2, "", &c, 6000, 0), Some(6000));
+        // TPM：两笔 400 + 600 占满 1000，再来 300 需滑出第一笔
+        let t = lim(None, None, Some(1000));
+        rl.begin(3, &t, 1000, 400).unwrap();
+        rl.begin(3, &t, 2000, 600).unwrap();
+        assert_eq!(rl.free_at(3, "", &t, 3000, 300), Some(1000 + WINDOW_MS));
     }
 }

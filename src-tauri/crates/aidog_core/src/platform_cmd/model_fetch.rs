@@ -119,11 +119,26 @@ crate::tauri_command! {
 pub async fn platform_fetch_models(
     protocol: Protocol,
     base_url: String,
-    api_key: String) -> Result<Vec<String>, FetchModelsError> {
+    api_key: String,
+    proxy_enabled: Option<bool>) -> Result<Vec<String>, FetchModelsError> {
     let db = aidog_ctx::db();
     tracing::debug!(command = "platform_fetch_models", protocol = ?protocol, base_url = %base_url, api_key = "[REDACTED]", "command invoked");
     let db_arc = Arc::new(db.clone());
-    let client = gateway::http_client::build_http_client_system(&db_arc, 30, 10).await;
+    // issue #64 T04：创建态拉模型按表单「使用代理」开关判定出站——Some(v) = 平台归属；
+    // None（旧前端不传参）= 非平台归属，读「其它请求使用代理」（行为兼容）。
+    let settings = gateway::http_client::load_proxy_client_settings(&db_arc).await;
+    let use_proxy = gateway::http_client::should_use_proxy(
+        &settings,
+        match proxy_enabled {
+            Some(v) => {
+                gateway::http_client::ProxyAttribution::Platform(
+                    gateway::http_client::ProxySwitch::from_flag(Some(v)),
+                )
+            }
+            None => gateway::http_client::ProxyAttribution::NonPlatform,
+        },
+    );
+    let client = gateway::http_client::build_http_client(&settings, 30, 10, use_proxy).await;
 
     let start = std::time::Instant::now();
     let request_id = uuid::Uuid::new_v4().simple().to_string();
@@ -187,7 +202,7 @@ pub async fn platform_fetch_models(
         Ok(r) => r,
         Err(e) => {
             tracing::error!("fetch models request failed: {e}");
-            if let Err(le) = aidog_logs::upsert_proxy_log(
+            if let Err(le) = aidog_logs::upsert_request_log(
                 db,
                 make_log(0, 502, "{}", &format!("upstream error: {e}"), &url),
             )
@@ -207,7 +222,7 @@ pub async fn platform_fetch_models(
         Ok(body) => body,
         Err(e) => {
             tracing::error!(url = %url, "read body failed: {e}");
-            if let Err(le) = aidog_logs::upsert_proxy_log(
+            if let Err(le) = aidog_logs::upsert_request_log(
                 db,
                 make_log(
                     status.as_u16() as i32,
@@ -229,7 +244,7 @@ pub async fn platform_fetch_models(
     // 记录 fetch-models 请求到 proxy_log（成功响应，保留原文便于排查）
     let upstream_status = status.as_u16() as i32;
     if let Err(le) =
-        aidog_logs::upsert_proxy_log(db, make_log(upstream_status, upstream_status, &response_headers, &body, &url))
+        aidog_logs::upsert_request_log(db, make_log(upstream_status, upstream_status, &response_headers, &body, &url))
             .await
     {
         tracing::warn!(command = "platform_fetch_models", error = %le, "persist fetch-models log failed");

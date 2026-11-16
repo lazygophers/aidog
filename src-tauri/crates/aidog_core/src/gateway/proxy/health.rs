@@ -17,6 +17,18 @@ pub(crate) fn is_hello_endpoint(path: &str) -> bool {
     path.trim_end_matches('/').ends_with("/api/hello")
 }
 
+/// `GET /`：浏览器（Accept 含 text/html）302 到 `/ui`；其余客户端（Claude Code 等探测）照旧健康 JSON。
+pub(crate) async fn handle_root_or_ui(headers: axum::http::HeaderMap) -> Response {
+    let wants_html = headers
+        .get(axum::http::header::ACCEPT)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.contains("text/html"));
+    if wants_html {
+        return (StatusCode::FOUND, [(axum::http::header::LOCATION, "/ui")]).into_response();
+    }
+    handle_root().await
+}
+
 pub(crate) async fn handle_root() -> Response {
     let tid = crate::logging::current_trace_id().unwrap_or_else(crate::logging::gen_trace_id);
     let span = tracing::info_span!("health", trace_id = %tid);

@@ -1,5 +1,6 @@
 {
   "model_id": "thedrummer/cydonia-24b-v4.1",
+  "thinking_supported": false,
   "display_name": "TheDrummer: Cydonia 24B V4.1",
   "canonical_model": "cydonia-24b-v4.1",
   "family": "cydonia",
@@ -14,7 +15,7 @@
     "output": 5e-07,
     "cache_read": 1.5e-07
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"

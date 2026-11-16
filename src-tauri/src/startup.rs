@@ -174,6 +174,8 @@ pub fn run() {
             aidog_core::proxy_cmd::proxy_log::proxy_log_cleanup_estimate,
             // Request Logs (test/quota page)
             aidog_core::proxy_cmd::proxy_log::request_log_list,
+            aidog_core::proxy_cmd::proxy_log::request_log_count,
+            aidog_core::proxy_cmd::proxy_log::request_log_get,
             // Stats aggregation settings + rebuild
             aidog_core::platform_cmd::stats::stats_settings_get,
             aidog_core::platform_cmd::stats::stats_settings_set,
@@ -334,6 +336,8 @@ pub fn run() {
             aidog_core::cli_env::agent_update_apply,
             // Platform defaults JSON（内置 const，无远端同步）
             aidog_core::defaults::get_defaults_json,
+            aidog_core::defaults::holiday_calendar_list,
+            aidog_core::defaults::holiday_calendar_get,
             aidog_core::defaults::get_protocol_logo_path,
             aidog_core::defaults::get_protocol_logo_data_url,
             aidog_core::defaults::sync_protocol_logo,

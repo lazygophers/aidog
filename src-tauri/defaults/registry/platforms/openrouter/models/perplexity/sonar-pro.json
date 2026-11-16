@@ -1,5 +1,6 @@
 {
   "model_id": "perplexity/sonar-pro",
+  "thinking_supported": false,
   "display_name": "Perplexity: Sonar Pro",
   "canonical_model": "sonar-pro",
   "family": "sonar",
@@ -12,7 +13,7 @@
     "input": 3e-06,
     "output": 1.5e-05
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"

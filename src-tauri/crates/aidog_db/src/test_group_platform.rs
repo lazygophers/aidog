@@ -375,3 +375,31 @@ async fn solo_group_assert_helper_direct() {
     assert_group_composition_solo(&db, &[p1.id as i64]).await.unwrap();
     assert!(assert_group_composition_solo(&db, &[p2.id as i64, p1.id as i64]).await.is_err());
 }
+
+/// 批量移动/加入分组必须走 platform.db 句柄：三独立文件库下错走主库 → `no such table: group_platform`。
+#[tokio::test]
+async fn batch_move_group_platforms_three_file_db() {
+    let (db, _dir) = three_file_db().await;
+    let p1 = create_platform(&db, sample_platform("P1")).await.unwrap();
+    let p2 = create_platform(&db, sample_platform("P2")).await.unwrap();
+    let g1 = create_group(&db, sample_group("g1", vec![])).await.unwrap();
+    let g2 = create_group(&db, sample_group("g2", vec![])).await.unwrap();
+    let input = |id| GroupPlatformInput { platform_id: id, priority: Some(0), weight: Some(1), level_priority: Some(5) };
+    set_group_platforms(&db, g1.id, &[input(p1.id), input(p2.id)]).await.unwrap();
+
+    // move：p1 离开 g1 进入 g2
+    batch_move_group_platforms(&db, &[p1.id], g2.id, true).await.unwrap();
+    let g2_ids: Vec<u64> = get_group_platforms(&db, g2.id).await.unwrap().iter().map(|gp| gp.platform.id).collect();
+    let g1_ids: Vec<u64> = get_group_platforms(&db, g1.id).await.unwrap().iter().map(|gp| gp.platform.id).collect();
+    assert_eq!(g2_ids, vec![p1.id]);
+    assert_eq!(g1_ids, vec![p2.id]);
+
+    // add：p2 保留 g1 并加入 g2；重复 add 幂等
+    batch_move_group_platforms(&db, &[p2.id], g2.id, false).await.unwrap();
+    batch_move_group_platforms(&db, &[p2.id], g2.id, false).await.unwrap();
+    let mut g2_ids: Vec<u64> = get_group_platforms(&db, g2.id).await.unwrap().iter().map(|gp| gp.platform.id).collect();
+    g2_ids.sort();
+    assert_eq!(g2_ids, vec![p1.id, p2.id]);
+    let g1_ids: Vec<u64> = get_group_platforms(&db, g1.id).await.unwrap().iter().map(|gp| gp.platform.id).collect();
+    assert_eq!(g1_ids, vec![p2.id]);
+}

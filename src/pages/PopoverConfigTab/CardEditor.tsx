@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { makeRipple } from "../../components/shared";
 
-type TFn = TFunction;
+type TFn = TFunction<"translation", undefined>;
 
 export function CardEditor({
   item, t, platforms, groups, summary, onToggleVisible, onRemove, onUpdate,

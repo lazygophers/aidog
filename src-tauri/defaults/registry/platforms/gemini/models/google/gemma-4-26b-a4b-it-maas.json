@@ -1,9 +1,9 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1794629974,
   "supported_protocols": [
     "gemini"
   ],
-  "model_id": "google/gemma-4-26b-a4b-it-maas",
+  "display_name": "Gemma 4 26B A4B IT",  "model_id": "google/gemma-4-26b-a4b-it-maas",
   "canonical_model": "gemma-4-26b-a4b-it-maas",
   "family": "gemma",
   "version": "4",
@@ -13,7 +13,7 @@
   "max_input_tokens": 262144,
   "max_output_tokens": 128000,
   "context_window": 262144,
-  "official": true,
+  "thinking_supported": false,  "official": true,
   "price": {
     "currency": "USD",
     "input": 1.5e-07,

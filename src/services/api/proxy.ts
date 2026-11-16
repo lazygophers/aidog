@@ -2,7 +2,7 @@
 
 import { invoke } from "../transport";
 import { listen, type UnlistenFn } from "../transport";
-import type { ProxySettings, ProxyStartError, ProxyClientSettings, ProxyLogSummary, ProxyLogPage, ProxyLogDetail, ProxyLogSettings, ProxyTimeoutSettings, ProxyLogFilter, CleanupEstimate } from "./types";
+import type { ProxySettings, ProxyStartError, ProxyClientSettings, RequestLogSummary, RequestLogFilter, ProxyLogPage, ProxyLogDetail, ProxyLogSettings, ProxyTimeoutSettings, ProxyLogFilter, CleanupEstimate } from "./types";
 
 // proxy_start 失败时 invoke() 以 ProxyStartError 结构体（非纯字符串）reject（Rust 侧
 // serde 序列化的 struct，Tauri 原样传回 JS）。类型守卫供调用方判别 kind，别用字符串匹配。
@@ -60,13 +60,15 @@ export const proxyLogApi = {
     invoke<void>("proxy_log_settings_set", { settings }),
 };
 
-// ─── Request Log API (test/quota page) ───────────
-// request_log_list 后端默认 sources=[test,quota]（db 层兜底；filter.sources=None 时）。
-// filter 显式传 sources（含空 Vec）则尊重前端值。
+// ─── Request Log API (test/quota/fetch-models 页，独立表 request_log) ───────────
+// 与代理日志（proxy_log）互不相干：无模型 / token；详情复用 ProxyLogDetail 形状（缺失字段为默认值）。
 
 export const requestLogApi = {
-  list: (filter?: ProxyLogFilter, limit = 50, offset = 0) =>
-    invoke<ProxyLogSummary[]>("request_log_list", { filter: filter ?? {}, limit, offset }),
+  list: (filter?: RequestLogFilter, limit = 50, offset = 0) =>
+    invoke<RequestLogSummary[]>("request_log_list", { filter: filter ?? {}, limit, offset }),
+  count: (filter?: RequestLogFilter) =>
+    invoke<number>("request_log_count", { filter: filter ?? {} }),
+  get: (id: string) => invoke<ProxyLogDetail | null>("request_log_get", { id }),
 };
 
 // ─── Proxy Timeout API ──────────────────────────────────────

@@ -23,6 +23,62 @@ pub fn force_delete_group(
     }
 }
 
+/// 批量把平台移动/加入目标组（move：先清所有现组关联；add：仅加入未在目标组者）。
+/// group_platform 住 platform.db，必须走 platform 读写 handle（主库无此表）。
+#[track_caller]
+pub fn batch_move_group_platforms<'a>(
+    db: &'a Db,
+    ids: &'a [u64],
+    target_group_id: u64,
+    is_move: bool,
+) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let target = target_group_id as i64;
+        for &platform_id in ids {
+            let pid = platform_id as i64;
+            if !is_move {
+                let already: i64 = db
+                    .call_read_platform_traced(None, __db_caller, move |conn| {
+                        conn.query_row(
+                            "SELECT COUNT(*) FROM group_platform WHERE group_id = ?1 AND platform_id = ?2 AND deleted_at = 0",
+                            params![target, pid],
+                            |r| r.get(0),
+                        )
+                    })
+                    .await
+                    .map_err(|e| e.to_string())?;
+                if already > 0 {
+                    continue;
+                }
+            }
+            db.call_platform_traced(None, __db_caller, move |conn| {
+                if is_move {
+                    conn.execute(
+                        "DELETE FROM group_platform WHERE platform_id = ?1 AND deleted_at = 0",
+                        params![pid],
+                    )?;
+                }
+                // 清除目标组内该平台的所有历史行（含软删残留），避免 UNIQUE 冲突
+                conn.execute(
+                    "DELETE FROM group_platform WHERE group_id = ?1 AND platform_id = ?2",
+                    params![target, pid],
+                )?;
+                let ts = now();
+                conn.execute(
+                    "INSERT INTO group_platform (group_id, platform_id, priority, weight, created_at, updated_at) VALUES (?1, ?2, 0, 1, ?3, ?3)",
+                    params![target, pid, ts],
+                )?;
+                Ok(())
+            })
+            .await
+            .map_err(|e| format!("{} platform {platform_id}: {e}", if is_move { "move" } else { "add" }))?;
+        }
+        db.invalidate_groups_cache();
+        Ok(())
+    }
+}
+
 // ─── GroupPlatform 关联 ────────────────────────────────────
 
 /// claude_code 订阅平台（透传，OAuth 配额计费）只允许独占分组：组内不能与其他平台并存
@@ -58,7 +114,7 @@ pub fn assert_group_composition_solo<'a>(
     let __db_caller = std::panic::Location::caller();
     let ids = platform_ids.to_vec();
     async move {
-        db.call_read_platform_traced(None, __db_caller, move |conn| Ok(solo_group_violation(conn, &ids)?))
+        db.call_read_platform_traced(None, __db_caller, move |conn| solo_group_violation(conn, &ids))
             .await
             .map_err(|e| format!("assert_group_composition_solo: {e}"))
             .and_then(|v| {

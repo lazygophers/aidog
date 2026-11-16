@@ -92,7 +92,7 @@ pub fn strip_raw_sides(
 }
 
 /// 读 `proxy.logging` 设置（缺失 / 解析失败 → 默认值：两侧原始信息关）。
-async fn log_settings(db: &Db) -> ProxyLogSettings {
+pub(crate) async fn log_settings(db: &Db) -> ProxyLogSettings {
     aidog_db::get_setting(db, "proxy", "logging")
         .await
         .ok()
@@ -579,7 +579,7 @@ pub fn list_proxy_logs(
                  FROM proxy_log WHERE deleted_at = 0 ORDER BY created_at DESC LIMIT ?1 OFFSET ?2",
             )?;
             let rows = stmt.query_map(params![limit, offset], row_to_proxy_log_summary)?;
-            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+            rows.collect::<SqlResult<Vec<_>>>()
         })
         .await
         .map_err(|e| e.to_string())
@@ -664,15 +664,13 @@ pub fn filtered_count_proxy_logs<'a>(
             let (where_sql, p) = build_filter_where(&filter);
             let sql = format!("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0{where_sql}");
             let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
-            Ok(conn.query_row(&sql, refs.as_slice(), |row| row.get(0))?)
+            conn.query_row(&sql, refs.as_slice(), |row| row.get(0))
         })
         .await
         .map_err(|e| e.to_string())
     }
 }
 
-/// 请求日志页列表查询。
-///
 /// per-platform 最近一次失败的上游状态码（plat-select-status 日志回落，2026-10-04）。
 /// 窗口 = `cutoff_ms` 起；失败 = `upstream_status_code >= 400`。同平台多行取
 /// `created_at` 最大那行（SQLite MAX 聚合裸列语义：GROUP BY 内取 max 行的列值）。
@@ -693,53 +691,7 @@ pub fn latest_error_codes_since(
                 stmt.query_map(params![cutoff_ms], |r| {
                     Ok((r.get::<_, i64>(0)?, r.get::<_, i32>(1)?))
                 })?;
-            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
-        })
-        .await
-        .map_err(|e| e.to_string())
-    }
-}
-
-/// 语义契约：
-/// - **默认 sources=[test, quota, fetch-models]**：调用方未显式传 sources 时强制覆盖为
-///   平台测试 + quota 探测 + 模型列表拉取三类（与 Logs 主页 `exclude_sources` 相反，互不重叠）。
-///   调用方显式传 sources（含空 Vec）则尊重原值（`Some(vec![])` = 无条件包含所有 source）。
-/// - 复用 `build_filter_where`：platform_id / group_key / status / time / model / path / sources /
-///   exclude_sources 全部生效。
-/// - 不影响 `get_last_test_result`（独立 query，不经此函数，徽章链不断）。
-#[track_caller]
-pub fn list_request_logs<'a>(
-    db: &'a Db,
-    filter: &'a aidog_db::models::ProxyLogFilter,
-    limit: u32,
-    offset: u32,
-) -> impl std::future::Future<Output = Result<Vec<aidog_db::models::ProxyLogSummary>, String>> + 'a
-{
-    let __db_caller = std::panic::Location::caller();
-    async move {
-        let mut filter = filter.clone();
-        // 默认 sources 兜底：None → [test, quota, fetch-models]；Some(_) 尊重调用方（含空 Vec = 全 source）。
-        if filter.sources.is_none() {
-            filter.sources = Some(vec![
-                "test".to_string(),
-                "quota".to_string(),
-                "fetch-models".to_string(),
-            ]);
-        }
-        db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
-            let (where_sql, mut p) = build_filter_where(&filter);
-            p.push(Box::new(limit));
-            p.push(Box::new(offset));
-            let sql = format!(
-                "SELECT id, group_key, model, actual_model, source_protocol, target_protocol, \
-                 platform_id, status_code, duration_ms, input_tokens, output_tokens, \
-                 cache_tokens, is_stream, retry_count, blocked_by, blocked_reason, created_at, client, user_agent, request_url, up_bytes, down_bytes, request_class, agent_type \
-                 FROM proxy_log WHERE deleted_at = 0{where_sql} ORDER BY created_at DESC LIMIT ? OFFSET ?"
-            );
-            let mut stmt = conn.prepare(&sql)?;
-            let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
-            let mapped = stmt.query_map(refs.as_slice(), row_to_proxy_log_summary)?;
-            Ok(mapped.collect::<SqlResult<Vec<_>>>()?)
+            rows.collect::<SqlResult<Vec<_>>>()
         })
         .await
         .map_err(|e| e.to_string())
@@ -827,18 +779,9 @@ fn build_filter_where(
         let placeholders: Vec<String> = (0..srcs.len())
             .map(|i| format!("?{}", idx + i as u32))
             .collect();
-        // logs-query-ipc-slimming s3：不再加 `OR source_protocol IS NULL` 防御分支。
-        // schema_early.rs:119 `source_protocol TEXT NOT NULL DEFAULT ''` 是 DB 级约束，
-        // 该列在 log.db 实表上不可能为 NULL（`NULL NOT IN (...)` 恒返 NULL 会被 WHERE
-        // 过滤的场景在此表上恒不触发），OR 分支是永假的死代码，删之不改变任何结果集。
-        //
-        // ⚠️ 本段谓词本身（`source_protocol NOT IN (...)`）**非恒真/非死代码**：Logs 主页
-        // 默认 exclude_sources=["test","quota","fetch-models"]（useLogsFilters.ts），而这三类值
-        // 会被真实写入 proxy_log（ai_tools_cmd/model_test.rs:157 `source_protocol: "test"`、
-        // gateway/quota/http.rs:187 `source_protocol: "quota"`、
-        // platform_cmd/model_fetch.rs `source_protocol: "fetch-models"`）。跳过此谓词会让
-        // 测试/quota/模型拉取请求泄漏进主 Logs 列表，是行为回归，故**不跳过**（详见
-        // research/s3-predicate.md 的恒真判定）。
+        // source_protocol 列 `NOT NULL DEFAULT ''`（schema_early.rs:119），无需 `OR IS NULL` 防御。
+        // 当前唯一调用方：Logs 主页「请求」类型筛选排除 http-connect 隧道行（test / quota / fetch-models
+        // 已分表到 request_log，不再靠本谓词排除）。
         parts.push(format!(
             "AND source_protocol NOT IN ({})",
             placeholders.join(", ")
@@ -917,7 +860,7 @@ pub fn distinct_models_proxy_log<'a>(
             let mut stmt = conn.prepare(&sql)?;
             let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
             let rows = stmt.query_map(refs.as_slice(), |row| row.get::<_, String>(0))?;
-            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+            rows.collect::<SqlResult<Vec<_>>>()
         })
         .await
         .map_err(|e| e.to_string())
@@ -936,7 +879,7 @@ pub fn get_proxy_log<'a>(
             let mut stmt = conn.prepare_cached(&format!(
                 "SELECT {PROXY_LOG_COLUMNS} FROM proxy_log WHERE id = ?1 AND deleted_at = 0"
             ))?;
-            Ok(stmt.query_row(params![id], row_to_proxy_log).optional()?)
+            stmt.query_row(params![id], row_to_proxy_log).optional()
         })
         .await
         .map_err(|e| e.to_string())
@@ -1034,6 +977,7 @@ pub fn cleanup_proxy_logs(
                 "DELETE FROM proxy_log WHERE created_at < ?1 AND deleted_at = 0",
                 params![cutoff],
             )?;
+            conn.execute("DELETE FROM request_log WHERE created_at < ?1", params![cutoff])?;
             incremental_vacuum_conn(conn, 100);
             // 行删 + free page 回收后选择度变化，重建 sqlite_stat1 给规划器真实统计
             // （ANALYZE proxy_log 仅扫该表索引，开销随表大小但远低于全库 VACUUM）。
@@ -1391,7 +1335,7 @@ pub fn last_success_platform_id(
                  ORDER BY created_at DESC LIMIT 1",
             )?;
             let mut rows = stmt.query_map(params![group_key], |r| r.get::<_, i64>(0))?;
-            Ok(rows.next().transpose()?)
+            rows.next().transpose()
         })
         .await
         .map_err(|e| e.to_string())

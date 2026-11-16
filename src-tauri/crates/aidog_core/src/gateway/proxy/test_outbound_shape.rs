@@ -2,590 +2,13 @@
 
 use super::*;
 use super::outbound_shape::*;
-#[cfg(test)]
-mod test_cap_body_max_tokens {
-    use super::{Protocol, cap_body_max_tokens};
-    use serde_json::json;
-
-    /// anthropic 透传 body：超模型上限的 max_tokens 被裁到上限（票 02 的 400 根因）。
-    #[test]
-    fn anthropic_caps_top_level_max_tokens() {
-        let mut b = json!({"model": "m", "max_tokens": 200_000, "messages": []});
-        assert_eq!(
-            cap_body_max_tokens(&mut b, Some(8192), &Protocol::Anthropic),
-            Some((200_000, 8192))
-        );
-        assert_eq!(b["max_tokens"], json!(8192));
-        assert_eq!(b["messages"], json!([]), "同级其它字段不动");
-    }
-
-    /// openai / completions 同样是顶层 `max_tokens`。
-    #[test]
-    fn openai_and_completions_cap_top_level_max_tokens() {
-        for wire in [Protocol::OpenAI, Protocol::OpenAICompletions] {
-            let mut b = json!({"model": "m", "max_tokens": 9999});
-            assert_eq!(
-                cap_body_max_tokens(&mut b, Some(4096), &wire),
-                Some((9999, 4096))
-            );
-            assert_eq!(b["max_tokens"], json!(4096), "{wire:?}");
-        }
-    }
-
-    /// openai_responses 的键名是 `max_output_tokens`。
-    #[test]
-    fn responses_caps_max_output_tokens() {
-        let mut b = json!({"model": "m", "max_output_tokens": 100_000, "max_tokens": 100_000});
-        assert_eq!(
-            cap_body_max_tokens(&mut b, Some(16384), &Protocol::OpenAIResponses),
-            Some((100_000, 16384))
-        );
-        assert_eq!(b["max_output_tokens"], json!(16384));
-        assert_eq!(
-            b["max_tokens"],
-            json!(100_000),
-            "responses 不碰顶层 max_tokens"
-        );
-    }
-
-    /// gemini 的键名嵌在 `generationConfig.maxOutputTokens`。
-    #[test]
-    fn gemini_caps_generation_config_max_output_tokens() {
-        let mut b = json!({"generationConfig": {"maxOutputTokens": 65536, "temperature": 0.5}});
-        assert_eq!(
-            cap_body_max_tokens(&mut b, Some(8192), &Protocol::Gemini),
-            Some((65536, 8192))
-        );
-        assert_eq!(b["generationConfig"]["maxOutputTokens"], json!(8192));
-        assert_eq!(
-            b["generationConfig"]["temperature"],
-            json!(0.5),
-            "同级其它字段不动"
-        );
-    }
-
-    /// 未超限 / 模型无上限 / 未传 max_tokens：body 整体不动（保守语义，与 chat_req 侧一致）。
-    #[test]
-    fn under_limit_or_no_limit_or_absent_is_noop() {
-        let cases = [
-            (json!({"model": "m", "max_tokens": 100}), Some(8192)),
-            (json!({"model": "m", "max_tokens": 100}), None),
-            (json!({"model": "m"}), Some(8192)),
-            (json!({"model": "m", "max_tokens": null}), Some(8192)),
-        ];
-        for (original, model_max) in cases {
-            let mut b = original.clone();
-            assert_eq!(
-                cap_body_max_tokens(&mut b, model_max, &Protocol::Anthropic),
-                None
-            );
-            assert_eq!(b, original, "未超限/无上限/未传时 body 必须逐字节不变");
-        }
-    }
-
-    /// 非 wire 协议（平台类型枚举）不改写。
-    #[test]
-    fn non_wire_protocol_is_noop() {
-        let mut b = json!({"max_tokens": 999_999});
-        assert_eq!(cap_body_max_tokens(&mut b, Some(8), &Protocol::Mock), None);
-        assert_eq!(b["max_tokens"], json!(999_999));
-    }
-}
-
-/// 票 10：`apply_field_passthrough` 的留痕返回值——只记被挡掉的字段名，绝不记值。
-#[cfg(test)]
-mod test_field_trace {
-    use super::{Protocol, apply_field_passthrough};
-    use serde_json::json;
-
-    /// 被允许集合挡掉的字段：名进留痕，值不进。
-    #[test]
-    fn blocked_field_name_recorded_without_its_value() {
-        let src = json!({
-            "model": "m",
-            "messages": [],
-            "top_k": 40,
-            "user": "tenant-42-secret-id",
-            "response_format": {"type": "json_object"}
-        });
-        let mut b = json!({"model": "m", "messages": [], "max_tokens": 100});
-        // anthropic 允许集合只有 top_k → user / response_format 被挡。
-        let dropped = apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::Anthropic,
-            "https://api.anthropic.com/v1/messages",
-        );
-        assert_eq!(
-            dropped,
-            vec!["user".to_string(), "response_format".to_string()]
-        );
-        let trace = dropped.join(",");
-        assert!(
-            !trace.contains("tenant-42-secret-id"),
-            "留痕不得含字段值：{trace}"
-        );
-        assert!(!trace.contains("json_object"), "留痕不得含字段值：{trace}");
-        assert!(!trace.contains("top_k"), "已出站的字段不算被挡：{trace}");
-    }
-
-    /// 官方 OpenAI host 上 `top_k` 被 host gate 挡掉 → 记名。
-    #[test]
-    fn official_openai_host_records_top_k_drop() {
-        let src = json!({"model": "m", "messages": [], "top_k": 40, "seed": 7});
-        let mut b = json!({"model": "m", "messages": []});
-        let dropped = apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://api.openai.com/v1/chat/completions",
-        );
-        assert_eq!(dropped, vec!["top_k".to_string()]);
-        assert_eq!(b["seed"], json!(7), "允许集合内的字段照常出站");
-    }
-
-    /// 无丢弃时不产生噪音：全部字段都出站（或本就不在候选集合内）→ 留痕为空。
-    #[test]
-    fn no_drop_produces_no_trace() {
-        let src = json!({"model": "m", "messages": [], "max_tokens": 100, "temperature": 0.7, "top_k": 40});
-        let mut b = json!({"model": "m", "messages": [], "max_tokens": 100});
-        let dropped = apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::Anthropic,
-            "https://open.bigmodel.cn/api/anthropic",
-        );
-        assert!(dropped.is_empty(), "无字段被挡时不应产生留痕：{dropped:?}");
-    }
-
-    /// 换名承载不算被挡：客户端 `stop` 以 `stop_sequences` 出站 → 留痕为空。
-    #[test]
-    fn renamed_stop_is_not_reported_as_dropped() {
-        let src = json!({"model": "m", "messages": [], "stop": ["\n\n"]});
-        let mut b = json!({"model": "m", "messages": []});
-        let dropped = apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::Anthropic,
-            "https://api.anthropic.com/v1/messages",
-        );
-        assert_eq!(b["stop_sequences"], json!(["\n\n"]));
-        assert!(dropped.is_empty(), "换名出站的字段不算被挡：{dropped:?}");
-    }
-
-    /// gemini 顶层无本组字段 → 客户端发的采样参数全被挡，逐个记名。
-    #[test]
-    fn gemini_reports_all_candidates_as_dropped() {
-        let src = json!({"model": "m", "contents": [], "stop": ["x"], "seed": 1, "n": 2});
-        let mut b = json!({"model": "m", "contents": []});
-        let dropped = apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::Gemini,
-            "https://generativelanguage.googleapis.com/v1beta",
-        );
-        assert_eq!(
-            dropped,
-            vec!["stop".to_string(), "seed".to_string(), "n".to_string()]
-        );
-    }
-}
-
-/// 票 11 对账补的两处：Gemini 源的生成参数下钻取值、`cap:max_tokens` 两来源合一。
-#[cfg(test)]
-mod test_fa11_reconciliation {
-    use super::{Protocol, apply_field_passthrough, build_field_trace};
-    use serde_json::json;
-
-    /// Gemini 客户端 → OpenAI 上游：stop / topK / responseMimeType 埋在 `generationConfig` 里，
-    /// 按顶层键取值取不到。下钻一跳后三项都要到达出站 body。
-    #[test]
-    fn fa11_gemini_source_generation_config_reaches_openai_target() {
-        let src = json!({
-            "contents": [],
-            "generationConfig": {
-                "stopSequences": ["END"],
-                "topK": 40,
-                "responseMimeType": "application/json",
-                "temperature": 0.3
-            }
-        });
-        let mut b = json!({"model": "m", "messages": []});
-        let dropped = apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://open.bigmodel.cn/api/paas/v4",
-        );
-        assert_eq!(b["stop"], json!(["END"]));
-        assert_eq!(b["top_k"], json!(40));
-        assert_eq!(b["response_format"], json!({"type": "json_object"}));
-        assert!(dropped.is_empty(), "全部承载，不应留痕：{dropped:?}");
-    }
-
-    /// 带 responseSchema 时换算成 OpenAI 的 json_schema 形态（`name` 必填，上游缺它判 400）。
-    #[test]
-    fn fa11_gemini_response_schema_maps_to_openai_json_schema() {
-        let src = json!({"contents": [], "generationConfig": {
-            "responseMimeType": "application/json",
-            "responseSchema": {"type": "object", "properties": {"a": {"type": "string"}}}
-        }});
-        let mut b = json!({"model": "m", "messages": []});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://open.bigmodel.cn/api/paas/v4",
-        );
-        assert_eq!(b["response_format"]["type"], json!("json_schema"));
-        assert_eq!(
-            b["response_format"]["json_schema"]["name"],
-            json!("response")
-        );
-        assert_eq!(
-            b["response_format"]["json_schema"]["schema"]["type"],
-            json!("object")
-        );
-    }
-
-    /// Gemini 源 → Anthropic 上游：stopSequences 直接同名承载，topK 换名 top_k。
-    #[test]
-    fn fa11_gemini_source_reaches_anthropic_target() {
-        let src = json!({"contents": [], "generationConfig": {"stopSequences": ["X"], "topK": 5}});
-        let mut b = json!({"model": "m", "messages": []});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::Anthropic,
-            "https://api.anthropic.com/v1/messages",
-        );
-        assert_eq!(b["stop_sequences"], json!(["X"]));
-        assert_eq!(b["top_k"], json!(5));
-    }
-
-    /// `responseMimeType: text/plain` 是 Gemini 默认态，OpenAI 无对应显式写法 → 不写出。
-    #[test]
-    fn fa11_gemini_text_plain_mime_writes_no_response_format() {
-        let src = json!({"contents": [], "generationConfig": {"responseMimeType": "text/plain"}});
-        let mut b = json!({"model": "m", "messages": []});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://open.bigmodel.cn/api/paas/v4",
-        );
-        assert!(
-            b.get("response_format").is_none(),
-            "默认 mime 不该产出 response_format"
-        );
-    }
-
-    /// 顶层写法优先于 generationConfig（客户端两处都写时以显式顶层为准）。
-    #[test]
-    fn fa11_top_level_wins_over_generation_config() {
-        let src = json!({"stop": ["TOP"], "top_k": 1, "generationConfig": {"stopSequences": ["NESTED"], "topK": 99}});
-        let mut b = json!({"model": "m", "messages": []});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://open.bigmodel.cn/api/paas/v4",
-        );
-        assert_eq!(b["stop"], json!(["TOP"]));
-        assert_eq!(b["top_k"], json!(1));
-    }
-
-    /// 转换分支：裁剪发生在 `chat_req` 上，body 层是幂等复裁不再命中 —— 留痕仍须记
-    /// `cap:max_tokens`（此前只看 body 层，整条转换路径的裁剪不留痕）。
-    #[test]
-    fn fa11_cap_trace_covers_both_branches_without_duplicating() {
-        // (转换分支, 透传分支, 两者同时) 三种组合都记且只记一个 token
-        for (on_chat_req, on_body) in [(true, false), (false, true), (true, true)] {
-            let trace = build_field_trace(on_chat_req, on_body, false, &[]);
-            assert_eq!(
-                trace, "cap:max_tokens",
-                "chat_req={on_chat_req} body={on_body}"
-            );
-            assert_eq!(trace.matches("cap:max_tokens").count(), 1);
-        }
-        assert_eq!(
-            build_field_trace(false, false, false, &[]),
-            "",
-            "未裁剪不记"
-        );
-    }
-
-    /// 三类改写按固定序拼接；全无改写时空串（不产生噪音记录）。
-    #[test]
-    fn fa11_field_trace_composition_and_empty() {
-        assert_eq!(
-            build_field_trace(false, true, true, &["seed".to_string(), "n".to_string()]),
-            "cap:max_tokens,rewrite:middleware,drop:seed,drop:n"
-        );
-        assert_eq!(build_field_trace(false, false, false, &[]), "");
-    }
-}
-
-#[cfg(test)]
-mod test_field_passthrough {
-    use super::{Protocol, apply_field_passthrough};
-    use serde_json::json;
-
-    /// 客户端原体：一份同时带 openai 族与 anthropic 族写法的采样参数。
-    fn client_body() -> serde_json::Value {
-        json!({
-            "model": "m",
-            "messages": [],
-            "stop": ["\n\n"],
-            "top_k": 40,
-            "seed": 7,
-            "response_format": {"type": "json_object"},
-            "stream_options": {"include_usage": true},
-            "presence_penalty": 0.5,
-            "frequency_penalty": -0.25,
-            "n": 2,
-            "user": "u-1",
-            "wild_unknown_field": "should-never-be-forwarded"
-        })
-    }
-
-    /// anthropic 目标：`stop` 换名 `stop_sequences`，`top_k` 原名补齐；
-    /// 允许集合外的 openai 专属参数（seed / n / 惩罚项 / response_format）一个都不出现。
-    #[test]
-    fn anthropic_renames_stop_and_keeps_only_its_allow_set() {
-        let src = client_body();
-        let mut b = json!({"model": "m", "messages": [], "max_tokens": 100});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::Anthropic,
-            "https://api.anthropic.com/v1/messages",
-        );
-        assert_eq!(b["stop_sequences"], json!(["\n\n"]));
-        assert_eq!(b["top_k"], json!(40));
-        for k in [
-            "stop",
-            "seed",
-            "response_format",
-            "stream_options",
-            "presence_penalty",
-            "frequency_penalty",
-            "n",
-            "user",
-            "wild_unknown_field",
-        ] {
-            assert!(b.get(k).is_none(), "anthropic 允许集合外字段 {k} 不应出现");
-        }
-    }
-
-    /// anthropic 只收数组形态的 stop_sequences：客户端写字符串要包成单元素数组。
-    #[test]
-    fn anthropic_wraps_string_stop_into_array() {
-        let src = json!({"stop": "END"});
-        let mut b = json!({"model": "m"});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::Anthropic,
-            "https://api.anthropic.com/v1/messages",
-        );
-        assert_eq!(b["stop_sequences"], json!(["END"]));
-    }
-
-    /// 第三方 OpenAI 兼容端点：openai 族允许集合全量补齐，`top_k` 也放行（vLLM/GLM 通行）。
-    #[test]
-    fn third_party_openai_fills_full_allow_set() {
-        let src = client_body();
-        let mut b = json!({"model": "m", "messages": []});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://open.bigmodel.cn/api/paas/v4",
-        );
-        assert_eq!(b["stop"], json!(["\n\n"]));
-        assert_eq!(b["top_k"], json!(40));
-        assert_eq!(b["seed"], json!(7));
-        assert_eq!(b["response_format"], json!({"type": "json_object"}));
-        assert_eq!(b["stream_options"], json!({"include_usage": true}));
-        assert_eq!(b["presence_penalty"], json!(0.5));
-        assert_eq!(b["frequency_penalty"], json!(-0.25));
-        assert_eq!(b["n"], json!(2));
-        assert_eq!(b["user"], json!("u-1"));
-        assert!(
-            b.get("wild_unknown_field").is_none(),
-            "允许集合外字段不透传"
-        );
-    }
-
-    /// anthropic 客户端 → openai 上游：`stop_sequences` 换名成 `stop`。
-    #[test]
-    fn openai_renames_stop_sequences_to_stop() {
-        let src = json!({"stop_sequences": ["\n\nHuman:"]});
-        let mut b = json!({"model": "m"});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://open.bigmodel.cn/api/paas/v4",
-        );
-        assert_eq!(b["stop"], json!(["\n\nHuman:"]));
-        assert!(b.get("stop_sequences").is_none());
-    }
-
-    /// 官方 OpenAI host 回归防线：`top_k` 不是官方参数（未知顶层字段 → 400），必须挡住。
-    #[test]
-    fn official_openai_excludes_top_k() {
-        let src = client_body();
-        let mut b = json!({"model": "m", "messages": []});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://api.openai.com/v1/chat/completions",
-        );
-        assert!(b.get("top_k").is_none(), "官方 OpenAI 允许集合不含 top_k");
-        assert!(b.get("wild_unknown_field").is_none());
-        assert_eq!(b["seed"], json!(7), "官方文档有的参数照常补齐");
-        assert_eq!(b["user"], json!("u-1"));
-    }
-
-    /// legacy completions 无 `response_format` 参数，不写出。
-    #[test]
-    fn completions_excludes_response_format() {
-        let src = client_body();
-        let mut b = json!({"model": "m", "prompt": "x"});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAICompletions,
-            "https://api.openai.com/v1/completions",
-        );
-        assert!(b.get("response_format").is_none());
-        assert_eq!(b["stop"], json!(["\n\n"]));
-    }
-
-    /// Responses API 只认 `user`，stop / 惩罚项 / n / seed / response_format 全挡。
-    #[test]
-    fn responses_allows_only_user() {
-        let src = client_body();
-        let mut b = json!({"model": "m", "input": []});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAIResponses,
-            "https://api.openai.com/v1/responses",
-        );
-        assert_eq!(b["user"], json!("u-1"));
-        for k in [
-            "stop",
-            "stop_sequences",
-            "top_k",
-            "seed",
-            "response_format",
-            "stream_options",
-            "presence_penalty",
-            "frequency_penalty",
-            "n",
-        ] {
-            assert!(b.get(k).is_none(), "responses 允许集合外字段 {k} 不应出现");
-        }
-    }
-
-    /// gemini 顶层无本组字段（对应键在 generationConfig 下，归票 09），本函数整体 no-op。
-    #[test]
-    fn gemini_top_level_is_noop() {
-        let src = client_body();
-        let mut b = json!({"contents": [], "generationConfig": {"temperature": 0.3}});
-        let before = b.clone();
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::Gemini,
-            "https://generativelanguage.googleapis.com/v1beta",
-        );
-        assert_eq!(b, before);
-    }
-
-    /// 已建模字段不被覆盖：出站 body 已有该键时保持强类型字段的值。
-    #[test]
-    fn modeled_fields_are_not_overwritten() {
-        let src = json!({"stop": ["from-client"], "user": "from-client", "top_k": 40});
-        let mut b = json!({"model": "m", "stop": ["already-modeled"], "user": "already-modeled", "top_k": 1});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://open.bigmodel.cn/api/paas/v4",
-        );
-        assert_eq!(b["stop"], json!(["already-modeled"]));
-        assert_eq!(b["user"], json!("already-modeled"));
-        assert_eq!(b["top_k"], json!(1));
-    }
-
-    /// anthropic→anthropic 透传分支上 `safeguards` 必须原样到上游。
-    ///
-    /// Claude Code 的 auto mode 把安全审查请求放在请求体顶层 `safeguards` 字段，配对 beta 头
-    /// `dangerous-tool-use-2026-09-03`；上游把结论放回 `safeguard_results`。网关删掉、改写其中任何
-    /// 一半，客户端整个 session 降级并改为自费分类器请求。透传分支上本函数是 no-op（出站 body 就是
-    /// 客户端原体，见本文件 `same_protocol_passthrough` 分支的 `req_value.clone()`），本测试守住这点。
-    ///
-    /// 出处：<https://code.claude.com/docs/en/llm-gateway-protocol#feature-pass-through>
-    #[test]
-    fn anthropic_passthrough_keeps_safeguards_field() {
-        let src = json!({
-            "model": "claude-opus-4-8",
-            "messages": [],
-            "safeguards": [{"type": "dangerous_tool_use", "classifier_context": {"v": 1}}]
-        });
-        let mut b = src.clone();
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::Anthropic,
-            "https://api.anthropic.com/v1/messages",
-        );
-        assert_eq!(b["safeguards"], src["safeguards"]);
-        assert_eq!(b, src, "透传分支上本函数是 no-op");
-    }
-
-    /// 透传分支：客户端原体即出站 body，本函数不得删掉任何既有字段（只补不删）。
-    #[test]
-    fn passthrough_body_keeps_its_own_unknown_fields() {
-        let src = client_body();
-        let mut b = src.clone();
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://open.bigmodel.cn/api/paas/v4",
-        );
-        assert_eq!(b["wild_unknown_field"], json!("should-never-be-forwarded"));
-        assert_eq!(b, src, "透传分支上本函数是 no-op");
-    }
-
-    /// 客户端没设这些参数时不凭空造键。
-    #[test]
-    fn absent_client_fields_are_not_invented() {
-        let src = json!({"model": "m", "messages": []});
-        let mut b = json!({"model": "m", "messages": []});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://open.bigmodel.cn/api/paas/v4",
-        );
-        assert_eq!(b, json!({"model": "m", "messages": []}));
-    }
-}
 
 #[cfg(test)]
 mod test_openai_max_completion_tokens {
     use super::{
-        Protocol, cap_body_max_tokens, fold_openai_max_completion_tokens,
+        Protocol, fold_openai_max_completion_tokens,
         rename_openai_max_tokens_key, strip_default_image_detail,
     };
-    use aidog_adapter::converter::{convert_request, parse_incoming_request};
     use serde_json::json;
 
     const OFFICIAL: &str = "https://api.openai.com/v1";
@@ -612,32 +35,6 @@ mod test_openai_max_completion_tokens {
         assert_eq!(b, original, "无新键时 body 逐字节不变");
     }
 
-    /// 与 cap 链路衔接：入站只发 `max_completion_tokens` 且超模型上限 →
-    /// 裁剪作用在识别后的值上（转换分支 chat_req 侧口径由 body 侧幂等复裁锚住）。
-    #[test]
-    fn cap_applies_to_recognized_value() {
-        let body = json!({
-            "model": "gpt-5", "max_completion_tokens": 200_000,
-            "messages": [{"role": "user", "content": "hi"}]
-        });
-        let req = parse_incoming_request(&Protocol::OpenAI, &body, None).expect("parse");
-        let (mut out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
-        assert_eq!(
-            cap_body_max_tokens(&mut out, Some(8192), &Protocol::OpenAI),
-            Some((200_000, 8192)),
-            "cap 没作用在归一后的值上: {out}"
-        );
-        assert_eq!(out["max_tokens"], json!(8192));
-
-        // 透传分支：原体只有新键，折叠后同样被裁
-        let mut b = json!({"model": "gpt-5", "max_completion_tokens": 200_000});
-        fold_openai_max_completion_tokens(&mut b, &Protocol::OpenAI);
-        assert_eq!(
-            cap_body_max_tokens(&mut b, Some(8192), &Protocol::OpenAI),
-            Some((200_000, 8192))
-        );
-        assert_eq!(b["max_tokens"], json!(8192));
-    }
 
     /// 出站键名按目标分叉：官方 OpenAI host 改成 `max_completion_tokens`，第三方保持 `max_tokens`。
     #[test]
@@ -1272,5 +669,60 @@ mod test_hoist_mid_messages_system {
         assert_eq!(sys.len(), 3, "原 1 + mid-system 2 block = 3");
         assert_eq!(sys[1]["text"], "block a");
         assert_eq!(sys[2]["text"], "block b");
+    }
+}
+
+#[cfg(test)]
+mod test_dropped_media_fields {
+    use super::outbound_shape::{build_field_trace, dropped_media_fields};
+    use aidog_adapter::types::{ChatRequest, ContentBlock, Message, MessageContent, Role};
+    use super::Protocol;
+
+    fn media_request(media_type: &str, data: Option<&str>) -> ChatRequest {
+        ChatRequest {
+            model: "m".into(),
+            messages: vec![Message {
+                role: Role::User,
+                content: MessageContent::Blocks(vec![ContentBlock::Media {
+                    media_type: media_type.into(),
+                    data: data.map(str::to_owned),
+                    url: None,
+                }]),
+            }],
+            system: None,
+            max_tokens: None,
+            temperature: None,
+            top_p: None,
+            stream: None,
+            tools: None,
+            tool_choice: None,
+            thinking_budget: None,
+            thinking_mode: None,
+            extra: None,
+        }
+    }
+
+    #[test]
+    fn anthropic_media_drops_are_recorded() {
+        let req = media_request("audio/wav", Some("AAAA"));
+        assert_eq!(build_field_trace(false, false, false, &dropped_media_fields(&req, &Protocol::Anthropic)), "drop:audio");
+    }
+
+    #[test]
+    fn responses_media_drops_are_recorded() {
+        let req = media_request("video/mp4", Some("AAAA"));
+        assert_eq!(build_field_trace(false, false, false, &dropped_media_fields(&req, &Protocol::OpenAIResponses)), "drop:video");
+    }
+
+    #[test]
+    fn openai_url_audio_drop_is_recorded() {
+        let req = media_request("audio/wav", None);
+        assert_eq!(build_field_trace(false, false, false, &dropped_media_fields(&req, &Protocol::OpenAI)), "drop:audio");
+    }
+
+    #[test]
+    fn openai_video_drop_is_recorded() {
+        let req = media_request("video/mp4", Some("AAAA"));
+        assert_eq!(build_field_trace(false, false, false, &dropped_media_fields(&req, &Protocol::OpenAI)), "drop:video");
     }
 }

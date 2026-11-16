@@ -19,7 +19,8 @@
   ② 要构建旧版本 / 基线二进制（perf-testing.md §6/§7 的 detach worktree）；
   ③ 主 checkout 正被别的会话占用（脏文件与本任务相交，无法并存）。
   其余理由（「隔离更干净」「怕改坏」）不算；改坏用 `git diff` 按行号还原。
-- 用了 worktree 就写明是哪一种，收工当场合回并删除；下文各节是「用了 worktree 时」的卫生规则。
+  第四种：GitHub issue 开发（2026-11-15 用户拍板，一 issue 一 worktree 一 PR，见文末「issue 开发：独立 worktree + PR」节）。
+- 用了 worktree 就写明是哪一种，验收标准全部满足后当场合回并删除；未满足时保留 worktree；下文各节是「用了 worktree 时」的卫生规则。
 
 ## 减少磁盘残留（2026-11-04）
 
@@ -161,6 +162,19 @@ perf-backend 收尾轮：PreToolUse hook 把 `git worktree add` 改写经 rtk �
 - **前端构建**：用仓库默认输出目录，不再 `--outDir /tmp/aidog-agent-dist`。
 - 下文「（已废止 2026-11-05）」的段落里所有 `/tmp/aidog-agent-target`、`/tmp/aidog-agent-dist` 写法同样作废，
   其中的互斥锁、`cargo clean -p aidog_db`、`touch build.rs`、串味核对手法仍有效，目录按本节替换。
+- **`.worktrees/.target` 同一时刻只允许一个 cargo**（2026-11-14 issue 61 轮实锤三连）：并行会话同时在
+  该目录跑 `cargo test --workspace` 会互相冲掉产物——`ident_case` extern 丢失、doctest `E0463`、
+  二进制被删，各会话各自持 `/tmp/aidog-cargo.lock` 独占重跑才拿到绿（锁手法见下节，仍有效）。
+  **假红判据**：extern 丢失 / doctest E0463 / 二进制消失这类「不该红的红」，先怀疑并发重建，
+  取锁独占重跑再归因，不在假红上改代码。
+- **锁只约束守约的会话，磁盘保护押容量不押锁**（2026-11-15 依赖更新轮实锤）：另一会话不经
+  `/tmp/aidog-cargo.lock` 直接跑 cargo，锁协议拦不住它；`.worktrees/.target` 全程靠「开跑前
+  `df -h <target>`，余量 <10G 不开跑 + 编译期间挂磁盘看门狗」挡住写满盘（<3G 自动停自己的构建
+  进程并回报，两度生效）。看门狗只停自己 pid 记录的进程，禁宽泛 pkill / 删共享缓存
+  （perf-testing.md §1、本文件「减少磁盘残留」节）。
+- **磁盘吃紧先压产物体积再编**（同轮实锤）：看门狗拦下的是带调试信息的构建撑满盘——大盘重编
+  （依赖升级全量重验）先用瘦身 profile（如 `CARGO_PROFILE_DEV_DEBUG=0`）验，产物小一个量级，
+  绿了再按需重出完整产物；复用已有 target 缓存（本轮 18G）能大幅减少新增写入。
 
 ## agent / detach worktree 复用单一 CARGO_TARGET_DIR（已废止 2026-11-05：目录改为上节；2026-10-22 立，2026-10-30 改）
 
@@ -323,7 +337,29 @@ harness 隔离建的 agent worktree 自带 lock，收工直接 `/usr/bin/git wor
 历史：`no-mistakes` 远端（目录 `/Users/luoxin/.no-mistakes/repos/9d3abbd5e514.git` 已不存在）
 已于 2026-10-29 `git remote remove`。现行做法：推送只走 `origin`（GitHub `lazygophers/aidog`），
 先 `git fetch origin && git rev-list --left-right --count origin/master...master`，左边为 0
-（纯快进）才 `git push origin master`；origin 是公开远端，推送前仍按全局规则向用户确认一次。2026-11-06 起不主动推送，也不主动发起推送提问；用户当轮明说才按上述快进检查推送。
+（纯快进）才 `git push origin master`；origin 是公开远端，推送前仍按全局规则向用户确认一次。2026-11-06 起不主动推送；2026-11-15 起 issue 工作分支例外（见下节），其余分支（含 master）仍只在用户当轮明说时按上述快进检查推送。
+
+PR 分支同此：**从 `origin/master` 开分支，不从本地 HEAD**（2026-11-14 issue 61 轮实锤：本地 master
+领先 origin 19 提交，从本地 HEAD 开的 PR 分支带 7 个他线未推送提交，直推会把它们借 PR 发上 origin）；
+单提交用 cherry-pick；push 前核 `git rev-list --count origin/master..<分支>`，只含本任务提交才推。
+全局 git-worktree.md「所有开发基于 origin/master」缺「push 前核提交数」这步，本条补齐（仅项目级）。
+2026-11-15 依赖更新轮复发同病：`git fetch` DNS 失败后改基于**本地** master 建分支，把主仓未推送提交带进
+PR（事后 rebase 修复）。fetch 失败不是回落本地 master 的许可；未能取得 `origin/master` 时，不建分支、不开工。
+2026-11-15 issue 68 轮记录：直连 push 两次 DNS 解析失败，改经本机 7890 代理后成功（PUSH_EXIT=0）。这是该次环境的结果，不构成其他环境或错误类型的操作建议。
+
+## 授权推送只推到授权时的 sha（2026-11-15）
+
+用户授权「推 8 个提交」期间，master 又多了另一会话的提交。推送范围以授权当时的 sha 为界：`git push origin <授权sha>:refs/heads/<分支>`，不用裸 `git push`（会带上后来者）。推前 `git rev-list --count origin/<分支>..<授权sha>` 核对等于授权数；多出的提交留待其所属会话的授权。
+
+## issue 开发：独立 worktree + PR（2026-11-15）
+
+用户原话：「所有的issuse的开发都是独立的worktree并且提交pr」。GitHub issue 的开发不受文首「尽可能不要 worktree」约束，一 issue 一 worktree 一 PR：
+
+1. 分支从 `origin/master` 开，命名 `issue-<编号>-<短slug>`；worktree 路径 `<仓库根>/.worktrees/issue-<编号>-<短slug>`。建/删/查走 `/usr/bin/git` 直跑（见「rtk 包装」节），建完 `rev-parse --show-toplevel` 验一次。
+2. push 该分支到 origin + 创建 PR 永久授权（CLAUDE.md git 授权条）；push 前核 `git rev-list --count origin/master..<分支>` 只含本 issue 提交（「推送只走 origin」节的快进检查照跑）。master 与非 issue 分支不在授权内。
+3. PR 仅在该 issue 验收标准全部满足后创建；PR 合并（验收满足后）无需逐次确认，合并回 master 在主仓做，照「共享 checkout 合回 master」节只挪指针、不动工作区脏文件。
+4. 多 issue 并行 = 多 worktree，共用 `<项目根>/.worktrees/.target` 独立 target；同刻只允许一个 cargo（见「构建目录」节）。
+5. PR 合入或废弃后清理 worktree 与分支（全局 `~/.claude/rules/workflow/git-worktree.md`「分支合入或废弃后清理」）。
 
 ## 多个 agent 同时动主 checkout 的 master：串行（2026-10-29）
 
@@ -349,3 +385,19 @@ harness 隔离建的 agent worktree 自带 lock，收工直接 `/usr/bin/git wor
 网关提示头线：一个 agent 开工发现索引里已躺着 5 个文件，不知谁暂存的。
 
 - 开工与提交前各跑一次 `/usr/bin/git diff --cached --stat`；不是自己暂存的文件不 `reset`、不带进提交（提交用 `git commit -- <路径>` 或先 `git apply --cached` 只暂存自己的 hunk），回报写明文件清单与「来源不明」。
+
+## 在用 worktree 会被其他会话清理：阶段性 commit（2026-11-15 PR #159 修正轮）
+
+fix-159 agent 的 worktree `.worktrees/fix/char-second-est-cost` 与本地分支在任务中途被另一会话的「清理已合并工作区」agent 删除，未提交的全部工作丢失（远端分支完好，靠重放恢复）。清理方按「分支已合并/已推远端」判定可删，不会知道有 agent 正在做活——共享环境里 worktree 不是私有保险箱。
+
+- **worktree 内工作跨轮次存在（预计多轮、要等 review / 合并）时，阶段性成果尽早 commit 到 worktree 分支**：每完成一个可验证单元（编译过 + 相关测试绿）就 commit 一次；implementer 回报「完成」前的最后一步是 commit。项目 CLAUDE.md 自动 commit 授权覆盖 worktree 分支，push 禁令不变。
+- **清理 worktree 前核对在途**：`git -C <worktree> status --short` 非空（有未提交改动）或分支未合入 master 就不删，回报主会话裁决；清理由 AI 执行时同样适用，禁 `worktree remove --force` 硬闯脏 worktree。
+- **被删后恢复**：远端分支完好时 `git fetch origin && /usr/bin/git worktree add <路径> origin/<分支>` 重建，再重放丢失的未提交部分；本地分支还在时直接 `worktree add <路径> <分支>`。
+
+## push 预检条件设计：禁用 `--is-ancestor origin/master <分支>`（2026-11-15 issue 69 轮）
+
+收尾 agent 把 push 预检写成 `merge-base --is-ancestor origin/master <分支>`（origin/master 是分支祖先），origin/master 一前进该条件必失败，被拦一次。正确的预检已有成文（「推送只走 origin」节的 `git rev-list --count origin/master..<分支>` 只含本任务提交）。
+
+- **预检查的是「分支相对 origin/master 只含自己的提交」，不是「origin/master 是分支祖先」**：写预检条件前对照「推送只走 origin」节的既有判据，不发明新的祖先关系条件。
+- 预检因 origin/master 前进失败时的正解：`git fetch origin && git merge origin/master`（进分支）解冲突后重跑预检再 push；这不是 push 禁令的例外，是预检失败的标准处置。本地 master 领先 origin 的 ff-only 同步失败属正常（见「多个 agent 同时动主 checkout 的 master」节），留待 master 管理方处理。
+

@@ -101,7 +101,7 @@ pub fn last_routed_platform_id(
             // 命中首行即停（perf-backend 票 03 L7：20.5 万行 149ms → 0ms）。
             let mut stmt = conn.prepare_cached(
                 "SELECT platform_id FROM proxy_log \
-                 WHERE deleted_at = 0 AND +platform_id > 0 AND source_protocol != 'test' \
+                 WHERE deleted_at = 0 AND +platform_id > 0 \
                  ORDER BY created_at DESC LIMIT 1",
             )?;
             let mut rows = stmt.query_map([], |row| row.get::<_, i64>(0))?;

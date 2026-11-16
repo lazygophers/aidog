@@ -1,10 +1,11 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "XingChenAGI/XingChenASR-Diarize-V3.0",
+  "display_name": "XingChenASR-Diarize-V3.0",
   "canonical_model": "XingChenASR-Diarize-V3.0",
   "capabilities": [
     "audio"

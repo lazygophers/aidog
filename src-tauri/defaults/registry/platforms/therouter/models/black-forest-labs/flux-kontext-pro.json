@@ -1,11 +1,12 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "black-forest-labs/flux-kontext-pro",
+  "display_name": "FLUX.1 Kontext Pro",
   "canonical_model": "flux-kontext-pro",
   "family": "flux",
   "capabilities": [

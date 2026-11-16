@@ -59,46 +59,6 @@ pub(crate) fn strip_thinking_if_unmatched(body: &mut Value) {
     }
 }
 
-/// 出站 body 上的 `max_tokens` 裁剪（透传与转换两分支共用）。
-///
-/// **为什么要在 body 上再裁一次**：`chat_req` 侧的裁剪只喂给 `convert_request`，同协议透传
-/// 分支的 body 是客户端原体 `Value`，超限值原样上送 → 上游 400（票 02）。转换分支上此处
-/// 幂等（chat_req 已裁到同一上限，不会二次收缩），故不需要按分支分叉。
-///
-/// 键名按目标 wire 协议分叉：
-/// - anthropic / openai / openai_completions → 顶层 `max_tokens`
-/// - openai_responses → 顶层 `max_output_tokens`
-/// - gemini → `generationConfig.maxOutputTokens`
-///
-/// 上限口径由调用方给（`get_model_max_output_tokens(actual_model)`），保守语义同
-/// [`super::router::cap_max_tokens`]：未传 / 模型无上限 / 未超限一律不动。
-/// 返回 `Some((原值, 裁剪后值))` 表示发生了裁剪，`None` 表示 body 未被改动。
-pub(crate) fn cap_body_max_tokens(
-    body: &mut Value,
-    model_max: Option<i64>,
-    wire: &Protocol,
-) -> Option<(u32, u32)> {
-    let obj = body.as_object_mut()?;
-    let slot = match wire {
-        Protocol::Anthropic | Protocol::OpenAI | Protocol::OpenAICompletions => {
-            obj.get_mut("max_tokens")
-        }
-        Protocol::OpenAIResponses => obj.get_mut("max_output_tokens"),
-        Protocol::Gemini => obj
-            .get_mut("generationConfig")
-            .and_then(|gc| gc.as_object_mut())
-            .and_then(|gc| gc.get_mut("maxOutputTokens")),
-        // 其余枚举值不是 wire 协议（平台类型），不会作为 endpoint 协议出现
-        _ => None,
-    }?;
-    // 超 u32 的病态值按 u32::MAX 处理（照样会被上限裁下来）。
-    let requested = u32::try_from(slot.as_u64()?).unwrap_or(u32::MAX);
-    let (capped, did_cap) = super::router::cap_max_tokens(Some(requested), model_max);
-    let capped = capped.filter(|_| did_cap)?;
-    *slot = Value::from(capped);
-    Some((requested, capped))
-}
-
 /// OpenAI wire 出站 body 上把 `max_completion_tokens` 折进 `max_tokens`（票 05）。
 ///
 /// 转换分支上是 no-op（`to_openai` 只写 `max_tokens`）；生效点是同协议透传——新版 OpenAI
@@ -328,166 +288,31 @@ pub(crate) fn is_official_openai_host(upstream_url: &str) -> bool {
     host.eq_ignore_ascii_case("api.openai.com")
 }
 
-/// 未建模顶层字段兜底透传：按**目标 wire 协议的允许集合**从客户端原体补齐出站 body（票 01）。
-///
-/// **为什么需要**：`ChatRequest` 是白名单强类型模型，`stop` / `top_k` / `seed` /
-/// `response_format` / `stream_options` / `presence_penalty` / `frequency_penalty` / `n` /
-/// `user` 全无对应字段，五个 wire struct 也都是封闭 struct（无 flatten 出口），
-/// 转换分支上这些参数在 `parse_incoming_request` → `convert_request` 之间静默消失
-/// （全库 grep 实测零命中）。
-///
-/// **为什么是白名单而不是全量倒出**：官方 OpenAI Chat Completions 对未知顶层字段返回 400
-/// `unknown_parameter`（同 `apply_disable_thinking` 的 host gate 理由），全量倒出会把现在
-/// 能用的链路打坏。
-///
-/// 逐协议允许集合：
-/// - anthropic → `stop_sequences`（客户端写 `stop` 时换名 + 字符串包成数组）、`top_k`
-/// - openai / openai_completions → `stop`（客户端写 `stop_sequences` 时换名）、`seed`、
-///   `stream_options`、`presence_penalty`、`frequency_penalty`、`n`、`user`；
-///   `response_format` 仅 chat completions（legacy completions 无此参数）；
-///   `top_k` 仅第三方 OpenAI 兼容端点（vLLM/SGLang/GLM/Qwen 通行，官方不认）
-/// - openai_responses → `user`（Responses API 不收 stop / 惩罚项 / n / seed / response_format）
-/// - gemini → 顶层无本组字段（对应键全在 `generationConfig` 下，归票 09，本函数不碰）
-///
-/// **只补不覆盖、只加不删**：出站 body 已有该键就不动（强类型字段优先）；
-/// 透传分支客户端原体的其它字段原样保留（本函数不做剔除，避免打坏现有透传链路）。
-///
-/// **`src` 是客户端原体**（`req_value`），不是 `req_body`——同 `apply_disable_thinking` 的
-/// 调用方约束：转换分支的 `req_body` 由 wire struct 序列化而来，未建模字段在那里已经没了。
-/// **返回值（票 10）**：客户端发了、但本函数的允许集合没让它出站的字段名（按 `TRACED_FIELDS`
-/// 固定序，只有名没有值——值可能含敏感内容）。调用方拼进 `proxy_log.field_trace`。
-/// 判据是「候选集合内、客户端有、最终出站 body 里没有」；`stop` / `stop_sequences` 互为换名，
-/// 目标键已出站即视为已承载，不算被挡。
-pub(crate) fn apply_field_passthrough(
-    body: &mut Value,
-    src: &Value,
-    wire: &Protocol,
-    upstream_url: &str,
-) -> Vec<String> {
-    let Some(src_obj) = src.as_object() else {
-        return Vec::new();
-    };
-    let Some(obj) = body.as_object_mut() else {
-        return Vec::new();
-    };
-
-    // ① 停止序列：anthropic 用 stop_sequences（只收数组），openai 族用 stop（字符串或数组）
-    let stop_key = match wire {
-        Protocol::Anthropic => Some("stop_sequences"),
-        Protocol::OpenAI | Protocol::OpenAICompletions => Some("stop"),
-        _ => None,
-    };
-    if let Some(key) = stop_key.filter(|k| !obj.contains_key(*k)) {
-        // 取值时先认目标协议的写法，再回退另一族的写法，最后回退 Gemini 源的 generationConfig
-        let raw = if key == "stop_sequences" {
-            src_obj
-                .get("stop_sequences")
-                .or_else(|| src_obj.get("stop"))
-        } else {
-            src_obj
-                .get("stop")
-                .or_else(|| src_obj.get("stop_sequences"))
-        }
-        .or_else(|| src_gen_config(src_obj).and_then(|g| g.get("stopSequences")));
-        let normalized = match raw {
-            Some(Value::String(s)) if key == "stop_sequences" => {
-                Some(Value::Array(vec![Value::String(s.clone())]))
-            }
-            Some(v @ (Value::String(_) | Value::Array(_))) => Some(v.clone()),
-            // 其它形态（数字 / 对象 / null）不是任何一家的合法值，不写出
-            _ => None,
-        };
-        if let Some(v) = normalized {
-            obj.insert(key.to_string(), v);
-        }
-    }
-
-    // ② 其余顶层键：同名补齐
-    const OPENAI_COMMON: [&str; 6] = [
-        "seed",
-        "stream_options",
-        "presence_penalty",
-        "frequency_penalty",
-        "n",
-        "user",
-    ];
-    let third_party = !is_official_openai_host(upstream_url);
-    let allow: Vec<&str> = match wire {
-        Protocol::Anthropic => vec!["top_k"],
-        Protocol::OpenAI => {
-            let mut v = OPENAI_COMMON.to_vec();
-            v.push("response_format");
-            if third_party {
-                v.push("top_k");
-            }
-            v
-        }
-        Protocol::OpenAICompletions => {
-            let mut v = OPENAI_COMMON.to_vec();
-            if third_party {
-                v.push("top_k");
-            }
-            v
-        }
-        Protocol::OpenAIResponses => vec!["user"],
-        // gemini 顶层无本组字段；其余枚举值不是 wire 协议（平台类型），不会作为 endpoint 协议出现
-        _ => vec![],
-    };
-    for k in allow {
-        if obj.contains_key(k) {
-            continue;
-        }
-        // Gemini 源的对应值埋在 generationConfig 里（顶层同名键不存在），故取值分两跳（票 11）
-        let from_src = src_obj.get(k).cloned().or_else(|| match k {
-            "top_k" => src_gen_config(src_obj).and_then(|g| g.get("topK")).cloned(),
-            "response_format" => src_gen_config(src_obj).and_then(gemini_response_format),
-            _ => None,
-        });
-        if let Some(v) = from_src {
-            obj.insert(k.to_string(), v);
-        }
-    }
-
-    // ③ 留痕（票 10）：候选集合内、客户端发了但没出站的字段名。
-    let stop_carried = stop_key.map(|k| obj.contains_key(k)).unwrap_or(false);
-    TRACED_FIELDS
+/// 出站协议转换丢弃的音视频字段。OpenAI Chat 仅接受 base64 audio；其余不支持的块记入 field_trace。
+/// 2026-11-15 官方契约：Anthropic `ContentBlockParam` 无 audio/video（https://platform.claude.com/docs/en/api/messages）；
+/// Responses `input` 的内容块无 audio（https://developers.openai.com/api/reference/resources/responses/methods/create）；
+/// Chat Completions 支持 base64 input_audio（https://developers.openai.com/api/docs/guides/audio-chat-completions）。
+/// 上述目标均未提供 video content 输入形状。
+pub(crate) fn dropped_media_fields(req: &aidog_adapter::types::ChatRequest, wire: &Protocol) -> Vec<String> {
+    req.messages
         .iter()
-        .filter(|k| src_obj.contains_key(**k) && !obj.contains_key(**k))
-        .filter(|k| !(matches!(**k, "stop" | "stop_sequences") && stop_carried))
-        .map(|k| (*k).to_string())
+        .flat_map(|message| message.content.blocks())
+        .filter_map(|block| match block {
+            aidog_adapter::types::ContentBlock::Media { media_type, data, .. } => {
+                let kind = media_type.split_once('/')?.0;
+                if !matches!(kind, "audio" | "video") {
+                    return None;
+                }
+                let dropped = match wire {
+                    &Protocol::OpenAI => kind != "audio" || data.is_none(),
+                    &Protocol::Anthropic | &Protocol::OpenAIResponses => true,
+                    _ => false,
+                };
+                dropped.then(|| kind.to_string())
+            }
+            _ => None,
+        })
         .collect()
-}
-
-/// 客户端原体里的 Gemini `generationConfig` 节点（camelCase 为 REST 规范形态，
-/// snake_case 是部分 SDK 写法，与 `middleware_body::visit_texts` 的 systemInstruction 同口径）。
-///
-/// Gemini 把 `stopSequences` / `topK` / `responseMimeType` 全放在这个子对象里，而本函数
-/// 其余部分按顶层键取值——不下钻这一跳，gemini 客户端 → openai/anthropic 上游的这三项就必丢
-/// （中立层的 `ChatRequest.extra` 有值，但 `to_openai` / `to_anthropic` 的 wire struct 没有槽位）。
-pub(crate) fn src_gen_config(
-    src_obj: &serde_json::Map<String, Value>,
-) -> Option<&serde_json::Map<String, Value>> {
-    src_obj
-        .get("generationConfig")
-        .or_else(|| src_obj.get("generation_config"))?
-        .as_object()
-}
-
-/// Gemini `responseMimeType` / `responseSchema` → OpenAI `response_format`。
-/// 与 `adapter::gemini::extra_response_format` 的正向换算互逆，只认 `application/json`
-/// （Gemini 另有 `text/plain` = 默认态，OpenAI 无对应显式写法，不写出）。
-pub(crate) fn gemini_response_format(gc: &serde_json::Map<String, Value>) -> Option<Value> {
-    let mime = gc.get("responseMimeType").and_then(|v| v.as_str())?;
-    if !mime.eq_ignore_ascii_case("application/json") {
-        return None;
-    }
-    Some(match gc.get("responseSchema") {
-        Some(schema) => serde_json::json!({
-            "type": "json_schema",
-            "json_schema": { "name": "response", "schema": schema }
-        }),
-        None => serde_json::json!({ "type": "json_object" }),
-    })
 }
 
 /// 把本次出站的三类改写合成 `proxy_log.field_trace` 的 token 串（票 10；票 11 抽成纯函数）。
@@ -516,20 +341,6 @@ pub(crate) fn build_field_trace(
     tokens.join(",")
 }
 
-/// 票 10 留痕的候选字段集合 = `apply_field_passthrough` 认识的全部顶层键（跨协议并集）。
-/// 不在本集合内的键不参与留痕：转换分支的 `system` / `tools` 等是被结构化转换吸收，不是被挡掉。
-const TRACED_FIELDS: [&str; 10] = [
-    "stop",
-    "stop_sequences",
-    "top_k",
-    "seed",
-    "stream_options",
-    "presence_penalty",
-    "frequency_penalty",
-    "n",
-    "user",
-    "response_format",
-];
 
 /// 第三方 anthropic 端点：无条件剥离 messages[].content 内 `redacted_thinking` block。
 ///

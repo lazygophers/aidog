@@ -16,7 +16,8 @@ import { useProtocolMeta } from "../../domains/platforms/useProtocolMeta";
 import { getPrimaryBaseUrl } from "../../pages/platforms/usePlatformQuota";
 import type { HealthStatus } from "../../domains/platforms";
 import { isCurrentlyPeak } from "../../utils/timeWindow";
-import { parseDisableDuringPeak, parseMitmStats, parseRateLimitsBundle, rateLimitsSummary } from "../../services/api";
+import { parseDisableDuringPeak, parseMitmStats, parseRateLimitsBundle, parseProxyEnabled, rateLimitsSummary } from "../../services/api";
+import { useProxyConfigured } from "../../domains/platforms/proxyConfig";
 import { useCcMitmInfo, CcMitmRefreshWarning, CcMitmTrendSection, CcPlanBalance } from "./CcMitmInfo";
 import { Pill } from "./Pill";
 import { Button } from "@/components/ui/button";
@@ -151,7 +152,7 @@ export const PlatformCard = memo(function PlatformCard({
   // 协议元数据聚合 hook（替代 5 个独立 async effect：colorMap / isCp / models+peak /
   //   homepage / label+labelMap）。docPromise 单例缓存 → 单次 Promise.all 聚合 →
   //   100 卡 = 100 次 then（不再 600+ 链）；每卡仅一次 setState。
-  const { color, isCpProtocol, defaultModels, homepage, sourceUrls, protocolLabel, labelMap, peakWindows } =
+  const { color, isCpProtocol, defaultModels, homepage, sourceUrls, protocolLabel, labelMap, peakWindows, holidayCalendar } =
     useProtocolMeta(p.platform_type, p.extra ?? "", i18n.language);
   const configuredModels = (() => {
     // 模型徽章 = 转发生效模型（2026-09-27 拍板）：显式槽位优先，没配则 preset 默认
@@ -176,6 +177,8 @@ export const PlatformCard = memo(function PlatformCard({
   // cc-sub-mitm 票 12：claude_code + mitm_stats 开 → 订阅窗口趋势 + refresh 失败警示。
   // claude_code 独占分组 → membership 首个即组名（CONNECT 认证的 username）。
   const isCcMitm = p.platform_type === "claude_code" && parseMitmStats(p.extra ?? "");
+  // 「代理」徽标显示条件之一：全局代理地址非空（跨页共享读，见 proxyConfig.ts）
+  const proxyConfigured = useProxyConfigured();
   const ccGroupName = platformMembership?.[0];
   const ccMitm = useCcMitmInfo(isCcMitm, ccGroupName);
   // balance-full：套餐档位 / 窗口剩余任一有数据 → 余额行展示（与配额等维度互不相干）。
@@ -320,6 +323,14 @@ export const PlatformCard = memo(function PlatformCard({
                       {t("platform.autoDisabled", "自动禁用")}
                     </Pill>
                   )}
+                  {/* 「代理」徽标（issue #64 T03）：平台开关开 且 全局代理地址非空才显示（地址空 = 实际直连） */}
+                  {parseProxyEnabled(p.extra ?? "") && proxyConfigured && (
+                    <span data-testid="card-proxy-badge" style={{ display: "inline-flex" }}>
+                      <Pill color="var(--text-secondary)" title={t("platform.useProxyDesc", "该平台的出站请求经「设置 → 代理配置」的代理地址转发。")}>
+                        {t("platform.proxyBadge", "代理")}
+                      </Pill>
+                    </span>
+                  )}
                   {(rateLimitsBundle.rate_limits || rateLimitsBundle.quota_windows) && (
                     <Pill color="var(--text-secondary)" title={t("platform.rateLimits.badgeHint", "已配限频；超限自动排除候选（后续版本生效）")} style={{ flex: "none", background: "var(--bg-glass)", border: "1px solid var(--border)" }}>
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -329,7 +340,7 @@ export const PlatformCard = memo(function PlatformCard({
                     </Pill>
                   )}
                   {/* 高峰禁用中徽标（独立维度，与 status 正交）：开关 on && now 在 peak window 命中 → 实时显 */}
-                  {disableDuringPeak && isCurrentlyPeak(peakWindows, Date.now()) && (
+                  {disableDuringPeak && isCurrentlyPeak(peakWindows, Date.now(), "", holidayCalendar) && (
                     <Pill color="var(--color-warning)" title={t("platform.disable_during_peak_desc", "启用后该平台在高峰时段从路由候选排除（不改 status，临时闸门）。")} style={{ flex: "none" }}>
                       {t("platform.peak_disabled_badge", "高峰禁用中")}
                     </Pill>
@@ -341,9 +352,9 @@ export const PlatformCard = memo(function PlatformCard({
                     const phWindows = peakWindows;
                     if (phWindows.length === 0) return null;
                     const nowMs = Date.now();
-                    if (!isCurrentlyPeak(phWindows, nowMs)) return null;
+                    if (!isCurrentlyPeak(phWindows, nowMs, "", holidayCalendar)) return null;
                     // 复用 isCurrentlyPeak 单窗口调用找当前命中窗口（取其 model scope）。
-                    const hitWin = phWindows.find(w => isCurrentlyPeak([w], nowMs));
+                    const hitWin = phWindows.find(w => isCurrentlyPeak([w], nowMs, "", holidayCalendar));
                     const models = hitWin?.models;
                     const hasScope = models && models.length > 0;
                     const tooltip = hasScope
