@@ -224,7 +224,17 @@
         "CLAUDE_CODE_GATEWAY_HINT_HEADERS": "1",
         "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY": "1"
     },
+    "enabledPlugins": {
+        "answer-me-with-html@answer-me-with-html": true
+    },
     "extraKnownMarketplaces": {
+        "answer-me-with-html": {
+            "autoUpdate": true,
+            "source": {
+                "repo": "QingYunA/answer-me-with-html",
+                "source": "github"
+            }
+        },
         "cloudflare": {
             "autoUpdate": true,
             "source": {
