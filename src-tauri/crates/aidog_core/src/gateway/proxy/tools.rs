@@ -302,6 +302,7 @@ async fn tools_attempt(
         log.created_at,
         log.est_cost,
         0, // tools 按次费已并入 tool_cost_usd，无 search_units
+        false, // 额度窗口豁免（2026-11-16 拍板，决策 / 搜索同列豁免范围）
         tracing::Span::current(),
     );
 

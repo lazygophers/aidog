@@ -649,6 +649,8 @@ pub(crate) fn spawn_estimate(
     tool_cost_usd: f64,
     // 按次计量次数（rerank：search_units；embedding/chat 路径 0）。> 0 时纯按次请求不被跳过。
     request_units: i64,
+    // 额度窗口执行范围（2026-11-16 拍板）：聊天 + aux true；搜索转发 tools false（豁免）。
+    count_quota_windows: bool,
     span: tracing::Span,
 ) {
     // 跳过判定在 estimate_after_request 内部、价格解析之后（评审 R1）：纯 token 计价
@@ -674,6 +676,7 @@ pub(crate) fn spawn_estimate(
                 created_at_ms,
                 tool_cost_usd,
                 request_units,
+                count_quota_windows,
             )
             .await;
             // 预估更新后通知主线程刷新托盘（emit 事件，避免后台线程直接操作 tray）

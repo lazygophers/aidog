@@ -33,6 +33,7 @@ const REASON_KEY: Record<RouteReason, string> = {
   "model-not-on-platform": "logs.routing.reason.model-not-on-platform",
   "time-rule-slot-disabled": "logs.routing.reason.time-rule-slot-disabled",
   "skipped-dead-upstream": "logs.routing.reason.skipped-dead-upstream",
+  "quota-window-exhausted": "logs.routing.reason.quota-window-exhausted",
   "not-declared": "logs.routing.reason.not-declared",
   "retry-limit": "logs.routing.reason.retry-limit",
 };
@@ -79,6 +80,7 @@ const KIND_KEY: Record<string, string> = {
   empty_200: "logs.routing.kind.empty_200",
   rate_limit_platform: "logs.routing.kind.rate_limit_platform",
   rate_limit_model: "logs.routing.kind.rate_limit_model",
+  quota_window_platform: "logs.routing.kind.quota_window_platform",
 };
 const CLASS_KEY: Record<string, string> = {
   model: "logs.routing.class.model",

@@ -1407,6 +1407,18 @@ ALTER TABLE "group_new" RENAME TO "group";
         "ALTER TABLE platform_health_state ADD COLUMN quota_verdict_until_ms INTEGER NOT NULL DEFAULT 0",
         [],
     );
+    // Migration 20261116-01（额度窗口执行）：`quota_window_usage` 用量表（platform.db）。
+    // extra.quota_windows 从纯展示升级为真执行：用量持久化落 DB，重启不清零。
+    // consumed 随请求累加；window_key 由窗口配置稳定派生（改配置 = 新窗口）；重跑幂等。
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS quota_window_usage (
+            platform_id INTEGER NOT NULL,
+            window_key TEXT NOT NULL,
+            window_start_at INTEGER NOT NULL DEFAULT 0,
+            consumed REAL NOT NULL DEFAULT 0,
+            PRIMARY KEY (platform_id, window_key)
+        )",
+    )?;
     Ok(())
 }
 

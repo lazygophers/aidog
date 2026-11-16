@@ -116,6 +116,8 @@ pub(crate) struct AttemptPlanner {
     pub(crate) saw_rate_limit: bool,
     /// 最近一次重排里限频 / 冷却挡掉的候选最早可放行时刻（Unix 毫秒），429 的 `Retry-After` 取它。
     pub(crate) retry_at_ms: Option<i64>,
+    /// 最近一次重排里是否有平台因额度窗口耗尽被挡（终态 429 据此沿用额度审计标记）。
+    pub(crate) saw_quota_window: bool,
 }
 
 impl AttemptPlanner {
@@ -137,10 +139,14 @@ impl AttemptPlanner {
             .await
             .map(|s| {
                 self.saw_rate_limit = s.routing.entries.iter().any(|e| e.reason == aidog_db::models::RouteReason::RateLimited);
+                self.saw_quota_window = s.routing.entries.iter().any(|e| e.reason == aidog_db::models::RouteReason::QuotaWindowExhausted);
                 self.retry_at_ms = s.routing.retry_at_ms();
                 s.candidates
             })
             .map_err(|e| {
+                if e.starts_with(crate::gateway::quota_window::QUOTA_BLOCKED_REASON) {
+                    self.saw_quota_window = true;
+                }
                 self.retry_at_ms = e.routing.retry_at_ms();
                 e.to_string()
             })
@@ -200,6 +206,7 @@ impl<'k> AttemptLoop<'k> {
         attempts_len: usize,
     ) -> Option<Pick> {
         let mut rate_limited = false;
+        let mut quota_window = false;
         loop {
             if self.budget.exhausted() {
                 return None;
@@ -210,10 +217,14 @@ impl<'k> AttemptLoop<'k> {
                     Ok(c) => c,
                     Err(e) => {
                         rate_limited |= e == "rate_limit";
+                        quota_window |= e.starts_with(crate::gateway::quota_window::QUOTA_BLOCKED_REASON);
                         if is_config_empty(&e) || !self.new_round(log, attempts_len).await {
-                            // 重排时剩余候选全被限频挡掉：终态 503 沿用限频审计标记
+                            // 重排时剩余候选全被限频 / 额度窗口挡掉：终态沿用对应审计标记（429 + Retry-After）
                             if rate_limited {
                                 mark_rate_limited(log);
+                                note_retry_at(log, self.planner.retry_at_ms);
+                            } else if quota_window {
+                                mark_quota_window(log);
                                 note_retry_at(log, self.planner.retry_at_ms);
                             }
                             return None;
@@ -226,11 +237,15 @@ impl<'k> AttemptLoop<'k> {
                 self.cur = Some((pick.route.platform.id, pick.route.target_model.clone(), pick.route.platform.base_url.clone()));
                 return Some(pick);
             }
-            // 重排时有平台被限频挡掉、其余都已排除：终态 503 沿用限频审计标记
+            // 重排时有平台被限频 / 额度窗口挡掉、其余都已排除：终态沿用对应审计标记
             rate_limited |= self.planner.saw_rate_limit;
+            quota_window |= self.planner.saw_quota_window;
             if !self.new_round(log, attempts_len).await {
                 if rate_limited {
                     mark_rate_limited(log);
+                    note_retry_at(log, self.planner.retry_at_ms);
+                } else if quota_window {
+                    mark_quota_window(log);
                     note_retry_at(log, self.planner.retry_at_ms);
                 }
                 return None;

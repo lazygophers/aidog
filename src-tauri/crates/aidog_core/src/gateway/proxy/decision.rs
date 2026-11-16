@@ -127,6 +127,15 @@ pub(crate) async fn route_fail_response(
             StatusCode::TOO_MANY_REQUESTS,
             format!("{}: {err}", i18n::t(lang, ErrorKey::Route)),
         )
+    } else if err == crate::gateway::quota_window::QUOTA_BLOCKED_REASON {
+        // 额度窗口耗尽（extra.quota_windows 执行，2026-11-16）：429 + Retry-After（锚点为
+        // 路由快照里记的命中窗口结束时刻，add_retry_after 读取）。
+        log.blocked_reason = err.to_string();
+        log.response_body = format!("route error: {err}");
+        (
+            StatusCode::TOO_MANY_REQUESTS,
+            format!("{}: {err}", i18n::t(lang, ErrorKey::Route)),
+        )
     } else if err == "slot_disabled" {
         // 命中槽位被关闭（extra.disabled_slots）导致整组无候选：503 + blocked_reason='slot_disabled'。
         log.blocked_reason = "slot_disabled".to_string();

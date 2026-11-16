@@ -125,7 +125,7 @@ pub(crate) use endpoint::{
     KeyCandidate, KeyChannel, custom_key_header_names, key_candidates, load_custom_key_channels};
 pub(crate) use finish::{AttemptCtx, finish_nonstream, finish_stream};
 pub(crate) use forward::{AttemptOutcome, add_retry_after, note_retry_at, CallBudget, exhausted_status, finalize_proxy_502, forward_attempt};
-pub(crate) use rate_slot::{RateSlot, RateSlotCtx, mark_rate_limited};
+pub(crate) use rate_slot::{RateSlot, RateSlotCtx, mark_quota_window, mark_rate_limited};
 pub(crate) use group_info::handle_group_info;
 pub(crate) use mcp_http::{handle_mcp, handle_mcp_get};
 pub(crate) use management::handle_management;

@@ -646,6 +646,9 @@ pub async fn estimate_after_request(
     tool_cost_usd: f64,
     // 按次计量次数（rerank：search_units；embedding/chat 路径 0 = 缺次数按 1 次估，同 billing.rs）。
     request_units: i64,
+    // 额度窗口执行范围（2026-11-16 拍板，照限频占位先例）：聊天 + 向量化/重排序 true；
+    // 搜索转发（tools）false——不因额度窗口计数（次数窗口在转发前按尝试计数，不经此处）。
+    count_quota_windows: bool,
 ) -> bool {
     // 判峰时刻与 calc_est_cost 同源：用请求发起时刻（created_at_ms），不用完成后的 now()
     // —— 跨峰边界请求（17:59 发 18:05 完）此前两套口径对不上。缺时间戳（0）才退 now()。
@@ -726,6 +729,8 @@ pub async fn estimate_after_request(
 
     // 1b. 手动预算扣减（独立于上游 quota 的并行机制；无 manual_budgets 则 no-op）。
     //     est_cost 走 resolve_price（与按量平台一致，含默认价回退）；token 扣总 token。
+    //     额度窗口（extra.quota_windows 执行）同口径复用同一 est_cost / 总 token：
+    //     token 窗口计 cache（读+写）在内，金额窗口按 est_cost；次数窗口不经此处。
     {
         let total_tokens = (input_tokens + output_tokens + cache_tokens + cache_write_tokens) as f64;
         let est_cost = resolved_price
@@ -753,6 +758,17 @@ pub async fn estimate_after_request(
             now(),
         )
         .await;
+        if count_quota_windows {
+            let _ = crate::gateway::quota_window::record_usage(
+                db,
+                platform_id,
+                extra,
+                total_tokens,
+                est_cost,
+                now(),
+            )
+            .await;
+        }
     }
 
     // 2. 校准判定（短读，锁外 await）

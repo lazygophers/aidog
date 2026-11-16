@@ -435,11 +435,15 @@ pub(crate) struct RouteInputs {
     pub(crate) decision_models: DecisionModels,
     /// 自定义槽位定义（仅聊天请求读取；`None` = 非聊天请求不参与）。
     pub(crate) custom_defs: Option<Vec<CustomSlotDef>>,
+    /// 额度窗口用量（extra.quota_windows 执行，2026-11-16）：仅执行范围类（聊天 +
+    /// 向量化/重排序）读取；决策 / 搜索转发豁免 → 空 map（不筛不计数）。
+    pub(crate) quota_usage: HashMap<u64, Vec<crate::gateway::quota_window::QuotaUsage>>,
 }
 
 impl RouteInputs {
-    /// 一次读齐三处每请求稳定输入：分组平台列表（platform.db 读池）、registry decision
-    /// 能力模型（仅决策请求）、自定义槽位定义（仅聊天请求，settings 内存缓存读）。
+    /// 一次读齐四处每请求稳定输入：分组平台列表（platform.db 读池）、registry decision
+    /// 能力模型（仅决策请求）、自定义槽位定义（仅聊天请求，settings 内存缓存读）、
+    /// 额度窗口用量（仅执行范围类，platform.db 读池）。
     pub(crate) async fn load(
         db: &db::Db,
         group: &Group,
@@ -461,10 +465,22 @@ impl RouteInputs {
         } else {
             None
         };
+        // 额度窗口用量：只为配置了 enabled 窗口的平台读（零配置请求零读库）。
+        let quota_usage = if matches!(kind, RequestKind::Chat | RequestKind::Embedding | RequestKind::Rerank) {
+            let ids: Vec<u64> = group_platforms
+                .iter()
+                .filter(|gp| crate::gateway::quota_window::has_enabled_windows(&gp.platform.extra))
+                .map(|gp| gp.platform.id)
+                .collect();
+            crate::gateway::quota_window::load_usage(db, &ids).await
+        } else {
+            HashMap::new()
+        };
         Ok(Self {
             group_platforms,
             decision_models,
             custom_defs,
+            quota_usage,
         })
     }
 }
@@ -541,6 +557,7 @@ async fn select_candidates_inner(
         group_platforms,
         decision_models,
         custom_defs,
+        quota_usage,
     } = match preloaded {
         Some(v) => v,
         None => RouteInputs::load(db, group, kind).await?,
@@ -665,6 +682,7 @@ async fn select_candidates_inner(
             Some(&health_keys),
             usage_counts.as_ref(),
             Some(&pace_smart_keys),
+            &quota_usage,
         );
     }
 
@@ -716,6 +734,7 @@ async fn select_candidates_inner(
         rate_limited_count,
         slot_disabled_count,
         custom_unfilled_count,
+        quota_window_count,
         retry_at_ms,
     } = filter_candidates(
         &group_platforms,
@@ -729,6 +748,7 @@ async fn select_candidates_inner(
         &decision_models,
         client,
         effective_mode,
+        &quota_usage,
     );
 
     // ── 阶段 2: 熔断全空回退透传 ──
@@ -916,6 +936,19 @@ async fn select_candidates_inner(
             );
             return Err(RouteFail {
                 reason: "rate_limit".to_string(),
+                routing,
+            });
+        }
+        // 整组所有候选都因额度窗口耗尽被排除（extra.quota_windows 执行）→ 返 quota_window_exhausted，
+        // caller 落审计 proxy_log（blocked_by='router', blocked_reason='quota_window_exhausted',
+        // 429 + Retry-After=窗口剩余秒）。混合原因不命中，走下方兜底。
+        if quota_window_count > 0 && quota_window_count == group_platforms.len() {
+            tracing::info!(
+                group = %group.name, quota_window = quota_window_count,
+                "all candidates quota-window exhausted; returning quota_window_exhausted error for audit log"
+            );
+            return Err(RouteFail {
+                reason: crate::gateway::quota_window::QUOTA_BLOCKED_REASON.to_string(),
                 routing,
             });
         }
@@ -1378,6 +1411,7 @@ fn select_direct_candidates(
     health_keys: Option<&HashMap<u64, HealthOrderKey>>,
     usage_counts: Option<&HashMap<u64, i64>>,
     pace_smart_keys: Option<&HashMap<u64, PaceSmartKey>>,
+    quota_usage: &HashMap<u64, Vec<crate::gateway::quota_window::QuotaUsage>>,
 ) -> Result<CandidateSet, RouteFail> {
     let in_direct = |gp: &GroupPlatformDetail| direct_ids.contains(&gp.platform.id);
     let FilteredCandidates {
@@ -1398,6 +1432,7 @@ fn select_direct_candidates(
         decision_models,
         client,
         mode,
+        quota_usage,
     );
     active.retain(|gp| in_direct(gp));
     probe.retain(|gp| in_direct(gp));
@@ -1608,6 +1643,8 @@ struct FilteredCandidates<'a> {
     slot_disabled_count: usize,
     /// 因自定义槽混合组收紧（组内有平台填值、本平台未填）排除的平台数。
     custom_unfilled_count: usize,
+    /// 因额度窗口耗尽（extra.quota_windows 执行）排除的平台数。
+    quota_window_count: usize,
     /// 被本地限频 / 上游限频冷却挡掉的候选里，最早可再放行的时刻（Unix 毫秒）。
     retry_at_ms: Option<i64>,
 }
@@ -1631,6 +1668,8 @@ fn filter_candidates<'a>(
     decision_models: &DecisionModels,
     client: ClientGate,
     mode: RoutingMode,
+    // 额度窗口用量（extra.quota_windows 执行）：platform_id → 用量行；空 map = 不筛。
+    quota_usage: &HashMap<u64, Vec<crate::gateway::quota_window::QuotaUsage>>,
 ) -> FilteredCandidates<'a> {
     let mut active = Vec::new();
     let mut probe = Vec::new();
@@ -1643,6 +1682,7 @@ fn filter_candidates<'a>(
     let mut rate_limited_count = 0;
     let mut slot_disabled_count = 0;
     let mut custom_unfilled_count = 0;
+    let mut quota_window_count = 0;
     let mut retry_at_ms: Option<i64> = None;
 
     let breaker_enabled = ctx.map(|c| c.settings.enabled).unwrap_or(false);
@@ -1701,6 +1741,22 @@ fn filter_candidates<'a>(
         // （candidate_state 已按 Passthrough 跳过高峰禁用与 auto_disabled）。
         if matches!(gp.platform.platform_type, Protocol::Passthrough) {
             active.push(gp);
+            continue;
+        }
+
+        // 额度窗口维度（extra.quota_windows 执行，2026-11-16）：任一 enabled 窗口耗尽 → 排除
+        // （临时性维度，窗口过后自动恢复，不改 status 三态；透传豁免已在上方 continue）。
+        // 判定复用 gateway::quota_window::platform_exhausted_at（与转发前占位同口径）。
+        if let Some(usage) = quota_usage.get(&gp.platform.id)
+            && let Some(at) = crate::gateway::quota_window::platform_exhausted_at(
+                &db::models::parse_quota_windows(&gp.platform.extra),
+                usage,
+                now_ms,
+            )
+        {
+            quota_window_count += 1;
+            retry_at_ms = Some(retry_at_ms.map_or(at, |m: i64| m.min(at)));
+            excluded.push((gp, RouteReason::QuotaWindowExhausted));
             continue;
         }
 
@@ -1800,6 +1856,7 @@ fn filter_candidates<'a>(
         rate_limited_count,
         slot_disabled_count,
         custom_unfilled_count,
+        quota_window_count,
         retry_at_ms,
     }
 }

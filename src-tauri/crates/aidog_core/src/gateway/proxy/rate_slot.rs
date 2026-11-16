@@ -97,3 +97,10 @@ pub(crate) fn mark_rate_limited(log: &mut ProxyLog) {
     log.blocked_by = "router".to_string();
     log.blocked_reason = "rate_limit".to_string();
 }
+
+/// 额度窗口耗尽（extra.quota_windows 执行）：尝试循环重排无候选 / 闸门挡候选时落
+/// blocked_reason，终态据此出 429 + Retry-After。
+pub(crate) fn mark_quota_window(log: &mut ProxyLog) {
+    log.blocked_by = "router".to_string();
+    log.blocked_reason = crate::gateway::quota_window::QUOTA_BLOCKED_REASON.to_string();
+}

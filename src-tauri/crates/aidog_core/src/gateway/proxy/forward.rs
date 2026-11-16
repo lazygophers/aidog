@@ -81,6 +81,19 @@ pub(crate) async fn forward_attempt(
         Ok(access) => access,
         Err(()) => return AttemptOutcome::Next { connect_failed: false },
     };
+    // 额度窗口闸门（extra.quota_windows 执行）：超限不发上游请求（不计调用次数），排除整个平台。
+    if !crate::gateway::quota_window::gate_attempt(
+        &state.db,
+        log,
+        attempts,
+        &route.platform,
+        &route.target_model,
+        model_alt,
+    )
+    .await
+    {
+        return AttemptOutcome::Next { connect_failed: false };
+    }
     let tried: Vec<u64> = attempts.iter().map(|a| a.platform_id).chain([route.platform.id]).collect();
     let capped = budget.begin_call_untried(log, &tried);
     let mut switched = false;
@@ -118,9 +131,12 @@ pub(crate) async fn forward_attempt(
     }
 }
 
-/// 候选耗尽终态状态码：被限频挡掉（`mark_rate_limited` 已标）→ 429（客户端应退避重试），其余 503。
+/// 候选耗尽终态状态码：被限频挡掉（`mark_rate_limited` 已标）或额度窗口耗尽
+/// （extra.quota_windows 执行）→ 429（客户端应退避重试），其余 503。
 pub(crate) fn exhausted_status(log: &ProxyLog) -> StatusCode {
-    if log.blocked_reason == "rate_limit" {
+    if log.blocked_reason == "rate_limit"
+        || log.blocked_reason == crate::gateway::quota_window::QUOTA_BLOCKED_REASON
+    {
         StatusCode::TOO_MANY_REQUESTS
     } else {
         StatusCode::SERVICE_UNAVAILABLE
