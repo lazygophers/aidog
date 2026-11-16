@@ -3640,6 +3640,20 @@
       "desktopOnly": false,
       "params": [],
       "returns": "aidog_stats::TodayStats"
+    },
+    {
+      "name": "variables_codex_save",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "variables",
+          "type": "Vec<Variable>"
+        }
+      ],
+      "returns": "Vec<String>"
     }
   ]
 }

@@ -686,6 +686,11 @@ fn run_once(conn: &Connection, id: &str, f: impl FnOnce(&Connection) -> SqlResul
     }
 }
 
+fn clear_legacy_group_env_vars(conn: &Connection) -> SqlResult<()> {
+    conn.execute("UPDATE \"group\" SET env_vars = '[]' WHERE env_vars != '[]'", [])?;
+    Ok(())
+}
+
 /// proxy_log 表的 late migrations（log.db 库内序 20260727-10..20，原 021–047 范围内的 proxy_log 部分）。
 ///
 /// 拆库后这些 DDL 跑在 log.db 写连接。`cpa_pids` 为原 046 需清理的 CPA 平台 ID
@@ -1187,6 +1192,11 @@ ALTER TABLE "group_new" RENAME TO "group";
     let _ = conn.execute(
         "ALTER TABLE \"group\" ADD COLUMN env_vars TEXT NOT NULL DEFAULT '[]'",
         [],
+    );
+    run_once(
+        conn,
+        "20261116-01-clear-group-env-vars",
+        clear_legacy_group_env_vars,
     );
 
     // Migration 20260727-12 (原 039): 重写历史 last_error 残留完整 JSON body 为提取后 message。
@@ -2411,6 +2421,7 @@ pub fn migrate_oauth_raw_columns(conn: &Connection) {
                 .map_err(|e| e.to_string())?;
                 Ok(())
             })();
+
             if let Err(e) = row {
                 tracing::warn!(table, key = ?k, error = %e, "oauth raw migration row failed, plaintext kept for next startup");
             }
@@ -2418,11 +2429,24 @@ pub fn migrate_oauth_raw_columns(conn: &Connection) {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use rusqlite::Connection;
+
+    #[test]
+    fn clears_legacy_group_environment_variables_once() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            r#"CREATE TABLE "group" (env_vars TEXT NOT NULL); INSERT INTO "group" VALUES ('[{"key":"OLD","value":"secret"}]');"#,
+        )
+        .unwrap();
+        run_once(&conn, "20261116-01-clear-group-env-vars", clear_legacy_group_env_vars);
+        let value: String = conn
+            .query_row(r#"SELECT env_vars FROM "group""#, [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(value, "[]");
+    }
 
     fn no_op_backfill() -> crate::schema::BackfillFn {
         std::sync::Arc::new(|_c: &Connection, _m: &std::collections::HashMap<String, i64>| Ok(()))
@@ -3840,8 +3864,7 @@ mod tests {
         migrate_proxy_client_setting_main(&main);
         let v: serde_json::Value = serde_json::from_str(
             &main.query_row::<String, _, _>("SELECT value FROM setting WHERE scope='proxy' AND key='proxy_client'", [], |r| r.get(0)).unwrap(),
-        )
-        .unwrap();
+        ).unwrap();
         assert_eq!(v["host"], "", "默认主机 + 关 → 清空");
         assert_eq!(proxy_extra_of(&plat, 1)["proxy_enabled"], false);
     }
@@ -3957,7 +3980,8 @@ mod tests {
         main.execute(
             "UPDATE setting SET value = ?1 WHERE scope='proxy' AND key='proxy_client'",
             [r#"{"enabled":true,"host":"127.0.0.1"}"#],
-        ).unwrap();
+        )
+        .unwrap();
         let legacy = read_proxy_client_legacy(&main).unwrap();
         assert_eq!(legacy, Some(true));
         migrate_proxy_client_setting_platform(&plat, legacy);
@@ -4112,6 +4136,8 @@ mod tests {
             &db2.call_read_platform_traced(None, std::panic::Location::caller(), |conn| {
                 Ok(conn.query_row::<String, _, _>("SELECT extra FROM platform WHERE id = 1", [], |r| r.get(0)).unwrap())
             })
+
+
             .await
             .unwrap(),
         )
@@ -4136,5 +4162,3 @@ mod tests {
         assert_eq!(extra2, extra, "二次启动幂等");
     }
 }
-
-

@@ -586,7 +586,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
   const saveEdit = async () => {
     if (!editTarget) return;
     try {
-      // Update group basic info + inline model mappings + env vars
+      // Update group basic info + inline model mappings
       await groupApi.update({
         id: editTarget.group.id,
         name: edit.name,
@@ -595,7 +595,6 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
         connect_timeout_secs: edit.connTimeout,
         max_retries: edit.maxRetries,
         model_mappings: edit.mappings,
-        env_vars: edit.envVars,
       });
       // Update platforms
       await groupApi.setPlatforms(
@@ -681,8 +680,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     if (!detail) return;
     try {
       const next = detail.model_mappings.filter((_, i) => i !== index);
-      // ponytail: env_vars 必须透传，否则被 default 清空。
-      await groupApi.update({ id: groupId, model_mappings: next, env_vars: detail.group.env_vars });
+      await groupApi.update({ id: groupId, model_mappings: next });
       refreshSingleGroup(groupId); // 单组映射删除 → 就地刷新
       onGroupsChanged?.();
     } catch (e) {

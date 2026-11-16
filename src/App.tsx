@@ -27,6 +27,8 @@ const MiddlewareTryPanel = lazy(() => import("./components/settings/MiddlewareTr
 const Mcp = lazy(() => import("./pages/Mcp").then(m => ({ default: m.Mcp })));
 const Tools = lazy(() => import("./pages/Tools").then(m => ({ default: m.Tools })));
 const Subagents = lazy(() => import("./pages/Subagents").then(m => ({ default: m.Subagents })));
+const ContextCompress = lazy(() => import("./pages/ContextCompress").then(m => ({ default: m.ContextCompress })));
+const Variables = lazy(() => import("./pages/Variables").then(m => ({ default: m.Variables })));
 const RequestLog = lazy(() => import("./pages/RequestLog").then(m => ({ default: m.RequestLog })));
 const MitmLog = lazy(() => import("./pages/MitmLog").then(m => ({ default: m.MitmLog })));
 const ToolLog = lazy(() => import("./pages/ToolLog").then(m => ({ default: m.ToolLog })));
@@ -221,6 +223,8 @@ function App() {
             {effectiveNav === "mcp" && <Mcp />}
             {effectiveNav === "tools" && <Tools />}
             {effectiveNav === "subagents" && <Subagents />}
+            {effectiveNav === "context-compress" && <ContextCompress />}
+            {effectiveNav === "variables" && <Variables />}
             {effectiveNav === "middleware" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                 <MiddlewareSettingsTab />

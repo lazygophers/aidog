@@ -2,7 +2,6 @@ export * from "./routing";
 export * from "./query";
 export * from "./commands";
 export * from "./piApi";
-export * from "./proxy-env";
 export * from "./editReducer";
 export { GroupIcon } from "./GroupIcon";
 export { PlatformPicker, type SortablePlatform, PICKER_F } from "./PlatformPicker";

@@ -376,34 +376,9 @@
     [
       "sourceProtocol",
       "Source Protocol"
-    ],
-    [
-      "envVars",
-      "Variables de entorno"
-    ],
-    [
-      "envVarsHint",
-      "Variables de entorno por grupo; se inyectan en Claude settings.env al sincronizar y se anteponen como export al copiar el comando Codex."
-    ],
-    [
-      "envVarKey",
-      "Nombre de variable (p. ej. ANTHROPIC_DEFAULT_OPUS_MODEL)"
-    ],
-    [
-      "envVarValue",
-      "Valor"
-    ],
-    [
-      "envVarReservedHint",
-      "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY son campos de enrutamiento de aidog y se descartarán al guardar."
-    ],
-    [
-      "addEnvVar",
-      "Añadir variable de entorno"
     ]
   ],
   "group.add": "Añadir grupo",
-  "group.addEnvVar": "Añadir variable de entorno",
   "group.addMappingFailed": "Error al añadir la asignación",
   "group.addPlatform": "+ Añadir plataforma",
   "group.addPlatformToGroup": "Añadir plataforma a este grupo",
@@ -497,11 +472,6 @@
   "group.edit": "Editar",
   "group.empty": "Aún no hay grupos.",
   "group.noPlatforms": "No hay plataformas en este grupo",
-  "group.envVarKey": "Nombre de la variable (p. ej. ANTHROPIC_DEFAULT_OPUS_MODEL)",
-  "group.envVarReservedHint": "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY son campos de enrutamiento de aidog y se descartarán al guardar.",
-  "group.envVarValue": "Valor de la variable",
-  "group.envVars": "Variables de entorno",
-  "group.envVarsHint": "Variables de entorno de sesión para este grupo; se inyectan en Claude settings.env al sincronizar y se anteponen como export al copiar el comando Codex.",
   "group.failover": "Conmutación por error",
   "group.groupKey": "Clave de grupo (auto-generada si vacío)",
   "group.groupKeyHint": "Clave de grupo (= API Key / identidad de enrutado). Auto-generada si vacío; bloqueada tras la creación.",
@@ -1445,6 +1415,13 @@
   "nav.logs": "Registro Proxy",
   "nav.mcp": "MCP",
   "nav.subagents": "Subagentes",
+  "nav.contextCompress": "Compresión de contexto",
+  "nav.variables": "Variables",
+  "variables.title": "Variables",
+  "variables.desc": "Gestiona variables de entorno para Claude Code y Codex",
+  "variables.name": "Nombre de variable",
+  "variables.value": "Valor de variable",
+  "variables.add": "Añadir variable",
   "nav.tools": "Herramientas",
   "nav.notifications": "Notificaciones",
   "nav.platforms": "Plataformas IA",
