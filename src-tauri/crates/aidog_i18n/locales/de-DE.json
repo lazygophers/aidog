@@ -1518,7 +1518,7 @@
   "plugins.emptyClaude": "Keine installierten Plugins gefunden (~/.claude/plugins/installed_plugins.json fehlt oder ist leer)",
   "plugins.emptyCodex": "Keine Plugins installiert",
   "plugins.emptyMarkets": "Keine Marketplaces hinzugefügt",
-  "plugins.installedAt": "Aktualisiert am {time}",
+  "plugins.installedAt": "Aktualisiert: {time}",
   "plugins.addPlugin": "Plugin installieren",
   "plugins.addPluginPlaceholder": "plugin@marketplace, z. B. hello@testmkt",
   "plugins.addMarketplace": "Marketplace hinzufügen",

@@ -1421,7 +1421,7 @@
   "nav.variables": "Variables",
   "nav.plugins": "Gestión de plugins",
   "variables.title": "Variables",
-  "variables.desc": "Gestiona variables de entorno para Claude Code y Codex",
+  "variables.desc": "Gestionar variables de entorno para Claude Code y Codex",
   "variables.name": "Nombre de variable",
   "variables.value": "Valor de variable",
   "variables.add": "Añadir variable",
