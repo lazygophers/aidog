@@ -507,6 +507,61 @@
       "returns": "CodingToolsSettings"
     },
     {
+      "name": "context_compress_install",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "tool",
+          "type": "String"
+        }
+      ],
+      "returns": "ContextCompressStatus"
+    },
+    {
+      "name": "context_compress_rtk_set",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "agent",
+          "type": "String"
+        },
+        {
+          "name": "on",
+          "type": "bool"
+        }
+      ],
+      "returns": "ContextCompressStatus"
+    },
+    {
+      "name": "context_compress_sqz_set",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "on",
+          "type": "bool"
+        }
+      ],
+      "returns": "ContextCompressStatus"
+    },
+    {
+      "name": "context_compress_status",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "ContextCompressStatus"
+    },
+    {
       "name": "custom_slot_purge",
       "category": "settings",
       "kind": "mutating",
