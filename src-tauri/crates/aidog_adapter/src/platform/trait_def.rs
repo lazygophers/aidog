@@ -16,7 +16,7 @@ pub type UsageTuple = (i32, i32, i32, i32, i32, Vec<(String, i64)>);
 ///
 /// 五件核心接口（请求构造 / 非流式响应解析 / 流式事件解析 / 错误体处理 / usage 抽取）
 /// 与差异钩子的默认实现 = 协议构件组合，即家族基座；成员覆盖差异
-/// （示例 [`crate::platform::registry::KimiAdapter`]）。
+/// （示例 [`crate::platform::registry::KimiFamilyAdapter`]）。
 pub trait PlatformAdapter: Send + Sync {
     /// ① 请求构造：内部归一请求 → 出站 JSON body + API path。
     /// `wire` = 端点协议（用户平台配置 `platform.endpoints[].protocol`），
