@@ -243,7 +243,9 @@ fn to_gemini_sse_variants() {
                 usage: Usage {
                     prompt_tokens: None,
                     completion_tokens: None,
-                    total_tokens: None
+                    total_tokens: None,
+                    cache_read_tokens: None,
+                    cache_write_tokens: None
                 }
             },
             "m"

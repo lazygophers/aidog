@@ -126,22 +126,119 @@ pub fn to_openai_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
             }
         }
         ChatStreamEvent::Stop { finish_reason } => {
-            let reason = match finish_reason.as_deref().unwrap_or("end_turn") {
-                "end_turn" => "stop",
-                other => other,
-            };
-            Some(format!(
-                "data: {}\n\ndata: [DONE]\n\n",
-                serde_json::json!({
-                    "id": "",
-                    "object": "chat.completion.chunk",
-                    "choices": [{"index": 0, "delta": {}, "finish_reason": reason}]
-                })
-            ))
+            Some(format!("{}\ndata: [DONE]\n\n", chat_finish_chunk(finish_reason.as_deref())))
         }
         ChatStreamEvent::Usage { .. } => None,
         // openai wire 没有 ping 事件，无处安放；keep-alive 由网关侧自发（见 aidog_core::gateway::proxy::stream::with_idle_ping）。
         ChatStreamEvent::Ping => None,
+    }
+}
+
+/// finish_reason → chat.completion.chunk 终止块（仅 `data:` 行，不含 [DONE] 哨兵）。
+fn chat_finish_chunk(finish_reason: Option<&str>) -> String {
+    let reason = match finish_reason.unwrap_or("end_turn") {
+        "end_turn" => "stop",
+        other => other,
+    };
+    format!(
+        "data: {}\n\n",
+        serde_json::json!({
+            "id": "",
+            "object": "chat.completion.chunk",
+            "choices": [{"index": 0, "delta": {}, "finish_reason": reason}]
+        })
+    )
+}
+
+/// usage → usage 终块（issue 71）：官方形态 choices 为空数组，usage 挂顶层；
+/// 缓存读走 `prompt_tokens_details.cached_tokens`（仅上游提供时出现）。
+fn chat_usage_chunk(usage: &Usage) -> String {
+    let mut u = serde_json::json!({
+        "prompt_tokens": usage.prompt_tokens.unwrap_or(0),
+        "completion_tokens": usage.completion_tokens.unwrap_or(0),
+        "total_tokens": usage.effective_total().unwrap_or(0),
+    });
+    if let Some(cr) = usage.cache_read_tokens {
+        u["prompt_tokens_details"] = serde_json::json!({ "cached_tokens": cr });
+    }
+    format!(
+        "data: {}\n\n",
+        serde_json::json!({
+            "id": "",
+            "object": "chat.completion.chunk",
+            "choices": [],
+            "usage": u,
+        })
+    )
+}
+
+/// OpenAI Chat 客户端流式状态机（issue 71）：usage 块仅当客户端请求带
+/// `stream_options.include_usage` 时下发，且 `[DONE]` 哨兵压到 usage 块之后
+/// （官方顺序 finish 块 → usage 块 → [DONE]；标准 SDK 读到 [DONE] 即停止迭代，
+/// 先发的 usage 会丢）。上游 usage 帧先于 / 后于 finish 块两种顺序都兜住。
+pub struct OpenAiSseState {
+    include_usage: bool,
+    pending_usage: Usage,
+    finish_emitted: bool,
+    done_sent: bool,
+}
+
+impl OpenAiSseState {
+    pub fn new(include_usage: bool) -> Self {
+        Self {
+            include_usage,
+            pending_usage: Usage::default(),
+            finish_emitted: false,
+            done_sent: false,
+        }
+    }
+
+    pub fn push(&mut self, event: &ChatStreamEvent, model: &str) -> Option<String> {
+        match event {
+            ChatStreamEvent::Usage { usage } => {
+                if !self.include_usage {
+                    return None;
+                }
+                self.pending_usage.merge_partial(usage);
+                if self.finish_emitted {
+                    // usage 帧晚于 finish 帧（官方 openai 分帧形态）：usage 块 + [DONE]
+                    let mut out = chat_usage_chunk(&self.pending_usage);
+                    out.push_str("data: [DONE]\n\n");
+                    self.done_sent = true;
+                    Some(out)
+                } else {
+                    None // usage 随终止块一起发
+                }
+            }
+            ChatStreamEvent::Stop { finish_reason } => {
+                if self.finish_emitted {
+                    return None; // 重复 Stop（anthropic message_delta + message_stop 等）
+                }
+                self.finish_emitted = true;
+                let mut out = chat_finish_chunk(finish_reason.as_deref());
+                if self.include_usage {
+                    out.push_str(&chat_usage_chunk(&self.pending_usage));
+                }
+                out.push_str("data: [DONE]\n\n");
+                self.done_sent = true;
+                Some(out)
+            }
+            other => to_openai_sse(other, model),
+        }
+    }
+
+    /// 流末冲刷：finish 块已发但 [DONE] 未发（等 usage 未等到）→ 补发哨兵。
+    pub fn flush(&mut self) -> Option<String> {
+        if self.done_sent {
+            return None;
+        }
+        self.done_sent = true;
+        Some("data: [DONE]\n\n".to_string())
+    }
+
+    /// 流被错误帧提前终止：错误帧自带 [DONE]，不再补发。
+    pub fn mark_done(&mut self) {
+        self.done_sent = true;
     }
 }
 

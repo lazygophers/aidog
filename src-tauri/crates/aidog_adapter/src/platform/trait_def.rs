@@ -52,8 +52,9 @@ pub trait PlatformAdapter: Send + Sync {
         converter::convert_response(body, wire, client, model)
     }
 
-    /// ③ 流式事件解析：上游单帧 `data:` JSON → 中立事件。
-    fn parse_sse_frame(&self, data: &Value, wire: &Protocol) -> Option<ChatStreamEvent> {
+    /// ③ 流式事件解析：上游单帧 `data:` JSON → 中立事件流（帧内带 usage 时多产出一个
+    /// `ChatStreamEvent::Usage`，见 converter::parse_sse，issue 71）。
+    fn parse_sse_frame(&self, data: &Value, wire: &Protocol) -> Vec<ChatStreamEvent> {
         converter::parse_sse(data, wire)
     }
 

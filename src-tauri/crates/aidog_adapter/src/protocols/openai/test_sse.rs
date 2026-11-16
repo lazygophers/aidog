@@ -149,6 +149,8 @@ fn to_sse_usage_none() {
             prompt_tokens: Some(1),
             completion_tokens: Some(1),
             total_tokens: Some(2),
+            cache_read_tokens: None,
+            cache_write_tokens: None,
         },
     };
     assert!(to_openai_sse(&ev, "m").is_none());

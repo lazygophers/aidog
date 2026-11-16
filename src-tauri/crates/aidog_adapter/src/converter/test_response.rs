@@ -445,11 +445,11 @@ fn to_anthropic_sse_maps_upstream_finish_reason_to_anthropic_vocabulary() {
 #[test]
 fn anthropic_sse_state_maps_upstream_finish_reason_to_anthropic_vocabulary() {
     let mut state = AnthropicSseState::default();
-    let sse = state
-        .push(&ChatStreamEvent::Stop {
-            finish_reason: Some("stop".to_string()),
-        })
-        .expect("Stop should produce SSE");
+    // issue 71：stop_reason 与 usage 的 message_delta 压到流末 flush
+    state.push(&ChatStreamEvent::Stop {
+        finish_reason: Some("stop".to_string()),
+    });
+    let sse = state.flush().expect("flush should produce terminal SSE");
     assert!(sse.contains("\"stop_reason\":\"end_turn\""), "got: {sse}");
 }
 
@@ -462,6 +462,8 @@ fn to_anthropic_sse_usage_returns_none() {
             prompt_tokens: Some(100),
             completion_tokens: Some(50),
             total_tokens: None,
+            cache_read_tokens: None,
+            cache_write_tokens: None,
         },
     };
     assert!(
@@ -843,6 +845,7 @@ fn responses_client_stream_renders_responses_events_via_state() {
         &mut state,
         &Protocol::OpenAIResponses,
         "gpt-5",
+        false,
     )
     .expect("Responses 客户端文本增量必须渲染");
     assert!(

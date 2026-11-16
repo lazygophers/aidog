@@ -6467,6 +6467,116 @@ async fn spawn_hanging_sse_upstream() -> String {
     format!("http://{addr}")
 }
 
+
+// ── issue 71：跨协议流式 usage 回传（本地假上游，无真实外呼）──
+
+/// anthropic 上游 SSE：message_start 带输入与缓存、message_delta 只带输出终值。
+const SSE_ANTHROPIC_USAGE: &str = concat!(
+    r#"data: {"type":"message_start","message":{"id":"m1","type":"message","role":"assistant","model":"claude-3","usage":{"input_tokens":10,"output_tokens":1,"cache_read_input_tokens":6,"cache_creation_input_tokens":2}}}"#, "\n\n",
+    r#"data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hi"}}"#, "\n\n",
+    r#"data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":9}}"#, "\n\n",
+    r#"data: {"type":"message_stop"}"#, "\n\n",
+);
+
+fn chat_completions_request_stream(gk: &str, include_usage: bool) -> Request {
+    let so = if include_usage {
+        r#","stream_options":{"include_usage":true}"#
+    } else {
+        ""
+    };
+    HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/chat/completions")
+        .header("authorization", format!("Bearer {gk}"))
+        .header("content-type", "application/json")
+        .body(Body::from(format!(
+            r#"{{"model":"gpt-x","stream":true{so},"messages":[{{"role":"user","content":"hi"}}]}}"#
+        )))
+        .unwrap()
+}
+
+async fn stream_usage_body(resp: axum::response::Response) -> String {
+    assert_eq!(resp.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    String::from_utf8(bytes.to_vec()).unwrap()
+}
+
+/// anthropic 上游 → openai 客户端（带 stream_options.include_usage）：恰一个 usage 块，
+/// input/output/cache 与上游一致，[DONE] 在 usage 块之后。
+#[tokio::test]
+async fn cross_protocol_stream_usage_openai_client_include_usage() {
+    let upstream = spawn_unified_upstream(200, "text/event-stream", SSE_ANTHROPIC_USAGE).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gk71a", &upstream).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        chat_completions_request_stream("gk71a", true),
+    )
+    .await;
+    let body = stream_usage_body(resp).await;
+    let usage_frames: Vec<serde_json::Value> = body
+        .lines()
+        .filter_map(|l| l.strip_prefix("data: "))
+        .filter_map(|d| serde_json::from_str::<serde_json::Value>(d).ok())
+        .filter(|j| j.get("usage").is_some())
+        .collect();
+    assert_eq!(usage_frames.len(), 1, "恰一个 usage 块: {body:?}");
+    let u = usage_frames[0]["usage"].as_object().unwrap();
+    assert_eq!(u["prompt_tokens"], 10, "{body:?}");
+    assert_eq!(u["completion_tokens"], 9, "{body:?}");
+    assert_eq!(u["prompt_tokens_details"]["cached_tokens"], 6, "{body:?}");
+    let usage_pos = body.find(r#""prompt_tokens":"#).unwrap();
+    let done_pos = body.find("data: [DONE]").expect("缺 [DONE]");
+    assert!(usage_pos < done_pos, "usage 块必须在 [DONE] 之前: {body:?}");
+}
+
+/// anthropic 上游 → openai 客户端（未带 include_usage）：无 usage 块，[DONE] 照常收尾。
+#[tokio::test]
+async fn cross_protocol_stream_usage_openai_client_without_include_usage() {
+    let upstream = spawn_unified_upstream(200, "text/event-stream", SSE_ANTHROPIC_USAGE).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gk71b", &upstream).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        chat_completions_request_stream("gk71b", false),
+    )
+    .await;
+    let body = stream_usage_body(resp).await;
+    assert!(
+        !body.contains(r#""usage":"#),
+        "未带 include_usage 不得有 usage 块: {body:?}"
+    );
+    assert!(body.contains("data: [DONE]"), "缺 [DONE] 终止哨兵: {body:?}");
+}
+
+/// anthropic 上游 → anthropic 客户端（平台变体路径）：message_delta.usage 与上游一致
+/// （input 10 / output 9 / cache_read 6 / cache_creation 2），message_stop 恰一次。
+#[tokio::test]
+async fn cross_protocol_stream_usage_anthropic_client_message_delta() {
+    let upstream = spawn_unified_upstream(200, "text/event-stream", SSE_ANTHROPIC_USAGE).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gk71c", &upstream).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_stream("gk71c"),
+    )
+    .await;
+    let body = stream_usage_body(resp).await;
+    let md: Vec<serde_json::Value> = body
+        .lines()
+        .filter_map(|l| l.strip_prefix("data: "))
+        .filter_map(|d| serde_json::from_str::<serde_json::Value>(d).ok())
+        .filter(|j| j["type"] == "message_delta")
+        .collect();
+    assert_eq!(md.len(), 1, "恰一帧 message_delta: {body:?}");
+    let u = md[0]["usage"].as_object().unwrap();
+    assert_eq!(u["input_tokens"], 10, "{body:?}");
+    assert_eq!(u["output_tokens"], 9, "{body:?}");
+    assert_eq!(u["cache_read_input_tokens"], 6, "{body:?}");
+    assert_eq!(u["cache_creation_input_tokens"], 2, "{body:?}");
+    assert_eq!(body.matches("event: message_stop").count(), 1, "message_stop 恰一次: {body:?}");
+}
+
 fn messages_request_stream(gk: &str) -> Request {
     messages_request(gk, r#"{"model":"claude-3","stream":true,"max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#)
 }
