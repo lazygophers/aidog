@@ -118,7 +118,8 @@ mod test_openai_max_completion_tokens {
 
 #[cfg(test)]
 mod test_disable_thinking {
-    use super::{Protocol, apply_disable_thinking, is_official_openai_host};
+    use aidog_adapter::platform::hooks::{apply_disable_thinking, is_official_openai_host};
+    use super::Protocol;
     use serde_json::json;
 
     /// anthropic：客户端开启型参数剔干净后，写入显式 `thinking.type=disabled`
