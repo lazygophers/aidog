@@ -16,9 +16,12 @@ mod ordering;
 
 #[allow(unused_imports)]
 pub use candidates::{
-    CandidateSet, ClientGate, ClientProbe, QuotaExhausted, RequestKind, RouteFail, ScheduleCtx, select_candidates, select_candidates_ctx,
-    select_candidates_gated, select_candidates_preloaded,
+    CandidateSet, ClientGate, ClientProbe, QuotaExhausted, RequestKind, RouteFail, ScheduleCtx,
+    select_candidates_gated,
 };
+pub(crate) use candidates::{RouteInputs, select_candidates_preloaded};
+#[cfg(test)]
+pub use candidates::select_candidates_for_test;
 
 // issue 68：出站 max_tokens 裁剪纯函数迁入 aidog_adapter::platform::hooks（平台适配器框架），
 // 此处 re-export 保持 `router::cap_max_tokens` 路径与既有调用 / 测试不变。

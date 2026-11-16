@@ -1,5 +1,11 @@
 use super::*;
-use aidog_adapter::platform::hooks::is_official_openai_host;
+
+// 票 09：出站整形纯函数已迁至 outbound_shape（机械迁移，零行为改动）。
+use super::outbound_shape::{
+    build_field_trace, dropped_media_fields, dropped_server_tools,
+    fold_openai_max_completion_tokens, hoist_mid_messages_system, rename_openai_max_tokens_key,
+    strip_default_image_detail, strip_redacted_thinking_blocks, strip_thinking_if_unmatched,
+};
 
 /// 阶段函数的退出契约。阶段只表达“换候选”或“终态响应”，
 /// 不把外层 forward_attempt 的结果类型泄漏进阶段。
@@ -42,7 +48,7 @@ pub(crate) async fn forward_attempt(
     candidate_total: usize,
     is_last_candidate: bool,
     budget: &mut CallBudget,
-    rate_slot: &mut Option<(u64, Option<Arc<crate::gateway::rate_limit::Access>>)>,
+    rate_slot: &mut RateSlot,
     log_settings: &ProxyLogSettings,
     lang: Lang,
     group: &Group,
@@ -60,73 +66,21 @@ pub(crate) async fn forward_attempt(
     let attempt_ts = aidog_db::now();
     // 平台限频（extra.rate_limits）：一次访问平台级只占一次；候选筛选后仍可能被并发抢占，
     // 占位失败按「该平台不可用」排除。模型级在每个模型开始前重判。
-    let rl_cfg = crate::gateway::rate_limit::RateLimitsCfg::parse(&route.platform.extra);
-    // 上一次调用的限频标记不带进本次；只有最后一次失败仍是限频，才以 blocked_reason='rate_limit' 落库。
-    if log.blocked_reason == "rate_limit" {
-        log.blocked_by.clear();
-        log.blocked_reason.clear();
-    }
-    let rl_est = if rl_cfg.has_tpm() {
-        super::count_tokens::estimate_input_tokens(req_value, requested_model)
-    } else {
-        0
+    let access = match rate_slot.enter(
+        state,
+        log,
+        attempts,
+        RateSlotCtx {
+            route: &route,
+            requested_model,
+            req_value,
+            model_alt,
+            label: "chat",
+        },
+    ) {
+        Ok(access) => access,
+        Err(()) => return AttemptOutcome::Next { connect_failed: false },
     };
-    if rate_slot.as_ref().map(|(pid, _)| *pid) != Some(route.platform.id) {
-        *rate_slot = None; // 释放上一平台的占位
-        let access = if rl_cfg.is_empty() {
-            None
-        } else {
-            let now = aidog_db::now();
-            match state.scheduler.rate.begin(
-                route.platform.id,
-                &rl_cfg.platform_limits(now),
-                now,
-                rl_est,
-            ) {
-                Some(a) => Some(a),
-                None => {
-                    tracing::warn!(platform = %route.platform.name, "rate limit reached at acquire, skipping candidate");
-                    note_retry_at(log, state.scheduler.rate.free_at(route.platform.id, "", &rl_cfg.platform_limits(now), now, rl_est));
-                    attempts.push(ProxyAttempt {
-                        kind: Some("rate_limit_platform".to_string()),
-                        // 整个平台都没轮到：平台上还有模型时记终止原因，画布给它们标「跳过」
-                        chain_stop: model_alt.then(|| "rate_limit".to_string()),
-                        platform_id: route.platform.id,
-                        platform_name: route.platform.name.clone(),
-                        error: "platform rate limit reached".to_string(),
-                        ts: attempt_ts,
-                        model: Some(route.target_model.clone()),
-                        exclusion: Some("platform".to_string()),
-                        ..Default::default()
-                    });
-                    mark_rate_limited(log);
-                    return AttemptOutcome::Next { connect_failed: false };
-                }
-            }
-        };
-        *rate_slot = Some((route.platform.id, access));
-    }
-    let access: Option<Arc<crate::gateway::rate_limit::Access>> = rate_slot.as_ref().and_then(|(_, a)| a.clone());
-    if let Some(a) = &access {
-        let model = route.target_model.clone();
-        let now = aidog_db::now();
-        if !a.enter_model(&model, &rl_cfg.model_limits(&model, now), now, rl_est) {
-            tracing::warn!(model = %model, "model-level rate limit reached, excluding pair");
-            note_retry_at(log, state.scheduler.rate.free_at(route.platform.id, &model, &rl_cfg.model_limits(&model, now), now, rl_est));
-            attempts.push(ProxyAttempt {
-                kind: Some("rate_limit_model".to_string()),
-                platform_id: route.platform.id,
-                platform_name: route.platform.name.clone(),
-                error: "model rate limit reached".to_string(),
-                ts: attempt_ts,
-                model: Some(model),
-                exclusion: Some("pair".to_string()),
-                ..Default::default()
-            });
-            mark_rate_limited(log);
-            return AttemptOutcome::Next { connect_failed: false };
-        }
-    }
     let tried: Vec<u64> = attempts.iter().map(|a| a.platform_id).chain([route.platform.id]).collect();
     let capped = budget.begin_call_untried(log, &tried);
     let mut switched = false;
@@ -162,12 +116,6 @@ pub(crate) async fn forward_attempt(
         }
         (out, _) => out,
     }
-}
-
-/// 限频占位失败：末候选走「全部耗尽」503 时据此落 blocked_reason（与路由层整组限频审计同值）。
-pub(crate) fn mark_rate_limited(log: &mut ProxyLog) {
-    log.blocked_by = "router".to_string();
-    log.blocked_reason = "rate_limit".to_string();
 }
 
 /// 候选耗尽终态状态码：被限频挡掉（`mark_rate_limited` 已标）→ 429（客户端应退避重试），其余 503。
@@ -308,17 +256,36 @@ async fn forward_attempt_model(
     // 替换模型名
     chat_req.model = actual_model.clone();
 
+    // 票 10：预取两处出站整形读库进 OutboundCtx（M4「单入口 shape(body)」落选形状的前置：
+    // 读库进 ctx 后整形链可再收成纯函数单入口）。上限按 (平台协议裸名, 实际请求模型) 查
+    // model_entry —— 同一模型在不同平台上限可不同。
+    let model_max = aidog_db::model_max_output_tokens(
+        &state.db,
+        &route.platform.platform_type.wire_str(),
+        &actual_model,
+    )
+    .await
+    .ok()
+    .flatten();
+    let model_forces_thinking = model_forces_thinking(
+        &state.db,
+        &route.platform.platform_type.wire_str(),
+        &actual_model,
+    )
+    .await;
 
-    let Prepared { mut req_body, url } = match prepare_outbound(
+    let Prepared { mut req_body, url } = match prepare_outbound(OutboundCtx {
         state,
         group,
-        &route,
+        route: &route,
         log,
         chat_req,
         req_value,
-        &mut header_injects,
-        &target,
-        actual_model.clone(),
+        header_injects: &mut header_injects,
+        target: &target,
+        actual_model: actual_model.clone(),
+        model_max,
+        model_forces_thinking,
         is_stream,
         lang,
         log_settings,
@@ -327,7 +294,7 @@ async fn forward_attempt_model(
         attempt_start,
         attempt_ts,
         disable_thinking,
-    )
+    })
         .await
         {
             Ok(v) => v,
@@ -445,6 +412,7 @@ async fn forward_attempt_model(
                 has_next_model,
                 switched,
                 ttfb_ms: Some(ttfb_ms),
+                candidate_total,
             },
         )
         .await;
@@ -523,33 +491,8 @@ async fn forward_attempt_model(
         () => {{
             // 熔断指标：成功 → 更新延迟 EMA + breaker Closed/HalfOpen→Closed + inflight-1。
             // 注意流式此处为「首个有效内容」延迟（peek 已收到内容）；作为延迟近似记入 EMA。
-            state.scheduler.record_success(route.platform.id, attempt_latency_ms);
-            // 最近一次成功 → 清本平台 last_error。不读路由缓存快照判空（失败写库不失效缓存，快照会陈旧）；
-            // 无错时 SQL 的 `last_error != ''` 条件使 UPDATE 零行。
-            let _ = aidog_db::set_platform_last_error(&state.db, route.platform.id, None).await;
-            attempts.push(ProxyAttempt {
-                chain_stop: None,
-                ttfb_ms: Some(ttfb_ms),
-                platform_id: route.platform.id,
-                platform_name: route.platform.name.clone(),
-                status_code: status.as_u16() as i32,
-                error: String::new(),
-                duration_ms: attempt_latency_ms,
-                ts: attempt_ts,
-                model: Some(route.target_model.clone()),
-                ..Default::default()
-            });
-            if route.platform.status == super::models::PlatformStatus::AutoDisabled {
-                if let Err(e) = aidog_db::recover_platform_auto_disabled(&state.db, route.platform.id).await {
-                    tracing::error!(platform_id = route.platform.id, error = %e, "recover auto-disabled platform failed");
-                } else {
-                    tracing::info!(platform = %route.platform.name, platform_id = route.platform.id, "platform recovered from auto-disabled (2xx)");
-                    // status 列变了（auto_disabled → enabled）：复用 proxy-log-updated 通知前端
-                    // 停留页面轻刷（refreshStats 合并 status）。此处不一定紧跟日志终态写
-                    // （单请求多 attempt / 早退路径），自 notify 防 UI 状态陈旧。
-                    aidog_ctx::emit("proxy-log-updated", route.platform.id.into());
-                }
-            }
+            super::call_scope::commit_success(state, &route, attempts, status.as_u16(), Some(ttfb_ms), attempt_latency_ms, attempt_ts).await;
+            // 成功后把 attempts 收进 log（guard 快照与 finish 终态写依赖此前填充；原宏同语义）。
             log.platform_id = route.platform.id;
             log.retry_count = aidog_db::models::retry_count_of(&attempts);
             log.attempts = std::mem::take(attempts);
@@ -712,143 +655,6 @@ pub(crate) async fn finalize_proxy_502(
     r
 }
 
-/// 第三方 anthropic 端点不支持字段剔除（仅在已判定为非官方 anthropic 端点时调用）。
-///
-/// **`context_management`（无条件剔）**：thinking 开启（`thinking.type != "disabled"`）即剔，
-/// 独立于 assistant 历史是否齐全。`context_management` 是官方 Anthropic 服务端协商特性
-/// （Claude Code adaptive/summarized 模式 `clear_thinking_20251015`，让官方服务端自动清历史 thinking），
-/// 第三方 anthropic-compat 端点普遍不实现该协商，保留该字段对第三方无益仅风险。两类复现：
-/// 首轮请求（messages 仅 user，无 assistant 历史）GLM 直拒字段 → 400 code 1210 "API 调用参数有误"
-/// （旧逻辑 `has_unmatched_assistant`=false 漏剔 → 本次修复根因）；有 assistant 历史时 DeepSeek 认字段
-/// 判 thinking mode → 400 "thinking must be passed back"。函数名沿用 `strip_thinking_if_unmatched`
-/// （单调用点 forward.rs，最小 diff；context_management 已超越 thinking unmatched 语义，注释说明）。
-///
-/// **`thinking`（仅 unmatched 时剔）**：thinking 开启且历史任一 assistant 轮缺 thinking block 时剔。
-/// 第三方端点严格要求 thinking 模式下每 assistant 轮回传 thinking block，缺失即 400
-/// `content[].thinking must be passed back`；官方 Anthropic 的 summarized/adaptive 模式无此约束，
-/// Claude Code 故不回传，跨路由到第三方即触发该 400。thinking block 齐全（正常情况）保留直传，
-/// 第三方能正常处理。
-fn strip_thinking_if_unmatched(body: &mut Value) {
-    let Some(obj) = body.as_object_mut() else {
-        return;
-    };
-    let thinking_on = obj
-        .get("thinking")
-        .map(|t| t.get("type").and_then(|v| v.as_str()) != Some("disabled"))
-        .unwrap_or(false);
-    if !thinking_on {
-        return;
-    }
-    // context_management 无条件剔：第三方端点不认该协商字段（首轮 GLM 1210 + 有历史 DeepSeek 400）
-    obj.remove("context_management");
-    let has_unmatched_assistant = obj
-        .get("messages")
-        .and_then(|m| m.as_array())
-        .map(|msgs| {
-            msgs.iter().any(|m| {
-                if m.get("role").and_then(|r| r.as_str()) != Some("assistant") {
-                    return false;
-                }
-                match m.get("content") {
-                    // 块数组：非空且无 thinking block → 不匹配
-                    Some(Value::Array(blocks)) => {
-                        !blocks.is_empty()
-                            && !blocks
-                                .iter()
-                                .any(|b| b.get("type").and_then(|t| t.as_str()) == Some("thinking"))
-                    }
-                    // 纯文本 assistant 轮：thinking 模式下也应携带 thinking，缺失即不匹配
-                    Some(Value::String(s)) => !s.is_empty(),
-                    _ => false,
-                }
-            })
-        })
-        .unwrap_or(false);
-    if has_unmatched_assistant {
-        obj.remove("thinking");
-    }
-}
-
-
-/// OpenAI wire 出站 body 上把 `max_completion_tokens` 折进 `max_tokens`（票 05）。
-///
-/// 转换分支上是 no-op（`to_openai` 只写 `max_tokens`）；生效点是同协议透传——新版 OpenAI
-/// SDK 与 o 系列模型只发 `max_completion_tokens`，不折就绕过下游的模型上限裁剪。
-///
-/// 取值规则与入站 `from_openai` 同源：**两键同时存在时取 `max_completion_tokens`**
-/// （新键是客户端有意设置的那个，旧键多是 SDK 为兼容老服务端保留的镜像值）。
-/// 折完 body 上只剩 `max_tokens`，官方 host 需要的键名由
-/// [`rename_openai_max_tokens_key`] 在链路末端改回。
-fn fold_openai_max_completion_tokens(body: &mut Value, wire: &Protocol) {
-    if !matches!(wire, Protocol::OpenAI) {
-        return;
-    }
-    let Some(obj) = body.as_object_mut() else {
-        return;
-    };
-    if let Some(v) = obj.remove("max_completion_tokens")
-        && !v.is_null()
-    {
-        obj.insert("max_tokens".to_string(), v);
-    }
-}
-
-/// 剔除多模态图片块里的默认 `image_url.detail: "auto"`（openai wire 家族，透传与转换共用）。
-///
-/// `auto` 是 OpenAI 侧默认值，省略与显式写等价（<https://platform.openai.com/docs/guides/images-vision>
-/// 「detail ... defaults to auto」）；但部分 OpenAI 兼容上游只认 `low` / `high`，见到 `auto`
-/// 直接 400：MiniMax 实测 `invalid params, invalid image detail: auto (2013)`
-/// （request 2a28c917b08a436f8f4e273b777ece27，客户端为 OpenAI python SDK，SDK 自己填的 auto）。
-/// 故只剔默认值，显式 `low` / `high` 原样上送（语义不可省）。
-///
-/// 返回剔除条数（0 = body 逐字节不变）。
-fn strip_default_image_detail(body: &mut Value, wire: &Protocol) -> usize {
-    if !wire.same_wire_family(&Protocol::OpenAI) {
-        return 0;
-    }
-    fn walk(v: &mut Value) -> usize {
-        match v {
-            Value::Array(items) => items.iter_mut().map(walk).sum(),
-            Value::Object(obj) => {
-                let mut n = 0;
-                if let Some(Value::Object(img)) = obj.get_mut("image_url")
-                    && img.get("detail").and_then(Value::as_str) == Some("auto")
-                {
-                    img.remove("detail");
-                    n += 1;
-                }
-                n + obj.values_mut().map(walk).sum::<usize>()
-            }
-            _ => 0,
-        }
-    }
-    walk(body)
-}
-
-/// 官方 OpenAI Chat Completions 的输出长度键改写（票 05）。
-///
-/// 官方端点已把 `max_tokens` 标为 deprecated，o 系列等新模型直接拒绝该参数，只认
-/// `max_completion_tokens`；第三方 OpenAI 兼容端点与 legacy `/v1/completions`
-/// 反过来只认 `max_tokens`。故仅 `wire == OpenAI` 且 host 为 `api.openai.com` 时改键，
-/// 值不动（此时值已是裁剪后的最终值）。host 判定复用 [`is_official_openai_host`]。
-///
-/// 返回是否改写过。
-fn rename_openai_max_tokens_key(body: &mut Value, wire: &Protocol, upstream_url: &str) -> bool {
-    if !matches!(wire, Protocol::OpenAI) || !is_official_openai_host(upstream_url) {
-        return false;
-    }
-    let Some(obj) = body.as_object_mut() else {
-        return false;
-    };
-    let Some(v) = obj.remove("max_tokens") else {
-        return false;
-    };
-    obj.insert("max_completion_tokens".to_string(), v);
-    true
-}
-
-
-
 /// registry 条目是否强制思考（price_data 里 `thinking_toggleable == false`；
 /// 未标注 / 条目缺失 / 查询失败 → false，行为同现状）。
 async fn model_forces_thinking(db: &aidog_db::Db, platform_code: &str, model_id: &str) -> bool {
@@ -860,1584 +666,6 @@ async fn model_forces_thinking(db: &aidog_db::Db, platform_code: &str, model_id:
         .and_then(|v| v.get("thinking_toggleable").and_then(Value::as_bool))
         .is_some_and(|t| !t)
 }
-
-
-
-
-
-/// 出站协议转换丢弃的音视频字段。OpenAI Chat 仅接受 base64 audio；其余不支持的块记入 field_trace。
-/// 2026-11-15 官方契约：Anthropic `ContentBlockParam` 无 audio/video（https://platform.claude.com/docs/en/api/messages）；
-/// Responses `input` 的内容块无 audio（https://developers.openai.com/api/reference/resources/responses/methods/create）；
-/// Chat Completions 支持 base64 input_audio（https://developers.openai.com/api/docs/guides/audio-chat-completions）。
-/// 上述目标均未提供 video content 输入形状。
-fn dropped_media_fields(req: &aidog_adapter::types::ChatRequest, wire: &Protocol) -> Vec<String> {
-    req.messages
-        .iter()
-        .flat_map(|message| message.content.blocks())
-        .filter_map(|block| match block {
-            aidog_adapter::types::ContentBlock::Media { media_type, data, .. } => {
-                let kind = media_type.split_once('/')?.0;
-                if !matches!(kind, "audio" | "video") {
-                    return None;
-                }
-                let dropped = match wire {
-                    &Protocol::OpenAI => kind != "audio" || data.is_none(),
-                    &Protocol::Anthropic | &Protocol::OpenAIResponses => true,
-                    _ => false,
-                };
-                dropped.then(|| kind.to_string())
-            }
-            _ => None,
-        })
-        .collect()
-}
-
-/// issue #74：出站协议转换丢弃的服务端工具名（仅不可映射的；可映射的已映射下发，不记）。
-/// 与各协议 converter 共用 `Tool::native_server_tool` 判定，trace 与下发行为同源不漂移。
-/// Anthropic wire 原生执行 Anthropic 服务端工具 → 无丢弃；mock 等无关协议不记。
-fn dropped_server_tools(
-    req: &aidog_adapter::types::ChatRequest,
-    wire: &Protocol,
-) -> Vec<String> {
-    let target = match wire {
-        Protocol::Anthropic => return Vec::new(),
-        Protocol::OpenAIResponses => "openai_responses",
-        Protocol::Gemini => "gemini",
-        Protocol::OpenAI | Protocol::OpenAICompletions => "openai",
-        _ => return Vec::new(),
-    };
-    req.tools
-        .as_deref()
-        .unwrap_or(&[])
-        .iter()
-        .filter(|t| t.is_server_tool() && t.native_server_tool(target).is_none())
-        .map(|t| t.name.clone())
-        .collect()
-}
-
-/// 把本次出站的三类改写合成 `proxy_log.field_trace` 的 token 串（票 10；票 11 抽成纯函数）。
-///
-/// - `capped_on_chat_req` / `capped_on_body`：`max_tokens` 被裁到模型上限的两个来源，
-///   **合成同一个 token，不重复记**。转换分支裁在 `chat_req` 上（body 层随后是幂等复裁、
-///   必不命中），透传分支裁在 body 层。此前只看 body 层的返回值，整条转换路径的裁剪因此不留痕。
-/// - `middleware_changed`：middleware 规则改写过透传 body。
-/// - `dropped`：被出站允许集合挡掉的字段名（只有名没有值）。
-///
-/// 无改写无丢弃时返回空串（不产生噪音记录）。
-fn build_field_trace(
-    capped_on_chat_req: bool,
-    capped_on_body: bool,
-    middleware_changed: bool,
-    dropped: &[String],
-) -> String {
-    let mut tokens: Vec<String> = Vec::new();
-    if capped_on_chat_req || capped_on_body {
-        tokens.push("cap:max_tokens".to_string());
-    }
-    if middleware_changed {
-        tokens.push("rewrite:middleware".to_string());
-    }
-    tokens.extend(dropped.iter().map(|f| format!("drop:{f}")));
-    tokens.join(",")
-}
-
-
-/// 第三方 anthropic 端点：无条件剥离 messages[].content 内 `redacted_thinking` block。
-///
-/// **根因（DB 响应体实证）**：Claude 4.x extended thinking 多轮请求含 `redacted_thinking`
-/// content block（Claude Code 回传上轮 protected thinking 的加密关联块）。同协议 passthrough
-/// （anthropic→anthropic, remap=true）不经 `to_anthropic` 转换（adapter/anthropic.rs 已 filter
-/// Unknown 含 redacted_thinking），content 原样透传 → 第三方端点不认该 type → 400 InvalidParameter
-/// `"invalid value: 'redacted_thinking', supported values: 'text','thinking','image','tool_use','tool_result'"`。
-///
-/// **trace 实证**：81dc4466（火山 doubao coding endpoint）+ 87e3c500（deepseek-v4-pro-260425）
-/// 同根因 400。所有第三方 anthropic-compat 端点共性。
-///
-/// **剥离语义**：redacted_thinking 内容为客户端不可解读的加密 opaque blob（仅官方 Anthropic
-/// 能关联上轮 protected thinking），第三方必无法处理，无条件剥离安全。仅遍历数组形态 content
-/// （字符串形态无 block 可剔）。content 变空数组时保留 message 结构（剥离顺序敏感，下游规整
-/// 依赖 message 序列完整）。
-fn strip_redacted_thinking_blocks(body: &mut Value) {
-    let Some(msgs) = body.get_mut("messages").and_then(|m| m.as_array_mut()) else {
-        return;
-    };
-    for m in msgs.iter_mut() {
-        let Some(blocks) = m.get_mut("content").and_then(|c| c.as_array_mut()) else {
-            continue;
-        };
-        blocks.retain(|b| b.get("type").and_then(|t| t.as_str()) != Some("redacted_thinking"));
-    }
-}
-
-/// 第三方 anthropic 端点：messages 内非首位的 role=system 规整到顶层 system 数组。
-///
-/// **根因（DB 全样本取证）**：Claude Code 把 SessionStart/UserPromptSubmit hook 注入的上下文
-/// 以 `role=system` 消息插入 messages 数组中段/末尾（官方 Anthropic 接受该非标位置作为客户端
-/// 约定）。GLM / DeepSeek 等第三方 anthropic-compat 端点严格执行规范（role=system 仅顶层 system
-/// 字段或 messages[0]），多轮 + 非流式场景下拒绝 → 400 code 1210 "API 调用参数有误"。
-///
-/// **DB 交叉验证**（GLM `open.bigmodel.cn/api/anthropic`，10552 条 200 + 9 条 400 全样本）：
-/// 失败全集 = `{no_stream, has_assistant, messages 含 role=system（含中段+末段）}` —— 9/9 命中；
-/// 同结构流式 PASS=1166，非流式 PASS=3（GLM 间歇性接受，3 异常样本均为 14-112 msgs 长上下文）。
-/// 故仅非流式触发规整：流式同结构当前工作正常（host-gated 但 is_stream=true 不动），避免回归。
-///
-/// **规整方式**：messages 内 role=system 消息按出现顺序，content 合并到顶层 `system` 数组
-/// （顶层 system 已是数组则追加 text block；字符串则升级为数组；缺失则新建）。
-/// messages 数组移除该消息，剩余 user/assistant 交替保持原序。仅多轮（含 assistant）才触发：
-/// 首轮无 assistant 时 messages 内 role=system 多为客户端约首约定（DeepSeek/GLM 首轮接受），不动。
-fn hoist_mid_messages_system(body: &mut Value) {
-    let Some(obj) = body.as_object_mut() else {
-        return;
-    };
-    let Some(msgs) = obj.get_mut("messages").and_then(|m| m.as_array_mut()) else {
-        return;
-    };
-    // 仅多轮（有 assistant 历史）触发：首轮无 assistant 不动（首轮 role=system 第三方接受）。
-    let has_assistant = msgs
-        .iter()
-        .any(|m| m.get("role").and_then(|r| r.as_str()) == Some("assistant"));
-    if !has_assistant {
-        return;
-    }
-    // 收集 messages 内 role=system 的 content（保持出现顺序），同时保留非 system 消息原序。
-    let mut hoisted_blocks: Vec<Value> = Vec::new();
-    let mut kept: Vec<Value> = Vec::with_capacity(msgs.len());
-    for m in msgs.drain(..) {
-        if m.get("role").and_then(|r| r.as_str()) == Some("system") {
-            // system message content：字符串 → text block；数组（blocks） → 逐项取
-            match m.get("content") {
-                Some(Value::String(s)) => {
-                    hoisted_blocks.push(serde_json::json!({"type": "text", "text": s}));
-                }
-                Some(Value::Array(blocks)) => {
-                    for b in blocks {
-                        if b.is_object() {
-                            hoisted_blocks.push(b.clone());
-                        }
-                    }
-                }
-                _ => {}
-            }
-        } else {
-            kept.push(m);
-        }
-    }
-    if hoisted_blocks.is_empty() {
-        // 无 system 可规整：还原原 msgs（drain 清空了）
-        *msgs = kept;
-        return;
-    }
-    *msgs = kept;
-    // 合并到顶层 system 数组：现有数组追加；字符串升级；缺失新建。
-    match obj.get_mut("system") {
-        Some(Value::Array(arr)) => arr.extend(hoisted_blocks),
-        Some(Value::String(s)) => {
-            let mut arr = vec![serde_json::json!({"type": "text", "text": s})];
-            arr.extend(hoisted_blocks);
-            obj.insert("system".to_string(), Value::Array(arr));
-        }
-        _ => {
-            obj.insert("system".to_string(), Value::Array(hoisted_blocks));
-        }
-    }
-}
-
-#[cfg(test)]
-mod test_cap_body_max_tokens {
-    use super::Protocol;
-    use aidog_adapter::platform::hooks::cap_body_max_tokens;
-    use serde_json::json;
-
-    /// anthropic 透传 body：超模型上限的 max_tokens 被裁到上限（票 02 的 400 根因）。
-    #[test]
-    fn anthropic_caps_top_level_max_tokens() {
-        let mut b = json!({"model": "m", "max_tokens": 200_000, "messages": []});
-        assert_eq!(
-            cap_body_max_tokens(&mut b, Some(8192), &Protocol::Anthropic),
-            Some((200_000, 8192))
-        );
-        assert_eq!(b["max_tokens"], json!(8192));
-        assert_eq!(b["messages"], json!([]), "同级其它字段不动");
-    }
-
-    /// openai / completions 同样是顶层 `max_tokens`。
-    #[test]
-    fn openai_and_completions_cap_top_level_max_tokens() {
-        for wire in [Protocol::OpenAI, Protocol::OpenAICompletions] {
-            let mut b = json!({"model": "m", "max_tokens": 9999});
-            assert_eq!(
-                cap_body_max_tokens(&mut b, Some(4096), &wire),
-                Some((9999, 4096))
-            );
-            assert_eq!(b["max_tokens"], json!(4096), "{wire:?}");
-        }
-    }
-
-    /// openai_responses 的键名是 `max_output_tokens`。
-    #[test]
-    fn responses_caps_max_output_tokens() {
-        let mut b = json!({"model": "m", "max_output_tokens": 100_000, "max_tokens": 100_000});
-        assert_eq!(
-            cap_body_max_tokens(&mut b, Some(16384), &Protocol::OpenAIResponses),
-            Some((100_000, 16384))
-        );
-        assert_eq!(b["max_output_tokens"], json!(16384));
-        assert_eq!(
-            b["max_tokens"],
-            json!(100_000),
-            "responses 不碰顶层 max_tokens"
-        );
-    }
-
-    /// gemini 的键名嵌在 `generationConfig.maxOutputTokens`。
-    #[test]
-    fn gemini_caps_generation_config_max_output_tokens() {
-        let mut b = json!({"generationConfig": {"maxOutputTokens": 65536, "temperature": 0.5}});
-        assert_eq!(
-            cap_body_max_tokens(&mut b, Some(8192), &Protocol::Gemini),
-            Some((65536, 8192))
-        );
-        assert_eq!(b["generationConfig"]["maxOutputTokens"], json!(8192));
-        assert_eq!(
-            b["generationConfig"]["temperature"],
-            json!(0.5),
-            "同级其它字段不动"
-        );
-    }
-
-    /// 未超限 / 模型无上限 / 未传 max_tokens：body 整体不动（保守语义，与 chat_req 侧一致）。
-    #[test]
-    fn under_limit_or_no_limit_or_absent_is_noop() {
-        let cases = [
-            (json!({"model": "m", "max_tokens": 100}), Some(8192)),
-            (json!({"model": "m", "max_tokens": 100}), None),
-            (json!({"model": "m"}), Some(8192)),
-            (json!({"model": "m", "max_tokens": null}), Some(8192)),
-        ];
-        for (original, model_max) in cases {
-            let mut b = original.clone();
-            assert_eq!(
-                cap_body_max_tokens(&mut b, model_max, &Protocol::Anthropic),
-                None
-            );
-            assert_eq!(b, original, "未超限/无上限/未传时 body 必须逐字节不变");
-        }
-    }
-
-    /// 非 wire 协议（平台类型枚举）不改写。
-    #[test]
-    fn non_wire_protocol_is_noop() {
-        let mut b = json!({"max_tokens": 999_999});
-        assert_eq!(cap_body_max_tokens(&mut b, Some(8), &Protocol::Mock), None);
-        assert_eq!(b["max_tokens"], json!(999_999));
-    }
-}
-
-/// 票 10：`apply_field_passthrough` 的留痕返回值——只记被挡掉的字段名，绝不记值。
-#[cfg(test)]
-mod test_field_trace {
-    use super::Protocol;
-    use aidog_adapter::platform::hooks::apply_field_passthrough;
-    use serde_json::json;
-
-    /// 被允许集合挡掉的字段：名进留痕，值不进。
-    #[test]
-    fn blocked_field_name_recorded_without_its_value() {
-        let src = json!({
-            "model": "m",
-            "messages": [],
-            "top_k": 40,
-            "user": "tenant-42-secret-id",
-            "response_format": {"type": "json_object"}
-        });
-        let mut b = json!({"model": "m", "messages": [], "max_tokens": 100});
-        // anthropic 允许集合只有 top_k → user / response_format 被挡。
-        let dropped = apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::Anthropic,
-            "https://api.anthropic.com/v1/messages",
-        );
-        assert_eq!(
-            dropped,
-            vec!["user".to_string(), "response_format".to_string()]
-        );
-        let trace = dropped.join(",");
-        assert!(
-            !trace.contains("tenant-42-secret-id"),
-            "留痕不得含字段值：{trace}"
-        );
-        assert!(!trace.contains("json_object"), "留痕不得含字段值：{trace}");
-        assert!(!trace.contains("top_k"), "已出站的字段不算被挡：{trace}");
-    }
-
-    /// 官方 OpenAI host 上 `top_k` 被 host gate 挡掉 → 记名。
-    #[test]
-    fn official_openai_host_records_top_k_drop() {
-        let src = json!({"model": "m", "messages": [], "top_k": 40, "seed": 7});
-        let mut b = json!({"model": "m", "messages": []});
-        let dropped = apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://api.openai.com/v1/chat/completions",
-        );
-        assert_eq!(dropped, vec!["top_k".to_string()]);
-        assert_eq!(b["seed"], json!(7), "允许集合内的字段照常出站");
-    }
-
-    /// 无丢弃时不产生噪音：全部字段都出站（或本就不在候选集合内）→ 留痕为空。
-    #[test]
-    fn no_drop_produces_no_trace() {
-        let src = json!({"model": "m", "messages": [], "max_tokens": 100, "temperature": 0.7, "top_k": 40});
-        let mut b = json!({"model": "m", "messages": [], "max_tokens": 100});
-        let dropped = apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::Anthropic,
-            "https://open.bigmodel.cn/api/anthropic",
-        );
-        assert!(dropped.is_empty(), "无字段被挡时不应产生留痕：{dropped:?}");
-    }
-
-    /// 换名承载不算被挡：客户端 `stop` 以 `stop_sequences` 出站 → 留痕为空。
-    #[test]
-    fn renamed_stop_is_not_reported_as_dropped() {
-        let src = json!({"model": "m", "messages": [], "stop": ["\n\n"]});
-        let mut b = json!({"model": "m", "messages": []});
-        let dropped = apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::Anthropic,
-            "https://api.anthropic.com/v1/messages",
-        );
-        assert_eq!(b["stop_sequences"], json!(["\n\n"]));
-        assert!(dropped.is_empty(), "换名出站的字段不算被挡：{dropped:?}");
-    }
-
-    /// gemini 顶层无本组字段 → 客户端发的采样参数全被挡，逐个记名。
-    #[test]
-    fn gemini_reports_all_candidates_as_dropped() {
-        let src = json!({"model": "m", "contents": [], "stop": ["x"], "seed": 1, "n": 2});
-        let mut b = json!({"model": "m", "contents": []});
-        let dropped = apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::Gemini,
-            "https://generativelanguage.googleapis.com/v1beta",
-        );
-        assert_eq!(
-            dropped,
-            vec!["stop".to_string(), "seed".to_string(), "n".to_string()]
-        );
-    }
-}
-
-/// 票 11 对账补的两处：Gemini 源的生成参数下钻取值、`cap:max_tokens` 两来源合一。
-#[cfg(test)]
-mod test_fa11_reconciliation {
-    use super::{Protocol, build_field_trace, dropped_media_fields, dropped_server_tools};
-    use aidog_adapter::types::{ChatRequest, ContentBlock, Message, MessageContent, Role};
-    use aidog_adapter::platform::hooks::apply_field_passthrough;
-    use serde_json::json;
-
-    /// Gemini 客户端 → OpenAI 上游：stop / topK / responseMimeType 埋在 `generationConfig` 里，
-    /// 按顶层键取值取不到。下钻一跳后三项都要到达出站 body。
-    #[test]
-    fn fa11_gemini_source_generation_config_reaches_openai_target() {
-        let src = json!({
-            "contents": [],
-            "generationConfig": {
-                "stopSequences": ["END"],
-                "topK": 40,
-                "responseMimeType": "application/json",
-                "temperature": 0.3
-            }
-        });
-        let mut b = json!({"model": "m", "messages": []});
-        let dropped = apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://open.bigmodel.cn/api/paas/v4",
-        );
-        assert_eq!(b["stop"], json!(["END"]));
-        assert_eq!(b["top_k"], json!(40));
-        assert_eq!(b["response_format"], json!({"type": "json_object"}));
-        assert!(dropped.is_empty(), "全部承载，不应留痕：{dropped:?}");
-    }
-
-    /// 带 responseSchema 时换算成 OpenAI 的 json_schema 形态（`name` 必填，上游缺它判 400）。
-    #[test]
-    fn fa11_gemini_response_schema_maps_to_openai_json_schema() {
-        let src = json!({"contents": [], "generationConfig": {
-            "responseMimeType": "application/json",
-            "responseSchema": {"type": "object", "properties": {"a": {"type": "string"}}}
-        }});
-        let mut b = json!({"model": "m", "messages": []});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://open.bigmodel.cn/api/paas/v4",
-        );
-        assert_eq!(b["response_format"]["type"], json!("json_schema"));
-        assert_eq!(
-            b["response_format"]["json_schema"]["name"],
-            json!("response")
-        );
-        assert_eq!(
-            b["response_format"]["json_schema"]["schema"]["type"],
-            json!("object")
-        );
-    }
-
-    /// Gemini 源 → Anthropic 上游：stopSequences 直接同名承载，topK 换名 top_k。
-    #[test]
-    fn fa11_gemini_source_reaches_anthropic_target() {
-        let src = json!({"contents": [], "generationConfig": {"stopSequences": ["X"], "topK": 5}});
-        let mut b = json!({"model": "m", "messages": []});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::Anthropic,
-            "https://api.anthropic.com/v1/messages",
-        );
-        assert_eq!(b["stop_sequences"], json!(["X"]));
-        assert_eq!(b["top_k"], json!(5));
-    }
-
-    /// `responseMimeType: text/plain` 是 Gemini 默认态，OpenAI 无对应显式写法 → 不写出。
-    #[test]
-    fn fa11_gemini_text_plain_mime_writes_no_response_format() {
-        let src = json!({"contents": [], "generationConfig": {"responseMimeType": "text/plain"}});
-        let mut b = json!({"model": "m", "messages": []});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://open.bigmodel.cn/api/paas/v4",
-        );
-        assert!(
-            b.get("response_format").is_none(),
-            "默认 mime 不该产出 response_format"
-        );
-    }
-
-    /// 顶层写法优先于 generationConfig（客户端两处都写时以显式顶层为准）。
-    #[test]
-    fn fa11_top_level_wins_over_generation_config() {
-        let src = json!({"stop": ["TOP"], "top_k": 1, "generationConfig": {"stopSequences": ["NESTED"], "topK": 99}});
-        let mut b = json!({"model": "m", "messages": []});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://open.bigmodel.cn/api/paas/v4",
-        );
-        assert_eq!(b["stop"], json!(["TOP"]));
-        assert_eq!(b["top_k"], json!(1));
-    }
-
-    /// 转换分支：裁剪发生在 `chat_req` 上，body 层是幂等复裁不再命中 —— 留痕仍须记
-    /// `cap:max_tokens`（此前只看 body 层，整条转换路径的裁剪不留痕）。
-    #[test]
-    fn fa11_cap_trace_covers_both_branches_without_duplicating() {
-        // (转换分支, 透传分支, 两者同时) 三种组合都记且只记一个 token
-        for (on_chat_req, on_body) in [(true, false), (false, true), (true, true)] {
-            let trace = build_field_trace(on_chat_req, on_body, false, &[]);
-            assert_eq!(
-                trace, "cap:max_tokens",
-                "chat_req={on_chat_req} body={on_body}"
-            );
-            assert_eq!(trace.matches("cap:max_tokens").count(), 1);
-        }
-        assert_eq!(
-            build_field_trace(false, false, false, &[]),
-            "",
-            "未裁剪不记"
-        );
-    }
-
-    fn media_request(media_type: &str, data: Option<&str>) -> ChatRequest {
-        ChatRequest {
-            model: "m".into(),
-            messages: vec![Message {
-                role: Role::User,
-                content: MessageContent::Blocks(vec![ContentBlock::Media {
-                    media_type: media_type.into(),
-                    data: data.map(str::to_owned),
-                    url: None,
-                }]),
-            }],
-            system: None,
-            max_tokens: None,
-            temperature: None,
-            top_p: None,
-            stream: None,
-            tools: None,
-            tool_choice: None,
-            thinking_budget: None,
-            thinking_mode: None,
-            extra: None,
-        }
-    }
-
-    #[test]
-    fn anthropic_media_drops_are_recorded() {
-        let req = media_request("audio/wav", Some("AAAA"));
-        assert_eq!(build_field_trace(false, false, false, &dropped_media_fields(&req, &Protocol::Anthropic)), "drop:audio");
-    }
-
-    #[test]
-    fn responses_media_drops_are_recorded() {
-        let req = media_request("video/mp4", Some("AAAA"));
-        assert_eq!(build_field_trace(false, false, false, &dropped_media_fields(&req, &Protocol::OpenAIResponses)), "drop:video");
-    }
-
-    #[test]
-    fn openai_url_audio_drop_is_recorded() {
-        let req = media_request("audio/wav", None);
-        assert_eq!(build_field_trace(false, false, false, &dropped_media_fields(&req, &Protocol::OpenAI)), "drop:audio");
-    }
-
-    #[test]
-    fn openai_video_drop_is_recorded() {
-        let req = media_request("video/mp4", Some("AAAA"));
-        assert_eq!(build_field_trace(false, false, false, &dropped_media_fields(&req, &Protocol::OpenAI)), "drop:video");
-    }
-
-    /// 三类改写按固定序拼接；全无改写时空串（不产生噪音记录）。
-    #[test]
-    fn fa11_field_trace_composition_and_empty() {
-        assert_eq!(
-            build_field_trace(false, true, true, &["seed".to_string(), "n".to_string()]),
-            "cap:max_tokens,rewrite:middleware,drop:seed,drop:n"
-        );
-        assert_eq!(build_field_trace(false, false, false, &[]), "");
-    }
-
-    // ── issue #74：服务端工具丢弃留痕 ──
-
-    fn tools_request(tools: serde_json::Value) -> ChatRequest {
-        let mut req = media_request("text/plain", Some("hi"));
-        req.tools = serde_json::from_value(tools).expect("tools parse");
-        req
-    }
-
-    #[test]
-    fn anthropic_wire_has_no_server_tool_drops() {
-        let req = tools_request(serde_json::json!([
-            {"type": "web_search_20250305", "name": "web_search"},
-            {"type": "bash_20250124", "name": "bash"}
-        ]));
-        assert!(dropped_server_tools(&req, &Protocol::Anthropic).is_empty());
-    }
-
-    #[test]
-    fn openai_wire_drops_all_server_tools() {
-        let req = tools_request(serde_json::json!([
-            {"name": "get_weather", "input_schema": {"type": "object"}},
-            {"type": "web_search_20250305", "name": "web_search"}
-        ]));
-        assert_eq!(
-            dropped_server_tools(&req, &Protocol::OpenAI),
-            vec!["web_search".to_string()]
-        );
-    }
-
-    #[test]
-    fn gemini_wire_drops_only_unmappable() {
-        let req = tools_request(serde_json::json!([
-            {"type": "web_search_20250305", "name": "web_search"},
-            {"type": "web_fetch_20250910", "name": "web_fetch"},
-            {"type": "bash_20250124", "name": "bash"}
-        ]));
-        assert_eq!(
-            dropped_server_tools(&req, &Protocol::Gemini),
-            vec!["bash".to_string()]
-        );
-        let req = tools_request(serde_json::json!([
-            {"type": "web_search_20250305", "name": "web_search"},
-            {"type": "web_fetch_20250910", "name": "web_fetch"}
-        ]));
-        assert_eq!(
-            dropped_server_tools(&req, &Protocol::OpenAIResponses),
-            vec!["web_fetch".to_string()],
-            "Responses 只映射 web_search，web_fetch 落留痕"
-        );
-    }
-
-    #[test]
-    fn server_tool_drops_compose_into_field_trace() {
-        let req = tools_request(serde_json::json!([
-            {"name": "get_weather", "input_schema": {"type": "object"}},
-            {"type": "bash_20250124", "name": "bash"}
-        ]));
-        assert_eq!(
-            build_field_trace(
-                false,
-                false,
-                false,
-                &dropped_server_tools(&req, &Protocol::OpenAI)
-            ),
-            "drop:bash"
-        );
-    }
-}
-
-#[cfg(test)]
-mod test_field_passthrough {
-    use super::Protocol;
-    use aidog_adapter::platform::hooks::apply_field_passthrough;
-    use serde_json::json;
-
-    /// 客户端原体：一份同时带 openai 族与 anthropic 族写法的采样参数。
-    fn client_body() -> serde_json::Value {
-        json!({
-            "model": "m",
-            "messages": [],
-            "stop": ["\n\n"],
-            "top_k": 40,
-            "seed": 7,
-            "response_format": {"type": "json_object"},
-            "stream_options": {"include_usage": true},
-            "presence_penalty": 0.5,
-            "frequency_penalty": -0.25,
-            "n": 2,
-            "user": "u-1",
-            "wild_unknown_field": "should-never-be-forwarded"
-        })
-    }
-
-    /// anthropic 目标：`stop` 换名 `stop_sequences`，`top_k` 原名补齐；
-    /// 允许集合外的 openai 专属参数（seed / n / 惩罚项 / response_format）一个都不出现。
-    #[test]
-    fn anthropic_renames_stop_and_keeps_only_its_allow_set() {
-        let src = client_body();
-        let mut b = json!({"model": "m", "messages": [], "max_tokens": 100});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::Anthropic,
-            "https://api.anthropic.com/v1/messages",
-        );
-        assert_eq!(b["stop_sequences"], json!(["\n\n"]));
-        assert_eq!(b["top_k"], json!(40));
-        for k in [
-            "stop",
-            "seed",
-            "response_format",
-            "stream_options",
-            "presence_penalty",
-            "frequency_penalty",
-            "n",
-            "user",
-            "wild_unknown_field",
-        ] {
-            assert!(b.get(k).is_none(), "anthropic 允许集合外字段 {k} 不应出现");
-        }
-    }
-
-    /// anthropic 只收数组形态的 stop_sequences：客户端写字符串要包成单元素数组。
-    #[test]
-    fn anthropic_wraps_string_stop_into_array() {
-        let src = json!({"stop": "END"});
-        let mut b = json!({"model": "m"});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::Anthropic,
-            "https://api.anthropic.com/v1/messages",
-        );
-        assert_eq!(b["stop_sequences"], json!(["END"]));
-    }
-
-    /// 第三方 OpenAI 兼容端点：openai 族允许集合全量补齐，`top_k` 也放行（vLLM/GLM 通行）。
-    #[test]
-    fn third_party_openai_fills_full_allow_set() {
-        let src = client_body();
-        let mut b = json!({"model": "m", "messages": []});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://open.bigmodel.cn/api/paas/v4",
-        );
-        assert_eq!(b["stop"], json!(["\n\n"]));
-        assert_eq!(b["top_k"], json!(40));
-        assert_eq!(b["seed"], json!(7));
-        assert_eq!(b["response_format"], json!({"type": "json_object"}));
-        assert_eq!(b["stream_options"], json!({"include_usage": true}));
-        assert_eq!(b["presence_penalty"], json!(0.5));
-        assert_eq!(b["frequency_penalty"], json!(-0.25));
-        assert_eq!(b["n"], json!(2));
-        assert_eq!(b["user"], json!("u-1"));
-        assert!(
-            b.get("wild_unknown_field").is_none(),
-            "允许集合外字段不透传"
-        );
-    }
-
-    /// anthropic 客户端 → openai 上游：`stop_sequences` 换名成 `stop`。
-    #[test]
-    fn openai_renames_stop_sequences_to_stop() {
-        let src = json!({"stop_sequences": ["\n\nHuman:"]});
-        let mut b = json!({"model": "m"});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://open.bigmodel.cn/api/paas/v4",
-        );
-        assert_eq!(b["stop"], json!(["\n\nHuman:"]));
-        assert!(b.get("stop_sequences").is_none());
-    }
-
-    /// 官方 OpenAI host 回归防线：`top_k` 不是官方参数（未知顶层字段 → 400），必须挡住。
-    #[test]
-    fn official_openai_excludes_top_k() {
-        let src = client_body();
-        let mut b = json!({"model": "m", "messages": []});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://api.openai.com/v1/chat/completions",
-        );
-        assert!(b.get("top_k").is_none(), "官方 OpenAI 允许集合不含 top_k");
-        assert!(b.get("wild_unknown_field").is_none());
-        assert_eq!(b["seed"], json!(7), "官方文档有的参数照常补齐");
-        assert_eq!(b["user"], json!("u-1"));
-    }
-
-    /// legacy completions 无 `response_format` 参数，不写出。
-    #[test]
-    fn completions_excludes_response_format() {
-        let src = client_body();
-        let mut b = json!({"model": "m", "prompt": "x"});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAICompletions,
-            "https://api.openai.com/v1/completions",
-        );
-        assert!(b.get("response_format").is_none());
-        assert_eq!(b["stop"], json!(["\n\n"]));
-    }
-
-    /// Responses API 只认 `user`，stop / 惩罚项 / n / seed / response_format 全挡。
-    #[test]
-    fn responses_allows_only_user() {
-        let src = client_body();
-        let mut b = json!({"model": "m", "input": []});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAIResponses,
-            "https://api.openai.com/v1/responses",
-        );
-        assert_eq!(b["user"], json!("u-1"));
-        for k in [
-            "stop",
-            "stop_sequences",
-            "top_k",
-            "seed",
-            "response_format",
-            "stream_options",
-            "presence_penalty",
-            "frequency_penalty",
-            "n",
-        ] {
-            assert!(b.get(k).is_none(), "responses 允许集合外字段 {k} 不应出现");
-        }
-    }
-
-    /// gemini 顶层无本组字段（对应键在 generationConfig 下，归票 09），本函数整体 no-op。
-    #[test]
-    fn gemini_top_level_is_noop() {
-        let src = client_body();
-        let mut b = json!({"contents": [], "generationConfig": {"temperature": 0.3}});
-        let before = b.clone();
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::Gemini,
-            "https://generativelanguage.googleapis.com/v1beta",
-        );
-        assert_eq!(b, before);
-    }
-
-    /// 已建模字段不被覆盖：出站 body 已有该键时保持强类型字段的值。
-    #[test]
-    fn modeled_fields_are_not_overwritten() {
-        let src = json!({"stop": ["from-client"], "user": "from-client", "top_k": 40});
-        let mut b = json!({"model": "m", "stop": ["already-modeled"], "user": "already-modeled", "top_k": 1});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://open.bigmodel.cn/api/paas/v4",
-        );
-        assert_eq!(b["stop"], json!(["already-modeled"]));
-        assert_eq!(b["user"], json!("already-modeled"));
-        assert_eq!(b["top_k"], json!(1));
-    }
-
-    /// anthropic→anthropic 透传分支上 `safeguards` 必须原样到上游。
-    ///
-    /// Claude Code 的 auto mode 把安全审查请求放在请求体顶层 `safeguards` 字段，配对 beta 头
-    /// `dangerous-tool-use-2026-09-03`；上游把结论放回 `safeguard_results`。网关删掉、改写其中任何
-    /// 一半，客户端整个 session 降级并改为自费分类器请求。透传分支上本函数是 no-op（出站 body 就是
-    /// 客户端原体，见本文件 `same_protocol_passthrough` 分支的 `req_value.clone()`），本测试守住这点。
-    ///
-    /// 出处：<https://code.claude.com/docs/en/llm-gateway-protocol#feature-pass-through>
-    #[test]
-    fn anthropic_passthrough_keeps_safeguards_field() {
-        let src = json!({
-            "model": "claude-opus-4-8",
-            "messages": [],
-            "safeguards": [{"type": "dangerous_tool_use", "classifier_context": {"v": 1}}]
-        });
-        let mut b = src.clone();
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::Anthropic,
-            "https://api.anthropic.com/v1/messages",
-        );
-        assert_eq!(b["safeguards"], src["safeguards"]);
-        assert_eq!(b, src, "透传分支上本函数是 no-op");
-    }
-
-    /// 透传分支：客户端原体即出站 body，本函数不得删掉任何既有字段（只补不删）。
-    #[test]
-    fn passthrough_body_keeps_its_own_unknown_fields() {
-        let src = client_body();
-        let mut b = src.clone();
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://open.bigmodel.cn/api/paas/v4",
-        );
-        assert_eq!(b["wild_unknown_field"], json!("should-never-be-forwarded"));
-        assert_eq!(b, src, "透传分支上本函数是 no-op");
-    }
-
-    /// 客户端没设这些参数时不凭空造键。
-    #[test]
-    fn absent_client_fields_are_not_invented() {
-        let src = json!({"model": "m", "messages": []});
-        let mut b = json!({"model": "m", "messages": []});
-        apply_field_passthrough(
-            &mut b,
-            &src,
-            &Protocol::OpenAI,
-            "https://open.bigmodel.cn/api/paas/v4",
-        );
-        assert_eq!(b, json!({"model": "m", "messages": []}));
-    }
-}
-
-#[cfg(test)]
-mod test_openai_max_completion_tokens {
-    use super::{
-        Protocol, fold_openai_max_completion_tokens,
-        rename_openai_max_tokens_key, strip_default_image_detail,
-    };
-    use aidog_adapter::platform::hooks::cap_body_max_tokens;
-    use aidog_adapter::converter::{convert_request, parse_incoming_request};
-    use serde_json::json;
-
-    const OFFICIAL: &str = "https://api.openai.com/v1";
-    const THIRD_PARTY: &str = "https://open.bigmodel.cn/api/paas/v4";
-
-    /// 透传 body 上两键同时存在 → 取 `max_completion_tokens`（与入站 `from_openai` 同规则）。
-    #[test]
-    fn both_keys_present_prefers_max_completion_tokens() {
-        let mut b = json!({"model": "m", "max_tokens": 100, "max_completion_tokens": 9000});
-        fold_openai_max_completion_tokens(&mut b, &Protocol::OpenAI);
-        assert_eq!(b["max_tokens"], json!(9000));
-        assert!(
-            b.get("max_completion_tokens").is_none(),
-            "折叠后旧键不残留: {b}"
-        );
-    }
-
-    /// 回归防线：只发 `max_tokens` 时 body 逐字节不变。
-    #[test]
-    fn max_tokens_only_body_unchanged() {
-        let original = json!({"model": "m", "max_tokens": 777});
-        let mut b = original.clone();
-        fold_openai_max_completion_tokens(&mut b, &Protocol::OpenAI);
-        assert_eq!(b, original, "无新键时 body 逐字节不变");
-    }
-
-    /// 与 cap 链路衔接：入站只发 `max_completion_tokens` 且超模型上限 →
-    /// 裁剪作用在识别后的值上（转换分支 chat_req 侧口径由 body 侧幂等复裁锚住）。
-    #[test]
-    fn cap_applies_to_recognized_value() {
-        let body = json!({
-            "model": "gpt-5", "max_completion_tokens": 200_000,
-            "messages": [{"role": "user", "content": "hi"}]
-        });
-        let req = parse_incoming_request(&Protocol::OpenAI, &body, None).expect("parse");
-        let (mut out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
-        assert_eq!(
-            cap_body_max_tokens(&mut out, Some(8192), &Protocol::OpenAI),
-            Some((200_000, 8192)),
-            "cap 没作用在归一后的值上: {out}"
-        );
-        assert_eq!(out["max_tokens"], json!(8192));
-
-        // 透传分支：原体只有新键，折叠后同样被裁
-        let mut b = json!({"model": "gpt-5", "max_completion_tokens": 200_000});
-        fold_openai_max_completion_tokens(&mut b, &Protocol::OpenAI);
-        assert_eq!(
-            cap_body_max_tokens(&mut b, Some(8192), &Protocol::OpenAI),
-            Some((200_000, 8192))
-        );
-        assert_eq!(b["max_tokens"], json!(8192));
-    }
-
-    /// 出站键名按目标分叉：官方 OpenAI host 改成 `max_completion_tokens`，第三方保持 `max_tokens`。
-    #[test]
-    fn official_host_renames_third_party_keeps_max_tokens() {
-        let mut b = json!({"model": "m", "max_tokens": 8192, "temperature": 0.5});
-        assert!(rename_openai_max_tokens_key(
-            &mut b,
-            &Protocol::OpenAI,
-            OFFICIAL
-        ));
-        assert_eq!(b["max_completion_tokens"], json!(8192));
-        assert!(b.get("max_tokens").is_none(), "官方 host 不应残留旧键: {b}");
-        assert_eq!(b["temperature"], json!(0.5), "同级其它字段不动");
-
-        let original = json!({"model": "m", "max_tokens": 8192});
-        let mut b = original.clone();
-        assert!(!rename_openai_max_tokens_key(
-            &mut b,
-            &Protocol::OpenAI,
-            THIRD_PARTY
-        ));
-        assert_eq!(b, original, "第三方端点 body 逐字节不变");
-    }
-
-    /// 其它 wire 协议与「没有 max_tokens」时不动（anthropic 只认 max_tokens）。
-    #[test]
-    fn other_wires_and_absent_key_are_noop() {
-        for wire in [
-            Protocol::Anthropic,
-            Protocol::OpenAICompletions,
-            Protocol::Gemini,
-        ] {
-            let original = json!({"model": "m", "max_tokens": 8192});
-            let mut b = original.clone();
-            assert!(!rename_openai_max_tokens_key(&mut b, &wire, OFFICIAL));
-            assert_eq!(b, original, "{wire:?}: 非 openai wire 不应改键");
-            fold_openai_max_completion_tokens(&mut b, &wire);
-            assert_eq!(b, original, "{wire:?}: 非 openai wire 不应折叠");
-        }
-        let mut b = json!({"model": "m"});
-        assert!(!rename_openai_max_tokens_key(
-            &mut b,
-            &Protocol::OpenAI,
-            OFFICIAL
-        ));
-        assert_eq!(b, json!({"model": "m"}), "未传 max_tokens 时不产键");
-    }
-
-    /// `detail:"auto"` 是 SDK 填的默认值 → 剔除；显式 low/high 与非 openai wire 不动。
-    #[test]
-    fn strips_only_default_image_detail() {
-        let mk = || {
-            json!({"model": "m", "messages": [{"role": "user", "content": [
-                {"type": "text", "text": "hi"},
-                {"type": "image_url", "image_url": {"url": "data:image/png;base64,AA", "detail": "auto"}},
-                {"type": "image_url", "image_url": {"url": "u2", "detail": "high"}}
-            ]}]})
-        };
-        let mut b = mk();
-        assert_eq!(strip_default_image_detail(&mut b, &Protocol::OpenAI), 1);
-        let blocks = &b["messages"][0]["content"];
-        assert!(
-            blocks[1]["image_url"].get("detail").is_none(),
-            "auto 应被剔除: {b}"
-        );
-        assert_eq!(
-            blocks[1]["image_url"]["url"],
-            json!("data:image/png;base64,AA")
-        );
-        assert_eq!(
-            blocks[2]["image_url"]["detail"],
-            json!("high"),
-            "显式值不动"
-        );
-
-        let mut b = mk();
-        assert_eq!(strip_default_image_detail(&mut b, &Protocol::Anthropic), 0);
-        assert_eq!(b, mk(), "非 openai wire body 逐字节不变");
-    }
-}
-
-#[cfg(test)]
-mod test_disable_thinking {
-    use super::Protocol;
-    use aidog_adapter::platform::hooks::{apply_disable_thinking, is_official_openai_host};
-    use serde_json::json;
-
-    /// anthropic：客户端开启型参数剔干净后，写入显式 `thinking.type=disabled`
-    /// （request d1c87c9c 的 minimax anthropic 端点场景）。
-    #[test]
-    fn anthropic_emits_explicit_disabled() {
-        let mut b = json!({
-            "model": "m", "max_tokens": 300, "disable_thinking": true,
-            "thinking": {"type": "enabled", "budget_tokens": 1024},
-            "context_management": {"edits": []},
-        });
-        apply_disable_thinking(
-            &mut b,
-            true,
-            &Protocol::Anthropic,
-            "https://api.minimax.io/anthropic",
-            false,
-        );
-        assert!(b.get("disable_thinking").is_none());
-        assert!(b.get("context_management").is_none());
-        assert_eq!(b["thinking"], json!({"type": "disabled"}));
-    }
-
-    /// 强制思考模型（registry `thinking_toggleable: false`，MiniMax-M3.1-Flash 实证 400
-    /// code 2013 "requires adaptive thinking"）：只剥禁用参数，出站不写任何禁用指令。
-    #[test]
-    fn forced_thinking_strips_disable_and_writes_nothing() {
-        let mut b = json!({
-            "model": "m", "max_tokens": 300, "disable_thinking": true,
-            "thinking": {"type": "disabled"},
-        });
-        apply_disable_thinking(
-            &mut b,
-            true,
-            &Protocol::Anthropic,
-            "https://api.minimaxi.com/anthropic",
-            true,
-        );
-        assert!(b.get("disable_thinking").is_none());
-        assert!(b.get("thinking").is_none());
-    }
-
-    /// 客户端自带显式禁用（未设 aidog 扩展字段）在强制思考模型下同样剥掉——
-    /// 上游对这些形态一视同仁返 2013。
-    #[test]
-    fn forced_thinking_strips_client_disabled_even_when_disable_false() {
-        let mut b = json!({
-            "model": "m",
-            "thinking": {"type": "disabled"},
-            "reasoning_effort": "none",
-        });
-        apply_disable_thinking(
-            &mut b,
-            false,
-            &Protocol::Anthropic,
-            "https://api.minimaxi.com/anthropic",
-            true,
-        );
-        assert!(b.get("thinking").is_none());
-        assert!(b.get("reasoning_effort").is_none());
-    }
-
-    /// 开启型 thinking 不受强制分支影响（只剥禁用形态，不改语义）。
-    #[test]
-    fn forced_thinking_keeps_enabled_params() {
-        let mut b = json!({
-            "model": "m",
-            "thinking": {"type": "enabled", "budget_tokens": 1024},
-        });
-        apply_disable_thinking(
-            &mut b,
-            false,
-            &Protocol::Anthropic,
-            "https://api.minimaxi.com/anthropic",
-            true,
-        );
-        assert_eq!(b["thinking"]["type"], json!("enabled"));
-    }
-
-    /// 第三方 OpenAI 兼容端点：`chat_template_kwargs.enable_thinking=false`，开启型参数不残留。
-    #[test]
-    fn third_party_openai_emits_chat_template_kwargs() {
-        let mut b = json!({
-            "model": "m", "disable_thinking": true, "reasoning_effort": "medium",
-            "chat_template_kwargs": {"enable_thinking": true, "other": 1},
-        });
-        apply_disable_thinking(
-            &mut b,
-            true,
-            &Protocol::OpenAI,
-            "https://open.bigmodel.cn/api/paas/v4",
-            false,
-        );
-        assert!(b.get("reasoning_effort").is_none());
-        assert_eq!(b["chat_template_kwargs"]["enable_thinking"], json!(false));
-        assert_eq!(
-            b["chat_template_kwargs"]["other"],
-            json!(1),
-            "同级其它字段不动"
-        );
-    }
-
-    /// 官方 OpenAI：拒未知顶层字段，只能发 `reasoning_effort="none"`。
-    #[test]
-    fn official_openai_emits_reasoning_effort() {
-        let mut b = json!({"model": "gpt-5", "disable_thinking": true});
-        apply_disable_thinking(
-            &mut b,
-            true,
-            &Protocol::OpenAI,
-            "https://api.openai.com/v1",
-            false,
-        );
-        assert_eq!(b["reasoning_effort"], json!("none"));
-        assert!(b.get("chat_template_kwargs").is_none());
-    }
-
-    /// openai_responses：`reasoning.effort="none"`。
-    #[test]
-    fn openai_responses_emits_reasoning_effort_object() {
-        let mut b =
-            json!({"model": "m", "disable_thinking": true, "reasoning": {"effort": "high"}});
-        apply_disable_thinking(
-            &mut b,
-            true,
-            &Protocol::OpenAIResponses,
-            "https://api.openai.com/v1",
-            false,
-        );
-        assert_eq!(b["reasoning"], json!({"effort": "none"}));
-    }
-
-    /// gemini：`generationConfig.thinkingConfig.thinkingBudget=0`，generationConfig 缺省时补建。
-    #[test]
-    fn gemini_emits_zero_thinking_budget() {
-        let mut b = json!({
-            "disable_thinking": true,
-            "generationConfig": {"thinkingConfig": {"thinkingBudget": 128}, "temperature": 0.5},
-        });
-        apply_disable_thinking(
-            &mut b,
-            true,
-            &Protocol::Gemini,
-            "https://generativelanguage.googleapis.com",
-            false,
-        );
-        assert_eq!(
-            b["generationConfig"]["thinkingConfig"],
-            json!({"thinkingBudget": 0})
-        );
-        assert_eq!(b["generationConfig"]["temperature"], json!(0.5));
-
-        let mut b = json!({"disable_thinking": true});
-        apply_disable_thinking(
-            &mut b,
-            true,
-            &Protocol::Gemini,
-            "https://generativelanguage.googleapis.com",
-            false,
-        );
-        assert_eq!(
-            b["generationConfig"]["thinkingConfig"]["thinkingBudget"],
-            json!(0)
-        );
-    }
-
-    #[test]
-    fn false_strips_field_only_and_absent_is_noop() {
-        let mut b = json!({"disable_thinking": false, "thinking": {"type": "enabled"}});
-        apply_disable_thinking(&mut b, false, &Protocol::Anthropic, "https://example.com", false);
-        assert!(b.get("disable_thinking").is_none(), "非标字段仍剥");
-        assert_eq!(
-            b["thinking"],
-            json!({"type": "enabled"}),
-            "false 不动思考参数"
-        );
-
-        let mut b = json!({"model": "m"});
-        apply_disable_thinking(&mut b, false, &Protocol::Anthropic, "https://example.com", false);
-        assert_eq!(b, json!({"model": "m"}), "未请求禁用时整体不动");
-    }
-
-    /// 转换分支：`req_body` 由强类型 struct 序列化，body 里根本没有 `disable_thinking` key，
-    /// 禁用意图只能靠调用方从客户端原体读出的 flag 传进来（审计发现的漏修路径）。
-    #[test]
-    fn converted_body_without_key_still_disables() {
-        let mut b = json!({"model": "m", "messages": [], "reasoning_effort": "high"});
-        apply_disable_thinking(
-            &mut b,
-            true,
-            &Protocol::OpenAI,
-            "https://open.bigmodel.cn/api/paas/v4",
-            false,
-        );
-        assert_eq!(b["chat_template_kwargs"]["enable_thinking"], json!(false));
-        assert!(b.get("reasoning_effort").is_none());
-    }
-
-    #[test]
-    fn official_openai_host_matches_host_only() {
-        assert!(is_official_openai_host(
-            "https://api.openai.com/v1/chat/completions"
-        ));
-        assert!(is_official_openai_host("https://API.OpenAI.com:443/v1"));
-        assert!(!is_official_openai_host(
-            "https://api.openai.com.evil.dev/v1"
-        ));
-        assert!(!is_official_openai_host(
-            "https://open.bigmodel.cn/api/paas/v4"
-        ));
-    }
-}
-
-#[cfg(test)]
-mod test_strip_thinking {
-    use super::{strip_redacted_thinking_blocks, strip_thinking_if_unmatched};
-    use serde_json::json;
-
-    #[test]
-    fn strips_when_assistant_turn_lacks_thinking_block() {
-        // 复现 0cea9d32 真因：thinking 开启 + assistant 轮仅 tool_use 无 thinking → 第三方 400
-        let mut body = json!({
-            "thinking": {"type": "adaptive", "display": "summarized"},
-            "context_management": {"edits": [{"type": "clear_thinking_20251015", "keep": "all"}]},
-            "messages": [
-                {"role": "user", "content": [{"type": "text", "text": "hi"}]},
-                {"role": "assistant", "content": [{"type": "tool_use", "id": "t1", "name": "x", "input": {}}]},
-            ],
-        });
-        strip_thinking_if_unmatched(&mut body);
-        assert!(body.get("thinking").is_none(), "应剔除 thinking");
-        assert!(
-            body.get("context_management").is_none(),
-            "应剔除 context_management"
-        );
-    }
-
-    #[test]
-    fn strips_context_management_with_adaptive_thinking_no_assistant_block() {
-        // 复现 request_id=1658bb4b 真因：Claude Code adaptive/summarized 模式
-        // (thinking adaptive + context_management clear_thinking_20251015) → assistant 轮不回传 thinking block
-        // → 跨路由到第三方 anthropic 端点(DeepSeek)。单剔 thinking 不够，context_management 保留仍判 thinking mode → 400。
-        // 修复：两字段皆剔。
-        let mut body = json!({
-            "thinking": {"type": "adaptive", "display": "summarized"},
-            "context_management": {"edits": [{"type": "clear_thinking_20251015", "keep": "all"}]},
-            "messages": [
-                {"role": "user", "content": [{"type": "text", "text": "q1"}]},
-                {"role": "assistant", "content": [{"type": "text", "text": "a1"}]},
-                {"role": "user", "content": [{"type": "text", "text": "q2"}]},
-                {"role": "assistant", "content": [{"type": "text", "text": "a2"}]},
-            ],
-        });
-        strip_thinking_if_unmatched(&mut body);
-        assert!(body.get("thinking").is_none(), "应剔除 thinking");
-        assert!(
-            body.get("context_management").is_none(),
-            "应剔除 context_management"
-        );
-    }
-
-    #[test]
-    fn keeps_thinking_when_blocks_present() {
-        let mut body = json!({
-            "thinking": {"type": "adaptive"},
-            "context_management": {"edits": [{"type": "clear_thinking_20251015", "keep": "all"}]},
-            "messages": [
-                {"role": "assistant", "content": [
-                    {"type": "thinking", "thinking": "...", "signature": "s"},
-                    {"type": "tool_use", "id": "t1", "name": "x", "input": {}},
-                ]},
-            ],
-        });
-        strip_thinking_if_unmatched(&mut body);
-        assert!(body.get("thinking").is_some(), "thinking 齐全应保留");
-        // context_management 无条件剔（第三方不认该协商字段）
-        assert!(
-            body.get("context_management").is_none(),
-            "thinking 开启即无条件剔 context_management（即使 thinking 齐全）"
-        );
-    }
-
-    #[test]
-    fn noop_when_thinking_off() {
-        let mut body = json!({
-            "context_management": {"edits": [{"type": "clear_thinking_20251015", "keep": "all"}]},
-            "messages": [{"role": "assistant", "content": [{"type": "tool_use", "id": "t1", "name": "x", "input": {}}]}],
-        });
-        strip_thinking_if_unmatched(&mut body);
-        assert!(body.get("messages").is_some());
-        assert!(
-            body.get("context_management").is_some(),
-            "thinking off 不命中 unmatched，context_management 保留"
-        );
-    }
-
-    #[test]
-    fn keeps_thinking_first_turn_no_assistant_but_strips_context_management() {
-        // 复现 request_id=3a76c297 真因（GLM 1210）：首轮请求 messages 仅 user，无 assistant 历史，
-        // thinking adaptive + context_management clear_thinking_20251015。
-        // 旧逻辑 has_unmatched_assistant=false → 两字段皆保留 → GLM 不认 context_management 报 1210。
-        // 修复：context_management 无条件剔（thinking_on 即剔，独立于 has_unmatched）；thinking 无 unmatched 故保留。
-        let mut body = json!({
-            "thinking": {"type": "adaptive", "display": "summarized"},
-            "context_management": {"edits": [{"type": "clear_thinking_20251015", "keep": "all"}]},
-            "messages": [{"role": "user", "content": [{"type": "text", "text": "hi"}]}],
-        });
-        strip_thinking_if_unmatched(&mut body);
-        assert!(
-            body.get("thinking").is_some(),
-            "首轮无 assistant → has_unmatched=false，thinking 保留"
-        );
-        assert!(
-            body.get("context_management").is_none(),
-            "thinking 开启即无条件剔 context_management（首轮 GLM 1210 根因）"
-        );
-    }
-
-    #[test]
-    fn test_strip_redacted_thinking_blocks_filters_only_redacted() {
-        // 复现 trace 81dc4466（火山 doubao coding endpoint 400 InvalidParameter）
-        // + 87e3c500（deepseek-v4-pro-260425 同根因）：redacted_thinking block 透传致第三方端点 400。
-        let mut body = json!({
-            "messages": [
-                {"role": "user", "content": [{"type": "text", "text": "q"}]},
-                {"role": "assistant", "content": [
-                    {"type": "thinking", "thinking": "sig-data", "signature": "s"},
-                    {"type": "redacted_thinking", "data": "encrypted-opaque-blob"},
-                    {"type": "text", "text": "a"},
-                ]},
-                {"role": "user", "content": [
-                    {"type": "tool_result", "tool_use_id": "t1", "content": "r"},
-                    {"type": "redacted_thinking", "data": "encrypted-opaque-blob-2"},
-                ]},
-            ],
-        });
-        strip_redacted_thinking_blocks(&mut body);
-        let msgs = body.get("messages").and_then(|m| m.as_array()).unwrap();
-        // assistant 轮：仅剩 thinking + text
-        let asst = msgs[1].get("content").and_then(|c| c.as_array()).unwrap();
-        assert_eq!(
-            asst.len(),
-            2,
-            "应仅剥离 redacted_thinking，保留 thinking + text"
-        );
-        assert!(
-            asst.iter()
-                .all(|b| b.get("type").and_then(|t| t.as_str()) != Some("redacted_thinking")),
-            "无残留 redacted_thinking"
-        );
-        // user 轮：仅剩 tool_result
-        let u2 = msgs[2].get("content").and_then(|c| c.as_array()).unwrap();
-        assert_eq!(u2.len(), 1, "tool_result 保留，仅剔 redacted_thinking");
-        assert_eq!(
-            u2[0].get("type").and_then(|t| t.as_str()),
-            Some("tool_result")
-        );
-    }
-
-    #[test]
-    fn test_strip_redacted_thinking_blocks_all_redacted_keeps_empty_message() {
-        // 全 redacted_thinking 的 message → 剥离后 content 为空数组，但 message 结构保留
-        // （剥离顺序敏感，禁删整条 message）。
-        let mut body = json!({
-            "messages": [
-                {"role": "user", "content": [{"type": "text", "text": "q"}]},
-                {"role": "assistant", "content": [
-                    {"type": "redacted_thinking", "data": "blob-1"},
-                    {"type": "redacted_thinking", "data": "blob-2"},
-                ]},
-            ],
-        });
-        strip_redacted_thinking_blocks(&mut body);
-        let msgs = body.get("messages").and_then(|m| m.as_array()).unwrap();
-        assert_eq!(msgs.len(), 2, "message 数量不变（结构保留）");
-        let asst = msgs[1].get("content").and_then(|c| c.as_array()).unwrap();
-        assert!(
-            asst.is_empty(),
-            "全 redacted_thinking 剥离后 content 为空数组"
-        );
-        // user 轮 text block 保留
-        let u = msgs[0].get("content").and_then(|c| c.as_array()).unwrap();
-        assert_eq!(u.len(), 1);
-    }
-
-    #[test]
-    fn test_strip_redacted_thinking_blocks_noop_on_string_content() {
-        // 字符串形态 content 无 block 可剔，不动。
-        let mut body = json!({
-            "messages": [
-                {"role": "user", "content": "plain text"},
-                {"role": "assistant", "content": [{"type": "redacted_thinking", "data": "x"}]},
-            ],
-        });
-        strip_redacted_thinking_blocks(&mut body);
-        let msgs = body.get("messages").and_then(|m| m.as_array()).unwrap();
-        // 字符串 content 原样
-        assert_eq!(
-            msgs[0].get("content").and_then(|c| c.as_str()),
-            Some("plain text")
-        );
-        // assistant 数组内 redacted_thinking 已剔
-        let asst = msgs[1].get("content").and_then(|c| c.as_array()).unwrap();
-        assert!(asst.is_empty());
-    }
-}
-
-#[cfg(test)]
-mod test_hoist_mid_messages_system {
-    use super::hoist_mid_messages_system;
-    use serde_json::json;
-
-    #[test]
-    fn hoists_mid_system_to_top_level_when_multiturn() {
-        // 复现 GLM 1210 真因（request_id=7c8629eadb074648a71858ae388ea550 等 9 例）：
-        // CC 注入 role=system 进 messages 中段+末段，多轮 + 非流式下 GLM 拒绝 → 400 code 1210。
-        // 规整：messages 内 role=system 合并到顶层 system 数组，messages 仅留 user/assistant。
-        let mut body = json!({
-            "system": [{"type": "text", "text": "base system"}],
-            "messages": [
-                {"role": "user", "content": [{"type": "text", "text": "q1"}]},
-                {"role": "system", "content": "mid reminder 1"},
-                {"role": "assistant", "content": [{"type": "text", "text": "a1"}]},
-                {"role": "user", "content": "q2"},
-                {"role": "system", "content": "mid reminder 2"},
-                {"role": "assistant", "content": [{"type": "text", "text": "a2"}]},
-                {"role": "user", "content": "q3"},
-                {"role": "system", "content": "trailing reminder"},
-            ],
-        });
-        hoist_mid_messages_system(&mut body);
-        let msgs = body["messages"].as_array().unwrap();
-        // messages 内不再有 role=system
-        assert!(
-            !msgs.iter().any(|m| m["role"] == "system"),
-            "messages 内不应再有 role=system"
-        );
-        // user/assistant 交替保留
-        let roles: Vec<&str> = msgs.iter().map(|m| m["role"].as_str().unwrap()).collect();
-        assert_eq!(
-            roles,
-            vec!["user", "assistant", "user", "assistant", "user"]
-        );
-        // 顶层 system 数组追加 3 个 text block（原 1 + 合并 3 = 4）
-        let sys = body["system"].as_array().unwrap();
-        assert_eq!(sys.len(), 4, "顶层 system 数组应含原 1 + 合并 3 = 4 块");
-        assert_eq!(sys[0]["text"], "base system");
-        assert_eq!(sys[1]["text"], "mid reminder 1");
-        assert_eq!(sys[2]["text"], "mid reminder 2");
-        assert_eq!(sys[3]["text"], "trailing reminder");
-    }
-
-    #[test]
-    fn noop_when_no_assistant_first_turn() {
-        // 首轮无 assistant 历史：messages 内 role=system 多为客户端首约定，第三方接受，不动。
-        let mut body = json!({
-            "system": [{"type": "text", "text": "base"}],
-            "messages": [
-                {"role": "user", "content": "hi"},
-                {"role": "system", "content": "ctx"},
-            ],
-        });
-        hoist_mid_messages_system(&mut body);
-        // messages 保持原样（含 role=system）
-        let msgs = body["messages"].as_array().unwrap();
-        assert_eq!(msgs.len(), 2, "首轮无 assistant 不应规整");
-        assert_eq!(msgs[1]["role"], "system");
-        assert_eq!(
-            body["system"].as_array().unwrap().len(),
-            1,
-            "顶层 system 不变"
-        );
-    }
-
-    #[test]
-    fn noop_when_no_mid_system() {
-        // 多轮但 messages 内无 role=system：无需规整
-        let mut body = json!({
-            "system": [{"type": "text", "text": "base"}],
-            "messages": [
-                {"role": "user", "content": "q1"},
-                {"role": "assistant", "content": "a1"},
-                {"role": "user", "content": "q2"},
-            ],
-        });
-        hoist_mid_messages_system(&mut body);
-        assert_eq!(
-            body["messages"].as_array().unwrap().len(),
-            3,
-            "无 mid-system 不动"
-        );
-        assert_eq!(body["system"].as_array().unwrap().len(), 1);
-    }
-
-    #[test]
-    fn upgrades_top_system_str_to_array() {
-        // 顶层 system 是字符串时：升级为数组并追加 mid-system
-        let mut body = json!({
-            "system": "base string",
-            "messages": [
-                {"role": "user", "content": "q1"},
-                {"role": "assistant", "content": "a1"},
-                {"role": "user", "content": "q2"},
-                {"role": "system", "content": "injected"},
-            ],
-        });
-        hoist_mid_messages_system(&mut body);
-        let sys = body["system"].as_array().expect("顶层 system 应升级为数组");
-        assert_eq!(sys.len(), 2);
-        assert_eq!(sys[0]["text"], "base string");
-        assert_eq!(sys[1]["text"], "injected");
-    }
-
-    #[test]
-    fn creates_top_system_when_absent() {
-        // 顶层无 system 字段：mid-system 合并新建
-        let mut body = json!({
-            "messages": [
-                {"role": "user", "content": "q1"},
-                {"role": "assistant", "content": "a1"},
-                {"role": "user", "content": "q2"},
-                {"role": "system", "content": [{"type": "text", "text": "block1"}]},
-            ],
-        });
-        hoist_mid_messages_system(&mut body);
-        let sys = body["system"].as_array().expect("应新建顶层 system 数组");
-        assert_eq!(sys.len(), 1);
-        assert_eq!(sys[0]["text"], "block1");
-    }
-
-    #[test]
-    fn preserves_array_block_content_from_mid_system() {
-        // mid-system content 是数组（blocks）时：逐项合并到顶层 system 数组
-        let mut body = json!({
-            "system": [{"type": "text", "text": "base"}],
-            "messages": [
-                {"role": "user", "content": "q1"},
-                {"role": "assistant", "content": "a1"},
-                {"role": "user", "content": "q2"},
-                {"role": "system", "content": [
-                    {"type": "text", "text": "block a"},
-                    {"type": "text", "text": "block b"},
-                ]},
-            ],
-        });
-        hoist_mid_messages_system(&mut body);
-        let sys = body["system"].as_array().unwrap();
-        assert_eq!(sys.len(), 3, "原 1 + mid-system 2 block = 3");
-        assert_eq!(sys[1]["text"], "block a");
-        assert_eq!(sys[2]["text"], "block b");
-    }
-}
-
 
 // ── 阶段函数：select → prepare → send（forward_attempt 只留「选 → 备 → 发 → 收」骨架）──
 // 阶段早退使用 StageExit，由 forward_attempt 转成外层 AttemptOutcome；保留原早退副作用。
@@ -2672,39 +900,58 @@ struct Prepared {
     url: String,
 }
 
-#[allow(clippy::too_many_arguments, clippy::result_large_err)]
-async fn prepare_outbound(
-    state: &Arc<ProxyState>,
-    group: &Group,
-    route: &RouteResult,
-    log: &mut ProxyLog,
-    chat_req: &mut ChatRequest,
-    req_value: &Value,
-    header_injects: &mut Vec<(String, String)>,
-    target: &TargetSel<'_>,
+/// 阶段 2（prepare_outbound）的入参聚合（票 10，参照 NonSuccessCtx 先例）：
+/// 17 个散参收成一个结构。`model_max` / `model_forces_thinking` 由调用方预取
+/// （spec M4「单入口 shape(body)」落选形状的前置：读库进 ctx 后，整形链可再收纯函数单入口）。
+struct OutboundCtx<'a> {
+    state: &'a Arc<ProxyState>,
+    group: &'a Group,
+    route: &'a RouteResult,
+    log: &'a mut ProxyLog,
+    chat_req: &'a mut ChatRequest,
+    req_value: &'a Value,
+    header_injects: &'a mut Vec<(String, String)>,
+    target: &'a TargetSel<'a>,
     actual_model: String,
+    model_max: Option<i64>,
+    model_forces_thinking: bool,
     is_stream: bool,
     lang: Lang,
-    log_settings: &ProxyLogSettings,
+    log_settings: &'a ProxyLogSettings,
     start: std::time::Instant,
-    attempts: &mut Vec<ProxyAttempt>,
+    attempts: &'a mut Vec<ProxyAttempt>,
     attempt_start: std::time::Instant,
     attempt_ts: i64,
     disable_thinking: bool,
-) -> Result<Prepared, StageExit> {
+}
+
+#[allow(clippy::result_large_err)]
+async fn prepare_outbound(ctx: OutboundCtx<'_>) -> Result<Prepared, StageExit> {
+    let OutboundCtx {
+        state,
+        group,
+        route,
+        log,
+        chat_req,
+        req_value,
+        header_injects,
+        target,
+        actual_model,
+        model_max,
+        model_forces_thinking,
+        is_stream,
+        lang,
+        log_settings,
+        start,
+        attempts,
+        attempt_start,
+        attempt_ts,
+        disable_thinking,
+    } = ctx;
     // ── max_tokens 出站裁剪（convert_request 前）──
     // 客户端 max_tokens 超过选定模型上限时裁剪到上限；未传 / 模型无上限则不动（Q3 保守）。
     // 此处裁 chat_req（转换分支的入参，同时是 token 估算口径）；出站 body 上的同上限复裁
     // 见下方 `cap_body_max_tokens` 调用点（透传分支唯一生效处）。
-    // 上限按 (平台协议裸名, 实际请求模型) 查 model_entry —— 同一模型在不同平台上限可不同。
-    let model_max = aidog_db::model_max_output_tokens(
-        &state.db,
-        &route.platform.platform_type.wire_str(),
-        &actual_model,
-    )
-    .await
-    .ok()
-    .flatten();
     // 票 11：转换分支在这里就把 chat_req 裁到位，下方 body 层的 `cap_body_max_tokens` 因此
     // 是幂等复裁、不再命中 → 留痕会漏掉整条转换路径。故在此处记住「裁过」，与 body 层的留痕合并。
     let mut capped_on_chat_req = false;
@@ -2929,8 +1176,8 @@ async fn prepare_outbound(
     // MiniMax-M2 等内置思考模型上游仍无法真正禁用，响应不剥离。
     //
     // 强制思考模型（registry `thinking_toggleable: false`，MiniMax-M3.1-Flash 实证 400 code 2013
-    // "requires adaptive thinking"）：显式禁用参数一个都不写出站。仅当请求带显式禁用才查
-    // registry（多数请求零额外 DB 读）。
+    // "requires adaptive thinking"）：显式禁用参数一个都不写出站。票 10 起该 registry 读由
+    // 调用方预取进 OutboundCtx（M4 单入口前置），不再按需读。
     let explicit_disable = disable_thinking
         || req_body
             .get("thinking")
@@ -2943,13 +1190,7 @@ async fn prepare_outbound(
             .and_then(|r| r.get("effort"))
             .and_then(Value::as_str)
             == Some("none");
-    let forced_thinking = explicit_disable
-        && model_forces_thinking(
-            &state.db,
-            &route.platform.platform_type.wire_str(),
-            &actual_model,
-        )
-        .await;
+    let forced_thinking = explicit_disable && model_forces_thinking;
     pa.apply_disable_thinking(
         &mut req_body,
         disable_thinking,
@@ -3300,70 +1541,28 @@ async fn send_upstream(
                 // R1（2026-09-28，推翻 2026-09-15「网络类故障不降权」）：connect 失败计入熔断
                 // （死站滞留候选的根治），带本地网络保护（60s 滑窗失败平台数达候选半数不计数）；
                 // 其余 transport 错误（读超时/中途掐线）仍不降权仅 inflight-1。
-                let mut effects = Vec::new();
-                if e.is_connect() {
-                    if state.scheduler.record_connect_failure(
-                        route.platform.id,
-                        candidate_total,
-                        &breaker_th,
-                        aidog_db::now(),
-                    ) {
-                        effects.push("breaker_count".to_string());
-                    }
-                } else {
-                    state.scheduler.record_ignored(route.platform.id);
+                // 票 04：judge(Transport) + apply 记账收口到 CallScope::transport_failed。
+                let scope = super::call_scope::CallScope {
+                    state,
+                    group,
+                    route,
+                    log_settings,
+                    lang,
+                    start,
+                    attempt_start,
+                    attempt_ts,
+                    is_last_candidate,
+                    candidate_total,
+                    has_next_model,
+                    breaker_th,
+                    proxy_client: &proxy_client,
+                    req_timeout,
+                    conn_timeout,
+                };
+                match scope.transport_failed(log, attempts, &e, &url).await {
+                    AttemptOutcome::Respond(r) => return Err(StageExit::Respond(r)),
+                    AttemptOutcome::Next { connect_failed } => return Err(StageExit::Retry { connect_failed }),
                 }
-                effects.push("penalty_server".to_string());
-                // 失败降权（health-aware，2026-09-29）：connect 失败（已计熔断）与读超时/
-                // 中途掐线/TLS 等 transport 错（原 record_ignored）均计入服务端/网络档降权，
-                // 与熔断并行。此分支在响应头到达前，同请求同平台仅计这一次。
-                state.scheduler.record_penalty(
-                    route.platform.id,
-                    super::scheduling::PenaltyTier::Server,
-                    aidog_db::now(),
-                );
-                let detail = err_chain(&e);
-                tracing::error!(url = %url, platform = %route.platform.name, error = %detail, duration_ms = start.elapsed().as_millis() as i64, "upstream request failed (502)");
-                let upstream_err = format!("upstream error: {detail}");
-                attempts.push(ProxyAttempt {
-                    // transport 错（连接失败 / 超时）属服务类：不换模型直接换平台，链上剩余模型记「跳过」
-                    chain_stop: has_next_model.then(|| "service".to_string()),
-                    error_class: Some("service".to_string()),
-                    effects,
-                    platform_id: route.platform.id,
-                    platform_name: route.platform.name.clone(),
-                    status_code: 0,
-                    error: upstream_err.clone(),
-                    duration_ms: attempt_start.elapsed().as_millis() as i64,
-                    ts: attempt_ts,
-                    model: Some(route.target_model.clone()),
-                    ..Default::default()
-                });
-                let _ = aidog_db::set_platform_last_error(
-                    &state.db,
-                    route.platform.id,
-                    Some(upstream_err.clone()),
-                )
-                .await;
-                if !is_last_candidate {
-                    return Err(StageExit::Retry {
-                        connect_failed: e.is_connect(),
-                    });
-                }
-                let msg = format!("{}: {detail}", i18n::t(lang, ErrorKey::Upstream));
-                return Err(StageExit::Respond(
-                    finalize_proxy_502(
-                        state,
-                        log,
-                        attempts,
-                        route.platform.id,
-                        upstream_err,
-                        msg,
-                        start,
-                        log_settings,
-                    )
-                    .await,
-                ));
             }
         }
     };
