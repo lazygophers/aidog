@@ -2,9 +2,9 @@ use super::*;
 
 // 票 09：出站整形纯函数已迁至 outbound_shape（机械迁移，零行为改动）。
 use super::outbound_shape::{
-    build_field_trace, dropped_media_fields, fold_openai_max_completion_tokens,
-    hoist_mid_messages_system, rename_openai_max_tokens_key, strip_default_image_detail,
-    strip_redacted_thinking_blocks, strip_thinking_if_unmatched,
+    build_field_trace, dropped_media_fields, dropped_server_tools,
+    fold_openai_max_completion_tokens, hoist_mid_messages_system, rename_openai_max_tokens_key,
+    strip_default_image_detail, strip_redacted_thinking_blocks, strip_thinking_if_unmatched,
 };
 
 /// 阶段函数的退出契约。阶段只表达“换候选”或“终态响应”，
@@ -1281,6 +1281,7 @@ async fn prepare_outbound(ctx: OutboundCtx<'_>) -> Result<Prepared, StageExit> {
     let mut dropped_fields = dropped;
     if !target.same_protocol_passthrough {
         dropped_fields.extend(dropped_media_fields(chat_req, target.target_protocol_enum));
+        dropped_fields.extend(dropped_server_tools(chat_req, target.target_protocol_enum));
     }
     log.field_trace = build_field_trace(
         capped_on_chat_req,

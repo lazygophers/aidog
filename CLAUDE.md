@@ -9,7 +9,6 @@
 - `command_macro.rs` 的 `tauri_command!` 宏双展开：feature `desktop` 出 `#[tauri::command]`，feature `http` 出 `<命令名>::http` 的 axum handler（两者默认都开）。**用本宏定义命令的 crate 必须自己声明这两个 feature 并转发给 aidog_core**（cfg 在展开处求值）：现有 aidog_backup 已声明。
 - `http_command.rs`：参数按 camelCase→snake_case 取（对齐 Tauri v2 与前端实际发的键）、返回值序列化、Err → 非 2xx + 同样的 JSON body。
 - `aidog_ctx` 的 `AppCtx` trait（进程级 OnceLock 单例）必须**零 tauri 依赖**：命令拿 db / middleware / proxy handle / emit 一律走它，`aidog_core/src/tauri_ctx.rs` 是唯一接 `AppHandle` 的地方，无头内核（票 08）实现同一 trait。
-- `aidog_test_util` 依赖 `aidog_core`，故 `aidog_core` 不可反向 dev-dep。
 - `src/services/api/` 是目录不是单文件；`src/pages/Settings.tsx` 是编排容器，子组件在 `src/components/settings/`。
 
 > command 注册表在 `src-tauri/src/startup.rs` 的 `tauri::generate_handler![...]`，**它是前端 invoke 名的唯一真值源**（invoke 名取 `#[tauri::command]` 函数名，与模块路径无关）。搬迁命令后用该集合零差集自比对即可证明 invoke 名未变。
@@ -94,6 +93,7 @@
 - **CSS 层级铁律：`src/styles/globals.css` 里禁裸写（unlayered）`position`**。Tailwind v4 的 `.fixed`/`.absolute` 在 `@layer utilities`，而 unlayered 声明压过任何 layered 声明（与特异性无关）——一条裸写的 `.glass-surface { position: relative }` 就能把挂该 class 的 Radix `DialogContent` 打回文档流，症状是「弹窗不按窗口居中」。给伪元素当锚点的 position 一律加进文件末尾 `@layer components` 的「定位上下文」块；唯二例外是弹窗定位硬保障类 `.ui-dialog-overlay` / `.ui-dialog-panel`（故意 unlayered，压过调用方 className，挂在 `components/ui/{dialog,alert-dialog}.tsx` 上）。
 - **accent token 语义错位（shadcn idiom 坑）**：`mono.ts` 里 `--accent` = token `accent-text`（文字/图标色，dark `#E6E8EC` 近白），**不是 shadcn 语义里的「hover 淡底」**——dark 下 `bg-accent` 直接出近白块。「hover / 键盘高亮 / 选中淡底」一律用 `--accent-subtle`（= token `accent-wash`：dark 白 6% / light 紫 10%；`globals.css` 的缺省从近黑 `--primary` 混出、dark 下不可见，已由 mono.ts 按 mode 覆盖，新表面色直接引 `--accent-subtle` 禁抄 color-mix）。确要浓 accent 底（如 DropdownMenuSubTrigger）必须配对 `text-accent-foreground`。2026-09-29 select.tsx 修复（7a9b860fe）；同族残留：`dropdown-menu.tsx` 4 处 `focus:bg-accent`（已配对前景色、可读，是否统一成 accent-subtle 待定）。
 - 护栏 `yarn check:modal`（`scripts/check-modal-centering.mjs`，已进 `make lint`）：查 ① globals.css unlayered 区无 position ② 两个 ui 组件仍带保障类 ③ 手写居中遮罩必须 createPortal。
+- 应用图标：源 `src-tauri/icons/source/logo.svg`，`yarn tauri icon <1024 源图>` 生成全套后须还原 `src-tauri/icons/android/values/ic_launcher_background.xml`（工具会改成 `#FFFFFF`），32px 及以下 / `icon.icns` / `icon.ico` 用设计稿小尺寸版覆盖；菜单栏模板图 `icons/tray-template.tiff`（`menubar.rs`），macOS Dock 运行时深浅切换在 `aidog_core/src/dock_icon.rs`（读 `icons/dock-{light,dark}.png`）。
 - **禁用右侧抽屉（Sheet / drawer）**（2026-10-29 拍板，`components/ui/sheet.tsx` 已删）：编辑类主流程（如平台编辑）用独立全页，其余浮层用居中 Dialog（`createPortal(document.body)`），禁新增 side 滑入面板。
 - 数值格式化统一走 `utils/formatters.ts`，禁页内重复定义 formatNumber 等
 - locale JSON（`src-tauri/crates/aidog_i18n/locales/*.json`）按功能域分组、非字典序：补 key 用文本级插入到同域锚点行，禁 `sorted()` 整文件重写（曾致 ±1804 行 diff）；门禁 `yarn check:i18n`。

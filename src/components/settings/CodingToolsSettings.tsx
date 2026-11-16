@@ -32,6 +32,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGr
 import { useReveal } from "../../components/shared";
 import { ProfilesSection } from "./ProfilesSection";
 import { AgentUpdateSection } from "./AgentUpdateSection";
+import { isImeComposing } from "../../utils/ime";
 
 // ponytail: 单卡片包装 — 每实例独立 useReveal (React 规则禁 map 内条件 hook),
 // hover-lift + reveal 萤火虫入场 (stagger idx*60)。
@@ -516,7 +517,7 @@ export function CodingToolsSettingsTab() {
               placeholder="http://host:port"
               onChange={(e) => setProxyDraft((d) => ({ ...d, url: e.target.value }))}
               onKeyDown={(e) => {
-                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                if (e.key === "Enter" && !isImeComposing(e)) (e.target as HTMLInputElement).blur();
               }}
               onBlur={handleProxyCommit}
               disabled={busy}
@@ -539,7 +540,7 @@ export function CodingToolsSettingsTab() {
               placeholder="localhost,127.0.0.1,*.local"
               onChange={(e) => setProxyDraft((d) => ({ ...d, no: e.target.value }))}
               onKeyDown={(e) => {
-                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                if (e.key === "Enter" && !isImeComposing(e)) (e.target as HTMLInputElement).blur();
               }}
               onBlur={handleProxyCommit}
               disabled={busy}

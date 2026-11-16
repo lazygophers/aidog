@@ -42,6 +42,8 @@ pub mod tray_render;
 // 让 Flutter 壳的 `aidog_menubar_ffi` 能在不链 tauri 的前提下复用同一个宿主。
 #[cfg(all(target_os = "macos", feature = "menubar"))]
 pub mod menubar;
+#[cfg(all(target_os = "macos", feature = "menubar"))]
+pub mod dock_icon;
 // 票 I20：菜单栏一帧数据（取数侧，无 AppKit）。宿主可能不在本进程里（Flutter 壳把
 // GUI 留在 Runner、DB 留在内核），所以取数与渲染分居两个模块、靠 JSON 过进程边界。
 pub mod menubar_state;

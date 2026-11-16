@@ -10,6 +10,7 @@ import { SvgIcon } from "./icons";
 import { Toggle, FieldRow, PathInput, Hint, SubHeading } from "./_shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { isImeComposing } from "../../../utils/ime";
 
 
 /** Editable string list with add/remove — plain text input */
@@ -50,10 +51,11 @@ function TagList({
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <Input
           
+          data-testid="path-list-draft"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={placeholder}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+          onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); add(); } }}
           style={{ flex: 1, fontSize: F.hint, fontFamily: "monospace", padding: "6px 10px" }}
         />
         <Button variant="outline" type="button" disabled={!draft.trim()} onClick={add}

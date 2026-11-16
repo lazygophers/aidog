@@ -5,6 +5,7 @@ import { ALL_LOCALES } from "../locales";
 import { IconGlobe } from "./icons";
 import { Button } from "@/components/ui/button";
 import { makeRipple } from "../utils/motion";
+import { useThemeMode } from "../themes/useThemeMode";
 
 // ── SVG Icons ──
 
@@ -246,6 +247,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
   const {
     locale, setLocale,
   } = useApp();
+  const mode = useThemeMode();
   const [langOpen, setLangOpen] = useState(false);
   // G3 骨架（票 02）：两档折叠 216px ↔ 56px 图标态，localStorage 记忆。
   const [collapsed, setCollapsed] = useState(() => {
@@ -299,7 +301,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
         gap: 8,
       }}>
         <img
-          src={`${import.meta.env.BASE_URL}logo.svg`}
+          src={`${import.meta.env.BASE_URL}logo-${mode}.svg`}
           alt="logo"
           style={{ width: 26, height: 26, flexShrink: 0 }}
         />

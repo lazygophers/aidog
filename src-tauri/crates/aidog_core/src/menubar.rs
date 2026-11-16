@@ -30,8 +30,9 @@ use objc2_foundation::{MainThreadMarker, NSData, NSSize, NSString};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-/// 菜单栏图标（无数据列时展示）。与 tauri.conf.json 的 bundle icon 同一份文件。
-const ICON_PNG: &[u8] = include_bytes!("../../../icons/32x32.png");
+/// 菜单栏图标（无数据列时展示）：纯黑 + 透明模板图，TIFF 内含 18px / 36px 两档，
+/// NSImage 按屏幕倍率选档。
+const ICON_IMAGE: &[u8] = include_bytes!("../../../icons/tray-template.tiff");
 /// 菜单栏图标边长（pt）。系统菜单栏高约 22pt，留上下余量。
 const ICON_SIDE: f64 = 18.0;
 /// `NSVariableStatusItemLength`：宽度随内容自适应。
@@ -118,7 +119,7 @@ fn ensure_item(mtm: MainThreadMarker) -> Option<Retained<NSStatusItem>> {
 }
 
 fn icon() -> Option<Retained<NSImage>> {
-    let data = NSData::with_bytes(ICON_PNG);
+    let data = NSData::with_bytes(ICON_IMAGE);
     let img = NSImage::initWithData(NSImage::alloc(), &data)?;
     img.setSize(NSSize::new(ICON_SIDE, ICON_SIDE));
     // template = 系统按明暗主题自动反色，与菜单栏其它图标一致。

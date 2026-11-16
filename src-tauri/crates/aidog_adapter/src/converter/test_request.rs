@@ -319,3 +319,72 @@ fn convert_request_gemini_verb_follows_stream() {
     let (_, p) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
     assert!(p.ends_with(":streamGenerateContent"), "流式应为 streamGenerateContent: {p}");
 }
+
+// ── issue #74：服务端工具按目标协议映射下发 / 丢弃留痕 ──
+
+fn anthropic_req_with_server_tools() -> ChatRequest {
+    parse_incoming_request(
+        &Protocol::Anthropic,
+        &serde_json::json!({
+            "model": "claude-opus-4-8",
+            "max_tokens": 128,
+            "messages": [{ "role": "user", "content": "search it" }],
+            "tools": [
+                { "name": "get_weather", "description": "w", "input_schema": {"type":"object","properties":{"city":{"type":"string"}}} },
+                { "type": "web_search_20250305", "name": "web_search", "max_uses": 3,
+                  "allowed_domains": ["a.com", "b.com"], "blocked_domains": ["c.com"],
+                  "user_location": {"type":"approximate","city":"Zurich","timezone":"Europe/Zurich"} },
+                { "type": "web_fetch_20250910", "name": "web_fetch", "max_uses": 2 },
+                { "type": "bash_20250124", "name": "bash" }
+            ]
+        }),
+        None,
+    )
+    .expect("parse anthropic req with server tools")
+}
+
+/// OpenAI Chat 目标无服务端工具能力：web_search/web_fetch/bash 全部不下发，
+/// 仅客户端 function 保留（回归护栏：既有行为不变）。
+#[test]
+fn openai_chat_target_still_drops_server_tools() {
+    let req = anthropic_req_with_server_tools();
+    let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
+    let tools = out["tools"].as_array().expect("tools array");
+    assert_eq!(tools.len(), 1, "只保留客户端 function");
+    assert_eq!(tools[0]["type"], "function");
+    assert_eq!(tools[0]["function"]["name"], "get_weather");
+}
+
+/// Responses 目标：web_search_* → {type:"web_search"}（filters / user_location 透传），
+/// web_fetch / bash 不可映射 → 不下发（field_trace 由 forward.rs 记）。
+#[test]
+fn responses_target_maps_web_search_and_drops_rest() {
+    let req = anthropic_req_with_server_tools();
+    let (out, _) = convert_request(&req, &Protocol::OpenAIResponses, &Protocol::OpenAIResponses);
+    let tools = out["tools"].as_array().expect("tools array");
+    assert_eq!(tools.len(), 2, "function + 映射的 web_search");
+    assert_eq!(tools[0]["type"], "function");
+    assert_eq!(tools[0]["name"], "get_weather");
+    assert_eq!(tools[1]["type"], "web_search");
+    assert_eq!(
+        tools[1]["filters"],
+        serde_json::json!({"allowed_domains": ["a.com", "b.com"], "blocked_domains": ["c.com"]})
+    );
+    assert_eq!(
+        tools[1]["user_location"],
+        serde_json::json!({"type":"approximate","city":"Zurich","timezone":"Europe/Zurich"})
+    );
+}
+
+/// Gemini 目标：web_search_* → {googleSearch:{}}、web_fetch_* → {urlContext:{}}，
+/// bash 不可映射 → 不下发；与 function 声明各占一个 tools 条目。
+#[test]
+fn gemini_target_maps_search_and_fetch() {
+    let req = anthropic_req_with_server_tools();
+    let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+    let tools = out["tools"].as_array().expect("tools array");
+    assert_eq!(tools.len(), 3, "function 声明 + googleSearch + urlContext");
+    assert_eq!(tools[0]["functionDeclarations"][0]["name"], "get_weather");
+    assert_eq!(tools[1], serde_json::json!({"googleSearch": {}}));
+    assert_eq!(tools[2], serde_json::json!({"urlContext": {}}));
+}

@@ -7,7 +7,7 @@ export default defineConfig({
   description: 'aidog AI API 聚合、路由与用量管理文档。',
   lang: 'zh',
   icon: '/aidog-logo.svg',
-  logo: '/aidog-logo.svg',
+  logo: { light: '/aidog-logo-light.svg', dark: '/aidog-logo-dark.svg' },
   logoText: 'aidog',
   search: {
     mode: 'local',
