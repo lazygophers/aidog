@@ -7,7 +7,7 @@ mod response;
 
 pub use request::{convert_request, decision_api_path, parse_incoming_request, passthrough_api_path};
 pub use response::{
-    AnthropicSseState, NonStreamResponse, convert_response, parse_sse, parse_upstream_sse,
-    response_model, response_model_or, split_stream_inline_reasoning, to_client_sse,
-    to_client_sse_stateful,
+    AnthropicSseState, ClientSseState, NonStreamResponse, convert_response, parse_sse,
+    parse_upstream_sse, response_model, response_model_or, split_stream_inline_reasoning,
+    to_client_sse, to_client_sse_stateful,
 };

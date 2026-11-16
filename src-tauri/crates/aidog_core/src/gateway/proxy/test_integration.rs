@@ -310,6 +310,81 @@ async fn successful_forward_to_stub_upstream() {
     );
 }
 
+#[tokio::test]
+async fn converted_audio_drop_is_recorded_in_proxy_log() {
+    let upstream = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkdropconverted", &upstream).await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings {
+            log_user_request: true,
+            log_upstream_request: true,
+            ..Default::default()
+        },
+    )
+    .await;
+
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/chat/completions")
+        .header("authorization", "Bearer gkdropconverted")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"model":"gpt-4o-audio","messages":[{"role":"user","content":[{"type":"input_audio","input_audio":{"data":"aGVsbG8=","format":"wav"}}]}]}"#,
+        ))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let log = last_log_for(&state, "gkdropconverted").await;
+    assert_eq!(log.source_protocol, "openai");
+    assert_eq!(log.target_protocol, "anthropic");
+    assert_eq!(log.field_trace, "drop:audio");
+    assert!(
+        !log.upstream_request_body.contains("aGVsbG8="),
+        "converted Anthropic request must omit unsupported audio"
+    );
+}
+
+#[tokio::test]
+async fn openai_audio_passthrough_does_not_record_drop() {
+    let upstream = spawn_stub_upstream(
+        200,
+        r#"{"choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1}}"#,
+    )
+    .await;
+    let state = make_state(test_db().await).await;
+    setup_passthrough_group_for_protocol(&state, "gkdroppassthrough", &upstream, Protocol::OpenAI).await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings {
+            log_user_request: true,
+            log_upstream_request: true,
+            ..Default::default()
+        },
+    )
+    .await;
+
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/chat/completions")
+        .header("authorization", "Bearer gkdroppassthrough")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"model":"gpt-4o-audio","messages":[{"role":"user","content":[{"type":"input_audio","input_audio":{"data":"aGVsbG8=","format":"wav"}}]}]}"#,
+        ))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let log = last_log_for(&state, "gkdroppassthrough").await;
+    assert_eq!(log.source_protocol, "openai");
+    assert_eq!(log.target_protocol, "openai");
+    assert_eq!(log.field_trace, "");
+    assert!(log.upstream_request_body.contains("aGVsbG8="));
+}
+
 // ── 实际模型口径（2026-09-21）：非流式 actual_model 取上游自报模型名，缺失回退请求模型 ──
 // 旧缺陷：actual_model 写的是路由 target_model（与请求一致时无感，映射/别名场景统计按
 // 路由名聚合）。用户口径：统计按上游响应自报模型；上游没报才回退请求模型。
@@ -1471,19 +1546,28 @@ async fn mock_platform_delay_ms_only_backward_compat() {
 
 /// 注册 Anthropic 平台并显式声明 Anthropic endpoint（同协议透传判定命中）。
 async fn setup_passthrough_group(state: &Arc<ProxyState>, gk: &str, base_url: &str) {
+    setup_passthrough_group_for_protocol(state, gk, base_url, Protocol::Anthropic).await;
+}
+
+async fn setup_passthrough_group_for_protocol(
+    state: &Arc<ProxyState>,
+    gk: &str,
+    base_url: &str,
+    protocol: Protocol,
+) {
     use crate::gateway::models::PlatformEndpoint;
     let plat = aidog_db::create_platform(
         &state.db,
         CreatePlatform {
             name: "ptthru".into(),
-            platform_type: Protocol::Anthropic,
+            platform_type: protocol.clone(),
             base_url: base_url.to_string(),
             api_key: "sk-up".into(),
             extra: String::new(),
             models: None,
             available_models: None,
             endpoints: Some(vec![PlatformEndpoint {
-                protocol: Protocol::Anthropic,
+                protocol,
                 base_url: base_url.to_string(),
                 client_type: "default".to_string(),
                 coding_plan: false,
@@ -8722,4 +8806,89 @@ fn add_retry_after_rounds_up_and_only_on_429() {
     let mut r = (StatusCode::TOO_MANY_REQUESTS, "x").into_response();
     add_retry_after(&mut r, &log);
     assert!(r.headers().get("retry-after").is_none());
+}
+
+// ═══════════════ issue 72：计费旁路读取 Gemini usageMetadata 与 Responses 流式 usage ═══════════════
+
+/// issue 72 复现（Responses 流式）：anthropic 客户端 → openai_responses 上游流式，
+/// usage 只存在于 `response.completed` 内嵌的 `response.usage`。
+/// 断言 proxy_log 落的 token 计数与上游一致、est_cost 非 0。
+#[tokio::test]
+async fn responses_streaming_usage_logged() {
+    let sse = concat!(
+        "event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"r1\",\"model\":\"gpt-5.1\"}}\n\n",
+        "event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"delta\":\"hi\"}\n\n",
+        "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"r1\",\"model\":\"gpt-5.1\",\"usage\":{\"input_tokens\":11,\"output_tokens\":7,\"input_tokens_details\":{\"cached_tokens\":4}}}}\n\n",
+    );
+    let upstream = spawn_unified_upstream(200, "text/event-stream", sse).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_platform(&state, "gk72r", Protocol::OpenAIResponses, &upstream, "").await;
+
+    let req = messages_request(
+        "gk72r",
+        r#"{"model":"claude-3","stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+
+    // 流式 flush 走 tokio::spawn fire-and-forget，给调度窗口。
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    let row = only_log_of(&state, "gk72r").await;
+    assert_eq!(row.input_tokens, 7, "input = input_tokens 11 − cached 4: got {}", row.input_tokens);
+    assert_eq!(row.output_tokens, 7, "output: got {}", row.output_tokens);
+    assert_eq!(row.cache_tokens, 4, "cache_read: got {}", row.cache_tokens);
+    assert!(row.est_cost > 0.0, "Responses 流式 usage 必须产生非 0 est_cost");
+    assert!(row.done);
+}
+
+/// issue 72 非流式核对：anthropic 客户端 → openai_responses 上游非流式 JSON（顶层 usage）。
+#[tokio::test]
+async fn responses_nonstream_usage_logged() {
+    let body = r#"{"id":"resp_1","model":"gpt-5.1","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hi"}]}],"usage":{"input_tokens":11,"output_tokens":7,"input_tokens_details":{"cached_tokens":4}}}"#;
+    let upstream = spawn_unified_upstream(200, "application/json", body).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_platform(&state, "gk72n", Protocol::OpenAIResponses, &upstream, "").await;
+
+    let req = messages_request(
+        "gk72n",
+        r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+
+    let row = only_log_of(&state, "gk72n").await;
+    assert_eq!(row.input_tokens, 7, "input: got {}", row.input_tokens);
+    assert_eq!(row.output_tokens, 7, "output: got {}", row.output_tokens);
+    assert_eq!(row.cache_tokens, 4, "cache_read: got {}", row.cache_tokens);
+    assert!(row.est_cost > 0.0, "非流式 Responses usage 必须产生非 0 est_cost");
+}
+
+/// issue 72 复现（Gemini 流式）：anthropic 客户端 → gemini 上游流式，usage 在末帧
+/// `usageMetadata`。断言 token 计数与上游一致（input 扣缓存、output 含 thinking）。
+#[tokio::test]
+async fn gemini_streaming_usage_logged() {
+    let sse = concat!(
+        "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"he\"}]}}],\"usageMetadata\":{\"promptTokenCount\":5,\"candidatesTokenCount\":2,\"thoughtsTokenCount\":1}}\n\n",
+        "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"llo\"}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":5,\"candidatesTokenCount\":3,\"thoughtsTokenCount\":1,\"cachedContentTokenCount\":2}}\n\n",
+    );
+    let upstream = spawn_unified_upstream(200, "text/event-stream", sse).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_platform(&state, "gk72g", Protocol::Gemini, &upstream, "").await;
+
+    let req = messages_request(
+        "gk72g",
+        r#"{"model":"claude-3","stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    let row = only_log_of(&state, "gk72g").await;
+    assert_eq!(row.input_tokens, 3, "input = 5 − cached 2: got {}", row.input_tokens);
+    assert_eq!(row.output_tokens, 4, "output = candidates 3 + thoughts 1: got {}", row.output_tokens);
+    assert_eq!(row.cache_tokens, 2, "cache_read: got {}", row.cache_tokens);
+    assert!(row.est_cost > 0.0, "Gemini 流式 usageMetadata 必须产生非 0 est_cost");
 }
