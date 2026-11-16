@@ -26,6 +26,15 @@ export interface SubagentImportReport {
   updated: string[];
   have: string[];
   edited: string[];
+  /** 同源内被浅层同名压掉的深层文件（相对路径）。 */
+  conflicts: string[];
+}
+
+export interface SubagentImportCandidate {
+  rel: string;
+  name: string;
+  description: string;
+  prompt: string;
 }
 
 export const subagentsApi = {
@@ -35,7 +44,9 @@ export const subagentsApi = {
     invoke<SubagentView[]>("subagents_save", { oldName, subagent }),
   /** 返回因被用户修改而保留的文件路径。 */
   delete: (name: string) => invoke<string[]>("subagents_delete", { name }),
-  /** source = 本地文件夹或 git 地址。 */
-  import: (source: string, agents: SubagentAgent[]) =>
-    invoke<SubagentImportReport>("subagents_import", { source, agents }),
+  /** 导入前预扫（只读），返回候选清单。 */
+  preview: (source: string) => invoke<SubagentImportCandidate[]>("subagents_import_preview", { source }),
+  /** source = 本地文件夹或 git 地址；selected = 只导入这些相对路径，缺省全部。 */
+  import: (source: string, agents: SubagentAgent[], selected?: string[]) =>
+    invoke<SubagentImportReport>("subagents_import", { source, agents, selected }),
 };

@@ -283,6 +283,7 @@ rpc_routes! {
     mutating aidog_core::ai_tools_cmd::subagents::subagents_save,
     mutating aidog_core::ai_tools_cmd::subagents::subagents_delete,
     mutating aidog_core::ai_tools_cmd::subagents::subagents_import,
+    readonly aidog_core::ai_tools_cmd::subagents::subagents_import_preview,
     readonly aidog_core::ai_tools_cmd::context_compress::context_compress_status,
     readonly aidog_core::ai_tools_cmd::plugins::plugins_claude_list,
     readonly aidog_core::ai_tools_cmd::plugins::plugins_codex_list,

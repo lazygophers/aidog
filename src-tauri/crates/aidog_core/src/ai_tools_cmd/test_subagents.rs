@@ -120,7 +120,7 @@ fn import_have_update_edited() {
     let source = src.to_string_lossy().to_string();
 
     let mut list = Vec::new();
-    let r = import_into(&mut list, &src, &source, &[AGENT_CLAUDE.into()], &d);
+    let r = import_into(&mut list, &src, &source, &[AGENT_CLAUDE.into()], None, &d);
     let mut added = r.added.clone();
     added.sort();
     assert_eq!(added, vec!["alpha-agent", "beta"]);
@@ -130,7 +130,7 @@ fn import_have_update_edited() {
     assert_eq!(alpha.prompt, "A body");
 
     // 原样再导入 → have
-    let r = import_into(&mut list, &src, &source, &[], &d);
+    let r = import_into(&mut list, &src, &source, &[], None, &d);
     assert_eq!(r.have.len(), 2);
     assert!(r.added.is_empty());
 
@@ -138,7 +138,7 @@ fn import_have_update_edited() {
     write(&src.join("agents/alpha.md"), &agent_md("Alpha Agent", "first v2", "A2"));
     list.iter_mut().find(|s| s.name == "beta").unwrap().prompt = "mine".into();
     write(&src.join("beta.md"), &agent_md("beta", "second v2", "B2"));
-    let r = import_into(&mut list, &src, &source, &[], &d);
+    let r = import_into(&mut list, &src, &source, &[], None, &d);
     assert_eq!(r.updated, vec!["alpha-agent"]);
     assert_eq!(r.edited, vec!["beta"]);
     let alpha = list.iter().find(|s| s.name == "alpha-agent").unwrap();
@@ -153,15 +153,84 @@ fn import_have_update_edited() {
 }
 
 #[test]
+fn import_shallow_name_wins_deep_conflicts() {
+    let tmp = tempfile::tempdir().unwrap();
+    let d = dirs_in(tmp.path());
+    let src = tmp.path().join("repo");
+    write(&src.join("reviewer.md"), &agent_md("reviewer", "shallow", "top"));
+    write(&src.join("nested/reviewer.md"), &agent_md("reviewer", "deep", "buried"));
+    write(&src.join("nested/deeper/reviewer.md"), &agent_md("reviewer", "deepest", "x"));
+    let mut list = Vec::new();
+    let r = import_into(&mut list, &src, "s", &[], None, &d);
+    assert_eq!(r.added, vec!["reviewer"]);
+    assert_eq!(r.conflicts, vec!["nested/reviewer.md", "nested/deeper/reviewer.md"]);
+    let top = list.iter().find(|s| s.name == "reviewer").unwrap();
+    assert_eq!(top.prompt, "top");
+    assert_eq!(list.len(), 1, "deep duplicates not imported");
+}
+
+#[test]
 fn import_name_clash_takes_next_free_suffix() {
     let tmp = tempfile::tempdir().unwrap();
     let d = dirs_in(tmp.path());
     let src = tmp.path().join("repo");
     write(&src.join("reviewer.md"), &agent_md("reviewer", "d", "p"));
     let mut list = vec![sub("reviewer", &[])];
-    let r = import_into(&mut list, &src, "src-a", &[], &d);
+    let r = import_into(&mut list, &src, "src-a", &[], None, &d);
     assert_eq!(r.added, vec!["reviewer-2"]);
-    let r = import_into(&mut list, &src, "src-b", &[], &d);
+    let r = import_into(&mut list, &src, "src-b", &[], None, &d);
     assert_eq!(r.added, vec!["reviewer-3"]);
     assert_eq!(list[0], sub("reviewer", &[]), "existing entry untouched");
+}
+
+#[test]
+fn import_selected_rels_only() {
+    let tmp = tempfile::tempdir().unwrap();
+    let d = dirs_in(tmp.path());
+    let src = tmp.path().join("repo");
+    write(&src.join("a.md"), &agent_md("alpha", "d", "p"));
+    write(&src.join("b.md"), &agent_md("beta", "d", "p"));
+    let sel = vec!["a.md".to_string()];
+    let mut list = Vec::new();
+    let r = import_into(&mut list, &src, "s", &[], Some(&sel), &d);
+    assert_eq!(r.added, vec!["alpha"]);
+    assert_eq!(list.len(), 1);
+}
+
+fn git(dir: &Path, args: &[&str]) {
+    let out = std::process::Command::new("git")
+        .args(args)
+        .current_dir(dir)
+        .env("GIT_AUTHOR_NAME", "t")
+        .env("GIT_AUTHOR_EMAIL", "t@t")
+        .env("GIT_COMMITTER_NAME", "t")
+        .env("GIT_COMMITTER_EMAIL", "t@t")
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+}
+
+/// git 导入路径：tempdir 建裸仓库，经本地 file:// 克隆后导入（不触外网）。
+#[tokio::test]
+async fn import_from_git_bare_repo_via_file_url() {
+    let g = aidog_db::test_support::HomeGuard::new();
+    let tmp = tempfile::tempdir().unwrap();
+    let origin = tmp.path().join("origin");
+    write(&origin.join("agents/helper.md"), &agent_md("helper", "d", "p"));
+    git(&origin, &["init", "-q", "-b", "main"]);
+    git(&origin, &["add", "."]);
+    git(&origin, &["commit", "-q", "-m", "init", "--", "."]);
+    let bare = tmp.path().join("origin.git");
+    git(tmp.path(), &["clone", "-q", "--bare", "--", origin.to_str().unwrap(), bare.to_str().unwrap()]);
+
+    let url = format!("file://{}", bare.display());
+    let (root, tmpdir) = stage_source(&url).await.unwrap();
+    assert!(tmpdir.is_some(), "non-local source stages into tempdir");
+    let d = dirs_in(tmp.path());
+    let mut list = Vec::new();
+    let r = import_into(&mut list, &root, &url, &[AGENT_CLAUDE.into()], None, &d);
+    assert_eq!(r.added, vec!["helper"]);
+    assert!(d.claude.join("agents/helper.md").exists(), "written from cloned repo");
+    drop(tmpdir);
+    let _ = g;
 }
