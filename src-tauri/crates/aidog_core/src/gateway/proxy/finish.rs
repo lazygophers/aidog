@@ -24,6 +24,9 @@ pub(crate) struct AttemptCtx {
     /// 缓存亲和信号键（票 magpie-08）：Some = 聊天主路径且 cache_affinity 开，
     /// 响应侧凭它 record 缓存信号；None = 开关关 / 其他路径（不记录）。
     pub cache_key: Option<String>,
+    /// 客户端请求带 `stream_options.include_usage`（issue 71）：OpenAI Chat / Completions
+    /// 客户端的流式 usage 块门控；其余客户端协议忽略。
+    pub include_usage: bool,
 }
 
 /// 非流式 2xx 成功响应处理：usage 提取 + 跨协议转换 + 模型回填 + 出站中间件 + 响应头透传。
@@ -421,25 +424,33 @@ where
         agg_end.mark_exhausted();
         std::task::Poll::Ready(Some(None))
     }));
+    // move 闭包带着 stream 逃出本函数：ctx 引用不能进闭包，提前拷出标量
+    let include_usage = ctx.include_usage;
     let stream = stream.map(move |item| {
         let Some(chunk_result) = item else {
             // 流末哨兵：冲刷尾窗残留（已含终止符的那块已冲刷过 → 此处为空串，幂等）。
             // 票 02：masker 尾窗先过还原窗口再整体冲出（顺序 = 原文顺序）。
             let tail = mw_masker.finish();
-            if tail.is_empty() {
+            // issue 71：[DONE] 哨兵压到 usage 块之后，流结束仍无 usage 时在此补发
+            // （仅转换分支；passthrough 原样 relay 字节，状态机未被使用）。
+            let flushed = (!passthrough_response)
+                .then(|| client_sse_state.flush())
+                .flatten()
+                .unwrap_or_default();
+            if tail.is_empty() && flushed.is_empty() {
                 return Ok::<_, std::io::Error>(Bytes::new());
             }
             let tail = match mw_restorer.as_mut() {
                 Some(r) => {
-                    if record_client_body && !tail.is_empty() {
-                        guard.agg.push_client(&Bytes::from(tail.clone()));
-                    }
                     let mut s = r.push_bytes(tail.as_bytes());
+                    s.push_str(&flushed);
                     s.push_str(&r.finish());
                     Bytes::from(s)
                 }
                 None => {
-                    let tail = Bytes::from(tail);
+                    let mut t = tail;
+                    t.push_str(&flushed);
+                    let tail = Bytes::from(t);
                     if record_client_body {
                         guard.agg.push_client(&tail);
                     }
@@ -470,6 +481,8 @@ where
                     s.push_str(&r.finish());
                     out = s;
                 }
+                // issue 71：错误帧自带终止哨兵（openai 系 [DONE]），标记后流末 flush 不再补发
+                client_sse_state.mark_done();
                 out.push_str(&upstream_break_error_frame(&client_protocol));
                 out.push_str(
                     &adapter::to_client_sse(
@@ -578,6 +591,7 @@ where
                         &mut client_sse_state,
                         &client_protocol,
                         &model_for_sse,
+                        include_usage,
                     ) {
                         output.push_str(&sse);
                     }
