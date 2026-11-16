@@ -284,6 +284,14 @@ pub fn run() {
             aidog_core::ai_tools_cmd::context_compress::context_compress_install,
             aidog_core::ai_tools_cmd::context_compress::context_compress_rtk_set,
             aidog_core::ai_tools_cmd::context_compress::context_compress_sqz_set,
+            // Plugins (扩展 → 插件管理：Claude Code 原生插件 + Codex 插件 CLI)
+            aidog_core::ai_tools_cmd::plugins::plugins_claude_list,
+            aidog_core::ai_tools_cmd::plugins::plugins_claude_set,
+            aidog_core::ai_tools_cmd::plugins::plugins_codex_list,
+            aidog_core::ai_tools_cmd::plugins::plugins_codex_add,
+            aidog_core::ai_tools_cmd::plugins::plugins_codex_remove,
+            aidog_core::ai_tools_cmd::plugins::plugins_codex_marketplace_add,
+            aidog_core::ai_tools_cmd::plugins::plugins_codex_marketplace_remove,
             aidog_core::ai_tools_cmd::variables::variables_codex_save,
             // Settings
             aidog_core::system_cmd::fs_autocomplete::fs_autocomplete,

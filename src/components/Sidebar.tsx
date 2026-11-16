@@ -92,6 +92,11 @@ const icons = {
       <path d="M2 3h4l3 5-3 7H2M16 3h-4l-3 5 3 7h4" />
     </svg>
   ),
+  plugins: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 2.5h4v2.2a1.8 1.8 0 1 0 2.3 1.8V8.5h2.2v4H13.3v2.3a1.8 1.8 0 1 1-1.8 2.3H9.5v-2.2H5.5V11H3.2a1.8 1.8 0 1 1 0-3.6V5.5H7v-3z" />
+    </svg>
+  ),
   tools: (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M11.5 2.5a3.5 3.5 0 0 0-3.2 4.9L2.7 13a1.4 1.4 0 0 0 2 2l5.6-5.6a3.5 3.5 0 0 0 4.9-3.2l-2.2 2.2-1.9-.4-.4-1.9z" />
