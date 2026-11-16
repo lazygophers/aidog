@@ -201,6 +201,13 @@ async fn glm_outbound_body(platform_type: Protocol, ep: Protocol, gk: &str) -> s
 
 /// 同 `glm_outbound_body`，请求模型名可指定（用于命中 registry 条目的 `thinking_toggleable`）。
 async fn outbound_body_for_model(platform_type: Protocol, ep: Protocol, gk: &str, model: &str) -> serde_json::Value {
+    let req = serde_json::json!({"model": model, "max_tokens": 32, "disable_thinking": true,
+        "messages": [{"role": "user", "content": "hi"}]});
+    outbound_body_with(platform_type, ep, gk, req).await
+}
+
+/// 同 `outbound_body_for_model`，入站请求体整体可指定。
+async fn outbound_body_with(platform_type: Protocol, ep: Protocol, gk: &str, req_body: serde_json::Value) -> serde_json::Value {
     let resp_ok = if ep == Protocol::Anthropic { ANTHROPIC_OK } else { OPENAI_OK };
     let (upstream, hits) = spawn_recording_upstream(resp_ok).await;
     let state = make_state(test_db().await).await;
@@ -232,11 +239,7 @@ async fn outbound_body_for_model(platform_type: Protocol, ep: Protocol, gk: &str
         .uri("/chat/completions")
         .header("authorization", format!("Bearer {gk}"))
         .header("content-type", "application/json")
-        .body(Body::from(
-            serde_json::json!({"model": model, "max_tokens": 32, "disable_thinking": true,
-                "messages": [{"role": "user", "content": "hi"}]})
-            .to_string(),
-        ))
+        .body(Body::from(req_body.to_string()))
         .unwrap();
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     let status = resp.status();
@@ -1168,6 +1171,23 @@ async fn kimi_family_openai_endpoint_disables_thinking_with_official_param() {
         );
         assert!(body.get("chat_template_kwargs").is_none(), "{pt:?} 不应写 chat_template_kwargs: {body}");
         assert!(body.get("disable_thinking").is_none(), "{pt:?} 私有字段应剥除: {body}");
+    }
+}
+
+/// issue 76（先红）：kimi-k2.6 非思考模式 temperature 固定 0.6、传其他值报错
+/// （models-overview.md「思考模式固定 `1.0`，非思考模式固定 `0.6`」「传入其他值会报错，建议不要显式传入」），
+/// openai 端点禁思考时剥除客户端 temperature；未禁思考时原样透传。
+#[tokio::test]
+async fn kimi_family_openai_disable_thinking_strips_temperature() {
+    for pt in KIMI_FAMILY {
+        let mut req = serde_json::json!({"model": "kimi-test", "max_tokens": 32, "temperature": 1.0,
+            "disable_thinking": true, "messages": [{"role": "user", "content": "hi"}]});
+        let body = outbound_body_with(pt.clone(), Protocol::OpenAI, &kimi_gk(&pt, "tmd"), req.clone()).await;
+        assert_eq!(body.get("thinking"), Some(&serde_json::json!({"type": "disabled"})), "{pt:?}: {body}");
+        assert!(body.get("temperature").is_none(), "{pt:?} 禁思考时不应透传 temperature: {body}");
+        req.as_object_mut().unwrap().remove("disable_thinking");
+        let body = outbound_body_with(pt.clone(), Protocol::OpenAI, &kimi_gk(&pt, "tmk"), req).await;
+        assert_eq!(body.get("temperature"), Some(&serde_json::json!(1.0)), "{pt:?} 未禁思考应透传: {body}");
     }
 }
 
