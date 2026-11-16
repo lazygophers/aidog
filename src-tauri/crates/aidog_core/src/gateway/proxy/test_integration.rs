@@ -9422,3 +9422,70 @@ async fn gemini_streaming_usage_logged() {
     assert_eq!(row.cache_tokens, 2, "cache_read: got {}", row.cache_tokens);
     assert!(row.est_cost > 0.0, "Gemini 流式 usageMetadata 必须产生非 0 est_cost");
 }
+
+/// 直通模型链整组额度窗口耗尽（extra.quota_windows 执行）→ 与主链同款
+/// 429 + blocked_reason='quota_window_exhausted' + Retry-After（锚点=窗口结束时刻）。
+#[tokio::test]
+async fn direct_quota_window_exhausted_returns_429_with_retry_after() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let state = make_state(db).await;
+    setup_group_with_upstream(&state, "gkdirwin", "https://example.invalid").await;
+    let win_extra = r#"{"direct_models":["m1"],"quota_windows":[{"window":3600,"budget_tokens":100}]}"#;
+    let second = aidog_db::create_platform(
+        &state.db,
+        aidog_db::test_support::sample_platform("dwin2"),
+    )
+    .await
+    .unwrap();
+    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
+        id: second.id,
+        name: None, platform_type: None, base_url: None, api_key: None,
+        extra: Some(win_extra.to_string()),
+        models: None, available_models: None, endpoints: None,
+        enabled: None, status: None, manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
+    })
+    .await
+    .unwrap();
+    let group = aidog_db::list_groups(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|g| g.group_key == "gkdirwin")
+        .unwrap();
+    let existing = aidog_db::get_group_platforms(&state.db, group.id).await.unwrap();
+    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
+        id: existing[0].platform.id,
+        name: None, platform_type: None, base_url: None, api_key: None,
+        extra: Some(win_extra.to_string()),
+        models: None, available_models: None, endpoints: None,
+        enabled: None, status: None, manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
+    })
+    .await
+    .unwrap();
+    aidog_db::set_group_platforms(&state.db, group.id, &[
+        GroupPlatformInput { platform_id: existing[0].platform.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
+        GroupPlatformInput { platform_id: second.id, priority: Some(1), weight: Some(1), level_priority: Some(5) },
+    ])
+    .await
+    .unwrap();
+    state.db.invalidate_group_details_cache();
+    // 两声明平台窗口用量都超预算（token 窗口 100，记 200）→ 整组额度窗口耗尽
+    crate::gateway::quota_window::record_usage(&state.db, existing[0].platform.id, win_extra, 200.0, 0.0, aidog_db::now()).await.unwrap();
+    crate::gateway::quota_window::record_usage(&state.db, second.id, win_extra, 200.0, 0.0, aidog_db::now()).await.unwrap();
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request("gkdirwin", r#"{"model":"m1","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert!(
+        resp.headers().get(axum::http::header::RETRY_AFTER).is_some(),
+        "429 must carry Retry-After anchored at window end"
+    );
+    let log = last_log_for(&state, "gkdirwin").await;
+    assert_eq!(log.status_code, 429);
+    assert_eq!(log.blocked_by, "router");
+    assert_eq!(log.blocked_reason, "quota_window_exhausted");
+    assert_eq!(log.est_cost, 0.0);
+}

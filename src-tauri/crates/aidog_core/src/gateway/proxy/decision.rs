@@ -71,6 +71,7 @@ pub(crate) fn route_fallback_status(err: &str) -> StatusCode {
 ///   `client_not_allowed_mixed`（白名单与其他排除原因并存）→ 503 + `blocked_reason='client_not_allowed_mixed'`；
 /// - `unknown_protocol`（整组候选皆未知协议，票 06）→ 500（§15.6.1，用户裁决 2026-11-14）+ `blocked_reason='unknown_protocol'`；
 /// - `direct_model_unavailable`（声明直通模型的平台全不可用）→ 503 + `blocked_reason='direct_model_unavailable'`；
+///   其中全因额度窗口耗尽（extra.quota_windows）→ 429 + `blocked_reason='quota_window_exhausted'`（2026-11-17）；
 /// - 其余（`no_decision_platform` / `no_chat_platform` …）→ 400 + `blocked_reason`=Err 字符串。
 pub(crate) async fn route_fail_response(
     state: &Arc<ProxyState>,
