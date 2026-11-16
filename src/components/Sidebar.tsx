@@ -75,6 +75,13 @@ const icons = {
       <path d="M7.75 5.25h2.5a2 2 0 0 1 2 2v2.75" />
     </svg>
   ),
+  subagents: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="5" r="2.5" />
+      <path d="M4 15.5a5 5 0 0 1 10 0" />
+      <path d="M2 9.5h2M14 9.5h2" />
+    </svg>
+  ),
   tools: (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M11.5 2.5a3.5 3.5 0 0 0-3.2 4.9L2.7 13a1.4 1.4 0 0 0 2 2l5.6-5.6a3.5 3.5 0 0 0 4.9-3.2l-2.2 2.2-1.9-.4-.4-1.9z" />

@@ -274,6 +274,11 @@ pub fn run() {
             // CC / Codex integration toggles
             aidog_core::ai_tools_cmd::coding_tools::coding_tools_settings_get,
             aidog_core::ai_tools_cmd::coding_tools::coding_tools_settings_set,
+            // Subagents (扩展 → 子代理)
+            aidog_core::ai_tools_cmd::subagents::subagents_list,
+            aidog_core::ai_tools_cmd::subagents::subagents_save,
+            aidog_core::ai_tools_cmd::subagents::subagents_delete,
+            aidog_core::ai_tools_cmd::subagents::subagents_import,
             // Settings
             aidog_core::system_cmd::fs_autocomplete::fs_autocomplete,
             aidog_core::settings::settings_get,
