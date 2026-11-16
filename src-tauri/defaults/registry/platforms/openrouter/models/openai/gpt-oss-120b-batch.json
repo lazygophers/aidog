@@ -1,9 +1,11 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "openai/gpt-oss-120b:batch",
+  "max_output_tokens": 117964,
+  "thinking_supported": true,
   "display_name": "OpenAI: gpt-oss-120b (batch)",
   "canonical_model": "gpt-oss-120b",
   "family": "gpt",

@@ -73,6 +73,49 @@ per-model 值、不是 endpoint 协议），新增第三种这类专用值时先
 
 先例：supported_protocols（c74507db1）、price.free（显式免费标记，同日 jev 轮）。
 
+## 跨分支合并冲突的 registry JSON 解法（2026-11-15 PR #63 轮）
+
+feature 分支与 master 各自盖过戳后再合并，registry JSON 必冲突：master 侧是
+bump 脚本推高的时间戳，分支侧是功能字段（本例 17 个 platform.json 的
+holiday_calendar + index.json 顶层 last_updated）。解法统一：
+
+1. **功能字段保留分支侧，`last_updated` 取两边最大**——冲突点只有时间戳与
+   功能字段的交叠，功能内容永不丢；两边都只动时间戳的文件（index.json）取 max。
+2. 解完跑 `bump-registry-last-updated.mjs`（把解后时间戳推到当前）+
+   `check-registry` 门禁，随 merge commit 一起交付。
+3. 同 merge 里 master 新增的测试夹具构造点不必然要补新字段：字段带 serde
+   默认值时夹具照常编译（本例 billing.rs 自动合并成功，cargo check EXIT=0
+   证实，派发时预期的「手工补夹具两行」是多余的）。夹具要不要补，以
+   cargo check 实测为准，不按预期预改。
+
+## 非 registry 数据目录豁免盖戳约定：先证明灌种层不存在，再写 ADR（2026-11-15 holidays / ADR 0013）
+
+「新必填字段上线 = 三件套」与 last_updated 盖戳约定默认适用于 registry 数据
+（有 DB 灌种机制参与）。新数据目录（如编译期内置的 `holidays/` 日历）偏离该
+约定（无 last_updated、无 schema）之前，先 grep 证明豁免成立：
+
+1. 灌种层证据三查：build.rs 是否编译期 `include_str!`（`aidog_db/build.rs:84-102`
+   静态表）→ 内存缓存层是否读 DB（`registry.rs:42`）→ schema 目录 grep 该
+   目录名零命中。三查都成立 = 无任何 DB 灌种机制可参与，盖戳纯增重。
+2. 豁免成立 → 给该目录的更新机制写一行真值源说明并落 ADR（本例 ADR 0013：
+   改 JSON → rerun-if-changed 重编 → check-holidays 门禁），审查质疑时引
+   ADR 应答；不成立 → 照常进三件套。
+3. 判据：**有没有消费者经 DB 读它**，不是「是不是 JSON 数据」。134 份文件
+   全量盖 last_updated 是审查提议与落选方案，理由记进 PR 回复与 ADR。
+
+## 外部取证的失败与地址语义（2026-11-14 节假日日历轮）
+
+1. **搜索无结果 / 403 / 404 / DNS·TLS 失败 ≠ 官方未公布。** 缺年、缺依据类
+   缺口保留「未知」状态列进缺口清单，不写成「官方未发布」；凭记忆或候选日期
+   补齐消除警告是更大的错误。同一条外部检索路线连败多轮（DDG 202、Bing/Google
+   零结果、内置搜索 400）即停，冻结阻塞与缺口清单，不再重复同类取证。
+2. **地址语义三不等**：注册地址 ≠ 邮寄地址（本例 opencode_zen：原写入依据的
+   2443 Fillmore St 是条款里仲裁 opt-out 邮寄地址，复抓条款原文发现无法律
+   实体名、适用法特拉华，US-CA 默认当场撤）；软件厂商地址 ≠ 自托管平台的
+   运营主体所在地（litellm「install on your servers」→ 不设厂商所在地默认）。
+   「主体所在地」类取证要拿到法律实体名 + 注册/隐私政策的注册地双证；拿不到
+   就不设默认，不拿邮寄地址、厂商地址顶替。
+
 ## 摘要型抓取工具的输出是假设不是事实（2026-10-15）
 
 registry-refresh 轮：webReader（MCP 网页摘要）第二次抓 docs.bigmodel.cn 套餐页
@@ -160,3 +203,35 @@ aliyun rerank 档官方 TPM 4.98e9 超过 u32 上限 4.29e9，`RateLimitCaps` �
 grep struct 定义看整数宽度（u32 上限 4.29e9，u64 约 1.8e19），官方最大值超限 →
 先改字段类型再落库，禁截断 / 估算塞入。机械拦截候选：check-registry lint 加数值
 范围检查（未做，属代码改动，需要时开票）。
+
+## 审计口径先对门禁源码，摘要数字不算工作清单（2026-11-13 defaults 审计轮）
+
+审计 agent 按文件路径比对 model_list 与 models 目录，报出 63 条「死引用」，3/4 平台
+（cline/cline_pass/novita/atlascloud）为误报——真值定义在代码注释里：模型文件名只求
+稳定唯一，引用比对的键是文件内 `model_id`（`src-tauri/crates/aidog_db/src/registry.rs:5`
+注释 + `scripts/check-registry.mjs:69-101` walkModels 按 model_id 收集）。check-registry
+基线 EXIT=0 本身就是「门禁口径下无此问题」的线索，被当成「门禁覆盖不到」跳过了。
+
+1. **审计报大量违规而 check-registry 基线全绿时，先怀疑审计口径与门禁口径不一致**：
+   下手前读门禁脚本与真值定义处的代码注释，确认比对键（文件名 / 文件内字段 / index
+   清单）与审计脚本一致。同一批结论里真缺口（openrouter 72 条）与误报混排，靠口径
+   核对逐平台分拣，不整批采信也不整批否掉。
+2. **agent 摘要数字（「约 940 条」）不是工作清单**：两波取证都复现不出（全量盘点脚本
+   实际 3944 格）。审计摘要数字只用于拍板阶段叙事；进入执行段前跑全量盘点脚本复现
+   一次，对不上以盘点脚本输出为准。
+3. **取证 agent 报「取值 N 格」按可落库口径复核**：字符串原文（"128K"）、基数不明的
+   数占大半时，实际可落库格数远小于 N——派取证任务时统计口径写成「干净数值（基数
+   明确、可直接抄进 schema 字段）」，模糊值单列不计入已取证（「取证值文件的形状 =
+   落库目标字段的形状」条的统计侧对称件）。
+
+## 推测的 model_id 禁写入 registry（2026-08-30 用户拍板，2026-11-15 提升自私有 memory）
+
+用户在审计拍板中对「sensenova 推测 id 3 条」选 skip：未经验证的 model_id 不得写入 registry——registry 是计费与路由的真值源，推测 id 会污染两者。
+
+- 建 / 补条目前先取官方文档，或两个独立第三方目录（如 llmgateway + openclaw）确认确切 `model_id`；Meta dev 域对瑞士 IP 地区封锁时走 GitHub 目录双源。验证到位后再写，产出附出处；查不到就跳过并列入遗留，不写估算值。
+- 写 registry 数据文件用 Write / Edit，Bash heredoc 批量写会被权限分类器拦。
+- 摘要型抓取只用于定位的约束见上文「摘要型抓取工具的输出是假设不是事实」。
+
+## K/M 窗口基数现状：1024 基与 1000 基并存（2026-11-13 现状，2026-11-15 记入）
+
+`context_window` 存量值中 1024 基（如 131072）与新落的 1000 基（如 128000）并存；拍板只管新值，存量未改写。改写存量需单独拍板（见 wayfinder-session.md §16 口径统一类须带「存量怎么办」子题）。来源：`.scratch/memory/2026-11-13.md` 遗留④。

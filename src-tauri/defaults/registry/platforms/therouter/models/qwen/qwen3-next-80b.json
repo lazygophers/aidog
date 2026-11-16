@@ -1,11 +1,12 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "qwen/qwen3-next-80b",
+  "thinking_supported": false,
   "display_name": "Qwen3-Next-80B",
   "canonical_model": "qwen3-next-80b",
   "family": "qwen",

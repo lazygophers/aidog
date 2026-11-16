@@ -48,7 +48,7 @@ export interface PopoverData {
   proxy_port: number;
 }
 
-type TFn = TFunction;
+type TFn = TFunction<"translation", undefined>;
 
 // ─── Helpers ────────────────────────────────────────────────
 

@@ -114,6 +114,8 @@ pub(crate) struct AttemptPlanner {
     inputs: Option<RouteInputs>,
     /// 最近一次重排里是否有平台因限频被路由层挡掉（终态 503 据此沿用限频审计标记）。
     pub(crate) saw_rate_limit: bool,
+    /// 最近一次重排里限频 / 冷却挡掉的候选最早可放行时刻（Unix 毫秒），429 的 `Retry-After` 取它。
+    pub(crate) retry_at_ms: Option<i64>,
 }
 
 impl AttemptPlanner {
@@ -135,9 +137,13 @@ impl AttemptPlanner {
             .await
             .map(|s| {
                 self.saw_rate_limit = s.routing.entries.iter().any(|e| e.reason == aidog_db::models::RouteReason::RateLimited);
+                self.retry_at_ms = s.routing.retry_at_ms();
                 s.candidates
             })
-            .map_err(|e| e.to_string())
+            .map_err(|e| {
+                self.retry_at_ms = e.routing.retry_at_ms();
+                e.to_string()
+            })
     }
 }
 
@@ -208,6 +214,7 @@ impl<'k> AttemptLoop<'k> {
                             // 重排时剩余候选全被限频挡掉：终态 503 沿用限频审计标记
                             if rate_limited {
                                 mark_rate_limited(log);
+                                note_retry_at(log, self.planner.retry_at_ms);
                             }
                             return None;
                         }
@@ -224,6 +231,7 @@ impl<'k> AttemptLoop<'k> {
             if !self.new_round(log, attempts_len).await {
                 if rate_limited {
                     mark_rate_limited(log);
+                    note_retry_at(log, self.planner.retry_at_ms);
                 }
                 return None;
             }
@@ -256,7 +264,8 @@ impl<'k> AttemptLoop<'k> {
         log_settings: &ProxyLogSettings,
         lang: Lang,
     ) -> Response {
-        log.status_code = 503;
+        let status = exhausted_status(log);
+        log.status_code = status.as_u16() as i32;
         log.done = true;
         let err_body = format!("{}: all candidates exhausted", i18n::t(lang, ErrorKey::Upstream));
         log.response_body = "all candidates exhausted".to_string();
@@ -266,7 +275,8 @@ impl<'k> AttemptLoop<'k> {
         log.retry_count = aidog_db::models::retry_count_of(attempts);
         log.attempts = std::mem::take(attempts);
         upsert_log(state, log, log_settings).await;
-        let mut response = (StatusCode::SERVICE_UNAVAILABLE, err_body).into_response();
+        let mut response = (status, err_body).into_response();
+        add_retry_after(&mut response, log);
         inject_trace_header(&mut response);
         response
     }

@@ -14,6 +14,7 @@ vi.mock("../../domains/platforms/defaults", () => ({
   getProtocolColorMap: async () => ({}),
   buildProtocolsFromPresets: async () => [],
   getProtocolUsageWarning: async (p: string) => (p === "risky" ? "RISK-TEXT" : ""),
+  getDefaultHolidayCalendar: async () => undefined,
 }));
 vi.mock("./formSections", () => ({
   FormSection: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -29,6 +30,7 @@ vi.mock("./formSections", () => ({
   ExpirySection: () => null,
   QuotaSection: () => null,
   ClientWhitelistSection: () => null,
+  ProxyEnabledSection: () => null,
 }));
 vi.mock("../../services/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../services/api")>()),

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1794632081,
   "model_id": "Qwen/Qwen3.8-27B",
   "display_name": "Qwen 3.8 27B",
   "canonical_model": "qwen3.8-27b",
@@ -11,6 +11,7 @@
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": false,
+  "thinking_supported": true,
   "supported_protocols": [
     "openai",
     "openai_responses"

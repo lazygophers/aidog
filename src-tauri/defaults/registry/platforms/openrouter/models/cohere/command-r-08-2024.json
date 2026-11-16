@@ -1,6 +1,7 @@
 {
   "model_id": "cohere/command-r-08-2024",
   "display_name": "Cohere: Command R (08-2024)",
+  "version": "24.08",
   "canonical_model": "command-r-08-2024",
   "family": "command",
   "max_input_tokens": 128000,
@@ -14,7 +15,7 @@
     "input": 1.5e-07,
     "output": 6e-07
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "anthropic",
     "openai"

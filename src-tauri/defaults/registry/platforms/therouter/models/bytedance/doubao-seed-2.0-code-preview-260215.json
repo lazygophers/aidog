@@ -1,11 +1,12 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "bytedance/doubao-seed-2.0-code-preview-260215",
+  "display_name": "Doubao Seed 2.0 Code Preview (260215)",
   "canonical_model": "doubao-seed-2-0-code-preview-260215",
   "family": "doubao-seed",
   "version": "2.0",

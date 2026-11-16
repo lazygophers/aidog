@@ -1,0 +1,27 @@
+{
+  "code": "US-AL",
+  "extends": "US",
+  "name": {
+    "ar-SA": "ألاباما",
+    "de-DE": "Alabama",
+    "en-US": "Alabama",
+    "es-ES": "Alabama",
+    "fr-FR": "Alabama",
+    "ja-JP": "アラバマ州",
+    "ru-RU": "Алабама",
+    "zh-Hans": "阿拉巴马州"
+  },
+  "years": {
+    "2026": {
+      "holidays": ["2026-02-17", "2026-04-27", "2026-06-01", "2026-11-27"],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": ["2027-02-09", "2027-04-26", "2027-06-07"],
+      "workdays": []
+    }
+  },
+  "source_urls": [
+    "https://personnel.alabama.gov/state-holidays/"
+  ]
+}

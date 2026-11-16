@@ -1,10 +1,13 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "Pro/BAAI/bge-m3",
+  "max_input_tokens": 8192,
+  "context_window": 8192,
+  "display_name": "bge-m3 (Pro)",
   "canonical_model": "bge-m3",
   "family": "bge",
   "capabilities": [

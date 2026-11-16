@@ -129,8 +129,7 @@ async fn quota_command_adapter(
 /// 同时保证「真查发生时 est 立即对齐真实」。
 pub(crate) async fn persist_quota_to_db(db: &Db, platform_id: Option<u64>, q: &PlatformQuota) {
     let Some(pid) = platform_id else { return };
-    let is_coding_plan = q.coding_plan.is_some();
-    gateway::estimate::calibrate_from_quota(db, pid, q, is_coding_plan).await;
+    gateway::estimate::calibrate_from_quota(db, pid, q).await;
 }
 
 /// 冷启动同时真查的平台数上限（出站并发，避免启动瞬间 N 个 HTTP）。
@@ -191,8 +190,7 @@ pub async fn cold_start_init_estimates() {
                     if !q.success {
                         return; // 失败保留，下次再试（不重置 last_real_query_at）
                     }
-                    let is_coding_plan = q.coding_plan.is_some();
-                    gateway::estimate::calibrate_from_quota(db, p.id, &q, is_coding_plan).await;
+                    gateway::estimate::calibrate_from_quota(db, p.id, &q).await;
                     aidog_ctx::emit_unit("tray-refresh");
                 })
             })

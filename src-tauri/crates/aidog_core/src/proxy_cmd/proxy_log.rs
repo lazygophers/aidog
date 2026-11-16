@@ -1,7 +1,7 @@
 use crate::gateway;
 use aidog_db::Db;
 
-use gateway::models::{ProxyLog, ProxyLogFilter, ProxyLogPage, ProxyLogSettings, ProxyLogSummary};
+use gateway::models::{ProxyLog, ProxyLogFilter, ProxyLogPage, ProxyLogSettings, ProxyLogSummary, RequestLogFilter, RequestLogSummary};
 
 crate::tauri_command! {
 pub async fn proxy_log_list( limit: u32, offset: u32) -> Result<Vec<ProxyLogSummary>, String> {
@@ -45,15 +45,28 @@ pub async fn proxy_log_count_filtered(
 }
 
 crate::tauri_command! {
-/// 请求日志页列表。
-/// 默认 sources=[test,quota]（db 层兜底）；前端可显式传 filter 覆盖。
+/// 请求记录页列表（独立表 request_log，不含模型 / token）。
 pub async fn request_log_list(
-    filter: ProxyLogFilter,
+    filter: RequestLogFilter,
     limit: u32,
-    offset: u32) -> Result<Vec<ProxyLogSummary>, String> {
+    offset: u32) -> Result<Vec<RequestLogSummary>, String> {
     let db = aidog_ctx::db();
     tracing::debug!(command = "request_log_list", limit, offset, "command invoked");
     aidog_logs::list_request_logs(db, &filter, limit, offset).await
+}
+}
+
+crate::tauri_command! {
+pub async fn request_log_count(filter: RequestLogFilter) -> Result<u32, String> {
+    let db = aidog_ctx::db();
+    aidog_logs::count_request_logs(db, &filter).await
+}
+}
+
+crate::tauri_command! {
+pub async fn request_log_get(id: String) -> Result<Option<ProxyLog>, String> {
+    let db = aidog_ctx::db();
+    aidog_logs::get_request_log(db, &id).await
 }
 }
 

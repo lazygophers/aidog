@@ -1,11 +1,12 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1794627749,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "stepaudio-3-realtime-preview",
   "display_name": "StepAudio-3-Realtime-Preview",
+  "version": "3",
   "canonical_model": "stepaudio-3-realtime-preview",
   "family": "stepfun",
   "capabilities": [

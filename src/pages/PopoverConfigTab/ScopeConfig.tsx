@@ -1,6 +1,5 @@
 // ─── scope / 时间窗配置（按 type 分支）──
 // 自 PopoverConfigTab.tsx 外迁（arch 阶段6 S5）。
-import type { TFunction } from "i18next";
 import type {
   PopoverItem,
   PopoverTrendScope,
@@ -9,9 +8,10 @@ import type {
   Platform,
 } from "../../services/api";
 import { GROUP_TYPES, TREND_WINDOWS } from "./constants";
+import type { TFunction } from "i18next";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-type TFn = TFunction;
+type TFn = TFunction<"translation", undefined>;
 
 export function ScopeConfig({
   item, t, platforms, groups, onUpdate,

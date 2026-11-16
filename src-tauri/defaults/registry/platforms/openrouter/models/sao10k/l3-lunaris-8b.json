@@ -1,5 +1,6 @@
 {
   "model_id": "sao10k/l3-lunaris-8b",
+  "thinking_supported": false,
   "display_name": "Sao10K: Llama 3 8B Lunaris",
   "canonical_model": "l3-lunaris-8b",
   "family": "lunaris",
@@ -13,7 +14,7 @@
     "input": 4e-08,
     "output": 5e-08
   },
-  "last_updated": 1793244705,
+  "last_updated": 1794592077,
   "supported_protocols": [
     "anthropic",
     "openai"

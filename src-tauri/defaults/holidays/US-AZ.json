@@ -1,0 +1,27 @@
+{
+  "code": "US-AZ",
+  "extends": "US",
+  "name": {
+    "ar-SA": "أريزونا",
+    "de-DE": "Arizona",
+    "en-US": "Arizona",
+    "es-ES": "Arizona",
+    "fr-FR": "Arizona",
+    "ja-JP": "アリゾナ州",
+    "ru-RU": "Аризона",
+    "zh-Hans": "亚利桑那州"
+  },
+  "years": {
+    "2026": {
+      "holidays": [],
+      "workdays": []
+    },
+    "2027": {
+      "holidays": [],
+      "workdays": ["2027-06-18"]
+    }
+  },
+  "source_urls": [
+    "https://www.azleg.gov/ars/1/00301.htm"
+  ]
+}

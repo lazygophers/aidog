@@ -2,7 +2,7 @@ import { useState, memo } from "react";
 import { writeText } from "../../services/platform";
 import { F } from "../../domains/shared/tokens";
 import { useReveal } from "../../utils/motion";
-import type { ProxyLogSummary } from "../../services/api";
+import type { ProxyLogSummary, RequestLogSummary } from "../../services/api";
 import type { TFunc } from "./types";
 import { formatDateTime, formatBytes } from "../../utils/formatters";
 import { JsonCodeEditor } from "../../components/shared";
@@ -369,6 +369,32 @@ export const LogRow = memo(function LogRow({ log, idx = 0, platformName, groupNa
           title={t("logs.copyAll", "复制完整信息")}
           onClick={(e) => { e.stopPropagation(); onCopy(log.id); }}
         >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="8" height="8" rx="1" /><path d="M10 10v1.5a1 1 0 01-1 1h-6a1 1 0 01-1-1v-6a1 1 0 011-1H4.5" /></svg>
+        </Button>
+      </TdCell>
+    </TableRow>
+  );
+});
+
+/** 请求记录（独立表 request_log）列表行：无 平台 / 模型 / token 列。与 RequestLog 页表头 6 列对齐。 */
+export const RequestLogRow = memo(function RequestLogRow({ log, idx = 0, onOpen, onCopy, t }: {
+  log: RequestLogSummary; idx?: number; onOpen: (id: string) => void; onCopy: (id: string) => void; t: TFunc;
+}) {
+  const { ref, shown } = useReveal<HTMLTableRowElement>(idx * 60);
+  return (
+    <TableRow ref={ref} className={`log-row hover-lift reveal${shown ? " in" : ""}`} onClick={() => onOpen(log.id)} style={ROW_STYLE}>
+      <TdCell>{formatDateTime(log.created_at) || "-"}</TdCell>
+      <TdCell><span className="badge badge-accent" style={GROUP_BADGE_STYLE}>{log.group_key || "-"}</span></TdCell>
+      <TdCell><span style={UA_CELL_STYLE} title={log.user_agent || undefined} data-testid="request-log-row-ua">{log.user_agent || "-"}</span></TdCell>
+      <TdCell>
+        <span style={{ color: log.status_code >= 200 && log.status_code < 300 ? "var(--color-success)" : "var(--color-danger)" }}>
+          {log.status_code === 0 ? t("logs.statusIncomplete", "未完成") : log.status_code}
+        </span>
+      </TdCell>
+      <TdCell>{log.duration_ms}ms</TdCell>
+      <TdCell sticky>
+        <Button variant="ghost" className="btn-icon" style={ACTION_BTN_STYLE} title={t("logs.copyAll", "复制完整信息")}
+          onClick={(e) => { e.stopPropagation(); onCopy(log.id); }}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="8" height="8" rx="1" /><path d="M10 10v1.5a1 1 0 01-1 1h-6a1 1 0 01-1-1v-6a1 1 0 011-1H4.5" /></svg>
         </Button>
       </TdCell>

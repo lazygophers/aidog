@@ -2,7 +2,7 @@ use super::*;
 
 // 票 09：出站整形纯函数已迁至 outbound_shape（机械迁移，零行为改动）。
 use super::outbound_shape::{
-    apply_disable_thinking, apply_field_passthrough, build_field_trace, cap_body_max_tokens,
+    apply_disable_thinking, build_field_trace, dropped_media_fields,
     fold_openai_max_completion_tokens, hoist_mid_messages_system, rename_openai_max_tokens_key,
     strip_default_image_detail, strip_redacted_thinking_blocks, strip_thinking_if_unmatched,
 };
@@ -115,6 +115,32 @@ pub(crate) async fn forward_attempt(
             AttemptOutcome::Respond(crate::gateway::rate_limit::hold_until_body_done(r, a))
         }
         (out, _) => out,
+    }
+}
+
+/// 候选耗尽终态状态码：被限频挡掉（`mark_rate_limited` 已标）→ 429（客户端应退避重试），其余 503。
+pub(crate) fn exhausted_status(log: &ProxyLog) -> StatusCode {
+    if log.blocked_reason == "rate_limit" {
+        StatusCode::TOO_MANY_REQUESTS
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    }
+}
+
+/// 429 回复带 `Retry-After`（整数秒，向上取整，最小 1）：取路由快照里记的最早放行时刻；无已知时刻不带。
+pub(crate) fn add_retry_after(r: &mut axum::response::Response, log: &ProxyLog) {
+    if r.status() != StatusCode::TOO_MANY_REQUESTS {
+        return;
+    }
+    let Some(at) = log.routing.as_ref().and_then(|x| x.retry_at_ms()) else { return };
+    let secs = ((at - aidog_db::now()).max(0) + 999) / 1000;
+    r.headers_mut().insert(axum::http::header::RETRY_AFTER, secs.max(1).into());
+}
+
+/// 记一次限频放行时刻（取最早）进路由快照。
+pub(crate) fn note_retry_at(log: &mut ProxyLog, at_ms: Option<i64>) {
+    if let (Some(at), Some(r)) = (at_ms, log.routing.as_mut()) {
+        r.note_retry_at_ms(at);
     }
 }
 
@@ -1088,7 +1114,10 @@ async fn prepare_outbound(ctx: OutboundCtx<'_>) -> Result<Prepared, StageExit> {
     //   path 由 wire 协议决定（passthrough_api_path，与 convert_request 一致但不转 body）。
     // - 转换分支：wire format 由 endpoint 协议决定，API path 由平台类型决定。
     let platform_protocol = &route.platform.platform_type;
-    let (mut req_body, mut api_path) = if target.same_protocol_passthrough {
+    // issue 68：按平台 code 取出站适配器（registry code = platform_type 的 wire 名），
+    // 请求构造 / 响应解析 / 差异钩子全部经它分派，不再直接按 wire 协议调通用转换。
+    let pa = aidog_adapter::platform::adapter_for(&route.platform.platform_type.wire_str());
+    let (mut req_body, api_path) = if target.same_protocol_passthrough {
         // O3 判定：保留 clone。model remap 对几乎每个透传请求都要改写 body（&mut 必需），
         // 下方 cap/strip/hoist 链也全按 &mut Value 写；Cow 只在「零改写」请求上省这一次拷贝，
         // 覆盖面太窄，不值当把整条链改成 to_mut。真正的全量拷贝已在 request.rs 从 raw 解析处省掉。
@@ -1112,7 +1141,7 @@ async fn prepare_outbound(ctx: OutboundCtx<'_>) -> Result<Prepared, StageExit> {
         // 非 Anthropic 上游合成的 thinking 块（reasoning_content / 行内 `<thinking>` 标签转换而来），
         // 这类块没有 Anthropic 签名，原样上送官方端点判 400。转换分支早有同语义丢弃，此处补齐透传分支。
         if target.target_protocol_enum.same_wire_family(&Protocol::Anthropic) {
-            let removed = adapter::strip_unsigned_thinking_blocks(&mut body);
+            let removed = pa.strip_unsigned_thinking_blocks(&mut body);
             if removed > 0 {
                 tracing::info!(
                     removed,
@@ -1121,18 +1150,18 @@ async fn prepare_outbound(ctx: OutboundCtx<'_>) -> Result<Prepared, StageExit> {
             }
         }
         let path =
-            adapter::passthrough_api_path(target.target_protocol_enum, &actual_model, platform_protocol, is_stream);
+            pa.passthrough_api_path(target.target_protocol_enum, &actual_model, platform_protocol, is_stream);
         tracing::debug!(protocol = %target.target_protocol_enum.wire_str(), "same-protocol passthrough: skip request format conversion");
         (body, path)
     } else {
         super::tool_search::emulate_chat_req(chat_req, target.target_base_url.as_str());
-        adapter::convert_request(chat_req, target.target_protocol_enum, platform_protocol)
+        pa.build_request(chat_req, target.target_protocol_enum, platform_protocol)
     };
 
-    // Coding Plan 特殊处理：注入平台特有字段 + 覆盖 API 路径
+    // Coding Plan 特殊处理：注入平台特有字段（issue 68：经适配器钩子分派；
+    // 原 override_coding_plan_path 空 hook 已删——api_path 无需覆盖）。
     if target.coding_plan {
-        inject_coding_plan_fields(&mut req_body, platform_protocol);
-        override_coding_plan_path(&mut api_path, platform_protocol);
+        pa.inject_coding_plan(&mut req_body, platform_protocol);
     }
 
     // disable_thinking：aidog 本地扩展字段（客户端请求禁用思考）。非标字段任何上游不认 →
@@ -1197,7 +1226,7 @@ async fn prepare_outbound(ctx: OutboundCtx<'_>) -> Result<Prepared, StageExit> {
     // 留痕：proxy_log 同时存客户端原始 body（request_body）与上游实际 body
     // （upstream_request_body），两者一比即知裁到多少。
     // 票 10：本次出站 body 被丢弃 / 被改写的字段名 token（只记名不记值），落 proxy_log.field_trace。
-    let capped_on_body = cap_body_max_tokens(&mut req_body, model_max, target.target_protocol_enum);
+    let capped_on_body = pa.cap_max_tokens(&mut req_body, model_max, target.target_protocol_enum);
     if let Some((requested, capped)) = capped_on_body {
         tracing::info!(
             model = %actual_model, requested, capped_to = capped,
@@ -1239,7 +1268,7 @@ async fn prepare_outbound(ctx: OutboundCtx<'_>) -> Result<Prepared, StageExit> {
     // 客户端设的采样参数（stop / top_k / seed / response_format / …）在 ChatRequest 强类型模型里
     // 没有对应字段，转换分支经 wire struct 序列化后静默消失。本 seam 从客户端原体按**目标 wire
     // 协议的允许集合**补齐（键名按协议换名），允许集合外的字段一律不写出。
-    let dropped = apply_field_passthrough(
+    let dropped = pa.passthrough_unmodeled_fields(
         &mut req_body,
         req_value,
         target.target_protocol_enum,
@@ -1249,11 +1278,15 @@ async fn prepare_outbound(ctx: OutboundCtx<'_>) -> Result<Prepared, StageExit> {
     // 票 10：留痕落 log（无丢弃无改写时写空串，不产生噪音记录；本值随后续 upsert 入库，
     // 受 log_upstream_request 开关与 upstream_request_retention_days 清理约束）。
     // 每个候选平台重跑本段 → 无条件赋值，换平台重试时不残留上一候选的留痕。
+    let mut dropped_fields = dropped;
+    if !target.same_protocol_passthrough {
+        dropped_fields.extend(dropped_media_fields(chat_req, target.target_protocol_enum));
+    }
     log.field_trace = build_field_trace(
         capped_on_chat_req,
         capped_on_body.is_some(),
         middleware_changed,
-        &dropped,
+        &dropped_fields,
     );
 
     // ── 官方 OpenAI 输出长度键改写（票 05）──
@@ -1355,8 +1388,7 @@ async fn send_upstream(
         &proxy_client,
         req_timeout,
         conn_timeout,
-        Some(&route.platform.extra),
-        None,
+        super::http_client::platform_should_use_proxy(&proxy_client, &route.platform.extra),
     )
     .await;
 

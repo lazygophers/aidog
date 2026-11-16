@@ -1412,8 +1412,8 @@ async fn mitm_hosts(state: &Arc<ProxyState>) -> Vec<(String, bool)> {
         .db
         .call_read_traced(None, std::panic::Location::caller(), |c| {
             let mut s = c.prepare("SELECT host, decrypted FROM mitm_log ORDER BY id")?;
-            Ok(s.query_map([], |r| Ok((r.get(0)?, r.get::<_, i64>(1)? != 0)))?
-                .collect::<Result<Vec<_>, _>>()?)
+            s.query_map([], |r| Ok((r.get(0)?, r.get::<_, i64>(1)? != 0)))?
+                .collect::<Result<Vec<_>, _>>()
         })
         .await
         .unwrap()
