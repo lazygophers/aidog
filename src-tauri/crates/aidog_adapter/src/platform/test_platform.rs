@@ -1,7 +1,7 @@
 //! 平台适配器框架门禁测试（issue 68）。
 
 use super::error::UpstreamErrorClass;
-use super::{hooks, PlatformAdapter};
+use super::hooks;
 use crate::types::ChatRequest;
 use aidog_db::models::Protocol;
 use serde_json::json;
