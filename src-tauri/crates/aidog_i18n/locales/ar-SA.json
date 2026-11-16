@@ -1698,6 +1698,7 @@
   "platform.rateLimits.addRule": "إضافة قاعدة",
   "platform.rateLimits.ruleModelsPlaceholder": "النماذج (اختياري، Enter للإضافة، يدعم البادئة*)",
   "platform.rateLimits.ruleDrag": "اسحب لإعادة الترتيب (الأعلى أولاً)",
+  "platform.rateLimits.ruleEnabled": "تفعيل هذه القاعدة (عند الإيقاف تُعامل كأنها غير موجودة)",
   "platform.rateLimits.rulesHint": "الحدود غير المعبأة تعني بلا حد أثناء سريان القاعدة. عند تداخل القواعد تُطبَّق الأعلى في القائمة (اسحب لإعادة الترتيب). قاعدة الوقت فقط تستبدل حدود المنصة أثناء سريانها؛ النموذج + الوقت أولى من النموذج فقط.",
   "platform.rateLimits.ruleNoCondition": "اختر نموذجاً واحداً على الأقل أو حدّد فترة زمنية، وإلا لن يمكن الحفظ",
   "platform.rateLimits.ruleBadWildcard": "يجب أن يكون الحرف البديل * واحداً في النهاية مع بادئة غير فارغة (مثل glm-*)",

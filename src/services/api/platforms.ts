@@ -1042,6 +1042,8 @@ export interface RateLimitRule {
   concurrency?: number;
   rpm?: number;
   tpm?: number;
+  /** 仅平台侧（extra.rate_limits.rules[]）：false = 关掉，网关视为不存在；缺省 = 开。registry 策略不写。 */
+  enabled?: boolean;
 }
 
 /** 规则保存前校验：无条件（models 空且无时段字段）→ noCondition；通配符只允许末尾单个 `*` 且前缀非空 → badWildcard。 */

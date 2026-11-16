@@ -50,8 +50,11 @@ struct Rule {
 }
 
 impl Rule {
-    /// 无条件（models 空且无时段）→ None（丢弃并 warn）。
+    /// 无条件（models 空且无时段）→ None（丢弃并 warn）。`enabled: false` → None（用户关掉，视为不存在）。
     fn from_value(v: &Value, platform_calendar: Option<&str>) -> Option<Self> {
+        if v.get("enabled").and_then(Value::as_bool) == Some(false) {
+            return None;
+        }
         let models: Vec<String> = v
             .get("models")
             .and_then(Value::as_array)
@@ -463,6 +466,24 @@ mod tests {
         assert_eq!(c.model_limits("a", 0).rpm, Some(3));
         assert_eq!(c.model_limits("b", 0).rpm, Some(3));
         assert!(c.model_limits("c", 0).is_unlimited(), "只选时段规则不进模型层");
+    }
+
+    #[test]
+    fn disabled_rule_is_skipped_and_falls_through() {
+        let c = cfg(
+            r#"{"rpm":9,"rules":[
+                {"start_hour":0,"end_hour":24,"rpm":1,"enabled":false},
+                {"start_hour":0,"end_hour":24,"rpm":2,"enabled":true},
+                {"models":["m"],"rpm":3,"enabled":false},
+                {"models":["m"],"rpm":4,"enabled":true},
+                {"models":["x"],"rpm":5,"enabled":false}]}"#,
+        );
+        assert_eq!(c.platform_limits(day0() + H).rpm, Some(2), "关掉的时段规则跳过，落到下一条");
+        assert_eq!(c.model_limits("m", 0).rpm, Some(4), "关掉的模型规则跳过，落到下一条");
+        assert!(c.model_limits("x", 0).is_unlimited(), "唯一命中规则关掉 → 模型层不限");
+        let c = cfg(r#"{"rpm":9,"rules":[{"start_hour":0,"end_hour":24,"rpm":1,"enabled":false}]}"#);
+        assert_eq!(c.platform_limits(day0() + H).rpm, Some(9), "全关 → 平台级");
+        assert!(cfg(r#"{"rules":[{"models":["m"],"tpm":1,"enabled":false}]}"#).is_empty());
     }
 
     #[test]

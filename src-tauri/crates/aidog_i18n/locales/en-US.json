@@ -1610,6 +1610,7 @@
   "platform.rateLimits.addRule": "Add rule",
   "platform.rateLimits.ruleModelsPlaceholder": "Models (optional, Enter to add, supports prefix*)",
   "platform.rateLimits.ruleDrag": "Drag to reorder (earlier wins)",
+  "platform.rateLimits.ruleEnabled": "Enable this rule (off = treated as absent)",
   "platform.rateLimits.rulesHint": "Unfilled limits are unlimited while the rule applies. When rules overlap, the earlier one in the list wins (drag to reorder). A time-only rule replaces platform-level limits while active; model + time beats model-only.",
   "platform.rateLimits.ruleNoCondition": "Pick at least one model or set a time window, otherwise it cannot be saved",
   "platform.rateLimits.ruleBadWildcard": "Wildcard must be a single trailing * with a non-empty prefix (e.g. glm-*)",

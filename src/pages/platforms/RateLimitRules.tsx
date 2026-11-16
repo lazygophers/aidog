@@ -5,6 +5,7 @@ import type { TFunction } from "i18next";
 import { SortableList } from "../../components/SortableList";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
+import { Switch } from "../../components/ui/switch";
 import { rateLimitRuleError, type Protocol, type RateLimitRule } from "../../services/api";
 import { ModelCombobox } from "./ModelCombobox";
 import { HolidayCalendarSelect } from "./HolidayCalendarSelect";
@@ -16,6 +17,8 @@ export interface RateLimitRuleDraft {
   models: string[];
   start: string; end: string; tz: string; days: number[]; dayType?: "workday" | "holiday"; holidayCalendar?: string;
   concurrency: string; rpm: string; tpm: string;
+  /** false = 关掉（落库写 enabled:false）；缺省 = 开。 */
+  enabled?: boolean;
 }
 
 let seq = 0;
@@ -35,6 +38,7 @@ export function ruleToDraft(r: RateLimitRule): RateLimitRuleDraft {
     days: [...(r.days_of_week ?? [])],
     dayType: r.day_type, holidayCalendar: r.holiday_calendar,
     concurrency: str(r.concurrency), rpm: str(r.rpm), tpm: str(r.tpm),
+    ...(r.enabled === false ? { enabled: false } : {}),
   };
 }
 
@@ -63,6 +67,7 @@ export function draftToRule(d: RateLimitRuleDraft): RateLimitRule {
   if (c !== undefined) out.concurrency = c;
   if (rpm !== undefined) out.rpm = rpm;
   if (tpm !== undefined) out.tpm = tpm;
+  if (d.enabled === false) out.enabled = false;
   return out;
 }
 
@@ -127,9 +132,14 @@ export function RateLimitRulesList({ rules, onChange, modelOptions, protocol, pl
         renderItem={(r, handle) => {
           const i = rules.findIndex(x => x.id === r.id);
           const err = rateLimitRuleError(draftToRule(r));
+          const on = r.enabled !== false;
           return (
-            <div data-testid={`rl-rule-${i}`} style={{ display: "flex", flexDirection: "column", gap: 2, padding: "6px 8px", marginBottom: 4, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--card)" }}>
+            <div data-testid={`rl-rule-${i}`} data-state={on ? "on" : "off"} style={{ display: "flex", flexDirection: "column", gap: 2, padding: "6px 8px", marginBottom: 4, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--card)", opacity: on ? 1 : 0.55 }}>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                <Switch data-testid={`rl-rule-${i}-enabled`} checked={on}
+                  aria-label={t("platform.rateLimits.ruleEnabled", "启用此规则（关掉后视为不存在）")}
+                  title={t("platform.rateLimits.ruleEnabled", "启用此规则（关掉后视为不存在）")}
+                  onCheckedChange={v => upd(i, { enabled: v === true ? undefined : false })} />
                 <span ref={handle.ref} data-testid={`rl-rule-${i}-handle`} {...handle.attributes} {...handle.listeners}
                   aria-label={t("platform.rateLimits.ruleDrag", "拖动排序（靠前优先）")}
                   title={t("platform.rateLimits.ruleDrag", "拖动排序（靠前优先）")}

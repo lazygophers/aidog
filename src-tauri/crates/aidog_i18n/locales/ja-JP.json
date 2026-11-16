@@ -1698,6 +1698,7 @@
   "platform.rateLimits.addRule": "ルールを追加",
   "platform.rateLimits.ruleModelsPlaceholder": "モデル（任意、Enter で追加、プレフィックス* 対応）",
   "platform.rateLimits.ruleDrag": "ドラッグで並べ替え（上が優先）",
+  "platform.rateLimits.ruleEnabled": "このルールを有効化（オフ時は存在しないものとして扱う）",
   "platform.rateLimits.rulesHint": "未入力の上限は、そのルールが有効な間は無制限です。重なる場合はリストの上にあるルールが優先されます（ドラッグで並べ替え）。時間帯のみのルールは有効中プラットフォームの上限を置き換え、モデル + 時間帯はモデルのみより優先されます。",
   "platform.rateLimits.ruleNoCondition": "モデルを1つ以上選ぶか時間帯を指定してください（保存できません）",
   "platform.rateLimits.ruleBadWildcard": "ワイルドカードは末尾の * 1つのみで、プレフィックスは空不可です（例: glm-*）",
