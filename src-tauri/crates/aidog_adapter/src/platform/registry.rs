@@ -59,6 +59,10 @@ impl PlatformAdapter for KimiFamilyAdapter {
     /// 差异：openai 端点禁思考写官方 `thinking.type=disabled`，不写基座第三方端点用的
     /// vLLM 式 `chat_template_kwargs.enable_thinking`（Kimi Chat Completions 文档无此参数）。
     /// 写出值与基座 anthropic 臂相同，故按 anthropic 臂执行；其余 wire 与强制思考路径同基座。
+    /// 关思考时一并剥客户端 `temperature`：kimi-k2.6「思考模式固定 `1.0`，非思考模式固定 `0.6`」，
+    /// 「表中“固定”表示该参数不可修改：传入其他值会报错，建议不要显式传入」。`top_p` / `n` /
+    /// `presence_penalty` / `frequency_penalty` 两种模式下固定值相同，关思考不改变其合法性，不在此处理。
+    /// https://platform.kimi.com/docs/api/models-overview.md https://platform.kimi.ai/docs/api/models-overview.md
     fn apply_disable_thinking(
         &self,
         body: &mut Value,
@@ -68,7 +72,15 @@ impl PlatformAdapter for KimiFamilyAdapter {
         forced_thinking: bool,
     ) {
         let wire = match wire {
-            Protocol::OpenAI => &Protocol::Anthropic,
+            Protocol::OpenAI => {
+                if disable
+                    && !forced_thinking
+                    && let Some(obj) = body.as_object_mut()
+                {
+                    obj.remove("temperature");
+                }
+                &Protocol::Anthropic
+            }
             w => w,
         };
         hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking)
