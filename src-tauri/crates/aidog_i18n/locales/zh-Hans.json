@@ -1610,6 +1610,7 @@
   "platform.rateLimits.addRule": "加限频规则",
   "platform.rateLimits.ruleModelsPlaceholder": "模型（可选，回车添加，支持 前缀*）",
   "platform.rateLimits.ruleDrag": "拖动排序（靠前优先）",
+  "platform.rateLimits.ruleEnabled": "启用此规则（关掉后视为不存在）",
   "platform.rateLimits.rulesHint": "没填的项在该规则生效时不限；多条规则重叠时按列表顺序，靠前的优先（可拖动）。纯时段规则命中时替换平台级上限；模型 + 时段优先于仅模型。",
   "platform.rateLimits.ruleNoCondition": "至少选一个模型或填一个时段，否则无法保存",
   "platform.rateLimits.ruleBadWildcard": "通配符只能是末尾单个 *，且前缀不能为空（如 glm-*）",

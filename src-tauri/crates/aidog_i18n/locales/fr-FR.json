@@ -1698,6 +1698,7 @@
   "platform.rateLimits.addRule": "Ajouter une règle",
   "platform.rateLimits.ruleModelsPlaceholder": "Modèles (facultatif, Entrée pour ajouter, préfixe* accepté)",
   "platform.rateLimits.ruleDrag": "Glisser pour réordonner (la première l'emporte)",
+  "platform.rateLimits.ruleEnabled": "Activer cette règle (désactivée = ignorée)",
   "platform.rateLimits.rulesHint": "Les limites non renseignées sont illimitées tant que la règle s'applique. En cas de chevauchement, la règle la plus haute de la liste l'emporte (glisser pour réordonner). Une règle horaire seule remplace les limites de la plateforme ; modèle + horaire prime sur modèle seul.",
   "platform.rateLimits.ruleNoCondition": "Choisissez au moins un modèle ou une plage horaire, sinon l'enregistrement est impossible",
   "platform.rateLimits.ruleBadWildcard": "Le joker doit être un seul * final avec un préfixe non vide (ex. glm-*)",

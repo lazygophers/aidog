@@ -1698,6 +1698,7 @@
   "platform.rateLimits.addRule": "Regel hinzufügen",
   "platform.rateLimits.ruleModelsPlaceholder": "Modelle (optional, Enter zum Hinzufügen, Präfix* möglich)",
   "platform.rateLimits.ruleDrag": "Zum Sortieren ziehen (frühere gewinnt)",
+  "platform.rateLimits.ruleEnabled": "Regel aktivieren (aus = wird ignoriert)",
   "platform.rateLimits.rulesHint": "Nicht ausgefüllte Limits sind unbegrenzt, solange die Regel gilt. Bei Überschneidung gewinnt die weiter oben stehende Regel (zum Sortieren ziehen). Eine reine Zeitregel ersetzt die Plattform-Limits; Modell + Zeit hat Vorrang vor nur Modell.",
   "platform.rateLimits.ruleNoCondition": "Mindestens ein Modell oder einen Zeitraum wählen, sonst kann nicht gespeichert werden",
   "platform.rateLimits.ruleBadWildcard": "Platzhalter nur als einzelnes * am Ende mit nicht leerem Präfix (z. B. glm-*)",

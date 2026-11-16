@@ -1610,6 +1610,7 @@
   "platform.rateLimits.addRule": "Añadir regla",
   "platform.rateLimits.ruleModelsPlaceholder": "Modelos (opcional, Enter para añadir, admite prefijo*)",
   "platform.rateLimits.ruleDrag": "Arrastra para reordenar (la superior gana)",
+  "platform.rateLimits.ruleEnabled": "Activar esta regla (desactivada = se ignora)",
   "platform.rateLimits.rulesHint": "Los límites sin rellenar son ilimitados mientras la regla esté activa. Si se solapan, gana la regla más arriba de la lista (arrastra para reordenar). Una regla solo horaria sustituye los límites de la plataforma; modelo + horario prevalece sobre solo modelo.",
   "platform.rateLimits.ruleNoCondition": "Elige al menos un modelo o un horario; si no, no se puede guardar",
   "platform.rateLimits.ruleBadWildcard": "El comodín debe ser un único * final con prefijo no vacío (p. ej. glm-*)",
