@@ -74,6 +74,31 @@ impl PlatformAdapter for GenericAdapter {}
 ///   是否对 `kimi_coding` 启用归成员 issue 119。
 /// - 未证实（保持基座默认）：anthropic 端点的 `thinking` 请求参数（messages.md 未列出）、
 ///   `content_filter` 错误类型（当前归「未知」类）。
+///
+/// 成员 `kimi`（Kimi（月之暗面），api.moonshot.cn 标准平台；issue 117，核对日期 2026-11-16）：
+/// 与家族基座无已证实的成员级差异，登记为 [`KimiFamilyAdapter`]（全量开启家族覆写）；逐项核对结论
+/// （官方原文关键句，本成员文档即家族取证所用中国站 platform.kimi.com）：
+/// - 端点协议：registry 内置默认 openai `https://api.moonshot.cn/v1` 与 anthropic
+///   `https://api.moonshot.cn/anthropic`，与官方一致，运行时只用用户平台配置的端点。
+///   messages.md：「已经在使用 Anthropic SDK、Claude Code 等工具的开发者，只需把 base URL 指向
+///   `https://api.moonshot.cn/anthropic`，即可直接调用 Kimi 模型」。
+///   https://platform.kimi.com/docs/api/chat.md https://platform.kimi.com/docs/api/messages.md
+/// - 思考 / tool_choice / temperature：kimi-k2.6「`thinking.type` 默认 `"enabled"`，传 `"disabled"`
+///   可关闭思考」；kimi-k2.7-code 系与 K3 系列强制思考；kimi-k2.6 非思考模式 temperature 固定 `0.6`
+///   「传入其他值会报错」；kimi-k2.6 / kimi-k2.7-code 对 `tool_choice`「传 `"required"` 会报错」，K3 不限
+///   （同基座覆写行为）。https://platform.kimi.com/docs/api/models-overview.md
+/// - usage：openai 臂 `usage.prompt_tokens_details.cached_tokens`（缓存读取）与 `cache_write_tokens`
+///   （缓存写入，计入 `prompt_tokens`），基座按 input 计不区分读写，不覆盖（家族级取舍见基座说明）；
+///   缓存写入行为由 `prompt_cache_options`（openai）/ 顶层 `cache_control`（anthropic messages.md）控制，
+///   「不传时默认开启缓存写入（`5m` 档）」，aidog 不写即官方默认，不覆盖。
+///   https://platform.kimi.com/docs/api/chat.md
+/// - 流式 / 错误体 / 工具 / 多模态 / system：同家族基座（`delta.reasoning_content` → `delta.content`、
+///   `data: [DONE]`；`{"error":{...}}` / `{"type":"error","error":{...}}`；标准 openai 形状），不覆盖。
+///   https://platform.kimi.com/docs/api/errors.md
+/// - prompt_cache_key：chat.md「对于 Kimi Code Plan，此字段为必填以提高缓存命中率。对于其他多轮对话
+///   Agent，也建议使用此字段」——标准平台可选。aidog 既有迁移行为为 `Protocol::Kimi` + coding_plan 端点
+///   注入（家族按平台协议分派，成员不覆盖），行为不变。
+/// - 未证实（保持基座默认）：max_tokens 上限（chat.md 未列统一上限）、`content_filter` 错误类型。
 pub struct KimiFamilyAdapter {
     /// openai 端点禁思考是否写官方 `thinking` 并剥 temperature（kimi / kimi_en 为 true，kimi_coding 为 false）。
     official_openai_thinking: bool,
