@@ -142,18 +142,65 @@ pub(crate) fn remove_hook(cfg: &mut Value, event: &str, cmd: &str) {
     }
 }
 
-pub(crate) fn sqz_apply_hooks(cfg: &mut Value, on: bool) -> Result<(), String> {
-    for (ev, matcher, cmd) in SQZ_HOOKS {
-        if on {
+/// 钩子 ledger 版：开启时记下开启前已有的 (event, command)（这些是用户自己的，关闭不删）；
+/// 关闭时只删「开启前不存在、且现在仍在」的钩子。
+pub(crate) fn sqz_apply_hooks_ledger(
+    cfg: &mut Value,
+    on: bool,
+    ledger: &mut SqzHookLedger,
+) -> Result<(), String> {
+    if on {
+        for (ev, matcher, cmd) in SQZ_HOOKS {
+            if has_hook(cfg, ev, cmd)
+                && !ledger
+                    .preexisting
+                    .iter()
+                    .any(|(e, c)| e == ev && c == cmd)
+            {
+                ledger.preexisting.push((ev.to_string(), cmd.to_string()));
+            }
             add_hook(cfg, ev, matcher, cmd)?;
-        } else {
-            remove_hook(cfg, ev, cmd);
+        }
+    } else {
+        for (ev, _, cmd) in SQZ_HOOKS {
+            let was_user = ledger
+                .preexisting
+                .iter()
+                .any(|(e, c)| e == ev && c == cmd);
+            if !was_user {
+                remove_hook(cfg, ev, cmd);
+            }
         }
     }
     Ok(())
 }
 
 // ─── sqz MCP 包装 ──────────────────────────────────────────────
+
+/// sqz own-write 账本：开启时记下 aidog 改过的每个条目（路径 + 写前/写后内容），
+/// 关闭时只还原「当前内容仍等于写后内容」的条目；用户改过 / 用户自写的条目一律不动。
+/// 持久化在 DB setting `context_compress` 的 `sqz_ledger` 键（与 rtk_codex 同 key 同 idiom）。
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+pub struct SqzLedger {
+    /// `claude:<前缀><名>` / `codex:<名>`：该条目 aidog 写入前的 (command, args)。
+    /// None = 关闭时新增的条目（如 self server），删除即可。
+    pub before: BTreeMap<String, Option<(String, Vec<String>)>>,
+    /// aidog 写入该条目时的 (command, args)（关闭时用来确认内容未被用户改过）。
+    pub after: BTreeMap<String, (String, Vec<String>)>,
+}
+
+impl SqzLedger {
+    fn is_empty(&self) -> bool {
+        self.before.is_empty() && self.after.is_empty()
+    }
+}
+
+/// sqz 钩子账本：记录开启前 `hooks` 已含哪些 (event, command)——这些是用户自己的，关闭时跳过。
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+pub struct SqzHookLedger {
+    pub preexisting: Vec<(String, String)>,
+}
+
 
 #[derive(PartialEq)]
 enum Kind {
@@ -240,6 +287,20 @@ fn next_cmd(cmd: &str, args: &[String], on: bool) -> Option<(String, Vec<String>
     }
 }
 
+/// 关闭时：仅当条目当前内容 == ledger 记的写后内容才还原；用户改过 / 无记录 → None（不动）。
+fn ledger_undo(
+    key: &str,
+    cmd: &str,
+    args: &[String],
+    ledger: &SqzLedger,
+) -> Option<(String, Vec<String>)> {
+    let after = ledger.after.get(key)?;
+    if after.0 != cmd || after.1 != args {
+        return None;
+    }
+    ledger.before.get(key).cloned().flatten()
+}
+
 fn free_name(taken: impl Fn(&str) -> bool) -> String {
     ["sqz", "sqz-mcp", "sqz-mcp-self"]
         .into_iter()
@@ -301,6 +362,88 @@ fn claude_maps(root: &mut Value) -> Vec<(String, &mut serde_json::Map<String, Va
         }
     }
     out
+}
+
+/// ledger 版：开启时写记录，关闭时只还原记录内且未被用户改动的条目。返回是否有改动。
+pub(crate) fn sqz_apply_claude_json_ledger(
+    root: &mut Value,
+    on: bool,
+    ledger: &mut SqzLedger,
+) -> Result<bool, String> {
+    let obj = root
+        .as_object_mut()
+        .ok_or("~/.claude.json root is not an object")?;
+    if on {
+        obj.entry("mcpServers")
+            .or_insert_with(|| json!({}))
+            .as_object()
+            .ok_or("mcpServers is not an object")?;
+    }
+    let mut changed = false;
+    for (p, m) in claude_maps(root) {
+        for (n, e) in m.iter_mut() {
+            let Some((c, a)) = json_stdio(e) else {
+                continue;
+            };
+            let key = format!("claude:{p}{n}");
+            if on {
+                let Some((c2, a2)) = next_cmd(&c, &a, true) else {
+                    continue;
+                };
+                if c2 == c && a2 == a {
+                    continue;
+                }
+                let lr = ledger.before.entry(key.clone()).or_insert(None);
+                *lr = Some((c.clone(), a.clone()));
+                ledger.after.insert(key.clone(), (c2.clone(), a2.clone()));
+                e["command"] = c2.into();
+                e["args"] = a2.into();
+                changed = true;
+            } else if let Some((c2, a2)) = ledger_undo(&key, &c, &a, ledger) {
+                e["command"] = c2.into();
+                e["args"] = a2.into();
+                changed = true;
+            }
+        }
+    }
+    if let Some(top) = root.get_mut("mcpServers").and_then(Value::as_object_mut) {
+        if on {
+            if !top.values().any(|e| json_is(e, Kind::SelfServer)) {
+                let name = free_name(|n| top.contains_key(n));
+                top.insert(
+                    name.clone(),
+                    json!({"type": "stdio", "command": SQZ_BIN, "args": SQZ_SELF_ARGS}),
+                );
+                ledger.before.entry(format!("claude:{name}")).or_insert(None);
+                ledger.after.insert(
+                    format!("claude:{name}"),
+                    (SQZ_BIN.to_string(), SQZ_SELF_ARGS.map(String::from).to_vec()),
+                );
+                changed = true;
+            }
+        } else {
+            // 新增条目（before=None）按内容删：aidog 写入的 (command, args) 仍在 → 删该条目
+            //（含用户改名后的 self server）；用户自写的同形条目无记录 → 不动。
+            let inserted: Vec<(String, Vec<String>)> = ledger
+                .before
+                .iter()
+                .filter(|(_, b)| b.is_none())
+                .filter_map(|(k, _)| ledger.after.get(k).cloned())
+                .collect();
+            let to_remove: Vec<String> = top
+                .iter()
+                .filter(|(_, e)| {
+                    json_stdio(e).is_some_and(|(c, a)| inserted.contains(&(c, a)))
+                })
+                .map(|(n, _)| n.clone())
+                .collect();
+            for n in to_remove {
+                top.remove(&n);
+                changed = true;
+            }
+        }
+    }
+    Ok(changed)
 }
 
 /// 返回是否有改动。
@@ -367,6 +510,96 @@ fn toml_is(e: &toml::Value, k: Kind) -> bool {
 
 fn toml_args(a: Vec<String>) -> toml::Value {
     toml::Value::Array(a.into_iter().map(toml::Value::String).collect())
+}
+
+/// codex 侧 ledger 版：语义同 sqz_apply_claude_json_ledger。
+pub(crate) fn sqz_apply_codex_ledger(
+    root: &mut toml::Table,
+    on: bool,
+    ledger: &mut SqzLedger,
+) -> Result<bool, String> {
+    if on {
+        root.entry("mcp_servers")
+            .or_insert_with(|| toml::Value::Table(toml::Table::new()));
+    }
+    let Some(servers) = root.get_mut("mcp_servers") else {
+        return Ok(false);
+    };
+    let servers = servers.as_table_mut().ok_or("mcp_servers is not a table")?;
+    let names: Vec<String> = servers.keys().cloned().collect();
+    let mut changed = false;
+    for n in &names {
+        let Some(e) = servers.get_mut(n) else {
+            continue;
+        };
+        let Some((c, a)) = toml_stdio(e) else {
+            continue;
+        };
+        let key = format!("codex:{n}");
+        if on {
+            let Some((c2, a2)) = next_cmd(&c, &a, true) else {
+                continue;
+            };
+            if c2 == c && a2 == a {
+                continue;
+            }
+            let lr = ledger.before.entry(key.clone()).or_insert(None);
+            *lr = Some((c.clone(), a.clone()));
+            ledger.after.insert(key.clone(), (c2.clone(), a2.clone()));
+            if let Some(t) = e.as_table_mut() {
+                t.insert("command".into(), c2.into());
+                t.insert("args".into(), toml_args(a2));
+                changed = true;
+            }
+        } else if let Some((c2, a2)) = ledger_undo(&key, &c, &a, ledger)
+            && let Some(t) = e.as_table_mut()
+        {
+            t.insert("command".into(), c2.into());
+            t.insert("args".into(), toml_args(a2));
+            changed = true;
+        }
+    }
+    if on {
+        if !servers.values().any(|e| toml_is(e, Kind::SelfServer)) {
+            let name = free_name(|n| servers.contains_key(n));
+            let mut t = toml::Table::new();
+            t.insert("command".into(), SQZ_BIN.into());
+            t.insert(
+                "args".into(),
+                toml_args(SQZ_SELF_ARGS.map(String::from).to_vec()),
+            );
+            servers.insert(name.clone(), toml::Value::Table(t));
+            ledger.before.entry(format!("codex:{name}")).or_insert(None);
+            ledger.after.insert(
+                format!("codex:{name}"),
+                (SQZ_BIN.to_string(), SQZ_SELF_ARGS.map(String::from).to_vec()),
+            );
+            changed = true;
+        }
+    } else {
+        // 新增条目（before=None）按内容删，同 claude 侧。
+        let inserted: Vec<(String, Vec<String>)> = ledger
+            .before
+            .iter()
+            .filter(|(_, b)| b.is_none())
+            .filter_map(|(k, _)| ledger.after.get(k).cloned())
+            .collect();
+        let to_remove: Vec<String> = names
+            .iter()
+            .filter(|n| {
+                servers
+                    .get(n.as_str())
+                    .and_then(toml_stdio)
+                    .is_some_and(|(c, a)| inserted.contains(&(c, a)))
+            })
+            .cloned()
+            .collect();
+        for n in to_remove {
+            servers.remove(&n);
+            changed = true;
+        }
+    }
+    Ok(changed)
 }
 
 pub(crate) fn sqz_apply_codex(root: &mut toml::Table, on: bool) -> Result<bool, String> {
@@ -548,8 +781,10 @@ fn codex_cfg(p: &Paths) -> Option<PathBuf> {
     p.codex.is_dir().then(|| p.codex.join("config.toml"))
 }
 
-/// 两个文件都先解析，任一非法则一个都不写。
-pub(crate) fn sqz_apply_files(p: &Paths, on: bool) -> Result<(), String> {
+/// ledger 版文件应用：解析两文件 → ledger 应用 → 落库账本 → 写文件。
+/// 关闭时无记录（存量已开启状态）→ 回落形状判定（旧 sqz_apply_claude_json / codex 路径），
+/// 由 caller 回报残留清单，不静默删。
+async fn sqz_apply_files_ledger(p: &Paths, on: bool, db: &Db) -> Result<(), String> {
     let claude_before = read_original(&p.claude_json)?;
     let mut cj = claude_before
         .as_deref()
@@ -572,11 +807,17 @@ pub(crate) fn sqz_apply_files(p: &Paths, on: bool) -> Result<(), String> {
                 .map(|table| table.unwrap_or_default())
         })
         .transpose()?;
-    let claude_changed = sqz_apply_claude_json(&mut cj, on)?;
-    let codex_changed = if let Some(t) = cx.as_mut() {
-        sqz_apply_codex(t, on)?
+    let (mut ledger, _hooks) = load_sqz_ledger(db).await;
+    let legacy = ledger.is_empty() && !on;
+    let claude_changed = if legacy {
+        sqz_apply_claude_json(&mut cj, false)?
     } else {
-        false
+        sqz_apply_claude_json_ledger(&mut cj, on, &mut ledger)?
+    };
+    let codex_changed = match cx.as_mut() {
+        Some(t) if legacy => sqz_apply_codex(t, false)?,
+        Some(t) => sqz_apply_codex_ledger(t, on, &mut ledger)?,
+        None => false,
     };
     if on {
         std::fs::create_dir_all(&p.codex)
@@ -594,7 +835,12 @@ pub(crate) fn sqz_apply_files(p: &Paths, on: bool) -> Result<(), String> {
             toml::to_string_pretty(t).map_err(|e| format!("serialize {}: {e}", path.display()))?;
         updates.push((path, content, cx_before));
     }
-    write_transaction(updates, write_keep_mode, remove_if_exists)
+    write_transaction(updates, write_keep_mode, remove_if_exists)?;
+    if !legacy {
+        let (_, hooks) = load_sqz_ledger(db).await;
+        store_sqz_ledger(db, &ledger, &hooks).await?;
+    }
+    Ok(())
 }
 
 pub(crate) fn sqz_file_missing(p: &Paths, cfg: &Value) -> Result<Vec<String>, String> {
@@ -832,7 +1078,45 @@ async fn load_record(db: &Db) -> RtkCodexRecord {
 }
 
 async fn store_record(db: &Db, rec: &RtkCodexRecord) -> Result<(), String> {
-    set_setting(db, SETTING_KEY, json!({ "rtk_codex": rec })).await
+    // 保留 sqz ledger 键（store_setting 是整值覆盖，不能只写 rtk_codex）
+    let cur = aidog_db::get_setting(db, "global", SETTING_KEY)
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| json!({}));
+    let mut v = cur;
+    v["rtk_codex"] = json!(rec);
+    set_setting(db, SETTING_KEY, v).await
+}
+
+/// sqz 账本读写（同 key 下 `sqz_ledger` / `sqz_hooks` 两键）。
+async fn load_sqz_ledger(db: &Db) -> (SqzLedger, SqzHookLedger) {
+    let v = aidog_db::get_setting(db, "global", SETTING_KEY)
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| json!({}));
+    let l = v
+        .get("sqz_ledger")
+        .and_then(|x| serde_json::from_value(x.clone()).ok())
+        .unwrap_or_default();
+    let h = v
+        .get("sqz_hooks")
+        .and_then(|x| serde_json::from_value(x.clone()).ok())
+        .unwrap_or_default();
+    (l, h)
+}
+
+async fn store_sqz_ledger(db: &Db, ledger: &SqzLedger, hooks: &SqzHookLedger) -> Result<(), String> {
+    let cur = aidog_db::get_setting(db, "global", SETTING_KEY)
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| json!({}));
+    let mut v = cur;
+    v["sqz_ledger"] = json!(ledger);
+    v["sqz_hooks"] = json!(hooks);
+    set_setting(db, SETTING_KEY, v).await
 }
 
 async fn status(db: &Db) -> Result<ContextCompressStatus, String> {
@@ -915,12 +1199,20 @@ crate::tauri_command! {
         if on && (version("sqz").await.is_none() || version(SQZ_BIN).await.is_none()) {
             return Err("sqz / sqz-mcp is not installed".into());
         }
-        sqz_apply_files(&Paths::resolve()?, on)?;
+        sqz_apply_files_ledger(&Paths::resolve()?, on, db).await?;
         let mut cfg = load_claude_cfg(db).await;
+        let (mut ledger, mut hooks_ledger) = load_sqz_ledger(db).await;
         let before = cfg.clone();
-        sqz_apply_hooks(&mut cfg, on)?;
-        if cfg != before {
+        sqz_apply_hooks_ledger(&mut cfg, on, &mut hooks_ledger)?;
+        if cfg != before || on {
             store_claude_cfg(db, cfg).await?;
+        }
+        if on || !ledger.is_empty() || !hooks_ledger.preexisting.is_empty() {
+            if !on {
+                ledger = SqzLedger::default();
+                hooks_ledger = SqzHookLedger::default();
+            }
+            store_sqz_ledger(db, &ledger, &hooks_ledger).await?;
         }
         status(db).await
     }
