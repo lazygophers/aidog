@@ -194,6 +194,93 @@ async fn outbound_follows_endpoint_protocol_after_user_change() {
     );
 }
 
+/// GLM 家族四个成员 × 端点协议，入站带 aidog 扩展 `disable_thinking: true`，返回上游收到的 body。
+async fn glm_outbound_body(platform_type: Protocol, ep: Protocol, gk: &str) -> serde_json::Value {
+    let resp_ok = if ep == Protocol::Anthropic { ANTHROPIC_OK } else { OPENAI_OK };
+    let (upstream, hits) = spawn_recording_upstream(resp_ok).await;
+    let state = make_state(test_db().await).await;
+    // 厂商直连协议建库端点被锁成 preset 域名，用 fixture 直写 DB 指向本地假上游
+    let pid = aidog_db::test_support::create_platform_at_fake_upstream(
+        &state.db,
+        platform_type.clone(),
+        &upstream,
+        std::slice::from_ref(&ep),
+    )
+    .await;
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: pid,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/chat/completions")
+        .header("authorization", format!("Bearer {gk}"))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"model":"glm-test","max_tokens":32,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#,
+        ))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    let status = resp.status();
+    let resp_body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(status, StatusCode::OK, "{platform_type:?}/{ep:?}: {}", String::from_utf8_lossy(&resp_body));
+    flush_log_queue(&state).await;
+    let hits = hits.lock().unwrap();
+    assert_eq!(hits.len(), 1, "上游应恰好收到一次请求: {hits:?}");
+    serde_json::from_str(&hits[0].1).unwrap()
+}
+
+const GLM_FAMILY: [(Protocol, &str); 4] = [
+    (Protocol::Glm, "gkglm"),
+    (Protocol::GlmEn, "gkglmen"),
+    (Protocol::GlmCoding, "gkglmcp"),
+    (Protocol::GlmCodingEn, "gkglmcpen"),
+];
+
+/// issue 75：GLM 家族 openai 端点禁思考写官方参数 `thinking.type=disabled`
+/// （docs.bigmodel.cn / docs.z.ai thinking-mode），不写 vLLM 式 `chat_template_kwargs`。
+#[tokio::test]
+async fn glm_family_openai_endpoint_disables_thinking_with_official_param() {
+    for (pt, gk) in GLM_FAMILY {
+        let body = glm_outbound_body(pt.clone(), Protocol::OpenAI, gk).await;
+        assert_eq!(
+            body.get("thinking"),
+            Some(&serde_json::json!({"type": "disabled"})),
+            "{pt:?} openai 端点应写 thinking.type=disabled: {body}"
+        );
+        assert!(
+            body.get("chat_template_kwargs").is_none(),
+            "{pt:?} openai 端点不应写 chat_template_kwargs: {body}"
+        );
+        assert!(body.get("disable_thinking").is_none(), "{pt:?} 私有字段应剥除: {body}");
+    }
+}
+
+/// issue 75：GLM 家族 anthropic 端点禁思考与基座一致（`thinking.type=disabled`）。
+#[tokio::test]
+async fn glm_family_anthropic_endpoint_disables_thinking() {
+    for (pt, gk) in GLM_FAMILY {
+        let body = glm_outbound_body(pt.clone(), Protocol::Anthropic, gk).await;
+        assert_eq!(
+            body.get("thinking"),
+            Some(&serde_json::json!({"type": "disabled"})),
+            "{pt:?} anthropic 端点应写 thinking.type=disabled: {body}"
+        );
+        assert!(body.get("disable_thinking").is_none(), "{pt:?} 私有字段应剥除: {body}");
+    }
+}
+
 async fn make_state(db: aidog_db::Db) -> Arc<ProxyState> {
     let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
