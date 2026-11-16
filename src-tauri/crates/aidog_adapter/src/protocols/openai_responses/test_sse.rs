@@ -161,6 +161,7 @@ fn responses_stream_incomplete_and_usage() {
     st.push(&ChatStreamEvent::Start { id: "c1".into(), model: "m".into() }, "m");
     st.push(&ChatStreamEvent::Usage { usage: crate::types::Usage {
         prompt_tokens: Some(3), completion_tokens: Some(4), total_tokens: Some(7),
+        cache_read_tokens: None, cache_write_tokens: None,
     } }, "m");
     let out = st.push(&ChatStreamEvent::Stop { finish_reason: Some("length".into()) }, "m").unwrap();
     let f = frames(&out);
@@ -185,6 +186,7 @@ fn stateful_dispatch_switches_to_responses_state() {
         &mut state,
         &aidog_db::models::Protocol::OpenAIResponses,
         "m",
+        false,
     )
     .expect("Responses 客户端 stateful 渲染");
     assert!(out.contains("response.output_text.delta"), "实得 {out:?}");
@@ -194,6 +196,7 @@ fn stateful_dispatch_switches_to_responses_state() {
         &mut state,
         &aidog_db::models::Protocol::OpenAIResponses,
         "m",
+        false,
     )
     .unwrap();
     let f = frames(&out);
@@ -209,6 +212,7 @@ fn stateful_dispatch_switches_to_responses_state() {
         &mut state,
         &aidog_db::models::Protocol::Anthropic,
         "m",
+        false,
     )
     .unwrap();
     assert!(out.contains("content_block_delta"), "实得 {out:?}");
