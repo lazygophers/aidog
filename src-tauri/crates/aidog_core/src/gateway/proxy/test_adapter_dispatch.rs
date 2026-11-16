@@ -1143,6 +1143,8 @@ async fn glm_family_1212_fails_over_without_touching_platform_health() {
 //   （404 `resource_not_found_error`「Model not found, or this account does not have permission to access the model」）
 
 const KIMI_FAMILY: [Protocol; 3] = [Protocol::Kimi, Protocol::KimiEn, Protocol::KimiCoding];
+/// openai 端点禁思考写官方 `thinking` 的成员（kimi_coding 保持基座行为，见成员 issue 119）。
+const KIMI_OFFICIAL_THINKING: [Protocol; 2] = [Protocol::Kimi, Protocol::KimiEn];
 
 const KIMI_OPENAI_RESP: &str = r#"{"id":"chatcmpl-1","object":"chat.completion","created":1,"model":"kimi-test","choices":[{"index":0,"message":{"role":"assistant","content":"hi","reasoning_content":"think"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13,"prompt_tokens_details":{"cached_tokens":4}}}"#;
 const KIMI_OPENAI_SSE: &str = "data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"kimi-test\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"finish_reason\":null}]}\n\n\
@@ -1162,7 +1164,7 @@ fn kimi_gk(pt: &Protocol, tag: &str) -> String {
 /// 不写 vLLM 式 `chat_template_kwargs`（Kimi Chat Completions 文档无此参数）。
 #[tokio::test]
 async fn kimi_family_openai_endpoint_disables_thinking_with_official_param() {
-    for pt in KIMI_FAMILY {
+    for pt in KIMI_OFFICIAL_THINKING {
         let body = glm_outbound_body(pt.clone(), Protocol::OpenAI, &kimi_gk(&pt, "dto")).await;
         assert_eq!(
             body.get("thinking"),
@@ -1179,7 +1181,7 @@ async fn kimi_family_openai_endpoint_disables_thinking_with_official_param() {
 /// openai 端点禁思考时剥除客户端 temperature；未禁思考时原样透传。
 #[tokio::test]
 async fn kimi_family_openai_disable_thinking_strips_temperature() {
-    for pt in KIMI_FAMILY {
+    for pt in KIMI_OFFICIAL_THINKING {
         let mut req = serde_json::json!({"model": "kimi-test", "max_tokens": 32, "temperature": 1.0,
             "disable_thinking": true, "messages": [{"role": "user", "content": "hi"}]});
         let body = outbound_body_with(pt.clone(), Protocol::OpenAI, &kimi_gk(&pt, "tmd"), req.clone()).await;
@@ -1189,6 +1191,27 @@ async fn kimi_family_openai_disable_thinking_strips_temperature() {
         let body = outbound_body_with(pt.clone(), Protocol::OpenAI, &kimi_gk(&pt, "tmk"), req).await;
         assert_eq!(body.get("temperature"), Some(&serde_json::json!(1.0)), "{pt:?} 未禁思考应透传: {body}");
     }
+}
+
+/// issue 76（先红）：kimi_coding 的 openai 端点禁思考保持 PR 前基座行为——写
+/// `chat_template_kwargs.enable_thinking=false`、不写 `thinking`、客户端 temperature 原样透传。
+/// 本 PR 的取证（platform.kimi.com chat.md / models-overview.md）只覆盖开放平台模型；Kimi Code 模型页
+/// 「off / none / disabled … 关闭 thinking 后，请求均由 K2.8 Preview（无思考）处理」「K3.1 Pro 系列：
+/// 关闭思考的请求会被拒绝（HTTP 400）」，语义归成员 issue 119 拍板。
+#[tokio::test]
+async fn kimi_coding_openai_disable_thinking_keeps_base_behaviour() {
+    let pt = Protocol::KimiCoding;
+    let req = serde_json::json!({"model": "kimi-test", "max_tokens": 32, "temperature": 1.0,
+        "disable_thinking": true, "messages": [{"role": "user", "content": "hi"}]});
+    let body = outbound_body_with(pt.clone(), Protocol::OpenAI, &kimi_gk(&pt, "cbb"), req).await;
+    assert_eq!(
+        body.pointer("/chat_template_kwargs/enable_thinking"),
+        Some(&serde_json::json!(false)),
+        "kimi_coding 应保持基座 chat_template_kwargs: {body}"
+    );
+    assert!(body.get("thinking").is_none(), "kimi_coding 不应写 thinking: {body}");
+    assert_eq!(body.get("temperature"), Some(&serde_json::json!(1.0)), "kimi_coding 应透传 temperature: {body}");
+    assert!(body.get("disable_thinking").is_none(), "私有字段应剥除: {body}");
 }
 
 /// issue 76（护栏）：不可关闭思考的真实 registry 模型（chat.md「kimi-k2.7-code 和

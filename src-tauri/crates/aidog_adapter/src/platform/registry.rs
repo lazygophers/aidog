@@ -31,6 +31,12 @@ impl PlatformAdapter for GenericAdapter {}
 ///   不在此覆盖；kimi_coding 条目未标注（成员 issue 119 核对）。
 ///   https://platform.kimi.com/docs/api/chat.md https://platform.kimi.ai/docs/api/chat.md
 ///   https://platform.kimi.com/docs/guide/use-thinking-models.md
+///   上述取证只覆盖开放平台模型，openai 臂覆写仅对 kimi / kimi_en 生效；kimi_coding 的 openai 端点
+///   禁思考保持基座行为（写 `chat_template_kwargs.enable_thinking=false`、不剥 temperature），
+///   语义推迟到成员 issue 119。重开依据（Kimi Code 模型页原文，核对日期 2026-11-16）：
+///   「off / none / disabled … K3 系列、K2.8 Preview 与 K2.7 Code Highspeed：关闭 thinking 后，请求均由
+///   K2.8 Preview（无思考）处理」「K3.1 Pro 系列：关闭思考的请求会被拒绝（HTTP 400）」；该页无 temperature
+///   固定值说明。https://www.kimi.com/code/docs/kimi-code/models.html
 /// - 流式：「先接收 `delta.reasoning_content`，再接收 `delta.content`；`finish_reason="stop"` 表示生成结束，
 ///   其后的统计块 `choices` 为空，需从顶层 `usage` 读取用量」，以 `data: [DONE]` 结束；与基座 openai 构件一致。
 ///   `finish_reason` 取值 stop / length / tool_calls，同基座映射。
@@ -53,7 +59,10 @@ impl PlatformAdapter for GenericAdapter {}
 ///   是否对 `kimi_coding` 启用归成员 issue 119。
 /// - 未证实（保持基座默认）：anthropic 端点的 `thinking` 请求参数（messages.md 未列出）、
 ///   `content_filter` 错误类型（当前归「未知」类）。
-pub struct KimiFamilyAdapter;
+pub struct KimiFamilyAdapter {
+    /// openai 端点禁思考是否写官方 `thinking` 并剥 temperature（kimi / kimi_en 为 true，kimi_coding 为 false）。
+    official_openai_thinking: bool,
+}
 
 impl PlatformAdapter for KimiFamilyAdapter {
     /// 差异：openai 端点禁思考写官方 `thinking.type=disabled`，不写基座第三方端点用的
@@ -72,7 +81,7 @@ impl PlatformAdapter for KimiFamilyAdapter {
         forced_thinking: bool,
     ) {
         let wire = match wire {
-            Protocol::OpenAI => {
+            Protocol::OpenAI if self.official_openai_thinking => {
                 if disable
                     && !forced_thinking
                     && let Some(obj) = body.as_object_mut()
@@ -233,7 +242,8 @@ impl PlatformAdapter for GlmFamilyAdapter {
 }
 
 static GENERIC: GenericAdapter = GenericAdapter;
-static KIMI: KimiFamilyAdapter = KimiFamilyAdapter;
+static KIMI: KimiFamilyAdapter = KimiFamilyAdapter { official_openai_thinking: true };
+static KIMI_CODING: KimiFamilyAdapter = KimiFamilyAdapter { official_openai_thinking: false };
 static GLM: GlmFamilyAdapter = GlmFamilyAdapter;
 
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
@@ -265,7 +275,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("glm_en", &GLM),
     ("intern_inkstone", &GENERIC),
     ("kimi", &KIMI),
-    ("kimi_coding", &KIMI),
+    ("kimi_coding", &KIMI_CODING),
     ("kimi_en", &KIMI),
     ("litellm", &GENERIC),
     ("longcat", &GENERIC),
