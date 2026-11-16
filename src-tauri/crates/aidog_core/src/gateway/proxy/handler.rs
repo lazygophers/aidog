@@ -703,6 +703,7 @@ pub(crate) async fn handle_proxy_core(
                 || e == "rate_limit"
                 || e == "slot_disabled"
                 || e.starts_with("quota_exhausted")
+                || e == crate::gateway::quota_window::QUOTA_BLOCKED_REASON
                 || e == "unknown_protocol"
                 || e == "direct_model_unavailable"
                 || e == "client_not_allowed"

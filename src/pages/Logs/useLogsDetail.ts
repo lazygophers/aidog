@@ -26,6 +26,7 @@ const REASON_LABELS: Record<string, string> = {
   "model-not-on-platform": "槽位已关闭（默认开关）",
   "time-rule-slot-disabled": "槽位已关闭（时段档开关）",
   "skipped-dead-upstream": "死站跳过",
+  "quota-window-exhausted": "额度窗口耗尽",
 };
 
 const TAG_LABELS: Record<string, string> = {

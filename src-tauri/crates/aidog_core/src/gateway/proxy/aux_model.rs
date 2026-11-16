@@ -185,6 +185,20 @@ pub(crate) async fn handle_aux_model(
                 continue;
             }
         };
+        // 额度窗口闸门（extra.quota_windows 执行）：超限不发上游请求（不计调用次数），排除整个平台。
+        if !crate::gateway::quota_window::gate_attempt(
+            &state.db,
+            log,
+            &mut attempts,
+            &route.platform,
+            &route.target_model,
+            pick.model_alt,
+        )
+        .await
+        {
+            attempt_loop.failed(&mut attempts, false);
+            continue;
+        }
         let capped = attempt_loop.begin_call(log, &attempts, route.platform.id);
         let scope = super::call_scope::CallScope {
             state,
@@ -352,6 +366,7 @@ async fn aux_attempt(
         log.created_at,
         0.0, // tools 按次费与 aux 请求无关
         request_units,
+        true, // 额度窗口执行范围：向量化 / 重排序计入
         tracing::Span::current(),
     );
 

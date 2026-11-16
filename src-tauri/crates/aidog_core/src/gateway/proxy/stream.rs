@@ -608,6 +608,7 @@ impl StreamLogGuard {
                 final_log.created_at,
                 super::log::chat_tool_cost_usd(&est.platform_type, &final_log.tool_call_counts),
                 0, // chat 路径无按次计量次数
+                true, // 额度窗口执行范围：聊天计入
                 self.req_span.clone(),
             );
         }

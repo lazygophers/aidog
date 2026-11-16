@@ -1646,7 +1646,7 @@ export interface RateLimitsDraft {
   rpm: string;
   tpm: string;
   rules: RateLimitRuleDraft[];
-  windows: { num: string; unit: string; mode: QuotaBudgetMode; amount: string }[];
+  windows: { num: string; unit: string; mode: QuotaBudgetMode; amount: string; enabled: boolean; resetMode: string }[];
   /** 策略库导入来源：编辑时原样带回，供「内置策略已更新」判定。 */
   source?: { id?: string; at?: number };
 }
@@ -1668,13 +1668,14 @@ export function bundleToDraft(b: RateLimitsBundle): RateLimitsDraft {
         : [String(Math.round(sec / 60)), "60"];
       const mode: QuotaBudgetMode = w.budget_usd != null ? "usd" : w.budget_count != null ? "count" : "tokens";
       const amount = mode === "usd" ? w.budget_usd : mode === "count" ? w.budget_count : w.budget_tokens;
-      return { num, unit, mode, amount: amount != null ? String(amount) : "" };
+      return { num, unit, mode, amount: amount != null ? String(amount) : "", enabled: w.enabled ?? true, resetMode: w.reset_mode ?? "sliding" };
     }),
   };
 }
 
 /** 编辑态 → bundle（净化：非法数字丢弃；空即 undefined，serialize 侧删键）。
- *  budget_points 不再写出（存量行编辑保存后清除，2026-10-23 拍板）。 */
+ *  budget_points 不再写出（存量行编辑保存后清除，2026-10-23 拍板）。
+ *  enabled=false / reset_mode 非 sliding 显式写出（与后端 serde 缺省一致，缺省值不写键）。 */
 export function draftToBundle(d: RateLimitsDraft): RateLimitsBundle {
   const num = (s: string): number | undefined => {
     const v = Math.floor(Number(s));
@@ -1694,6 +1695,8 @@ export function draftToBundle(d: RateLimitsDraft): RateLimitsBundle {
     const sec = num(w.num) !== undefined ? Math.floor(Number(w.num) * Number(w.unit)) : undefined;
     if (sec === undefined || sec <= 0) continue;
     const q: QuotaWindowConfig = { window: sec };
+    if (!w.enabled) q.enabled = false;
+    if (w.resetMode !== "sliding") q.reset_mode = w.resetMode as QuotaWindowConfig["reset_mode"];
     if (w.mode === "usd") {
       const v = parseFloat(w.amount);
       if (w.amount.trim() !== "" && Number.isFinite(v) && v > 0) q.budget_usd = v;
@@ -1744,7 +1747,7 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
   return (
     <FormSection
       title={t("platform.rateLimits.title", "限频")}
-      desc={t("platform.rateLimits.desc", "按平台套餐配置 RPM/TPM 与额度窗口；调度侧超限自动排除候选（后续版本生效）。")}
+      desc={t("platform.rateLimits.desc", "按平台套餐配置 RPM/TPM 与额度窗口；调度侧超限自动排除候选并阻断请求。")}
     >
       {/* 实时态条：配置摘要（调度数据未回传，先展示静态配置态） */}
       <div className="aidog-anim-rise" style={C.strip}>
@@ -1798,11 +1801,12 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
 
       <RateLimitPolicyLibrary protocol={protocol} source={bundle.rate_limits?.source_policy_id ? { id: bundle.rate_limits.source_policy_id, at: bundle.rate_limits.source_last_updated } : undefined} onImport={importPolicy} t={t} />
 
-      {/* 额度窗口（2026-10-23 A2 定稿：时长自由数字+单位，预算三选一 token|金额|次数，预设只是快捷填充） */}
+      {/* 额度窗口（2026-10-23 A2 定稿：时长自由数字+单位，预算三选一 token|金额|次数，预设只是快捷填充；
+          2026-11-16 执行上线：每窗口启用开关 + 重置方式） */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
         <span style={labelStyle}>{t("platform.rateLimits.quotaWindows", "额度窗口")}</span>
         {draft.windows.map((w, i) => (
-          <div key={i} className={C.rowClass} style={C.row}>
+          <div key={i} className={C.rowClass} style={{ ...C.row, opacity: w.enabled ? undefined : 0.65 }}>
             <Input
               type="number" min={1} step={1}
               value={w.num}
@@ -1850,13 +1854,41 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
             <span style={{ fontSize: 14, color: "var(--text-tertiary)", flexShrink: 0 }}>
               {w.mode === "usd" ? "$" : w.mode === "count" ? t("platform.rateLimits.unitCount", "次") : "tokens"}
             </span>
+            {/* 重置方式（额度窗口执行 2026-11-16）：sliding / 自然日 / 自然小时 */}
+            <Select
+              value={w.resetMode}
+              onValueChange={(v) => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, resetMode: v } : x))}
+            >
+              <SelectTrigger
+                data-testid={`quota-window-reset-${i}`}
+                className="input"
+                style={{ width: 108, flexShrink: 0, height: 28, fontSize: 14 }}
+                aria-label={t("platform.rateLimits.resetMode", "重置方式")}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sliding">{t("platform.rateLimits.resetModeSliding", "滑动窗口")}</SelectItem>
+                <SelectItem value="calendar_day">{t("platform.rateLimits.resetModeCalendarDay", "按自然日")}</SelectItem>
+                <SelectItem value="calendar_hour">{t("platform.rateLimits.resetModeCalendarHour", "按自然小时")}</SelectItem>
+              </SelectContent>
+            </Select>
+            {/* 启用开关（关掉 = 不参与阻断与计数；行内控件阻断冒泡到行容器） */}
+            <span onClick={(e) => e.stopPropagation()}>
+              <Switch
+                data-testid={`quota-window-enabled-${i}`}
+                aria-label={t("platform.rateLimits.windowEnabled", "启用")}
+                checked={w.enabled}
+                onCheckedChange={v => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, enabled: v === true } : x))}
+              />
+            </span>
             <Button variant="ghost" size="icon" className="btn-danger" style={{ height: 28, width: 28, marginLeft: "auto" }} onClick={() => upd("windows", draft.windows.filter((_, j) => j !== i))}>×</Button>
           </div>
         ))}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {([["5", "3600", "+ 5 小时"], ["1", "86400", "+ 1 天"], ["7", "86400", "+ 7 天"], ["30", "60", "+ 30 分钟"]] as const).map(([n, u, label]) => (
             <button key={label} type="button" className={C.addBtnClass}
-              onClick={() => upd("windows", [...draft.windows, { num: n, unit: u, mode: "tokens", amount: "" }])}>
+              onClick={() => upd("windows", [...draft.windows, { num: n, unit: u, mode: "tokens", amount: "", enabled: true, resetMode: "sliding" }])}>
               {label}
             </button>
           ))}
