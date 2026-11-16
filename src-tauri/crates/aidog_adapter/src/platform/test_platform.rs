@@ -1,7 +1,6 @@
 //! 平台适配器框架门禁测试（issue 68）。
 
 use super::error::UpstreamErrorClass;
-use super::registry::KimiFamilyAdapter;
 use super::{hooks, PlatformAdapter};
 use crate::types::ChatRequest;
 use aidog_db::models::Protocol;
@@ -44,7 +43,7 @@ fn kimi_adapter_coding_plan_matches_base_kimi_arm() {
     assert!(non_kimi.get("prompt_cache_key").is_none());
     // 家族适配器与基座 Kimi 臂产出同形状（除时间窗口随机段外的键集合一致）。
     let mut member = json!({ "model": "k3" });
-    KimiFamilyAdapter.inject_coding_plan(&mut member, &Protocol::Kimi);
+    super::adapter_for("kimi_coding").inject_coding_plan(&mut member, &Protocol::Kimi);
     assert_eq!(
         member.as_object().unwrap().keys().collect::<Vec<_>>(),
         via_base.as_object().unwrap().keys().collect::<Vec<_>>()
