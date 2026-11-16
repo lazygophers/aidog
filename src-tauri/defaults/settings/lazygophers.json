@@ -784,6 +784,7 @@
         "MAX_MCP_OUTPUT_TOKENS": "15000"
     },
     "enabledPlugins": {
+        "answer-me-with-html@answer-me-with-html": true,
         "caveman@caveman": true,
         "i-have-adhd@i-have-adhd": true,
         "ponytail@ponytail": true,
@@ -791,6 +792,13 @@
         "openviking-memory@openviking": false
     },
     "extraKnownMarketplaces": {
+        "answer-me-with-html": {
+            "autoUpdate": true,
+            "source": {
+                "repo": "QingYunA/answer-me-with-html",
+                "source": "github"
+            }
+        },
         "caveman": {
             "autoUpdate": true,
             "source": {
