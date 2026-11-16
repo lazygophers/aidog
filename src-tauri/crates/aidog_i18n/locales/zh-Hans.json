@@ -1981,6 +1981,7 @@
   "platform.tabGroupAssign": "分组归属",
   "platform.time_windows_section_title": "时段档",
   "platform.time_windows_rule_n": "档 {{n}}",
+  "platform.time_windows_rule_enabled": "启用此时段档（关掉后视为不存在）",
   "platform.time_windows_edit_button": "编辑时段",
   "platform.sectionPassthrough": "透传配置",
   "platform.sectionSpecial": "特例配置",

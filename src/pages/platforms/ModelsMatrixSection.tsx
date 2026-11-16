@@ -351,6 +351,7 @@ export function ModelsMatrixSection({
                     key={idx}
                     data-testid={`tw-${idx}`}
                     data-state={enabled ? "on" : "off"}
+                    aria-current={on || undefined}
                     onClick={() => setSelectedRuleIdx(idx)}
                     style={{
                       opacity: enabled ? 1 : 0.55,
@@ -362,8 +363,9 @@ export function ModelsMatrixSection({
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                       <Switch data-testid={`tw-${idx}-enabled`} checked={enabled}
-                        aria-label={t("platform.rateLimits.ruleEnabled", "启用此规则（关掉后视为不存在）")}
-                        title={t("platform.rateLimits.ruleEnabled", "启用此规则（关掉后视为不存在）")}
+                        aria-label={t("platform.time_windows_rule_enabled", "启用此时段档（关掉后视为不存在）")}
+                        title={t("platform.time_windows_rule_enabled", "启用此时段档（关掉后视为不存在）")}
+                        onClick={(e) => e.stopPropagation()}
                         onCheckedChange={(v) => updateRule(idx, { enabled: v === true ? undefined : false })} />
                       <span style={{ fontSize: 14, fontWeight: 600, color: on ? "var(--text-primary)" : "var(--text-secondary)", flex: 1 }}>
                         {t("platform.time_windows_rule_n", "档 {{n}}", { n: idx + 1 })}

@@ -2069,6 +2069,7 @@
   "platform.tabGroupAssign": "Назначение группы",
   "platform.time_windows_section_title": "Модели по времени",
   "platform.time_windows_rule_n": "Уровень {{n}}",
+  "platform.time_windows_rule_enabled": "Включить этот временной уровень (выключено = игнорируется)",
   "platform.time_windows_edit_button": "Изменить окно",
   "platform.sectionPassthrough": "Настройка passthrough",
   "platform.sectionSpecial": "Спец. настройка",
