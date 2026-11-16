@@ -54,6 +54,21 @@ impl PlatformAdapter for GenericAdapter {}
 /// - 工具调用 / 图片 / system：标准 OpenAI 形状（`tools[].function`、`finish_reason: "tool_calls"`、
 ///   `image_url` 内容块、`role: "system"`），与基座一致，不覆盖。
 ///   https://platform.kimi.com/docs/guide/use-kimi-vision-model.md
+/// - tool_choice（issue 76 跟进，kimi / kimi_en）：模型参数参考表
+///   「[`tool_choice`](…) | `"auto"` / `"none"` / `"required"` | 传 `"required"` 会报错 | 传 `"required"`
+///   会报错」——kimi-k2.6 与 kimi-k2.7-code（kimi-k2.7-code-highspeed 与 kimi-k2.7-code 参数约束相同）
+///   上游对 `tool_choice: "required"` 报错；K3 系列同列「`"auto"` / `"none"` / `"required"`」可传，
+///   不降级。覆写 [`PlatformAdapter::adjust_tool_choice`] 在 openai wire 出站 body 层把这些模型的
+///   `"required"` 改写为 `"auto"`（openai 客户端直发的字符串与任何入站协议转换产物同形覆盖；
+///   anthropic 入站的 `tool_choice` 对象当前在入站解析即失败，是入站侧既有缺口，非家族范围）；
+///   anthropic wire 不在范围。kimi_coding 不降级（成员 issue 119）。
+///   https://platform.kimi.com/docs/api/models-overview.md https://platform.kimi.ai/docs/api/models-overview.md
+/// - Messages 端点模型集（issue 76 跟进）：messages.md 的 `model` 参数「本接口当前支持
+///   `kimi-k3.1-pro`、`kimi-k3.1-pro-highspeed` 和 `kimi-k3`」（enum 同）——Anthropic Messages 端点
+///   只服务 K3 系列。registry kimi / kimi_en 的 K2 系列条目（kimi-k2.6 / kimi-k2.7-code /
+///   kimi-k2.7-code-highspeed）`supported_protocols`
+///   相应只留 `["openai"]`（K3 系列条目保持含 `anthropic`）。
+///   https://platform.kimi.com/docs/api/messages.md
 /// - coding_plan 注入：沿用基座按平台协议分派（仅 `Protocol::Kimi` 注入 `prompt_cache_key`，
 ///   `kimi_en` / `kimi_coding` no-op），行为不变；chat.md 称「对于 Kimi Code Plan，此字段为必填」，
 ///   是否对 `kimi_coding` 启用归成员 issue 119。
@@ -62,6 +77,9 @@ impl PlatformAdapter for GenericAdapter {}
 pub struct KimiFamilyAdapter {
     /// openai 端点禁思考是否写官方 `thinking` 并剥 temperature（kimi / kimi_en 为 true，kimi_coding 为 false）。
     official_openai_thinking: bool,
+    /// openai wire 出站是否把受影响模型的 `tool_choice:"required"` 降级为 `"auto"`
+    /// （kimi / kimi_en 为 true；kimi_coding 保持现状，成员 issue 119）。
+    downgrade_required_tool_choice: bool,
 }
 
 impl PlatformAdapter for KimiFamilyAdapter {
@@ -93,6 +111,28 @@ impl PlatformAdapter for KimiFamilyAdapter {
             w => w,
         };
         hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking)
+    }
+
+    /// 差异：kimi-k2.6 / kimi-k2.7-code（含 -highspeed，与 kimi-k2.7-code 参数约束相同）的
+    /// Chat Completions 对 `tool_choice: "required"` 报错；openai wire 出站把这些模型的
+    /// `"required"` 改写为 `"auto"`。K3 系列接受 `"required"`，不降级；anthropic wire 不在范围；
+    /// kimi_coding 经实例开关保持现状（成员 issue 119）。
+    /// https://platform.kimi.com/docs/api/models-overview.md
+    fn adjust_tool_choice(&self, body: &mut Value, wire: &Protocol, model: &str) {
+        if !self.downgrade_required_tool_choice || wire != &Protocol::OpenAI {
+            return;
+        }
+        if !matches!(
+            model,
+            "kimi-k2.6" | "kimi-k2.7-code" | "kimi-k2.7-code-highspeed"
+        ) {
+            return;
+        }
+        if let Some(obj) = body.as_object_mut()
+            && obj.get("tool_choice").and_then(Value::as_str) == Some("required")
+        {
+            obj.insert("tool_choice".to_string(), Value::String("auto".to_string()));
+        }
     }
 }
 
@@ -242,8 +282,14 @@ impl PlatformAdapter for GlmFamilyAdapter {
 }
 
 static GENERIC: GenericAdapter = GenericAdapter;
-static KIMI: KimiFamilyAdapter = KimiFamilyAdapter { official_openai_thinking: true };
-static KIMI_CODING: KimiFamilyAdapter = KimiFamilyAdapter { official_openai_thinking: false };
+static KIMI: KimiFamilyAdapter = KimiFamilyAdapter {
+    official_openai_thinking: true,
+    downgrade_required_tool_choice: true,
+};
+static KIMI_CODING: KimiFamilyAdapter = KimiFamilyAdapter {
+    official_openai_thinking: false,
+    downgrade_required_tool_choice: false,
+};
 static GLM: GlmFamilyAdapter = GlmFamilyAdapter;
 
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
