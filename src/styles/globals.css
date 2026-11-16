@@ -98,6 +98,12 @@
   button {
     -webkit-appearance: none;
     appearance: none;
+    /* UA 默认 ButtonFace 底 + 2px outset 边框。preflight 禁用后没有任何规则重置它们，
+       无背景类的裸 button（DialogClose、TabsTrigger 未选中态）在 dark 下渲染成灰底
+       方块（Chrome ButtonFace = rgb(107,107,107)，实锤于 2026-11-17 扩展页真渲染验收）。
+       utilities 层的 bg-* / border-* 仍在此之上正常胜出。 */
+    background-color: transparent;
+    border: 0 solid;
   }
 }
 
@@ -819,7 +825,10 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 
 /* ── RTL ── */
 
-[dir="rtl"] .flex {
+/* 镜像 row 容器（侧栏换边等）；排除纵向容器——本规则特异性 0-3-0 会压过 .flex-col
+   的 0-1-0，无排除时 RTL 下所有 flex flex-col 布局塌成横向（2026-11-17 扩展页 RTL
+   验收实锤：子代理卡片并排不堆叠）。 */
+[dir="rtl"] .flex:not(.flex-col) {
   flex-direction: row-reverse;
 }
 
