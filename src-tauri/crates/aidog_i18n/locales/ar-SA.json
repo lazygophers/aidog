@@ -2069,6 +2069,7 @@
   "platform.tabGroupAssign": "تعيين المجموعة",
   "platform.time_windows_section_title": "نماذج الفترات",
   "platform.time_windows_rule_n": "الفئة {{n}}",
+  "platform.time_windows_rule_enabled": "تفعيل هذه الشريحة الزمنية (عند الإيقاف تُعامل كأنها غير موجودة)",
   "platform.time_windows_edit_button": "تعديل الفترة",
   "platform.sectionPassthrough": "إعداد التمرير",
   "platform.sectionSpecial": "إعداد خاص",

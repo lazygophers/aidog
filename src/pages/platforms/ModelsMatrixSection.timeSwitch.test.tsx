@@ -62,6 +62,13 @@ describe("时段档整档开关（enabled）", () => {
     fireEvent.click(q("tw-1-enabled"));
     expect("enabled" in JSON.parse(JSON.stringify(setRules.mock.calls.at(-1)![0]))[1]).toBe(false);
   });
+  it("点开关不冒泡选中该档：当前选中档不变", () => {
+    mountTime({ rules: [{ windows: [], models: {} }, { windows: [], models: {} }] });
+    expect(q("tw-0").getAttribute("aria-current")).toBe("true");
+    fireEvent.click(q("tw-1-enabled"));
+    expect(q("tw-0").getAttribute("aria-current")).toBe("true");
+    expect(q("tw-1").getAttribute("aria-current")).toBeNull();
+  });
 });
 
 describe("新建档开关按「模型」tab 当前内置槽开关预填", () => {

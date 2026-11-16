@@ -2069,6 +2069,7 @@
   "platform.tabGroupAssign": "グループ割り当て",
   "platform.time_windows_section_title": "時間帯モデル",
   "platform.time_windows_rule_n": "段階 {{n}}",
+  "platform.time_windows_rule_enabled": "この時間帯ティアを有効化（オフ時は存在しないものとして扱う）",
   "platform.time_windows_edit_button": "時間帯を編集",
   "platform.sectionPassthrough": "パススルー設定",
   "platform.sectionSpecial": "特殊設定",

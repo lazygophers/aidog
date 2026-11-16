@@ -1981,6 +1981,7 @@
   "platform.tabGroupAssign": "Group Assignment",
   "platform.time_windows_section_title": "Time-based models",
   "platform.time_windows_rule_n": "Tier {{n}}",
+  "platform.time_windows_rule_enabled": "Enable this time tier (off = treated as absent)",
   "platform.time_windows_edit_button": "Edit window",
   "platform.sectionPassthrough": "Passthrough Config",
   "platform.sectionSpecial": "Special Config",
