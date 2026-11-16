@@ -163,3 +163,40 @@ fn glm_family_forced_thinking_and_non_glm_unchanged() {
     );
     assert_eq!(body, json!({ "chat_template_kwargs": { "enable_thinking": false } }));
 }
+
+/// issue 76 跟进：tool_choice 降级只命中 kimi / kimi_en 的受影响模型（kimi-k2.6 /
+/// kimi-k2.7-code / kimi-k2.7-code-highspeed，后者与 kimi-k2.7-code 参数约束相同）的 openai wire；
+/// K3 系列、kimi_coding、anthropic wire、非 "required" 值一律不动。
+/// https://platform.kimi.com/docs/api/models-overview.md
+#[test]
+fn kimi_family_adjust_tool_choice_scope() {
+    let kimi = super::adapter_for("kimi");
+    for model in ["kimi-k2.6", "kimi-k2.7-code", "kimi-k2.7-code-highspeed"] {
+        let mut body = json!({ "model": model, "tool_choice": "required" });
+        kimi.adjust_tool_choice(&mut body, &Protocol::OpenAI, model);
+        assert_eq!(body.get("tool_choice"), Some(&json!("auto")), "{model}: {body}");
+    }
+    // K3 系列接受 "required"，不降级。
+    let mut body = json!({ "model": "kimi-k3", "tool_choice": "required" });
+    kimi.adjust_tool_choice(&mut body, &Protocol::OpenAI, "kimi-k3");
+    assert_eq!(body.get("tool_choice"), Some(&json!("required")), "{body}");
+    // kimi_coding 不降级（成员 issue 119）。
+    let mut body = json!({ "model": "kimi-k2.6", "tool_choice": "required" });
+    super::adapter_for("kimi_coding").adjust_tool_choice(&mut body, &Protocol::OpenAI, "kimi-k2.6");
+    assert_eq!(body.get("tool_choice"), Some(&json!("required")), "{body}");
+    // anthropic wire 不在范围。
+    let mut body = json!({ "model": "kimi-k2.6", "tool_choice": "required" });
+    kimi.adjust_tool_choice(&mut body, &Protocol::Anthropic, "kimi-k2.6");
+    assert_eq!(body.get("tool_choice"), Some(&json!("required")), "{body}");
+    // 非 "required" 值（auto / none / 指名工具对象）不动。
+    let mut body = json!({ "tool_choice": "none" });
+    kimi.adjust_tool_choice(&mut body, &Protocol::OpenAI, "kimi-k2.6");
+    assert_eq!(body.get("tool_choice"), Some(&json!("none")), "{body}");
+    let mut body = json!({ "tool_choice": { "type": "function", "function": { "name": "f" } } });
+    kimi.adjust_tool_choice(&mut body, &Protocol::OpenAI, "kimi-k2.6");
+    assert!(body.get("tool_choice").and_then(|v| v.get("function")).is_some(), "{body}");
+    // 默认钩子 no-op：无 tool_choice 键的 body 不受影响。
+    let mut body = json!({ "model": "kimi-k2.6" });
+    kimi.adjust_tool_choice(&mut body, &Protocol::OpenAI, "kimi-k2.6");
+    assert!(body.get("tool_choice").is_none(), "{body}");
+}
