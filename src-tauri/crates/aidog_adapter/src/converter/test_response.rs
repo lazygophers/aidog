@@ -827,3 +827,68 @@ fn ping_renders_for_anthropic_client_only() {
         );
     }
 }
+
+// ── issue 70 复现：Responses / Completions 客户端的流式输出被渲染成 Chat Completions SSE ──
+// Responses 是有状态协议（response.created / sequence_number / item 生命周期），
+// 多事件流必须走 to_client_sse_stateful + ClientSseState；无状态 to_client_sse 入口
+// 只服务单发终态帧（错误帧路径的 Stop），非终态事件一律 None，禁止每事件重建状态
+// （重复 response.created / sequence_number 重置 / item 永不闭合）。
+#[test]
+fn responses_client_stream_renders_responses_events_via_state() {
+    let mut state = ClientSseState::default();
+    let out = to_client_sse_stateful(
+        &ChatStreamEvent::Delta {
+            text: "Hi".to_string(),
+        },
+        &mut state,
+        &Protocol::OpenAIResponses,
+        "gpt-5",
+    )
+    .expect("Responses 客户端文本增量必须渲染");
+    assert!(
+        out.contains("response.output_text.delta"),
+        "Responses 客户端应收到 response.output_text.delta 事件，实际是 Chat 分块: {out:?}"
+    );
+}
+
+#[test]
+fn responses_stateless_entry_only_for_terminal_stop() {
+    // 非终态事件走无状态入口 → None（调用方须改走 stateful）
+    for ev in [
+        ChatStreamEvent::Start { id: "c1".into(), model: "m".into() },
+        ChatStreamEvent::Delta { text: "Hi".into() },
+        ChatStreamEvent::ReasoningDelta { text: "t".into() },
+        ChatStreamEvent::ToolDelta { index: 0, id: Some("call_1".into()), name: Some("f".into()), input: None },
+    ] {
+        assert!(
+            to_client_sse(&ev, &Protocol::OpenAIResponses, "m").is_none(),
+            "Responses 非终态事件不得经无状态入口渲染（会重复 created/重置 seq）: {ev:?}"
+        );
+    }
+    // 终态 Stop → 自包含收尾序列（created → completed），供错误帧路径单发使用
+    let out = to_client_sse(
+        &ChatStreamEvent::Stop { finish_reason: Some("end_turn".into()) },
+        &Protocol::OpenAIResponses,
+        "m",
+    )
+    .expect("Stop 终态须输出自包含收尾序列");
+    assert!(out.contains("response.created"), "缺 response.created: {out:?}");
+    assert!(out.contains("response.completed"), "缺 response.completed: {out:?}");
+    assert!(out.contains("\"created_at\""), "缺 created_at: {out:?}");
+}
+
+#[test]
+fn completions_client_stream_must_render_text_completion_chunks() {
+    let out = to_client_sse(
+        &ChatStreamEvent::Delta {
+            text: "Hi".to_string(),
+        },
+        &Protocol::OpenAICompletions,
+        "gpt-5",
+    )
+    .expect("Completions 客户端文本增量必须渲染");
+    assert!(
+        out.contains("\"object\":\"text_completion\""),
+        "Completions 客户端应收到 text_completion 分块，实际是 Chat 分块: {out:?}"
+    );
+}
