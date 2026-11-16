@@ -175,11 +175,14 @@ fn chat_usage_chunk(usage: &Usage) -> String {
 /// OpenAI Chat 客户端流式状态机（issue 71）：usage 块仅当客户端请求带
 /// `stream_options.include_usage` 时下发，且 `[DONE]` 哨兵压到 usage 块之后
 /// （官方顺序 finish 块 → usage 块 → [DONE]；标准 SDK 读到 [DONE] 即停止迭代，
-/// 先发的 usage 会丢）。上游 usage 帧先于 / 后于 finish 块两种顺序都兜住。
+/// 先发的 usage 会丢）。终帧（finish + usage + [DONE]）照 anthropic 侧同构压到
+/// 流末 [`OpenAiSseState::flush`] 才发：finish 帧与 usage 帧分属两个网络 chunk
+/// （openai 官方分帧形态）时，立即发终帧会把 usage 定格成 0。
 pub struct OpenAiSseState {
     include_usage: bool,
     pending_usage: Usage,
-    finish_emitted: bool,
+    finish_seen: bool,
+    finish_reason: Option<String>,
     done_sent: bool,
 }
 
@@ -188,7 +191,8 @@ impl OpenAiSseState {
         Self {
             include_usage,
             pending_usage: Usage::default(),
-            finish_emitted: false,
+            finish_seen: false,
+            finish_reason: None,
             done_sent: false,
         }
     }
@@ -200,40 +204,36 @@ impl OpenAiSseState {
                     return None;
                 }
                 self.pending_usage.merge_partial(usage);
-                if self.finish_emitted {
-                    // usage 帧晚于 finish 帧（官方 openai 分帧形态）：usage 块 + [DONE]
-                    let mut out = chat_usage_chunk(&self.pending_usage);
-                    out.push_str("data: [DONE]\n\n");
-                    self.done_sent = true;
-                    Some(out)
-                } else {
-                    None // usage 随终止块一起发
-                }
+                None // usage 随终帧一起在 flush 发
             }
             ChatStreamEvent::Stop { finish_reason } => {
-                if self.finish_emitted {
-                    return None; // 重复 Stop（anthropic message_delta + message_stop 等）
+                if self.finish_seen {
+                    return None; // 重复 Stop（anthropic message_delta + message_stop / [DONE] 哨兵等）
                 }
-                self.finish_emitted = true;
-                let mut out = chat_finish_chunk(finish_reason.as_deref());
-                if self.include_usage {
-                    out.push_str(&chat_usage_chunk(&self.pending_usage));
-                }
-                out.push_str("data: [DONE]\n\n");
-                self.done_sent = true;
-                Some(out)
+                self.finish_seen = true;
+                self.finish_reason = finish_reason.clone();
+                None // finish 块压到流末 flush，等 usage 到齐
             }
             other => to_openai_sse(other, model),
         }
     }
 
-    /// 流末冲刷：finish 块已发但 [DONE] 未发（等 usage 未等到）→ 补发哨兵。
+    /// 流末冲刷：Stop 已见时在此发 finish 块 + usage 块 + [DONE]（usage 帧晚于
+    /// finish 帧到达甚至跨 chunk 时，这里拿到的才是终值）；未见 Stop 仅补 [DONE]。
     pub fn flush(&mut self) -> Option<String> {
         if self.done_sent {
             return None;
         }
         self.done_sent = true;
-        Some("data: [DONE]\n\n".to_string())
+        if !self.finish_seen {
+            return Some("data: [DONE]\n\n".to_string());
+        }
+        let mut out = chat_finish_chunk(self.finish_reason.as_deref());
+        if self.include_usage {
+            out.push_str(&chat_usage_chunk(&self.pending_usage));
+        }
+        out.push_str("data: [DONE]\n\n");
+        Some(out)
     }
 
     /// 流被错误帧提前终止：错误帧自带 [DONE]，不再补发。
