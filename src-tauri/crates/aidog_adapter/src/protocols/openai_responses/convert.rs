@@ -1443,4 +1443,41 @@ fn to_responses_tool_result_images_lifted_to_user_message() {
     assert_eq!(out.input[1]["content"][0]["type"], "input_image");
     assert_eq!(out.input[1]["content"][0]["image_url"], "https://x/1.png");
 }
+
+    // 多版本条目同键去重（首个生效）：web_search_20250305 与更新的 web_search_20260601
+    // 同入，只映射首个版本的 filters；第二个被 seen 集合去重（convert.rs 同键去重段）。
+    #[test]
+    fn to_responses_dedups_multi_version_web_search() {
+        let req = ChatRequest {
+            thinking_budget: None,
+            model: "gpt-5".into(),
+            messages: vec![],
+            system: None, max_tokens: None, temperature: None, top_p: None, stream: None,
+            tools: Some(vec![
+                Tool {
+                    name: "web_search".into(),
+                    description: None,
+                    input_schema: serde_json::json!({}),
+                    tool_type: Some("web_search_20250305".into()),
+                    cache_control: None,
+                    extra: Some(serde_json::json!({"allowed_domains": ["first.com"]})),
+                },
+                Tool {
+                    name: "web_search".into(),
+                    description: None,
+                    input_schema: serde_json::json!({}),
+                    tool_type: Some("web_search_20260601".into()),
+                    cache_control: None,
+                    extra: Some(serde_json::json!({"allowed_domains": ["second.com"]})),
+                },
+            ]),
+            tool_choice: None, extra: None, thinking_mode: None,
+        };
+        let out = to_responses(&req);
+        let tools = out.tools.as_ref().unwrap().as_array().unwrap();
+        let ws: Vec<&Value> = tools.iter().filter(|t| t["type"] == "web_search").collect();
+        assert_eq!(ws.len(), 1, "同键多版本条目只下发首个");
+        assert_eq!(ws[0]["filters"]["allowed_domains"], serde_json::json!(["first.com"]),
+            "首个版本的 filters 生效，第二个版本被去重");
+    }
 }
