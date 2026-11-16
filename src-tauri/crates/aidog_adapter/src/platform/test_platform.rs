@@ -143,3 +143,24 @@ fn hook_defaults_cap_max_tokens_by_wire_key() {
     assert_eq!(resp_body.get("max_output_tokens"), Some(&json!(100)));
     let _ = hooks::is_official_openai_host("https://api.openai.com/v1");
 }
+
+/// issue 75 回归护栏：GLM 家族强制思考模型（registry `thinking_toggleable: false`）路径与基座一致，
+/// 只剥禁用参数、不写任何禁用值；非 GLM 的 OpenAI 兼容平台仍走基座 `chat_template_kwargs`。
+#[test]
+fn glm_family_forced_thinking_and_non_glm_unchanged() {
+    let url = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
+    for code in ["glm", "glm_en", "glm_coding", "glm_coding_en"] {
+        let mut body = json!({ "disable_thinking": true, "thinking": { "type": "disabled" } });
+        super::adapter_for(code).apply_disable_thinking(&mut body, true, &Protocol::OpenAI, url, true);
+        assert_eq!(body, json!({}), "{code} 强制思考应只剥禁用参数: {body}");
+    }
+    let mut body = json!({ "disable_thinking": true });
+    super::adapter_for("deepseek").apply_disable_thinking(
+        &mut body,
+        true,
+        &Protocol::OpenAI,
+        "https://api.deepseek.com/v1/chat/completions",
+        false,
+    );
+    assert_eq!(body, json!({ "chat_template_kwargs": { "enable_thinking": false } }));
+}
