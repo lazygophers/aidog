@@ -65,7 +65,8 @@ impl PlatformAdapter for GenericAdapter {}
 ///   https://platform.kimi.com/docs/api/models-overview.md https://platform.kimi.ai/docs/api/models-overview.md
 /// - Messages 端点模型集（issue 76 跟进）：messages.md 的 `model` 参数「本接口当前支持
 ///   `kimi-k3.1-pro`、`kimi-k3.1-pro-highspeed` 和 `kimi-k3`」（enum 同）——Anthropic Messages 端点
-///   只服务 K3 系列。registry kimi / kimi_en 的 kimi-k2.6 / kimi-k2.7-code `supported_protocols`
+///   只服务 K3 系列。registry kimi / kimi_en 的 K2 系列条目（kimi-k2.6 / kimi-k2.7-code /
+///   kimi-k2.7-code-highspeed）`supported_protocols`
 ///   相应只留 `["openai"]`（K3 系列条目保持含 `anthropic`）。
 ///   https://platform.kimi.com/docs/api/messages.md
 /// - coding_plan 注入：沿用基座按平台协议分派（仅 `Protocol::Kimi` 注入 `prompt_cache_key`，

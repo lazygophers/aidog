@@ -1448,3 +1448,30 @@ fn bundled_holiday_calendars_parse_and_merge_real_region_dates() {
         "GB-ENG must include region holidays"
     );
 }
+
+/// issue 76 审查跟进护栏：官方 messages.md 的 `model` 参数「本接口当前支持 `kimi-k3.1-pro`、
+/// `kimi-k3.1-pro-highspeed` 和 `kimi-k3`」（enum 同）——Anthropic Messages 端点只服务 K3 系列。
+/// kimi / kimi_en 的 K2 系列条目（kimi-k2.6 / kimi-k2.7-code / kimi-k2.7-code-highspeed）
+/// `supported_protocols` 只允许 `["openai"]`，anthropic 协议请求 K2 模型不得路由到 Kimi Messages 端点。
+/// https://platform.kimi.com/docs/api/messages.md
+#[test]
+fn kimi_k2_models_exclude_anthropic_protocol() {
+    for &(code, file, json) in MODEL_FILES.iter() {
+        if !matches!(code, "kimi" | "kimi_en") {
+            continue;
+        }
+        let v = serde_json::from_str::<Value>(json).expect("model json");
+        if !v["model_id"]
+            .as_str()
+            .unwrap_or_default()
+            .starts_with("kimi-k2")
+        {
+            continue;
+        }
+        let protos = v["supported_protocols"].as_array().expect("supported_protocols");
+        assert!(
+            !protos.iter().any(|p| p.as_str() == Some("anthropic")),
+            "{code}/{file} 的 supported_protocols 含 anthropic：K2 系列不在官方 Messages 端点 model enum 内，anthropic 协议请求会打到上游模型不存在"
+        );
+    }
+}
