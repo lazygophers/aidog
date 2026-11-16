@@ -706,3 +706,30 @@ fn from_gemini_inline_data_splits_by_mimetype() {
         _ => panic!("expected blocks"),
     }
 }
+
+// 多版本条目同键去重（首个生效）：web_search / web_fetch 各带两个不同版本条目，
+// 只各映射一条 googleSearch / urlContext；第二个版本被 seen 集合去重（convert.rs:261）。
+#[test]
+fn to_gemini_dedups_multi_version_server_tools() {
+    let mut r = req(vec![]);
+    let tool = |ty: &str| Tool {
+        name: ty.split('_').next().unwrap_or(ty).into(),
+        description: None,
+        input_schema: json!({}),
+        tool_type: Some(ty.into()),
+        cache_control: None,
+        extra: None,
+    };
+    r.tools = Some(vec![
+        tool("web_search_20250305"),
+        tool("web_search_20260601"),
+        tool("web_fetch_20250910"),
+        tool("web_fetch_20260601"),
+    ]);
+    let g = to_gemini(&r);
+    let tools = g.tools.expect("tools");
+    let gs = tools.iter().filter(|t| t.google_search.is_some()).count();
+    let uc = tools.iter().filter(|t| t.url_context.is_some()).count();
+    assert_eq!(gs, 1, "googleSearch 同键多版本只下发首个");
+    assert_eq!(uc, 1, "urlContext 同键多版本只下发首个");
+}
