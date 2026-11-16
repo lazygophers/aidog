@@ -3579,9 +3579,27 @@
         {
           "name": "agents",
           "type": "Vec<String>"
+        },
+        {
+          "name": "selected",
+          "type": "Option<Vec<String>>"
         }
       ],
       "returns": "SubagentImportReport"
+    },
+    {
+      "name": "subagents_import_preview",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "source",
+          "type": "String"
+        }
+      ],
+      "returns": "Vec<SubagentImportCandidate>"
     },
     {
       "name": "subagents_list",

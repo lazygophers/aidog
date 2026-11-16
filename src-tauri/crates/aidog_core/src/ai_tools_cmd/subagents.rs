@@ -58,6 +58,8 @@ pub struct SubagentImportReport {
     pub updated: Vec<String>,
     pub have: Vec<String>,
     pub edited: Vec<String>,
+    /// 同源内被浅层同名压掉的深层文件（相对路径）。
+    pub conflicts: Vec<String>,
 }
 
 /// 两个 agent 的配置根目录（其下 `agents/`）。
@@ -247,21 +249,31 @@ fn scan(root: &Path) -> Vec<(String, String, String, String)> {
             found.push((rel, name, desc, body));
         }
     }
-    found.sort();
+    // 浅层优先：同名冲突时浅层文件胜出（import_into 依赖此顺序）
+    found.sort_by(|a, b| {
+        a.0.split('/').count().cmp(&b.0.split('/').count()).then(a.0.cmp(&b.0))
+    });
     found
 }
 
 /// 扫描 `root` 导入到 `list`（来源键 `source`），新条目勾选 `agents` 并写出。
+/// `selected` = 只导入这些相对路径；None = 全部。
 /// 同来源再导入：内容同 = have；上游变且本地未改 = update；本地改过 = edited（不动）。
+/// 同名冲突：本源内浅层文件优先，深层计 `conflicts`；与既有条目同名仍走改名。
 pub(crate) fn import_into(
     list: &mut Vec<Subagent>,
     root: &Path,
     source: &str,
     agents: &[String],
+    selected: Option<&[String]>,
     dirs: &Dirs,
 ) -> SubagentImportReport {
     let mut report = SubagentImportReport::default();
+    let mut claimed: std::collections::HashSet<String> = Default::default();
     for (rel, name, desc, prompt) in scan(root) {
+        if selected.is_some_and(|s| !s.iter().any(|r| r == &rel)) {
+            continue;
+        }
         let from = format!("{source}#{rel}");
         let upstream = content_hash(&desc, &prompt);
         if let Some(s) = list.iter_mut().find(|s| s.from.as_deref() == Some(&from)) {
@@ -277,10 +289,17 @@ pub(crate) fn import_into(
                 sync_entry(s, dirs);
                 report.updated.push(s.name.clone());
             }
+            claimed.insert(s.name.clone());
             continue;
         }
+        if claimed.contains(&name) {
+            report.conflicts.push(rel);
+            continue;
+        }
+        let assigned = unique_name(list, &name);
+        claimed.insert(assigned.clone());
         let mut s = Subagent {
-            name: unique_name(list, &name),
+            name: assigned,
             description: desc,
             prompt,
             agents: agents.iter().filter(|a| AGENTS.contains(&a.as_str())).cloned().collect(),
@@ -405,40 +424,70 @@ crate::tauri_command! {
     }
 }
 
+/// 非本地目录来源浅克隆到 `~/.aidog/tmp/` 临时目录；本地目录原样返回。
+async fn stage_source(source: &str) -> Result<(PathBuf, Option<tempfile::TempDir>), String> {
+    let local = PathBuf::from(source);
+    if local.is_dir() {
+        return Ok((local, None));
+    }
+    let base = crate::shared::aidog_data_dir()?.join("tmp");
+    std::fs::create_dir_all(&base).map_err(|e| format!("create {}: {e}", base.display()))?;
+    let tmp = tempfile::Builder::new()
+        .prefix("subagents-import-")
+        .tempdir_in(&base)
+        .map_err(|e| e.to_string())?;
+    let dest = tmp.path().join("repo");
+    let out = tokio::process::Command::new("git")
+        .args(["clone", "--depth", "1", "--"])
+        .arg(source)
+        .arg(&dest)
+        .output()
+        .await
+        .map_err(|e| format!("git clone: {e}"))?;
+    if !out.status.success() {
+        return Err(format!("git clone failed: {}", String::from_utf8_lossy(&out.stderr).trim()));
+    }
+    Ok((dest, Some(tmp)))
+}
+
+/// (相对路径, name, description, prompt)
+#[derive(Serialize, Clone, Debug)]
+pub struct SubagentImportCandidate {
+    pub rel: String,
+    pub name: String,
+    pub description: String,
+    pub prompt: String,
+}
+
+crate::tauri_command! {
+    /// 导入前预扫（只读），返回候选清单供 UI 勾选。
+    pub async fn subagents_import_preview(source: String) -> Result<Vec<SubagentImportCandidate>, String> {
+        let (root, tmp) = stage_source(source.trim()).await?;
+        let cands = scan(&root)
+            .into_iter()
+            .map(|(rel, name, description, prompt)| SubagentImportCandidate { rel, name, description, prompt })
+            .collect();
+        drop(tmp);
+        Ok(cands)
+    }
+}
+
 crate::tauri_command! {
     /// 从本地文件夹或 git 地址导入（git 浅克隆到 `~/.aidog/tmp/`，用完删）。
-    pub async fn subagents_import(source: String, agents: Vec<String>) -> Result<SubagentImportReport, String> {
+    /// `selected` = 只导入这些相对路径；缺省 = 全部。
+    pub async fn subagents_import(
+        source: String,
+        agents: Vec<String>,
+        selected: Option<Vec<String>>,
+    ) -> Result<SubagentImportReport, String> {
         let db = aidog_ctx::db();
         let dirs = Dirs::resolve()?;
         let source = source.trim().to_string();
-        let local = PathBuf::from(&source);
-        let tmp = if local.is_dir() {
-            None
-        } else {
-            let base = crate::shared::aidog_data_dir()?.join("tmp");
-            std::fs::create_dir_all(&base).map_err(|e| format!("create {}: {e}", base.display()))?;
-            Some(tempfile::Builder::new().prefix("subagents-import-").tempdir_in(&base).map_err(|e| e.to_string())?)
-        };
-        let root = match &tmp {
-            None => local,
-            Some(t) => {
-                let dest = t.path().join("repo");
-                let out = tokio::process::Command::new("git")
-                    .args(["clone", "--depth", "1", "--"])
-                    .arg(&source)
-                    .arg(&dest)
-                    .output()
-                    .await
-                    .map_err(|e| format!("git clone: {e}"))?;
-                if !out.status.success() {
-                    return Err(format!("git clone failed: {}", String::from_utf8_lossy(&out.stderr).trim()));
-                }
-                dest
-            }
-        };
+        let (root, tmp) = stage_source(&source).await?;
         let mut list = load(db).await;
-        let report = import_into(&mut list, &root, &source, &agents, &dirs);
+        let report = import_into(&mut list, &root, &source, &agents, selected.as_deref(), &dirs);
         store(db, &list).await?;
+        drop(tmp);
         Ok(report)
     }
 }
