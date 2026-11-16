@@ -27,6 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useReveal, makeRipple } from "../../components/shared";
+import { isImeComposing } from "../../utils/ime";
 
 // ponytail: 单卡片包装 — 每实例独立 useReveal (React 规则禁 map 内条件 hook),
 // hover-lift + reveal 萤火虫入场 (stagger idx*60)。
@@ -441,7 +442,7 @@ export function MitmConfigTab() {
               
               value={newPattern}
               onChange={(e) => setNewPattern(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) handleAdd(); }}
               placeholder={t("mitm.addPlaceholder", "*.anthropic.com")}
               style={{ flex: 1, maxWidth: 320 }}
             />
@@ -474,7 +475,7 @@ export function MitmConfigTab() {
                 
                 value={testUrl}
                 onChange={(e) => setTestUrl(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && testUrl.trim()) handleTestUrl(); }}
+                onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e) && testUrl.trim()) handleTestUrl(); }}
                 placeholder={t("mitm.testUrlPlaceholder", "https://api.anthropic.com/v1/messages")}
                 style={{ flex: 1, maxWidth: 360, fontSize: 14 }}
               />

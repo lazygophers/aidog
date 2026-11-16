@@ -1184,7 +1184,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                 value={modelInput[idx] ?? ""}
                 onChange={e => setModelInput(s => ({ ...s, [idx]: e.target.value }))}
                 onKeyDown={e => {
-                  if (e.key === "Enter" || e.key === ",") {
+                  if ((e.key === "Enter" && !isImeComposing(e)) || e.key === ",") {
                     e.preventDefault();
                     addModel(idx, modelInput[idx] ?? "");
                     setModelInput(s => ({ ...s, [idx]: "" }));
@@ -1418,6 +1418,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { isImeComposing } from "../../utils/ime";
 
 /** 合区后的「配额查询」section：查询方式 Tab 二选一（票 01 互斥 + 票 03 保存时清库）。
  *  表单内切换只弹确认 + 记忆目标 tab（可反悔，取消编辑无损）；对侧数据不动，
@@ -1910,7 +1911,7 @@ export function DirectModelsSection({ models, setModels, availableModels, protoc
         </div>
       ))}
       <div style={{ display: "flex", gap: 6, marginTop: models.length > 0 ? 6 : 0 }}>
-        <div style={{ flex: 1, minWidth: 110 }} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }}>
+        <div style={{ flex: 1, minWidth: 110 }} onKeyDown={e => { if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); add(); } }}>
           <ModelCombobox
             value={input} onChange={setInput} onSelect={add}
             source={source} exclude={models} protocol={protocol}

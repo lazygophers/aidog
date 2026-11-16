@@ -90,7 +90,18 @@ pub struct GeminiThinkingConfig {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GeminiToolDecl {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub function_declarations: Vec<GeminiFunctionDecl>,
+    /// issue #74：Anthropic web_search_* 映射的 google_search grounding（REST Tool 资源字段
+    /// googleSearch，https://ai.google.dev/api/caching#Tool ；核对日期 2026-11-16）。
+    /// 值恒 `{}`（该字段为空对象形态；域名过滤 Gemini grounding 不支持，不映射不透传）。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub google_search: Option<Value>,
+    /// issue #74：Anthropic web_fetch_* 映射的 url_context（REST Tool 资源字段 urlContext，
+    /// https://ai.google.dev/gemini-api/docs/url-context ；核对日期 2026-11-16）。
+    /// 值恒 `{}`。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url_context: Option<Value>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -246,7 +257,8 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
         });
     }
 
-    // 服务端工具在 Gemini 侧无执行方，整条不下发；全被丢弃时不写 tools 键
+    // 服务端工具：不可映射的整条不下发；可映射的映射为 Gemini 原生工具（issue #74，
+    // 依据见 `Tool::native_server_tool` 注释）。多版本条目去重（同键首个生效）。
     let tools = req.tools.as_ref().and_then(|ts| {
         let decls: Vec<GeminiFunctionDecl> = client_tools(ts, "gemini")
             .into_iter()
@@ -256,11 +268,32 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
                 parameters: t.input_schema.clone(),
             })
             .collect();
-        (!decls.is_empty()).then(|| {
-            vec![GeminiToolDecl {
+        let mut tools: Vec<GeminiToolDecl> = Vec::new();
+        if !decls.is_empty() {
+            tools.push(GeminiToolDecl {
                 function_declarations: decls,
-            }]
-        })
+                google_search: None,
+                url_context: None,
+            });
+        }
+        let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::new();
+        for t in ts.iter() {
+            // native_server_tool 值域固定 google_search / url_context 两键
+            if let Some(key) = t.native_server_tool("gemini")
+                && seen.insert(key)
+            {
+                let (google_search, url_context) = match key {
+                    "google_search" => (Some(Value::Object(Default::default())), None),
+                    _ => (None, Some(Value::Object(Default::default()))),
+                };
+                tools.push(GeminiToolDecl {
+                    function_declarations: Vec::new(),
+                    google_search,
+                    url_context,
+                });
+            }
+        }
+        (!tools.is_empty()).then_some(tools)
     });
 
     // 票 09：以下生成参数中立层未建模，客户端原值落在 flatten 的 `ChatRequest.extra` 里

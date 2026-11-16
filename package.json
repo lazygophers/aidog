@@ -30,6 +30,7 @@
     "test:registry-slots": "node --test scripts/check-registry-slots.test.mjs",
     "test:registry-ratelimit": "node --test scripts/check-registry-ratelimit.test.mjs",
     "test:db-cli-hook": "node --test scripts/test-db-cli-hook.mjs",
+    "test:bump-registry": "node --test scripts/bump-registry-last-updated.test.mjs",
     "tokens": "node design/tokens/build-tokens.mjs",
     "check:tokens": "node design/tokens/build-tokens.mjs --check",
     "check:rpc": "node scripts/check-frontend-rpc-coverage.mjs",
@@ -120,6 +121,7 @@
     "undici@npm:^7.25.0": "7.30.1",
     "minimatch@npm:^10.2.2": "11.0.1",
     "minimatch@npm:^10.2.4": "11.0.1",
-    "minimatch@npm:^10.2.5": "11.0.1"
+    "minimatch@npm:^10.2.5": "11.0.1",
+    "minimatch@npm:^10.2.6": "11.0.1"
   }
 }

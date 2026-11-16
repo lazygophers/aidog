@@ -574,14 +574,17 @@ fn translate_legacy_middleware_rules(conn: &Connection) -> SqlResult<usize> {
 /// （source_protocol='http-connect' 且 platform_id=0；此后这类隧道只写 mitm_log）。
 /// 不可逆；mitm_log 不动；幂等（新版不再写此类行）。
 fn purge_non_ai_connect_rows(conn: &Connection) {
-    match conn.execute(
-        "DELETE FROM proxy_log WHERE source_protocol = 'http-connect' AND platform_id = 0",
-        [],
-    ) {
-        Ok(n) if n > 0 => tracing::info!(deleted = n, "migration 20261109-01: 非 AI 隧道行已清出 proxy_log"),
-        Ok(_) => {}
-        Err(e) => tracing::warn!(error = %e, "migration 20261109-01: 清理失败（旧 schema 或无表，跳过）"),
-    }
+    // 一次性：该 DELETE 的谓词用不上 deleted_at=0 偏索引，每次启动全表扫描（GB 级库数秒）。
+    run_once(conn, "20261109-01-purge", |c| {
+        let n = c.execute(
+            "DELETE FROM proxy_log WHERE source_protocol = 'http-connect' AND platform_id = 0",
+            [],
+        )?;
+        if n > 0 {
+            tracing::info!(deleted = n, "migration 20261109-01: 非 AI 隧道行已清出 proxy_log");
+        }
+        Ok(())
+    });
 }
 
 /// Migration 20261114-01: 请求记录（测试 / 余额 / 拉模型）独立建表 `request_log`（log.db），
@@ -630,6 +633,15 @@ pub fn migrate_request_log(conn: &Connection) -> SqlResult<()> {
     if !complete {
         return Ok(());
     }
+    // 一次性：INSERT..SELECT / DELETE 谓词同样走全表扫描，标记与搬迁同事务提交。
+    const ID: &str = "20261114-01-move";
+    conn.execute("CREATE TABLE IF NOT EXISTS migration_done (id TEXT PRIMARY KEY)", [])?;
+    if conn
+        .query_row("SELECT 1 FROM migration_done WHERE id = ?1", [ID], |_| Ok(()))
+        .is_ok()
+    {
+        return Ok(());
+    }
     let tx = conn.unchecked_transaction()?;
     let moved = tx.execute(
         "INSERT OR IGNORE INTO request_log (id, kind, group_key, platform_id, target_protocol, status_code, \
@@ -647,11 +659,31 @@ pub fn migrate_request_log(conn: &Connection) -> SqlResult<()> {
         "DELETE FROM proxy_log WHERE source_protocol IN ('test', 'quota', 'fetch-models')",
         [],
     )?;
+    tx.execute("INSERT OR IGNORE INTO migration_done (id) VALUES (?1)", [ID])?;
     tx.commit()?;
     if moved > 0 {
         tracing::info!(moved, "migration 20261114-01: 请求记录已从 proxy_log 搬入 request_log");
     }
     Ok(())
+}
+
+/// 以 `migration_done` 标记行门控的一次性迁移：f 成功才打标，失败下次启动重试。
+fn run_once(conn: &Connection, id: &str, f: impl FnOnce(&Connection) -> SqlResult<()>) {
+    if conn
+        .execute("CREATE TABLE IF NOT EXISTS migration_done (id TEXT PRIMARY KEY)", [])
+        .is_err()
+        || conn
+            .query_row("SELECT 1 FROM migration_done WHERE id = ?1", [id], |_| Ok(()))
+            .is_ok()
+    {
+        return;
+    }
+    match f(conn) {
+        Ok(()) => {
+            let _ = conn.execute("INSERT OR IGNORE INTO migration_done (id) VALUES (?1)", [id]);
+        }
+        Err(e) => tracing::warn!(error = %e, id, "一次性迁移失败，下次启动重试"),
+    }
 }
 
 /// proxy_log 表的 late migrations（log.db 库内序 20260727-10..20，原 021–047 范围内的 proxy_log 部分）。
@@ -679,17 +711,8 @@ pub fn run_migrations_proxy_log_late(
             [],
         );
     }
-    // Migration 20260727-11 (原 028): proxy_log 偏索引。
-    let _ = conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_proxy_log_platform_id \
-                     ON proxy_log(platform_id) WHERE deleted_at = 0",
-        [],
-    );
-    let _ = conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_proxy_log_group_key \
-                     ON proxy_log(group_key) WHERE deleted_at = 0",
-        [],
-    );
+    // Migration 20260727-11 (原 028): idx_proxy_log_platform_id / idx_proxy_log_group_key 偏索引。
+    // 20260727-14 又把它们 DROP，故不再创建：否则每次启动先全表建两条索引再删（GB 级库数秒）。
     // Migration 20260727-12 (原 031 ①): idx_proxy_log_group_key_stats 覆盖索引。
     let _ = conn.execute(
                     "CREATE INDEX IF NOT EXISTS idx_proxy_log_group_key_stats \
@@ -722,7 +745,10 @@ pub fn run_migrations_proxy_log_late(
     let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_status", []);
     let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_platform_id", []);
     let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_group_key", []);
-    let _ = conn.execute("ANALYZE proxy_log", []);
+    // 一次性：ANALYZE 扫全部索引，大库（GB 级）每次启动重跑会拖慢冷启动。
+    run_once(conn, "20260727-14-analyze", |c| {
+        c.execute("ANALYZE proxy_log", []).map(|_| ())
+    });
     // Migration 20260727-15 (原 035, proxy_log/stats_agg 部分): 删冗余索引。
     // 注：stats-agg-to-main-db s1 后 stats_agg 索引建在主库 20260727-16（idx_stats_agg_time /
     // idx_stats_agg_platform）；此处对 idx_stats_agg_model/group 走 log.db DROP IF EXISTS
@@ -751,16 +777,18 @@ pub fn run_migrations_proxy_log_late(
     );
     // 回填 ①：历史真实终态行（status!=0 且非哨兵）标 done=1。
     // 关日志正文的非流式行 response_body='' 也算终态（哨兵只在流式路径写入）。
-    let _ = conn.execute(
-        "UPDATE proxy_log SET done = 1 WHERE status_code != 0 AND response_body != '[stream]'",
-        [],
-    );
-    // 回填 ②：卡死在哨兵的残留行（旧 bug：flush 丢写，body 永停 '[stream]'）——
-    // 终态翻为 done=1 + 清占位，与 sweep_incomplete 处置 status=0 行对称。
-    let _ = conn.execute(
-        "UPDATE proxy_log SET done = 1, response_body = '' WHERE response_body = '[stream]'",
-        [],
-    );
+    // 一次性：下面两条无索引可用，每次启动都会全表扫描 / 重写整张 proxy_log（GB 级库启动慢的根因）。
+    run_once(conn, "20260824-01-done-backfill", |c| {
+        c.execute(
+            "UPDATE proxy_log SET done = 1 WHERE status_code != 0 AND response_body != '[stream]' AND done = 0",
+            [],
+        )?;
+        c.execute(
+            "UPDATE proxy_log SET done = 1, response_body = '' WHERE response_body = '[stream]'",
+            [],
+        )?;
+        Ok(())
+    });
     // Migration 20260827-01 (票 10 field-trace): proxy_log 加 field_trace 列，
     // 承载出站 body 构造中被丢弃 / 被改写的字段名留痕（只记名不记值）。
     // 存量行按 DEFAULT '' 补齐 = 「无留痕」，语义正确，无需回填。

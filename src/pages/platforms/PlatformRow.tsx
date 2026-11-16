@@ -414,7 +414,7 @@ export function PlatformRow({
                 color: testOk ? "var(--color-success)" : "var(--color-danger)",
               }}>{testOk ? "✓" : "✕"}</span>
               <span className="num" style={{ fontVariantNumeric: "tabular-nums" }}>
-                {testOk ? formatDurationMs(lastTest!.duration_ms) : (lastTest?.status_code ?? t("platform.testFail", "失败"))}
+                {testOk ? (lastTest ? formatDurationMs(lastTest.duration_ms) : "") : (lastTest?.status_code ?? t("platform.testFail", "失败"))}
               </span>
               {ago && <span style={{ color: "var(--text-tertiary)" }}>{ago}</span>}
             </>
