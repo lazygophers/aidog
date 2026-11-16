@@ -1603,7 +1603,8 @@ fn fa07_server_tool_type_preserved_to_anthropic() {
     );
 }
 
-/// 非 anthropic 目标：服务端工具整条不下发，不产出空 schema 的假 function；客户端工具照常在
+/// 非 anthropic 目标：可映射的服务端工具映射为原生工具下发（issue #74），
+/// 不产出空 schema 的假 function；OpenAI Chat 无对应能力仍整条丢弃；客户端工具照常在
 #[test]
 fn fa07_server_tool_not_downgraded_to_fake_function() {
     let req = parse_incoming_request(&Protocol::Anthropic, &fa_anthropic_body(), None).expect("parse");
@@ -1620,12 +1621,28 @@ fn fa07_server_tool_not_downgraded_to_fake_function() {
         let names = fa_tool_names(&target, &out);
         assert!(
             !names.iter().any(|n| n == "web_search"),
-            "{name} 不应下发服务端工具: {out}"
+            "{name} 不应把服务端工具降级成假 function: {out}"
         );
         assert!(
             names.iter().any(|n| n == "get_weather"),
             "{name} 客户端工具不应被误伤: {out}"
         );
+        // issue #74：映射下发断言（openai 无对应能力，仍整条丢弃）
+        let tools = out.get("tools").and_then(|v| v.as_array());
+        match target {
+            Protocol::Gemini => assert!(
+                tools.is_some_and(|t| t.iter().any(|t| t.get("googleSearch").is_some())),
+                "{name} web_search 应映射为 googleSearch 下发: {out}"
+            ),
+            Protocol::OpenAIResponses => assert!(
+                tools.is_some_and(|t| t.iter().any(|t| t["type"] == "web_search")),
+                "{name} web_search 应映射为 Responses web_search 下发: {out}"
+            ),
+            _ => assert!(
+                tools.is_none_or(|t| t.iter().all(|t| t["type"] == "function")),
+                "{name} 无服务端工具能力，不应出现非 function 工具: {out}"
+            ),
+        }
     }
 }
 
