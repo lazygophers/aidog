@@ -44,6 +44,29 @@ impl PlatformAdapter for KimiAdapter {
 ///   https://docs.z.ai/api-reference/llm/chat-completion
 /// - 未证实（保持基座默认）：工具调用、图片与多模态、system 提示、错误体格式、
 ///   流式事件其余字段、Anthropic 端点的差异。
+///
+/// 成员 `glm`（GLM（智谱），open.bigmodel.cn 标准 API；issue 113，核对日期 2026-11-16）：
+/// 与家族基座无已证实的成员级差异，登记为 `GLM`；逐项核对结论（官方原文关键句）：
+/// - 端点协议：registry 内置默认为 openai（`/api/paas/v4`）与 anthropic（`/api/anthropic`），
+///   运行时只用用户平台配置的端点；Claude 兼容页「替换您访问的 base_url 为
+///   https://open.bigmodel.cn/api/anthropic」。https://docs.bigmodel.cn/cn/guide/develop/claude/introduction
+/// - usage：「usage.prompt_tokens_details.cached_tokens」为缓存命中 token，基座 openai 臂已按此抽取
+///   并从 input 扣除。https://docs.bigmodel.cn/cn/guide/capabilities/cache
+/// - 流式：「data: [DONE]」结束，思考增量 `delta.reasoning_content`，与基座 openai 构件一致。
+///   https://docs.bigmodel.cn/api-reference/%E6%A8%A1%E5%9E%8B-api/%E5%AF%B9%E8%AF%9D%E8%A1%A5%E5%85%A8
+/// - 错误体：`{"error":{"code":"1001","message":"..."}}`；1211 / HTTP 400「模型不存在，请检查模型代码」
+///   由基座分类为模型类。https://docs.bigmodel.cn/cn/api/api-code
+/// - 保留式思考：「该能力在 Coding Plan 端点默认开启、标准 API 端点默认关闭」，`glm` 为标准端点，
+///   aidog 不写 `clear_thinking`，行为即官方默认，不覆盖。
+///   https://docs.bigmodel.cn/cn/guide/capabilities/thinking-mode
+/// - 本成员无 coding_plan 注入（非编码套餐），基座按平台协议分派为 no-op。
+/// - 未落（家族级候选，非 `glm` 独有，需另开 issue 拍板）：1301 内容安全错误当前按基座归「未知」类；
+///   `finish_reason` 取值 `sensitive` / `network_error` / `model_context_window_exceeded`
+///   当前按基座映射为 `end_turn`。
+///
+/// 覆写范围：仅 `apply_disable_thinking` 的 `Protocol::OpenAI` 臂；`Protocol::OpenAICompletions`
+/// 不在覆写范围内（家族四个成员的内置默认端点仅 openai / anthropic，无 openai_completions），
+/// 用户若手配 openai_completions 端点仍走基座 `chat_template_kwargs` 写法。
 pub struct GlmFamilyAdapter;
 
 impl PlatformAdapter for GlmFamilyAdapter {
