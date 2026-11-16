@@ -7138,7 +7138,7 @@ async fn rc02_platform_rate_limit_skip_recorded() {
     // 只留 A 的两条尝试（两轮各一次）。
     assert_eq!(log.attempts.len(), 2);
     assert!(log.attempts.iter().all(|a| a.status_code == 500 && a.platform_id != b_id));
-    assert_eq!(log.attempts[0].exclusion.as_deref(), Some("platform"));
+    assert_eq!(log.attempts[0].exclusion, Some(ExcludeScope::Platform));
     assert_eq!(log.routing.unwrap().round_starts, Some(Box::new(vec![1])));
 }
 
@@ -7163,8 +7163,8 @@ async fn ra02_attempt_records_exclusion_scope() {
     .await;
     assert_eq!(chain_send(&state, "gkra02a", CHAIN_REQ).await.status(), StatusCode::OK);
     let log = last_log_for(&state, "gkra02a").await;
-    let scopes: Vec<_> = log.attempts.iter().map(|a| a.exclusion.as_deref()).collect();
-    assert_eq!(scopes, [Some("pair"), Some("platform"), None]);
+    let scopes: Vec<_> = log.attempts.iter().map(|a| a.exclusion).collect();
+    assert_eq!(scopes, [Some(ExcludeScope::Pair), Some(ExcludeScope::Platform), None]);
 }
 
 /// 失败组合本次请求内不重复；每个组合恰好试一次。
@@ -7216,7 +7216,7 @@ async fn ra02_service_failures_account_once_each() {
     }
     let log = last_log_for(&state, "gkra02c").await;
     assert_eq!(log.attempts.len(), 2);
-    assert_eq!(log.attempts[0].exclusion.as_deref(), Some("platform"));
+    assert_eq!(log.attempts[0].exclusion, Some(ExcludeScope::Platform));
     assert_eq!(log.attempts[1].exclusion, None, "末次直接回客户端，没有后续可排除");
 }
 
@@ -7354,8 +7354,8 @@ async fn ra03_aux_connect_failure_excludes_platform_and_dead_siblings() {
         let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
         assert_eq!(resp.status(), StatusCode::OK, "{kind:?}");
         let log = last_log_for(&state, &gk).await;
-        let scopes: Vec<_> = log.attempts.iter().map(|a| (a.model.as_deref(), a.exclusion.as_deref())).collect();
-        assert_eq!(scopes, [(Some("m-a"), Some("platform")), (Some("m-c"), None)], "{kind:?}");
+        let scopes: Vec<_> = log.attempts.iter().map(|a| (a.model.as_deref(), a.exclusion)).collect();
+        assert_eq!(scopes, [(Some("m-a"), Some(ExcludeScope::Platform)), (Some("m-c"), None)], "{kind:?}");
         assert_eq!(hit_models(&h3), ["m-c"], "{kind:?}");
     }
 }
@@ -7375,8 +7375,8 @@ async fn ra03_aux_service_excludes_platform_model_switches_same_platform() {
         assert_eq!(hit_models(&h1), ["m-a"], "{kind:?}: 服务类失败后该平台其他模型不再选");
         assert_eq!(hit_models(&h2), ["m-c", "m-d"], "{kind:?}");
         let log = last_log_for(&state, &gk).await;
-        let scopes: Vec<_> = log.attempts.iter().map(|a| a.exclusion.as_deref()).collect();
-        assert_eq!(scopes, [Some("platform"), Some("pair"), None], "{kind:?}");
+        let scopes: Vec<_> = log.attempts.iter().map(|a| a.exclusion).collect();
+        assert_eq!(scopes, [Some(ExcludeScope::Platform), Some(ExcludeScope::Pair), None], "{kind:?}");
         let (p1, p2) = (platform_id_of(&state, &format!("{gk}-pa")).await, platform_id_of(&state, &format!("{gk}-pb")).await);
         assert_eq!(state.scheduler.penalty_consecutive(p1), 1, "{kind:?}: 服务类记一次");
         assert_eq!(state.scheduler.penalty_consecutive(p2), 0, "{kind:?}: 模型类不降权");
@@ -8725,6 +8725,426 @@ async fn round_guard_400_returns_directly() {
     let resp = chain_send(&state, "gkrd5", CHAIN_REQ).await;
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     assert_eq!(hits.lock().unwrap().len(), 1);
+}
+
+// ══ 票 04 CallScope 行为锁定（重构前先绿，重构后同批仍绿）══
+// 三例断言面（四类请求 × connect 失败 / 非 connect 传输失败 / 2xx 成功）只看
+// 调度状态与 attempt 元数据，不看实现内部调用。
+
+/// 系统超时压到 1 秒：上游收请求后不应答 → reqwest 读超时（is_timeout，非 connect）。
+async fn set_short_timeouts(state: &Arc<ProxyState>) {
+    let mut c = state.settings_cache.write().await;
+    c.system_timeout.request_timeout_secs = 1;
+    c.system_timeout.connect_timeout_secs = 1;
+}
+
+/// 起一个「收请求后永不应答」的上游：request_timeout 到点 → 读超时（非 connect 传输失败）。
+async fn spawn_silent_upstream() -> String {
+    use tokio::io::AsyncReadExt;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        while let Ok((mut stream, _)) = listener.accept().await {
+            tokio::spawn(async move {
+                let mut buf = [0u8; 8192];
+                let _ = stream.read(&mut buf).await;
+                std::future::pending::<()>().await;
+            });
+        }
+    });
+    format!("http://{addr}")
+}
+
+/// connect 失败（候选 ≥3 绕开本地网络保护）：熔断计数 + 降权 + last_error +
+/// attempt.status_code=0；失败平台被整平台排除后次候选成功。
+#[tokio::test]
+async fn lock_chat_connect_failure_records_accounting() {
+    let dead = ra03_dead_base().await;
+    let upb = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let upc = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_multi_platform_group(&state, "gkt04a", &[("pa", &dead, ""), ("pb", &upb, ""), ("pc", &upc, "")]).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkt04a", r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#)).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let p1 = platform_id_of(&state, "pa").await;
+    assert_eq!(state.scheduler.breaker_fails(p1), 1, "connect 失败计熔断");
+    assert_eq!(state.scheduler.penalty_consecutive(p1), 1, "connect 失败计服务档降权");
+    let p = aidog_db::get_platform(&state.db, p1).await.unwrap().unwrap();
+    assert!(!p.last_error.is_empty(), "connect 失败写 last_error: {:?}", p.last_error);
+    let log = last_log_for(&state, "gkt04a").await;
+    assert_eq!(log.attempts[0].status_code, 0, "传输失败 attempt 无状态码");
+    assert_eq!(log.attempts.last().unwrap().status_code, 200);
+}
+
+/// 非 connect 传输失败（读超时）：不碰熔断，仅 ignored + 降权 + last_error + attempt.status_code=0。
+#[tokio::test]
+async fn lock_chat_read_timeout_no_breaker() {
+    let up = spawn_silent_upstream().await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkt04b", &up).await;
+    set_short_timeouts(&state).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkt04b", r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#)).await;
+    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
+    let p1 = platform_id_of(&state, "stub").await;
+    assert_eq!(state.scheduler.breaker_fails(p1), 0, "非 connect 不计熔断");
+    assert!(state.scheduler.penalty_consecutive(p1) >= 1, "读超时计服务档降权");
+    let p = aidog_db::get_platform(&state.db, p1).await.unwrap().unwrap();
+    assert!(!p.last_error.is_empty());
+    let log = last_log_for(&state, "gkt04b").await;
+    assert_eq!(log.attempts.last().unwrap().status_code, 0);
+}
+
+/// 2xx 成功：EMA 记延迟（breaker_fails 清零）+ last_error 清空 + AutoDisabled → Enabled。
+#[tokio::test]
+async fn lock_chat_success_resets_state() {
+    let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkt04c", &up).await;
+    set_platform_status(&state, "stub", aidog_db::models::PlatformStatus::AutoDisabled).await;
+    let p1 = platform_id_of(&state, "stub").await;
+    aidog_db::set_platform_last_error(&state.db, p1, Some("HTTP 500 boom".into())).await.unwrap();
+    state.scheduler.record_penalty(p1, super::scheduling::PenaltyTier::Server, aidog_db::now());
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkt04c", r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#)).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let p = aidog_db::get_platform(&state.db, p1).await.unwrap().unwrap();
+    assert_eq!(p.last_error, "", "成功后 last_error 清空");
+    assert_eq!(p.status, aidog_db::models::PlatformStatus::Enabled, "AutoDisabled → Enabled");
+    assert_eq!(state.scheduler.breaker_fails(p1), 0, "成功清熔断计数");
+    assert_eq!(state.scheduler.penalty_consecutive(p1), 0, "成功清降权");
+    let ema = state.scheduler.latency_ema(p1);
+    assert!(ema.unwrap_or(0.0) > 0.0, "成功记延迟 EMA，实际 {ema:?}");
+}
+
+/// connect 失败（aux emb/rerank 与 decision 同批锁定）：熔断计数 + 降权 + last_error +
+/// attempt.status_code=0，次候选成功。
+#[tokio::test]
+async fn lock_aux_decision_connect_failure_records_accounting() {
+    for kind in AUX_KINDS {
+        let dead = ra03_dead_base().await;
+        let (upb, _hb) = spawn_embedding_upstream(vec![(200, kind.ok_body())]).await;
+        let (upc, _hc) = spawn_embedding_upstream(vec![(200, kind.ok_body())]).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkt04d{}", kind as u8);
+        setup_aux_chain(&state, &gk, kind, &[(&dead, &["m-a"]), (&upb, &["m-b"]), (&upc, &["m-c"])]).await;
+        let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
+        assert_eq!(resp.status(), StatusCode::OK, "{kind:?}");
+        let p1 = platform_id_of(&state, &format!("{gk}-pa")).await;
+        assert_eq!(state.scheduler.breaker_fails(p1), 1, "{kind:?}: connect 失败计熔断");
+        assert_eq!(state.scheduler.penalty_consecutive(p1), 1, "{kind:?}: connect 失败计降权");
+        let p = aidog_db::get_platform(&state.db, p1).await.unwrap().unwrap();
+        assert!(!p.last_error.is_empty(), "{kind:?}");
+        let log = last_log_for(&state, &gk).await;
+        assert_eq!(log.attempts[0].status_code, 0, "{kind:?}");
+        assert_eq!(log.attempts.last().unwrap().status_code, 200, "{kind:?}");
+    }
+}
+
+/// 非 connect 传输失败（读超时，aux emb/rerank 与 decision）：不碰熔断，仅 ignored + 降权。
+#[tokio::test]
+async fn lock_aux_decision_read_timeout_no_breaker() {
+    for kind in AUX_KINDS {
+        let up = spawn_silent_upstream().await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkt04e{}", kind as u8);
+        setup_aux_chain(&state, &gk, kind, &[(&up, &["m-a"])]).await;
+        set_short_timeouts(&state).await;
+        let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
+        assert_eq!(resp.status(), StatusCode::BAD_GATEWAY, "{kind:?}");
+        let p1 = platform_id_of(&state, &format!("{gk}-pa")).await;
+        assert_eq!(state.scheduler.breaker_fails(p1), 0, "{kind:?}: 非 connect 不计熔断");
+        assert!(state.scheduler.penalty_consecutive(p1) >= 1, "{kind:?}: 读超时计降权");
+        let p = aidog_db::get_platform(&state.db, p1).await.unwrap().unwrap();
+        assert!(!p.last_error.is_empty(), "{kind:?}");
+        let log = last_log_for(&state, &gk).await;
+        assert_eq!(log.attempts.last().unwrap().status_code, 0, "{kind:?}");
+    }
+}
+
+/// 2xx 成功（aux emb/rerank 与 decision）：last_error 清空 + AutoDisabled → Enabled + EMA。
+#[tokio::test]
+async fn lock_aux_decision_success_resets_state() {
+    for kind in AUX_KINDS {
+        let (up, _hits) = spawn_embedding_upstream(vec![(200, kind.ok_body())]).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkt04f{}", kind as u8);
+        setup_aux_chain(&state, &gk, kind, &[(&up, &["m-a"])]).await;
+        set_platform_status(&state, &format!("{gk}-pa"), aidog_db::models::PlatformStatus::AutoDisabled).await;
+        let p1 = platform_id_of(&state, &format!("{gk}-pa")).await;
+        aidog_db::set_platform_last_error(&state.db, p1, Some("HTTP 500 boom".into())).await.unwrap();
+        let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
+        assert_eq!(resp.status(), StatusCode::OK, "{kind:?}");
+        let p = aidog_db::get_platform(&state.db, p1).await.unwrap().unwrap();
+        assert_eq!(p.last_error, "", "{kind:?}: 成功后 last_error 清空");
+        assert_eq!(p.status, aidog_db::models::PlatformStatus::Enabled, "{kind:?}: AutoDisabled → Enabled");
+        assert!(state.scheduler.latency_ema(p1).unwrap_or(0.0) > 0.0, "{kind:?}: 成功记延迟 EMA");
+    }
+}
+
+
+// ══ issue 55 票 05：次数用尽终态口径（2026-11-16 拍板：限频占位耗尽 → 429，取代票 05 原 503）══
+
+/// 次数/轮数用尽 → 限频占位被标（mark_rate_limited）的聊天与 aux（embedding / rerank）
+/// 终态 429（exhausted_status + Retry-After 口径，2026-11-16 用户拍板取代票 05 的 503）：
+/// "all candidates exhausted" body、attempts 留痕、retry_count 与 attempts 一致。
+/// decision / tools 无限频占位（票 06 豁免）不走 exhausted_status；decision 实测终态 500、
+/// tools 实测终态 502，见下方回归与 exhausted 单元测试。
+/// 触发器：单平台 concurrency=1，首个 500 后名额仍被 Access 持有，重排被限频挡下，
+/// 占位失败不计次数、轮数耗尽 → AttemptLoop 走到统一终态。
+#[tokio::test]
+async fn exhausted_429_lock_aux_and_chat() {
+    for kind in [AuxKind::Emb, AuxKind::Rerank] {
+        let up = spawn_stub_upstream(500, E500_PLAIN).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkt05{}", kind as u8);
+        setup_aux_chain(&state, &gk, kind, &[(&up, &["m-a"])]).await;
+        let pid = platform_id_of(&state, &format!("{gk}-pa")).await;
+        aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
+            id: pid, name: None, platform_type: None, base_url: None, api_key: None,
+            extra: Some(r#"{"rate_limits":{"concurrency":1}}"#.into()),
+            models: None, available_models: None, endpoints: None, enabled: None, status: None,
+            manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
+        }).await.unwrap();
+        state.db.invalidate_group_details_cache();
+        set_group_max_attempts(&state, &gk, 3).await;
+
+        let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
+        assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS, "{kind:?}");
+        let body = axum::body::to_bytes(resp.into_body(), 4096).await.unwrap();
+        assert!(String::from_utf8_lossy(&body).contains("all candidates exhausted"), "{kind:?}");
+        let log = last_log_for(&state, &gk).await;
+        assert_eq!(log.status_code, 429, "{kind:?}");
+        assert!(!log.attempts.is_empty(), "{kind:?}: attempts 留痕");
+        assert_eq!(log.retry_count, aidog_db::models::retry_count_of(&log.attempts), "{kind:?}");
+    }
+
+    // 聊天：同样的单平台并发占位形态 → 429（同 exhausted_status 口径）。
+    let up = spawn_stub_upstream(500, E500_PLAIN).await;
+    let state = make_state(test_db().await).await;
+    setup_multi_platform_group(&state, "gkt05c", &[("A", &up, r#"{"rate_limits":{"concurrency":1}}"#)]).await;
+    set_group_max_attempts(&state, "gkt05c", 3).await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkt05c", None)).await;
+    assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
+    let body = axum::body::to_bytes(resp.into_body(), 4096).await.unwrap();
+    assert!(String::from_utf8_lossy(&body).contains("all candidates exhausted"));
+    let log = last_log_for(&state, "gkt05c").await;
+    assert_eq!(log.status_code, 429);
+    assert!(!log.attempts.is_empty());
+    assert_eq!(log.retry_count, aidog_db::models::retry_count_of(&log.attempts));
+
+    // decision 无限频占位（票 06 豁免）：单平台 500 上游 → 末次原样回传 500（真实行为回归，
+    // 不落 503 终态；此为实测锁定，不是本次改动引入）。
+    let up = spawn_stub_upstream(500, E500_PLAIN).await;
+    let state = make_state(test_db().await).await;
+    let gk = "gkt05jev";
+    setup_aux_chain(&state, gk, AuxKind::Jev, &[(&up, &["m-a"])]).await;
+    set_group_max_attempts(&state, gk, 3).await;
+    let resp = handle_proxy(AxumState(state.clone()), AuxKind::Jev.request(gk)).await;
+    assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR, "decision 500 终态（实测行为）");
+    let log = last_log_for(&state, gk).await;
+    assert_eq!(log.status_code, 500);
+    assert!(!log.attempts.is_empty());
+}
+
+// ──────────────────────────────────────────────────────────────
+// 票 10：出站整形顺序不变量（max_tokens cap 留痕不丢不重 / disable_thinking × 字段兜底透传终态）
+// ──────────────────────────────────────────────────────────────
+
+/// 注册一个 OpenAI 平台（endpoint 协议 openai，base_url=stub）+ group 关联。
+async fn setup_openai_group(state: &Arc<ProxyState>, gk: &str, base_url: &str) {
+    use crate::gateway::models::PlatformEndpoint;
+    let plat = aidog_db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: "oi".into(),
+            platform_type: Protocol::OpenAI,
+            base_url: base_url.to_string(),
+            api_key: "sk-oi".into(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: Some(vec![PlatformEndpoint {
+                protocol: Protocol::OpenAI,
+                base_url: base_url.to_string(),
+                client_type: "default".to_string(),
+                coding_plan: false,
+            }]),
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .unwrap();
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: plat.id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+}
+
+/// 落一条 model_entry：`max_output_tokens = 4096`（cap 顺序锁的上限口径）。
+async fn seed_model_cap(db: &aidog_db::Db, model: &str) {
+    aidog_db::upsert_model_entries(
+        db,
+        vec![aidog_db::models::ModelEntry {
+            platform_code: "openai".to_string(),
+            model_id: model.to_string(),
+            display_name: String::new(),
+            canonical_model: model.to_string(),
+            family: String::new(),
+            version: String::new(),
+            predecessor: String::new(),
+            capabilities: vec![],
+            builtin_tools_excluded: vec![],
+            max_input_tokens: None,
+            max_output_tokens: Some(4096),
+            context_window: None,
+            official: true,
+            price_data: "{}".to_string(),
+            updated_at: 0,
+        }],
+    )
+    .await
+    .unwrap();
+}
+
+/// (a) 转换分支：anthropic 入站 → openai 平台（convert_request），客户端 max_tokens 超模型上限
+/// → chat_req 层裁剪生效、body 层幂等复裁不再命中 → field_trace 恰一条 `cap:max_tokens`
+/// （不丢不重），出站 body 的 max_tokens 裁到模型上限。
+#[tokio::test]
+async fn max_tokens_cap_converter_branch_traces_once() {
+    let (upstream, rec) = spawn_recording_upstream(OPENAI_OK_MIN).await;
+    let state = make_state(test_db().await).await;
+    setup_openai_group(&state, "gkcap1", &upstream).await;
+    seed_model_cap(&state.db, "m-cap").await;
+    set_log_settings(&state, ProxyLogSettings {
+        log_upstream_request: true,
+        ..Default::default()
+    }).await;
+
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/messages")
+        .header("authorization", "Bearer gkcap1")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"model":"m-cap","max_tokens":100000,"messages":[{"role":"user","content":"hi"}]}"#
+                .to_string(),
+        ))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let captured = rec.lock().unwrap().clone();
+    assert_eq!(captured.len(), 1, "上游应恰收到一次请求: {captured:?}");
+    let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+    assert_eq!(
+        sent["max_tokens"], serde_json::json!(4096),
+        "转换分支出站 max_tokens 应裁到模型上限: {sent}"
+    );
+
+    let log = last_log_for(&state, "gkcap1").await;
+    assert_eq!(
+        log.field_trace.matches("cap:max_tokens").count(),
+        1,
+        "cap 留痕恰一条（不丢不重）: {:?}",
+        log.field_trace
+    );
+}
+
+/// (a) 透传分支：openai 入站 → openai 平台（same-protocol passthrough），chat_req 层裁剪不适用
+/// （透传不走 convert_request），body 层 cap 是唯一生效点 → field_trace 恰一条 `cap:max_tokens`，
+/// 出站 body 的 max_tokens 裁到模型上限。
+#[tokio::test]
+async fn max_tokens_cap_passthrough_branch_traces_once() {
+    let (upstream, rec) = spawn_recording_upstream(OPENAI_OK_MIN).await;
+    let state = make_state(test_db().await).await;
+    setup_openai_group(&state, "gkcap2", &upstream).await;
+    seed_model_cap(&state.db, "m-cap").await;
+    set_log_settings(&state, ProxyLogSettings {
+        log_upstream_request: true,
+        ..Default::default()
+    }).await;
+
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/chat/completions")
+        .header("authorization", "Bearer gkcap2")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"model":"m-cap","max_tokens":100000,"messages":[{"role":"user","content":"hi"}]}"#
+                .to_string(),
+        ))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let captured = rec.lock().unwrap().clone();
+    assert_eq!(captured.len(), 1, "上游应恰收到一次请求: {captured:?}");
+    let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+    assert_eq!(
+        sent["max_tokens"], serde_json::json!(4096),
+        "透传分支出站 max_tokens 应裁到模型上限: {sent}"
+    );
+
+    let log = last_log_for(&state, "gkcap2").await;
+    assert_eq!(
+        log.field_trace.matches("cap:max_tokens").count(),
+        1,
+        "cap 留痕恰一条（不丢不重）: {:?}",
+        log.field_trace
+    );
+}
+
+/// (b) disable_thinking 与字段兜底透传同时命中的 body 终态（顺序锁）：
+/// 本地扩展字段 `disable_thinking` 必剥除、按目标协议写出显式禁用参数（anthropic →
+/// `thinking.type=disabled`）；未建模顶层字段 `top_k` 照常透传出站。
+#[tokio::test]
+async fn disable_thinking_and_field_passthrough_body_end_state() {
+    let (upstream, rec) = spawn_recording_upstream(ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkdt", &upstream).await;
+
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/messages")
+        .header("authorization", "Bearer gkdt")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}],"disable_thinking":true,"top_k":5}"#
+                .to_string(),
+        ))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let captured = rec.lock().unwrap().clone();
+    assert_eq!(captured.len(), 1, "上游应恰收到一次请求: {captured:?}");
+    let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+    assert!(
+        sent.get("disable_thinking").is_none(),
+        "本地扩展字段必剥除: {sent}"
+    );
+    assert_eq!(
+        sent["thinking"]["type"], "disabled",
+        "禁用按目标协议写出显式参数: {sent}"
+    );
+    assert_eq!(
+        sent["top_k"], serde_json::json!(5),
+        "未建模字段兜底透传出站: {sent}"
+    );
 }
 
 // ── 限频 / 暂时不可用的客户端状态码（用户 2026-11-14：限频 429、冷却 / 熔断 503、GLM 529 → 429）──

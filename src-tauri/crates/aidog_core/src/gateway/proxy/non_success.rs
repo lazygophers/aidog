@@ -1,4 +1,5 @@
 use super::*;
+use super::failure_verdict::{apply, judge, Failure, JudgeCtx, Next};
 
 /// attempt 级杂项上下文（`handle_non_success` 入参打包）：URL、时间戳对、候选位次、
 /// 日志开关、客户端请求的模型名（remap 前，中间件 applies_to.models 的匹配对象）。
@@ -16,17 +17,21 @@ pub(crate) struct NonSuccessCtx<'a> {
     pub switched: &'a mut bool,
     /// 本次尝试的首字节耗时（毫秒，响应头已到）。
     pub ttfb_ms: Option<i64>,
+    /// 当前排序里的候选数（connect 失败熔断的本地网络保护分母，apply 用）。
+    pub candidate_total: usize,
 }
 
 /// 失败后继续（换组合）时给最后一条尝试记录打排除范围：服务类 → 整个平台，其余（模型类 / 未知类）→ 只该组合。
-fn mark_exclusion(attempts: &mut [ProxyAttempt], class: UpstreamErrorClass) {
+/// 范围取 `Verdict.scope`（judge 已按类别裁定）。
+fn mark_exclusion(attempts: &mut [ProxyAttempt], scope: ExcludeScope) {
     if let Some(a) = attempts.last_mut() {
-        a.exclusion = Some(if class == UpstreamErrorClass::Service { "platform" } else { "pair" }.to_string());
+        a.exclusion = Some(scope);
     }
 }
 
-/// 上游返回非 2xx 时的处理：记录 attempt、熔断计数（429-限流；401/403 仅健康感知分组）、402 与非健康感知分组 401/403 的 auth 冷却、
-/// 中间件 error_rule 分类、决策 A 硬错圈定，决定 failover(Next) 还是返回客户端(Respond)。
+/// 上游返回非 2xx 时的处理薄壳：解析响应 → `judge`（纯判定，见 `failure_verdict`）→
+/// `apply`（scheduler / DB 记账唯一落地点）→ 按 `Verdict::next` 换模型 / 换候选 / 回客户端。
+/// 本函数只做 I/O（读 body、中间件规则分类、日志落库），判定逻辑全部在 judge。
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn handle_non_success(
     resp: reqwest::Response,
@@ -39,8 +44,8 @@ pub(crate) async fn handle_non_success(
     breaker_th: &super::scheduling::BreakerThresholds,
     ctx: NonSuccessCtx<'_>,
 ) -> AttemptOutcome {
-    let NonSuccessCtx { url, start, attempt_start, attempt_ts, is_last_candidate, log_settings, requested_model, has_next_model, switched, ttfb_ms } = ctx;
-    // Retry-After 须在 resp 被 text() 消费前取（429 配额冷却用，见下）
+    let NonSuccessCtx { url, start, attempt_start, attempt_ts, is_last_candidate, log_settings, requested_model, has_next_model, switched, ttfb_ms, candidate_total } = ctx;
+    // Retry-After 须在 resp 被 text() 消费前取（429 配额冷却用，见 judge）
     let retry_after = resp
         .headers()
         .get(reqwest::header::RETRY_AFTER)
@@ -61,6 +66,7 @@ pub(crate) async fn handle_non_success(
     );
     tracing::debug!(url = %url, status = code, body = %super::log_util::log_body_preview(&body), "upstream error response body");
     let attempt_err = truncate_attempt_error(&body);
+    // 中间件 error_rule 分类是 I/O（读设置缓存 + 规则匹配），留薄壳；判定面收成 rule_non_retryable。
     let err_class = {
         let mw_settings = state
             .settings_cache
@@ -78,274 +84,84 @@ pub(crate) async fn handle_non_success(
             Some(&resp_headers_json),
         )
     };
-    // ── 同平台换模型（票 06，spec D5）：先于 is_status_retryable（400/422 不换平台）与全部记账。
-    //   Service 类（含 censorship_blocked）→ 不换模型；error_rule 标 non-retryable → 用户显式意图，
-    //   不换模型也不换平台；其余（Model / Unknown）且链上还有下一个模型 → 只留痕不记账，换模型重发。
-    //   无备选（has_next_model=false）：模型类错误换平台或回客户端都不记账；服务类每次失败记账一次。
     let code_meaning = registry_code_meaning(&route.platform.platform_type.wire_str(), &body);
-    // issue 68：错误体分类经平台适配器分派（registry 码义优先级不变，miss 才走适配器默认分类）。
-    let pa = aidog_adapter::platform::adapter_for(&route.platform.platform_type.wire_str());
-    let class = match code_meaning.as_deref() {
-        Some("rate_limit" | "overloaded") => UpstreamErrorClass::Service,
-        _ => pa.classify_error(code, &body),
+    let censorship_blocked = is_censorship_blocked(&body);
+    let wire_str = route.platform.platform_type.wire_str();
+    let failure = Failure::Http {
+        code,
+        body: &body,
+        retry_after: retry_after.as_deref(),
+        code_meaning: code_meaning.as_deref(),
+        wire: &wire_str,
     };
-    let rule_blocks = err_class.as_ref().is_some_and(|c| !c.retryable);
-    let switch_model = has_next_model && class != UpstreamErrorClass::Service && !rule_blocks;
-    let chain_stop = (has_next_model && !switch_model)
-        .then(|| if class == UpstreamErrorClass::Service { "service" } else { "rule" }.to_string());
+    let v = judge(
+        &failure,
+        &JudgeCtx {
+            health_aware: breaker_th.health_aware,
+            has_next_model,
+            is_last_candidate,
+            rule_non_retryable: err_class.as_ref().is_some_and(|c| !c.retryable),
+            now_ms: aidog_db::now(),
+        },
+    );
+    // 留痕：链上有下一个模型但没换 → 服务类（chain_stop=service）/ 规则拦截（chain_stop=rule），
+    // 画布显示「跳过」；换模型与链尽两条早退路径不标。
+    let chain_stop = (has_next_model && !matches!(v.next, Next::SwitchModel))
+        .then(|| if v.class == UpstreamErrorClass::Service { "service" } else { "rule" }.to_string());
     attempts.push(ProxyAttempt {
         chain_stop,
-        error_class: Some(class.as_str().to_string()),
+        error_class: Some(v.class.as_str().to_string()),
         code_meaning: code_meaning.clone(),
         error_rule: err_class.as_ref().map(|c| c.matched_by.clone()),
         ttfb_ms,
         platform_id: route.platform.id,
         platform_name: route.platform.name.clone(),
         status_code: code as i32,
-        error: attempt_err.clone(),
+        error: attempt_err,
         duration_ms: attempt_start.elapsed().as_millis() as i64,
         ts: attempt_ts,
         model: Some(route.target_model.clone()),
         ..Default::default()
     });
-    if switch_model {
-        tracing::info!(
-            platform = %route.platform.name, status = code, class = ?class, model = %route.target_model,
-            "model-class upstream error, switching to next model on same platform"
-        );
-        *switched = true;
-        mark_exclusion(attempts, class);
-        return AttemptOutcome::Next { connect_failed: false };
-    }
-
-    // 模型类错误且无同平台备选：错在模型而非平台。还有别的平台 → 换平台（含 400/422），只留痕不记账
-    // （不写 last_error / 降权 / 熔断 / 冷却，仅 inflight-1）；已是末位 → 落回下面把上游错误回客户端，同样不记账。
-    // error_rule 标 non-retryable 是用户显式意图，不在此放行。
-    if class == UpstreamErrorClass::Model && !has_next_model && !rule_blocks && !is_last_candidate {
-        tracing::info!(
-            platform = %route.platform.name, status = code, model = %route.target_model,
-            "model-class upstream error with chain exhausted, failing over to next platform without platform blame"
-        );
-        state.scheduler.record_ignored(route.platform.id);
-        mark_exclusion(attempts, class);
-        return AttemptOutcome::Next { connect_failed: false };
-    }
-
-    // 错误体提取人类可读 message（嵌套 error.message / 顶层 message），命中则 last_error
-    // 与 429 分类都基于它；未命中回退 truncate_attempt_error 摘要 / body 原文。
-    let extracted_msg = extract_error_message(&body);
-
-    // 记本平台最近一次错误（卡片展示，非请求记录实时取）。本平台失败即覆盖，
-    // 其自身下次成功时清空（commit_2xx）。换候选成功不清失败平台的 last_error。
-    // 模型类失败（到这里 = 链尽且无处可换）错在模型不在平台：不写 last_error、不降权，只留尝试记录。
-    let no_blame = class == UpstreamErrorClass::Model && !rule_blocks;
-    let last_error_detail = extracted_msg.clone().unwrap_or_else(|| attempt_err.clone());
-    if !no_blame {
-        let _ = aidog_db::set_platform_last_error(
-            &state.db,
-            route.platform.id,
-            Some(format!("HTTP {code}: {last_error_detail}")),
-        )
-        .await;
-    }
-
-    // ── 429 分类（只看 message 文本，禁按 error.type）：配额耗尽 vs 每分钟限流 vs 其余限流 ──
-    //   分类用于熔断计数（见下），不再触发 auto_disable：429 统一走 failover 换下个候选。
-    let registry_rate_limited = code_meaning.as_deref() == Some("rate_limit");
-    let registry_overloaded = code_meaning.as_deref() == Some("overloaded");
-    let is_429_quota_exhausted = code == 429
-        && !registry_rate_limited
-        && classify_429(extracted_msg.as_deref().unwrap_or(&body));
-
-    // ── 429 每分钟限流（2026-10-03 用户裁决）：窗口是自然分钟——"rate limit 40/min exceeded"
-    //    在 59s 报错，下个整分边界（1s 后）额度就回来了。冷却到边界即可复用，不套固定
-    //    熔断/降权窗口（那会把平台多锁最多 59s）。marker 只认显式 "/min" / "per minute" /
-    //    "每分钟"，不按裸 "rate limit" 猜（小时/日级限流误判成分钟级会提前放行）。
-    let is_429_per_minute_rate_limit = registry_rate_limited
-        || (code == 429
-            && !is_429_quota_exhausted
-            && is_per_minute_rate_limit(extracted_msg.as_deref().unwrap_or(&body)));
-
-    // ── 票 04（spec 决策 4）：其余 429（含配额耗尽但解析不到重置时间）、529、registry
-    //    overloaded 码 → 独立限频冷却通道（1s 起翻倍封顶 10 分钟、成功清零、不计熔断）。
-    //    配额耗尽 + 解析到重置时间、每分钟限流（含 registry rate_limit 码）走配额 /
-    //    整分边界冷却（票 04 ①「沿用现有」），不在本列。──
-    let quota_reset_until = is_429_quota_exhausted
-        .then(|| parse_quota_reset_at(retry_after.as_deref(), &body, aidog_db::now()))
-        .flatten();
-    // registry rate_limit 码归「每分钟限流」桶（上方已并入 per-minute 判定）→ 沿用现有
-    // 整分边界冷却（票 04 ①「每分钟限流 → 沿用现有配额冷却」），不进本通道。
-    let rate_limited_now = code == 529
-        || registry_overloaded
-        || (code == 429 && !is_429_per_minute_rate_limit && quota_reset_until.is_none());
-
-    // 审核拒绝是平台级不可用：自动禁用一小时，并立即换下个候选。
-    // 400 通常是请求硬错，但结构化 censorship_blocked 明确表示上游审核机制拒绝，换平台可能成功。
-    // （提前到失败降权判定之前：censorship 已 DB 禁用 1h，不叠加排序降权。）
-    let censorship_blocked = is_censorship_blocked(&body);
-
-    // ── 熔断计数（2026-09-15 用户裁决：网络类故障不降权）：429 / 529 / registry 限频码已
-    //    移出（票 04 → 限频冷却，见下）；仅健康感知分组的 401 / 403 计一次失败；5xx / 网络错误 /
-    //    空响应 / 402 / 其他客户端 4xx 一律不计（仅 inflight-1，不动 EMA，下一轮调度仍优先选择）。
-    // 副作用只观测：随下面各记账点收集，最后写回本次 attempt（模型类换模型已在上面提前返回，无副作用）。
-    let mut effects: Vec<String> = Vec::new();
-    // 401 / 403 鉴权失败（区域封锁除外）：健康感知分组计入熔断按时间翻倍，其余分组走固定 5 分钟鉴权冷却。
-    let auth_failed = matches!(code, 401 | 403)
-        && !is_region_blocked(extracted_msg.as_deref().unwrap_or(&body));
-    if auth_failed && breaker_th.health_aware {
-        effects.push("breaker_count".to_string());
-        state
-            .scheduler
-            .record_failure(route.platform.id, breaker_th, aidog_db::now());
-    } else {
-        // 限频 / 每分钟限流不计熔断：限频走下方独立冷却通道（翻倍封顶 10 分钟），配额 /
-        // 每分钟走 quota cooldown，再计熔断会让 breaker 在冷却到点后继续踢出候选。
-        state.scheduler.record_ignored(route.platform.id);
-    }
-
-    // ── 失败降权（health-aware，2026-09-29）：全部非 2xx 计入排序降权（含 400/422），
-    //    censorship 例外（已 DB 禁用 1h，不叠加）。档位：429/5xx → Server（起步 1min），
-    //    其余 4xx（401/402/403/400/422…）→ Client（起步 30s）。连败 ×2 封顶 10min，
-    //    成功清零；与熔断/auth 冷却并行，只沉候选排序不踢出（candidates.rs 消费）。──
-    if !no_blame && !censorship_blocked && !is_429_per_minute_rate_limit {
-        // 每分钟限流不降权：降权窗口（1min 起 ×2）同样会越过分边界，到点该平台只沉不踢、
-        // 但多平台组里排序靠后等于事实上的不可用；冷却到边界后应按正常优先度回来。
-        let tier = if code == 429 || code >= 500 {
-            super::scheduling::PenaltyTier::Server
-        } else {
-            super::scheduling::PenaltyTier::Client
-        };
-        effects.push(
-            if tier == super::scheduling::PenaltyTier::Server { "penalty_server" } else { "penalty_client" }.to_string(),
-        );
-        state
-            .scheduler
-            .record_penalty(route.platform.id, tier, aidog_db::now());
-    }
-
-    // ── 429 每分钟限流 → 冷却到下一个自然分钟边界（复用配额冷却通道：内存态、
-    //    候选过滤踢出、到点自动恢复调度）。59s 报错 → 1s 后可用。──
-    if is_429_per_minute_rate_limit {
-        let now_ms = aidog_db::now();
-        let until = (now_ms / 60_000 + 1) * 60_000;
-        effects.push("cooldown_minute".to_string());
-        state.scheduler.set_quota_cooldown(route.platform.id, until);
-        tracing::warn!(
-            platform = %route.platform.name, platform_id = route.platform.id,
-            cooldown_until_ms = until,
-            "platform per-minute rate limited; cooling down until next minute boundary"
-        );
-    }
-
-    // ── 429 配额耗尽 + 上游给出明确恢复时间 → 冷却该平台到那个时刻 ──
-    //   解析不到时间就什么都不做（保持原 failover 语义），不猜冷却时长。
-    //   **纯内存维度**（scheduler）：配额用完不是平台故障，不写 DB status——平台在 UI 仍是
-    //   启用态，只是这段时间不进候选（select_candidates_ctx 的配额冷却过滤）。
-    //   到点自动恢复调度，同时排一个真查把额度对齐真实（冷却期无请求 → 无请求驱动校准）。
-    if let Some(until) = quota_reset_until {
-        effects.push("cooldown_quota".to_string());
-        state.scheduler.set_quota_cooldown(route.platform.id, until);
-        super::estimate::spawn_refresh_at(
-            state.db.clone(),
-            route.platform.id,
-            route.platform.base_url.clone(),
-            route.platform.api_key.clone(),
-            until,
-        );
-        tracing::warn!(
-            platform = %route.platform.name, platform_id = route.platform.id,
-            quota_cooldown_until = until,
-            "platform out of scheduling until upstream quota reset (not disabled)"
-        );
-    }
-
-    // ── 限频冷却（票 04）：其余 429 / 529 / registry 限频码 → 1s 起翻倍封顶 10 分钟，
-    //    该平台任意一次成功清零；不计熔断（inflight 已在上方记账分支配平）。纯内存态，
-    //    冷却期间平台不进候选（candidates 冷却维度，RouteReason::RateLimitCooldown）。──
-    if rate_limited_now {
-        effects.push("cooldown_rate_limit".to_string());
-        // 票 04 补充口径：正文 / Retry-After 明说的等待时长优先，解析不出才默认翻倍。
-        let retry_hint = retry_after
-            .and_then(|v| v.trim().parse::<i64>().ok())
-            .map(|secs| secs * 1000)
-            .or_else(|| parse_rate_limit_retry_ms(&body));
-        state
-            .scheduler
-            .set_rate_limit_cooldown(route.platform.id, aidog_db::now(), retry_hint);
-        tracing::warn!(
-            platform = %route.platform.name, platform_id = route.platform.id,
-            cooldown_until_ms = state.scheduler.rate_limit_cooldown_until_ms(route.platform.id),
-            "platform rate limited; rate-limit cooldown with doubling backoff (not counted as breaker)"
-        );
-    }
-
-    // ── 权限/余额冷却（内存固定 5 分钟，2026-09-15 取代旧 DB auto_disabled 指数退避）：
-    //   402 余额不足（所有分组）与 401 / 403 鉴权失败（仅非健康感知分组；健康感知分组已在上面计入熔断）。
-    //   区域封锁的 401 / 403 不冷却也不计熔断（is_region_blocked 按 message 文本分类）。不写 DB status：
-    //   平台 UI 仍是启用态，到点自动回调度；DB 存量 auto_disabled 行照旧按 until 过滤、成功时恢复。──
-    if code == 402 {
-        effects.push("cooldown_balance".to_string());
-        state
-            .scheduler
-            .set_balance_cooldown(route.platform.id, aidog_db::now());
-        tracing::warn!(
-            platform = %route.platform.name, platform_id = route.platform.id, status = code,
-            cooldown_ms = super::scheduling::AUTH_COOLDOWN_MS,
-            "platform out of scheduling for balance cooldown (memory-only, not disabled)"
-        );
-    } else if auth_failed && !breaker_th.health_aware {
-        effects.push("cooldown_auth".to_string());
-        state
-            .scheduler
-            .set_auth_cooldown(route.platform.id, aidog_db::now());
-        tracing::warn!(
-            platform = %route.platform.name, platform_id = route.platform.id, status = code,
-            cooldown_ms = super::scheduling::AUTH_COOLDOWN_MS,
-            "platform out of scheduling for fixed auth cooldown (memory-only, not disabled)"
-        );
-    }
-
-    if censorship_blocked {
-        effects.push("disabled_censorship".to_string());
-        if let Err(e) =
-            aidog_db::disable_platform_for_censorship(&state.db, route.platform.id).await
-        {
-            tracing::error!(
-                platform_id = route.platform.id, error = %e,
-                "failed to auto-disable censorship-blocked platform"
-            );
-        }
-        tracing::warn!(
-            platform = %route.platform.name, platform_id = route.platform.id,
-            "upstream censorship blocked request; platform auto-disabled for one hour"
-        );
-        aidog_ctx::emit("proxy-log-updated", route.platform.id.into());
-    }
-
+    apply(&v, state, route, breaker_th, &failure, candidate_total).await;
     if let Some(a) = attempts.last_mut() {
-        a.effects = effects;
+        a.effects = v.effects.iter().map(|e| e.as_str().to_string()).collect();
     }
 
-    // ── 中间件 error_rule 分类（出站）：按规则将上游错误分类为 retryable/non-retryable。
-    //   non-retryable → 立即返回不换候选（用 override_status/body 若有）。
-    //   retryable     → 走默认重试语义（换下个候选）。
-    //   无命中        → 默认重试语义不变（is_last_candidate 决定）。
-    //   熔断器不在本树：此处只产标记驱动现有重试循环，不引入任何熔断状态。──
-    // ── 决策 A：状态码硬错圈定 ──
-    //   400 / 422（请求体本身非法）→ 不重试；结构化 censorship_blocked 与 registry 码义 overloaded 是例外，换候选。
-    //   其余非 2xx（401/403/404/405/429/5xx/未知）→ 默认可重试（换下个候选）。
-    let status_retryable = is_status_retryable(code) || censorship_blocked || registry_overloaded;
-    // 中间件 error_rule：审核拒绝必须换候选，不允许规则把它降级成 non-retryable；
-    // 其他状态仅在本身可重试时允许规则缩小重试面。
-    let mw_non_retryable =
-        !censorship_blocked && err_class.as_ref().map(|c| !c.retryable).unwrap_or(false);
-    let non_retryable = !status_retryable || mw_non_retryable;
+    match v.next {
+        Next::SwitchModel => {
+            tracing::info!(
+                platform = %route.platform.name, status = code, class = ?v.class, model = %route.target_model,
+                "model-class upstream error, switching to next model on same platform"
+            );
+            *switched = true;
+            mark_exclusion(attempts, v.scope);
+            return AttemptOutcome::Next { connect_failed: v.connect_failed };
+        }
+        Next::SwitchPlatform => {
+            // 链尽换平台（blame=false 且零效果）与服务类 / 规则放行的主路径换候选在此合流；
+            // 仅前者有专属留痕日志。
+            if v.class == UpstreamErrorClass::Model && v.effects.is_empty() {
+                tracing::info!(
+                    platform = %route.platform.name, status = code, model = %route.target_model,
+                    "model-class upstream error with chain exhausted, failing over to next platform without platform blame"
+                );
+            }
+            mark_exclusion(attempts, v.scope);
+            return AttemptOutcome::Next { connect_failed: v.connect_failed };
+        }
+        Next::Return => {}
+    }
+
+    // ── 终态：中间件 error_rule override_status/body（若有）回客户端 ──
     if let Some(ref c) = err_class {
         tracing::info!(
             matched_by = %c.matched_by, category = %c.category, retryable = c.retryable,
             status = code, "middleware error_rule classified upstream error"
         );
     }
+    let status_retryable =
+        is_status_retryable(code) || censorship_blocked || code_meaning.as_deref() == Some("overloaded");
     if !status_retryable && !censorship_blocked {
         tracing::info!(
             status = code, platform = %route.platform.name,
@@ -353,16 +169,6 @@ pub(crate) async fn handle_non_success(
         );
     }
 
-    // 可重试（审核拒绝或非 400/422 硬错，且中间件未标 non-retryable）→ 换下个候选；
-    // 候选耗尽 / 最大尝试次数用尽则返回最后一次错误。non-retryable → 立即返回（不换候选）。
-    if !non_retryable && !is_last_candidate {
-        mark_exclusion(attempts, class);
-        return AttemptOutcome::Next {
-            connect_failed: false,
-        };
-    }
-
-    // ── 应用 error_rule override_status/body（若有）回客户端 ──
     let body_overridden = err_class
         .as_ref()
         .is_some_and(|c| c.override_body.is_some());
@@ -387,7 +193,7 @@ pub(crate) async fn handle_non_success(
     let filtered = error_response_headers(&upstream_resp_headers, body_overridden);
 
     log.platform_id = route.platform.id;
-    log.response_body = body.clone();
+    log.response_body = body;
     log.status_code = out_code as i32;
     // 终态：真实 HTTP 状态码已定、不再换候选、之后不会再写这一行（票 06 的 done 列语义）。
     // 漏置位会让 upsert_log 的 is_terminal 恒 false → 既不 emit 也不进 stats_agg。

@@ -1,5 +1,5 @@
 //! 辅助模型请求（`/v1/embeddings`、`/v1/rerank`）的共享转发骨架，仿 `decision.rs`：
-//! 解析 JSON → `select_candidates_ctx(spec.kind)` → 重试编排 → OpenAI 系 endpoint →
+//! 解析 JSON → `select_candidates_gated(spec.kind)` → 重试编排 → OpenAI 系 endpoint →
 //! `join_upstream_path(base_url, spec.api_path)` → 仅改写 `model` 为槽位值 → 转发 →
 //! 2xx 回写响应 `model` 为客户端原名 → 记账。不支持流式。
 //!
@@ -73,18 +73,15 @@ pub(crate) const RERANK: AuxSpec = AuxSpec {
 };
 
 /// 辅助模型请求主入口（handler.rs 在 count_tokens / 决策分流旁调用）。
-#[allow(clippy::too_many_arguments)]
 pub(crate) async fn handle_aux_model(
     spec: &AuxSpec,
     state: &Arc<ProxyState>,
     log: &mut ProxyLog,
-    log_settings: &ProxyLogSettings,
     group: &Group,
     bytes: &[u8],
-    start: std::time::Instant,
-    lang: Lang,
-    client: ClientGate,
+    ctx: super::call_scope::ReqCtx<'_>,
 ) -> Response {
+    let super::call_scope::ReqCtx { log_settings, start, lang, client } = ctx;
     log.source_protocol = spec.label.to_string();
     log.target_protocol = spec.label.to_string();
     log.is_stream = false;
@@ -146,7 +143,7 @@ pub(crate) async fn handle_aux_model(
     let mut attempt_loop = AttemptLoop::new(group.max_retries, spec.kind, &requested_model, client, candidates);
     let mut attempts: Vec<ProxyAttempt> = Vec::new();
     // 平台限频占位跨调用保存：同平台连续调用复用（平台级只占一次），换平台时释放上一个。
-    let mut rate_slot: Option<(u64, Option<Arc<crate::gateway::rate_limit::Access>>)> = None;
+    let mut rate_slot = RateSlot::default();
 
     let (system_timeout, proxy_client) = {
         let c = state.settings_cache.read().await;
@@ -170,126 +167,65 @@ pub(crate) async fn handle_aux_model(
 
         // 平台限频占位（与 forward_attempt 同口径）：begin 占平台级，enter_model 占模型级；
         // 占位失败不发请求（不计次数）：平台级排除整个平台，模型级只排除该组合。
-        if log.blocked_reason == "rate_limit" {
-            log.blocked_by.clear();
-            log.blocked_reason.clear();
-        }
-        let rl_cfg = crate::gateway::rate_limit::RateLimitsCfg::parse(&route.platform.extra);
-        let rl_est = if rl_cfg.has_tpm() { estimate_input_tokens(&req_value, &requested_model) } else { 0 };
-        if rate_slot.as_ref().map(|(pid, _)| *pid) != Some(route.platform.id) {
-            rate_slot = None; // 释放上一平台的占位
-            let access = if rl_cfg.is_empty() {
-                None
-            } else {
-                let now = aidog_db::now();
-                match state.scheduler.rate.begin(
-                    route.platform.id,
-                    &rl_cfg.platform_limits(now),
-                    now,
-                    rl_est,
-                ) {
-                    Some(a) => Some(a),
-                    None => {
-                        tracing::warn!(platform = %route.platform.name, kind = spec.label, "rate limit reached at acquire, skipping candidate");
-                        attempts.push(ProxyAttempt {
-                            kind: Some("rate_limit_platform".to_string()),
-                            chain_stop: pick.model_alt.then(|| "rate_limit".to_string()),
-                            platform_id: route.platform.id,
-                            platform_name: route.platform.name.clone(),
-                            error: "platform rate limit reached".to_string(),
-                            ts: attempt_ts,
-                            model: Some(route.target_model.clone()),
-                            exclusion: Some("platform".to_string()),
-                            ..Default::default()
-                        });
-                        mark_rate_limited(log);
-                        attempt_loop.failed(&mut attempts, false);
-                        continue;
-                    }
-                }
-            };
-            rate_slot = Some((route.platform.id, access));
-        }
-        if let Some((_, Some(a))) = &rate_slot {
-            let model = route.target_model.clone();
-            if !a.enter_model(&model, &rl_cfg.model_limits(&model, aidog_db::now()), aidog_db::now(), rl_est) {
-                tracing::warn!(model = %model, kind = spec.label, "model-level rate limit reached, excluding pair");
-                attempts.push(ProxyAttempt {
-                    kind: Some("rate_limit_model".to_string()),
-                    platform_id: route.platform.id,
-                    platform_name: route.platform.name.clone(),
-                    error: "model rate limit reached".to_string(),
-                    ts: attempt_ts,
-                    model: Some(model),
-                    exclusion: Some("pair".to_string()),
-                    ..Default::default()
-                });
-                mark_rate_limited(log);
+        let _access = match rate_slot.enter(
+            state,
+            log,
+            &mut attempts,
+            RateSlotCtx {
+                route: &route,
+                requested_model: &requested_model,
+                req_value: &req_value,
+                model_alt: pick.model_alt,
+                label: spec.label,
+            },
+        ) {
+            Ok(access) => access,
+            Err(()) => {
                 attempt_loop.failed(&mut attempts, false);
                 continue;
             }
-        }
+        };
         let capped = attempt_loop.begin_call(log, &attempts, route.platform.id);
-        let is_last_candidate = capped;
-        let out = aux_attempt(
-            spec, state, log, &mut attempts, log_settings, group, &route, &req_value,
-            &requested_model, &proxy_client, req_timeout, conn_timeout, &sched_settings, start,
-            lang, attempt_start, attempt_ts, is_last_candidate, pick.candidate_total,
-            pick.model_alt && !capped, &mut false,
-        )
-        .await;
+        let scope = super::call_scope::CallScope {
+            state,
+            group,
+            route: &route,
+            log_settings,
+            lang,
+            start,
+            attempt_start,
+            attempt_ts,
+            is_last_candidate: capped,
+            candidate_total: pick.candidate_total,
+            has_next_model: pick.model_alt && !capped,
+            breaker_th: super::scheduling::BreakerThresholds::resolve(&sched_settings, &route.platform, group.routing_mode),
+            proxy_client: &proxy_client,
+            req_timeout,
+            conn_timeout,
+        };
+        let out = aux_attempt(&scope, spec, log, &mut attempts, &req_value, &requested_model, &mut false)
+            .await;
         match out {
             AttemptOutcome::Respond(r) => return r,
             AttemptOutcome::Next { connect_failed } => attempt_loop.failed(&mut attempts, connect_failed),
         }
     }
 
-    // 候选耗尽且循环内未 return（同 decision.rs / handler.rs 兜底，理论不可达）。
-    let status = exhausted_status(log);
-    log.status_code = status.as_u16() as i32;
-    log.done = true;
-    let err_body = format!(
-        "{}: all candidates exhausted",
-        i18n::t(lang, ErrorKey::Upstream)
-    );
-    log.response_body = "all candidates exhausted".to_string();
-    log.user_response_body = err_body.clone();
-    log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
-    log.duration_ms = start.elapsed().as_millis() as i32;
-    log.retry_count = aidog_db::models::retry_count_of(&attempts);
-    log.attempts = std::mem::take(&mut attempts);
-    upsert_log(state, log, log_settings).await;
-    let mut r = (status, err_body).into_response();
-    add_retry_after(&mut r, log);
-    inject_trace_header(&mut r);
-    r
+    AttemptLoop::exhausted(state, log, &mut attempts, start, log_settings, lang).await
 }
 
 /// 单候选尝试（endpoint 选择 → 建请求 → 发送 → 非 2xx 沿用 handle_non_success → 2xx 记账终态）。
-#[allow(clippy::too_many_arguments)]
 async fn aux_attempt(
+    scope: &super::call_scope::CallScope<'_>,
     spec: &AuxSpec,
-    state: &Arc<ProxyState>,
     log: &mut ProxyLog,
     attempts: &mut Vec<ProxyAttempt>,
-    log_settings: &ProxyLogSettings,
-    group: &Group,
-    route: &RouteResult,
     req_value: &Value,
     requested_model: &str,
-    proxy_client: &super::models::ProxyClientSettings,
-    req_timeout: u64,
-    conn_timeout: u64,
-    sched_settings: &aidog_db::models::SchedulingBreakerSettings,
-    start: std::time::Instant,
-    lang: Lang,
-    attempt_start: std::time::Instant,
-    attempt_ts: i64,
-    is_last_candidate: bool,
-    candidate_total: usize,
-    has_next_model: bool,
     switched: &mut bool,
 ) -> AttemptOutcome {
+    let (route, log_settings, group) = (scope.route, scope.log_settings, scope.group);
+    let (is_last_candidate, has_next_model) = (scope.is_last_candidate, scope.has_next_model);
     // endpoint：OpenAI 系优先，否则回退平台主 base_url（零端点平台）。
     let ep = select_endpoint_for_openai_family(&route.platform.endpoints);
     let base_url = ep
@@ -316,15 +252,7 @@ async fn aux_attempt(
         String::new()
     };
 
-    let breaker_th = super::scheduling::BreakerThresholds::resolve(sched_settings, &route.platform, group.routing_mode);
-
-    let client = super::http_client::build_http_client(
-        proxy_client,
-        req_timeout,
-        conn_timeout,
-        super::http_client::platform_should_use_proxy(proxy_client, &route.platform.extra),
-    )
-    .await;
+    let client = scope.build_client().await;
     let rb = client
         .post(&url)
         .header("Content-Type", "application/json")
@@ -334,61 +262,8 @@ async fn aux_attempt(
 
     let resp = match rb.send().await {
         Ok(r) => r,
-        Err(e) => {
-            // transport 错误：对齐 decision.rs / forward.rs —— connect 失败计熔断 + 降权，其余仅降权。
-            if e.is_connect() {
-                state.scheduler.record_connect_failure(
-                    route.platform.id,
-                    candidate_total,
-                    &breaker_th,
-                    aidog_db::now(),
-                );
-            } else {
-                state.scheduler.record_ignored(route.platform.id);
-            }
-            state.scheduler.record_penalty(
-                route.platform.id,
-                super::scheduling::PenaltyTier::Server,
-                aidog_db::now(),
-            );
-            let detail = err_chain(&e);
-            tracing::error!(url = %url, platform = %route.platform.name, error = %detail, "aux upstream request failed (502)");
-            let upstream_err = format!("upstream error: {detail}");
-            attempts.push(ProxyAttempt {
-                chain_stop: None,
-                platform_id: route.platform.id,
-                platform_name: route.platform.name.clone(),
-                status_code: 0,
-                error: upstream_err.clone(),
-                duration_ms: attempt_start.elapsed().as_millis() as i64,
-                ts: attempt_ts,
-                model: Some(route.target_model.clone()),
-                ..Default::default()
-            });
-            let _ = aidog_db::set_platform_last_error(
-                &state.db,
-                route.platform.id,
-                Some(upstream_err.clone()),
-            )
-            .await;
-            if !is_last_candidate {
-                return AttemptOutcome::Next { connect_failed: e.is_connect() };
-            }
-            let msg = format!("{}: {detail}", i18n::t(lang, ErrorKey::Upstream));
-            return AttemptOutcome::Respond(
-                finalize_proxy_502(
-                    state,
-                    log,
-                    attempts,
-                    route.platform.id,
-                    upstream_err,
-                    msg,
-                    start,
-                    log_settings,
-                )
-                .await,
-            );
-        }
+        // transport 错误：judge(Transport) + apply 记账（connect 计熔断 + 降权，其余仅降权）。
+        Err(e) => return scope.transport_failed(log, attempts, &e, &url).await,
     };
 
     let status = resp.status();
@@ -401,23 +276,24 @@ async fn aux_attempt(
         return match handle_non_success(
             resp,
             status,
-            state,
+            scope.state,
             log,
             attempts,
             route,
             group,
-            &breaker_th,
+            &scope.breaker_th,
             NonSuccessCtx {
                 url: &url,
-                start,
-                attempt_start,
-                attempt_ts,
+                start: scope.start,
+                attempt_start: scope.attempt_start,
+                attempt_ts: scope.attempt_ts,
                 is_last_candidate,
                 log_settings,
                 requested_model,
                 has_next_model,
                 switched,
                 ttfb_ms: None,
+                candidate_total: scope.candidate_total,
             },
         )
         .await
@@ -436,31 +312,9 @@ async fn aux_attempt(
         replace_model_in_json(&body, requested_model)
     };
 
-    // 成功记账（对齐 decision.rs / forward.rs commit_2xx_success）。
-    let attempt_latency_ms = attempt_start.elapsed().as_millis() as i64;
-    state
-        .scheduler
-        .record_success(route.platform.id, attempt_latency_ms);
-    let _ = aidog_db::set_platform_last_error(&state.db, route.platform.id, None).await;
-    attempts.push(ProxyAttempt {
-        chain_stop: None,
-        platform_id: route.platform.id,
-        platform_name: route.platform.name.clone(),
-        status_code: status.as_u16() as i32,
-        error: String::new(),
-        duration_ms: attempt_latency_ms,
-        ts: attempt_ts,
-        model: Some(route.target_model.clone()),
-        ..Default::default()
-    });
-    if route.platform.status == super::models::PlatformStatus::AutoDisabled {
-        if let Err(e) = aidog_db::recover_platform_auto_disabled(&state.db, route.platform.id).await
-        {
-            tracing::error!(platform_id = route.platform.id, error = %e, "recover auto-disabled platform failed");
-        } else {
-            aidog_ctx::emit("proxy-log-updated", route.platform.id.into());
-        }
-    }
+    // 成功记账（CallScope 统一：延迟 EMA + last_error 清空 + auto_disabled 恢复 + attempt 留痕，
+    // 对齐 decision.rs / forward.rs commit_2xx_success）。
+    scope.succeeded(attempts, status.as_u16()).await;
 
     // token 记账；est_cost 留 0，由 upsert_log 按 actual_model 的 registry 价 × tokens 计算
     // （全 0 价未标 free → 兜底价；free:true → 0，见 log.rs est_cost 回落）。
@@ -483,7 +337,7 @@ async fn aux_attempt(
     // issue #61：embedding / rerank 请求入余额与手动预算预估（此前完全不触发）。
     // spawn_estimate 后台执行，不阻塞响应；base_url / api_key 仅供校准真查用。
     spawn_estimate(
-        state,
+        scope.state,
         route.platform.id,
         &route.platform.platform_type,
         route.platform.base_url.clone(),
@@ -506,10 +360,10 @@ async fn aux_attempt(
     log.response_body = body_str;
     log.user_response_body = String::from_utf8_lossy(&client_body).to_string();
     log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
-    log.duration_ms = start.elapsed().as_millis() as i32;
+    log.duration_ms = scope.start.elapsed().as_millis() as i32;
     log.retry_count = aidog_db::models::retry_count_of(attempts);
     log.attempts = std::mem::take(attempts);
-    upsert_log(state, log, log_settings).await;
+    upsert_log(scope.state, log, log_settings).await;
     let mut response = (
         StatusCode::OK,
         [(axum::http::header::CONTENT_TYPE, "application/json")],
