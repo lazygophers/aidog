@@ -47,6 +47,42 @@ fn apply_toggle_creates_map_keeps_siblings_and_overrides() {
     assert_eq!(bad["enabledPlugins"]["a@mkt"], json!(true));
 }
 
+/// DB 空（或显式 `{}`）时回落内置 oss 预设：插件开关整份写回 DB，回落保证预设既有键
+/// （env / enabledPlugins 等）不因一次开关操作被 `{enabledPlugins:...}` 小对象覆盖丢失。
+#[tokio::test]
+async fn load_claude_raw_falls_back_to_preset_so_toggle_cannot_wipe_it() {
+    let db = aidog_db::test_support::test_db().await;
+    let mut cfg = load_claude_raw(&db).await;
+    assert!(
+        cfg.get("env").is_some(),
+        "empty DB must fall back to bundled oss preset, got: {cfg}"
+    );
+    apply_toggle(&mut cfg, "a@mkt", false).unwrap();
+    aidog_db::set_setting(
+        &db,
+        aidog_db::models::SetSettingInput {
+            scope: "global".to_string(),
+            key: "claude_code".to_string(),
+            value: cfg,
+        },
+    )
+    .await
+    .unwrap();
+    let stored = aidog_db::get_setting(&db, "global", "claude_code")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        stored["enabledPlugins"]["a@mkt"],
+        json!(false),
+        "toggle must be recorded"
+    );
+    assert!(
+        stored.get("env").is_some(),
+        "preset keys must survive a plugin toggle, got: {stored}"
+    );
+}
+
 #[test]
 fn parse_codex_list_matches_cli_contract() {
     // 本机 codex-cli 0.168.0 `codex plugin list --json` 实测输出（隔离 HOME），

@@ -174,7 +174,7 @@ fn dash_norm(s: &str) -> String {
 fn kind(cmd: &str, args: &[String]) -> Kind {
     if Path::new(cmd).file_name().is_none_or(|n| n != SQZ_BIN) {
         Kind::Plain
-    } else if args.first().map(String::as_str) == Some("proxy") {
+    } else if is_known_proxy_shape(args) {
         Kind::Wrapped
     } else if args.len() == SQZ_SELF_ARGS.len()
         && args
@@ -194,13 +194,31 @@ fn wrap(cmd: &str, args: &[String]) -> (String, Vec<String>) {
     (SQZ_BIN.to_string(), a)
 }
 
-/// 还原 `proxy [flags] -- <cmd> <args...>`。用户手写配置里分隔符有 `—-`（em dash）变体，
-/// 也按分隔符认；其后各参数原样保留。
+/// 只有 aidog 自己写的已知形状 `proxy [已知旗标] -- <上游...>` 才判 Wrapped：
+/// 用户自装的 `sqz-mcp proxy --custom x` 等未知旗标组合不还原（会撕坏用户配置）、
+/// 开启时照普通命令再包一层（可还原）。
+fn is_known_proxy_shape(args: &[String]) -> bool {
+    if args.first().map(String::as_str) != Some("proxy") {
+        return false;
+    }
+    let mut i = 1;
+    while args
+        .get(i)
+        .is_some_and(|a| PROXY_FLAGS.contains(&dash_norm(a).as_str()))
+    {
+        i += 1;
+    }
+    args.get(i)
+        .is_some_and(|a| !a.is_empty() && a.chars().all(|c| c == '-' || c == '—'))
+}
+
+/// 还原 `proxy [flags] -- <cmd> <args...>`。用户手写配置里分隔符与旗标有 em dash 变体，
+/// 经 dash_norm 归一后认；其后各参数原样保留。
 fn unwrap(args: &[String]) -> Option<(String, Vec<String>)> {
     let mut i = 1;
     while args
         .get(i)
-        .is_some_and(|a| PROXY_FLAGS.contains(&a.as_str()))
+        .is_some_and(|a| PROXY_FLAGS.contains(&dash_norm(a).as_str()))
     {
         i += 1;
     }
@@ -680,14 +698,41 @@ pub(crate) fn rtk_codex_disable(codex: &Path, rec: &RtkCodexRecord) -> Result<()
                 }
             }
             "RTK.md" => {
-                if let Some(rtk_content) = rec.get(f).and_then(|r| r.after.as_deref())
-                    && cur.starts_with(rtk_content)
-                {
-                    let user_content = &cur[rtk_content.len()..];
+                let Some(rtk_content) = rec.get(f).and_then(|r| r.after.as_deref()) else {
+                    continue;
+                };
+                if let Some(user_content) = cur.strip_prefix(rtk_content) {
                     if user_content.is_empty() {
                         remove_if_exists(&path)?;
                     } else {
                         write_keep_mode(&path, user_content)?;
+                    }
+                    continue;
+                }
+                // 前插 / 中插：按段边界（行首行尾）定位 rtk 段后精确删除。
+                let removed = cur.find(rtk_content).and_then(|pos| {
+                    let end = pos + rtk_content.len();
+                    let (before, after) = (&cur[..pos], &cur[end..]);
+                    let aligned = (pos == 0 || before.ends_with('\n'))
+                        && (end == cur.len() || rtk_content.ends_with('\n') || after.starts_with('\n'));
+                    aligned.then(|| {
+                        let mut out = String::with_capacity(cur.len() - rtk_content.len());
+                        out.push_str(before);
+                        if out.ends_with('\n') && after.starts_with('\n') {
+                            out.pop();
+                        }
+                        out.push_str(after);
+                        out
+                    })
+                });
+                match removed {
+                    Some(s) if s.trim().is_empty() => remove_if_exists(&path)?,
+                    Some(s) => write_keep_mode(&path, &s)?,
+                    None => {
+                        return Err(
+                            "RTK.md: cannot locate the recorded rtk block; re-run `rtk init -g --codex` or restore it manually"
+                                .to_string(),
+                        );
                     }
                 }
             }
