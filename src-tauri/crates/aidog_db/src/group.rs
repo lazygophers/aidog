@@ -10,23 +10,13 @@ fn parse_mappings(json: &str) -> Vec<ModelMapping> {
     serde_json::from_str(json).unwrap_or_default()
 }
 
-/// 序列化 / 反序列化内联 env_vars
-fn serialize_env_vars(vars: &[EnvVar]) -> String {
-    serde_json::to_string(vars).unwrap_or_else(|_| "[]".to_string())
-}
-
-fn parse_env_vars(json: &str) -> Vec<EnvVar> {
-    serde_json::from_str(json).unwrap_or_default()
-}
-
-/// Group SELECT 列序
-const GROUP_COLUMNS: &str = "id, name, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, sort_order, max_retries, group_key, is_default, env_vars, extra";
+/// Group SELECT 列序（env_vars 列已废弃：功能移除，列留 DEFAULT '[]' 不再读写）
+const GROUP_COLUMNS: &str = "id, name, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, sort_order, max_retries, group_key, is_default, extra";
 
 fn row_to_group(row: &rusqlite::Row) -> SqlResult<Group> {
     let routing_str: String = row.get(2)?;
     let mappings_str: String = row.get(9)?;
-    let env_vars_str: String = row.get(14)?;
-    let extra_str: String = row.get::<_, String>(15).unwrap_or_default();
+    let extra_str: String = row.get::<_, String>(14).unwrap_or_default();
     Ok(Group {
         id: row.get::<_, i64>(0)? as u64,
         name: row.get(1)?,
@@ -43,7 +33,6 @@ fn row_to_group(row: &rusqlite::Row) -> SqlResult<Group> {
         max_retries: row.get::<_, i64>(11)? as u32,
         group_key: row.get(12)?,
         is_default: row.get::<_, i64>(13)? != 0,
-        env_vars: parse_env_vars(&env_vars_str),
         extra: extra_str,
     })
 }
@@ -73,7 +62,6 @@ pub fn create_group(
             .source_protocol
             .unwrap_or_else(|| "anthropic".to_string());
         let mappings_str = serialize_mappings(&input.model_mappings);
-        let env_vars_str = serialize_env_vars(&input.env_vars);
         // group_key：用户提供则用，否则自动生成 gk_<32hex>（创建后锁定不可改）。
         let group_key = input
             .group_key
@@ -93,8 +81,8 @@ pub fn create_group(
             let max_retries = input.max_retries as i64;
             move |conn| {
                 conn.execute(
-                    "INSERT INTO \"group\" (name, group_key, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, max_retries, env_vars) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
-                    params![name, group_key, routing_str, auto_from_platform, ts, ts, request_timeout_secs, connect_timeout_secs, source_protocol, mappings_str, max_retries, env_vars_str],
+                    "INSERT INTO \"group\" (name, group_key, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, max_retries) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                    params![name, group_key, routing_str, auto_from_platform, ts, ts, request_timeout_secs, connect_timeout_secs, source_protocol, mappings_str, max_retries],
                 )?;
                 Ok(conn.last_insert_rowid() as u64)
             }
@@ -119,7 +107,6 @@ pub fn create_group(
             sort_order: 0,
             max_retries: input.max_retries,
             is_default: false,
-            env_vars: input.env_vars,
             extra: String::new(),
         })
     }
@@ -355,14 +342,12 @@ pub fn update_group(
             source_protocol: input.source_protocol.unwrap_or(existing.source_protocol),
             max_retries: input.max_retries.unwrap_or(existing.max_retries),
             model_mappings: input.model_mappings,
-            env_vars: input.env_vars,
             updated_at: now(),
             ..existing
         };
 
         let routing_str = serde_json::to_string(&updated.routing_mode).unwrap();
         let mappings_str = serialize_mappings(&updated.model_mappings);
-        let env_vars_str = serialize_env_vars(&updated.env_vars);
         db
         .call_platform_traced(None, __db_caller, {
             let name = updated.name.clone();
@@ -374,8 +359,8 @@ pub fn update_group(
             let id = updated.id as i64;
             move |conn| {
                 conn.execute(
-                    "UPDATE \"group\" SET name=?1, routing_mode=?2, updated_at=?3, request_timeout_secs=?4, connect_timeout_secs=?5, source_protocol=?6, model_mappings=?7, max_retries=?8, env_vars=?9 WHERE id=?10",
-                    params![name, routing_str, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, mappings_str, max_retries, env_vars_str, id],
+                    "UPDATE \"group\" SET name=?1, routing_mode=?2, updated_at=?3, request_timeout_secs=?4, connect_timeout_secs=?5, source_protocol=?6, model_mappings=?7, max_retries=?8 WHERE id=?9",
+                    params![name, routing_str, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, mappings_str, max_retries, id],
                 )?;
                 Ok(())
             }

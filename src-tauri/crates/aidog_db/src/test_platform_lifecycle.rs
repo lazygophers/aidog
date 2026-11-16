@@ -79,7 +79,6 @@ async fn delete_platform_preserves_groups_with_other_members() {
             source_protocol: None,
             max_retries: 2,
             model_mappings: vec![],
-            env_vars: vec![],
         },
     )
     .await
@@ -118,7 +117,6 @@ async fn delete_platform_preserves_groups_with_other_members() {
             source_protocol: None,
             max_retries: 2,
             model_mappings: vec![],
-            env_vars: vec![],
         },
     )
     .await
@@ -197,7 +195,6 @@ async fn delete_platform_keeps_orphan_auto_group_empty() {
             source_protocol: None,
             max_retries: 2,
             model_mappings: vec![],
-            env_vars: vec![],
         },
     )
     .await
