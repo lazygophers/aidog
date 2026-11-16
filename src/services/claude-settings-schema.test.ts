@@ -121,13 +121,16 @@ describe("defaults/settings/oss.json 隐私基线", () => {
   });
 
   // oss 面向所有开源用户：不得带个人偏好、依赖本机工具的 hooks、免确认权限模式。
-  it("oss 不含个人项（bypassPermissions / hooks / 插件 / language）", () => {
+  it("oss 不含个人项（bypassPermissions / hooks / language）", () => {
     expect(
       (defaults.permissions as { defaultMode?: string }).defaultMode,
     ).toBeUndefined();
-    for (const k of ["hooks", "enabledPlugins", "language"]) {
+    for (const k of ["hooks", "language"]) {
       expect(defaults[k], k).toBeUndefined();
     }
+    expect(defaults.enabledPlugins).toEqual({
+      "answer-me-with-html@answer-me-with-html": true,
+    });
   });
 
   it("deny 覆盖云厂商与包管理器凭证路径", () => {
