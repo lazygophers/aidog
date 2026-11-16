@@ -42,7 +42,7 @@ pub(crate) fn estimate_input_tokens(body: &Value, model: &str) -> i64 {
 }
 
 /// Anthropic `/v1/messages/count_tokens` 子端点：透传优先 + 本地估算兜底（方案 X）。
-/// 1. 复用 select_candidates_ctx 选首选平台 + 拿模型映射（claude-opus-4-8 → glm-5.1）。
+/// 1. 复用 `select_candidates_gated` 选首选平台 + 拿模型映射（claude-opus-4-8 → glm-5.1）。
 /// 2. 取该平台 anthropic 端点 base_url（无则回退平台主 base_url），URL = base_url + `/v1/messages/count_tokens`
 ///    （遵 url-construction-rule：anthropic base_url 不含 /v1，仅拼 endpoint 后缀，与 build_models_url 同款）。
 /// 3. 透传客户端原始 body（仅 patch model 字段为路由目标模型），x-api-key + anthropic-version 鉴权 POST。

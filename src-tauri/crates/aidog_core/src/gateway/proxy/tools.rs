@@ -10,28 +10,28 @@
 //!
 //! 结构全文仿 decision.rs：route_fail 复用其 `route_fail_response`（`no_tools_platform`
 //! 400 分支在 `kind_route_error_message`）→ 候选选取 → 重试循环 → 单尝试 `tools_attempt`。
+//! 传输失败 / 成功记账走 [`call_scope::CallScope`]（issue 55 票 04）。
 
 use super::*;
 
 /// tools 请求主入口（handler.rs 在 decision 分流后调用，必须在 parse_incoming_request 之前）。
-#[allow(clippy::too_many_arguments)]
 pub(crate) async fn handle_tools(
     state: &Arc<ProxyState>,
     log: &mut ProxyLog,
-    log_settings: &ProxyLogSettings,
     group: &Group,
     bytes: &[u8],
     path: &str,
-    start: std::time::Instant,
-    lang: Lang,
-    client: ClientGate,
+    ctx: super::call_scope::ReqCtx<'_>,
 ) -> Response {
+    let super::call_scope::ReqCtx { log_settings, start, lang, client } = ctx;
     log.source_protocol = "tools".to_string();
     log.target_protocol = "tools".to_string();
     log.is_stream = false;
     // 语义 3：tools 请求体无路由用 model 字段，source_model 传空串（映射链与槽位匹配天然不命中）。
 
     // ── 路由选候选（复用过滤 / 冷却 / 熔断；Tools 类型过滤见 candidates.rs）──
+    // 限频：`rate_body: None` = 只被路由层限频筛选只读判定，不占并发 / RPM / TPM 名额
+    // （有意豁免，2026-11-13 拍板；全貌与复活条件见 candidates.rs `ScheduleCtx::rate_body`）。
     let sched_settings = aidog_db::get_scheduling_settings(&state.db).await;
     let sched_ctx = ScheduleCtx {
         scheduler: &state.scheduler,
@@ -85,37 +85,31 @@ pub(crate) async fn handle_tools(
         let attempt_start = std::time::Instant::now();
         let attempt_ts = aidog_db::now();
         let capped = attempt_loop.begin_call(log, &attempts, pick.route.platform.id);
-        match tools_attempt(
-            state, log, &mut attempts, log_settings, group, &pick.route, bytes, path,
-            &proxy_client, req_timeout, conn_timeout, &sched_settings, start, lang,
-            attempt_start, attempt_ts, capped, pick.candidate_total,
-        )
-        .await
-        {
+        let scope = super::call_scope::CallScope {
+            state,
+            group,
+            route: &pick.route,
+            log_settings,
+            lang,
+            start,
+            attempt_start,
+            attempt_ts,
+            is_last_candidate: capped,
+            candidate_total: pick.candidate_total,
+            // tools 请求无模型链（source_model 空串），恒无下一个模型。
+            has_next_model: false,
+            breaker_th: super::scheduling::BreakerThresholds::resolve(&sched_settings, &pick.route.platform, group.routing_mode),
+            proxy_client: &proxy_client,
+            req_timeout,
+            conn_timeout,
+        };
+        match tools_attempt(&scope, log, &mut attempts, bytes, path).await {
             AttemptOutcome::Respond(r) => return r,
             AttemptOutcome::Next { connect_failed } => attempt_loop.failed(&mut attempts, connect_failed),
         }
     }
 
-    // 候选耗尽且循环内未 return（同 decision.rs 兜底，理论不可达）。
-    let status = exhausted_status(log);
-    log.status_code = status.as_u16() as i32;
-    log.done = true;
-    let err_body = format!(
-        "{}: all candidates exhausted",
-        i18n::t(lang, ErrorKey::Upstream)
-    );
-    log.response_body = "all candidates exhausted".to_string();
-    log.user_response_body = err_body.clone();
-    log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
-    log.duration_ms = start.elapsed().as_millis() as i32;
-    log.retry_count = aidog_db::models::retry_count_of(&attempts);
-    log.attempts = std::mem::take(&mut attempts);
-    upsert_log(state, log, log_settings).await;
-    let mut r = (status, err_body).into_response();
-    add_retry_after(&mut r, log);
-    inject_trace_header(&mut r);
-    r
+    super::attempt_plan::AttemptLoop::exhausted(state, log, &mut attempts, start, log_settings, lang).await
 }
 
 /// strict 成功判定（语义 7 + 逐平台表）：HTTP 200 **且**响应体含结果字段才算成功、计 1 次；
@@ -162,27 +156,14 @@ fn tools_success_ok(platform_type: &Protocol, tool_key: &str, body: &[u8]) -> bo
 
 /// 阶段 fn：单候选 tools 尝试（URL/键解析 → 建请求 → 发送 → 非 2xx 沿用 handle_non_success →
 /// 2xx strict 判定 + 按次计费 + 成功记账终态）。Next=换候选 continue；Respond=结束循环返回客户端。
-#[allow(clippy::too_many_arguments)]
 async fn tools_attempt(
-    state: &Arc<ProxyState>,
+    scope: &super::call_scope::CallScope<'_>,
     log: &mut ProxyLog,
     attempts: &mut Vec<ProxyAttempt>,
-    log_settings: &ProxyLogSettings,
-    group: &Group,
-    route: &RouteResult,
     bytes: &[u8],
     path: &str,
-    proxy_client: &super::models::ProxyClientSettings,
-    req_timeout: u64,
-    conn_timeout: u64,
-    sched_settings: &aidog_db::models::SchedulingBreakerSettings,
-    start: std::time::Instant,
-    lang: Lang,
-    attempt_start: std::time::Instant,
-    attempt_ts: i64,
-    is_last_candidate: bool,
-    candidate_total: usize,
 ) -> AttemptOutcome {
+    let (route, log_settings, group) = (scope.route, scope.log_settings, scope.group);
     // 语义 6：URL = tools_endpoints 声明的绝对 URL（不再 join base_url）；键按该平台数据。
     let endpoints =
         crate::gateway::billing::default_tools_endpoints(&route.platform.platform_type.wire_str());
@@ -224,15 +205,7 @@ async fn tools_attempt(
         String::new()
     };
 
-    let breaker_th = super::scheduling::BreakerThresholds::resolve(sched_settings, &route.platform, group.routing_mode);
-
-    let client = super::http_client::build_http_client(
-        proxy_client,
-        req_timeout,
-        conn_timeout,
-        super::http_client::platform_should_use_proxy(proxy_client, &route.platform.extra),
-    )
-    .await;
+    let client = scope.build_client().await;
     let rb = client.post(&url).header("Content-Type", "application/json");
     let rb = if let Some(k) = &appbuilder_key {
         rb.header("X-Appbuilder-Authorization", format!("Bearer {k}"))
@@ -245,59 +218,8 @@ async fn tools_attempt(
 
     let resp = match rb.send().await {
         Ok(r) => r,
-        Err(e) => {
-            // transport 错误：对齐 decision.rs / forward.rs —— connect 失败计熔断 + 降权，其余仅降权。
-            if e.is_connect() {
-                state.scheduler.record_connect_failure(
-                    route.platform.id,
-                    candidate_total,
-                    &breaker_th,
-                    aidog_db::now(),
-                );
-            } else {
-                state.scheduler.record_ignored(route.platform.id);
-            }
-            state.scheduler.record_penalty(
-                route.platform.id,
-                super::scheduling::PenaltyTier::Server,
-                aidog_db::now(),
-            );
-            let detail = err_chain(&e);
-            tracing::error!(url = %url, platform = %route.platform.name, error = %detail, "tools upstream request failed (502)");
-            let upstream_err = format!("upstream error: {detail}");
-            attempts.push(ProxyAttempt {
-                chain_stop: None,
-                platform_id: route.platform.id,
-                platform_name: route.platform.name.clone(),
-                status_code: 0,
-                error: upstream_err.clone(),
-                duration_ms: attempt_start.elapsed().as_millis() as i64,
-                ts: attempt_ts,
-                model: Some(route.target_model.clone()),
-                ..Default::default()
-            });
-            let _ = aidog_db::set_platform_last_error(
-                &state.db,
-                route.platform.id,
-                Some(upstream_err.clone()),
-            )
-            .await;
-            if !is_last_candidate {
-                return AttemptOutcome::Next { connect_failed: false };
-            }
-            let msg = format!("{}: {detail}", i18n::t(lang, ErrorKey::Upstream));
-            return AttemptOutcome::Respond(finalize_proxy_502(
-                state,
-                log,
-                attempts,
-                route.platform.id,
-                upstream_err,
-                msg,
-                start,
-                log_settings,
-            )
-            .await);
-        }
+        // transport 错误：judge(Transport) + apply 记账（connect 计熔断 + 降权，其余仅降权）。
+        Err(e) => return scope.transport_failed(log, attempts, &e, &url).await,
     };
 
     let status = resp.status();
@@ -310,23 +232,24 @@ async fn tools_attempt(
         match handle_non_success(
             resp,
             status,
-            state,
+            scope.state,
             log,
             attempts,
             route,
             group,
-            &breaker_th,
+            &scope.breaker_th,
             NonSuccessCtx {
                 url: &url,
-                start,
-                attempt_start,
-                attempt_ts,
-                is_last_candidate,
+                start: scope.start,
+                attempt_start: scope.attempt_start,
+                attempt_ts: scope.attempt_ts,
+                is_last_candidate: scope.is_last_candidate,
                 log_settings,
                 requested_model: "",
                 has_next_model: false,
                 switched: &mut false,
                 ttfb_ms: None,
+                candidate_total: scope.candidate_total,
             },
         )
         .await
@@ -341,33 +264,10 @@ async fn tools_attempt(
     let body_str = String::from_utf8_lossy(&body).to_string();
     let billed = tools_success_ok(&route.platform.platform_type, &tool_key, &body);
 
-    // 成功记账（同 decision.rs：延迟 EMA + auto_disabled 恢复）。200 无结果（strict 不计费）
-    // 仍记 success：空结果是正常业务态非故障，不计熔断惩罚（语义 7 只约定不计费）。
-    let attempt_latency_ms = attempt_start.elapsed().as_millis() as i64;
-    state
-        .scheduler
-        .record_success(route.platform.id, attempt_latency_ms);
-    let _ = aidog_db::set_platform_last_error(&state.db, route.platform.id, None).await;
-    attempts.push(ProxyAttempt {
-        chain_stop: None,
-        platform_id: route.platform.id,
-        platform_name: route.platform.name.clone(),
-        status_code: status.as_u16() as i32,
-        error: String::new(),
-        duration_ms: attempt_latency_ms,
-        ts: attempt_ts,
-        model: Some(route.target_model.clone()),
-        ..Default::default()
-    });
-    if route.platform.status == super::models::PlatformStatus::AutoDisabled {
-        if let Err(e) =
-            aidog_db::recover_platform_auto_disabled(&state.db, route.platform.id).await
-        {
-            tracing::error!(platform_id = route.platform.id, error = %e, "recover auto-disabled platform failed");
-        } else {
-            aidog_ctx::emit("proxy-log-updated", route.platform.id.into());
-        }
-    }
+    // 成功记账（CallScope 统一：延迟 EMA + last_error 清空 + auto_disabled 恢复 + attempt 留痕）。
+    // 200 无结果（strict 不计费）仍记 success：空结果是正常业务态非故障，不计熔断惩罚
+    // （语义 7 只约定不计费）。
+    scope.succeeded(attempts, status.as_u16()).await;
 
     // 语义 8：按次费 = tools_pricing[键].per_1000 ÷ 1000 × CNY_PER_USD（CNY 条目换算 USD），
     // 不走 peak 倍率链、不走 resolve_price。无声明 / strict 未过 → 0（tools_cost 内部
@@ -387,7 +287,7 @@ async fn tools_attempt(
     // 按次费入余额预估：独立搜索 token 全 0，spawn_estimate 凭按次费绕过「无 token 跳过」。
     // log.est_cost 此刻即 tools_cost（USD，不含 peak 倍率），直接作 tool_cost_usd。
     spawn_estimate(
-        state,
+        scope.state,
         route.platform.id,
         &route.platform.platform_type,
         route.platform.base_url.clone(),
@@ -410,10 +310,10 @@ async fn tools_attempt(
     log.response_body = body_str.clone();
     log.user_response_body = body_str;
     log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
-    log.duration_ms = start.elapsed().as_millis() as i32;
+    log.duration_ms = scope.start.elapsed().as_millis() as i32;
     log.retry_count = aidog_db::models::retry_count_of(attempts);
     log.attempts = std::mem::take(attempts);
-    upsert_log(state, log, log_settings).await;
+    upsert_log(scope.state, log, log_settings).await;
     let mut response = (
         StatusCode::OK,
         [(axum::http::header::CONTENT_TYPE, "application/json")],

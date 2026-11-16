@@ -317,7 +317,7 @@ fn failover_sorts_by_level_priority_desc_then_priority_asc() {
     let gp3 = mk_gp_lp(3, 1, 1, 1);
     let gp4 = mk_gp_lp(4, 1, 0, 10);
     let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2, &gp3, &gp4];
-    // 复用 select_candidates_ctx 内的 Failover 排序逻辑
+    // 复用候选选择中的 Failover 排序逻辑
     v.sort_by_key(|gp| (std::cmp::Reverse(gp.level_priority), gp.priority));
     // lp=10 两个在前，其内部按 priority 升序：p4(pri0) < p2(pri2)；再 lp=5(p1)，再 lp=1(p3)
     assert_eq!(

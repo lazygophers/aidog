@@ -5,28 +5,8 @@
 //! 聊天、向量化 / 重排序、决策、搜索四类请求的循环共用 [`AttemptLoop`]（票 02 聊天、票 03 其余三类）。
 
 use super::*;
-use aidog_db::models::GroupPlatformDetail;
 use std::time::Duration;
 use std::collections::HashSet;
-
-/// 排除范围，字符串形态即 `ProxyAttempt.exclusion` 的取值。
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum ExcludeScope {
-    Pair,
-    Platform,
-}
-
-impl ExcludeScope {
-    pub(crate) fn as_str(self) -> &'static str {
-        match self {
-            Self::Pair => "pair",
-            Self::Platform => "platform",
-        }
-    }
-    fn parse(s: &str) -> Self {
-        if s == "pair" { Self::Pair } else { Self::Platform }
-    }
-}
 
 /// 本次请求内已排除的平台 / 组合。
 #[derive(Default)]
@@ -120,16 +100,18 @@ pub(crate) fn record_exclusion(
     model: &str,
 ) {
     let scope = match attempts.last_mut() {
-        Some(a) => ExcludeScope::parse(a.exclusion.get_or_insert_with(|| ExcludeScope::Platform.as_str().to_string())),
+        Some(a) => *a.exclusion.get_or_insert(ExcludeScope::Platform),
         None => ExcludeScope::Platform,
     };
     excl.add(scope, platform_id, model);
 }
 
-/// 重排器：分组平台列表首次重排时读一次库，之后各次重排复用（一次请求只读一次）。
+/// 重排器：每请求稳定的读库输入（票 08 [`RouteInputs`]）首次重排时读一次库，之后各次
+/// 重排复用（一次请求一次读库）。健康排序键 / 成功计数不缓存——逐次重排现读（顺序锁
+/// `planner_rerank_caches_platforms_and_recomputes_health_each_time`）。
 #[derive(Default)]
 pub(crate) struct AttemptPlanner {
-    platforms: Option<Vec<GroupPlatformDetail>>,
+    inputs: Option<RouteInputs>,
     /// 最近一次重排里是否有平台因限频被路由层挡掉（终态 503 据此沿用限频审计标记）。
     pub(crate) saw_rate_limit: bool,
     /// 最近一次重排里限频 / 冷却挡掉的候选最早可放行时刻（Unix 毫秒），429 的 `Retry-After` 取它。
@@ -147,11 +129,11 @@ impl AttemptPlanner {
         kind: RequestKind<'_>,
         client: ClientGate,
     ) -> Result<Vec<RouteResult>, String> {
-        if self.platforms.is_none() {
-            self.platforms = Some(aidog_db::get_group_platforms(db, group.id).await.map_err(|e| e.to_string())?);
+        if self.inputs.is_none() {
+            self.inputs = Some(RouteInputs::load(db, group, kind).await.map_err(|e| e.to_string())?);
         }
-        let platforms = self.platforms.clone().unwrap_or_default();
-        select_candidates_preloaded(db, group, Some(platforms), source_model, Some(ctx), kind, client)
+        let inputs = self.inputs.clone().expect("inputs loaded above");
+        select_candidates_preloaded(db, group, Some(inputs), source_model, Some(ctx), kind, client)
             .await
             .map(|s| {
                 self.saw_rate_limit = s.routing.entries.iter().any(|e| e.reason == aidog_db::models::RouteReason::RateLimited);
@@ -273,6 +255,32 @@ impl<'k> AttemptLoop<'k> {
         true
     }
 
+    /// 候选耗尽或尝试次数用尽时，统一写入 503 终态与已记录的尝试。
+    pub(crate) async fn exhausted(
+        state: &Arc<ProxyState>,
+        log: &mut ProxyLog,
+        attempts: &mut Vec<ProxyAttempt>,
+        start: std::time::Instant,
+        log_settings: &ProxyLogSettings,
+        lang: Lang,
+    ) -> Response {
+        let status = exhausted_status(log);
+        log.status_code = status.as_u16() as i32;
+        log.done = true;
+        let err_body = format!("{}: all candidates exhausted", i18n::t(lang, ErrorKey::Upstream));
+        log.response_body = "all candidates exhausted".to_string();
+        log.user_response_body = err_body.clone();
+        log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
+        log.duration_ms = start.elapsed().as_millis() as i32;
+        log.retry_count = aidog_db::models::retry_count_of(attempts);
+        log.attempts = std::mem::take(attempts);
+        upsert_log(state, log, log_settings).await;
+        let mut response = (status, err_body).into_response();
+        add_retry_after(&mut response, log);
+        inject_trace_header(&mut response);
+        response
+    }
+
     /// 本次选择失败（`Next`）：折进排除集；`connect_failed` 把 base_url 记为已死。
     pub(crate) fn failed(&mut self, attempts: &mut [ProxyAttempt], connect_failed: bool) {
         if let Some((platform_id, model, base_url)) = self.cur.take() {
@@ -389,6 +397,20 @@ mod tests {
         assert!(l.dead_base_urls.is_empty());
     }
 
+    /// 行为锁定（票 02）：历史日志的三种旧 JSON 形态反序列化在 exclusion 类型化前后一致。
+    #[test]
+    fn legacy_exclusion_json_shapes_deserialize_unchanged() {
+        let base = r#"{"platform_id":1,"platform_name":"p","status_code":500,"duration_ms":10,"ts":1"#;
+        let pair: ProxyAttempt =
+            serde_json::from_str(&format!("{base},\"exclusion\":\"pair\"}}")).unwrap();
+        assert_eq!(pair.exclusion, Some(ExcludeScope::Pair));
+        let platform: ProxyAttempt =
+            serde_json::from_str(&format!("{base},\"exclusion\":\"platform\"}}")).unwrap();
+        assert_eq!(platform.exclusion, Some(ExcludeScope::Platform));
+        let missing: ProxyAttempt = serde_json::from_str(&format!("{base}}}")).unwrap();
+        assert_eq!(missing.exclusion, None);
+    }
+
     #[test]
     fn round_wait_is_injectable_and_defaults_to_one_second() {
         assert_eq!(ROUND_WAIT, std::time::Duration::from_secs(1));
@@ -396,5 +418,83 @@ mod tests {
         assert_eq!(l.wait, Duration::ZERO, "测试默认不真等");
         l.wait = Duration::from_millis(7);
         assert_eq!(l.wait, Duration::from_millis(7));
+    }
+}
+
+
+#[cfg(test)]
+mod exhausted_terminal_tests {
+    use super::*;
+    use crate::gateway::proxy::ProxyState;
+    use crate::gateway::scheduling::SchedulerState;
+    use crate::gateway::scheduling::StickyTable;
+    use aidog_middleware::MiddlewareEngine;
+
+    async fn unit_state() -> Arc<ProxyState> {
+        let (log_tx, log_rx) = tokio::sync::mpsc::channel(64);
+        let state = Arc::new(ProxyState {
+            db: Arc::new(aidog_db::test_support::test_db().await),
+            middleware: Arc::new(MiddlewareEngine::new()),
+            scheduler: Arc::new(SchedulerState::new()),
+            sticky: Arc::new(StickyTable::new()),
+            log_snapshots: dashmap::DashMap::new(),
+            agg_done: std::sync::Mutex::new((
+                std::collections::VecDeque::new(),
+                std::collections::HashSet::new(),
+            )),
+            listen_addr: std::sync::OnceLock::new(),
+            settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
+            log_tx,
+            log_queue_bytes: std::sync::atomic::AtomicU64::new(0),
+        });
+        spawn_log_writer(state.clone(), log_rx);
+        state
+    }
+
+    /// 票 05 收口后的统一 503 终态单元锁定（decision / tools 的 503 出口 E2E 实测不可达，
+    /// 覆盖缺口由本测试与 call 点核查补）：响应体 / attempts 移交 / retry_count / 落库行。
+    #[tokio::test]
+    async fn exhausted_terminal_shape() {
+        let state = unit_state().await;
+        let start = std::time::Instant::now();
+        let mut log = ProxyLog {
+            id: "t05-exhausted-unit".into(),
+            group_key: "gk-t05".into(),
+            ..Default::default()
+        };
+        let mut attempts = vec![ProxyAttempt {
+            status_code: 500,
+            error: "boom".into(),
+            ..Default::default()
+        }];
+        let expected_retry = aidog_db::models::retry_count_of(&attempts);
+        let log_settings = ProxyLogSettings {
+            log_user_request: true,
+            log_upstream_request: true,
+            ..Default::default()
+        };
+        let resp = AttemptLoop::exhausted(
+            &state, &mut log, &mut attempts, start, &log_settings, Lang::EnUs,
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(log.status_code, 503);
+        assert!(log.done);
+        assert_eq!(log.response_body, "all candidates exhausted");
+        assert_eq!(log.user_response_headers, r#"{"content-type":"text/plain"}"#);
+        assert!(log.user_response_body.ends_with(": all candidates exhausted"));
+        assert!(attempts.is_empty(), "调用方 Vec 已被 mem::take 清空");
+        assert_eq!(log.attempts.len(), 1, "attempts 移交进落库行");
+        assert_eq!(log.attempts[0].status_code, 500);
+        assert_eq!(log.retry_count, expected_retry);
+        flush_log_queue(&state).await;
+        let row = aidog_logs::get_proxy_log(&state.db, "t05-exhausted-unit")
+            .await
+            .unwrap()
+            .expect("终态行必落库");
+        assert_eq!(row.status_code, 503);
+        assert_eq!(row.response_body, "all candidates exhausted");
+        assert_eq!(row.attempts.len(), 1);
+        assert_eq!(row.retry_count, expected_retry);
     }
 }

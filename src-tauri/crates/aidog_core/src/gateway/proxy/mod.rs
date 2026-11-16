@@ -23,10 +23,11 @@ pub(crate) use super::models::{
     ClientType, Group, Protocol, ProxyAttempt, ProxyLog, ProxyLogSettings, ProxyTimeoutSettings,
 };
 pub(crate) use super::router::{
-    ClientGate, QuotaExhausted, RequestKind, RouteFail, RouteResult, ScheduleCtx, select_candidates_gated, select_candidates_preloaded,
+    ClientGate, QuotaExhausted, RequestKind, RouteFail, RouteResult, RouteInputs, ScheduleCtx, select_candidates_gated, select_candidates_preloaded,
 };
 pub(crate) use aidog_adapter::{self as adapter, ChatRequest, ChatStreamEvent};
 pub(crate) use aidog_db::Db;
+pub(crate) use aidog_db::models::ExcludeScope;
 pub(crate) use aidog_middleware::{InboundOutcome, MiddlewareEngine};
 // sync 端 HTTPS_PROXY 注入与 CONNECT 端共用同一 URL-safe 判定（spec D9 两端对称）。
 pub(crate) use connect::is_url_safe_group_name;
@@ -40,8 +41,9 @@ mod aux_model;
 mod decision;
 mod devin;
 mod endpoint;
+mod failure_verdict;
 mod finish;
-mod attempt_plan;
+pub(crate) mod attempt_plan;
 mod forward;
 mod group_info;
 mod handler;
@@ -59,6 +61,7 @@ mod notify;
 mod passthrough;
 mod responses;
 mod retry;
+mod rate_slot;
 mod settings_cache;
 mod stream;
 mod timeout;
@@ -67,6 +70,9 @@ mod tools;
 mod web_takeover;
 mod ws;
 mod tokenizer;
+
+mod call_scope;
+mod outbound_shape;
 
 #[cfg(test)]
 mod test_adapter_dispatch;
@@ -80,6 +86,10 @@ mod test_connect;
 mod test_e2e_mitm;
 #[cfg(test)]
 mod test_group_info;
+#[cfg(test)]
+mod test_failure_verdict;
+#[cfg(test)]
+mod test_outbound_shape;
 #[cfg(test)]
 mod test_integration;
 #[cfg(test)]
@@ -114,7 +124,8 @@ pub(crate) use endpoint::{
     select_endpoint_for_decision, select_endpoint_for_openai_family, is_embedding_endpoint, is_rerank_endpoint,
     KeyCandidate, KeyChannel, custom_key_header_names, key_candidates, load_custom_key_channels};
 pub(crate) use finish::{AttemptCtx, finish_nonstream, finish_stream};
-pub(crate) use forward::{AttemptOutcome, add_retry_after, note_retry_at, CallBudget, exhausted_status, finalize_proxy_502, forward_attempt, mark_rate_limited};
+pub(crate) use forward::{AttemptOutcome, add_retry_after, note_retry_at, CallBudget, exhausted_status, finalize_proxy_502, forward_attempt};
+pub(crate) use rate_slot::{RateSlot, RateSlotCtx, mark_rate_limited};
 pub(crate) use group_info::handle_group_info;
 pub(crate) use mcp_http::{handle_mcp, handle_mcp_get};
 pub(crate) use management::handle_management;

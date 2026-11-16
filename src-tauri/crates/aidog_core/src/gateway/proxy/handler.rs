@@ -434,8 +434,14 @@ pub(crate) async fn handle_proxy_core(
     // 进 parse_incoming_request 必失败。决策请求原样转发仅改写 model（jev-decision-proxy §3.4），
     // 经 router 复用过滤 / 冷却 / 熔断（不照抄 responses.rs 绕过路由的做法）。
     if is_decision_endpoint(&path) {
-        return handle_decision(&state, &mut log, &log_settings, &group, &bytes, start, lang, client_gate)
-            .await;
+        return handle_decision(
+            &state,
+            &mut log,
+            &group,
+            &bytes,
+            super::call_scope::ReqCtx { log_settings: &log_settings, start, lang, client: client_gate },
+        )
+        .await;
     }
 
     // ── 向量化请求分流（必须在 parse_incoming_request 之前）──
@@ -446,12 +452,9 @@ pub(crate) async fn handle_proxy_core(
             &super::aux_model::EMBEDDING,
             &state,
             &mut log,
-            &log_settings,
             &group,
             &bytes,
-            start,
-            lang,
-            client_gate,
+            super::call_scope::ReqCtx { log_settings: &log_settings, start, lang, client: client_gate },
         )
         .await;
     }
@@ -463,12 +466,9 @@ pub(crate) async fn handle_proxy_core(
             &super::aux_model::RERANK,
             &state,
             &mut log,
-            &log_settings,
             &group,
             &bytes,
-            start,
-            lang,
-            client_gate,
+            super::call_scope::ReqCtx { log_settings: &log_settings, start, lang, client: client_gate },
         )
         .await;
     }
@@ -478,7 +478,14 @@ pub(crate) async fn handle_proxy_core(
     // （tools.rs），不进聊天转发链。全库无声明 → is_tools_endpoint false，行为与现状一致
     //（语义 11 零回归）。
     if is_tools_endpoint(&path) {
-        return handle_tools(&state, &mut log, &log_settings, &group, &bytes, &path, start, lang, client_gate)
+        return handle_tools(
+            &state,
+            &mut log,
+            &group,
+            &bytes,
+            &path,
+            super::call_scope::ReqCtx { log_settings: &log_settings, start, lang, client: client_gate },
+        )
             .await;
     }
 
@@ -572,7 +579,7 @@ pub(crate) async fn handle_proxy_core(
         chat_req.model.clone()
     };
     log.model = requested_model.clone();
-    // 路由按 `chat_req.model` 选候选（下方 select_candidates_ctx），gemini 源此处仍为空，
+    // 路由按 `chat_req.model` 选候选（下方 select_candidates_gated），gemini 源此处仍为空，
     // 补齐后模型映射与出站 path 才拿得到模型名。其余协议 model 本就来自 body，此赋值等价空操作。
     if chat_req.model.is_empty() {
         chat_req.model = requested_model.clone();
@@ -823,7 +830,7 @@ pub(crate) async fn handle_proxy_core(
     // 重排按客户端请求的模型名（forward 会把 chat_req.model 改写成上游目标模型）。
     let mut attempt_loop =
         attempt_plan::AttemptLoop::new(group.max_retries, RequestKind::Chat, &requested_model, client_gate.clone(), candidates);
-    let mut rate_slot = None;
+    let mut rate_slot = RateSlot::default();
 
     // 最大尝试次数用尽（换平台与同平台换模型的上游调用都计）/ 无组合可选 → 退出循环落 503
     let web_tool = super::web_takeover::detect(&req_value).filter(|_| matches!(source_protocol, Protocol::Anthropic));
@@ -865,26 +872,7 @@ pub(crate) async fn handle_proxy_core(
         }
     } // ── end attempt loop ──
 
-    // 候选耗尽 / 最大尝试次数用尽且未在循环内 return（理论不可达：循环内每条路径均 return 或 continue，
-    // 仅 budget.exhausted() 的 break 会落到这里）。返回 503 + 已记录的 attempts。
-    let status = exhausted_status(&log);
-    log.status_code = status.as_u16() as i32;
-    log.done = true;
-    let err_body = format!(
-        "{}: all candidates exhausted",
-        i18n::t(lang, ErrorKey::Upstream)
-    );
-    log.response_body = "all candidates exhausted".to_string();
-    log.user_response_body = err_body.clone();
-    log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
-    log.duration_ms = start.elapsed().as_millis() as i32;
-    log.retry_count = aidog_db::models::retry_count_of(&attempts);
-    log.attempts = std::mem::take(&mut attempts);
-    upsert_log(&state, &log, &log_settings).await;
-    let mut r = (status, err_body).into_response();
-    add_retry_after(&mut r, &log);
-    inject_trace_header(&mut r);
-    r
+    attempt_plan::AttemptLoop::exhausted(&state, &mut log, &mut attempts, start, &log_settings, lang).await
 }
 
 /// 路由失败快照：补上路由耗时（路由画布 01）。
