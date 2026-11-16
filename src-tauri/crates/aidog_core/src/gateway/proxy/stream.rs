@@ -416,9 +416,7 @@ impl StreamAggregator {
                 );
                 self.observe_served_model(&json);
             }
-            if let Some(event) = pa.parse_sse_frame(&json, wire_protocol) {
-                events.push(event);
-            }
+            events.extend(pa.parse_sse_frame(&json, wire_protocol));
         }
         events
     }

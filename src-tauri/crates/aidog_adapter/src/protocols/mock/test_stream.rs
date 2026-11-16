@@ -11,13 +11,15 @@ fn sse_anthropic_start_delta_stop_sequence() {
         ..MockConfig::default()
     };
     let chunks = build_sse_chunks(&cfg, &Protocol::Anthropic, "claude-x");
-    // 1 Start + 3 Delta + 1 Stop = 5
-    assert_eq!(chunks.len(), 5);
+    // 1 Start + 3 Delta + 1 Stop(closes) + 1 flush(message_delta+message_stop) = 6
+    // issue 71：Stop 只关块，终帧压到流末 flush
+    assert_eq!(chunks.len(), 6);
     assert!(chunks[0].contains("message_start"));
     assert!(chunks[1].contains("content_block_delta"));
     assert!(chunks[2].contains("content_block_delta"));
     assert!(chunks[3].contains("content_block_delta"));
-    assert!(chunks[4].contains("message_stop"));
+    assert!(chunks[4].contains("content_block_stop"));
+    assert!(chunks[5].contains("message_stop"));
     // chunk_count=3，6 字符 → 每块 2 字符
     assert!(chunks[1].contains("\"text\":\"ab\""));
     assert!(chunks[2].contains("\"text\":\"cd\""));
@@ -32,7 +34,7 @@ fn sse_openai_sequence_has_done() {
         ..MockConfig::default()
     };
     let chunks = build_sse_chunks(&cfg, &Protocol::OpenAI, "gpt-x");
-    // Start + 2 Delta + Stop
+    // Start + 2 Delta + Stop（finish+usage+[DONE]；issue 71）
     assert_eq!(chunks.len(), 4);
     assert!(chunks[0].contains("chat.completion.chunk"));
     assert!(chunks.last().unwrap().contains("[DONE]"));
@@ -47,8 +49,8 @@ fn sse_chunk_count_capped_to_text_len() {
         ..MockConfig::default()
     };
     let chunks = build_sse_chunks(&cfg, &Protocol::Anthropic, "m");
-    // 2 字符 → 最多 2 Delta：Start + 2 Delta + Stop = 4
-    assert_eq!(chunks.len(), 4);
+    // 2 字符 → 最多 2 Delta：Start + 2 Delta + Stop(closes) + flush = 5（issue 71）
+    assert_eq!(chunks.len(), 5);
 }
 
 #[test]
@@ -59,8 +61,8 @@ fn sse_empty_text_yields_single_delta() {
         ..MockConfig::default()
     };
     let chunks = build_sse_chunks(&cfg, &Protocol::Anthropic, "m");
-    // 空文本 → split_text 返单块 → Start + 1 Delta + Stop = 3
-    assert_eq!(chunks.len(), 3);
+    // 空文本 → split_text 返单块 → Start + 1 Delta + Stop(closes) + flush = 4（issue 71）
+    assert_eq!(chunks.len(), 4);
 }
 
 #[test]
