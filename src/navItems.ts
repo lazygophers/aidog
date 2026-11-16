@@ -15,6 +15,7 @@ export const BASE_NAV: NavItem[] = [
   { id: "subagents", icon: "subagents", labelKey: "nav.subagents", section: "nav.section.extension" },
   { id: "context-compress", icon: "contextCompress", labelKey: "nav.contextCompress", section: "nav.section.extension" },
   { id: "variables", icon: "variables", labelKey: "nav.variables", section: "nav.section.extension" },
+  { id: "plugins", icon: "plugins", labelKey: "nav.plugins", section: "nav.section.extension" },
   { id: "tools", icon: "tools", labelKey: "nav.tools", section: "nav.section.extension" },
   { id: "middleware", icon: "middleware", labelKey: "appSettings.middlewareTab", section: "nav.section.extension" },
   {

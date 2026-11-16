@@ -2276,6 +2276,98 @@
       "returns": "gateway::models::PlatformUsageStats"
     },
     {
+      "name": "plugins_claude_list",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<ClaudePluginView>"
+    },
+    {
+      "name": "plugins_claude_set",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "pluginId",
+          "type": "String"
+        },
+        {
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "returns": "Vec<ClaudePluginView>"
+    },
+    {
+      "name": "plugins_codex_add",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "pluginId",
+          "type": "String"
+        }
+      ],
+      "returns": "CodexPluginsView"
+    },
+    {
+      "name": "plugins_codex_list",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "CodexPluginsView"
+    },
+    {
+      "name": "plugins_codex_marketplace_add",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "source",
+          "type": "String"
+        }
+      ],
+      "returns": "CodexPluginsView"
+    },
+    {
+      "name": "plugins_codex_marketplace_remove",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "name",
+          "type": "String"
+        }
+      ],
+      "returns": "CodexPluginsView"
+    },
+    {
+      "name": "plugins_codex_remove",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "pluginId",
+          "type": "String"
+        }
+      ],
+      "returns": "CodexPluginsView"
+    },
+    {
       "name": "popover_config_get",
       "category": "popover",
       "kind": "readonly",
