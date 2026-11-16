@@ -72,6 +72,57 @@ async fn set_agent_writes_and_removes_config() {
     );
 }
 
+/// 写文件失败 → 不落 DB（先文件后 DB 的顺序保证）：启用时写失败、禁用时删失败
+/// 两条路径都断言 DB enabled_agents 保持原值且报错点名失败 agent。
+#[tokio::test]
+async fn set_agent_write_failure_leaves_db_untouched() {
+    let home = HomeGuard::new();
+    let db = test_db().await;
+    add_server(&db, payload("srv")).await.unwrap();
+
+    // 第一个 agent：claude 启用成功，落 DB
+    set_agent_enabled(&db, "srv", McpAgent::ClaudeCode, true)
+        .await
+        .unwrap();
+    let row = store::get_mcp_server(&db, "srv").await.unwrap().unwrap();
+    assert!(row.enabled_agents.contains("claude-code"));
+
+    // 第二个 agent：把 codex config.toml 换成目录 → 写失败 → DB 不得落 codex
+    let toml_path = home.dir.path().join(".codex/config.toml");
+    std::fs::remove_file(&toml_path).ok();
+    std::fs::create_dir_all(&toml_path).unwrap();
+    let err = set_agent_enabled(&db, "srv", McpAgent::Codex, true)
+        .await
+        .unwrap_err();
+    assert!(err.contains("codex"), "error should name failed agent: {err}");
+    let row = store::get_mcp_server(&db, "srv").await.unwrap().unwrap();
+    assert!(
+        !row.enabled_agents.contains("codex"),
+        "failed write must not enable in DB, got: {}",
+        row.enabled_agents
+    );
+    assert!(row.enabled_agents.contains("claude-code"));
+    std::fs::remove_dir_all(&toml_path).unwrap();
+
+    // 禁用路径：把 ~/.claude.json 换成目录 → remove 失败 → DB 不得移除 claude-code
+    let claude_json = home.dir.path().join(".claude.json");
+    std::fs::remove_file(&claude_json).unwrap();
+    std::fs::create_dir_all(&claude_json).unwrap();
+    let err = set_agent_enabled(&db, "srv", McpAgent::ClaudeCode, false)
+        .await
+        .unwrap_err();
+    assert!(
+        err.contains("claude-code"),
+        "error should name failed agent: {err}"
+    );
+    let row = store::get_mcp_server(&db, "srv").await.unwrap().unwrap();
+    assert!(
+        row.enabled_agents.contains("claude-code"),
+        "failed remove must not disable in DB, got: {}",
+        row.enabled_agents
+    );
+}
+
 #[tokio::test]
 async fn set_agent_transport_incompatible_errs() {
     let _home = HomeGuard::new();
