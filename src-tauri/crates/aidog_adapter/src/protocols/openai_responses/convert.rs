@@ -719,7 +719,7 @@ pub fn parse_responses_sse(data: &Value) -> Option<ChatStreamEvent> {
                 input: None,
             })
         }
-        "response.function_arguments.delta" => Some(ChatStreamEvent::ToolDelta {
+        "response.function_call_arguments.delta" => Some(ChatStreamEvent::ToolDelta {
             index: data.get("output_index").and_then(Value::as_u64)? as u32,
             id: None,
             name: None,
@@ -773,7 +773,7 @@ mod tests {
             other => panic!("expected ToolDelta, got {:?}", other.map(|_| ())),
         }
         let args = parse_responses_sse(&json!({
-            "type":"response.function_arguments.delta","output_index":1,"delta":"{\"city\":"
+            "type":"response.function_call_arguments.delta","output_index":1,"delta":"{\"city\":"
         }));
         assert!(
             matches!(args, Some(ChatStreamEvent::ToolDelta { input: Some(ref s), .. }) if s == "{\"city\":")
