@@ -30,8 +30,45 @@ impl PlatformAdapter for KimiAdapter {
     }
 }
 
+/// 智谱 GLM 家族基座（issue 75；成员 glm / glm_en / glm_coding / glm_coding_en 共用，
+/// 成员差异见各成员 issue）。
+///
+/// 家族共性取证（官方文档，核对日期 2026-11-16）：
+/// - 思考开关：请求字段 `thinking: {"type": "enabled" | "disabled"}`；GLM-5.3 / GLM-5.3-FLASH
+///   为强制思考不可关闭（由 registry `thinking_toggleable: false` 走基座强制思考剥除，不在此覆盖）。
+///   https://docs.bigmodel.cn/cn/guide/capabilities/thinking-mode
+///   https://docs.z.ai/guides/capabilities/thinking-mode
+/// - 流式思考增量 `delta.reasoning_content`、usage `prompt_tokens_details.cached_tokens`：
+///   与基座 OpenAI 协议构件一致，不覆盖。
+///   https://docs.bigmodel.cn/api-reference/%E6%A8%A1%E5%9E%8B-api/%E5%AF%B9%E8%AF%9D%E8%A1%A5%E5%85%A8
+///   https://docs.z.ai/api-reference/llm/chat-completion
+/// - 未证实（保持基座默认）：工具调用、图片与多模态、system 提示、错误体格式、
+///   流式事件其余字段、Anthropic 端点的差异。
+pub struct GlmFamilyAdapter;
+
+impl PlatformAdapter for GlmFamilyAdapter {
+    /// 差异：OpenAI 端点禁思考写官方 `thinking.type=disabled`，不写基座第三方端点用的
+    /// vLLM 式 `chat_template_kwargs.enable_thinking`（GLM 官方 API 文档无此参数）。
+    /// 该写出值与基座 anthropic 臂相同，故按 anthropic 臂执行；其余 wire 与强制思考路径同基座。
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        let wire = match wire {
+            Protocol::OpenAI => &Protocol::Anthropic,
+            w => w,
+        };
+        hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking)
+    }
+}
+
 static GENERIC: GenericAdapter = GenericAdapter;
 static KIMI: KimiAdapter = KimiAdapter;
+static GLM: GlmFamilyAdapter = GlmFamilyAdapter;
 
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 初始映射全部为默认家族基座，Kimi 家族覆盖 coding_plan 注入差异，行为与基座协议臂等价）。
@@ -56,10 +93,10 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("devin", &GENERIC),
     ("doubao", &GENERIC),
     ("gemini", &GENERIC),
-    ("glm", &GENERIC),
-    ("glm_coding", &GENERIC),
-    ("glm_coding_en", &GENERIC),
-    ("glm_en", &GENERIC),
+    ("glm", &GLM),
+    ("glm_coding", &GLM),
+    ("glm_coding_en", &GLM),
+    ("glm_en", &GLM),
     ("intern_inkstone", &GENERIC),
     ("kimi", &KIMI),
     ("kimi_coding", &GENERIC),
