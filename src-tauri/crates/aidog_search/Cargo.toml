@@ -22,5 +22,9 @@ scraper = "0.29"
 htmd = "0.5.6"
 # 免 key 引擎出站的浏览器 TLS/HTTP2 指纹模拟（仅引擎抓取用，不影响代理转发）。
 # wreq-util 取 0.2（配 wreq 0.16）：3.0.0-rc 系依赖 wreq 6.0.0-rc.31，该版本在当前工具链编译失败。
+# 仅桌面（mac/win，发版平台）：wreq(BoringSSL) 的 `-l static=crypto/ssl` 与 rusqlite bundled SQLCipher 的
+# `-l dylib=crypto` 在 linux rustc 对同名 native lib 去重后 static 落选，BoringSSL 整体不链接、
+# SSL_*/EVP_* 全部未定义（v0.1.21 CI 实锤）；linux 只跑 CI 不发版，改用上方 reqwest(rustls) 避让。
+[target.'cfg(not(target_os = "linux"))'.dependencies]
 wreq = { version = "0.16", features = ["system-proxy", "socks"] }
 wreq-util = "0.2"
