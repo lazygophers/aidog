@@ -1419,6 +1419,7 @@ fn select_direct_candidates(
         mut probe,
         breaker_rejected,
         excluded,
+        retry_at_ms,
         ..
     } = filter_candidates(
         group_platforms,
@@ -1535,6 +1536,10 @@ fn select_direct_candidates(
         eval_ms: None,
         ..Default::default()
     };
+    // Retry-After 锚点（额度窗口 / 限频冷却的最早放行时刻）进快照，429 响应头读取。
+    if let Some(at) = retry_at_ms {
+        routing.note_retry_at_ms(at);
+    }
 
     if ordered.is_empty() {
         // 声明平台全因客户端白名单被拦（票 05）→ 403；白名单与其他不可用原因并存沿用原错误。
@@ -1572,6 +1577,23 @@ fn select_direct_candidates(
             );
             return Err(RouteFail {
                 reason: q.to_reason(),
+                routing,
+            });
+        }
+        // 声明平台全部因额度窗口耗尽被排除（extra.quota_windows 执行）→ 与主链同款
+        // quota_window_exhausted：429 + Retry-After（锚点=命中窗口结束时刻，快照 retry_at_s）。
+        // 混合原因不命中，走下方兜底。
+        let window_excluded = excluded
+            .iter()
+            .filter(|(_, r)| *r == RouteReason::QuotaWindowExhausted)
+            .count();
+        if window_excluded > 0 && window_excluded == direct_ids.len() {
+            tracing::info!(
+                group = %group.name, model = %direct_model, quota_window = window_excluded,
+                "all direct-model platforms quota-window exhausted; returning quota_window_exhausted error for audit log"
+            );
+            return Err(RouteFail {
+                reason: crate::gateway::quota_window::QUOTA_BLOCKED_REASON.to_string(),
                 routing,
             });
         }

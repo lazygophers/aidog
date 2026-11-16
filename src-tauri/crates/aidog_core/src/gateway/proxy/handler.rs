@@ -696,7 +696,8 @@ pub(crate) async fn handle_proxy_core(
             // 聊天请求被请求类型维度整组剔除（组内只剩纯决策平台）→ 落审计 proxy_log
             //（blocked_by='router', blocked_reason='no_chat_platform', status_code=400，R7）。
             // 直通模型声明平台全不可用（直接模型转发）→ 同样落审计
-            //（blocked_by='router', blocked_reason='direct_model_unavailable', 503）。
+            //（blocked_by='router', blocked_reason='direct_model_unavailable', 503）；
+            // 全因额度窗口耗尽 → 429 + blocked_reason='quota_window_exhausted'（2026-11-17）。
             // 客户端白名单拦下候选（blocked_reason='client_not_allowed'）：全拦 403，与其他原因并存 503。
             if e == "no_chat_platform"
                 || e == "peak_disabled"
