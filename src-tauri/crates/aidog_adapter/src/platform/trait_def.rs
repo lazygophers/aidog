@@ -104,6 +104,11 @@ pub trait PlatformAdapter: Send + Sync {
         hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking)
     }
 
+    /// tool_choice 出站调整（家族成员覆盖差异；默认不改动）。透传与转换两分支共用本钩子。
+    fn adjust_tool_choice(&self, body: &mut Value, wire: &Protocol, model: &str) {
+        let _ = (body, wire, model);
+    }
+
     /// 未建模顶层字段兜底透传：从客户端原体按目标 wire 协议允许集合补齐。
     /// 返回被挡字段名（只有名没有值），调用方拼进 `proxy_log.field_trace`。
     fn passthrough_unmodeled_fields(
