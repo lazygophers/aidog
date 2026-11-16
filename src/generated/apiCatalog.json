@@ -3405,6 +3405,65 @@
       "returns": "String"
     },
     {
+      "name": "subagents_delete",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "name",
+          "type": "String"
+        }
+      ],
+      "returns": "Vec<String>"
+    },
+    {
+      "name": "subagents_import",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "source",
+          "type": "String"
+        },
+        {
+          "name": "agents",
+          "type": "Vec<String>"
+        }
+      ],
+      "returns": "SubagentImportReport"
+    },
+    {
+      "name": "subagents_list",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<SubagentView>"
+    },
+    {
+      "name": "subagents_save",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "oldName",
+          "type": "Option<String>"
+        },
+        {
+          "name": "subagent",
+          "type": "Subagent"
+        }
+      ],
+      "returns": "Vec<SubagentView>"
+    },
+    {
       "name": "sync_group_settings",
       "category": "sync_settings",
       "kind": "mutating",
