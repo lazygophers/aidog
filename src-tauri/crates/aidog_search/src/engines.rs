@@ -86,12 +86,11 @@ enum FpKind {
     Plain,
 }
 
-/// 引擎出站 HTTP 客户端：桌面（mac/win）用 wreq 浏览器指纹；linux 只跑 CI 不发版，
-/// wreq(BoringSSL) 的 `-l static=crypto/ssl` 与 SQLCipher 的 `-l dylib=crypto` 在 linux rustc
-/// 同名 native lib 去重后 static 落选（BoringSSL 不链接），换 reqwest(rustls) 避让（Cargo.toml 注）。
-#[cfg(target_os = "linux")]
+/// 引擎出站 HTTP 客户端：mac 用 wreq 浏览器指纹；linux 不发版、Windows 与 SQLCipher 的
+/// vendored OpenSSL 符号撞死（Cargo.toml 注），两者换 reqwest(rustls) 避让。
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 use reqwest as engine_http;
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
 use wreq as engine_http;
 
 /// 指纹客户端缓存：key = (种类, 代理配置)，代理设置变更自动重建
@@ -112,7 +111,7 @@ async fn fingerprint_client(kind: FpKind) -> Result<engine_http::Client, String>
         return Ok(c);
     }
     let mut b = {
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(not(any(target_os = "linux", target_os = "windows")))]
         {
             match kind {
                 FpKind::Chrome => {
@@ -124,9 +123,9 @@ async fn fingerprint_client(kind: FpKind) -> Result<engine_http::Client, String>
                 FpKind::Plain => engine_http::Client::builder(),
             }
         }
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "windows"))]
         {
-            // linux 无指纹模拟（reqwest 无 emulation）；ChromeNoRedir 的不跟随跳转语义保留
+            // 无指纹模拟（reqwest 无 emulation）；ChromeNoRedir 的不跟随跳转语义保留
             let b = engine_http::Client::builder();
             if matches!(kind, FpKind::ChromeNoRedir) {
                 b.redirect(engine_http::redirect::Policy::none())
