@@ -675,7 +675,7 @@ mod test_hoist_mid_messages_system {
 
 #[cfg(test)]
 mod test_dropped_media_fields {
-    use super::outbound_shape::{build_field_trace, dropped_media_fields};
+    use super::outbound_shape::{build_field_trace, dropped_media_fields, dropped_server_tools};
     use aidog_adapter::types::{ChatRequest, ContentBlock, Message, MessageContent, Role};
     use super::Protocol;
 
@@ -725,5 +725,83 @@ mod test_dropped_media_fields {
     fn openai_video_drop_is_recorded() {
         let req = media_request("video/mp4", Some("AAAA"));
         assert_eq!(build_field_trace(false, false, false, &dropped_media_fields(&req, &Protocol::OpenAI)), "drop:video");
+    }
+
+    /// 三类改写按固定序拼接；全无改写时空串（不产生噪音记录）。（master forward.rs 测试移植）
+    #[test]
+    fn fa11_field_trace_composition_and_empty() {
+        assert_eq!(
+            build_field_trace(false, true, true, &["seed".to_string(), "n".to_string()]),
+            "cap:max_tokens,rewrite:middleware,drop:seed,drop:n"
+        );
+        assert_eq!(build_field_trace(false, false, false, &[]), "");
+    }
+
+    // ── issue #74：服务端工具丢弃留痕（master forward.rs 测试移植）──
+
+    fn tools_request(tools: serde_json::Value) -> ChatRequest {
+        let mut req = media_request("text/plain", Some("hi"));
+        req.tools = serde_json::from_value(tools).expect("tools parse");
+        req
+    }
+
+    #[test]
+    fn anthropic_wire_has_no_server_tool_drops() {
+        let req = tools_request(serde_json::json!([
+            {"type": "web_search_20250305", "name": "web_search"},
+            {"type": "bash_20250124", "name": "bash"}
+        ]));
+        assert!(dropped_server_tools(&req, &Protocol::Anthropic).is_empty());
+    }
+
+    #[test]
+    fn openai_wire_drops_all_server_tools() {
+        let req = tools_request(serde_json::json!([
+            {"name": "get_weather", "input_schema": {"type": "object"}},
+            {"type": "web_search_20250305", "name": "web_search"}
+        ]));
+        assert_eq!(
+            dropped_server_tools(&req, &Protocol::OpenAI),
+            vec!["web_search".to_string()]
+        );
+    }
+
+    #[test]
+    fn gemini_wire_drops_only_unmappable() {
+        let req = tools_request(serde_json::json!([
+            {"type": "web_search_20250305", "name": "web_search"},
+            {"type": "web_fetch_20250910", "name": "web_fetch"},
+            {"type": "bash_20250124", "name": "bash"}
+        ]));
+        assert_eq!(
+            dropped_server_tools(&req, &Protocol::Gemini),
+            vec!["bash".to_string()]
+        );
+        let req = tools_request(serde_json::json!([
+            {"type": "web_search_20250305", "name": "web_search"},
+            {"type": "web_fetch_20250910", "name": "web_fetch"}
+        ]));
+        assert_eq!(
+            dropped_server_tools(&req, &Protocol::OpenAIResponses),
+            vec!["web_fetch".to_string()],
+            "Responses 只映射 web_search，web_fetch 落留痕"
+        );
+    }
+
+    #[test]
+    fn server_tool_drops_compose_into_field_trace() {
+        let req = tools_request(serde_json::json!([
+            {"name": "get_weather", "input_schema": {"type": "object"}},
+            {"type": "bash_20250124", "name": "bash"}
+        ]));
+        assert_eq!(
+            build_field_trace(
+                false,
+                false,
+                false,
+                &dropped_server_tools(&req, &Protocol::OpenAI)
+            ),
+            "drop:bash"
+        );
     }
 }

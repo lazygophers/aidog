@@ -1187,7 +1187,8 @@ async fn stream_terminal_response(
 }
 
 /// 把 content 切块发 SSE delta：Start → N×Delta(text) → Stop(finish_reason)。
-/// 复用 `to_client_sse` 按 source_protocol 转 openai/anthropic 格式（含 gemini 兜底）。
+/// 复用 `to_client_sse_stateful` 按 source_protocol 转格式（含 gemini 兜底）；
+/// Responses 等有状态协议整条流共用一份状态机（issue 70 评审项 3）。
 pub(crate) fn build_devin_sse_seq(
     source_protocol: &Protocol,
     sse_id: &str,
@@ -1195,13 +1196,16 @@ pub(crate) fn build_devin_sse_seq(
     messages: &[String],
     finish_reason: &str,
 ) -> Vec<String> {
-    use aidog_adapter::converter::to_client_sse;
+    use aidog_adapter::converter::{ClientSseState, to_client_sse_stateful};
+    // 整条流共用一份状态机（issue 70 评审项 3：Responses 等有状态协议不得逐事件重建状态）
+    let mut state = ClientSseState::default();
     let mut out: Vec<String> = Vec::new();
-    if let Some(s) = to_client_sse(
+    if let Some(s) = to_client_sse_stateful(
         &ChatStreamEvent::Start {
             id: sse_id.to_string(),
             model: model.to_string(),
         },
+        &mut state,
         source_protocol,
         model,
     ) {
@@ -1210,8 +1214,9 @@ pub(crate) fn build_devin_sse_seq(
     for m in messages {
         // ponytail: Devin message 是离散产出，整条一个 delta chunk（非 token 切分）
         if !m.is_empty()
-            && let Some(s) = to_client_sse(
+            && let Some(s) = to_client_sse_stateful(
                 &ChatStreamEvent::Delta { text: m.clone() },
+                &mut state,
                 source_protocol,
                 model,
             )
@@ -1219,10 +1224,11 @@ pub(crate) fn build_devin_sse_seq(
             out.push(s);
         }
     }
-    if let Some(s) = to_client_sse(
+    if let Some(s) = to_client_sse_stateful(
         &ChatStreamEvent::Stop {
             finish_reason: Some(finish_reason.to_string()),
         },
+        &mut state,
         source_protocol,
         model,
     ) {
@@ -1509,6 +1515,42 @@ mod tests {
             chunks[2]
         );
         assert!(chunks[2].contains("[DONE]"), "stop [DONE]: {}", chunks[2]);
+    }
+
+    #[test]
+    fn sse_seq_responses_single_created_via_state() {
+        // issue 70 评审项 3：Responses 是有状态协议，序列必须整体走一份状态机——
+        // 整条流恰好一个 response.created，sequence_number 连续，且以 response.completed 收尾。
+        let chunks = build_devin_sse_seq(
+            &Protocol::OpenAIResponses,
+            "resp_s3",
+            "devin-normal",
+            &["hello".into(), "world".into()],
+            "stop",
+        );
+        let all = chunks.join("");
+        let created_count = all.matches("event: response.created").count();
+        assert_eq!(created_count, 1, "Responses 序列须恰好 1 个 response.created: {all:?}");
+        assert!(all.contains("response.in_progress"), "缺 response.in_progress: {all:?}");
+        assert!(
+            all.contains("response.output_text.done"),
+            "缺 response.output_text.done: {all:?}"
+        );
+        assert!(all.contains("response.completed"), "缺 response.completed: {all:?}");
+        // 序列号连续（不因分块重置）：抽全帧 data 行校验递增
+        let mut seqs: Vec<u64> = Vec::new();
+        for line in all.lines() {
+            if let Some(d) = line.strip_prefix("data: ")
+                && let Ok(v) = serde_json::from_str::<serde_json::Value>(d)
+                && let Some(s) = v.get("sequence_number").and_then(|x| x.as_u64())
+            {
+                seqs.push(s);
+            }
+        }
+        assert!(seqs.len() >= 5, "帧数不足: {seqs:?}");
+        for w in seqs.windows(2) {
+            assert_eq!(w[1], w[0] + 1, "sequence_number 不连续: {seqs:?}");
+        }
     }
 
     #[test]

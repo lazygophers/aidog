@@ -127,6 +127,12 @@ async fn migration_moves_rows_and_is_idempotent() {
         l.group_key = "g".into();
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l, false, false)).await.unwrap();
     }
+    // 模拟尚未迁移的旧库：迁移是一次性的（migration_done 标记），清标记后才会再搬。
+    db.call_proxy_log_traced(None, std::panic::Location::caller(), |c| {
+        c.execute("DELETE FROM migration_done WHERE id = '20261114-01-move'", [])
+    })
+    .await
+    .unwrap();
     for _ in 0..2 {
         db.call_proxy_log_traced(None, std::panic::Location::caller(), |c| {
             aidog_db::schema_late::migrate_request_log(c)
@@ -175,4 +181,24 @@ fn migration_real_failure_propagates_and_keeps_proxy_log_rows() {
     assert!(aidog_db::schema_late::migrate_request_log(&conn).is_err());
     let n: i64 = conn.query_row("SELECT COUNT(*) FROM proxy_log", [], |r| r.get(0)).unwrap();
     assert_eq!(n, 1, "失败回滚后 proxy_log 行必须还在");
+}
+
+#[tokio::test]
+async fn test_log_overwrites_platform_extra_last_test() {
+    let (db, _dir) = three_file_db().await;
+    set_raw(&db, true).await;
+    let pid = aidog_db::test_support::insert_test_platform(&db, "lt").await;
+    upsert_request_log(&db, oob("t1", "test", pid, 200, 100)).await.unwrap();
+    let mut fail = oob("t2", "test", pid, 500, 200);
+    fail.response_body = "boom".into();
+    upsert_request_log(&db, fail).await.unwrap();
+    // 非 test 类记录不碰 last_test
+    upsert_request_log(&db, oob("q1", "quota", pid, 200, 300)).await.unwrap();
+    let p = aidog_db::get_platform(&db, pid).await.unwrap().unwrap();
+    let extra: serde_json::Value = serde_json::from_str(&p.extra).unwrap();
+    let lt = &extra["last_test"];
+    assert_eq!(lt["status_code"], 500);
+    assert_eq!(lt["success"], false);
+    assert_eq!(lt["created_at"], 200);
+    assert_eq!(lt["error"], "boom");
 }

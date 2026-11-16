@@ -24,13 +24,17 @@ const legacyCodex = (port: number) => ({
   },
 });
 
+// _aidog_preset_name 是选择弹窗的显示名，写出前剥离（14a6af042 给两份 oss 预设加了它），不属于配置内容。
+const { _aidog_preset_name: _codexName, ...codexBody } = codexOss;
+const { _aidog_preset_name: _piName, ...piBody } = piOss;
+
 describe("oss 预设 = 迁移前常量", () => {
   it("codex 渲染后与旧 buildCodexRecommendedConfig 深相等（9890 / 19890）", () => {
-    expect(renderPresetPlaceholders(codexOss, { port: 9890 })).toEqual(legacyCodex(9890));
-    expect(renderPresetPlaceholders(codexOss, { port: 19890 })).toEqual(legacyCodex(19890));
+    expect(renderPresetPlaceholders(codexBody, { port: 9890 })).toEqual(legacyCodex(9890));
+    expect(renderPresetPlaceholders(codexBody, { port: 19890 })).toEqual(legacyCodex(19890));
   });
   it("pi 与旧 PI_RECOMMENDED_CONFIG 深相等", () => {
-    expect(piOss).toEqual({
+    expect(piBody).toEqual({
       defaultThinkingLevel: "medium",
       defaultProjectTrust: "ask",
       theme: "dark",

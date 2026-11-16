@@ -162,11 +162,16 @@ perf-backend 收尾轮：PreToolUse hook 把 `git worktree add` 改写经 rtk �
 - **前端构建**：用仓库默认输出目录，不再 `--outDir /tmp/aidog-agent-dist`。
 - 下文「（已废止 2026-11-05）」的段落里所有 `/tmp/aidog-agent-target`、`/tmp/aidog-agent-dist` 写法同样作废，
   其中的互斥锁、`cargo clean -p aidog_db`、`touch build.rs`、串味核对手法仍有效，目录按本节替换。
+- **取锁排队超约 30 分钟，改用隔离构建**（2026-11-15：三个 agent 等 `/tmp/aidog-cargo.lock` 超 1 小时，他会话不经锁直接跑 cargo；用户原话「能不能在独立的环境测试，测试换成后移除各种缓存」）：每个构建一个 detach worktree（`/usr/bin/git worktree add --detach`），`CARGO_TARGET_DIR=<该 worktree>/target-iso` + `CARGO_PROFILE_DEV_DEBUG=0`，不取锁、多个构建串行排队；开跑前 `df -h` 余量 ≥15G（余量不够三份并行全量编译）；改动从主 checkout 用精确路径提交；门禁绿后 `rm -rf` 该 target-iso 并 `worktree remove --force`。代价：每次全量编译，无增量缓存。持锁的 agent 改走此路径后，主会话释放其持有的锁（先确认无 cargo 进程）。
 - **`.worktrees/.target` 同一时刻只允许一个 cargo**（2026-11-14 issue 61 轮实锤三连）：并行会话同时在
   该目录跑 `cargo test --workspace` 会互相冲掉产物——`ident_case` extern 丢失、doctest `E0463`、
   二进制被删，各会话各自持 `/tmp/aidog-cargo.lock` 独占重跑才拿到绿（锁手法见下节，仍有效）。
   **假红判据**：extern 丢失 / doctest E0463 / 二进制消失这类「不该红的红」，先怀疑并发重建，
   取锁独占重跑再归因，不在假红上改代码。
+- **删 target 目录也要持 `/tmp/aidog-cargo.lock`**（2026-11-15 logo 轮实锤）：磁盘不足 10G 时一会话在删
+  `src-tauri/target`、另一会话同时跑 clippy，首跑报 `extern location ... does not exist`，等删除结束后从零重编才绿。
+  删 `src-tauri/target` / `.worktrees/.target` 及其子目录（已获授权的前提下）一律先取锁、删完 `rmdir` 锁；
+  看到 extern 丢失时先 `ls <target>` + `df -h` 看目录是否正在消失，是就等删除方结束再重跑，不改代码。
 - **锁只约束守约的会话，磁盘保护押容量不押锁**（2026-11-15 依赖更新轮实锤）：另一会话不经
   `/tmp/aidog-cargo.lock` 直接跑 cargo，锁协议拦不住它；`.worktrees/.target` 全程靠「开跑前
   `df -h <target>`，余量 <10G 不开跑 + 编译期间挂磁盘看门狗」挡住写满盘（<3G 自动停自己的构建

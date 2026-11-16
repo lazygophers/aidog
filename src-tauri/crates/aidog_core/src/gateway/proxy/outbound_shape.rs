@@ -182,6 +182,29 @@ pub(crate) fn dropped_media_fields(req: &aidog_adapter::types::ChatRequest, wire
         .collect()
 }
 
+/// issue #74：出站协议转换丢弃的服务端工具名（仅不可映射的；可映射的已映射下发，不记）。
+/// 与各协议 converter 共用 `Tool::native_server_tool` 判定，trace 与下发行为同源不漂移。
+/// Anthropic wire 原生执行 Anthropic 服务端工具 → 无丢弃；mock 等无关协议不记。
+pub(crate) fn dropped_server_tools(
+    req: &aidog_adapter::types::ChatRequest,
+    wire: &Protocol,
+) -> Vec<String> {
+    let target = match wire {
+        Protocol::Anthropic => return Vec::new(),
+        Protocol::OpenAIResponses => "openai_responses",
+        Protocol::Gemini => "gemini",
+        Protocol::OpenAI | Protocol::OpenAICompletions => "openai",
+        _ => return Vec::new(),
+    };
+    req.tools
+        .as_deref()
+        .unwrap_or(&[])
+        .iter()
+        .filter(|t| t.is_server_tool() && t.native_server_tool(target).is_none())
+        .map(|t| t.name.clone())
+        .collect()
+}
+
 /// 把本次出站的三类改写合成 `proxy_log.field_trace` 的 token 串（票 10；票 11 抽成纯函数）。
 ///
 /// - `capped_on_chat_req` / `capped_on_body`：`max_tokens` 被裁到模型上限的两个来源，
