@@ -1509,7 +1509,7 @@
   "nav.variables": "Переменные",
   "nav.plugins": "Управление плагинами",
   "variables.title": "Переменные",
-  "variables.desc": "Управление переменными среды Claude Code и Codex",
+  "variables.desc": "Управление переменными окружения Claude Code и Codex",
   "variables.name": "Имя переменной",
   "variables.value": "Значение переменной",
   "variables.add": "Добавить переменную",
