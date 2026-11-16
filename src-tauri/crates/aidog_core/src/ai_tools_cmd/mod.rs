@@ -1,5 +1,7 @@
 pub mod agent_config;
 pub mod coding_tools;
+pub mod context_compress;
+pub mod variables;
 pub mod mcp;
 pub mod profile;
 pub mod model_test;

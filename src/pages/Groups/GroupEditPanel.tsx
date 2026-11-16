@@ -9,7 +9,7 @@ import type { EditState, EditAction } from "../../domains/groups";
 import { allConfiguredModelValues } from "../../domains/platforms";
 import { useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";
 import { F, S } from "../../domains/shared/tokens";
-import { ROUTING_MODES, routingModeLabel, routingModeDesc, buildClaudeCommand, buildCodexCommand, buildPiCommand, PlatformPicker, useProxyEnvVars,
+import { ROUTING_MODES, routingModeLabel, routingModeDesc, buildClaudeCommand, buildCodexCommand, buildPiCommand, PlatformPicker,
   PI_APIS, type PiApi, piApiLabel, parseGroupPiApi, setGroupPiApi } from "../../domains/groups";
 import { CopyButton, SectionTabs, ModelPriceTag } from "../../components/shared";
 import { useAllModelPrices } from "../../domains/platforms/modelPrices";
@@ -31,12 +31,10 @@ export interface GroupEditPanelProps {
 /** 分组编辑全屏视图：基本信息 + 关联平台 + 模型映射 + 环境变量 + 中间件规则。 */
 export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onSave }: GroupEditPanelProps) {
   const { target: editTarget, name: editName, mode: editMode, platformIds: editPlatformIds,
-    mappings: editMappings, envVars: editEnvVars, reqTimeout: editReqTimeout,
+    mappings: editMappings, reqTimeout: editReqTimeout,
     connTimeout: editConnTimeout, maxRetries: editMaxRetries } = edit;
   const editPlatformOptions = platforms.filter(p => p.enabled);
   const { i18n } = useTranslation();
-  // 代理 env（claude settings.json env 段），前置 export 注入 codex 启动命令（codex 无 config proxy）。
-  const proxyVars = useProxyEnvVars();
   // 协议 label 全表（共享 hook：首帧 {}，i18n.language 变化重取；PlatformPicker 下拉 option 共享）
   const labelMap = useProtocolLabelMap(i18n.language);
   // pi 线路协议存 group.extra，不在 UpdateGroup 字段集里 → 本地态 + 选中即写。
@@ -44,12 +42,11 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
   // 模型映射目标模型 select 的价格表（一次 snapshot；逐行目标平台不同故取全平台嵌套表）
   const allPrices = useAllModelPrices();
   const editGroupId = editTarget?.group.id;
-  // ── 高级 tab（2026-10-08 改版）：模型映射 / 连接 / 环境变量，分组页恒 3 个 → 恒出条 ──
+  // ── 高级 tab：模型映射 / 连接 ──
   const [advTab, setAdvTab] = useState("mappings");
   const groupTabs = [
     { id: "mappings", label: t("group.modelMappings", "模型映射") },
     { id: "connection", label: t("group.tabConnection", "连接") },
-    { id: "env", label: t("group.envVars", "环境变量") },
   ];
   const activeTab = advTab;
   const editGroupExtra = editTarget?.group.extra ?? "";
@@ -69,8 +66,8 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
         </div>
         <CopyButton text={editTarget!.group.group_key} label={t("group.apiKey", "API Key")} title={t("group.copyApiKeyTitle", "复制 API Key")} />
         <CopyButton text={buildClaudeCommand(editTarget!.group.group_key)} icon={<img src={claudeIcon} width={14} height={14} alt="Claude" />} title={t("group.copyCommand", "复制 Claude Code 启动命令")} />
-        <CopyButton text={buildCodexCommand(editTarget!.group.group_key, [...editEnvVars, ...proxyVars])} icon={<img src={codexIcon} width={14} height={14} alt="Codex" />} title={t("group.copyCodexCommand", "复制 Codex 命令")} />
-        <CopyButton text={buildPiCommand(editTarget!.group.group_key, [...editEnvVars, ...proxyVars])} icon={<img src={piIcon} width={14} height={14} alt="pi" />} title={t("group.copyPiCommand", "复制 pi 命令")} />
+        <CopyButton text={buildCodexCommand(editTarget!.group.group_key)} icon={<img src={codexIcon} width={14} height={14} alt="Codex" />} title={t("group.copyCodexCommand", "复制 Codex 命令")} />
+        <CopyButton text={buildPiCommand(editTarget!.group.group_key)} icon={<img src={piIcon} width={14} height={14} alt="pi" />} title={t("group.copyPiCommand", "复制 pi 命令")} />
         <Button variant="outline" onClick={onCancel}>{t("action.cancel")}</Button>
         <Button onClick={onSave} disabled={!editName}>{t("action.save")}</Button>
       </div>
@@ -297,57 +294,6 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
 
       {/* 环境变量 panel */}
       {/* Environment Variables（分组维度；sync 注入 Claude settings.env + Codex 复制命令前置 export） */}
-      {activeTab === "env" && (
-      <div className="glass-surface" style={{ padding: S.pad, display: "flex", flexDirection: "column", gap: S.gap }}>
-        <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("group.envVars", "环境变量")}</div>
-        <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginTop: -8 }}>
-          {t("group.envVarsHint", "本分组会话级环境变量；sync 时注入 Claude settings.env，复制 Codex 命令时前置 export。")}
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {editEnvVars.map((ev, i) => {
-            const reserved = ev.key === "ANTHROPIC_BASE_URL" || ev.key === "ANTHROPIC_AUTH_TOKEN" || ev.key === "AIDOG_KEY";
-            return (
-              <div key={i} style={{
-                display: "flex", gap: 8, alignItems: "center",
-                padding: "8px 12px", borderRadius: "var(--radius-sm)",
-                background: "var(--bg-glass)", border: `1px solid ${reserved ? "var(--color-warning)" : "var(--border)"}`,
-              }}>
-                <Input style={{ fontSize: F.hint, padding: "6px 10px", width: 200, flexShrink: 0, fontFamily: "var(--font-mono, monospace)" }}
-                  placeholder={t("group.envVarKey", "变量名 (如 ANTHROPIC_DEFAULT_OPUS_MODEL)")}
-                  value={ev.key}
-                  onChange={e => {
-                    const next = [...editEnvVars];
-                    next[i] = { ...next[i], key: e.target.value };
-                    dispatchEdit({ type: "patch", patch: { envVars: next } });
-                  }} />
-                <Input style={{ fontSize: F.hint, padding: "6px 10px", flex: 1, fontFamily: "var(--font-mono, monospace)" }}
-                  placeholder={t("group.envVarValue", "变量值")}
-                  value={ev.value}
-                  onChange={e => {
-                    const next = [...editEnvVars];
-                    next[i] = { ...next[i], value: e.target.value };
-                    dispatchEdit({ type: "patch", patch: { envVars: next } });
-                  }} />
-                <Button type="button" variant="ghost" size="icon" style={{ height: "auto", color: "var(--text-tertiary)", padding: 4, minWidth: "auto" }} onClick={() => dispatchEdit({ type: "patch", patch: { envVars: editEnvVars.filter((_, j) => j !== i) } })}>
-                  <IconClose size={12} />
-                </Button>
-              </div>
-            );
-          })}
-          {editEnvVars.some(ev => ev.key === "ANTHROPIC_BASE_URL" || ev.key === "ANTHROPIC_AUTH_TOKEN" || ev.key === "AIDOG_KEY") && (
-            <div style={{ fontSize: F.small, color: "var(--color-warning)", lineHeight: 1.4 }}>
-              {t("group.envVarReservedHint", "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY 为 aidog 路由字段，保存时将被丢弃。")}
-            </div>
-          )}
-
-          <Button type="button" variant="ghost" style={{ fontSize: F.hint, padding: "6px 12px", height: "auto", alignSelf: "flex-start" }}
-            onClick={() => dispatchEdit({ type: "patch", patch: { envVars: [...editEnvVars, { key: "", value: "" }] } })}>
-            + {t("group.addEnvVar", "添加环境变量")}
-          </Button>
-        </div>
-      </div>
-      )}
     </div>
   );
 }

@@ -265,10 +265,9 @@ async fn write_default_claude_settings_drops_legacy_marker() {
     assert!(managed.contains(&"env.ANTHROPIC_AUTH_TOKEN".to_string()));
 }
 
-/// do_sync_group_settings：用户 env_vars 注入 settings.{group}.json env block；
-/// aidog 强写的 ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN 不被覆盖（保护字段过滤）。
+/// do_sync_group_settings ignores retired group env_vars while preserving aidog routing fields.
 #[tokio::test]
-async fn do_sync_group_settings_merges_user_env_and_protects_routing_keys() {
+async fn do_sync_group_settings_does_not_inject_group_env_vars() {
     use crate::gateway::models::{CreateGroup, EnvVar, RoutingMode};
     use aidog_db::test_support::{HomeGuard, test_db};
     let h = HomeGuard::new();
@@ -327,8 +326,12 @@ async fn do_sync_group_settings_merges_user_env_and_protects_routing_keys() {
     )
     .unwrap();
 
-    // 用户自定义变量注入
-    assert_eq!(written["env"]["CLAUDE_CODE_MAX_OUTPUT_TOKENS"], "32000");
+    // Group variables are no longer merged into Claude Code settings.
+    assert!(
+        written["env"]
+            .get("CLAUDE_CODE_MAX_OUTPUT_TOKENS")
+            .is_none()
+    );
     // aidog 强写的 proxy 路由字段未被用户覆盖
     assert_eq!(
         written["env"]["ANTHROPIC_BASE_URL"],
@@ -349,7 +352,7 @@ async fn do_sync_group_settings_merges_user_env_and_protects_routing_keys() {
         written["env"]["CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT"], "1",
         "未识别模型被动压缩开关必须注入"
     );
-    // 用户 env_var 里同名的两个窗口 key 已被保护清单丢弃（上面注入值仍在）
+    // Managed values continue to come from sync logic, not legacy group env_vars.
     assert_ne!(
         written["env"]["CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT"],
         "evil"
@@ -823,7 +826,6 @@ async fn cc_proxy_password_stable_and_encrypted_at_rest() {
                 [],
                 |r| r.get(0),
             )
-            
         })
         .await
         .unwrap();
@@ -1185,7 +1187,7 @@ fn read_group_settings(h: &aidog_db::test_support::HomeGuard, key: &str) -> serd
     .unwrap()
 }
 
-/// 普通组写入头；组 env_vars 里的用户头行保留、旧 X-Aidog-Group 行被替换；默认组同款写入全局文件。
+/// 普通组写入 X-Aidog-Group 头（组 env_vars 功能已移除，env_vars 不再并入头行）；默认组同款写入全局文件。
 #[tokio::test]
 async fn do_sync_group_settings_writes_group_header_and_merges_user_headers() {
     use aidog_db::test_support::{HomeGuard, test_db};
@@ -1209,7 +1211,7 @@ async fn do_sync_group_settings_writes_group_header_and_merges_user_headers() {
     );
     assert_eq!(
         read_group_settings(&h, "gk_hdr_merged")["env"]["ANTHROPIC_CUSTOM_HEADERS"],
-        "X-Org-Route: prod\nX-Aidog-Group: gk_hdr_merged"
+        "X-Aidog-Group: gk_hdr_merged"
     );
     // 默认组：路由 env 写进全局文件，头一并写入
     let global: serde_json::Value =
@@ -1229,11 +1231,11 @@ async fn do_sync_group_settings_skips_group_header_for_unsafe_key() {
     mk_group(&db, "bad", "组_hdr", vec![("ANTHROPIC_CUSTOM_HEADERS", "X-Org-Route: prod")]).await;
     super::do_sync_group_settings(&db, 9914).await.unwrap();
     let v = read_group_settings(&h, "组_hdr");
-    assert_eq!(v["env"]["ANTHROPIC_CUSTOM_HEADERS"], "X-Org-Route: prod");
+    assert_eq!(v["env"]["ANTHROPIC_CUSTOM_HEADERS"], "");
 }
 
-/// 纯 claude_code 透传组：路由 env 被跳过，头也不写（订阅流量不带 X-Aidog-Group 直连 Anthropic）；
-/// 用户头行保留，旧 X-Aidog-Group 行被清，空时写空串中和默认组的全局头。
+/// 纯 claude_code 透传组：路由 env 被跳过，头不写，写空串中和默认组的全局头
+/// （订阅流量不带 X-Aidog-Group 直连 Anthropic；组 env_vars 功能已移除）。
 #[tokio::test]
 async fn do_sync_group_settings_pure_claude_code_group_has_no_group_header() {
     use aidog_db::models::Protocol;
@@ -1280,10 +1282,7 @@ async fn do_sync_group_settings_pure_claude_code_group_has_no_group_header() {
     }
     super::do_sync_group_settings(&db, 9915).await.unwrap();
     assert_eq!(read_group_settings(&h, "gk_hdr_cc1")["env"]["ANTHROPIC_CUSTOM_HEADERS"], "");
-    assert_eq!(
-        read_group_settings(&h, "gk_hdr_cc2")["env"]["ANTHROPIC_CUSTOM_HEADERS"],
-        "X-Org-Route: prod"
-    );
+    assert_eq!(read_group_settings(&h, "gk_hdr_cc2")["env"]["ANTHROPIC_CUSTOM_HEADERS"], "");
 }
 
 /// 时段档独有的模型计入分组上下文窗口上限与 pi 候选（模型配置 = 默认 ∪ 各时段档）。

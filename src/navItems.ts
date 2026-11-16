@@ -13,6 +13,8 @@ export const BASE_NAV: NavItem[] = [
   { id: "skills", icon: "skills", labelKey: "nav.skills", section: "nav.section.extension" },
   { id: "mcp", icon: "mcp", labelKey: "nav.mcp", section: "nav.section.extension" },
   { id: "subagents", icon: "subagents", labelKey: "nav.subagents", section: "nav.section.extension" },
+  { id: "context-compress", icon: "contextCompress", labelKey: "nav.contextCompress", section: "nav.section.extension" },
+  { id: "variables", icon: "variables", labelKey: "nav.variables", section: "nav.section.extension" },
   { id: "tools", icon: "tools", labelKey: "nav.tools", section: "nav.section.extension" },
   { id: "middleware", icon: "middleware", labelKey: "appSettings.middlewareTab", section: "nav.section.extension" },
   {

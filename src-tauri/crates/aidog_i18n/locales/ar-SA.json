@@ -376,34 +376,9 @@
     [
       "sourceProtocol",
       "بروتوكول المصدر"
-    ],
-    [
-      "envVars",
-      "متغيرات البيئة"
-    ],
-    [
-      "envVarsHint",
-      "متغيرات بيئة على مستوى المجموعة؛ تُحقن في Claude settings.env عند المزامنة وتُضاف كـ export عند نسخ أمر Codex."
-    ],
-    [
-      "envVarKey",
-      "اسم المتغير (مثل ANTHROPIC_DEFAULT_OPUS_MODEL)"
-    ],
-    [
-      "envVarValue",
-      "القيمة"
-    ],
-    [
-      "envVarReservedHint",
-      "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY هي حقول توجيه aidog وسيتم تجاهلها عند الحفظ."
-    ],
-    [
-      "addEnvVar",
-      "إضافة متغير بيئة"
     ]
   ],
   "group.add": "إضافة مجموعة",
-  "group.addEnvVar": "إضافة متغير بيئة",
   "group.addMappingFailed": "فشل إضافة التعيين",
   "group.addPlatform": "+ إضافة منصة",
   "group.addPlatformToGroup": "إضافة منصة إلى هذه المجموعة",
@@ -497,11 +472,6 @@
   "group.edit": "تحرير",
   "group.empty": "لا توجد مجموعات",
   "group.noPlatforms": "لا توجد منصات في هذه المجموعة",
-  "group.envVarKey": "اسم المتغير (مثل ANTHROPIC_DEFAULT_OPUS_MODEL)",
-  "group.envVarReservedHint": "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY هي حقول توجيه aidog وسيتم تجاهلها عند الحفظ.",
-  "group.envVarValue": "قيمة المتغير",
-  "group.envVars": "متغيرات البيئة",
-  "group.envVarsHint": "متغيرات بيئة على مستوى الجلسة لهذه المجموعة؛ تُحقن في Claude settings.env عند المزامنة، وتُسبق كأمر export عند نسخ أمر Codex.",
   "group.failover": "تجاوز الفشل",
   "group.groupKey": "مفتاح المجموعة (يُولّد تلقائيًا إذا تُرك فارغًا)",
   "group.groupKeyHint": "مفتاح المجموعة (= مفتاح API / هوية التوجيه). يُولّد تلقائيًا إذا تُرك فارغًا؛ يُقفل بعد الإنشاء ولا يمكن تعديله.",
@@ -1533,6 +1503,13 @@
   "nav.logs": "سجل الوكيل",
   "nav.mcp": "MCP",
   "nav.subagents": "الوكلاء الفرعيون",
+  "nav.contextCompress": "ضغط السياق",
+  "nav.variables": "المتغيرات",
+  "variables.title": "المتغيرات",
+  "variables.desc": "إدارة متغيرات البيئة لـ Claude Code وCodex",
+  "variables.name": "اسم المتغير",
+  "variables.value": "قيمة المتغير",
+  "variables.add": "إضافة متغير",
   "nav.tools": "الأدوات",
   "nav.notifications": "الإشعارات",
   "nav.platforms": "منصات الذكاء",
