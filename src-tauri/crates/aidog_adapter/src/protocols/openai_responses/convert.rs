@@ -103,14 +103,42 @@ pub fn to_responses(req: &ChatRequest) -> ResponsesRequest {
             .collect::<Vec<_>>()
             .join("\n"),
     });
-    // 服务端工具在 Responses 侧无执行方，整条不下发；全被丢弃时不写 tools 键
+    // 服务端工具过滤：不可映射的整条不下发；可映射的（web_search_*，issue #74，
+    // 依据见 `Tool::native_server_tool` 注释）映射为 Responses 原生工具下发
     let kept_tools: Vec<&Tool> = req
         .tools
         .as_deref()
         .map(|ts| client_tools(ts, "openai_responses"))
         .unwrap_or_default();
     let tools = {
-        let mapped: Vec<Value> = kept_tools.iter().map(|tool| serde_json::json!({"type":"function","name":tool.name,"description":tool.description,"parameters":tool.input_schema})).collect();
+        let mut mapped: Vec<Value> = kept_tools.iter().map(|tool| serde_json::json!({"type":"function","name":tool.name,"description":tool.description,"parameters":tool.input_schema})).collect();
+        // issue #74：web_search_* → {"type":"web_search"}。Anthropic 的 allowed_domains /
+        // blocked_domains → filters；user_location 原样透传。多版本条目去重（同键首个生效）。
+        // 依据：https://developers.openai.com/api/docs/guides/tools-web-search（核对日期 2026-11-16）
+        let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::new();
+        for t in req.tools.as_deref().unwrap_or(&[]) {
+            if let Some(key) = t.native_server_tool("openai_responses")
+                && seen.insert(key)
+            {
+                let mut obj = serde_json::json!({ "type": key });
+                if let Some(extra) = &t.extra {
+                    let mut filters = serde_json::Map::new();
+                    if let Some(a) = extra.get("allowed_domains") {
+                        filters.insert("allowed_domains".into(), a.clone());
+                    }
+                    if let Some(b) = extra.get("blocked_domains") {
+                        filters.insert("blocked_domains".into(), b.clone());
+                    }
+                    if !filters.is_empty() {
+                        obj["filters"] = Value::Object(filters);
+                    }
+                    if let Some(ul) = extra.get("user_location") {
+                        obj["user_location"] = ul.clone();
+                    }
+                }
+                mapped.push(obj);
+            }
+        }
         (!mapped.is_empty()).then_some(Value::Array(mapped))
     };
     // tool_choice：Responses 侧是扁平形态 {type:"function",name}，与 from_responses 的解析互逆；
@@ -1415,4 +1443,41 @@ fn to_responses_tool_result_images_lifted_to_user_message() {
     assert_eq!(out.input[1]["content"][0]["type"], "input_image");
     assert_eq!(out.input[1]["content"][0]["image_url"], "https://x/1.png");
 }
+
+    // 多版本条目同键去重（首个生效）：web_search_20250305 与更新的 web_search_20260601
+    // 同入，只映射首个版本的 filters；第二个被 seen 集合去重（convert.rs 同键去重段）。
+    #[test]
+    fn to_responses_dedups_multi_version_web_search() {
+        let req = ChatRequest {
+            thinking_budget: None,
+            model: "gpt-5".into(),
+            messages: vec![],
+            system: None, max_tokens: None, temperature: None, top_p: None, stream: None,
+            tools: Some(vec![
+                Tool {
+                    name: "web_search".into(),
+                    description: None,
+                    input_schema: serde_json::json!({}),
+                    tool_type: Some("web_search_20250305".into()),
+                    cache_control: None,
+                    extra: Some(serde_json::json!({"allowed_domains": ["first.com"]})),
+                },
+                Tool {
+                    name: "web_search".into(),
+                    description: None,
+                    input_schema: serde_json::json!({}),
+                    tool_type: Some("web_search_20260601".into()),
+                    cache_control: None,
+                    extra: Some(serde_json::json!({"allowed_domains": ["second.com"]})),
+                },
+            ]),
+            tool_choice: None, extra: None, thinking_mode: None,
+        };
+        let out = to_responses(&req);
+        let tools = out.tools.as_ref().unwrap().as_array().unwrap();
+        let ws: Vec<&Value> = tools.iter().filter(|t| t["type"] == "web_search").collect();
+        assert_eq!(ws.len(), 1, "同键多版本条目只下发首个");
+        assert_eq!(ws[0]["filters"]["allowed_domains"], serde_json::json!(["first.com"]),
+            "首个版本的 filters 生效，第二个版本被去重");
+    }
 }

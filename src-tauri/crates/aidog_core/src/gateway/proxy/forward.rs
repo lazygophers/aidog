@@ -892,6 +892,29 @@ fn dropped_media_fields(req: &aidog_adapter::types::ChatRequest, wire: &Protocol
         .collect()
 }
 
+/// issue #74：出站协议转换丢弃的服务端工具名（仅不可映射的；可映射的已映射下发，不记）。
+/// 与各协议 converter 共用 `Tool::native_server_tool` 判定，trace 与下发行为同源不漂移。
+/// Anthropic wire 原生执行 Anthropic 服务端工具 → 无丢弃；mock 等无关协议不记。
+fn dropped_server_tools(
+    req: &aidog_adapter::types::ChatRequest,
+    wire: &Protocol,
+) -> Vec<String> {
+    let target = match wire {
+        Protocol::Anthropic => return Vec::new(),
+        Protocol::OpenAIResponses => "openai_responses",
+        Protocol::Gemini => "gemini",
+        Protocol::OpenAI | Protocol::OpenAICompletions => "openai",
+        _ => return Vec::new(),
+    };
+    req.tools
+        .as_deref()
+        .unwrap_or(&[])
+        .iter()
+        .filter(|t| t.is_server_tool() && t.native_server_tool(target).is_none())
+        .map(|t| t.name.clone())
+        .collect()
+}
+
 /// 把本次出站的三类改写合成 `proxy_log.field_trace` 的 token 串（票 10；票 11 抽成纯函数）。
 ///
 /// - `capped_on_chat_req` / `capped_on_body`：`max_tokens` 被裁到模型上限的两个来源，
@@ -1213,7 +1236,7 @@ mod test_field_trace {
 /// 票 11 对账补的两处：Gemini 源的生成参数下钻取值、`cap:max_tokens` 两来源合一。
 #[cfg(test)]
 mod test_fa11_reconciliation {
-    use super::{Protocol, build_field_trace, dropped_media_fields};
+    use super::{Protocol, build_field_trace, dropped_media_fields, dropped_server_tools};
     use aidog_adapter::types::{ChatRequest, ContentBlock, Message, MessageContent, Role};
     use aidog_adapter::platform::hooks::apply_field_passthrough;
     use serde_json::json;
@@ -1392,6 +1415,74 @@ mod test_fa11_reconciliation {
             "cap:max_tokens,rewrite:middleware,drop:seed,drop:n"
         );
         assert_eq!(build_field_trace(false, false, false, &[]), "");
+    }
+
+    // ── issue #74：服务端工具丢弃留痕 ──
+
+    fn tools_request(tools: serde_json::Value) -> ChatRequest {
+        let mut req = media_request("text/plain", Some("hi"));
+        req.tools = serde_json::from_value(tools).expect("tools parse");
+        req
+    }
+
+    #[test]
+    fn anthropic_wire_has_no_server_tool_drops() {
+        let req = tools_request(serde_json::json!([
+            {"type": "web_search_20250305", "name": "web_search"},
+            {"type": "bash_20250124", "name": "bash"}
+        ]));
+        assert!(dropped_server_tools(&req, &Protocol::Anthropic).is_empty());
+    }
+
+    #[test]
+    fn openai_wire_drops_all_server_tools() {
+        let req = tools_request(serde_json::json!([
+            {"name": "get_weather", "input_schema": {"type": "object"}},
+            {"type": "web_search_20250305", "name": "web_search"}
+        ]));
+        assert_eq!(
+            dropped_server_tools(&req, &Protocol::OpenAI),
+            vec!["web_search".to_string()]
+        );
+    }
+
+    #[test]
+    fn gemini_wire_drops_only_unmappable() {
+        let req = tools_request(serde_json::json!([
+            {"type": "web_search_20250305", "name": "web_search"},
+            {"type": "web_fetch_20250910", "name": "web_fetch"},
+            {"type": "bash_20250124", "name": "bash"}
+        ]));
+        assert_eq!(
+            dropped_server_tools(&req, &Protocol::Gemini),
+            vec!["bash".to_string()]
+        );
+        let req = tools_request(serde_json::json!([
+            {"type": "web_search_20250305", "name": "web_search"},
+            {"type": "web_fetch_20250910", "name": "web_fetch"}
+        ]));
+        assert_eq!(
+            dropped_server_tools(&req, &Protocol::OpenAIResponses),
+            vec!["web_fetch".to_string()],
+            "Responses 只映射 web_search，web_fetch 落留痕"
+        );
+    }
+
+    #[test]
+    fn server_tool_drops_compose_into_field_trace() {
+        let req = tools_request(serde_json::json!([
+            {"name": "get_weather", "input_schema": {"type": "object"}},
+            {"type": "bash_20250124", "name": "bash"}
+        ]));
+        assert_eq!(
+            build_field_trace(
+                false,
+                false,
+                false,
+                &dropped_server_tools(&req, &Protocol::OpenAI)
+            ),
+            "drop:bash"
+        );
     }
 }
 
@@ -2955,6 +3046,7 @@ async fn prepare_outbound(
     let mut dropped_fields = dropped;
     if !target.same_protocol_passthrough {
         dropped_fields.extend(dropped_media_fields(chat_req, target.target_protocol_enum));
+        dropped_fields.extend(dropped_server_tools(chat_req, target.target_protocol_enum));
     }
     log.field_trace = build_field_trace(
         capped_on_chat_req,
