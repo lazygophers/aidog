@@ -222,6 +222,130 @@ fn error_and_usage_defaults_match_legacy_helpers() {
     }
 }
 
+/// MiniMax family inherits protocol conversion, response, stream, error, and usage behavior from the framework.
+#[test]
+fn minimax_family_preserves_generic_protocol_behavior() {
+    let input: ChatRequest = serde_json::from_value(json!({
+        "model": "MiniMax-M3",
+        "max_tokens": 128,
+        "messages": [{ "role": "user", "content": "hello" }]
+    }))
+    .unwrap();
+    let generic = super::adapter_for("deepseek");
+    let completion = json!({
+        "id": "cmpl-1", "model": "MiniMax-M3",
+        "choices": [{ "index": 0, "message": { "role": "assistant", "content": "hi" }, "finish_reason": "stop" }]
+    });
+    let cached_completion = json!({
+        "id": "cmpl-1", "choices": [{ "index": 0, "delta": { "content": "hi" }, "finish_reason": null }],
+        "usage": { "prompt_tokens": 10, "completion_tokens": 2,
+            "prompt_tokens_details": { "cached_tokens": 4 } }
+    });
+    let error_body = r#"{"error":{"type":"invalid_request_error","message":"bad request"}}"#;
+    let anthropic_message = json!({
+        "id": "msg_1", "type": "message", "role": "assistant", "model": "MiniMax-M3",
+        "content": [{ "type": "text", "text": "hi" }], "stop_reason": "end_turn",
+        "usage": { "input_tokens": 5, "output_tokens": 3 }
+    });
+    let anthropic_delta = json!({
+        "type": "content_block_delta", "index": 0,
+        "delta": { "type": "text_delta", "text": "hi" }
+    });
+    let anthropic_error = r#"{"type":"error","error":{"type":"invalid_request_error","message":"bad request"}}"#;
+    let anthropic_usage = r#"{"usage":{"input_tokens":5,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":1}}"#;
+
+    for (code, platform) in [
+        ("minimax", Protocol::MiniMax),
+        ("minimax_en", Protocol::MiniMaxEn),
+        ("minimax_coding", Protocol::MinimaxCoding),
+    ] {
+        let adapter = super::adapter_for(code);
+        for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+            let (body, path) = adapter.build_request(&input, &wire, &platform);
+            let (base_body, base_path) = generic.build_request(&input, &wire, &platform);
+            assert_eq!((body, path), (base_body, base_path), "{code}/{wire:?}");
+        }
+        let converted = adapter
+            .convert_response(&completion, &Protocol::OpenAI, &Protocol::Anthropic, "MiniMax-M3")
+            .expect("OpenAI response should convert to Anthropic");
+        assert_eq!(
+            converted,
+            generic
+                .convert_response(&completion, &Protocol::OpenAI, &Protocol::Anthropic, "MiniMax-M3")
+                .unwrap(),
+            "{code} non-stream response"
+        );
+        assert_eq!(converted["content"][0]["text"], "hi");
+
+        let anthropic_converted = adapter
+            .convert_response(&anthropic_message, &Protocol::Anthropic, &Protocol::OpenAI, "MiniMax-M3")
+            .expect("Anthropic response should convert to OpenAI");
+        assert_eq!(anthropic_converted["choices"][0]["message"]["content"], "hi", "{code} Anthropic non-stream");
+        assert_eq!(
+            anthropic_converted,
+            generic.convert_response(&anthropic_message, &Protocol::Anthropic, &Protocol::OpenAI, "MiniMax-M3").unwrap(),
+            "{code} Anthropic non-stream parity"
+        );
+
+        let anthropic_events = adapter.parse_sse_frame(&anthropic_delta, &Protocol::Anthropic);
+        assert_eq!(
+            format!("{anthropic_events:?}"),
+            format!("{:?}", generic.parse_sse_frame(&anthropic_delta, &Protocol::Anthropic)),
+            "{code} Anthropic stream parity"
+        );
+        assert!(format!("{anthropic_events:?}").contains("hi"), "{code} Anthropic stream content: {anthropic_events:?}");
+
+        assert_eq!(
+            adapter.classify_error(400, anthropic_error),
+            UpstreamErrorClass::Unknown,
+            "{code} Anthropic error classification"
+        );
+        assert_eq!(
+            adapter.classify_error(400, anthropic_error),
+            generic.classify_error(400, anthropic_error),
+            "{code} Anthropic error"
+        );
+        assert_eq!(
+            adapter.extract_usage(anthropic_usage),
+            (5, 3, 2, 1, 0, Vec::new()),
+            "{code} Anthropic usage"
+        );
+        assert_eq!(
+            adapter.extract_usage(anthropic_usage),
+            generic.extract_usage(anthropic_usage),
+            "{code} Anthropic usage parity"
+        );
+
+        let events = adapter.parse_sse_frame(&cached_completion, &Protocol::OpenAI);
+        assert_eq!(
+            format!("{events:?}"),
+            format!("{:?}", generic.parse_sse_frame(&cached_completion, &Protocol::OpenAI)),
+            "{code} stream"
+        );
+        assert!(format!("{events:?}").contains("Delta"), "{code} stream content: {events:?}");
+        assert_eq!(
+            adapter.classify_error(400, error_body),
+            UpstreamErrorClass::Unknown,
+            "{code} error"
+        );
+        assert_eq!(
+            adapter.classify_error(400, error_body),
+            generic.classify_error(400, error_body),
+            "{code} error parity"
+        );
+        assert_eq!(
+            adapter.extract_usage(&cached_completion.to_string()),
+            (6, 2, 4, 0, 0, Vec::new()),
+            "{code} cached usage"
+        );
+        assert_eq!(
+            adapter.extract_usage(&cached_completion.to_string()),
+            generic.extract_usage(&cached_completion.to_string()),
+            "{code} usage parity"
+        );
+    }
+}
+
 /// 差异钩子默认实现 = 搬家前的通用行为（body 层 max_tokens 裁剪按 wire 协议键名）。
 #[test]
 fn hook_defaults_cap_max_tokens_by_wire_key() {
