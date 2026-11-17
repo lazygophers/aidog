@@ -117,6 +117,18 @@ pub(super) fn build_claude_entry(cfg: &McpConfigRaw) -> serde_json::Value {
 }
 
 impl McpAgentBackend for ClaudeCodeBackend {
+    fn read_raw(&self, name: &str) -> Result<Option<String>, String> {
+        let path = claude_json_path()?;
+        if !path.exists() {
+            return Ok(None);
+        }
+        let root = read_claude_json(&path)?;
+        Ok(root
+            .get("mcpServers")
+            .and_then(|v| v.get(name))
+            .map(serde_json::Value::to_string))
+    }
+
     fn read_all(&self) -> Result<Vec<(String, McpConfigRaw)>, String> {
         let path = claude_json_path()?;
         if !path.exists() {

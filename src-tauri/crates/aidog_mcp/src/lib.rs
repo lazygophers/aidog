@@ -41,18 +41,20 @@ pub use domain::{
 // 当前 crate 内无外部引用点，allow 抑制未用 re-export 告警。
 #[allow(unused_imports)]
 pub use mask::mask_env;
+pub use recommended::{RecommendedEntry, RecommendedManifest, bundled_mcp_recommended};
 #[allow(unused_imports)]
 pub use types::{
     ImportReport, McpAgent, McpConfigRaw, McpImportPayload, McpScanItem, McpServerInfo,
     McpServerRow, McpTransport, McpUpdatePayload,
 };
-pub use recommended::{bundled_mcp_recommended, RecommendedEntry, RecommendedManifest};
 
 // ─── agent 配置后端 trait ───────────────────────────────────
 
 pub(crate) trait McpAgentBackend {
     /// 读该 agent 所有 MCP（name → 配置）。文件不存在或解析失败返回空。
     fn read_all(&self) -> Result<Vec<(String, McpConfigRaw)>, String>;
+    /// 读某 MCP 的完整原始条目（含未知键），own-write 指纹不可丢这些键。
+    fn read_raw(&self, name: &str) -> Result<Option<String>, String>;
     /// 写/覆盖某 MCP。返回 Ok 不代表 agent 立即识别（需 agent 重载）。
     fn write(&self, name: &str, cfg: &McpConfigRaw) -> Result<(), String>;
     /// 删某 MCP。不存在视为 Ok。

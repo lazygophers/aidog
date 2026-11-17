@@ -236,20 +236,15 @@ pub async fn set_agent_enabled(
     // （避免「UI 显示已启用但 agent 配置文件从未写入」的静默失配），报错点名 agent。
     // 块作用域：Box<dyn McpAgentBackend> 非 Send，必须在 DB await 前析构（否则 http
     // handler 的 future 变 !Send，aidog_rpc Handler bound 编译失败）。
-    {
-        let be = backend_for(agent);
-        let plugin_owned = crate::bundle::is_owned(db, agent, name).await;
-        let current = if plugin_owned {
-            Some(crate::bundle::current(agent, name)?)
-        } else {
-            None
-        };
-        let unchanged = if let Some(current) = current.as_ref() {
-            crate::bundle::unchanged(db, agent, name, current.as_ref()).await
-        } else {
-            false
-        };
-        if !plugin_owned || unchanged {
+    let plugin_owned = crate::bundle::is_owned(db, agent, name).await;
+    let unchanged = if plugin_owned {
+        crate::bundle::unchanged(db, agent, name).await?
+    } else {
+        false
+    };
+    if !plugin_owned || unchanged {
+        {
+            let be = backend_for(agent);
             if enabled {
                 let cfg = row.to_raw_cfg();
                 be.write(name, &cfg)
@@ -258,10 +253,9 @@ pub async fn set_agent_enabled(
                 be.remove(name)
                     .map_err(|e| format!("remove {} config: {e}", agent.slug()))?;
             }
-            if plugin_owned {
-                let next = if enabled { Some(row.to_raw_cfg()) } else { None };
-                crate::bundle::record_after(db, agent, name, next.as_ref()).await?;
-            }
+        }
+        if plugin_owned {
+            crate::bundle::record_after(db, agent, name).await?;
         }
     }
     store::set_mcp_server_enabled_agents(db, name, &csv).await?;
@@ -312,12 +306,15 @@ pub async fn add_server(db: &Db, payload: McpUpdatePayload) -> Result<McpServerI
 pub async fn delete_server(db: &Db, name: &str) -> Result<(), String> {
     let row = store::get_mcp_server(db, name).await?;
     if let Some(row) = &row {
-        for agent in row.enabled_set() {
-            let be = backend_for(agent);
-            let owned = crate::bundle::is_owned(db, agent, name).await;
+        let enabled = row.enabled_set();
+        for agent in McpAgent::all() {
+            let owned = crate::bundle::is_owned(db, *agent, name).await;
+            if !owned && !enabled.contains(agent) {
+                continue;
+            }
             let should_remove = if owned {
-                match crate::bundle::current(agent, name) {
-                    Ok(current) => crate::bundle::unchanged(db, agent, name, current.as_ref()).await,
+                match crate::bundle::unchanged(db, *agent, name).await {
+                    Ok(same) => same,
                     Err(e) => {
                         tracing::warn!(agent = agent.slug(), error = %e, "mcp delete: read plugin-owned entry failed");
                         false
@@ -326,15 +323,14 @@ pub async fn delete_server(db: &Db, name: &str) -> Result<(), String> {
             } else {
                 true
             };
-            if should_remove && let Err(e) = be.remove(name) {
-                tracing::warn!(
-                    agent = agent.slug(),
-                    error = %e,
-                    "mcp delete: remove from agent config failed"
-                );
+            if should_remove {
+                let remove = backend_for(*agent).remove(name);
+                if let Err(e) = remove {
+                    tracing::warn!(agent = agent.slug(), error = %e, "mcp delete: remove from agent config failed");
+                }
             }
             if owned {
-                crate::bundle::clear(db, agent, name).await?;
+                crate::bundle::clear(db, *agent, name).await?;
             }
         }
     }
@@ -351,26 +347,26 @@ pub async fn resync_all(db: &Db) -> Result<usize, String> {
     let mut count = 0usize;
     for row in rows {
         for agent in row.enabled_set() {
-            let be = backend_for(agent);
             let owned = crate::bundle::is_owned(db, agent, &row.name).await;
             if owned {
-                let current = match crate::bundle::current(agent, &row.name) {
-                    Ok(current) => current,
+                match crate::bundle::unchanged(db, agent, &row.name).await {
+                    Ok(true) => {}
+                    Ok(false) => continue,
                     Err(e) => {
                         tracing::warn!(agent = agent.slug(), server = %row.name, error = %e, "mcp resync: read plugin-owned entry failed");
                         continue;
                     }
-                };
-                if !crate::bundle::unchanged(db, agent, &row.name, current.as_ref()).await {
-                    continue;
                 }
             }
             let cfg = row.to_raw_cfg();
-            match be.write(&row.name, &cfg) {
+            let write_result = {
+                let be = backend_for(agent);
+                be.write(&row.name, &cfg)
+            };
+            match write_result {
                 Ok(()) => {
                     count += 1;
-                    if owned
-                        && let Err(e) = crate::bundle::record_after(db, agent, &row.name, Some(&cfg)).await
+                    if owned && let Err(e) = crate::bundle::record_after(db, agent, &row.name).await
                     {
                         tracing::warn!(agent = agent.slug(), server = %row.name, error = %e, "mcp resync: update plugin ownership record failed");
                     }
@@ -402,9 +398,10 @@ pub async fn update_server(
         .ok_or_else(|| format!("mcp server not found: {old_name}"))?;
     for agent in old.enabled_set() {
         if crate::bundle::is_owned(db, agent, old_name).await {
-            let current = crate::bundle::current(agent, old_name)?;
-            if !crate::bundle::unchanged(db, agent, old_name, current.as_ref()).await {
-                return Err(format!("plugin-owned MCP {old_name} was modified; kept user version"));
+            if !crate::bundle::unchanged(db, agent, old_name).await? {
+                return Err(format!(
+                    "plugin-owned MCP {old_name} was modified; kept user version"
+                ));
             }
             if payload.name != old_name {
                 return Err(format!("plugin-owned MCP {old_name} cannot be renamed"));
@@ -453,20 +450,23 @@ pub async fn update_server(
     }
     // kept: 改名则先 remove 旧 name，再 write 新 name 新 cfg。
     for agent in &kept {
-        let be = backend_for(*agent);
-        if payload.name != old.name
-            && let Err(e) = be.remove(old_name)
-        {
-            tracing::warn!(
-                agent = agent.slug(),
-                error = %e,
-                "mcp update: remove old-name agent config failed"
-            );
-        }
-        be.write(&payload.name, &cfg)
-            .map_err(|e| format!("write {} config: {e}", agent.slug()))?;
-        if crate::bundle::is_owned(db, *agent, old_name).await {
-            crate::bundle::record_after(db, *agent, old_name, Some(&cfg)).await?;
+        let owned = crate::bundle::is_owned(db, *agent, old_name).await;
+        let write_result = {
+            let be = backend_for(*agent);
+            if payload.name != old.name
+                && let Err(e) = be.remove(old_name)
+            {
+                tracing::warn!(
+                    agent = agent.slug(),
+                    error = %e,
+                    "mcp update: remove old-name agent config failed"
+                );
+            }
+            be.write(&payload.name, &cfg)
+        };
+        write_result.map_err(|e| format!("write {} config: {e}", agent.slug()))?;
+        if owned {
+            crate::bundle::record_after(db, *agent, old_name).await?;
         }
     }
 

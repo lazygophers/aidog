@@ -119,6 +119,18 @@ fn build_codex_entry(cfg: &McpConfigRaw) -> toml::Value {
 }
 
 impl McpAgentBackend for CodexBackend {
+    fn read_raw(&self, name: &str) -> Result<Option<String>, String> {
+        let path = codex_config_path()?;
+        if !path.exists() {
+            return Ok(None);
+        }
+        let root = read_codex_toml(&path)?;
+        Ok(root
+            .get("mcp_servers")
+            .and_then(|v| v.get(name))
+            .map(|v| v.to_string()))
+    }
+
     fn read_all(&self) -> Result<Vec<(String, McpConfigRaw)>, String> {
         let path = codex_config_path()?;
         if !path.exists() {
