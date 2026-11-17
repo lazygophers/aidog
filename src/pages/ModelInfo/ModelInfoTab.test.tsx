@@ -202,8 +202,8 @@ describe("ModelInfoTab", () => {
     expect(tabs).toHaveLength(3);
     // model_id = canonical 的 tab 无后缀；另两条带 model_id 后缀区分
     expect(within(dialog).getByRole("tab", { name: "AIHubMix" })).toBeInTheDocument();
-    expect(within(dialog).getByRole("tab", { name: "AIHubMix· coding-glm-5.3" })).toBeInTheDocument();
-    expect(within(dialog).getByRole("tab", { name: "AIHubMix· coding-glm-5.3-free" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("tab", { name: "AIHubMix · coding-glm-5.3" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("tab", { name: "AIHubMix · coding-glm-5.3-free" })).toBeInTheDocument();
     // 默认选中 primary（coding-glm-5.3），面板请求名与 tab 对得上
     expect(within(dialog).getByText("modelInfo.requestName")).toBeInTheDocument();
     expect(within(dialog).getAllByText("coding-glm-5.3").length).toBeGreaterThanOrEqual(1);

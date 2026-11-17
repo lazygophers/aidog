@@ -32,7 +32,8 @@ describe("BalanceBar", () => {
     const { container } = render(<BalanceBar remaining={5} total={100} level="success" />);
     // bar's filled segment uses the success color
     const span = screen.getByText("$5.00");
-    expect(span).toHaveStyle({ color: "var(--color-success)" });
+    // jsdom >=30 resolves var() in computed style; assert the inline declaration instead.
+    expect(span.style.color).toBe("var(--color-success)");
     expect(container.firstChild).not.toBeNull();
   });
 
