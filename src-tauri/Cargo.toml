@@ -126,6 +126,9 @@ codegen-units = 1
 lto = "fat"
 opt-level = 2
 strip = true
+# 去掉 unwind 表与 landing pad；任一线程 / tokio 任务 panic 即整个进程中止，
+# 中止前由 aidog_db::logging::install_crash_hook 写崩溃记录（两个入口均安装）。
+panic = "abort"
 
 # =============================================================================
 # root package `aidog`（过渡，C10 才挪 crates/aidog/）

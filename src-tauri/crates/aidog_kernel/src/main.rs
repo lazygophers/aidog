@@ -126,6 +126,10 @@ fn main() {
     // rustls 0.23 需显式装 process-level CryptoProvider（ring），否则首次 TLS builder() panic。
     // 与桌面壳 startup.rs 同一行，理由相同。
     let _ = rustls::crypto::ring::default_provider().install_default();
+    // 崩溃日志：release 为 panic=abort，hook 在中止前把记录同步写入 ~/.aidog/logs/crash.txt。
+    if let Ok(dir) = aidog_data_dir() {
+        aidog_db::logging::install_crash_hook(dir.join("logs"));
+    }
 
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
