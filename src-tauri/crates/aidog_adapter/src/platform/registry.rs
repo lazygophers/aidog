@@ -11,6 +11,7 @@ use serde_json::Value;
 use super::error;
 use super::hooks;
 use super::PlatformAdapter;
+use crate::converter;
 
 /// 家族基座（通用适配）：全部接口与钩子 = trait 默认实现，
 /// 与历史「按 wire 协议分派 + 通用钩子」链路逐字节等价。
@@ -171,9 +172,14 @@ impl PlatformAdapter for GenericAdapter {}
 ///   命中 `does not exist`（has_model 分支），429 配额与 401/403 按状态码归服务类，与基座一致，不覆盖。
 ///   https://www.kimi.com/code/docs/kimi-code/error-reference.html
 /// - 工具 / 多模态 / system：模型页「多模态输入支持 图片、视频」（k3-256k 仅图片）；错误参考
-///   「thinking is enabled but reasoning_content is missing … 启用思维链时必须携带」「function name
-///   … is duplicated」。均为上游校验行为，与家族基座标准 openai 形状不冲突，不覆盖。
+///   「thinking is enabled but reasoning_content is missing … 启用思维链时必须携带」是
+///   **Kimi Code 专属校验**，与基座 openai 形状冲突：anthropic 客户端回灌的 thinking 块在
+///   openai 转换中被跳过，多轮工具历史的 assistant tool-call 消息将缺 reasoning_content →
+///   上游 400。已按成员覆写（openai wire 从 ChatRequest 取回 thinking 文本写入
+///   reasoning_content，见 `carry_history_reasoning`）；「function name … is duplicated」
+///   为上游校验行为，与基座形状不冲突，不覆盖。
 ///   https://www.kimi.com/code/docs/kimi-code/models.html
+///   https://www.kimi.com/code/docs/kimi-code/error-reference.html
 /// - 未证实（保持基座默认）：max_tokens 上限、JSON 错误体形状、anthropic 端点的 `thinking`
 ///   请求参数、`content_filter` 错误类型。
 pub struct KimiFamilyAdapter {
@@ -183,12 +189,31 @@ pub struct KimiFamilyAdapter {
     /// openai wire 禁思考是否写 Kimi Code 官方认收的顶层 `reasoning_effort: "none"`
     /// （仅 kimi_coding 为 true，成员 issue 119）。
     coding_openai_reasoning_effort: bool,
+    /// openai wire 多轮工具历史是否携带 reasoning_content（Kimi Code 专属校验，thinking
+    /// 启用时缺失 → 上游 400；仅 kimi_coding 为 true，成员 issue 119 review R2）。
+    /// https://www.kimi.com/code/docs/kimi-code/error-reference.html
+    carry_history_reasoning_openai: bool,
     /// openai wire 出站是否把受影响模型的 `tool_choice:"required"` 降级为 `"auto"`
     /// （kimi / kimi_en 为 true；kimi_coding 无已证实约束，不降级，成员 issue 119）。
     downgrade_required_tool_choice: bool,
 }
 
 impl PlatformAdapter for KimiFamilyAdapter {
+    /// 差异（review R2，仅 kimi_coding openai wire）：多轮工具历史的 assistant tool-call
+    /// 消息携带 reasoning_content（官方错误参考 400，见 [`hooks::carry_history_reasoning`]）。
+    fn build_request(
+        &self,
+        chat_req: &crate::types::ChatRequest,
+        wire: &Protocol,
+        platform: &Protocol,
+    ) -> (Value, String) {
+        let (mut body, path) = converter::convert_request(chat_req, wire, platform);
+        if self.carry_history_reasoning_openai && wire == &Protocol::OpenAI {
+            hooks::carry_history_reasoning(&mut body, chat_req);
+        }
+        (body, path)
+    }
+
     /// 差异：openai 端点禁思考写官方 `thinking.type=disabled`，不写基座第三方端点用的
     /// vLLM 式 `chat_template_kwargs.enable_thinking`（Kimi Chat Completions 文档无此参数）。
     /// 写出值与基座 anthropic 臂相同，故按 anthropic 臂执行；其余 wire 与强制思考路径同基座。
@@ -420,11 +445,13 @@ static GENERIC: GenericAdapter = GenericAdapter;
 static KIMI: KimiFamilyAdapter = KimiFamilyAdapter {
     official_openai_thinking: true,
     coding_openai_reasoning_effort: false,
+    carry_history_reasoning_openai: false,
     downgrade_required_tool_choice: true,
 };
 static KIMI_CODING: KimiFamilyAdapter = KimiFamilyAdapter {
     official_openai_thinking: false,
     coding_openai_reasoning_effort: true,
+    carry_history_reasoning_openai: true,
     downgrade_required_tool_choice: false,
 };
 static GLM: GlmFamilyAdapter = GlmFamilyAdapter;
