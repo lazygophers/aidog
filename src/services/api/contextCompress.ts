@@ -21,8 +21,33 @@ export interface ContextCompressStatus {
 export type CompressTool = "rtk" | "sqz";
 export type RtkAgent = "claude-code" | "codex";
 
+/** rtk `gain --format json` 的 summary。 */
+export interface RtkGainStats {
+  total_commands: number;
+  total_input: number;
+  total_output: number;
+  total_saved: number;
+  avg_savings_pct: number;
+}
+
+/** sqz `stats --json`（聚合）。 */
+export interface SqzStats {
+  totalCompressions: number;
+  tokensIn: number;
+  tokensOut: number;
+  tokensSaved: number;
+  avgReduction: number;
+}
+
+/** 工具未装 / 解析失败的一侧为 null。 */
+export interface ContextCompressStats {
+  rtk: RtkGainStats | null;
+  sqz: SqzStats | null;
+}
+
 export const contextCompressApi = {
   status: () => invoke<ContextCompressStatus>("context_compress_status"),
+  stats: () => invoke<ContextCompressStats>("context_compress_stats"),
   install: (tool: CompressTool) => invoke<ContextCompressStatus>("context_compress_install", { tool }),
   setRtk: (agent: RtkAgent, on: boolean) =>
     invoke<ContextCompressStatus>("context_compress_rtk_set", { agent, on }),

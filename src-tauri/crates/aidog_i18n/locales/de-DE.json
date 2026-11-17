@@ -1203,6 +1203,8 @@
   "contextCompress.sqzDesc": "Ein: fügt die sqz-Hooks (PostToolUse, PreCompact) hinzu, umhüllt jeden stdio-MCP-Server mit sqz-mcp proxy und fügt den eigenen MCP-Server von sqz zu Claude Code und Codex hinzu. Aus: macht alles rückgängig.",
   "contextCompress.sqzSwitch": "sqz aktivieren",
   "contextCompress.sqzMissing": "Nicht aktiviert, fehlt:",
+  "contextCompress.rtkStats": "Insgesamt {{saved}} Token gespart ({{commands}} Befehle, im Schnitt {{pct}} %)",
+  "contextCompress.sqzStats": "{{count}} Komprimierungen, {{saved}} Token gespart (durchschnittlich {{pct}} %)",
   "contextCompress.sqzBinMissing": "sqz-mcp nicht gefunden",
   "mcp.add": "MCP hinzufügen",
   "mcp.addRow": "Hinzufügen",

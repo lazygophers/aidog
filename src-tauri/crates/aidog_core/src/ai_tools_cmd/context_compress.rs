@@ -1295,6 +1295,70 @@ crate::tauri_command! {
     }
 }
 
+// ─── 统计（rtk gain / sqz stats 实际接口，聚合口径）─────────────
+
+/// `rtk gain --format json` 的 summary（一手 CLI 输出，2026-11-17 实测）。
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RtkGainStats {
+    pub total_commands: u64,
+    pub total_input: u64,
+    pub total_output: u64,
+    pub total_saved: u64,
+    pub avg_savings_pct: f64,
+}
+
+/// `sqz stats --json`（聚合，无 session 参数时默认 agent 全量）。
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct SqzStats {
+    pub total_compressions: u64,
+    pub tokens_in: u64,
+    pub tokens_out: u64,
+    pub tokens_saved: u64,
+    pub avg_reduction: f64,
+}
+
+#[derive(Serialize, Clone, Debug, Default)]
+pub struct ContextCompressStats {
+    pub rtk: Option<RtkGainStats>,
+    pub sqz: Option<SqzStats>,
+}
+
+/// 解析 `sqz stats --json` 输出；无法解析返回 None（统计缺失不报错）。
+fn parse_sqz_stats(out: &str) -> Option<SqzStats> {
+    serde_json::from_str(out).ok()
+}
+
+/// 解析 `rtk gain --format json` 输出（取 summary）；无法解析返回 None。
+fn parse_rtk_gain(out: &str) -> Option<RtkGainStats> {
+    serde_json::from_str::<Value>(out)
+        .ok()?
+        .get("summary")
+        .and_then(|s| serde_json::from_value(s.clone()).ok())
+}
+
+crate::tauri_command! {
+    /// 上下文压缩统计：rtk `gain --format json` + sqz `stats --json`（聚合口径）。
+    /// 工具未装 / 输出解析失败的一侧为 null，不报错。
+    pub async fn context_compress_stats() -> Result<ContextCompressStats, String> {
+        let (rtk, sqz) = tokio::join!(
+            async {
+                run_cmd("rtk", &["gain", "--format", "json"], &[])
+                    .await
+                    .ok()
+                    .and_then(|o| parse_rtk_gain(&o))
+            },
+            async {
+                run_cmd("sqz", &["stats", "--json"], &[])
+                    .await
+                    .ok()
+                    .and_then(|o| parse_sqz_stats(&o))
+            },
+        );
+        Ok(ContextCompressStats { rtk, sqz })
+    }
+}
+
 #[cfg(test)]
 #[path = "test_context_compress.rs"]
 mod test_context_compress;
