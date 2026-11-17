@@ -24,6 +24,8 @@ export interface BarChartProps {
   className?: string;
   /** Recharts 子组件穿透（ReferenceLine / Cell 定制色等）。 */
   children?: ReactNode;
+  /** X 轴刻度密度：默认 0（每个类目都标）；多类目（如 90 天）传数值 n（每 n 根标 1 个）。 */
+  xInterval?: number | "preserveStartEnd";
 }
 
 export function BarChart({
@@ -38,6 +40,7 @@ export function BarChart({
   emptyHint,
   className,
   children,
+  xInterval = 0,
 }: BarChartProps) {
   const drawIn = useDrawIn();
   const seriesKeys = useMemo(() => Object.keys(config), [config]);
@@ -55,7 +58,7 @@ export function BarChart({
       <ChartContainer config={effConfig} className="w-full" style={{ height }}>
         <RechartsBarChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} strokeDasharray="3 3" />
-          <XAxis dataKey={xKey} tickLine={false} axisLine={false} tickMargin={8} interval={0} />
+          <XAxis dataKey={xKey} tickLine={false} axisLine={false} tickMargin={8} interval={xInterval} />
           <YAxis
             width={48}
             {...(yTicks.length > 0 && {

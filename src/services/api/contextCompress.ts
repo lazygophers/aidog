@@ -45,10 +45,28 @@ export interface SqzStats {
   avgReduction: number;
 }
 
-/** 工具未装 / 解析失败的一侧为 null。 */
+/** `rtk gain -d --format json` 的 daily[] 一项；savings_pct 为当日节省率。 */
+export interface RtkDaily {
+  date: string;
+  commands: number;
+  input_tokens: number;
+  output_tokens: number;
+  saved_tokens: number;
+  savings_pct: number;
+}
+
+/** `sqz gain` 文本解析的一日（CLI 无每日比率 / in-out，只有节省 tokens）。 */
+export interface SqzDaily {
+  date: string;
+  saved_tokens: number;
+}
+
+/** 工具未装 / 解析失败的一侧 summary 为 null；daily 为空表示无按日数据。 */
 export interface ContextCompressStats {
   rtk: RtkGainStats | null;
   sqz: SqzStats | null;
+  rtk_daily: RtkDaily[];
+  sqz_daily: SqzDaily[];
 }
 
 export const contextCompressApi = {
