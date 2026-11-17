@@ -222,31 +222,33 @@ fn error_and_usage_defaults_match_legacy_helpers() {
     }
 }
 
-/// MiniMax 海螺成员沿用原有 OpenAI wire 禁思考映射；本地 endpoint URL 不触发官方域名特殊分支。
+/// MiniMax 成员沿用原有 OpenAI wire 禁思考映射；本地 endpoint URL 不触发官方域名特殊分支。
 #[test]
-fn minimax_member_disables_thinking_with_native_parameter() {
-    let adapter = super::adapter_for("minimax");
-    let mut body = json!({ "model": "MiniMax-M3" });
-    adapter.apply_disable_thinking(
-        &mut body,
-        true,
-        &Protocol::OpenAI,
-        "http://127.0.0.1:31234/custom/v1",
-        false,
-    );
-    assert_eq!(body["thinking"]["type"], "disabled");
-    assert!(body.get("reasoning_effort").is_none());
+fn minimax_members_disable_thinking_with_native_parameter() {
+    for code in ["minimax", "minimax_en"] {
+        let adapter = super::adapter_for(code);
+        let mut body = json!({ "model": "MiniMax-M3" });
+        adapter.apply_disable_thinking(
+            &mut body,
+            true,
+            &Protocol::OpenAI,
+            "http://127.0.0.1:31234/custom/v1",
+            false,
+        );
+        assert_eq!(body["thinking"]["type"], "disabled", "{code}");
+        assert!(body.get("reasoning_effort").is_none(), "{code}");
 
-    let mut forced = json!({ "model": "MiniMax-M3.1-Flash" });
-    adapter.apply_disable_thinking(
-        &mut forced,
-        true,
-        &Protocol::OpenAI,
-        "http://127.0.0.1:31234/custom/v1",
-        true,
-    );
-    assert!(forced.get("thinking").is_none());
-    assert!(forced.get("reasoning_effort").is_none());
+        let mut forced = json!({ "model": "MiniMax-M3.1-Flash" });
+        adapter.apply_disable_thinking(
+            &mut forced,
+            true,
+            &Protocol::OpenAI,
+            "http://127.0.0.1:31234/custom/v1",
+            true,
+        );
+        assert!(forced.get("thinking").is_none(), "{code}");
+        assert!(forced.get("reasoning_effort").is_none(), "{code}");
+    }
 }
 
 /// Synthetic base_resp input: code 2022 is ambiguous, so do not infer HTTP status semantics or model-only failure.
