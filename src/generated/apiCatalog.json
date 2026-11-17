@@ -528,15 +528,11 @@
       "desktopOnly": false,
       "params": [
         {
-          "name": "agent",
-          "type": "String"
-        },
-        {
           "name": "on",
           "type": "bool"
         }
       ],
-      "returns": "ContextCompressStatus"
+      "returns": "RtkSetResult"
     },
     {
       "name": "context_compress_sqz_set",
