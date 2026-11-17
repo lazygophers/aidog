@@ -18,10 +18,12 @@ const STATUS = {
   sqz_missing: ["wrap:claude:octo"],
 };
 
+const RTK_RESULT = { status: STATUS, claude_error: null, codex_error: null };
+
 beforeEach(() => {
   vi.clearAllMocks();
   api.status.mockResolvedValue(STATUS);
-  api.setRtk.mockResolvedValue(STATUS);
+  api.setRtk.mockResolvedValue(RTK_RESULT);
   api.setSqz.mockResolvedValue({ ...STATUS, sqz_enabled: true, sqz_missing: [] });
   api.install.mockResolvedValue(STATUS);
   api.stats.mockResolvedValue({
@@ -38,19 +40,37 @@ async function openSqz() {
 }
 
 describe("ContextCompress", () => {
-  it("shows rtk version and per-agent switch state", async () => {
+  it("shows rtk version and one combined switch", async () => {
     render(<ContextCompress />);
     await waitFor(() => expect(screen.getByTestId("rtk-version").getAttribute("data-version")).toBe("1.2.0"));
-    expect(screen.getByTestId("rtk-toggle-claude-code").getAttribute("data-state")).toBe("checked");
-    expect(screen.getByTestId("rtk-toggle-codex").getAttribute("data-state")).toBe("unchecked");
+    // 单开关：任一侧开着即 checked；不再有双开关
+    expect(screen.getByTestId("rtk-toggle").getAttribute("data-state")).toBe("checked");
+    expect(screen.queryByTestId("rtk-toggle-claude-code")).toBeNull();
+    expect(screen.queryByTestId("rtk-toggle-codex")).toBeNull();
+    // 两侧状态照实分行显示
+    expect(screen.getByTestId("rtk-side-claude-code").textContent).toContain("plugins.enabled");
+    expect(screen.getByTestId("rtk-side-codex").textContent).toContain("plugins.disabled");
     expect(screen.queryByTestId("rtk-install")).toBeNull();
   });
 
-  it("toggling codex calls setRtk", async () => {
+  it("single toggle calls setRtk for both sides", async () => {
     render(<ContextCompress />);
     await waitFor(() => expect(screen.getByTestId("rtk-version").getAttribute("data-version")).toBe("1.2.0"));
-    fireEvent.click(screen.getByTestId("rtk-toggle-codex"));
-    await waitFor(() => expect(api.setRtk).toHaveBeenCalledWith("codex", true));
+    fireEvent.click(screen.getByTestId("rtk-toggle"));
+    await waitFor(() => expect(api.setRtk).toHaveBeenCalledWith(false));
+  });
+
+  it("reports a per-side error without hiding the other side", async () => {
+    api.setRtk.mockResolvedValue({
+      status: STATUS,
+      claude_error: null,
+      codex_error: "codex init failed",
+    });
+    render(<ContextCompress />);
+    fireEvent.click(await screen.findByTestId("rtk-toggle"));
+    expect((await screen.findByTestId("rtk-error-codex")).textContent).toContain("codex init failed");
+    expect(screen.queryByTestId("rtk-error-claude-code")).toBeNull();
+    expect(screen.getByTestId("rtk-side-claude-code").textContent).toContain("plugins.enabled");
   });
 
   it("offers install when rtk is missing", async () => {

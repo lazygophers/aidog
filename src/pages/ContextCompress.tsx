@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Switch } from "../components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { contextCompressApi, type ContextCompressStats, type ContextCompressStatus, type RtkAgent } from "../services/api/contextCompress";
+import { contextCompressApi, type ContextCompressStats, type ContextCompressStatus, type RtkSetResult } from "../services/api/contextCompress";
 import { formatInteger, formatPercent } from "../utils/formatters";
 
 export function ContextCompress() {
@@ -12,6 +12,7 @@ export function ContextCompress() {
   const [status, setStatus] = useState<ContextCompressStatus | null>(null);
   const [stats, setStats] = useState<ContextCompressStats | null>(null);
   const [error, setError] = useState("");
+  const [sideErrors, setSideErrors] = useState<{ claude?: string | null; codex?: string | null }>({});
   const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -30,11 +31,17 @@ export function ContextCompress() {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  const run = async (action: () => Promise<ContextCompressStatus>) => {
+  const run = async (action: () => Promise<ContextCompressStatus | RtkSetResult>) => {
     setBusy(true);
     setError("");
     try {
-      setStatus(await action());
+      const res = await action();
+      if ("status" in res) {
+        setStatus(res.status);
+        setSideErrors({ claude: res.claude_error, codex: res.codex_error });
+      } else {
+        setStatus(res);
+      }
     } catch (e) {
       setError(String(e));
     } finally {
@@ -43,7 +50,6 @@ export function ContextCompress() {
   };
 
   const install = (tool: "rtk" | "sqz") => run(() => contextCompressApi.install(tool));
-  const setRtk = (agent: RtkAgent, on: boolean) => run(() => contextCompressApi.setRtk(agent, on));
   const label = (version: string | null) => version
     ? t("contextCompress.installed", { version })
     : t("contextCompress.notInstalled");
@@ -73,14 +79,15 @@ export function ContextCompress() {
           </p>}
           {status?.rtk_version && <div className="space-y-3">
             <label className="flex items-center justify-between gap-4 rounded-lg border p-4">
-              <span>Claude Code</span>
-              <Switch checked={status.rtk_claude} disabled={busy} onCheckedChange={on => void setRtk("claude-code", on)} aria-label="RTK Claude Code" data-testid="rtk-toggle-claude-code" />
+              <span>RTK</span>
+              <Switch checked={status.rtk_claude || status.rtk_codex} disabled={busy} onCheckedChange={on => void run(() => contextCompressApi.setRtk(on))} aria-label="RTK" data-testid="rtk-toggle" />
             </label>
-            <label className="flex items-center justify-between gap-4 rounded-lg border p-4">
-              <span>Codex</span>
-              <Switch checked={status.rtk_codex} disabled={busy || !status.codex_present} onCheckedChange={on => void setRtk("codex", on)} aria-label="RTK Codex" data-testid="rtk-toggle-codex" />
-              {!status.codex_present && <span className="text-sm text-muted-foreground">{t("contextCompress.codexMissing")}</span>}
-            </label>
+            <div className="flex flex-col gap-1 px-1 text-sm text-muted-foreground">
+              <span data-testid="rtk-side-claude-code">Claude Code: {status.rtk_claude ? t("plugins.enabled") : t("plugins.disabled")}</span>
+              <span data-testid="rtk-side-codex">Codex: {status.rtk_codex ? t("plugins.enabled") : t("plugins.disabled")}{!status.codex_present && ` · ${t("contextCompress.codexMissing")}`}</span>
+              {sideErrors.claude && <span className="text-destructive" data-testid="rtk-error-claude-code">{sideErrors.claude}</span>}
+              {sideErrors.codex && <span className="text-destructive" data-testid="rtk-error-codex">{sideErrors.codex}</span>}
+            </div>
           </div>}
         </TabsContent>
         <TabsContent value="sqz" className="space-y-4">
