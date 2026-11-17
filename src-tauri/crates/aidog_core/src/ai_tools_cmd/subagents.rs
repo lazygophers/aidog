@@ -262,7 +262,7 @@ pub(crate) fn scan(root: &Path) -> Vec<(String, String, String, String)> {
             else {
                 continue;
             };
-            let Ok(v) = serde_yaml::from_str::<serde_yaml::Value>(fm) else {
+            let Ok(v) = serde_norway::from_str::<serde_norway::Value>(fm) else {
                 continue;
             };
             let desc = one_line(v.get("description").and_then(|d| d.as_str()).unwrap_or(""));

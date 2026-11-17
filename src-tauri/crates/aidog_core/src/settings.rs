@@ -101,7 +101,7 @@ fn list_output_styles_in(dir: &std::path::Path) -> Vec<String> {
             let name = content
                 .strip_prefix("---")
                 .and_then(|r| r.split_once("\n---"))
-                .and_then(|(fm, _)| serde_yaml::from_str::<serde_yaml::Value>(fm).ok())
+                .and_then(|(fm, _)| serde_norway::from_str::<serde_norway::Value>(fm).ok())
                 .and_then(|v| v.get("name")?.as_str().map(str::to_owned))
                 .filter(|n| !n.is_empty());
             Some(name.unwrap_or(stem))

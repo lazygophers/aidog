@@ -33,9 +33,9 @@ tauri-plugin-shell = "2"
 # 序列化 / 数据格式
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
-serde_yml = "0.0.13"
-# YAML 解析（CPA config 导入）
-serde_yaml = "0.9"
+# YAML（平台分享串导入、Markdown frontmatter）：serde_yaml 已弃用、serde_yml 有 RUSTSEC-2025-0068，
+#   改用 serde_yaml 的维护分支（API 同 serde_yaml 0.9）。
+serde_norway = "0.9"
 toml = "1.2"
 url = "2"
 # 异步运行时 / 并发

@@ -149,7 +149,7 @@ async fn tray_config_and_today_stats() {
 // ── SharePlatform: skip_serializing_if 空值剔除 (serde 层) ──
 //
 // 平台分享串 YAML/JSON/Base64 三格式统一在 serde 层剔空值。
-// 这里走 serde_yml::to_string 直接验证序列化产物，绕开 DB / tauri command。
+// 这里走 serde_norway::to_string 直接验证序列化产物，绕开 DB / tauri command。
 // PlatformModels 经 commands/platform.rs 的 `use gateway::models::*` 引入（super::* 链）。
 
 use crate::gateway::models::PlatformModels;
@@ -173,7 +173,7 @@ fn empty_share() -> SharePlatform {
 #[test]
 fn share_empty_fields_skipped_in_yaml() {
     let s = empty_share();
-    let yaml = serde_yml::to_string(&s).expect("serialize");
+    let yaml = serde_norway::to_string(&s).expect("serialize");
     // 必保留字段
     assert!(
         yaml.contains("aidog_platform_share:"),
@@ -207,7 +207,7 @@ fn share_empty_api_key_still_present() {
     // api_key 即便为空串也必须保留（分享核心字段，空 key 便于接收端察觉异常）
     let mut s = empty_share();
     s.api_key = String::new();
-    let yaml = serde_yml::to_string(&s).expect("serialize");
+    let yaml = serde_norway::to_string(&s).expect("serialize");
     assert!(
         yaml.contains("api_key:"),
         "empty api_key still present: {yaml}"
@@ -219,7 +219,7 @@ fn share_nonempty_models_field_kept() {
     // 任一 models 槽位有值 → 整块 models key 保留
     let mut s = empty_share();
     s.models.sonnet = vec!["claude-sonnet-4".into()];
-    let yaml = serde_yml::to_string(&s).expect("serialize");
+    let yaml = serde_norway::to_string(&s).expect("serialize");
     assert!(
         yaml.contains("models:"),
         "models block kept when slot set: {yaml}"
@@ -243,10 +243,10 @@ fn share_nonempty_models_field_kept() {
 
 #[test]
 fn share_roundtrip_empty_equivalent() {
-    // round-trip: 导出串 → serde_yml 反序列化 → 缺字段回填 default，语义等价
+    // round-trip: 导出串 → serde_norway 反序列化 → 缺字段回填 default，语义等价
     let s = empty_share();
-    let yaml = serde_yml::to_string(&s).expect("serialize");
-    let parsed: SharePlatform = serde_yml::from_str(&yaml).expect("parse");
+    let yaml = serde_norway::to_string(&s).expect("serialize");
+    let parsed: SharePlatform = serde_norway::from_str(&yaml).expect("parse");
     assert_eq!(parsed.aidog_platform_share, 1);
     assert_eq!(parsed.name, "P");
     assert_eq!(parsed.api_key, "k");
@@ -268,9 +268,101 @@ platform_type: anthropic
 base_url: https://example.invalid/v1
 api_key: k2
 "#;
-    let parsed: SharePlatform = serde_yml::from_str(minimal).expect("parse minimal");
+    let parsed: SharePlatform = serde_norway::from_str(minimal).expect("parse minimal");
     assert_eq!(parsed.name, "P2");
     assert_eq!(parsed.api_key, "k2");
     assert_eq!(parsed.extra, "");
     assert!(parsed.models.is_empty());
+}
+
+/// Fully populated share as emitted by the frontend `yaml` library
+/// (`ShareModal.tsx` `yamlStringify`): every optional block present.
+const FULL_SHARE_YAML: &str = r#"aidog_platform_share: 1
+name: My GLM
+platform_type: glm_coding
+base_url: https://open.bigmodel.cn/api/coding/paas/v4
+api_key: sk-123:abc
+extra: '{"peak":[{"start_hour":14,"end_hour":18,"multiplier":3}],"proxy_enabled":true}'
+models:
+  default:
+    - glm-4.6
+    - glm-4.5
+  sonnet:
+    - glm-4.6
+available_models:
+  - glm-4.6
+  - glm-4.5
+  - "1.5"
+endpoints:
+  - protocol: anthropic
+    base_url: https://open.bigmodel.cn/api/anthropic
+    client_type: claude_code
+    coding_plan: true
+  - protocol: openai
+    base_url: https://open.bigmodel.cn/api/coding/paas/v4
+    client_type: default
+    coding_plan: false
+manual_budgets:
+  - id: b1
+    kind: rolling
+    unit: usd
+    amount: 12.5
+    window_hours: 5
+    window_unit: hour
+    consumed: 0.25
+    window_start_at: null
+    enabled: true
+"#;
+
+fn full_share_expected() -> serde_json::Value {
+    serde_json::json!({
+        "aidog_platform_share": 1,
+        "name": "My GLM",
+        "platform_type": "glm_coding",
+        "base_url": "https://open.bigmodel.cn/api/coding/paas/v4",
+        "api_key": "sk-123:abc",
+        "extra": "{\"peak\":[{\"start_hour\":14,\"end_hour\":18,\"multiplier\":3}],\"proxy_enabled\":true}",
+        "models": { "default": ["glm-4.6", "glm-4.5"], "sonnet": ["glm-4.6"] },
+        "available_models": ["glm-4.6", "glm-4.5", "1.5"],
+        "endpoints": [
+            { "protocol": "anthropic", "base_url": "https://open.bigmodel.cn/api/anthropic", "client_type": "claude_code", "coding_plan": true },
+            { "protocol": "openai", "base_url": "https://open.bigmodel.cn/api/coding/paas/v4", "client_type": "default", "coding_plan": false }
+        ],
+        "manual_budgets": [{
+            "id": "b1", "kind": "rolling", "unit": "usd", "amount": 12.5,
+            "window_hours": 5.0, "window_unit": "hour", "consumed": 0.25,
+            "window_start_at": null, "enabled": true
+        }]
+    })
+}
+
+#[tokio::test]
+async fn share_parse_full_yaml_and_json_shapes() {
+    let expected = full_share_expected();
+    // YAML form (frontend "yaml" format)
+    let from_yaml = platform_share_parse(FULL_SHARE_YAML.to_string())
+        .await
+        .expect("parse full yaml");
+    assert_eq!(serde_json::to_value(&from_yaml).unwrap(), expected);
+    // JSON form (frontend "json" format): YAML parser must accept it as a superset
+    let json_text = serde_json::to_string_pretty(&expected).unwrap();
+    let from_json = platform_share_parse(json_text).await.expect("parse json");
+    assert_eq!(serde_json::to_value(&from_json).unwrap(), expected);
+    // Garbage still rejected
+    assert!(platform_share_parse("not yaml: [".into()).await.is_err());
+    assert!(platform_share_parse("name: x\n".into()).await.is_err());
+}
+
+#[test]
+fn share_full_yaml_roundtrip_is_lossless() {
+    let parsed: SharePlatform = serde_norway::from_str(FULL_SHARE_YAML).expect("parse");
+    let emitted = serde_norway::to_string(&parsed).expect("serialize");
+    let reparsed: SharePlatform = serde_norway::from_str(&emitted).expect("reparse");
+    assert_eq!(
+        serde_json::to_value(&reparsed).unwrap(),
+        full_share_expected(),
+        "emitted: {emitted}"
+    );
+    // The numeric-looking model name must stay a quoted string after emit.
+    assert!(emitted.contains("'1.5'") || emitted.contains("\"1.5\""), "{emitted}");
 }
