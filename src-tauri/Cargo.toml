@@ -48,7 +48,8 @@ tokio-rusqlite = "0.9"
 axum = { version = "0.8", features = ["json", "ws"] }
 # WS 透传（ADR 0008 票 03）：上游 ws 客户端。TLS 与 reqwest 同走 rustls（ring 后端），
 #   根证书取系统信任库（native-roots，对应原 native-tls 的系统信任源）。
-tokio-tungstenite = { version = "0.30", features = ["rustls-tls-native-roots"] }
+#   版本跟 axum 0.8 的 ws 依赖（0.29）对齐，只留一份 tungstenite；axum 升级时同步。
+tokio-tungstenite = { version = "0.29", features = ["rustls-tls-native-roots"] }
 hyper-util = { version = "0.1", features = ["server", "server-auto"] }
 hyper = { version = "1", features = ["http1", "http2"] }
 # rustls-no-provider：只用 ring 作 rustls 加密后端（不编 aws-lc-rs）。进程入口须先
