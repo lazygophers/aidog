@@ -229,6 +229,25 @@ impl PlatformAdapter for KimiFamilyAdapter {
         upstream_url: &str,
         forced_thinking: bool,
     ) {
+        if self.coding_openai_reasoning_effort
+            && wire == &Protocol::OpenAI
+            && disable
+            && matches!(
+                body.get("model").and_then(Value::as_str),
+                Some("k3.1-pro" | "k3.1-pro-highspeed")
+            )
+            && let Some(obj) = body.as_object_mut()
+        {
+            obj.remove("disable_thinking");
+            obj.remove("thinking");
+            obj.remove("context_management");
+            obj.remove("reasoning");
+            obj.remove("enable_thinking");
+            if obj.get("reasoning_effort").and_then(Value::as_str) == Some("none") {
+                obj.remove("reasoning_effort");
+            }
+            return;
+        }
         // kimi_coding openai 端点：官方认收的禁思考写法是顶层 `reasoning_effort`（取值域
         // low/high/max + none；「off / none / disabled … 请求由 K2.8 Preview（无思考）处理」，
         // 「其他未知取值 返回 HTTP 400」），文档未列 `thinking` / `chat_template_kwargs` 参数。
@@ -240,6 +259,10 @@ impl PlatformAdapter for KimiFamilyAdapter {
             && wire == &Protocol::OpenAI
             && disable
             && !forced_thinking
+            && !matches!(
+                body.get("model").and_then(Value::as_str),
+                Some("k3.1-pro" | "k3.1-pro-highspeed")
+            )
             && let Some(obj) = body.as_object_mut()
         {
             obj.remove("disable_thinking");
