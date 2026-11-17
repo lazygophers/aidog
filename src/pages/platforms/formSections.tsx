@@ -1846,6 +1846,8 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
               min={0}
               step={w.mode === "usd" ? "any" : 1}
               value={w.amount}
+              data-testid={`quota-window-amount-${i}`}
+              aria-invalid={w.amount.trim() !== "" && !(Number(w.amount) > 0) ? true : undefined}
               aria-label={t("platform.rateLimits.budgetAmount", "预算额度")}
               placeholder={t("platform.manualBudgetAmount", "额度")}
               onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))}
