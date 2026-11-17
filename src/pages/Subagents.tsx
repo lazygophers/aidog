@@ -8,10 +8,13 @@ import {
   subagentsApi,
   type Subagent,
   type SubagentAgent,
+  type SubagentCapability,
   type SubagentImportCandidate,
   type SubagentImportReport,
   type SubagentView,
 } from "../services/api/subagents";
+import { skillsApi } from "../services/api/skills";
+import { mcpApi } from "../services/api/mcp";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
@@ -50,6 +53,8 @@ export function Subagents() {
   const [checked, setChecked] = useState<string[]>([]);
   const [report, setReport] = useState<SubagentImportReport | null>(null);
   const [busy, setBusy] = useState(false);
+  const [skillOptions, setSkillOptions] = useState<string[]>([]);
+  const [mcpOptions, setMcpOptions] = useState<string[]>([]);
 
   /** 返回是否成功；失败信息显示在页面。 */
   const run = useCallback(async (fn: () => Promise<void>) => {
@@ -68,6 +73,10 @@ export function Subagents() {
   useEffect(() => {
     void run(async () => setList(await subagentsApi.list()));
   }, [run]);
+  useEffect(() => {
+    void skillsApi.listInstalled({ kind: "global" }).then((c) => setSkillOptions((c.items ?? []).map((s) => s.name)), (e) => setError(String(e)));
+    void mcpApi.list().then((rows) => setMcpOptions(rows.map((r) => r.name)), (e) => setError(String(e)));
+  }, []);
 
   const save = (old: string | null, s: Subagent) =>
     run(async () => {
@@ -113,6 +122,12 @@ export function Subagents() {
             </div>
             {AGENTS.map((a) => {
               const label = STATUS_LABEL[s.status?.[a]];
+              const caps: SubagentCapability[] = s.capabilities?.[a] ?? [];
+              const capLabel: Partial<Record<SubagentCapability, string>> = {
+                skills: t("subagents.cap.skills"),
+                mcpServers: t("subagents.cap.mcp"),
+                model: t("subagents.cap.model"),
+              };
               return (
                 <label key={a} className="flex items-center gap-2 text-sm">
                   <Switch
@@ -122,6 +137,23 @@ export function Subagents() {
                     onCheckedChange={(on) => toggle(s, a, on)}
                   />
                   {t(AGENT_LABEL[a])}
+                  {/* 能力表：支持的能力显徽标，绑定了的亮显数量；不支持的灰显 */}
+                  {(["skills", "mcpServers", "model"] as SubagentCapability[]).map((c) => {
+                    const supported = caps.includes(c);
+                    const n = !supported ? 0 : c === "skills" ? s.skills?.length ?? 0 : c === "mcpServers" ? s.mcp_servers?.length ?? 0 : s.codex_model ? 1 : 0;
+                    const bound = n > 0;
+                    return (
+                      <Badge
+                        key={c}
+                        variant={bound ? "default" : "outline"}
+                        data-testid={bound ? `subagent-binding-${s.name}-${a}-${c}` : `subagent-cap-${s.name}-${a}-${c}`}
+                        className={bound ? "" : "opacity-40"}
+                        title={bound ? `${capLabel[c]}: ${n}` : undefined}
+                      >
+                        {bound ? `${capLabel[c]} ${n}` : capLabel[c]}
+                      </Badge>
+                    );
+                  })}
                   {label && (
                     <Badge variant="outline" data-testid={`subagent-status-${s.name}-${a}`}>{t(label)}</Badge>
                   )}
@@ -171,6 +203,70 @@ export function Subagents() {
                   onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, prompt: e.target.value } })}
                 />
               </label>
+              <div className="flex flex-col gap-1 text-sm" data-testid="subagent-edit-skills">
+                {t("subagents.skills")}
+                <div className="flex flex-wrap gap-2">
+                  {(editing.draft.skills ?? []).filter((n) => !skillOptions.includes(n)).map((n) => (
+                    <label key={n} className="flex items-center gap-1">
+                      <Checkbox
+                        checked
+                        data-testid={`subagent-skill-opt-${n}`}
+                        onCheckedChange={() =>
+                          setEditing({ ...editing, draft: { ...editing.draft, skills: (editing.draft.skills ?? []).filter((x) => x !== n) } })
+                        }
+                      />
+                      <span className="font-mono text-sm">{n}</span>
+                    </label>
+                  ))}
+                  {skillOptions.map((n) => (
+                    <label key={n} className="flex items-center gap-1">
+                      <Checkbox
+                        checked={(editing.draft.skills ?? []).includes(n)}
+                        data-testid={`subagent-skill-opt-${n}`}
+                        onCheckedChange={(on) =>
+                          setEditing({
+                            ...editing,
+                            draft: { ...editing.draft, skills: on ? [...(editing.draft.skills ?? []), n] : (editing.draft.skills ?? []).filter((x) => x !== n) },
+                          })
+                        }
+                      />
+                      <span className="font-mono text-sm">{n}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-col gap-1 text-sm" data-testid="subagent-edit-mcp">
+                {t("subagents.mcpServers")}
+                <div className="flex flex-wrap gap-2">
+                  {(editing.draft.mcp_servers ?? []).filter((n) => !mcpOptions.includes(n)).map((n) => (
+                    <label key={n} className="flex items-center gap-1">
+                      <Checkbox
+                        checked
+                        data-testid={`subagent-mcp-opt-${n}`}
+                        onCheckedChange={() =>
+                          setEditing({ ...editing, draft: { ...editing.draft, mcp_servers: (editing.draft.mcp_servers ?? []).filter((x) => x !== n) } })
+                        }
+                      />
+                      <span className="font-mono text-sm">{n}</span>
+                    </label>
+                  ))}
+                  {mcpOptions.map((n) => (
+                    <label key={n} className="flex items-center gap-1">
+                      <Checkbox
+                        checked={(editing.draft.mcp_servers ?? []).includes(n)}
+                        data-testid={`subagent-mcp-opt-${n}`}
+                        onCheckedChange={(on) =>
+                          setEditing({
+                            ...editing,
+                            draft: { ...editing.draft, mcp_servers: on ? [...(editing.draft.mcp_servers ?? []), n] : (editing.draft.mcp_servers ?? []).filter((x) => x !== n) },
+                          })
+                        }
+                      />
+                      <span className="font-mono text-sm">{n}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
               <label className="flex flex-col gap-1 text-sm">
                 {t("subagents.codexModel")}
                 <Input
