@@ -18,8 +18,7 @@ Single-context repo (this repo — root `GLOSSARY.md` + `docs/adr/`):
 /
 ├── GLOSSARY.md
 ├── docs/adr/
-│   ├── 0001-event-sourced-orders.md
-│   └── 0002-postgres-for-write-model.md
+│   └── <NN>-<slug>.md
 └── src/
 ```
 
