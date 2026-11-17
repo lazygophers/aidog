@@ -115,15 +115,15 @@ objc2-foundation = { version = "0.3", features = ["NSString", "NSDictionary", "N
 objc2-app-kit = { version = "0.3", features = ["NSStatusItem", "NSStatusBarButton", "NSButton", "NSControl", "NSResponder", "NSView", "NSWindow", "NSFont", "NSParagraphStyle", "NSAttributedString", "NSColor", "NSAppearance", "NSColorList", "block2", "objc2-core-foundation"] }
 block2 = "0.6"
 
-# Release 编译换速度：CI(GitHub Actions) macOS 10×/Windows 2× 计费，更快编译 = 更少 billed minutes。
-# 桌面代理 app 无需极致优化；codegen-units 提高并行、关 lto、opt-level 降一档、strip 去符号。
 # O7（perf-backend）：全局分配器换 mimalloc，桌面壳（root package aidog）与无头内核（aidog_kernel）两个入口 crate 共用此版本声明。
 mimalloc = "0.1"
 
 # workspace root [profile.*] 对所有 workspace member 生效。
+# Release 优先安装包体积（2026-11-17 拍板，接受 CI 发版编译变慢）：fat LTO + 单 codegen unit
+# 让链接期跨 crate 内联、剔除死代码；opt-level 维持 2（热路径性能，不换 "s"/"z"）；strip 去符号。
 [profile.release]
-codegen-units = 256
-lto = false
+codegen-units = 1
+lto = "fat"
 opt-level = 2
 strip = true
 
