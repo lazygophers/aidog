@@ -291,6 +291,67 @@ async fn glm_family_anthropic_endpoint_disables_thinking() {
     }
 }
 
+const MINIMAX_FAMILY: [(Protocol, &str); 3] = [
+    (Protocol::MiniMax, "gkminimax"),
+    (Protocol::MiniMaxEn, "gkminimaxen"),
+    (Protocol::MinimaxCoding, "gkminimaxcp"),
+];
+
+/// issue 77: all MiniMax family members use the official OpenAI-wire thinking parameter.
+#[tokio::test]
+async fn minimax_family_openai_endpoint_disables_thinking_with_official_param() {
+    for (pt, gk) in MINIMAX_FAMILY {
+        let body = outbound_body_for_model(pt.clone(), Protocol::OpenAI, gk, "MiniMax-M3").await;
+        assert_eq!(
+            body.get("thinking"),
+            Some(&serde_json::json!({"type": "disabled"})),
+            "{pt:?} OpenAI endpoint must use thinking.type=disabled: {body}"
+        );
+        assert!(body.get("reasoning_effort").is_none(), "{pt:?} must not use reasoning_effort=none: {body}");
+        assert!(body.get("disable_thinking").is_none(), "{pt:?} private field must be removed: {body}");
+    }
+}
+
+/// The MiniMax M3.1-Flash registry entry is forced-thinking; disable params must be stripped.
+#[tokio::test]
+async fn minimax_forced_thinking_model_strips_disable_params() {
+    let body = outbound_body_for_model(
+        Protocol::MiniMax,
+        Protocol::OpenAI,
+        "gkminimaxforced",
+        "MiniMax-M3.1-Flash",
+    )
+    .await;
+    assert!(body.get("thinking").is_none(), "forced model rejects thinking disable: {body}");
+    assert!(body.get("reasoning_effort").is_none(), "forced model rejects reasoning_effort=none: {body}");
+    assert!(body.get("disable_thinking").is_none(), "private field must be removed: {body}");
+}
+
+/// Anthropic endpoint already uses the official Messages thinking shape and remains unchanged.
+#[tokio::test]
+async fn minimax_family_anthropic_endpoint_disables_thinking() {
+    for (pt, gk) in MINIMAX_FAMILY {
+        let body = outbound_body_for_model(pt.clone(), Protocol::Anthropic, gk, "MiniMax-M3").await;
+        assert_eq!(body["thinking"], serde_json::json!({"type": "disabled"}), "{pt:?}: {body}");
+        assert!(body.get("disable_thinking").is_none(), "{pt:?}: {body}");
+    }
+}
+
+/// Every family member accepts both configured wire endpoints through the local fake upstream.
+#[tokio::test]
+async fn minimax_family_converts_requests_for_both_endpoint_protocols() {
+    for (pt, gk) in MINIMAX_FAMILY {
+        for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+            let body = outbound_body_for_model(pt.clone(), wire.clone(), gk, "MiniMax-M3").await;
+            assert_eq!(body["model"], "MiniMax-M3", "{pt:?}/{wire:?}: {body}");
+            assert!(body.get("messages").is_some(), "{pt:?}/{wire:?}: {body}");
+            if wire == Protocol::Anthropic {
+                assert_eq!(body["max_tokens"], 32, "{pt:?}/{wire:?}: {body}");
+            }
+        }
+    }
+}
+
 // ══ issue 113：GLM（智谱）成员 `glm` 逐端点协议护栏（请求转换 / 非流式 / 流式 / 错误 / usage）══
 // 官方出处（核对日期 2026-11-16）：
 // - 对话补全 https://docs.bigmodel.cn/api-reference/%E6%A8%A1%E5%9E%8B-api/%E5%AF%B9%E8%AF%9D%E8%A1%A5%E5%85%A8
