@@ -248,6 +248,58 @@ async fn resync_rewrites_enabled_agents() {
 }
 
 #[tokio::test]
+async fn plugin_owned_user_edit_survives_resync_and_delete() {
+    let home = HomeGuard::new();
+    let db = test_db().await;
+    add_server(&db, payload("bundle-server")).await.unwrap();
+    set_agent_enabled(&db, "bundle-server", McpAgent::ClaudeCode, true)
+        .await
+        .unwrap();
+    crate::mark_bundle_entry(&db, "bundle-server", McpAgent::ClaudeCode, "demo-plugin")
+        .await
+        .unwrap();
+
+    let path = home.dir.path().join(".claude.json");
+    let mut root: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    root["mcpServers"]["bundle-server"]["command"] = "user-command".into();
+    std::fs::write(&path, serde_json::to_vec_pretty(&root).unwrap()).unwrap();
+
+    resync_all(&db).await.unwrap();
+    let after_resync: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    assert_eq!(after_resync["mcpServers"]["bundle-server"]["command"], "user-command");
+
+    delete_server(&db, "bundle-server").await.unwrap();
+    let after_delete: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    assert_eq!(after_delete["mcpServers"]["bundle-server"]["command"], "user-command");
+    assert!(store::get_mcp_server(&db, "bundle-server").await.unwrap().is_none());
+}
+
+#[tokio::test]
+async fn plugin_owned_user_edit_survives_delete() {
+    let home = HomeGuard::new();
+    let db = test_db().await;
+    add_server(&db, payload("bundle-server")).await.unwrap();
+    set_agent_enabled(&db, "bundle-server", McpAgent::ClaudeCode, true)
+        .await
+        .unwrap();
+    crate::mark_bundle_entry(&db, "bundle-server", McpAgent::ClaudeCode, "demo-plugin")
+        .await
+        .unwrap();
+
+    let path = home.dir.path().join(".claude.json");
+    let mut root: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    root["mcpServers"]["bundle-server"]["command"] = "user-command".into();
+    std::fs::write(&path, serde_json::to_vec_pretty(&root).unwrap()).unwrap();
+
+    delete_server(&db, "bundle-server").await.unwrap();
+    let after_delete: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    assert_eq!(after_delete["mcpServers"]["bundle-server"]["command"], "user-command");
+}
+
+#[tokio::test]
 async fn update_rename_and_masked_merge() {
     let home = HomeGuard::new();
     let db = test_db().await;
