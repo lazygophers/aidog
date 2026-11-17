@@ -1,11 +1,21 @@
 // ─── 扩展 → 上下文压缩（RTK / sqz）────────────────────────────
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Switch } from "../components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { BarChart } from "../components/charts";
 import { contextCompressApi, type ContextCompressStats, type ContextCompressStatus, type RtkSetResult } from "../services/api/contextCompress";
 import { formatInteger, formatPercent } from "../utils/formatters";
+
+type Range = "30" | "90" | "all";
+
+const isoDay = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
 
 export function ContextCompress() {
   const { t } = useTranslation();
@@ -16,6 +26,7 @@ export function ContextCompress() {
   const [error, setError] = useState("");
   const [sideErrors, setSideErrors] = useState<{ claude?: string | null; codex?: string | null }>({});
   const [busy, setBusy] = useState(false);
+  const [range, setRange] = useState<Range>("30");
 
   // stats 跑 rtk gain / sqz stats 要数秒，与 status 分开加载，不拖住开关区。
   const loadStats = useCallback(async () => {
@@ -58,28 +69,95 @@ export function ContextCompress() {
     : version
     ? t("contextCompress.installed", { version })
     : t("contextCompress.notInstalled");
-  const statsCards = [
-    {
-      tool: "rtk", name: "RTK", version: status?.rtk_version,
-      tiles: stats?.rtk && [
-        ["saved", "contextCompress.statsSaved", formatInteger(stats.rtk.total_saved)],
-        ["pct", "contextCompress.statsPct", formatPercent(stats.rtk.avg_savings_pct)],
-        ["count", "contextCompress.statsCommands", formatInteger(stats.rtk.total_commands)],
-        ["in", "contextCompress.statsIn", formatInteger(stats.rtk.total_input)],
-        ["out", "contextCompress.statsOut", formatInteger(stats.rtk.total_output)],
-      ],
-    },
-    {
-      tool: "sqz", name: "sqz", version: status?.sqz_version,
-      tiles: stats?.sqz && [
-        ["saved", "contextCompress.statsSaved", formatInteger(stats.sqz.tokensSaved)],
-        ["pct", "contextCompress.statsPct", formatPercent(stats.sqz.avgReduction)],
-        ["count", "contextCompress.statsCompressions", formatInteger(stats.sqz.totalCompressions)],
-        ["in", "contextCompress.statsIn", formatInteger(stats.sqz.tokensIn)],
-        ["out", "contextCompress.statsOut", formatInteger(stats.sqz.tokensOut)],
-      ],
-    },
-  ] as const;
+
+  const rangeHeader = <div className="flex items-center justify-between gap-4">
+    <h2 className="text-base font-semibold">{t("contextCompress.statsTitle")}</h2>
+    <div className="flex items-center gap-2">
+      <div role="radiogroup" aria-label={t("contextCompress.statsRange")} className="flex items-center rounded-md border p-0.5 text-sm">
+        {(["30", "90", "all"] as const).map(r => <button key={r} role="radio" aria-checked={range === r} type="button"
+          className={`rounded px-2 py-1 ${range === r ? "bg-secondary text-secondary-foreground" : "text-muted-foreground"}`}
+          data-testid={`cc-range-${r}`} onClick={() => setRange(r)}>
+          {t(`contextCompress.statsRange${r === "all" ? "All" : r}`)}
+        </button>)}
+      </div>
+      <Button variant="outline" size="sm" disabled={statsState === "loading"} onClick={() => void loadStats()} data-testid="cc-stats-refresh">{t("contextCompress.statsRefresh")}</Button>
+    </div>
+  </div>;
+
+  const card = (tool: "rtk" | "sqz", tiles: [string, string, string, "range" | "total"][] | null, chart: ReactNode, extra?: ReactNode) => {
+    const state = statsState !== "ok" ? statsState
+      : tiles ? "ok"
+      : status && !version(tool) ? "not-installed"
+      : "empty";
+    return <div className="space-y-3 rounded-lg border p-4" data-testid={`cc-stats-${tool}`} data-state={state}>
+      {rangeHeader}
+      {state === "ok" && tiles
+        ? <>
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {tiles.map(([key, labelKey, value, scope]) => <div key={key}>
+              <dt className="text-sm text-muted-foreground">{t(labelKey)}{scope === "total" && <span className="ml-1 text-xs">({t("contextCompress.statsTotalScope")})</span>}</dt>
+              <dd className="text-lg font-semibold tabular-nums" data-testid={`cc-stat-${tool}-${key}`}>{value}</dd>
+            </div>)}
+          </dl>
+          {extra}
+          {chart}
+        </>
+        : <p className={`text-sm ${state === "error" ? "text-destructive" : "text-muted-foreground"}`} data-testid={`cc-stats-${tool}-msg`}>
+          {state === "loading" ? t("contextCompress.statsLoading")
+            : state === "error" ? `${t("contextCompress.statsError")} ${statsError}`
+            : state === "not-installed" ? t("contextCompress.statsNotInstalled")
+            : t("contextCompress.statsEmpty")}
+        </p>}
+    </div>;
+  };
+  const version = (tool: "rtk" | "sqz") => tool === "rtk" ? status?.rtk_version : status?.sqz_version;
+
+  // 区间过滤：30/90 天按本地日期算；"all" 不过滤。sqz CLI 无每日比率 / in-out，
+  // 其 rate / count / in / out 只能是累计口径，UI 显式标注。
+  const inRange = <T extends { date: string }>(rows: T[] | undefined): T[] => {
+    if (!rows) return [];
+    if (range === "all") return rows;
+    const d = new Date();
+    d.setDate(d.getDate() - (Number(range) - 1));
+    const cutoff = isoDay(d);
+    return rows.filter(r => r.date >= cutoff);
+  };
+  const rtkRange = useMemo(() => inRange(stats?.rtk_daily), [stats, range]);
+  const sqzRange = useMemo(() => inRange(stats?.sqz_daily), [stats, range]);
+  const sum = (rows: { saved_tokens: number }[]) => rows.reduce((a, r) => a + r.saved_tokens, 0);
+  const chartData = (rows: { date: string; saved_tokens: number }[]) =>
+    rows.map(r => ({ name: r.date.slice(5), saved: r.saved_tokens }));
+  const dailyChart = (testid: string, rows: { date: string; saved_tokens: number }[]) => <div data-testid={testid}>
+    <BarChart
+      title={t("contextCompress.statsDaily")}
+      config={{ saved: { label: t("contextCompress.statsSaved") } }}
+      data={chartData(rows)}
+      valueFormat={formatInteger}
+      height={200}
+      xInterval={rows.length > 15 ? Math.ceil(rows.length / 12) : 0}
+      className="mt-3"
+    />
+  </div>;
+  const rtkChart = dailyChart("cc-chart-rtk", rtkRange);
+  const sqzChart = dailyChart("cc-chart-sqz", sqzRange);
+
+  const rtkIn = rtkRange.reduce((a, r) => a + r.input_tokens, 0);
+  const rtkSaved = sum(rtkRange);
+  const rtkTiles: [string, string, string, "range" | "total"][] | null = statsState === "ok" && stats?.rtk ? [
+    ["saved", "contextCompress.statsSaved", formatInteger(rtkSaved), "range"],
+    ["pct", "contextCompress.statsPct", rtkIn > 0 ? formatPercent(rtkSaved / rtkIn * 100) : "—", "range"],
+    ["count", "contextCompress.statsCommands", formatInteger(rtkRange.reduce((a, r) => a + r.commands, 0)), "range"],
+    ["in", "contextCompress.statsIn", formatInteger(rtkIn), "range"],
+    ["out", "contextCompress.statsOut", formatInteger(rtkRange.reduce((a, r) => a + r.output_tokens, 0)), "range"],
+  ] : null;
+  const sqz = stats?.sqz;
+  const sqzTiles: [string, string, string, "range" | "total"][] | null = statsState === "ok" && sqz ? [
+    ["saved", "contextCompress.statsSaved", formatInteger(sum(sqzRange)), "range"],
+    ["pct", "contextCompress.statsPct", formatPercent(sqz.avgReduction), "total"],
+    ["count", "contextCompress.statsCompressions", formatInteger(sqz.totalCompressions), "total"],
+    ["in", "contextCompress.statsIn", formatInteger(sqz.tokensIn), "total"],
+    ["out", "contextCompress.statsOut", formatInteger(sqz.tokensOut), "total"],
+  ] : null;
 
   return (
     <section className="space-y-5" data-testid="context-compress-page">
@@ -88,36 +166,6 @@ export function ContextCompress() {
         <p className="mt-1 text-sm text-muted-foreground">{t("contextCompress.desc")}</p>
       </header>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      <section className="space-y-3" data-testid="cc-stats">
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="text-base font-semibold">{t("contextCompress.statsTitle")}</h2>
-          <Button variant="outline" size="sm" disabled={statsState === "loading"} onClick={() => void loadStats()} data-testid="cc-stats-refresh">{t("contextCompress.statsRefresh")}</Button>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          {statsCards.map(card => {
-            const state = statsState !== "ok" ? statsState
-              : card.tiles ? "ok"
-              : status && !card.version ? "not-installed"
-              : "empty";
-            return <div key={card.tool} className="rounded-lg border p-4" data-testid={`cc-stats-${card.tool}`} data-state={state}>
-              <h3 className="mb-3 text-sm font-medium">{card.name}</h3>
-              {state === "ok" && card.tiles
-                ? <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  {card.tiles.map(([key, labelKey, value]) => <div key={key}>
-                    <dt className="text-sm text-muted-foreground">{t(labelKey)}</dt>
-                    <dd className="text-lg font-semibold tabular-nums" data-testid={`cc-stat-${card.tool}-${key}`}>{value}</dd>
-                  </div>)}
-                </dl>
-                : <p className={`text-sm ${state === "error" ? "text-destructive" : "text-muted-foreground"}`} data-testid={`cc-stats-${card.tool}-msg`}>
-                  {state === "loading" ? t("contextCompress.statsLoading")
-                    : state === "error" ? `${t("contextCompress.statsError")} ${statsError}`
-                    : state === "not-installed" ? t("contextCompress.statsNotInstalled")
-                    : t("contextCompress.statsEmpty")}
-                </p>}
-            </div>;
-          })}
-        </div>
-      </section>
       <Tabs defaultValue="rtk">
         <TabsList>
           <TabsTrigger value="rtk" data-testid="cc-tab-rtk">RTK</TabsTrigger>
@@ -139,6 +187,7 @@ export function ContextCompress() {
               {sideErrors.codex && <span className="text-destructive" data-testid="rtk-error-codex">{sideErrors.codex}</span>}
             </div>
           </div>}
+          {card("rtk", rtkTiles, rtkChart)}
         </TabsContent>
         <TabsContent value="sqz" className="space-y-4">
           <p className="text-sm text-muted-foreground">{t("contextCompress.sqzDesc")}</p>
@@ -152,6 +201,7 @@ export function ContextCompress() {
             <p>{t("contextCompress.sqzMissing")}</p>
             <ul className="list-disc pl-5">{status.sqz_missing.map(item => <li key={item}>{item}</li>)}</ul>
           </div>}
+          {card("sqz", sqzTiles, sqzChart, <p className="text-xs text-muted-foreground" data-testid="cc-sqz-rate-note">{t("contextCompress.sqzRateNote")}</p>)}
         </TabsContent>
       </Tabs>
     </section>
