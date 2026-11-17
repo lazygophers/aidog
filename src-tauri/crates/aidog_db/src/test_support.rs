@@ -318,6 +318,7 @@ pub async fn create_platform_at_fake_upstream(
     base_url: &str,
     endpoint_protocols: &[Protocol],
 ) -> u64 {
+    let is_kimi_coding = ptype == Protocol::KimiCoding;
     let id = crate::create_platform(
         db,
         CreatePlatform {
@@ -344,10 +345,10 @@ pub async fn create_platform_at_fake_upstream(
             .iter()
             .cloned()
             .map(|protocol| PlatformEndpoint {
+                coding_plan: is_kimi_coding && protocol == Protocol::OpenAI,
                 protocol,
                 base_url: base_url.to_string(),
                 client_type: "default".to_string(),
-                coding_plan: false,
             })
             .collect::<Vec<_>>(),
     );

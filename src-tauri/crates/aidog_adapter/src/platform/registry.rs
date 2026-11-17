@@ -70,8 +70,8 @@ impl PlatformAdapter for GenericAdapter {}
 ///   kimi-k2.7-code-highspeed）`supported_protocols`
 ///   相应只留 `["openai"]`（K3 系列条目保持含 `anthropic`）。
 ///   https://platform.kimi.com/docs/api/messages.md
-/// - coding_plan 注入：沿用基座按平台协议分派（`Protocol::Kimi` / `Protocol::KimiCoding` 注入
-///   `prompt_cache_key`，`kimi_en` no-op），行为不变；chat.md 称「对于 Kimi Code Plan，此字段为必填」。
+/// - coding_plan 注入：`Protocol::Kimi` 沿用 wire-agnostic 的旧注入；`Protocol::KimiCoding`
+///   仅 OpenAI wire 注入；`kimi_en` no-op。chat.md 将 prompt_cache_key 标为 Kimi Code Plan 必填。
 /// - 未证实（保持基座默认）：anthropic 端点的 `thinking` 请求参数（messages.md 未列出）、
 ///   `content_filter` 错误类型（当前归「未知」类）。
 ///
@@ -157,9 +157,9 @@ impl PlatformAdapter for GenericAdapter {}
 ///   命中率。对于其他多轮对话 Agent，也建议使用此字段」「通常是代表单个会话的 session id 或 task
 ///   id；退出并恢复会话时应保持不变」。迁移前转发层仅对 `Protocol::Kimi` 注入、
 ///   `KimiCoding` 走 no-op——与官方「必填」相悖，属迁移缺口；本成员按官方证据扩为
-///   `Protocol::KimiCoding` + coding_plan 端点注入（客户端自带键原样保留；缺省时按
-///   metadata.session_id / user / model 派生稳定键，不按时间窗口轮换），非 coding_plan 端点
-///   不注入（注入条件同源：端点 coding_plan flag）。https://platform.kimi.com/docs/api/chat.md
+///   `Protocol::KimiCoding` + coding_plan 端点注入（显式键保留；同协议 passthrough 请求可从
+///   metadata.session_id / user 派生稳定键；协议转换不会保留这些顶层字段，因而转换请求使用随机键），
+///   非 coding_plan 端点不注入。https://platform.kimi.com/docs/api/chat.md
 /// - usage：openai 臂 `usage.prompt_tokens_details.cached_tokens` / `cache_write_tokens`、anthropic 臂
 ///   `cache_read_input_tokens` / `cache_creation_input_tokens`，同家族基座（家族级取舍不区分缓存
 ///   写入，见基座说明），不覆盖。Kimi Code 专属文档（models.html / error-reference.html）未列 usage
@@ -167,9 +167,9 @@ impl PlatformAdapter for GenericAdapter {}
 ///   `output_config.effort`（messages.md schema）；aidog 不写即官方默认，不覆盖。
 ///   https://platform.kimi.com/docs/api/messages.md
 /// - 流式 / 错误体：错误参考页条目均为「error, status code: <code>, message: <text>」文案形态，
-///   JSON 错误体形状未证实；404「Not found the model kimi-for-coding or Permission denied」由基座
-///   特征词 `not found the model` 归模型类、400「Your model id does not exist, recognized as …」
-///   命中 `does not exist`（has_model 分支），429 配额与 401/403 按状态码归服务类，与基座一致，不覆盖。
+///   JSON 错误体形状未证实；404「Not found the model kimi-for-coding or Permission denied」不能单凭
+///   文案区分模型不存在与权限不足，故不扩展共享模型错误标记；400「Your model id does not exist, recognized as …」
+///   由基座 `has_model` 分支归模型类，429 配额与 401/403 按状态码归服务类。
 ///   https://www.kimi.com/code/docs/kimi-code/error-reference.html
 /// - 工具 / 多模态 / system：模型页「多模态输入支持 图片、视频」（k3-256k 仅图片）；错误参考
 ///   「thinking is enabled but reasoning_content is missing … 启用思维链时必须携带」是
@@ -298,8 +298,7 @@ impl PlatformAdapter for KimiFamilyAdapter {
         {
             obj.insert("tool_choice".to_string(), Value::String("auto".to_string()));
         }
-    }
-}
+    }}
 
 /// 智谱 GLM 家族基座（issue 75；成员 glm / glm_en / glm_coding / glm_coding_en 共用，
 /// 成员差异见各成员 issue）。
