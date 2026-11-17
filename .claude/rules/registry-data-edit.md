@@ -88,7 +88,7 @@ holiday_calendar + index.json 顶层 last_updated）。解法统一：
    证实，派发时预期的「手工补夹具两行」是多余的）。夹具要不要补，以
    cargo check 实测为准，不按预期预改。
 
-## 非 registry 数据目录豁免盖戳约定：先证明灌种层不存在，再写 ADR（2026-11-15 holidays / ADR 0013）
+## 非 registry 数据目录豁免盖戳约定：先证明灌种层不存在，再写 ADR（2026-11-15 holidays / ADR 0016）
 
 「新必填字段上线 = 三件套」与 last_updated 盖戳约定默认适用于 registry 数据
 （有 DB 灌种机制参与）。新数据目录（如编译期内置的 `holidays/` 日历）偏离该
@@ -97,7 +97,7 @@ holiday_calendar + index.json 顶层 last_updated）。解法统一：
 1. 灌种层证据三查：build.rs 是否编译期 `include_str!`（`aidog_db/build.rs:84-102`
    静态表）→ 内存缓存层是否读 DB（`registry.rs:42`）→ schema 目录 grep 该
    目录名零命中。三查都成立 = 无任何 DB 灌种机制可参与，盖戳纯增重。
-2. 豁免成立 → 给该目录的更新机制写一行真值源说明并落 ADR（本例 ADR 0013：
+2. 豁免成立 → 给该目录的更新机制写一行真值源说明并落 ADR（本例 ADR 0016，2026-11-18 由 0013 改号，原 0013 与 aux-requests 撞号：
    改 JSON → rerun-if-changed 重编 → check-holidays 门禁），审查质疑时引
    ADR 应答；不成立 → 照常进三件套。
 3. 判据：**有没有消费者经 DB 读它**，不是「是不是 JSON 数据」。134 份文件
