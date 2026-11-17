@@ -27,8 +27,8 @@ pub use reasoning_tags::InlineReasoningSplitter;
 pub use thinking_strip::{SseThinkingStripper, strip_thinking_in_body};
 pub use types::*;
 
-/// reqwest is built with `rustls-no-provider`: the process entry points install the ring
-/// provider at startup, so the unit-test binary installs it before any test runs.
+// reqwest is built with `rustls-no-provider`: the process entry points install the ring
+// provider at startup, so the unit-test binary installs it before any test runs.
 #[cfg(test)]
 ctor::declarative::ctor! {
     #[ctor(unsafe)]
