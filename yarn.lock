@@ -208,7 +208,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@biomejs/biome@npm:^2.6.8":
+"@biomejs/biome@npm:2.6.8":
   version: 2.6.8
   resolution: "@biomejs/biome@npm:2.6.8"
   dependencies:
@@ -3907,7 +3907,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "aidog-docs@workspace:docs"
   dependencies:
-    "@biomejs/biome": "npm:^2.6.8"
+    "@biomejs/biome": "npm:2.6.8"
     "@eslint/js": "npm:^10.0.1"
     "@rslint/core": "npm:^0.10.1"
     "@rspress/core": "npm:^2.1.3"
