@@ -1205,18 +1205,24 @@ async fn kimi_family_openai_disable_thinking_strips_temperature() {
 #[tokio::test]
 async fn kimi_coding_openai_disable_thinking_writes_reasoning_effort_none() {
     let pt = Protocol::KimiCoding;
-    let req = serde_json::json!({"model": "kimi-test", "max_tokens": 32, "temperature": 1.0,
-        "disable_thinking": true, "messages": [{"role": "user", "content": "hi"}]});
-    let body = outbound_body_with(pt.clone(), Protocol::OpenAI, &kimi_gk(&pt, "cbb"), req).await;
-    assert_eq!(
-        body.get("reasoning_effort"),
-        Some(&serde_json::json!("none")),
-        "kimi_coding 禁思考应写官方 reasoning_effort=none: {body}"
-    );
-    assert!(body.get("chat_template_kwargs").is_none(), "kimi_coding 不应写 chat_template_kwargs: {body}");
-    assert!(body.get("thinking").is_none(), "kimi_coding 不应写 thinking: {body}");
-    assert_eq!(body.get("temperature"), Some(&serde_json::json!(1.0)), "kimi_coding 应透传 temperature: {body}");
-    assert!(body.get("disable_thinking").is_none(), "私有字段应剥除: {body}");
+    for model in ["kimi-test", "k3.1-pro", "k3.1-pro-highspeed"] {
+        let req = serde_json::json!({"model": model, "max_tokens": 32, "temperature": 1.0,
+            "disable_thinking": true, "messages": [{"role": "user", "content": "hi"}]});
+        let body = outbound_body_with(pt.clone(), Protocol::OpenAI, &kimi_gk(&pt, "cbb"), req).await;
+        if model.starts_with("k3.1-pro") {
+            assert!(body.get("reasoning_effort").is_none(), "K3.1 Pro 禁思考必须省略 reasoning_effort: {body}");
+        } else {
+            assert_eq!(
+                body.get("reasoning_effort"),
+                Some(&serde_json::json!("none")),
+                "其他 kimi_coding 模型禁思考应写 reasoning_effort=none: {body}"
+            );
+        }
+        assert!(body.get("chat_template_kwargs").is_none(), "kimi_coding 不应写 chat_template_kwargs: {body}");
+        assert!(body.get("thinking").is_none(), "kimi_coding 不应写 thinking: {body}");
+        assert_eq!(body.get("temperature"), Some(&serde_json::json!(1.0)), "kimi_coding 应透传 temperature: {body}");
+        assert!(body.get("disable_thinking").is_none(), "私有字段应剥除: {body}");
+    }
 }
 
 /// issue 76（护栏）：不可关闭思考的真实 registry 模型（chat.md「kimi-k2.7-code 和
@@ -1537,12 +1543,16 @@ async fn kimi_member_outbound_raw(
 #[tokio::test]
 async fn kimi_member_coding_plan_endpoint_injects_prompt_cache_key() {
     let body = kimi_member_outbound("gk117cp", true).await;
-    assert!(
-        body.get("prompt_cache_key")
-            .and_then(|v| v.as_str())
-            .is_some_and(|s| s.starts_with("aidog-")),
-        "coding_plan 端点应注入 prompt_cache_key: {body}"
-    );
+    let key = body.get("prompt_cache_key").and_then(|v| v.as_str()).unwrap();
+    assert!(key.starts_with("aidog-glm-test-"), "coding_plan 端点应注入 prompt_cache_key: {body}");
+    assert_eq!(key.rsplit('-').next().unwrap().len(), 6, "标准 kimi 保留旧六位五分钟键: {body}");
+
+    let first = kimi_member_outbound_pt(Protocol::KimiCoding, "gk119a", true).await;
+    let second = kimi_member_outbound_pt(Protocol::KimiCoding, "gk119b", true).await;
+    let first_key = first.get("prompt_cache_key").and_then(|v| v.as_str()).unwrap();
+    let second_key = second.get("prompt_cache_key").and_then(|v| v.as_str()).unwrap();
+    assert_ne!(first_key, second_key, "无会话身份的请求不得共享缓存键: {first_key}");
+
     let body = kimi_member_outbound("gk117cn", false).await;
     assert!(
         body.get("prompt_cache_key").is_none(),
