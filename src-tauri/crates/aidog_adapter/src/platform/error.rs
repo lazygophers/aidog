@@ -73,11 +73,10 @@ pub fn classify_upstream_error(status: u16, body: &str) -> UpstreamErrorClass {
         })
         .unwrap_or_else(|| window.to_string())
         .to_lowercase();
-    const MODEL_MARKERS: [&str; 8] = [
+    const MODEL_MARKERS: [&str; 7] = [
         "not_found_error",
         "model_not_found",
         "model not found",
-        "not found the model",
         "no available channel",
         "无可用渠道",
         "invalid model",
