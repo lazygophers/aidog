@@ -12,6 +12,7 @@ aidog_db = { path = "../aidog_db" }
 serde = { workspace = true }
 rusqlite = { workspace = true }
 serde_json = { workspace = true }
+sha2 = { workspace = true }
 tracing = { workspace = true }
 toml = { workspace = true }
 dirs = { workspace = true }

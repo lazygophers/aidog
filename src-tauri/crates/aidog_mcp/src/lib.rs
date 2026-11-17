@@ -21,6 +21,7 @@
 
 mod backend_claude;
 mod backend_codex;
+mod bundle;
 mod domain;
 mod mask;
 mod recommended;
@@ -31,6 +32,7 @@ use backend_claude::ClaudeCodeBackend;
 use backend_codex::CodexBackend;
 
 // 对外路径保持 `gateway::mcp::X` 不变。
+pub use bundle::mark_bundle_entry;
 pub use domain::{
     add_server, delete_server, import_items, import_pasted, resync_all, scan_all,
     set_agent_enabled, share_server, update_server,
