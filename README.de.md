@@ -23,6 +23,12 @@ AiDog betreibt einen Proxy-Dienst auf deinem Rechner. Du speicherst Upstream-Pla
 
 ## Funktionen
 
+![AiDog Übersicht](screenshots/home-light.png)
+
+![KI-Plattformverwaltung](screenshots/platforms-light.png)
+
+*Illustrative Oberfläche mit Beispieldaten.*
+
 ### Lokaler Proxy und Routing
 
 - Verwalte integrierte Plattform-Voreinstellungen und konfiguriere eigene Plattformen.

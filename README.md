@@ -23,6 +23,12 @@ AiDog 在你的电脑上运行代理服务。你把上游平台和 API Key 保�
 
 ## 能做什么
 
+![AiDog 首页总览](screenshots/home-light.png)
+
+![AI 平台管理](screenshots/platforms-light.png)
+
+*界面示意，数据为模拟。*
+
 ### 本地代理与路由
 
 - 管理内置平台预设，也可配置自定义平台。
