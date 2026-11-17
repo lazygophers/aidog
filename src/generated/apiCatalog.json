@@ -2281,6 +2281,115 @@
       "returns": "gateway::models::PlatformUsageStats"
     },
     {
+      "name": "plugins_bundle_install",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "source",
+          "type": "String"
+        },
+        {
+          "name": "agents",
+          "type": "Vec<String>"
+        },
+        {
+          "name": "selected",
+          "type": "Option<Vec<String>>"
+        }
+      ],
+      "returns": "PluginViewList"
+    },
+    {
+      "name": "plugins_bundle_list",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "PluginViewList"
+    },
+    {
+      "name": "plugins_bundle_probe",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "source",
+          "type": "String"
+        }
+      ],
+      "returns": "Vec<PluginCandidate>"
+    },
+    {
+      "name": "plugins_bundle_remove",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "name",
+          "type": "String"
+        }
+      ],
+      "returns": "PluginViewList"
+    },
+    {
+      "name": "plugins_bundle_set",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "name": "on",
+          "type": "bool"
+        }
+      ],
+      "returns": "PluginViewList"
+    },
+    {
+      "name": "plugins_bundle_set_agents",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "name": "agents",
+          "type": "Vec<String>"
+        }
+      ],
+      "returns": "PluginViewList"
+    },
+    {
+      "name": "plugins_bundle_update",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "name",
+          "type": "String"
+        }
+      ],
+      "returns": "PluginViewList"
+    },
+    {
       "name": "plugins_claude_list",
       "category": "ai_tools",
       "kind": "readonly",

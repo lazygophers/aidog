@@ -131,6 +131,7 @@ export function Subagents() {
               return (
                 <label key={a} className="flex items-center gap-2 text-sm">
                   <Switch
+                    aria-label={`${s.name} ${t(AGENT_LABEL[a])}`}
                     data-testid={`subagent-toggle-${s.name}-${a}`}
                     checked={s.agents.includes(a)}
                     disabled={busy}
@@ -203,26 +204,30 @@ export function Subagents() {
                   onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, prompt: e.target.value } })}
                 />
               </label>
-              <div className="flex flex-col gap-1 text-sm" data-testid="subagent-edit-skills">
-                {t("subagents.skills")}
+              <fieldset className="flex flex-col gap-1 text-sm" data-testid="subagent-edit-skills">
+                <legend>{t("subagents.skills")}</legend>
                 <div className="flex flex-wrap gap-2">
-                  {(editing.draft.skills ?? []).filter((n) => !skillOptions.includes(n)).map((n) => (
-                    <label key={n} className="flex items-center gap-1">
+                  {(editing.draft.skills ?? []).filter((n) => !skillOptions.includes(n)).map((n) => {
+                    const id = `subagent-skill-opt-${n}`;
+                    return <div key={n} className="flex min-h-11 items-center gap-1">
                       <Checkbox
+                        id={id}
                         checked
-                        data-testid={`subagent-skill-opt-${n}`}
+                        data-testid={id}
                         onCheckedChange={() =>
                           setEditing({ ...editing, draft: { ...editing.draft, skills: (editing.draft.skills ?? []).filter((x) => x !== n) } })
                         }
                       />
-                      <span className="font-mono text-sm">{n}</span>
-                    </label>
-                  ))}
-                  {skillOptions.map((n) => (
-                    <label key={n} className="flex items-center gap-1">
+                      <label htmlFor={id} className="font-mono text-sm">{n}</label>
+                    </div>;
+                  })}
+                  {skillOptions.map((n) => {
+                    const id = `subagent-skill-opt-${n}`;
+                    return <div key={n} className="flex min-h-11 items-center gap-1">
                       <Checkbox
+                        id={id}
                         checked={(editing.draft.skills ?? []).includes(n)}
-                        data-testid={`subagent-skill-opt-${n}`}
+                        data-testid={id}
                         onCheckedChange={(on) =>
                           setEditing({
                             ...editing,
@@ -230,31 +235,35 @@ export function Subagents() {
                           })
                         }
                       />
-                      <span className="font-mono text-sm">{n}</span>
-                    </label>
-                  ))}
+                      <label htmlFor={id} className="font-mono text-sm">{n}</label>
+                    </div>;
+                  })}
                 </div>
-              </div>
-              <div className="flex flex-col gap-1 text-sm" data-testid="subagent-edit-mcp">
-                {t("subagents.mcpServers")}
+              </fieldset>
+              <fieldset className="flex flex-col gap-1 text-sm" data-testid="subagent-edit-mcp">
+                <legend>{t("subagents.mcpServers")}</legend>
                 <div className="flex flex-wrap gap-2">
-                  {(editing.draft.mcp_servers ?? []).filter((n) => !mcpOptions.includes(n)).map((n) => (
-                    <label key={n} className="flex items-center gap-1">
+                  {(editing.draft.mcp_servers ?? []).filter((n) => !mcpOptions.includes(n)).map((n) => {
+                    const id = `subagent-mcp-opt-${n}`;
+                    return <div key={n} className="flex min-h-11 items-center gap-1">
                       <Checkbox
+                        id={id}
                         checked
-                        data-testid={`subagent-mcp-opt-${n}`}
+                        data-testid={id}
                         onCheckedChange={() =>
                           setEditing({ ...editing, draft: { ...editing.draft, mcp_servers: (editing.draft.mcp_servers ?? []).filter((x) => x !== n) } })
                         }
                       />
-                      <span className="font-mono text-sm">{n}</span>
-                    </label>
-                  ))}
-                  {mcpOptions.map((n) => (
-                    <label key={n} className="flex items-center gap-1">
+                      <label htmlFor={id} className="font-mono text-sm">{n}</label>
+                    </div>;
+                  })}
+                  {mcpOptions.map((n) => {
+                    const id = `subagent-mcp-opt-${n}`;
+                    return <div key={n} className="flex min-h-11 items-center gap-1">
                       <Checkbox
+                        id={id}
                         checked={(editing.draft.mcp_servers ?? []).includes(n)}
-                        data-testid={`subagent-mcp-opt-${n}`}
+                        data-testid={id}
                         onCheckedChange={(on) =>
                           setEditing({
                             ...editing,
@@ -262,11 +271,11 @@ export function Subagents() {
                           })
                         }
                       />
-                      <span className="font-mono text-sm">{n}</span>
-                    </label>
-                  ))}
+                      <label htmlFor={id} className="font-mono text-sm">{n}</label>
+                    </div>;
+                  })}
                 </div>
-              </div>
+              </fieldset>
               <label className="flex flex-col gap-1 text-sm">
                 {t("subagents.codexModel")}
                 <Input

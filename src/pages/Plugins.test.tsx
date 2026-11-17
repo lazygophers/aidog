@@ -4,6 +4,11 @@ import { fireEvent, render, screen, waitFor } from "../test/render";
 const api = vi.hoisted(() => ({
   claudeList: vi.fn(),
   claudeSet: vi.fn(),
+  claudeProbe: vi.fn(),
+  claudeInstall: vi.fn(),
+  claudeSetAgents: vi.fn(),
+  claudeRemove: vi.fn(),
+  claudeUpdate: vi.fn(),
   codexList: vi.fn(),
   codexAdd: vi.fn(),
   codexRemove: vi.fn(),
@@ -15,9 +20,10 @@ vi.mock("../services/api/plugins", () => ({ pluginsApi: api }));
 import { Plugins } from "./Plugins";
 
 const CLAUDE_LIST = [
-  { id: "code-review@official", version: "1.0.1", installPath: "/cache/cr", lastUpdated: "2026-10-28T00:38:38.373Z", enabled: true, configured: true },
-  { id: "z-docs@official", version: "", installPath: "/cache/z", lastUpdated: "", enabled: false, configured: true },
+  { name: "code-review", source: "/plugins/code-review", pick: null, agents: ["claude-code", "codex"], on: true, skills: ["review"], subagents: ["reviewer"], hooks: [], servers: [], left: [] },
+  { name: "z-docs", source: "/plugins/z", pick: null, agents: ["claude-code"], on: false, skills: [], subagents: [], hooks: [], servers: [], left: ["commands not carried"] },
 ];
+const CLAUDE_VIEW = { plugins: CLAUDE_LIST, warnings: [] };
 const CODEX_VIEW = {
   installed: [{ pluginId: "hello@testmkt", name: "hello", marketplaceName: "testmkt", version: "0.1.0", installed: true, enabled: true }],
   marketplaces: [{ name: "testmkt", source: "/mkt", root: "/mkt" }],
@@ -25,9 +31,14 @@ const CODEX_VIEW = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  api.claudeList.mockResolvedValue(CLAUDE_LIST);
-  api.claudeSet.mockImplementation((id: string, enabled: boolean) =>
-    Promise.resolve(CLAUDE_LIST.map((p) => (p.id === id ? { ...p, enabled } : p))));
+  api.claudeList.mockResolvedValue(CLAUDE_VIEW);
+  api.claudeSet.mockImplementation((name: string, on: boolean) =>
+    Promise.resolve({ plugins: CLAUDE_LIST.map((p) => (p.name === name ? { ...p, on } : p)), warnings: [] }));
+  api.claudeProbe.mockResolvedValue([{ name: "demo", description: "demo", version: "1.0", rel: "", installed: false }]);
+  api.claudeInstall.mockResolvedValue(CLAUDE_VIEW);
+  api.claudeSetAgents.mockResolvedValue(CLAUDE_VIEW);
+  api.claudeRemove.mockResolvedValue(CLAUDE_VIEW);
+  api.claudeUpdate.mockResolvedValue(CLAUDE_VIEW);
   api.codexList.mockResolvedValue(CODEX_VIEW);
   api.codexAdd.mockResolvedValue(CODEX_VIEW);
   api.codexRemove.mockResolvedValue(CODEX_VIEW);
@@ -42,14 +53,35 @@ const switchTab = async (testid: string) => {
 };
 
 describe("Plugins", () => {
-  it("lists Claude Code plugins and toggles enabledPlugins", async () => {
+  it("lists Claude bundles and toggles distribution", async () => {
     render(<Plugins />);
-    await screen.findByTestId("plugin-row-code-review@official");
-    expect(screen.getByTestId("plugin-toggle-code-review@official").getAttribute("data-state")).toBe("checked");
-    expect(screen.getByTestId("plugin-toggle-z-docs@official").getAttribute("data-state")).not.toBe("checked");
+    await screen.findByTestId("plugin-row-code-review");
+    expect(screen.getByTestId("plugin-toggle-code-review").getAttribute("data-state")).toBe("checked");
+    expect(screen.getByTestId("plugin-toggle-z-docs").getAttribute("data-state")).not.toBe("checked");
 
-    fireEvent.click(screen.getByTestId("plugin-toggle-z-docs@official"));
-    await waitFor(() => expect(api.claudeSet).toHaveBeenCalledWith("z-docs@official", true));
+    fireEvent.click(screen.getByTestId("plugin-toggle-z-docs"));
+    await waitFor(() => expect(api.claudeSet).toHaveBeenCalledWith("z-docs", true));
+  });
+
+  it("probes and installs selected Claude bundle", async () => {
+    render(<Plugins />);
+    expect(await screen.findByLabelText("plugins.claudeSource")).toBeTruthy();
+    fireEvent.change(screen.getByTestId("claude-plugin-source"), { target: { value: "/plugins/demo" } });
+    fireEvent.click(screen.getByTestId("claude-plugin-probe"));
+    await waitFor(() => expect(api.claudeProbe).toHaveBeenCalledWith("/plugins/demo"));
+    expect(await screen.findByTestId("claude-plugin-candidate-demo")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("claude-plugin-install"));
+    await waitFor(() => expect(api.claudeInstall).toHaveBeenCalledWith("/plugins/demo", ["claude-code", "codex"], ["demo"]));
+  });
+
+  it("shows left-out parts and removes or updates a bundle", async () => {
+    render(<Plugins />);
+    await screen.findByTestId("plugin-row-z-docs");
+    expect(screen.getByTestId("plugin-left-z-docs").textContent).toContain("commands not carried");
+    fireEvent.click(screen.getByTestId("plugin-update-z-docs"));
+    await waitFor(() => expect(api.claudeUpdate).toHaveBeenCalledWith("z-docs"));
+    fireEvent.click(screen.getByTestId("plugin-remove-z-docs"));
+    await waitFor(() => expect(api.claudeRemove).toHaveBeenCalledWith("z-docs"));
   });
 
   it("adds and removes Codex plugins", async () => {

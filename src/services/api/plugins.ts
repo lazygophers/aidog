@@ -1,17 +1,34 @@
-// plugins.ts — 扩展 → 插件管理（Claude Code 原生插件 + Codex 插件 CLI）。
+// plugins.ts — 扩展 → 插件管理（Claude 插件捆绑包 + Codex 插件 CLI）。
 
 import { invoke } from "../transport";
 
+/** aidog 库中安装的 Claude 插件（部件以普通技能 / 子代理 / 钩子 / MCP 分发）。 */
 export interface ClaudePluginView {
-  /** <plugin>@<marketplace> */
-  id: string;
+  name: string;
+  source: string;
+  pick: string | null;
+  agents: string[];
+  on: boolean;
+  skills: string[];
+  subagents: string[];
+  hooks: string[];
+  servers: string[];
+  /** 未携带部件（slash commands、LSP servers 等）。 */
+  left: string[];
+}
+
+/** 操作结果含插件清单 + 用户改过未撤回的部件 warning。 */
+export interface ClaudePluginViewList {
+  plugins: ClaudePluginView[];
+  warnings: string[];
+}
+
+export interface ClaudePluginCandidate {
+  name: string;
+  description: string;
   version: string;
-  installPath: string;
-  lastUpdated: string;
-  /** enabledPlugins 缺键 = 启用（Claude Code 缺省语义）。 */
-  enabled: boolean;
-  /** enabledPlugins 里有无该键。 */
-  configured: boolean;
+  rel: string;
+  installed: boolean;
 }
 
 export interface CodexPlugin {
@@ -35,10 +52,15 @@ export interface CodexPluginsView {
 }
 
 export const pluginsApi = {
-  claudeList: () => invoke<ClaudePluginView[]>("plugins_claude_list"),
-  /** 启停 Claude Code 插件：写全局 claude_code.enabledPlugins 并触发分组同步。 */
-  claudeSet: (pluginId: string, enabled: boolean) =>
-    invoke<ClaudePluginView[]>("plugins_claude_set", { pluginId, enabled }),
+  claudeList: () => invoke<ClaudePluginViewList>("plugins_bundle_list"),
+  claudeProbe: (source: string) => invoke<ClaudePluginCandidate[]>("plugins_bundle_probe", { source }),
+  claudeInstall: (source: string, agents: string[], selected?: string[]) =>
+    invoke<ClaudePluginViewList>("plugins_bundle_install", { source, agents, selected }),
+  claudeSet: (name: string, on: boolean) => invoke<ClaudePluginViewList>("plugins_bundle_set", { name, on }),
+  claudeSetAgents: (name: string, agents: string[]) =>
+    invoke<ClaudePluginViewList>("plugins_bundle_set_agents", { name, agents }),
+  claudeRemove: (name: string) => invoke<ClaudePluginViewList>("plugins_bundle_remove", { name }),
+  claudeUpdate: (name: string) => invoke<ClaudePluginViewList>("plugins_bundle_update", { name }),
   codexList: () => invoke<CodexPluginsView>("plugins_codex_list"),
   /** pluginId 形如 name@marketplace；返回变更后的列表。 */
   codexAdd: (pluginId: string) => invoke<CodexPluginsView>("plugins_codex_add", { pluginId }),
