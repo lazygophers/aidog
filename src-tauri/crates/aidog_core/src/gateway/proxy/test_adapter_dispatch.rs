@@ -352,8 +352,8 @@ async fn minimax_family_converts_requests_for_both_endpoint_protocols() {
     }
 }
 
-const MINIMAX_ANTHROPIC_RESP: &str = r#"{"id":"msg_minimax","type":"message","role":"assistant","model":"MiniMax-M3","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3}}"#;
-const MINIMAX_ANTHROPIC_SSE: &str = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_minimax\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"MiniMax-M3\",\"content\":[],\"usage\":{\"input_tokens\":6,\"output_tokens\":0}}}\n\n\
+const MINIMAX_ANTHROPIC_RESP: &str = r#"{"id":"msg_minimax","type":"message","role":"assistant","model":"MiniMax-M3","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":1}}"#;
+const MINIMAX_ANTHROPIC_SSE: &str = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_minimax\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"MiniMax-M3\",\"content\":[],\"usage\":{\"input_tokens\":6,\"output_tokens\":0,\"cache_read_input_tokens\":2,\"cache_creation_input_tokens\":1}}}\n\n\
 event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n\
 event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n\
 event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n\
@@ -361,7 +361,7 @@ event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason
 event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
 const MINIMAX_ANTHROPIC_ERROR: &str = r#"{"type":"error","error":{"type":"invalid_request_error","message":"bad request"}}"#;
 
-/// Exercise Anthropic responses through the proxy for all family members; fixtures claim no cache usage contract.
+/// Exercise Anthropic responses, including cached token usage, through the proxy for each family member.
 #[tokio::test]
 async fn minimax_family_anthropic_endpoint_proxy_response_usage_stream_and_error() {
     for (pt, gk) in MINIMAX_FAMILY {
@@ -378,19 +378,21 @@ async fn minimax_family_anthropic_endpoint_proxy_response_usage_stream_and_error
         assert_eq!(hits[0].0, "/v1/messages", "{pt:?}: {hits:?}");
         assert!(resp.contains("\"prompt_tokens\":6"), "{pt:?}: {resp}");
         assert!(resp.contains("\"completion_tokens\":3"), "{pt:?}: {resp}");
+        assert!(resp.contains("\"cached_tokens\":2"), "{pt:?}: {resp}");
 
         let (status, resp, hits) = glm_member_call(
             pt.clone(),
             Protocol::Anthropic,
             gk,
             "/chat/completions",
-            r#"{"model":"MiniMax-M3","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+            r#"{"model":"MiniMax-M3","max_tokens":32,"stream":true,"stream_options":{"include_usage":true},"messages":[{"role":"user","content":"hi"}]}"#,
             (200, "text/event-stream", MINIMAX_ANTHROPIC_SSE),
         )
         .await;
         assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
         assert_eq!(hits[0].0, "/v1/messages", "{pt:?}: {hits:?}");
         assert!(resp.contains("\"content\":\"hi\""), "{pt:?}: {resp}");
+        assert!(resp.contains("\"cached_tokens\":2"), "{pt:?}: {resp}");
         assert!(resp.contains("[DONE]"), "{pt:?}: {resp}");
 
         let (status, resp, hits) = glm_member_call(
@@ -416,7 +418,7 @@ async fn minimax_family_anthropic_endpoint_proxy_response_usage_stream_and_error
 /// The docs do not map code 2022 to HTTP; this synthetic fixture supplies 400 to test existing behavior only.
 const MINIMAX_OPENAI_RESP: &str = r#"{"id":"chatcmpl_minimax","model":"MiniMax-M3","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":6,"completion_tokens":3,"total_tokens":9,"prompt_tokens_details":{"cached_tokens":2}}}"#;
 const MINIMAX_OPENAI_SSE: &str = "data: {\"id\":\"chatcmpl_minimax\",\"object\":\"chat.completion.chunk\",\"model\":\"MiniMax-M3\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n\
-data: {\"id\":\"chatcmpl_minimax\",\"object\":\"chat.completion.chunk\",\"model\":\"MiniMax-M3\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":6,\"completion_tokens\":3,\"total_tokens\":9}}\n\n\
+data: {\"id\":\"chatcmpl_minimax\",\"object\":\"chat.completion.chunk\",\"model\":\"MiniMax-M3\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":6,\"completion_tokens\":3,\"total_tokens\":9,\"prompt_tokens_details\":{\"cached_tokens\":2}}}\n\n\
 data: [DONE]\n\n";
 const MINIMAX_SYNTHETIC_BASE_RESP: &str =
     r#"{"base_resp":{"status_code":2022,"status_msg":"synthetic model error"}}"#;
@@ -469,6 +471,7 @@ async fn minimax_family_openai_endpoint_proxy_stream_and_synthetic_error() {
         assert!(resp.contains("content_block_delta"), "{pt:?}: {resp}");
         assert!(resp.contains("\"text\":\"hi\""), "{pt:?}: {resp}");
         assert!(resp.contains("message_stop"), "{pt:?}: {resp}");
+        assert!(resp.contains("\"cache_read_input_tokens\":2"), "{pt:?}: {resp}");
 
         let (status, resp, hits) = glm_member_call(
             pt.clone(),
