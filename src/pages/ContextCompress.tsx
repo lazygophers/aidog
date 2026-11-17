@@ -11,25 +11,28 @@ export function ContextCompress() {
   const { t } = useTranslation();
   const [status, setStatus] = useState<ContextCompressStatus | null>(null);
   const [stats, setStats] = useState<ContextCompressStats | null>(null);
+  const [statsState, setStatsState] = useState<"loading" | "ok" | "error">("loading");
+  const [statsError, setStatsError] = useState("");
   const [error, setError] = useState("");
   const [sideErrors, setSideErrors] = useState<{ claude?: string | null; codex?: string | null }>({});
   const [busy, setBusy] = useState(false);
 
-  const refresh = useCallback(async () => {
+  // stats 跑 rtk gain / sqz stats 要数秒，与 status 分开加载，不拖住开关区。
+  const loadStats = useCallback(async () => {
+    setStatsState("loading");
     try {
-      const [status, stats] = await Promise.all([
-        contextCompressApi.status(),
-        contextCompressApi.stats().catch(() => null),
-      ]);
-      setStatus(status);
-      setStats(stats);
-      setError("");
+      setStats(await contextCompressApi.stats());
+      setStatsState("ok");
     } catch (e) {
-      setError(String(e));
+      setStatsError(String(e));
+      setStatsState("error");
     }
   }, []);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    contextCompressApi.status().then(setStatus, e => setError(String(e)));
+    void loadStats();
+  }, [loadStats]);
 
   const run = async (action: () => Promise<ContextCompressStatus | RtkSetResult>) => {
     setBusy(true);
@@ -50,9 +53,33 @@ export function ContextCompress() {
   };
 
   const install = (tool: "rtk" | "sqz") => run(() => contextCompressApi.install(tool));
-  const label = (version: string | null) => version
+  const label = (version: string | null) => !status
+    ? t("contextCompress.checking")
+    : version
     ? t("contextCompress.installed", { version })
     : t("contextCompress.notInstalled");
+  const statsCards = [
+    {
+      tool: "rtk", name: "RTK", version: status?.rtk_version,
+      tiles: stats?.rtk && [
+        ["saved", "contextCompress.statsSaved", formatInteger(stats.rtk.total_saved)],
+        ["pct", "contextCompress.statsPct", formatPercent(stats.rtk.avg_savings_pct)],
+        ["count", "contextCompress.statsCommands", formatInteger(stats.rtk.total_commands)],
+        ["in", "contextCompress.statsIn", formatInteger(stats.rtk.total_input)],
+        ["out", "contextCompress.statsOut", formatInteger(stats.rtk.total_output)],
+      ],
+    },
+    {
+      tool: "sqz", name: "sqz", version: status?.sqz_version,
+      tiles: stats?.sqz && [
+        ["saved", "contextCompress.statsSaved", formatInteger(stats.sqz.tokensSaved)],
+        ["pct", "contextCompress.statsPct", formatPercent(stats.sqz.avgReduction)],
+        ["count", "contextCompress.statsCompressions", formatInteger(stats.sqz.totalCompressions)],
+        ["in", "contextCompress.statsIn", formatInteger(stats.sqz.tokensIn)],
+        ["out", "contextCompress.statsOut", formatInteger(stats.sqz.tokensOut)],
+      ],
+    },
+  ] as const;
 
   return (
     <section className="space-y-5" data-testid="context-compress-page">
@@ -61,6 +88,36 @@ export function ContextCompress() {
         <p className="mt-1 text-sm text-muted-foreground">{t("contextCompress.desc")}</p>
       </header>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      <section className="space-y-3" data-testid="cc-stats">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-base font-semibold">{t("contextCompress.statsTitle")}</h2>
+          <Button variant="outline" size="sm" disabled={statsState === "loading"} onClick={() => void loadStats()} data-testid="cc-stats-refresh">{t("contextCompress.statsRefresh")}</Button>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          {statsCards.map(card => {
+            const state = statsState !== "ok" ? statsState
+              : card.tiles ? "ok"
+              : status && !card.version ? "not-installed"
+              : "empty";
+            return <div key={card.tool} className="rounded-lg border p-4" data-testid={`cc-stats-${card.tool}`} data-state={state}>
+              <h3 className="mb-3 text-sm font-medium">{card.name}</h3>
+              {state === "ok" && card.tiles
+                ? <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {card.tiles.map(([key, labelKey, value]) => <div key={key}>
+                    <dt className="text-sm text-muted-foreground">{t(labelKey)}</dt>
+                    <dd className="text-lg font-semibold tabular-nums" data-testid={`cc-stat-${card.tool}-${key}`}>{value}</dd>
+                  </div>)}
+                </dl>
+                : <p className={`text-sm ${state === "error" ? "text-destructive" : "text-muted-foreground"}`} data-testid={`cc-stats-${card.tool}-msg`}>
+                  {state === "loading" ? t("contextCompress.statsLoading")
+                    : state === "error" ? `${t("contextCompress.statsError")} ${statsError}`
+                    : state === "not-installed" ? t("contextCompress.statsNotInstalled")
+                    : t("contextCompress.statsEmpty")}
+                </p>}
+            </div>;
+          })}
+        </div>
+      </section>
       <Tabs defaultValue="rtk">
         <TabsList>
           <TabsTrigger value="rtk" data-testid="cc-tab-rtk">RTK</TabsTrigger>
@@ -68,15 +125,8 @@ export function ContextCompress() {
         </TabsList>
         <TabsContent value="rtk" className="space-y-4">
           <p className="text-sm text-muted-foreground">{t("contextCompress.rtkDesc")}</p>
-          <p className="text-sm" data-testid="rtk-version" data-version={status?.rtk_version ?? ""}>{label(status?.rtk_version ?? null)}</p>
-          {!status?.rtk_version && <Button disabled={busy} onClick={() => void install("rtk")} data-testid="rtk-install">{t("contextCompress.install")}</Button>}
-          {status?.rtk_version && stats?.rtk && <p className="text-sm text-muted-foreground" data-testid="rtk-stats">
-            {t("contextCompress.rtkStats", {
-              saved: formatInteger(stats.rtk.total_saved),
-              commands: formatInteger(stats.rtk.total_commands),
-              pct: formatPercent(stats.rtk.avg_savings_pct),
-            })}
-          </p>}
+          <p className="text-sm" data-testid="rtk-version" data-version={status?.rtk_version ?? ""} data-state={!status ? "loading" : status.rtk_version ? "installed" : "missing"}>{label(status?.rtk_version ?? null)}</p>
+          {status && !status.rtk_version && <Button disabled={busy} onClick={() => void install("rtk")} data-testid="rtk-install">{t("contextCompress.install")}</Button>}
           {status?.rtk_version && <div className="space-y-3">
             <label className="flex items-center justify-between gap-4 rounded-lg border p-4">
               <span>RTK</span>
@@ -93,14 +143,7 @@ export function ContextCompress() {
         <TabsContent value="sqz" className="space-y-4">
           <p className="text-sm text-muted-foreground">{t("contextCompress.sqzDesc")}</p>
           <p className="text-sm" data-testid="sqz-version">sqz: {label(status?.sqz_version ?? null)} · sqz-mcp: {label(status?.sqz_mcp_version ?? null)}</p>
-          {status?.sqz_version && stats?.sqz && <p className="text-sm text-muted-foreground" data-testid="sqz-stats">
-            {t("contextCompress.sqzStats", {
-              count: formatInteger(stats.sqz.totalCompressions),
-              saved: formatInteger(stats.sqz.tokensSaved),
-              pct: formatPercent(stats.sqz.avgReduction),
-            })}
-          </p>}
-          {(!status?.sqz_version || !status?.sqz_mcp_version) && <Button disabled={busy} onClick={() => void install("sqz")} data-testid="sqz-install">{t("contextCompress.install")}</Button>}
+          {status && (!status.sqz_version || !status.sqz_mcp_version) && <Button disabled={busy} onClick={() => void install("sqz")} data-testid="sqz-install">{t("contextCompress.install")}</Button>}
           {status?.sqz_version && status.sqz_mcp_version && <label className="flex items-center justify-between gap-4 rounded-lg border p-4">
             <span>{t("contextCompress.sqzSwitch")}</span>
             <Switch checked={status.sqz_enabled} disabled={busy} onCheckedChange={on => void run(() => contextCompressApi.setSqz(on))} aria-label={t("contextCompress.sqzSwitch")} data-testid="sqz-toggle" />
