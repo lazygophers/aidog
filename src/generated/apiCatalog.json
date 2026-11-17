@@ -553,6 +553,15 @@
       "returns": "ContextCompressStatus"
     },
     {
+      "name": "context_compress_stats",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "ContextCompressStats"
+    },
+    {
       "name": "context_compress_status",
       "category": "ai_tools",
       "kind": "readonly",
@@ -3752,7 +3761,7 @@
       "returns": "aidog_stats::TodayStats"
     },
     {
-      "name": "variables_codex_save",
+      "name": "variables_save",
       "category": "ai_tools",
       "kind": "mutating",
       "exportsSecret": false,
@@ -3763,7 +3772,7 @@
           "type": "Vec<Variable>"
         }
       ],
-      "returns": "Vec<String>"
+      "returns": "()"
     }
   ]
 }
