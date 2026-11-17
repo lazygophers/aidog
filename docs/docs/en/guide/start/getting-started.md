@@ -6,13 +6,13 @@ description: Set up an Rspress project, run local development, build production 
 
 ## Project structure
 
-After creating a project with `create-rspress`, you will get the following project structure:
+This repository's documentation site has the following structure:
 
 - `docs/` — The documentation source directory, configured via `root` in `rspress.config.ts`.
-- `docs/_nav.json` — The navigation bar configuration.
-- `docs/guide/_meta.json` — The sidebar configuration for the guide section.
-- `docs/public/` — Static assets directory.
-- `theme/` — Optional custom theme directory, generated when you choose the custom theme scaffold.
+- `docs/docs/zh/_nav.json` — The top navigation bar configuration for the zh locale site.
+- `docs/docs/en/guide/_meta.json` — The sidebar configuration for the guide section (each section has its own `_meta.json`).
+- `docs/docs/public/` — Static assets directory (site logo and icons).
+- `docs/theme/` — Optional custom theme directory; this site overrides the default theme here.
 - `rspress.config.ts` — The Rspress configuration file.
 
 ## Development
