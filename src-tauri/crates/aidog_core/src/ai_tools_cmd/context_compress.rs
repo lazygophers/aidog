@@ -1228,44 +1228,56 @@ crate::tauri_command! {
     }
 }
 
+/// RTK 双侧开关结果：`status` 照实反映两侧状态；一侧失败时错误单独回传，
+/// 不影响另一侧（前端按侧显示）。
+#[derive(Serialize, Clone, Debug, Default)]
+pub struct RtkSetResult {
+    pub status: ContextCompressStatus,
+    pub claude_error: Option<String>,
+    pub codex_error: Option<String>,
+}
+
+async fn rtk_set_claude(db: &Db, on: bool) -> Result<(), String> {
+    let mut cfg = load_claude_cfg(db).await;
+    if on {
+        add_hook(&mut cfg, "PreToolUse", None, RTK_CLAUDE_CMD)?;
+    } else {
+        remove_hook(&mut cfg, "PreToolUse", RTK_CLAUDE_CMD);
+    }
+    store_claude_cfg(db, cfg).await
+}
+
+async fn rtk_set_codex(db: &Db, on: bool) -> Result<(), String> {
+    let codex = Paths::resolve()?.codex;
+    let mut rec = load_record(db).await;
+    if on {
+        if !codex.is_dir() {
+            return Err(format!("{} does not exist", codex.display()));
+        }
+        let before = snapshot(&codex);
+        let res = run_cmd("rtk", &["init", "-g", "--codex"], &[("CODEX_HOME", &codex)]).await;
+        // 失败也记下已写的部分，关闭时能撤
+        record_changes(&mut rec, before, snapshot(&codex));
+        store_record(db, &rec).await?;
+        res.map(|_| ())
+    } else {
+        rtk_codex_disable(&codex, &rec)?;
+        store_record(db, &RtkCodexRecord::default()).await
+    }
+}
+
 crate::tauri_command! {
-    /// RTK 开关：`claude-code` 改全局配置 PreToolUse 钩子；`codex` 跑 `rtk init -g --codex` 并记录写入。
-    pub async fn context_compress_rtk_set(agent: String, on: bool) -> Result<ContextCompressStatus, String> {
+    /// RTK 总开关：开 = Claude Code（全局配置 PreToolUse 钩子）与 Codex（`rtk init -g --codex`）
+    /// 两侧同时安装；关 = 两侧同时卸载。一侧失败记录该侧错误并继续另一侧。
+    pub async fn context_compress_rtk_set(on: bool) -> Result<RtkSetResult, String> {
         let db = aidog_ctx::db();
         if on && version("rtk").await.is_none() {
             return Err("rtk is not installed".into());
         }
-        match agent.as_str() {
-            "claude-code" => {
-                let mut cfg = load_claude_cfg(db).await;
-                if on {
-                    add_hook(&mut cfg, "PreToolUse", None, RTK_CLAUDE_CMD)?;
-                } else {
-                    remove_hook(&mut cfg, "PreToolUse", RTK_CLAUDE_CMD);
-                }
-                store_claude_cfg(db, cfg).await?;
-            }
-            "codex" => {
-                let codex = Paths::resolve()?.codex;
-                let mut rec = load_record(db).await;
-                if on {
-                    if !codex.is_dir() {
-                        return Err(format!("{} does not exist", codex.display()));
-                    }
-                    let before = snapshot(&codex);
-                    let res = run_cmd("rtk", &["init", "-g", "--codex"], &[("CODEX_HOME", &codex)]).await;
-                    // 失败也记下已写的部分，关闭时能撤
-                    record_changes(&mut rec, before, snapshot(&codex));
-                    store_record(db, &rec).await?;
-                    res?;
-                } else {
-                    rtk_codex_disable(&codex, &rec)?;
-                    store_record(db, &RtkCodexRecord::default()).await?;
-                }
-            }
-            _ => return Err(format!("unknown agent: {agent}")),
-        }
-        status(db).await
+        let claude_error = rtk_set_claude(db, on).await.err();
+        let codex_error = rtk_set_codex(db, on).await.err();
+        let status = status(db).await?;
+        Ok(RtkSetResult { status, claude_error, codex_error })
     }
 }
 

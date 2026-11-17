@@ -19,7 +19,13 @@ export interface ContextCompressStatus {
 }
 
 export type CompressTool = "rtk" | "sqz";
-export type RtkAgent = "claude-code" | "codex";
+
+/** RTK 双侧开关结果：一侧失败时错误单独回传，另一侧状态照实。 */
+export interface RtkSetResult {
+  status: ContextCompressStatus;
+  claude_error: string | null;
+  codex_error: string | null;
+}
 
 /** rtk `gain --format json` 的 summary。 */
 export interface RtkGainStats {
@@ -49,7 +55,6 @@ export const contextCompressApi = {
   status: () => invoke<ContextCompressStatus>("context_compress_status"),
   stats: () => invoke<ContextCompressStats>("context_compress_stats"),
   install: (tool: CompressTool) => invoke<ContextCompressStatus>("context_compress_install", { tool }),
-  setRtk: (agent: RtkAgent, on: boolean) =>
-    invoke<ContextCompressStatus>("context_compress_rtk_set", { agent, on }),
+  setRtk: (on: boolean) => invoke<RtkSetResult>("context_compress_rtk_set", { on }),
   setSqz: (on: boolean) => invoke<ContextCompressStatus>("context_compress_sqz_set", { on }),
 };
