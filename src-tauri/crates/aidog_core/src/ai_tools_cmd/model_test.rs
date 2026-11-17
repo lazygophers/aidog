@@ -152,7 +152,8 @@ fn prepare_http_request(ctx: &TestContext) -> Result<HttpRequestContext, String>
     let (mut req_body, api_path) =
         adapter::convert_request(&ctx.chat_req, &target_protocol, &ctx.platform.platform_type);
     if coding_plan {
-        gateway::proxy::inject_coding_plan_fields(&mut req_body, &target_protocol);
+        // 平台协议分派、wire 协议门控（与 forward.rs 同口径：prompt_cache_key 仅 openai wire 注入）
+        gateway::proxy::inject_coding_plan_fields(&mut req_body, &ctx.platform.platform_type, &target_protocol);
     }
     let req_body_str = serde_json::to_string(&req_body).unwrap_or_default();
     let base_url = target_base_url.trim_end_matches('/');
