@@ -1106,6 +1106,11 @@ fn install_script(tool: &str, brew: bool) -> Option<&'static str> {
 }
 
 /// 有效全局配置：同 `do_sync_group_settings`，DB 空时回落内置 oss 预设。
+#[allow(dead_code)] // plugin distribution reuses this DB-backed global config reader
+pub(crate) async fn load_claude_cfg_pub(db: &Db) -> Value {
+    load_claude_cfg(db).await
+}
+
 async fn load_claude_cfg(db: &Db) -> Value {
     aidog_db::get_setting(db, "global", "claude_code")
         .await
@@ -1130,6 +1135,11 @@ async fn set_setting(db: &Db, key: &str, value: Value) -> Result<(), String> {
 
 /// 存全局配置 + 触发与设置页保存相同的分组同步。
 async fn store_claude_cfg(db: &Db, cfg: Value) -> Result<(), String> {
+    store_claude_cfg_pub(db, cfg).await
+}
+
+/// 插件模块复用：存全局配置 + 触发分组同步。
+pub(crate) async fn store_claude_cfg_pub(db: &Db, cfg: Value) -> Result<(), String> {
     set_setting(db, "claude_code", cfg).await?;
     crate::sync_settings::try_sync_settings(db).await;
     Ok(())
@@ -1266,6 +1276,16 @@ async fn rtk_set_codex(db: &Db, on: bool) -> Result<(), String> {
     }
 }
 
+/// Run both independent writes and return each side's error without cancelling its sibling.
+async fn rtk_apply_both<C, D>(claude: C, codex: D) -> (Option<String>, Option<String>)
+where
+    C: std::future::Future<Output = Result<(), String>>,
+    D: std::future::Future<Output = Result<(), String>>,
+{
+    let (claude, codex) = tokio::join!(claude, codex);
+    (claude.err(), codex.err())
+}
+
 crate::tauri_command! {
     /// RTK 总开关：开 = Claude Code（全局配置 PreToolUse 钩子）与 Codex（`rtk init -g --codex`）
     /// 两侧同时安装；关 = 两侧同时卸载。一侧失败记录该侧错误并继续另一侧。
@@ -1274,8 +1294,8 @@ crate::tauri_command! {
         if on && version("rtk").await.is_none() {
             return Err("rtk is not installed".into());
         }
-        let claude_error = rtk_set_claude(db, on).await.err();
-        let codex_error = rtk_set_codex(db, on).await.err();
+        let (claude_error, codex_error) =
+            rtk_apply_both(rtk_set_claude(db, on), rtk_set_codex(db, on)).await;
         let status = status(db).await?;
         Ok(RtkSetResult { status, claude_error, codex_error })
     }

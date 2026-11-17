@@ -778,6 +778,25 @@ args = ["—y"]
 
 // ─── 统计解析（sqz stats --json / rtk gain --format json 一手样例）───
 
+#[tokio::test]
+async fn rtk_double_write_reports_failures_per_side_and_runs_sibling() {
+    let (claude, codex) = rtk_apply_both(
+        async { Err::<(), _>("claude config failed".to_string()) },
+        async { Ok::<(), String>(()) },
+    )
+    .await;
+    assert_eq!(claude.as_deref(), Some("claude config failed"));
+    assert_eq!(codex, None);
+
+    let (claude, codex) = rtk_apply_both(
+        async { Ok::<(), String>(()) },
+        async { Err::<(), _>("codex init failed".to_string()) },
+    )
+    .await;
+    assert_eq!(claude, None);
+    assert_eq!(codex.as_deref(), Some("codex init failed"));
+}
+
 #[test]
 fn parse_sqz_and_rtk_stats_from_cli_json() {
     let sqz_json = r#"{"avgReduction":27.56,"cacheEntries":91610,"cacheSize":12345,"regretExpands":143,"regretReruns":1,"tokensIn":23276773,"tokensOut":16860995,"tokensSaved":6415778,"totalCompressions":19037}"#;
