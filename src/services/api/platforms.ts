@@ -4,7 +4,7 @@ import { invoke } from "../transport";
 import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, PassthroughAuth, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, TimeModelRule, PlatformErrorStatus, ClientVocabCategory } from "./types";
 import type { TimeWindow } from "../../domains/platforms/defaults";
 import { normalizeWindow } from "../../utils/timeWindow";
-import { QUOTA_SCRIPT_SAMPLE_SOURCE as QUOTA_SCRIPT_SAMPLE_RAW } from "../../domains/platforms/quotaScriptSample";
+import QUOTA_SCRIPT_SAMPLE_RAW from "../../domains/platforms/quotaScriptSample.txt?raw";
 
 export const DEFAULT_MOCK_CONFIG: MockConfig = {
   status_code: 200,
