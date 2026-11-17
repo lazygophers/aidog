@@ -2,6 +2,8 @@
 // 文档漂移检测：文档可核对声明 vs 代码真值。
 // 对比面见 docs-refresh 工作流「触发」节表格（命令名 / 数字 / 协议 / 路径链接 / 截图时序）。
 // 退出码：0 = 无漂移，1 = 有漂移，2 = 环境错误（真值源缺失 / 损坏，不可与「有漂移」混判）。
+// 截图类对比按 git 提交时间：截图改动未 commit 时 lastCommitTs 取到的是旧提交时间，
+// 门禁恒红——收口顺序固定「先 commit 截图 → 复跑归零」，提交前红不等于真漂移。
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
