@@ -685,3 +685,93 @@ args = ["—y"]
     assert!(servers.get("sqz").is_none(), "aidog-added codex self server must be removed");
     assert_eq!(servers["up"]["command"], toml::Value::String("x".into()));
 }
+
+/// 计数删除（复核①）：同形条目多于 before=None 记录时，多出的（用户自写）保留。
+/// 同名（未改名）条目优先消费记录；其余按内容逐条至多删一条。
+#[test]
+fn sqz_disable_inserted_removal_is_counted_per_record() {
+    // claude：开启插入 self server → 用户再自写两份同形 → 关闭只删 aidog 的那份
+    let mut cj = json!({"mcpServers": {}});
+    let mut ledger = SqzLedger::default();
+    sqz_apply_claude_json_ledger(&mut cj, true, &mut ledger).unwrap();
+    let self_entry = cj["mcpServers"]["sqz"].clone();
+
+    let mut cj2 = json!({"mcpServers": {
+        "mine": self_entry.clone(),
+        "mine2": self_entry.clone()
+    }});
+    cj2["mcpServers"]["sqz"] = self_entry.clone();
+    assert!(sqz_apply_claude_json_ledger(&mut cj2, false, &mut ledger).unwrap());
+    let s = &cj2["mcpServers"];
+    assert!(s.get("sqz").is_none(), "aidog-added self server must be removed");
+    assert_eq!(s["mine"], self_entry, "user-written same-shape entry must survive (counted removal)");
+    assert_eq!(s["mine2"], self_entry, "surplus user entries preserved when records exhausted");
+
+    // codex：同构
+    let mut t: toml::Table = toml::from_str("[mcp_servers]\n").unwrap();
+    let mut ledger2 = SqzLedger::default();
+    sqz_apply_codex_ledger(&mut t, true, &mut ledger2).unwrap();
+    let self_val = t["mcp_servers"]["sqz"].clone();
+    {
+        let servers = t.get_mut("mcp_servers").unwrap().as_table_mut().unwrap();
+        servers.insert("mine".into(), self_val.clone());
+        servers.insert("mine2".into(), self_val.clone());
+    }
+    assert!(sqz_apply_codex_ledger(&mut t, false, &mut ledger2).unwrap());
+    let servers = t["mcp_servers"].as_table().unwrap();
+    assert!(!servers.contains_key("sqz"), "aidog-added codex self server must be removed");
+    assert!(
+        servers.contains_key("mine") && servers.contains_key("mine2"),
+        "surplus user codex entries preserved, got keys: {:?}",
+        servers.keys().collect::<Vec<_>>()
+    );
+}
+
+/// wrap 残留报告（复核④）：改名后的 wrapped 条目（内容 = ledger 写后、键名对不上）
+/// 报 `stale-wrap:`；可还原的不报；用户自写同形包装（内容无记录）不报。
+#[test]
+fn sqz_wrap_residue_reports_renamed_wrapped_entries_only() {
+    let mut cj = claude_fixture();
+    let mut ledger = SqzLedger::default();
+    sqz_apply_claude_json_ledger(&mut cj, true, &mut ledger).unwrap();
+
+    // 用户把 aidog 包装的 "rea" 改名成 "mine"：内容仍是 ledger 写后内容，键名对不上
+    let mut renamed = cj.clone();
+    if let Some(m) = renamed.get_mut("mcpServers").and_then(Value::as_object_mut) {
+        let e = m.remove("rea").expect("wrapped entry present");
+        m.insert("mine".to_string(), e);
+    }
+    let out = sqz_wrap_residue(&renamed, None, &ledger);
+    assert_eq!(out, vec!["stale-wrap:claude:mine"], "renamed wrapped entry must be reported, got {out:?}");
+
+    // 未改名（关闭可还原）不报
+    let out2 = sqz_wrap_residue(&cj, None, &ledger);
+    assert!(out2.is_empty(), "restorable wrapped entries are not residue, got {out2:?}");
+
+    // 用户自写同形包装（ledger 无此内容）不报
+    let mut manual = cj.clone();
+    manual["mcpServers"]["userwrap"] =
+        json!({"type": "stdio", "command": "sqz-mcp", "args": ["proxy", "--", "usercmd", "--x"]});
+    let out3 = sqz_wrap_residue(&manual, None, &ledger);
+    assert!(
+        out3.iter().all(|k| !k.contains("userwrap")),
+        "user-written same-shape wrap is not residue, got {out3:?}"
+    );
+
+    // codex 同构：改名 wrapped server 报 stale-wrap:codex:<n>
+    let text = r#"
+[mcp_servers.up]
+command = "x"
+args = ["—y"]
+"#;
+    let mut t: toml::Table = toml::from_str(text).unwrap();
+    let mut ledger2 = SqzLedger::default();
+    sqz_apply_codex_ledger(&mut t, true, &mut ledger2).unwrap();
+    {
+        let servers = t.get_mut("mcp_servers").unwrap().as_table_mut().unwrap();
+        let e = servers.remove("up").unwrap();
+        servers.insert("mine".into(), e);
+    }
+    let out4 = sqz_wrap_residue(&json!({}), Some(&t), &ledger2);
+    assert_eq!(out4, vec!["stale-wrap:codex:mine"], "renamed codex wrapped entry must be reported, got {out4:?}");
+}
