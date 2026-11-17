@@ -23,6 +23,12 @@ AiDog exécute un service proxy sur votre ordinateur. Vous enregistrez les plate
 
 ## Ce qu'il fait
 
+![Vue d'ensemble AiDog](screenshots/home-light.png)
+
+![Gestion des plateformes IA](screenshots/platforms-light.png)
+
+*Capture illustrative avec des données simulées.*
+
 ### Proxy local et routage
 
 - Gérez les préréglages de plateformes intégrés, et configurez des plateformes personnalisées.
