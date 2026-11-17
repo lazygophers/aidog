@@ -49,13 +49,26 @@ fn kimi_adapter_coding_plan_matches_base_kimi_arm() {
         member.as_object().unwrap().keys().collect::<Vec<_>>(),
         via_base.as_object().unwrap().keys().collect::<Vec<_>>()
     );
-    // issue 119：KimiCoding 协议臂同样注入（此前为 no-op，与官方「必填」相悖的迁移缺口）。
-    let mut coding = json!({ "model": "k3" });
-    super::adapter_for("kimi_coding").inject_coding_plan(&mut coding, &Protocol::KimiCoding);
-    assert!(
-        coding.get("prompt_cache_key").is_some(),
-        "kimi_coding 应注入 prompt_cache_key: {coding}"
-    );
+    // issue 119：显式会话键保留，缺省时稳定派生，不能按时间窗口更换。
+    let adapter = super::adapter_for("kimi_coding");
+    let mut supplied = json!({ "model": "k3", "prompt_cache_key": "session-42" });
+    adapter.inject_coding_plan(&mut supplied, &Protocol::KimiCoding);
+    assert_eq!(supplied["prompt_cache_key"], "session-42");
+
+    let request = json!({
+        "model": "k3",
+        "metadata": { "session_id": "session-42" },
+        "messages": [{ "role": "user", "content": "hello" }]
+    });
+    let mut first = request.clone();
+    let mut later = request;
+    adapter.inject_coding_plan(&mut first, &Protocol::KimiCoding);
+    adapter.inject_coding_plan(&mut later, &Protocol::KimiCoding);
+    assert_eq!(first["prompt_cache_key"], later["prompt_cache_key"]);
+
+    let mut other_session = json!({ "model": "k3", "metadata": { "session_id": "session-43" } });
+    adapter.inject_coding_plan(&mut other_session, &Protocol::KimiCoding);
+    assert_ne!(first["prompt_cache_key"], other_session["prompt_cache_key"]);
 }
 
 /// 行为零变化门禁（review 必改 1）：kimi_en 不注入 prompt_cache_key。
@@ -107,6 +120,10 @@ fn error_and_usage_defaults_match_legacy_helpers() {
     let pa = super::adapter_for("newapi");
     assert_eq!(
         pa.classify_error(404, r#"{"error":{"message":"model not found"}}"#),
+        UpstreamErrorClass::Model
+    );
+    assert_eq!(
+        pa.classify_error(404, "Not found the model kimi-for-coding or Permission denied"),
         UpstreamErrorClass::Model
     );
     assert_eq!(pa.classify_error(500, "boom"), UpstreamErrorClass::Service);

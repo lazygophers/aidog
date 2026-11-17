@@ -153,9 +153,11 @@ impl PlatformAdapter for GenericAdapter {}
 /// - tool_choice：模型页与 chat.md 均未列编码套餐模型的 `tool_choice` 约束，不降级 `"required"`
 ///   （家族开关对该成员关闭）。
 /// - prompt_cache_key：chat.md「`prompt_cache_key` … 对于 Kimi Code Plan，此字段为必填以提高缓存
-///   命中率。对于其他多轮对话 Agent，也建议使用此字段」。迁移前转发层仅对 `Protocol::Kimi` 注入、
+///   命中率。对于其他多轮对话 Agent，也建议使用此字段」「通常是代表单个会话的 session id 或 task
+///   id；退出并恢复会话时应保持不变」。迁移前转发层仅对 `Protocol::Kimi` 注入、
 ///   `KimiCoding` 走 no-op——与官方「必填」相悖，属迁移缺口；本成员按官方证据扩为
-///   `Protocol::KimiCoding` + coding_plan 端点注入（沿用 aidog- 前缀会话键），非 coding_plan 端点
+///   `Protocol::KimiCoding` + coding_plan 端点注入（客户端自带键原样保留；缺省时按
+///   metadata.session_id / user / model 派生稳定键，不按时间窗口轮换），非 coding_plan 端点
 ///   不注入（注入条件同源：端点 coding_plan flag）。https://platform.kimi.com/docs/api/chat.md
 /// - usage：openai 臂 `usage.prompt_tokens_details.cached_tokens` / `cache_write_tokens`、anthropic 臂
 ///   `cache_read_input_tokens` / `cache_creation_input_tokens`，同家族基座（家族级取舍不区分缓存
@@ -164,9 +166,9 @@ impl PlatformAdapter for GenericAdapter {}
 ///   `output_config.effort`（messages.md schema）；aidog 不写即官方默认，不覆盖。
 ///   https://platform.kimi.com/docs/api/messages.md
 /// - 流式 / 错误体：错误参考页条目均为「error, status code: <code>, message: <text>」文案形态，
-///   JSON 错误体形状未证实；404「Not found the model kimi-for-coding or Permission denied」、
-///   400「Your model id does not exist, recognized as …」命中基座模型类特征词
-///   （model not found / does not exist），429 配额与 401/403 按状态码归服务类，与基座一致，不覆盖。
+///   JSON 错误体形状未证实；404「Not found the model kimi-for-coding or Permission denied」由基座
+///   特征词 `not found the model` 归模型类、400「Your model id does not exist, recognized as …」
+///   命中 `does not exist`（has_model 分支），429 配额与 401/403 按状态码归服务类，与基座一致，不覆盖。
 ///   https://www.kimi.com/code/docs/kimi-code/error-reference.html
 /// - 工具 / 多模态 / system：模型页「多模态输入支持 图片、视频」（k3-256k 仅图片）；错误参考
 ///   「thinking is enabled but reasoning_content is missing … 启用思维链时必须携带」「function name

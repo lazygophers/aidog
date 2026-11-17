@@ -394,21 +394,31 @@ pub fn inject_coding_plan_fields(body: &mut Value, protocol: &aidog_db::models::
     match protocol {
         aidog_db::models::Protocol::Kimi | aidog_db::models::Protocol::KimiCoding => {
             // Kimi Code Plan 要求 prompt_cache_key 以提升缓存命中率
-            // 用模型名 + 短随机串生成会话级 cache key
+            // 会话标识须跨请求稳定（chat.md「退出并恢复会话时应保持不变」）：
+            // 客户端自带 prompt_cache_key 原样保留；缺省时按 metadata.session_id /
+            // user / model 派生稳定键，不按时间窗口轮换。
+            let has_key = body
+                .get("prompt_cache_key")
+                .and_then(Value::as_str)
+                .map(|s| !s.is_empty())
+                .unwrap_or(false);
+            let model = body
+                .get("model")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown")
+                .to_string();
+            let session = match body.pointer("/metadata/session_id") {
+                Some(Value::String(s)) => Some(s.clone()),
+                _ => body.get("user").and_then(Value::as_str).map(String::from),
+            };
             if let Some(obj) = body.as_object_mut() {
-                let model = obj
-                    .get("model")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown");
-                let session_id = format!(
-                    "aidog-{}-{:06x}",
-                    model,
-                    std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_secs()
-                        / 300 // 5-minute window
-                );
+                if has_key {
+                    return;
+                }
+                let session_id = match session.as_deref() {
+                    Some(s) if !s.is_empty() => format!("aidog-{model}-{s}"),
+                    _ => format!("aidog-{model}-default"),
+                };
                 obj.insert("prompt_cache_key".to_string(), Value::String(session_id));
             }
         }
