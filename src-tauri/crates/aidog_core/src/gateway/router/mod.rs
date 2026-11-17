@@ -48,35 +48,29 @@ pub struct RouteResult {
 /// - AutoDisabled 且已过退避试探时间（now >= until）：纳入（末尾试探）
 /// - Disabled（用户手动）/ AutoDisabled 未到试探时间：排除
 ///
-/// `request_model`：当前请求的模型名（用于 peak model scope 过滤，PRD 07-09 D2）。
-/// 传 `""` = 无 model 上下文 → 跳过 model 过滤（兼容旧行为）。
+/// `_request_model` 保留现有调用形状；高峰禁用不按模型范围过滤。
 ///
 /// 返回 `(state, reason)`：`reason` 在 state 为 `None`（被排除）时给出归因，
 /// 与 state 判定同分支产出——单一真值源，调用方不得再镜像本函数分支归因。
 pub(crate) fn candidate_state(
     platform: &Platform,
     now_ms: i64,
-    request_model: &str,
+    _request_model: &str,
 ) -> (Option<bool>, RouteReason) {
-    // 透传平台永远在线（ADR 0008 决策 2）：跳过高峰禁用与 auto_disabled 自动摘除，
-    // 仅保留过期 / 手动 Disabled 两个用户显式维度。
-    if matches!(platform.platform_type, Protocol::Passthrough) {
-        if platform.expires_at > 0 && now_ms >= platform.expires_at {
-            return (None, RouteReason::DisabledAuto);
-        }
-        return match platform.status {
-            PlatformStatus::Disabled => (None, RouteReason::DisabledManual),
-            _ => (Some(false), RouteReason::Selected),
-        };
-    }
     // 过期平台直接排除（独立维度，与 status 正交；enabled + 过期也排除）。
     if platform.expires_at > 0 && now_ms >= platform.expires_at {
         return (None, RouteReason::DisabledAuto);
     }
-    // 高峰禁用（与 status 正交，临时闸门，不改 status 三态）：
-    // 开关 on 且 now 落在 peak window 任一窗口 → 排除。用户关开关/出窗口即恢复，无需退避试探。
-    if is_peak_disabled(platform, now_ms, request_model) {
+    // 高峰禁用不按模型范围过滤；窗口仍决定路由是否停用。
+    if is_peak_disabled(platform, now_ms) {
         return (None, RouteReason::PeakDisabled);
+    }
+    // 透传平台仍跳过 auto_disabled 自动摘除，但高峰禁用和手动 Disabled 生效。
+    if matches!(platform.platform_type, Protocol::Passthrough) {
+        return match platform.status {
+            PlatformStatus::Disabled => (None, RouteReason::DisabledManual),
+            _ => (Some(false), RouteReason::Selected),
+        };
     }
     match platform.status {
         PlatformStatus::Enabled => (Some(false), RouteReason::Selected),
@@ -88,19 +82,15 @@ pub(crate) fn candidate_state(
     }
 }
 
-/// 平台是否被高峰禁用（`extra.disable_during_peak` on 且当前命中 peak window）。
-/// 路由排除用的纯判定函数：与 status 三态正交，不改 status。
-/// 多平台组：candidate_state 返 None 跳过此平台；单平台组：bypass 覆盖（此开关优先级高于 status bypass）。
-///
-/// `request_model`：当前请求模型名（peak model scope 过滤，PRD 07-09 D2）。
-/// 传 `""` = 无 model 上下文 → 跳过 model 过滤（兼容旧行为）。
-pub(crate) fn is_peak_disabled(platform: &Platform, now_ms: i64, request_model: &str) -> bool {
+/// 平台是否因 `extra.disable_during_peak` 和当前 peak window 而从路由中排除。
+/// 路由禁用覆盖窗口内所有模型；窗口的 model scope 仍用于计费。
+pub(crate) fn is_peak_disabled(platform: &Platform, now_ms: i64) -> bool {
     if !super::peak::parse_disable_during_peak(&platform.extra) {
         return false;
     }
     let ptype = platform.platform_type.wire_str();
     let windows = super::peak::peak_for(&platform.extra, &ptype);
-    super::peak::is_in_peak_window(&windows, now_ms, request_model)
+    super::peak::is_in_peak_window(&windows, now_ms, "")
 }
 
 /// 有效权重 = weight × level_priority（per-group 平台优先级 1~10 乘性放大）。
