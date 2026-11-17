@@ -9395,6 +9395,128 @@ async fn responses_nonstream_usage_logged() {
     assert!(row.est_cost > 0.0, "非流式 Responses usage 必须产生非 0 est_cost");
 }
 
+/// MiniMax 成员端点显式采用用户配置的 base_url；OpenAI 与 Anthropic wire 均经本地假上游。
+#[tokio::test]
+async fn minimax_member_uses_configured_endpoint_for_both_wires() {
+    use crate::gateway::models::PlatformEndpoint;
+
+    for (gk, wire, upstream_body, request_uri, request_body, expected_path, expected_response) in [
+        (
+            "gkmmopenai",
+            Protocol::OpenAI,
+            r#"{"id":"cmpl-1","model":"MiniMax-M3","choices":[{"index":0,"message":{"role":"assistant","content":"openai reply"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":2,"prompt_tokens_details":{"cached_tokens":4}}}"#,
+            "/v1/chat/completions",
+            r#"{"model":"MiniMax-M3","messages":[{"role":"user","content":"hi"}]}"#,
+            "/custom/openai/v1/chat/completions",
+            "openai reply",
+        ),
+        (
+            "gkmmanthropic",
+            Protocol::Anthropic,
+            r#"{"id":"msg_1","type":"message","role":"assistant","model":"MiniMax-M3","content":[{"type":"text","text":"anthropic reply"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":1}}"#,
+            "/v1/messages",
+            r#"{"model":"MiniMax-M3","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+            "/custom/anthropic/v1/messages",
+            "anthropic reply",
+        ),
+    ] {
+        let (upstream, captured) = spawn_recording_upstream(upstream_body).await;
+        let openai_url = format!("{upstream}/custom/openai/v1");
+        let anthropic_url = format!("{upstream}/custom/anthropic");
+        let configured_url = if wire == Protocol::OpenAI {
+            &openai_url
+        } else {
+            &anthropic_url
+        };
+        let state = make_state(test_db().await).await;
+        let plat = aidog_db::create_platform(
+            &state.db,
+            CreatePlatform {
+                name: format!("p_{gk}"),
+                platform_type: Protocol::MiniMax,
+                base_url: configured_url.to_string(),
+                api_key: "sk-minimax".into(),
+                extra: String::new(),
+                models: None,
+                available_models: None,
+                endpoints: Some(vec![
+                    PlatformEndpoint {
+                        protocol: Protocol::OpenAI,
+                        base_url: openai_url,
+                        client_type: "default".to_string(),
+                        coding_plan: false,
+                    },
+                    PlatformEndpoint {
+                        protocol: Protocol::Anthropic,
+                        base_url: anthropic_url,
+                        client_type: "default".to_string(),
+                        coding_plan: false,
+                    },
+                ]),
+                manual_budgets: None,
+                auto_group: None,
+                join_group_ids: None,
+                expires_at: None,
+                quota_source: None,
+            },
+        )
+        .await
+        .unwrap();
+        let group =
+            aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+                .await
+                .unwrap();
+        aidog_db::set_group_platforms(
+            &state.db,
+            group.id,
+            &[GroupPlatformInput {
+                platform_id: plat.id,
+                priority: Some(0),
+                weight: Some(1),
+                level_priority: Some(0),
+            }],
+        )
+        .await
+        .unwrap();
+
+        let request = HttpRequest::builder()
+            .method("POST")
+            .uri(request_uri)
+            .header("authorization", format!("Bearer {gk}"))
+            .header("content-type", "application/json")
+            .body(Body::from(request_body.to_string()))
+            .unwrap();
+        let response = handle_proxy(AxumState(state.clone()), request).await;
+        let status = response.status();
+        let body = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        assert_eq!(
+            status,
+            StatusCode::OK,
+            "{wire:?}: {}",
+            String::from_utf8_lossy(&body)
+        );
+        let response_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert!(
+            body.windows(expected_response.len())
+                .any(|w| w == expected_response.as_bytes()),
+            "{wire:?}: {response_json}"
+        );
+
+        let sent = captured.lock().unwrap().clone();
+        assert_eq!(sent.len(), 1, "{wire:?} upstream request count");
+        assert_eq!(
+            sent[0].0, expected_path,
+            "{wire:?} must use configured endpoint base_url"
+        );
+        let sent_json: serde_json::Value = serde_json::from_str(&sent[0].1).unwrap();
+        assert_eq!(sent_json["model"], "MiniMax-M3");
+        let log = only_log_of(&state, gk).await;
+        assert!(log.input_tokens > 0, "{wire:?} usage must be extracted");
+    }
+}
+
 /// issue 72 复现（Gemini 流式）：anthropic 客户端 → gemini 上游流式，usage 在末帧
 /// `usageMetadata`。断言 token 计数与上游一致（input 扣缓存、output 含 thinking）。
 #[tokio::test]
