@@ -53,7 +53,7 @@ bash .claude/skills/aidog-release/scripts/watch-release.sh
 
 用 `Bash(run_in_background: true)` 起，日志落 `/tmp/aidog-release-<版本>.log`。脚本按**本地 HEAD sha** 匹配 run，不会盯错上一次的 run；失败时自动追加 `gh run view --log-failed` 尾部日志到同一文件。
 
-matrix 两个 job：`macos-latest`（`--target universal-apple-darwin`，Apple Silicon + Intel 合一 dmg）、`windows-latest`（x64 exe / msi）。`fail-fast: false`，一个平台挂另一个照跑。
+matrix 三个 job：两个 `macos-latest`（`--target aarch64-apple-darwin` / `--target x86_64-apple-darwin`，分架构 dmg，2026-11-17 起不再出 universal）、`windows-latest`（x64 exe / msi）。`fail-fast: false`，一个平台挂另一个照跑。
 
 常见失败与处置：
 
@@ -102,11 +102,11 @@ gh run list --workflow=release.yml -L 1      # 状态 completed / success
 gh release view "v$(tr -d '[:space:]' < .version)" --json assets -q '.assets[].name'
 ```
 
-v0.1.11 实际资产清单（8 个，作为基线比对）：
+资产清单（分架构后 11 个，作为基线比对；v0.1.11 ~ v0.1.21 universal 时期为 8 个）：
 
 ```
-AiDog_<版本>_universal.dmg           # macOS 安装包（无 .sig，dmg 不参与 updater）
-AiDog_universal.app.tar.gz(+.sig)    # macOS updater 包 —— 自动更新真正下载的是它
+AiDog_<版本>_aarch64.dmg / _x64.dmg   # macOS 分架构安装包（无 .sig，dmg 不参与 updater；v0.1.21 及之前为 _universal.dmg）
+AiDog_aarch64.app.tar.gz / AiDog_x64.app.tar.gz(+.sig)  # macOS updater 包，latest.json 的 darwin-aarch64 / darwin-x86_64 分别指向
 AiDog_<版本>_x64-setup.exe(+.sig)    # Windows NSIS（推荐）
 AiDog_<版本>_x64_en-US.msi(+.sig)    # Windows MSI
 latest.json                          # updater 清单（includeUpdaterJson: true），缺它客户端「关于」页自动更新会瞎

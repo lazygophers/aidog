@@ -104,9 +104,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-latest # macOS Universal（arm64 + x64 合一安装包）
-            args: "--target universal-apple-darwin"
-            target: aarch64-apple-darwin,x86_64-apple-darwin
+          # macOS 分架构发布（不再出 universal）：单架构包体积约为 universal 的一半；
+          # tauri-action 按 target 分别写 latest.json 的 darwin-aarch64 / darwin-x86_64。
+          - platform: macos-latest # Apple Silicon
+            args: "--target aarch64-apple-darwin"
+            target: aarch64-apple-darwin
+          - platform: macos-latest # Intel（macos-latest 为 arm64 runner，交叉编译 x86_64）
+            args: "--target x86_64-apple-darwin"
+            target: x86_64-apple-darwin
           - platform: windows-latest # x64
             args: ""
             target: ""
@@ -173,7 +178,8 @@ jobs:
 
             | 平台 | 安装包 |
             | --- | --- |
-            | macOS（Apple Silicon + Intel） | `*_universal.dmg` |
+            | macOS Apple Silicon（M 系列芯片） | `*_aarch64.dmg` |
+            | macOS Intel | `*_x64.dmg` |
             | Windows x64 | `*_x64-setup.exe`（推荐）/ `*_x64_en-US.msi` |
 
             ### 🍎 macOS 首次打开
