@@ -294,18 +294,10 @@ mod tests {
     fn parse_cert_chain_pem_for_test(
         cert_pem: &str,
     ) -> Vec<rustls::pki_types::CertificateDer<'static>> {
-        use rustls_pemfile::Item;
-        let mut chain = Vec::new();
-        let mut cursor = std::io::Cursor::new(cert_pem.as_bytes());
-        loop {
-            let item = rustls_pemfile::read_one(&mut cursor).expect("pem parse");
-            match item {
-                Some(Item::X509Certificate(der)) => chain.push(der),
-                Some(_) => continue,
-                None => break,
-            }
-        }
-        chain
+        use rustls::pki_types::{CertificateDer, pem::PemObject};
+        CertificateDer::pem_slice_iter(cert_pem.as_bytes())
+            .collect::<Result<Vec<_>, _>>()
+            .expect("pem parse")
     }
 
     /// cert 错分类：含 "certificate" + "invalid" → PinningSuspect。
