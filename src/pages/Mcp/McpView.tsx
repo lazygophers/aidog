@@ -3,6 +3,7 @@ import { McpRow } from "./primitives";
 import { Button } from "@/components/ui/button";
 import { makeRipple } from "@/utils/motion";
 import { PiUnsupportedNote } from "@/components/shared";
+import { usePluginOrigins } from "@/components/PluginOrigin";
 
 /**
  * 主列表视图（自原 Mcp.tsx L446-536 外迁）。
@@ -13,6 +14,7 @@ export function McpView({ d }: { d: McpData }) {
     t, servers, loading, busyKey, message,
     openAdd, openScan, handleResync, setPasteOpen, setPasteText, setMessage,
   } = d;
+  const origins = usePluginOrigins("servers");
 
   return (
     <>
@@ -106,6 +108,7 @@ export function McpView({ d }: { d: McpData }) {
               srv={srv}
               idx={idx}
               busyKey={busyKey}
+              origin={origins[srv.name]}
               onToggle={d.handleToggle}
               onEdit={() => d.openEdit(srv)}
               onDelete={() => d.setDeleteTarget(srv)}

@@ -2,6 +2,12 @@
 
 import { invoke } from "../transport";
 
+/** 后端提示：稳定 code + 参数，界面按 `plugins.note.<code>` 翻译（旧记录的英文串为 code `text`）。 */
+export interface PluginNote {
+  code: string;
+  args: Record<string, string>;
+}
+
 /** aidog 库中安装的 Claude 插件（部件以普通技能 / 子代理 / 钩子 / MCP 分发）。 */
 export interface ClaudePluginView {
   name: string;
@@ -14,13 +20,13 @@ export interface ClaudePluginView {
   hooks: string[];
   servers: string[];
   /** 未携带部件（slash commands、LSP servers 等）。 */
-  left: string[];
+  left: PluginNote[];
 }
 
 /** 操作结果含插件清单 + 用户改过未撤回的部件 warning。 */
 export interface ClaudePluginViewList {
   plugins: ClaudePluginView[];
-  warnings: string[];
+  warnings: PluginNote[];
 }
 
 export interface ClaudePluginCandidate {
