@@ -30,3 +30,7 @@ htmd = "0.5.6"
 [target.'cfg(not(any(target_os = "linux", target_os = "windows")))'.dependencies]
 wreq = { version = "0.16", features = ["system-proxy", "socks"] }
 wreq-util = "0.2"
+
+[dev-dependencies]
+ctor = { workspace = true }
+rustls = { workspace = true }
