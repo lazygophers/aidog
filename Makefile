@@ -58,8 +58,13 @@ check: ## Run TypeScript + Rust type checks
 	@printf "$(CYAN)▶ Rust check...$(RESET)\n"
 	cd $(TAURI_DIR) && cargo check --workspace --all-targets
 
-.PHONY: lint
-lint: ## Run linters
+.PHONY: lint lint-run
+lint: ## Run linters (quiet: full log at .tmp/lint.log, errors only on stderr output)
+	@mkdir -p .tmp
+	@$(MAKE) --no-print-directory -s lint-run > .tmp/lint.log 2>&1; rc=$$?; \
+	node scripts/lint-report.mjs .tmp/lint.log $$rc
+
+lint-run:
 	@printf "$(CYAN)▶ TypeScript check...$(RESET)\n"
 	npx tsc --noEmit
 	@printf "$(CYAN)▶ TypeScript check (tests)...$(RESET)\n"
