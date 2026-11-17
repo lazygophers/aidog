@@ -19,6 +19,36 @@ fn sub(name: &str, agents: &[&str]) -> Subagent {
 }
 
 #[test]
+fn claude_front_matter_carries_skills_and_mcp_servers() {
+    let tmp = tempfile::tempdir().unwrap();
+    let d = dirs_in(tmp.path());
+    let mut s = sub("reviewer", &[AGENT_CLAUDE]);
+    s.skills = vec!["code-review".into(), "deep dive".into()];
+    s.mcp_servers = vec!["github".into()];
+    assert!(sync_entry(&mut s, &d).is_empty());
+    let md = std::fs::read_to_string(d.claude.join("agents/reviewer.md")).unwrap();
+    assert_eq!(
+        md,
+        "---\nname: reviewer\ndescription: \"Reviews code\"\nskills: [\"code-review\",\"deep dive\"]\nmcpServers: [\"github\"]\n---\n\nYou review code.\n"
+    );
+    // Codex 角色文件不写两字段
+    let mut c = sub("bound", &[AGENT_CODEX]);
+    c.skills = vec!["x".into()];
+    c.mcp_servers = vec!["y".into()];
+    sync_entry(&mut c, &d);
+    let v: toml::Table =
+        toml::from_str(&std::fs::read_to_string(d.codex.join("agents/bound.toml")).unwrap()).unwrap();
+    assert!(!v.contains_key("skills"));
+    assert!(!v.contains_key("mcpServers"));
+}
+
+#[test]
+fn capabilities_claude_skills_mcp_codex_model_only() {
+    assert_eq!(agent_capabilities(AGENT_CLAUDE), vec!["skills", "mcpServers"]);
+    assert_eq!(agent_capabilities(AGENT_CODEX), vec!["model"]);
+}
+
+#[test]
 fn resolve_uses_claude_config_dir_and_codex_home() {
     let g = aidog_db::test_support::HomeGuard::new();
     let d = Dirs::resolve().unwrap();

@@ -30,6 +30,12 @@ pub struct Subagent {
     pub prompt: String,
     #[serde(default)]
     pub agents: Vec<String>,
+    /// 绑定库内技能名（Claude front matter `skills`；Codex 角色文件无此字段不写）。
+    #[serde(default)]
+    pub skills: Vec<String>,
+    /// 绑定库内 MCP server 名（Claude front matter `mcpServers`；Codex 不写）。
+    #[serde(default)]
+    pub mcp_servers: Vec<String>,
     /// 只写给 Codex 角色文件的 `model`。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub codex_model: Option<String>,
@@ -44,12 +50,25 @@ pub struct Subagent {
     pub written: BTreeMap<String, String>,
 }
 
-/// 列表视图：条目 + 每个 agent 的文件状态（on / off / modified / conflict）。
+/// 列表视图：条目 + 每个 agent 的文件状态（on / off / modified / conflict）
+/// + 每 agent 能力（skills / mcpServers / model 是否可写，前端灰显不支持项）。
 #[derive(Serialize, Clone, Debug)]
 pub struct SubagentView {
     #[serde(flatten)]
     pub sub: Subagent,
     pub status: BTreeMap<String, String>,
+    /// agent → 支持的能力名（"skills" / "mcpServers" / "model"）。
+    pub capabilities: BTreeMap<String, Vec<String>>,
+}
+
+/// 每 agent 能力（对齐 magpie subagentSpecOf：只有 Claude Code 的文件能写
+/// skills 与 mcpServers；只有 Codex 角色文件能写 model）。
+pub(crate) fn agent_capabilities(agent: &str) -> Vec<&'static str> {
+    match agent {
+        AGENT_CLAUDE => vec!["skills", "mcpServers"],
+        AGENT_CODEX => vec!["model"],
+        _ => vec![],
+    }
 }
 
 #[derive(Serialize, Clone, Debug, Default, PartialEq)]
@@ -101,6 +120,7 @@ pub(crate) fn target_path(dirs: &Dirs, agent: &str, name: &str) -> PathBuf {
 
 fn render(sub: &Subagent, agent: &str) -> String {
     if agent == AGENT_CODEX {
+        // Codex 角色文件（RawAgentRoleFileToml）无 skills / mcpServers 键，不写。
         let mut t = toml::Table::new();
         t.insert("name".into(), sub.name.clone().into());
         t.insert("description".into(), sub.description.clone().into());
@@ -110,9 +130,17 @@ fn render(sub: &Subagent, agent: &str) -> String {
         t.insert("developer_instructions".into(), sub.prompt.clone().into());
         toml::to_string(&t).unwrap_or_default()
     } else {
-        // JSON 字符串即合法 YAML 双引号标量，免手写转义。
+        // JSON 字符串即合法 YAML 双引号标量，免手写转义；列表同理用 JSON 数组。
         let desc = serde_json::to_string(&sub.description).unwrap_or_default();
-        format!("---\nname: {}\ndescription: {desc}\n---\n\n{}", sub.name, sub.prompt)
+        let yaml_list = |xs: &[String]| serde_json::to_string(&xs).unwrap_or_default();
+        let mut fm = format!("---\nname: {}\ndescription: {desc}", sub.name);
+        if !sub.skills.is_empty() {
+            fm.push_str(&format!("\nskills: {}", yaml_list(&sub.skills)));
+        }
+        if !sub.mcp_servers.is_empty() {
+            fm.push_str(&format!("\nmcpServers: {}", yaml_list(&sub.mcp_servers)));
+        }
+        format!("{fm}\n---\n\n{}", sub.prompt)
     }
 }
 
@@ -343,6 +371,10 @@ fn views(list: &[Subagent], dirs: &Dirs) -> Vec<SubagentView> {
                 .iter()
                 .map(|a| (a.to_string(), agent_status(s, a, dirs).to_string()))
                 .collect(),
+            capabilities: AGENTS
+                .iter()
+                .map(|a| (a.to_string(), agent_capabilities(a).iter().map(|s| s.to_string()).collect()))
+                .collect(),
         })
         .collect()
 }
@@ -371,6 +403,10 @@ crate::tauri_command! {
             return Err("description is required".into());
         }
         s.agents.retain(|a| AGENTS.contains(&a.as_str()));
+        s.skills.retain(|n| !n.trim().is_empty());
+        s.skills = s.skills.iter().map(|n| n.trim().to_string()).collect();
+        s.mcp_servers.retain(|n| !n.trim().is_empty());
+        s.mcp_servers = s.mcp_servers.iter().map(|n| n.trim().to_string()).collect();
         s.codex_model = s.codex_model.map(|m| m.trim().to_string()).filter(|m| !m.is_empty());
         let old_idx = old_name.as_deref().and_then(|n| list.iter().position(|x| x.name == n));
         if list.iter().enumerate().any(|(i, x)| x.name == s.name && Some(i) != old_idx) {

@@ -4,6 +4,10 @@ import { fireEvent, render, screen, waitFor } from "../test/render";
 
 const api = vi.hoisted(() => ({ list: vi.fn(), save: vi.fn(), delete: vi.fn(), import: vi.fn(), preview: vi.fn() }));
 vi.mock("../services/api/subagents", () => ({ subagentsApi: api }));
+const skillsApi = vi.hoisted(() => ({ listInstalled: vi.fn() }));
+vi.mock("../services/api/skills", () => ({ skillsApi }));
+const mcpApi = vi.hoisted(() => ({ list: vi.fn() }));
+vi.mock("../services/api/mcp", () => ({ mcpApi }));
 
 import { Subagents } from "./Subagents";
 
@@ -12,12 +16,17 @@ const ROW = {
   description: "Reviews code",
   prompt: "p",
   agents: ["codex"],
+  skills: ["code-review"],
+  mcp_servers: ["github"],
   status: { "claude-code": "modified", codex: "on" },
+  capabilities: { "claude-code": ["skills", "mcpServers"], codex: ["model"] },
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
   api.list.mockResolvedValue([ROW]);
+  skillsApi.listInstalled.mockResolvedValue({ stale: false, items: [{ name: "alpha" }, { name: "beta" }] });
+  mcpApi.list.mockResolvedValue([{ name: "github" }, { name: "linear" }]);
   api.save.mockResolvedValue([ROW]);
   api.import.mockResolvedValue({ added: ["a"], updated: [], have: [], edited: [], conflicts: [] });
 });
@@ -52,6 +61,35 @@ describe("Subagents", () => {
     const [oldName, sub] = api.save.mock.calls[0];
     expect(oldName).toBeNull();
     expect(sub).toMatchObject({ name: "helper", description: "d", prompt: "body" });
+  });
+
+  it("shows capability badges per agent with unsupported ones absent", async () => {
+    render(<Subagents />);
+    await screen.findByTestId("subagent-row-reviewer");
+    // claude-code 支持 skills/mcpServers，codex 只支持 model
+    expect(screen.getByTestId("subagent-cap-reviewer-codex-model")).toBeTruthy();
+    expect(screen.getByTestId("subagent-cap-reviewer-codex-skills").className).toContain("opacity-40");
+    expect(screen.getByTestId("subagent-cap-reviewer-codex-mcpServers").className).toContain("opacity-40");
+    // 绑定徽标：claude-code 行显 skills/mcpServers 数量
+    expect(screen.getByTestId("subagent-binding-reviewer-claude-code-skills")).toBeTruthy();
+    expect(screen.getByTestId("subagent-binding-reviewer-claude-code-mcpServers")).toBeTruthy();
+  });
+
+  it("edit dialog binds skills and mcp servers via multiselect", async () => {
+    render(<Subagents />);
+    fireEvent.click(await screen.findByTestId("subagent-add"));
+    fireEvent.change(screen.getByTestId("subagent-edit-name"), { target: { value: "b" } });
+    fireEvent.change(screen.getByTestId("subagent-edit-description"), { target: { value: "d" } });
+    // 候选来自库内清单
+    await waitFor(() => expect(screen.getByTestId("subagent-skill-opt-alpha")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("subagent-skill-opt-alpha"));
+    await waitFor(() => expect(screen.getByTestId("subagent-mcp-opt-github")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("subagent-mcp-opt-github"));
+    fireEvent.click(screen.getByTestId("subagent-edit-save"));
+    await waitFor(() => expect(api.save).toHaveBeenCalledTimes(1));
+    const [, sub] = api.save.mock.calls[0];
+    expect(sub.skills).toEqual(["alpha"]);
+    expect(sub.mcp_servers).toEqual(["github"]);
   });
 
   it("imports from a source and shows the report", async () => {
