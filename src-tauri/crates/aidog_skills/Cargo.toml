@@ -17,5 +17,4 @@ chrono = { workspace = true }
 dirs = { workspace = true }
 
 [dev-dependencies]
-tokio = { workspace = true }
 tempfile = { workspace = true }

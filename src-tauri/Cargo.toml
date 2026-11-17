@@ -156,7 +156,6 @@ aidog_ctx = { path = "crates/aidog_ctx" }
 aidog_db = { path = "crates/aidog_db" }
 aidog_logs = { path = "crates/aidog_logs" }
 aidog_stats = { path = "crates/aidog_stats" }
-aidog_mcp = { path = "crates/aidog_mcp" }
 aidog_backup = { path = "crates/aidog_backup" }
 aidog_middleware = { path = "crates/aidog_middleware" }
 aidog_adapter = { path = "crates/aidog_adapter" }
@@ -196,7 +195,6 @@ tauri-plugin-shell = { workspace = true }
 # 此处 { workspace = true } 引（C2 core-extract：core refresh_tray_menu 也用，需统一版本）。
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { workspace = true }
-objc2-foundation = { workspace = true }
 objc2-app-kit = { workspace = true }
 
 # Windows / Linux 单实例（macOS 走 RunEvent::Reopen）；deep-link 特性转发第二实例的 aidog:// 参数。
