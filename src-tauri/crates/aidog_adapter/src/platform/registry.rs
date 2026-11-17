@@ -445,7 +445,57 @@ impl PlatformAdapter for GlmFamilyAdapter {
     }
 }
 
+/// MiniMax 家族基座（issue 77；成员 minimax / minimax_en / minimax_coding 共用）。
+///
+/// 家族共性取证（官方页面原始 HTML，核对日期 2026-11-17）：
+/// - OpenAI Chat Completions：`thinking.type` 默认为 `adaptive`；MiniMax-M3 可传 `disabled` 关闭思考；
+///   MiniMax-M3.1-Flash 禁止 `disabled`，返回 HTTP 400（code 2013），由 registry 的强制思考标记
+///   去除禁用参数。禁思考覆写仅把 OpenAI wire 的禁用值改为 MiniMax 官方参数；Anthropic wire 沿用基座。
+///   https://platform.minimaxi.com/docs/api-reference/text-openai-api
+///   https://platform.minimax.io/docs/api-reference/text-openai-api
+///   https://platform.minimax.cn/docs/api-reference/text-openai-api
+/// - OpenAI 请求/响应：文档给出 `tools`、`image_url`、`video_url`、`reasoning_content`、`finish_reason`、
+///   `usage.prompt_tokens_details.cached_tokens`；基座 OpenAI 构件维持现状。响应另含 `base_resp`，成功示例
+///   `status_code: 0`。错误码页列出 `1001` 超时、`1002` 限流、`1004` 鉴权、`1008` 余额不足、
+///   `1013` 服务内部、`1027` 输出内容、`1039` token 超限、`2013` 参数错误；错误分类不扩展，
+///   因文档未给出可映射至模型类的专用业务码/错误体契约。
+///   https://platform.minimaxi.com/docs/api-reference/errorcode
+/// - Anthropic Messages：官方文档说明完整支持 system、tools、stream 与 thinking；`MiniMax-M3.1-Flash`
+///   强制 thinking，`MiniMax-M3` 默认关闭并可用 `adaptive` 开启；`output_config.effort` 支持前者。
+///   请求、流、错误、usage 与其他响应细节按基座处理；文档未证实 Anthropic 缓存 usage 的额外形态。
+///   https://platform.minimaxi.com/docs/api-reference/text-anthropic-api
+///   https://platform.minimax.io/docs/api-reference/text-anthropic-api
+/// - International (`minimax.io`) 与中国站 API 参考页的上述协议字段一致；coding-plan 官方页描述套餐/额度，
+///   未记载新的 chat 字段，故无 coding-plan 请求差异。
+///   https://platform.minimaxi.com/docs/token-plan/other-tools
+///   https://platform.minimax.io/docs
+/// - 未证实（保持基座默认）：错误体是否总包含 `base_resp`、Anthropic cache usage 字段、stream usage 的
+///   含义及其端点差异、工具选择限制、各模型外的固定 sampling 参数。
+///
+/// 成员差异留给 issue 120–122。
+pub struct MiniMaxFamilyAdapter;
+
+impl PlatformAdapter for MiniMaxFamilyAdapter {
+    /// OpenAI wire 禁思考使用 MiniMax 的 `thinking.type=disabled`，而非通用 OpenAI host 的
+    /// `reasoning_effort=none` / vLLM `chat_template_kwargs`。强制思考模型仍由共享钩子剥禁用参数。
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        let wire = match wire {
+            Protocol::OpenAI => &Protocol::Anthropic,
+            w => w,
+        };
+        hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking)
+    }
+}
+
 static GENERIC: GenericAdapter = GenericAdapter;
+static MINIMAX: MiniMaxFamilyAdapter = MiniMaxFamilyAdapter;
 static KIMI: KimiFamilyAdapter = KimiFamilyAdapter {
     official_openai_thinking: true,
     coding_openai_reasoning_effort: false,
@@ -495,9 +545,9 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("longcat", &GENERIC),
     ("magpie", &GENERIC),
     ("meta", &GENERIC),
-    ("minimax", &GENERIC),
-    ("minimax_coding", &GENERIC),
-    ("minimax_en", &GENERIC),
+    ("minimax", &MINIMAX),
+    ("minimax_coding", &MINIMAX),
+    ("minimax_en", &MINIMAX),
     ("mistral", &GENERIC),
     ("modelscope", &GENERIC),
     ("newapi", &GENERIC),
