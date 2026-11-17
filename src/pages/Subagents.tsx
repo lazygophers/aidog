@@ -21,6 +21,7 @@ import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { Switch } from "../components/ui/switch";
 import { Checkbox } from "../components/ui/checkbox";
+import { PluginOriginBadge } from "../components/PluginOrigin";
 import {
   Dialog,
   DialogContent,
@@ -116,7 +117,10 @@ export function Subagents() {
         {list.map((s) => (
           <div key={s.name} data-testid={`subagent-row-${s.name}`} className="flex items-center gap-4 rounded-md border p-3">
             <div className="min-w-0 flex-1">
-              <div className="font-mono text-sm font-medium">{s.name}</div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-sm font-medium">{s.name}</span>
+                <PluginOriginBadge plugin={s.bundle} testId={`subagent-plugin-${s.name}`} />
+              </div>
               <div className="truncate text-sm text-muted-foreground">{s.description}</div>
               {s.from && <div className="truncate text-sm text-muted-foreground">{t("subagents.from", { from: s.from })}</div>}
             </div>

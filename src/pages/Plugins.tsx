@@ -15,14 +15,15 @@ import {
   type ClaudePluginView,
   type ClaudePluginViewList,
   type CodexPluginsView,
+  type PluginNote,
 } from "../services/api/plugins";
 
 export function Plugins() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [claude, setClaude] = useState<ClaudePluginView[]>([]);
   const [codex, setCodex] = useState<CodexPluginsView | null>(null);
   const [error, setError] = useState("");
-  const [warnings, setWarnings] = useState<string[]>([]);
+  const [warnings, setWarnings] = useState<PluginNote[]>([]);
   const [busy, setBusy] = useState(false);
   const [newPluginId, setNewPluginId] = useState("");
   const [newMarketplace, setNewMarketplace] = useState("");
@@ -66,6 +67,8 @@ export function Plugins() {
     void run(async () => applyClaude(await pluginsApi.claudeSetAgents(p.name, agents)));
   };
 
+  const noteText = (n: PluginNote) => t(`plugins.note.${n.code}`, n.args);
+
   const codexAction = (fn: () => Promise<CodexPluginsView>) =>
     run(async () => setCodex(await fn()));
 
@@ -77,7 +80,7 @@ export function Plugins() {
       </div>
       {error && <p className="text-sm text-destructive" data-testid="plugins-error">{error}</p>}
       {warnings.length > 0 && <div className="text-sm text-muted-foreground" data-testid="plugins-warnings">
-        {warnings.map((w) => <p key={w}>{w}</p>)}
+        {warnings.map((w, i) => <p key={i}>{noteText(w)}</p>)}
       </div>}
       <Tabs defaultValue="claude">
         <TabsList>
@@ -110,9 +113,10 @@ export function Plugins() {
                 {t("plugins.claudeProbe")}
               </Button>
             </div>
+            {/* Radix Tabs renders dir="ltr" (no DirectionProvider); legends take the UI direction themselves. */}
             {candidates !== null && <>
               <fieldset className="flex flex-col gap-1">
-                <legend className="text-sm font-medium">{t("plugins.claudeProbe")}</legend>
+                <legend dir={i18n.dir()} className="w-full text-start text-sm font-medium" data-testid="claude-plugin-legend-probe">{t("plugins.claudeProbe")}</legend>
                 {candidates.map((c) => {
                   const id = `claude-plugin-candidate-${c.name}`;
                   return <div key={c.name} className="flex min-h-11 items-center gap-2 text-sm">
@@ -133,7 +137,7 @@ export function Plugins() {
                 {candidates.length === 0 && <p className="text-sm text-muted-foreground">{t("plugins.claudeNoCandidates")}</p>}
               </fieldset>
               <fieldset className="flex flex-wrap items-center gap-4 text-sm">
-                <legend className="text-sm font-medium">{t("plugins.claudeAgents")}</legend>
+                <legend dir={i18n.dir()} className="w-full text-start text-sm font-medium" data-testid="claude-plugin-legend-agents">{t("plugins.claudeAgents")}</legend>
                 {["claude-code", "codex"].map((a) => {
                   const id = `claude-plugin-install-agent-${a}`;
                   return <div key={a} className="flex min-h-11 items-center gap-2">
@@ -197,9 +201,9 @@ export function Plugins() {
               <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
                 <span>{t("plugins.claudeParts", { skills: p.skills.length, subagents: p.subagents.length, hooks: p.hooks.length, servers: p.servers.length })}</span>
               </div>
-              {p.left.length > 0 && <div className="text-sm text-muted-foreground" data-testid={`plugin-left-${p.name}`}>
+              {p.left.length > 0 && <div dir={i18n.dir()} className="text-sm text-muted-foreground" data-testid={`plugin-left-${p.name}`}>
                 <span>{t("plugins.claudeLeft")}</span>
-                {p.left.map((l) => <p key={l}>{l}</p>)}
+                {p.left.map((l, i) => <p key={i}>{noteText(l)}</p>)}
               </div>}
             </div>
           ))}

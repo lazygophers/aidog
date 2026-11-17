@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PluginOriginBadge, usePluginOrigins } from "@/components/PluginOrigin";
 
 /**
  * 主列表视图（自原 Skills.tsx L545-969 外迁）。
@@ -27,6 +28,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
     setUninstallTarget, setPasteOpen, setPasteText, setDetailTarget, handleShare,
     selectedNames, toggleSelected, setConfirmUninstallBatch,
   } = s;
+  const origins = usePluginOrigins("skills");
 
   return (
     <>
@@ -328,6 +330,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
                 skill={skill}
                 idx={idx}
                 busyKey={busyKey}
+                origin={origins[skill.name]}
                 writeReady={writeReady}
                 selected={selectedNames.has(skill.name)}
                 onSelect={toggleSelected}
@@ -365,6 +368,8 @@ interface SkillRowProps {
   skill: SkillInfo;
   idx: number;
   busyKey: string | null;
+  /** 所属插件（由 Claude 插件捆绑包分发时）。 */
+  origin?: string;
   writeReady: boolean;
   selected: boolean;
   onSelect: (name: string) => void;
@@ -374,7 +379,7 @@ interface SkillRowProps {
   onUninstall: (skill: SkillInfo) => void;
 }
 
-function SkillRow({ skill, idx, busyKey, writeReady, selected, onSelect, onToggle, onDetail, onShare, onUninstall }: SkillRowProps) {
+function SkillRow({ skill, idx, busyKey, origin, writeReady, selected, onSelect, onToggle, onDetail, onShare, onUninstall }: SkillRowProps) {
   const { t } = useTranslation();
   const { ref, shown } = useReveal<HTMLDivElement>(idx * 60);
   return (
@@ -459,6 +464,7 @@ function SkillRow({ skill, idx, busyKey, writeReady, selected, onSelect, onToggl
               plugin: {skill.plugin_name}
             </Badge>
           )}
+          <PluginOriginBadge plugin={origin} testId={`skill-plugin-${skill.name}`} />
           {skill.updated_at && (
             <span
               title={`${t("skills.updatedAt", "更新时间")}: ${formatDateTime(skill.updated_at) ?? skill.updated_at}`}
