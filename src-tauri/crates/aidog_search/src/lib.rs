@@ -996,8 +996,8 @@ mod test_sources;
 #[path = "test_modes.rs"]
 mod test_modes;
 
-/// reqwest is built with `rustls-no-provider`: the process entry points install the ring
-/// provider at startup, so the unit-test binary installs it before any test runs.
+// reqwest is built with `rustls-no-provider`: the process entry points install the ring
+// provider at startup, so the unit-test binary installs it before any test runs.
 #[cfg(test)]
 ctor::declarative::ctor! {
     #[ctor(unsafe)]
