@@ -74,3 +74,33 @@ fn handshake_headers_without_inject_still_strip_inbound_auth() {
     assert!(hm.get("x-goog-api-key").is_none(), "客户端 group key 不外泄上游");
     assert_eq!(hm.get("accept-language").unwrap(), "zh");
 }
+
+/// wss:// upstream connects must go through a compiled-in TLS client: the local listener
+/// receives a TLS ClientHello (record type 0x16), and the failure is a TLS/IO error,
+/// never `TlsFeatureNotEnabled`.
+#[tokio::test]
+async fn wss_upstream_connect_speaks_tls() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = tokio::spawn(async move {
+        let (mut sock, _) = listener.accept().await.unwrap();
+        let mut first = [0u8; 1];
+        sock.read_exact(&mut first).await.unwrap();
+        let _ = sock.write_all(b"HTTP/1.1 400 Bad Request\r\n\r\n").await;
+        first[0]
+    });
+    let err = tokio_tungstenite::connect_async(format!("wss://127.0.0.1:{port}/v1"))
+        .await
+        .expect_err("plain HTTP peer cannot complete a TLS handshake");
+    assert!(
+        !matches!(
+            err,
+            tokio_tungstenite::tungstenite::Error::Url(
+                tokio_tungstenite::tungstenite::error::UrlError::TlsFeatureNotEnabled
+            )
+        ),
+        "TLS client must be compiled in: {err}"
+    );
+    assert_eq!(server.await.unwrap(), 0x16, "first byte is a TLS handshake record");
+}
