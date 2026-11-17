@@ -11,7 +11,6 @@ license = { workspace = true }
 aidog_db = { path = "../aidog_db" }
 serde = { workspace = true }
 rusqlite = { workspace = true }
-tokio-rusqlite = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 chrono = { workspace = true }
