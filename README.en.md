@@ -23,6 +23,12 @@ AiDog runs a proxy service on your computer. You store upstream platforms and AP
 
 ## What it does
 
+![AiDog home overview](screenshots/home-light.png)
+
+![AI platform management](screenshots/platforms-light.png)
+
+*Illustrative UI with mock data.*
+
 ### Local proxy and routing
 
 - Manage built-in platform presets, and configure custom platforms.

@@ -26,3 +26,7 @@ features:
     details: Keep management access on loopback by default and review what is sent upstream.
     link: /en/core-concepts/data-privacy
 ---
+
+![AiDog home overview](/screenshots/home-light.png)
+
+*Illustrative UI with mock data.*

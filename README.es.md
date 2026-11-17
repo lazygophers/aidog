@@ -23,6 +23,12 @@ AiDog ejecuta un servicio proxy en tu equipo. Guarda las plataformas upstream y 
 
 ## Funciones
 
+![Vista general de AiDog](screenshots/home-light.png)
+
+![Gestión de plataformas de IA](screenshots/platforms-light.png)
+
+*Capturas ilustrativas con datos simulados.*
+
 ### Proxy local y enrutamiento
 
 - Gestiona las plataformas preconfiguradas y configura plataformas personalizadas.
