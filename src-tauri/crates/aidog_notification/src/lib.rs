@@ -42,3 +42,13 @@ mod test_session_name;
 mod test_vars;
 #[cfg(test)]
 mod test_tts;
+
+/// reqwest is built with `rustls-no-provider`: the process entry points install the ring
+/// provider at startup, so the unit-test binary installs it before any test runs.
+#[cfg(test)]
+ctor::declarative::ctor! {
+    #[ctor(unsafe)]
+    fn install_test_crypto_provider() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    }
+}
