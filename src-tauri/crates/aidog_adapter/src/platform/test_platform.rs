@@ -49,7 +49,7 @@ fn kimi_adapter_coding_plan_matches_base_kimi_arm() {
         member.as_object().unwrap().keys().collect::<Vec<_>>(),
         via_base.as_object().unwrap().keys().collect::<Vec<_>>()
     );
-    // issue 119：显式会话键保留，缺省时稳定派生，不能按时间窗口更换。
+    // issue 119: preserve explicit keys; converted requests without session metadata get per-request keys.
     let adapter = super::adapter_for("kimi_coding");
     let mut supplied = json!({ "model": "k3", "prompt_cache_key": "session-42" });
     adapter.inject_coding_plan(&mut supplied, &Protocol::KimiCoding, &Protocol::OpenAI);
@@ -103,8 +103,8 @@ fn kimi_coding_and_kimi_en_do_not_inject_prompt_cache_key() {
 
 /// review R2-1（issue 119）：kimi_coding openai wire 多轮工具历史携带 reasoning_content。
 /// 官方错误参考 400「thinking is enabled but reasoning_content is missing in assistant
-/// tool call message … 这是 Kimi Code 特有字段，启用思维链时必须携带」；chat.md K3 系列
-/// `clear_thinking` 默认 `{"type":"enabled","keep":"all"}`（历史 reasoning_content 原样回传）。
+/// tool call message … 这是 Kimi Code 特有字段，启用思维链时必须携带」；Chat Completions
+/// 文档以 `thinking.keep="all"` 配置保留历史 reasoning_content。
 /// anthropic 客户端回灌的 thinking 块在 to_openai 被跳过，基座产出缺 reasoning_content 的
 /// assistant tool-call 消息 → 上游 400。仅 kimi_coding 改写（Kimi Code 专属校验），
 /// kimi / kimi_en 维持基座形状。
@@ -200,7 +200,7 @@ fn error_and_usage_defaults_match_legacy_helpers() {
     );
     assert_eq!(
         pa.classify_error(404, "Not found the model kimi-for-coding or Permission denied"),
-        UpstreamErrorClass::Model
+        UpstreamErrorClass::Unknown
     );
     assert_eq!(pa.classify_error(500, "boom"), UpstreamErrorClass::Service);
     assert_eq!(pa.classify_error(400, "bad request"), UpstreamErrorClass::Unknown);
