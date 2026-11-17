@@ -268,7 +268,7 @@ export function Subagents() {
                           setChecked(on ? [...checked, c.rel] : checked.filter((x) => x !== c.rel))
                         }
                       />
-                      <span className="font-mono text-xs">{c.rel}</span>
+                      <span className="font-mono text-sm">{c.rel}</span>
                       <span className="truncate text-muted-foreground">{c.description}</span>
                     </label>
                   ))}
