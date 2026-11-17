@@ -30,21 +30,21 @@ fn every_registry_platform_has_adapter_registration() {
 fn kimi_adapter_coding_plan_matches_base_kimi_arm() {
     let pa = super::adapter_for("kimi");
     let mut body = json!({ "model": "kimi-for-coding" });
-    pa.inject_coding_plan(&mut body, &Protocol::Kimi);
+    pa.inject_coding_plan(&mut body, &Protocol::Kimi, &Protocol::OpenAI);
     assert!(
         body.get("prompt_cache_key").is_some(),
         "kimi 未注入 prompt_cache_key"
     );
     // 基座默认按平台协议分派：platform=Kimi 同样注入；非 Kimi 协议不注入。
     let mut via_base = json!({ "model": "kimi-for-coding" });
-    super::adapter_for("anthropic").inject_coding_plan(&mut via_base, &Protocol::Kimi);
+    super::adapter_for("anthropic").inject_coding_plan(&mut via_base, &Protocol::Kimi, &Protocol::OpenAI);
     assert!(via_base.get("prompt_cache_key").is_some());
     let mut non_kimi = json!({ "model": "m" });
-    super::adapter_for("anthropic").inject_coding_plan(&mut non_kimi, &Protocol::Anthropic);
+    super::adapter_for("anthropic").inject_coding_plan(&mut non_kimi, &Protocol::Anthropic, &Protocol::OpenAI);
     assert!(non_kimi.get("prompt_cache_key").is_none());
     // 家族适配器与基座 Kimi 臂产出同形状（除时间窗口随机段外的键集合一致）。
     let mut member = json!({ "model": "k3" });
-    super::adapter_for("kimi_coding").inject_coding_plan(&mut member, &Protocol::Kimi);
+    super::adapter_for("kimi_coding").inject_coding_plan(&mut member, &Protocol::Kimi, &Protocol::OpenAI);
     assert_eq!(
         member.as_object().unwrap().keys().collect::<Vec<_>>(),
         via_base.as_object().unwrap().keys().collect::<Vec<_>>()
@@ -52,7 +52,7 @@ fn kimi_adapter_coding_plan_matches_base_kimi_arm() {
     // issue 119：显式会话键保留，缺省时稳定派生，不能按时间窗口更换。
     let adapter = super::adapter_for("kimi_coding");
     let mut supplied = json!({ "model": "k3", "prompt_cache_key": "session-42" });
-    adapter.inject_coding_plan(&mut supplied, &Protocol::KimiCoding);
+    adapter.inject_coding_plan(&mut supplied, &Protocol::KimiCoding, &Protocol::OpenAI);
     assert_eq!(supplied["prompt_cache_key"], "session-42");
 
     let request = json!({
@@ -62,13 +62,30 @@ fn kimi_adapter_coding_plan_matches_base_kimi_arm() {
     });
     let mut first = request.clone();
     let mut later = request;
-    adapter.inject_coding_plan(&mut first, &Protocol::KimiCoding);
-    adapter.inject_coding_plan(&mut later, &Protocol::KimiCoding);
+    adapter.inject_coding_plan(&mut first, &Protocol::KimiCoding, &Protocol::OpenAI);
+    adapter.inject_coding_plan(&mut later, &Protocol::KimiCoding, &Protocol::OpenAI);
     assert_eq!(first["prompt_cache_key"], later["prompt_cache_key"]);
 
     let mut other_session = json!({ "model": "k3", "metadata": { "session_id": "session-43" } });
-    adapter.inject_coding_plan(&mut other_session, &Protocol::KimiCoding);
+    adapter.inject_coding_plan(&mut other_session, &Protocol::KimiCoding, &Protocol::OpenAI);
     assert_ne!(first["prompt_cache_key"], other_session["prompt_cache_key"]);
+}
+
+/// review R2-2（issue 119）：anthropic wire 的 Kimi coding_plan 端点不注入 prompt_cache_key
+/// （messages.md 未列该参数，缓存走 `cache_control`；chat.md「必填」仅限 Chat Completions）。
+/// https://platform.kimi.com/docs/api/messages.md
+#[test]
+fn kimi_coding_plan_no_inject_on_anthropic_wire() {
+    let mut body = json!({ "model": "kimi-for-coding" });
+    super::adapter_for("kimi_coding").inject_coding_plan(
+        &mut body,
+        &Protocol::KimiCoding,
+        &Protocol::Anthropic,
+    );
+    assert!(
+        body.get("prompt_cache_key").is_none(),
+        "anthropic wire 不应注入 prompt_cache_key: {body}"
+    );
 }
 
 /// 行为零变化门禁（review 必改 1）：kimi_en 不注入 prompt_cache_key。
@@ -77,10 +94,69 @@ fn kimi_adapter_coding_plan_matches_base_kimi_arm() {
 #[test]
 fn kimi_coding_and_kimi_en_do_not_inject_prompt_cache_key() {
     let mut body = json!({ "model": "kimi-for-coding" });
-    super::adapter_for("kimi_en").inject_coding_plan(&mut body, &Protocol::KimiEn);
+    super::adapter_for("kimi_en").inject_coding_plan(&mut body, &Protocol::KimiEn, &Protocol::OpenAI);
     assert!(
         body.get("prompt_cache_key").is_none(),
         "kimi_en 不应注入 prompt_cache_key（仅 Protocol::Kimi / KimiCoding 注入）"
+    );
+}
+
+/// review R2-1（issue 119）：kimi_coding openai wire 多轮工具历史携带 reasoning_content。
+/// 官方错误参考 400「thinking is enabled but reasoning_content is missing in assistant
+/// tool call message … 这是 Kimi Code 特有字段，启用思维链时必须携带」；chat.md K3 系列
+/// `clear_thinking` 默认 `{"type":"enabled","keep":"all"}`（历史 reasoning_content 原样回传）。
+/// anthropic 客户端回灌的 thinking 块在 to_openai 被跳过，基座产出缺 reasoning_content 的
+/// assistant tool-call 消息 → 上游 400。仅 kimi_coding 改写（Kimi Code 专属校验），
+/// kimi / kimi_en 维持基座形状。
+/// https://www.kimi.com/code/docs/kimi-code/error-reference.html
+#[test]
+fn kimi_coding_openai_tool_history_carries_reasoning_content() {
+    let chat_req: ChatRequest = serde_json::from_value(json!({
+        "model": "kimi-k3",
+        "max_tokens": 64,
+        "messages": [
+            { "role": "user", "content": "北京天气?" },
+            { "role": "assistant", "content": [
+                { "type": "thinking", "thinking": "需要调用天气工具", "signature": "sig" },
+                { "type": "tool_use", "id": "tu1", "name": "get_weather", "input": { "city": "北京" } }
+            ]},
+            { "role": "user", "content": [
+                { "type": "tool_result", "tool_use_id": "tu1", "content": "晴" }
+            ]}
+        ]
+    }))
+    .unwrap();
+    let (body, _) = super::adapter_for("kimi_coding").build_request(
+        &chat_req,
+        &Protocol::OpenAI,
+        &Protocol::KimiCoding,
+    );
+    let asst = body["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["role"] == "assistant" && m.get("tool_calls").is_some_and(|v| !v.is_null()))
+        .expect("转换应产出 assistant tool-call 消息");
+    assert_eq!(
+        asst["reasoning_content"],
+        "需要调用天气工具",
+        "assistant tool-call 历史应携带 reasoning_content: {asst}"
+    );
+    // 家族其他成员（kimi）维持基座形状：不写 reasoning_content（Kimi Code 专属校验）
+    let (base_body, _) = super::adapter_for("kimi").build_request(
+        &chat_req,
+        &Protocol::OpenAI,
+        &Protocol::Kimi,
+    );
+    let base_asst = base_body["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["role"] == "assistant" && m.get("tool_calls").is_some_and(|v| !v.is_null()))
+        .unwrap();
+    assert!(
+        base_asst.get("reasoning_content").is_none(),
+        "kimi 标准平台不应写 reasoning_content: {base_asst}"
     );
 }
 

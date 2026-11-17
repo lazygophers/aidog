@@ -834,7 +834,7 @@ fn glm_coding_coding_plan_injection_is_noop() {
     let pa = aidog_adapter::platform::adapter_for("glm_coding");
     let mut body = serde_json::from_str::<serde_json::Value>(GLM_OPENAI_IN).unwrap();
     let before = body.clone();
-    pa.inject_coding_plan(&mut body, &Protocol::GlmCoding);
+    pa.inject_coding_plan(&mut body, &Protocol::GlmCoding, &Protocol::OpenAI);
     assert_eq!(body, before);
 }
 
@@ -1008,7 +1008,7 @@ fn glm_coding_en_coding_plan_injection_is_noop() {
     let pa = aidog_adapter::platform::adapter_for("glm_coding_en");
     let mut body = serde_json::from_str::<serde_json::Value>(GLM_OPENAI_IN).unwrap();
     let before = body.clone();
-    pa.inject_coding_plan(&mut body, &Protocol::GlmCodingEn);
+    pa.inject_coding_plan(&mut body, &Protocol::GlmCodingEn, &Protocol::OpenAI);
     assert_eq!(body, before);
 }
 
@@ -1463,18 +1463,31 @@ async fn kimi_member_outbound(gk: &str, coding_plan: bool) -> serde_json::Value 
 
 /// 同 [`kimi_member_outbound`]，平台协议按参指定（issue 118 成员 kimi_en 复用）。
 async fn kimi_member_outbound_pt(pt: Protocol, gk: &str, coding_plan: bool) -> serde_json::Value {
-    let (base, hits) = spawn_glm_upstream(200, "application/json", KIMI_OPENAI_RESP).await;
+    kimi_member_outbound_raw(pt, Protocol::OpenAI, gk, coding_plan, GLM_ANTHROPIC_IN).await
+}
+
+/// 同 [`kimi_member_outbound_pt`]，端点 wire 协议与入站 body 可指定
+/// （review R2：anthropic coding_plan 端点与多轮工具历史用例复用）。
+async fn kimi_member_outbound_raw(
+    pt: Protocol,
+    ep: Protocol,
+    gk: &str,
+    coding_plan: bool,
+    in_body: &str,
+) -> serde_json::Value {
+    let resp_ok = if ep == Protocol::Anthropic { ANTHROPIC_OK } else { KIMI_OPENAI_RESP };
+    let (base, hits) = spawn_glm_upstream(200, "application/json", resp_ok).await;
     let state = make_state(test_db().await).await;
     let pid = aidog_db::test_support::create_platform_at_fake_upstream(
         &state.db,
         pt,
         &base,
-        &[Protocol::OpenAI],
+        std::slice::from_ref(&ep),
     )
     .await;
     // fixture 恒 coding_plan:false，按用例直写 DB 覆盖端点
     let eps = aidog_db::serialize_endpoints(&[PlatformEndpoint {
-        protocol: Protocol::OpenAI,
+        protocol: ep,
         base_url: base.clone(),
         client_type: "default".to_string(),
         coding_plan,
@@ -1507,7 +1520,7 @@ async fn kimi_member_outbound_pt(pt: Protocol, gk: &str, coding_plan: bool) -> s
         .uri("/v1/messages")
         .header("authorization", format!("Bearer {gk}"))
         .header("content-type", "application/json")
-        .body(Body::from(GLM_ANTHROPIC_IN))
+        .body(Body::from(in_body.to_string()))
         .unwrap();
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     let status = resp.status();
@@ -1611,6 +1624,60 @@ async fn kimi_coding_member_coding_plan_endpoint_injects_prompt_cache_key() {
     assert!(
         body.get("prompt_cache_key").is_none(),
         "非 coding_plan 端点不应注入 prompt_cache_key: {body}"
+    );
+}
+
+/// review R2-2（issue 119）：anthropic wire 的 coding_plan 端点不注入 prompt_cache_key。
+/// messages.md（Anthropic Messages，https://platform.kimi.com/docs/api/messages.md）全篇
+/// 未列 prompt_cache_key（缓存走 `cache_control`）；chat.md 的「必填」仅限 Chat Completions。
+/// kimi_coding 的 anthropic 端点同为 coding_plan，注入会把未文档化参数送进 Messages 体。
+#[tokio::test]
+async fn kimi_coding_anthropic_coding_plan_endpoint_no_prompt_cache_key() {
+    let body = kimi_member_outbound_raw(
+        Protocol::KimiCoding,
+        Protocol::Anthropic,
+        "gk119ca",
+        true,
+        GLM_ANTHROPIC_IN,
+    )
+    .await;
+    assert!(
+        body.get("prompt_cache_key").is_none(),
+        "anthropic wire coding_plan 端点不应注入 prompt_cache_key: {body}"
+    );
+}
+
+/// review R2-1（issue 119）：kimi_coding openai 端点多轮工具历史携带 reasoning_content。
+/// 官方错误参考 400「thinking is enabled but reasoning_content is missing in assistant
+/// tool call message」；anthropic 客户端回灌的 thinking 块在 openai 转换中被跳过，
+/// assistant tool-call 消息缺 reasoning_content → 上游 400。
+/// https://www.kimi.com/code/docs/kimi-code/error-reference.html
+#[tokio::test]
+async fn kimi_coding_openai_tool_history_carries_reasoning_content() {
+    let history = r#"{"model":"glm-test","max_tokens":64,"messages":[
+        {"role":"user","content":"北京天气?"},
+        {"role":"assistant","content":[
+            {"type":"thinking","thinking":"需要调用天气工具","signature":"sig"},
+            {"type":"tool_use","id":"tu1","name":"get_weather","input":{"city":"北京"}}]},
+        {"role":"user","content":[{"type":"tool_result","tool_use_id":"tu1","content":"晴"}]}]}"#;
+    let body = kimi_member_outbound_raw(
+        Protocol::KimiCoding,
+        Protocol::OpenAI,
+        "gk119mr",
+        true,
+        history,
+    )
+    .await;
+    let asst = body["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["role"] == "assistant" && m.get("tool_calls").is_some_and(|v| !v.is_null()))
+        .expect("出站应含 assistant tool-call 消息");
+    assert_eq!(
+        asst["reasoning_content"],
+        "需要调用天气工具",
+        "assistant tool-call 历史应携带 reasoning_content: {asst}"
     );
 }
 
