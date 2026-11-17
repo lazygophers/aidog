@@ -222,6 +222,80 @@ fn error_and_usage_defaults_match_legacy_helpers() {
     }
 }
 
+/// MiniMax family inherits protocol conversion, response, stream, error, and usage behavior from the framework.
+#[test]
+fn minimax_family_preserves_generic_protocol_behavior() {
+    let input: ChatRequest = serde_json::from_value(json!({
+        "model": "MiniMax-M3",
+        "max_tokens": 128,
+        "messages": [{ "role": "user", "content": "hello" }]
+    }))
+    .unwrap();
+    let generic = super::adapter_for("deepseek");
+    let completion = json!({
+        "id": "cmpl-1", "model": "MiniMax-M3",
+        "choices": [{ "index": 0, "message": { "role": "assistant", "content": "hi" }, "finish_reason": "stop" }]
+    });
+    let cached_completion = json!({
+        "id": "cmpl-1", "choices": [{ "index": 0, "delta": { "content": "hi" }, "finish_reason": null }],
+        "usage": { "prompt_tokens": 10, "completion_tokens": 2,
+            "prompt_tokens_details": { "cached_tokens": 4 } }
+    });
+    let error_body = r#"{"error":{"type":"invalid_request_error","message":"bad request"}}"#;
+
+    for (code, platform) in [
+        ("minimax", Protocol::MiniMax),
+        ("minimax_en", Protocol::MiniMaxEn),
+        ("minimax_coding", Protocol::MinimaxCoding),
+    ] {
+        let adapter = super::adapter_for(code);
+        for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+            let (body, path) = adapter.build_request(&input, &wire, &platform);
+            let (base_body, base_path) = generic.build_request(&input, &wire, &platform);
+            assert_eq!((body, path), (base_body, base_path), "{code}/{wire:?}");
+        }
+        let converted = adapter
+            .convert_response(&completion, &Protocol::OpenAI, &Protocol::Anthropic, "MiniMax-M3")
+            .expect("OpenAI response should convert to Anthropic");
+        assert_eq!(
+            converted,
+            generic
+                .convert_response(&completion, &Protocol::OpenAI, &Protocol::Anthropic, "MiniMax-M3")
+                .unwrap(),
+            "{code} non-stream response"
+        );
+        assert_eq!(converted["content"][0]["text"], "hi");
+
+        let events = adapter.parse_sse_frame(&cached_completion, &Protocol::OpenAI);
+        assert_eq!(
+            format!("{events:?}"),
+            format!("{:?}", generic.parse_sse_frame(&cached_completion, &Protocol::OpenAI)),
+            "{code} stream"
+        );
+        assert!(format!("{events:?}").contains("Delta"), "{code} stream content: {events:?}");
+        assert_eq!(
+            adapter.classify_error(400, error_body),
+            UpstreamErrorClass::Unknown,
+            "{code} error"
+        );
+        assert_eq!(
+            adapter.classify_error(400, error_body),
+            generic.classify_error(400, error_body),
+            "{code} error parity"
+        );
+        assert_eq!(
+            adapter.extract_usage(&cached_completion.to_string()),
+            (6, 2, 4, 0, 0, Vec::new()),
+            "{code} cached usage"
+        );
+        assert_eq!(
+            adapter.extract_usage(&cached_completion.to_string()),
+            generic.extract_usage(&cached_completion.to_string()),
+            "{code} usage parity"
+        );
+    }
+}
+
 /// 差异钩子默认实现 = 搬家前的通用行为（body 层 max_tokens 裁剪按 wire 协议键名）。
 #[test]
 fn hook_defaults_cap_max_tokens_by_wire_key() {
