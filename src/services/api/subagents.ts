@@ -11,14 +11,23 @@ export interface Subagent {
   description: string;
   prompt: string;
   agents: SubagentAgent[];
+  /** 绑定库内技能名（仅 Claude Code 写出 front matter）。 */
+  skills?: string[];
+  /** 绑定库内 MCP server 名（仅 Claude Code 写出 front matter）。 */
+  mcp_servers?: string[];
   codex_model?: string;
   from?: string;
   from_hash?: string;
   written?: Record<string, string>;
 }
 
+/** agent 支持的子代理能力（"skills" / "mcpServers" / "model"）。 */
+export type SubagentCapability = "skills" | "mcpServers" | "model";
+
 export interface SubagentView extends Subagent {
   status: Record<SubagentAgent, SubagentFileStatus>;
+  /** agent → 支持的能力名；不支持的能力前端灰显。 */
+  capabilities: Record<SubagentAgent, SubagentCapability[]>;
 }
 
 export interface SubagentImportReport {
