@@ -76,7 +76,6 @@ dependencies = [
  "aidog_ctx",
  "aidog_db",
  "aidog_logs",
- "aidog_mcp",
  "aidog_middleware",
  "aidog_rpc",
  "aidog_stats",
@@ -84,7 +83,6 @@ dependencies = [
  "mimalloc",
  "objc2",
  "objc2-app-kit",
- "objc2-foundation",
  "rusqlite",
  "rustls",
  "serde",
@@ -139,7 +137,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tauri",
- "tempfile",
  "tokio",
  "tracing",
 ]
@@ -195,7 +192,6 @@ dependencies = [
  "tiktoken-rs",
  "tokenizers",
  "tokio",
- "tokio-rusqlite",
  "tokio-rustls",
  "tokio-tungstenite 0.30.0",
  "toml 1.2.1+spec-1.1.0",
@@ -268,7 +264,6 @@ dependencies = [
  "aidog_middleware",
  "aidog_notification",
  "aidog_rpc",
- "aidog_search",
  "aidog_stats",
  "axum",
  "ctor",
@@ -319,7 +314,6 @@ dependencies = [
  "aidog_stats",
  "chrono",
  "regex",
- "serde",
  "serde_json",
  "tokio",
  "tracing",
@@ -351,7 +345,6 @@ dependencies = [
  "aidog_ctx",
  "aidog_db",
  "aidog_middleware",
- "aidog_stats",
  "ctor",
  "dirs 7.0.0",
  "lettre",
@@ -412,7 +405,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
- "tokio",
  "tracing",
 ]
 
@@ -427,7 +419,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
- "tokio-rusqlite",
  "tracing",
 ]
 

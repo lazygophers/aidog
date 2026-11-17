@@ -28,20 +28,19 @@ aidog_stats = { path = "../aidog_stats" }
 aidog_middleware = { path = "../aidog_middleware" }
 aidog_notification = { path = "../aidog_notification" }
 aidog_adapter = { path = "../aidog_adapter" }
-aidog_search = { path = "../aidog_search" }
 axum = { workspace = true }
 tokio = { workspace = true, features = ["signal", "io-std"] }
 tower-http = { workspace = true }
-futures = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 rustls = { workspace = true }
 # O7：入口设 #[global_allocator]（见 src/main.rs）
 mimalloc = { workspace = true }
-# 票 11：web_search / web_fetch 出站（search.rs）
-reqwest = { workspace = true }
 
 [dev-dependencies]
 ctor = { workspace = true }
+# test_kernel.rs：HTTP 客户端与 SSE 流断言
+reqwest = { workspace = true }
+futures = { workspace = true }
 # 测试禁真朗读：开 test-util 让 tts::speak 对依赖方测试也静默（test-no-real-calls.md）
 aidog_notification = { path = "../aidog_notification", features = ["test-util"] }
