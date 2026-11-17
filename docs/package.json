@@ -16,7 +16,7 @@
     "@rspress/core": "^2.1.3"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.8",
+    "@biomejs/biome": "2.6.8",
     "@eslint/js": "^10.0.1",
     "@rslint/core": "^0.10.1",
     "@types/node": "^26.6.6",
