@@ -15,6 +15,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+use rustls::pki_types::pem::{Error as PemError, PemObject};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::sign::CertifiedKey;
 
@@ -168,18 +169,10 @@ fn build_certified_key(
 
 /// PEM → DER 证书链（可能含多段 BEGIN CERTIFICATE；取全部 X509Certificate item）。
 fn parse_cert_chain_pem(cert_pem: &str) -> Result<Vec<CertificateDer<'static>>, CertSignError> {
-    use rustls_pemfile::Item;
-    let mut chain = Vec::new();
-    let mut cursor = std::io::Cursor::new(cert_pem.as_bytes());
-    loop {
-        let item = rustls_pemfile::read_one(&mut cursor)
-            .map_err(|e| CertSignError::Other(format!("pem parse: {e}")))?;
-        match item {
-            Some(Item::X509Certificate(der)) => chain.push(der),
-            Some(_) => continue, // 跳过非证书段（PEM 内偶发的其它 item）
-            None => break,
-        }
-    }
+    // pem_slice_iter 只产出 CERTIFICATE 段，跳过其它段（PEM 内偶发的其它 item）。
+    let chain = CertificateDer::pem_slice_iter(cert_pem.as_bytes())
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| CertSignError::Other(format!("pem parse: {e}")))?;
     if chain.is_empty() {
         return Err(CertSignError::Other(
             "cert_pem has no X509Certificate".into(),
@@ -188,29 +181,14 @@ fn parse_cert_chain_pem(cert_pem: &str) -> Result<Vec<CertificateDer<'static>>, 
     Ok(chain)
 }
 
-/// PEM 私钥 → DER（rustls-pemfile 把 PKCS#8 / PKCS#1 / SEC1 统一成 PrivateKeyDer）。
-///
-/// ponytail: 三种 Private*KeyDer 都是 PrivateKeyDer 的子类型构造器，各自 Into<PrivateKeyDer>。
-/// rustls-pemfile 返回具名 newtype（PrivatePkcs8KeyDer 等），不能在同一 match arm 绑定
-/// （类型不同）。逐 arm 提升为统一 PrivateKeyDer。
+/// PEM 私钥 → DER（PKCS#8 / PKCS#1 / SEC1 统一成 PrivateKeyDer，取首个私钥段，跳过其它段）。
 fn parse_private_key_pem(private_key_pem: &str) -> Result<PrivateKeyDer<'static>, CertSignError> {
-    use rustls_pemfile::Item;
-    let mut cursor = std::io::Cursor::new(private_key_pem.as_bytes());
-    loop {
-        let item = rustls_pemfile::read_one(&mut cursor)
-            .map_err(|e| CertSignError::Other(format!("pem parse: {e}")))?;
-        let key: PrivateKeyDer<'static> = match item {
-            Some(Item::Pkcs8Key(der)) => der.into(),
-            Some(Item::Pkcs1Key(der)) => der.into(),
-            Some(Item::Sec1Key(der)) => der.into(),
-            Some(_) => continue,
-            None => break,
-        };
-        return Ok(key);
-    }
-    Err(CertSignError::Other(
-        "private_key_pem has no recognizable key".into(),
-    ))
+    PrivateKeyDer::from_pem_slice(private_key_pem.as_bytes()).map_err(|e| match e {
+        PemError::NoItemsFound => {
+            CertSignError::Other("private_key_pem has no recognizable key".into())
+        }
+        e => CertSignError::Other(format!("pem parse: {e}")),
+    })
 }
 
 #[cfg(test)]
@@ -272,5 +250,27 @@ mod tests {
         assert!(!ck.cert.is_empty(), "cert chain must be non-empty");
         // end-entity cert DER 非空。
         assert!(!ck.cert[0].as_ref().is_empty());
+    }
+
+    /// PEM parsing: multi-cert chain with an interleaved key section keeps only the
+    /// certificates in order; key parsing skips leading cert sections; garbage errors.
+    #[test]
+    fn pem_chain_and_key_parsing_edge_cases() {
+        let (k1, c1) = generate_root_ca().expect("ca1");
+        let (_, c2) = generate_root_ca().expect("ca2");
+        let mixed = format!("{}{}{}", c1.pem(), k1.serialize_pem(), c2.pem());
+        let chain = parse_cert_chain_pem(&mixed).expect("chain");
+        assert_eq!(chain.len(), 2);
+        assert_eq!(chain[0].as_ref(), c1.der().as_ref());
+        assert_eq!(chain[1].as_ref(), c2.der().as_ref());
+        assert!(parse_cert_chain_pem(&k1.serialize_pem()).is_err(), "no cert");
+        assert!(parse_cert_chain_pem("not pem").is_err());
+
+        let key_after_cert = format!("{}{}", c1.pem(), k1.serialize_pem());
+        let key = parse_private_key_pem(&key_after_cert).expect("key");
+        assert_eq!(key.secret_der(), k1.serialize_der().as_slice());
+        assert!(matches!(key, PrivateKeyDer::Pkcs8(_)));
+        assert!(parse_private_key_pem(&c1.pem()).is_err(), "no key");
+        assert!(parse_private_key_pem("").is_err());
     }
 }
