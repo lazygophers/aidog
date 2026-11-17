@@ -140,7 +140,6 @@ edition = "2024"
 
 [lib]
 name = "aidog_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { workspace = true }
