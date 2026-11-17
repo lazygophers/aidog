@@ -352,6 +352,62 @@ async fn minimax_family_converts_requests_for_both_endpoint_protocols() {
     }
 }
 
+const MINIMAX_ANTHROPIC_RESP: &str = r#"{"id":"msg_minimax","type":"message","role":"assistant","model":"MiniMax-M3","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3}}"#;
+const MINIMAX_ANTHROPIC_SSE: &str = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_minimax\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"MiniMax-M3\",\"content\":[],\"usage\":{\"input_tokens\":6,\"output_tokens\":0}}}\n\n\
+event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n\
+event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n\
+event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n\
+event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":3}}\n\n\
+event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+const MINIMAX_ANTHROPIC_ERROR: &str = r#"{"type":"error","error":{"type":"invalid_request_error","message":"bad request"}}"#;
+
+/// Exercise Anthropic responses through the proxy for all family members; fixtures claim no cache usage contract.
+#[tokio::test]
+async fn minimax_family_anthropic_endpoint_proxy_response_usage_stream_and_error() {
+    for (pt, gk) in MINIMAX_FAMILY {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::Anthropic,
+            gk,
+            "/chat/completions",
+            r#"{"model":"MiniMax-M3","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+            (200, "application/json", MINIMAX_ANTHROPIC_RESP),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits[0].0, "/v1/messages", "{pt:?}: {hits:?}");
+        assert!(resp.contains("\"prompt_tokens\":6"), "{pt:?}: {resp}");
+        assert!(resp.contains("\"completion_tokens\":3"), "{pt:?}: {resp}");
+
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::Anthropic,
+            gk,
+            "/chat/completions",
+            r#"{"model":"MiniMax-M3","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+            (200, "text/event-stream", MINIMAX_ANTHROPIC_SSE),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits[0].0, "/v1/messages", "{pt:?}: {hits:?}");
+        assert!(resp.contains("\"content\":\"hi\""), "{pt:?}: {resp}");
+        assert!(resp.contains("[DONE]"), "{pt:?}: {resp}");
+
+        let (status, resp, hits) = glm_member_call(
+            pt,
+            Protocol::Anthropic,
+            gk,
+            "/chat/completions",
+            r#"{"model":"MiniMax-M3","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+            (400, "application/json", MINIMAX_ANTHROPIC_ERROR),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+        assert!(!hits.is_empty());
+        assert!(resp.contains("invalid_request_error"), "{resp}");
+    }
+}
+
 // ══ issue 113：GLM（智谱）成员 `glm` 逐端点协议护栏（请求转换 / 非流式 / 流式 / 错误 / usage）══
 // 官方出处（核对日期 2026-11-16）：
 // - 对话补全 https://docs.bigmodel.cn/api-reference/%E6%A8%A1%E5%9E%8B-api/%E5%AF%B9%E8%AF%9D%E8%A1%A5%E5%85%A8
