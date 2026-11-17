@@ -402,34 +402,48 @@ pub fn inject_coding_plan_fields(
     wire: &aidog_db::models::Protocol,
 ) {
     match protocol {
-        aidog_db::models::Protocol::Kimi | aidog_db::models::Protocol::KimiCoding
+        aidog_db::models::Protocol::Kimi => {
+            if let Some(obj) = body.as_object_mut() {
+                let model = obj.get("model").and_then(Value::as_str).unwrap_or("unknown");
+                let session_id = format!(
+                    "aidog-{model}-{:06x}",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs()
+                        / 300
+                );
+                obj.insert("prompt_cache_key".to_string(), Value::String(session_id));
+            }
+        }
+        aidog_db::models::Protocol::KimiCoding
             if wire == &aidog_db::models::Protocol::OpenAI =>
         {
-            // Kimi Code Plan 要求 prompt_cache_key 以提升缓存命中率
-            // 会话标识须跨请求稳定（chat.md「退出并恢复会话时应保持不变」）：
-            // 客户端自带 prompt_cache_key 原样保留；缺省时按 metadata.session_id /
-            // user / model 派生稳定键，不按时间窗口轮换。
+            // Preserve an explicit client key; unidentified requests must not share a cache session.
             let has_key = body
                 .get("prompt_cache_key")
                 .and_then(Value::as_str)
-                .map(|s| !s.is_empty())
-                .unwrap_or(false);
+                .is_some_and(|s| !s.is_empty());
             let model = body
                 .get("model")
                 .and_then(Value::as_str)
                 .unwrap_or("unknown")
                 .to_string();
             let session = match body.pointer("/metadata/session_id") {
-                Some(Value::String(s)) => Some(s.clone()),
-                _ => body.get("user").and_then(Value::as_str).map(String::from),
+                Some(Value::String(s)) if !s.is_empty() => Some(s.clone()),
+                _ => body
+                    .get("user")
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty())
+                    .map(String::from),
             };
             if let Some(obj) = body.as_object_mut() {
                 if has_key {
                     return;
                 }
-                let session_id = match session.as_deref() {
-                    Some(s) if !s.is_empty() => format!("aidog-{model}-{s}"),
-                    _ => format!("aidog-{model}-default"),
+                let session_id = match session {
+                    Some(s) => format!("aidog-{model}-{s}"),
+                    None => format!("aidog-{model}-{}", uuid::Uuid::new_v4().simple()),
                 };
                 obj.insert("prompt_cache_key".to_string(), Value::String(session_id));
             }
