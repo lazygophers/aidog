@@ -9395,14 +9395,34 @@ async fn responses_nonstream_usage_logged() {
     assert!(row.est_cost > 0.0, "非流式 Responses usage 必须产生非 0 est_cost");
 }
 
-/// MiniMax 成员端点显式采用用户配置的 base_url；OpenAI 与 Anthropic wire 均经本地假上游。
+/// MiniMax 中国版与国际版均采用用户配置的 base_url；OpenAI 与 Anthropic wire 均经本地假上游。
 #[tokio::test]
 async fn minimax_member_uses_configured_endpoint_for_both_wires() {
     use crate::gateway::models::PlatformEndpoint;
 
-    for (gk, wire, upstream_body, request_uri, request_body, expected_path, expected_response) in [
+    for (
+        gk,
+        platform_type,
+        wire,
+        upstream_body,
+        request_uri,
+        request_body,
+        expected_path,
+        expected_response,
+    ) in [
         (
             "gkmmopenai",
+            Protocol::MiniMax,
+            Protocol::OpenAI,
+            r#"{"id":"cmpl-1","model":"MiniMax-M3","choices":[{"index":0,"message":{"role":"assistant","content":"openai reply"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":2,"prompt_tokens_details":{"cached_tokens":4}}}"#,
+            "/v1/chat/completions",
+            r#"{"model":"MiniMax-M3","messages":[{"role":"user","content":"hi"}]}"#,
+            "/custom/openai/v1/chat/completions",
+            "openai reply",
+        ),
+        (
+            "gkmmopenai_en",
+            Protocol::MiniMaxEn,
             Protocol::OpenAI,
             r#"{"id":"cmpl-1","model":"MiniMax-M3","choices":[{"index":0,"message":{"role":"assistant","content":"openai reply"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":2,"prompt_tokens_details":{"cached_tokens":4}}}"#,
             "/v1/chat/completions",
@@ -9412,6 +9432,17 @@ async fn minimax_member_uses_configured_endpoint_for_both_wires() {
         ),
         (
             "gkmmanthropic",
+            Protocol::MiniMax,
+            Protocol::Anthropic,
+            r#"{"id":"msg_1","type":"message","role":"assistant","model":"MiniMax-M3","content":[{"type":"text","text":"anthropic reply"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":1}}"#,
+            "/v1/messages",
+            r#"{"model":"MiniMax-M3","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+            "/custom/anthropic/v1/messages",
+            "anthropic reply",
+        ),
+        (
+            "gkmmanthropic_en",
+            Protocol::MiniMaxEn,
             Protocol::Anthropic,
             r#"{"id":"msg_1","type":"message","role":"assistant","model":"MiniMax-M3","content":[{"type":"text","text":"anthropic reply"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":1}}"#,
             "/v1/messages",
@@ -9433,7 +9464,7 @@ async fn minimax_member_uses_configured_endpoint_for_both_wires() {
             &state.db,
             CreatePlatform {
                 name: format!("p_{gk}"),
-                platform_type: Protocol::MiniMax,
+                platform_type,
                 base_url: configured_url.to_string(),
                 api_key: "sk-minimax".into(),
                 extra: String::new(),
