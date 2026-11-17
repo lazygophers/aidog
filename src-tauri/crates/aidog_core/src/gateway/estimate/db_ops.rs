@@ -691,7 +691,13 @@ pub async fn estimate_after_request(
     // chat 缺 usage 不再漏扣。字段集与原跳过条件一致（不含 cache_write，保持原语义）。
     // char/second 缺计数：request_fee=0 → 走跳过（余额/预算路径无 `+unestimable` 标记是
     // 有意为之——该标记只进日志 `price_source`，扣 0 本身已表达不可估算）。
-    if input_tokens <= 0
+    // 额度窗口平台不跳过（复核③ fail-open 收口，2026-11-17）：配了 enabled 窗口时仍走
+    // 记账链（record_usage 按实传用量结算，缺 usage 就是 0，不虚构）；没配窗口的平台
+    // 维持跳过（省写入）。
+    let quota_window_platform =
+        count_quota_windows && crate::gateway::quota_window::has_enabled_windows(extra);
+    if !quota_window_platform
+        && input_tokens <= 0
         && output_tokens <= 0
         && cache_tokens <= 0
         && tool_cost_usd <= 0.0

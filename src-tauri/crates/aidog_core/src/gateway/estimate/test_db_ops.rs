@@ -1221,3 +1221,54 @@ async fn unified_tiers_empty_is_noop() {
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
     assert!(p.est_coding_plan.is_empty() || EstCodingPlan::from_json(&p.est_coding_plan).tiers.is_empty());
 }
+
+// ── 复核③：额度窗口平台上游缺 usage 不跳过记账链（fail-open 收口，2026-11-17）──
+
+/// token 全 0 且无按次费：配了 enabled 额度窗口的平台不跳过（记账链照走），
+/// 没配窗口的平台维持跳过（省写入）。
+#[tokio::test]
+async fn quota_window_platform_bypasses_usageless_skip() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, false).await;
+    seed_entry(&db, "deepseek", "m", r#"{"price":{"input":1.0,"output":2.0}}"#).await;
+    let extra = r#"{"quota_windows":[{"window":3600,"budget_tokens":100000}]}"#;
+    let processed = estimate_after_request(
+        &db, id, "deepseek", "https://example.com", "sk", "m", extra,
+        0, 0, 0, 0, false, 0, 0.0, 0, true,
+    )
+    .await;
+    assert!(processed, "配了 enabled 额度窗口的平台不得在上游缺 usage 时跳过记账链");
+    let p = db::get_platform(&db, id).await.unwrap().unwrap();
+    assert_eq!(p.estimate_count, 1, "绕过跳过 = 记账链实际跑过（预估次数 +1）");
+
+    // 没配窗口 → 维持跳过
+    let processed2 = estimate_after_request(
+        &db, id, "deepseek", "https://example.com", "sk", "m", "{}",
+        0, 0, 0, 0, false, 0, 0.0, 0, true,
+    )
+    .await;
+    assert!(!processed2, "没配额度窗口的平台维持跳过（省写入）");
+}
+
+/// 跳过条件不含 cache_write：只有 cache_write 的用量在窗口平台照常结算 consumed
+/// （旧代码整体跳过 → consumed 恒 0、token 窗口永不耗尽）。
+#[tokio::test]
+async fn quota_window_settles_usage_the_skip_would_swallow() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, false).await;
+    seed_entry(&db, "deepseek", "m", r#"{"price":{"input":1.0,"output":2.0}}"#).await;
+    let extra = r#"{"quota_windows":[{"window":3600,"budget_tokens":100000}]}"#;
+    let processed = estimate_after_request(
+        &db, id, "deepseek", "https://example.com", "sk", "m", extra,
+        0, 0, 0, 500, false, 0, 0.0, 0, true,
+    )
+    .await;
+    assert!(processed);
+    let rows = crate::gateway::quota_window::load_usage(&db, &[id]).await;
+    let rows = &rows[&id];
+    let row = rows
+        .iter()
+        .find(|r| r.window_key == "3600|tokens|100000")
+        .expect("token window usage row");
+    assert!((row.consumed - 500.0).abs() < 1e-9, "cache_write-only 用量照常结算，got {}", row.consumed);
+}

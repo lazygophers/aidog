@@ -524,4 +524,14 @@ describe("额度窗口 执行字段（enabled / reset_mode）", () => {
     expect(next.quota_windows?.[0].window).toBe(18000);
     expect(next.quota_windows?.[0].budget_tokens).toBe(120000);
   });
+
+  it("预算 <=0：输入标 aria-invalid；序列化丢弃非法预算行（复核④）", () => {
+    const { container, setBundle } = renderRateLimits(bundle);
+    const q = () => container.querySelector('[data-testid="quota-window-amount-0"]') as HTMLInputElement;
+    expect(q(), "预算输入渲染").toBeTruthy();
+    fireEvent.change(q(), { target: { value: "0" } });
+    expect(q().getAttribute("aria-invalid")).toBe("true");
+    const next = setBundle.mock.calls.at(-1)![0] as RateLimitsBundle;
+    expect(next.quota_windows, "预算 0 的行不落 bundle").toBeUndefined();
+  });
 });

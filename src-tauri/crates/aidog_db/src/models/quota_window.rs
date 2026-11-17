@@ -73,10 +73,18 @@ impl QuotaBudget {
             Self::Count(v) => format!("{window_sec}|count|{v}"),
         }
     }
+
+    /// 额度值（>0 有效性判定用）。
+    pub fn value(self) -> f64 {
+        match self {
+            Self::Tokens(v) | Self::Usd(v) | Self::Count(v) => v,
+        }
+    }
 }
 
 /// 解析 `platform.extra` JSON 里的 `quota_windows` 数组；空 / 非法 / 无键 → 空 Vec。
-/// 单条缺 budget 或 window <= 0 的条目按无效丢弃（不参与阻断与计数）。
+/// 单条缺 budget、window <= 0 或预算 <= 0 的条目按无效丢弃（不参与阻断与计数；
+/// 预算 0 若参与会恒 429——复核④）。
 pub fn parse_quota_windows(extra: &str) -> Vec<QuotaWindow> {
     if extra.trim().is_empty() || !extra.contains("quota_windows") {
         return Vec::new();
@@ -89,7 +97,7 @@ pub fn parse_quota_windows(extra: &str) -> Vec<QuotaWindow> {
     };
     arr.iter()
         .filter_map(|v| serde_json::from_value::<QuotaWindow>(v.clone()).ok())
-        .filter(|w| w.window > 0.0 && w.budget().is_some())
+        .filter(|w| w.window > 0.0 && w.budget().is_some_and(|b| b.value() > 0.0))
         .collect()
 }
 
@@ -114,10 +122,12 @@ mod tests {
                 {"window":0,"budget_tokens":5},
                 {"window":60},
                 {"budget_tokens":5},
-                {"window":-1,"budget_tokens":5}
+                {"window":-1,"budget_tokens":5},
+                {"window":60,"budget_count":0},
+                {"window":60,"budget_tokens":-5}
             ]}"#,
         );
-        assert_eq!(ws.len(), 2, "window<=0 / 无 budget 的条目丢弃");
+        assert_eq!(ws.len(), 2, "window<=0 / 无 budget / 预算<=0 的条目丢弃");
         assert!(!ws[0].enabled);
         assert_eq!(ws[0].reset_mode, QuotaResetMode::CalendarDay);
         assert_eq!(ws[1].reset_mode, QuotaResetMode::CalendarHour);
