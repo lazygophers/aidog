@@ -46,8 +46,7 @@
     "test:statusline-golden": "node scripts/statusline-golden/build.mjs check",
     "version:bump": "make version-bump",
     "version:sync": "node scripts/sync-version.mjs",
-    "version:check": "node scripts/sync-version.mjs --check",
-    "build:web": "next build web"
+    "version:check": "node scripts/sync-version.mjs --check"
   },
   "dependencies": {
     "@codemirror/lang-json": "^6.0.2",
@@ -95,7 +94,6 @@
     "yaml": "^2.9.1"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.3.5",
     "@tailwindcss/vite": "^4.3.5",
     "@tauri-apps/cli": "^2.12.4",
     "@testing-library/dom": "^10.4.2",
@@ -109,7 +107,6 @@
     "@vitest/coverage-v8": "^5.1.0",
     "ajv": "^8.20.0",
     "jsdom": "^31.0.1",
-    "next": "^16.4.6",
     "tailwindcss": "^4.3.5",
     "typescript": "~7.0.2",
     "vite": "^8.3.8",
