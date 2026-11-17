@@ -303,7 +303,7 @@ async fn single_platform_peak_disabled_errs() {
     // 设置 disable_during_peak=true + 跨天窗口 22-06（always 命中：测一个非边界 hour）
     db::update_platform(&db, UpdatePlatform {
         id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
-        extra: Some(r#"{"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#.to_string()),
+        extra: Some(r#"{"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5,"models":["glm-5.3","glm-5.3-flash"]}]}"#.to_string()),
         models: None, available_models: None, endpoints: None,
         enabled: None, status: None, manual_budgets: None,
         join_group_ids: None, expires_at: None, quota_source: None,
@@ -322,10 +322,10 @@ async fn single_platform_peak_disabled_errs() {
     };
 
     let res =
-        select_candidates_for_test(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await;
+        select_candidates_for_test(&db, &g, "subagent", Some(&ctx), RequestKind::Chat).await;
     assert!(
         res.is_err(),
-        "peak-disabled sole platform must Err (no bypass)"
+        "peak-disabled sole platform must Err (no model-scope bypass)"
     );
     if let Err(e) = res {
         assert_eq!(e, "peak_disabled", "expected peak_disabled error, got: {e}");
@@ -372,6 +372,39 @@ async fn single_platform_peak_disabled_off_peak_still_forces() {
     assert_eq!(set.candidates[0].platform.id, p.id);
 }
 
+/// 多平台分组：手动禁用的平台即使命中高峰窗口，也不能算作高峰禁用。
+#[tokio::test]
+async fn multi_platform_manual_disabled_does_not_count_as_peak_disabled() {
+    let db = mk_test_db().await;
+    let p1 = mk_db_platform(&db, "p1").await;
+    let p2 = mk_db_platform(&db, "p2").await;
+    for pid in [p1.id, p2.id] {
+        db::update_platform(&db, UpdatePlatform {
+            id: pid, name: None, platform_type: None, base_url: None, api_key: None,
+            extra: Some(r#"{"disable_during_peak":false,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#.to_string()),
+            models: None, available_models: None, endpoints: None,
+            enabled: None, status: Some(PlatformStatus::Disabled), manual_budgets: None,
+            join_group_ids: None, expires_at: None, quota_source: None,
+        }).await.expect("set manual-disabled peak window");
+    }
+    let g = mk_db_group(&db, "multi", &[p1.id, p2.id]).await;
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+        rate_body: None,
+    };
+
+    let err = select_candidates_for_test(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
+        .await
+        .expect_err("manually disabled platforms must leave no candidates");
+    assert_ne!(err, "peak_disabled");
+}
+
 /// 多平台分组：所有候选高峰禁用 → 返 Err("peak_disabled")（区别于普通 NoCandidate）。
 /// 验证 D5: 整组全被高峰排除时返结构化错误，handler.rs 据此落 proxy_log blocked_reason='peak'。
 #[tokio::test]
@@ -379,11 +412,11 @@ async fn multi_platform_all_peak_disabled_errs() {
     let db = mk_test_db().await;
     let p1 = mk_db_platform(&db, "p1").await;
     let p2 = mk_db_platform(&db, "p2").await;
-    // 两平台都启用高峰禁用 + 24h 全天命中窗口
+    // 两平台均启用高峰禁用，且窗口模型范围不含客户端请求名。
     for pid in [p1.id, p2.id] {
         db::update_platform(&db, UpdatePlatform {
             id: pid, name: None, platform_type: None, base_url: None, api_key: None,
-            extra: Some(r#"{"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#.to_string()),
+            extra: Some(r#"{"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5,"models":["glm-5.3"]}]}"#.to_string()),
             models: None, available_models: None, endpoints: None,
             enabled: None, status: None, manual_budgets: None,
             join_group_ids: None, expires_at: None, quota_source: None,
@@ -2169,21 +2202,24 @@ async fn passthrough_bypasses_auto_disabled_breaker_and_cooldown() {
     );
 }
 
-/// disable_during_peak + 命中窗口：透传平台照常在线（多平台不被排除、单平台组不 peak_disabled 硬停）。
+/// disable_during_peak 命中窗口时，即使请求模型不在窗口 models 范围内，也阻止透传平台路由。
 #[tokio::test]
-async fn passthrough_bypasses_disable_during_peak() {
+async fn passthrough_is_blocked_by_disable_during_peak() {
     let db = mk_test_db().await;
-    // 24h 全天命中窗口
-    let extra =
-        r#"{"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#;
+    let extra = r#"{"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5,"models":["other-model"]}]}"#;
     let p = mk_db_platform_passthrough(&db, "pt", extra, None).await;
     let g = mk_db_group(&db, "single-pt", &[p.id]).await;
 
-    // 单平台组：正常平台此形态返 Err("peak_disabled")，透传平台例外仍 Ok
+    let res = select_candidates_for_test(&db, &g, "m", None, RequestKind::Chat).await;
+    assert_eq!(res.expect_err("peak-disabled passthrough must be blocked"), "peak_disabled");
+
+    let normal = mk_db_platform(&db, "normal").await;
+    let g = mk_db_group(&db, "multi-pt", &[p.id, normal.id]).await;
     let set = select_candidates_for_test(&db, &g, "m", None, RequestKind::Chat)
         .await
-        .expect("passthrough sole platform: peak-disabled must not block (always-online)");
-    assert_eq!(set.candidates[0].platform.id, p.id);
+        .expect("non-disabled sibling keeps multi-platform group routable");
+    assert!(!set.candidates.iter().any(|candidate| candidate.platform.id == p.id));
+    assert!(set.candidates.iter().any(|candidate| candidate.platform.id == normal.id));
 }
 
 /// 绕过有边界：手动 Disabled（用户显式关停）与过期仍排除——永远在线只覆盖自动摘除维度。

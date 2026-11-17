@@ -6,6 +6,8 @@
 
 use aidog_db::models::Protocol;
 use serde_json::Value;
+
+use crate::types::{ChatRequest, ContentBlock, MessageContent, Role};
 /// 出站 max_tokens 裁剪（convert_request 前调用）。
 ///
 /// 保守策略（Q3）：仅当客户端显式传了 max_tokens **且**超过模型上限时裁剪到上限；
@@ -389,26 +391,60 @@ pub(crate) const TRACED_FIELDS: [&str; 10] = [
 ];
 
 /// 为 Coding Plan 端点注入平台特有字段
-/// - Kimi Code Plan: 注入 prompt_cache_key（必填，用 group + model hash 作会话标识）
-pub fn inject_coding_plan_fields(body: &mut Value, protocol: &aidog_db::models::Protocol) {
+/// - Kimi Code Plan: 注入 prompt_cache_key（必填，用 group + model hash 作会话标识）。
+///   仅 openai wire（Chat Completions）注入：prompt_cache_key 只在 chat.md 文档化
+///   （「对于 Kimi Code Plan，此字段为必填以提高缓存命中率」）；Anthropic Messages 端点
+///   的 messages.md 全篇未列该参数（缓存走 `cache_control`），不注入未文档化参数。
+///   https://platform.kimi.com/docs/api/chat.md https://platform.kimi.com/docs/api/messages.md
+pub fn inject_coding_plan_fields(
+    body: &mut Value,
+    protocol: &aidog_db::models::Protocol,
+    wire: &aidog_db::models::Protocol,
+) {
     match protocol {
         aidog_db::models::Protocol::Kimi => {
-            // Kimi Code Plan 要求 prompt_cache_key 以提升缓存命中率
-            // 用模型名 + 短随机串生成会话级 cache key
             if let Some(obj) = body.as_object_mut() {
-                let model = obj
-                    .get("model")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown");
+                let model = obj.get("model").and_then(Value::as_str).unwrap_or("unknown");
                 let session_id = format!(
-                    "aidog-{}-{:06x}",
-                    model,
+                    "aidog-{model}-{:06x}",
                     std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap_or_default()
                         .as_secs()
-                        / 300 // 5-minute window
+                        / 300
                 );
+                obj.insert("prompt_cache_key".to_string(), Value::String(session_id));
+            }
+        }
+        aidog_db::models::Protocol::KimiCoding
+            if wire == &aidog_db::models::Protocol::OpenAI =>
+        {
+            // Preserve an explicit client key; unidentified requests must not share a cache session.
+            let has_key = body
+                .get("prompt_cache_key")
+                .and_then(Value::as_str)
+                .is_some_and(|s| !s.is_empty());
+            let model = body
+                .get("model")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown")
+                .to_string();
+            let session = match body.pointer("/metadata/session_id") {
+                Some(Value::String(s)) if !s.is_empty() => Some(s.clone()),
+                _ => body
+                    .get("user")
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty())
+                    .map(String::from),
+            };
+            if let Some(obj) = body.as_object_mut() {
+                if has_key {
+                    return;
+                }
+                let session_id = match session {
+                    Some(s) => format!("aidog-{model}-{s}"),
+                    None => format!("aidog-{model}-{}", uuid::Uuid::new_v4().simple()),
+                };
                 obj.insert("prompt_cache_key".to_string(), Value::String(session_id));
             }
         }
@@ -418,23 +454,58 @@ pub fn inject_coding_plan_fields(body: &mut Value, protocol: &aidog_db::models::
     }
 }
 
-/// Kimi 家族 coding plan 注入（原 `headers.rs::inject_coding_plan_fields` Kimi 臂原样搬出，
-/// 供 KimiAdapter 覆盖 [`inject_coding_plan_fields`] 的分派复用）。
-pub fn inject_kimi_prompt_cache_key(body: &mut Value) {
-    if let Some(obj) = body.as_object_mut() {
-        let model = obj
-            .get("model")
-            .and_then(|v| v.as_str())
-            .unwrap_or("unknown");
-        let session_id = format!(
-            "aidog-{}-{:06x}",
-            model,
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs()
-                / 300 // 5-minute window
-        );
-        obj.insert("prompt_cache_key".to_string(), Value::String(session_id));
+/// Kimi Code openai wire（issue 119 review R2）：多轮工具历史的 assistant tool-call 消息
+/// 携带 reasoning_content。官方错误参考：thinking 启用时缺失该字段 → HTTP 400「thinking is
+/// enabled but reasoning_content is missing in assistant tool call message … 这是 Kimi Code
+/// 特有字段，启用思维链时必须携带」；K3 系列 `clear_thinking` 默认 `{"type":"enabled",
+/// "keep":"all"}`（历史 reasoning_content 原样回传）。anthropic 客户端回灌的 thinking 块在
+/// to_openai 转换中被跳过，这里从 ChatRequest 的 thinking 块取回文本，按序写入转换后含
+/// `tool_calls` 的 assistant 消息（转换分支每条含 tool_use 的 assistant 消息恰产出一条
+/// tool-call 消息，顺序一致）；无 thinking 块的历史不虚构。
+/// https://www.kimi.com/code/docs/kimi-code/error-reference.html
+pub fn carry_history_reasoning(body: &mut Value, req: &ChatRequest) {
+    let Some(msgs) = body.get_mut("messages").and_then(Value::as_array_mut) else {
+        return;
+    };
+    let mut history = req.messages.iter().filter(|m| {
+        matches!(m.role, Role::Assistant)
+            && match &m.content {
+                MessageContent::Blocks(bs) => {
+                    bs.iter().any(|b| matches!(b, ContentBlock::ToolUse { .. }))
+                }
+                _ => false,
+            }
+    });
+    for msg in msgs {
+        if msg.get("role").and_then(Value::as_str) != Some("assistant")
+            || msg
+                .get("tool_calls")
+                .and_then(Value::as_array)
+                .is_none_or(Vec::is_empty)
+        {
+            continue;
+        }
+        let Some(m) = history.next() else { break };
+        let MessageContent::Blocks(bs) = &m.content else { continue };
+        let reasoning: Vec<&str> = bs
+            .iter()
+            .filter_map(|b| match b {
+                ContentBlock::Unknown(v)
+                    if v.get("type").and_then(Value::as_str) == Some("thinking") =>
+                {
+                    v.get("thinking").and_then(Value::as_str)
+                }
+                _ => None,
+            })
+            .collect();
+        if reasoning.is_empty() {
+            continue;
+        }
+        if let Some(obj) = msg.as_object_mut() {
+            obj.insert(
+                "reasoning_content".to_string(),
+                Value::String(reasoning.join("\n")),
+            );
+        }
     }
 }
