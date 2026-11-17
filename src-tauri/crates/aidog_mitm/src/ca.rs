@@ -99,11 +99,10 @@ fn cert_sha1_thumbprint_hex(cert_pem: &str) -> String {
 
 /// 解析 PEM 取 X.509 DER bytes（cert_fingerprint_hex / cert_sha1_thumbprint_hex 共用）。
 fn pem_der(cert_pem: &str) -> Option<Vec<u8>> {
-    use rustls_pemfile::Item;
-    match rustls_pemfile::read_one_from_slice(cert_pem.as_bytes()) {
-        Ok(Some((Item::X509Certificate(der), _))) => Some(der.as_ref().to_vec()),
-        _ => None,
-    }
+    use rustls::pki_types::{CertificateDer, pem::PemObject};
+    CertificateDer::from_pem_slice(cert_pem.as_bytes())
+        .ok()
+        .map(|der| der.as_ref().to_vec())
 }
 
 /// 生成 ECDSA P256 自签 Root CA（rcgen）。
@@ -723,7 +722,7 @@ mod tests {
     /// ST1 验收断言：rcgen 签 host 证书 SAN 含该 host。
     ///
     /// 构造：generate_root_ca → sign_host_cert("api.anthropic.com") → 解 cert_pem → 断言 SAN 含 host。
-    /// SAN 解析用 rustls-pemfile + 简易 X.509 字节扫描（避免引入 x509-parser 重依赖）。
+    /// SAN 解析用 rustls-pki-types PemObject + 简易 X.509 字节扫描（避免引入 x509-parser 重依赖）。
     #[test]
     fn ca_sign_cert_san_contains_host() {
         let (key_pair, cert) = generate_root_ca().expect("generate_root_ca");
@@ -751,11 +750,22 @@ mod tests {
         let restored = KeyPair::from_pem(&pem).expect("from_pem roundtrip");
         // 序列 DER 应与原 key 一致（同 key material）。
         assert_eq!(key_pair.serialize_der(), restored.serialize_der());
-        // cert PEM 可被 rustls-pemfile 解析（X509Certificate item）。
-        use rustls_pemfile::Item;
+        // cert PEM 可被解析为 X.509 证书。
+        use rustls::pki_types::{CertificateDer, pem::PemObject};
         let cert_pem = cert.pem();
-        let parsed = rustls_pemfile::read_one_from_slice(cert_pem.as_bytes());
-        assert!(matches!(parsed, Ok(Some((Item::X509Certificate(_), _)))));
+        assert!(CertificateDer::from_pem_slice(cert_pem.as_bytes()).is_ok());
+    }
+
+    /// pem_der returns the exact certificate DER; non-certificate input yields None
+    /// (fingerprint helpers then return an empty string).
+    #[test]
+    fn pem_der_extracts_cert_der() {
+        let (key_pair, cert) = generate_root_ca().expect("generate_root_ca");
+        assert_eq!(pem_der(&cert.pem()).as_deref(), Some(cert.der().as_ref()));
+        assert_eq!(pem_der("garbage"), None);
+        assert_eq!(pem_der(&key_pair.serialize_pem()), None);
+        assert_eq!(cert_fingerprint_hex("garbage"), "");
+        assert_eq!(cert_sha1_thumbprint_hex(&cert.pem()).len(), 40);
     }
 
     /// ST1 验收：fingerprint 非空且 deterministic（同 cert 重算同值）。
@@ -1019,10 +1029,8 @@ mod tests {
     /// host 串字节序列可直接 indexOf。完整 X.509 解析需 x509-parser crate（暂不引入，
     /// SAN 字面扫描对验证签证书正确性已足够；ST3 TLS 层用 rustls 正式验证链时再加完整解析）。
     fn pem_der_contains_san_host(cert_pem: &str, host: &str) -> bool {
-        use rustls_pemfile::Item;
-        let Ok(Some((Item::X509Certificate(der), _))) =
-            rustls_pemfile::read_one_from_slice(cert_pem.as_bytes())
-        else {
+        use rustls::pki_types::{CertificateDer, pem::PemObject};
+        let Ok(der) = CertificateDer::from_pem_slice(cert_pem.as_bytes()) else {
             return false;
         };
         // DER 中找 host 的 ASCII 字节序列（SAN 内为 IA5String = ASCII）。

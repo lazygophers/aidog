@@ -83,7 +83,6 @@ hmac = "0.13"
 rand = "0.10"
 # MITM TLS（rustls 生态）
 rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
-rustls-pemfile = "2"
 rcgen = { version = "0.14", features = ["x509-parser", "pem"] }
 tokio-rustls = "0.26"
 webpki-roots = "1"

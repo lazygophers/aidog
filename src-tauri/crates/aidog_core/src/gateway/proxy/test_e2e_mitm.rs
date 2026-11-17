@@ -90,17 +90,10 @@ async fn spawn_stub_upstream() -> String {
 
 /// 解析 PEM 证书链为 DER vec（rustls root store 加载用）。
 fn parse_cert_chain_pem(cert_pem: &str) -> Vec<rustls::pki_types::CertificateDer<'static>> {
-    use rustls_pemfile::Item;
-    let mut chain = Vec::new();
-    let mut cursor = std::io::Cursor::new(cert_pem.as_bytes());
-    while let Ok(item) = rustls_pemfile::read_one(&mut cursor) {
-        match item {
-            Some(Item::X509Certificate(der)) => chain.push(der),
-            Some(_) => continue,
-            None => break,
-        }
-    }
-    chain
+    use rustls::pki_types::{CertificateDer, pem::PemObject};
+    CertificateDer::pem_slice_iter(cert_pem.as_bytes())
+        .map_while(Result::ok)
+        .collect()
 }
 
 /// 构造信任指定 CA 的 rustls client config（ALPN advertise http/1.1 only）。
