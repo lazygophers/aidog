@@ -1,28 +1,17 @@
 ---
 title: 分组路由
-description: 创建客户端分组并配置候选平台、模型映射与调度策略。
+description: 创建分组，把客户端凭据与允许使用的平台关联起来。
 ---
 
 # 分组路由
 
-import { ProductDemo } from '../../../theme/components/ProductDemo';
+分组位于“AI 平台”页。每个分组有独立凭据、模型映射和候选平台；客户端凭据决定请求进入哪个分组。
 
-<ProductDemo module="groups" state="normal" />
+## 配置分组
 
-## 当前实现
+1. 创建分组并保存分组凭据。
+2. 把需要的上游平台加入分组。
+3. 配置客户端模型到平台模型的映射。
+4. 先用一个候选平台验证请求，再按需增加兼容平台和路由策略。
 
-分组 UI 由 `src/pages/Groups.tsx` 及 `src/pages/Groups/` 组件实现，并嵌入到 `Platforms` 页。侧栏没有独立 `groups` 顶级入口；分组能力在 AI 平台页内使用。
-
-前端 wrapper 在 `src/services/api/groups.ts`：`group_create`、`group_list`、`group_update`、`group_set_platforms`、`group_detail_list_paged`、`group_platform_move` 等命令通过 Tauri `invoke` 调用 Rust。统计 wrapper 有 `group_usage_stats` 和 `all_group_usage_stats`。
-
-分组的 `group_key` 是本地代理鉴权 token。代理请求用 `Authorization: Bearer <group_key>` 或 Anthropic 风格 `x-api-key` 匹配分组；匹配失败不会跨分组借用平台。
-
-## 文档演示边界
-
-上方演示是固定 fixture。真实分组字段、分页、拖拽、排序和统计行为以 `src/pages/Groups/`、`src/services/api/groups.ts`、后端 `platform_cmd::group` 当前源码为准。
-
-## 主要任务
-
-此页面演示正常、空、错误和加载四种固定状态。演示数据已脱敏，不连接本机 aidog、Tauri IPC 或 Local API。
-
-在桌面应用中使用左侧导航进入“分组路由”。保存会影响运行状态的设置前，先确认当前分组和平台范围；发生错误时结合[代理日志](/zh/features/logs)定位。
+分组请求不会借用其他分组的平台。候选平台是否可用还取决于平台状态、模型槽位、协议、时段规则、额度和健康状态。详情请看[分组与路由原理](/zh/core-concepts/groups-routing)。

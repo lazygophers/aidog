@@ -1,16 +1,16 @@
 ---
 title: MDX 组件
-description: 在 aidog 文档中复用 ProductDemo 和 Rspress MDX 组件。
+description: 在文档页使用 Rspress 的 MDX 能力与产品示意组件。
 ---
 
 # MDX 组件
 
-功能页使用统一的 `ProductDemo`，页面只传 `module` 和初始 `state`，不内联 fixture，也不调用 Tauri 或 Local API。
+文档页可使用 Rspress 支持的 Markdown 与 MDX 语法。提示框、Tabs 和代码块优先用内置能力，避免为单页新增组件。
+
+功能页面的 `ProductDemo` 使用固定、脱敏的 fixture 展示示意状态。它不读取桌面应用、用户数据库、Tauri IPC 或本机 API。它只用于说明内容结构，不作为当前应用界面或功能行为的证据。
 
 ```mdx
 import { ProductDemo } from '../../../theme/components/ProductDemo';
 
 <ProductDemo module="platforms" state="normal" />
 ```
-
-提示、警告、Tabs 和代码块优先使用 Rspress 内置 MDX 能力。新增组件应先证明无法由现有组件表达。

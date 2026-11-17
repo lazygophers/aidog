@@ -1,0 +1,12 @@
+---
+title: Connect pi
+description: Let AiDog configure a pi provider for a group and connect it to the local proxy.
+---
+
+# Connect pi
+
+Install and run pi first. Then create a group in AiDog, add providers, and choose the protocol pi should use in the group configuration.
+
+AiDog generates a pi provider for the group and writes it into pi's `models.json`. The group's **Copy startup command** action produces a command that selects the matching provider. Check the group name and protocol in the command before running it.
+
+AiDog manages provider entries prefixed with `aidog-`; other provider configurations are kept. pi does not offer Claude Code-style hooks or statusline configuration. Then check routing in [Verify a request](/en/getting-started/first-request).

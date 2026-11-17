@@ -1,1 +1,6 @@
-["index", "commands"]
+[
+  { "type": "file", "name": "index", "label": "API overview" },
+  { "type": "file", "name": "local-api", "label": "Local HTTP API" },
+  { "type": "file", "name": "tauri-commands", "label": "Tauri commands" },
+  { "type": "file", "name": "contracts", "label": "Calling contracts and errors" }
+]

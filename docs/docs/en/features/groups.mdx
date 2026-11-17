@@ -1,0 +1,17 @@
+---
+title: Groups and routing
+description: Create groups that connect client credentials with the providers they may use.
+---
+
+# Groups and routing
+
+Groups live on the **AI Platforms** page. Each group has its own credential, model mapping, and candidate providers; the client credential decides which group a request enters.
+
+## Configure a group
+
+1. Create the group and keep its credential.
+2. Add the upstream providers you need.
+3. Map client model names to provider models.
+4. Verify requests with one candidate provider first, then add compatible providers and routing rules as needed.
+
+A group's requests never borrow providers from other groups. Whether a candidate is usable also depends on provider status, model slots, protocol, time rules, quotas, and health. See [Groups and routing concepts](/en/core-concepts/groups-routing).

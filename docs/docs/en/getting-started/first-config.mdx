@@ -1,0 +1,26 @@
+---
+title: First configuration
+description: Add an upstream provider, create a group, and check the local endpoint.
+---
+
+# First configuration
+
+## Add an upstream provider
+
+Open **AI Platforms** and add a provider. For a built-in preset, check its protocol and base URL, then enter the API key for that upstream. For a custom provider, choose the protocol that matches its API.
+
+The base URL should include the upstream's required version prefix, such as `/v1`. Do not append `/chat/completions`; AiDog constructs request paths for the selected protocol.
+
+## Create a group
+
+Create a group and add the provider to it. The group credential authenticates clients to AiDog. It is not the upstream API key. Add providers to the same group only when they support the same client models and request types.
+
+## Check the local service
+
+The default proxy address is `http://127.0.0.1:9890`. Run:
+
+```bash
+curl http://127.0.0.1:9890/
+```
+
+The service should return `{"service":"aidog","ok":true}`. Then follow the guide for [Claude Code](/en/getting-started/connect-claude-code), [Codex](/en/getting-started/connect-codex), or [pi](/en/getting-started/connect-pi).

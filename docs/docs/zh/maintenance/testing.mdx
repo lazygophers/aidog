@@ -1,17 +1,16 @@
 ---
-title: 测试工具与 Fixture
-description: 运行 aidog 测试并维护不读取真实用户数据的文档演示 fixture。
+title: 测试与文档示例
+description: 运行文档站检查，并维护不读取真实用户数据的示意内容。
 ---
 
-# 测试工具与 Fixture
+# 测试与文档示例
 
-文档演示 fixture 位于 `docs/theme/fixtures/`，固定、脱敏并记录来源版本。四种状态为正常、空、错误和加载；组件不得读取本机配置、数据库或凭证。
+文档站的 `ProductDemo` 使用固定示意数据。示例不得读取本机配置、数据库或凭证，也不得调用真实上游服务。
+
+在仓库根目录运行文档检查：
 
 ```bash
-yarn test
-yarn build
-cd src-tauri && cargo test
-cd src-tauri && cargo clippy
+yarn check:docs
 ```
 
-文档变更最终运行根命令 `yarn check:docs`。测试 command 用于验证内部行为，不作为公共 API 承诺。
+此命令检查文档源码并构建站点。涉及 Rust 或前端行为的文档修改，还应运行与改动对应的检查；文档站构建成功不代表产品行为已验证。

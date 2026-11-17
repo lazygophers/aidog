@@ -1,0 +1,16 @@
+---
+title: Proxy and request logs
+description: Inspect forwarded requests plus test and provider query records.
+---
+
+# Proxy and request logs
+
+The proxy log records requests handled by the gateway: status, group, provider, model, usage, cost estimate, duration, and retry attempts. Tests, balance checks, and model-list fetches are recorded in a separate request log.
+
+## Raw content and retention
+
+Settings control raw request content for the user side and the upstream side separately. With recording off for one side, that side's request headers, bodies, and response bodies are not kept; proxy log metadata such as status is still recorded. Sensitive headers such as `Authorization` are redacted before storage.
+
+When the raw-field retention period ends, raw content is cleared but the log row remains. The row is deleted when the full-row retention period ends. When inspecting a request, use the log entry to compare the actual upstream URL, request content, and returned error.
+
+Costs are estimates and cannot be computed accurately when upstream usage is missing. Do not share log exports or screenshots publicly; they can contain business content.

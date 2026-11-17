@@ -1,0 +1,14 @@
+---
+title: Data and privacy
+description: Understand local storage, upstream requests, and how log content is kept.
+---
+
+# Data and privacy
+
+AiDog stores configuration and databases on your computer. Proxied requests are still sent to the upstream services you choose, and those services receive the content needed to process each request. Choose data and providers according to their privacy terms.
+
+Proxy logs let you control user-side and upstream-side raw request content separately. When recording is off for one side, that side's request headers, bodies, and response bodies are not kept; metadata such as status, model, and usage is still recorded. Sensitive headers such as `Authorization` are redacted before being stored.
+
+When the raw-content retention period ends, AiDog clears the raw fields. The whole log row is deleted only when the full-row retention period ends. Test, balance, and model-list requests are kept in a separate request log.
+
+Backup or exported files can contain credentials. Restrict access to those files, and never commit real configuration or backups to a public repository.

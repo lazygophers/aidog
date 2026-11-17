@@ -1,0 +1,173 @@
+---
+title: Claude Code recommended settings
+description: Item-by-item notes on AiDog's built-in Claude Code recommended settings: top-level switches, permission rules, environment variables, and plugin marketplaces.
+---
+
+# Claude Code recommended settings
+
+On the settings page `settings/claude`, click **Load recommended settings**. AiDog diffs the built-in recommendations against your current configuration and writes only the items you tick. The source of truth is `src-tauri/defaults/settings/oss.json`, referenced by the frontend through `RECOMMENDED_CONFIG` in `src/services/claude-settings-schema.ts` (the only difference: `language` is detected from the system language).
+
+Once a default group is set, AiDog becomes the single source of truth for `~/.claude/settings.json`: every sync **rewrites the whole file** with the default group's configuration (settings page content + routing `env` + hooks). Keys you wrote by hand that AiDog does not know are deleted. **There is no backup** — the content can always be regenerated from the AiDog settings page.
+
+The file is written only when content actually changes (`old == new` exits early), so files are touched only when settings or the default group change. Implementation: `write_default_claude_settings` in `src-tauri/crates/aidog_core/src/sync_settings.rs`.
+
+To keep hand-written content, do not set a default group — AiDog then only generates `~/.aidog/settings.<group>.json` and never touches the global file.
+
+## Top-level switches
+
+| Key | Recommended value | Notes |
+| --- | --- | --- |
+| `language` | System language | UI language, detected from the system at load; built-in default is `zh-Hans` |
+| `autoConnectIde` | `true` | Auto-connect the IDE extension when started in an IDE terminal |
+| `alwaysThinkingEnabled` | `true` | Thinking on by default, no need to trigger it manually each time |
+| `autoMemoryEnabled` | `true` | Allow automatic memory file writes |
+| `cleanupPeriodDays` | `30` | Days to keep local session records |
+| `prefersReducedMotion` | `true` | Reduce terminal animations; saves CPU in long sessions |
+| `skipDangerousModePermissionPrompt` | `true` | Skip the confirmation when entering bypass mode (pairs with `defaultMode` below) |
+| `showThinkingSummaries` | `true` | Show thinking summaries |
+| `showTurnDuration` | `true` | Show per-turn duration |
+| `autoScrollEnabled` | `true` | Auto-scroll to the bottom on output |
+| `spinnerTipsEnabled` | `true` | Show tips at the spinner |
+| `terminalProgressBarEnabled` | `true` | Show progress in the terminal title bar |
+| `feedbackSurveyRate` | `0` | Disable feedback survey popups |
+| `teammateMode` | `"in-process"` | Multi-agent collaboration runs in one process, no extra terminals |
+| `includeCoAuthoredBy` | `false` | Do not append `Co-Authored-By: Claude` to commits |
+| `disableClaudeAiConnectors` | `true` | Do not auto-fetch or connect claude.ai MCP connectors |
+| `isolatePeerMachines` | `true` | Require explicit approval for cross-machine `SendMessage` delivery |
+| `attribution.commit` / `attribution.pr` | `""` | Empty the commit / PR attribution trailers |
+
+The `_aidog_`-prefixed keys `_aidog_statusline`, `_aidog_subagent_statusline`, and `_aidog_hooks` are AiDog-internal markers (statusline and hooks switches). They do not appear in the diff list and are written with the ticked results when loading recommendations.
+
+### defaultMode
+
+Recommended value `bypassPermissions`: tool calls no longer prompt one by one. This is an efficiency-oriented choice; the trade-off is that the safety checks described in the [official permission modes documentation](https://code.claude.com/docs/en/permission-modes) are also turned off. Three things still apply and are the safety floor of this setup:
+
+1. Calls matching `deny` rules are **rejected outright**; bypass mode does not let them through.
+2. Calls matching `ask` rules **still prompt**.
+3. The cross-machine approval for `isolatePeerMachines` still prompts.
+
+If you want conservative defaults, change it to `acceptEdits` or `default`; nothing else is affected.
+
+### deny — credentials are unreadable
+
+`.env` files, `*.key` / `*.pem` / `*.p12` / `*.pfx`, `credentials.json`, `service-account*.json`, `.htpasswd`, `id_rsa` / `id_ed25519` / `id_ecdsa`, `~/.ssh/**`, `~/.aws/**`, `~/.config/gcloud/**`, `~/.kube/config`, `~/.claude/.credentials.json`, `.git-credentials`, `.netrc`, `.npmrc`, `.pgpass`, `*.kdbx`.
+
+The coverage is "where local credentials end up": env files, private keys, cloud CLI credentials, package manager tokens, database passwords, and password vaults.
+
+### deny — lockfiles and installed dependencies are uneditable
+
+17 lockfiles (`go.sum`, `yarn.lock`, `package-lock.json`, `pnpm-lock.yaml`, `Cargo.lock`, `composer.lock`, `Podfile.lock`, `poetry.lock`, `uv.lock`, `bun.lockb`, `bun.lock`, `deno.lock`, `flake.lock`, `gradle.lockfile`, `packages.lock.json`, `mix.lock`, `.terraform.lock.hcl`) and 10 dependency directories (`node_modules`, `vendor`, `bower_components`, `.yarn`, `.pnpm-store`, `.venv`, `site-packages`, `Pods`, `~/.cargo/registry`, `~/go/pkg/mod`).
+
+Lockfiles must be generated by package managers and cannot be hand-edited; installed dependencies are build outputs that the next install overwrites, and editing them hides the source that actually needs changing.
+
+All are written as `Edit(...)`: Claude Code's file permission checks only match `Edit(path)` rules, and an `Edit` rule covers all file-editing tools including `Write`. A rule written as `Write(path)` is never matched, so it blocks nothing.
+
+### deny — explicitly generated files are uneditable
+
+Grouped by generator:
+
+| Source | Rules |
+| --- | --- |
+| protobuf / gRPC | `*.pb.go`, `*.pb.gw.go`, `*.pb.cc`, `*.pb.h`, `*.pb.rs`, `*.pb.swift`, `*_pb2.py`, `*_pb2_grpc.py`, `*_pb2.pyi`, `*_pb.js`, `*_pb.d.ts` |
+| Go codegen | `*.gen.go`, `*_generated.go`, `zz_generated*.go`, `wire_gen.go` |
+| Dart / C# | `*.g.dart`, `*.freezed.dart`, `*.g.cs`, `*.designer.cs`, `*.Designer.cs` |
+| Frontend build outputs | `*.min.js`, `*.min.css`, `*.js.map`, `*.css.map` |
+
+These files usually start with `Code generated by ... DO NOT EDIT.`. Editing them gets overwritten wholesale by the next `protoc` / `go generate` / `build_runner` / packaging run, while hiding the `.proto`, schema, or template that actually needs changing.
+
+### deny — bytecode and binary artifacts are uneditable
+
+| Language / platform | Rules |
+| --- | --- |
+| Python | `*.pyc`, `*.pyo`, `*.pyd`, `__pycache__/`, `*.egg-info/` |
+| JVM | `*.class`, `*.jar`, `*.war`, `*.ear`, `*.dex`, `*.beam` |
+| Native / .NET | `*.o`, `*.obj`, `*.a`, `*.lib`, `*.so`, `*.dylib`, `*.dll`, `*.exe`, `*.pdb` |
+| WebAssembly | `*.wasm` |
+
+Editing binaries is pointless — the next build overwrites them — and reading them into context burns tokens. Change the source instead.
+
+### ask — looks generated, confirm first
+
+Directories `generated/`, `__generated__/`, `gen/`, `autogen/`, `dist/`, `build/`, `out/`, `target/`, `mocks/`; names `*.generated.*`, `mock_*.go`, `*_mock.go`, `*.mock.ts`, `*.d.ts`, `*.snap`; and `migrations/`.
+
+These only look like generated files — `gen/` may be a hand-written package, `*.d.ts` may be hand-written declarations, and migrations sometimes do need human edits. That is why they are `ask`, not `deny`: one confirmation, and you decide whether this one is actually generated.
+
+The same glob never appears in both `deny` and `ask` — deny has higher priority, and a duplicate would make the ask rule unreachable.
+
+### ask — dependency manifests need confirmation
+
+`go.mod`, `package.json`, `Cargo.toml`, `Gemfile`, `pyproject.toml`, `requirements.txt`, `Pipfile`, `deno.json`, `bunfig.toml`, `composer.json`, `Podfile`, `mix.exs`, plus build and container manifests (`flake.nix`, `Makefile`, `Dockerfile`, `CMakeLists.txt`, `pom.xml`, `build.gradle`, `Chart.yaml`, `*.csproj`, `turbo.json`, and others), also all as `Edit(...)`.
+
+Adding dependencies is a legitimate operation, so these are `ask` rather than `deny` — they need your nod, not a blanket ban.
+
+## Environment variables (env)
+
+### Privacy and telemetry
+
+| Variable | Recommended value | Notes |
+| --- | --- | --- |
+| `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` | `1` | Turns off auto-update, feedback, error reporting, and telemetry at once |
+| `CLAUDE_CODE_ENABLE_TELEMETRY` | `0` | Do not enable OpenTelemetry collection |
+| `DO_NOT_TRACK` | `1` | The generic opt-out convention, equivalent to `DISABLE_TELEMETRY` |
+| `CLAUDE_CODE_MCP_ALLOWLIST_ENV` | `1` | stdio MCP servers inherit only a safe baseline environment plus their own `env`, not your shell |
+| `CLAUDE_CODE_HIDE_CWD` | `1` | The startup logo hides the working directory (friendly for recordings and screenshots) |
+| `CLAUDE_CODE_ATTRIBUTION_HEADER` | `0` | Omits the attribution block from the system prompt, also improving prompt cache hits |
+
+`CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` is not in the recommended settings even though it strips credentials from subprocess environments: when set to `1`, Claude Code forces the permission mode down to `default` (prompting `Permission mode forced to default — CLAUDE_CODE_SUBPROCESS_ENV_SCRUB is set` at startup), overriding even an explicit `--permission-mode bypassPermissions`, which conflicts directly with `defaultMode` below. Using it means accepting per-call confirmations.
+
+`DISABLE_TELEMETRY` / `DISABLE_ERROR_REPORTING` are not in the recommended settings: `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` already covers telemetry, error reporting, `/feedback`, release notes, and availability checks.
+
+### Performance and capacity
+
+| Variable | Recommended value | Notes |
+| --- | --- | --- |
+| `CLAUDE_CODE_EFFORT_LEVEL` | `medium` | Default reasoning effort level |
+| `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` | `80` | Auto-compact at 80% context use, earlier than the default, avoiding a critical blow-up |
+| `BASH_MAX_OUTPUT_LENGTH` | `10240` | Truncate bash output at this many characters so one command cannot flood the context |
+| `CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS` | `10240` | Token cap for a single file read |
+| `CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY` | `3` | Concurrent tool calls; lowers local IO and API jitter |
+| `ENABLE_PROMPT_CACHING_1H` | `1` | Raises the prompt cache TTL to 1 hour, saving cost in long sessions |
+| `CLAUDE_CODE_DISABLE_FAST_MODE` | `1` | Disables fast mode; stability first |
+
+### Subagents and background tasks
+
+| Variable | Recommended value | Notes |
+| --- | --- | --- |
+| `CLAUDE_CODE_FORK_SUBAGENT` | `1` | Allow fork subagents (inherit context; tool output does not pollute the main thread) |
+| `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` | `1` | Enable experimental agent team collaboration |
+| `CLAUDE_AUTO_BACKGROUND_TASKS` | `1` | Long-running subagents move to the background automatically |
+| `CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF` | `1` | Stop a session's background tasks when the session exits; no orphan processes |
+| `CLAUDE_CODE_DISABLE_CRON` | `1` | Disable scheduled tasks |
+| `CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION` | `1000` | Per-session subagent cap. **A no-op since v2.1.224**, kept only for older versions |
+
+### Network and plugins
+
+| Variable | Recommended value | Notes |
+| --- | --- | --- |
+| `NO_PROXY` | `localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,*.cn` | Local, private, and CN domains bypass the proxy; AiDog's own `/proxy` is included |
+| `ENABLE_TOOL_SEARCH` | `true` | MCP tools load on demand; saves significant context with dozens of tools |
+| `CLAUDE_CODE_PLUGIN_PREFER_HTTPS` | `1` | `owner/repo` shorthand clones over HTTPS, no SSH key needed |
+| `CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE` | `1` | Allow package manager upgrades in the background |
+| `FORCE_AUTOUPDATE_PLUGINS` | `1` | Force plugin auto-updates |
+| `CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL` | `1` | Do not auto-register the official plugin marketplace (the marketplaces below are declared explicitly and are unaffected) |
+
+## Plugin marketplaces and plugins
+
+`extraKnownMarketplaces` registers six marketplaces explicitly, all with `autoUpdate` on:
+
+| Marketplace | Repository |
+| --- | --- |
+| `caveman` | `JuliusBrussee/caveman` |
+| `ccplugin-market` | `lazygophers/ccplugin` |
+| `claude-code-warp` | `warpdotdev/claude-code-warp` |
+| `claude-plugins-official` | `anthropics/claude-plugins-official` |
+| `i-have-adhd` | `ayghri/i-have-adhd` |
+| `ponytail` | `DietrichGebert/ponytail` |
+
+In `enabledPlugins`, `caveman`, `i-have-adhd`, and `ponytail` are on by default (output style and workflow plugins, active with the session); the four official plugins `claude-code-setup`, `code-modernization`, `code-review`, and `code-simplifier` are all `false` — registered and ready to enable, but not loaded by default, so they take no context.
+
+## Related pages
+
+- [Claude Code integration](/en/features/claude-code)
+- [Connect Claude Code](/en/getting-started/connect-claude-code)
+- [Codex recommended settings](/en/features/recommended-codex) · [pi recommended settings](/en/features/recommended-pi)

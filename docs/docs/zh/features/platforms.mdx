@@ -1,30 +1,19 @@
 ---
 title: AI 平台
-description: 管理上游平台、协议、模型、配额和平台级规则。
+description: 添加上游 AI 服务，并管理地址、凭证、模型与平台规则。
 ---
 
 # AI 平台
 
-import { ProductDemo } from '../../../theme/components/ProductDemo';
+“AI 平台”保存 AiDog 转发请求所需的上游信息，包括协议、Base URL、API Key、模型槽位和平台状态。你可以使用内置预设，也可以添加自定义平台。
 
-<ProductDemo module="platforms" state="normal" />
+## 添加平台
 
-## 当前实现
+1. 选择内置平台预设，或新建自定义平台。
+2. 检查协议和 Base URL；Base URL 包含上游版本前缀，不包含具体请求路径。
+3. 填入上游 API Key，并配置模型。
+4. 保存后执行平台测试，确认凭证、地址和模型可用。
 
-桌面侧栏的 `platforms` 入口挂载 `src/pages/Platforms.tsx`。该页由 `usePlatformsState` 编排，列表态使用 `PlatformListView`，新建和编辑态使用 `PlatformEditForm`。
+模型槽位可配置有序模型链。路由时先尝试链首模型，符合重试条件时再尝试后续模型。平台模型列表只是配置参考，不保证你的上游账号有该模型权限。
 
-平台 API wrapper 在 `src/services/api/platforms.ts`，覆盖平台创建、列表、更新、删除、分享解析、模型拉取、用量统计、余额和规则相关调用。Rust command 注册表在 `src-tauri/src/startup.rs`，`platform_create`、`platform_list`、`platform_update`、`platform_delete` 等命令必须在那里注册后才可被前端调用。
-
-平台配置保存上游 Base URL、API Key、协议、模型、状态、extra JSON 和配额相关字段。`extra` 中当前有 mock、New API、Devin、breaker、peak、disable_during_peak、time_windows 等结构化子项，前端解析函数集中在 `src/services/api/platforms.ts`。
-
-每个平台的「使用代理」开关控制该平台全部出站请求，包括普通请求转发、透传请求、余额查询、拉取模型列表和模型测试。开启后使用系统设置中的代理配置，但免代理名单命中时仍直连；关闭时直连。代理地址未配置时，开启开关也会直连，并显示未配置提示。新建平台时，代理地址已填写则默认开启；地址为空则默认关闭。平台列表中的「代理」标记表示该平台开关已开启，不代表代理地址一定已配置。
-
-## 文档演示边界
-
-上方演示来自 `docs/theme/fixtures/productDemo.ts` 的固定脱敏数据，不读取本机数据库、Tauri IPC 或 Local API。真实字段、按钮和错误处理以 `src/pages/platforms/` 与 `src/components/platforms/` 当前源码为准。
-
-## 主要任务
-
-此页面演示正常、空、错误和加载四种固定状态。演示数据已脱敏，不连接本机 aidog、Tauri IPC 或 Local API。
-
-在桌面应用中使用左侧导航进入“AI 平台”。保存会影响运行状态的设置前，先确认当前分组和平台范围；发生错误时结合[代理日志](/zh/features/logs)定位。
+平台级“使用代理”开关控制该平台的出站请求是否使用 AiDog 配置的网络代理。代理地址为空或命中免代理名单时，请求仍会直连。

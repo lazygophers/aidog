@@ -1,0 +1,25 @@
+---
+title: Choosing AiDog
+description: Understand how AiDog is used, what it covers, and where its limits are.
+---
+
+# Choosing AiDog
+
+AiDog is for users who want to manage upstream AI platforms on their own computer and let local clients reach those platforms through one entry point.
+
+## What AiDog provides
+
+- A desktop application and an optional headless kernel.
+- A local proxy, group credentials, provider candidates, and model mapping.
+- Request forwarding and adaptation for several upstream protocols; the supported range depends on the request type and endpoint.
+- Request logs, usage records, and cost estimates.
+- Configuration management for Claude Code, Codex, and pi.
+
+## Know before you use it
+
+- AiDog runs on your machine by default and does not provide a hosted cloud gateway.
+- Proxied requests are sent to the upstream you select; handle sensitive content according to the upstream's policies.
+- Costs are estimated from available usage and price data and do not match the upstream bill.
+- Clients and protocols differ in capability; cross-protocol conversion does not cover every feature.
+
+If you need centralized deployment for teams or remote users, evaluate network exposure, authentication, and data management first. AiDog's management interfaces accept local connections only by default.

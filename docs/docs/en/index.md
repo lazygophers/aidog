@@ -1,44 +1,28 @@
 ---
-description: Rspress starter homepage with guide, MDX, search, AI, SSG, and theme customization links.
+description: Run AiDog as a local AI API gateway, connect provider accounts, route requests, and inspect usage.
 pageType: home
-
 hero:
-  name: My Site
-  text: A cool website!
-  tagline: This is the tagline
+  name: AiDog
+  text: A local gateway for AI tools
+  tagline: Connect AI providers to your coding tools through one local service.
   actions:
     - theme: brand
-      text: Quick Start
-      link: /guide/start/introduction
+      text: Get started
+      link: /en/getting-started/introduction
     - theme: alt
-      text: GitHub
-      link: https://github.com/web-infra-dev/rspress
-  image:
-    src: /rspress-icon.png
-    alt: Logo
+      text: View on GitHub
+      link: https://github.com/lazygophers/aidog
 features:
-  - title: Blazing fast build speed
-    details: The core compilation module is based on the Rust front-end toolchain, providing a more ultimate development experience.
-    icon: 🏃🏻‍♀️
-    link: /guide/start/introduction
-  - title: Support for MDX content writing
-    details: MDX is a powerful way to write content, allowing you to use React components in Markdown.
-    icon: 📦
-    link: /guide/use-mdx/components
-  - title: Built-in full-text search
-    details: Automatically generates a full-text search index for you during construction, providing out-of-the-box full-text search capabilities.
-    icon: 🎨
-    link: https://rspress.rs/guide/advanced/custom-search
-  - title: AI-friendly
-    details: Generate llms.txt and Markdown files compliant with the llms.txt specification through SSG-MD, making it easier for large language models to understand and use your documentation.
-    icon: 🤖
-    link: https://rspress.rs/guide/basic/ssg-md
-  - title: Static site generation
-    details: In production, it automatically builds into static HTML files, which can be easily deployed anywhere.
-    icon: 🌈
-    link: https://rspress.rs/guide/basic/ssg
-  - title: Providing multiple custom capabilities
-    details: Through its extension mechanism, you can easily extend theme UI and build process.
-    icon: 🔥
-    link: https://rspress.rs/guide/basic/custom-theme
+  - title: One local endpoint
+    details: Route supported AI client requests through a service running on your computer.
+    link: /en/features/proxy
+  - title: Provider and model routing
+    details: Group providers, map client model names, and configure fallback candidates.
+    link: /en/core-concepts/groups-routing
+  - title: Request history and usage
+    details: Inspect request outcomes and estimated token costs in the desktop app.
+    link: /en/features/logs
+  - title: Local-first management
+    details: Keep management access on loopback by default and review what is sent upstream.
+    link: /en/core-concepts/data-privacy
 ---

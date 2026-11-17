@@ -1,0 +1,12 @@
+---
+title: Proxy service
+description: Check the local proxy address, service status, and connection details.
+---
+
+# Proxy service
+
+The desktop app starts a local proxy. It listens on `127.0.0.1:9890` by default, and proxied requests use the `/proxy` prefix, for example `http://127.0.0.1:9890/proxy/v1/chat/completions`.
+
+The proxy listens on the loopback interface only by default. Do not forward the proxy or its management endpoints to the public internet. If you change the port or enable LAN access, review your network boundary and access control settings.
+
+`GET /` checks that the service responds and returns `{"service":"aidog","ok":true}` on success. This only proves the local service is reachable; it does not validate upstream credentials, models, or group configuration.
