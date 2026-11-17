@@ -16,7 +16,7 @@ pub type UsageTuple = (i32, i32, i32, i32, i32, Vec<(String, i64)>);
 ///
 /// 五件核心接口（请求构造 / 非流式响应解析 / 流式事件解析 / 错误体处理 / usage 抽取）
 /// 与差异钩子的默认实现 = 协议构件组合，即家族基座；成员覆盖差异
-/// （示例 [`crate::platform::registry::KimiAdapter`]）。
+/// （示例 [`crate::platform::registry::KimiFamilyAdapter`]）。
 pub trait PlatformAdapter: Send + Sync {
     /// ① 请求构造：内部归一请求 → 出站 JSON body + API path。
     /// `wire` = 端点协议（用户平台配置 `platform.endpoints[].protocol`），
@@ -71,9 +71,11 @@ pub trait PlatformAdapter: Send + Sync {
     // ══ 平台差异钩子（家族成员覆盖差异；默认 = 现状通用行为）══
 
     /// Coding Plan 端点注入（端点 `coding_plan` flag 命中时调用）。默认按平台协议分派
-    /// （仅 Kimi 协议注入 prompt_cache_key），与历史 headers.rs 同名函数等价。
-    fn inject_coding_plan(&self, body: &mut Value, platform: &Protocol) {
-        hooks::inject_coding_plan_fields(body, platform);
+    /// （仅 Kimi 协议 + openai wire 注入 prompt_cache_key），与历史 headers.rs 同名函数等价。
+    /// `wire` = 端点协议：注入键按 wire 语义校验（Kimi 的 prompt_cache_key 仅 Chat
+    /// Completions 文档化，Anthropic Messages 端点不注入）。
+    fn inject_coding_plan(&self, body: &mut Value, platform: &Protocol, wire: &Protocol) {
+        hooks::inject_coding_plan_fields(body, platform, wire);
     }
 
     /// 同协议透传分支：无签名 thinking 块清洗（仅 Anthropic wire 上游），
@@ -102,6 +104,11 @@ pub trait PlatformAdapter: Send + Sync {
         forced_thinking: bool,
     ) {
         hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking)
+    }
+
+    /// tool_choice 出站调整（家族成员覆盖差异；默认不改动）。透传与转换两分支共用本钩子。
+    fn adjust_tool_choice(&self, body: &mut Value, wire: &Protocol, model: &str) {
+        let _ = (body, wire, model);
     }
 
     /// 未建模顶层字段兜底透传：从客户端原体按目标 wire 协议允许集合补齐。

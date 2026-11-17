@@ -1,7 +1,6 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1794839127,
   "supported_protocols": [
-    "anthropic",
     "openai"
   ],
   "model_id": "kimi-k2.7-code-highspeed",
@@ -17,7 +16,7 @@
   "context_window": 262144,
   "official": true,
   "thinking_supported": true,
-  "thinking_toggleable": true,
+  "thinking_toggleable": false,
   "price": {
     "currency": "USD",
     "input": 1.8999999999999998e-06,

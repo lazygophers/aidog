@@ -196,6 +196,18 @@ async fn outbound_follows_endpoint_protocol_after_user_change() {
 
 /// GLM 家族四个成员 × 端点协议，入站带 aidog 扩展 `disable_thinking: true`，返回上游收到的 body。
 async fn glm_outbound_body(platform_type: Protocol, ep: Protocol, gk: &str) -> serde_json::Value {
+    outbound_body_for_model(platform_type, ep, gk, "glm-test").await
+}
+
+/// 同 `glm_outbound_body`，请求模型名可指定（用于命中 registry 条目的 `thinking_toggleable`）。
+async fn outbound_body_for_model(platform_type: Protocol, ep: Protocol, gk: &str, model: &str) -> serde_json::Value {
+    let req = serde_json::json!({"model": model, "max_tokens": 32, "disable_thinking": true,
+        "messages": [{"role": "user", "content": "hi"}]});
+    outbound_body_with(platform_type, ep, gk, req).await
+}
+
+/// 同 `outbound_body_for_model`，入站请求体整体可指定。
+async fn outbound_body_with(platform_type: Protocol, ep: Protocol, gk: &str, req_body: serde_json::Value) -> serde_json::Value {
     let resp_ok = if ep == Protocol::Anthropic { ANTHROPIC_OK } else { OPENAI_OK };
     let (upstream, hits) = spawn_recording_upstream(resp_ok).await;
     let state = make_state(test_db().await).await;
@@ -227,9 +239,7 @@ async fn glm_outbound_body(platform_type: Protocol, ep: Protocol, gk: &str) -> s
         .uri("/chat/completions")
         .header("authorization", format!("Bearer {gk}"))
         .header("content-type", "application/json")
-        .body(Body::from(
-            r#"{"model":"glm-test","max_tokens":32,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#,
-        ))
+        .body(Body::from(req_body.to_string()))
         .unwrap();
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     let status = resp.status();
@@ -791,7 +801,9 @@ async fn glm_coding_openai_endpoint_error_body() {
     let pa = aidog_adapter::platform::adapter_for("glm_coding");
     assert_eq!(pa.classify_error(400, GLM_ERR_1211), UpstreamErrorClass::Model);
     let e1309 = r#"{"error":{"code":"1309","message":"您的 GLM Coding Plan 套餐已到期，暂无法使用，前往官方续订后即可恢复"}}"#;
-    assert_eq!(pa.classify_error(429, e1309), UpstreamErrorClass::Service);
+    // 官方 1309 恒为 HTTP 429，状态码先于业务码归服务类；断言 429 无法失败，改验非 429 状态下
+    // 业务码覆写只认 1212，1309 不被当作模型类（issue 116，PR #181 审查跟进）。
+    assert_eq!(pa.classify_error(400, e1309), UpstreamErrorClass::Unknown);
     let (status, resp, hits) = glm_member_call(
         Protocol::GlmCoding,
         Protocol::OpenAI,
@@ -822,7 +834,7 @@ fn glm_coding_coding_plan_injection_is_noop() {
     let pa = aidog_adapter::platform::adapter_for("glm_coding");
     let mut body = serde_json::from_str::<serde_json::Value>(GLM_OPENAI_IN).unwrap();
     let before = body.clone();
-    pa.inject_coding_plan(&mut body, &Protocol::GlmCoding);
+    pa.inject_coding_plan(&mut body, &Protocol::GlmCoding, &Protocol::OpenAI);
     assert_eq!(body, before);
 }
 
@@ -885,6 +897,180 @@ async fn glm_coding_anthropic_endpoint_error_body() {
     assert!(resp.contains("1211"), "{resp}");
 }
 
+// ══ issue 116：GLM 编码套餐国际版（z.ai）成员 `glm_coding_en` 逐端点协议护栏 ══
+// 官方出处（核对日期 2026-11-16）：
+// - 接入端点 https://docs.z.ai/devpack/quick-start（Anthropic `/api/anthropic`、OpenAI `/api/coding/paas/v4`）
+// - 保留式思考 https://docs.z.ai/guides/capabilities/thinking-mode（Coding Plan 端点默认开启，aidog 不写 clear_thinking）
+// - 错误码 https://docs.z.ai/api-reference/api-code（英文文案；1211 / 1212 / 套餐 13xx 均同 bigmodel 码表）
+// - OpenAPI https://docs.z.ai/api-reference/llm/chat-completion（失败响应 `Error` 为顶层 `{code: integer, message}`）
+
+/// OpenAPI `Error` 形态：顶层 `code` / `message`，无 `error` 包裹。
+const GLM_EN_ERR_1212_FLAT: &str =
+    r#"{"code":1212,"message":"Current model does not support `${method}` call method"}"#;
+
+/// issue 116：错误码页示例为 `error` 包裹，OpenAPI 失败响应为顶层 `{code, message}`；
+/// 两种形态的 1212 都归模型类（家族四成员，与基座 `error` 缺省回落顶层的读法一致）。
+#[test]
+fn glm_family_error_1212_flat_shape_classified_as_model() {
+    use aidog_adapter::platform::error::UpstreamErrorClass;
+    for code in ["glm", "glm_en", "glm_coding", "glm_coding_en"] {
+        let pa = aidog_adapter::platform::adapter_for(code);
+        assert_eq!(pa.classify_error(400, GLM_EN_ERR_1212_FLAT), UpstreamErrorClass::Model, "{code}");
+        assert_eq!(pa.classify_error(429, GLM_EN_ERR_1212_FLAT), UpstreamErrorClass::Service, "{code}");
+    }
+}
+
+/// issue 116：`glm_coding_en` openai 端点非流式——入站 anthropic 转 openai 打 `/chat/completions`，不写 `clear_thinking`；
+/// 响应回 anthropic：reasoning_content → thinking 块，cached_tokens → cache_read_input_tokens。
+#[tokio::test]
+async fn glm_coding_en_openai_endpoint_non_stream_request_response_usage() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::GlmCodingEn,
+        Protocol::OpenAI,
+        "gk116on",
+        "/v1/messages",
+        GLM_ANTHROPIC_IN,
+        (200, "application/json", GLM_OPENAI_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits.len(), 1, "{hits:?}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(up["model"], "glm-test");
+    assert_eq!(up["messages"][0]["role"], "user", "{up}");
+    assert!(up.get("clear_thinking").is_none(), "保留式思考按官方端点默认，不写 clear_thinking: {up}");
+    let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(v["stop_reason"], "end_turn", "{v}");
+    let content = v["content"].as_array().unwrap();
+    assert!(content.iter().any(|b| b["type"] == "thinking" && b["thinking"] == "think"), "{v}");
+    assert!(content.iter().any(|b| b["type"] == "text" && b["text"] == "hi"), "{v}");
+    assert_eq!(v["usage"]["cache_read_input_tokens"], 4, "{v}");
+    assert_eq!(v["usage"]["output_tokens"], 3, "{v}");
+}
+
+/// issue 116：`glm_coding_en` openai 端点流式——reasoning_content / content 增量转 anthropic 事件，`[DONE]` 收尾为 message_stop。
+#[tokio::test]
+async fn glm_coding_en_openai_endpoint_stream() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::GlmCodingEn,
+        Protocol::OpenAI,
+        "gk116os",
+        "/v1/messages",
+        GLM_ANTHROPIC_IN_STREAM,
+        (200, "text/event-stream", GLM_OPENAI_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(up["stream"], true, "{up}");
+    assert!(resp.contains("thinking_delta") && resp.contains("think"), "{resp}");
+    assert!(resp.contains("text_delta") && resp.contains("\"hi\""), "{resp}");
+    assert!(resp.contains("message_stop"), "{resp}");
+}
+
+/// issue 116：`glm_coding_en` 错误——官方英文 1211 归模型类并原样回客户端（400 + 1211）。
+#[tokio::test]
+async fn glm_coding_en_openai_endpoint_error_body() {
+    let pa = aidog_adapter::platform::adapter_for("glm_coding_en");
+    assert_eq!(
+        pa.classify_error(400, GLM_EN_ERR_1211),
+        aidog_adapter::platform::error::UpstreamErrorClass::Model
+    );
+    let (status, resp, hits) = glm_member_call(
+        Protocol::GlmCodingEn,
+        Protocol::OpenAI,
+        "gk116oe",
+        "/v1/messages",
+        GLM_ANTHROPIC_IN,
+        (400, "application/json", GLM_EN_ERR_1211),
+    )
+    .await;
+    assert!(!hits.is_empty());
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("1211"), "{resp}");
+}
+
+/// issue 116：`glm_coding_en` usage 抽取——openai 臂 input 扣除 cached_tokens，cache_read = cached_tokens。
+#[tokio::test]
+async fn glm_coding_en_usage_extraction_openai_and_anthropic() {
+    let pa = aidog_adapter::platform::adapter_for("glm_coding_en");
+    let (i, o, c, cw, _, _) = pa.extract_usage(GLM_OPENAI_RESP);
+    assert_eq!((i, o, c, cw), (6, 3, 4, 0));
+    let (i, o, c, cw, _, _) = pa.extract_usage(GLM_ANTHROPIC_RESP);
+    assert_eq!((i, o, c, cw), (6, 3, 4, 0));
+}
+
+/// issue 116：`glm_coding_en` 的 coding_plan 端点注入为 no-op（迁移前转发层同为 no-op，行为不变）。
+#[test]
+fn glm_coding_en_coding_plan_injection_is_noop() {
+    let pa = aidog_adapter::platform::adapter_for("glm_coding_en");
+    let mut body = serde_json::from_str::<serde_json::Value>(GLM_OPENAI_IN).unwrap();
+    let before = body.clone();
+    pa.inject_coding_plan(&mut body, &Protocol::GlmCodingEn, &Protocol::OpenAI);
+    assert_eq!(body, before);
+}
+
+/// issue 116：`glm_coding_en` anthropic 端点非流式——入站 openai 转 anthropic 打 `/v1/messages`，响应回 openai 形状。
+#[tokio::test]
+async fn glm_coding_en_anthropic_endpoint_non_stream_request_response_usage() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::GlmCodingEn,
+        Protocol::Anthropic,
+        "gk116an",
+        "/chat/completions",
+        GLM_OPENAI_IN,
+        (200, "application/json", GLM_ANTHROPIC_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits.len(), 1, "{hits:?}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(up["max_tokens"], 32, "{up}");
+    assert_eq!(up["messages"][0]["role"], "user", "{up}");
+    let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(v["choices"][0]["message"]["content"], "hi", "{v}");
+    assert_eq!(v["choices"][0]["finish_reason"], "stop", "{v}");
+    assert_eq!(v["usage"]["completion_tokens"], 3, "{v}");
+}
+
+/// issue 116：`glm_coding_en` anthropic 端点流式——anthropic 事件转 openai chunk，结尾 `[DONE]`。
+#[tokio::test]
+async fn glm_coding_en_anthropic_endpoint_stream() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::GlmCodingEn,
+        Protocol::Anthropic,
+        "gk116as",
+        "/chat/completions",
+        GLM_OPENAI_IN_STREAM,
+        (200, "text/event-stream", GLM_ANTHROPIC_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    assert!(resp.contains("\"hi\""), "{resp}");
+    assert!(resp.contains("[DONE]"), "{resp}");
+}
+
+/// issue 116：`glm_coding_en` anthropic 端点错误——官方英文错误体原样回客户端（400 + 1211）。
+#[tokio::test]
+async fn glm_coding_en_anthropic_endpoint_error_body() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::GlmCodingEn,
+        Protocol::Anthropic,
+        "gk116ae",
+        "/chat/completions",
+        GLM_OPENAI_IN,
+        (400, "application/json", GLM_EN_ERR_1211),
+    )
+    .await;
+    assert!(!hits.is_empty());
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("1211"), "{resp}");
+}
+
 /// issue 115（PR #180 审查跟进）：端到端换平台——两平台 GLM 家族分组，A 回 400 + 英文 1212，B 回 200。
 /// 1212 归模型类：客户端拿到 B 的 200，A 只被打一次，A 的 last_error 与熔断计数不动。
 #[tokio::test]
@@ -931,12 +1117,588 @@ async fn glm_family_1212_fails_over_without_touching_platform_health() {
     let status = resp.status();
     let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
     flush_log_queue(&state).await;
+    // 先断言 A 的尝试裁决（issue 116，PR #181 审查跟进）：400 从不碰平台健康，下方 last_error /
+    // 熔断断言单独无法区分分类；1212 若落未知类或服务类，此处 error_class / exclusion 即红。
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let id = logs.iter().find(|l| l.group_key == "gk115fo").expect("log row missing").id.clone();
+    let log = aidog_logs::get_proxy_log(&state.db, &id).await.unwrap().unwrap();
+    assert_eq!(log.attempts[0].error_class.as_deref(), Some("model"), "{:?}", log.attempts);
+    assert_eq!(serde_json::to_value(log.attempts[0].exclusion).unwrap(), "pair", "{:?}", log.attempts);
     assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
     assert_eq!(hits_a.lock().unwrap().len(), 1, "A 应恰好被打一次");
     assert_eq!(hits_b.lock().unwrap().len(), 1, "B 应接住请求");
     let pa = aidog_db::get_platform(&state.db, a).await.unwrap().unwrap();
     assert!(pa.last_error.is_empty(), "模型类失败不写平台 last_error: {:?}", pa.last_error);
     assert_eq!(state.scheduler.breaker_fails(a), 0, "模型类失败不计熔断");
+}
+
+// ══ issue 76：月之暗面 Kimi 家族基座（kimi / kimi_en / kimi_coding）逐端点协议护栏 ══
+// 官方出处（核对日期 2026-11-16）：
+// - Chat Completions https://platform.kimi.com/docs/api/chat.md 、https://platform.kimi.ai/docs/api/chat.md
+//   （kimi-k2.6「`thinking.type` 默认 "enabled"，传 "disabled" 可关闭思考」；usage
+//   `prompt_tokens_details.cached_tokens`；流式先 `delta.reasoning_content` 后 `delta.content`，`data: [DONE]` 结束）
+// - Messages https://platform.kimi.com/docs/api/messages.md
+//   （usage `cache_read_input_tokens`；错误体 `{"type":"error","error":{"type","message"}}`）
+// - 错误码 https://platform.kimi.com/docs/api/errors.md 、https://platform.kimi.ai/docs/api/errors.md
+//   （404 `resource_not_found_error`「Model not found, or this account does not have permission to access the model」）
+
+const KIMI_FAMILY: [Protocol; 3] = [Protocol::Kimi, Protocol::KimiEn, Protocol::KimiCoding];
+/// openai 端点禁思考写官方 `thinking` 的成员（kimi_coding 写 `reasoning_effort`，见成员 issue 119）。
+const KIMI_OFFICIAL_THINKING: [Protocol; 2] = [Protocol::Kimi, Protocol::KimiEn];
+
+const KIMI_OPENAI_RESP: &str = r#"{"id":"chatcmpl-1","object":"chat.completion","created":1,"model":"kimi-test","choices":[{"index":0,"message":{"role":"assistant","content":"hi","reasoning_content":"think"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13,"prompt_tokens_details":{"cached_tokens":4}}}"#;
+const KIMI_OPENAI_SSE: &str = "data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"kimi-test\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"finish_reason\":null}]}\n\n\
+data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"kimi-test\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"think\"},\"finish_reason\":null}]}\n\n\
+data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"kimi-test\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"},\"finish_reason\":\"stop\"}]}\n\n\
+data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"kimi-test\",\"choices\":[],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":3,\"total_tokens\":13,\"prompt_tokens_details\":{\"cached_tokens\":4}}}\n\n\
+data: [DONE]\n\n";
+const KIMI_ERR_404: &str = r#"{"error":{"type":"resource_not_found_error","message":"Model not found, or this account does not have permission to access the model"}}"#;
+const KIMI_ANTHROPIC_ERR_404: &str = r#"{"type":"error","error":{"type":"resource_not_found_error","message":"Model not found, or this account does not have permission to access the model"}}"#;
+const KIMI_ANTHROPIC_RESP: &str = r#"{"id":"msg_k","type":"message","role":"assistant","model":"kimi-test","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3,"cache_read_input_tokens":4}}"#;
+
+fn kimi_gk(pt: &Protocol, tag: &str) -> String {
+    format!("gk76{}{tag}", pt.wire_str().replace('_', ""))
+}
+
+/// issue 76（先红）：Kimi 家族 openai 端点禁思考写官方 `thinking.type=disabled`，
+/// 不写 vLLM 式 `chat_template_kwargs`（Kimi Chat Completions 文档无此参数）。
+#[tokio::test]
+async fn kimi_family_openai_endpoint_disables_thinking_with_official_param() {
+    for pt in KIMI_OFFICIAL_THINKING {
+        let body = glm_outbound_body(pt.clone(), Protocol::OpenAI, &kimi_gk(&pt, "dto")).await;
+        assert_eq!(
+            body.get("thinking"),
+            Some(&serde_json::json!({"type": "disabled"})),
+            "{pt:?} openai 端点应写 thinking.type=disabled: {body}"
+        );
+        assert!(body.get("chat_template_kwargs").is_none(), "{pt:?} 不应写 chat_template_kwargs: {body}");
+        assert!(body.get("disable_thinking").is_none(), "{pt:?} 私有字段应剥除: {body}");
+    }
+}
+
+/// issue 76（先红）：kimi-k2.6 非思考模式 temperature 固定 0.6、传其他值报错
+/// （models-overview.md「思考模式固定 `1.0`，非思考模式固定 `0.6`」「传入其他值会报错，建议不要显式传入」），
+/// openai 端点禁思考时剥除客户端 temperature；未禁思考时原样透传。
+#[tokio::test]
+async fn kimi_family_openai_disable_thinking_strips_temperature() {
+    for pt in KIMI_OFFICIAL_THINKING {
+        let mut req = serde_json::json!({"model": "kimi-test", "max_tokens": 32, "temperature": 1.0,
+            "disable_thinking": true, "messages": [{"role": "user", "content": "hi"}]});
+        let body = outbound_body_with(pt.clone(), Protocol::OpenAI, &kimi_gk(&pt, "tmd"), req.clone()).await;
+        assert_eq!(body.get("thinking"), Some(&serde_json::json!({"type": "disabled"})), "{pt:?}: {body}");
+        assert!(body.get("temperature").is_none(), "{pt:?} 禁思考时不应透传 temperature: {body}");
+        req.as_object_mut().unwrap().remove("disable_thinking");
+        let body = outbound_body_with(pt.clone(), Protocol::OpenAI, &kimi_gk(&pt, "tmk"), req).await;
+        assert_eq!(body.get("temperature"), Some(&serde_json::json!(1.0)), "{pt:?} 未禁思考应透传: {body}");
+    }
+}
+
+/// issue 119（先红；review R5）：kimi_coding 的 openai 端点禁思考写官方认收的
+/// `reasoning_effort: "none"`，不写基座第三方端点用的 vLLM 式 `chat_template_kwargs`
+/// （Kimi Code 文档无此参数），也不写 `thinking`；temperature 无官方固定值约束，原样透传。
+/// K3.1 Pro 系列（k3.1-pro / k3.1-pro-highspeed）不支持关闭思考，禁思考请求必须原样携带
+/// `reasoning_effort: "none"` 让上游按官方返回 400，不在适配器静默剥除后按默认思考处理
+/// （review R4 blocking：剥除会把禁思考请求静默转换成默认思考请求）。
+/// 出处（核对日期 2026-11-17，本地留档 .tmp/issue-119/docs/）：
+/// https://www.kimi.com/code/docs/kimi-code/models.html「off / none / disabled … K3.1 Pro 系列：
+/// 关闭思考的请求会被拒绝（HTTP 400）；K3 系列、K2.8 Preview 与 K2.7 Code Highspeed：关闭
+/// thinking 后，请求均由 K2.8 Preview（无思考）处理」「其他未知取值返回 HTTP 400」；
+/// https://www.kimi.com/code/docs/kimi-code/error-reference.html「error, status code: 400,
+/// message: K3.1 Pro does not support disabled thinking mode. Please enable thinking and try
+/// again, or choose another model.」；https://platform.kimi.com/docs/api/chat.md「Kimi K3 系列
+/// 始终开启思考与 Preserved Thinking，使用顶层 `reasoning_effort`（支持 "low"/"high"/"max"，
+/// 默认 "max"），不使用 `thinking` 参数」。
+#[tokio::test]
+async fn kimi_coding_openai_disable_thinking_writes_reasoning_effort_none() {
+    let pt = Protocol::KimiCoding;
+    for model in ["kimi-test", "k3.1-pro", "k3.1-pro-highspeed"] {
+        let req = serde_json::json!({"model": model, "max_tokens": 32, "temperature": 1.0,
+            "disable_thinking": true, "messages": [{"role": "user", "content": "hi"}]});
+        let body = outbound_body_with(pt.clone(), Protocol::OpenAI, &kimi_gk(&pt, "cbb"), req).await;
+        if model.starts_with("k3.1-pro") {
+            assert_eq!(
+                body.get("reasoning_effort"),
+                Some(&serde_json::json!("none")),
+                "K3.1 Pro 禁思考必须保留 reasoning_effort=none 让上游按官方返回 400: {body}"
+            );
+        } else {
+            assert_eq!(
+                body.get("reasoning_effort"),
+                Some(&serde_json::json!("none")),
+                "其他 kimi_coding 模型禁思考应写 reasoning_effort=none: {body}"
+            );
+        }
+        assert!(body.get("chat_template_kwargs").is_none(), "kimi_coding 不应写 chat_template_kwargs: {body}");
+        assert!(body.get("thinking").is_none(), "kimi_coding 不应写 thinking: {body}");
+        assert_eq!(body.get("temperature"), Some(&serde_json::json!(1.0)), "kimi_coding 应透传 temperature: {body}");
+        assert!(body.get("disable_thinking").is_none(), "私有字段应剥除: {body}");
+    }
+}
+
+/// issue 76（护栏）：不可关闭思考的真实 registry 模型（chat.md「kimi-k2.7-code 和
+/// kimi-k2.7-code-highspeed … 仅支持 "enabled"，传 "disabled" 会报错」；K3「不使用 `thinking` 参数」），
+/// openai 端点禁思考时不写任何 `thinking` 键。
+#[tokio::test]
+async fn kimi_forced_thinking_models_send_no_thinking_on_openai_endpoint() {
+    for pt in [Protocol::Kimi, Protocol::KimiEn] {
+        for model in ["kimi-k2.7-code", "kimi-k2.7-code-highspeed", "kimi-k3"] {
+            let tag = format!("ft{}", model.replace(['.', '-'], ""));
+            let body = outbound_body_for_model(pt.clone(), Protocol::OpenAI, &kimi_gk(&pt, &tag), model).await;
+            assert!(body.get("thinking").is_none(), "{pt:?}/{model} 不应写 thinking: {body}");
+            assert!(body.get("chat_template_kwargs").is_none(), "{pt:?}/{model}: {body}");
+            assert!(body.get("disable_thinking").is_none(), "{pt:?}/{model}: {body}");
+        }
+    }
+}
+
+/// issue 76（护栏）：anthropic 端点禁思考同基座。
+#[tokio::test]
+async fn kimi_family_anthropic_endpoint_disables_thinking() {
+    for pt in KIMI_FAMILY {
+        let body = glm_outbound_body(pt.clone(), Protocol::Anthropic, &kimi_gk(&pt, "dta")).await;
+        assert_eq!(body.get("thinking"), Some(&serde_json::json!({"type": "disabled"})), "{pt:?}: {body}");
+        assert!(body.get("disable_thinking").is_none(), "{pt:?}: {body}");
+    }
+}
+
+/// issue 76（护栏）：openai 端点非流式——请求转换、reasoning_content → thinking 块、cached_tokens → cache_read。
+#[tokio::test]
+async fn kimi_family_openai_endpoint_non_stream() {
+    for pt in KIMI_FAMILY {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::OpenAI,
+            &kimi_gk(&pt, "on"),
+            "/v1/messages",
+            GLM_ANTHROPIC_IN,
+            (200, "application/json", KIMI_OPENAI_RESP),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits[0].0, "/chat/completions", "{pt:?}");
+        let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+        assert_eq!(up["messages"][0]["role"], "user", "{pt:?}: {up}");
+        let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
+        assert_eq!(v["stop_reason"], "end_turn", "{pt:?}: {v}");
+        let content = v["content"].as_array().unwrap();
+        assert!(content.iter().any(|b| b["type"] == "thinking" && b["thinking"] == "think"), "{pt:?}: {v}");
+        assert!(content.iter().any(|b| b["type"] == "text" && b["text"] == "hi"), "{pt:?}: {v}");
+        assert_eq!(v["usage"]["cache_read_input_tokens"], 4, "{pt:?}: {v}");
+    }
+}
+
+/// issue 76（护栏）：openai 端点流式——reasoning_content / content 增量转 anthropic 事件，`[DONE]` 收尾。
+#[tokio::test]
+async fn kimi_family_openai_endpoint_stream() {
+    for pt in KIMI_FAMILY {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::OpenAI,
+            &kimi_gk(&pt, "os"),
+            "/v1/messages",
+            GLM_ANTHROPIC_IN_STREAM,
+            (200, "text/event-stream", KIMI_OPENAI_SSE),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+        assert_eq!(up["stream"], true, "{pt:?}: {up}");
+        assert!(resp.contains("thinking_delta") && resp.contains("think"), "{pt:?}: {resp}");
+        assert!(resp.contains("text_delta") && resp.contains("\"hi\""), "{pt:?}: {resp}");
+        assert!(resp.contains("message_stop"), "{pt:?}: {resp}");
+    }
+}
+
+/// issue 76（护栏）：404 `resource_not_found_error` 归模型类；两种端点的官方错误体原样回客户端。
+#[tokio::test]
+async fn kimi_family_error_body() {
+    use aidog_adapter::platform::error::UpstreamErrorClass;
+    for pt in KIMI_FAMILY {
+        let pa = aidog_adapter::platform::adapter_for(&pt.wire_str());
+        assert_eq!(pa.classify_error(404, KIMI_ERR_404), UpstreamErrorClass::Model, "{pt:?}");
+        assert_eq!(pa.classify_error(404, KIMI_ANTHROPIC_ERR_404), UpstreamErrorClass::Model, "{pt:?}");
+        for (ep, inbound_path, inbound, err) in [
+            (Protocol::OpenAI, "/v1/messages", GLM_ANTHROPIC_IN, KIMI_ERR_404),
+            (Protocol::Anthropic, "/chat/completions", GLM_OPENAI_IN, KIMI_ANTHROPIC_ERR_404),
+        ] {
+            let (status, resp, hits) = glm_member_call(
+                pt.clone(),
+                ep.clone(),
+                &kimi_gk(&pt, &format!("e{}", ep.wire_str())),
+                inbound_path,
+                inbound,
+                (404, "application/json", err),
+            )
+            .await;
+            assert!(!hits.is_empty(), "{pt:?}/{ep:?}");
+            assert_eq!(status, StatusCode::NOT_FOUND, "{pt:?}/{ep:?}: {resp}");
+            assert!(resp.contains("resource_not_found_error"), "{pt:?}/{ep:?}: {resp}");
+        }
+    }
+}
+
+/// issue 76（护栏）：非流式 usage 抽取——openai 臂 input 扣除 cached_tokens，anthropic 臂读 cache_read_input_tokens。
+#[test]
+fn kimi_family_usage_extraction() {
+    for pt in KIMI_FAMILY {
+        let pa = aidog_adapter::platform::adapter_for(&pt.wire_str());
+        let (i, o, c, cw, _, _) = pa.extract_usage(KIMI_OPENAI_RESP);
+        assert_eq!((i, o, c, cw), (6, 3, 4, 0), "{pt:?}");
+        let (i, o, c, cw, _, _) = pa.extract_usage(KIMI_ANTHROPIC_RESP);
+        assert_eq!((i, o, c, cw), (6, 3, 4, 0), "{pt:?}");
+    }
+}
+
+/// issue 76（护栏）：anthropic 端点非流式 + 流式——入站 openai 转 anthropic 打 `/v1/messages`，响应回 openai 形状。
+#[tokio::test]
+async fn kimi_family_anthropic_endpoint_non_stream_and_stream() {
+    for pt in KIMI_FAMILY {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::Anthropic,
+            &kimi_gk(&pt, "an"),
+            "/chat/completions",
+            GLM_OPENAI_IN,
+            (200, "application/json", KIMI_ANTHROPIC_RESP),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits[0].0, "/v1/messages", "{pt:?}");
+        let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+        assert_eq!(up["max_tokens"], 32, "{pt:?}: {up}");
+        let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
+        assert_eq!(v["choices"][0]["message"]["content"], "hi", "{pt:?}: {v}");
+        assert_eq!(v["usage"]["completion_tokens"], 3, "{pt:?}: {v}");
+
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::Anthropic,
+            &kimi_gk(&pt, "as"),
+            "/chat/completions",
+            GLM_OPENAI_IN_STREAM,
+            (200, "text/event-stream", GLM_ANTHROPIC_SSE),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits[0].0, "/v1/messages", "{pt:?}");
+        assert!(resp.contains("\"hi\"") && resp.contains("[DONE]"), "{pt:?}: {resp}");
+    }
+}
+
+/// issue 76 跟进（先红）：openai 客户端直发 `tool_choice:"required"`（同协议透传），
+/// kimi-k2.6 / kimi-k2.7-code 出站降级为 `"auto"`——models-overview.md 对这两列
+/// 「传 `"required"` 会报错」。anthropic 入站的 `tool_choice` 对象当前在入站解析即 400
+/// （`ToolChoice` untagged 不认 `{"type":"any"}`，types.rs 既有缺口），到不了出站，
+/// 故本组测试走透传（真实可达路径）。
+#[tokio::test]
+async fn kimi_family_openai_tool_choice_required_downgraded_for_affected_models() {
+    for pt in KIMI_OFFICIAL_THINKING {
+        for model in ["kimi-k2.6", "kimi-k2.7-code"] {
+            let body = format!(
+                r#"{{"model":"{model}","max_tokens":32,"tool_choice":"required","tools":[{{"type":"function","function":{{"name":"get_weather","description":"w","parameters":{{"type":"object","properties":{{}}}}}}}}],"messages":[{{"role":"user","content":"hi"}}]}}"#
+            );
+            let body: &'static str = Box::leak(body.into_boxed_str());
+            let (status, resp, hits) = glm_member_call(
+                pt.clone(),
+                Protocol::OpenAI,
+                &kimi_gk(&pt, "tcany"),
+                "/chat/completions",
+                body,
+                (200, "application/json", KIMI_OPENAI_RESP),
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK, "{pt:?}/{model}: {resp}");
+            let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+            assert_eq!(
+                up.get("tool_choice"),
+                Some(&serde_json::json!("auto")),
+                "{pt:?}/{model} 应降级为 auto: {up}"
+            );
+        }
+    }
+}
+
+/// issue 76 跟进（反证）：K3 系列接受 `"required"`（models-overview.md K3 列 `"auto"` / `"none"` /
+/// `"required"`），不降级；anthropic wire 不在范围；kimi_coding 无已证实约束不降级（成员 issue 119）。
+#[tokio::test]
+async fn kimi_family_tool_choice_required_not_downgraded_outside_affected_scope() {
+    const K3_IN: &str = r#"{"model":"kimi-k3","max_tokens":32,"tool_choice":"required","tools":[{"type":"function","function":{"name":"get_weather","description":"w","parameters":{"type":"object","properties":{}}}}],"messages":[{"role":"user","content":"hi"}]}"#;
+    for pt in KIMI_OFFICIAL_THINKING {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::OpenAI,
+            &kimi_gk(&pt, "tck3"),
+            "/chat/completions",
+            K3_IN,
+            (200, "application/json", KIMI_OPENAI_RESP),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+        assert_eq!(
+            up.get("tool_choice"),
+            Some(&serde_json::json!("required")),
+            "{pt:?}/kimi-k3 应保持 required: {up}"
+        );
+    }
+    // kimi_coding 无已证实约束，不降级（成员 issue 119）。
+    const CD_IN: &str = r#"{"model":"kimi-k2.6","max_tokens":32,"tool_choice":"required","tools":[{"type":"function","function":{"name":"get_weather","description":"w","parameters":{"type":"object","properties":{}}}}],"messages":[{"role":"user","content":"hi"}]}"#;
+    let pt = Protocol::KimiCoding;
+    let (status, resp, hits) = glm_member_call(
+        pt.clone(),
+        Protocol::OpenAI,
+        &kimi_gk(&pt, "tccd"),
+        "/chat/completions",
+        CD_IN,
+        (200, "application/json", KIMI_OPENAI_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+    let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(
+        up.get("tool_choice"),
+        Some(&serde_json::json!("required")),
+        "{pt:?} 应保持 required: {up}"
+    );
+}
+
+// ══ issue 117：Kimi（月之暗面）成员 `kimi` 护栏 ══
+// 官方出处（核对日期 2026-11-16）：
+// - Chat Completions https://platform.kimi.com/docs/api/chat.md
+//   （prompt_cache_key「对于 Kimi Code Plan，此字段为必填以提高缓存命中率。对于其他多轮对话
+//   Agent，也建议使用此字段」——标准平台可选）
+// 思考 / tool_choice / temperature / usage / 流式 / 错误体逐项核对结论同家族基座（出处见
+// kimi_family_* 各测试头注与 registry.rs 成员节），本成员无代码差异，登记 KimiFamilyAdapter；
+// 本节只补家族循环未覆盖的 coding_plan 端点 prompt_cache_key 注入端到端护栏。
+
+/// 建 Kimi 平台（单 openai 端点指向假上游，coding_plan 按参指定）并挂进分组，收一条入站请求，
+/// 返回上游收到的出站体。
+async fn kimi_member_outbound(gk: &str, coding_plan: bool) -> serde_json::Value {
+    kimi_member_outbound_pt(Protocol::Kimi, gk, coding_plan).await
+}
+
+/// 同 [`kimi_member_outbound`]，平台协议按参指定（issue 118 成员 kimi_en 复用）。
+async fn kimi_member_outbound_pt(pt: Protocol, gk: &str, coding_plan: bool) -> serde_json::Value {
+    kimi_member_outbound_raw(pt, Protocol::OpenAI, gk, coding_plan, GLM_ANTHROPIC_IN).await
+}
+
+/// 同 [`kimi_member_outbound_pt`]，端点 wire 协议与入站 body 可指定
+/// （review R2：anthropic coding_plan 端点与多轮工具历史用例复用）。
+async fn kimi_member_outbound_raw(
+    pt: Protocol,
+    ep: Protocol,
+    gk: &str,
+    coding_plan: bool,
+    in_body: &str,
+) -> serde_json::Value {
+    let resp_ok = if ep == Protocol::Anthropic { ANTHROPIC_OK } else { KIMI_OPENAI_RESP };
+    let (base, hits) = spawn_glm_upstream(200, "application/json", resp_ok).await;
+    let state = make_state(test_db().await).await;
+    let pid = aidog_db::test_support::create_platform_at_fake_upstream(
+        &state.db,
+        pt,
+        &base,
+        std::slice::from_ref(&ep),
+    )
+    .await;
+    // fixture 恒 coding_plan:false，按用例直写 DB 覆盖端点
+    let eps = aidog_db::serialize_endpoints(&[PlatformEndpoint {
+        protocol: ep,
+        base_url: base.clone(),
+        client_type: "default".to_string(),
+        coding_plan,
+    }]);
+    state
+        .db
+        .call_platform_traced(None, std::panic::Location::caller(), move |conn| {
+            conn.execute("UPDATE platform SET endpoints=?1 WHERE id=?2", rusqlite::params![eps, pid as i64])?;
+            Ok(())
+        })
+        .await
+        .expect("set coding_plan endpoint");
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: pid,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/messages")
+        .header("authorization", format!("Bearer {gk}"))
+        .header("content-type", "application/json")
+        .body(Body::from(in_body.to_string()))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    let status = resp.status();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
+    flush_log_queue(&state).await;
+    let hits = hits.lock().unwrap();
+    assert_eq!(hits.len(), 1, "上游应恰好收到一次请求: {hits:?}");
+    serde_json::from_str(&hits[0].1).unwrap()
+}
+
+/// issue 117（护栏）：coding_plan 端点出站注入 prompt_cache_key（迁移自转发层的既有行为，
+/// 家族按平台协议分派仅 `Protocol::Kimi` 注入，aidog- 前缀会话键）；非 coding_plan 端点不注入。
+#[tokio::test]
+async fn kimi_member_coding_plan_endpoint_injects_prompt_cache_key() {
+    let body = kimi_member_outbound("gk117cp", true).await;
+    let key = body.get("prompt_cache_key").and_then(|v| v.as_str()).unwrap();
+    assert!(key.starts_with("aidog-glm-test-"), "coding_plan 端点应注入 prompt_cache_key: {body}");
+    assert_eq!(key.rsplit('-').next().unwrap().len(), 6, "标准 kimi 保留旧六位五分钟键: {body}");
+
+    let first = kimi_member_outbound_pt(Protocol::KimiCoding, "gk119a", true).await;
+    let second = kimi_member_outbound_pt(Protocol::KimiCoding, "gk119b", true).await;
+    let first_key = first.get("prompt_cache_key").and_then(|v| v.as_str()).unwrap();
+    let second_key = second.get("prompt_cache_key").and_then(|v| v.as_str()).unwrap();
+    assert_ne!(first_key, second_key, "无会话身份的请求不得共享缓存键: {first_key}");
+
+    let body = kimi_member_outbound("gk117cn", false).await;
+    assert!(
+        body.get("prompt_cache_key").is_none(),
+        "非 coding_plan 端点不应注入 prompt_cache_key: {body}"
+    );
+}
+
+// ══ issue 118：Kimi 国际版（月之暗面）成员 `kimi_en` 护栏 ══
+// 官方出处（核对日期 2026-11-17，国际站 platform.kimi.ai 原文，本地留档 .tmp/issue-118/docs/）：
+// - Chat Completions https://platform.kimi.ai/docs/api/chat.md
+//   （curl 示例 `https://api.moonshot.ai/v1/chat/completions`；prompt_cache_key「For Kimi Code Plan,
+//   this field is required」）
+// - Messages https://platform.kimi.ai/docs/api/messages.md（「simply point the base URL at
+//   `https://api.moonshot.ai/anthropic`」）
+// - models-overview https://platform.kimi.ai/docs/api/models-overview.md（kimi-k2.6「Thinking is on by
+//   default」/「Passing `"required"` returns an error」；K3 `thinking`「Not supported」）
+// - 错误码 https://platform.kimi.ai/docs/api/errors.md（404 `resource_not_found_error`）
+// 思考 / tool_choice / temperature / usage / 流式 / 错误体逐项核对结论同家族基座（出处见
+// kimi_family_* 各测试头注与 registry.rs 成员节，kimi_en 均在家族循环内），本成员无代码差异，
+// 登记 KimiFamilyAdapter；本节补端到端护栏：kimi_en 走用户配置端点、家族 openai 臂覆写生效、
+// 不注入 prompt_cache_key（非编码套餐，基座按平台协议分派对 KimiEn 为 no-op）。
+
+/// issue 118（护栏）：kimi_en 端到端——anthropic 入站经用户配置端点出站为 openai chat/completions
+/// 形状（家族基座转换）、不注入 prompt_cache_key、禁思考写官方 `thinking.type=disabled` 且剥
+/// temperature（家族 openai 臂覆写对成员生效）。
+#[tokio::test]
+async fn kimi_en_member_outbound_matches_family_base_without_prompt_cache_key() {
+    let body = kimi_member_outbound_pt(Protocol::KimiEn, "gk118en", false).await;
+    assert!(
+        body.get("prompt_cache_key").is_none(),
+        "kimi_en 不应注入 prompt_cache_key: {body}"
+    );
+    assert!(
+        body.get("messages").is_some(),
+        "应经家族基座转换为 openai 形状: {body}"
+    );
+    let mut req = serde_json::json!({"model": "kimi-k2.6", "max_tokens": 32, "temperature": 1.0,
+        "disable_thinking": true, "messages": [{"role": "user", "content": "hi"}]});
+    let body = outbound_body_with(
+        Protocol::KimiEn,
+        Protocol::OpenAI,
+        "gk118ent",
+        req.clone(),
+    )
+    .await;
+    assert_eq!(body.get("thinking"), Some(&serde_json::json!({"type": "disabled"})), "{body}");
+    assert!(body.get("temperature").is_none(), "禁思考应剥 temperature: {body}");
+    req.as_object_mut().unwrap().remove("disable_thinking");
+    let body = outbound_body_with(Protocol::KimiEn, Protocol::OpenAI, "gk118enk", req).await;
+    assert_eq!(body.get("temperature"), Some(&serde_json::json!(1.0)), "未禁思考应透传: {body}");
+}
+
+// ══ issue 119：Kimi 编程套餐（月之暗面会员）成员 `kimi_coding` 护栏 ══
+// 官方出处（核对日期 2026-11-17，本地留档 .tmp/issue-119/docs/）：
+// - Kimi Code 模型配置 https://www.kimi.com/code/docs/kimi-code/models.html
+//   （编码端点 Base URL 国内 `https://api.kimi.com/coding/v1`（openai）/ `https://api.kimi.com/coding/`
+//   （anthropic）；模型 k3 / k3-256k / kimi-for-coding / kimi-for-coding-highspeed；effort 映射表
+//   「off / none / disabled … 关闭 thinking 后，请求均由 K2.8 Preview（无思考）处理」「K3.1 Pro 系列：
+//   关闭思考的请求会被拒绝（HTTP 400）」「其他未知取值 返回 HTTP 400」）
+// - 错误参考 https://www.kimi.com/code/docs/kimi-code/error-reference.html
+//   （错误条目均为 `error, status code: <code>, message: <text>` 文案，JSON 错误体形状未证实）
+// - Chat Completions https://platform.kimi.com/docs/api/chat.md
+//   （prompt_cache_key「对于 Kimi Code Plan，此字段为必填以提高缓存命中率」；K3「使用顶层
+//   `reasoning_effort` … 不使用 `thinking` 参数」）
+
+/// issue 119（先红）：kimi_coding 的 coding_plan 端点出站注入 `prompt_cache_key`
+/// （chat.md「对于 Kimi Code Plan，此字段为必填以提高缓存命中率」，aidog- 前缀会话键）；
+/// 非 coding_plan 端点不注入（家族按平台协议分派，注入条件同源：端点 coding_plan flag）。
+#[tokio::test]
+async fn kimi_coding_member_coding_plan_endpoint_injects_prompt_cache_key() {
+    let body = kimi_member_outbound_pt(Protocol::KimiCoding, "gk119cd", true).await;
+    assert!(
+        body.get("prompt_cache_key")
+            .and_then(|v| v.as_str())
+            .is_some_and(|s| s.starts_with("aidog-")),
+        "kimi_coding coding_plan 端点应注入 prompt_cache_key: {body}"
+    );
+    let body = kimi_member_outbound_pt(Protocol::KimiCoding, "gk119cn", false).await;
+    assert!(
+        body.get("prompt_cache_key").is_none(),
+        "非 coding_plan 端点不应注入 prompt_cache_key: {body}"
+    );
+}
+
+/// review R2-2（issue 119）：anthropic wire 的 coding_plan 端点不注入 prompt_cache_key。
+/// messages.md（Anthropic Messages，https://platform.kimi.com/docs/api/messages.md）全篇
+/// 未列 prompt_cache_key（缓存走 `cache_control`）；chat.md 的「必填」仅限 Chat Completions。
+/// kimi_coding 的 anthropic 端点同为 coding_plan，注入会把未文档化参数送进 Messages 体。
+#[tokio::test]
+async fn kimi_coding_anthropic_coding_plan_endpoint_no_prompt_cache_key() {
+    let body = kimi_member_outbound_raw(
+        Protocol::KimiCoding,
+        Protocol::Anthropic,
+        "gk119ca",
+        true,
+        GLM_ANTHROPIC_IN,
+    )
+    .await;
+    assert!(
+        body.get("prompt_cache_key").is_none(),
+        "anthropic wire coding_plan 端点不应注入 prompt_cache_key: {body}"
+    );
+}
+
+/// review R2-1（issue 119）：kimi_coding openai 端点多轮工具历史携带 reasoning_content。
+/// 官方错误参考 400「thinking is enabled but reasoning_content is missing in assistant
+/// tool call message」；anthropic 客户端回灌的 thinking 块在 openai 转换中被跳过，
+/// assistant tool-call 消息缺 reasoning_content → 上游 400。
+/// https://www.kimi.com/code/docs/kimi-code/error-reference.html
+#[tokio::test]
+async fn kimi_coding_openai_tool_history_carries_reasoning_content() {
+    let history = r#"{"model":"glm-test","max_tokens":64,"messages":[
+        {"role":"user","content":"北京天气?"},
+        {"role":"assistant","content":[
+            {"type":"thinking","thinking":"需要调用天气工具","signature":"sig"},
+            {"type":"tool_use","id":"tu1","name":"get_weather","input":{"city":"北京"}}]},
+        {"role":"user","content":[{"type":"tool_result","tool_use_id":"tu1","content":"晴"}]}]}"#;
+    let body = kimi_member_outbound_raw(
+        Protocol::KimiCoding,
+        Protocol::OpenAI,
+        "gk119mr",
+        true,
+        history,
+    )
+    .await;
+    let asst = body["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["role"] == "assistant" && m.get("tool_calls").is_some_and(|v| !v.is_null()))
+        .expect("出站应含 assistant tool-call 消息");
+    assert_eq!(
+        asst["reasoning_content"],
+        "需要调用天气工具",
+        "assistant tool-call 历史应携带 reasoning_content: {asst}"
+    );
 }
 
 async fn make_state(db: aidog_db::Db) -> Arc<ProxyState> {

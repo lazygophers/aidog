@@ -1183,7 +1183,7 @@ async fn prepare_outbound(ctx: OutboundCtx<'_>) -> Result<Prepared, StageExit> {
     // Coding Plan 特殊处理：注入平台特有字段（issue 68：经适配器钩子分派；
     // 原 override_coding_plan_path 空 hook 已删——api_path 无需覆盖）。
     if target.coding_plan {
-        pa.inject_coding_plan(&mut req_body, platform_protocol);
+        pa.inject_coding_plan(&mut req_body, platform_protocol, target.target_protocol_enum);
     }
 
     // disable_thinking：aidog 本地扩展字段（客户端请求禁用思考）。非标字段任何上游不认 →
@@ -1214,6 +1214,10 @@ async fn prepare_outbound(ctx: OutboundCtx<'_>) -> Result<Prepared, StageExit> {
         target.target_base_url.as_str(),
         forced_thinking,
     );
+
+    // tool_choice 平台差异调整（issue 76 跟进：Kimi 家族 kimi-k2.6 / kimi-k2.7-code 系
+    // 上游对 `tool_choice:"required"` 报错 → 降级为 "auto"；透传与转换两分支共用本 seam）。
+    pa.adjust_tool_choice(&mut req_body, target.target_protocol_enum, &actual_model);
 
     // builtin-tool-compat：内置工具兼容（全局总开关，settings scope "proxy" / key
     // "builtin_tool_compat"，默认关闭零进入）。开启 = 所有平台所有模型剔除内置工具定义。

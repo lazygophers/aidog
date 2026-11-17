@@ -1130,15 +1130,12 @@ async fn handle_single_platform(
         });
     }
 
-    // 高峰禁用优先级高于 status bypass（单平台组不 bypass 此维度）；
-    // 透传平台例外（ADR 0008 决策 2）：高峰禁用维度同样跳过，永远在线。
-    // 开关（disable_during_peak）与窗口命中缺一不可——与多平台路径 is_peak_disabled 同判定。
+    // 高峰禁用优先于单平台 status bypass，窗口内所有模型和协议都停止路由。
     let cache = extra_cache.get(&only.platform.id);
     let peak_windows: &[peak::TimeWindow] =
         cache.map(|c| c.peak_windows.as_slice()).unwrap_or_default();
-    if !is_passthrough
-        && cache.is_some_and(|c| c.disable_during_peak)
-        && is_in_peak_window_cached(peak_windows, now_ms, source_model)
+    if cache.is_some_and(|c| c.disable_during_peak)
+        && is_in_peak_window_cached(peak_windows, now_ms, "")
     {
         tracing::info!(
             group = %group.name, platform = %only.platform.name,
@@ -1738,11 +1735,7 @@ fn filter_candidates<'a>(
         // auto_disabled 维度（DB 持久态）；state_reason 与判定同源（candidate_state 单一真值源）
         let (auto_state, state_reason) = candidate_state(&gp.platform, now_ms, source_model);
         if auto_state.is_none() {
-            // 高峰禁用计数沿用缓存窗口命中口径（与归因解耦，行为与旧实现一致）
-            let cache = extra_cache.get(&gp.platform.id);
-            let peak_windows: &[peak::TimeWindow] =
-                cache.map(|c| c.peak_windows.as_slice()).unwrap_or_default();
-            if is_in_peak_window_cached(peak_windows, now_ms, source_model) {
+            if state_reason == RouteReason::PeakDisabled {
                 peak_disabled_count += 1;
             }
             excluded.push((gp, state_reason));
@@ -1759,8 +1752,7 @@ fn filter_candidates<'a>(
             continue;
         }
 
-        // 透传平台永远在线（ADR 0008 决策 2）：不参与失败计数，跳过配额/auth 冷却与熔断
-        // （candidate_state 已按 Passthrough 跳过高峰禁用与 auto_disabled）。
+        // 透传平台仍跳过失败计数、配额/auth 冷却与熔断；candidate_state 已单独检查高峰禁用。
         if matches!(gp.platform.platform_type, Protocol::Passthrough) {
             active.push(gp);
             continue;
