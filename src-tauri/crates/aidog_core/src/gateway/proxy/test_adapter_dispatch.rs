@@ -1215,19 +1215,11 @@ async fn kimi_coding_openai_disable_thinking_writes_reasoning_effort_none() {
         let req = serde_json::json!({"model": model, "max_tokens": 32, "temperature": 1.0,
             "disable_thinking": true, "messages": [{"role": "user", "content": "hi"}]});
         let body = outbound_body_with(pt.clone(), Protocol::OpenAI, &kimi_gk(&pt, "cbb"), req).await;
-        if model.starts_with("k3.1-pro") {
-            assert_eq!(
-                body.get("reasoning_effort"),
-                Some(&serde_json::json!("none")),
-                "K3.1 Pro 禁思考必须保留 reasoning_effort=none 让上游按官方返回 400: {body}"
-            );
-        } else {
-            assert_eq!(
-                body.get("reasoning_effort"),
-                Some(&serde_json::json!("none")),
-                "其他 kimi_coding 模型禁思考应写 reasoning_effort=none: {body}"
-            );
-        }
+        assert_eq!(
+            body.get("reasoning_effort"),
+            Some(&serde_json::json!("none")),
+            "{model} 禁思考应写 reasoning_effort=none: {body}"
+        );
         assert!(body.get("chat_template_kwargs").is_none(), "kimi_coding 不应写 chat_template_kwargs: {body}");
         assert!(body.get("thinking").is_none(), "kimi_coding 不应写 thinking: {body}");
         assert_eq!(body.get("temperature"), Some(&serde_json::json!(1.0)), "kimi_coding 应透传 temperature: {body}");
@@ -1335,6 +1327,47 @@ async fn kimi_family_error_body() {
             assert!(resp.contains("resource_not_found_error"), "{pt:?}/{ep:?}: {resp}");
         }
     }
+}
+
+/// Issue 119 follow-up: ambiguous model-or-permission wording must not be a shared model-only marker.
+#[test]
+fn ambiguous_model_or_permission_error_remains_unknown() {
+    use aidog_adapter::platform::error::UpstreamErrorClass::Unknown;
+    let body = r#"{"error":{"message":"Not found the model kimi-for-coding or Permission denied"}}"#;
+    for code in ["kimi_coding", "anthropic"] {
+        assert_eq!(aidog_adapter::platform::adapter_for(code).classify_error(404, body), Unknown);
+    }
+}
+
+/// Issue 119 follow-up: same-protocol OpenAI passthrough preserves reasoning history and derives repeatable session keys.
+#[tokio::test]
+async fn kimi_coding_openai_passthrough_preserves_history_and_session_key() {
+    const IN: &str = r#"{"model":"kimi-for-coding","metadata":{"session_id":"session-42"},"messages":[{"role":"assistant","reasoning_content":"prior thought","tool_calls":[{"id":"call-1","type":"function","function":{"name":"lookup","arguments":"{}"}}]},{"role":"tool","tool_call_id":"call-1","content":"result"},{"role":"user","content":"continue"}]}"#;
+    let (status, _, first_hits) = glm_member_call(
+        Protocol::KimiCoding,
+        Protocol::OpenAI,
+        "gk119pass1",
+        "/v1/chat/completions",
+        IN,
+        (200, "application/json", KIMI_OPENAI_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _, second_hits) = glm_member_call(
+        Protocol::KimiCoding,
+        Protocol::OpenAI,
+        "gk119pass2",
+        "/v1/chat/completions",
+        IN,
+        (200, "application/json", KIMI_OPENAI_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let first: serde_json::Value = serde_json::from_str(&first_hits[0].1).unwrap();
+    let second: serde_json::Value = serde_json::from_str(&second_hits[0].1).unwrap();
+    assert_eq!(first["messages"][0]["reasoning_content"], "prior thought");
+    assert!(first["prompt_cache_key"].as_str().unwrap().ends_with("session-42"));
+    assert_eq!(first["prompt_cache_key"], second["prompt_cache_key"]);
 }
 
 /// issue 76（护栏）：非流式 usage 抽取——openai 臂 input 扣除 cached_tokens，anthropic 臂读 cache_read_input_tokens。
