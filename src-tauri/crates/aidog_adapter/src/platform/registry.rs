@@ -472,7 +472,34 @@ impl PlatformAdapter for GlmFamilyAdapter {
 /// - 未证实（保持基座默认）：错误体是否总包含 `base_resp`、Anthropic cache usage 字段、stream usage 的
 ///   含义及其端点差异、工具选择限制、各模型外的固定 sampling 参数。
 ///
-/// 成员差异留给 issue 120–122。
+/// 成员 `minimax`（MiniMax 海螺，中国站；issue 120，核对日期 2026-11-17）：
+/// - 端点：OpenAI Chat Completions 与 Anthropic Messages。registry 地址只用于新建表单预填；运行时使用用户配置的
+///   protocol + base_url（创建 / 更新均保留该配置）。
+/// - OpenAI 请求：`model`、`messages`；支持 `system` role、function `tools`、`image_url` / `video_url`。
+///   `thinking.type` 缺省 `adaptive`；M3 可设 `disabled`，M3.1-Flash 强制 thinking；`max_completion_tokens`
+///   上限 524288、推荐 131072，缺省值未证实；`max_tokens` 已标 deprecated。sampling 固定 temperature=1、
+///   top_p=0.95。文档未证实 tool_choice 限制、Chat Completions 服务端工具、音频请求格式。
+/// - Anthropic 请求：`model`、`messages`，支持 system / tools / thinking；`tool_choice` 仅文档列出 `auto`。
+///   M3.1-Flash thinking 固定开启，effort 缺省 `max`；M3 默认关闭、可用 `adaptive` 开启。
+///   `max_tokens` 上限 524288、推荐 131072，缺省值未证实。支持 JPEG/PNG/GIF/WebP 图片和 MP4/AVI/MOV/MKV
+///   视频；音频输入未证实。服务器端 `web_search` 文档支持 Anthropic Messages 与 OpenAI Responses，未列 Chat Completions。
+/// - 响应 / usage：OpenAI 有 `prompt_tokens`、`completion_tokens`、`total_tokens` 与
+///   `prompt_tokens_details.cached_tokens`；Anthropic 有 `input_tokens`、`output_tokens`、
+///   `cache_read_input_tokens`、`cache_creation_input_tokens`。继续由基座 usage 解析。
+/// - 错误：OpenAI 文档示例使用 `base_resp.status_code/status_msg`，通用错误码页未定义统一 JSON schema；
+///   Anthropic 形状为 `type=error` + `error.type/message`，并列出 HTTP 400/401/403/404/413/429/500/529。
+///   不添加 MiniMax 专属错误分类。
+/// - 流：OpenAI `choices[].delta.content/reasoning_content`，末块可带 `finish_reason`；usage 末块需
+///   `stream_options.include_usage`。Anthropic 事件 `message_start`、`ping`、`content_block_start/delta/stop`、
+///   `message_delta`、`message_stop`；额外 SSE sentinel 未证实。继承基座流解析。
+/// - 未发现区别于家族基座的转换规则。未证实项保持基座行为，不添加请求改写。
+///   https://platform.minimaxi.com/docs/api-reference/text-chat-openai.md
+///   https://platform.minimaxi.com/docs/api-reference/text-chat-anthropic.md
+///   https://platform.minimaxi.com/docs/api-reference/text-prompt-caching.md
+///   https://platform.minimaxi.com/docs/guides/server-tools.md
+///   https://platform.minimaxi.com/docs/api-reference/errorcode.md
+///
+/// 成员差异留给 issue 121–122。
 pub struct MiniMaxFamilyAdapter;
 
 impl PlatformAdapter for MiniMaxFamilyAdapter {
@@ -494,8 +521,25 @@ impl PlatformAdapter for MiniMaxFamilyAdapter {
     }
 }
 
+/// MiniMax 海螺成员适配器；保持家族的 thinking 约定，其他接口继承协议基座默认实现。
+struct MiniMaxAdapter;
+
+impl PlatformAdapter for MiniMaxAdapter {
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        MINIMAX_FAMILY.apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking);
+    }
+}
+
 static GENERIC: GenericAdapter = GenericAdapter;
-static MINIMAX: MiniMaxFamilyAdapter = MiniMaxFamilyAdapter;
+static MINIMAX_FAMILY: MiniMaxFamilyAdapter = MiniMaxFamilyAdapter;
+static MINIMAX: MiniMaxAdapter = MiniMaxAdapter;
 static KIMI: KimiFamilyAdapter = KimiFamilyAdapter {
     official_openai_thinking: true,
     coding_openai_reasoning_effort: false,
@@ -546,8 +590,8 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("magpie", &GENERIC),
     ("meta", &GENERIC),
     ("minimax", &MINIMAX),
-    ("minimax_coding", &MINIMAX),
-    ("minimax_en", &MINIMAX),
+    ("minimax_coding", &MINIMAX_FAMILY),
+    ("minimax_en", &MINIMAX_FAMILY),
     ("mistral", &GENERIC),
     ("modelscope", &GENERIC),
     ("newapi", &GENERIC),

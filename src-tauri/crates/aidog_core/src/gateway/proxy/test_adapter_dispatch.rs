@@ -408,6 +408,60 @@ async fn minimax_family_anthropic_endpoint_proxy_response_usage_stream_and_error
     }
 }
 
+/// MiniMax docs checked 2026-11-18:
+/// - https://platform.minimaxi.com/docs/api-reference/text-chat-openai.md (stream chunks, finish_reason, usage)
+/// - https://platform.minimaxi.com/docs/api-reference/text-chat-anthropic.md (message_stop terminal event)
+/// - https://platform.minimaxi.com/docs/api-reference/errorcode.md (base_resp application codes)
+///
+/// The docs do not map code 2022 to HTTP; this synthetic fixture supplies 400 to test existing behavior only.
+const MINIMAX_OPENAI_SSE: &str = "data: {\"id\":\"chatcmpl_minimax\",\"object\":\"chat.completion.chunk\",\"model\":\"MiniMax-M3\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n\
+data: {\"id\":\"chatcmpl_minimax\",\"object\":\"chat.completion.chunk\",\"model\":\"MiniMax-M3\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":6,\"completion_tokens\":3,\"total_tokens\":9}}\n\n\
+data: [DONE]\n\n";
+const MINIMAX_SYNTHETIC_BASE_RESP: &str =
+    r#"{"base_resp":{"status_code":2022,"status_msg":"synthetic model error"}}"#;
+
+/// OpenAI endpoint streaming and synthetic error traverse the real proxy path for each MiniMax member.
+#[tokio::test]
+async fn minimax_family_openai_endpoint_proxy_stream_and_synthetic_error() {
+    use aidog_adapter::platform::error::UpstreamErrorClass;
+
+    for (pt, gk) in MINIMAX_FAMILY {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::OpenAI,
+            gk,
+            "/v1/messages",
+            r#"{"model":"MiniMax-M3","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+            (200, "text/event-stream", MINIMAX_OPENAI_SSE),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits[0].0, "/chat/completions", "{pt:?}: {hits:?}");
+        assert!(resp.contains("content_block_delta"), "{pt:?}: {resp}");
+        assert!(resp.contains("\"text\":\"hi\""), "{pt:?}: {resp}");
+        assert!(resp.contains("message_stop"), "{pt:?}: {resp}");
+
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::OpenAI,
+            gk,
+            "/v1/messages",
+            r#"{"model":"MiniMax-M3","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+            (400, "application/json", MINIMAX_SYNTHETIC_BASE_RESP),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{pt:?}: {resp}");
+        assert!(!hits.is_empty(), "{pt:?}: fake upstream must receive request");
+        assert!(resp.contains("2022"), "{pt:?}: {resp}");
+        assert_eq!(
+            aidog_adapter::platform::adapter_for("minimax")
+                .classify_error(400, MINIMAX_SYNTHETIC_BASE_RESP),
+            UpstreamErrorClass::Unknown,
+            "{pt:?}: synthetic status code must retain base classification"
+        );
+    }
+}
+
 // ══ issue 113：GLM（智谱）成员 `glm` 逐端点协议护栏（请求转换 / 非流式 / 流式 / 错误 / usage）══
 // 官方出处（核对日期 2026-11-16）：
 // - 对话补全 https://docs.bigmodel.cn/api-reference/%E6%A8%A1%E5%9E%8B-api/%E5%AF%B9%E8%AF%9D%E8%A1%A5%E5%85%A8
