@@ -99,6 +99,37 @@ impl PlatformAdapter for GenericAdapter {}
 ///   Agent，也建议使用此字段」——标准平台可选。aidog 既有迁移行为为 `Protocol::Kimi` + coding_plan 端点
 ///   注入（家族按平台协议分派，成员不覆盖），行为不变。
 /// - 未证实（保持基座默认）：max_tokens 上限（chat.md 未列统一上限）、`content_filter` 错误类型。
+///
+/// 成员 `kimi_en`（Kimi 国际版（月之暗面），api.moonshot.ai 标准平台；issue 118，核对日期 2026-11-17）：
+/// 与家族基座无已证实的成员级差异，登记为 [`KimiFamilyAdapter`]（全量开启家族覆写）；逐项核对结论
+/// （官方原文关键句，国际站 platform.kimi.ai 与中国站同一文档结构）：
+/// - 端点协议：registry 内置默认 openai `https://api.moonshot.ai/v1` 与 anthropic
+///   `https://api.moonshot.ai/anthropic`，与官方一致，运行时只用用户平台配置的端点。
+///   messages.md：「If you already use the Anthropic SDK, Claude Code, or similar tools, simply point
+///   the base URL at `https://api.moonshot.ai/anthropic` to call Kimi models directly」。
+///   https://platform.kimi.ai/docs/api/chat.md https://platform.kimi.ai/docs/api/messages.md
+/// - 思考 / tool_choice / temperature：kimi-k2.6「Thinking is on by default」且「To turn off thinking
+///   for `kimi-k2.6`, set `thinking.type` to `"disabled"`」；kimi-k2.7-code 系（「Thinking and Preserved
+///   Thinking are always on」）与 K3 系列（`thinking`「Not supported」）强制思考；kimi-k2.6 temperature
+///   「Fixed at `1.0` with thinking on and `0.6` with thinking off」；kimi-k2.6 / kimi-k2.7-code 对
+///   `tool_choice`「Passing `"required"` returns an error」，K3 系列「`"auto"` / `"none"` / `"required"`」
+///   不限（同基座覆写行为）。
+///   https://platform.kimi.ai/docs/api/models-overview.md
+/// - usage：openai 臂 `usage.prompt_tokens_details.cached_tokens`（缓存读取）与 `cache_write_tokens`
+///   （缓存写入，「`usage.prompt_tokens` is always the total number of input tokens」），基座按 input
+///   计不区分读写，不覆盖（家族级取舍见基座说明）；anthropic 臂 `cache_read_input_tokens` /
+///   `cache_creation_input_tokens`，「Total input = `input_tokens` + `cache_read_input_tokens` +
+///   `cache_creation_input_tokens`」，与基座一致，不覆盖。
+///   https://platform.kimi.ai/docs/api/chat.md https://platform.kimi.ai/docs/api/messages.md
+/// - 流式 / 错误体 / 工具 / 多模态 / system：同家族基座（`delta.reasoning_content` → `delta.content`、
+///   `data: [DONE]`；`{"error":{"type","message"}}` / `{"type":"error","error":{...}}`、404
+///   `resource_not_found_error`「Model not found, or this account does not have permission to access
+///   the model」；标准 openai 形状），不覆盖。
+///   https://platform.kimi.ai/docs/api/errors.md
+/// - prompt_cache_key：国际站 chat.md 同称「For Kimi Code Plan, this field is required」——`kimi_en`
+///   非编码套餐，基座按平台协议分派对 `KimiEn` 为 no-op，行为不变。
+/// - 未证实（保持基座默认）：max_tokens 上限（chat.md 未列统一上限）、anthropic 端点的 `thinking`
+///   请求参数、`content_filter` 错误类型。
 pub struct KimiFamilyAdapter {
     /// openai 端点禁思考是否写官方 `thinking` 并剥 temperature（kimi / kimi_en 为 true，kimi_coding 为 false）。
     official_openai_thinking: bool,

@@ -1453,11 +1453,16 @@ async fn kimi_family_tool_choice_required_not_downgraded_outside_affected_scope(
 /// 建 Kimi 平台（单 openai 端点指向假上游，coding_plan 按参指定）并挂进分组，收一条入站请求，
 /// 返回上游收到的出站体。
 async fn kimi_member_outbound(gk: &str, coding_plan: bool) -> serde_json::Value {
+    kimi_member_outbound_pt(Protocol::Kimi, gk, coding_plan).await
+}
+
+/// 同 [`kimi_member_outbound`]，平台协议按参指定（issue 118 成员 kimi_en 复用）。
+async fn kimi_member_outbound_pt(pt: Protocol, gk: &str, coding_plan: bool) -> serde_json::Value {
     let (base, hits) = spawn_glm_upstream(200, "application/json", KIMI_OPENAI_RESP).await;
     let state = make_state(test_db().await).await;
     let pid = aidog_db::test_support::create_platform_at_fake_upstream(
         &state.db,
-        Protocol::Kimi,
+        pt,
         &base,
         &[Protocol::OpenAI],
     )
@@ -1525,6 +1530,51 @@ async fn kimi_member_coding_plan_endpoint_injects_prompt_cache_key() {
         body.get("prompt_cache_key").is_none(),
         "非 coding_plan 端点不应注入 prompt_cache_key: {body}"
     );
+}
+
+// ══ issue 118：Kimi 国际版（月之暗面）成员 `kimi_en` 护栏 ══
+// 官方出处（核对日期 2026-11-17，国际站 platform.kimi.ai 原文，本地留档 .tmp/issue-118/docs/）：
+// - Chat Completions https://platform.kimi.ai/docs/api/chat.md
+//   （curl 示例 `https://api.moonshot.ai/v1/chat/completions`；prompt_cache_key「For Kimi Code Plan,
+//   this field is required」）
+// - Messages https://platform.kimi.ai/docs/api/messages.md（「simply point the base URL at
+//   `https://api.moonshot.ai/anthropic`」）
+// - models-overview https://platform.kimi.ai/docs/api/models-overview.md（kimi-k2.6「Thinking is on by
+//   default」/「Passing `"required"` returns an error」；K3 `thinking`「Not supported」）
+// - 错误码 https://platform.kimi.ai/docs/api/errors.md（404 `resource_not_found_error`）
+// 思考 / tool_choice / temperature / usage / 流式 / 错误体逐项核对结论同家族基座（出处见
+// kimi_family_* 各测试头注与 registry.rs 成员节，kimi_en 均在家族循环内），本成员无代码差异，
+// 登记 KimiFamilyAdapter；本节补端到端护栏：kimi_en 走用户配置端点、家族 openai 臂覆写生效、
+// 不注入 prompt_cache_key（非编码套餐，基座按平台协议分派对 KimiEn 为 no-op）。
+
+/// issue 118（护栏）：kimi_en 端到端——anthropic 入站经用户配置端点出站为 openai chat/completions
+/// 形状（家族基座转换）、不注入 prompt_cache_key、禁思考写官方 `thinking.type=disabled` 且剥
+/// temperature（家族 openai 臂覆写对成员生效）。
+#[tokio::test]
+async fn kimi_en_member_outbound_matches_family_base_without_prompt_cache_key() {
+    let body = kimi_member_outbound_pt(Protocol::KimiEn, "gk118en", false).await;
+    assert!(
+        body.get("prompt_cache_key").is_none(),
+        "kimi_en 不应注入 prompt_cache_key: {body}"
+    );
+    assert!(
+        body.get("messages").is_some(),
+        "应经家族基座转换为 openai 形状: {body}"
+    );
+    let mut req = serde_json::json!({"model": "kimi-k2.6", "max_tokens": 32, "temperature": 1.0,
+        "disable_thinking": true, "messages": [{"role": "user", "content": "hi"}]});
+    let body = outbound_body_with(
+        Protocol::KimiEn,
+        Protocol::OpenAI,
+        "gk118ent",
+        req.clone(),
+    )
+    .await;
+    assert_eq!(body.get("thinking"), Some(&serde_json::json!({"type": "disabled"})), "{body}");
+    assert!(body.get("temperature").is_none(), "禁思考应剥 temperature: {body}");
+    req.as_object_mut().unwrap().remove("disable_thinking");
+    let body = outbound_body_with(Protocol::KimiEn, Protocol::OpenAI, "gk118enk", req).await;
+    assert_eq!(body.get("temperature"), Some(&serde_json::json!(1.0)), "未禁思考应透传: {body}");
 }
 
 async fn make_state(db: aidog_db::Db) -> Arc<ProxyState> {
