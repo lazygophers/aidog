@@ -20,5 +20,7 @@ tokio = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
+ctor = { workspace = true }
+rustls = { workspace = true }
 axum = { version = "0.8", features = ["json"] }
 tokio = { workspace = true }

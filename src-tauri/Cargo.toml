@@ -51,7 +51,9 @@ axum = { version = "0.8", features = ["json", "ws"] }
 tokio-tungstenite = { version = "0.30", features = ["native-tls"] }
 hyper-util = { version = "0.1", features = ["server", "server-auto"] }
 hyper = { version = "1", features = ["http1", "http2"] }
-reqwest = { version = "0.13", default-features = false, features = ["rustls", "charset", "http2", "system-proxy", "stream", "json", "query", "socks", "gzip", "brotli", "deflate", "zstd"] }
+# rustls-no-provider：只用 ring 作 rustls 加密后端（不编 aws-lc-rs）。进程入口须先
+#   install_default（src/startup.rs、aidog_kernel main.rs）；各 crate 单测经 ctor 安装（install_test_crypto_provider）。
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "charset", "http2", "system-proxy", "stream", "json", "query", "socks", "gzip", "brotli", "deflate", "zstd"] }
 # 通知外部渠道 email（SMTP，通知体系票 03）：builder + tokio1 + rustls TLS。
 lettre = { version = "0.11", default-features = false, features = ["builder", "smtp-transport", "tokio1", "tokio1-rustls-tls"] }
 # 票 08 无界面内核：`--ui` 形态的静态前端资源（ServeDir + SPA fallback）与 SSE 事件流。
@@ -84,7 +86,9 @@ rand = "0.10"
 # MITM TLS（rustls 生态）
 rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
 rcgen = { version = "0.14", features = ["x509-parser", "pem"] }
-tokio-rustls = "0.26"
+tokio-rustls = { version = "0.26", default-features = false, features = ["logging", "tls12"] }  # 关默认 aws_lc_rs，与 rustls 同用 ring
+# 单测进程启动前安装 rustls ring provider（reqwest rustls-no-provider 的测试侧前提）
+ctor = { version = "1", default-features = false }
 webpki-roots = "1"
 # 测试期 dev-deps（C3+ 各 commands crate dev-deps 引）
 tempfile = "3"
