@@ -242,6 +242,17 @@ fn minimax_family_preserves_generic_protocol_behavior() {
             "prompt_tokens_details": { "cached_tokens": 4 } }
     });
     let error_body = r#"{"error":{"type":"invalid_request_error","message":"bad request"}}"#;
+    let anthropic_message = json!({
+        "id": "msg_1", "type": "message", "role": "assistant", "model": "MiniMax-M3",
+        "content": [{ "type": "text", "text": "hi" }], "stop_reason": "end_turn",
+        "usage": { "input_tokens": 5, "output_tokens": 3 }
+    });
+    let anthropic_delta = json!({
+        "type": "content_block_delta", "index": 0,
+        "delta": { "type": "text_delta", "text": "hi" }
+    });
+    let anthropic_error = r#"{"type":"error","error":{"type":"invalid_request_error","message":"bad request"}}"#;
+    let anthropic_usage = r#"{"usage":{"input_tokens":5,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":1}}"#;
 
     for (code, platform) in [
         ("minimax", Protocol::MiniMax),
@@ -265,6 +276,45 @@ fn minimax_family_preserves_generic_protocol_behavior() {
             "{code} non-stream response"
         );
         assert_eq!(converted["content"][0]["text"], "hi");
+
+        let anthropic_converted = adapter
+            .convert_response(&anthropic_message, &Protocol::Anthropic, &Protocol::OpenAI, "MiniMax-M3")
+            .expect("Anthropic response should convert to OpenAI");
+        assert_eq!(anthropic_converted["choices"][0]["message"]["content"], "hi", "{code} Anthropic non-stream");
+        assert_eq!(
+            anthropic_converted,
+            generic.convert_response(&anthropic_message, &Protocol::Anthropic, &Protocol::OpenAI, "MiniMax-M3").unwrap(),
+            "{code} Anthropic non-stream parity"
+        );
+
+        let anthropic_events = adapter.parse_sse_frame(&anthropic_delta, &Protocol::Anthropic);
+        assert_eq!(
+            format!("{anthropic_events:?}"),
+            format!("{:?}", generic.parse_sse_frame(&anthropic_delta, &Protocol::Anthropic)),
+            "{code} Anthropic stream parity"
+        );
+        assert!(format!("{anthropic_events:?}").contains("hi"), "{code} Anthropic stream content: {anthropic_events:?}");
+
+        assert_eq!(
+            adapter.classify_error(400, anthropic_error),
+            UpstreamErrorClass::Unknown,
+            "{code} Anthropic error classification"
+        );
+        assert_eq!(
+            adapter.classify_error(400, anthropic_error),
+            generic.classify_error(400, anthropic_error),
+            "{code} Anthropic error"
+        );
+        assert_eq!(
+            adapter.extract_usage(anthropic_usage),
+            (5, 3, 2, 1, 0, Vec::new()),
+            "{code} Anthropic usage"
+        );
+        assert_eq!(
+            adapter.extract_usage(anthropic_usage),
+            generic.extract_usage(anthropic_usage),
+            "{code} Anthropic usage parity"
+        );
 
         let events = adapter.parse_sse_frame(&cached_completion, &Protocol::OpenAI);
         assert_eq!(
