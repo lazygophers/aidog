@@ -14,8 +14,8 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use aidog_db::models::SetSettingInput;
 use aidog_db::Db;
+use aidog_db::models::SetSettingInput;
 use serde::{Deserialize, Serialize};
 
 pub const AGENT_CLAUDE: &str = "claude-code";
@@ -48,6 +48,9 @@ pub struct Subagent {
     /// agent → aidog 写出内容的 sha256。
     #[serde(default)]
     pub written: BTreeMap<String, String>,
+    /// 来源插件（Bundle 标记；插件移除时撤自己条目）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bundle: Option<String>,
 }
 
 /// 列表视图：条目 + 每个 agent 的文件状态（on / off / modified / conflict）
@@ -197,7 +200,8 @@ pub(crate) fn agent_status(sub: &Subagent, agent: &str, dirs: &Dirs) -> &'static
 fn valid_name(n: &str) -> bool {
     !n.is_empty()
         && !n.starts_with('-')
-        && n.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        && n.chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
 }
 
 fn slug(s: &str) -> String {
@@ -228,16 +232,22 @@ fn unique_name(list: &[Subagent], base: &str) -> String {
 }
 
 /// (相对路径, name, description, prompt)
-fn scan(root: &Path) -> Vec<(String, String, String, String)> {
+pub(crate) fn scan(root: &Path) -> Vec<(String, String, String, String)> {
     let mut found = Vec::new();
     let mut stack = vec![root.to_path_buf()];
     while let Some(dir) = stack.pop() {
         if dir.join("SKILL.md").exists() {
             continue;
         }
-        let Ok(rd) = std::fs::read_dir(&dir) else { continue };
+        let Ok(rd) = std::fs::read_dir(&dir) else {
+            continue;
+        };
         for p in rd.flatten().map(|e| e.path()) {
-            let fname = p.file_name().unwrap_or_default().to_string_lossy().to_string();
+            let fname = p
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
             if p.is_dir() {
                 if ![".git", ".github", "node_modules"].contains(&fname.as_str()) {
                     stack.push(p);
@@ -248,10 +258,13 @@ fn scan(root: &Path) -> Vec<(String, String, String, String)> {
                 continue;
             }
             let text = std::fs::read_to_string(&p).unwrap_or_default();
-            let Some((fm, body)) = text.strip_prefix("---").and_then(|r| r.split_once("\n---")) else {
+            let Some((fm, body)) = text.strip_prefix("---").and_then(|r| r.split_once("\n---"))
+            else {
                 continue;
             };
-            let Ok(v) = serde_yaml::from_str::<serde_yaml::Value>(fm) else { continue };
+            let Ok(v) = serde_yaml::from_str::<serde_yaml::Value>(fm) else {
+                continue;
+            };
             let desc = one_line(v.get("description").and_then(|d| d.as_str()).unwrap_or(""));
             if desc.is_empty() {
                 continue;
@@ -261,7 +274,9 @@ fn scan(root: &Path) -> Vec<(String, String, String, String)> {
                 .and_then(|n| n.as_str())
                 .map(slug)
                 .filter(|n| !n.is_empty())
-                .unwrap_or_else(|| slug(p.file_stem().unwrap_or_default().to_string_lossy().as_ref()));
+                .unwrap_or_else(|| {
+                    slug(p.file_stem().unwrap_or_default().to_string_lossy().as_ref())
+                });
             if name.is_empty() {
                 continue;
             }
@@ -279,7 +294,10 @@ fn scan(root: &Path) -> Vec<(String, String, String, String)> {
     }
     // 浅层优先：同名冲突时浅层文件胜出（import_into 依赖此顺序）
     found.sort_by(|a, b| {
-        a.0.split('/').count().cmp(&b.0.split('/').count()).then(a.0.cmp(&b.0))
+        a.0.split('/')
+            .count()
+            .cmp(&b.0.split('/').count())
+            .then(a.0.cmp(&b.0))
     });
     found
 }
@@ -330,7 +348,11 @@ pub(crate) fn import_into(
             name: assigned,
             description: desc,
             prompt,
-            agents: agents.iter().filter(|a| AGENTS.contains(&a.as_str())).cloned().collect(),
+            agents: agents
+                .iter()
+                .filter(|a| AGENTS.contains(&a.as_str()))
+                .cloned()
+                .collect(),
             from: Some(from),
             from_hash: Some(upstream),
             ..Default::default()
@@ -349,6 +371,11 @@ async fn load(db: &Db) -> Vec<Subagent> {
     }
 }
 
+/// 插件模块复用：读子代理清单（DB `subagents`）。
+pub(crate) async fn load_list(db: &Db) -> Vec<Subagent> {
+    load(db).await
+}
+
 async fn store(db: &Db, list: &[Subagent]) -> Result<(), String> {
     let value = serde_json::to_value(list).map_err(|e| e.to_string())?;
     aidog_db::set_setting(
@@ -363,6 +390,11 @@ async fn store(db: &Db, list: &[Subagent]) -> Result<(), String> {
     .map(|_| ())
 }
 
+/// 插件模块复用：写子代理清单。
+pub(crate) async fn store_list(db: &Db, list: &[Subagent]) -> Result<(), String> {
+    store(db, list).await
+}
+
 fn views(list: &[Subagent], dirs: &Dirs) -> Vec<SubagentView> {
     list.iter()
         .map(|s| SubagentView {
@@ -373,7 +405,15 @@ fn views(list: &[Subagent], dirs: &Dirs) -> Vec<SubagentView> {
                 .collect(),
             capabilities: AGENTS
                 .iter()
-                .map(|a| (a.to_string(), agent_capabilities(a).iter().map(|s| s.to_string()).collect()))
+                .map(|a| {
+                    (
+                        a.to_string(),
+                        agent_capabilities(a)
+                            .iter()
+                            .map(|s| s.to_string())
+                            .collect(),
+                    )
+                })
                 .collect(),
         })
         .collect()
@@ -417,6 +457,8 @@ crate::tauri_command! {
         if let Some(i) = old_idx {
             let mut old = list.remove(i);
             (s.from, s.from_hash) = (old.from.clone(), old.from_hash.clone());
+            // bundle 沿旧条目（插件部件经普通编辑仍归插件，移除时照常撤）
+            s.bundle = old.bundle.clone();
             if old.name == s.name {
                 s.written = old.written;
             } else {
@@ -481,7 +523,10 @@ async fn stage_source(source: &str) -> Result<(PathBuf, Option<tempfile::TempDir
         .await
         .map_err(|e| format!("git clone: {e}"))?;
     if !out.status.success() {
-        return Err(format!("git clone failed: {}", String::from_utf8_lossy(&out.stderr).trim()));
+        return Err(format!(
+            "git clone failed: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
     }
     Ok((dest, Some(tmp)))
 }
