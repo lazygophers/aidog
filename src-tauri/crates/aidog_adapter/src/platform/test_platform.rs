@@ -222,6 +222,49 @@ fn error_and_usage_defaults_match_legacy_helpers() {
     }
 }
 
+/// MiniMax 海螺成员沿用原有 OpenAI wire 禁思考映射；本地 endpoint URL 不触发官方域名特殊分支。
+#[test]
+fn minimax_member_disables_thinking_with_native_parameter() {
+    let adapter = super::adapter_for("minimax");
+    let mut body = json!({ "model": "MiniMax-M3" });
+    adapter.apply_disable_thinking(
+        &mut body,
+        true,
+        &Protocol::OpenAI,
+        "http://127.0.0.1:31234/custom/v1",
+        false,
+    );
+    assert_eq!(body["thinking"]["type"], "disabled");
+    assert!(body.get("reasoning_effort").is_none());
+
+    let mut forced = json!({ "model": "MiniMax-M3.1-Flash" });
+    adapter.apply_disable_thinking(
+        &mut forced,
+        true,
+        &Protocol::OpenAI,
+        "http://127.0.0.1:31234/custom/v1",
+        true,
+    );
+    assert!(forced.get("thinking").is_none());
+    assert!(forced.get("reasoning_effort").is_none());
+}
+
+/// Synthetic base_resp input: code 2022 is ambiguous, so do not infer HTTP status semantics or model-only failure.
+#[test]
+fn minimax_synthetic_base_resp_stays_unclassified() {
+    let adapter = super::adapter_for("minimax");
+    let body = r#"{"base_resp":{"status_code":2022,"status_msg":"模型不存在或无权使用"}}"#;
+
+    assert_eq!(
+        adapter.classify_error(400, body),
+        UpstreamErrorClass::Unknown
+    );
+    assert_eq!(
+        adapter.classify_error(400, body),
+        super::adapter_for("deepseek").classify_error(400, body)
+    );
+}
+
 /// MiniMax family inherits protocol conversion, response, stream, error, and usage behavior from the framework.
 #[test]
 fn minimax_family_preserves_generic_protocol_behavior() {
