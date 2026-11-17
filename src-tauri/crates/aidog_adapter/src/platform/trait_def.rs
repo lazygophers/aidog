@@ -71,9 +71,11 @@ pub trait PlatformAdapter: Send + Sync {
     // ══ 平台差异钩子（家族成员覆盖差异；默认 = 现状通用行为）══
 
     /// Coding Plan 端点注入（端点 `coding_plan` flag 命中时调用）。默认按平台协议分派
-    /// （仅 Kimi 协议注入 prompt_cache_key），与历史 headers.rs 同名函数等价。
-    fn inject_coding_plan(&self, body: &mut Value, platform: &Protocol) {
-        hooks::inject_coding_plan_fields(body, platform);
+    /// （仅 Kimi 协议 + openai wire 注入 prompt_cache_key），与历史 headers.rs 同名函数等价。
+    /// `wire` = 端点协议：注入键按 wire 语义校验（Kimi 的 prompt_cache_key 仅 Chat
+    /// Completions 文档化，Anthropic Messages 端点不注入）。
+    fn inject_coding_plan(&self, body: &mut Value, platform: &Protocol, wire: &Protocol) {
+        hooks::inject_coding_plan_fields(body, platform, wire);
     }
 
     /// 同协议透传分支：无签名 thinking 块清洗（仅 Anthropic wire 上游），

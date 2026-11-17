@@ -11,6 +11,7 @@ use serde_json::Value;
 use super::error;
 use super::hooks;
 use super::PlatformAdapter;
+use crate::converter;
 
 /// 家族基座（通用适配）：全部接口与钩子 = trait 默认实现，
 /// 与历史「按 wire 协议分派 + 通用钩子」链路逐字节等价。
@@ -32,8 +33,8 @@ impl PlatformAdapter for GenericAdapter {}
 ///   https://platform.kimi.com/docs/api/chat.md https://platform.kimi.ai/docs/api/chat.md
 ///   https://platform.kimi.com/docs/guide/use-thinking-models.md
 ///   上述取证只覆盖开放平台模型，openai 臂覆写仅对 kimi / kimi_en 生效；kimi_coding 的 openai 端点
-///   禁思考保持基座行为（写 `chat_template_kwargs.enable_thinking=false`、不剥 temperature），
-///   语义推迟到成员 issue 119。重开依据（Kimi Code 模型页原文，核对日期 2026-11-16）：
+///   禁思考写 Kimi Code 官方认收的 `reasoning_effort: "none"`（成员 issue 119，见下成员节）。
+///   重开依据（Kimi Code 模型页原文，核对日期 2026-11-17）：
 ///   「off / none / disabled … K3 系列、K2.8 Preview 与 K2.7 Code Highspeed：关闭 thinking 后，请求均由
 ///   K2.8 Preview（无思考）处理」「K3.1 Pro 系列：关闭思考的请求会被拒绝（HTTP 400）」；该页无 temperature
 ///   固定值说明。https://www.kimi.com/code/docs/kimi-code/models.html
@@ -69,9 +70,8 @@ impl PlatformAdapter for GenericAdapter {}
 ///   kimi-k2.7-code-highspeed）`supported_protocols`
 ///   相应只留 `["openai"]`（K3 系列条目保持含 `anthropic`）。
 ///   https://platform.kimi.com/docs/api/messages.md
-/// - coding_plan 注入：沿用基座按平台协议分派（仅 `Protocol::Kimi` 注入 `prompt_cache_key`，
-///   `kimi_en` / `kimi_coding` no-op），行为不变；chat.md 称「对于 Kimi Code Plan，此字段为必填」，
-///   是否对 `kimi_coding` 启用归成员 issue 119。
+/// - coding_plan 注入：沿用基座按平台协议分派（`Protocol::Kimi` / `Protocol::KimiCoding` 注入
+///   `prompt_cache_key`，`kimi_en` no-op），行为不变；chat.md 称「对于 Kimi Code Plan，此字段为必填」。
 /// - 未证实（保持基座默认）：anthropic 端点的 `thinking` 请求参数（messages.md 未列出）、
 ///   `content_filter` 错误类型（当前归「未知」类）。
 ///
@@ -130,15 +130,90 @@ impl PlatformAdapter for GenericAdapter {}
 ///   非编码套餐，基座按平台协议分派对 `KimiEn` 为 no-op，行为不变。
 /// - 未证实（保持基座默认）：max_tokens 上限（chat.md 未列统一上限）、anthropic 端点的 `thinking`
 ///   请求参数、`content_filter` 错误类型。
+///
+/// 成员 `kimi_coding`（Kimi 编程套餐（月之暗面会员），api.kimi.com 编码端点；issue 119，核对日期
+/// 2026-11-17）两项已证实差异：openai 端点禁思考写 `reasoning_effort: "none"`；coding_plan 端点
+/// 注入 `prompt_cache_key`。其余同家族基座。逐项核对结论（官方原文关键句，本地留档
+/// `.tmp/issue-119/docs/`）：
+/// - 端点协议：Kimi Code 模型页「Kimi Code API 支持 OpenAI（Responses / Chat Completions）和
+///   Anthropic 协议」，Base URL「OpenAI（Responses / Chat Completions）| 国内
+///   `https://api.kimi.com/coding/v1`」「Anthropic 兼容 | 国内 `https://api.kimi.com/coding/`」，
+///   与 registry 内置默认一致（海外 `api.kimi.ai` registry 未内置，用户可手配）；运行时只用用户
+///   平台配置的端点。https://www.kimi.com/code/docs/kimi-code/models.html
+/// - 思考开关（两协议端点）：模型页 effort 映射表「未传 effort 使用模型默认值：K3.1 Pro 系列和
+///   K3 系列为 high，K2.8 Preview 为 max」「off / none / disabled → K3.1 Pro 系列：关闭思考的请求
+///   会被拒绝（HTTP 400）；K3 系列、K2.8 Preview 与 K2.7 Code Highspeed：关闭 thinking 后，请求均由
+///   K2.8 Preview（无思考）处理」「其他未知取值 返回 HTTP 400」；chat.md「Kimi K3 系列始终开启思考
+///   与 Preserved Thinking，使用顶层 `reasoning_effort`（支持 `"low"`、`"high"`、`"max"`，默认
+///   `"max"`），不使用 `thinking` 参数」。故禁思考写顶层 `reasoning_effort: "none"`（kimi-k2.6 式
+///   `thinking.type` 与 vLLM 式 `chat_template_kwargs` 均非本套餐参数）；K2.7 Code Highspeed
+///   「不支持调整思考程度」，禁思考后由 K2.8 Preview（无思考）处理，不额外剥除。K3.1 Pro 系列
+///   registry 未建条目，其「禁思考 400」暂无覆盖路径，复活条件：registry 增加 k3.1-pro 条目时
+///   评估强制思考标注。成员不剥 temperature（模型页无固定值说明）。
+///   https://www.kimi.com/code/docs/kimi-code/models.html https://platform.kimi.com/docs/api/chat.md
+/// - tool_choice：模型页与 chat.md 均未列编码套餐模型的 `tool_choice` 约束，不降级 `"required"`
+///   （家族开关对该成员关闭）。
+/// - prompt_cache_key：chat.md「`prompt_cache_key` … 对于 Kimi Code Plan，此字段为必填以提高缓存
+///   命中率。对于其他多轮对话 Agent，也建议使用此字段」「通常是代表单个会话的 session id 或 task
+///   id；退出并恢复会话时应保持不变」。迁移前转发层仅对 `Protocol::Kimi` 注入、
+///   `KimiCoding` 走 no-op——与官方「必填」相悖，属迁移缺口；本成员按官方证据扩为
+///   `Protocol::KimiCoding` + coding_plan 端点注入（客户端自带键原样保留；缺省时按
+///   metadata.session_id / user / model 派生稳定键，不按时间窗口轮换），非 coding_plan 端点
+///   不注入（注入条件同源：端点 coding_plan flag）。https://platform.kimi.com/docs/api/chat.md
+/// - usage：openai 臂 `usage.prompt_tokens_details.cached_tokens` / `cache_write_tokens`、anthropic 臂
+///   `cache_read_input_tokens` / `cache_creation_input_tokens`，同家族基座（家族级取舍不区分缓存
+///   写入，见基座说明），不覆盖。Kimi Code 专属文档（models.html / error-reference.html）未列 usage
+///   字段。anthropic 端点请求侧新增顶层 `cache_control`（5m/1h TTL，不传默认 5m 读写）与
+///   `output_config.effort`（messages.md schema）；aidog 不写即官方默认，不覆盖。
+///   https://platform.kimi.com/docs/api/messages.md
+/// - 流式 / 错误体：错误参考页条目均为「error, status code: <code>, message: <text>」文案形态，
+///   JSON 错误体形状未证实；404「Not found the model kimi-for-coding or Permission denied」由基座
+///   特征词 `not found the model` 归模型类、400「Your model id does not exist, recognized as …」
+///   命中 `does not exist`（has_model 分支），429 配额与 401/403 按状态码归服务类，与基座一致，不覆盖。
+///   https://www.kimi.com/code/docs/kimi-code/error-reference.html
+/// - 工具 / 多模态 / system：模型页「多模态输入支持 图片、视频」（k3-256k 仅图片）；错误参考
+///   「thinking is enabled but reasoning_content is missing … 启用思维链时必须携带」是
+///   **Kimi Code 专属校验**，与基座 openai 形状冲突：anthropic 客户端回灌的 thinking 块在
+///   openai 转换中被跳过，多轮工具历史的 assistant tool-call 消息将缺 reasoning_content →
+///   上游 400。已按成员覆写（openai wire 从 ChatRequest 取回 thinking 文本写入
+///   reasoning_content，见 `carry_history_reasoning`）；「function name … is duplicated」
+///   为上游校验行为，与基座形状不冲突，不覆盖。
+///   https://www.kimi.com/code/docs/kimi-code/models.html
+///   https://www.kimi.com/code/docs/kimi-code/error-reference.html
+/// - 未证实（保持基座默认）：max_tokens 上限、JSON 错误体形状、anthropic 端点的 `thinking`
+///   请求参数、`content_filter` 错误类型。
 pub struct KimiFamilyAdapter {
-    /// openai 端点禁思考是否写官方 `thinking` 并剥 temperature（kimi / kimi_en 为 true，kimi_coding 为 false）。
+    /// openai 端点禁思考是否写官方 `thinking` 并剥 temperature（kimi / kimi_en 为 true，
+    /// kimi_coding 为 false——改写官方认收的 `reasoning_effort: "none"`，见下 coding 分支）。
     official_openai_thinking: bool,
+    /// openai wire 禁思考是否写 Kimi Code 官方认收的顶层 `reasoning_effort: "none"`
+    /// （仅 kimi_coding 为 true，成员 issue 119）。
+    coding_openai_reasoning_effort: bool,
+    /// openai wire 多轮工具历史是否携带 reasoning_content（Kimi Code 专属校验，thinking
+    /// 启用时缺失 → 上游 400；仅 kimi_coding 为 true，成员 issue 119 review R2）。
+    /// https://www.kimi.com/code/docs/kimi-code/error-reference.html
+    carry_history_reasoning_openai: bool,
     /// openai wire 出站是否把受影响模型的 `tool_choice:"required"` 降级为 `"auto"`
-    /// （kimi / kimi_en 为 true；kimi_coding 保持现状，成员 issue 119）。
+    /// （kimi / kimi_en 为 true；kimi_coding 无已证实约束，不降级，成员 issue 119）。
     downgrade_required_tool_choice: bool,
 }
 
 impl PlatformAdapter for KimiFamilyAdapter {
+    /// 差异（review R2，仅 kimi_coding openai wire）：多轮工具历史的 assistant tool-call
+    /// 消息携带 reasoning_content（官方错误参考 400，见 [`hooks::carry_history_reasoning`]）。
+    fn build_request(
+        &self,
+        chat_req: &crate::types::ChatRequest,
+        wire: &Protocol,
+        platform: &Protocol,
+    ) -> (Value, String) {
+        let (mut body, path) = converter::convert_request(chat_req, wire, platform);
+        if self.carry_history_reasoning_openai && wire == &Protocol::OpenAI {
+            hooks::carry_history_reasoning(&mut body, chat_req);
+        }
+        (body, path)
+    }
+
     /// 差异：openai 端点禁思考写官方 `thinking.type=disabled`，不写基座第三方端点用的
     /// vLLM 式 `chat_template_kwargs.enable_thinking`（Kimi Chat Completions 文档无此参数）。
     /// 写出值与基座 anthropic 臂相同，故按 anthropic 臂执行；其余 wire 与强制思考路径同基座。
@@ -154,6 +229,40 @@ impl PlatformAdapter for KimiFamilyAdapter {
         upstream_url: &str,
         forced_thinking: bool,
     ) {
+        // kimi_coding openai 端点：官方认收的禁思考写法是顶层 `reasoning_effort`（取值域
+        // low/high/max + none；「off / none / disabled … K3 系列、K2.8 Preview 与 K2.7 Code
+        // Highspeed：关闭 thinking 后，请求均由 K2.8 Preview（无思考）处理」「K3.1 Pro 系列：
+        // 关闭思考的请求会被拒绝（HTTP 400）」「其他未知取值 返回 HTTP 400」），文档未列
+        // `thinking` / `chat_template_kwargs` 参数。禁思考统一写 `reasoning_effort: "none"`
+        // 交给上游裁决：K3.1 Pro（k3.1-pro / k3.1-pro-highspeed）按官方返回 400
+        // 「K3.1 Pro does not support disabled thinking mode」，不静默降级为默认思考请求。
+        // 写法与基座官方 OpenAI host 臂同形（`reasoning_effort: "none"`）；K2.7 Code Highspeed
+        // 「不支持调整思考程度」，禁思考后由 K2.8 Preview（无思考）处理，不额外剥除。
+        // https://www.kimi.com/code/docs/kimi-code/models.html
+        // https://www.kimi.com/code/docs/kimi-code/error-reference.html
+        // https://platform.kimi.com/docs/api/chat.md
+        if self.coding_openai_reasoning_effort
+            && wire == &Protocol::OpenAI
+            && disable
+            && !forced_thinking
+            && let Some(obj) = body.as_object_mut()
+        {
+            obj.remove("disable_thinking");
+            for k in [
+                "thinking",
+                "context_management",
+                "reasoning_effort",
+                "reasoning",
+                "enable_thinking",
+            ] {
+                obj.remove(k);
+            }
+            obj.insert(
+                "reasoning_effort".to_string(),
+                Value::String("none".to_string()),
+            );
+            return;
+        }
         let wire = match wire {
             Protocol::OpenAI if self.official_openai_thinking => {
                 if disable
@@ -172,7 +281,7 @@ impl PlatformAdapter for KimiFamilyAdapter {
     /// 差异：kimi-k2.6 / kimi-k2.7-code（含 -highspeed，与 kimi-k2.7-code 参数约束相同）的
     /// Chat Completions 对 `tool_choice: "required"` 报错；openai wire 出站把这些模型的
     /// `"required"` 改写为 `"auto"`。K3 系列接受 `"required"`，不降级；anthropic wire 不在范围；
-    /// kimi_coding 经实例开关保持现状（成员 issue 119）。
+    /// kimi_coding 经实例开关不降级（成员 issue 119：编码套餐文档未列该约束）。
     /// https://platform.kimi.com/docs/api/models-overview.md
     fn adjust_tool_choice(&self, body: &mut Value, wire: &Protocol, model: &str) {
         if !self.downgrade_required_tool_choice || wire != &Protocol::OpenAI {
@@ -340,10 +449,14 @@ impl PlatformAdapter for GlmFamilyAdapter {
 static GENERIC: GenericAdapter = GenericAdapter;
 static KIMI: KimiFamilyAdapter = KimiFamilyAdapter {
     official_openai_thinking: true,
+    coding_openai_reasoning_effort: false,
+    carry_history_reasoning_openai: false,
     downgrade_required_tool_choice: true,
 };
 static KIMI_CODING: KimiFamilyAdapter = KimiFamilyAdapter {
     official_openai_thinking: false,
+    coding_openai_reasoning_effort: true,
+    carry_history_reasoning_openai: true,
     downgrade_required_tool_choice: false,
 };
 static GLM: GlmFamilyAdapter = GlmFamilyAdapter;
