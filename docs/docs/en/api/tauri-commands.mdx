@@ -1,0 +1,10 @@
+---
+title: Tauri command usage
+description: How the desktop frontend invokes Rust commands and where the type boundaries live.
+---
+
+# Tauri command usage
+
+The frontend calls registered Rust commands through Tauri `invoke`. The invoke name is the `#[tauri::command]` function name and is unrelated to the Rust module path; the registration set in `src-tauri/src/startup.rs` is the single source of truth.
+
+Application code should reuse the existing wrappers in `src/services/api/` instead of assembling command names in pages. Parameters use Tauri-serialized field names, and errors reach the caller through the rejected Promise.

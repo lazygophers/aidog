@@ -1,0 +1,8 @@
+[
+  { "type": "file", "name": "platforms-protocols", "label": "Providers and protocols" },
+  { "type": "file", "name": "groups-routing", "label": "Groups and routing" },
+  { "type": "file", "name": "model-mapping", "label": "Model mapping" },
+  { "type": "file", "name": "failover-circuit-breaker", "label": "Failover and circuit breaking" },
+  { "type": "file", "name": "usage-pricing", "label": "Usage and cost estimates" },
+  { "type": "file", "name": "data-privacy", "label": "Data and privacy" }
+]

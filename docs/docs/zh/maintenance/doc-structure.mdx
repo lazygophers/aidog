@@ -1,10 +1,18 @@
 ---
 title: 文档结构
-description: 维护 aidog 中英文文档目录、五区信息架构、导航和页面元数据。
+description: 了解中文文档目录、页面导航和生成内容的边界。
 ---
 
 # 文档结构
 
-中文文档按 `getting-started`、`core-concepts`、`features`、`api`、`maintenance` 五区组织，页面全部使用 MDX。路径使用英文 kebab-case，`title` 与 `description` 使用中文。
+中文页面位于 `docs/docs/zh/`，按用途分为：
 
-公开任务进入前四区；内部、Debug、测试和贡献者内容只进入维护区。英文区独立维护，不因中文改版自动覆盖。
+- `getting-started/`：安装、首次配置和客户端连接。
+- `core-concepts/`：分组、协议、路由、用量和隐私说明。
+- `features/`：应用功能介绍。
+- `api/`：接口说明与命令字典。
+- `maintenance/`：文档和代码维护说明。
+
+页面用 MDX 编写。手写文档应面向读者的任务，并以当前代码和可核实的产品行为为依据。不能从示意图推断功能或界面行为。
+
+`api/commands.generated.mdx` 是生成文件。修改 Tauri 命令或其 TypeScript wrapper 后，按[命令字典生成说明](/zh/maintenance/command-gen)重新生成并检查；不要直接编辑生成结果。

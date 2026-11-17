@@ -1,285 +1,86 @@
 <div align="center">
 
-# 🐕 AiDog
+# AiDog
 
-**Passerelle API IA unifiée**
+**Gérez vos plateformes d'IA sur votre machine et transférez les requêtes de vos clients vers les plateformes de votre choix.**
 
-Application de bureau · Sans cloud · 50+ plateformes en un · Routage intelligent · Analytique d'usage
+Une application de bureau offrant un proxy local, le routage par groupes, le mappage de modèles, la journalisation des requêtes et l'estimation de la consommation.
 
-[![Documentation](https://img.shields.io/badge/docs-lazygophers.github.io/aidog-0a66c2?logo=sphinx&logoColor=white)](https://lazygophers.github.io/aidog/fr/)
-[![GitHub Release](https://img.shields.io/github/v/release/lazygophers/aidog?logo=github&label=release)](https://github.com/lazygophers/aidog/releases/latest)
-[![License](https://img.shields.io/badge/license-AGPL_3.0-blue)](#license)
-[![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?logo=tauri&logoColor=white)](https://github.com/lazygophers/aidog/releases/latest)
-[![GitHub Stars](https://img.shields.io/github/stars/lazygophers/aidog?style=social)](https://github.com/lazygophers/aidog/stargazers)
-[![Downloads](https://img.shields.io/github/downloads/lazygophers/aidog/total?logo=github)](https://github.com/lazygophers/aidog/releases)
-[![Last Commit](https://img.shields.io/github/last-commit/lazygophers/aidog?logo=git&logoColor=white)](https://github.com/lazygophers/aidog/commits)
-[![Issues](https://img.shields.io/github/issues/lazygophers/aidog?logo=github)](https://github.com/lazygophers/aidog/issues)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?logo=github)](https://github.com/lazygophers/aidog/pulls)
+[Documentation](https://lazygophers.github.io/aidog/en/) · [Dernière version](https://github.com/lazygophers/aidog/releases/latest) · [Signaler un problème](https://github.com/lazygophers/aidog/issues)
 
-[简体中文](README.md) · [English](README.en.md) · `Français` · [Deutsch](README.de.md) · [Русский](README.ru.md) · [العربية](README.ar.md) · [Español](README.es.md) · [日本語](README.ja.md)
+[简体中文](README.md) · [English](README.en.md) · Français · [Deutsch](README.de.md) · [Русский](README.ru.md) · [العربية](README.ar.md) · [Español](README.es.md) · [日本語](README.ja.md)
 
 </div>
 
----
+AiDog exécute un service proxy sur votre ordinateur. Vous enregistrez les plateformes amont et les clés API dans AiDog, puis vous connectez Claude Code, Codex, pi ou d'autres clients compatibles au proxy local. Les requêtes sont toujours envoyées vers l'amont sélectionné ; une exécution locale ne signifie pas que les requêtes restent sur votre machine.
 
-> 📖 **Documentation complète** : <https://lazygophers.github.io/aidog/fr/>
+## À qui ça s'adresse
 
-AiDog est une **passerelle API IA de bureau** basée sur Tauri. Elle unifie la gestion, le routage et la supervision des requêtes sur plus de 50 plateformes IA — en regroupant dans une seule application les clés API dispersées, les correspondances de modèles, l'équilibrage de charge, l'analytique d'usage et la configuration des assistants de code. Sans service backend, sans cloud ; toutes les données restent dans une base SQLite locale.
+- Vous utilisez plusieurs services d'IA et souhaitez gérer les identifiants et les modèles dans une seule application.
+- Vous voulez que différents clients utilisent différents groupes, mappages de modèles ou plateformes candidates.
+- Vous avez besoin de consulter l'état des requêtes, la consommation, les coûts estimés et les résultats de routage.
+- Vous voulez que Claude Code, Codex ou pi partagent un même point d'entrée proxy local.
 
-![AiDog — Tableau de bord](screenshots/dashboard.png)
+## Ce qu'il fait
 
-## Ce qu'elle résout
+### Proxy local et routage
 
-| Votre douleur | Comment AiDog la traite |
-| --- | --- |
-| Clés API dispersées sur une douzaine de plateformes, pénible à basculer | **Agrégation multi-plateforme** — 50+ préréglages, gérer chaque clé au même endroit |
-| Une plateforme tombe et tout votre flux s'arrête | **Basculement + équilibrage de charge** — relance auto, disjonction, scheduling entre plateformes |
-| Claude Code / Codex / chaque client configuré séparément | **Intégration native des assistants de code** — export de config en un clic, tout le trafic via le proxy |
-| Aucune idée de votre dépense mensuelle ni de la plateforme bientôt épuisée | **Suivi d'usage** — tokens + estimation de coût + solde + quota Coding Plan |
-| Données à ne pas mettre dans le cloud ni chez des tiers | **Pur local** — proxy + base sur votre machine, zéro exfiltration |
+- Gérez les préréglages de plateformes intégrés, et configurez des plateformes personnalisées.
+- Isolez les requêtes des clients par groupes et associez à chaque groupe ses propres plateformes.
+- Sélectionnez les plateformes candidates selon le mappage de modèles, le protocole du point de terminaison et la disponibilité.
+- Les emplacements multi-modèles prennent en charge des chaînes de modèles ordonnées ; les candidates suivants sont essayés en cas d'échec d'une requête.
+- Prend en charge le transfert et l'adaptation pour les protocoles OpenAI, Anthropic, Gemini et autres ; les capacités réelles dépendent du point de terminaison de la plateforme et du type de requête.
+- Prend en charge les règles de middleware, la configuration des modèles par période et la planification de santé du routage.
 
-## Fonctionnalités clés
+### Journaux et statistiques
 
-### 🌐 Passerelle & routage
-- **Agrégation multi-plateforme** — 50+ préréglages (Anthropic / OpenAI / DeepSeek / GLM / Kimi / MiniMax / Qwen / SiliconFlow / OpenRouter, etc.), configuration en un clic
-- **Groupes intelligents** — correspondance par jeton Bearer / chemin ; Failover et Load Balance
-- **Correspondance de modèles** — substitution transparente du nom de modèle (ex. `claude-sonnet-4` → `deepseek-chat`)
-- **Conversion de protocole** — bidirectionnelle entre OpenAI Chat / Completions / Responses, Anthropic et Gemini
-- **Disjonction & scheduling** — disjonction auto des plateformes anormales, gestion tri-état, backoff exponentiel, scheduling intelligent intra-groupe
-- **Moteur de règles middleware** — règles entrantes/sortantes : normalisation, surcharge, caviardage, injection, filtrage de mots sensibles, détection d'erreurs, avec préréglages intégrés
+- Consultez les requêtes du proxy ainsi que les enregistrements distincts des tests, des requêtes de solde et des listes de modèles.
+- Conservez ou effacez le contenu brut des deux côtés d'une requête selon les paramètres ; les en-têtes de requête sensibles sont masqués.
+- Estimez les coûts à partir de la consommation des réponses et des prix de modèles intégrés. Les estimations ne remplacent pas la facturation de l'amont.
+- Consultez les soldes des plateformes, les quotas et les statistiques d'utilisation par groupe ; ces indicateurs utilisent des méthodes de calcul différentes et ne sont pas directement équivalents.
 
-### 📊 Suivi & statistiques
-- **Suivi d'usage** — stats de tokens, estimation des coûts (synchro auto des prix + budget manuel)
-- **Requêtes de solde** — solde de chaque plateforme en temps réel
-- **Quota Coding Plan** — affichage et compte à rebours du quota Coding Plan DeepSeek / Kimi / GLM
-- **Journaux de requêtes** — trois niveaux de granularité (requête utilisateur / requête amont / résumé), chacun avec commutateur et rétention indépendants
+### Clients et outils
 
-### 🤖 Intégration assistants de code
-- **Claude Code** — intégration native : édition de config, import/export en un clic, scripts StatusLine, Hooks, synchro de config par groupe
-- **OpenAI Codex** — intégration native : éditeur `~/.codex/config.toml`, routage auto de l'API Responses
-- **Gestion MCP** — stockage centralisé en DB + activation par agent + scan & import + masquage des champs sensibles
-- **Gestion Skills** — liste unifiée cross-platform basée sur npx + activation par élément
-- **Notifications système** — annonces TTS / popup / boîte de réception + injection en un clic du hook Claude Code/Codex
-
-### 🎨 Personnalisation
-- **Système de thèmes** — 3 axes : 9 styles (Liquid Glass / Flat / Soft / Sharp / Aurora / Paper / Terminal / Bento / Sketchy) × 12 palettes nommées (Apple Blue / Nord / Dracula / Catppuccin / Gruvbox / Tokyo Night / One Dark / Material / GitHub / Night Owl, etc.) × modes clair/sombre
-- **Internationalisation** — 8 langues (dont arabe RTL)
-- **Import & export** — conteneur mono-fichier chiffré AES-256-GCM `.aidogx`, 7 périmètres avec résolution de conflit par élément
-- **Tray + barre d'état** — actions rapides depuis le tray système + scripts de barre d'état personnalisables (Python + uv)
-
-## Comparaison avec les outils similaires
-
-AiDog appartient à la catégorie des passerelles IA locales / auto-hébergées. Le tableau ci-dessous compare brièvement les projets open source similaires ; la comparaison détaillée (dont le tableau magpie complet) se trouve sur le site de documentation : [Comparaison avec les outils similaires](https://lazygophers.github.io/aidog/en/guide/comparison).
-
-| Projet | Forme | Positionnement |
-| --- | --- | --- |
-| **AiDog** | Desktop app + headless kernel | Multi-platform group routing, multi-protocol forwarding, model-chain fallback, usage metering, full coding-assistant config suites |
-| [magpie](https://github.com/yetone/magpie) | Menu bar + TUI / Web / CLI / Docker | Atomic config rewrite for 70+ agents, subscription bridging, routing groups, PII masking, Bun plugins |
-| [Claude Code Router](https://github.com/musistudio/claude-code-router) | Desktop app + npm CLI + Docker | Config push for 10+ agents, multi-protocol conversion, credential pools with ordered fallback |
-| [new-api](https://github.com/QuantumNous/new-api) | Self-hosted server | Channel-based team gateway, quotas and billing, user management |
-| [LiteLLM Proxy](https://github.com/BerriAI/litellm) | Python SDK + gateway service | 100+ providers in unified OpenAI format, load balancing, spend tracking |
-| [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) | Go proxy service | Subscription-account bridging as the focus, multi-account rotation |
-| [GPT-Load](https://github.com/tbphp/gpt-load) | Self-hosted server | Native protocol passthrough, multi-credential scheduling, local credential encryption |
+- Gérez les configurations de Claude Code, Codex et pi, et générez les instructions de connexion par groupe.
+- Gérez les serveurs MCP, les skills, les notifications et les paramètres système.
+- Exécutez éventuellement un noyau headless, piloté via une API de gestion limitée à l'accès local.
 
 ## Installation
 
-### Configuration requise
+Téléchargez depuis [GitHub Releases](https://github.com/lazygophers/aidog/releases/latest) le paquet d'installation correspondant à votre système. Les paquets, architectures et prérequis disponibles par système sont indiqués sur la page de cette version.
 
-| OS | Version minimale | Notes |
-| --- | --- | --- |
-| macOS | 12.0 (Monterey) | Intel + Apple Silicon |
-| Windows | Windows 10 | x64 |
-| Linux | x86_64 / aarch64 | Nécessite WebKit2GTK |
+Après le démarrage d'AiDog, le proxy local écoute par défaut sur `127.0.0.1:9890`. Seule l'adresse de bouclage locale est écoutée par défaut ; ne transférez pas l'API de gestion vers l'internet public.
 
-**Téléchargement** 👉 <https://github.com/lazygophers/aidog/releases/latest>
+## Démarrage rapide
 
-### macOS
+1. Ajoutez une plateforme dans « Plateformes IA » et renseignez le protocole, la Base URL et la clé API amont.
+2. Créez un groupe sur la page des plateformes et ajoutez-y des plateformes.
+3. Dans votre client, utilisez la commande de connexion générée pour ce groupe, ou suivez le guide d'intégration du client pour configurer l'adresse du proxy local et les identifiants du groupe.
+4. Envoyez une requête et vérifiez le groupe, la plateforme amont, le modèle et le résultat dans le journal du proxy.
 
-1. Téléchargez le `.dmg` depuis [Releases Latest](https://github.com/lazygophers/aidog/releases/latest)
-2. Double-cliquez pour l'ouvrir, glissez **AiDog** dans le dossier `Applications`
-3. Au premier lancement, **clic droit** sur l'app → sélectionnez « Ouvrir » (contourner Gatekeeper — l'app n'est pas signée)
+[Guide d'installation](/en/getting-started/installation) · [Première configuration](/en/getting-started/first-config) · [Valider votre première requête](/en/getting-started/first-request)
 
-> ⚠️ Si le premier lancement indique « développeur non vérifié », allez dans `Réglages Système → Confidentialité et sécurité → Ouvrir quand même`.
+## Données et confidentialité
 
-### Windows
+AiDog stocke les paramètres et les bases de données sur votre machine. Les requêtes du proxy transfèrent le contenu nécessaire au service amont sélectionné. La conservation des corps de requête et de réponse dans les journaux dépend des paramètres de journalisation ; une fois l'enregistrement du contenu brut désactivé, les métadonnées telles que le statut, le modèle et la consommation restent enregistrables. Voir [Données et confidentialité](/en/core-concepts/data-privacy).
 
-1. Téléchargez l'installateur `.msi` depuis [Releases Latest](https://github.com/lazygophers/aidog/releases/latest)
-2. Double-cliquez l'installateur et suivez les invites
-3. Si SmartScreen bloque, cliquez sur « Plus d'infos → Exécuter quand même »
+## Compiler depuis les sources
 
-### Linux
+Installez d'abord les outils et dépendances système selon les [prérequis officiels de Tauri](https://v2.tauri.app/start/prerequisites/).
 
 ```bash
-# Paquet DEB
-sudo dpkg -i aidog_0.1.0_amd64.deb
-
-# Ou AppImage
-chmod +x aidog_0.1.0_amd64.AppImage
-./aidog_0.1.0_amd64.AppImage
-```
-
-> Linux nécessite d'abord la dépendance WebKit2GTK : `sudo apt install libwebkit2gtk-4.1-dev` (Debian/Ubuntu).
-
-### Premier lancement
-
-Après installation, lancez AiDog — il va automatiquement :
-
-1. Démarrer le serveur proxy local (par défaut `http://127.0.0.1:9876`)
-2. Créer la base SQLite locale (`~/.aidog/aidog.db`)
-3. Afficher l'interface principale et vous guider pour ajouter votre première plateforme
-
-## Démarrage rapide (3 étapes)
-
-### Étape 1 : Ajouter une plateforme
-
-![AiDog — Ajouter une plateforme](screenshots/add-platform.png)
-
-1. Cliquez sur **« Plateformes »** dans la navigation de gauche
-2. Cliquez sur **« + Ajouter une plateforme »**
-3. Renseignez : **Nom** (ex. `Mon OpenAI`), **Base URL** (ex. `https://api.openai.com/v1`, incluant le préfixe de version `/v1`), **API Key**
-4. Enregistrer
-
-> 💡 La Base URL inclut déjà le préfixe de version ; AiDog ajoute `/chat/completions` automatiquement — inutile de construire le chemin à la main.
-
-### Étape 2 : Pointer le client vers le proxy
-
-Dans l'app qui consomme les API IA, changez l'adresse API pour l'adresse proxy AiDog :
-
-```
-http://127.0.0.1:9876/proxy/v1
-```
-
-La clé API peut être **n'importe quelle valeur** — AiDog relaie avec votre vraie clé configurée.
-
-### Étape 3 : Vérifier
-
-```bash
-curl http://127.0.0.1:9876/proxy/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer any-value" \
-  -d '{"model": "gpt-4o", "messages": [{"role": "user", "content": "Hello!"}]}'
-```
-
-Une réponse IA normale signifie que la config est complète. Les requêtes sont routées, mesurées et journalisées automatiquement.
-
-## Intégration client en détail
-
-### Claude Code
-
-AiDog fournit une intégration complète dans **« Réglages → Claude Code »** (édition modèle/permissions/sandbox/plugins/Hooks/StatusLine, import/export en un clic).
-
-**Option 1 : Variables d'environnement (le plus rapide)**
-
-```bash
-export ANTHROPIC_BASE_URL="http://127.0.0.1:9876"
-export ANTHROPIC_API_KEY="any-value"
-claude
-```
-
-**Option 2 : Export de config en un clic**
-
-Cliquez sur « Exporter vers Claude Code » dans « Réglages → Claude Code » ; AiDog écrit `~/.claude.json` :
-
-```json
-{ "apiBaseUrl": "http://127.0.0.1:9876" }
-```
-
-**Isolation par groupe** — cliquez sur « Synchro réglages groupe » pour générer des configs indépendantes par groupe (`~/.aidog/settings.<nom-groupe>.json`) ; le bouton « Claude » de la carte de groupe copie la commande de lancement.
-
-### OpenAI Codex
-
-Éditez `~/.codex/config.toml` (ou éditez dans l'onglet « Réglages → Codex ») :
-
-```toml
-[provider]
-name = "openai"
-base_url = "http://127.0.0.1:9876/proxy/v1"
-api_key = "any-value"
-
-[model]
-name = "o3"
-```
-
-> Codex utilise l'API Responses (`/v1/responses`) ; AiDog la détecte et la route automatiquement.
-
-### Tout client compatible OpenAI / Anthropic
-
-Pointez le `base_url` / `OPENAI_API_BASE` / `ANTHROPIC_BASE_URL` du client vers `http://127.0.0.1:9876/proxy/v1` et utilisez n'importe quelle valeur comme clé.
-
-> 🔐 **Authentification par groupe** — Mettez le **nom du groupe** comme clé dans l'adresse proxy ; AiDog route vers le groupe correspondant par jeton Bearer : `Authorization: Bearer <nom_groupe>`.
-
-![AiDog — Réglages](screenshots/settings.png)
-
-## Build depuis les sources
-
-```bash
-# Cloner
 git clone https://github.com/lazygophers/aidog.git
 cd aidog
-
-# Installer les dépendances
 yarn install
-
-# Mode dev
 yarn tauri dev
+```
 
-# Build production
+Compiler un paquet d'installation :
+
+```bash
 yarn tauri build
 ```
 
-**Prérequis** — Node.js ≥ 18, Yarn 4.x, toolchain Rust (rustup), Tauri CLI, dépendances système par OS (voir [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/)).
-
-## Pile technique
-
-| Couche | Technologie |
-| --- | --- |
-| Framework bureau | Tauri 2.0 |
-| Frontend | React 19 + TypeScript + Vite |
-| Backend | Rust + proxy Axum + stockage SQLite |
-| Docs | Rspress (site en 8 langues) |
-| Build | Yarn 4 + Vite + cargo |
-
-## Documentation
-
-Site de docs complet 👉 <https://lazygophers.github.io/aidog/fr/>
-
-| Sujet | Lien |
-| --- | --- |
-| Démarrage rapide | [/getting-started/quick-start](https://lazygophers.github.io/aidog/fr/getting-started/quick-start) |
-| Guide d'installation | [/getting-started/installation](https://lazygophers.github.io/aidog/fr/getting-started/installation) |
-| Protocoles de plateforme | [/platforms/protocols](https://lazygophers.github.io/aidog/fr/platforms/protocols) |
-| Groupes & routage | [/groups/routing-rules](https://lazygophers.github.io/aidog/fr/groups/routing-rules) |
-| Scheduling intelligent | [/groups/scheduling](https://lazygophers.github.io/aidog/fr/groups/scheduling) |
-| Intégration Codex | [/proxy/codex-integration](https://lazygophers.github.io/aidog/fr/proxy/codex-integration) |
-| Règles middleware | [/middleware](https://lazygophers.github.io/aidog/fr/middleware/) |
-| Stats & tarification | [/stats/usage-stats](https://lazygophers.github.io/aidog/fr/stats/usage-stats) |
-| Référence API | [/api/api-reference](https://lazygophers.github.io/aidog/fr/api/api-reference) |
-
-## README multilingue
-
-| Langue | Fichier |
-| --- | --- |
-| 简体中文 | [README.md](README.md) |
-| English | [README.en.md](README.en.md) |
-| Français | [README.fr.md](README.fr.md) |
-| Deutsch | [README.de.md](README.de.md) |
-| Русский | [README.ru.md](README.ru.md) |
-| العربية | [README.ar.md](README.ar.md) |
-| Español | [README.es.md](README.es.md) |
-| 日本語 | [README.ja.md](README.ja.md) |
-
-## IDE recommandé
-
-[VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer).
-
-## Remerciements
-
-[![LINUX DO](https://ld.xh.do/ld-badge.svg)](https://linux.do)
-
-Merci à la communauté [LINUX DO](https://linux.do).
-
 ## Licence
 
-[GNU AGPL-3.0-or-later](LICENSE) © AiDog
-
-Ce projet est sous licence GNU Affero General Public License v3 ou supérieure. Si vous modifiez ce logiciel et le fournissez comme service réseau, vous devez divulguer le code source correspondant aux utilisateurs.
+AiDog est distribué sous licence [GNU AGPL-3.0-or-later](LICENSE).

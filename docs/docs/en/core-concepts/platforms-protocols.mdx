@@ -1,0 +1,12 @@
+---
+title: Providers and protocols
+description: Understand upstream provider settings, base URLs, and API protocols.
+---
+
+# Providers and protocols
+
+A provider is an upstream service configuration. It includes the API address, credentials, models, and endpoints. A protocol defines the request and response format, such as OpenAI Chat, Responses, Anthropic, or Gemini.
+
+AiDog handles requests according to the endpoint protocol. Requests it can pass through retain their protocol; supported conversions use the matching adapter. Not every protocol pair or feature can be converted.
+
+The base URL should include the upstream version prefix. AiDog appends the request path for the chosen protocol. Do not put the complete request path in the base URL.

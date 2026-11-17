@@ -1,0 +1,14 @@
+---
+title: System settings
+description: Configure the local service, client integrations, logs, proxying, and app behavior.
+---
+
+# System settings
+
+System settings covers sections for the proxy service, Claude Code, Codex, pi, middleware, scheduling, notifications, pricing, the tray, import and export, and MITM. Each section controls different behavior; confirm its scope before changing it.
+
+## Outbound network proxy
+
+The system proxy configuration applies to HTTP, HTTPS, or SOCKS5 requests that AiDog itself sends. Each platform can choose separately whether to use this proxy; other outbound requests follow the "use proxy for other requests" switch. When the proxy host is empty, requests connect directly, and the proxy exemption list takes priority for matched hosts.
+
+The local proxy listen address and the outbound network proxy are different settings: the first is for clients connecting to AiDog, the second for AiDog connecting upstream.

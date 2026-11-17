@@ -1,0 +1,10 @@
+---
+title: Model mapping
+description: Understand ordered model chains and how fallback across models works.
+---
+
+# Model mapping
+
+Provider model slots support ordered model chains. AiDog tries the first model in the chain and moves to later models only when the failure qualifies for a retry. The failure type, request stage, and remaining attempt budget all affect whether it retries.
+
+Explicit time-based model rules take priority over preset peak-hour model branches. A provider's model list is a configuration reference; it does not guarantee that your upstream account has access to those models.

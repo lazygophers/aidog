@@ -1,16 +1,22 @@
 [
   {
-    "text": "Guide",
-    "link": "/guide/start/introduction",
-    "activeMatch": "/guide/"
+    "text": "Get started",
+    "link": "/getting-started/introduction",
+    "activeMatch": "/getting-started/"
+  },
+  {
+    "text": "Core concepts",
+    "link": "/core-concepts/platforms-protocols",
+    "activeMatch": "/core-concepts/"
+  },
+  {
+    "text": "Features",
+    "link": "/features/overview",
+    "activeMatch": "/features/"
   },
   {
     "text": "API",
     "link": "/api/",
     "activeMatch": "/api/"
-  },
-  {
-    "text": "Document",
-    "link": "https://rspress.rs/"
   }
 ]

@@ -1,34 +1,14 @@
 ---
 title: 系统设置
-description: 管理系统、集成、中间件、备份、日志、主题与托盘设置。
+description: 配置本机服务、客户端集成、日志、代理和应用行为。
 ---
 
 # 系统设置
 
-import { ProductDemo } from '../../../theme/components/ProductDemo';
+系统设置包含代理服务、Claude Code、Codex、pi、中间件、调度、通知、定价、托盘、导入导出和 MITM 等配置区。各区控制不同功能，修改前先确认作用范围。
 
-<ProductDemo module="settings" state="normal" />
+## 出站网络代理
 
-## 当前实现
+系统代理配置用于 AiDog 发出的 HTTP、HTTPS 或 SOCKS5 请求。平台可单独选择是否使用该代理；其他出站请求由“其它请求使用代理”控制。代理主机为空时请求直连，免代理名单优先使匹配主机直连。
 
-侧栏的 `settings` 入口挂载 `src/pages/AppSettings.tsx`，内含多个 tab。`src/App.tsx` 通过 `settingsTab` 传入当前分区。
-
-按当前源码，设置页至少覆盖：`system`、`coding_tools`、`claude`、`codex`、`middleware`、`scheduling`、`notifications`、`pricing`、`tray`、`popover`、`importexport`、`mitm`。相关命令分散在 `src/services/api/` 和 `src-tauri/src/startup.rs`。
-
-## 代理配置
-
-在「系统设置」的代理配置中填写 HTTP、HTTPS 或 SOCKS5 代理地址、认证和 DNS 规则。主机留空时，所有出站请求直连；免代理名单命中时优先直连。
-
-「其它请求使用代理」控制不属于某个平台的出站请求，例如 Logo 同步、MCP 推荐拉取、技能安装和内核其它出站。每个平台另有「使用代理」开关；开启后，该平台的请求使用已配置代理，并仍受免代理名单约束。代理地址为空时平台请求也会直连。
-
-老用户升级后，原有请求的代理走向由一次性迁移保留。更改代理配置或平台开关后立即生效，无需重启。
-
-## 文档演示边界
-
-上方演示是固定 fixture，只表示页面状态，不代表真实设置内容。
-
-## 主要任务
-
-此页面演示正常、空、错误和加载四种固定状态。演示数据已脱敏，不连接本机 aidog、Tauri IPC 或 Local API。
-
-在桌面应用中使用左侧导航进入“系统设置”。保存会影响运行状态的设置前，先确认当前分组和平台范围；发生错误时结合[代理日志](/zh/features/logs)定位。
+本地代理监听地址与出站网络代理是不同设置：前者供客户端连接 AiDog，后者供 AiDog 连接上游。

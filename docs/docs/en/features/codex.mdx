@@ -1,0 +1,12 @@
+---
+title: Codex
+description: Manage Codex configuration and generate a separate connection per AiDog group.
+---
+
+# Codex
+
+AiDog can read and edit the Codex configuration and generate startup commands per group. When Codex sends requests through the local proxy, it uses the AiDog group credential; upstream API keys stay in AiDog's platform configuration.
+
+Manage `~/.codex/config.toml` under **System Settings → Codex**. Commands generated on the group page use the current group. If you set up the provider manually, keep `base_url`, `wire_api`, and `env_key` consistent with the AiDog group settings.
+
+See [Connect Codex](/en/getting-started/connect-codex) and [Codex recommended settings](/en/features/recommended-codex) for details.

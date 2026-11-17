@@ -1,0 +1,19 @@
+---
+title: AI platforms
+description: Add upstream AI services and manage addresses, credentials, models, and provider rules.
+---
+
+# AI platforms
+
+**AI Platforms** stores the upstream information AiDog needs to forward requests: protocol, base URL, API key, model slots, and provider status. You can use built-in presets or add custom platforms.
+
+## Add a platform
+
+1. Choose a built-in preset or create a custom platform.
+2. Check the protocol and base URL. The base URL contains the upstream version prefix and no request path.
+3. Enter the upstream API key and configure models.
+4. Save, then run the platform test to confirm the credentials, address, and models work.
+
+Model slots accept ordered model chains. Routing tries the first model and moves to later models only when a retry qualifies. The platform's model list is a configuration reference and does not guarantee that your upstream account can use those models.
+
+The platform-level "use proxy" switch controls whether that platform's outbound requests use AiDog's configured network proxy. When the proxy address is empty or the host matches the proxy exemption list, requests connect directly.

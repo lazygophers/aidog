@@ -1,26 +1,12 @@
 ---
 title: MCP
-description: 扫描、导入、启用和管理 MCP Server。
+description: 管理 MCP Server 配置，并查看 AiDog 提供的 MCP 工具。
 ---
 
 # MCP
 
-import { ProductDemo } from '../../../theme/components/ProductDemo';
+MCP 页面用于管理 MCP Server 配置。可扫描、导入、编辑和删除配置，并按客户端管理可用项。实际连接结果取决于本机配置、命令或远端服务是否可用。
 
-<ProductDemo module="mcp" state="normal" />
+AiDog 也提供可选的本机 MCP 接口。HTTP MCP 使用 `POST /mcp`，凭分组凭据鉴权，并只允许本机访问。工具调用记录在工具日志中。
 
-## 当前实现
-
-侧栏的 `mcp` 入口挂载 `src/pages/Mcp.tsx`。Tauri 命令在 `src-tauri/src/startup.rs` 中注册，前端 wrapper 走 `src/services/api/mcp.ts`。
-
-当前文档站只应描述本仓库实际暴露的管理能力：列表、扫描、导入、更新、删除、重同步和分享导出。具体支持的字段与行为以 `src/services/api/mcp.ts` 与 Rust `ai_tools_cmd::mcp` 当前实现为准。
-
-## 文档演示边界
-
-演示数据是脱敏固定 fixture。它不代表真实 MCP 连接状态，也不连接任何本机或远端 server。
-
-## 主要任务
-
-此页面演示正常、空、错误和加载四种固定状态。演示数据已脱敏，不连接本机 aidog、Tauri IPC 或 Local API。
-
-在桌面应用中使用左侧导航进入“MCP”。保存会影响运行状态的设置前，先确认当前分组和平台范围；发生错误时结合[代理日志](/zh/features/logs)定位。
+检查连接失败时，确认服务地址、启动命令、环境变量和凭据；不要把含密钥的配置分享出去。

@@ -1,18 +1,14 @@
 ---
 title: 安装指南
-description: 在 macOS、Windows 或 Linux 下载并安装 aidog，并处理常见系统安全提示。
+description: 下载并安装适用于当前系统的 AiDog。
 ---
 
 # 安装指南
 
-从 [GitHub Releases](https://github.com/lazygophers/aidog/releases/latest) 下载当前系统对应的最新版安装包。
+从 [GitHub Releases](https://github.com/lazygophers/aidog/releases/latest) 下载最新版本，并按发布页提供的文件安装。安装包、系统版本和处理器架构以该版本发布页为准。
 
-| 系统 | 安装包 | 最低要求 |
-| --- | --- | --- |
-| macOS | `.dmg` | macOS 12，Intel 或 Apple Silicon |
-| Windows | `.msi` | Windows 10 x64 |
-| Linux | `.deb` 或 `.AppImage` | 需 WebKit2GTK |
+macOS 或 Windows 若出现系统安全提示，请先确认安装包来自 AiDog 官方 Releases，再按系统提示允许打开或安装。Linux 请查看发布页说明及 [Tauri 系统依赖](https://v2.tauri.app/start/prerequisites/)；不要照搬其他发行版的安装命令。
 
-macOS 若提示无法验证开发者，右键应用选择“打开”；Windows 若被 SmartScreen 拦截，确认来源后选择“仍要运行”。Linux AppImage 需先执行 `chmod +x`。
+启动后，桌面应用会启动本机服务。代理默认地址为 `http://127.0.0.1:9890`。默认只接受本机连接。
 
-启动后 aidog 默认在 `127.0.0.1:9890` 提供代理。继续[首次配置](/zh/getting-started/first-config)。
+继续[首次配置](/zh/getting-started/first-config)。

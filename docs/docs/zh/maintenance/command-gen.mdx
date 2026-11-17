@@ -1,15 +1,17 @@
 ---
-title: Command 字典生成
-description: 生成并校验 startup、Rust 与 TypeScript 三方一致的 Command 字典。
+title: 命令字典生成
+description: 从注册表和调用封装生成 Tauri 命令字典。
 ---
 
-# Command 字典生成
+# 命令字典生成
 
-根目录 `scripts/gen-command-docs.mjs` 扫描 startup 注册表、Rust command 签名和 TypeScript invoke wrapper，生成 `docs/docs/zh/api/commands.generated.mdx`。
+`docs/docs/zh/api/commands.generated.mdx` 由根目录脚本生成。脚本读取 Tauri 命令注册表、Rust 命令签名和 TypeScript 调用封装。
+
+修改命令或调用封装后，在仓库根目录运行：
 
 ```bash
 node scripts/gen-command-docs.mjs
 node scripts/gen-command-docs.mjs --check
 ```
 
-生成文件需要提交。无 TypeScript wrapper 的注册命令标记为 `internal`；解析失败或三方契约不一致必须报错，不能猜测。
+第一条命令更新生成文件；第二条检查文件是否与当前源码一致。不要直接手改 `commands.generated.mdx`，也不要把命令字典当作稳定的远程 API 契约。

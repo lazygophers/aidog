@@ -1,0 +1,19 @@
+[
+  { "type": "file", "name": "overview", "label": "Home overview" },
+  { "type": "file", "name": "platforms", "label": "AI platforms" },
+  { "type": "file", "name": "groups", "label": "Groups and routing" },
+  { "type": "file", "name": "proxy", "label": "Proxy service" },
+  { "type": "file", "name": "logs", "label": "Proxy and request logs" },
+  { "type": "file", "name": "stats", "label": "Statistics" },
+  { "type": "file", "name": "notifications", "label": "Notification center" },
+  { "type": "file", "name": "mcp", "label": "MCP" },
+  { "type": "file", "name": "skills", "label": "Skills" },
+  { "type": "file", "name": "claude-code", "label": "Claude Code" },
+  { "type": "file", "name": "codex", "label": "Codex" },
+  { "type": "file", "name": "pi", "label": "pi" },
+  { "type": "file", "name": "settings", "label": "System settings" },
+  { "type": "file", "name": "comparison", "label": "Similar tools" },
+  { "type": "file", "name": "recommended-claude-code", "label": "Claude Code recommended settings" },
+  { "type": "file", "name": "recommended-codex", "label": "Codex recommended settings" },
+  { "type": "file", "name": "recommended-pi", "label": "pi recommended settings" }
+]
