@@ -228,7 +228,7 @@ pub struct McpUpdatePayload {
 
 // ─── 原始配置（agent 配置文件中的 MCP entry） ───────────────
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct McpConfigRaw {
     pub transport: McpTransport,
     pub command: String,
