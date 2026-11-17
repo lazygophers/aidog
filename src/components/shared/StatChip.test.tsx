@@ -17,12 +17,13 @@ describe("StatChip", () => {
 
   it("derives color from level when no explicit color", () => {
     render(<StatChip value="ok" label="status" level="success" />);
-    expect(screen.getByText("ok")).toHaveStyle({ color: "var(--color-success)" });
+    // jsdom >=30 resolves var() in computed style; assert the inline declaration instead.
+    expect(screen.getByText("ok").style.color).toBe("var(--color-success)");
   });
 
   it("falls back to primary text color with neither", () => {
     render(<StatChip value="z" label="lbl" />);
-    expect(screen.getByText("z")).toHaveStyle({ color: "var(--text-primary)" });
+    expect(screen.getByText("z").style.color).toBe("var(--text-primary)");
   });
 
   it("renders the icon node when provided", () => {
