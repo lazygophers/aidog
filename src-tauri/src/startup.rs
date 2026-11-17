@@ -7,6 +7,10 @@ pub fn run() {
     // rustls 0.23 需显式装 process-level CryptoProvider（ring），否则首次 TLS builder() panic。
     // 测试侧各自 install_default，生产侧在此统一装一次（幂等，AlreadyInstalled 返 Err 无害）。
     let _ = rustls::crypto::ring::default_provider().install_default();
+    // 崩溃日志：release 为 panic=abort，hook 在中止前把记录同步写入 ~/.aidog/logs/crash.txt。
+    if let Ok(dir) = aidog_core::shared::aidog_data_dir() {
+        aidog_db::logging::install_crash_hook(dir.join("logs"));
+    }
     let builder = tauri::Builder::default();
     // Windows / Linux 单实例：必须最先注册；第二实例退出，首实例打开界面。macOS 由 Launch Services
     // 保证单实例，再次启动走 `RunEvent::Reopen`。`deep-link` 特性把第二实例的 aidog:// 参数转给 deep-link 插件。

@@ -577,9 +577,78 @@ pub fn cleanup_old_logs(data_dir: &std::path::Path, retention_hours: u32) {
     }
 }
 
+/// 崩溃记录文件名（位于日志目录 `<data_dir>/logs/`）。用 `.txt` 而非 `.log`：
+/// [`cleanup_old_logs`] 按保留期删除 `*.log`，崩溃记录不随滚动日志过期。
+pub const CRASH_LOG_FILE: &str = "crash.txt";
+
+/// 把一条崩溃记录同步追加写入 `<dir>/crash.txt`（目录不存在则创建）。
+/// panic hook 专用：不经 tracing（non_blocking 写线程在 abort 前来不及落盘）。
+pub fn write_crash_record(
+    dir: &std::path::Path,
+    location: &str,
+    message: &str,
+    thread: &str,
+    backtrace: &str,
+) -> std::io::Result<()> {
+    use std::io::Write;
+    std::fs::create_dir_all(dir)?;
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let mut f = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(dir.join(CRASH_LOG_FILE))?;
+    write!(
+        f,
+        "=== panic (unix {ts}) ===\nthread: {thread}\nlocation: {location}\nmessage: {message}\nbacktrace:\n{backtrace}\n\n"
+    )?;
+    f.sync_all()
+}
+
+/// 安装进程级 panic hook：先把崩溃记录同步写入 `log_dir`，再调用原 hook。
+/// release 为 `panic = "abort"`，hook 返回后进程即中止，因此记录必须在此同步落盘。
+pub fn install_crash_hook(log_dir: std::path::PathBuf) {
+    let prev = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let location = info
+            .location()
+            .map(|l| format!("{}:{}", l.file(), l.line()))
+            .unwrap_or_else(|| "<unknown>".into());
+        let message = info.payload_as_str().unwrap_or("<non-string panic payload>");
+        let thread = std::thread::current();
+        let backtrace = std::backtrace::Backtrace::force_capture().to_string();
+        let _ = write_crash_record(
+            &log_dir,
+            &location,
+            message,
+            thread.name().unwrap_or("<unnamed>"),
+            &backtrace,
+        );
+        prev(info);
+    }));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn write_crash_record_appends_location_message_thread_backtrace() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let dir = tmp.path().join("logs");
+        write_crash_record(&dir, "src/a.rs:12", "boom one", "worker-1", "BT-ONE").expect("write 1");
+        write_crash_record(&dir, "src/b.rs:34", "boom two", "<unnamed>", "BT-TWO").expect("write 2");
+        let text = std::fs::read_to_string(dir.join(CRASH_LOG_FILE)).unwrap_or_default();
+        for needle in [
+            "src/a.rs:12", "boom one", "worker-1", "BT-ONE",
+            "src/b.rs:34", "boom two", "<unnamed>", "BT-TWO",
+        ] {
+            assert!(text.contains(needle), "crash record missing {needle:?}: {text:?}");
+        }
+        assert!(text.find("boom one") < text.find("boom two"), "records must be appended in order");
+    }
 
     #[test]
     fn build_file_appender_creates_log_dir() {
