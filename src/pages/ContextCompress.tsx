@@ -4,17 +4,24 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Switch } from "../components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { contextCompressApi, type ContextCompressStatus, type RtkAgent } from "../services/api/contextCompress";
+import { contextCompressApi, type ContextCompressStats, type ContextCompressStatus, type RtkAgent } from "../services/api/contextCompress";
+import { formatInteger, formatPercent } from "../utils/formatters";
 
 export function ContextCompress() {
   const { t } = useTranslation();
   const [status, setStatus] = useState<ContextCompressStatus | null>(null);
+  const [stats, setStats] = useState<ContextCompressStats | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
-      setStatus(await contextCompressApi.status());
+      const [status, stats] = await Promise.all([
+        contextCompressApi.status(),
+        contextCompressApi.stats().catch(() => null),
+      ]);
+      setStatus(status);
+      setStats(stats);
       setError("");
     } catch (e) {
       setError(String(e));
@@ -57,6 +64,13 @@ export function ContextCompress() {
           <p className="text-sm text-muted-foreground">{t("contextCompress.rtkDesc")}</p>
           <p className="text-sm" data-testid="rtk-version" data-version={status?.rtk_version ?? ""}>{label(status?.rtk_version ?? null)}</p>
           {!status?.rtk_version && <Button disabled={busy} onClick={() => void install("rtk")} data-testid="rtk-install">{t("contextCompress.install")}</Button>}
+          {status?.rtk_version && stats?.rtk && <p className="text-sm text-muted-foreground" data-testid="rtk-stats">
+            {t("contextCompress.rtkStats", {
+              saved: formatInteger(stats.rtk.total_saved),
+              commands: formatInteger(stats.rtk.total_commands),
+              pct: formatPercent(stats.rtk.avg_savings_pct),
+            })}
+          </p>}
           {status?.rtk_version && <div className="space-y-3">
             <label className="flex items-center justify-between gap-4 rounded-lg border p-4">
               <span>Claude Code</span>
@@ -72,6 +86,13 @@ export function ContextCompress() {
         <TabsContent value="sqz" className="space-y-4">
           <p className="text-sm text-muted-foreground">{t("contextCompress.sqzDesc")}</p>
           <p className="text-sm" data-testid="sqz-version">sqz: {label(status?.sqz_version ?? null)} · sqz-mcp: {label(status?.sqz_mcp_version ?? null)}</p>
+          {status?.sqz_version && stats?.sqz && <p className="text-sm text-muted-foreground" data-testid="sqz-stats">
+            {t("contextCompress.sqzStats", {
+              count: formatInteger(stats.sqz.totalCompressions),
+              saved: formatInteger(stats.sqz.tokensSaved),
+              pct: formatPercent(stats.sqz.avgReduction),
+            })}
+          </p>}
           {(!status?.sqz_version || !status?.sqz_mcp_version) && <Button disabled={busy} onClick={() => void install("sqz")} data-testid="sqz-install">{t("contextCompress.install")}</Button>}
           {status?.sqz_version && status.sqz_mcp_version && <label className="flex items-center justify-between gap-4 rounded-lg border p-4">
             <span>{t("contextCompress.sqzSwitch")}</span>

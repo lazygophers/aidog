@@ -775,3 +775,26 @@ args = ["—y"]
     let out4 = sqz_wrap_residue(&json!({}), Some(&t), &ledger2);
     assert_eq!(out4, vec!["stale-wrap:codex:mine"], "renamed codex wrapped entry must be reported, got {out4:?}");
 }
+
+// ─── 统计解析（sqz stats --json / rtk gain --format json 一手样例）───
+
+#[test]
+fn parse_sqz_and_rtk_stats_from_cli_json() {
+    let sqz_json = r#"{"avgReduction":27.56,"cacheEntries":91610,"cacheSize":12345,"regretExpands":143,"regretReruns":1,"tokensIn":23276773,"tokensOut":16860995,"tokensSaved":6415778,"totalCompressions":19037}"#;
+    let sqz = parse_sqz_stats(sqz_json).expect("sqz stats json parses");
+    assert_eq!(sqz.total_compressions, 19037);
+    assert_eq!(sqz.tokens_saved, 6415778);
+    assert!((sqz.avg_reduction - 27.56).abs() < 1e-9);
+
+    let rtk_json = r#"{"summary":{"total_commands":227267,"total_input":68748427,"total_output":44138825,"total_saved":24670175,"avg_savings_pct":35.88,"total_time_ms":1,"avg_time_ms":1140,"oversized_excluded":3653}}"#;
+    let rtk = parse_rtk_gain(rtk_json).expect("rtk gain json parses");
+    assert_eq!(rtk.total_commands, 227267);
+    assert_eq!(rtk.total_saved, 24670175);
+    assert!((rtk.avg_savings_pct - 35.88).abs() < 1e-9);
+
+    // 非法 / 空输出 → None（统计缺失不报错）
+    assert!(parse_sqz_stats("").is_none());
+    assert!(parse_sqz_stats("not json").is_none());
+    assert!(parse_rtk_gain("{}").is_none());
+    assert!(parse_rtk_gain("").is_none());
+}

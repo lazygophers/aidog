@@ -1115,6 +1115,8 @@
   "contextCompress.sqzDesc": "开启：添加 sqz 钩子（PostToolUse、PreCompact），所有 stdio MCP 服务器经 sqz-mcp proxy 包装，并为 Claude Code 与 Codex 添加 sqz 自身的 MCP 服务器。关闭：以上全部还原。",
   "contextCompress.sqzSwitch": "启用 sqz",
   "contextCompress.sqzMissing": "未启用，缺少：",
+  "contextCompress.rtkStats": "累计节省 {{saved}} tokens（{{commands}} 次命令，平均节省 {{pct}}%）",
+  "contextCompress.sqzStats": "已压缩 {{count}} 次，节省 {{saved}} tokens（平均压缩 {{pct}}%）",
   "contextCompress.sqzBinMissing": "未找到 sqz-mcp",
   "mcp.add": "添加 MCP",
   "mcp.addRow": "添加",
