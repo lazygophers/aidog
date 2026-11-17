@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PluginOriginBadge } from "@/components/PluginOrigin";
 
 // ─── 单行 ───
 
@@ -21,6 +22,7 @@ export function McpRow({
   srv,
   idx,
   busyKey,
+  origin,
   onToggle,
   onEdit,
   onDelete,
@@ -29,6 +31,8 @@ export function McpRow({
   srv: McpServerInfo;
   idx: number;
   busyKey: string | null;
+  /** 所属插件（由 Claude 插件捆绑包分发时）。 */
+  origin?: string;
   onToggle: (s: McpServerInfo, a: McpAgentSlug) => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -51,6 +55,7 @@ export function McpRow({
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 14 }}>{srv.name}</span>
           <TransportBadge transport={srv.transport} />
+          <PluginOriginBadge plugin={origin} testId={`mcp-plugin-${srv.name}`} />
         </div>
         <div
           style={{

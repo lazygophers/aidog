@@ -14,6 +14,45 @@ use crate::gateway;
 const KEY: &str = "claude_plugins";
 const AGENTS: [&str; 2] = [subagents::AGENT_CLAUDE, subagents::AGENT_CODEX];
 
+/// A user-facing message: a stable code plus parameters; the UI translates it as `plugins.note.<code>`.
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+#[serde(from = "NoteIn")]
+pub struct Note {
+    pub code: String,
+    pub args: BTreeMap<String, String>,
+}
+
+/// Records written before codes existed stored plain English strings; they load as code `text`.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum NoteIn {
+    Note {
+        code: String,
+        #[serde(default)]
+        args: BTreeMap<String, String>,
+    },
+    Text(String),
+}
+
+impl From<NoteIn> for Note {
+    fn from(n: NoteIn) -> Self {
+        match n {
+            NoteIn::Note { code, args } => Note { code, args },
+            NoteIn::Text(text) => note("text", &[("text", &text)]),
+        }
+    }
+}
+
+fn note(code: &str, args: &[(&str, &str)]) -> Note {
+    Note {
+        code: code.into(),
+        args: args
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect(),
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 struct SkillPart {
     name: String,
@@ -57,7 +96,7 @@ struct Plugin {
     #[serde(default)]
     servers: Vec<ServerPart>,
     #[serde(default)]
-    left: Vec<String>,
+    left: Vec<Note>,
 }
 
 #[derive(Serialize, Clone, Debug, Default)]
@@ -71,13 +110,13 @@ pub struct PluginView {
     pub subagents: Vec<String>,
     pub hooks: Vec<String>,
     pub servers: Vec<String>,
-    pub left: Vec<String>,
+    pub left: Vec<Note>,
 }
 
 #[derive(Serialize, Clone, Debug, Default)]
 pub struct PluginViewList {
     pub plugins: Vec<PluginView>,
-    pub warnings: Vec<String>,
+    pub warnings: Vec<Note>,
 }
 
 #[derive(Serialize, Clone, Debug, Default)]
@@ -227,7 +266,10 @@ fn remove_library_dir(name: &str) -> Result<(), String> {
         dir.canonicalize().map_err(|e| e.to_string())?,
     );
     if dir.parent() != Some(root.as_path()) {
-        return Err(format!("refuse to delete outside library: {}", dir.display()));
+        return Err(format!(
+            "refuse to delete outside library: {}",
+            dir.display()
+        ));
     }
     std::fs::remove_dir_all(&dir).map_err(|e| format!("remove {}: {e}", dir.display()))
 }
@@ -596,12 +638,26 @@ async fn install_impl(
             mcp_servers(&read_json(&copied.join(".mcp.json"))?)?;
         }
         let old_idx = plugins.iter().position(|p| p.name == name);
-        let old = old_idx.map(|i| plugins[i].clone());
-        if let Some(mut previous) = old.clone() {
+        if let Some(i) = old_idx {
+            let mut previous = plugins[i].clone();
             previous.off = true;
-            sync_parts(db, &mut previous, &mut warnings).await?;
-            remove_parts_db(db, &previous).await?;
+            let withdrawn = async {
+                sync_parts(db, &mut previous, &mut warnings).await?;
+                remove_parts_db(db, &previous).await
+            }
+            .await;
+            if withdrawn.is_ok() {
+                // Its DB parts are gone; the record keeps only what may still be owned on disk.
+                previous.subagents.clear();
+                previous.servers.clear();
+            }
+            // Persist the withdrawn state: a failed update leaves an accurate record a retry can finish.
+            previous.off = plugins[i].off;
+            plugins[i] = previous;
+            save(db, &plugins).await?;
+            withdrawn?;
         }
+        let old = old_idx.map(|i| plugins[i].clone());
         let backup = staged_plugin.path().join("old");
         if dest.exists() {
             std::fs::rename(&dest, &backup).map_err(|e| format!("stage old plugin: {e}"))?;
@@ -612,11 +668,8 @@ async fn install_impl(
             }
             return Err(format!("replace plugin folder: {e}"));
         }
-        let data = plugin_data(&name)?;
-        std::fs::create_dir_all(&data).map_err(|e| e.to_string())?;
-        let (name2, _, _) = plugin_name(&dest, &c.name)?;
         let mut p = old.unwrap_or_default();
-        p.name = name2.clone();
+        p.name = name.clone();
         p.source = source.clone();
         p.pick = (cs.len() > 1).then(|| c.name.clone());
         if p.agents.is_empty() {
@@ -630,166 +683,195 @@ async fn install_impl(
         p.subagents.clear();
         p.hooks.clear();
         p.servers.clear();
-        p.left = unsupported_parts(&dest)?;
+        let distributed: Result<(), String> = async {
+            let data = plugin_data(&name)?;
+            std::fs::create_dir_all(&data).map_err(|e| e.to_string())?;
+            p.left = unsupported_parts(&dest)?;
 
-        // Skills keep a conflict-free name here; sync_parts copies them and records tree hashes.
-        for sdir in skill_entries(&dest) {
-            let sname = sdir
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string();
-            let target_name = free_name(&sname, &name, |n| {
-                AGENTS
-                    .iter()
-                    .any(|a| skills_dir(a).map(|d| d.join(n).exists()).unwrap_or(false))
-            });
-            p.skills.push(SkillPart {
-                name: target_name,
-                source: sname,
-                written: BTreeMap::new(),
-            });
-        }
-
-        // Plugin agent files become normal subagents in the shared DB list.
-        let mut subs = subagents::load_list(db).await;
-        let mut agent_files = Vec::new();
-        if let Ok(rd) = std::fs::read_dir(dest.join("agents")) {
-            for e in rd.flatten() {
-                if e.path().extension().is_some_and(|x| x == "md") {
-                    agent_files.push(e.path());
-                }
-            }
-        }
-        agent_files.sort();
-        for f in agent_files {
-            let tmpdir = f.parent().unwrap();
-            for (_rel, sname, description, prompt) in subagents::scan(tmpdir) {
-                if sname != f.file_stem().unwrap_or_default().to_string_lossy() {
-                    continue;
-                }
-                let assigned = free_name(&sname, &name, |n| subs.iter().any(|s| s.name == n));
-                let mut s = Subagent {
-                    name: assigned.clone(),
-                    description,
-                    prompt: resolve(&prompt, &dest, &data),
-                    agents: p.agents.clone(),
-                    bundle: Some(name.clone()),
-                    ..Default::default()
-                };
-                subagents::sync_entry(&mut s, &subagents::Dirs::resolve()?);
-                p.subagents.push(assigned);
-                subs.push(s);
-            }
-        }
-        subagents::store_list(db, &subs).await?;
-
-        // Hook command groups; record only groups this bundle adds. Commands already present are user-owned.
-        for (event, groups) in read_hooks(&dest)? {
-            for (matcher, command) in groups {
-                let command = resolve_hook(&command, &dest, &data);
-                p.hooks.push(HookPart {
-                    event: event.clone(),
-                    matcher,
-                    command,
+            // Skills keep a conflict-free name here; sync_parts copies them and records tree hashes.
+            for sdir in skill_entries(&dest) {
+                let sname = sdir
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
+                let target_name = free_name(&sname, &name, |n| {
+                    AGENTS
+                        .iter()
+                        .any(|a| skills_dir(a).map(|d| d.join(n).exists()).unwrap_or(false))
+                });
+                p.skills.push(SkillPart {
+                    name: target_name,
+                    source: sname,
                     written: BTreeMap::new(),
-                    preexisting: Vec::new(),
                 });
             }
-        }
 
-        // MCP servers become ordinary DB entries; the mcp crate records own-write hashes per agent.
-        let mcpfile = dest.join(".mcp.json");
-        if mcpfile.exists() {
-            let v = read_json(&mcpfile)?;
-            for (server_name, entry) in mcp_servers(&v)? {
-                // Same transport inference as Claude Code: url without type = http.
-                let transport = match entry.get("type").and_then(Value::as_str) {
-                    Some("sse") => "sse",
-                    Some("http" | "streamable-http") => "http",
-                    None if entry.get("url").and_then(Value::as_str).is_some() => "http",
-                    None | Some("stdio") => "stdio",
-                    Some(other) => {
-                        p.left.push(format!(
-                            "mcp {server_name}: transport {other} is not carried"
-                        ));
+            // Plugin agent files become normal subagents in the shared DB list.
+            let mut subs = subagents::load_list(db).await;
+            let mut agent_files = Vec::new();
+            if let Ok(rd) = std::fs::read_dir(dest.join("agents")) {
+                for e in rd.flatten() {
+                    if e.path().extension().is_some_and(|x| x == "md") {
+                        agent_files.push(e.path());
+                    }
+                }
+            }
+            agent_files.sort();
+            for f in agent_files {
+                let tmpdir = f.parent().unwrap();
+                for (_rel, sname, description, prompt) in subagents::scan(tmpdir) {
+                    if sname != f.file_stem().unwrap_or_default().to_string_lossy() {
                         continue;
                     }
-                };
-                let mcp_name = choose_server_name(db, server_name, &name).await?;
-                let mut env: BTreeMap<String, String> = entry
-                    .get("env")
-                    .and_then(Value::as_object)
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), resolve(s, &dest, &data))))
-                    .collect();
-                env.insert(
-                    "CLAUDE_PLUGIN_ROOT".into(),
-                    dest.to_string_lossy().into_owned(),
-                );
-                env.insert(
-                    "CLAUDE_PLUGIN_DATA".into(),
-                    data.to_string_lossy().into_owned(),
-                );
-                let payload = gateway::mcp::McpUpdatePayload {
-                    name: mcp_name.clone(),
-                    transport: transport.into(),
-                    command: resolve(
-                        entry
-                            .get("command")
-                            .and_then(Value::as_str)
-                            .unwrap_or_default(),
-                        &dest,
-                        &data,
-                    ),
-                    args: entry
-                        .get("args")
-                        .and_then(Value::as_array)
-                        .into_iter()
-                        .flatten()
-                        .filter_map(Value::as_str)
-                        .map(|s| resolve(s, &dest, &data))
-                        .collect(),
-                    env,
-                    url: resolve(
-                        entry.get("url").and_then(Value::as_str).unwrap_or_default(),
-                        &dest,
-                        &data,
-                    ),
-                    headers: entry
-                        .get("headers")
+                    let assigned = free_name(&sname, &name, |n| subs.iter().any(|s| s.name == n));
+                    let mut s = Subagent {
+                        name: assigned.clone(),
+                        description,
+                        prompt: resolve(&prompt, &dest, &data),
+                        agents: p.agents.clone(),
+                        bundle: Some(name.clone()),
+                        ..Default::default()
+                    };
+                    subagents::sync_entry(&mut s, &subagents::Dirs::resolve()?);
+                    p.subagents.push(assigned);
+                    subs.push(s);
+                }
+            }
+            subagents::store_list(db, &subs).await?;
+
+            // Hook command groups; record only groups this bundle adds. Commands already present are user-owned.
+            for (event, groups) in read_hooks(&dest)? {
+                for (matcher, command) in groups {
+                    let command = resolve_hook(&command, &dest, &data);
+                    p.hooks.push(HookPart {
+                        event: event.clone(),
+                        matcher,
+                        command,
+                        written: BTreeMap::new(),
+                        preexisting: Vec::new(),
+                    });
+                }
+            }
+            for h in &p.hooks {
+                let n = note("hook_claude_only", &[("event", &h.event)]);
+                if codex_hook(&h.event, h.matcher.as_deref()).is_none() && !p.left.contains(&n) {
+                    p.left.push(n);
+                }
+            }
+
+            // MCP servers become ordinary DB entries; the mcp crate records own-write hashes per agent.
+            let mcpfile = dest.join(".mcp.json");
+            if mcpfile.exists() {
+                let v = read_json(&mcpfile)?;
+                for (server_name, entry) in mcp_servers(&v)? {
+                    // Same transport inference as Claude Code: url without type = http.
+                    let transport = match entry.get("type").and_then(Value::as_str) {
+                        Some("sse") => "sse",
+                        Some("http" | "streamable-http") => "http",
+                        None if entry.get("url").and_then(Value::as_str).is_some() => "http",
+                        None | Some("stdio") => "stdio",
+                        Some(other) => {
+                            p.left.push(note(
+                                "mcp_transport",
+                                &[("name", server_name), ("transport", other)],
+                            ));
+                            continue;
+                        }
+                    };
+                    let mcp_name = choose_server_name(db, server_name, &name).await?;
+                    let mut env: BTreeMap<String, String> = entry
+                        .get("env")
                         .and_then(Value::as_object)
                         .into_iter()
                         .flatten()
                         .filter_map(|(k, v)| {
                             v.as_str().map(|s| (k.clone(), resolve(s, &dest, &data)))
                         })
-                        .collect(),
-                };
-                gateway::mcp::add_server(db, payload).await?;
-                for agent in AGENTS {
-                    let target = if agent == subagents::AGENT_CLAUDE {
-                        gateway::mcp::McpAgent::ClaudeCode
-                    } else {
-                        gateway::mcp::McpAgent::Codex
+                        .collect();
+                    env.insert(
+                        "CLAUDE_PLUGIN_ROOT".into(),
+                        dest.to_string_lossy().into_owned(),
+                    );
+                    env.insert(
+                        "CLAUDE_PLUGIN_DATA".into(),
+                        data.to_string_lossy().into_owned(),
+                    );
+                    let payload = gateway::mcp::McpUpdatePayload {
+                        name: mcp_name.clone(),
+                        transport: transport.into(),
+                        command: resolve(
+                            entry
+                                .get("command")
+                                .and_then(Value::as_str)
+                                .unwrap_or_default(),
+                            &dest,
+                            &data,
+                        ),
+                        args: entry
+                            .get("args")
+                            .and_then(Value::as_array)
+                            .into_iter()
+                            .flatten()
+                            .filter_map(Value::as_str)
+                            .map(|s| resolve(s, &dest, &data))
+                            .collect(),
+                        env,
+                        url: resolve(
+                            entry.get("url").and_then(Value::as_str).unwrap_or_default(),
+                            &dest,
+                            &data,
+                        ),
+                        headers: entry
+                            .get("headers")
+                            .and_then(Value::as_object)
+                            .into_iter()
+                            .flatten()
+                            .filter_map(|(k, v)| {
+                                v.as_str().map(|s| (k.clone(), resolve(s, &dest, &data)))
+                            })
+                            .collect(),
                     };
-                    gateway::mcp::mark_bundle_entry(db, &mcp_name, target, &name).await?;
+                    gateway::mcp::add_server(db, payload).await?;
+                    // Recorded before marking so a failure below still lets the undo delete it.
+                    p.servers.push(ServerPart {
+                        name: mcp_name.clone(),
+                        agents: p.agents.clone(),
+                    });
+                    for agent in AGENTS {
+                        let target = if agent == subagents::AGENT_CLAUDE {
+                            gateway::mcp::McpAgent::ClaudeCode
+                        } else {
+                            gateway::mcp::McpAgent::Codex
+                        };
+                        gateway::mcp::mark_bundle_entry(db, &mcp_name, target, &name).await?;
+                    }
                 }
-                p.servers.push(ServerPart {
-                    name: mcp_name,
-                    agents: p.agents.clone(),
-                });
             }
+            sync_parts(db, &mut p, &mut warnings).await
         }
-        sync_parts(db, &mut p, &mut warnings).await?;
+        .await;
+        if let Err(e) = distributed {
+            // Undo exactly what this attempt wrote (own-write hashes keep user edits), then
+            // put the previous library folder back; the withdrawn record stays for a retry.
+            let mut undo = p.clone();
+            undo.off = true;
+            let _ = sync_parts(db, &mut undo, &mut Vec::new()).await;
+            let _ = remove_parts_db(db, &undo).await;
+            let _ = remove_library_dir(&name);
+            if backup.exists() {
+                let _ = std::fs::rename(&backup, &dest);
+            }
+            return Err(e);
+        }
         if let Some(i) = old_idx {
             plugins.remove(i);
         }
         plugins.push(p);
+        // Saved per plugin so an error on a later pick cannot orphan an earlier one.
+        save(db, &plugins).await?;
         let _ = staged_plugin;
     }
-    save(db, &plugins).await?;
     drop(tmp);
     Ok(PluginViewList {
         plugins: plugins.iter().map(view).collect(),
@@ -808,7 +890,7 @@ fn skills_dir(agent: &str) -> Result<PathBuf, String> {
 
 type HookGroup = (String, Vec<(Option<String>, String)>);
 
-fn unsupported_parts(root: &Path) -> Result<Vec<String>, String> {
+fn unsupported_parts(root: &Path) -> Result<Vec<Note>, String> {
     let mut left = Vec::new();
     let manifest_path = root.join(".claude-plugin/plugin.json");
     let manifest = if manifest_path.exists() {
@@ -817,15 +899,15 @@ fn unsupported_parts(root: &Path) -> Result<Vec<String>, String> {
         json!({})
     };
     if root.join("commands").is_dir() || manifest.get("commands").is_some() {
-        left.push("commands: slash commands are not carried".into());
+        left.push(note("commands", &[]));
     }
     if manifest.get("lspServers").is_some() || manifest.get("lsp").is_some() {
-        left.push("lsp: LSP servers are not carried".into());
+        left.push(note("lsp", &[]));
     }
     // Only the default folders are read; parts declared inline / at custom paths in plugin.json are not.
     for key in ["agents", "hooks", "mcpServers", "outputStyles"] {
         if manifest.get(key).is_some() {
-            left.push(format!("plugin.json {key}: declared parts are not carried"));
+            left.push(note("manifest_parts", &[("key", key)]));
         }
     }
     let hooks_path = root.join("hooks/hooks.json");
@@ -849,7 +931,7 @@ fn unsupported_parts(root: &Path) -> Result<Vec<String>, String> {
                     .unwrap_or("command")
                     != "command"
                 {
-                    left.push(format!("hook {event}: only command hooks are carried"));
+                    left.push(note("hook_type", &[("event", event)]));
                 }
             }
         }
@@ -910,14 +992,53 @@ fn read_hooks(root: &Path) -> Result<Vec<HookGroup>, String> {
     Ok(result)
 }
 
+/// Codex form of a Claude Code hook, following magpie (library/plugin.go `plHooksOf`,
+/// library/hooks.go codex spec): only the five events both agents fire carry over, and a
+/// tool matcher only when it names shell (`Bash`) or edit tools (`apply_patch` in Codex).
+/// `None` = Claude Code only; such a hook is never written to Codex.
+fn codex_hook(event: &str, matcher: Option<&str>) -> Option<(String, Option<String>)> {
+    let all = matcher.is_none_or(|m| m.trim().is_empty() || m.trim() == "*");
+    let tool = match event {
+        "PreToolUse" | "PostToolUse" => true,
+        "Stop" | "UserPromptSubmit" | "SessionStart" => false,
+        _ => return None,
+    };
+    if all {
+        return Some((event.to_string(), None));
+    }
+    if !tool {
+        return None;
+    }
+    let mut set: Vec<&str> = matcher
+        .unwrap_or_default()
+        .split('|')
+        .map(str::trim)
+        .collect();
+    set.sort_unstable();
+    let codex = match set.as_slice() {
+        ["Bash"] => "Bash",
+        ["Edit", "Write"] | ["Edit", "MultiEdit", "Write"] => "apply_patch",
+        _ => return None,
+    };
+    Some((event.to_string(), Some(codex.to_string())))
+}
+
 fn sync_hooks_value(
     cfg: &mut Value,
     plugin: &mut Plugin,
     agent: &str,
     enabled: bool,
-    warnings: &mut Vec<String>,
+    warnings: &mut Vec<Note>,
 ) -> Result<(), String> {
     for hook in &mut plugin.hooks {
+        let (event, matcher) = if agent == subagents::AGENT_CODEX {
+            match codex_hook(&hook.event, hook.matcher.as_deref()) {
+                Some(x) => x,
+                None => continue,
+            }
+        } else {
+            (hook.event.clone(), hook.matcher.clone())
+        };
         let existed_before = hook.preexisting.iter().any(|a| a == agent);
         if enabled {
             if existed_before {
@@ -926,7 +1047,7 @@ fn sync_hooks_value(
             if let Some(expected) = hook.written.get(agent) {
                 let current_hash = cfg
                     .get("hooks")
-                    .and_then(|v| v.get(&hook.event))
+                    .and_then(|v| v.get(&event))
                     .and_then(Value::as_array)
                     .and_then(|groups| {
                         groups.iter().find(|group| {
@@ -947,17 +1068,17 @@ fn sync_hooks_value(
                 }
                 hook.preexisting.push(agent.to_string());
                 hook.written.remove(agent);
-                warnings.push(format!("hook {}: modified, kept", hook.command));
+                warnings.push(note("hook_modified", &[("command", &hook.command)]));
                 continue;
             }
-            if context_compress::has_hook(cfg, &hook.event, &hook.command) {
+            if context_compress::has_hook(cfg, &event, &hook.command) {
                 hook.preexisting.push(agent.to_string());
                 continue;
             }
-            context_compress::add_hook(cfg, &hook.event, hook.matcher.as_deref(), &hook.command)?;
+            context_compress::add_hook(cfg, &event, matcher.as_deref(), &hook.command)?;
             if let Some(group) = cfg
                 .get("hooks")
-                .and_then(|v| v.get(&hook.event))
+                .and_then(|v| v.get(&event))
                 .and_then(Value::as_array)
                 .and_then(|groups| {
                     groups.iter().find(|group| {
@@ -978,7 +1099,7 @@ fn sync_hooks_value(
         } else if !existed_before && let Some(expected) = hook.written.get(agent).cloned() {
             let current = cfg
                 .get("hooks")
-                .and_then(|v| v.get(&hook.event))
+                .and_then(|v| v.get(&event))
                 .and_then(Value::as_array)
                 .and_then(|groups| {
                     groups.iter().position(|group| {
@@ -998,17 +1119,17 @@ fn sync_hooks_value(
             if let Some(index) = current {
                 if let Some(groups) = cfg
                     .get_mut("hooks")
-                    .and_then(|v| v.get_mut(&hook.event))
+                    .and_then(|v| v.get_mut(&event))
                     .and_then(Value::as_array_mut)
                 {
                     groups.remove(index);
                     if groups.is_empty() {
-                        cfg["hooks"].as_object_mut().unwrap().remove(&hook.event);
+                        cfg["hooks"].as_object_mut().unwrap().remove(&event);
                     }
                 }
                 hook.written.remove(agent);
             } else {
-                warnings.push(format!("hook {}: modified, kept", hook.command));
+                warnings.push(note("hook_modified", &[("command", &hook.command)]));
             }
         }
     }
@@ -1018,7 +1139,7 @@ fn sync_hooks_value(
 async fn sync_hooks(
     db: &aidog_db::Db,
     p: &mut Plugin,
-    warnings: &mut Vec<String>,
+    warnings: &mut Vec<Note>,
 ) -> Result<(), String> {
     if p.hooks.is_empty() {
         return Ok(());
@@ -1062,7 +1183,7 @@ async fn sync_hooks(
 async fn sync_parts(
     db: &aidog_db::Db,
     p: &mut Plugin,
-    warnings: &mut Vec<String>,
+    warnings: &mut Vec<Note>,
 ) -> Result<(), String> {
     let on = !p.off;
     let mut subs = subagents::load_list(db).await;
@@ -1072,7 +1193,7 @@ async fn sync_parts(
     {
         s.agents = if on { p.agents.clone() } else { Vec::new() };
         for e in subagents::sync_entry(s, &dirs()?) {
-            warnings.push(format!("subagent {}: {e}", s.name));
+            warnings.push(note("subagent_error", &[("name", &s.name), ("error", &e)]));
         }
     }
     subagents::store_list(db, &subs).await?;
@@ -1088,7 +1209,10 @@ async fn sync_parts(
             if on && p.agents.contains(&agent.to_string()) {
                 if current.is_some() {
                     if current != expected {
-                        warnings.push(format!("skill {} ({agent}): modified, kept", skill.name));
+                        warnings.push(note(
+                            "skill_modified",
+                            &[("name", &skill.name), ("agent", agent)],
+                        ));
                     }
                     continue;
                 }
@@ -1107,7 +1231,10 @@ async fn sync_parts(
                     remove_owned_tree(&target)?;
                     skill.written.remove(agent);
                 } else if current.is_some() {
-                    warnings.push(format!("skill {} ({agent}): modified, kept", skill.name));
+                    warnings.push(note(
+                        "skill_modified",
+                        &[("name", &skill.name), ("agent", agent)],
+                    ));
                 }
             }
         }
@@ -1128,7 +1255,10 @@ async fn sync_parts(
             )
             .await
             {
-                warnings.push(format!("mcp {} ({agent}): {e}", s.name));
+                warnings.push(note(
+                    "mcp_error",
+                    &[("name", &s.name), ("agent", agent), ("error", &e)],
+                ));
             }
         }
     }
@@ -1212,7 +1342,7 @@ async fn plugins_remove_impl(db: &aidog_db::Db, name: &str) -> Result<PluginView
     rows.retain(|x| x.name != name);
     save(db, &rows).await?;
     if let Err(e) = remove_library_dir(name) {
-        warnings.push(e);
+        warnings.push(note("library_remove_failed", &[("error", &e)]));
     }
     Ok(PluginViewList {
         plugins: rows.iter().map(view).collect(),

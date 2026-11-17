@@ -41,6 +41,14 @@ describe("Subagents", () => {
     expect(screen.queryByTestId("subagent-status-reviewer-codex")).toBeNull();
   });
 
+  it("marks entries that came with a plugin", async () => {
+    api.list.mockResolvedValue([ROW, { ...ROW, name: "helper", bundle: "demo" }]);
+    render(<Subagents />);
+    await screen.findByTestId("subagent-row-helper");
+    await waitFor(() => expect(screen.queryByTestId("subagent-plugin-helper")).not.toBeNull());
+    expect(screen.queryByTestId("subagent-plugin-reviewer")).toBeNull();
+  });
+
   it("toggling an agent saves with the agent added", async () => {
     render(<Subagents />);
     fireEvent.click(await screen.findByTestId("subagent-toggle-reviewer-claude-code"));

@@ -19,6 +19,8 @@ export interface Subagent {
   from?: string;
   from_hash?: string;
   written?: Record<string, string>;
+  /** 来源插件（由 Claude 插件捆绑包分发时）。 */
+  bundle?: string;
 }
 
 /** agent 支持的子代理能力（"skills" / "mcpServers" / "model"）。 */

@@ -21,7 +21,7 @@ import { Plugins } from "./Plugins";
 
 const CLAUDE_LIST = [
   { name: "code-review", source: "/plugins/code-review", pick: null, agents: ["claude-code", "codex"], on: true, skills: ["review"], subagents: ["reviewer"], hooks: [], servers: [], left: [] },
-  { name: "z-docs", source: "/plugins/z", pick: null, agents: ["claude-code"], on: false, skills: [], subagents: [], hooks: [], servers: [], left: ["commands not carried"] },
+  { name: "z-docs", source: "/plugins/z", pick: null, agents: ["claude-code"], on: false, skills: [], subagents: [], hooks: [], servers: [], left: [{ code: "commands", args: {} }] },
 ];
 const CLAUDE_VIEW = { plugins: CLAUDE_LIST, warnings: [] };
 const CODEX_VIEW = {
@@ -63,6 +63,13 @@ describe("Plugins", () => {
     await waitFor(() => expect(api.claudeSet).toHaveBeenCalledWith("z-docs", true));
   });
 
+  it("translates backend warnings by code", async () => {
+    api.claudeSet.mockResolvedValue({ plugins: CLAUDE_LIST, warnings: [{ code: "skill_modified", args: { name: "review", agent: "codex" } }] });
+    render(<Plugins />);
+    fireEvent.click(await screen.findByTestId("plugin-toggle-z-docs"));
+    await waitFor(() => expect(screen.queryByTestId("plugins-warnings")?.textContent).toContain("plugins.note.skill_modified"));
+  });
+
   it("probes and installs selected Claude bundle", async () => {
     render(<Plugins />);
     expect(await screen.findByLabelText("plugins.claudeSource")).toBeTruthy();
@@ -77,7 +84,7 @@ describe("Plugins", () => {
   it("shows left-out parts and removes or updates a bundle", async () => {
     render(<Plugins />);
     await screen.findByTestId("plugin-row-z-docs");
-    expect(screen.getByTestId("plugin-left-z-docs").textContent).toContain("commands not carried");
+    expect(screen.getByTestId("plugin-left-z-docs").textContent).toContain("plugins.note.commands");
     fireEvent.click(screen.getByTestId("plugin-update-z-docs"));
     await waitFor(() => expect(api.claudeUpdate).toHaveBeenCalledWith("z-docs"));
     fireEvent.click(screen.getByTestId("plugin-remove-z-docs"));
