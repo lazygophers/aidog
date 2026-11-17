@@ -817,3 +817,63 @@ fn parse_sqz_and_rtk_stats_from_cli_json() {
     assert!(parse_rtk_gain("{}").is_none());
     assert!(parse_rtk_gain("").is_none());
 }
+
+// ─── 统计解析（rtk gain -d / sqz gain 文本）─────────────────
+
+#[test]
+fn rtk_daily_parse_extracts_iso_dates_saved_and_rate() {
+    let out = r#"{"summary":{"total_commands":2},"daily":[
+        {"date":"2026-08-20","commands":903,"input_tokens":234202,"output_tokens":157327,"saved_tokens":77222,"savings_pct":32.97239135447178,"total_time_ms":858101,"avg_time_ms":1080},
+        {"date":"2026-08-21","commands":709,"input_tokens":306761,"output_tokens":145889,"saved_tokens":161444,"savings_pct":52.63,"total_time_ms":864146,"avg_time_ms":1378}
+    ]}"#;
+    let daily = parse_rtk_daily(out);
+    assert_eq!(daily.len(), 2);
+    assert_eq!(daily[0].date, "2026-08-20");
+    assert_eq!(daily[0].saved_tokens, 77222);
+    assert_eq!(daily[0].commands, 903);
+    assert!((daily[0].savings_pct - 32.97239135447178).abs() < 1e-9);
+}
+
+#[test]
+fn rtk_daily_parse_invalid_or_summary_only_yields_empty() {
+    assert!(parse_rtk_daily("not json").is_empty());
+    assert!(parse_rtk_daily(r#"{"summary":{"total_commands":1}}"#).is_empty());
+}
+
+#[test]
+fn sqz_gain_parse_keeps_recent_days_in_current_year() {
+    let today = chrono::NaiveDate::from_ymd_opt(2026, 11, 18).unwrap();
+    let out = "  📈 Token Savings (last 7 days)\n  ─────\n  \
+        11-17 │██████████████████████████████│ 246984 saved\n  \
+        11-12 │█████                         │  49251 saved\n  \
+        ─────\n  Total: 20081 compressions, 6609966 tokens saved (27.5% avg)\n";
+    let daily = parse_sqz_gain(out, today);
+    assert_eq!(
+        daily,
+        vec![
+            SqzDaily { date: "2026-11-17".into(), saved_tokens: 246984 },
+            SqzDaily { date: "2026-11-12".into(), saved_tokens: 49251 },
+        ]
+    );
+}
+
+#[test]
+fn sqz_gain_parse_rolls_new_year_boundary_to_previous_year() {
+    let today = chrono::NaiveDate::from_ymd_opt(2026, 1, 5).unwrap();
+    let out = "  12-31 │██████│ 60000 saved\n  01-04 │██│ 20000 saved\n";
+    let daily = parse_sqz_gain(out, today);
+    assert_eq!(
+        daily,
+        vec![
+            SqzDaily { date: "2025-12-31".into(), saved_tokens: 60000 },
+            SqzDaily { date: "2026-01-04".into(), saved_tokens: 20000 },
+        ]
+    );
+}
+
+#[test]
+fn sqz_gain_parse_skips_garbage_lines_without_fabricating() {
+    let today = chrono::NaiveDate::from_ymd_opt(2026, 11, 18).unwrap();
+    let daily = parse_sqz_gain("garbage\n99-99 │██│ 5 saved\n\n", today);
+    assert!(daily.is_empty(), "无效月日/日期行必须跳过，不伪造");
+}
