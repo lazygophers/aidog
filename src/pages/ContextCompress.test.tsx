@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "../test/render";
 
-const api = vi.hoisted(() => ({ status: vi.fn(), install: vi.fn(), setRtk: vi.fn(), setSqz: vi.fn() }));
+const api = vi.hoisted(() => ({ status: vi.fn(), install: vi.fn(), setRtk: vi.fn(), setSqz: vi.fn(), stats: vi.fn() }));
 vi.mock("../services/api/contextCompress", () => ({ contextCompressApi: api }));
 
 import { ContextCompress } from "./ContextCompress";
@@ -24,6 +24,10 @@ beforeEach(() => {
   api.setRtk.mockResolvedValue(STATUS);
   api.setSqz.mockResolvedValue({ ...STATUS, sqz_enabled: true, sqz_missing: [] });
   api.install.mockResolvedValue(STATUS);
+  api.stats.mockResolvedValue({
+    rtk: { total_commands: 100, total_input: 1000, total_output: 600, total_saved: 400, avg_savings_pct: 40 },
+    sqz: { totalCompressions: 50, tokensIn: 2000, tokensOut: 1400, tokensSaved: 600, avgReduction: 30 },
+  });
 });
 
 async function openSqz() {
@@ -74,5 +78,17 @@ describe("ContextCompress", () => {
     fireEvent.click(screen.getByTestId("cc-tab-sqz"));
     fireEvent.click(await screen.findByTestId("sqz-install"));
     await waitFor(() => expect(api.install).toHaveBeenCalledWith("sqz"));
+  });
+
+  it("shows rtk and sqz compression statistics", async () => {
+    render(<ContextCompress />);
+    const rtk = await screen.findByTestId("rtk-stats");
+    // 隔离 i18n 缺译文回传 key 本身（见 test/render.tsx），断言 key。
+    expect(rtk.textContent).toBe("contextCompress.rtkStats");
+    fireEvent.mouseDown(screen.getByTestId("cc-tab-sqz"), { button: 0 });
+    fireEvent.click(screen.getByTestId("cc-tab-sqz"));
+    const sqz = await screen.findByTestId("sqz-stats");
+    expect(sqz.textContent).toBe("contextCompress.sqzStats");
+    expect(api.stats).toHaveBeenCalledOnce();
   });
 });

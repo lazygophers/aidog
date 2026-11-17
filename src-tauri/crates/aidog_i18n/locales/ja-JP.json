@@ -1203,6 +1203,8 @@
   "contextCompress.sqzDesc": "オン：sqz フック（PostToolUse、PreCompact）を追加し、すべての stdio MCP サーバーを sqz-mcp proxy で包み、Claude Code と Codex に sqz 自身の MCP サーバーを追加します。オフ：すべて元に戻します。",
   "contextCompress.sqzSwitch": "sqz を有効化",
   "contextCompress.sqzMissing": "未有効、不足：",
+  "contextCompress.rtkStats": "合計 {{saved}} トークン節約（{{commands}} 回のコマンド、平均 {{pct}}%）",
+  "contextCompress.sqzStats": "{{count}} 回圧縮、{{saved}} トークン節約（平均圧縮率 {{pct}}%）",
   "contextCompress.sqzBinMissing": "sqz-mcp が見つかりません",
   "mcp.add": "MCP を追加",
   "mcp.addRow": "追加",
