@@ -94,7 +94,10 @@ async fn set_agent_write_failure_leaves_db_untouched() {
     let err = set_agent_enabled(&db, "srv", McpAgent::Codex, true)
         .await
         .unwrap_err();
-    assert!(err.contains("codex"), "error should name failed agent: {err}");
+    assert!(
+        err.contains("codex"),
+        "error should name failed agent: {err}"
+    );
     let row = store::get_mcp_server(&db, "srv").await.unwrap().unwrap();
     assert!(
         !row.enabled_agents.contains("codex"),
@@ -260,20 +263,32 @@ async fn plugin_owned_user_edit_survives_resync_and_delete() {
         .unwrap();
 
     let path = home.dir.path().join(".claude.json");
-    let mut root: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    let mut root: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
     root["mcpServers"]["bundle-server"]["command"] = "user-command".into();
     std::fs::write(&path, serde_json::to_vec_pretty(&root).unwrap()).unwrap();
 
     resync_all(&db).await.unwrap();
     let after_resync: serde_json::Value =
         serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-    assert_eq!(after_resync["mcpServers"]["bundle-server"]["command"], "user-command");
+    assert_eq!(
+        after_resync["mcpServers"]["bundle-server"]["command"],
+        "user-command"
+    );
 
     delete_server(&db, "bundle-server").await.unwrap();
     let after_delete: serde_json::Value =
         serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-    assert_eq!(after_delete["mcpServers"]["bundle-server"]["command"], "user-command");
-    assert!(store::get_mcp_server(&db, "bundle-server").await.unwrap().is_none());
+    assert_eq!(
+        after_delete["mcpServers"]["bundle-server"]["command"],
+        "user-command"
+    );
+    assert!(
+        store::get_mcp_server(&db, "bundle-server")
+            .await
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[tokio::test]
@@ -289,14 +304,74 @@ async fn plugin_owned_user_edit_survives_delete() {
         .unwrap();
 
     let path = home.dir.path().join(".claude.json");
-    let mut root: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    let mut root: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
     root["mcpServers"]["bundle-server"]["command"] = "user-command".into();
     std::fs::write(&path, serde_json::to_vec_pretty(&root).unwrap()).unwrap();
 
     delete_server(&db, "bundle-server").await.unwrap();
     let after_delete: serde_json::Value =
         serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-    assert_eq!(after_delete["mcpServers"]["bundle-server"]["command"], "user-command");
+    assert_eq!(
+        after_delete["mcpServers"]["bundle-server"]["command"],
+        "user-command"
+    );
+}
+
+#[tokio::test]
+async fn plugin_owned_unknown_json_field_survives_resync_and_delete() {
+    let home = HomeGuard::new();
+    let db = test_db().await;
+    add_server(&db, payload("bundle-server")).await.unwrap();
+    set_agent_enabled(&db, "bundle-server", McpAgent::ClaudeCode, true)
+        .await
+        .unwrap();
+    crate::mark_bundle_entry(&db, "bundle-server", McpAgent::ClaudeCode, "demo-plugin")
+        .await
+        .unwrap();
+
+    let path = home.dir.path().join(".claude.json");
+    let mut root: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    root["mcpServers"]["bundle-server"]["timeout"] = 42.into();
+    std::fs::write(&path, serde_json::to_vec_pretty(&root).unwrap()).unwrap();
+
+    resync_all(&db).await.unwrap();
+    let after: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    assert_eq!(after["mcpServers"]["bundle-server"]["timeout"], 42);
+    delete_server(&db, "bundle-server").await.unwrap();
+    let after: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    assert_eq!(after["mcpServers"]["bundle-server"]["timeout"], 42);
+}
+
+#[tokio::test]
+async fn plugin_owned_edit_survives_uninstall_after_agent_disabled() {
+    let home = HomeGuard::new();
+    let db = test_db().await;
+    add_server(&db, payload("bundle-server")).await.unwrap();
+    set_agent_enabled(&db, "bundle-server", McpAgent::ClaudeCode, true)
+        .await
+        .unwrap();
+    crate::mark_bundle_entry(&db, "bundle-server", McpAgent::ClaudeCode, "demo-plugin")
+        .await
+        .unwrap();
+
+    let path = home.dir.path().join(".claude.json");
+    let mut root: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    root["mcpServers"]["bundle-server"]["command"] = "user-command".into();
+    std::fs::write(&path, serde_json::to_vec_pretty(&root).unwrap()).unwrap();
+    set_agent_enabled(&db, "bundle-server", McpAgent::ClaudeCode, false)
+        .await
+        .unwrap();
+    delete_server(&db, "bundle-server").await.unwrap();
+    let after: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    assert_eq!(
+        after["mcpServers"]["bundle-server"]["command"],
+        "user-command"
+    );
+    // Ownership record is cleared even though the agent was already disabled.
+    assert!(!crate::bundle::is_owned(&db, McpAgent::ClaudeCode, "bundle-server").await);
 }
 
 #[tokio::test]
