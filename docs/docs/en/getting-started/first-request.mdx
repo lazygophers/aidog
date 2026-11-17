@@ -1,0 +1,19 @@
+---
+title: Verify a request
+description: Send a request through the local proxy and inspect its result.
+---
+
+# Verify a request
+
+Copy the group credential from the group details and confirm that the group has at least one enabled provider. Replace `<group_key>` with that credential and `gpt-4o` with a model supported by your upstream:
+
+```bash
+curl http://127.0.0.1:9890/proxy/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <group_key>' \
+  -d '{"model":"gpt-4o","messages":[{"role":"user","content":"Reply only with ok"}]}'
+```
+
+After a successful request, open **Proxy Logs** to inspect the status, group, provider, requested model, actual model, and usage. Cost is estimated from recorded usage and model prices; it may differ from the provider's bill.
+
+If the request fails, check that AiDog is running, the group credential is correct, the provider is enabled, and the model mapping matches the upstream endpoint. The log detail includes the failure stage and upstream response when available.

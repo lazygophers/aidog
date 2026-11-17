@@ -1,0 +1,26 @@
+---
+title: Install AiDog
+description: Download AiDog and confirm that its local service is available.
+---
+
+# Install AiDog
+
+Download the latest release from [GitHub Releases](https://github.com/lazygophers/aidog/releases/latest) and install the package listed for your operating system. Use the release page for the supported operating system versions, processor architectures, and package instructions.
+
+On macOS or Windows, verify that the installer came from the official AiDog release before allowing it through an operating-system security prompt. On Linux, follow the release notes and the [Tauri system requirements](https://v2.tauri.app/start/prerequisites/); package commands vary by distribution.
+
+After startup, the desktop app starts the local service. Its default proxy address is `http://127.0.0.1:9890`, which accepts local connections by default.
+
+Check that the service responds:
+
+```bash
+curl http://127.0.0.1:9890/
+```
+
+A successful response is:
+
+```json
+{"service":"aidog","ok":true}
+```
+
+Continue to [first configuration](/en/getting-started/first-config).

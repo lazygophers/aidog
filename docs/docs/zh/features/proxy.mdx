@@ -1,26 +1,12 @@
 ---
 title: 代理服务
-description: 启动本地代理并管理地址、超时和中间件。
+description: 查看本机代理地址、服务状态和相关连接方式。
 ---
 
 # 代理服务
 
-import { ProductDemo } from '../../../theme/components/ProductDemo';
+桌面版会在本机启动代理。默认监听 `127.0.0.1:9890`，代理请求使用 `/proxy` 前缀，例如 `http://127.0.0.1:9890/proxy/v1/chat/completions`。
 
-<ProductDemo module="proxy" state="normal" />
+默认只监听本机回环地址。不要把代理管理接口转发到公网。若修改监听端口或启用局域网访问，请确认网络边界和访问控制设置。
 
-## 当前实现
-
-代理启动与状态控制命令在 `src/services/api/proxy.ts`，Rust 实现位于 `proxy_cmd::proxy`、`proxy_cmd::proxy_log`、`gateway::proxy` 和相关模块。
-
-当前默认代理端口在源码里是 `9890`。Local API 健康检查走 `/` 和 `/proxy`，模型发现走 `/models` 和 `/v1/models`；这些端点在代理路由中有专门分流。
-
-## 文档演示边界
-
-上方演示是固定 fixture，只说明文档站中的页面状态，不代表实时代理运行状态。
-
-## 主要任务
-
-此页面演示正常、空、错误和加载四种固定状态。演示数据已脱敏，不连接本机 aidog、Tauri IPC 或 Local API。
-
-在桌面应用中使用左侧导航进入“代理服务”。保存会影响运行状态的设置前，先确认当前分组和平台范围；发生错误时结合[代理日志](/zh/features/logs)定位。
+可用 `GET /` 检查服务是否响应；成功时返回 `{"service":"aidog","ok":true}`。这只证明本机服务可连接，不证明上游凭证、模型或分组配置有效。

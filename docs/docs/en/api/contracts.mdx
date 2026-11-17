@@ -1,0 +1,10 @@
+---
+title: Calling contracts and errors
+description: How command registration, Rust parameters, and TypeScript calls must stay aligned.
+---
+
+# Calling contracts and errors
+
+The desktop frontend calls Rust commands through Tauri. Commands must be registered, and invoke names, parameter names, and serialized types must match. When changing any side, check the registration table, the Rust implementation, and the TypeScript wrapper, and regenerate the [command dictionary](/zh/api/commands.generated).
+
+The local HTTP API is a separate set of interfaces with its own paths, HTTP methods, and auth requirements. Tauri commands are not a remote HTTP API; commands not documented in the interface reference should not be treated as public extension points.

@@ -1,0 +1,12 @@
+---
+title: Statistics
+description: Review request and usage summaries by time, model, provider, and group.
+---
+
+# Statistics
+
+The statistics page summarizes proxied requests and recorded usage: request counts, tokens, cost estimates, duration, and breakdowns by provider, model, and group.
+
+Group usage statistics aggregate by the group a request belongs to. Provider balances are provider-level and are not split by group. Providers also differ in which token fields they return and how they price requests; cost estimates do not replace the upstream bill.
+
+If statistics differ from the upstream console, check the time range, log retention, whether upstream responses include usage, and the model price configuration.

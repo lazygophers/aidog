@@ -1,21 +1,22 @@
 ---
-title: aidog
-description: aidog 是本地运行的桌面端 AI API 网关，统一管理平台、路由、模型、用量与编程助手配置。
+title: AiDog
+description: 在本机管理 AI 平台、连接客户端，并查看请求路由与用量。
 pageType: home
 ---
 
-## 从首个请求开始
+## 开始使用
 
-1. 从 Releases 安装 aidog。
-2. 添加至少一个 AI 平台并填写 API Key。
-3. 创建分组，把客户端指向本地代理。
-4. 发送测试请求，在日志页确认路由结果。
+1. [安装 AiDog](/zh/getting-started/installation)。
+2. [添加平台并创建分组](/zh/getting-started/first-config)。
+3. [连接 Claude Code、Codex 或 pi](/zh/getting-started/connect-claude-code)。
+4. [发送并检查首个请求](/zh/getting-started/first-request)。
 
-[完成首次配置](/zh/getting-started/first-config) · [验证首个请求](/zh/getting-started/first-request)
+AiDog 在本机运行代理。请求会转发到你配置的上游服务；本机运行不表示请求只留在本机。
 
 ## 按任务查找
 
-- [配置上游平台](/zh/features/platforms)
-- [隔离客户端并设置路由](/zh/core-concepts/groups-routing)
-- [接入 Claude Code](/zh/getting-started/connect-claude-code)或[接入 Codex](/zh/getting-started/connect-codex)
-- [排查请求失败](/zh/features/logs)
+- [管理 AI 平台](/zh/features/platforms)
+- [分组与路由](/zh/core-concepts/groups-routing)
+- [查看请求记录](/zh/features/logs)
+- [查看用量与费用估算](/zh/features/stats)
+- [数据与隐私](/zh/core-concepts/data-privacy)

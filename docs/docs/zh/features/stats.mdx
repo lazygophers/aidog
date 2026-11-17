@@ -1,26 +1,12 @@
 ---
 title: 统计
-description: 查看 Token、费用、延迟、模型和分组维度的使用趋势。
+description: 按时间、模型、平台和分组查看请求与用量汇总。
 ---
 
 # 统计
 
-import { ProductDemo } from '../../../theme/components/ProductDemo';
+统计页汇总代理请求和已记录的用量，包括请求数、Token、费用估算、耗时，以及平台、模型和分组维度的汇总。
 
-<ProductDemo module="stats" state="normal" />
+分组使用统计按请求所属分组汇总。平台余额是平台级信息，不按分组拆分。不同平台返回的 Token 字段和计价方式也可能不同；费用估算不替代上游账单。
 
-## 当前实现
-
-侧栏的 `stats` 入口挂载 `src/pages/Stats.tsx`。统计数据由 `src/services/api/stats.ts` 和后端 `platform_cmd::stats` 相关命令提供。
-
-页面只应说明当前仓库实际存在的统计口径：请求数、Token、费用、模型、分组、延迟和聚合项。任何分段、导出或过滤行为以当前源码为准。
-
-## 文档演示边界
-
-上方演示是固定 fixture，不读取真实统计数据。
-
-## 主要任务
-
-此页面演示正常、空、错误和加载四种固定状态。演示数据已脱敏，不连接本机 aidog、Tauri IPC 或 Local API。
-
-在桌面应用中使用左侧导航进入“统计”。保存会影响运行状态的设置前，先确认当前分组和平台范围；发生错误时结合[代理日志](/zh/features/logs)定位。
+若统计与上游控制台不同，先检查时间范围、日志保留情况、上游响应是否包含 usage，以及模型价格配置。

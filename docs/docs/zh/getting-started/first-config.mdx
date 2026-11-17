@@ -1,28 +1,26 @@
 ---
 title: 首次配置
-description: 添加平台、创建分组并确认本地代理可用。
+description: 添加上游平台、创建分组，并检查代理是否启动。
 ---
 
 # 首次配置
 
-## 添加平台
+## 1. 添加上游平台
 
-进入“AI 平台”，选择预设协议并填写名称、Base URL 和 API Key。Base URL 应包含版本前缀，例如 `/v1`。
+打开“AI 平台”，添加一个平台。选内置预设时检查协议与 Base URL，再填写该平台的 API Key。自定义平台也要选择与上游接口相符的协议。
 
-## 创建分组
+Base URL 应包含上游需要的版本前缀，例如 `/v1`。不要把 `/chat/completions` 拼进 Base URL；请求路径由 AiDog 根据协议构造。
 
-在平台页内创建分组并关联平台。分组名也是代理鉴权使用的 Bearer token。
-进入“AI 平台”，选择预设协议并填写名称、Base URL 和 API Key。Base URL 应包含版本前缀，例如 `/v1`；不要再拼接 `/chat/completions`。
+## 2. 创建分组
 
-## 创建分组
+在“AI 平台”页创建分组，并把刚添加的平台加入分组。分组凭据用于客户端访问 AiDog；它不是上游 API Key。仅将兼容的候选平台放在同一分组。
 
-进入“分组路由”，创建分组并关联平台。分组名也是代理鉴权使用的 Bearer token。先用单平台分组验证链路，再添加兼容候选实现故障转移。
+## 3. 检查本机代理
 
-## 确认代理
+默认代理地址是 `http://127.0.0.1:9890`。在终端运行：
 
 ```bash
 curl http://127.0.0.1:9890/
-curl http://127.0.0.1:9890/
 ```
 
-返回 `{"service":"aidog","ok":true}` 后即可接入客户端。
+成功时返回 `{"service":"aidog","ok":true}`。然后按[客户端接入指南](/zh/getting-started/connect-claude-code)配置客户端。

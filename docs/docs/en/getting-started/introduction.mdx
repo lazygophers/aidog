@@ -1,0 +1,27 @@
+---
+title: Introduction
+description: Understand what AiDog runs locally and how requests reach configured AI providers.
+---
+
+# Introduction
+
+AiDog is a desktop application and optional headless kernel for routing AI API requests from local tools to provider endpoints you configure. It can also record request metadata and estimate usage costs.
+
+## Request path
+
+1. A client sends a request to the local AiDog endpoint and identifies a group.
+2. AiDog selects an eligible provider in that group and applies the configured model mapping.
+3. AiDog forwards the request to that provider and returns its response to the client.
+4. The request appears in local history according to the logging settings.
+
+Requests leave your computer when AiDog forwards them to an upstream provider. Running the gateway locally does not keep request content local.
+
+## What you can do
+
+- Combine provider endpoints that support the same client and request type.
+- Use groups to give clients separate credentials and provider sets.
+- Route model names and configure fallback behavior.
+- Review request outcomes, token usage, and estimated costs.
+- Connect Claude Code, Codex, or pi using the documented setup guides.
+
+Start with [installation](/en/getting-started/installation), then [configure a provider and group](/en/getting-started/first-config).

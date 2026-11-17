@@ -1,0 +1,69 @@
+---
+title: Codex recommended settings
+description: Item-by-item notes on AiDog's built-in Codex recommended settings: models, approvals, sandbox, diagnostics, and the provider pointing at the AiDog proxy.
+---
+
+# Codex recommended settings
+
+On the settings page `settings/codex`, click **Load recommended settings**. AiDog deep-merges the recommended values into the current configuration (keys you already have are kept; keys with the same name are overwritten), and writes the result to `~/.codex/config.toml` after you confirm.
+
+The source of truth is `buildCodexRecommendedConfig(port)` in `src/services/codex-settings-schema.ts`, with the port defaulting to `AIDOG_DEFAULT_PORT = 9890`. The static export `CODEX_RECOMMENDED_CONFIG` seeds the page and resets defaults.
+
+## Core
+
+| Key | Recommended value | Notes |
+| --- | --- | --- |
+| `model` | `gpt-5.5` | Default model |
+| `model_provider` | `aidog` | Points at the aidog provider declared below; all requests go through the local proxy |
+| `model_reasoning_effort` | `medium` | Default reasoning effort level |
+
+## Approvals and sandbox
+
+| Key | Recommended value | Notes |
+| --- | --- | --- |
+| `approval_policy` | `on-request` | Ask for approval only when the model requests elevated rights, not for every command |
+| `sandbox_mode` | `workspace-write` | Writes limited to the current workspace; read-only outside it |
+| `sandbox_workspace_write.network_access` | `false` | No network access inside the sandbox |
+
+These three work together: `workspace-write` bounds the write scope, `network_access: false` cuts the exfiltration path, and `on-request` keeps a human gate. For a stricter setup, change `sandbox_mode` to `read-only`.
+
+## Search and style
+
+| Key | Recommended value | Notes |
+| --- | --- | --- |
+| `web_search` | `cached` | Web search allowed but cached, reducing live external requests |
+| `personality` | `pragmatic` | Pragmatic style with minimal pleasantries |
+
+## Diagnostics
+
+| Key | Recommended value | Notes |
+| --- | --- | --- |
+| `analytics.enabled` | `false` | Disables usage reporting, matching AiDog's privacy preferences |
+
+## Provider: pointing at the AiDog proxy
+
+```toml
+[model_providers.aidog]
+name = "aidog proxy"
+base_url = "http://127.0.0.1:9890/proxy"
+wire_api = "responses"
+env_key = "AIDOG_KEY"
+```
+
+| Field | Notes |
+| --- | --- |
+| `base_url` | The `/proxy` prefix of AiDog's local proxy. Codex actually requests `base_url + /v1/responses`; AiDog strips `/proxy` and routes by token |
+| `wire_api` | `responses` — Codex uses the Responses API wire protocol |
+| `env_key` | Reads the environment variable `AIDOG_KEY` as the auth token; the value is the **AiDog group name** |
+
+If the port is not 9890, take the actual address from the group's **Copy startup command**, or change the port in the settings page and reload the recommended settings — `buildCodexRecommendedConfig(port)` generates `base_url` from the given port.
+
+## Difference from the Claude Code page
+
+The Codex page's **Load recommended settings** is a direct deep merge with no per-item confirmation dialog (Codex has no "import from Codex" diff view). Review the JSON / GUI content before saving.
+
+## Related pages
+
+- [Codex integration](/en/features/codex)
+- [Connect Codex](/en/getting-started/connect-codex)
+- [Claude Code recommended settings](/en/features/recommended-claude-code) · [pi recommended settings](/en/features/recommended-pi)

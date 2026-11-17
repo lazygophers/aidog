@@ -1,0 +1,23 @@
+---
+title: Local HTTP API
+description: Use loopback-restricted HTTP endpoints to read management data or connect tools.
+---
+
+# Local HTTP API
+
+| Path | Method | Auth and purpose |
+| --- | --- | --- |
+| `/api/rpc/<command>` | POST | Local management calls; optional Bearer credential. |
+| `/api/events` | GET | Local Server-Sent Events stream; optional Bearer credential. |
+| `/api/group-info` | POST | Query group info with `Bearer <group_key>`. |
+| `/api/notify` | POST | Send a local notification with `Bearer <group_key>`. |
+| `/mcp` | POST | HTTP MCP; group credential, loopback only. |
+| `/`, `/proxy` | GET | Health checks; no auth required. |
+| `/models`, `/v1/models` | GET | Model discovery endpoints. |
+
+`group_key` is an AiDog group credential, not an upstream API key. When the API master switch is off, the management endpoints are unavailable. For exact commands and request fields, rely on the generated dictionary and source code of your current version.
+
+```bash
+curl -X POST http://127.0.0.1:9890/api/group-info \
+  -H 'Authorization: Bearer <group_key>'
+```

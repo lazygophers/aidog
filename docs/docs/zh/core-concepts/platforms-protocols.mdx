@@ -1,10 +1,12 @@
 ---
 title: 平台与协议
-description: 理解平台、端点、入站协议与出站协议之间的关系。
+description: 区分上游平台、API 地址和客户端使用的请求协议。
 ---
 
 # 平台与协议
 
-平台保存上游 Base URL、API Key、模型映射、状态、配额和规则；协议描述 OpenAI Chat、Responses、Anthropic 或 Gemini 等 wire format。
+平台表示一个上游服务配置，包含 API 地址、凭证、模型和端点。协议表示请求与响应的数据格式，例如 OpenAI Chat、Responses、Anthropic 或 Gemini。
 
-路由根据端点和请求能力选择出站协议。同协议优先透传，跨协议时执行转换。Base URL 包含版本前缀，最终业务路径由协议适配器追加。`glm_coding` 是独立协议与预设，不是普通 GLM 的显示分支。
+AiDog 根据端点协议处理请求。能直接转发的请求会保留原协议；支持转换的协议组合由对应适配器处理。并非所有协议组合和功能都能互转。
+
+Base URL 应包含上游版本前缀。AiDog 根据协议追加请求路径；不要把完整请求路径重复写进 Base URL。

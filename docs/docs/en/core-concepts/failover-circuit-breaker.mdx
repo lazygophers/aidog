@@ -1,0 +1,12 @@
+---
+title: Failover and circuit breaking
+description: Understand when requests switch models or providers and when a provider is paused.
+---
+
+# Failover and circuit breaking
+
+After a request fails, AiDog decides whether to try another model or provider based on the failure type. Model-related errors can exclude the current provider and model pair; service-level errors can exclude the entire provider. A request never moves to another group.
+
+Connection failures, rate limits, and auth errors update the provider's health state or cooldown according to the group's scheduling mode. Health-aware mode uses circuit-break times that grow with each consecutive failure; other modes trip the breaker at a failure threshold. A successful request clears the consecutive failure count.
+
+Retries are limited. Once the budget is used up, the request returns the last upstream error or the routing failure. Each attempt and its failure stage are recorded in the proxy logs, so you can tell whether the problem is the model, the credentials, the upstream service, or the local network.

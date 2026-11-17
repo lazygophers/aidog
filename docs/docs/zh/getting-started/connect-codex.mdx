@@ -1,30 +1,15 @@
 ---
 title: 接入 Codex
-description: 在 aidog 中复制 Codex 启动命令并复用分组 provider 配置。
+description: 使用 AiDog 为分组生成的启动命令连接 Codex。
 ---
 
 # 接入 Codex
 
-进入 aidog 的“AI 平台”或分组列表，找到要使用的分组，点击“复制启动命令”并选择“Codex 启动命令”。
+1. 在 AiDog 中添加并测试上游平台。
+2. 创建分组并加入平台。
+3. 从分组操作中复制 Codex 启动命令。
+4. 运行命令并发送一次请求。
 
-生成器在 `src/domains/groups/commands.ts`。当前命令会先注入用户自定义的代理环境变量，再设置 `AIDOG_KEY=<group_key>`，最后执行：
+AiDog 会同步 Codex provider 配置。分组 key 是 Codex 访问 AiDog 的凭据，不是上游 API Key。若手动编辑 `~/.codex/config.toml`，需保持 provider 的 `base_url`、`wire_api` 与环境变量名和分组设置一致。
 
-```bash
-codex -p <group_key> --dangerously-bypass-approvals-and-sandbox -a never
-```
-
-Codex provider 由 `src/services/codex-settings-schema.ts` 写入，默认 `base_url` 指向 `http://127.0.0.1:9890/proxy`，`env_key` 为 `AIDOG_KEY`。`AIDOG_KEY` 的值是 aidog 分组 key，不是上游 API Key。
-在“系统设置 → Codex”编辑配置，或在 `~/.codex/config.toml` 配置 provider：
-
-```toml
-model = "gpt-5"
-model_provider = "aidog"
-
-[model_providers.aidog]
-name = "aidog"
-base_url = "http://127.0.0.1:9890/proxy/v1"
-env_key = "AIDOG_GROUP"
-wire_api = "responses"
-```
-
-启动前执行 `export AIDOG_GROUP="<group_name>"`。aidog 会识别 Responses API 并选择兼容端点。
+详细字段见[Codex 推荐配置](/zh/features/recommended-codex)。完成后按[验证首个请求](/zh/getting-started/first-request)检查路由日志。

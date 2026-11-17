@@ -1,0 +1,12 @@
+---
+title: Groups and routing
+description: Use group credentials to select a client configuration and its eligible providers.
+---
+
+# Groups and routing
+
+A group connects client credentials, model rules, and candidate providers. When a client request includes a group's credential, AiDog looks for candidates in that group. An invalid credential does not fall back to another group.
+
+Provider status, model slots, endpoint protocols, time rules, quota windows, and health state can further limit eligible candidates. A request fails when the group has no eligible provider.
+
+Before placing providers in one group, confirm they support the same client models and request types. Use separate groups when clients need different access, provider sets, or model mappings.

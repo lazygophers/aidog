@@ -1,30 +1,12 @@
 ---
 title: Claude Code
-description: 通过 aidog 同步 Claude Code 配置，并从分组复制启动命令。
+description: 管理 Claude Code 配置，并让不同分组使用独立代理入口。
 ---
 
 # Claude Code
 
-import { ProductDemo } from '../../../theme/components/ProductDemo';
+AiDog 可管理 Claude Code 设置、分组配置同步、Hooks 和 StatusLine。分组页提供启动命令，按命令启动可使用该分组对应的本机代理和凭据。
 
-<ProductDemo module="claude-code" state="normal" />
+打开“系统设置 → Claude Code”管理全局配置；分组配置由 AiDog 写入独立文件。修改前确认当前用户目录和分组。AiDog 会记录其托管配置，用于后续同步和清理。
 
-## 当前实现
-
-Claude Code 集成入口在设置页 `settings/claude` 和 AI 平台/分组的复制启动命令流程，不是要求用户手写 `export`。
-
-`sync_group_settings` 和 `export_claude_config` 在 `src-tauri/src/startup.rs` 注册，Rust 实现会写 Claude Code settings，并把 aidog 托管路径记录到 DB。分组启动命令会带上当前代理地址和分组 token：`ANTHROPIC_BASE_URL` 指向本机 `/proxy`，`ANTHROPIC_AUTH_TOKEN` 使用分组名或分组 key。
-
-StatusLine、Hooks 和默认联动开关属于当前源码内的 Claude Code 集成能力；具体字段以 `src-tauri/crates/aidog_core/src/sync_settings.rs`、`hooks` 模块和设置页源码为准。
-
-## 文档演示边界
-
-上方演示是固定 fixture，不读取用户的 `~/.claude` 配置。
-
-## 主要任务
-
-此页面演示正常、空、错误和加载四种固定状态。演示数据已脱敏，不连接本机 aidog、Tauri IPC 或 Local API。
-
-在桌面应用中使用左侧导航进入“Claude Code”。保存会影响运行状态的设置前，先确认当前分组和平台范围；发生错误时结合[代理日志](/zh/features/logs)定位。
-
-完整的推荐配置逐项说明见 [Claude Code 推荐配置](/zh/features/recommended-claude-code)。
+不要把上游 API Key 当作分组凭据。详细连接步骤见[接入 Claude Code](/zh/getting-started/connect-claude-code)，推荐设置见[Claude Code 推荐配置](/zh/features/recommended-claude-code)。

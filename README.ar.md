@@ -1,285 +1,90 @@
-<div align="center" dir="rtl">
+<div dir="rtl" align="center">
 
-# 🐕 AiDog
+# AiDog
 
-**بوابة موحّدة لـ AI API**
+**أدِر منصات الذكاء الاصطناعي على جهازك، ووجّه طلبات العملاء إلى المنصات التي تختارها.**
 
-تطبيق سطح المكتب · بدون سحابة · أكثر من 50 منصة في مكان واحد · توجيه ذكي · تحليلات الاستخدام
+تطبيق سطح مكتب يوفّر وكيلاً محلياً، وتوجيه الطلبات عبر المجموعات، وربط النماذج، وسجل الطلبات، وتقدير الاستخدام.
 
-[![Documentation](https://img.shields.io/badge/docs-lazygophers.github.io/aidog-0a66c2?logo=sphinx&logoColor=white)](https://lazygophers.github.io/aidog/ar/)
-[![GitHub Release](https://img.shields.io/github/v/release/lazygophers/aidog?logo=github&label=release)](https://github.com/lazygophers/aidog/releases/latest)
-[![License](https://img.shields.io/badge/license-AGPL_3.0-blue)](#license)
-[![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?logo=tauri&logoColor=white)](https://github.com/lazygophers/aidog/releases/latest)
-[![GitHub Stars](https://img.shields.io/github/stars/lazygophers/aidog?style=social)](https://github.com/lazygophers/aidog/stargazers)
-[![Downloads](https://img.shields.io/github/downloads/lazygophers/aidog/total?logo=github)](https://github.com/lazygophers/aidog/releases)
-[![Last Commit](https://img.shields.io/github/last-commit/lazygophers/aidog?logo=git&logoColor=white)](https://github.com/lazygophers/aidog/commits)
-[![Issues](https://img.shields.io/github/issues/lazygophers/aidog?logo=github)](https://github.com/lazygophers/aidog/issues)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?logo=github)](https://github.com/lazygophers/aidog/pulls)
+[التوثيق](https://lazygophers.github.io/aidog/en/) · [أحدث إصدار](https://github.com/lazygophers/aidog/releases/latest) · [الإبلاغ عن مشكلة](https://github.com/lazygophers/aidog/issues)
 
-[简体中文](README.md) · [English](README.en.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Русский](README.ru.md) · `العربية` · [Español](README.es.md) · [日本語](README.ja.md)
+[简体中文](README.md) · [English](README.en.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Русский](README.ru.md) · العربية · [Español](README.es.md) · [日本語](README.ja.md)
 
 </div>
 
----
+<div dir="rtl">
 
-> 📖 **التوثيق الكامل**: <https://lazygophers.github.io/aidog/ar/>
+يعمل AiDog كخدمة وكيل على جهازك. احفظ المنصات الخارجية ومفاتيح API في AiDog، ثم صِل Claude Code أو Codex أو pi أو غيرها من العملاء المتوافقة بالوكيل المحلي. تظل الطلبات تُرسل إلى الخدمة الخارجية المختارة؛ فالتشغيل المحلي لا يعني بقاء الطلبات على جهازك.
 
-AiDog هو **بوابة AI API لسطح المكتب** مبنية على Tauri. يوحّد إدارة الطلبات وتوجيهها ومراقبتها عبر أكثر من 50 منصة ذكاء اصطناعي — يجمع مفاتيح API المبعثرة، وربط النماذج، وموازنة الحمل، وتحليلات الاستخدام، وإعداد مساعدات البرمجة في تطبيق واحد. بدون خدمة خلفية، بدون سحابة؛ تبقى كل البيانات في قاعدة بيانات SQLite محلية.
+## لمن يناسب
 
-![AiDog — اللوحة الرئيسية](screenshots/dashboard.png)
+- تستخدم خدمات ذكاء اصطناعي متعددة وتريد إدارة بيانات اعتماد المنصات والنماذج في تطبيق واحد.
+- تريد أن تستخدم العملاء المختلفون مجموعات أو ربط نماذج أو منصات مرشحة مختلفة.
+- تحتاج إلى مراجعة حالة الطلبات والاستخدام والتكلفة المقدرة ونتائج التوجيه.
+- تريد أن يستخدم Claude Code أو Codex أو pi نقطة دخول واحدة للوكيل المحلي.
 
-## ما المشكلة التي يحلها
+## ما الذي يقدمه
 
-| مشكلتك | كيف يعالجها AiDog |
-| --- | --- |
-| مفاتيح API مبعثرة عبر عشرات المنصات، التبديل متعب | **تجميع متعدد المنصات** — أكثر من 50 إعدادًا مسبقًا، أدر كل مفتاح في مكان واحد |
-| منصة واحدة تتعطل ويتوقف سير عملك بالكامل | **التبديل عند الفشل + موازنة الحمل** — إعادة محاولة تلقائية، قواطع دوائر، جدولة بين المنصات |
-| Claude Code / Codex / كل عميل مضبوط على حدة | **تكامل أصلي مع مساعدات البرمجة** — تصدير الإعداد بنقرة واحدة، كل الزيارات عبر البروكسي |
-| لا تعرف كم تنفق شهريًا ولا أي منصة على وشك النفاد | **مراقبة الاستخدام** — توكنز + تقدير التكلفة + الرصيد + حصة Coding Plan |
-| بياناتك لا تريدها في السحابة ولا لد طرف ثالث | **محلي بحت** — البروكسي + القاعدة على جهازك، صفر تسريب |
+### الوكيل المحلي والتوجيه
 
-## الميزات الأساسية
+- أدر الإعدادات المسبقة المضمنة للمنصات، وأضف منصات مخصصة.
+- اعزل طلبات العملاء ضمن مجموعات واربط بكل مجموعة منصاتها.
+- اختر المنصات المرشحة وفق ربط النماذج وبروتوكول نقطة النهاية والتوافر.
+- تدعم خانات النماذج المتعددة سلاسل مرتبة؛ وعند فشل الطلب تُجرّب الخيارات التالية.
+- يدعم تمرير الطلبات ومواءمتها مع بروتوكولات OpenAI وAnthropic وGemini وغيرها؛ وتعتمد الإمكانات الفعلية على نقطة نهاية المنصة ونوع الطلب.
+- يدعم قواعد البرمجيات الوسيطة، وإعداد النماذج حسب الفترات الزمنية، وجدولة التوجيه وفق الحالة الصحية.
 
-### 🌐 البوابة والتوجيه
-- **تجميع متعدد المنصات** — أكثر من 50 إعدادًا مسبقًا للمنصات (Anthropic / OpenAI / DeepSeek / GLM / Kimi / MiniMax / Qwen / SiliconFlow / OpenRouter وغيرها)، إعداد بنقرة واحدة
-- **تجميع ذكي** — مطابقة الطلبات برمز Bearer / المسار؛ تبديل عند الفشل وموازنة الحمل
-- **ربط النماذج** — استبدال شفاف لاسم النموذج (مثال `claude-sonnet-4` → `deepseek-chat`)
-- **تحويل البروتوكول** — ثنائي الاتجاه بين OpenAI Chat / Completions / Responses و Anthropic و Gemini
-- **قواطع الدوائر والجدولة** — فصل تلقائي للمنصات الشاذة، إدارة ثلاثية الحالة، تراجع أُسّي، جدولة ذكية داخل المجموعة
-- **محرّك قواعد الوسائط** — قواعد داخلية/خارجية: تسوية، تجاوز، تنقيح، حقن، تصفية كلمات حساسة، كشف أخطاء، مع إعدادات مسبقة مدمجة
+### السجلات والإحصاءات
 
-### 📊 المراقبة والإحصاءات
-- **مراقبة الاستخدام** — إحصاءات التوكنز، تقدير التكلفة (مزامنة تلقائية للأسعار + ميزانية يدوية)
-- **استعلامات الرصيد** — سحب رصيد كل منصة في الوقت الحقيقي
-- **حصة Coding Plan** — عرض حصة Coding Plan لـ DeepSeek / Kimi / GLM والعد التنازلي
-- **سجلّات الطلبات** — ثلاث مستويات دقة (الطلب الأصلي للمستخدم / الطلب المنبعث / الملخّص)، لكل واحد مفتاحه وفترة احتفاظه
+- اعرض طلبات الوكيل وسجلات منفصلة للاختبارات والاستعلام عن الرصيد وطلبات قوائم النماذج.
+- احتفظ بالمحتوى الخام على جانبي الطلب أو امسحه وفق الإعدادات؛ وتُحجب ترويسات الطلب الحساسة.
+- قدّر التكلفة من استخدام الاستجابة وأسعار النماذج المضمنة. ولا تحل التقديرات محل فوترة الخدمة الخارجية.
+- اعرض أرصدة المنصات والحصص وإحصاءات الاستخدام لكل مجموعة؛ فهذه المقاييس تعتمد طرق احتساب مختلفة ولا تتطابق مباشرةً.
 
-### 🤖 تكامل مساعدات البرمجة
-- **Claude Code** — تكامل أصلي: تحرير الإعداد، استيراد/تصدير بنقرة واحدة، نصوص StatusLine، Hooks، مزامنة الإعداد لكل مجموعة
-- **OpenAI Codex** — تكامل أصلي: محرّر `~/.codex/config.toml`، توجيه تلقائي لـ Responses API
-- **إدارة MCP** — تخزين مركزي في القاعدة + تفعيل لكل وكيل + مسح واستيراد + إخفاء الحقول الحساسة
-- **إدارة Skills** — قائمة skills موحّدة عبر الأنظمة مبنية على npx + تفعيل لكل عنصر
-- **إشعارات النظام** — إعلانات TTS / منبثقة / صندوق وارد + حقن hook لـ Claude Code/Codex بنقرة واحدة
+### العملاء والأدوات
 
-### 🎨 التخصيص
-- **نظام الثيمات** — 3 محاور: 9 أنماط (Liquid Glass / Flat / Soft / Sharp / Aurora / Paper / Terminal / Bento / Sketchy) × 12 لوحة ألوان مُسمّاة (Apple Blue / Nord / Dracula / Catppuccin / Gruvbox / Tokyo Night / One Dark / Material / GitHub / Night Owl وغيرها) × وضعي فاتح/داكن
-- **التدويل** — 8 لغات (تشمل العربية RTL)
-- **الاستيراد والتصدير** — حاوية ملف واحد مشفّرة AES-256-GCM ‎`.aidogx`، 7 نطاقات مع حل تعارض لكل عنصر
-- **الصينية + شريط الحالة** — إجراءات سريعة من صينية النظام + نصوص شريط حالة قابلة للتخصيص (Python + uv)
-
-## المقارنة مع الأدوات المشابهة
-
-ينتمي AiDog إلى فئة بوابات واجهات برمجة التطبيقات للذكاء الاصطناعي المحلية / المستضافة ذاتياً. يلخّص الجدول أدناه المقارنة مع مشاريع مفتوحة المصدر مشابهة؛ المقارنة الكاملة خاصتي بخاصية (بما فيها جدول magpie التفصيلي) على موقع التوثيق: [المقارنة مع الأدوات المشابهة](https://lazygophers.github.io/aidog/en/guide/comparison).
-
-| المشروع | الشكل | التوجه |
-| --- | --- | --- |
-| **AiDog** | Desktop app + headless kernel | Multi-platform group routing, multi-protocol forwarding, model-chain fallback, usage metering, full coding-assistant config suites |
-| [magpie](https://github.com/yetone/magpie) | Menu bar + TUI / Web / CLI / Docker | Atomic config rewrite for 70+ agents, subscription bridging, routing groups, PII masking, Bun plugins |
-| [Claude Code Router](https://github.com/musistudio/claude-code-router) | Desktop app + npm CLI + Docker | Config push for 10+ agents, multi-protocol conversion, credential pools with ordered fallback |
-| [new-api](https://github.com/QuantumNous/new-api) | Self-hosted server | Channel-based team gateway, quotas and billing, user management |
-| [LiteLLM Proxy](https://github.com/BerriAI/litellm) | Python SDK + gateway service | 100+ providers in unified OpenAI format, load balancing, spend tracking |
-| [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) | Go proxy service | Subscription-account bridging as the focus, multi-account rotation |
-| [GPT-Load](https://github.com/tbphp/gpt-load) | Self-hosted server | Native protocol passthrough, multi-credential scheduling, local credential encryption |
+- أدر إعدادات Claude Code وCodex وpi، وأنشئ تعليمات الاتصال لكل مجموعة.
+- أدر خوادم MCP والمهارات والإشعارات وإعدادات النظام.
+- يمكنك اختيارياً تشغيل نواة بلا واجهة رسومية وإدارتها عبر API يقتصر الوصول إليه على الجهاز المحلي.
 
 ## التثبيت
 
-### متطلبات النظام
+نزّل حزمة التثبيت المناسبة لنظامك من [GitHub Releases](https://github.com/lazygophers/aidog/releases/latest). تعرض صفحة الإصدار الحزم والمعماريات والمتطلبات المتاحة لكل نظام.
 
-| النظام | الحد الأدنى للإصدار | ملاحظات |
-| --- | --- | --- |
-| macOS | 12.0 (Monterey) | Intel + Apple Silicon |
-| Windows | Windows 10 | x64 |
-| Linux | x86_64 / aarch64 | يتطلب WebKit2GTK |
+بعد تشغيل AiDog، يستمع الوكيل المحلي افتراضياً على `127.0.0.1:9890`. يقتصر الاستماع افتراضياً على عنوان loopback؛ لا توجّه واجهة الإدارة إلى الإنترنت العام.
 
-**التحميل** 👉 <https://github.com/lazygophers/aidog/releases/latest>
+## البدء السريع
 
-### macOS
+1. أضف منصة من قسم «منصات الذكاء الاصطناعي»، وأدخل البروتوكول وBase URL ومفتاح API للخدمة الخارجية.
+2. أنشئ مجموعة في صفحة المنصات وأضف إليها المنصات.
+3. استخدم في العميل أمر الاتصال الذي أُنشئ للمجموعة، أو اتبع دليل ربط العميل لإعداد عنوان الوكيل المحلي وبيانات اعتماد المجموعة.
+4. أرسل طلباً وتحقق من المجموعة والمنصة الخارجية والنموذج والنتيجة في سجل الوكيل.
 
-1. نزّل `.dmg` من [Releases Latest](https://github.com/lazygophers/aidog/releases/latest)
-2. نقر مزدوج للفتح، اسحب **AiDog** إلى مجلد `Applications`
-3. عند أول تشغيل، **نقر بالزر الأيمن** على التطبيق → اختر «فتح» (تجاوز Gatekeeper — التطبيق غير موقّع)
+[دليل التثبيت](/en/getting-started/installation) · [الإعداد الأول](/en/getting-started/first-config) · [التحقق من أول طلب](/en/getting-started/first-request)
 
-> ⚠️ إذا ظهر عند أول تشغيل «لا يمكن التحقق من المطوّر»: `إعدادات النظام → الخصوصية والأمان → افتح على أي حال`.
+## البيانات والخصوصية
 
-### Windows
+يخزن AiDog الإعدادات وقواعد البيانات على جهازك. وتنقل طلبات الوكيل المحتوى اللازم إلى الخدمة الخارجية المختارة. يعتمد حفظ أجسام الطلبات والاستجابات في السجلات على إعدادات التسجيل؛ وحتى عند إيقاف تسجيل المحتوى الخام، قد تُسجّل بيانات وصفية مثل الحالة والنموذج والاستخدام. راجع [البيانات والخصوصية](/en/core-concepts/data-privacy).
 
-1. نزّل مثبّت `.msi` من [Releases Latest](https://github.com/lazygophers/aidog/releases/latest)
-2. نقر مزدوج على المثبّت واتبع المطالبات
-3. إذا حظر SmartScreen، انقر «مزيد من المعلومات → تشغيل على أي حال»
+## التشغيل من المصدر
 
-### Linux
+ثبّت الأدوات ومتطلبات النظام أولاً وفق [متطلبات Tauri الرسمية](https://v2.tauri.app/start/prerequisites/).
 
 ```bash
-# حزمة DEB
-sudo dpkg -i aidog_0.1.0_amd64.deb
-
-# أو AppImage
-chmod +x aidog_0.1.0_amd64.AppImage
-./aidog_0.1.0_amd64.AppImage
-```
-
-> يتطلب Linux أولًا اعتمادية WebKit2GTK: `sudo apt install libwebkit2gtk-4.1-dev` (Debian/Ubuntu).
-
-### أول تشغيل
-
-بعد التثبيت، شغّل AiDog — وسيقوم تلقائيًا بـ:
-
-1. تشغيل خادم البروكسي المحلي (افتراضيًا `http://127.0.0.1:9876`)
-2. إنشاء قاعدة بيانات SQLite المحلية (`~/.aidog/aidog.db`)
-3. إظهار الواجهة الرئيسية وإرشادك لإضافة أول منصة
-
-## البدء السريع (3 خطوات)
-
-### الخطوة 1: إضافة منصة
-
-![AiDog — إضافة منصة](screenshots/add-platform.png)
-
-1. انقر **«المنصات»** في التنقل الأيسر
-2. انقر **«+ إضافة منصة»**
-3. املأ: **الاسم** (مثال `My OpenAI`)، **Base URL** (مثال `https://api.openai.com/v1`، يشمل بادئة الإصدار `/v1`)، **API Key**
-4. حفظ
-
-> 💡 Base URL يشمل بادئة الإصدار؛ يضيف AiDog ‎`/chat/completions` تلقائيًا — لا حاجة لبناء المسار يدويًا.
-
-### الخطوة 2: توجيه العميل إلى البروكسي
-
-في التطبيق الذي يستهلك AI APIs، غيّر عنوان API إلى عنوان بروكسي AiDog:
-
-```
-http://127.0.0.1:9876/proxy/v1
-```
-
-مفتاح API يمكن أن يكون **أي قيمة** — يحوّل AiDog باستخدام مفتاحك الحقيقي المضبوط.
-
-### الخطوة 3: التحقق
-
-```bash
-curl http://127.0.0.1:9876/proxy/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer any-value" \
-  -d '{"model": "gpt-4o", "messages": [{"role": "user", "content": "Hello!"}]}'
-```
-
-استجابة AI طبيعية تعني اكتمال الإعداد. الطلبات موجَّهة ومقاسة ومسجّلة تلقائيًا.
-
-## تفاصيل تكامل العملاء
-
-### Claude Code
-
-يقدّم AiDog تكاملاً كاملًا في **«الإعدادات → Claude Code»** (تحرير النموذج/الصلاحيات/الصندوق الرملي/الإضافات/Hooks/StatusLine، استيراد/تصدير بنقرة واحدة).
-
-**الخيار 1: متغيرات البيئة (الأسرع)**
-
-```bash
-export ANTHROPIC_BASE_URL="http://127.0.0.1:9876"
-export ANTHROPIC_API_KEY="any-value"
-claude
-```
-
-**الخيار 2: تصدير الإعداد بنقرة واحدة**
-
-انقر «صدّر إلى Claude Code» في «الإعدادات → Claude Code»؛ يكتب AiDog ‎`~/.claude.json`:
-
-```json
-{ "apiBaseUrl": "http://127.0.0.1:9876" }
-```
-
-**عزل لكل مجموعة** — انقر «مزامنة إعدادات المجموعة» لتوليد إعدادات مستقلة لكل مجموعة (‎`~/.aidog/settings.<اسم-المجموعة>.json`)؛ زر «Claude» في بطاقة المجموعة ينسخ أمر التشغيل.
-
-### OpenAI Codex
-
-حرّر ‎`~/.codex/config.toml` (أو داخل تبويب «الإعدادات → Codex»):
-
-```toml
-[provider]
-name = "openai"
-base_url = "http://127.0.0.1:9876/proxy/v1"
-api_key = "any-value"
-
-[model]
-name = "o3"
-```
-
-> يستخدم Codex واجهة Responses API (‎`/v1/responses`)؛ يكتشفها AiDog ويوجّهها تلقائيًا.
-
-### أي عميل متوافق مع OpenAI / Anthropic
-
-وجّه ‎`base_url` / `OPENAI_API_BASE` / `ANTHROPIC_BASE_URL` للعميل إلى ‎`http://127.0.0.1:9876/proxy/v1` واستخدم أي قيمة كمفتاح.
-
-> 🔐 **مصادقة المجموعة** — ضع **اسم المجموعة** كمفتاح في عنوان البروكسي؛ يوجّه AiDog إلى المجموعة المطابقة برمز Bearer: `Authorization: Bearer <اسم_المجموعة>`.
-
-![AiDog — الإعدادات](screenshots/settings.png)
-
-## البناء من المصدر
-
-```bash
-# الاستنساخ
 git clone https://github.com/lazygophers/aidog.git
 cd aidog
-
-# تثبيت الاعتماديات
 yarn install
-
-# وضع التطوير
 yarn tauri dev
+```
 
-# بناء الإنتاج
+لبناء حزمة التثبيت:
+
+```bash
 yarn tauri build
 ```
 
-**المتطلبات المسبقة** — Node.js ≥ 18، Yarn 4.x، سلسلة أدوات Rust (rustup)، Tauri CLI، اعتماديات النظام لكل نظام تشغيل (راجع [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/)).
-
-## حزمة التقنيات
-
-| الطبقة | التقنية |
-| --- | --- |
-| إطار سطح المكتب | Tauri 2.0 |
-| الواجهة الأمامية | React 19 + TypeScript + Vite |
-| الواجهة الخلفية | Rust + بروكسي Axum + تخزين SQLite |
-| التوثيق | Rspress (موقع بـ 8 لغات) |
-| البناء | Yarn 4 + Vite + cargo |
-
-## التوثيق
-
-موقع التوثيق الكامل 👉 <https://lazygophers.github.io/aidog/ar/>
-
-| الموضوع | الرابط |
-| --- | --- |
-| البدء السريع | [/getting-started/quick-start](https://lazygophers.github.io/aidog/ar/getting-started/quick-start) |
-| دليل التثبيت | [/getting-started/installation](https://lazygophers.github.io/aidog/ar/getting-started/installation) |
-| بروتوكولات المنصات | [/platforms/protocols](https://lazygophers.github.io/aidog/ar/platforms/protocols) |
-| المجموعات والتوجيه | [/groups/routing-rules](https://lazygophers.github.io/aidog/ar/groups/routing-rules) |
-| الجدولة الذكية | [/groups/scheduling](https://lazygophers.github.io/aidog/ar/groups/scheduling) |
-| تكامل Codex | [/proxy/codex-integration](https://lazygophers.github.io/aidog/ar/proxy/codex-integration) |
-| قواعد الوسائط | [/middleware](https://lazygophers.github.io/aidog/ar/middleware/) |
-| إحصاءات الاستخدام والتسعير | [/stats/usage-stats](https://lazygophers.github.io/aidog/ar/stats/usage-stats) |
-| مرجع API | [/api/api-reference](https://lazygophers.github.io/aidog/ar/api/api-reference) |
-
-## README متعدد اللغات
-
-| اللغة | الملف |
-| --- | --- |
-| 简体中文 | [README.md](README.md) |
-| English | [README.en.md](README.en.md) |
-| Français | [README.fr.md](README.fr.md) |
-| Deutsch | [README.de.md](README.de.md) |
-| Русский | [README.ru.md](README.ru.md) |
-| العربية | [README.ar.md](README.ar.md) |
-| Español | [README.es.md](README.es.md) |
-| 日本語 | [README.ja.md](README.ja.md) |
-
-## IDE الموصى به
-
-[VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer).
-
-## شكر وتقدير
-
-[![LINUX DO](https://ld.xh.do/ld-badge.svg)](https://linux.do)
-
-شكراً لمجتمع [LINUX DO](https://linux.do).
-
 ## الترخيص
 
-[GNU AGPL-3.0-or-later](LICENSE) © AiDog
+يصدر AiDog بموجب [GNU AGPL-3.0-or-later](LICENSE).
 
-يُرخص هذا المشروع تحت رخصة GNU Affero العامة الإصدار 3 أو أحدث. إذا قمت بتعديل هذا البرنامج وقدّمته كخدمة عبر الشبكة، يجب إفصاح المستخدمين عن الشفرة المصدرية المقابلة.
+</div>
