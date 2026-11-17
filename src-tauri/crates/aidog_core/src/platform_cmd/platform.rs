@@ -169,11 +169,11 @@ pub async fn platform_share_export(platform_id: u64) -> Result<SharePlatform, St
 }
 
 crate::tauri_command! {
-/// 解析分享串（serde_yml 是 YAML 超集，可同时解析 YAML / JSON）。
+/// 解析分享串（serde_norway 是 YAML 超集，可同时解析 YAML / JSON）。
 /// 校验顶层 `aidog_platform_share` 标识存在（>0）；不含则返错，
 /// 接收端据此 fallback 到原杂乱文本解析（无回归）。本地操作，不落 proxy_log。
 pub async fn platform_share_parse(text: String) -> Result<SharePlatform, String> {
-    let parsed: SharePlatform = serde_yml::from_str(&text)
+    let parsed: SharePlatform = serde_norway::from_str(&text)
         .map_err(|e| format!("not a valid aidog platform share: {e}"))?;
     if parsed.aidog_platform_share == 0 {
         return Err("missing aidog_platform_share marker".to_string());
