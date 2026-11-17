@@ -392,7 +392,7 @@ pub(crate) const TRACED_FIELDS: [&str; 10] = [
 /// - Kimi Code Plan: 注入 prompt_cache_key（必填，用 group + model hash 作会话标识）
 pub fn inject_coding_plan_fields(body: &mut Value, protocol: &aidog_db::models::Protocol) {
     match protocol {
-        aidog_db::models::Protocol::Kimi => {
+        aidog_db::models::Protocol::Kimi | aidog_db::models::Protocol::KimiCoding => {
             // Kimi Code Plan 要求 prompt_cache_key 以提升缓存命中率
             // 用模型名 + 短随机串生成会话级 cache key
             if let Some(obj) = body.as_object_mut() {

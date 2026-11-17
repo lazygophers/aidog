@@ -23,8 +23,9 @@ fn every_registry_platform_has_adapter_registration() {
     );
 }
 
-/// Kimi 家族（issue 76）：coding_plan 注入沿用基座按平台协议分派，kimi 注入 prompt_cache_key，
-/// 产出与基座的 Kimi 协议臂一致（注入条件同源：端点 coding_plan flag）。
+/// Kimi 家族（issue 76 / 119）：coding_plan 注入按平台协议分派，kimi 与 kimi_coding 注入
+/// prompt_cache_key（chat.md「对于 Kimi Code Plan，此字段为必填」，issue 119 扩入 KimiCoding 臂），
+/// 产出同形状（注入条件同源：端点 coding_plan flag）。
 #[test]
 fn kimi_adapter_coding_plan_matches_base_kimi_arm() {
     let pa = super::adapter_for("kimi");
@@ -48,24 +49,26 @@ fn kimi_adapter_coding_plan_matches_base_kimi_arm() {
         member.as_object().unwrap().keys().collect::<Vec<_>>(),
         via_base.as_object().unwrap().keys().collect::<Vec<_>>()
     );
+    // issue 119：KimiCoding 协议臂同样注入（此前为 no-op，与官方「必填」相悖的迁移缺口）。
+    let mut coding = json!({ "model": "k3" });
+    super::adapter_for("kimi_coding").inject_coding_plan(&mut coding, &Protocol::KimiCoding);
+    assert!(
+        coding.get("prompt_cache_key").is_some(),
+        "kimi_coding 应注入 prompt_cache_key: {coding}"
+    );
 }
 
-/// 行为零变化门禁（review 必改 1）：kimi_coding / kimi_en 不注入 prompt_cache_key。
-/// 迁移前 headers.rs 仅对 Protocol::Kimi 注入，KimiCoding / KimiEn 走 no-op 臂；
-/// 家族适配器不覆盖注入，这两个 code 按平台协议分派走基座 no-op 臂（issue 76）。
+/// 行为零变化门禁（review 必改 1）：kimi_en 不注入 prompt_cache_key。
+/// 迁移前 headers.rs 仅对 Protocol::Kimi 注入，KimiEn 走 no-op 臂；kimi_coding 由 issue 119
+/// 按官方「必填」证据扩为注入（`Protocol::KimiCoding` 臂）。kimi_en 非编码套餐仍不注入（issue 76）。
 #[test]
 fn kimi_coding_and_kimi_en_do_not_inject_prompt_cache_key() {
-    for (code, proto) in [
-        ("kimi_coding", Protocol::KimiCoding),
-        ("kimi_en", Protocol::KimiEn),
-    ] {
-        let mut body = json!({ "model": "kimi-for-coding" });
-        super::adapter_for(code).inject_coding_plan(&mut body, &proto);
-        assert!(
-            body.get("prompt_cache_key").is_none(),
-            "code {code} 不应注入 prompt_cache_key（仅 Protocol::Kimi 注入）"
-        );
-    }
+    let mut body = json!({ "model": "kimi-for-coding" });
+    super::adapter_for("kimi_en").inject_coding_plan(&mut body, &Protocol::KimiEn);
+    assert!(
+        body.get("prompt_cache_key").is_none(),
+        "kimi_en 不应注入 prompt_cache_key（仅 Protocol::Kimi / KimiCoding 注入）"
+    );
 }
 
 /// 基座默认实现与协议构件逐字节等价（issue 68：初始映射与现状等价的单元面）。
@@ -180,7 +183,7 @@ fn kimi_family_adjust_tool_choice_scope() {
     let mut body = json!({ "model": "kimi-k3", "tool_choice": "required" });
     kimi.adjust_tool_choice(&mut body, &Protocol::OpenAI, "kimi-k3");
     assert_eq!(body.get("tool_choice"), Some(&json!("required")), "{body}");
-    // kimi_coding 不降级（成员 issue 119）。
+    // kimi_coding 不降级（成员 issue 119：编码套餐文档未列 tool_choice 约束）。
     let mut body = json!({ "model": "kimi-k2.6", "tool_choice": "required" });
     super::adapter_for("kimi_coding").adjust_tool_choice(&mut body, &Protocol::OpenAI, "kimi-k2.6");
     assert_eq!(body.get("tool_choice"), Some(&json!("required")), "{body}");
