@@ -1193,15 +1193,21 @@ async fn kimi_family_openai_disable_thinking_strips_temperature() {
     }
 }
 
-/// issue 119（先红）：kimi_coding 的 openai 端点禁思考写官方认收的 `reasoning_effort: "none"`，
-/// 不写基座第三方端点用的 vLLM 式 `chat_template_kwargs`（Kimi Code 文档无此参数），也不写
-/// `thinking`；temperature 无官方固定值约束，原样透传。
+/// issue 119（先红；review R5）：kimi_coding 的 openai 端点禁思考写官方认收的
+/// `reasoning_effort: "none"`，不写基座第三方端点用的 vLLM 式 `chat_template_kwargs`
+/// （Kimi Code 文档无此参数），也不写 `thinking`；temperature 无官方固定值约束，原样透传。
+/// K3.1 Pro 系列（k3.1-pro / k3.1-pro-highspeed）不支持关闭思考，禁思考请求必须原样携带
+/// `reasoning_effort: "none"` 让上游按官方返回 400，不在适配器静默剥除后按默认思考处理
+/// （review R4 blocking：剥除会把禁思考请求静默转换成默认思考请求）。
 /// 出处（核对日期 2026-11-17，本地留档 .tmp/issue-119/docs/）：
-/// https://www.kimi.com/code/docs/kimi-code/models.html「off / none / disabled … K3 系列、K2.8 Preview
-/// 与 K2.7 Code Highspeed：关闭 thinking 后，请求均由 K2.8 Preview（无思考）处理」「其他未知取值
-/// 返回 HTTP 400」；https://platform.kimi.com/docs/api/chat.md「Kimi K3 系列始终开启思考与
-/// Preserved Thinking，使用顶层 `reasoning_effort`（支持 "low"/"high"/"max"，默认 "max"），
-/// 不使用 `thinking` 参数」。
+/// https://www.kimi.com/code/docs/kimi-code/models.html「off / none / disabled … K3.1 Pro 系列：
+/// 关闭思考的请求会被拒绝（HTTP 400）；K3 系列、K2.8 Preview 与 K2.7 Code Highspeed：关闭
+/// thinking 后，请求均由 K2.8 Preview（无思考）处理」「其他未知取值返回 HTTP 400」；
+/// https://www.kimi.com/code/docs/kimi-code/error-reference.html「error, status code: 400,
+/// message: K3.1 Pro does not support disabled thinking mode. Please enable thinking and try
+/// again, or choose another model.」；https://platform.kimi.com/docs/api/chat.md「Kimi K3 系列
+/// 始终开启思考与 Preserved Thinking，使用顶层 `reasoning_effort`（支持 "low"/"high"/"max"，
+/// 默认 "max"），不使用 `thinking` 参数」。
 #[tokio::test]
 async fn kimi_coding_openai_disable_thinking_writes_reasoning_effort_none() {
     let pt = Protocol::KimiCoding;
@@ -1210,7 +1216,11 @@ async fn kimi_coding_openai_disable_thinking_writes_reasoning_effort_none() {
             "disable_thinking": true, "messages": [{"role": "user", "content": "hi"}]});
         let body = outbound_body_with(pt.clone(), Protocol::OpenAI, &kimi_gk(&pt, "cbb"), req).await;
         if model.starts_with("k3.1-pro") {
-            assert!(body.get("reasoning_effort").is_none(), "K3.1 Pro 禁思考必须省略 reasoning_effort: {body}");
+            assert_eq!(
+                body.get("reasoning_effort"),
+                Some(&serde_json::json!("none")),
+                "K3.1 Pro 禁思考必须保留 reasoning_effort=none 让上游按官方返回 400: {body}"
+            );
         } else {
             assert_eq!(
                 body.get("reasoning_effort"),

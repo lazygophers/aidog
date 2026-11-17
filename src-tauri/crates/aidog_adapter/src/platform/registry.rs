@@ -229,40 +229,22 @@ impl PlatformAdapter for KimiFamilyAdapter {
         upstream_url: &str,
         forced_thinking: bool,
     ) {
-        if self.coding_openai_reasoning_effort
-            && wire == &Protocol::OpenAI
-            && disable
-            && matches!(
-                body.get("model").and_then(Value::as_str),
-                Some("k3.1-pro" | "k3.1-pro-highspeed")
-            )
-            && let Some(obj) = body.as_object_mut()
-        {
-            obj.remove("disable_thinking");
-            obj.remove("thinking");
-            obj.remove("context_management");
-            obj.remove("reasoning");
-            obj.remove("enable_thinking");
-            if obj.get("reasoning_effort").and_then(Value::as_str) == Some("none") {
-                obj.remove("reasoning_effort");
-            }
-            return;
-        }
         // kimi_coding openai 端点：官方认收的禁思考写法是顶层 `reasoning_effort`（取值域
-        // low/high/max + none；「off / none / disabled … 请求由 K2.8 Preview（无思考）处理」，
-        // 「其他未知取值 返回 HTTP 400」），文档未列 `thinking` / `chat_template_kwargs` 参数。
+        // low/high/max + none；「off / none / disabled … K3 系列、K2.8 Preview 与 K2.7 Code
+        // Highspeed：关闭 thinking 后，请求均由 K2.8 Preview（无思考）处理」「K3.1 Pro 系列：
+        // 关闭思考的请求会被拒绝（HTTP 400）」「其他未知取值 返回 HTTP 400」），文档未列
+        // `thinking` / `chat_template_kwargs` 参数。禁思考统一写 `reasoning_effort: "none"`
+        // 交给上游裁决：K3.1 Pro（k3.1-pro / k3.1-pro-highspeed）按官方返回 400
+        // 「K3.1 Pro does not support disabled thinking mode」，不静默降级为默认思考请求。
         // 写法与基座官方 OpenAI host 臂同形（`reasoning_effort: "none"`）；K2.7 Code Highspeed
         // 「不支持调整思考程度」，禁思考后由 K2.8 Preview（无思考）处理，不额外剥除。
         // https://www.kimi.com/code/docs/kimi-code/models.html
+        // https://www.kimi.com/code/docs/kimi-code/error-reference.html
         // https://platform.kimi.com/docs/api/chat.md
         if self.coding_openai_reasoning_effort
             && wire == &Protocol::OpenAI
             && disable
             && !forced_thinking
-            && !matches!(
-                body.get("model").and_then(Value::as_str),
-                Some("k3.1-pro" | "k3.1-pro-highspeed")
-            )
             && let Some(obj) = body.as_object_mut()
         {
             obj.remove("disable_thinking");
