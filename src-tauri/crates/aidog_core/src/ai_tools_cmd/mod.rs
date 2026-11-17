@@ -9,3 +9,4 @@ pub mod script_executor;
 pub mod skills;
 pub mod subagents;
 pub mod plugins;
+pub mod plugin_bundle;

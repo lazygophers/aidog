@@ -289,6 +289,13 @@ pub fn run() {
             // Plugins (扩展 → 插件管理：Claude Code 原生插件 + Codex 插件 CLI)
             aidog_core::ai_tools_cmd::plugins::plugins_claude_list,
             aidog_core::ai_tools_cmd::plugins::plugins_claude_set,
+            aidog_core::ai_tools_cmd::plugin_bundle::plugins_bundle_list,
+            aidog_core::ai_tools_cmd::plugin_bundle::plugins_bundle_probe,
+            aidog_core::ai_tools_cmd::plugin_bundle::plugins_bundle_install,
+            aidog_core::ai_tools_cmd::plugin_bundle::plugins_bundle_set,
+            aidog_core::ai_tools_cmd::plugin_bundle::plugins_bundle_set_agents,
+            aidog_core::ai_tools_cmd::plugin_bundle::plugins_bundle_remove,
+            aidog_core::ai_tools_cmd::plugin_bundle::plugins_bundle_update,
             aidog_core::ai_tools_cmd::plugins::plugins_codex_list,
             aidog_core::ai_tools_cmd::plugins::plugins_codex_add,
             aidog_core::ai_tools_cmd::plugins::plugins_codex_remove,
