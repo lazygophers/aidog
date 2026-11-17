@@ -1350,10 +1350,67 @@ pub struct SqzStats {
     pub avg_reduction: f64,
 }
 
+/// `rtk gain -d --format json` 的 daily[] 一项（一手 CLI 输出，2026-11-18 实测）。
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct RtkDaily {
+    pub date: String,
+    pub commands: u64,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub saved_tokens: u64,
+    pub savings_pct: f64,
+}
+
+/// `sqz gain --days N` 文本行的一日。MM-DD 无年份源，年份按当天推定（晚于今天的
+/// 月日归上一年）；CLI 无每日比率 / in-out 数据，只回传节省 tokens。
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct SqzDaily {
+    pub date: String,
+    pub saved_tokens: u64,
+}
+
 #[derive(Serialize, Clone, Debug, Default)]
 pub struct ContextCompressStats {
     pub rtk: Option<RtkGainStats>,
     pub sqz: Option<SqzStats>,
+    pub rtk_daily: Vec<RtkDaily>,
+    pub sqz_daily: Vec<SqzDaily>,
+}
+
+/// 解析 `rtk gain -d --format json` 的 daily 数组；无效输出返回空（统计缺失不报错）。
+fn parse_rtk_daily(out: &str) -> Vec<RtkDaily> {
+    serde_json::from_str::<Value>(out)
+        .ok()
+        .and_then(|v| v.get("daily").cloned())
+        .and_then(|d| serde_json::from_value(d).ok())
+        .unwrap_or_default()
+}
+
+/// 解析 `sqz gain --days N` 文本行 `MM-DD │████│ 123 saved`；年份按 today 推定
+/// （晚于今天的月日归上一年）。无法识别的行跳过，不伪造数据。
+fn parse_sqz_gain(out: &str, today: chrono::NaiveDate) -> Vec<SqzDaily> {
+    use chrono::Datelike;
+    let cur = today.year();
+    out.lines()
+        .filter_map(|line| {
+            let parts: Vec<&str> = line.split('│').collect();
+            if parts.len() < 3 {
+                return None;
+            }
+            let (m, d) = parts[0].trim().split_once('-')?;
+            let (m, d) = (m.parse().ok()?, d.parse().ok()?);
+            let saved = parts[2]
+                .trim()
+                .strip_suffix(" saved")?
+                .trim()
+                .replace(',', "")
+                .parse()
+                .ok()?;
+            let date = chrono::NaiveDate::from_ymd_opt(cur, m, d)
+                .map(|date| if date > today { date.with_year(cur - 1).unwrap_or(date) } else { date })?;
+            Some(SqzDaily { date: date.to_string(), saved_tokens: saved })
+        })
+        .collect()
 }
 
 /// 解析 `sqz stats --json` 输出；无法解析返回 None（统计缺失不报错）。
@@ -1370,24 +1427,27 @@ fn parse_rtk_gain(out: &str) -> Option<RtkGainStats> {
 }
 
 crate::tauri_command! {
-    /// 上下文压缩统计：rtk `gain --format json` + sqz `stats --json`（聚合口径）。
-    /// 工具未装 / 输出解析失败的一侧为 null，不报错。
+    /// 上下文压缩统计：rtk `gain -d --format json`（summary + 每日明细）+
+    /// sqz `stats --json`（聚合）+ `sqz gain --days 3650`（每日节省，文本解析）。
+    /// 工具未装 / 输出解析失败的一侧 summary 为 null、daily 为空，不报错。
     pub async fn context_compress_stats() -> Result<ContextCompressStats, String> {
-        let (rtk, sqz) = tokio::join!(
-            async {
-                run_cmd("rtk", &["gain", "--format", "json"], &[])
-                    .await
-                    .ok()
-                    .and_then(|o| parse_rtk_gain(&o))
-            },
-            async {
-                run_cmd("sqz", &["stats", "--json"], &[])
-                    .await
-                    .ok()
-                    .and_then(|o| parse_sqz_stats(&o))
-            },
+        let (rtk_out, sqz_stats_out, sqz_gain_out) = tokio::join!(
+            async { run_cmd("rtk", &["gain", "-d", "--format", "json"], &[]).await.ok() },
+            async { run_cmd("sqz", &["stats", "--json"], &[]).await.ok() },
+            async { run_cmd("sqz", &["gain", "--days", "3650"], &[]).await.ok() },
         );
-        Ok(ContextCompressStats { rtk, sqz })
+        let mut stats = ContextCompressStats {
+            rtk: rtk_out.as_deref().and_then(parse_rtk_gain),
+            sqz: sqz_stats_out.as_deref().and_then(parse_sqz_stats),
+            ..Default::default()
+        };
+        if let Some(o) = rtk_out.as_deref() {
+            stats.rtk_daily = parse_rtk_daily(o);
+        }
+        if let Some(o) = sqz_gain_out.as_deref() {
+            stats.sqz_daily = parse_sqz_gain(o, chrono::Utc::now().date_naive());
+        }
+        Ok(stats)
     }
 }
 
