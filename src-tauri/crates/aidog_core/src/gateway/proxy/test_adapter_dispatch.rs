@@ -834,7 +834,7 @@ fn glm_coding_coding_plan_injection_is_noop() {
     let pa = aidog_adapter::platform::adapter_for("glm_coding");
     let mut body = serde_json::from_str::<serde_json::Value>(GLM_OPENAI_IN).unwrap();
     let before = body.clone();
-    pa.inject_coding_plan(&mut body, &Protocol::GlmCoding);
+    pa.inject_coding_plan(&mut body, &Protocol::GlmCoding, &Protocol::OpenAI);
     assert_eq!(body, before);
 }
 
@@ -1008,7 +1008,7 @@ fn glm_coding_en_coding_plan_injection_is_noop() {
     let pa = aidog_adapter::platform::adapter_for("glm_coding_en");
     let mut body = serde_json::from_str::<serde_json::Value>(GLM_OPENAI_IN).unwrap();
     let before = body.clone();
-    pa.inject_coding_plan(&mut body, &Protocol::GlmCodingEn);
+    pa.inject_coding_plan(&mut body, &Protocol::GlmCodingEn, &Protocol::OpenAI);
     assert_eq!(body, before);
 }
 
@@ -1143,7 +1143,7 @@ async fn glm_family_1212_fails_over_without_touching_platform_health() {
 //   （404 `resource_not_found_error`「Model not found, or this account does not have permission to access the model」）
 
 const KIMI_FAMILY: [Protocol; 3] = [Protocol::Kimi, Protocol::KimiEn, Protocol::KimiCoding];
-/// openai 端点禁思考写官方 `thinking` 的成员（kimi_coding 保持基座行为，见成员 issue 119）。
+/// openai 端点禁思考写官方 `thinking` 的成员（kimi_coding 写 `reasoning_effort`，见成员 issue 119）。
 const KIMI_OFFICIAL_THINKING: [Protocol; 2] = [Protocol::Kimi, Protocol::KimiEn];
 
 const KIMI_OPENAI_RESP: &str = r#"{"id":"chatcmpl-1","object":"chat.completion","created":1,"model":"kimi-test","choices":[{"index":0,"message":{"role":"assistant","content":"hi","reasoning_content":"think"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13,"prompt_tokens_details":{"cached_tokens":4}}}"#;
@@ -1193,25 +1193,46 @@ async fn kimi_family_openai_disable_thinking_strips_temperature() {
     }
 }
 
-/// issue 76（先红）：kimi_coding 的 openai 端点禁思考保持 PR 前基座行为——写
-/// `chat_template_kwargs.enable_thinking=false`、不写 `thinking`、客户端 temperature 原样透传。
-/// 本 PR 的取证（platform.kimi.com chat.md / models-overview.md）只覆盖开放平台模型；Kimi Code 模型页
-/// 「off / none / disabled … 关闭 thinking 后，请求均由 K2.8 Preview（无思考）处理」「K3.1 Pro 系列：
-/// 关闭思考的请求会被拒绝（HTTP 400）」，语义归成员 issue 119 拍板。
+/// issue 119（先红；review R5）：kimi_coding 的 openai 端点禁思考写官方认收的
+/// `reasoning_effort: "none"`，不写基座第三方端点用的 vLLM 式 `chat_template_kwargs`
+/// （Kimi Code 文档无此参数），也不写 `thinking`；temperature 无官方固定值约束，原样透传。
+/// K3.1 Pro 系列（k3.1-pro / k3.1-pro-highspeed）不支持关闭思考，禁思考请求必须原样携带
+/// `reasoning_effort: "none"` 让上游按官方返回 400，不在适配器静默剥除后按默认思考处理
+/// （review R4 blocking：剥除会把禁思考请求静默转换成默认思考请求）。
+/// 出处（核对日期 2026-11-17，本地留档 .tmp/issue-119/docs/）：
+/// https://www.kimi.com/code/docs/kimi-code/models.html「off / none / disabled … K3.1 Pro 系列：
+/// 关闭思考的请求会被拒绝（HTTP 400）；K3 系列、K2.8 Preview 与 K2.7 Code Highspeed：关闭
+/// thinking 后，请求均由 K2.8 Preview（无思考）处理」「其他未知取值返回 HTTP 400」；
+/// https://www.kimi.com/code/docs/kimi-code/error-reference.html「error, status code: 400,
+/// message: K3.1 Pro does not support disabled thinking mode. Please enable thinking and try
+/// again, or choose another model.」；https://platform.kimi.com/docs/api/chat.md「Kimi K3 系列
+/// 始终开启思考与 Preserved Thinking，使用顶层 `reasoning_effort`（支持 "low"/"high"/"max"，
+/// 默认 "max"），不使用 `thinking` 参数」。
 #[tokio::test]
-async fn kimi_coding_openai_disable_thinking_keeps_base_behaviour() {
+async fn kimi_coding_openai_disable_thinking_writes_reasoning_effort_none() {
     let pt = Protocol::KimiCoding;
-    let req = serde_json::json!({"model": "kimi-test", "max_tokens": 32, "temperature": 1.0,
-        "disable_thinking": true, "messages": [{"role": "user", "content": "hi"}]});
-    let body = outbound_body_with(pt.clone(), Protocol::OpenAI, &kimi_gk(&pt, "cbb"), req).await;
-    assert_eq!(
-        body.pointer("/chat_template_kwargs/enable_thinking"),
-        Some(&serde_json::json!(false)),
-        "kimi_coding 应保持基座 chat_template_kwargs: {body}"
-    );
-    assert!(body.get("thinking").is_none(), "kimi_coding 不应写 thinking: {body}");
-    assert_eq!(body.get("temperature"), Some(&serde_json::json!(1.0)), "kimi_coding 应透传 temperature: {body}");
-    assert!(body.get("disable_thinking").is_none(), "私有字段应剥除: {body}");
+    for model in ["kimi-test", "k3.1-pro", "k3.1-pro-highspeed"] {
+        let req = serde_json::json!({"model": model, "max_tokens": 32, "temperature": 1.0,
+            "disable_thinking": true, "messages": [{"role": "user", "content": "hi"}]});
+        let body = outbound_body_with(pt.clone(), Protocol::OpenAI, &kimi_gk(&pt, "cbb"), req).await;
+        if model.starts_with("k3.1-pro") {
+            assert_eq!(
+                body.get("reasoning_effort"),
+                Some(&serde_json::json!("none")),
+                "K3.1 Pro 禁思考必须保留 reasoning_effort=none 让上游按官方返回 400: {body}"
+            );
+        } else {
+            assert_eq!(
+                body.get("reasoning_effort"),
+                Some(&serde_json::json!("none")),
+                "其他 kimi_coding 模型禁思考应写 reasoning_effort=none: {body}"
+            );
+        }
+        assert!(body.get("chat_template_kwargs").is_none(), "kimi_coding 不应写 chat_template_kwargs: {body}");
+        assert!(body.get("thinking").is_none(), "kimi_coding 不应写 thinking: {body}");
+        assert_eq!(body.get("temperature"), Some(&serde_json::json!(1.0)), "kimi_coding 应透传 temperature: {body}");
+        assert!(body.get("disable_thinking").is_none(), "私有字段应剥除: {body}");
+    }
 }
 
 /// issue 76（护栏）：不可关闭思考的真实 registry 模型（chat.md「kimi-k2.7-code 和
@@ -1398,7 +1419,7 @@ async fn kimi_family_openai_tool_choice_required_downgraded_for_affected_models(
 }
 
 /// issue 76 跟进（反证）：K3 系列接受 `"required"`（models-overview.md K3 列 `"auto"` / `"none"` /
-/// `"required"`），不降级；anthropic wire 不在范围；kimi_coding 保持现状（成员 issue 119）。
+/// `"required"`），不降级；anthropic wire 不在范围；kimi_coding 无已证实约束不降级（成员 issue 119）。
 #[tokio::test]
 async fn kimi_family_tool_choice_required_not_downgraded_outside_affected_scope() {
     const K3_IN: &str = r#"{"model":"kimi-k3","max_tokens":32,"tool_choice":"required","tools":[{"type":"function","function":{"name":"get_weather","description":"w","parameters":{"type":"object","properties":{}}}}],"messages":[{"role":"user","content":"hi"}]}"#;
@@ -1420,7 +1441,7 @@ async fn kimi_family_tool_choice_required_not_downgraded_outside_affected_scope(
             "{pt:?}/kimi-k3 应保持 required: {up}"
         );
     }
-    // kimi_coding 保持现状（成员 issue 119）。
+    // kimi_coding 无已证实约束，不降级（成员 issue 119）。
     const CD_IN: &str = r#"{"model":"kimi-k2.6","max_tokens":32,"tool_choice":"required","tools":[{"type":"function","function":{"name":"get_weather","description":"w","parameters":{"type":"object","properties":{}}}}],"messages":[{"role":"user","content":"hi"}]}"#;
     let pt = Protocol::KimiCoding;
     let (status, resp, hits) = glm_member_call(
@@ -1458,18 +1479,31 @@ async fn kimi_member_outbound(gk: &str, coding_plan: bool) -> serde_json::Value 
 
 /// 同 [`kimi_member_outbound`]，平台协议按参指定（issue 118 成员 kimi_en 复用）。
 async fn kimi_member_outbound_pt(pt: Protocol, gk: &str, coding_plan: bool) -> serde_json::Value {
-    let (base, hits) = spawn_glm_upstream(200, "application/json", KIMI_OPENAI_RESP).await;
+    kimi_member_outbound_raw(pt, Protocol::OpenAI, gk, coding_plan, GLM_ANTHROPIC_IN).await
+}
+
+/// 同 [`kimi_member_outbound_pt`]，端点 wire 协议与入站 body 可指定
+/// （review R2：anthropic coding_plan 端点与多轮工具历史用例复用）。
+async fn kimi_member_outbound_raw(
+    pt: Protocol,
+    ep: Protocol,
+    gk: &str,
+    coding_plan: bool,
+    in_body: &str,
+) -> serde_json::Value {
+    let resp_ok = if ep == Protocol::Anthropic { ANTHROPIC_OK } else { KIMI_OPENAI_RESP };
+    let (base, hits) = spawn_glm_upstream(200, "application/json", resp_ok).await;
     let state = make_state(test_db().await).await;
     let pid = aidog_db::test_support::create_platform_at_fake_upstream(
         &state.db,
         pt,
         &base,
-        &[Protocol::OpenAI],
+        std::slice::from_ref(&ep),
     )
     .await;
     // fixture 恒 coding_plan:false，按用例直写 DB 覆盖端点
     let eps = aidog_db::serialize_endpoints(&[PlatformEndpoint {
-        protocol: Protocol::OpenAI,
+        protocol: ep,
         base_url: base.clone(),
         client_type: "default".to_string(),
         coding_plan,
@@ -1502,7 +1536,7 @@ async fn kimi_member_outbound_pt(pt: Protocol, gk: &str, coding_plan: bool) -> s
         .uri("/v1/messages")
         .header("authorization", format!("Bearer {gk}"))
         .header("content-type", "application/json")
-        .body(Body::from(GLM_ANTHROPIC_IN))
+        .body(Body::from(in_body.to_string()))
         .unwrap();
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     let status = resp.status();
@@ -1519,12 +1553,16 @@ async fn kimi_member_outbound_pt(pt: Protocol, gk: &str, coding_plan: bool) -> s
 #[tokio::test]
 async fn kimi_member_coding_plan_endpoint_injects_prompt_cache_key() {
     let body = kimi_member_outbound("gk117cp", true).await;
-    assert!(
-        body.get("prompt_cache_key")
-            .and_then(|v| v.as_str())
-            .is_some_and(|s| s.starts_with("aidog-")),
-        "coding_plan 端点应注入 prompt_cache_key: {body}"
-    );
+    let key = body.get("prompt_cache_key").and_then(|v| v.as_str()).unwrap();
+    assert!(key.starts_with("aidog-glm-test-"), "coding_plan 端点应注入 prompt_cache_key: {body}");
+    assert_eq!(key.rsplit('-').next().unwrap().len(), 6, "标准 kimi 保留旧六位五分钟键: {body}");
+
+    let first = kimi_member_outbound_pt(Protocol::KimiCoding, "gk119a", true).await;
+    let second = kimi_member_outbound_pt(Protocol::KimiCoding, "gk119b", true).await;
+    let first_key = first.get("prompt_cache_key").and_then(|v| v.as_str()).unwrap();
+    let second_key = second.get("prompt_cache_key").and_then(|v| v.as_str()).unwrap();
+    assert_ne!(first_key, second_key, "无会话身份的请求不得共享缓存键: {first_key}");
+
     let body = kimi_member_outbound("gk117cn", false).await;
     assert!(
         body.get("prompt_cache_key").is_none(),
@@ -1575,6 +1613,92 @@ async fn kimi_en_member_outbound_matches_family_base_without_prompt_cache_key() 
     req.as_object_mut().unwrap().remove("disable_thinking");
     let body = outbound_body_with(Protocol::KimiEn, Protocol::OpenAI, "gk118enk", req).await;
     assert_eq!(body.get("temperature"), Some(&serde_json::json!(1.0)), "未禁思考应透传: {body}");
+}
+
+// ══ issue 119：Kimi 编程套餐（月之暗面会员）成员 `kimi_coding` 护栏 ══
+// 官方出处（核对日期 2026-11-17，本地留档 .tmp/issue-119/docs/）：
+// - Kimi Code 模型配置 https://www.kimi.com/code/docs/kimi-code/models.html
+//   （编码端点 Base URL 国内 `https://api.kimi.com/coding/v1`（openai）/ `https://api.kimi.com/coding/`
+//   （anthropic）；模型 k3 / k3-256k / kimi-for-coding / kimi-for-coding-highspeed；effort 映射表
+//   「off / none / disabled … 关闭 thinking 后，请求均由 K2.8 Preview（无思考）处理」「K3.1 Pro 系列：
+//   关闭思考的请求会被拒绝（HTTP 400）」「其他未知取值 返回 HTTP 400」）
+// - 错误参考 https://www.kimi.com/code/docs/kimi-code/error-reference.html
+//   （错误条目均为 `error, status code: <code>, message: <text>` 文案，JSON 错误体形状未证实）
+// - Chat Completions https://platform.kimi.com/docs/api/chat.md
+//   （prompt_cache_key「对于 Kimi Code Plan，此字段为必填以提高缓存命中率」；K3「使用顶层
+//   `reasoning_effort` … 不使用 `thinking` 参数」）
+
+/// issue 119（先红）：kimi_coding 的 coding_plan 端点出站注入 `prompt_cache_key`
+/// （chat.md「对于 Kimi Code Plan，此字段为必填以提高缓存命中率」，aidog- 前缀会话键）；
+/// 非 coding_plan 端点不注入（家族按平台协议分派，注入条件同源：端点 coding_plan flag）。
+#[tokio::test]
+async fn kimi_coding_member_coding_plan_endpoint_injects_prompt_cache_key() {
+    let body = kimi_member_outbound_pt(Protocol::KimiCoding, "gk119cd", true).await;
+    assert!(
+        body.get("prompt_cache_key")
+            .and_then(|v| v.as_str())
+            .is_some_and(|s| s.starts_with("aidog-")),
+        "kimi_coding coding_plan 端点应注入 prompt_cache_key: {body}"
+    );
+    let body = kimi_member_outbound_pt(Protocol::KimiCoding, "gk119cn", false).await;
+    assert!(
+        body.get("prompt_cache_key").is_none(),
+        "非 coding_plan 端点不应注入 prompt_cache_key: {body}"
+    );
+}
+
+/// review R2-2（issue 119）：anthropic wire 的 coding_plan 端点不注入 prompt_cache_key。
+/// messages.md（Anthropic Messages，https://platform.kimi.com/docs/api/messages.md）全篇
+/// 未列 prompt_cache_key（缓存走 `cache_control`）；chat.md 的「必填」仅限 Chat Completions。
+/// kimi_coding 的 anthropic 端点同为 coding_plan，注入会把未文档化参数送进 Messages 体。
+#[tokio::test]
+async fn kimi_coding_anthropic_coding_plan_endpoint_no_prompt_cache_key() {
+    let body = kimi_member_outbound_raw(
+        Protocol::KimiCoding,
+        Protocol::Anthropic,
+        "gk119ca",
+        true,
+        GLM_ANTHROPIC_IN,
+    )
+    .await;
+    assert!(
+        body.get("prompt_cache_key").is_none(),
+        "anthropic wire coding_plan 端点不应注入 prompt_cache_key: {body}"
+    );
+}
+
+/// review R2-1（issue 119）：kimi_coding openai 端点多轮工具历史携带 reasoning_content。
+/// 官方错误参考 400「thinking is enabled but reasoning_content is missing in assistant
+/// tool call message」；anthropic 客户端回灌的 thinking 块在 openai 转换中被跳过，
+/// assistant tool-call 消息缺 reasoning_content → 上游 400。
+/// https://www.kimi.com/code/docs/kimi-code/error-reference.html
+#[tokio::test]
+async fn kimi_coding_openai_tool_history_carries_reasoning_content() {
+    let history = r#"{"model":"glm-test","max_tokens":64,"messages":[
+        {"role":"user","content":"北京天气?"},
+        {"role":"assistant","content":[
+            {"type":"thinking","thinking":"需要调用天气工具","signature":"sig"},
+            {"type":"tool_use","id":"tu1","name":"get_weather","input":{"city":"北京"}}]},
+        {"role":"user","content":[{"type":"tool_result","tool_use_id":"tu1","content":"晴"}]}]}"#;
+    let body = kimi_member_outbound_raw(
+        Protocol::KimiCoding,
+        Protocol::OpenAI,
+        "gk119mr",
+        true,
+        history,
+    )
+    .await;
+    let asst = body["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["role"] == "assistant" && m.get("tool_calls").is_some_and(|v| !v.is_null()))
+        .expect("出站应含 assistant tool-call 消息");
+    assert_eq!(
+        asst["reasoning_content"],
+        "需要调用天气工具",
+        "assistant tool-call 历史应携带 reasoning_content: {asst}"
+    );
 }
 
 async fn make_state(db: aidog_db::Db) -> Arc<ProxyState> {

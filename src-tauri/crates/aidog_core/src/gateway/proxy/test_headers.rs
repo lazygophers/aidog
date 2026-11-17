@@ -429,7 +429,7 @@ fn uuid_sim_format_and_uniqueness() {
 #[test]
 fn inject_coding_plan_fields_kimi_adds_prompt_cache_key() {
     let mut body = serde_json::json!({"model": "moonshot-v1-8k", "messages": []});
-    inject_coding_plan_fields(&mut body, &crate::gateway::models::Protocol::Kimi);
+    inject_coding_plan_fields(&mut body, &crate::gateway::models::Protocol::Kimi, &crate::gateway::models::Protocol::OpenAI);
     assert!(
         body.get("prompt_cache_key").is_some(),
         "Kimi must inject prompt_cache_key"
@@ -450,7 +450,7 @@ fn inject_coding_plan_fields_other_protocols_no_op() {
     ];
     for proto in &protocols {
         let mut body = serde_json::json!({"model": "gpt-4o"});
-        inject_coding_plan_fields(&mut body, proto);
+        inject_coding_plan_fields(&mut body, proto, &crate::gateway::models::Protocol::OpenAI);
         assert!(
             body.get("prompt_cache_key").is_none(),
             "non-Kimi protocol should not inject: {proto:?}"
