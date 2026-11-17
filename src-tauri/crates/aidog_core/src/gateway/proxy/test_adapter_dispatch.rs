@@ -414,11 +414,40 @@ async fn minimax_family_anthropic_endpoint_proxy_response_usage_stream_and_error
 /// - https://platform.minimaxi.com/docs/api-reference/errorcode.md (base_resp application codes)
 ///
 /// The docs do not map code 2022 to HTTP; this synthetic fixture supplies 400 to test existing behavior only.
+const MINIMAX_OPENAI_RESP: &str = r#"{"id":"chatcmpl_minimax","model":"MiniMax-M3","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":6,"completion_tokens":3,"total_tokens":9,"prompt_tokens_details":{"cached_tokens":2}}}"#;
 const MINIMAX_OPENAI_SSE: &str = "data: {\"id\":\"chatcmpl_minimax\",\"object\":\"chat.completion.chunk\",\"model\":\"MiniMax-M3\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n\
 data: {\"id\":\"chatcmpl_minimax\",\"object\":\"chat.completion.chunk\",\"model\":\"MiniMax-M3\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":6,\"completion_tokens\":3,\"total_tokens\":9}}\n\n\
 data: [DONE]\n\n";
 const MINIMAX_SYNTHETIC_BASE_RESP: &str =
     r#"{"base_resp":{"status_code":2022,"status_msg":"synthetic model error"}}"#;
+
+/// OpenAI endpoint non-streaming response converts usage and request through the local upstream for each MiniMax member.
+#[tokio::test]
+async fn minimax_family_openai_endpoint_proxy_non_stream_response_usage() {
+    for (pt, gk) in MINIMAX_FAMILY {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::OpenAI,
+            gk,
+            "/v1/messages",
+            r#"{"model":"MiniMax-M3","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+            (200, "application/json", MINIMAX_OPENAI_RESP),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits.len(), 1, "{pt:?}: {hits:?}");
+        assert_eq!(hits[0].0, "/chat/completions", "{pt:?}: {hits:?}");
+        let upstream: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+        assert_eq!(upstream["model"], "MiniMax-M3", "{pt:?}: {upstream}");
+        assert_eq!(upstream["messages"][0]["content"], "hi", "{pt:?}: {upstream}");
+        assert_eq!(upstream["max_tokens"], 32, "{pt:?}: {upstream}");
+        let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+        assert_eq!(response["content"][0]["text"], "hi", "{pt:?}: {response}");
+        assert_eq!(response["usage"]["input_tokens"], 6, "{pt:?}: {response}");
+        assert_eq!(response["usage"]["output_tokens"], 3, "{pt:?}: {response}");
+        assert_eq!(response["usage"]["cache_read_input_tokens"], 2, "{pt:?}: {response}");
+    }
+}
 
 /// OpenAI endpoint streaming and synthetic error traverse the real proxy path for each MiniMax member.
 #[tokio::test]
