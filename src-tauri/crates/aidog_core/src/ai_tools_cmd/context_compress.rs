@@ -301,6 +301,24 @@ fn ledger_undo(
     ledger.before.get(key).cloned().flatten()
 }
 
+/// before=None 记录（关闭时新增的条目）的删除计划：`(同名优先的条目名, 写后内容)`。
+/// 应用方每条记录至多删一条：先试同名同内容（未改名直删），再按内容找第一条匹配
+/// （改名 / 同内容多份逐条消费）；记录耗尽后剩余同形条目（用户自写）保留。
+type RemovalPlanEntry = (Option<String>, (String, Vec<String>));
+
+fn inserted_removal_plan(ledger: &SqzLedger, prefix: &str) -> Vec<RemovalPlanEntry> {
+    ledger
+        .before
+        .iter()
+        .filter(|(k, b)| b.is_none() && k.starts_with(prefix))
+        .filter_map(|(k, _)| ledger.after.get(k).map(|a| (k.clone(), a.clone())))
+        .map(|(k, a)| {
+            let name = k.rsplit(':').next().unwrap_or("");
+            (Some(name).filter(|n| !n.is_empty()).map(String::from), a)
+        })
+        .collect()
+}
+
 fn free_name(taken: impl Fn(&str) -> bool) -> String {
     ["sqz", "sqz-mcp", "sqz-mcp-self"]
         .into_iter()
@@ -422,24 +440,26 @@ pub(crate) fn sqz_apply_claude_json_ledger(
                 changed = true;
             }
         } else {
-            // 新增条目（before=None）按内容删：aidog 写入的 (command, args) 仍在 → 删该条目
-            //（含用户改名后的 self server）；用户自写的同形条目无记录 → 不动。
-            let inserted: Vec<(String, Vec<String>)> = ledger
-                .before
-                .iter()
-                .filter(|(_, b)| b.is_none())
-                .filter_map(|(k, _)| ledger.after.get(k).cloned())
-                .collect();
-            let to_remove: Vec<String> = top
-                .iter()
-                .filter(|(_, e)| {
-                    json_stdio(e).is_some_and(|(c, a)| inserted.contains(&(c, a)))
-                })
-                .map(|(n, _)| n.clone())
-                .collect();
-            for n in to_remove {
-                top.remove(&n);
-                changed = true;
+            // 新增条目（before=None）按计数删：每条记录至多删一条内容匹配条目；
+            // 同名（未改名）优先，记录耗尽后剩余同形条目（用户自写）保留。
+            for (pref_name, content) in inserted_removal_plan(ledger, "claude:") {
+                let hit = pref_name
+                    .and_then(|n| {
+                        top.get(&n)
+                            .and_then(json_stdio)
+                            .filter(|x| x == &content)
+                            .map(|_| n)
+                    })
+                    .or_else(|| {
+                        let (rc, ra) = (&content.0, &content.1);
+                        top.iter()
+                            .find(|(_, e)| json_stdio(e).is_some_and(|x| x.0 == *rc && x.1 == *ra))
+                            .map(|(n, _)| n.clone())
+                    });
+                if let Some(n) = hit {
+                    top.remove(&n);
+                    changed = true;
+                }
             }
         }
     }
@@ -577,26 +597,27 @@ pub(crate) fn sqz_apply_codex_ledger(
             changed = true;
         }
     } else {
-        // 新增条目（before=None）按内容删，同 claude 侧。
-        let inserted: Vec<(String, Vec<String>)> = ledger
-            .before
-            .iter()
-            .filter(|(_, b)| b.is_none())
-            .filter_map(|(k, _)| ledger.after.get(k).cloned())
-            .collect();
-        let to_remove: Vec<String> = names
-            .iter()
-            .filter(|n| {
-                servers
-                    .get(n.as_str())
-                    .and_then(toml_stdio)
-                    .is_some_and(|(c, a)| inserted.contains(&(c, a)))
-            })
-            .cloned()
-            .collect();
-        for n in to_remove {
-            servers.remove(&n);
-            changed = true;
+        // 新增条目（before=None）按计数删，同 claude 侧。
+        for (pref_name, content) in inserted_removal_plan(ledger, "codex:") {
+            let hit = pref_name
+                .and_then(|n| {
+                    servers
+                        .get(&n)
+                        .and_then(toml_stdio)
+                        .filter(|x| x == &content)
+                        .map(|_| n)
+                })
+                .or_else(|| {
+                    let (rc, ra) = (&content.0, &content.1);
+                    servers
+                        .iter()
+                        .find(|(_, e)| toml_stdio(e).is_some_and(|x| x.0 == *rc && x.1 == *ra))
+                        .map(|(n, _)| n.clone())
+                });
+            if let Some(n) = hit {
+                servers.remove(&n);
+                changed = true;
+            }
         }
     }
     Ok(changed)
@@ -683,6 +704,52 @@ pub(crate) fn sqz_missing(
         }
     } else {
         out.push("codex:unavailable".into());
+    }
+    out
+}
+
+/// wrap 残留（复核④）：关闭路径还原不了的 wrapped 条目——内容与 ledger 写后一致
+/// 但键名对不上（用户改名）。报告而非静默残留；可正常还原的与用户自写同形包装
+/// （内容无记录）不报。键照 sqz_missing idiom 加 `stale-` 前缀。
+pub(crate) fn sqz_wrap_residue(
+    cj: &Value,
+    codex: Option<&toml::Table>,
+    ledger: &SqzLedger,
+) -> Vec<String> {
+    let after: Vec<(String, Vec<String>)> = ledger.after.values().cloned().collect();
+    let mut out = Vec::new();
+    let mut c = cj.clone();
+    for (p, m) in claude_maps(&mut c) {
+        for (n, e) in m.iter() {
+            let Some((cmd, args)) = json_stdio(e) else {
+                continue;
+            };
+            if kind(&cmd, &args) != Kind::Wrapped {
+                continue;
+            }
+            if ledger_undo(&format!("claude:{p}{n}"), &cmd, &args, ledger).is_some() {
+                continue;
+            }
+            if after.iter().any(|x| x.0 == cmd && x.1 == args) {
+                out.push(format!("stale-wrap:claude:{p}{n}"));
+            }
+        }
+    }
+    if let Some(servers) = codex.and_then(|t| t.get("mcp_servers").and_then(toml::Value::as_table)) {
+        for (n, e) in servers {
+            let Some((cmd, args)) = toml_stdio(e) else {
+                continue;
+            };
+            if kind(&cmd, &args) != Kind::Wrapped {
+                continue;
+            }
+            if ledger_undo(&format!("codex:{n}"), &cmd, &args, ledger).is_some() {
+                continue;
+            }
+            if after.iter().any(|x| x.0 == cmd && x.1 == args) {
+                out.push(format!("stale-wrap:codex:{n}"));
+            }
+        }
     }
     out
 }
@@ -782,8 +849,9 @@ fn codex_cfg(p: &Paths) -> Option<PathBuf> {
 }
 
 /// ledger 版文件应用：解析两文件 → ledger 应用 → 落库账本 → 写文件。
-/// 关闭时无记录（存量已开启状态）→ 回落形状判定（旧 sqz_apply_claude_json / codex 路径），
-/// 由 caller 回报残留清单，不静默删。
+/// 关闭时无记录（存量已开启状态）→ 回落形状判定（旧 sqz_apply_claude_json / codex 路径）：
+/// 按形状直接删 sqz 项 / 解包装（含用户自写同形条目——已知偏差，2026-11-17 拍板维持；
+/// 复活条件：用户要求绝对精确还原时重开 ledger 化迁移），并非「回报残留清单」。
 async fn sqz_apply_files_ledger(p: &Paths, on: bool, db: &Db) -> Result<(), String> {
     let claude_before = read_original(&p.claude_json)?;
     let mut cj = claude_before
@@ -1122,7 +1190,16 @@ async fn store_sqz_ledger(db: &Db, ledger: &SqzLedger, hooks: &SqzHookLedger) ->
 async fn status(db: &Db) -> Result<ContextCompressStatus, String> {
     let p = Paths::resolve()?;
     let cfg = load_claude_cfg(db).await;
-    let sqz_missing = sqz_file_missing(&p, &cfg)?;
+    let mut sqz_missing = sqz_file_missing(&p, &cfg)?;
+    if !sqz_missing.is_empty() {
+        // 未全启用时补报 wrap 残留：用户改名后关闭还原不了的条目（复核④）。
+        let (ledger, _) = load_sqz_ledger(db).await;
+        if !ledger.is_empty() {
+            let cj = read_json_file(&p.claude_json)?;
+            let cx = codex_cfg(&p).as_deref().map(read_toml_file).transpose()?;
+            sqz_missing.extend(sqz_wrap_residue(&cj, cx.as_ref(), &ledger));
+        }
+    }
     Ok(ContextCompressStatus {
         rtk_version: version("rtk").await,
         rtk_claude: has_hook(&cfg, "PreToolUse", RTK_CLAUDE_CMD),
