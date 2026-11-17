@@ -469,8 +469,8 @@ impl PlatformAdapter for GlmFamilyAdapter {
 ///   未记载新的 chat 字段，故无 coding-plan 请求差异。
 ///   https://platform.minimaxi.com/docs/token-plan/other-tools
 ///   https://platform.minimax.io/docs
-/// - 未证实（保持基座默认）：错误体是否总包含 `base_resp`、Anthropic cache usage 字段、stream usage 的
-///   含义及其端点差异、工具选择限制、各模型外的固定 sampling 参数。
+/// - 未证实（保持基座默认）：错误体是否总包含 `base_resp`、stream usage 的含义及其端点差异、工具选择限制、
+///   各模型外的固定 sampling 参数。
 ///
 /// 成员 `minimax`（MiniMax 海螺，中国站；issue 120，核对日期 2026-11-17）：
 /// - 端点：OpenAI Chat Completions 与 Anthropic Messages。registry 地址只用于新建表单预填；运行时使用用户配置的
