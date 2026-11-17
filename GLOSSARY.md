@@ -162,11 +162,11 @@ _Avoid_: broken rule, invalid rule
 ### Model Info（模型信息）
 
 **Registry（注册表）**:
-内置平台/协议/模型条目的数据真值源（`src-tauri/defaults/registry/`），随应用发布、远程可同步、人工维护：一个平台一个文件夹，内含该平台的平台描述文件与模型文件，顶层一个索引文件。取代旧的单文件 `models.json` 与 `platform-presets.json`。
+内置平台/协议/模型条目的数据真值源（`src-tauri/defaults/registry/`），随应用发布、人工维护：一个平台一个文件夹，内含该平台的平台描述文件与模型文件，顶层一个索引文件。取代旧的单文件 `models.json` 与 `platform-presets.json`。
 _避免_: catalog、presets（指新结构时）、knowledge base
 
 **Registry Index（注册表索引）**:
-Registry 顶层索引文件，列出全部平台（名称、code、文件位置）。远程同步先读它，再决定拉取哪些文件。
+Registry 顶层索引文件，列出全部平台（名称、code、文件位置）。启动灌种按内容 diff 决定写入。
 _避免_: manifest、目录枚举
 
 **Model Entry（模型条目）**:
@@ -210,7 +210,7 @@ _避免_: quota.rs、custom query script（那是旧的泛型用户脚本入口�
 同一平台协议下的一个部署形态对应一条 Quota Script（如 new-api 的各种 fork 各一条）。用户
 在平台设置里选定变体（id 存 `extra.quota_script_id`，缺省数组首条、id 失效回落首条），
 保存时单条正文物化进 platform 行的 `quota_script` 列执行；用户自定义脚本合成为伪变体
-（custom 正文优先于 id 选中）。远程同步只更新 registry 变体清单，不自动换已物化脚本。
+（custom 正文优先于 id 选中）。
 _避免_: deployment、provider preset
 
 ## 统一日志（卡顿/故障定位入口）

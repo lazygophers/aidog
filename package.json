@@ -43,6 +43,7 @@
     "test:serde-ts": "node --test scripts/check-serde-ts-optional.test.mjs",
     "gen:types": "cd src-tauri && cargo test -p aidog_core export_bindings",
     "check:docs": "node scripts/gen-command-docs.mjs --check && yarn workspace aidog-docs check:docs",
+    "check:docs-drift": "node scripts/check-docs-drift.mjs",
     "test:statusline-golden": "node scripts/statusline-golden/build.mjs check",
     "version:bump": "make version-bump",
     "version:sync": "node scripts/sync-version.mjs",

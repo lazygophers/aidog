@@ -26,7 +26,10 @@
 
 AiDog 是一款基于 Tauri 的**桌面端 AI API 网关**。它在你的电脑本地统一管理、路由和监控 50+ AI 平台的请求 —— 把分散在各处的 API Key、模型映射、负载均衡、用量统计、编程助手配置收拢到一个应用。无需后台服务、无需上云，所有数据本地 SQLite 存储。
 
-![AiDog — 主面板](screenshots/dashboard.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="screenshots/dashboard-dark.png">
+  <img src="screenshots/dashboard.png" alt="AiDog — 主面板">
+</picture>
 
 ## 它解决什么问题
 
@@ -132,7 +135,10 @@ chmod +x aidog_0.1.0_amd64.AppImage
 
 ### 第 1 步：添加平台
 
-![AiDog — 添加平台](screenshots/add-platform.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="screenshots/add-platform-dark.png">
+  <img src="screenshots/add-platform.png" alt="AiDog — 添加平台">
+</picture>
 
 1. 左侧导航点 **「平台」**
 2. 点 **「+ 添加平台」**
@@ -208,7 +214,10 @@ name = "o3"
 
 > 🔐 **分组认证** — 代理地址中 Key 填**分组名**（Group Name），AiDog 按 Bearer token 路由到对应分组：`Authorization: Bearer <group_name>`。
 
-![AiDog — 设置页](screenshots/settings.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="screenshots/settings-dark.png">
+  <img src="screenshots/settings.png" alt="AiDog — 设置页">
+</picture>
 
 ## 从源码构建
 
