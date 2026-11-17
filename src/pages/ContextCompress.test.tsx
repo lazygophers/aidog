@@ -100,15 +100,55 @@ describe("ContextCompress", () => {
     await waitFor(() => expect(api.install).toHaveBeenCalledWith("sqz"));
   });
 
-  it("shows rtk and sqz compression statistics", async () => {
+  it("stats panel shows rtk and sqz totals without switching tabs", async () => {
     render(<ContextCompress />);
-    const rtk = await screen.findByTestId("rtk-stats");
-    // 隔离 i18n 缺译文回传 key 本身（见 test/render.tsx），断言 key。
-    expect(rtk.textContent).toBe("contextCompress.rtkStats");
-    fireEvent.mouseDown(screen.getByTestId("cc-tab-sqz"), { button: 0 });
-    fireEvent.click(screen.getByTestId("cc-tab-sqz"));
-    const sqz = await screen.findByTestId("sqz-stats");
-    expect(sqz.textContent).toBe("contextCompress.sqzStats");
+    await waitFor(() => expect(screen.getByTestId("cc-stat-rtk-saved").textContent).toBe("400"));
+    expect(screen.getByTestId("cc-stat-rtk-pct").textContent).toBe("40.0%");
+    expect(screen.getByTestId("cc-stat-rtk-count").textContent).toBe("100");
+    expect(screen.getByTestId("cc-stat-rtk-in").textContent).toBe("1,000");
+    expect(screen.getByTestId("cc-stat-rtk-out").textContent).toBe("600");
+    expect(screen.getByTestId("cc-stat-sqz-saved").textContent).toBe("600");
+    expect(screen.getByTestId("cc-stat-sqz-pct").textContent).toBe("30.0%");
+    expect(screen.getByTestId("cc-stat-sqz-count").textContent).toBe("50");
+    expect(screen.getByTestId("cc-stat-sqz-in").textContent).toBe("2,000");
+    expect(screen.getByTestId("cc-stat-sqz-out").textContent).toBe("1,400");
     expect(api.stats).toHaveBeenCalledOnce();
+  });
+
+  it("slow stats do not hold back status; stats show a loading state", async () => {
+    api.stats.mockReturnValue(new Promise(() => {}));
+    render(<ContextCompress />);
+    await waitFor(() => expect(screen.getByTestId("rtk-version").getAttribute("data-version")).toBe("1.2.0"));
+    expect(screen.getByTestId("cc-stats-rtk").getAttribute("data-state")).toBe("loading");
+    expect(screen.getByTestId("cc-stats-sqz").getAttribute("data-state")).toBe("loading");
+  });
+
+  it("does not claim 'not installed' while status is still loading", async () => {
+    api.status.mockReturnValue(new Promise(() => {}));
+    render(<ContextCompress />);
+    await waitFor(() => expect(screen.getByTestId("cc-stats-rtk").getAttribute("data-state")).toBe("ok"));
+    expect(screen.getByTestId("rtk-version").getAttribute("data-state")).toBe("loading");
+    expect(screen.queryByTestId("rtk-install")).toBeNull();
+  });
+
+  it("explains missing stats: installed but no data vs not installed", async () => {
+    api.status.mockResolvedValue({ ...STATUS, sqz_version: null, sqz_mcp_version: null });
+    api.stats.mockResolvedValue({ rtk: null, sqz: null });
+    render(<ContextCompress />);
+    await waitFor(() => expect(screen.getByTestId("cc-stats-rtk").getAttribute("data-state")).toBe("empty"));
+    expect(screen.getByTestId("cc-stats-sqz").getAttribute("data-state")).toBe("not-installed");
+    expect(screen.getByTestId("cc-stats-rtk-msg").textContent).toBe("contextCompress.statsEmpty");
+    expect(screen.getByTestId("cc-stats-sqz-msg").textContent).toBe("contextCompress.statsNotInstalled");
+  });
+
+  it("shows the error text when the stats call fails, and refresh retries", async () => {
+    api.stats.mockRejectedValueOnce("boom");
+    render(<ContextCompress />);
+    await waitFor(() => expect(screen.getByTestId("cc-stats-rtk").getAttribute("data-state")).toBe("error"));
+    expect(screen.getByTestId("cc-stats-rtk-msg").textContent).toContain("boom");
+    expect(screen.getByTestId("cc-stats-sqz").getAttribute("data-state")).toBe("error");
+    fireEvent.click(screen.getByTestId("cc-stats-refresh"));
+    await waitFor(() => expect(screen.getByTestId("cc-stat-rtk-saved").textContent).toBe("400"));
+    expect(api.stats).toHaveBeenCalledTimes(2);
   });
 });
