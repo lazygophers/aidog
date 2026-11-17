@@ -107,6 +107,8 @@ dashmap = "6"
 #     default = ["progressbar", "onig", "esaxx_fast"]
 tiktoken-rs = "0.12"
 tokenizers = { version = "0.23", default-features = false, features = ["fancy-regex"] }
+# aidog_core 构建期压缩 / 运行时解压 HF tokenizer.json；已经由 reqwest(zstd feature) 在依赖树内，不新增编译单元。
+zstd = "0.14"
 # macOS 托盘小字 attributedTitle（core refresh_tray_menu + root tray_render 共用同版本）
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSString", "NSDictionary", "NSAttributedString", "NSGeometry", "NSValue"] }

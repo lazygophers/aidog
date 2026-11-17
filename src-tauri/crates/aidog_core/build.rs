@@ -42,6 +42,18 @@ fn main() {
     let out = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR")).join("claude_presets.rs");
     std::fs::write(out, src).expect("write claude_presets.rs");
 
+    // HF tokenizer.json 构建期 zstd 压缩（约 27 MB → 约 3.8 MB 嵌入体积），
+    // gateway/proxy/tokenizer.rs 首次使用时解压。
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR"));
+    let tok_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets/tokenizers");
+    for name in ["glm-4.json", "qwen2.json"] {
+        let src = tok_dir.join(name);
+        println!("cargo:rerun-if-changed={}", src.display());
+        let raw = std::fs::read(&src).unwrap_or_else(|e| panic!("read {}: {e}", src.display()));
+        let zst = zstd::encode_all(raw.as_slice(), 19).expect("zstd encode tokenizer json");
+        std::fs::write(out_dir.join(format!("{name}.zst")), zst).expect("write tokenizer zst");
+    }
+
     // git 短 commit（失败回退 "unknown"）—— about.rs 用，同 root build.rs 逻辑（C3 迁入后本 crate 自持）。
     let commit = Command::new("git")
         .args(["rev-parse", "--short", "HEAD"])

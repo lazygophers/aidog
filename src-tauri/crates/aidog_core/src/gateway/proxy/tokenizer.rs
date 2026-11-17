@@ -14,10 +14,20 @@ use std::sync::OnceLock;
 use tiktoken_rs::CoreBPE;
 use tokenizers::Tokenizer;
 
-/// bundled HF tokenizer.json（编译期 include_bytes，路径相对本文件）。
-/// `proxy/tokenizer.rs` → 上 3 级 (`../../..`) = crate 根 `aidog_core/`。
-const GLM4_JSON: &[u8] = include_bytes!("../../../assets/tokenizers/glm-4.json");
-const QWEN2_JSON: &[u8] = include_bytes!("../../../assets/tokenizers/qwen2.json");
+/// bundled HF tokenizer.json 的 zstd 压缩件：`aidog_core/build.rs` 构建期从
+/// `assets/tokenizers/` 压缩写入 OUT_DIR，首次使用时解压（解压缓冲在解析后即释放）。
+const GLM4_ZST: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/glm-4.json.zst"));
+const QWEN2_ZST: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/qwen2.json.zst"));
+
+fn decompress(zst: &[u8]) -> std::io::Result<Vec<u8>> {
+    zstd::decode_all(zst)
+}
+
+/// 解压 + 解析 bundled tokenizer；任一步失败返回错误文本（调用方回落 cl100k）。
+fn load(zst: &[u8]) -> Result<Tokenizer, String> {
+    let json = decompress(zst).map_err(|e| e.to_string())?;
+    Tokenizer::from_bytes(json).map_err(|e| e.to_string())
+}
 
 /// per-family encoding 选择。未识别模型族 → Cl100k（OpenAI 旧族 / Anthropic / 兜底）。
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -68,7 +78,7 @@ fn o200k() -> &'static CoreBPE {
 /// HF glm-4 tokenizer 缓存：None = 加载失败（不应发生，bundled 文件随二进制分发）。
 fn glm4() -> Option<&'static Tokenizer> {
     static TOK: OnceLock<Option<Tokenizer>> = OnceLock::new();
-    TOK.get_or_init(|| match Tokenizer::from_bytes(GLM4_JSON) {
+    TOK.get_or_init(|| match load(GLM4_ZST) {
         Ok(t) => Some(t),
         Err(e) => {
             tracing::warn!(error = %e, "glm-4 tokenizer load failed; falling back to cl100k");
@@ -81,7 +91,7 @@ fn glm4() -> Option<&'static Tokenizer> {
 /// HF qwen2 tokenizer 缓存。
 fn qwen2() -> Option<&'static Tokenizer> {
     static TOK: OnceLock<Option<Tokenizer>> = OnceLock::new();
-    TOK.get_or_init(|| match Tokenizer::from_bytes(QWEN2_JSON) {
+    TOK.get_or_init(|| match load(QWEN2_ZST) {
         Ok(t) => Some(t),
         Err(e) => {
             tracing::warn!(error = %e, "qwen2 tokenizer load failed; falling back to cl100k");
@@ -168,5 +178,26 @@ mod tests {
     fn count_tokens_empty() {
         assert_eq!(count_tokens("", "gpt-4"), 0);
         assert_eq!(count_tokens("", "glm-4"), 0);
+    }
+
+    #[test]
+    fn bundled_zst_decompresses_to_source_json() {
+        for (zst, name) in [(GLM4_ZST, "glm-4.json"), (QWEN2_ZST, "qwen2.json")] {
+            let path = format!("{}/assets/tokenizers/{name}", env!("CARGO_MANIFEST_DIR"));
+            let src = std::fs::read(&path).expect("read source tokenizer json");
+            let out = decompress(zst).expect("decompress");
+            assert_eq!(out.len(), src.len(), "{name}: decompressed length differs from source");
+            assert!(out == src, "{name}: decompressed bytes differ from source");
+        }
+    }
+
+    /// 基线取自压缩改造前（include_bytes 原始 JSON）的实测计数。
+    #[test]
+    fn hf_counts_match_pre_compression_baseline() {
+        for m in ["glm-4.6", "qwen-max"] {
+            assert_eq!(count_tokens("Hello, world!", m), 4, "{m}");
+            assert_eq!(count_tokens("你好，世界！今天天气不错。", m), 8, "{m}");
+            assert_eq!(count_tokens("fn main() { println!(\"hi\"); }", m), 9, "{m}");
+        }
     }
 }

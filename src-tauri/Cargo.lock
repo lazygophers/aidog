@@ -202,6 +202,7 @@ dependencies = [
  "ts-rs",
  "url",
  "uuid",
+ "zstd",
 ]
 
 [[package]]
