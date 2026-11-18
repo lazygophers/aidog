@@ -10,6 +10,36 @@ import { formatInteger, formatPercent } from "../utils/formatters";
 
 type Range = "30" | "90" | "all";
 
+// 每日柱状图悬浮提示：rtk 显示「总共 / 节省了 / 压缩率」三行；sqz CLI 无每日输入与比率，只有节省量。
+export function DailySavedTooltip({ active, label, payload, withMeta = false }: {
+  active?: boolean;
+  label?: string;
+  payload?: { payload?: { saved?: number; input?: number; pct?: number } }[];
+  withMeta?: boolean;
+}) {
+  const { t } = useTranslation();
+  if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload ?? {};
+  const input = row.input ?? 0;
+  const tipRow = (labelKey: string, value: string) => <div
+    className="flex w-full items-center justify-between gap-3"
+    data-testid="cc-tip-row"
+  >
+    <span className="text-muted-foreground">{t(labelKey)}</span>
+    <span className="font-mono font-medium tabular-nums">{value}</span>
+  </div>;
+  return <div
+    dir="auto"
+    className="pointer-events-none grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-sm shadow-xl"
+    data-testid="cc-tip"
+  >
+    <div className="font-medium">{label}</div>
+    {withMeta && input > 0 && tipRow("contextCompress.tipTotal", formatInteger(input))}
+    {tipRow("contextCompress.tipSaved", formatInteger(row.saved ?? 0))}
+    {withMeta && tipRow("contextCompress.tipPct", input > 0 && row.pct != null ? formatPercent(row.pct) : "—")}
+  </div>;
+}
+
 const isoDay = (d: Date) => {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -125,9 +155,14 @@ export function ContextCompress() {
   const rtkRange = useMemo(() => inRange(stats?.rtk_daily), [stats, range]);
   const sqzRange = useMemo(() => inRange(stats?.sqz_daily), [stats, range]);
   const sum = (rows: { saved_tokens: number }[]) => rows.reduce((a, r) => a + r.saved_tokens, 0);
-  const chartData = (rows: { date: string; saved_tokens: number }[]) =>
-    rows.map(r => ({ name: r.date.slice(5), saved: r.saved_tokens }));
-  const dailyChart = (testid: string, rows: { date: string; saved_tokens: number }[]) => <div data-testid={testid}>
+  const chartData = (rows: { date: string; saved_tokens: number; input_tokens?: number; savings_pct?: number }[]) =>
+    rows.map(r => ({
+      name: r.date.slice(5),
+      saved: r.saved_tokens,
+      input: r.input_tokens,
+      pct: r.savings_pct,
+    }));
+  const dailyChart = (testid: string, rows: { date: string; saved_tokens: number; input_tokens?: number; savings_pct?: number }[]) => <div data-testid={testid}>
     <BarChart
       title={t("contextCompress.statsDaily")}
       config={{ saved: { label: t("contextCompress.statsSaved") } }}
@@ -136,6 +171,7 @@ export function ContextCompress() {
       height={200}
       xInterval={rows.length > 15 ? Math.ceil(rows.length / 12) : 0}
       className="mt-3"
+      tooltipContent={<DailySavedTooltip withMeta={testid === "cc-chart-rtk"} />}
     />
   </div>;
   const rtkChart = dailyChart("cc-chart-rtk", rtkRange);
