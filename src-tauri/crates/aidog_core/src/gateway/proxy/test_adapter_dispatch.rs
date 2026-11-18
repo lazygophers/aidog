@@ -291,6 +291,177 @@ async fn glm_family_anthropic_endpoint_disables_thinking() {
     }
 }
 
+const MINIMAX_FAMILY: [(Protocol, &str); 3] = [
+    (Protocol::MiniMax, "gkminimax"),
+    (Protocol::MiniMaxEn, "gkminimaxen"),
+    (Protocol::MinimaxCoding, "gkminimaxcp"),
+];
+
+/// issue 77: all MiniMax family members use the official OpenAI-wire thinking parameter.
+#[tokio::test]
+async fn minimax_family_openai_endpoint_disables_thinking_with_official_param() {
+    for (pt, gk) in MINIMAX_FAMILY {
+        let body = outbound_body_for_model(pt.clone(), Protocol::OpenAI, gk, "MiniMax-M3").await;
+        assert_eq!(
+            body.get("thinking"),
+            Some(&serde_json::json!({"type": "disabled"})),
+            "{pt:?} OpenAI endpoint must use thinking.type=disabled: {body}"
+        );
+        assert!(body.get("reasoning_effort").is_none(), "{pt:?} must not use reasoning_effort=none: {body}");
+        assert!(body.get("disable_thinking").is_none(), "{pt:?} private field must be removed: {body}");
+    }
+}
+
+/// The MiniMax M3.1-Flash registry entry is forced-thinking; disable params must be stripped.
+#[tokio::test]
+async fn minimax_forced_thinking_model_strips_disable_params() {
+    let body = outbound_body_for_model(
+        Protocol::MiniMax,
+        Protocol::OpenAI,
+        "gkminimaxforced",
+        "MiniMax-M3.1-Flash",
+    )
+    .await;
+    assert!(body.get("thinking").is_none(), "forced model rejects thinking disable: {body}");
+    assert!(body.get("reasoning_effort").is_none(), "forced model rejects reasoning_effort=none: {body}");
+    assert!(body.get("disable_thinking").is_none(), "private field must be removed: {body}");
+}
+
+/// Anthropic endpoint already uses the official Messages thinking shape and remains unchanged.
+#[tokio::test]
+async fn minimax_family_anthropic_endpoint_disables_thinking() {
+    for (pt, gk) in MINIMAX_FAMILY {
+        let body = outbound_body_for_model(pt.clone(), Protocol::Anthropic, gk, "MiniMax-M3").await;
+        assert_eq!(body["thinking"], serde_json::json!({"type": "disabled"}), "{pt:?}: {body}");
+        assert!(body.get("disable_thinking").is_none(), "{pt:?}: {body}");
+    }
+}
+
+/// Every family member accepts both configured wire endpoints through the local fake upstream.
+#[tokio::test]
+async fn minimax_family_converts_requests_for_both_endpoint_protocols() {
+    for (pt, gk) in MINIMAX_FAMILY {
+        for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+            let body = outbound_body_for_model(pt.clone(), wire.clone(), gk, "MiniMax-M3").await;
+            assert_eq!(body["model"], "MiniMax-M3", "{pt:?}/{wire:?}: {body}");
+            assert!(body.get("messages").is_some(), "{pt:?}/{wire:?}: {body}");
+            if wire == Protocol::Anthropic {
+                assert_eq!(body["max_tokens"], 32, "{pt:?}/{wire:?}: {body}");
+            }
+        }
+    }
+}
+
+const MINIMAX_ANTHROPIC_RESP: &str = r#"{"id":"msg_minimax","type":"message","role":"assistant","model":"MiniMax-M3","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3}}"#;
+const MINIMAX_ANTHROPIC_SSE: &str = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_minimax\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"MiniMax-M3\",\"content\":[],\"usage\":{\"input_tokens\":6,\"output_tokens\":0}}}\n\n\
+event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n\
+event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n\
+event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n\
+event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":3}}\n\n\
+event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+const MINIMAX_ANTHROPIC_ERROR: &str = r#"{"type":"error","error":{"type":"invalid_request_error","message":"bad request"}}"#;
+
+/// Exercise Anthropic responses through the proxy for all family members; fixtures claim no cache usage contract.
+#[tokio::test]
+async fn minimax_family_anthropic_endpoint_proxy_response_usage_stream_and_error() {
+    for (pt, gk) in MINIMAX_FAMILY {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::Anthropic,
+            gk,
+            "/chat/completions",
+            r#"{"model":"MiniMax-M3","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+            (200, "application/json", MINIMAX_ANTHROPIC_RESP),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits[0].0, "/v1/messages", "{pt:?}: {hits:?}");
+        assert!(resp.contains("\"prompt_tokens\":6"), "{pt:?}: {resp}");
+        assert!(resp.contains("\"completion_tokens\":3"), "{pt:?}: {resp}");
+
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::Anthropic,
+            gk,
+            "/chat/completions",
+            r#"{"model":"MiniMax-M3","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+            (200, "text/event-stream", MINIMAX_ANTHROPIC_SSE),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits[0].0, "/v1/messages", "{pt:?}: {hits:?}");
+        assert!(resp.contains("\"content\":\"hi\""), "{pt:?}: {resp}");
+        assert!(resp.contains("[DONE]"), "{pt:?}: {resp}");
+
+        let (status, resp, hits) = glm_member_call(
+            pt,
+            Protocol::Anthropic,
+            gk,
+            "/chat/completions",
+            r#"{"model":"MiniMax-M3","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+            (400, "application/json", MINIMAX_ANTHROPIC_ERROR),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+        assert!(!hits.is_empty());
+        assert!(resp.contains("invalid_request_error"), "{resp}");
+    }
+}
+
+/// MiniMax docs checked 2026-11-18:
+/// - https://platform.minimaxi.com/docs/api-reference/text-chat-openai.md (stream chunks, finish_reason, usage)
+/// - https://platform.minimaxi.com/docs/api-reference/text-chat-anthropic.md (message_stop terminal event)
+/// - https://platform.minimaxi.com/docs/api-reference/errorcode.md (base_resp application codes)
+///
+/// The docs do not map code 2022 to HTTP; this synthetic fixture supplies 400 to test existing behavior only.
+const MINIMAX_OPENAI_SSE: &str = "data: {\"id\":\"chatcmpl_minimax\",\"object\":\"chat.completion.chunk\",\"model\":\"MiniMax-M3\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n\
+data: {\"id\":\"chatcmpl_minimax\",\"object\":\"chat.completion.chunk\",\"model\":\"MiniMax-M3\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":6,\"completion_tokens\":3,\"total_tokens\":9}}\n\n\
+data: [DONE]\n\n";
+const MINIMAX_SYNTHETIC_BASE_RESP: &str =
+    r#"{"base_resp":{"status_code":2022,"status_msg":"synthetic model error"}}"#;
+
+/// OpenAI endpoint streaming and synthetic error traverse the real proxy path for each MiniMax member.
+#[tokio::test]
+async fn minimax_family_openai_endpoint_proxy_stream_and_synthetic_error() {
+    use aidog_adapter::platform::error::UpstreamErrorClass;
+
+    for (pt, gk) in MINIMAX_FAMILY {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::OpenAI,
+            gk,
+            "/v1/messages",
+            r#"{"model":"MiniMax-M3","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+            (200, "text/event-stream", MINIMAX_OPENAI_SSE),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits[0].0, "/chat/completions", "{pt:?}: {hits:?}");
+        assert!(resp.contains("content_block_delta"), "{pt:?}: {resp}");
+        assert!(resp.contains("\"text\":\"hi\""), "{pt:?}: {resp}");
+        assert!(resp.contains("message_stop"), "{pt:?}: {resp}");
+
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::OpenAI,
+            gk,
+            "/v1/messages",
+            r#"{"model":"MiniMax-M3","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+            (400, "application/json", MINIMAX_SYNTHETIC_BASE_RESP),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{pt:?}: {resp}");
+        assert!(!hits.is_empty(), "{pt:?}: fake upstream must receive request");
+        assert!(resp.contains("2022"), "{pt:?}: {resp}");
+        assert_eq!(
+            aidog_adapter::platform::adapter_for("minimax")
+                .classify_error(400, MINIMAX_SYNTHETIC_BASE_RESP),
+            UpstreamErrorClass::Unknown,
+            "{pt:?}: synthetic status code must retain base classification"
+        );
+    }
+}
+
 // ══ issue 113：GLM（智谱）成员 `glm` 逐端点协议护栏（请求转换 / 非流式 / 流式 / 错误 / usage）══
 // 官方出处（核对日期 2026-11-16）：
 // - 对话补全 https://docs.bigmodel.cn/api-reference/%E6%A8%A1%E5%9E%8B-api/%E5%AF%B9%E8%AF%9D%E8%A1%A5%E5%85%A8
@@ -1215,19 +1386,11 @@ async fn kimi_coding_openai_disable_thinking_writes_reasoning_effort_none() {
         let req = serde_json::json!({"model": model, "max_tokens": 32, "temperature": 1.0,
             "disable_thinking": true, "messages": [{"role": "user", "content": "hi"}]});
         let body = outbound_body_with(pt.clone(), Protocol::OpenAI, &kimi_gk(&pt, "cbb"), req).await;
-        if model.starts_with("k3.1-pro") {
-            assert_eq!(
-                body.get("reasoning_effort"),
-                Some(&serde_json::json!("none")),
-                "K3.1 Pro 禁思考必须保留 reasoning_effort=none 让上游按官方返回 400: {body}"
-            );
-        } else {
-            assert_eq!(
-                body.get("reasoning_effort"),
-                Some(&serde_json::json!("none")),
-                "其他 kimi_coding 模型禁思考应写 reasoning_effort=none: {body}"
-            );
-        }
+        assert_eq!(
+            body.get("reasoning_effort"),
+            Some(&serde_json::json!("none")),
+            "{model} 禁思考应写 reasoning_effort=none: {body}"
+        );
         assert!(body.get("chat_template_kwargs").is_none(), "kimi_coding 不应写 chat_template_kwargs: {body}");
         assert!(body.get("thinking").is_none(), "kimi_coding 不应写 thinking: {body}");
         assert_eq!(body.get("temperature"), Some(&serde_json::json!(1.0)), "kimi_coding 应透传 temperature: {body}");
@@ -1335,6 +1498,47 @@ async fn kimi_family_error_body() {
             assert!(resp.contains("resource_not_found_error"), "{pt:?}/{ep:?}: {resp}");
         }
     }
+}
+
+/// Issue 119 follow-up: ambiguous model-or-permission wording must not be a shared model-only marker.
+#[test]
+fn ambiguous_model_or_permission_error_remains_unknown() {
+    use aidog_adapter::platform::error::UpstreamErrorClass::Unknown;
+    let body = r#"{"error":{"message":"Not found the model kimi-for-coding or Permission denied"}}"#;
+    for code in ["kimi_coding", "anthropic"] {
+        assert_eq!(aidog_adapter::platform::adapter_for(code).classify_error(404, body), Unknown);
+    }
+}
+
+/// Issue 119 follow-up: same-protocol OpenAI passthrough preserves reasoning history and derives repeatable session keys.
+#[tokio::test]
+async fn kimi_coding_openai_passthrough_preserves_history_and_session_key() {
+    const IN: &str = r#"{"model":"kimi-for-coding","metadata":{"session_id":"session-42"},"messages":[{"role":"assistant","reasoning_content":"prior thought","tool_calls":[{"id":"call-1","type":"function","function":{"name":"lookup","arguments":"{}"}}]},{"role":"tool","tool_call_id":"call-1","content":"result"},{"role":"user","content":"continue"}]}"#;
+    let (status, _, first_hits) = glm_member_call(
+        Protocol::KimiCoding,
+        Protocol::OpenAI,
+        "gk119pass1",
+        "/v1/chat/completions",
+        IN,
+        (200, "application/json", KIMI_OPENAI_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _, second_hits) = glm_member_call(
+        Protocol::KimiCoding,
+        Protocol::OpenAI,
+        "gk119pass2",
+        "/v1/chat/completions",
+        IN,
+        (200, "application/json", KIMI_OPENAI_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let first: serde_json::Value = serde_json::from_str(&first_hits[0].1).unwrap();
+    let second: serde_json::Value = serde_json::from_str(&second_hits[0].1).unwrap();
+    assert_eq!(first["messages"][0]["reasoning_content"], "prior thought");
+    assert!(first["prompt_cache_key"].as_str().unwrap().ends_with("session-42"));
+    assert_eq!(first["prompt_cache_key"], second["prompt_cache_key"]);
 }
 
 /// issue 76（护栏）：非流式 usage 抽取——openai 臂 input 扣除 cached_tokens，anthropic 臂读 cache_read_input_tokens。
