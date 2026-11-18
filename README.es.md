@@ -64,11 +64,11 @@ Al iniciar AiDog, el proxy local escucha por defecto en `127.0.0.1:9890`. De for
 3. En el cliente, utiliza el comando de conexión generado para el grupo o sigue la guía de integración para configurar la dirección del proxy local y las credenciales del grupo.
 4. Envía una solicitud y confirma en el registro del proxy el grupo, la plataforma upstream, el modelo y el resultado.
 
-[Guía de instalación](/en/getting-started/installation) · [Primera configuración](/en/getting-started/first-config) · [Verificar la primera solicitud](/en/getting-started/first-request)
+[Guía de instalación](https://lazygophers.github.io/aidog/en/getting-started/installation) · [Primera configuración](https://lazygophers.github.io/aidog/en/getting-started/first-config) · [Verificar la primera solicitud](https://lazygophers.github.io/aidog/en/getting-started/first-request)
 
 ## Datos y privacidad
 
-AiDog guarda los ajustes y las bases de datos en tu equipo. Las solicitudes del proxy reenvían el contenido necesario al servicio upstream seleccionado. Que los registros conserven los cuerpos de las solicitudes y respuestas depende de la configuración; aunque se desactive el registro del contenido sin procesar, se pueden seguir guardando metadatos como el estado, el modelo y el uso. Consulta [Datos y privacidad](/en/core-concepts/data-privacy).
+AiDog guarda los ajustes y las bases de datos en tu equipo. Las solicitudes del proxy reenvían el contenido necesario al servicio upstream seleccionado. Que los registros conserven los cuerpos de las solicitudes y respuestas depende de la configuración; aunque se desactive el registro del contenido sin procesar, se pueden seguir guardando metadatos como el estado, el modelo y el uso. Consulta [Datos y privacidad](https://lazygophers.github.io/aidog/en/core-concepts/data-privacy).
 
 ## Ejecutar desde el código fuente
 
