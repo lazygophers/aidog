@@ -210,9 +210,13 @@ export const GroupListItem = memo(function GroupListItem({
       }}
     >
       {/* ── group-head（稿 .group-head）：折叠 / 组名 / 计数 / 三统计 / 操作 ── */}
+      {/* 整行头部 = dnd-kit 拖拽激活器（用户拖卡片即可排序，非仅 28px 折叠箭头）；点击仍折叠（PointerSensor distance 4 区分） */}
       <div
+        ref={handle.ref}
+        {...handle.attributes}
+        {...handle.listeners}
         data-testid="group-section-head"
-        onClick={() => { if (mode !== "select") onSetCollapsed(prev => {
+        onClick={() => { if (handle.isDragging || mode === "select") return; onSetCollapsed(prev => {
           const s = new Set(prev); isExpanded ? s.add(group.id) : s.delete(group.id); return s;
         }); }}
         style={{
@@ -222,14 +226,10 @@ export const GroupListItem = memo(function GroupListItem({
           cursor: mode === "select" ? "default" : "pointer",
         }}
       >
-        {/* 折叠箭头（drag handle 复用此位：把手悬停浮现，点击区域折叠） */}
+        {/* 折叠箭头（拖拽激活器已上移到整行 group-section-head；点击冒泡到头部折叠） */}
         <span
-          ref={handle.ref}
-          {...handle.attributes}
-          {...handle.listeners}
           data-testid="group-section-chev"
           title={t("group.dragToReorder", "拖动排序")}
-          onClick={(e: React.MouseEvent) => { if (handle.isDragging) e.stopPropagation(); }}
           style={{
             display: "inline-flex", width: 28, height: 28, alignItems: "center", justifyContent: "center",
             color: "var(--text-tertiary)", cursor: "grab", touchAction: "none",

@@ -47,9 +47,12 @@ vi.mock("../components/SortableList", () => ({
   SortableList: ({ items, onReorder, renderItem }: {
     items: { id: string }[];
     onReorder: (items: { id: string }[]) => void;
-    renderItem: (item: { id: string }, handle: { ref: () => void; attributes: {}; listeners: {}; isDragging: false }) => React.ReactNode;
+    renderItem: (item: { id: string }, handle: { ref: () => void; attributes: {}; listeners: { onPointerDown: (e: React.PointerEvent) => void }; isDragging: false }) => React.ReactNode;
   }) => <>
-    {items.map(item => <div key={item.id}>{renderItem(item, { ref: () => {}, attributes: {}, listeners: {}, isDragging: false })}</div>)}
+    {items.map(item => <div key={item.id}>{renderItem(item, {
+      ref: () => {}, attributes: {}, isDragging: false,
+      listeners: { onPointerDown: (e: React.PointerEvent) => { (e.currentTarget as HTMLElement).setAttribute("data-drag-activator", "true"); } },
+    })}</div>)}
     <button data-testid="sortable-reorder" onClick={() => onReorder([...items].reverse())}>reorder</button>
   </>,
 }));
@@ -90,6 +93,15 @@ describe("GroupsEmbedded — 列表→详情全链", () => {
     await waitFor(() => expect(screen.getAllByTestId("group-section-detail").length).toBe(2));
     fireEvent.click(screen.getByTestId("sortable-reorder"));
     await waitFor(() => expect(onToast).toHaveBeenCalledWith(expect.objectContaining({ ok: false, text: expect.stringContaining("isolated failure") })));
+  });
+
+  // 回归（用户第二次报「分组页不支持拖拽排序」）：dnd-kit 激活器此前只挂在折叠箭头（28px）上，
+  // 用户拖卡片主体无任何反应。激活器必须作用在整行 group-section-head 上。
+  it("拖拽激活器作用于整行卡片头（拖卡片可排序，非仅折叠箭头）", async () => {
+    render(<GroupsEmbedded onToast={() => {}} />);
+    const head = await screen.findAllByTestId("group-section-head");
+    fireEvent.pointerDown(head[0]);
+    expect(head[0].getAttribute("data-drag-activator")).toBe("true");
   });
 
   // 回归：列表分支漏渲染 sharedModals（fa236ce94），多选工具栏「改状态」点了无弹窗。
