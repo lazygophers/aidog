@@ -524,7 +524,30 @@ impl PlatformAdapter for GlmFamilyAdapter {
 ///   https://platform.minimax.io/docs/guides/server-tools.md
 ///   https://platform.minimax.io/docs/api-reference/errorcode.md
 ///
-/// `MiniMaxEnAdapter` 继承同一家族基座；成员差异留给 issue 122。
+/// 成员 `minimax_coding`（Token Plan；issue 122，核对日期 2026-11-18）：
+/// Token Plan 配置页列出 OpenAI Compatible 与 Anthropic Compatible，Base URL 分别为
+/// `https://api.minimax.cn/v1` 与 `https://api.minimax.cn/anthropic`。运行时仍只使用用户配置的 protocol + base_url。
+/// 两个协议参考页核对结果：
+/// - 请求字段 / 默认值：OpenAI 示例含 `model`、`messages`、`max_completion_tokens`、`reasoning_effort`；
+///   M3.1-Flash 的思考默认开启，effort 默认 `max`；Anthropic 示例含 `model`、`messages`、`max_tokens`、
+///   `output_config.effort`，思考默认开启，effort 默认 `max`。未证实 Token Plan 是否覆盖这些字段或默认值。
+/// - 思考：OpenAI `thinking.type` / `reasoning_effort`，Anthropic `thinking` / `output_config.effort`；
+///   两页均未描述 Token Plan 专属开关、档位或预算差异，故沿用家族处理。
+/// - Tools / system / media：两页均有 function tools 与 system 能力示例；OpenAI 示例用 `image_url`、`video_url`，
+///   Anthropic 示例用 `image`、`video` 内容块。服务端工具的 Token Plan 支持情况未证实。
+/// - 限制 / usage：两页示例分别使用 `max_completion_tokens` 与 `max_tokens: 4096`，未证实套餐专属上限；
+///   OpenAI usage 有 prompt/completion/total 与 `prompt_tokens_details.cached_tokens`，Anthropic usage 有
+///   input/output、cache-read 与 cache-creation token。未证实 Token Plan 是否另有 usage 字段。
+/// - 错误 / 流：API 参考展示 OpenAI `base_resp` 与 Anthropic `type=error` 形状；支持 stream，但 Token Plan
+///   专属错误体、事件、usage 语义及终止标记未证实。沿用家族基座错误、流与 usage 处理，不新增映射。
+/// - coding_plan 注入：套餐页未记录 chat 请求专属注入字段，保持 no-op；两协议本地假上游测试覆盖请求、响应、流、错误与 usage。
+///
+/// https://platform.minimaxi.com/docs/token-plan/other-tools （重定向至 minimax.cn）
+/// https://platform.minimaxi.com/docs/api-reference/text-chat-openai.md
+/// https://platform.minimaxi.com/docs/api-reference/text-chat-anthropic.md
+/// https://platform.minimaxi.com/docs/api-reference/errorcode.md
+///
+/// `MiniMaxEnAdapter` 与 `MiniMaxCodingAdapter` 继承同一家族基座；成员差异留给各自 issue。
 pub struct MiniMaxFamilyAdapter;
 
 impl PlatformAdapter for MiniMaxFamilyAdapter {
@@ -578,9 +601,26 @@ impl PlatformAdapter for MiniMaxEnAdapter {
     }
 }
 
+/// MiniMax Token Plan 成员适配器；文档未证实专属差异，沿用家族基座默认转换。
+struct MiniMaxCodingAdapter;
+
+impl PlatformAdapter for MiniMaxCodingAdapter {
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        MINIMAX_FAMILY.apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking);
+    }
+}
+
 static GENERIC: GenericAdapter = GenericAdapter;
 static MINIMAX_FAMILY: MiniMaxFamilyAdapter = MiniMaxFamilyAdapter;
 static MINIMAX: MiniMaxAdapter = MiniMaxAdapter;
+static MINIMAX_CODING: MiniMaxCodingAdapter = MiniMaxCodingAdapter;
 static MINIMAX_EN: MiniMaxEnAdapter = MiniMaxEnAdapter;
 static KIMI: KimiFamilyAdapter = KimiFamilyAdapter {
     official_openai_thinking: true,
@@ -632,7 +672,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("magpie", &GENERIC),
     ("meta", &GENERIC),
     ("minimax", &MINIMAX),
-    ("minimax_coding", &MINIMAX_FAMILY),
+    ("minimax_coding", &MINIMAX_CODING),
     ("minimax_en", &MINIMAX_EN),
     ("mistral", &GENERIC),
     ("modelscope", &GENERIC),
