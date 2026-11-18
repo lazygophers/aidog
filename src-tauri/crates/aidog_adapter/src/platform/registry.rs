@@ -70,8 +70,8 @@ impl PlatformAdapter for GenericAdapter {}
 ///   kimi-k2.7-code-highspeed）`supported_protocols`
 ///   相应只留 `["openai"]`（K3 系列条目保持含 `anthropic`）。
 ///   https://platform.kimi.com/docs/api/messages.md
-/// - coding_plan 注入：沿用基座按平台协议分派（`Protocol::Kimi` / `Protocol::KimiCoding` 注入
-///   `prompt_cache_key`，`kimi_en` no-op），行为不变；chat.md 称「对于 Kimi Code Plan，此字段为必填」。
+/// - coding_plan 注入：`Protocol::Kimi` 沿用 wire-agnostic 的旧注入；`Protocol::KimiCoding`
+///   仅 OpenAI wire 注入；`kimi_en` no-op。chat.md 将 prompt_cache_key 标为 Kimi Code Plan 必填。
 /// - 未证实（保持基座默认）：anthropic 端点的 `thinking` 请求参数（messages.md 未列出）、
 ///   `content_filter` 错误类型（当前归「未知」类）。
 ///
@@ -157,9 +157,9 @@ impl PlatformAdapter for GenericAdapter {}
 ///   命中率。对于其他多轮对话 Agent，也建议使用此字段」「通常是代表单个会话的 session id 或 task
 ///   id；退出并恢复会话时应保持不变」。迁移前转发层仅对 `Protocol::Kimi` 注入、
 ///   `KimiCoding` 走 no-op——与官方「必填」相悖，属迁移缺口；本成员按官方证据扩为
-///   `Protocol::KimiCoding` + coding_plan 端点注入（客户端自带键原样保留；缺省时按
-///   metadata.session_id / user / model 派生稳定键，不按时间窗口轮换），非 coding_plan 端点
-///   不注入（注入条件同源：端点 coding_plan flag）。https://platform.kimi.com/docs/api/chat.md
+///   `Protocol::KimiCoding` + coding_plan 端点注入（显式键保留；同协议 passthrough 请求可从
+///   metadata.session_id / user 派生稳定键；协议转换不会保留这些顶层字段，因而转换请求使用随机键），
+///   非 coding_plan 端点不注入。https://platform.kimi.com/docs/api/chat.md
 /// - usage：openai 臂 `usage.prompt_tokens_details.cached_tokens` / `cache_write_tokens`、anthropic 臂
 ///   `cache_read_input_tokens` / `cache_creation_input_tokens`，同家族基座（家族级取舍不区分缓存
 ///   写入，见基座说明），不覆盖。Kimi Code 专属文档（models.html / error-reference.html）未列 usage
@@ -167,9 +167,9 @@ impl PlatformAdapter for GenericAdapter {}
 ///   `output_config.effort`（messages.md schema）；aidog 不写即官方默认，不覆盖。
 ///   https://platform.kimi.com/docs/api/messages.md
 /// - 流式 / 错误体：错误参考页条目均为「error, status code: <code>, message: <text>」文案形态，
-///   JSON 错误体形状未证实；404「Not found the model kimi-for-coding or Permission denied」由基座
-///   特征词 `not found the model` 归模型类、400「Your model id does not exist, recognized as …」
-///   命中 `does not exist`（has_model 分支），429 配额与 401/403 按状态码归服务类，与基座一致，不覆盖。
+///   JSON 错误体形状未证实；404「Not found the model kimi-for-coding or Permission denied」不能单凭
+///   文案区分模型不存在与权限不足，故不扩展共享模型错误标记；400「Your model id does not exist, recognized as …」
+///   由基座 `has_model` 分支归模型类，429 配额与 401/403 按状态码归服务类。
 ///   https://www.kimi.com/code/docs/kimi-code/error-reference.html
 /// - 工具 / 多模态 / system：模型页「多模态输入支持 图片、视频」（k3-256k 仅图片）；错误参考
 ///   「thinking is enabled but reasoning_content is missing … 启用思维链时必须携带」是
@@ -298,8 +298,7 @@ impl PlatformAdapter for KimiFamilyAdapter {
         {
             obj.insert("tool_choice".to_string(), Value::String("auto".to_string()));
         }
-    }
-}
+    }}
 
 /// 智谱 GLM 家族基座（issue 75；成员 glm / glm_en / glm_coding / glm_coding_en 共用，
 /// 成员差异见各成员 issue）。
@@ -446,7 +445,101 @@ impl PlatformAdapter for GlmFamilyAdapter {
     }
 }
 
+/// MiniMax 家族基座（issue 77；成员 minimax / minimax_en / minimax_coding 共用）。
+///
+/// 家族共性取证（官方页面原始 HTML，核对日期 2026-11-17）：
+/// - OpenAI Chat Completions：`thinking.type` 默认为 `adaptive`；MiniMax-M3 可传 `disabled` 关闭思考；
+///   MiniMax-M3.1-Flash 禁止 `disabled`，返回 HTTP 400（code 2013），由 registry 的强制思考标记
+///   去除禁用参数。禁思考覆写仅把 OpenAI wire 的禁用值改为 MiniMax 官方参数；Anthropic wire 沿用基座。
+///   https://platform.minimaxi.com/docs/api-reference/text-openai-api
+///   https://platform.minimax.io/docs/api-reference/text-openai-api
+///   https://platform.minimax.cn/docs/api-reference/text-openai-api
+/// - OpenAI 请求/响应：文档给出 `tools`、`image_url`、`video_url`、`reasoning_content`、`finish_reason`、
+///   `usage.prompt_tokens_details.cached_tokens`；基座 OpenAI 构件维持现状。响应另含 `base_resp`，成功示例
+///   `status_code: 0`。错误码页列出 `1001` 超时、`1002` 限流、`1004` 鉴权、`1008` 余额不足、
+///   `1013` 服务内部、`1027` 输出内容、`1039` token 超限、`2013` 参数错误；错误分类不扩展，
+///   因文档未给出可映射至模型类的专用业务码/错误体契约。
+///   https://platform.minimaxi.com/docs/api-reference/errorcode
+/// - Anthropic Messages：官方文档说明完整支持 system、tools、stream 与 thinking；`MiniMax-M3.1-Flash`
+///   强制 thinking，`MiniMax-M3` 默认关闭并可用 `adaptive` 开启；`output_config.effort` 支持前者。
+///   请求、流、错误、usage 与其他响应细节按基座处理；文档未证实 Anthropic 缓存 usage 的额外形态。
+///   https://platform.minimaxi.com/docs/api-reference/text-anthropic-api
+///   https://platform.minimax.io/docs/api-reference/text-anthropic-api
+/// - International (`minimax.io`) 与中国站 API 参考页的上述协议字段一致；coding-plan 官方页描述套餐/额度，
+///   未记载新的 chat 字段，故无 coding-plan 请求差异。
+///   https://platform.minimaxi.com/docs/token-plan/other-tools
+///   https://platform.minimax.io/docs
+/// - 未证实（保持基座默认）：错误体是否总包含 `base_resp`、Anthropic cache usage 字段、stream usage 的
+///   含义及其端点差异、工具选择限制、各模型外的固定 sampling 参数。
+///
+/// 成员 `minimax`（MiniMax 海螺，中国站；issue 120，核对日期 2026-11-17）：
+/// - 端点：OpenAI Chat Completions 与 Anthropic Messages。registry 地址只用于新建表单预填；运行时使用用户配置的
+///   protocol + base_url（创建 / 更新均保留该配置）。
+/// - OpenAI 请求：`model`、`messages`；支持 `system` role、function `tools`、`image_url` / `video_url`。
+///   `thinking.type` 缺省 `adaptive`；M3 可设 `disabled`，M3.1-Flash 强制 thinking；`max_completion_tokens`
+///   上限 524288、推荐 131072，缺省值未证实；`max_tokens` 已标 deprecated。sampling 固定 temperature=1、
+///   top_p=0.95。文档未证实 tool_choice 限制、Chat Completions 服务端工具、音频请求格式。
+/// - Anthropic 请求：`model`、`messages`，支持 system / tools / thinking；`tool_choice` 仅文档列出 `auto`。
+///   M3.1-Flash thinking 固定开启，effort 缺省 `max`；M3 默认关闭、可用 `adaptive` 开启。
+///   `max_tokens` 上限 524288、推荐 131072，缺省值未证实。支持 JPEG/PNG/GIF/WebP 图片和 MP4/AVI/MOV/MKV
+///   视频；音频输入未证实。服务器端 `web_search` 文档支持 Anthropic Messages 与 OpenAI Responses，未列 Chat Completions。
+/// - 响应 / usage：OpenAI 有 `prompt_tokens`、`completion_tokens`、`total_tokens` 与
+///   `prompt_tokens_details.cached_tokens`；Anthropic 有 `input_tokens`、`output_tokens`、
+///   `cache_read_input_tokens`、`cache_creation_input_tokens`。继续由基座 usage 解析。
+/// - 错误：OpenAI 文档示例使用 `base_resp.status_code/status_msg`，通用错误码页未定义统一 JSON schema；
+///   Anthropic 形状为 `type=error` + `error.type/message`，并列出 HTTP 400/401/403/404/413/429/500/529。
+///   不添加 MiniMax 专属错误分类。
+/// - 流：OpenAI `choices[].delta.content/reasoning_content`，末块可带 `finish_reason`；usage 末块需
+///   `stream_options.include_usage`。Anthropic 事件 `message_start`、`ping`、`content_block_start/delta/stop`、
+///   `message_delta`、`message_stop`；额外 SSE sentinel 未证实。继承基座流解析。
+/// - 未发现区别于家族基座的转换规则。未证实项保持基座行为，不添加请求改写。
+///   https://platform.minimaxi.com/docs/api-reference/text-chat-openai.md
+///   https://platform.minimaxi.com/docs/api-reference/text-chat-anthropic.md
+///   https://platform.minimaxi.com/docs/api-reference/text-prompt-caching.md
+///   https://platform.minimaxi.com/docs/guides/server-tools.md
+///   https://platform.minimaxi.com/docs/api-reference/errorcode.md
+///
+/// 成员差异留给 issue 121–122。
+pub struct MiniMaxFamilyAdapter;
+
+impl PlatformAdapter for MiniMaxFamilyAdapter {
+    /// OpenAI wire 禁思考使用 MiniMax 的 `thinking.type=disabled`，而非通用 OpenAI host 的
+    /// `reasoning_effort=none` / vLLM `chat_template_kwargs`。强制思考模型仍由共享钩子剥禁用参数。
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        let wire = match wire {
+            Protocol::OpenAI => &Protocol::Anthropic,
+            w => w,
+        };
+        hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking)
+    }
+}
+
+/// MiniMax 海螺成员适配器；保持家族的 thinking 约定，其他接口继承协议基座默认实现。
+struct MiniMaxAdapter;
+
+impl PlatformAdapter for MiniMaxAdapter {
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        MINIMAX_FAMILY.apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking);
+    }
+}
+
 static GENERIC: GenericAdapter = GenericAdapter;
+static MINIMAX_FAMILY: MiniMaxFamilyAdapter = MiniMaxFamilyAdapter;
+static MINIMAX: MiniMaxAdapter = MiniMaxAdapter;
 static KIMI: KimiFamilyAdapter = KimiFamilyAdapter {
     official_openai_thinking: true,
     coding_openai_reasoning_effort: false,
@@ -496,9 +589,9 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("longcat", &GENERIC),
     ("magpie", &GENERIC),
     ("meta", &GENERIC),
-    ("minimax", &GENERIC),
-    ("minimax_coding", &GENERIC),
-    ("minimax_en", &GENERIC),
+    ("minimax", &MINIMAX),
+    ("minimax_coding", &MINIMAX_FAMILY),
+    ("minimax_en", &MINIMAX_FAMILY),
     ("mistral", &GENERIC),
     ("modelscope", &GENERIC),
     ("newapi", &GENERIC),

@@ -49,7 +49,7 @@ fn kimi_adapter_coding_plan_matches_base_kimi_arm() {
         member.as_object().unwrap().keys().collect::<Vec<_>>(),
         via_base.as_object().unwrap().keys().collect::<Vec<_>>()
     );
-    // issue 119：显式会话键保留，缺省时稳定派生，不能按时间窗口更换。
+    // issue 119: preserve explicit keys; converted requests without session metadata get per-request keys.
     let adapter = super::adapter_for("kimi_coding");
     let mut supplied = json!({ "model": "k3", "prompt_cache_key": "session-42" });
     adapter.inject_coding_plan(&mut supplied, &Protocol::KimiCoding, &Protocol::OpenAI);
@@ -103,8 +103,8 @@ fn kimi_coding_and_kimi_en_do_not_inject_prompt_cache_key() {
 
 /// review R2-1（issue 119）：kimi_coding openai wire 多轮工具历史携带 reasoning_content。
 /// 官方错误参考 400「thinking is enabled but reasoning_content is missing in assistant
-/// tool call message … 这是 Kimi Code 特有字段，启用思维链时必须携带」；chat.md K3 系列
-/// `clear_thinking` 默认 `{"type":"enabled","keep":"all"}`（历史 reasoning_content 原样回传）。
+/// tool call message … 这是 Kimi Code 特有字段，启用思维链时必须携带」；Chat Completions
+/// 文档以 `thinking.keep="all"` 配置保留历史 reasoning_content。
 /// anthropic 客户端回灌的 thinking 块在 to_openai 被跳过，基座产出缺 reasoning_content 的
 /// assistant tool-call 消息 → 上游 400。仅 kimi_coding 改写（Kimi Code 专属校验），
 /// kimi / kimi_en 维持基座形状。
@@ -200,7 +200,7 @@ fn error_and_usage_defaults_match_legacy_helpers() {
     );
     assert_eq!(
         pa.classify_error(404, "Not found the model kimi-for-coding or Permission denied"),
-        UpstreamErrorClass::Model
+        UpstreamErrorClass::Unknown
     );
     assert_eq!(pa.classify_error(500, "boom"), UpstreamErrorClass::Service);
     assert_eq!(pa.classify_error(400, "bad request"), UpstreamErrorClass::Unknown);
@@ -219,6 +219,173 @@ fn error_and_usage_defaults_match_legacy_helpers() {
     // 禁用路径不动：devin / passthrough 等无内置端点平台同样有默认实现
     for code in ["devin", "newapi", "passthrough", "claude_code"] {
         assert!(super::lookup(code).is_some(), "code {code} 应有注册项");
+    }
+}
+
+/// MiniMax 海螺成员沿用原有 OpenAI wire 禁思考映射；本地 endpoint URL 不触发官方域名特殊分支。
+#[test]
+fn minimax_member_disables_thinking_with_native_parameter() {
+    let adapter = super::adapter_for("minimax");
+    let mut body = json!({ "model": "MiniMax-M3" });
+    adapter.apply_disable_thinking(
+        &mut body,
+        true,
+        &Protocol::OpenAI,
+        "http://127.0.0.1:31234/custom/v1",
+        false,
+    );
+    assert_eq!(body["thinking"]["type"], "disabled");
+    assert!(body.get("reasoning_effort").is_none());
+
+    let mut forced = json!({ "model": "MiniMax-M3.1-Flash" });
+    adapter.apply_disable_thinking(
+        &mut forced,
+        true,
+        &Protocol::OpenAI,
+        "http://127.0.0.1:31234/custom/v1",
+        true,
+    );
+    assert!(forced.get("thinking").is_none());
+    assert!(forced.get("reasoning_effort").is_none());
+}
+
+/// Synthetic base_resp input: code 2022 is ambiguous, so do not infer HTTP status semantics or model-only failure.
+#[test]
+fn minimax_synthetic_base_resp_stays_unclassified() {
+    let adapter = super::adapter_for("minimax");
+    let body = r#"{"base_resp":{"status_code":2022,"status_msg":"模型不存在或无权使用"}}"#;
+
+    assert_eq!(
+        adapter.classify_error(400, body),
+        UpstreamErrorClass::Unknown
+    );
+    assert_eq!(
+        adapter.classify_error(400, body),
+        super::adapter_for("deepseek").classify_error(400, body)
+    );
+}
+
+/// MiniMax family inherits protocol conversion, response, stream, error, and usage behavior from the framework.
+#[test]
+fn minimax_family_preserves_generic_protocol_behavior() {
+    let input: ChatRequest = serde_json::from_value(json!({
+        "model": "MiniMax-M3",
+        "max_tokens": 128,
+        "messages": [{ "role": "user", "content": "hello" }]
+    }))
+    .unwrap();
+    let generic = super::adapter_for("deepseek");
+    let completion = json!({
+        "id": "cmpl-1", "model": "MiniMax-M3",
+        "choices": [{ "index": 0, "message": { "role": "assistant", "content": "hi" }, "finish_reason": "stop" }]
+    });
+    let cached_completion = json!({
+        "id": "cmpl-1", "choices": [{ "index": 0, "delta": { "content": "hi" }, "finish_reason": null }],
+        "usage": { "prompt_tokens": 10, "completion_tokens": 2,
+            "prompt_tokens_details": { "cached_tokens": 4 } }
+    });
+    let error_body = r#"{"error":{"type":"invalid_request_error","message":"bad request"}}"#;
+    let anthropic_message = json!({
+        "id": "msg_1", "type": "message", "role": "assistant", "model": "MiniMax-M3",
+        "content": [{ "type": "text", "text": "hi" }], "stop_reason": "end_turn",
+        "usage": { "input_tokens": 5, "output_tokens": 3 }
+    });
+    let anthropic_delta = json!({
+        "type": "content_block_delta", "index": 0,
+        "delta": { "type": "text_delta", "text": "hi" }
+    });
+    let anthropic_error = r#"{"type":"error","error":{"type":"invalid_request_error","message":"bad request"}}"#;
+    let anthropic_usage = r#"{"usage":{"input_tokens":5,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":1}}"#;
+
+    for (code, platform) in [
+        ("minimax", Protocol::MiniMax),
+        ("minimax_en", Protocol::MiniMaxEn),
+        ("minimax_coding", Protocol::MinimaxCoding),
+    ] {
+        let adapter = super::adapter_for(code);
+        for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+            let (body, path) = adapter.build_request(&input, &wire, &platform);
+            let (base_body, base_path) = generic.build_request(&input, &wire, &platform);
+            assert_eq!((body, path), (base_body, base_path), "{code}/{wire:?}");
+        }
+        let converted = adapter
+            .convert_response(&completion, &Protocol::OpenAI, &Protocol::Anthropic, "MiniMax-M3")
+            .expect("OpenAI response should convert to Anthropic");
+        assert_eq!(
+            converted,
+            generic
+                .convert_response(&completion, &Protocol::OpenAI, &Protocol::Anthropic, "MiniMax-M3")
+                .unwrap(),
+            "{code} non-stream response"
+        );
+        assert_eq!(converted["content"][0]["text"], "hi");
+
+        let anthropic_converted = adapter
+            .convert_response(&anthropic_message, &Protocol::Anthropic, &Protocol::OpenAI, "MiniMax-M3")
+            .expect("Anthropic response should convert to OpenAI");
+        assert_eq!(anthropic_converted["choices"][0]["message"]["content"], "hi", "{code} Anthropic non-stream");
+        assert_eq!(
+            anthropic_converted,
+            generic.convert_response(&anthropic_message, &Protocol::Anthropic, &Protocol::OpenAI, "MiniMax-M3").unwrap(),
+            "{code} Anthropic non-stream parity"
+        );
+
+        let anthropic_events = adapter.parse_sse_frame(&anthropic_delta, &Protocol::Anthropic);
+        assert_eq!(
+            format!("{anthropic_events:?}"),
+            format!("{:?}", generic.parse_sse_frame(&anthropic_delta, &Protocol::Anthropic)),
+            "{code} Anthropic stream parity"
+        );
+        assert!(format!("{anthropic_events:?}").contains("hi"), "{code} Anthropic stream content: {anthropic_events:?}");
+
+        assert_eq!(
+            adapter.classify_error(400, anthropic_error),
+            UpstreamErrorClass::Unknown,
+            "{code} Anthropic error classification"
+        );
+        assert_eq!(
+            adapter.classify_error(400, anthropic_error),
+            generic.classify_error(400, anthropic_error),
+            "{code} Anthropic error"
+        );
+        assert_eq!(
+            adapter.extract_usage(anthropic_usage),
+            (5, 3, 2, 1, 0, Vec::new()),
+            "{code} Anthropic usage"
+        );
+        assert_eq!(
+            adapter.extract_usage(anthropic_usage),
+            generic.extract_usage(anthropic_usage),
+            "{code} Anthropic usage parity"
+        );
+
+        let events = adapter.parse_sse_frame(&cached_completion, &Protocol::OpenAI);
+        assert_eq!(
+            format!("{events:?}"),
+            format!("{:?}", generic.parse_sse_frame(&cached_completion, &Protocol::OpenAI)),
+            "{code} stream"
+        );
+        assert!(format!("{events:?}").contains("Delta"), "{code} stream content: {events:?}");
+        assert_eq!(
+            adapter.classify_error(400, error_body),
+            UpstreamErrorClass::Unknown,
+            "{code} error"
+        );
+        assert_eq!(
+            adapter.classify_error(400, error_body),
+            generic.classify_error(400, error_body),
+            "{code} error parity"
+        );
+        assert_eq!(
+            adapter.extract_usage(&cached_completion.to_string()),
+            (6, 2, 4, 0, 0, Vec::new()),
+            "{code} cached usage"
+        );
+        assert_eq!(
+            adapter.extract_usage(&cached_completion.to_string()),
+            generic.extract_usage(&cached_completion.to_string()),
+            "{code} usage parity"
+        );
     }
 }
 
