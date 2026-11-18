@@ -125,7 +125,7 @@ export function ContextCompress() {
         ? <>
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {tiles.map(([key, labelKey, value, scope]) => <div key={key}>
-              <dt className="text-sm text-muted-foreground">{t(labelKey)}{scope === "total" && <span className="ml-1 text-sm">({t("contextCompress.statsTotalScope")})</span>}</dt>
+              <dt className="text-sm text-muted-foreground">{t(labelKey)}{scope === "total" && <span className="ml-1 text-xs">({t("contextCompress.statsTotalScope")})</span>}</dt>
               <dd className="text-lg font-semibold tabular-nums" data-testid={`cc-stat-${tool}-${key}`}>{value}</dd>
             </div>)}
           </dl>
@@ -237,7 +237,7 @@ export function ContextCompress() {
             <p>{t("contextCompress.sqzMissing")}</p>
             <ul className="list-disc pl-5">{status.sqz_missing.map(item => <li key={item}>{item}</li>)}</ul>
           </div>}
-          {card("sqz", sqzTiles, sqzChart, <p className="text-sm text-muted-foreground" data-testid="cc-sqz-rate-note">{t("contextCompress.sqzRateNote")}</p>)}
+          {card("sqz", sqzTiles, sqzChart, <p className="text-xs text-muted-foreground" data-testid="cc-sqz-rate-note">{t("contextCompress.sqzRateNote")}</p>)}
         </TabsContent>
       </Tabs>
     </section>
