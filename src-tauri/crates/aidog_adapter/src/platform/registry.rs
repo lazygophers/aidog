@@ -469,8 +469,8 @@ impl PlatformAdapter for GlmFamilyAdapter {
 ///   未记载新的 chat 字段，故无 coding-plan 请求差异。
 ///   https://platform.minimaxi.com/docs/token-plan/other-tools
 ///   https://platform.minimax.io/docs
-/// - 未证实（保持基座默认）：错误体是否总包含 `base_resp`、Anthropic cache usage 字段、stream usage 的
-///   含义及其端点差异、工具选择限制、各模型外的固定 sampling 参数。
+/// - 未证实（保持基座默认）：错误体是否总包含 `base_resp`、stream usage 的含义及其端点差异、工具选择限制、
+///   各模型外的固定 sampling 参数。
 ///
 /// 成员 `minimax`（MiniMax 海螺，中国站；issue 120，核对日期 2026-11-17）：
 /// - 端点：OpenAI Chat Completions 与 Anthropic Messages。registry 地址只用于新建表单预填；运行时使用用户配置的
@@ -499,7 +499,32 @@ impl PlatformAdapter for GlmFamilyAdapter {
 ///   https://platform.minimaxi.com/docs/guides/server-tools.md
 ///   https://platform.minimaxi.com/docs/api-reference/errorcode.md
 ///
-/// 成员差异留给 issue 121–122。
+/// 成员 `minimax_en`（MiniMax 国际版；issue 121，核对日期 2026-11-18）：
+/// 与家族基座无已证实的成员级差异，登记为 `MiniMaxEnAdapter`；国际站 OpenAI Chat Completions
+/// 与 Anthropic Messages 的请求、响应、流式事件、错误体与 usage 字段均继承家族基座。
+/// - 端点协议：官方 OpenAI 兼容端点 `https://api.minimax.io/v1/chat/completions`；Anthropic 兼容端点
+///   `https://api.minimax.io/anthropic/v1/messages`。运行时仍只使用用户配置的 protocol + base_url。
+/// - OpenAI 请求：支持 system role、function tools、`image_url` / `video_url`；图像 JPEG/PNG/GIF/WEBP ≤10 MB，
+///   视频 MP4/AVI/MOV/MKV，URL/base64 ≤50 MB、请求体 ≤64 MB；`thinking.type` 缺省 adaptive，M3 可设 disabled，
+///   M3.1-Flash 拒绝 disabled。`reasoning_effort`（Flash 专属）默认 max；`reasoning_split=true` 分离
+///   `reasoning_content`，false 将 thinking 放进 `<think>`（Flash 拒绝 false）。`max_completion_tokens` 推荐
+///   131072、上限 524288，`max_tokens` 已 deprecated；temperature 固定 1，top_p 固定 0.95。响应 `finish_reason`
+///   为 stop / length / content_filter / tool_calls，usage 含 `prompt_tokens_details.cached_tokens`；流 usage
+///   需 `stream_options.include_usage`。
+/// - Anthropic 请求：支持 system、tools、image / video、stream 与 thinking；M3.1-Flash 强制 thinking，M3 缺省关闭、
+///   可用 adaptive 开启；`output_config.effort` 支持 low / medium / high / xhigh / max，默认 max；`tool_choice`
+///   只支持 `auto`。`max_tokens` 推荐 131072、上限 524288；usage 含 input / output、cache read / creation。
+///   `cache_control` 不受支持。服务端 `web_search` 支持 Anthropic Messages 与 OpenAI Responses，不支持 Chat
+///   Completions。错误用 HTTP 状态码 + JSON body（`type=error`、`error.type/message`）；流含 message_start、
+///   content_block_start/delta/stop、message_delta、message_stop；流错误发 `event: error`；额外 SSE sentinel 未证实。
+/// - 未证实（保持基座默认）：Anthropic cache usage 额外字段、OpenAI 错误体是否含 `base_resp`、音频输入、端点间差异。
+///   https://platform.minimax.io/docs/api-reference/text-chat-openai.md
+///   https://platform.minimax.io/docs/api-reference/text-chat-anthropic.md
+///   https://platform.minimax.io/docs/api-reference/text-prompt-caching.md
+///   https://platform.minimax.io/docs/guides/server-tools.md
+///   https://platform.minimax.io/docs/api-reference/errorcode.md
+///
+/// `MiniMaxEnAdapter` 继承同一家族基座；成员差异留给 issue 122。
 pub struct MiniMaxFamilyAdapter;
 
 impl PlatformAdapter for MiniMaxFamilyAdapter {
@@ -537,9 +562,26 @@ impl PlatformAdapter for MiniMaxAdapter {
     }
 }
 
+/// MiniMax 国际版成员适配器；其他接口继承家族基座默认实现。
+struct MiniMaxEnAdapter;
+
+impl PlatformAdapter for MiniMaxEnAdapter {
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        MINIMAX_FAMILY.apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking);
+    }
+}
+
 static GENERIC: GenericAdapter = GenericAdapter;
 static MINIMAX_FAMILY: MiniMaxFamilyAdapter = MiniMaxFamilyAdapter;
 static MINIMAX: MiniMaxAdapter = MiniMaxAdapter;
+static MINIMAX_EN: MiniMaxEnAdapter = MiniMaxEnAdapter;
 static KIMI: KimiFamilyAdapter = KimiFamilyAdapter {
     official_openai_thinking: true,
     coding_openai_reasoning_effort: false,
@@ -591,7 +633,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("meta", &GENERIC),
     ("minimax", &MINIMAX),
     ("minimax_coding", &MINIMAX_FAMILY),
-    ("minimax_en", &MINIMAX_FAMILY),
+    ("minimax_en", &MINIMAX_EN),
     ("mistral", &GENERIC),
     ("modelscope", &GENERIC),
     ("newapi", &GENERIC),
