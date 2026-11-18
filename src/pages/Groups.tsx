@@ -565,14 +565,22 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     details, platforms, setDetails, load: silentReload, onToast, onGroupsChanged,
   });
 
-  // ── 列表排序（dnd-kit）：搜索态下 no-op（搜索是临时视图，重排会丢未命中组）──
+  // ── 列表排序（dnd-kit）：搜索结果只替换完整顺序中命中的槽位，避免丢失未命中分组。──
   const sq = (searchQuery ?? "").trim();
-  const handleReorderGroups = useCallback((next: GroupRow[]) => {
-    if (sq) return;
-    const reordered = next.map(r => r.detail);
-    setDetails(reordered);
-    groupApi.reorder(reordered.map(d => d.group.id)).catch(console.error);
-  }, [sq, setDetails]);
+  const handleReorderGroups = useCallback(async (next: GroupRow[]) => {
+    try {
+      const all = await groupDetailApi.list();
+      let nextVisible = 0;
+      const reorderedIds = new Set(next.map(r => r.detail.group.id));
+      const reordered = all.map(d => reorderedIds.has(d.group.id) ? next[nextVisible++].detail : d);
+      await groupApi.reorder(reordered.map(d => d.group.id));
+      await silentReload();
+    } catch (e) {
+      console.error(e);
+      onToast?.({ text: `${t("group.saveFailed", "保存分组失败")}: ${e}`, ok: false });
+      setTimeout(() => onToast?.(null), 3000);
+    }
+  }, [silentReload, onToast, t]);
 
   // ── Edit handlers ──
   const openEdit = useCallback((detail: GroupDetail) => {

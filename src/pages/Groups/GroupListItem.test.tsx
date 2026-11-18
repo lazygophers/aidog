@@ -52,6 +52,13 @@ const baseProps = {
 };
 
 describe("GroupListItem — showLastOutcome 透传（对齐详情页）", () => {
+  it("分组排序把手有足够点击面积", () => {
+    render(<GroupListItem {...baseProps} />);
+    const handle = screen.getByTestId("group-section-chev");
+    expect(handle.style.width).toBe("28px");
+    expect(handle.style.height).toBe("28px");
+  });
+
   it("成员行带最近请求结果：last_error 非空 → data-result=fail 且原因可见", () => {
     render(<GroupListItem {...baseProps} />);
     const el = screen.getByTestId("row-last-outcome");

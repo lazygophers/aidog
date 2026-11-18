@@ -231,7 +231,8 @@ export const GroupListItem = memo(function GroupListItem({
           title={t("group.dragToReorder", "拖动排序")}
           onClick={(e: React.MouseEvent) => { if (handle.isDragging) e.stopPropagation(); }}
           style={{
-            display: "inline-flex", color: "var(--text-tertiary)", cursor: "grab", touchAction: "none",
+            display: "inline-flex", width: 28, height: 28, alignItems: "center", justifyContent: "center",
+            color: "var(--text-tertiary)", cursor: "grab", touchAction: "none",
             transform: (forceExpanded || isExpanded || mode === "select") ? "rotate(90deg)" : undefined,
             transition: "transform .18s", flexShrink: 0,
           }}
