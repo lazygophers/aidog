@@ -610,3 +610,161 @@ fn bailian_coding_plan_keeps_noop() {
         }
     }
 }
+
+/// 火山方舟家族（issue 79）：openai 端点禁思考写官方顶层 `thinking: {"type": "disabled"}`
+/// （方舟 Chat API 文档「disabled：关闭思考模式，模型直接回答问题，不进行思考」，
+/// https://www.volcengine.com/docs/82379/1494384 ）；客户端带来的旧 `enable_thinking` /
+/// `reasoning_effort` / vLLM 式 `chat_template_kwargs.enable_thinking` 一并剥除。
+/// anthropic 端点与 openai_responses 端点同基座（anthropic 臂 thinking.type=disabled；
+/// responses 臂 reasoning.effort=none，官方词表「none：关闭思考」可受，
+/// https://docs.volcengine.com/docs/ark/responses-api-deep-thinking?lang=zh ）。
+#[test]
+fn ark_family_disable_thinking_all_wires() {
+    for code in ["doubao"] {
+        let adapter = super::adapter_for(code);
+        let url = "http://127.0.0.1:31234/api/plan/v3";
+        let mut body = json!({
+            "model": "doubao-seed-2.1",
+            "enable_thinking": true,
+            "thinking": { "type": "enabled" },
+            "reasoning_effort": "high",
+            "chat_template_kwargs": { "enable_thinking": true },
+            "generationConfig": { "thinkingConfig": { "thinkingBudget": 0 } },
+        });
+        adapter.apply_disable_thinking(&mut body, true, &Protocol::OpenAI, url, false);
+        assert_eq!(body["thinking"], json!({ "type": "disabled" }), "{code}");
+        assert!(body.get("enable_thinking").is_none(), "{code}: {body}");
+        assert!(body.get("reasoning_effort").is_none(), "{code}: {body}");
+        assert!(
+            body.get("chat_template_kwargs")
+                .and_then(|c| c.get("enable_thinking"))
+                .is_none(),
+            "{code}: {body}"
+        );
+        assert!(
+            body.get("generationConfig")
+                .and_then(|g| g.get("thinkingConfig"))
+                .is_none(),
+            "{code}: {body}"
+        );
+
+        // 不禁思考：只剥 aidog 私有字段，不写禁用参数、不动客户端旧值。
+        let mut keep = json!({
+            "model": "doubao-seed-2.1",
+            "disable_thinking": false,
+            "enable_thinking": true,
+        });
+        adapter.apply_disable_thinking(&mut keep, false, &Protocol::OpenAI, url, false);
+        assert_eq!(keep["enable_thinking"], json!(true), "{code}: {keep}");
+        assert!(keep.get("disable_thinking").is_none(), "{code}: {keep}");
+
+        // 强制思考模型（仅思考模式，registry thinking_toggleable: false）：只剥禁用形参数、
+        // 不写任何禁用参数（同基座 forced_thinking 路径）。
+        let mut forced = json!({ "model": "doubao-seed-2.1", "thinking": { "type": "disabled" } });
+        adapter.apply_disable_thinking(&mut forced, true, &Protocol::OpenAI, url, true);
+        assert!(forced.get("thinking").is_none(), "{code}: {forced}");
+
+        // openai_responses 端点走基座：reasoning.effort=none（官方词表 none 关闭思考）。
+        let mut resp = json!({ "model": "doubao-seed-2.1", "reasoning": { "effort": "high" } });
+        adapter.apply_disable_thinking(
+            &mut resp,
+            true,
+            &Protocol::OpenAIResponses,
+            "http://127.0.0.1:31234/api/plan/v3/responses",
+            false,
+        );
+        assert_eq!(resp["reasoning"]["effort"], "none", "{code}: {resp}");
+
+        // anthropic 端点走基座：thinking.type=disabled（方舟 anthropic 兼容端点同词表）。
+        let mut anth = json!({ "model": "doubao-seed-2.1" });
+        adapter.apply_disable_thinking(
+            &mut anth,
+            true,
+            &Protocol::Anthropic,
+            "http://127.0.0.1:31234/api/plan",
+            false,
+        );
+        assert_eq!(anth["thinking"]["type"], "disabled", "{code}: {anth}");
+    }
+}
+
+/// 火山方舟家族错误分类沿用基座：404 InvalidEndpointOrModel.NotFound 的 message
+/// 「The model or endpoint … does not exist」命中基座 model + does not exist 特征归模型类；
+/// 401 AuthenticationError / 429 RateLimitExceeded.EndpointRPMExceeded 按状态码归服务类。
+/// 错误体统一 JSON 形状未证实（错误码页只列表格，无 JSON 示例），
+/// https://docs.volcengine.com/docs/ark/error-codes?lang=zh
+#[test]
+fn ark_family_error_classification_tracks_base() {
+    let adapter = super::adapter_for("doubao");
+    assert_eq!(
+        adapter.classify_error(
+            404,
+            r#"{"error":{"code":"InvalidEndpointOrModel.NotFound","message":"The model or endpoint ep-2026 does not exist or you do not have access to it."}}"#,
+        ),
+        UpstreamErrorClass::Model
+    );
+    assert_eq!(
+        adapter.classify_error(
+            401,
+            r#"{"error":{"code":"AuthenticationError","message":"The API key or AK/SK in the request is missing or invalid."}}"#,
+        ),
+        UpstreamErrorClass::Service
+    );
+    assert_eq!(
+        adapter.classify_error(
+            429,
+            r#"{"error":{"code":"RateLimitExceeded.EndpointRPMExceeded","message":"Endpoint RPM limit exceeded."}}"#,
+        ),
+        UpstreamErrorClass::Service
+    );
+}
+
+/// 覆写只作用于家族成员：非成员第三方 OpenAI 兼容端点仍写基座 vLLM 式
+/// `chat_template_kwargs.enable_thinking`。
+#[test]
+fn ark_override_scoped_to_family_members() {
+    let mut other = json!({ "model": "m" });
+    super::adapter_for("aihubmix").apply_disable_thinking(
+        &mut other,
+        true,
+        &Protocol::OpenAI,
+        "http://127.0.0.1:31234/v1",
+        false,
+    );
+    assert_eq!(other["chat_template_kwargs"]["enable_thinking"], json!(false));
+    assert!(other.get("thinking").is_none());
+}
+
+/// coding_plan 注入保持 no-op：官方 Claude Code 接入页只要求设 base_url 与 API Key，
+/// 无出站附加字段（https://docs.volcengine.com/docs/ark/ai-tools-claude-code?lang=zh ）。
+#[test]
+fn ark_coding_plan_keeps_noop() {
+    for (platform, wire) in [
+        (Protocol::Doubao, Protocol::Anthropic),
+        (Protocol::Doubao, Protocol::OpenAI),
+        (Protocol::BytePlus, Protocol::OpenAIResponses),
+    ] {
+        let mut body = json!({ "model": "doubao-seed-2.1", "messages": [] });
+        let original = body.clone();
+        super::adapter_for("doubao").inject_coding_plan(&mut body, &platform, &wire);
+        assert_eq!(body, original, "{platform:?} {wire:?}");
+    }
+}
+
+/// usage 抽取沿用基座 openai 构件：`prompt_tokens_details.cached_tokens` 从 input 扣除、
+/// `completion_tokens_details.reasoning_tokens` 并入 output（方舟 Chat API 字段名与基座一致，
+/// https://www.volcengine.com/docs/82379/1494384 ）。
+#[test]
+fn ark_usage_extraction_tracks_base() {
+    let adapter = super::adapter_for("doubao");
+    let body = r#"{
+        "usage": {
+            "prompt_tokens": 100,
+            "completion_tokens": 50,
+            "total_tokens": 150,
+            "prompt_tokens_details": { "cached_tokens": 40 },
+            "completion_tokens_details": { "reasoning_tokens": 20 }
+        }
+    }"#;
+    assert_eq!(adapter.extract_usage(body), (60, 50, 40, 0, 0, vec![]));
+}

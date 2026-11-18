@@ -726,6 +726,118 @@ impl PlatformAdapter for BailianFamilyAdapter {
     }
 }
 
+/// 火山方舟 家族基座（issue 79；成员 doubao / byteplus 共用，成员差异见子 issue 127 / 128）。
+///
+/// 家族共性取证（官方文档原文，核对日期 2026-11-19；volcengine.com/docs/82379 已 301 到
+/// docs.volcengine.com，BytePlus 文档站 docs.byteplus.com/en/docs/ModelArk 页面 JS 渲染抓不到
+/// 正文，仅得「Deep reasoning」「Responses API」等条目名，字节跳动同源关系未逐条复核）：
+/// - 思考开关（openai 端点）：顶层对象参数 `thinking.type`，「enabled：开启思考模式，模型强制
+///   先思考再回答」「disabled：关闭思考模式，模型直接回答问题，不进行思考」；另有
+///   `reasoning_effort` 七档（none/minimal/low/medium/high/xhigh/max，「none：关闭思考」）。
+///   文档无 `chat_template_kwargs`，故覆写 openai 臂（见下）。
+///   https://www.volcengine.com/docs/82379/1494384
+/// - 思考开关（anthropic 端点）：Claude Code 接入走「兼容 Anthropic Messages 接口协议的服务」
+///   （「Claude Code 通过兼容 Anthropic Messages 接口协议的服务调用豆包搜索能力」），thinking
+///   词表与基座 anthropic 臂同形，不覆盖。https://docs.volcengine.com/docs/ark/ai-tools-claude-code?lang=zh
+/// - 思考开关（openai_responses 端点）：Responses API 同收 `thinking: {type}` 与
+///   `reasoning.effort` 七档（「none：关闭思考」「minimal：关闭思考，直接回答」），基座
+///   `reasoning: {"effort": "none"}` 官方可受，不覆盖。
+///   https://docs.volcengine.com/docs/ark/responses-api-deep-thinking?lang=zh
+/// - 流式（openai 端点）：`choices.delta.reasoning_content`（「思考内容原文」，seed 系列 +
+///   deepseek-v4-pro/flash）、`choices.delta.encrypted_content`（思考加密原文，优先级高于
+///   reasoning_content）、`delta.content`；usage 随 chunk 返回或经 `stream_options.include_usage`。
+///   基座 openai 流式构件已按 delta.reasoning_content 抽取，不覆盖。
+///   https://www.volcengine.com/docs/82379/1494384
+/// - usage（openai 端点）：`prompt_tokens_details.cached_tokens`（「缓存命中的输入内容…所消耗
+///   的 token 总数」）、`completion_tokens_details.reasoning_tokens`（「输出思维链内容花费的
+///   token 数」）、`total_tokens`；基座 openai 构件已抽取 cached_tokens 并从 input 扣除，
+///   不覆盖（cache_write 未在文档出现，无该键即基座按 0 处理）。
+///   https://www.volcengine.com/docs/82379/1494384
+/// - usage（openai_responses 端点）：`usage.output_tokens_details.reasoning_tokens`（「为原始
+///   思考内容的 tokens，计费仍然按原始思考内容 token 计算」），与基座 responses 构件一致。
+///   https://docs.volcengine.com/docs/ark/responses-api-deep-thinking?lang=zh
+/// - 错误体：404 `NotFound.InvalidEndpointOrModel.NotFound`（「The model or endpoint %s does not
+///   exist or you do not have access to it.」）——message 含 model + does not exist，命中基座
+///   特征归模型类；401 `AuthenticationError` / 429 `RateLimitExceeded.*`（EndpointRPMExceeded /
+///   ModelAccountRpmRateLimitExceeded 等）按状态码归服务类；错误体统一 JSON 形状未证实（错误码
+///   页只列 HTTP状态码/Type/Code/Message 表格，无 JSON 示例），基座 `error.message/code/type` 与
+///   顶层双形态读法已覆盖，不扩展。https://docs.volcengine.com/docs/ark/error-codes?lang=zh
+/// - 工具 / 图片与多模态 / system：messages role 固定 system/user/assistant/tool；content 数组
+///   块 `text` / `image_url`（含 file_id/detail） / `video_url` / `input_audio` / `file`（PDF），
+///   tool 消息支持图片（方舟对 OpenAI 形状的兼容扩展）；`tools` type「当前仅支持 function」；
+///   均为 OpenAI 标准形状 + 扩展，与基座构件一致，不覆盖。
+///   https://www.volcengine.com/docs/82379/1494384
+/// - 请求默认值：`max_tokens` 默认 4096（部分模型 131072）、`temperature` 默认 1.0、`top_p`
+///   默认 0.7；aidog 不注入默认值（仅按模型上限裁剪超限值），不覆盖。
+///   https://www.volcengine.com/docs/82379/1494384
+/// - coding_plan 注入：官方 Claude Code 接入页只要求设 base_url 与 API Key（ANTHROPIC_BASE_URL /
+///   ANTHROPIC_AUTH_TOKEN），无出站附加字段；基座按平台协议分派对 Doubao / BytePlus 协议为
+///   no-op，行为不变。https://docs.volcengine.com/docs/ark/ai-tools-claude-code?lang=zh
+/// - 未证实（保持基座默认）：错误体统一 JSON 形状、BytePlus 站正文与火山站的逐条一致性、
+///   assistant 消息回传 `encrypted_content` 的网关侧处理（篡改报 Invalid signature，aidog
+///   不改写历史消息，默认透传）、cache_write 类字段是否存在。
+///
+/// 成员 `doubao`（火山引擎（字节跳动）；issue 127）、`byteplus`（BytePlus；issue 128）：
+/// 均登记为 [`ArkFamilyAdapter`]；registry 内置默认端点与官方一致（doubao
+/// ark.cn-beijing.volces.com/api/plan[/v3]、byteplus ark.ap-southeast.bytepluses.com/api/plan[/v3]，
+/// 协议 anthropic / openai / openai_responses），运行时只用用户平台配置的端点。既有平台特定行为
+/// 不变（doubao coding 端点 anthropic wire 无条件剥离 redacted_thinking 块，见
+/// aidog_core gateway/proxy/forward.rs）。成员级差异由子 issue 127 / 128 取证后覆盖。
+pub struct ArkFamilyAdapter;
+
+impl PlatformAdapter for ArkFamilyAdapter {
+    /// 差异：openai 端点禁思考写官方顶层 `thinking: {"type": "disabled"}`，不写基座第三方端点用的
+    /// vLLM 式 `chat_template_kwargs.enable_thinking`（方舟 Chat API 文档只列顶层 `thinking` 对象；
+    /// 写 false 前同样剥掉客户端带来的旧 `thinking` / `reasoning_effort` 等开启型参数）。其余 wire
+    /// 与强制思考路径同基座；`Protocol::OpenAICompletions` 不在覆写范围内（家族成员内置默认端点
+    /// 仅 anthropic / openai / openai_responses，用户手配 openai_completions 端点仍走基座
+    /// `chat_template_kwargs` 写法，与 GLM / 百炼基座同口径）。
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        if wire != &Protocol::OpenAI || forced_thinking {
+            return hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking);
+        }
+        let Some(obj) = body.as_object_mut() else {
+            return;
+        };
+        obj.remove("disable_thinking");
+        if !disable {
+            return;
+        }
+        for k in [
+            "thinking",
+            "context_management",
+            "reasoning_effort",
+            "reasoning",
+            "enable_thinking",
+        ] {
+            obj.remove(k);
+        }
+        if let Some(ctk) = obj
+            .get_mut("chat_template_kwargs")
+            .and_then(|o| o.as_object_mut())
+        {
+            ctk.remove("enable_thinking");
+        }
+        if let Some(gc) = obj
+            .get_mut("generationConfig")
+            .and_then(|o| o.as_object_mut())
+        {
+            gc.remove("thinkingConfig");
+        }
+        obj.insert(
+            "thinking".to_string(),
+            serde_json::json!({"type": "disabled"}),
+        );
+    }
+}
+
 static GENERIC: GenericAdapter = GenericAdapter;
 static MINIMAX_FAMILY: MiniMaxFamilyAdapter = MiniMaxFamilyAdapter;
 static MINIMAX: MiniMaxAdapter = MiniMaxAdapter;
@@ -745,6 +857,7 @@ static KIMI_CODING: KimiFamilyAdapter = KimiFamilyAdapter {
 };
 static GLM: GlmFamilyAdapter = GlmFamilyAdapter;
 static BAILIAN: BailianFamilyAdapter = BailianFamilyAdapter;
+static ARK: ArkFamilyAdapter = ArkFamilyAdapter;
 
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
@@ -756,6 +869,8 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("bailian_coding", &BAILIAN),
     ("bailian_coding_en", &BAILIAN),
     ("bailian_en", &BAILIAN),
+    // BytePlus 官方文档未逐条核实（docs.byteplus.com JS 渲染抓不到正文），保持 GENERIC 基座
+    // 默认行为；取得证据确认与本家族一致后再绑 ARK。
     ("byteplus", &GENERIC),
     ("claude_code", &GENERIC),
     ("cline", &GENERIC),
@@ -767,7 +882,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("crazyrouter", &GENERIC),
     ("deepseek", &GENERIC),
     ("devin", &GENERIC),
-    ("doubao", &GENERIC),
+    ("doubao", &ARK),
     ("gemini", &GENERIC),
     ("glm", &GLM),
     ("glm_coding", &GLM),
