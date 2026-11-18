@@ -480,3 +480,133 @@ fn kimi_family_adjust_tool_choice_scope() {
     kimi.adjust_tool_choice(&mut body, &Protocol::OpenAI, "kimi-k2.6");
     assert!(body.get("tool_choice").is_none(), "{body}");
 }
+
+/// Bailian 家族（issue 78）：openai 端点禁思考写官方顶层 `enable_thinking: false`
+/// （DashScope Chat Completions 文档只列顶层参数，「设为 false：模型直接回复」，
+/// https://help.aliyun.com/zh/model-studio/qwen-api-via-openai-chat-completions
+/// https://help.aliyun.com/zh/model-studio/deep-thinking ）；客户端带来的旧
+/// `enable_thinking` / `thinking` / `reasoning_effort` / vLLM 式
+/// `chat_template_kwargs.enable_thinking` 一并剥除。anthropic 端点与强制思考路径同基座。
+#[test]
+fn bailian_family_openai_disable_thinking_writes_enable_thinking() {
+    for code in ["bailian", "bailian_en", "bailian_coding", "bailian_coding_en"] {
+        let adapter = super::adapter_for(code);
+        let url = "http://127.0.0.1:31234/compatible-mode/v1";
+        let mut body = json!({
+            "model": "qwen3.8-max",
+            "enable_thinking": true,
+            "thinking": { "type": "enabled" },
+            "reasoning_effort": "high",
+            "chat_template_kwargs": { "enable_thinking": true },
+            "generationConfig": { "thinkingConfig": { "thinkingBudget": 0 } },
+        });
+        adapter.apply_disable_thinking(&mut body, true, &Protocol::OpenAI, url, false);
+        assert_eq!(body["enable_thinking"], json!(false), "{code}");
+        assert!(body.get("thinking").is_none(), "{code}: {body}");
+        assert!(body.get("reasoning_effort").is_none(), "{code}: {body}");
+        assert!(
+            body.get("chat_template_kwargs")
+                .and_then(|c| c.get("enable_thinking"))
+                .is_none(),
+            "{code}: {body}"
+        );
+        assert!(
+            body.get("generationConfig")
+                .and_then(|g| g.get("thinkingConfig"))
+                .is_none(),
+            "{code}: {body}"
+        );
+
+        // 不禁思考：只剥 aidog 私有字段与禁用形参数语义，不写禁用参数、不动客户端旧值。
+        let mut keep = json!({
+            "model": "qwen3.8-max",
+            "disable_thinking": false,
+            "enable_thinking": true,
+        });
+        adapter.apply_disable_thinking(&mut keep, false, &Protocol::OpenAI, url, false);
+        assert_eq!(keep["enable_thinking"], json!(true), "{code}: {keep}");
+        assert!(keep.get("disable_thinking").is_none(), "{code}: {keep}");
+
+        // 强制思考模型（仅思考模式，registry thinking_toggleable: false）：只剥禁用形参数、
+        // 不写任何禁用参数（同基座 forced_thinking 路径）。
+        let mut forced = json!({ "model": "deepseek-r1", "thinking": { "type": "disabled" } });
+        adapter.apply_disable_thinking(&mut forced, true, &Protocol::OpenAI, url, true);
+        assert!(forced.get("thinking").is_none(), "{code}: {forced}");
+        assert!(forced.get("enable_thinking").is_none(), "{code}: {forced}");
+
+        // anthropic 端点走基座：thinking.type=disabled（与官方 enabled/disabled 词表同形）。
+        let mut anth = json!({ "model": "qwen3.8-max" });
+        adapter.apply_disable_thinking(
+            &mut anth,
+            true,
+            &Protocol::Anthropic,
+            "http://127.0.0.1:31234/apps/anthropic",
+            false,
+        );
+        assert_eq!(anth["thinking"]["type"], "disabled", "{code}: {anth}");
+    }
+}
+
+/// Bailian 家族错误分类沿用基座：404 model_not_found + 「does not exist」归模型类；
+/// 「Model can not be found.」不命中基座特征词落 Unknown（调用方按模型类处理，
+/// platform/error.rs「无法判定：调用方按 Model 处理」），不扩展映射。
+/// https://help.aliyun.com/zh/model-studio/error-code
+#[test]
+fn bailian_family_error_classification_tracks_base() {
+    let adapter = super::adapter_for("bailian");
+    assert_eq!(
+        adapter.classify_error(
+            404,
+            r#"{"error":{"code":"model_not_found","message":"The model qwen3.8-max does not exist."}}"#,
+        ),
+        UpstreamErrorClass::Model
+    );
+    assert_eq!(
+        adapter.classify_error(
+            404,
+            r#"{"code":"ModelNotFound","message":"Model can not be found."}"#,
+        ),
+        UpstreamErrorClass::Unknown
+    );
+    // 429 按状态码直接归服务类（Throttling.RateQuota）。
+    assert_eq!(
+        adapter.classify_error(
+            429,
+            r#"{"error":{"code":"Throttling.RateQuota","message":"Requests rate limit exceeded."}}"#,
+        ),
+        UpstreamErrorClass::Service
+    );
+}
+
+/// 覆写只作用于家族成员：非成员第三方 OpenAI 兼容端点仍写基座 vLLM 式
+/// `chat_template_kwargs.enable_thinking`。
+#[test]
+fn bailian_override_scoped_to_family_members() {
+    let mut other = json!({ "model": "m" });
+    super::adapter_for("aihubmix").apply_disable_thinking(
+        &mut other,
+        true,
+        &Protocol::OpenAI,
+        "http://127.0.0.1:31234/v1",
+        false,
+    );
+    assert_eq!(other["chat_template_kwargs"]["enable_thinking"], json!(false));
+    assert!(other.get("enable_thinking").is_none());
+}
+
+/// coding_plan 注入保持 no-op：官方接入页只要求换 base_url 与 API Key，无出站附加字段
+/// （https://help.aliyun.com/zh/model-studio/claude-code ）。
+#[test]
+fn bailian_coding_plan_keeps_noop() {
+    for (code, platform) in [
+        ("bailian_coding", Protocol::BailianCoding),
+        ("bailian_coding_en", Protocol::BailianCodingEn),
+    ] {
+        for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+            let mut body = json!({ "model": "qwen3.8-max", "messages": [] });
+            let original = body.clone();
+            super::adapter_for(code).inject_coding_plan(&mut body, &platform, &wire);
+            assert_eq!(body, original, "{code} {wire:?}");
+        }
+    }
+}
