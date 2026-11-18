@@ -307,7 +307,6 @@ impl Protocol {
                 | Kimi
                 | KimiEn
                 | KimiCoding
-                | MinimaxCoding
                 | Codex
                 | Cline
                 | ClinePass
@@ -395,7 +394,7 @@ mod test_endpoints_locked {
             ("kimi", true),
             ("minimax", false),
             ("minimax_en", false),
-            ("minimax_coding", true),
+            ("minimax_coding", false),
             ("deepseek", true),
             ("qianfan_coding", true),
             ("xiaomi_mimo", true),

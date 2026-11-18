@@ -9395,7 +9395,7 @@ async fn responses_nonstream_usage_logged() {
     assert!(row.est_cost > 0.0, "非流式 Responses usage 必须产生非 0 est_cost");
 }
 
-/// MiniMax 中国版与国际版均采用用户配置的 base_url；OpenAI 与 Anthropic wire 均经本地假上游。
+/// MiniMax 家族平台均采用用户配置的 base_url；OpenAI 与 Anthropic wire 均经本地假上游。
 #[tokio::test]
 async fn minimax_member_uses_configured_endpoint_for_both_wires() {
     use crate::gateway::models::PlatformEndpoint;
@@ -9421,6 +9421,16 @@ async fn minimax_member_uses_configured_endpoint_for_both_wires() {
             "openai reply",
         ),
         (
+            "gkmmcoding",
+            Protocol::MinimaxCoding,
+            Protocol::OpenAI,
+            r#"{"id":"cmpl-1","model":"MiniMax-M3","choices":[{"index":0,"message":{"role":"assistant","content":"openai reply"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":2,"prompt_tokens_details":{"cached_tokens":4}}}"#,
+            "/v1/chat/completions",
+            r#"{"model":"MiniMax-M3","messages":[{"role":"user","content":"hi"}]}"#,
+            "/custom/openai/v1/chat/completions",
+            "openai reply",
+        ),
+        (
             "gkmmopenai_en",
             Protocol::MiniMaxEn,
             Protocol::OpenAI,
@@ -9433,6 +9443,16 @@ async fn minimax_member_uses_configured_endpoint_for_both_wires() {
         (
             "gkmmanthropic",
             Protocol::MiniMax,
+            Protocol::Anthropic,
+            r#"{"id":"msg_1","type":"message","role":"assistant","model":"MiniMax-M3","content":[{"type":"text","text":"anthropic reply"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":1}}"#,
+            "/v1/messages",
+            r#"{"model":"MiniMax-M3","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+            "/custom/anthropic/v1/messages",
+            "anthropic reply",
+        ),
+        (
+            "gkmmanthropic_coding",
+            Protocol::MinimaxCoding,
             Protocol::Anthropic,
             r#"{"id":"msg_1","type":"message","role":"assistant","model":"MiniMax-M3","content":[{"type":"text","text":"anthropic reply"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":1}}"#,
             "/v1/messages",
@@ -9545,6 +9565,124 @@ async fn minimax_member_uses_configured_endpoint_for_both_wires() {
         assert_eq!(sent_json["model"], "MiniMax-M3");
         let log = only_log_of(&state, gk).await;
         assert!(log.input_tokens > 0, "{wire:?} usage must be extracted");
+    }
+}
+
+async fn setup_minimax_coding_wire_group(
+    state: &Arc<ProxyState>,
+    gk: &str,
+    wire: Protocol,
+    base_url: &str,
+) {
+    let platform_id = aidog_db::test_support::create_platform_at_fake_upstream(
+        &state.db,
+        Protocol::MinimaxCoding,
+        base_url,
+        &[wire],
+    )
+    .await;
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+}
+
+/// MiniMaxCoding 的 OpenAI 与 Anthropic wire 均走真实代理与本地假上游。
+#[tokio::test]
+async fn minimax_coding_stream_error_and_usage_use_configured_wires() {
+    let openai_sse = concat!(
+        "data: {\"id\":\"c1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"},\"finish_reason\":null}] }\n\n",
+        "data: {\"id\":\"c1\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":5,\"completion_tokens\":2,\"prompt_tokens_details\":{\"cached_tokens\":1}}}\n\n",
+        "data: [DONE]\n\n",
+    );
+    let anthropic_sse = concat!(
+        "data: {\"type\":\"message_start\",\"message\":{\"id\":\"m1\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"MiniMax-M3\",\"usage\":{\"input_tokens\":5,\"output_tokens\":1}}}\n\n",
+        "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n",
+        "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":2}}\n\n",
+        "data: {\"type\":\"message_stop\"}\n\n",
+    );
+    for (wire, gk, sse, api_path, request_body, error_body) in [
+        (
+            Protocol::OpenAI,
+            "gkmmcodingsseoa",
+            openai_sse,
+            "/v1/chat/completions",
+            r#"{"model":"MiniMax-M3","stream":true,"stream_options":{"include_usage":true},"messages":[{"role":"user","content":"hi"}]}"#,
+            r#"{"error":{"type":"invalid_request_error","message":"bad request"}}"#,
+        ),
+        (
+            Protocol::Anthropic,
+            "gkmmcodingssea",
+            anthropic_sse,
+            "/v1/messages",
+            r#"{"model":"MiniMax-M3","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+            r#"{"type":"error","error":{"type":"invalid_request_error","message":"bad request"}}"#,
+        ),
+    ] {
+        let upstream = spawn_unified_upstream(200, "text/event-stream", sse).await;
+        let base_url = if wire == Protocol::OpenAI {
+            format!("{upstream}/custom/openai/v1")
+        } else {
+            format!("{upstream}/custom/anthropic")
+        };
+        let state = make_state(test_db().await).await;
+        setup_minimax_coding_wire_group(&state, gk, wire.clone(), &base_url).await;
+        let request = HttpRequest::builder()
+            .method("POST")
+            .uri(api_path)
+            .header("authorization", format!("Bearer {gk}"))
+            .header("content-type", "application/json")
+            .body(Body::from(request_body))
+            .unwrap();
+        let response = handle_proxy(AxumState(state.clone()), request).await;
+        assert_eq!(response.status(), StatusCode::OK, "{wire:?}");
+        let bytes = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        let response_body = String::from_utf8_lossy(&bytes);
+        assert!(response_body.contains("hi"), "{wire:?}: {response_body}");
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        let usage = only_log_of(&state, gk).await;
+        assert!(usage.input_tokens > 0, "{wire:?} input usage missing");
+        assert!(usage.output_tokens > 0, "{wire:?} output usage missing");
+
+        let error_upstream = spawn_unified_upstream(400, "application/json", error_body).await;
+        let error_base = if wire == Protocol::OpenAI {
+            format!("{error_upstream}/custom/openai/v1")
+        } else {
+            format!("{error_upstream}/custom/anthropic")
+        };
+        let error_state = make_state(test_db().await).await;
+        setup_minimax_coding_wire_group(&error_state, &format!("{gk}e"), wire.clone(), &error_base)
+            .await;
+        let error_request_body = request_body.replace("\"stream\":true,", "");
+        let error_request = HttpRequest::builder()
+            .method("POST")
+            .uri(api_path)
+            .header("authorization", format!("Bearer {gk}e"))
+            .header("content-type", "application/json")
+            .body(Body::from(error_request_body))
+            .unwrap();
+        let error_response = handle_proxy(AxumState(error_state), error_request).await;
+        assert_eq!(error_response.status(), StatusCode::BAD_REQUEST, "{wire:?}");
+        let bytes = axum::body::to_bytes(error_response.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        assert!(
+            String::from_utf8_lossy(&bytes).contains("bad request"),
+            "{wire:?}"
+        );
     }
 }
 
