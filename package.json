@@ -25,6 +25,7 @@
     "check:theme-tokens": "node scripts/check-theme-tokens.mjs",
     "check:font-size": "node scripts/check-font-size.mjs",
     "check:money": "node scripts/check-money-format.mjs",
+    "check:readme-parity": "node scripts/check-readme-parity.mjs",
     "test:i18n-dup": "node --test scripts/json-dup-keys.test.mjs",
     "test:money": "node --test scripts/check-money-format.test.mjs",
     "test:registry-slots": "node --test scripts/check-registry-slots.test.mjs",
