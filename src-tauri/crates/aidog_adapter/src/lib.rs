@@ -24,7 +24,10 @@ pub use protocols::*;
 pub use protocols::gemini::parse_gemini_usage_metadata;
 pub use dsml::{DsmlSseRewriter, convert_dsml_in_body};
 pub use reasoning_tags::InlineReasoningSplitter;
-pub use thinking_strip::{SseThinkingStripper, strip_thinking_in_body};
+pub use thinking_strip::{
+    SseThinkingStripper, wire_error_body, wire_error_frame, response_contentless_after_strip,
+    strip_thinking_in_body,
+};
 pub use types::*;
 
 // reqwest is built with `rustls-no-provider`: the process entry points install the ring

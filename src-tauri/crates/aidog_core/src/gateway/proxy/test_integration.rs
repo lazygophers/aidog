@@ -236,11 +236,11 @@ async fn x_api_key_resolves_group_and_forwards() {
     );
 }
 
-/// 复现 request 3ed5a698：客户端发 `disable_thinking: true`，上游（MiniMax-M2 这类内置思考
-/// 模型）不认显式禁用，仍回 thinking 块。同协议透传路径此前原样下发 → 用户看到「禁用没生效」。
-/// 修复后响应侧剥离 thinking 块（content 被剔空则补空 text 块，Anthropic 拒收空数组）。
+/// 复现 request 42c14a59：客户端发 `disable_thinking: true`，上游（MiniMax-M2 这类内置思考
+/// 模型）不认显式禁用，仍**只**回 thinking 块——剥离后既无正文也无工具调用。
+/// 修复后：明确报错（502 + api_error），保留上游 stop_reason；思考文本不泄漏；不重试不换模型。
 #[tokio::test]
-async fn disable_thinking_strips_thinking_from_passthrough_response() {
+async fn disable_thinking_thinking_only_response_errors_clearly() {
     const THINKING_ONLY: &str = r#"{"id":"msg_t","type":"message","role":"assistant","model":"MiniMax-M2","content":[{"type":"thinking","thinking":"让我分析…","signature":"sig"}],"stop_reason":"max_tokens","usage":{"input_tokens":726,"output_tokens":300}}"#;
     let upstream = spawn_stub_upstream(200, THINKING_ONLY).await;
     let state = make_state(test_db().await).await;
@@ -251,18 +251,278 @@ async fn disable_thinking_strips_thinking_from_passthrough_response() {
         r#"{"model":"haiku","max_tokens":300,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#,
     );
     let resp = handle_proxy(AxumState(state.clone()), req).await;
-    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY, "须明确报错");
+    assert_eq!(
+        resp.headers().get(axum::http::header::CONTENT_TYPE).unwrap(),
+        "application/json",
+        "错误响应必须标成 JSON"
+    );
     let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
         .await
         .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    let content = json["content"].as_array().unwrap();
+    assert_eq!(json["type"], "error", "{json}");
+    assert_eq!(json["error"]["type"], "api_error", "{json}");
     assert!(
-        content.iter().all(|b| b["type"] != "thinking"),
-        "disable_thinking 时 thinking 块必须剥掉: {json}"
+        json["error"]["message"]
+            .as_str()
+            .is_some_and(|m| m.contains("upstream stop_reason: max_tokens")),
+        "保留上游 stop_reason: {json}"
     );
-    assert_eq!(content.len(), 1, "剔空后补空 text 块: {json}");
-    assert_eq!(content[0]["type"], "text");
+    assert!(
+        !json.to_string().contains("让我分析"),
+        "思考文本不泄漏: {json}"
+    );
+
+    // 日志落库 502（上游 token 照实计费，est_cost 仍生成）
+    flush_log_queue(&state).await;
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
+        .await
+        .unwrap();
+    assert!(
+        logs.iter().any(|l| l.status_code == 502 && l.group_key == "gkdt"),
+        "日志须记 502: {:?}",
+        logs.iter().map(|l| (l.group_key.as_str(), l.status_code)).collect::<Vec<_>>()
+    );
+}
+
+/// 同协议流式透传 + disable_thinking：thinking-only 上游流 → 客户端收到 error 帧
+/// （保留上游 stop_reason），不再收到空 content 的「成功」流；思考文本不泄漏。
+#[tokio::test]
+async fn disable_thinking_thinking_only_stream_errors_clearly() {
+    const SSE_THINKING_ONLY: &str = concat!(
+        r#"data: {"type":"message_start","message":{"id":"m1","type":"message","role":"assistant","model":"m","usage":{"input_tokens":10,"output_tokens":0}}}"#, "\n\n",
+        r#"data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}"#, "\n\n",
+        r#"data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"让我分析…"}}"#, "\n\n",
+        r#"data: {"type":"content_block_stop","index":0}"#, "\n\n",
+        r#"data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":9}}"#, "\n\n",
+        r#"data: {"type":"message_stop"}"#, "\n\n",
+    );
+    let upstream = spawn_unified_upstream(200, "text/event-stream", SSE_THINKING_ONLY).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkdtS", &upstream).await;
+
+    let req = messages_request(
+        "gkdtS",
+        r#"{"model":"haiku","max_tokens":300,"stream":true,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
+    let body = String::from_utf8(body.to_vec()).unwrap();
+    assert!(
+        !body.contains("message_stop"),
+        "空流不得以 message_stop 收尾: {body:?}"
+    );
+    assert!(body.contains("event: error"), "须报错: {body:?}");
+    assert!(
+        body.contains("upstream stop_reason: end_turn"),
+        "保留上游终止原因: {body:?}"
+    );
+    assert!(!body.contains("让我分析"), "思考文本不泄漏: {body:?}");
+
+    flush_log_queue(&state).await;
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
+        .await
+        .unwrap();
+    assert!(
+        logs.iter().any(|l| l.status_code == 502 && l.group_key == "gkdtS"),
+        "日志须记 502: {:?}",
+        logs.iter().map(|l| (l.group_key.as_str(), l.status_code)).collect::<Vec<_>>()
+    );
+}
+
+/// thinking + tool_use 同协议流式 + disable_thinking：有工具调用 → 不误报，
+/// tool_use 块保留（重编号）、message_stop 原样下发、无 error 帧。
+#[tokio::test]
+async fn disable_thinking_stream_with_tool_use_not_misreported() {
+    const SSE_THINKING_PLUS_TOOL: &str = concat!(
+        r#"data: {"type":"message_start","message":{"id":"m1","type":"message","role":"assistant","model":"m","usage":{"input_tokens":10,"output_tokens":0}}}"#, "\n\n",
+        r#"data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}"#, "\n\n",
+        r#"data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"想"}}"#, "\n\n",
+        r#"data: {"type":"content_block_stop","index":0}"#, "\n\n",
+        r#"data: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"t1","name":"ls","input":{}}}"#, "\n\n",
+        r#"data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{}"}}"#, "\n\n",
+        r#"data: {"type":"content_block_stop","index":1}"#, "\n\n",
+        r#"data: {"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":5}}"#, "\n\n",
+        r#"data: {"type":"message_stop"}"#, "\n\n",
+    );
+    let upstream = spawn_unified_upstream(200, "text/event-stream", SSE_THINKING_PLUS_TOOL).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkdtT", &upstream).await;
+
+    let req = messages_request(
+        "gkdtT",
+        r#"{"model":"haiku","max_tokens":300,"stream":true,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
+    let body = String::from_utf8(body.to_vec()).unwrap();
+    assert!(!body.contains("thinking_delta"), "思维链不泄漏: {body:?}");
+    assert!(
+        body.contains("\"type\":\"tool_use\""),
+        "工具调用保留: {body:?}"
+    );
+    assert!(
+        body.contains("event: message_stop"),
+        "message_stop 原样下发: {body:?}"
+    );
+    assert!(!body.contains("event: error"), "有工具调用不误报: {body:?}");
+}
+
+/// 转换分支（openai 平台 → anthropic 客户端）+ disable_thinking：上游只回 reasoning_content
+/// → 事件过滤后无正文无工具调用 → Stop 换 error 帧（保留上游 finish_reason），不补发 message_stop。
+#[tokio::test]
+async fn disable_thinking_converted_stream_errors_when_only_reasoning() {
+    const SSE_OPENAI_REASONING_ONLY: &str = concat!(
+        r#"data: {"id":"c1","choices":[{"index":0,"delta":{"role":"assistant","reasoning_content":"想"}}"#,
+        r#","finish_reason":null}]}"#, "\n\n",
+        r#"data: {"id":"c1","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}"#, "\n\n",
+        "data: [DONE]\n\n",
+    );
+    let upstream = spawn_unified_upstream(200, "text/event-stream", SSE_OPENAI_REASONING_ONLY).await;
+    let state = make_state(test_db().await).await;
+    setup_passthrough_group_for_protocol(&state, "gkdtC", &upstream, Protocol::OpenAI).await;
+
+    let req = messages_request(
+        "gkdtC",
+        r#"{"model":"haiku","max_tokens":300,"stream":true,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
+    let body = String::from_utf8(body.to_vec()).unwrap();
+    assert!(
+        !body.contains("message_stop"),
+        "空流不得以 message_stop 收尾: {body:?}"
+    );
+    assert!(body.contains("event: error"), "须报错: {body:?}");
+    assert!(
+        body.contains("upstream stop_reason: stop"),
+        "保留上游终止原因: {body:?}"
+    );
+    assert!(!body.contains("想"), "思考文本不泄漏: {body:?}");
+}
+
+/// G1：OpenAI chat 客户端的 thinking-only 非流式响应使用 OpenAI error JSON，而非 Anthropic error body。
+#[tokio::test]
+async fn disable_thinking_openai_nonstream_errors_in_openai_wire_shape() {
+    const ONLY_REASONING: &str = r#"{"id":"c1","choices":[{"message":{"role":"assistant","content":null,"reasoning_content":"想"},"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":3}}"#;
+    let upstream = spawn_unified_upstream(200, "application/json", ONLY_REASONING).await;
+    let state = make_state(test_db().await).await;
+    setup_passthrough_group_for_protocol(&state, "gkempty-openai", &upstream, Protocol::OpenAI).await;
+    let req = HttpRequest::builder()
+        .method("POST").uri("/v1/chat/completions")
+        .header("authorization", "Bearer gkempty-openai")
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{"model":"gpt-x","disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#)).unwrap();
+    let resp = handle_proxy(AxumState(state), req).await;
+    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert!(json["error"]["message"].as_str().unwrap().contains("upstream stop_reason: none"), "{json}");
+    assert!(json.get("type").is_none(), "不得返回 Anthropic error envelope: {json}");
+    assert!(!json.to_string().contains("想"), "思考文本不泄漏: {json}");
+}
+
+/// G1：OpenAI Responses 客户端的 thinking-only 非流式响应使用其 wire error JSON。
+#[tokio::test]
+async fn disable_thinking_responses_nonstream_errors_in_openai_wire_shape() {
+    const ONLY_REASONING: &str = r#"{"id":"r1","status":"completed","output":[{"type":"reasoning","summary":[{"type":"summary_text","text":"想"}]}],"usage":{"input_tokens":5,"output_tokens":3}}"#;
+    let upstream = spawn_unified_upstream(200, "application/json", ONLY_REASONING).await;
+    let state = make_state(test_db().await).await;
+    setup_passthrough_group_for_protocol(&state, "gkempty-responses", &upstream, Protocol::OpenAIResponses).await;
+    let req = HttpRequest::builder()
+        .method("POST").uri("/v1/responses")
+        .header("authorization", ["Bearer", "gkempty-responses"].join(" "))
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{"model":"gpt-x","disable_thinking":true,"input":"hi"}"#)).unwrap();
+    let resp = handle_proxy(AxumState(state), req).await;
+    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert!(json["error"]["message"].as_str().unwrap().contains("stop_reason: none"), "{json}");
+    assert!(json.get("type").is_none(), "不得返回 Anthropic error envelope: {json}");
+}
+
+/// G1：Gemini 客户端的 thinking-only 非流式响应使用 Gemini UNAVAILABLE error JSON。
+#[tokio::test]
+async fn disable_thinking_gemini_nonstream_errors_in_gemini_wire_shape() {
+    const ONLY_THOUGHT: &str = r#"{"candidates":[{"content":{"parts":[{"thought":true,"text":"想"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":5,"candidatesTokenCount":3}}"#;
+    let upstream = spawn_unified_upstream(200, "application/json", ONLY_THOUGHT).await;
+    let state = make_state(test_db().await).await;
+    setup_gemini_passthrough_group(&state, "gkempty-gemini", &upstream).await;
+    let req = HttpRequest::builder()
+        .method("POST").uri("/v1beta/models/gemini-src:generateContent")
+        .header("authorization", "Bearer gkempty-gemini")
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{"model":"gemini-src","disable_thinking":true,"contents":[{"role":"user","parts":[{"text":"hi"}]}]}"#)).unwrap();
+    let resp = handle_proxy(AxumState(state), req).await;
+    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json["error"]["status"], "UNAVAILABLE", "{json}");
+    assert!(json["error"]["message"].as_str().unwrap().contains("stop_reason: none"), "{json}");
+    assert!(json.get("type").is_none(), "不得返回 Anthropic error envelope: {json}");
+}
+
+/// G3：透传分支流末哨兵必须调 stripper.finish()，无终止符结尾的末帧不得被吞
+/// （Gemini 这类无 [DONE]/message_stop 哨兵的上游同病；此处用 openai 透传复现接线）。
+#[tokio::test]
+async fn disable_thinking_passthrough_flushes_unterminated_tail_frame() {
+    const SSE: &str = concat!(
+        "data: {\"id\":\"c1\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"想\"}}]}\n\n",
+        "data: {\"id\":\"c1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"答\"}}]}",
+    );
+    let upstream = spawn_unified_upstream(200, "text/event-stream", SSE).await;
+    let state = make_state(test_db().await).await;
+    setup_passthrough_group_for_protocol(&state, "gkempty-tail", &upstream, Protocol::OpenAI).await;
+    let req = HttpRequest::builder()
+        .method("POST").uri("/v1/chat/completions")
+        .header("authorization", "Bearer gkempty-tail")
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{"model":"gpt-x","stream":true,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#)).unwrap();
+    let resp = handle_proxy(AxumState(state), req).await;
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let body = String::from_utf8(body.to_vec()).unwrap();
+    assert!(body.contains("\"content\":\"答\""), "无终止符结尾的末帧不得被吞: {body:?}");
+    assert!(!body.contains("reasoning_content"), "思维链不泄漏: {body:?}");
+    assert!(!body.contains("\"error\""), "有正文不得误报: {body:?}");
+}
+
+/// G4：转换分支上游无 Stop 事件（无 finish_reason/[DONE] 直接断流）且 disable_thinking
+/// 过滤后无内容 → 流末哨兵补发 error 帧（与 Stop 事件兑换同形），日志记 502。
+#[tokio::test]
+async fn disable_thinking_converted_stream_errors_on_sentinel_without_stop() {
+    const SSE_NO_STOP: &str = "data: {\"id\":\"c1\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"reasoning_content\":\"让我分析…\"},\"finish_reason\":null}]}\n\n";
+    let upstream = spawn_unified_upstream(200, "text/event-stream", SSE_NO_STOP).await;
+    let state = make_state(test_db().await).await;
+    setup_passthrough_group_for_protocol(&state, "gkempty-ns", &upstream, Protocol::OpenAI).await;
+    let req = messages_request(
+        "gkempty-ns",
+        r#"{"model":"haiku","max_tokens":300,"stream":true,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let body = String::from_utf8(body.to_vec()).unwrap();
+    assert!(body.contains("event: error"), "流末须补发 error 帧: {body:?}");
+    assert!(
+        !body.contains("message_stop"),
+        "空流不得以 message_stop 收尾: {body:?}"
+    );
+    assert!(!body.contains("让我分析"), "思考文本不泄漏: {body:?}");
+
+    flush_log_queue(&state).await;
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    assert!(
+        logs.iter().any(|l| l.status_code == 502 && l.group_key == "gkempty-ns"),
+        "日志须记 502: {:?}",
+        logs.iter().map(|l| (l.group_key.as_str(), l.status_code)).collect::<Vec<_>>()
+    );
 }
 
 /// 未禁用思考时不动上游 thinking 块（避免上一条修复误伤正常思考链路）。
