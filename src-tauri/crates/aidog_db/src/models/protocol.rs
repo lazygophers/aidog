@@ -291,8 +291,8 @@ impl Protocol {
     }
 
     /// 厂商直连平台（glm / kimi / deepseek 等官方端点固定）端点锁死：
-    /// 禁止用户填写 / 修改协议端点，保存时强制重置为内置 preset 端点（db/platform.rs）。MiniMax 海螺例外：
-    /// issue 120 要求运行时使用用户配置的协议与 base_url；内置地址仅用于表单预填。
+    /// 禁止用户填写 / 修改协议端点，保存时强制重置为内置 preset 端点（db/platform.rs）。MiniMax 与国际版例外：
+    /// issues 120 / 121 要求运行时使用用户配置的协议与 base_url；内置地址仅用于表单预填。
     /// 前端镜像集合：`src/domains/platforms/constants.ts::ENDPOINTS_LOCKED_PROTOCOLS`（跨层对称，禁单侧改）。
     /// 通用平台（5 wire 协议 + 聚合 / 第三方 / 中转段）不受限。
     pub fn endpoints_locked(&self) -> bool {
@@ -307,7 +307,6 @@ impl Protocol {
                 | Kimi
                 | KimiEn
                 | KimiCoding
-                | MiniMaxEn
                 | MinimaxCoding
                 | Codex
                 | Cline
@@ -395,6 +394,7 @@ mod test_endpoints_locked {
             ("glm_coding", true),
             ("kimi", true),
             ("minimax", false),
+            ("minimax_en", false),
             ("minimax_coding", true),
             ("deepseek", true),
             ("qianfan_coding", true),
