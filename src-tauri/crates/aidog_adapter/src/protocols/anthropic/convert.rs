@@ -252,7 +252,7 @@ pub fn parse_anthropic_response(
     let input_tokens = usage.get("input_tokens")?.as_i64()?;
     let output_tokens = usage.get("output_tokens")?.as_i64()?;
     let cache_read_tokens = usage
-        .get("cache_read_tokens")
+        .get("cache_read_input_tokens")
         .and_then(|v| v.as_i64())
         .unwrap_or(0);
 
