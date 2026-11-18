@@ -262,7 +262,7 @@ fn parse_anthropic_response_with_tool_use() {
         "usage": {
             "input_tokens": 200,
             "output_tokens": 80,
-            "cache_read_tokens": 50
+            "cache_read_input_tokens": 50
         }
     });
 
