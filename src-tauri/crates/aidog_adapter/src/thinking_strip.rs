@@ -87,11 +87,14 @@ fn chat_contentless(body: &Value) -> bool {
                     .and_then(|m| m.get("tool_calls"))
                     .and_then(|v| v.as_array())
                     .is_some_and(|a| !a.is_empty());
+                let has_fn_call = m
+                    .and_then(|m| m.get("function_call"))
+                    .is_some_and(|v| !v.is_null());
                 // content 非字符串形态（数组 / 对象）视作未知载体，不误报
                 let unknown_shape = m
                     .and_then(|m| m.get("content"))
                     .is_some_and(|v| !v.is_null() && !v.is_string());
-                !has_text && !has_tools && !unknown_shape
+                !has_text && !has_tools && !has_fn_call && !unknown_shape
             })
         })
 }
@@ -354,7 +357,8 @@ impl SseThinkingStripper {
                         .get("tool_calls")
                         .and_then(|v| v.as_array())
                         .is_some_and(|a| !a.is_empty());
-                    if has_text || has_tools {
+                    let has_fn_call = delta.get("function_call").is_some();
+                    if has_text || has_tools || has_fn_call {
                         self.saw_content = true;
                     }
                 }
