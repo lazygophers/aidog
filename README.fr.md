@@ -64,11 +64,11 @@ Après le démarrage d'AiDog, le proxy local écoute par défaut sur `127.0.0.1:
 3. Dans votre client, utilisez la commande de connexion générée pour ce groupe, ou suivez le guide d'intégration du client pour configurer l'adresse du proxy local et les identifiants du groupe.
 4. Envoyez une requête et vérifiez le groupe, la plateforme amont, le modèle et le résultat dans le journal du proxy.
 
-[Guide d'installation](/en/getting-started/installation) · [Première configuration](/en/getting-started/first-config) · [Valider votre première requête](/en/getting-started/first-request)
+[Guide d'installation](https://lazygophers.github.io/aidog/en/getting-started/installation) · [Première configuration](https://lazygophers.github.io/aidog/en/getting-started/first-config) · [Valider votre première requête](https://lazygophers.github.io/aidog/en/getting-started/first-request)
 
 ## Données et confidentialité
 
-AiDog stocke les paramètres et les bases de données sur votre machine. Les requêtes du proxy transfèrent le contenu nécessaire au service amont sélectionné. La conservation des corps de requête et de réponse dans les journaux dépend des paramètres de journalisation ; une fois l'enregistrement du contenu brut désactivé, les métadonnées telles que le statut, le modèle et la consommation restent enregistrables. Voir [Données et confidentialité](/en/core-concepts/data-privacy).
+AiDog stocke les paramètres et les bases de données sur votre machine. Les requêtes du proxy transfèrent le contenu nécessaire au service amont sélectionné. La conservation des corps de requête et de réponse dans les journaux dépend des paramètres de journalisation ; une fois l'enregistrement du contenu brut désactivé, les métadonnées telles que le statut, le modèle et la consommation restent enregistrables. Voir [Données et confidentialité](https://lazygophers.github.io/aidog/en/core-concepts/data-privacy).
 
 ## Compiler depuis les sources
 
