@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import { defineConfig } from '@rspress/core';
 
 export default defineConfig({
+  base: process.env.NODE_ENV === 'production' ? '/aidog/' : '/',
   root: path.join(__dirname, 'docs'),
   title: 'aidog',
   description: 'aidog AI API 聚合、路由与用量管理文档。',
