@@ -6,7 +6,7 @@
 
 一个桌面应用，提供本地代理、分组路由、模型映射、请求记录与用量估算。
 
-[文档站](https://lazygophers.github.io/aidog/zh/) · [下载最新版](https://github.com/lazygophers/aidog/releases/latest) · [问题反馈](https://github.com/lazygophers/aidog/issues)
+[文档站](https://lazygophers.github.io/aidog/) · [下载最新版](https://github.com/lazygophers/aidog/releases/latest) · [问题反馈](https://github.com/lazygophers/aidog/issues)
 
 简体中文 · [English](README.en.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Русский](README.ru.md) · [العربية](README.ar.md) · [Español](README.es.md) · [日本語](README.ja.md)
 
@@ -64,11 +64,11 @@ AiDog 在你的电脑上运行代理服务。你把上游平台和 API Key 保�
 3. 在客户端使用该分组生成的连接命令，或按客户端接入文档配置本地代理地址和分组凭据。
 4. 发送一次请求，并在代理日志中确认分组、上游平台、模型和结果。
 
-[安装指南](/zh/getting-started/installation) · [首次配置](/zh/getting-started/first-config) · [验证首个请求](/zh/getting-started/first-request)
+[安装指南](https://lazygophers.github.io/aidog/getting-started/installation) · [首次配置](https://lazygophers.github.io/aidog/getting-started/first-config) · [验证首个请求](https://lazygophers.github.io/aidog/getting-started/first-request)
 
 ## 数据与隐私
 
-AiDog 将设置和数据库保存在本机。代理请求会把必要内容转发给所选上游服务。请求日志是否保留请求正文和响应正文，取决于日志设置；关闭原始内容记录后，状态、模型、用量等元数据仍可记录。详见[数据与隐私](/zh/core-concepts/data-privacy)。
+AiDog 将设置和数据库保存在本机。代理请求会把必要内容转发给所选上游服务。请求日志是否保留请求正文和响应正文，取决于日志设置；关闭原始内容记录后，状态、模型、用量等元数据仍可记录。详见[数据与隐私](https://lazygophers.github.io/aidog/core-concepts/data-privacy)。
 
 ## 从源码运行
 
