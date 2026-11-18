@@ -225,7 +225,7 @@ fn error_and_usage_defaults_match_legacy_helpers() {
 /// MiniMax 成员沿用原有 OpenAI wire 禁思考映射；本地 endpoint URL 不触发官方域名特殊分支。
 #[test]
 fn minimax_members_disable_thinking_with_native_parameter() {
-    for code in ["minimax", "minimax_en"] {
+    for code in ["minimax", "minimax_en", "minimax_coding"] {
         let adapter = super::adapter_for(code);
         let mut body = json!({ "model": "MiniMax-M3" });
         adapter.apply_disable_thinking(
@@ -248,6 +248,21 @@ fn minimax_members_disable_thinking_with_native_parameter() {
         );
         assert!(forced.get("thinking").is_none(), "{code}");
         assert!(forced.get("reasoning_effort").is_none(), "{code}");
+    }
+}
+
+/// Token Plan has no documented coding_plan payload additions; retain the family no-op on both wires.
+#[test]
+fn minimax_coding_plan_keeps_family_noop() {
+    for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+        let mut body = json!({ "model": "MiniMax-M3", "messages": [] });
+        let original = body.clone();
+        super::adapter_for("minimax_coding").inject_coding_plan(
+            &mut body,
+            &Protocol::MinimaxCoding,
+            &wire,
+        );
+        assert_eq!(body, original, "{wire:?}");
     }
 }
 
