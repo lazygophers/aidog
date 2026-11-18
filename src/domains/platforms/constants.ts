@@ -40,11 +40,11 @@ export const PROTOCOL_LABELS: Partial<Record<Protocol, string>> = {
 /** 厂商直连平台（官方端点固定）端点锁死集合：禁改协议端点，编辑表单只读展示，
  *  保存时后端强制重置为内置 preset 端点。
  *  跨层对称：Rust `Protocol::endpoints_locked()`（gateway/models/protocol.rs）为唯一真值，
- *  本集合必须与其 matches! 分支一致，禁单侧改。 */
+ *  本集合必须与其 matches! 分支一致，禁单侧改。 MiniMax 与国际版支持用户配置端点。 */
 export const ENDPOINTS_LOCKED_PROTOCOLS: ReadonlySet<Protocol> = new Set<Protocol>([
   "mock", "claude_code",
   "glm", "glm_coding", "glm_en", "glm_coding_en", "kimi", "kimi_en", "kimi_coding",
-  "minimax_en", "minimax_coding", "codex", "cline", "cline_pass", "bailian", "bailian_en", "bailian_coding", "bailian_coding_en",
+  "minimax_coding", "codex", "cline", "cline_pass", "bailian", "bailian_en", "bailian_coding", "bailian_coding_en",
   "deepseek", "stepfun", "stepfun_en", "doubao", "byteplus",
   "qianfan", "qianfan_coding", "xiaomi_mimo", "xiaomi_mimo_coding", "xiaomi_mimo_coding_en",
   "longcat", "sensenova", "sensenova_en", "devin",
