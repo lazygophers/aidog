@@ -391,10 +391,9 @@ pub(crate) const TRACED_FIELDS: [&str; 10] = [
 ];
 
 /// 为 Coding Plan 端点注入平台特有字段
-/// - Kimi Code Plan: 注入 prompt_cache_key（必填，用 group + model hash 作会话标识）。
-///   仅 openai wire（Chat Completions）注入：prompt_cache_key 只在 chat.md 文档化
-///   （「对于 Kimi Code Plan，此字段为必填以提高缓存命中率」）；Anthropic Messages 端点
-///   的 messages.md 全篇未列该参数（缓存走 `cache_control`），不注入未文档化参数。
+/// - Kimi Code Plan: OpenAI Chat Completions 端点注入 prompt_cache_key（官方称必填）；
+///   Anthropic Messages 端点不注入，文档未列该参数（缓存走 `cache_control`）。
+/// - Legacy Kimi protocol also injects this key regardless of wire, preserving prior behavior.
 ///   https://platform.kimi.com/docs/api/chat.md https://platform.kimi.com/docs/api/messages.md
 pub fn inject_coding_plan_fields(
     body: &mut Value,
@@ -457,8 +456,8 @@ pub fn inject_coding_plan_fields(
 /// Kimi Code openai wire（issue 119 review R2）：多轮工具历史的 assistant tool-call 消息
 /// 携带 reasoning_content。官方错误参考：thinking 启用时缺失该字段 → HTTP 400「thinking is
 /// enabled but reasoning_content is missing in assistant tool call message … 这是 Kimi Code
-/// 特有字段，启用思维链时必须携带」；K3 系列 `clear_thinking` 默认 `{"type":"enabled",
-/// "keep":"all"}`（历史 reasoning_content 原样回传）。anthropic 客户端回灌的 thinking 块在
+/// 特有字段，启用思维链时必须携带」；Chat Completions 文档以 `thinking.keep="all"` 配置
+/// 保留历史 reasoning_content。Anthropic 客户端回灌的 thinking 块在
 /// to_openai 转换中被跳过，这里从 ChatRequest 的 thinking 块取回文本，按序写入转换后含
 /// `tool_calls` 的 assistant 消息（转换分支每条含 tool_use 的 assistant 消息恰产出一条
 /// tool-call 消息，顺序一致）；无 thinking 块的历史不虚构。
