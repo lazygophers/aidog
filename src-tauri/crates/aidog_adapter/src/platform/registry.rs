@@ -617,6 +617,115 @@ impl PlatformAdapter for MiniMaxCodingAdapter {
     }
 }
 
+/// 阿里云百炼 家族基座（issue 78；成员 bailian / bailian_en / bailian_coding /
+/// bailian_coding_en 共用，成员差异见各成员 issue 123 / 124 / 125 / 126）。
+///
+/// 家族共性取证（官方文档原文，核对日期 2026-11-19）：
+/// - 思考开关（openai 端点）：混合思考模型用顶层布尔参数 `enable_thinking`（「设为
+///   `true`：模型先思考再回复；设为 `false`：模型直接回复」；「该参数非 OpenAI 标准参数。
+///   通过 Python SDK 调用时，请放入 extra_body 对象中…若不使用 OpenAI SDK，而是通过
+///   HTTP（如 curl）方式直接调用，则无需 extra_body，直接将 enable_thinking 与 model、
+///   messages 等参数一样放在请求体的顶层即可」）。控制参数因模型而异：DeepSeek-V4 系列
+///   用 `reasoning_effort` 调推理力度、稀宇科技直供 MiniMax 用 `thinking` 参数
+///   （per-model 差异，不在基座覆写，成员 issue 层处理）；仅思考模型（deepseek-r1、
+///   kimi-k2.7-code 等）无法关闭，registry 标 `thinking_toggleable: false` 走基座强制
+///   思考剥除。https://help.aliyun.com/zh/model-studio/deep-thinking
+///   https://help.aliyun.com/zh/model-studio/qwen-api-via-openai-chat-completions
+/// - 思考开关（anthropic 端点）：`thinking.type` 取值 `enabled` / `disabled`
+///   （「可选值：enabled（开启思考模式）、disabled（关闭思考模式）」），与基座 anthropic
+///   臂同形，不覆盖；思考强度新写法为百炼扩展参数 `output_config.effort`（aidog 不写即
+///   官方默认）。https://help.aliyun.com/zh/model-studio/anthropic-api-messages
+/// - 流式 / usage（openai 端点）：思考增量 `delta.reasoning_content`、回复
+///   `delta.content`；usage `prompt_tokens_details.cached_tokens`（命中 Cache）、
+///   `completion_tokens_details.reasoning_tokens`（思考 Token，是 text_tokens 的子集）、
+///   `cache_creation` / `cache_write_tokens`（「与 cache_write_tokens 相同，统计时不要
+///   重复相加」）。基座 openai 构件已抽取 cached_tokens 并从 input 扣除；cache_write
+///   是否计入 prompt_tokens 文档未明示，基座按 input 计，不覆盖（家族级取舍同 Kimi 基座）。
+///   https://help.aliyun.com/zh/model-studio/qwen-api-via-openai-chat-completions
+///   https://help.aliyun.com/zh/model-studio/deep-thinking
+/// - usage（anthropic 端点）：`input_tokens`「仅统计未读取也未创建缓存的输入 Token 数；
+///   全部输入为本字段与缓存读取、创建 Token 数之和」+ `cache_read_input_tokens` /
+///   `cache_creation_input_tokens`，与基座 anthropic 臂一致，不覆盖。
+///   https://help.aliyun.com/zh/model-studio/anthropic-api-messages
+/// - 错误体：404 `ModelNotFound` / `model_not_found`（「Model can not be found.」/
+///   「The model xxx does not exist.」/「The model xxx does not exist or you do not have
+///   access to it.」）——基座特征（model + does not exist / model_not_found）归模型类；
+///   401（InvalidApiKey/invalid_api_key）/ 403（AccessDenied/access_denied）/
+///   429（Throttling.RateQuota 等）按状态码归服务类；错误体统一 JSON 形状未证实，基座
+///   `error.message/code/type` 与顶层双形态读法已覆盖，不扩展。
+///   https://help.aliyun.com/zh/model-studio/error-code
+/// - 工具 / 图片与多模态 / system：Chat Completions 文档给出 `tools` / `tool_choice` /
+///   `image_url` 等 OpenAI 标准形状；Anthropic Messages 支持 system / tools / 图片
+///   内容块；均与基座构件一致，不覆盖。
+///   https://help.aliyun.com/zh/model-studio/qwen-api-via-openai-chat-completions
+///   https://help.aliyun.com/zh/model-studio/anthropic-api-messages
+/// - coding_plan 注入：四个成员均无官方必填/建议的出站附加字段（Claude Code 接入页只要求
+///   换 base_url 与 API Key），基座按平台协议分派对 BailianCoding / BailianCodingEn
+///   协议为 no-op，行为不变。https://help.aliyun.com/zh/model-studio/claude-code
+/// - 未证实（保持基座默认）：DashScope 对 vLLM 式 `chat_template_kwargs.enable_thinking`
+///   的认受性（官方只列顶层 `enable_thinking`，故覆写 openai 臂）、错误体统一 JSON 形状、
+///   cache_write 是否计入 prompt_tokens、max_tokens 统一上限。
+///
+/// 成员 `bailian`（百炼（阿里云）；issue 123）、`bailian_en`（百炼国际版；issue 124）、
+/// `bailian_coding`（百炼编程；issue 125）、`bailian_coding_en`（百炼编程国际版；issue 126）：
+/// 均登记为 [`BailianFamilyAdapter`]；registry 内置默认端点与官方一致（中国站
+/// dashscope.aliyuncs.com、国际站 dashscope-intl / dashscope-us、编码套餐
+/// coding.dashscope.aliyuncs.com / coding-intl.dashscope.aliyuncs.com 的 compatible-mode/v1
+/// 与 apps/anthropic），运行时只用用户平台配置的端点。成员级差异（如按模型的思考参数分派）
+/// 由各成员 issue 取证后覆盖。
+pub struct BailianFamilyAdapter;
+
+impl PlatformAdapter for BailianFamilyAdapter {
+    /// 差异：openai 端点禁思考写官方顶层 `enable_thinking: false`，不写基座第三方端点用的
+    /// vLLM 式 `chat_template_kwargs.enable_thinking`（DashScope Chat Completions 文档只列
+    /// 顶层参数；`enable_thinking` 已在基座剔参清单内，写 false 前同样剥掉客户端带来的旧值
+    /// 与 `thinking` / `reasoning_effort` 等开启型参数）。其余 wire 与强制思考路径同基座；
+    /// `Protocol::OpenAICompletions` 不在覆写范围内（家族成员内置默认端点仅 openai /
+    /// anthropic，用户手配 openai_completions 端点仍走基座 `chat_template_kwargs` 写法，
+    /// 与 GLM 基座同口径）。
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        if wire != &Protocol::OpenAI || forced_thinking {
+            return hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking);
+        }
+        let Some(obj) = body.as_object_mut() else {
+            return;
+        };
+        obj.remove("disable_thinking");
+        if !disable {
+            return;
+        }
+        for k in [
+            "thinking",
+            "context_management",
+            "reasoning_effort",
+            "reasoning",
+            "enable_thinking",
+        ] {
+            obj.remove(k);
+        }
+        if let Some(ctk) = obj
+            .get_mut("chat_template_kwargs")
+            .and_then(|o| o.as_object_mut())
+        {
+            ctk.remove("enable_thinking");
+        }
+        if let Some(gc) = obj
+            .get_mut("generationConfig")
+            .and_then(|o| o.as_object_mut())
+        {
+            gc.remove("thinkingConfig");
+        }
+        obj.insert("enable_thinking".to_string(), Value::Bool(false));
+    }
+}
+
 static GENERIC: GenericAdapter = GenericAdapter;
 static MINIMAX_FAMILY: MiniMaxFamilyAdapter = MiniMaxFamilyAdapter;
 static MINIMAX: MiniMaxAdapter = MiniMaxAdapter;
@@ -635,6 +744,7 @@ static KIMI_CODING: KimiFamilyAdapter = KimiFamilyAdapter {
     downgrade_required_tool_choice: false,
 };
 static GLM: GlmFamilyAdapter = GlmFamilyAdapter;
+static BAILIAN: BailianFamilyAdapter = BailianFamilyAdapter;
 
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
@@ -642,10 +752,10 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("aihubmix", &GENERIC),
     ("anthropic", &GENERIC),
     ("atlascloud", &GENERIC),
-    ("bailian", &GENERIC),
-    ("bailian_coding", &GENERIC),
-    ("bailian_coding_en", &GENERIC),
-    ("bailian_en", &GENERIC),
+    ("bailian", &BAILIAN),
+    ("bailian_coding", &BAILIAN),
+    ("bailian_coding_en", &BAILIAN),
+    ("bailian_en", &BAILIAN),
     ("byteplus", &GENERIC),
     ("claude_code", &GENERIC),
     ("cline", &GENERIC),
