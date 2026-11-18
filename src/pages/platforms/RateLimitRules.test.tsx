@@ -16,6 +16,7 @@ vi.mock("@dnd-kit/core", async (orig) => {
 });
 vi.mock("../../domains/platforms/modelPrices", () => ({ useModelPrices: () => new Map() }));
 import { RateLimitRulesList, draftToRule, ruleToDraft, type RateLimitRuleDraft } from "./RateLimitRules";
+import { WINDOW_TIMEZONES } from "../../utils/timeWindow";
 
 const t = ((key: string, fallback?: string) => fallback ?? key) as never;
 const R = (over: Partial<RateLimitRuleDraft> = {}): RateLimitRuleDraft => ({
@@ -43,10 +44,17 @@ describe("RateLimitRulesList", () => {
     expect(q("rl-rule-0-chip-glm-*")).not.toBeNull();
     expect(input("rl-rule-1-start").value).toBe("14");
     expect(input("rl-rule-1-end").value).toBe("18");
-    expect(input("rl-rule-1-tz").value).toBe("Asia/Shanghai");
+    expect(q("rl-rule-1-tz")?.textContent).toBe("Asia/Shanghai");
     expect(q("rl-rule-1-day-1")?.getAttribute("data-state")).toBe("on");
     expect(q("rl-rule-1-day-0")?.getAttribute("data-state")).toBe("off");
     expect(q("rl-rule-0-handle")).not.toBeNull();
+  });
+
+  it("时区下拉以 UTC 表示空值，并保留不在候选中的 IANA 时区", () => {
+    const { q } = mount([R(), R({ id: "legacy", tz: "Australia/Eucla" })]);
+    expect(q("rl-rule-0-tz")?.textContent).toBe("UTC");
+    expect(q("rl-rule-1-tz")?.textContent).toBe("Australia/Eucla");
+    expect(WINDOW_TIMEZONES).toContain("__utc__");
   });
 
   it("提示「没填的项在该规则生效时不限」与重叠按顺序", () => {

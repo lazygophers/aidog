@@ -9,6 +9,7 @@ import { Switch } from "../../components/ui/switch";
 import { rateLimitRuleError, type Protocol, type RateLimitRule } from "../../services/api";
 import { ModelCombobox } from "./ModelCombobox";
 import { HolidayCalendarSelect } from "./HolidayCalendarSelect";
+import { WINDOW_TIMEZONES } from "../../utils/timeWindow";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 
 /** 编辑态：数字一律字符串持有（空串 = 未填）；id 仅供拖动排序，不落库。 */
@@ -152,7 +153,13 @@ export function RateLimitRulesList({ rules, onChange, modelOptions, protocol, pl
                 <Input data-testid={`rl-rule-${i}-start`} type="number" min={0} max={23} value={r.start} placeholder="0" aria-label={t("platform.start_hour", "起")} onChange={e => upd(i, { start: e.target.value })} style={{ ...numStyle, width: 56, minWidth: 56 }} />
                 <span style={miniLabel}>–</span>
                 <Input data-testid={`rl-rule-${i}-end`} type="number" min={0} max={24} value={r.end} placeholder="24" aria-label={t("platform.end_hour", "止")} onChange={e => upd(i, { end: e.target.value })} style={{ ...numStyle, width: 56, minWidth: 56 }} />
-                <Input data-testid={`rl-rule-${i}-tz`} value={r.tz} placeholder="UTC / Asia/Shanghai" aria-label={t("platform.rateLimits.windowTz", "时区")} onChange={e => upd(i, { tz: e.target.value })} style={{ fontSize: 14, height: 28, width: 130, fontFamily: "var(--font-mono, monospace)" }} />
+                <Select value={r.tz || "__utc__"} onValueChange={v => upd(i, { tz: v === "__utc__" ? "" : v })}>
+                  <SelectTrigger data-testid={`rl-rule-${i}-tz`} className="input" style={{ width: 150, height: 28, fontSize: 14, fontFamily: "var(--font-mono, monospace)" }} aria-label={t("platform.rateLimits.windowTz", "时区")}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {r.tz && !(WINDOW_TIMEZONES as readonly string[]).includes(r.tz) && <SelectItem value={r.tz}>{r.tz}</SelectItem>}
+                    {WINDOW_TIMEZONES.map(tz => <SelectItem key={tz} value={tz}>{tz === "__utc__" ? "UTC" : tz}</SelectItem>)}
+                  </SelectContent>
+                </Select>
                 <Select value={r.dayType ?? "__week__"} onValueChange={v => upd(i, { dayType: v === "__week__" ? undefined : v as "workday" | "holiday", days: [], holidayCalendar: v === "__week__" ? undefined : r.holidayCalendar })}>
                   <SelectTrigger className="input" style={{ width: 120, height: 28, fontSize: 14 }} aria-label={t("platform.holidayCalendar.dayType", "日期类型")}><SelectValue /></SelectTrigger>
                   <SelectContent>
