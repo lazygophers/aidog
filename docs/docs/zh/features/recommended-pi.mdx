@@ -41,7 +41,7 @@ flowchart LR
 
 这两项不在推荐配置里。在 pi 设置页手改后，**下一次分组同步会按 aidog 侧的值覆盖回去** —— 要改就去 aidog 的分组与代理设置里改。
 
-provider 列表本身也不在这份 settings 里：由 `src-tauri/crates/aidog_core/src/gateway/pi.rs` 生成写进 `~/.pi/agent/models.json`，每个 aidog 分组一个 `aidog-<分组名>` provider，同步时只清扫 `aidog-` 前缀的条目。规则见[接入 pi](/zh/getting-started/connect-pi)。
+provider 列表本身也不在这份 settings 里：由 `src-tauri/crates/aidog_core/src/gateway/pi.rs` 生成写进 `~/.pi/agent/models.json`，每个 aidog 分组一个 `aidog-<分组名>` provider，同步时只清扫 `aidog-` 前缀的条目。规则见[接入 pi](/getting-started/connect-pi)。
 
 ## 其余可调项
 
@@ -49,10 +49,10 @@ schema 还覆盖这些键，推荐配置不给默认值，按需自己填：`def
 
 ## 与 Claude Code 推荐配置的差异
 
-pi 页的「加载推荐配置」是直接深合并，没有 Claude Code 页那样的逐项勾选弹窗。另外 MCP、通知 Hooks、statusline、cc-switch 导入四项对 pi 不适用，Skills 对 pi 是常开徽标而非开关 —— 详见 [pi 集成](/zh/features/pi)。
+pi 页的「加载推荐配置」是直接深合并，没有 Claude Code 页那样的逐项勾选弹窗。另外 MCP、通知 Hooks、statusline、cc-switch 导入四项对 pi 不适用，Skills 对 pi 是常开徽标而非开关 —— 详见 [pi 集成](/features/pi)。
 
 ## 相关页面
 
-- [pi 集成](/zh/features/pi)
-- [接入 pi](/zh/getting-started/connect-pi)
-- [Claude Code 推荐配置](/zh/features/recommended-claude-code) · [Codex 推荐配置](/zh/features/recommended-codex)
+- [pi 集成](/features/pi)
+- [接入 pi](/getting-started/connect-pi)
+- [Claude Code 推荐配置](/features/recommended-claude-code) · [Codex 推荐配置](/features/recommended-codex)

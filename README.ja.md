@@ -64,11 +64,11 @@ AiDogの起動後、ローカルプロキシは既定で`127.0.0.1:9890`をリ�
 3. クライアントでそのグループ用に生成された接続コマンドを使うか、クライアント接続ガイドに従ってローカルプロキシのアドレスとグループ認証情報を設定します。
 4. リクエストを送信し、プロキシログでグループ、上流プラットフォーム、モデル、結果を確認します。
 
-[インストールガイド](/en/getting-started/installation) · [初期設定](/en/getting-started/first-config) · [最初のリクエストを確認](/en/getting-started/first-request)
+[インストールガイド](https://lazygophers.github.io/aidog/en/getting-started/installation) · [初期設定](https://lazygophers.github.io/aidog/en/getting-started/first-config) · [最初のリクエストを確認](https://lazygophers.github.io/aidog/en/getting-started/first-request)
 
 ## データとプライバシー
 
-AiDogは設定とデータベースをローカルに保存します。プロキシリクエストは必要な内容を選択した上流サービスへ転送します。リクエストログにリクエスト本文と応答本文を保存するかどうかはログ設定によります。生データの記録を無効にしても、状態、モデル、使用量などのメタデータは記録される場合があります。[データとプライバシー](/en/core-concepts/data-privacy)を参照してください。
+AiDogは設定とデータベースをローカルに保存します。プロキシリクエストは必要な内容を選択した上流サービスへ転送します。リクエストログにリクエスト本文と応答本文を保存するかどうかはログ設定によります。生データの記録を無効にしても、状態、モデル、使用量などのメタデータは記録される場合があります。[データとプライバシー](https://lazygophers.github.io/aidog/en/core-concepts/data-privacy)を参照してください。
 
 ## ソースから実行
 
