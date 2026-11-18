@@ -1,6 +1,6 @@
 // ── 柱状图（#35 批次一）：config 声明式系列（每 key 一根柱），Y 轴走公共层 nice-ticks。
 // 横轴类目型（xKey 默认 "name"）；时间轴折线请用 LineChart。
-import { useMemo, type ReactNode } from "react";
+import { useMemo, type ReactElement, type ReactNode } from "react";
 import { Bar, BarChart as RechartsBarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { ChartContainer, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { ChartCard } from "./ChartCard";
@@ -26,6 +26,8 @@ export interface BarChartProps {
   children?: ReactNode;
   /** X 轴刻度密度：默认 0（每个类目都标）；多类目（如 90 天）传数值 n（每 n 根标 1 个）。 */
   xInterval?: number | "preserveStartEnd";
+  /** 自定义悬浮内容元素（recharts 会注入 active/payload/label）；缺省用统一 tooltip 行。 */
+  tooltipContent?: ReactElement;
 }
 
 export function BarChart({
@@ -41,6 +43,7 @@ export function BarChart({
   className,
   children,
   xInterval = 0,
+  tooltipContent,
 }: BarChartProps) {
   const drawIn = useDrawIn();
   const seriesKeys = useMemo(() => Object.keys(config), [config]);
@@ -70,7 +73,9 @@ export function BarChart({
             axisLine={false}
           />
           <ChartsTooltip
-            content={<ChartTooltipContent formatter={tooltipValueRows(fmt, (name) => config[String(name)]?.label ?? String(name))} />}
+            content={tooltipContent ?? (
+              <ChartTooltipContent formatter={tooltipValueRows(fmt, (name) => config[String(name)]?.label ?? String(name))} />
+            )}
           />
           {seriesKeys.map((k) => (
             <Bar

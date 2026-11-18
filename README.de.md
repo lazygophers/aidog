@@ -64,11 +64,11 @@ Nach dem Start lauscht der lokale Proxy standardmäßig auf `127.0.0.1:9890`. St
 3. Verwende im Client den für die Gruppe erzeugten Verbindungsbefehl oder richte die lokale Proxy-Adresse und Gruppen-Zugangsdaten gemäß der Client-Anleitung ein.
 4. Sende eine Anfrage und prüfe Gruppe, Upstream-Plattform, Modell und Ergebnis im Proxy-Protokoll.
 
-[Installationsanleitung](/en/getting-started/installation) · [Erste Konfiguration](/en/getting-started/first-config) · [Erste Anfrage prüfen](/en/getting-started/first-request)
+[Installationsanleitung](https://lazygophers.github.io/aidog/en/getting-started/installation) · [Erste Konfiguration](https://lazygophers.github.io/aidog/en/getting-started/first-config) · [Erste Anfrage prüfen](https://lazygophers.github.io/aidog/en/getting-started/first-request)
 
 ## Daten und Datenschutz
 
-AiDog speichert Einstellungen und Datenbanken auf deinem Rechner. Proxy-Anfragen leiten notwendige Inhalte an den ausgewählten Upstream-Dienst weiter. Ob Anfrageprotokolle Anfrage- und Antwortkörper speichern, hängt von den Protokolleinstellungen ab; bei deaktivierter Rohinhaltsaufzeichnung können Metadaten wie Status, Modell und Nutzung weiterhin protokolliert werden. Siehe [Daten und Datenschutz](/en/core-concepts/data-privacy).
+AiDog speichert Einstellungen und Datenbanken auf deinem Rechner. Proxy-Anfragen leiten notwendige Inhalte an den ausgewählten Upstream-Dienst weiter. Ob Anfrageprotokolle Anfrage- und Antwortkörper speichern, hängt von den Protokolleinstellungen ab; bei deaktivierter Rohinhaltsaufzeichnung können Metadaten wie Status, Modell und Nutzung weiterhin protokolliert werden. Siehe [Daten und Datenschutz](https://lazygophers.github.io/aidog/en/core-concepts/data-privacy).
 
 ## Aus dem Quellcode starten
 

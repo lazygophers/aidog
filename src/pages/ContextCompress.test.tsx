@@ -5,7 +5,7 @@ import { fireEvent, render, screen, waitFor } from "../test/render";
 const api = vi.hoisted(() => ({ status: vi.fn(), install: vi.fn(), setRtk: vi.fn(), setSqz: vi.fn(), stats: vi.fn() }));
 vi.mock("../services/api/contextCompress", () => ({ contextCompressApi: api }));
 
-import { ContextCompress } from "./ContextCompress";
+import { ContextCompress, DailySavedTooltip } from "./ContextCompress";
 
 const STATUS = {
   rtk_version: "1.2.0",
@@ -197,6 +197,65 @@ describe("ContextCompress", () => {
     await waitFor(() =>
       expect(container.querySelectorAll('[data-testid="cc-chart-sqz"] .recharts-bar-rectangle').length).toBeGreaterThan(0),
     );
+  });
+
+  it("rtk daily tooltip shows total, saved and pct rows for the hovered day", () => {
+    const { container } = render(
+      <DailySavedTooltip
+        active
+        label="11-18"
+        payload={[{ payload: { name: "11-18", saved: 400, input: 1000, pct: 40 } }]}
+        withMeta
+      />,
+    );
+    expect(container.querySelector('[data-testid="cc-tip"]')).toBeTruthy();
+    const rows = [...container.querySelectorAll('[data-testid="cc-tip-row"]')];
+    expect(rows.length).toBe(3);
+    expect(rows[0].textContent).toContain("contextCompress.tipTotal");
+    expect(rows[0].textContent).toContain(fmt(1000));
+    expect(rows[1].textContent).toContain("contextCompress.tipSaved");
+    expect(rows[1].textContent).toContain(fmt(400));
+    expect(rows[2].textContent).toContain("contextCompress.tipPct");
+    expect(rows[2].textContent).toBe("contextCompress.tipPct40.0%");
+  });
+
+  it("rtk daily tooltip hides the total row when the day has no input; pct falls back to em-dash", () => {
+    const { container } = render(
+      <DailySavedTooltip
+        active
+        label="11-18"
+        payload={[{ payload: { name: "11-18", saved: 400, input: 0, pct: 0 } }]}
+        withMeta
+      />,
+    );
+    const rows = [...container.querySelectorAll('[data-testid="cc-tip-row"]')];
+    expect(rows.length).toBe(2);
+    expect(rows[0].textContent).toContain("contextCompress.tipSaved");
+    expect(container.textContent).not.toContain("contextCompress.tipTotal");
+    expect(rows[1].textContent).toBe("contextCompress.tipPct—");
+  });
+
+  it("sqz daily tooltip only shows the saved row (CLI has no daily input/pct)", () => {
+    const { container } = render(
+      <DailySavedTooltip
+        active
+        label="11-18"
+        payload={[{ payload: { name: "11-18", saved: 300 } }]}
+      />,
+    );
+    const rows = [...container.querySelectorAll('[data-testid="cc-tip-row"]')];
+    expect(rows.length).toBe(1);
+    expect(rows[0].textContent).toContain("contextCompress.tipSaved");
+    expect(rows[0].textContent).toContain(fmt(300));
+    expect(container.textContent).not.toContain("contextCompress.tipTotal");
+    expect(container.textContent).not.toContain("contextCompress.tipPct");
+  });
+
+  it("inactive tooltip renders nothing", () => {
+    const { container } = render(
+      <DailySavedTooltip label="11-18" payload={[{ payload: { saved: 1 } }]} />,
+    );
+    expect(container.querySelector('[data-testid="cc-tip"]')).toBeNull();
   });
 
   it("slow stats do not hold back status; stats show a loading state", async () => {
