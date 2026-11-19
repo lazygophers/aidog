@@ -4,9 +4,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "../test/render";
 
 const plat = { id: 11, name: "P11", platform_type: "openai", base_url: "https://example.test", status: "enabled", enabled: true, models: {}, extra: "{}" };
+const plat2 = { ...plat, id: 12, name: "P12" };
 const g1 = {
   group: { id: 1, name: "First", group_key: "k1", routing_mode: "failover", is_default: false },
-  platforms: [{ platform: plat, priority: 1, weight: 1, level_priority: 5 }], model_mappings: [],
+  platforms: [plat, plat2].map((platform, i) => ({ platform, priority: i + 1, weight: 1, level_priority: 5 })), model_mappings: [],
 };
 const g2 = {
   group: { id: 2, name: "Work", group_key: "k2", routing_mode: "failover", is_default: false },
@@ -29,9 +30,10 @@ vi.mock("../services/api", async () => {
       ...actual.groupDetailApi,
       listPaged: vi.fn(async (offset: number, limit: number) => allGroups.slice(offset, offset + limit)),
       list: vi.fn(async () => allGroups),
+      reorderPlatforms: vi.fn(async () => {}),
     },
     groupApi: { ...actual.groupApi, reorder: vi.fn(async () => {}) },
-    platformApi: { ...actual.platformApi, list: vi.fn(async () => [plat]) },
+    platformApi: { ...actual.platformApi, list: vi.fn(async () => [plat, plat2]) },
     groupUsageApi: { ...actual.groupUsageApi, statsAll: vi.fn(async () => ({})) },
     proxyApi: { ...actual.proxyApi, getSettings: vi.fn(async () => ({ port: 9890 })) },
     groupFlowApi: { ...actual.groupFlowApi, daily: vi.fn(async () => []), flow: vi.fn(async () => []), latestRouting: vi.fn(async () => null) },
@@ -58,7 +60,7 @@ vi.mock("../components/SortableList", () => ({
 }));
 
 import { GroupsEmbedded } from "./Groups";
-import { groupApi } from "../services/api";
+import { groupApi, groupDetailApi } from "../services/api";
 
 describe("GroupsEmbedded — 列表→详情全链", () => {
   beforeEach(() => {
@@ -77,6 +79,32 @@ describe("GroupsEmbedded — 列表→详情全链", () => {
     await waitFor(() => expect(document.querySelector('[data-testid="detail-members"]')).toBeTruthy());
     expect(document.querySelector('[data-testid="detail-members"]')!.getAttribute("data-group-id")).toBe("2");
     expect(screen.getByText("Work")).toBeTruthy();
+  });
+
+  it("组内平台首项拖到末尾时保存新顺序", async () => {
+    render(<GroupsEmbedded onToast={() => {}} />);
+    const section = await waitFor(() => {
+      const found = document.querySelector<HTMLElement>("[data-group-id='1']");
+      expect(found).not.toBeNull();
+      return found!;
+    });
+    if (section.getAttribute("data-expanded") !== "true") fireEvent.click(section.querySelector("[data-testid='group-section-chev']")!);
+    const rows = [...section.querySelectorAll<HTMLElement>("[data-testid='platform-row']")];
+    expect(rows.map(row => row.dataset.platformId)).toEqual(["11", "12"]);
+    rows.forEach((row, i) => {
+      row.getBoundingClientRect = () => ({ x: 0, y: i * 40, top: i * 40, bottom: (i + 1) * 40, left: 0, right: 200, width: 200, height: 40, toJSON: () => ({}) });
+    });
+    const originalElementFromPoint = document.elementFromPoint;
+    Object.defineProperty(document, "elementFromPoint", { configurable: true, value: () => rows[1] });
+    try {
+      fireEvent.pointerDown(section.querySelector(".drag-handle-inline")!, { clientX: 1, clientY: 1 });
+      fireEvent.pointerMove(document, { clientX: 20, clientY: 100 });
+      fireEvent.pointerUp(document, { clientX: 20, clientY: 100 });
+      await waitFor(() => expect(groupDetailApi.reorderPlatforms).toHaveBeenCalledWith(1, [12, 11]));
+    } finally {
+      if (originalElementFromPoint) Object.defineProperty(document, "elementFromPoint", { configurable: true, value: originalElementFromPoint });
+      else Reflect.deleteProperty(document, "elementFromPoint");
+    }
   });
 
   it("搜索命中的分组可排序，保存时保留完整 ID 顺序", async () => {
