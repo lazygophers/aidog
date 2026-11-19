@@ -925,3 +925,204 @@ fn qianfan_override_scoped_to_family_members() {
     assert_eq!(other["chat_template_kwargs"]["enable_thinking"], json!(false));
     assert!(other.get("thinking").is_none());
 }
+
+/// 商汤日日新家族（issue 81）：两成员的请求构造 / 响应转换 / 流式 / usage / 错误分类
+/// 全部沿用协议基座构件（官方 OpenAI / Anthropic 兼容文档字段与基座一致，本地假上游
+/// fixture 断言，无真实外呼）；国际版 openai 端点禁思考写官方 `thinking.type=disabled`
+/// （Flash Lite 文档支持 enabled / disabled；6.8 Flash 强制思考由 registry
+/// `thinking_toggleable: false` 走基座剥除路径），中国站官方 API 文档未取得、保持基座
+/// 默认（vLLM 式 `chat_template_kwargs`）不动。
+/// https://platform.sensenova.ai/docs
+#[test]
+fn sensenova_family_protocol_fixtures_and_thinking() {
+    let chat: ChatRequest = serde_json::from_value(json!({
+        "model": "sensenova-6.8-flash-lite",
+        "max_tokens": 128,
+        "messages": [{ "role": "user", "content": "hello" }]
+    }))
+    .unwrap();
+    let generic = super::adapter_for("deepseek");
+    let openai_reply = json!({
+        "id": "cmpl-local", "model": "sensenova-6.8-flash-lite",
+        "choices": [{ "index": 0, "message": { "role": "assistant", "content": "hi" }, "finish_reason": "stop" }],
+        "usage": { "prompt_tokens": 10, "completion_tokens": 2,
+            "prompt_tokens_details": { "cached_tokens": 4 } }
+    });
+    let anthropic_reply = json!({
+        "id": "msg_local", "type": "message", "role": "assistant",
+        "model": "sensenova-6.8-flash-lite", "content": [{ "type": "text", "text": "hi" }],
+        "stop_reason": "end_turn", "usage": { "input_tokens": 6, "output_tokens": 2 }
+    });
+    let stream_delta = json!({ "choices": [{ "index": 0, "delta": { "content": "hi" } }] });
+    let anthropic_delta = json!({
+        "type": "content_block_delta", "index": 0,
+        "delta": { "type": "text_delta", "text": "hi" }
+    });
+
+    for (code, platform) in [
+        ("sensenova", Protocol::SenseNova),
+        ("sensenova_en", Protocol::SenseNovaEn),
+    ] {
+        let adapter = super::adapter_for(code);
+        for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+            let (body, path) = adapter.build_request(&chat, &wire, &platform);
+            let (expected, expected_path) = generic.build_request(&chat, &wire, &platform);
+            assert_eq!((body, path), (expected, expected_path), "{code}/{wire:?}");
+        }
+        for (body, wire, client) in [
+            (&openai_reply, Protocol::OpenAI, Protocol::Anthropic),
+            (&anthropic_reply, Protocol::Anthropic, Protocol::OpenAI),
+        ] {
+            assert_eq!(
+                adapter.convert_response(body, &wire, &client, "sensenova-6.8-flash-lite"),
+                generic.convert_response(body, &wire, &client, "sensenova-6.8-flash-lite"),
+                "{code}/{wire:?} response"
+            );
+        }
+        assert_eq!(
+            format!("{:?}", adapter.parse_sse_frame(&stream_delta, &Protocol::OpenAI)),
+            format!("{:?}", generic.parse_sse_frame(&stream_delta, &Protocol::OpenAI)),
+            "{code}/openai stream"
+        );
+        assert_eq!(
+            format!("{:?}", adapter.parse_sse_frame(&anthropic_delta, &Protocol::Anthropic)),
+            format!("{:?}", generic.parse_sse_frame(&anthropic_delta, &Protocol::Anthropic)),
+            "{code}/anthropic stream"
+        );
+        assert_eq!(
+            adapter.extract_usage(&openai_reply.to_string()),
+            (6, 2, 4, 0, 0, vec![]),
+            "{code} openai usage"
+        );
+        assert_eq!(
+            adapter.extract_usage(&anthropic_reply.to_string()),
+            (6, 2, 0, 0, 0, vec![]),
+            "{code} anthropic usage"
+        );
+        let error = r#"{"error":{"type":"invalid_request_error","message":"bad request"}}"#;
+        assert_eq!(
+            adapter.classify_error(400, error),
+            generic.classify_error(400, error),
+            "{code} error"
+        );
+    }
+
+    // sensenova_en openai 端点禁思考：写官方 `thinking.type=disabled`，剥开启型参数。
+    let mut en = json!({ "disable_thinking": true, "reasoning_effort": "high", "enable_thinking": true });
+    super::adapter_for("sensenova_en").apply_disable_thinking(
+        &mut en,
+        true,
+        &Protocol::OpenAI,
+        "https://token.sensenova.ai/v1",
+        false,
+    );
+    assert_eq!(en, json!({ "thinking": { "type": "disabled" } }));
+
+    // 强制思考模型（registry thinking_toggleable: false）：只剥禁用参数，不写禁用值。
+    let mut forced = json!({ "disable_thinking": true });
+    super::adapter_for("sensenova_en").apply_disable_thinking(
+        &mut forced,
+        true,
+        &Protocol::OpenAI,
+        "https://token.sensenova.ai/v1",
+        true,
+    );
+    assert_eq!(forced, json!({}));
+
+    // sensenova（中国站）官方 API 文档未取得：保持基座默认 vLLM 式写法不变。
+    let mut cn = json!({ "disable_thinking": true });
+    super::adapter_for("sensenova").apply_disable_thinking(
+        &mut cn,
+        true,
+        &Protocol::OpenAI,
+        "https://token.sensenova.cn/v1",
+        false,
+    );
+    assert_eq!(cn["chat_template_kwargs"]["enable_thinking"], json!(false));
+}
+
+/// Both members and endpoint protocols make a real loopback request to a local fake upstream.
+#[tokio::test]
+async fn sensenova_family_uses_local_fake_upstream_for_both_protocols() {
+    use std::sync::{Arc, Mutex};
+
+    use axum::body::to_bytes;
+    use axum::extract::Request;
+    use axum::routing::any;
+
+    let captured = Arc::new(Mutex::new(Vec::<(String, serde_json::Value)>::new()));
+    let captured_by_server = captured.clone();
+    let app = axum::Router::new().fallback(any(move |req: Request| {
+        let captured = captured_by_server.clone();
+        async move {
+            let path = req.uri().path().to_string();
+            let body = to_bytes(req.into_body(), usize::MAX).await.unwrap();
+            captured
+                .lock()
+                .unwrap()
+                .push((path.clone(), serde_json::from_slice(&body).unwrap()));
+            let reply = if path.contains("messages") {
+                json!({
+                    "id": "msg_local", "type": "message", "role": "assistant",
+                    "model": "sensenova-6.8-flash-lite",
+                    "content": [{ "type": "text", "text": "hi" }], "stop_reason": "end_turn",
+                    "usage": { "input_tokens": 6, "output_tokens": 2 }
+                })
+            } else {
+                json!({
+                    "id": "cmpl-local", "model": "sensenova-6.8-flash-lite",
+                    "choices": [{ "index": 0, "message": { "role": "assistant", "content": "hi" }, "finish_reason": "stop" }],
+                    "usage": { "prompt_tokens": 6, "completion_tokens": 2 }
+                })
+            };
+            (axum::http::StatusCode::OK, axum::Json(reply))
+        }
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+
+    let chat: ChatRequest = serde_json::from_value(json!({
+        "model": "sensenova-6.8-flash-lite",
+        "max_tokens": 128,
+        "messages": [{ "role": "user", "content": "hello" }]
+    }))
+    .unwrap();
+    let client = reqwest::Client::new();
+    for (code, platform) in [
+        ("sensenova", Protocol::SenseNova),
+        ("sensenova_en", Protocol::SenseNovaEn),
+    ] {
+        let adapter = super::adapter_for(code);
+        for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+            let (body, path) = adapter.build_request(&chat, &wire, &platform);
+            let response = client
+                .post(format!("http://{addr}{path}"))
+                .json(&body)
+                .send()
+                .await
+                .unwrap();
+            assert!(response.status().is_success(), "{code}/{wire:?}");
+            let upstream = response.json::<serde_json::Value>().await.unwrap();
+            assert!(
+                adapter
+                    .convert_response(
+                        &upstream,
+                        &wire,
+                        if wire == Protocol::OpenAI { &Protocol::Anthropic } else { &Protocol::OpenAI },
+                        "sensenova-6.8-flash-lite",
+                    )
+                    .is_some(),
+                "{code}/{wire:?} response"
+            );
+        }
+    }
+
+    let requests = captured.lock().unwrap();
+    assert_eq!(requests.len(), 4);
+    assert!(requests.iter().all(|(_, body)| {
+        body["model"] == "sensenova-6.8-flash-lite" && body["messages"].is_array()
+    }));
+}
