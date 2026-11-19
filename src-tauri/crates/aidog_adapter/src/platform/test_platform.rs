@@ -619,6 +619,7 @@ fn bailian_coding_plan_keeps_noop() {
 /// responses 臂 reasoning.effort=none，官方词表「none：关闭思考」可受，
 /// https://docs.volcengine.com/docs/ark/responses-api-deep-thinking?lang=zh ）。
 #[test]
+#[allow(clippy::single_element_loop)] // 127/128 位家族成员就位后扩成多元素循环
 fn ark_family_disable_thinking_all_wires() {
     for code in ["doubao"] {
         let adapter = super::adapter_for(code);
