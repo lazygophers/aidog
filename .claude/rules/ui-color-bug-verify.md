@@ -43,18 +43,31 @@ dev + Playwright（系统 Chrome channel）起真 app 读 getComputedStyle，30 
 
 3. **已知验证缺口要明说**：Dialog Close 走 Radix `DialogContent`，但当前应用无真实触发路径（「添加平台」用内联表单）。这种情况不是「已验证」，在 commit 回报和收尾清单里显式列出「未覆盖路径 N 条」，不默默跳过。
 
-## Vite-only 模式下 Tauri IPC 组件的取证回退（2026-09-30）
+## Vite-only 模式下 Tauri IPC 组件的取证（2026-09-30 立，2026-11-18 扩）
 
-SearchableProtocolSelect 在 Vite-only 下因 Tauri IPC 调用返回空，组件不挂载，
-`getComputedStyle` 无法采集。此时唯一可行方法：
+组件因 Tauri IPC 调用返回空不挂载、`getComputedStyle` 采不到时，按序两档：
+
+**① mock 传输层真渲染（首选；2026-11-18 截图轮 20 页 × 深浅 40 图实锤跑通）**：
+vite dev（1420）+ Playwright `channel: "chrome"` + `page.route("**/api/rpc/**")`
+按命令名返回假数据（transport.ts 的 web 传输层走 `/api/rpc/`，拦这一层等于拦全部
+invoke），`**/api/events`（SSE）一并拦住防挂起；未命中命令记入未命中日志并返回
+null。组件真挂载，getComputedStyle / 深浅两 mode 截图全部可用。三个坑：
+
+- 假数据形状必须逐字段对齐真实 IPC 返回——缺字段、该是对象的给了 null、该是数组
+  的给了 [] 都会让页面空崩（本轮目检修掉 6 处形状缺陷）；形状取真值用
+  「显示类 bug」节的只读 RPC 读用户实例，或读 Rust 返回 struct 的 serde 定义。
+- 假数据命名一眼是演示（名称带「演示」、id 带 demo-），日期相对 now 让图表有形。
+- 截图前杀掉残留 vite 进程再起：旧进程的模块缓存会渲染出裸 i18n key。
+
+**② 静态推导（mock 成本过高时的末位降级，非一般许可）**：
 
 1. 读源码找出该组件用的 className（`bg-accent`、`focus:bg-accent` 等）；
 2. 按 CLAUDE.md 的 accent token 解析链（`mono.ts` → `tokens.generated.ts` → `globals.css`）
    静态推导出 dark/light 各模式的最终值；
 3. 结论标明「源码推导，Vite-only 无 IPC，未跑真渲染」。
 
-这是此场景下的合法降级，不是「静态推理替代 computed style」的一般许可——
-只要组件能挂载，仍优先跑真渲染（规则 1/2）。
+这不是「静态推理替代 computed style」的一般许可——mock 传输层成本是一次脚本的
+成本，能搭就搭，仍以真渲染为准（规则 1/2）。
 
 ## 显示类 bug：先用只读 RPC 读用户实例的真实数据（2026-11-09 代理日志空行）
 

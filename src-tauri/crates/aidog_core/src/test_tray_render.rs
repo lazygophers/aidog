@@ -993,3 +993,78 @@ fn preset_hex_table_light_dark() {
     assert_eq!(preset_hex("red"), Some(("CF222E", "FF7B72")));
     assert_eq!(preset_hex("follow"), None);
 }
+
+// ─── tray_config_has_countdown（托盘定时器唤醒节奏判定）────────────
+
+fn platform_item_json(metrics: serde_json::Value) -> TrayItem {
+    serde_json::from_value(serde_json::json!({
+        "item_type": "platform",
+        "metrics": metrics,
+        "order": 0,
+    }))
+    .expect("TrayItem from json")
+}
+
+#[test]
+fn tray_refresh_delay_uses_next_minute_or_midnight() {
+    assert_eq!(
+        super::tray_refresh_delay(true, 17, 3600),
+        std::time::Duration::from_secs(43),
+        "countdown should wake at next minute boundary"
+    );
+    assert_eq!(
+        super::tray_refresh_delay(true, 57, 2),
+        std::time::Duration::from_secs(2),
+        "midnight wins when sooner than next minute"
+    );
+    assert_eq!(
+        super::tray_refresh_delay(false, 17, 3600),
+        std::time::Duration::from_secs(3600),
+        "without countdown, only midnight wake is needed"
+    );
+}
+
+#[test]
+fn tray_config_has_countdown_detects_reset_time_metrics() {
+    let cfg = TrayConfig {
+        items: vec![platform_item_json(json!(["reset_time:5h"]))],
+        ..Default::default()
+    };
+    assert!(
+        super::tray_config_has_countdown(&cfg),
+        "reset_time: metric should require minute-boundary wakes"
+    );
+    let cfg = TrayConfig {
+        items: vec![platform_item_json(json!(["balance", "reset_in:5h"]))],
+        ..Default::default()
+    };
+    assert!(
+        super::tray_config_has_countdown(&cfg),
+        "legacy reset_in: metric counts too"
+    );
+}
+
+#[test]
+fn tray_config_has_countdown_ignores_disabled_and_non_countdown() {
+    let mut disabled = platform_item_json(json!(["reset_time:5h"]));
+    disabled.enabled = false;
+    let cfg = TrayConfig {
+        items: vec![disabled],
+        ..Default::default()
+    };
+    assert!(
+        !super::tray_config_has_countdown(&cfg),
+        "disabled item ignored"
+    );
+    let cfg = TrayConfig {
+        items: vec![
+            platform_item_json(json!(["reset_at:5h"])), // 绝对时刻，不随分钟变
+            platform_item_json(json!(["balance", "today_cost"])),
+        ],
+        ..Default::default()
+    };
+    assert!(
+        !super::tray_config_has_countdown(&cfg),
+        "reset_at / non-countdown metrics need only midnight wakes"
+    );
+}

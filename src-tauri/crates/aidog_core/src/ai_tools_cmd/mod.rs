@@ -10,3 +10,4 @@ pub mod skills;
 pub mod subagents;
 pub mod plugins;
 pub mod plugin_bundle;
+pub mod plugin_watch;

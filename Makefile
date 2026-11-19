@@ -129,7 +129,8 @@ version-check: ## Verify manifests match .version
 .PHONY: install
 install: node_modules/.yarn-state.yml ## Release build + 安装 AiDog.app 到 /Applications (自动 kill 运行中实例)
 	@printf "$(GREEN)▶ Building release installer ($(PRODUCT_NAME))…$(RESET)\n"
-	yarn tauri build --bundles app --config '{"bundle":{"createUpdaterArtifacts":false}}'
+# 本地安装用 thin LTO + 16 codegen units 提速；Cargo.toml 的 fat LTO / 单 unit 仅留给 CI 发布包与 make release
+	CARGO_PROFILE_RELEASE_LTO=thin CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16 yarn tauri build --bundles app --config '{"bundle":{"createUpdaterArtifacts":false}}'
 	@test -d "$(APP_BUNDLE)" || { printf "$(BOLD)❌ build 产物缺失: $(APP_BUNDLE)$(RESET)\n"; exit 1; }
 	@printf "$(GREEN)▶ 安装 → $(INSTALLED)$(RESET)\n"
 	@rm -rf "$(INSTALLED)"

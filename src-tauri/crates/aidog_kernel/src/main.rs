@@ -252,9 +252,11 @@ fn check_ui_allowed(
     settings: &aidog_core::kernel_settings::KernelSettings,
 ) -> Result<(), String> {
     if opts.ui && !settings.api_enabled {
-        return Err("--ui needs the management API, which is disabled in settings \
+        return Err(
+            "--ui needs the management API, which is disabled in settings \
                     (enable it in 设置 → API first)"
-            .into());
+                .into(),
+        );
     }
     Ok(())
 }
@@ -347,7 +349,9 @@ async fn startup_tasks(db: &Db) {
             match aidog_db::migrate_auto_vacuum(&db).await {
                 Ok(true) => tracing::info!("db auto_vacuum migration completed on startup"),
                 Ok(false) => tracing::debug!("db auto_vacuum migration skipped"),
-                Err(e) => tracing::warn!(error = %e, "db auto_vacuum migration failed, will retry next launch"),
+                Err(e) => {
+                    tracing::warn!(error = %e, "db auto_vacuum migration failed, will retry next launch")
+                }
             }
         });
     }
@@ -407,63 +411,21 @@ fn spawn_scheduled_jobs() {
             if aidog_core::proxy_cmd::proxy_log::wait_next_retention_cycle(interval).await {
                 continue;
             }
-            match aidog_db::purge_all_soft_deleted(db, OLDER_THAN_SECS).await {
-                Ok(map) if map.values().any(|&n| n > 0) => {
-                    tracing::info!(purged = ?map, "scheduled: purged old soft-deleted rows")
-                }
-                Ok(_) => tracing::debug!("scheduled: purge_all_soft_deleted ran, nothing to delete"),
-                Err(e) => tracing::warn!(error = %e, "scheduled: purge_all_soft_deleted failed"),
-            }
-            let retention_days = aidog_db::get_notification_settings(db)
-                .await
-                .inbox_retention_days;
-            if let Err(e) = aidog_db::cleanup_notifications(db, retention_days).await {
-                tracing::warn!(error = %e, "scheduled: cleanup notifications failed");
-            }
-            if let Err(e) = aidog_db::cleanup_session_name_cache(db).await {
-                tracing::warn!(error = %e, "scheduled: cleanup session_name_cache failed");
-            }
-            let stats_settings: aidog_core::gateway::models::StatsSettings =
-                aidog_db::get_setting(db, "stats", "settings")
-                    .await
-                    .ok()
-                    .flatten()
-                    .and_then(|v| serde_json::from_value(v).ok())
-                    .unwrap_or_default();
-            if let Err(e) = aidog_stats::cleanup_stats_agg(db, stats_settings.retention_days).await {
-                tracing::warn!(error = %e, "scheduled: cleanup stats_agg failed");
-            }
-            let log_settings: aidog_core::gateway::models::ProxyLogSettings =
-                aidog_db::get_setting(db, "proxy", "logging")
-                    .await
-                    .ok()
-                    .flatten()
-                    .and_then(|v| serde_json::from_value(v).ok())
-                    .unwrap_or_default();
-            aidog_core::proxy_cmd::proxy_log::run_retention_cleanup(db, &log_settings).await;
-            match aidog_db::db_file_size(db).await {
-                Ok(size) if size > VACUUM_THRESHOLD_BYTES => {
-                    match aidog_db::compact_database(db).await {
-                        Ok(r) => tracing::info!(
-                            before = r.before_bytes,
-                            after = r.after_bytes,
-                            "scheduled: full VACUUM completed"
-                        ),
-                        Err(e) => {
-                            tracing::warn!(error = %e, "scheduled: full VACUUM failed, retry next cycle")
-                        }
-                    }
-                }
-                Ok(_) => tracing::debug!("scheduled: db size below VACUUM threshold, skip"),
-                Err(e) => tracing::warn!(error = %e, "scheduled: db_file_size probe failed"),
-            }
+            aidog_core::proxy_cmd::proxy_log::scheduled_cleanup_pass(
+                db,
+                OLDER_THAN_SECS,
+                VACUUM_THRESHOLD_BYTES,
+            )
+            .await;
         }
     });
 
     // registry 灌种：启动一次（编译期内置 → 镜像表，幂等 diff，内容变才写；
     // 远程同步已删 2026-10-21，无周期任务）。
     tokio::spawn(async move {
-        if let Err(e) = aidog_core::gateway::price_sync::seed_registry_from_bundled(aidog_ctx::db()).await {
+        if let Err(e) =
+            aidog_core::gateway::price_sync::seed_registry_from_bundled(aidog_ctx::db()).await
+        {
             tracing::warn!(error = %e, "startup: registry seed from bundled failed");
         }
     });
@@ -471,7 +433,9 @@ fn spawn_scheduled_jobs() {
     // MCP 推荐清单：启动后台预取一次（TTL 24h 内 sync 内部自跳过），失败静默
     // （保留缓存/内置，无 UI 提示）。无手动刷新入口（票 04）。
     tokio::spawn(async move {
-        if let Err(e) = aidog_core::gateway::mcp_recommend::sync_mcp_recommended(aidog_ctx::db()).await {
+        if let Err(e) =
+            aidog_core::gateway::mcp_recommend::sync_mcp_recommended(aidog_ctx::db()).await
+        {
             tracing::warn!(error = %e, "mcp recommended prefetch failed");
         }
     });

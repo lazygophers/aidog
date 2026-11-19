@@ -147,7 +147,10 @@ fn http_entry_roundtrips_url_and_headers() {
     let entry = build_codex_entry(&cfg);
     let tbl = entry.as_table().unwrap();
     assert_eq!(tbl["url"].as_str(), Some("http://127.0.0.1:9890/mcp"));
-    assert_eq!(tbl["http_headers"]["Authorization"].as_str(), Some("Bearer gk_x"));
+    assert_eq!(
+        tbl["http_headers"]["Authorization"].as_str(),
+        Some("Bearer gk_x")
+    );
     assert!(!tbl.contains_key("command"), "http 条目不带 command");
     let back = parse_codex_entry(&entry).unwrap();
     assert_eq!(back.transport, McpTransport::Http);

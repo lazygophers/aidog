@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "../test/render";
+import { act, fireEvent, render, screen, waitFor } from "../test/render";
 
 const api = vi.hoisted(() => ({
   claudeList: vi.fn(),
   claudeSet: vi.fn(),
+  listen: vi.fn(),
   claudeProbe: vi.fn(),
   claudeInstall: vi.fn(),
   claudeSetAgents: vi.fn(),
@@ -16,12 +17,15 @@ const api = vi.hoisted(() => ({
   codexMarketplaceRemove: vi.fn(),
 }));
 vi.mock("../services/api/plugins", () => ({ pluginsApi: api }));
+vi.mock("../services/transport", () => ({ listen: api.listen }));
+
+let onPluginsUpdated: ((event: { payload: unknown }) => void) | undefined;
 
 import { Plugins } from "./Plugins";
 
 const CLAUDE_LIST = [
-  { name: "code-review", source: "/plugins/code-review", pick: null, agents: ["claude-code", "codex"], on: true, skills: ["review"], subagents: ["reviewer"], hooks: [], servers: [], left: [] },
-  { name: "z-docs", source: "/plugins/z", pick: null, agents: ["claude-code"], on: false, skills: [], subagents: [], hooks: [], servers: [], left: [{ code: "commands", args: {} }] },
+  { name: "code-review", source: "/plugins/code-review", scope: null, projectPath: null, canOperate: true, operationError: null, pick: null, agents: ["claude-code", "codex"], on: true, skills: ["review"], subagents: ["reviewer"], hooks: [], servers: [], left: [], external: false },
+  { name: "z-docs", source: "/plugins/z", scope: null, projectPath: null, canOperate: true, operationError: null, pick: null, agents: ["claude-code"], on: false, skills: [], subagents: [], hooks: [], servers: [], left: [{ code: "commands", args: {} }], external: false },
 ];
 const CLAUDE_VIEW = { plugins: CLAUDE_LIST, warnings: [] };
 const CODEX_VIEW = {
@@ -34,6 +38,11 @@ beforeEach(() => {
   api.claudeList.mockResolvedValue(CLAUDE_VIEW);
   api.claudeSet.mockImplementation((name: string, on: boolean) =>
     Promise.resolve({ plugins: CLAUDE_LIST.map((p) => (p.name === name ? { ...p, on } : p)), warnings: [] }));
+  onPluginsUpdated = undefined;
+  api.listen.mockImplementation((_event: string, handler: (event: { payload: unknown }) => void) => {
+    onPluginsUpdated = handler;
+    return Promise.resolve(() => {});
+  });
   api.claudeProbe.mockResolvedValue([{ name: "demo", description: "demo", version: "1.0", rel: "", installed: false }]);
   api.claudeInstall.mockResolvedValue(CLAUDE_VIEW);
   api.claudeSetAgents.mockResolvedValue(CLAUDE_VIEW);
@@ -63,6 +72,31 @@ describe("Plugins", () => {
     await waitFor(() => expect(api.claudeSet).toHaveBeenCalledWith("z-docs", true));
   });
 
+  it("refreshes the Claude list on demand", async () => {
+    const external = { name: "new@m", source: "/x/new", scope: "user" as const, projectPath: null, canOperate: true, operationError: null, pick: null, agents: ["claude-code"], on: true, skills: [], subagents: [], hooks: [], servers: [], left: [], external: true };
+    api.claudeList
+      .mockResolvedValueOnce(CLAUDE_VIEW)
+      .mockResolvedValueOnce({ plugins: [...CLAUDE_LIST, external], warnings: [] });
+    render(<Plugins />);
+    await screen.findByTestId("plugin-row-code-review");
+    fireEvent.click(screen.getByTestId("plugins-refresh"));
+    await screen.findByTestId("plugin-row-new@m-user");
+    expect(api.claudeList).toHaveBeenCalledTimes(2);
+  });
+
+  it("automatically refreshes when Claude config files change", async () => {
+    const external = { name: "external@m", source: "/x/external", scope: "user" as const, projectPath: null, canOperate: true, operationError: null, pick: null, agents: ["claude-code"], on: true, skills: [], subagents: [], hooks: [], servers: [], left: [], external: true };
+    api.claudeList
+      .mockResolvedValueOnce(CLAUDE_VIEW)
+      .mockResolvedValueOnce({ plugins: [...CLAUDE_LIST, external], warnings: [] });
+    render(<Plugins />);
+    await screen.findByTestId("plugin-row-code-review");
+    await waitFor(() => expect(onPluginsUpdated).toBeDefined());
+    await act(async () => onPluginsUpdated?.({ payload: null }));
+    await screen.findByTestId("plugin-row-external@m-user");
+    expect(api.claudeList).toHaveBeenCalledTimes(2);
+  });
+
   it("translates backend warnings by code", async () => {
     api.claudeSet.mockResolvedValue({ plugins: CLAUDE_LIST, warnings: [{ code: "skill_modified", args: { name: "review", agent: "codex" } }] });
     render(<Plugins />);
@@ -89,6 +123,35 @@ describe("Plugins", () => {
     await waitFor(() => expect(api.claudeUpdate).toHaveBeenCalledWith("z-docs"));
     fireEvent.click(screen.getByTestId("plugin-remove-z-docs"));
     await waitFor(() => expect(api.claudeRemove).toHaveBeenCalledWith("z-docs"));
+  });
+
+  it("enables and updates native Claude plugins through the Claude CLI", async () => {
+    const external = { name: "ponytail@ponytail", source: "/x/p", scope: "user" as const, projectPath: null, canOperate: true, operationError: null, pick: null, agents: ["claude-code"], on: true, skills: [], subagents: [], hooks: [], servers: [], left: [], external: true };
+    api.claudeList.mockResolvedValue({ plugins: [...CLAUDE_LIST, external], warnings: [] });
+    api.claudeSet.mockImplementation((name: string, on: boolean) =>
+      Promise.resolve({ plugins: [...CLAUDE_LIST, external].map((p) => (p.name === name ? { ...p, on } : p)), warnings: [] }));
+    render(<Plugins />);
+    await screen.findByTestId("plugin-row-ponytail@ponytail-user");
+    expect(screen.getByTestId("plugin-origin-ponytail@ponytail-user").textContent).toContain("plugins.originClaude");
+    expect(screen.getByTestId("plugin-scope-ponytail@ponytail-user").textContent).toBe("user");
+    expect((screen.getByTestId("plugin-toggle-ponytail@ponytail-user") as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByTestId("plugin-remove-ponytail@ponytail-user") as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByTestId("plugin-agent-ponytail@ponytail-user-claude-code")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("plugin-toggle-ponytail@ponytail-user"));
+    await waitFor(() => expect(api.claudeSet).toHaveBeenCalledWith("ponytail@ponytail", false));
+    fireEvent.click(screen.getByTestId("plugin-update-ponytail@ponytail-user"));
+    await waitFor(() => expect(api.claudeUpdate).toHaveBeenCalledWith("ponytail@ponytail"));
+  });
+
+  it("disables native plugin operations when the project is unavailable", async () => {
+    const external = { name: "far@m", source: "/x/f", scope: "project" as const, projectPath: "/gone/repo", canOperate: false, operationError: "plugins.nativeProjectUnavailable", pick: null, agents: ["claude-code"], on: false, skills: [], subagents: [], hooks: [], servers: [], left: [], external: true };
+    api.claudeList.mockResolvedValue({ plugins: [...CLAUDE_LIST, external], warnings: [] });
+    render(<Plugins />);
+    const row = await screen.findByTestId(`plugin-row-far@m-project-${encodeURIComponent("/gone/repo")}`);
+    expect(row.textContent).toContain("plugins.nativeProjectUnavailable");
+    expect((screen.getByTestId(`plugin-toggle-far@m-project-${encodeURIComponent("/gone/repo")}`) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId(`plugin-update-far@m-project-${encodeURIComponent("/gone/repo")}`) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("adds and removes Codex plugins", async () => {

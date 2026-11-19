@@ -36,6 +36,8 @@ serde_json = { version = "1", features = ["preserve_order"] }
 # YAML（平台分享串导入、Markdown frontmatter）：serde_yaml 已弃用、serde_yml 有 RUSTSEC-2025-0068，
 #   改用 serde_yaml 的维护分支（API 同 serde_yaml 0.9）。
 serde_norway = "0.9"
+# 文件监听（插件页外部变化自动刷新）；与 tauri-plugin-fs 的 watch feature 同版本线。
+notify = "8"
 toml = "1.2"
 url = "2"
 # 异步运行时 / 并发
@@ -129,6 +131,10 @@ strip = true
 # 去掉 unwind 表与 landing pad；任一线程 / tokio 任务 panic 即整个进程中止，
 # 中止前由 aidog_db::logging::install_crash_hook 写崩溃记录（两个入口均安装）。
 panic = "abort"
+
+# dev / test 只保留行号表（panic 回溯仍有文件名与行号），丢变量调试信息以缩小 target/debug、加快编译。
+[profile.dev]
+debug = "line-tables-only"
 
 # =============================================================================
 # root package `aidog`（过渡，C10 才挪 crates/aidog/）

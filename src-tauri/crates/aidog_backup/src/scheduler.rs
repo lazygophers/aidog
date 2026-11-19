@@ -12,6 +12,25 @@ use aidog_db::Db;
 /// 重入防护: 防启动检查与定时器唤醒同帧并发跑两次 backup。
 static BACKUP_RUNNING: AtomicBool = AtomicBool::new(false);
 
+/// 备份调度器唤醒信号（单消费者：scheduler_loop）。
+/// `notify_one` 语义：设置保存时若循环在跑备份（无 waiter），permit 存住，下次立即返回。
+fn backup_wake() -> &'static tokio::sync::Notify {
+    static WAKE: std::sync::OnceLock<tokio::sync::Notify> = std::sync::OnceLock::new();
+    WAKE.get_or_init(tokio::sync::Notify::new)
+}
+
+/// 唤醒备份调度器：立刻重读 [`BackupSettings`] 重算下次到期（设置保存入口调用）。
+pub fn wake_backup_scheduler() {
+    backup_wake().notify_one();
+}
+
+async fn wait_next_backup(delay: Duration) -> bool {
+    tokio::select! {
+        _ = tokio::time::sleep(delay) => false,
+        _ = backup_wake().notified() => true,
+    }
+}
+
 /// throttle 检查: 未启用 / 距上次 < interval → 跳过。
 ///
 /// 供 setup 启动检查 + scheduler loop 共用。
@@ -72,25 +91,56 @@ async fn run_backup_inner(db: &Db) -> Result<PathBuf, String> {
     Ok(path)
 }
 
-/// 常驻调度 loop: 每轮读 settings (即时生效), 到点 → maybe_backup。
-///
-/// tick = min(interval, 60s), 平衡响应性与唤醒开销。进程生命周期内常驻。
+/// 睡到下次备份到点的等待时长（取代旧 60 秒轮询，见 scheduler_loop 注释）。
+/// - 关闭 → 0（调度循环不启动定时器，只等设置变更唤醒）；
+/// - 开启 + 从未备份 → 到期（0）；
+/// - 开启 + 距上次 < interval → 睡到 `last_backup_at + interval`；
+/// - 已到期 → 0。`first_loop` 时 0 值换成 60 秒启动延迟，保持「启动不立即跑」。
+pub fn next_wake_delay(s: &BackupSettings, now_ms: i64, first_loop: bool) -> Duration {
+    if !s.enabled {
+        return Duration::ZERO;
+    }
+    let delay = if s.last_backup_at <= 0 {
+        Duration::ZERO
+    } else {
+        let due_at = s
+            .last_backup_at
+            .saturating_add(s.interval_hours.saturating_mul(3600 * 1000));
+        Duration::from_millis(due_at.saturating_sub(now_ms).max(0) as u64)
+    };
+    if first_loop && delay.is_zero() {
+        Duration::from_secs(60)
+    } else {
+        delay
+    }
+}
+
+/// 常驻调度 loop: 睡到下次备份到期，或被设置变更唤醒后重算。
+/// 关闭时长睡，仅 `backup_settings_set` 的 notify 唤醒，不周期读 DB。
+/// 备份失败后等 60 秒（可被设置变更打断）再进下轮；失败不改 `last_backup_at`，
+/// 下轮仍判定到期 → 实际重试间隔 ≈ 60 秒，与旧 60 秒轮询同节奏。
 ///
 /// 票 08：由 `pub fn spawn_scheduler()`（内部 `tauri::async_runtime::spawn`）改成裸 async
 /// 函数，spawn 交给外壳做 —— 本 crate 因此完全不链 tauri，无界面内核可原样 `tokio::spawn`
 /// 同一个 loop。桌面壳照旧 `tauri::async_runtime::spawn(scheduler_loop())`，行为不变。
 /// （不能在这里 `tokio::spawn`：桌面壳的调用点在 `setup()` 主线程上，不在 runtime 上下文内。）
 pub async fn scheduler_loop() {
-    // 启动不立即跑（用户要求「启动不做定时操作」）；先 sleep 一个 tick 再进入循环，
-    // 周期触发照旧。关机错过的补偿交由周期内 maybe_backup 的到点判定自然吸收。
+    let mut first_loop = true;
     loop {
         let db = aidog_ctx::db();
         let s = BackupSettings::load(db).await.sanitized();
-        // 下一轮 tick: 不超过 60s, 不超过 interval。
-        let tick_secs = (s.interval_hours * 3600).clamp(1, 60) as u64;
-        tokio::time::sleep(Duration::from_secs(tick_secs)).await;
-        if let Err(e) = maybe_backup(db).await {
+        if !s.enabled {
+            first_loop = false;
+            backup_wake().notified().await;
+            continue;
+        }
+        let delay = next_wake_delay(&s, now_millis(), first_loop);
+        first_loop = false;
+        if !wait_next_backup(delay).await
+            && let Err(e) = maybe_backup(db).await
+        {
             tracing::warn!(error = %e, "backup: scheduler maybe_backup failed");
+            let _ = wait_next_backup(Duration::from_secs(60)).await;
         }
     }
 }

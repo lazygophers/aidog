@@ -10,7 +10,7 @@ if ! alive "$ISO/mock.pid"; then
   echo $! > "$ISO/mock.pid"
 fi
 if ! alive "$ISO/kernel.pid"; then
-  args=(); [ "${UI:-1}" = 1 ] && args=(--ui --port "$MGMT_PORT")
+  args=(); [ "${UI:-1}" = 1 ] && args=(--ui)
   # exec：让 $! 就是内核本身的 pid（不 exec 时 $! 是包装子 shell，stop.sh 会认不出）
   (cd "$ISO" && HOME="$ISO" exec nohup "$KERNEL_BIN" ${args[@]+"${args[@]}"} > "$ISO/kernel.log" 2>&1) &
   echo $! > "$ISO/kernel.pid"

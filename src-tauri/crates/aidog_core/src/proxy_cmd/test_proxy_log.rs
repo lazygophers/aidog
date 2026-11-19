@@ -198,3 +198,40 @@ async fn wake_returns_from_long_sleep_immediately() {
         "returning true means: recompute interval, skip cleanup"
     );
 }
+
+// ─── scheduled_cleanup_pass（桌面 / 内核共享清理链单轮）────────────
+
+/// 可观察行为：超 3 天的软删行被硬删（桌面壳与内核两份循环代码合并后的回归护栏）。
+#[tokio::test]
+async fn scheduled_cleanup_pass_purges_old_soft_deleted() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let old = chrono::Utc::now().timestamp_millis() - 4 * 24 * 3600 * 1000_i64;
+    db.call_proxy_log_traced(None, std::panic::Location::caller(), move |c| {
+        c.execute(
+            &format!(
+                "INSERT INTO proxy_log (id, platform_id, group_key, model, source_protocol, \
+                 status_code, input_tokens, output_tokens, cache_tokens, est_cost, is_stream, \
+                 created_at, deleted_at) VALUES ('cleanup-pass', 0, '', 'm', 'anthropic', \
+                 200, 1, 1, 0, 0, 0, {old}, {old})"
+            ),
+            [],
+        )
+    })
+    .await
+    .unwrap();
+    super::scheduled_cleanup_pass(&db, 3 * 24 * 3600, 100 * 1024 * 1024).await;
+    let left: i64 = db
+        .call_read_proxy_log_traced(None, std::panic::Location::caller(), |c| {
+            c.query_row(
+                "SELECT COUNT(*) FROM proxy_log WHERE id = 'cleanup-pass'",
+                [],
+                |r| r.get(0),
+            )
+        })
+        .await
+        .unwrap();
+    assert_eq!(
+        left, 0,
+        "old soft-deleted row should be purged, found {left}"
+    );
+}

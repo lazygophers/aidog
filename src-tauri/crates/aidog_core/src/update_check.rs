@@ -7,6 +7,8 @@ use std::future::Future;
 
 pub const EVENT: &str = "aidog-update-available";
 pub const THROTTLE_MS: i64 = 24 * 60 * 60 * 1000;
+/// 上次检查时间戳的 setting key（`daily_check` 写、外壳调度循环读来算下次醒点）。
+pub const LAST_CHECK_KEY: &str = "last_update_check";
 /// 前端收到更新事件后 emit 的确认；壳收到后调 [`ack`] 清除挂起版本。
 pub const ACK_EVENT: &str = "aidog-update-ack";
 const PENDING_KEY: &str = "pending_update_version";
@@ -16,10 +18,53 @@ pub fn throttled(last_ms: Option<i64>, now_ms: i64) -> bool {
     last_ms.is_some_and(|l| l <= now_ms && now_ms - l < THROTTLE_MS)
 }
 
+/// 睡到「上次检查 + [`THROTTLE_MS`]」到点的等待时长（取代旧每小时空醒）。
+/// 从未检查 / 已到期 / 时间戳在未来（时钟回拨）→ 0；无记录时外壳用 24h fallback，
+/// 自动更新关闭时外壳不设定时器，只等 [`wake_daily_check`]。
+pub fn next_check_delay(last_ms: Option<i64>, now_ms: i64) -> std::time::Duration {
+    let Some(last_ms) = last_ms.filter(|&last| last <= now_ms) else {
+        return std::time::Duration::ZERO;
+    };
+    std::time::Duration::from_millis(
+        last_ms
+            .saturating_add(THROTTLE_MS)
+            .saturating_sub(now_ms)
+            .max(0) as u64,
+    )
+}
+
+fn daily_check_wake() -> &'static tokio::sync::Notify {
+    static WAKE: std::sync::OnceLock<tokio::sync::Notify> = std::sync::OnceLock::new();
+    WAKE.get_or_init(tokio::sync::Notify::new)
+}
+
+/// 设置自动更新开关后调用，立即重算下次检查时间。
+pub fn wake_daily_check() {
+    daily_check_wake().notify_one();
+}
+
+/// 等到下次检查时间；`None` 表示自动更新关闭，只等开关变更唤醒。
+pub async fn wait_next_check(delay: Option<std::time::Duration>) -> bool {
+    match delay {
+        Some(delay) => tokio::select! {
+            _ = tokio::time::sleep(delay) => false,
+            _ = daily_check_wake().notified() => true,
+        },
+        None => {
+            daily_check_wake().notified().await;
+            true
+        }
+    }
+}
+
 async fn put(ctx: &dyn AppCtx, key: &str, value: serde_json::Value) {
     let r = aidog_db::set_setting(
         ctx.db(),
-        aidog_db::models::SetSettingInput { scope: "app".into(), key: key.into(), value },
+        aidog_db::models::SetSettingInput {
+            scope: "app".into(),
+            key: key.into(),
+            value,
+        },
     )
     .await;
     if let Err(e) = r {
@@ -38,7 +83,7 @@ where
     if !crate::system_cmd::auto_update::load_auto_update_enabled(db).await {
         return;
     }
-    let last = match aidog_db::get_setting(db, "app", "last_update_check").await {
+    let last = match aidog_db::get_setting(db, "app", LAST_CHECK_KEY).await {
         Ok(Some(v)) => v.as_i64(),
         _ => None,
     };

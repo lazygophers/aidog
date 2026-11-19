@@ -71,6 +71,12 @@
    **不带 pathspec 的 `git commit`**（此时提交的就是暂存面，规则 1 的例外；
    索引里有不明来源文件时按「开工前核对索引」节处理，不并入提交）。
    agent 驱动不了交互式 `git add -p`，非交互等价手法见下「非交互选择性暂存」节。
+7. **rename + pathspec commit 会漏掉旧路径的删除半边**（2026-11-18 loop-me 文档轮实锤：
+   `git mv docs/adr/0013-*.md docs/adr/0016-*.md` 后 `git commit -- <新路径>`，
+   pathspec 只匹配到 rename 新路径，旧路径删除漏在索引外，多补一笔删除 commit
+   （b68edaea6 + a15a0e43e，净效果等价单 commit）。rename 类提交的 pathspec 必须
+   **两端都写**：`git commit -- <旧路径> <新路径>`；提交后跑 `git status --short`
+   确认 rename 两端都已落，无残留。amend 合并属改历史，未授权不用。
 
 ### 非交互选择性暂存：patch 过滤（2026-11-11 ~ 11-12 中间件 / session id 轮实锤）
 
@@ -148,6 +154,10 @@ perf-backend 收尾轮：PreToolUse hook 把 `git worktree add` 改写经 rtk �
 - **判断工作区状态也走 `/usr/bin/git status --short`**（2026-10-22 入站密钥轮）：
   rtk 包装的 `git status --short` 输出被截断，只列部分已改文件，一度误判改动
   丢失。rtk 版只当摘要，数文件数以 `/usr/bin/git` 为准。
+- **`/usr/bin` 前缀只适用于 git**：rtk 只包装 git，本机 `/usr/bin` 下无 `rm` 等
+  其它命令（`rm` 在 `/bin/rm`）。派发 prompt 与脚本里的删改类命令照常规路径写，
+  不照抄 `/usr/bin` 前缀（2026-11-16 插件预置轮：prompt 写 `/usr/bin/rm`，
+  exit 127 后改 `/bin/rm`）。
 
 ## 构建目录：主仓默认 target，worktree 才用独立 target（2026-11-05 改）
 
@@ -172,6 +182,10 @@ perf-backend 收尾轮：PreToolUse hook 把 `git worktree add` 改写经 rtk �
   `src-tauri/target`、另一会话同时跑 clippy，首跑报 `extern location ... does not exist`，等删除结束后从零重编才绿。
   删 `src-tauri/target` / `.worktrees/.target` 及其子目录（已获授权的前提下）一律先取锁、删完 `rmdir` 锁；
   看到 extern 丢失时先 `ls <target>` + `df -h` 看目录是否正在消失，是就等删除方结束再重跑，不改代码。
+  **取锁+删除的多步危险链写成 `set -e` 脚本文件跑，禁分号串联**（2026-11-16 epic #67 轮实锤）：
+  agent 用 `mkdir lock; rm target; ...; rmdir lock` 分号链，mkdir 失败（锁刚被他会话拿走）后
+  后续 rm 照跑——未持锁删了 25G 主 target，还把别人的锁 rmdir 掉。落盘成文件：开头
+  `set -e`，锁 `mkdir` 失败即整链中止；`rmdir` 只删自己这条链成功创建的锁。
 - **锁只约束守约的会话，磁盘保护押容量不押锁**（2026-11-15 依赖更新轮实锤）：另一会话不经
   `/tmp/aidog-cargo.lock` 直接跑 cargo，锁协议拦不住它；`.worktrees/.target` 全程靠「开跑前
   `df -h <target>`，余量 <10G 不开跑 + 编译期间挂磁盘看门狗」挡住写满盘（<3G 自动停自己的构建
@@ -364,7 +378,8 @@ PR（事后 rebase 修复）。fetch 失败不是回落本地 master 的许可�
 2. push 该分支到 origin + 创建 PR 永久授权（CLAUDE.md git 授权条）；push 前核 `git rev-list --count origin/master..<分支>` 只含本 issue 提交（「推送只走 origin」节的快进检查照跑）。master 与非 issue 分支不在授权内。
 3. PR 仅在该 issue 验收标准全部满足后创建；PR 合并（验收满足后）无需逐次确认，合并回 master 在主仓做，照「共享 checkout 合回 master」节只挪指针、不动工作区脏文件。
 4. 多 issue 并行 = 多 worktree，共用 `<项目根>/.worktrees/.target` 独立 target；同刻只允许一个 cargo（见「构建目录」节）。
-5. PR 合入或废弃后清理 worktree 与分支（全局 `~/.claude/rules/workflow/git-worktree.md`「分支合入或废弃后清理」）。
+5. PR 合入或废弃后清理 worktree 与分支（全局 `~/.claude/rules/worktree/git-worktree.md`「分支合入或废弃后清理」）。
+6. 清理 worktree 前把评审与门禁证据日志移出存档到主仓 `.tmp/pr-<PR号>/`，再删 worktree（2026-11-15~16 epic #67 轮 #171/#177/#179 三轮照此跑通；gate 日志留在 worktree 内，删 worktree 即丢证据）。
 
 ## 多个 agent 同时动主 checkout 的 master：串行（2026-10-29）
 

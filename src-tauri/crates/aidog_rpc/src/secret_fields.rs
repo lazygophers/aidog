@@ -13,15 +13,15 @@ pub const MASK: &str = "***";
 
 /// 密钥字段声明（唯一一处）：JSON 路径后缀；段名忽略大小写与下划线（兼容 camelCase）；数组下标不占段。
 pub const SECRET_PATHS: &[&[&str]] = &[
-    &["api_key"],                  // 平台 API 密钥
-    &["keys"],                     // MCP 工具搜索 provider 多 key（票 11）
-    &["auth_token"],               // 管理接口凭据
-    &["bot_token"],                // 通知渠道：Telegram
-    &["password"],                 // 通知渠道：Email SMTP / 出站代理
-    &["passphrase"],               // 备份 / 导出口令
-    &["private_key_pem"],          // MITM 证书私钥
+    &["api_key"],         // 平台 API 密钥
+    &["keys"],            // MCP 工具搜索 provider 多 key（票 11）
+    &["auth_token"],      // 管理接口凭据
+    &["bot_token"],       // 通知渠道：Telegram
+    &["password"],        // 通知渠道：Email SMTP / 出站代理
+    &["passphrase"],      // 备份 / 导出口令
+    &["private_key_pem"], // MITM 证书私钥
     &["private_key"],
-    &["webhook", "url"],           // 通知渠道：webhook 类（URL 即凭据）
+    &["webhook", "url"], // 通知渠道：webhook 类（URL 即凭据）
     &["bark", "url"],
     &["discord", "url"],
     &["slack", "url"],
@@ -33,13 +33,19 @@ pub const SECRET_PATHS: &[&[&str]] = &[
 pub const SECRET_EXTRA_KEYS: &[&str] = &["auth_header", "auth_template", "balance_api_key"];
 
 fn norm(k: &str) -> String {
-    k.chars().filter(|c| *c != '_').flat_map(char::to_lowercase).collect()
+    k.chars()
+        .filter(|c| *c != '_')
+        .flat_map(char::to_lowercase)
+        .collect()
 }
 
 fn is_secret_path(path: &[String]) -> bool {
     SECRET_PATHS.iter().any(|sp| {
         path.len() >= sp.len()
-            && path[path.len() - sp.len()..].iter().zip(*sp).all(|(a, b)| *a == norm(b))
+            && path[path.len() - sp.len()..]
+                .iter()
+                .zip(*sp)
+                .all(|(a, b)| *a == norm(b))
     })
 }
 
@@ -72,14 +78,20 @@ fn walk(v: &mut Value, path: &mut Vec<String>, f: &mut dyn FnMut(&[String], &mut
 }
 
 fn walk_extra(s: &mut String, path: &mut Vec<String>, f: &mut dyn FnMut(&[String], &mut String)) {
-    let Ok(Value::Object(mut m)) = serde_json::from_str::<Value>(s) else { return };
+    let Ok(Value::Object(mut m)) = serde_json::from_str::<Value>(s) else {
+        return;
+    };
     if walk_extra_obj(&mut m, path, f) {
         *s = Value::Object(m).to_string();
     }
 }
 
 /// 递归：`newapi` 等子对象里的 `balance_api_key` 同样命中；路径带子对象名，回填按路径配对。
-fn walk_extra_obj(m: &mut serde_json::Map<String, Value>, path: &mut Vec<String>, f: &mut dyn FnMut(&[String], &mut String)) -> bool {
+fn walk_extra_obj(
+    m: &mut serde_json::Map<String, Value>,
+    path: &mut Vec<String>,
+    f: &mut dyn FnMut(&[String], &mut String),
+) -> bool {
     let mut changed = false;
     for (k, child) in m.iter_mut() {
         path.push(norm(k));
@@ -110,7 +122,9 @@ pub fn mask_value(v: &mut Value) {
 pub fn restore_value(new: &mut Value, old: &Value) {
     let mut old = old.clone();
     let mut olds: Vec<(Vec<String>, String)> = Vec::new();
-    walk(&mut old, &mut Vec::new(), &mut |p, s| olds.push((p.to_vec(), s.clone())));
+    walk(&mut old, &mut Vec::new(), &mut |p, s| {
+        olds.push((p.to_vec(), s.clone()))
+    });
     // 路径含数组下标不占段，同路径多值时按出现顺序配对。
     let mut used = vec![false; olds.len()];
     walk(new, &mut Vec::new(), &mut |p, s| {
@@ -142,12 +156,19 @@ async fn load_old(cmd: &str, arg: &Value) -> Option<Value> {
             let p = aidog_db::get_platform(db, id).await.ok()??;
             serde_json::to_value(p).ok()
         }
-        "notification_settings_set" => serde_json::to_value(aidog_db::get_notification_settings(db).await).ok(),
+        "notification_settings_set" => {
+            serde_json::to_value(aidog_db::get_notification_settings(db).await).ok()
+        }
         "kernel_settings_set" => aidog_db::get_setting(db, "kernel", "settings").await.ok()?,
-        "proxy_client_set_settings" => aidog_db::get_setting(db, "proxy", "proxy_client").await.ok()?,
+        "proxy_client_set_settings" => aidog_db::get_setting(db, "proxy", "proxy_client")
+            .await
+            .ok()?,
         // 通用设置写入（含 kernel/settings、proxy/proxy_client 这两条带密钥的）：新值在 `value` 下，原值同形包一层。
         "settings_set" => {
-            let old = aidog_db::get_setting(db, arg.get("scope")?.as_str()?, arg.get("key")?.as_str()?).await.ok()??;
+            let old =
+                aidog_db::get_setting(db, arg.get("scope")?.as_str()?, arg.get("key")?.as_str()?)
+                    .await
+                    .ok()??;
             Some(serde_json::json!({ "value": old }))
         }
         _ => None,
@@ -155,8 +176,12 @@ async fn load_old(cmd: &str, arg: &Value) -> Option<Value> {
 }
 
 async fn restore_request(cmd: &str, body: &mut Value) {
-    let Some((_, arg_name)) = RESTORERS.iter().find(|(c, _)| *c == cmd) else { return };
-    let Some(arg) = body.get_mut(*arg_name) else { return };
+    let Some((_, arg_name)) = RESTORERS.iter().find(|(c, _)| *c == cmd) else {
+        return;
+    };
+    let Some(arg) = body.get_mut(*arg_name) else {
+        return;
+    };
     if let Some(old) = load_old(cmd, arg).await {
         restore_value(arg, &old);
     }
@@ -166,7 +191,13 @@ const BODY_LIMIT: usize = 256 * 1024 * 1024;
 
 /// 管理接口 `/rpc/*` 的 HTTP 层：回填请求里的 `***`，脱敏响应里的密钥。
 pub async fn guard(req: Request, next: Next) -> Response {
-    let cmd = req.uri().path().rsplit('/').next().unwrap_or("").to_string();
+    let cmd = req
+        .uri()
+        .path()
+        .rsplit('/')
+        .next()
+        .unwrap_or("")
+        .to_string();
     let (parts, body) = req.into_parts();
     let Ok(bytes) = to_bytes(body, BODY_LIMIT).await else {
         return Response::builder().status(413).body(Body::empty()).unwrap();
@@ -181,9 +212,15 @@ pub async fn guard(req: Request, next: Next) -> Response {
         }
         Err(_) => bytes,
     };
-    let resp = next.run(Request::from_parts(parts, Body::from(bytes))).await;
+    let resp = next
+        .run(Request::from_parts(parts, Body::from(bytes)))
+        .await;
 
-    let is_json = resp.headers().get(CONTENT_TYPE).and_then(|v| v.to_str().ok()).is_some_and(|c| c.contains("json"));
+    let is_json = resp
+        .headers()
+        .get(CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|c| c.contains("json"));
     if !is_json {
         return resp;
     }
@@ -224,7 +261,21 @@ mod tests {
         }]);
         mask_value(&mut v);
         let s = v.to_string();
-        for leak in ["sk-real", "sk-camel", "123:abc", "\"pw\"", "hook?token", "bark/k", "bearer-1", "\"pp\"", "BEGIN", "x-my-key", "Bearer {key}", "sk-search-1", "sk-search-2"] {
+        for leak in [
+            "sk-real",
+            "sk-camel",
+            "123:abc",
+            "\"pw\"",
+            "hook?token",
+            "bark/k",
+            "bearer-1",
+            "\"pp\"",
+            "BEGIN",
+            "x-my-key",
+            "Bearer {key}",
+            "sk-search-1",
+            "sk-search-2",
+        ] {
             assert!(!s.contains(leak), "{leak} 泄漏: {s}");
         }
         assert_eq!(v[0]["base_url"], "http://x");
@@ -232,7 +283,10 @@ mod tests {
         assert_eq!(v[0]["empty"]["api_key"], "", "空值保持空");
         assert_eq!(v[0]["api_key"], MASK);
         let extra: Value = serde_json::from_str(v[0]["extra"].as_str().unwrap()).unwrap();
-        assert_eq!(extra, json!({"auth_header": MASK, "auth_template": MASK, "other": 1}));
+        assert_eq!(
+            extra,
+            json!({"auth_header": MASK, "auth_template": MASK, "other": 1})
+        );
     }
 
     #[test]
@@ -242,7 +296,10 @@ mod tests {
         let mut shown = cfg.clone();
         mask_value(&mut shown);
         let s = shown.to_string();
-        assert!(!s.contains("bk-top") && !s.contains("bk-nested"), "泄漏: {s}");
+        assert!(
+            !s.contains("bk-top") && !s.contains("bk-nested"),
+            "泄漏: {s}"
+        );
         let e: Value = serde_json::from_str(shown[0]["extra"].as_str().unwrap()).unwrap();
         assert_eq!(e["balance_api_key"], MASK);
         assert_eq!(e["newapi"]["balance_api_key"], MASK);
@@ -269,7 +326,10 @@ mod tests {
         let mut new = json!({"api_key": "***", "extra": "{\"auth_header\":\"***\"}", "channels": {"webhook": {"url": "https://new"}}});
         restore_value(&mut new, &old);
         assert_eq!(new["api_key"], "sk-old");
-        assert_eq!(new["channels"]["webhook"]["url"], "https://new", "第三方写入新值照常生效");
+        assert_eq!(
+            new["channels"]["webhook"]["url"], "https://new",
+            "第三方写入新值照常生效"
+        );
         let extra: Value = serde_json::from_str(new["extra"].as_str().unwrap()).unwrap();
         assert_eq!(extra["auth_header"], "x-k");
     }
@@ -287,13 +347,26 @@ mod tests {
         for leak in ["tvly-1", "tvly-2", "exa-1"] {
             assert!(!s.contains(leak), "{leak} 泄漏: {s}");
         }
-        assert_eq!(shown["value"]["search"]["services"]["tavily"]["keys"], json!([MASK, MASK]));
-        assert_eq!(shown["value"]["search"]["sources"], json!(["tavily", "exa"]), "非密钥字段不遮");
+        assert_eq!(
+            shown["value"]["search"]["services"]["tavily"]["keys"],
+            json!([MASK, MASK])
+        );
+        assert_eq!(
+            shown["value"]["search"]["sources"],
+            json!(["tavily", "exa"]),
+            "非密钥字段不遮"
+        );
         // 前端把遮罩原样提交（tavily 第 2 个 key 换新值）→ 同路径按序回填
         let mut submit = shown.clone();
         submit["value"]["search"]["services"]["tavily"]["keys"][1] = json!("tvly-new");
         restore_value(&mut submit, &cfg);
-        assert_eq!(submit["value"]["search"]["services"]["tavily"]["keys"], json!(["tvly-1", "tvly-new"]));
-        assert_eq!(submit["value"]["search"]["services"]["exa"]["keys"], json!(["exa-1"]));
+        assert_eq!(
+            submit["value"]["search"]["services"]["tavily"]["keys"],
+            json!(["tvly-1", "tvly-new"])
+        );
+        assert_eq!(
+            submit["value"]["search"]["services"]["exa"]["keys"],
+            json!(["exa-1"])
+        );
     }
 }

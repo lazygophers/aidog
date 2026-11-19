@@ -1,7 +1,7 @@
 use crate::gateway;
 #[cfg(all(feature = "desktop", not(target_os = "macos")))]
 use crate::shared::*;
-use aidog_db::{self as db, Db};
+use aidog_db::{self as db, Db, TrayConfig};
 use gateway::models::*;
 #[cfg(all(feature = "desktop", not(target_os = "macos")))]
 use std::future::Future;
@@ -223,7 +223,9 @@ fn line_gap_text(
     if idx == 0 {
         lead_gap.cloned().unwrap_or_default()
     } else {
-        gaps.get(idx - 1).and_then(|g| g.clone()).unwrap_or_default()
+        gaps.get(idx - 1)
+            .and_then(|g| g.clone())
+            .unwrap_or_default()
     }
 }
 
@@ -473,8 +475,12 @@ pub(crate) fn set_tray_attributed_title(
                     let row2_align = col.align_row2.as_deref().unwrap_or(&col.align);
                     let col_w = col_widths.get(idx).copied().unwrap_or(0.0);
                     let aligned = align_text(&line2, col_w, row2_font, row2_align);
-                    result
-                        .appendAttributedString(&make_part(&aligned, row2_font, &col.render_color(), &para));
+                    result.appendAttributedString(&make_part(
+                        &aligned,
+                        row2_font,
+                        &col.render_color(),
+                        &para,
+                    ));
                 }
             }
             // 值行行尾不重复画 trail 分隔符（同 lead/中间 gap：每边界只画一条，见 line_gap_text）。
@@ -608,7 +614,9 @@ pub(crate) fn platform_item_parts(
             Some(b) => {
                 let rem = (b.amount - b.consumed).max(0.0);
                 match manual_budget_unit_suffix(&b.unit) {
-                    Some(suffix) => format!("{suffix}{}", trim_trailing_zeros(&format!("{rem:.0}"))),
+                    Some(suffix) => {
+                        format!("{suffix}{}", trim_trailing_zeros(&format!("{rem:.0}")))
+                    }
                     None => tray_money(rem, cur, 2),
                 }
             }
@@ -616,7 +624,11 @@ pub(crate) fn platform_item_parts(
         }
     } else {
         // est_balance_remaining 是平台原币种余额，先折 USD 再按显示币种换算。
-        tray_money(cur.balance_to_usd(platform.est_balance_remaining, balance_ccy), cur, 2)
+        tray_money(
+            cur.balance_to_usd(platform.est_balance_remaining, balance_ccy),
+            cur,
+            2,
+        )
     };
     (name, value)
 }
@@ -712,7 +724,10 @@ pub(crate) fn platform_item_value(
                 })
             }
             // 重置剩余时间 reset_time（倒计时，旧值 reset_in: 同）与重置时刻 reset_at（仅绝对时刻）是两个独立指标。
-            m if m.starts_with("reset_time:") || m.starts_with("reset_at:") || m.starts_with("reset_in:") => {
+            m if m.starts_with("reset_time:")
+                || m.starts_with("reset_at:")
+                || m.starts_with("reset_in:") =>
+            {
                 // 重置时刻 = window_start + cycle（与 algo.rs remain 推算同式）；cycle 未知 / 无起点 → 跳过；倒计时已过期 → 跳过。
                 let (kind, name) = m.split_once(':')?;
                 let tier = plan.tiers.iter().find(|t| t.name == name)?;
@@ -815,7 +830,11 @@ fn format_countdown(reset_ms: i64, now_ms: i64, fmt: &str) -> Option<String> {
         "clock" if d > 0 => format!("{d}天 {h}:{m:02}"),
         "clock" => format!("{h}:{m:02}"),
         _ => {
-            let (ud, uh, um) = if fmt == "compact" { ("d", "h", "m") } else { ("天", "小时", "分") };
+            let (ud, uh, um) = if fmt == "compact" {
+                ("d", "h", "m")
+            } else {
+                ("天", "小时", "分")
+            };
             [(d, ud), (h, uh), (m, um)]
                 .iter()
                 .filter(|(n, _)| *n > 0)
@@ -869,6 +888,58 @@ pub(crate) fn peak_status(platform: &Platform, now_ms: i64) -> TrayPeakStatus {
             1.0
         },
     }
+}
+
+/// 托盘定时器唤醒信号（保存托盘配置时 notify；定时循环收到后重算唤醒节奏）。
+fn tray_timer_wake() -> &'static tokio::sync::Notify {
+    static WAKE: std::sync::OnceLock<tokio::sync::Notify> = std::sync::OnceLock::new();
+    WAKE.get_or_init(tokio::sync::Notify::new)
+}
+
+/// 保存托盘配置后调用：托盘定时循环立刻重算唤醒节奏（分钟边界 / 本地 0 点）。
+pub fn wake_tray_timer() {
+    tray_timer_wake().notify_one();
+}
+
+/// 托盘定时循环等待：周期到点或配置变更谁先到。
+/// 返回 `true` = 配置变更唤醒（调用方重算节奏即可，`tray-refresh` 已触发即时刷新）；
+/// `false` = 周期到点（调用方刷新托盘）。
+pub async fn wait_tray_timer(delay: std::time::Duration) -> bool {
+    tokio::select! {
+        _ = tokio::time::sleep(delay) => false,
+        _ = tray_timer_wake().notified() => true,
+    }
+}
+
+/// 托盘当前配置是否含重置倒计时指标（`reset_time:*` / `reset_in:*`，含旧值）。
+/// 托盘定时器据此决定唤醒节奏：有 → 按分钟边界醒；无 → 只在本地 0 点醒。
+/// `reset_at:` 是绝对时刻文案，不随分钟变化，不计入。
+pub fn tray_config_has_countdown(config: &TrayConfig) -> bool {
+    config.items.iter().any(|item| {
+        item.enabled
+            && item.item_type == "platform"
+            && item.metrics.as_ref().is_some_and(|metrics| {
+                metrics.iter().any(|metric| {
+                    metric.starts_with("reset_time:") || metric.starts_with("reset_in:")
+                })
+            })
+    })
+}
+
+/// 带倒计时按分钟边界刷新；否则只等午夜。两者均受下次午夜上限约束。
+pub fn tray_refresh_delay(
+    has_countdown: bool,
+    seconds_into_minute: u32,
+    seconds_to_midnight: u64,
+) -> std::time::Duration {
+    let seconds = if has_countdown {
+        (60 - seconds_into_minute as u64)
+            .max(1)
+            .min(seconds_to_midnight)
+    } else {
+        seconds_to_midnight
+    };
+    std::time::Duration::from_secs(seconds)
 }
 
 /// 从托盘配置生成有序渲染布局（已按 order 排序、跳过 disabled、跳过取数失败项）。
@@ -990,10 +1061,13 @@ pub(crate) async fn tray_layout_with_stats(
                         .map(gateway::manual_budget::remaining)
                         .sum();
                     let balance = platform.est_balance_remaining.max(manual_total);
-                    let days_remaining = match aidog_stats::get_platform_hourly_rate(db, platform.id).await {
-                        Ok(Some(rate)) if rate > 0.0 && balance > 0.0 => Some((balance / rate) / 24.0),
-                        _ => None,
-                    };
+                    let days_remaining =
+                        match aidog_stats::get_platform_hourly_rate(db, platform.id).await {
+                            Ok(Some(rate)) if rate > 0.0 && balance > 0.0 => {
+                                Some((balance / rate) / 24.0)
+                            }
+                            _ => None,
+                        };
                     level = platform_item_level(platform, item, days_remaining, now_ms);
                 }
                 (platform.name.clone(), value)
@@ -1066,7 +1140,11 @@ pub(crate) async fn tray_layout_with_stats(
         });
     }
 
-    let trail_gap = if columns.is_empty() { None } else { pending_sep };
+    let trail_gap = if columns.is_empty() {
+        None
+    } else {
+        pending_sep
+    };
     TrayLayout {
         columns,
         gaps,

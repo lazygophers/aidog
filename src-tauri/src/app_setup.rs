@@ -26,13 +26,13 @@ use tauri::tray::TrayIconBuilder;
 #[cfg(target_os = "macos")]
 async fn refresh_menu_bar(app: &tauri::AppHandle) -> Result<(), String> {
     let state = aidog_core::menubar::collect_state(aidog_ctx::db()).await;
-    let (tx, rx) = std::sync::mpsc::channel();
+    let (tx, rx) = tokio::sync::oneshot::channel();
     app.run_on_main_thread(move || {
         aidog_core::menubar::render(state);
         let _ = tx.send(());
     })
     .map_err(|e| e.to_string())?;
-    rx.recv().map_err(|e| e.to_string())
+    rx.await.map_err(|e| e.to_string())
 }
 
 /// 与 `refresh_menu_bar` 同名异构：非 macOS 保持既有 Tauri 菜单重建。
@@ -298,8 +298,8 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     // spawn 由外壳做 —— 这里仍是 tauri::async_runtime，行为与之前一字不差。
     tauri::async_runtime::spawn(aidog_backup::scheduler_loop());
 
-    // 每日检查更新（原前端 localStorage 节流）：启动 30s 后起、每小时过一次 24h 节流闸。
-    // 延迟是为让非静默启动的界面先挂上监听（事件不排队）。
+    // 每日检查更新（原前端 localStorage 节流）：启动 30s 后首次检查，之后睡到上次检查 +24h。
+    // 延迟是为让非静默启动的界面先挂上监听；关闭自动更新时只等开关变更事件。
     {
         use tauri_plugin_updater::UpdaterExt;
         let handle = app.handle().clone();
@@ -312,10 +312,34 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                     .unwrap_or(0);
                 aidog_core::update_check::daily_check(aidog_ctx::ctx(), now_ms, || async {
                     let u = handle.updater().map_err(|e| e.to_string())?;
-                    Ok(u.check().await.map_err(|e| e.to_string())?.map(|u| u.version))
+                    Ok(u.check()
+                        .await
+                        .map_err(|e| e.to_string())?
+                        .map(|u| u.version))
                 })
                 .await;
-                tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
+                let last = aidog_db::get_setting(
+                    aidog_ctx::db(),
+                    "app",
+                    aidog_core::update_check::LAST_CHECK_KEY,
+                )
+                .await
+                .ok()
+                .flatten()
+                .and_then(|v| v.as_i64());
+                let enabled = aidog_db::get_setting(aidog_ctx::db(), "app", "auto_update_enabled")
+                    .await
+                    .ok()
+                    .flatten()
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(true);
+                let delay = enabled.then(|| {
+                    last.map(|last| aidog_core::update_check::next_check_delay(Some(last), now_ms))
+                        .unwrap_or(std::time::Duration::from_millis(
+                            aidog_core::update_check::THROTTLE_MS as u64,
+                        ))
+                });
+                let _ = aidog_core::update_check::wait_next_check(delay).await;
             }
         });
     }
@@ -398,79 +422,15 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                     "scheduled_cleanup",
                     trace_id = %logging::new_trace_id()
                 );
-                async {
-                            if let Some(db) = handle.try_state::<Db>() {
-                                match aidog_db::purge_all_soft_deleted(&db, older_than_secs).await {
-                                    Ok(map) if !map.is_empty() && map.values().any(|&n| n > 0) => {
-                                        tracing::info!(
-                                            purged = ?map,
-                                            "scheduled: purged old soft-deleted rows across all tables"
-                                        );
-                                    }
-                                    Ok(_) => tracing::debug!(
-                                        "scheduled: purge_all_soft_deleted ran, nothing to delete"
-                                    ),
-                                    Err(e) => tracing::warn!(
-                                        error = %e,
-                                        "scheduled: purge_all_soft_deleted failed (all tables errored)"
-                                    ),
-                                }
-                                // 通知收件箱 retention 硬删（默认 7 天；inbox_retention_days=0 → 永不清理）。
-                                let retention_days = aidog_db::get_notification_settings(&db).await.inbox_retention_days;
-                                if let Err(e) = aidog_db::cleanup_notifications(&db, retention_days).await {
-                                    tracing::warn!(error = %e, "scheduled: cleanup notifications failed");
-                                }
-                                if let Err(e) = aidog_db::cleanup_session_name_cache(&db).await {
-                                    tracing::warn!(error = %e, "scheduled: cleanup session_name_cache failed");
-                                }
-                                // 聚合统计表 retention 硬删（默认 365 天；stats retention_days=0 → 永不清理）。
-                                let stats_settings: gateway::models::StatsSettings = aidog_db::get_setting(&db, "stats", "settings").await
-                                    .ok().flatten().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default();
-                                if let Err(e) = aidog_stats::cleanup_stats_agg(&db, stats_settings.retention_days).await {
-                                    tracing::warn!(error = %e, "scheduled: cleanup stats_agg failed");
-                                }
-                                // proxy_log 三级 retention（默认 7d/7d/90d 保留不动）：复用
-                                // settings_set/cleanup_expired 同一清理链，单步失败 warn 容错。
-                                // purge_deleted_proxy_logs 内部已调 incremental_vacuum(100) 回收
-                                // 小块 free pages；大块回收由阈值 VACUUM 兜底。
-                                let log_settings: gateway::models::ProxyLogSettings = aidog_db::get_setting(&db, "proxy", "logging").await
-                                    .ok().flatten().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default();
-                                aidog_core::proxy_cmd::proxy_log::run_retention_cleanup(&db, &log_settings).await;
-                                // 阈值触发全量 VACUUM：胀库（>100MB）时整库重建回收大块 free pages。
-                                // 失败仅 warn（锁冲突 / 磁盘满等），不阻塞后续周期。
-                                match aidog_db::db_file_size(&db).await {
-                                    Ok(size) if size > VACUUM_THRESHOLD_BYTES => {
-                                        tracing::info!(
-                                            size_bytes = size,
-                                            threshold = VACUUM_THRESHOLD_BYTES,
-                                            "scheduled: db size exceeds threshold, running full VACUUM"
-                                        );
-                                        match aidog_db::compact_database(&db).await {
-                                            Ok(r) => tracing::info!(
-                                                before = r.before_bytes,
-                                                after = r.after_bytes,
-                                                "scheduled: full VACUUM completed"
-                                            ),
-                                            Err(e) => tracing::warn!(
-                                                error = %e,
-                                                "scheduled: full VACUUM failed (locked or disk full), will retry next cycle"
-                                            ),
-                                        }
-                                    }
-                                    Ok(size) => tracing::debug!(
-                                        size_bytes = size,
-                                        threshold = VACUUM_THRESHOLD_BYTES,
-                                        "scheduled: db size below VACUUM threshold, skip"
-                                    ),
-                                    Err(e) => tracing::warn!(
-                                        error = %e,
-                                        "scheduled: db_file_size probe failed, skip VACUUM this cycle"
-                                    ),
-                                }
-                            }
-                        }
-                        .instrument(cycle_span)
-                        .await;
+                if let Some(db) = handle.try_state::<Db>() {
+                    aidog_core::proxy_cmd::proxy_log::scheduled_cleanup_pass(
+                        &db,
+                        older_than_secs,
+                        VACUUM_THRESHOLD_BYTES,
+                    )
+                    .instrument(cycle_span)
+                    .await;
+                }
             }
         });
     }
@@ -540,7 +500,8 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                         tracing::error!(port, error = %e, "menubar: proxy start failed");
                         // 内核直接发系统通知（界面开不开都一条）+ 复用 tray-refresh 确认未启动态。
                         use tauri::Emitter;
-                        aidog_core::ui_notice::notify_proxy_start_failed(aidog_ctx::ctx(), &e).await;
+                        aidog_core::ui_notice::notify_proxy_start_failed(aidog_ctx::ctx(), &e)
+                            .await;
                         let _ = app_handle.emit("tray-refresh", ());
                     }
                 });
@@ -591,7 +552,12 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                     let scale = app
                         .get_webview_window(crate::ui_window::LABEL)
                         .and_then(|w| w.scale_factor().ok())
-                        .or_else(|| app.primary_monitor().ok().flatten().map(|m| m.scale_factor()))
+                        .or_else(|| {
+                            app.primary_monitor()
+                                .ok()
+                                .flatten()
+                                .map(|m| m.scale_factor())
+                        })
                         .unwrap_or(2.0);
                     let (rx, ry) = match rect.position {
                         tauri::Position::Physical(p) => (p.x as f64 / scale, p.y as f64 / scale),
@@ -627,7 +593,8 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                             tracing::error!(port, error = %e, "tray: proxy start failed");
                             // 内核直接发系统通知 + 复用既有 tray-refresh 事件确认未启动态。
                             use tauri::Emitter;
-                            aidog_core::ui_notice::notify_proxy_start_failed(aidog_ctx::ctx(), &e).await;
+                            aidog_core::ui_notice::notify_proxy_start_failed(aidog_ctx::ctx(), &e)
+                                .await;
                             let _ = app_handle.emit("tray-refresh", ());
                         }
                     });
@@ -678,30 +645,38 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         });
     }
 
-    // 定时托盘刷新 + 跨日重算：托盘标题（含「今日花费/Token/请求」today_usage）此前
-    // 完全由事件驱动（每请求 / quota 真查 / 配置变更 emit "tray-refresh"）。应用跨本地
-    // 00:00 仍空闲（无新请求）时无任何事件触发 refresh_tray_menu，today_stats 的 SQL 窗口
-    // 已滚到新一天，但标题仍冻结在昨日累计值 → 与手动打开 popover（实时查 today_stats）不一致。
-    // 这里补一个常驻定时器：粗粒度 5 分钟兜底刷新 + 精确对齐下一次本地 00:00，保证跨日后
-    // 标题立即重算。非热路径（≤ 每 5 分钟一次 today_stats 查询 + set_title），不引入高频轮询。
+    // 托盘标题的 today_usage 由事件驱动刷新；应用跨本地 00:00 仍空闲时需定时重算，
+    // 否则 today_stats 已进入新一天而标题仍冻结在昨日累计值。
+    // 有 reset_time/reset_in 倒计时项时按分钟边界刷新；没有时只在本地 00:00 刷新。
+    // tray-refresh 事件仍走上方 200ms 防抖 listener；保存托盘配置会唤醒此 loop 重算节奏。
     #[cfg(target_os = "macos")]
     {
         let handle = app.handle().clone();
         tauri::async_runtime::spawn(async move {
-            use chrono::{Local, TimeZone};
+            use chrono::{Local, TimeZone, Timelike};
             use tracing::Instrument;
-            let coarse = std::time::Duration::from_secs(300);
             loop {
-                // 距下一次本地 00:00 的秒数（含 1s 余量越过边界），与粗粒度间隔取小者。
                 let now = Local::now();
                 let secs_to_midnight = (now + chrono::Duration::days(1))
                     .date_naive()
                     .and_hms_opt(0, 0, 0)
                     .and_then(|m| Local.from_local_datetime(&m).single())
                     .map(|m| (m - now).num_seconds().max(0) as u64 + 1)
-                    .unwrap_or(coarse.as_secs());
-                let sleep = coarse.min(std::time::Duration::from_secs(secs_to_midnight));
-                tokio::time::sleep(sleep).await;
+                    .unwrap_or(24 * 3600);
+                let config = aidog_db::get_tray_config(aidog_ctx::db())
+                    .await
+                    .ok()
+                    .flatten();
+                let delay = aidog_core::tray_render::tray_refresh_delay(
+                    config
+                        .as_ref()
+                        .is_some_and(aidog_core::tray_render::tray_config_has_countdown),
+                    now.second(),
+                    secs_to_midnight,
+                );
+                if aidog_core::tray_render::wait_tray_timer(delay).await {
+                    continue;
+                }
                 // 每次托盘刷新一个真实唯一链路 id：本次 today_stats 等 SQL 共享该 id。
                 let cycle_span = tracing::info_span!(
                     "tray_refresh_tick",

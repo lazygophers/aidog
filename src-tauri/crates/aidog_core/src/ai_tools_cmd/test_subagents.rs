@@ -37,14 +37,18 @@ fn claude_front_matter_carries_skills_and_mcp_servers() {
     c.mcp_servers = vec!["y".into()];
     sync_entry(&mut c, &d);
     let v: toml::Table =
-        toml::from_str(&std::fs::read_to_string(d.codex.join("agents/bound.toml")).unwrap()).unwrap();
+        toml::from_str(&std::fs::read_to_string(d.codex.join("agents/bound.toml")).unwrap())
+            .unwrap();
     assert!(!v.contains_key("skills"));
     assert!(!v.contains_key("mcpServers"));
 }
 
 #[test]
 fn capabilities_claude_skills_mcp_codex_model_only() {
-    assert_eq!(agent_capabilities(AGENT_CLAUDE), vec!["skills", "mcpServers"]);
+    assert_eq!(
+        agent_capabilities(AGENT_CLAUDE),
+        vec!["skills", "mcpServers"]
+    );
     assert_eq!(agent_capabilities(AGENT_CODEX), vec!["model"]);
 }
 
@@ -74,7 +78,10 @@ fn writes_claude_markdown_and_codex_toml() {
     assert_eq!(v["name"].as_str(), Some("reviewer"));
     assert_eq!(v["description"].as_str(), Some("Reviews code"));
     assert_eq!(v["model"].as_str(), Some("gpt-5"));
-    assert_eq!(v["developer_instructions"].as_str(), Some("You review code.\n"));
+    assert_eq!(
+        v["developer_instructions"].as_str(),
+        Some("You review code.\n")
+    );
     assert_eq!(s.written.len(), 2);
     assert_eq!(agent_status(&s, AGENT_CLAUDE, &d), "on");
     assert_eq!(agent_status(&s, AGENT_CODEX, &d), "on");
@@ -83,7 +90,8 @@ fn writes_claude_markdown_and_codex_toml() {
     let mut s2 = sub("plain", &[AGENT_CODEX]);
     sync_entry(&mut s2, &d);
     let v: toml::Table =
-        toml::from_str(&std::fs::read_to_string(d.codex.join("agents/plain.toml")).unwrap()).unwrap();
+        toml::from_str(&std::fs::read_to_string(d.codex.join("agents/plain.toml")).unwrap())
+            .unwrap();
     assert!(!v.contains_key("model"));
 }
 
@@ -99,7 +107,10 @@ fn disable_deletes_only_own_unmodified_file() {
 
     s.agents.clear();
     sync_entry(&mut s, &d);
-    assert!(!d.claude.join("agents/reviewer.md").exists(), "own file removed");
+    assert!(
+        !d.claude.join("agents/reviewer.md").exists(),
+        "own file removed"
+    );
     assert!(!s.written.contains_key(AGENT_CLAUDE));
     assert!(codex_path.exists(), "user-modified file kept");
     assert_eq!(agent_status(&s, AGENT_CODEX, &d), "modified");
@@ -140,7 +151,10 @@ fn import_have_update_edited() {
     let tmp = tempfile::tempdir().unwrap();
     let d = dirs_in(tmp.path());
     let src = tmp.path().join("repo");
-    write(&src.join("agents/alpha.md"), &agent_md("Alpha Agent", "first", "A body"));
+    write(
+        &src.join("agents/alpha.md"),
+        &agent_md("Alpha Agent", "first", "A body"),
+    );
     write(&src.join("beta.md"), &agent_md("beta", "second", "B body"));
     write(&src.join("README.md"), "# no front matter");
     write(&src.join("noDesc.md"), "---\nname: x\n---\nbody");
@@ -154,7 +168,10 @@ fn import_have_update_edited() {
     let mut added = r.added.clone();
     added.sort();
     assert_eq!(added, vec!["alpha-agent", "beta"]);
-    assert!(d.claude.join("agents/alpha-agent.md").exists(), "ticked agent written");
+    assert!(
+        d.claude.join("agents/alpha-agent.md").exists(),
+        "ticked agent written"
+    );
     let alpha = list.iter().find(|s| s.name == "alpha-agent").unwrap();
     assert_eq!(alpha.description, "first");
     assert_eq!(alpha.prompt, "A body");
@@ -165,20 +182,29 @@ fn import_have_update_edited() {
     assert!(r.added.is_empty());
 
     // 上游改了 alpha、本地未改 → update；本地改了 beta、上游也改 → edited（不动）
-    write(&src.join("agents/alpha.md"), &agent_md("Alpha Agent", "first v2", "A2"));
+    write(
+        &src.join("agents/alpha.md"),
+        &agent_md("Alpha Agent", "first v2", "A2"),
+    );
     list.iter_mut().find(|s| s.name == "beta").unwrap().prompt = "mine".into();
     write(&src.join("beta.md"), &agent_md("beta", "second v2", "B2"));
     let r = import_into(&mut list, &src, &source, &[], None, &d);
     assert_eq!(r.updated, vec!["alpha-agent"]);
     assert_eq!(r.edited, vec!["beta"]);
     let alpha = list.iter().find(|s| s.name == "alpha-agent").unwrap();
-    assert_eq!((alpha.description.as_str(), alpha.prompt.as_str()), ("first v2", "A2"));
+    assert_eq!(
+        (alpha.description.as_str(), alpha.prompt.as_str()),
+        ("first v2", "A2")
+    );
     assert_eq!(
         std::fs::read_to_string(d.claude.join("agents/alpha-agent.md")).unwrap(),
         "---\nname: alpha-agent\ndescription: \"first v2\"\n---\n\nA2",
         "update rewrites own file"
     );
-    assert_eq!(list.iter().find(|s| s.name == "beta").unwrap().prompt, "mine");
+    assert_eq!(
+        list.iter().find(|s| s.name == "beta").unwrap().prompt,
+        "mine"
+    );
     assert_eq!(list.len(), 2);
 }
 
@@ -187,13 +213,25 @@ fn import_shallow_name_wins_deep_conflicts() {
     let tmp = tempfile::tempdir().unwrap();
     let d = dirs_in(tmp.path());
     let src = tmp.path().join("repo");
-    write(&src.join("reviewer.md"), &agent_md("reviewer", "shallow", "top"));
-    write(&src.join("nested/reviewer.md"), &agent_md("reviewer", "deep", "buried"));
-    write(&src.join("nested/deeper/reviewer.md"), &agent_md("reviewer", "deepest", "x"));
+    write(
+        &src.join("reviewer.md"),
+        &agent_md("reviewer", "shallow", "top"),
+    );
+    write(
+        &src.join("nested/reviewer.md"),
+        &agent_md("reviewer", "deep", "buried"),
+    );
+    write(
+        &src.join("nested/deeper/reviewer.md"),
+        &agent_md("reviewer", "deepest", "x"),
+    );
     let mut list = Vec::new();
     let r = import_into(&mut list, &src, "s", &[], None, &d);
     assert_eq!(r.added, vec!["reviewer"]);
-    assert_eq!(r.conflicts, vec!["nested/reviewer.md", "nested/deeper/reviewer.md"]);
+    assert_eq!(
+        r.conflicts,
+        vec!["nested/reviewer.md", "nested/deeper/reviewer.md"]
+    );
     let top = list.iter().find(|s| s.name == "reviewer").unwrap();
     assert_eq!(top.prompt, "top");
     assert_eq!(list.len(), 1, "deep duplicates not imported");
@@ -237,7 +275,11 @@ fn git(dir: &Path, args: &[&str]) {
         .env("GIT_COMMITTER_EMAIL", "t@t")
         .output()
         .unwrap();
-    assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "git {args:?}: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
 }
 
 /// git 导入路径：tempdir 建裸仓库，经本地 file:// 克隆后导入（不触外网）。
@@ -246,12 +288,25 @@ async fn import_from_git_bare_repo_via_file_url() {
     let g = aidog_db::test_support::HomeGuard::new();
     let tmp = tempfile::tempdir().unwrap();
     let origin = tmp.path().join("origin");
-    write(&origin.join("agents/helper.md"), &agent_md("helper", "d", "p"));
+    write(
+        &origin.join("agents/helper.md"),
+        &agent_md("helper", "d", "p"),
+    );
     git(&origin, &["init", "-q", "-b", "main"]);
     git(&origin, &["add", "."]);
     git(&origin, &["commit", "-q", "-m", "init", "--", "."]);
     let bare = tmp.path().join("origin.git");
-    git(tmp.path(), &["clone", "-q", "--bare", "--", origin.to_str().unwrap(), bare.to_str().unwrap()]);
+    git(
+        tmp.path(),
+        &[
+            "clone",
+            "-q",
+            "--bare",
+            "--",
+            origin.to_str().unwrap(),
+            bare.to_str().unwrap(),
+        ],
+    );
 
     let url = format!("file://{}", bare.display());
     let (root, tmpdir) = stage_source(&url).await.unwrap();
@@ -260,7 +315,10 @@ async fn import_from_git_bare_repo_via_file_url() {
     let mut list = Vec::new();
     let r = import_into(&mut list, &root, &url, &[AGENT_CLAUDE.into()], None, &d);
     assert_eq!(r.added, vec!["helper"]);
-    assert!(d.claude.join("agents/helper.md").exists(), "written from cloned repo");
+    assert!(
+        d.claude.join("agents/helper.md").exists(),
+        "written from cloned repo"
+    );
     drop(tmpdir);
     let _ = g;
 }

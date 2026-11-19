@@ -1,8 +1,8 @@
 //! 内置推荐清单门禁：schema 可解析、11 项、七字段无损往返到 McpUpdatePayload。
 
-use crate::recommended::{bundled_mcp_recommended, RecommendedManifest};
-use crate::types::McpTransport;
 use crate::McpUpdatePayload;
+use crate::recommended::{RecommendedManifest, bundled_mcp_recommended};
+use crate::types::McpTransport;
 
 const LOCALES: [&str; 8] = [
     "zh-Hans", "en-US", "ar-SA", "fr-FR", "de-DE", "ru-RU", "ja-JP", "es-ES",
@@ -65,7 +65,11 @@ fn entries_metadata_valid() {
         }
         // env 值一律空占位：清单不存敏感真值。
         for v in e.env.values() {
-            assert!(v.is_empty(), "{}: env value must be empty placeholder", e.name);
+            assert!(
+                v.is_empty(),
+                "{}: env value must be empty placeholder",
+                e.name
+            );
         }
     }
 }
@@ -74,7 +78,12 @@ fn entries_metadata_valid() {
 fn entries_transport_and_payload_roundtrip() {
     for e in manifest().entries {
         let t = McpTransport::parse(&e.transport);
-        assert_eq!(t.as_str(), e.transport, "{}: transport not canonical", e.name);
+        assert_eq!(
+            t.as_str(),
+            e.transport,
+            "{}: transport not canonical",
+            e.name
+        );
         match t {
             McpTransport::Stdio => assert!(!e.command.is_empty(), "{}: stdio no command", e.name),
             McpTransport::Http | McpTransport::Sse => {

@@ -305,6 +305,7 @@ pub async fn tray_config_set(
     // C8 cmd-tray：tray.rs 迁 commands_tray 后，跨 crate 边禁直调 refresh_tray_menu。
     // 改 emit "tray-refresh" event，复用 app_setup.rs 现有 listener（C4 cmd-proxy 模式）。
     aidog_ctx::emit_unit("tray-refresh");
+    crate::tray_render::wake_tray_timer();
     Ok(())
 }
 }

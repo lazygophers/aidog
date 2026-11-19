@@ -46,13 +46,21 @@ pub struct CommandMeta {
 }
 
 macro_rules! rpc_kind {
-    (readonly) => { CommandKind::Readonly };
-    (mutating) => { CommandKind::Mutating };
+    (readonly) => {
+        CommandKind::Readonly
+    };
+    (mutating) => {
+        CommandKind::Mutating
+    };
 }
 
 macro_rules! rpc_secret {
-    () => { false };
-    (exports_secret) => { true };
+    () => {
+        false
+    };
+    (exports_secret) => {
+        true
+    };
 }
 
 /// `exports_secret` 命令在管理接口上的替身：不执行命令，直接 403。

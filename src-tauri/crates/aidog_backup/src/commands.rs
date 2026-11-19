@@ -70,6 +70,7 @@ aidog_core::tauri_command! {
         settings.defaults_version = crate::CURRENT_DEFAULTS_VERSION;
         let sanitized = settings.sanitized();
         sanitized.save(db).await?;
+        crate::wake_backup_scheduler();
         Ok(sanitized)
     }
 }

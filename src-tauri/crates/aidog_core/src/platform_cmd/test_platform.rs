@@ -364,5 +364,8 @@ fn share_full_yaml_roundtrip_is_lossless() {
         "emitted: {emitted}"
     );
     // The numeric-looking model name must stay a quoted string after emit.
-    assert!(emitted.contains("'1.5'") || emitted.contains("\"1.5\""), "{emitted}");
+    assert!(
+        emitted.contains("'1.5'") || emitted.contains("\"1.5\""),
+        "{emitted}"
+    );
 }
