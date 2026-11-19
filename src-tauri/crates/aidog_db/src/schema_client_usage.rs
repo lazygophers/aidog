@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS client_file_progress (
     mtime_ms    INTEGER NOT NULL DEFAULT 0,
     read_offset INTEGER NOT NULL DEFAULT 0,
     parse_errors INTEGER NOT NULL DEFAULT 0,
+    last_msg_id TEXT NOT NULL DEFAULT '',
     UNIQUE(client_code, path)
 );
 
@@ -55,5 +56,9 @@ CREATE TABLE IF NOT EXISTS client_session (
 );
 "#,
     )?;
+    // Migration 20261120-01: client_file_progress 加 last_msg_id（增量扫描的
+    // 「上一已计 message.id」去重状态持久化，票 02）。旧库 ALTER 幂等（duplicate column
+    // 错误被 `let _` 吞，schema_late.rs:950 同法）；新库建表列已含，此句空转。
+    let _ = conn.execute("ALTER TABLE client_file_progress ADD COLUMN last_msg_id TEXT NOT NULL DEFAULT ''", []);
     Ok(())
 }

@@ -1,0 +1,479 @@
+//! 客户端本地会话用量：同意开关、Claude Code 读取导入编排与命令（issue #65 票 02）。
+//!
+//! 闸门唯一性：同意开关是读取器唯一入口判定（`consent_allows`）；关着 = 零文件读取。
+//! 首次开启全量导入、启动/refresh 增量导入共用同一条 `run_import` 链。
+
+pub mod reader;
+#[cfg(test)]
+#[path = "test_reader.rs"]
+mod test_reader;
+
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+
+use aidog_db::ClientCallRow;
+use serde::{Deserialize, Serialize};
+
+/// setting 载荷：`{asked, enabled: {<client_code>: bool}}`（scope `client_usage`）。
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ClientUsageConsent {
+    pub asked: bool,
+    pub enabled: HashMap<String, bool>,
+}
+
+/// 票 02 支持的客户端大类码（codex / gemini_cli / opencode 读取器在票 04~06）。
+pub const SUPPORTED_CLIENTS: &[&str] = &["claude_code", "codex", "gemini_cli", "opencode"];
+
+/// 读同意开关（缺省全关、未询问）。
+pub async fn load_consent(db: &aidog_db::Db) -> ClientUsageConsent {
+    aidog_db::get_setting(db, "client_usage", "client_usage_consent")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default()
+}
+
+/// 闸门判定：读取器入口唯一判定。
+pub fn consent_allows(c: &ClientUsageConsent, code: &str) -> bool {
+    c.enabled.get(code).copied().unwrap_or(false)
+}
+
+pub async fn save_consent(db: &aidog_db::Db, consent: &ClientUsageConsent) -> Result<(), String> {
+    aidog_db::set_setting(
+        db,
+        aidog_db::SetSettingInput {
+            scope: "client_usage".into(),
+            key: "client_usage_consent".into(),
+            value: serde_json::to_value(consent).map_err(|e| e.to_string())?,
+        },
+    )
+    .await
+}
+
+/// 导入进度（内存态；持久进度在 client_file_progress 表）。
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportState {
+    pub running: bool,
+    pub client_code: String,
+    pub started_at_ms: i64,
+    pub files_total: i64,
+    pub files_done: i64,
+    pub calls_imported: i64,
+    pub parse_errors: i64,
+    pub finished_at_ms: i64,
+    pub error: String,
+}
+
+static IMPORT_STATE: OnceLock<Mutex<Option<ImportState>>> = OnceLock::new();
+
+fn state_slot() -> &'static Mutex<Option<ImportState>> {
+    IMPORT_STATE.get_or_init(Default::default)
+}
+
+pub fn set_import_state(s: Option<ImportState>) {
+    *state_slot().lock().unwrap_or_else(|e| e.into_inner()) = s;
+}
+
+pub fn snapshot_import_state() -> Option<ImportState> {
+    state_slot()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+}
+
+/// Claude Code 会话文件根（生产 `~/.claude/projects`；测试注入 tempdir 根）。
+fn projects_root() -> Option<std::path::PathBuf> {
+    dirs::home_dir().map(|h| h.join(".claude").join("projects"))
+}
+
+/// 枚举客户端会话文件（projects/<slug>/*.jsonl，一层目录）。
+fn enumerate_files(root: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut out = Vec::new();
+    let Ok(rd) = std::fs::read_dir(root) else {
+        return out;
+    };
+    for e in rd.flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            if let Ok(sub) = std::fs::read_dir(&p) {
+                out.extend(sub.flatten().map(|x| x.path()).filter(|x| x.is_file()));
+            }
+        } else {
+            out.push(p);
+        }
+    }
+    out.retain(|p| p.extension().and_then(|e| e.to_str()) == Some("jsonl"));
+    out.sort();
+    out
+}
+
+/// 折算：anthropic 条目优先，缺失时跨平台取官方条目（`model_entry_for_billing` 内建）；
+/// 条目缺失或解析落 fallback（条目无有效价）→ None = 未定价，不回落兜底单价。
+/// is_peak=false：会话文件无平台倍率语境，按默认官方价折算。
+async fn resolve_cost(db: &aidog_db::Db, model: &str, r: &reader::UsageLine) -> Option<f64> {
+    if model.is_empty() {
+        return None;
+    }
+    let entry = aidog_db::model_entry_for_billing(db, "anthropic", model).await.ok()??;
+    let res = aidog_db::resolve_price_from(
+        Some(&entry.price_data),
+        false,
+        0.0,
+        0.0,
+        r.input_tokens,
+        r.call_time_ms,
+    );
+    if res.price.source == "fallback" {
+        return None;
+    }
+    let p = &res.price;
+    Some(
+        r.input_tokens as f64 * p.input_cost_per_token
+            + r.output_tokens as f64 * p.output_cost_per_token
+            + r.cache_read_tokens as f64 * p.cache_read_input_token_cost
+            + r.cache_write_tokens as f64 * p.cache_write_input_token_cost,
+    )
+}
+
+/// 单文件处理：增量起点 → 扫描 → 分批入库 → 推进进度 / 会话行。
+/// 返回 (新增明细数, 新进度, 新解析错误累计)。截断 → 删状态重读。
+async fn scan_one_file(
+    db: &aidog_db::Db,
+    client_code: &str,
+    path: &std::path::Path,
+    prog: Option<aidog_db::ClientFileProgress>,
+) -> Result<(i64, aidog_db::ClientFileProgress), String> {
+    let path_str = path.to_string_lossy().into_owned();
+    let mut start = prog;
+    if let Some(s) = &start
+        && let Ok(meta) = std::fs::metadata(path)
+    {
+        // 截断 / 替换：文件比已读偏移小，或 mtime 回退 → 明细重建（删明细与进度重读）。
+        if (meta.len() as i64) < s.read_offset || meta_mtime_ms(&meta) < s.mtime_ms {
+            aidog_db::delete_client_file_state(db, client_code, &path_str).await?;
+            start = None;
+        }
+    }
+    let (offset, last_id) = start
+        .as_ref()
+        .map(|s| (s.read_offset as u64, s.last_msg_id.clone()))
+        .unwrap_or((0, String::new()));
+    let (path2, off2, id2) = (path.to_path_buf(), offset, last_id.clone());
+    let scanned = tokio::task::spawn_blocking(move || reader::scan_file(&path2, off2, &id2))
+        .await
+        .map_err(|e| format!("scan task: {e}"))?;
+    let out = match scanned {
+        Ok(o) => o,
+        Err(reader::ScanErr::Truncated) => {
+            // 扫描中又被截：删状态重读一次。
+            aidog_db::delete_client_file_state(db, client_code, &path_str).await?;
+            let p2 = path.to_path_buf();
+            tokio::task::spawn_blocking(move || reader::scan_file(&p2, 0, ""))
+                .await
+                .map_err(|e| format!("rescan task: {e}"))?
+                .map_err(|e| format!("scan {}: {e}", path.display()))?
+        }
+        Err(reader::ScanErr::Io(e)) => return Err(format!("scan {}: {e}", path.display())),
+    };
+    // 折算 + 组装行。
+    let mut rows = Vec::with_capacity(out.entries.len());
+    for (i, r) in out.entries.iter().enumerate() {
+        let cost = resolve_cost(db, &r.model, r).await;
+        rows.push(ClientCallRow {
+            client_code: client_code.to_string(),
+            session_id: r.session_id.clone(),
+            is_sidechain: r.is_sidechain,
+            call_time_ms: r.call_time_ms,
+            model: r.model.clone(),
+            input_tokens: r.input_tokens,
+            output_tokens: r.output_tokens,
+            cache_read_tokens: r.cache_read_tokens,
+            cache_write_tokens: r.cache_write_tokens,
+            reasoning_tokens: r.reasoning_tokens,
+            cost,
+            source_file_id: path_str.clone(),
+            file_pos: out.positions[i],
+        });
+    }
+    // 分批提交（500/批）。
+    let mut inserted = 0i64;
+    for chunk in rows.chunks(500) {
+        inserted += aidog_db::insert_client_calls(db, chunk).await? as i64;
+    }
+    // 会话标题：transcript 标题行 > 已存标题（upsert 空标题保留现值）> 首条用户提示 60 字。
+    let title = out
+        .title
+        .map(|t| t.1)
+        .or(out.first_user_prompt.clone())
+        .unwrap_or_default();
+    for sid in [&out.session_id] {
+        if sid.is_empty() {
+            continue;
+        }
+        aidog_db::upsert_client_session(
+            db,
+            client_code.to_string(),
+            sid.to_string(),
+            title.clone(),
+            out.workdir.clone(),
+            out.first_ms,
+            out.last_ms,
+        )
+        .await?;
+    }
+    let prog = aidog_db::ClientFileProgress {
+        client_code: client_code.to_string(),
+        path: path_str.clone(),
+        file_size: out.file_size,
+        mtime_ms: out.mtime_ms,
+        read_offset: out.new_offset as i64,
+        parse_errors: out.parse_errors as i64 + start.as_ref().map_or(0, |s| s.parse_errors),
+        last_msg_id: out.last_msg_id,
+    };
+    aidog_db::upsert_client_file_progress(db, prog.clone()).await?;
+    Ok((inserted, prog))
+}
+
+fn meta_mtime_ms(meta: &std::fs::Metadata) -> i64 {
+    meta.modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
+}
+
+async fn run_import(
+    db: &aidog_db::Db,
+    root: Option<std::path::PathBuf>,
+    clients: &[String],
+    only_with_progress: bool,
+) -> Result<i64, String> {
+    let consent = load_consent(db).await;
+    let total: &mut i64 = &mut 0;
+    for code in clients {
+        // 闸门：关着 = 该客户端零文件读取（枚举也不做）。
+        if !consent_allows(&consent, code) {
+            continue;
+        }
+        let root = root
+            .clone()
+            .or_else(projects_root)
+            .ok_or("no home dir")?;
+        let progress = aidog_db::list_client_file_progress(db, code).await?;
+        let mut paths: Vec<std::path::PathBuf> = if only_with_progress {
+            progress.iter().map(|p| std::path::PathBuf::from(&p.path)).collect()
+        } else {
+            enumerate_files(&root)
+        };
+        // 启动模式只读进度表已有文件；refresh 模式补充枚举（含新文件，从 0 读）。
+        if only_with_progress {
+            let known: std::collections::HashSet<String> =
+                progress.iter().map(|p| p.path.clone()).collect();
+            paths.retain(|p| known.contains(&p.to_string_lossy().into_owned()));
+        }
+        let prog_map: HashMap<String, aidog_db::ClientFileProgress> =
+            progress.into_iter().map(|p| (p.path.clone(), p)).collect();
+        set_import_state(Some(ImportState {
+            running: true,
+            client_code: code.clone(),
+            started_at_ms: aidog_db::now(),
+            files_total: paths.len() as i64,
+            ..Default::default()
+        }));
+        for path in &paths {
+            let path_str = path.to_string_lossy().into_owned();
+            let prog = prog_map.get(&path_str).cloned();
+            match scan_one_file(db, code, path, prog).await {
+                Ok((n, _)) => {
+                    *total += n;
+                    bump_state(|s| {
+                        s.files_done += 1;
+                        s.calls_imported += n;
+                    });
+                }
+                Err(e) => {
+                    bump_state(|s| {
+                        s.files_done += 1;
+                        s.error = e;
+                    });
+                }
+            }
+        }
+        bump_state(|s| {
+            s.running = false;
+            s.finished_at_ms = aidog_db::now();
+        });
+    }
+    Ok(*total)
+}
+
+fn bump_state(f: impl FnOnce(&mut ImportState)) {
+    if let Some(mut cur) = snapshot_import_state() {
+        f(&mut cur);
+        set_import_state(Some(cur));
+    }
+}
+
+/// 启动增量导入（只读进度表已有文件；consent 关着的客户端直接跳过）。调用方 spawn。
+pub async fn startup_incremental_import() -> Result<i64, String> {
+    let db = aidog_ctx::db();
+    let consent = load_consent(db).await;
+    let clients: Vec<String> = SUPPORTED_CLIENTS
+        .iter()
+        .filter(|c| consent_allows(&consent, c))
+        .map(|c| c.to_string())
+        .collect();
+    run_import(db, None, &clients, true).await
+}
+
+/// refresh：枚举全部文件（新文件从 0 读），增量推进（有进度从偏移读）。
+pub async fn refresh_import() -> Result<i64, String> {
+    let db = aidog_ctx::db();
+    let consent = load_consent(db).await;
+    let clients: Vec<String> = SUPPORTED_CLIENTS
+        .iter()
+        .filter(|c| consent_allows(&consent, c))
+        .map(|c| c.to_string())
+        .collect();
+    run_import(db, None, &clients, false).await
+}
+
+/// 首次开启单客户端的全量后台导入。
+pub async fn full_import_client(client: &str) -> Result<i64, String> {
+    let db = aidog_ctx::db();
+    let consent = load_consent(db).await;
+    if !consent_allows(&consent, client) {
+        return Ok(0);
+    }
+    let clients = vec![client.to_string()];
+    run_import(db, None, &clients, false).await
+}
+
+#[derive(Debug, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientUsageStatus {
+    pub consent: ClientUsageConsent,
+    pub import: ImportState,
+    pub persisted_parse_errors: i64,
+}
+
+crate::tauri_command! {
+/// 同意开关读取。
+pub async fn client_usage_consent_get() -> Result<ClientUsageConsent, String> {
+    Ok(load_consent(aidog_ctx::db()).await)
+}
+}
+
+crate::tauri_command! {
+/// 同意开关写入；新开启的客户端触发一次后台全量导入。
+pub async fn client_usage_consent_set(consent: ClientUsageConsent) -> Result<(), String> {
+    let db = aidog_ctx::db();
+    let prev = load_consent(db).await;
+    save_consent(db, &consent).await?;
+    let newly: Vec<String> = SUPPORTED_CLIENTS
+        .iter()
+        .filter(|c| {
+            consent_allows(&consent, c)
+                && !consent_allows(&prev, c)
+        })
+        .map(|c| c.to_string())
+        .collect();
+    if !newly.is_empty() {
+        tokio::spawn(async move {
+            if let Err(e) = run_import(aidog_ctx::db(), None, &newly, false).await {
+                tracing::warn!(error = %e, "client usage full import failed");
+            }
+        });
+    }
+    Ok(())
+}
+}
+
+crate::tauri_command! {
+/// 状态：同意开关 + 导入进度 + 持久化解析错误累计。
+pub async fn client_usage_status() -> Result<ClientUsageStatus, String> {
+    let db = aidog_ctx::db();
+    let consent = load_consent(db).await;
+    let mut persisted = 0i64;
+    for code in SUPPORTED_CLIENTS {
+        if let Ok(rows) = aidog_db::list_client_file_progress(db, code).await {
+            for r in rows {
+                persisted += r.parse_errors;
+            }
+        }
+    }
+    Ok(ClientUsageStatus {
+        import: snapshot_import_state().unwrap_or_default(),
+        persisted_parse_errors: persisted,
+        consent,
+    })
+}
+}
+
+crate::tauri_command! {
+/// 触发一次对齐 + 增量读取（后台跑，进度走 client_usage_status）。
+pub async fn client_usage_refresh() -> Result<ImportState, String> {
+    set_import_state(None);
+    tokio::spawn(async move {
+        if let Err(e) = refresh_import().await {
+            tracing::warn!(error = %e, "client usage refresh failed");
+        }
+    });
+    Ok(snapshot_import_state().unwrap_or_default())
+}
+}
+
+crate::tauri_command! {
+/// 汇总查询。
+pub async fn client_usage_summary(
+    from_ms: i64,
+    to_ms: i64,
+    client_code: Option<String>,
+) -> Result<aidog_db::ClientUsageSummary, String> {
+    aidog_db::client_usage_summary(aidog_ctx::db(), from_ms, to_ms, client_code.as_deref()).await
+}
+}
+
+crate::tauri_command! {
+/// 按日趋势查询。
+pub async fn client_usage_trend(
+    from_ms: i64,
+    to_ms: i64,
+    client_code: Option<String>,
+) -> Result<Vec<aidog_db::ClientUsageTrendRow>, String> {
+    aidog_db::client_usage_trend(aidog_ctx::db(), from_ms, to_ms, client_code.as_deref()).await
+}
+}
+
+crate::tauri_command! {
+/// 按模型聚合查询。
+pub async fn client_usage_by_model(
+    from_ms: i64,
+    to_ms: i64,
+    client_code: Option<String>,
+) -> Result<Vec<aidog_db::ClientUsageModelRow>, String> {
+    aidog_db::client_usage_by_model(aidog_ctx::db(), from_ms, to_ms, client_code.as_deref()).await
+}
+}
+
+crate::tauri_command! {
+/// 会话列表查询。
+pub async fn client_usage_sessions(
+    from_ms: i64,
+    to_ms: i64,
+    client_code: Option<String>,
+    limit: Option<i64>,
+) -> Result<Vec<aidog_db::ClientUsageSessionRow>, String> {
+    aidog_db::client_usage_sessions(
+        aidog_ctx::db(),
+        from_ms,
+        to_ms,
+        client_code.as_deref(),
+        limit.unwrap_or(200),
+    )
+    .await
+}
+}

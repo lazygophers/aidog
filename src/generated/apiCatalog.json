@@ -448,6 +448,139 @@
       "returns": "()"
     },
     {
+      "name": "client_usage_by_model",
+      "category": "client_usage",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "fromMs",
+          "type": "i64"
+        },
+        {
+          "name": "toMs",
+          "type": "i64"
+        },
+        {
+          "name": "clientCode",
+          "type": "Option<String>"
+        }
+      ],
+      "returns": "Vec<aidog_db::ClientUsageModelRow>"
+    },
+    {
+      "name": "client_usage_consent_get",
+      "category": "client_usage",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "ClientUsageConsent"
+    },
+    {
+      "name": "client_usage_consent_set",
+      "category": "client_usage",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "consent",
+          "type": "ClientUsageConsent"
+        }
+      ],
+      "returns": "()"
+    },
+    {
+      "name": "client_usage_refresh",
+      "category": "client_usage",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "ImportState"
+    },
+    {
+      "name": "client_usage_sessions",
+      "category": "client_usage",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "fromMs",
+          "type": "i64"
+        },
+        {
+          "name": "toMs",
+          "type": "i64"
+        },
+        {
+          "name": "clientCode",
+          "type": "Option<String>"
+        },
+        {
+          "name": "limit",
+          "type": "Option<i64>"
+        }
+      ],
+      "returns": "Vec<aidog_db::ClientUsageSessionRow>"
+    },
+    {
+      "name": "client_usage_status",
+      "category": "client_usage",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "ClientUsageStatus"
+    },
+    {
+      "name": "client_usage_summary",
+      "category": "client_usage",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "fromMs",
+          "type": "i64"
+        },
+        {
+          "name": "toMs",
+          "type": "i64"
+        },
+        {
+          "name": "clientCode",
+          "type": "Option<String>"
+        }
+      ],
+      "returns": "aidog_db::ClientUsageSummary"
+    },
+    {
+      "name": "client_usage_trend",
+      "category": "client_usage",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "fromMs",
+          "type": "i64"
+        },
+        {
+          "name": "toMs",
+          "type": "i64"
+        },
+        {
+          "name": "clientCode",
+          "type": "Option<String>"
+        }
+      ],
+      "returns": "Vec<aidog_db::ClientUsageTrendRow>"
+    },
+    {
       "name": "codex_config_path",
       "category": "gateway",
       "kind": "readonly",
