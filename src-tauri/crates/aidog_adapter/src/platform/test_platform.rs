@@ -769,3 +769,159 @@ fn ark_usage_extraction_tracks_base() {
     }"#;
     assert_eq!(adapter.extract_usage(body), (60, 50, 40, 0, 0, vec![]));
 }
+
+/// 百度千帆家族（issue 80）：openai 端点禁思考写官方顶层 `thinking: {"type": "disabled"}`
+/// （文本生成 API「思考模式类型，默认值为 disabled」，`reasoning_effort` 词表无 none，
+/// https://cloud.baidu.com/doc/qianfan-api/s/3m7of64lb ）；客户端带来的旧 `enable_thinking`
+/// / `reasoning_effort` / vLLM 式 `chat_template_kwargs.enable_thinking` 一并剥除。
+/// anthropic 端点同基座 anthropic 臂（MaaS Anthropic 兼容 API，
+/// https://cloud.baidu.com/doc/qianfan/s/empm33i0q ）。
+#[test]
+fn qianfan_family_openai_endpoint_disables_thinking() {
+    for code in ["qianfan", "qianfan_coding"] {
+        let adapter = super::adapter_for(code);
+        let url = "http://127.0.0.1:31234/v2";
+        let mut body = json!({
+            "model": "deepseek-v4-pro",
+            "enable_thinking": true,
+            "thinking": { "type": "enabled" },
+            "reasoning_effort": "high",
+            "chat_template_kwargs": { "enable_thinking": true },
+            "generationConfig": { "thinkingConfig": { "thinkingBudget": 0 } },
+        });
+        adapter.apply_disable_thinking(&mut body, true, &Protocol::OpenAI, url, false);
+        assert_eq!(body["thinking"], json!({ "type": "disabled" }), "{code}");
+        assert!(body.get("enable_thinking").is_none(), "{code}: {body}");
+        assert!(body.get("reasoning_effort").is_none(), "{code}: {body}");
+        assert!(
+            body.get("chat_template_kwargs")
+                .and_then(|c| c.get("enable_thinking"))
+                .is_none(),
+            "{code}: {body}"
+        );
+        assert!(
+            body.get("generationConfig")
+                .and_then(|g| g.get("thinkingConfig"))
+                .is_none(),
+            "{code}: {body}"
+        );
+
+        // 不禁思考：只剥 aidog 私有字段，不写禁用参数、不动客户端旧值。
+        let mut keep = json!({
+            "model": "deepseek-v4-pro",
+            "disable_thinking": false,
+            "enable_thinking": true,
+        });
+        adapter.apply_disable_thinking(&mut keep, false, &Protocol::OpenAI, url, false);
+        assert_eq!(keep["enable_thinking"], json!(true), "{code}: {keep}");
+        assert!(keep.get("disable_thinking").is_none(), "{code}: {keep}");
+
+        // 强制思考模型（仅支持开启不可关闭，registry thinking_toggleable: false）：
+        // 只剥禁用形参数、不写任何禁用参数（同基座 forced_thinking 路径）。
+        let mut forced = json!({ "model": "deepseek-v4-pro", "thinking": { "type": "disabled" } });
+        adapter.apply_disable_thinking(&mut forced, true, &Protocol::OpenAI, url, true);
+        assert!(forced.get("thinking").is_none(), "{code}: {forced}");
+
+        // anthropic 端点走基座：thinking.type=disabled。
+        let mut anth = json!({ "model": "deepseek-v4-pro" });
+        adapter.apply_disable_thinking(
+            &mut anth,
+            true,
+            &Protocol::Anthropic,
+            "http://127.0.0.1:31234/anthropic",
+            false,
+        );
+        assert_eq!(anth["thinking"]["type"], "disabled", "{code}: {anth}");
+    }
+}
+
+/// 百度千帆家族错误分类沿用基座：错误体 `{"error":{code,message,type},"id"}`。
+/// 401 invalid_model「The model does not exist …」按状态码归服务类（模型不存在挂 401，
+/// 基座 401 先于业务码，不覆盖，见 QianfanFamilyAdapter doc）；400 invalid_model
+/// 「model is empty」落 Unknown（调用方按模型类处理）；429 限流按状态码归服务类。
+/// https://cloud.baidu.com/doc/qianfan-api/s/Om9b4yj3w
+#[test]
+fn qianfan_family_error_body() {
+    let adapter = super::adapter_for("qianfan");
+    assert_eq!(
+        adapter.classify_error(
+            401,
+            r#"{"error":{"code":"invalid_model","message":"The model does not exist or you do not have access to it.","type":"invalid_request_error"},"id":"as-x"}"#,
+        ),
+        UpstreamErrorClass::Service
+    );
+    assert_eq!(
+        adapter.classify_error(
+            400,
+            r#"{"error":{"code":"invalid_model","message":"model is empty","type":"invalid_request_error"},"id":"as-x"}"#,
+        ),
+        UpstreamErrorClass::Unknown
+    );
+    assert_eq!(
+        adapter.classify_error(
+            429,
+            r#"{"error":{"code":"rpm_rate_limit_exceeded","message":"Rate limit reached for RPM","type":"rate_limit_exceeded"},"id":"as-x"}"#,
+        ),
+        UpstreamErrorClass::Service
+    );
+    // Coding Plan 专属码同按状态码归服务类（qianfan_coding）。
+    assert_eq!(
+        super::adapter_for("qianfan_coding").classify_error(
+            429,
+            r#"{"error":{"code":"coding_plan_hour_quota_exceeded","message":"Coding Plan hour quota has been exceeded","type":"quota_exceeded"},"id":"as-x"}"#,
+        ),
+        UpstreamErrorClass::Service
+    );
+}
+
+/// usage 抽取沿用基座 openai 构件：`prompt_tokens_details.cached_tokens` 从 input 扣除、
+/// `completion_tokens_details.reasoning_tokens` 并入 output（千帆 Chat API 字段名与基座一致，
+/// https://cloud.baidu.com/doc/qianfan-api/s/3m7of64lb ）。
+#[test]
+fn qianfan_family_usage_extraction() {
+    let adapter = super::adapter_for("qianfan");
+    let body = r#"{
+        "usage": {
+            "prompt_tokens": 100,
+            "completion_tokens": 50,
+            "total_tokens": 150,
+            "prompt_tokens_details": { "cached_tokens": 40, "search_tokens": 10 },
+            "completion_tokens_details": { "reasoning_tokens": 20 }
+        }
+    }"#;
+    assert_eq!(adapter.extract_usage(body), (60, 50, 40, 0, 0, vec![]));
+}
+
+/// coding_plan 注入保持 no-op：官方 Claude Code 接入页（Coding Plan）只要求设
+/// ANTHROPIC_BASE_URL 与专属 API Key，无出站附加字段
+/// （https://cloud.baidu.com/doc/qianfan/s/0mn2mnemj ）。
+#[test]
+fn qianfan_family_coding_plan_keeps_noop() {
+    for (platform, wire) in [
+        (Protocol::QianFan, Protocol::Anthropic),
+        (Protocol::QianFan, Protocol::OpenAI),
+        (Protocol::QianfanCoding, Protocol::OpenAI),
+        (Protocol::QianfanCoding, Protocol::Anthropic),
+    ] {
+        let mut body = json!({ "model": "deepseek-v4-pro", "messages": [] });
+        let original = body.clone();
+        super::adapter_for("qianfan_coding").inject_coding_plan(&mut body, &platform, &wire);
+        assert_eq!(body, original, "{platform:?} {wire:?}");
+    }
+}
+
+/// 覆写只作用于家族成员：非成员第三方 OpenAI 兼容端点仍写基座 vLLM 式
+/// `chat_template_kwargs.enable_thinking`。
+#[test]
+fn qianfan_override_scoped_to_family_members() {
+    let mut other = json!({ "model": "m" });
+    super::adapter_for("aihubmix").apply_disable_thinking(
+        &mut other,
+        true,
+        &Protocol::OpenAI,
+        "http://127.0.0.1:31234/v1",
+        false,
+    );
+    assert_eq!(other["chat_template_kwargs"]["enable_thinking"], json!(false));
+    assert!(other.get("thinking").is_none());
+}

@@ -2046,3 +2046,78 @@ async fn make_state(db: aidog_db::Db) -> Arc<ProxyState> {
     spawn_log_writer(state.clone(), log_rx);
     state
 }
+
+/// 百度千帆家族（issue 80）：适配器经本地假上游覆盖家族涉及的全部内置端点协议，
+/// 断言实际出站路径与请求体（qianfan 内置 anthropic 单端点；qianfan_coding 内置
+/// openai + anthropic 双端点）。openai wire 禁思考写官方顶层 `thinking.type=disabled`
+/// （文本生成 API 默认值，https://cloud.baidu.com/doc/qianfan-api/s/3m7of64lb ）。
+#[tokio::test]
+async fn qianfan_disable_thinking_reaches_local_upstream_for_each_wire() {
+    let cases = [
+        ("qianfan", Protocol::QianFan, Protocol::Anthropic, "/v1/messages", ANTHROPIC_OK),
+        ("qianfan_coding", Protocol::QianfanCoding, Protocol::OpenAI, "/chat/completions", OPENAI_OK),
+        (
+            "qianfan_coding",
+            Protocol::QianfanCoding,
+            Protocol::Anthropic,
+            "/v1/messages",
+            ANTHROPIC_OK,
+        ),
+    ];
+
+    for (i, (code, platform_type, wire, expected_path, response)) in cases.into_iter().enumerate() {
+        let (upstream, hits) = spawn_recording_upstream(response).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkqf{i}");
+        setup_user_endpoint_group(&state, &gk, wire.clone(), &upstream).await;
+        let platform = aidog_db::list_platforms(&state.db)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|p| p.name == "stub")
+            .unwrap();
+        let protocol = serde_json::to_string(&platform_type).unwrap();
+        state
+            .db
+            .call_platform_traced(None, std::panic::Location::caller(), move |conn| {
+                conn.execute(
+                    "UPDATE platform SET platform_type=?1 WHERE id=?2",
+                    rusqlite::params![protocol, platform.id as i64],
+                )?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+
+        let request = HttpRequest::builder()
+            .method("POST")
+            .uri("/v1/messages")
+            .header("authorization", format!("Bearer {gk}"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"model":"deepseek-v4-pro","max_tokens":32,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#,
+            ))
+            .unwrap();
+        let resp = handle_proxy(AxumState(state.clone()), request).await;
+        let resp_status = resp.status();
+        if resp_status != StatusCode::OK {
+            let body = axum::body::to_bytes(resp.into_body(), 65536).await.unwrap();
+            panic!(
+                "code={code} wire={wire:?} status={resp_status} body={}",
+                String::from_utf8_lossy(&body)
+            );
+        }
+        flush_log_queue(&state).await;
+
+        let hits = hits.lock().unwrap();
+        assert_eq!(hits.len(), 1, "code={code} wire={wire:?}, hits={hits:?}");
+        let (path, body) = &hits[0];
+        assert_eq!(path, expected_path, "code={code} wire={wire:?}");
+        let body: serde_json::Value = serde_json::from_str(body).unwrap();
+        assert_eq!(body["thinking"]["type"], "disabled", "code={code} wire={wire:?}: {body}");
+        assert!(
+            body.get("disable_thinking").is_none(),
+            "code={code} wire={wire:?}: {body}"
+        );
+    }
+}
