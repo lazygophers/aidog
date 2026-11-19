@@ -526,7 +526,10 @@ fn sqz_disable_leaves_unknown_flag_proxy_shape_untouched() {
     }});
     let mut v = original.clone();
     assert!(!sqz_apply_claude_json(&mut v, false).unwrap());
-    assert_eq!(v, original, "unknown flag combination must not be unwrapped");
+    assert_eq!(
+        v, original,
+        "unknown flag combination must not be unwrapped"
+    );
 }
 
 /// 未知旗标组合照 Plain 处理：开启时再包一层，关闭时可还原回用户原始形状。
@@ -595,7 +598,10 @@ fn rtk_codex_disable_errors_when_rtk_md_block_unlocatable() {
     std::fs::write(codex.join("RTK.md"), "totally rewritten by user\n").unwrap();
 
     let err = rtk_codex_disable(&codex, &rec).unwrap_err();
-    assert!(err.contains("RTK.md"), "error must name the file, got: {err}");
+    assert!(
+        err.contains("RTK.md"),
+        "error must name the file, got: {err}"
+    );
 }
 
 /// ── sqz own-write ledger：关闭只删 aidog 写入的内容 ──────────────────
@@ -633,7 +639,10 @@ fn sqz_disable_via_ledger_spares_user_written_entries() {
         "rea": {"type": "stdio", "command": "sqz-mcp", "args": ["proxy", "—-", "mise", "exec", "node@22"]}
     }});
     sqz_apply_claude_json_ledger(&mut cj2, false, &mut ledger).unwrap();
-    assert_eq!(cj2["mcpServers"]["rea"]["command"], "sqz-mcp", "user-written wrapper must survive");
+    assert_eq!(
+        cj2["mcpServers"]["rea"]["command"], "sqz-mcp",
+        "user-written wrapper must survive"
+    );
 }
 
 /// aidog 开启时记 ledger、关闭时按 ledger 精确还原（含用户改过键名后仍能对上）。
@@ -660,7 +669,10 @@ fn sqz_enable_records_ledger_and_disable_restores_exactly() {
         "node"
     );
     // 用户改名后的 self server 仍被删（ledger 记录的是写入时的内容对，不靠名字）
-    assert!(s.get("sqz-mcp-self").is_none(), "aidog-added self server must be removed even after rename");
+    assert!(
+        s.get("sqz-mcp-self").is_none(),
+        "aidog-added self server must be removed even after rename"
+    );
 }
 
 /// codex 侧同构：ledger 记录 → 关闭还原，用户自写条目保留。
@@ -681,8 +693,14 @@ args = ["—y"]
 
     sqz_apply_codex_ledger(&mut t, false, &mut ledger).unwrap();
     let servers = &t["mcp_servers"];
-    assert!(servers.get("aidog-mine").is_some(), "user-written codex server must survive");
-    assert!(servers.get("sqz").is_none(), "aidog-added codex self server must be removed");
+    assert!(
+        servers.get("aidog-mine").is_some(),
+        "user-written codex server must survive"
+    );
+    assert!(
+        servers.get("sqz").is_none(),
+        "aidog-added codex self server must be removed"
+    );
     assert_eq!(servers["up"]["command"], toml::Value::String("x".into()));
 }
 
@@ -703,9 +721,18 @@ fn sqz_disable_inserted_removal_is_counted_per_record() {
     cj2["mcpServers"]["sqz"] = self_entry.clone();
     assert!(sqz_apply_claude_json_ledger(&mut cj2, false, &mut ledger).unwrap());
     let s = &cj2["mcpServers"];
-    assert!(s.get("sqz").is_none(), "aidog-added self server must be removed");
-    assert_eq!(s["mine"], self_entry, "user-written same-shape entry must survive (counted removal)");
-    assert_eq!(s["mine2"], self_entry, "surplus user entries preserved when records exhausted");
+    assert!(
+        s.get("sqz").is_none(),
+        "aidog-added self server must be removed"
+    );
+    assert_eq!(
+        s["mine"], self_entry,
+        "user-written same-shape entry must survive (counted removal)"
+    );
+    assert_eq!(
+        s["mine2"], self_entry,
+        "surplus user entries preserved when records exhausted"
+    );
 
     // codex：同构
     let mut t: toml::Table = toml::from_str("[mcp_servers]\n").unwrap();
@@ -719,7 +746,10 @@ fn sqz_disable_inserted_removal_is_counted_per_record() {
     }
     assert!(sqz_apply_codex_ledger(&mut t, false, &mut ledger2).unwrap());
     let servers = t["mcp_servers"].as_table().unwrap();
-    assert!(!servers.contains_key("sqz"), "aidog-added codex self server must be removed");
+    assert!(
+        !servers.contains_key("sqz"),
+        "aidog-added codex self server must be removed"
+    );
     assert!(
         servers.contains_key("mine") && servers.contains_key("mine2"),
         "surplus user codex entries preserved, got keys: {:?}",
@@ -742,11 +772,18 @@ fn sqz_wrap_residue_reports_renamed_wrapped_entries_only() {
         m.insert("mine".to_string(), e);
     }
     let out = sqz_wrap_residue(&renamed, None, &ledger);
-    assert_eq!(out, vec!["stale-wrap:claude:mine"], "renamed wrapped entry must be reported, got {out:?}");
+    assert_eq!(
+        out,
+        vec!["stale-wrap:claude:mine"],
+        "renamed wrapped entry must be reported, got {out:?}"
+    );
 
     // 未改名（关闭可还原）不报
     let out2 = sqz_wrap_residue(&cj, None, &ledger);
-    assert!(out2.is_empty(), "restorable wrapped entries are not residue, got {out2:?}");
+    assert!(
+        out2.is_empty(),
+        "restorable wrapped entries are not residue, got {out2:?}"
+    );
 
     // 用户自写同形包装（ledger 无此内容）不报
     let mut manual = cj.clone();
@@ -773,7 +810,11 @@ args = ["—y"]
         servers.insert("mine".into(), e);
     }
     let out4 = sqz_wrap_residue(&json!({}), Some(&t), &ledger2);
-    assert_eq!(out4, vec!["stale-wrap:codex:mine"], "renamed codex wrapped entry must be reported, got {out4:?}");
+    assert_eq!(
+        out4,
+        vec!["stale-wrap:codex:mine"],
+        "renamed codex wrapped entry must be reported, got {out4:?}"
+    );
 }
 
 // ─── 统计解析（sqz stats --json / rtk gain --format json 一手样例）───
@@ -788,10 +829,9 @@ async fn rtk_double_write_reports_failures_per_side_and_runs_sibling() {
     assert_eq!(claude.as_deref(), Some("claude config failed"));
     assert_eq!(codex, None);
 
-    let (claude, codex) = rtk_apply_both(
-        async { Ok::<(), String>(()) },
-        async { Err::<(), _>("codex init failed".to_string()) },
-    )
+    let (claude, codex) = rtk_apply_both(async { Ok::<(), String>(()) }, async {
+        Err::<(), _>("codex init failed".to_string())
+    })
     .await;
     assert_eq!(claude, None);
     assert_eq!(codex.as_deref(), Some("codex init failed"));

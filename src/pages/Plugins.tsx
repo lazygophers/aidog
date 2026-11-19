@@ -9,6 +9,7 @@ import { Checkbox } from "../components/ui/checkbox";
 import { Input } from "../components/ui/input";
 import { Switch } from "../components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { listen } from "../services/transport";
 import {
   pluginsApi,
   type ClaudePluginCandidate,
@@ -52,12 +53,28 @@ export function Plugins() {
     }
   }, []);
 
+  const refreshClaude = useCallback(async () => {
+    applyClaude(await pluginsApi.claudeList());
+  }, [applyClaude]);
+
   useEffect(() => {
+    let active = true;
+    let unlisten: (() => void) | undefined;
+    void listen("plugins-updated", () => {
+      if (active) void run(refreshClaude);
+    }).then((dispose) => {
+      if (active) unlisten = dispose;
+      else dispose();
+    });
     void run(async () => {
-      applyClaude(await pluginsApi.claudeList());
+      await refreshClaude();
       setCodex(await pluginsApi.codexList());
     });
-  }, [run, applyClaude]);
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  }, [run, refreshClaude]);
 
   const setClaudeEnabled = (p: ClaudePluginView, enabled: boolean) =>
     void run(async () => applyClaude(await pluginsApi.claudeSet(p.name, enabled)));
@@ -74,9 +91,20 @@ export function Plugins() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-5" data-testid="plugins-page">
-      <div>
-        <h2 className="text-lg font-semibold">{t("plugins.title")}</h2>
-        <p className="text-sm text-muted-foreground">{t("plugins.desc")}</p>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">{t("plugins.title")}</h2>
+          <p className="text-sm text-muted-foreground">{t("plugins.desc")}</p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          data-testid="plugins-refresh"
+          disabled={busy}
+          onClick={() => void run(refreshClaude)}
+        >
+          {t("plugins.refresh")}
+        </Button>
       </div>
       {error && <p className="text-sm text-destructive" data-testid="plugins-error">{error}</p>}
       {warnings.length > 0 && <div className="text-sm text-muted-foreground" data-testid="plugins-warnings">
@@ -166,47 +194,58 @@ export function Plugins() {
             </>}
           </div>
           {claude.length === 0 && <p className="text-sm text-muted-foreground">{t("plugins.emptyClaude")}</p>}
-          {claude.map((p) => (
-            <div key={p.name} data-testid={`plugin-row-${p.name}`} className="flex flex-col gap-2 rounded-md border p-3">
+          {claude.map((p) => {
+            const rowId = p.external
+              ? `${p.name}-${p.scope}${p.projectPath ? `-${encodeURIComponent(p.projectPath)}` : ""}`
+              : p.name;
+            return (
+            <div key={rowId} data-testid={`plugin-row-${rowId}`} className="flex flex-col gap-2 rounded-md border p-3">
               <div className="flex items-center gap-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-sm font-medium">{p.name}</span>
                     <Badge variant="outline">{p.on ? t("plugins.enabled") : t("plugins.disabled")}</Badge>
+                    <Badge variant="outline" data-testid={`plugin-origin-${rowId}`}>{t(p.external ? "plugins.originClaude" : "plugins.originAidog")}</Badge>
+                    {p.scope && <Badge variant="outline" data-testid={`plugin-scope-${rowId}`}>{p.scope}</Badge>}
                   </div>
                   <div className="truncate text-sm text-muted-foreground">{p.source}</div>
+                  {p.projectPath && <div className="truncate text-xs text-muted-foreground">{p.projectPath}</div>}
+                  {p.operationError && <div className="text-xs text-destructive">{t(p.operationError)}</div>}
                 </div>
                 <Switch
                   aria-label={p.name}
-                  data-testid={`plugin-toggle-${p.name}`}
+                  data-testid={`plugin-toggle-${rowId}`}
                   checked={p.on}
-                  disabled={busy}
+                  disabled={busy || !p.canOperate}
+                  title={p.operationError ?? undefined}
                   onCheckedChange={(on) => setClaudeEnabled(p, on)}
                 />
-                <Button size="sm" variant="outline" data-testid={`plugin-update-${p.name}`} disabled={busy} onClick={() => void run(async () => applyClaude(await pluginsApi.claudeUpdate(p.name)))}>{t("plugins.claudeUpdate")}</Button>
-                <Button size="sm" variant="ghost" data-testid={`plugin-remove-${p.name}`} disabled={busy} onClick={() => void run(async () => applyClaude(await pluginsApi.claudeRemove(p.name)))}>{t("plugins.remove")}</Button>
+                <Button size="sm" variant="outline" data-testid={`plugin-update-${rowId}`} disabled={busy || !p.canOperate} onClick={() => void run(async () => applyClaude(await pluginsApi.claudeUpdate(p.name)))}>{t("plugins.claudeUpdate")}</Button>
+                {!p.external && <Button size="sm" variant="ghost" data-testid={`plugin-remove-${rowId}`} disabled={busy} onClick={() => void run(async () => applyClaude(await pluginsApi.claudeRemove(p.name)))}>{t("plugins.remove")}</Button>}
+                {p.external && <Button size="sm" variant="ghost" data-testid={`plugin-remove-${rowId}`} disabled>{t("plugins.remove")}</Button>}
               </div>
-              <div className="flex items-center gap-4 text-sm">
+              {!p.external && <div className="flex items-center gap-4 text-sm">
                 {t("plugins.claudeAgents")}
                 {["claude-code", "codex"].map((a) => <label key={a} className="flex items-center gap-2">
                   <Checkbox
-                    data-testid={`plugin-agent-${p.name}-${a}`}
+                    data-testid={`plugin-agent-${rowId}-${a}`}
                     checked={p.agents.includes(a)}
                     disabled={busy}
                     onCheckedChange={(on) => toggleAgent(p, a, !!on)}
                   />
                   {a === "claude-code" ? "Claude Code" : "Codex"}
                 </label>)}
-              </div>
+              </div>}
               <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
                 <span>{t("plugins.claudeParts", { skills: p.skills.length, subagents: p.subagents.length, hooks: p.hooks.length, servers: p.servers.length })}</span>
               </div>
-              {p.left.length > 0 && <div dir={i18n.dir()} className="text-sm text-muted-foreground" data-testid={`plugin-left-${p.name}`}>
+              {p.left.length > 0 && <div dir={i18n.dir()} className="text-sm text-muted-foreground" data-testid={`plugin-left-${rowId}`}>
                 <span>{t("plugins.claudeLeft")}</span>
                 {p.left.map((l, i) => <p key={i}>{noteText(l)}</p>)}
               </div>}
             </div>
-          ))}
+            );
+          })}
         </TabsContent>
         <TabsContent value="codex" className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">{t("plugins.codexHint")}</p>

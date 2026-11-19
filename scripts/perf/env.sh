@@ -1,6 +1,6 @@
 # 公共变量；其它脚本 source 本文件。全部可用环境变量覆盖。
 HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO="$(cd "$HARNESS_DIR/../../.." && pwd)"
+REPO="$(cd "$HARNESS_DIR/../.." && pwd)"
 PERF_ID="${PERF_ID:-default}"
 ISO="/tmp/aidog-perf-$PERF_ID"          # 隔离 HOME；数据在 $ISO/.aidog
 PROXY_PORT="${PROXY_PORT:-19890}"       # 代理端口（禁 9890）

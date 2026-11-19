@@ -466,7 +466,8 @@
             "Edit(**/*.exe)",
             "Edit(**/*.pdb)",
             "Edit(**/*.wasm)",
-            "Bash(sleep:*)"
+            "Bash(sleep:*)",
+            "Bash(cd:*)"
         ],
         "allow": [
             "SendMessage",

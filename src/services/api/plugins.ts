@@ -12,6 +12,10 @@ export interface PluginNote {
 export interface ClaudePluginView {
   name: string;
   source: string;
+  scope: "user" | "project" | "local" | null;
+  projectPath: string | null;
+  canOperate: boolean;
+  operationError: string | null;
   pick: string | null;
   agents: string[];
   on: boolean;
@@ -21,6 +25,8 @@ export interface ClaudePluginView {
   servers: string[];
   /** 未携带部件（slash commands、LSP servers 等）。 */
   left: PluginNote[];
+  /** true = Claude Code 自装插件（installed_plugins.json）：启停走 Claude 配置，无部件分发。 */
+  external: boolean;
 }
 
 /** 操作结果含插件清单 + 用户改过未撤回的部件 warning。 */

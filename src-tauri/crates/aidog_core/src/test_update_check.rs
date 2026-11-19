@@ -152,3 +152,43 @@ async fn no_update_is_silent() {
     flush_pending(&c).await;
     assert!(c.events.lock().unwrap().is_empty() && c.popups.lock().unwrap().is_empty());
 }
+
+// ─── next_check_delay（睡到上次检查 + 24h，取代每小时空醒）────────
+
+#[tokio::test]
+async fn update_check_setting_wake_interrupts_disabled_wait() {
+    let waiter = tokio::spawn(async { wait_next_check(None).await });
+    tokio::task::yield_now().await;
+    wake_daily_check();
+    assert!(
+        waiter.await.unwrap(),
+        "enabling auto update should interrupt the disabled wait"
+    );
+}
+
+#[test]
+fn next_check_delay_waits_full_throttle_after_check() {
+    let now = 1_700_000_000_000i64;
+    let d = next_check_delay(Some(now - 3600 * 1000), now); // 1h 前检查过 → 还差 23h
+    assert_eq!(
+        d.as_millis() as i64,
+        23 * 3600 * 1000,
+        "should sleep the remaining 23h, got {:?}",
+        d
+    );
+}
+
+#[test]
+fn next_check_delay_zero_when_never_checked_or_due() {
+    let now = 1_700_000_000_000i64;
+    assert_eq!(next_check_delay(None, now), std::time::Duration::ZERO);
+    assert_eq!(
+        next_check_delay(Some(now - THROTTLE_MS), now),
+        std::time::Duration::ZERO
+    );
+    // 时间戳在未来（时钟回拨）→ 立即检查。
+    assert_eq!(
+        next_check_delay(Some(now + 1000), now),
+        std::time::Duration::ZERO
+    );
+}

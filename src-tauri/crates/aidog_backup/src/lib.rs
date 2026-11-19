@@ -9,7 +9,7 @@
 //! 重新加密落库，恢复不需要原机器的 keychain。
 //!
 //! - 设置存 `setting` 表 (scope=`backup`, key=`settings`, value=JSON), 缺省/解析失败 → 默认值。
-//! - 触发: setup 启动检查 (throttle) + 常驻 sleep loop (每轮读 settings 即时生效)。
+//! - 触发: setup 启动检查 (throttle) + 常驻 loop (睡到到期；`backup_settings_set` 唤醒重算)。
 //! - 重入防护: `AtomicBool`。
 //! - 失败: 记 `last_backup_error` + 调 [`notification::dispatch`] (若用户开通知)。
 //!
@@ -21,7 +21,7 @@
 mod cleanup;
 mod scheduler;
 
-pub use scheduler::{run_backup, scheduler_loop};
+pub use scheduler::{run_backup, scheduler_loop, wake_backup_scheduler};
 
 use aidog_db as db;
 use serde::{Deserialize, Serialize};

@@ -152,10 +152,7 @@ pub(crate) fn sqz_apply_hooks_ledger(
     if on {
         for (ev, matcher, cmd) in SQZ_HOOKS {
             if has_hook(cfg, ev, cmd)
-                && !ledger
-                    .preexisting
-                    .iter()
-                    .any(|(e, c)| e == ev && c == cmd)
+                && !ledger.preexisting.iter().any(|(e, c)| e == ev && c == cmd)
             {
                 ledger.preexisting.push((ev.to_string(), cmd.to_string()));
             }
@@ -163,10 +160,7 @@ pub(crate) fn sqz_apply_hooks_ledger(
         }
     } else {
         for (ev, _, cmd) in SQZ_HOOKS {
-            let was_user = ledger
-                .preexisting
-                .iter()
-                .any(|(e, c)| e == ev && c == cmd);
+            let was_user = ledger.preexisting.iter().any(|(e, c)| e == ev && c == cmd);
             if !was_user {
                 remove_hook(cfg, ev, cmd);
             }
@@ -200,7 +194,6 @@ impl SqzLedger {
 pub struct SqzHookLedger {
     pub preexisting: Vec<(String, String)>,
 }
-
 
 #[derive(PartialEq)]
 enum Kind {
@@ -432,10 +425,16 @@ pub(crate) fn sqz_apply_claude_json_ledger(
                     name.clone(),
                     json!({"type": "stdio", "command": SQZ_BIN, "args": SQZ_SELF_ARGS}),
                 );
-                ledger.before.entry(format!("claude:{name}")).or_insert(None);
+                ledger
+                    .before
+                    .entry(format!("claude:{name}"))
+                    .or_insert(None);
                 ledger.after.insert(
                     format!("claude:{name}"),
-                    (SQZ_BIN.to_string(), SQZ_SELF_ARGS.map(String::from).to_vec()),
+                    (
+                        SQZ_BIN.to_string(),
+                        SQZ_SELF_ARGS.map(String::from).to_vec(),
+                    ),
                 );
                 changed = true;
             }
@@ -592,7 +591,10 @@ pub(crate) fn sqz_apply_codex_ledger(
             ledger.before.entry(format!("codex:{name}")).or_insert(None);
             ledger.after.insert(
                 format!("codex:{name}"),
-                (SQZ_BIN.to_string(), SQZ_SELF_ARGS.map(String::from).to_vec()),
+                (
+                    SQZ_BIN.to_string(),
+                    SQZ_SELF_ARGS.map(String::from).to_vec(),
+                ),
             );
             changed = true;
         }
@@ -735,7 +737,8 @@ pub(crate) fn sqz_wrap_residue(
             }
         }
     }
-    if let Some(servers) = codex.and_then(|t| t.get("mcp_servers").and_then(toml::Value::as_table)) {
+    if let Some(servers) = codex.and_then(|t| t.get("mcp_servers").and_then(toml::Value::as_table))
+    {
         for (n, e) in servers {
             let Some((cmd, args)) = toml_stdio(e) else {
                 continue;
@@ -1028,7 +1031,9 @@ pub(crate) fn rtk_codex_disable(codex: &Path, rec: &RtkCodexRecord) -> Result<()
                     let end = pos + rtk_content.len();
                     let (before, after) = (&cur[..pos], &cur[end..]);
                     let aligned = (pos == 0 || before.ends_with('\n'))
-                        && (end == cur.len() || rtk_content.ends_with('\n') || after.starts_with('\n'));
+                        && (end == cur.len()
+                            || rtk_content.ends_with('\n')
+                            || after.starts_with('\n'));
                     aligned.then(|| {
                         let mut out = String::with_capacity(cur.len() - rtk_content.len());
                         out.push_str(before);
@@ -1185,7 +1190,11 @@ async fn load_sqz_ledger(db: &Db) -> (SqzLedger, SqzHookLedger) {
     (l, h)
 }
 
-async fn store_sqz_ledger(db: &Db, ledger: &SqzLedger, hooks: &SqzHookLedger) -> Result<(), String> {
+async fn store_sqz_ledger(
+    db: &Db,
+    ledger: &SqzLedger,
+    hooks: &SqzHookLedger,
+) -> Result<(), String> {
     let cur = aidog_db::get_setting(db, "global", SETTING_KEY)
         .await
         .ok()

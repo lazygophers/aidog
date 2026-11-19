@@ -103,6 +103,10 @@ struct Plugin {
 pub struct PluginView {
     pub name: String,
     pub source: String,
+    pub scope: Option<String>,
+    pub project_path: Option<String>,
+    pub can_operate: bool,
+    pub operation_error: Option<String>,
     pub pick: Option<String>,
     pub agents: Vec<String>,
     pub on: bool,
@@ -111,6 +115,8 @@ pub struct PluginView {
     pub hooks: Vec<String>,
     pub servers: Vec<String>,
     pub left: Vec<Note>,
+    /// true = Claude Code 自装的插件（installed_plugins.json），只读展示 + 启停，无部件分发。
+    pub external: bool,
 }
 
 #[derive(Serialize, Clone, Debug, Default)]
@@ -135,6 +141,10 @@ fn view(p: &Plugin) -> PluginView {
     PluginView {
         name: p.name.clone(),
         source: p.source.clone(),
+        scope: None,
+        project_path: None,
+        can_operate: true,
+        operation_error: None,
         pick: p.pick.clone(),
         agents: p.agents.clone(),
         on: !p.off,
@@ -147,6 +157,7 @@ fn view(p: &Plugin) -> PluginView {
             .collect(),
         servers: p.servers.iter().map(|s| s.name.clone()).collect(),
         left: p.left.clone(),
+        external: false,
     }
 }
 
@@ -1275,16 +1286,191 @@ async fn remove_parts_db(db: &aidog_db::Db, p: &Plugin) -> Result<(), String> {
     Ok(())
 }
 
-async fn list_impl(db: &aidog_db::Db) -> PluginViewList {
-    PluginViewList {
-        plugins: load(db).await.iter().map(view).collect(),
-        warnings: Vec::new(),
+async fn list_impl_in_project(
+    db: &aidog_db::Db,
+    mode: &CliMode,
+    project: Option<&Path>,
+) -> Result<PluginViewList, String> {
+    let mut plugins: Vec<PluginView> = load(db).await.iter().map(view).collect();
+    let (native, warnings) = match native_views(mode, project).await {
+        Ok(plugins) => (plugins, Vec::new()),
+        Err(error) => (Vec::new(), vec![note("native_list_unavailable", &[("error", &error)])]),
+    };
+    plugins.extend(native);
+    Ok(PluginViewList { plugins, warnings })
+}
+
+// ─── Claude Code 原生插件（CLI 清单覆盖 user/project/local）────────
+// 清单与启用状态由官方 `claude plugin list --json` 给出；写操作走同一 CLI，并显式指定作用域。
+
+pub(crate) fn claude_dir() -> Result<PathBuf, String> {
+    match std::env::var("CLAUDE_CONFIG_DIR") {
+        Ok(v) if !v.trim().is_empty() => Ok(PathBuf::from(v)),
+        _ => Ok(dirs::home_dir()
+            .ok_or("cannot resolve home directory")?
+            .join(".claude")),
+    }
+}
+
+fn normalized_path(path: &Path) -> PathBuf {
+    std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+}
+
+#[derive(Clone, Debug)]
+struct NativePlugin {
+    id: String,
+    install_path: String,
+    scope: String,
+    project_path: Option<PathBuf>,
+    enabled: bool,
+    can_operate: bool,
+}
+
+fn parse_native_plugins(stdout: &str, current_project: Option<&Path>) -> Result<Vec<NativePlugin>, String> {
+    let start = stdout
+        .find('[')
+        .ok_or_else(|| "claude plugin list: no JSON array in output".to_string())?;
+    let rows: Vec<Value> = serde_json::from_str(&stdout[start..])
+        .map_err(|e| format!("claude plugin list: invalid JSON: {e}"))?;
+    let mut out = Vec::new();
+    for row in rows {
+        let Some(id) = row.get("id").and_then(Value::as_str) else {
+            continue;
+        };
+        let Some(scope) = row.get("scope").and_then(Value::as_str) else {
+            continue;
+        };
+        if !matches!(scope, "user" | "project" | "local") {
+            return Err(format!("claude plugin list: unsupported scope {scope}"));
+        }
+        let project_path = row
+            .get("projectPath")
+            .and_then(Value::as_str)
+            .map(PathBuf::from);
+        if scope != "user"
+            && !matches!((current_project, project_path.as_deref()), (Some(current), Some(row_path))
+                if normalized_path(current) == normalized_path(row_path))
+        {
+            continue;
+        }
+        let can_operate = scope == "user"
+            || project_path
+                .as_deref()
+                .is_some_and(|path| path.is_dir());
+        out.push(NativePlugin {
+            id: id.to_string(),
+            install_path: row
+                .get("installPath")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
+            scope: scope.to_string(),
+            project_path,
+            enabled: row.get("enabled").and_then(Value::as_bool).unwrap_or(false),
+            can_operate,
+        });
+    }
+    out.sort_by(|a, b| {
+        (&a.id, &a.scope, &a.project_path).cmp(&(&b.id, &b.scope, &b.project_path))
+    });
+    Ok(out)
+}
+
+async fn native_plugins(
+    mode: &CliMode,
+    current_project: Option<&Path>,
+) -> Result<Vec<NativePlugin>, String> {
+    let path = claude_dir()?.join("plugins/installed_plugins.json");
+    match std::fs::metadata(&path) {
+        Ok(_) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(format!("stat {}: {e}", path.display())),
+    }
+    parse_native_plugins(
+        &run_cli(mode, &["plugin", "list", "--json"], None).await?,
+        current_project,
+    )
+}
+
+async fn native_views(
+    mode: &CliMode,
+    current_project: Option<&Path>,
+) -> Result<Vec<PluginView>, String> {
+    Ok(native_plugins(mode, current_project)
+        .await?
+        .into_iter()
+        .map(|p| PluginView {
+            name: p.id,
+            source: p.install_path,
+            scope: Some(p.scope),
+            project_path: p.project_path.map(|path| path.to_string_lossy().into_owned()),
+            can_operate: p.can_operate,
+            operation_error: (!p.can_operate)
+                .then(|| "plugins.nativeProjectUnavailable".to_string()),
+            pick: None,
+            agents: vec![subagents::AGENT_CLAUDE.to_string()],
+            on: p.enabled,
+            skills: Vec::new(),
+            subagents: Vec::new(),
+            hooks: Vec::new(),
+            servers: Vec::new(),
+            left: Vec::new(),
+            external: true,
+        })
+        .collect())
+}
+
+/// CLI 执行方式：生产走官方 `claude` CLI；测试注入假执行器改隔离 HOME 文件。
+enum CliMode {
+    Real,
+    #[cfg(test)]
+    Fake(fn(&[&str], Option<&Path>) -> Result<String, String>),
+}
+
+async fn run_cli(
+    mode: &CliMode,
+    args: &[&str],
+    project_path: Option<&Path>,
+) -> Result<String, String> {
+    match mode {
+        CliMode::Real => {
+            let mut c = tokio::process::Command::new("claude");
+            c.args(args).stdin(std::process::Stdio::null());
+            if let Some(path) = project_path {
+                c.current_dir(path);
+            }
+            // GUI 进程 PATH 极简，补登录 shell PATH（同 codex 插件命令的探测）。
+            if let Some(p) = aidog_skills::runtime_path() {
+                c.env("PATH", p);
+            }
+            let out = tokio::time::timeout(std::time::Duration::from_secs(60), c.output())
+                .await
+                .map_err(|_| format!("claude {}: timeout after 60s", args.join(" ")))?
+                .map_err(|e| format!("claude: {e}"))?;
+            let text = format!(
+                "{}{}",
+                String::from_utf8_lossy(&out.stdout),
+                String::from_utf8_lossy(&out.stderr)
+            );
+            if !out.status.success() {
+                return Err(format!("claude {}: {}", args.join(" "), text.trim()));
+            }
+            Ok(text)
+        }
+        #[cfg(test)]
+        CliMode::Fake(f) => f(args, project_path),
     }
 }
 
 crate::tauri_command! {
     pub async fn plugins_bundle_list() -> Result<PluginViewList, String> {
-        Ok(list_impl(aidog_ctx::db()).await)
+        let project = std::env::current_dir().ok();
+        let watch_error = super::plugin_watch::ensure_plugins_watcher(project.as_deref()).err();
+        let mut result = list_impl_in_project(aidog_ctx::db(), &CliMode::Real, project.as_deref()).await?;
+        if let Some(error) = watch_error {
+            result.warnings.push(note("native_watch_unavailable", &[("error", &error)]));
+        }
+        Ok(result)
     }
 }
 
@@ -1303,15 +1489,57 @@ crate::tauri_command! {
 
 crate::tauri_command! {
     pub async fn plugins_bundle_set(name: String, on: bool) -> Result<PluginViewList, String> {
-        let db = aidog_ctx::db();
-        let mut rows = load(db).await;
-        let Some(p) = rows.iter_mut().find(|p| p.name == name) else { return Err(format!("no plugin called {name}")); };
-        p.off = !on;
-        let mut warnings = Vec::new();
-        sync_parts(db,p,&mut warnings).await?;
-        save(db,&rows).await?;
-        Ok(PluginViewList{plugins:rows.iter().map(view).collect(),warnings})
+        if load(aidog_ctx::db()).await.iter().any(|p| p.name == name) {
+            return bundle_set_impl(aidog_ctx::db(), &name, on).await;
+        }
+        let project = std::env::current_dir().ok();
+        native_set_impl(aidog_ctx::db(), &CliMode::Real, &name, on, project.as_deref()).await
     }
+}
+
+/// 启停 Claude Code 原生插件：走官方 `claude plugin enable/disable --scope <作用域>`。
+async fn native_set_impl(
+    db: &aidog_db::Db,
+    mode: &CliMode,
+    name: &str,
+    on: bool,
+    project: Option<&Path>,
+) -> Result<PluginViewList, String> {
+    let plugins = native_plugins(mode, project).await?;
+    let p = plugins
+        .iter()
+        .find(|p| p.id == name)
+        .ok_or_else(|| format!("no plugin called {name}"))?;
+    if !p.can_operate {
+        return Err("plugins.nativeProjectUnavailable".into());
+    }
+    let verb = if on { "enable" } else { "disable" };
+    run_cli(
+        mode,
+        &["plugin", verb, name, "--scope", &p.scope],
+        p.project_path.as_deref(),
+    )
+    .await?;
+    list_impl_in_project(db, mode, project).await
+}
+
+async fn bundle_set_impl(
+    db: &aidog_db::Db,
+    name: &str,
+    on: bool,
+) -> Result<PluginViewList, String> {
+    let mut rows = load(db).await;
+    let Some(p) = rows.iter_mut().find(|p| p.name == name) else {
+        return Err(format!("no plugin called {name}"));
+    };
+    p.off = !on;
+    let mut warnings = Vec::new();
+    sync_parts(db, p, &mut warnings).await?;
+    save(db, &rows).await?;
+    Ok(PluginViewList {
+        plugins: rows.iter().map(view).collect(),
+        warnings,
+    })
 }
 
 crate::tauri_command! {
@@ -1353,9 +1581,36 @@ async fn plugins_remove_impl(db: &aidog_db::Db, name: &str) -> Result<PluginView
 crate::tauri_command! {
     pub async fn plugins_bundle_update(name: String) -> Result<PluginViewList, String> {
         let db=aidog_ctx::db();
-        let p=load(db).await.into_iter().find(|p|p.name==name).ok_or_else(||format!("no plugin called {name}"))?;
-        install_impl(db, p.source.clone(), Vec::new(), p.pick.clone().map(|x| vec![x])).await
+        if let Some(p) = load(db).await.into_iter().find(|p|p.name==name) {
+            return install_impl(db, p.source.clone(), Vec::new(), p.pick.clone().map(|x| vec![x])).await;
+        }
+        let project = std::env::current_dir().ok();
+        native_update_impl(db, &CliMode::Real, &name, project.as_deref()).await
     }
+}
+
+/// 更新 Claude Code 原生插件：走官方 `claude plugin update --scope <作用域>`。
+async fn native_update_impl(
+    db: &aidog_db::Db,
+    mode: &CliMode,
+    name: &str,
+    project: Option<&Path>,
+) -> Result<PluginViewList, String> {
+    let plugins = native_plugins(mode, project).await?;
+    let p = plugins
+        .iter()
+        .find(|p| p.id == name)
+        .ok_or_else(|| format!("no plugin called {name}"))?;
+    if !p.can_operate {
+        return Err("plugins.nativeProjectUnavailable".into());
+    }
+    run_cli(
+        mode,
+        &["plugin", "update", name, "--scope", &p.scope],
+        p.project_path.as_deref(),
+    )
+    .await?;
+    list_impl_in_project(db, mode, project).await
 }
 
 #[cfg(test)]

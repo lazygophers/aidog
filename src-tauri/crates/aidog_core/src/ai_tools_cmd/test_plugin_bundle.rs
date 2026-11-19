@@ -454,3 +454,287 @@ async fn failed_update_undoes_its_own_writes_and_a_retry_finishes() {
     assert!(home.home().join(".claude/agents/helper.md").exists());
     assert_eq!(std::fs::read_to_string(&user_file).unwrap(), "mine");
 }
+
+// ─── Claude Code 原生插件只读取清单（HOME 隔离）────────────────
+
+fn claude_installed(entries: &[(&str, &str, &str)], enabled: &[(&str, bool)]) {
+    let home = dirs::home_dir().unwrap();
+    let dir = home.join(".claude/plugins");
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut map = serde_json::Map::new();
+    for (id, path, version) in entries {
+        map.insert(
+            id.to_string(),
+            json!([{ "scope": "user", "installPath": path, "version": version }]),
+        );
+    }
+    std::fs::write(
+        dir.join("installed_plugins.json"),
+        json!({ "version": 2, "plugins": map }).to_string(),
+    )
+    .unwrap();
+    let mut enabled_plugins = serde_json::Map::new();
+    for (id, enabled) in enabled {
+        enabled_plugins.insert(id.to_string(), json!(enabled));
+    }
+    std::fs::write(
+        home.join(".claude/settings.json"),
+        serde_json::to_string_pretty(
+            &json!({ "model": "opus", "enabledPlugins": enabled_plugins }),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+}
+
+fn fake_claude_cli(args: &[&str], _project_cwd: Option<&Path>) -> Result<String, String> {
+    assert_eq!(args, ["plugin", "list", "--json"]);
+    let home = dirs::home_dir().unwrap();
+    let installed_path = home.join(".claude/plugins/installed_plugins.json");
+    let installed: Value =
+        serde_json::from_str(&std::fs::read_to_string(&installed_path).unwrap()).unwrap();
+    let mut rows = Vec::new();
+    for (id, records) in installed["plugins"].as_object().unwrap() {
+        for record in records.as_array().unwrap() {
+            let scope = record["scope"].as_str().unwrap();
+            let project_path = record.get("projectPath").and_then(Value::as_str);
+            let settings_path = match scope {
+                "user" => home.join(".claude/settings.json"),
+                "project" => Path::new(project_path.unwrap()).join(".claude/settings.json"),
+                "local" => Path::new(project_path.unwrap()).join(".claude/settings.local.json"),
+                _ => unreachable!(),
+            };
+            let settings = std::fs::read_to_string(settings_path)
+                .ok()
+                .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+                .unwrap_or_else(|| json!({}));
+            rows.push(json!({
+                "id": id,
+                "scope": scope,
+                "installPath": record["installPath"],
+                "projectPath": record.get("projectPath"),
+                "enabled": settings["enabledPlugins"][id].as_bool().unwrap_or(false),
+            }));
+        }
+    }
+    Ok(serde_json::to_string(&rows).unwrap())
+}
+
+#[tokio::test]
+async fn claude_installed_plugins_merge_into_list() {
+    let _home = HomeGuard::new();
+    let db = aidog_db::test_support::test_db().await;
+    claude_installed(
+        &[
+            ("ponytail@ponytail", "/x/p", "5.3.3"),
+            ("caveman@caveman", "/x/c", "4.1.0"),
+        ],
+        &[("ponytail@ponytail", true)],
+    );
+    let project = std::env::current_dir().unwrap();
+    let list = list_impl_in_project(&db, &CliMode::Fake(fake_claude_cli), Some(&project))
+        .await
+        .unwrap();
+    assert_eq!(
+        list.plugins.len(),
+        2,
+        "both installed plugins listed: {:?}",
+        list.plugins
+    );
+    let p = list
+        .plugins
+        .iter()
+        .find(|p| p.name == "ponytail@ponytail")
+        .unwrap();
+    assert!(p.on);
+    assert!(p.external);
+    assert_eq!(p.scope.as_deref(), Some("user"));
+
+    let src = tempfile::tempdir().unwrap();
+    let root = src.path().join("bundle");
+    fixture(&root, "demo");
+    install_impl(
+        &db,
+        root.to_string_lossy().into_owned(),
+        vec![AGENTS[0].into()],
+        None,
+    )
+    .await
+    .unwrap();
+    let merged = list_impl_in_project(&db, &CliMode::Fake(fake_claude_cli), Some(&project))
+        .await
+        .unwrap();
+    assert_eq!(merged.plugins.len(), 3);
+    assert!(
+        merged
+            .plugins
+            .iter()
+            .any(|p| p.name == "demo" && !p.external)
+    );
+}
+
+#[tokio::test]
+async fn project_and_local_plugins_are_filtered_to_current_project() {
+    let _home = HomeGuard::new();
+    let home = dirs::home_dir().unwrap();
+    let project = home.join("repo");
+    std::fs::create_dir_all(home.join(".claude/plugins")).unwrap();
+    std::fs::create_dir_all(&project).unwrap();
+    let project_path = project.to_string_lossy().into_owned();
+    std::fs::write(
+        home.join(".claude/plugins/installed_plugins.json"),
+        json!({
+            "version": 2,
+            "plugins": {
+                "user@m": [{"scope":"user","installPath":"/user"}],
+                "project@m": [{"scope":"project","projectPath":project_path,"installPath":"/project"}],
+                "local@m": [{"scope":"local","projectPath":project_path,"installPath":"/local"}],
+                "other@m": [{"scope":"project","projectPath":"/other/project","installPath":"/other"}]
+            }
+        }).to_string(),
+    ).unwrap();
+    let db = aidog_db::test_support::test_db().await;
+    let list = list_impl_in_project(&db, &CliMode::Fake(fake_claude_cli), Some(&project))
+        .await
+        .unwrap();
+    for (id, scope) in [
+        ("user@m", "user"),
+        ("project@m", "project"),
+        ("local@m", "local"),
+    ] {
+        assert!(
+            list.plugins
+                .iter()
+                .any(|p| p.name == id && p.scope.as_deref() == Some(scope)),
+            "missing {scope} {id}"
+        );
+    }
+    assert!(
+        !list.plugins.iter().any(|p| p.name == "other@m"),
+        "other project records are excluded"
+    );
+}
+
+#[tokio::test]
+async fn external_settings_changes_are_read_on_next_list() {
+    let _home = HomeGuard::new();
+    let home = dirs::home_dir().unwrap();
+    let db = aidog_db::test_support::test_db().await;
+    claude_installed(&[("a@m", "/x/a", "1.0")], &[("a@m", false)]);
+    let project = std::env::current_dir().unwrap();
+    let before = list_impl_in_project(&db, &CliMode::Fake(fake_claude_cli), Some(&project))
+        .await
+        .unwrap();
+    assert!(!before.plugins.iter().find(|p| p.name == "a@m").unwrap().on);
+
+    let path = home.join(".claude/settings.json");
+    std::fs::write(&path, json!({"enabledPlugins":{"a@m":true}}).to_string()).unwrap();
+    let after = list_impl_in_project(&db, &CliMode::Fake(fake_claude_cli), Some(&project))
+        .await
+        .unwrap();
+    assert!(after.plugins.iter().find(|p| p.name == "a@m").unwrap().on);
+}
+
+static CLI_CALLS: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+fn record(args: &[&str], project_cwd: Option<&Path>) {
+    CLI_CALLS.lock().unwrap().push(format!(
+        "{} [cwd {}]",
+        args.join(" "),
+        project_cwd.map(|p| p.display().to_string()).unwrap_or_default()
+    ));
+}
+
+fn fake_cli_recorder(args: &[&str], project_cwd: Option<&Path>) -> Result<String, String> {
+    record(args, project_cwd);
+    if args[1] == "list" {
+        fake_claude_cli(args, project_cwd)
+    } else {
+        Ok("ok".into())
+    }
+}
+
+fn fake_cli_failing(args: &[&str], project_cwd: Option<&Path>) -> Result<String, String> {
+    record(args, project_cwd);
+    if args[1] == "list" {
+        fake_claude_cli(args, project_cwd)
+    } else {
+        Err("boom: plugin not found".into())
+    }
+}
+
+#[tokio::test]
+async fn native_plugin_enable_update_run_cli_with_scope() {
+    let _home = HomeGuard::new();
+    let home = dirs::home_dir().unwrap();
+    let project = home.join("repo");
+    std::fs::create_dir_all(&project).unwrap();
+    claude_installed(&[("a@m", "/a", "1.0")], &[("a@m", false)]);
+    let db = aidog_db::test_support::test_db().await;
+    CLI_CALLS.lock().unwrap().clear();
+
+    native_set_impl(&db, &CliMode::Fake(fake_cli_recorder), "a@m", true, Some(&project))
+        .await
+        .unwrap();
+    native_update_impl(&db, &CliMode::Fake(fake_cli_recorder), "a@m", Some(&project))
+        .await
+        .unwrap();
+    let calls = CLI_CALLS.lock().unwrap().clone();
+    assert!(
+        calls.iter().any(|c| c.contains("plugin enable a@m --scope user")),
+        "calls: {calls:?}"
+    );
+    assert!(
+        calls.iter().any(|c| c.contains("plugin update a@m --scope user")),
+        "calls: {calls:?}"
+    );
+
+    let err = native_set_impl(&db, &CliMode::Fake(fake_cli_recorder), "gone@m", true, Some(&project))
+        .await
+        .unwrap_err();
+    assert!(err.contains("no plugin called gone@m"), "err: {err}");
+}
+
+#[tokio::test]
+async fn native_plugin_disable_project_scope_runs_cli_in_project() {
+    let _home = HomeGuard::new();
+    let home = dirs::home_dir().unwrap();
+    let project = home.join("repo");
+    std::fs::create_dir_all(project.join(".claude")).unwrap();
+    std::fs::create_dir_all(home.join(".claude/plugins")).unwrap();
+    std::fs::write(
+        home.join(".claude/plugins/installed_plugins.json"),
+        json!({"version":2,"plugins":{"p@m":[{"scope":"project","projectPath":project.to_string_lossy(),"installPath":"/p","version":"1"}]}}).to_string(),
+    ).unwrap();
+    std::fs::write(
+        project.join(".claude/settings.json"),
+        json!({"enabledPlugins":{"p@m":true}}).to_string(),
+    ).unwrap();
+    let db = aidog_db::test_support::test_db().await;
+    CLI_CALLS.lock().unwrap().clear();
+
+    let list = native_set_impl(&db, &CliMode::Fake(fake_cli_recorder), "p@m", false, Some(&project))
+        .await
+        .unwrap();
+    let calls = CLI_CALLS.lock().unwrap().clone();
+    assert!(
+        calls.iter().any(|c| {
+            c.contains("plugin disable p@m --scope project")
+                && c.contains(&format!("[cwd {}", project.display()))
+        }),
+        "calls: {calls:?}"
+    );
+    // Fake CLI does not mutate settings, so the refreshed row still reads enabled=true.
+    assert!(list.plugins.iter().find(|p| p.name == "p@m").unwrap().on);
+}
+
+#[tokio::test]
+async fn native_plugin_cli_failure_is_surfaced() {
+    let _home = HomeGuard::new();
+    claude_installed(&[("a@m", "/a", "1.0")], &[("a@m", false)]);
+    let db = aidog_db::test_support::test_db().await;
+    let err = native_set_impl(&db, &CliMode::Fake(fake_cli_failing), "a@m", true, None)
+        .await
+        .unwrap_err();
+    assert!(err.contains("boom: plugin not found"), "err: {err}");
+}

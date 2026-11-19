@@ -1,7 +1,10 @@
 use crate::gateway;
 use aidog_db::Db;
 
-use gateway::models::{ProxyLog, ProxyLogFilter, ProxyLogPage, ProxyLogSettings, ProxyLogSummary, RequestLogFilter, RequestLogSummary};
+use gateway::models::{
+    ProxyLog, ProxyLogFilter, ProxyLogPage, ProxyLogSettings, ProxyLogSummary, RequestLogFilter,
+    RequestLogSummary,
+};
 
 crate::tauri_command! {
 pub async fn proxy_log_list( limit: u32, offset: u32) -> Result<Vec<ProxyLogSummary>, String> {
@@ -261,18 +264,14 @@ pub async fn run_retention_cleanup(db: &Db, settings: &ProxyLogSettings) {
         tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup quota_snapshots failed");
     }
     if settings.retention_days > 0
-        && let Err(e) = aidog_logs::cleanup_mitm_logs(
-            db,
-            settings.retention_days,
-            settings.retention_unit,
-        )
-        .await
+        && let Err(e) =
+            aidog_logs::cleanup_mitm_logs(db, settings.retention_days, settings.retention_unit)
+                .await
     {
         tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup mitm_log failed");
     }
     // 管理接口调用记录：固定 7 天（API 票 03），不随 retention_days 设置。
-    if let Err(e) =
-        aidog_db::cleanup_api_call_logs(db, aidog_db::API_CALL_LOG_RETENTION_DAYS).await
+    if let Err(e) = aidog_db::cleanup_api_call_logs(db, aidog_db::API_CALL_LOG_RETENTION_DAYS).await
     {
         tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup api_call_log failed");
     }
@@ -316,6 +315,73 @@ pub async fn proxy_log_cleanup_estimate() -> Result<gateway::models::CleanupEsti
         .unwrap_or_default();
     aidog_logs::estimate_cleanup(db, settings.retention_days, settings.retention_unit).await
 }
+}
+
+/// 保留期清理链单轮（桌面壳 `app_setup.rs` 与内核 `spawn_scheduled_jobs` 共用）：
+/// 软删硬删 → 通知收件箱 → session_name 缓存 → stats_agg retention → proxy_log 三级
+/// → 阈值触发全量 VACUUM。单步失败 `tracing::warn!` 容错，不阻塞其余步骤。
+pub async fn scheduled_cleanup_pass(db: &Db, older_than_secs: i64, vacuum_threshold_bytes: i64) {
+    match aidog_db::purge_all_soft_deleted(db, older_than_secs).await {
+        Ok(map) if !map.is_empty() && map.values().any(|&n| n > 0) => {
+            tracing::info!(purged = ?map, "scheduled: purged old soft-deleted rows across all tables");
+        }
+        Ok(_) => tracing::debug!("scheduled: purge_all_soft_deleted ran, nothing to delete"),
+        Err(e) => {
+            tracing::warn!(error = %e, "scheduled: purge_all_soft_deleted failed (all tables errored)")
+        }
+    }
+    let retention_days = aidog_db::get_notification_settings(db)
+        .await
+        .inbox_retention_days;
+    if let Err(e) = aidog_db::cleanup_notifications(db, retention_days).await {
+        tracing::warn!(error = %e, "scheduled: cleanup notifications failed");
+    }
+    if let Err(e) = aidog_db::cleanup_session_name_cache(db).await {
+        tracing::warn!(error = %e, "scheduled: cleanup session_name_cache failed");
+    }
+    let stats_settings: gateway::models::StatsSettings =
+        aidog_db::get_setting(db, "stats", "settings")
+            .await
+            .ok()
+            .flatten()
+            .and_then(|v| serde_json::from_value(v).ok())
+            .unwrap_or_default();
+    if let Err(e) = aidog_stats::cleanup_stats_agg(db, stats_settings.retention_days).await {
+        tracing::warn!(error = %e, "scheduled: cleanup stats_agg failed");
+    }
+    let log_settings: ProxyLogSettings = aidog_db::get_setting(db, "proxy", "logging")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
+    run_retention_cleanup(db, &log_settings).await;
+    match aidog_db::db_file_size(db).await {
+        Ok(size) if size > vacuum_threshold_bytes => {
+            tracing::info!(
+                size_bytes = size,
+                threshold = vacuum_threshold_bytes,
+                "scheduled: db size exceeds threshold, running full VACUUM"
+            );
+            match aidog_db::compact_database(db).await {
+                Ok(r) => tracing::info!(
+                    before = r.before_bytes,
+                    after = r.after_bytes,
+                    "scheduled: full VACUUM completed"
+                ),
+                Err(e) => tracing::warn!(error = %e,
+                    "scheduled: full VACUUM failed (locked or disk full), will retry next cycle"),
+            }
+        }
+        Ok(size) => tracing::debug!(
+            size_bytes = size,
+            threshold = vacuum_threshold_bytes,
+            "scheduled: db size below VACUUM threshold, skip"
+        ),
+        Err(e) => {
+            tracing::warn!(error = %e, "scheduled: db_file_size probe failed, skip VACUUM this cycle")
+        }
+    }
 }
 
 #[cfg(test)]

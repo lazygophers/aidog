@@ -22,7 +22,7 @@ describe("McpView plugin origin", () => {
     mockIPC((cmd: string) => {
       if (cmd === "mcp_list") return [SERVER("docs"), SERVER("mine")];
       if (cmd === "plugins_bundle_list") {
-        return { plugins: [{ name: "demo", source: "/x", pick: null, agents: [], on: true, skills: [], subagents: [], hooks: [], servers: ["docs"], left: [] }], warnings: [] };
+        return { plugins: [{ name: "demo", source: "/x", scope: null, projectPath: null, canOperate: true, operationError: null, pick: null, agents: [], on: true, skills: [], subagents: [], hooks: [], servers: ["docs"], left: [], external: false }], warnings: [] };
       }
       return null;
     });

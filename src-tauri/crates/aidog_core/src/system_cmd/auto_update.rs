@@ -30,6 +30,7 @@ crate::tauri_command! {
         })
         .await
         .map_err(|e| { tracing::error!(command = "set_auto_update_enabled", error = %e, "persist auto_update_enabled failed"); e })?;
+        crate::update_check::wake_daily_check();
         Ok(())
     }
 }

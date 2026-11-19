@@ -3,7 +3,7 @@
 # 分组 group_key：perf-conv（anthropic 入 → openai 上游，协议转换）/ perf-pass（anthropic → anthropic 同协议透传）
 # LOG_BODIES=1（默认，镜像用户实测：log_user_request=log_upstream_request=true）/ 0 = 只留元数据
 set -euo pipefail; source "$(dirname "$0")/env.sh"
-rpc() { curl -sf -X POST "http://127.0.0.1:$MGMT_PORT/rpc/$1" -H 'content-type: application/json' -d "$2"; }
+rpc() { curl -sf -X POST "http://127.0.0.1:$PROXY_PORT/api/rpc/$1" -H 'content-type: application/json' -d "$2"; }
 if rpc group_list '{}' | jq -e 'map(select(.group_key=="perf-conv")) | length > 0' >/dev/null; then
   echo "already seeded ($ISO)"; exit 0; fi
 lb=$([ "${LOG_BODIES:-1}" = 1 ] && echo true || echo false)

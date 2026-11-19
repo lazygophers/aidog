@@ -21,7 +21,7 @@ beforeEach(() => {
   skillsApi.listInstalled.mockResolvedValue({ stale: false, items: [SKILL("review"), SKILL("mine")] });
   skillsApi.listRefresh.mockResolvedValue({ items: [SKILL("review"), SKILL("mine")], load_failed: false });
   pluginsApi.claudeList.mockResolvedValue({
-    plugins: [{ name: "demo", source: "/x", pick: null, agents: [], on: true, skills: ["review"], subagents: [], hooks: [], servers: [], left: [] }],
+    plugins: [{ name: "demo", source: "/x", scope: null, projectPath: null, canOperate: true, operationError: null, pick: null, agents: [], on: true, skills: ["review"], subagents: [], hooks: [], servers: [], left: [], external: false }],
     warnings: [],
   });
 });

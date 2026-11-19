@@ -37,9 +37,15 @@ fn unknown_argument_is_an_error_not_a_silent_default() {
 /// `--port` 已删：给明确提示（指向代理端口），而不是当成未知参数。
 #[test]
 fn port_flag_is_rejected_with_a_hint() {
-    for args in [vec!["--port", "9891"], vec!["--ui", "--port", "0"], vec!["--port"]] {
+    for args in [
+        vec!["--port", "9891"],
+        vec!["--ui", "--port", "0"],
+        vec!["--port"],
+    ] {
         match parse_args(args.into_iter().map(String::from)) {
-            ParseOutcome::Error(e) => assert!(e.contains("proxy port"), "提示要指向代理端口，实得 {e:?}"),
+            ParseOutcome::Error(e) => {
+                assert!(e.contains("proxy port"), "提示要指向代理端口，实得 {e:?}")
+            }
             _ => panic!("--port 必须被拒"),
         }
     }
@@ -50,14 +56,26 @@ fn port_flag_is_rejected_with_a_hint() {
 /// 开关关 + `--ui` → 启动失败并说明原因；开关开 / 没带 `--ui` 都放行。
 #[test]
 fn ui_requires_the_management_api_switch() {
-    let ui = Options { ui: true, ui_dir: None };
-    let pure = Options { ui: false, ui_dir: None };
-    let off = KernelSettings { api_enabled: false, ..Default::default() };
+    let ui = Options {
+        ui: true,
+        ui_dir: None,
+    };
+    let pure = Options {
+        ui: false,
+        ui_dir: None,
+    };
+    let off = KernelSettings {
+        api_enabled: false,
+        ..Default::default()
+    };
     let on = KernelSettings::default();
     let err = check_ui_allowed(&ui, &off).unwrap_err();
     assert!(err.contains("disabled"), "{err}");
     assert!(check_ui_allowed(&ui, &on).is_ok());
-    assert!(check_ui_allowed(&pure, &off).is_ok(), "纯内核不依赖 --ui 检查");
+    assert!(
+        check_ui_allowed(&pure, &off).is_ok(),
+        "纯内核不依赖 --ui 检查"
+    );
 }
 
 // ─── 单实例锁 ──────────────────────────────────────────────────────────────
@@ -76,7 +94,10 @@ fn second_instance_cannot_acquire_the_lock() {
 
     match acquire_single_instance_lock(&dir).unwrap() {
         LockOutcome::AlreadyRunning(addr) => {
-            assert!(addr.is_empty(), "还没写过地址时读出来应该是空的，实得 {addr:?}")
+            assert!(
+                addr.is_empty(),
+                "还没写过地址时读出来应该是空的，实得 {addr:?}"
+            )
         }
         LockOutcome::Acquired(_) => panic!("锁还被持有时第二次不得抢到"),
     }
@@ -142,9 +163,7 @@ fn client() -> reqwest::Client {
 }
 
 /// 起一个真代理（随机端口、临时库、本地回环），管理接口装的是真路由表。
-async fn spawn_test_proxy(
-    settings: KernelSettings,
-) -> (String, std::sync::Arc<ctx::HeadlessCtx>) {
+async fn spawn_test_proxy(settings: KernelSettings) -> (String, std::sync::Arc<ctx::HeadlessCtx>) {
     let db = aidog_db::test_support::test_db().await;
     aidog_core::kernel_settings::save_kernel_settings(&db, &settings)
         .await
@@ -163,7 +182,10 @@ async fn spawn_test_proxy(
 }
 
 fn with_token(t: &str) -> KernelSettings {
-    KernelSettings { auth_token: t.into(), ..Default::default() }
+    KernelSettings {
+        auth_token: t.into(),
+        ..Default::default()
+    }
 }
 
 /// 验收：`/api/rpc/<已知命令>` 返回与 `invoke` 相同的 JSON。
@@ -218,7 +240,11 @@ async fn rpc_notification_rule_validate_registered() {
     };
     assert_eq!(call("a == 1").await.status(), 200);
     let bad = call("severity == ").await;
-    assert!(!bad.status().is_success() && bad.status() != 404, "非法表达式应走命令 Err，实际 {}", bad.status());
+    assert!(
+        !bad.status().is_success() && bad.status() != 404,
+        "非法表达式应走命令 Err，实际 {}",
+        bad.status()
+    );
 }
 
 /// 命令自身失败时落非 2xx，body 就是 reject 值（对齐 `invoke` 的 reject 语义）。
@@ -238,8 +264,11 @@ async fn rpc_command_error_maps_to_non_2xx() {
 /// 开关关：未启用的明确 404，不落入转发。
 #[tokio::test]
 async fn disabled_switch_returns_not_enabled() {
-    let (base, _ctx) =
-        spawn_test_proxy(KernelSettings { api_enabled: false, ..Default::default() }).await;
+    let (base, _ctx) = spawn_test_proxy(KernelSettings {
+        api_enabled: false,
+        ..Default::default()
+    })
+    .await;
     let resp = client()
         .post(format!("{base}/api/rpc/about_info"))
         .json(&serde_json::json!({}))
@@ -266,9 +295,21 @@ async fn management_requires_bearer_when_credential_configured() {
         Some("unauthorized"),
         "401 body 必须是可 JSON.parse 的 \"unauthorized\""
     );
-    let wrong = client().post(&url).bearer_auth("nope").json(&body).send().await.unwrap();
+    let wrong = client()
+        .post(&url)
+        .bearer_auth("nope")
+        .json(&body)
+        .send()
+        .await
+        .unwrap();
     assert_eq!(wrong.status(), 401, "错凭据必须被拒");
-    let ok = client().post(&url).bearer_auth("s3cret").json(&body).send().await.unwrap();
+    let ok = client()
+        .post(&url)
+        .bearer_auth("s3cret")
+        .json(&body)
+        .send()
+        .await
+        .unwrap();
     assert_eq!(ok.status(), 200);
 }
 
@@ -280,7 +321,11 @@ async fn events_stream_delivers_proxy_log_updated() {
     use futures::StreamExt;
 
     let (base, c) = spawn_test_proxy(KernelSettings::default()).await;
-    let resp = client().get(format!("{base}/api/events")).send().await.unwrap();
+    let resp = client()
+        .get(format!("{base}/api/events"))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(resp.status(), 200);
     assert!(
         resp.headers()
@@ -341,7 +386,10 @@ async fn ui_router_serves_assets_with_spa_fallback_inside_prefix_only() {
     };
     assert_eq!(get("/ui/").await.text().await.unwrap(), "INDEX");
     assert_eq!(get("/ui/a.js").await.text().await.unwrap(), "JS");
-    assert_eq!(get("/ui/some/spa/route").await.text().await.unwrap(), "INDEX");
+    assert_eq!(
+        get("/ui/some/spa/route").await.text().await.unwrap(),
+        "INDEX"
+    );
     assert_eq!(get("/other").await.status(), 404, "回落只在 /ui 前缀内");
     std::fs::remove_dir_all(&dir).ok();
 }
@@ -410,36 +458,81 @@ async fn secrets_are_masked_over_http_and_restored_on_write() {
     };
 
     // 新建平台带密钥成功；创建响应里密钥已遮。
-    let r = rpc("platform_create", serde_json::json!({"input": {
-        "name": "p1", "platform_type": "openai", "base_url": "http://127.0.0.1:1/v1",
-        "api_key": "sk-secret-123", "extra": "{\"auth_header\":\"x-my-key\"}"
-    }})).await;
+    let r = rpc(
+        "platform_create",
+        serde_json::json!({"input": {
+            "name": "p1", "platform_type": "openai", "base_url": "http://127.0.0.1:1/v1",
+            "api_key": "sk-secret-123", "extra": "{\"auth_header\":\"x-my-key\"}"
+        }}),
+    )
+    .await;
     assert_eq!(r.status(), 200);
     let created: serde_json::Value = r.json().await.unwrap();
     assert_eq!(created["api_key"], "***");
     let id = created["id"].as_u64().unwrap();
     let db = aidog_ctx::db();
-    assert_eq!(aidog_db::get_platform(db, id).await.unwrap().unwrap().api_key, "sk-secret-123", "库里是原值");
+    assert_eq!(
+        aidog_db::get_platform(db, id)
+            .await
+            .unwrap()
+            .unwrap()
+            .api_key,
+        "sk-secret-123",
+        "库里是原值"
+    );
 
     // 列表 / 详情经 HTTP 都是 ***，原文不出现；IPC 路径（命令函数直调）仍是原值。
-    for (name, body) in [("platform_list", serde_json::json!({})), ("platform_get", serde_json::json!({"id": id}))] {
+    for (name, body) in [
+        ("platform_list", serde_json::json!({})),
+        ("platform_get", serde_json::json!({"id": id})),
+    ] {
         let text = rpc(name, body).await.text().await.unwrap();
-        assert!(!text.contains("sk-secret-123") && !text.contains("x-my-key"), "{name} 泄漏: {text}");
+        assert!(
+            !text.contains("sk-secret-123") && !text.contains("x-my-key"),
+            "{name} 泄漏: {text}"
+        );
         assert!(text.contains("***"), "{name}: {text}");
     }
-    let ipc = aidog_core::platform_cmd::platform::platform_list().await.unwrap();
-    assert!(ipc.iter().any(|p| p.api_key == "sk-secret-123"), "桌面 IPC 行为不变");
+    let ipc = aidog_core::platform_cmd::platform::platform_list()
+        .await
+        .unwrap();
+    assert!(
+        ipc.iter().any(|p| p.api_key == "sk-secret-123"),
+        "桌面 IPC 行为不变"
+    );
 
     // 更新平台回传 *** → 库中密钥与透传认证头不变；回传新值 → 照常生效。
-    let r = rpc("platform_update", serde_json::json!({"input": {
-        "id": id, "name": "p1-renamed", "api_key": "***", "extra": "{\"auth_header\":\"***\"}"
-    }})).await;
+    let r = rpc(
+        "platform_update",
+        serde_json::json!({"input": {
+            "id": id, "name": "p1-renamed", "api_key": "***", "extra": "{\"auth_header\":\"***\"}"
+        }}),
+    )
+    .await;
     assert_eq!(r.status(), 200);
     let p = aidog_db::get_platform(db, id).await.unwrap().unwrap();
-    assert_eq!((p.name.as_str(), p.api_key.as_str()), ("p1-renamed", "sk-secret-123"));
-    assert!(p.extra.contains("x-my-key") && !p.extra.contains("***"), "extra: {}", p.extra);
-    rpc("platform_update", serde_json::json!({"input": {"id": id, "api_key": "sk-new-456"}})).await;
-    assert_eq!(aidog_db::get_platform(db, id).await.unwrap().unwrap().api_key, "sk-new-456");
+    assert_eq!(
+        (p.name.as_str(), p.api_key.as_str()),
+        ("p1-renamed", "sk-secret-123")
+    );
+    assert!(
+        p.extra.contains("x-my-key") && !p.extra.contains("***"),
+        "extra: {}",
+        p.extra
+    );
+    rpc(
+        "platform_update",
+        serde_json::json!({"input": {"id": id, "api_key": "sk-new-456"}}),
+    )
+    .await;
+    assert_eq!(
+        aidog_db::get_platform(db, id)
+            .await
+            .unwrap()
+            .unwrap()
+            .api_key,
+        "sk-new-456"
+    );
 
     // 通知渠道：token / webhook / 口令写入生效，读取遮蔽，回传 *** 保持原值。
     let settings = serde_json::json!({"settings": {"channels": {
@@ -448,23 +541,42 @@ async fn secrets_are_masked_over_http_and_restored_on_write() {
         "webhook": {"url": "http://127.0.0.1:1/hook?t=wh-secret"},
         "bark": {"url": "http://127.0.0.1:1/bark-secret"}
     }}});
-    assert_eq!(rpc("notification_settings_set", settings).await.status(), 200);
-    let text = rpc("notification_settings_get", serde_json::json!({})).await.text().await.unwrap();
+    assert_eq!(
+        rpc("notification_settings_set", settings).await.status(),
+        200
+    );
+    let text = rpc("notification_settings_get", serde_json::json!({}))
+        .await
+        .text()
+        .await
+        .unwrap();
     for leak in ["tg-secret", "smtp-pw", "wh-secret", "bark-secret"] {
         assert!(!text.contains(leak), "通知设置泄漏 {leak}: {text}");
     }
     let echoed: serde_json::Value = serde_json::from_str(&text).unwrap();
     assert_eq!(echoed["channels"]["webhook"]["url"], "***");
-    let r = rpc("notification_settings_set", serde_json::json!({"settings": echoed})).await;
+    let r = rpc(
+        "notification_settings_set",
+        serde_json::json!({"settings": echoed}),
+    )
+    .await;
     assert_eq!(r.status(), 200);
     let kept = aidog_db::get_notification_settings(db).await.channels;
     assert_eq!(kept.telegram.unwrap().bot_token, "123:tg-secret");
     assert_eq!(kept.email.unwrap().password, "smtp-pw");
-    assert_eq!(kept.webhook.unwrap().url, "http://127.0.0.1:1/hook?t=wh-secret");
+    assert_eq!(
+        kept.webhook.unwrap().url,
+        "http://127.0.0.1:1/hook?t=wh-secret"
+    );
     assert_eq!(kept.bark.unwrap().url, "http://127.0.0.1:1/bark-secret");
 
     // exports_secret 命令整条 403，且不执行。
-    for name in ["platform_share_export", "export_to_file", "cc_proxy_export", "mcp_share_export"] {
+    for name in [
+        "platform_share_export",
+        "export_to_file",
+        "cc_proxy_export",
+        "mcp_share_export",
+    ] {
         let r = rpc(name, serde_json::json!({})).await;
         assert_eq!(r.status(), 403, "{name}");
         let v: serde_json::Value = r.json().await.unwrap();
@@ -475,10 +587,21 @@ async fn secrets_are_masked_over_http_and_restored_on_write() {
     let rpc_auth = |name: &str, body: serde_json::Value, token: &str| {
         let url = format!("{base}/api/rpc/{name}");
         let token = token.to_string();
-        async move { client().post(url).bearer_auth(token).json(&body).send().await.unwrap() }
+        async move {
+            client()
+                .post(url)
+                .bearer_auth(token)
+                .json(&body)
+                .send()
+                .await
+                .unwrap()
+        }
     };
     let setting = |scope: &'static str, key: &'static str| async move {
-        aidog_db::get_setting(aidog_ctx::db(), scope, key).await.unwrap().unwrap()
+        aidog_db::get_setting(aidog_ctx::db(), scope, key)
+            .await
+            .unwrap()
+            .unwrap()
     };
 
     // proxy_client_set_settings：出站代理口令。
@@ -486,29 +609,106 @@ async fn secrets_are_masked_over_http_and_restored_on_write() {
         rpc("proxy_client_set_settings", serde_json::json!({"settings": {"enabled": false, "username": "u", "password": "pc-pw"}})).await.status(),
         200
     );
-    let echoed: serde_json::Value = rpc("proxy_client_get_settings", serde_json::json!({})).await.json().await.unwrap();
+    let echoed: serde_json::Value = rpc("proxy_client_get_settings", serde_json::json!({}))
+        .await
+        .json()
+        .await
+        .unwrap();
     assert_eq!(echoed["password"], "***");
-    assert_eq!(rpc("proxy_client_set_settings", serde_json::json!({"settings": echoed})).await.status(), 200);
-    assert_eq!(setting("proxy", "proxy_client").await["password"], "pc-pw", "proxy_client_set_settings 回传 *** 必须保持原口令");
+    assert_eq!(
+        rpc(
+            "proxy_client_set_settings",
+            serde_json::json!({"settings": echoed})
+        )
+        .await
+        .status(),
+        200
+    );
+    assert_eq!(
+        setting("proxy", "proxy_client").await["password"],
+        "pc-pw",
+        "proxy_client_set_settings 回传 *** 必须保持原口令"
+    );
 
     // settings_set(scope=kernel)：管理接口凭据。写入后即要求 Bearer。
     let r = rpc("settings_set", serde_json::json!({"input": {"scope": "kernel", "key": "settings", "value": {"api_enabled": true, "auth_token": "tok-1"}}})).await;
     assert_eq!(r.status(), 200);
-    let echoed: serde_json::Value = rpc_auth("settings_get", serde_json::json!({"scope": "kernel", "key": "settings"}), "tok-1").await.json().await.unwrap();
+    let echoed: serde_json::Value = rpc_auth(
+        "settings_get",
+        serde_json::json!({"scope": "kernel", "key": "settings"}),
+        "tok-1",
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
     assert_eq!(echoed["auth_token"], "***");
-    let r = rpc_auth("settings_set", serde_json::json!({"input": {"scope": "kernel", "key": "settings", "value": echoed}}), "tok-1").await;
+    let r = rpc_auth(
+        "settings_set",
+        serde_json::json!({"input": {"scope": "kernel", "key": "settings", "value": echoed}}),
+        "tok-1",
+    )
+    .await;
     assert_eq!(r.status(), 200);
-    assert_eq!(setting("kernel", "settings").await["auth_token"], "tok-1", "settings_set(kernel) 回传 *** 必须保持原凭据");
-    assert_eq!(rpc_auth("about_info", serde_json::json!({}), "***").await.status(), 401, "Bearer *** 不得通过管理接口");
-    assert_eq!(rpc_auth("about_info", serde_json::json!({}), "tok-1").await.status(), 200);
+    assert_eq!(
+        setting("kernel", "settings").await["auth_token"],
+        "tok-1",
+        "settings_set(kernel) 回传 *** 必须保持原凭据"
+    );
+    assert_eq!(
+        rpc_auth("about_info", serde_json::json!({}), "***")
+            .await
+            .status(),
+        401,
+        "Bearer *** 不得通过管理接口"
+    );
+    assert_eq!(
+        rpc_auth("about_info", serde_json::json!({}), "tok-1")
+            .await
+            .status(),
+        200
+    );
 
     // kernel_settings_set：换新凭据照常生效；回传 *** 保持原值。
-    let r = rpc_auth("kernel_settings_set", serde_json::json!({"settings": {"api_enabled": true, "auth_token": "tok-2"}}), "tok-1").await;
+    let r = rpc_auth(
+        "kernel_settings_set",
+        serde_json::json!({"settings": {"api_enabled": true, "auth_token": "tok-2"}}),
+        "tok-1",
+    )
+    .await;
     assert_eq!(r.status(), 200);
-    let echoed: serde_json::Value = rpc_auth("kernel_settings_get", serde_json::json!({}), "tok-2").await.json().await.unwrap();
+    let echoed: serde_json::Value = rpc_auth("kernel_settings_get", serde_json::json!({}), "tok-2")
+        .await
+        .json()
+        .await
+        .unwrap();
     assert_eq!(echoed["auth_token"], "***");
-    assert_eq!(rpc_auth("kernel_settings_set", serde_json::json!({"settings": echoed}), "tok-2").await.status(), 200);
-    assert_eq!(setting("kernel", "settings").await["auth_token"], "tok-2", "kernel_settings_set 回传 *** 必须保持原凭据");
-    assert_eq!(rpc_auth("about_info", serde_json::json!({}), "***").await.status(), 401, "Bearer *** 不得通过管理接口");
-    assert_eq!(rpc_auth("about_info", serde_json::json!({}), "tok-2").await.status(), 200);
+    assert_eq!(
+        rpc_auth(
+            "kernel_settings_set",
+            serde_json::json!({"settings": echoed}),
+            "tok-2"
+        )
+        .await
+        .status(),
+        200
+    );
+    assert_eq!(
+        setting("kernel", "settings").await["auth_token"],
+        "tok-2",
+        "kernel_settings_set 回传 *** 必须保持原凭据"
+    );
+    assert_eq!(
+        rpc_auth("about_info", serde_json::json!({}), "***")
+            .await
+            .status(),
+        401,
+        "Bearer *** 不得通过管理接口"
+    );
+    assert_eq!(
+        rpc_auth("about_info", serde_json::json!({}), "tok-2")
+            .await
+            .status(),
+        200
+    );
 }

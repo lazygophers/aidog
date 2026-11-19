@@ -54,3 +54,88 @@ async fn maybe_backup_throttles_within_interval() {
     let r = maybe_backup(&db).await.unwrap();
     assert!(r.is_none(), "within-interval should be throttled");
 }
+
+// ─── next_wake_delay（睡到下次到期，取代 60s 轮询）──────────────
+
+#[tokio::test]
+async fn backup_settings_wake_interrupts_long_wait() {
+    let waiter = tokio::spawn(async { wait_next_backup(Duration::from_secs(3600)).await });
+    tokio::task::yield_now().await;
+    wake_backup_scheduler();
+    assert!(
+        waiter.await.unwrap(),
+        "settings change should interrupt long sleep and force recomputation"
+    );
+}
+
+#[test]
+fn next_wake_delay_sleeps_until_due() {
+    let now = now_millis();
+    let s = BackupSettings {
+        enabled: true,
+        interval_hours: 24,
+        last_backup_at: now - 3600 * 1000, // 1h 前备份过 → 还差 23h
+        ..Default::default()
+    };
+    let d = next_wake_delay(&s, now, false);
+    assert_eq!(
+        d.as_millis() as i64,
+        23 * 3600 * 1000,
+        "should sleep the remaining 23h, got {:?}",
+        d
+    );
+}
+
+#[test]
+fn next_wake_delay_overdue_returns_zero() {
+    let now = now_millis();
+    let s = BackupSettings {
+        enabled: true,
+        interval_hours: 24,
+        last_backup_at: now - 25 * 3600 * 1000, // 超过 interval → 到期
+        ..Default::default()
+    };
+    assert_eq!(next_wake_delay(&s, now, false), Duration::ZERO);
+    // 首轮补 60s 启动延迟（保持「启动不立即跑」）。
+    assert_eq!(next_wake_delay(&s, now, true), Duration::from_secs(60));
+}
+
+#[test]
+fn next_wake_delay_never_backed_up_is_due_now() {
+    let now = now_millis();
+    let s = BackupSettings {
+        enabled: true,
+        last_backup_at: 0,
+        ..Default::default()
+    };
+    assert_eq!(next_wake_delay(&s, now, false), Duration::ZERO);
+    assert_eq!(next_wake_delay(&s, now, true), Duration::from_secs(60));
+}
+
+#[test]
+fn next_wake_delay_disabled_has_no_timer() {
+    let now = now_millis();
+    let s = BackupSettings {
+        enabled: false,
+        ..Default::default()
+    };
+    let d = next_wake_delay(&s, now, false);
+    assert_eq!(
+        d,
+        Duration::ZERO,
+        "disabled settings do not use a timed wake"
+    );
+}
+
+#[test]
+fn next_wake_delay_first_loop_grace_overrides_immediate_run() {
+    let now = now_millis();
+    let s = BackupSettings {
+        enabled: true,
+        interval_hours: 24,
+        last_backup_at: now, // 刚备份过，还差 24h
+        ..Default::default()
+    };
+    assert_eq!(next_wake_delay(&s, now, false).as_secs(), 24 * 3600);
+    assert_eq!(next_wake_delay(&s, now, true).as_secs(), 24 * 3600);
+}

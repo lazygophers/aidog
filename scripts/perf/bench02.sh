@@ -19,7 +19,7 @@ rows() {
   local n=""
   n=$(sqlite3 "file:$ISO/.aidog/log.db?mode=ro" "SELECT count(*) FROM proxy_log" 2>/dev/null) || n=""
   if [ -z "$n" ]; then
-    n=$(curl -sf -X POST "http://127.0.0.1:$MGMT_PORT/rpc/proxy_log_list_filtered" \
+    n=$(curl -sf -X POST "http://127.0.0.1:$PROXY_PORT/api/rpc/proxy_log_list_filtered" \
       -H 'content-type: application/json' \
       -d '{"filter":{},"limit":200000,"offset":0}' | jq '.items | length')
   fi
