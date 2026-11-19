@@ -1,6 +1,6 @@
 //! 票 03：会话目录实时监听与定时对齐（issue #65）。
 //!
-//! 监听范围 = 同意开关开启且有会话根的客户端（claude_code；其余读取器票 04~06 落地后补根）。
+//! 监听范围 = 同意开关开启且有会话根的客户端（claude_code / codex；其余读取器票 06 落地后补根）。
 //! 文件事件入池去抖 2 秒后按文件增量读取（复用票 02 的 `scan_one_file` 链）；关开关 →
 //! `sync_watchers` 摘除监听。定时对齐（5 分钟）比对 file_size/mtime：变化 → 增量读取；
 //! 文件删除 → 删明细/进度/空会话壳（`delete_client_file_state` 内含空壳清扫）。
@@ -47,12 +47,9 @@ pub(super) fn scan_count() -> i64 {
     SCAN_COUNT.load(std::sync::atomic::Ordering::Relaxed)
 }
 
-/// 客户端会话根目录（生产路径）。与读取器支持面同步：其余客户端读取器落地后补。
+/// 客户端会话根目录（生产路径）。真值在 mod.rs::client_root（codex 根为票 04 补的）。
 fn client_root(code: &str) -> Option<PathBuf> {
-    match code {
-        "claude_code" => dirs::home_dir().map(|h| h.join(".claude").join("projects")),
-        _ => None,
-    }
+    super::client_root(code)
 }
 
 /// 事件入池：记录路径与最新事件时刻（同路径覆写 = 去抖）。
@@ -194,7 +191,12 @@ pub(super) async fn process_due_paths(db: &Db, roots: &[(String, PathBuf)], now_
                 .unwrap_or_default();
             let prog = progress.iter().find(|r| r.path == p).cloned();
             let path = PathBuf::from(&p);
-            match super::scan_one_file(db, client, &path, prog).await {
+            let sessions_root = roots
+                .iter()
+                .find(|(c, _)| *c == client)
+                .map(|(_, r)| r.clone())
+                .unwrap_or_default();
+            match super::scan_one_file(db, client, &path, prog, &sessions_root).await {
                 Ok((n, _)) => {
                     #[cfg(test)]
                     SCAN_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -277,7 +279,8 @@ pub(super) async fn align_once(db: &Db) -> i64 {
                         continue;
                     }
                     let path = row.path.clone();
-                    match super::scan_one_file(db, code, Path::new(&path), Some(row)).await {
+                    let sessions_root = client_root(code).unwrap_or_default();
+                    match super::scan_one_file(db, code, Path::new(&path), Some(row), &sessions_root).await {
                         Ok((n, _)) => total += n,
                         Err(e) => tracing::warn!(error = %e, path = %path, "client usage align scan failed"),
                     }
