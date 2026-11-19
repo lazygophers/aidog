@@ -353,7 +353,11 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
             if let Err(e) = aidog_core::client_usage_cmd::startup_incremental_import().await {
                 tracing::warn!(error = %e, "client usage startup import failed");
             }
+            // 票 03：会话目录监听（consent 开启才实际挂）+ 定时对齐循环。
+            aidog_core::client_usage_cmd::watch::sync_watchers(aidog_ctx::db()).await;
+            aidog_core::client_usage_cmd::watch::start_event_loop();
         });
+        tauri::async_runtime::spawn(aidog_core::client_usage_cmd::watch::align_loop());
     }
 
     // MCP 推荐清单：启动后台预取一次（TTL 内 sync 内部自跳过），失败仅 warn

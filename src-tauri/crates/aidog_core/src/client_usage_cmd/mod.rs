@@ -4,9 +4,13 @@
 //! 首次开启全量导入、启动/refresh 增量导入共用同一条 `run_import` 链。
 
 pub mod reader;
+pub mod watch;
 #[cfg(test)]
 #[path = "test_reader.rs"]
 mod test_reader;
+#[cfg(test)]
+#[path = "test_watch.rs"]
+mod test_watch;
 
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
@@ -388,6 +392,8 @@ pub async fn client_usage_consent_set(consent: ClientUsageConsent) -> Result<(),
             }
         });
     }
+    // 票 03：监听面随同意开关同步（新开启 → 挂 watch，关闭 → 摘除）。
+    watch::sync_watchers(&db).await;
     Ok(())
 }
 }
