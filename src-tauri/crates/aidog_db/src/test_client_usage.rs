@@ -61,10 +61,21 @@ async fn client_usage_four_file_split_and_routing() {
         file_pos: 1,
         ..Default::default()
     };
-    assert_eq!(insert_client_calls(&db, &[row.clone()]).await.expect("insert"), 1);
-    upsert_client_file_progress(&db, "claude_code".into(), "/tmp/x.jsonl".into(), 100, 1, 100, 0)
-        .await
-        .expect("upsert progress");
+    assert_eq!(insert_client_calls(&db, std::slice::from_ref(&row)).await.expect("insert"), 1);
+    upsert_client_file_progress(
+        &db,
+        ClientFileProgress {
+            client_code: "claude_code".into(),
+            path: "/tmp/x.jsonl".into(),
+            file_size: 100,
+            mtime_ms: 1,
+            read_offset: 100,
+            parse_errors: 0,
+            last_msg_id: String::new(),
+        },
+    )
+    .await
+    .expect("upsert progress");
     upsert_client_session(&db, "claude_code".into(), "sess-1".into(), "t".into(), "/w".into(), 1, 2)
         .await
         .expect("upsert session");
@@ -75,14 +86,12 @@ async fn client_usage_four_file_split_and_routing() {
             conn.query_row("SELECT COUNT(*) FROM client_call", [], |r| r.get::<_, i64>(0))
         })
         .await
-        .err()
-        .expect("主库 handle 查 client_call 应报错"),
+        .expect_err("主库 handle 查 client_call 应报错"),
         db.call_proxy_log_traced(None, std::panic::Location::caller(), |conn| {
             conn.query_row("SELECT COUNT(*) FROM client_call", [], |r| r.get::<_, i64>(0))
         })
         .await
-        .err()
-        .expect("log.db handle 查 client_call 应报错"),
+        .expect_err("log.db handle 查 client_call 应报错"),
     ] {
         assert!(
             err_db.to_string().contains("no such table"),
@@ -128,7 +137,7 @@ async fn client_call_insert_idempotent_on_position_key() {
         file_pos: 7,
         ..Default::default()
     };
-    assert_eq!(insert_client_calls(&db, &[row.clone()]).await.expect("1st"), 1);
+    assert_eq!(insert_client_calls(&db, std::slice::from_ref(&row)).await.expect("1st"), 1);
     assert_eq!(insert_client_calls(&db, &[row]).await.expect("2nd"), 0);
     assert_eq!(count_calls(&db).await, 1);
 }
@@ -178,9 +187,20 @@ async fn cleanup_client_usage_deletes_expired_and_empty_sessions_keeps_progress(
         .await
         .expect("upsert empty session");
     // 进度行必须保留。
-    upsert_client_file_progress(&db, "claude_code".into(), "/p/a.jsonl".into(), 1, 1, 1, 0)
-        .await
-        .expect("upsert progress");
+    upsert_client_file_progress(
+        &db,
+        ClientFileProgress {
+            client_code: "claude_code".into(),
+            path: "/p/a.jsonl".into(),
+            file_size: 1,
+            mtime_ms: 1,
+            read_offset: 1,
+            parse_errors: 0,
+            last_msg_id: String::new(),
+        },
+    )
+    .await
+    .expect("upsert progress");
 
     cleanup_client_usage(&db, 90).await.expect("cleanup");
 
