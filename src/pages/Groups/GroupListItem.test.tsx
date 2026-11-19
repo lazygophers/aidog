@@ -145,3 +145,33 @@ describe("GroupListItem — 多选「按状态选」", () => {
     expect(checked()).toEqual([3]);
   });
 });
+
+describe("GroupListItem — 分组拖拽激活区", () => {
+  // listeners.onPointerDown 在激活器元素上落 data-drag-activator 标记（Groups.test.tsx 同手法）。
+  const activatorHandle = {
+    ref: noop, attributes: {}, isDragging: false,
+    listeners: { onPointerDown: (e: React.PointerEvent) => { (e.currentTarget as HTMLElement).setAttribute("data-drag-activator", "true"); } },
+  } as never;
+
+  // 拖拽激活区 = 卡头左侧（箭头 + 组名 + 计数）；统计 / 操作按钮不激活。
+  const activatorHit = (testid: string) => {
+    render(<GroupListItem {...baseProps} handle={activatorHandle} />);
+    const el = screen.getByTestId(testid);
+    fireEvent.pointerDown(el, { clientX: 1, clientY: 1 });
+    return el.closest("[data-drag-activator]") != null;
+  };
+
+  it("箭头与计数区在拖拽激活区内（拖卡头左侧可排序）", () => {
+    expect(activatorHit("group-section-chev")).toBe(true);
+  });
+
+  it("卡头自身与统计区不在激活区内（右侧操作不触发排序，激活块只在左侧）", () => {
+    render(<GroupListItem {...baseProps} handle={activatorHandle} />);
+    const head = screen.getByTestId("group-section-head");
+    const nameEl = screen.getByTestId("group-section-name");
+    fireEvent.pointerDown(head, { clientX: 1, clientY: 1 });
+    expect(head.getAttribute("data-drag-activator")).toBeNull();
+    fireEvent.pointerDown(nameEl, { clientX: 1, clientY: 1 });
+    expect(nameEl.closest("[data-drag-activator]")!.getAttribute("data-testid")).toBe("group-drag-handle");
+  });
+});
