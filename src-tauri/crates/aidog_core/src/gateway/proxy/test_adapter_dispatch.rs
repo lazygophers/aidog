@@ -85,6 +85,95 @@ async fn setup_user_endpoint_group(
 const OPENAI_OK: &str =
     r#"{"id":"chatcmpl_1","object":"chat.completion","model":"gpt-x","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":2,"total_tokens":5}}"#;
 const ANTHROPIC_OK: &str = r#"{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"output_tokens":3}}"#;
+const RESPONSES_OK: &str = r#"{"id":"resp_1","object":"response","model":"gpt-x","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hi","annotations":[]}]}],"usage":{"input_tokens":3,"output_tokens":2}}"#;
+
+/// Doubao 适配器经本地假上游覆盖三种内置端点，断言实际出站路径与请求体。
+#[tokio::test]
+async fn doubao_disable_thinking_reaches_local_upstream_for_each_wire() {
+    let cases = [
+        (
+            Protocol::OpenAI,
+            "/chat/completions",
+            OPENAI_OK,
+            "thinking",
+            "disabled",
+        ),
+        (
+            Protocol::OpenAIResponses,
+            "/responses",
+            RESPONSES_OK,
+            "reasoning",
+            "none",
+        ),
+        (
+            Protocol::Anthropic,
+            "/v1/messages",
+            ANTHROPIC_OK,
+            "thinking",
+            "disabled",
+        ),
+    ];
+
+    for (i, (wire, expected_path, response, field, value)) in cases.into_iter().enumerate() {
+        let (upstream, hits) = spawn_recording_upstream(response).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkdwp{i}");
+        setup_user_endpoint_group(&state, &gk, wire.clone(), &upstream).await;
+        let platform = aidog_db::list_platforms(&state.db)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|p| p.name == "stub")
+            .unwrap();
+        let protocol = serde_json::to_string(&Protocol::Doubao).unwrap();
+        state
+            .db
+            .call_platform_traced(None, std::panic::Location::caller(), move |conn| {
+                conn.execute(
+                    "UPDATE platform SET platform_type=?1 WHERE id=?2",
+                    rusqlite::params![protocol, platform.id as i64],
+                )?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+
+        let request = HttpRequest::builder()
+            .method("POST")
+            .uri("/v1/messages")
+            .header("authorization", format!("Bearer {gk}"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"model":"doubao-seed-2.1","max_tokens":32,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#,
+            ))
+            .unwrap();
+        let resp = handle_proxy(AxumState(state.clone()), request).await;
+        let resp_status = resp.status();
+        if resp_status != StatusCode::OK {
+            let body = axum::body::to_bytes(resp.into_body(), 65536).await.unwrap();
+            panic!(
+                "wire={wire:?} status={resp_status} body={}",
+                String::from_utf8_lossy(&body)
+            );
+        }
+        flush_log_queue(&state).await;
+
+        let hits = hits.lock().unwrap();
+        assert_eq!(hits.len(), 1, "wire={wire:?}, hits={hits:?}");
+        let (path, body) = &hits[0];
+        assert_eq!(path, expected_path, "wire={wire:?}");
+        let body: serde_json::Value = serde_json::from_str(body).unwrap();
+        if field == "thinking" {
+            assert_eq!(body[field]["type"], value, "wire={wire:?}: {body}");
+        } else {
+            assert_eq!(body[field]["effort"], value, "wire={wire:?}: {body}");
+        }
+        assert!(
+            body.get("disable_thinking").is_none(),
+            "wire={wire:?}: {body}"
+        );
+    }
+}
 
 /// 用户端点 = openai wire：入站 anthropic /v1/messages → 出站按用户配置的
 /// openai 端点协议转 openai 形状、打用户 base_url 的 /chat/completions。
