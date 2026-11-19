@@ -222,19 +222,7 @@ export const GroupListItem = memo(function GroupListItem({
           cursor: mode === "select" ? "default" : "pointer",
         }}
       >
-        {/* 展开箭头 */}
-        <span
-          data-testid="group-section-chev"
-          style={{
-            display: "inline-flex", width: 28, height: 28, alignItems: "center", justifyContent: "center",
-            color: "var(--text-tertiary)",
-            transform: (forceExpanded || isExpanded || mode === "select") ? "rotate(90deg)" : undefined,
-            transition: "transform .18s", flexShrink: 0,
-          }}
-        >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2.5L8 6l-4 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        </span>
-        {/* 组名区域是分组拖拽手柄；操作按钮与平台行不参与分组排序。 */}
+        {/* 卡头左侧（箭头 + 组名 + 计数）整体是分组拖拽手柄；统计 / 操作按钮与平台行不参与分组排序。 */}
         <span
           ref={handle.ref}
           {...handle.attributes}
@@ -243,10 +231,22 @@ export const GroupListItem = memo(function GroupListItem({
           title={t("group.dragToReorder", "拖动排序")}
           aria-label={`${t("group.dragToReorder", "拖动排序")}: ${group.name}`}
           style={{
-            display: "inline-flex", alignItems: "center", gap: 5, cursor: "grab", touchAction: "none",
+            display: "inline-flex", alignItems: "center", gap: 8, cursor: "grab", touchAction: "none",
             userSelect: "none", WebkitUserSelect: "none",
           }}
         >
+          {/* 展开箭头 */}
+          <span
+            data-testid="group-section-chev"
+            style={{
+              display: "inline-flex", width: 28, height: 28, alignItems: "center", justifyContent: "center",
+              color: "var(--text-tertiary)",
+              transform: (forceExpanded || isExpanded || mode === "select") ? "rotate(90deg)" : undefined,
+              transition: "transform .18s", flexShrink: 0,
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2.5L8 6l-4 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </span>
           <svg aria-hidden="true" width="10" height="16" viewBox="0 0 10 16" fill="currentColor"><circle cx="3" cy="3" r="1.4" /><circle cx="7" cy="3" r="1.4" /><circle cx="3" cy="8" r="1.4" /><circle cx="7" cy="8" r="1.4" /><circle cx="3" cy="13" r="1.4" /><circle cx="7" cy="13" r="1.4" /></svg>
           {/* 组名 + 默认星标 */}
           <span data-testid="group-section-name" style={{ fontSize: 14, fontWeight: 620, letterSpacing: "-0.005em", display: "inline-flex", alignItems: "center", gap: 5 }}>
@@ -258,13 +258,13 @@ export const GroupListItem = memo(function GroupListItem({
               <Badge variant="secondary" style={{ fontSize: 14, padding: "0 5px", fontWeight: 500 }}>auto</Badge>
             )}
           </span>
-        </span>
-        {/* 计数（稿 .gcount） */}
-        <span style={{
-          fontSize: 14, color: "var(--text-tertiary)", background: "var(--secondary)",
-          border: "1px solid var(--border)", borderRadius: 99, padding: "1px 8px", whiteSpace: "nowrap",
-        }}>
-          {gps.length} {t("group.platforms", "平台")}
+          {/* 计数（稿 .gcount） */}
+          <span style={{
+            fontSize: 14, color: "var(--text-tertiary)", background: "var(--secondary)",
+            border: "1px solid var(--border)", borderRadius: 99, padding: "1px 8px", whiteSpace: "nowrap",
+          }}>
+            {gps.length} {t("group.platforms", "平台")}
+          </span>
         </span>
         {/* 三统计（稿 .gstats：今日 / 请求 / 成功率） */}
         <span style={gstatStyle}>
