@@ -172,6 +172,8 @@ pub fn list_client_file_progress<'a>(
 }
 
 /// 截断 / 替换后的明细重建前置：删该文件的明细与进度行（重读从 0 开始）。
+/// 文件删除场景（票 03 监听 / 定时对齐）同样走此函数：末尾顺带清扫本客户端
+/// 无明细残留的空会话壳（同 `cleanup_client_usage` 的空壳语义）。
 #[track_caller]
 pub fn delete_client_file_state<'a>(
     db: &'a Db,
@@ -186,6 +188,12 @@ pub fn delete_client_file_state<'a>(
             conn.execute(
                 "DELETE FROM client_file_progress WHERE client_code = ?1 AND path = ?2",
                 params![client_code, path],
+            )?;
+            conn.execute(
+                "DELETE FROM client_session WHERE client_code = ?1 AND NOT EXISTS \
+                 (SELECT 1 FROM client_call c WHERE c.client_code = client_session.client_code \
+                  AND c.session_id = client_session.session_id)",
+                params![client_code],
             )?;
             Ok(())
         })
