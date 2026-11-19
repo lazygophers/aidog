@@ -838,6 +838,105 @@ impl PlatformAdapter for ArkFamilyAdapter {
     }
 }
 
+/// 百度千帆 家族基座（issue 80；成员 qianfan / qianfan_coding 共用，成员差异见各成员 issue）。
+///
+/// 家族共性取证（官方文档原文，核对日期 2026-11-19；cloud.baidu.com/doc/qianfan-api 为
+/// Next.js 站、/doc/qianfan 为 Gatsby 站，正文均由原始 HTML 直读）：
+/// - 思考开关（openai 端点）：文本生成 API 顶层对象参数 `thinking.type`——「思考模式类型，
+///   默认值为 `disabled`。可选值：`enabled`：开启思考模式 / `disabled`：关闭思考模式」；
+///   同层另有布尔参数 `enable_thinking`（「默认值为 false」，qwen3 系列与 ernie-4.5-vl 用，
+///   deepseek/glm/kimi 系用 `thinking`，见深度思考文档支持清单）与 `thinking_budget` /
+///   `thinking_strategy`。`reasoning_effort` 词表只有 `high`（默认）与 `max`
+///   （「传入 low 或 medium 将映射为 high；传入 xhigh 将映射为 max」），**无 `none`**；
+///   文档无 vLLM 式 `chat_template_kwargs`，故覆写 openai 臂（见下，写官方
+///   `thinking: {"type": "disabled"}`，与基座 anthropic 臂同形）。不可关闭模型
+///   （glm-5.3 / glm-5.3-flash 等「仅支持开启，不支持关闭」）由 registry
+///   `thinking_toggleable: false` 走基座强制思考剥除、不写参数，不在此覆盖。
+///   https://cloud.baidu.com/doc/qianfan-api/s/3m7of64lb
+///   https://cloud.baidu.com/doc/qianfan-docs/s/Wm95lyynv
+/// - 思考开关（anthropic 端点）：MaaS Anthropic 兼容 API 存在（官方公告对
+///   「Anthropic API 返回参数 input_tokens」作语义更新），thinking 词表与基座 anthropic
+///   臂同形，不覆盖；base_url 未在公开文档单独列出（registry 内置值
+///   https://qianfan.baidubce.com/anthropic 仅用于新建平台预填，运行时只用用户配置端点）。
+///   https://cloud.baidu.com/doc/qianfan/s/empm33i0q
+/// - usage（openai 端点）：`usage.prompt_tokens_details.cached_tokens`（「触发上下文缓存后，
+///   命中缓存的 token 数量」，文档注「该字段仅支持模型版本为 ERNIE-4.0-Turbo-8K」），
+///   基座 openai 构件已抽取并从 input 扣除，不覆盖；`search_tokens`（检索增强膨胀 token）
+///   基座按 0 处理（缓存/搜索均计入 prompt_tokens，aidog 计费不拆检索 token）。
+///   `completion_tokens_details.reasoning_tokens`（思维链 token 消耗量）并入 output，同基座。
+///   https://cloud.baidu.com/doc/qianfan-api/s/3m7of64lb
+///   https://cloud.baidu.com/doc/qianfan-docs/s/Wm95lyynv
+/// - usage（anthropic 端点）：官方公告「input_tokens = prompt_tokens - cache_read_input_tokens」
+///   （与 Anthropic 定义对齐；命中缓存按 `cache_read_input_tokens` 折扣计费），与基座
+///   anthropic 臂一致，不覆盖。https://cloud.baidu.com/doc/qianfan/s/empm33i0q
+/// - 流式（openai 端点）：SSE 按 `data: [DONE]` 结束；`stream_options.include_usage`
+///   （最后一个 chunk 输出 usage）与千帆扩展 `chunk_include_usage`（每包都带 usage）；
+///   思维链走 `message.reasoning_content` / 流式 delta 同名字段。基座 openai 流式构件
+///   已按 delta.reasoning_content 抽取，不覆盖；`delta_tag: search_status` 信号包
+///   （无 content）基座按空 delta 处理，不覆盖。
+///   https://cloud.baidu.com/doc/qianfan-api/s/3m7of64lb
+/// - 错误体：`{"error":{"code","message","type"},"id":…}`，与基座 `error.message/code/type`
+///   读法一致。400 `invalid_model`「model is empty」→ 基座 Unknown（调用方按模型类处理）；
+///   **401** `invalid_request_error/invalid_model`「The model does not exist or you do not
+///   have access to it.」——模型不存在挂 401，基座 401 先于业务码按状态码归服务类（换平台），
+///   不覆盖（同 GLM 家族 1311 先例；复活条件：套餐用户反馈因模型配置错误换平台拖累平台
+///   健康时重开）；403 `model_offline` / 429 `rate_limit_exceeded.*` 按状态码归服务类。
+///   Coding Plan 专属码（401 `coding_plan_api_key_required` / `coding_plan_api_key_not_allowed`，
+///   403 `coding_plan_not_subscribed` / `coding_plan_subscription_expired` /
+///   `coding_plan_model_not_supported`，429 `coding_plan_hour/week/month_quota_exceeded` /
+///   `coding_plan_rate_limit_exceeded` / `coding_plan_cluster_rate_limited`）全部落
+///   401/403/429，按状态码归服务类，不扩展。https://cloud.baidu.com/doc/qianfan-api/s/Om9b4yj3w
+/// - 工具 / 图片与多模态 / system：Chat Completions 标准 OpenAI 形状（`tools[].function`、
+///   `tool_choice` none/auto/required + `{type:function,function:{name}}`、
+///   `parallel_tool_calls`、`finish_reason: "tool_calls"`、`role: "system"`），
+///   `tool_choice: "required"` 官方支持、不降级；图片理解是独立端点（视觉理解，单列 POST），
+///   文本生成接口的 content 数组子属性仅列字符串项，图片块经转换分支的行为不在此覆盖。
+///   https://cloud.baidu.com/doc/qianfan-api/s/3m7of64lb
+/// - coding_plan 注入：官方 Claude Code 接入页（Coding Plan）只要求设 ANTHROPIC_BASE_URL
+///   （https://qianfan.baidubce.com/anthropic/coding）与专属 API Key，无出站附加字段；
+///   基座按平台协议分派对 Qianfan / QianfanCoding 协议为 no-op，行为不变。
+///   https://cloud.baidu.com/doc/qianfan/s/0mn2mnemj
+///   https://cloud.baidu.com/doc/qianfan/s/imlg0beiu （Base URL 与 registry 内置默认一致：
+///   openai `https://qianfan.baidubce.com/v2/coding`、anthropic
+///   `https://qianfan.baidubce.com/anthropic/coding`）
+/// - 未证实（保持基座默认）：错误体在流式帧内的形态、`thinking` 参数对 enable_thinking 清单模型
+///   （qwen3 系）的实际认受性（两参数均为 API 文档顶层参数，逐模型支持清单不同，成员差异归
+///   各成员 issue）、max_tokens 统一上限、`content_filter` 类错误（`flag`/`finish_reason`
+///   安全细分当前按基座处理）。
+///
+/// 成员 `qianfan`（百度千帆，标准 MaaS；成员 issue 待建）、`qianfan_coding`（百度千帆
+/// Coding Plan Lite；成员 issue 待建）：均登记为 [`QianfanFamilyAdapter`]；registry 内置
+/// 默认端点（qianfan anthropic `https://qianfan.baidubce.com/anthropic`；qianfan_coding
+/// openai `https://qianfan.baidubce.com/v2/coding` + anthropic
+/// `https://qianfan.baidubce.com/anthropic/coding`，`coding_plan: true`）与官方一致，
+/// 运行时只用用户平台配置的端点。成员级差异由各成员 issue 取证后覆盖。
+pub struct QianfanFamilyAdapter;
+
+impl PlatformAdapter for QianfanFamilyAdapter {
+    /// 差异：openai 端点禁思考写官方顶层 `thinking: {"type": "disabled"}`（API 文档默认值
+    /// 即 `disabled`），不写基座第三方端点用的 vLLM 式 `chat_template_kwargs.enable_thinking`
+    /// （千帆 Chat Completions 文档无此参数；写出值与基座 anthropic 臂相同，故按 anthropic 臂
+    /// 执行）；写 false 前同样剥掉客户端带来的旧 `thinking` / `enable_thinking` /
+    /// `reasoning_effort` 等开启型参数（`enable_thinking` 默认 false，qwen3 系模型官方开关）。
+    /// 其余 wire 与强制思考路径同基座；`Protocol::OpenAICompletions` 不在覆写范围内（家族成员
+    /// 内置默认端点仅 openai / anthropic，用户手配 openai_completions 端点仍走基座
+    /// `chat_template_kwargs` 写法，与 GLM / 百炼 / 方舟基座同口径）。
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        let wire = match wire {
+            Protocol::OpenAI => &Protocol::Anthropic,
+            w => w,
+        };
+        hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking)
+    }
+}
+
 static GENERIC: GenericAdapter = GenericAdapter;
 static MINIMAX_FAMILY: MiniMaxFamilyAdapter = MiniMaxFamilyAdapter;
 static MINIMAX: MiniMaxAdapter = MiniMaxAdapter;
@@ -858,6 +957,7 @@ static KIMI_CODING: KimiFamilyAdapter = KimiFamilyAdapter {
 static GLM: GlmFamilyAdapter = GlmFamilyAdapter;
 static BAILIAN: BailianFamilyAdapter = BailianFamilyAdapter;
 static ARK: ArkFamilyAdapter = ArkFamilyAdapter;
+static QIANFAN: QianfanFamilyAdapter = QianfanFamilyAdapter;
 
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
@@ -910,8 +1010,8 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("openrouter", &GENERIC),
     ("passthrough", &GENERIC),
     ("pipellm", &GENERIC),
-    ("qianfan", &GENERIC),
-    ("qianfan_coding", &GENERIC),
+    ("qianfan", &QIANFAN),
+    ("qianfan_coding", &QIANFAN),
     ("sensenova", &GENERIC),
     ("sensenova_en", &GENERIC),
     ("shengsuanyun", &GENERIC),
