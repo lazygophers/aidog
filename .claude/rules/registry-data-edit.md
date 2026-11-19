@@ -235,3 +235,9 @@ grep struct 定义看整数宽度（u32 上限 4.29e9，u64 约 1.8e19），官�
 ## K/M 窗口基数现状：1024 基与 1000 基并存（2026-11-13 现状，2026-11-15 记入）
 
 `context_window` 存量值中 1024 基（如 131072）与新落的 1000 基（如 128000）并存；拍板只管新值，存量未改写。改写存量需单独拍板（见 wayfinder-session.md §16 口径统一类须带「存量怎么办」子题）。来源：`.scratch/memory/2026-11-13.md` 遗留④。
+
+## 排查与条目维护三约定（2026-11-19 自 memory 提升）
+
+1. **「模型缺失」先查 `model_list.default`**：用户说某平台「模型缺失 / 列表缺省」时，先查 `platform.json` 的 `model_list.default`（前端下拉的冷启动候选，用户唯一可见），再查 `models/` 目录（只是计价条目，界面不可见）。两者应保持 `model_list.default ⊇ models/ 全部 model_id`（openrouter / therouter 素有此约定）。`platform.json` 只有在 `JSON.stringify(doc, null, 2) + "\n"` 与原文逐字节相同时才可安全 round-trip 回写，否则手工编辑（aihubmix / crazyrouter / opencode_zen 属这类）。
+2. **平台变体分开维护**：`glm` 与 `glm_codingplan`、`minimax` 与 `minimax_codingplan` 各自独立条目——变体的模型范围、端点、计费/计划语义不同，禁压进同一条 registry 数据。
+3. **schema 三文件每个字段必须带 description**（check-registry ⑤ 强制）。
