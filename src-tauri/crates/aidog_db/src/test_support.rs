@@ -308,6 +308,13 @@ pub async fn three_file_db() -> (Db, tempfile::TempDir) {
     (db, dir)
 }
 
+/// 四文件夹具（issue #65 票 01）：three_file_db 现状即四文件——client_usage.db 由 Db::new
+/// 随主库派生（主库同目录），init_tables_raw Phase 5 建三表。别名保语义清晰，
+/// 供 client_usage 路由 / 幂等 / 清理测试显式声明「四个独立临时文件」验收口径。
+pub async fn four_file_db() -> (Db, tempfile::TempDir) {
+    three_file_db().await
+}
+
 /// 建平台并把端点全部指向本地假上游。厂商直连协议（glm 等）建库时端点被锁成 preset 真实域名
 /// （`endpoints_locked`），base_url 入参会被忽略；这里建库后直写 DB 覆盖，杜绝测试真实外呼
 /// （.claude/rules/test-no-real-calls.md）。`endpoint_protocols` 每个协议各挂一条指向 `base_url` 的端点。
