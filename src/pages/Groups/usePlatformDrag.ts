@@ -41,12 +41,12 @@ export function usePlatformDrag(api: PlatformDragApi): PlatformDragResult {
   });
 
   const computeDropIdx = (zoneEl: HTMLElement, clientY: number): number => {
-    const cards = zoneEl.querySelectorAll<HTMLElement>("[data-gp-id]");
-    for (let i = 0; i < cards.length; i++) {
-      const r = cards[i].getBoundingClientRect();
+    const rows = zoneEl.querySelectorAll<HTMLElement>("[data-platform-id]");
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i].getBoundingClientRect();
       if (clientY < r.top + r.height / 2) return i;
     }
-    return cards.length;
+    return rows.length;
   };
 
   // 从 elementFromPoint 反查目标分组 + 插入位（命中分组 wrapper 的 data-group-id）。
