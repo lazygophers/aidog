@@ -210,11 +210,7 @@ export const GroupListItem = memo(function GroupListItem({
       }}
     >
       {/* ── group-head（稿 .group-head）：折叠 / 组名 / 计数 / 三统计 / 操作 ── */}
-      {/* 整行头部 = dnd-kit 拖拽激活器（用户拖卡片即可排序，非仅 28px 折叠箭头）；点击仍折叠（PointerSensor distance 4 区分） */}
       <div
-        ref={handle.ref}
-        {...handle.attributes}
-        {...handle.listeners}
         data-testid="group-section-head"
         onClick={() => { if (handle.isDragging || mode === "select") return; onSetCollapsed(prev => {
           const s = new Set(prev); isExpanded ? s.add(group.id) : s.delete(group.id); return s;
@@ -226,28 +222,42 @@ export const GroupListItem = memo(function GroupListItem({
           cursor: mode === "select" ? "default" : "pointer",
         }}
       >
-        {/* 折叠箭头（拖拽激活器已上移到整行 group-section-head；点击冒泡到头部折叠） */}
+        {/* 展开箭头 */}
         <span
           data-testid="group-section-chev"
-          title={t("group.dragToReorder", "拖动排序")}
           style={{
             display: "inline-flex", width: 28, height: 28, alignItems: "center", justifyContent: "center",
-            color: "var(--text-tertiary)", cursor: "grab", touchAction: "none",
+            color: "var(--text-tertiary)",
             transform: (forceExpanded || isExpanded || mode === "select") ? "rotate(90deg)" : undefined,
             transition: "transform .18s", flexShrink: 0,
           }}
         >
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2.5L8 6l-4 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </span>
-        {/* 组名 + 默认星标 */}
-        <span data-testid="group-section-name" style={{ fontSize: 14, fontWeight: 620, letterSpacing: "-0.005em", display: "inline-flex", alignItems: "center", gap: 5 }}>
-          {group.name}
-          {group.is_default && (
-            <span title={t("group.isDefaultTitle", "默认分组")} style={{ color: "var(--color-warning)", fontSize: 14 }}>★</span>
-          )}
-          {group.auto_from_platform && (
-            <Badge variant="secondary" style={{ fontSize: 14, padding: "0 5px", fontWeight: 500 }}>auto</Badge>
-          )}
+        {/* 组名区域是分组拖拽手柄；操作按钮与平台行不参与分组排序。 */}
+        <span
+          ref={handle.ref}
+          {...handle.attributes}
+          {...handle.listeners}
+          data-testid="group-drag-handle"
+          title={t("group.dragToReorder", "拖动排序")}
+          aria-label={`${t("group.dragToReorder", "拖动排序")}: ${group.name}`}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 5, cursor: "grab", touchAction: "none",
+            userSelect: "none", WebkitUserSelect: "none",
+          }}
+        >
+          <svg aria-hidden="true" width="10" height="16" viewBox="0 0 10 16" fill="currentColor"><circle cx="3" cy="3" r="1.4" /><circle cx="7" cy="3" r="1.4" /><circle cx="3" cy="8" r="1.4" /><circle cx="7" cy="8" r="1.4" /><circle cx="3" cy="13" r="1.4" /><circle cx="7" cy="13" r="1.4" /></svg>
+          {/* 组名 + 默认星标 */}
+          <span data-testid="group-section-name" style={{ fontSize: 14, fontWeight: 620, letterSpacing: "-0.005em", display: "inline-flex", alignItems: "center", gap: 5 }}>
+            {group.name}
+            {group.is_default && (
+              <span title={t("group.isDefaultTitle", "默认分组")} style={{ color: "var(--color-warning)", fontSize: 14 }}>★</span>
+            )}
+            {group.auto_from_platform && (
+              <Badge variant="secondary" style={{ fontSize: 14, padding: "0 5px", fontWeight: 500 }}>auto</Badge>
+            )}
+          </span>
         </span>
         {/* 计数（稿 .gcount） */}
         <span style={{

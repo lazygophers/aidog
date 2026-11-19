@@ -95,13 +95,22 @@ describe("GroupsEmbedded — 列表→详情全链", () => {
     await waitFor(() => expect(onToast).toHaveBeenCalledWith(expect.objectContaining({ ok: false, text: expect.stringContaining("isolated failure") })));
   });
 
-  // 回归（用户第二次报「分组页不支持拖拽排序」）：dnd-kit 激活器此前只挂在折叠箭头（28px）上，
-  // 用户拖卡片主体无任何反应。激活器必须作用在整行 group-section-head 上。
-  it("拖拽激活器作用于整行卡片头（拖卡片可排序，非仅折叠箭头）", async () => {
+  // 分组拖拽只由标题区的可见手柄启动，平台行继续使用自己的拖拽把手。
+  it("标题区可见手柄启动分组排序，平台拖拽把手不触发分组排序", async () => {
     render(<GroupsEmbedded onToast={() => {}} />);
     const head = await screen.findAllByTestId("group-section-head");
+    const name = await screen.findAllByTestId("group-section-name");
+    const groupHandle = await screen.findAllByTestId("group-drag-handle");
+    const section = head[0].closest<HTMLElement>("[data-group-id]")!;
+    if (section.getAttribute("data-expanded") !== "true") fireEvent.click(head[0]);
+    const platformHandle = section.querySelector(".drag-handle-inline");
+
     fireEvent.pointerDown(head[0]);
-    expect(head[0].getAttribute("data-drag-activator")).toBe("true");
+    expect(head[0].getAttribute("data-drag-activator")).toBeNull();
+    fireEvent.pointerDown(name[0]);
+    expect(groupHandle[0].getAttribute("data-drag-activator")).toBe("true");
+    fireEvent.pointerDown(platformHandle!);
+    expect(groupHandle[0].getAttribute("data-drag-activator")).toBe("true");
   });
 
   // 回归：列表分支漏渲染 sharedModals（fa236ce94），多选工具栏「改状态」点了无弹窗。
