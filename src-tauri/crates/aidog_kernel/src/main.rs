@@ -467,6 +467,12 @@ fn spawn_scheduled_jobs() {
             tracing::warn!(error = %e, "startup: registry seed from bundled failed");
         }
     });
+    // 客户端本地会话用量：启动增量导入（同意开关闸门 + 只读进度表已有偏移）。
+    tokio::spawn(async move {
+        if let Err(e) = aidog_core::client_usage_cmd::startup_incremental_import().await {
+            tracing::warn!(error = %e, "startup: client usage incremental import failed");
+        }
+    });
 
     // MCP 推荐清单：启动后台预取一次（TTL 24h 内 sync 内部自跳过），失败静默
     // （保留缓存/内置，无 UI 提示）。无手动刷新入口（票 04）。

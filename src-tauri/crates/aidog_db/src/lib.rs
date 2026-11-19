@@ -1367,7 +1367,7 @@ mod test_tool_log;
 mod test_api_call_log;
 mod group;
 pub mod health_state;
-mod session_name;
+pub mod session_name;
 mod group_platform;
 mod maintenance;
 mod middleware;
