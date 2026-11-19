@@ -1,16 +1,24 @@
-//! 客户端本地会话用量：同意开关、Claude Code 读取导入编排与命令（issue #65 票 02）。
+//! 客户端本地会话用量：同意开关、读取导入编排与命令（issue #65；claude_code 票 02、codex 票 04）。
 //!
 //! 闸门唯一性：同意开关是读取器唯一入口判定（`consent_allows`）；关着 = 零文件读取。
 //! 首次开启全量导入、启动/refresh 增量导入共用同一条 `run_import` 链。
 
 pub mod reader;
+pub mod reader_codex;
 pub mod watch;
 #[cfg(test)]
 #[path = "test_reader.rs"]
 mod test_reader;
 #[cfg(test)]
+#[path = "test_reader_codex.rs"]
+mod test_reader_codex;
+#[cfg(test)]
 #[path = "test_watch.rs"]
 mod test_watch;
+
+/// 全局 IMPORT_STATE 只有一份，跨 reader 两个测试模块的用例用它串行化。
+#[cfg(test)]
+pub(crate) static TEST_IMPORT_STATE_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
@@ -26,7 +34,7 @@ pub struct ClientUsageConsent {
     pub enabled: HashMap<String, bool>,
 }
 
-/// 票 02 支持的客户端大类码（codex / gemini_cli / opencode 读取器在票 04~06）。
+/// 支持的客户端大类码（codex 读取器票 04 已落；gemini_cli / opencode 在票 05~06）。
 pub const SUPPORTED_CLIENTS: &[&str] = &["claude_code", "codex", "gemini_cli", "opencode"];
 
 /// 读同意开关（缺省全关、未询问）。
@@ -88,40 +96,57 @@ pub fn snapshot_import_state() -> Option<ImportState> {
         .clone()
 }
 
-/// Claude Code 会话文件根（生产 `~/.claude/projects`；测试注入 tempdir 根）。
-fn projects_root() -> Option<std::path::PathBuf> {
-    dirs::home_dir().map(|h| h.join(".claude").join("projects"))
+/// 客户端会话文件根（生产路径；CODEX_HOME 优先于 ~/.codex）。其余客户端读取器落地后补根。
+pub(crate) fn client_root(code: &str) -> Option<std::path::PathBuf> {
+    match code {
+        "claude_code" => dirs::home_dir().map(|h| h.join(".claude").join("projects")),
+        "codex" => {
+            let home = std::env::var("CODEX_HOME").ok().map(std::path::PathBuf::from);
+            let home = home.or_else(dirs::home_dir)?;
+            Some(home.join("sessions"))
+        }
+        _ => None,
+    }
 }
 
-/// 枚举客户端会话文件（projects/<slug>/*.jsonl，一层目录）。
+/// 枚举客户端会话文件（递归全部子目录，按路径排序）。
 fn enumerate_files(root: &std::path::Path) -> Vec<std::path::PathBuf> {
     let mut out = Vec::new();
-    let Ok(rd) = std::fs::read_dir(root) else {
-        return out;
-    };
-    for e in rd.flatten() {
-        let p = e.path();
-        if p.is_dir() {
-            if let Ok(sub) = std::fs::read_dir(&p) {
-                out.extend(sub.flatten().map(|x| x.path()).filter(|x| x.is_file()));
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let Ok(rd) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for e in rd.flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                stack.push(p);
+            } else if p.extension().and_then(|e| e.to_str()) == Some("jsonl") {
+                out.push(p);
             }
-        } else {
-            out.push(p);
         }
     }
-    out.retain(|p| p.extension().and_then(|e| e.to_str()) == Some("jsonl"));
     out.sort();
     out
 }
 
-/// 折算：anthropic 条目优先，缺失时跨平台取官方条目（`model_entry_for_billing` 内建）；
+/// 折算用平台码：客户端 → 官方平台（codex → openai；OpenCode 按名匹配是票 06）。
+fn billing_platform(client_code: &str) -> &'static str {
+    match client_code {
+        "codex" => "openai",
+        "claude_code" => "anthropic",
+        _ => "",
+    }
+}
+
+/// 折算：客户端官方平台条目优先，缺失时跨平台取官方条目（`model_entry_for_billing` 内建）；
 /// 条目缺失或解析落 fallback（条目无有效价）→ None = 未定价，不回落兜底单价。
 /// is_peak=false：会话文件无平台倍率语境，按默认官方价折算。
-async fn resolve_cost(db: &aidog_db::Db, model: &str, r: &reader::UsageLine) -> Option<f64> {
+async fn resolve_cost(db: &aidog_db::Db, platform: &str, model: &str, r: &reader::UsageLine) -> Option<f64> {
     if model.is_empty() {
         return None;
     }
-    let entry = aidog_db::model_entry_for_billing(db, "anthropic", model).await.ok()??;
+    let entry = aidog_db::model_entry_for_billing(db, platform, model).await.ok()??;
     let res = aidog_db::resolve_price_from(
         Some(&entry.price_data),
         false,
@@ -149,6 +174,7 @@ async fn scan_one_file(
     client_code: &str,
     path: &std::path::Path,
     prog: Option<aidog_db::ClientFileProgress>,
+    sessions_root: &std::path::Path,
 ) -> Result<(i64, aidog_db::ClientFileProgress), String> {
     let path_str = path.to_string_lossy().into_owned();
     let mut start = prog;
@@ -166,18 +192,33 @@ async fn scan_one_file(
         .map(|s| (s.read_offset as u64, s.last_msg_id.clone()))
         .unwrap_or((0, String::new()));
     let (path2, off2, id2) = (path.to_path_buf(), offset, last_id.clone());
-    let scanned = tokio::task::spawn_blocking(move || reader::scan_file(&path2, off2, &id2))
-        .await
-        .map_err(|e| format!("scan task: {e}"))?;
+    let root2 = sessions_root.to_path_buf();
+    let scanned = match client_code {
+        "codex" => {
+            tokio::task::spawn_blocking(move || reader_codex::scan_file(&path2, off2, &id2, Some(&root2)))
+                .await
+                .map_err(|e| format!("scan task: {e}"))?
+        }
+        _ => tokio::task::spawn_blocking(move || reader::scan_file(&path2, off2, &id2))
+            .await
+            .map_err(|e| format!("scan task: {e}"))?,
+    };
     let out = match scanned {
         Ok(o) => o,
         Err(reader::ScanErr::Truncated) => {
             // 扫描中又被截：删状态重读一次。
             aidog_db::delete_client_file_state(db, client_code, &path_str).await?;
             let p2 = path.to_path_buf();
-            tokio::task::spawn_blocking(move || reader::scan_file(&p2, 0, ""))
-                .await
-                .map_err(|e| format!("rescan task: {e}"))?
+            let r2 = sessions_root.to_path_buf();
+            let rescan = match client_code {
+                "codex" => tokio::task::spawn_blocking(move || reader_codex::scan_file(&p2, 0, "", Some(&r2)))
+                    .await
+                    .map_err(|e| format!("rescan task: {e}"))?,
+                _ => tokio::task::spawn_blocking(move || reader::scan_file(&p2, 0, ""))
+                    .await
+                    .map_err(|e| format!("rescan task: {e}"))?,
+            };
+            rescan
                 .map_err(|e| format!("scan {}: {e}", path.display()))?
         }
         Err(reader::ScanErr::Io(e)) => return Err(format!("scan {}: {e}", path.display())),
@@ -185,7 +226,7 @@ async fn scan_one_file(
     // 折算 + 组装行。
     let mut rows = Vec::with_capacity(out.entries.len());
     for (i, r) in out.entries.iter().enumerate() {
-        let cost = resolve_cost(db, &r.model, r).await;
+        let cost = resolve_cost(db, billing_platform(client_code), &r.model, r).await;
         rows.push(ClientCallRow {
             client_code: client_code.to_string(),
             session_id: r.session_id.clone(),
@@ -262,10 +303,9 @@ async fn run_import(
         if !consent_allows(&consent, code) {
             continue;
         }
-        let root = root
-            .clone()
-            .or_else(projects_root)
-            .ok_or("no home dir")?;
+        let Some(root) = root.clone().or_else(|| client_root(code)) else {
+            continue;
+        };
         let progress = aidog_db::list_client_file_progress(db, code).await?;
         let mut paths: Vec<std::path::PathBuf> = if only_with_progress {
             progress.iter().map(|p| std::path::PathBuf::from(&p.path)).collect()
@@ -290,7 +330,7 @@ async fn run_import(
         for path in &paths {
             let path_str = path.to_string_lossy().into_owned();
             let prog = prog_map.get(&path_str).cloned();
-            match scan_one_file(db, code, path, prog).await {
+            match scan_one_file(db, code, path, prog, &root).await {
                 Ok((n, _)) => {
                     *total += n;
                     bump_state(|s| {

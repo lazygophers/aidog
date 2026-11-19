@@ -246,7 +246,7 @@ async fn align_detects_change_and_delete() {
         &[assistant("m1", "s1", "claude-haiku-5-5", "2026-11-19T08:00:00Z", 1, 1)],
     );
     // 基线：先导一次（模拟票 02 启动导入已建进度）。
-    let (n, _) = scan_one_file(&db, "claude_code", &p, None).await.unwrap();
+    let (n, _) = scan_one_file(&db, "claude_code", &p, None, d.path()).await.unwrap();
     assert_eq!(n, 1);
 
     // 追加 → 对齐读到 2。
@@ -284,7 +284,7 @@ async fn align_respects_consent_gate() {
         &[assistant("m1", "s9", "claude-haiku-5-5", "2026-11-19T08:00:00Z", 1, 1)],
     );
     save_consent(&db, &consent_on(&["claude_code"])).await.unwrap();
-    scan_one_file(&db, "claude_code", &p, None).await.unwrap();
+    scan_one_file(&db, "claude_code", &p, None, d.path()).await.unwrap();
     // 关开关：align 不再碰文件（即使 mtime 变了也不读）。
     save_consent(&db, &ClientUsageConsent { asked: true, ..Default::default() })
         .await
