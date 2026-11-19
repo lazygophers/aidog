@@ -50,8 +50,9 @@ fn tmpdir() -> tempfile::TempDir {
     tempfile::tempdir().unwrap()
 }
 
-/// 静态 IMPORT_STATE 被并行 tokio 测试共享，碰状态的测试先取这把锁串行化。
-static STATE_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+/// 静态 IMPORT_STATE 被并行 tokio 测试共享（跨 test_reader / test_reader_codex 两模块），
+/// 碰状态的测试先取这把锁串行化；锁本体在 mod.rs::test_import_state_lock。
+use super::TEST_IMPORT_STATE_LOCK as STATE_LOCK;
 
 /// 正常解析：usage 字段、毫秒时间戳、sidechain、workdir、60 字标题回落。
 #[test]
