@@ -8,8 +8,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use super::watch::{
-    align_once, note_event_for_test, process_due_paths, scan_count, sync_watchers_with,
-    take_due_paths, watched_snapshot,
+    align_once, process_due_paths, scan_count, sync_watchers_with, watched_snapshot,
 };
 use super::*;
 

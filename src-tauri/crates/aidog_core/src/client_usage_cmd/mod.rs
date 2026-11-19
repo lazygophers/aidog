@@ -393,7 +393,7 @@ pub async fn client_usage_consent_set(consent: ClientUsageConsent) -> Result<(),
         });
     }
     // 票 03：监听面随同意开关同步（新开启 → 挂 watch，关闭 → 摘除）。
-    watch::sync_watchers(&db).await;
+    watch::sync_watchers(db).await;
     Ok(())
 }
 }
