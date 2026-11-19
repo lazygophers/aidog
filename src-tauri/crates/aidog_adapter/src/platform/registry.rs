@@ -943,7 +943,7 @@ impl PlatformAdapter for QianfanFamilyAdapter {
 /// - 请求：OpenAI Chat Completions 使用 `/v1/chat/completions`，`model` / `messages` 必填，
 ///   `stream` 缺省 false；Anthropic Messages 使用 `/v1/messages`，含 `system`、`max_tokens`。
 ///   Anthropic `thinking.type` 缺省 enabled，值域 enabled / disabled；`output_config.effort`
-///   缺省 high，支持 low / medium / high / max。OpenAI 思考参数按模型不同：6.8 Flash 强制开启，
+///   缺省 high，支持 none / low / medium / high / max。OpenAI 思考参数按模型不同：6.8 Flash 强制开启，
 ///   Flash Lite 缺省开启，可用 `thinking.type` 关闭，或 `reasoning_effort: "none"` 关闭。
 /// - 工具：OpenAI function tools、tool_choice 缺省 auto；Anthropic 工具调用为 Messages 兼容形状。
 ///   system 提示：OpenAI `role: system`；Anthropic `system` 可为字符串或文本块数组。
@@ -953,7 +953,8 @@ impl PlatformAdapter for QianfanFamilyAdapter {
 ///   未证实额外事件及错误体字段契约，沿用协议基座。
 /// - usage：OpenAI `prompt_tokens` / `completion_tokens` / `total_tokens`，缓存输入在
 ///   `prompt_tokens_details.cached_tokens`；Anthropic `input_tokens` / `output_tokens`，含思考 token。
-///   Anthropic cache read/write 字段未见于该文档，保持基座处理。
+///   Anthropic `cache_read_input_tokens` 官方响应示例有；cache write 字段官方文档未见，
+///   保持基座处理。
 ///   https://platform.sensenova.ai/docs#model-flash
 ///   https://platform.sensenova.ai/docs#api-compatibility
 ///
