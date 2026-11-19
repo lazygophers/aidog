@@ -1,0 +1,86 @@
+// clientUsage.ts — 日志统计 → 客户端统计（issue #65 票 02b）。
+// 类型逐字段对齐 aidog_core::client_usage_cmd 与 aidog_db::client_usage 的 serde camelCase。
+
+import { invoke } from "../transport";
+
+export interface ClientUsageConsent {
+  asked: boolean;
+  enabled: Record<string, boolean>;
+}
+
+/** 导入进度（内存态快照）。 */
+export interface ClientUsageImportState {
+  running: boolean;
+  clientCode: string;
+  startedAtMs: number;
+  filesTotal: number;
+  filesDone: number;
+  callsImported: number;
+  parseErrors: number;
+  finishedAtMs: number;
+  error: string;
+}
+
+export interface ClientUsageStatus {
+  consent: ClientUsageConsent;
+  import: ClientUsageImportState;
+  persistedParseErrors: number;
+}
+
+export interface ClientUsageSummary {
+  calls: number;
+  unpricedCalls: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  reasoningTokens: number;
+  cost: number;
+}
+
+export interface ClientUsageTrendRow {
+  dayMs: number;
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+  cost: number;
+  unpricedCalls: number;
+}
+
+export interface ClientUsageModelRow {
+  model: string;
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+  cost: number;
+  unpricedCalls: number;
+}
+
+export interface ClientUsageSessionRow {
+  clientCode: string;
+  sessionId: string;
+  title: string;
+  workdir: string;
+  firstCallMs: number;
+  lastCallMs: number;
+  calls: number;
+  cost: number;
+  inputTokens: number;
+  outputTokens: number;
+}
+
+export const clientUsageApi = {
+  consentGet: () => invoke<ClientUsageConsent>("client_usage_consent_get"),
+  consentSet: (consent: ClientUsageConsent) =>
+    invoke<void>("client_usage_consent_set", { consent }),
+  status: () => invoke<ClientUsageStatus>("client_usage_status"),
+  summary: (fromMs: number, toMs: number, clientCode?: string) =>
+    invoke<ClientUsageSummary>("client_usage_summary", { fromMs, toMs, clientCode }),
+  trend: (fromMs: number, toMs: number, clientCode?: string) =>
+    invoke<ClientUsageTrendRow[]>("client_usage_trend", { fromMs, toMs, clientCode }),
+  byModel: (fromMs: number, toMs: number, clientCode?: string) =>
+    invoke<ClientUsageModelRow[]>("client_usage_by_model", { fromMs, toMs, clientCode }),
+  sessions: (fromMs: number, toMs: number, clientCode?: string, limit?: number) =>
+    invoke<ClientUsageSessionRow[]>("client_usage_sessions", { fromMs, toMs, clientCode, limit }),
+  refresh: () => invoke<ClientUsageImportState>("client_usage_refresh"),
+};
