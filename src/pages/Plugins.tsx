@@ -209,8 +209,8 @@ export function Plugins() {
                     {p.scope && <Badge variant="outline" data-testid={`plugin-scope-${rowId}`}>{p.scope}</Badge>}
                   </div>
                   <div className="truncate text-sm text-muted-foreground">{p.source}</div>
-                  {p.projectPath && <div className="truncate text-xs text-muted-foreground">{p.projectPath}</div>}
-                  {p.operationError && <div className="text-xs text-destructive">{t(p.operationError)}</div>}
+                  {p.projectPath && <div className="truncate text-sm text-muted-foreground">{p.projectPath}</div>}
+                  {p.operationError && <div className="text-sm text-destructive">{t(p.operationError)}</div>}
                 </div>
                 <Switch
                   aria-label={p.name}
