@@ -298,6 +298,7 @@ async fn tools_attempt(
         0,
         0,
         0,
+        0,
         route.platform.endpoints.iter().any(|ep| ep.coding_plan),
         log.created_at,
         log.est_cost,

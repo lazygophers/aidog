@@ -58,23 +58,27 @@ pub fn should_calibrate(now_ms: i64, last_real_query_at: i64, estimate_count: i6
     now_ms - last_real_query_at > CALIBRATE_INTERVAL_MS || estimate_count >= CALIBRATE_COUNT
 }
 
-/// 余额预估增量 cost = in×in_cost + out×out_cost + cache_read×cache_cost + cache_write×cache_write_cost。
-/// cache_write 计价与 billing::est_cost_from 同口径（此前预估链丢弃该项，重度 caching 客户端余额系统性高估）。
+/// 余额预估增量 cost = in×in_cost + out×out_cost + cache_read×cache_cost + cache_write×cache_write_cost + cache_write_1h×cache_write_1h_cost。
+/// cache_write / cache_write_1h 计价与 billing::est_cost_from 同口径（此前预估链丢弃该两项，
+/// 重度 caching 客户端余额系统性高估；1h 桶缺失见 issue 60）。
 #[allow(clippy::too_many_arguments)]
 pub fn balance_cost(
     input_tokens: i64,
     output_tokens: i64,
     cache_tokens: i64,
     cache_write_tokens: i64,
+    cache_write_1h_tokens: i64,
     input_cost_per_token: f64,
     output_cost_per_token: f64,
     cache_read_input_token_cost: f64,
     cache_write_input_token_cost: f64,
+    cache_write_1h_input_token_cost: f64,
 ) -> f64 {
     input_tokens as f64 * input_cost_per_token
         + output_tokens as f64 * output_cost_per_token
         + cache_tokens as f64 * cache_read_input_token_cost
         + cache_write_tokens as f64 * cache_write_input_token_cost
+        + cache_write_1h_tokens as f64 * cache_write_1h_input_token_cost
 }
 
 /// 对单个 tier 应用一次请求的增量（read-modify-write 的纯函数部分）。

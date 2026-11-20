@@ -640,6 +640,7 @@ pub async fn estimate_after_request(
     output_tokens: i64,
     cache_tokens: i64,
     cache_write_tokens: i64,
+    cache_write_1h_tokens: i64,
     is_coding_plan: bool,
     created_at_ms: i64,
     // 按次工具费（USD，tools_cost 已换算；不乘 peak 倍率——官方按次价无峰谷差，见 billing.rs tools_cost 注释）。
@@ -686,9 +687,10 @@ pub async fn estimate_after_request(
     let resolved_price = resolved.map(|r| r.price);
 
     // 跳过判定（原在 spawn_estimate 同步段，评审 R1 移入价格解析之后）：上游缺 usage
-    // （token 全 0）且无按次费 / 按次计量次数时，纯 token 计价条目无任何可扣项 → 跳过
+    // （token 全 0，含 cache_write / cache_write_1h——issue 60：仅有缓存写入的请求此前被
+    // 整条跳过）且无按次费 / 按次计量次数时，纯 token 计价条目无任何可扣项 → 跳过
     // （含校准）；按次计价条目 request_unit_price 存在 → 仍按 1 次扣 request_fee，
-    // chat 缺 usage 不再漏扣。字段集与原跳过条件一致（不含 cache_write，保持原语义）。
+    // chat 缺 usage 不再漏扣。
     // char/second 缺计数：request_fee=0 → 走跳过（余额/预算路径无 `+unestimable` 标记是
     // 有意为之——该标记只进日志 `price_source`，扣 0 本身已表达不可估算）。
     // 额度窗口平台不跳过（复核③ fail-open 收口，2026-11-17）：配了 enabled 窗口时仍走
@@ -700,6 +702,8 @@ pub async fn estimate_after_request(
         && input_tokens <= 0
         && output_tokens <= 0
         && cache_tokens <= 0
+        && cache_write_tokens <= 0
+        && cache_write_1h_tokens <= 0
         && tool_cost_usd <= 0.0
         && request_units <= 0
         && request_fee <= 0.0
@@ -709,8 +713,12 @@ pub async fn estimate_after_request(
 
     // 1. 增量预估
     if is_coding_plan {
-        // cache_write 计入 plan token 总量（coding 套餐 5h 窗口按总 token 计，含缓存写）
-        let total = (input_tokens + output_tokens + cache_tokens + cache_write_tokens) as f64;
+        // cache_write（含 1h 桶，issue 60）计入 plan token 总量（coding 套餐 5h 窗口按总 token 计）
+        let total = (input_tokens
+            + output_tokens
+            + cache_tokens
+            + cache_write_tokens
+            + cache_write_1h_tokens) as f64;
         let _ = apply_coding_plan_delta(db, platform_id, 1, total).await;
         // 通知体系票 01：配额预测（只在 coding plan 平台——按量平台无窗口耗尽语义）。
         maybe_emit_quota_forecast(db, platform_id, platform_type).await;
@@ -722,10 +730,12 @@ pub async fn estimate_after_request(
                 output_tokens,
                 cache_tokens,
                 cache_write_tokens,
+                cache_write_1h_tokens,
                 price.input_cost_per_token,
                 price.output_cost_per_token,
                 price.cache_read_input_token_cost,
                 price.cache_write_input_token_cost,
+                price.cache_write_1h_input_token_cost,
             ) * peak_mult
         });
         let cost = (token_usd + tool_cost_usd + request_fee)
@@ -738,7 +748,12 @@ pub async fn estimate_after_request(
     //     额度窗口（extra.quota_windows 执行）同口径复用同一 est_cost / 总 token：
     //     token 窗口计 cache（读+写）在内，金额窗口按 est_cost；次数窗口不经此处。
     {
-        let total_tokens = (input_tokens + output_tokens + cache_tokens + cache_write_tokens) as f64;
+        // token 总量含 cache_write 两个桶（issue 60：1h 桶此前丢失）
+        let total_tokens = (input_tokens
+            + output_tokens
+            + cache_tokens
+            + cache_write_tokens
+            + cache_write_1h_tokens) as f64;
         let est_cost = resolved_price
             .as_ref()
             .map(|price| {
@@ -747,10 +762,12 @@ pub async fn estimate_after_request(
                     output_tokens,
                     cache_tokens,
                     cache_write_tokens,
+                    cache_write_1h_tokens,
                     price.input_cost_per_token,
                     price.output_cost_per_token,
                     price.cache_read_input_token_cost,
                     price.cache_write_input_token_cost,
+                    price.cache_write_1h_input_token_cost,
                 ) * peak_mult
             })
             .unwrap_or(0.0)
