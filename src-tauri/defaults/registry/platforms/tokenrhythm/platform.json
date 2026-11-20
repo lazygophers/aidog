@@ -11,8 +11,19 @@
       ]
     },
     {
-      "start_hour": 0,
-      "end_hour": 0,
+      "start_hour": 9,
+      "end_hour": 12,
+      "multiplier": 2,
+      "day_type": "workday",
+      "holiday_calendar": "CN",
+      "timezone": "Asia/Shanghai",
+      "models": [
+        "deepseek-v4-pro-0813"
+      ]
+    },
+    {
+      "start_hour": 14,
+      "end_hour": 18,
       "multiplier": 2,
       "day_type": "workday",
       "holiday_calendar": "CN",
@@ -88,5 +99,5 @@
   ],
   "color": "#4958E8",
   "key_prefixes": ["sk_"],
-  "last_updated": 1795193258
+  "last_updated": 1795193829
 }
