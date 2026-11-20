@@ -313,7 +313,7 @@ export function ClientUsage() {
               ["unpriced", t("clientUsage.unpricedCalls", "未定价调用"), formatNumber(summary.unpricedCalls)],
             ] as const).map(([key, label, value]) => (
               <div key={key} data-testid={`summary-${key}`}>
-                <p className="text-xs text-muted-foreground">{label}</p>
+                <p className="text-sm text-muted-foreground">{label}</p>
                 <p className="mt-1 text-lg font-semibold tabular-nums">{value}</p>
               </div>
             ))}
@@ -377,7 +377,7 @@ export function ClientUsage() {
 
           <Card className="p-4" data-testid="sessions-card">
             <h2 className="font-medium mb-1">{t("clientUsage.sessionTitle", "会话列表")}</h2>
-            <p className="text-xs text-muted-foreground mb-3">{t("clientUsage.sessionsLimit", "仅显示最近 200 个会话")}</p>
+            <p className="text-sm text-muted-foreground mb-3">{t("clientUsage.sessionsLimit", "仅显示最近 200 个会话")}</p>
             {sessions.length === 0 ? (
               <p className="text-sm text-muted-foreground" data-testid="sessions-empty">{t("clientUsage.sessionEmpty", "所选时间范围内暂无会话")}</p>
             ) : (
@@ -398,7 +398,7 @@ export function ClientUsage() {
                       <TableCell className="text-sm">{CLIENTS.find((c) => c.code === s.clientCode)?.name ?? s.clientCode}</TableCell>
                       <TableCell className="max-w-72">
                         <p className="truncate text-sm" title={s.title}>{s.title || s.sessionId}</p>
-                        {s.workdir && <p className="truncate text-xs text-muted-foreground" title={s.workdir}>{s.workdir}</p>}
+                        {s.workdir && <p className="truncate text-sm text-muted-foreground" title={s.workdir}>{s.workdir}</p>}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{formatNumber(s.calls)}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatNumber(s.inputTokens + s.outputTokens)}</TableCell>
