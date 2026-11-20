@@ -662,6 +662,20 @@ pub struct PlatformModelDistributionRow {
     pub est_cost: f64,
 }
 
+/// 平台额度窗口水位（F 板块）。
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct PlatformQuotaWindowLevel {
+    pub key: String,
+    pub dimension: String,
+    pub reset_mode: String,
+    pub used: f64,
+    pub budget: f64,
+    pub remaining_ratio: f64,
+    #[ts(type = "number")]
+    pub resets_at_ms: i64,
+}
+
 /// 平台健康明细（`platform_health_detail`）：`platform_health_state` 行现算 +
 /// 高峰禁用态从 `platform.extra` 现算（`disable_during_peak` + 命中 peak 窗口）。
 /// 剩余秒数 = `max(0, until_ms - now) / 1000`，0 = 无冷却 / 已过期。

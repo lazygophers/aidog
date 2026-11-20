@@ -53,6 +53,7 @@ export * from "./PlatformUsageStats";
 export * from "./PlatformUsageSeriesPoint";
 export * from "./PlatformHealthDetail";
 export * from "./PlatformModelDistributionRow";
+export * from "./PlatformQuotaWindowLevel";
 export * from "./PopoverConfig";
 export * from "./PriceSyncResult";
 export * from "./SyncFailure";

@@ -343,6 +343,7 @@ pub fn run() {
             aidog_core::proxy_cmd::proxy_log::platform_usage_series,
             aidog_core::proxy_cmd::proxy_log::platform_model_distribution,
             aidog_core::proxy_cmd::proxy_log::platform_health_detail,
+            aidog_core::proxy_cmd::proxy_log::platform_quota_window_levels,
             // Platform Quota
             aidog_core::platform_cmd::quota::platform_magpie_quota_names,
             aidog_core::platform_cmd::quota::platform_query_quota,
