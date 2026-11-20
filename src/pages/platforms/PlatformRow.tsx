@@ -103,6 +103,8 @@ export interface PlatformRowProps {
   onToggleExpanded?: (next: boolean) => void;
   onToggle?: (p: Platform) => void;
   onEdit?: (p: Platform) => void;
+  /** 详情全页入口（T2）：⋯ 菜单首项。操作列 108px 已被既有 4 控件占满，可见图标按钮会加重溢出。 */
+  onDetail?: (p: Platform) => void;
   onShare?: (p: Platform) => void;
   onDuplicate?: (p: Platform) => void;
   onViewLogs?: (p: Platform) => void;
@@ -132,7 +134,7 @@ export function PlatformRow({
   platform: p, usage: u, quotaRaw, quotaPreferReal, lastTest, manualResult, testing, onRefreshQuota, refreshing,
   riseDelay, expanded, selecting, selected, levelPriority, showLastOutcome,
   t, lang, lead, onSelect, onToggleExpanded, onToggle,
-  onEdit, onShare, onDuplicate, onViewLogs, onQuickTest, onDelete, onLevelPriorityChange,
+  onEdit, onDetail, onShare, onDuplicate, onViewLogs, onQuickTest, onDelete, onLevelPriorityChange,
 }: PlatformRowProps) {
   const dispCur = useDisplayCurrency();
   const { isCpProtocol, defaultModels, peakWindows, holidayCalendar } = useProtocolMeta(p.platform_type, p.extra ?? "", lang);
@@ -436,6 +438,7 @@ export function PlatformRow({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" style={{ minWidth: 142 }}>
+              {onDetail && <DropdownMenuItem data-testid="row-detail-menu" onSelect={() => onDetail(p)}>{t("platform.detailHint", "查看平台详情")}</DropdownMenuItem>}
               {onViewLogs && <DropdownMenuItem onSelect={() => onViewLogs(p)}>{t("platform.viewLogs", "查看日志")}</DropdownMenuItem>}
               {onShare && <DropdownMenuItem onSelect={() => onShare(p)}>{t("platform.share.button", "分享配置")}</DropdownMenuItem>}
               {onDuplicate && <DropdownMenuItem onSelect={() => onDuplicate(p)}>{t("platform.duplicate", "复制平台")}</DropdownMenuItem>}

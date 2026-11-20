@@ -79,6 +79,24 @@ describe("PlatformRow", () => {
     expect(onToggleExpanded).toHaveBeenCalledWith(true);
   });
 
+  it("⋯ 菜单「查看平台详情」→ onDetail(platform)；不传 onDetail 不渲染该项", () => {
+    const onDetail = vi.fn();
+    render(<PlatformRow {...base} onDetail={onDetail} />);
+    const menu = screen.getByTestId("row-menu");
+    fireEvent.pointerDown(menu, { button: 0, ctrlKey: false });
+    fireEvent.click(menu);
+    fireEvent.click(screen.getByTestId("row-detail-menu"));
+    expect(onDetail).toHaveBeenCalledWith(platform);
+  });
+
+  it("未传 onDetail：⋯ 菜单无详情项", () => {
+    render(<PlatformRow {...base} />);
+    const menu = screen.getByTestId("row-menu");
+    fireEvent.pointerDown(menu, { button: 0, ctrlKey: false });
+    fireEvent.click(menu);
+    expect(screen.queryByTestId("row-detail-menu")).toBeNull();
+  });
+
   it("expanded=true 渲染明细区（模型 + 配置模型计数）", () => {
     render(<PlatformRow {...base} expanded models={undefined} />);
     expect(screen.getByTestId("row-detail")).toBeTruthy();
