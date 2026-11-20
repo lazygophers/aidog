@@ -46,8 +46,8 @@ export function deriveHealth(args: {
   const { status, lastError, manual, recentTotal, recentFailures } = args;
   if (keyInvalidFromStatus(status, lastError)) return "error";
   if (lastError) return "warning";
-  if (status === "enabled") return "healthy";
   if (manual) return manual === "ok" ? "healthy" : "error";
+  if (status === "enabled") return "healthy";
   if (recentTotal != null && recentFailures != null) {
     return healthStatus(recentTotal, recentFailures);
   }

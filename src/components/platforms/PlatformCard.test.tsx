@@ -7,6 +7,7 @@ import { PlatformCard } from "./PlatformCard";
 import type { Platform, PlatformQuota, PlatformUsageStats, LastTestResult } from "../../services/api";
 import { platformHasQuotaScript } from "../../domains/platforms/defaults";
 import { useProtocolMeta } from "../../domains/platforms/useProtocolMeta";
+import { deriveHealth } from "../../domains/platforms/health";
 
 // Mock Tauri invoke
 vi.mock("@tauri-apps/api/core", () => ({
@@ -213,6 +214,10 @@ describe("PlatformCard", () => {
     const single = { ...basePlatform, models: { default: ["m1"] } } as Platform;
     render(<PlatformCard {...baseProps} expanded usage={usage} platform={single} />);
     expect(screen.queryByTestId("model-backup-count")).toBeNull();
+  });
+
+  it("启用平台的手动测试失败后立即显示错误健康态", () => {
+    expect(deriveHealth({ status: "enabled", lastError: undefined, manual: "fail" })).toBe("error");
   });
 
   it("健康态: auto_disabled 显示自动禁用徽标", () => {

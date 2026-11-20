@@ -166,6 +166,18 @@ describe("usePlatformsState — refreshPlatforms (R1, confirmDeletePlatform 路�
   });
 });
 
+describe("usePlatformsState — model test status", () => {
+  it("401 测试结果完成后立即写入失败状态", async () => {
+    const { result } = await mount();
+    modelTestApiMock.test.mockResolvedValueOnce({ success: false, error: "HTTP 401: invalid token" });
+
+    await act(async () => { await result.current.list.handleQuickTest(mkPlatform(1, "a")); });
+
+    expect(modelTestApiMock.test).toHaveBeenCalledWith({ platform_id: 1, model: "m" });
+    expect(result.current.list.testResults[1]).toBe("fail");
+  });
+});
+
 describe("usePlatformsState — handleDelete (R3 Platforms 页路径复验)", () => {
   it("乐观 setPlatforms(filter) + ++epoch + platformApi.delete + groupDetails refetch", async () => {
     const { result } = await mount();
