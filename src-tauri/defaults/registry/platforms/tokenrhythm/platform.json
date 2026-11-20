@@ -1,35 +1,24 @@
 {
   "peak":   [
     {
-      "start_hour": 9,
-      "end_hour": 12,
+      "start_hour": 8,
+      "end_hour": 22,
       "multiplier": 2,
-      "days_of_week": [
-        1,
-        2,
-        3,
-        4,
-        5
-      ],
       "timezone": "Asia/Shanghai",
       "models": [
-        "deepseek-*"
+        "deepseek-flash",
+        "deepseek-v4-flash-0731"
       ]
     },
     {
-      "start_hour": 14,
-      "end_hour": 18,
+      "start_hour": 0,
+      "end_hour": 0,
       "multiplier": 2,
-      "days_of_week": [
-        1,
-        2,
-        3,
-        4,
-        5
-      ],
+      "day_type": "workday",
+      "holiday_calendar": "CN",
       "timezone": "Asia/Shanghai",
       "models": [
-        "deepseek-*"
+        "deepseek-v4-pro-0813"
       ]
     }
   ],
@@ -99,5 +88,5 @@
   ],
   "color": "#4958E8",
   "key_prefixes": ["sk_"],
-  "last_updated": 1794657886
+  "last_updated": 1795193258
 }
