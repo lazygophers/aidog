@@ -1,5 +1,6 @@
 use crate::gateway;
 use aidog_db::Db;
+use rusqlite::OptionalExtension;
 
 use gateway::models::{
     ProxyLog, ProxyLogFilter, ProxyLogPage, ProxyLogSettings, ProxyLogSummary, RequestLogFilter,
@@ -96,10 +97,108 @@ pub async fn proxy_log_count() -> Result<u32, String> {
 }
 
 crate::tauri_command! {
-pub async fn platform_usage_stats(platform_id: u64) -> Result<gateway::models::PlatformUsageStats, String> {
+/// 平台使用统计。`window` 缺省 = all（旧调用兼容）；today 与既有今日口径一致。
+pub async fn platform_usage_stats(platform_id: u64, window: Option<String>) -> Result<gateway::models::PlatformUsageStats, String> {
     let db = aidog_ctx::db();
     tracing::debug!(command = "platform_usage_stats", platform_id, "command invoked");
-    aidog_stats::get_platform_usage_stats(db, platform_id).await
+    aidog_stats::get_platform_usage_stats_window(db, platform_id, window.as_deref()).await
+}
+}
+
+crate::tauri_command! {
+/// 平台×时间用量序列（平台详情页曲线）。today → 小时桶，其余窗口 → 天桶。
+pub async fn platform_usage_series(platform_id: u64, window: Option<String>) -> Result<Vec<gateway::models::PlatformUsageSeriesPoint>, String> {
+    let db = aidog_ctx::db();
+    aidog_stats::platform_usage_series(db, platform_id, window.as_deref().unwrap_or("all")).await
+}
+}
+
+crate::tauri_command! {
+/// 平台×模型分布（平台详情页），请求数降序。
+pub async fn platform_model_distribution(platform_id: u64, window: Option<String>) -> Result<Vec<gateway::models::PlatformModelDistributionRow>, String> {
+    let db = aidog_ctx::db();
+    aidog_stats::platform_model_distribution(db, platform_id, window.as_deref().unwrap_or("all")).await
+}
+}
+
+/// 平台健康明细现算（`platform_health_detail` 命令体）。now_ms 可注入（测试定冷却剩余秒）。
+/// platform.db 单闭包取齐健康行与平台行；平台行缺失（已删平台）→ 高峰禁用态 false、其余全零。
+pub async fn compute_platform_health_detail(
+    db: &Db,
+    platform_id: u64,
+    now_ms: i64,
+) -> Result<gateway::models::PlatformHealthDetail, String> {
+    let pid = platform_id as i64;
+    let (health, platform) = db
+        .call_read_platform_traced(None, std::panic::Location::caller(), move |conn| {
+            let health = conn
+                .query_row(
+                    "SELECT breaker_state, breaker_until_ms, quota_cooldown_until_ms, \
+                     quota_verdict_until_ms, auth_cooldown_until_ms, balance_cooldown_until_ms, \
+                     last_connect_fail_ms, updated_at, breaker_fails \
+                     FROM platform_health_state WHERE platform_id = ?1",
+                    [pid],
+                    |r| {
+                        Ok((
+                            r.get::<_, String>(0)?,
+                            r.get::<_, i64>(1)?,
+                            r.get::<_, i64>(2)?,
+                            r.get::<_, i64>(3)?,
+                            r.get::<_, i64>(4)?,
+                            r.get::<_, i64>(5)?,
+                            r.get::<_, i64>(6)?,
+                            r.get::<_, i64>(7)?,
+                            r.get::<_, i64>(8)?,
+                        ))
+                    },
+                )
+                .optional()?;
+            let platform: Option<(String, String)> = conn
+                .query_row(
+                    "SELECT extra, platform_type FROM platform WHERE id = ?1 AND deleted_at = 0",
+                    [pid],
+                    |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)),
+                )
+                .optional()?;
+            Ok((health, platform))
+        })
+        .await
+        .map_err(|e| format!("platform health detail: {e}"))?;
+
+    let remaining = |until_ms: i64| -> i64 { ((until_ms - now_ms).max(0)) / 1000 };
+    let (breaker_state, breaker_until_ms, quota_until, verdict_until, auth_until, balance_until, last_connect_fail_ms, updated_at, breaker_fails) =
+        health.unwrap_or_default();
+    let peak_disabled = match platform {
+        Some((extra, ptype)) => {
+            let parsed = gateway::models::PlatformExtra::parse(&extra);
+            parsed.disable_during_peak
+                && {
+                    let windows = gateway::peak::peak_for(&extra, &ptype);
+                    gateway::peak::is_in_peak_window(&windows, now_ms, "")
+                }
+        }
+        None => false,
+    };
+    Ok(gateway::models::PlatformHealthDetail {
+        platform_id: pid,
+        breaker_open: breaker_state == "open",
+        breaker_fails,
+        breaker_until_ms,
+        quota_cooldown_secs: remaining(quota_until),
+        quota_verdict_secs: remaining(verdict_until),
+        auth_cooldown_secs: remaining(auth_until),
+        balance_cooldown_secs: remaining(balance_until),
+        last_connect_fail_ms,
+        peak_disabled,
+        updated_at,
+    })
+}
+
+crate::tauri_command! {
+/// 平台健康明细（平台详情页徽标）：platform_health_state 现算 + 高峰禁用态。
+pub async fn platform_health_detail(platform_id: u64) -> Result<gateway::models::PlatformHealthDetail, String> {
+    let db = aidog_ctx::db();
+    compute_platform_health_detail(db, platform_id, chrono::Utc::now().timestamp_millis()).await
 }
 }
 

@@ -57,9 +57,29 @@ pub fn get_platform_usage_stats(
     db: &Db,
     platform_id: u64,
 ) -> impl std::future::Future<Output = Result<aidog_db::models::PlatformUsageStats, String>> + '_ {
+    get_platform_usage_stats_window(db, platform_id, None)
+}
+
+#[track_caller]
+pub fn get_platform_usage_stats_window<'a>(
+    db: &'a Db,
+    platform_id: u64,
+    window: Option<&'a str>,
+) -> impl std::future::Future<Output = Result<aidog_db::models::PlatformUsageStats, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
         let today_key = local_today_hour_key();
+        let since = match window.unwrap_or("all") {
+            "today" => Some(today_key.clone()),
+            "7d" => Some(crate::utc_ms_to_local_hour_key(
+                chrono::Utc::now().timestamp_millis() - 7 * 86_400_000,
+            )),
+            "30d" => Some(crate::utc_ms_to_local_hour_key(
+                chrono::Utc::now().timestamp_millis() - 30 * 86_400_000,
+            )),
+            "all" => None,
+            other => return Err(format!("platform usage stats: unknown window {other:?}")),
+        };
         // stats-agg-to-main-db s4：`"group"` 在 platform.db，stats_agg_hourly 在主库，proxy_log 在 log.db。
         // 先 platform 库预查该 platform 作为 auto_from_platform 源的 group_key 列表（recent_health 回溯用）。
         let pid_str = platform_id.to_string();
@@ -84,9 +104,10 @@ pub fn get_platform_usage_stats(
                 &format!("SELECT {AGG_TOTAL_COLS}, \
                  COALESCE(SUM(CASE WHEN time_hour >= ?2 THEN sum_input_tokens + sum_output_tokens ELSE 0 END), 0), \
                  COALESCE(SUM(CASE WHEN time_hour >= ?2 THEN sum_est_cost ELSE 0.0 END), 0.0) \
-                 FROM stats_agg_hourly WHERE platform_id = ?1 AND deleted_at = 0"),
+                 FROM stats_agg_hourly WHERE platform_id = ?1 AND deleted_at = 0 \
+                 AND (?3 IS NULL OR time_hour >= ?3)"),
             )?;
-            let stats = stmt.query_row(params![pid, today_key], |row| {
+            let stats = stmt.query_row(params![pid, today_key, since], |row| {
                 let total: i64 = row.get(0)?;
                 let success: i64 = row.get(1)?;
                 let inp: i64 = row.get(2)?;
@@ -811,5 +832,114 @@ pub fn platform_success_counts_24h(
         })
         .await
         .map_err(|e| format!("platform_success_counts_24h: {e}"))
+    }
+}
+
+/// window 口径解析：today / 7d / 30d / all → (since_key, 小时粒度)。
+/// today → 本地今日零点键 + 小时桶；7d/30d → now-N 天的本地小时键（滚动 24h×N 窗口）+ 天桶；
+/// all → 无下界 + 天桶。未知窗口 → Err（命令层透传给前端）。
+fn parse_usage_window(window: &str) -> Result<(Option<String>, bool), String> {
+    match window {
+        "today" => Ok((Some(local_today_hour_key()), true)),
+        "7d" => Ok((
+            Some(crate::utc_ms_to_local_hour_key(
+                chrono::Utc::now().timestamp_millis() - 7 * 86_400_000,
+            )),
+            false,
+        )),
+        "30d" => Ok((
+            Some(crate::utc_ms_to_local_hour_key(
+                chrono::Utc::now().timestamp_millis() - 30 * 86_400_000,
+            )),
+            false,
+        )),
+        "all" => Ok((None, false)),
+        other => Err(format!("unknown window {other:?}")),
+    }
+}
+
+/// 平台×时间用量序列（平台详情页曲线）：stats_agg_hourly 按 platform_id 过滤，
+/// today 窗口按小时桶（time_hour 原样）、其余窗口按天桶（substr(time_hour,1,10)）聚合
+/// 请求数 / 成功数 / 四类 token / est_cost / 总时长，按时间升序。窗口参数同
+/// `get_platform_usage_stats_window`；空数据 → 空序列。
+#[track_caller]
+pub fn platform_usage_series<'a>(
+    db: &'a Db,
+    platform_id: u64,
+    window: &'a str,
+) -> impl std::future::Future<Output = Result<Vec<aidog_db::models::PlatformUsageSeriesPoint>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let (since, hourly) = parse_usage_window(window).map_err(|e| format!("platform usage series: {e}"))?;
+        let pid = platform_id as i64;
+        // stats_agg_hourly 已迁回主库（stats-agg-to-main-db s1），走主库读池。
+        db.call_read_traced(None, __db_caller, move |conn| {
+            let (bucket_expr, group_expr) = if hourly {
+                ("time_hour", "time_hour")
+            } else {
+                ("substr(time_hour, 1, 10)", "substr(time_hour, 1, 10)")
+            };
+            let mut stmt = conn.prepare_cached(&format!(
+                "SELECT {bucket_expr}, \
+                 COALESCE(SUM(request_count), 0), COALESCE(SUM(success_count), 0), \
+                 COALESCE(SUM(sum_input_tokens), 0), COALESCE(SUM(sum_output_tokens), 0), \
+                 COALESCE(SUM(sum_cache_tokens), 0), COALESCE(SUM(sum_est_cost), 0.0), \
+                 COALESCE(SUM(sum_duration_ms), 0) \
+                 FROM stats_agg_hourly WHERE platform_id = ?1 AND deleted_at = 0 \
+                 AND (?2 IS NULL OR time_hour >= ?2) \
+                 GROUP BY {group_expr} ORDER BY 1",
+            ))?;
+            let rows = stmt.query_map(params![pid, since], |row| {
+                Ok(aidog_db::models::PlatformUsageSeriesPoint {
+                    time: row.get(0)?,
+                    requests: row.get(1)?,
+                    success: row.get(2)?,
+                    input_tokens: row.get(3)?,
+                    output_tokens: row.get(4)?,
+                    cache_tokens: row.get(5)?,
+                    est_cost: row.get(6)?,
+                    duration_ms: row.get(7)?,
+                })
+            })?;
+            rows.collect::<rusqlite::Result<Vec<_>>>()
+        })
+        .await
+        .map_err(|e| format!("platform usage series: {e}"))
+    }
+}
+
+/// 平台×模型分布（平台详情页）：stats_agg_hourly 按 platform_id + 窗口过滤 GROUP BY model，
+/// 返回请求数 / token / est_cost，请求数降序、token 降序。空数据 → 空序列。
+#[track_caller]
+pub fn platform_model_distribution<'a>(
+    db: &'a Db,
+    platform_id: u64,
+    window: &'a str,
+) -> impl std::future::Future<Output = Result<Vec<aidog_db::models::PlatformModelDistributionRow>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let (since, _hourly) = parse_usage_window(window).map_err(|e| format!("platform model distribution: {e}"))?;
+        let pid = platform_id as i64;
+        db.call_read_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare_cached(
+                "SELECT model, COALESCE(SUM(request_count), 0), \
+                 COALESCE(SUM(sum_input_tokens + sum_output_tokens + sum_cache_tokens), 0), \
+                 COALESCE(SUM(sum_est_cost), 0.0) \
+                 FROM stats_agg_hourly WHERE platform_id = ?1 AND deleted_at = 0 \
+                 AND (?2 IS NULL OR time_hour >= ?2) \
+                 GROUP BY model ORDER BY 2 DESC, 3 DESC",
+            )?;
+            let rows = stmt.query_map(params![pid, since], |row| {
+                Ok(aidog_db::models::PlatformModelDistributionRow {
+                    model: row.get(0)?,
+                    requests: row.get(1)?,
+                    tokens: row.get(2)?,
+                    est_cost: row.get(3)?,
+                })
+            })?;
+            rows.collect::<rusqlite::Result<Vec<_>>>()
+        })
+        .await
+        .map_err(|e| format!("platform model distribution: {e}"))
     }
 }
