@@ -66,6 +66,16 @@
 - retention 清理对称清空整侧「原始信息」（headers + body，UPDATE SET=''），不删行；retention_days 删整行
 - **请求记录（测试 / 余额 / 拉模型 / hello 探测）独立表 `request_log`（log.db，2026-11-14）**：不进 proxy_log，不含 model / actual_model / token / cost 列；写入走 `aidog_logs::upsert_request_log`（同 ProxyLogSettings 两侧原始信息开关），读走 `request_log_list/count/get`；平台卡「最近测试」`get_last_test_result` 读本表 `kind='test'`；retention 复用 proxy_log 的三级设置（同一闭包内清 request_log）。迁移 20261114-01 把旧 proxy_log 中 source_protocol∈(test,quota,fetch-models) 行搬入后删除。
 
+### 客户端本地记录（client_usage.db，issue #65）
+- 第 4 库 `client_usage.db`：与 main / log.db / platform.db 并列、整库加密，三表 `client_call`（调用明细，只落 token / 成本 / 定位键等元数据）/ `client_file_progress`（读取进度，含增量扫描游标 `last_msg_id`）/ `client_session`（会话）。handle 路由走 `call_client_usage_traced` / `call_read_client_usage_traced`（`aidog_db/src/lib.rs:167-171`）。**不存对话原文**。迁移编号空间与 main / proxy_log / platform 各自独立（`schema_client_usage.rs`，首批 20261119-01）。
+- 独立保留天数：scope `client_usage` / key `retention_days`，缺省 90（`CLIENT_USAGE_DEFAULT_RETENTION_DAYS`，`aidog_db/src/client_usage.rs:8`），0 = 永久保留；清理调度复用 proxy_log 清理闭包（`proxy_cmd/proxy_log.rs:285`）。
+
+### 客户端统计读取闸门
+- **唯一闸门是同意开关**（setting 载荷 `{asked, enabled: {<client_code>: bool}}`，scope `client_usage`，缺省全关；`consent_allows` 是读取器唯一入口判定，关着 = 零文件读取，`client_usage_cmd/mod.rs:3`）。命令 `client_usage_consent_get/set`（`aidog_rpc/src/lib.rs:358-359`）。
+- 四客户端读取器 `SUPPORTED_CLIENTS = [claude_code, codex, gemini_cli, opencode]`（`client_usage_cmd/mod.rs:49`）：claude_code（`reader.rs`，`~/.claude/projects`）/ codex（`reader_codex.rs`）/ gemini_cli（`reader_gemini.rs`）/ opencode（`reader_opencode.rs`），各客户端会话根目录独立。
+- 数据面 = 启动增量扫描 + 实时监听（notify，`watch.rs`）+ 定时对齐；同步监听面 = 同意开关开启且有会话根的客户端（生产入口：启动与 consent_set 调用）。
+- 折算花费走 `resolve_cost`（`client_usage_cmd/mod.rs:161`）：官方平台条目优先、缺失时跨平台取官方条目（`model_entry_for_billing`）；条目缺失或解析落 fallback（条目无有效价）→ cost NULL，**不回落兜底单价**；会话文件无平台倍率语境，按默认官方价折算（is_peak=false）。
+
 ### Group 统计
 - Group 卡片的 usage stats 按 `group_key` 聚合（后端 `get_group_usage_stats` in `aidog_stats/src/usage_stats.rs`，读 `stats_agg_hourly` 小时聚合表 + command `group_usage_stats` in `aidog_core/src/proxy_cmd/proxy_log.rs` + api `groupUsageApi.stats`），只含本分组请求，被多 group 共享的平台不重复计入。前端 Groups.tsx `fetchGroupStats` 对每个 group 调一次。
 - balance（余额）维持平台级：关联 platforms 的 `est_balance_remaining` 求和，无 per-group 概念，不按 group_key 拆。

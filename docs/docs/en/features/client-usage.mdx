@@ -1,0 +1,14 @@
+---
+title: Client usage
+description: Summarize local usage from AI coding clients on this machine: calls, tokens, and converted cost.
+---
+
+# Client usage
+
+Client usage summarizes usage from AI coding clients installed on this machine (Claude Code, Codex, Gemini CLI, OpenCode): call counts, tokens, and converted cost. The data never passes through the proxy; AiDog reads numbers only and stores no conversation text.
+
+Privacy: reading is off by default and each client must be opted in individually in settings. Once enabled, AiDog reads those session files and extracts metadata such as tokens, model, and time; it never rewrites them or stores conversation text.
+
+Converted cost estimates tokens at the official platform entry prices, for reference only, and does not replace the upstream bill. When an entry has no price, no cost is recorded (left empty); it never falls back to a default price.
+
+Retention is configured separately (90 days by default, can be set to keep forever). Cleanup deletes only the recorded numbers and never touches the client's own session files.

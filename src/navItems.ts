@@ -5,6 +5,7 @@ export const BASE_NAV: NavItem[] = [
   { id: "home", icon: "home", labelKey: "nav.home", section: "nav.section.overview" },
   { id: "platforms", icon: "platforms", labelKey: "nav.platforms", section: "nav.section.monitoring" },
   { id: "stats", icon: "stats", labelKey: "nav.stats", section: "nav.section.logStats" },
+  { id: "client-usage", icon: "clientUsage", labelKey: "nav.clientUsage", section: "nav.section.logStats" },
   { id: "logs", icon: "logs", labelKey: "nav.logs", section: "nav.section.logStats" },
   { id: "request-log", icon: "logs", labelKey: "nav.requestLog", section: "nav.section.logStats" },
   { id: "mitm-log", icon: "logs", labelKey: "nav.mitmLog", section: "nav.section.logStats" },
