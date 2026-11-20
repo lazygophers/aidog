@@ -65,6 +65,7 @@ export interface ClientUsageSessionRow {
   lastCallMs: number;
   calls: number;
   cost: number;
+  unpricedCalls: number;
   inputTokens: number;
   outputTokens: number;
 }
