@@ -604,6 +604,7 @@ impl StreamLogGuard {
                 output_tokens,
                 cache_tokens,
                 cache_write_tokens,
+                cache_write_1h_tokens,
                 est.coding_plan,
                 final_log.created_at,
                 super::log::chat_tool_cost_usd(&est.platform_type, &final_log.tool_call_counts),

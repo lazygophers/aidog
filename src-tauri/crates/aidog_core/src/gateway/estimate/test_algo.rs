@@ -170,9 +170,25 @@ fn calibrate_thresholds() {
 
 #[test]
 fn balance_cost_sums_components() {
-    let c = balance_cost(100, 50, 200, 0, 1e-6, 2e-6, 5e-7, 0.0);
+    let c = balance_cost(100, 50, 200, 0, 0, 1e-6, 2e-6, 5e-7, 0.0, 0.0);
     let expect = 100.0 * 1e-6 + 50.0 * 2e-6 + 200.0 * 5e-7;
     assert!((c - expect).abs() < 1e-15);
+}
+
+// issue 60：1h 桶非 0 时 balance_cost 与 billing::est_cost_from 同输入 base（倍率 1.0）一致，
+// 预估链与计费链同一口径。
+#[test]
+fn balance_cost_1h_bucket_matches_est_cost_from() {
+    let (i, o, cr, cw, cw1h) = (100i64, 50i64, 200i64, 30i64, 40i64);
+    let (ic, oc, cc, cwc, cw1hc) = (1e-6, 2e-6, 5e-7, 3e-7, 6e-7);
+    let c = balance_cost(i, o, cr, cw, cw1h, ic, oc, cc, cwc, cw1hc);
+    let expect = crate::gateway::billing::est_cost_from(
+        i as i32, o as i32, cr as i32, cw as i32, cw1h as i32, ic, oc, cc, cwc, cw1hc, 1.0,
+    );
+    assert!(
+        (c - expect).abs() < 1e-15,
+        "balance_cost = {c}, est_cost_from = {expect}"
+    );
 }
 
 #[test]
