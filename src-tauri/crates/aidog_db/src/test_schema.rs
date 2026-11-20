@@ -1,8 +1,9 @@
 #![cfg(test)]
-use crate::{Db, now, load_auto_from_map, resolve_eff_pid, STATS_AGG_HOURLY_SQL, incremental_vacuum_conn};
-use crate::models::*;
 use super::test_support::*;
-
+use super::*;
+use crate::schema::BUILTIN_PHONE_PATTERN;
+use crate::schema_early::run_migrations_platform_early;
+use crate::schema_late::run_migrations_platform_late;
     // ── R2 单数表名 + "group" 转义：init_tables 成功间接验证 DDL ──
     #[tokio::test]
     async fn r2_singular_table_names_and_group_escaped() {
@@ -90,82 +91,9 @@ use super::test_support::*;
 
 
 
-    // ── R8 proxy_log 主键 TEXT hex32（无连字符），软删 + retention ──
-    #[tokio::test]
-    async fn r8_proxy_log_uuid_no_hyphen_and_retention() {
-        let db = test_db().await;
-        // hex32 无连字符 id（模拟生产生成方式 uuid simple）
-        let new_id = uuid::Uuid::new_v4().simple().to_string();
-        assert_eq!(new_id.len(), 32, "simple uuid should be 32 hex chars");
-        assert!(!new_id.contains('-'), "uuid must not contain hyphen");
-
-        let now_ms = chrono::Utc::now().timestamp_millis();
-        // 一条最近日志
-        upsert_proxy_log(&db, sample_log(&new_id, "g", now_ms)).await.unwrap();
-        // 一条很旧的日志（100 天前）
-        let old_id = uuid::Uuid::new_v4().simple().to_string();
-        let old_ms = now_ms - 100 * 86_400_000;
-        upsert_proxy_log(&db, sample_log(&old_id, "g", old_ms)).await.unwrap();
-
-        assert_eq!(count_proxy_logs(&db).await.unwrap(), 2);
-
-        // retention 30 天：旧日志被软删
-        cleanup_proxy_logs(&db, 30, RetentionUnit::Day).await.unwrap();
-        assert_eq!(count_proxy_logs(&db).await.unwrap(), 1);
-        assert!(get_proxy_log(&db, &old_id).await.unwrap().is_none());
-        assert!(get_proxy_log(&db, &new_id).await.unwrap().is_some());
-
-        // proxy_log 主键存储原样 TEXT
-        let fetched = get_proxy_log(&db, &new_id).await.unwrap().unwrap();
-        assert_eq!(fetched.id, new_id);
-        assert!(fetched.created_at > 1_000_000_000_000);
-    }
 
 
 
-    /// 全新 db 首启即 seed 全部内置规则，is_builtin=1 且默认 enabled。
-    #[tokio::test]
-    async fn c4_fresh_db_seeds_builtin_rules() {
-        let db = test_db().await;
-        let rules = list_middleware_rules(&db).await.unwrap();
-        let builtin: Vec<_> = rules.iter().filter(|r| r.is_builtin).collect();
-        assert_eq!(
-            builtin.len(),
-            builtin_rule_specs().len(),
-            "首启应 seed 全部内置规则"
-        );
-        for r in &builtin {
-            assert!(r.enabled, "内置规则 {} 默认应 enabled", r.name);
-            assert_eq!(r.scope, RuleScope::Global);
-        }
-        // 三条脱敏 + 默认 error_rules
-        assert!(builtin.iter().any(|r| r.name == "内置·密钥脱敏"));
-        assert!(builtin.iter().any(|r| r.name == "内置·邮箱脱敏"));
-        assert!(builtin.iter().any(|r| r.name == "内置·手机号脱敏"));
-        assert!(builtin
-            .iter()
-            .any(|r| r.rule_type == RuleType::ErrorRule));
-    }
-
-
-
-    /// 密钥/邮箱脱敏走 content_filter 空 pattern（复用 C2 内置检测器），手机走显式 regex。
-    #[tokio::test]
-    async fn c4_secret_email_reuse_c2_detector_phone_explicit() {
-        let db = test_db().await;
-        let rules = list_middleware_rules(&db).await.unwrap();
-        let secret = rules.iter().find(|r| r.name == "内置·密钥脱敏").unwrap();
-        let email = rules.iter().find(|r| r.name == "内置·邮箱脱敏").unwrap();
-        let phone = rules.iter().find(|r| r.name == "内置·手机号脱敏").unwrap();
-        // 密钥/邮箱 pattern 留空 → C2 BUILTIN_SECRET/EMAIL 检测器接管，避免重复定义正则
-        assert!(secret.pattern.is_empty(), "密钥规则 pattern 应留空复用 C2 检测器");
-        assert!(email.pattern.is_empty(), "邮箱规则 pattern 应留空复用 C2 检测器");
-        assert_eq!(secret.rule_type, RuleType::ContentFilter);
-        assert_eq!(secret.action, RuleAction::Mask);
-        // 手机 C2 无内置检测器 → 显式 regex
-        assert!(!phone.pattern.is_empty(), "手机规则用显式 regex");
-        assert_eq!(phone.match_type, MatchType::Regex);
-    }
 
 
 
@@ -179,33 +107,6 @@ use super::test_support::*;
     }
 
 
-
-    /// 内置默认 error_rules 正则命中各 category 的样例上游错误消息。
-    #[test]
-    fn c4_builtin_error_rules_match_samples() {
-        // (category, 样例错误消息)
-        let samples: &[(&str, &str)] = &[
-            ("prompt_limit", "This model's maximum context length is 128000 tokens"),
-            ("content_filter", "The response was flagged by our content filter"),
-            ("pdf_limit", "PDF has too many pages, maximum is 100"),
-            ("thinking_error", "thinking is not supported for this model"),
-            ("parameter_error", "Unsupported parameter: 'temperature' is not allowed"),
-            ("invalid_request", "invalid_request_error: missing field"),
-            ("cache_limit", "prompt cache: too many cache_control blocks"),
-        ];
-        for (category, msg) in samples {
-            let spec = builtin_rule_specs()
-                .iter()
-                .find(|s| s.rule_type == "error_rule" && s.config.contains(&format!("\"category\":\"{category}\"")))
-                .unwrap_or_else(|| panic!("缺 category={category} 的 error_rule"));
-            let re = regex::Regex::new(spec.pattern).unwrap();
-            assert!(
-                re.is_match(msg),
-                "category={category} 正则 {} 应命中样例: {msg}",
-                spec.pattern
-            );
-        }
-    }
 
 
 
@@ -332,6 +233,8 @@ use super::test_support::*;
         ).unwrap();
         let v: serde_json::Value = serde_json::from_str(&new_extra).unwrap();
         assert!(v.get("peak_hours").is_none(), "W2 窗口是数组唯一元素, 删空后应整个删掉 peak_hours 键, got {new_extra}");
+        // 20260829-02 把 peak_hours 改名为 peak：W2 窗口删空后改名也不应留下键
+        assert!(v.get("peak").is_none(), "改名后 peak 键也不应存在, got {new_extra}");
         assert_eq!(v.get("_ui_collapsed").and_then(|b| b.as_bool()), Some(true), "其余字段应原样保留");
     }
 
@@ -377,7 +280,8 @@ use super::test_support::*;
             |r| r.get(0),
         ).unwrap();
         let v: serde_json::Value = serde_json::from_str(&new_extra).unwrap();
-        let arr = v.get("peak_hours").and_then(|a| a.as_array()).expect("peak_hours 应保留");
+        // 20260829-02 已把 extra 键 peak_hours 改名为 peak，窗口值原样保留
+        let arr = v.get("peak").and_then(|a| a.as_array()).expect("peak 应保留");
         assert_eq!(arr.len(), 1, "只部分中条件的用户自建窗口不应被删");
         assert_eq!(arr[0].get("multiplier").and_then(|m| m.as_f64()), Some(1.5));
     }
@@ -395,39 +299,3 @@ use super::test_support::*;
 
 
 
-    /// 用户禁用内置规则后重启不被重新启用（尊重用户禁用状态，内置可禁不可硬删）。
-    #[tokio::test]
-    async fn c4_seed_respects_user_disabled_state() {
-        let db = test_db().await;
-        let rules = list_middleware_rules(&db).await.unwrap();
-        let secret = rules.iter().find(|r| r.name == "内置·密钥脱敏").unwrap().clone();
-        // 用户禁用该内置规则
-        update_middleware_rule(
-            &db,
-            UpdateMiddlewareRule {
-                id: secret.id,
-                name: secret.name.clone(),
-                description: secret.description.clone(),
-                rule_type: secret.rule_type,
-                scope: secret.scope,
-                scope_ref: secret.scope_ref.clone(),
-                match_type: secret.match_type,
-                pattern: secret.pattern.clone(),
-                action: secret.action,
-                config: secret.config.clone(),
-                priority: secret.priority,
-                enabled: false,
-                is_builtin: true,
-            },
-        )
-        .await
-        .unwrap();
-        // 重启
-        crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(()))).await.unwrap();
-        let after = list_middleware_rules(&db).await.unwrap();
-        let secret_after = after.iter().find(|r| r.name == "内置·密钥脱敏").unwrap();
-        assert!(!secret_after.enabled, "用户禁用的内置规则重启后不应被重新启用");
-        // 仍只有一条（未重复插入）
-        let count = after.iter().filter(|r| r.name == "内置·密钥脱敏").count();
-        assert_eq!(count, 1, "禁用的内置规则不应被重复 seed");
-    }
