@@ -55,8 +55,9 @@ const dataPayload = (calls: number) => ({
     : [],
   sessions: calls > 0
     ? [
-        { clientCode: "claude_code", sessionId: "s1", title: "演示会话", workdir: "/tmp/demo", firstCallMs: NOW - DAY, lastCallMs: NOW, calls, cost: 1.5, inputTokens: 100, outputTokens: 20 },
-        { clientCode: "codex", sessionId: "s2", title: "未定价会话", workdir: "", firstCallMs: NOW - DAY, lastCallMs: NOW - 3600_000, calls: 2, cost: 0, inputTokens: 10, outputTokens: 5 },
+        { clientCode: "claude_code", sessionId: "s1", title: "演示会话", workdir: "/tmp/demo", firstCallMs: NOW - DAY, lastCallMs: NOW, calls, cost: 1.5, unpricedCalls: 0, inputTokens: 100, outputTokens: 20 },
+        { clientCode: "codex", sessionId: "s2", title: "未定价会话", workdir: "", firstCallMs: NOW - DAY, lastCallMs: NOW - 3600_000, calls: 2, cost: 0, unpricedCalls: 2, inputTokens: 10, outputTokens: 5 },
+        { clientCode: "codex", sessionId: "s3", title: "免费模型会话", workdir: "", firstCallMs: NOW - DAY, lastCallMs: NOW - 7200_000, calls: 1, cost: 0, unpricedCalls: 0, inputTokens: 10, outputTokens: 5 },
       ]
     : [],
 });
@@ -114,11 +115,29 @@ describe("ClientUsage", () => {
     api.sessions.mockResolvedValue(d.sessions);
     render(<ClientUsage />);
     await waitFor(() => expect(screen.getByTestId("sessions-card")).toBeTruthy());
-    // 会话表：cost=0 的会话显示未定价。
-    expect(screen.getByTestId("session-unpriced")).toBeTruthy();
+    // 会话表：s2 全未定价（unpricedCalls==calls）→ 唯一未定价标记；s3 免费模型（cost=0 已定价）→ 不带标记。
+    const marks = screen.getAllByTestId("session-unpriced");
+    expect(marks).toHaveLength(1);
     // 按模型表：cost=0 的模型显示未定价 + 计数。
     const mark = screen.getByTestId("unpriced-mark");
     expect(mark.textContent).toContain("2");
+  });
+
+  it("混合会话显示金额与未定价计数", async () => {
+    api.status.mockResolvedValue(statusPayload(true, { claude_code: true }));
+    const d = dataPayload(5);
+    api.summary.mockResolvedValue(d.summary);
+    api.trend.mockResolvedValue(d.trend);
+    api.byModel.mockResolvedValue(d.byModel);
+    // s1 改成混合：2 次调用 1 次未定价 → 金额 + ×1 小标。
+    api.sessions.mockResolvedValue([
+      { ...d.sessions[0], calls: 2, cost: 1.5, unpricedCalls: 1 },
+    ]);
+    render(<ClientUsage />);
+    await waitFor(() => expect(screen.getByTestId("sessions-card")).toBeTruthy());
+    const mixed = screen.getByTestId("session-mixed-cost");
+    expect(mixed.textContent).toContain("1.50");
+    expect(mixed.textContent).toContain("×1");
   });
 
   it("所选时间范围无数据时显示空态", async () => {

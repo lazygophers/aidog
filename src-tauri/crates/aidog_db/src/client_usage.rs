@@ -434,6 +434,7 @@ pub struct ClientUsageSessionRow {
     pub last_call_ms: i64,
     pub calls: i64,
     pub cost: f64,
+    pub unpriced_calls: i64,
     pub input_tokens: i64,
     pub output_tokens: i64,
 }
@@ -452,9 +453,10 @@ pub fn client_usage_sessions<'a>(
     async move {
         db.call_read_client_usage_traced(None, __db_caller, move |conn| {
             let mut sql = "SELECT s.client_code, s.session_id, s.title, s.workdir, s.first_call_ms, s.last_call_ms, \
-                COALESCE(cnt.calls,0), COALESCE(cnt.cost,0), COALESCE(cnt.input,0), COALESCE(cnt.output,0) \
+                COALESCE(cnt.calls,0), COALESCE(cnt.cost,0), COALESCE(cnt.unpriced,0), COALESCE(cnt.input,0), COALESCE(cnt.output,0) \
                 FROM client_session s LEFT JOIN \
                 (SELECT client_code, session_id, COUNT(*) AS calls, COALESCE(SUM(cost),0) AS cost, \
+                        COUNT(CASE WHEN cost IS NULL THEN 1 END) AS unpriced, \
                         COALESCE(SUM(input_tokens),0) AS input, COALESCE(SUM(output_tokens),0) AS output \
                  FROM client_call WHERE call_time_ms BETWEEN ?1 AND ?2 GROUP BY 1,2) cnt \
                 ON cnt.client_code = s.client_code AND cnt.session_id = s.session_id \
@@ -478,8 +480,9 @@ pub fn client_usage_sessions<'a>(
                         last_call_ms: r.get(5)?,
                         calls: r.get(6)?,
                         cost: r.get(7)?,
-                        input_tokens: r.get(8)?,
-                        output_tokens: r.get(9)?,
+                        unpriced_calls: r.get(8)?,
+                        input_tokens: r.get(9)?,
+                        output_tokens: r.get(10)?,
                     })
                 })?
                 .collect::<Result<Vec<_>, _>>()?;
