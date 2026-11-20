@@ -342,3 +342,124 @@ async fn minimax_base_resp_errors_and_empty_remains() {
     assert!(q4.success);
     assert!(q4.coding_plan.unwrap().tiers.is_empty());
 }
+
+// ── commandcode（4 端点链：whoami → credits / subscriptions → summary）──
+
+const CC_SUBS_BODY: &str = r#"{"data":{"planId":"individual-pro","status":"active",
+    "currentPeriodStart":"2026-11-01T00:00:00Z","currentPeriodEnd":"2026-12-01T00:00:00Z"}}"#;
+const CC_SUMMARY_BODY: &str = r#"{"totalCost":12.5,"totalCount":100,"periodBasis":"billing-period"}"#;
+
+async fn cc_run(
+    credits_body: &'static str,
+) -> (
+    crate::quota::PlatformQuota,
+    std::sync::Arc<std::sync::Mutex<Vec<super::test_stub::Recorded>>>,
+) {
+    let (stub, log) = spawn_capture(vec![
+        ("/alpha/whoami", 200, r#"{"org":{"id":"org_1","login":"u"}}"#),
+        ("/alpha/billing/credits", 200, credits_body),
+        ("/alpha/billing/subscriptions", 200, CC_SUBS_BODY),
+        ("/alpha/usage/summary", 200, CC_SUMMARY_BODY),
+    ])
+    .await;
+    let s = retarget(
+        &script_for("commandcode"),
+        "https://api.commandcode.ai",
+        &stub,
+    );
+    let q = run(&s, &stub).await;
+    (q, log)
+}
+
+#[tokio::test]
+async fn commandcode_windows_balance_and_chain() {
+    let (q, log) = cc_run(
+        r#"{"credits":{"planId":"individual-pro","monthlyCredits":30,"purchasedCredits":5,
+            "freeCredits":2,"sandboxAccess":true,
+            "windowLimits":{"limited":true,
+                "fiveHour":{"used":10,"cap":40,"resetAt":1750000000000},
+                "weekly":{"used":70,"cap":200,"resetAt":1750000000123}}}}"#,
+    )
+    .await;
+    assert!(q.success, "{:?}", q.error);
+    let cp = q.coding_plan.as_ref().unwrap();
+    assert_eq!(cp.level.as_deref(), Some("individual-pro"));
+    let t = &cp.tiers;
+    assert_eq!(t.len(), 2);
+    assert_eq!(t[0].name, "five_hour");
+    assert!((t[0].utilization - 25.0).abs() < 1e-9, "used/cap = 10/40");
+    assert_eq!(t[0].limit, Some(40.0));
+    assert_eq!(t[0].remaining, Some(30.0));
+    assert_eq!(
+        t[0].resets_at.as_deref(),
+        Some("2025-06-15T15:06:40+00:00"),
+        "resetAt epoch ms → ISO"
+    );
+    assert_eq!(t[1].name, "weekly_limit");
+    assert!((t[1].utilization - 35.0).abs() < 1e-9, "70/200");
+    assert_eq!(
+        t[1].resets_at.as_deref(),
+        Some("2025-06-15T15:06:40.123+00:00")
+    );
+    // 余额 = monthly + purchased + free；used = summary.totalCost；total = remaining + used
+    let b = q.balance.as_ref().unwrap();
+    assert!((b.remaining - 37.0).abs() < 1e-9);
+    assert!((b.used.unwrap() - 12.5).abs() < 1e-9);
+    assert!((b.total.unwrap() - 49.5).abs() < 1e-9);
+    assert_eq!(b.currency, "USD");
+    assert!(b.is_valid);
+    // 链路顺序 + 参数透传 + Bearer
+    let log = log.lock().unwrap();
+    assert_eq!(log.len(), 4);
+    assert_eq!(log[0].path, "/alpha/whoami?limits=1");
+    assert!(log[1].path.starts_with("/alpha/billing/credits?orgId=org_1"));
+    assert!(
+        log[2]
+            .path
+            .starts_with("/alpha/billing/subscriptions?orgId=org_1")
+    );
+    assert!(
+        log[3]
+            .path
+            .starts_with("/alpha/usage/summary?orgId=org_1&since=2026-11-01"),
+        "summary 带 since=currentPeriodStart"
+    );
+    for r in log.iter() {
+        assert_eq!(r.authorization, "Bearer sk-test");
+    }
+}
+
+#[tokio::test]
+async fn commandcode_error_paths() {
+    // 缺省形态：无 windowLimits / level 无 planId / 池全 0 → success 空 tiers
+    let (q, _) = cc_run(r#"{"credits":{"monthlyCredits":0,"purchasedCredits":0,"freeCredits":0}}"#)
+        .await;
+    assert!(q.success, "{:?}", q.error);
+    let cp = q.coding_plan.unwrap();
+    assert!(cp.tiers.is_empty());
+    assert_eq!(cp.level, None);
+    let b = q.balance.as_ref().unwrap();
+    assert_eq!(b.remaining, 0.0);
+    assert_eq!(b.used.unwrap(), 12.5, "used = summary.totalCost");
+    assert_eq!(b.total, Some(12.5));
+
+    // 401 → http.get 抛 HTTP 401，脚本透传
+    let (stub, _) = spawn_capture(vec![(
+        "/alpha/whoami",
+        401,
+        r#"{"success":false,"error":{"code":"UNAUTHORIZED"}}"#,
+    )])
+    .await;
+    let s = retarget(
+        &script_for("commandcode"),
+        "https://api.commandcode.ai",
+        &stub,
+    );
+    let q3 = run(&s, &stub).await;
+    assert!(!q3.success);
+    assert!(
+        q3.error.as_deref().unwrap_or("").starts_with("HTTP 401"),
+        "401 → error 透传: {:?}",
+        q3.error
+    );
+}
