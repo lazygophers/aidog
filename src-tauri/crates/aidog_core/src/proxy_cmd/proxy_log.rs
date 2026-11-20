@@ -282,6 +282,14 @@ pub async fn run_retention_cleanup(db: &Db, settings: &ProxyLogSettings) {
     {
         tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup tool_log failed");
     }
+    // 客户端用量库（issue #65 票 01）：独立保留天数（scope=client_usage, key=retention_days，
+    // 缺省 90，0 = 永久）。删超期明细 + 空会话壳；进度表是防重复导入真值，不清理。
+    if let Err(e) =
+        aidog_db::cleanup_client_usage(db, aidog_db::client_usage::load_retention_days(db).await)
+            .await
+    {
+        tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup client_usage failed");
+    }
     // 清积压 tombstone（本次 cleanup 前历史软删残留）+ incremental_vacuum 回收 free pages。
     // 软删→硬删迁移期一次性清旧 tombstone；日常 retention_days 已硬删则此步为 no-op + 回收。
     if let Err(e) = aidog_logs::purge_deleted_proxy_logs(db).await {

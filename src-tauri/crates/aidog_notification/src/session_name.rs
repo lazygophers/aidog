@@ -27,14 +27,10 @@ pub(crate) struct ClaudeCache {
     pub offset: u64,
 }
 
-/// 首行、去首尾空白，按 Unicode 字符计 24，超出截断加「…」。
-/// 先整体 trim 再取首行，避免首行为空时丢掉后面的有效内容。
+/// 首行、去首尾空白，截 24 字加「…」——算法抽到 `aidog_db::session_name::truncate_name`
+/// （票 02：与会话统计标题共用同一实现，本模块以通知口径 24 字调用）。
 pub(crate) fn truncate_name(raw: &str) -> String {
-    let line = raw.trim().lines().next().unwrap_or("").trim();
-    match line.char_indices().nth(MAX_CHARS) {
-        Some((i, _)) => format!("{}…", &line[..i]),
-        None => line.to_string(),
-    }
+    aidog_db::session_name::truncate_name(raw, MAX_CHARS)
 }
 
 /// 从 `prev.offset` 起增量读 transcript，返回更新后的缓存。文件变短则从头重读；坏行跳过。
@@ -58,13 +54,10 @@ pub(crate) fn scan_transcript(path: &Path, prev: ClaudeCache) -> std::io::Result
     };
     for line in buf[..end].split(|b| *b == b'\n') {
         let Ok(v) = serde_json::from_slice::<serde_json::Value>(line) else { continue };
-        let (key, source) = match v.get("type").and_then(|t| t.as_str()) {
-            Some("custom-title") => ("customTitle", "custom_title"),
-            Some("ai-title") if c.source != "custom_title" => ("aiTitle", "ai_title"),
-            _ => continue,
-        };
-        let name = truncate_name(v.get(key).and_then(|t| t.as_str()).unwrap_or(""));
-        if !name.is_empty() {
+        // custom-title > ai-title：ai 不覆盖已落的 custom_title（与原实现同优先级）。
+        if let Some((source, name)) = aidog_db::session_name::extract_transcript_title(&v)
+            && !(source == "ai_title" && c.source == "custom_title")
+        {
             c.name = name;
             c.source = source.to_string();
         }

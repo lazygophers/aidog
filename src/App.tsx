@@ -20,6 +20,7 @@ const Platforms = lazy(() => import("./pages/Platforms").then(m => ({ default: m
 const AppSettings = lazy(() => import("./pages/AppSettings").then(m => ({ default: m.AppSettings })));
 const Logs = lazy(() => import("./pages/Logs").then(m => ({ default: m.Logs })));
 const Stats = lazy(() => import("./pages/Stats").then(m => ({ default: m.Stats })));
+const ClientUsage = lazy(() => import("./pages/ClientUsage").then(m => ({ default: m.ClientUsage })));
 const Notifications = lazy(() => import("./pages/Notifications").then(m => ({ default: m.Notifications })));
 const Skills = lazy(() => import("./pages/Skills").then(m => ({ default: m.Skills })));
 const MiddlewareSettingsTab = lazy(() => import("./components/settings/MiddlewareRules").then(m => ({ default: m.MiddlewareSettingsTab })));
@@ -176,7 +177,7 @@ function App() {
     return [t0(item.section ?? ""), t0(child ? child.labelKey : item.labelKey)] as [string, string];
   })();
   // G3 画布：大画布页（统计/日志/通知/首页）带点阵网格，表单页（settings 等）不带。
-  const canvasPages = new Set(["home", "stats", "logs", "notifications"]);
+  const canvasPages = new Set(["home", "stats", "logs", "notifications", "client-usage"]);
 
   return (
     <div style={{
@@ -219,6 +220,7 @@ function App() {
             {effectiveNav === "settings" && <AppSettings tab={settingsTab} onNotifSettingsChanged={(enabled) => setNotifEnabled(enabled)} />}
             {effectiveNav === "logs" && <Logs initialFilter={navContext} onNavigate={handleNavigate} />}
             {effectiveNav === "stats" && <Stats initialFilter={navContext} />}
+            {effectiveNav === "client-usage" && <ClientUsage />}
             {effectiveNav === "notifications" && <Notifications onNavigate={handleNavigate} />}
             {effectiveNav === "skills" && <Skills />}
             {effectiveNav === "mcp" && <Mcp />}
