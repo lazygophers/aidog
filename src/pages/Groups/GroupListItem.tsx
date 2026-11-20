@@ -436,6 +436,7 @@ export const GroupListItem = memo(function GroupListItem({
                 onToggleExpanded={(next) => actions.onToggleExpanded(p.id, next)}
                 onToggle={(pp) => cardService.onToggleEnabled(pp)}
                 onEdit={(pp) => cardService.onEdit(pp)}
+                onDetail={(pp) => cardService.onDetail(pp)}
                 onShare={(pp) => cardService.onShare(pp)}
                 onDuplicate={(pp) => cardService.onDuplicate(pp)}
                 onViewLogs={(pp) => cardService.onViewLogs(pp)}

@@ -874,7 +874,7 @@ function PlatformActionButtons({
         </Button>
       </div>
       )}
-      {/* 详情全页入口（T2）：仅卡片，行视图（PlatformRow）不加 */}
+      {/* 详情全页入口（T2）：卡片显式按钮；行视图（PlatformRow）走 ⋯ 菜单「查看平台详情」 */}
       <Button variant="ghost" size="icon" style={{ height: "auto" }} data-testid="card-detail" onClick={(e) => { e.stopPropagation(); service.onDetail(platform); }} title={t("platform.detailHint", "查看平台详情")}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="7" cy="7" r="5.2" /><path d="M7 6.4v3.2" /><path d="M7 4.4h.01" />

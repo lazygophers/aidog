@@ -278,6 +278,7 @@ function MembersCard(props: {
                 onToggleExpanded={(next) => toggleMember(p.id, next)}
                 onToggle={(pp) => props.cardService.onToggleEnabled(pp)}
                 onEdit={props.onEditPlatform}
+                onDetail={(pp) => props.cardService.onDetail(pp)}
                 onShare={(pp) => props.cardService.onShare(pp)}
                 onDuplicate={(pp) => props.cardService.onDuplicate(pp)}
                 onViewLogs={(pp) => props.cardService.onViewLogs(pp)}
