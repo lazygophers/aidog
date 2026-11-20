@@ -83,3 +83,26 @@ pub fn cleanup_session_name_cache(
         .map_err(|e| format!("cleanup session_name_cache: {e}"))
     }
 }
+
+/// 首行、去首尾空白，按 Unicode 字符计 max_chars，超出截断加「…」。
+/// 先整体 trim 再取首行，避免首行为空时丢掉后面的有效内容。
+/// （通知模块 24 字与会话统计 60 字共用同一算法；抽取自 aidog_notification::session_name，票 02。）
+pub fn truncate_name(raw: &str, max_chars: usize) -> String {
+    let line = raw.trim().lines().next().unwrap_or("").trim();
+    match line.char_indices().nth(max_chars) {
+        Some((i, _)) => format!("{}…", &line[..i]),
+        None => line.to_string(),
+    }
+}
+
+/// transcript 行的标题类型检测：custom-title > ai-title（同 aidog_notification::session_name
+/// 的优先级）。Some((source, title)) = 命中且非空（已截 24 字，通知模块口径）。
+pub fn extract_transcript_title(v: &serde_json::Value) -> Option<(&'static str, String)> {
+    let (key, source) = match v.get("type").and_then(|t| t.as_str()) {
+        Some("custom-title") => ("customTitle", "custom_title"),
+        Some("ai-title") => ("aiTitle", "ai_title"),
+        _ => return None,
+    };
+    let name = truncate_name(v.get(key).and_then(|t| t.as_str()).unwrap_or(""), 24);
+    (!name.is_empty()).then_some((source, name))
+}

@@ -423,6 +423,16 @@ pub fn init_tables_raw(
             .map_err(|e| e.to_string())?;
         }
 
+        // Phase 5: client_usage.db migration（issue #65 票 01：client_call / client_file_progress /
+        // client_session 建表）。幂等 CREATE IF NOT EXISTS，可任意重放。内存库 fallback 下
+        // client_usage handle = 主内存连接 clone，与 Phase 1 同物理库，行为不变。
+        db.call_client_usage_traced(None, __db_caller, move |conn| {
+            crate::schema_client_usage::run_migrations_client_usage(conn)?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+
         Ok(())
     }
 }
