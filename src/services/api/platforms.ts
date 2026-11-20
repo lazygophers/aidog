@@ -1,7 +1,7 @@
 // platforms.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "../transport";
-import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, PassthroughAuth, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, TimeModelRule, PlatformErrorStatus, ClientVocabCategory } from "./types";
+import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, PassthroughAuth, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformUsageSeriesPoint, PlatformHealthDetail, PlatformModelDistributionRow, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, TimeModelRule, PlatformErrorStatus, ClientVocabCategory } from "./types";
 import type { TimeWindow } from "../../domains/platforms/defaults";
 import { normalizeWindow } from "../../utils/timeWindow";
 import QUOTA_SCRIPT_SAMPLE_RAW from "../../domains/platforms/quotaScriptSample.txt?raw";
@@ -912,8 +912,20 @@ export const platformApi = {
   fetchModels: (protocol: Protocol, baseUrl: string, apiKey: string, proxyEnabled?: boolean) =>
     invoke<string[]>("platform_fetch_models", { protocol, baseUrl, apiKey, proxyEnabled }),
 
-  usageStats: (platformId: number) =>
-    invoke<PlatformUsageStats>("platform_usage_stats", { platformId }),
+  usageStats: (platformId: number, window?: "today" | "7d" | "30d" | "all") =>
+    invoke<PlatformUsageStats>("platform_usage_stats", { platformId, window: window ?? null }),
+
+  /** 平台×时间用量序列（详情页 T3）：today→小时桶，其余→日桶。 */
+  usageSeries: (platformId: number, window?: "today" | "7d" | "30d" | "all") =>
+    invoke<PlatformUsageSeriesPoint[]>("platform_usage_series", { platformId, window: window ?? null }),
+
+  /** 平台健康明细现算（详情页 T3 板块 D）。 */
+  healthDetail: (platformId: number) =>
+    invoke<PlatformHealthDetail>("platform_health_detail", { platformId }),
+
+  /** 平台×模型分布（详情页 T3 板块 G），请求数降序。 */
+  modelDistribution: (platformId: number, window?: "today" | "7d" | "30d" | "all") =>
+    invoke<PlatformModelDistributionRow[]>("platform_model_distribution", { platformId, window: window ?? null }),
 
   // 批量：单次 invoke 返回所有平台 → 聚合 map（platform_id → stats），消除前端逐平台 N+1 往返。
   // 后端 GROUP BY eff_pid，含 platform_id=0 自动分组日志按 group_key 回溯归属源平台；

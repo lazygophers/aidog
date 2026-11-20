@@ -8,6 +8,7 @@ import type { PlatformCardService } from "../../components/platforms/PlatformCar
 import { DetailHeader } from "../../components/platforms/detail/DetailHeader";
 import { DetailConfig } from "../../components/platforms/detail/DetailConfig";
 import { DetailActions } from "../../components/platforms/detail/DetailActions";
+import { DetailData } from "../../components/platforms/detail/DetailData";
 
 export interface PlatformDetailProps {
   platform: Platform;
@@ -26,8 +27,10 @@ export function PlatformDetail({ platform, membership, onBack, onRefreshQuota, s
         onBack={onBack}
         service={service}
       />
-      {/* T3 数据板块挂载点：曲线 / 统计 / 健康明细 / 失败分析 / 水位 / 模型分布 */}
-      <div data-testid="detail-t3-mount" />
+      {/* T3 数据板块挂载点：曲线 / 统计 / 健康明细 / 失败分析 / 模型分布（F 水位待读取命令） */}
+      <div data-testid="detail-t3-mount">
+        <DetailData platform={platform} />
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", alignItems: "start" }}>
         <DetailConfig platform={platform} membership={membership} />
         <DetailActions platform={platform} onRefreshQuota={onRefreshQuota} service={service} />
