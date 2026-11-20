@@ -166,6 +166,9 @@ mitm_bypass 测试读加密列断言明文——子集门禁全绿，合并到 m
   全绿，成员 crate 的直通测试实际没跑——agent 自行补跑 `--workspace` 才暴露。票面 /
   派发 prompt 的 Rust 门禁一律写 `cargo test --workspace`；agent 拿到短命令自行补全
   并在回报注明。
+- **执行段可用 nextest 提速（实测 138.6s→64s，`.tmp/test-speed/bin/cargo-nextest run --workspace`）；
+  cargo test 语义仍是真值源**——nextest 不跑 doctests，配置在 `src-tauri/.config/nextest.toml`
+  （retries 0 不变，slow-timeout 提前到 30s 仅标记）。make lint 等门禁链不动。
 - **MARK 在场 ≠ 链跑完**（2026-10-29 计费线实锤）：`grep ... | head; echo MARK` 结构把
   cargo 中途失败吞掉，MARK 照打。`grep -cE 'test result: ok'` 得 4、期望 <N>（cargo
   编译期失败中断），差点当绿。门禁链除 MARK 外再核一个数：`test result: ok` 计数 =
@@ -336,6 +339,9 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
   review 修复补的测试同样适用（2026-11-06 38ca3d577 仍非严格先红，靠改坏 decision.rs 反证）：派 review-fix agent 时 prompt 照贴本条。
 - **`make lint` 整条跑**（2026-11-06 额度线遗留「make lint 未整条跑，仅分项跑」）：收尾门禁以 `{ make lint; rc=$?; echo EXIT=$rc; } > .tmp/<任务名>/lint.log 2>&1` 为准，
   分项绿不算；收尾 agent 回报贴 EXIT 值，没跑写「做了没验证」。
+  **agent 级派发同样适用**（2026-11-20 issue 65 轮实锤：审查修复 agent 门禁清单只列 cargo 四项，报绿后 make lint 的
+  字号门禁红出 3 处 `text-xs`，主会话复跑才抓到）：改动含前端文件（tsx / css / locale）的修复类派发，prompt 门禁清单
+  写 `make lint` 整条，不枚举 cargo 子集——字号下限 / tsc / biome 都不在 cargo 子集里，cargo 全绿证不了前端门禁。
 - **绕开脏文件另建模块只是权宜**（2026-11-06 statusline 回退放进 fallback.py 因 engine.py 被他线占用）：占用解除后并回原模块，
   账本遗留写明并入条件；不把「文件被占」当拆文件的设计理由。
 - **票 `Status:` 只有 `claimed` → `resolved`**：2026-11-05.md:101 遗留「票状态跳过 claimed」。
@@ -388,6 +394,7 @@ FlowChart 泛化票（a692fe57f / 5e27d1b36）门禁全绿合入，用户看真�
 - 官方文档未列的协议字面量（头名等）若取自逆向 Claude Code 二进制：账本 / 回报标「逆向，版本 X」，代码常量处注明版本，遗留写复活条件（官方文档补列或改名时回头核对）。逆向值不得冒充第 1 类出处。
 - clippy 易踩两处：`collapsible_if`、`MutexGuard` 跨 `.await`（先取值后释放锁再 await）；门禁照旧 `--all-targets -D warnings`。
 - **「给 X 加开关」票派发前 grep 开关字段的 Rust 消费者**（2026-11-16 额度窗口线实锤：用户问「限频开关怎么没看到」，追查发现后端零执行）：零消费者 = 假开关，UI 只是摆设。此时先拍板执行语义（超限挡不挡、挡在哪一层）再动 UI；反方向同样成立——给已有 UI 开关接执行逻辑的票，prompt 写明现状 file:line（本例现状 = 纯展示零执行，quota_windows 表单 q_impl 拍板「实现」后才开工）。
+- **「入口 / 控件加在某组件上」票派发前 grep 该组件的生产渲染点**（2026-11-20 平台详情线：T2 票面写「PlatformCard 操作排加详情按钮」，`grep -rn '<PlatformCard' src --include='*.tsx'` 仅剩测试引用，生产列表已重写为行视图 PlatformRow——按钮落在零渲染点的组件上，应用内不可达，agent 停手待裁上报后才修正，范围审计漏了 UI 挂载点）。存在性审计面从后端符号（枚举 / 表 / 常量表 / 路由）扩到 UI 挂载点：票面点名的每个组件先 grep `<组件名` 生产渲染点，仅测试引用的组件不算挂载面；落点组件有渲染但操作排已满（固定宽列 / grid 溢出）时，票面写明布局约束与替代落点，不硬塞。
 
 ## 22. 先红只算新行为测试；断言「AiDog 写了 X 文件」先 grep 写入点（2026-11-09 请求尝试逐次重算）
 
@@ -468,6 +475,7 @@ impl-68 的门禁和 fix-68 的取锁等待都曾挂后台后 idle。当前 harn
 - 若 harness 自动转后台，执行 agent 回报命令和日志路径后继续做不依赖该结果的工作；主会话收到完成通知后读日志，再通知 agent 续做。
 - 取锁等待脚本同样前台运行。主会话若发现执行 agent idle 且日志已有结果，读日志后 SendMessage 唤醒续做，不重派。
 - **规则两轮后仍复发，升级成派发 prompt 固定句**（2026-11-16~17 扩展功能线：§19/§32 成文后仍有 4 个 implementer 把编译挂后台后 idle「等通知」）：派发 prompt 尾部固定贴一句——「依赖性命令（编译 / 门禁 / 取锁）前台运行并设 timeout: 600000，命令与退出码按 §29 写日志；harness 自动转后台时回报命令与日志路径、继续做不依赖结果的工作，不 idle 等通知」。主会话看到 agent 回报含「等后台通知 / 等完成通知」类字样，当轮 SendMessage 发 §32 的核查指令（读日志路径、有 EXIT 就唤醒续做），不重派、不干等。
+- **固定句防不住 harness 自动转后台（2026-11-20 平台详情线复核：T1/T2/T3 三票 implementer 照样 idle，靠主会话 SendMessage 贴 EXIT 唤醒收敛，零返工）**：根因是 harness 把超长前台命令自动转后台、完成通知只进主会话队列——环境行为，固定句只能缩短唤醒延迟，不能消除 idle。结论：「idle → 读 `.tmp/<任务>/` 日志 → 有 EXIT 就 SendMessage 贴结果唤醒」是本规则的预期运行形态而非规则失效，不再据此逐轮重议或升级固定句；含长门禁的派发把一次唤醒计入流程预算。
 
 ## 33. 查进度走 SendMessage 原 agent；挂死 agent 的 TaskStop 接管判据（2026-11-15 issue 69 轮）
 
