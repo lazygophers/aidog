@@ -1,5 +1,5 @@
 // T3 数据板块（详情页）：B/B' 曲线、C 使用统计（四档窗口）、D 健康明细、E 失败分析、
-// G 模型分布。F 水位板块需 quota_window_usage / 限频占位读取命令（现缺，未做）。
+// G 模型分布；F 水位板块在 WaterLevel（T5，额度窗口逐条水位；限频占位命令侧不可达未含）。
 // 数据映射纯函数在 chartMath；曲线/柱图为纯渲染视图组件。
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,6 +8,7 @@ import type { Platform, PlatformUsageStats, PlatformUsageSeriesPoint, PlatformHe
 import { platformApi, quotaApi, proxyLogApi } from "../../../services/api";
 import { parseEstCodingPlan } from "../../../domains/platforms";
 import { Blk } from "./Blk";
+import { WaterLevel } from "./WaterLevel";
 import { SubscriptionCurveView } from "./SubscriptionCurve";
 import { PaygoBarsView } from "./PaygoBars";
 import {
@@ -181,8 +182,7 @@ export function DetailData({ platform: p }: { platform: Platform }) {
         </Blk>
 
         {/* G：模型用量分布 */}
-        <Blk testid="detail-t3-models" title={t("platform.detail.modelDist", "模型用量分布")} hint={t(`platform.detail.win.${win}`, WIN_FALLBACK[win])}>
-          {modelRows.length === 0
+        <Blk testid="detail-t3-models" title={t("platform.detail.modelDist", "模型用量分布")} hint={t(`platform.detail.win.${win}`, WIN_FALLBACK[win])}>          {modelRows.length === 0
             ? <Empty t={t} />
             : modelRows.map(r => (
               <div key={r.model} data-testid="detail-t3-model-row"
@@ -198,6 +198,9 @@ export function DetailData({ platform: p }: { platform: Platform }) {
               </div>
             ))}
         </Blk>
+
+        {/* F：限频与额度窗口水位（T5） */}
+        <WaterLevel platformId={p.id} />
       </div>
     </div>
   );

@@ -51,6 +51,10 @@ const FAILS = {
   ],
   has_more: false,
 };
+const QUOTA_LEVELS = [
+  { key: "3600|count|2", dimension: "count", reset_mode: "sliding", used: 1, budget: 2, remaining_ratio: 0.5, resets_at_ms: FIXED_NOW + 3_600_000 },
+  { key: "18000|tokens|120000", dimension: "tokens", reset_mode: "calendar_day", used: 40_000, budget: 120_000, remaining_ratio: 2 / 3, resets_at_ms: FIXED_NOW + 7_200_000 },
+];
 const QUOTA = {
   success: true, error: null, queried_at: FIXED_NOW,
   balance: null,
@@ -62,18 +66,21 @@ const QUOTA = {
   },
 };
 
+const baseMock = (cmd: string) => {
+  switch (cmd) {
+    case "platform_usage_stats": return Promise.resolve(USAGE_STATS);
+    case "platform_usage_series": return Promise.resolve(SERIES);
+    case "platform_health_detail": return Promise.resolve(HEALTH);
+    case "platform_model_distribution": return Promise.resolve(MODELS);
+    case "proxy_log_list_filtered": return Promise.resolve(FAILS);
+    case "platform_query_quota": return Promise.resolve(QUOTA);
+    case "platform_quota_window_levels": return Promise.resolve(QUOTA_LEVELS);
+    default: return Promise.resolve(undefined);
+  }
+};
+
 beforeEach(() => {
-  mockedInvoke.mockImplementation((cmd: string) => {
-    switch (cmd) {
-      case "platform_usage_stats": return Promise.resolve(USAGE_STATS);
-      case "platform_usage_series": return Promise.resolve(SERIES);
-      case "platform_health_detail": return Promise.resolve(HEALTH);
-      case "platform_model_distribution": return Promise.resolve(MODELS);
-      case "proxy_log_list_filtered": return Promise.resolve(FAILS);
-      case "platform_query_quota": return Promise.resolve(QUOTA);
-      default: return Promise.resolve(undefined);
-    }
-  });
+  mockedInvoke.mockImplementation(baseMock);
 });
 
 const estPlanJson = (windowStart: number) => JSON.stringify({
@@ -151,5 +158,34 @@ describe("DetailData（T3 数据板块）", () => {
     expect(rows.length).toBe(2);
     expect(rows[0]).toHaveTextContent("m1");
     expect(rows[0]).toHaveTextContent("60%");
+  });
+
+  it("水位板块：额度窗口逐条渲染 used/budget 与剩余比例（disabled 窗口由后端过滤）", async () => {
+    render(<DetailData platform={basePlatform({})} />);
+    await screen.findByTestId("detail-t5-water");
+    const rows = await screen.findAllByTestId("detail-t5-qw-row");
+    expect(rows.length).toBe(2);
+    // 1/2 已用 → 值「1 / 2」；维度/重置机制 key 映射（测试 i18n 空资源 → key 原文）
+    expect(rows[0]).toHaveTextContent("1 / 2");
+    expect(rows[0]).toHaveTextContent("platform.detail.qwCount");
+    expect(rows[0]).toHaveTextContent("platform.detail.modeSliding");
+    // token 窗口 40K/120K
+    expect(rows[1]).toHaveTextContent("40.0K / 120.0K");
+    expect(rows[1]).toHaveTextContent("platform.detail.qwTokens");
+    expect(rows[1]).toHaveTextContent("platform.detail.modeCalendarDay");
+    // 已用比例条：50% / 33.3%（fill 宽度 = used/budget）
+    expect(screen.getByTestId("detail-t5-qw-fill-0").style.width).toBe("50%");
+    expect(screen.getByTestId("detail-t5-qw-fill-1").style.width).toBe("33.3%");
+    // 命令已发起
+    const call = mockedInvoke.mock.calls.find(c => c[0] === "platform_quota_window_levels");
+    expect(call?.[1]).toMatchObject({ platformId: 1 });
+  });
+
+  it("水位板块：无窗口配置 → 空态", async () => {
+    mockedInvoke.mockImplementation((cmd: string) =>
+      cmd === "platform_quota_window_levels" ? Promise.resolve([]) : baseMock(cmd));
+    render(<DetailData platform={basePlatform({})} />);
+    await screen.findByTestId("detail-t5-water");
+    expect(screen.queryByTestId("detail-t5-qw-row")).not.toBeInTheDocument();
   });
 });

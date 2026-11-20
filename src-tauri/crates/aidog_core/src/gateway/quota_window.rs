@@ -96,6 +96,54 @@ fn window_end(mode: QuotaResetMode, win_sec: f64, start: i64, now_ms: i64) -> i6
     end.max(now_ms + 1000)
 }
 
+/// 详情页 F 板块水位读取：enabled 窗口逐条现算（配置顺序）。
+/// 复用闸门的起点归一化（[effective_start]）与窗口结束锚点（窗口结束锚点与 Retry-After 同源），
+/// 不抄第二份窗口边界算法。
+#[derive(Debug, Clone, PartialEq)]
+pub struct WindowWaterLevel {
+    pub key: String,
+    /// tokens / usd / count
+    pub dimension: &'static str,
+    /// sliding / calendar_day / calendar_hour
+    pub reset_mode: &'static str,
+    pub used: f64,
+    pub budget: f64,
+    pub remaining_ratio: f64,
+    pub resets_at_ms: i64,
+}
+
+pub fn water_levels(windows: &[QuotaWindow], usage: &[QuotaUsage], now_ms: i64) -> Vec<WindowWaterLevel> {
+    windows
+        .iter()
+        .filter_map(|w| {
+            if !w.enabled { return None; }
+            let budget = w.budget()?;
+            let key = budget.key(w.window);
+            let u = usage.iter().find(|u| u.window_key == key);
+            let limit = match budget { QuotaBudget::Tokens(v) | QuotaBudget::Usd(v) | QuotaBudget::Count(v) => v };
+            let (start, reset) = effective_start(w.reset_mode, w.window, now_ms, u.map(|r| r.window_start_at).unwrap_or(0));
+            let used = if reset { 0.0 } else { u.map(|r| r.consumed).unwrap_or(0.0) };
+            Some(WindowWaterLevel {
+                key,
+                dimension: match budget {
+                    QuotaBudget::Tokens(_) => "tokens",
+                    QuotaBudget::Usd(_) => "usd",
+                    QuotaBudget::Count(_) => "count",
+                },
+                reset_mode: match w.reset_mode {
+                    QuotaResetMode::Sliding => "sliding",
+                    QuotaResetMode::CalendarDay => "calendar_day",
+                    QuotaResetMode::CalendarHour => "calendar_hour",
+                },
+                used,
+                budget: limit,
+                remaining_ratio: if limit > 0.0 { ((limit - used) / limit).clamp(0.0, 1.0) } else { 0.0 },
+                resets_at_ms: window_end(w.reset_mode, w.window, start, now_ms),
+            })
+        })
+        .collect()
+}
+
 /// 单窗口耗尽判定（纯函数，惰性重置作用于克隆语义）：已耗尽 → Some(窗口结束时刻)。
 pub fn exhausted_at(win: &QuotaWindow, usage: Option<&QuotaUsage>, now_ms: i64) -> Option<i64> {
     if !win.enabled {
@@ -388,6 +436,55 @@ mod tests {
 
     const H: i64 = 3_600_000;
     const T0: i64 = 1_700_000_000_000;
+
+    #[test]
+    fn water_levels_reports_remaining_and_reset() {
+        let ws = vec![win(3600.0, QuotaBudget::Tokens(100.0))];
+        let usage = vec![QuotaUsage { window_key: "3600|tokens|100".into(), window_start_at: T0, consumed: 40.0 }];
+        let levels = water_levels(&ws, &usage, T0 + H / 2);
+        assert_eq!(levels.len(), 1);
+        let l = &levels[0];
+        assert_eq!(l.key, "3600|tokens|100");
+        assert_eq!(l.dimension, "tokens");
+        assert_eq!(l.reset_mode, "sliding");
+        assert_eq!(l.used, 40.0);
+        assert_eq!(l.budget, 100.0);
+        assert!((l.remaining_ratio - 0.6).abs() < 1e-9);
+        assert_eq!(l.resets_at_ms, T0 + H);
+    }
+
+    // ── 水位：calendar_day / calendar_hour 边界与「无用量行 = 首用」 ──
+    #[test]
+    fn water_levels_calendar_boundaries_and_first_use() {
+        let mut day = win(3600.0, QuotaBudget::Usd(10.0));
+        day.reset_mode = QuotaResetMode::CalendarDay;
+        let mut hour = win(1800.0, QuotaBudget::Count(4.0));
+        hour.reset_mode = QuotaResetMode::CalendarHour;
+        let day0 = day_start_ms(T0);
+        let hour0 = T0 - T0.rem_euclid(3_600_000);
+        // 跨日（起点不在当日）→ 惰性重置为当日 00:00，consumed 清零，锚点 = 次日午夜
+        let usage = vec![QuotaUsage { window_key: "3600|usd|10".into(), window_start_at: day0 - H, consumed: 9.0 }];
+        let levels = water_levels(&[day.clone()], &usage, day0 + 2 * H);
+        assert_eq!(levels[0].used, 0.0);
+        assert_eq!(levels[0].resets_at_ms, day0 + 24 * H);
+        // 同日 → 沿用行起点与用量，锚点不变
+        let usage = vec![QuotaUsage { window_key: "3600|usd|10".into(), window_start_at: day0, consumed: 9.0 }];
+        let levels = water_levels(&[day], &usage, day0 + 2 * H);
+        assert_eq!(levels[0].used, 9.0);
+        assert_eq!(levels[0].resets_at_ms, day0 + 24 * H);
+        // 同整点内 → 沿用行起点，锚点 = 次一整点；跨整点 → 重置清零
+        let usage = vec![QuotaUsage { window_key: "1800|count|4".into(), window_start_at: hour0, consumed: 1.0 }];
+        let levels = water_levels(&[hour.clone()], &usage, hour0 + H / 2);
+        assert_eq!(levels[0].used, 1.0);
+        assert_eq!(levels[0].resets_at_ms, hour0 + H);
+        let levels = water_levels(&[hour], &usage, hour0 + H);
+        assert_eq!(levels[0].used, 0.0);
+        assert_eq!(levels[0].resets_at_ms, hour0 + 2 * H);
+        // 无用量行：首用起点 = now
+        let levels2 = water_levels(&[win(60.0, QuotaBudget::Count(3.0))], &[], T0);
+        assert_eq!(levels2[0].used, 0.0);
+        assert_eq!(levels2[0].resets_at_ms, T0 + 60_000);
+    }
 
     // ── sliding：首用起算，窗口内累计，到期重置 ──
     #[test]

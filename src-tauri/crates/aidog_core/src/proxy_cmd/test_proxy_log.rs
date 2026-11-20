@@ -298,3 +298,40 @@ async fn platform_health_detail_computes_cooldowns_and_peak() {
     assert_eq!(d.quota_cooldown_secs, 0);
     assert!(!d.peak_disabled);
 }
+
+#[tokio::test]
+async fn platform_quota_window_levels_computes_water() {
+    let db = test_db().await;
+    let p = aidog_db::test_support::insert_test_platform(&db, "QW").await;
+    let now_ms = 1_700_000_000_000i64;
+    let extra = r#"{"quota_windows":[
+        {"window":3600,"budget_count":2},
+        {"window":7200,"budget_usd":5,"reset_mode":"calendar_hour","enabled":false}
+    ]}"#;
+    db.call_platform_traced(None, std::panic::Location::caller(), move |conn| {
+        conn.execute("UPDATE platform SET extra = ?1 WHERE id = ?2", rusqlite::params![extra, p as i64])?;
+        // 写一行真实用量：count 窗口已用 1/2
+        conn.execute(
+            "INSERT INTO quota_window_usage (platform_id, window_key, window_start_at, consumed) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![p as i64, "3600|count|2", now_ms, 1.0],
+        )?;
+        Ok(())
+    })
+    .await
+    .unwrap();
+
+    let rows = super::compute_platform_quota_window_levels(&db, p, now_ms).await.unwrap();
+    assert_eq!(rows.len(), 1, "disabled 窗口不出水位");
+    let r = &rows[0];
+    assert_eq!(r.key, "3600|count|2");
+    assert_eq!(r.dimension, "count");
+    assert_eq!(r.reset_mode, "sliding");
+    assert_eq!(r.used, 1.0);
+    assert_eq!(r.budget, 2.0);
+    assert!((r.remaining_ratio - 0.5).abs() < 1e-9);
+    assert_eq!(r.resets_at_ms, now_ms + 3_600_000);
+
+    // 平台行缺失 → 空列表不报错
+    let none = super::compute_platform_quota_window_levels(&db, 999_999, now_ms).await.unwrap();
+    assert!(none.is_empty());
+}

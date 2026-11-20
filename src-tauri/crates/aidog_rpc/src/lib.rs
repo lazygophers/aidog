@@ -340,6 +340,7 @@ rpc_routes! {
     readonly aidog_core::proxy_cmd::proxy_log::platform_usage_series,
     readonly aidog_core::proxy_cmd::proxy_log::platform_model_distribution,
     readonly aidog_core::proxy_cmd::proxy_log::platform_health_detail,
+    readonly aidog_core::proxy_cmd::proxy_log::platform_quota_window_levels,
     readonly aidog_core::platform_cmd::quota::platform_magpie_quota_names,
     mutating aidog_core::platform_cmd::quota::platform_query_quota,
     mutating aidog_core::platform_cmd::quota::platform_query_quota_newapi,

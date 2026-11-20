@@ -195,7 +195,53 @@ pub async fn compute_platform_health_detail(
 }
 
 crate::tauri_command! {
-/// 平台健康明细（平台详情页徽标）：platform_health_state 现算 + 高峰禁用态。
+/// 平台额度窗口水位（详情页板块 F）：extra.quota_windows 配置 + quota_window_usage 现算
+/// 已用 / 剩余比例 / 重置时刻（读时惰性重置语义，与执行层窗口边界算法同口径）。
+/// 限频占位（并发/RPM/TPM 内存计数）不经本命令——计数在 ProxyState 内，AppCtx 不可达。
+pub async fn platform_quota_window_levels(platform_id: u64) -> Result<Vec<gateway::models::PlatformQuotaWindowLevel>, String> {
+    let db = aidog_ctx::db();
+    compute_platform_quota_window_levels(db, platform_id, chrono::Utc::now().timestamp_millis()).await
+}
+}
+
+/// `platform_quota_window_levels` 命令体，now_ms 可注入（测试定窗口边界）。只读命令：
+/// 平台行缺失（已删）→ 空列表。
+pub async fn compute_platform_quota_window_levels(
+    db: &Db,
+    platform_id: u64,
+    now_ms: i64,
+) -> Result<Vec<gateway::models::PlatformQuotaWindowLevel>, String> {
+    let pid = platform_id as i64;
+    let extra = db
+        .call_read_platform_traced(None, std::panic::Location::caller(), move |conn| {
+            conn.query_row(
+                "SELECT extra FROM platform WHERE id = ?1 AND deleted_at = 0",
+                [pid],
+                |r| r.get::<_, String>(0),
+            )
+            .optional()
+            .map(|v| v.unwrap_or_default())
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+    let windows = aidog_db::models::parse_quota_windows(&extra);
+    let mut usage = gateway::quota_window::load_usage(db, &[platform_id]).await
+        .remove(&platform_id).unwrap_or_default();
+    usage.sort_by(|a, b| a.window_key.cmp(&b.window_key));
+    let levels = gateway::quota_window::water_levels(&windows, &usage, now_ms);
+    Ok(levels.into_iter().map(|level| gateway::models::PlatformQuotaWindowLevel {
+        key: level.key,
+        dimension: level.dimension.into(),
+        reset_mode: level.reset_mode.into(),
+        used: level.used,
+        budget: level.budget,
+        remaining_ratio: level.remaining_ratio,
+        resets_at_ms: level.resets_at_ms,
+    }).collect())
+}
+
+crate::tauri_command! {
+/// 平台健康明细（平台详情页徽标）：platform_health_state 现算 + 高峰禁带态。
 pub async fn platform_health_detail(platform_id: u64) -> Result<gateway::models::PlatformHealthDetail, String> {
     let db = aidog_ctx::db();
     compute_platform_health_detail(db, platform_id, chrono::Utc::now().timestamp_millis()).await
