@@ -12,8 +12,9 @@ import type { PlatformCardService } from "../components/platforms/PlatformCard";
 import { usePlatformsState } from "./platforms/usePlatformsState";
 import { PlatformEditForm } from "./platforms/PlatformEditForm";
 import { PlatformListView } from "./platforms/PlatformListView";
+import { PlatformDetail } from "./platforms/PlatformDetail";
 
-export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: string, context?: { platformId?: number; platformName?: string; duplicate?: boolean }) => void; initialFilter?: { platformId?: number; platformName?: string; duplicate?: boolean } }) {
+export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: string, context?: { platformId?: number; platformName?: string; duplicate?: boolean; detail?: boolean }) => void; initialFilter?: { platformId?: number; platformName?: string; duplicate?: boolean; detail?: boolean } }) {
   // GroupsEmbedded「添加分组」弹窗触发 ref（按钮上移到本页页头）。
   const openCreateGroupRef = useRef<(() => void) | null>(null);
   // GroupsEmbedded 跨组件刷新入口（全局 purge 删平台后，触发分组卡内重建）。
@@ -24,7 +25,8 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
   const groupsReloadRef = useRef<(() => void) | null>(null);
 
   const s = usePlatformsState({ onNavigate, initialFilter, groupsReloadRef });
-  const { list, drag, form } = s;
+  const { list, drag, form, platformMembership } = s;
+  const { detailPlatform, handleDetail, closeDetail } = s.detail;
 
   // 卡片操作集合：用 latest-ref 持有最新闭包，对外暴露稳定引用，保证 PlatformCard memo 生效。
   // ponytail: 原代码每个回调显式包一层 actionsRef.current.X，迁移后保持完全等价的稳定引用语义。
@@ -71,11 +73,25 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
     onViewLogs: (p) => actionsRef.current.s_handleViewLogs(p),
     onQuickTest: (p) => actionsRef.current.s_handleQuickTest(p),
     onCustomTest: (p) => actionsRef.current.s_setTestingPlatform(p),
-  }), []);
+    onDetail: handleDetail,
+  }), [handleDetail]);
 
   // ── Edit / Add form (full page, no list) ──
   if (form.showForm) {
     return <PlatformEditForm s={s} />;
+  }
+
+  // ── 详情全页（T2）：列表状态原地保留，返回即恢复 ──
+  if (detailPlatform) {
+    return (
+      <PlatformDetail
+        platform={detailPlatform}
+        membership={platformMembership.get(detailPlatform.id)}
+        onBack={closeDetail}
+        onRefreshQuota={s.quota.refreshQuota}
+        service={cardService}
+      />
+    );
   }
 
   // ── List view ──
