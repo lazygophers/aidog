@@ -97,6 +97,7 @@
 - **禁用右侧抽屉（Sheet / drawer）**（2026-10-29 拍板，`components/ui/sheet.tsx` 已删）：编辑类主流程（如平台编辑）用独立全页，其余浮层用居中 Dialog（`createPortal(document.body)`），禁新增 side 滑入面板。
 - 数值格式化统一走 `utils/formatters.ts`，禁页内重复定义 formatNumber 等
 - locale JSON（`src-tauri/crates/aidog_i18n/locales/*.json`）按功能域分组、非字典序：补 key 用文本级插入到同域锚点行，禁 `sorted()` 整文件重写（曾致 ±1804 行 diff）；门禁 `yarn check:i18n`。
+- huashu-design 的 `design_lint`（python playwright）在本机不可用，外观账本记不成——视觉验证替代 = agent 手写 node Playwright 脚本真渲染截图（`channel: "chrome"`，取证法 `.claude/rules/ui-color-bug-verify.md`），主会话目检代偿外观账本；不因缺 python playwright 把视觉验证整段跳过。
 
 ## Agent skills
 
