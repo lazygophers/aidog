@@ -105,10 +105,28 @@ pub async fn write_unified_tiers(
             let mut plan = EstCodingPlan::from_json(&json);
             let mut changed = false;
             for t in &tiers {
-                let prev = plan.tiers.iter().find(|p| p.name == t.name).cloned().unwrap_or_default();
+                let prev = plan
+                    .tiers
+                    .iter()
+                    .find(|p| p.name == t.name)
+                    .cloned()
+                    .unwrap_or_default();
                 let resets = t.resets_at_ms.map(|ms| ms.to_string());
-                let unit = if prev.unit.is_empty() { "tokens" } else { prev.unit.as_str() };
-                let new = calibrate_tier(&prev, t.name, t.utilization_pct, false, None, resets.as_deref(), now_ms, unit);
+                let unit = if prev.unit.is_empty() {
+                    "tokens"
+                } else {
+                    prev.unit.as_str()
+                };
+                let new = calibrate_tier(
+                    &prev,
+                    t.name,
+                    t.utilization_pct,
+                    false,
+                    None,
+                    resets.as_deref(),
+                    now_ms,
+                    unit,
+                );
                 if (new.est_utilization - prev.est_utilization).abs() < 1e-9
                     && new.window_start == prev.window_start
                     && plan.tiers.iter().any(|p| p.name == t.name)
@@ -258,11 +276,7 @@ pub fn apply_quota_verdict(
 /// 供 GUI 手动真查 + 冷启动初始化复用——确保真查发生时 est 立即严格对齐真实，
 /// 避免 raw CodingPlanInfo JSON 直写 est_coding_plan（字段 utilization≠est_utilization）导致 est 显 0/偏差。
 /// 一次短读拿 prev coding plan（用于拟合）→ 锁外纯计算 → write_real_quota 短持锁覆盖。
-pub async fn calibrate_from_quota(
-    db: &Db,
-    platform_id: u64,
-    quota: &PlatformQuota,
-) {
+pub async fn calibrate_from_quota(db: &Db, platform_id: u64, quota: &PlatformQuota) {
     calibrate_from_quota_with(db, platform_id, quota, crate::gateway::scheduling::global()).await
 }
 
@@ -318,9 +332,7 @@ pub async fn calibrate_from_quota_with(
         prev_json
     };
     let result = write_real_quota(db, platform_id, est_balance, &coding_json, now()).await;
-    if !is_coding_plan
-        && let Some(b) = &quota.balance
-    {
+    if !is_coding_plan && let Some(b) = &quota.balance {
         record_balance_currency(db, platform_id, &b.currency).await;
     }
     if result.is_ok() {
@@ -384,8 +396,9 @@ fn spawn_backoff_chain(db: Db, platform_id: u64) {
 /// 每请求触发的校准尝试时刻（platform_id → unix ms）。校准失败不写库（保留预估），
 /// 若不记尝试时刻，`should_calibrate` 每个请求都成立 → 每请求多打一次必败的上游真查
 /// （2026-09-30 实测某平台 1 小时 741 次 403）。成功后清除，按 DB 状态恢复常规节奏。
-static CALIBRATE_ATTEMPT: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<u64, i64>>> =
-    std::sync::OnceLock::new();
+static CALIBRATE_ATTEMPT: std::sync::OnceLock<
+    std::sync::Mutex<std::collections::HashMap<u64, i64>>,
+> = std::sync::OnceLock::new();
 
 /// 距上次尝试不足 `CALIBRATE_INTERVAL_MS` → false（进行中或刚失败，退避）；否则记下本次尝试。
 fn claim_calibration_attempt(platform_id: u64, now_ms: i64) -> bool {
@@ -493,12 +506,7 @@ pub fn spawn_refresh_at(
 /// query_quota 按平台行协议路由 registry 脚本（quota-scripts T4）：newapi 两步查询 /
 /// devin ACU / 11 平台族统一覆盖（旧行为缺口：devin 未特判 → base_url 启发式打不中
 /// → "Unsupported"，现随统一脚本路径顺带消除）。
-async fn run_calibration(
-    db: &Db,
-    platform_id: u64,
-    base_url: &str,
-    api_key: &str,
-) {
+async fn run_calibration(db: &Db, platform_id: u64, base_url: &str, api_key: &str) {
     // 锁外 async 真查（构造 Arc<Db> 供 http_client 读系统代理设置）
     let db_arc = std::sync::Arc::new(db.clone());
     let quota =
@@ -552,7 +560,8 @@ async fn maybe_emit_quota_forecast(db: &Db, platform_id: u64, platform_type: &st
         .unwrap_or_default();
     let plan = EstCodingPlan::from_json(&json);
     for t in &plan.tiers {
-        if let Some(mins) = super::algo::minutes_to_exhaust(t.est_utilization, t.window_start, now())
+        if let Some(mins) =
+            super::algo::minutes_to_exhaust(t.est_utilization, t.window_start, now())
             && mins <= FORECAST_THRESHOLD_MIN
             && claim_forecast_window(platform_id, &t.name, t.window_start)
         {
@@ -560,10 +569,7 @@ async fn maybe_emit_quota_forecast(db: &Db, platform_id: u64, platform_type: &st
             vars.insert("platform".to_string(), platform_type.to_string());
             vars.insert("platform_id".to_string(), platform_id.to_string());
             vars.insert("tier".to_string(), t.name.clone());
-            vars.insert(
-                "minutes".to_string(),
-                format!("{}", mins.round() as i64),
-            );
+            vars.insert("minutes".to_string(), format!("{}", mins.round() as i64));
             aidog_notification::semantic::emit(
                 &std::sync::Arc::new(db.clone()),
                 aidog_ctx::try_ctx(),
@@ -615,7 +621,11 @@ async fn record_balance_currency(db: &Db, platform_id: u64, currency: &str) {
 async fn balance_fx(db: &Db, platform_id: u64, fallback_cny: bool) -> f64 {
     match aidog_db::get_setting(db, BALANCE_CCY_SCOPE, &platform_id.to_string()).await {
         Ok(Some(serde_json::Value::String(c))) => {
-            if c == "CNY" { aidog_db::CNY_PER_USD } else { 1.0 }
+            if c == "CNY" {
+                aidog_db::CNY_PER_USD
+            } else {
+                1.0
+            }
         }
         _ if fallback_cny => aidog_db::CNY_PER_USD,
         _ => 1.0,
@@ -653,7 +663,11 @@ pub async fn estimate_after_request(
 ) -> bool {
     // 判峰时刻与 calc_est_cost 同源：用请求发起时刻（created_at_ms），不用完成后的 now()
     // —— 跨峰边界请求（17:59 发 18:05 完）此前两套口径对不上。缺时间戳（0）才退 now()。
-    let at_ms = if created_at_ms > 0 { created_at_ms } else { now() };
+    let at_ms = if created_at_ms > 0 {
+        created_at_ms
+    } else {
+        now()
+    };
     // peak 窗口先算：`is_peak` 决定条目里的 peak 绝对价是否生效（票 T4）。
     // 与 calc_est_cost（proxy/log.rs → billing.rs）同一口径，估算链此前漏乘（既存 bug）。
     let windows = crate::gateway::peak::peak_for(extra, platform_type);
@@ -683,7 +697,9 @@ pub async fn estimate_after_request(
     let source_cny = resolved.as_ref().is_some_and(|r| r.source_cny);
     // 条目 `price.unit` 按次/按量计价：费 = `request_fee(request_units)`（与 billing.rs 同口径：
     // request 类缺计数按 1 次/请求；char/second 缺计数 → 0 不扣减，issue 157）。
-    let request_fee = resolved.as_ref().map_or(0.0, |r| r.request_fee(request_units));
+    let request_fee = resolved
+        .as_ref()
+        .map_or(0.0, |r| r.request_fee(request_units));
     let resolved_price = resolved.map(|r| r.price);
 
     // 跳过判定（原在 spawn_estimate 同步段，评审 R1 移入价格解析之后）：上游缺 usage
