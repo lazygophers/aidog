@@ -429,6 +429,16 @@ fn spawn_scheduled_jobs() {
             tracing::warn!(error = %e, "startup: registry seed from bundled failed");
         }
     });
+    // 客户端本地会话用量：启动增量导入（同意开关闸门 + 只读进度表已有偏移）。
+    tokio::spawn(async move {
+        if let Err(e) = aidog_core::client_usage_cmd::startup_incremental_import().await {
+            tracing::warn!(error = %e, "startup: client usage incremental import failed");
+        }
+        // 票 03：会话目录监听（consent 开启才实际挂）+ 定时对齐循环。
+        aidog_core::client_usage_cmd::watch::sync_watchers(aidog_ctx::db()).await;
+        aidog_core::client_usage_cmd::watch::start_event_loop();
+    });
+    tokio::spawn(aidog_core::client_usage_cmd::watch::align_loop());
 
     // MCP 推荐清单：启动后台预取一次（TTL 24h 内 sync 内部自跳过），失败静默
     // （保留缓存/内置，无 UI 提示）。无手动刷新入口（票 04）。

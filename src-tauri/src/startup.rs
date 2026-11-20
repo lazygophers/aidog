@@ -379,6 +379,15 @@ pub fn run() {
             // Client types JSON（内置 const）
             aidog_core::defaults::get_client_types_json,
             aidog_core::client_vocab::get_client_vocab,
+            // 客户端本地会话用量（issue #65 票 02）
+            aidog_core::client_usage_cmd::client_usage_consent_get,
+            aidog_core::client_usage_cmd::client_usage_consent_set,
+            aidog_core::client_usage_cmd::client_usage_status,
+            aidog_core::client_usage_cmd::client_usage_summary,
+            aidog_core::client_usage_cmd::client_usage_trend,
+            aidog_core::client_usage_cmd::client_usage_by_model,
+            aidog_core::client_usage_cmd::client_usage_sessions,
+            aidog_core::client_usage_cmd::client_usage_refresh,
             // MITM (P3 ST7) — 白名单配置 + CA 安装状态/引导
             aidog_core::proxy_cmd::mitm::mitm_status,
             aidog_core::proxy_cmd::mitm::mitm_enable,
