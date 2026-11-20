@@ -407,7 +407,7 @@ export function ClientUsage() {
                           ? formatMoney(s.cost)
                           : s.unpricedCalls === s.calls
                             ? <span data-testid="session-unpriced">{t("clientUsage.unpriced", "未定价")}</span>
-                            : <span data-testid="session-mixed-cost">{formatMoney(s.cost)} <span className="text-xs text-muted-foreground">{t("clientUsage.unpriced", "未定价")} ×{s.unpricedCalls}</span></span>}
+                            : <span data-testid="session-mixed-cost">{formatMoney(s.cost)} <span className="text-sm text-muted-foreground">{t("clientUsage.unpriced", "未定价")} ×{s.unpricedCalls}</span></span>}
                       </TableCell>
                       <TableCell className="text-right text-sm tabular-nums">
                         {new Date(s.lastCallMs).toLocaleString()}
