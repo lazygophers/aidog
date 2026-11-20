@@ -1171,6 +1171,22 @@ async fn prepare_outbound(ctx: OutboundCtx<'_>) -> Result<Prepared, StageExit> {
                 );
             }
         }
+        // messages 数组中间夹带的 role:"system" 归一（仅非官方 anthropic 上游）：新版 Claude Code
+        // 的 skills 上下文提示会把 system role 消息夹在 user/assistant 之间，官方 api.anthropic.com
+        // 接受，第三方 anthropic 兼容端点只认 user|assistant → 400。转换分支经 to_anthropic 已把
+        // system role 消息丢弃（convert.rs filter），透传分支在此归一为 user（上游对连续 user 已实证可用）。
+        if *target.target_protocol_enum == Protocol::Anthropic
+            && !is_official_anthropic_host(target.target_base_url.as_str())
+        {
+            let n = normalize_system_roles(&mut body);
+            if n > 0 {
+                tracing::info!(
+                    count = n,
+                    model = %actual_model,
+                    "passthrough: normalized mid-array system role to user for non-official anthropic upstream"
+                );
+            }
+        }
         let path =
             pa.passthrough_api_path(target.target_protocol_enum, &actual_model, platform_protocol, is_stream);
         tracing::debug!(protocol = %target.target_protocol_enum.wire_str(), "same-protocol passthrough: skip request format conversion");
@@ -1615,6 +1631,23 @@ async fn send_upstream(
 }
 
 
+/// 同协议透传 body 内 `role:"system"` → `"user"`（返回改写条数）。仅 anthropic wire 上游、
+/// 非官方 host 时由透传分支调用；官方端点原样透传不改写。
+fn normalize_system_roles(body: &mut Value) -> usize {
+    let mut n = 0usize;
+    if let Some(msgs) = body.get_mut("messages").and_then(Value::as_array_mut) {
+        for m in msgs.iter_mut() {
+            if m.get("role").and_then(Value::as_str) == Some("system")
+                && let Some(obj) = m.as_object_mut()
+            {
+                obj.insert("role".to_string(), Value::String("user".to_string()));
+                n += 1;
+            }
+        }
+    }
+    n
+}
+
 #[cfg(test)]
 mod stage_contract_tests {
     use super::*;
@@ -1628,6 +1661,44 @@ mod stage_contract_tests {
         )
         .into();
         assert!(matches!(response, AttemptOutcome::Respond(_)));
+    }
+
+    #[test]
+    fn system_role_in_messages_normalizes_to_user() {
+        let mut body = serde_json::json!({
+            "model": "m",
+            "system": "top",
+            "messages": [
+                {"role": "user", "content": "a"},
+                {"role": "system", "content": "skill ctx"},
+                {"role": "assistant", "content": "b"},
+                {"role": "system", "content": [{"type": "text", "text": "blocks"}]},
+                {"role": "user", "content": "c"}
+            ]
+        });
+        let n = normalize_system_roles(&mut body);
+        assert_eq!(n, 2);
+        let roles: Vec<&str> = body["messages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|m| m["role"].as_str().unwrap())
+            .collect();
+        assert_eq!(roles, ["user", "user", "assistant", "user", "user"]);
+        // 内容与顶层 system 不动
+        assert_eq!(body["messages"][1]["content"], "skill ctx");
+        assert_eq!(body["system"], "top");
+    }
+
+    #[test]
+    fn normalize_system_roles_noop_without_messages_or_system() {
+        let mut body = serde_json::json!({"messages": [
+            {"role": "user", "content": "a"},
+            {"role": "assistant", "content": "b"}
+        ]});
+        assert_eq!(normalize_system_roles(&mut body), 0);
+        let mut no_msgs = serde_json::json!({"model": "m"});
+        assert_eq!(normalize_system_roles(&mut no_msgs), 0);
     }
 
     #[test]
