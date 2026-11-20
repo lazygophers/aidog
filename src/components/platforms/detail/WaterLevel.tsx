@@ -1,10 +1,10 @@
-// T5 水位板块（详情页 F）：额度窗口逐条水位（方向 5 密度终端 .qw 卡片形态）。
-// 数据 = platform_quota_window_levels（enabled 窗口，后端现算已用/剩余/重置时刻）。
-// 限频占位（并发/RPM/TPM）为 ProxyState 内存计数，命令侧不可达，本板块只渲染额度窗口。
+// T5 水位板块（详情页 F）：限频实时占用 + 额度窗口逐条水位（方向 5 密度终端 .qw 卡片形态）。
+// 限频占用 = platform_rate_occupancy（SchedulerState.rate 内存计数快照，5 秒轮询；
+// 代理从未启动过 → 空列表，不虚构 0 之外的值）。额度窗口 = platform_quota_window_levels（后端现算已用/剩余/重置时刻）。
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { PlatformQuotaWindowLevel } from "../../../services/api";
-import { platformApi } from "../../../services/api";
+import type { PlatformQuotaWindowLevel, PlatformRateOccupancy } from "../../../services/api";
+import { platformApi, parseRateLimitsBundle } from "../../../services/api";
 import { formatNumber, formatMoney } from "../../../utils/formatters";
 import { Blk } from "./Blk";
 
@@ -32,9 +32,26 @@ export function fillColor(ratio: number): string {
   return "var(--data-primary)";
 }
 
-export function WaterLevel({ platformId }: { platformId: number }) {
+/** 限频占用行文本：并发/RPM/TPM 三计数并列（60 秒滑动窗口）。 */
+export function occupancyText(o: PlatformRateOccupancy): string {
+  return `${o.in_flight} / ${o.rpm_used} / ${formatNumber(o.tpm_used)}`;
+}
+
+export function WaterLevel({ platformId, extra }: { platformId: number; extra?: string }) {
   const { t } = useTranslation();
   const [rows, setRows] = useState<PlatformQuotaWindowLevel[]>([]);
+  const [occ, setOcc] = useState<PlatformRateOccupancy[]>([]);
+
+  // 限频占用 5 秒轮询（内存计数变化快）；额度窗口一次性加载（变化慢，重置时刻由后端现算）。
+  useEffect(() => {
+    let alive = true;
+    const loadOcc = () => platformApi.rateOccupancy(platformId)
+      .then(r => { if (alive && Array.isArray(r)) setOcc(r); })
+      .catch(() => {});
+    loadOcc();
+    const timer = window.setInterval(loadOcc, 5000);
+    return () => { alive = false; window.clearInterval(timer); };
+  }, [platformId]);
 
   useEffect(() => {
     let alive = true;
@@ -44,9 +61,36 @@ export function WaterLevel({ platformId }: { platformId: number }) {
     return () => { alive = false; };
   }, [platformId]);
 
+  const platformLimits = parseRateLimitsBundle(extra ?? "").rate_limits;
+  const limitOf = (model: string) =>
+    model === "" ? platformLimits : undefined;
+
   return (
     <Blk testid="detail-t5-water" title={t("platform.detail.water", "限频与额度窗口水位")}
       hint={t("platform.detail.live", "实时")}>
+      {/* 限频占用：平台级桶 + 各模型桶（真实内存计数；无占用 / 代理未启动 → 不渲染行） */}
+      {occ.map((o, i) => {
+        const lim = limitOf(o.model);
+        return (
+          <div key={o.model || "__platform"} data-testid="detail-t5-occ-row"
+            style={{ border: "1px solid var(--border)", borderRadius: 7, padding: "8px 10px", marginBottom: rows.length > 0 || i < occ.length - 1 ? 10 : 0 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+              <span style={{ color: "var(--text-secondary)" }}>
+                {o.model === "" ? t("platform.detail.rlPlatformLevel", "平台级") : o.model}
+              </span>
+              <span style={{ fontFamily: "var(--font-mono, monospace)" }}>{occupancyText(o)}</span>
+            </div>
+            {lim && (
+              <div style={{ fontSize: 14, color: "var(--muted-foreground)", marginTop: 4 }}>
+                {t("platform.detail.rlConfigured", "配置上限：并发 {{c}} · RPM {{r}} · TPM {{t}}")
+                  .replace("{{c}}", String(lim.concurrency ?? "—"))
+                  .replace("{{r}}", String(lim.rpm ?? "—"))
+                  .replace("{{t}}", String(lim.tpm ?? "—"))}
+              </div>
+            )}
+          </div>
+        );
+      })}
       {rows.length === 0 ? (
         <div data-testid="detail-t5-qw-empty" style={{ fontSize: 14, color: "var(--muted-foreground)", padding: "8px 0" }}>
           {t("platform.detail.noData", "暂无数据")}

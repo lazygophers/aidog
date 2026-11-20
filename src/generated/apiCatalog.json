@@ -2235,6 +2235,20 @@
       "returns": "Vec<gateway::models::PlatformQuotaWindowLevel>"
     },
     {
+      "name": "platform_rate_occupancy",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "platformId",
+          "type": "u64"
+        }
+      ],
+      "returns": "Vec<gateway::models::PlatformRateOccupancy>"
+    },
+    {
       "name": "platform_reorder",
       "category": "platform",
       "kind": "mutating",

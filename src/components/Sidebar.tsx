@@ -275,6 +275,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
   const [langOpen, setLangOpen] = useState(false);
   // G3 骨架（票 02）：两档折叠 216px ↔ 56px 图标态，localStorage 记忆。
   const [collapsed, setCollapsed] = useState(() => {
+    if (window.innerWidth <= 640) return true;
     try { return localStorage.getItem("aidog.sidebar.collapsed") === "1"; } catch { return false; }
   });
   const toggleCollapsed = () => setCollapsed((v) => {

@@ -45,6 +45,7 @@ export function monotonePath(points: Pt[]): string {
 
 export interface CurveTierLike {
   name: string;
+  unit?: string | null;
   utilization?: number;      // quota tiers（0-100）
   est_utilization?: number;  // est_coding_plan tiers（0-100）
   limit?: number | null;     // 绝对上限（token / 次数）
@@ -64,7 +65,7 @@ export interface SeriesPointLike {
 }
 
 export interface CurvePoint { t: number; pct: number }
-export interface CalibrationPoint { t: number; pct: number }
+export interface CalibrationPoint { t: number; pct: number; name: string; unit: string }
 
 export interface SubscriptionCurve {
   windowStart: number;
@@ -77,8 +78,8 @@ export interface SubscriptionCurve {
   calibrations: CalibrationPoint[];
   /** 校准点与本地曲线的最大偏差百分点；无校准点 → null。 */
   maxDeviation: number | null;
-  /** 当前剩余%（最后实际点）。 */
-  nowPct: number | null;
+  /** 最新匹配额度快照的剩余%；没有快照时未知。 */
+  snapshotPct: number | null;
 }
 
 const HOUR = 3_600_000;
@@ -93,12 +94,23 @@ export function cycleMsForName(name: string): number {
   return 7 * DAY;
 }
 
+function hasKnownCycleName(name: string): boolean {
+  return name.includes("five_hour") || name.includes("week") || name.includes("month") ||
+    name.includes("day") || name.includes("daily");
+}
+
 interface WindowAnchor {
+  source: "quota" | "estimate";
+  name: string;
+  unit: string;
   windowStart: number;
   resetAt: number;
   cycle: number;
   limit: number | null;
+  quotaTier?: CurveTierLike;
 }
+
+const unitOf = (unit?: string | null) => unit?.trim() || "tokens";
 
 /** 从 quota tiers（resets_at 反推）或 est tiers（window_start + 周期）取周期最长的窗口锚点。 */
 function pickAnchor(quotaTiers: CurveTierLike[], estTiers: CurveTierLike[]): WindowAnchor | null {
@@ -108,12 +120,18 @@ function pickAnchor(quotaTiers: CurveTierLike[], estTiers: CurveTierLike[]): Win
     const resetAt = Date.parse(t.resets_at);
     if (!Number.isFinite(resetAt)) continue;
     const cycle = cycleMsForName(t.name);
-    candidates.push({ windowStart: resetAt - cycle, resetAt, cycle, limit: t.limit ?? null });
+    candidates.push({
+      source: "quota", name: t.name, unit: unitOf(t.unit),
+      windowStart: resetAt - cycle, resetAt, cycle, limit: t.limit ?? null, quotaTier: t,
+    });
   }
   for (const t of estTiers) {
     if (!t.window_start || t.window_start <= 0) continue;
     const cycle = cycleMsForName(t.name);
-    candidates.push({ windowStart: t.window_start, resetAt: t.window_start + cycle, cycle, limit: t.limit ?? null });
+    candidates.push({
+      source: "estimate", name: t.name, unit: unitOf(t.unit),
+      windowStart: t.window_start, resetAt: t.window_start + cycle, cycle, limit: t.limit ?? null,
+    });
   }
   if (candidates.length === 0) return null;
   return candidates.reduce((a, b) => (b.cycle > a.cycle ? b : a));
@@ -123,11 +141,13 @@ const tokensOf = (p: SeriesPointLike) => p.input_tokens + p.output_tokens + p.ca
 
 /**
  * 订阅消耗曲线构建。窗口起点/重置点由档位（quota tiers resets_at 反推或 est window_start）
- * 取周期最长的一档；分母优先档位 limit，缺 limit 时按已流逝占比投影总量。
- * 无任何可靠窗口锚点 → null（调用方回落按量视图）。
+ * 取周期最长的一档；只有 token 单位、完整覆盖且与本地日界对齐时才从本地用量换算历史余额。
+ * 其它情况只显示同档同单位的官方快照，不投影额度或伪造历史。
  */
 export function buildSubscriptionCurve(input: {
   series: SeriesPointLike[];
+  seriesWindowStart?: number | null;
+  seriesQueriedAt?: number | null;
   quotaTiers: CurveTierLike[];
   quotaQueriedAt: number | null;
   estTiers: CurveTierLike[];
@@ -136,48 +156,55 @@ export function buildSubscriptionCurve(input: {
   const anchor = pickAnchor(input.quotaTiers, input.estTiers);
   if (!anchor) return null;
   const { windowStart, resetAt } = anchor;
+  const queryAt = input.seriesQueriedAt;
+  const total = anchor.limit != null && anchor.limit > 0 ? anchor.limit : null;
+  const completeDailyWindow =
+    anchor.unit === "tokens" && hasKnownCycleName(anchor.name) && total != null &&
+    anchor.cycle <= 7 * DAY && anchor.cycle % DAY === 0 &&
+    isLocalDayStart(windowStart) && isLocalDayStart(resetAt) &&
+    input.seriesWindowStart != null && windowStart >= input.seriesWindowStart &&
+    queryAt != null && queryAt >= windowStart && queryAt < resetAt && queryAt <= input.nowMs &&
+    input.series.every(p => p.time.length <= 10);
 
-  // 窗口内桶：日桶键取当地 00:00，与窗口起点的「当地当日零点」比较（整天覆盖即计入）
-  const cutoff = startOfLocalDay(windowStart);
-  const buckets = input.series
-    .map(p => ({ point: p, t: bucketTimeMs(p.time) }))
-    .filter(b => Number.isFinite(b.t) && b.t >= cutoff && b.t <= input.nowMs)
-    .sort((a, b) => a.t - b.t);
-
-  // 分母：优先档位 limit，否则按已流逝占比投影
-  const cumNow = buckets.reduce((s, b) => s + tokensOf(b.point), 0);
-  const elapsedFrac = Math.min(1, Math.max((input.nowMs - windowStart) / (resetAt - windowStart), 0));
-  const total = (anchor.limit && anchor.limit > 0)
-    ? anchor.limit
-    : (elapsedFrac > 0 ? cumNow / elapsedFrac : 0);
-
-  // 实际剩余：逐桶累计消耗折算 pct
+  // The API aggregates 7d into local-day buckets. Do not infer a partial day or a longer cycle.
+  const buckets = completeDailyWindow
+    ? input.series
+        .map(point => ({ point, t: bucketTimeMs(point.time) }))
+        .filter(b => Number.isFinite(b.t) && b.t >= windowStart && b.t < resetAt &&
+          queryAt != null && nextLocalDayStart(b.t) <= queryAt)
+        .sort((a, b) => a.t - b.t)
+    : [];
   let cum = 0;
-  const actual: CurvePoint[] = buckets.map(b => {
-    cum += tokensOf(b.point);
-    const pct = total > 0 ? clampPct(100 * (1 - cum / total)) : 100;
-    return { t: b.t, pct };
-  });
-  const nowPct = actual.length > 0 ? actual[actual.length - 1].pct : null;
+  const actual = completeDailyWindow
+    ? buckets.map(b => {
+        cum += tokensOf(b.point);
+        return {
+          t: nextLocalDayStart(b.t),
+          pct: clampPct(100 * (1 - cum / total!)),
+        };
+      })
+    : [];
 
-  // 校准点：quota tiers at queried_at；偏差 = |本地插值 − 校准 pct| 取最大
-  const calibrations: CalibrationPoint[] = [];
-  let maxDeviation: number | null = null;
-  if (input.quotaQueriedAt != null && input.quotaQueriedAt >= windowStart) {
-    for (const t of input.quotaTiers) {
-      if (t.utilization == null) continue;
-      const pct = clampPct(100 - t.utilization);
-      calibrations.push({ t: input.quotaQueriedAt, pct });
-      const local = interpPct(actual, input.quotaQueriedAt);
-      if (local != null) {
-        const dev = Math.abs(local - pct);
-        maxDeviation = maxDeviation == null ? dev : Math.max(maxDeviation, dev);
-      }
-    }
-  }
+  // A snapshot calibrates only its exact tier and reset window; never match by name alone.
+  const tier = anchor.quotaTier ?? input.quotaTiers.find(t => {
+    const tierResetAt = t.resets_at ? Date.parse(t.resets_at) : NaN;
+    const tierCycle = cycleMsForName(t.name);
+    return t.name === anchor.name && unitOf(t.unit) === anchor.unit &&
+      tierResetAt === resetAt && tierResetAt - tierCycle === windowStart;
+  });
+  const snapshotAt = input.quotaQueriedAt;
+  const snapshotPct = tier?.utilization != null && snapshotAt != null &&
+    snapshotAt >= windowStart && snapshotAt < resetAt && snapshotAt <= input.nowMs
+    ? clampPct(100 - tier.utilization)
+    : null;
+  const calibrations: CalibrationPoint[] = tier && snapshotAt != null && snapshotPct != null
+    ? [{ t: snapshotAt, pct: snapshotPct, name: tier.name, unit: unitOf(tier.unit) }]
+    : [];
+  const local = actual.length > 1 && snapshotAt != null ? interpPct(actual, snapshotAt) : null;
+  const maxDeviation = local != null && snapshotPct != null ? Math.abs(local - snapshotPct) : null;
 
   return {
-    windowStart, resetAt, actual, nowPct,
+    windowStart, resetAt, actual, snapshotPct,
     plan: [{ t: windowStart, pct: 100 }, { t: resetAt, pct: 0 }],
     calibrations, maxDeviation,
   };
@@ -185,10 +212,16 @@ export function buildSubscriptionCurve(input: {
 
 const clampPct = (p: number) => Math.max(0, Math.min(100, p));
 
-/** unix ms → 当地当日 00:00。 */
-function startOfLocalDay(ms: number): number {
+function isLocalDayStart(ms: number): boolean {
   const d = new Date(ms);
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  return d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0 && d.getMilliseconds() === 0;
+}
+
+function nextLocalDayStart(ms: number): number {
+  const d = new Date(ms);
+  d.setDate(d.getDate() + 1);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
 }
 
 /** 桶键 → unix ms：日键 "YYYY-MM-DD"（当地 00:00）或小时键 "YYYY-MM-DD HH:00:00"。 */
@@ -202,9 +235,7 @@ function bucketTimeMs(key: string): number {
 
 /** actual 点序列在 t 处线性插值（t 越界返回端点外不插）。 */
 function interpPct(actual: CurvePoint[], t: number): number | null {
-  if (actual.length === 0) return null;
-  if (t <= actual[0].t) return actual[0].pct;
-  if (t >= actual[actual.length - 1].t) return actual[actual.length - 1].pct;
+  if (actual.length < 2 || t < actual[0].t || t > actual[actual.length - 1].t) return null;
   for (let i = 0; i < actual.length - 1; i++) {
     const a = actual[i], b = actual[i + 1];
     if (t >= a.t && t <= b.t && b.t > a.t) {

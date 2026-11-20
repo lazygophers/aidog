@@ -252,6 +252,16 @@ impl Drop for Item {
     }
 }
 
+/// 单桶占用快照（`RateLimiter::snapshot_platform` 产出；模型空串 = 平台级）。
+/// 只含真实计数：并发在途 / 60 秒窗口请求数 / 窗口 token 占用（含预占）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct RateBucketSnapshot {
+    pub model: String,
+    pub in_flight: i64,
+    pub rpm_used: i64,
+    pub tpm_used: i64,
+}
+
 /// 进程内限频计数器，按 (平台 id, 模型) 分桶；模型为空串 = 平台级。
 #[derive(Default)]
 pub struct RateLimiter {
@@ -267,6 +277,28 @@ impl RateLimiter {
         } else {
             m.get(&key).cloned()
         }
+    }
+
+    /// 只读快照：该平台全部桶的当前占用（先 `prune`，滑出窗口的旧计数不计入）。
+    /// 锁中毒的桶跳过（与 has_room 同口径，不 panic）。无桶 = 无占用 = 空列表。
+    pub fn snapshot_platform(&self, pid: u64, now: i64) -> Vec<RateBucketSnapshot> {
+        let mut out = Vec::new();
+        let Ok(m) = self.buckets.lock() else { return out };
+        // 桶只增不删（take 时 or_default），数量有界（平台×模型组合数），逐桶短锁无热路径压力。
+        for ((_pid, model), b) in m.iter().filter(|((p, _), _)| *p == pid) {
+            let Ok(mut g) = b.0.lock() else { continue };
+            g.prune(now);
+            out.push(RateBucketSnapshot {
+                model: model.clone(),
+                in_flight: g.in_flight,
+                rpm_used: g.hits.len() as i64,
+                tpm_used: g.tokens.iter().map(|(_, c)| c.load(Ordering::Relaxed)).sum(),
+            });
+        }
+        // 平台级（空串）排最前，其余按模型名。
+        let rank = |m: &str| if m.is_empty() { 0u8 } else { 1u8 };
+        out.sort_by(|a, b| rank(&a.model).cmp(&rank(&b.model)).then(a.model.cmp(&b.model)));
+        out
     }
 
     /// 只读：该桶当前还放不放得下一个请求（候选筛选用）。没建过桶 = 没有占用 = 放得下。
@@ -574,5 +606,37 @@ mod tests {
         rl.begin(3, &t, 1000, 400).unwrap();
         rl.begin(3, &t, 2000, 600).unwrap();
         assert_eq!(rl.free_at(3, "", &t, 3000, 300), Some(1000 + WINDOW_MS));
+    }
+
+    #[test]
+    fn snapshot_platform_reports_real_counts_per_bucket() {
+        let rl = Arc::new(RateLimiter::default());
+        // 无桶 = 空快照
+        assert_eq!(rl.snapshot_platform(7, 1000), vec![]);
+        // 平台级占位（并发 1 / rpm 2 / tpm 预占 500）+ 模型级 m1 占位
+        let l = lim(Some(2), Some(5), Some(100));
+        let a = rl.begin(7, &l, 1000, 500).unwrap();
+        assert!(a.enter_model("m1", &lim(Some(1), None, None), 1000, 10));
+        // 平台 8 无占用
+        rl.begin(8, &l, 1000, 1).unwrap();
+        let snap = rl.snapshot_platform(7, 1000);
+        assert_eq!(snap.len(), 2, "平台级 + m1 两桶");
+        assert_eq!(snap[0], RateBucketSnapshot { model: "".into(), in_flight: 1, rpm_used: 1, tpm_used: 500 });
+        assert_eq!(snap[1], RateBucketSnapshot { model: "m1".into(), in_flight: 1, rpm_used: 1, tpm_used: 10 });
+        // 60 秒滑出：rpm/tpm 归零，并发仍在途
+        let snap = rl.snapshot_platform(7, 1000 + WINDOW_MS);
+        assert_eq!(snap[0], RateBucketSnapshot { model: "".into(), in_flight: 1, rpm_used: 0, tpm_used: 0 });
+        // Access 释放后并发归零（空桶保留，计数为 0）
+        drop((a,));
+        let snap = rl.snapshot_platform(7, 1000 + WINDOW_MS);
+        assert_eq!(snap[0].in_flight, 0);
+    }
+
+    #[test]
+    fn snapshot_other_platform_and_poisoned_lock_degrade_to_empty() {
+        let rl = Arc::new(RateLimiter::default());
+        let l = lim(Some(1), None, None);
+        let _a = rl.begin(9, &l, 0, 0).unwrap();
+        assert!(rl.snapshot_platform(42, 1000).is_empty(), "别的平台无桶");
     }
 }

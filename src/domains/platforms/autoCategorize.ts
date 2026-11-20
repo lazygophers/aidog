@@ -9,6 +9,8 @@ export interface EstCodingTier {
   tokens_since_real: number;
   has_base: boolean;
   limit?: number;
+  /** 计费维度：prompt_count / mcp_time / tokens；空值按 tokens。 */
+  unit?: string;
   /** 本周期起点 unix ms（系统维护）；0/缺失 = 无可靠周期起点 → 配色中性。 */
   window_start?: number;
 }

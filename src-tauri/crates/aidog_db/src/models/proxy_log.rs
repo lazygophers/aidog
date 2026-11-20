@@ -676,6 +676,24 @@ pub struct PlatformQuotaWindowLevel {
     pub resets_at_ms: i64,
 }
 
+/// 平台限频实时占用（F 板块限频行）：extra.rate_limits 内存计数快照。
+/// 全部为进程内存真实计数，代理从未启动过 → 空列表；代理停止后读最后实例的快照（同 cooldown_snapshot 口径）。
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct PlatformRateOccupancy {
+    /// 桶的模型名；空串 = 平台级桶。
+    pub model: String,
+    /// 并发在途。
+    #[ts(type = "number")]
+    pub in_flight: i64,
+    /// 60 秒滑动窗口内请求数。
+    #[ts(type = "number")]
+    pub rpm_used: i64,
+    /// 窗口内 token 占用（含预占，settle 修正）。
+    #[ts(type = "number")]
+    pub tpm_used: i64,
+}
+
 /// 平台健康明细（`platform_health_detail`）：`platform_health_state` 行现算 +
 /// 高峰禁用态从 `platform.extra` 现算（`disable_during_peak` + 命中 peak 窗口）。
 /// 剩余秒数 = `max(0, until_ms - now) / 1000`，0 = 无冷却 / 已过期。

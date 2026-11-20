@@ -20,21 +20,25 @@ export interface PlatformDetailProps {
 
 export function PlatformDetail({ platform, membership, onBack, onRefreshQuota, service }: PlatformDetailProps) {
   return (
-    <div data-testid="platform-detail" style={{ display: "flex", flexDirection: "column" }}>
-      <DetailHeader
+    <div data-testid="platform-detail" className="mx-auto grid max-w-[1560px] grid-cols-1 items-start gap-0 sm:grid-cols-2 xl:grid-cols-[minmax(280px,340px)_minmax(0,1fr)_minmax(300px,360px)]">
+      <div className="col-span-full min-w-0">
+        <DetailHeader
+          platform={platform}
+          membership={membership}
+          onBack={onBack}
+          service={service}
+        />
+      </div>
+      {/* 配置/快捷操作并入右栏自身堆叠（col3Extra）：grid 共享行高会把短栏下方的板块拉开留白 */}
+      <DetailData
         platform={platform}
-        membership={membership}
-        onBack={onBack}
-        service={service}
+        col3Extra={
+          <>
+            <DetailConfig platform={platform} membership={membership} />
+            <DetailActions platform={platform} onRefreshQuota={onRefreshQuota} service={service} />
+          </>
+        }
       />
-      {/* T3 数据板块挂载点：曲线 / 统计 / 健康明细 / 失败分析 / 模型分布（F 水位待读取命令） */}
-      <div data-testid="detail-t3-mount">
-        <DetailData platform={platform} />
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", alignItems: "start" }}>
-        <DetailConfig platform={platform} membership={membership} />
-        <DetailActions platform={platform} onRefreshQuota={onRefreshQuota} service={service} />
-      </div>
     </div>
   );
 }

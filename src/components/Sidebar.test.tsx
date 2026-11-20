@@ -28,6 +28,19 @@ describe("Sidebar — section 折叠/再展开", () => {
     expect(screen.getByTestId(sel).getAttribute("aria-expanded")).toBe("true");
   });
 
+  it("窄视口启动时默认折叠侧栏，为页面留出宽度", () => {
+    const width = window.innerWidth;
+    try {
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+      localStorage.removeItem("aidog.sidebar.collapsed");
+      render(<Sidebar navItems={items} activeId="home" onNavigate={vi.fn()} />);
+      expect(document.getElementById("g3-sidebar")!.getAttribute("data-state")).toBe("collapsed");
+    } finally {
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
+      localStorage.removeItem("aidog.sidebar.collapsed");
+    }
+  });
+
   it("56px 图标态：节头隐藏，菜单项走图标态（title 带标签）；展开态反之", () => {
     try { localStorage.removeItem("aidog.sidebar.collapsed"); } catch { /* noop */ }
     render(<Sidebar navItems={items} activeId="home" onNavigate={vi.fn()} />);

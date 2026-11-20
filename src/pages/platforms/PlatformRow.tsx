@@ -103,7 +103,7 @@ export interface PlatformRowProps {
   onToggleExpanded?: (next: boolean) => void;
   onToggle?: (p: Platform) => void;
   onEdit?: (p: Platform) => void;
-  /** 详情全页入口（T2）：⋯ 菜单首项。操作列 108px 已被既有 4 控件占满，可见图标按钮会加重溢出。 */
+  /** 详情全页入口（T2）：与编辑按钮并列显示。 */
   onDetail?: (p: Platform) => void;
   onShare?: (p: Platform) => void;
   onDuplicate?: (p: Platform) => void;
@@ -178,7 +178,7 @@ export function PlatformRow({
   });
 
   const iconBtn = (extra?: React.CSSProperties): React.CSSProperties => ({
-    width: 27, height: 27, borderRadius: 7, display: "inline-flex", alignItems: "center", justifyContent: "center",
+    width: 24, height: 24, borderRadius: 7, display: "inline-flex", alignItems: "center", justifyContent: "center",
     color: "var(--text-tertiary)", cursor: "pointer", border: "1px solid transparent", background: "transparent",
     transition: "background .15s, color .15s, border-color .15s", ...extra,
   });
@@ -423,7 +423,7 @@ export function PlatformRow({
           )}
         </span>
         {/* 列 10：操作（稿 .ops：⚡ 测速 · ✎ 编辑 · ⋯ 菜单 · 启用开关） */}
-        <span style={{ display: "flex", alignItems: "center", gap: 7, justifyContent: "flex-end" }} onClick={e => e.stopPropagation()}>
+        <span style={{ display: "flex", alignItems: "center", gap: 3, justifyContent: "flex-end" }} onClick={e => e.stopPropagation()}>
           <button type="button" className="ripple" title={t("platform.quickTest", "测速")} style={iconBtn({ color: "var(--color-warning)" })}
             onClick={() => onQuickTest?.(p)}>
             <svg width="13" height="13" viewBox="0 0 14 14" fill="currentColor"><path d="M8.2 1.2L3 8h3.4l-.8 4.8L11 6H7.4z" /></svg>
@@ -431,6 +431,12 @@ export function PlatformRow({
           <button type="button" className="ripple" title={t("action.edit", "编辑")} style={iconBtn()} onClick={() => onEdit?.(p)}>
             <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M9.8 1.8l2.4 2.4L5 11.4l-3 .6.6-3z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" /></svg>
           </button>
+          {onDetail && <button type="button" className="ripple" data-testid="row-detail-button"
+            aria-label={t("platform.detailHint", "查看平台详情")} title={t("platform.detailHint", "查看平台详情")} style={iconBtn()} onClick={() => onDetail(p)}>
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+              <circle cx="7" cy="7" r="5.2" /><path d="M7 6.4v3.2M7 4.5h.01" />
+            </svg>
+          </button>}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button type="button" data-testid="row-menu" title={t("platform.more", "更多")} style={iconBtn()}>
@@ -438,7 +444,6 @@ export function PlatformRow({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" style={{ minWidth: 142 }}>
-              {onDetail && <DropdownMenuItem data-testid="row-detail-menu" onSelect={() => onDetail(p)}>{t("platform.detailHint", "查看平台详情")}</DropdownMenuItem>}
               {onViewLogs && <DropdownMenuItem onSelect={() => onViewLogs(p)}>{t("platform.viewLogs", "查看日志")}</DropdownMenuItem>}
               {onShare && <DropdownMenuItem onSelect={() => onShare(p)}>{t("platform.share.button", "分享配置")}</DropdownMenuItem>}
               {onDuplicate && <DropdownMenuItem onSelect={() => onDuplicate(p)}>{t("platform.duplicate", "复制平台")}</DropdownMenuItem>}
