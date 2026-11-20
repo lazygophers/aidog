@@ -1695,8 +1695,8 @@ async fn mock_platform_stream_override() {
         .unwrap();
 }
 
-/// Mock 平台 ttft_ms/inter_chunk_ms 独立生效：首包时延 ≈ ttft_ms，chunk 间隔 ≈ inter_chunk_ms
-/// （而非旧的 delay_ms 一值两用）。±50% 容差防 CI 抖动误报。
+/// Mock 平台 ttft_ms/inter_chunk_ms 独立生效（而非旧的 delay_ms 一值两用）。
+/// 断言只用下界与相对比例，不用挂钟上限（issue 166）：负载只会推高实测值，上限必抖。
 #[tokio::test]
 async fn mock_platform_ttft_and_inter_chunk_split() {
     let state = make_state(test_db().await).await;
@@ -1744,17 +1744,37 @@ async fn mock_platform_ttft_and_inter_chunk_split() {
     }
 
     let ttft = ttft.unwrap();
+    // 负载不敏感断言（issue 166）。tokio::time::sleep 只保证不短于请求值，负载只会推高
+    // 实测值，故下界安全、上限必抖——全部断言只用下界与相对比例，阈值推导。
+    // 测量结构：ttft 从请求起点量到首个 body chunk。mock 的 ttft sleep 在响应头之前
+    // （mock.rs），而流的 .then 对每个 chunk（含首个）前都 sleep inter_chunk_ms，故
+    // 实测 ttft ≈ ttft_ms + inter_chunk_ms（50/50 实测 104ms）；gap 样本共 5 个
+    // （build_sse_chunks 产出多于 chunk_count 个块），每个 ≈ inter_chunk_ms。
+    // - ttft ≥ 40ms = ttft_ms(80) 的一半：证明 ttft sleep 发生；回退旧 delay_ms（本配置
+    //   未设，=0）时 ttft≈0 必红。
+    // - gap 均值 ≥ 10ms = inter_chunk_ms(20) 的一半：证明 inter_chunk sleep 发生；回退时
+    //   gap≈0 必红。
+    // - ttft ≥ 3×gap 最小值：健康态 ttft≈100 vs 3×20=60（余量 1.67 倍）；「一值两用」
+    //   （如两值同设 50）时 ttft≈104 vs 3×50=150 必红。取 3× 而非 2×：首 chunk 计入
+    //   inter sleep 使等值回退时比例恰 ≈2.0，2× 在边界上恒过（50/50 实锤）；取 min
+    //   而非均值：均值会被单次长调度停顿拖过阈值误红，min 是停顿影响最小的样本
+    //   （误红条件 = 全部 5 个 gap 同时停顿 ≥34ms）。
     assert!(
-        ttft.as_millis() >= 40 && ttft.as_millis() <= 160,
-        "ttft={ttft:?} 应 ≈80ms±50%"
+        ttft.as_millis() >= 40,
+        "ttft={ttft:?} 应 ≥40ms（ttft_ms=80 的一半）：ttft sleep 未发生"
     );
     assert!(!inter_chunk_gaps.is_empty(), "应有 >1 个 chunk 才能测间隔");
-    for gap in &inter_chunk_gaps {
-        assert!(
-            gap.as_millis() <= 60,
-            "inter_chunk gap={gap:?} 应 ≈20ms（容差上限 60ms），不应回退到旧 delay_ms=0"
-        );
-    }
+    let gap_mean = inter_chunk_gaps.iter().sum::<std::time::Duration>()
+        / inter_chunk_gaps.len() as u32;
+    assert!(
+        gap_mean.as_millis() >= 10,
+        "gap 均值={gap_mean:?} 应 ≥10ms（inter_chunk_ms=20 的一半）：inter_chunk sleep 未发生"
+    );
+    let gap_min = inter_chunk_gaps.iter().min().unwrap();
+    assert!(
+        ttft >= 3 * *gap_min,
+        "ttft={ttft:?} 应 ≥3×gap 最小值={gap_min:?}（配置 80:20，实测 ttft≈ttft_ms+inter_chunk_ms）：比例塌平说明回退成一值两用"
+    );
 }
 
 /// 只设 delay_ms（不设 ttft_ms/inter_chunk_ms）时行为与改动前一致：
