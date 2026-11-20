@@ -179,12 +179,20 @@ pub(super) async fn process_due_paths(db: &Db, roots: &[(String, PathBuf)], now_
     let paths = take_due_paths(now_ms);
     let mut total = 0i64;
     for p in paths {
-        if Path::new(&p).extension().and_then(|e| e.to_str()) != Some("jsonl") {
-            continue;
-        }
         let Some(client) = owner_client(&p, roots) else {
             continue;
         };
+        // 扩展名闸：jsonl（claude/codex/gemini）之外，opencode 收 .json（JSON store
+        // 消息文件）、.db / .db-wal（sqlite 主库与 WAL，shm 不收）。
+        let ext = Path::new(&p).extension().and_then(|e| e.to_str());
+        let allowed = match ext {
+            Some("jsonl") => true,
+            Some("json") | Some("db") | Some("db-wal") => client == "opencode",
+            _ => false,
+        };
+        if !allowed {
+            continue;
+        }
         if std::fs::metadata(&p).is_ok() {
             let progress = aidog_db::list_client_file_progress(db, client)
                 .await
@@ -196,8 +204,17 @@ pub(super) async fn process_due_paths(db: &Db, roots: &[(String, PathBuf)], now_
                 .find(|(c, _)| *c == client)
                 .map(|(_, r)| r.clone())
                 .unwrap_or_default();
-            match super::scan_one_file(db, client, &path, prog, &sessions_root).await {
-                Ok((n, _)) => {
+            let res = if client == "opencode" {
+                super::scan_opencode_path(db, &path, &sessions_root, prog)
+                    .await
+                    .map(|o| o.unwrap_or(0))
+            } else {
+                super::scan_one_file(db, client, &path, prog, &sessions_root)
+                    .await
+                    .map(|(n, _)| n)
+            };
+            match res {
+                Ok(n) => {
                     #[cfg(test)]
                     SCAN_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     total += n;
@@ -280,8 +297,17 @@ pub(super) async fn align_once(db: &Db) -> i64 {
                     }
                     let path = row.path.clone();
                     let sessions_root = client_root(code).unwrap_or_default();
-                    match super::scan_one_file(db, code, Path::new(&path), Some(row), &sessions_root).await {
-                        Ok((n, _)) => total += n,
+                    let res = if *code == "opencode" {
+                        super::scan_opencode_path(db, Path::new(&path), &sessions_root, Some(row))
+                            .await
+                            .map(|o| o.unwrap_or(0))
+                    } else {
+                        super::scan_one_file(db, code, Path::new(&path), Some(row), &sessions_root)
+                            .await
+                            .map(|(n, _)| n)
+                    };
+                    match res {
+                        Ok(n) => total += n,
                         Err(e) => tracing::warn!(error = %e, path = %path, "client usage align scan failed"),
                     }
                 }
