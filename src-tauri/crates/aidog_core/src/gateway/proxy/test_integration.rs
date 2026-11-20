@@ -1435,8 +1435,8 @@ async fn mock_platform_stream_override() {
         .unwrap();
 }
 
-/// Mock 平台 ttft_ms/inter_chunk_ms 独立生效：首包时延 ≈ ttft_ms，chunk 间隔 ≈ inter_chunk_ms
-/// （而非旧的 delay_ms 一值两用）。±50% 容差防 CI 抖动误报。
+/// Mock 平台 ttft_ms/inter_chunk_ms 独立生效（而非旧的 delay_ms 一值两用）。
+/// 断言只用下界与相对比例，不用挂钟上限（issue 166）：负载只会推高实测值，上限必抖。
 #[tokio::test]
 async fn mock_platform_ttft_and_inter_chunk_split() {
     let state = make_state(test_db().await).await;
@@ -1484,17 +1484,29 @@ async fn mock_platform_ttft_and_inter_chunk_split() {
     }
 
     let ttft = ttft.unwrap();
+    // 负载不敏感断言（issue 166）。tokio::time::sleep 只保证不短于请求值，负载只会推高
+    // 实测值，故下界安全、上限必抖——全部断言只用下界与相对比例，阈值推导：
+    // - ttft ≥ 40ms = ttft_ms(80) 的一半：证明 ttft sleep 发生；回退旧 delay_ms（本配置
+    //   未设，=0）时 ttft≈0 必红。
+    // - gap 均值 ≥ 10ms = inter_chunk_ms(20) 的一半：证明 inter_chunk sleep 发生；回退时
+    //   gap≈0 必红。
+    // - ttft ≥ 2×gap 均值：健康比例 4:1（80:20，余量 2 倍）；「一值两用」（如两值同设 50）
+    //   时 ttft≈gap，比例塌平必红。
     assert!(
-        ttft.as_millis() >= 40 && ttft.as_millis() <= 160,
-        "ttft={ttft:?} 应 ≈80ms±50%"
+        ttft.as_millis() >= 40,
+        "ttft={ttft:?} 应 ≥40ms（ttft_ms=80 的一半）：ttft sleep 未发生"
     );
     assert!(!inter_chunk_gaps.is_empty(), "应有 >1 个 chunk 才能测间隔");
-    for gap in &inter_chunk_gaps {
-        assert!(
-            gap.as_millis() <= 60,
-            "inter_chunk gap={gap:?} 应 ≈20ms（容差上限 60ms），不应回退到旧 delay_ms=0"
-        );
-    }
+    let gap_mean = inter_chunk_gaps.iter().sum::<std::time::Duration>()
+        / inter_chunk_gaps.len() as u32;
+    assert!(
+        gap_mean.as_millis() >= 10,
+        "gap 均值={gap_mean:?} 应 ≥10ms（inter_chunk_ms=20 的一半）：inter_chunk sleep 未发生"
+    );
+    assert!(
+        ttft >= 2 * gap_mean,
+        "ttft={ttft:?} 应 ≥2×gap 均值={gap_mean:?}（配置 80:20）：比例塌平说明回退成一值两用"
+    );
 }
 
 /// 只设 delay_ms（不设 ttft_ms/inter_chunk_ms）时行为与改动前一致：
