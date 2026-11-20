@@ -1446,3 +1446,5 @@ mod test_custom_slots;
 mod test_client_usage;
 #[cfg(test)]
 mod test_session_key;
+#[cfg(test)]
+mod test_schema;
