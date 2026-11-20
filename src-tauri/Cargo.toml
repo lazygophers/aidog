@@ -68,9 +68,6 @@ tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 tracing-appender = "0.2"
 # 通用工具
 uuid = { version = "1", features = ["v4"] }
-# 客户端会话目录文件监听（issue #65 票 03）。crates.io 长期维护的事实标准（跨平台
-# FSEvents/inotify/ReadDirectoryChangesW 封装），8.2.2 为最新稳定版。
-notify = "8"
 chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.10"
 dirs = "7"
