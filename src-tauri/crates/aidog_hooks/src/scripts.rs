@@ -142,8 +142,84 @@ pub fn build_event_notify_script() -> String {
 # 后端按 per_event 解析通知类型与模板（本脚本不传 type）。
 import json
 import os
+import re
 import sys
 import urllib.request
+
+
+# shortcut: transcript fallback tracks Agent/Bash calls only; extend if Claude Code changes these records.
+def has_active_background_task(payload):
+    if "background_tasks" in payload:
+        tasks = payload["background_tasks"]
+        terminal = ("completed", "failed", "killed", "stopped")
+        if not isinstance(tasks, list):
+            return True
+        for task in tasks:
+            if not isinstance(task, dict) or not all(isinstance(task.get(key), str) and task[key] for key in ("id", "type", "status")):
+                return True
+            if task["status"].lower() not in terminal:
+                return True
+        return False
+
+    session_id = payload.get("session_id")
+    transcript_path = payload.get("transcript_path")
+    if not isinstance(session_id, str) or not session_id or not isinstance(transcript_path, str) or not transcript_path:
+        return True
+
+    transcript_path = os.path.expanduser(transcript_path)
+    started = set()
+    finished = set()
+    seen_session = False
+    try:
+        with open(transcript_path, encoding="utf-8") as transcript:
+            for line in transcript:
+                if not line.endswith("\n"):
+                    return True
+                try:
+                    record = json.loads(line)
+                except Exception:
+                    return True
+                if not isinstance(record, dict):
+                    return True
+                if record.get("sessionId") != session_id:
+                    continue
+                seen_session = True
+                message = record.get("message")
+                if not isinstance(message, dict):
+                    continue
+                if record.get("type") == "assistant":
+                    content = message.get("content")
+                    if not isinstance(content, list):
+                        continue
+                    for block in content:
+                        if not isinstance(block, dict) or block.get("type") != "tool_use" or block.get("name") not in ("Agent", "Bash"):
+                            continue
+                        tool_input = block.get("input")
+                        if isinstance(tool_input, dict) and tool_input.get("run_in_background") is True:
+                            tool_id = block.get("id")
+                            if not isinstance(tool_id, str) or not tool_id:
+                                return True
+                            started.add(tool_id)
+                elif record.get("type") == "user":
+                    content = message.get("content")
+                    if isinstance(content, str):
+                        texts = [content]
+                    elif isinstance(content, list):
+                        texts = [block.get("text") for block in content if isinstance(block, dict) and isinstance(block.get("text"), str)]
+                    else:
+                        continue
+                    for text in texts:
+                        for notification in re.findall(r"<task-notification>(.*?)</task-notification>", text, re.S):
+                            tool_id = re.search(r"<tool-use-id>([^<]+)</tool-use-id>", notification)
+                            status = re.search(r"<status>([^<]+)</status>", notification)
+                            if tool_id and status and status.group(1).lower() in ("completed", "failed", "killed", "stopped"):
+                                finished.add(tool_id.group(1))
+    except Exception:
+        return True
+
+    if not seen_session:
+        return True
+    return any(tool_id not in finished for tool_id in started)
 
 
 def main() -> None:
@@ -173,6 +249,8 @@ def main() -> None:
     event = payload.get("hook_event_name")
     if not isinstance(event, str) or not event:
         return  # 无事件名无法路由 per_event，静默退出。
+    if event == "Stop" and has_active_background_task(payload):
+        return  # transcript 未结束的后台 Agent/Bash 仍在运行；未知时保守不通知。
 
     vars_map = {{"project": os.path.basename(os.getcwd())}}
     session = payload.get("session_id")
