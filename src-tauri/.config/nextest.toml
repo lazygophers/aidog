@@ -1,0 +1,7 @@
+# cargo-nextest 仓库级配置（0.9.152）。
+# 配置发现位置 = cargo workspace 根（src-tauri/Cargo.toml），仓库根的 .config/ 读不到。
+# 策略：保持 nextest 默认值——retries = 0（自动重试会掩盖挂钟断言测试的真回归），
+# slow-timeout 默认 60s 仅标记不终止。唯一非默认项：slow-timeout 提前到 30s，
+# 提前暴露慢测试，仅标记、不影响结果；cargo test 仍是真值源（nextest 不跑 doctests）。
+[profile.default]
+slow-timeout = { period = "30s" }
