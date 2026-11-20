@@ -5,6 +5,7 @@
 
 pub mod reader;
 pub mod reader_codex;
+pub mod reader_gemini;
 pub mod watch;
 #[cfg(test)]
 #[path = "test_reader.rs"]
@@ -12,6 +13,9 @@ mod test_reader;
 #[cfg(test)]
 #[path = "test_reader_codex.rs"]
 mod test_reader_codex;
+#[cfg(test)]
+#[path = "test_reader_gemini.rs"]
+mod test_reader_gemini;
 #[cfg(test)]
 #[path = "test_watch.rs"]
 mod test_watch;
@@ -34,7 +38,7 @@ pub struct ClientUsageConsent {
     pub enabled: HashMap<String, bool>,
 }
 
-/// 支持的客户端大类码（codex 读取器票 04 已落；gemini_cli / opencode 在票 05~06）。
+/// 支持的客户端大类码（gemini_cli 读取器票 05 已落；opencode 在票 06）。
 pub const SUPPORTED_CLIENTS: &[&str] = &["claude_code", "codex", "gemini_cli", "opencode"];
 
 /// 读同意开关（缺省全关、未询问）。
@@ -105,6 +109,7 @@ pub(crate) fn client_root(code: &str) -> Option<std::path::PathBuf> {
             let home = home.or_else(dirs::home_dir)?;
             Some(home.join("sessions"))
         }
+        "gemini_cli" => dirs::home_dir().map(|h| h.join(".gemini").join("tmp")),
         _ => None,
     }
 }
@@ -130,11 +135,12 @@ fn enumerate_files(root: &std::path::Path) -> Vec<std::path::PathBuf> {
     out
 }
 
-/// 折算用平台码：客户端 → 官方平台（codex → openai；OpenCode 按名匹配是票 06）。
+/// 折算用平台码：客户端 → 官方平台（codex → openai、gemini_cli → gemini；OpenCode 按名匹配是票 06）。
 fn billing_platform(client_code: &str) -> &'static str {
     match client_code {
         "codex" => "openai",
         "claude_code" => "anthropic",
+        "gemini_cli" => "gemini",
         _ => "",
     }
 }
@@ -199,6 +205,11 @@ async fn scan_one_file(
                 .await
                 .map_err(|e| format!("scan task: {e}"))?
         }
+        "gemini_cli" => {
+            tokio::task::spawn_blocking(move || reader_gemini::scan_file(&path2, off2, &id2))
+                .await
+                .map_err(|e| format!("scan task: {e}"))?
+        }
         _ => tokio::task::spawn_blocking(move || reader::scan_file(&path2, off2, &id2))
             .await
             .map_err(|e| format!("scan task: {e}"))?,
@@ -212,6 +223,9 @@ async fn scan_one_file(
             let r2 = sessions_root.to_path_buf();
             let rescan = match client_code {
                 "codex" => tokio::task::spawn_blocking(move || reader_codex::scan_file(&p2, 0, "", Some(&r2)))
+                    .await
+                    .map_err(|e| format!("rescan task: {e}"))?,
+                "gemini_cli" => tokio::task::spawn_blocking(move || reader_gemini::scan_file(&p2, 0, ""))
                     .await
                     .map_err(|e| format!("rescan task: {e}"))?,
                 _ => tokio::task::spawn_blocking(move || reader::scan_file(&p2, 0, ""))
