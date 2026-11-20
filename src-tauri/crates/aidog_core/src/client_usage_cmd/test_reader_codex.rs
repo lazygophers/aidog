@@ -250,6 +250,38 @@ fn fork_dedup_with_parent() {
     assert_eq!(o2.entries.len(), 3, "无父查找根按普通读");
 }
 
+/// 分叉去重按 token 签名比对（不含时间戳）：复制段时间戳与父漂移仍去重，只计自有调用。
+/// 行为锁定用例（现有实现按 42 个真实分叉样本验证过）。
+#[test]
+fn fork_dedup_ignores_copy_ts_drift() {
+    let d = tmpdir();
+    // 父会话：两个 token 事件。
+    write_lines(
+        d.path(),
+        &["2026", "11", "18", "rollout-p.jsonl"],
+        &[
+            ctx("gpt-5.1"),
+            tok("2026-11-18T10:00:00.000Z", 100, 10, 0, 0),
+            tok("2026-11-18T10:00:01.000Z", 200, 20, 0, 0),
+        ],
+    );
+    // 子会话：复制父两事件（token 值一致、时间戳改写为子侧时刻）+ 自有一事件。
+    let child_path = write_lines(
+        d.path(),
+        &["2026", "11", "19", "rollout-c.jsonl"],
+        &[
+            meta("child-session-2", "/work/fork-proj", Some("p")),
+            ctx("gpt-5.1"),
+            tok("2026-11-19T09:00:00.000Z", 100, 10, 0, 0),
+            tok("2026-11-19T09:00:01.000Z", 200, 20, 0, 0),
+            tok("2026-11-19T10:00:02.000Z", 300, 30, 0, 0),
+        ],
+    );
+    let o = scan_file(&child_path, 0, "", Some(d.path())).unwrap();
+    assert_eq!(o.entries.len(), 1, "时间戳漂移的复制前缀仍跳过，只计自有");
+    assert_eq!(o.entries[0].input_tokens, 300);
+}
+
 /// 找不到父会话文件 → 按普通会话读。
 #[test]
 fn fork_dedup_parent_missing() {
