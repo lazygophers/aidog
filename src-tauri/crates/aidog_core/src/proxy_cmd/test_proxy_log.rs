@@ -235,3 +235,66 @@ async fn scheduled_cleanup_pass_purges_old_soft_deleted() {
         "old soft-deleted row should be purged, found {left}"
     );
 }
+
+/// T1 平台详情：`compute_platform_health_detail` 冷却剩余秒现算（now_ms 注入）、
+/// breaker_open / breaker_fails 透传、高峰禁用态从 extra 现算、平台行缺失全零。
+#[tokio::test]
+async fn platform_health_detail_computes_cooldowns_and_peak() {
+    use aidog_db::health_state::{PlatformHealthStateRow, upsert_platform_health_state};
+
+    let db = test_db().await;
+    let p = aidog_db::test_support::insert_test_platform(&db, "HP").await;
+    let now_ms = chrono::Utc::now().timestamp_millis();
+    upsert_platform_health_state(
+        &db,
+        PlatformHealthStateRow {
+            platform_id: p as i64,
+            breaker_state: "open".into(),
+            breaker_until_ms: now_ms + 60_000,
+            breaker_fails: 3,
+            breaker_last_fail_ms: now_ms - 1000,
+            quota_cooldown_until_ms: now_ms + 30_000,
+            quota_verdict_until_ms: now_ms - 5_000,
+            auth_cooldown_until_ms: 0,
+            balance_cooldown_until_ms: now_ms + 90_500,
+            last_connect_fail_ms: now_ms - 60_000,
+            updated_at: now_ms,
+        },
+    )
+    .await
+    .unwrap();
+
+    // 无 disable_during_peak → peak_disabled false，冷却秒现算。
+    let d = super::compute_platform_health_detail(&db, p, now_ms).await.unwrap();
+    assert!(d.breaker_open);
+    assert_eq!(d.breaker_fails, 3);
+    assert_eq!(d.quota_cooldown_secs, 30);
+    assert_eq!(d.quota_verdict_secs, 0, "过期冷却 = 0");
+    assert_eq!(d.auth_cooldown_secs, 0);
+    assert_eq!(d.balance_cooldown_secs, 90);
+    assert_eq!(d.last_connect_fail_ms, now_ms - 60_000);
+    assert!(!d.peak_disabled);
+
+    // 开 disable_during_peak + 全天 peak 窗口 → peak_disabled true。
+    db.call_platform_traced(None, std::panic::Location::caller(), move |conn| {
+        conn.execute(
+            "UPDATE platform SET extra = ?1 WHERE id = ?2",
+            rusqlite::params![
+                r#"{"peak":[{"start_hour":0,"end_hour":24,"multiplier":2.0}],"disable_during_peak":true}"#,
+                p as i64
+            ],
+        )?;
+        Ok(())
+    })
+    .await
+    .unwrap();
+    let d = super::compute_platform_health_detail(&db, p, now_ms).await.unwrap();
+    assert!(d.peak_disabled, "disable_during_peak + 命中全天窗口");
+
+    // 平台行缺失（已删 / 不存在）→ 全零 + peak_disabled false，不报错。
+    let d = super::compute_platform_health_detail(&db, 999_999, now_ms).await.unwrap();
+    assert!(!d.breaker_open);
+    assert_eq!(d.breaker_fails, 0);
+    assert_eq!(d.quota_cooldown_secs, 0);
+    assert!(!d.peak_disabled);
+}

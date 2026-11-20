@@ -2056,6 +2056,20 @@
       "returns": "Option<Platform>"
     },
     {
+      "name": "platform_health_detail",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "platformId",
+          "type": "u64"
+        }
+      ],
+      "returns": "gateway::models::PlatformHealthDetail"
+    },
+    {
       "name": "platform_list",
       "category": "platform",
       "kind": "readonly",
@@ -2081,6 +2095,24 @@
         }
       ],
       "returns": "Vec<String>"
+    },
+    {
+      "name": "platform_model_distribution",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "platformId",
+          "type": "u64"
+        },
+        {
+          "name": "window",
+          "type": "Option<String>"
+        }
+      ],
+      "returns": "Vec<gateway::models::PlatformModelDistributionRow>"
     },
     {
       "name": "platform_purge_disabled",
@@ -2267,6 +2299,24 @@
       "returns": "Platform"
     },
     {
+      "name": "platform_usage_series",
+      "category": "proxy",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "platformId",
+          "type": "u64"
+        },
+        {
+          "name": "window",
+          "type": "Option<String>"
+        }
+      ],
+      "returns": "Vec<gateway::models::PlatformUsageSeriesPoint>"
+    },
+    {
       "name": "platform_usage_stats",
       "category": "proxy",
       "kind": "readonly",
@@ -2276,6 +2326,10 @@
         {
           "name": "platformId",
           "type": "u64"
+        },
+        {
+          "name": "window",
+          "type": "Option<String>"
         }
       ],
       "returns": "gateway::models::PlatformUsageStats"

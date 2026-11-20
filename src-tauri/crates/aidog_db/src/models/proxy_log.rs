@@ -628,6 +628,76 @@ pub struct PlatformUsageStats {
     pub today_success: i64,
 }
 
+/// 平台×时间用量序列点（`platform_usage_series`）。`time` = 桶键：today 窗口为本地小时键
+/// （`YYYY-MM-DD HH:00:00`，与 `stats_agg_hourly.time_hour` 同形），其余窗口为本地日键
+/// （`YYYY-MM-DD`，`substr(time_hour,1,10)`）。
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct PlatformUsageSeriesPoint {
+    pub time: String,
+    #[ts(type = "number")]
+    pub requests: i64,
+    #[ts(type = "number")]
+    pub success: i64,
+    #[ts(type = "number")]
+    pub input_tokens: i64,
+    #[ts(type = "number")]
+    pub output_tokens: i64,
+    #[ts(type = "number")]
+    pub cache_tokens: i64,
+    pub est_cost: f64,
+    #[ts(type = "number")]
+    pub duration_ms: i64,
+}
+
+/// 平台×模型分布行（`platform_model_distribution`）。窗口内按请求数降序、token 次序降序。
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct PlatformModelDistributionRow {
+    pub model: String,
+    #[ts(type = "number")]
+    pub requests: i64,
+    #[ts(type = "number")]
+    pub tokens: i64,
+    pub est_cost: f64,
+}
+
+/// 平台健康明细（`platform_health_detail`）：`platform_health_state` 行现算 +
+/// 高峰禁用态从 `platform.extra` 现算（`disable_during_peak` + 命中 peak 窗口）。
+/// 剩余秒数 = `max(0, until_ms - now) / 1000`，0 = 无冷却 / 已过期。
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct PlatformHealthDetail {
+    #[ts(type = "number")]
+    pub platform_id: i64,
+    /// 持久化行 breaker_state == "open"（展示用；准入按请求分组模式现算）。
+    pub breaker_open: bool,
+    #[ts(type = "number")]
+    pub breaker_fails: i64,
+    /// 最近一次熔断算出的踢出截止（unix ms；仅快照展示）。
+    #[ts(type = "number")]
+    pub breaker_until_ms: i64,
+    /// 429 配额冷却剩余秒。
+    #[ts(type = "number")]
+    pub quota_cooldown_secs: i64,
+    /// 额度真查判定冷却剩余秒。
+    #[ts(type = "number")]
+    pub quota_verdict_secs: i64,
+    /// 401/403 鉴权冷却剩余秒。
+    #[ts(type = "number")]
+    pub auth_cooldown_secs: i64,
+    /// 402 余额冷却剩余秒。
+    #[ts(type = "number")]
+    pub balance_cooldown_secs: i64,
+    /// 最近一次 connect 失败时刻（unix ms；0 = 无记录）。
+    #[ts(type = "number")]
+    pub last_connect_fail_ms: i64,
+    /// `disable_during_peak` 开且当前命中 peak 窗口（路由排除中）。
+    pub peak_disabled: bool,
+    #[ts(type = "number")]
+    pub updated_at: i64,
+}
+
 /// 平台「最近一次测试结果」（来自 proxy_log 中 source_protocol='test' 的最新一条）。
 /// 供 PlatformCard 常驻徽章消费：ok/fail + 耗时 + 时间。
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

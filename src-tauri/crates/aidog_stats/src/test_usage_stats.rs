@@ -614,3 +614,145 @@ async fn get_last_test_result_prefers_platform_extra() {
     let r = get_last_test_result(&db, pid).await.unwrap().expect("有结果");
     assert_eq!((r.success, r.status_code, r.created_at), (true, 200, 999));
 }
+
+/// T1 平台详情：`platform_usage_series` 窗口边界（8 天前排除出 7d）、today 小时桶 /
+/// 其余天桶、空平台空序列、未知窗口 Err。
+#[tokio::test]
+async fn platform_usage_series_windows_and_granularity() {
+    let db = test_db().await;
+    let p = insert_test_platform(&db, "SP").await;
+    let now = chrono::Utc::now().timestamp_millis();
+    let day_ms: i64 = 86_400_000;
+    // 三条日志：8 天前（7d 窗外）、6 天前（7d 窗内）、现在。
+    for (i, ago) in [8i64, 6, 0].iter().enumerate() {
+        let mut log = sample_log(&format!("sp{i}"), "g1", now - ago * day_ms);
+        log.platform_id = p;
+        log.status_code = if *ago == 0 { 500 } else { 200 };
+        log.input_tokens = 10;
+        log.output_tokens = 20;
+        log.est_cost = 0.01;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&log, false, false))
+            .await
+            .unwrap();
+    }
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+    // 7d：只含 6 天前 + 今天两个天桶。
+    let s7 = platform_usage_series(&db, p, "7d").await.unwrap();
+    assert_eq!(s7.len(), 2, "7d buckets: {:?}", s7.iter().map(|p| p.time.clone()).collect::<Vec<_>>());
+    assert_eq!(s7.iter().map(|p| p.requests).sum::<i64>(), 2);
+
+    // today：小时桶，只含当前小时 1 条失败。
+    let st = platform_usage_series(&db, p, "today").await.unwrap();
+    assert_eq!(st.len(), 1, "today buckets: {:?}", st.iter().map(|p| p.time.clone()).collect::<Vec<_>>());
+    assert_eq!(st[0].requests, 1);
+    assert_eq!(st[0].success, 0);
+    assert_eq!(st[0].time.len(), 19, "hour bucket key shape");
+    assert!(st[0].time.ends_with(":00:00"), "hour-aligned bucket");
+    assert_eq!(&st[0].time[..10], &s7[s7.len() - 1].time, "today bucket date == 7d 最新天桶");
+
+    // all：三个桶，时间升序。
+    let sa = platform_usage_series(&db, p, "all").await.unwrap();
+    assert_eq!(sa.len(), 3);
+    assert!(sa.windows(2).all(|w| w[0].time <= w[1].time), "ascending");
+    assert_eq!(sa.iter().map(|p| p.est_cost).sum::<f64>(), 0.03);
+
+    // 空平台 → 空序列。
+    let p2 = insert_test_platform(&db, "SP2").await;
+    assert!(platform_usage_series(&db, p2, "all").await.unwrap().is_empty());
+
+    // 未知窗口 → Err。
+    assert!(platform_usage_series(&db, p, "bogus").await.is_err());
+}
+
+/// T1 平台详情：`platform_model_distribution` 请求数降序、窗口过滤（today 只含今天行）。
+#[tokio::test]
+async fn platform_model_distribution_orders_and_filters() {
+    let db = test_db().await;
+    let p = insert_test_platform(&db, "MD").await;
+    let now = chrono::Utc::now().timestamp_millis();
+    let day_ms: i64 = 86_400_000;
+    // m1：今天 2 条 + 8 天前 1 条；m2：今天 1 条；m3：8 天前 2 条（today 窗外）。
+    let rows = [
+        ("m1", 0i64), ("m1", 8), ("m1", 0),
+        ("m2", 0),
+        ("m3", 8), ("m3", 8),
+    ];
+    for (i, (model, ago)) in rows.iter().enumerate() {
+        let mut log = sample_log(&format!("md{i}"), "g1", now - ago * day_ms);
+        log.platform_id = p;
+        log.actual_model = model.to_string();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&log, false, false))
+            .await
+            .unwrap();
+    }
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+    let all = platform_model_distribution(&db, p, "all").await.unwrap();
+    let names: Vec<&str> = all.iter().map(|r| r.model.as_str()).collect();
+    assert_eq!(names, vec!["m1", "m3", "m2"], "requests desc");
+    assert_eq!(all[0].requests, 3);
+    // token = (10+20+0) * 3 = 90（sum_input+output+cache）。
+    assert_eq!(all[0].tokens, 90);
+
+    let today = platform_model_distribution(&db, p, "today").await.unwrap();
+    let names: Vec<&str> = today.iter().map(|r| r.model.as_str()).collect();
+    assert_eq!(names, vec!["m1", "m2"], "today filters 8d-old rows");
+    assert_eq!(today[0].requests, 2);
+
+    // 空平台 → 空。
+    let p2 = insert_test_platform(&db, "MD2").await;
+    assert!(platform_model_distribution(&db, p2, "all").await.unwrap().is_empty());
+}
+
+/// T1 平台详情：`get_platform_usage_stats` 可选窗口 —— today 窗口累计 == 既有今日口径，
+/// 7d 排除 8 天前行，缺省 / None == all（旧调用兼容）。
+#[tokio::test]
+async fn platform_usage_stats_window_semantics() {
+    let db = test_db().await;
+    let p = insert_test_platform(&db, "WS").await;
+    let now = chrono::Utc::now().timestamp_millis();
+    let day_ms: i64 = 86_400_000;
+    let mut today_log = sample_log("ws0", "g1", now);
+    today_log.platform_id = p;
+    today_log.status_code = 200;
+    today_log.input_tokens = 10;
+    today_log.output_tokens = 20;
+    today_log.est_cost = 0.01;
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&today_log, false, false))
+        .await
+        .unwrap();
+    let mut old_log = sample_log("ws1", "g1", now - 8 * day_ms);
+    old_log.platform_id = p;
+    old_log.status_code = 200;
+    old_log.input_tokens = 100;
+    old_log.output_tokens = 200;
+    old_log.est_cost = 0.5;
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&old_log, false, false))
+        .await
+        .unwrap();
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+    let all = get_platform_usage_stats(&db, p).await.unwrap();
+    assert_eq!(all.total_requests, 2);
+    assert_eq!(all.today_tokens, 30);
+
+    // today 窗口：累计值 == 今日口径字段。
+    let today = get_platform_usage_stats_window(&db, p, Some("today")).await.unwrap();
+    assert_eq!(today.total_requests, 1);
+    assert_eq!(today.total_input_tokens + today.total_output_tokens, all.today_tokens);
+    assert!((today.total_cost - all.today_cost).abs() < 1e-9);
+
+    // 7d：排除 8 天前行。
+    let s7 = get_platform_usage_stats_window(&db, p, Some("7d")).await.unwrap();
+    assert_eq!(s7.total_requests, 1);
+    assert_eq!(s7.total_input_tokens, 10);
+    assert!((s7.total_cost - 0.01).abs() < 1e-9);
+
+    // None 缺省 == all。
+    let none = get_platform_usage_stats_window(&db, p, None).await.unwrap();
+    assert_eq!(none.total_requests, 2);
+
+    // 未知窗口 → Err。
+    assert!(get_platform_usage_stats_window(&db, p, Some("bogus")).await.is_err());
+}
