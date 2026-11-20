@@ -362,6 +362,7 @@ async fn aux_attempt(
         output,
         0, // embedding / rerank 无缓存 token
         0,
+        0,
         route.platform.endpoints.iter().any(|ep| ep.coding_plan),
         log.created_at,
         0.0, // tools 按次费与 aux 请求无关
