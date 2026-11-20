@@ -1423,3 +1423,55 @@ fn pii_recognizers_seed_disabled_by_default() {
         );
     }
 }
+
+fn leaf_patterns(node: &ConditionNode, out: &mut Vec<String>) {
+    match node {
+        ConditionNode::Leaf(l) => out.push(l.pattern.clone()),
+        ConditionNode::All { children } | ConditionNode::Any { children } => {
+            for c in children {
+                leaf_patterns(c, out);
+            }
+        }
+        ConditionNode::Not { child } => leaf_patterns(child, out),
+    }
+}
+
+/// 内置错误分类 7 类：每类的 conditions 正则必须命中自己的样例错误消息
+/// （恢复自原 aidog_db test_schema 的 c4_builtin_error_rules_match_samples，PR #199 审查项）。
+#[test]
+fn builtin_error_rules_match_samples() {
+    let samples: &[(&str, &str)] = &[
+        (
+            "prompt_limit",
+            "This model's maximum context length is 128000 tokens",
+        ),
+        (
+            "content_filter",
+            "The response was flagged by our content filter",
+        ),
+        ("pdf_limit", "PDF has too many pages, maximum is 100"),
+        ("thinking_error", "thinking is not supported for this model"),
+        (
+            "parameter_error",
+            "Unsupported parameter: 'temperature' is not allowed",
+        ),
+        ("invalid_request", "invalid_request_error: missing field"),
+        ("cache_limit", "prompt cache: too many cache_control blocks"),
+    ];
+    for (category, msg) in samples {
+        let spec = aidog_db::builtin_rule_specs()
+            .iter()
+            .find(|s| s.actions.contains(&format!("\"category\":\"{category}\"")))
+            .unwrap_or_else(|| panic!("缺 category={category} 的 classify 动作"));
+        let conds: ConditionNode = serde_json::from_str(spec.conditions)
+            .unwrap_or_else(|e| panic!("spec '{}' conditions 解析失败: {e}", spec.name));
+        let mut patterns = Vec::new();
+        leaf_patterns(&conds, &mut patterns);
+        assert!(
+            patterns
+                .iter()
+                .any(|p| regex::Regex::new(p).unwrap().is_match(msg)),
+            "category={category} 的正则 {patterns:?} 应命中样例: {msg}"
+        );
+    }
+}
