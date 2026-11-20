@@ -5,6 +5,7 @@
   { "type": "file", "name": "proxy", "label": "Proxy service" },
   { "type": "file", "name": "logs", "label": "Proxy and request logs" },
   { "type": "file", "name": "stats", "label": "Statistics" },
+  { "type": "file", "name": "client-usage", "label": "Client usage" },
   { "type": "file", "name": "notifications", "label": "Notification center" },
   { "type": "file", "name": "mcp", "label": "MCP" },
   { "type": "file", "name": "skills", "label": "Skills" },

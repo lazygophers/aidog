@@ -524,7 +524,30 @@ impl PlatformAdapter for GlmFamilyAdapter {
 ///   https://platform.minimax.io/docs/guides/server-tools.md
 ///   https://platform.minimax.io/docs/api-reference/errorcode.md
 ///
-/// `MiniMaxEnAdapter` 继承同一家族基座；成员差异留给 issue 122。
+/// 成员 `minimax_coding`（Token Plan；issue 122，核对日期 2026-11-18）：
+/// Token Plan 配置页列出 OpenAI Compatible 与 Anthropic Compatible，Base URL 分别为
+/// `https://api.minimax.cn/v1` 与 `https://api.minimax.cn/anthropic`。运行时仍只使用用户配置的 protocol + base_url。
+/// 两个协议参考页核对结果：
+/// - 请求字段 / 默认值：OpenAI 示例含 `model`、`messages`、`max_completion_tokens`、`reasoning_effort`；
+///   M3.1-Flash 的思考默认开启，effort 默认 `max`；Anthropic 示例含 `model`、`messages`、`max_tokens`、
+///   `output_config.effort`，思考默认开启，effort 默认 `max`。未证实 Token Plan 是否覆盖这些字段或默认值。
+/// - 思考：OpenAI `thinking.type` / `reasoning_effort`，Anthropic `thinking` / `output_config.effort`；
+///   两页均未描述 Token Plan 专属开关、档位或预算差异，故沿用家族处理。
+/// - Tools / system / media：两页均有 function tools 与 system 能力示例；OpenAI 示例用 `image_url`、`video_url`，
+///   Anthropic 示例用 `image`、`video` 内容块。服务端工具的 Token Plan 支持情况未证实。
+/// - 限制 / usage：两页示例分别使用 `max_completion_tokens` 与 `max_tokens: 4096`，未证实套餐专属上限；
+///   OpenAI usage 有 prompt/completion/total 与 `prompt_tokens_details.cached_tokens`，Anthropic usage 有
+///   input/output、cache-read 与 cache-creation token。未证实 Token Plan 是否另有 usage 字段。
+/// - 错误 / 流：API 参考展示 OpenAI `base_resp` 与 Anthropic `type=error` 形状；支持 stream，但 Token Plan
+///   专属错误体、事件、usage 语义及终止标记未证实。沿用家族基座错误、流与 usage 处理，不新增映射。
+/// - coding_plan 注入：套餐页未记录 chat 请求专属注入字段，保持 no-op；两协议本地假上游测试覆盖请求、响应、流、错误与 usage。
+///
+/// https://platform.minimaxi.com/docs/token-plan/other-tools （重定向至 minimax.cn）
+/// https://platform.minimaxi.com/docs/api-reference/text-chat-openai.md
+/// https://platform.minimaxi.com/docs/api-reference/text-chat-anthropic.md
+/// https://platform.minimaxi.com/docs/api-reference/errorcode.md
+///
+/// `MiniMaxEnAdapter` 与 `MiniMaxCodingAdapter` 继承同一家族基座；成员差异留给各自 issue。
 pub struct MiniMaxFamilyAdapter;
 
 impl PlatformAdapter for MiniMaxFamilyAdapter {
@@ -578,9 +601,346 @@ impl PlatformAdapter for MiniMaxEnAdapter {
     }
 }
 
+/// MiniMax Token Plan 成员适配器；文档未证实专属差异，沿用家族基座默认转换。
+struct MiniMaxCodingAdapter;
+
+impl PlatformAdapter for MiniMaxCodingAdapter {
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        MINIMAX_FAMILY.apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking);
+    }
+}
+
+/// 阿里云百炼 家族基座（issue 78；成员 bailian / bailian_en / bailian_coding /
+/// bailian_coding_en 共用，成员差异见各成员 issue 123 / 124 / 125 / 126）。
+///
+/// 家族共性取证（官方文档原文，核对日期 2026-11-19）：
+/// - 思考开关（openai 端点）：混合思考模型用顶层布尔参数 `enable_thinking`（「设为
+///   `true`：模型先思考再回复；设为 `false`：模型直接回复」；「该参数非 OpenAI 标准参数。
+///   通过 Python SDK 调用时，请放入 extra_body 对象中…若不使用 OpenAI SDK，而是通过
+///   HTTP（如 curl）方式直接调用，则无需 extra_body，直接将 enable_thinking 与 model、
+///   messages 等参数一样放在请求体的顶层即可」）。控制参数因模型而异：DeepSeek-V4 系列
+///   用 `reasoning_effort` 调推理力度、稀宇科技直供 MiniMax 用 `thinking` 参数
+///   （per-model 差异，不在基座覆写，成员 issue 层处理）；仅思考模型（deepseek-r1、
+///   kimi-k2.7-code 等）无法关闭，registry 标 `thinking_toggleable: false` 走基座强制
+///   思考剥除。https://help.aliyun.com/zh/model-studio/deep-thinking
+///   https://help.aliyun.com/zh/model-studio/qwen-api-via-openai-chat-completions
+/// - 思考开关（anthropic 端点）：`thinking.type` 取值 `enabled` / `disabled`
+///   （「可选值：enabled（开启思考模式）、disabled（关闭思考模式）」），与基座 anthropic
+///   臂同形，不覆盖；思考强度新写法为百炼扩展参数 `output_config.effort`（aidog 不写即
+///   官方默认）。https://help.aliyun.com/zh/model-studio/anthropic-api-messages
+/// - 流式 / usage（openai 端点）：思考增量 `delta.reasoning_content`、回复
+///   `delta.content`；usage `prompt_tokens_details.cached_tokens`（命中 Cache）、
+///   `completion_tokens_details.reasoning_tokens`（思考 Token，是 text_tokens 的子集）、
+///   `cache_creation` / `cache_write_tokens`（「与 cache_write_tokens 相同，统计时不要
+///   重复相加」）。基座 openai 构件已抽取 cached_tokens 并从 input 扣除；cache_write
+///   是否计入 prompt_tokens 文档未明示，基座按 input 计，不覆盖（家族级取舍同 Kimi 基座）。
+///   https://help.aliyun.com/zh/model-studio/qwen-api-via-openai-chat-completions
+///   https://help.aliyun.com/zh/model-studio/deep-thinking
+/// - usage（anthropic 端点）：`input_tokens`「仅统计未读取也未创建缓存的输入 Token 数；
+///   全部输入为本字段与缓存读取、创建 Token 数之和」+ `cache_read_input_tokens` /
+///   `cache_creation_input_tokens`，与基座 anthropic 臂一致，不覆盖。
+///   https://help.aliyun.com/zh/model-studio/anthropic-api-messages
+/// - 错误体：404 `ModelNotFound` / `model_not_found`（「Model can not be found.」/
+///   「The model xxx does not exist.」/「The model xxx does not exist or you do not have
+///   access to it.」）——基座特征（model + does not exist / model_not_found）归模型类；
+///   401（InvalidApiKey/invalid_api_key）/ 403（AccessDenied/access_denied）/
+///   429（Throttling.RateQuota 等）按状态码归服务类；错误体统一 JSON 形状未证实，基座
+///   `error.message/code/type` 与顶层双形态读法已覆盖，不扩展。
+///   https://help.aliyun.com/zh/model-studio/error-code
+/// - 工具 / 图片与多模态 / system：Chat Completions 文档给出 `tools` / `tool_choice` /
+///   `image_url` 等 OpenAI 标准形状；Anthropic Messages 支持 system / tools / 图片
+///   内容块；均与基座构件一致，不覆盖。
+///   https://help.aliyun.com/zh/model-studio/qwen-api-via-openai-chat-completions
+///   https://help.aliyun.com/zh/model-studio/anthropic-api-messages
+/// - coding_plan 注入：四个成员均无官方必填/建议的出站附加字段（Claude Code 接入页只要求
+///   换 base_url 与 API Key），基座按平台协议分派对 BailianCoding / BailianCodingEn
+///   协议为 no-op，行为不变。https://help.aliyun.com/zh/model-studio/claude-code
+/// - 未证实（保持基座默认）：DashScope 对 vLLM 式 `chat_template_kwargs.enable_thinking`
+///   的认受性（官方只列顶层 `enable_thinking`，故覆写 openai 臂）、错误体统一 JSON 形状、
+///   cache_write 是否计入 prompt_tokens、max_tokens 统一上限。
+///
+/// 成员 `bailian`（百炼（阿里云）；issue 123）、`bailian_en`（百炼国际版；issue 124）、
+/// `bailian_coding`（百炼编程；issue 125）、`bailian_coding_en`（百炼编程国际版；issue 126）：
+/// 均登记为 [`BailianFamilyAdapter`]；registry 内置默认端点与官方一致（中国站
+/// dashscope.aliyuncs.com、国际站 dashscope-intl / dashscope-us、编码套餐
+/// coding.dashscope.aliyuncs.com / coding-intl.dashscope.aliyuncs.com 的 compatible-mode/v1
+/// 与 apps/anthropic），运行时只用用户平台配置的端点。成员级差异（如按模型的思考参数分派）
+/// 由各成员 issue 取证后覆盖。
+pub struct BailianFamilyAdapter;
+
+impl PlatformAdapter for BailianFamilyAdapter {
+    /// 差异：openai 端点禁思考写官方顶层 `enable_thinking: false`，不写基座第三方端点用的
+    /// vLLM 式 `chat_template_kwargs.enable_thinking`（DashScope Chat Completions 文档只列
+    /// 顶层参数；`enable_thinking` 已在基座剔参清单内，写 false 前同样剥掉客户端带来的旧值
+    /// 与 `thinking` / `reasoning_effort` 等开启型参数）。其余 wire 与强制思考路径同基座；
+    /// `Protocol::OpenAICompletions` 不在覆写范围内（家族成员内置默认端点仅 openai /
+    /// anthropic，用户手配 openai_completions 端点仍走基座 `chat_template_kwargs` 写法，
+    /// 与 GLM 基座同口径）。
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        if wire != &Protocol::OpenAI || forced_thinking {
+            return hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking);
+        }
+        let Some(obj) = body.as_object_mut() else {
+            return;
+        };
+        obj.remove("disable_thinking");
+        if !disable {
+            return;
+        }
+        for k in [
+            "thinking",
+            "context_management",
+            "reasoning_effort",
+            "reasoning",
+            "enable_thinking",
+        ] {
+            obj.remove(k);
+        }
+        if let Some(ctk) = obj
+            .get_mut("chat_template_kwargs")
+            .and_then(|o| o.as_object_mut())
+        {
+            ctk.remove("enable_thinking");
+        }
+        if let Some(gc) = obj
+            .get_mut("generationConfig")
+            .and_then(|o| o.as_object_mut())
+        {
+            gc.remove("thinkingConfig");
+        }
+        obj.insert("enable_thinking".to_string(), Value::Bool(false));
+    }
+}
+
+/// 火山方舟 家族基座（issue 79；成员 doubao / byteplus 共用，成员差异见子 issue 127 / 128）。
+///
+/// 家族共性取证（官方文档原文，核对日期 2026-11-19；volcengine.com/docs/82379 已 301 到
+/// docs.volcengine.com，BytePlus 文档站 docs.byteplus.com/en/docs/ModelArk 页面 JS 渲染抓不到
+/// 正文，仅得「Deep reasoning」「Responses API」等条目名，字节跳动同源关系未逐条复核）：
+/// - 思考开关（openai 端点）：顶层对象参数 `thinking.type`，「enabled：开启思考模式，模型强制
+///   先思考再回答」「disabled：关闭思考模式，模型直接回答问题，不进行思考」；另有
+///   `reasoning_effort` 七档（none/minimal/low/medium/high/xhigh/max，「none：关闭思考」）。
+///   文档无 `chat_template_kwargs`，故覆写 openai 臂（见下）。
+///   https://www.volcengine.com/docs/82379/1494384
+/// - 思考开关（anthropic 端点）：Claude Code 接入走「兼容 Anthropic Messages 接口协议的服务」
+///   （「Claude Code 通过兼容 Anthropic Messages 接口协议的服务调用豆包搜索能力」），thinking
+///   词表与基座 anthropic 臂同形，不覆盖。https://docs.volcengine.com/docs/ark/ai-tools-claude-code?lang=zh
+/// - 思考开关（openai_responses 端点）：Responses API 同收 `thinking: {type}` 与
+///   `reasoning.effort` 七档（「none：关闭思考」「minimal：关闭思考，直接回答」），基座
+///   `reasoning: {"effort": "none"}` 官方可受，不覆盖。
+///   https://docs.volcengine.com/docs/ark/responses-api-deep-thinking?lang=zh
+/// - 流式（openai 端点）：`choices.delta.reasoning_content`（「思考内容原文」，seed 系列 +
+///   deepseek-v4-pro/flash）、`choices.delta.encrypted_content`（思考加密原文，优先级高于
+///   reasoning_content）、`delta.content`；usage 随 chunk 返回或经 `stream_options.include_usage`。
+///   基座 openai 流式构件已按 delta.reasoning_content 抽取，不覆盖。
+///   https://www.volcengine.com/docs/82379/1494384
+/// - usage（openai 端点）：`prompt_tokens_details.cached_tokens`（「缓存命中的输入内容…所消耗
+///   的 token 总数」）、`completion_tokens_details.reasoning_tokens`（「输出思维链内容花费的
+///   token 数」）、`total_tokens`；基座 openai 构件已抽取 cached_tokens 并从 input 扣除，
+///   不覆盖（cache_write 未在文档出现，无该键即基座按 0 处理）。
+///   https://www.volcengine.com/docs/82379/1494384
+/// - usage（openai_responses 端点）：`usage.output_tokens_details.reasoning_tokens`（「为原始
+///   思考内容的 tokens，计费仍然按原始思考内容 token 计算」），与基座 responses 构件一致。
+///   https://docs.volcengine.com/docs/ark/responses-api-deep-thinking?lang=zh
+/// - 错误体：404 `NotFound.InvalidEndpointOrModel.NotFound`（「The model or endpoint %s does not
+///   exist or you do not have access to it.」）——message 含 model + does not exist，命中基座
+///   特征归模型类；401 `AuthenticationError` / 429 `RateLimitExceeded.*`（EndpointRPMExceeded /
+///   ModelAccountRpmRateLimitExceeded 等）按状态码归服务类；错误体统一 JSON 形状未证实（错误码
+///   页只列 HTTP状态码/Type/Code/Message 表格，无 JSON 示例），基座 `error.message/code/type` 与
+///   顶层双形态读法已覆盖，不扩展。https://docs.volcengine.com/docs/ark/error-codes?lang=zh
+/// - 工具 / 图片与多模态 / system：messages role 固定 system/user/assistant/tool；content 数组
+///   块 `text` / `image_url`（含 file_id/detail） / `video_url` / `input_audio` / `file`（PDF），
+///   tool 消息支持图片（方舟对 OpenAI 形状的兼容扩展）；`tools` type「当前仅支持 function」；
+///   均为 OpenAI 标准形状 + 扩展，与基座构件一致，不覆盖。
+///   https://www.volcengine.com/docs/82379/1494384
+/// - 请求默认值：`max_tokens` 默认 4096（部分模型 131072）、`temperature` 默认 1.0、`top_p`
+///   默认 0.7；aidog 不注入默认值（仅按模型上限裁剪超限值），不覆盖。
+///   https://www.volcengine.com/docs/82379/1494384
+/// - coding_plan 注入：官方 Claude Code 接入页只要求设 base_url 与 API Key（ANTHROPIC_BASE_URL /
+///   ANTHROPIC_AUTH_TOKEN），无出站附加字段；基座按平台协议分派对 Doubao / BytePlus 协议为
+///   no-op，行为不变。https://docs.volcengine.com/docs/ark/ai-tools-claude-code?lang=zh
+/// - 未证实（保持基座默认）：错误体统一 JSON 形状、BytePlus 站正文与火山站的逐条一致性、
+///   assistant 消息回传 `encrypted_content` 的网关侧处理（篡改报 Invalid signature，aidog
+///   不改写历史消息，默认透传）、cache_write 类字段是否存在。
+///
+/// 成员 `doubao`（火山引擎（字节跳动）；issue 127）、`byteplus`（BytePlus；issue 128）：
+/// 均登记为 [`ArkFamilyAdapter`]；registry 内置默认端点与官方一致（doubao
+/// ark.cn-beijing.volces.com/api/plan[/v3]、byteplus ark.ap-southeast.bytepluses.com/api/plan[/v3]，
+/// 协议 anthropic / openai / openai_responses），运行时只用用户平台配置的端点。既有平台特定行为
+/// 不变（doubao coding 端点 anthropic wire 无条件剥离 redacted_thinking 块，见
+/// aidog_core gateway/proxy/forward.rs）。成员级差异由子 issue 127 / 128 取证后覆盖。
+pub struct ArkFamilyAdapter;
+
+impl PlatformAdapter for ArkFamilyAdapter {
+    /// 差异：openai 端点禁思考写官方顶层 `thinking: {"type": "disabled"}`，不写基座第三方端点用的
+    /// vLLM 式 `chat_template_kwargs.enable_thinking`（方舟 Chat API 文档只列顶层 `thinking` 对象；
+    /// 写 false 前同样剥掉客户端带来的旧 `thinking` / `reasoning_effort` 等开启型参数）。其余 wire
+    /// 与强制思考路径同基座；`Protocol::OpenAICompletions` 不在覆写范围内（家族成员内置默认端点
+    /// 仅 anthropic / openai / openai_responses，用户手配 openai_completions 端点仍走基座
+    /// `chat_template_kwargs` 写法，与 GLM / 百炼基座同口径）。
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        if wire != &Protocol::OpenAI || forced_thinking {
+            return hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking);
+        }
+        let Some(obj) = body.as_object_mut() else {
+            return;
+        };
+        obj.remove("disable_thinking");
+        if !disable {
+            return;
+        }
+        for k in [
+            "thinking",
+            "context_management",
+            "reasoning_effort",
+            "reasoning",
+            "enable_thinking",
+        ] {
+            obj.remove(k);
+        }
+        if let Some(ctk) = obj
+            .get_mut("chat_template_kwargs")
+            .and_then(|o| o.as_object_mut())
+        {
+            ctk.remove("enable_thinking");
+        }
+        if let Some(gc) = obj
+            .get_mut("generationConfig")
+            .and_then(|o| o.as_object_mut())
+        {
+            gc.remove("thinkingConfig");
+        }
+        obj.insert(
+            "thinking".to_string(),
+            serde_json::json!({"type": "disabled"}),
+        );
+    }
+}
+
+/// 百度千帆 家族基座（issue 80；成员 qianfan / qianfan_coding 共用，成员差异见各成员 issue）。
+///
+/// 家族共性取证（官方文档原文，核对日期 2026-11-19；cloud.baidu.com/doc/qianfan-api 为
+/// Next.js 站、/doc/qianfan 为 Gatsby 站，正文均由原始 HTML 直读）：
+/// - 思考开关（openai 端点）：文本生成 API 顶层对象参数 `thinking.type`——「思考模式类型，
+///   默认值为 `disabled`。可选值：`enabled`：开启思考模式 / `disabled`：关闭思考模式」；
+///   同层另有布尔参数 `enable_thinking`（「默认值为 false」，qwen3 系列与 ernie-4.5-vl 用，
+///   deepseek/glm/kimi 系用 `thinking`，见深度思考文档支持清单）与 `thinking_budget` /
+///   `thinking_strategy`。`reasoning_effort` 词表只有 `high`（默认）与 `max`
+///   （「传入 low 或 medium 将映射为 high；传入 xhigh 将映射为 max」），**无 `none`**；
+///   文档无 vLLM 式 `chat_template_kwargs`，故覆写 openai 臂（见下，写官方
+///   `thinking: {"type": "disabled"}`，与基座 anthropic 臂同形）。不可关闭模型
+///   （glm-5.3 / glm-5.3-flash 等「仅支持开启，不支持关闭」）由 registry
+///   `thinking_toggleable: false` 走基座强制思考剥除、不写参数，不在此覆盖。
+///   https://cloud.baidu.com/doc/qianfan-api/s/3m7of64lb
+///   https://cloud.baidu.com/doc/qianfan-docs/s/Wm95lyynv
+/// - 思考开关（anthropic 端点）：MaaS Anthropic 兼容 API 存在（官方公告对
+///   「Anthropic API 返回参数 input_tokens」作语义更新），thinking 词表与基座 anthropic
+///   臂同形，不覆盖；base_url 未在公开文档单独列出（registry 内置值
+///   https://qianfan.baidubce.com/anthropic 仅用于新建平台预填，运行时只用用户配置端点）。
+///   https://cloud.baidu.com/doc/qianfan/s/empm33i0q
+/// - usage（openai 端点）：`usage.prompt_tokens_details.cached_tokens`（「触发上下文缓存后，
+///   命中缓存的 token 数量」，文档注「该字段仅支持模型版本为 ERNIE-4.0-Turbo-8K」），
+///   基座 openai 构件已抽取并从 input 扣除，不覆盖；`search_tokens`（检索增强膨胀 token）
+///   基座按 0 处理（缓存/搜索均计入 prompt_tokens，aidog 计费不拆检索 token）。
+///   `completion_tokens_details.reasoning_tokens`（思维链 token 消耗量）并入 output，同基座。
+///   https://cloud.baidu.com/doc/qianfan-api/s/3m7of64lb
+///   https://cloud.baidu.com/doc/qianfan-docs/s/Wm95lyynv
+/// - usage（anthropic 端点）：官方公告「input_tokens = prompt_tokens - cache_read_input_tokens」
+///   （与 Anthropic 定义对齐；命中缓存按 `cache_read_input_tokens` 折扣计费），与基座
+///   anthropic 臂一致，不覆盖。https://cloud.baidu.com/doc/qianfan/s/empm33i0q
+/// - 流式（openai 端点）：SSE 按 `data: [DONE]` 结束；`stream_options.include_usage`
+///   （最后一个 chunk 输出 usage）与千帆扩展 `chunk_include_usage`（每包都带 usage）；
+///   思维链走 `message.reasoning_content` / 流式 delta 同名字段。基座 openai 流式构件
+///   已按 delta.reasoning_content 抽取，不覆盖；`delta_tag: search_status` 信号包
+///   （无 content）基座按空 delta 处理，不覆盖。
+///   https://cloud.baidu.com/doc/qianfan-api/s/3m7of64lb
+/// - 错误体：`{"error":{"code","message","type"},"id":…}`，与基座 `error.message/code/type`
+///   读法一致。400 `invalid_model`「model is empty」→ 基座 Unknown（调用方按模型类处理）；
+///   **401** `invalid_request_error/invalid_model`「The model does not exist or you do not
+///   have access to it.」——模型不存在挂 401，基座 401 先于业务码按状态码归服务类（换平台），
+///   不覆盖（同 GLM 家族 1311 先例；复活条件：套餐用户反馈因模型配置错误换平台拖累平台
+///   健康时重开）；403 `model_offline` / 429 `rate_limit_exceeded.*` 按状态码归服务类。
+///   Coding Plan 专属码（401 `coding_plan_api_key_required` / `coding_plan_api_key_not_allowed`，
+///   403 `coding_plan_not_subscribed` / `coding_plan_subscription_expired` /
+///   `coding_plan_model_not_supported`，429 `coding_plan_hour/week/month_quota_exceeded` /
+///   `coding_plan_rate_limit_exceeded` / `coding_plan_cluster_rate_limited`）全部落
+///   401/403/429，按状态码归服务类，不扩展。https://cloud.baidu.com/doc/qianfan-api/s/Om9b4yj3w
+/// - 工具 / 图片与多模态 / system：Chat Completions 标准 OpenAI 形状（`tools[].function`、
+///   `tool_choice` none/auto/required + `{type:function,function:{name}}`、
+///   `parallel_tool_calls`、`finish_reason: "tool_calls"`、`role: "system"`），
+///   `tool_choice: "required"` 官方支持、不降级；图片理解是独立端点（视觉理解，单列 POST），
+///   文本生成接口的 content 数组子属性仅列字符串项，图片块经转换分支的行为不在此覆盖。
+///   https://cloud.baidu.com/doc/qianfan-api/s/3m7of64lb
+/// - coding_plan 注入：官方 Claude Code 接入页（Coding Plan）只要求设 ANTHROPIC_BASE_URL
+///   （https://qianfan.baidubce.com/anthropic/coding）与专属 API Key，无出站附加字段；
+///   基座按平台协议分派对 Qianfan / QianfanCoding 协议为 no-op，行为不变。
+///   https://cloud.baidu.com/doc/qianfan/s/0mn2mnemj
+///   https://cloud.baidu.com/doc/qianfan/s/imlg0beiu （Base URL 与 registry 内置默认一致：
+///   openai `https://qianfan.baidubce.com/v2/coding`、anthropic
+///   `https://qianfan.baidubce.com/anthropic/coding`）
+/// - 未证实（保持基座默认）：错误体在流式帧内的形态、`thinking` 参数对 enable_thinking 清单模型
+///   （qwen3 系）的实际认受性（两参数均为 API 文档顶层参数，逐模型支持清单不同，成员差异归
+///   各成员 issue）、max_tokens 统一上限、`content_filter` 类错误（`flag`/`finish_reason`
+///   安全细分当前按基座处理）。
+///
+/// 成员 `qianfan`（百度千帆，标准 MaaS；成员 issue 待建）、`qianfan_coding`（百度千帆
+/// Coding Plan Lite；成员 issue 待建）：均登记为 [`QianfanFamilyAdapter`]；registry 内置
+/// 默认端点（qianfan anthropic `https://qianfan.baidubce.com/anthropic`；qianfan_coding
+/// openai `https://qianfan.baidubce.com/v2/coding` + anthropic
+/// `https://qianfan.baidubce.com/anthropic/coding`，`coding_plan: true`）与官方一致，
+/// 运行时只用用户平台配置的端点。成员级差异由各成员 issue 取证后覆盖。
+pub struct QianfanFamilyAdapter;
+
+impl PlatformAdapter for QianfanFamilyAdapter {
+    /// 差异：openai 端点禁思考写官方顶层 `thinking: {"type": "disabled"}`（API 文档默认值
+    /// 即 `disabled`），不写基座第三方端点用的 vLLM 式 `chat_template_kwargs.enable_thinking`
+    /// （千帆 Chat Completions 文档无此参数；写出值与基座 anthropic 臂相同，故按 anthropic 臂
+    /// 执行）；写 false 前同样剥掉客户端带来的旧 `thinking` / `enable_thinking` /
+    /// `reasoning_effort` 等开启型参数（`enable_thinking` 默认 false，qwen3 系模型官方开关）。
+    /// 其余 wire 与强制思考路径同基座；`Protocol::OpenAICompletions` 不在覆写范围内（家族成员
+    /// 内置默认端点仅 openai / anthropic，用户手配 openai_completions 端点仍走基座
+    /// `chat_template_kwargs` 写法，与 GLM / 百炼 / 方舟基座同口径）。
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        let wire = match wire {
+            Protocol::OpenAI => &Protocol::Anthropic,
+            w => w,
+        };
+        hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking)
+    }
+}
+
 static GENERIC: GenericAdapter = GenericAdapter;
 static MINIMAX_FAMILY: MiniMaxFamilyAdapter = MiniMaxFamilyAdapter;
 static MINIMAX: MiniMaxAdapter = MiniMaxAdapter;
+static MINIMAX_CODING: MiniMaxCodingAdapter = MiniMaxCodingAdapter;
 static MINIMAX_EN: MiniMaxEnAdapter = MiniMaxEnAdapter;
 static KIMI: KimiFamilyAdapter = KimiFamilyAdapter {
     official_openai_thinking: true,
@@ -595,6 +955,9 @@ static KIMI_CODING: KimiFamilyAdapter = KimiFamilyAdapter {
     downgrade_required_tool_choice: false,
 };
 static GLM: GlmFamilyAdapter = GlmFamilyAdapter;
+static BAILIAN: BailianFamilyAdapter = BailianFamilyAdapter;
+static ARK: ArkFamilyAdapter = ArkFamilyAdapter;
+static QIANFAN: QianfanFamilyAdapter = QianfanFamilyAdapter;
 
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
@@ -602,10 +965,12 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("aihubmix", &GENERIC),
     ("anthropic", &GENERIC),
     ("atlascloud", &GENERIC),
-    ("bailian", &GENERIC),
-    ("bailian_coding", &GENERIC),
-    ("bailian_coding_en", &GENERIC),
-    ("bailian_en", &GENERIC),
+    ("bailian", &BAILIAN),
+    ("bailian_coding", &BAILIAN),
+    ("bailian_coding_en", &BAILIAN),
+    ("bailian_en", &BAILIAN),
+    // BytePlus 官方文档未逐条核实（docs.byteplus.com JS 渲染抓不到正文），保持 GENERIC 基座
+    // 默认行为；取得证据确认与本家族一致后再绑 ARK。
     ("byteplus", &GENERIC),
     ("claude_code", &GENERIC),
     ("cline", &GENERIC),
@@ -617,7 +982,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("crazyrouter", &GENERIC),
     ("deepseek", &GENERIC),
     ("devin", &GENERIC),
-    ("doubao", &GENERIC),
+    ("doubao", &ARK),
     ("gemini", &GENERIC),
     ("glm", &GLM),
     ("glm_coding", &GLM),
@@ -632,7 +997,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("magpie", &GENERIC),
     ("meta", &GENERIC),
     ("minimax", &MINIMAX),
-    ("minimax_coding", &MINIMAX_FAMILY),
+    ("minimax_coding", &MINIMAX_CODING),
     ("minimax_en", &MINIMAX_EN),
     ("mistral", &GENERIC),
     ("modelscope", &GENERIC),
@@ -645,8 +1010,8 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("openrouter", &GENERIC),
     ("passthrough", &GENERIC),
     ("pipellm", &GENERIC),
-    ("qianfan", &GENERIC),
-    ("qianfan_coding", &GENERIC),
+    ("qianfan", &QIANFAN),
+    ("qianfan_coding", &QIANFAN),
     ("sensenova", &GENERIC),
     ("sensenova_en", &GENERIC),
     ("shengsuanyun", &GENERIC),
