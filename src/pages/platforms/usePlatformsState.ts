@@ -45,8 +45,8 @@ function readExtraExpanded(extra: string | undefined | null): boolean {
 }
 
 export interface PlatformsStateParams {
-  onNavigate?: (id: string, context?: { platformId?: number; platformName?: string; duplicate?: boolean }) => void;
-  initialFilter?: { platformId?: number; platformName?: string; duplicate?: boolean };
+  onNavigate?: (id: string, context?: { platformId?: number; platformName?: string; duplicate?: boolean; detail?: boolean }) => void;
+  initialFilter?: { platformId?: number; platformName?: string; duplicate?: boolean; detail?: boolean };
   /** GroupsEmbedded reload 命令入口（保存/删除/清理后调用，确定性重建分组卡 platforms 态）。 */
   groupsReloadRef: React.MutableRefObject<(() => void) | null>;
 }
@@ -144,6 +144,14 @@ export interface PlatformsState extends PlatformsStateParams {
   form: PlatformFormState;
   /** 来自 usePlatformQuota 的余额/配额调度子系统（整包透传）。 */
   quota: ReturnType<typeof usePlatformQuota>;
+  /** 详情全页态（T2）：当前详情平台 + 开/关（列表状态原地保留）。 */
+  detail: {
+    detailPlatform: Platform | null;
+    handleDetail: (p: Platform) => void;
+    closeDetail: () => void;
+  };
+  /** platformId → 所属分组名列表（chips + 详情页分组行共用）。 */
+  platformMembership: Map<number, string[]>;
   /** 主 URL 推导 helper（form header desc + fetch models 回退链共用；非 slice 内聚，留顶层）。 */
   getPrimaryBaseUrl: (proto: Protocol, eps: PlatformEndpoint[]) => string;
 }
@@ -318,6 +326,12 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
 
   // ════════════ QUOTA SUBSYSTEM ════════════
   const quota = usePlatformQuota(t);
+
+  // ════════════ 详情全页（T2）════════════
+  // 详情态在列表 hook 内（与 form.showForm 同层）：列表状态原地保留，返回即恢复。
+  const [detailPlatform, setDetailPlatform] = useState<Platform | null>(null);
+  const handleDetail = useCallback((p: Platform) => setDetailPlatform(p), []);
+  const closeDetail = useCallback(() => setDetailPlatform(null), []);
 
   // ════════════ MEMBERSHIP / GROUPS ════════════
   const [groupDetails, setGroupDetails] = useState<GroupDetail[]>([]);
@@ -707,8 +721,9 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     if (!target) return;  // 列表尚未加载到该平台，待 platforms 更新后重试
     consumedEditPidRef.current = pid;
     if (initialFilter?.duplicate) form.handleDuplicate(target);
+    else if (initialFilter?.detail) setDetailPlatform(target);
     else form.handleEdit(target);
-  }, [initialFilter?.platformId, initialFilter?.duplicate, platforms]);
+  }, [initialFilter?.platformId, initialFilter?.duplicate, initialFilter?.detail, platforms]);
 
   // 分组列表（multi-select 数据源 + 编辑态反查手动组归属 + 平台归属映射）。本地查询，失败不阻断编辑。
   useEffect(() => {
@@ -789,6 +804,8 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     drag: dragSlice,
     form,
     quota,
+    detail: { detailPlatform, handleDetail, closeDetail },
+    platformMembership,
     getPrimaryBaseUrl,
   };
 }

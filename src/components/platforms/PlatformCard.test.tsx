@@ -76,7 +76,7 @@ describe("PlatformCard", () => {
     onDelete: vi.fn(),
     onFaviconFailed: vi.fn(),
   };
-  // 票 12：只吃 platform 的 7 个回调拆进 service 对象
+  // 票 12：只吃 platform 的 7 个回调拆进 service 对象；T2 加 onDetail（详情全页入口）
   const mockService = {
     onToggleEnabled: vi.fn(),
     onEdit: vi.fn(),
@@ -85,6 +85,7 @@ describe("PlatformCard", () => {
     onViewLogs: vi.fn(),
     onQuickTest: vi.fn(),
     onCustomTest: vi.fn(),
+    onDetail: vi.fn(),
   };
 
   const basePlatform: Platform = {
@@ -262,6 +263,13 @@ describe("PlatformCard", () => {
     expect(mockService.onQuickTest).toHaveBeenCalledWith(basePlatform);
     fireEvent.click(screen.getByTitle("platform.customTest"));
     expect(mockService.onCustomTest).toHaveBeenCalledWith(basePlatform);
+  });
+
+  it("详情按钮: 卡片操作排渲染且点击派发 onDetail（携带 platform）", () => {
+    render(<PlatformCard {...baseProps} />);
+    const btn = screen.getByTestId("card-detail");
+    fireEvent.click(btn);
+    expect(mockService.onDetail).toHaveBeenCalledWith(basePlatform);
   });
 
   it("余额行不把 Coding Plan 请求消费预估显示成余额", () => {

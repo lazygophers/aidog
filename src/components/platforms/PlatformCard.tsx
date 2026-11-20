@@ -54,6 +54,8 @@ export interface PlatformCardService {
   onViewLogs: (p: Platform) => void;
   onQuickTest: (p: Platform) => void;
   onCustomTest: (p: Platform) => void;
+  /** 详情全页入口（T2）：卡片操作排「详情」按钮。 */
+  onDetail: (p: Platform) => void;
 }
 
 export interface PlatformCardProps {
@@ -872,6 +874,12 @@ function PlatformActionButtons({
         </Button>
       </div>
       )}
+      {/* 详情全页入口（T2）：仅卡片，行视图（PlatformRow）不加 */}
+      <Button variant="ghost" size="icon" style={{ height: "auto" }} data-testid="card-detail" onClick={(e) => { e.stopPropagation(); service.onDetail(platform); }} title={t("platform.detailHint", "查看平台详情")}>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="7" cy="7" r="5.2" /><path d="M7 6.4v3.2" /><path d="M7 4.4h.01" />
+        </svg>
+      </Button>
       <Button variant="ghost" size="icon" style={{ height: "auto" }} onClick={(e) => { e.stopPropagation(); service.onEdit(platform); }} title={t("platform.editHint", "编辑平台")}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M10 2l2 2-7 7H3v-2l7-7z" />
