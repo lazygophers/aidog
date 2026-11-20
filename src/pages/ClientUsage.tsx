@@ -65,7 +65,7 @@ function presetRange(preset: Preset, from: string, to: string): { fromMs: number
   return { fromMs: s.getTime(), toMs: now.getTime() };
 }
 
-// 会话花费列：cost<=0 视为未定价（session 行无 unpriced 标记，SUM(cost) 对全未定价会话为 0）。
+// 模型花费列近似口径：cost<=0 视为未定价（免费模型 cost=0 会误标；会话行已改用后端 unpricedCalls 真实字段）。
 const isUnpriced = (cost: number) => !(cost > 0);
 
 export function ClientUsage() {
@@ -403,9 +403,11 @@ export function ClientUsage() {
                       <TableCell className="text-right tabular-nums">{formatNumber(s.calls)}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatNumber(s.inputTokens + s.outputTokens)}</TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {isUnpriced(s.cost)
-                          ? <span data-testid="session-unpriced">{t("clientUsage.unpriced", "未定价")}</span>
-                          : formatMoney(s.cost)}
+                        {s.unpricedCalls === 0
+                          ? formatMoney(s.cost)
+                          : s.unpricedCalls === s.calls
+                            ? <span data-testid="session-unpriced">{t("clientUsage.unpriced", "未定价")}</span>
+                            : <span data-testid="session-mixed-cost">{formatMoney(s.cost)} <span className="text-xs text-muted-foreground">{t("clientUsage.unpriced", "未定价")} ×{s.unpricedCalls}</span></span>}
                       </TableCell>
                       <TableCell className="text-right text-sm tabular-nums">
                         {new Date(s.lastCallMs).toLocaleString()}

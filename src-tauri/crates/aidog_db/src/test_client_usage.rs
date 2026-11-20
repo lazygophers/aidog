@@ -208,3 +208,48 @@ async fn cleanup_client_usage_deletes_expired_and_empty_sessions_keeps_progress(
     assert_eq!(count_sessions(&db, "claude_code".into()).await, 1, "仅剩有明细的会话");
     assert_eq!(count_progress(&db, "claude_code".into()).await, 1, "进度表不动");
 }
+
+/// 会话行未定价口径：unpriced_calls = cost IS NULL 的调用数；免费模型（cost=0.0）不算未定价。
+#[tokio::test]
+async fn client_usage_sessions_reports_unpriced_calls() {
+    let (db, _dir) = four_file_db().await;
+    let now = crate::now();
+    let mk = |sess: &str, pos: i64, cost: Option<f64>| ClientCallRow {
+        client_code: "claude_code".into(),
+        session_id: sess.into(),
+        call_time_ms: now,
+        source_file_id: format!("{sess}-f"),
+        file_pos: pos,
+        cost,
+        ..Default::default()
+    };
+    insert_client_calls(
+        &db,
+        &[
+            mk("sess-full", 1, None),
+            mk("sess-full", 2, None),
+            mk("sess-mixed", 1, Some(0.5)),
+            mk("sess-mixed", 2, None),
+            mk("sess-free", 1, Some(0.0)),
+        ],
+    )
+    .await
+    .expect("insert calls");
+    for (s, t) in [("sess-full", 3), ("sess-mixed", 2), ("sess-free", 1)] {
+        upsert_client_session(&db, "claude_code".into(), s.into(), String::new(), "/w".into(), now, t)
+            .await
+            .expect("upsert session");
+    }
+
+    let rows = client_usage_sessions(&db, 0, now + 1000, None, 100).await.expect("sessions");
+    let by_id = |id: &str| rows.iter().find(|r| r.session_id == id).unwrap_or_else(|| panic!("missing {id}"));
+    let full = by_id("sess-full");
+    assert_eq!((full.calls, full.cost), (2, 0.0), "全未定价会话");
+    assert_eq!(full.unpriced_calls, 2, "全未定价会话 unpriced == calls");
+    let mixed = by_id("sess-mixed");
+    assert_eq!(mixed.cost, 0.5, "混合会话 cost 只含已定价行");
+    assert_eq!(mixed.unpriced_calls, 1, "混合会话 unpriced 居中");
+    let free = by_id("sess-free");
+    assert_eq!((free.calls, free.cost), (1, 0.0), "免费模型会话");
+    assert_eq!(free.unpriced_calls, 0, "免费模型（cost=0.0 已定价）不算未定价");
+}
