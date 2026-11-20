@@ -6,6 +6,7 @@
 pub mod reader;
 pub mod reader_codex;
 pub mod reader_gemini;
+pub mod reader_opencode;
 pub mod watch;
 #[cfg(test)]
 #[path = "test_reader.rs"]
@@ -19,6 +20,12 @@ mod test_reader_gemini;
 #[cfg(test)]
 #[path = "test_watch.rs"]
 mod test_watch;
+#[cfg(test)]
+#[path = "test_reader_opencode.rs"]
+mod test_reader_opencode;
+#[cfg(test)]
+#[path = "plain_sqlite_probe.rs"]
+mod plain_sqlite_probe;
 
 /// 全局 IMPORT_STATE 只有一份，跨 reader 两个测试模块的用例用它串行化。
 #[cfg(test)]
@@ -110,6 +117,7 @@ pub(crate) fn client_root(code: &str) -> Option<std::path::PathBuf> {
             Some(home.join("sessions"))
         }
         "gemini_cli" => dirs::home_dir().map(|h| h.join(".gemini").join("tmp")),
+        "opencode" => reader_opencode::preferred_root(),
         _ => None,
     }
 }
@@ -135,7 +143,9 @@ fn enumerate_files(root: &std::path::Path) -> Vec<std::path::PathBuf> {
     out
 }
 
-/// 折算用平台码：客户端 → 官方平台（codex → openai、gemini_cli → gemini；OpenCode 按名匹配是票 06）。
+/// 折算用平台码：客户端 → 官方平台（codex → openai、gemini_cli → gemini；
+/// opencode → 空串：模型按名匹配，`model_entry_for_billing` 平台 miss 走
+/// any-platform 官方优先查找，不固定单一平台）。
 fn billing_platform(client_code: &str) -> &'static str {
     match client_code {
         "codex" => "openai",
@@ -304,6 +314,129 @@ fn meta_mtime_ms(meta: &std::fs::Metadata) -> i64 {
         .unwrap_or(0)
 }
 
+/// opencode 单文件处理：进度未变 → None（跳过）；变了 → 删状态全量重读
+/// （消息文件与 opencode.db 都可能原地改写，幂等插入挡不住 token 更新，必须删重读）。
+pub(crate) async fn scan_opencode_path(
+    db: &aidog_db::Db,
+    path: &std::path::Path,
+    root: &std::path::Path,
+    prog: Option<aidog_db::ClientFileProgress>,
+) -> Result<Option<i64>, String> {
+    let path_str = path.to_string_lossy().into_owned();
+    let unchanged = std::fs::metadata(path).ok().is_some_and(|m| {
+        prog.as_ref().is_some_and(|p| {
+            p.file_size == m.len() as i64 && p.mtime_ms == meta_mtime_ms(&m)
+        })
+    });
+    if unchanged {
+        return Ok(None);
+    }
+    if prog.is_some() {
+        aidog_db::delete_client_file_state(db, "opencode", &path_str).await?;
+    }
+    let (path2, root2) = (path.to_path_buf(), root.to_path_buf());
+    let out = tokio::task::spawn_blocking(move || reader_opencode::scan(&path2, &root2))
+        .await
+        .map_err(|e| format!("scan task: {e}"))??;
+    // 折算：平台码空串 → model_entry_for_billing 走 any-platform 官方优先按名匹配。
+    let mut rows = Vec::with_capacity(out.entries.len());
+    for (i, r) in out.entries.iter().enumerate() {
+        let cost = resolve_cost(db, "", &r.model, r).await;
+        rows.push(ClientCallRow {
+            client_code: "opencode".to_string(),
+            session_id: r.session_id.clone(),
+            is_sidechain: r.is_sidechain,
+            call_time_ms: r.call_time_ms,
+            model: r.model.clone(),
+            input_tokens: r.input_tokens,
+            output_tokens: r.output_tokens,
+            cache_read_tokens: r.cache_read_tokens,
+            cache_write_tokens: r.cache_write_tokens,
+            reasoning_tokens: r.reasoning_tokens,
+            cost,
+            source_file_id: path_str.clone(),
+            file_pos: out.positions[i],
+        });
+    }
+    let mut inserted = 0i64;
+    for chunk in rows.chunks(500) {
+        inserted += aidog_db::insert_client_calls(db, chunk).await? as i64;
+    }
+    for s in &out.sessions {
+        aidog_db::upsert_client_session(
+            db,
+            "opencode".to_string(),
+            s.id.clone(),
+            aidog_db::truncate_name(&s.title, 60),
+            s.workdir.clone(),
+            s.first_ms,
+            s.last_ms,
+        )
+        .await?;
+    }
+    aidog_db::upsert_client_file_progress(
+        db,
+        aidog_db::ClientFileProgress {
+            client_code: "opencode".to_string(),
+            path: path_str,
+            file_size: out.file_size,
+            mtime_ms: out.mtime_ms,
+            read_offset: out.file_size,
+            parse_errors: out.parse_errors as i64,
+            last_msg_id: String::new(),
+        },
+    )
+    .await?;
+    Ok(Some(inserted))
+}
+
+/// opencode 导入（db 单文件或 JSON store 消息文件集）。`only_with_progress` 同
+/// `run_import` 语义（启动增量只读进度表已有文件）。
+async fn run_import_opencode(
+    db: &aidog_db::Db,
+    root: &std::path::Path,
+    only_with_progress: bool,
+) -> Result<i64, String> {
+    let mut paths = reader_opencode::enumerate(root);
+    let progress = aidog_db::list_client_file_progress(db, "opencode").await?;
+    let prog_map: HashMap<String, aidog_db::ClientFileProgress> =
+        progress.into_iter().map(|p| (p.path.clone(), p)).collect();
+    if only_with_progress {
+        paths.retain(|p| prog_map.contains_key(&p.to_string_lossy().into_owned()));
+    }
+    set_import_state(Some(ImportState {
+        running: true,
+        client_code: "opencode".to_string(),
+        started_at_ms: aidog_db::now(),
+        files_total: paths.len() as i64,
+        ..Default::default()
+    }));
+    let mut total = 0i64;
+    for path in &paths {
+        let path_str = path.to_string_lossy().into_owned();
+        let prog = prog_map.get(&path_str).cloned();
+        match scan_opencode_path(db, path, root, prog).await {
+            Ok(Some(n)) => {
+                total += n;
+                bump_state(|s| {
+                    s.files_done += 1;
+                    s.calls_imported += n;
+                });
+            }
+            Ok(None) => bump_state(|s| s.files_done += 1),
+            Err(e) => bump_state(|s| {
+                s.files_done += 1;
+                s.error = e;
+            }),
+        }
+    }
+    bump_state(|s| {
+        s.running = false;
+        s.finished_at_ms = aidog_db::now();
+    });
+    Ok(total)
+}
+
 async fn run_import(
     db: &aidog_db::Db,
     root: Option<std::path::PathBuf>,
@@ -320,6 +453,20 @@ async fn run_import(
         let Some(root) = root.clone().or_else(|| client_root(code)) else {
             continue;
         };
+        // opencode 走专用链（db 单文件 / JSON store 消息文件集，与 jsonl 文件语义不同）。
+        if code == "opencode" {
+            match run_import_opencode(db, &root, only_with_progress).await {
+                Ok(n) => *total += n,
+                Err(e) => set_import_state(Some(ImportState {
+                    running: false,
+                    client_code: code.clone(),
+                    error: e,
+                    finished_at_ms: aidog_db::now(),
+                    ..Default::default()
+                })),
+            }
+            continue;
+        }
         let progress = aidog_db::list_client_file_progress(db, code).await?;
         let mut paths: Vec<std::path::PathBuf> = if only_with_progress {
             progress.iter().map(|p| std::path::PathBuf::from(&p.path)).collect()
