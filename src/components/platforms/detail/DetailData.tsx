@@ -101,7 +101,7 @@ export function DetailData({ platform: p }: { platform: Platform }) {
         {!isSubscription && p.est_balance_remaining > 0 && (
           <div data-testid="detail-t3-balance" style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>
             {formatMoney(p.est_balance_remaining)}
-            <span style={{ fontSize: 12, fontWeight: 400, color: "var(--muted-foreground)", marginLeft: 8 }}>
+            <span style={{ fontSize: 14, fontWeight: 400, color: "var(--muted-foreground)", marginLeft: 8 }}>
               {t("platform.detail.balance", "余额")}
             </span>
           </div>
@@ -123,7 +123,7 @@ export function DetailData({ platform: p }: { platform: Platform }) {
                 data-testid={`detail-t3-win-${w}`}
                 onClick={() => setWin(w)}
                 style={{
-                  fontSize: 11, padding: "3px 10px", cursor: "pointer", borderRadius: 4,
+                  fontSize: 14, padding: "3px 10px", cursor: "pointer", borderRadius: 4,
                   border: `1px solid ${win === w ? "var(--accent)" : "var(--border)"}`,
                   background: win === w ? "var(--accent-subtle)" : "transparent",
                   color: win === w ? "var(--accent)" : "var(--muted-foreground)",
@@ -147,7 +147,7 @@ export function DetailData({ platform: p }: { platform: Platform }) {
               const v = failStats.counts[cls];
               const total = Math.max(Object.values(failStats.counts).reduce((a, b) => a + b, 0), 1);
               return (
-                <div key={cls} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+                <div key={cls} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
                   <span style={{ width: 44, color: "var(--text-secondary)" }}>{t(FAIL_LABEL[cls], FAIL_FALLBACK[cls])}</span>
                   <div style={{ flex: 1, height: 8, borderRadius: 4, background: "var(--muted)", overflow: "hidden" }}>
                     <div style={{ width: `${(v / total) * 100}%`, height: "100%", background: FAIL_COLOR[cls] }} />
@@ -158,7 +158,7 @@ export function DetailData({ platform: p }: { platform: Platform }) {
             })}
           </div>
           {failStats.recent.length > 0 && (
-            <table style={{ width: "100%", fontSize: 11, borderCollapse: "collapse" }}>
+            <table style={{ width: "100%", fontSize: 14, borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ color: "var(--muted-foreground)", textAlign: "left" }}>
                   <th style={thStyle}>{t("platform.detail.colTime", "时间")}</th>
@@ -186,7 +186,7 @@ export function DetailData({ platform: p }: { platform: Platform }) {
             ? <Empty t={t} />
             : modelRows.map(r => (
               <div key={r.model} data-testid="detail-t3-model-row"
-                style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, padding: "3px 0" }}>
+                style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, padding: "3px 0" }}>
                 <span style={{ width: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                   fontFamily: "var(--font-mono, monospace)" }} title={r.model}>{r.model}</span>
                 <div style={{ flex: 1, height: 8, borderRadius: 4, background: "var(--muted)", overflow: "hidden" }}>
@@ -231,7 +231,7 @@ function StatRows({ t, stats }: { t: (k: string, d: string) => string; stats?: P
         ? <Empty t={t} />
         : rows.map(([k, v]) => (
           <div key={k} data-testid="detail-t3-stat-row"
-            style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "4px 0" }}>
+            style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "4px 0" }}>
             <span style={{ color: "var(--text-secondary)" }}>{k}</span>
             <span style={{ fontFamily: "var(--font-mono, monospace)" }}>{v}</span>
           </div>
@@ -243,7 +243,7 @@ function StatRows({ t, stats }: { t: (k: string, d: string) => string; stats?: P
 function HealthBlock({ t, health }: { t: (k: string, d: string) => string; health?: PlatformHealthDetail }) {
   const secs = (s: number) => (s > 0 ? formatDurationMs(s * 1000) : null);
   const cd = (label: string, s: number) => (
-    <div data-testid="detail-t3-cd-row" style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "3px 0" }}>
+    <div data-testid="detail-t3-cd-row" style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "3px 0" }}>
       <span style={{ color: "var(--text-secondary)" }}>{label}</span>
       <span style={{ color: s > 0 ? "var(--color-warning)" : "var(--muted-foreground)" }}>
         {secs(s) ?? t("platform.detail.noCooldown", "无")}
@@ -254,7 +254,7 @@ function HealthBlock({ t, health }: { t: (k: string, d: string) => string; healt
     <Blk testid="detail-t3-health" title={t("platform.detail.health", "健康状态")} hint={t("platform.detail.live", "实时")}>
       {!health ? <Empty t={t} /> : (
         <div>
-          <div data-testid="detail-t3-breaker" style={{ fontSize: 12, padding: "3px 0", display: "flex", justifyContent: "space-between" }}>
+          <div data-testid="detail-t3-breaker" style={{ fontSize: 14, padding: "3px 0", display: "flex", justifyContent: "space-between" }}>
             <span style={{ color: "var(--text-secondary)" }}>{t("platform.detail.breakerState", "熔断状态")}</span>
             <span style={{ color: health.breaker_open ? "var(--color-danger)" : "var(--color-success)" }}>
               {health.breaker_open
@@ -266,7 +266,7 @@ function HealthBlock({ t, health }: { t: (k: string, d: string) => string; healt
           {cd(t("platform.detail.cdVerdict", "额度判定冷却"), health.quota_verdict_secs)}
           {cd(t("platform.detail.cdAuth", "鉴权冷却"), health.auth_cooldown_secs)}
           {cd(t("platform.detail.cdBalance", "余额冷却"), health.balance_cooldown_secs)}
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "3px 0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "3px 0" }}>
             <span style={{ color: "var(--text-secondary)" }}>{t("platform.detail.peakDisabled", "高峰禁用")}</span>
             <span style={{ color: health.peak_disabled ? "var(--color-warning)" : "var(--muted-foreground)" }}>
               {health.peak_disabled ? t("platform.detail.on", "启用中") : t("platform.detail.off", "未启用")}
@@ -292,7 +292,7 @@ const FAIL_COLOR: Record<FailClass, string> = {
 };
 
 function Empty({ t }: { t: (k: string, d: string) => string }) {
-  return <div style={{ fontSize: 12, color: "var(--muted-foreground)", padding: "8px 0" }}>
+  return <div style={{ fontSize: 14, color: "var(--muted-foreground)", padding: "8px 0" }}>
     {t("platform.detail.noData", "暂无数据")}
   </div>;
 }

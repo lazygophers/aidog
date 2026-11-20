@@ -51,7 +51,7 @@ export function DetailActions({ platform: p, onRefreshQuota, service }: {
         </Button>
       </div>
       {fetchErr && (
-        <div data-testid="detail-fetch-error" className="text-secondary" style={{ marginTop: 8, fontSize: 12, color: "var(--color-danger)", wordBreak: "break-all" }}>
+        <div data-testid="detail-fetch-error" className="text-secondary" style={{ marginTop: 8, fontSize: 14, color: "var(--color-danger)", wordBreak: "break-all" }}>
           {fetchErr}
         </div>
       )}

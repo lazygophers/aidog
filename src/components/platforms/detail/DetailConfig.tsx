@@ -10,18 +10,19 @@ import {
 import { MODEL_SLOTS, PROTOCOL_LABELS } from "../../../domains/platforms";
 import { slotList } from "../../../domains/platforms/slotValue";
 import { useProtocolMeta } from "../../../domains/platforms/useProtocolMeta";
+import { rtlIsolate } from "../../../utils/formatters";
 import { Blk } from "./Blk";
 
 function Row({ k, v }: { k: ReactNode; v: ReactNode }) {
   return (
     <div style={{
       display: "grid", gridTemplateColumns: "92px 1fr", gap: 10,
-      padding: "6px 0", borderBottom: "1px dashed var(--border)", fontSize: 12, alignItems: "baseline",
+      padding: "6px 0", borderBottom: "1px dashed var(--border)", fontSize: 14, alignItems: "baseline",
     }}>
       <span style={{ color: "var(--text-secondary)" }}>{k}</span>
       <span style={{
         color: "var(--text-secondary)", fontFamily: "var(--font-mono, monospace)",
-        fontSize: 12, wordBreak: "break-all",
+        fontSize: 14, wordBreak: "break-all",
       }}>{v}</span>
     </div>
   );
@@ -66,7 +67,7 @@ export function DetailConfig({ platform: p, membership }: {
                   <span key={mi}>
                     {mi > 0 && <span style={{ color: "var(--text-tertiary)" }}>{" → "}</span>}
                     <span style={mi === 0
-                      ? { color: "var(--accent-text)", fontWeight: 600 }
+                      ? { color: "var(--accent)", fontWeight: 600 }
                       : { color: "var(--text-tertiary)" }}>
                       {m}
                     </span>
@@ -76,8 +77,8 @@ export function DetailConfig({ platform: p, membership }: {
             </div>
           ))
         : "-"} />
-      <Row k={t("platform.detail.rateLimits", "限频")} v={rlText || "-"} />
-      <Row k={t("platform.detail.breaker", "熔断")} v={breakerText} />
+      <Row k={t("platform.detail.rateLimits", "限频")} v={rlText ? rtlIsolate(rlText) : "-"} />
+      <Row k={t("platform.detail.breaker", "熔断")} v={rtlIsolate(breakerText)} />
       <Row k={t("platform.detail.peak", "高峰倍率")} v={peakWindows.length > 0
         ? `${peakWindows.length} ×${peakMax}`
         : "-"} />

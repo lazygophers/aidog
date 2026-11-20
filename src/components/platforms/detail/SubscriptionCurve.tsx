@@ -39,7 +39,7 @@ export function SubscriptionCurveView({ curve, nowMs }: {
           <g key={p}>
             <line x1={X0} y1={yScale(p)} x2={X1} y2={yScale(p)}
               stroke={i === 4 ? "var(--input)" : "var(--border)"} strokeWidth={1} />
-            <text x={X0 - 6} y={yScale(p) + 4} textAnchor="end" fontSize={10}
+            <text x={X0 - 6} y={yScale(p) + 4} textAnchor="end" fontSize={14}
               fill="var(--muted-foreground)" fontFamily="var(--font-mono, monospace)">{p}</text>
           </g>
         ))}
@@ -60,7 +60,7 @@ export function SubscriptionCurveView({ curve, nowMs }: {
             <g key={i}>
               <circle cx={cx} cy={yScale(c.pct)} r={5} fill="var(--color-card)"
                 stroke="var(--color-warning)" strokeWidth={2} />
-              <text x={cx + 12} y={yScale(c.pct) - 6} fontSize={10} fill="var(--color-warning)"
+              <text x={cx + 12} y={yScale(c.pct) - 6} fontSize={14} fill="var(--color-warning)"
                 fontFamily="var(--font-mono, monospace)">{calibLabel(c)}</text>
             </g>
           );
@@ -70,7 +70,7 @@ export function SubscriptionCurveView({ curve, nowMs }: {
         {nowPct != null && (
           <>
             <circle cx={todayX} cy={yScale(nowPct)} r={4.5} fill="var(--data-primary)" />
-            <text x={Math.min(todayX, X1 - 60)} y={Y0 - 8} fontSize={10} fill="var(--accent)"
+            <text x={Math.min(todayX, X1 - 60)} y={Y0 - 8} fontSize={14} fill="var(--accent)"
               textAnchor="middle" fontFamily="var(--font-mono, monospace)">
               {t("platform.detail.todayCursor", "今天 · 剩 {{pct}}%").replace("{{pct}}", `${Math.round(nowPct)}`)}
             </text>
@@ -79,19 +79,19 @@ export function SubscriptionCurveView({ curve, nowMs }: {
         {/* 重置竖线 + 标签 */}
         <line x1={planB.x} y1={Y0} x2={planB.x} y2={Y1}
           stroke="var(--muted-foreground)" strokeWidth={1.5} strokeDasharray="4 4" />
-        <text x={planB.x} y={256} fontSize={10} fill="var(--muted-foreground)" textAnchor="end"
+        <text x={planB.x} y={256} fontSize={14} fill="var(--muted-foreground)" textAnchor="end"
           fontFamily="var(--font-mono, monospace)">
           {t("platform.detail.resetAt", "重置于 {{time}}").replace("{{time}}", resetLabel ?? "-")}
         </text>
       </svg>
-      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 11, color: "var(--muted-foreground)", marginTop: 4 }}>
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 14, color: "var(--muted-foreground)", marginTop: 4 }}>
         <LegendSwatch kind="line" label={t("platform.detail.actualLine", "实际剩余（本地记账）")} />
         <LegendSwatch kind="dot" label={t("platform.detail.rawPoints", "原始记账点")} />
         <LegendSwatch kind="dash" label={t("platform.detail.planLine", "计划消耗线")} />
         <LegendSwatch kind="calib" label={t("platform.detail.calibPoints", "额度快照校准点")} />
         <LegendSwatch kind="vline" label={t("platform.detail.resetDay", "重置日")} />
       </div>
-      <div style={{ marginTop: 8, fontSize: 12, color: "var(--text-secondary)" }}>
+      <div style={{ marginTop: 8, fontSize: 14, color: "var(--text-secondary)" }}>
         {t("platform.detail.remainNow", "当前剩余 {{pct}}%").replace("{{pct}}", `${nowPct != null ? Math.round(nowPct) : "-"}`)}
         {deviationFlag && (
           <div data-testid="detail-t3-deviation" style={{ color: "var(--color-warning)", marginTop: 4 }}>

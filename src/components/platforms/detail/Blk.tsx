@@ -14,13 +14,13 @@ export function Blk({ title, hint, testid, children }: {
       style={{ borderBottom: "1px solid var(--border)", padding: "16px 20px 18px" }}
     >
       <h2 style={{
-        fontSize: 13, fontWeight: 600, color: "var(--text-primary)",
+        fontSize: 14, fontWeight: 600, color: "var(--text-primary)",
         margin: "0 0 12px", display: "flex", alignItems: "baseline", gap: 8,
       }}>
         {title}
         {hint != null && (
           <span style={{
-            fontFamily: "var(--font-mono, monospace)", fontSize: 11,
+            fontFamily: "var(--font-mono, monospace)", fontSize: 14,
             color: "var(--text-tertiary)", marginLeft: "auto", fontWeight: 400,
           }}>{hint}</span>
         )}

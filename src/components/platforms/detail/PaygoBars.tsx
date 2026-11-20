@@ -29,7 +29,7 @@ export function PaygoBarsView({ bars }: { bars: DailyBar[] }) {
           return (
             <g key={i}>
               <line x1={X0} y1={y} x2={X1} y2={y} stroke={i === 0 ? "var(--input)" : "var(--border)"} strokeWidth={1} />
-              <text x={X0 - 6} y={y + 4} textAnchor="end" fontSize={10} fill="var(--muted-foreground)"
+              <text x={X0 - 6} y={y + 4} textAnchor="end" fontSize={14} fill="var(--muted-foreground)"
                 fontFamily="var(--font-mono, monospace)">{formatMoney(v)}</text>
             </g>
           );
@@ -50,7 +50,7 @@ export function PaygoBarsView({ bars }: { bars: DailyBar[] }) {
         )}
         {/* 日标签 */}
         {bars.map((b, i) => (
-          <text key={b.day} x={cx(i)} y={196} textAnchor="middle" fontSize={10}
+          <text key={b.day} x={cx(i)} y={196} textAnchor="middle" fontSize={14}
             fill={i === bars.length - 1 ? "var(--accent)" : "var(--muted-foreground)"}
             fontFamily="var(--font-mono, monospace)">
             {i === bars.length - 1
@@ -59,7 +59,7 @@ export function PaygoBarsView({ bars }: { bars: DailyBar[] }) {
           </text>
         ))}
       </svg>
-      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 11, color: "var(--muted-foreground)", marginTop: 4 }}>
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 14, color: "var(--muted-foreground)", marginTop: 4 }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
           <span style={{ width: 12, height: 9, background: "var(--data-primary)", opacity: 0.9, borderRadius: 2, display: "inline-block" }} />
           {t("platform.detail.dailyCost", "每日费用")}

@@ -48,7 +48,7 @@ export function WaterLevel({ platformId }: { platformId: number }) {
     <Blk testid="detail-t5-water" title={t("platform.detail.water", "限频与额度窗口水位")}
       hint={t("platform.detail.live", "实时")}>
       {rows.length === 0 ? (
-        <div data-testid="detail-t5-qw-empty" style={{ fontSize: 12, color: "var(--muted-foreground)", padding: "8px 0" }}>
+        <div data-testid="detail-t5-qw-empty" style={{ fontSize: 14, color: "var(--muted-foreground)", padding: "8px 0" }}>
           {t("platform.detail.noData", "暂无数据")}
         </div>
       ) : rows.map((w, i) => {
@@ -57,7 +57,7 @@ export function WaterLevel({ platformId }: { platformId: number }) {
         return (
           <div key={w.key} data-testid="detail-t5-qw-row"
             style={{ border: "1px solid var(--border)", borderRadius: 7, padding: "8px 10px", marginTop: i === 0 ? 0 : 10 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 6 }}>
               <span style={{ color: "var(--text-secondary)" }}>
                 {t(DIM_KEY[w.dimension] ?? w.dimension, w.dimension)}
                 <span style={{ color: "var(--muted-foreground)" }}>
@@ -72,7 +72,7 @@ export function WaterLevel({ platformId }: { platformId: number }) {
               <div data-testid={`detail-t5-qw-fill-${i}`} title={new Date(w.resets_at_ms).toLocaleString()}
                 style={{ width: `${usedPct}%`, height: "100%", borderRadius: 3, background: fillColor(w.used / (w.budget || 1)) }} />
             </div>
-            <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 4 }}>
+            <div style={{ fontSize: 14, color: "var(--muted-foreground)", marginTop: 4 }}>
               {t("platform.detail.qwResetIn", "{{time}} 后重置").replace("{{time}}", new Date(w.resets_at_ms).toLocaleTimeString())}
             </div>
           </div>
