@@ -310,12 +310,31 @@ mod test_hooks {
     }
 
     #[tokio::test]
-    async fn generate_scripts_writes_files() {
+    async fn generate_scripts_overwrites_stale_files_and_recreates_missing_files() {
         let _guard = HomeGuard::new();
         let invoker = gateway::scripts::ScriptInvoker::Python3;
+        let script_path = _guard
+            .dir
+            .path()
+            .join(".aidog/scripts")
+            .join(aidog_hooks::SCRIPT_EVENT_NOTIFY);
+        std::fs::create_dir_all(script_path.parent().unwrap()).unwrap();
+        std::fs::write(&script_path, "stale script").unwrap();
+
         let scripts = generate_hook_scripts(invoker).unwrap();
         assert!(!scripts.complete.is_empty());
         assert!(!scripts.event_notify.is_empty());
+        assert_eq!(
+            std::fs::read_to_string(&script_path).unwrap(),
+            aidog_hooks::build_event_notify_script()
+        );
+
+        std::fs::remove_file(&script_path).unwrap();
+        generate_hook_scripts(invoker).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&script_path).unwrap(),
+            aidog_hooks::build_event_notify_script()
+        );
     }
 
     #[tokio::test]
