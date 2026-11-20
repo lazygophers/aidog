@@ -1,7 +1,7 @@
 // T3 数据板块（详情页）：B/B' 曲线、C 使用统计（四档窗口）、D 健康明细、E 失败分析、
 // G 模型分布；F 水位板块在 WaterLevel（T5，额度窗口逐条水位；限频占位命令侧不可达未含）。
 // 数据映射纯函数在 chartMath；曲线/柱图为纯渲染视图组件。
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Platform, PlatformUsageStats, PlatformUsageSeriesPoint, PlatformHealthDetail,
   PlatformModelDistributionRow, PlatformQuota, ProxyLogSummary } from "../../../services/api";
@@ -27,11 +27,13 @@ const primaryBaseUrl = (p: Platform): string => {
   return primary?.base_url || eps[0]?.base_url || p.base_url;
 };
 
-export function DetailData({ platform: p }: { platform: Platform }) {
+export function DetailData({ platform: p, col3Extra }: { platform: Platform; col3Extra?: ReactNode }) {
   const { t } = useTranslation();
   const [win, setWin] = useState<Win>("7d");
   const [stats, setStats] = useState<PlatformUsageStats | undefined>();
   const [series, setSeries] = useState<PlatformUsageSeriesPoint[]>([]);
+  const [seriesWindowStart, setSeriesWindowStart] = useState<number | null>(null);
+  const [seriesQueriedAt, setSeriesQueriedAt] = useState<number | null>(null);
   const [health, setHealth] = useState<PlatformHealthDetail | undefined>();
   const [models, setModels] = useState<PlatformModelDistributionRow[]>([]);
   const [fails, setFails] = useState<ProxyLogSummary[]>([]);
@@ -51,7 +53,18 @@ export function DetailData({ platform: p }: { platform: Platform }) {
   // 一次性：7 天序列（曲线/柱图）、健康明细、失败清单（近 7 天）
   useEffect(() => {
     let alive = true;
-    platformApi.usageSeries(p.id, "7d").then(s => { if (alive && Array.isArray(s)) setSeries(s); }).catch(() => {});
+    setSeries([]);
+    setSeriesWindowStart(null);
+    setSeriesQueriedAt(null);
+    // 7d API lower bound is hour-floored; +1h is the first safely complete bucket boundary.
+    const seriesWindowStart = Date.now() - 7 * 86_400_000 + 3_600_000;
+    platformApi.usageSeries(p.id, "7d").then(s => {
+      if (alive && Array.isArray(s)) {
+        setSeries(s);
+        setSeriesWindowStart(seriesWindowStart);
+        setSeriesQueriedAt(Date.now());
+      }
+    }).catch(() => {});
     platformApi.healthDetail(p.id).then(h => { if (alive && h) setHealth(h); }).catch(() => {});
     proxyLogApi.listFiltered({ platform_id: p.id, status: -1, time_start: Date.now() - 7 * 86_400_000 }, 200, 0)
       .then(pg => { if (alive && pg && Array.isArray(pg.items)) setFails(pg.items); })
@@ -61,8 +74,9 @@ export function DetailData({ platform: p }: { platform: Platform }) {
 
   // 订阅平台：一次官方 quota 查询（快照校准点 / resets_at 窗口锚点；失败静默，回落 est 档位）
   useEffect(() => {
-    if (!isSubscription) return;
     let alive = true;
+    setQuota(null);
+    if (!isSubscription) return () => { alive = false; };
     quotaApi.query(primaryBaseUrl(p), p.api_key, p.id)
       .then(q => { if (alive && q && q.success) setQuota(q); })
       .catch(() => {});
@@ -72,51 +86,29 @@ export function DetailData({ platform: p }: { platform: Platform }) {
   const curve: SubscriptionCurve | null = useMemo(() => {
     if (!isSubscription) return null;
     const quotaTiers: CurveTierLike[] = (quota?.coding_plan?.tiers ?? []).map(tr => ({
-      name: tr.name, utilization: tr.utilization, limit: tr.limit, resets_at: tr.resets_at,
+      name: tr.name, unit: tr.unit ?? null, utilization: tr.utilization, limit: tr.limit, resets_at: tr.resets_at,
     }));
     const estTiers: CurveTierLike[] = (estPlan?.tiers ?? []).map(tr => ({
-      name: tr.name, est_utilization: tr.est_utilization, limit: tr.limit ?? null, window_start: tr.window_start,
+      name: tr.name, unit: tr.unit ?? null, est_utilization: tr.est_utilization,
+      limit: tr.has_base ? tr.limit ?? null : null, window_start: tr.window_start,
     }));
     return buildSubscriptionCurve({
-      series, quotaTiers,
+      series, seriesWindowStart, seriesQueriedAt, quotaTiers,
       quotaQueriedAt: quota?.queried_at ?? null,
       estTiers, nowMs: Date.now(),
     });
-  }, [isSubscription, series, quota, estPlan]);
+  }, [isSubscription, series, seriesWindowStart, seriesQueriedAt, quota, estPlan]);
 
   const bars: DailyBar[] = useMemo(() => buildDailyBars(series), [series]);
   const failStats = useMemo(() => classifyFailures(fails), [fails]);
   const modelRows = useMemo(() => topModels(models, 8), [models]);
 
   return (
-    <div>
-      {/* B / B'：曲线 或 按量柱线图 */}
-      <Blk
-        testid="detail-t3-usage"
-        title={isSubscription ? t("platform.detail.curve", "订阅消耗曲线") : t("platform.detail.paygo", "近 7 天用量")}
-        hint={isSubscription
-          ? t("platform.detail.curveWindowHint", "本窗口 7 天")
-          : formatMoney(bars.reduce((s, b) => s + b.cost, 0))}
-      >
-        {!isSubscription && p.est_balance_remaining > 0 && (
-          <div data-testid="detail-t3-balance" style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>
-            {formatMoney(p.est_balance_remaining)}
-            <span style={{ fontSize: 14, fontWeight: 400, color: "var(--muted-foreground)", marginLeft: 8 }}>
-              {t("platform.detail.balance", "余额")}
-            </span>
-          </div>
-        )}
-        {isSubscription
-          ? (curve
-              ? <SubscriptionCurveView curve={curve} nowMs={Date.now()} />
-              : <Empty t={t} />)
-          : (bars.length > 0 ? <PaygoBarsView bars={bars} /> : <Empty t={t} />)}
-      </Blk>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", alignItems: "start" }}>
+    <div data-testid="detail-t3-mount" className="contents">
+      <div className="min-w-0 border-r border-[var(--border)] max-xl:border-r-0">
         {/* C：使用统计（四档窗口） */}
         <Blk testid="detail-t3-stats" title={t("platform.detail.stats", "使用统计")}>
-          <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+          <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
             {WINS.map(w => (
               <button
                 key={w}
@@ -135,11 +127,6 @@ export function DetailData({ platform: p }: { platform: Platform }) {
           </div>
           <StatRows t={t} stats={stats} />
         </Blk>
-
-        {/* D：健康状态 */}
-        <HealthBlock t={t} health={health} />
-
-        {/* E：失败分析 */}
         <Blk testid="detail-t3-fail" title={t("platform.detail.failures", "失败分析")}
           hint={t("platform.detail.win.7d", "近 7 天")}>
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
@@ -180,19 +167,51 @@ export function DetailData({ platform: p }: { platform: Platform }) {
             </table>
           )}
         </Blk>
+      </div>
+      <div className="min-w-0 border-r border-[var(--border)] max-xl:border-r-0">
+        {/* B / B'：曲线 或 按量柱线图 */}
+      <Blk
+        testid="detail-t3-usage"
+        title={isSubscription ? t("platform.detail.curve", "订阅消耗曲线") : t("platform.detail.paygo", "近 7 天用量")}
+        hint={isSubscription
+          ? t("platform.detail.curveWindowHint", "本窗口 7 天")
+          : formatMoney(bars.reduce((s, b) => s + b.cost, 0))}
+      >
+        {!isSubscription && p.est_balance_remaining > 0 && (
+          <div data-testid="detail-t3-balance" style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>
+            {formatMoney(p.est_balance_remaining)}
+            <span style={{ fontSize: 14, fontWeight: 400, color: "var(--muted-foreground)", marginLeft: 8 }}>
+              {t("platform.detail.balance", "余额")}
+            </span>
+          </div>
+        )}
+        {isSubscription
+          ? (curve
+              ? <SubscriptionCurveView curve={curve} nowMs={Date.now()} />
+              : <Empty t={t} />)
+          : (bars.length > 0 ? <PaygoBarsView bars={bars} /> : <Empty t={t} />)}
+      </Blk>
+
+        <WaterLevel platformId={p.id} extra={p.extra} />
+      </div>
+      <div className="min-w-0 sm:col-span-2 xl:col-span-1">
+        {/* D：健康状态 */}
+        <HealthBlock t={t} health={health} />
+
 
         {/* G：模型用量分布 */}
         <Blk testid="detail-t3-models" title={t("platform.detail.modelDist", "模型用量分布")} hint={t(`platform.detail.win.${win}`, WIN_FALLBACK[win])}>          {modelRows.length === 0
             ? <Empty t={t} />
             : modelRows.map(r => (
               <div key={r.model} data-testid="detail-t3-model-row"
-                style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, padding: "3px 0" }}>
-                <span style={{ width: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                className="grid grid-cols-[minmax(80px,130px)_minmax(24px,1fr)_84px] items-center gap-2 py-[3px] text-[14px] max-[640px]:grid-cols-[minmax(0,1fr)_auto]"
+              >
+                <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                   fontFamily: "var(--font-mono, monospace)" }} title={r.model}>{r.model}</span>
-                <div style={{ flex: 1, height: 8, borderRadius: 4, background: "var(--muted)", overflow: "hidden" }}>
+                <div className="max-[640px]:col-span-2 max-[640px]:row-start-2" style={{ height: 8, borderRadius: 4, background: "var(--muted)", overflow: "hidden" }}>
                   <div style={{ width: `${r.pct}%`, height: "100%", background: "var(--data-primary)" }} />
                 </div>
-                <span style={{ width: 56, textAlign: "right", color: "var(--muted-foreground)", fontFamily: "var(--font-mono, monospace)" }}>
+                <span className="max-[640px]:col-start-2 max-[640px]:row-start-1" style={{ textAlign: "right", whiteSpace: "nowrap", color: "var(--muted-foreground)", fontFamily: "var(--font-mono, monospace)" }}>
                   {formatNumber(r.requests)} · {r.pct}%
                 </span>
               </div>
@@ -200,7 +219,7 @@ export function DetailData({ platform: p }: { platform: Platform }) {
         </Blk>
 
         {/* F：限频与额度窗口水位（T5） */}
-        <WaterLevel platformId={p.id} />
+        {col3Extra}
       </div>
     </div>
   );
@@ -218,7 +237,7 @@ function StatRows({ t, stats }: { t: (k: string, d: string) => string; stats?: P
     ? [
         [t("platform.detail.requests", "请求数"), formatNumber(stats.total_requests)],
         [t("platform.detail.successRate", "成功率"), formatPercent(
-          stats.total_requests > 0 ? stats.success_count / stats.total_requests : 0)],
+          stats.total_requests > 0 ? (stats.success_count / stats.total_requests) * 100 : 0)],
         [t("platform.detail.inputTokens", "输入 token"), formatNumber(stats.total_input_tokens)],
         [t("platform.detail.outputTokens", "输出 token"), formatNumber(stats.total_output_tokens)],
         [t("platform.detail.cacheTokens", "缓存读 token"), formatNumber(stats.total_cache_tokens)],

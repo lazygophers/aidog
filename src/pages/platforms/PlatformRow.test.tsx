@@ -79,22 +79,19 @@ describe("PlatformRow", () => {
     expect(onToggleExpanded).toHaveBeenCalledWith(true);
   });
 
-  it("⋯ 菜单「查看平台详情」→ onDetail(platform)；不传 onDetail 不渲染该项", () => {
+  it("详情按钮与编辑按钮并列常显，并调用 onDetail(platform)", () => {
     const onDetail = vi.fn();
     render(<PlatformRow {...base} onDetail={onDetail} />);
-    const menu = screen.getByTestId("row-menu");
-    fireEvent.pointerDown(menu, { button: 0, ctrlKey: false });
-    fireEvent.click(menu);
-    fireEvent.click(screen.getByTestId("row-detail-menu"));
+    const edit = screen.getByTitle("编辑");
+    const detail = screen.getByTestId("row-detail-button");
+    expect(edit.parentElement).toBe(detail.parentElement);
+    fireEvent.click(detail);
     expect(onDetail).toHaveBeenCalledWith(platform);
   });
 
-  it("未传 onDetail：⋯ 菜单无详情项", () => {
+  it("未传 onDetail：不渲染详情按钮", () => {
     render(<PlatformRow {...base} />);
-    const menu = screen.getByTestId("row-menu");
-    fireEvent.pointerDown(menu, { button: 0, ctrlKey: false });
-    fireEvent.click(menu);
-    expect(screen.queryByTestId("row-detail-menu")).toBeNull();
+    expect(screen.queryByTestId("row-detail-button")).toBeNull();
   });
 
   it("expanded=true 渲染明细区（模型 + 配置模型计数）", () => {

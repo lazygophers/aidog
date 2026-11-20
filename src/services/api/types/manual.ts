@@ -385,6 +385,8 @@ export interface QuotaTier {
   limit: number | null;
   /** 绝对剩余量（token 数 / 调用次数），仅部分平台有值 */
   remaining: number | null;
+  /** 计费维度：prompt_count / mcp_time / tokens；缺省按 tokens。 */
+  unit?: string | null;
 }
 
 export interface BalanceInfo {

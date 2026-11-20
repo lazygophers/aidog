@@ -64,8 +64,11 @@ describe("monotonePath", () => {
 });
 
 describe("buildSubscriptionCurve", () => {
-  // 窗口：2026-11-13 → 2026-11-20（weekly tier，resets_at = NOW + 3h）
-  const weeklyReset = new Date(NOW + 3 * HOUR).toISOString();
+  // 完整本地日窗口；series 查询覆盖其起点。
+  const weeklyStart = new Date(NOW - 6 * DAY);
+  weeklyStart.setHours(0, 0, 0, 0);
+  const weeklyReset = new Date(weeklyStart.getTime() + 7 * DAY).toISOString();
+  const seriesWindowStart = NOW - 7 * DAY + HOUR;
   const series: SeriesPointLike[] = [
     seriesPoint("2026-11-13", 100),
     seriesPoint("2026-11-14", 200),
@@ -78,7 +81,7 @@ describe("buildSubscriptionCurve", () => {
   ];
 
   it("窗口锚点：取周期最长档，windowStart = resetAt − cycle", () => {
-    const c = buildSubscriptionCurve({ series, quotaTiers, quotaQueriedAt: NOW, estTiers: [], nowMs: NOW });
+    const c = buildSubscriptionCurve({ series, seriesWindowStart, seriesQueriedAt: NOW, quotaTiers, quotaQueriedAt: NOW, estTiers: [], nowMs: NOW });
     expect(c).not.toBeNull();
     expect(c!.resetAt).toBe(Date.parse(weeklyReset));
     expect(c!.windowStart).toBe(Date.parse(weeklyReset) - 7 * DAY);
@@ -88,54 +91,116 @@ describe("buildSubscriptionCurve", () => {
   });
 
   it("实际剩余：按 limit 折算累计消耗，桶点递减", () => {
-    const c = buildSubscriptionCurve({ series, quotaTiers, quotaQueriedAt: NOW, estTiers: [], nowMs: NOW })!;
-    // 窗口内全部 4 桶（11-13..11-19 都 ≥ windowStart 当地零点）
-    expect(c.actual.length).toBe(4);
-    // 桶耗 100/200/300/400 token，limit 2000 → 剩余 95/85/70/50
-    expect(c.actual[0].pct).toBeCloseTo(95, 5);
-    expect(c.actual[3].pct).toBeCloseTo(50, 5);
-    expect(c.nowPct).toBeCloseTo(50, 5);
+    const c = buildSubscriptionCurve({ series, seriesWindowStart, seriesQueriedAt: NOW, quotaTiers, quotaQueriedAt: NOW, estTiers: [], nowMs: NOW })!;
+    // 11-13 的日桶早于窗口实际起点，不能把重置前消耗算进来。
+    expect(c.actual.length).toBe(3);
+    // 桶耗 200/300/400 token，limit 2000 → 本地记账剩余 90/75/55。
+    expect(c.actual[0].pct).toBeCloseTo(90, 5);
+    expect(c.actual[2].pct).toBeCloseTo(55, 5);
+    // 当前值取官方快照，而不是用较早的最后一个日桶冒充实时值。
+    expect(c.snapshotPct).toBeCloseTo(70, 5);
+    const firstDayEnd = new Date("2026-11-14T00:00:00");
+    firstDayEnd.setDate(firstDayEnd.getDate() + 1);
+    firstDayEnd.setHours(0, 0, 0, 0);
+    expect(c.actual[0].t).toBe(firstDayEnd.getTime()); // Keep the day bucket's real end time.
+    expect(c.actual[2].t).toBeLessThan(NOW); // Yesterday's day bucket is not moved to the current cursor.
     // 递减
     for (let i = 1; i < c.actual.length; i++) {
       expect(c.actual[i].pct).toBeLessThanOrEqual(c.actual[i - 1].pct);
     }
   });
 
-  it("校准点：quota tiers → t = queried_at，pct = 100 − utilization；偏差 = 与本地曲线插值差", () => {
-    const c = buildSubscriptionCurve({ series, quotaTiers, quotaQueriedAt: NOW, estTiers: [], nowMs: NOW })!;
-    // 两档各一个校准点
-    expect(c.calibrations.length).toBe(2);
-    expect(c.calibrations[0].t).toBe(NOW);
-    expect(c.calibrations[0].pct).toBeCloseTo(90, 5); // 100-10
-    expect(c.calibrations[1].pct).toBeCloseTo(70, 5); // 100-30
-    // NOW 在最后桶（11-19 本地零点）之后 → 本地插值 = 50 → 偏差 max(|50-90|, |50-70|) = 40
-    expect(c.maxDeviation).toBeCloseTo(40, 5);
+  it("历史曲线只用 tokens 同单位、完整日窗口；其它窗口只保留官方快照", () => {
+    const windowStart = new Date(NOW - 6 * DAY);
+    windowStart.setHours(0, 0, 0, 0);
+    const resetAt = windowStart.getTime() + 7 * DAY;
+    const base = {
+      series, seriesWindowStart: windowStart.getTime(), seriesQueriedAt: NOW,
+      quotaQueriedAt: NOW, estTiers: [], nowMs: NOW,
+    };
+    const countTier = buildSubscriptionCurve({
+      ...base,
+      estTiers: [{ name: "weekly_limit", unit: "tokens", limit: 2000, window_start: windowStart.getTime() }],
+      quotaTiers: [{ name: "weekly_limit", unit: "prompt_count", utilization: 20, limit: 2000, resets_at: new Date(resetAt).toISOString() }],
+    })!;
+    expect(countTier.actual).toEqual([]);
+    expect(countTier.snapshotPct).toBe(80);
+
+    const incomplete = buildSubscriptionCurve({
+      ...base,
+      seriesWindowStart: windowStart.getTime() + 1,
+      quotaTiers: [{ name: "weekly_limit", unit: "tokens", utilization: 30, limit: 2000, resets_at: new Date(resetAt).toISOString() }],
+    })!;
+    expect(incomplete.actual).toEqual([]);
+
+    const partialDay = buildSubscriptionCurve({
+      ...base,
+      quotaTiers: [{ name: "weekly_limit", unit: "tokens", utilization: 30, limit: 2000, resets_at: new Date(resetAt + HOUR).toISOString() }],
+    })!;
+    expect(partialDay.actual).toEqual([]);
+
+    const shortCycle = buildSubscriptionCurve({
+      ...base,
+      quotaTiers: [{ name: "five_hour", unit: "tokens", utilization: 30, limit: 2000, resets_at: new Date(NOW + HOUR).toISOString() }],
+    })!;
+    expect(shortCycle.actual).toEqual([]);
+
+    const unknownCycle = buildSubscriptionCurve({
+      ...base,
+      quotaTiers: [{ name: "custom_window", unit: "tokens", utilization: 30, limit: 2000, resets_at: new Date(resetAt).toISOString() }],
+    })!;
+    expect(unknownCycle.actual).toEqual([]);
   });
 
-  it("无 limit → 按 elapsedFrac 投影总量；剩余随计划线", () => {
-    // 已流逝 6.5/7 天；累计 1000 token → 投影总量 ≈ 1000/(6.5/7)
-    const start = NOW - (6.5 * DAY) / (7 + 3 / 24) * (7 + 3 / 24);
-    const resetAt = NOW + 3 * HOUR;
-    const windowStart = resetAt - 7 * DAY;
-    const s: SeriesPointLike[] = [
-      seriesPoint("2026-11-14", 400),
-      seriesPoint("2026-11-18", 600),
-    ];
+  it("校准点：quota tiers → t = queried_at，pct = 100 − utilization；偏差 = 与本地曲线插值差", () => {
+    const c = buildSubscriptionCurve({ series, seriesWindowStart, seriesQueriedAt: NOW, quotaTiers, quotaQueriedAt: NOW, estTiers: [], nowMs: NOW })!;
+    // 仅选择中的 weekly 窗口可与图表的周期和刻度比较。
+    expect(c.calibrations).toEqual([{ t: NOW, pct: 70, name: "weekly_limit", unit: "tokens" }]);
+    // NOW 在最后一个日桶之后，不能外推该桶值并伪报校准偏差。
+    expect(c.maxDeviation).toBeNull();
+  });
+
+  it("缺官方快照时，历史日桶保留真实时间，当前余额保持未知", () => {
     const c = buildSubscriptionCurve({
-      series: s,
-      quotaTiers: [{ name: "weekly_limit", utilization: 0, limit: null, resets_at: new Date(resetAt).toISOString() }],
+      series: [seriesPoint("2026-11-19", 400)],
+      seriesWindowStart, seriesQueriedAt: NOW,
+      quotaTiers: [{ name: "weekly_limit", unit: "tokens", limit: 2000, resets_at: weeklyReset }],
+      quotaQueriedAt: null,
+      estTiers: [],
+      nowMs: NOW + HOUR,
+    })!;
+    expect(c.actual).toHaveLength(1);
+    expect(c.actual[0].t).toBeLessThan(NOW);
+    expect(c.snapshotPct).toBeNull();
+    expect(c.calibrations).toEqual([]);
+  });
+
+  it("无 limit → 不投影剩余额度；有效官方快照仍可显示", () => {
+    const resetAt = NOW + 3 * HOUR;
+    const c = buildSubscriptionCurve({
+      series: [seriesPoint("2026-11-14", 400), seriesPoint("2026-11-18", 600)],
+      quotaTiers: [{ name: "weekly_limit", utilization: 30, limit: null, resets_at: new Date(resetAt).toISOString() }],
+      quotaQueriedAt: NOW,
+      estTiers: [],
+      nowMs: NOW,
+    })!;
+    expect(c.actual).toEqual([]);
+    expect(c.snapshotPct).toBe(70);
+    expect(c.calibrations).toEqual([{ t: NOW, pct: 70, name: "weekly_limit", unit: "tokens" }]);
+    expect(c.maxDeviation).toBeNull();
+  });
+
+  it("无 limit 且无官方快照 → 剩余值未知", () => {
+    const resetAt = NOW + 3 * HOUR;
+    const c = buildSubscriptionCurve({
+      series: [seriesPoint("2026-11-18", 600)],
+      quotaTiers: [{ name: "weekly_limit", limit: null, resets_at: new Date(resetAt).toISOString() }],
       quotaQueriedAt: null,
       estTiers: [],
       nowMs: NOW,
     })!;
-    expect(c.windowStart).toBe(windowStart);
-    void start;
-    const elapsedFrac = (NOW - windowStart) / (7 * DAY);
-    const projected = 1000 / elapsedFrac;
-    const expectedNowPct = 100 * (1 - 1000 / projected);
-    expect(c.nowPct!).toBeCloseTo(expectedNowPct, 3);
-    expect(c.calibrations.length).toBe(0);
-    expect(c.maxDeviation).toBeNull();
+    expect(c.actual).toEqual([]);
+    expect(c.snapshotPct).toBeNull();
   });
 
   it("无任何窗口锚点（无 quota/est tiers）→ null", () => {
@@ -158,6 +223,8 @@ describe("buildSubscriptionCurve", () => {
   it("窗口外桶被排除（time < windowStart 不计入）", () => {
     const c = buildSubscriptionCurve({
       series: [seriesPoint("2026-11-01", 500), seriesPoint("2026-11-15", 100)],
+      seriesWindowStart,
+      seriesQueriedAt: NOW,
       quotaTiers,
       quotaQueriedAt: null,
       estTiers: [],

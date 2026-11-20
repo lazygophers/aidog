@@ -1,7 +1,7 @@
 // platforms.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "../transport";
-import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, PassthroughAuth, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformUsageSeriesPoint, PlatformHealthDetail, PlatformModelDistributionRow, PlatformQuotaWindowLevel, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, TimeModelRule, PlatformErrorStatus, ClientVocabCategory } from "./types";
+import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, PassthroughAuth, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformUsageSeriesPoint, PlatformHealthDetail, PlatformModelDistributionRow, PlatformQuotaWindowLevel, PlatformRateOccupancy, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, TimeModelRule, PlatformErrorStatus, ClientVocabCategory } from "./types";
 import type { TimeWindow } from "../../domains/platforms/defaults";
 import { normalizeWindow } from "../../utils/timeWindow";
 import QUOTA_SCRIPT_SAMPLE_RAW from "../../domains/platforms/quotaScriptSample.txt?raw";
@@ -927,9 +927,13 @@ export const platformApi = {
   modelDistribution: (platformId: number, window?: "today" | "7d" | "30d" | "all") =>
     invoke<PlatformModelDistributionRow[]>("platform_model_distribution", { platformId, window: window ?? null }),
 
-  /** 平台额度窗口水位（详情页 T5 板块 F），enabled 窗口逐条现算。限频占位内存计数不经此命令。 */
+  /** 平台额度窗口水位（详情页 T5 板块 F），enabled 窗口逐条现算。 */
   quotaWindowLevels: (platformId: number) =>
     invoke<PlatformQuotaWindowLevel[]>("platform_quota_window_levels", { platformId }),
+
+  /** 平台限频实时占用（详情页 T5 板块 F）：extra.rate_limits 内存计数快照；代理未启动 → 空列表。 */
+  rateOccupancy: (platformId: number) =>
+    invoke<PlatformRateOccupancy[]>("platform_rate_occupancy", { platformId }),
 
   // 批量：单次 invoke 返回所有平台 → 聚合 map（platform_id → stats），消除前端逐平台 N+1 往返。
   // 后端 GROUP BY eff_pid，含 platform_id=0 自动分组日志按 group_key 回溯归属源平台；

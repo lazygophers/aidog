@@ -197,11 +197,36 @@ pub async fn compute_platform_health_detail(
 crate::tauri_command! {
 /// 平台额度窗口水位（详情页板块 F）：extra.quota_windows 配置 + quota_window_usage 现算
 /// 已用 / 剩余比例 / 重置时刻（读时惰性重置语义，与执行层窗口边界算法同口径）。
-/// 限频占位（并发/RPM/TPM 内存计数）不经本命令——计数在 ProxyState 内，AppCtx 不可达。
 pub async fn platform_quota_window_levels(platform_id: u64) -> Result<Vec<gateway::models::PlatformQuotaWindowLevel>, String> {
     let db = aidog_ctx::db();
     compute_platform_quota_window_levels(db, platform_id, chrono::Utc::now().timestamp_millis()).await
 }
+}
+
+crate::tauri_command! {
+/// 平台限频实时占用（详情页板块 F 限频行）：extra.rate_limits 内存计数快照
+/// （`SchedulerState.rate`，并发在途 / 60 秒窗口 RPM / 窗口 TPM）。
+/// 读取通道 = `scheduling::global()`（start_proxy 安装；proxy_stop 不卸载，停止后读最后实例快照；
+/// 代理从未启动过 → 空列表）。全部为真实内存计数，不虚构、不兜底。
+pub async fn platform_rate_occupancy(platform_id: u64) -> Result<Vec<gateway::models::PlatformRateOccupancy>, String> {
+    Ok(compute_platform_rate_occupancy(platform_id, chrono::Utc::now().timestamp_millis()))
+}
+}
+
+/// `platform_rate_occupancy` 命令体，now 可注入（测试）。全局调度器未安装（代理从未启动）→ 空列表。
+pub fn compute_platform_rate_occupancy(platform_id: u64, now_ms: i64) -> Vec<gateway::models::PlatformRateOccupancy> {
+    let Some(sched) = crate::gateway::scheduling::global() else { return Vec::new() };
+    sched
+        .rate
+        .snapshot_platform(platform_id, now_ms)
+        .into_iter()
+        .map(|s| gateway::models::PlatformRateOccupancy {
+            model: s.model,
+            in_flight: s.in_flight,
+            rpm_used: s.rpm_used,
+            tpm_used: s.tpm_used,
+        })
+        .collect()
 }
 
 /// `platform_quota_window_levels` 命令体，now_ms 可注入（测试定窗口边界）。只读命令：
