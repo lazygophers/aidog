@@ -68,12 +68,13 @@ export function SessionTrash({ open, onOpenChange, onRestored }: {
               >
                 <ClientIcon code={r.clientCode} size={16} />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate" title={r.title || r.sessionId}>{r.title || r.sessionId}</div>
+                  <div className="truncate" title={r.title || r.sessionId}><bdi data-testid="sessions-trash-title">{r.title || r.sessionId}</bdi></div>
+                  {/* bdi 隔离各段方向：RTL 下路径固定 ltr、不与「·」和相对时间混排（票 13） */}
                   <div className="truncate text-sm text-muted-foreground">
-                    {clientName(r.clientCode)}
-                    {r.workdir && <>{" · "}<span dir="ltr" title={r.workdir}>{r.workdir}</span></>}
+                    <bdi>{clientName(r.clientCode)}</bdi>
+                    {r.workdir && <>{" · "}<bdi dir="ltr" title={r.workdir} data-testid="sessions-trash-path">{r.workdir}</bdi></>}
                     {" · "}
-                    {t("sessions.hiddenAt", "隐藏于 {{time}}", { time: formatRelativeTime(r.hiddenAt) })}
+                    <bdi>{t("sessions.hiddenAt", "隐藏于 {{time}}", { time: formatRelativeTime(r.hiddenAt) })}</bdi>
                   </div>
                 </div>
                 <Button size="sm" variant="outline" data-testid="sessions-trash-restore" onClick={() => void restore(r)}>

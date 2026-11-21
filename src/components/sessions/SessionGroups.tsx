@@ -13,9 +13,8 @@ import { SessionSparkline } from "./SessionSparkline";
 import { CarryMenu } from "./CarryMenu";
 import { Button } from "../ui/button";
 
-const ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_210px_96px_96px_184px] items-center gap-3";
-// 置顶区多一列迷你走势图（票 12），放在成本后。
-const PINNED_ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_210px_96px_56px_96px_184px] items-center gap-3";
+// 成本后一列放置顶区的迷你走势图（票 12）；目录组行留同宽空位，两区各列对齐（票 13）。
+const ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_210px_96px_56px_96px_184px] items-center gap-3";
 
 function projectName(workdir: string): string {
   return workdir.split(/[\\/]/).filter(Boolean).pop() ?? workdir;
@@ -184,7 +183,7 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(key); }
       }}
-      className={`${inPinned ? PINNED_ROW_GRID : ROW_GRID} cursor-pointer rounded-lg px-3 py-2.5 hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring ${isOpen ? "bg-muted" : ""}`}
+      className={`${ROW_GRID} cursor-pointer rounded-lg px-3 py-2.5 hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring ${isOpen ? "bg-muted" : ""}`}
       data-testid="sessions-row"
       data-client={r.clientCode}
       data-session={r.sessionId}
@@ -193,15 +192,16 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
       <ClientIcon code={r.clientCode} size={16} />
       <div className="min-w-0">
         <div className="truncate" title={r.title || r.sessionId}>{r.title || r.sessionId}</div>
-        <div className="mt-0.5 truncate text-sm text-muted-foreground">
+        <div className="mt-0.5 truncate text-sm text-muted-foreground" data-testid="sessions-row-meta">
           <span className="inline-flex items-center gap-1.5 text-foreground" data-testid="sessions-row-state" data-state={runState}>
             <i aria-hidden className={`inline-block size-2 rounded-full ${STATE_DOT[runState]}`} />
             {stateLabel[runState]}
           </span>
           {" · "}
-          {inPinned && r.workdir && <><span dir="ltr" title={r.workdir}>{projectName(r.workdir)}</span>{" · "}</>}
-          {clientName(r.clientCode)} · {t("sessions.calls", "{{n}} 次调用", { n: r.calls })} · {t("sessions.duration", "持续 {{d}}", { d: duration })}
-          {ctxRatio != null && <>{" · "}<span className="font-mono tabular-nums" title={t("sessions.ctxTitle", "context-mode 上下文压缩比")} data-testid="sessions-row-ctx" data-pct={String(ctxRatio)}>{t("sessions.ctxRatio", "压缩 {{pct}}", { pct: formatPercent(ctxRatio) })}</span></>}
+          {/* 每段 bdi 各自隔离方向：RTL 下数字与拉丁名不与相邻段混排（票 13） */}
+          {inPinned && r.workdir && <><bdi dir="ltr" title={r.workdir}>{projectName(r.workdir)}</bdi>{" · "}</>}
+          <bdi>{clientName(r.clientCode)}</bdi> · <bdi>{t("sessions.calls", "{{n}} 次调用", { n: r.calls })}</bdi> · <bdi>{t("sessions.duration", "持续 {{d}}", { d: duration })}</bdi>
+          {ctxRatio != null && <>{" · "}<bdi className="font-mono tabular-nums" title={t("sessions.ctxTitle", "context-mode 上下文压缩比")} data-testid="sessions-row-ctx" data-pct={String(ctxRatio)}>{t("sessions.ctxRatio", "压缩 {{pct}}", { pct: formatPercent(ctxRatio) })}</bdi></>}
         </div>
       </div>
       <div className="text-end font-mono text-sm tabular-nums">
@@ -216,7 +216,9 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
       <div className="text-end font-mono text-sm tabular-nums">
         <SessionCost cost={r.cost} calls={r.calls} unpricedCalls={r.unpricedCalls} testId="sessions-row-cost" />
       </div>
-      {inPinned && <SessionSparkline clientCode={r.clientCode} sessionId={r.sessionId} lastCallMs={r.lastCallMs} />}
+      {inPinned
+        ? <SessionSparkline clientCode={r.clientCode} sessionId={r.sessionId} lastCallMs={r.lastCallMs} />
+        : <span aria-hidden data-testid="sessions-row-spark-slot" />}
       <div className="flex items-center justify-end gap-1 text-sm text-muted-foreground">
         {formatRelativeTime(r.lastCallMs)}
         <ChevronDown aria-hidden className={`size-4 shrink-0 transition-transform motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`} />
