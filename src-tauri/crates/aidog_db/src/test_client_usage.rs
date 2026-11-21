@@ -444,3 +444,117 @@ async fn client_session_activity_max_of_call_and_exclusive_file_mtime() {
     let only = client_session_activity(&db, Some("codex"), &ids).await.expect("filtered");
     assert_eq!(only.len(), 2, "client 过滤：只返回 codex 的两个会话");
 }
+
+// ── 票 09：从列表隐藏与回收站 ──
+
+async fn seed_session(db: &Db, sess: &str, t: i64) {
+    let row = ClientCallRow {
+        client_code: "claude_code".into(),
+        session_id: sess.into(),
+        call_time_ms: t,
+        source_file_id: format!("{sess}-f"),
+        file_pos: 1,
+        cost: Some(0.1),
+        ..Default::default()
+    };
+    insert_client_calls(db, &[row]).await.expect("insert call");
+    upsert_client_session(db, "claude_code".into(), sess.into(), format!("title-{sess}"), "/w".into(), t, t)
+        .await
+        .expect("upsert session");
+}
+
+async fn reopen(dir: &tempfile::TempDir) -> Db {
+    let db = Db::new(dir.path().join("aidog.db").to_str().expect("utf8")).await.expect("reopen");
+    crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_conn, _map| Ok(()))).await.expect("init tables");
+    db
+}
+
+fn ids(rows: &[ClientUsageSessionRow]) -> Vec<String> {
+    let mut v: Vec<String> = rows.iter().map(|r| r.session_id.clone()).collect();
+    v.sort();
+    v
+}
+
+/// hide → 会话列表不含、回收站含（写后重开读回）；unhide 还原。
+#[tokio::test]
+async fn hide_session_excludes_from_list_and_unhide_restores() {
+    let (db, dir) = four_file_db().await;
+    let now = crate::now();
+    seed_session(&db, "s1", now).await;
+    seed_session(&db, "s2", now).await;
+    hide_client_session(&db, "claude_code", "s1").await.expect("hide");
+    hide_client_session(&db, "claude_code", "s1").await.expect("hide twice is idempotent");
+    drop(db);
+
+    let db = reopen(&dir).await;
+    let rows = client_usage_sessions(&db, 0, now + 1000, None, 100).await.expect("sessions");
+    assert_eq!(ids(&rows), vec!["s2".to_string()], "隐藏会话不在列表");
+    let bin = client_usage_hidden_sessions(&db, 0, i64::MAX).await.expect("hidden");
+    assert_eq!(bin.len(), 1, "回收站含隐藏会话");
+    assert_eq!((bin[0].session.session_id.as_str(), bin[0].session.title.as_str()), ("s1", "title-s1"));
+    assert_eq!(bin[0].session.calls, 1, "回收站行带聚合");
+    assert!(bin[0].hidden_at > 0, "hidden_at 盖章");
+
+    unhide_client_session(&db, "claude_code", "s1").await.expect("unhide");
+    drop(db);
+    let db = reopen(&dir).await;
+    let rows = client_usage_sessions(&db, 0, now + 1000, None, 100).await.expect("sessions");
+    assert_eq!(ids(&rows), vec!["s1".to_string(), "s2".to_string()], "恢复后回到列表");
+    assert!(client_usage_hidden_sessions(&db, 0, i64::MAX).await.expect("hidden").is_empty(), "回收站清空");
+}
+
+/// 文件截断重读（delete_client_file_state 删会话壳）后重扫，会话仍保持隐藏。
+#[tokio::test]
+async fn hidden_session_survives_file_state_reset_and_rescan() {
+    let (db, _dir) = four_file_db().await;
+    let now = crate::now();
+    seed_session(&db, "s1", now).await;
+    hide_client_session(&db, "claude_code", "s1").await.expect("hide");
+    delete_client_file_state(&db, "claude_code", "s1-f").await.expect("reset file");
+    assert_eq!(count_sessions(&db, "claude_code".into()).await, 0, "会话壳已删");
+    seed_session(&db, "s1", now).await; // 重扫
+    let rows = client_usage_sessions(&db, 0, now + 1000, None, 100).await.expect("sessions");
+    assert!(rows.is_empty(), "重扫后仍隐藏");
+    let bin = client_usage_hidden_sessions(&db, 0, i64::MAX).await.expect("hidden");
+    assert_eq!(bin.len(), 1, "回收站仍含");
+}
+
+/// 保留期清理：会话行已不存在且隐藏早于保留期的隐藏行删；会话仍在的隐藏行保留。
+#[tokio::test]
+async fn cleanup_drops_hidden_rows_of_vanished_sessions() {
+    let (db, _dir) = four_file_db().await;
+    let now = crate::now();
+    let old = now - 200 * 86_400_000;
+    seed_session(&db, "live", now).await;
+    db.call_client_usage_traced(None, std::panic::Location::caller(), move |conn| {
+        conn.execute(
+            "INSERT INTO client_session_hidden (client_code, session_id, hidden_at) VALUES \
+             ('claude_code','live',?1), ('claude_code','gone',?1)",
+            params![old],
+        )
+    })
+    .await
+    .expect("seed hidden");
+    cleanup_client_usage(&db, 90).await.expect("cleanup");
+    let left: Vec<String> = db
+        .call_read_client_usage_traced(None, std::panic::Location::caller(), |conn| {
+            let mut s = conn.prepare("SELECT session_id FROM client_session_hidden ORDER BY 1")?;
+            let v = s.query_map([], |r| r.get(0))?.collect::<Result<Vec<String>, _>>()?;
+            Ok(v)
+        })
+        .await
+        .expect("read hidden");
+    assert_eq!(left, vec!["live".to_string()], "只留会话仍在的隐藏行");
+}
+
+/// 迁移重复执行幂等，隐藏行不丢（回归护栏）。
+#[test]
+fn client_session_hidden_migration_idempotent() {
+    let conn = rusqlite::Connection::open_in_memory().expect("mem");
+    crate::schema_client_usage::run_migrations_client_usage(&conn).expect("1st");
+    conn.execute("INSERT INTO client_session_hidden (client_code, session_id, hidden_at) VALUES ('c','s',1)", [])
+        .expect("insert");
+    crate::schema_client_usage::run_migrations_client_usage(&conn).expect("2nd");
+    let n: i64 = conn.query_row("SELECT COUNT(*) FROM client_session_hidden", [], |r| r.get(0)).expect("count");
+    assert_eq!(n, 1);
+}

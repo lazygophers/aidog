@@ -10,6 +10,9 @@ const api = vi.hoisted(() => ({
   sessionDetail: vi.fn(),
   sessionStates: vi.fn(),
   sessionResume: vi.fn(),
+  sessionHide: vi.fn(),
+  sessionUnhide: vi.fn(),
+  hiddenSessions: vi.fn(),
 }));
 vi.mock("../services/api/clientUsage", () => ({ clientUsageApi: api }));
 
@@ -571,5 +574,47 @@ describe("排序、正在执行置顶、tab 与官方图标（票 11）", () => 
     for (const c of ["claude_code", "codex", "gemini_cli", "opencode"]) {
       expect(within(screen.getByTestId(`sessions-tab-${c}`)).getByTestId("client-icon")).toHaveAttribute("data-client", c);
     }
+  });
+});
+
+describe("Sessions 页（票 09：从列表隐藏与回收站）", () => {
+  it("行内隐藏：调 sessionHide、行消失、计数减少、不展开行；撤销调 unhide 并重拉", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(SESSIONS);
+    api.sessionHide.mockResolvedValue(undefined);
+    api.sessionUnhide.mockResolvedValue(undefined);
+    render(<Sessions />);
+    await waitFor(() => expect(screen.getAllByTestId("sessions-row")).toHaveLength(3));
+    expect(screen.getByTestId("sessions-count")).toHaveAttribute("data-count", "3");
+    const target = screen.getAllByTestId("sessions-row").find((r) => r.getAttribute("data-session") === "x1")!;
+    fireEvent.click(within(target).getByTestId("sessions-hide"));
+    await waitFor(() => expect(api.sessionHide).toHaveBeenCalledWith("codex", "x1"));
+    await waitFor(() => expect(screen.getAllByTestId("sessions-row")).toHaveLength(2));
+    expect(screen.getAllByTestId("sessions-row").map((r) => r.getAttribute("data-session"))).not.toContain("x1");
+    expect(screen.getByTestId("sessions-count")).toHaveAttribute("data-count", "2");
+    expect(screen.getAllByTestId("sessions-row").every((r) => r.getAttribute("data-state") === "closed")).toBe(true);
+    const calls = api.sessions.mock.calls.length;
+    fireEvent.click(screen.getByTestId("sessions-hide-undo"));
+    await waitFor(() => expect(api.sessionUnhide).toHaveBeenCalledWith("codex", "x1"));
+    await waitFor(() => expect(api.sessions.mock.calls.length).toBeGreaterThan(calls));
+  });
+
+  it("回收站：Dialog 列出隐藏会话，恢复后调 unhide、从回收站移除并重拉列表", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(SESSIONS.slice(0, 2));
+    api.hiddenSessions.mockResolvedValue([{ ...SESSIONS[2], hiddenAt: NOW - H }]);
+    api.sessionUnhide.mockResolvedValue(undefined);
+    render(<Sessions />);
+    await waitFor(() => expect(screen.getAllByTestId("sessions-row")).toHaveLength(2));
+    fireEvent.click(screen.getByTestId("sessions-trash"));
+    const dialog = await screen.findByTestId("sessions-trash-dialog");
+    await waitFor(() => expect(within(dialog).queryAllByTestId("sessions-trash-row").map((r) => r.getAttribute("data-session"))).toEqual(["o1"]));
+    const items = within(dialog).getAllByTestId("sessions-trash-row");
+    api.sessions.mockResolvedValue(SESSIONS);
+    fireEvent.click(within(items[0]).getByTestId("sessions-trash-restore"));
+    await waitFor(() => expect(api.sessionUnhide).toHaveBeenCalledWith("opencode", "o1"));
+    await waitFor(() => expect(within(dialog).queryAllByTestId("sessions-trash-row")).toHaveLength(0));
+    expect(within(dialog).getByTestId("sessions-trash-empty")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByTestId("sessions-row")).toHaveLength(3));
   });
 });

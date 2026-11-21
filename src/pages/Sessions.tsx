@@ -7,7 +7,9 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { Trash2 } from "lucide-react";
 import { SessionGroups } from "../components/sessions/SessionGroups";
+import { SessionTrash } from "../components/sessions/SessionTrash";
 import { ClientIcon, SESSION_CLIENTS } from "../components/sessions/ClientIcon";
 import { deriveState, nextFlipDelay } from "../components/sessions/sessionState";
 import { clientUsageApi, type ClientUsageSessionRow, type ClientUsageSessionState, type ClientUsageStatus } from "../services/api/clientUsage";
@@ -100,7 +102,8 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
   };
 
   // 继续会话（票 07）：macOS 后端直接开终端；其它平台返回命令，复制给用户。
-  const [notice, setNotice] = useState<{ kind: "error" | "copied" | "open-error"; text: string } | null>(null);
+  const [notice, setNotice] = useState<{ kind: "error" | "copied" | "open-error" | "hidden" | "hide-error"; text: string; row?: ClientUsageSessionRow } | null>(null);
+  const [trashOpen, setTrashOpen] = useState(false);
   const resume = async (r: ClientUsageSessionRow) => {
     setNotice(null);
     try {
@@ -129,6 +132,27 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
       await revealItemInDir(p);
     } catch (e) {
       setNotice({ kind: "open-error", text: String(e) });
+    }
+  };
+
+  // 从列表隐藏（票 09）：无确认，成功后本地移除并给出撤销；不删任何客户端文件。
+  const hide = async (r: ClientUsageSessionRow) => {
+    setNotice(null);
+    try {
+      await clientUsageApi.sessionHide(r.clientCode, r.sessionId);
+      setRows((rs) => rs.filter((x) => !(x.clientCode === r.clientCode && x.sessionId === r.sessionId)));
+      setNotice({ kind: "hidden", text: r.title || r.sessionId, row: r });
+    } catch (e) {
+      setNotice({ kind: "hide-error", text: String(e) });
+    }
+  };
+  const undoHide = async (r: ClientUsageSessionRow) => {
+    try {
+      await clientUsageApi.sessionUnhide(r.clientCode, r.sessionId);
+      setNotice(null);
+      await load();
+    } catch (e) {
+      setNotice({ kind: "hide-error", text: String(e) });
     }
   };
 
@@ -239,6 +263,10 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
               {t("sessions.count", "{{n}} 个会话", { n: shown.length })}
             </span>
             <span className="flex-1" />
+            <Button variant="outline" data-testid="sessions-trash" onClick={() => setTrashOpen(true)}>
+              <Trash2 aria-hidden className="size-4" />
+              {t("sessions.trash", "回收站")}
+            </Button>
             <Input
               className="w-64"
               value={query}
@@ -248,6 +276,34 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
               data-testid="sessions-search"
             />
           </div>
+
+          {/* 提示放在列表分支外：隐藏最后一个会话后撤销仍可见 */}
+          {notice && (
+            <div
+              role={notice.kind === "copied" || notice.kind === "hidden" ? "status" : "alert"}
+              className={`flex items-center gap-2 text-sm break-all ${notice.kind === "copied" || notice.kind === "hidden" ? "text-muted-foreground" : "text-destructive"}`}
+              data-testid="sessions-resume-notice"
+              data-kind={notice.kind}
+              data-detail={notice.text}
+            >
+              <span className="min-w-0">
+                {notice.kind === "error"
+                  ? t("sessions.resumeFailed", "继续会话失败：{{error}}", { error: notice.text })
+                  : notice.kind === "open-error"
+                  ? t("sessions.openDirFailed", "打开目录失败：{{error}}", { error: notice.text })
+                  : notice.kind === "hide-error"
+                  ? t("sessions.hideFailed", "隐藏失败：{{error}}", { error: notice.text })
+                  : notice.kind === "hidden"
+                  ? t("sessions.hidden", "已从列表隐藏：{{title}}", { title: notice.text })
+                  : t("sessions.resumeCopied", "当前系统无法直接打开终端，继续命令已复制：{{command}}", { command: notice.text })}
+              </span>
+              {notice.kind === "hidden" && notice.row && (
+                <Button size="sm" variant="link" className="h-auto shrink-0 p-0" data-testid="sessions-hide-undo" onClick={() => void undoHide(notice.row!)}>
+                  {t("sessions.undo", "撤销")}
+                </Button>
+              )}
+            </div>
+          )}
 
           {enabledRows.length === 0 ? (
             <div className="border-t py-10 text-muted-foreground" data-testid="sessions-empty">
@@ -261,27 +317,13 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
             <p className="border-t py-10 text-muted-foreground" data-testid="sessions-no-match">{t("sessions.noMatch", "没有匹配的会话")}</p>
           ) : (
             <>
-              {notice && (
-                <div
-                  role={notice.kind !== "copied" ? "alert" : "status"}
-                  className={`text-sm break-all ${notice.kind !== "copied" ? "text-destructive" : "text-muted-foreground"}`}
-                  data-testid="sessions-resume-notice"
-                  data-kind={notice.kind}
-                  data-detail={notice.text}
-                >
-                  {notice.kind === "error"
-                    ? t("sessions.resumeFailed", "继续会话失败：{{error}}", { error: notice.text })
-                    : notice.kind === "open-error"
-                    ? t("sessions.openDirFailed", "打开目录失败：{{error}}", { error: notice.text })
-                    : t("sessions.resumeCopied", "当前系统无法直接打开终端，继续命令已复制：{{command}}", { command: notice.text })}
-                </div>
-              )}
-              <SessionGroups rows={shown} pinned={pinned} stateOf={stateOf} onResume={(r) => void resume(r)} onOpenDir={(d) => void openDir(d)} />
+              <SessionGroups rows={shown} pinned={pinned} stateOf={stateOf} onResume={(r) => void resume(r)} onOpenDir={(d) => void openDir(d)} onHide={(r) => void hide(r)} />
               <p className="text-sm text-muted-foreground">{t("sessions.footHint", "成本带 + 表示部分调用未定价。")}</p>
             </>
           )}
         </>
       )}
+      <SessionTrash open={trashOpen} onOpenChange={setTrashOpen} onRestored={() => void load()} />
     </section>
   );
 }

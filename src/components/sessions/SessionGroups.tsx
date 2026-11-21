@@ -1,8 +1,8 @@
 // 会话列表（设计稿方向 3）：最上方「正在执行」区平铺（票 11），其余按工作目录分组，左列 sticky 项目信息，右列会话行。
-// 置顶会话不在目录组重复显示，但目录组的会话数与成本仍计入。操作列：打开目录（票 08）、继续（票 07）；隐藏等由票 09–10 接入。
+// 置顶会话不在目录组重复显示，但目录组的会话数与成本仍计入。操作列：从列表隐藏（票 09）、打开目录（票 08）、继续（票 07）。
 import { Fragment, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, FolderOpen } from "lucide-react";
+import { ChevronDown, EyeOff, FolderOpen } from "lucide-react";
 import type { ClientUsageSessionRow, SessionRunState } from "../../services/api/clientUsage";
 import { formatNumber, formatRelativeTime } from "../../utils/formatters";
 import { ClientIcon, clientName } from "./ClientIcon";
@@ -10,7 +10,7 @@ import { SessionCost } from "./SessionCost";
 import { SessionDetail } from "./SessionDetail";
 import { Button } from "../ui/button";
 
-const ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_210px_96px_96px_112px] items-center gap-3";
+const ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_210px_96px_96px_148px] items-center gap-3";
 
 function projectName(workdir: string): string {
   return workdir.split(/[\\/]/).filter(Boolean).pop() ?? workdir;
@@ -23,13 +23,14 @@ const STATE_DOT: Record<SessionRunState, string> = {
   stopped: "bg-muted-foreground/50",
 };
 
-export function SessionGroups({ rows, pinned, stateOf, onResume, onOpenDir }: {
+export function SessionGroups({ rows, pinned, stateOf, onResume, onOpenDir, onHide }: {
   rows: ClientUsageSessionRow[];
   /** 正在执行区的会话（已排序，且是 rows 的子集）。 */
   pinned: ClientUsageSessionRow[];
   stateOf: (r: ClientUsageSessionRow) => SessionRunState;
   onResume: (r: ClientUsageSessionRow) => void;
   onOpenDir: (workdir: string) => void;
+  onHide: (r: ClientUsageSessionRow) => void;
 }) {
   const { t } = useTranslation();
   const stateLabel: Record<SessionRunState, string> = {
@@ -170,6 +171,18 @@ export function SessionGroups({ rows, pinned, stateOf, onResume, onOpenDir }: {
           <ChevronDown aria-hidden className={`size-4 shrink-0 transition-transform motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`} />
         </div>
         <div className="flex items-center justify-end gap-1" data-testid="sessions-row-actions">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-8 shrink-0"
+            title={t("sessions.hide", "从列表隐藏")}
+            aria-label={t("sessions.hide", "从列表隐藏")}
+            data-testid="sessions-hide"
+            onClick={(e) => { e.stopPropagation(); onHide(r); }}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <EyeOff aria-hidden className="size-4" />
+          </Button>
           {r.workdir && openDirButton(r.workdir, "sessions-open-dir")}
           {/* Gemini 会话按项目目录隔离，无目录无法继续（票 07）；按钮阻冒泡，不展开行 */}
           {!(r.clientCode === "gemini_cli" && !r.workdir) && (
