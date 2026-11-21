@@ -777,6 +777,72 @@ impl PlatformAdapter for BailianFamilyAdapter {
 ///   assistant 消息回传 `encrypted_content` 的网关侧处理（篡改报 Invalid signature，aidog
 ///   不改写历史消息，默认透传）、cache_write 类字段是否存在。
 ///
+/// 成员 `byteplus`（BytePlus（字节跳动国际版）；issue 128，核对日期 2026-11-21。docs.byteplus.com
+/// 正文 JS 渲染，逐页 Playwright 真渲染取正文，页面 Last updated 2026-11-19）：
+/// - 端点（官方页原文，仅预填参考，运行时只用用户配置端点）：Chat API
+///   `https://ark.ap-southeast.bytepluses.com/api/v3/chat/completions`（quick start base_url
+///   `…/api/v3`）、Responses API 同 `…/api/v3`、Messages API（「Compatible with the Anthropic
+///   Messages API protocol and can be used to integrate tools such as Claude Code」）
+///   `…/api/compatible/v1/messages`。registry 内置默认 anthropic 端点写的是 `/api/plan`
+///   （Coding Plan 形态），官方标准 Messages 端点为 `/api/compatible/v1/messages`——预填差异
+///   不在本票范围改，出站不受影响。
+///   https://docs.byteplus.com/en/docs/ModelArk/text-generation
+///   https://docs.byteplus.com/en/docs/ModelArk/messages-api
+///   https://docs.byteplus.com/en/docs/ModelArk/coding-plan
+/// - 思考开关与档位：Chat API 顶层对象参数 `thinking.type`（示例 `"type":"disabled"` /
+///   `"type":"enabled"`），`reasoning_effort`（Chat）/ `reasoning.effort`（Responses）七档
+///   none/minimal/low/medium/high/xhigh/max，「none: Turn off reasoning」「minimal: Turns off
+///   reasoning and answers directly」，全部支持该参数的模型收全七值（部分值按模型映射表折算）；
+///   Messages API（anthropic wire）有 `thinking` object 参数（「Deep reasoning configuration」；
+///   参数内部词表未逐字列出，未证实——基座 anthropic 臂不覆盖，词表细节保持基座行为）。
+///   与家族基座一致，不覆盖。
+///   https://docs.byteplus.com/en/docs/ModelArk/deep-thinking
+///   https://docs.byteplus.com/en/docs/ModelArk/messages-api
+/// - 流式：Chat API `data:` 帧流 + `data: [DONE]` 结束标记；`delta.reasoning_content`
+///   （思考摘要）/ `delta.encrypted_content`（加密思考原文，传回时优先于 reasoning_content，
+///   篡改报错，aidog 不改写历史消息默认透传）；usage 经 `stream_options.include_usage`
+///   （`[DONE]` 前独立 usage 块）或 `stream_options.chunk_include_usage`（逐块累计值，客户端
+///   只留最新值）返回；Responses API 事件流以 `response.completed`（status=completed）/
+///   `response.incomplete` / `response.failed` / `error` 为语义终态；Messages API 以
+///   `message_stop` 结束、「does not use [DONE] as a substitute」，终态看
+///   `message_delta.delta.stop_reason`。基座流式构件按 [DONE] / typed events / anthropic
+///   事件处理，一致，不覆盖。
+///   https://docs.byteplus.com/en/docs/ModelArk/streaming-output
+///   https://docs.byteplus.com/en/docs/ModelArk/deep-thinking
+/// - usage：`usage.completion_tokens_details.reasoning_tokens`（「Tokens of the original
+///   thinking content. Billing is still calculated based on the tokens of the original
+///   thinking content」）；Messages API `usage.input_tokens / output_tokens /
+///   cache_creation_input_tokens / cache_read_input_tokens`（Anthropic 标准四件，示例
+///   cache_read_input_tokens: 139）；Chat API usage 完整字段表未在已抓取页面列出，
+///   `prompt_tokens_details.cached_tokens` 在 BytePlus 未证实——基座抽取器有键即抽、无键按 0，
+///   行为安全，不覆盖。与家族基座一致。
+///   https://docs.byteplus.com/en/docs/ModelArk/deep-thinking
+///   https://docs.byteplus.com/en/docs/ModelArk/messages-api
+/// - 错误体：错误码页仅 HTTP 状态码 / Error type / Error code / Message 表格、无 JSON body
+///   示例。404 `NotFound.InvalidEndpointOrModel.NotFound`（「The model or endpoint %s does not
+///   exist or you do not have access to it.」——message 含 model + does not exist，命中基座
+///   特征归模型类）；401 `AuthenticationError`、429 `RateLimitExceeded.EndpointRPMExceeded` 等
+///   按状态码归服务类。与家族基座（火山站）错误码逐条同形，不覆盖；错误体统一 JSON 形状未证实，
+///   基座 `error.message/code/type` 双形态读法已覆盖。
+///   https://docs.byteplus.com/en/docs/ModelArk/error-codes
+/// - 请求字段与默认值：`max_tokens` 默认 131072 (128K)（「controls the length of the model's
+///   answer and chain-of-thought content. No error is reported if the length is exceeded」，
+///   火山站记 4096（部分模型 131072）——成员差异仅记档，aidog 不注入默认值，无行为差异）；
+///   messages role 含 system/user/assistant（multi-turn 示例）；`temperature` / `top_p`
+///   默认值未在已抓取页面列出，未证实（aidog 不注入默认值）。工具调用走 Function call /
+///   remote MCP 文档（tools 兼容 OpenAI 形状，Chat API 页「By integrating custom tools or
+///   connecting to remote MCP servers」）；图片与音视频走多模态理解文档（image / video /
+///   document / audio understanding 独立章节）；均为 OpenAI 标准形状 + 扩展，与基座构件一致，
+///   不覆盖。
+///   https://docs.byteplus.com/en/docs/ModelArk/text-generation
+/// - coding_plan 注入：官方无出站附加字段（quick start 只设 base_url 与 API key）；基座按
+///   平台协议分派对 BytePlus 协议为 no-op，行为不变。
+///   https://docs.byteplus.com/en/docs/ModelArk/coding-plan
+/// - 未证实（保持基座默认）：错误体统一 JSON 形状、Chat API `prompt_tokens_details.cached_tokens`
+///   字段在 BytePlus 的存在性、`temperature` / `top_p` 默认值、system 顶层参数（Messages API
+///   有 `system` 参数「System prompt」，Chat API 页 system 走 message role，基座两种 wire
+///   各按协议构件处理）。
+///
 /// 成员 `doubao`（火山引擎（字节跳动）；issue 127）、`byteplus`（BytePlus；issue 128）：
 /// 均登记为 [`ArkFamilyAdapter`]；registry 内置默认端点与官方一致（doubao
 /// ark.cn-beijing.volces.com/api/plan[/v3]、byteplus ark.ap-southeast.bytepluses.com/api/plan[/v3]，
@@ -969,9 +1035,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("bailian_coding", &BAILIAN),
     ("bailian_coding_en", &BAILIAN),
     ("bailian_en", &BAILIAN),
-    // BytePlus 官方文档未逐条核实（docs.byteplus.com JS 渲染抓不到正文），保持 GENERIC 基座
-    // 默认行为；取得证据确认与本家族一致后再绑 ARK。
-    ("byteplus", &GENERIC),
+    ("byteplus", &ARK),
     ("claude_code", &GENERIC),
     ("cline", &GENERIC),
     ("cline_pass", &GENERIC),
