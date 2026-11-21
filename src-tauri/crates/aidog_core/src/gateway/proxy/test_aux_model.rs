@@ -33,8 +33,11 @@ fn openai_family_endpoint_priority() {
         ep(Protocol::OpenAIResponses, "r"),
         ep(Protocol::OpenAI, "o"),
     ];
-    assert_eq!(select_endpoint_for_openai_family(&eps).unwrap().base_url, "o");
-    assert!(select_endpoint_for_openai_family(&eps[..1]).is_none());
+    assert_eq!(
+        super::endpoint::select_endpoint_for_openai_family(&eps).unwrap().base_url,
+        "o"
+    );
+    assert!(super::endpoint::select_endpoint_for_openai_family(&eps[..1]).is_none());
 }
 
 #[test]

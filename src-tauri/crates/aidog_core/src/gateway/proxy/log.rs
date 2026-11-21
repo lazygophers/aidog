@@ -568,8 +568,7 @@ mod test_sessions_emit {
 
     #[test]
     fn sessions_payload_skips_empty_session_key() {
-        let mut l = ProxyLog::default();
-        l.session_key = String::new();
+        let mut l = ProxyLog { session_key: String::new(), ..Default::default() };
         assert!(session_event_payload(&l, 0.0).is_none(), "空 session_key 不发事件");
         l.session_key = "sess-1".into();
         l.group_key = "g".into();

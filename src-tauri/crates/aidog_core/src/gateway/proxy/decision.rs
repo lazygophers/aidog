@@ -358,7 +358,12 @@ async fn decision_attempt(
     let (start, attempt_start, attempt_ts) = (scope.start, scope.attempt_start, scope.attempt_ts);
     let (is_last_candidate, has_next_model) = (scope.is_last_candidate, scope.has_next_model);
     // endpoint 选择（R9）：typesafe 优先，否则 OpenAI 系；都没有回退平台主 base_url。
-    let ep = select_endpoint_for_decision(&route.platform.endpoints);
+    // supported_protocols 约束（4dbbc7c4 同族）：模型支持子集内硬序，无数据（None→空集）全回落。
+    let supported = aidog_db::model_supported_protocols(
+        &route.platform.platform_type.wire_str(),
+        &route.target_model,
+    );
+    let ep = select_endpoint_for_decision_model(&route.platform.endpoints, supported.unwrap_or(&[]));
     let base_url = ep
         .map(|e| e.base_url.clone())
         .unwrap_or_else(|| route.platform.base_url.clone());
