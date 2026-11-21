@@ -4,41 +4,10 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Switch } from "../components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { BarChart } from "../components/charts";
 import { contextCompressApi, type ContextCompressStats, type ContextCompressStatus, type RtkSetResult } from "../services/api/contextCompress";
 import { formatInteger, formatPercent } from "../utils/formatters";
 
 type Range = "30" | "90" | "all";
-
-// 每日柱状图悬浮提示：rtk 显示「总共 / 节省了 / 压缩率」三行；sqz CLI 无每日输入与比率，只有节省量。
-export function DailySavedTooltip({ active, label, payload, withMeta = false }: {
-  active?: boolean;
-  label?: string;
-  payload?: { payload?: { saved?: number; input?: number; pct?: number } }[];
-  withMeta?: boolean;
-}) {
-  const { t } = useTranslation();
-  if (!active || !payload?.length) return null;
-  const row = payload[0]?.payload ?? {};
-  const input = row.input ?? 0;
-  const tipRow = (labelKey: string, value: string) => <div
-    className="flex w-full items-center justify-between gap-3"
-    data-testid="cc-tip-row"
-  >
-    <span className="text-muted-foreground">{t(labelKey)}</span>
-    <span className="font-mono font-medium tabular-nums">{value}</span>
-  </div>;
-  return <div
-    dir="auto"
-    className="pointer-events-none grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-sm shadow-xl"
-    data-testid="cc-tip"
-  >
-    <div className="font-medium">{label}</div>
-    {withMeta && input > 0 && tipRow("contextCompress.tipTotal", formatInteger(input))}
-    {tipRow("contextCompress.tipSaved", formatInteger(row.saved ?? 0))}
-    {withMeta && tipRow("contextCompress.tipPct", input > 0 && row.pct != null ? formatPercent(row.pct) : "—")}
-  </div>;
-}
 
 const isoDay = (d: Date) => {
   const y = d.getFullYear();
@@ -155,27 +124,34 @@ export function ContextCompress() {
   const rtkRange = useMemo(() => inRange(stats?.rtk_daily), [stats, range]);
   const sqzRange = useMemo(() => inRange(stats?.sqz_daily), [stats, range]);
   const sum = (rows: { saved_tokens: number }[]) => rows.reduce((a, r) => a + r.saved_tokens, 0);
-  const chartData = (rows: { date: string; saved_tokens: number; input_tokens?: number; savings_pct?: number }[]) =>
-    rows.map(r => ({
-      name: r.date.slice(5),
-      saved: r.saved_tokens,
-      input: r.input_tokens,
-      pct: r.savings_pct,
-    }));
-  const dailyChart = (testid: string, rows: { date: string; saved_tokens: number; input_tokens?: number; savings_pct?: number }[]) => <div data-testid={testid}>
-    <BarChart
-      title={t("contextCompress.statsDaily")}
-      config={{ saved: { label: t("contextCompress.statsSaved") } }}
-      data={chartData(rows)}
-      valueFormat={formatInteger}
-      height={200}
-      xInterval={rows.length > 15 ? Math.ceil(rows.length / 12) : 0}
-      className="mt-3"
-      tooltipContent={<DailySavedTooltip withMeta={testid === "cc-chart-rtk"} />}
-    />
+  // 每日表：已使用 = 压缩前 tokens（rtk input_tokens），已压缩 = 节省 tokens，比例 = 当日 savings_pct。
+  // sqz CLI 无每日输入 / 比率，used 为 undefined 时两列显示「—」。
+  type DayRow = { date: string; used?: number; compressed: number; pct?: number };
+  const dailyTable = (tool: "rtk" | "sqz", rows: DayRow[]) => <div className="mt-3 space-y-2" data-testid={`cc-daily-${tool}`}>
+    <h3 className="text-sm font-medium">{t("contextCompress.statsDaily")}</h3>
+    <div className="max-h-72 overflow-y-auto rounded-md border">
+      <table className="w-full text-sm tabular-nums">
+        <thead className="sticky top-0 bg-background text-muted-foreground">
+          <tr className="border-b">
+            <th className="px-3 py-1.5 text-start font-medium">{t("contextCompress.statsColDate")}</th>
+            <th className="px-3 py-1.5 text-end font-medium">{t("contextCompress.statsColUsed")}</th>
+            <th className="px-3 py-1.5 text-end font-medium">{t("contextCompress.statsColCompressed")}</th>
+            <th className="px-3 py-1.5 text-end font-medium">{t("contextCompress.statsColRatio")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[...rows].sort((a, b) => b.date.localeCompare(a.date)).map(r => <tr key={r.date} className="border-b last:border-0" data-testid={`cc-daily-${tool}-row`}>
+            <td className="px-3 py-1.5 font-mono" data-testid="cc-daily-date">{r.date}</td>
+            <td className="px-3 py-1.5 text-end font-mono" data-testid="cc-daily-used">{r.used != null ? formatInteger(r.used) : "—"}</td>
+            <td className="px-3 py-1.5 text-end font-mono" data-testid="cc-daily-compressed">{formatInteger(r.compressed)}</td>
+            <td className="px-3 py-1.5 text-end font-mono" data-testid="cc-daily-ratio">{r.used && r.pct != null ? formatPercent(r.pct) : "—"}</td>
+          </tr>)}
+        </tbody>
+      </table>
+    </div>
   </div>;
-  const rtkChart = dailyChart("cc-chart-rtk", rtkRange);
-  const sqzChart = dailyChart("cc-chart-sqz", sqzRange);
+  const rtkChart = dailyTable("rtk", rtkRange.map(r => ({ date: r.date, used: r.input_tokens, compressed: r.saved_tokens, pct: r.savings_pct })));
+  const sqzChart = dailyTable("sqz", sqzRange.map(r => ({ date: r.date, compressed: r.saved_tokens })));
 
   const rtkIn = rtkRange.reduce((a, r) => a + r.input_tokens, 0);
   const rtkSaved = sum(rtkRange);

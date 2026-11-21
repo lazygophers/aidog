@@ -5,7 +5,7 @@ import { fireEvent, render, screen, waitFor } from "../test/render";
 const api = vi.hoisted(() => ({ status: vi.fn(), install: vi.fn(), setRtk: vi.fn(), setSqz: vi.fn(), stats: vi.fn() }));
 vi.mock("../services/api/contextCompress", () => ({ contextCompressApi: api }));
 
-import { ContextCompress, DailySavedTooltip } from "./ContextCompress";
+import { ContextCompress } from "./ContextCompress";
 
 const STATUS = {
   rtk_version: "1.2.0",
@@ -155,17 +155,32 @@ describe("ContextCompress", () => {
     expect(in30.length).toBe(3);
   });
 
-  it("rtk chart shows range days; range selector 90/all widens it", async () => {
-    const { container } = render(<ContextCompress />);
-    await waitFor(() => expect(screen.getByTestId("cc-chart-rtk")).toBeTruthy());
-    const bars = () => container.querySelectorAll('[data-testid="cc-chart-rtk"] .recharts-bar-rectangle').length;
-    await waitFor(() => expect(bars()).toBe(3));
+  it("rtk daily table shows used / compressed / ratio per day; range selector 90/all widens it", async () => {
+    render(<ContextCompress />);
+    await waitFor(() => expect(screen.getAllByTestId("cc-daily-rtk-row").length).toBe(3));
+    const rows = () => screen.getAllByTestId("cc-daily-rtk-row");
+    // 新日期在前；已使用 = input_tokens，已压缩 = saved_tokens，比例 = savings_pct
+    const first = rows()[0];
+    expect(first.querySelector('[data-testid="cc-daily-date"]')?.textContent).toBe(isoDay(0));
+    expect(first.querySelector('[data-testid="cc-daily-used"]')?.textContent).toBe(fmt(1000));
+    expect(first.querySelector('[data-testid="cc-daily-compressed"]')?.textContent).toBe(fmt(400));
+    expect(first.querySelector('[data-testid="cc-daily-ratio"]')?.textContent).toBe("40.0%");
     fireEvent.click(screen.getByTestId("cc-range-90"));
-    await waitFor(() => expect(bars()).toBe(4));
+    await waitFor(() => expect(rows().length).toBe(4));
     expect(screen.getByTestId("cc-stat-rtk-saved").textContent).toBe(fmt(4000));
     fireEvent.click(screen.getByTestId("cc-range-all"));
-    await waitFor(() => expect(bars()).toBe(5));
+    await waitFor(() => expect(rows().length).toBe(5));
     expect(screen.getByTestId("cc-stat-rtk-saved").textContent).toBe(fmt(6000));
+  });
+
+  it("rtk daily ratio falls back to em-dash when the day has no input", async () => {
+    api.stats.mockResolvedValue({
+      rtk: RTK_SUMMARY, sqz: null, sqz_daily: [],
+      rtk_daily: [{ date: isoDay(0), commands: 1, input_tokens: 0, output_tokens: 0, saved_tokens: 0, savings_pct: 0 }],
+    });
+    render(<ContextCompress />);
+    const row = await screen.findByTestId("cc-daily-rtk-row");
+    expect(row.querySelector('[data-testid="cc-daily-ratio"]')?.textContent).toBe("—");
   });
 
   it("rtk range pct is the weighted rate over the selected range", async () => {
@@ -191,71 +206,14 @@ describe("ContextCompress", () => {
     expect(screen.getByTestId("cc-stat-sqz-pct").textContent).toBe("30.0%");
   });
 
-  it("sqz chart shows daily saved tokens", async () => {
-    const { container } = render(<ContextCompress />);
+  it("sqz daily table shows compressed tokens; used and ratio are unavailable (CLI has no daily input)", async () => {
+    render(<ContextCompress />);
     await openSqz();
-    await waitFor(() =>
-      expect(container.querySelectorAll('[data-testid="cc-chart-sqz"] .recharts-bar-rectangle').length).toBeGreaterThan(0),
-    );
-  });
-
-  it("rtk daily tooltip shows total, saved and pct rows for the hovered day", () => {
-    const { container } = render(
-      <DailySavedTooltip
-        active
-        label="11-18"
-        payload={[{ payload: { name: "11-18", saved: 400, input: 1000, pct: 40 } }]}
-        withMeta
-      />,
-    );
-    expect(container.querySelector('[data-testid="cc-tip"]')).toBeTruthy();
-    const rows = [...container.querySelectorAll('[data-testid="cc-tip-row"]')];
-    expect(rows.length).toBe(3);
-    expect(rows[0].textContent).toContain("contextCompress.tipTotal");
-    expect(rows[0].textContent).toContain(fmt(1000));
-    expect(rows[1].textContent).toContain("contextCompress.tipSaved");
-    expect(rows[1].textContent).toContain(fmt(400));
-    expect(rows[2].textContent).toContain("contextCompress.tipPct");
-    expect(rows[2].textContent).toBe("contextCompress.tipPct40.0%");
-  });
-
-  it("rtk daily tooltip hides the total row when the day has no input; pct falls back to em-dash", () => {
-    const { container } = render(
-      <DailySavedTooltip
-        active
-        label="11-18"
-        payload={[{ payload: { name: "11-18", saved: 400, input: 0, pct: 0 } }]}
-        withMeta
-      />,
-    );
-    const rows = [...container.querySelectorAll('[data-testid="cc-tip-row"]')];
-    expect(rows.length).toBe(2);
-    expect(rows[0].textContent).toContain("contextCompress.tipSaved");
-    expect(container.textContent).not.toContain("contextCompress.tipTotal");
-    expect(rows[1].textContent).toBe("contextCompress.tipPct—");
-  });
-
-  it("sqz daily tooltip only shows the saved row (CLI has no daily input/pct)", () => {
-    const { container } = render(
-      <DailySavedTooltip
-        active
-        label="11-18"
-        payload={[{ payload: { name: "11-18", saved: 300 } }]}
-      />,
-    );
-    const rows = [...container.querySelectorAll('[data-testid="cc-tip-row"]')];
-    expect(rows.length).toBe(1);
-    expect(rows[0].textContent).toContain("contextCompress.tipSaved");
-    expect(rows[0].textContent).toContain(fmt(300));
-    expect(container.textContent).not.toContain("contextCompress.tipTotal");
-    expect(container.textContent).not.toContain("contextCompress.tipPct");
-  });
-
-  it("inactive tooltip renders nothing", () => {
-    const { container } = render(
-      <DailySavedTooltip label="11-18" payload={[{ payload: { saved: 1 } }]} />,
-    );
-    expect(container.querySelector('[data-testid="cc-tip"]')).toBeNull();
+    const row = await screen.findByTestId("cc-daily-sqz-row");
+    expect(screen.getAllByTestId("cc-daily-sqz-row").length).toBe(1);
+    expect(row.querySelector('[data-testid="cc-daily-used"]')?.textContent).toBe("—");
+    expect(row.querySelector('[data-testid="cc-daily-compressed"]')?.textContent).toBe(fmt(300));
+    expect(row.querySelector('[data-testid="cc-daily-ratio"]')?.textContent).toBe("—");
   });
 
   it("slow stats do not hold back status; stats show a loading state", async () => {
