@@ -38,6 +38,19 @@ export function buildCodexCommand(groupKey: string): string {
 export const PI_PROVIDER_PREFIX = "aidog-";
 
 /**
+ * Build the `claude --resume` command for a session（日志统计-会话列表 票），
+ * 沿用会话原分组路由：`--settings ~/.aidog/settings.<group>.json`（与
+ * [`buildClaudeCommand`] 同一 settings 链路）。分组空 = 不带 `--settings`。
+ * session_id 与分组名都过 [`shellSquote`]，杜绝命令注入（Rust 侧
+ * `proxy_cmd/session_cmd.rs::build_resume_command` 同算法同结果）。
+ */
+export function buildResumeCommand(sessionId: string, groupKey: string): string {
+  const parts = ["claude", "--resume", shellSquote(sessionId)];
+  if (groupKey) parts.push("--settings", shellSquote(`~/.aidog/settings.${groupKey}.json`));
+  return parts.join(" ");
+}
+
+/**
  * Build the `pi` CLI invocation for a given group.
  * pi 的 endpoint 只认单一全局 `~/.pi/agent/models.json`，aidog 在其中为每组写一个
  * provider `aidog-<group>`，用 `--provider` 选组。token 已写进该 provider 的 apiKey，

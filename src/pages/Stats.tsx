@@ -6,6 +6,7 @@ import {
   mitmStatsApi,
   groupDetailApi,
   platformApi,
+  sessionApi,
   onProxyLogUpdated,
   type StatsResult,
   type StatsQuery,
@@ -21,6 +22,7 @@ import {
 } from "../services/api";
 import type { NavContext } from "../components/Sidebar";
 import { formatNumber, formatMoney, formatPercent, successRate } from "../utils/formatters";
+import { buildResumeCommand } from "../domains/groups";
 import { F } from "../domains/shared/tokens";
 import { getProtocolSearchTermsMap } from "../domains/platforms/defaults";
 import {
@@ -1039,6 +1041,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                       <TableHead style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600 }}>{t("stats.totalTokens", "总 Token")}</TableHead>
                       <TableHead style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600 }}>{t("stats.totalCost", "预估成本")}</TableHead>
                       <TableHead style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600 }}>{t("stats.sessionSpeedCol", "实时速度")}</TableHead>
+                      <TableHead style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600 }}>{t("stats.sessionActions", "操作")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1077,6 +1080,29 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                                 <SessionSpeedSpark points={live} label={t("stats.sessionSpeed", "token 累计")} />
                               </span>
                             )}
+                          </TableCell>
+                          <TableCell data-testid="session-actions" style={{ textAlign: "right", padding: "6px 8px", whiteSpace: "nowrap" }}>
+                            {/* 复制 / 一键继续：仅 claude_code 会话（session_id 非空）；按钮阻冒泡，行点击跳日志不变 */}
+                            {s.session_id ? (
+                              <span style={{ display: "inline-flex", gap: 4 }} onClick={(e) => e.stopPropagation()}>
+                                <Button
+                                  variant="outline"
+                                  data-testid="session-copy-resume"
+                                  style={{ height: 26, padding: "0 8px", fontSize: 14 }}
+                                  onClick={() => { void navigator.clipboard?.writeText(buildResumeCommand(s.session_id, s.group_key)); }}
+                                >
+                                  {t("stats.sessionCopyResume", "复制继续命令")}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  data-testid="session-resume-terminal"
+                                  style={{ height: 26, padding: "0 8px", fontSize: 14 }}
+                                  onClick={() => { sessionApi.openTerminal(s.session_id, s.group_key).catch(console.error); }}
+                                >
+                                  {t("stats.sessionResume", "终端继续")}
+                                </Button>
+                              </span>
+                            ) : null}
                           </TableCell>
                         </TableRow>
                       );

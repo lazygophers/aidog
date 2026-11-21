@@ -213,6 +213,7 @@ rpc_routes! {
     mutating aidog_backup::commands::db_compact,
     readonly aidog_core::proxy_cmd::proxy_timeout::proxy_timeout_get,
     mutating aidog_core::proxy_cmd::proxy_timeout::proxy_timeout_set,
+    mutating aidog_core::proxy_cmd::session_cmd::session_open_terminal,
     readonly aidog_core::proxy_cmd::middleware::middleware_list_rules,
     mutating aidog_core::proxy_cmd::middleware::middleware_create_rule,
     mutating aidog_core::proxy_cmd::middleware::middleware_update_rule,

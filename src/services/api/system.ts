@@ -16,6 +16,14 @@ export const scriptExecutorApi = {
     invoke<void>("set_script_executor", { executor }),
 };
 
+// ─── Session Resume API（日志统计-会话列表：一键继续） ─────────────────
+
+export const sessionApi = {
+  /** 一键继续：macOS 开 Terminal.app 执行 `claude --resume <sid> --settings ~/.aidog/settings.<group>.json`。 */
+  openTerminal: (sessionId: string, groupKey: string) =>
+    invoke<void>("session_open_terminal", { sessionId, groupKey }),
+};
+
 // ─── Codex Config API ─────────────────────────────────────
 
 
