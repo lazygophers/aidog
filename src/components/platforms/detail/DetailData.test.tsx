@@ -240,4 +240,28 @@ describe("DetailData（T3 数据板块）", () => {
     expect(screen.queryByTestId("detail-t5-occ-row")).not.toBeInTheDocument();
     expect((await screen.findAllByTestId("detail-t5-qw-row")).length).toBe(2);
   });
+
+  it("水位板块：限频占用事件驱动——订阅 rate-occupancy-updated，事件触发（1s debounce）重拉", async () => {
+    const { listen } = await import("../../../services/transport");
+    const handlers = new Map<string, (e: { payload: unknown }) => void>();
+    vi.mocked(listen).mockImplementation((async (event: string, handler: (e: { payload: unknown }) => void) => {
+      handlers.set(event, handler);
+      return () => {};
+    }) as never);
+    render(<DetailData platform={basePlatform({})} />);
+    await screen.findByTestId("detail-t5-water");
+    // 前端已订阅限频占用事件（不再 setInterval 轮询）
+    expect(handlers.has("rate-occupancy-updated")).toBe(true);
+    const countCalls = () =>
+      mockedInvoke.mock.calls.filter(c => c[0] === "platform_rate_occupancy").length;
+    const before = countCalls();
+    vi.useFakeTimers();
+    try {
+      handlers.get("rate-occupancy-updated")!({ payload: null });
+      await vi.advanceTimersByTimeAsync(1100); // debounce 1s 后重拉
+      expect(countCalls()).toBeGreaterThan(before);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

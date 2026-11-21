@@ -1,10 +1,12 @@
 // T5 水位板块（详情页 F）：限频实时占用 + 额度窗口逐条水位（方向 5 密度终端 .qw 卡片形态）。
-// 限频占用 = platform_rate_occupancy（SchedulerState.rate 内存计数快照，5 秒轮询；
+// 限频占用 = platform_rate_occupancy（SchedulerState.rate 内存计数快照，事件驱动：
+// 后端占位计数变化发 rate-occupancy-updated，前端 1s debounce 重拉；隐藏期间跳过、恢复可见补拉。
 // 代理从未启动过 → 空列表，不虚构 0 之外的值）。额度窗口 = platform_quota_window_levels（后端现算已用/剩余/重置时刻）。
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { PlatformQuotaWindowLevel, PlatformRateOccupancy } from "../../../services/api";
 import { platformApi, parseRateLimitsBundle } from "../../../services/api";
+import { listen } from "../../../services/transport";
 import { formatNumber, formatMoney } from "../../../utils/formatters";
 import { Blk } from "./Blk";
 
@@ -42,15 +44,45 @@ export function WaterLevel({ platformId, extra }: { platformId: number; extra?: 
   const [rows, setRows] = useState<PlatformQuotaWindowLevel[]>([]);
   const [occ, setOcc] = useState<PlatformRateOccupancy[]>([]);
 
-  // 限频占用 5 秒轮询（内存计数变化快）；额度窗口一次性加载（变化慢，重置时刻由后端现算）。
+  // 限频占用事件驱动（内存计数变化快，后端发 rate-occupancy-updated）；额度窗口一次性加载（变化慢，重置时刻由后端现算）。
   useEffect(() => {
     let alive = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let pendingWhileHidden = false;
     const loadOcc = () => platformApi.rateOccupancy(platformId)
       .then(r => { if (alive && Array.isArray(r)) setOcc(r); })
       .catch(() => {});
+    // debounce 1s 合并突发事件；隐藏期间跳过拉取，恢复可见补拉一次
+    const run = () => {
+      if (document.hidden) { pendingWhileHidden = true; return; }
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        if (document.hidden) { pendingWhileHidden = true; return; }
+        loadOcc();
+      }, 1000);
+    };
+    let unlisten: () => void = () => {};
+    listen("rate-occupancy-updated", () => { run(); }).then((fn) => {
+      if (alive) unlisten = fn; else fn();
+    });
+    const onVisible = () => {
+      if (!document.hidden && (pendingWhileHidden || timer)) {
+        pendingWhileHidden = false;
+        if (timer) { clearTimeout(timer); timer = null; }
+        loadOcc();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    document.addEventListener("focus", onVisible);
     loadOcc();
-    const timer = window.setInterval(loadOcc, 5000);
-    return () => { alive = false; window.clearInterval(timer); };
+    return () => {
+      alive = false;
+      unlisten();
+      document.removeEventListener("visibilitychange", onVisible);
+      document.removeEventListener("focus", onVisible);
+      if (timer) clearTimeout(timer);
+    };
   }, [platformId]);
 
   useEffect(() => {
