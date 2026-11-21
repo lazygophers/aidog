@@ -1232,7 +1232,6 @@
   "contextCompress.statsColUsed": "使用済み",
   "contextCompress.statsColCompressed": "圧縮済み",
   "contextCompress.statsColRatio": "圧縮率",
-  "contextCompress.sqzRateNote": "sqz は日次比率を提供しません：比率 / 回数 / 元 / 圧縮後トークンは累計値です",
   "mcp.add": "MCP を追加",
   "clientUsage.title": "クライアント利用状況",
   "clientUsage.desc": "ローカルの AI コーディングクライアントのセッションファイルを読み込み、公式 API 価格でローカル利用量を換算します。データはこのマシン上でのみ処理・保存されます。",

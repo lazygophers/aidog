@@ -891,8 +891,8 @@ fn sqz_gain_parse_keeps_recent_days_in_current_year() {
     assert_eq!(
         daily,
         vec![
-            SqzDaily { date: "2026-11-17".into(), saved_tokens: 246984 },
-            SqzDaily { date: "2026-11-12".into(), saved_tokens: 49251 },
+            SqzDaily { date: "2026-11-17".into(), saved_tokens: 246984, used_tokens: None, compressions: None },
+            SqzDaily { date: "2026-11-12".into(), saved_tokens: 49251, used_tokens: None, compressions: None },
         ]
     );
 }
@@ -905,8 +905,8 @@ fn sqz_gain_parse_rolls_new_year_boundary_to_previous_year() {
     assert_eq!(
         daily,
         vec![
-            SqzDaily { date: "2025-12-31".into(), saved_tokens: 60000 },
-            SqzDaily { date: "2026-01-04".into(), saved_tokens: 20000 },
+            SqzDaily { date: "2025-12-31".into(), saved_tokens: 60000, used_tokens: None, compressions: None },
+            SqzDaily { date: "2026-01-04".into(), saved_tokens: 20000, used_tokens: None, compressions: None },
         ]
     );
 }
@@ -916,4 +916,53 @@ fn sqz_gain_parse_skips_garbage_lines_without_fabricating() {
     let today = chrono::NaiveDate::from_ymd_opt(2026, 11, 18).unwrap();
     let daily = parse_sqz_gain("garbage\n99-99 │██│ 5 saved\n\n", today);
     assert!(daily.is_empty(), "无效月日/日期行必须跳过，不伪造");
+}
+
+/// sqz 真实 schema（`~/.sqz/sessions.db`，2026-11-21 实读）的临时库。
+fn sqz_db_fixture(rows: &[(i64, i64, &str)]) -> (tempfile::TempDir, std::path::PathBuf) {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("sessions.db");
+    let c = rusqlite::Connection::open(&path).unwrap();
+    c.execute_batch(
+        "CREATE TABLE compression_log (id INTEGER PRIMARY KEY AUTOINCREMENT, tokens_original INTEGER NOT NULL, \
+         tokens_compressed INTEGER NOT NULL, stages_applied TEXT NOT NULL, mode TEXT NOT NULL DEFAULT 'auto', \
+         created_at TEXT NOT NULL, project_dir TEXT);",
+    )
+    .unwrap();
+    for (o, z, at) in rows {
+        c.execute(
+            "INSERT INTO compression_log (tokens_original, tokens_compressed, stages_applied, created_at) VALUES (?1, ?2, '[]', ?3)",
+            rusqlite::params![o, z, at],
+        )
+        .unwrap();
+    }
+    (dir, path)
+}
+
+#[test]
+fn sqz_db_aggregates_used_saved_and_count_per_utc_day() {
+    let (_d, path) = sqz_db_fixture(&[
+        (1000, 700, "2026-11-18T01:00:00.1+00:00"),
+        (500, 500, "2026-11-18T23:59:59.9+00:00"),
+        (2000, 1000, "2026-11-19T10:44:16.977368+00:00"),
+    ]);
+    let daily = sqz_daily_from_db(&path).expect("有效库应读出每日");
+    assert_eq!(
+        daily,
+        vec![
+            SqzDaily { date: "2026-11-18".into(), saved_tokens: 300, used_tokens: Some(1500), compressions: Some(2) },
+            SqzDaily { date: "2026-11-19".into(), saved_tokens: 1000, used_tokens: Some(2000), compressions: Some(1) },
+        ]
+    );
+}
+
+#[test]
+fn sqz_db_missing_file_or_table_falls_back_to_none() {
+    let dir = tempfile::tempdir().unwrap();
+    let missing = dir.path().join("nope.db");
+    assert!(sqz_daily_from_db(&missing).is_none());
+    assert!(!missing.exists(), "只读打开不得创建库文件");
+    let empty = dir.path().join("empty.db");
+    rusqlite::Connection::open(&empty).unwrap().execute_batch("CREATE TABLE other (x INTEGER);").unwrap();
+    assert!(sqz_daily_from_db(&empty).is_none(), "缺 compression_log 表 → 回退");
 }

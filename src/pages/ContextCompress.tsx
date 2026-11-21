@@ -12,7 +12,7 @@ import { formatInteger, formatNumber, formatPercent } from "../utils/formatters"
 
 type Range = "30" | "90" | "all";
 
-// 每日图悬浮提示：日期 + 已使用 / 已压缩 / 压缩比例；sqz CLI 无每日输入与比率（used 缺省）时只显示已压缩。
+// 每日图悬浮提示：日期 + 已使用 / 已压缩 / 压缩比例；sqz 回退文本无每日输入（used 缺省）时只显示已压缩。
 export function DailyTooltip({ active, label, payload }: {
   active?: boolean;
   label?: string;
@@ -118,7 +118,7 @@ export function ContextCompress() {
     </div>
   </div>;
 
-  const card = (tool: "rtk" | "sqz", tiles: [string, string, string, "range" | "total"][] | null, chart: ReactNode, extra?: ReactNode) => {
+  const card = (tool: "rtk" | "sqz", tiles: [string, string, string, "range" | "total"][] | null, chart: ReactNode) => {
     const state = statsState !== "ok" ? statsState
       : tiles ? "ok"
       : status && !version(tool) ? "not-installed"
@@ -133,7 +133,6 @@ export function ContextCompress() {
               <dd className="text-lg font-semibold tabular-nums" data-testid={`cc-stat-${tool}-${key}`}>{value}</dd>
             </div>)}
           </dl>
-          {extra}
           {chart}
         </>
         : <p className={`text-sm ${state === "error" ? "text-destructive" : "text-muted-foreground"}`} data-testid={`cc-stats-${tool}-msg`}>
@@ -146,8 +145,8 @@ export function ContextCompress() {
   };
   const version = (tool: "rtk" | "sqz") => tool === "rtk" ? status?.rtk_version : status?.sqz_version;
 
-  // 区间过滤：30/90 天按本地日期算；"all" 不过滤。sqz CLI 无每日比率 / in-out，
-  // 其 rate / count / in / out 只能是累计口径，UI 显式标注。
+  // 区间过滤：30/90 天按本地日期算；"all" 不过滤。sqz 每日读自 compression_log 时与 rtk 同口径；
+  // 回退 `sqz gain` 文本（无 used）时 rate / count / in / out 只能是累计口径，tile 标注累计。
   const inRange = <T extends { date: string }>(rows: T[] | undefined): T[] => {
     if (!rows) return [];
     if (range === "all") return rows;
@@ -160,13 +159,13 @@ export function ContextCompress() {
   const sqzRange = useMemo(() => inRange(stats?.sqz_daily), [stats, range]);
   const sum = (rows: { saved_tokens: number }[]) => rows.reduce((a, r) => a + r.saved_tokens, 0);
   // 每日图：已使用 = 压缩前 tokens（rtk input_tokens），已压缩 = 节省 tokens，比例 = 当日 savings_pct（右轴）。
-  // sqz CLI 无每日输入 / 比率，只画已压缩柱。横轴按日期升序。
+  // sqz 回退文本（无 used）时只画已压缩柱。横轴按日期升序。
   const chartConfig = useMemo<ChartConfig>(() => Object.fromEntries(
     (Object.keys(COLORS) as (keyof typeof COLORS)[]).map(k => [k, { label: t(SERIES[k]), color: COLORS[k] }])), [t]);
   type DayPoint = { date: string; used?: number; compressed: number; pct?: number };
-  const dailyChart = (tool: "rtk" | "sqz", rows: DayPoint[]) => {
+  const sqzHasUsed = !(stats?.sqz_daily ?? []).some(r => r.used_tokens == null);
+  const dailyChart = (tool: "rtk" | "sqz", rows: DayPoint[], withRatio: boolean) => {
     const data = [...rows].sort((a, b) => a.date.localeCompare(b.date));
-    const withRatio = tool === "rtk";
     const keys: (keyof typeof COLORS)[] = withRatio ? ["used", "compressed", "pct"] : ["compressed"];
     const yTicks = niceTicks(0, Math.max(0, ...data.map(r => Math.max(r.used ?? 0, r.compressed))), 5);
     return <div className="mt-3 space-y-2" data-testid={`cc-chart-${tool}`}>
@@ -195,8 +194,11 @@ export function ContextCompress() {
       </ChartCard>
     </div>;
   };
-  const rtkChart = dailyChart("rtk", rtkRange.map(r => ({ date: r.date, used: r.input_tokens, compressed: r.saved_tokens, pct: r.savings_pct })));
-  const sqzChart = dailyChart("sqz", sqzRange.map(r => ({ date: r.date, compressed: r.saved_tokens })));
+  const rtkChart = dailyChart("rtk", rtkRange.map(r => ({ date: r.date, used: r.input_tokens, compressed: r.saved_tokens, pct: r.savings_pct })), true);
+  const sqzChart = dailyChart("sqz", sqzRange.map(r => ({
+    date: r.date, compressed: r.saved_tokens, used: r.used_tokens ?? undefined,
+    pct: r.used_tokens ? r.saved_tokens / r.used_tokens * 100 : undefined,
+  })), sqzHasUsed);
 
   const rtkIn = rtkRange.reduce((a, r) => a + r.input_tokens, 0);
   const rtkSaved = sum(rtkRange);
@@ -208,13 +210,21 @@ export function ContextCompress() {
     ["out", "contextCompress.statsOut", formatInteger(rtkRange.reduce((a, r) => a + r.output_tokens, 0)), "range"],
   ] : null;
   const sqz = stats?.sqz;
-  const sqzTiles: [string, string, string, "range" | "total"][] | null = statsState === "ok" && sqz ? [
+  const sqzIn = sqzRange.reduce((a, r) => a + (r.used_tokens ?? 0), 0);
+  const sqzSaved = sum(sqzRange);
+  const sqzTiles: [string, string, string, "range" | "total"][] | null = statsState !== "ok" || !sqz ? null : sqzHasUsed ? [
+    ["saved", "contextCompress.statsSaved", formatInteger(sqzSaved), "range"],
+    ["pct", "contextCompress.statsPct", sqzIn > 0 ? formatPercent(sqzSaved / sqzIn * 100) : "—", "range"],
+    ["count", "contextCompress.statsCompressions", formatInteger(sqzRange.reduce((a, r) => a + (r.compressions ?? 0), 0)), "range"],
+    ["in", "contextCompress.statsIn", formatInteger(sqzIn), "range"],
+    ["out", "contextCompress.statsOut", formatInteger(sqzIn - sqzSaved), "range"],
+  ] : [
     ["saved", "contextCompress.statsSaved", formatInteger(sum(sqzRange)), "range"],
     ["pct", "contextCompress.statsPct", formatPercent(sqz.avgReduction), "total"],
     ["count", "contextCompress.statsCompressions", formatInteger(sqz.totalCompressions), "total"],
     ["in", "contextCompress.statsIn", formatInteger(sqz.tokensIn), "total"],
     ["out", "contextCompress.statsOut", formatInteger(sqz.tokensOut), "total"],
-  ] : null;
+  ];
 
   return (
     <section className="space-y-5" data-testid="context-compress-page">
@@ -258,7 +268,7 @@ export function ContextCompress() {
             <p>{t("contextCompress.sqzMissing")}</p>
             <ul className="list-disc pl-5">{status.sqz_missing.map(item => <li key={item}>{item}</li>)}</ul>
           </div>}
-          {card("sqz", sqzTiles, sqzChart, <p className="text-sm text-muted-foreground" data-testid="cc-sqz-rate-note">{t("contextCompress.sqzRateNote")}</p>)}
+          {card("sqz", sqzTiles, sqzChart)}
         </TabsContent>
       </Tabs>
     </section>

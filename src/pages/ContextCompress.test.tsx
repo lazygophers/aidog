@@ -38,8 +38,8 @@ const RTK_DAILY = [
   { date: isoDay(100), commands: 50, input_tokens: 5000, output_tokens: 3000, saved_tokens: 2000, savings_pct: 40 },
 ];
 const SQZ_DAILY = [
-  { date: isoDay(0), saved_tokens: 300 },
-  { date: isoDay(50), saved_tokens: 700 },
+  { date: isoDay(0), saved_tokens: 300, used_tokens: 1000, compressions: 10 },
+  { date: isoDay(50), saved_tokens: 700, used_tokens: 2000, compressions: 20 },
 ];
 // rtk summary 保持与日和聚合一致（口径：sum(daily)）
 const RTK_SUMMARY = {
@@ -200,29 +200,52 @@ describe("ContextCompress", () => {
     await waitFor(() => expect(screen.getByTestId("cc-stat-rtk-pct").textContent).toBe("40.0%"));
   });
 
-  it("sqz tiles: saved is range-scoped; rate/count/in/out stay aggregate with note", async () => {
+  it("sqz tiles from compression_log are range-scoped like rtk, without the aggregate note", async () => {
     render(<ContextCompress />);
     await openSqz();
+    // 30 天：仅 day0 → used 1000 / saved 300 / 10 次
     await waitFor(() => expect(screen.getByTestId("cc-stat-sqz-saved").textContent).toBe(fmt(300)));
     expect(screen.getByTestId("cc-stat-sqz-pct").textContent).toBe("30.0%");
-    expect(screen.getByTestId("cc-stat-sqz-count").textContent).toBe("50");
-    expect(screen.getByTestId("cc-stat-sqz-in").textContent).toBe(fmt(2000));
-    expect(screen.getByTestId("cc-stat-sqz-out").textContent).toBe(fmt(1400));
-    expect(screen.getByTestId("cc-sqz-rate-note")).toBeTruthy();
-    // 切到全部：saved 变全量，累计口径的 tile 不变
+    expect(screen.getByTestId("cc-stat-sqz-count").textContent).toBe("10");
+    expect(screen.getByTestId("cc-stat-sqz-in").textContent).toBe(fmt(1000));
+    expect(screen.getByTestId("cc-stat-sqz-out").textContent).toBe(fmt(700));
+    expect(screen.queryByTestId("cc-sqz-rate-note")).toBeNull();
     fireEvent.click(screen.getByTestId("cc-range-all"));
+    // 全部：used 3000 / saved 1000 → 33.3%
     await waitFor(() => expect(screen.getByTestId("cc-stat-sqz-saved").textContent).toBe(fmt(1000)));
-    expect(screen.getByTestId("cc-stat-sqz-pct").textContent).toBe("30.0%");
+    expect(screen.getByTestId("cc-stat-sqz-pct").textContent).toBe("33.3%");
+    expect(screen.getByTestId("cc-stat-sqz-count").textContent).toBe("30");
+    expect(screen.getByTestId("cc-stat-sqz-in").textContent).toBe(fmt(3000));
+    expect(screen.getByTestId("cc-stat-sqz-out").textContent).toBe(fmt(2000));
   });
 
-  it("sqz chart shows compressed bars only (CLI has no daily input or ratio)", async () => {
+  it("sqz chart matches rtk: used + compressed bars with a ratio line", async () => {
+    const { container } = render(<ContextCompress />);
+    await openSqz();
+    await waitFor(() => expect(container.querySelectorAll('[data-testid="cc-chart-sqz"] .recharts-bar-rectangle').length).toBe(2));
+    expect(container.querySelector('[data-testid="cc-chart-sqz"] .recharts-line')).toBeTruthy();
+    const legend = screen.getByTestId("cc-legend-sqz");
+    expect(legend.textContent).toContain("contextCompress.statsColUsed");
+    expect(legend.textContent).toContain("contextCompress.statsColCompressed");
+    expect(legend.textContent).toContain("contextCompress.statsColRatio");
+  });
+
+  it("sqz fallback (gain text, no used): compressed bars only and aggregate tiles", async () => {
+    api.stats.mockResolvedValue({
+      rtk: RTK_SUMMARY,
+      sqz: { totalCompressions: 50, tokensIn: 2000, tokensOut: 1400, tokensSaved: 600, avgReduction: 30 },
+      rtk_daily: RTK_DAILY,
+      sqz_daily: SQZ_DAILY.map(r => ({ ...r, used_tokens: null, compressions: null })),
+    });
     const { container } = render(<ContextCompress />);
     await openSqz();
     await waitFor(() => expect(container.querySelectorAll('[data-testid="cc-chart-sqz"] .recharts-bar-rectangle').length).toBe(1));
     expect(container.querySelector('[data-testid="cc-chart-sqz"] .recharts-line')).toBeNull();
-    const legend = screen.getByTestId("cc-legend-sqz");
-    expect(legend.textContent).toContain("contextCompress.statsColCompressed");
-    expect(legend.textContent).not.toContain("contextCompress.statsColUsed");
+    expect(screen.getByTestId("cc-legend-sqz").textContent).not.toContain("contextCompress.statsColUsed");
+    expect(screen.getByTestId("cc-stat-sqz-saved").textContent).toBe(fmt(300));
+    expect(screen.getByTestId("cc-stat-sqz-pct").textContent).toBe("30.0%");
+    expect(screen.getByTestId("cc-stat-sqz-count").textContent).toBe("50");
+    expect(screen.getByTestId("cc-stat-sqz-in").textContent).toBe(fmt(2000));
   });
 
   it("slow stats do not hold back status; stats show a loading state", async () => {
