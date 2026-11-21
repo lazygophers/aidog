@@ -1,12 +1,11 @@
 // ClientUsage.tsx — 日志统计 → 客户端统计（issue #65 票 02b）。
-// 同意闸门：首次进入（asked=false）只见同意卡；保存后进入主视图（开关可随时改）。
+// 读取开关在 设置 › 客户端会话读取（扩展-会话页 票 01）；四家都未启用只见引导卡，部分启用顶部一行提示。
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
-import { Switch } from "../components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -26,7 +25,6 @@ import { LineChart } from "../components/charts";
 import type { ChartConfig } from "../components/ui/chart";
 import {
   clientUsageApi,
-  type ClientUsageConsent,
   type ClientUsageModelRow,
   type ClientUsageSessionRow,
   type ClientUsageStatus,
@@ -68,11 +66,9 @@ function presetRange(preset: Preset, from: string, to: string): { fromMs: number
 // 模型花费列近似口径：cost<=0 视为未定价（免费模型 cost=0 会误标；会话行已改用后端 unpricedCalls 真实字段）。
 const isUnpriced = (cost: number) => !(cost > 0);
 
-export function ClientUsage() {
+export function ClientUsage({ onNavigate }: { onNavigate?: (id: string) => void } = {}) {
   const { t } = useTranslation();
   const [status, setStatus] = useState<ClientUsageStatus | null>(null);
-  const [consentDraft, setConsentDraft] = useState<ClientUsageConsent>({ asked: false, enabled: {} });
-  const [consentBusy, setConsentBusy] = useState(false);
   const [error, setError] = useState("");
 
   const [preset, setPreset] = useState<Preset>("7d");
@@ -86,8 +82,10 @@ export function ClientUsage() {
   const [dataError, setDataError] = useState("");
   const [loaded, setLoaded] = useState(false);
 
-  const asked = status?.consent.asked ?? false;
   const enabled = status?.consent.enabled ?? {};
+  const anyEnabled = CLIENTS.some((c) => enabled[c.code]);
+  const disabledClients = CLIENTS.filter((c) => !enabled[c.code]);
+  const goSettings = () => onNavigate?.("settings/client_usage");
   const importing = status?.import.running ?? false;
 
   const range = useMemo(
@@ -99,7 +97,6 @@ export function ClientUsage() {
     try {
       const s = await clientUsageApi.status();
       setStatus(s);
-      setConsentDraft(s.consent);
     } catch (e) {
       setError(String(e));
     }
@@ -126,8 +123,8 @@ export function ClientUsage() {
   }, [loadStatus]);
 
   useEffect(() => {
-    if (asked) void loadData(range);
-  }, [asked, range, loadData]);
+    if (anyEnabled) void loadData(range);
+  }, [anyEnabled, range, loadData]);
 
   // 导入进行中轮询 status；结束后刷一次数据。
   useEffect(() => {
@@ -135,32 +132,6 @@ export function ClientUsage() {
     const timer = setTimeout(() => { void loadStatus(); }, 1500);
     return () => clearTimeout(timer);
   }, [importing, status, loadStatus]);
-
-  const saveConsent = async () => {
-    setConsentBusy(true);
-    setError("");
-    try {
-      await clientUsageApi.consentSet({ ...consentDraft, asked: true });
-      await loadStatus();
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setConsentBusy(false);
-    }
-  };
-
-  const toggleClient = async (code: string, on: boolean) => {
-    setError("");
-    const next: ClientUsageConsent = { asked: true, enabled: { ...enabled, [code]: on } };
-    // 开关即时生效：乐观更新，失败回滚并报错。
-    setStatus((s) => (s ? { ...s, consent: next } : s));
-    try {
-      await clientUsageApi.consentSet(next);
-    } catch (e) {
-      setError(String(e));
-      void loadStatus();
-    }
-  };
 
   const refresh = async () => {
     setError("");
@@ -171,8 +142,6 @@ export function ClientUsage() {
       setError(String(e));
     }
   };
-
-  const setEnabled = (code: string) => (on: boolean) => { void toggleClient(code, on); };
 
   // 趋势图数据：calls 与 cost 量纲差一个数量级以上，拆两张图各一条线。
   const trendCalls = useMemo(
@@ -189,35 +158,22 @@ export function ClientUsage() {
   const imp = status?.import;
   const empty = !summary || summary.calls === 0;
 
-  if (!asked) {
-    // 首次进入：同意卡。
+  if (status && !anyEnabled) {
+    // 四家都未启用：引导卡跳设置子页。
     return (
       <section className="space-y-5" data-testid="client-usage-page">
         <header>
           <h1 className="text-xl font-semibold">{t("clientUsage.title", "客户端统计")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t("clientUsage.desc", "读取本地 AI 编码客户端的会话文件，按官方 API 价格折算本地用量。数据仅本机处理与存储。")}</p>
         </header>
-        <Card className="p-5 space-y-4" data-testid="consent-card">
-          <h2 className="font-medium">{t("clientUsage.consentTitle", "读取授权")}</h2>
-          <p className="text-sm text-muted-foreground">{t("clientUsage.consentDesc", "选择要统计的客户端。开启后读取对应客户端本地的会话文件并导入统计。")}</p>
-          <div className="space-y-3">
-            {CLIENTS.map((c) => (
-              <label key={c.code} className="flex items-center justify-between rounded-lg border p-3">
-                <span className="text-sm">{c.name}</span>
-                <Switch
-                  checked={consentDraft.enabled[c.code] ?? false}
-                  onCheckedChange={(on) => setConsentDraft((d) => ({ ...d, enabled: { ...d.enabled, [c.code]: on } }))}
-                  aria-label={c.name}
-                  data-testid={`consent-${c.code}`}
-                />
-              </label>
-            ))}
-          </div>
-          <Button data-testid="consent-save" disabled={consentBusy} onClick={() => void saveConsent()}>
-            {t("clientUsage.consentSave", "开始统计")}
+        <Card className="p-5 space-y-4" data-testid="client-usage-guide">
+          <h2 className="font-medium">{t("clientUsage.guideTitle", "尚未启用客户端读取")}</h2>
+          <p className="text-sm text-muted-foreground">{t("clientUsage.guideDesc", "在设置中开启要统计的客户端。AiDog 只记录 token、成本等元数据，对话正文不入库。")}</p>
+          <Button data-testid="client-usage-guide-go" onClick={goSettings}>
+            {t("clientUsage.guideGo", "去设置启用")}
           </Button>
         </Card>
-        {error && <p role="alert" className="text-sm text-destructive" data-testid="consent-error">{error}</p>}
+        {error && <p role="alert" className="text-sm text-destructive" data-testid="page-error">{error}</p>}
       </section>
     );
   }
@@ -235,24 +191,18 @@ export function ClientUsage() {
       </header>
 
       {error && <p role="alert" className="text-sm text-destructive" data-testid="page-error">{error}</p>}
+      {status && disabledClients.length > 0 && (
+        <p className="text-sm text-muted-foreground" data-testid="client-usage-partial-hint" data-disabled={disabledClients.map((c) => c.code).join(",")}>
+          {t("clientUsage.partialHint", "未启用读取：{{names}}。", { names: disabledClients.map((c) => c.name).join(", ") })}{" "}
+          <button type="button" className="text-primary underline-offset-2 hover:underline" data-testid="client-usage-partial-go" onClick={goSettings}>
+            {t("clientUsage.guideGo", "去设置启用")}
+          </button>
+        </p>
+      )}
 
-      {/* 客户端开关（随时改，关掉即停止读取）。 */}
-      <Card className="p-4" data-testid="client-switches">
-        <div className="flex flex-wrap gap-x-8 gap-y-3">
-          {CLIENTS.map((c) => (
-            <label key={c.code} className="flex items-center gap-2 text-sm">
-              <span>{c.name}</span>
-              <Switch
-                checked={enabled[c.code] ?? false}
-                onCheckedChange={setEnabled(c.code)}
-                aria-label={c.name}
-                data-testid={`client-switch-${c.code}`}
-              />
-            </label>
-          ))}
-        </div>
-        {(importing || (imp && imp.callsImported > 0) || (imp && !!imp.error) || (status?.persistedParseErrors ?? 0) > 0) && (
-          <div className="mt-3 text-sm text-muted-foreground space-y-1" data-testid="import-state">
+      {/* 导入状态（开关已迁到设置子页）。 */}
+      {(importing || (imp && imp.callsImported > 0) || (imp && !!imp.error) || (status?.persistedParseErrors ?? 0) > 0) && (
+          <Card className="p-4 text-sm text-muted-foreground space-y-1" data-testid="import-state">
             {importing && (
               <p data-testid="import-progress">
                 {t("clientUsage.importing", "导入中：{{done}}/{{total}} 个文件", { done: imp?.filesDone ?? 0, total: imp?.filesTotal ?? 0 })}
@@ -269,9 +219,8 @@ export function ClientUsage() {
                 {t("clientUsage.parseErrors", "累计解析错误 {{n}} 条", { n: status?.persistedParseErrors })}
               </p>
             )}
-          </div>
+          </Card>
         )}
-      </Card>
 
       {/* 时间范围 + 汇总卡。 */}
       <div className="flex items-center gap-3 flex-wrap" data-testid="range-picker">

@@ -220,7 +220,7 @@ function App() {
             {effectiveNav === "settings" && <AppSettings tab={settingsTab} onNotifSettingsChanged={(enabled) => setNotifEnabled(enabled)} />}
             {effectiveNav === "logs" && <Logs initialFilter={navContext} onNavigate={handleNavigate} />}
             {effectiveNav === "stats" && <Stats initialFilter={navContext} />}
-            {effectiveNav === "client-usage" && <ClientUsage />}
+            {effectiveNav === "client-usage" && <ClientUsage onNavigate={handleNavigate} />}
             {effectiveNav === "notifications" && <Notifications onNavigate={handleNavigate} />}
             {effectiveNav === "skills" && <Skills />}
             {effectiveNav === "mcp" && <Mcp />}

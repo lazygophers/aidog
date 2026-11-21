@@ -26,6 +26,9 @@ mod test_reader_opencode;
 #[cfg(test)]
 #[path = "plain_sqlite_probe.rs"]
 mod plain_sqlite_probe;
+#[cfg(test)]
+#[path = "test_settings.rs"]
+mod test_settings;
 
 /// 全局 IMPORT_STATE 只有一份，跨 reader 两个测试模块的用例用它串行化。
 #[cfg(test)]
@@ -70,6 +73,29 @@ pub async fn save_consent(db: &aidog_db::Db, consent: &ClientUsageConsent) -> Re
             scope: "client_usage".into(),
             key: "client_usage_consent".into(),
             value: serde_json::to_value(consent).map_err(|e| e.to_string())?,
+        },
+    )
+    .await
+}
+
+/// 「允许读取对话原文」开关（scope `client_usage` / key `transcript_consent`，缺省 false）。
+/// 与 `consent_allows` 闸门分开：原文只供换客户端继续时读取，不改读取器入口判定。
+pub async fn load_transcript_consent(db: &aidog_db::Db) -> bool {
+    aidog_db::get_setting(db, "client_usage", "transcript_consent")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
+pub async fn save_transcript_consent(db: &aidog_db::Db, on: bool) -> Result<(), String> {
+    aidog_db::set_setting(
+        db,
+        aidog_db::SetSettingInput {
+            scope: "client_usage".into(),
+            key: "transcript_consent".into(),
+            value: serde_json::json!(on),
         },
     )
     .await
@@ -682,5 +708,35 @@ pub async fn client_usage_sessions(
         limit.unwrap_or(200),
     )
     .await
+}
+}
+
+crate::tauri_command! {
+/// 客户端用量保留天数（0 = 永久，缺省 90）。
+pub async fn client_usage_retention_get() -> Result<u32, String> {
+    Ok(aidog_db::client_usage::load_retention_days(aidog_ctx::db()).await)
+}
+}
+
+crate::tauri_command! {
+/// 设置保留天数，并立即按新值清理一次。
+pub async fn client_usage_retention_set(days: u32) -> Result<(), String> {
+    let db = aidog_ctx::db();
+    aidog_db::client_usage::save_retention_days(db, days).await?;
+    aidog_db::cleanup_client_usage(db, days).await
+}
+}
+
+crate::tauri_command! {
+/// 「允许读取对话原文」开关读取（缺省 false）。
+pub async fn client_usage_transcript_consent_get() -> Result<bool, String> {
+    Ok(load_transcript_consent(aidog_ctx::db()).await)
+}
+}
+
+crate::tauri_command! {
+/// 「允许读取对话原文」开关写入；不改读取闸门（`consent_allows`）。
+pub async fn client_usage_transcript_consent_set(enabled: bool) -> Result<(), String> {
+    save_transcript_consent(aidog_ctx::db(), enabled).await
 }
 }

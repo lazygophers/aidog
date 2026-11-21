@@ -84,4 +84,11 @@ export const clientUsageApi = {
   sessions: (fromMs: number, toMs: number, clientCode?: string, limit?: number) =>
     invoke<ClientUsageSessionRow[]>("client_usage_sessions", { fromMs, toMs, clientCode, limit }),
   refresh: () => invoke<ClientUsageImportState>("client_usage_refresh"),
+  /** 保留天数（0 = 永久，缺省 90）。 */
+  retentionGet: () => invoke<number>("client_usage_retention_get"),
+  retentionSet: (days: number) => invoke<void>("client_usage_retention_set", { days }),
+  /** 「允许读取对话原文」开关（缺省 false）。 */
+  transcriptConsentGet: () => invoke<boolean>("client_usage_transcript_consent_get"),
+  transcriptConsentSet: (enabled: boolean) =>
+    invoke<void>("client_usage_transcript_consent_set", { enabled }),
 };

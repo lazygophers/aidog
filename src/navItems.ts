@@ -27,6 +27,7 @@ export const BASE_NAV: NavItem[] = [
     children: [
       { id: "settings/system", labelKey: "appSettings.systemTab", group: "nav.settingsGroup.general" },
       { id: "settings/api", labelKey: "appSettings.apiTab", group: "nav.settingsGroup.general" },
+      { id: "settings/client_usage", labelKey: "appSettings.clientUsageTab", group: "nav.settingsGroup.general" },
       { id: "settings/coding_tools", labelKey: "appSettings.cliIntegrationTab", group: "nav.settingsGroup.integration" },
       { id: "settings/claude", labelKey: "appSettings.claudeTab", group: "nav.settingsGroup.integration" },
       { id: "settings/codex", labelKey: "appSettings.codexTab", group: "nav.settingsGroup.integration" },

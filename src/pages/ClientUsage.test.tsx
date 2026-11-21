@@ -69,41 +69,46 @@ beforeEach(() => {
 });
 
 describe("ClientUsage", () => {
-  it("首次进入（asked=false）显示同意卡，四个开关默认关", async () => {
-    api.status.mockResolvedValue(statusPayload(false));
-    render(<ClientUsage />);
-    await waitFor(() => expect(screen.getByTestId("consent-card")).toBeTruthy());
-    for (const code of ["claude_code", "codex", "gemini_cli", "opencode"]) {
-      const sw = screen.getByTestId(`consent-${code}`) as HTMLElement & { dataset: Record<string, string> };
-      expect(sw).toBeTruthy();
-      expect(sw.getAttribute("data-state")).toBe("unchecked");
-    }
-    expect(api.consentSet).not.toHaveBeenCalled();
+  it("四家都未启用时只显示引导卡，按钮跳设置子页", async () => {
+    api.status.mockResolvedValue(statusPayload(true, { claude_code: false }));
+    const onNavigate = vi.fn();
+    render(<ClientUsage onNavigate={onNavigate} />);
+    await waitFor(() => expect(screen.getByTestId("client-usage-guide")).toBeTruthy());
+    expect(screen.queryByTestId("summary-card")).toBeNull();
+    expect(screen.queryByTestId("client-switches")).toBeNull();
+    expect(screen.queryByTestId("consent-card")).toBeNull();
+    expect(api.summary).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId("client-usage-guide-go"));
+    expect(onNavigate).toHaveBeenCalledWith("settings/client_usage");
   });
 
-  it("主视图客户端开关切换即调 consent_set", async () => {
+  it("部分启用时顶部一行提示 + 跳转链接，页面无开关", async () => {
     api.status.mockResolvedValue(statusPayload(true, { claude_code: true }));
     const d = dataPayload(5);
     api.summary.mockResolvedValue(d.summary);
     api.trend.mockResolvedValue(d.trend);
     api.byModel.mockResolvedValue(d.byModel);
     api.sessions.mockResolvedValue(d.sessions);
+    const onNavigate = vi.fn();
+    render(<ClientUsage onNavigate={onNavigate} />);
+    await waitFor(() => expect(screen.getByTestId("client-usage-partial-hint")).toBeTruthy());
+    expect(screen.getByTestId("client-usage-partial-hint").getAttribute("data-disabled")).toBe("codex,gemini_cli,opencode");
+    expect(screen.queryByTestId("client-usage-guide")).toBeNull();
+    expect(screen.queryByTestId("client-switch-codex")).toBeNull();
+    fireEvent.click(screen.getByTestId("client-usage-partial-go"));
+    expect(onNavigate).toHaveBeenCalledWith("settings/client_usage");
+  });
+
+  it("四家全启用时不显示部分启用提示", async () => {
+    api.status.mockResolvedValue(statusPayload(true, { claude_code: true, codex: true, gemini_cli: true, opencode: true }));
+    const d = dataPayload(5);
+    api.summary.mockResolvedValue(d.summary);
+    api.trend.mockResolvedValue(d.trend);
+    api.byModel.mockResolvedValue(d.byModel);
+    api.sessions.mockResolvedValue(d.sessions);
     render(<ClientUsage />);
-    await waitFor(() => expect(screen.getByTestId("client-switches")).toBeTruthy());
-    const sw = screen.getByTestId("client-switch-codex");
-    fireEvent.click(sw);
-    await waitFor(() => {
-      expect(api.consentSet).toHaveBeenCalledWith(
-        expect.objectContaining({ asked: true, enabled: expect.objectContaining({ codex: true, claude_code: true }) }),
-      );
-    });
-    // 关掉 claude_code → consent_set 带 enabled.claude_code=false。
-    fireEvent.click(screen.getByTestId("client-switch-claude_code"));
-    await waitFor(() => {
-      expect(api.consentSet).toHaveBeenLastCalledWith(
-        expect.objectContaining({ enabled: expect.objectContaining({ claude_code: false }) }),
-      );
-    });
+    await waitFor(() => expect(screen.getByTestId("data-loaded")).toBeTruthy());
+    expect(screen.queryByTestId("client-usage-partial-hint")).toBeNull();
   });
 
   it("查不到官方价的花费列显示未定价标记", async () => {
