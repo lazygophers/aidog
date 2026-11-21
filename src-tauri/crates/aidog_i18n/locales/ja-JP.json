@@ -1293,6 +1293,8 @@
   "sessions.resume": "再開",
   "sessions.resumeFailed": "セッションを再開できませんでした: {{error}}",
   "sessions.resumeCopied": "このシステムではターミナルを開けません。再開コマンドをコピーしました: {{command}}",
+  "sessions.openDir": "フォルダを開く",
+  "sessions.openDirFailed": "フォルダを開けませんでした：{{error}}",
   "sessions.durMin": "{{n}} 分",
   "sessions.durHour": "{{n}} 時間",
   "sessions.tokenSplit": "入力 {{input}} / 出力 {{output}}",

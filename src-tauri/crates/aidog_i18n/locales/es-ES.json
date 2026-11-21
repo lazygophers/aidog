@@ -1205,6 +1205,8 @@
   "sessions.resume": "Reanudar",
   "sessions.resumeFailed": "No se pudo reanudar la sesión: {{error}}",
   "sessions.resumeCopied": "No se puede abrir una terminal en este sistema. Comando para reanudar copiado: {{command}}",
+  "sessions.openDir": "Abrir carpeta",
+  "sessions.openDirFailed": "No se pudo abrir la carpeta: {{error}}",
   "sessions.durMin": "{{n}} min",
   "sessions.durHour": "{{n}} h",
   "sessions.tokenSplit": "entrada {{input}} / salida {{output}}",

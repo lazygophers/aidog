@@ -22,6 +22,9 @@ vi.mock("../services/transport", () => ({
   }),
 }));
 
+const plat = vi.hoisted(() => ({ revealItemInDir: vi.fn(), homeDir: vi.fn() }));
+vi.mock("../services/platform", () => plat);
+
 import { Sessions } from "./Sessions";
 
 // jsdom 无 PointerEvent，Radix Select 需要 capture / scrollIntoView 垫片。
@@ -395,6 +398,61 @@ describe("继续会话（票 07）", () => {
     fireEvent.click(within(bySid("g2")).getByTestId("sessions-resume"));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("gemini --resume 'g2'"));
     await waitFor(() => expect(screen.getByTestId("sessions-resume-notice")).toHaveAttribute("data-kind", "copied"));
+  });
+});
+
+describe("打开工作目录（票 08）", () => {
+  const OPEN_ROWS = [
+    row("claude_code", "c1", "演示会话甲", "/work/alpha", H),
+    row("gemini_cli", "g1", "演示无目录", "", 2 * H),
+    row("codex", "t1", "演示家目录", "~/demo/proj", 3 * H),
+    row("opencode", "d1", "演示怪路径", "-rf", 4 * H),
+  ];
+  const bySid = (sid: string) => screen.getAllByTestId("sessions-row").find((r) => r.getAttribute("data-session") === sid)!;
+  const groupOf = (wd: string) => screen.getAllByTestId("sessions-group").find((g) => g.getAttribute("data-workdir") === wd)!;
+
+  beforeEach(() => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(OPEN_ROWS);
+    api.sessionDetail.mockReturnValue(new Promise(() => {}));
+    plat.revealItemInDir.mockResolvedValue(undefined);
+    plat.homeDir.mockResolvedValue("/Users/demo/");
+  });
+
+  it("行内与分组头：有目录调用一次 revealItemInDir 且不展开行；无目录不渲染", async () => {
+    render(<Sessions />);
+    await screen.findAllByTestId("sessions-row");
+    expect(within(bySid("g1")).queryByTestId("sessions-open-dir")).toBeNull();
+    expect(within(groupOf("")).queryByTestId("sessions-group-open-dir")).toBeNull();
+    const btn = within(bySid("c1")).getByTestId("sessions-open-dir");
+    fireEvent.click(btn);
+    await waitFor(() => expect(plat.revealItemInDir).toHaveBeenCalledTimes(1));
+    expect(plat.revealItemInDir).toHaveBeenCalledWith("/work/alpha");
+    fireEvent.keyDown(btn, { key: "Enter" });
+    expect(bySid("c1")).toHaveAttribute("data-state", "closed");
+    fireEvent.click(within(groupOf("/work/alpha")).getByTestId("sessions-group-open-dir"));
+    await waitFor(() => expect(plat.revealItemInDir).toHaveBeenCalledTimes(2));
+    expect(plat.revealItemInDir).toHaveBeenLastCalledWith("/work/alpha");
+  });
+
+  it("~ 开头先展开为绝对路径", async () => {
+    render(<Sessions />);
+    await screen.findAllByTestId("sessions-row");
+    fireEvent.click(within(bySid("t1")).getByTestId("sessions-open-dir"));
+    await waitFor(() => expect(plat.revealItemInDir).toHaveBeenCalledWith("/Users/demo/demo/proj"));
+  });
+
+  it("打开失败显示错误；以 - 开头的路径拒绝且不调用", async () => {
+    plat.revealItemInDir.mockRejectedValueOnce("path does not exist");
+    render(<Sessions />);
+    await screen.findAllByTestId("sessions-row");
+    fireEvent.click(within(bySid("c1")).getByTestId("sessions-open-dir"));
+    await waitFor(() => expect(screen.queryByTestId("sessions-resume-notice")?.getAttribute("data-kind")).toBe("open-error"));
+    expect(screen.getByTestId("sessions-resume-notice")).toHaveAttribute("data-detail", "path does not exist");
+    plat.revealItemInDir.mockClear();
+    fireEvent.click(within(bySid("d1")).getByTestId("sessions-open-dir"));
+    await waitFor(() => expect(screen.getByTestId("sessions-resume-notice")).toHaveAttribute("data-detail", "invalid path: -rf"));
+    expect(plat.revealItemInDir).not.toHaveBeenCalled();
   });
 });
 

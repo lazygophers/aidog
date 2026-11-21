@@ -12,6 +12,7 @@ import { ClientIcon, SESSION_CLIENTS } from "../components/sessions/ClientIcon";
 import { deriveState, nextFlipDelay } from "../components/sessions/sessionState";
 import { clientUsageApi, type ClientUsageSessionRow, type ClientUsageSessionState, type ClientUsageStatus } from "../services/api/clientUsage";
 import { listen } from "../services/transport";
+import { homeDir, revealItemInDir } from "../services/platform";
 
 type Range = "today" | "7d" | "30d";
 
@@ -99,7 +100,7 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
   };
 
   // 继续会话（票 07）：macOS 后端直接开终端；其它平台返回命令，复制给用户。
-  const [notice, setNotice] = useState<{ kind: "error" | "copied"; text: string } | null>(null);
+  const [notice, setNotice] = useState<{ kind: "error" | "copied" | "open-error"; text: string } | null>(null);
   const resume = async (r: ClientUsageSessionRow) => {
     setNotice(null);
     try {
@@ -110,6 +111,24 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
       }
     } catch (e) {
       setNotice({ kind: "error", text: String(e) });
+    }
+  };
+
+  // 打开工作目录（票 08）：在父目录中选中该目录（spec S10）；浏览器形态退化为复制路径。
+  const openDir = async (workdir: string) => {
+    setNotice(null);
+    try {
+      let p = workdir;
+      if (p === "~" || p.startsWith("~/")) {
+        const home = await homeDir();
+        if (home) p = home.replace(/[\\/]+$/, "") + p.slice(1);
+      }
+      // 路径来自会话文件，不可信：拒绝选项样式与控制字符。
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: 正是要拦控制字符
+      if (p.startsWith("-") || /[\u0000-\u001f\u007f]/.test(p)) throw `invalid path: ${workdir}`;
+      await revealItemInDir(p);
+    } catch (e) {
+      setNotice({ kind: "open-error", text: String(e) });
     }
   };
 
@@ -244,18 +263,20 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
             <>
               {notice && (
                 <div
-                  role={notice.kind === "error" ? "alert" : "status"}
-                  className={`text-sm break-all ${notice.kind === "error" ? "text-destructive" : "text-muted-foreground"}`}
+                  role={notice.kind !== "copied" ? "alert" : "status"}
+                  className={`text-sm break-all ${notice.kind !== "copied" ? "text-destructive" : "text-muted-foreground"}`}
                   data-testid="sessions-resume-notice"
                   data-kind={notice.kind}
                   data-detail={notice.text}
                 >
                   {notice.kind === "error"
                     ? t("sessions.resumeFailed", "继续会话失败：{{error}}", { error: notice.text })
+                    : notice.kind === "open-error"
+                    ? t("sessions.openDirFailed", "打开目录失败：{{error}}", { error: notice.text })
                     : t("sessions.resumeCopied", "当前系统无法直接打开终端，继续命令已复制：{{command}}", { command: notice.text })}
                 </div>
               )}
-              <SessionGroups rows={shown} pinned={pinned} stateOf={stateOf} onResume={(r) => void resume(r)} />
+              <SessionGroups rows={shown} pinned={pinned} stateOf={stateOf} onResume={(r) => void resume(r)} onOpenDir={(d) => void openDir(d)} />
               <p className="text-sm text-muted-foreground">{t("sessions.footHint", "成本带 + 表示部分调用未定价。")}</p>
             </>
           )}

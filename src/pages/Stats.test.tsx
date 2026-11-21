@@ -157,7 +157,7 @@ describe("Stats 会话 tab（magpie 票 09）", () => {
     const copyBtn = await waitFor(() => screen.getByTestId("session-copy-resume"));
     fireEvent.click(copyBtn);
     await waitFor(() =>
-      expect(writeText).toHaveBeenCalledWith("claude --resume 'sid-1' --settings '~/.aidog/settings.teamA.json'"),
+      expect(writeText).toHaveBeenCalledWith(`claude --resume 'sid-1' --settings "$HOME"/.aidog/'settings.teamA.json'`),
     );
     fireEvent.click(screen.getByTestId("session-resume-terminal"));
     await waitFor(() => expect(sessionApi.openTerminal).toHaveBeenCalledWith("sid-1", "teamA"));

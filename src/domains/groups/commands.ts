@@ -39,14 +39,14 @@ export const PI_PROVIDER_PREFIX = "aidog-";
 
 /**
  * Build the `claude --resume` command for a session（日志统计-会话列表 票），
- * 沿用会话原分组路由：`--settings ~/.aidog/settings.<group>.json`（与
+ * 沿用会话原分组路由：`--settings "$HOME"/.aidog/settings.<group>.json`（与
  * [`buildClaudeCommand`] 同一 settings 链路）。分组空 = 不带 `--settings`。
- * session_id 与分组名都过 [`shellSquote`]，杜绝命令注入（Rust 侧
- * `proxy_cmd/session_cmd.rs::build_resume_command` 同算法同结果）。
+ * session_id 与分组名都过 [`shellSquote`]，杜绝命令注入；家目录前缀留在单引号外，
+ * 否则 `~` 不展开（Rust 侧 `proxy_cmd/session_cmd.rs::build_resume_command` 改传绝对路径）。
  */
 export function buildResumeCommand(sessionId: string, groupKey: string): string {
   const parts = ["claude", "--resume", shellSquote(sessionId)];
-  if (groupKey) parts.push("--settings", shellSquote(`~/.aidog/settings.${groupKey}.json`));
+  if (groupKey) parts.push("--settings", `"$HOME"/.aidog/${shellSquote(`settings.${groupKey}.json`)}`);
   return parts.join(" ");
 }
 

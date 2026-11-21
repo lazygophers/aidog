@@ -1205,6 +1205,8 @@
   "sessions.resume": "Resume",
   "sessions.resumeFailed": "Failed to resume session: {{error}}",
   "sessions.resumeCopied": "Can't open a terminal on this system. Resume command copied: {{command}}",
+  "sessions.openDir": "Open folder",
+  "sessions.openDirFailed": "Couldn't open folder: {{error}}",
   "sessions.durMin": "{{n}} min",
   "sessions.durHour": "{{n}} h",
   "sessions.tokenSplit": "in {{input}} / out {{output}}",

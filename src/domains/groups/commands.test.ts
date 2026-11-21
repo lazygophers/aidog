@@ -4,8 +4,12 @@ import { buildCodexCommand, buildPiCommand, buildResumeCommand } from "./command
 describe("buildResumeCommand", () => {
   it("resumes with the group settings file, both args shell-quoted", () => {
     expect(buildResumeCommand("deadbeef", "teamA")).toBe(
-      "claude --resume 'deadbeef' --settings '~/.aidog/settings.teamA.json'",
+      `claude --resume 'deadbeef' --settings "$HOME"/.aidog/'settings.teamA.json'`,
     );
+  });
+
+  it("keeps the home prefix outside single quotes so the shell expands it", () => {
+    expect(buildResumeCommand("s", "g")).not.toContain("'~/");
   });
 
   it("drops --settings for groupless sessions", () => {
@@ -15,7 +19,7 @@ describe("buildResumeCommand", () => {
   it("quotes shell metacharacters in session id and group key", () => {
     const cmd = buildResumeCommand("x'; rm -rf /", "g' ; calc");
     expect(cmd).toContain("'x'\\''; rm -rf /'");
-    expect(cmd).toContain("'~/.aidog/settings.g'\\'' ; calc.json'");
+    expect(cmd).toContain(`"$HOME"/.aidog/'settings.g'\\'' ; calc.json'`);
   });
 });
 
