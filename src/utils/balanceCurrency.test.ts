@@ -118,6 +118,26 @@ describe("分组余额汇总", () => {
     expect(platformBalanceUsd(8, 6.6675)).toBe(6.6675);
   });
 
+  it("隐藏期间 proxy-log-updated 跳过拉取，恢复可见补拉一次", async () => {
+    h.listen.mockResolvedValue(h.unlisten);
+    const hiddenSpy = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+    const { unmount } = renderHook(() => useBalanceCurrencies());
+    await vi.waitFor(() => expect(h.listen).toHaveBeenCalledTimes(1));
+    h.map.mockResolvedValue({ "9": "CNY" });
+    const mapCalls = h.map.mock.calls.length;
+    const handler = h.listen.mock.calls[0][1] as () => void;
+    handler(); // hidden → 只记 pending，不拉
+    expect(h.map.mock.calls.length).toBe(mapCalls);
+    hiddenSpy.mockReturnValue(false);
+    // 拨过 10s 节流窗（前测的 refresh 已记 lastFetch，补拉走 throttled）
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(Date.now() + 11_000);
+    document.dispatchEvent(new Event("visibilitychange"));
+    await vi.waitFor(() => expect(h.map.mock.calls.length).toBe(mapCalls + 1));
+    unmount();
+    nowSpy.mockRestore();
+    hiddenSpy.mockRestore();
+  });
+
   it("全部订阅卸载后注销 proxy-log-updated listen，重挂载重建", async () => {
     h.listen.mockResolvedValue(h.unlisten);
     const { unmount } = renderHook(() => useBalanceCurrencies());
