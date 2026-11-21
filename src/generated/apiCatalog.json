@@ -849,6 +849,15 @@
       "returns": "ContextCompressStatus"
     },
     {
+      "name": "context_mode_sessions",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<ContextModeSessionRatio>"
+    },
+    {
       "name": "custom_slot_purge",
       "category": "settings",
       "kind": "mutating",
