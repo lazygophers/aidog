@@ -60,5 +60,15 @@ CREATE TABLE IF NOT EXISTS client_session (
     // 「上一已计 message.id」去重状态持久化，票 02）。旧库 ALTER 幂等（duplicate column
     // 错误被 `let _` 吞，schema_late.rs:950 同法）；新库建表列已含，此句空转。
     let _ = conn.execute("ALTER TABLE client_file_progress ADD COLUMN last_msg_id TEXT NOT NULL DEFAULT ''", []);
+    // Migration 20261121-01: 会话「从列表隐藏」（扩展-会话页 票 09）。与 client_session 生命周期
+    // 解耦：文件截断重读删会话壳（delete_client_file_state）不清此表，重扫后仍保持隐藏。
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS client_session_hidden (
+    client_code TEXT NOT NULL,
+    session_id  TEXT NOT NULL,
+    hidden_at   INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (client_code, session_id)
+);",
+    )?;
     Ok(())
 }

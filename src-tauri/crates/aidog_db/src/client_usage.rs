@@ -254,6 +254,13 @@ pub fn cleanup_client_usage(
                   AND c.session_id = client_session.session_id)",
                 [],
             )?;
+            // 会话行已不存在的隐藏行无意义；只删隐藏早于保留期的（刚截断重读、待重扫的会话不误删）。
+            conn.execute(
+                "DELETE FROM client_session_hidden WHERE hidden_at < ?1 AND NOT EXISTS \
+                 (SELECT 1 FROM client_session s WHERE s.client_code = client_session_hidden.client_code \
+                  AND s.session_id = client_session_hidden.session_id)",
+                params![cutoff],
+            )?;
             Ok(())
         })
         .await
@@ -457,51 +464,149 @@ pub fn client_usage_sessions<'a>(
     let client = client_code.map(str::to_string);
     async move {
         db.call_read_client_usage_traced(None, __db_caller, move |conn| {
-            let mut sql = "SELECT s.client_code, s.session_id, s.title, s.workdir, s.first_call_ms, s.last_call_ms, \
-                COALESCE(cnt.calls,0), COALESCE(cnt.cost,0), COALESCE(cnt.unpriced,0), COALESCE(cnt.input,0), COALESCE(cnt.output,0), \
-                COALESCE(cnt.cache_read,0), COALESCE(cnt.cache_write,0), COALESCE(cnt.reasoning,0), COALESCE(cnt.sidechain,0) \
-                FROM client_session s LEFT JOIN \
-                (SELECT client_code, session_id, COUNT(*) AS calls, COALESCE(SUM(cost),0) AS cost, \
-                        COUNT(CASE WHEN cost IS NULL THEN 1 END) AS unpriced, \
-                        COALESCE(SUM(input_tokens),0) AS input, COALESCE(SUM(output_tokens),0) AS output, \
-                        COALESCE(SUM(cache_read_tokens),0) AS cache_read, COALESCE(SUM(cache_write_tokens),0) AS cache_write, \
-                        COALESCE(SUM(reasoning_tokens),0) AS reasoning, COALESCE(SUM(is_sidechain),0) AS sidechain \
-                 FROM client_call WHERE call_time_ms BETWEEN ?1 AND ?2 GROUP BY 1,2) cnt \
-                ON cnt.client_code = s.client_code AND cnt.session_id = s.session_id \
-                WHERE 1=1".to_string();
-            let mut args: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(from_ms), Box::new(to_ms)];
-            if let Some(c) = &client {
-                sql.push_str(" AND s.client_code = ?3");
-                args.push(Box::new(c.clone()));
-            }
-            sql.push_str(" ORDER BY s.last_call_ms DESC LIMIT ");
-            sql.push_str(&limit.to_string());
-            let rows = conn
-                .prepare(&sql)?
-                .query_map(rusqlite::params_from_iter(args), |r| {
-                    Ok(ClientUsageSessionRow {
-                        client_code: r.get(0)?,
-                        session_id: r.get(1)?,
-                        title: r.get(2)?,
-                        workdir: r.get(3)?,
-                        first_call_ms: r.get(4)?,
-                        last_call_ms: r.get(5)?,
-                        calls: r.get(6)?,
-                        cost: r.get(7)?,
-                        unpriced_calls: r.get(8)?,
-                        input_tokens: r.get(9)?,
-                        output_tokens: r.get(10)?,
-                        cache_read_tokens: r.get(11)?,
-                        cache_write_tokens: r.get(12)?,
-                        reasoning_tokens: r.get(13)?,
-                        sidechain_calls: r.get(14)?,
-                    })
-                })?
-                .collect::<Result<Vec<_>, _>>()?;
-            Ok(rows)
+            Ok(query_sessions(conn, from_ms, to_ms, client.as_deref(), limit, false)?
+                .into_iter()
+                .map(|h| h.session)
+                .collect())
         })
         .await
         .map_err(|e| format!("client_usage_sessions: {e}"))
+    }
+}
+
+/// 会话聚合查询共用体：`hidden=false` 排除已隐藏会话（列表），`hidden=true` 只取已隐藏会话（回收站）。
+fn query_sessions(
+    conn: &rusqlite::Connection,
+    from_ms: i64,
+    to_ms: i64,
+    client: Option<&str>,
+    limit: i64,
+    hidden: bool,
+) -> rusqlite::Result<Vec<ClientUsageHiddenSessionRow>> {
+    // 回收站：JOIN 隐藏表并带出 hidden_at；列表：NOT EXISTS 排除隐藏会话。
+    let (hidden_col, hidden_join, hidden_filter, order) = if hidden {
+        (", h.hidden_at",
+         " JOIN client_session_hidden h ON h.client_code = s.client_code AND h.session_id = s.session_id",
+         "",
+         "h.hidden_at")
+    } else {
+        ("", "",
+         " AND NOT EXISTS (SELECT 1 FROM client_session_hidden h WHERE h.client_code = s.client_code AND h.session_id = s.session_id)",
+         "s.last_call_ms")
+    };
+    let mut sql = format!("SELECT s.client_code, s.session_id, s.title, s.workdir, s.first_call_ms, s.last_call_ms, \
+        COALESCE(cnt.calls,0), COALESCE(cnt.cost,0), COALESCE(cnt.unpriced,0), COALESCE(cnt.input,0), COALESCE(cnt.output,0), \
+        COALESCE(cnt.cache_read,0), COALESCE(cnt.cache_write,0), COALESCE(cnt.reasoning,0), COALESCE(cnt.sidechain,0){hidden_col} \
+        FROM client_session s LEFT JOIN \
+        (SELECT client_code, session_id, COUNT(*) AS calls, COALESCE(SUM(cost),0) AS cost, \
+                COUNT(CASE WHEN cost IS NULL THEN 1 END) AS unpriced, \
+                COALESCE(SUM(input_tokens),0) AS input, COALESCE(SUM(output_tokens),0) AS output, \
+                COALESCE(SUM(cache_read_tokens),0) AS cache_read, COALESCE(SUM(cache_write_tokens),0) AS cache_write, \
+                COALESCE(SUM(reasoning_tokens),0) AS reasoning, COALESCE(SUM(is_sidechain),0) AS sidechain \
+         FROM client_call WHERE call_time_ms BETWEEN ?1 AND ?2 GROUP BY 1,2) cnt \
+        ON cnt.client_code = s.client_code AND cnt.session_id = s.session_id{hidden_join} \
+        WHERE 1=1{hidden_filter}");
+    let mut args: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(from_ms), Box::new(to_ms)];
+    if let Some(c) = client {
+        sql.push_str(" AND s.client_code = ?3");
+        args.push(Box::new(c.to_string()));
+    }
+    sql.push_str(&format!(" ORDER BY {order} DESC LIMIT {limit}"));
+    let rows = conn
+        .prepare(&sql)?
+        .query_map(rusqlite::params_from_iter(args), |r| {
+            let session = ClientUsageSessionRow {
+                client_code: r.get(0)?,
+                session_id: r.get(1)?,
+                title: r.get(2)?,
+                workdir: r.get(3)?,
+                first_call_ms: r.get(4)?,
+                last_call_ms: r.get(5)?,
+                calls: r.get(6)?,
+                cost: r.get(7)?,
+                unpriced_calls: r.get(8)?,
+                input_tokens: r.get(9)?,
+                output_tokens: r.get(10)?,
+                cache_read_tokens: r.get(11)?,
+                cache_write_tokens: r.get(12)?,
+                reasoning_tokens: r.get(13)?,
+                sidechain_calls: r.get(14)?,
+            };
+            Ok(ClientUsageHiddenSessionRow { session, hidden_at: if hidden { r.get(15)? } else { 0 } })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+/// 回收站行（票 09）：会话行 + 隐藏时刻。
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientUsageHiddenSessionRow {
+    #[serde(flatten)]
+    pub session: ClientUsageSessionRow,
+    pub hidden_at: i64,
+}
+
+/// 从会话列表隐藏（幂等；不动客户端文件与用量明细）。
+#[track_caller]
+pub fn hide_client_session<'a>(
+    db: &'a Db,
+    client_code: &str,
+    session_id: &str,
+) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    let (client, session) = (client_code.to_string(), session_id.to_string());
+    async move {
+        let ts = now();
+        db.call_client_usage_traced(None, __db_caller, move |conn| {
+            conn.execute(
+                "INSERT INTO client_session_hidden (client_code, session_id, hidden_at) VALUES (?1,?2,?3) \
+                 ON CONFLICT(client_code, session_id) DO NOTHING",
+                params![client, session, ts],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("hide client_session: {e}"))
+    }
+}
+
+/// 取消隐藏（幂等）。
+#[track_caller]
+pub fn unhide_client_session<'a>(
+    db: &'a Db,
+    client_code: &str,
+    session_id: &str,
+) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    let (client, session) = (client_code.to_string(), session_id.to_string());
+    async move {
+        db.call_client_usage_traced(None, __db_caller, move |conn| {
+            conn.execute(
+                "DELETE FROM client_session_hidden WHERE client_code = ?1 AND session_id = ?2",
+                params![client, session],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("unhide client_session: {e}"))
+    }
+}
+
+/// 回收站列表：已隐藏会话（聚合口径同 `client_usage_sessions`），按隐藏时间倒序。
+#[track_caller]
+pub fn client_usage_hidden_sessions<'a>(
+    db: &'a Db,
+    from_ms: i64,
+    to_ms: i64,
+) -> impl std::future::Future<Output = Result<Vec<ClientUsageHiddenSessionRow>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        db.call_read_client_usage_traced(None, __db_caller, move |conn| {
+            query_sessions(conn, from_ms, to_ms, None, i64::MAX, true)
+        })
+        .await
+        .map_err(|e| format!("client_usage_hidden_sessions: {e}"))
     }
 }
 

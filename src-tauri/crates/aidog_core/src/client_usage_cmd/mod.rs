@@ -720,6 +720,30 @@ pub async fn client_usage_sessions(
 }
 
 crate::tauri_command! {
+/// 从会话列表隐藏（票 09）：只记隐藏标记，不删客户端文件与用量明细。
+pub async fn client_usage_session_hide(client_code: String, session_id: String) -> Result<(), String> {
+    aidog_db::hide_client_session(aidog_ctx::db(), &client_code, &session_id).await
+}
+}
+
+crate::tauri_command! {
+/// 从回收站恢复到会话列表（票 09）。
+pub async fn client_usage_session_unhide(client_code: String, session_id: String) -> Result<(), String> {
+    aidog_db::unhide_client_session(aidog_ctx::db(), &client_code, &session_id).await
+}
+}
+
+crate::tauri_command! {
+/// 回收站列表（票 09）：已隐藏会话 + hidden_at；区间只约束聚合口径，缺省全量。
+pub async fn client_usage_hidden_sessions(
+    from_ms: Option<i64>,
+    to_ms: Option<i64>,
+) -> Result<Vec<aidog_db::ClientUsageHiddenSessionRow>, String> {
+    aidog_db::client_usage_hidden_sessions(aidog_ctx::db(), from_ms.unwrap_or(0), to_ms.unwrap_or(i64::MAX)).await
+}
+}
+
+crate::tauri_command! {
 /// 单会话详情：模型链（相邻同模型合并）+ token 时间序列 + 主线 / 子代理分组。
 pub async fn client_usage_session_detail(
     client_code: String,

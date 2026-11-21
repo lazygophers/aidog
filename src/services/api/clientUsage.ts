@@ -116,6 +116,9 @@ export interface ClientUsageSessionDetail {
   agents: ClientUsageAgentGroup[];
 }
 
+/** 回收站行（票 09）：会话行 + 隐藏时刻。 */
+export type ClientUsageHiddenSessionRow = ClientUsageSessionRow & { hiddenAt: number };
+
 /** 会话运行状态（票 05）：执行中 / 空闲 / 已结束。 */
 export type SessionRunState = "running" | "idle" | "stopped";
 
@@ -149,6 +152,13 @@ export const clientUsageApi = {
     invoke<ClientUsageSessionRow[]>("client_usage_sessions", { fromMs, toMs, clientCode, limit }),
   sessionDetail: (clientCode: string, sessionId: string) =>
     invoke<ClientUsageSessionDetail>("client_usage_session_detail", { clientCode, sessionId }),
+  /** 从列表隐藏 / 恢复（票 09）：只记标记，不删客户端文件。 */
+  sessionHide: (clientCode: string, sessionId: string) =>
+    invoke<void>("client_usage_session_hide", { clientCode, sessionId }),
+  sessionUnhide: (clientCode: string, sessionId: string) =>
+    invoke<void>("client_usage_session_unhide", { clientCode, sessionId }),
+  hiddenSessions: (fromMs?: number, toMs?: number) =>
+    invoke<ClientUsageHiddenSessionRow[]>("client_usage_hidden_sessions", { fromMs, toMs }),
   sessionStates: (sessionIds: string[], clientCode?: string) =>
     invoke<ClientUsageSessionState[]>("client_usage_session_states", { clientCode, sessionIds }),
   /** 继续会话（票 07）：先 cd 到工作目录再跑各家继续命令；launched=false 时前端复制 command。 */
