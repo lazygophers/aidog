@@ -793,8 +793,9 @@ impl PlatformAdapter for BailianFamilyAdapter {
 ///   `"type":"enabled"`），`reasoning_effort`（Chat）/ `reasoning.effort`（Responses）七档
 ///   none/minimal/low/medium/high/xhigh/max，「none: Turn off reasoning」「minimal: Turns off
 ///   reasoning and answers directly」，全部支持该参数的模型收全七值（部分值按模型映射表折算）；
-///   Messages API（anthropic wire）有 `thinking` object 参数（「Deep reasoning configuration」），
-///   词表与基座 anthropic 臂同形。与家族基座一致，不覆盖。
+///   Messages API（anthropic wire）有 `thinking` object 参数（「Deep reasoning configuration」；
+///   参数内部词表未逐字列出，未证实——基座 anthropic 臂不覆盖，词表细节保持基座行为）。
+///   与家族基座一致，不覆盖。
 ///   https://docs.byteplus.com/en/docs/ModelArk/deep-thinking
 ///   https://docs.byteplus.com/en/docs/ModelArk/messages-api
 /// - 流式：Chat API `data:` 帧流 + `data: [DONE]` 结束标记；`delta.reasoning_content`
