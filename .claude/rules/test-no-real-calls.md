@@ -24,6 +24,19 @@
    就短路返回（如脚本内空 key 检查，`test_special_scripts.rs:181`），否则换成
    本地 stub。
 
+## 拉起外部进程（osascript / open / 终端）：必须等退出码并回传 stderr（2026-11-21 会话页）
+
+`session_cmd.rs` 的 `open_terminal` 与 `session_open_terminal` 原写法是 `Command::new("osascript")…spawn()` 后直接 `Ok(true)`。
+结果是退出码和 stderr 全丢，自动化授权被拒（-1743）也被吞掉；每点一次留一个僵尸进程；用户重复点击后同一会话开了 4 个
+`claude --resume`（诊断 `.scratch/扩展-会话页/research/真机三缺陷诊断.md` B 节，修复 702fbe45d）。
+
+1. 后端 command 拉起外部进程并据此回报成功时，用 `output()` 等它结束（async 里放 `spawn_blocking` / `block_in_place`）；
+   非 0 退出码返回 `Err(stderr)`，前端走既有错误提示。只有确实要常驻的子进程才 `spawn()`，并注明谁回收。
+2. 要把窗口带到前台的 AppleScript 必须带 `activate`。
+3. 参数构造抽成纯函数，执行器做注入点（`session_resume_with` 的 `run` 先例），测试断言参数与非 0 → Err，不真跑 osascript（本文件规则 1、2）。
+   触发按钮在命令返回前禁用，防止重复点击。
+4. 「点了能拉起」只能真机验证：回报列入人工验收，不以单测或 mock 截图代替。
+
 ## 测试 HOME 隔离检测脚本（2026-11-20）
 
 背景：全部已知写入者用 `aidog_db/src/test_support.rs` 的 `HomeGuard` 隔离，但无全局拦截，

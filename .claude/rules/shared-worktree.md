@@ -22,6 +22,7 @@
   第四种：GitHub issue 开发（2026-11-15 用户拍板，一 issue 一 worktree 一 PR，见文末「issue 开发：独立 worktree + PR」节）。
 - 用了 worktree 就写明是哪一种，验收标准全部满足后当场合回并删除；未满足时保留 worktree；下文各节是「用了 worktree 时」的卫生规则。
 - **主 checkout 带他线在途脏文件时，产出用户日常应用的构建（`make install` / release 包）从 detach worktree 构建**（2026-11-21 实锤）：`/usr/bin/git worktree add --detach .worktrees/build-<sha> <sha>` 里跑，否则他线半成品会编进用户日常应用；Makefile 硬编码 `src-tauri/target` 时在 worktree 内用 symlink 把该路径桥接到 worktree 自己的 target（`.worktrees/build-1c954cee9` + `CARGO_TARGET_DIR=.worktrees/.target` 跑通）。
+  用户自己在主 checkout 构建也会撞上：2026-11-21 会话页线，用户构建时撞上票 10 agent 改签名到一半，agent 把编译错误报给了用户。写 agent 在途期间，用户说「编译不过 / 装不上」时，主会话先核在途写 agent 及其改动文件；要装机时，给出上面 detach worktree 构建的命令，或等 agent 收工，不把半截改动当成缺陷报给用户。
 
 ## 减少磁盘残留（2026-11-04）
 
@@ -81,6 +82,17 @@
    （b68edaea6 + a15a0e43e，净效果等价单 commit）。rename 类提交的 pathspec 必须
    **两端都写**：`git commit -- <旧路径> <新路径>`；提交后跑 `git status --short`
    确认 rename 两端都已落，无残留。amend 合并属改历史，未授权不用。
+8. **改写历史或整树重置的命令禁在共享主 checkout 上跑**（2026-11-21 历史密钥清除轮实锤：派出的重写 agent
+   本应在 `.tmp/rewrite-history/` 镜像里跑，却把 `git filter-repo --replace-text` 跑在了主仓，master 01ea4c0ef→91dc6821a；
+   之后的 `reset --hard` 和 `gc --prune=now` 清掉了票 10 agent 等他线的未提交改动，git 侧不可恢复，
+   只能靠 agent 从上下文重放。见 `.scratch/memory/2026-11-21.md`「历史重写事故」节）。
+   命令包括 `filter-repo` / `filter-branch`、对共享分支 rebase、`reset --hard`、`checkout -- .`、`clean -fd`、`gc --prune=now`：
+   - 用户已授权改历史时，也只在镜像或独立克隆（`git clone --mirror`）里改，结果经 push 或 fetch 回传；派发 prompt 写死镜像
+     绝对路径，并让 agent 每条破坏性命令前先跑 `git rev-parse --absolute-git-dir` 断言路径，不符即停；
+   - 必须动主 checkout 时（如重写后对齐 master），先快照全部在途改动：`git diff HEAD > .tmp/<任务>/dirty.patch`，
+     未跟踪文件 `tar` 进同目录，用 `git status --short` 列出清单；然后通知 peer 会话等它们收工；
+     执行后 `git apply --3way dirty.patch` 还原，并告知各会话核对；
+   - 不跑 `gc --prune=now`：保留 reflog 和悬空对象，误操作后才有救。
 
 ### 非交互选择性暂存：patch 过滤（2026-11-11 ~ 11-12 中间件 / session id 轮实锤）
 
@@ -159,10 +171,15 @@ perf-backend 收尾轮：PreToolUse hook 把 `git worktree add` 改写经 rtk �
 - **判断工作区状态也走 `/usr/bin/git status --short`**（2026-10-22 入站密钥轮）：
   rtk 包装的 `git status --short` 输出被截断，只列部分已改文件，一度误判改动
   丢失。rtk 版只当摘要，数文件数以 `/usr/bin/git` 为准。
-- **`/usr/bin` 前缀只适用于 git**：rtk 只包装 git，本机 `/usr/bin` 下无 `rm` 等
-  其它命令（`rm` 在 `/bin/rm`）。派发 prompt 与脚本里的删改类命令照常规路径写，
+- **`/usr/bin` 前缀只适用于 git**：本机 `/usr/bin` 下无 `rm` 等
+  其它命令（`rm` 在 `/bin/rm`）。（更正 2026-11-21：rtk 不只包装 git，`grep` / `ls` / `wc` 也会被
+  改写成 `rtk …`；`/usr/bin/git` 不被改写。）派发 prompt 与脚本里的删改类命令照常规路径写，
   不照抄 `/usr/bin` 前缀（2026-11-16 插件预置轮：prompt 写 `/usr/bin/rm`，
   exit 127 后改 `/bin/rm`）。
+- **rtk 改写触发自动模式分类器 no verdict**（2026-11-21 会话页线反复出现，Bash 与 Agent 调用都有；
+  retro agent 同日复现 3 次）：hook 改写命令后，分类器报 `a hook changed this call's input`。这不是拒绝。
+  处置：按报错原样重发一次 hook 给出的改写后命令。只读查询改用 Read 工具，或直接写 `rtk grep …` / `/usr/bin/git …`
+  等不会再被改写的形式，从源头省掉这一轮重发。同一调用重发后仍无裁决，就停手改用 Read，不换写法硬绕。
 
 ## 构建目录：主仓默认 target，worktree 才用独立 target（2026-11-05 改）
 
