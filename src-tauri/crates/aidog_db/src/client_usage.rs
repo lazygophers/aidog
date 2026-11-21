@@ -3,7 +3,7 @@
 //! 与主库 / log.db / platform.db 并列的第 4 个库文件；三表读写全部走
 //! `call_client_traced`-family handles。不存对话原文，只落 token / 成本 / 定位键等元数据。
 use crate::{Db, now, retention_cutoff};
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params};
 
 /// 保留天数设置（scope=client_usage, key=retention_days）缺省值。
 pub const CLIENT_USAGE_DEFAULT_RETENTION_DAYS: u32 = 90;
@@ -168,6 +168,40 @@ pub fn list_client_file_progress<'a>(
         })
         .await
         .map_err(|e| format!("list client_file_progress: {e}"))
+    }
+}
+
+/// 取单个文件的进度行（监听逐文件处理用，走 UNIQUE(client_code, path) 索引，不整表读）。
+#[track_caller]
+pub fn get_client_file_progress<'a>(
+    db: &'a Db,
+    client_code: &'a str,
+    path: &str,
+) -> impl std::future::Future<Output = Result<Option<ClientFileProgress>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    let (client_code, path) = (client_code.to_string(), path.to_string());
+    async move {
+        db.call_read_client_usage_traced(None, __db_caller, move |conn| {
+            conn.query_row(
+                "SELECT client_code, path, file_size, mtime_ms, read_offset, parse_errors, last_msg_id \
+                 FROM client_file_progress WHERE client_code = ?1 AND path = ?2",
+                params![client_code, path],
+                |r| {
+                    Ok(ClientFileProgress {
+                        client_code: r.get(0)?,
+                        path: r.get(1)?,
+                        file_size: r.get(2)?,
+                        mtime_ms: r.get(3)?,
+                        read_offset: r.get(4)?,
+                        parse_errors: r.get(5)?,
+                        last_msg_id: r.get(6)?,
+                    })
+                },
+            )
+            .optional()
+        })
+        .await
+        .map_err(|e| format!("get client_file_progress: {e}"))
     }
 }
 

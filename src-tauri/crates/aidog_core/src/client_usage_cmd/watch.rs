@@ -204,10 +204,9 @@ pub(super) async fn process_due_paths(
             continue;
         }
         if std::fs::metadata(&p).is_ok() {
-            let progress = aidog_db::list_client_file_progress(db, client)
+            let prog = aidog_db::get_client_file_progress(db, client, &p)
                 .await
                 .unwrap_or_default();
-            let prog = progress.iter().find(|r| r.path == p).cloned();
             let path = PathBuf::from(&p);
             let sessions_root = roots
                 .iter()

@@ -142,6 +142,68 @@ async fn client_call_insert_idempotent_on_position_key() {
     assert_eq!(count_calls(&db).await, 1);
 }
 
+fn prog(code: &str, path: &str, off: i64) -> ClientFileProgress {
+    ClientFileProgress {
+        client_code: code.into(),
+        path: path.into(),
+        file_size: off,
+        mtime_ms: 1,
+        read_offset: off,
+        parse_errors: 0,
+        last_msg_id: format!("m{off}"),
+    }
+}
+
+/// 单行进度查询：按 (client_code, path) 命中，客户端或路径不符返回 None。
+#[tokio::test]
+async fn get_client_file_progress_single_row() {
+    let (db, _dir) = four_file_db().await;
+    upsert_client_file_progress(&db, prog("claude_code", "/a.jsonl", 10)).await.unwrap();
+    upsert_client_file_progress(&db, prog("claude_code", "/b.jsonl", 20)).await.unwrap();
+    upsert_client_file_progress(&db, prog("codex", "/a.jsonl", 30)).await.unwrap();
+    let got = get_client_file_progress(&db, "claude_code", "/b.jsonl").await.unwrap();
+    let got = got.expect("应命中 /b.jsonl");
+    assert_eq!((got.read_offset, got.last_msg_id.as_str()), (20, "m20"));
+    let got = get_client_file_progress(&db, "codex", "/a.jsonl").await.unwrap().expect("codex 行");
+    assert_eq!(got.read_offset, 30);
+    assert!(get_client_file_progress(&db, "claude_code", "/zz.jsonl").await.unwrap().is_none());
+}
+
+/// 计时（手动跑）：7000 行进度表下处理 200 个路径，整表读 + find vs 单行查询。
+#[tokio::test]
+#[ignore]
+async fn bench_progress_lookup() {
+    let (db, _dir) = four_file_db().await;
+    db.call_client_usage_traced(None, std::panic::Location::caller(), |conn| {
+        let tx = conn.unchecked_transaction()?;
+        for i in 0..7000 {
+            tx.execute(
+                "INSERT INTO client_file_progress (client_code, path, file_size, mtime_ms, read_offset, parse_errors, last_msg_id) VALUES ('claude_code', ?1, 1, 1, 1, 0, 'x')",
+                params![format!("/Users/u/.claude/projects/p{}/s{i}.jsonl", i % 50)],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    })
+    .await
+    .unwrap();
+    let paths: Vec<String> =
+        (0..200).map(|i| format!("/Users/u/.claude/projects/p{}/s{}.jsonl", (i * 35) % 50, i * 35)).collect();
+    for round in 0..5 {
+        let t = std::time::Instant::now();
+        for p in &paths {
+            let all = list_client_file_progress(&db, "claude_code").await.unwrap();
+            assert!(all.iter().any(|r| &r.path == p));
+        }
+        let full = t.elapsed();
+        let t = std::time::Instant::now();
+        for p in &paths {
+            assert!(get_client_file_progress(&db, "claude_code", p).await.unwrap().is_some());
+        }
+        println!("BENCH round={round} full_scan_ms={} single_row_ms={}", full.as_millis(), t.elapsed().as_millis());
+    }
+}
+
 /// 票面验收 ③：保留天数 setting 读写持久化（缺省 90，0 = 永久）。
 #[tokio::test]
 async fn client_usage_retention_setting_roundtrip() {
