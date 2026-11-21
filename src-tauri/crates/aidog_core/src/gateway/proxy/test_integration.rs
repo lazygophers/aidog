@@ -154,7 +154,8 @@ async fn hello_probe_returns_ok_and_records_request_log() {
             log_upstream_request: true,
             ..Default::default()
         },
-    ).await;
+    )
+    .await;
     let mut ids = Vec::new();
     for method in ["HEAD", "GET"] {
         let req = HttpRequest::builder()
@@ -173,7 +174,10 @@ async fn hello_probe_returns_ok_and_records_request_log() {
     }
     assert_eq!(ids.len(), 2);
     assert!(
-        aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap().is_empty(),
+        aidog_logs::list_proxy_logs(&state.db, 100, 0)
+            .await
+            .unwrap()
+            .is_empty(),
         "探测行不得进 proxy_log"
     );
     for id in ids {
@@ -253,7 +257,9 @@ async fn disable_thinking_thinking_only_response_errors_clearly() {
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::BAD_GATEWAY, "须明确报错");
     assert_eq!(
-        resp.headers().get(axum::http::header::CONTENT_TYPE).unwrap(),
+        resp.headers()
+            .get(axum::http::header::CONTENT_TYPE)
+            .unwrap(),
         "application/json",
         "错误响应必须标成 JSON"
     );
@@ -280,9 +286,12 @@ async fn disable_thinking_thinking_only_response_errors_clearly() {
         .await
         .unwrap();
     assert!(
-        logs.iter().any(|l| l.status_code == 502 && l.group_key == "gkdt"),
+        logs.iter()
+            .any(|l| l.status_code == 502 && l.group_key == "gkdt"),
         "日志须记 502: {:?}",
-        logs.iter().map(|l| (l.group_key.as_str(), l.status_code)).collect::<Vec<_>>()
+        logs.iter()
+            .map(|l| (l.group_key.as_str(), l.status_code))
+            .collect::<Vec<_>>()
     );
 }
 
@@ -291,12 +300,18 @@ async fn disable_thinking_thinking_only_response_errors_clearly() {
 #[tokio::test]
 async fn disable_thinking_thinking_only_stream_errors_clearly() {
     const SSE_THINKING_ONLY: &str = concat!(
-        r#"data: {"type":"message_start","message":{"id":"m1","type":"message","role":"assistant","model":"m","usage":{"input_tokens":10,"output_tokens":0}}}"#, "\n\n",
-        r#"data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}"#, "\n\n",
-        r#"data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"让我分析…"}}"#, "\n\n",
-        r#"data: {"type":"content_block_stop","index":0}"#, "\n\n",
-        r#"data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":9}}"#, "\n\n",
-        r#"data: {"type":"message_stop"}"#, "\n\n",
+        r#"data: {"type":"message_start","message":{"id":"m1","type":"message","role":"assistant","model":"m","usage":{"input_tokens":10,"output_tokens":0}}}"#,
+        "\n\n",
+        r#"data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}"#,
+        "\n\n",
+        r#"data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"让我分析…"}}"#,
+        "\n\n",
+        r#"data: {"type":"content_block_stop","index":0}"#,
+        "\n\n",
+        r#"data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":9}}"#,
+        "\n\n",
+        r#"data: {"type":"message_stop"}"#,
+        "\n\n",
     );
     let upstream = spawn_unified_upstream(200, "text/event-stream", SSE_THINKING_ONLY).await;
     let state = make_state(test_db().await).await;
@@ -327,9 +342,12 @@ async fn disable_thinking_thinking_only_stream_errors_clearly() {
         .await
         .unwrap();
     assert!(
-        logs.iter().any(|l| l.status_code == 502 && l.group_key == "gkdtS"),
+        logs.iter()
+            .any(|l| l.status_code == 502 && l.group_key == "gkdtS"),
         "日志须记 502: {:?}",
-        logs.iter().map(|l| (l.group_key.as_str(), l.status_code)).collect::<Vec<_>>()
+        logs.iter()
+            .map(|l| (l.group_key.as_str(), l.status_code))
+            .collect::<Vec<_>>()
     );
 }
 
@@ -338,15 +356,24 @@ async fn disable_thinking_thinking_only_stream_errors_clearly() {
 #[tokio::test]
 async fn disable_thinking_stream_with_tool_use_not_misreported() {
     const SSE_THINKING_PLUS_TOOL: &str = concat!(
-        r#"data: {"type":"message_start","message":{"id":"m1","type":"message","role":"assistant","model":"m","usage":{"input_tokens":10,"output_tokens":0}}}"#, "\n\n",
-        r#"data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}"#, "\n\n",
-        r#"data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"想"}}"#, "\n\n",
-        r#"data: {"type":"content_block_stop","index":0}"#, "\n\n",
-        r#"data: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"t1","name":"ls","input":{}}}"#, "\n\n",
-        r#"data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{}"}}"#, "\n\n",
-        r#"data: {"type":"content_block_stop","index":1}"#, "\n\n",
-        r#"data: {"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":5}}"#, "\n\n",
-        r#"data: {"type":"message_stop"}"#, "\n\n",
+        r#"data: {"type":"message_start","message":{"id":"m1","type":"message","role":"assistant","model":"m","usage":{"input_tokens":10,"output_tokens":0}}}"#,
+        "\n\n",
+        r#"data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}"#,
+        "\n\n",
+        r#"data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"想"}}"#,
+        "\n\n",
+        r#"data: {"type":"content_block_stop","index":0}"#,
+        "\n\n",
+        r#"data: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"t1","name":"ls","input":{}}}"#,
+        "\n\n",
+        r#"data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{}"}}"#,
+        "\n\n",
+        r#"data: {"type":"content_block_stop","index":1}"#,
+        "\n\n",
+        r#"data: {"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":5}}"#,
+        "\n\n",
+        r#"data: {"type":"message_stop"}"#,
+        "\n\n",
     );
     let upstream = spawn_unified_upstream(200, "text/event-stream", SSE_THINKING_PLUS_TOOL).await;
     let state = make_state(test_db().await).await;
@@ -379,11 +406,14 @@ async fn disable_thinking_stream_with_tool_use_not_misreported() {
 async fn disable_thinking_converted_stream_errors_when_only_reasoning() {
     const SSE_OPENAI_REASONING_ONLY: &str = concat!(
         r#"data: {"id":"c1","choices":[{"index":0,"delta":{"role":"assistant","reasoning_content":"想"}}"#,
-        r#","finish_reason":null}]}"#, "\n\n",
-        r#"data: {"id":"c1","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}"#, "\n\n",
+        r#","finish_reason":null}]}"#,
+        "\n\n",
+        r#"data: {"id":"c1","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}"#,
+        "\n\n",
         "data: [DONE]\n\n",
     );
-    let upstream = spawn_unified_upstream(200, "text/event-stream", SSE_OPENAI_REASONING_ONLY).await;
+    let upstream =
+        spawn_unified_upstream(200, "text/event-stream", SSE_OPENAI_REASONING_ONLY).await;
     let state = make_state(test_db().await).await;
     setup_passthrough_group_for_protocol(&state, "gkdtC", &upstream, Protocol::OpenAI).await;
 
@@ -414,7 +444,8 @@ async fn disable_thinking_openai_nonstream_errors_in_openai_wire_shape() {
     const ONLY_REASONING: &str = r#"{"id":"c1","choices":[{"message":{"role":"assistant","content":null,"reasoning_content":"想"},"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":3}}"#;
     let upstream = spawn_unified_upstream(200, "application/json", ONLY_REASONING).await;
     let state = make_state(test_db().await).await;
-    setup_passthrough_group_for_protocol(&state, "gkempty-openai", &upstream, Protocol::OpenAI).await;
+    setup_passthrough_group_for_protocol(&state, "gkempty-openai", &upstream, Protocol::OpenAI)
+        .await;
     let req = HttpRequest::builder()
         .method("POST").uri("/v1/chat/completions")
         .header("authorization", "Bearer gkempty-openai")
@@ -422,10 +453,21 @@ async fn disable_thinking_openai_nonstream_errors_in_openai_wire_shape() {
         .body(Body::from(r#"{"model":"gpt-x","disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#)).unwrap();
     let resp = handle_proxy(AxumState(state), req).await;
     assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
-    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert!(json["error"]["message"].as_str().unwrap().contains("upstream stop_reason: none"), "{json}");
-    assert!(json.get("type").is_none(), "不得返回 Anthropic error envelope: {json}");
+    assert!(
+        json["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("upstream stop_reason: none"),
+        "{json}"
+    );
+    assert!(
+        json.get("type").is_none(),
+        "不得返回 Anthropic error envelope: {json}"
+    );
     assert!(!json.to_string().contains("想"), "思考文本不泄漏: {json}");
 }
 
@@ -435,18 +477,39 @@ async fn disable_thinking_responses_nonstream_errors_in_openai_wire_shape() {
     const ONLY_REASONING: &str = r#"{"id":"r1","status":"completed","output":[{"type":"reasoning","summary":[{"type":"summary_text","text":"想"}]}],"usage":{"input_tokens":5,"output_tokens":3}}"#;
     let upstream = spawn_unified_upstream(200, "application/json", ONLY_REASONING).await;
     let state = make_state(test_db().await).await;
-    setup_passthrough_group_for_protocol(&state, "gkempty-responses", &upstream, Protocol::OpenAIResponses).await;
+    setup_passthrough_group_for_protocol(
+        &state,
+        "gkempty-responses",
+        &upstream,
+        Protocol::OpenAIResponses,
+    )
+    .await;
     let req = HttpRequest::builder()
-        .method("POST").uri("/v1/responses")
+        .method("POST")
+        .uri("/v1/responses")
         .header("authorization", ["Bearer", "gkempty-responses"].join(" "))
         .header("content-type", "application/json")
-        .body(Body::from(r#"{"model":"gpt-x","disable_thinking":true,"input":"hi"}"#)).unwrap();
+        .body(Body::from(
+            r#"{"model":"gpt-x","disable_thinking":true,"input":"hi"}"#,
+        ))
+        .unwrap();
     let resp = handle_proxy(AxumState(state), req).await;
     assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
-    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert!(json["error"]["message"].as_str().unwrap().contains("stop_reason: none"), "{json}");
-    assert!(json.get("type").is_none(), "不得返回 Anthropic error envelope: {json}");
+    assert!(
+        json["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("stop_reason: none"),
+        "{json}"
+    );
+    assert!(
+        json.get("type").is_none(),
+        "不得返回 Anthropic error envelope: {json}"
+    );
 }
 
 /// G1：Gemini 客户端的 thinking-only 非流式响应使用 Gemini UNAVAILABLE error JSON。
@@ -463,11 +526,22 @@ async fn disable_thinking_gemini_nonstream_errors_in_gemini_wire_shape() {
         .body(Body::from(r#"{"model":"gemini-src","disable_thinking":true,"contents":[{"role":"user","parts":[{"text":"hi"}]}]}"#)).unwrap();
     let resp = handle_proxy(AxumState(state), req).await;
     assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
-    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["error"]["status"], "UNAVAILABLE", "{json}");
-    assert!(json["error"]["message"].as_str().unwrap().contains("stop_reason: none"), "{json}");
-    assert!(json.get("type").is_none(), "不得返回 Anthropic error envelope: {json}");
+    assert!(
+        json["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("stop_reason: none"),
+        "{json}"
+    );
+    assert!(
+        json.get("type").is_none(),
+        "不得返回 Anthropic error envelope: {json}"
+    );
 }
 
 /// G3：透传分支流末哨兵必须调 stripper.finish()，无终止符结尾的末帧不得被吞
@@ -487,10 +561,18 @@ async fn disable_thinking_passthrough_flushes_unterminated_tail_frame() {
         .header("content-type", "application/json")
         .body(Body::from(r#"{"model":"gpt-x","stream":true,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#)).unwrap();
     let resp = handle_proxy(AxumState(state), req).await;
-    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
     let body = String::from_utf8(body.to_vec()).unwrap();
-    assert!(body.contains("\"content\":\"答\""), "无终止符结尾的末帧不得被吞: {body:?}");
-    assert!(!body.contains("reasoning_content"), "思维链不泄漏: {body:?}");
+    assert!(
+        body.contains("\"content\":\"答\""),
+        "无终止符结尾的末帧不得被吞: {body:?}"
+    );
+    assert!(
+        !body.contains("reasoning_content"),
+        "思维链不泄漏: {body:?}"
+    );
     assert!(!body.contains("\"error\""), "有正文不得误报: {body:?}");
 }
 
@@ -507,9 +589,14 @@ async fn disable_thinking_converted_stream_errors_on_sentinel_without_stop() {
         r#"{"model":"haiku","max_tokens":300,"stream":true,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#,
     );
     let resp = handle_proxy(AxumState(state.clone()), req).await;
-    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
     let body = String::from_utf8(body.to_vec()).unwrap();
-    assert!(body.contains("event: error"), "流末须补发 error 帧: {body:?}");
+    assert!(
+        body.contains("event: error"),
+        "流末须补发 error 帧: {body:?}"
+    );
     assert!(
         !body.contains("message_stop"),
         "空流不得以 message_stop 收尾: {body:?}"
@@ -517,11 +604,16 @@ async fn disable_thinking_converted_stream_errors_on_sentinel_without_stop() {
     assert!(!body.contains("让我分析"), "思考文本不泄漏: {body:?}");
 
     flush_log_queue(&state).await;
-    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
+        .await
+        .unwrap();
     assert!(
-        logs.iter().any(|l| l.status_code == 502 && l.group_key == "gkempty-ns"),
+        logs.iter()
+            .any(|l| l.status_code == 502 && l.group_key == "gkempty-ns"),
         "日志须记 502: {:?}",
-        logs.iter().map(|l| (l.group_key.as_str(), l.status_code)).collect::<Vec<_>>()
+        logs.iter()
+            .map(|l| (l.group_key.as_str(), l.status_code))
+            .collect::<Vec<_>>()
     );
 }
 
@@ -615,7 +707,8 @@ async fn openai_audio_passthrough_does_not_record_drop() {
     )
     .await;
     let state = make_state(test_db().await).await;
-    setup_passthrough_group_for_protocol(&state, "gkdroppassthrough", &upstream, Protocol::OpenAI).await;
+    setup_passthrough_group_for_protocol(&state, "gkdroppassthrough", &upstream, Protocol::OpenAI)
+        .await;
     set_log_settings(
         &state,
         ProxyLogSettings {
@@ -859,7 +952,10 @@ async fn user_side_request_headers_redact_cookie_and_auth() {
     let h: serde_json::Value = serde_json::from_str(&row.request_headers).unwrap();
     assert_eq!(h["cookie"], "[REDACTED]", "cookie 必须脱敏");
     assert_eq!(h["set-cookie"], "[REDACTED]", "set-cookie 必须脱敏");
-    assert_eq!(h["authorization"], "Bearer [REDACTED]", "保留 scheme，只脱 key 部分");
+    assert_eq!(
+        h["authorization"], "Bearer [REDACTED]",
+        "保留 scheme，只脱 key 部分"
+    );
     assert_eq!(h["x-api-key"], "[REDACTED]");
     assert_eq!(h["user-agent"], "claude-cli/1.0", "名单外头原样");
     assert_eq!(h["content-type"], "application/json", "名单外头原样");
@@ -897,7 +993,10 @@ async fn upstream_request_headers_no_partial_key_fragment() {
         row.upstream_request_headers
     );
     let h: serde_json::Value = serde_json::from_str(&row.upstream_request_headers).unwrap();
-    assert_eq!(h["x-api-key"], "[REDACTED]", "平台定位靠 platform_name 字段，key 残段不需要");
+    assert_eq!(
+        h["x-api-key"], "[REDACTED]",
+        "平台定位靠 platform_name 字段，key 残段不需要"
+    );
 }
 
 /// 透传路径（ADR 0008）上游请求头全脱敏回归：authorization/cookie 脱敏，
@@ -934,8 +1033,9 @@ async fn passthrough_upstream_headers_full_redaction() {
     let row = last_log_for(&state, "gkptred").await;
     let h: serde_json::Value = serde_json::from_str(&row.upstream_request_headers).unwrap();
     assert!(
-        h.get("authorization")
-            .is_none_or(|v| v == "[REDACTED]" || v.as_str().is_some_and(|s| s.ends_with(" [REDACTED]"))),
+        h.get("authorization").is_none_or(
+            |v| v == "[REDACTED]" || v.as_str().is_some_and(|s| s.ends_with(" [REDACTED]"))
+        ),
         "透传侧鉴权头要么整头剥除要么脱敏，不得明文"
     );
     assert_eq!(h["x-api-key"], "[REDACTED]", "透传侧注入的平台鉴权头全脱敏");
@@ -988,7 +1088,10 @@ async fn log_raw_off_writes_metadata_row() {
     assert_eq!(full.request_body, "");
     assert_eq!(full.upstream_request_headers, "");
     assert_eq!(full.request_url, "", "用户侧关 → request_url 清空");
-    assert_eq!(full.upstream_request_url, "", "上游侧关 → upstream_request_url 清空");
+    assert_eq!(
+        full.upstream_request_url, "",
+        "上游侧关 → upstream_request_url 清空"
+    );
 }
 
 #[tokio::test]
@@ -1154,12 +1257,26 @@ async fn upstream_401_cools_platform_in_memory() {
 // ── 票 03：401 / 403 / 402 按请求所在分组的路由模式记账 ──
 
 async fn set_group_routing_mode(state: &Arc<ProxyState>, gk: &str, mode: RoutingMode) {
-    let g = aidog_db::list_groups(&state.db).await.unwrap().into_iter().find(|g| g.group_key == gk).unwrap();
-    aidog_db::update_group(&state.db, aidog_db::models::UpdateGroup {
-        id: g.id, name: None, routing_mode: Some(mode), request_timeout_secs: 0, connect_timeout_secs: 0,
-        source_protocol: None, max_retries: None, model_mappings: g.model_mappings.clone(),
-        is_default: None,
-    })
+    let g = aidog_db::list_groups(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|g| g.group_key == gk)
+        .unwrap();
+    aidog_db::update_group(
+        &state.db,
+        aidog_db::models::UpdateGroup {
+            id: g.id,
+            name: None,
+            routing_mode: Some(mode),
+            request_timeout_secs: 0,
+            connect_timeout_secs: 0,
+            source_protocol: None,
+            max_retries: None,
+            model_mappings: g.model_mappings.clone(),
+            is_default: None,
+        },
+    )
     .await
     .unwrap();
     state.db.invalidate_group_details_cache();
@@ -1172,11 +1289,18 @@ async fn breaker_vs_cooldown(status: u16, mode: RoutingMode) -> (u32, bool, u64)
     setup_group_with_upstream(&state, "gk03", &upstream).await;
     set_group_routing_mode(&state, "gk03", mode).await;
     set_group_max_attempts(&state, "gk03", 1).await; // 只看单次失败的记账，不叠加尝试轮重试
-    let req = messages_request("gk03", r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#);
+    let req = messages_request(
+        "gk03",
+        r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+    );
     let _ = handle_proxy(AxumState(state.clone()), req).await;
     flush_log_queue(&state).await;
     let pid = aidog_db::list_platforms(&state.db).await.unwrap()[0].id;
-    (state.scheduler.breaker_fails(pid), state.scheduler.auth_cooled(pid, aidog_db::now() + 1000), pid)
+    (
+        state.scheduler.breaker_fails(pid),
+        state.scheduler.auth_cooled(pid, aidog_db::now() + 1000),
+        pid,
+    )
 }
 
 #[tokio::test]
@@ -1235,12 +1359,17 @@ async fn rate_limit_hit(status: u16, body: &'static str) -> (bool, u32, u64) {
     let state = make_state(test_db().await).await;
     setup_group_with_upstream(&state, "gk04", &upstream).await;
     set_group_max_attempts(&state, "gk04", 1).await; // 只看单次失败的记账
-    let req = messages_request("gk04", r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#);
+    let req = messages_request(
+        "gk04",
+        r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+    );
     let _ = handle_proxy(AxumState(state.clone()), req).await;
     flush_log_queue(&state).await;
     let pid = aidog_db::list_platforms(&state.db).await.unwrap()[0].id;
     (
-        state.scheduler.rate_limit_cooled(pid, aidog_db::now() + 100),
+        state
+            .scheduler
+            .rate_limit_cooled(pid, aidog_db::now() + 100),
         state.scheduler.breaker_fails(pid),
         pid,
     )
@@ -1249,8 +1378,7 @@ async fn rate_limit_hit(status: u16, body: &'static str) -> (bool, u32, u64) {
 #[tokio::test]
 async fn ticket04_plain_429_rate_limit_cooldown_no_breaker() {
     // 其余 429（body 无配额 marker、无重置时间）→ 限频冷却；票 04 之前此路径计 breaker_count。
-    let (cooled, fails, _) =
-        rate_limit_hit(429, r#"{"error":{"message":"rate limited"}}"#).await;
+    let (cooled, fails, _) = rate_limit_hit(429, r#"{"error":{"message":"rate limited"}}"#).await;
     assert!(cooled, "plain 429 应进限频冷却（1s 起步）");
     assert_eq!(fails, 0, "plain 429 不再计熔断");
 }
@@ -1282,12 +1410,25 @@ async fn ticket04_body_hint_parsed_not_default_doubling() {
     let state = make_state(test_db().await).await;
     setup_group_with_upstream(&state, "gk04h", &upstream).await;
     set_group_max_attempts(&state, "gk04h", 1).await;
-    let _ = handle_proxy(AxumState(state.clone()), messages_request("gk04h", r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#)).await;
+    let _ = handle_proxy(
+        AxumState(state.clone()),
+        messages_request(
+            "gk04h",
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+        ),
+    )
+    .await;
     flush_log_queue(&state).await;
     let pid = aidog_db::list_platforms(&state.db).await.unwrap()[0].id;
     let now = aidog_db::now();
-    assert!(state.scheduler.rate_limit_cooled(pid, now + 29_000), "显式 30s 冷却窗口内");
-    assert!(!state.scheduler.rate_limit_cooled(pid, now + 30_000), "30s 到点放行（非默认翻倍）");
+    assert!(
+        state.scheduler.rate_limit_cooled(pid, now + 29_000),
+        "显式 30s 冷却窗口内"
+    );
+    assert!(
+        !state.scheduler.rate_limit_cooled(pid, now + 30_000),
+        "30s 到点放行（非默认翻倍）"
+    );
 }
 
 #[tokio::test]
@@ -1400,12 +1541,7 @@ async fn models_endpoint_tokenless_returns_static_anthropic() {
 // ── 网关模型发现：分组模型分类槽位链 ∪ 直通模型（Claude Code GET /v1/models）──
 
 /// 建分组 `gk`：一个 Anthropic 平台，sonnet 槽链 + extra.direct_models。
-async fn setup_group_models(
-    state: &Arc<ProxyState>,
-    gk: &str,
-    sonnet: &[&str],
-    direct: &[&str],
-) {
+async fn setup_group_models(state: &Arc<ProxyState>, gk: &str, sonnet: &[&str], direct: &[&str]) {
     let plat = aidog_db::create_platform(
         &state.db,
         CreatePlatform {
@@ -1453,7 +1589,9 @@ async fn models_ids(state: &Arc<ProxyState>, headers: &[(&str, &str)]) -> Vec<St
     }
     let resp = handle_proxy(AxumState(state.clone()), b.body(Body::empty()).unwrap()).await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
     let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
     v["data"]
         .as_array()
@@ -1468,9 +1606,18 @@ async fn models_ids(state: &Arc<ProxyState>, headers: &[(&str, &str)]) -> Vec<St
 async fn models_discovery_group_token_returns_slot_chain_union_direct() {
     let (db, _dir) = aidog_db::test_support::three_file_db().await;
     let state = make_state(db).await;
-    setup_group_models(&state, "gdisc", &["claude-slot-a", "claude-slot-b"], &["claude-direct-x", "claude-slot-a"]).await;
+    setup_group_models(
+        &state,
+        "gdisc",
+        &["claude-slot-a", "claude-slot-b"],
+        &["claude-direct-x", "claude-slot-a"],
+    )
+    .await;
     let ids = models_ids(&state, &[("authorization", "Bearer gdisc")]).await;
-    assert_eq!(ids, vec!["claude-slot-a", "claude-slot-b", "claude-direct-x"]);
+    assert_eq!(
+        ids,
+        vec!["claude-slot-a", "claude-slot-b", "claude-direct-x"]
+    );
 }
 
 /// 无 token → 默认清单（不 404）。
@@ -1502,7 +1649,11 @@ async fn models_discovery_group_header_selects_union() {
     let state = make_state(db).await;
     setup_group_models(&state, "gda", &["claude-a1"], &["claude-da"]).await;
     setup_group_models(&state, "gdb", &["claude-b1"], &["claude-db"]).await;
-    let ids = models_ids(&state, &[("authorization", "Bearer gda"), ("x-aidog-group", "gdb")]).await;
+    let ids = models_ids(
+        &state,
+        &[("authorization", "Bearer gda"), ("x-aidog-group", "gdb")],
+    )
+    .await;
     assert_eq!(ids, vec!["claude-b1", "claude-db"]);
 }
 
@@ -1764,8 +1915,8 @@ async fn mock_platform_ttft_and_inter_chunk_split() {
         "ttft={ttft:?} 应 ≥40ms（ttft_ms=80 的一半）：ttft sleep 未发生"
     );
     assert!(!inter_chunk_gaps.is_empty(), "应有 >1 个 chunk 才能测间隔");
-    let gap_mean = inter_chunk_gaps.iter().sum::<std::time::Duration>()
-        / inter_chunk_gaps.len() as u32;
+    let gap_mean =
+        inter_chunk_gaps.iter().sum::<std::time::Duration>() / inter_chunk_gaps.len() as u32;
     assert!(
         gap_mean.as_millis() >= 10,
         "gap 均值={gap_mean:?} 应 ≥10ms（inter_chunk_ms=20 的一半）：inter_chunk sleep 未发生"
@@ -1945,10 +2096,7 @@ async fn streaming_request_passes_through() {
 #[tokio::test]
 async fn routing_eval_ms_and_attempt_ttfb_recorded_nonstream_and_stream() {
     let sse = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":5,\"output_tokens\":0}}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":3}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
-    for (gk, body, stream) in [
-        ("gktt1", ANTHROPIC_OK, false),
-        ("gktt2", sse, true),
-    ] {
+    for (gk, body, stream) in [("gktt1", ANTHROPIC_OK, false), ("gktt2", sse, true)] {
         let upstream = spawn_stub_upstream(200, body).await;
         let state = make_state(test_db().await).await;
         setup_group_with_upstream(&state, gk, &upstream).await;
@@ -1957,13 +2105,21 @@ async fn routing_eval_ms_and_attempt_ttfb_recorded_nonstream_and_stream() {
         );
         let resp = handle_proxy(AxumState(state.clone()), messages_request(gk, &req_body)).await;
         assert_eq!(resp.status(), StatusCode::OK);
-        let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+        let _ = axum::body::to_bytes(resp.into_body(), 1 << 20)
+            .await
+            .unwrap();
         let log = last_log_for(&state, gk).await;
         let eval = log.routing.as_ref().and_then(|r| r.eval_ms);
         assert!(eval.is_some(), "{gk}: routing.eval_ms 应有值");
         let a = log.attempts.last().expect("有胜出 attempt");
-        let ttfb = a.ttfb_ms.unwrap_or_else(|| panic!("{gk}: 胜出 attempt 应有 ttfb_ms"));
-        assert!(ttfb <= a.duration_ms, "{gk}: ttfb {ttfb} ≤ duration {}", a.duration_ms);
+        let ttfb = a
+            .ttfb_ms
+            .unwrap_or_else(|| panic!("{gk}: 胜出 attempt 应有 ttfb_ms"));
+        assert!(
+            ttfb <= a.duration_ms,
+            "{gk}: ttfb {ttfb} ≤ duration {}",
+            a.duration_ms
+        );
     }
 }
 
@@ -1975,13 +2131,20 @@ async fn connect_failure_attempt_has_no_ttfb() {
     setup_group_with_upstream(&state, "gktt3", &upstream).await;
     let resp = handle_proxy(
         AxumState(state.clone()),
-        messages_request("gktt3", r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#),
+        messages_request(
+            "gktt3",
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+        ),
     )
     .await;
     assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
     let log = last_log_for(&state, "gktt3").await;
     assert!(!log.attempts.is_empty());
-    assert!(log.attempts.iter().all(|a| a.ttfb_ms.is_none()), "{:?}", log.attempts);
+    assert!(
+        log.attempts.iter().all(|a| a.ttfb_ms.is_none()),
+        "{:?}",
+        log.attempts
+    );
     assert!(log.routing.and_then(|r| r.eval_ms).is_some());
 }
 
@@ -2081,7 +2244,8 @@ async fn responses_subendpoint_post_cancel_forwards_body() {
             log_upstream_request: true,
             ..Default::default()
         },
-    ).await;
+    )
+    .await;
     setup_responses_group(&state, "gkrc", &upstream).await;
 
     let req = HttpRequest::builder()
@@ -2181,19 +2345,43 @@ fn responses_req_ua(gk: &str, method: &str, uri: &str, ua: Option<&str>) -> Requ
     if let Some(ua) = ua {
         b = b.header("user-agent", ua);
     }
-    let body = if method == "POST" { Body::from("{}") } else { Body::empty() };
+    let body = if method == "POST" {
+        Body::from("{}")
+    } else {
+        Body::empty()
+    };
     b.body(body).unwrap()
 }
 
 /// 禁用组内某平台（status + enabled 同时关，等效退化形态用）。
 async fn disable_platform_named(state: &Arc<ProxyState>, name: &str) {
-    let id = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == name).unwrap().id;
-    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
-        id, name: None, platform_type: None, base_url: None, api_key: None, extra: None,
-        models: None, available_models: None, endpoints: None,
-        enabled: Some(false), status: Some(aidog_db::models::PlatformStatus::Disabled), manual_budgets: None,
-        join_group_ids: None, expires_at: None, quota_source: None,
-    })
+    let id = aidog_db::list_platforms(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|p| p.name == name)
+        .unwrap()
+        .id;
+    aidog_db::update_platform(
+        &state.db,
+        aidog_db::models::UpdatePlatform {
+            id,
+            name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            extra: None,
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: Some(false),
+            status: Some(aidog_db::models::PlatformStatus::Disabled),
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
     .await
     .unwrap();
     state.db.invalidate_group_details_cache();
@@ -2205,7 +2393,12 @@ async fn disable_platform_named(state: &Arc<ProxyState>, name: &str) {
 async fn whitelist_responses_subendpoints_all_methods() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, r#"{"id":"resp_1","object":"response"}"#).await;
-    setup_multi_platform_group(&state, "gkrwl", &[("RA", &up, WL_CC_EXTRA), ("RB", &up, WL_CC_EXTRA)]).await;
+    setup_multi_platform_group(
+        &state,
+        "gkrwl",
+        &[("RA", &up, WL_CC_EXTRA), ("RB", &up, WL_CC_EXTRA)],
+    )
+    .await;
     setup_multi_platform_group(&state, "gkrplain", &[("RC", &up, ""), ("RD", &up, "")]).await;
 
     let cases = [
@@ -2216,7 +2409,11 @@ async fn whitelist_responses_subendpoints_all_methods() {
         ("GET", "/v1/responses/resp_1/input_items"),
     ];
     for (method, uri) in cases {
-        let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrwl", method, uri, Some("curl/8.4.0"))).await;
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            responses_req_ua("gkrwl", method, uri, Some("curl/8.4.0")),
+        )
+        .await;
         assert_eq!(resp.status(), StatusCode::FORBIDDEN, "{method} {uri}");
         let log = last_log_for(&state, "gkrwl").await;
         assert_eq!(log.status_code, 403, "{method} {uri}");
@@ -2225,14 +2422,31 @@ async fn whitelist_responses_subendpoints_all_methods() {
         assert_eq!(log.est_cost, 0.0);
         assert_eq!(log.user_agent, "curl/8.4.0");
 
-        let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrwl", method, uri, Some("claude-cli/2.0.1 (external, cli)"))).await;
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            responses_req_ua(
+                "gkrwl",
+                method,
+                uri,
+                Some("claude-cli/2.0.1 (external, cli)"),
+            ),
+        )
+        .await;
         assert_eq!(resp.status(), StatusCode::OK, "allowed {method} {uri}");
-        let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrplain", method, uri, Some("curl/8.4.0"))).await;
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            responses_req_ua("gkrplain", method, uri, Some("curl/8.4.0")),
+        )
+        .await;
         assert_eq!(resp.status(), StatusCode::OK, "no whitelist {method} {uri}");
     }
 
     // 无 UA → 认不出 → 403
-    let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrwl", "GET", "/v1/responses/resp_1", None)).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        responses_req_ua("gkrwl", "GET", "/v1/responses/resp_1", None),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
 
@@ -2242,11 +2456,28 @@ async fn whitelist_responses_subendpoint_on_passthrough_group_417() {
     let (upstream, seen) = spawn_recording_upstream(r#"{"id":"resp_1"}"#).await;
     let state = make_state(test_db().await).await;
     setup_passthrough_platform_group_extra(&state, "gkprs", &upstream, WL_CC_EXTRA).await;
-    let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkprs", "GET", "/v1/responses/resp_1", Some("curl/8.4.0"))).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        responses_req_ua("gkprs", "GET", "/v1/responses/resp_1", Some("curl/8.4.0")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     assert_client_417_log(&state, "gkprs", "curl/8.4.0").await;
-    assert_eq!(seen.lock().unwrap().len(), 0, "blocked request must not reach upstream");
-    let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkprs", "GET", "/v1/responses/resp_1", Some("claude-cli/2.0.1 (external, cli)"))).await;
+    assert_eq!(
+        seen.lock().unwrap().len(),
+        0,
+        "blocked request must not reach upstream"
+    );
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        responses_req_ua(
+            "gkprs",
+            "GET",
+            "/v1/responses/resp_1",
+            Some("claude-cli/2.0.1 (external, cli)"),
+        ),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
     assert_eq!(seen.lock().unwrap().len(), 1);
 }
@@ -2257,21 +2488,47 @@ async fn whitelist_responses_subendpoint_on_passthrough_group_417() {
 async fn whitelist_responses_fallthrough_degenerate_and_mixed() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, r#"{"id":"resp_1"}"#).await;
-    setup_multi_platform_group(&state, "gkrfall", &[("FA", &up, WL_CC_EXTRA), ("FB", &up, "")]).await;
-    let b_id = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == "FB").unwrap().id;
-    let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrfall", "GET", "/v1/responses/x", Some("curl/8.4.0"))).await;
+    setup_multi_platform_group(
+        &state,
+        "gkrfall",
+        &[("FA", &up, WL_CC_EXTRA), ("FB", &up, "")],
+    )
+    .await;
+    let b_id = aidog_db::list_platforms(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|p| p.name == "FB")
+        .unwrap()
+        .id;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        responses_req_ua("gkrfall", "GET", "/v1/responses/x", Some("curl/8.4.0")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
     assert_eq!(last_log_for(&state, "gkrfall").await.platform_id, b_id);
 
     disable_platform_named(&state, "FB").await;
-    let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrfall", "GET", "/v1/responses/x", Some("curl/8.4.0"))).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        responses_req_ua("gkrfall", "GET", "/v1/responses/x", Some("curl/8.4.0")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     let log = last_log_for(&state, "gkrfall").await;
-    assert_eq!((log.blocked_by.as_str(), log.blocked_reason.as_str()), ("router", "client_not_allowed"));
+    assert_eq!(
+        (log.blocked_by.as_str(), log.blocked_reason.as_str()),
+        ("router", "client_not_allowed")
+    );
     assert_eq!(log.status_code, 403);
 
     setup_multi_platform_group(&state, "gkrsole", &[("SA", &up, WL_CC_EXTRA)]).await;
-    let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkrsole", "GET", "/v1/responses/x", Some("curl/8.4.0"))).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        responses_req_ua("gkrsole", "GET", "/v1/responses/x", Some("curl/8.4.0")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
 
@@ -2311,12 +2568,24 @@ async fn whitelist_ws_handshake_rejects_417_and_allows() {
         assert_eq!(log.user_agent, ua.unwrap_or(""));
     }
 
-    let resp = handle_proxy(AxumState(state.clone()), ws_handshake_req("gkws", Some("claude-cli/2.0.1 (external, cli)"))).await;
-    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY, "放行 → 走到上游连接（本地 reset 上游）");
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        ws_handshake_req("gkws", Some("claude-cli/2.0.1 (external, cli)")),
+    )
+    .await;
+    assert_eq!(
+        resp.status(),
+        StatusCode::BAD_GATEWAY,
+        "放行 → 走到上游连接（本地 reset 上游）"
+    );
     assert_eq!(last_log_for(&state, "gkws").await.blocked_reason, "");
 
     setup_passthrough_platform_group(&state, "gkwsplain", &dead).await;
-    let resp = handle_proxy(AxumState(state.clone()), ws_handshake_req("gkwsplain", Some("curl/8.4.0"))).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        ws_handshake_req("gkwsplain", Some("curl/8.4.0")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
 }
 
@@ -2333,11 +2602,25 @@ const OV_UA: &str = "OpenViking/0.5.2 (darwin)";
 async fn ua_rules_multi_platform_group() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
-    setup_multi_platform_group(&state, "gkur", &[("A", &up, UA_RULE_EXTRA), ("B", &up, UA_RULE_EXTRA)]).await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkur", Some(OV_UA))).await;
+    setup_multi_platform_group(
+        &state,
+        "gkur",
+        &[("A", &up, UA_RULE_EXTRA), ("B", &up, UA_RULE_EXTRA)],
+    )
+    .await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gkur", Some(OV_UA)),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK, "规则命中的未知客户端放行");
     assert_eq!(last_log_for(&state, "gkur").await.client, "ua:OpenViking");
-    for ua in [Some("Other/1.0"), None, Some("curl/8.4.0"), Some("claude-cli/2.0.1 (external, cli)")] {
+    for ua in [
+        Some("Other/1.0"),
+        None,
+        Some("curl/8.4.0"),
+        Some("claude-cli/2.0.1 (external, cli)"),
+    ] {
         let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkur", ua)).await;
         assert_eq!(resp.status(), StatusCode::FORBIDDEN, "{ua:?}");
         assert_client_417_log(&state, "gkur", ua.unwrap_or("")).await;
@@ -2349,11 +2632,30 @@ async fn ua_rules_multi_platform_group() {
 async fn ua_rules_multi_platform_fallthrough() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
-    setup_multi_platform_group(&state, "gkurf", &[("A", &up, UA_RULE_EXTRA), ("B", &up, "")]).await;
-    let b_id = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == "B").unwrap().id;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurf", Some("Other/1.0"))).await;
+    setup_multi_platform_group(
+        &state,
+        "gkurf",
+        &[("A", &up, UA_RULE_EXTRA), ("B", &up, "")],
+    )
+    .await;
+    let b_id = aidog_db::list_platforms(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|p| p.name == "B")
+        .unwrap()
+        .id;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gkurf", Some("Other/1.0")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
-    assert_eq!(last_log_for(&state, "gkurf").await.platform_id, b_id, "A 被拦，落到 B");
+    assert_eq!(
+        last_log_for(&state, "gkurf").await.platform_id,
+        b_id,
+        "A 被拦，落到 B"
+    );
 }
 
 /// 勾选 + 规则并存：勾的内置放行，规则放行未知；其余拒。
@@ -2368,7 +2670,11 @@ async fn ua_rules_combined_with_ticked_clients() {
         ("curl/8.4.0", StatusCode::FORBIDDEN),
         ("Other/1.0", StatusCode::FORBIDDEN),
     ] {
-        let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurc", Some(ua))).await;
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            messages_request_ua("gkurc", Some(ua)),
+        )
+        .await;
         assert_eq!(resp.status(), want, "{ua}");
     }
 }
@@ -2379,20 +2685,57 @@ async fn ua_rules_literal_single_and_degenerate_single() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     setup_multi_platform_group(&state, "gkurl", &[("A", &up, UA_RULE_EXTRA)]).await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurl", Some(OV_UA))).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gkurl", Some(OV_UA)),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK, "字面单平台：规则命中放行");
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurl", Some("Other/1.0"))).await;
-    assert_eq!(resp.status(), StatusCode::FORBIDDEN, "字面单平台：未命中 403");
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gkurl", Some("Other/1.0")),
+    )
+    .await;
+    assert_eq!(
+        resp.status(),
+        StatusCode::FORBIDDEN,
+        "字面单平台：未命中 403"
+    );
     assert_client_417_log(&state, "gkurl", "Other/1.0").await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurl", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::FORBIDDEN, "字面单平台：内置认出且未勾 → 拒（规则含 curl 也不救）");
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gkurl", Some("curl/8.4.0")),
+    )
+    .await;
+    assert_eq!(
+        resp.status(),
+        StatusCode::FORBIDDEN,
+        "字面单平台：内置认出且未勾 → 拒（规则含 curl 也不救）"
+    );
 
-    setup_multi_platform_group(&state, "gkurd", &[("DA", &up, UA_RULE_EXTRA), ("DB", &up, "")]).await;
+    setup_multi_platform_group(
+        &state,
+        "gkurd",
+        &[("DA", &up, UA_RULE_EXTRA), ("DB", &up, "")],
+    )
+    .await;
     set_platform_status(&state, "DB", aidog_db::models::PlatformStatus::Disabled).await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurd", Some(OV_UA))).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gkurd", Some(OV_UA)),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK, "等效单平台：规则命中放行");
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurd", Some("Other/1.0"))).await;
-    assert_eq!(resp.status(), StatusCode::FORBIDDEN, "等效单平台：不得静默打到唯一平台");
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gkurd", Some("Other/1.0")),
+    )
+    .await;
+    assert_eq!(
+        resp.status(),
+        StatusCode::FORBIDDEN,
+        "等效单平台：不得静默打到唯一平台"
+    );
     assert_client_417_log(&state, "gkurd", "Other/1.0").await;
 }
 
@@ -2403,10 +2746,22 @@ async fn ua_rules_beat_status_bypass_single_platform() {
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     setup_multi_platform_group(&state, "gkurb", &[("A", &up, UA_RULE_EXTRA)]).await;
     set_platform_status(&state, "A", aidog_db::models::PlatformStatus::AutoDisabled).await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurb", Some("Other/1.0"))).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gkurb", Some("Other/1.0")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkurb", Some(OV_UA))).await;
-    assert_eq!(resp.status(), StatusCode::OK, "规则命中的客户端仍享受 bypass");
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gkurb", Some(OV_UA)),
+    )
+    .await;
+    assert_eq!(
+        resp.status(),
+        StatusCode::OK,
+        "规则命中的客户端仍享受 bypass"
+    );
 }
 
 /// responses 子端点路径认规则。
@@ -2414,11 +2769,27 @@ async fn ua_rules_beat_status_bypass_single_platform() {
 async fn ua_rules_responses_subendpoints() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, r#"{"id":"resp_1","object":"response"}"#).await;
-    setup_multi_platform_group(&state, "gkurr", &[("RA", &up, UA_RULE_EXTRA), ("RB", &up, UA_RULE_EXTRA)]).await;
-    for (method, uri) in [("GET", "/v1/responses/resp_1"), ("POST", "/v1/responses/compact")] {
-        let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkurr", method, uri, Some(OV_UA))).await;
+    setup_multi_platform_group(
+        &state,
+        "gkurr",
+        &[("RA", &up, UA_RULE_EXTRA), ("RB", &up, UA_RULE_EXTRA)],
+    )
+    .await;
+    for (method, uri) in [
+        ("GET", "/v1/responses/resp_1"),
+        ("POST", "/v1/responses/compact"),
+    ] {
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            responses_req_ua("gkurr", method, uri, Some(OV_UA)),
+        )
+        .await;
         assert_eq!(resp.status(), StatusCode::OK, "{method} {uri}");
-        let resp = handle_proxy(AxumState(state.clone()), responses_req_ua("gkurr", method, uri, Some("Other/1.0"))).await;
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            responses_req_ua("gkurr", method, uri, Some("Other/1.0")),
+        )
+        .await;
         assert_eq!(resp.status(), StatusCode::FORBIDDEN, "{method} {uri}");
         assert_client_417_log(&state, "gkurr", "Other/1.0").await;
     }
@@ -2430,7 +2801,8 @@ async fn ua_rules_passthrough_chat_and_ws() {
     let (upstream, seen) = spawn_recording_upstream(r#"{"id":"x"}"#).await;
     let state = make_state(test_db().await).await;
     setup_passthrough_platform_group_extra(&state, "gkurp", &upstream, UA_RULE_EXTRA).await;
-    let chat = r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#;
+    let chat =
+        r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#;
     let post = |ua: &'static str| {
         HttpRequest::builder()
             .method("POST")
@@ -2443,20 +2815,35 @@ async fn ua_rules_passthrough_chat_and_ws() {
     };
     let resp = handle_proxy(AxumState(state.clone()), post("Other/1.0")).await;
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
-    assert_eq!(seen.lock().unwrap().len(), 0, "blocked request must not reach upstream");
+    assert_eq!(
+        seen.lock().unwrap().len(),
+        0,
+        "blocked request must not reach upstream"
+    );
     let resp = handle_proxy(AxumState(state.clone()), post(OV_UA)).await;
     assert_eq!(resp.status(), StatusCode::OK);
     assert_eq!(seen.lock().unwrap().len(), 1);
 
     let dead = spawn_reset_upstream().await;
     setup_passthrough_platform_group_extra(&state, "gkurws", &dead, UA_RULE_EXTRA).await;
-    let resp = handle_proxy(AxumState(state.clone()), ws_handshake_req("gkurws", Some("Other/1.0"))).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        ws_handshake_req("gkurws", Some("Other/1.0")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     assert_client_417_log(&state, "gkurws", "Other/1.0").await;
-    let resp = handle_proxy(AxumState(state.clone()), ws_handshake_req("gkurws", Some(OV_UA))).await;
-    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY, "规则命中 → 越过闸门走到上游连接");
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        ws_handshake_req("gkurws", Some(OV_UA)),
+    )
+    .await;
+    assert_eq!(
+        resp.status(),
+        StatusCode::BAD_GATEWAY,
+        "规则命中 → 越过闸门走到上游连接"
+    );
 }
-
 
 // ──────────────────────────────────────────────────────────────
 // /api/notify：handle_notify 鉴权 + dispatch 全链路
@@ -2552,9 +2939,13 @@ async fn notify_success_dispatches_and_returns_result() {
     let body = Bytes::from_static(
         br#"{"type":"TaskComplete","content":"done","vars":{"project":"demo"}}"#,
     );
-    let resp =
-        handle_notify(AxumState(state.clone()), notify_ci("127.0.0.1:50000"), notify_headers(Some("gkn2")), body)
-            .await;
+    let resp = handle_notify(
+        AxumState(state.clone()),
+        notify_ci("127.0.0.1:50000"),
+        notify_headers(Some("gkn2")),
+        body,
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
     let bytes = axum::body::to_bytes(resp.into_body(), 1 << 20)
         .await
@@ -2577,8 +2968,13 @@ async fn notify_event_path_injects_builtin_vars() {
     .unwrap();
     // 仅 event，无 vars → 内置 group/time 注入分支命中
     let body = Bytes::from_static(br#"{"event":"Stop","content":"hello"}"#);
-    let resp =
-        handle_notify(AxumState(state), notify_ci("127.0.0.1:50000"), notify_headers(Some("gkn3")), body).await;
+    let resp = handle_notify(
+        AxumState(state),
+        notify_ci("127.0.0.1:50000"),
+        notify_headers(Some("gkn3")),
+        body,
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
 }
 
@@ -2751,7 +3147,8 @@ async fn mitm_decrypted_api_path_falls_through_to_orig_host() {
             log_upstream_request: true,
             ..Default::default()
         },
-    ).await;
+    )
+    .await;
     // 代理监听端口与 stub 不同（stub 端口由 spawn 异步绑定），Host=stub 端口被判为「非自身」→ 直通。
     let _ = state.listen_addr.set((
         std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)),
@@ -2901,7 +3298,8 @@ async fn absolute_form_http_forward_returns_orig_body_not_health_endpoint() {
             log_upstream_request: true,
             ..Default::default()
         },
-    ).await;
+    )
+    .await;
     // listen_addr 设为代理自身 loopback（任意端口均可，识别代理自身用）；具体端口由
     // spawn_proxy_router 异步绑定，should_fallback_passthrough 用 loopback host 名 + 端口
     // 比对识别。这里设一个**非** stub 端口的 loopback 地址，让外部 host（stub）被判为「非自身」。
@@ -3000,7 +3398,8 @@ async fn absolute_form_https_uri_scheme_adaptive() {
             log_upstream_request: true,
             ..Default::default()
         },
-    ).await;
+    )
+    .await;
     let _ = state.listen_addr.set((
         std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)),
         65535u16,
@@ -3412,10 +3811,22 @@ async fn stage_prepare_send_preserves_remapped_body_and_upstream_log() {
     assert_eq!(row.upstream_request_body, captured[0].1);
     assert_eq!(row.target_protocol, "gemini");
     assert_eq!(row.model, "gemini-src");
-    assert_eq!(row.input_tokens, 3, "Gemini prompt tokens must exclude cache");
-    assert_eq!(row.output_tokens, 4, "Gemini candidate and thought tokens must be logged");
-    assert_eq!(row.cache_tokens, 2, "Gemini cached prompt tokens must be logged");
-    assert!(row.est_cost > 0.0, "Gemini usage must produce a non-zero estimated cost");
+    assert_eq!(
+        row.input_tokens, 3,
+        "Gemini prompt tokens must exclude cache"
+    );
+    assert_eq!(
+        row.output_tokens, 4,
+        "Gemini candidate and thought tokens must be logged"
+    );
+    assert_eq!(
+        row.cache_tokens, 2,
+        "Gemini cached prompt tokens must be logged"
+    );
+    assert!(
+        row.est_cost > 0.0,
+        "Gemini usage must produce a non-zero estimated cost"
+    );
     assert!(row.done);
 }
 
@@ -3449,7 +3860,10 @@ async fn gemini_cross_protocol_usage_is_logged_and_response_is_converted() {
     assert_eq!(row.input_tokens, 3);
     assert_eq!(row.output_tokens, 4);
     assert_eq!(row.cache_tokens, 2);
-    assert!(row.est_cost > 0.0, "Gemini converted usage must produce a non-zero estimated cost");
+    assert!(
+        row.est_cost > 0.0,
+        "Gemini converted usage must produce a non-zero estimated cost"
+    );
     assert!(row.done);
 }
 
@@ -3807,10 +4221,9 @@ use std::sync::Mutex as StdMutex;
 async fn spawn_decision_upstream(
     responses: Vec<(u16, &'static str)>,
 ) -> (String, std::sync::Arc<StdMutex<Vec<(String, String)>>>) {
-    let hits: std::sync::Arc<StdMutex<Vec<(String, String)>>> = std::sync::Arc::new(StdMutex::new(Vec::new()));
-    let queue = std::sync::Arc::new(StdMutex::new(std::collections::VecDeque::from(
-        responses,
-    )));
+    let hits: std::sync::Arc<StdMutex<Vec<(String, String)>>> =
+        std::sync::Arc::new(StdMutex::new(Vec::new()));
+    let queue = std::sync::Arc::new(StdMutex::new(std::collections::VecDeque::from(responses)));
     let h2 = hits.clone();
     let app = axum::Router::new().fallback(axum::routing::any(move |req: Request| {
         let hits = h2.clone();
@@ -3832,7 +4245,9 @@ async fn spawn_decision_upstream(
     }));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
-    tokio::spawn(async move { axum::serve(listener, app).await.ok(); });
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.ok();
+    });
     (format!("http://{addr}"), hits)
 }
 
@@ -3919,15 +4334,20 @@ async fn decision_request_end_to_end() {
     )
     .await;
 
-    let resp = handle_proxy(AxumState(state.clone()), decision_request("gkdec", "whatever"))
-        .await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        decision_request("gkdec", "whatever"),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
     assert_eq!(
         resp.headers().get("content-type").unwrap(),
         "application/json",
         "decision response must be JSON, not octet-stream"
     );
-    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
     let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(v.get("id"), None, "id stripped (R12)");
     assert_eq!(v.get("provider"), None, "provider stripped (R12)");
@@ -3942,9 +4362,16 @@ async fn decision_request_end_to_end() {
     };
     assert_eq!(path, "/v1/systemone", "URL = base_url + /systemone (R10)");
     // preserve_order：上游请求体保持客户端字段顺序（model 原位改写，非字母序）
-    assert_eq!(req_body, r#"{"model":"jev-latest","usage":{},"answers":[]}"#);
+    assert_eq!(
+        req_body,
+        r#"{"model":"jev-latest","usage":{},"answers":[]}"#
+    );
     let sent: serde_json::Value = serde_json::from_str(&req_body).unwrap();
-    assert_eq!(sent.get("model").unwrap(), "jev-latest", "model rewritten to slot (R8)");
+    assert_eq!(
+        sent.get("model").unwrap(),
+        "jev-latest",
+        "model rewritten to slot (R8)"
+    );
 
     let log = last_log_for(&state, "gkdec").await;
     assert_eq!(log.status_code, 200);
@@ -3952,7 +4379,11 @@ async fn decision_request_end_to_end() {
     assert_eq!(log.actual_model, "jev-latest");
     assert_eq!(log.input_tokens, 1000);
     assert_eq!(log.output_tokens, 50);
-    assert!((log.est_cost - 0.000125).abs() < 1e-9, "upstream usage.cost adopted (R14), got {}", log.est_cost);
+    assert!(
+        (log.est_cost - 0.000125).abs() < 1e-9,
+        "upstream usage.cost adopted (R14), got {}",
+        log.est_cost
+    );
 }
 
 /// 票 16 B4（R14 零改动复核）：上游 `usage.cost` 在场时全盘采纳——即使 usage 同时带
@@ -3975,8 +4406,11 @@ async fn decision_upstream_cost_wins_over_tool_counts() {
     )
     .await;
 
-    let resp = handle_proxy(AxumState(state.clone()), decision_request("gkdec-tools", "whatever"))
-        .await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        decision_request("gkdec-tools", "whatever"),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
     let log = last_log_for(&state, "gkdec-tools").await;
     // 计数只在内存 ProxyLog 里参与计价（B1：不落列），DB 读回恒空——此处只断言 est 口径。
@@ -3999,7 +4433,11 @@ async fn decision_upstream_zero_cost_uses_registry_price() {
     for (gk, price, expected) in [
         ("gkz1", r#"{"input":4.2e-8,"output":0}"#, 1000.0 * 4.2e-8),
         ("gkzfree", r#"{"free":true,"input":0,"output":0}"#, 0.0),
-        ("gkz0", r#"{"input":0,"output":0}"#, 1000.0 * 3.0 / 1_000_000.0),
+        (
+            "gkz0",
+            r#"{"input":0,"output":0}"#,
+            1000.0 * 3.0 / 1_000_000.0,
+        ),
     ] {
         let (upstream, _hits) = spawn_decision_upstream(vec![(200, resp_body)]).await;
         let state = make_state(test_db().await).await;
@@ -4025,7 +4463,15 @@ async fn decision_upstream_zero_cost_uses_registry_price() {
         )
         .await
         .unwrap();
-        setup_decision_group(&state, gk, &upstream, PlatformModels::default(), Some(vec!["jev-1.13"]), Protocol::TypeSafe).await;
+        setup_decision_group(
+            &state,
+            gk,
+            &upstream,
+            PlatformModels::default(),
+            Some(vec!["jev-1.13"]),
+            Protocol::TypeSafe,
+        )
+        .await;
 
         let resp = handle_proxy(AxumState(state.clone()), decision_request(gk, "jev-1.13")).await;
         assert_eq!(resp.status(), StatusCode::OK);
@@ -4077,10 +4523,17 @@ async fn decision_cost_falls_back_to_registry_price() {
     )
     .await;
 
-    let resp = handle_proxy(AxumState(state.clone()), decision_request("gkfb", "jev-1.13")).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        decision_request("gkfb", "jev-1.13"),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
     let log = last_log_for(&state, "gkfb").await;
-    assert_eq!(log.actual_model, "jev-1.13", "R8: requested model in available_models kept");
+    assert_eq!(
+        log.actual_model, "jev-1.13",
+        "R8: requested model in available_models kept"
+    );
     let expected = 1000.0 * 4.2e-8;
     assert!(
         (log.est_cost - expected).abs() < 1e-12,
@@ -4099,10 +4552,22 @@ async fn decision_529_fails_over_to_next_platform() {
         jev: vec!["jev-latest".into()],
         ..Default::default()
     };
-    setup_decision_group(&state, "gkfo1", &up1, models.clone(), None, Protocol::TypeSafe).await;
+    setup_decision_group(
+        &state,
+        "gkfo1",
+        &up1,
+        models.clone(),
+        None,
+        Protocol::TypeSafe,
+    )
+    .await;
     // 第二平台挂同一 group：直接造 group 复用 setup 不便，手写第二个平台进同组
-    let g = aidog_db::list_groups(&state.db).await.unwrap()
-        .into_iter().find(|g| g.group_key == "gkfo1").unwrap();
+    let g = aidog_db::list_groups(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|g| g.group_key == "gkfo1")
+        .unwrap();
     let plat2 = aidog_db::create_platform(
         &state.db,
         CreatePlatform {
@@ -4133,8 +4598,13 @@ async fn decision_529_fails_over_to_next_platform() {
         g.id,
         &[
             GroupPlatformInput {
-                platform_id: aidog_db::list_platforms(&state.db).await.unwrap()
-                    .into_iter().find(|p| p.name == "stub-gkfo1").unwrap().id,
+                platform_id: aidog_db::list_platforms(&state.db)
+                    .await
+                    .unwrap()
+                    .into_iter()
+                    .find(|p| p.name == "stub-gkfo1")
+                    .unwrap()
+                    .id,
                 priority: Some(0),
                 weight: Some(1),
                 level_priority: Some(0),
@@ -4153,7 +4623,11 @@ async fn decision_529_fails_over_to_next_platform() {
     let resp = handle_proxy(AxumState(state.clone()), decision_request("gkfo1", "m")).await;
     assert_eq!(resp.status(), StatusCode::OK, "529 must fail over (R13)");
     assert_eq!(hits1.lock().unwrap().len(), 1);
-    assert_eq!(hits2.lock().unwrap().len(), 1, "second platform received the retry");
+    assert_eq!(
+        hits2.lock().unwrap().len(),
+        1,
+        "second platform received the retry"
+    );
     let log = last_log_for(&state, "gkfo1").await;
     assert_eq!(log.retry_count, 1);
     assert_eq!(log.attempts.len(), 2);
@@ -4192,7 +4666,10 @@ async fn chat_no_chat_platform_404_and_audit_log() {
     .await;
     let resp = handle_proxy(
         AxumState(state.clone()),
-        messages_request("gknochat", r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+        messages_request(
+            "gknochat",
+            r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#,
+        ),
     )
     .await;
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
@@ -4210,8 +4687,12 @@ async fn setup_two_decision_platforms(state: &Arc<ProxyState>, gk: &str, up1: &s
         ..Default::default()
     };
     setup_decision_group(state, gk, up1, models.clone(), None, Protocol::TypeSafe).await;
-    let first = aidog_db::list_platforms(&state.db).await.unwrap()
-        .into_iter().find(|p| p.name == format!("stub-{gk}")).unwrap();
+    let first = aidog_db::list_platforms(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|p| p.name == format!("stub-{gk}"))
+        .unwrap();
     let second = aidog_db::create_platform(
         &state.db,
         CreatePlatform {
@@ -4237,8 +4718,12 @@ async fn setup_two_decision_platforms(state: &Arc<ProxyState>, gk: &str, up1: &s
     )
     .await
     .unwrap();
-    let g = aidog_db::list_groups(&state.db).await.unwrap()
-        .into_iter().find(|g| g.group_key == gk).unwrap();
+    let g = aidog_db::list_groups(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|g| g.group_key == gk)
+        .unwrap();
     let gp = |platform_id, priority| GroupPlatformInput {
         platform_id,
         priority: Some(priority),
@@ -4255,7 +4740,8 @@ async fn setup_two_decision_platforms(state: &Arc<ProxyState>, gk: &str, up1: &s
 async fn decision_upstream_4xx_handling() {
     for (code, fails_over) in [(429u16, true), (401, true), (400, false), (422, false)] {
         let gk = format!("gk4xx{code}");
-        let (up1, hits1) = spawn_decision_upstream(vec![(code, r#"{"error":{"message":"nope"}}"#)]).await;
+        let (up1, hits1) =
+            spawn_decision_upstream(vec![(code, r#"{"error":{"message":"nope"}}"#)]).await;
         let (up2, hits2) = spawn_decision_upstream(vec![(200, OR_RESPONSE)]).await;
         let state = make_state(test_db().await).await;
         setup_two_decision_platforms(&state, &gk, &up1, &up2).await;
@@ -4265,12 +4751,24 @@ async fn decision_upstream_4xx_handling() {
         let log = last_log_for(&state, &gk).await;
         if fails_over {
             assert_eq!(resp.status(), StatusCode::OK, "{code} must fail over");
-            assert_eq!(hits2.lock().unwrap().len(), 1, "{code}: second platform received retry");
+            assert_eq!(
+                hits2.lock().unwrap().len(),
+                1,
+                "{code}: second platform received retry"
+            );
             assert_eq!(log.status_code, 200);
             assert_eq!(log.attempts.len(), 2);
         } else {
-            assert_eq!(resp.status().as_u16(), code, "{code} returned to client as-is");
-            assert_eq!(hits2.lock().unwrap().len(), 0, "{code} must not retry next platform");
+            assert_eq!(
+                resp.status().as_u16(),
+                code,
+                "{code} returned to client as-is"
+            );
+            assert_eq!(
+                hits2.lock().unwrap().len(),
+                0,
+                "{code} must not retry next platform"
+            );
             assert_eq!(log.status_code, code as i32);
         }
     }
@@ -4308,7 +4806,10 @@ async fn decision_log_switches_off_drop_bodies() {
     let row = last_log_for(&state, "gkdlog").await;
     assert!(row.request_body.is_empty(), "request_body");
     assert!(row.user_response_body.is_empty(), "user_response_body");
-    assert!(row.upstream_request_body.is_empty(), "upstream_request_body");
+    assert!(
+        row.upstream_request_body.is_empty(),
+        "upstream_request_body"
+    );
     assert!(row.response_body.is_empty(), "response_body");
     assert_eq!(row.status_code, 200);
     assert_eq!(row.input_tokens, 1000, "metadata kept");
@@ -4365,7 +4866,10 @@ async fn chat_peak_disabled_503_and_audit_log() {
 
     let resp = handle_proxy(
         AxumState(state.clone()),
-        messages_request("gkchatpeak", r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+        messages_request(
+            "gkchatpeak",
+            r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#,
+        ),
     )
     .await;
     assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
@@ -4385,27 +4889,52 @@ async fn chat_peak_disabled_toggle_off_restores_routing() {
 
     let resp = handle_proxy(
         AxumState(state.clone()),
-        messages_request("gkpeakoff", r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+        messages_request(
+            "gkpeakoff",
+            r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#,
+        ),
     )
     .await;
-    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE, "开启时应 503 peak");
+    assert_eq!(
+        resp.status(),
+        StatusCode::SERVICE_UNAVAILABLE,
+        "开启时应 503 peak"
+    );
 
     // 关闭：键从 extra 删除（峰值窗口保留），update_platform 持久化后应恢复转发
     for p in aidog_db::list_platforms(&state.db).await.unwrap() {
-        aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
-            id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
-            extra: Some(r#"{"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#.to_string()),
-            models: None, available_models: None, endpoints: None,
-            enabled: None, status: None, manual_budgets: None,
-            join_group_ids: None, expires_at: None, quota_source: None,
-        })
+        aidog_db::update_platform(
+            &state.db,
+            aidog_db::models::UpdatePlatform {
+                id: p.id,
+                name: None,
+                platform_type: None,
+                base_url: None,
+                api_key: None,
+                extra: Some(
+                    r#"{"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#.to_string(),
+                ),
+                models: None,
+                available_models: None,
+                endpoints: None,
+                enabled: None,
+                status: None,
+                manual_budgets: None,
+                join_group_ids: None,
+                expires_at: None,
+                quota_source: None,
+            },
+        )
         .await
         .unwrap();
     }
 
     let resp2 = handle_proxy(
         AxumState(state.clone()),
-        messages_request("gkpeakoff", r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+        messages_request(
+            "gkpeakoff",
+            r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#,
+        ),
     )
     .await;
     assert_eq!(resp2.status(), StatusCode::OK, "关闭后应恢复 200 转发");
@@ -4436,7 +4965,10 @@ async fn chat_unknown_protocol_500_and_audit_log() {
 
     let resp = handle_proxy(
         AxumState(state.clone()),
-        messages_request("gkunknown", r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+        messages_request(
+            "gkunknown",
+            r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#,
+        ),
     )
     .await;
     assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
@@ -4510,7 +5042,11 @@ async fn passthrough_platform_relays_unparseable_requests_verbatim() {
         ("POST", "/v1/messages", "not json at all"),
         ("POST", "/v1/messages", r#"{"foo":1}"#),
         ("POST", "/v1/custom/thing", r#"{"input":"x"}"#),
-        ("POST", "/v1/messages/count_tokens", r#"{"model":"m","messages":[]}"#),
+        (
+            "POST",
+            "/v1/messages/count_tokens",
+            r#"{"model":"m","messages":[]}"#,
+        ),
         ("GET", "/v1/files", ""),
         ("GET", "/v1/responses/resp_1", ""),
         ("POST", "/v1/systemone", r#"{"answers":[]}"#),
@@ -4527,7 +5063,12 @@ async fn passthrough_platform_relays_unparseable_requests_verbatim() {
             .unwrap();
         let resp = handle_proxy(AxumState(state.clone()), req).await;
         assert_eq!(resp.status(), StatusCode::OK, "{method} {path} body={body}");
-        let got = seen.lock().unwrap().last().cloned().expect("upstream not hit");
+        let got = seen
+            .lock()
+            .unwrap()
+            .last()
+            .cloned()
+            .expect("upstream not hit");
         assert_eq!(got, (path.to_string(), body.to_string()), "{method} {path}");
     }
     assert_eq!(seen.lock().unwrap().len(), cases.len());
@@ -4538,10 +5079,7 @@ async fn passthrough_platform_relays_unparseable_requests_verbatim() {
 }
 
 /// stub HTTP 代理：计请求数并回 200（issue #64 T04 透传 / T05 旁路行为测试共用）。
-async fn spawn_hit_counting_proxy() -> (
-    std::net::SocketAddr,
-    Arc<std::sync::atomic::AtomicUsize>,
-) {
+async fn spawn_hit_counting_proxy() -> (std::net::SocketAddr, Arc<std::sync::atomic::AtomicUsize>) {
     use std::sync::atomic::{AtomicUsize, Ordering};
     let hits = Arc::new(AtomicUsize::new(0));
     let h = hits.clone();
@@ -4598,7 +5136,11 @@ async fn passthrough_platform_extra_proxy_switch() {
     )
     .await;
     assert_eq!(resp.status(), StatusCode::OK);
-    assert_eq!(hits.load(Ordering::SeqCst), 1, "平台 proxy_enabled=true → 透传出站走代理");
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        1,
+        "平台 proxy_enabled=true → 透传出站走代理"
+    );
 
     // 平台无开关（extra 空）→ 直连上游，代理不计数
     setup_passthrough_platform_group_extra(&state, "gkptpxoff", &upstream, "").await;
@@ -4678,18 +5220,38 @@ async fn no_group_404_records_user_side_request_and_response() {
         },
     )
     .await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request("ghost", r#"{"model":"m"}"#)).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request("ghost", r#"{"model":"m"}"#),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 
     let row = last_log_for(&state, "").await;
     assert_eq!(row.status_code, 404);
-    assert!(row.request_headers.contains("authorization"), "{}", row.request_headers);
-    assert!(!row.request_headers.contains("ghost"), "密钥须脱敏: {}", row.request_headers);
+    assert!(
+        row.request_headers.contains("authorization"),
+        "{}",
+        row.request_headers
+    );
+    assert!(
+        !row.request_headers.contains("ghost"),
+        "密钥须脱敏: {}",
+        row.request_headers
+    );
     assert_eq!(row.request_body, r#"{"model":"m"}"#);
-    assert!(row.user_response_body.contains("no matching group"), "{}", row.user_response_body);
+    assert!(
+        row.user_response_body.contains("no matching group"),
+        "{}",
+        row.user_response_body
+    );
     assert!(!row.user_response_body.contains("ghost"));
     assert!(row.user_response_headers.contains("content-type"));
-    assert!(row.response_body.is_empty(), "上游侧不应有内容: {}", row.response_body);
+    assert!(
+        row.response_body.is_empty(),
+        "上游侧不应有内容: {}",
+        row.response_body
+    );
 }
 
 /// WS 握手路径（不经 handle_proxy_core）也要识别入站客户端并记原始 UA。
@@ -4730,7 +5292,10 @@ async fn default_key_channels_resolve_group_first_match() {
         ("/v1/messages?api_key=gkch", &[]),
         (
             "/v1/messages",
-            &[("authorization", "Bearer sk-upstream-own"), ("x-api-key", "gkch")],
+            &[
+                ("authorization", "Bearer sk-upstream-own"),
+                ("x-api-key", "gkch"),
+            ],
         ),
     ];
     for (uri, headers) in cases {
@@ -4747,31 +5312,60 @@ async fn passthrough_replaces_key_in_the_channel_client_used() {
     let state = make_state(test_db().await).await;
     setup_passthrough_platform_group(&state, "gkpt", &upstream).await;
 
-    let last = || seen.lock().unwrap().last().cloned().expect("upstream not hit");
+    let last = || {
+        seen.lock()
+            .unwrap()
+            .last()
+            .cloned()
+            .expect("upstream not hit")
+    };
 
-    let resp = handle_proxy(AxumState(state.clone()), request_with("/v1/x", &[("x-goog-api-key", "gkpt")])).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        request_with("/v1/x", &[("x-goog-api-key", "gkpt")]),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
     let (_, h) = last();
     assert_eq!(h.get("x-goog-api-key").map(String::as_str), Some("sk-up"));
     assert!(!h.contains_key("authorization"));
 
-    let resp = handle_proxy(AxumState(state.clone()), request_with("/v1/x", &[("authorization", "Key gkpt")])).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        request_with("/v1/x", &[("authorization", "Key gkpt")]),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
-    assert_eq!(last().1.get("authorization").map(String::as_str), Some("Key sk-up"));
+    assert_eq!(
+        last().1.get("authorization").map(String::as_str),
+        Some("Key sk-up")
+    );
 
     let resp = handle_proxy(
         AxumState(state.clone()),
-        request_with("/v1/x?a=1&key=gkpt", &[("authorization", "Bearer sk-client-own")]),
+        request_with(
+            "/v1/x?a=1&key=gkpt",
+            &[("authorization", "Bearer sk-client-own")],
+        ),
     )
     .await;
     assert_eq!(resp.status(), StatusCode::OK);
     let (uri, h) = last();
     assert_eq!(uri, "/v1/x?a=1&key=sk-up");
-    assert!(!h.contains_key("authorization"), "未定组的凭证头须剥: {h:?}");
+    assert!(
+        !h.contains_key("authorization"),
+        "未定组的凭证头须剥: {h:?}"
+    );
 
     let resp = handle_proxy(
         AxumState(state.clone()),
-        request_with("/v1/x", &[("authorization", "Bearer sk-client-own"), ("x-api-key", "gkpt")]),
+        request_with(
+            "/v1/x",
+            &[
+                ("authorization", "Bearer sk-client-own"),
+                ("x-api-key", "gkpt"),
+            ],
+        ),
     )
     .await;
     assert_eq!(resp.status(), StatusCode::OK);
@@ -4803,13 +5397,21 @@ async fn passthrough_auth_config_doubles_as_inbound_key_channel() {
     )
     .await;
 
-    let resp = handle_proxy(AxumState(state.clone()), request_with("/v1/x", &[("x-token", "token gkcustom")])).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        request_with("/v1/x", &[("x-token", "token gkcustom")]),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
     let (_, h) = seen.lock().unwrap().last().cloned().unwrap();
     assert_eq!(h.get("x-token").map(String::as_str), Some("Token sk-up"));
 
     let row = last_log_for(&state, "gkcustom").await;
-    assert!(!row.request_headers.contains("gkcustom"), "{}", row.request_headers);
+    assert!(
+        !row.request_headers.contains("gkcustom"),
+        "{}",
+        row.request_headers
+    );
     assert!(row.request_headers.contains("x-token"));
 }
 
@@ -4829,7 +5431,11 @@ async fn convert_path_strips_key_channel_headers() {
     .await;
 
     for headers in [&[("x-token", "gkconv")][..], &[("api-key", "gkconv")][..]] {
-        let resp = handle_proxy(AxumState(state.clone()), request_with("/v1/messages", headers)).await;
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            request_with("/v1/messages", headers),
+        )
+        .await;
         assert_eq!(resp.status(), StatusCode::OK, "{headers:?}");
         let (_, h) = seen.lock().unwrap().last().cloned().unwrap();
         assert!(!h.contains_key("x-token"), "{h:?}");
@@ -4899,16 +5505,34 @@ async fn routing_snapshot_records_excluded_candidates() {
     )
     .await
     .unwrap();
-    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group("gksnap", vec![]))
-        .await
-        .unwrap();
+    let group = aidog_db::create_group(
+        &state.db,
+        aidog_db::test_support::sample_group("gksnap", vec![]),
+    )
+    .await
+    .unwrap();
     aidog_db::set_group_platforms(
         &state.db,
         group.id,
         &[
-            GroupPlatformInput { platform_id: live.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
-            GroupPlatformInput { platform_id: live2.id, priority: Some(1), weight: Some(1), level_priority: Some(5) },
-            GroupPlatformInput { platform_id: off.id, priority: Some(2), weight: Some(1), level_priority: Some(5) },
+            GroupPlatformInput {
+                platform_id: live.id,
+                priority: Some(0),
+                weight: Some(1),
+                level_priority: Some(5),
+            },
+            GroupPlatformInput {
+                platform_id: live2.id,
+                priority: Some(1),
+                weight: Some(1),
+                level_priority: Some(5),
+            },
+            GroupPlatformInput {
+                platform_id: off.id,
+                priority: Some(2),
+                weight: Some(1),
+                level_priority: Some(5),
+            },
         ],
     )
     .await
@@ -4925,14 +5549,15 @@ async fn routing_snapshot_records_excluded_candidates() {
     let rs = log.routing.expect("routing snapshot must be recorded");
     assert!(rs.mode.is_some());
     assert_eq!(rs.entries.len(), 3, "候选数应与分组配置一致");
-    let e_live = rs.entries.iter().find(|e| e.platform_id == live.id).unwrap();
+    let e_live = rs
+        .entries
+        .iter()
+        .find(|e| e.platform_id == live.id)
+        .unwrap();
     let e_off = rs.entries.iter().find(|e| e.platform_id == off.id).unwrap();
     assert_eq!(e_live.reason, aidog_db::models::RouteReason::Selected);
     assert_eq!(e_live.order, 1);
-    assert_eq!(
-        e_off.reason,
-        aidog_db::models::RouteReason::DisabledManual
-    );
+    assert_eq!(e_off.reason, aidog_db::models::RouteReason::DisabledManual);
 }
 
 /// 死站跳过补记（票 01）：同 base_url（connect 拒绝死站）第二候选跳过时标
@@ -4943,15 +5568,28 @@ async fn routing_snapshot_marks_skipped_dead_upstream() {
     let state = make_state(test_db().await).await;
     let p1 = create_plain_platform(&state, "d1", "http://127.0.0.1:1").await;
     let p2 = create_plain_platform(&state, "d2", "http://127.0.0.1:1").await;
-    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group("gkdead", vec![]))
-        .await
-        .unwrap();
+    let group = aidog_db::create_group(
+        &state.db,
+        aidog_db::test_support::sample_group("gkdead", vec![]),
+    )
+    .await
+    .unwrap();
     aidog_db::set_group_platforms(
         &state.db,
         group.id,
         &[
-            GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
-            GroupPlatformInput { platform_id: p2.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
+            GroupPlatformInput {
+                platform_id: p1.id,
+                priority: Some(0),
+                weight: Some(1),
+                level_priority: Some(5),
+            },
+            GroupPlatformInput {
+                platform_id: p2.id,
+                priority: Some(0),
+                weight: Some(1),
+                level_priority: Some(5),
+            },
         ],
     )
     .await
@@ -4972,11 +5610,17 @@ async fn routing_snapshot_marks_skipped_dead_upstream() {
     let reasons: Vec<_> = rs.entries.iter().map(|e| e.reason).collect();
     // 同站 connect 失败：先试的标 selected（尝试过、失败），同站兄弟标 skipped-dead-upstream
     assert_eq!(
-        reasons.iter().filter(|r| **r == aidog_db::models::RouteReason::Selected).count(),
+        reasons
+            .iter()
+            .filter(|r| **r == aidog_db::models::RouteReason::Selected)
+            .count(),
         1
     );
     assert_eq!(
-        reasons.iter().filter(|r| **r == aidog_db::models::RouteReason::SkippedDeadUpstream).count(),
+        reasons
+            .iter()
+            .filter(|r| **r == aidog_db::models::RouteReason::SkippedDeadUpstream)
+            .count(),
         1
     );
 }
@@ -4990,15 +5634,28 @@ async fn chat_all_quota_cooled_402_and_audit_log() {
     let state = make_state(db).await;
     let p1 = create_plain_platform(&state, "q1", "http://127.0.0.1:1").await;
     let p2 = create_plain_platform(&state, "q2", "http://127.0.0.1:1").await;
-    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group("gkquota", vec![]))
-        .await
-        .unwrap();
+    let group = aidog_db::create_group(
+        &state.db,
+        aidog_db::test_support::sample_group("gkquota", vec![]),
+    )
+    .await
+    .unwrap();
     aidog_db::set_group_platforms(
         &state.db,
         group.id,
         &[
-            GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
-            GroupPlatformInput { platform_id: p2.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
+            GroupPlatformInput {
+                platform_id: p1.id,
+                priority: Some(0),
+                weight: Some(1),
+                level_priority: Some(5),
+            },
+            GroupPlatformInput {
+                platform_id: p2.id,
+                priority: Some(0),
+                weight: Some(1),
+                level_priority: Some(5),
+            },
         ],
     )
     .await
@@ -5009,17 +5666,24 @@ async fn chat_all_quota_cooled_402_and_audit_log() {
 
     let resp = handle_proxy(
         AxumState(state.clone()),
-        messages_request("gkquota", r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+        messages_request(
+            "gkquota",
+            r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#,
+        ),
     )
     .await;
     assert_eq!(resp.status(), StatusCode::PAYMENT_REQUIRED);
-    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
     let v: Value = serde_json::from_slice(&body).expect("json error body");
     // anthropic 入站（/v1/messages）→ body 带 anthropic 错误外壳
     assert_eq!(v["type"], "error");
     assert_eq!(v["error"]["type"], "quota_exhausted");
     assert!(
-        v["error"]["message"].as_str().is_some_and(|m| m.contains("Insufficient balance") || m.contains("余额不足")),
+        v["error"]["message"]
+            .as_str()
+            .is_some_and(|m| m.contains("Insufficient balance") || m.contains("余额不足")),
         "non coding-plan group says balance insufficient: {v}"
     );
     let log = last_log_for(&state, "gkquota").await;
@@ -5029,7 +5693,6 @@ async fn chat_all_quota_cooled_402_and_audit_log() {
     assert_eq!(log.est_cost, 0.0);
 }
 
-
 /// 同上但 openai 入站（/v1/chat/completions）→ body 无 anthropic 外壳，`{"error":{...}}`。
 #[tokio::test]
 async fn chat_all_quota_cooled_402_openai_shape() {
@@ -5037,15 +5700,28 @@ async fn chat_all_quota_cooled_402_openai_shape() {
     let state = make_state(db).await;
     let p1 = create_plain_platform(&state, "qo1", "http://127.0.0.1:1").await;
     let p2 = create_plain_platform(&state, "qo2", "http://127.0.0.1:1").await;
-    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group("gkquotaopen", vec![]))
-        .await
-        .unwrap();
+    let group = aidog_db::create_group(
+        &state.db,
+        aidog_db::test_support::sample_group("gkquotaopen", vec![]),
+    )
+    .await
+    .unwrap();
     aidog_db::set_group_platforms(
         &state.db,
         group.id,
         &[
-            GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
-            GroupPlatformInput { platform_id: p2.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
+            GroupPlatformInput {
+                platform_id: p1.id,
+                priority: Some(0),
+                weight: Some(1),
+                level_priority: Some(5),
+            },
+            GroupPlatformInput {
+                platform_id: p2.id,
+                priority: Some(0),
+                weight: Some(1),
+                level_priority: Some(5),
+            },
         ],
     )
     .await
@@ -5059,14 +5735,21 @@ async fn chat_all_quota_cooled_402_openai_shape() {
         .uri("/v1/chat/completions")
         .header("authorization", "Bearer gkquotaopen")
         .header("content-type", "application/json")
-        .body(Body::from(r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#))
+        .body(Body::from(
+            r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#,
+        ))
         .unwrap();
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::PAYMENT_REQUIRED);
-    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
     let v: Value = serde_json::from_slice(&body).expect("json error body");
     assert_eq!(v["error"]["type"], "quota_exhausted");
-    assert!(v.get("type").is_none(), "openai 入站不带 anthropic 外壳: {v}");
+    assert!(
+        v.get("type").is_none(),
+        "openai 入站不带 anthropic 外壳: {v}"
+    );
 }
 
 /// 直通模型（直接模型转发）：声明该模型的平台全部额度冷却 → 同样 402 quota_exhausted（不是 503）。
@@ -5082,13 +5765,26 @@ async fn chat_direct_model_all_quota_cooled_402() {
     )
     .await
     .unwrap();
-    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
-        id: second.id,
-        name: None, platform_type: None, base_url: None, api_key: None,
-        extra: Some(r#"{"direct_models":["m1"]}"#.to_string()),
-        models: None, available_models: None, endpoints: None,
-        enabled: None, status: None, manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
-    })
+    aidog_db::update_platform(
+        &state.db,
+        aidog_db::models::UpdatePlatform {
+            id: second.id,
+            name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            extra: Some(r#"{"direct_models":["m1"]}"#.to_string()),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
+            status: None,
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
     .await
     .unwrap();
     let group = aidog_db::list_groups(&state.db)
@@ -5097,31 +5793,67 @@ async fn chat_direct_model_all_quota_cooled_402() {
         .into_iter()
         .find(|g| g.group_key == "gkdirquota")
         .unwrap();
-    let existing = aidog_db::get_group_platforms(&state.db, group.id).await.unwrap();
+    let existing = aidog_db::get_group_platforms(&state.db, group.id)
+        .await
+        .unwrap();
     // 首个平台也声明 m1
-    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
-        id: existing[0].platform.id,
-        name: None, platform_type: None, base_url: None, api_key: None,
-        extra: Some(r#"{"direct_models":["m1"]}"#.to_string()),
-        models: None, available_models: None, endpoints: None,
-        enabled: None, status: None, manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
-    })
+    aidog_db::update_platform(
+        &state.db,
+        aidog_db::models::UpdatePlatform {
+            id: existing[0].platform.id,
+            name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            extra: Some(r#"{"direct_models":["m1"]}"#.to_string()),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
+            status: None,
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
     .await
     .unwrap();
-    aidog_db::set_group_platforms(&state.db, group.id, &[
-        GroupPlatformInput { platform_id: existing[0].platform.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
-        GroupPlatformInput { platform_id: second.id, priority: Some(1), weight: Some(1), level_priority: Some(5) },
-    ])
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[
+            GroupPlatformInput {
+                platform_id: existing[0].platform.id,
+                priority: Some(0),
+                weight: Some(1),
+                level_priority: Some(5),
+            },
+            GroupPlatformInput {
+                platform_id: second.id,
+                priority: Some(1),
+                weight: Some(1),
+                level_priority: Some(5),
+            },
+        ],
+    )
     .await
     .unwrap();
     state.db.invalidate_group_details_cache();
     let until = aidog_db::now() + 3_600_000;
-    state.scheduler.set_quota_cooldown(existing[0].platform.id, until);
-    state.scheduler.set_quota_cooldown(second.id, until + 60_000);
+    state
+        .scheduler
+        .set_quota_cooldown(existing[0].platform.id, until);
+    state
+        .scheduler
+        .set_quota_cooldown(second.id, until + 60_000);
 
     let resp = handle_proxy(
         AxumState(state.clone()),
-        messages_request("gkdirquota", r#"{"model":"m1","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+        messages_request(
+            "gkdirquota",
+            r#"{"model":"m1","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#,
+        ),
     )
     .await;
     assert_eq!(resp.status(), StatusCode::PAYMENT_REQUIRED);
@@ -5137,19 +5869,30 @@ async fn chat_direct_model_mixed_reason_still_503() {
     let (db, _dir) = aidog_db::test_support::three_file_db().await;
     let state = make_state(db).await;
     setup_group_with_upstream(&state, "gkdirmix", "https://example.invalid").await;
-    let second = aidog_db::create_platform(
+    let second =
+        aidog_db::create_platform(&state.db, aidog_db::test_support::sample_platform("dmix"))
+            .await
+            .unwrap();
+    aidog_db::update_platform(
         &state.db,
-        aidog_db::test_support::sample_platform("dmix"),
+        aidog_db::models::UpdatePlatform {
+            id: second.id,
+            name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            extra: Some(r#"{"direct_models":["m1"]}"#.to_string()),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
+            status: None,
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
     )
-    .await
-    .unwrap();
-    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
-        id: second.id,
-        name: None, platform_type: None, base_url: None, api_key: None,
-        extra: Some(r#"{"direct_models":["m1"]}"#.to_string()),
-        models: None, available_models: None, endpoints: None,
-        enabled: None, status: None, manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
-    })
     .await
     .unwrap();
     let group = aidog_db::list_groups(&state.db)
@@ -5158,29 +5901,62 @@ async fn chat_direct_model_mixed_reason_still_503() {
         .into_iter()
         .find(|g| g.group_key == "gkdirmix")
         .unwrap();
-    let existing = aidog_db::get_group_platforms(&state.db, group.id).await.unwrap();
-    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
-        id: existing[0].platform.id,
-        name: None, platform_type: None, base_url: None, api_key: None,
-        extra: Some(r#"{"direct_models":["m1"]}"#.to_string()),
-        models: None, available_models: None, endpoints: None,
-        enabled: None, status: Some(aidog_db::models::PlatformStatus::Disabled),
-        manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
-    })
+    let existing = aidog_db::get_group_platforms(&state.db, group.id)
+        .await
+        .unwrap();
+    aidog_db::update_platform(
+        &state.db,
+        aidog_db::models::UpdatePlatform {
+            id: existing[0].platform.id,
+            name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            extra: Some(r#"{"direct_models":["m1"]}"#.to_string()),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
+            status: Some(aidog_db::models::PlatformStatus::Disabled),
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
     .await
     .unwrap();
-    aidog_db::set_group_platforms(&state.db, group.id, &[
-        GroupPlatformInput { platform_id: existing[0].platform.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
-        GroupPlatformInput { platform_id: second.id, priority: Some(1), weight: Some(1), level_priority: Some(5) },
-    ])
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[
+            GroupPlatformInput {
+                platform_id: existing[0].platform.id,
+                priority: Some(0),
+                weight: Some(1),
+                level_priority: Some(5),
+            },
+            GroupPlatformInput {
+                platform_id: second.id,
+                priority: Some(1),
+                weight: Some(1),
+                level_priority: Some(5),
+            },
+        ],
+    )
     .await
     .unwrap();
     state.db.invalidate_group_details_cache();
-    state.scheduler.set_quota_cooldown(second.id, aidog_db::now() + 3_600_000);
+    state
+        .scheduler
+        .set_quota_cooldown(second.id, aidog_db::now() + 3_600_000);
 
     let resp = handle_proxy(
         AxumState(state.clone()),
-        messages_request("gkdirmix", r#"{"model":"m1","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+        messages_request(
+            "gkdirmix",
+            r#"{"model":"m1","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#,
+        ),
     )
     .await;
     assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
@@ -5198,19 +5974,19 @@ async fn chat_direct_model_unavailable_503_and_audit_log() {
     let state = make_state(db).await;
     setup_group_with_upstream(&state, "gkdirectfail", "https://example.invalid").await;
     // 补第二个同组平台（组 ≥2 才进直通链）；声明平台 Disabled，它不声明 m1
-    let second = aidog_db::create_platform(
-        &state.db,
-        aidog_db::test_support::sample_platform("second"),
-    )
-    .await
-    .unwrap();
+    let second =
+        aidog_db::create_platform(&state.db, aidog_db::test_support::sample_platform("second"))
+            .await
+            .unwrap();
     let group = aidog_db::list_groups(&state.db)
         .await
         .unwrap()
         .into_iter()
         .find(|g| g.group_key == "gkdirectfail")
         .unwrap();
-    let existing = aidog_db::get_group_platforms(&state.db, group.id).await.unwrap();
+    let existing = aidog_db::get_group_platforms(&state.db, group.id)
+        .await
+        .unwrap();
     let mut gps: Vec<crate::gateway::models::GroupPlatformInput> = existing
         .iter()
         .map(|g| crate::gateway::models::GroupPlatformInput {
@@ -5226,23 +6002,40 @@ async fn chat_direct_model_unavailable_503_and_audit_log() {
         weight: Some(1),
         level_priority: Some(1),
     });
-    aidog_db::set_group_platforms(&state.db, group.id, &gps).await.unwrap();
+    aidog_db::set_group_platforms(&state.db, group.id, &gps)
+        .await
+        .unwrap();
     // 唯一声明 m1 的平台手动 Disabled → 组内声明平台全不可用
-    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
-        id: existing[0].platform.id,
-        name: None, platform_type: None, base_url: None, api_key: None,
-        extra: Some(r#"{"direct_models":["m1"]}"#.to_string()),
-        models: None, available_models: None, endpoints: None,
-        enabled: None, status: Some(aidog_db::models::PlatformStatus::Disabled),
-        manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
-    })
+    aidog_db::update_platform(
+        &state.db,
+        aidog_db::models::UpdatePlatform {
+            id: existing[0].platform.id,
+            name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            extra: Some(r#"{"direct_models":["m1"]}"#.to_string()),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
+            status: Some(aidog_db::models::PlatformStatus::Disabled),
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
     .await
     .unwrap();
     state.db.invalidate_group_details_cache();
 
     let resp = handle_proxy(
         AxumState(state.clone()),
-        messages_request("gkdirectfail", r#"{"model":"m1","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+        messages_request(
+            "gkdirectfail",
+            r#"{"model":"m1","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#,
+        ),
     )
     .await;
     assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
@@ -5288,7 +6081,9 @@ async fn spawn_embedding_upstream(responses: Vec<(u16, &'static str)>) -> (Strin
     }));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
-    tokio::spawn(async move { axum::serve(listener, app).await.ok(); });
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.ok();
+    });
     (format!("http://{addr}"), hits)
 }
 
@@ -5303,7 +6098,15 @@ async fn setup_embedding_group(
     let plats: Vec<_> = plats
         .iter()
         .map(|(b, slot, p, n)| {
-            (*b, PlatformModels { embedding: slot.map(String::from).into_iter().collect(), ..Default::default() }, p.clone(), *n)
+            (
+                *b,
+                PlatformModels {
+                    embedding: slot.map(String::from).into_iter().collect(),
+                    ..Default::default()
+                },
+                p.clone(),
+                *n,
+            )
         })
         .collect();
     setup_aux_group(state, gk, &plats).await;
@@ -5352,7 +6155,9 @@ async fn setup_aux_group(
             level_priority: Some(0),
         });
     }
-    aidog_db::set_group_platforms(&state.db, group.id, &inputs).await.unwrap();
+    aidog_db::set_group_platforms(&state.db, group.id, &inputs)
+        .await
+        .unwrap();
 }
 
 fn embedding_request(gk: &str, body: &str, path: &str) -> Request {
@@ -5392,10 +6197,18 @@ fn embedding_entry(price: &str) -> ModelEntry {
 async fn embedding_request_end_to_end() {
     let (up, hits) = spawn_embedding_upstream(vec![(200, EMB_RESPONSE)]).await;
     let state = make_state(test_db().await).await;
-    aidog_db::upsert_model_entries(&state.db, vec![embedding_entry(r#"{"input":2e-8,"output":0}"#)])
-        .await
-        .unwrap();
-    setup_embedding_group(&state, "gkemb", &[(&up, Some("emb-slot"), Protocol::OpenAI, "a")]).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![embedding_entry(r#"{"input":2e-8,"output":0}"#)],
+    )
+    .await
+    .unwrap();
+    setup_embedding_group(
+        &state,
+        "gkemb",
+        &[(&up, Some("emb-slot"), Protocol::OpenAI, "a")],
+    )
+    .await;
 
     let resp = handle_proxy(
         AxumState(state.clone()),
@@ -5403,14 +6216,26 @@ async fn embedding_request_end_to_end() {
     )
     .await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
     let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_eq!(v["model"], "text-embedding-3-small", "响应 model 回写客户端原名");
-    assert_eq!(v["data"][0]["embedding"], serde_json::json!([0.1, 0.2]), "其它字段不变");
+    assert_eq!(
+        v["model"], "text-embedding-3-small",
+        "响应 model 回写客户端原名"
+    );
+    assert_eq!(
+        v["data"][0]["embedding"],
+        serde_json::json!([0.1, 0.2]),
+        "其它字段不变"
+    );
     assert_eq!(v["usage"]["prompt_tokens"], 8);
 
     let (path, req_body, auth) = hits.lock().unwrap()[0].clone();
-    assert_eq!(path, "/v1/embeddings", "base_url(/v1) + /embeddings，不是 /chat/completions");
+    assert_eq!(
+        path, "/v1/embeddings",
+        "base_url(/v1) + /embeddings，不是 /chat/completions"
+    );
     let sent: serde_json::Value = serde_json::from_str(&req_body).unwrap();
     assert_eq!(sent["model"], "emb-slot", "客户端模型名被槽位覆盖");
     assert_eq!(sent["input"], serde_json::json!(["hello", "world"]));
@@ -5425,7 +6250,11 @@ async fn embedding_request_end_to_end() {
     assert_eq!(log.model, "text-embedding-3-small");
     assert_eq!(log.actual_model, "emb-slot");
     assert_eq!((log.input_tokens, log.output_tokens), (8, 0));
-    assert!((log.est_cost - 8.0 * 2e-8).abs() < 1e-15, "got {}", log.est_cost);
+    assert!(
+        (log.est_cost - 8.0 * 2e-8).abs() < 1e-15,
+        "got {}",
+        log.est_cost
+    );
 }
 
 /// 计费口径：registry 价 / free:true / 全 0 价未标 free → 兜底价。
@@ -5438,8 +6267,15 @@ async fn embedding_cost_registry_free_and_fallback() {
     ] {
         let (up, _hits) = spawn_embedding_upstream(vec![(200, EMB_RESPONSE)]).await;
         let state = make_state(test_db().await).await;
-        aidog_db::upsert_model_entries(&state.db, vec![embedding_entry(price)]).await.unwrap();
-        setup_embedding_group(&state, gk, &[(&up, Some("emb-slot"), Protocol::OpenAI, "a")]).await;
+        aidog_db::upsert_model_entries(&state.db, vec![embedding_entry(price)])
+            .await
+            .unwrap();
+        setup_embedding_group(
+            &state,
+            gk,
+            &[(&up, Some("emb-slot"), Protocol::OpenAI, "a")],
+        )
+        .await;
         let resp = handle_proxy(
             AxumState(state.clone()),
             embedding_request(gk, EMB_REQ, "/v1/embeddings"),
@@ -5447,7 +6283,11 @@ async fn embedding_cost_registry_free_and_fallback() {
         .await;
         assert_eq!(resp.status(), StatusCode::OK);
         let log = last_log_for(&state, gk).await;
-        assert!((log.est_cost - expected).abs() < 1e-12, "{gk}: want {expected}, got {}", log.est_cost);
+        assert!(
+            (log.est_cost - expected).abs() < 1e-12,
+            "{gk}: want {expected}, got {}",
+            log.est_cost
+        );
     }
 }
 
@@ -5460,7 +6300,12 @@ async fn embedding_no_candidate_404_and_audit_log() {
     let (up, hits) = spawn_embedding_upstream(vec![]).await;
     setup_embedding_group(&state, "gkn1", &[(&up, None, Protocol::OpenAI, "a")]).await;
     setup_embedding_group(&state, "gkn2", &[(&up, Some("  "), Protocol::OpenAI, "a")]).await;
-    setup_embedding_group(&state, "gkn3", &[(&up, Some("emb"), Protocol::Anthropic, "a")]).await;
+    setup_embedding_group(
+        &state,
+        "gkn3",
+        &[(&up, Some("emb"), Protocol::Anthropic, "a")],
+    )
+    .await;
     for gk in ["gkn1", "gkn2", "gkn3"] {
         let resp = handle_proxy(
             AxumState(state.clone()),
@@ -5500,7 +6345,10 @@ async fn embedding_skips_empty_slot_and_fails_over() {
     )
     .await;
     assert_eq!(resp.status(), StatusCode::OK, "首个失败应转移到第二个");
-    assert!(hits_empty.lock().unwrap().is_empty(), "槽位为空的平台不参与");
+    assert!(
+        hits_empty.lock().unwrap().is_empty(),
+        "槽位为空的平台不参与"
+    );
     assert_eq!(hits1.lock().unwrap().len(), 1);
     assert_eq!(hits2.lock().unwrap().len(), 1);
     let sent: serde_json::Value = serde_json::from_str(&hits2.lock().unwrap()[0].1).unwrap();
@@ -5513,7 +6361,12 @@ async fn embedding_skips_empty_slot_and_fails_over() {
 async fn embedding_non_json_body_400() {
     let (up, hits) = spawn_embedding_upstream(vec![]).await;
     let state = make_state(test_db().await).await;
-    setup_embedding_group(&state, "gkbad", &[(&up, Some("emb"), Protocol::OpenAI, "a")]).await;
+    setup_embedding_group(
+        &state,
+        "gkbad",
+        &[(&up, Some("emb"), Protocol::OpenAI, "a")],
+    )
+    .await;
     let resp = handle_proxy(
         AxumState(state.clone()),
         embedding_request("gkbad", "not json", "/v1/embeddings"),
@@ -5522,7 +6375,6 @@ async fn embedding_non_json_body_400() {
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     assert!(hits.lock().unwrap().is_empty());
 }
-
 
 // ══ rerank：/v1/rerank 专用槽位转发端到端（本地假上游，禁外呼）══
 
@@ -5533,7 +6385,10 @@ const RR_COHERE: &str = r#"{"id":"x","results":[{"index":0,"relevance_score":0.5
 const RR_COHERE_NO_UNITS: &str = r#"{"id":"x","results":[],"meta":{"billed_units":{}}}"#;
 
 fn rerank_slot(v: &str) -> PlatformModels {
-    PlatformModels { rerank: vec![v.into()], ..Default::default() }
+    PlatformModels {
+        rerank: vec![v.into()],
+        ..Default::default()
+    }
 }
 
 fn rerank_entry(price: &str) -> ModelEntry {
@@ -5552,10 +6407,18 @@ fn rerank_entry(price: &str) -> ModelEntry {
 async fn rerank_request_end_to_end() {
     let (up, hits) = spawn_embedding_upstream(vec![(200, RR_JINA)]).await;
     let state = make_state(test_db().await).await;
-    aidog_db::upsert_model_entries(&state.db, vec![rerank_entry(r#"{"input":3e-8,"output":0}"#)])
-        .await
-        .unwrap();
-    setup_aux_group(&state, "gkrr", &[(&up, rerank_slot("rr-slot"), Protocol::OpenAI, "a")]).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![rerank_entry(r#"{"input":3e-8,"output":0}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(
+        &state,
+        "gkrr",
+        &[(&up, rerank_slot("rr-slot"), Protocol::OpenAI, "a")],
+    )
+    .await;
 
     let resp = handle_proxy(
         AxumState(state.clone()),
@@ -5563,7 +6426,9 @@ async fn rerank_request_end_to_end() {
     )
     .await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
     let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(v["model"], "client-rerank", "响应 model 回写客户端原名");
     assert_eq!(v["results"][0]["relevance_score"], 0.9);
@@ -5579,10 +6444,17 @@ async fn rerank_request_end_to_end() {
     assert_eq!(auth, "Bearer sk-a");
 
     let log = last_log_for(&state, "gkrr").await;
-    assert_eq!((log.source_protocol.as_str(), log.target_protocol.as_str()), ("rerank", "rerank"));
+    assert_eq!(
+        (log.source_protocol.as_str(), log.target_protocol.as_str()),
+        ("rerank", "rerank")
+    );
     assert_eq!(log.actual_model, "rr-slot");
     assert_eq!((log.input_tokens, log.output_tokens), (100, 0));
-    assert!((log.est_cost - 100.0 * 3e-8).abs() < 1e-15, "got {}", log.est_cost);
+    assert!(
+        (log.est_cost - 100.0 * 3e-8).abs() < 1e-15,
+        "got {}",
+        log.est_cost
+    );
 }
 
 /// 费用口径：token × price.input / SiliconFlow meta.tokens / free / 全 0 未标 free → 兜底价 /
@@ -5590,19 +6462,68 @@ async fn rerank_request_end_to_end() {
 #[tokio::test]
 async fn rerank_cost_matrix() {
     let cases: [(&str, &str, &str, f64, i32); 7] = [
-        ("gkr1", r#"{"input":3e-8,"output":0}"#, RR_JINA, 100.0 * 3e-8, 100),
-        ("gkr2", r#"{"input":2e-8,"output":0}"#, RR_SILICON, 40.0 * 2e-8, 40),
-        ("gkr3", r#"{"free":true,"input":0,"output":0}"#, RR_JINA, 0.0, 100),
-        ("gkr4", r#"{"input":0,"output":0}"#, RR_JINA, 100.0 * 3.0 / 1_000_000.0, 100),
-        ("gkr5", r#"{"unit":"request","unit_price":0.002}"#, RR_COHERE, 0.004, 0),
-        ("gkr6", r#"{"unit":"request","unit_price":0.002}"#, RR_COHERE_NO_UNITS, 0.002, 0),
-        ("gkr7", r#"{"unit":"request","unit_price":0.002}"#, RR_JINA, 0.002, 100),
+        (
+            "gkr1",
+            r#"{"input":3e-8,"output":0}"#,
+            RR_JINA,
+            100.0 * 3e-8,
+            100,
+        ),
+        (
+            "gkr2",
+            r#"{"input":2e-8,"output":0}"#,
+            RR_SILICON,
+            40.0 * 2e-8,
+            40,
+        ),
+        (
+            "gkr3",
+            r#"{"free":true,"input":0,"output":0}"#,
+            RR_JINA,
+            0.0,
+            100,
+        ),
+        (
+            "gkr4",
+            r#"{"input":0,"output":0}"#,
+            RR_JINA,
+            100.0 * 3.0 / 1_000_000.0,
+            100,
+        ),
+        (
+            "gkr5",
+            r#"{"unit":"request","unit_price":0.002}"#,
+            RR_COHERE,
+            0.004,
+            0,
+        ),
+        (
+            "gkr6",
+            r#"{"unit":"request","unit_price":0.002}"#,
+            RR_COHERE_NO_UNITS,
+            0.002,
+            0,
+        ),
+        (
+            "gkr7",
+            r#"{"unit":"request","unit_price":0.002}"#,
+            RR_JINA,
+            0.002,
+            100,
+        ),
     ];
     for (gk, price, resp_body, expected, tokens) in cases {
         let (up, _h) = spawn_embedding_upstream(vec![(200, resp_body)]).await;
         let state = make_state(test_db().await).await;
-        aidog_db::upsert_model_entries(&state.db, vec![rerank_entry(price)]).await.unwrap();
-        setup_aux_group(&state, gk, &[(&up, rerank_slot("rr-slot"), Protocol::OpenAI, "a")]).await;
+        aidog_db::upsert_model_entries(&state.db, vec![rerank_entry(price)])
+            .await
+            .unwrap();
+        setup_aux_group(
+            &state,
+            gk,
+            &[(&up, rerank_slot("rr-slot"), Protocol::OpenAI, "a")],
+        )
+        .await;
         let resp = handle_proxy(
             AxumState(state.clone()),
             embedding_request(gk, RR_REQ, "/v1/rerank"),
@@ -5611,7 +6532,11 @@ async fn rerank_cost_matrix() {
         assert_eq!(resp.status(), StatusCode::OK, "{gk}");
         let log = last_log_for(&state, gk).await;
         assert_eq!(log.input_tokens, tokens, "{gk}");
-        assert!((log.est_cost - expected).abs() < 1e-12, "{gk}: want {expected}, got {}", log.est_cost);
+        assert!(
+            (log.est_cost - expected).abs() < 1e-12,
+            "{gk}: want {expected}, got {}",
+            log.est_cost
+        );
     }
 }
 
@@ -5631,10 +6556,16 @@ async fn aux_request_deducts_balance_by_est_cost() {
         let (up, _h) = spawn_embedding_upstream(vec![(200, resp)]).await;
         let (db, _dir) = aidog_db::test_support::three_file_db().await;
         let state = make_state(db).await;
-        aidog_db::upsert_model_entries(&state.db, vec![entry]).await.unwrap();
+        aidog_db::upsert_model_entries(&state.db, vec![entry])
+            .await
+            .unwrap();
         setup_aux_group(&state, gk, &[(&up, slot, Protocol::OpenAI, "a")]).await;
         let plats = aidog_db::list_platforms(&state.db).await.unwrap();
-        let plat_id = plats.iter().find(|p| p.name == format!("{gk}-a")).unwrap().id;
+        let plat_id = plats
+            .iter()
+            .find(|p| p.name == format!("{gk}-a"))
+            .unwrap()
+            .id;
         let quota = crate::gateway::quota::PlatformQuota {
             success: true,
             error: None,
@@ -5654,13 +6585,19 @@ async fn aux_request_deducts_balance_by_est_cost() {
         let r = handle_proxy(AxumState(state.clone()), embedding_request(gk, body, path)).await;
         assert_eq!(r.status(), StatusCode::OK);
         let log = last_log_for(&state, gk).await;
-        let mut p = aidog_db::get_platform(&state.db, plat_id).await.unwrap().unwrap();
+        let mut p = aidog_db::get_platform(&state.db, plat_id)
+            .await
+            .unwrap()
+            .unwrap();
         for _ in 0..100 {
             if p.estimate_count > 0 {
                 break;
             }
             tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-            p = aidog_db::get_platform(&state.db, plat_id).await.unwrap().unwrap();
+            p = aidog_db::get_platform(&state.db, plat_id)
+                .await
+                .unwrap()
+                .unwrap();
         }
         (log, p)
     }
@@ -5689,12 +6626,19 @@ async fn aux_request_deducts_balance_by_est_cost() {
         "/v1/embeddings",
         EMB_REQ,
         EMB_RESPONSE,
-        PlatformModels { embedding: vec!["emb-slot".into()], ..Default::default() },
+        PlatformModels {
+            embedding: vec!["emb-slot".into()],
+            ..Default::default()
+        },
         embedding_entry(r#"{"input":2e-8,"output":0}"#),
     )
     .await;
     assert!(p.estimate_count > 0, "embedding 必须进入余额预估链");
-    assert!((log.est_cost - 8.0 * 2e-8).abs() < 1e-15, "est {}", log.est_cost);
+    assert!(
+        (log.est_cost - 8.0 * 2e-8).abs() < 1e-15,
+        "est {}",
+        log.est_cost
+    );
     assert!(
         (p.est_balance_remaining - (100.0 - 8.0 * 2e-8)).abs() < 1e-12,
         "got {}",
@@ -5712,14 +6656,17 @@ async fn chat_per_request_price_no_usage_deducts_once() {
         let upstream = spawn_stub_upstream(200, NO_USAGE_OK).await;
         let (db, _dir) = aidog_db::test_support::three_file_db().await;
         let state = make_state(db).await;
-        aidog_db::upsert_model_entries(&state.db, vec![ModelEntry {
-            platform_code: "anthropic".into(),
-            model_id: "claude-3".into(),
-            display_name: "claude-3".into(),
-            canonical_model: "claude-3".into(),
-            capabilities: vec![],
-            ..embedding_entry(price)
-        }])
+        aidog_db::upsert_model_entries(
+            &state.db,
+            vec![ModelEntry {
+                platform_code: "anthropic".into(),
+                model_id: "claude-3".into(),
+                display_name: "claude-3".into(),
+                canonical_model: "claude-3".into(),
+                capabilities: vec![],
+                ..embedding_entry(price)
+            }],
+        )
         .await
         .unwrap();
         setup_group_with_upstream(&state, gk, &upstream).await;
@@ -5743,24 +6690,36 @@ async fn chat_per_request_price_no_usage_deducts_once() {
 
         let resp = handle_proxy(
             AxumState(state.clone()),
-            messages_request(gk, r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#),
+            messages_request(
+                gk,
+                r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+            ),
         )
         .await;
         assert_eq!(resp.status(), StatusCode::OK);
-        let mut p = aidog_db::get_platform(&state.db, plat_id).await.unwrap().unwrap();
+        let mut p = aidog_db::get_platform(&state.db, plat_id)
+            .await
+            .unwrap()
+            .unwrap();
         for _ in 0..100 {
             if p.estimate_count > 0 {
                 break;
             }
             tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-            p = aidog_db::get_platform(&state.db, plat_id).await.unwrap().unwrap();
+            p = aidog_db::get_platform(&state.db, plat_id)
+                .await
+                .unwrap()
+                .unwrap();
         }
         p
     }
 
     // 按次计价：缺 usage 按 1 次扣 unit_price，余额 100 - 0.002
     let p = run("gkcr1", r#"{"unit":"request","unit_price":0.002}"#).await;
-    assert!(p.estimate_count > 0, "按次计价 chat 缺 usage 也必须进预估链");
+    assert!(
+        p.estimate_count > 0,
+        "按次计价 chat 缺 usage 也必须进预估链"
+    );
     assert!(
         (p.est_balance_remaining - (100.0 - 0.002)).abs() < 1e-9,
         "got {}",
@@ -5770,7 +6729,11 @@ async fn chat_per_request_price_no_usage_deducts_once() {
     // 纯 token 计价：缺 usage 照旧跳过，余额不动
     let p = run("gkcr2", r#"{"input":2e-8,"output":0}"#).await;
     assert_eq!(p.estimate_count, 0, "纯 token 计价缺 usage 不得进预估链");
-    assert!((p.est_balance_remaining - 100.0).abs() < 1e-9, "got {}", p.est_balance_remaining);
+    assert!(
+        (p.est_balance_remaining - 100.0).abs() < 1e-9,
+        "got {}",
+        p.est_balance_remaining
+    );
 }
 
 /// 无候选 → 404 + no_rerank_platform（槽位空 / 非 OpenAI 系 / 只配了 embedding 槽）。
@@ -5779,9 +6742,22 @@ async fn rerank_no_candidate_404_and_audit_log() {
     let (db, _dir) = aidog_db::test_support::three_file_db().await;
     let state = make_state(db).await;
     let (up, hits) = spawn_embedding_upstream(vec![]).await;
-    let emb_only = PlatformModels { embedding: vec!["emb".into()], ..Default::default() };
-    setup_aux_group(&state, "gkq1", &[(&up, PlatformModels::default(), Protocol::OpenAI, "a")]).await;
-    setup_aux_group(&state, "gkq2", &[(&up, rerank_slot("rr"), Protocol::Anthropic, "a")]).await;
+    let emb_only = PlatformModels {
+        embedding: vec!["emb".into()],
+        ..Default::default()
+    };
+    setup_aux_group(
+        &state,
+        "gkq1",
+        &[(&up, PlatformModels::default(), Protocol::OpenAI, "a")],
+    )
+    .await;
+    setup_aux_group(
+        &state,
+        "gkq2",
+        &[(&up, rerank_slot("rr"), Protocol::Anthropic, "a")],
+    )
+    .await;
     setup_aux_group(&state, "gkq3", &[(&up, emb_only, Protocol::OpenAI, "a")]).await;
     for gk in ["gkq1", "gkq2", "gkq3"] {
         let resp = handle_proxy(
@@ -5791,7 +6767,10 @@ async fn rerank_no_candidate_404_and_audit_log() {
         .await;
         assert_eq!(resp.status(), StatusCode::NOT_FOUND, "{gk}");
         let log = last_log_for(&state, gk).await;
-        assert_eq!((log.blocked_by.as_str(), log.blocked_reason.as_str()), ("router", "no_rerank_platform"));
+        assert_eq!(
+            (log.blocked_by.as_str(), log.blocked_reason.as_str()),
+            ("router", "no_rerank_platform")
+        );
         assert_eq!(log.est_cost, 0.0);
     }
     assert!(hits.lock().unwrap().is_empty(), "不得打到任何上游");
@@ -5809,13 +6788,24 @@ async fn embedding_and_rerank_slots_do_not_cross() {
     };
     setup_aux_group(&state, "gkboth", &[(&up, both, Protocol::OpenAI, "a")]).await;
     for (body, path) in [(EMB_REQ, "/v1/embeddings"), (RR_REQ, "/v1/rerank")] {
-        let resp = handle_proxy(AxumState(state.clone()), embedding_request("gkboth", body, path)).await;
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            embedding_request("gkboth", body, path),
+        )
+        .await;
         assert_eq!(resp.status(), StatusCode::OK, "{path}");
     }
     let h = hits.lock().unwrap();
-    let model_of = |i: usize| serde_json::from_str::<serde_json::Value>(&h[i].1).unwrap()["model"].clone();
-    assert_eq!((h[0].0.as_str(), model_of(0)), ("/v1/embeddings", serde_json::json!("emb-slot")));
-    assert_eq!((h[1].0.as_str(), model_of(1)), ("/v1/rerank", serde_json::json!("rr-slot")));
+    let model_of =
+        |i: usize| serde_json::from_str::<serde_json::Value>(&h[i].1).unwrap()["model"].clone();
+    assert_eq!(
+        (h[0].0.as_str(), model_of(0)),
+        ("/v1/embeddings", serde_json::json!("emb-slot"))
+    );
+    assert_eq!(
+        (h[1].0.as_str(), model_of(1)),
+        ("/v1/rerank", serde_json::json!("rr-slot"))
+    );
 }
 
 /// 请求流向 票 02 端到端：`User-Agent: claude-cli/x` 经 handle_proxy_core 全链路（本地假上游）后，
@@ -5874,7 +6864,11 @@ async fn client_and_req_model_land_in_log_and_stats_agg() {
 // ── 票 04：客户端白名单端到端（多平台组普通过滤路径；本地假上游，无真实外呼）──
 
 /// 建一个多平台组（同 group_key），每平台 (名, base_url, extra)。
-async fn setup_multi_platform_group(state: &Arc<ProxyState>, gk: &str, plats: &[(&str, &str, &str)]) {
+async fn setup_multi_platform_group(
+    state: &Arc<ProxyState>,
+    gk: &str,
+    plats: &[(&str, &str, &str)],
+) {
     let mut inputs = Vec::new();
     for (i, (name, base_url, extra)) in plats.iter().enumerate() {
         let plat = aidog_db::create_platform(
@@ -5907,7 +6901,9 @@ async fn setup_multi_platform_group(state: &Arc<ProxyState>, gk: &str, plats: &[
     let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
         .await
         .unwrap();
-    aidog_db::set_group_platforms(&state.db, group.id, &inputs).await.unwrap();
+    aidog_db::set_group_platforms(&state.db, group.id, &inputs)
+        .await
+        .unwrap();
 }
 
 fn messages_request_ua(gk: &str, ua: Option<&str>) -> Request {
@@ -5935,12 +6931,26 @@ const PEAK_ALL_DAY_EXTRA: &str =
 async fn whitelist_all_blocked_417_and_hit_matrix() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
-    setup_multi_platform_group(&state, "gkwl", &[("A", &up, WL_CC_EXTRA), ("B", &up, WL_CC_EXTRA)]).await;
+    setup_multi_platform_group(
+        &state,
+        "gkwl",
+        &[("A", &up, WL_CC_EXTRA), ("B", &up, WL_CC_EXTRA)],
+    )
+    .await;
 
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkwl", Some("curl/8.4.0"))).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gkwl", Some("curl/8.4.0")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
-    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
-    assert!(String::from_utf8_lossy(&body).contains("client not allowed"), "403 body states reason");
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
+    assert!(
+        String::from_utf8_lossy(&body).contains("client not allowed"),
+        "403 body states reason"
+    );
     let log = last_log_for(&state, "gkwl").await;
     assert_eq!(log.status_code, 403);
     assert_eq!(log.blocked_by, "router");
@@ -5949,15 +6959,26 @@ async fn whitelist_all_blocked_417_and_hit_matrix() {
     assert_eq!(log.user_agent, "curl/8.4.0");
     assert_eq!(log.client, "curl");
     let snap = log.routing.expect("routing snapshot");
-    assert!(snap.entries.iter().all(|e| e.reason == aidog_db::models::RouteReason::ClientNotAllowed));
+    assert!(
+        snap.entries
+            .iter()
+            .all(|e| e.reason == aidog_db::models::RouteReason::ClientNotAllowed)
+    );
 
     // 无 UA → 认不出 → 403
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkwl", None)).await;
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 
     // claude_code 本体与变体（勾大类 = 全变体）→ 200
-    for ua in ["claude-cli/2.0.1 (external, cli)", "claude-cli/2.0 (external, claude-vscode)"] {
-        let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkwl", Some(ua))).await;
+    for ua in [
+        "claude-cli/2.0.1 (external, cli)",
+        "claude-cli/2.0 (external, claude-vscode)",
+    ] {
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            messages_request_ua("gkwl", Some(ua)),
+        )
+        .await;
         assert_eq!(resp.status(), StatusCode::OK, "{ua}");
     }
 }
@@ -5968,14 +6989,28 @@ async fn whitelist_falls_through_to_unrestricted_platform() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     setup_multi_platform_group(&state, "gkfall", &[("A", &up, WL_CC_EXTRA), ("B", &up, "")]).await;
-    let b_id = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == "B").unwrap().id;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkfall", Some("curl/8.4.0"))).await;
+    let b_id = aidog_db::list_platforms(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|p| p.name == "B")
+        .unwrap()
+        .id;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gkfall", Some("curl/8.4.0")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
     assert_eq!(last_log_for(&state, "gkfall").await.platform_id, b_id);
 
     // 回归：整组无白名单，curl 照常放行
     setup_multi_platform_group(&state, "gkplain", &[("C", &up, ""), ("D", &up, "")]).await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkplain", Some("curl/8.4.0"))).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gkplain", Some("curl/8.4.0")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
 }
 
@@ -5984,8 +7019,17 @@ async fn whitelist_falls_through_to_unrestricted_platform() {
 async fn whitelist_mixed_with_peak_disabled_503() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
-    setup_multi_platform_group(&state, "gkmix", &[("A", &up, WL_CC_EXTRA), ("B", &up, PEAK_ALL_DAY_EXTRA)]).await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkmix", Some("curl/8.4.0"))).await;
+    setup_multi_platform_group(
+        &state,
+        "gkmix",
+        &[("A", &up, WL_CC_EXTRA), ("B", &up, PEAK_ALL_DAY_EXTRA)],
+    )
+    .await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gkmix", Some("curl/8.4.0")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
     let log = last_log_for(&state, "gkmix").await;
     assert_eq!(log.status_code, 503);
@@ -5994,14 +7038,38 @@ async fn whitelist_mixed_with_peak_disabled_503() {
     assert_eq!(log.est_cost, 0.0);
 }
 
-async fn set_platform_status(state: &Arc<ProxyState>, name: &str, status: aidog_db::models::PlatformStatus) {
-    let id = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == name).unwrap().id;
-    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
-        id, name: None, platform_type: None, base_url: None, api_key: None, extra: None,
-        models: None, available_models: None, endpoints: None,
-        enabled: None, status: Some(status), manual_budgets: None,
-        join_group_ids: None, expires_at: None, quota_source: None,
-    })
+async fn set_platform_status(
+    state: &Arc<ProxyState>,
+    name: &str,
+    status: aidog_db::models::PlatformStatus,
+) {
+    let id = aidog_db::list_platforms(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|p| p.name == name)
+        .unwrap()
+        .id;
+    aidog_db::update_platform(
+        &state.db,
+        aidog_db::models::UpdatePlatform {
+            id,
+            name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            extra: None,
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
+            status: Some(status),
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
     .await
     .unwrap();
     state.db.invalidate_group_details_cache();
@@ -6025,10 +7093,18 @@ async fn whitelist_degenerate_single_enabled_returns_417() {
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     setup_multi_platform_group(&state, "gkdeg", &[("A", &up, WL_CC_EXTRA), ("B", &up, "")]).await;
     set_platform_status(&state, "B", aidog_db::models::PlatformStatus::Disabled).await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkdeg", Some("curl/8.4.0"))).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gkdeg", Some("curl/8.4.0")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     assert_client_417_log(&state, "gkdeg", "curl/8.4.0").await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkdeg", Some("claude-cli/2.0.1 (external, cli)"))).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gkdeg", Some("claude-cli/2.0.1 (external, cli)")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
 }
 
@@ -6038,16 +7114,28 @@ async fn whitelist_literal_single_platform_group_417() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     setup_multi_platform_group(&state, "gklit", &[("A", &up, WL_CC_EXTRA)]).await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gklit", Some("curl/8.4.0"))).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gklit", Some("curl/8.4.0")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     assert_client_417_log(&state, "gklit", "curl/8.4.0").await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gklit", None)).await;
     assert_eq!(resp.status(), StatusCode::FORBIDDEN, "no UA = unrecognized");
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gklit", Some("claude-cli/2.0.1 (external, cli)"))).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gklit", Some("claude-cli/2.0.1 (external, cli)")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
 
     setup_multi_platform_group(&state, "gklitplain", &[("P", &up, "")]).await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gklitplain", Some("curl/8.4.0"))).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gklitplain", Some("curl/8.4.0")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK, "regression: no whitelist");
 }
 
@@ -6058,11 +7146,23 @@ async fn whitelist_beats_status_bypass_single_platform() {
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     setup_multi_platform_group(&state, "gkbyp", &[("A", &up, WL_CC_EXTRA)]).await;
     set_platform_status(&state, "A", aidog_db::models::PlatformStatus::AutoDisabled).await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkbyp", Some("curl/8.4.0"))).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gkbyp", Some("curl/8.4.0")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     assert_client_417_log(&state, "gkbyp", "curl/8.4.0").await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkbyp", Some("claude-cli/2.0.1 (external, cli)"))).await;
-    assert_eq!(resp.status(), StatusCode::OK, "regression: allowed client still bypasses status");
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gkbyp", Some("claude-cli/2.0.1 (external, cli)")),
+    )
+    .await;
+    assert_eq!(
+        resp.status(),
+        StatusCode::OK,
+        "regression: allowed client still bypasses status"
+    );
 }
 
 /// 单平台组 + 高峰禁用 + 白名单：既有硬停先判（与多平台路径同位次），错误码仍为 peak_disabled 503。
@@ -6072,7 +7172,11 @@ async fn whitelist_single_platform_with_peak_disabled_keeps_peak_error() {
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     let extra = r#"{"allowed_clients":["claude_code"],"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#;
     setup_multi_platform_group(&state, "gksp", &[("A", &up, extra)]).await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gksp", Some("curl/8.4.0"))).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gksp", Some("curl/8.4.0")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(last_log_for(&state, "gksp").await.blocked_reason, "peak");
 }
@@ -6085,21 +7189,51 @@ async fn whitelist_direct_model_chain() {
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     let direct_wl = r#"{"direct_models":["claude-3"],"allowed_clients":["claude_code"]}"#;
     setup_multi_platform_group(&state, "gkdir", &[("A", &up, direct_wl), ("B", &up, "")]).await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkdir", Some("curl/8.4.0"))).await;
-    assert_eq!(resp.status(), StatusCode::FORBIDDEN, "B 未声明 direct_models：不得借道落到 B");
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gkdir", Some("curl/8.4.0")),
+    )
+    .await;
+    assert_eq!(
+        resp.status(),
+        StatusCode::FORBIDDEN,
+        "B 未声明 direct_models：不得借道落到 B"
+    );
     assert_client_417_log(&state, "gkdir", "curl/8.4.0").await;
-    let a_id = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == "A").unwrap().id;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkdir", Some("claude-cli/2.0.1 (external, cli)"))).await;
+    let a_id = aidog_db::list_platforms(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|p| p.name == "A")
+        .unwrap()
+        .id;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gkdir", Some("claude-cli/2.0.1 (external, cli)")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
     assert_eq!(last_log_for(&state, "gkdir").await.platform_id, a_id);
 
     // 混合：A 声明 + 白名单拦，C 声明 + 手动禁用 → 原错误 direct_model_unavailable
     let direct = r#"{"direct_models":["claude-3"]}"#;
-    setup_multi_platform_group(&state, "gkdir2", &[("A2", &up, direct_wl), ("C2", &up, direct), ("B2", &up, "")]).await;
+    setup_multi_platform_group(
+        &state,
+        "gkdir2",
+        &[("A2", &up, direct_wl), ("C2", &up, direct), ("B2", &up, "")],
+    )
+    .await;
     set_platform_status(&state, "C2", aidog_db::models::PlatformStatus::Disabled).await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkdir2", Some("curl/8.4.0"))).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gkdir2", Some("curl/8.4.0")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
-    assert_eq!(last_log_for(&state, "gkdir2").await.blocked_reason, "direct_model_unavailable");
+    assert_eq!(
+        last_log_for(&state, "gkdir2").await.blocked_reason,
+        "direct_model_unavailable"
+    );
 }
 
 /// 透传平台：聊天路径、body 解析失败路径、协议子端点路径都受白名单约束；放行 UA 照常；
@@ -6110,36 +7244,67 @@ async fn whitelist_constrains_passthrough_platform() {
     let (upstream, seen) = spawn_recording_upstream(OK).await;
     let state = make_state(test_db().await).await;
     setup_passthrough_platform_group_extra(&state, "gkpt", &upstream, WL_CC_EXTRA).await;
-    let send = |method: &'static str, path: &'static str, body: &'static str, ua: Option<&'static str>| {
-        let mut b = HttpRequest::builder()
-            .method(method)
-            .uri(path)
-            .header("authorization", "Bearer gkpt")
-            .header("content-type", "application/json");
-        if let Some(ua) = ua {
-            b = b.header("user-agent", ua);
-        }
-        b.body(Body::from(body)).unwrap()
-    };
-    let chat = r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#;
+    let send =
+        |method: &'static str, path: &'static str, body: &'static str, ua: Option<&'static str>| {
+            let mut b = HttpRequest::builder()
+                .method(method)
+                .uri(path)
+                .header("authorization", "Bearer gkpt")
+                .header("content-type", "application/json");
+            if let Some(ua) = ua {
+                b = b.header("user-agent", ua);
+            }
+            b.body(Body::from(body)).unwrap()
+        };
+    let chat =
+        r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#;
     for (method, path, body) in [
         ("POST", "/v1/messages", chat),
         ("POST", "/v1/messages", "not json at all"),
-        ("POST", "/v1/messages/count_tokens", r#"{"model":"m","messages":[]}"#),
+        (
+            "POST",
+            "/v1/messages/count_tokens",
+            r#"{"model":"m","messages":[]}"#,
+        ),
         ("POST", "/v1/embeddings", r#"{"model":"m","input":"x"}"#),
     ] {
-        let resp = handle_proxy(AxumState(state.clone()), send(method, path, body, Some("curl/8.4.0"))).await;
-        assert_eq!(resp.status(), StatusCode::FORBIDDEN, "{method} {path} {body}");
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            send(method, path, body, Some("curl/8.4.0")),
+        )
+        .await;
+        assert_eq!(
+            resp.status(),
+            StatusCode::FORBIDDEN,
+            "{method} {path} {body}"
+        );
         assert_client_417_log(&state, "gkpt", "curl/8.4.0").await;
     }
-    assert_eq!(seen.lock().unwrap().len(), 0, "blocked requests must not reach upstream");
+    assert_eq!(
+        seen.lock().unwrap().len(),
+        0,
+        "blocked requests must not reach upstream"
+    );
 
-    let resp = handle_proxy(AxumState(state.clone()), send("POST", "/v1/messages", chat, Some("claude-cli/2.0.1 (external, cli)"))).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        send(
+            "POST",
+            "/v1/messages",
+            chat,
+            Some("claude-cli/2.0.1 (external, cli)"),
+        ),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
     assert_eq!(seen.lock().unwrap().len(), 1);
 
     // models 探测端点：定组前分流，不受约束
-    let resp = handle_proxy(AxumState(state.clone()), send("GET", "/v1/models", "", Some("curl/8.4.0"))).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        send("GET", "/v1/models", "", Some("curl/8.4.0")),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
 }
 
@@ -6157,30 +7322,72 @@ async fn whitelist_constrains_aux_and_decision_routes() {
     setup_aux_group(&state, "gkaux", &[(&up, both, Protocol::OpenAI, "wa")]).await;
     set_platform_extra(&state, "gkaux-wa", WL_CC_EXTRA).await;
     for (body, path) in [(EMB_REQ, "/v1/embeddings"), (RR_REQ, "/v1/rerank")] {
-        let resp = handle_proxy(AxumState(state.clone()), embedding_request("gkaux", body, path)).await;
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            embedding_request("gkaux", body, path),
+        )
+        .await;
         assert_eq!(resp.status(), StatusCode::FORBIDDEN, "{path}");
         let log = last_log_for(&state, "gkaux").await;
-        assert_eq!((log.status_code, log.blocked_by.as_str(), log.blocked_reason.as_str()), (403, "router", "client_not_allowed"), "{path}");
+        assert_eq!(
+            (
+                log.status_code,
+                log.blocked_by.as_str(),
+                log.blocked_reason.as_str()
+            ),
+            (403, "router", "client_not_allowed"),
+            "{path}"
+        );
     }
     assert!(hits.lock().unwrap().is_empty(), "不得打到上游");
 
     let (dup, _) = spawn_decision_upstream(vec![(200, OR_RESPONSE)]).await;
-    let jev = PlatformModels { jev: vec!["jev-latest".into()], ..Default::default() };
+    let jev = PlatformModels {
+        jev: vec!["jev-latest".into()],
+        ..Default::default()
+    };
     setup_decision_group(&state, "gkaux-dec", &dup, jev, None, Protocol::TypeSafe).await;
     set_platform_extra(&state, "stub-gkaux-dec", WL_CC_EXTRA).await;
-    let resp = handle_proxy(AxumState(state.clone()), decision_request("gkaux-dec", "whatever")).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        decision_request("gkaux-dec", "whatever"),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::FORBIDDEN, "decision");
-    assert_eq!(last_log_for(&state, "gkaux-dec").await.blocked_reason, "client_not_allowed");
+    assert_eq!(
+        last_log_for(&state, "gkaux-dec").await.blocked_reason,
+        "client_not_allowed"
+    );
 }
 
 async fn set_platform_extra(state: &Arc<ProxyState>, name: &str, extra: &str) {
-    let id = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == name).unwrap().id;
-    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
-        id, name: None, platform_type: None, base_url: None, api_key: None, extra: Some(extra.to_string()),
-        models: None, available_models: None, endpoints: None,
-        enabled: None, status: None, manual_budgets: None,
-        join_group_ids: None, expires_at: None, quota_source: None,
-    })
+    let id = aidog_db::list_platforms(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|p| p.name == name)
+        .unwrap()
+        .id;
+    aidog_db::update_platform(
+        &state.db,
+        aidog_db::models::UpdatePlatform {
+            id,
+            name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            extra: Some(extra.to_string()),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
+            status: None,
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
     .await
     .unwrap();
     state.db.invalidate_group_details_cache();
@@ -6190,22 +7397,28 @@ async fn set_platform_extra(state: &Arc<ProxyState>, name: &str, extra: &str) {
 // 嵌入层次：forward_attempt 内、非 2xx 之后；单平台 / 等效单平台 / 多平台组均在其内生效。
 // 透传平台（handler 在 forward_attempt 之前拦截）与直通模型（备选恒空）不换模型。
 
-const CHAIN_REQ: &str = r#"{"model":"claude-x","max_tokens":16,"messages":[{"role":"user","content":"hi"}]}"#;
+const CHAIN_REQ: &str =
+    r#"{"model":"claude-x","max_tokens":16,"messages":[{"role":"user","content":"hi"}]}"#;
 const CHAIN_REQ_STREAM: &str = r#"{"model":"claude-x","max_tokens":16,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#;
 const MB_OK: &str = r#"{"id":"msg_1","type":"message","role":"assistant","model":"m-b","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"output_tokens":3}}"#;
-const E404_MODEL: &str = r#"{"type":"error","error":{"type":"not_found_error","message":"model: m-a"}}"#;
+const E404_MODEL: &str =
+    r#"{"type":"error","error":{"type":"not_found_error","message":"model: m-a"}}"#;
 const E400_INVALID_MODEL: &str = r#"{"error":{"message":"Invalid model: m-a"}}"#;
 const E404_WEIRD: &str = r#"{"error":{"message":"weird"}}"#;
 const E429: &str = r#"{"error":{"message":"rate limited"}}"#;
 const E402: &str = r#"{"error":{"message":"insufficient balance"}}"#;
 const E401: &str = r#"{"error":{"message":"invalid api key"}}"#;
 const E503_NO_CHANNEL: &str = r#"{"error":{"code":"model_not_found","message":"No available channel for model m-a under group default"}}"#;
-const E503_NO_CHANNEL_ZH: &str = r#"{"error":{"message":"当前分组 default 下对于模型 m-a 无可用渠道"}}"#;
+const E503_NO_CHANNEL_ZH: &str =
+    r#"{"error":{"message":"当前分组 default 下对于模型 m-a 无可用渠道"}}"#;
 const E503_PLAIN: &str = r#"{"error":{"message":"service unavailable"}}"#;
 const CHAIN_SSE_OK: &str = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":5,\"output_tokens\":0}}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":3}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
 
 fn chain_models(chain: &[&str]) -> PlatformModels {
-    PlatformModels { default: chain.iter().map(|s| s.to_string()).collect(), ..Default::default() }
+    PlatformModels {
+        default: chain.iter().map(|s| s.to_string()).collect(),
+        ..Default::default()
+    }
 }
 
 /// 上游实际收到的 model 序列。
@@ -6213,7 +7426,12 @@ fn hit_models(h: &EmbHits) -> Vec<String> {
     h.lock()
         .unwrap()
         .iter()
-        .map(|(_, body, _)| serde_json::from_str::<Value>(body).unwrap()["model"].as_str().unwrap().to_string())
+        .map(|(_, body, _)| {
+            serde_json::from_str::<Value>(body).unwrap()["model"]
+                .as_str()
+                .unwrap()
+                .to_string()
+        })
         .collect()
 }
 
@@ -6250,25 +7468,44 @@ async fn chain_model_not_found_switches_to_next_model() {
     )
     .await
     .unwrap();
-    setup_aux_group(&state, "gkc1", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+    setup_aux_group(
+        &state,
+        "gkc1",
+        &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")],
+    )
+    .await;
     let resp = chain_send(&state, "gkc1", CHAIN_REQ).await;
     assert_eq!(resp.status(), StatusCode::OK);
     assert_eq!(hit_models(&hits), ["m-a", "m-b"]);
     let log = last_log_for(&state, "gkc1").await;
-    assert_eq!(log.attempts.len(), 2, "同平台换模型每次尝试各一项，不新增 proxy_log 行");
+    assert_eq!(
+        log.attempts.len(),
+        2,
+        "同平台换模型每次尝试各一项，不新增 proxy_log 行"
+    );
     assert_eq!(log.attempts[0].model.as_deref(), Some("m-a"));
     assert_eq!(log.attempts[0].status_code, 404);
     assert_eq!(log.attempts[1].model.as_deref(), Some("m-b"));
     assert_eq!(log.attempts[1].status_code, 200);
-    assert_eq!(log.actual_model, "m-b", "展示模型 = 实际成功的模型（上游自报）");
+    assert_eq!(
+        log.actual_model, "m-b",
+        "展示模型 = 实际成功的模型（上游自报）"
+    );
     assert_eq!(log.status_code, 200);
-    assert!((log.est_cost - (5.0 * 1e-6 + 3.0 * 2e-6)).abs() < 1e-12, "只计成功那次: {}", log.est_cost);
+    assert!(
+        (log.est_cost - (5.0 * 1e-6 + 3.0 * 2e-6)).abs() < 1e-12,
+        "只计成功那次: {}",
+        log.est_cost
+    );
 }
 
 /// 429 / 402 / 401 是上游服务类错误：不换模型，直接换平台；上游 1 只收到一次请求。
 #[tokio::test]
 async fn chain_service_errors_switch_platform_not_model() {
-    for (i, (status, body)) in [(429u16, E429), (402, E402), (401, E401)].into_iter().enumerate() {
+    for (i, (status, body)) in [(429u16, E429), (402, E402), (401, E401)]
+        .into_iter()
+        .enumerate()
+    {
         let (up1, hits1) = spawn_embedding_upstream(vec![(status, body)]).await;
         let (up2, hits2) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
         let state = make_state(test_db().await).await;
@@ -6277,8 +7514,18 @@ async fn chain_service_errors_switch_platform_not_model() {
             &state,
             &gk,
             &[
-                (&up1, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p1"),
-                (&up2, chain_models(&["m-c", "m-d"]), Protocol::Anthropic, "p2"),
+                (
+                    &up1,
+                    chain_models(&["m-a", "m-b"]),
+                    Protocol::Anthropic,
+                    "p1",
+                ),
+                (
+                    &up2,
+                    chain_models(&["m-c", "m-d"]),
+                    Protocol::Anthropic,
+                    "p2",
+                ),
             ],
         )
         .await;
@@ -6288,7 +7535,11 @@ async fn chain_service_errors_switch_platform_not_model() {
         assert_eq!(hit_models(&hits2), ["m-c"], "{status}");
         let log = last_log_for(&state, &gk).await;
         assert_eq!(log.attempts.len(), 2, "{status}");
-        assert_eq!(log.attempts[0].chain_stop.as_deref(), Some("service"), "{status}: 链上还有 m-b 未尝试，记终止原因");
+        assert_eq!(
+            log.attempts[0].chain_stop.as_deref(),
+            Some("service"),
+            "{status}: 链上还有 m-b 未尝试，记终止原因"
+        );
         assert_eq!(log.attempts[1].chain_stop, None);
     }
 }
@@ -6297,19 +7548,45 @@ async fn chain_service_errors_switch_platform_not_model() {
 /// 三模型全 404 → 终态回包是最后一次错误，降权连败 0、last_error 空。
 #[tokio::test]
 async fn chain_exhausted_records_platform_failure_once() {
-    let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (404, E404_MODEL), (404, E404_MODEL)]).await;
+    let (up, hits) = spawn_embedding_upstream(vec![
+        (404, E404_MODEL),
+        (404, E404_MODEL),
+        (404, E404_MODEL),
+    ])
+    .await;
     let state = make_state(test_db().await).await;
-    setup_aux_group(&state, "gkc3", &[(&up, chain_models(&["m-a", "m-b", "m-c"]), Protocol::Anthropic, "p")]).await;
+    setup_aux_group(
+        &state,
+        "gkc3",
+        &[(
+            &up,
+            chain_models(&["m-a", "m-b", "m-c"]),
+            Protocol::Anthropic,
+            "p",
+        )],
+    )
+    .await;
     set_group_max_attempts(&state, "gkc3", 3).await;
     let resp = chain_send(&state, "gkc3", CHAIN_REQ).await;
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
     assert_eq!(hit_models(&hits), ["m-a", "m-b", "m-c"]);
     let p = aidog_db::list_platforms(&state.db).await.unwrap().remove(0);
-    assert_eq!(state.scheduler.penalty_consecutive(p.id), 0, "模型类失败不降权");
+    assert_eq!(
+        state.scheduler.penalty_consecutive(p.id),
+        0,
+        "模型类失败不降权"
+    );
     let log = last_log_for(&state, "gkc3").await;
     assert_eq!(log.attempts.len(), 3);
-    assert!(log.attempts.iter().all(|a| a.chain_stop.is_none()), "耗尽不是提前终止");
-    assert!(p.last_error.is_empty(), "模型类失败不写 last_error: {:?}", p.last_error);
+    assert!(
+        log.attempts.iter().all(|a| a.chain_stop.is_none()),
+        "耗尽不是提前终止"
+    );
+    assert!(
+        p.last_error.is_empty(),
+        "模型类失败不写 last_error: {:?}",
+        p.last_error
+    );
 }
 
 /// 连接失败（transport 错）属服务类：不换模型，链上剩余模型记 chain_stop=service，画布显示「跳过」而非「未选」。
@@ -6321,7 +7598,17 @@ async fn chain_transport_error_records_chain_stop_service() {
         format!("http://{}", l.local_addr().unwrap())
     };
     let state = make_state(test_db().await).await;
-    setup_aux_group(&state, "gkc3t", &[(&dead, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+    setup_aux_group(
+        &state,
+        "gkc3t",
+        &[(
+            &dead,
+            chain_models(&["m-a", "m-b"]),
+            Protocol::Anthropic,
+            "p",
+        )],
+    )
+    .await;
     set_group_max_attempts(&state, "gkc3t", 2).await;
     let resp = chain_send(&state, "gkc3t", CHAIN_REQ).await;
     assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
@@ -6329,7 +7616,11 @@ async fn chain_transport_error_records_chain_stop_service() {
     let first = log.attempts.iter().find(|a| a.kind.is_none()).unwrap(); // 同平台原地重试（kind=retry）不算
     assert_eq!(first.status_code, 0);
     assert_eq!(first.model.as_deref(), Some("m-a"));
-    assert_eq!(first.chain_stop.as_deref(), Some("service"), "链上 m-b 未尝试，须记终止原因（尝试轮内尚有次数时）");
+    assert_eq!(
+        first.chain_stop.as_deref(),
+        Some("service"),
+        "链上 m-b 未尝试，须记终止原因（尝试轮内尚有次数时）"
+    );
 }
 
 /// 链中途成功：失败过的前序模型不留降权（连败为 0）。
@@ -6337,8 +7628,16 @@ async fn chain_transport_error_records_chain_stop_service() {
 async fn chain_success_after_model_failures_leaves_no_penalty() {
     let (up, _hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, ANTHROPIC_OK)]).await;
     let state = make_state(test_db().await).await;
-    setup_aux_group(&state, "gkc3b", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
-    assert_eq!(chain_send(&state, "gkc3b", CHAIN_REQ).await.status(), StatusCode::OK);
+    setup_aux_group(
+        &state,
+        "gkc3b",
+        &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")],
+    )
+    .await;
+    assert_eq!(
+        chain_send(&state, "gkc3b", CHAIN_REQ).await.status(),
+        StatusCode::OK
+    );
     let pid = aidog_db::list_platforms(&state.db).await.unwrap()[0].id;
     assert_eq!(state.scheduler.penalty_consecutive(pid), 0);
 }
@@ -6350,40 +7649,83 @@ async fn chain_unknown_4xx_switches_model_and_model_400_exhausted_fails_over_wit
     // Unknown：404 无特征 → 换模型成功
     let (up, hits) = spawn_embedding_upstream(vec![(404, E404_WEIRD), (200, ANTHROPIC_OK)]).await;
     let state = make_state(test_db().await).await;
-    setup_aux_group(&state, "gkc4a", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
-    assert_eq!(chain_send(&state, "gkc4a", CHAIN_REQ).await.status(), StatusCode::OK);
+    setup_aux_group(
+        &state,
+        "gkc4a",
+        &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")],
+    )
+    .await;
+    assert_eq!(
+        chain_send(&state, "gkc4a", CHAIN_REQ).await.status(),
+        StatusCode::OK
+    );
     assert_eq!(hit_models(&hits), ["m-a", "m-b"]);
 
     // Model 类 400：平台 1 两个模型都 400 → 换到平台 2 成功；平台 1 不背锅
-    let (up1, hits1) = spawn_embedding_upstream(vec![(400, E400_INVALID_MODEL), (400, E400_INVALID_MODEL)]).await;
+    let (up1, hits1) =
+        spawn_embedding_upstream(vec![(400, E400_INVALID_MODEL), (400, E400_INVALID_MODEL)]).await;
     let (up2, hits2) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
     let state = make_state(test_db().await).await;
     setup_aux_group(
         &state,
         "gkc4b",
         &[
-            (&up1, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p1"),
+            (
+                &up1,
+                chain_models(&["m-a", "m-b"]),
+                Protocol::Anthropic,
+                "p1",
+            ),
             (&up2, chain_models(&["m-c"]), Protocol::Anthropic, "p2"),
         ],
     )
     .await;
-    assert_eq!(chain_send(&state, "gkc4b", CHAIN_REQ).await.status(), StatusCode::OK);
+    assert_eq!(
+        chain_send(&state, "gkc4b", CHAIN_REQ).await.status(),
+        StatusCode::OK
+    );
     assert_eq!(hit_models(&hits1), ["m-a", "m-b"]);
     assert_eq!(hit_models(&hits2), ["m-c"], "Model 类 400 链尽后换平台");
-    let p1 = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == "gkc4b-p1").unwrap();
-    assert!(p1.last_error.is_empty(), "不写 last_error: {}", p1.last_error);
-    assert!(!state.scheduler.penalty_active(p1.id, aidog_db::now()), "不降权");
+    let p1 = aidog_db::list_platforms(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|p| p.name == "gkc4b-p1")
+        .unwrap();
+    assert!(
+        p1.last_error.is_empty(),
+        "不写 last_error: {}",
+        p1.last_error
+    );
+    assert!(
+        !state.scheduler.penalty_active(p1.id, aidog_db::now()),
+        "不降权"
+    );
     assert_eq!(state.scheduler.penalty_consecutive(p1.id), 0);
     let log = last_log_for(&state, "gkc4b").await;
     assert_eq!(log.attempts.len(), 3, "两次模型 400 + 平台 2 成功各留痕");
     assert_eq!(log.attempts[1].status_code, 400);
 
     // 末位候选：Model 类 400 照旧回给客户端
-    let (up3, hits3) = spawn_embedding_upstream(vec![(400, E400_INVALID_MODEL), (400, E400_INVALID_MODEL)]).await;
+    let (up3, hits3) =
+        spawn_embedding_upstream(vec![(400, E400_INVALID_MODEL), (400, E400_INVALID_MODEL)]).await;
     let state = make_state(test_db().await).await;
-    setup_aux_group(&state, "gkc4c", &[(&up3, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+    setup_aux_group(
+        &state,
+        "gkc4c",
+        &[(
+            &up3,
+            chain_models(&["m-a", "m-b"]),
+            Protocol::Anthropic,
+            "p",
+        )],
+    )
+    .await;
     set_group_max_attempts(&state, "gkc4c", 2).await;
-    assert_eq!(chain_send(&state, "gkc4c", CHAIN_REQ).await.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        chain_send(&state, "gkc4c", CHAIN_REQ).await.status(),
+        StatusCode::BAD_REQUEST
+    );
     assert_eq!(hit_models(&hits3), ["m-a", "m-b"]);
 }
 
@@ -6402,13 +7744,26 @@ async fn chat_all_slots_disabled_503_and_audit_log() {
     )
     .await;
     for p in aidog_db::list_platforms(&state.db).await.unwrap() {
-        aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
-            id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
-            extra: Some(r#"{"disabled_slots":["default"]}"#.to_string()),
-            models: None, available_models: None, endpoints: None,
-            enabled: None, status: None, manual_budgets: None,
-            join_group_ids: None, expires_at: None, quota_source: None,
-        })
+        aidog_db::update_platform(
+            &state.db,
+            aidog_db::models::UpdatePlatform {
+                id: p.id,
+                name: None,
+                platform_type: None,
+                base_url: None,
+                api_key: None,
+                extra: Some(r#"{"disabled_slots":["default"]}"#.to_string()),
+                models: None,
+                available_models: None,
+                endpoints: None,
+                enabled: None,
+                status: None,
+                manual_budgets: None,
+                join_group_ids: None,
+                expires_at: None,
+                quota_source: None,
+            },
+        )
         .await
         .unwrap();
     }
@@ -6429,12 +7784,23 @@ async fn chat_all_slots_disabled_503_and_audit_log() {
 /// 普通 5xx → 服务类，直接换平台。
 #[tokio::test]
 async fn chain_5xx_with_model_marker_switches_model_plain_5xx_switches_platform() {
-    for (i, body) in [E503_NO_CHANNEL, E503_NO_CHANNEL_ZH].into_iter().enumerate() {
+    for (i, body) in [E503_NO_CHANNEL, E503_NO_CHANNEL_ZH]
+        .into_iter()
+        .enumerate()
+    {
         let (up, hits) = spawn_embedding_upstream(vec![(503, body), (200, ANTHROPIC_OK)]).await;
         let state = make_state(test_db().await).await;
         let gk = format!("gkc5a{i}");
-        setup_aux_group(&state, &gk, &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
-        assert_eq!(chain_send(&state, &gk, CHAIN_REQ).await.status(), StatusCode::OK);
+        setup_aux_group(
+            &state,
+            &gk,
+            &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")],
+        )
+        .await;
+        assert_eq!(
+            chain_send(&state, &gk, CHAIN_REQ).await.status(),
+            StatusCode::OK
+        );
         assert_eq!(hit_models(&hits), ["m-a", "m-b"], "{body}");
     }
 
@@ -6445,12 +7811,20 @@ async fn chain_5xx_with_model_marker_switches_model_plain_5xx_switches_platform(
         &state,
         "gkc5b",
         &[
-            (&up1, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p1"),
+            (
+                &up1,
+                chain_models(&["m-a", "m-b"]),
+                Protocol::Anthropic,
+                "p1",
+            ),
             (&up2, chain_models(&["m-c"]), Protocol::Anthropic, "p2"),
         ],
     )
     .await;
-    assert_eq!(chain_send(&state, "gkc5b", CHAIN_REQ).await.status(), StatusCode::OK);
+    assert_eq!(
+        chain_send(&state, "gkc5b", CHAIN_REQ).await.status(),
+        StatusCode::OK
+    );
     assert_eq!(hit_models(&hits1), ["m-a"]);
     assert_eq!(hit_models(&hits2), ["m-c"]);
 }
@@ -6459,7 +7833,8 @@ async fn chain_5xx_with_model_marker_switches_model_plain_5xx_switches_platform(
 #[tokio::test]
 async fn chain_error_rule_non_retryable_blocks_model_switch() {
     use aidog_db::models::{
-        ActionKind, ActionParams, ActionStep, AppliesTo, ConditionLeaf, ConditionNode, MatchType, MiddlewareRule, Target,
+        ActionKind, ActionParams, ActionStep, AppliesTo, ConditionLeaf, ConditionNode, MatchType,
+        MiddlewareRule, Target,
     };
     let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, ANTHROPIC_OK)]).await;
     let state = make_state(test_db().await).await;
@@ -6476,7 +7851,11 @@ async fn chain_error_rule_non_retryable_blocks_model_switch() {
         }),
         actions: vec![ActionStep {
             kind: ActionKind::Classify,
-            params: ActionParams { category: "x".into(), retryable: false, ..Default::default() },
+            params: ActionParams {
+                category: "x".into(),
+                retryable: false,
+                ..Default::default()
+            },
         }],
         applies_to: AppliesTo::default(),
         priority: 0,
@@ -6487,8 +7866,16 @@ async fn chain_error_rule_non_retryable_blocks_model_switch() {
         created_at: 0,
         updated_at: 0,
     }]);
-    setup_aux_group(&state, "gkc6", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
-    assert_eq!(chain_send(&state, "gkc6", CHAIN_REQ).await.status(), StatusCode::NOT_FOUND);
+    setup_aux_group(
+        &state,
+        "gkc6",
+        &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")],
+    )
+    .await;
+    assert_eq!(
+        chain_send(&state, "gkc6", CHAIN_REQ).await.status(),
+        StatusCode::NOT_FOUND
+    );
     assert_eq!(hit_models(&hits), ["m-a"]);
     let log = last_log_for(&state, "gkc6").await;
     assert_eq!(log.attempts.len(), 1);
@@ -6500,19 +7887,33 @@ async fn chain_error_rule_non_retryable_blocks_model_switch() {
 async fn chain_stream_switches_before_first_byte_not_after() {
     let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, CHAIN_SSE_OK)]).await;
     let state = make_state(test_db().await).await;
-    setup_aux_group(&state, "gkc7a", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+    setup_aux_group(
+        &state,
+        "gkc7a",
+        &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")],
+    )
+    .await;
     let resp = chain_send(&state, "gkc7a", CHAIN_REQ_STREAM).await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
     assert_eq!(hit_models(&hits), ["m-a", "m-b"]);
 
     // 2xx 流已开始：上游只收到首模型一次
     let (up, hits) = spawn_embedding_upstream(vec![(200, CHAIN_SSE_OK), (200, CHAIN_SSE_OK)]).await;
     let state = make_state(test_db().await).await;
-    setup_aux_group(&state, "gkc7b", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+    setup_aux_group(
+        &state,
+        "gkc7b",
+        &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")],
+    )
+    .await;
     let resp = chain_send(&state, "gkc7b", CHAIN_REQ_STREAM).await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
     assert_eq!(hit_models(&hits), ["m-a"]);
 }
 
@@ -6521,15 +7922,25 @@ async fn chain_stream_switches_before_first_byte_not_after() {
 #[tokio::test]
 async fn chain_degenerate_and_literal_single_platform_behave_alike() {
     // 字面单平台组
-    let (up, hits) = spawn_embedding_upstream(vec![(400, E400_INVALID_MODEL), (400, E400_INVALID_MODEL)]).await;
+    let (up, hits) =
+        spawn_embedding_upstream(vec![(400, E400_INVALID_MODEL), (400, E400_INVALID_MODEL)]).await;
     let state = make_state(test_db().await).await;
-    setup_aux_group(&state, "gkc8a", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "A")]).await;
+    setup_aux_group(
+        &state,
+        "gkc8a",
+        &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "A")],
+    )
+    .await;
     set_group_max_attempts(&state, "gkc8a", 2).await;
-    assert_eq!(chain_send(&state, "gkc8a", CHAIN_REQ).await.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        chain_send(&state, "gkc8a", CHAIN_REQ).await.status(),
+        StatusCode::BAD_REQUEST
+    );
     assert_eq!(hit_models(&hits), ["m-a", "m-b"]);
 
     // 等效单平台：B 被禁用，只剩 A
-    let (up, hits) = spawn_embedding_upstream(vec![(400, E400_INVALID_MODEL), (400, E400_INVALID_MODEL)]).await;
+    let (up, hits) =
+        spawn_embedding_upstream(vec![(400, E400_INVALID_MODEL), (400, E400_INVALID_MODEL)]).await;
     let (upb, hitsb) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
     let state = make_state(test_db().await).await;
     setup_aux_group(
@@ -6542,8 +7953,16 @@ async fn chain_degenerate_and_literal_single_platform_behave_alike() {
     )
     .await;
     set_group_max_attempts(&state, "gkc8b", 2).await;
-    set_platform_status(&state, "gkc8b-B", aidog_db::models::PlatformStatus::Disabled).await;
-    assert_eq!(chain_send(&state, "gkc8b", CHAIN_REQ).await.status(), StatusCode::BAD_REQUEST);
+    set_platform_status(
+        &state,
+        "gkc8b-B",
+        aidog_db::models::PlatformStatus::Disabled,
+    )
+    .await;
+    assert_eq!(
+        chain_send(&state, "gkc8b", CHAIN_REQ).await.status(),
+        StatusCode::BAD_REQUEST
+    );
     assert_eq!(hit_models(&hits), ["m-a", "m-b"]);
     assert!(hitsb.lock().unwrap().is_empty());
 
@@ -6560,8 +7979,16 @@ async fn chain_degenerate_and_literal_single_platform_behave_alike() {
         ],
     )
     .await;
-    set_platform_status(&state, "gkc8c-B", aidog_db::models::PlatformStatus::Disabled).await;
-    assert_eq!(chain_send(&state, "gkc8c", CHAIN_REQ).await.status(), StatusCode::OK);
+    set_platform_status(
+        &state,
+        "gkc8c-B",
+        aidog_db::models::PlatformStatus::Disabled,
+    )
+    .await;
+    assert_eq!(
+        chain_send(&state, "gkc8c", CHAIN_REQ).await.status(),
+        StatusCode::OK
+    );
     assert_eq!(hit_models(&hits), ["m-a", "m-b"]);
 }
 
@@ -6580,15 +8007,26 @@ async fn chain_len1_and_direct_models_do_not_switch_model() {
         ],
     )
     .await;
-    assert_eq!(chain_send(&state, "gkc9a", CHAIN_REQ).await.status(), StatusCode::OK);
+    assert_eq!(
+        chain_send(&state, "gkc9a", CHAIN_REQ).await.status(),
+        StatusCode::OK
+    );
     assert_eq!(hit_models(&hits1), ["m-a"]);
     assert_eq!(hit_models(&hits2), ["m-c"]);
 
     let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, ANTHROPIC_OK)]).await;
     let state = make_state(test_db().await).await;
-    setup_multi_platform_group(&state, "gkc9b", &[("D", &up, r#"{"direct_models":["claude-x"]}"#)]).await;
+    setup_multi_platform_group(
+        &state,
+        "gkc9b",
+        &[("D", &up, r#"{"direct_models":["claude-x"]}"#)],
+    )
+    .await;
     set_group_max_attempts(&state, "gkc9b", 1).await;
-    assert_eq!(chain_send(&state, "gkc9b", CHAIN_REQ).await.status(), StatusCode::NOT_FOUND);
+    assert_eq!(
+        chain_send(&state, "gkc9b", CHAIN_REQ).await.status(),
+        StatusCode::NOT_FOUND
+    );
     assert_eq!(hit_models(&hits), ["claude-x"]);
 }
 
@@ -6614,9 +8052,18 @@ impl AuxKind {
     fn models(self, chain: &[&str]) -> PlatformModels {
         let v: Vec<String> = chain.iter().map(|s| s.to_string()).collect();
         match self {
-            AuxKind::Emb => PlatformModels { embedding: v, ..Default::default() },
-            AuxKind::Rerank => PlatformModels { rerank: v, ..Default::default() },
-            AuxKind::Jev => PlatformModels { jev: v, ..Default::default() },
+            AuxKind::Emb => PlatformModels {
+                embedding: v,
+                ..Default::default()
+            },
+            AuxKind::Rerank => PlatformModels {
+                rerank: v,
+                ..Default::default()
+            },
+            AuxKind::Jev => PlatformModels {
+                jev: v,
+                ..Default::default()
+            },
         }
     }
     fn request(self, gk: &str) -> Request {
@@ -6629,11 +8076,23 @@ impl AuxKind {
 }
 
 /// 每个 (上游, 槽位链) 一个平台；空链 = 该槽位为空，被候选过滤剔除（等效单平台形态）。
-async fn setup_aux_chain(state: &Arc<ProxyState>, gk: &str, kind: AuxKind, plats: &[(&str, &[&str])]) {
+async fn setup_aux_chain(
+    state: &Arc<ProxyState>,
+    gk: &str,
+    kind: AuxKind,
+    plats: &[(&str, &[&str])],
+) {
     let plats: Vec<_> = plats
         .iter()
         .enumerate()
-        .map(|(i, (up, chain))| (*up, kind.models(chain), Protocol::OpenAI, ["pa", "pb", "pc"][i]))
+        .map(|(i, (up, chain))| {
+            (
+                *up,
+                kind.models(chain),
+                Protocol::OpenAI,
+                ["pa", "pb", "pc"][i],
+            )
+        })
         .collect();
     setup_aux_group(state, gk, &plats).await;
 }
@@ -6644,7 +8103,8 @@ async fn setup_aux_chain(state: &Arc<ProxyState>, gk: &str, kind: AuxKind, plats
 async fn aux_model_error_switches_to_next_model() {
     for kind in AUX_KINDS {
         for equivalent in [false, true] {
-            let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, kind.ok_body())]).await;
+            let (up, hits) =
+                spawn_embedding_upstream(vec![(404, E404_MODEL), (200, kind.ok_body())]).await;
             let state = make_state(test_db().await).await;
             let gk = format!("gka7{}{equivalent}", kind as u8);
             let mut plats: Vec<(&str, &[&str])> = vec![(&up, &["m-a", "m-b"])];
@@ -6654,7 +8114,11 @@ async fn aux_model_error_switches_to_next_model() {
             setup_aux_chain(&state, &gk, kind, &plats).await;
             let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
             assert_eq!(resp.status(), StatusCode::OK, "{kind:?} eq={equivalent}");
-            assert_eq!(hit_models(&hits), ["m-a", "m-b"], "{kind:?} eq={equivalent}");
+            assert_eq!(
+                hit_models(&hits),
+                ["m-a", "m-b"],
+                "{kind:?} eq={equivalent}"
+            );
             let log = last_log_for(&state, &gk).await;
             assert_eq!(log.attempts.len(), 2, "{kind:?}");
             assert_eq!(log.attempts[0].model.as_deref(), Some("m-a"));
@@ -6675,7 +8139,13 @@ async fn aux_service_error_switches_platform_not_model() {
         let (up2, hits2) = spawn_embedding_upstream(vec![(200, kind.ok_body())]).await;
         let state = make_state(test_db().await).await;
         let gk = format!("gka7s{}", kind as u8);
-        setup_aux_chain(&state, &gk, kind, &[(&up1, &["m-a", "m-b"]), (&up2, &["m-a", "m-b"])]).await;
+        setup_aux_chain(
+            &state,
+            &gk,
+            kind,
+            &[(&up1, &["m-a", "m-b"]), (&up2, &["m-a", "m-b"])],
+        )
+        .await;
         let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
         assert_eq!(resp.status(), StatusCode::OK, "{kind:?}");
         assert_eq!(hit_models(&hits1), ["m-a"], "{kind:?}");
@@ -6689,7 +8159,8 @@ async fn aux_service_error_switches_platform_not_model() {
 #[tokio::test]
 async fn aux_chain_len_one_does_not_switch() {
     for kind in AUX_KINDS {
-        let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, kind.ok_body())]).await;
+        let (up, hits) =
+            spawn_embedding_upstream(vec![(404, E404_MODEL), (200, kind.ok_body())]).await;
         let state = make_state(test_db().await).await;
         let gk = format!("gka7l{}", kind as u8);
         setup_aux_chain(&state, &gk, kind, &[(&up, &["m-a"])]).await;
@@ -6705,11 +8176,19 @@ async fn aux_chain_len_one_does_not_switch() {
 // ── 票 02：网关执行平台限频（extra.rate_limits；本地假上游，零真实外呼）──
 
 async fn platform_id_of(state: &Arc<ProxyState>, name: &str) -> u64 {
-    aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == name).unwrap().id
+    aidog_db::list_platforms(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|p| p.name == name)
+        .unwrap()
+        .id
 }
 
 async fn rl_status(state: &Arc<ProxyState>, gk: &str) -> StatusCode {
-    handle_proxy(AxumState(state.clone()), messages_request_ua(gk, None)).await.status()
+    handle_proxy(AxumState(state.clone()), messages_request_ua(gk, None))
+        .await
+        .status()
 }
 
 /// 假上游：每个请求先睡 `delay_ms` 再回 ANTHROPIC_OK（制造在途重叠）。
@@ -6717,11 +8196,17 @@ async fn spawn_slow_upstream(delay_ms: u64) -> String {
     use axum::routing::any;
     let app = axum::Router::new().fallback(any(move || async move {
         tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
-        (axum::http::StatusCode::OK, [("content-type", "application/json")], ANTHROPIC_OK)
+        (
+            axum::http::StatusCode::OK,
+            [("content-type", "application/json")],
+            ANTHROPIC_OK,
+        )
     }));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
-    tokio::spawn(async move { axum::serve(listener, app).await.ok(); });
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.ok();
+    });
     format!("http://{addr}")
 }
 
@@ -6738,7 +8223,9 @@ async fn spawn_hanging_sse_upstream() -> String {
                 let head = "HTTP/1.1 200 OK\r\ncontent-type: text/event-stream\r\ntransfer-encoding: chunked\r\n\r\n";
                 let _ = stream.write_all(head.as_bytes()).await;
                 let ev = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"m1\",\"model\":\"claude-3\",\"usage\":{\"input_tokens\":7,\"output_tokens\":0}}}\n\n";
-                let _ = stream.write_all(format!("{:x}\r\n{ev}\r\n", ev.len()).as_bytes()).await;
+                let _ = stream
+                    .write_all(format!("{:x}\r\n{ev}\r\n", ev.len()).as_bytes())
+                    .await;
                 let _ = stream.flush().await;
                 tokio::time::sleep(std::time::Duration::from_secs(30)).await;
             });
@@ -6747,15 +8234,18 @@ async fn spawn_hanging_sse_upstream() -> String {
     format!("http://{addr}")
 }
 
-
 // ── issue 71：跨协议流式 usage 回传（本地假上游，无真实外呼）──
 
 /// anthropic 上游 SSE：message_start 带输入与缓存、message_delta 只带输出终值。
 const SSE_ANTHROPIC_USAGE: &str = concat!(
-    r#"data: {"type":"message_start","message":{"id":"m1","type":"message","role":"assistant","model":"claude-3","usage":{"input_tokens":10,"output_tokens":1,"cache_read_input_tokens":6,"cache_creation_input_tokens":2}}}"#, "\n\n",
-    r#"data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hi"}}"#, "\n\n",
-    r#"data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":9}}"#, "\n\n",
-    r#"data: {"type":"message_stop"}"#, "\n\n",
+    r#"data: {"type":"message_start","message":{"id":"m1","type":"message","role":"assistant","model":"claude-3","usage":{"input_tokens":10,"output_tokens":1,"cache_read_input_tokens":6,"cache_creation_input_tokens":2}}}"#,
+    "\n\n",
+    r#"data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hi"}}"#,
+    "\n\n",
+    r#"data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":9}}"#,
+    "\n\n",
+    r#"data: {"type":"message_stop"}"#,
+    "\n\n",
 );
 
 fn chat_completions_request_stream(gk: &str, include_usage: bool) -> Request {
@@ -6777,7 +8267,9 @@ fn chat_completions_request_stream(gk: &str, include_usage: bool) -> Request {
 
 async fn stream_usage_body(resp: axum::response::Response) -> String {
     assert_eq!(resp.status(), StatusCode::OK);
-    let bytes = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let bytes = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
     String::from_utf8(bytes.to_vec()).unwrap()
 }
 
@@ -6826,7 +8318,10 @@ async fn cross_protocol_stream_usage_openai_client_without_include_usage() {
         !body.contains(r#""usage":"#),
         "未带 include_usage 不得有 usage 块: {body:?}"
     );
-    assert!(body.contains("data: [DONE]"), "缺 [DONE] 终止哨兵: {body:?}");
+    assert!(
+        body.contains("data: [DONE]"),
+        "缺 [DONE] 终止哨兵: {body:?}"
+    );
 }
 
 /// anthropic 上游 → anthropic 客户端（平台变体路径）：message_delta.usage 与上游一致
@@ -6836,11 +8331,7 @@ async fn cross_protocol_stream_usage_anthropic_client_message_delta() {
     let upstream = spawn_unified_upstream(200, "text/event-stream", SSE_ANTHROPIC_USAGE).await;
     let state = make_state(test_db().await).await;
     setup_group_with_upstream(&state, "gk71c", &upstream).await;
-    let resp = handle_proxy(
-        AxumState(state.clone()),
-        messages_request_stream("gk71c"),
-    )
-    .await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request_stream("gk71c")).await;
     let body = stream_usage_body(resp).await;
     let md: Vec<serde_json::Value> = body
         .lines()
@@ -6854,11 +8345,18 @@ async fn cross_protocol_stream_usage_anthropic_client_message_delta() {
     assert_eq!(u["output_tokens"], 9, "{body:?}");
     assert_eq!(u["cache_read_input_tokens"], 6, "{body:?}");
     assert_eq!(u["cache_creation_input_tokens"], 2, "{body:?}");
-    assert_eq!(body.matches("event: message_stop").count(), 1, "message_stop 恰一次: {body:?}");
+    assert_eq!(
+        body.matches("event: message_stop").count(),
+        1,
+        "message_stop 恰一次: {body:?}"
+    );
 }
 
 fn messages_request_stream(gk: &str) -> Request {
-    messages_request(gk, r#"{"model":"claude-3","stream":true,"max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#)
+    messages_request(
+        gk,
+        r#"{"model":"claude-3","stream":true,"max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#,
+    )
 }
 
 const RPM1: &str = r#"{"rate_limits":{"rpm":1}}"#;
@@ -6868,15 +8366,31 @@ const RPM1: &str = r#"{"rate_limits":{"rpm":1}}"#;
 async fn ratelimit_rpm_nplus1_switches_platform() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
-    setup_multi_platform_group(&state, "gkrl1", &[("A", &up, r#"{"rate_limits":{"rpm":2}}"#), ("B", &up, "")]).await;
-    let (a, b) = (platform_id_of(&state, "A").await, platform_id_of(&state, "B").await);
+    setup_multi_platform_group(
+        &state,
+        "gkrl1",
+        &[("A", &up, r#"{"rate_limits":{"rpm":2}}"#), ("B", &up, "")],
+    )
+    .await;
+    let (a, b) = (
+        platform_id_of(&state, "A").await,
+        platform_id_of(&state, "B").await,
+    );
     for i in 0..2 {
         assert_eq!(rl_status(&state, "gkrl1").await, StatusCode::OK);
-        assert_eq!(last_log_for(&state, "gkrl1").await.platform_id, a, "req {i} on A");
+        assert_eq!(
+            last_log_for(&state, "gkrl1").await.platform_id,
+            a,
+            "req {i} on A"
+        );
         state.db.invalidate_group_details_cache();
     }
     assert_eq!(rl_status(&state, "gkrl1").await, StatusCode::OK);
-    assert_eq!(last_log_for(&state, "gkrl1").await.platform_id, b, "3rd request excluded A -> B");
+    assert_eq!(
+        last_log_for(&state, "gkrl1").await.platform_id,
+        b,
+        "3rd request excluded A -> B"
+    );
 }
 
 /// 用户故事 8：整组超限 → 429 + blocked_reason='rate_limit' 落库。
@@ -6887,7 +8401,10 @@ async fn ratelimit_all_over_limit_503_and_audit_log() {
     setup_multi_platform_group(&state, "gkrl2", &[("A", &up, RPM1), ("B", &up, RPM1)]).await;
     assert_eq!(rl_status(&state, "gkrl2").await, StatusCode::OK);
     assert_eq!(rl_status(&state, "gkrl2").await, StatusCode::OK);
-    assert_eq!(rl_status(&state, "gkrl2").await, StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(
+        rl_status(&state, "gkrl2").await,
+        StatusCode::TOO_MANY_REQUESTS
+    );
     let log = last_log_for(&state, "gkrl2").await;
     assert_eq!(log.status_code, 429);
     assert_eq!(log.blocked_by, "router");
@@ -6902,8 +8419,14 @@ async fn ratelimit_literal_single_platform_group_503() {
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     setup_multi_platform_group(&state, "gkrl3", &[("A", &up, RPM1)]).await;
     assert_eq!(rl_status(&state, "gkrl3").await, StatusCode::OK);
-    assert_eq!(rl_status(&state, "gkrl3").await, StatusCode::TOO_MANY_REQUESTS);
-    assert_eq!(last_log_for(&state, "gkrl3").await.blocked_reason, "rate_limit");
+    assert_eq!(
+        rl_status(&state, "gkrl3").await,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+    assert_eq!(
+        last_log_for(&state, "gkrl3").await.blocked_reason,
+        "rate_limit"
+    );
 }
 
 /// 用户故事 10：多平台组只剩 1 个 Enabled 平台（等效单平台）超限 → 429，不静默打上游。
@@ -6914,8 +8437,14 @@ async fn ratelimit_degenerate_single_enabled_503() {
     setup_multi_platform_group(&state, "gkrl4", &[("A", &up, RPM1), ("B", &up, "")]).await;
     set_platform_status(&state, "B", aidog_db::models::PlatformStatus::Disabled).await;
     assert_eq!(rl_status(&state, "gkrl4").await, StatusCode::OK);
-    assert_eq!(rl_status(&state, "gkrl4").await, StatusCode::TOO_MANY_REQUESTS);
-    assert_eq!(last_log_for(&state, "gkrl4").await.blocked_reason, "rate_limit");
+    assert_eq!(
+        rl_status(&state, "gkrl4").await,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+    assert_eq!(
+        last_log_for(&state, "gkrl4").await.blocked_reason,
+        "rate_limit"
+    );
 }
 
 /// 用户故事 4：并发上限 + 释放。两个重叠请求：一个占 A、另一个换 B；结束后 A 释放可再用。
@@ -6923,7 +8452,15 @@ async fn ratelimit_degenerate_single_enabled_503() {
 async fn ratelimit_concurrency_limits_and_releases() {
     let state = make_state(test_db().await).await;
     let up = spawn_slow_upstream(300).await;
-    setup_multi_platform_group(&state, "gkrl5", &[("A", &up, r#"{"rate_limits":{"concurrency":1}}"#), ("B", &up, "")]).await;
+    setup_multi_platform_group(
+        &state,
+        "gkrl5",
+        &[
+            ("A", &up, r#"{"rate_limits":{"concurrency":1}}"#),
+            ("B", &up, ""),
+        ],
+    )
+    .await;
     let (r1, r2) = tokio::join!(
         async { handle_proxy(AxumState(state.clone()), messages_request_ua("gkrl5", None)).await },
         async {
@@ -6933,14 +8470,23 @@ async fn ratelimit_concurrency_limits_and_releases() {
     );
     assert_eq!((r1.status(), r2.status()), (StatusCode::OK, StatusCode::OK));
     drop((r1, r2)); // 响应体随 Access 持有并发，丢弃 = 客户端读完
-    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
+        .await
+        .unwrap();
     let a = platform_id_of(&state, "A").await;
-    let on_a = logs.iter().filter(|l| l.group_key == "gkrl5" && l.platform_id == a).count();
+    let on_a = logs
+        .iter()
+        .filter(|l| l.group_key == "gkrl5" && l.platform_id == a)
+        .count();
     assert_eq!(on_a, 1, "并发 1：重叠的第二个请求不进 A");
     // 全部结束后释放：下一个请求回到 A（priority 最高）。
     state.db.invalidate_group_details_cache();
     assert_eq!(rl_status(&state, "gkrl5").await, StatusCode::OK);
-    assert_eq!(last_log_for(&state, "gkrl5").await.platform_id, a, "并发已释放");
+    assert_eq!(
+        last_log_for(&state, "gkrl5").await.platform_id,
+        a,
+        "并发已释放"
+    );
 }
 
 /// 并发释放覆盖流式断连：单平台组并发 1，流式请求在途 → 第二个 429；客户端丢弃响应后释放 → 再次 200。
@@ -6948,10 +8494,19 @@ async fn ratelimit_concurrency_limits_and_releases() {
 async fn ratelimit_concurrency_released_on_stream_disconnect() {
     let state = make_state(test_db().await).await;
     let hang = spawn_hanging_sse_upstream().await;
-    setup_multi_platform_group(&state, "gkrl6", &[("A", &hang, r#"{"rate_limits":{"concurrency":1}}"#)]).await;
+    setup_multi_platform_group(
+        &state,
+        "gkrl6",
+        &[("A", &hang, r#"{"rate_limits":{"concurrency":1}}"#)],
+    )
+    .await;
     let r1 = handle_proxy(AxumState(state.clone()), messages_request_stream("gkrl6")).await;
     assert_eq!(r1.status(), StatusCode::OK);
-    assert_eq!(rl_status(&state, "gkrl6").await, StatusCode::TOO_MANY_REQUESTS, "流在途占着并发");
+    assert_eq!(
+        rl_status(&state, "gkrl6").await,
+        StatusCode::TOO_MANY_REQUESTS,
+        "流在途占着并发"
+    );
     drop(r1); // 客户端断连
     let r3 = handle_proxy(AxumState(state.clone()), messages_request_stream("gkrl6")).await;
     assert_eq!(r3.status(), StatusCode::OK, "断连后并发释放");
@@ -6963,17 +8518,37 @@ async fn ratelimit_concurrency_released_on_stream_disconnect() {
 async fn ratelimit_tpm_reserve_then_settle_to_usage() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
-    setup_multi_platform_group(&state, "gkrl7", &[("A", &up, r#"{"rate_limits":{"tpm":20}}"#)]).await;
+    setup_multi_platform_group(
+        &state,
+        "gkrl7",
+        &[("A", &up, r#"{"rate_limits":{"tpm":20}}"#)],
+    )
+    .await;
     let big = format!(
         r#"{{"model":"claude-3","max_tokens":10,"messages":[{{"role":"user","content":"{}"}}]}}"#,
         "hello world ".repeat(200)
     );
     let r1 = handle_proxy(AxumState(state.clone()), messages_request("gkrl7", &big)).await;
     assert_eq!(r1.status(), StatusCode::OK, "空窗口放行大请求");
-    assert_eq!(rl_status(&state, "gkrl7").await, StatusCode::OK, "预占已按 usage(8) 修正，否则这里被挡");
-    assert_eq!(rl_status(&state, "gkrl7").await, StatusCode::OK, "16 + 小估算 <= 20");
-    assert_eq!(rl_status(&state, "gkrl7").await, StatusCode::TOO_MANY_REQUESTS, "24 >= 20");
-    assert_eq!(last_log_for(&state, "gkrl7").await.blocked_reason, "rate_limit");
+    assert_eq!(
+        rl_status(&state, "gkrl7").await,
+        StatusCode::OK,
+        "预占已按 usage(8) 修正，否则这里被挡"
+    );
+    assert_eq!(
+        rl_status(&state, "gkrl7").await,
+        StatusCode::OK,
+        "16 + 小估算 <= 20"
+    );
+    assert_eq!(
+        rl_status(&state, "gkrl7").await,
+        StatusCode::TOO_MANY_REQUESTS,
+        "24 >= 20"
+    );
+    assert_eq!(
+        last_log_for(&state, "gkrl7").await.blocked_reason,
+        "rate_limit"
+    );
 }
 
 /// 用户故事 11：windows 命中时用窗口上限（全天窗口 rpm=1 压过平台 rpm=100）。
@@ -6984,7 +8559,10 @@ async fn ratelimit_window_overrides_platform_limit() {
     let extra = r#"{"rate_limits":{"rpm":100,"rules":[{"start_hour":0,"end_hour":24,"rpm":1}]}}"#;
     setup_multi_platform_group(&state, "gkrl8", &[("A", &up, extra)]).await;
     assert_eq!(rl_status(&state, "gkrl8").await, StatusCode::OK);
-    assert_eq!(rl_status(&state, "gkrl8").await, StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(
+        rl_status(&state, "gkrl8").await,
+        StatusCode::TOO_MANY_REQUESTS
+    );
 }
 
 /// 模型级上限：extra.rate_limits.models.<请求模型> 超限 → 该平台被排除（候选筛选阶段）。
@@ -6995,7 +8573,10 @@ async fn ratelimit_model_level_rpm_excludes_platform() {
     let extra = r#"{"rate_limits":{"rules":[{"models":["claude-3"],"rpm":1}]}}"#;
     setup_multi_platform_group(&state, "gkrl9", &[("A", &up, extra)]).await;
     assert_eq!(rl_status(&state, "gkrl9").await, StatusCode::OK);
-    assert_eq!(rl_status(&state, "gkrl9").await, StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(
+        rl_status(&state, "gkrl9").await,
+        StatusCode::TOO_MANY_REQUESTS
+    );
 }
 
 /// 回归：没配 rate_limits 的平台不受影响。
@@ -7022,12 +8603,28 @@ fn oversize_chat_body() -> String {
 async fn ratelimit_tpm_oversize_request_single_platform_503_rate_limit() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
-    setup_multi_platform_group(&state, "gkrl11", &[("A", &up, r#"{"rate_limits":{"tpm":100}}"#)]).await;
-    assert_eq!(rl_status(&state, "gkrl11").await, StatusCode::OK, "小请求占用窗口 (usage 8)");
-    let r = handle_proxy(AxumState(state.clone()), messages_request("gkrl11", &oversize_chat_body())).await;
+    setup_multi_platform_group(
+        &state,
+        "gkrl11",
+        &[("A", &up, r#"{"rate_limits":{"tpm":100}}"#)],
+    )
+    .await;
+    assert_eq!(
+        rl_status(&state, "gkrl11").await,
+        StatusCode::OK,
+        "小请求占用窗口 (usage 8)"
+    );
+    let r = handle_proxy(
+        AxumState(state.clone()),
+        messages_request("gkrl11", &oversize_chat_body()),
+    )
+    .await;
     assert_eq!(r.status(), StatusCode::TOO_MANY_REQUESTS);
     let log = last_log_for(&state, "gkrl11").await;
-    assert_eq!((log.blocked_by.as_str(), log.blocked_reason.as_str()), ("router", "rate_limit"));
+    assert_eq!(
+        (log.blocked_by.as_str(), log.blocked_reason.as_str()),
+        ("router", "rate_limit")
+    );
 }
 
 /// 同上，等效单平台组（多平台组只剩 1 个 Enabled）。
@@ -7035,33 +8632,65 @@ async fn ratelimit_tpm_oversize_request_single_platform_503_rate_limit() {
 async fn ratelimit_tpm_oversize_request_equivalent_single_503_rate_limit() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
-    setup_multi_platform_group(&state, "gkrl12", &[("A", &up, r#"{"rate_limits":{"tpm":100}}"#), ("B", &up, "")]).await;
+    setup_multi_platform_group(
+        &state,
+        "gkrl12",
+        &[("A", &up, r#"{"rate_limits":{"tpm":100}}"#), ("B", &up, "")],
+    )
+    .await;
     set_platform_status(&state, "B", aidog_db::models::PlatformStatus::Disabled).await;
     assert_eq!(rl_status(&state, "gkrl12").await, StatusCode::OK);
-    let r = handle_proxy(AxumState(state.clone()), messages_request("gkrl12", &oversize_chat_body())).await;
+    let r = handle_proxy(
+        AxumState(state.clone()),
+        messages_request("gkrl12", &oversize_chat_body()),
+    )
+    .await;
     assert_eq!(r.status(), StatusCode::TOO_MANY_REQUESTS);
-    assert_eq!(last_log_for(&state, "gkrl12").await.blocked_reason, "rate_limit");
+    assert_eq!(
+        last_log_for(&state, "gkrl12").await.blocked_reason,
+        "rate_limit"
+    );
 }
 
 /// aux（embedding / rerank / jev）同样占限频名额：rpm=1 → 第二个请求 429 + rate_limit（路由层整组限频同语义）。
 #[tokio::test]
 async fn ratelimit_embedding_takes_slot_rpm1() {
-    let (up, _hits) = spawn_embedding_upstream(vec![(200, EMB_RESPONSE), (200, EMB_RESPONSE)]).await;
+    let (up, _hits) =
+        spawn_embedding_upstream(vec![(200, EMB_RESPONSE), (200, EMB_RESPONSE)]).await;
     let state = make_state(test_db().await).await;
-    setup_embedding_group(&state, "gkrl13", &[(&up, Some("emb-slot"), Protocol::OpenAI, "a")]).await;
+    setup_embedding_group(
+        &state,
+        "gkrl13",
+        &[(&up, Some("emb-slot"), Protocol::OpenAI, "a")],
+    )
+    .await;
     set_platform_extra(&state, "gkrl13-a", RPM1).await;
-    let send = || handle_proxy(AxumState(state.clone()), embedding_request("gkrl13", EMB_REQ, "/v1/embeddings"));
+    let send = || {
+        handle_proxy(
+            AxumState(state.clone()),
+            embedding_request("gkrl13", EMB_REQ, "/v1/embeddings"),
+        )
+    };
     assert_eq!(send().await.status(), StatusCode::OK);
     assert_eq!(send().await.status(), StatusCode::TOO_MANY_REQUESTS);
     let log = last_log_for(&state, "gkrl13").await;
-    assert_eq!((log.blocked_by.as_str(), log.blocked_reason.as_str()), ("router", "rate_limit"));
+    assert_eq!(
+        (log.blocked_by.as_str(), log.blocked_reason.as_str()),
+        ("router", "rate_limit")
+    );
 }
 
 // ── registry 错误码码义（票 ratelimit-03）：glm 的 1302=rate_limit / 1305=overloaded 由 preset 声明 ──
 
 async fn mk_platform_of(state: &Arc<ProxyState>, ptype: Protocol, base_url: String) -> u64 {
     // 同时挂 Anthropic 端点：客户端是 anthropic 协议。
-    aidog_db::test_support::create_platform_at_fake_upstream(&state.db, ptype.clone(), &base_url, &[ptype, Protocol::Anthropic]).await
+    aidog_db::test_support::create_platform_at_fake_upstream(
+        &state.db,
+        ptype.clone(),
+        &base_url,
+        &[ptype, Protocol::Anthropic],
+    )
+    .await
 }
 
 /// 组内按序挂平台，第一个优先。
@@ -7079,25 +8708,41 @@ async fn group_of(state: &Arc<ProxyState>, gk: &str, ids: &[u64]) {
             level_priority: Some(1),
         })
         .collect();
-    aidog_db::set_group_platforms(&state.db, group.id, &inputs).await.unwrap();
+    aidog_db::set_group_platforms(&state.db, group.id, &inputs)
+        .await
+        .unwrap();
 }
 
 const HI: &str = r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#;
 
 #[tokio::test]
 async fn registry_code_rate_limit_cools_platform_to_minute_boundary() {
-    let up = spawn_stub_upstream(429, r#"{"error":{"code":"1302","message":"您的账户已达到速率限制"}}"#).await;
+    let up = spawn_stub_upstream(
+        429,
+        r#"{"error":{"code":"1302","message":"您的账户已达到速率限制"}}"#,
+    )
+    .await;
     let state = make_state(test_db().await).await;
     let pid = mk_platform_of(&state, Protocol::Glm, up).await;
     group_of(&state, "gkrl1302", &[pid]).await;
     let _ = handle_proxy(AxumState(state.clone()), messages_request("gkrl1302", HI)).await;
-    assert!(state.scheduler.quota_cooled(pid, aidog_db::now() + 1), "1302 应进每分钟冷却");
-    assert!(!state.scheduler.quota_cooled(pid, aidog_db::now() + 61_000), "冷却只到下一整分边界");
+    assert!(
+        state.scheduler.quota_cooled(pid, aidog_db::now() + 1),
+        "1302 应进每分钟冷却"
+    );
+    assert!(
+        !state.scheduler.quota_cooled(pid, aidog_db::now() + 61_000),
+        "冷却只到下一整分边界"
+    );
 }
 
 #[tokio::test]
 async fn registry_code_overloaded_is_service_class_fails_over_with_rate_limit_cooldown() {
-    let bad = spawn_stub_upstream(400, r#"{"error":{"code":"1305","message":"该模型当前访问量过大"}}"#).await;
+    let bad = spawn_stub_upstream(
+        400,
+        r#"{"error":{"code":"1305","message":"该模型当前访问量过大"}}"#,
+    )
+    .await;
     let ok = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     let state = make_state(test_db().await).await;
     let first = mk_platform_of(&state, Protocol::Glm, bad).await;
@@ -7105,9 +8750,14 @@ async fn registry_code_overloaded_is_service_class_fails_over_with_rate_limit_co
     group_of(&state, "gkov1305", &[first, second]).await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request("gkov1305", HI)).await;
     assert_eq!(resp.status(), StatusCode::OK, "1305 归 Service，应换平台");
-    assert!(!state.scheduler.quota_cooled(first, aidog_db::now() + 1), "1305 不进配额冷却");
     assert!(
-        state.scheduler.rate_limit_cooled(first, aidog_db::now() + 1),
+        !state.scheduler.quota_cooled(first, aidog_db::now() + 1),
+        "1305 不进配额冷却"
+    );
+    assert!(
+        state
+            .scheduler
+            .rate_limit_cooled(first, aidog_db::now() + 1),
         "1305 进限频冷却（票 04）"
     );
     assert!(
@@ -7134,7 +8784,8 @@ async fn undeclared_code_keeps_old_behaviour() {
 
 // ── 路由画布 01：路由阶段补记快照（本地假上游，无外呼）──
 
-const RC01_BODY: &str = r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#;
+const RC01_BODY: &str =
+    r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#;
 
 /// 单平台短路（字面 / 等效）端到端：快照带 shortcut 标记。
 #[tokio::test]
@@ -7142,17 +8793,35 @@ async fn rc01_single_platform_shortcut_in_log_snapshot() {
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     let state = make_state(test_db().await).await;
     setup_group_with_upstream(&state, "gkrc1", &up).await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkrc1", RC01_BODY)).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request("gkrc1", RC01_BODY),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let sc = last_log_for(&state, "gkrc1").await.routing.unwrap().shortcut.expect("literal shortcut");
+    let sc = last_log_for(&state, "gkrc1")
+        .await
+        .routing
+        .unwrap()
+        .shortcut
+        .expect("literal shortcut");
     assert!(sc.literal);
 
     // 等效单平台：两平台，其中一个手动禁用
     setup_multi_platform_group(&state, "gkrc1b", &[("EA", &up, ""), ("EB", &up, "")]).await;
     set_platform_status(&state, "EB", aidog_db::models::PlatformStatus::Disabled).await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkrc1b", RC01_BODY)).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request("gkrc1b", RC01_BODY),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let sc = last_log_for(&state, "gkrc1b").await.routing.unwrap().shortcut.expect("equivalent shortcut");
+    let sc = last_log_for(&state, "gkrc1b")
+        .await
+        .routing
+        .unwrap()
+        .shortcut
+        .expect("equivalent shortcut");
     assert!(!sc.literal);
 }
 
@@ -7161,17 +8830,44 @@ async fn rc01_single_platform_shortcut_in_log_snapshot() {
 async fn rc01_max_retries_truncation_in_log_snapshot() {
     let up = spawn_stub_upstream(500, r#"{"error":"boom"}"#).await;
     let state = make_state(test_db().await).await;
-    setup_multi_platform_group(&state, "gkrc2", &[("T1", &up, ""), ("T2", &up, ""), ("T3", &up, ""), ("T4", &up, "")]).await;
+    setup_multi_platform_group(
+        &state,
+        "gkrc2",
+        &[
+            ("T1", &up, ""),
+            ("T2", &up, ""),
+            ("T3", &up, ""),
+            ("T4", &up, ""),
+        ],
+    )
+    .await;
     set_group_max_attempts(&state, "gkrc2", 2).await;
-    let _ = handle_proxy(AxumState(state.clone()), messages_request("gkrc2", RC01_BODY)).await;
+    let _ = handle_proxy(
+        AxumState(state.clone()),
+        messages_request("gkrc2", RC01_BODY),
+    )
+    .await;
     let r = last_log_for(&state, "gkrc2").await.routing.unwrap();
     assert_eq!(r.max_retries, Some(2));
     for name in ["T3", "T4"] {
         let e = r.entries.iter().find(|e| e.platform == name).unwrap();
-        assert_eq!(e.reason, aidog_db::models::RouteReason::RetryLimit, "{name}");
+        assert_eq!(
+            e.reason,
+            aidog_db::models::RouteReason::RetryLimit,
+            "{name}"
+        );
     }
-    assert!(r.entries.iter().filter(|e| e.platform != "T3" && e.platform != "T4").all(|e| e.reason == aidog_db::models::RouteReason::Selected));
-    assert_eq!(last_log_for(&state, "gkrc2").await.attempts.len(), 2, "总次数 2 → 只调用 2 个平台");
+    assert!(
+        r.entries
+            .iter()
+            .filter(|e| e.platform != "T3" && e.platform != "T4")
+            .all(|e| e.reason == aidog_db::models::RouteReason::Selected)
+    );
+    assert_eq!(
+        last_log_for(&state, "gkrc2").await.attempts.len(),
+        2,
+        "总次数 2 → 只调用 2 个平台"
+    );
 }
 
 /// 路由失败（全部候选手动禁用）：快照带 eval_ms。
@@ -7182,9 +8878,16 @@ async fn rc01_route_failure_snapshot_has_eval_ms() {
     setup_multi_platform_group(&state, "gkrc3", &[("FA", &up, ""), ("FB", &up, "")]).await;
     set_platform_status(&state, "FA", aidog_db::models::PlatformStatus::Disabled).await;
     set_platform_status(&state, "FB", aidog_db::models::PlatformStatus::Disabled).await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkrc3", RC01_BODY)).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request("gkrc3", RC01_BODY),
+    )
+    .await;
     assert_ne!(resp.status(), StatusCode::OK);
-    let r = last_log_for(&state, "gkrc3").await.routing.expect("route-fail snapshot");
+    let r = last_log_for(&state, "gkrc3")
+        .await
+        .routing
+        .expect("route-fail snapshot");
     assert!(r.eval_ms.is_some(), "eval_ms missing on failure path");
     assert_eq!(r.entries.len(), 2);
 }
@@ -7202,11 +8905,18 @@ async fn rc01_passthrough_claim_writes_snapshot() {
             .uri(path)
             .header("authorization", "Bearer gkrc4")
             .header("content-type", "application/json")
-            .body(Body::from(if path.ends_with("tokens") { r#"{"model":"m","messages":[]}"# } else { "not json" }))
+            .body(Body::from(if path.ends_with("tokens") {
+                r#"{"model":"m","messages":[]}"#
+            } else {
+                "not json"
+            }))
             .unwrap();
         let resp = handle_proxy(AxumState(state.clone()), req).await;
         assert!(resp.status().is_success(), "{path}: {}", resp.status());
-        let r = last_log_for(&state, "gkrc4").await.routing.unwrap_or_else(|| panic!("{path}: no snapshot"));
+        let r = last_log_for(&state, "gkrc4")
+            .await
+            .routing
+            .unwrap_or_else(|| panic!("{path}: no snapshot"));
         assert_eq!(r.entries.len(), 1, "{path}");
         assert_eq!(r.entries[0].reason, aidog_db::models::RouteReason::Selected);
         assert!(r.eval_ms.is_some());
@@ -7223,7 +8933,15 @@ async fn rc02_transport_retry_kind_and_exhausted_class() {
     let up = spawn_flaky_upstream(1).await;
     let state = make_state(test_db().await).await;
     setup_group_with_upstream(&state, "gkrc02a", &up).await;
-    assert_eq!(handle_proxy(AxumState(state.clone()), messages_request("gkrc02a", RC01_BODY)).await.status(), StatusCode::OK);
+    assert_eq!(
+        handle_proxy(
+            AxumState(state.clone()),
+            messages_request("gkrc02a", RC01_BODY)
+        )
+        .await
+        .status(),
+        StatusCode::OK
+    );
     let log = last_log_for(&state, "gkrc02a").await;
     assert_eq!(log.attempts.len(), 2);
     assert_eq!(log.attempts[0].kind.as_deref(), Some("retry"));
@@ -7231,8 +8949,20 @@ async fn rc02_transport_retry_kind_and_exhausted_class() {
 
     let dead = spawn_flaky_upstream(usize::MAX).await;
     setup_group_with_upstream(&state, "gkrc02b", &dead).await;
-    assert_eq!(handle_proxy(AxumState(state.clone()), messages_request("gkrc02b", RC01_BODY)).await.status(), StatusCode::BAD_GATEWAY);
-    let last = last_log_for(&state, "gkrc02b").await.attempts.pop().unwrap();
+    assert_eq!(
+        handle_proxy(
+            AxumState(state.clone()),
+            messages_request("gkrc02b", RC01_BODY)
+        )
+        .await
+        .status(),
+        StatusCode::BAD_GATEWAY
+    );
+    let last = last_log_for(&state, "gkrc02b")
+        .await
+        .attempts
+        .pop()
+        .unwrap();
     assert_eq!(last.kind, None);
     assert_eq!(last.error_class.as_deref(), Some("service"));
     assert_eq!(last.effects, ["penalty_server"]);
@@ -7244,23 +8974,38 @@ async fn rc02_beta_downgrade_kind() {
     use axum::routing::any;
     let app = axum::Router::new().fallback(any(|req: HttpRequest<Body>| async move {
         if req.headers().contains_key("anthropic-beta") {
-            (axum::http::StatusCode::BAD_REQUEST, [("content-type", "application/json")], r#"{"error":{"message":"bad"}}"#)
+            (
+                axum::http::StatusCode::BAD_REQUEST,
+                [("content-type", "application/json")],
+                r#"{"error":{"message":"bad"}}"#,
+            )
         } else {
-            (axum::http::StatusCode::OK, [("content-type", "application/json")], ANTHROPIC_OK)
+            (
+                axum::http::StatusCode::OK,
+                [("content-type", "application/json")],
+                ANTHROPIC_OK,
+            )
         }
     }));
     let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let up = format!("http://{}", l.local_addr().unwrap());
-    tokio::spawn(async move { axum::serve(l, app).await.ok(); });
+    tokio::spawn(async move {
+        axum::serve(l, app).await.ok();
+    });
     let state = make_state(test_db().await).await;
     setup_group_with_upstream(&state, "gkrc02c", &up).await;
     let req = HttpRequest::builder()
-        .method("POST").uri("/v1/messages")
+        .method("POST")
+        .uri("/v1/messages")
         .header("authorization", "Bearer gkrc02c")
         .header("content-type", "application/json")
         .header("anthropic-beta", "x-new-beta")
-        .body(Body::from(RC01_BODY)).unwrap();
-    assert_eq!(handle_proxy(AxumState(state.clone()), req).await.status(), StatusCode::OK);
+        .body(Body::from(RC01_BODY))
+        .unwrap();
+    assert_eq!(
+        handle_proxy(AxumState(state.clone()), req).await.status(),
+        StatusCode::OK
+    );
     let log = last_log_for(&state, "gkrc02c").await;
     assert_eq!(log.attempts.len(), 2);
     assert_eq!(log.attempts[0].kind.as_deref(), Some("beta_downgrade"));
@@ -7274,18 +9019,35 @@ async fn rc02_empty_200_kind_class_and_chain_stop() {
     let empty = spawn_stub_upstream(200, "").await;
     let ok = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     let state = make_state(test_db().await).await;
-    setup_aux_group(&state, "gkrc02d", &[
-        (&empty, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p1"),
-        (&ok, chain_models(&["m-c"]), Protocol::Anthropic, "p2"),
-    ]).await;
-    assert_eq!(chain_send(&state, "gkrc02d", CHAIN_REQ).await.status(), StatusCode::OK);
+    setup_aux_group(
+        &state,
+        "gkrc02d",
+        &[
+            (
+                &empty,
+                chain_models(&["m-a", "m-b"]),
+                Protocol::Anthropic,
+                "p1",
+            ),
+            (&ok, chain_models(&["m-c"]), Protocol::Anthropic, "p2"),
+        ],
+    )
+    .await;
+    assert_eq!(
+        chain_send(&state, "gkrc02d", CHAIN_REQ).await.status(),
+        StatusCode::OK
+    );
     let log = last_log_for(&state, "gkrc02d").await;
     assert_eq!(log.attempts.len(), 2, "m-b 未尝试，不出现");
     let a = &log.attempts[0];
     assert_eq!((a.kind.as_deref(), a.status_code), (Some("empty_200"), 200));
     assert_eq!(a.error_class.as_deref(), Some("service"));
     assert_eq!(a.effects, ["penalty_server"]);
-    assert_eq!(a.chain_stop.as_deref(), Some("service"), "空 200 换平台，m-b 未试");
+    assert_eq!(
+        a.chain_stop.as_deref(),
+        Some("service"),
+        "空 200 换平台，m-b 未试"
+    );
     assert_eq!(log.attempts[1].kind, None);
 }
 
@@ -7294,11 +9056,46 @@ async fn rc02_empty_200_kind_class_and_chain_stop() {
 async fn rc02_error_class_code_meaning_and_effects() {
     #[allow(clippy::type_complexity)] // 测试表行，拆 type 反而难读
     let cases: [(Protocol, u16, &'static str, &str, Option<&str>, &[&str]); 5] = [
-        (Protocol::Glm, 429, r#"{"error":{"code":"1302","message":"x"}}"#, "service", Some("rate_limit"), &["cooldown_minute"]),
-        (Protocol::Glm, 400, r#"{"error":{"code":"1305","message":"x"}}"#, "service", Some("overloaded"), &["penalty_client", "cooldown_rate_limit"]),
-        (Protocol::Anthropic, 401, r#"{"error":{"message":"invalid api key"}}"#, "service", None, &["penalty_client", "cooldown_auth"]),
-        (Protocol::Anthropic, 402, r#"{"error":{"message":"insufficient balance"}}"#, "service", None, &["penalty_client", "cooldown_balance"]),
-        (Protocol::Anthropic, 500, r#"{"error":{"message":"service unavailable"}}"#, "service", None, &["penalty_server"]),
+        (
+            Protocol::Glm,
+            429,
+            r#"{"error":{"code":"1302","message":"x"}}"#,
+            "service",
+            Some("rate_limit"),
+            &["cooldown_minute"],
+        ),
+        (
+            Protocol::Glm,
+            400,
+            r#"{"error":{"code":"1305","message":"x"}}"#,
+            "service",
+            Some("overloaded"),
+            &["penalty_client", "cooldown_rate_limit"],
+        ),
+        (
+            Protocol::Anthropic,
+            401,
+            r#"{"error":{"message":"invalid api key"}}"#,
+            "service",
+            None,
+            &["penalty_client", "cooldown_auth"],
+        ),
+        (
+            Protocol::Anthropic,
+            402,
+            r#"{"error":{"message":"insufficient balance"}}"#,
+            "service",
+            None,
+            &["penalty_client", "cooldown_balance"],
+        ),
+        (
+            Protocol::Anthropic,
+            500,
+            r#"{"error":{"message":"service unavailable"}}"#,
+            "service",
+            None,
+            &["penalty_server"],
+        ),
     ];
     for (i, (proto, status, body, class, meaning, effects)) in cases.into_iter().enumerate() {
         let up = spawn_stub_upstream(status, body).await;
@@ -7319,15 +9116,31 @@ async fn rc02_error_class_code_meaning_and_effects() {
 #[tokio::test]
 async fn rc02_model_class_no_effects_and_error_rule_recorded() {
     use aidog_db::models::{
-        ActionKind, ActionParams, ActionStep, AppliesTo, ConditionLeaf, ConditionNode, MatchType, MiddlewareRule, Target,
+        ActionKind, ActionParams, ActionStep, AppliesTo, ConditionLeaf, ConditionNode, MatchType,
+        MiddlewareRule, Target,
     };
     let (up, _hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, ANTHROPIC_OK)]).await;
     let state = make_state(test_db().await).await;
-    setup_aux_group(&state, "gkrc02f", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
-    assert_eq!(chain_send(&state, "gkrc02f", CHAIN_REQ).await.status(), StatusCode::OK);
+    setup_aux_group(
+        &state,
+        "gkrc02f",
+        &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")],
+    )
+    .await;
+    assert_eq!(
+        chain_send(&state, "gkrc02f", CHAIN_REQ).await.status(),
+        StatusCode::OK
+    );
     let a = last_log_for(&state, "gkrc02f").await.attempts.remove(0);
-    assert_eq!((a.error_class.as_deref(), a.error_rule.as_deref()), (Some("model"), None));
-    assert!(a.effects.is_empty(), "换模型未记账，无副作用: {:?}", a.effects);
+    assert_eq!(
+        (a.error_class.as_deref(), a.error_rule.as_deref()),
+        (Some("model"), None)
+    );
+    assert!(
+        a.effects.is_empty(),
+        "换模型未记账，无副作用: {:?}",
+        a.effects
+    );
 
     let (up, _hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, ANTHROPIC_OK)]).await;
     state.middleware.rebuild_from_rules(vec![MiddlewareRule {
@@ -7343,7 +9156,11 @@ async fn rc02_model_class_no_effects_and_error_rule_recorded() {
         }),
         actions: vec![ActionStep {
             kind: ActionKind::Classify,
-            params: ActionParams { category: "x".into(), retryable: false, ..Default::default() },
+            params: ActionParams {
+                category: "x".into(),
+                retryable: false,
+                ..Default::default()
+            },
         }],
         applies_to: AppliesTo::default(),
         priority: 0,
@@ -7354,10 +9171,24 @@ async fn rc02_model_class_no_effects_and_error_rule_recorded() {
         created_at: 0,
         updated_at: 0,
     }]);
-    setup_aux_group(&state, "gkrc02g", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
-    assert_eq!(chain_send(&state, "gkrc02g", CHAIN_REQ).await.status(), StatusCode::NOT_FOUND);
+    setup_aux_group(
+        &state,
+        "gkrc02g",
+        &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")],
+    )
+    .await;
+    assert_eq!(
+        chain_send(&state, "gkrc02g", CHAIN_REQ).await.status(),
+        StatusCode::NOT_FOUND
+    );
     let a = last_log_for(&state, "gkrc02g").await.attempts.remove(0);
-    assert!(a.error_rule.as_deref().is_some_and(|r| r.contains("no-retry-404")), "{:?}", a.error_rule);
+    assert!(
+        a.error_rule
+            .as_deref()
+            .is_some_and(|r| r.contains("no-retry-404")),
+        "{:?}",
+        a.error_rule
+    );
     assert_eq!(a.chain_stop.as_deref(), Some("rule"));
 }
 
@@ -7366,12 +9197,32 @@ async fn rc02_model_class_no_effects_and_error_rule_recorded() {
 async fn rc02_model_rate_limit_skip_recorded() {
     let (up, hits) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK), (200, ANTHROPIC_OK)]).await;
     let state = make_state(test_db().await).await;
-    setup_aux_group(&state, "gkrc02h", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
-    set_platform_extra(&state, "gkrc02h-p", r#"{"rate_limits":{"rules":[{"models":["m-a"],"rpm":1}]}}"#).await;
-    assert_eq!(chain_send(&state, "gkrc02h", CHAIN_REQ).await.status(), StatusCode::OK);
+    setup_aux_group(
+        &state,
+        "gkrc02h",
+        &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")],
+    )
+    .await;
+    set_platform_extra(
+        &state,
+        "gkrc02h-p",
+        r#"{"rate_limits":{"rules":[{"models":["m-a"],"rpm":1}]}}"#,
+    )
+    .await;
+    assert_eq!(
+        chain_send(&state, "gkrc02h", CHAIN_REQ).await.status(),
+        StatusCode::OK
+    );
     state.db.invalidate_group_details_cache();
-    assert_eq!(chain_send(&state, "gkrc02h", CHAIN_REQ).await.status(), StatusCode::OK);
-    assert_eq!(hit_models(&hits), ["m-a", "m-b"], "第二次 m-a 被限频跳过，直接用 m-b");
+    assert_eq!(
+        chain_send(&state, "gkrc02h", CHAIN_REQ).await.status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        hit_models(&hits),
+        ["m-a", "m-b"],
+        "第二次 m-a 被限频跳过，直接用 m-b"
+    );
     let log = last_log_for(&state, "gkrc02h").await;
     assert_eq!(log.attempts.len(), 2);
     assert_eq!(log.attempts[0].kind.as_deref(), Some("rate_limit_model"));
@@ -7388,36 +9239,62 @@ async fn rc02_platform_rate_limit_skip_recorded() {
     let up_a = format!("http://{}", l.local_addr().unwrap());
     let up_b = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     let state = make_state(test_db().await).await;
-    setup_aux_group(&state, "gkrc02i", &[
-        (&up_a, chain_models(&["m-a"]), Protocol::Anthropic, "pa"),
-        (&up_b, chain_models(&["m-b1", "m-b2"]), Protocol::Anthropic, "pb"),
-    ]).await;
+    setup_aux_group(
+        &state,
+        "gkrc02i",
+        &[
+            (&up_a, chain_models(&["m-a"]), Protocol::Anthropic, "pa"),
+            (
+                &up_b,
+                chain_models(&["m-b1", "m-b2"]),
+                Protocol::Anthropic,
+                "pb",
+            ),
+        ],
+    )
+    .await;
     set_group_max_attempts(&state, "gkrc02i", 2).await;
     let b_extra = r#"{"rate_limits":{"concurrency":1}}"#;
     set_platform_extra(&state, "gkrc02i-pb", b_extra).await;
     let b_id = platform_id_of(&state, "gkrc02i-pb").await;
-    let held: Arc<std::sync::Mutex<Vec<Arc<crate::gateway::rate_limit::Access>>>> = Default::default();
+    let held: Arc<std::sync::Mutex<Vec<Arc<crate::gateway::rate_limit::Access>>>> =
+        Default::default();
     let (st, held2) = (state.clone(), held.clone());
     let app = axum::Router::new().fallback(any(move || {
         let (st, held) = (st.clone(), held2.clone());
         async move {
             let now = aidog_db::now();
-            let lim = crate::gateway::rate_limit::RateLimitsCfg::parse(b_extra).platform_limits(now);
+            let lim =
+                crate::gateway::rate_limit::RateLimitsCfg::parse(b_extra).platform_limits(now);
             if let Some(a) = st.scheduler.rate.begin(b_id, &lim, now, 0) {
                 held.lock().unwrap().push(a);
             }
-            (axum::http::StatusCode::INTERNAL_SERVER_ERROR, [("content-type", "application/json")], r#"{"error":{"message":"boom"}}"#)
+            (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                [("content-type", "application/json")],
+                r#"{"error":{"message":"boom"}}"#,
+            )
         }
     }));
-    tokio::spawn(async move { axum::serve(l, app).await.ok(); });
+    tokio::spawn(async move {
+        axum::serve(l, app).await.ok();
+    });
     let resp = chain_send(&state, "gkrc02i", CHAIN_REQ).await;
-    assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR, "尝试轮：A 排除后无可选 → 开第 2 轮再打 A，次数用尽回最后一次的上游错误");
+    assert_eq!(
+        resp.status(),
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "尝试轮：A 排除后无可选 → 开第 2 轮再打 A，次数用尽回最后一次的上游错误"
+    );
     assert_eq!(held.lock().unwrap().len(), 1, "B 并发位应已被占");
     let log = last_log_for(&state, "gkrc02i").await;
     // 逐次重算：每次重排 B 都已被并发占满，直接被路由层挡掉（不再进到 begin 失败）；
     // 只留 A 的两条尝试（两轮各一次）。
     assert_eq!(log.attempts.len(), 2);
-    assert!(log.attempts.iter().all(|a| a.status_code == 500 && a.platform_id != b_id));
+    assert!(
+        log.attempts
+            .iter()
+            .all(|a| a.status_code == 500 && a.platform_id != b_id)
+    );
     assert_eq!(log.attempts[0].exclusion, Some(ExcludeScope::Platform));
     assert_eq!(log.routing.unwrap().round_starts, Some(Box::new(vec![1])));
 }
@@ -7436,15 +9313,26 @@ async fn ra02_attempt_records_exclusion_scope() {
         &state,
         "gkra02a",
         &[
-            (&up1, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p1"),
+            (
+                &up1,
+                chain_models(&["m-a", "m-b"]),
+                Protocol::Anthropic,
+                "p1",
+            ),
             (&up2, chain_models(&["m-c"]), Protocol::Anthropic, "p2"),
         ],
     )
     .await;
-    assert_eq!(chain_send(&state, "gkra02a", CHAIN_REQ).await.status(), StatusCode::OK);
+    assert_eq!(
+        chain_send(&state, "gkra02a", CHAIN_REQ).await.status(),
+        StatusCode::OK
+    );
     let log = last_log_for(&state, "gkra02a").await;
     let scopes: Vec<_> = log.attempts.iter().map(|a| a.exclusion).collect();
-    assert_eq!(scopes, [Some(ExcludeScope::Pair), Some(ExcludeScope::Platform), None]);
+    assert_eq!(
+        scopes,
+        [Some(ExcludeScope::Pair), Some(ExcludeScope::Platform), None]
+    );
 }
 
 /// 失败组合本次请求内不重复；每个组合恰好试一次。
@@ -7457,8 +9345,18 @@ async fn ra02_failed_pair_never_repeated() {
         &state,
         "gkra02b",
         &[
-            (&up1, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p1"),
-            (&up2, chain_models(&["m-c", "m-d"]), Protocol::Anthropic, "p2"),
+            (
+                &up1,
+                chain_models(&["m-a", "m-b"]),
+                Protocol::Anthropic,
+                "p1",
+            ),
+            (
+                &up2,
+                chain_models(&["m-c", "m-d"]),
+                Protocol::Anthropic,
+                "p2",
+            ),
         ],
     )
     .await;
@@ -7481,8 +9379,18 @@ async fn ra02_service_failures_account_once_each() {
         &state,
         "gkra02c",
         &[
-            (&up1, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p1"),
-            (&up2, chain_models(&["m-c", "m-d"]), Protocol::Anthropic, "p2"),
+            (
+                &up1,
+                chain_models(&["m-a", "m-b"]),
+                Protocol::Anthropic,
+                "p1",
+            ),
+            (
+                &up2,
+                chain_models(&["m-c", "m-d"]),
+                Protocol::Anthropic,
+                "p2",
+            ),
         ],
     )
     .await;
@@ -7497,7 +9405,10 @@ async fn ra02_service_failures_account_once_each() {
     let log = last_log_for(&state, "gkra02c").await;
     assert_eq!(log.attempts.len(), 2);
     assert_eq!(log.attempts[0].exclusion, Some(ExcludeScope::Platform));
-    assert_eq!(log.attempts[1].exclusion, None, "末次直接回客户端，没有后续可排除");
+    assert_eq!(
+        log.attempts[1].exclusion, None,
+        "末次直接回客户端，没有后续可排除"
+    );
 }
 
 /// 模型类失败不碰平台健康（真三库读回）：breaker 计数、last_error、降权都不变；
@@ -7507,8 +9418,16 @@ async fn ra02_model_failure_leaves_platform_health_untouched() {
     let (db, _dir) = aidog_db::test_support::three_file_db().await;
     let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, ANTHROPIC_OK)]).await;
     let state = make_state(db).await;
-    setup_aux_group(&state, "gkra02d", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
-    assert_eq!(chain_send(&state, "gkra02d", CHAIN_REQ).await.status(), StatusCode::OK);
+    setup_aux_group(
+        &state,
+        "gkra02d",
+        &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")],
+    )
+    .await;
+    assert_eq!(
+        chain_send(&state, "gkra02d", CHAIN_REQ).await.status(),
+        StatusCode::OK
+    );
     assert_eq!(hit_models(&hits), ["m-a", "m-b"]);
     let p = aidog_db::list_platforms(&state.db).await.unwrap().remove(0);
     assert!(p.last_error.is_empty(), "{:?}", p.last_error);
@@ -7541,7 +9460,11 @@ async fn ra02_state_change_between_attempts_reranks() {
     let app = axum::Router::new().fallback(any(move || {
         let st = st.clone();
         async move {
-            let th = crate::gateway::scheduling::BreakerThresholds { failure_threshold: 1, half_open_max: 1, health_aware: false };
+            let th = crate::gateway::scheduling::BreakerThresholds {
+                failure_threshold: 1,
+                half_open_max: 1,
+                health_aware: false,
+            };
             // 分组为故障转移、全局阈值默认 5：连记 5 次才踢出（踢出按请求侧阈值现算）。
             for _ in 0..5 {
                 // 故障转移分组、全局阈值默认 5：连记 5 次才踢出。
@@ -7549,11 +9472,20 @@ async fn ra02_state_change_between_attempts_reranks() {
                     st.scheduler.record_failure(p2, &th, aidog_db::now());
                 }
             }
-            (axum::http::StatusCode::INTERNAL_SERVER_ERROR, [("content-type", "application/json")], E500_PLAIN)
+            (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                [("content-type", "application/json")],
+                E500_PLAIN,
+            )
         }
     }));
-    tokio::spawn(async move { axum::serve(l, app).await.ok(); });
-    assert_eq!(chain_send(&state, "gkra02e", CHAIN_REQ).await.status(), StatusCode::OK);
+    tokio::spawn(async move {
+        axum::serve(l, app).await.ok();
+    });
+    assert_eq!(
+        chain_send(&state, "gkra02e", CHAIN_REQ).await.status(),
+        StatusCode::OK
+    );
     assert!(h2.lock().unwrap().is_empty(), "P2 熔断后不应再被选");
     assert_eq!(hit_models(&h3), ["m-c"]);
 }
@@ -7561,7 +9493,8 @@ async fn ra02_state_change_between_attempts_reranks() {
 /// 不可重试错误（400 硬错、非模型类）立即回客户端，不换平台也不换模型。
 #[tokio::test]
 async fn ra02_hard_400_returns_immediately() {
-    let (up1, h1) = spawn_embedding_upstream(vec![(400, r#"{"error":{"message":"bad field"}}"#); 3]).await;
+    let (up1, h1) =
+        spawn_embedding_upstream(vec![(400, r#"{"error":{"message":"bad field"}}"#); 3]).await;
     let (up2, h2) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
     let state = make_state(test_db().await).await;
     setup_aux_group(
@@ -7573,7 +9506,10 @@ async fn ra02_hard_400_returns_immediately() {
         ],
     )
     .await;
-    assert_eq!(chain_send(&state, "gkra02f", CHAIN_REQ).await.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        chain_send(&state, "gkra02f", CHAIN_REQ).await.status(),
+        StatusCode::BAD_REQUEST
+    );
     assert_eq!(hit_models(&h1), ["m-a"]);
     assert!(h2.lock().unwrap().is_empty());
 }
@@ -7597,27 +9533,46 @@ async fn ra03_aux_state_change_between_attempts_reranks() {
         let (up3, h3) = spawn_embedding_upstream(vec![(200, kind.ok_body())]).await;
         let state = make_state(test_db().await).await;
         let gk = format!("gkra03a{}", kind as u8);
-        setup_aux_chain(&state, &gk, kind, &[(&up1, &["m-a"]), (&up2, &["m-b"]), (&up3, &["m-c"])]).await;
+        setup_aux_chain(
+            &state,
+            &gk,
+            kind,
+            &[(&up1, &["m-a"]), (&up2, &["m-b"]), (&up3, &["m-c"])],
+        )
+        .await;
         let p2 = platform_id_of(&state, &format!("{gk}-pb")).await;
         let st = state.clone();
         let app = axum::Router::new().fallback(any(move || {
             let st = st.clone();
             async move {
-                let th = crate::gateway::scheduling::BreakerThresholds { failure_threshold: 1, half_open_max: 1, health_aware: false };
+                let th = crate::gateway::scheduling::BreakerThresholds {
+                    failure_threshold: 1,
+                    half_open_max: 1,
+                    health_aware: false,
+                };
                 // 分组为故障转移、全局阈值默认 5：连记 5 次才踢出（踢出按请求侧阈值现算）。
-            for _ in 0..5 {
-                // 故障转移分组、全局阈值默认 5：连记 5 次才踢出。
                 for _ in 0..5 {
-                    st.scheduler.record_failure(p2, &th, aidog_db::now());
+                    // 故障转移分组、全局阈值默认 5：连记 5 次才踢出。
+                    for _ in 0..5 {
+                        st.scheduler.record_failure(p2, &th, aidog_db::now());
+                    }
                 }
-            }
-                (axum::http::StatusCode::INTERNAL_SERVER_ERROR, [("content-type", "application/json")], E500_PLAIN)
+                (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    [("content-type", "application/json")],
+                    E500_PLAIN,
+                )
             }
         }));
-        tokio::spawn(async move { axum::serve(l, app).await.ok(); });
+        tokio::spawn(async move {
+            axum::serve(l, app).await.ok();
+        });
         let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
         assert_eq!(resp.status(), StatusCode::OK, "{kind:?}");
-        assert!(h2.lock().unwrap().is_empty(), "{kind:?}: P2 熔断后不应再被选");
+        assert!(
+            h2.lock().unwrap().is_empty(),
+            "{kind:?}: P2 熔断后不应再被选"
+        );
         assert_eq!(hit_models(&h3), ["m-c"], "{kind:?}");
     }
 }
@@ -7630,12 +9585,33 @@ async fn ra03_aux_connect_failure_excludes_platform_and_dead_siblings() {
         let (up3, h3) = spawn_embedding_upstream(vec![(200, kind.ok_body())]).await;
         let state = make_state(test_db().await).await;
         let gk = format!("gkra03b{}", kind as u8);
-        setup_aux_chain(&state, &gk, kind, &[(&dead, &["m-a", "m-x"]), (&dead, &["m-b"]), (&up3, &["m-c"])]).await;
+        setup_aux_chain(
+            &state,
+            &gk,
+            kind,
+            &[
+                (&dead, &["m-a", "m-x"]),
+                (&dead, &["m-b"]),
+                (&up3, &["m-c"]),
+            ],
+        )
+        .await;
         let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
         assert_eq!(resp.status(), StatusCode::OK, "{kind:?}");
         let log = last_log_for(&state, &gk).await;
-        let scopes: Vec<_> = log.attempts.iter().map(|a| (a.model.as_deref(), a.exclusion)).collect();
-        assert_eq!(scopes, [(Some("m-a"), Some(ExcludeScope::Platform)), (Some("m-c"), None)], "{kind:?}");
+        let scopes: Vec<_> = log
+            .attempts
+            .iter()
+            .map(|a| (a.model.as_deref(), a.exclusion))
+            .collect();
+        assert_eq!(
+            scopes,
+            [
+                (Some("m-a"), Some(ExcludeScope::Platform)),
+                (Some("m-c"), None)
+            ],
+            "{kind:?}"
+        );
         assert_eq!(hit_models(&h3), ["m-c"], "{kind:?}");
     }
 }
@@ -7646,23 +9622,53 @@ async fn ra03_aux_service_excludes_platform_model_switches_same_platform() {
     for kind in AUX_KINDS {
         let (db, _dir) = aidog_db::test_support::three_file_db().await;
         let (up1, h1) = spawn_embedding_upstream(vec![(500, E500_PLAIN); 3]).await;
-        let (up2, h2) = spawn_embedding_upstream(vec![(404, E404_MODEL), (200, kind.ok_body())]).await;
+        let (up2, h2) =
+            spawn_embedding_upstream(vec![(404, E404_MODEL), (200, kind.ok_body())]).await;
         let state = make_state(db).await;
         let gk = format!("gkra03c{}", kind as u8);
-        setup_aux_chain(&state, &gk, kind, &[(&up1, &["m-a", "m-b"]), (&up2, &["m-c", "m-d"])]).await;
+        setup_aux_chain(
+            &state,
+            &gk,
+            kind,
+            &[(&up1, &["m-a", "m-b"]), (&up2, &["m-c", "m-d"])],
+        )
+        .await;
         let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
         assert_eq!(resp.status(), StatusCode::OK, "{kind:?}");
-        assert_eq!(hit_models(&h1), ["m-a"], "{kind:?}: 服务类失败后该平台其他模型不再选");
+        assert_eq!(
+            hit_models(&h1),
+            ["m-a"],
+            "{kind:?}: 服务类失败后该平台其他模型不再选"
+        );
         assert_eq!(hit_models(&h2), ["m-c", "m-d"], "{kind:?}");
         let log = last_log_for(&state, &gk).await;
         let scopes: Vec<_> = log.attempts.iter().map(|a| a.exclusion).collect();
-        assert_eq!(scopes, [Some(ExcludeScope::Platform), Some(ExcludeScope::Pair), None], "{kind:?}");
-        let (p1, p2) = (platform_id_of(&state, &format!("{gk}-pa")).await, platform_id_of(&state, &format!("{gk}-pb")).await);
-        assert_eq!(state.scheduler.penalty_consecutive(p1), 1, "{kind:?}: 服务类记一次");
-        assert_eq!(state.scheduler.penalty_consecutive(p2), 0, "{kind:?}: 模型类不降权");
+        assert_eq!(
+            scopes,
+            [Some(ExcludeScope::Platform), Some(ExcludeScope::Pair), None],
+            "{kind:?}"
+        );
+        let (p1, p2) = (
+            platform_id_of(&state, &format!("{gk}-pa")).await,
+            platform_id_of(&state, &format!("{gk}-pb")).await,
+        );
+        assert_eq!(
+            state.scheduler.penalty_consecutive(p1),
+            1,
+            "{kind:?}: 服务类记一次"
+        );
+        assert_eq!(
+            state.scheduler.penalty_consecutive(p2),
+            0,
+            "{kind:?}: 模型类不降权"
+        );
         let plats = aidog_db::list_platforms(&state.db).await.unwrap();
         let pb = plats.iter().find(|p| p.id == p2).unwrap();
-        assert!(pb.last_error.is_empty(), "{kind:?}: 模型类不写 last_error: {:?}", pb.last_error);
+        assert!(
+            pb.last_error.is_empty(),
+            "{kind:?}: 模型类不写 last_error: {:?}",
+            pb.last_error
+        );
         assert_eq!(state.scheduler.breaker_fails(p2), 0, "{kind:?}");
     }
 }
@@ -7675,13 +9681,26 @@ async fn ra03_aux_budget_cap_counts_model_switches() {
         let (up2, h2) = spawn_embedding_upstream(vec![(200, kind.ok_body())]).await;
         let state = make_state(test_db().await).await;
         let gk = format!("gkra03d{}", kind as u8);
-        setup_aux_chain(&state, &gk, kind, &[(&up1, &["m-a", "m-b", "m-c", "m-d"]), (&up2, &["m-e"])]).await;
+        setup_aux_chain(
+            &state,
+            &gk,
+            kind,
+            &[(&up1, &["m-a", "m-b", "m-c", "m-d"]), (&up2, &["m-e"])],
+        )
+        .await;
         set_group_max_attempts(&state, &gk, 3).await;
         let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
         assert_ne!(resp.status(), StatusCode::OK, "{kind:?}");
         assert_eq!(hit_models(&h1), ["m-a", "m-b", "m-c"], "{kind:?}");
-        assert!(h2.lock().unwrap().is_empty(), "{kind:?}: 上限用尽，次平台不被调用");
-        assert_eq!(last_log_for(&state, &gk).await.attempts.len(), 3, "{kind:?}");
+        assert!(
+            h2.lock().unwrap().is_empty(),
+            "{kind:?}: 上限用尽，次平台不被调用"
+        );
+        assert_eq!(
+            last_log_for(&state, &gk).await.attempts.len(),
+            3,
+            "{kind:?}"
+        );
     }
 }
 
@@ -7732,9 +9751,16 @@ async fn mgmt_rpc_default_on_returns_command_json() {
     install_mgmt_test_router();
     let state = make_state(test_db().await).await;
     let base = spawn_proxy_router(state.clone()).await;
-    let r = mgmt_client().post(format!("{base}/api/rpc/ping")).send().await.unwrap();
+    let r = mgmt_client()
+        .post(format!("{base}/api/rpc/ping"))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(r.status(), 200);
-    assert_eq!(r.json::<serde_json::Value>().await.unwrap(), serde_json::json!({"pong": true}));
+    assert_eq!(
+        r.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({"pong": true})
+    );
 }
 
 /// 开关关：明确的「未启用」404 + JSON，且不进转发（不落 proxy_log）。
@@ -7745,16 +9771,30 @@ async fn mgmt_rpc_disabled_returns_not_enabled_and_does_not_forward() {
     set_mgmt(&state, false, "").await;
     let base = spawn_proxy_router(state.clone()).await;
     for path in ["/api/rpc/ping", "/api/events", "/ui", "/ui/", "/ui/x.js"] {
-        let r = mgmt_client().request(
-            if path == "/api/rpc/ping" { reqwest::Method::POST } else { reqwest::Method::GET },
-            format!("{base}{path}"),
-        ).send().await.unwrap();
+        let r = mgmt_client()
+            .request(
+                if path == "/api/rpc/ping" {
+                    reqwest::Method::POST
+                } else {
+                    reqwest::Method::GET
+                },
+                format!("{base}{path}"),
+            )
+            .send()
+            .await
+            .unwrap();
         assert_eq!(r.status(), 404, "{path}");
         let v: serde_json::Value = r.json().await.unwrap();
         assert_eq!(v["error"], "management_api_disabled", "{path}");
     }
     flush_log_queue(&state).await;
-    assert!(aidog_logs::list_proxy_logs(&state.db, 50, 0).await.unwrap().is_empty(), "未启用不得落入转发");
+    assert!(
+        aidog_logs::list_proxy_logs(&state.db, 50, 0)
+            .await
+            .unwrap()
+            .is_empty(),
+        "未启用不得落入转发"
+    );
 }
 
 /// 凭据非空：缺 / 错 Bearer → 401，对的 → 200。
@@ -7767,8 +9807,24 @@ async fn mgmt_rpc_optional_token_is_enforced() {
     let url = format!("{base}/api/rpc/ping");
     let c = mgmt_client();
     assert_eq!(c.post(&url).send().await.unwrap().status(), 401);
-    assert_eq!(c.post(&url).bearer_auth("nope").send().await.unwrap().status(), 401);
-    assert_eq!(c.post(&url).bearer_auth("s3cret").send().await.unwrap().status(), 200);
+    assert_eq!(
+        c.post(&url)
+            .bearer_auth("nope")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        401
+    );
+    assert_eq!(
+        c.post(&url)
+            .bearer_auth("s3cret")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        200
+    );
 }
 
 /// 非回环来源一律 403（bind_lan=true 监听 0.0.0.0 时同样只放行本机）。
@@ -7854,15 +9910,38 @@ async fn mgmt_rpc_unknown_command_is_404_and_other_paths_still_route() {
     let state = make_state(test_db().await).await;
     let base = spawn_proxy_router(state.clone()).await;
     let c = mgmt_client();
-    assert_eq!(c.post(format!("{base}/api/rpc/nope")).send().await.unwrap().status(), 404);
+    assert_eq!(
+        c.post(format!("{base}/api/rpc/nope"))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        404
+    );
     flush_log_queue(&state).await;
-    assert!(aidog_logs::list_proxy_logs(&state.db, 50, 0).await.unwrap().is_empty());
-    let root: serde_json::Value = c.get(format!("{base}/")).send().await.unwrap().json().await.unwrap();
+    assert!(
+        aidog_logs::list_proxy_logs(&state.db, 50, 0)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let root: serde_json::Value = c
+        .get(format!("{base}/"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
     assert_eq!(root["service"], "aidog");
 }
 
 fn no_redirect_client() -> reqwest::Client {
-    reqwest::Client::builder().no_proxy().redirect(reqwest::redirect::Policy::none()).build().unwrap()
+    reqwest::Client::builder()
+        .no_proxy()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap()
 }
 
 /// `GET /`：Accept 含 text/html → 302 /ui；其余（JSON / 无 Accept）与 `/proxy` 仍是健康 JSON。
@@ -7872,7 +9951,12 @@ async fn root_redirects_browsers_to_ui_but_keeps_health_json() {
     let state = make_state(test_db().await).await;
     let base = spawn_proxy_router(state.clone()).await;
     let c = no_redirect_client();
-    let r = c.get(format!("{base}/")).header("accept", "text/html,application/xhtml+xml").send().await.unwrap();
+    let r = c
+        .get(format!("{base}/"))
+        .header("accept", "text/html,application/xhtml+xml")
+        .send()
+        .await
+        .unwrap();
     assert_eq!(r.status(), 302);
     assert_eq!(r.headers().get("location").unwrap(), "/ui");
     for accept in [Some("application/json"), Some("*/*"), None] {
@@ -7882,11 +9966,23 @@ async fn root_redirects_browsers_to_ui_but_keeps_health_json() {
         }
         let r = rb.send().await.unwrap();
         assert_eq!(r.status(), 200, "{accept:?}");
-        assert_eq!(r.json::<serde_json::Value>().await.unwrap()["service"], "aidog", "{accept:?}");
+        assert_eq!(
+            r.json::<serde_json::Value>().await.unwrap()["service"],
+            "aidog",
+            "{accept:?}"
+        );
     }
-    let r = c.get(format!("{base}/proxy")).header("accept", "text/html").send().await.unwrap();
+    let r = c
+        .get(format!("{base}/proxy"))
+        .header("accept", "text/html")
+        .send()
+        .await
+        .unwrap();
     assert_eq!(r.status(), 200, "/proxy 不跳转");
-    assert_eq!(r.json::<serde_json::Value>().await.unwrap()["service"], "aidog");
+    assert_eq!(
+        r.json::<serde_json::Value>().await.unwrap()["service"],
+        "aidog"
+    );
 }
 
 /// `/ui/` 静态资源 + SPA 回落（子路径不得 panic：MatchedPath 嵌套断言）；`/ui` 308 到 `/ui/`
@@ -7929,7 +10025,9 @@ async fn ui_login_cookie_grants_ui_and_rpc_when_token_set() {
     let base = spawn_proxy_router(state.clone()).await;
     let c = no_redirect_client();
     let login = |t: &str| {
-        let body = url::form_urlencoded::Serializer::new(String::new()).append_pair("token", t).finish();
+        let body = url::form_urlencoded::Serializer::new(String::new())
+            .append_pair("token", t)
+            .finish();
         c.post(format!("{base}/ui/login"))
             .header("content-type", "application/x-www-form-urlencoded")
             .body(body)
@@ -7939,46 +10037,93 @@ async fn ui_login_cookie_grants_ui_and_rpc_when_token_set() {
     // 无凭据：登录页
     let r = c.get(format!("{base}/ui/")).send().await.unwrap();
     assert_eq!(r.status(), 401);
-    assert!(r.headers()["content-type"].to_str().unwrap().starts_with("text/html"));
+    assert!(
+        r.headers()["content-type"]
+            .to_str()
+            .unwrap()
+            .starts_with("text/html")
+    );
     let html = r.text().await.unwrap();
-    assert!(html.contains("<form") && html.contains("/ui/login"), "{html}");
+    assert!(
+        html.contains("<form") && html.contains("/ui/login"),
+        "{html}"
+    );
     assert!(!html.contains("UI-INDEX"));
 
     // 错口令：401、有错误提示、无 Cookie
     let r = login("wrong").await.unwrap();
     assert_eq!(r.status(), 401);
     assert!(r.headers().get("set-cookie").is_none());
-    assert!(r.headers()["content-type"].to_str().unwrap().starts_with("text/html"));
+    assert!(
+        r.headers()["content-type"]
+            .to_str()
+            .unwrap()
+            .starts_with("text/html")
+    );
 
     // 对口令：303 回 /ui/，Set-Cookie 属性齐全且不含明文
     let r = login(token).await.unwrap();
     assert_eq!(r.status(), 303);
     assert_eq!(r.headers().get("location").unwrap(), "/ui/");
-    let sc = r.headers().get("set-cookie").unwrap().to_str().unwrap().to_string();
+    let sc = r
+        .headers()
+        .get("set-cookie")
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
     for a in ["HttpOnly", "SameSite=Strict", "Path=/"] {
         assert!(sc.contains(a), "{a}: {sc}");
     }
-    assert!(!sc.contains(token) && !sc.contains("p&ss"), "Cookie 不得含明文口令: {sc}");
+    assert!(
+        !sc.contains(token) && !sc.contains("p&ss"),
+        "Cookie 不得含明文口令: {sc}"
+    );
     let cookie = sc.split(';').next().unwrap().to_string();
 
     // Cookie 放行 /ui/* 与 RPC；伪造的 Cookie 不行
-    let r = c.get(format!("{base}/ui/")).header("cookie", &cookie).send().await.unwrap();
+    let r = c
+        .get(format!("{base}/ui/"))
+        .header("cookie", &cookie)
+        .send()
+        .await
+        .unwrap();
     assert_eq!(r.status(), 200);
     assert_eq!(r.text().await.unwrap(), "UI-INDEX");
-    let r = c.post(format!("{base}/api/rpc/ping")).header("cookie", &cookie).send().await.unwrap();
+    let r = c
+        .post(format!("{base}/api/rpc/ping"))
+        .header("cookie", &cookie)
+        .send()
+        .await
+        .unwrap();
     assert_eq!(r.status(), 200);
-    let r = c.get(format!("{base}/api/events")).header("cookie", "aidog_ui_session=forged").send().await.unwrap();
+    let r = c
+        .get(format!("{base}/api/events"))
+        .header("cookie", "aidog_ui_session=forged")
+        .send()
+        .await
+        .unwrap();
     assert_eq!(r.status(), 401);
     let r = c.post(format!("{base}/api/rpc/ping")).send().await.unwrap();
     assert_eq!(r.status(), 401);
 
     // Bearer 照旧
-    let r = c.get(format!("{base}/ui/")).bearer_auth(token).send().await.unwrap();
+    let r = c
+        .get(format!("{base}/ui/"))
+        .bearer_auth(token)
+        .send()
+        .await
+        .unwrap();
     assert_eq!(r.status(), 200);
 
     // 换口令后旧 Cookie 失效
     set_mgmt(&state, true, "other").await;
-    let r = c.get(format!("{base}/ui/")).header("cookie", &cookie).send().await.unwrap();
+    let r = c
+        .get(format!("{base}/ui/"))
+        .header("cookie", &cookie)
+        .send()
+        .await
+        .unwrap();
     assert_eq!(r.status(), 401);
 }
 
@@ -7993,7 +10138,12 @@ async fn ui_no_login_page_when_no_token() {
     let r = c.get(format!("{base}/ui/")).send().await.unwrap();
     assert_eq!(r.status(), 200);
     assert_eq!(r.text().await.unwrap(), "UI-INDEX");
-    let r = c.post(format!("{base}/ui/login")).body("token=x").send().await.unwrap();
+    let r = c
+        .post(format!("{base}/ui/login"))
+        .body("token=x")
+        .send()
+        .await
+        .unwrap();
     assert!(r.headers().get("set-cookie").is_none());
 }
 
@@ -8013,15 +10163,31 @@ async fn ui_router_from_assets_serves_lookup_with_index_fallback() {
     let r = c.get(format!("{base}/ui/")).send().await.unwrap();
     assert_eq!(r.headers().get("content-type").unwrap(), "text/html");
     assert_eq!(r.text().await.unwrap(), "IDX");
-    let r = c.get(format!("{base}/ui/assets/a.js")).send().await.unwrap();
+    let r = c
+        .get(format!("{base}/ui/assets/a.js"))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(r.headers().get("content-type").unwrap(), "text/javascript");
     assert_eq!(r.text().await.unwrap(), "JS");
-    assert_eq!(c.get(format!("{base}/ui/x/y")).send().await.unwrap().text().await.unwrap(), "IDX");
+    assert_eq!(
+        c.get(format!("{base}/ui/x/y"))
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap(),
+        "IDX"
+    );
     let empty = super::ui_router_from_assets(|_: &str| None);
     let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let base = format!("http://{}", l.local_addr().unwrap());
     tokio::spawn(async move { axum::serve(l, empty).await.ok() });
-    assert_eq!(c.get(format!("{base}/ui/")).send().await.unwrap().status(), 404);
+    assert_eq!(
+        c.get(format!("{base}/ui/")).send().await.unwrap().status(),
+        404
+    );
 }
 
 /// 调用记录（API 票 03）：落行、字段正确、来源可区分、正文（请求体）不入库。
@@ -8032,9 +10198,20 @@ async fn mgmt_call_log_records_metadata_without_bodies() {
     let base = spawn_proxy_router(state.clone()).await;
     let c = mgmt_client();
     let url = format!("{base}/api/rpc/ping");
-    let r = c.post(&url).header("user-agent", "my-script/1").body("BODY-MARKER-9f3a").send().await.unwrap();
+    let r = c
+        .post(&url)
+        .header("user-agent", "my-script/1")
+        .body("BODY-MARKER-9f3a")
+        .send()
+        .await
+        .unwrap();
     assert_eq!(r.status(), 200);
-    let r = c.post(&url).header(super::SOURCE_HEADER, super::SETTINGS_TEST_SOURCE).send().await.unwrap();
+    let r = c
+        .post(&url)
+        .header(super::SOURCE_HEADER, super::SETTINGS_TEST_SOURCE)
+        .send()
+        .await
+        .unwrap();
     assert_eq!(r.status(), 200);
 
     let rows = aidog_db::list_api_call_logs(&state.db, 10).await.unwrap();
@@ -8073,7 +10250,15 @@ async fn mgmt_call_log_records_rejected_requests() {
     set_mgmt(&state, false, "").await;
     assert_eq!(c.post(&url).send().await.unwrap().status(), 404);
     set_mgmt(&state, true, "s3cret").await;
-    assert_eq!(c.post(&url).bearer_auth("nope").send().await.unwrap().status(), 401);
+    assert_eq!(
+        c.post(&url)
+            .bearer_auth("nope")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        401
+    );
     let req = axum::http::Request::builder()
         .method("POST")
         .uri("/api/rpc/ping")
@@ -8086,11 +10271,22 @@ async fn mgmt_call_log_records_rejected_requests() {
     )
     .await;
     assert_eq!(r.status(), 403);
-    assert_eq!(c.post(format!("{base}/api/rpc/nope")).bearer_auth("s3cret").send().await.unwrap().status(), 404);
+    assert_eq!(
+        c.post(format!("{base}/api/rpc/nope"))
+            .bearer_auth("s3cret")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        404
+    );
 
     let rows = aidog_db::list_api_call_logs(&state.db, 10).await.unwrap();
-    let got: Vec<(String, i32, bool)> =
-        rows.iter().rev().map(|r| (r.command.clone(), r.status_code, r.success)).collect();
+    let got: Vec<(String, i32, bool)> = rows
+        .iter()
+        .rev()
+        .map(|r| (r.command.clone(), r.status_code, r.success))
+        .collect();
     assert_eq!(
         got,
         [
@@ -8107,7 +10303,9 @@ fn rc_chat_req(gk: &str) -> Request {
         .uri("/v1/messages")
         .header("authorization", format!("Bearer {gk}"))
         .header("content-type", "application/json")
-        .body(Body::from(r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#))
+        .body(Body::from(
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+        ))
         .unwrap()
 }
 
@@ -8169,11 +10367,25 @@ async fn mgmt_call_log_skips_non_loopback_and_truncates_command() {
     )
     .await;
     assert_eq!(r.status(), 403);
-    assert!(aidog_db::list_api_call_logs(&state.db, 10).await.unwrap().is_empty(), "非回环请求不得落行");
+    assert!(
+        aidog_db::list_api_call_logs(&state.db, 10)
+            .await
+            .unwrap()
+            .is_empty(),
+        "非回环请求不得落行"
+    );
 
     let base = spawn_proxy_router(state.clone()).await;
     let long = "x".repeat(300);
-    assert_eq!(mgmt_client().post(format!("{base}/api/rpc/{long}")).send().await.unwrap().status(), 404);
+    assert_eq!(
+        mgmt_client()
+            .post(format!("{base}/api/rpc/{long}"))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        404
+    );
     let rows = aidog_db::list_api_call_logs(&state.db, 10).await.unwrap();
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].command.chars().count(), 64);
@@ -8185,14 +10397,34 @@ async fn mgmt_call_log_skips_non_loopback_and_truncates_command() {
 async fn success_clears_last_error_written_after_route_cache_filled() {
     let (up, _hits) = spawn_embedding_upstream(vec![(200, MB_OK), (200, MB_OK)]).await;
     let state = make_state(test_db().await).await;
-    setup_aux_group(&state, "gklast", &[(&up, chain_models(&["m-a"]), Protocol::Anthropic, "p")]).await;
+    setup_aux_group(
+        &state,
+        "gklast",
+        &[(&up, chain_models(&["m-a"]), Protocol::Anthropic, "p")],
+    )
+    .await;
     // 第一次成功请求：路由缓存填入 last_error 为空的 platform 快照。
-    assert_eq!(chain_send(&state, "gklast", CHAIN_REQ).await.status(), StatusCode::OK);
-    let pid = aidog_db::list_platforms(&state.db).await.unwrap().remove(0).id;
+    assert_eq!(
+        chain_send(&state, "gklast", CHAIN_REQ).await.status(),
+        StatusCode::OK
+    );
+    let pid = aidog_db::list_platforms(&state.db)
+        .await
+        .unwrap()
+        .remove(0)
+        .id;
     // 之后一次失败（别的路径）写入 last_error；缓存不失效。
-    aidog_db::set_platform_last_error(&state.db, pid, Some("HTTP 500 boom".into())).await.unwrap();
-    assert_eq!(chain_send(&state, "gklast", CHAIN_REQ).await.status(), StatusCode::OK);
-    let p = aidog_db::get_platform(&state.db, pid).await.unwrap().unwrap();
+    aidog_db::set_platform_last_error(&state.db, pid, Some("HTTP 500 boom".into()))
+        .await
+        .unwrap();
+    assert_eq!(
+        chain_send(&state, "gklast", CHAIN_REQ).await.status(),
+        StatusCode::OK
+    );
+    let p = aidog_db::get_platform(&state.db, pid)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(p.last_error, "", "成功后 last_error 必须清空");
     assert_eq!(p.last_error_at, 0);
 }
@@ -8210,7 +10442,9 @@ async fn spawn_privacy_sse_upstream(chunks: Vec<Vec<u8>>) -> String {
     use axum::routing::any;
     let app = axum::Router::new().fallback(any(move || async move {
         let body = Body::from_stream(futures::stream::iter(
-            chunks.into_iter().map(|c| Ok::<_, std::io::Error>(Bytes::from(c))),
+            chunks
+                .into_iter()
+                .map(|c| Ok::<_, std::io::Error>(Bytes::from(c))),
         ));
         axum::response::Response::builder()
             .status(axum::http::StatusCode::OK)
@@ -8220,7 +10454,9 @@ async fn spawn_privacy_sse_upstream(chunks: Vec<Vec<u8>>) -> String {
     }));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
-    tokio::spawn(async move { axum::serve(listener, app).await.ok(); });
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.ok();
+    });
     format!("http://{addr}")
 }
 
@@ -8245,8 +10481,17 @@ fn mw_mask_rule(
             pattern: pattern.into(),
             validator: String::new(),
         }),
-        actions: vec![ActionStep { kind: ActionKind::Mask, params: ActionParams { mode, ..Default::default() } }],
-        applies_to: AppliesTo { groups: groups.iter().map(|s| s.to_string()).collect(), ..Default::default() },
+        actions: vec![ActionStep {
+            kind: ActionKind::Mask,
+            params: ActionParams {
+                mode,
+                ..Default::default()
+            },
+        }],
+        applies_to: AppliesTo {
+            groups: groups.iter().map(|s| s.to_string()).collect(),
+            ..Default::default()
+        },
         priority,
         enabled: true,
         is_builtin: false,
@@ -8266,7 +10511,11 @@ fn mw_placeholder() -> String {
 async fn log_all_sides(state: &Arc<ProxyState>) {
     set_log_settings(
         state,
-        ProxyLogSettings { log_user_request: true, log_upstream_request: true, ..Default::default() },
+        ProxyLogSettings {
+            log_user_request: true,
+            log_upstream_request: true,
+            ..Default::default()
+        },
     )
     .await;
 }
@@ -8284,14 +10533,27 @@ async fn mw_reversible_nonstream_roundtrip_and_four_side_logs() {
     );
     let (up, hits) = spawn_embedding_upstream(vec![(200, upstream_body)]).await;
     let state = make_state(test_db().await).await;
-    state.middleware.rebuild_from_rules(vec![mw_mask_rule(1, MW_EMAIL_RE, 0, MaskMode::Reversible, &[])]);
+    state.middleware.rebuild_from_rules(vec![mw_mask_rule(
+        1,
+        MW_EMAIL_RE,
+        0,
+        MaskMode::Reversible,
+        &[],
+    )]);
     setup_group_with_upstream(&state, "gkm1", &up).await;
     log_all_sides(&state).await;
 
-    let req = format!(r#"{{"model":"claude-3","messages":[{{"role":"user","content":"mail {PRIVACY_EMAIL} hi"}}]}}"#);
+    let req = format!(
+        r#"{{"model":"claude-3","messages":[{{"role":"user","content":"mail {PRIVACY_EMAIL} hi"}}]}}"#
+    );
     let resp = handle_proxy(AxumState(state.clone()), messages_request("gkm1", &req)).await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let client = String::from_utf8_lossy(&axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap()).to_string();
+    let client = String::from_utf8_lossy(
+        &axum::body::to_bytes(resp.into_body(), 1 << 20)
+            .await
+            .unwrap(),
+    )
+    .to_string();
     assert!(client.contains(PRIVACY_EMAIL), "客户端应拿回原文: {client}");
     assert!(!client.contains(&ph), "客户端不应见占位符: {client}");
 
@@ -8320,19 +10582,43 @@ async fn mw_reversible_stream_restores_across_chunks() {
         "event: message_start\ndata: {{\"type\":\"message_start\",\"message\":{{\"usage\":{{\"input_tokens\":5,\"output_tokens\":0}}}}}}\n\nevent: content_block_delta\ndata: {{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{{\"type\":\"text_delta\",\"text\":\"token {ph} done\"}}}}\n\nevent: message_stop\ndata: {{\"type\":\"message_stop\"}}\n\n"
     );
     let cut = sse.find(&ph).unwrap() + ph.len() / 2;
-    let up = spawn_privacy_sse_upstream(vec![sse.as_bytes()[..cut].to_vec(), sse.as_bytes()[cut..].to_vec()]).await;
+    let up = spawn_privacy_sse_upstream(vec![
+        sse.as_bytes()[..cut].to_vec(),
+        sse.as_bytes()[cut..].to_vec(),
+    ])
+    .await;
     let state = make_state(test_db().await).await;
-    state.middleware.rebuild_from_rules(vec![mw_mask_rule(1, MW_EMAIL_RE, 0, MaskMode::Reversible, &[])]);
+    state.middleware.rebuild_from_rules(vec![mw_mask_rule(
+        1,
+        MW_EMAIL_RE,
+        0,
+        MaskMode::Reversible,
+        &[],
+    )]);
     setup_group_with_upstream(&state, "gkm2", &up).await;
     log_all_sides(&state).await;
 
-    let req = format!(r#"{{"model":"claude-3","stream":true,"messages":[{{"role":"user","content":"mail {PRIVACY_EMAIL}"}}]}}"#);
+    let req = format!(
+        r#"{{"model":"claude-3","stream":true,"messages":[{{"role":"user","content":"mail {PRIVACY_EMAIL}"}}]}}"#
+    );
     let resp = handle_proxy(AxumState(state.clone()), messages_request("gkm2", &req)).await;
-    let client = String::from_utf8_lossy(&axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap()).to_string();
-    assert!(client.contains(PRIVACY_EMAIL), "流式客户端应拿原文: {client}");
+    let client = String::from_utf8_lossy(
+        &axum::body::to_bytes(resp.into_body(), 1 << 20)
+            .await
+            .unwrap(),
+    )
+    .to_string();
+    assert!(
+        client.contains(PRIVACY_EMAIL),
+        "流式客户端应拿原文: {client}"
+    );
     assert!(!client.contains(&ph), "流式客户端不应见占位符: {client}");
     let log = last_log_for(&state, "gkm2").await;
-    assert!(!log.user_response_body.contains(PRIVACY_EMAIL), "流式用户响应日志含原文: {}", log.user_response_body);
+    assert!(
+        !log.user_response_body.contains(PRIVACY_EMAIL),
+        "流式用户响应日志含原文: {}",
+        log.user_response_body
+    );
     assert!(!log.request_body.contains(PRIVACY_EMAIL));
     assert!(!log.upstream_request_body.contains(PRIVACY_EMAIL));
 }
@@ -8340,7 +10626,13 @@ async fn mw_reversible_stream_restores_across_chunks() {
 /// 「全部内容」范围：规则 = 内置密钥正则（含通用长随机 token 分支）+ reversible + fields=all。
 fn mw_all_secret_rule() -> aidog_db::models::MiddlewareRule {
     use aidog_db::models::*;
-    let mut r = mw_mask_rule(1, aidog_db::BUILTIN_SECRET_PATTERN, 0, MaskMode::Reversible, &[]);
+    let mut r = mw_mask_rule(
+        1,
+        aidog_db::BUILTIN_SECRET_PATTERN,
+        0,
+        MaskMode::Reversible,
+        &[],
+    );
     r.actions[0].params.fields = vec!["all".into()];
     r
 }
@@ -8358,7 +10650,9 @@ async fn mw_all_scope_masks_tool_result_and_restores_to_client() {
     );
     let (up, hits) = spawn_embedding_upstream(vec![(200, upstream_body)]).await;
     let state = make_state(test_db().await).await;
-    state.middleware.rebuild_from_rules(vec![mw_all_secret_rule()]);
+    state
+        .middleware
+        .rebuild_from_rules(vec![mw_all_secret_rule()]);
     setup_group_with_upstream(&state, "gka1", &up).await;
     log_all_sides(&state).await;
     let req = format!(
@@ -8366,12 +10660,27 @@ async fn mw_all_scope_masks_tool_result_and_restores_to_client() {
     );
     let resp = handle_proxy(AxumState(state.clone()), messages_request("gka1", &req)).await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let client = String::from_utf8_lossy(&axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap()).to_string();
+    let client = String::from_utf8_lossy(
+        &axum::body::to_bytes(resp.into_body(), 1 << 20)
+            .await
+            .unwrap(),
+    )
+    .to_string();
     let sent = hits.lock().unwrap()[0].1.clone();
-    assert!(sent.contains(&ph) && !sent.contains(secret), "tool_result 内密钥应以占位符出站: {sent}");
-    assert!(client.contains(secret) && !client.contains(&ph), "客户端应拿回原文: {client}");
+    assert!(
+        sent.contains(&ph) && !sent.contains(secret),
+        "tool_result 内密钥应以占位符出站: {sent}"
+    );
+    assert!(
+        client.contains(secret) && !client.contains(&ph),
+        "客户端应拿回原文: {client}"
+    );
     let log = last_log_for(&state, "gka1").await;
-    assert!(!log.upstream_request_body.contains(secret), "{}", log.upstream_request_body);
+    assert!(
+        !log.upstream_request_body.contains(secret),
+        "{}",
+        log.upstream_request_body
+    );
     assert!(!log.request_body.contains(secret), "{}", log.request_body);
 }
 
@@ -8393,7 +10702,9 @@ async fn mw_all_scope_skip_list_reaches_upstream_unchanged() {
     let secret = "sk-proj-abcdefghijklmnop1234";
     let (up, hits) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
     let state = make_state(test_db().await).await;
-    state.middleware.rebuild_from_rules(vec![mw_all_secret_rule()]);
+    state
+        .middleware
+        .rebuild_from_rules(vec![mw_all_secret_rule()]);
     setup_group_with_upstream(&state, "gka2", &up).await;
     let req = serde_json::json!({
         "model": model,
@@ -8414,7 +10725,10 @@ async fn mw_all_scope_skip_list_reaches_upstream_unchanged() {
     assert_eq!(resp.status(), StatusCode::OK);
     let sent: serde_json::Value = serde_json::from_str(&hits.lock().unwrap()[0].1).unwrap();
     let c0 = &sent["messages"][0]["content"];
-    assert!(!c0[0]["text"].as_str().unwrap().contains(secret), "对照：普通文本里的密钥必须被替换: {c0}");
+    assert!(
+        !c0[0]["text"].as_str().unwrap().contains(secret),
+        "对照：普通文本里的密钥必须被替换: {c0}"
+    );
     assert_eq!(sent["model"], model);
     assert_eq!(c0[1]["source"]["data"], b64);
     let c1 = &sent["messages"][1]["content"];
@@ -8429,13 +10743,24 @@ async fn mw_fixed_mask_behaviour_unchanged() {
     let _g = PRIVACY_TEST_LOCK.lock().await;
     let (up, hits) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
     let state = make_state(test_db().await).await;
-    state.middleware.rebuild_from_rules(vec![mw_mask_rule(1, MW_EMAIL_RE, 0, MaskMode::Fixed, &[])]);
+    state.middleware.rebuild_from_rules(vec![mw_mask_rule(
+        1,
+        MW_EMAIL_RE,
+        0,
+        MaskMode::Fixed,
+        &[],
+    )]);
     setup_group_with_upstream(&state, "gkm3", &up).await;
-    let req = format!(r#"{{"model":"claude-3","messages":[{{"role":"user","content":"mail {PRIVACY_EMAIL}"}}]}}"#);
+    let req = format!(
+        r#"{{"model":"claude-3","messages":[{{"role":"user","content":"mail {PRIVACY_EMAIL}"}}]}}"#
+    );
     let resp = handle_proxy(AxumState(state.clone()), messages_request("gkm3", &req)).await;
     assert_eq!(resp.status(), StatusCode::OK);
     let sent = hits.lock().unwrap()[0].1.clone();
-    assert!(sent.contains("****") && !sent.contains("{{PII_") && !sent.contains(PRIVACY_EMAIL), "{sent}");
+    assert!(
+        sent.contains("****") && !sent.contains("{{PII_") && !sent.contains(PRIVACY_EMAIL),
+        "{sent}"
+    );
 }
 
 #[tokio::test]
@@ -8456,11 +10781,24 @@ async fn mw_two_reversible_rules_second_leaves_placeholder_alone() {
         mw_mask_rule(2, "PII|MASK|example", 2, MaskMode::Reversible, &[]),
     ]);
     setup_group_with_upstream(&state, "gkm4", &up).await;
-    let req = format!(r#"{{"model":"claude-3","messages":[{{"role":"user","content":"mail {PRIVACY_EMAIL}"}}]}}"#);
+    let req = format!(
+        r#"{{"model":"claude-3","messages":[{{"role":"user","content":"mail {PRIVACY_EMAIL}"}}]}}"#
+    );
     let resp = handle_proxy(AxumState(state.clone()), messages_request("gkm4", &req)).await;
-    let client = String::from_utf8_lossy(&axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap()).to_string();
-    assert!(hits.lock().unwrap()[0].1.contains(&ph), "上游应见第一条的占位符");
-    assert!(client.contains(PRIVACY_EMAIL) && !client.contains("{{PII_"), "{client}");
+    let client = String::from_utf8_lossy(
+        &axum::body::to_bytes(resp.into_body(), 1 << 20)
+            .await
+            .unwrap(),
+    )
+    .to_string();
+    assert!(
+        hits.lock().unwrap()[0].1.contains(&ph),
+        "上游应见第一条的占位符"
+    );
+    assert!(
+        client.contains(PRIVACY_EMAIL) && !client.contains("{{PII_"),
+        "{client}"
+    );
 }
 
 #[tokio::test]
@@ -8469,14 +10807,26 @@ async fn mw_reversible_failure_is_503_zero_upstream_and_scoped() {
     let _g = PRIVACY_TEST_LOCK.lock().await;
     let (up, hits) = spawn_embedding_upstream(vec![(200, ANTHROPIC_OK)]).await;
     let state = make_state(test_db().await).await;
-    state.middleware.rebuild_from_rules(vec![mw_mask_rule(1, MW_EMAIL_RE, 0, MaskMode::Reversible, &["gkm5"])]);
+    state.middleware.rebuild_from_rules(vec![mw_mask_rule(
+        1,
+        MW_EMAIL_RE,
+        0,
+        MaskMode::Reversible,
+        &["gkm5"],
+    )]);
     setup_group_with_upstream(&state, "gkm5", &up).await;
     setup_group_with_upstream(&state, "gkm5-other", &up).await;
-    let req = format!(r#"{{"model":"claude-3","messages":[{{"role":"user","content":"mail {PRIVACY_EMAIL}"}}]}}"#);
+    let req = format!(
+        r#"{{"model":"claude-3","messages":[{{"role":"user","content":"mail {PRIVACY_EMAIL}"}}]}}"#
+    );
 
     aidog_middleware::set_reversible_force_fail(true);
     let resp = handle_proxy(AxumState(state.clone()), messages_request("gkm5", &req)).await;
-    let other = handle_proxy(AxumState(state.clone()), messages_request("gkm5-other", &req)).await;
+    let other = handle_proxy(
+        AxumState(state.clone()),
+        messages_request("gkm5-other", &req),
+    )
+    .await;
     aidog_middleware::set_reversible_force_fail(false);
 
     assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
@@ -8516,13 +10866,19 @@ async fn claude_hint_headers_recorded_in_proxy_log() {
         AxumState(state.clone()),
         messages_request_hints(
             "gkhint",
-            &[("X-Claude-Code-Request-Class", " subagent "), ("x-claude-code-agent-type", "Explore")],
+            &[
+                ("X-Claude-Code-Request-Class", " subagent "),
+                ("x-claude-code-agent-type", "Explore"),
+            ],
         ),
     )
     .await;
     assert_eq!(resp.status(), StatusCode::OK);
     let log = last_log_for(&state, "gkhint").await;
-    assert_eq!((log.request_class.as_str(), log.agent_type.as_str()), ("subagent", "Explore"));
+    assert_eq!(
+        (log.request_class.as_str(), log.agent_type.as_str()),
+        ("subagent", "Explore")
+    );
 
     // 仅 request-class；未知值原样存。
     handle_proxy(
@@ -8531,12 +10887,22 @@ async fn claude_hint_headers_recorded_in_proxy_log() {
     )
     .await;
     let log = last_log_for(&state, "gkhint").await;
-    assert_eq!((log.request_class.as_str(), log.agent_type.as_str()), ("brand_new", ""));
+    assert_eq!(
+        (log.request_class.as_str(), log.agent_type.as_str()),
+        ("brand_new", "")
+    );
 
     // 无头 → 空串。
-    handle_proxy(AxumState(state.clone()), messages_request_hints("gkhint", &[])).await;
+    handle_proxy(
+        AxumState(state.clone()),
+        messages_request_hints("gkhint", &[]),
+    )
+    .await;
     let log = last_log_for(&state, "gkhint").await;
-    assert_eq!((log.request_class.as_str(), log.agent_type.as_str()), ("", ""));
+    assert_eq!(
+        (log.request_class.as_str(), log.agent_type.as_str()),
+        ("", "")
+    );
 }
 
 #[tokio::test]
@@ -8550,7 +10916,10 @@ async fn claude_hint_ids_recorded_in_proxy_log() {
         messages_request_hints(
             "gkhint2",
             &[
-                ("x-claude-code-prompt-id", "11111111-2222-3333-4444-555555555555"),
+                (
+                    "x-claude-code-prompt-id",
+                    "11111111-2222-3333-4444-555555555555",
+                ),
                 ("x-claude-code-session-id", "sess-9"),
                 ("x-claude-code-agent-id", "ag-2"),
                 ("x-claude-code-parent-agent-id", "ag-1"),
@@ -8564,16 +10933,40 @@ async fn claude_hint_ids_recorded_in_proxy_log() {
     assert_eq!(resp.status(), StatusCode::OK);
     let log = last_log_for(&state, "gkhint2").await;
     assert_eq!(log.prompt_id, "11111111-2222-3333-4444-555555555555");
-    assert_eq!((log.session_id.as_str(), log.agent_id.as_str(), log.parent_agent_id.as_str()), ("sess-9", "ag-2", "ag-1"));
-    assert_eq!((log.compaction.as_str(), log.context_compacted.as_str()), ("manual", "auto"));
+    assert_eq!(
+        (
+            log.session_id.as_str(),
+            log.agent_id.as_str(),
+            log.parent_agent_id.as_str()
+        ),
+        ("sess-9", "ag-2", "ag-1")
+    );
+    assert_eq!(
+        (log.compaction.as_str(), log.context_compacted.as_str()),
+        ("manual", "auto")
+    );
     assert_eq!(log.prev_tool_durations, "Bash=742;Read=9");
 
     // 无头 → 全空串。
-    handle_proxy(AxumState(state.clone()), messages_request_hints("gkhint2", &[])).await;
+    handle_proxy(
+        AxumState(state.clone()),
+        messages_request_hints("gkhint2", &[]),
+    )
+    .await;
     let log = last_log_for(&state, "gkhint2").await;
     assert_eq!(
-        [&log.prompt_id, &log.session_id, &log.agent_id, &log.parent_agent_id, &log.compaction, &log.context_compacted, &log.prev_tool_durations]
-            .iter().filter(|s| !s.is_empty()).count(),
+        [
+            &log.prompt_id,
+            &log.session_id,
+            &log.agent_id,
+            &log.parent_agent_id,
+            &log.compaction,
+            &log.context_compacted,
+            &log.prev_tool_durations
+        ]
+        .iter()
+        .filter(|s| !s.is_empty())
+        .count(),
         0
     );
 }
@@ -8596,7 +10989,13 @@ async fn group_header_overrides_token_and_is_not_forwarded() {
     let (seen_a, seen_b) = setup_two_groups_recording(&state).await;
     let resp = handle_proxy(
         AxumState(state.clone()),
-        request_with("/v1/messages", &[("authorization", "Bearer hga"), ("x-aidog-group", "  hgb  ")]),
+        request_with(
+            "/v1/messages",
+            &[
+                ("authorization", "Bearer hga"),
+                ("x-aidog-group", "  hgb  "),
+            ],
+        ),
     )
     .await;
     assert_eq!(resp.status(), StatusCode::OK);
@@ -8604,7 +11003,11 @@ async fn group_header_overrides_token_and_is_not_forwarded() {
     {
         let seen = seen_b.lock().unwrap();
         assert_eq!(seen.len(), 1, "头指向的组应被命中");
-        assert!(!seen[0].1.contains_key("x-aidog-group"), "头不得转发上游: {:?}", seen[0].1);
+        assert!(
+            !seen[0].1.contains_key("x-aidog-group"),
+            "头不得转发上游: {:?}",
+            seen[0].1
+        );
     }
     assert_eq!(last_log_for(&state, "hgb").await.status_code, 200);
 }
@@ -8616,11 +11019,17 @@ async fn group_header_unknown_group_404_without_token_fallback() {
     let (seen_a, seen_b) = setup_two_groups_recording(&state).await;
     let resp = handle_proxy(
         AxumState(state.clone()),
-        request_with("/v1/messages", &[("authorization", "Bearer hga"), ("x-aidog-group", "nope")]),
+        request_with(
+            "/v1/messages",
+            &[("authorization", "Bearer hga"), ("x-aidog-group", "nope")],
+        ),
     )
     .await;
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
-    assert_eq!(seen_a.lock().unwrap().len() + seen_b.lock().unwrap().len(), 0);
+    assert_eq!(
+        seen_a.lock().unwrap().len() + seen_b.lock().unwrap().len(),
+        0
+    );
 }
 
 /// 头缺席 / 空 / 全空白 → 行为不变，仍按 token 定组。
@@ -8633,13 +11042,23 @@ async fn group_header_absent_or_blank_keeps_token_behaviour() {
         vec![("authorization", "Bearer hga"), ("x-aidog-group", "")],
         vec![("authorization", "Bearer hga"), ("x-aidog-group", "   ")],
     ] {
-        let resp = handle_proxy(AxumState(state.clone()), request_with("/v1/messages", &hdrs)).await;
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            request_with("/v1/messages", &hdrs),
+        )
+        .await;
         assert_eq!(resp.status(), StatusCode::OK, "{hdrs:?}");
     }
     assert_eq!(seen_a.lock().unwrap().len(), 3);
     assert_eq!(seen_b.lock().unwrap().len(), 0);
     // 空头不转发
-    assert!(seen_a.lock().unwrap().iter().all(|(_, h)| !h.contains_key("x-aidog-group")));
+    assert!(
+        seen_a
+            .lock()
+            .unwrap()
+            .iter()
+            .all(|(_, h)| !h.contains_key("x-aidog-group"))
+    );
 }
 
 /// 无任何 token，只带头也能定组（订阅 OAuth Bearer 场景：Authorization 是别的东西）。
@@ -8649,7 +11068,13 @@ async fn group_header_alone_selects_group_with_foreign_bearer() {
     let (_seen_a, seen_b) = setup_two_groups_recording(&state).await;
     let resp = handle_proxy(
         AxumState(state.clone()),
-        request_with("/v1/messages", &[("authorization", "Bearer sk-oauth-xyz"), ("x-aidog-group", "hgb")]),
+        request_with(
+            "/v1/messages",
+            &[
+                ("authorization", "Bearer sk-oauth-xyz"),
+                ("x-aidog-group", "hgb"),
+            ],
+        ),
     )
     .await;
     assert_eq!(resp.status(), StatusCode::OK);
@@ -8664,13 +11089,29 @@ async fn group_header_passthrough_strips_header_and_foreign_auth() {
     setup_passthrough_platform_group(&state, "hgpt", &upstream).await;
     let resp = handle_proxy(
         AxumState(state.clone()),
-        request_with("/v1/x", &[("authorization", "Bearer sk-client-own"), ("x-aidog-group", "hgpt")]),
+        request_with(
+            "/v1/x",
+            &[
+                ("authorization", "Bearer sk-client-own"),
+                ("x-aidog-group", "hgpt"),
+            ],
+        ),
     )
     .await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let h = seen.lock().unwrap().last().cloned().expect("upstream not hit").1;
+    let h = seen
+        .lock()
+        .unwrap()
+        .last()
+        .cloned()
+        .expect("upstream not hit")
+        .1;
     assert!(!h.contains_key("x-aidog-group"), "{h:?}");
-    assert_ne!(h.get("authorization").map(String::as_str), Some("Bearer sk-client-own"), "{h:?}");
+    assert_ne!(
+        h.get("authorization").map(String::as_str),
+        Some("Bearer sk-client-own"),
+        "{h:?}"
+    );
 }
 
 /// /v1/models：头指向的组决定清单来源（透传组 → 原样转发上游），头不转发。
@@ -8750,9 +11191,21 @@ async fn wait_unified_plan(state: &Arc<ProxyState>) -> crate::gateway::estimate:
 }
 
 fn assert_unified_plan(plan: &crate::gateway::estimate::EstCodingPlan) {
-    let five = plan.tiers.iter().find(|t| t.name == "five_hour").expect("five_hour tier");
-    assert!((five.est_utilization - 42.0).abs() < 1e-9, "got {}", five.est_utilization);
-    let wk = plan.tiers.iter().find(|t| t.name == "weekly_limit").expect("weekly_limit tier");
+    let five = plan
+        .tiers
+        .iter()
+        .find(|t| t.name == "five_hour")
+        .expect("five_hour tier");
+    assert!(
+        (five.est_utilization - 42.0).abs() < 1e-9,
+        "got {}",
+        five.est_utilization
+    );
+    let wk = plan
+        .tiers
+        .iter()
+        .find(|t| t.name == "weekly_limit")
+        .expect("weekly_limit tier");
     assert!((wk.est_utilization - 7.0).abs() < 1e-9);
 }
 
@@ -8761,7 +11214,10 @@ async fn unified_headers_nonstream_200_update_subscription_usage() {
     let upstream = spawn_unified_upstream(200, "application/json", ANTHROPIC_OK).await;
     let state = make_state(test_db().await).await;
     setup_group_with_upstream(&state, "gku1", &upstream).await;
-    let req = messages_request("gku1", r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#);
+    let req = messages_request(
+        "gku1",
+        r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+    );
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::OK);
     assert_unified_plan(&wait_unified_plan(&state).await);
@@ -8773,18 +11229,27 @@ async fn unified_headers_stream_200_update_subscription_usage() {
     let upstream = spawn_unified_upstream(200, "text/event-stream", sse).await;
     let state = make_state(test_db().await).await;
     setup_group_with_upstream(&state, "gku2", &upstream).await;
-    let req = messages_request("gku2", r#"{"model":"claude-3","stream":true,"messages":[{"role":"user","content":"hi"}]}"#);
+    let req = messages_request(
+        "gku2",
+        r#"{"model":"claude-3","stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+    );
     let resp = handle_proxy(AxumState(state.clone()), req).await;
-    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
     assert_unified_plan(&wait_unified_plan(&state).await);
 }
 
 #[tokio::test]
 async fn unified_headers_on_429_update_subscription_usage() {
-    let upstream = spawn_unified_upstream(429, "application/json", r#"{"error":"rate limited"}"#).await;
+    let upstream =
+        spawn_unified_upstream(429, "application/json", r#"{"error":"rate limited"}"#).await;
     let state = make_state(test_db().await).await;
     setup_group_with_upstream(&state, "gku3", &upstream).await;
-    let req = messages_request("gku3", r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#);
+    let req = messages_request(
+        "gku3",
+        r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+    );
     let _ = handle_proxy(AxumState(state.clone()), req).await;
     assert_unified_plan(&wait_unified_plan(&state).await);
 }
@@ -8802,16 +11267,27 @@ async fn tool_search_emulation_anthropic_third_party_passthrough() {
     let state = make_state(test_db().await).await;
     setup_group_with_upstream(&state, "gkts1", &upstream).await;
     set_group_max_attempts(&state, "gkts1", 1).await;
-    for body in [TS_REQ.to_string(), TS_REQ.replacen(r#""max_tokens":8"#, r#""max_tokens":8,"stream":true"#, 1)] {
+    for body in [
+        TS_REQ.to_string(),
+        TS_REQ.replacen(r#""max_tokens":8"#, r#""max_tokens":8,"stream":true"#, 1),
+    ] {
         let _ = handle_proxy(AxumState(state.clone()), messages_request("gkts1", &body)).await;
     }
     let captured = rec.lock().unwrap().clone();
     assert_eq!(captured.len(), 2);
     for (_, b) in &captured {
         let sent: serde_json::Value = serde_json::from_str(b).unwrap();
-        let names: Vec<&str> = sent["tools"].as_array().unwrap().iter().map(|t| t["name"].as_str().unwrap()).collect();
+        let names: Vec<&str> = sent["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|t| t["name"].as_str().unwrap())
+            .collect();
         assert_eq!(names, ["ToolSearch", "mcp__a__loaded"], "{b}");
-        assert!(!b.contains("defer_loading") && !b.contains("tool_reference"), "{b}");
+        assert!(
+            !b.contains("defer_loading") && !b.contains("tool_reference"),
+            "{b}"
+        );
         assert!(b.contains("已加载工具 mcp__a__loaded"), "{b}");
     }
 }
@@ -8826,8 +11302,14 @@ async fn tool_search_emulation_openai_convert() {
     let captured = rec.lock().unwrap().clone();
     assert_eq!(captured.len(), 1);
     let b = &captured[0].1;
-    assert!(b.contains("mcp__a__loaded") && !b.contains("mcp__a__idle"), "{b}");
-    assert!(!b.contains("defer_loading") && !b.contains("tool_reference"), "{b}");
+    assert!(
+        b.contains("mcp__a__loaded") && !b.contains("mcp__a__idle"),
+        "{b}"
+    );
+    assert!(
+        !b.contains("defer_loading") && !b.contains("tool_reference"),
+        "{b}"
+    );
     assert!(b.contains("已加载工具 mcp__a__loaded"), "{b}");
 }
 
@@ -8835,14 +11317,34 @@ async fn tool_search_emulation_openai_convert() {
 
 /// 给名为 `name` 的平台写入全天命中的时段档（models 整套替换）。
 async fn set_all_day_rule(state: &Arc<ProxyState>, name: &str, models: serde_json::Value) {
-    let id = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name == name).unwrap().id;
+    let id = aidog_db::list_platforms(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|p| p.name == name)
+        .unwrap()
+        .id;
     let extra = serde_json::json!({"time_windows":[{"windows":[{"start_hour":0,"end_hour":24}],"models":models}]}).to_string();
-    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
-        id, name: None, platform_type: None, base_url: None, api_key: None, extra: Some(extra),
-        models: None, available_models: None, endpoints: None,
-        enabled: None, status: None, manual_budgets: None,
-        join_group_ids: None, expires_at: None, quota_source: None,
-    })
+    aidog_db::update_platform(
+        &state.db,
+        aidog_db::models::UpdatePlatform {
+            id,
+            name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            extra: Some(extra),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
+            status: None,
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
     .await
     .unwrap();
     state.db.invalidate_group_details_cache();
@@ -8855,38 +11357,90 @@ async fn time_rule_without_embedding_or_rerank_404_and_with_uses_rule() {
     let (db, _dir) = aidog_db::test_support::three_file_db().await;
     let state = make_state(db).await;
     let (up, hits) = spawn_embedding_upstream(vec![(200, EMB_RESPONSE)]).await;
-    let both = PlatformModels { embedding: vec!["emb-day".into()], rerank: vec!["rr-day".into()], ..Default::default() };
-    setup_aux_group(&state, "gkt1", &[(&up, both.clone(), Protocol::OpenAI, "a")]).await;
-    setup_aux_group(&state, "gkt2", &[(&up, both.clone(), Protocol::OpenAI, "a")]).await;
+    let both = PlatformModels {
+        embedding: vec!["emb-day".into()],
+        rerank: vec!["rr-day".into()],
+        ..Default::default()
+    };
+    setup_aux_group(
+        &state,
+        "gkt1",
+        &[(&up, both.clone(), Protocol::OpenAI, "a")],
+    )
+    .await;
+    setup_aux_group(
+        &state,
+        "gkt2",
+        &[(&up, both.clone(), Protocol::OpenAI, "a")],
+    )
+    .await;
     set_all_day_rule(&state, "gkt1-a", serde_json::json!({"default":["gpt"]})).await;
     for (path, req, reason) in [
         ("/v1/embeddings", EMB_REQ, "no_embedding_platform"),
         ("/v1/rerank", RR_REQ, "no_rerank_platform"),
     ] {
-        let resp = handle_proxy(AxumState(state.clone()), embedding_request("gkt1", req, path)).await;
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            embedding_request("gkt1", req, path),
+        )
+        .await;
         assert_eq!(resp.status(), StatusCode::NOT_FOUND, "{path}");
         let log = last_log_for(&state, "gkt1").await;
-        assert_eq!((log.blocked_by.as_str(), log.blocked_reason.as_str()), ("router", reason), "{path}");
+        assert_eq!(
+            (log.blocked_by.as_str(), log.blocked_reason.as_str()),
+            ("router", reason),
+            "{path}"
+        );
     }
-    assert!(hits.lock().unwrap().is_empty(), "时段内被排除，不得打到上游");
+    assert!(
+        hits.lock().unwrap().is_empty(),
+        "时段内被排除，不得打到上游"
+    );
 
-    set_all_day_rule(&state, "gkt2-a", serde_json::json!({"embedding":["emb-night"]})).await;
-    let resp = handle_proxy(AxumState(state.clone()), embedding_request("gkt2", EMB_REQ, "/v1/embeddings")).await;
+    set_all_day_rule(
+        &state,
+        "gkt2-a",
+        serde_json::json!({"embedding":["emb-night"]}),
+    )
+    .await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request("gkt2", EMB_REQ, "/v1/embeddings"),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
     let sent = hits.lock().unwrap();
     assert_eq!(sent.len(), 1);
-    assert!(sent[0].1.contains("emb-night") && !sent[0].1.contains("emb-day"), "发往上游的是档值: {}", sent[0].1);
+    assert!(
+        sent[0].1.contains("emb-night") && !sent[0].1.contains("emb-day"),
+        "发往上游的是档值: {}",
+        sent[0].1
+    );
 }
 
 // ══ 请求尝试-逐次重算 票 01：最大尝试次数 = 一次请求的上游调用总数（换平台 + 同平台换模型都计）══
 
 async fn set_group_max_attempts(state: &Arc<ProxyState>, gk: &str, n: u32) {
-    let g = aidog_db::list_groups(&state.db).await.unwrap().into_iter().find(|g| g.group_key == gk).unwrap();
-    aidog_db::update_group(&state.db, aidog_db::models::UpdateGroup {
-        id: g.id, name: None, routing_mode: None, request_timeout_secs: 0, connect_timeout_secs: 0,
-        source_protocol: None, max_retries: Some(n), model_mappings: g.model_mappings.clone(),
-        is_default: None,
-    })
+    let g = aidog_db::list_groups(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|g| g.group_key == gk)
+        .unwrap();
+    aidog_db::update_group(
+        &state.db,
+        aidog_db::models::UpdateGroup {
+            id: g.id,
+            name: None,
+            routing_mode: None,
+            request_timeout_secs: 0,
+            connect_timeout_secs: 0,
+            source_protocol: None,
+            max_retries: Some(n),
+            model_mappings: g.model_mappings.clone(),
+            is_default: None,
+        },
+    )
     .await
     .unwrap();
     state.db.invalidate_group_details_cache();
@@ -8902,7 +11456,12 @@ async fn ra01_chat_cap_counts_model_switches() {
         &state,
         "gkra1",
         &[
-            (&up1, chain_models(&["m-a", "m-b", "m-c"]), Protocol::Anthropic, "p1"),
+            (
+                &up1,
+                chain_models(&["m-a", "m-b", "m-c"]),
+                Protocol::Anthropic,
+                "p1",
+            ),
             (&up2, chain_models(&["m-d"]), Protocol::Anthropic, "p2"),
         ],
     )
@@ -8911,7 +11470,10 @@ async fn ra01_chat_cap_counts_model_switches() {
     let resp = chain_send(&state, "gkra1", CHAIN_REQ).await;
     assert_ne!(resp.status(), StatusCode::OK);
     assert_eq!(hit_models(&hits1), ["m-a", "m-b", "m-c"]);
-    assert!(hits2.lock().unwrap().is_empty(), "总次数用尽，次平台不得被调用");
+    assert!(
+        hits2.lock().unwrap().is_empty(),
+        "总次数用尽，次平台不得被调用"
+    );
     assert_eq!(last_log_for(&state, "gkra1").await.attempts.len(), 3);
 }
 
@@ -8926,8 +11488,18 @@ async fn ra01_chat_cap_counts_across_platforms() {
         &state,
         "gkra2",
         &[
-            (&up1, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p1"),
-            (&up2, chain_models(&["m-c", "m-d"]), Protocol::Anthropic, "p2"),
+            (
+                &up1,
+                chain_models(&["m-a", "m-b"]),
+                Protocol::Anthropic,
+                "p1",
+            ),
+            (
+                &up2,
+                chain_models(&["m-c", "m-d"]),
+                Protocol::Anthropic,
+                "p2",
+            ),
             (&up3, chain_models(&["m-e"]), Protocol::Anthropic, "p3"),
         ],
     )
@@ -8949,11 +11521,18 @@ async fn ra01_aux_cap_stops_platform_switch() {
     setup_embedding_group(
         &state,
         "gkra3",
-        &[(&up1, Some("emb-1"), Protocol::OpenAI, "p1"), (&up2, Some("emb-2"), Protocol::OpenAI, "p2")],
+        &[
+            (&up1, Some("emb-1"), Protocol::OpenAI, "p1"),
+            (&up2, Some("emb-2"), Protocol::OpenAI, "p2"),
+        ],
     )
     .await;
     set_group_max_attempts(&state, "gkra3", 1).await;
-    let resp = handle_proxy(AxumState(state.clone()), embedding_request("gkra3", EMB_REQ, "/v1/embeddings")).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request("gkra3", EMB_REQ, "/v1/embeddings"),
+    )
+    .await;
     assert_ne!(resp.status(), StatusCode::OK);
     assert_eq!(hits1.lock().unwrap().len(), 1);
     assert!(hits2.lock().unwrap().is_empty(), "上限 1：不得换平台");
@@ -8964,10 +11543,17 @@ async fn ra01_aux_cap_stops_platform_switch() {
 async fn ra01_aux_cap_counts_model_switches() {
     let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL); 6]).await;
     let state = make_state(test_db().await).await;
-    let slot = PlatformModels { embedding: vec!["e-a".into(), "e-b".into(), "e-c".into()], ..Default::default() };
+    let slot = PlatformModels {
+        embedding: vec!["e-a".into(), "e-b".into(), "e-c".into()],
+        ..Default::default()
+    };
     setup_aux_group(&state, "gkra3b", &[(&up, slot, Protocol::OpenAI, "p")]).await;
     set_group_max_attempts(&state, "gkra3b", 2).await;
-    let resp = handle_proxy(AxumState(state.clone()), embedding_request("gkra3b", EMB_REQ, "/v1/embeddings")).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request("gkra3b", EMB_REQ, "/v1/embeddings"),
+    )
+    .await;
     assert_ne!(resp.status(), StatusCode::OK);
     assert_eq!(hits.lock().unwrap().len(), 2);
 }
@@ -8975,12 +11561,25 @@ async fn ra01_aux_cap_counts_model_switches() {
 /// 决策请求：上限 2，jev 链 3 个模型全 404 → 2 次调用。
 #[tokio::test]
 async fn ra01_decision_cap_counts_model_switches() {
-    let (up, hits) = spawn_decision_upstream(vec![(404, E404_MODEL), (404, E404_MODEL), (404, E404_MODEL), (200, OR_RESPONSE)]).await;
+    let (up, hits) = spawn_decision_upstream(vec![
+        (404, E404_MODEL),
+        (404, E404_MODEL),
+        (404, E404_MODEL),
+        (200, OR_RESPONSE),
+    ])
+    .await;
     let state = make_state(test_db().await).await;
-    let jev = PlatformModels { jev: vec!["j-a".into(), "j-b".into(), "j-c".into()], ..Default::default() };
+    let jev = PlatformModels {
+        jev: vec!["j-a".into(), "j-b".into(), "j-c".into()],
+        ..Default::default()
+    };
     setup_decision_group(&state, "gkra4", &up, jev, None, Protocol::TypeSafe).await;
     set_group_max_attempts(&state, "gkra4", 2).await;
-    let resp = handle_proxy(AxumState(state.clone()), decision_request("gkra4", "whatever")).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        decision_request("gkra4", "whatever"),
+    )
+    .await;
     assert_ne!(resp.status(), StatusCode::OK);
     assert_eq!(hits.lock().unwrap().len(), 2);
 }
@@ -8996,13 +11595,21 @@ const E400_PLAIN: &str = r#"{"error":{"message":"bad request"}}"#;
 async fn round_single_platform_529_then_ok() {
     let (up, hits) = spawn_embedding_upstream(vec![(529, E529), (529, E529), (200, MB_OK)]).await;
     let state = make_state(test_db().await).await;
-    setup_aux_group(&state, "gkrd1", &[(&up, chain_models(&["m-a"]), Protocol::Anthropic, "p")]).await;
+    setup_aux_group(
+        &state,
+        "gkrd1",
+        &[(&up, chain_models(&["m-a"]), Protocol::Anthropic, "p")],
+    )
+    .await;
     let resp = chain_send(&state, "gkrd1", CHAIN_REQ).await;
     assert_eq!(resp.status(), StatusCode::OK);
     assert_eq!(hits.lock().unwrap().len(), 3);
     let log = last_log_for(&state, "gkrd1").await;
     assert_eq!(log.attempts.len(), 3);
-    assert_eq!(log.routing.unwrap().round_starts, Some(Box::new(vec![1, 2])));
+    assert_eq!(
+        log.routing.unwrap().round_starts,
+        Some(Box::new(vec![1, 2]))
+    );
 }
 
 /// 两平台都失败 → 第二轮从头：p1 先被再次选中并成功，p2 只被打一次。
@@ -9024,7 +11631,10 @@ async fn round_two_platforms_fail_then_second_round_from_top() {
     .await;
     let resp = chain_send(&state, "gkrd2", CHAIN_REQ).await;
     assert_eq!(resp.status(), StatusCode::OK);
-    assert_eq!((hits1.lock().unwrap().len(), hits2.lock().unwrap().len()), (2, 1));
+    assert_eq!(
+        (hits1.lock().unwrap().len(), hits2.lock().unwrap().len()),
+        (2, 1)
+    );
     let log = last_log_for(&state, "gkrd2").await;
     assert_eq!(log.attempts.len(), 3);
     assert_eq!(log.routing.unwrap().round_starts, Some(Box::new(vec![2])));
@@ -9035,7 +11645,12 @@ async fn round_two_platforms_fail_then_second_round_from_top() {
 async fn round_total_calls_bounded_by_max_attempts() {
     let (up, hits) = spawn_embedding_upstream(vec![(529, E529); 8]).await;
     let state = make_state(test_db().await).await;
-    setup_aux_group(&state, "gkrd3", &[(&up, chain_models(&["m-a"]), Protocol::Anthropic, "p")]).await;
+    setup_aux_group(
+        &state,
+        "gkrd3",
+        &[(&up, chain_models(&["m-a"]), Protocol::Anthropic, "p")],
+    )
+    .await;
     set_group_max_attempts(&state, "gkrd3", 3).await;
     let resp = chain_send(&state, "gkrd3", CHAIN_REQ).await;
     assert_ne!(resp.status(), StatusCode::OK);
@@ -9045,9 +11660,15 @@ async fn round_total_calls_bounded_by_max_attempts() {
 /// 模型类失败同样进下一轮：链 [m-a, m-b] 两个都 404 后清空排除，第二轮从 m-a 再来。
 #[tokio::test]
 async fn round_model_class_failures_restart_chain() {
-    let (up, hits) = spawn_embedding_upstream(vec![(404, E404_MODEL), (404, E404_MODEL), (200, MB_OK)]).await;
+    let (up, hits) =
+        spawn_embedding_upstream(vec![(404, E404_MODEL), (404, E404_MODEL), (200, MB_OK)]).await;
     let state = make_state(test_db().await).await;
-    setup_aux_group(&state, "gkrd4", &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")]).await;
+    setup_aux_group(
+        &state,
+        "gkrd4",
+        &[(&up, chain_models(&["m-a", "m-b"]), Protocol::Anthropic, "p")],
+    )
+    .await;
     let resp = chain_send(&state, "gkrd4", CHAIN_REQ).await;
     assert_eq!(resp.status(), StatusCode::OK);
     assert_eq!(hit_models(&hits), ["m-a", "m-b", "m-a"]);
@@ -9058,7 +11679,12 @@ async fn round_model_class_failures_restart_chain() {
 async fn round_guard_400_returns_directly() {
     let (up, hits) = spawn_embedding_upstream(vec![(400, E400_PLAIN), (200, MB_OK)]).await;
     let state = make_state(test_db().await).await;
-    setup_aux_group(&state, "gkrd5", &[(&up, chain_models(&["m-a"]), Protocol::Anthropic, "p")]).await;
+    setup_aux_group(
+        &state,
+        "gkrd5",
+        &[(&up, chain_models(&["m-a"]), Protocol::Anthropic, "p")],
+    )
+    .await;
     let resp = chain_send(&state, "gkrd5", CHAIN_REQ).await;
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     assert_eq!(hits.lock().unwrap().len(), 1);
@@ -9100,14 +11726,37 @@ async fn lock_chat_connect_failure_records_accounting() {
     let upb = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     let upc = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     let state = make_state(test_db().await).await;
-    setup_multi_platform_group(&state, "gkt04a", &[("pa", &dead, ""), ("pb", &upb, ""), ("pc", &upc, "")]).await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkt04a", r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#)).await;
+    setup_multi_platform_group(
+        &state,
+        "gkt04a",
+        &[("pa", &dead, ""), ("pb", &upb, ""), ("pc", &upc, "")],
+    )
+    .await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request(
+            "gkt04a",
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+        ),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
     let p1 = platform_id_of(&state, "pa").await;
     assert_eq!(state.scheduler.breaker_fails(p1), 1, "connect 失败计熔断");
-    assert_eq!(state.scheduler.penalty_consecutive(p1), 1, "connect 失败计服务档降权");
-    let p = aidog_db::get_platform(&state.db, p1).await.unwrap().unwrap();
-    assert!(!p.last_error.is_empty(), "connect 失败写 last_error: {:?}", p.last_error);
+    assert_eq!(
+        state.scheduler.penalty_consecutive(p1),
+        1,
+        "connect 失败计服务档降权"
+    );
+    let p = aidog_db::get_platform(&state.db, p1)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        !p.last_error.is_empty(),
+        "connect 失败写 last_error: {:?}",
+        p.last_error
+    );
     let log = last_log_for(&state, "gkt04a").await;
     assert_eq!(log.attempts[0].status_code, 0, "传输失败 attempt 无状态码");
     assert_eq!(log.attempts.last().unwrap().status_code, 200);
@@ -9120,12 +11769,25 @@ async fn lock_chat_read_timeout_no_breaker() {
     let state = make_state(test_db().await).await;
     setup_group_with_upstream(&state, "gkt04b", &up).await;
     set_short_timeouts(&state).await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkt04b", r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#)).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request(
+            "gkt04b",
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+        ),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
     let p1 = platform_id_of(&state, "stub").await;
     assert_eq!(state.scheduler.breaker_fails(p1), 0, "非 connect 不计熔断");
-    assert!(state.scheduler.penalty_consecutive(p1) >= 1, "读超时计服务档降权");
-    let p = aidog_db::get_platform(&state.db, p1).await.unwrap().unwrap();
+    assert!(
+        state.scheduler.penalty_consecutive(p1) >= 1,
+        "读超时计服务档降权"
+    );
+    let p = aidog_db::get_platform(&state.db, p1)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(!p.last_error.is_empty());
     let log = last_log_for(&state, "gkt04b").await;
     assert_eq!(log.attempts.last().unwrap().status_code, 0);
@@ -9137,15 +11799,38 @@ async fn lock_chat_success_resets_state() {
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     let state = make_state(test_db().await).await;
     setup_group_with_upstream(&state, "gkt04c", &up).await;
-    set_platform_status(&state, "stub", aidog_db::models::PlatformStatus::AutoDisabled).await;
+    set_platform_status(
+        &state,
+        "stub",
+        aidog_db::models::PlatformStatus::AutoDisabled,
+    )
+    .await;
     let p1 = platform_id_of(&state, "stub").await;
-    aidog_db::set_platform_last_error(&state.db, p1, Some("HTTP 500 boom".into())).await.unwrap();
-    state.scheduler.record_penalty(p1, super::scheduling::PenaltyTier::Server, aidog_db::now());
-    let resp = handle_proxy(AxumState(state.clone()), messages_request("gkt04c", r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#)).await;
+    aidog_db::set_platform_last_error(&state.db, p1, Some("HTTP 500 boom".into()))
+        .await
+        .unwrap();
+    state
+        .scheduler
+        .record_penalty(p1, super::scheduling::PenaltyTier::Server, aidog_db::now());
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request(
+            "gkt04c",
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+        ),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let p = aidog_db::get_platform(&state.db, p1).await.unwrap().unwrap();
+    let p = aidog_db::get_platform(&state.db, p1)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(p.last_error, "", "成功后 last_error 清空");
-    assert_eq!(p.status, aidog_db::models::PlatformStatus::Enabled, "AutoDisabled → Enabled");
+    assert_eq!(
+        p.status,
+        aidog_db::models::PlatformStatus::Enabled,
+        "AutoDisabled → Enabled"
+    );
     assert_eq!(state.scheduler.breaker_fails(p1), 0, "成功清熔断计数");
     assert_eq!(state.scheduler.penalty_consecutive(p1), 0, "成功清降权");
     let ema = state.scheduler.latency_ema(p1);
@@ -9162,13 +11847,30 @@ async fn lock_aux_decision_connect_failure_records_accounting() {
         let (upc, _hc) = spawn_embedding_upstream(vec![(200, kind.ok_body())]).await;
         let state = make_state(test_db().await).await;
         let gk = format!("gkt04d{}", kind as u8);
-        setup_aux_chain(&state, &gk, kind, &[(&dead, &["m-a"]), (&upb, &["m-b"]), (&upc, &["m-c"])]).await;
+        setup_aux_chain(
+            &state,
+            &gk,
+            kind,
+            &[(&dead, &["m-a"]), (&upb, &["m-b"]), (&upc, &["m-c"])],
+        )
+        .await;
         let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
         assert_eq!(resp.status(), StatusCode::OK, "{kind:?}");
         let p1 = platform_id_of(&state, &format!("{gk}-pa")).await;
-        assert_eq!(state.scheduler.breaker_fails(p1), 1, "{kind:?}: connect 失败计熔断");
-        assert_eq!(state.scheduler.penalty_consecutive(p1), 1, "{kind:?}: connect 失败计降权");
-        let p = aidog_db::get_platform(&state.db, p1).await.unwrap().unwrap();
+        assert_eq!(
+            state.scheduler.breaker_fails(p1),
+            1,
+            "{kind:?}: connect 失败计熔断"
+        );
+        assert_eq!(
+            state.scheduler.penalty_consecutive(p1),
+            1,
+            "{kind:?}: connect 失败计降权"
+        );
+        let p = aidog_db::get_platform(&state.db, p1)
+            .await
+            .unwrap()
+            .unwrap();
         assert!(!p.last_error.is_empty(), "{kind:?}");
         let log = last_log_for(&state, &gk).await;
         assert_eq!(log.attempts[0].status_code, 0, "{kind:?}");
@@ -9188,9 +11890,19 @@ async fn lock_aux_decision_read_timeout_no_breaker() {
         let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
         assert_eq!(resp.status(), StatusCode::BAD_GATEWAY, "{kind:?}");
         let p1 = platform_id_of(&state, &format!("{gk}-pa")).await;
-        assert_eq!(state.scheduler.breaker_fails(p1), 0, "{kind:?}: 非 connect 不计熔断");
-        assert!(state.scheduler.penalty_consecutive(p1) >= 1, "{kind:?}: 读超时计降权");
-        let p = aidog_db::get_platform(&state.db, p1).await.unwrap().unwrap();
+        assert_eq!(
+            state.scheduler.breaker_fails(p1),
+            0,
+            "{kind:?}: 非 connect 不计熔断"
+        );
+        assert!(
+            state.scheduler.penalty_consecutive(p1) >= 1,
+            "{kind:?}: 读超时计降权"
+        );
+        let p = aidog_db::get_platform(&state.db, p1)
+            .await
+            .unwrap()
+            .unwrap();
         assert!(!p.last_error.is_empty(), "{kind:?}");
         let log = last_log_for(&state, &gk).await;
         assert_eq!(log.attempts.last().unwrap().status_code, 0, "{kind:?}");
@@ -9205,18 +11917,34 @@ async fn lock_aux_decision_success_resets_state() {
         let state = make_state(test_db().await).await;
         let gk = format!("gkt04f{}", kind as u8);
         setup_aux_chain(&state, &gk, kind, &[(&up, &["m-a"])]).await;
-        set_platform_status(&state, &format!("{gk}-pa"), aidog_db::models::PlatformStatus::AutoDisabled).await;
+        set_platform_status(
+            &state,
+            &format!("{gk}-pa"),
+            aidog_db::models::PlatformStatus::AutoDisabled,
+        )
+        .await;
         let p1 = platform_id_of(&state, &format!("{gk}-pa")).await;
-        aidog_db::set_platform_last_error(&state.db, p1, Some("HTTP 500 boom".into())).await.unwrap();
+        aidog_db::set_platform_last_error(&state.db, p1, Some("HTTP 500 boom".into()))
+            .await
+            .unwrap();
         let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
         assert_eq!(resp.status(), StatusCode::OK, "{kind:?}");
-        let p = aidog_db::get_platform(&state.db, p1).await.unwrap().unwrap();
+        let p = aidog_db::get_platform(&state.db, p1)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(p.last_error, "", "{kind:?}: 成功后 last_error 清空");
-        assert_eq!(p.status, aidog_db::models::PlatformStatus::Enabled, "{kind:?}: AutoDisabled → Enabled");
-        assert!(state.scheduler.latency_ema(p1).unwrap_or(0.0) > 0.0, "{kind:?}: 成功记延迟 EMA");
+        assert_eq!(
+            p.status,
+            aidog_db::models::PlatformStatus::Enabled,
+            "{kind:?}: AutoDisabled → Enabled"
+        );
+        assert!(
+            state.scheduler.latency_ema(p1).unwrap_or(0.0) > 0.0,
+            "{kind:?}: 成功记延迟 EMA"
+        );
     }
 }
-
 
 // ══ issue 55 票 05：次数用尽终态口径（2026-11-16 拍板：限频占位耗尽 → 429，取代票 05 原 503）══
 
@@ -9235,38 +11963,73 @@ async fn exhausted_429_lock_aux_and_chat() {
         let gk = format!("gkt05{}", kind as u8);
         setup_aux_chain(&state, &gk, kind, &[(&up, &["m-a"])]).await;
         let pid = platform_id_of(&state, &format!("{gk}-pa")).await;
-        aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
-            id: pid, name: None, platform_type: None, base_url: None, api_key: None,
-            extra: Some(r#"{"rate_limits":{"concurrency":1}}"#.into()),
-            models: None, available_models: None, endpoints: None, enabled: None, status: None,
-            manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
-        }).await.unwrap();
+        aidog_db::update_platform(
+            &state.db,
+            aidog_db::models::UpdatePlatform {
+                id: pid,
+                name: None,
+                platform_type: None,
+                base_url: None,
+                api_key: None,
+                extra: Some(r#"{"rate_limits":{"concurrency":1}}"#.into()),
+                models: None,
+                available_models: None,
+                endpoints: None,
+                enabled: None,
+                status: None,
+                manual_budgets: None,
+                join_group_ids: None,
+                expires_at: None,
+                quota_source: None,
+            },
+        )
+        .await
+        .unwrap();
         state.db.invalidate_group_details_cache();
         set_group_max_attempts(&state, &gk, 3).await;
 
         let resp = handle_proxy(AxumState(state.clone()), kind.request(&gk)).await;
         assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS, "{kind:?}");
         let body = axum::body::to_bytes(resp.into_body(), 4096).await.unwrap();
-        assert!(String::from_utf8_lossy(&body).contains("all candidates exhausted"), "{kind:?}");
+        assert!(
+            String::from_utf8_lossy(&body).contains("all candidates exhausted"),
+            "{kind:?}"
+        );
         let log = last_log_for(&state, &gk).await;
         assert_eq!(log.status_code, 429, "{kind:?}");
         assert!(!log.attempts.is_empty(), "{kind:?}: attempts 留痕");
-        assert_eq!(log.retry_count, aidog_db::models::retry_count_of(&log.attempts), "{kind:?}");
+        assert_eq!(
+            log.retry_count,
+            aidog_db::models::retry_count_of(&log.attempts),
+            "{kind:?}"
+        );
     }
 
     // 聊天：同样的单平台并发占位形态 → 429（同 exhausted_status 口径）。
     let up = spawn_stub_upstream(500, E500_PLAIN).await;
     let state = make_state(test_db().await).await;
-    setup_multi_platform_group(&state, "gkt05c", &[("A", &up, r#"{"rate_limits":{"concurrency":1}}"#)]).await;
+    setup_multi_platform_group(
+        &state,
+        "gkt05c",
+        &[("A", &up, r#"{"rate_limits":{"concurrency":1}}"#)],
+    )
+    .await;
     set_group_max_attempts(&state, "gkt05c", 3).await;
-    let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkt05c", None)).await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request_ua("gkt05c", None),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
     let body = axum::body::to_bytes(resp.into_body(), 4096).await.unwrap();
     assert!(String::from_utf8_lossy(&body).contains("all candidates exhausted"));
     let log = last_log_for(&state, "gkt05c").await;
     assert_eq!(log.status_code, 429);
     assert!(!log.attempts.is_empty());
-    assert_eq!(log.retry_count, aidog_db::models::retry_count_of(&log.attempts));
+    assert_eq!(
+        log.retry_count,
+        aidog_db::models::retry_count_of(&log.attempts)
+    );
 
     // decision 无限频占位（票 06 豁免）：单平台 500 上游 → 末次原样回传 500（真实行为回归，
     // 不落 503 终态；此为实测锁定，不是本次改动引入）。
@@ -9276,7 +12039,11 @@ async fn exhausted_429_lock_aux_and_chat() {
     setup_aux_chain(&state, gk, AuxKind::Jev, &[(&up, &["m-a"])]).await;
     set_group_max_attempts(&state, gk, 3).await;
     let resp = handle_proxy(AxumState(state.clone()), AuxKind::Jev.request(gk)).await;
-    assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR, "decision 500 终态（实测行为）");
+    assert_eq!(
+        resp.status(),
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "decision 500 终态（实测行为）"
+    );
     let log = last_log_for(&state, gk).await;
     assert_eq!(log.status_code, 500);
     assert!(!log.attempts.is_empty());
@@ -9366,10 +12133,14 @@ async fn max_tokens_cap_converter_branch_traces_once() {
     let state = make_state(test_db().await).await;
     setup_openai_group(&state, "gkcap1", &upstream).await;
     seed_model_cap(&state.db, "m-cap").await;
-    set_log_settings(&state, ProxyLogSettings {
-        log_upstream_request: true,
-        ..Default::default()
-    }).await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings {
+            log_upstream_request: true,
+            ..Default::default()
+        },
+    )
+    .await;
 
     let req = HttpRequest::builder()
         .method("POST")
@@ -9388,7 +12159,8 @@ async fn max_tokens_cap_converter_branch_traces_once() {
     assert_eq!(captured.len(), 1, "上游应恰收到一次请求: {captured:?}");
     let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
     assert_eq!(
-        sent["max_tokens"], serde_json::json!(4096),
+        sent["max_tokens"],
+        serde_json::json!(4096),
         "转换分支出站 max_tokens 应裁到模型上限: {sent}"
     );
 
@@ -9410,10 +12182,14 @@ async fn max_tokens_cap_passthrough_branch_traces_once() {
     let state = make_state(test_db().await).await;
     setup_openai_group(&state, "gkcap2", &upstream).await;
     seed_model_cap(&state.db, "m-cap").await;
-    set_log_settings(&state, ProxyLogSettings {
-        log_upstream_request: true,
-        ..Default::default()
-    }).await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings {
+            log_upstream_request: true,
+            ..Default::default()
+        },
+    )
+    .await;
 
     let req = HttpRequest::builder()
         .method("POST")
@@ -9432,7 +12208,8 @@ async fn max_tokens_cap_passthrough_branch_traces_once() {
     assert_eq!(captured.len(), 1, "上游应恰收到一次请求: {captured:?}");
     let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
     assert_eq!(
-        sent["max_tokens"], serde_json::json!(4096),
+        sent["max_tokens"],
+        serde_json::json!(4096),
         "透传分支出站 max_tokens 应裁到模型上限: {sent}"
     );
 
@@ -9479,7 +12256,8 @@ async fn disable_thinking_and_field_passthrough_body_end_state() {
         "禁用按目标协议写出显式参数: {sent}"
     );
     assert_eq!(
-        sent["top_k"], serde_json::json!(5),
+        sent["top_k"],
+        serde_json::json!(5),
         "未建模字段兜底透传出站: {sent}"
     );
 }
@@ -9491,12 +12269,22 @@ async fn disable_thinking_and_field_passthrough_body_end_state() {
 async fn mixed_rate_limit_quota_cooldown_disabled_returns_429() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
-    setup_multi_platform_group(&state, "gkmix1", &[("A", &up, RPM1), ("B", &up, ""), ("C", &up, "")]).await;
+    setup_multi_platform_group(
+        &state,
+        "gkmix1",
+        &[("A", &up, RPM1), ("B", &up, ""), ("C", &up, "")],
+    )
+    .await;
     set_platform_status(&state, "B", aidog_db::models::PlatformStatus::Disabled).await;
     let c = platform_id_of(&state, "C").await;
-    state.scheduler.set_quota_cooldown(c, aidog_db::now() + 600_000);
+    state
+        .scheduler
+        .set_quota_cooldown(c, aidog_db::now() + 600_000);
     assert_eq!(rl_status(&state, "gkmix1").await, StatusCode::OK);
-    assert_eq!(rl_status(&state, "gkmix1").await, StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(
+        rl_status(&state, "gkmix1").await,
+        StatusCode::TOO_MANY_REQUESTS
+    );
     let log = last_log_for(&state, "gkmix1").await;
     assert_eq!(log.status_code, 429);
     assert_eq!(log.blocked_by, "router");
@@ -9511,9 +12299,14 @@ async fn all_rate_limit_cooldown_returns_429() {
     setup_multi_platform_group(&state, "gkcd1", &[("A", &up, ""), ("B", &up, "")]).await;
     for n in ["A", "B"] {
         let id = platform_id_of(&state, n).await;
-        state.scheduler.set_rate_limit_cooldown(id, aidog_db::now(), Some(600_000));
+        state
+            .scheduler
+            .set_rate_limit_cooldown(id, aidog_db::now(), Some(600_000));
     }
-    assert_eq!(rl_status(&state, "gkcd1").await, StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(
+        rl_status(&state, "gkcd1").await,
+        StatusCode::TOO_MANY_REQUESTS
+    );
 }
 
 /// 无限频、仅冷却 / 禁用混合的暂时不可用 → 503（原先兜底 400）。
@@ -9521,13 +12314,23 @@ async fn all_rate_limit_cooldown_returns_429() {
 async fn transient_no_available_platform_returns_503() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
-    setup_multi_platform_group(&state, "gkno1", &[("A", &up, ""), ("B", &up, ""), ("C", &up, "")]).await;
+    setup_multi_platform_group(
+        &state,
+        "gkno1",
+        &[("A", &up, ""), ("B", &up, ""), ("C", &up, "")],
+    )
+    .await;
     set_platform_status(&state, "C", aidog_db::models::PlatformStatus::Disabled).await;
     for n in ["A", "B"] {
         let id = platform_id_of(&state, n).await;
-        state.scheduler.set_quota_cooldown(id, aidog_db::now() + 600_000);
+        state
+            .scheduler
+            .set_quota_cooldown(id, aidog_db::now() + 600_000);
     }
-    assert_eq!(rl_status(&state, "gkno1").await, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(
+        rl_status(&state, "gkno1").await,
+        StatusCode::SERVICE_UNAVAILABLE
+    );
 }
 
 /// 候选耗尽终态：限频占位挡过 → 429，否则 503。
@@ -9567,7 +12370,12 @@ async fn non_glm_upstream_529_stays_529() {
 // ── 限频-429 r2：配置类路由失败选码 + 429 的 Retry-After ──
 
 fn retry_after_secs(resp: &Response) -> Option<u64> {
-    resp.headers().get("retry-after")?.to_str().ok()?.parse().ok()
+    resp.headers()
+        .get("retry-after")?
+        .to_str()
+        .ok()?
+        .parse()
+        .ok()
 }
 
 /// 回归护栏 + 选码：各路由失败原因的状态码。
@@ -9575,10 +12383,19 @@ fn retry_after_secs(resp: &Response) -> Option<u64> {
 fn route_fallback_status_per_reason() {
     for (err, want) in [
         ("group has no platforms", StatusCode::NOT_IMPLEMENTED),
-        ("group's only platform is manually disabled", StatusCode::SERVICE_UNAVAILABLE),
-        ("group's only platform is censorship-blocked", StatusCode::from_u16(451).unwrap()),
+        (
+            "group's only platform is manually disabled",
+            StatusCode::SERVICE_UNAVAILABLE,
+        ),
+        (
+            "group's only platform is censorship-blocked",
+            StatusCode::from_u16(451).unwrap(),
+        ),
         ("no_tools_platform", StatusCode::NOT_FOUND),
-        ("no available platform (all disabled, backing off, or circuit-broken)", StatusCode::SERVICE_UNAVAILABLE),
+        (
+            "no available platform (all disabled, backing off, or circuit-broken)",
+            StatusCode::SERVICE_UNAVAILABLE,
+        ),
         ("no_chat_platform", StatusCode::NOT_FOUND),
         ("no_decision_platform", StatusCode::NOT_FOUND),
     ] {
@@ -9589,8 +12406,16 @@ fn route_fallback_status_per_reason() {
 #[tokio::test]
 async fn empty_group_returns_501() {
     let state = make_state(test_db().await).await;
-    aidog_db::create_group(&state.db, aidog_db::test_support::sample_group("gkempty", vec![])).await.unwrap();
-    assert_eq!(rl_status(&state, "gkempty").await, StatusCode::NOT_IMPLEMENTED);
+    aidog_db::create_group(
+        &state.db,
+        aidog_db::test_support::sample_group("gkempty", vec![]),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        rl_status(&state, "gkempty").await,
+        StatusCode::NOT_IMPLEMENTED
+    );
 }
 
 #[tokio::test]
@@ -9599,7 +12424,10 @@ async fn single_manually_disabled_returns_503() {
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     setup_multi_platform_group(&state, "gkdis1", &[("A", &up, "")]).await;
     set_platform_status(&state, "A", aidog_db::models::PlatformStatus::Disabled).await;
-    assert_eq!(rl_status(&state, "gkdis1").await, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(
+        rl_status(&state, "gkdis1").await,
+        StatusCode::SERVICE_UNAVAILABLE
+    );
 }
 
 /// 回归护栏（旧码已绿）：白名单拦下一个、另一个限频 → 混合原因仍 429。
@@ -9607,11 +12435,24 @@ async fn single_manually_disabled_returns_503() {
 async fn whitelist_mixed_with_ratelimit_stays_429() {
     let state = make_state(test_db().await).await;
     let up = spawn_stub_upstream(200, ANTHROPIC_OK).await;
-    setup_multi_platform_group(&state, "gkwlrl", &[("A", &up, WL_CC_EXTRA), ("B", &up, RPM1)]).await;
-    let send = || handle_proxy(AxumState(state.clone()), messages_request_ua("gkwlrl", Some("curl/8.4.0")));
+    setup_multi_platform_group(
+        &state,
+        "gkwlrl",
+        &[("A", &up, WL_CC_EXTRA), ("B", &up, RPM1)],
+    )
+    .await;
+    let send = || {
+        handle_proxy(
+            AxumState(state.clone()),
+            messages_request_ua("gkwlrl", Some("curl/8.4.0")),
+        )
+    };
     assert_eq!(send().await.status(), StatusCode::OK);
     assert_eq!(send().await.status(), StatusCode::TOO_MANY_REQUESTS);
-    assert_eq!(last_log_for(&state, "gkwlrl").await.blocked_reason, "rate_limit");
+    assert_eq!(
+        last_log_for(&state, "gkwlrl").await.blocked_reason,
+        "rate_limit"
+    );
 }
 
 #[tokio::test]
@@ -9643,7 +12484,9 @@ async fn upstream_cooldown_429_carries_retry_after() {
     setup_multi_platform_group(&state, "gkra3", &[("A", &up, ""), ("B", &up, "")]).await;
     for n in ["A", "B"] {
         let pid = platform_id_of(&state, n).await;
-        state.scheduler.set_rate_limit_cooldown(pid, aidog_db::now(), Some(30_000));
+        state
+            .scheduler
+            .set_rate_limit_cooldown(pid, aidog_db::now(), Some(30_000));
     }
     let resp = handle_proxy(AxumState(state.clone()), messages_request_ua("gkra3", None)).await;
     assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
@@ -9664,7 +12507,10 @@ fn add_retry_after_rounds_up_and_only_on_429() {
     assert!(r.headers().get("retry-after").is_none());
     // 已过期 → 最小 1
     log.routing = Some(aidog_db::models::RoutingSnapshot::default());
-    log.routing.as_mut().unwrap().note_retry_at_ms(aidog_db::now() - 10_000);
+    log.routing
+        .as_mut()
+        .unwrap()
+        .note_retry_at_ms(aidog_db::now() - 10_000);
     let mut r = (StatusCode::TOO_MANY_REQUESTS, "x").into_response();
     add_retry_after(&mut r, &log);
     assert_eq!(retry_after_secs(&r), Some(1));
@@ -9697,15 +12543,24 @@ async fn responses_streaming_usage_logged() {
     );
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
 
     // 流式 flush 走 tokio::spawn fire-and-forget，给调度窗口。
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     let row = only_log_of(&state, "gk72r").await;
-    assert_eq!(row.input_tokens, 7, "input = input_tokens 11 − cached 4: got {}", row.input_tokens);
+    assert_eq!(
+        row.input_tokens, 7,
+        "input = input_tokens 11 − cached 4: got {}",
+        row.input_tokens
+    );
     assert_eq!(row.output_tokens, 7, "output: got {}", row.output_tokens);
     assert_eq!(row.cache_tokens, 4, "cache_read: got {}", row.cache_tokens);
-    assert!(row.est_cost > 0.0, "Responses 流式 usage 必须产生非 0 est_cost");
+    assert!(
+        row.est_cost > 0.0,
+        "Responses 流式 usage 必须产生非 0 est_cost"
+    );
     assert!(row.done);
 }
 
@@ -9723,13 +12578,18 @@ async fn responses_nonstream_usage_logged() {
     );
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
 
     let row = only_log_of(&state, "gk72n").await;
     assert_eq!(row.input_tokens, 7, "input: got {}", row.input_tokens);
     assert_eq!(row.output_tokens, 7, "output: got {}", row.output_tokens);
     assert_eq!(row.cache_tokens, 4, "cache_read: got {}", row.cache_tokens);
-    assert!(row.est_cost > 0.0, "非流式 Responses usage 必须产生非 0 est_cost");
+    assert!(
+        row.est_cost > 0.0,
+        "非流式 Responses usage 必须产生非 0 est_cost"
+    );
 }
 
 /// MiniMax 家族平台均采用用户配置的 base_url；OpenAI 与 Anthropic wire 均经本地假上游。
@@ -10041,14 +12901,27 @@ async fn gemini_streaming_usage_logged() {
     );
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
 
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     let row = only_log_of(&state, "gk72g").await;
-    assert_eq!(row.input_tokens, 3, "input = 5 − cached 2: got {}", row.input_tokens);
-    assert_eq!(row.output_tokens, 4, "output = candidates 3 + thoughts 1: got {}", row.output_tokens);
+    assert_eq!(
+        row.input_tokens, 3,
+        "input = 5 − cached 2: got {}",
+        row.input_tokens
+    );
+    assert_eq!(
+        row.output_tokens, 4,
+        "output = candidates 3 + thoughts 1: got {}",
+        row.output_tokens
+    );
     assert_eq!(row.cache_tokens, 2, "cache_read: got {}", row.cache_tokens);
-    assert!(row.est_cost > 0.0, "Gemini 流式 usageMetadata 必须产生非 0 est_cost");
+    assert!(
+        row.est_cost > 0.0,
+        "Gemini 流式 usageMetadata 必须产生非 0 est_cost"
+    );
 }
 
 /// 直通模型链整组额度窗口耗尽（extra.quota_windows 执行）→ 与主链同款
@@ -10058,20 +12931,32 @@ async fn direct_quota_window_exhausted_returns_429_with_retry_after() {
     let (db, _dir) = aidog_db::test_support::three_file_db().await;
     let state = make_state(db).await;
     setup_group_with_upstream(&state, "gkdirwin", "https://example.invalid").await;
-    let win_extra = r#"{"direct_models":["m1"],"quota_windows":[{"window":3600,"budget_tokens":100}]}"#;
-    let second = aidog_db::create_platform(
+    let win_extra =
+        r#"{"direct_models":["m1"],"quota_windows":[{"window":3600,"budget_tokens":100}]}"#;
+    let second =
+        aidog_db::create_platform(&state.db, aidog_db::test_support::sample_platform("dwin2"))
+            .await
+            .unwrap();
+    aidog_db::update_platform(
         &state.db,
-        aidog_db::test_support::sample_platform("dwin2"),
+        aidog_db::models::UpdatePlatform {
+            id: second.id,
+            name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            extra: Some(win_extra.to_string()),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
+            status: None,
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
     )
-    .await
-    .unwrap();
-    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
-        id: second.id,
-        name: None, platform_type: None, base_url: None, api_key: None,
-        extra: Some(win_extra.to_string()),
-        models: None, available_models: None, endpoints: None,
-        enabled: None, status: None, manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
-    })
     .await
     .unwrap();
     let group = aidog_db::list_groups(&state.db)
@@ -10080,35 +12965,87 @@ async fn direct_quota_window_exhausted_returns_429_with_retry_after() {
         .into_iter()
         .find(|g| g.group_key == "gkdirwin")
         .unwrap();
-    let existing = aidog_db::get_group_platforms(&state.db, group.id).await.unwrap();
-    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
-        id: existing[0].platform.id,
-        name: None, platform_type: None, base_url: None, api_key: None,
-        extra: Some(win_extra.to_string()),
-        models: None, available_models: None, endpoints: None,
-        enabled: None, status: None, manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
-    })
+    let existing = aidog_db::get_group_platforms(&state.db, group.id)
+        .await
+        .unwrap();
+    aidog_db::update_platform(
+        &state.db,
+        aidog_db::models::UpdatePlatform {
+            id: existing[0].platform.id,
+            name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            extra: Some(win_extra.to_string()),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
+            status: None,
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
     .await
     .unwrap();
-    aidog_db::set_group_platforms(&state.db, group.id, &[
-        GroupPlatformInput { platform_id: existing[0].platform.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
-        GroupPlatformInput { platform_id: second.id, priority: Some(1), weight: Some(1), level_priority: Some(5) },
-    ])
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[
+            GroupPlatformInput {
+                platform_id: existing[0].platform.id,
+                priority: Some(0),
+                weight: Some(1),
+                level_priority: Some(5),
+            },
+            GroupPlatformInput {
+                platform_id: second.id,
+                priority: Some(1),
+                weight: Some(1),
+                level_priority: Some(5),
+            },
+        ],
+    )
     .await
     .unwrap();
     state.db.invalidate_group_details_cache();
     // 两声明平台窗口用量都超预算（token 窗口 100，记 200）→ 整组额度窗口耗尽
-    crate::gateway::quota_window::record_usage(&state.db, existing[0].platform.id, win_extra, 200.0, 0.0, aidog_db::now()).await.unwrap();
-    crate::gateway::quota_window::record_usage(&state.db, second.id, win_extra, 200.0, 0.0, aidog_db::now()).await.unwrap();
+    crate::gateway::quota_window::record_usage(
+        &state.db,
+        existing[0].platform.id,
+        win_extra,
+        200.0,
+        0.0,
+        aidog_db::now(),
+    )
+    .await
+    .unwrap();
+    crate::gateway::quota_window::record_usage(
+        &state.db,
+        second.id,
+        win_extra,
+        200.0,
+        0.0,
+        aidog_db::now(),
+    )
+    .await
+    .unwrap();
 
     let resp = handle_proxy(
         AxumState(state.clone()),
-        messages_request("gkdirwin", r#"{"model":"m1","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+        messages_request(
+            "gkdirwin",
+            r#"{"model":"m1","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#,
+        ),
     )
     .await;
     assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
     assert!(
-        resp.headers().get(axum::http::header::RETRY_AFTER).is_some(),
+        resp.headers()
+            .get(axum::http::header::RETRY_AFTER)
+            .is_some(),
         "429 must carry Retry-After anchored at window end"
     );
     let log = last_log_for(&state, "gkdirwin").await;
@@ -10203,3 +13140,5 @@ async fn chat_routes_to_model_supported_endpoint_protocol() {
     let sent: serde_json::Value = serde_json::from_str(&req_body).unwrap();
     assert_eq!(sent["model"], "deepseek/deepseek-v4-flash");
     assert!(sent["messages"].is_array(), "openai chat 出站形状: {req_body}");
+    assert!(sent.get("type").is_none(), "不得残留 anthropic 外壳: {req_body}");
+}
