@@ -1,13 +1,47 @@
 // ─── 扩展 → 上下文压缩（RTK / sqz）────────────────────────────
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { Bar, CartesianGrid, ComposedChart, Line, XAxis, YAxis } from "recharts";
 import { Button } from "../components/ui/button";
 import { Switch } from "../components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { ChartContainer, type ChartConfig } from "../components/ui/chart";
+import { ChartCard, ChartsTooltip, PRIMARY_COLOR, niceTicks, useDrawIn } from "../components/charts";
 import { contextCompressApi, type ContextCompressStats, type ContextCompressStatus, type RtkSetResult } from "../services/api/contextCompress";
-import { formatInteger, formatPercent } from "../utils/formatters";
+import { formatInteger, formatNumber, formatPercent } from "../utils/formatters";
 
 type Range = "30" | "90" | "all";
+
+// 每日图悬浮提示：日期 + 已使用 / 已压缩 / 压缩比例；sqz CLI 无每日输入与比率（used 缺省）时只显示已压缩。
+export function DailyTooltip({ active, label, payload }: {
+  active?: boolean;
+  label?: string;
+  payload?: { payload?: { used?: number; compressed?: number; pct?: number } }[];
+}) {
+  const { t } = useTranslation();
+  if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload ?? {};
+  const tipRow = (key: string, labelKey: string, value: string) => <div
+    className="flex w-full items-center justify-between gap-3"
+    data-testid={`cc-tip-${key}`}
+  >
+    <span className="text-muted-foreground">{t(labelKey)}</span>
+    <span className="font-mono font-medium tabular-nums">{value}</span>
+  </div>;
+  return <div
+    dir="auto"
+    className="pointer-events-none grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-sm shadow-xl"
+    data-testid="cc-tip"
+  >
+    <div className="font-medium">{label}</div>
+    {row.used != null && tipRow("used", "contextCompress.statsColUsed", formatInteger(row.used))}
+    {tipRow("compressed", "contextCompress.statsColCompressed", formatInteger(row.compressed ?? 0))}
+    {row.used != null && tipRow("ratio", "contextCompress.statsColRatio", row.used > 0 && row.pct != null ? formatPercent(row.pct) : "—")}
+  </div>;
+}
+
+const COLORS = { used: "var(--chart-3)", compressed: PRIMARY_COLOR, pct: "var(--chart-4)" };
+const SERIES = { used: "contextCompress.statsColUsed", compressed: "contextCompress.statsColCompressed", pct: "contextCompress.statsColRatio" };
 
 const isoDay = (d: Date) => {
   const y = d.getFullYear();
@@ -26,6 +60,7 @@ export function ContextCompress() {
   const [sideErrors, setSideErrors] = useState<{ claude?: string | null; codex?: string | null }>({});
   const [busy, setBusy] = useState(false);
   const [range, setRange] = useState<Range>("30");
+  const drawIn = useDrawIn();
 
   // stats 跑 rtk gain / sqz stats 要数秒，与 status 分开加载，不拖住开关区。
   const loadStats = useCallback(async () => {
@@ -124,34 +159,44 @@ export function ContextCompress() {
   const rtkRange = useMemo(() => inRange(stats?.rtk_daily), [stats, range]);
   const sqzRange = useMemo(() => inRange(stats?.sqz_daily), [stats, range]);
   const sum = (rows: { saved_tokens: number }[]) => rows.reduce((a, r) => a + r.saved_tokens, 0);
-  // 每日表：已使用 = 压缩前 tokens（rtk input_tokens），已压缩 = 节省 tokens，比例 = 当日 savings_pct。
-  // sqz CLI 无每日输入 / 比率，used 为 undefined 时两列显示「—」。
-  type DayRow = { date: string; used?: number; compressed: number; pct?: number };
-  const dailyTable = (tool: "rtk" | "sqz", rows: DayRow[]) => <div className="mt-3 space-y-2" data-testid={`cc-daily-${tool}`}>
-    <h3 className="text-sm font-medium">{t("contextCompress.statsDaily")}</h3>
-    <div className="max-h-72 overflow-y-auto rounded-md border">
-      <table className="w-full text-sm tabular-nums">
-        <thead className="sticky top-0 bg-background text-muted-foreground">
-          <tr className="border-b">
-            <th className="px-3 py-1.5 text-start font-medium">{t("contextCompress.statsColDate")}</th>
-            <th className="px-3 py-1.5 text-end font-medium">{t("contextCompress.statsColUsed")}</th>
-            <th className="px-3 py-1.5 text-end font-medium">{t("contextCompress.statsColCompressed")}</th>
-            <th className="px-3 py-1.5 text-end font-medium">{t("contextCompress.statsColRatio")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {[...rows].sort((a, b) => b.date.localeCompare(a.date)).map(r => <tr key={r.date} className="border-b last:border-0" data-testid={`cc-daily-${tool}-row`}>
-            <td className="px-3 py-1.5 font-mono" data-testid="cc-daily-date">{r.date}</td>
-            <td className="px-3 py-1.5 text-end font-mono" data-testid="cc-daily-used">{r.used != null ? formatInteger(r.used) : "—"}</td>
-            <td className="px-3 py-1.5 text-end font-mono" data-testid="cc-daily-compressed">{formatInteger(r.compressed)}</td>
-            <td className="px-3 py-1.5 text-end font-mono" data-testid="cc-daily-ratio">{r.used && r.pct != null ? formatPercent(r.pct) : "—"}</td>
-          </tr>)}
-        </tbody>
-      </table>
-    </div>
-  </div>;
-  const rtkChart = dailyTable("rtk", rtkRange.map(r => ({ date: r.date, used: r.input_tokens, compressed: r.saved_tokens, pct: r.savings_pct })));
-  const sqzChart = dailyTable("sqz", sqzRange.map(r => ({ date: r.date, compressed: r.saved_tokens })));
+  // 每日图：已使用 = 压缩前 tokens（rtk input_tokens），已压缩 = 节省 tokens，比例 = 当日 savings_pct（右轴）。
+  // sqz CLI 无每日输入 / 比率，只画已压缩柱。横轴按日期升序。
+  const chartConfig = useMemo<ChartConfig>(() => Object.fromEntries(
+    (Object.keys(COLORS) as (keyof typeof COLORS)[]).map(k => [k, { label: t(SERIES[k]), color: COLORS[k] }])), [t]);
+  type DayPoint = { date: string; used?: number; compressed: number; pct?: number };
+  const dailyChart = (tool: "rtk" | "sqz", rows: DayPoint[]) => {
+    const data = [...rows].sort((a, b) => a.date.localeCompare(b.date));
+    const withRatio = tool === "rtk";
+    const keys: (keyof typeof COLORS)[] = withRatio ? ["used", "compressed", "pct"] : ["compressed"];
+    const yTicks = niceTicks(0, Math.max(0, ...data.map(r => Math.max(r.used ?? 0, r.compressed))), 5);
+    return <div className="mt-3 space-y-2" data-testid={`cc-chart-${tool}`}>
+      <h3 className="text-sm font-medium">{t("contextCompress.statsDaily")}</h3>
+      <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground" data-testid={`cc-legend-${tool}`}>
+        {keys.map(k => <span key={k} className="flex items-center gap-1.5">
+          <span className={k === "pct" ? "h-0.5 w-3" : "size-2.5 rounded-sm"} style={{ background: COLORS[k] }} />
+          {t(SERIES[k])}
+        </span>)}
+      </div>
+      <ChartCard empty={data.length === 0}>
+        <ChartContainer config={chartConfig} className="w-full" style={{ height: 220 }}>
+          <ComposedChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+            <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(5)} tickLine={false} axisLine={false} tickMargin={8}
+              interval={data.length > 15 ? Math.ceil(data.length / 12) : 0} />
+            <YAxis yAxisId="tokens" width={56} tickLine={false} axisLine={false} tickFormatter={(v: number) => formatNumber(v)}
+              {...(yTicks.length > 0 && { ticks: yTicks, domain: [yTicks[0], yTicks[yTicks.length - 1]] as [number, number] })} />
+            {withRatio && <YAxis yAxisId="pct" orientation="right" width={44} domain={[0, 100]} ticks={[0, 25, 50, 75, 100]}
+              tickLine={false} axisLine={false} tickFormatter={(v: number) => `${v}%`} />}
+            <ChartsTooltip content={<DailyTooltip />} />
+            {keys.filter(k => k !== "pct").map(k => <Bar key={k} yAxisId="tokens" dataKey={k} fill={`var(--color-${k})`} radius={[4, 4, 0, 0]} {...drawIn} />)}
+            {withRatio && <Line yAxisId="pct" type="monotone" dataKey="pct" stroke="var(--color-pct)" strokeWidth={2} dot={data.length <= 60} {...drawIn} />}
+          </ComposedChart>
+        </ChartContainer>
+      </ChartCard>
+    </div>;
+  };
+  const rtkChart = dailyChart("rtk", rtkRange.map(r => ({ date: r.date, used: r.input_tokens, compressed: r.saved_tokens, pct: r.savings_pct })));
+  const sqzChart = dailyChart("sqz", sqzRange.map(r => ({ date: r.date, compressed: r.saved_tokens })));
 
   const rtkIn = rtkRange.reduce((a, r) => a + r.input_tokens, 0);
   const rtkSaved = sum(rtkRange);
