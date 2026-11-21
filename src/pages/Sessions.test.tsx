@@ -80,72 +80,38 @@ beforeEach(() => {
 });
 
 describe("Sessions 页（票 02）", () => {
-  it("全部未启用：四格皆 off、显示引导卡，去设置跳 settings/client_usage，不拉会话", async () => {
+  it("全部未启用：显示引导卡，去设置跳 settings/client_usage，不拉会话", async () => {
     api.status.mockResolvedValue(statusPayload({}));
     const onNavigate = vi.fn();
     render(<Sessions onNavigate={onNavigate} />);
     expect(await screen.findByTestId("sessions-guide")).toBeInTheDocument();
-    for (const c of ["claude_code", "codex", "gemini_cli", "opencode"]) {
-      expect(screen.getByTestId(`sessions-tile-${c}`)).toHaveAttribute("data-state", "off");
-    }
     fireEvent.click(screen.getByTestId("sessions-guide-go"));
     expect(onNavigate).toHaveBeenCalledWith("settings/client_usage");
-    fireEvent.click(screen.getByTestId("sessions-tile-go-codex"));
-    expect(onNavigate).toHaveBeenCalledTimes(2);
     expect(api.sessions).not.toHaveBeenCalled();
     expect(screen.queryByTestId("sessions-toolbar")).toBeNull();
+    expect(screen.queryByTestId("sessions-partial-off")).toBeNull();
   });
 
-  it("部分启用：启用格 on、未启用格有去设置按钮、导入中的格显示进度；列表只含启用客户端", async () => {
-    api.status.mockResolvedValue(statusPayload(
-      { claude_code: true, codex: true, gemini_cli: true, opencode: false },
-      { ...IDLE, running: true, clientCode: "gemini_cli", filesTotal: 10, filesDone: 4 },
-    ));
+  it("部分启用：列表只含启用客户端", async () => {
+    api.status.mockResolvedValue(statusPayload({ claude_code: true, codex: true, gemini_cli: true, opencode: false }));
     api.sessions.mockResolvedValue(SESSIONS);
     render(<Sessions onNavigate={vi.fn()} />);
     await screen.findAllByTestId("sessions-row");
-    expect(screen.getByTestId("sessions-tile-claude_code")).toHaveAttribute("data-state", "on");
-    expect(screen.getByTestId("sessions-tile-opencode")).toHaveAttribute("data-state", "off");
-    expect(screen.getByTestId("sessions-tile-go-opencode")).toBeInTheDocument();
-    expect(screen.queryByTestId("sessions-tile-go-codex")).toBeNull();
-    expect(screen.getByTestId("sessions-tile-import-gemini_cli")).toHaveAttribute("data-progress", "40");
     const clients = screen.getAllByTestId("sessions-row").map((r) => r.getAttribute("data-client"));
     expect(clients).toEqual(["claude_code", "codex"]);
     expect(screen.queryByTestId("sessions-guide")).toBeNull();
   });
 
-  it("正常列表：按工作目录分组，四格计数由列表派生，成本口径（全部未定价 / 部分 +）", async () => {
+  it("正常列表：按工作目录分组，成本口径（全部未定价 / 部分 +）", async () => {
     api.status.mockResolvedValue(statusPayload(ALL_ON));
     api.sessions.mockResolvedValue(SESSIONS);
     render(<Sessions onNavigate={vi.fn()} />);
     const groups = await screen.findAllByTestId("sessions-group");
     expect(groups.map((g) => g.getAttribute("data-workdir"))).toEqual(["/work/alpha", "/work/beta"]);
     expect(within(groups[0]).getAllByTestId("sessions-row")).toHaveLength(2);
-    expect(screen.getByTestId("sessions-tile-count-codex")).toHaveAttribute("data-count", "1");
-    expect(screen.getByTestId("sessions-tile-count-gemini_cli")).toHaveAttribute("data-count", "0");
     expect(screen.getByTestId("sessions-count")).toHaveAttribute("data-count", "3");
     const priced = screen.getAllByTestId("sessions-row-cost").map((c) => c.getAttribute("data-priced"));
     expect(priced).toEqual(["all", "partial", "none"]);
-  });
-
-  it("点已启用格筛选、再点取消；清除筛选；未启用格不可选", async () => {
-    api.status.mockResolvedValue(statusPayload({ claude_code: true, codex: true, gemini_cli: true, opencode: false }));
-    api.sessions.mockResolvedValue(SESSIONS);
-    render(<Sessions onNavigate={vi.fn()} />);
-    await screen.findAllByTestId("sessions-row");
-    const tile = screen.getByTestId("sessions-tile-codex");
-    fireEvent.click(tile);
-    expect(tile).toHaveAttribute("data-selected", "true");
-    expect(screen.getAllByTestId("sessions-row").map((r) => r.getAttribute("data-client"))).toEqual(["codex"]);
-    fireEvent.click(tile);
-    expect(tile).toHaveAttribute("data-selected", "false");
-    expect(screen.getAllByTestId("sessions-row")).toHaveLength(2);
-    fireEvent.click(tile);
-    fireEvent.click(screen.getByTestId("sessions-clear-filter"));
-    expect(tile).toHaveAttribute("data-selected", "false");
-    fireEvent.click(screen.getByTestId("sessions-tile-opencode"));
-    expect(screen.getByTestId("sessions-tile-opencode")).toHaveAttribute("data-selected", "false");
-    expect(screen.getAllByTestId("sessions-row")).toHaveLength(2);
   });
 
   it("搜索按标题与目录过滤", async () => {
@@ -429,5 +395,123 @@ describe("继续会话（票 07）", () => {
     fireEvent.click(within(bySid("g2")).getByTestId("sessions-resume"));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("gemini --resume 'g2'"));
     await waitFor(() => expect(screen.getByTestId("sessions-resume-notice")).toHaveAttribute("data-kind", "copied"));
+  });
+});
+
+describe("排序、正在执行置顶、tab 与官方图标（票 11）", () => {
+  const SEC = 1000;
+  const ids = () => screen.getAllByTestId("sessions-row").map((r) => r.getAttribute("data-session"));
+  const groupOf = (wd: string) => screen.getAllByTestId("sessions-group").find((g) => g.getAttribute("data-workdir") === wd)!;
+  // 乱序输入；全部已结束（无状态，按最近调用派生）。
+  const SORT_ROWS = [
+    row("claude_code", "a-old", "演示甲旧", "/work/alpha", 5 * H),
+    row("codex", "b-new", "演示乙新", "/work/beta", H),
+    row("gemini_cli", "g-1", "演示丙", "/work/gamma", 3 * H),
+    row("opencode", "a-new", "演示甲新", "/work/alpha", 2 * H),
+  ];
+  // 置顶判定样本：x-run 执行中（activity）、c-pid Claude pid 文件 idle、g-idle 非 Claude idle、其余已结束。
+  const PIN_ROWS = [
+    row("claude_code", "c-old", "演示旧", "/work/alpha", 5 * H),
+    row("codex", "x-new", "演示新", "/work/beta", H),
+    row("claude_code", "c-pid", "演示窗口", "/work/alpha", 4 * H),
+    row("codex", "x-run", "演示执行", "/work/beta", 10 * SEC),
+    row("gemini_cli", "g-idle", "演示空闲", "/work/gamma", 10 * MIN),
+    row("opencode", "o-mid", "演示中", "/work/alpha", 2 * H),
+  ];
+  const PIN_STATES = [
+    st("claude_code", "c-pid", "idle", "pid_file", NOW - 20 * MIN),
+    st("codex", "x-run", "running", "activity", NOW - 10 * SEC),
+    st("gemini_cli", "g-idle", "idle", "activity", NOW - 10 * MIN),
+  ];
+
+  it("目录组按组内最近会话倒序；组内按时间倒序", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(SORT_ROWS);
+    render(<Sessions onNavigate={vi.fn()} />);
+    const groups = await screen.findAllByTestId("sessions-group");
+    expect(groups.map((g) => g.getAttribute("data-workdir"))).toEqual(["/work/beta", "/work/alpha", "/work/gamma"]);
+    expect(within(groups[1]).getAllByTestId("sessions-row").map((r) => r.getAttribute("data-session"))).toEqual(["a-new", "a-old"]);
+  });
+
+  it("没有正在执行的会话时不显示置顶区", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(SORT_ROWS);
+    render(<Sessions onNavigate={vi.fn()} />);
+    await screen.findAllByTestId("sessions-group");
+    expect(screen.queryByTestId("sessions-pinned")).toBeNull();
+  });
+
+  it("置顶区：执行中 + Claude pid 文件（idle 也算）平铺按活动时间倒序；非 Claude 空闲不入", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(PIN_ROWS);
+    api.sessionStates.mockResolvedValue(PIN_STATES);
+    render(<Sessions onNavigate={vi.fn()} />);
+    const pinned = await screen.findByTestId("sessions-pinned");
+    expect(within(pinned).getAllByTestId("sessions-row").map((r) => r.getAttribute("data-session"))).toEqual(["x-run", "c-pid"]);
+    expect(within(pinned).queryAllByTestId("sessions-group")).toHaveLength(0);
+    expect(within(groupOf("/work/gamma")).getAllByTestId("sessions-row").map((r) => r.getAttribute("data-session"))).toEqual(["g-idle"]);
+  });
+
+  it("置顶会话不在目录组重复显示，目录组会话数与成本仍计入", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(PIN_ROWS);
+    api.sessionStates.mockResolvedValue(PIN_STATES);
+    render(<Sessions onNavigate={vi.fn()} />);
+    await screen.findByTestId("sessions-pinned");
+    const alpha = groupOf("/work/alpha");
+    expect(within(alpha).getAllByTestId("sessions-row").map((r) => r.getAttribute("data-session"))).toEqual(["o-mid", "c-old"]);
+    expect(alpha).toHaveAttribute("data-count", "3");
+    expect(alpha).toHaveAttribute("data-cost", "4.5");
+    expect(groupOf("/work/beta")).toHaveAttribute("data-count", "2");
+    expect(ids().filter((s) => s === "c-pid")).toHaveLength(1);
+  });
+
+  it("tab：默认全部；选 Codex 只剩 Codex（置顶区与目录组都过滤）；未启用客户端 tab 禁用；无四格", async () => {
+    api.status.mockResolvedValue(statusPayload({ claude_code: true, codex: true, gemini_cli: true, opencode: false }));
+    api.sessions.mockResolvedValue(PIN_ROWS);
+    api.sessionStates.mockResolvedValue(PIN_STATES);
+    render(<Sessions onNavigate={vi.fn()} />);
+    await screen.findByTestId("sessions-pinned");
+    expect(screen.queryByTestId("sessions-tiles")).toBeNull();
+    expect(screen.getByTestId("sessions-tab-all")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("sessions-tab-opencode")).toBeDisabled();
+    fireEvent.click(screen.getByTestId("sessions-tab-codex"));
+    expect(screen.getByTestId("sessions-tab-codex")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("sessions-tab-all")).toHaveAttribute("aria-selected", "false");
+    expect(within(screen.getByTestId("sessions-pinned")).getAllByTestId("sessions-row").map((r) => r.getAttribute("data-session"))).toEqual(["x-run"]);
+    expect(ids()).toEqual(["x-run", "x-new"]);
+    fireEvent.click(screen.getByTestId("sessions-tab-all"));
+    expect(ids()).toHaveLength(5);
+  });
+
+  it("部分未启用：列表上方提示未启用的客户端，去设置跳 settings/client_usage；全部启用时不提示", async () => {
+    api.status.mockResolvedValue(statusPayload({ claude_code: true, codex: true, gemini_cli: false, opencode: false }));
+    api.sessions.mockResolvedValue(SESSIONS);
+    const onNavigate = vi.fn();
+    const { unmount } = render(<Sessions onNavigate={onNavigate} />);
+    const hint = await screen.findByTestId("sessions-partial-off");
+    expect(hint).toHaveAttribute("data-clients", "gemini_cli,opencode");
+    fireEvent.click(within(hint).getByTestId("sessions-partial-off-go"));
+    expect(onNavigate).toHaveBeenCalledWith("settings/client_usage");
+    unmount();
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    render(<Sessions onNavigate={vi.fn()} />);
+    await screen.findAllByTestId("sessions-row");
+    expect(screen.queryByTestId("sessions-partial-off")).toBeNull();
+  });
+
+  it("会话行与 tab 用客户端官方图标（打包本地 SVG）", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(SESSIONS);
+    render(<Sessions onNavigate={vi.fn()} />);
+    const rows = await screen.findAllByTestId("sessions-row");
+    for (const r of rows) {
+      const icon = within(r).getByTestId("client-icon");
+      expect(icon).toHaveAttribute("data-client", r.getAttribute("data-client"));
+      expect(icon.getAttribute("src")).toBeTruthy();
+    }
+    for (const c of ["claude_code", "codex", "gemini_cli", "opencode"]) {
+      expect(within(screen.getByTestId(`sessions-tab-${c}`)).getByTestId("client-icon")).toHaveAttribute("data-client", c);
+    }
   });
 });

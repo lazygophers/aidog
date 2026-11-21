@@ -1,4 +1,4 @@
-// Sessions.tsx — 扩展 › 会话（扩展-会话页 票 02，设计稿方向 3「客户端四格」）。
+// Sessions.tsx — 扩展 › 会话（扩展-会话页 票 02；票 11：四格改为客户端 tab，正在执行区置顶）。
 // 数据只用现有命令（client_usage_status / sessions / refresh）；刷新事件驱动：订阅 client-usage-updated，
 // 窗口隐藏期间不拉，重新可见补拉；不轮询。运行状态（票 05）随数据一起拉，阈值到期由单次定时器本地重新派生。
 
@@ -7,9 +7,8 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { ClientTiles } from "../components/sessions/ClientTiles";
 import { SessionGroups } from "../components/sessions/SessionGroups";
-import { SESSION_CLIENTS, clientName } from "../components/sessions/ClientGlyph";
+import { ClientIcon, SESSION_CLIENTS } from "../components/sessions/ClientIcon";
 import { deriveState, nextFlipDelay } from "../components/sessions/sessionState";
 import { clientUsageApi, type ClientUsageSessionRow, type ClientUsageSessionState, type ClientUsageStatus } from "../services/api/clientUsage";
 import { listen } from "../services/transport";
@@ -32,7 +31,7 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
   const [now, setNow] = useState(() => Date.now());
   const [error, setError] = useState("");
   const [range, setRange] = useState<Range>("7d");
-  const [pick, setPick] = useState<string | null>(null);
+  const [tab, setTab] = useState<string>("all");
   const [query, setQuery] = useState("");
 
   const enabled = useMemo(() => status?.consent.enabled ?? {}, [status]);
@@ -118,11 +117,17 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
     () => rows.filter((r) => enabled[r.clientCode]).sort((a, b) => b.lastCallMs - a.lastCallMs),
     [rows, enabled],
   );
-  const activePick = pick && enabled[pick] ? pick : null;
+  const activeTab = tab !== "all" && enabled[tab] ? tab : "all";
   const q = query.trim().toLowerCase();
   const shown = enabledRows.filter((r) =>
-    (!activePick || r.clientCode === activePick)
+    (activeTab === "all" || r.clientCode === activeTab)
     && (!q || r.title.toLowerCase().includes(q) || r.workdir.toLowerCase().includes(q)));
+  // 正在执行区（票 11）：任一客户端执行中 + Claude Code pid 文件在（窗口未关，busy / idle 都算）；按最近活动倒序。
+  const activityOf = (r: ClientUsageSessionRow) => Math.max(r.lastCallMs, states[`${r.clientCode}:${r.sessionId}`]?.lastActivityMs ?? 0);
+  const pinned = shown
+    .filter((r) => stateOf(r) === "running" || (r.clientCode === "claude_code" && states[`${r.clientCode}:${r.sessionId}`]?.source === "pid_file"))
+    .sort((a, b) => activityOf(b) - activityOf(a));
+  const offClients = SESSION_CLIENTS.filter((c) => !enabled[c.code]);
   const rangeLabel = { today: t("stats.today", "今天"), "7d": t("stats.7d", "近 7 天"), "30d": t("stats.30d", "近 30 天") }[range];
   const importing = status?.import.running ?? false;
 
@@ -158,17 +163,6 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
         <div className="h-[118px] animate-pulse rounded-xl border bg-card" data-testid="sessions-loading" aria-busy="true" />
       )}
 
-      {status && (
-        <ClientTiles
-          enabled={enabled}
-          rows={enabledRows}
-          importState={status.import}
-          pick={activePick}
-          onPick={(code) => setPick((p) => (p === code ? null : code))}
-          onGoSettings={goSettings}
-        />
-      )}
-
       {status && !anyEnabled && (
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-8 rounded-xl border border-dashed bg-card p-10" data-testid="sessions-guide">
           <div>
@@ -185,19 +179,46 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
 
       {status && anyEnabled && (
         <>
-          <div className="flex items-center gap-2.5" data-testid="sessions-toolbar">
-            <span className="text-muted-foreground" data-testid="sessions-filter-label">
-              {activePick ? <b className="font-medium text-foreground">{clientName(activePick)}</b> : t("sessions.allClients", "全部客户端")}
-              {" · "}
-              <span className="font-mono tabular-nums" data-testid="sessions-count" data-count={String(shown.length)}>
-                {t("sessions.count", "{{n}} 个会话", { n: shown.length })}
-              </span>
-            </span>
-            {activePick && (
-              <Button variant="ghost" size="sm" data-testid="sessions-clear-filter" onClick={() => setPick(null)}>
-                {t("sessions.clearFilter", "清除筛选")}
+          {offClients.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground" data-testid="sessions-partial-off" data-clients={offClients.map((c) => c.code).join(",")}>
+              {offClients.map((c) => (
+                <span key={c.code} className="inline-flex items-center gap-1 text-foreground">
+                  <ClientIcon code={c.code} size={14} />{c.name}
+                </span>
+              ))}
+              <span>{t("sessions.tileOff", "未启用读取")} ·</span>
+              <Button variant="link" size="sm" className="h-auto p-0" data-testid="sessions-partial-off-go" onClick={goSettings}>
+                {t("clientUsage.guideGo", "去设置启用")}
               </Button>
-            )}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2.5" data-testid="sessions-toolbar">
+            <div role="tablist" className="flex items-center gap-1 rounded-lg border border-border bg-card p-1" aria-label={t("sessions.title", "会话")}>
+              {[{ code: "all", name: t("sessions.tabAll", "全部") }, ...SESSION_CLIENTS].map((c) => {
+                const off = c.code !== "all" && !enabled[c.code];
+                const selected = activeTab === c.code;
+                return (
+                  <button
+                    key={c.code}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    disabled={off}
+                    title={off ? t("sessions.tileOff", "未启用读取") : undefined}
+                    className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm ${selected ? "bg-[var(--accent-subtle)] font-medium text-foreground" : "text-muted-foreground hover:bg-muted"} disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent`}
+                    data-testid={`sessions-tab-${c.code}`}
+                    onClick={() => setTab(c.code)}
+                  >
+                    {c.code !== "all" && <ClientIcon code={c.code} size={14} />}
+                    {c.name}
+                  </button>
+                );
+              })}
+            </div>
+            <span className="font-mono text-sm text-muted-foreground tabular-nums" data-testid="sessions-count" data-count={String(shown.length)}>
+              {t("sessions.count", "{{n}} 个会话", { n: shown.length })}
+            </span>
             <span className="flex-1" />
             <Input
               className="w-64"
@@ -234,8 +255,8 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
                     : t("sessions.resumeCopied", "当前系统无法直接打开终端，继续命令已复制：{{command}}", { command: notice.text })}
                 </div>
               )}
-              <SessionGroups rows={shown} stateOf={stateOf} onResume={(r) => void resume(r)} />
-              <p className="text-sm text-muted-foreground">{t("sessions.footHint", "点客户端格可筛选。成本带 + 表示部分调用未定价。")}</p>
+              <SessionGroups rows={shown} pinned={pinned} stateOf={stateOf} onResume={(r) => void resume(r)} />
+              <p className="text-sm text-muted-foreground">{t("sessions.footHint", "成本带 + 表示部分调用未定价。")}</p>
             </>
           )}
         </>
