@@ -11,6 +11,7 @@ export const BASE_NAV: NavItem[] = [
   { id: "mitm-log", icon: "logs", labelKey: "nav.mitmLog", section: "nav.section.logStats" },
   { id: "tool-log", icon: "logs", labelKey: "nav.toolLog", section: "nav.section.logStats" },
   { id: "notifications", icon: "notifications", labelKey: "nav.notifications", section: "nav.section.logStats" },
+  { id: "sessions", icon: "sessions", labelKey: "nav.sessions", section: "nav.section.extension" },
   { id: "skills", icon: "skills", labelKey: "nav.skills", section: "nav.section.extension" },
   { id: "mcp", icon: "mcp", labelKey: "nav.mcp", section: "nav.section.extension" },
   { id: "subagents", icon: "subagents", labelKey: "nav.subagents", section: "nav.section.extension" },

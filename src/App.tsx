@@ -22,6 +22,7 @@ const Logs = lazy(() => import("./pages/Logs").then(m => ({ default: m.Logs })))
 const Stats = lazy(() => import("./pages/Stats").then(m => ({ default: m.Stats })));
 const ClientUsage = lazy(() => import("./pages/ClientUsage").then(m => ({ default: m.ClientUsage })));
 const Notifications = lazy(() => import("./pages/Notifications").then(m => ({ default: m.Notifications })));
+const Sessions = lazy(() => import("./pages/Sessions").then(m => ({ default: m.Sessions })));
 const Skills = lazy(() => import("./pages/Skills").then(m => ({ default: m.Skills })));
 const MiddlewareSettingsTab = lazy(() => import("./components/settings/MiddlewareRules").then(m => ({ default: m.MiddlewareSettingsTab })));
 const MiddlewareTryPanel = lazy(() => import("./components/settings/MiddlewareTryPanel").then(m => ({ default: m.MiddlewareTryPanel })));
@@ -222,6 +223,7 @@ function App() {
             {effectiveNav === "stats" && <Stats initialFilter={navContext} />}
             {effectiveNav === "client-usage" && <ClientUsage onNavigate={handleNavigate} />}
             {effectiveNav === "notifications" && <Notifications onNavigate={handleNavigate} />}
+            {effectiveNav === "sessions" && <Sessions onNavigate={handleNavigate} />}
             {effectiveNav === "skills" && <Skills />}
             {effectiveNav === "mcp" && <Mcp />}
             {effectiveNav === "tools" && <Tools />}

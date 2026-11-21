@@ -69,6 +69,12 @@ const icons = {
       <path d="M6 8h6M6 11h4" />
     </svg>
   ),
+  sessions: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 3.5h12a1 1 0 0 1 1 1V11a1 1 0 0 1-1 1H8l-3.5 3v-3H3a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z" />
+      <path d="M5.5 7h7M5.5 9.5h4" />
+    </svg>
+  ),
   skills: (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M9 1.5l2 4.5 4.5.5-3.4 3 1 4.5L9 13.5 4.9 16l1-4.5L2.5 6.5 7 6z" />
