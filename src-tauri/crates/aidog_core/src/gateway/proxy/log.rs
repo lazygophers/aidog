@@ -130,7 +130,10 @@ pub(crate) fn queue_upsert_log(
     let terminal = is_terminal_log(log);
     let mut msg_log = scoped_queue_log(state, log, settings, terminal);
     let mut bytes = queue_bytes(&msg_log);
-    if state.log_queue_bytes.load(std::sync::atomic::Ordering::Relaxed) + bytes as u64
+    if state
+        .log_queue_bytes
+        .load(std::sync::atomic::Ordering::Relaxed)
+        + bytes as u64
         > LOG_QUEUE_BYTE_BUDGET
     {
         strip_queue_bodies(&mut msg_log);
@@ -191,13 +194,31 @@ fn scoped_queue_log(
     ProxyLog {
         request_headers: take(user(!log.request_headers.is_empty()), &log.request_headers),
         request_body: take(user(!log.request_body.is_empty()), &log.request_body),
-        upstream_request_headers: take(up(!log.upstream_request_headers.is_empty()), &log.upstream_request_headers),
-        upstream_request_body: take(up(!log.upstream_request_body.is_empty()), &log.upstream_request_body),
+        upstream_request_headers: take(
+            up(!log.upstream_request_headers.is_empty()),
+            &log.upstream_request_headers,
+        ),
+        upstream_request_body: take(
+            up(!log.upstream_request_body.is_empty()),
+            &log.upstream_request_body,
+        ),
         // 响应侧终态强制携带（终态 UPDATE 强制覆盖写，即使值为空也要写），非终态不带。
-        response_body: take(up(terminal || !log.response_body.is_empty()), &log.response_body),
-        upstream_response_headers: take(up(terminal || !log.upstream_response_headers.is_empty()), &log.upstream_response_headers),
-        user_response_headers: take(user(terminal || !log.user_response_headers.is_empty()), &log.user_response_headers),
-        user_response_body: take(user(terminal || !log.user_response_body.is_empty()), &log.user_response_body),
+        response_body: take(
+            up(terminal || !log.response_body.is_empty()),
+            &log.response_body,
+        ),
+        upstream_response_headers: take(
+            up(terminal || !log.upstream_response_headers.is_empty()),
+            &log.upstream_response_headers,
+        ),
+        user_response_headers: take(
+            user(terminal || !log.user_response_headers.is_empty()),
+            &log.user_response_headers,
+        ),
+        user_response_body: take(
+            user(terminal || !log.user_response_body.is_empty()),
+            &log.user_response_body,
+        ),
         // 降级标记由 queue_upsert_log 在预算超限时置位。
         body_omitted: false,
         ..log.clone()
@@ -250,9 +271,10 @@ pub(crate) fn spawn_log_writer(
     crate::logging::spawn_traced("log_writer", async move {
         while let Some(msg) = rx.recv().await {
             // 出队即归还字节预算（处理前扣——DB 写慢时不占用预算额度）。
-            state
-                .log_queue_bytes
-                .fetch_sub(msg.queued_bytes() as u64, std::sync::atomic::Ordering::Relaxed);
+            state.log_queue_bytes.fetch_sub(
+                msg.queued_bytes() as u64,
+                std::sync::atomic::Ordering::Relaxed,
+            );
             match msg {
                 LogMsg::Upsert { log, settings, .. } => {
                     process_upsert(&state, &log, &settings).await
@@ -345,9 +367,7 @@ pub(crate) async fn process_upsert(
     // first_agg 也仅在 status_code != 0 时触发，二者天然对齐。无终态 upsert 的请求（被 abort）
     // 由 RequestLogGuard Drop 兜底写 status=499，仍会命中此分支计算。统计正确性不变。
     let est_cost_value = if log.est_cost == 0.0
-        && (log.input_tokens > 0
-            || log.output_tokens > 0
-            || !log.tool_call_counts.is_empty())
+        && (log.input_tokens > 0 || log.output_tokens > 0 || !log.tool_call_counts.is_empty())
         && log.status_code != 0
     {
         let model_name = if log.actual_model.is_empty() {
@@ -644,6 +664,7 @@ pub(crate) fn spawn_estimate(
     output_tokens: i32,
     cache_tokens: i32,
     cache_write_tokens: i32,
+    cache_write_1h_tokens: i32,
     is_coding_plan: bool,
     created_at_ms: i64,
     tool_cost_usd: f64,
@@ -672,6 +693,7 @@ pub(crate) fn spawn_estimate(
                 output_tokens as i64,
                 cache_tokens as i64,
                 cache_write_tokens as i64,
+                cache_write_1h_tokens as i64,
                 is_coding_plan,
                 created_at_ms,
                 tool_cost_usd,

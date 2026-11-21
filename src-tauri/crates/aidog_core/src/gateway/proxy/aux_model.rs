@@ -60,7 +60,10 @@ fn rerank_usage(body: &str) -> (i32, i32) {
 fn rerank_search_units(body: &str) -> i64 {
     serde_json::from_str::<Value>(body)
         .ok()
-        .and_then(|v| v.pointer("/meta/billed_units/search_units").and_then(Value::as_i64))
+        .and_then(|v| {
+            v.pointer("/meta/billed_units/search_units")
+                .and_then(Value::as_i64)
+        })
         .unwrap_or(1)
 }
 
@@ -81,7 +84,12 @@ pub(crate) async fn handle_aux_model(
     bytes: &[u8],
     ctx: super::call_scope::ReqCtx<'_>,
 ) -> Response {
-    let super::call_scope::ReqCtx { log_settings, start, lang, client } = ctx;
+    let super::call_scope::ReqCtx {
+        log_settings,
+        start,
+        lang,
+        client,
+    } = ctx;
     log.source_protocol = spec.label.to_string();
     log.target_protocol = spec.label.to_string();
     log.is_stream = false;
@@ -140,7 +148,13 @@ pub(crate) async fn handle_aux_model(
     };
     let candidates = candidate_set.candidates;
 
-    let mut attempt_loop = AttemptLoop::new(group.max_retries, spec.kind, &requested_model, client, candidates);
+    let mut attempt_loop = AttemptLoop::new(
+        group.max_retries,
+        spec.kind,
+        &requested_model,
+        client,
+        candidates,
+    );
     let mut attempts: Vec<ProxyAttempt> = Vec::new();
     // 平台限频占位跨调用保存：同平台连续调用复用（平台级只占一次），换平台时释放上一个。
     let mut rate_slot = RateSlot::default();
@@ -160,7 +174,10 @@ pub(crate) async fn handle_aux_model(
         10
     };
 
-    while let Some(pick) = attempt_loop.next(&state.db, group, &sched_ctx, log, attempts.len()).await {
+    while let Some(pick) = attempt_loop
+        .next(&state.db, group, &sched_ctx, log, attempts.len())
+        .await
+    {
         let route = pick.route;
         let attempt_start = std::time::Instant::now();
         let attempt_ts = aidog_db::now();
@@ -212,16 +229,30 @@ pub(crate) async fn handle_aux_model(
             is_last_candidate: capped,
             candidate_total: pick.candidate_total,
             has_next_model: pick.model_alt && !capped,
-            breaker_th: super::scheduling::BreakerThresholds::resolve(&sched_settings, &route.platform, group.routing_mode),
+            breaker_th: super::scheduling::BreakerThresholds::resolve(
+                &sched_settings,
+                &route.platform,
+                group.routing_mode,
+            ),
             proxy_client: &proxy_client,
             req_timeout,
             conn_timeout,
         };
-        let out = aux_attempt(&scope, spec, log, &mut attempts, &req_value, &requested_model, &mut false)
-            .await;
+        let out = aux_attempt(
+            &scope,
+            spec,
+            log,
+            &mut attempts,
+            &req_value,
+            &requested_model,
+            &mut false,
+        )
+        .await;
         match out {
             AttemptOutcome::Respond(r) => return r,
-            AttemptOutcome::Next { connect_failed } => attempt_loop.failed(&mut attempts, connect_failed),
+            AttemptOutcome::Next { connect_failed } => {
+                attempt_loop.failed(&mut attempts, connect_failed)
+            }
         }
     }
 
@@ -259,7 +290,8 @@ async fn aux_attempt(
     log.platform_id = route.platform.id;
     log.actual_model = actual_model.clone();
     log.upstream_request_url = url.clone();
-    log.upstream_request_headers = r#"{"authorization":"[REDACTED]","content-type":"application/json"}"#.to_string();
+    log.upstream_request_headers =
+        r#"{"authorization":"[REDACTED]","content-type":"application/json"}"#.to_string();
     log.upstream_request_body = if log_settings.log_upstream_request {
         upstream_body_str.clone()
     } else {
@@ -270,7 +302,10 @@ async fn aux_attempt(
     let rb = client
         .post(&url)
         .header("Content-Type", "application/json")
-        .header("Authorization", format!("Bearer {}", route.platform.api_key))
+        .header(
+            "Authorization",
+            format!("Bearer {}", route.platform.api_key),
+        )
         .body(upstream_body_str.clone());
     tracing::info!(group = %group.name, platform = %route.platform.name, model = %actual_model, url = %url, kind = spec.label, "aux upstream request");
 
@@ -313,7 +348,9 @@ async fn aux_attempt(
         .await
         {
             AttemptOutcome::Respond(r) => AttemptOutcome::Respond(r),
-            AttemptOutcome::Next { .. } => AttemptOutcome::Next { connect_failed: false },
+            AttemptOutcome::Next { .. } => AttemptOutcome::Next {
+                connect_failed: false,
+            },
         };
     }
 
@@ -361,6 +398,7 @@ async fn aux_attempt(
         input,
         output,
         0, // embedding / rerank 无缓存 token
+        0,
         0,
         route.platform.endpoints.iter().any(|ep| ep.coding_plan),
         log.created_at,
