@@ -285,7 +285,8 @@ impl Db {
                  PRAGMA journal_mode=WAL; \
                  PRAGMA foreign_keys=ON; \
                  PRAGMA busy_timeout=5000; \
-                 PRAGMA synchronous=NORMAL;",
+                 PRAGMA synchronous=NORMAL; \
+                 PRAGMA journal_size_limit={JOURNAL_SIZE_LIMIT_BYTES};",
             ))?;
             // 新库（无任何表）建表前设 auto_vacuum=INCREMENTAL，让后续 DELETE/free pages
             // 可被 incremental_vacuum 回收。auto_vacuum 只能建库前设；老库走 migrate_auto_vacuum。
@@ -418,7 +419,8 @@ impl Db {
                 &format!("{key_sql} PRAGMA journal_mode=WAL; \
                  PRAGMA foreign_keys=ON; \
                  PRAGMA busy_timeout=5000; \
-                 PRAGMA synchronous=NORMAL;",
+                 PRAGMA synchronous=NORMAL; \
+                 PRAGMA journal_size_limit={JOURNAL_SIZE_LIMIT_BYTES};",
             ))?;
             let table_count: i64 = c.query_row(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'",
@@ -1273,7 +1275,7 @@ impl Db {
     }
 
     /// 是否内存库（`:memory:` / `mode=memory`）。内存库下 proxy_log handle 复用主连接，
-    /// 双库聚合函数（`compact_database` / `db_file_size` / `migrate_auto_vacuum`）需据此
+    /// 双库聚合函数（`compact_database` / `scheduled_vacuum` / `migrate_auto_vacuum`）需据此
     /// 短路 proxy_log 分支，避免对同一物理连接重复 VACUUM / 重复求和。
     pub fn is_memory(&self) -> bool {
         self.3.is_memory
@@ -1308,6 +1310,11 @@ fn set_db_ctx(req: Option<String>, caller: &'static std::panic::Location<'static
     CtxGuard
 }
 
+/// 写连接的 WAL 截断上限：WAL 默认 checkpoint 后不缩小，只复用；一次大写入（retention
+/// 批量 UPDATE / VACUUM）把 -wal 撑大后会一直占盘（实测用户 log.db-wal 1036MB）。设上限后
+/// checkpoint 重置 WAL 时截断到此大小以内。64MB 远大于日常写入量，不影响写放大。
+pub(crate) const JOURNAL_SIZE_LIMIT_BYTES: i64 = 64 * 1024 * 1024;
+
 /// 重开一条写连接（含与 `Db::new` 一致的 pragma + profile 注册）。
 ///
 /// 用于 `call_traced` 检测到 `ConnectionClosed` 后的兜底重连。auto_vacuum 不需重设
@@ -1323,7 +1330,8 @@ async fn reopen_write_conn(path: &str) -> Result<AsyncConnection, String> {
             &format!("{key_sql} PRAGMA journal_mode=WAL; \
              PRAGMA foreign_keys=ON; \
              PRAGMA busy_timeout=5000; \
-             PRAGMA synchronous=NORMAL;",
+             PRAGMA synchronous=NORMAL; \
+             PRAGMA journal_size_limit={JOURNAL_SIZE_LIMIT_BYTES};",
         ))?;
         c.trace_v2(
                 rusqlite::trace::TraceEventCodes::SQLITE_TRACE_PROFILE,

@@ -497,8 +497,9 @@ pub async fn proxy_log_cleanup_estimate() -> Result<gateway::models::CleanupEsti
 
 /// 保留期清理链单轮（桌面壳 `app_setup.rs` 与内核 `spawn_scheduled_jobs` 共用）：
 /// 软删硬删 → 通知收件箱 → session_name 缓存 → stats_agg retention → proxy_log 三级
-/// → 阈值触发全量 VACUUM。单步失败 `tracing::warn!` 容错，不阻塞其余步骤。
-pub async fn scheduled_cleanup_pass(db: &Db, older_than_secs: i64, vacuum_threshold_bytes: i64) {
+/// → 按库空闲页占比回收（≥25% 全量 VACUUM，否则 incremental）。单步失败 `tracing::warn!`
+/// 容错，不阻塞其余步骤。
+pub async fn scheduled_cleanup_pass(db: &Db, older_than_secs: i64) {
     match aidog_db::purge_all_soft_deleted(db, older_than_secs).await {
         Ok(map) if !map.is_empty() && map.values().any(|&n| n > 0) => {
             tracing::info!(purged = ?map, "scheduled: purged old soft-deleted rows across all tables");
@@ -534,31 +535,10 @@ pub async fn scheduled_cleanup_pass(db: &Db, older_than_secs: i64, vacuum_thresh
         .and_then(|v| serde_json::from_value(v).ok())
         .unwrap_or_default();
     run_retention_cleanup(db, &log_settings).await;
-    match aidog_db::db_file_size(db).await {
-        Ok(size) if size > vacuum_threshold_bytes => {
-            tracing::info!(
-                size_bytes = size,
-                threshold = vacuum_threshold_bytes,
-                "scheduled: db size exceeds threshold, running full VACUUM"
-            );
-            match aidog_db::compact_database(db).await {
-                Ok(r) => tracing::info!(
-                    before = r.before_bytes,
-                    after = r.after_bytes,
-                    "scheduled: full VACUUM completed"
-                ),
-                Err(e) => tracing::warn!(error = %e,
-                    "scheduled: full VACUUM failed (locked or disk full), will retry next cycle"),
-            }
-        }
-        Ok(size) => tracing::debug!(
-            size_bytes = size,
-            threshold = vacuum_threshold_bytes,
-            "scheduled: db size below VACUUM threshold, skip"
-        ),
-        Err(e) => {
-            tracing::warn!(error = %e, "scheduled: db_file_size probe failed, skip VACUUM this cycle")
-        }
+    match aidog_db::scheduled_vacuum(db).await {
+        Ok(actions) => tracing::info!(?actions, "scheduled: vacuum by free-page ratio done"),
+        Err(e) => tracing::warn!(error = %e,
+            "scheduled: vacuum failed (locked or disk full), will retry next cycle"),
     }
 }
 

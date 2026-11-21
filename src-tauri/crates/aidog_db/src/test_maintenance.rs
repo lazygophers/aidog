@@ -38,16 +38,170 @@ async fn migrate_auto_vacuum_is_idempotent() {
     assert_eq!(av, 2, "auto_vacuum should be INCREMENTAL");
 }
 
-/// db_file_size 在加密文件库上可用：SQLCipher 的 PRAGMA page_size 在加密库返回 TEXT
-/// （列名 cipher_page_size），i64 直取报 Invalid column type（生产日志 2026-11-12 实锤，
-/// 阈值 VACUUM 永久跳过）。内存库无 SQLCipher 行为，必须用 three_file_db。
+/// 字节统计（db_size_bytes）在加密文件库上可用：SQLCipher 的 PRAGMA page_size 在加密库返回 TEXT
+/// （列名 cipher_page_size），i64 直取报 Invalid column type（生产日志 2026-11-12 实锤）。
+/// 内存库无 SQLCipher 行为，必须用 three_file_db；经 compact_database 走到 db_size_bytes。
 #[tokio::test]
-async fn db_file_size_works_on_encrypted_file_db() {
+async fn db_size_works_on_encrypted_file_db() {
     let (db, _dir) = three_file_db().await;
-    let size = db_file_size(&db)
+    let r = compact_database(&db)
         .await
-        .expect("db_file_size on encrypted file db");
-    assert!(size > 0, "size should be positive");
+        .expect("compact on encrypted file db");
+    assert!(r.before_bytes > 0, "size should be positive");
+}
+
+/// 往 log.db 写 n 行带 ~8KB body 的 proxy_log（id 前缀 `vac-`），撑出可观页数。
+async fn fill_log_db(db: &Db, n: usize) {
+    db.call_proxy_log_traced(None, std::panic::Location::caller(), move |c| {
+        let body = "x".repeat(8 * 1024);
+        let tx = c.unchecked_transaction()?;
+        for i in 0..n {
+            tx.execute(
+                "INSERT INTO proxy_log (id, platform_id, group_key, model, source_protocol, \
+                 status_code, input_tokens, output_tokens, cache_tokens, est_cost, is_stream, \
+                 response_body, created_at, deleted_at) \
+                 VALUES (?1, 0, '', 'm', 'anthropic', 200, 1, 1, 0, 0, 0, ?2, 1, 0)",
+                params![format!("vac-{i:06}"), body],
+            )?;
+        }
+        tx.commit()
+    })
+    .await
+    .unwrap();
+}
+
+/// 删掉前 `pct`% 的 vac 行（制造空闲页），返回删后 (freelist_count, page_count)。
+async fn delete_log_pct(db: &Db, n: usize, pct: usize) -> (i64, i64) {
+    let cut = format!("vac-{:06}", n * pct / 100);
+    db.call_proxy_log_traced(None, std::panic::Location::caller(), move |c| {
+        c.execute("DELETE FROM proxy_log WHERE id LIKE 'vac-%' AND id < ?1", params![cut])?;
+        Ok((
+            c.query_row("PRAGMA freelist_count", [], |r| r.get(0))?,
+            c.query_row("PRAGMA page_count", [], |r| r.get(0))?,
+        ))
+    })
+    .await
+    .unwrap()
+}
+
+async fn log_freelist(db: &Db) -> i64 {
+    db.call_proxy_log_traced(None, std::panic::Location::caller(), |c| {
+        c.query_row("PRAGMA freelist_count", [], |r| r.get(0))
+    })
+    .await
+    .unwrap()
+}
+
+#[test]
+fn needs_full_vacuum_threshold_is_25_percent() {
+    assert!(!needs_full_vacuum(0, 0), "empty db never full-vacuums");
+    assert!(!needs_full_vacuum(24, 100));
+    assert!(needs_full_vacuum(25, 100));
+    assert!(needs_full_vacuum(90, 100));
+}
+
+/// 大库、空闲页占比低（删 10%）：不全量 VACUUM，只 incremental 回收，空闲页清零。
+#[tokio::test]
+async fn scheduled_vacuum_low_free_ratio_goes_incremental() {
+    let (db, _dir) = three_file_db().await;
+    // 新建文件库先设 WAL 再设 auto_vacuum，实为 NONE；生产启动由 migrate_auto_vacuum 切到 INCREMENTAL。
+    migrate_auto_vacuum(&db).await.expect("migrate auto_vacuum");
+    fill_log_db(&db, 400).await;
+    let (free, pages) = delete_log_pct(&db, 400, 10).await;
+    assert!(free > 0 && (free as f64) < pages as f64 * VACUUM_FREE_RATIO, "fixture: free={free} pages={pages}");
+    let actions = scheduled_vacuum(&db).await.expect("scheduled_vacuum");
+    assert!(
+        actions.contains(&("log", VacuumAction::Incremental)),
+        "low free ratio must not full-vacuum log.db: {actions:?}"
+    );
+    assert_eq!(log_freelist(&db).await, 0, "incremental_vacuum should clear freelist");
+}
+
+/// 空闲页占比 ≥ 25%（删 60%）：全量 VACUUM，其余库互不影响（按库各自判定）。
+#[tokio::test]
+async fn scheduled_vacuum_high_free_ratio_goes_full() {
+    let (db, _dir) = three_file_db().await;
+    fill_log_db(&db, 400).await;
+    let (free, pages) = delete_log_pct(&db, 400, 60).await;
+    assert!(free as f64 >= pages as f64 * VACUUM_FREE_RATIO, "fixture: free={free} pages={pages}");
+    let actions = scheduled_vacuum(&db).await.expect("scheduled_vacuum");
+    assert!(
+        actions.contains(&("log", VacuumAction::Full)),
+        "high free ratio must full-vacuum log.db: {actions:?}"
+    );
+    let names: Vec<_> = actions.iter().map(|(n, _)| *n).collect();
+    assert_eq!(names, ["main", "platform", "log"], "each db decided independently");
+    assert_eq!(log_freelist(&db).await, 0);
+}
+
+/// 写连接设了 journal_size_limit（WAL checkpoint 后截断，防 -wal 长期占盘）。
+#[tokio::test]
+async fn write_conns_set_journal_size_limit() {
+    let (db, _dir) = three_file_db().await;
+    let q = |c: &mut rusqlite::Connection| c.query_row("PRAGMA journal_size_limit", [], |r| r.get::<_, i64>(0));
+    let main = db.call_traced(None, std::panic::Location::caller(), q).await.unwrap();
+    let log = db.call_proxy_log_traced(None, std::panic::Location::caller(), q).await.unwrap();
+    assert_eq!(main, crate::JOURNAL_SIZE_LIMIT_BYTES);
+    assert_eq!(log, crate::JOURNAL_SIZE_LIMIT_BYTES);
+}
+
+/// 测量（手动跑）：旧口径「三库总大小 > 100MB 即全量 VACUUM」vs 新口径「按库空闲页占比」。
+/// `cargo test -p aidog_db --lib -- --ignored measure_ --nocapture`
+#[tokio::test]
+#[ignore]
+async fn measure_vacuum_old_vs_new() {
+    let (db, _dir) = three_file_db().await;
+    migrate_auto_vacuum(&db).await.unwrap();
+    let n = 16_000; // ~8KB/行 → log.db ≈ 140MB，超旧阈值 100MB
+    fill_log_db(&db, n).await;
+    let (free, pages) = delete_log_pct(&db, n, 10).await;
+    println!("low-free: free={free} pages={pages} ratio={:.3}", free as f64 / pages as f64);
+    let t = std::time::Instant::now();
+    let r = compact_database(&db).await.unwrap();
+    println!(
+        "OLD low-free: size {}MB > 100MB → full VACUUM, {:?}",
+        r.before_bytes >> 20,
+        t.elapsed()
+    );
+    // 新口径：同一形状（重新删 10% 制造空闲页）
+    let (free, pages) = delete_log_pct(&db, n, 20).await;
+    println!("low-free(2): free={free} pages={pages} ratio={:.3}", free as f64 / pages as f64);
+    let t = std::time::Instant::now();
+    let a = scheduled_vacuum(&db).await.unwrap();
+    println!("NEW low-free: {a:?}, {:?}", t.elapsed());
+    // 高空闲：删到 70%
+    let (free, pages) = delete_log_pct(&db, n, 70).await;
+    println!("high-free: free={free} pages={pages} ratio={:.3}", free as f64 / pages as f64);
+    let t = std::time::Instant::now();
+    let a = scheduled_vacuum(&db).await.unwrap();
+    println!("NEW high-free: {a:?}, {:?}", t.elapsed());
+}
+
+/// 测量（手动跑）：一次大事务撑大 WAL 后，再写一笔触发 WAL 重置，比较有无 journal_size_limit 的 -wal 大小。
+#[test]
+#[ignore]
+fn measure_wal_size_with_journal_size_limit() {
+    for limit in [-1_i64, crate::JOURNAL_SIZE_LIMIT_BYTES] {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("w.db");
+        let c = rusqlite::Connection::open(&p).unwrap();
+        c.execute_batch(&format!(
+            "PRAGMA journal_mode=WAL; PRAGMA journal_size_limit={limit}; CREATE TABLE t(b TEXT);"
+        ))
+        .unwrap();
+        let body = "x".repeat(8 * 1024);
+        let tx = c.unchecked_transaction().unwrap();
+        for _ in 0..25_000 {
+            tx.execute("INSERT INTO t VALUES (?1)", [&body]).unwrap();
+        }
+        tx.commit().unwrap();
+        let wal = dir.path().join("w.db-wal");
+        let peak = std::fs::metadata(&wal).unwrap().len();
+        c.execute_batch("PRAGMA wal_checkpoint(PASSIVE);").unwrap();
+        c.execute("INSERT INTO t VALUES ('y')", []).unwrap();
+        let after = std::fs::metadata(&wal).unwrap().len();
+        println!("journal_size_limit={limit}: wal peak {}MB → after checkpoint+write {}MB", peak >> 20, after >> 20);
+    }
 }
 
 /// compact_database 全量 VACUUM 返回 before/after 字节，after <= before（压缩单调非增）。

@@ -309,30 +309,66 @@ pub fn compact_database(
     }
 }
 
-/// 当前 DB 文件占用的逻辑字节数（`page_count * page_size`）。
-///
-/// **三库求和**（config-db-split）：主库 + platform.db + log.db（内存库跳过 platform / proxy_log 避免翻倍）。
-/// 调度器阈值触发全量 VACUUM 用；胀库阈值 100MB 对三库总和判定。
+/// 定时清理的全量 VACUUM 触发线：空闲页（freelist）占总页数 ≥ 25% 才整库重建。
+/// 旧口径「三库总大小 > 100MB」在大库上每轮必中（log.db 1.2GB 每 15–20 分钟全量 VACUUM
+/// 18–38s，SQLCipher 整库重加密吃 CPU），而库大不等于有可回收空间。
+pub const VACUUM_FREE_RATIO: f64 = 0.25;
+
+/// 定时清理对单库采取的回收动作。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum VacuumAction {
+    /// 空闲页占比达标：checkpoint + 全量 VACUUM + ANALYZE。
+    Full,
+    /// 未达标：`PRAGMA incremental_vacuum` 回收全部空闲页（auto_vacuum=INCREMENTAL 下廉价）。
+    Incremental,
+}
+
+/// 空闲页占比是否达到全量 VACUUM 触发线。
+pub fn needs_full_vacuum(freelist_count: i64, page_count: i64) -> bool {
+    page_count > 0 && freelist_count as f64 >= page_count as f64 * VACUUM_FREE_RATIO
+}
+
+/// 单库按空闲页占比回收（跑在该库写连接上）。
+fn vacuum_by_free_ratio(c: &Connection) -> SqlResult<VacuumAction> {
+    let free: i64 = c.query_row("PRAGMA freelist_count", [], |r| r.get(0))?;
+    let pages: i64 = c.query_row("PRAGMA page_count", [], |r| r.get(0))?;
+    if needs_full_vacuum(free, pages) {
+        let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+        c.execute_batch("VACUUM;")?;
+        // VACUUM 清空 sqlite_stat1，重跑 ANALYZE 避免规划器退化（同 compact_database）。
+        let _ = c.execute_batch("ANALYZE;");
+        Ok(VacuumAction::Full)
+    } else {
+        // 参数 0 = 回收整个 freelist；auto_vacuum != INCREMENTAL 时 SQLite 静默 no-op。
+        crate::helpers::incremental_vacuum_conn(c, 0);
+        Ok(VacuumAction::Incremental)
+    }
+}
+
+/// 定时清理的按库回收：主库 / platform.db / log.db 各自按空闲页占比判定（不再三库求和），
+/// 返回 `(库名, 动作)`。内存库三 handle 同一物理连接，只跑主库。
 #[track_caller]
-pub fn db_file_size(db: &Db) -> impl std::future::Future<Output = Result<i64, String>> + '_ {
+pub fn scheduled_vacuum(
+    db: &Db,
+) -> impl std::future::Future<Output = Result<Vec<(&'static str, VacuumAction)>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-        let main_size = db
-            .call_traced(None, __db_caller, |c| db_size_bytes(c))
+        let main = db
+            .call_traced(None, __db_caller, |c| vacuum_by_free_ratio(c))
             .await
-            .map_err(|e| format!("db_file_size main: {e}"))?;
+            .map_err(|e| format!("scheduled vacuum main: {e}"))?;
         if db.is_memory() {
-            return Ok(main_size);
+            return Ok(vec![("main", main)]);
         }
-        let platform_size = db
-            .call_platform_traced(None, __db_caller, |c| db_size_bytes(c))
+        let platform = db
+            .call_platform_traced(None, __db_caller, |c| vacuum_by_free_ratio(c))
             .await
-            .map_err(|e| format!("db_file_size platform: {e}"))?;
-        let proxy_size = db
-            .call_proxy_log_traced(None, __db_caller, |c| db_size_bytes(c))
+            .map_err(|e| format!("scheduled vacuum platform: {e}"))?;
+        let log = db
+            .call_proxy_log_traced(None, __db_caller, |c| vacuum_by_free_ratio(c))
             .await
-            .map_err(|e| format!("db_file_size proxy_log: {e}"))?;
-        Ok(main_size + platform_size + proxy_size)
+            .map_err(|e| format!("scheduled vacuum proxy_log: {e}"))?;
+        Ok(vec![("main", main), ("platform", platform), ("log", log)])
     }
 }
 
