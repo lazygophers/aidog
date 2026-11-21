@@ -1144,7 +1144,6 @@
   "contextCompress.statsColUsed": "Usados",
   "contextCompress.statsColCompressed": "Comprimidos",
   "contextCompress.statsColRatio": "Tasa de compresión",
-  "contextCompress.sqzRateNote": "sqz no ofrece tasa diaria: tasa / recuento / tokens originales / comprimidos son acumulados",
   "mcp.add": "Añadir MCP",
   "clientUsage.title": "Uso de clientes",
   "clientUsage.desc": "Lee los archivos de sesión locales de clientes de programación con IA y convierte el uso local a precios oficiales de API. Los datos se procesan y almacenan solo en este equipo.",

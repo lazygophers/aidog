@@ -1232,7 +1232,6 @@
   "contextCompress.statsColUsed": "Utilisés",
   "contextCompress.statsColCompressed": "Compressés",
   "contextCompress.statsColRatio": "Taux de compression",
-  "contextCompress.sqzRateNote": "sqz ne fournit pas de taux journalier : taux / nombre / jetons bruts / compressés sont cumulés",
   "mcp.add": "Ajouter MCP",
   "clientUsage.title": "Usage client",
   "clientUsage.desc": "Lit les fichiers de session locaux des clients de codage IA et convertit l'usage local aux prix officiels de l'API. Les données sont traitées et stockées uniquement sur cette machine.",

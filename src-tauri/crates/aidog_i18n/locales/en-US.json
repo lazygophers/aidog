@@ -1144,7 +1144,6 @@
   "contextCompress.statsColUsed": "Used",
   "contextCompress.statsColCompressed": "Compressed",
   "contextCompress.statsColRatio": "Compression ratio",
-  "contextCompress.sqzRateNote": "sqz has no per-day rate: rate / count / in / out are all-time figures",
   "mcp.add": "Add MCP",
   "clientUsage.title": "Client Usage",
   "clientUsage.desc": "Read local AI coding client session files and convert local usage at official API prices. Data is processed and stored on this machine only.",

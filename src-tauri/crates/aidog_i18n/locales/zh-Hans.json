@@ -1144,7 +1144,6 @@
   "contextCompress.statsColUsed": "已使用",
   "contextCompress.statsColCompressed": "已压缩",
   "contextCompress.statsColRatio": "压缩比例",
-  "contextCompress.sqzRateNote": "sqz 不提供按日比率：比率 / 次数 / 原始 / 压缩后 tokens 为累计口径",
   "mcp.add": "添加 MCP",
   "clientUsage.title": "客户端统计",
   "clientUsage.desc": "读取本地 AI 编码客户端（Claude Code、Codex 等）的会话文件，按官方 API 价格折算本地用量。数据仅本机处理与存储。",

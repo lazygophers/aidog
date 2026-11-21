@@ -1370,12 +1370,44 @@ pub struct RtkDaily {
     pub savings_pct: f64,
 }
 
-/// `sqz gain --days N` 文本行的一日。MM-DD 无年份源，年份按当天推定（晚于今天的
-/// 月日归上一年）；CLI 无每日比率 / in-out 数据，只回传节省 tokens。
+/// sqz 的一日。首选 `~/.sqz/sessions.db` 的 `compression_log` 按 UTC 日聚合：
+/// used = Σtokens_original、saved = Σ(original − compressed)、compressions = 行数。
+/// 回退 `sqz gain --days N` 文本（MM-DD 年份按当天推定）时只有 saved，used / compressions 为 None。
 #[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct SqzDaily {
     pub date: String,
     pub saved_tokens: u64,
+    pub used_tokens: Option<u64>,
+    pub compressions: Option<u64>,
+}
+
+/// 只读打开 sqz 自己的 SQLite（明文库，不设 key），按日聚合 compression_log。
+/// 库不存在 / 表或列缺失 / 查询失败 → None，由调用方回退 `sqz gain` 文本。
+fn sqz_daily_from_db(path: &std::path::Path) -> Option<Vec<SqzDaily>> {
+    use rusqlite::OpenFlags;
+    let conn = rusqlite::Connection::open_with_flags(
+        path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .ok()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT substr(created_at, 1, 10) AS d, SUM(tokens_original), \
+             SUM(tokens_original - tokens_compressed), COUNT(*) \
+             FROM compression_log GROUP BY d ORDER BY d",
+        )
+        .ok()?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok(SqzDaily {
+                date: r.get(0)?,
+                used_tokens: Some(r.get::<_, i64>(1)?.max(0) as u64),
+                saved_tokens: r.get::<_, i64>(2)?.max(0) as u64,
+                compressions: Some(r.get::<_, i64>(3)? as u64),
+            })
+        })
+        .ok()?;
+    rows.collect::<Result<Vec<_>, _>>().ok()
 }
 
 #[derive(Serialize, Clone, Debug, Default)]
@@ -1417,7 +1449,7 @@ fn parse_sqz_gain(out: &str, today: chrono::NaiveDate) -> Vec<SqzDaily> {
                 .ok()?;
             let date = chrono::NaiveDate::from_ymd_opt(cur, m, d)
                 .map(|date| if date > today { date.with_year(cur - 1).unwrap_or(date) } else { date })?;
-            Some(SqzDaily { date: date.to_string(), saved_tokens: saved })
+            Some(SqzDaily { date: date.to_string(), saved_tokens: saved, used_tokens: None, compressions: None })
         })
         .collect()
 }
@@ -1437,14 +1469,23 @@ fn parse_rtk_gain(out: &str) -> Option<RtkGainStats> {
 
 crate::tauri_command! {
     /// 上下文压缩统计：rtk `gain -d --format json`（summary + 每日明细）+
-    /// sqz `stats --json`（聚合）+ `sqz gain --days 3650`（每日节省，文本解析）。
+    /// sqz `stats --json`（聚合）+ 每日：`~/.sqz/sessions.db` 的 compression_log（只读），
+    /// 读不到时回退 `sqz gain --days 3650` 文本（仅节省 tokens）。
     /// 工具未装 / 输出解析失败的一侧 summary 为 null、daily 为空，不报错。
     pub async fn context_compress_stats() -> Result<ContextCompressStats, String> {
-        let (rtk_out, sqz_stats_out, sqz_gain_out) = tokio::join!(
+        let sqz_db = dirs::home_dir().map(|h| h.join(".sqz").join("sessions.db"));
+        let (rtk_out, sqz_stats_out, sqz_db_daily) = tokio::join!(
             async { run_cmd("rtk", &["gain", "-d", "--format", "json"], &[]).await.ok() },
             async { run_cmd("sqz", &["stats", "--json"], &[]).await.ok() },
-            async { run_cmd("sqz", &["gain", "--days", "3650"], &[]).await.ok() },
+            async {
+                let p = sqz_db?;
+                tokio::task::spawn_blocking(move || sqz_daily_from_db(&p)).await.ok().flatten()
+            },
         );
+        let sqz_gain_out = match sqz_db_daily {
+            Some(_) => None,
+            None => run_cmd("sqz", &["gain", "--days", "3650"], &[]).await.ok(),
+        };
         let mut stats = ContextCompressStats {
             rtk: rtk_out.as_deref().and_then(parse_rtk_gain),
             sqz: sqz_stats_out.as_deref().and_then(parse_sqz_stats),
@@ -1453,7 +1494,9 @@ crate::tauri_command! {
         if let Some(o) = rtk_out.as_deref() {
             stats.rtk_daily = parse_rtk_daily(o);
         }
-        if let Some(o) = sqz_gain_out.as_deref() {
+        if let Some(d) = sqz_db_daily {
+            stats.sqz_daily = d;
+        } else if let Some(o) = sqz_gain_out.as_deref() {
             stats.sqz_daily = parse_sqz_gain(o, chrono::Utc::now().date_naive());
         }
         Ok(stats)

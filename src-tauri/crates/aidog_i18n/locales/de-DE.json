@@ -1232,7 +1232,6 @@
   "contextCompress.statsColUsed": "Verwendet",
   "contextCompress.statsColCompressed": "Komprimiert",
   "contextCompress.statsColRatio": "Komprimierungsrate",
-  "contextCompress.sqzRateNote": "sqz liefert keine Tagesrate: Rate / Anzahl / Original- / komprimierte Token sind kumuliert",
   "mcp.add": "MCP hinzufügen",
   "clientUsage.title": "Client-Nutzung",
   "clientUsage.desc": "Liest lokale Sitzungsdateien von KI-Coding-Clients und rechnet die lokale Nutzung zu offiziellen API-Preisen um. Daten werden nur auf diesem Rechner verarbeitet und gespeichert.",

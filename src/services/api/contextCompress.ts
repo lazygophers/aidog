@@ -55,10 +55,12 @@ export interface RtkDaily {
   savings_pct: number;
 }
 
-/** `sqz gain` 文本解析的一日（CLI 无每日比率 / in-out，只有节省 tokens）。 */
+/** sqz 一日：读 `~/.sqz/sessions.db` 时带 used / compressions；回退 `sqz gain` 文本时二者为 null。 */
 export interface SqzDaily {
   date: string;
   saved_tokens: number;
+  used_tokens: number | null;
+  compressions: number | null;
 }
 
 /** 工具未装 / 解析失败的一侧 summary 为 null；daily 为空表示无按日数据。 */

@@ -1232,7 +1232,6 @@
   "contextCompress.statsColUsed": "المستخدَم",
   "contextCompress.statsColCompressed": "المضغوط",
   "contextCompress.statsColRatio": "نسبة الضغط",
-  "contextCompress.sqzRateNote": "sqz لا يوفر نسبة يومية: النسبة / العدد / الرموز الأصلية / بعد الضغط إجمالي كلي",
   "mcp.add": "إضافة MCP",
   "clientUsage.title": "استخدام العميل",
   "clientUsage.desc": "قراءة ملفات الجلسات المحلية لعملاء برمجة الذكاء الاصطناعي وتقدير الاستخدام المحلي بأسعار واجهة API الرسمية. تُعالج البيانات وتُخزَّن على هذا الجهاز فقط.",

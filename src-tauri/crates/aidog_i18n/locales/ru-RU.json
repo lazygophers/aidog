@@ -1232,7 +1232,6 @@
   "contextCompress.statsColUsed": "Использовано",
   "contextCompress.statsColCompressed": "Сжато",
   "contextCompress.statsColRatio": "Степень сжатия",
-  "contextCompress.sqzRateNote": "sqz не даёт дневной коэффициент: коэффициент / счётчик / исходные / сжатые токены — суммарно",
   "mcp.add": "Добавить MCP",
   "clientUsage.title": "Использование клиентов",
   "clientUsage.desc": "Читает локальные файлы сессий ИИ-клиентов для кодирования и пересчитывает локальное использование по официальным ценам API. Данные обрабатываются и хранятся только на этом компьютере.",
