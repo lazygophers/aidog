@@ -1,4 +1,7 @@
 use super::*;
+use super::outbound_shape::{
+    append_field_trace_tokens, dropped_response_server_events, server_tool_event_drop_tokens,
+};
 use crate::gateway::proxy::stream::has_stream_terminator;
 
 /// forward_attempt 里一次路由决策产出的协议/模型元数据，供 finish_nonstream / finish_stream 共用。
@@ -116,8 +119,12 @@ pub(crate) async fn finish_nonstream(
     // 致 source≠target 且非同协议透传时（如 anthropic 客户端 ↔ openai 平台），CC 收到上游原生
     // openai chat completion JSON（含 tool_calls）而非 anthropic messages → "empty or malformed (200)"。
     // 这里补齐：同协议透传跳过；否则按 (wire=target, client=source) 转换。返回 None 表示无需转换，透传原文。
+    let mut response_drops: Vec<String> = Vec::new();
     let body = if !same_protocol_passthrough {
         let upstream_json: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+        // issue #176：响应侧原生服务端事件的丢弃留痕（识别与转换共用 adapter 判定）
+        response_drops =
+            dropped_response_server_events(&upstream_json, target_protocol_enum, source_protocol);
         match pa.convert_response(
             &upstream_json,
             target_protocol_enum,
@@ -131,6 +138,8 @@ pub(crate) async fn finish_nonstream(
         body.to_vec()
     };
     let body = Bytes::from(body);
+    // 请求侧 field_trace（forward.rs 写入）之后追加响应侧 `drop:resp:` token
+    append_field_trace_tokens(&mut log.field_trace, &response_drops);
 
     // ── 禁用思考的响应侧兑现（转换与透传两分支共用本 seam）──
     // 出站已按目标协议写了显式禁用参数，但 MiniMax-M2 这类内置思考模型不认，照回思维链
@@ -140,72 +149,6 @@ pub(crate) async fn finish_nonstream(
         let mut json: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
         if adapter::strip_thinking_in_body(&mut json, source_protocol) {
             tracing::info!(model = %actual_model, "disable_thinking: stripped thinking from upstream response");
-            // ── 过滤后既无正文也无工具调用 → 明确报错（request 42c14a59）──
-            // 上游 200 thinking-only，剥完只剩空壳：不发空 200，改 502（RFC 9110 §15.6.3
-            // Bad Gateway：gateway 收到的 upstream response 无法用于完成请求）。保留上游 stop_reason；思考文本
-            // 不进错误体；不声称额度耗尽，不重试不换模型。上游已花 token 照实计费
-            // （usage 提取在上，estimate 照常后台生成），日志记 502。
-            if adapter::response_contentless_after_strip(&json, source_protocol) {
-                let stop_reason = json
-                    .get("stop_reason")
-                    .and_then(|v| v.as_str())
-                    .map(str::to_string);
-                let err_body = adapter::wire_error_body(
-                    source_protocol,
-                    "api_error",
-                    &format!(
-                        "upstream returned thinking-only response (disable_thinking=true), nothing deliverable after filter; upstream stop_reason: {}",
-                        stop_reason.as_deref().unwrap_or("none")
-                    ),
-                )
-                .to_string();
-                log.status_code = 502;
-                log.user_response_body = if log_settings.log_user_request {
-                    err_body.clone()
-                } else {
-                    String::new()
-                };
-                log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
-                let created_at_ms = log.created_at;
-                upsert_log(state, log, log_settings).await;
-                spawn_rate_limit(
-                    state,
-                    route.platform.id,
-                    upstream_resp_headers,
-                    tracing::Span::current(),
-                );
-                spawn_estimate(
-                    state,
-                    route.platform.id,
-                    &route.platform.platform_type,
-                    quota_base_url,
-                    eff_api_key.to_string(),
-                    actual_model.to_string(),
-                    route.platform.extra.clone(),
-                    input_tokens,
-                    output_tokens,
-                    cache_tokens,
-                    cache_write_tokens,
-                    cache_write_1h_tokens,
-                    coding_plan,
-                    created_at_ms,
-                    chat_tool_cost_usd(&route.platform.platform_type, &log.tool_call_counts),
-                    0, // chat 路径无按次计量次数
-                    true, // 额度窗口执行范围：聊天计入
-                    tracing::Span::current(),
-                );
-                tracing::info!(
-                    platform = %route.platform.name, model = %actual_model,
-                    status = 502, "disable_thinking: thinking-only upstream response, nothing deliverable after filter"
-                );
-                let mut response = (StatusCode::BAD_GATEWAY, err_body).into_response();
-                response.headers_mut().insert(
-                    axum::http::header::CONTENT_TYPE,
-                    axum::http::HeaderValue::from_static("application/json"),
-                );
-                inject_trace_header(&mut response);
-                return response;
-            }
             Bytes::from(serde_json::to_vec(&json).unwrap_or_else(|_| body.to_vec()))
         } else {
             body
@@ -480,10 +423,6 @@ where
     let disable_thinking = ctx.disable_thinking;
     let mut sse_thinking_stripper =
         disable_thinking.then(|| adapter::SseThinkingStripper::new(client_protocol.clone()));
-    // 转换分支的跨 chunk 内容标记：禁用思考时过滤后是否还下发了正文/工具调用
-    // （thinking-only 上游 → Stop 或流末哨兵处换 error 帧）。
-    let mut saw_client_content = false;
-    let mut converted_stop_error = false;
     // DSML 文本工具标记改写（书生·端砚 dsv4：工具调用以 <｜DSML｜tool_calls> 文本吐出）：
     // 透传分支逐帧剥标记 + 合成 tool_use 帧；仅 anthropic wire 客户端（rewriter 按其帧格式实现）。
     // 未激活且帧不含 "DSML" 时零解析成本直通。
@@ -507,29 +446,9 @@ where
     let include_usage = ctx.include_usage;
     let stream = stream.map(move |item| {
         let Some(chunk_result) = item else {
-            // 流末哨兵：冲刷尾窗残留与透传 stripper（Gemini 等无 stop sentinel 也会到此）。
+            // 流末哨兵：冲刷尾窗残留（已含终止符的那块已冲刷过 → 此处为空串，幂等）。
             // 票 02：masker 尾窗先过还原窗口再整体冲出（顺序 = 原文顺序）。
-            let mut tail = mw_masker.finish();
-            if let Some(s) = sse_thinking_stripper.as_mut() {
-                let pending = sse_line_buf.finish();
-                guard.agg.feed_sse_usage(&pending);
-                tail.push_str(&s.push(&pending));
-                tail.push_str(&s.finish());
-                if s.converted_to_error() {
-                    guard.agg.mark_filtered_empty();
-                }
-            }
-            // 转换分支没有 ChatStreamEvent::Stop 的自然耗尽：禁思考且没有正文 / 工具调用时，
-            // 在流末补协议错误帧；若有 Stop，前面的事件循环已 mark_done 并兑换错误。
-            if disable_thinking && !passthrough_response && !saw_client_content && !converted_stop_error {
-                guard.agg.mark_filtered_empty();
-                client_sse_state.mark_done();
-                tail.push_str(&wire_error_frame(
-                    &client_protocol,
-                    "api_error",
-                    "upstream returned thinking-only response (disable_thinking=true), nothing deliverable after filter; upstream stop_reason: none",
-                ));
-            }
+            let tail = mw_masker.finish();
             // issue 71：[DONE] 哨兵压到 usage 块之后，流结束仍无 usage 时在此补发
             // （仅转换分支；passthrough 原样 relay 字节，状态机未被使用）。
             let flushed = (!passthrough_response)
@@ -627,11 +546,6 @@ where
                     {
                         out.push_str(&s.finish());
                     }
-                    // thinking-only 上游：stripper 已把 message_stop 换成 error 帧 →
-                    // 日志终态从 200 改记 502（flush 在本 chunk 之后执行，此刻置位生效）。
-                    if s.converted_to_error() {
-                        guard.agg.mark_filtered_empty();
-                    }
                     out
                 }
                 None => line_ready_text,
@@ -668,6 +582,20 @@ where
             // 内容路径同型跨 chunk 行重组：完整行立即随本 chunk 下发（不攒批，避免首 token
             // 时延退化），不完整尾行留 sse_line_buf 等下个 chunk 拼接（design.md 修法）。
             let line_ready_text = sse_line_buf.feed(&text);
+            // issue #176 流式留痕②：gemini 未识别原生服务端事件帧（executableCode /
+            // codeExecutionResult）parse 不产事件，旁路检出后记入 flush 回写的 field_trace。
+            // contains 预筛：只有命中才逐行解析，长流零成本。
+            if matches!(protocol, Protocol::Gemini)
+                && (line_ready_text.contains("executableCode")
+                    || line_ready_text.contains("codeExecutionResult"))
+            {
+                let names = adapter::gemini::unrecognized_server_event_names_in_text(&line_ready_text);
+                let tokens: Vec<String> = names
+                    .iter()
+                    .map(|n| format!("drop:resp:{n}"))
+                    .collect();
+                guard.agg.note_response_drops(&tokens);
+            }
             let mut output = String::new();
             // 上游帧格式（`data: ` 分帧 / DONE 哨兵 / 各协议 JSON 解析）知识全部收在 adapter 侧，
             // 此处只负责 model 字段改写 + 按客户端协议渲染下发。
@@ -675,6 +603,12 @@ where
                 .agg
                 .parse_sse_events_and_usage(&line_ready_text, pa, &protocol)
             {
+                // issue #176 流式留痕①：非 Anthropic 客户端状态机静默丢 ServerToolResult
+                // → 按 server_tool_use.name 记 token（Anthropic 客户端函数内返回空）。
+                guard.agg.note_response_drops(&server_tool_event_drop_tokens(
+                    &event,
+                    &client_protocol,
+                ));
                 let event = if !model_for_sse.is_empty() {
                     match event {
                         ChatStreamEvent::Start { id, model: _ } => ChatStreamEvent::Start {
@@ -691,35 +625,6 @@ where
                 for event in adapter::split_stream_inline_reasoning(event, &mut inline_reasoning) {
                     // 禁用思考：思维链事件（含行内标签分出来的）不下发
                     if disable_thinking && matches!(event, ChatStreamEvent::ReasoningDelta { .. }) {
-                        continue;
-                    }
-                    // 禁用思考时跟踪过滤后剩余的可下发内容（正文 / 工具调用）
-                    if disable_thinking {
-                        match &event {
-                            ChatStreamEvent::Delta { text } if !text.is_empty() => {
-                                saw_client_content = true;
-                            }
-                            ChatStreamEvent::ToolDelta { .. } => saw_client_content = true,
-                            _ => {}
-                        }
-                    }
-                    // 过滤后无正文无工具调用且上游终止 → Stop 换 error 帧
-                    // （保留上游 finish_reason；不重试不换模型；mark_done 抑制流末补发终止帧）。
-                    if disable_thinking
-                        && !saw_client_content
-                        && let ChatStreamEvent::Stop { finish_reason } = &event
-                    {
-                        converted_stop_error = true;
-                        guard.agg.mark_filtered_empty();
-                        client_sse_state.mark_done();
-                        output.push_str(&wire_error_frame(
-                            &client_protocol,
-                            "api_error",
-                            &format!(
-                                "upstream returned thinking-only response (disable_thinking=true), nothing deliverable after filter; upstream stop_reason: {}",
-                                finish_reason.as_deref().unwrap_or("none")
-                            ),
-                        ));
                         continue;
                     }
                     if let Some(sse) = adapter::to_client_sse_stateful(
@@ -851,20 +756,18 @@ pub(crate) fn is_anthropic_wire_client(client_protocol: &aidog_db::models::Proto
 /// - OpenAI 系（openai/openai_responses/openai_completions）→ error chunk + `[DONE]`
 /// - Gemini → Gemini generateContent SSE 错误载荷
 pub(crate) fn upstream_break_error_frame(client_protocol: &aidog_db::models::Protocol) -> String {
-    wire_error_frame(
-        client_protocol,
-        "overloaded_error",
-        "upstream stream interrupted",
-    )
-}
-
-/// 按客户端 wire 协议合成 SSE 错误帧（通用形状；`anthropic_error_type` 仅 anthropic 臂用）。
-pub(crate) fn wire_error_frame(
-    client_protocol: &aidog_db::models::Protocol,
-    anthropic_error_type: &str,
-    message: &str,
-) -> String {
-    adapter::wire_error_frame(client_protocol, anthropic_error_type, message)
+    use aidog_db::models::Protocol;
+    match client_protocol {
+        Protocol::OpenAI | Protocol::OpenAIResponses | Protocol::OpenAICompletions => {
+            "data: {\"error\":{\"message\":\"upstream stream interrupted\",\"type\":\"server_error\",\"code\":502}}\n\ndata: [DONE]\n\n".to_string()
+        }
+        Protocol::Gemini => {
+            "data: {\"error\":{\"code\":502,\"message\":\"upstream stream interrupted\",\"status\":\"UNAVAILABLE\"}}\n\n".to_string()
+        }
+        _ => {
+            "event: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"upstream stream interrupted\"}}\n\n".to_string()
+        }
+    }
 }
 
 #[cfg(test)]

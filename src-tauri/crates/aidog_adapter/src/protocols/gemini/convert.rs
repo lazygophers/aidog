@@ -415,6 +415,142 @@ fn extra_response_format(extra: &Value) -> (Option<String>, Option<Value>) {
     }
 }
 
+/// issue #176：识别 Gemini 响应（candidates[]，非流式 body 与 SSE 帧同形状）中的原生
+/// 服务端工具事件并转为 Anthropic 形态内容块（`#74` 请求方向 `Tool::native_server_tool`
+/// 下发的对称方向）：
+/// - `groundingMetadata`（google_search）→ server_tool_use + web_search_tool_result
+/// - `urlContextMetadata`（url_context）→ server_tool_use + web_fetch_tool_result
+/// - 无法识别的原生服务端事件（`executableCode` / `codeExecutionResult` 代码执行）整段丢弃，
+///   事件名入 `unrecognized` 供 proxy field_trace 留痕。
+pub fn gemini_server_tool_events(body: &Value) -> crate::converter::ServerToolEvents {
+    let mut out = crate::converter::ServerToolEvents::default();
+    let Some(candidates) = body.get("candidates").and_then(Value::as_array) else {
+        return out;
+    };
+    for candidate in candidates {
+        if let Some(g) = candidate.get("groundingMetadata") {
+            let queries: Vec<&str> = g
+                .get("webSearchQueries")
+                .and_then(Value::as_array)
+                .map(|a| a.iter().filter_map(Value::as_str).collect())
+                .unwrap_or_default();
+            let chunks: Vec<Value> = g
+                .get("groundingChunks")
+                .and_then(Value::as_array)
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|c| {
+                            let web = c.get("web")?;
+                            let uri = web.get("uri").and_then(Value::as_str)?;
+                            let title = web.get("title").and_then(Value::as_str).unwrap_or("");
+                            Some(serde_json::json!({
+                                "type": "web_search_result",
+                                "title": title,
+                                "url": uri,
+                            }))
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            if !chunks.is_empty() || !queries.is_empty() {
+                let id = format!("srvtoolu_g{}", next_server_tool_id());
+                out.blocks.push(serde_json::json!({
+                    "type": "server_tool_use",
+                    "id": id,
+                        "name": "web_search",
+                    "input": { "query": queries.first().copied().unwrap_or("") },
+                }));
+                out.blocks.push(serde_json::json!({
+                    "type": "web_search_tool_result",
+                    "tool_use_id": id,
+                    "content": chunks,
+                }));
+                out.recognized.push("groundingMetadata".to_string());
+            }
+        }
+        if let Some(u) = candidate.get("urlContextMetadata") {
+            let metas: Vec<Value> = u
+                .get("urlMetadata")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            if let Some(first) = metas.first() {
+                let id = format!("srvtoolu_g{}", next_server_tool_id());
+                let uri = first.get("uri").and_then(Value::as_str).unwrap_or("");
+                let title = first.get("title").and_then(Value::as_str).unwrap_or("");
+                out.blocks.push(serde_json::json!({
+                    "type": "server_tool_use",
+                    "id": id,
+                    "name": "web_fetch",
+                    "input": { "url": uri },
+                }));
+                // 官方 web_fetch_tool_result.content 是单个 web_fetch_result 对象；
+                // gemini urlMetadata 不带页面正文，多 url 取首个，其余丢失（记与 #74 同级的形态差）
+                out.blocks.push(serde_json::json!({
+                    "type": "web_fetch_tool_result",
+                    "tool_use_id": id,
+                    "content": {
+                        "type": "web_fetch_result",
+                        "url": uri,
+                        "title": title,
+                        "page_size": 0,
+                        "content": "",
+                    },
+                }));
+                out.recognized.push("urlContextMetadata".to_string());
+                // 多 URL 只转首个（官方 web_fetch_tool_result.content 是单对象）；其余条目
+                // 既不转换也无独立事件形态 → 计入 unrecognized 供 field_trace 留痕，不静默丢
+                if metas.len() > 1 {
+                    out.unrecognized.push("urlContextMetadata".to_string());
+                }
+            }
+        }
+        // 不支持的原生服务端事件：代码执行（parts 形态）
+        for part in candidate
+            .get("content")
+            .and_then(|c| c.get("parts"))
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            for key in ["executableCode", "codeExecutionResult"] {
+                if part.get(key).is_some() {
+                    out.unrecognized.push(key.to_string());
+                }
+            }
+        }
+    }
+    out.recognized.sort();
+    out.recognized.dedup();
+    out
+}
+
+/// issue #176（流式留痕②）：从一段完整 SSE 行文本里旁路检出 gemini 未识别原生服务端
+/// 事件名（parse 不为其产事件，proxy 闭包在 `executableCode` / `codeExecutionResult`
+/// contains 命中时调本函数取名）。返回去重后的事件名（不带 token 前缀）。
+pub fn unrecognized_server_event_names_in_text(text: &str) -> Vec<String> {
+    let mut names = Vec::new();
+    for line in text.lines() {
+        let Some(data) = line.strip_prefix("data: ") else {
+            continue;
+        };
+        let Ok(json) = serde_json::from_str::<Value>(data.trim()) else {
+            continue;
+        };
+        names.extend(gemini_server_tool_events(&json).unrecognized);
+    }
+    names.sort();
+    names.dedup();
+    names
+}
+
+/// issue #176 服务端工具块 id 自增（同 [`next_fc_id`] idiom：进程内原子自增即可）
+fn next_server_tool_id() -> usize {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    static SEQ: AtomicUsize = AtomicUsize::new(1);
+    SEQ.fetch_add(1, Ordering::Relaxed)
+}
+
 /// 解析 Gemini API 非流式响应为归一 NonStreamResponse
 pub fn parse_gemini_response(
     body: &Value,
@@ -517,6 +653,8 @@ pub fn parse_gemini_response(
         output_tokens,
         cache_read_tokens,
         reasoning,
+        // issue #176：groundingMetadata / urlContextMetadata → Anthropic 形态块
+        server_tool_results: gemini_server_tool_events(body).blocks,
     })
 }
 
@@ -998,6 +1136,8 @@ pub fn to_gemini_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
         ChatStreamEvent::Stop { finish_reason } => gemini_stop_frame(finish_reason.as_deref(), None),
         ChatStreamEvent::Usage { .. } => return None,
         // gemini wire 没有 ping 事件，同 openai。
+        // issue #176：Gemini wire 无服务端工具块形态，不下发
+        ChatStreamEvent::ServerToolResult { .. } => return None,
         ChatStreamEvent::Ping => return None,
         ChatStreamEvent::ToolDelta { name, input, .. } => {
             let args: Value = input

@@ -953,6 +953,7 @@ fn ticket07_anthropic_sse_mixed_events() {
             ChatStreamEvent::Stop { .. } => "stop",
             ChatStreamEvent::Usage { .. } => "usage",
             ChatStreamEvent::Ping => "ping",
+            ChatStreamEvent::ServerToolResult { .. } => "server_tool_result",
         })
         .collect();
     assert_eq!(

@@ -47,6 +47,14 @@ pub fn parse_sse(data: &Value, wire_protocol: &Protocol) -> Vec<ChatStreamEvent>
     if let Some(usage) = wire_usage(data, wire_protocol) {
         events.push(ChatStreamEvent::Usage { usage });
     }
+    // issue #176：帧内携带原生服务端工具事件时先产出 ServerToolResult（在 Stop 之前，
+    // 与 Usage 同一提序语义——渲染侧靠「先于 Stop」把块并进流终局）。
+    let server = server_tool_events(data, wire_protocol);
+    if !server.blocks.is_empty() {
+        events.push(ChatStreamEvent::ServerToolResult {
+            blocks: server.blocks,
+        });
+    }
     if let Some(event) = parse_sse_single(data, wire_protocol) {
         events.push(event);
     }
@@ -188,6 +196,7 @@ pub fn hoist_usage_before_stop(events: Vec<ChatStreamEvent>) -> Vec<ChatStreamEv
 ///
 /// 上游响应（openai chat completion / anthropic messages / …）先 parse 为本结构，
 /// 再按客户端协议 render，避免把上游原生格式直接透回致客户端解析失败。
+#[derive(Default)]
 pub struct NonStreamResponse {
     pub id: String,
     pub model: String,
@@ -202,6 +211,36 @@ pub struct NonStreamResponse {
     pub cache_read_tokens: i64,
     /// 思维链文本（按 wire 协议语义提取，anthropic thinking 块 / openai reasoning_content 等）
     pub reasoning: Option<String>,
+    /// 上游原生服务端工具事件转出的 Anthropic 形态内容块（issue #176）：
+    /// server_tool_use + web_search_tool_result / web_fetch_tool_result 对。
+    /// 仅 Anthropic 系客户端 render 下发；其余客户端协议丢弃（proxy field_trace `drop:resp:` 留痕）。
+    pub server_tool_results: Vec<Value>,
+}
+
+/// 上游响应里的原生服务端工具事件识别结果（issue #176，`#74` 请求方向的响应侧对称）。
+#[derive(Default)]
+pub struct ServerToolEvents {
+    /// 已识别并转成 Anthropic 形态的内容块
+    pub blocks: Vec<Value>,
+    /// 已识别事件名（gemini `groundingMetadata` / `urlContextMetadata`、responses `web_search_call`）
+    pub recognized: Vec<String>,
+    /// 不支持、整段丢弃的原生服务端事件名（gemini `executableCode` / `codeExecutionResult`，
+    /// responses `code_interpreter_call` 等其它 server 工具项）
+    pub unrecognized: Vec<String>,
+}
+
+/// 按 wire 协议识别上游响应帧 / 非流式 body 中的原生服务端工具事件。
+/// gemini：candidates[].groundingMetadata / urlContextMetadata（SSE 帧与非流式 body 同形状）；
+/// responses：非流式 `output[]` 或 SSE `data.item`（output_item.added/done 帧）里的
+/// `web_search_call`；其余协议无原生服务端工具（openai chat）→ 空识别。
+pub fn server_tool_events(body: &Value, wire_protocol: &Protocol) -> ServerToolEvents {
+    match wire_protocol {
+        Protocol::Gemini => super::super::gemini::gemini_server_tool_events(body),
+        Protocol::OpenAIResponses => {
+            super::super::openai_responses::responses_server_tool_events(body)
+        }
+        _ => ServerToolEvents::default(),
+    }
 }
 
 /// 非流式上游响应 → 客户端协议响应体转换。
@@ -310,6 +349,10 @@ pub fn render_anthropic_response(r: &NonStreamResponse) -> Value {
             "name": name,
             "input": input,
         }));
+    }
+    // issue #176：原生服务端工具块（server_tool_use + 结果块对）排在 tool_use 之后
+    for block in &r.server_tool_results {
+        content.push(block.clone());
     }
     // 兜底：既无 text 也无 tool_use（异常上游）→ 空 text 块，保证 content 非空数组（Anthropic 合法）。
     if content.is_empty() {
@@ -516,6 +559,20 @@ pub fn to_anthropic_sse(event: &ChatStreamEvent) -> Option<String> {
                 "usage": { "output_tokens": 0 }
             })
         )),
+        // issue #176：完整块直接以 content_block_start + content_block_stop 下发（无 delta 通道）
+        ChatStreamEvent::ServerToolResult { blocks } => Some(
+            blocks
+                .iter()
+                .enumerate()
+                .map(|(i, b)| {
+                    format!(
+                        "event: content_block_start\ndata: {}\n\nevent: content_block_stop\ndata: {}\n\n",
+                        serde_json::json!({ "type": "content_block_start", "index": i, "content_block": b }),
+                        serde_json::json!({ "type": "content_block_stop", "index": i })
+                    )
+                })
+                .collect(),
+        ),
         ChatStreamEvent::Usage { .. } => None,
         // 上游的心跳原样转给 Anthropic 系客户端：它按字节计数，静默 300 秒就掐断整条流。
         ChatStreamEvent::Ping => Some("event: ping\ndata: {\"type\":\"ping\"}\n\n".to_string()),
@@ -859,6 +916,27 @@ impl AnthropicSseState {
             ChatStreamEvent::Usage { usage } => {
                 self.pending_usage.merge_partial(usage);
                 None
+            }
+            // issue #176：服务端工具块即时开闭（content_block_start 带完整块 + content_block_stop），
+            // 各占一个 wire index，后续 text / tool 块顺延
+            ChatStreamEvent::ServerToolResult { blocks } => {
+                let mut parts = Vec::new();
+                for b in blocks {
+                    let i = self.alloc_block();
+                    parts.push(format!(
+                        "event: content_block_start\ndata: {}\n\n",
+                        serde_json::json!({ "type": "content_block_start", "index": i, "content_block": b })
+                    ));
+                    parts.push(format!(
+                        "event: content_block_stop\ndata: {}\n\n",
+                        serde_json::json!({ "type": "content_block_stop", "index": i })
+                    ));
+                }
+                if parts.is_empty() {
+                    None
+                } else {
+                    Some(parts.join(""))
+                }
             }
             ChatStreamEvent::Ping => Some("event: ping\ndata: {\"type\":\"ping\"}\n\n".to_string()),
         }

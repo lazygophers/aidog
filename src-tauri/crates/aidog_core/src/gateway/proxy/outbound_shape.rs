@@ -205,6 +205,70 @@ pub(crate) fn dropped_server_tools(
         .collect()
 }
 
+/// issue #176：响应侧被丢弃的原生服务端事件名（field_trace `drop:resp:<name>` token）。
+/// 与 adapter converter 共用 `server_tool_events` 判定，trace 与转换行为同源不漂移
+/// （对称请求侧 `dropped_server_tools` 与 `Tool::native_server_tool` 的关系）：
+/// - 无法识别的原生服务端事件（gemini `executableCode`/`codeExecutionResult` 代码执行、
+///   responses 其它 server 工具项）整段丢弃 → 恒记；
+/// - 已识别可转换的事件（gemini groundingMetadata/urlContextMetadata、responses web_search_call），
+///   仅当客户端不是 Anthropic wire（render 不下发 server_tool_results 块）时记——
+///   Anthropic 系客户端已转成 content 块下发，不算丢弃。
+pub(crate) fn dropped_response_server_events(
+    body: &Value,
+    wire: &Protocol,
+    client: &Protocol,
+) -> Vec<String> {
+    if wire == client {
+        return Vec::new();
+    }
+    let server = aidog_adapter::converter::server_tool_events(body, wire);
+    let mut dropped: Vec<String> = server
+        .unrecognized
+        .iter()
+        .map(|n| format!("drop:resp:{n}"))
+        .collect();
+    if !server.blocks.is_empty() && !super::finish::is_anthropic_wire_client(client) {
+        for name in &server.recognized {
+            dropped.push(format!("drop:resp:{name}"));
+        }
+    }
+    dropped
+}
+
+/// 把响应侧丢弃 token 追加进 `proxy_log.field_trace`（逗号连接；空列表 no-op 不产生噪音）。
+pub(crate) fn append_field_trace_tokens(field_trace: &mut String, dropped: &[String]) {
+    if dropped.is_empty() {
+        return;
+    }
+    let extra = dropped.join(",");
+    if field_trace.is_empty() {
+        *field_trace = extra;
+    } else {
+        field_trace.push(',');
+        field_trace.push_str(&extra);
+    }
+}
+
+/// issue #176 流式留痕①：单个流事件在当前客户端协议下的丢弃 token。
+/// 客户端是 Anthropic wire（状态机渲染 ServerToolResult 块）→ 无丢弃；
+/// 其余客户端状态机静默丢 ServerToolResult → 按 server_tool_use.name 记 token。
+pub(crate) fn server_tool_event_drop_tokens(
+    event: &ChatStreamEvent,
+    client: &Protocol,
+) -> Vec<String> {
+    if super::finish::is_anthropic_wire_client(client) {
+        return Vec::new();
+    }
+    match event {
+        ChatStreamEvent::ServerToolResult { blocks } => blocks
+            .iter()
+            .filter(|b| b.get("type").and_then(Value::as_str) == Some("server_tool_use"))
+            .map(|b| format!("drop:resp:{}", b.get("name").and_then(Value::as_str).unwrap_or("server_tool_use")))
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
 /// 把本次出站的三类改写合成 `proxy_log.field_trace` 的 token 串（票 10；票 11 抽成纯函数）。
 ///
 /// - `capped_on_chat_req` / `capped_on_body`：`max_tokens` 被裁到模型上限的两个来源，
@@ -329,5 +393,113 @@ pub(crate) fn hoist_mid_messages_system(body: &mut Value) {
         _ => {
             obj.insert("system".to_string(), Value::Array(hoisted_blocks));
         }
+    }
+}
+
+#[cfg(test)]
+mod test_response_drops {
+    use super::*;
+
+    #[test]
+    fn gemini_unrecognized_only_dropped_and_traced() {
+        let body = serde_json::json!({
+            "candidates": [{
+                "content": {"parts": [
+                    {"text": "答案"},
+                    {"codeExecutionResult": {"outcome": "OUTCOME_OK"}}
+                ]},
+                "groundingMetadata": {
+                    "groundingChunks": [{"web": {"uri": "https://e.com", "title": "E"}}]
+                }
+            }]
+        });
+        let dropped =
+            dropped_response_server_events(&body, &Protocol::Gemini, &Protocol::Anthropic);
+        assert_eq!(
+            dropped,
+            vec!["drop:resp:codeExecutionResult".to_string()],
+            "已识别的 groundingMetadata 不记（已转换下发），无法识别的记 token（field_trace 落 drop:resp: 前缀）"
+        );
+    }
+
+    #[test]
+    fn responses_unrecognized_only_dropped_and_traced() {
+        let body = serde_json::json!({
+            "output": [
+                {"type": "web_search_call", "id": "ws_1", "action": {"query": "q"}},
+                {"type": "code_interpreter_call", "id": "ci_1", "status": "completed"}
+            ]
+        });
+        let dropped =
+            dropped_response_server_events(&body, &Protocol::OpenAIResponses, &Protocol::Anthropic);
+        assert_eq!(
+            dropped,
+            vec!["drop:resp:code_interpreter_call".to_string()],
+            "web_search_call 已转换不记，code_interpreter_call 整段丢弃记 token"
+        );
+    }
+
+    #[test]
+    fn recognized_events_traced_when_client_cannot_render() {
+        let body = serde_json::json!({
+            "output": [{"type": "web_search_call", "id": "ws_1", "action": {"query": "q"}}]
+        });
+        let dropped =
+            dropped_response_server_events(&body, &Protocol::OpenAIResponses, &Protocol::OpenAI);
+        assert_eq!(
+            dropped,
+            vec!["drop:resp:web_search_call".to_string()],
+            "非 Anthropic 客户端 render 不下发 server_tool_results → 已识别事件也按丢弃记"
+        );
+    }
+
+    #[test]
+    fn same_protocol_passthrough_never_traces() {
+        let body = serde_json::json!({"candidates": [{"groundingMetadata": {}}]});
+        assert!(dropped_response_server_events(&body, &Protocol::Gemini, &Protocol::Gemini).is_empty());
+    }
+
+    #[test]
+    fn append_tokens_joins_field_trace() {
+        let mut t = "cap:max_tokens".to_string();
+        append_field_trace_tokens(&mut t, &["drop:resp:web_search_call".to_string()]);
+        assert_eq!(t, "cap:max_tokens,drop:resp:web_search_call");
+        let mut empty = String::new();
+        append_field_trace_tokens(&mut empty, &["drop:resp:x".to_string()]);
+        assert_eq!(empty, "drop:resp:x");
+        append_field_trace_tokens(&mut empty, &[]);
+        assert_eq!(empty, "drop:resp:x");
+    }
+}
+
+#[cfg(test)]
+mod test_stream_drop_tokens {
+    use super::*;
+
+    #[test]
+    fn server_tool_result_event_traced_for_non_anthropic_client_only() {
+        let event = ChatStreamEvent::ServerToolResult {
+            blocks: vec![
+                serde_json::json!({"type":"server_tool_use","id":"s1","name":"web_search","input":{"query":"q"}}),
+                serde_json::json!({"type":"web_search_tool_result","tool_use_id":"s1","content":[]}),
+            ],
+        };
+        assert_eq!(
+            server_tool_event_drop_tokens(&event, &Protocol::OpenAI),
+            vec!["drop:resp:web_search".to_string()],
+            "openai 客户端状态机丢 ServerToolResult → 按 use.name 记 token"
+        );
+        assert!(
+            server_tool_event_drop_tokens(&event, &Protocol::Anthropic).is_empty(),
+            "anthropic 客户端渲染该块 → 无丢弃"
+        );
+        assert!(
+            server_tool_event_drop_tokens(
+                &ChatStreamEvent::Delta { text: "t".to_string() },
+                &Protocol::OpenAI
+            )
+            .is_empty(),
+            "普通事件无丢弃"
+        );
     }
 }
