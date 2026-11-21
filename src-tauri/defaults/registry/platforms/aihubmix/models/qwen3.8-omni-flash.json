@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795233205,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -26,6 +26,6 @@
     "input": 1.126e-07,
     "output": 3.80025e-07,
     "cache_read": 1.4075e-08,
-    "cache_write": 1.7593700000000002e-07
+    "cache_write": 1.759375e-7
   }
 }
