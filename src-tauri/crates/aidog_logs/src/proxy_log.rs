@@ -1689,9 +1689,13 @@ pub fn inflight_session_ids<'a>(
     }
 }
 
+pub(crate) const SESSION_GROUP_KEY_SQL: &str = "SELECT group_key FROM proxy_log \
+     WHERE deleted_at = 0 AND session_id = ?1 AND group_key != '' \
+     ORDER BY created_at DESC LIMIT 1";
+
 /// 会话原分组（扩展-会话页 票 07「继续会话」）：该 session_id 最近一条非空 group_key 的
 /// proxy_log 行；没经过网关 → None（继续时不注入分组）。
-/// shortcut: session_id 无索引，整表扫一次；只在用户点「继续」时跑，变慢再加索引。
+/// 走偏索引 `idx_proxy_log_session_id`（migration 20261110-03，WHERE deleted_at = 0）。
 #[track_caller]
 pub fn session_group_key<'a>(
     db: &'a Db,
@@ -1702,9 +1706,7 @@ pub fn session_group_key<'a>(
     async move {
         db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
             conn.query_row(
-                "SELECT group_key FROM proxy_log \
-                 WHERE deleted_at = 0 AND session_id = ?1 AND group_key != '' \
-                 ORDER BY created_at DESC LIMIT 1",
+                SESSION_GROUP_KEY_SQL,
                 [sid],
                 |r| r.get::<_, String>(0),
             )

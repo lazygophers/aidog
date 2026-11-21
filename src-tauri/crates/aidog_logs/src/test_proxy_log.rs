@@ -1094,3 +1094,31 @@ fn rc01_legacy_snapshot_deserializes_without_new_fields() {
     });
     assert_eq!(parse_routing(&serialize_routing(&Some(r2.clone()))), Some(r2));
 }
+
+/// 票 13：「继续会话」查原分组的那条 SQL 走 `idx_proxy_log_session_id`，不全表扫；
+/// 迁移重跑幂等（索引仍在、仅一条）。EXPLAIN 的是生产常量 SESSION_GROUP_KEY_SQL。
+#[tokio::test]
+async fn session_group_key_uses_session_id_index() {
+    let (db, _dir) = three_file_db().await;
+    let plan: String = db
+        .call_read_proxy_log_traced(None, std::panic::Location::caller(), |conn| {
+            let mut stmt = conn.prepare(&format!("EXPLAIN QUERY PLAN {}", crate::proxy_log::SESSION_GROUP_KEY_SQL))?;
+            let rows = stmt.query_map(["sid"], |r| r.get::<_, String>(3))?;
+            Ok(rows.filter_map(|r| r.ok()).collect::<Vec<_>>().join(" | "))
+        })
+        .await
+        .unwrap();
+    assert!(plan.contains("idx_proxy_log_session_id"), "plan: {plan}");
+    let n: i64 = db
+        .call_proxy_log_traced(None, std::panic::Location::caller(), |conn| {
+            aidog_db::schema_late::run_migrations_proxy_log_late(conn, &Default::default(), &[], &[])?;
+            conn.query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_proxy_log_session_id'",
+                [],
+                |r| r.get(0),
+            )
+        })
+        .await
+        .unwrap();
+    assert_eq!(n, 1, "迁移重跑幂等");
+}
