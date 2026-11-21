@@ -315,3 +315,56 @@ async fn gemini_import_e2e() {
     assert!(c > 0.0, "gemini-2.5-pro cost > 0，实际 {c}");
     assert!(unknown_cost.is_none(), "未知模型未定价不折算");
 }
+
+/// 票 06 工作目录：`tmp/<slug>/.project_root`（内容 trim）→ workdir；
+/// 子代理文件在 `chats/<parent>/` 下同样取 `<slug>` 层；缺失 → 空。
+#[test]
+fn workdir_from_project_root_gemini() {
+    let d = tmpdir();
+    let p = write_lines(d.path(), &["slug-a", "chats", "s20.jsonl"], &[meta("s-w1", None, None)]);
+    let sub = write_lines(
+        d.path(),
+        &["slug-a", "chats", "s-w1", "sub.jsonl"],
+        &[meta("sub-w1", Some("subagent"), None)],
+    );
+    std::fs::write(d.path().join("slug-a").join(".project_root"), "/work/gem\n").unwrap();
+    assert_eq!(scan_file(&p, 0, "").unwrap().workdir, "/work/gem", "读 .project_root 并 trim");
+    assert_eq!(scan_file(&sub, 0, "").unwrap().workdir, "/work/gem", "子代理文件取 slug 层");
+    let size = std::fs::metadata(&p).unwrap().len();
+    assert_eq!(scan_file(&p, size, "").unwrap().workdir, "/work/gem", "增量扫描同样带出");
+    let old = write_lines(d.path(), &["oldhash", "chats", "s21.jsonl"], &[meta("s-w2", None, None)]);
+    assert_eq!(scan_file(&old, 0, "").unwrap().workdir, "", "无 .project_root → 空");
+}
+
+/// 已入库的空 workdir 会话：补出 `.project_root` 后重扫被补写。
+#[tokio::test]
+async fn workdir_backfilled_on_rescan_gemini() {
+    let _g = STATE_LOCK.lock().await;
+    let (db, _dir) = aidog_db::test_support::four_file_db().await;
+    let d = tmpdir();
+    write_lines(
+        d.path(),
+        &["slug-b", "chats", "s22.jsonl"],
+        &[
+            meta("sess-w3", None, None),
+            gemini_msg("m-1", "2026-11-19T08:00:02.000Z", "gemini-2.5-pro", 100, 0, 10, 0),
+        ],
+    );
+    save_consent(&db, &consent_on(&["gemini_cli"])).await.unwrap();
+    let root = Some(d.path().to_path_buf());
+    let clients = vec!["gemini_cli".to_string()];
+    let workdir = |db: aidog_db::Db| async move {
+        db.call_read_client_usage_traced(None, std::panic::Location::caller(), |conn| {
+            conn.query_row("SELECT workdir FROM client_session WHERE session_id='sess-w3'", [], |r| {
+                r.get::<_, String>(0)
+            })
+        })
+        .await
+        .unwrap()
+    };
+    run_import(&db, root.clone(), &clients, false).await.unwrap();
+    assert_eq!(workdir(db.clone()).await, "", "无 .project_root 入库为空");
+    std::fs::write(d.path().join("slug-b").join(".project_root"), "/work/later").unwrap();
+    run_import(&db, root.clone(), &clients, false).await.unwrap();
+    assert_eq!(workdir(db.clone()).await, "/work/later", "重扫补写");
+}
