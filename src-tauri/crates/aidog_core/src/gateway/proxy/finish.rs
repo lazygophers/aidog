@@ -60,8 +60,14 @@ pub(crate) async fn finish_nonstream(
     // usage 借用：lossy 不经 to_string 中转。
     // issue 68：usage 抽取经平台适配器分派（默认实现 = stream::extract_usage 同一实现）。
     let pa = aidog_adapter::platform::adapter_for(&route.platform.platform_type.wire_str());
-    let (input_tokens, output_tokens, cache_tokens, cache_write_tokens, cache_write_1h_tokens, tool_counts) =
-        pa.extract_usage(String::from_utf8_lossy(&body).as_ref());
+    let (
+        input_tokens,
+        output_tokens,
+        cache_tokens,
+        cache_write_tokens,
+        cache_write_1h_tokens,
+        tool_counts,
+    ) = pa.extract_usage(String::from_utf8_lossy(&body).as_ref());
 
     // 实际模型口径（统计按上游自报模型聚合，2026-09-21）：actual_model 从路由目标模型改为
     // 上游响应自报的模型名，缺失回退客户端请求模型（用户口径，不回退路由映射名）。
@@ -195,10 +201,11 @@ pub(crate) async fn finish_nonstream(
 
     // 中间件可还原 mask：日志已记占位符形态，下发客户端前还原（替换值做 JSON 转义）。
     let body = match &mw_restore {
-        Some(map) => {
-            aidog_middleware::placeholder::restore_json_escaped(&String::from_utf8_lossy(&body), map)
-                .into_bytes()
-        }
+        Some(map) => aidog_middleware::placeholder::restore_json_escaped(
+            &String::from_utf8_lossy(&body),
+            map,
+        )
+        .into_bytes(),
         None => body,
     };
 
@@ -246,10 +253,11 @@ pub(crate) async fn finish_nonstream(
         output_tokens,
         cache_tokens,
         cache_write_tokens,
+        cache_write_1h_tokens,
         coding_plan,
         created_at_ms,
         chat_tool_cost_usd(&route.platform.platform_type, &log.tool_call_counts),
-        0, // chat 路径无按次计量次数
+        0,    // chat 路径无按次计量次数
         true, // 额度窗口执行范围：聊天计入
         tracing::Span::current(),
     );
@@ -568,7 +576,10 @@ where
             let mut output = String::new();
             // 上游帧格式（`data: ` 分帧 / DONE 哨兵 / 各协议 JSON 解析）知识全部收在 adapter 侧，
             // 此处只负责 model 字段改写 + 按客户端协议渲染下发。
-            for event in guard.agg.parse_sse_events_and_usage(&line_ready_text, pa, &protocol) {
+            for event in guard
+                .agg
+                .parse_sse_events_and_usage(&line_ready_text, pa, &protocol)
+            {
                 let event = if !model_for_sse.is_empty() {
                     match event {
                         ChatStreamEvent::Start { id, model: _ } => ChatStreamEvent::Start {
