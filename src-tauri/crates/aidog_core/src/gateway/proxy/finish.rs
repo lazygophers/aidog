@@ -186,6 +186,7 @@ pub(crate) async fn finish_nonstream(
                     output_tokens,
                     cache_tokens,
                     cache_write_tokens,
+                    cache_write_1h_tokens,
                     coding_plan,
                     created_at_ms,
                     chat_tool_cost_usd(&route.platform.platform_type, &log.tool_call_counts),
