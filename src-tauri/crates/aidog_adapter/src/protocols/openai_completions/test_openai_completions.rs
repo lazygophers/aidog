@@ -139,6 +139,7 @@ fn render_completions_text_only() {
         output_tokens: 5,
         cache_read_tokens: 0,
         reasoning: None,
+        ..Default::default()
     };
 
     let out = render_completions_response(&r).unwrap();
@@ -163,6 +164,7 @@ fn render_completions_with_reasoning() {
         output_tokens: 10,
         cache_read_tokens: 0,
         reasoning: Some("Thinking...".to_string()),
+        ..Default::default()
     };
 
     let out = render_completions_response(&r).unwrap();
@@ -185,6 +187,7 @@ fn render_completions_max_tokens_maps_length() {
         output_tokens: 3,
         cache_read_tokens: 0,
         reasoning: None,
+        ..Default::default()
     };
 
     let out = render_completions_response(&r).unwrap();
@@ -206,6 +209,7 @@ fn render_completions_empty_message() {
         output_tokens: 0,
         cache_read_tokens: 0,
         reasoning: None,
+        ..Default::default()
     };
 
     let out = render_completions_response(&r).unwrap();

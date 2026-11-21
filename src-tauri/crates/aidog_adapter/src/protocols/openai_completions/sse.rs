@@ -29,6 +29,8 @@ pub fn to_completions_sse(event: &ChatStreamEvent, model: &str) -> Option<String
         }
         ChatStreamEvent::ReasoningDelta { .. } | ChatStreamEvent::ToolDelta { .. } => None,
         ChatStreamEvent::Usage { .. } => None,
+        // issue #176：legacy wire 无服务端工具块形态，不下发
+        ChatStreamEvent::ServerToolResult { .. } => None,
         ChatStreamEvent::Ping => None,
     }
 }

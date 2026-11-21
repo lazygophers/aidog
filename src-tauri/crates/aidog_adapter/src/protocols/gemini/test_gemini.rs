@@ -444,6 +444,7 @@ fn render_gemini_text_only() {
         output_tokens: 5,
         cache_read_tokens: 0,
         reasoning: None,
+        ..Default::default()
     };
 
     let out = render_gemini_response(&r).unwrap();
@@ -482,6 +483,7 @@ fn render_gemini_preserves_cached_prompt_tokens() {
         output_tokens: 4,
         cache_read_tokens: 2,
         reasoning: None,
+        ..Default::default()
     };
 
     let out = render_gemini_response(&r).unwrap();
@@ -506,6 +508,7 @@ fn render_gemini_with_reasoning() {
         output_tokens: 10,
         cache_read_tokens: 0,
         reasoning: Some("Let me think...".to_string()),
+        ..Default::default()
     };
 
     let out = render_gemini_response(&r).unwrap();
@@ -535,6 +538,7 @@ fn render_gemini_with_function_call() {
         output_tokens: 8,
         cache_read_tokens: 0,
         reasoning: None,
+        ..Default::default()
     };
 
     let out = render_gemini_response(&r).unwrap();
@@ -560,6 +564,7 @@ fn render_gemini_max_tokens_maps_max_tokens() {
         output_tokens: 3,
         cache_read_tokens: 0,
         reasoning: None,
+        ..Default::default()
     };
 
     let out = render_gemini_response(&r).unwrap();
@@ -585,6 +590,7 @@ fn render_gemini_with_all() {
         output_tokens: 12,
         cache_read_tokens: 0,
         reasoning: Some("Analyzing...".to_string()),
+        ..Default::default()
     };
 
     let out = render_gemini_response(&r).unwrap();
@@ -612,6 +618,7 @@ fn render_gemini_empty_message() {
         output_tokens: 0,
         cache_read_tokens: 0,
         reasoning: None,
+        ..Default::default()
     };
 
     let out = render_gemini_response(&r).unwrap();
@@ -794,4 +801,127 @@ fn from_gemini_same_name_calls_pair_in_order() {
             _ => unreachable!(),
         }
     }
+}
+
+// ── issue #176：响应侧原生服务端工具事件 → Anthropic 形态（#74 的响应方向对称）──
+
+#[test]
+fn parse_gemini_response_grounding_becomes_search_result_blocks() {
+    let body = json!({
+        "candidates": [{
+            "content": {"parts": [{"text": "答案"}]},
+            "finishReason": "STOP",
+            "groundingMetadata": {
+                "groundingChunks": [
+                    {"web": {"uri": "https://example.com/a", "title": "A"}},
+                    {"web": {"uri": "https://example.com/b", "title": "B"}}
+                ],
+                "webSearchQueries": ["瑞士人口"]
+            }
+        }],
+        "usageMetadata": {"promptTokenCount": 5, "candidatesTokenCount": 3}
+    });
+    let parsed = parse_gemini_response(&body, "m").expect("parse");
+    assert_eq!(
+        parsed.server_tool_results.len(),
+        2,
+        "server_tool_use + web_search_tool_result 两块: {:?}",
+        parsed.server_tool_results
+    );
+    assert_eq!(parsed.server_tool_results[0]["type"], "server_tool_use");
+    assert_eq!(parsed.server_tool_results[0]["name"], "web_search");
+    assert_eq!(parsed.server_tool_results[0]["input"]["query"], "瑞士人口");
+    let use_id = parsed.server_tool_results[0]["id"].as_str().unwrap();
+    assert_eq!(parsed.server_tool_results[1]["type"], "web_search_tool_result");
+    assert_eq!(parsed.server_tool_results[1]["tool_use_id"], use_id);
+    assert_eq!(parsed.server_tool_results[1]["content"][0]["url"], "https://example.com/a");
+    assert_eq!(parsed.server_tool_results[1]["content"][1]["title"], "B");
+
+    // 端到端：wire=gemini → client=anthropic，渲染进 content
+    let out = crate::converter::convert_response(
+        &body,
+        &aidog_db::models::Protocol::Gemini,
+        &aidog_db::models::Protocol::Anthropic,
+        "m",
+    )
+    .expect("convert");
+    let content = out["content"].as_array().unwrap();
+    assert!(
+        content.iter().any(|b| b["type"] == "web_search_tool_result"),
+        "渲染 content 须含 web_search_tool_result 块: {content:?}"
+    );
+}
+
+#[test]
+fn parse_gemini_response_url_context_becomes_fetch_result_blocks() {
+    let body = json!({
+        "candidates": [{
+            "content": {"parts": [{"text": "答案"}]},
+            "urlContextMetadata": {
+                "urlMetadata": [
+                    {"uri": "https://example.com/x", "title": "X", "urlRetrievalStatus": "SUCCESS"}
+                ]
+            }
+        }]
+    });
+    let parsed = parse_gemini_response(&body, "m").expect("parse");
+    assert_eq!(parsed.server_tool_results.len(), 2);
+    assert_eq!(parsed.server_tool_results[0]["type"], "server_tool_use");
+    assert_eq!(parsed.server_tool_results[0]["name"], "web_fetch");
+    assert_eq!(parsed.server_tool_results[0]["input"]["url"], "https://example.com/x");
+    let use_id = parsed.server_tool_results[0]["id"].as_str().unwrap();
+    assert_eq!(parsed.server_tool_results[1]["type"], "web_fetch_tool_result");
+    assert_eq!(parsed.server_tool_results[1]["tool_use_id"], use_id);
+    assert_eq!(parsed.server_tool_results[1]["content"]["type"], "web_fetch_result");
+    assert_eq!(parsed.server_tool_results[1]["content"]["url"], "https://example.com/x");
+}
+
+#[test]
+fn gemini_code_execution_events_unrecognized_not_converted() {
+    let body = json!({
+        "candidates": [{
+            "content": {"parts": [
+                {"executableCode": {"code": "print(1)"}},
+                {"codeExecutionResult": {"outcome": "OUTCOME_OK"}}
+            ]}
+        }]
+    });
+    let ev = gemini_server_tool_events(&body);
+    assert!(ev.blocks.is_empty(), "不支持的原生事件不产块: {:?}", ev.blocks);
+    assert_eq!(
+        ev.unrecognized,
+        vec!["executableCode".to_string(), "codeExecutionResult".to_string()]
+    );
+    let parsed = parse_gemini_response(&body, "m").expect("parse");
+    assert!(parsed.server_tool_results.is_empty());
+}
+
+#[test]
+fn gemini_sse_grounding_frame_yields_server_tool_result_event() {
+    let frame = json!({
+        "candidates": [{
+            "content": {"parts": [{"text": "答案"}]},
+            "finishReason": "STOP",
+            "groundingMetadata": {
+                "groundingChunks": [{"web": {"uri": "https://e.com", "title": "E"}}]
+            }
+        }],
+        "usageMetadata": {"promptTokenCount": 1, "candidatesTokenCount": 1}
+    });
+    let events = crate::converter::parse_sse(&frame, &aidog_db::models::Protocol::Gemini);
+    assert!(
+        events.iter().any(|e| matches!(e, crate::types::ChatStreamEvent::ServerToolResult { .. })),
+        "grounding 帧须产出 ServerToolResult 事件: {events:?}"
+    );
+    // 顺序：Usage 先于 ServerToolResult 先于 Stop（渲染侧靠先于 Stop 并进终局）
+    let pos = |want: bool| {
+        events
+            .iter()
+            .position(|e| matches!(e, crate::types::ChatStreamEvent::ServerToolResult { .. }) == want)
+            .expect("事件在列")
+    };
+    let usage_pos = events.iter().position(|e| matches!(e, ChatStreamEvent::Usage { .. })).unwrap();
+    let srv_pos = pos(true);
+    let stop_pos = events.iter().position(|e| matches!(e, ChatStreamEvent::Stop { .. })).unwrap();
+    assert!(usage_pos < srv_pos && srv_pos < stop_pos, "顺序 Usage<ServerToolResult<Stop: {events:?}");
 }

@@ -14,6 +14,7 @@ fn make_non_stream() -> NonStreamResponse {
         output_tokens: 20,
         cache_read_tokens: 5,
         reasoning: None,
+        ..Default::default()
     }
 }
 
@@ -138,6 +139,7 @@ fn render_openai_empty_message() {
         output_tokens: 0,
         cache_read_tokens: 0,
         reasoning: None,
+        ..Default::default()
     };
 
     let out = render_openai_response(&r).unwrap();

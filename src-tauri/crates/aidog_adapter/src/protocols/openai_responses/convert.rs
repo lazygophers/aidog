@@ -349,6 +349,8 @@ pub fn parse_responses_response(
         output_tokens,
         cache_read_tokens,
         reasoning,
+        // issue #176：web_search_call 等原生服务端工具事件 → Anthropic 形态块
+        server_tool_results: responses_server_tool_events(body).blocks,
     })
 }
 
@@ -424,6 +426,77 @@ pub fn render_responses_response(r: &crate::converter::NonStreamResponse) -> Opt
             "total_tokens": r.input_tokens + r.output_tokens,
         }
     }))
+}
+
+/// issue #176：识别 Responses 响应中的原生服务端工具事件并转为 Anthropic 形态内容块
+/// （`#74` 请求方向 `Tool::native_server_tool` 下发的对称方向）：
+/// - `web_search_call`（output[] 项或 SSE `data.item`，output_item.added/done 帧）→
+///   server_tool_use + web_search_tool_result（content 取 message 项 `url_citation` annotations）
+/// - 无法识别的原生服务端工具项（`code_interpreter_call` / `file_search_call` /
+///   `image_generation_call` / `mcp_call` / `mcp_list_tools` / `computer_call`）整段丢弃，
+///   事件名入 `unrecognized` 供 proxy field_trace 留痕。
+pub fn responses_server_tool_events(body: &Value) -> crate::converter::ServerToolEvents {
+    let mut out = crate::converter::ServerToolEvents::default();
+    // 非流式 body → output[]；SSE 帧（output_item.added/done）→ data.item 单项
+    let items: Vec<&Value> = if let Some(item) = body.get("item") {
+        vec![item]
+    } else if let Some(output) = body.get("output").and_then(Value::as_array) {
+        output.iter().collect()
+    } else {
+        return out;
+    };
+    // web_search_tool_result.content：message 项 content[].annotations 里的 url_citation
+    // （Responses 不按 call 关联结果，整份 response 的 citations 归入同一结果块）
+    let citations: Vec<Value> = items
+        .iter()
+        .filter_map(|item| item.get("content").and_then(Value::as_array))
+        .flatten()
+        .filter_map(|c| c.get("annotations").and_then(Value::as_array))
+        .flatten()
+        .filter(|a| a.get("type").and_then(Value::as_str) == Some("url_citation"))
+        .map(|a| {
+            serde_json::json!({
+                "type": "web_search_result",
+                "title": a.get("title").and_then(Value::as_str).unwrap_or(""),
+                "url": a.get("url").and_then(Value::as_str).unwrap_or(""),
+            })
+        })
+        .collect();
+    for item in &items {
+        match item.get("type").and_then(Value::as_str) {
+            Some("web_search_call") => {
+                let id = item
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("srvtoolu_resp_0")
+                    .to_string();
+                let query = item
+                    .get("action")
+                    .and_then(|a| a.get("query"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                out.blocks.push(serde_json::json!({
+                    "type": "server_tool_use",
+                    "id": id,
+                    "name": "web_search",
+                    "input": { "query": query },
+                }));
+                out.blocks.push(serde_json::json!({
+                    "type": "web_search_tool_result",
+                    "tool_use_id": id,
+                    "content": citations,
+                }));
+                out.recognized.push("web_search_call".to_string());
+            }
+            Some(t) if matches!(t, "code_interpreter_call" | "file_search_call" | "image_generation_call" | "mcp_call" | "mcp_list_tools" | "computer_call") => {
+                out.unrecognized.push(t.to_string());
+            }
+            _ => {}
+        }
+    }
+    out.recognized.sort();
+    out.recognized.dedup();
+    out
 }
 
 /// 从 Responses API 请求解析为内部 ChatRequest。
@@ -1060,6 +1133,7 @@ mod tests {
             output_tokens: 5,
             cache_read_tokens: 0,
             reasoning: None,
+            ..Default::default()
         };
 
         let out = render_responses_response(&r).unwrap();
@@ -1090,6 +1164,7 @@ mod tests {
             output_tokens: 10,
             cache_read_tokens: 0,
             reasoning: Some("Thinking...".to_string()),
+            ..Default::default()
         };
 
         let out = render_responses_response(&r).unwrap();
@@ -1120,6 +1195,7 @@ mod tests {
             output_tokens: 8,
             cache_read_tokens: 0,
             reasoning: None,
+            ..Default::default()
         };
 
         let out = render_responses_response(&r).unwrap();
@@ -1153,6 +1229,7 @@ mod tests {
             output_tokens: 12,
             cache_read_tokens: 0,
             reasoning: Some("Analyzing...".to_string()),
+            ..Default::default()
         };
 
         let out = render_responses_response(&r).unwrap();
@@ -1234,6 +1311,7 @@ mod tests {
             output_tokens: 0,
             cache_read_tokens: 0,
             reasoning: None,
+            ..Default::default()
         };
 
         let out = render_responses_response(&r).unwrap();
@@ -1479,5 +1557,85 @@ fn to_responses_tool_result_images_lifted_to_user_message() {
         assert_eq!(ws.len(), 1, "同键多版本条目只下发首个");
         assert_eq!(ws[0]["filters"]["allowed_domains"], serde_json::json!(["first.com"]),
             "首个版本的 filters 生效，第二个版本被去重");
+    }
+
+    // ── issue #176：响应侧原生服务端工具事件 → Anthropic 形态（#74 的响应方向对称）──
+    #[test]
+    fn parse_responses_response_web_search_call_becomes_blocks() {
+        let body = json!({
+            "id": "resp_1", "model": "m", "status": "completed",
+            "output": [
+                {"type": "web_search_call", "id": "ws_1", "status": "completed",
+                 "action": {"type": "search", "query": "瑞士人口"}},
+                {"type": "message", "role": "assistant",
+                 "content": [{"type": "output_text", "text": "约 900 万",
+                    "annotations": [{"type": "url_citation", "url": "https://example.com/a", "title": "A"}]}]}
+            ],
+            "usage": {"input_tokens": 3, "output_tokens": 4}
+        });
+        let parsed = parse_responses_response(&body, "m").expect("parse");
+        assert_eq!(parsed.server_tool_results.len(), 2, "{:?}", parsed.server_tool_results);
+        assert_eq!(parsed.server_tool_results[0]["type"], "server_tool_use");
+        assert_eq!(parsed.server_tool_results[0]["name"], "web_search");
+        assert_eq!(parsed.server_tool_results[0]["input"]["query"], "瑞士人口");
+        assert_eq!(parsed.server_tool_results[0]["id"], "ws_1");
+        assert_eq!(parsed.server_tool_results[1]["tool_use_id"], "ws_1");
+        assert_eq!(parsed.server_tool_results[1]["content"][0]["url"], "https://example.com/a");
+        assert_eq!(parsed.server_tool_results[1]["content"][0]["title"], "A");
+
+        // 端到端：wire=responses → client=anthropic，渲染进 content
+        let out = crate::converter::convert_response(
+            &body,
+            &aidog_db::models::Protocol::OpenAIResponses,
+            &aidog_db::models::Protocol::Anthropic,
+            "m",
+        )
+        .expect("convert");
+        let content = out["content"].as_array().unwrap();
+        assert!(
+            content.iter().any(|b| b["type"] == "web_search_tool_result"),
+            "渲染 content 须含 web_search_tool_result 块: {content:?}"
+        );
+    }
+
+    #[test]
+    fn parse_responses_response_unsupported_server_items_unrecognized() {
+        let body = json!({
+            "id": "r", "model": "m", "status": "completed",
+            "output": [
+                {"type": "web_search_call", "id": "ws_1", "action": {"query": "q"}},
+                {"type": "code_interpreter_call", "id": "ci_1", "status": "completed"}
+            ],
+            "usage": {"input_tokens": 1, "output_tokens": 1}
+        });
+        let ev = responses_server_tool_events(&body);
+        assert_eq!(ev.unrecognized, vec!["code_interpreter_call".to_string()]);
+        assert_eq!(ev.recognized, vec!["web_search_call".to_string()]);
+        assert_eq!(ev.blocks.len(), 2);
+        let parsed = parse_responses_response(&body, "m").expect("parse");
+        assert_eq!(parsed.server_tool_results.len(), 2, "不支持的项不产块");
+    }
+
+    #[test]
+    fn responses_sse_web_search_call_item_done_yields_server_tool_result() {
+        let frame = json!({
+            "type": "response.output_item.done", "output_index": 1,
+            "item": {"type": "web_search_call", "id": "ws_9", "status": "completed",
+                     "action": {"type": "search", "query": "q"}}
+        });
+        let events = crate::converter::parse_sse(&frame, &aidog_db::models::Protocol::OpenAIResponses);
+        assert!(
+            events.iter().any(|e| matches!(e, ChatStreamEvent::ServerToolResult { .. })),
+            "output_item.done(web_search_call) 帧须产出 ServerToolResult 事件: {events:?}"
+        );
+        let frame_added = json!({
+            "type": "response.output_item.added", "output_index": 1,
+            "item": {"type": "web_search_call", "id": "ws_9", "status": "in_progress"}
+        });
+        let events_added = crate::converter::parse_sse(&frame_added, &aidog_db::models::Protocol::OpenAIResponses);
+        assert!(
+            events_added.iter().any(|e| matches!(e, ChatStreamEvent::ServerToolResult { .. })),
+            "output_item.added(web_search_call) 帧同样识别: {events_added:?}"
+        );
     }
 }

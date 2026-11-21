@@ -1,4 +1,5 @@
 use super::*;
+use super::outbound_shape::{append_field_trace_tokens, dropped_response_server_events};
 use crate::gateway::proxy::stream::has_stream_terminator;
 
 /// forward_attempt 里一次路由决策产出的协议/模型元数据，供 finish_nonstream / finish_stream 共用。
@@ -116,8 +117,12 @@ pub(crate) async fn finish_nonstream(
     // 致 source≠target 且非同协议透传时（如 anthropic 客户端 ↔ openai 平台），CC 收到上游原生
     // openai chat completion JSON（含 tool_calls）而非 anthropic messages → "empty or malformed (200)"。
     // 这里补齐：同协议透传跳过；否则按 (wire=target, client=source) 转换。返回 None 表示无需转换，透传原文。
+    let mut response_drops: Vec<String> = Vec::new();
     let body = if !same_protocol_passthrough {
         let upstream_json: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+        // issue #176：响应侧原生服务端事件的丢弃留痕（识别与转换共用 adapter 判定）
+        response_drops =
+            dropped_response_server_events(&upstream_json, target_protocol_enum, source_protocol);
         match pa.convert_response(
             &upstream_json,
             target_protocol_enum,
@@ -131,6 +136,8 @@ pub(crate) async fn finish_nonstream(
         body.to_vec()
     };
     let body = Bytes::from(body);
+    // 请求侧 field_trace（forward.rs 写入）之后追加响应侧 `drop:resp:` token
+    append_field_trace_tokens(&mut log.field_trace, &response_drops);
 
     // ── 禁用思考的响应侧兑现（转换与透传两分支共用本 seam）──
     // 出站已按目标协议写了显式禁用参数，但 MiniMax-M2 这类内置思考模型不认，照回思维链

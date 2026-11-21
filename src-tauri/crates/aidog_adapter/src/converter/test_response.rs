@@ -520,6 +520,7 @@ fn render_anthropic_with_reasoning_first() {
         output_tokens: 10,
         cache_read_tokens: 0,
         reasoning: Some("Thinking...".to_string()),
+        ..Default::default()
     };
 
     let out = render_anthropic_response(&r);
@@ -555,6 +556,7 @@ fn render_anthropic_reasoning_with_tools() {
         output_tokens: 12,
         cache_read_tokens: 0,
         reasoning: Some("Analyzing...".to_string()),
+        ..Default::default()
     };
 
     let out = render_anthropic_response(&r);
@@ -582,6 +584,7 @@ fn responses_function_call_call_id_roundtrip() {
         output_tokens: 2,
         cache_read_tokens: 0,
         reasoning: None,
+        ..Default::default()
     };
     let out = crate::protocols::openai_responses::render_responses_response(&r).unwrap();
     let fc = &out["output"][0];
@@ -894,4 +897,30 @@ fn completions_client_stream_must_render_text_completion_chunks() {
         out.contains("\"object\":\"text_completion\""),
         "Completions 客户端应收到 text_completion 分块，实际是 Chat 分块: {out:?}"
     );
+}
+
+// ── issue #176：Anthropic 客户端流式渲染服务端工具块 ──
+
+#[test]
+fn anthropic_client_sse_renders_server_tool_result_blocks() {
+    let blocks = vec![
+        json!({"type":"server_tool_use","id":"srvtoolu_1","name":"web_search","input":{"query":"q"}}),
+        json!({"type":"web_search_tool_result","tool_use_id":"srvtoolu_1","content":[]}),
+    ];
+    let mut st = AnthropicSseState::default();
+    let out = st
+        .push(&ChatStreamEvent::ServerToolResult {
+            blocks: blocks.clone(),
+        })
+        .expect("ServerToolResult 须渲染");
+    assert!(out.contains("\"type\":\"content_block_start\""), "{out:?}");
+    assert!(out.contains("web_search_tool_result"), "{out:?}");
+    assert!(out.contains("\"type\":\"content_block_stop\""), "{out:?}");
+    // 两个块各占一个 wire index（0/1），随后的 text 块 index=2 顺延
+    let out2 = st
+        .push(&ChatStreamEvent::Delta {
+            text: "t".to_string(),
+        })
+        .expect("text 须渲染");
+    assert!(out2.contains("\"index\":2"), "server 块占掉 0/1 后 text 顺延: {out2:?}");
 }
