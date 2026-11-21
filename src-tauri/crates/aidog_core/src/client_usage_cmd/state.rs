@@ -83,23 +83,29 @@ fn read_pid_files(dir: &Path) -> HashMap<String, Vec<PidEntry>> {
     out
 }
 
-/// 进程存活且启动时刻与 pid 文件一致（防 pid 复用）。
-/// 选型：`TZ=UTC ps -p <pid> -o lstart=` 子进程——标准库即可、不新增 libc / nix 依赖；
-/// lstart 同时给出存活与启动时刻（Claude Code 写的 procStart 即 UTC 的 lstart 格式，本机实测一致）。
-/// ps 不可用（Windows）或进程不在 → false，调用方回落活动判定。
-fn proc_alive(pid: u32, proc_start: &str) -> bool {
-    let Ok(out) = std::process::Command::new("ps")
-        .env("TZ", "UTC")
-        .args(["-p", &pid.to_string(), "-o", "lstart="])
-        .output()
-    else {
-        return false;
-    };
-    if !out.status.success() {
-        return false;
-    }
-    let norm = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
-    norm(&String::from_utf8_lossy(&out.stdout)) == norm(proc_start)
+fn norm_ws(s: &str) -> String {
+    s.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// 一批 pid 的启动时刻（pid → lstart），存活与否即是否在表中；调用方比对 pid 文件
+/// procStart 防 pid 复用。
+/// 选型：逐 pid `TZ=UTC ps -p <pid> -o lstart=` 子进程——标准库即可、不新增依赖；lstart 即
+/// Claude Code 写的 procStart UTC 格式（本机实测一致）。仍需子进程是因为防复用要启动时刻，
+/// 仅 kill(pid, 0) 只给存活。不合并成一次 `ps -p a,b,…`：macOS 多 pid 时 ps 枚举全部进程，
+/// 实测 22 个 pid 单次 104ms，逐个共 55ms。调用方放进 spawn_blocking。
+/// ps 不可用（Windows）或进程不在 → 不入表，调用方回落活动判定。
+pub(super) fn proc_starts(pids: &[u32]) -> HashMap<u32, String> {
+    pids.iter()
+        .filter_map(|&pid| {
+            let out = std::process::Command::new("ps")
+                .env("TZ", "UTC")
+                .args(["-p", &pid.to_string(), "-o", "lstart="])
+                .output()
+                .ok()?;
+            let start = norm_ws(&String::from_utf8_lossy(&out.stdout));
+            (out.status.success() && !start.is_empty()).then_some((pid, start))
+        })
+        .collect()
 }
 
 /// Claude Code pid 文件目录（生产路径）。
@@ -114,7 +120,7 @@ pub(super) async fn session_states_with(
     session_ids: &[String],
     claude_sessions_dir: Option<&Path>,
     now_ms: i64,
-    alive: &(dyn Fn(u32, &str) -> bool + Send + Sync),
+    starts: fn(&[u32]) -> HashMap<u32, String>,
 ) -> Result<Vec<SessionStateRow>, String> {
     let activity = aidog_db::client_session_activity(db, client_code, session_ids).await?;
     let claude_ids: Vec<String> = activity
@@ -123,13 +129,24 @@ pub(super) async fn session_states_with(
         .map(|(_, s, _)| s.clone())
         .collect();
     // Claude 专属两路信号：pid 文件 + 网关在途行（无 Claude 会话时不读文件、不查 log.db）。
-    let (pid_files, inflight) = if claude_ids.is_empty() {
+    let (pid_files, inflight, live_starts) = if claude_ids.is_empty() {
         Default::default()
     } else {
         let pids = claude_sessions_dir.map(read_pid_files).unwrap_or_default();
         let inflight = aidog_logs::inflight_session_ids(db, &claude_ids, now_ms - INFLIGHT_WINDOW_MS).await?;
-        (pids, inflight)
+        let wanted: Vec<u32> = claude_ids
+            .iter()
+            .filter_map(|s| pids.get(s))
+            .flatten()
+            .map(|e| e.pid)
+            .collect();
+        // ps 子进程阻塞，移出 async 线程。
+        let live_starts = tokio::task::spawn_blocking(move || starts(&wanted))
+            .await
+            .unwrap_or_default();
+        (pids, inflight, live_starts)
     };
+    let alive = |e: &PidEntry| live_starts.get(&e.pid).is_some_and(|s| *s == norm_ws(&e.proc_start));
     Ok(activity
         .into_iter()
         .map(|(client_code, session_id, last_activity_ms)| {
@@ -137,7 +154,7 @@ pub(super) async fn session_states_with(
                 // 同会话可能有多份 pid 文件（resume）：任一存活即算，busy 优先。
                 let live: Vec<&PidEntry> = pid_files
                     .get(&session_id)
-                    .map(|v| v.iter().filter(|e| alive(e.pid, &e.proc_start)).collect())
+                    .map(|v| v.iter().filter(|e| alive(e)).collect())
                     .unwrap_or_default();
                 if live.iter().any(|e| e.status == "busy") {
                     ("running", "pid_file")
@@ -175,7 +192,7 @@ pub async fn client_usage_session_states(
         &session_ids,
         dir.as_deref(),
         aidog_db::now(),
-        &proc_alive,
+        proc_starts,
     )
     .await
 }
