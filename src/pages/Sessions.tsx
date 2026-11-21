@@ -7,7 +7,8 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { Trash2 } from "lucide-react";
+import { Trash2, X } from "lucide-react";
+import { createPortal } from "react-dom";
 import { SessionGroups } from "../components/sessions/SessionGroups";
 import { SessionTrash } from "../components/sessions/SessionTrash";
 import { ClientIcon, SESSION_CLIENTS } from "../components/sessions/ClientIcon";
@@ -25,6 +26,21 @@ function rangeMs(range: Range): { fromMs: number; toMs: number } {
   else s.setDate(s.getDate() - (range === "7d" ? 7 : 30));
   return { fromMs: s.getTime(), toMs: now.getTime() };
 }
+
+const sameRow = (a: ClientUsageSessionRow, b: ClientUsageSessionRow) =>
+  (Object.keys(b) as (keyof ClientUsageSessionRow)[]).every((k) => a[k] === b[k]);
+
+/** 重拉后字段没变的行沿用旧对象（票 12）：memo 行组件据此跳过重渲染。 */
+function reuseUnchanged(prev: ClientUsageSessionRow[], next: ClientUsageSessionRow[]): ClientUsageSessionRow[] {
+  const old = new Map(prev.map((r) => [`${r.clientCode}:${r.sessionId}`, r]));
+  return next.map((n) => {
+    const o = old.get(`${n.clientCode}:${n.sessionId}`);
+    return o && sameRow(o, n) ? o : n;
+  });
+}
+
+/** 事件重拉合并窗口（票 12）：活跃会话期间事件约每 7 秒一次，连发时只拉一次。 */
+const RELOAD_DEBOUNCE_MS = 1500;
 
 export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } = {}) {
   const { t } = useTranslation();
@@ -51,7 +67,7 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
       // 状态拉取失败不挡列表：徽标回落按最近调用时间派生。
       const ss = list.length ? await clientUsageApi.sessionStates(list.map((r) => r.sessionId)).catch(() => []) : [];
       setStatus(st);
-      setRows(list);
+      setRows((prev) => reuseUnchanged(prev, list));
       setStates(Object.fromEntries(ss.map((x) => [`${x.clientCode}:${x.sessionId}`, x])));
       setNow(Date.now());
     } catch (e) {
@@ -61,19 +77,32 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
 
   useEffect(() => { void load(); }, [load]);
 
-  // 事件驱动刷新：订阅一次，经 ref 调最新 load（时间范围变更不重订阅）。
+  // 事件驱动刷新：订阅一次，经 ref 调最新 load（时间范围变更不重订阅）。可见时 trailing 防抖合并；
+  // 隐藏期间只记「漏过事件」，重新可见才补拉——没漏事件时切回窗口（如打开目录后从 Finder 回来）不重拉。
   const loadRef = useRef(load);
   loadRef.current = load;
   useEffect(() => {
     let alive = true;
     let unlisten: () => void = () => {};
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let missed = false;
     listen("client-usage-updated", () => {
-      if (document.visibilityState === "visible") void loadRef.current();
+      if (document.visibilityState !== "visible") { missed = true; return; }
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (document.visibilityState === "visible") void loadRef.current();
+        else missed = true;
+      }, RELOAD_DEBOUNCE_MS);
     }).then((fn) => { if (alive) unlisten = fn; else fn(); }).catch(() => {});
-    const onVisible = () => { if (document.visibilityState === "visible") void loadRef.current(); };
+    const onVisible = () => {
+      if (document.visibilityState !== "visible" || !missed) return;
+      missed = false;
+      void loadRef.current();
+    };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       alive = false;
+      clearTimeout(timer);
       unlisten();
       document.removeEventListener("visibilitychange", onVisible);
     };
@@ -104,7 +133,14 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
   // 继续会话（票 07）：macOS 后端直接开终端；其它平台返回命令，复制给用户。
   const [notice, setNotice] = useState<{ kind: "error" | "copied" | "open-error" | "hidden" | "hide-error"; text: string; row?: ClientUsageSessionRow } | null>(null);
   const [trashOpen, setTrashOpen] = useState(false);
-  const resume = async (r: ClientUsageSessionRow) => {
+  // 继续请求在途的会话（票 12）：返回前禁用按钮；ref 挡住同一帧内的连点。
+  const resumingRef = useRef(new Set<string>());
+  const [resuming, setResuming] = useState<ReadonlySet<string>>(() => new Set());
+  const resume = useCallback(async (r: ClientUsageSessionRow) => {
+    const key = `${r.clientCode}:${r.sessionId}`;
+    if (resumingRef.current.has(key)) return;
+    resumingRef.current.add(key);
+    setResuming(new Set(resumingRef.current));
     setNotice(null);
     try {
       const res = await clientUsageApi.sessionResume(r.clientCode, r.sessionId, r.workdir);
@@ -114,11 +150,15 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
       }
     } catch (e) {
       setNotice({ kind: "error", text: String(e) });
+    } finally {
+      resumingRef.current.delete(key);
+      setResuming(new Set(resumingRef.current));
     }
-  };
+  }, []);
+  const isResuming = useCallback((r: ClientUsageSessionRow) => resuming.has(`${r.clientCode}:${r.sessionId}`), [resuming]);
 
   // 打开工作目录（票 08）：在父目录中选中该目录（spec S10）；浏览器形态退化为复制路径。
-  const openDir = async (workdir: string) => {
+  const openDir = useCallback(async (workdir: string) => {
     setNotice(null);
     try {
       let p = workdir;
@@ -133,10 +173,10 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
     } catch (e) {
       setNotice({ kind: "open-error", text: String(e) });
     }
-  };
+  }, []);
 
   // 从列表隐藏（票 09）：无确认，成功后本地移除并给出撤销；不删任何客户端文件。
-  const hide = async (r: ClientUsageSessionRow) => {
+  const hide = useCallback(async (r: ClientUsageSessionRow) => {
     setNotice(null);
     try {
       await clientUsageApi.sessionHide(r.clientCode, r.sessionId);
@@ -145,7 +185,10 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
     } catch (e) {
       setNotice({ kind: "hide-error", text: String(e) });
     }
-  };
+  }, []);
+  const onResume = useCallback((r: ClientUsageSessionRow) => void resume(r), [resume]);
+  const onOpenDir = useCallback((d: string) => void openDir(d), [openDir]);
+  const onHide = useCallback((r: ClientUsageSessionRow) => void hide(r), [hide]);
   const undoHide = async (r: ClientUsageSessionRow) => {
     try {
       await clientUsageApi.sessionUnhide(r.clientCode, r.sessionId);
@@ -277,32 +320,46 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
             />
           </div>
 
-          {/* 提示放在列表分支外：隐藏最后一个会话后撤销仍可见 */}
-          {notice && (
-            <div
-              role={notice.kind === "copied" || notice.kind === "hidden" ? "status" : "alert"}
-              className={`flex items-center gap-2 text-sm break-all ${notice.kind === "copied" || notice.kind === "hidden" ? "text-muted-foreground" : "text-destructive"}`}
-              data-testid="sessions-resume-notice"
-              data-kind={notice.kind}
-              data-detail={notice.text}
-            >
-              <span className="min-w-0">
-                {notice.kind === "error"
-                  ? t("sessions.resumeFailed", "继续会话失败：{{error}}", { error: notice.text })
-                  : notice.kind === "open-error"
-                  ? t("sessions.openDirFailed", "打开目录失败：{{error}}", { error: notice.text })
-                  : notice.kind === "hide-error"
-                  ? t("sessions.hideFailed", "隐藏失败：{{error}}", { error: notice.text })
-                  : notice.kind === "hidden"
-                  ? t("sessions.hidden", "已从列表隐藏：{{title}}", { title: notice.text })
-                  : t("sessions.resumeCopied", "当前系统无法直接打开终端，继续命令已复制：{{command}}", { command: notice.text })}
-              </span>
-              {notice.kind === "hidden" && notice.row && (
-                <Button size="sm" variant="link" className="h-auto shrink-0 p-0" data-testid="sessions-hide-undo" onClick={() => void undoHide(notice.row!)}>
-                  {t("sessions.undo", "撤销")}
+          {/* 行内操作提示（票 12）：portal 到 body 的视口固定浮层，滚到列表深处点击也看得见；隐藏最后一个会话后撤销仍可见 */}
+          {notice && createPortal(
+            <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4" data-testid="sessions-notice-layer">
+              <div
+                role={notice.kind === "copied" || notice.kind === "hidden" ? "status" : "alert"}
+                className={`pointer-events-auto flex max-w-[min(720px,100%)] items-center gap-3 rounded-lg border bg-card px-4 py-2.5 text-sm shadow-lg break-all ${notice.kind === "copied" || notice.kind === "hidden" ? "text-foreground" : "border-destructive/40 text-destructive"}`}
+                data-testid="sessions-resume-notice"
+                data-kind={notice.kind}
+                data-detail={notice.text}
+              >
+                <span className="min-w-0">
+                  {notice.kind === "error"
+                    ? t("sessions.resumeFailed", "继续会话失败：{{error}}", { error: notice.text })
+                    : notice.kind === "open-error"
+                    ? t("sessions.openDirFailed", "打开目录失败：{{error}}", { error: notice.text })
+                    : notice.kind === "hide-error"
+                    ? t("sessions.hideFailed", "隐藏失败：{{error}}", { error: notice.text })
+                    : notice.kind === "hidden"
+                    ? t("sessions.hidden", "已从列表隐藏：{{title}}", { title: notice.text })
+                    : t("sessions.resumeCopied", "当前系统无法直接打开终端，继续命令已复制：{{command}}", { command: notice.text })}
+                </span>
+                {notice.kind === "hidden" && notice.row && (
+                  <Button size="sm" variant="link" className="h-auto shrink-0 p-0" data-testid="sessions-hide-undo" onClick={() => void undoHide(notice.row!)}>
+                    {t("sessions.undo", "撤销")}
+                  </Button>
+                )}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-7 shrink-0 text-muted-foreground"
+                  aria-label={t("sessions.noticeClose", "关闭提示")}
+                  title={t("sessions.noticeClose", "关闭提示")}
+                  data-testid="sessions-notice-close"
+                  onClick={() => setNotice(null)}
+                >
+                  <X aria-hidden className="size-4" />
                 </Button>
-              )}
-            </div>
+              </div>
+            </div>,
+            document.body,
           )}
 
           {enabledRows.length === 0 ? (
@@ -317,7 +374,7 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
             <p className="border-t py-10 text-muted-foreground" data-testid="sessions-no-match">{t("sessions.noMatch", "没有匹配的会话")}</p>
           ) : (
             <>
-              <SessionGroups rows={shown} pinned={pinned} stateOf={stateOf} onResume={(r) => void resume(r)} onOpenDir={(d) => void openDir(d)} onHide={(r) => void hide(r)} />
+              <SessionGroups rows={shown} pinned={pinned} stateOf={stateOf} isResuming={isResuming} onResume={onResume} onOpenDir={onOpenDir} onHide={onHide} />
               <p className="text-sm text-muted-foreground">{t("sessions.footHint", "成本带 + 表示部分调用未定价。")}</p>
             </>
           )}

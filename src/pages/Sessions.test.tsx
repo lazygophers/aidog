@@ -174,7 +174,7 @@ describe("Sessions 页（票 02）", () => {
     await waitFor(() => expect(ev.handlers.has("client-usage-updated")).toBe(true));
     expect(api.sessions).toHaveBeenCalledTimes(1);
     await act(async () => { ev.handlers.get("client-usage-updated")!(); });
-    await waitFor(() => expect(api.sessions).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(api.sessions).toHaveBeenCalledTimes(2), { timeout: 3000 });
     act(() => setVisibility("hidden"));
     await act(async () => { ev.handlers.get("client-usage-updated")!(); });
     expect(api.sessions).toHaveBeenCalledTimes(2);
@@ -205,7 +205,7 @@ describe("Sessions 页（票 03：缓存 token、模型链、消耗图）", () =
     expect(cache[1]).toHaveAttribute("data-read", "0");
   });
 
-  it("点行内展开：拉详情、显示模型链与消耗图、预留子代理区；再点收起；Enter 键可展开", async () => {
+  it("点行内展开：只拉时间序列画消耗图；模型链点开后显示；再点收起；Enter 键可展开", async () => {
     api.status.mockResolvedValue(statusPayload(ALL_ON));
     api.sessions.mockResolvedValue(SESSIONS);
     api.sessionDetail.mockResolvedValue(DETAIL);
@@ -217,17 +217,17 @@ describe("Sessions 页（票 03：缓存 token、模型链、消耗图）", () =
     expect(first).toHaveAttribute("aria-expanded", "true");
     const detail = await screen.findByTestId("session-detail");
     await waitFor(() => expect(detail).toHaveAttribute("data-state", "ready"));
-    expect(api.sessionDetail).toHaveBeenCalledWith("claude_code", "c1");
-    const segs = within(detail).getAllByTestId("session-detail-seg");
-    expect(segs.map((s) => [s.getAttribute("data-model"), s.getAttribute("data-calls")])).toEqual([["演示-sonnet", "2"], ["演示-opus", "1"]]);
+    expect(api.sessionDetail).toHaveBeenCalledWith("claude_code", "c1", "points");
     expect(within(detail).getByTestId("session-detail-chart")).toHaveAttribute("data-points", "3");
-    expect(within(detail).getByTestId("session-detail-subagents-slot")).toBeInTheDocument();
+    fireEvent.click(within(detail).getByTestId("session-detail-chain-toggle"));
+    const segs = await within(detail).findAllByTestId("session-detail-seg");
+    expect(segs.map((s) => [s.getAttribute("data-model"), s.getAttribute("data-calls")])).toEqual([["演示-sonnet", "2"], ["演示-opus", "1"]]);
     fireEvent.click(first);
     expect(first).toHaveAttribute("data-state", "closed");
     expect(screen.queryByTestId("session-detail")).toBeNull();
     fireEvent.keyDown(second, { key: "Enter" });
     expect(second).toHaveAttribute("data-state", "open");
-    await waitFor(() => expect(api.sessionDetail).toHaveBeenLastCalledWith("codex", "x1"));
+    await waitFor(() => expect(api.sessionDetail).toHaveBeenLastCalledWith("codex", "x1", "points"));
   });
 
   it("详情空数据与失败两态", async () => {
@@ -255,7 +255,7 @@ const ag = (kind: "main" | "subagent", agentId: string | null, agentType: string
 describe("Sessions 页（票 04：子代理展开、单次调用图表）", () => {
   it("展开区按主线 / 子代理分列：agentType 作名称，缺则显示 agentId 短串，无 id 显示通用子代理", async () => {
     api.status.mockResolvedValue(statusPayload(ALL_ON));
-    api.sessions.mockResolvedValue(SESSIONS);
+    api.sessions.mockResolvedValue([{ ...SESSIONS[0], sidechainCalls: 7 }, ...SESSIONS.slice(1)]);
     api.sessionDetail.mockResolvedValue({
       ...DETAIL,
       agents: [ag("main", null, null, 3), ag("subagent", "a1", "演示-Explore", 2), ag("subagent", "c3d4e5f6a7b8c9", null, 1), ag("subagent", null, null, 4)],
@@ -264,6 +264,8 @@ describe("Sessions 页（票 04：子代理展开、单次调用图表）", () =
     fireEvent.click((await screen.findAllByTestId("sessions-row"))[0]);
     const detail = await screen.findByTestId("session-detail");
     await waitFor(() => expect(detail).toHaveAttribute("data-state", "ready"));
+    fireEvent.click(within(detail).getByTestId("session-detail-agents-toggle"));
+    await within(detail).findAllByTestId("session-detail-agent");
     const rows = within(detail).queryAllByTestId("session-detail-agent");
     expect(rows.map((r) => [r.getAttribute("data-kind"), r.getAttribute("data-agent-id"), r.getAttribute("data-calls")])).toEqual([
       ["main", "", "3"], ["subagent", "a1", "2"], ["subagent", "c3d4e5f6a7b8c9", "1"], ["subagent", "", "4"],
@@ -275,7 +277,7 @@ describe("Sessions 页（票 04：子代理展开、单次调用图表）", () =
     expect(within(rows[1]).getByTestId("session-detail-agent-cost")).toHaveAttribute("data-priced", "all");
   });
 
-  it("只有主线时不显示子代理区", async () => {
+  it("只有主线时（无子代理调用）不显示子代理区", async () => {
     api.status.mockResolvedValue(statusPayload(ALL_ON));
     api.sessions.mockResolvedValue(SESSIONS);
     api.sessionDetail.mockResolvedValue({ ...DETAIL, agents: [ag("main", null, null, 3)] });
@@ -283,6 +285,7 @@ describe("Sessions 页（票 04：子代理展开、单次调用图表）", () =
     fireEvent.click((await screen.findAllByTestId("sessions-row"))[0]);
     const detail = await screen.findByTestId("session-detail");
     await waitFor(() => expect(detail).toHaveAttribute("data-state", "ready"));
+    expect(within(detail).queryByTestId("session-detail-agents-toggle")).toBeNull();
     expect(within(detail).queryByTestId("session-detail-agents")).toBeNull();
   });
 
@@ -354,7 +357,7 @@ describe("Sessions 页（票 05：运行状态）", () => {
     await waitFor(() => expect(screen.getAllByTestId("sessions-row-state")[0]).toHaveAttribute("data-state", "idle"));
     await waitFor(() => expect(ev.handlers.has("client-usage-updated")).toBe(true));
     await act(async () => { ev.handlers.get("client-usage-updated")!(); });
-    await waitFor(() => expect(screen.getAllByTestId("sessions-row-state")[0]).toHaveAttribute("data-state", "running"));
+    await waitFor(() => expect(screen.getAllByTestId("sessions-row-state")[0]).toHaveAttribute("data-state", "running"), { timeout: 3000 });
   });
 });
 
@@ -616,5 +619,134 @@ describe("Sessions 页（票 09：从列表隐藏与回收站）", () => {
     await waitFor(() => expect(within(dialog).queryAllByTestId("sessions-trash-row")).toHaveLength(0));
     expect(within(dialog).getByTestId("sessions-trash-empty")).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByTestId("sessions-row")).toHaveLength(3));
+  });
+});
+
+describe("真机反馈修复与懒加载（票 12）", () => {
+  const bySid = (sid: string) => screen.getAllByTestId("sessions-row").find((r) => r.getAttribute("data-session") === sid)!;
+  const partCalls = (part: string) => api.sessionDetail.mock.calls.filter((c) => c[2] === part);
+
+  it("继续：请求返回前按钮禁用，连点只调一次", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(SESSIONS);
+    let done: (v: unknown) => void = () => {};
+    api.sessionResume.mockReturnValue(new Promise((r) => { done = r; }));
+    render(<Sessions />);
+    await screen.findAllByTestId("sessions-row");
+    const btn = within(bySid("c1")).getByTestId("sessions-resume");
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    expect(api.sessionResume).toHaveBeenCalledTimes(1);
+    expect(btn).toBeDisabled();
+    await act(async () => { done({ launched: true, command: "x" }); });
+    expect(within(bySid("c1")).getByTestId("sessions-resume")).not.toBeDisabled();
+  });
+
+  it("行内操作失败的提示挂在视口固定浮层（portal 到 body）", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(SESSIONS);
+    plat.revealItemInDir.mockRejectedValueOnce("path does not exist");
+    render(<Sessions />);
+    await screen.findAllByTestId("sessions-row");
+    fireEvent.click(within(bySid("c1")).getByTestId("sessions-open-dir"));
+    const notice = await screen.findByTestId("sessions-resume-notice");
+    expect(notice).toHaveAttribute("data-kind", "open-error");
+    const layer = notice.closest("[data-testid='sessions-notice-layer']");
+    expect(layer).not.toBeNull();
+    expect(layer).toHaveClass("fixed");
+    expect(layer!.parentElement).toBe(document.body);
+    expect(screen.getByTestId("sessions-page").contains(notice)).toBe(false);
+    fireEvent.click(screen.getByTestId("sessions-notice-close"));
+    expect(screen.queryByTestId("sessions-resume-notice")).toBeNull();
+  });
+
+  it("事件防抖合并；可见性恢复只在漏过事件时补拉；点打开目录不重拉", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true, now: NOW });
+    try {
+      api.status.mockResolvedValue(statusPayload(ALL_ON));
+      api.sessions.mockResolvedValue(SESSIONS);
+      plat.revealItemInDir.mockResolvedValue(undefined);
+      render(<Sessions />);
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      expect(api.sessions).toHaveBeenCalledTimes(1);
+      const fire = () => ev.handlers.get("client-usage-updated")!();
+      await act(async () => { fire(); await vi.advanceTimersByTimeAsync(300); fire(); await vi.advanceTimersByTimeAsync(300); fire(); });
+      expect(api.sessions).toHaveBeenCalledTimes(1);
+      await act(async () => { await vi.advanceTimersByTimeAsync(1600); });
+      expect(api.sessions).toHaveBeenCalledTimes(2);
+      // 没漏事件：切走再回来不补拉。
+      act(() => setVisibility("hidden"));
+      act(() => setVisibility("visible"));
+      await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+      expect(api.sessions).toHaveBeenCalledTimes(2);
+      fireEvent.click(within(bySid("c1")).getByTestId("sessions-open-dir"));
+      await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+      expect(plat.revealItemInDir).toHaveBeenCalledTimes(1);
+      expect(api.sessions).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("模型链 / 子代理默认折叠不请求；点击请求一次；再收再开不重复请求", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue([{ ...SESSIONS[0], sidechainCalls: 2 }, ...SESSIONS.slice(1)]);
+    api.sessionDetail.mockResolvedValue({ ...DETAIL, agents: [ag("main", null, null, 3), ag("subagent", "a1", "演示-Explore", 2)] });
+    render(<Sessions />);
+    fireEvent.click((await screen.findAllByTestId("sessions-row"))[0]);
+    const detail = await screen.findByTestId("session-detail");
+    await waitFor(() => expect(detail).toHaveAttribute("data-state", "ready"));
+    expect(partCalls("chain")).toHaveLength(0);
+    expect(partCalls("agents")).toHaveLength(0);
+    expect(within(detail).queryByTestId("session-detail-chain")).toBeNull();
+    expect(within(detail).queryByTestId("session-detail-agents")).toBeNull();
+    const chain = within(detail).getByTestId("session-detail-chain-toggle");
+    expect(chain).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(chain);
+    expect(await within(detail).findByTestId("session-detail-chain")).toBeInTheDocument();
+    expect(partCalls("chain")).toHaveLength(1);
+    fireEvent.click(chain);
+    expect(within(detail).queryByTestId("session-detail-chain")).toBeNull();
+    fireEvent.click(chain);
+    expect(within(detail).getByTestId("session-detail-chain")).toBeInTheDocument();
+    expect(partCalls("chain")).toHaveLength(1);
+    const agents = within(detail).getByTestId("session-detail-agents-toggle");
+    fireEvent.click(agents);
+    expect(await within(detail).findByTestId("session-detail-agents")).toBeInTheDocument();
+    fireEvent.click(agents);
+    fireEvent.click(agents);
+    expect(partCalls("agents")).toHaveLength(1);
+    expect(partCalls("points")).toHaveLength(1);
+  });
+
+  it("模型链读取失败：显示失败态", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(SESSIONS);
+    api.sessionDetail.mockImplementation((_c: string, _s: string, part: string) =>
+      part === "chain" ? Promise.reject(new Error("演示失败")) : Promise.resolve(DETAIL));
+    render(<Sessions />);
+    fireEvent.click((await screen.findAllByTestId("sessions-row"))[0]);
+    const detail = await screen.findByTestId("session-detail");
+    await waitFor(() => expect(detail).toHaveAttribute("data-state", "ready"));
+    fireEvent.click(within(detail).getByTestId("session-detail-chain-toggle"));
+    await waitFor(() => expect(within(detail).getByTestId("session-detail-chain-block")).toHaveAttribute("data-state", "error"));
+  });
+
+  it("置顶区行有 token 走势图，目录组行没有；不请求置顶区以外的会话", async () => {
+    const PIN = [row("codex", "x-run", "演示执行", "/work/beta", 10_000), row("claude_code", "c-old", "演示旧", "/work/alpha", 5 * H)];
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(PIN);
+    api.sessionStates.mockResolvedValue([st("codex", "x-run", "running", "activity", NOW - 10_000)]);
+    api.sessionDetail.mockResolvedValue(DETAIL);
+    render(<Sessions />);
+    const pinned = await screen.findByTestId("sessions-pinned");
+    const spark = await within(pinned).findByTestId("sessions-row-spark");
+    await waitFor(() => expect(spark).toHaveAttribute("data-bars", "3"));
+    expect(spark).toHaveAttribute("data-total", "348");
+    expect(spark).toHaveAttribute("aria-label", "sessions.sparkLabel");
+    const group = screen.getAllByTestId("sessions-group")[0];
+    expect(within(group).queryByTestId("sessions-row-spark")).toBeNull();
+    expect(api.sessionDetail.mock.calls.map((c) => c[1])).toEqual(["x-run"]);
   });
 });
