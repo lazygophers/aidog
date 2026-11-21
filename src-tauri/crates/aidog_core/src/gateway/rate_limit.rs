@@ -249,6 +249,8 @@ impl Drop for Item {
         if let Ok(mut g) = self.bucket.0.lock() {
             g.in_flight -= 1;
         }
+        // 占位释放通知前端刷新水位（轻载荷空事件，前端 debounce 承接；ctx 未安装时静默丢弃）
+        aidog_ctx::emit_unit("rate-occupancy-updated");
     }
 }
 
@@ -337,6 +339,8 @@ impl RateLimiter {
         let cell = Arc::new(AtomicI64::new(est));
         g.tokens.push_back((now, cell.clone()));
         drop(g);
+        // 占位成功通知前端刷新水位（并发 / RPM / TPM 计数变化点）
+        aidog_ctx::emit_unit("rate-occupancy-updated");
         Some(Item { bucket: b, cell })
     }
 
@@ -387,6 +391,7 @@ impl Access {
                 it.cell.store(tokens, Ordering::Relaxed);
             }
         }
+        aidog_ctx::emit_unit("rate-occupancy-updated");
     }
 }
 

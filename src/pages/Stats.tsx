@@ -376,12 +376,28 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
     }, setWsStatus);
     return un;
   }, [activeTab]);
-  // 活跃判定 / 流图窗口按墙钟推进（30s 一跳，避免逐秒重渲染整表）
+  // 活跃判定 / 流图窗口按墙钟推进（30s 一跳，避免逐秒重渲染整表）；隐藏时暂停，恢复可见立即推进再续
   const [nowTick, setNowTick] = useState(() => Date.now());
   useEffect(() => {
     if (activeTab !== "sessions") return;
-    const id = setInterval(() => setNowTick(Date.now()), 30_000);
-    return () => clearInterval(id);
+    let id: ReturnType<typeof setInterval> | undefined;
+    const start = () => {
+      if (!id) id = setInterval(() => setNowTick(Date.now()), 30_000);
+    };
+    const onVisibility = () => {
+      if (document.hidden) {
+        if (id) { clearInterval(id); id = undefined; }
+      } else {
+        setNowTick(Date.now());
+        start();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    if (!document.hidden) start();
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      if (id) clearInterval(id);
+    };
   }, [activeTab]);
 
   // 「无分组」sentinel 映射：下拉选「无分组」→ filter_group=''（隧道请求 group_key 空）。
