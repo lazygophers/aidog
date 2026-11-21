@@ -299,7 +299,7 @@ async fn client_usage_session_cache_fields_and_detail_chain() {
         "汇总缓存读 / 写、推理、子代理调用数"
     );
 
-    let d = client_usage_session_detail(&db, "claude_code", "s1").await.expect("detail");
+    let d = client_usage_session_detail(&db, "claude_code", "s1", None).await.expect("detail");
     let chain: Vec<(&str, i64)> = d.model_chain.iter().map(|s| (s.model.as_str(), s.calls)).collect();
     assert_eq!(chain, vec![("sonnet", 2), ("opus", 1), ("sonnet", 1)], "相邻同模型合并、按时间排");
     assert_eq!(
@@ -323,7 +323,7 @@ async fn client_usage_session_cache_fields_and_detail_chain() {
         ClientUsageTokenPoint { call_time_ms: base + 300, input_tokens: 5, output_tokens: 6, cache_read_tokens: 7, cache_write_tokens: 8 }
     );
 
-    let empty = client_usage_session_detail(&db, "claude_code", "nope").await.expect("detail empty");
+    let empty = client_usage_session_detail(&db, "claude_code", "nope", None).await.expect("detail empty");
     assert!(empty.model_chain.is_empty() && empty.points.is_empty(), "无调用的会话返回空");
 }
 
@@ -360,7 +360,7 @@ async fn client_usage_session_detail_groups_by_file() {
     )
     .await
     .expect("insert calls");
-    let d = client_usage_session_detail(&db, "claude_code", "s1").await.expect("detail");
+    let d = client_usage_session_detail(&db, "claude_code", "s1", None).await.expect("detail");
     let g = |f: &str, side: bool, calls: i64, cost: f64, unpriced: i64| ClientUsageFileGroup {
         source_file_id: f.into(),
         is_sidechain: side,
@@ -383,6 +383,15 @@ async fn client_usage_session_detail_groups_by_file() {
     );
     let json = serde_json::to_string(&d).expect("serialize");
     assert!(!json.contains("/p/s1"), "文件路径不回传前端: {json}");
+
+    // 票 12：按 part 只读对应部分（行展开区懒加载）。
+    let p = client_usage_session_detail(&db, "claude_code", "s1", Some("points")).await.expect("points");
+    assert_eq!((p.points.len(), p.model_chain.len(), p.files.len()), (5, 0, 0), "points 只带时间序列");
+    let c = client_usage_session_detail(&db, "claude_code", "s1", Some("chain")).await.expect("chain");
+    assert_eq!((c.points.len(), c.model_chain.len(), c.files.len()), (0, 1, 0), "chain 只带模型链");
+    let a = client_usage_session_detail(&db, "claude_code", "s1", Some("agents")).await.expect("agents");
+    assert_eq!((a.points.len(), a.model_chain.len(), a.files.len()), (0, 0, 3), "agents 只带分组");
+    assert!(client_usage_session_detail(&db, "claude_code", "s1", Some("bogus")).await.is_err(), "未知 part 报错");
 }
 
 /// 票 05：会话活动时刻 = max(last_call_ms, 独占文件 mtime)；共用文件不计 mtime；client 过滤生效。

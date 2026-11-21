@@ -1300,6 +1300,8 @@
   "sessions.hide": "Aus Liste ausblenden",
   "sessions.hidden": "Aus der Liste ausgeblendet: {{title}}",
   "sessions.undo": "Rückgängig",
+  "sessions.noticeClose": "Hinweis schließen",
+  "sessions.sparkLabel": "Token-Verlauf, insgesamt {{n}}",
   "sessions.hideFailed": "Ausblenden fehlgeschlagen: {{error}}",
   "sessions.trash": "Papierkorb",
   "sessions.trashDesc": "Ausgeblendete Sitzungen verschwinden nur aus der Liste; Client-Dateien und Nutzungsdaten bleiben erhalten.",

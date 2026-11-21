@@ -150,8 +150,9 @@ export const clientUsageApi = {
     invoke<ClientUsageModelRow[]>("client_usage_by_model", { fromMs, toMs, clientCode }),
   sessions: (fromMs: number, toMs: number, clientCode?: string, limit?: number) =>
     invoke<ClientUsageSessionRow[]>("client_usage_sessions", { fromMs, toMs, clientCode, limit }),
-  sessionDetail: (clientCode: string, sessionId: string) =>
-    invoke<ClientUsageSessionDetail>("client_usage_session_detail", { clientCode, sessionId }),
+  /** part（票 12）：只读时间序列 / 模型链 / 主线与子代理分组之一，缺省全部。 */
+  sessionDetail: (clientCode: string, sessionId: string, part?: "points" | "chain" | "agents") =>
+    invoke<ClientUsageSessionDetail>("client_usage_session_detail", { clientCode, sessionId, part }),
   /** 从列表隐藏 / 恢复（票 09）：只记标记，不删客户端文件。 */
   sessionHide: (clientCode: string, sessionId: string) =>
     invoke<void>("client_usage_session_hide", { clientCode, sessionId }),

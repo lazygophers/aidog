@@ -556,6 +556,10 @@
         {
           "name": "sessionId",
           "type": "String"
+        },
+        {
+          "name": "part",
+          "type": "Option<String>"
         }
       ],
       "returns": "aidog_db::ClientUsageSessionDetail"

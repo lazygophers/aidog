@@ -745,11 +745,13 @@ pub async fn client_usage_hidden_sessions(
 
 crate::tauri_command! {
 /// 单会话详情：模型链（相邻同模型合并）+ token 时间序列 + 主线 / 子代理分组。
+/// `part`（票 12）：points / chain / agents 只读对应部分，缺省全部。
 pub async fn client_usage_session_detail(
     client_code: String,
     session_id: String,
+    part: Option<String>,
 ) -> Result<aidog_db::ClientUsageSessionDetail, String> {
-    let mut d = aidog_db::client_usage_session_detail(aidog_ctx::db(), &client_code, &session_id).await?;
+    let mut d = aidog_db::client_usage_session_detail(aidog_ctx::db(), &client_code, &session_id, part.as_deref()).await?;
     d.agents = agents::group_agents(&client_code, std::mem::take(&mut d.files));
     Ok(d)
 }

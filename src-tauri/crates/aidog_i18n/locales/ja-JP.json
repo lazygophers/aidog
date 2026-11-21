@@ -1300,6 +1300,8 @@
   "sessions.hide": "一覧から非表示",
   "sessions.hidden": "一覧から非表示にしました：{{title}}",
   "sessions.undo": "元に戻す",
+  "sessions.noticeClose": "通知を閉じる",
+  "sessions.sparkLabel": "トークン推移（合計 {{n}}）",
   "sessions.hideFailed": "非表示にできませんでした：{{error}}",
   "sessions.trash": "ごみ箱",
   "sessions.trashDesc": "非表示のセッションは一覧に表示されなくなるだけで、クライアントのファイルと使用記録は残ります。",

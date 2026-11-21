@@ -679,86 +679,130 @@ pub struct ClientUsageSessionDetail {
     pub agents: Vec<ClientUsageAgentGroup>,
 }
 
-/// 单会话详情：按 `call_time_ms` 升序读全部调用。
+/// 单会话详情：按 `call_time_ms` 升序读全部调用。`part`（票 12，行展开区懒加载）：
+/// None = 全部；"points" = 只要时间序列；"chain" = 只要模型链；"agents" = 只要主线 / 子代理分组。
 #[track_caller]
 pub fn client_usage_session_detail<'a>(
     db: &'a Db,
     client_code: &str,
     session_id: &str,
+    part: Option<&str>,
 ) -> impl std::future::Future<Output = Result<ClientUsageSessionDetail, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     let (client, session) = (client_code.to_string(), session_id.to_string());
+    let want = match part {
+        None => Ok((true, true, true)),
+        Some("points") => Ok((true, false, false)),
+        Some("chain") => Ok((false, true, false)),
+        Some("agents") => Ok((false, false, true)),
+        Some(other) => Err(format!("client_usage_session_detail: unknown part {other}")),
+    };
     async move {
+        let (want_points, want_chain, want_files) = want?;
         db.call_read_client_usage_traced(None, __db_caller, move |conn| {
-            let mut stmt = conn.prepare(
-                "SELECT call_time_ms, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens \
-                 FROM client_call WHERE client_code = ?1 AND session_id = ?2 ORDER BY call_time_ms, file_pos",
-            )?;
-            let calls = stmt
-                .query_map(rusqlite::params![client, session], |r| {
-                    Ok((
-                        r.get::<_, String>(1)?,
-                        ClientUsageTokenPoint {
-                            call_time_ms: r.get(0)?,
-                            input_tokens: r.get(2)?,
-                            output_tokens: r.get(3)?,
-                            cache_read_tokens: r.get(4)?,
-                            cache_write_tokens: r.get(5)?,
-                        },
-                    ))
-                })?
-                .collect::<Result<Vec<_>, _>>()?;
             let mut detail = ClientUsageSessionDetail::default();
-            for (model, p) in calls {
-                match detail.model_chain.last_mut() {
-                    Some(seg) if seg.model == model => {
-                        seg.calls += 1;
-                        seg.last_call_ms = p.call_time_ms;
-                        seg.input_tokens += p.input_tokens;
-                        seg.output_tokens += p.output_tokens;
-                        seg.cache_read_tokens += p.cache_read_tokens;
-                        seg.cache_write_tokens += p.cache_write_tokens;
-                    }
-                    _ => detail.model_chain.push(ClientUsageModelSegment {
-                        model,
-                        calls: 1,
-                        first_call_ms: p.call_time_ms,
-                        last_call_ms: p.call_time_ms,
-                        input_tokens: p.input_tokens,
-                        output_tokens: p.output_tokens,
-                        cache_read_tokens: p.cache_read_tokens,
-                        cache_write_tokens: p.cache_write_tokens,
-                    }),
-                }
-                detail.points.push(p);
+            if want_points || want_chain {
+                read_calls_into(conn, &client, &session, want_points, want_chain, &mut detail)?;
             }
-            let mut stmt = conn.prepare(
-                "SELECT source_file_id, is_sidechain, COUNT(*), SUM(input_tokens), SUM(output_tokens), \
-                        SUM(cache_read_tokens), SUM(cache_write_tokens), COALESCE(SUM(cost),0), \
-                        COUNT(CASE WHEN cost IS NULL THEN 1 END) \
-                 FROM client_call WHERE client_code = ?1 AND session_id = ?2 \
-                 GROUP BY source_file_id, is_sidechain ORDER BY MIN(call_time_ms), source_file_id",
-            )?;
-            detail.files = stmt
-                .query_map(rusqlite::params![client, session], |r| {
-                    Ok(ClientUsageFileGroup {
-                        source_file_id: r.get(0)?,
-                        is_sidechain: r.get::<_, i64>(1)? != 0,
-                        calls: r.get(2)?,
-                        input_tokens: r.get(3)?,
-                        output_tokens: r.get(4)?,
-                        cache_read_tokens: r.get(5)?,
-                        cache_write_tokens: r.get(6)?,
-                        cost: r.get(7)?,
-                        unpriced_calls: r.get(8)?,
-                    })
-                })?
-                .collect::<Result<Vec<_>, _>>()?;
+            if want_files {
+                read_file_groups_into(conn, &client, &session, &mut detail)?;
+            }
             Ok(detail)
         })
         .await
         .map_err(|e| format!("client_usage_session_detail: {e}"))
     }
+}
+
+/// 详情：按调用时间读全部调用，按需填时间序列 / 模型链（相邻同模型合并）。
+fn read_calls_into(
+    conn: &rusqlite::Connection,
+    client: &str,
+    session: &str,
+    want_points: bool,
+    want_chain: bool,
+    detail: &mut ClientUsageSessionDetail,
+) -> rusqlite::Result<()> {
+    let mut stmt = conn.prepare(
+        "SELECT call_time_ms, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens \
+         FROM client_call WHERE client_code = ?1 AND session_id = ?2 ORDER BY call_time_ms, file_pos",
+    )?;
+    let calls = stmt
+        .query_map(rusqlite::params![client, session], |r| {
+            Ok((
+                r.get::<_, String>(1)?,
+                ClientUsageTokenPoint {
+                    call_time_ms: r.get(0)?,
+                    input_tokens: r.get(2)?,
+                    output_tokens: r.get(3)?,
+                    cache_read_tokens: r.get(4)?,
+                    cache_write_tokens: r.get(5)?,
+                },
+            ))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    for (model, p) in calls {
+        if !want_chain {
+            detail.points.push(p);
+            continue;
+        }
+        match detail.model_chain.last_mut() {
+            Some(seg) if seg.model == model => {
+                seg.calls += 1;
+                seg.last_call_ms = p.call_time_ms;
+                seg.input_tokens += p.input_tokens;
+                seg.output_tokens += p.output_tokens;
+                seg.cache_read_tokens += p.cache_read_tokens;
+                seg.cache_write_tokens += p.cache_write_tokens;
+            }
+            _ => detail.model_chain.push(ClientUsageModelSegment {
+                model,
+                calls: 1,
+                first_call_ms: p.call_time_ms,
+                last_call_ms: p.call_time_ms,
+                input_tokens: p.input_tokens,
+                output_tokens: p.output_tokens,
+                cache_read_tokens: p.cache_read_tokens,
+                cache_write_tokens: p.cache_write_tokens,
+            }),
+        }
+        if want_points {
+            detail.points.push(p);
+        }
+    }
+    Ok(())
+}
+
+/// 详情：按 (source_file_id, is_sidechain) 分组（票 04），命令层据此归并主线 / 子代理。
+fn read_file_groups_into(
+    conn: &rusqlite::Connection,
+    client: &str,
+    session: &str,
+    detail: &mut ClientUsageSessionDetail,
+) -> rusqlite::Result<()> {
+    let mut stmt = conn.prepare(
+        "SELECT source_file_id, is_sidechain, COUNT(*), SUM(input_tokens), SUM(output_tokens), \
+                SUM(cache_read_tokens), SUM(cache_write_tokens), COALESCE(SUM(cost),0), \
+                COUNT(CASE WHEN cost IS NULL THEN 1 END) \
+         FROM client_call WHERE client_code = ?1 AND session_id = ?2 \
+         GROUP BY source_file_id, is_sidechain ORDER BY MIN(call_time_ms), source_file_id",
+    )?;
+    detail.files = stmt
+        .query_map(rusqlite::params![client, session], |r| {
+            Ok(ClientUsageFileGroup {
+                source_file_id: r.get(0)?,
+                is_sidechain: r.get::<_, i64>(1)? != 0,
+                calls: r.get(2)?,
+                input_tokens: r.get(3)?,
+                output_tokens: r.get(4)?,
+                cache_read_tokens: r.get(5)?,
+                cache_write_tokens: r.get(6)?,
+                cost: r.get(7)?,
+                unpriced_calls: r.get(8)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(())
 }
 
 /// 会话最近活动时刻（扩展-会话页 票 05）：`max(client_session.last_call_ms, 该会话独占文件的
