@@ -96,9 +96,24 @@ export interface ClientUsageTokenPoint {
   cacheWriteTokens: number;
 }
 
+/** 详情里主线 / 子代理一组；Claude Code 子代理带 agentId，agentType 读自 meta.json（可缺）。 */
+export interface ClientUsageAgentGroup {
+  kind: "main" | "subagent";
+  agentId: string | null;
+  agentType: string | null;
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  cost: number;
+  unpricedCalls: number;
+}
+
 export interface ClientUsageSessionDetail {
   modelChain: ClientUsageModelSegment[];
   points: ClientUsageTokenPoint[];
+  agents: ClientUsageAgentGroup[];
 }
 
 export const clientUsageApi = {

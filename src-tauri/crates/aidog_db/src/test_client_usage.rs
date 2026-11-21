@@ -326,3 +326,61 @@ async fn client_usage_session_cache_fields_and_detail_chain() {
     let empty = client_usage_session_detail(&db, "claude_code", "nope").await.expect("detail empty");
     assert!(empty.model_chain.is_empty() && empty.points.is_empty(), "无调用的会话返回空");
 }
+
+/// 票 04：详情按 (source_file_id, is_sidechain) 分组，组内 token / 成本求和，组按首次调用时间升序；只含本会话。
+#[tokio::test]
+async fn client_usage_session_detail_groups_by_file() {
+    let (db, _dir) = four_file_db().await;
+    let base = crate::now() - 10_000;
+    let mk = |sess: &str, file: &str, pos: i64, t: i64, side: bool, cost: Option<f64>| ClientCallRow {
+        client_code: "claude_code".into(),
+        session_id: sess.into(),
+        is_sidechain: side,
+        call_time_ms: base + t,
+        model: "m".into(),
+        input_tokens: 1,
+        output_tokens: 2,
+        cache_read_tokens: 3,
+        cache_write_tokens: 4,
+        cost,
+        source_file_id: file.into(),
+        file_pos: pos,
+        ..Default::default()
+    };
+    insert_client_calls(
+        &db,
+        &[
+            mk("s1", "/p/s1/subagents/agent-b.jsonl", 1, 300, true, None),
+            mk("s1", "/p/s1.jsonl", 1, 100, false, Some(0.5)),
+            mk("s1", "/p/s1.jsonl", 2, 400, false, Some(0.25)),
+            mk("s1", "/p/s1/subagents/agent-a.jsonl", 1, 200, true, Some(1.0)),
+            mk("s1", "/p/s1/subagents/agent-a.jsonl", 2, 500, true, None),
+            mk("s2", "/p/s2.jsonl", 1, 100, false, Some(9.0)),
+        ],
+    )
+    .await
+    .expect("insert calls");
+    let d = client_usage_session_detail(&db, "claude_code", "s1").await.expect("detail");
+    let g = |f: &str, side: bool, calls: i64, cost: f64, unpriced: i64| ClientUsageFileGroup {
+        source_file_id: f.into(),
+        is_sidechain: side,
+        calls,
+        input_tokens: calls,
+        output_tokens: 2 * calls,
+        cache_read_tokens: 3 * calls,
+        cache_write_tokens: 4 * calls,
+        cost,
+        unpriced_calls: unpriced,
+    };
+    assert_eq!(
+        d.files,
+        vec![
+            g("/p/s1.jsonl", false, 2, 0.75, 0),
+            g("/p/s1/subagents/agent-a.jsonl", true, 2, 1.0, 1),
+            g("/p/s1/subagents/agent-b.jsonl", true, 1, 0.0, 1),
+        ],
+        "按文件分组、首次调用时间升序、只含本会话"
+    );
+    let json = serde_json::to_string(&d).expect("serialize");
+    assert!(!json.contains("/p/s1"), "文件路径不回传前端: {json}");
+}

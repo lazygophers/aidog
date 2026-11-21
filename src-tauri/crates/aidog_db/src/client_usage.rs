@@ -530,12 +530,48 @@ pub struct ClientUsageTokenPoint {
     pub cache_write_tokens: i64,
 }
 
-/// 单会话详情：模型链 + token 时间序列。
+/// 按 (source_file_id, is_sidechain) 聚合的一组调用（按组内首次调用时间升序）。
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct ClientUsageFileGroup {
+    pub source_file_id: String,
+    pub is_sidechain: bool,
+    pub calls: i64,
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+    pub cache_read_tokens: i64,
+    pub cache_write_tokens: i64,
+    /// 只含已定价调用的成本和。
+    pub cost: f64,
+    pub unpriced_calls: i64,
+}
+
+/// 详情里的主线 / 子代理一组（票 04）。`kind` = "main" | "subagent"；
+/// Claude Code 子代理带 `agent_id`，`agent_type` 读自 meta.json（读不到为 None）。
+#[derive(Debug, Default, Clone, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientUsageAgentGroup {
+    pub kind: String,
+    pub agent_id: Option<String>,
+    pub agent_type: Option<String>,
+    pub calls: i64,
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+    pub cache_read_tokens: i64,
+    pub cache_write_tokens: i64,
+    pub cost: f64,
+    pub unpriced_calls: i64,
+}
+
+/// 单会话详情：模型链 + token 时间序列 + 主线 / 子代理分组。
 #[derive(Debug, Default, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClientUsageSessionDetail {
     pub model_chain: Vec<ClientUsageModelSegment>,
     pub points: Vec<ClientUsageTokenPoint>,
+    /// 含本机文件路径，不回传前端；命令层据此归并出 `agents`。
+    #[serde(skip)]
+    pub files: Vec<ClientUsageFileGroup>,
+    pub agents: Vec<ClientUsageAgentGroup>,
 }
 
 /// 单会话详情：按 `call_time_ms` 升序读全部调用。
@@ -591,6 +627,28 @@ pub fn client_usage_session_detail<'a>(
                 }
                 detail.points.push(p);
             }
+            let mut stmt = conn.prepare(
+                "SELECT source_file_id, is_sidechain, COUNT(*), SUM(input_tokens), SUM(output_tokens), \
+                        SUM(cache_read_tokens), SUM(cache_write_tokens), COALESCE(SUM(cost),0), \
+                        COUNT(CASE WHEN cost IS NULL THEN 1 END) \
+                 FROM client_call WHERE client_code = ?1 AND session_id = ?2 \
+                 GROUP BY source_file_id, is_sidechain ORDER BY MIN(call_time_ms), source_file_id",
+            )?;
+            detail.files = stmt
+                .query_map(rusqlite::params![client, session], |r| {
+                    Ok(ClientUsageFileGroup {
+                        source_file_id: r.get(0)?,
+                        is_sidechain: r.get::<_, i64>(1)? != 0,
+                        calls: r.get(2)?,
+                        input_tokens: r.get(3)?,
+                        output_tokens: r.get(4)?,
+                        cache_read_tokens: r.get(5)?,
+                        cache_write_tokens: r.get(6)?,
+                        cost: r.get(7)?,
+                        unpriced_calls: r.get(8)?,
+                    })
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
             Ok(detail)
         })
         .await
