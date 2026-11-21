@@ -162,6 +162,9 @@ pub enum RequestKind<'a> {
     Decision,
     Embedding,
     Rerank,
+    /// `/v1/audio/*` 音频请求（issue #167）：模型名随请求直转（无专用槽），
+    /// 候选 = 有 OpenAI 系 endpoint 且非纯专用槽的平台。
+    Audio,
     Tools(&'a str),
 }
 
@@ -173,6 +176,7 @@ impl RequestKind<'_> {
             RequestKind::Decision => "no_decision_platform",
             RequestKind::Embedding => "no_embedding_platform",
             RequestKind::Rerank => "no_rerank_platform",
+            RequestKind::Audio => "no_audio_platform",
             RequestKind::Tools(_) => "no_tools_platform",
         }
     }
@@ -232,6 +236,13 @@ pub(crate) fn platform_supports_kind(
                 .rerank_slot()
                 .is_some()
                 && has_openai_family_endpoint(platform)
+        }
+        // Audio（issue #167）：OpenAI 系出站即可承接（模型名随请求直转，无专用槽）；
+        // 纯向量化 / 重排序专用平台剔除（同 Chat 的 is_dedicated_only 口径）。
+        RequestKind::Audio => {
+            has_openai_family_endpoint(platform)
+                && !time_windows::resolve_time_windows(time_rules, &platform.models, now_ms)
+                    .is_dedicated_only()
         }
         RequestKind::Tools(path) => {
             crate::gateway::billing::default_tools_endpoints(&platform.platform_type.wire_str())
@@ -2150,6 +2161,7 @@ fn disabled_slot_reason(
             let eff = effective_models_for(kind, platform, &cache.time_windows, now_ms, source_model);
             slot_filled(&eff.rerank).map(|_| "rerank".into())
         }
+        RequestKind::Audio => None,
         RequestKind::Tools(_) => None,
     };
     slot.and_then(|s| off(&s)).or_else(|| {
@@ -2222,6 +2234,8 @@ fn resolve_target_chain(
         // `effective_models_for` 给出：时段档命中读档，否则默认（不含 preset peak 分支）。
         RequestKind::Embedding => slot_or(&effective_models.embedding, model_name.to_string()),
         RequestKind::Rerank => slot_or(&effective_models.rerank, model_name.to_string()),
+        // Audio 不做模型改写（issue #167）：客户端音频模型名直转（同 Tools 语义）。
+        RequestKind::Audio => vec![model_name.to_string()],
         // Tools 不做任何模型改写（语义 3）：映射命中取映射目标名（仅日志元数据），否则原样。
         RequestKind::Tools(_) => vec![model_name.to_string()],
     };

@@ -454,6 +454,7 @@ pub(crate) async fn handle_proxy_core(
             &mut log,
             &group,
             &bytes,
+            None,
             super::call_scope::ReqCtx { log_settings: &log_settings, start, lang, client: client_gate },
         )
         .await;
@@ -468,6 +469,28 @@ pub(crate) async fn handle_proxy_core(
             &mut log,
             &group,
             &bytes,
+            None,
+            super::call_scope::ReqCtx { log_settings: &log_settings, start, lang, client: client_gate },
+        )
+        .await;
+    }
+
+    // ── 音频请求分流（issue #167，必须在 parse_incoming_request 之前）──
+    // /v1/audio/{speech,transcriptions,translations}：模型名随请求直转（无专用槽），
+    // 字符数 / 秒数经 SEARCH_UNITS_KEY 入计价链（speech 为 JSON 入站二进制出站，
+    // transcriptions / translations 为 multipart 入站）。出站路径镜像入站端点名。
+    if let Some(spec) = super::aux_model::audio_spec(&path) {
+        let ct = orig_headers
+            .get(axum::http::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_string());
+        return super::aux_model::handle_aux_model(
+            spec,
+            &state,
+            &mut log,
+            &group,
+            &bytes,
+            ct.as_deref(),
             super::call_scope::ReqCtx { log_settings: &log_settings, start, lang, client: client_gate },
         )
         .await;
