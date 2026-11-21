@@ -373,12 +373,15 @@ async fn cc_run(
 
 #[tokio::test]
 async fn commandcode_windows_balance_and_chain() {
+    // 真实形状（2026-11-21 实测）：windowLimits 在 credits 响应顶层，与 credits 键平级；
+    // planId 只在 subscriptions.data.planId，credits.credits 内无 planId
     let (q, log) = cc_run(
-        r#"{"credits":{"planId":"individual-pro","monthlyCredits":30,"purchasedCredits":5,
-            "freeCredits":2,"sandboxAccess":true,
-            "windowLimits":{"limited":true,
-                "fiveHour":{"used":10,"cap":40,"resetAt":1750000000000},
-                "weekly":{"used":70,"cap":200,"resetAt":1750000000123}}}}"#,
+        r#"{"credits":{"belowThreshold":false,"creditThreshold":0.5,"monthlyCredits":30,
+            "purchasedCredits":5,"freeCredits":2},
+            "windowLimits":{"limited":true,"exceeded":null,
+                "fiveHour":{"used":10,"cap":40,"exceeded":false,"resetAt":1750000000000},
+                "weekly":{"used":70,"cap":200,"exceeded":false,"resetAt":1750000000123}},
+            "sandboxAccess":true,"sandboxMinutes":0}"#,
     )
     .await;
     assert!(q.success, "{:?}", q.error);
@@ -431,13 +434,13 @@ async fn commandcode_windows_balance_and_chain() {
 
 #[tokio::test]
 async fn commandcode_error_paths() {
-    // 缺省形态：无 windowLimits / level 无 planId / 池全 0 → success 空 tiers
+    // 缺省形态：无 windowLimits / 池全 0 → success 空 tiers；level 仍取 subscriptions.data.planId
     let (q, _) = cc_run(r#"{"credits":{"monthlyCredits":0,"purchasedCredits":0,"freeCredits":0}}"#)
         .await;
     assert!(q.success, "{:?}", q.error);
     let cp = q.coding_plan.unwrap();
     assert!(cp.tiers.is_empty());
-    assert_eq!(cp.level, None);
+    assert_eq!(cp.level.as_deref(), Some("individual-pro"));
     let b = q.balance.as_ref().unwrap();
     assert_eq!(b.remaining, 0.0);
     assert_eq!(b.used.unwrap(), 12.5, "used = summary.totalCost");
@@ -497,4 +500,9 @@ async fn commandcode_org_null_personal_account() {
     assert_eq!(b.remaining, 0.0);
     assert_eq!(b.used.unwrap(), 12.5);
     assert_eq!(b.total, Some(12.5));
+    assert_eq!(
+        q.coding_plan.unwrap().level.as_deref(),
+        Some("individual-pro"),
+        "org:null 时 level 仍取 subscriptions.data.planId"
+    );
 }
