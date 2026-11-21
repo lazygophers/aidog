@@ -13142,3 +13142,184 @@ async fn chat_routes_to_model_supported_endpoint_protocol() {
     assert!(sent["messages"].is_array(), "openai chat 出站形状: {req_body}");
     assert!(sent.get("type").is_none(), "不得残留 anthropic 外壳: {req_body}");
 }
+// ══ audio：/v1/audio/* 真实计量端到端（issue #167，本地假上游，禁外呼）══
+
+/// 命中记录 (path, 请求 content-type, body lossy, authorization) 的假上游，
+/// 按队列返回 (status, content-type, body)。
+type AudioHits = std::sync::Arc<StdMutex<Vec<(String, String, String, String)>>>;
+
+async fn spawn_audio_upstream(responses: Vec<(u16, &'static str, &'static str)>) -> (String, AudioHits) {
+    let hits: AudioHits = std::sync::Arc::new(StdMutex::new(Vec::new()));
+    let queue = std::sync::Arc::new(StdMutex::new(std::collections::VecDeque::from(responses)));
+    let h2 = hits.clone();
+    let app = axum::Router::new().fallback(axum::routing::any(move |req: Request| {
+        let hits = h2.clone();
+        let queue = queue.clone();
+        async move {
+            let path = req.uri().path().to_string();
+            let ct = req
+                .headers()
+                .get("content-type")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("")
+                .to_string();
+            let auth = req
+                .headers()
+                .get("authorization")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("")
+                .to_string();
+            let body = axum::body::to_bytes(req.into_body(), 8 * 1024 * 1024)
+                .await
+                .map(|b| String::from_utf8_lossy(&b).to_string())
+                .unwrap_or_default();
+            hits.lock().unwrap().push((path, ct, body, auth));
+            let (status, ct, resp) = queue
+                .lock()
+                .unwrap()
+                .pop_front()
+                .unwrap_or((200, "application/json", "{}"));
+            (
+                axum::http::StatusCode::from_u16(status).unwrap(),
+                [("content-type", ct)],
+                resp,
+            )
+        }
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, app).await.ok(); });
+    (format!("http://{addr}"), hits)
+}
+
+fn audio_entry(model: &str, unit: &str, unit_price: &str) -> ModelEntry {
+    ModelEntry {
+        platform_code: "openai".into(),
+        model_id: model.into(),
+        display_name: model.into(),
+        canonical_model: model.into(),
+        family: String::new(),
+        version: String::new(),
+        predecessor: String::new(),
+        capabilities: vec!["audio".into()],
+        builtin_tools_excluded: vec![],
+        max_input_tokens: None,
+        max_output_tokens: None,
+        context_window: None,
+        official: true,
+        price_data: format!(r#"{{"price":{{"input":0,"output":0,"unit":"{unit}","unit_price":{unit_price}}}}}"#),
+        updated_at: aidog_db::now(),
+    }
+}
+
+/// speech：JSON 入站、模型名直转、est_cost = input 字符数 × char 单价（issue #167）。
+#[tokio::test]
+async fn audio_speech_bills_input_chars() {
+    let (up, hits) = spawn_audio_upstream(vec![(200, "audio/mpeg", "FAKEAUDIOBYTES")]).await;
+    let state = make_state(test_db().await).await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings {
+            log_user_request: true,
+            log_upstream_request: true,
+            ..Default::default()
+        },
+    )
+    .await;
+    aidog_db::upsert_model_entries(&state.db, vec![audio_entry("tts-1", "char", "0.015")])
+        .await
+        .unwrap();
+    setup_embedding_group(&state, "gkas", &[(&up, None, Protocol::OpenAI, "a")]).await;
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/audio/speech")
+        .header("authorization", "Bearer gkas")
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{"model":"tts-1","input":"你好世界hello","voice":"alloy"}"#.to_string()))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(
+        resp.headers().get("content-type").and_then(|v| v.to_str().ok()),
+        Some("audio/mpeg"),
+        "响应 content-type 透传上游值"
+    );
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    assert_eq!(&body[..], b"FAKEAUDIOBYTES", "二进制音频原样回客户端");
+
+    let (path, ct, _b, auth) = hits.lock().unwrap()[0].clone();
+    assert_eq!(path, "/v1/audio/speech", "base_url(/v1) + /audio/speech");
+    assert_eq!(ct, "application/json");
+    assert_eq!(auth, "Bearer sk-a");
+
+    let log = last_log_for(&state, "gkas").await;
+    assert_eq!(log.status_code, 200);
+    assert_eq!(log.source_protocol, "audio_speech");
+    assert_eq!(log.model, "tts-1");
+    assert_eq!(log.actual_model, "tts-1", "音频模型名直转，不改写槽位");
+    assert_eq!((log.input_tokens, log.output_tokens), (0, 0));
+    // 9 字符 / 1K × $0.015
+    assert!((log.est_cost - 9.0 * 0.015 / 1000.0).abs() < 1e-12, "got {}", log.est_cost);
+    assert_eq!(log.response_body, "[binary 14 bytes]", "二进制响应落占位不落原文");
+}
+
+/// transcriptions：multipart 原样透传（含 boundary），est_cost = duration 秒 × second 单价。
+#[tokio::test]
+async fn audio_transcriptions_bills_audio_seconds() {
+    let (up, hits) = spawn_audio_upstream(vec![(200, "application/json", r#"{"text":"hi there","duration":12.4}"#)])
+        .await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(&state.db, vec![audio_entry("whisper-1", "second", "0.0001")])
+        .await
+        .unwrap();
+    setup_embedding_group(&state, "gkat", &[(&up, None, Protocol::OpenAI, "a")]).await;
+    let mp = "--AIDOGBOUND\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\nwhisper-1\r\n--AIDOGBOUND\r\nContent-Disposition: form-data; name=\"file\"; filename=\"a.wav\"\r\nContent-Type: audio/wav\r\n\r\nRIFFfakeaudio\r\n--AIDOGBOUND--\r\n";
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/audio/transcriptions")
+        .header("authorization", "Bearer gkat")
+        .header("content-type", "multipart/form-data; boundary=AIDOGBOUND")
+        .body(Body::from(mp.to_string()))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(v["text"], "hi there", "JSON 响应原样回客户端");
+
+    let (path, ct, up_body, auth) = hits.lock().unwrap()[0].clone();
+    assert_eq!(path, "/v1/audio/transcriptions");
+    assert_eq!(ct, "multipart/form-data; boundary=AIDOGBOUND", "multipart 原样透传含 boundary");
+    assert!(up_body.contains("RIFFfakeaudio"), "文件字段原样透传");
+    assert_eq!(auth, "Bearer sk-a");
+
+    let log = last_log_for(&state, "gkat").await;
+    assert_eq!(log.status_code, 200);
+    assert_eq!(log.model, "whisper-1");
+    assert_eq!(log.actual_model, "whisper-1");
+    // 12.4s（round → 12）× $0.0001
+    assert!((log.est_cost - 12.0 * 0.0001).abs() < 1e-12, "got {}", log.est_cost);
+}
+
+/// 组内无 OpenAI 系平台 → 404 + blocked_reason=no_audio_platform，不打上游。
+#[tokio::test]
+async fn audio_route_fail_no_audio_platform() {
+    let (up, hits) = spawn_audio_upstream(vec![]).await;
+    let state = make_state(test_db().await).await;
+    setup_embedding_group(&state, "gkaa", &[(&up, None, Protocol::Anthropic, "a")]).await;
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/audio/speech")
+        .header("authorization", "Bearer gkaa")
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{"model":"tts-1","input":"你好"}"#.to_string()))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    let log = last_log_for(&state, "gkaa").await;
+    assert_eq!(log.status_code, 404);
+    assert_eq!(log.blocked_by, "router");
+    assert_eq!(log.blocked_reason, "no_audio_platform");
+    assert_eq!(log.est_cost, 0.0);
+    assert!(hits.lock().unwrap().is_empty(), "不得打到任何上游");
+}

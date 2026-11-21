@@ -2,6 +2,13 @@
 
 use super::*;
 
+// audio spec 的 multipart / binary_response 是编译期常量，const 块断言（运行期断言被 clippy 拒）。
+const _: () = {
+    assert!(AUDIO_SPEECH.binary_response && !AUDIO_SPEECH.multipart);
+    assert!(!AUDIO_TRANSCRIPTIONS.binary_response && AUDIO_TRANSCRIPTIONS.multipart);
+    assert!(!AUDIO_TRANSLATIONS.binary_response && AUDIO_TRANSLATIONS.multipart);
+};
+
 #[test]
 fn embedding_endpoint_suffix_match() {
     for p in ["/v1/embeddings", "/embeddings", "/proxy/v1/embeddings", "/v1/embeddings/"] {
@@ -68,8 +75,35 @@ fn rerank_usage_three_shapes() {
 #[test]
 fn rerank_search_units_defaults_to_one() {
     let f = RERANK.extract_units.expect("rerank has units");
-    assert_eq!(f(r#"{"meta":{"billed_units":{"search_units":3}}}"#), 3);
-    assert_eq!(f(r#"{"usage":{"total_tokens":9}}"#), 1);
-    assert_eq!(f("not json"), 1);
+    let req = Value::Null;
+    assert_eq!(f(&req, r#"{"meta":{"billed_units":{"search_units":3}}}"#), 3);
+    assert_eq!(f(&req, r#"{"usage":{"total_tokens":9}}"#), 1);
+    assert_eq!(f(&req, "not json"), 1);
     assert!(EMBEDDING.extract_units.is_none());
+}
+
+/// audio spec 形状与计量提取器（issue #167）。
+#[test]
+fn audio_spec_shape_and_extractors() {
+    for p in ["/v1/audio/speech", "/proxy/v1/audio/speech", "/v1/audio/speech/"] {
+        assert!(audio_spec(p).is_some(), "{p}");
+    }
+    for p in ["/v1/audio/speechx", "/v1/audio", "/v1/chat/completions", "/v1/audio/transcribe"] {
+        assert!(audio_spec(p).is_none(), "{p}");
+    }
+    assert_eq!(audio_spec("/v1/audio/speech").map(|s| s.label), Some("audio_speech"));
+    assert_eq!(audio_spec("/v1/audio/transcriptions").map(|s| s.label), Some("audio_transcriptions"));
+    assert_eq!(audio_spec("/v1/audio/translations").map(|s| s.label), Some("audio_translations"));
+    assert_eq!((AUDIO_SPEECH.extract_usage)(""), (0, 0));
+
+    let sf = AUDIO_SPEECH.extract_units.expect("speech has units");
+    assert_eq!(sf(&serde_json::json!({"input":"你好世界hello"}), ""), 9);
+    assert_eq!(sf(&serde_json::json!({"input":""}), ""), 0);
+    assert_eq!(sf(&Value::Null, ""), 0);
+
+    let af = AUDIO_TRANSCRIPTIONS.extract_units.expect("asr has units");
+    let req = Value::Null;
+    assert_eq!(af(&req, r#"{"text":"hi","duration":12.4}"#), 12);
+    assert_eq!(af(&req, r#"{"text":"hi"}"#), 0);
+    assert_eq!(af(&req, "not json"), 0);
 }
