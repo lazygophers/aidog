@@ -16,6 +16,9 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock("../services/api/clientUsage", () => ({ clientUsageApi: api }));
 
+const cctx = vi.hoisted(() => ({ contextModeSessions: vi.fn() }));
+vi.mock("../services/api/contextCompress", () => ({ contextCompressApi: cctx }));
+
 const ev = vi.hoisted(() => ({ handlers: new Map<string, () => void>() }));
 vi.mock("../services/transport", () => ({
   invoke: vi.fn(),
@@ -83,6 +86,7 @@ beforeEach(() => {
   setVisibility("visible");
   api.refresh.mockResolvedValue(IDLE);
   api.sessionStates.mockResolvedValue([]);
+  cctx.contextModeSessions.mockResolvedValue([]);
 });
 
 describe("Sessions 页（票 02）", () => {
@@ -118,6 +122,19 @@ describe("Sessions 页（票 02）", () => {
     expect(screen.getByTestId("sessions-count")).toHaveAttribute("data-count", "3");
     const priced = screen.getAllByTestId("sessions-row-cost").map((c) => c.getAttribute("data-priced"));
     expect(priced).toEqual(["all", "partial", "none"]);
+  });
+
+  it("context-mode 压缩比：有数据的行显示徽标，展开详情同样带比值", async () => {
+    cctx.contextModeSessions.mockResolvedValue([{ session_id: "c1", reduction_pct: 50.4, tokens_saved: 135051, total_calls: 77 }]);
+    api.sessionDetail.mockResolvedValue({ modelChain: [], points: [{ callTimeMs: 1, inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0 }], agents: [] });
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(SESSIONS);
+    render(<Sessions onNavigate={vi.fn()} />);
+    const rows = await screen.findAllByTestId("sessions-row");
+    expect(rows.find((r) => r.getAttribute("data-session") === "c1")!.querySelector('[data-testid="sessions-row-ctx"]')!.getAttribute("data-pct")).toBe("50.4");
+    expect(rows.find((r) => r.getAttribute("data-session") === "x1")!.querySelector('[data-testid="sessions-row-ctx"]')).toBeNull();
+    fireEvent.click(rows.find((r) => r.getAttribute("data-session") === "c1")!);
+    expect(await screen.findByTestId("session-detail-ctx")).toHaveAttribute("data-pct", "50.4");
   });
 
   it("搜索按标题与目录过滤", async () => {
