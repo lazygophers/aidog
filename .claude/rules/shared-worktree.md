@@ -21,6 +21,7 @@
   其余理由（「隔离更干净」「怕改坏」）不算；改坏用 `git diff` 按行号还原。
   第四种：GitHub issue 开发（2026-11-15 用户拍板，一 issue 一 worktree 一 PR，见文末「issue 开发：独立 worktree + PR」节）。
 - 用了 worktree 就写明是哪一种，验收标准全部满足后当场合回并删除；未满足时保留 worktree；下文各节是「用了 worktree 时」的卫生规则。
+- **主 checkout 带他线在途脏文件时，产出用户日常应用的构建（`make install` / release 包）从 detach worktree 构建**（2026-11-21 实锤）：`/usr/bin/git worktree add --detach .worktrees/build-<sha> <sha>` 里跑，否则他线半成品会编进用户日常应用；Makefile 硬编码 `src-tauri/target` 时在 worktree 内用 symlink 把该路径桥接到 worktree 自己的 target（`.worktrees/build-1c954cee9` + `CARGO_TARGET_DIR=.worktrees/.target` 跑通）。
 
 ## 减少磁盘残留（2026-11-04）
 
@@ -90,6 +91,7 @@ closer agent 用此法完成 `test_middleware_try.rs` 双任务 hunk 拆分与 `
    过滤脚本补结尾换行后三份 patch `--check` 全过）；
 4. `git apply --cached --check` → `git apply --cached` → `git diff --cached` 逐行核对
    暂存面 == 想提交的内容 → 不带 pathspec 的 `git commit`。
+5. 整文件 `git add` 后发现混入他人 hunk：`git restore --staged <文件>` 撤回全部再按本节流程重做，不留半截暂存面（2026-11-21 实锤：test_integration.rs 整文件 add 差点带入他线 4839 行，撤回后 patch 过滤 304 hunks 取 1 hunk 成功）。
 
 ## 文件所有权
 
@@ -191,6 +193,7 @@ perf-backend 收尾轮：PreToolUse hook 把 `git worktree add` 改写经 rtk �
   `df -h <target>`，余量 <10G 不开跑 + 编译期间挂磁盘看门狗」挡住写满盘（<3G 自动停自己的构建
   进程并回报，两度生效）。看门狗只停自己 pid 记录的进程，禁宽泛 pkill / 删共享缓存
   （perf-testing.md §1、本文件「减少磁盘残留」节）。
+- **`pgrep` 活性判据两坑**（2026-11-21 清理脚本实锤）：`pgrep -f` 按整条命令行匹配，PATH 环境串里含进程名（chrome-devtools-mcp 的 PATH 串误命中实锤）会把「无进程」误判成「有进程」——活性判据改 `pgrep -x <进程名>` 精确匹配进程名；`pgrep -x` 零匹配退出码 1，`set -e` 脚本里接 `|| true`，否则在预期分支上整链中断。
 - **磁盘吃紧先压产物体积再编**（同轮实锤）：看门狗拦下的是带调试信息的构建撑满盘——大盘重编
   （依赖升级全量重验）先用瘦身 profile（如 `CARGO_PROFILE_DEV_DEBUG=0`）验，产物小一个量级，
   绿了再按需重出完整产物；复用已有 target 缓存（本轮 18G）能大幅减少新增写入。
