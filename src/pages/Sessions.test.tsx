@@ -849,3 +849,48 @@ describe("换客户端继续（票 10）", () => {
     expect(writeText).toHaveBeenCalledWith("codex resume 'n1'");
   });
 });
+
+describe("遗留六项（票 13）", () => {
+  const PIN = [row("codex", "x-run", "演示执行", "/work/beta", 10_000), row("claude_code", "c-old", "演示旧", "/work/alpha", 5 * H)];
+  const bySid = (sid: string) => screen.getAllByTestId("sessions-row").find((r) => r.getAttribute("data-session") === sid)!;
+
+  it("置顶区行与目录组行同一列模板：目录组行留出走势图空位，token 列对齐", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(PIN);
+    api.sessionStates.mockResolvedValue([st("codex", "x-run", "running", "activity", NOW - 10_000)]);
+    api.sessionDetail.mockReturnValue(new Promise(() => {}));
+    render(<Sessions />);
+    await screen.findByTestId("sessions-pinned");
+    const tpl = (el: HTMLElement) => el.className.split(" ").find((c) => c.startsWith("grid-cols-"));
+    expect(tpl(bySid("c-old"))).toBe(tpl(bySid("x-run")));
+    expect(within(bySid("c-old")).getByTestId("sessions-row-spark-slot")).toBeInTheDocument();
+    expect(within(bySid("c-old")).queryByTestId("sessions-row-spark")).toBeNull();
+  });
+
+  it("RTL：会话行第二行每段各自隔离方向（bdi），数字不与相邻段混排", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(SESSIONS);
+    render(<Sessions />);
+    await waitFor(() => expect(screen.getAllByTestId("sessions-row")).toHaveLength(3));
+    const meta = within(bySid("c1")).getByTestId("sessions-row-meta");
+    const segs = [...meta.querySelectorAll("bdi")].map((b) => b.textContent);
+    expect(segs).toEqual(expect.arrayContaining(["sessions.calls", "sessions.duration"]));
+    expect(segs.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("RTL：回收站的标题与目录路径用 bdi 隔离，路径固定 ltr", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(SESSIONS.slice(0, 2));
+    api.hiddenSessions.mockResolvedValue([{ ...SESSIONS[2], hiddenAt: NOW - H }]);
+    render(<Sessions />);
+    await waitFor(() => expect(screen.getAllByTestId("sessions-row")).toHaveLength(2));
+    fireEvent.click(screen.getByTestId("sessions-trash"));
+    const dialog = await screen.findByTestId("sessions-trash-dialog");
+    const item = (await within(dialog).findAllByTestId("sessions-trash-row"))[0];
+    const path = within(item).getByTestId("sessions-trash-path");
+    expect(path.tagName).toBe("BDI");
+    expect(path).toHaveAttribute("dir", "ltr");
+    expect(path).toHaveTextContent("/work/beta");
+    expect(within(item).getByTestId("sessions-trash-title").tagName).toBe("BDI");
+  });
+});
