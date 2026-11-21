@@ -141,3 +141,99 @@ export function listen<T>(event: string, handler: EventCallback<T>): Promise<Unl
   if (isTauri()) return tauriListen<T>(event, handler);
   return httpListen<T>(event, handler);
 }
+
+// ─── 统一 WS 事件通道（2026-11-21 日志统计-会话列表 票） ─────────────────
+// 端点 = 代理端口管理面 `GET /api/ws`（闸门与 /api/rpc、/api/events 同层，aidog_rpc::ws）。
+// 协议：连上后发 {"subscribe":"<topic>"}，服务端按 topic 推 {"topic","data"}。
+// topic = aidog_ctx 事件名：桌面版 emit 同进 Tauri 事件总线（topic 即事件名，listen 直收）；
+// 浏览器版走本 WS 客户端（断线 3s 退避重连）。订阅方按 status 决定降级（"down" 不画流图）。
+
+/** 管理接口 WS 端点（代理端口 `/api/ws`）。 */
+const WS_PATH = "/api/ws";
+
+/** WS 连接状态：connecting = 握手中；open = 可用；down = 断开（重连中）。 */
+export type WsStatus = "connecting" | "open" | "down";
+
+/** WS 断线重连间隔（ms）。 */
+const WS_RECONNECT_MS = 3000;
+
+/**
+ * 订阅统一 WS 通道的一个 topic。桌面版 topic 即事件名（`aidog_ctx::emit` 同时进
+ * Tauri 事件总线），浏览器版连 `/api/ws` 断线自动重连。返回退订函数（同步）。
+ */
+export function subscribeTopic<T>(
+  topic: string,
+  onData: (payload: T) => void,
+  onStatus?: (s: WsStatus) => void,
+): () => void {
+  if (isTauri()) {
+    let unlisten: UnlistenFn | null = null;
+    let cancelled = false;
+    tauriListen<T>(topic, (e) => onData(e.payload))
+      .then((u) => {
+        if (cancelled) {
+          u();
+        } else {
+          unlisten = u;
+          onStatus?.("open");
+        }
+      })
+      .catch(() => onStatus?.("down"));
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }
+  let ws: WebSocket | null = null;
+  let closed = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const scheduleReconnect = () => {
+    if (closed) return;
+    timer = setTimeout(connect, WS_RECONNECT_MS);
+  };
+  const connect = () => {
+    if (closed) return;
+    onStatus?.("connecting");
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    let sock: WebSocket;
+    try {
+      sock = new WebSocket(`${proto}://${location.host}${WS_PATH}`);
+    } catch {
+      onStatus?.("down");
+      scheduleReconnect();
+      return;
+    }
+    ws = sock;
+    sock.onopen = () => {
+      onStatus?.("open");
+      sock.send(JSON.stringify({ subscribe: topic }));
+    };
+    sock.onmessage = (ev) => {
+      try {
+        const frame = JSON.parse(ev.data as string) as { topic: string; data: T };
+        if (frame.topic === topic) onData(frame.data);
+      } catch {
+        // 坏帧跳过（对齐 SSE 分支口径）
+      }
+    };
+    sock.onclose = () => {
+      if (closed) return;
+      onStatus?.("down");
+      scheduleReconnect();
+    };
+    sock.onerror = () => sock.close();
+  };
+  connect();
+  return () => {
+    closed = true;
+    if (timer !== null) clearTimeout(timer);
+    if (ws) {
+      // 摘掉 handler：close() 不拦已排队消息，退订后一律不再分发
+      ws.onopen = null;
+      ws.onmessage = null;
+      ws.onclose = null;
+      ws.onerror = null;
+      ws.close();
+    }
+  };
+}

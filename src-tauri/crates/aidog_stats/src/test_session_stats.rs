@@ -17,29 +17,30 @@ async fn insert_row(
     input_tokens: i32,
     est_cost: f64,
 ) {
-    insert_row_full(db, id, session_key, request_body, created_at, input_tokens, est_cost, "gk_test", "", "").await;
+    insert_row_full(db, RowSpec { id, session_key, request_body, created_at, input_tokens, est_cost, group_key: "gk_test", client: "", session_id: "" }).await;
 }
 
 /// 扩维版：显式指定 group_key / client / session_id（末条请求维度取值断言用）。
-async fn insert_row_full(
-    db: &aidog_db::Db,
-    id: &str,
-    session_key: &str,
-    request_body: &str,
+struct RowSpec<'a> {
+    id: &'a str,
+    session_key: &'a str,
+    request_body: &'a str,
     created_at: i64,
     input_tokens: i32,
     est_cost: f64,
-    group_key: &str,
-    client: &str,
-    session_id: &str,
-) {
-    let mut log = aidog_db::test_support::sample_log(id, group_key, created_at);
-    log.session_key = session_key.to_string();
-    log.request_body = request_body.to_string();
-    log.input_tokens = input_tokens;
-    log.est_cost = est_cost;
-    log.client = client.to_string();
-    log.session_id = session_id.to_string();
+    group_key: &'a str,
+    client: &'a str,
+    session_id: &'a str,
+}
+
+async fn insert_row_full(db: &aidog_db::Db, r: RowSpec<'_>) {
+    let mut log = aidog_db::test_support::sample_log(r.id, r.group_key, r.created_at);
+    log.session_key = r.session_key.to_string();
+    log.request_body = r.request_body.to_string();
+    log.input_tokens = r.input_tokens;
+    log.est_cost = r.est_cost;
+    log.client = r.client.to_string();
+    log.session_id = r.session_id.to_string();
     insert_proxy_log_columns(db, ProxyLogColumns::from_log(&log, false, false))
         .await
         .unwrap();
@@ -99,10 +100,10 @@ async fn aggregates_latest_row_group_client_session_id() {
     let (db, _dir) = three_file_db().await;
     let now = aidog_db::now();
     // sess-multi：两条请求跨分组，末条（now-50）为准
-    insert_row_full(&db, "m1", "sess-multi", "", now - 100, 1, 0.0, "gk_old", "claude_code", "sid-1").await;
-    insert_row_full(&db, "m2", "sess-multi", "", now - 50, 1, 0.0, "gk_new", "codex_tui", "sid-2").await;
+    insert_row_full(&db, RowSpec { id: "m1", session_key: "sess-multi", request_body: "", created_at: now - 100, input_tokens: 1, est_cost: 0.0, group_key: "gk_old", client: "claude_code", session_id: "sid-1" }).await;
+    insert_row_full(&db, RowSpec { id: "m2", session_key: "sess-multi", request_body: "", created_at: now - 50, input_tokens: 1, est_cost: 0.0, group_key: "gk_new", client: "codex_tui", session_id: "sid-2" }).await;
     // sess-plain：单条，无 client / session_id
-    insert_row_full(&db, "p1", "sess-plain", "", now - 10, 1, 0.0, "gk_p", "", "").await;
+    insert_row_full(&db, RowSpec { id: "p1", session_key: "sess-plain", request_body: "", created_at: now - 10, input_tokens: 1, est_cost: 0.0, group_key: "gk_p", client: "", session_id: "" }).await;
 
     let stats = get_session_stats(&db, None).await.unwrap();
     let m = stats.iter().find(|s| s.session_key == "sess-multi").expect("sess-multi");
