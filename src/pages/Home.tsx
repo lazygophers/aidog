@@ -249,8 +249,6 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
     const windowStart = now.getTime() - 24 * 3600 * 1000;
     const todayStart = todayStartMs(now);
     await Promise.all([
-      proxyApi.status().then(setRunning).catch(() => setRunning(null)),
-      proxyApi.getSettings().then(s => setPort(s.port)).catch(() => {}),
       trayConfigApi.todayStats().then(setToday).catch(() => setToday(null)),
       platformApi.list().then(setPlatforms).catch(() => setPlatforms([])),
       statsApi.query({ start: windowStart, end: now.getTime(), granularity: "hourly" })
@@ -293,9 +291,15 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
     [],
   );
 
+  // 代理状态与端口不随请求变化：只在挂载时拉一次，不跟 proxy-log-updated 重拉。
+  useEffect(() => {
+    proxyApi.status().then(setRunning).catch(() => setRunning(null));
+    proxyApi.getSettings().then(s => setPort(s.port)).catch(() => {});
+  }, []);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { loadFlow(); }, [loadFlow]);
-  // 请求完成后后端 emit "proxy-log-updated" → 重载今日 / 平台用量 / 趋势 / 请求流量。
+  // 请求完成后后端 emit "proxy-log-updated" → 重载今日 / 平台余额与用量 / 趋势 / 请求流量
+  // （余额校准也复用此事件，见 estimate/db_ops.rs，故平台列表保留在 load 里）。
   useEffect(() => onProxyLogUpdated(() => { load(); loadFlow(); }), [load, loadFlow]);
 
   const proxyBaseUrl = `http://127.0.0.1:${port}/proxy`;
