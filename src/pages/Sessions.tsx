@@ -99,6 +99,21 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
     }
   };
 
+  // 继续会话（票 07）：macOS 后端直接开终端；其它平台返回命令，复制给用户。
+  const [notice, setNotice] = useState<{ kind: "error" | "copied"; text: string } | null>(null);
+  const resume = async (r: ClientUsageSessionRow) => {
+    setNotice(null);
+    try {
+      const res = await clientUsageApi.sessionResume(r.clientCode, r.sessionId, r.workdir);
+      if (!res.launched) {
+        await navigator.clipboard?.writeText(res.command);
+        setNotice({ kind: "copied", text: res.command });
+      }
+    } catch (e) {
+      setNotice({ kind: "error", text: String(e) });
+    }
+  };
+
   const enabledRows = useMemo(
     () => rows.filter((r) => enabled[r.clientCode]).sort((a, b) => b.lastCallMs - a.lastCallMs),
     [rows, enabled],
@@ -206,7 +221,20 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
             <p className="border-t py-10 text-muted-foreground" data-testid="sessions-no-match">{t("sessions.noMatch", "没有匹配的会话")}</p>
           ) : (
             <>
-              <SessionGroups rows={shown} stateOf={stateOf} />
+              {notice && (
+                <div
+                  role={notice.kind === "error" ? "alert" : "status"}
+                  className={`text-sm break-all ${notice.kind === "error" ? "text-destructive" : "text-muted-foreground"}`}
+                  data-testid="sessions-resume-notice"
+                  data-kind={notice.kind}
+                  data-detail={notice.text}
+                >
+                  {notice.kind === "error"
+                    ? t("sessions.resumeFailed", "继续会话失败：{{error}}", { error: notice.text })
+                    : t("sessions.resumeCopied", "当前系统无法直接打开终端，继续命令已复制：{{command}}", { command: notice.text })}
+                </div>
+              )}
+              <SessionGroups rows={shown} stateOf={stateOf} onResume={(r) => void resume(r)} />
               <p className="text-sm text-muted-foreground">{t("sessions.footHint", "点客户端格可筛选。成本带 + 表示部分调用未定价。")}</p>
             </>
           )}

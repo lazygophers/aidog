@@ -1,5 +1,5 @@
 // 会话列表（设计稿方向 3）：按工作目录分组，左列 sticky 项目信息，右列会话行。
-// 操作列先占位：继续 / 打开目录 / 隐藏等由票 07–10 接入，未实现前不画按钮。
+// 操作列：继续（票 07）；打开目录 / 隐藏等由票 08–10 接入。
 import { Fragment, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown } from "lucide-react";
@@ -8,6 +8,7 @@ import { formatNumber, formatRelativeTime } from "../../utils/formatters";
 import { ClientGlyph, clientName } from "./ClientGlyph";
 import { SessionCost } from "./SessionCost";
 import { SessionDetail } from "./SessionDetail";
+import { Button } from "../ui/button";
 
 const ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_210px_96px_96px_70px] items-center gap-3";
 
@@ -22,7 +23,11 @@ const STATE_DOT: Record<SessionRunState, string> = {
   stopped: "bg-muted-foreground/50",
 };
 
-export function SessionGroups({ rows, stateOf }: { rows: ClientUsageSessionRow[]; stateOf: (r: ClientUsageSessionRow) => SessionRunState }) {
+export function SessionGroups({ rows, stateOf, onResume }: {
+  rows: ClientUsageSessionRow[];
+  stateOf: (r: ClientUsageSessionRow) => SessionRunState;
+  onResume: (r: ClientUsageSessionRow) => void;
+}) {
   const { t } = useTranslation();
   const stateLabel: Record<SessionRunState, string> = {
     running: t("sessions.stateRunning", "执行中"),
@@ -114,7 +119,20 @@ export function SessionGroups({ rows, stateOf }: { rows: ClientUsageSessionRow[]
                     {formatRelativeTime(r.lastCallMs)}
                     <ChevronDown aria-hidden className={`size-4 shrink-0 transition-transform motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`} />
                   </div>
-                  <div className="text-end" data-testid="sessions-row-actions" />
+                  <div className="text-end" data-testid="sessions-row-actions">
+                    {/* Gemini 会话按项目目录隔离，无目录无法继续（票 07）；按钮阻冒泡，不展开行 */}
+                    {!(r.clientCode === "gemini_cli" && !r.workdir) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        data-testid="sessions-resume"
+                        onClick={(e) => { e.stopPropagation(); onResume(r); }}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
+                        {t("sessions.resume", "继续")}
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 {isOpen && <SessionDetail clientCode={r.clientCode} sessionId={r.sessionId} />}
                 </Fragment>

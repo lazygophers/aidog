@@ -384,6 +384,38 @@ pub fn enumerate(root: &Path) -> Vec<PathBuf> {
     enumerate_json_messages(root)
 }
 
+/// 会话是否存在（票 07：`opencode -s <id>` 在 id 不存在时会静默新建会话，继续前先确认）。
+/// root 同 [`enumerate`]：db 文件或其父目录；db 形态按代查 `session_v2` / `session`，
+/// JSON store 查会话信息文件；只读，打不开 / 查不到一律 false。
+pub fn session_exists(root: &Path, session_id: &str) -> bool {
+    let db = if root.is_file() { root.to_path_buf() } else { root.join("opencode.db") };
+    if db.is_file() {
+        return db_session_exists(&db, session_id).unwrap_or(false);
+    }
+    enumerate_session_infos(root).iter().any(|p| {
+        std::fs::read(p)
+            .ok()
+            .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+            .is_some_and(|v| session_info(&v).0 == session_id)
+    })
+}
+
+fn db_session_exists(path: &Path, session_id: &str) -> rusqlite::Result<bool> {
+    use rusqlite::OpenFlags;
+    let conn = rusqlite::Connection::open_with_flags(
+        path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )?;
+    let has_v2: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='session_v2'",
+        [],
+        |r| r.get(0),
+    )?;
+    let tbl = if has_v2 > 0 { "session_v2" } else { "session" };
+    let n: i64 = conn.query_row(&format!("SELECT COUNT(*) FROM {tbl} WHERE id = ?1"), [session_id], |r| r.get(0))?;
+    Ok(n > 0)
+}
+
 /// 按形态分派扫描（spawn_blocking 内调用的同步面）。
 pub fn scan(path: &Path, root: &Path) -> Result<ScanOutOc, String> {
     if path.extension().and_then(|x| x.to_str()) == Some("db") {
