@@ -138,10 +138,10 @@ interface EngineIO {
   reserve: (w: number) => { w: number; h: number };
 }
 
-function startEngine(cv: HTMLCanvasElement, S: Scene, io: EngineIO): () => void {
+function startEngine(cv: HTMLCanvasElement, S: Scene, io: EngineIO): { stop: () => void; wake: () => void } {
   let ctx: CanvasRenderingContext2D | null = null;
   try { ctx = cv.getContext("2d"); } catch { ctx = null; }
-  if (!ctx) return () => {};
+  if (!ctx) return { stop: () => {}, wake: () => {} };
   const g = ctx;
   const REDUCED = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
   const cam = io.cam, L = S.L, total = S.total || 1;
@@ -177,6 +177,7 @@ function startEngine(cv: HTMLCanvasElement, S: Scene, io: EngineIO): () => void 
     F = 1; frame(true);
     for (let k = 0; k < 40 && !S.corners.every(c => { const p = proj(...c); return p.sx > rw || p.sy < lim; }); k++) { F *= 0.97; frame(false); }
     Object.assign(cam, keep);
+    wake();
   };
 
   const drawChunk = (p: P3, pts: Pt[], a: number, b: number, C: Colors, hl: Set<P3> | null) => {
@@ -252,8 +253,14 @@ function startEngine(cv: HTMLCanvasElement, S: Scene, io: EngineIO): () => void 
     });
   };
 
+  // 入场结束、无高亮、无拖拽、最近 600ms 无交互 → 停帧循环（静止画面保留最后一帧），交互 / 外部 wake 再续。
+  let busyUntil = t0 + 1500;
+  const wake = () => {
+    busyUntil = Math.max(busyUntil, performance.now() + 600);
+    if (!raf) { last = performance.now(); raf = requestAnimationFrame(render); }
+  };
   const render = (now: number) => {
-    raf = requestAnimationFrame(render);
+    raf = now < busyUntil || drag || io.hl() ? requestAnimationFrame(render) : 0;
     if (!W || !H) return;
     const el = REDUCED ? 1e9 : now - t0, C = io.colors(), hl = io.hl(), hv = io.hoverNode();
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
@@ -336,8 +343,9 @@ function startEngine(cv: HTMLCanvasElement, S: Scene, io: EngineIO): () => void 
     return bp ? { kind: "path", p: (bp as { p: P3 }).p } : null;
   };
 
-  const onDown = (e: PointerEvent) => { drag = { x: e.clientX, y: e.clientY }; cv.setPointerCapture?.(e.pointerId); };
+  const onDown = (e: PointerEvent) => { wake(); drag = { x: e.clientX, y: e.clientY }; cv.setPointerCapture?.(e.pointerId); };
   const onMove = (e: PointerEvent) => {
+    wake();
     const r = cv.getBoundingClientRect();
     if (drag) {
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
@@ -351,9 +359,9 @@ function startEngine(cv: HTMLCanvasElement, S: Scene, io: EngineIO): () => void 
     }
     io.onHover(pick(e.clientX - r.left, e.clientY - r.top));
   };
-  const onUp = () => { drag = null; cv.style.cursor = "grab"; };
-  const onLeave = () => { if (!drag) io.onHover(null); };
-  const onWheel = (e: WheelEvent) => { e.preventDefault(); cam.dist = clamp(cam.dist * Math.exp(e.deltaY * 0.001), 1300, 4600); };
+  const onUp = () => { wake(); drag = null; cv.style.cursor = "grab"; };
+  const onLeave = () => { wake(); if (!drag) io.onHover(null); };
+  const onWheel = (e: WheelEvent) => { e.preventDefault(); wake(); cam.dist = clamp(cam.dist * Math.exp(e.deltaY * 0.001), 1300, 4600); };
   cv.addEventListener("pointerdown", onDown);
   cv.addEventListener("pointermove", onMove);
   cv.addEventListener("pointerup", onUp);
@@ -362,8 +370,8 @@ function startEngine(cv: HTMLCanvasElement, S: Scene, io: EngineIO): () => void 
   const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(resize) : null;
   if (ro) ro.observe(cv); else window.addEventListener("resize", resize);
   resize();
-  raf = requestAnimationFrame(render);
-  return () => {
+  wake();
+  const stop = () => {
     cancelAnimationFrame(raf);
     ro?.disconnect(); window.removeEventListener("resize", resize);
     cv.removeEventListener("pointerdown", onDown);
@@ -372,6 +380,7 @@ function startEngine(cv: HTMLCanvasElement, S: Scene, io: EngineIO): () => void 
     cv.removeEventListener("pointerleave", onLeave);
     cv.removeEventListener("wheel", onWheel);
   };
+  return { stop, wake };
 }
 
 // ---------- React 外壳：画布 + 左下信息面板 + 右侧链路排行图例 ----------
@@ -387,6 +396,7 @@ export function Flow3DChart({ columns, rows, metric, surface }: FlowChartProps) 
   const camRef = useRef({ ...VIEW0 });
   const focusRef = useRef<Focus | null>(null);
   const hlRef = useRef<Set<P3> | null>(null);
+  const wakeRef = useRef<() => void>(() => {});
   const [focus, setFocus] = useState<Focus | null>(null);
 
   const fmtV = useCallback((v: number) => (metric === "cost" ? formatMoney(v) : formatNumber(Math.round(v))), [metric]);
@@ -398,6 +408,7 @@ export function Flow3DChart({ columns, rows, metric, surface }: FlowChartProps) 
     if (f === focusRef.current || sameFocus(f, focusRef.current)) return;
     focusRef.current = f;
     hlRef.current = f ? new Set(f.kind === "node" ? f.n.paths : f.kind === "path" ? [f.p] : scene.rest) : null;
+    wakeRef.current();
     setFocus(f);
   }, [scene]);
 
@@ -405,7 +416,7 @@ export function Flow3DChart({ columns, rows, metric, surface }: FlowChartProps) 
     const cv = cvRef.current, host = wrapRef.current;
     if (!cv || !host) return;
     let colors = readColors(host, surface), readAt = performance.now();
-    const stop = startEngine(cv, scene, {
+    const eng = startEngine(cv, scene, {
       cam: camRef.current,
       colors: () => {
         if (performance.now() - readAt > 500) { colors = readColors(host, surface); readAt = performance.now(); }
@@ -418,8 +429,11 @@ export function Flow3DChart({ columns, rows, metric, surface }: FlowChartProps) 
       fmtV,
       reserve: w => ({ w: Math.min(420, w * 0.5), h: 150 }),
     });
-    return () => { stop(); focusRef.current = null; hlRef.current = null; setFocus(null); };
+    wakeRef.current = eng.wake;
+    return () => { eng.stop(); wakeRef.current = () => {}; focusRef.current = null; hlRef.current = null; setFocus(null); };
   }, [scene, columns, fmtV, applyFocus, surface]);
+  // 帧循环空闲时停着：主题切换后唤醒一次，让画布按新配色重绘。
+  useEffect(() => { wakeRef.current(); }, [dark]);
 
   const L = scene.L, mid = L > 3 ? 2 : -1, total = scene.total || 1;
   const pal = (p: P3) => colorOf(p, dark);

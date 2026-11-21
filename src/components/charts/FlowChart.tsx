@@ -49,12 +49,13 @@ const ribbon = (x1: number, x2: number, ya: number, yb: number, w: number) => {
   const m = (x1 + x2) / 2, h = w / 2;
   return `M ${x1} ${ya - h} C ${m} ${ya - h}, ${m} ${yb - h}, ${x2} ${yb - h} L ${x2} ${yb + h} C ${m} ${yb + h}, ${m} ${ya + h}, ${x1} ${ya + h} Z`;
 };
-// 流光：沿中线移动的淡色亮段，周期与流量无关；hover 链路加快加亮；reduced-motion 周期拉长、更淡、hover 不加速。
+// 流光：沿中线的淡色亮段，静止态停在各自相位；只有 hover 高亮的链路才流动（加快加亮），
+// 常驻无限动画会让 SVG 每帧重绘（首页 CPU）。reduced-motion 完全不动、更淡。
 const CSS = `@keyframes fc-flow{from{stroke-dashoffset:0}to{stroke-dashoffset:-100}}
-.fc-shine{stroke-opacity:.14;animation:fc-flow 4.5s linear infinite;transition:stroke-opacity .18s}
-.fc-shine.fc-hot{stroke-opacity:.5;animation-duration:1.6s}
+.fc-shine{stroke-opacity:.14;animation:fc-flow 4.5s linear infinite paused;transition:stroke-opacity .18s}
+.fc-shine.fc-hot{stroke-opacity:.5;animation-duration:1.6s;animation-play-state:running}
 @keyframes fc-fade{from{opacity:0}to{opacity:1}}
-@media (prefers-reduced-motion: reduce){.fc-shine,.fc-shine.fc-hot{stroke-opacity:.07;animation-duration:9s}.fc-in{animation:fc-fade .25s ease-out backwards}}`;
+@media (prefers-reduced-motion: reduce){.fc-shine,.fc-shine.fc-hot{stroke-opacity:.07;animation:none}.fc-in{animation:fc-fade .25s ease-out backwards}}`;
 
 const fmtValue = (metric: FlowMetric, v: number) => (metric === "cost" ? formatMoney(v) : formatNumber(Math.round(v)));
 
