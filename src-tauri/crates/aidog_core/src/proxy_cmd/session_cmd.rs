@@ -124,6 +124,38 @@ fn aidog_dir() -> Result<std::path::PathBuf, String> {
     Ok(dirs::home_dir().ok_or("cannot resolve home directory")?.join(".aidog"))
 }
 
+/// osascript 参数（票 12）：`activate` 把 Terminal 切到前台——只 `do script` 时新窗口落在 AiDog 后面，
+/// 用户看到「点了没反应」。
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub(crate) fn osascript_args(line: &str) -> Vec<String> {
+    let script = format!("do script \"{}\"", apple_script_escape(line));
+    ["tell application \"Terminal\"", "activate", &script, "end tell"]
+        .iter()
+        .flat_map(|s| ["-e".to_string(), s.to_string()])
+        .collect()
+}
+
+/// osascript 结束后的结果判定：非 0 退出（含拒绝自动化授权 -1743）→ Err 带 stderr 原文。
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub(crate) fn osascript_result(success: bool, stderr: &[u8]) -> Result<(), String> {
+    if success {
+        return Ok(());
+    }
+    let msg = String::from_utf8_lossy(stderr).trim().to_string();
+    Err(if msg.is_empty() { "osascript failed".to_string() } else { msg })
+}
+
+/// 等 osascript 结束（不留僵尸进程）并按退出码判定。授权弹窗会让它阻塞到用户点选，
+/// 故在 async 命令里经 `block_in_place` 调用。
+#[cfg(target_os = "macos")]
+fn run_osascript(line: &str) -> Result<(), String> {
+    let out = std::process::Command::new("osascript")
+        .args(osascript_args(line))
+        .output()
+        .map_err(|e| format!("open Terminal: {e}"))?;
+    osascript_result(out.status.success(), &out.stderr)
+}
+
 /// 生产执行器：macOS 开 Terminal.app 执行整行命令；其它平台不执行（返回 false 供前端复制）。
 fn open_terminal(line: &str) -> Result<bool, String> {
     #[cfg(not(target_os = "macos"))]
@@ -133,11 +165,7 @@ fn open_terminal(line: &str) -> Result<bool, String> {
     }
     #[cfg(target_os = "macos")]
     {
-        let script = format!("tell application \"Terminal\" to do script \"{}\"", apple_script_escape(line));
-        std::process::Command::new("osascript")
-            .args(["-e", &script])
-            .spawn()
-            .map_err(|e| format!("open Terminal: {e}"))?;
+        tokio::task::block_in_place(|| run_osascript(line))?;
         Ok(true)
     }
 }
@@ -158,7 +186,7 @@ pub async fn session_resume(
 crate::tauri_command! {
 /// 会话一键继续：macOS 用 osascript 开 Terminal.app 执行 resume 命令
 /// （沿用会话原分组 setting）。非 macOS 返回 Err。无测试：真跑会弹终端窗。
-pub fn session_open_terminal(
+pub async fn session_open_terminal(
     session_id: String,
     group_key: String) -> Result<(), String> {
     #[cfg(not(target_os = "macos"))]
@@ -171,16 +199,8 @@ pub fn session_open_terminal(
         if session_id.is_empty() {
             return Err("session_id is empty".to_string());
         }
-        let shell_line = build_resume_command(&session_id, &group_key, &aidog_dir()?);
-        let script = format!(
-            "tell application \"Terminal\" to do script \"{}\"",
-            apple_script_escape(&shell_line)
-        );
-        std::process::Command::new("osascript")
-            .args(["-e", &script])
-            .spawn()
-            .map_err(|e| format!("open Terminal: {e}"))?;
-        Ok(())
+        let line = build_resume_command(&session_id, &group_key, &aidog_dir()?);
+        tokio::task::block_in_place(|| run_osascript(&line))
     }
 }
 }
@@ -278,6 +298,23 @@ mod test_session_cmd {
         assert!(build_session_resume_line("claude_code", "ok", "g\nx", "/w", ad()).is_err());
     }
 
+    /// 票 12：osascript 先 activate 再 do script，Terminal 切到前台；命令行经 AppleScript 转义。
+    #[test]
+    fn osascript_args_activate_terminal() {
+        let args = osascript_args("echo \"hi\"");
+        let script: Vec<&str> = args.chunks(2).map(|p| { assert_eq!(p[0], "-e"); p[1].as_str() }).collect();
+        assert_eq!(script, vec!["tell application \"Terminal\"", "activate", "do script \"echo \\\"hi\\\"\"", "end tell"]);
+    }
+
+    /// 票 12：非 0 退出码 → Err 带 stderr 原文（拒绝自动化授权不再被吞）；0 退出 → Ok。
+    #[test]
+    fn osascript_nonzero_exit_is_err() {
+        let e = osascript_result(false, b"execution error: Not authorized to send Apple events to Terminal. (-1743)\n").unwrap_err();
+        assert!(e.contains("-1743"), "{e}");
+        assert!(osascript_result(false, b"").is_err());
+        assert_eq!(osascript_result(true, b""), Ok(()));
+    }
+
     /// Gemini 无目录 / 未知客户端 → Err。
     #[test]
     fn session_resume_line_errors() {
@@ -333,5 +370,8 @@ mod test_session_cmd {
         // 执行器报不能开终端 → launched=false，命令照样返回供复制。
         let r = session_resume_with(&db, "codex", "nogw", "", None, ad(), &|_| Ok(false)).await.unwrap();
         assert_eq!(r, SessionResumeResult { launched: false, command: "codex resume 'nogw'".into() });
+        // 执行器失败（osascript 非 0 退出）→ Err 透传给前端，不再报 launched。
+        let e = session_resume_with(&db, "codex", "nogw", "", None, ad(), &|_| Err("osascript: -1743".into())).await;
+        assert_eq!(e, Err("osascript: -1743".to_string()));
     }
 }
