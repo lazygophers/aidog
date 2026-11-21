@@ -187,6 +187,15 @@ pub struct SessionStats {
     /// 窗口内末条请求 created_at（毫秒 epoch）
     #[ts(type = "number")]
     pub last_created_at: i64,
+    /// 会话末条请求所属分组（同会话跨分组取最新一条的值）；空串 = 无
+    #[serde(default)]
+    pub group_key: String,
+    /// 会话末条请求的客户端标识（`client` 列）；空串 = 无
+    #[serde(default)]
+    pub client: String,
+    /// 会话末条请求的 `x-claude-code-session-id` 原值（`claude --resume` 用）；空串 = 无
+    #[serde(default)]
+    pub session_id: String,
 }
 
 /// 会话标题截断长度（magpie 票 08 / spec D4）

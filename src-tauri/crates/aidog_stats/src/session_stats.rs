@@ -61,12 +61,56 @@ pub fn get_session_stats(
                     est_cost,
                     first_created_at,
                     last_created_at,
+                    // 桩：末条请求维度的 group_key / client / session_id 暂不填（先红）
+                    group_key: String::new(),
+                    client: String::new(),
+                    session_id: String::new(),
                 });
             }
             drop(rows);
             drop(stmt);
-            // ② 标题：每会话首条 request_body != '' 的请求，取前 60 字符
-            let keys: Vec<&str> = stats.iter().map(|s| s.session_key.as_str()).collect();
+            // ② 末条请求维度（group_key / client / session_id）：created_at ASC 遍历覆盖，
+            //    遍历结束每会话最后一条即末条（同会话跨分组取最新）
+            let keys: Vec<String> = stats.iter().map(|s| s.session_key.clone()).collect();
+            {
+                let placeholders: Vec<String> =
+                    (0..keys.len()).map(|i| format!("?{}", i + 1)).collect();
+                let sql = format!(
+                    "SELECT session_key, group_key, client, session_id FROM proxy_log \
+                     WHERE deleted_at = 0 AND session_key IN ({}) AND created_at >= ?{} \
+                     ORDER BY created_at ASC",
+                    placeholders.join(","),
+                    keys.len() + 1
+                );
+                let mut stmt = conn.prepare_cached(&sql)?;
+                let mut params: Vec<rusqlite::types::Value> = Vec::with_capacity(keys.len() + 1);
+                for k in &keys {
+                    params.push(rusqlite::types::Value::Text(k.clone()));
+                }
+                params.push(rusqlite::types::Value::Integer(cutoff));
+                let mut rows = stmt.query(rusqlite::params_from_iter(params.iter()))?;
+                use std::collections::HashMap;
+                let mut latest: HashMap<String, (String, String, String)> = HashMap::new();
+                while let Some(row) = rows.next()? {
+                    let key: String = row.get(0)?;
+                    latest.insert(
+                        key,
+                        (
+                            row.get::<_, String>(1)?,
+                            row.get::<_, String>(2)?,
+                            row.get::<_, String>(3)?,
+                        ),
+                    );
+                }
+                for s in stats.iter_mut() {
+                    if let Some((gk, cl, sid)) = latest.get(&s.session_key) {
+                        s.group_key = gk.clone();
+                        s.client = cl.clone();
+                        s.session_id = sid.clone();
+                    }
+                }
+            }
+            // ③ 标题：每会话首条 request_body != '' 的请求，取前 60 字符
             if !keys.is_empty() {
                 let placeholders: Vec<String> =
                     (0..keys.len()).map(|i| format!("?{}", i + 1)).collect();

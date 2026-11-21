@@ -17,11 +17,29 @@ async fn insert_row(
     input_tokens: i32,
     est_cost: f64,
 ) {
-    let mut log = aidog_db::test_support::sample_log(id, "gk_test", created_at);
+    insert_row_full(db, id, session_key, request_body, created_at, input_tokens, est_cost, "gk_test", "", "").await;
+}
+
+/// 扩维版：显式指定 group_key / client / session_id（末条请求维度取值断言用）。
+async fn insert_row_full(
+    db: &aidog_db::Db,
+    id: &str,
+    session_key: &str,
+    request_body: &str,
+    created_at: i64,
+    input_tokens: i32,
+    est_cost: f64,
+    group_key: &str,
+    client: &str,
+    session_id: &str,
+) {
+    let mut log = aidog_db::test_support::sample_log(id, group_key, created_at);
     log.session_key = session_key.to_string();
     log.request_body = request_body.to_string();
     log.input_tokens = input_tokens;
     log.est_cost = est_cost;
+    log.client = client.to_string();
+    log.session_id = session_id.to_string();
     insert_proxy_log_columns(db, ProxyLogColumns::from_log(&log, false, false))
         .await
         .unwrap();
@@ -73,6 +91,29 @@ async fn days_window_filters_old_rows() {
 
     let all = get_session_stats(&db, Some(30)).await.unwrap();
     assert_eq!(all[0].requests, 2, "30 天窗口两条都计入");
+}
+
+/// 会话聚合行扩维（2026-11-21）：group_key / client / session_id 取窗口内末条请求的值。
+#[tokio::test]
+async fn aggregates_latest_row_group_client_session_id() {
+    let (db, _dir) = three_file_db().await;
+    let now = aidog_db::now();
+    // sess-multi：两条请求跨分组，末条（now-50）为准
+    insert_row_full(&db, "m1", "sess-multi", "", now - 100, 1, 0.0, "gk_old", "claude_code", "sid-1").await;
+    insert_row_full(&db, "m2", "sess-multi", "", now - 50, 1, 0.0, "gk_new", "codex_tui", "sid-2").await;
+    // sess-plain：单条，无 client / session_id
+    insert_row_full(&db, "p1", "sess-plain", "", now - 10, 1, 0.0, "gk_p", "", "").await;
+
+    let stats = get_session_stats(&db, None).await.unwrap();
+    let m = stats.iter().find(|s| s.session_key == "sess-multi").expect("sess-multi");
+    assert_eq!(m.group_key, "gk_new", "同会话跨分组取末条请求的 group_key");
+    assert_eq!(m.client, "codex_tui");
+    assert_eq!(m.session_id, "sid-2");
+
+    let p = stats.iter().find(|s| s.session_key == "sess-plain").expect("sess-plain");
+    assert_eq!(p.group_key, "gk_p");
+    assert_eq!(p.client, "", "无 client 列值为空串");
+    assert_eq!(p.session_id, "");
 }
 
 #[tokio::test]

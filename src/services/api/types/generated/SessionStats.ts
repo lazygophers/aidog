@@ -29,4 +29,16 @@ first_created_at: number,
 /**
  * 窗口内末条请求 created_at（毫秒 epoch）
  */
-last_created_at: number, };
+last_created_at: number, 
+/**
+ * 会话末条请求所属分组（同会话跨分组取最新一条的值）；空串 = 无
+ */
+group_key: string, 
+/**
+ * 会话末条请求的客户端标识（`client` 列）；空串 = 无
+ */
+client: string, 
+/**
+ * 会话末条请求的 `x-claude-code-session-id` 原值（`claude --resume` 用）；空串 = 无
+ */
+session_id: string, };
