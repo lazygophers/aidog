@@ -317,7 +317,11 @@ impl StreamAggregator {
         // 时解析必无所获，跳过 serde——长流的绝大多数是 content 增量行。
         // 保守性：子串不带引号，"usage"/"model" 出现在字符串**值**里只会多解析不会漏解析；
         // contains 在跨 chunk 行重组完成后对完整行做，usage 键被网络 chunk 切开也不受影响。
-        let want_model = self.served_model.lock().map(|s| s.is_none()).unwrap_or(false);
+        let want_model = self
+            .served_model
+            .lock()
+            .map(|s| s.is_none())
+            .unwrap_or(false);
         for line in buf.lines() {
             let line = line.trim();
             if let Some(data) = line.strip_prefix("data: ") {
@@ -387,7 +391,11 @@ impl StreamAggregator {
         pa: &'static dyn aidog_adapter::platform::PlatformAdapter,
         wire_protocol: &aidog_db::models::Protocol,
     ) -> Vec<adapter::ChatStreamEvent> {
-        let want_model = self.served_model.lock().map(|s| s.is_none()).unwrap_or(false);
+        let want_model = self
+            .served_model
+            .lock()
+            .map(|s| s.is_none())
+            .unwrap_or(false);
         let mut events = Vec::new();
         for line in text.lines() {
             let Some(data) = line.strip_prefix("data: ") else {
@@ -604,10 +612,11 @@ impl StreamLogGuard {
                 output_tokens,
                 cache_tokens,
                 cache_write_tokens,
+                cache_write_1h_tokens,
                 est.coding_plan,
                 final_log.created_at,
                 super::log::chat_tool_cost_usd(&est.platform_type, &final_log.tool_call_counts),
-                0, // chat 路径无按次计量次数
+                0,    // chat 路径无按次计量次数
                 true, // 额度窗口执行范围：聊天计入
                 self.req_span.clone(),
             );

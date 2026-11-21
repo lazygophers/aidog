@@ -23,7 +23,12 @@ pub(crate) async fn handle_tools(
     path: &str,
     ctx: super::call_scope::ReqCtx<'_>,
 ) -> Response {
-    let super::call_scope::ReqCtx { log_settings, start, lang, client } = ctx;
+    let super::call_scope::ReqCtx {
+        log_settings,
+        start,
+        lang,
+        client,
+    } = ctx;
     log.source_protocol = "tools".to_string();
     log.target_protocol = "tools".to_string();
     log.is_stream = false;
@@ -63,7 +68,13 @@ pub(crate) async fn handle_tools(
     let candidates = candidate_set.candidates;
 
     // ── 尝试编排：与聊天共用 AttemptLoop（逐次重排 + 按类排除 + 最大尝试次数）──
-    let mut attempt_loop = super::attempt_plan::AttemptLoop::new(group.max_retries, RequestKind::Tools(path), "", client, candidates);
+    let mut attempt_loop = super::attempt_plan::AttemptLoop::new(
+        group.max_retries,
+        RequestKind::Tools(path),
+        "",
+        client,
+        candidates,
+    );
     let mut attempts: Vec<ProxyAttempt> = Vec::new();
 
     let (system_timeout, proxy_client) = {
@@ -81,7 +92,10 @@ pub(crate) async fn handle_tools(
         10
     };
 
-    while let Some(pick) = attempt_loop.next(&state.db, group, &sched_ctx, log, attempts.len()).await {
+    while let Some(pick) = attempt_loop
+        .next(&state.db, group, &sched_ctx, log, attempts.len())
+        .await
+    {
         let attempt_start = std::time::Instant::now();
         let attempt_ts = aidog_db::now();
         let capped = attempt_loop.begin_call(log, &attempts, pick.route.platform.id);
@@ -98,18 +112,32 @@ pub(crate) async fn handle_tools(
             candidate_total: pick.candidate_total,
             // tools 请求无模型链（source_model 空串），恒无下一个模型。
             has_next_model: false,
-            breaker_th: super::scheduling::BreakerThresholds::resolve(&sched_settings, &pick.route.platform, group.routing_mode),
+            breaker_th: super::scheduling::BreakerThresholds::resolve(
+                &sched_settings,
+                &pick.route.platform,
+                group.routing_mode,
+            ),
             proxy_client: &proxy_client,
             req_timeout,
             conn_timeout,
         };
         match tools_attempt(&scope, log, &mut attempts, bytes, path).await {
             AttemptOutcome::Respond(r) => return r,
-            AttemptOutcome::Next { connect_failed } => attempt_loop.failed(&mut attempts, connect_failed),
+            AttemptOutcome::Next { connect_failed } => {
+                attempt_loop.failed(&mut attempts, connect_failed)
+            }
         }
     }
 
-    super::attempt_plan::AttemptLoop::exhausted(state, log, &mut attempts, start, log_settings, lang).await
+    super::attempt_plan::AttemptLoop::exhausted(
+        state,
+        log,
+        &mut attempts,
+        start,
+        log_settings,
+        lang,
+    )
+    .await
 }
 
 /// strict 成功判定（语义 7 + 逐平台表）：HTTP 200 **且**响应体含结果字段才算成功、计 1 次；
@@ -119,8 +147,11 @@ fn tools_success_ok(platform_type: &Protocol, tool_key: &str, body: &[u8]) -> bo
     let Ok(v) = serde_json::from_slice::<Value>(body) else {
         return false;
     };
-    let nonempty_arr =
-        |k: &str| v.get(k).and_then(|x| x.as_array()).is_some_and(|a| !a.is_empty());
+    let nonempty_arr = |k: &str| {
+        v.get(k)
+            .and_then(|x| x.as_array())
+            .is_some_and(|a| !a.is_empty())
+    };
     let nonblank_str = |k: &str| {
         v.get(k)
             .and_then(|x| x.as_str())
@@ -174,7 +205,9 @@ async fn tools_attempt(
         // platform_supports_kind(Tools) 已保证平台声明该 path；声明数据竞变（DB 同步覆盖）
         // 防御：跳下一候选，不 panic。
         tracing::warn!(platform = %route.platform.name, path, "tools endpoint declaration vanished mid-request");
-        return AttemptOutcome::Next { connect_failed: false };
+        return AttemptOutcome::Next {
+            connect_failed: false,
+        };
     };
     // 语义 10：日志 model 列 = tools:<tools_endpoints 键名>（键名按平台数据，不跨平台归一）。
     log.model = format!("tools:{tool_key}");
@@ -195,7 +228,8 @@ async fn tools_attempt(
     log.actual_model = String::new();
     log.upstream_request_url = url.clone();
     log.upstream_request_headers = if appbuilder_key.is_some() {
-        r#"{"x-appbuilder-authorization":"[REDACTED]","content-type":"application/json"}"#.to_string()
+        r#"{"x-appbuilder-authorization":"[REDACTED]","content-type":"application/json"}"#
+            .to_string()
     } else {
         r#"{"authorization":"[REDACTED]","content-type":"application/json"}"#.to_string()
     };
@@ -210,7 +244,10 @@ async fn tools_attempt(
     let rb = if let Some(k) = &appbuilder_key {
         rb.header("X-Appbuilder-Authorization", format!("Bearer {k}"))
     } else {
-        rb.header("Authorization", format!("Bearer {}", route.platform.api_key))
+        rb.header(
+            "Authorization",
+            format!("Bearer {}", route.platform.api_key),
+        )
     };
     // 语义 6：body 原样透传不改写（含 qianfan body 自带 model 字段）。
     let rb = rb.body(bytes.to_vec());
@@ -255,7 +292,11 @@ async fn tools_attempt(
         .await
         {
             AttemptOutcome::Respond(r) => return AttemptOutcome::Respond(r),
-            AttemptOutcome::Next { .. } => return AttemptOutcome::Next { connect_failed: false },
+            AttemptOutcome::Next { .. } => {
+                return AttemptOutcome::Next {
+                    connect_failed: false,
+                };
+            }
         }
     }
 
@@ -276,8 +317,10 @@ async fn tools_attempt(
     // est_cost==0 的回落重算），回落条件不触发，0 原样落库。
     log.est_cost = if billed {
         crate::gateway::billing::tools_cost(
-            crate::gateway::billing::default_tools_pricing(&route.platform.platform_type.wire_str())
-                .as_ref(),
+            crate::gateway::billing::default_tools_pricing(
+                &route.platform.platform_type.wire_str(),
+            )
+            .as_ref(),
             &[(tool_key.as_str(), 1)],
         )
     } else {
@@ -298,10 +341,11 @@ async fn tools_attempt(
         0,
         0,
         0,
+        0,
         route.platform.endpoints.iter().any(|ep| ep.coding_plan),
         log.created_at,
         log.est_cost,
-        0, // tools 按次费已并入 tool_cost_usd，无 search_units
+        0,     // tools 按次费已并入 tool_cost_usd，无 search_units
         false, // 额度窗口豁免（2026-11-16 拍板，决策 / 搜索同列豁免范围）
         tracing::Span::current(),
     );

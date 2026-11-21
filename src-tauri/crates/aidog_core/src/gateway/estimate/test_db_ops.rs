@@ -71,7 +71,7 @@ async fn balance_atomic_decrement() {
     // 先设个初始余额
     write_real_quota(&db, id, 100.0, "", now()).await.unwrap();
 
-    let cost = balance_cost(1000, 500, 200, 0, 0.001, 0.002, 0.0005, 0.0);
+    let cost = balance_cost(1000, 500, 200, 0, 0, 0.001, 0.002, 0.0005, 0.0, 0.0);
     assert!((cost - (1.0 + 1.0 + 0.1)).abs() < 1e-9, "cost = {cost}");
 
     apply_balance_delta(&db, id, cost).await.unwrap();
@@ -280,7 +280,12 @@ async fn calibrate_from_quota_endpoint_flag_false_still_keeps_plan() {
     calibrate_from_quota(&db, id, &plan_quota(42.0)).await;
     let after = db::get_platform(&db, id).await.unwrap().unwrap();
     let stored = EstCodingPlan::from_json(&after.est_coding_plan);
-    assert_eq!(stored.tiers.len(), 1, "套餐档位应写入，got {:?}", after.est_coding_plan);
+    assert_eq!(
+        stored.tiers.len(),
+        1,
+        "套餐档位应写入，got {:?}",
+        after.est_coding_plan
+    );
     assert!((stored.tiers[0].est_utilization - 42.0).abs() < 1e-9);
 }
 
@@ -302,7 +307,10 @@ async fn calibrate_from_quota_success_without_plan_keeps_existing_plan() {
     };
     calibrate_from_quota(&db, id, &empty).await;
     let after = db::get_platform(&db, id).await.unwrap().unwrap();
-    assert_eq!(after.est_coding_plan, before.est_coding_plan, "套餐不应被清空");
+    assert_eq!(
+        after.est_coding_plan, before.est_coding_plan,
+        "套餐不应被清空"
+    );
 }
 
 // ── calibrate_from_quota：余额平台 est_balance 严格对齐真实 ──
@@ -424,7 +432,8 @@ async fn estimate_after_request_balance_path_no_calibration() {
         1000,
         500,
         0,
-        0,     // cache_write
+        0,
+        0,     // cache_write_1h,     // cache_write
         false, // 非 coding plan
         0,     // created_at
         0.0,
@@ -466,6 +475,7 @@ async fn estimate_after_request_applies_peak_multiplier() {
         500,
         0,
         0,
+        0, // cache_write_1h,
         false,
         0,
         0.0,
@@ -476,12 +486,60 @@ async fn estimate_after_request_applies_peak_multiplier() {
 
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
     // 基准 cost = 1000*0.001 + 500*0.002 = 2.0；命中 x2 倍率 → 实扣 4.0
-    let base_cost = balance_cost(1000, 500, 0, 0, 0.001, 0.002, 0.0, 0.0);
+    let base_cost = balance_cost(1000, 500, 0, 0, 0, 0.001, 0.002, 0.0, 0.0, 0.0);
     assert!((base_cost - 2.0).abs() < 1e-9, "base_cost = {base_cost}");
     assert!(
         (p.est_balance_remaining - (100.0 - 2.0 * base_cost)).abs() < 1e-9,
         "got {}",
         p.est_balance_remaining
+    );
+}
+
+// issue 60：1h 桶计入余额扣减，同一请求的扣减金额与 est_cost（同输入 billing::est_cost_from
+// 口径，倍率 1.0）一致。
+#[tokio::test]
+async fn estimate_after_request_1h_bucket_deducts_like_est_cost() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, false).await;
+    write_real_quota(&db, id, 100.0, "", now()).await.unwrap();
+    seed_entry(
+        &db,
+        "deepseek",
+        "test-model",
+        r#"{"price":{"input":0.001,"output":0.002,"cache_read":0.0,"cache_write":0.00125,"cache_write_1h":0.0025}}"#,
+    )
+    .await;
+
+    estimate_after_request(
+        &db,
+        id,
+        "deepseek",
+        "https://example.com",
+        "sk",
+        "test-model",
+        "",
+        1000,
+        500,
+        200,
+        30, // cache_write
+        40, // cache_write_1h
+        false,
+        0,
+        0.0,
+        0,
+        false,
+    )
+    .await;
+
+    let p = db::get_platform(&db, id).await.unwrap().unwrap();
+    let est_cost = crate::gateway::billing::est_cost_from(
+        1000, 500, 200, 30, 40, 0.001, 0.002, 0.0, 0.00125, 0.0025, 1.0,
+    );
+    assert!(
+        (p.est_balance_remaining - (100.0 - est_cost)).abs() < 1e-9,
+        "balance = {}, expect {}",
+        p.est_balance_remaining,
+        100.0 - est_cost
     );
 }
 
@@ -513,6 +571,7 @@ async fn estimate_after_request_coding_path_no_calibration() {
         0,
         0,
         0,
+        0, // cache_write_1h,
         true,
         0,
         0.0,
@@ -665,6 +724,7 @@ async fn run_est(db: &Db, id: u64, tool_usd: f64, in_tok: i64, out_tok: i64) {
         out_tok,
         0,
         0,
+        0, // cache_write_1h,
         false,
         0,
         tool_usd,
@@ -788,6 +848,7 @@ async fn tool_fee_not_multiplied_by_peak() {
         0,
         0,
         0,
+        0, // cache_write_1h,
         false,
         0,
         0.5,
@@ -842,6 +903,7 @@ async fn per_request_fee_deducted_from_balance_and_manual_budget() {
         0,
         0,
         0,
+        0, // cache_write_1h,
         false,
         0,
         0.0,
@@ -909,6 +971,7 @@ async fn char_unit_missing_count_not_deducted_from_balance() {
         0,
         0,
         0,
+        0, // cache_write_1h,
         false,
         0,
         0.0,
@@ -916,7 +979,10 @@ async fn char_unit_missing_count_not_deducted_from_balance() {
         false,
     )
     .await;
-    assert!(!processed, "char 缺计数 → request_fee 0 → 无可扣项，跳过预估");
+    assert!(
+        !processed,
+        "char 缺计数 → request_fee 0 → 无可扣项，跳过预估"
+    );
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
     assert!(
         (p.est_balance_remaining - 100.0).abs() < 1e-12,
@@ -939,9 +1005,23 @@ async fn char_unit_est_cost_end_to_end() {
         r#"{"price":{"unit":"char","unit_price":0.015}}"#,
     )
     .await;
-    let counts = vec![(crate::gateway::billing::SEARCH_UNITS_KEY.to_string(), 10000i64)];
+    let counts = vec![(
+        crate::gateway::billing::SEARCH_UNITS_KEY.to_string(),
+        10000i64,
+    )];
     let detail = crate::gateway::billing::calc_est_cost_detail(
-        &db, "char-model", "deepseek", "", 0, 0, 0, 0, 0, id as i64, 0, &counts,
+        &db,
+        "char-model",
+        "deepseek",
+        "",
+        0,
+        0,
+        0,
+        0,
+        0,
+        id as i64,
+        0,
+        &counts,
     )
     .await;
     assert!(
@@ -950,7 +1030,18 @@ async fn char_unit_est_cost_end_to_end() {
         detail.est_cost
     );
     let none = crate::gateway::billing::calc_est_cost_detail(
-        &db, "char-model", "deepseek", "", 0, 0, 0, 0, 0, id as i64, 0, &[],
+        &db,
+        "char-model",
+        "deepseek",
+        "",
+        0,
+        0,
+        0,
+        0,
+        0,
+        id as i64,
+        0,
+        &[],
     )
     .await;
     assert_eq!(none.est_cost, 0.0, "char 缺计数 → est_cost 0（不可估算）");
@@ -1184,7 +1275,11 @@ mod verdict_apply {
 
 // ── 响应头订阅窗口用量 → est_coding_plan（卡片读的同一存储）──
 fn ut(name: &'static str, pct: f64, reset_ms: Option<i64>) -> UnifiedTier {
-    UnifiedTier { name, utilization_pct: pct, resets_at_ms: reset_ms }
+    UnifiedTier {
+        name,
+        utilization_pct: pct,
+        resets_at_ms: reset_ms,
+    }
 }
 
 #[tokio::test]
@@ -1193,24 +1288,67 @@ async fn unified_tiers_written_and_idempotent() {
     let id = mk_platform(&db, false).await;
     let reset5 = now() + 3_600_000;
     let reset7 = now() + 86_400_000;
-    let tiers = [ut("five_hour", 42.0, Some(reset5)), ut("weekly_limit", 7.0, Some(reset7))];
-    assert!(write_unified_tiers(&db, id, &tiers, now()).await, "首次必写");
+    let tiers = [
+        ut("five_hour", 42.0, Some(reset5)),
+        ut("weekly_limit", 7.0, Some(reset7)),
+    ];
+    assert!(
+        write_unified_tiers(&db, id, &tiers, now()).await,
+        "首次必写"
+    );
     // 写后读回（platform.db）
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
     let plan = EstCodingPlan::from_json(&p.est_coding_plan);
     assert_eq!(plan.tiers.len(), 2);
     let five = plan.tiers.iter().find(|t| t.name == "five_hour").unwrap();
     assert!((five.est_utilization - 42.0).abs() < 1e-9);
-    assert_eq!(five.window_start, reset5 - 5 * 3_600_000, "window_start = reset - 周期");
-    let wk = plan.tiers.iter().find(|t| t.name == "weekly_limit").unwrap();
+    assert_eq!(
+        five.window_start,
+        reset5 - 5 * 3_600_000,
+        "window_start = reset - 周期"
+    );
+    let wk = plan
+        .tiers
+        .iter()
+        .find(|t| t.name == "weekly_limit")
+        .unwrap();
     assert!((wk.est_utilization - 7.0).abs() < 1e-9);
     // 同值再写 → 不写库（节流）
-    assert!(!write_unified_tiers(&db, id, &tiers, now()).await, "值未变不得再写");
+    assert!(
+        !write_unified_tiers(&db, id, &tiers, now()).await,
+        "值未变不得再写"
+    );
     // 值变 → 写，且另一窗口不动
     assert!(write_unified_tiers(&db, id, &[ut("five_hour", 50.0, Some(reset5))], now()).await);
-    let plan = EstCodingPlan::from_json(&db::get_platform(&db, id).await.unwrap().unwrap().est_coding_plan);
-    assert!((plan.tiers.iter().find(|t| t.name == "five_hour").unwrap().est_utilization - 50.0).abs() < 1e-9);
-    assert!((plan.tiers.iter().find(|t| t.name == "weekly_limit").unwrap().est_utilization - 7.0).abs() < 1e-9);
+    let plan = EstCodingPlan::from_json(
+        &db::get_platform(&db, id)
+            .await
+            .unwrap()
+            .unwrap()
+            .est_coding_plan,
+    );
+    assert!(
+        (plan
+            .tiers
+            .iter()
+            .find(|t| t.name == "five_hour")
+            .unwrap()
+            .est_utilization
+            - 50.0)
+            .abs()
+            < 1e-9
+    );
+    assert!(
+        (plan
+            .tiers
+            .iter()
+            .find(|t| t.name == "weekly_limit")
+            .unwrap()
+            .est_utilization
+            - 7.0)
+            .abs()
+            < 1e-9
+    );
 }
 
 #[tokio::test]
@@ -1219,7 +1357,12 @@ async fn unified_tiers_empty_is_noop() {
     let id = mk_platform(&db, false).await;
     assert!(!write_unified_tiers(&db, id, &[], now()).await);
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
-    assert!(p.est_coding_plan.is_empty() || EstCodingPlan::from_json(&p.est_coding_plan).tiers.is_empty());
+    assert!(
+        p.est_coding_plan.is_empty()
+            || EstCodingPlan::from_json(&p.est_coding_plan)
+                .tiers
+                .is_empty()
+    );
 }
 
 // ── 复核③：额度窗口平台上游缺 usage 不跳过记账链（fail-open 收口，2026-11-17）──
@@ -1230,21 +1373,63 @@ async fn unified_tiers_empty_is_noop() {
 async fn quota_window_platform_bypasses_usageless_skip() {
     let db = mem_db().await;
     let id = mk_platform(&db, false).await;
-    seed_entry(&db, "deepseek", "m", r#"{"price":{"input":1.0,"output":2.0}}"#).await;
-    let extra = r#"{"quota_windows":[{"window":3600,"budget_tokens":100000}]}"#;
-    let processed = estimate_after_request(
-        &db, id, "deepseek", "https://example.com", "sk", "m", extra,
-        0, 0, 0, 0, false, 0, 0.0, 0, true,
+    seed_entry(
+        &db,
+        "deepseek",
+        "m",
+        r#"{"price":{"input":1.0,"output":2.0}}"#,
     )
     .await;
-    assert!(processed, "配了 enabled 额度窗口的平台不得在上游缺 usage 时跳过记账链");
+    let extra = r#"{"quota_windows":[{"window":3600,"budget_tokens":100000}]}"#;
+    let processed = estimate_after_request(
+        &db,
+        id,
+        "deepseek",
+        "https://example.com",
+        "sk",
+        "m",
+        extra,
+        0,
+        0,
+        0,
+        0,
+        0, // cache_write_1h
+        false,
+        0,
+        0.0,
+        0,
+        true,
+    )
+    .await;
+    assert!(
+        processed,
+        "配了 enabled 额度窗口的平台不得在上游缺 usage 时跳过记账链"
+    );
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
-    assert_eq!(p.estimate_count, 1, "绕过跳过 = 记账链实际跑过（预估次数 +1）");
+    assert_eq!(
+        p.estimate_count, 1,
+        "绕过跳过 = 记账链实际跑过（预估次数 +1）"
+    );
 
     // 没配窗口 → 维持跳过
     let processed2 = estimate_after_request(
-        &db, id, "deepseek", "https://example.com", "sk", "m", "{}",
-        0, 0, 0, 0, false, 0, 0.0, 0, true,
+        &db,
+        id,
+        "deepseek",
+        "https://example.com",
+        "sk",
+        "m",
+        "{}",
+        0,
+        0,
+        0,
+        0,
+        0, // cache_write_1h
+        false,
+        0,
+        0.0,
+        0,
+        true,
     )
     .await;
     assert!(!processed2, "没配额度窗口的平台维持跳过（省写入）");
@@ -1256,11 +1441,32 @@ async fn quota_window_platform_bypasses_usageless_skip() {
 async fn quota_window_settles_usage_the_skip_would_swallow() {
     let db = mem_db().await;
     let id = mk_platform(&db, false).await;
-    seed_entry(&db, "deepseek", "m", r#"{"price":{"input":1.0,"output":2.0}}"#).await;
+    seed_entry(
+        &db,
+        "deepseek",
+        "m",
+        r#"{"price":{"input":1.0,"output":2.0}}"#,
+    )
+    .await;
     let extra = r#"{"quota_windows":[{"window":3600,"budget_tokens":100000}]}"#;
     let processed = estimate_after_request(
-        &db, id, "deepseek", "https://example.com", "sk", "m", extra,
-        0, 0, 0, 500, false, 0, 0.0, 0, true,
+        &db,
+        id,
+        "deepseek",
+        "https://example.com",
+        "sk",
+        "m",
+        extra,
+        0,
+        0,
+        0,
+        500,
+        0, // cache_write_1h
+        false,
+        0,
+        0.0,
+        0,
+        true,
     )
     .await;
     assert!(processed);
@@ -1270,5 +1476,9 @@ async fn quota_window_settles_usage_the_skip_would_swallow() {
         .iter()
         .find(|r| r.window_key == "3600|tokens|100000")
         .expect("token window usage row");
-    assert!((row.consumed - 500.0).abs() < 1e-9, "cache_write-only 用量照常结算，got {}", row.consumed);
+    assert!(
+        (row.consumed - 500.0).abs() < 1e-9,
+        "cache_write-only 用量照常结算，got {}",
+        row.consumed
+    );
 }
