@@ -73,3 +73,6 @@ vite.config.js
 # perf harness 测量产物（scripts/perf/README.md）
 scripts/perf/results/
 /.tmp/
+
+# mimosa 运行时状态目录（曾误入 git 历史，2026-11-22 重写清除）
+src-tauri/.mimosa/
