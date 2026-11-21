@@ -384,3 +384,63 @@ async fn client_usage_session_detail_groups_by_file() {
     let json = serde_json::to_string(&d).expect("serialize");
     assert!(!json.contains("/p/s1"), "文件路径不回传前端: {json}");
 }
+
+/// 票 05：会话活动时刻 = max(last_call_ms, 独占文件 mtime)；共用文件不计 mtime；client 过滤生效。
+#[tokio::test]
+async fn client_session_activity_max_of_call_and_exclusive_file_mtime() {
+    let (db, _dir) = four_file_db().await;
+    let call = |code: &str, sid: &str, file: &str, pos: i64| ClientCallRow {
+        client_code: code.into(),
+        session_id: sid.into(),
+        model: "m".into(),
+        source_file_id: file.into(),
+        file_pos: pos,
+        ..Default::default()
+    };
+    insert_client_calls(
+        &db,
+        &[
+            call("codex", "a", "/f/a.jsonl", 1),
+            call("codex", "b", "/f/b.jsonl", 1),
+            call("opencode", "x", "/f/oc.db", 1),
+            call("opencode", "y", "/f/oc.db", 2),
+        ],
+    )
+    .await
+    .expect("insert");
+    for (code, path, mtime) in [("codex", "/f/a.jsonl", 9_000), ("codex", "/f/b.jsonl", 100), ("opencode", "/f/oc.db", 99_999)] {
+        upsert_client_file_progress(
+            &db,
+            ClientFileProgress {
+                client_code: code.into(),
+                path: path.into(),
+                file_size: 1,
+                mtime_ms: mtime,
+                read_offset: 1,
+                parse_errors: 0,
+                last_msg_id: String::new(),
+            },
+        )
+        .await
+        .expect("progress");
+    }
+    for (code, sid, last) in [("codex", "a", 5_000), ("codex", "b", 7_000), ("opencode", "x", 300), ("opencode", "y", 400)] {
+        upsert_client_session(&db, code.into(), sid.into(), String::new(), String::new(), 1, last)
+            .await
+            .expect("session");
+    }
+    let ids: Vec<String> = ["a", "b", "x", "y", "nope"].iter().map(|s| s.to_string()).collect();
+    let mut got = client_session_activity(&db, None, &ids).await.expect("activity");
+    got.sort();
+    assert_eq!(
+        got,
+        vec![
+            ("codex".into(), "a".into(), 9_000),   // 文件 mtime 较新
+            ("codex".into(), "b".into(), 7_000),   // 最近调用较新
+            ("opencode".into(), "x".into(), 300),  // 共用文件 mtime 不计
+            ("opencode".into(), "y".into(), 400),
+        ]
+    );
+    let only = client_session_activity(&db, Some("codex"), &ids).await.expect("filtered");
+    assert_eq!(only.len(), 2, "client 过滤：只返回 codex 的两个会话");
+}

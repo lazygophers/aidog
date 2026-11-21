@@ -90,7 +90,7 @@ async fn poll_until(
 ) -> bool {
     let deadline = std::time::Instant::now() + Duration::from_secs(secs);
     loop {
-        process_due_paths(db, roots, aidog_db::now()).await;
+        process_due_paths(db, roots, aidog_db::now(), &|_| {}).await;
         if expect() {
             return true;
         }
@@ -194,7 +194,7 @@ async fn disabled_client_no_read() {
     );
     super::watch::take_due_paths(aidog_db::now() + 10_000);
     super::watch::note_event_for_test(p.to_string_lossy().into_owned(), aidog_db::now() - 5_000);
-    let n = process_due_paths(&db, &[], aidog_db::now()).await;
+    let n = process_due_paths(&db, &[], aidog_db::now(), &|_| {}).await;
     assert_eq!(n, 0, "关闭后零读取");
     assert_eq!(count_calls(&db).await, 0, "零明细");
     assert_eq!(count_progress(&db).await, 0, "零进度行");
@@ -226,7 +226,7 @@ async fn debounce_coalesces_burst() {
     let before = scan_count();
     // 等去抖窗口过完再消费一次。
     tokio::time::sleep(Duration::from_millis(2600)).await;
-    let n = process_due_paths(&db, &roots, aidog_db::now()).await;
+    let n = process_due_paths(&db, &roots, aidog_db::now(), &|_| {}).await;
     assert_eq!(scan_count() - before, 1, "同一文件连写 5 次只读取 1 次");
     // 单次扫描读全：首次 + 5 次追加 = 6 条明细。
     assert_eq!(n, 6, "去抖合并后一次读入全部内容");
@@ -295,4 +295,41 @@ async fn align_respects_consent_gate() {
     let n = align_once(&db).await;
     assert_eq!(n, 0, "关着零对齐读取");
     assert_eq!(count_calls(&db).await, 1);
+}
+
+/// 票 05：有新明细时 emit 一次 `client-usage-updated`；无新数据不 emit；pid 文件目录事件 emit 一次。
+#[tokio::test]
+async fn process_due_paths_emits_updated_once_on_new_data() {
+    let _g = WATCH_LOCK.lock().await;
+    let (db, _dir) = aidog_db::test_support::four_file_db().await;
+    let d = tempfile::tempdir().unwrap();
+    let pid_dir = tempfile::tempdir().unwrap();
+    let roots = vec![
+        ("claude_code".to_string(), d.path().to_path_buf()),
+        (super::watch::CLAUDE_PID_KEY.to_string(), pid_dir.path().to_path_buf()),
+    ];
+    let events = std::sync::Mutex::new(Vec::<String>::new());
+    let emit = |e: &str| events.lock().unwrap().push(e.to_string());
+    let now = aidog_db::now();
+    super::watch::take_due_paths(now + 10_000);
+
+    let p = write_jsonl(d.path(), "e.jsonl", &[
+        assistant("m1", "se", "claude-haiku-5-5", "2026-11-19T08:00:00Z", 1, 1),
+        assistant("m2", "se", "claude-haiku-5-5", "2026-11-19T08:01:00Z", 1, 1),
+    ]);
+    super::watch::note_event_for_test(p.to_string_lossy().into_owned(), now - 5_000);
+    assert_eq!(process_due_paths(&db, &roots, now, &emit).await, 2);
+    assert_eq!(*events.lock().unwrap(), vec!["client-usage-updated"], "新数据 emit 一次");
+
+    // 同文件无新内容：不 emit。
+    super::watch::note_event_for_test(p.to_string_lossy().into_owned(), now - 5_000);
+    assert_eq!(process_due_paths(&db, &roots, now, &emit).await, 0);
+    assert_eq!(events.lock().unwrap().len(), 1, "无新数据不 emit");
+
+    // pid 文件目录事件：不读取，只 emit 一次。
+    let pf = pid_dir.path().join("1.json");
+    std::fs::write(&pf, "{}").unwrap();
+    super::watch::note_event_for_test(pf.to_string_lossy().into_owned(), now - 5_000);
+    process_due_paths(&db, &roots, now, &emit).await;
+    assert_eq!(events.lock().unwrap().len(), 2, "pid 文件变化 emit 一次");
 }

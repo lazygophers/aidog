@@ -1,6 +1,6 @@
 // Sessions.tsx — 扩展 › 会话（扩展-会话页 票 02，设计稿方向 3「客户端四格」）。
 // 数据只用现有命令（client_usage_status / sessions / refresh）；刷新事件驱动：订阅 client-usage-updated，
-// 窗口隐藏期间不拉，重新可见补拉；不轮询。
+// 窗口隐藏期间不拉，重新可见补拉；不轮询。运行状态（票 05）随数据一起拉，阈值到期由单次定时器本地重新派生。
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { ClientTiles } from "../components/sessions/ClientTiles";
 import { SessionGroups } from "../components/sessions/SessionGroups";
 import { SESSION_CLIENTS, clientName } from "../components/sessions/ClientGlyph";
-import { clientUsageApi, type ClientUsageSessionRow, type ClientUsageStatus } from "../services/api/clientUsage";
+import { deriveState, nextFlipDelay } from "../components/sessions/sessionState";
+import { clientUsageApi, type ClientUsageSessionRow, type ClientUsageSessionState, type ClientUsageStatus } from "../services/api/clientUsage";
 import { listen } from "../services/transport";
 
 type Range = "today" | "7d" | "30d";
@@ -27,6 +28,8 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
   const { t } = useTranslation();
   const [status, setStatus] = useState<ClientUsageStatus | null>(null);
   const [rows, setRows] = useState<ClientUsageSessionRow[]>([]);
+  const [states, setStates] = useState<Record<string, ClientUsageSessionState>>({});
+  const [now, setNow] = useState(() => Date.now());
   const [error, setError] = useState("");
   const [range, setRange] = useState<Range>("7d");
   const [pick, setPick] = useState<string | null>(null);
@@ -43,8 +46,12 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
       const on = SESSION_CLIENTS.some((c) => st.consent.enabled[c.code]);
       const { fromMs, toMs } = rangeMs(range);
       const list = on ? await clientUsageApi.sessions(fromMs, toMs) : [];
+      // 状态拉取失败不挡列表：徽标回落按最近调用时间派生。
+      const ss = list.length ? await clientUsageApi.sessionStates(list.map((r) => r.sessionId)).catch(() => []) : [];
       setStatus(st);
       setRows(list);
+      setStates(Object.fromEntries(ss.map((x) => [`${x.clientCode}:${x.sessionId}`, x])));
+      setNow(Date.now());
     } catch (e) {
       setError(String(e));
     }
@@ -69,6 +76,19 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
+
+  // 阈值到期只重新派生（spec S8）：每次只挂一个定时器，指向最近的一次状态翻转。
+  useEffect(() => {
+    const lasts = rows.flatMap((r) => {
+      const s = states[`${r.clientCode}:${r.sessionId}`];
+      return s && s.source !== "activity" ? [] : [s ? s.lastActivityMs : r.lastCallMs];
+    });
+    const delay = nextFlipDelay(lasts, now);
+    if (delay === null) return;
+    const id = setTimeout(() => setNow(Date.now()), delay);
+    return () => clearTimeout(id);
+  }, [rows, states, now]);
+  const stateOf = (r: ClientUsageSessionRow) => deriveState(states[`${r.clientCode}:${r.sessionId}`], r.lastCallMs, now);
 
   const rescan = async () => {
     try {
@@ -186,7 +206,7 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
             <p className="border-t py-10 text-muted-foreground" data-testid="sessions-no-match">{t("sessions.noMatch", "没有匹配的会话")}</p>
           ) : (
             <>
-              <SessionGroups rows={shown} />
+              <SessionGroups rows={shown} stateOf={stateOf} />
               <p className="text-sm text-muted-foreground">{t("sessions.footHint", "点客户端格可筛选。成本带 + 表示部分调用未定价。")}</p>
             </>
           )}

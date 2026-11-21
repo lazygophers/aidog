@@ -8,6 +8,7 @@ const api = vi.hoisted(() => ({
   sessions: vi.fn(),
   refresh: vi.fn(),
   sessionDetail: vi.fn(),
+  sessionStates: vi.fn(),
 }));
 vi.mock("../services/api/clientUsage", () => ({ clientUsageApi: api }));
 
@@ -74,6 +75,7 @@ beforeEach(() => {
   ev.handlers.clear();
   setVisibility("visible");
   api.refresh.mockResolvedValue(IDLE);
+  api.sessionStates.mockResolvedValue([]);
 });
 
 describe("Sessions 页（票 02）", () => {
@@ -322,5 +324,63 @@ describe("Sessions 页（票 04：子代理展开、单次调用图表）", () =
     const chart = within(detail).getByTestId("session-detail-chart");
     expect(chart).toHaveAttribute("data-points", "1");
     expect(chart).toHaveAttribute("data-rows", "3");
+  });
+});
+
+const MIN = 60_000;
+const st = (clientCode: string, sessionId: string, state: string, source: string, lastActivityMs: number) =>
+  ({ clientCode, sessionId, state, source, lastActivityMs });
+
+describe("Sessions 页（票 05：运行状态）", () => {
+  it("副行徽标显示三态：pid 文件 / 网关来源取后端结果，activity 来源按阈值派生", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(SESSIONS);
+    api.sessionStates.mockResolvedValue([
+      st("claude_code", "c1", "running", "pid_file", NOW - H),
+      st("codex", "x1", "idle", "activity", NOW - 10 * MIN),
+      st("opencode", "o1", "stopped", "activity", NOW - 3 * H),
+    ]);
+    render(<Sessions onNavigate={vi.fn()} />);
+    await waitFor(() => expect(api.sessionStates).toHaveBeenCalledWith(["c1", "x1", "o1"]));
+    await waitFor(() => {
+      const badges = screen.getAllByTestId("sessions-row-state");
+      expect(badges.map((b) => b.getAttribute("data-state"))).toEqual(["running", "idle", "stopped"]);
+    });
+  });
+
+  it("阈值到期：单次定时器只重新派生、不重拉数据；无 setInterval", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true, now: NOW });
+    const interval = vi.spyOn(globalThis, "setInterval");
+    try {
+      api.status.mockResolvedValue(statusPayload(ALL_ON));
+      api.sessions.mockResolvedValue([row("codex", "x1", "演示会话乙", "/work/alpha", MIN)]);
+      api.sessionStates.mockResolvedValue([st("codex", "x1", "running", "activity", NOW - MIN)]);
+      render(<Sessions onNavigate={vi.fn()} />);
+      // 不用 waitFor（它自身用 setInterval 轮询，会污染断言）：直接冲刷微任务。
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      expect(screen.getByTestId("sessions-row-state")).toHaveAttribute("data-state", "running");
+      const fetches = api.sessions.mock.calls.length + api.sessionStates.mock.calls.length;
+      await act(async () => { vi.advanceTimersByTime(MIN + 1000); });
+      expect(screen.getByTestId("sessions-row-state")).toHaveAttribute("data-state", "idle");
+      await act(async () => { vi.advanceTimersByTime(28 * MIN); });
+      expect(screen.getByTestId("sessions-row-state")).toHaveAttribute("data-state", "stopped");
+      expect(api.sessions.mock.calls.length + api.sessionStates.mock.calls.length).toBe(fetches);
+      expect(interval).not.toHaveBeenCalled();
+    } finally {
+      interval.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("client-usage-updated 事件重拉运行状态", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(SESSIONS);
+    api.sessionStates.mockResolvedValueOnce([st("claude_code", "c1", "idle", "pid_file", NOW - H)])
+      .mockResolvedValue([st("claude_code", "c1", "running", "gateway", NOW - H)]);
+    render(<Sessions onNavigate={vi.fn()} />);
+    await waitFor(() => expect(screen.getAllByTestId("sessions-row-state")[0]).toHaveAttribute("data-state", "idle"));
+    await waitFor(() => expect(ev.handlers.has("client-usage-updated")).toBe(true));
+    await act(async () => { ev.handlers.get("client-usage-updated")!(); });
+    await waitFor(() => expect(screen.getAllByTestId("sessions-row-state")[0]).toHaveAttribute("data-state", "running"));
   });
 });

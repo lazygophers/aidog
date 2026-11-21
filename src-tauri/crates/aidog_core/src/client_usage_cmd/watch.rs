@@ -18,6 +18,11 @@ use aidog_db::Db;
 const DEBOUNCE_MS: i64 = 2000;
 /// 定时对齐周期。
 const ALIGN_INTERVAL_SECS: u64 = 300;
+/// 监听根的伪客户端码：Claude Code pid 文件目录（`~/.claude/sessions/`，票 05）。
+/// 其下事件不读取，只触发一次 `client-usage-updated`（运行状态随 pid 文件 status 变化）。
+pub(super) const CLAUDE_PID_KEY: &str = "claude_code_pid";
+/// 增量读取有新数据 / pid 文件变化后广播的界面事件。
+pub const UPDATED_EVENT: &str = "client-usage-updated";
 
 /// 去抖池：路径 → 最新事件时刻（同路径覆写为最新，到期批量处理一次）。
 static PENDING: OnceLock<Mutex<HashMap<String, i64>>> = OnceLock::new();
@@ -90,13 +95,7 @@ pub(super) fn take_due_paths(now_ms: i64) -> Vec<String> {
 
 /// 同步监听面 = 同意开关开启且有会话根的客户端根目录（生产入口：启动与 consent_set 调用）。
 pub async fn sync_watchers(db: &Db) {
-    let consent = super::load_consent(db).await;
-    let want: Vec<(String, PathBuf)> = super::SUPPORTED_CLIENTS
-        .iter()
-        .filter(|c| super::consent_allows(&consent, c))
-        .filter_map(|c| client_root(c).map(|r| (c.to_string(), r)))
-        .collect();
-    sync_watchers_with(&want);
+    sync_watchers_with(&enabled_roots(db).await);
 }
 
 /// 当前监听中的根目录快照（测试断言用）。
@@ -174,14 +173,25 @@ fn owner_client<'a>(path: &str, roots: &'a [(String, PathBuf)]) -> Option<&'a st
 }
 
 /// 处理到期路径：存在 → 按当前进度增量扫描（截断重建在 `scan_one_file` 内）；
-/// 不存在 → 删明细/进度/空会话壳。返回新增明细数。
-pub(super) async fn process_due_paths(db: &Db, roots: &[(String, PathBuf)], now_ms: i64) -> i64 {
+/// 不存在 → 删明细/进度/空会话壳。有新明细 / 删除 / pid 文件变化时调一次 `emit(UPDATED_EVENT)`。
+/// 返回新增明细数。
+pub(super) async fn process_due_paths(
+    db: &Db,
+    roots: &[(String, PathBuf)],
+    now_ms: i64,
+    emit: &(dyn Fn(&str) + Send + Sync),
+) -> i64 {
     let paths = take_due_paths(now_ms);
     let mut total = 0i64;
+    let mut changed = false;
     for p in paths {
         let Some(client) = owner_client(&p, roots) else {
             continue;
         };
+        if client == CLAUDE_PID_KEY {
+            changed = true;
+            continue;
+        }
         // 扩展名闸：jsonl（claude/codex/gemini）之外，opencode 收 .json（JSON store
         // 消息文件）、.db / .db-wal（sqlite 主库与 WAL，shm 不收）。
         let ext = Path::new(&p).extension().and_then(|e| e.to_str());
@@ -222,22 +232,32 @@ pub(super) async fn process_due_paths(db: &Db, roots: &[(String, PathBuf)], now_
                 Err(e) => tracing::warn!(error = %e, path = %p, "client usage watch scan failed"),
             }
         } else {
-            if let Err(e) = aidog_db::delete_client_file_state(db, client, &p).await {
-                tracing::warn!(error = %e, path = %p, "client usage watch delete failed");
+            match aidog_db::delete_client_file_state(db, client, &p).await {
+                Ok(()) => changed = true,
+                Err(e) => tracing::warn!(error = %e, path = %p, "client usage watch delete failed"),
             }
         }
+    }
+    if changed || total > 0 {
+        emit(UPDATED_EVENT);
     }
     total
 }
 
-/// 启用客户端的根目录（生产去抖消费面）。
+/// 启用客户端的根目录（监听面与去抖消费面共用）；Claude Code 开启且 pid 文件目录存在时追加该目录。
 async fn enabled_roots(db: &Db) -> Vec<(String, PathBuf)> {
     let consent = super::load_consent(db).await;
-    super::SUPPORTED_CLIENTS
+    let mut roots: Vec<(String, PathBuf)> = super::SUPPORTED_CLIENTS
         .iter()
         .filter(|c| super::consent_allows(&consent, c))
         .filter_map(|c| client_root(c).map(|r| (c.to_string(), r)))
-        .collect()
+        .collect();
+    if super::consent_allows(&consent, "claude_code")
+        && let Some(dir) = super::state::claude_sessions_dir().filter(|d| d.is_dir())
+    {
+        roots.push((CLAUDE_PID_KEY.to_string(), dir));
+    }
+    roots
 }
 
 /// 启动事件处理循环（桌面与内核启动路径各调一次；500ms 一拍，去抖到期即处理）。
@@ -251,7 +271,7 @@ pub fn start_event_loop() {
                 continue;
             }
             let now = aidog_db::now();
-            let inserted = process_due_paths(aidog_ctx::db(), &roots, now).await;
+            let inserted = process_due_paths(aidog_ctx::db(), &roots, now, &aidog_ctx::emit_unit).await;
             if inserted > 0 {
                 tracing::debug!(inserted, "client usage watch import");
             }

@@ -655,3 +655,47 @@ pub fn client_usage_session_detail<'a>(
         .map_err(|e| format!("client_usage_session_detail: {e}"))
     }
 }
+
+/// 会话最近活动时刻（扩展-会话页 票 05）：`max(client_session.last_call_ms, 该会话独占文件的
+/// client_file_progress.mtime_ms)`。多会话共用的文件（opencode sqlite 主库）不计 mtime——其
+/// mtime 随任一会话写入变化，计入会让同客户端全部会话误判为执行中。返回 `(client_code, session_id, ms)`。
+#[track_caller]
+pub fn client_session_activity<'a>(
+    db: &'a Db,
+    client_code: Option<&'a str>,
+    session_ids: &'a [String],
+) -> impl std::future::Future<Output = Result<Vec<(String, String, i64)>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    let client_code = client_code.map(str::to_string);
+    let ids = session_ids.to_vec();
+    async move {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        db.call_read_client_usage_traced(None, __db_caller, move |conn| {
+            let marks = vec!["?"; ids.len()].join(",");
+            let mut sql = format!(
+                "SELECT s.client_code, s.session_id, MAX(s.last_call_ms, COALESCE(( \
+                   SELECT MAX(p.mtime_ms) FROM client_file_progress p \
+                   WHERE p.client_code = s.client_code \
+                     AND p.path IN (SELECT c.source_file_id FROM client_call c \
+                                    WHERE c.client_code = s.client_code AND c.session_id = s.session_id) \
+                     AND NOT EXISTS (SELECT 1 FROM client_call o \
+                                     WHERE o.source_file_id = p.path AND o.session_id <> s.session_id)), 0)) \
+                 FROM client_session s WHERE s.session_id IN ({marks})"
+            );
+            let mut args: Vec<String> = ids;
+            if let Some(c) = client_code {
+                sql.push_str(" AND s.client_code = ?");
+                args.push(c);
+            }
+            let mut stmt = conn.prepare(&sql)?;
+            let rows = stmt
+                .query_map(rusqlite::params_from_iter(args.iter()), |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(rows)
+        })
+        .await
+        .map_err(|e| format!("client_session_activity: {e}"))
+    }
+}

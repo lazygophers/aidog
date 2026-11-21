@@ -3,7 +3,7 @@
 import { Fragment, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown } from "lucide-react";
-import type { ClientUsageSessionRow } from "../../services/api/clientUsage";
+import type { ClientUsageSessionRow, SessionRunState } from "../../services/api/clientUsage";
 import { formatNumber, formatRelativeTime } from "../../utils/formatters";
 import { ClientGlyph, clientName } from "./ClientGlyph";
 import { SessionCost } from "./SessionCost";
@@ -15,8 +15,20 @@ function projectName(workdir: string): string {
   return workdir.split(/[\\/]/).filter(Boolean).pop() ?? workdir;
 }
 
-export function SessionGroups({ rows }: { rows: ClientUsageSessionRow[] }) {
+// 运行状态徽标（票 05）：执行中绿点（reduced-motion 下不闪）、空闲黄点、已结束灰点。
+const STATE_DOT: Record<SessionRunState, string> = {
+  running: "bg-[var(--color-success)] motion-safe:animate-pulse",
+  idle: "bg-[var(--color-warning)]",
+  stopped: "bg-muted-foreground/50",
+};
+
+export function SessionGroups({ rows, stateOf }: { rows: ClientUsageSessionRow[]; stateOf: (r: ClientUsageSessionRow) => SessionRunState }) {
   const { t } = useTranslation();
+  const stateLabel: Record<SessionRunState, string> = {
+    running: t("sessions.stateRunning", "执行中"),
+    idle: t("sessions.stateIdle", "空闲"),
+    stopped: t("sessions.stateStopped", "已结束"),
+  };
   // 行内展开（spec S6，禁抽屉）：可同时展开多行。
   const [open, setOpen] = useState<Set<string>>(() => new Set());
   const toggle = (key: string) => setOpen((s) => {
@@ -55,6 +67,7 @@ export function SessionGroups({ rows }: { rows: ClientUsageSessionRow[] }) {
               {items.map((r) => {
                 const key = `${r.clientCode}:${r.sessionId}`;
                 const isOpen = open.has(key);
+                const runState = stateOf(r);
                 const cache = t("sessions.cacheSplit", "缓存 读 {{read}} / 写 {{write}}", { read: formatNumber(r.cacheReadTokens), write: formatNumber(r.cacheWriteTokens) });
                 return (
                 <Fragment key={key}>
@@ -77,6 +90,11 @@ export function SessionGroups({ rows }: { rows: ClientUsageSessionRow[] }) {
                   <div className="min-w-0">
                     <div className="truncate" title={r.title || r.sessionId}>{r.title || r.sessionId}</div>
                     <div className="mt-0.5 truncate text-sm text-muted-foreground">
+                      <span className="inline-flex items-center gap-1.5 text-foreground" data-testid="sessions-row-state" data-state={runState}>
+                        <i aria-hidden className={`inline-block size-2 rounded-full ${STATE_DOT[runState]}`} />
+                        {stateLabel[runState]}
+                      </span>
+                      {" · "}
                       {clientName(r.clientCode)} · {t("sessions.calls", "{{n}} 次调用", { n: r.calls })} · {t("sessions.duration", "持续 {{d}}", { d: duration(r) })}
                     </div>
                   </div>
