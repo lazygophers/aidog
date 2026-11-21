@@ -219,7 +219,7 @@ async fn scheduled_cleanup_pass_purges_old_soft_deleted() {
     })
     .await
     .unwrap();
-    super::scheduled_cleanup_pass(&db, 3 * 24 * 3600, 100 * 1024 * 1024).await;
+    super::scheduled_cleanup_pass(&db, 3 * 24 * 3600).await;
     let left: i64 = db
         .call_read_proxy_log_traced(None, std::panic::Location::caller(), |c| {
             c.query_row(

@@ -10,8 +10,16 @@ use serde_json::Value;
 pub fn incremental_vacuum_conn(conn: &rusqlite::Connection, max_pages: i64) {
     // PRAGMA incremental_vacuum 接受一个参数（要回收的最大页数）。rusqlite 用 query
     // 执行（pragma 返回行集），errors_here 仅 warn。
+    // 必须 step 到底：该 pragma 每次 step 只回收一页，execute_batch 只 step 一次（实测
+    // rusqlite 0.42 下 freelist 85 页只回收 1 页）。
     let sql = format!("PRAGMA incremental_vacuum({max_pages})");
-    if let Err(e) = conn.execute_batch(&sql) {
+    let run = || -> rusqlite::Result<()> {
+        let mut stmt = conn.prepare(&sql)?;
+        let mut rows = stmt.query([])?;
+        while rows.next()?.is_some() {}
+        Ok(())
+    };
+    if let Err(e) = run() {
         tracing::warn!(error = %e, "incremental_vacuum failed (auto_vacuum != INCREMENTAL or busy), will retry later");
     }
 }

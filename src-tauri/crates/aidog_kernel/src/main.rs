@@ -403,7 +403,6 @@ fn spawn_scheduled_jobs() {
     // 派生逻辑放在 aidog_db 上，就是为了内核这份能原样复用同一份规则）。
     tokio::spawn(async move {
         const OLDER_THAN_SECS: i64 = 3 * 24 * 3600;
-        const VACUUM_THRESHOLD_BYTES: i64 = 100 * 1024 * 1024;
         loop {
             let db = aidog_ctx::db();
             let interval = aidog_core::proxy_cmd::proxy_log::retention_cleanup_interval(db).await;
@@ -411,12 +410,7 @@ fn spawn_scheduled_jobs() {
             if aidog_core::proxy_cmd::proxy_log::wait_next_retention_cycle(interval).await {
                 continue;
             }
-            aidog_core::proxy_cmd::proxy_log::scheduled_cleanup_pass(
-                db,
-                OLDER_THAN_SECS,
-                VACUUM_THRESHOLD_BYTES,
-            )
-            .await;
+            aidog_core::proxy_cmd::proxy_log::scheduled_cleanup_pass(db, OLDER_THAN_SECS).await;
         }
     });
 
