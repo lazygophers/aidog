@@ -735,3 +735,63 @@ fn to_gemini_dedups_multi_version_server_tools() {
     assert_eq!(gs, 1, "googleSearch 同键多版本只下发首个");
     assert_eq!(uc, 1, "urlContext 同键多版本只下发首个");
 }
+
+// issue #164：同名工具同轮多次调用时 functionResponse 按出现顺序一一配对，
+// 不再全部配到最后一个 call 的 id。
+#[test]
+fn from_gemini_same_name_calls_pair_in_order() {
+    let body = json!({
+        "contents": [
+            {"role": "user", "parts": [{"text": "weather?"}]},
+            {"role": "model", "parts": [
+                {"functionCall": {"name": "get_weather", "args": {"city": "A"}}},
+                {"functionCall": {"name": "get_weather", "args": {"city": "B"}}}
+            ]},
+            {"role": "user", "parts": [
+                {"functionResponse": {"name": "get_weather", "response": {"result": "sunny"}}},
+                {"functionResponse": {"name": "get_weather", "response": {"result": "rainy"}}}
+            ]}
+        ]
+    });
+    let r = from_gemini(&body).expect("parsed");
+    assert_eq!(r.messages.len(), 3);
+    let model_blocks = match &r.messages[1].content {
+        MessageContent::Blocks(b) => b,
+        _ => panic!("model content should be blocks"),
+    };
+    let calls: Vec<&ContentBlock> = model_blocks
+        .iter()
+        .filter(|b| matches!(b, ContentBlock::ToolUse { .. }))
+        .collect();
+    assert_eq!(calls.len(), 2, "两个同名 functionCall 都应保留");
+    let user_blocks = match &r.messages[2].content {
+        MessageContent::Blocks(b) => b,
+        _ => panic!("user content should be blocks"),
+    };
+    let results: Vec<&ContentBlock> = user_blocks
+        .iter()
+        .filter(|b| matches!(b, ContentBlock::ToolResult { .. }))
+        .collect();
+    assert_eq!(results.len(), 2, "两个同名 functionResponse 都应保留");
+    let call_ids: Vec<&str> = calls
+        .iter()
+        .map(|b| match b {
+            ContentBlock::ToolUse { id, .. } => id.as_str(),
+            _ => unreachable!(),
+        })
+        .collect();
+    assert_ne!(call_ids[0], call_ids[1], "两次 call 的生成 id 应不同");
+    for (i, rb) in results.iter().enumerate() {
+        match rb {
+            ContentBlock::ToolResult { tool_use_id, .. } => {
+                assert_eq!(
+                    tool_use_id, call_ids[i],
+                    "第 {} 个 functionResponse 应配第 {} 个 call 的 id",
+                    i + 1,
+                    i + 1
+                );
+            }
+            _ => unreachable!(),
+        }
+    }
+}
