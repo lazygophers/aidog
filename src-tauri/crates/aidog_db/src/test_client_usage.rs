@@ -556,6 +556,34 @@ async fn cleanup_drops_hidden_rows_of_vanished_sessions() {
     assert_eq!(left, vec!["live".to_string()], "只留会话仍在的隐藏行");
 }
 
+/// 票 13：增量扫描传空 workdir 不覆盖已存非空值；传新非空值仍更新（写后重开读回）。
+#[tokio::test]
+async fn upsert_session_empty_workdir_keeps_stored_value() {
+    let (db, dir) = four_file_db().await;
+    upsert_client_session(&db, "claude_code".into(), "s1".into(), "t".into(), "/proj".into(), 1, 2)
+        .await
+        .expect("first");
+    upsert_client_session(&db, "claude_code".into(), "s1".into(), String::new(), String::new(), 3, 4)
+        .await
+        .expect("incremental empty");
+    drop(db);
+    let db = reopen(&dir).await;
+    async fn read(db: &Db) -> String {
+        db.call_read_client_usage_traced(None, std::panic::Location::caller(), |conn| {
+            conn.query_row("SELECT workdir FROM client_session WHERE session_id = 's1'", [], |r| r.get::<_, String>(0))
+        })
+        .await
+        .expect("read workdir")
+    }
+    assert_eq!(read(&db).await, "/proj", "空 workdir 不覆盖");
+    upsert_client_session(&db, "claude_code".into(), "s1".into(), String::new(), "/moved".into(), 5, 6)
+        .await
+        .expect("new workdir");
+    drop(db);
+    let db = reopen(&dir).await;
+    assert_eq!(read(&db).await, "/moved", "非空新值照常更新");
+}
+
 /// 迁移重复执行幂等，隐藏行不丢（回归护栏）。
 #[test]
 fn client_session_hidden_migration_idempotent() {
