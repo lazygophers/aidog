@@ -437,6 +437,11 @@ pub struct ClientUsageSessionRow {
     pub unpriced_calls: i64,
     pub input_tokens: i64,
     pub output_tokens: i64,
+    pub cache_read_tokens: i64,
+    pub cache_write_tokens: i64,
+    pub reasoning_tokens: i64,
+    /// 子代理调用数（`SUM(is_sidechain)`）。
+    pub sidechain_calls: i64,
 }
 
 /// 会话列表：按最后调用时间倒序，含聚合调用数 / 成本 / token。
@@ -453,11 +458,14 @@ pub fn client_usage_sessions<'a>(
     async move {
         db.call_read_client_usage_traced(None, __db_caller, move |conn| {
             let mut sql = "SELECT s.client_code, s.session_id, s.title, s.workdir, s.first_call_ms, s.last_call_ms, \
-                COALESCE(cnt.calls,0), COALESCE(cnt.cost,0), COALESCE(cnt.unpriced,0), COALESCE(cnt.input,0), COALESCE(cnt.output,0) \
+                COALESCE(cnt.calls,0), COALESCE(cnt.cost,0), COALESCE(cnt.unpriced,0), COALESCE(cnt.input,0), COALESCE(cnt.output,0), \
+                COALESCE(cnt.cache_read,0), COALESCE(cnt.cache_write,0), COALESCE(cnt.reasoning,0), COALESCE(cnt.sidechain,0) \
                 FROM client_session s LEFT JOIN \
                 (SELECT client_code, session_id, COUNT(*) AS calls, COALESCE(SUM(cost),0) AS cost, \
                         COUNT(CASE WHEN cost IS NULL THEN 1 END) AS unpriced, \
-                        COALESCE(SUM(input_tokens),0) AS input, COALESCE(SUM(output_tokens),0) AS output \
+                        COALESCE(SUM(input_tokens),0) AS input, COALESCE(SUM(output_tokens),0) AS output, \
+                        COALESCE(SUM(cache_read_tokens),0) AS cache_read, COALESCE(SUM(cache_write_tokens),0) AS cache_write, \
+                        COALESCE(SUM(reasoning_tokens),0) AS reasoning, COALESCE(SUM(is_sidechain),0) AS sidechain \
                  FROM client_call WHERE call_time_ms BETWEEN ?1 AND ?2 GROUP BY 1,2) cnt \
                 ON cnt.client_code = s.client_code AND cnt.session_id = s.session_id \
                 WHERE 1=1".to_string();
@@ -483,6 +491,10 @@ pub fn client_usage_sessions<'a>(
                         unpriced_calls: r.get(8)?,
                         input_tokens: r.get(9)?,
                         output_tokens: r.get(10)?,
+                        cache_read_tokens: r.get(11)?,
+                        cache_write_tokens: r.get(12)?,
+                        reasoning_tokens: r.get(13)?,
+                        sidechain_calls: r.get(14)?,
                     })
                 })?
                 .collect::<Result<Vec<_>, _>>()?;
@@ -490,5 +502,98 @@ pub fn client_usage_sessions<'a>(
         })
         .await
         .map_err(|e| format!("client_usage_sessions: {e}"))
+    }
+}
+
+/// 模型链一段：按调用时间相邻同模型合并。
+#[derive(Debug, Default, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientUsageModelSegment {
+    pub model: String,
+    pub calls: i64,
+    pub first_call_ms: i64,
+    pub last_call_ms: i64,
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+    pub cache_read_tokens: i64,
+    pub cache_write_tokens: i64,
+}
+
+/// token 时间序列一点（每次调用一点）。
+#[derive(Debug, Default, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientUsageTokenPoint {
+    pub call_time_ms: i64,
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+    pub cache_read_tokens: i64,
+    pub cache_write_tokens: i64,
+}
+
+/// 单会话详情：模型链 + token 时间序列。
+#[derive(Debug, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientUsageSessionDetail {
+    pub model_chain: Vec<ClientUsageModelSegment>,
+    pub points: Vec<ClientUsageTokenPoint>,
+}
+
+/// 单会话详情：按 `call_time_ms` 升序读全部调用。
+#[track_caller]
+pub fn client_usage_session_detail<'a>(
+    db: &'a Db,
+    client_code: &str,
+    session_id: &str,
+) -> impl std::future::Future<Output = Result<ClientUsageSessionDetail, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    let (client, session) = (client_code.to_string(), session_id.to_string());
+    async move {
+        db.call_read_client_usage_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT call_time_ms, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens \
+                 FROM client_call WHERE client_code = ?1 AND session_id = ?2 ORDER BY call_time_ms, file_pos",
+            )?;
+            let calls = stmt
+                .query_map(rusqlite::params![client, session], |r| {
+                    Ok((
+                        r.get::<_, String>(1)?,
+                        ClientUsageTokenPoint {
+                            call_time_ms: r.get(0)?,
+                            input_tokens: r.get(2)?,
+                            output_tokens: r.get(3)?,
+                            cache_read_tokens: r.get(4)?,
+                            cache_write_tokens: r.get(5)?,
+                        },
+                    ))
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
+            let mut detail = ClientUsageSessionDetail::default();
+            for (model, p) in calls {
+                match detail.model_chain.last_mut() {
+                    Some(seg) if seg.model == model => {
+                        seg.calls += 1;
+                        seg.last_call_ms = p.call_time_ms;
+                        seg.input_tokens += p.input_tokens;
+                        seg.output_tokens += p.output_tokens;
+                        seg.cache_read_tokens += p.cache_read_tokens;
+                        seg.cache_write_tokens += p.cache_write_tokens;
+                    }
+                    _ => detail.model_chain.push(ClientUsageModelSegment {
+                        model,
+                        calls: 1,
+                        first_call_ms: p.call_time_ms,
+                        last_call_ms: p.call_time_ms,
+                        input_tokens: p.input_tokens,
+                        output_tokens: p.output_tokens,
+                        cache_read_tokens: p.cache_read_tokens,
+                        cache_write_tokens: p.cache_write_tokens,
+                    }),
+                }
+                detail.points.push(p);
+            }
+            Ok(detail)
+        })
+        .await
+        .map_err(|e| format!("client_usage_session_detail: {e}"))
     }
 }

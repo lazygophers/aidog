@@ -68,6 +68,37 @@ export interface ClientUsageSessionRow {
   unpricedCalls: number;
   inputTokens: number;
   outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  reasoningTokens: number;
+  /** 子代理调用数。 */
+  sidechainCalls: number;
+}
+
+/** 模型链一段：按调用时间相邻同模型合并。 */
+export interface ClientUsageModelSegment {
+  model: string;
+  calls: number;
+  firstCallMs: number;
+  lastCallMs: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+}
+
+/** token 时间序列一点（每次调用一点）。 */
+export interface ClientUsageTokenPoint {
+  callTimeMs: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+}
+
+export interface ClientUsageSessionDetail {
+  modelChain: ClientUsageModelSegment[];
+  points: ClientUsageTokenPoint[];
 }
 
 export const clientUsageApi = {
@@ -83,6 +114,8 @@ export const clientUsageApi = {
     invoke<ClientUsageModelRow[]>("client_usage_by_model", { fromMs, toMs, clientCode }),
   sessions: (fromMs: number, toMs: number, clientCode?: string, limit?: number) =>
     invoke<ClientUsageSessionRow[]>("client_usage_sessions", { fromMs, toMs, clientCode, limit }),
+  sessionDetail: (clientCode: string, sessionId: string) =>
+    invoke<ClientUsageSessionDetail>("client_usage_session_detail", { clientCode, sessionId }),
   refresh: () => invoke<ClientUsageImportState>("client_usage_refresh"),
   /** 保留天数（0 = 永久，缺省 90）。 */
   retentionGet: () => invoke<number>("client_usage_retention_get"),

@@ -253,3 +253,76 @@ async fn client_usage_sessions_reports_unpriced_calls() {
     assert_eq!((free.calls, free.cost), (1, 0.0), "免费模型会话");
     assert_eq!(free.unpriced_calls, 0, "免费模型（cost=0.0 已定价）不算未定价");
 }
+/// 票 03：会话汇总带缓存 / 推理 token 与子代理调用数；详情返回模型链（相邻同模型合并）与按时间升序的 token 序列。
+#[tokio::test]
+async fn client_usage_session_cache_fields_and_detail_chain() {
+    let (db, _dir) = four_file_db().await;
+    let base = crate::now() - 10_000;
+    #[allow(clippy::too_many_arguments)]
+    let mk = |sess: &str, pos: i64, t: i64, model: &str, side: bool, io: (i64, i64), cache: (i64, i64), reason: i64| ClientCallRow {
+        client_code: "claude_code".into(),
+        session_id: sess.into(),
+        is_sidechain: side,
+        call_time_ms: base + t,
+        model: model.into(),
+        input_tokens: io.0,
+        output_tokens: io.1,
+        cache_read_tokens: cache.0,
+        cache_write_tokens: cache.1,
+        reasoning_tokens: reason,
+        cost: Some(0.1),
+        source_file_id: format!("{sess}-f"),
+        file_pos: pos,
+    };
+    // 故意乱序插入：详情必须按 call_time_ms 升序。
+    insert_client_calls(
+        &db,
+        &[
+            mk("s1", 3, 300, "opus", false, (5, 6), (7, 8), 1),
+            mk("s1", 1, 100, "sonnet", false, (10, 20), (30, 40), 2),
+            mk("s1", 2, 200, "sonnet", true, (1, 2), (3, 4), 0),
+            mk("s1", 4, 400, "sonnet", true, (1, 1), (0, 0), 0),
+            mk("s2", 1, 100, "other", false, (99, 99), (99, 99), 9),
+        ],
+    )
+    .await
+    .expect("insert calls");
+    upsert_client_session(&db, "claude_code".into(), "s1".into(), String::new(), "/w".into(), base + 100, base + 400)
+        .await
+        .expect("upsert session");
+
+    let rows = client_usage_sessions(&db, 0, base + 10_000, None, 100).await.expect("sessions");
+    let s1 = rows.iter().find(|r| r.session_id == "s1").expect("s1");
+    assert_eq!(
+        (s1.cache_read_tokens, s1.cache_write_tokens, s1.reasoning_tokens, s1.sidechain_calls),
+        (40, 52, 3, 2),
+        "汇总缓存读 / 写、推理、子代理调用数"
+    );
+
+    let d = client_usage_session_detail(&db, "claude_code", "s1").await.expect("detail");
+    let chain: Vec<(&str, i64)> = d.model_chain.iter().map(|s| (s.model.as_str(), s.calls)).collect();
+    assert_eq!(chain, vec![("sonnet", 2), ("opus", 1), ("sonnet", 1)], "相邻同模型合并、按时间排");
+    assert_eq!(
+        d.model_chain[0],
+        ClientUsageModelSegment {
+            model: "sonnet".into(),
+            calls: 2,
+            first_call_ms: base + 100,
+            last_call_ms: base + 200,
+            input_tokens: 11,
+            output_tokens: 22,
+            cache_read_tokens: 33,
+            cache_write_tokens: 44,
+        },
+        "段内 token 求和"
+    );
+    let times: Vec<i64> = d.points.iter().map(|p| p.call_time_ms - base).collect();
+    assert_eq!(times, vec![100, 200, 300, 400], "时间序列升序且只含本会话");
+    assert_eq!(
+        d.points[2],
+        ClientUsageTokenPoint { call_time_ms: base + 300, input_tokens: 5, output_tokens: 6, cache_read_tokens: 7, cache_write_tokens: 8 }
+    );
+
+    let empty = client_usage_session_detail(&db, "claude_code", "nope").await.expect("detail empty");
+    assert!(empty.model_chain.is_empty() && empty.points.is_empty(), "无调用的会话返回空");
+}

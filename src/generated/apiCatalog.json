@@ -525,6 +525,24 @@
       "returns": "()"
     },
     {
+      "name": "client_usage_session_detail",
+      "category": "client_usage",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "clientCode",
+          "type": "String"
+        },
+        {
+          "name": "sessionId",
+          "type": "String"
+        }
+      ],
+      "returns": "aidog_db::ClientUsageSessionDetail"
+    },
+    {
       "name": "client_usage_sessions",
       "category": "client_usage",
       "kind": "readonly",

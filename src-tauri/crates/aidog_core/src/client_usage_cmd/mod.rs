@@ -712,6 +712,16 @@ pub async fn client_usage_sessions(
 }
 
 crate::tauri_command! {
+/// 单会话详情：模型链（相邻同模型合并）+ token 时间序列。
+pub async fn client_usage_session_detail(
+    client_code: String,
+    session_id: String,
+) -> Result<aidog_db::ClientUsageSessionDetail, String> {
+    aidog_db::client_usage_session_detail(aidog_ctx::db(), &client_code, &session_id).await
+}
+}
+
+crate::tauri_command! {
 /// 客户端用量保留天数（0 = 永久，缺省 90）。
 pub async fn client_usage_retention_get() -> Result<u32, String> {
     Ok(aidog_db::client_usage::load_retention_days(aidog_ctx::db()).await)

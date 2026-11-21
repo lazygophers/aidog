@@ -377,6 +377,7 @@ rpc_routes! {
     readonly aidog_core::client_usage_cmd::client_usage_trend,
     readonly aidog_core::client_usage_cmd::client_usage_by_model,
     readonly aidog_core::client_usage_cmd::client_usage_sessions,
+    readonly aidog_core::client_usage_cmd::client_usage_session_detail,
     mutating aidog_core::client_usage_cmd::client_usage_refresh,
     readonly aidog_core::client_usage_cmd::client_usage_retention_get,
     mutating aidog_core::client_usage_cmd::client_usage_retention_set,

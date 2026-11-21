@@ -7,6 +7,7 @@ const api = vi.hoisted(() => ({
   status: vi.fn(),
   sessions: vi.fn(),
   refresh: vi.fn(),
+  sessionDetail: vi.fn(),
 }));
 vi.mock("../services/api/clientUsage", () => ({ clientUsageApi: api }));
 
@@ -52,11 +53,12 @@ const row = (clientCode: string, sessionId: string, title: string, workdir: stri
   clientCode, sessionId, title, workdir,
   firstCallMs: NOW - ago - H, lastCallMs: NOW - ago,
   calls: 10, cost: 1.5, unpricedCalls: 0, inputTokens: 1000, outputTokens: 200,
+  cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, sidechainCalls: 0,
   ...extra,
 });
 
 const SESSIONS = [
-  row("claude_code", "c1", "演示会话甲", "/work/alpha", H),
+  row("claude_code", "c1", "演示会话甲", "/work/alpha", H, { cacheReadTokens: 500, cacheWriteTokens: 60 }),
   row("codex", "x1", "演示会话乙", "/work/alpha", 2 * H, { unpricedCalls: 3 }),
   row("opencode", "o1", "演示会话丙", "/work/beta", 3 * H, { cost: 0, unpricedCalls: 10 }),
 ];
@@ -203,5 +205,67 @@ describe("Sessions 页（票 02）", () => {
     expect(api.sessions).toHaveBeenCalledTimes(2);
     act(() => setVisibility("visible"));
     await waitFor(() => expect(api.sessions).toHaveBeenCalledTimes(3));
+  });
+});
+
+const seg = (model: string, calls: number, t: number) => ({
+  model, calls, firstCallMs: t, lastCallMs: t + 1000,
+  inputTokens: 10, outputTokens: 5, cacheReadTokens: 100, cacheWriteTokens: 1,
+});
+const pt = (t: number) => ({ callTimeMs: t, inputTokens: 10, outputTokens: 5, cacheReadTokens: 100, cacheWriteTokens: 1 });
+const DETAIL = {
+  modelChain: [seg("演示-sonnet", 2, NOW - 3000), seg("演示-opus", 1, NOW - 1000)],
+  points: [pt(NOW - 3000), pt(NOW - 2000), pt(NOW - 1000)],
+};
+
+describe("Sessions 页（票 03：缓存 token、模型链、消耗图）", () => {
+  it("会话行 token 副行显示缓存读 / 写", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(SESSIONS);
+    render(<Sessions onNavigate={vi.fn()} />);
+    const cache = await screen.findAllByTestId("sessions-row-cache");
+    expect(cache[0]).toHaveAttribute("data-read", "500");
+    expect(cache[0]).toHaveAttribute("data-write", "60");
+    expect(cache[1]).toHaveAttribute("data-read", "0");
+  });
+
+  it("点行内展开：拉详情、显示模型链与消耗图、预留子代理区；再点收起；Enter 键可展开", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(SESSIONS);
+    api.sessionDetail.mockResolvedValue(DETAIL);
+    render(<Sessions onNavigate={vi.fn()} />);
+    const [first, second] = await screen.findAllByTestId("sessions-row");
+    expect(first).toHaveAttribute("data-state", "closed");
+    fireEvent.click(first);
+    expect(first).toHaveAttribute("data-state", "open");
+    expect(first).toHaveAttribute("aria-expanded", "true");
+    const detail = await screen.findByTestId("session-detail");
+    await waitFor(() => expect(detail).toHaveAttribute("data-state", "ready"));
+    expect(api.sessionDetail).toHaveBeenCalledWith("claude_code", "c1");
+    const segs = within(detail).getAllByTestId("session-detail-seg");
+    expect(segs.map((s) => [s.getAttribute("data-model"), s.getAttribute("data-calls")])).toEqual([["演示-sonnet", "2"], ["演示-opus", "1"]]);
+    expect(within(detail).getByTestId("session-detail-chart")).toHaveAttribute("data-points", "3");
+    expect(within(detail).getByTestId("session-detail-subagents-slot")).toBeInTheDocument();
+    fireEvent.click(first);
+    expect(first).toHaveAttribute("data-state", "closed");
+    expect(screen.queryByTestId("session-detail")).toBeNull();
+    fireEvent.keyDown(second, { key: "Enter" });
+    expect(second).toHaveAttribute("data-state", "open");
+    await waitFor(() => expect(api.sessionDetail).toHaveBeenLastCalledWith("codex", "x1"));
+  });
+
+  it("详情空数据与失败两态", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(SESSIONS);
+    api.sessionDetail.mockResolvedValueOnce({ modelChain: [], points: [] }).mockRejectedValueOnce(new Error("演示失败"));
+    render(<Sessions onNavigate={vi.fn()} />);
+    const [first, second] = await screen.findAllByTestId("sessions-row");
+    fireEvent.click(first);
+    await waitFor(() => expect(screen.getByTestId("session-detail")).toHaveAttribute("data-state", "empty"));
+    fireEvent.click(first);
+    fireEvent.click(second);
+    const detail = await screen.findByTestId("session-detail");
+    await waitFor(() => expect(detail).toHaveAttribute("data-state", "error"));
+    expect(within(detail).getByRole("alert")).toBeInTheDocument();
   });
 });
