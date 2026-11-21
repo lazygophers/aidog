@@ -175,6 +175,7 @@ perf-backend 收尾轮：PreToolUse hook 把 `git worktree add` 改写经 rtk �
 - 下文「（已废止 2026-11-05）」的段落里所有 `/tmp/aidog-agent-target`、`/tmp/aidog-agent-dist` 写法同样作废，
   其中的互斥锁、`cargo clean -p aidog_db`、`touch build.rs`、串味核对手法仍有效，目录按本节替换。
 - **取锁排队超约 30 分钟，改用隔离构建**（2026-11-15：三个 agent 等 `/tmp/aidog-cargo.lock` 超 1 小时，他会话不经锁直接跑 cargo；用户原话「能不能在独立的环境测试，测试换成后移除各种缓存」）：每个构建一个 detach worktree（`/usr/bin/git worktree add --detach`），`CARGO_TARGET_DIR=<该 worktree>/target-iso` + `CARGO_PROFILE_DEV_DEBUG=0`，不取锁、多个构建串行排队；开跑前 `df -h` 余量 ≥15G（余量不够三份并行全量编译）；改动从主 checkout 用精确路径提交；门禁绿后 `rm -rf` 该 target-iso 并 `worktree remove --force`。代价：每次全量编译，无增量缓存。持锁的 agent 改走此路径后，主会话释放其持有的锁（先确认无 cargo 进程）。
+- **锁等待者侧的残留接管判据**（2026-11-20 issue 65 轮实锤：锁持有进程已死，等待 agent 干等约 50 分钟，主会话删锁后才恢复）：等锁超过约 10 分钟，等待方核一次持锁活性——`pgrep -fl 'cargo|rustc'` 全机无任何进程且锁 mtime 超约 30 分钟 → 判残留死锁，`rmdir` 删锁后照常重新取锁，回报记「删锁 1 次 + mtime」（对齐 `.git/index.lock` 的判据与记法）。有 cargo/rustc 进程或 mtime 新 → 继续等；两判据缺一禁删。任一等待方都可执行，先删先得。
 - **`.worktrees/.target` 同一时刻只允许一个 cargo**（2026-11-14 issue 61 轮实锤三连）：并行会话同时在
   该目录跑 `cargo test --workspace` 会互相冲掉产物——`ident_case` extern 丢失、doctest `E0463`、
   二进制被删，各会话各自持 `/tmp/aidog-cargo.lock` 独占重跑才拿到绿（锁手法见下节，仍有效）。
@@ -257,9 +258,9 @@ target 致 `test_registry.rs:359` 假红。
 
 ## agent 子会话的 Bash cwd 每次调用重置（2026-09-30）
 
-全局 CLAUDE.md 写「Bash 的 cwd 跨调用保留」，那只对主会话成立。**派生的
-agent（team agent / implementer）相反：cwd 每次 Bash 调用后都重置回自己的
-启动目录**（通常是主 checkout）。jev-decision-proxy 轮（PR #46）因此翻车：
+Bash 的 cwd 本就不跨调用保留（系统行为，主会话与派生 agent 皆然），派生
+agent（team agent / implementer）的 cwd 每次 Bash 调用后都重置回自己的
+启动目录（通常是主 checkout）。jev-decision-proxy 轮（PR #46）因此翻车：
 implementer 在 worktree 里跑相对路径命令，静默打到主 checkout 两个文件
 （当场发现还原）。
 

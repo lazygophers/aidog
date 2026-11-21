@@ -29,6 +29,15 @@ dev + Playwright（系统 Chrome channel）起真 app 读 getComputedStyle，30 
    截图核对几何。** 2026-11-14 节假日日历轮：验收 agent 报「无重叠」，截图
    反证关闭按钮 X 压住 UTC 按钮；reduced-motion 动画同样靠真组件浏览器几何
    断言（相交断言先红）才修干净。几何类断言红 = 真先红，比「目测正常」强一级。
+5. **壳层（WKWebView）行为复现用 `channel: "webkit"`**：Tauri macOS 壳是 WKWebView，
+   Chrome 复现到 ≠ 壳层没问题；本机 webkit-2388 已手动装进
+   `~/Library/Caches/ms-playwright/`（2026-11-20，先例：分组拖拽排序壳层排查）。
+   缓存被清或 revision 漂移时的手动安装法：revision 从
+   `node_modules/playwright-core/browsers.json` 读，
+   `https://registry.npmmirror.com/-/binary/playwright/builds/webkit/<rev>/webkit-mac-15-arm64.zip`
+   直连可下（官方 CDN 无代理卡死，npmmirror 直连通过），zip 解压进
+   `~/Library/Caches/ms-playwright/webkit-<rev>/` 后写入空文件
+   `INSTALLATION_COMPLETE`，headless 起浏览器读 UA 冒烟即算装成。
 
 ## 全库同类 bug 审计流程（2026-09-30 accent 全量修复 3411cbc1a）
 
