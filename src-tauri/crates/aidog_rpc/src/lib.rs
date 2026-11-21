@@ -20,6 +20,7 @@ use axum::routing::{get, post};
 use futures::stream::Stream;
 
 pub mod secret_fields;
+pub mod ws;
 
 /// 取路径末段（= 命令名）。macro_rules 没有「取最后一个」，靠对尾部递归实现。
 macro_rules! rpc_last_seg {
@@ -436,4 +437,5 @@ pub fn management_router() -> Router {
     rpc_router::<()>()
         .layer(axum::middleware::from_fn(secret_fields::guard))
         .route("/events", get(events_handler))
+        .route("/ws", get(ws::ws_handler))
 }
