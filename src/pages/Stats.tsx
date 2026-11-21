@@ -52,6 +52,7 @@ import {
 import { DonutChart, LineChart, StackedAreaChart, HourHeatmap, DimensionHeatmap, GaugeChart, ScatterChart, bucketMs, type GaugeTrendPoint } from "@/components/charts";
 import type { ChartConfig } from "@/components/ui/chart";
 import { useDisplayCurrency } from "../utils/displayCurrency";
+import { subscribeTopic, type WsStatus } from "../services/transport";
 
 // 桶解析已收编公共层（charts/ticks.ts）；re-export 维持 Stats.test.ts 既有导入路径。
 export { bucketMs };
@@ -108,6 +109,48 @@ export interface TrendChartData {
 }
 
 const reqSum = (bs: StatsBucket[]) => bs.reduce((s, b) => s + b.total_requests, 0);
+
+// ── 会话 tab 扩维（2026-11-21 日志统计-会话列表）──
+// 活跃会话窗口：末条请求距今 < 5 分钟（N=5 拍板定值）
+const ACTIVE_WINDOW_MS = 5 * 60_000;
+
+// sessions topic 事件载荷（与 Rust `gateway::proxy::log::session_event_payload` 同形；
+// 字段缺省兜底旧内核无事件 / 部分字段）
+interface SessionsEvent {
+  session_key: string;
+  group_key?: string;
+  client?: string;
+  session_id?: string;
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_tokens?: number;
+  est_cost?: number;
+  ts?: number;
+  request_id?: string;
+}
+
+// 会话行徽标（分组 / 客户端 / 活跃）：字号 14（check:font-size 下限），空心胶囊
+function SessionChip({ children }: { children: React.ReactNode }) {
+  return (
+    <span style={{ fontSize: 14, lineHeight: "18px", padding: "1px 8px", borderRadius: 999, border: "1px solid var(--border)", color: "var(--text-secondary)", whiteSpace: "nowrap", display: "inline-block" }}>
+      {children}
+    </span>
+  );
+}
+
+// 活跃会话实时 token 速度流图：LineChart mini（去轴 / 卡 / 网格），纵轴 = 窗口内累计 token
+function SessionSpeedSpark({ points, label }: { points: { ts: number; tokens: number }[]; label: string }) {
+  const data = useMemo(() => {
+    let sum = 0;
+    return points.map((p) => ({ x: p.ts, tokens: (sum += p.tokens) }));
+  }, [points]);
+  const config: ChartConfig = { tokens: { label } };
+  return (
+    <div data-testid="session-speed" style={{ width: 96 }}>
+      <LineChart mini config={config} data={data} height={28} />
+    </div>
+  );
+}
 
 // 时间序列 tab 数据：series_by 多序列 → 合并宽表（键 s0.. 安全 CSS 变量名，按总量降序 → 主琥珀线 = 最大维度值）；
 // series 空 / 单序列（未传 series_by 的旧后端、单维度）→ buckets 总量单序列。
@@ -313,6 +356,31 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
       .catch(console.error);
     return () => { cancelled = true; };
   }, [activeTab, sessionDays]);
+
+  // 统一 WS 通道 sessions topic（2026-11-21 日志统计-会话列表）：转发终态事件累积
+  // 会话 token 流，活跃会话行内画实时 token 速度流图。WS 不可用（down）时降级不画。
+  const [liveTokens, setLiveTokens] = useState<Record<string, { ts: number; tokens: number }[]>>({});
+  const [wsStatus, setWsStatus] = useState<WsStatus>("down");
+  useEffect(() => {
+    if (activeTab !== "sessions") return;
+    const un = subscribeTopic<SessionsEvent>("sessions", (ev) => {
+      const tokens = (ev.input_tokens ?? 0) + (ev.output_tokens ?? 0) + (ev.cache_tokens ?? 0);
+      const ts = ev.ts || Date.now();
+      setLiveTokens((prev) => {
+        const arr = [...(prev[ev.session_key] ?? []), { ts, tokens }];
+        const cutoff = Date.now() - ACTIVE_WINDOW_MS;
+        return { ...prev, [ev.session_key]: arr.filter((p) => p.ts >= cutoff) };
+      });
+    }, setWsStatus);
+    return un;
+  }, [activeTab]);
+  // 活跃判定 / 流图窗口按墙钟推进（30s 一跳，避免逐秒重渲染整表）
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    if (activeTab !== "sessions") return;
+    const id = setInterval(() => setNowTick(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, [activeTab]);
 
   // 「无分组」sentinel 映射：下拉选「无分组」→ filter_group=''（隧道请求 group_key 空）。
   // "0" 在平台筛选 truthy，直接透传后端 CAST AS INTEGER = 0（无平台）。
@@ -966,31 +1034,53 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                   <TableHeader>
                     <TableRow style={{ borderBottom: "1px solid var(--border)" }}>
                       <TableHead style={{ textAlign: "left", padding: "6px 8px", fontWeight: 600 }}>{t("stats.tabSessions", "会话")}</TableHead>
+                      <TableHead style={{ textAlign: "left", padding: "6px 8px", fontWeight: 600 }}>{t("stats.sessionMeta", "分组 / 客户端")}</TableHead>
                       <TableHead style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600 }}>{t("stats.requests", "请求")}</TableHead>
                       <TableHead style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600 }}>{t("stats.totalTokens", "总 Token")}</TableHead>
                       <TableHead style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600 }}>{t("stats.totalCost", "预估成本")}</TableHead>
+                      <TableHead style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600 }}>{t("stats.sessionSpeedCol", "实时速度")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((s) => (
-                      <TableRow
-                        key={s.session_key}
-                        data-testid="session-row"
-                        style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}
-                        onClick={() => onNavigate?.("logs", { sessionKey: s.session_key })}
-                      >
-                        <TableCell
-                          data-testid="session-title"
-                          title={s.title || undefined}
-                          style={{ padding: "6px 8px", fontWeight: 500, maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                    {rows.map((s) => {
+                      const isActive = nowTick - s.last_created_at < ACTIVE_WINDOW_MS;
+                      const live = liveTokens[s.session_key] ?? [];
+                      return (
+                        <TableRow
+                          key={s.session_key}
+                          data-testid="session-row"
+                          style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}
+                          onClick={() => onNavigate?.("logs", { sessionKey: s.session_key })}
                         >
-                          {s.title || t("stats.sessionUntitled", "未命名会话")}
-                        </TableCell>
-                        <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(s.requests)}</TableCell>
-                        <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(s.input_tokens + s.output_tokens + s.cache_tokens)}</TableCell>
-                        <TableCell style={{ textAlign: "right", padding: "6px 8px", color: levelColor(costLevel(s.est_cost)) }}>{formatMoney(s.est_cost)}</TableCell>
-                      </TableRow>
-                    ))}
+                          <TableCell
+                            data-testid="session-title"
+                            title={s.title || undefined}
+                            style={{ padding: "6px 8px", fontWeight: 500, maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                          >
+                            {s.title || t("stats.sessionUntitled", "未命名会话")}
+                          </TableCell>
+                          <TableCell data-testid="session-badges" style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>
+                            <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+                              {isActive && <SessionChip>{t("stats.sessionLive", "活跃")}</SessionChip>}
+                              {s.group_key ? <SessionChip>{s.group_key}</SessionChip> : null}
+                              {s.client ? <SessionChip>{s.client}</SessionChip> : null}
+                              {!isActive && !s.group_key && !s.client ? "—" : null}
+                            </span>
+                          </TableCell>
+                          <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(s.requests)}</TableCell>
+                          <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(s.input_tokens + s.output_tokens + s.cache_tokens)}</TableCell>
+                          <TableCell style={{ textAlign: "right", padding: "6px 8px", color: levelColor(costLevel(s.est_cost)) }}>{formatMoney(s.est_cost)}</TableCell>
+                          <TableCell data-testid="session-speed-cell" style={{ textAlign: "right", padding: "6px 8px" }}>
+                            {/* 降级口径：WS 不可用（down）/ 无事件时不画流图，列表照常 */}
+                            {isActive && wsStatus === "open" && live.length > 0 && (
+                              <span onClick={(e) => e.stopPropagation()} style={{ display: "inline-flex" }}>
+                                <SessionSpeedSpark points={live} label={t("stats.sessionSpeed", "token 累计")} />
+                              </span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

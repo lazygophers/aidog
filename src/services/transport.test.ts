@@ -13,6 +13,7 @@ import {
   isTauri,
   RPC_UNAUTHORIZED,
   __resetEventSourceForTests,
+  subscribeTopic,
 } from "./transport";
 
 /** 最小 EventSource 桩：只实现 transport 用到的那几个成员。 */
@@ -182,5 +183,110 @@ describe("transport 分流", () => {
     es.push("proxy-log-updated", "not json");
     es.push("proxy-log-updated", "5");
     expect(seen).toEqual([5]);
+  });
+});
+
+/** 最小 WebSocket 桩：只实现 transport.subscribeTopic 用到的成员。 */
+class FakeWebSocket {
+  static last: FakeWebSocket | null = null;
+  static instances: FakeWebSocket[] = [];
+  url: string;
+  sent: string[] = [];
+  onopen: (() => void) | null = null;
+  onmessage: ((ev: { data: string }) => void) | null = null;
+  onclose: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  closed = false;
+  constructor(url: string) {
+    this.url = url;
+    FakeWebSocket.last = this;
+    FakeWebSocket.instances.push(this);
+  }
+  send(data: string) {
+    this.sent.push(data);
+  }
+  close() {
+    this.closed = true;
+  }
+}
+
+describe("subscribeTopic（统一 WS 通道）", () => {
+  beforeEach(() => {
+    delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
+    FakeWebSocket.last = null;
+    FakeWebSocket.instances = [];
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+  });
+
+  afterEach(() => {
+    clearMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("浏览器形态连 /api/ws，open 后发 subscribe 帧", () => {
+    const un = subscribeTopic<number>("sessions", () => {});
+    expect(FakeWebSocket.last).not.toBeNull();
+    expect(FakeWebSocket.last!.url).toContain("/api/ws");
+    FakeWebSocket.last!.onopen!();
+    expect(FakeWebSocket.last!.sent).toEqual([JSON.stringify({ subscribe: "sessions" })]);
+    un();
+  });
+
+  it("只分发已订阅 topic 的 data，坏帧跳过", () => {
+    const seen: number[] = [];
+    const un = subscribeTopic<number>("sessions", (d) => seen.push(d));
+    const ws = FakeWebSocket.last!;
+    ws.onopen!();
+    ws.onmessage!({ data: JSON.stringify({ topic: "sessions", data: 7 }) });
+    ws.onmessage!({ data: JSON.stringify({ topic: "other", data: 9 }) });
+    ws.onmessage!({ data: "not json" });
+    expect(seen).toEqual([7]);
+    un();
+    // 退订后 handler 被摘掉（onmessage 置空）且连接关闭
+    expect(ws.onmessage).toBeNull();
+    expect(ws.closed).toBe(true);
+  });
+
+  it("断线后 3s 重连并重发 subscribe", () => {
+    vi.useFakeTimers();
+    try {
+      const un = subscribeTopic<number>("sessions", () => {});
+      const first = FakeWebSocket.last!;
+      first.onopen!();
+      first.onclose!();
+      expect(FakeWebSocket.instances.length).toBe(1);
+      vi.advanceTimersByTime(3000);
+      expect(FakeWebSocket.instances.length).toBe(2);
+      const second = FakeWebSocket.last!;
+      expect(second).not.toBe(first);
+      second.onopen!();
+      expect(second.sent).toEqual([JSON.stringify({ subscribe: "sessions" })]);
+      un();
+      // 退订后 handler 被摘掉，onclose 不再触发重连
+      expect(second.onclose).toBeNull();
+      const n = FakeWebSocket.instances.length;
+      vi.advanceTimersByTime(6000);
+      expect(FakeWebSocket.instances.length).toBe(n);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("status 回调按连接生命周期上报 open / down", () => {
+    const states: string[] = [];
+    const un = subscribeTopic<number>("sessions", () => {}, (s) => states.push(s));
+    expect(states).toEqual(["connecting"]);
+    FakeWebSocket.last!.onopen!();
+    expect(states).toEqual(["connecting", "open"]);
+    FakeWebSocket.last!.onclose!();
+    expect(states).toEqual(["connecting", "open", "down"]);
+    un();
+  });
+
+  it("Tauri 存在时 topic 走事件总线，不开 WebSocket", () => {
+    mockIPC(() => 1);
+    const un = subscribeTopic<number>("sessions", () => {});
+    expect(FakeWebSocket.last).toBeNull();
+    un();
   });
 });

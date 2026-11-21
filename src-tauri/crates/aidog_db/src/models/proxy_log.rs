@@ -389,7 +389,11 @@ impl<'de> Deserialize<'de> for ModelVia {
             "passthrough" => Self::Passthrough,
             other => match other.strip_prefix(SLOT_CUSTOM_PREFIX) {
                 Some(name) if !name.is_empty() => Self::SlotCustom(name.to_string()),
-                _ => return Err(serde::de::Error::custom(format!("unknown ModelVia: {other}"))),
+                _ => {
+                    return Err(serde::de::Error::custom(format!(
+                        "unknown ModelVia: {other}"
+                    )));
+                }
             },
         })
     }
@@ -472,7 +476,9 @@ pub struct RoutingSnapshot {
 impl RoutingSnapshot {
     /// 记一个限频放行时刻（Unix 毫秒），与已有值取最早；秒级向上取整。
     pub fn note_retry_at_ms(&mut self, at_ms: i64) {
-        let s = u32::try_from((at_ms.max(0) + 999) / 1000).ok().and_then(std::num::NonZeroU32::new);
+        let s = u32::try_from((at_ms.max(0) + 999) / 1000)
+            .ok()
+            .and_then(std::num::NonZeroU32::new);
         self.retry_at_s = match (self.retry_at_s, s) {
             (Some(a), Some(b)) => Some(a.min(b)),
             (a, b) => a.or(b),
@@ -488,7 +494,12 @@ impl RoutingSnapshot {
     /// 其后的入选候选永不会被尝试 → 标 retry-limit。
     pub fn mark_retry_limit(&mut self, max_attempts: u32, after_platform_id: u64) {
         self.max_retries = Some(max_attempts);
-        let Some(order) = self.entries.iter().find(|e| e.platform_id == after_platform_id).map(|e| e.order) else {
+        let Some(order) = self
+            .entries
+            .iter()
+            .find(|e| e.platform_id == after_platform_id)
+            .map(|e| e.order)
+        else {
             return;
         };
         for e in &mut self.entries {
@@ -759,14 +770,23 @@ pub struct LastTestResult {
 
 impl LastTestResult {
     /// 由一条测试请求记录的字段构造：2xx 为成功；失败时 error 取正文前 200 字符；正文截断 4000 字符。
-    pub fn from_row(status_code: i32, duration_ms: i32, created_at: i64, response_body: &str) -> Self {
+    pub fn from_row(
+        status_code: i32,
+        duration_ms: i32,
+        created_at: i64,
+        response_body: &str,
+    ) -> Self {
         let success = (200..300).contains(&status_code);
         Self {
             success,
             status_code,
             duration_ms,
             created_at,
-            error: if success { String::new() } else { response_body.chars().take(200).collect() },
+            error: if success {
+                String::new()
+            } else {
+                response_body.chars().take(200).collect()
+            },
             response_body: response_body.chars().take(4000).collect(),
         }
     }
@@ -1217,9 +1237,15 @@ mod tests {
         let json = serde_json::to_string(&with_model).unwrap();
         assert!(json.contains(r#""target_model":"m-1""#));
 
-        let none = RouteCandidate { target_model: None, ..with_model.clone() };
+        let none = RouteCandidate {
+            target_model: None,
+            ..with_model.clone()
+        };
         let json_none = serde_json::to_string(&none).unwrap();
         assert!(!json_none.contains("target_model"));
-        assert_eq!(serde_json::from_str::<RouteCandidate>(&json).unwrap(), with_model);
+        assert_eq!(
+            serde_json::from_str::<RouteCandidate>(&json).unwrap(),
+            with_model
+        );
     }
 }
