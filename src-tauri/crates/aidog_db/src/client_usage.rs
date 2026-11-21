@@ -519,33 +519,33 @@ fn query_sessions(
 ) -> rusqlite::Result<Vec<ClientUsageHiddenSessionRow>> {
     // 回收站：JOIN 隐藏表并带出 hidden_at；列表：NOT EXISTS 排除隐藏会话。
     let (hidden_col, hidden_join, hidden_filter, order) = if hidden {
-        (", h.hidden_at",
+        (", h.hidden_at AS hidden_at",
          " JOIN client_session_hidden h ON h.client_code = s.client_code AND h.session_id = s.session_id",
          "",
-         "h.hidden_at")
+         "hidden_at")
     } else {
         ("", "",
          " AND NOT EXISTS (SELECT 1 FROM client_session_hidden h WHERE h.client_code = s.client_code AND h.session_id = s.session_id)",
-         "s.last_call_ms")
+         "last_call_ms")
     };
-    let mut sql = format!("SELECT s.client_code, s.session_id, s.title, s.workdir, s.first_call_ms, s.last_call_ms, \
-        COALESCE(cnt.calls,0), COALESCE(cnt.cost,0), COALESCE(cnt.unpriced,0), COALESCE(cnt.input,0), COALESCE(cnt.output,0), \
-        COALESCE(cnt.cache_read,0), COALESCE(cnt.cache_write,0), COALESCE(cnt.reasoning,0), COALESCE(cnt.sidechain,0){hidden_col} \
-        FROM client_session s LEFT JOIN \
-        (SELECT client_code, session_id, COUNT(*) AS calls, COALESCE(SUM(cost),0) AS cost, \
-                COUNT(CASE WHEN cost IS NULL THEN 1 END) AS unpriced, \
-                COALESCE(SUM(input_tokens),0) AS input, COALESCE(SUM(output_tokens),0) AS output, \
-                COALESCE(SUM(cache_read_tokens),0) AS cache_read, COALESCE(SUM(cache_write_tokens),0) AS cache_write, \
-                COALESCE(SUM(reasoning_tokens),0) AS reasoning, COALESCE(SUM(is_sidechain),0) AS sidechain \
-         FROM client_call WHERE call_time_ms BETWEEN ?1 AND ?2 GROUP BY 1,2) cnt \
-        ON cnt.client_code = s.client_code AND cnt.session_id = s.session_id{hidden_join} \
-        WHERE 1=1{hidden_filter}");
+    let outer_hidden_col = if hidden { ", s.hidden_at" } else { "" };
+    let client_filter = if client.is_some() { " AND s.client_code = ?3" } else { "" };
+    // 先按排序截取会话，再只对这些会话按 idx_client_call_session 范围聚合：
+    // 旧写法先对整个时间窗 GROUP BY 全表（SCAN client_call），再 JOIN 截断。
+    let sql = format!("SELECT s.client_code, s.session_id, s.title, s.workdir, s.first_call_ms, s.last_call_ms, \
+        COUNT(c.id), COALESCE(SUM(c.cost),0), COUNT(CASE WHEN c.id IS NOT NULL AND c.cost IS NULL THEN 1 END), \
+        COALESCE(SUM(c.input_tokens),0), COALESCE(SUM(c.output_tokens),0), \
+        COALESCE(SUM(c.cache_read_tokens),0), COALESCE(SUM(c.cache_write_tokens),0), \
+        COALESCE(SUM(c.reasoning_tokens),0), COALESCE(SUM(c.is_sidechain),0){outer_hidden_col} \
+        FROM (SELECT s.*{hidden_col} FROM client_session s{hidden_join} \
+              WHERE 1=1{hidden_filter}{client_filter} ORDER BY {order} DESC LIMIT {limit}) s \
+        LEFT JOIN client_call c ON c.client_code = s.client_code AND c.session_id = s.session_id \
+             AND c.call_time_ms BETWEEN ?1 AND ?2 \
+        GROUP BY s.id ORDER BY s.{order} DESC");
     let mut args: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(from_ms), Box::new(to_ms)];
     if let Some(c) = client {
-        sql.push_str(" AND s.client_code = ?3");
         args.push(Box::new(c.to_string()));
     }
-    sql.push_str(&format!(" ORDER BY {order} DESC LIMIT {limit}"));
     let rows = conn
         .prepare(&sql)?
         .query_map(rusqlite::params_from_iter(args), |r| {

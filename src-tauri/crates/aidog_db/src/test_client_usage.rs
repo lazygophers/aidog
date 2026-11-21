@@ -204,6 +204,78 @@ async fn bench_progress_lookup() {
     }
 }
 
+/// 会话列表口径护栏：窗口外调用不计、窗口内无调用的会话仍列出且计数为 0、
+/// 未定价只数 cost NULL 的真实行、按最后调用倒序 + limit 截断。
+#[tokio::test]
+async fn client_usage_sessions_window_zero_and_limit() {
+    let (db, _dir) = four_file_db().await;
+    let mk = |sess: &str, t: i64, pos: i64, cost: Option<f64>| ClientCallRow {
+        client_code: "claude_code".into(),
+        session_id: sess.into(),
+        call_time_ms: t,
+        input_tokens: 1,
+        cost,
+        source_file_id: format!("{sess}-f"),
+        file_pos: pos,
+        ..Default::default()
+    };
+    insert_client_calls(&db, &[mk("a", 100, 1, Some(0.5)), mk("a", 200, 2, None), mk("a", 900, 3, Some(9.0)), mk("b", 900, 1, None)])
+        .await
+        .unwrap();
+    for (s, last) in [("a", 900), ("b", 950), ("c", 10)] {
+        upsert_client_session(&db, "claude_code".into(), s.into(), String::new(), String::new(), 1, last).await.unwrap();
+    }
+    let rows = client_usage_sessions(&db, 0, 500, None, 2).await.unwrap();
+    let got: Vec<(&str, i64, i64, i64)> =
+        rows.iter().map(|r| (r.session_id.as_str(), r.calls, r.unpriced_calls, r.input_tokens)).collect();
+    assert_eq!(got, vec![("b", 0, 0, 0), ("a", 2, 1, 2)]);
+    assert!((rows[1].cost - 0.5).abs() < 1e-9);
+}
+
+/// 计时（手动跑）：30 万 client_call / 2000 会话，全时段会话列表查询 + 查询计划。
+#[tokio::test]
+#[ignore]
+async fn bench_sessions_query() {
+    let (db, _dir) = four_file_db().await;
+    db.call_client_usage_traced(None, std::panic::Location::caller(), |conn| {
+        let tx = conn.unchecked_transaction()?;
+        for i in 0..300_000i64 {
+            let s = i % 2000;
+            tx.execute(
+                "INSERT INTO client_call (client_code, session_id, call_time_ms, model, input_tokens, output_tokens, cost, source_file_id, file_pos) VALUES ('claude_code', ?1, ?2, 'm', 10, 20, 0.01, ?3, ?4)",
+                params![format!("sess-{s}"), 1_700_000_000_000 + i * 1000, format!("/f/{s}.jsonl"), i],
+            )?;
+        }
+        for s in 0..2000i64 {
+            tx.execute(
+                "INSERT INTO client_session (client_code, session_id, title, workdir, first_call_ms, last_call_ms) VALUES ('claude_code', ?1, '', '', 0, ?2)",
+                params![format!("sess-{s}"), 1_700_000_000_000 + s],
+            )?;
+        }
+        tx.commit()?;
+        let mut st = conn.prepare("EXPLAIN QUERY PLAN SELECT client_code, session_id, COUNT(*) FROM client_call WHERE call_time_ms BETWEEN 0 AND 9 GROUP BY 1,2")?;
+        let plan: Vec<String> = st.query_map([], |r| r.get::<_, String>(3))?.collect::<Result<_, _>>()?;
+        println!("PLAN_OLD_SUBQUERY {plan:?}");
+        let mut st = conn.prepare("EXPLAIN QUERY PLAN SELECT s.id, COUNT(c.id) FROM (SELECT s.* FROM client_session s ORDER BY last_call_ms DESC LIMIT 200) s LEFT JOIN client_call c ON c.client_code = s.client_code AND c.session_id = s.session_id AND c.call_time_ms BETWEEN 0 AND 9 GROUP BY s.id")?;
+        let plan: Vec<String> = st.query_map([], |r| r.get::<_, String>(3))?.collect::<Result<_, _>>()?;
+        println!("PLAN_NEW_JOIN {plan:?}");
+        Ok(())
+    })
+    .await
+    .unwrap();
+    for (label, from, to) in [("all", 0, i64::MAX), ("1d", 1_700_000_000_000 + 299_000_000 - 86_400_000, i64::MAX)] {
+        let mut ms = Vec::new();
+        for _ in 0..7 {
+            let t = std::time::Instant::now();
+            let rows = client_usage_sessions(&db, from, to, None, 200).await.unwrap();
+            assert_eq!(rows.len(), 200);
+            ms.push(t.elapsed().as_secs_f64() * 1000.0);
+        }
+        ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        println!("BENCH sessions window={label} median_ms={:.1} all={ms:.1?}", ms[3]);
+    }
+}
+
 /// 票面验收 ③：保留天数 setting 读写持久化（缺省 90，0 = 永久）。
 #[tokio::test]
 async fn client_usage_retention_setting_roundtrip() {
