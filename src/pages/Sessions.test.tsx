@@ -9,6 +9,7 @@ const api = vi.hoisted(() => ({
   refresh: vi.fn(),
   sessionDetail: vi.fn(),
   sessionStates: vi.fn(),
+  sessionResume: vi.fn(),
 }));
 vi.mock("../services/api/clientUsage", () => ({ clientUsageApi: api }));
 
@@ -382,5 +383,51 @@ describe("Sessions 页（票 05：运行状态）", () => {
     await waitFor(() => expect(ev.handlers.has("client-usage-updated")).toBe(true));
     await act(async () => { ev.handlers.get("client-usage-updated")!(); });
     await waitFor(() => expect(screen.getAllByTestId("sessions-row-state")[0]).toHaveAttribute("data-state", "running"));
+  });
+});
+
+describe("继续会话（票 07）", () => {
+  const RESUME_ROWS = [
+    row("claude_code", "c1", "演示会话甲", "/work/alpha", H),
+    row("gemini_cli", "g1", "演示无目录", "", 2 * H),
+    row("gemini_cli", "g2", "演示有目录", "/work/beta", 3 * H),
+  ];
+  const bySid = (sid: string) => screen.getAllByTestId("sessions-row").find((r) => r.getAttribute("data-session") === sid)!;
+
+  beforeEach(() => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(RESUME_ROWS);
+    api.sessionDetail.mockReturnValue(new Promise(() => {}));
+  });
+
+  it("Gemini 无目录不渲染「继续」；点继续传 clientCode / sessionId / workdir，且不展开行", async () => {
+    api.sessionResume.mockResolvedValue({ launched: true, command: "claude --resume 'c1'" });
+    render(<Sessions />);
+    await screen.findAllByTestId("sessions-row");
+    expect(within(bySid("g1")).queryByTestId("sessions-resume")).toBeNull();
+    expect(within(bySid("g2")).getByTestId("sessions-resume")).toBeInTheDocument();
+    const btn = within(bySid("c1")).getByTestId("sessions-resume");
+    fireEvent.click(btn);
+    await waitFor(() => expect(api.sessionResume).toHaveBeenCalledWith("claude_code", "c1", "/work/alpha"));
+    fireEvent.keyDown(btn, { key: "Enter" });
+    expect(bySid("c1")).toHaveAttribute("data-state", "closed");
+    expect(screen.queryByTestId("sessions-resume-notice")).toBeNull();
+  });
+
+  it("失败显示错误；本平台不能开终端时复制命令并提示", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    api.sessionResume.mockRejectedValueOnce("opencode session not found: o9");
+    render(<Sessions />);
+    await screen.findAllByTestId("sessions-row");
+    fireEvent.click(within(bySid("c1")).getByTestId("sessions-resume"));
+    await waitFor(() => expect(api.sessionResume).toHaveBeenCalledWith("claude_code", "c1", "/work/alpha"));
+    const err = await screen.findByTestId("sessions-resume-notice");
+    expect(err).toHaveAttribute("data-kind", "error");
+    expect(err).toHaveAttribute("data-detail", "opencode session not found: o9");
+    api.sessionResume.mockResolvedValueOnce({ launched: false, command: "gemini --resume 'g2'" });
+    fireEvent.click(within(bySid("g2")).getByTestId("sessions-resume"));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("gemini --resume 'g2'"));
+    await waitFor(() => expect(screen.getByTestId("sessions-resume-notice")).toHaveAttribute("data-kind", "copied"));
   });
 });

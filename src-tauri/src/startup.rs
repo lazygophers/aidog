@@ -191,6 +191,7 @@ pub fn run() {
             aidog_core::proxy_cmd::proxy_timeout::proxy_timeout_set,
             // 会话一键继续（日志统计-会话列表）：终端开 claude --resume
             aidog_core::proxy_cmd::session_cmd::session_open_terminal,
+            aidog_core::proxy_cmd::session_cmd::session_resume,
             // Middleware Rule Engine (C1)
             aidog_core::proxy_cmd::middleware::middleware_list_rules,
             aidog_core::proxy_cmd::middleware::middleware_create_rule,

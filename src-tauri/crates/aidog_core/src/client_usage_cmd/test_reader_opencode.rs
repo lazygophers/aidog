@@ -334,3 +334,32 @@ async fn opencode_db_v1_import() {
     assert!(cost.unwrap_or(0.0) > 0.0, "按名匹配官方平台条目折算");
     std::fs::remove_file(&dbp).ok();
 }
+
+/// 票 07 会话存在性：新代 session_v2 / 旧代 session 两种 db + JSON store；查不到 / 无库 → false。
+#[test]
+fn session_exists_db_generations_and_json() {
+    let d = tmpdir();
+    let v2 = d.path().join("v2");
+    std::fs::create_dir_all(&v2).unwrap();
+    let c = rusqlite::Connection::open(v2.join("opencode.db")).unwrap();
+    c.execute_batch("CREATE TABLE session_v2 (id text PRIMARY KEY, parent_id text, directory text, title text); INSERT INTO session_v2 VALUES ('ses_a', '', '/w', 't');").unwrap();
+    drop(c);
+    assert!(reader_opencode::session_exists(&v2, "ses_a"), "父目录形态");
+    assert!(reader_opencode::session_exists(&v2.join("opencode.db"), "ses_a"), "db 文件形态");
+    assert!(!reader_opencode::session_exists(&v2, "ses_b"));
+    assert!(!reader_opencode::session_exists(&v2, "x' OR '1'='1"), "参数化，不拼 SQL");
+
+    let old = d.path().join("old");
+    std::fs::create_dir_all(&old).unwrap();
+    let c = rusqlite::Connection::open(old.join("opencode.db")).unwrap();
+    c.execute_batch("CREATE TABLE session (id text PRIMARY KEY, parent_id text, directory text, title text); INSERT INTO session VALUES ('ses_o', '', '/w', 't');").unwrap();
+    drop(c);
+    assert!(reader_opencode::session_exists(&old, "ses_o"));
+    assert!(!reader_opencode::session_exists(&old, "ses_a"));
+
+    let js = d.path().join("js");
+    json_file(&js.join("storage/session/proj1/ses_j.json"), &session_json("ses_j", None, "t", "/w"));
+    assert!(reader_opencode::session_exists(&js, "ses_j"));
+    assert!(!reader_opencode::session_exists(&js, "ses_k"));
+    assert!(!reader_opencode::session_exists(&d.path().join("none"), "ses_j"));
+}

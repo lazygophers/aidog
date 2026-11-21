@@ -128,6 +128,12 @@ export interface ClientUsageSessionState {
   lastActivityMs: number;
 }
 
+/** `session_resume` 结果：launched=false 表示本平台不能开终端，command 供复制。 */
+export interface SessionResumeResult {
+  launched: boolean;
+  command: string;
+}
+
 export const clientUsageApi = {
   consentGet: () => invoke<ClientUsageConsent>("client_usage_consent_get"),
   consentSet: (consent: ClientUsageConsent) =>
@@ -145,6 +151,9 @@ export const clientUsageApi = {
     invoke<ClientUsageSessionDetail>("client_usage_session_detail", { clientCode, sessionId }),
   sessionStates: (sessionIds: string[], clientCode?: string) =>
     invoke<ClientUsageSessionState[]>("client_usage_session_states", { clientCode, sessionIds }),
+  /** 继续会话（票 07）：先 cd 到工作目录再跑各家继续命令；launched=false 时前端复制 command。 */
+  sessionResume: (clientCode: string, sessionId: string, workdir: string) =>
+    invoke<SessionResumeResult>("session_resume", { clientCode, sessionId, workdir }),
   refresh: () => invoke<ClientUsageImportState>("client_usage_refresh"),
   /** 保留天数（0 = 永久，缺省 90）。 */
   retentionGet: () => invoke<number>("client_usage_retention_get"),

@@ -3340,6 +3340,28 @@
       "returns": "()"
     },
     {
+      "name": "session_resume",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "clientCode",
+          "type": "String"
+        },
+        {
+          "name": "sessionId",
+          "type": "String"
+        },
+        {
+          "name": "workdir",
+          "type": "String"
+        }
+      ],
+      "returns": "SessionResumeResult"
+    },
+    {
       "name": "session_stats",
       "category": "proxy",
       "kind": "readonly",
