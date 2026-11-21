@@ -773,6 +773,15 @@
       "returns": "ContextCompressStats"
     },
     {
+      "name": "context_compress_stats_cached",
+      "category": "ai_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Option<CachedContextCompressStats>"
+    },
+    {
       "name": "context_compress_status",
       "category": "ai_tools",
       "kind": "readonly",

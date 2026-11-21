@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { ChartContainer, type ChartConfig } from "../components/ui/chart";
 import { ChartCard, ChartsTooltip, PRIMARY_COLOR, niceTicks, useDrawIn } from "../components/charts";
 import { contextCompressApi, type ContextCompressStats, type ContextCompressStatus, type RtkSetResult } from "../services/api/contextCompress";
-import { formatInteger, formatNumber, formatPercent } from "../utils/formatters";
+import { formatDateTime, formatInteger, formatNumber, formatPercent } from "../utils/formatters";
 
 type Range = "30" | "90" | "all";
 
@@ -62,21 +62,38 @@ export function ContextCompress() {
   const [range, setRange] = useState<Range>("30");
   const drawIn = useDrawIn();
 
+  const [fetchedAt, setFetchedAt] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
   // stats 跑 rtk gain / sqz stats 要数秒，与 status 分开加载，不拖住开关区。
+  // 已有数据（缓存或上次结果）时刷新期间照常显示，失败也保留。
   const loadStats = useCallback(async () => {
-    setStatsState("loading");
+    setRefreshing(true);
+    setStatsError("");
     try {
       setStats(await contextCompressApi.stats());
+      setFetchedAt(Date.now());
       setStatsState("ok");
     } catch (e) {
       setStatsError(String(e));
-      setStatsState("error");
+      setStatsState(s => s === "ok" ? "ok" : "error");
+    } finally {
+      setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
     contextCompressApi.status().then(setStatus, e => setError(String(e)));
-    void loadStats();
+    void (async () => {
+      // 先显示上次结果（读库，毫秒级），再后台跑命令拉新
+      const cached = await contextCompressApi.statsCached().catch(() => null);
+      if (cached) {
+        setStats(cached.stats);
+        setFetchedAt(cached.fetched_at);
+        setStatsState("ok");
+      }
+      await loadStats();
+    })();
   }, [loadStats]);
 
   const run = async (action: () => Promise<ContextCompressStatus | RtkSetResult>) => {
@@ -107,6 +124,11 @@ export function ContextCompress() {
   const rangeHeader = <div className="flex items-center justify-between gap-4">
     <h2 className="text-base font-semibold">{t("contextCompress.statsTitle")}</h2>
     <div className="flex items-center gap-2">
+      <span className="text-sm text-muted-foreground" data-testid="cc-stats-updated" data-refreshing={String(refreshing)} data-fetched-at={fetchedAt ?? ""}>
+        {refreshing ? t("contextCompress.statsRefreshing")
+          : fetchedAt ? t("contextCompress.statsUpdatedAt", { time: formatDateTime(fetchedAt) }) : null}
+        {!refreshing && statsState === "ok" && statsError && <span className="ml-2 text-destructive">{t("contextCompress.statsError")} {statsError}</span>}
+      </span>
       <div role="radiogroup" aria-label={t("contextCompress.statsRange")} className="flex items-center rounded-md border p-0.5 text-sm">
         {(["30", "90", "all"] as const).map(r => <button key={r} role="radio" aria-checked={range === r} type="button"
           className={`rounded px-2 py-1 ${range === r ? "bg-secondary text-secondary-foreground" : "text-muted-foreground"}`}
@@ -114,7 +136,7 @@ export function ContextCompress() {
           {t(`contextCompress.statsRange${r === "all" ? "All" : r}`)}
         </button>)}
       </div>
-      <Button variant="outline" size="sm" disabled={statsState === "loading"} onClick={() => void loadStats()} data-testid="cc-stats-refresh">{t("contextCompress.statsRefresh")}</Button>
+      <Button variant="outline" size="sm" disabled={refreshing} onClick={() => void loadStats()} data-testid="cc-stats-refresh">{t("contextCompress.statsRefresh")}</Button>
     </div>
   </div>;
 

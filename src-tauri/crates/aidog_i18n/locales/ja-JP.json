@@ -1212,6 +1212,8 @@
   "contextCompress.checking": "確認中…",
   "contextCompress.statsTitle": "圧縮統計",
   "contextCompress.statsRefresh": "統計を更新",
+  "contextCompress.statsRefreshing": "更新中…",
+  "contextCompress.statsUpdatedAt": "更新日時 {{time}}",
   "contextCompress.statsLoading": "統計を読み込み中…",
   "contextCompress.statsError": "統計の読み取りに失敗しました：",
   "contextCompress.statsNotInstalled": "未インストールのため統計なし",

@@ -1212,6 +1212,8 @@
   "contextCompress.checking": "Проверка…",
   "contextCompress.statsTitle": "Статистика сжатия",
   "contextCompress.statsRefresh": "Обновить статистику",
+  "contextCompress.statsRefreshing": "Обновление…",
+  "contextCompress.statsUpdatedAt": "Обновлено {{time}}",
   "contextCompress.statsLoading": "Загрузка статистики…",
   "contextCompress.statsError": "Не удалось прочитать статистику:",
   "contextCompress.statsNotInstalled": "Не установлено, статистики нет",

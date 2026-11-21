@@ -1124,6 +1124,8 @@
   "contextCompress.checking": "检测中…",
   "contextCompress.statsTitle": "压缩统计",
   "contextCompress.statsRefresh": "刷新统计",
+  "contextCompress.statsRefreshing": "刷新中…",
+  "contextCompress.statsUpdatedAt": "更新于 {{time}}",
   "contextCompress.statsLoading": "统计加载中…",
   "contextCompress.statsError": "读取统计失败：",
   "contextCompress.statsNotInstalled": "未安装，暂无统计",
