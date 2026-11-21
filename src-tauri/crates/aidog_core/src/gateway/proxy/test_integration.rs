@@ -10117,3 +10117,89 @@ async fn direct_quota_window_exhausted_returns_429_with_retry_after() {
     assert_eq!(log.blocked_reason, "quota_window_exhausted");
     assert_eq!(log.est_cost, 0.0);
 }
+
+/// supported_protocols 端到端（4dbbc7c4 回归护栏）：入站 anthropic + 平台 anthropic/openai 双端点
+/// （同一本地假上游）+ 槽位模型 registry 仅支持 openai（commandcode deepseek 实数据）→
+/// 出站须落 openai 端点（路径 /v1/chat/completions，converter 跨协议转换，非 anthropic 透传），
+/// 2xx 回客户端 anthropic 形状。
+#[tokio::test]
+async fn chat_routes_to_model_supported_endpoint_protocol() {
+    const OPENAI_OK: &str = r#"{"id":"c1","choices":[{"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":3}}"#;
+    let (up, hits) = spawn_embedding_upstream(vec![(200, OPENAI_OK)]).await;
+    let state = make_state(test_db().await).await;
+    let plat = aidog_db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: "commandcode-e2e".into(),
+            platform_type: Protocol::CommandCode,
+            base_url: up.clone(),
+            api_key: "sk-up".into(),
+            extra: String::new(),
+            models: Some(PlatformModels {
+                default: vec!["deepseek/deepseek-v4-flash".into()],
+                ..Default::default()
+            }),
+            available_models: None,
+            endpoints: Some(vec![
+                crate::gateway::models::PlatformEndpoint {
+                    protocol: Protocol::Anthropic,
+                    base_url: format!("{up}/v1"),
+                    client_type: "default".into(),
+                    coding_plan: false,
+                },
+                crate::gateway::models::PlatformEndpoint {
+                    protocol: Protocol::OpenAI,
+                    base_url: format!("{up}/v1"),
+                    client_type: "default".into(),
+                    coding_plan: false,
+                },
+            ]),
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .unwrap();
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group("gksp", vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: plat.id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request(
+            "gksp",
+            r#"{"model":"deepseek/deepseek-v4-flash","max_tokens":64,"messages":[{"role":"user","content":"hi"}]}"#,
+        ),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK, "深链转换后须 2xx");
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(v["type"], "message", "回客户端 anthropic 形状: {v}");
+
+    let (path, req_body, _auth) = {
+        let h = hits.lock().unwrap();
+        h[0].clone()
+    };
+    assert_eq!(
+        path, "/v1/chat/completions",
+        "出站须落 openai 端点（converter 跨协议），不得打 anthropic 端点透传 /v1/messages"
+    );
+    let sent: serde_json::Value = serde_json::from_str(&req_body).unwrap();
+    assert_eq!(sent["model"], "deepseek/deepseek-v4-flash");
+    assert!(sent["messages"].is_array(), "openai chat 出站形状: {req_body}");
