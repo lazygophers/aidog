@@ -925,3 +925,36 @@ fn gemini_sse_grounding_frame_yields_server_tool_result_event() {
     let stop_pos = events.iter().position(|e| matches!(e, ChatStreamEvent::Stop { .. })).unwrap();
     assert!(usage_pos < srv_pos && srv_pos < stop_pos, "顺序 Usage<ServerToolResult<Stop: {events:?}");
 }
+
+#[test]
+fn gemini_url_context_extra_urls_unrecognized() {
+    let body = json!({
+        "candidates": [{
+            "content": {"parts": [{"text": "答案"}]},
+            "urlContextMetadata": {
+                "urlMetadata": [
+                    {"uri": "https://example.com/1", "title": "1", "urlRetrievalStatus": "SUCCESS"},
+                    {"uri": "https://example.com/2", "title": "2", "urlRetrievalStatus": "SUCCESS"},
+                    {"uri": "https://example.com/3", "title": "3", "urlRetrievalStatus": "FAILED"}
+                ]
+            }
+        }]
+    });
+    let ev = gemini_server_tool_events(&body);
+    // 只转首个 URL 的 fetch 对；其余 2 条既不转换也须计入 unrecognized 供 field_trace 留痕
+    assert_eq!(ev.blocks.len(), 2);
+    assert_eq!(ev.blocks[1]["content"]["url"], "https://example.com/1");
+    assert_eq!(ev.unrecognized, vec!["urlContextMetadata".to_string()]);
+}
+
+#[test]
+fn unrecognized_server_event_names_in_text_finds_gemini_frames() {
+    let text = "data: {\"candidates\":[{\"content\":{\"parts\":[{\"executableCode\":{\"code\":\"p\"}}]}}]}\n\n\
+                data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"hi\"}]}}]}\n\n";
+    assert_eq!(
+        unrecognized_server_event_names_in_text(text),
+        vec!["executableCode".to_string()],
+        "旁路检出非 data 行与普通帧不误报"
+    );
+    assert!(unrecognized_server_event_names_in_text("data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"x\"}]}}]}\n\n").is_empty());
+}

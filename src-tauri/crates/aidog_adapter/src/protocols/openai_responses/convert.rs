@@ -437,8 +437,15 @@ pub fn render_responses_response(r: &crate::converter::NonStreamResponse) -> Opt
 ///   事件名入 `unrecognized` 供 proxy field_trace 留痕。
 pub fn responses_server_tool_events(body: &Value) -> crate::converter::ServerToolEvents {
     let mut out = crate::converter::ServerToolEvents::default();
-    // 非流式 body → output[]；SSE 帧（output_item.added/done）→ data.item 单项
+    // 非流式 body → output[]；SSE 帧 → data.item 单项。
+    // 流式只认 output_item.done（终态 item）：added/in_progress 等中间帧与 done 携带同 id
+    // item，都转会产重复的 server_tool_use + 结果块对。已评审接受：流式帧不带 message
+    // annotations，web_search_tool_result.content 恒空（官方语义 = 无结果，客户端不伪造）；
+    // citations 只有非流式路径拿得到。
     let items: Vec<&Value> = if let Some(item) = body.get("item") {
+        if body.get("type").and_then(Value::as_str) != Some("response.output_item.done") {
+            return out;
+        }
         vec![item]
     } else if let Some(output) = body.get("output").and_then(Value::as_array) {
         output.iter().collect()
@@ -1634,8 +1641,28 @@ fn to_responses_tool_result_images_lifted_to_user_message() {
         });
         let events_added = crate::converter::parse_sse(&frame_added, &aidog_db::models::Protocol::OpenAIResponses);
         assert!(
-            events_added.iter().any(|e| matches!(e, ChatStreamEvent::ServerToolResult { .. })),
-            "output_item.added(web_search_call) 帧同样识别: {events_added:?}"
+            !events_added.iter().any(|e| matches!(e, ChatStreamEvent::ServerToolResult { .. })),
+            "output_item.added 是中间帧，不得产块（与 done 帧同 id 会重复一对）: {events_added:?}"
         );
+
+        // added + done 同 id 相继到达 → 只产一对块（终态帧）
+        let mut seq = crate::converter::parse_sse(&frame_added, &aidog_db::models::Protocol::OpenAIResponses);
+        seq.extend(crate::converter::parse_sse(&frame, &aidog_db::models::Protocol::OpenAIResponses));
+        assert_eq!(
+            seq.iter().filter(|e| matches!(e, ChatStreamEvent::ServerToolResult { .. })).count(),
+            1,
+            "added+done 同 id 只产一对块: {seq:?}"
+        );
+
+        // 流式帧不带 message annotations → content 恒空（官方语义 = 无结果；非流式路径才有 citations）
+        let sse_events = crate::converter::parse_sse(&frame, &aidog_db::models::Protocol::OpenAIResponses);
+        for e in &sse_events {
+            if let ChatStreamEvent::ServerToolResult { blocks } = e {
+                let result = blocks.iter().find(|b| b["type"] == "web_search_tool_result").unwrap();
+                let content = result["content"].as_array().unwrap();
+                assert!(content.iter().all(|c| c["url"] == "" && c["title"] == ""),
+                    "流式无 annotations，content 不得伪造: {content:?}");
+            }
+        }
     }
 }

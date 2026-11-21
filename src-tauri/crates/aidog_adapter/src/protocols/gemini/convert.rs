@@ -498,6 +498,11 @@ pub fn gemini_server_tool_events(body: &Value) -> crate::converter::ServerToolEv
                     },
                 }));
                 out.recognized.push("urlContextMetadata".to_string());
+                // 多 URL 只转首个（官方 web_fetch_tool_result.content 是单对象）；其余条目
+                // 既不转换也无独立事件形态 → 计入 unrecognized 供 field_trace 留痕，不静默丢
+                if metas.len() > 1 {
+                    out.unrecognized.push("urlContextMetadata".to_string());
+                }
             }
         }
         // 不支持的原生服务端事件：代码执行（parts 形态）
@@ -518,6 +523,25 @@ pub fn gemini_server_tool_events(body: &Value) -> crate::converter::ServerToolEv
     out.recognized.sort();
     out.recognized.dedup();
     out
+}
+
+/// issue #176（流式留痕②）：从一段完整 SSE 行文本里旁路检出 gemini 未识别原生服务端
+/// 事件名（parse 不为其产事件，proxy 闭包在 `executableCode` / `codeExecutionResult`
+/// contains 命中时调本函数取名）。返回去重后的事件名（不带 token 前缀）。
+pub fn unrecognized_server_event_names_in_text(text: &str) -> Vec<String> {
+    let mut names = Vec::new();
+    for line in text.lines() {
+        let Some(data) = line.strip_prefix("data: ") else {
+            continue;
+        };
+        let Ok(json) = serde_json::from_str::<Value>(data.trim()) else {
+            continue;
+        };
+        names.extend(gemini_server_tool_events(&json).unrecognized);
+    }
+    names.sort();
+    names.dedup();
+    names
 }
 
 /// issue #176 服务端工具块 id 自增（同 [`next_fc_id`] idiom：进程内原子自增即可）

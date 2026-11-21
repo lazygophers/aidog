@@ -217,6 +217,9 @@ pub(crate) struct StreamAggregator {
     // 二者皆假 + guard 被 Drop = 流未读完就没人要了 = 客户端断连。
     upstream_err: std::sync::atomic::AtomicBool,
     exhausted: std::sync::atomic::AtomicBool,
+    // issue #176 流式响应侧丢弃留痕：relay 闭包写入 drop:resp: token，flush_with 取出
+    // 追加进 proxy_log.field_trace（请求侧 token 由 forward.rs 预写，此处只追加响应侧）。
+    response_drops: std::sync::Mutex<Vec<String>>,
 }
 
 impl StreamAggregator {
@@ -237,7 +240,26 @@ impl StreamAggregator {
             served_model: std::sync::Mutex::new(None),
             upstream_err: std::sync::atomic::AtomicBool::new(false),
             exhausted: std::sync::atomic::AtomicBool::new(false),
+            response_drops: std::sync::Mutex::new(Vec::new()),
         }
+    }
+
+    /// issue #176：记录流式响应侧被丢弃的原生服务端事件 token（幂等追加，flush 一次性取走）。
+    pub(crate) fn note_response_drops(&self, tokens: &[String]) {
+        if tokens.is_empty() {
+            return;
+        }
+        if let Ok(mut v) = self.response_drops.lock() {
+            v.extend(tokens.iter().cloned());
+        }
+    }
+
+    /// 取走累积的响应侧丢弃 token（消费即清空）。
+    pub(crate) fn take_response_drops(&self) -> Vec<String> {
+        self.response_drops
+            .lock()
+            .map(|mut v| std::mem::take(&mut *v))
+            .unwrap_or_default()
     }
 
     /// 上游 chunk 报错 → 标记上游截断（relay 闭包 Err 分支唯一调用点）。
@@ -541,6 +563,11 @@ impl StreamLogGuard {
         }
 
         let mut final_log = self.log.clone();
+        // issue #176：流式响应侧丢弃 token 追加进 field_trace（请求侧 token 已由 forward.rs 预写）
+        super::outbound_shape::append_field_trace_tokens(
+            &mut final_log.field_trace,
+            &self.agg.take_response_drops(),
+        );
         // 实际模型口径（统计按上游自报模型聚合，2026-09-21）：流式从 data: 帧首见模型名取
         // actual_model，上游全程未自报则回退客户端请求模型（log.model），不再用路由目标模型。
         final_log.actual_model = self

@@ -249,6 +249,26 @@ pub(crate) fn append_field_trace_tokens(field_trace: &mut String, dropped: &[Str
     }
 }
 
+/// issue #176 流式留痕①：单个流事件在当前客户端协议下的丢弃 token。
+/// 客户端是 Anthropic wire（状态机渲染 ServerToolResult 块）→ 无丢弃；
+/// 其余客户端状态机静默丢 ServerToolResult → 按 server_tool_use.name 记 token。
+pub(crate) fn server_tool_event_drop_tokens(
+    event: &ChatStreamEvent,
+    client: &Protocol,
+) -> Vec<String> {
+    if super::finish::is_anthropic_wire_client(client) {
+        return Vec::new();
+    }
+    match event {
+        ChatStreamEvent::ServerToolResult { blocks } => blocks
+            .iter()
+            .filter(|b| b.get("type").and_then(Value::as_str) == Some("server_tool_use"))
+            .map(|b| format!("drop:resp:{}", b.get("name").and_then(Value::as_str).unwrap_or("server_tool_use")))
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
 /// 把本次出站的三类改写合成 `proxy_log.field_trace` 的 token 串（票 10；票 11 抽成纯函数）。
 ///
 /// - `capped_on_chat_req` / `capped_on_body`：`max_tokens` 被裁到模型上限的两个来源，
@@ -449,5 +469,37 @@ mod test_response_drops {
         assert_eq!(empty, "drop:resp:x");
         append_field_trace_tokens(&mut empty, &[]);
         assert_eq!(empty, "drop:resp:x");
+    }
+}
+
+#[cfg(test)]
+mod test_stream_drop_tokens {
+    use super::*;
+
+    #[test]
+    fn server_tool_result_event_traced_for_non_anthropic_client_only() {
+        let event = ChatStreamEvent::ServerToolResult {
+            blocks: vec![
+                serde_json::json!({"type":"server_tool_use","id":"s1","name":"web_search","input":{"query":"q"}}),
+                serde_json::json!({"type":"web_search_tool_result","tool_use_id":"s1","content":[]}),
+            ],
+        };
+        assert_eq!(
+            server_tool_event_drop_tokens(&event, &Protocol::OpenAI),
+            vec!["drop:resp:web_search".to_string()],
+            "openai 客户端状态机丢 ServerToolResult → 按 use.name 记 token"
+        );
+        assert!(
+            server_tool_event_drop_tokens(&event, &Protocol::Anthropic).is_empty(),
+            "anthropic 客户端渲染该块 → 无丢弃"
+        );
+        assert!(
+            server_tool_event_drop_tokens(
+                &ChatStreamEvent::Delta { text: "t".to_string() },
+                &Protocol::OpenAI
+            )
+            .is_empty(),
+            "普通事件无丢弃"
+        );
     }
 }

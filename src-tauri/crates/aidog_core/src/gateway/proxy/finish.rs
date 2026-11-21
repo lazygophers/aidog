@@ -1,5 +1,7 @@
 use super::*;
-use super::outbound_shape::{append_field_trace_tokens, dropped_response_server_events};
+use super::outbound_shape::{
+    append_field_trace_tokens, dropped_response_server_events, server_tool_event_drop_tokens,
+};
 use crate::gateway::proxy::stream::has_stream_terminator;
 
 /// forward_attempt 里一次路由决策产出的协议/模型元数据，供 finish_nonstream / finish_stream 共用。
@@ -580,6 +582,20 @@ where
             // 内容路径同型跨 chunk 行重组：完整行立即随本 chunk 下发（不攒批，避免首 token
             // 时延退化），不完整尾行留 sse_line_buf 等下个 chunk 拼接（design.md 修法）。
             let line_ready_text = sse_line_buf.feed(&text);
+            // issue #176 流式留痕②：gemini 未识别原生服务端事件帧（executableCode /
+            // codeExecutionResult）parse 不产事件，旁路检出后记入 flush 回写的 field_trace。
+            // contains 预筛：只有命中才逐行解析，长流零成本。
+            if matches!(protocol, Protocol::Gemini)
+                && (line_ready_text.contains("executableCode")
+                    || line_ready_text.contains("codeExecutionResult"))
+            {
+                let names = adapter::gemini::unrecognized_server_event_names_in_text(&line_ready_text);
+                let tokens: Vec<String> = names
+                    .iter()
+                    .map(|n| format!("drop:resp:{n}"))
+                    .collect();
+                guard.agg.note_response_drops(&tokens);
+            }
             let mut output = String::new();
             // 上游帧格式（`data: ` 分帧 / DONE 哨兵 / 各协议 JSON 解析）知识全部收在 adapter 侧，
             // 此处只负责 model 字段改写 + 按客户端协议渲染下发。
@@ -587,6 +603,12 @@ where
                 .agg
                 .parse_sse_events_and_usage(&line_ready_text, pa, &protocol)
             {
+                // issue #176 流式留痕①：非 Anthropic 客户端状态机静默丢 ServerToolResult
+                // → 按 server_tool_use.name 记 token（Anthropic 客户端函数内返回空）。
+                guard.agg.note_response_drops(&server_tool_event_drop_tokens(
+                    &event,
+                    &client_protocol,
+                ));
                 let event = if !model_for_sse.is_empty() {
                     match event {
                         ChatStreamEvent::Start { id, model: _ } => ChatStreamEvent::Start {
