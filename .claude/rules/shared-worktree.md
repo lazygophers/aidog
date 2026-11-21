@@ -54,6 +54,9 @@
    事后取证才发现 review 项「已在 HEAD」）。`git commit -- <路径>` 提交整文件，规则 2 只靠事后扫 diff 拦不住：
    **开工前**对将要改的文件跑 `git status --short`，已脏的文件记下，提交时对这些文件必须
    `git add -p` / `git apply --cached` 只暂存自己的 hunk，再 `git diff --cached --stat` 核对；干净起步的文件才可整文件提交。
+   **locale 文件（`src-tauri/crates/aidog_i18n/locales/*.json`）一律按脏文件处理、走下文 patch 过滤**，不论开工时是否干净：
+   并行会话几乎总在同时加 key（2026-11-21 aef25ab1f 整文件 pathspec 提交 8 个 locale，带走另一会话未提交的
+   `sessions.resume*` 键）。派发含文案改动的票时，prompt 照贴这句。
 4. 发现自己扫走了别人的改动：**不回滚、不重写历史**（代价大于收益），
    立刻告诉对方「你的那部分已经在 `<commit>` 里了」，让对方撤掉本地副本，
    否则会重复改一遍。
@@ -189,6 +192,9 @@ perf-backend 收尾轮：PreToolUse hook 把 `git worktree add` 改写经 rtk �
   agent 用 `mkdir lock; rm target; ...; rmdir lock` 分号链，mkdir 失败（锁刚被他会话拿走）后
   后续 rm 照跑——未持锁删了 25G 主 target，还把别人的锁 rmdir 掉。落盘成文件：开头
   `set -e`，锁 `mkdir` 失败即整链中止；`rmdir` 只删自己这条链成功创建的锁。
+  2026-11-21 复发于取锁 + cargo：取锁失败后分号链照跑 cargo。凡「取锁 → cargo」两步以上的链同样写
+  `set -e` 脚本文件；派 cargo 类票时 prompt 直接贴脚本全文（取锁用 node 轮询，见下「已废止」节的互斥手法），
+  不贴分号写法。
 - **锁只约束守约的会话，磁盘保护押容量不押锁**（2026-11-15 依赖更新轮实锤）：另一会话不经
   `/tmp/aidog-cargo.lock` 直接跑 cargo，锁协议拦不住它；`.worktrees/.target` 全程靠「开跑前
   `df -h <target>`，余量 <10G 不开跑 + 编译期间挂磁盘看门狗」挡住写满盘（<3G 自动停自己的构建
@@ -198,6 +204,9 @@ perf-backend 收尾轮：PreToolUse hook 把 `git worktree add` 改写经 rtk �
 - **磁盘吃紧先压产物体积再编**（同轮实锤）：看门狗拦下的是带调试信息的构建撑满盘——大盘重编
   （依赖升级全量重验）先用瘦身 profile（如 `CARGO_PROFILE_DEV_DEBUG=0`）验，产物小一个量级，
   绿了再按需重出完整产物；复用已有 target 缓存（本轮 18G）能大幅减少新增写入。
+  **瘦身 profile 只用在新建的空 target**（如 target-iso）：在已有完整缓存的 target 上加
+  `CARGO_PROFILE_DEV_DEBUG=0`，profile 变了缓存全部失效，cargo 另写一整份产物（2026-11-21 实锤：
+  workspace test 期间余量跌到 318MB）。已有缓存的 target 就用原 profile，复用缓存。
 
 ## agent / detach worktree 复用单一 CARGO_TARGET_DIR（已废止 2026-11-05：目录改为上节；2026-10-22 立，2026-10-30 改）
 
