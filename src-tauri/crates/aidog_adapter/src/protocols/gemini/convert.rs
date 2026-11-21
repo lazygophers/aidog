@@ -671,8 +671,10 @@ fn next_fc_id() -> usize {
 pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
     let contents = body.get("contents")?.as_array()?;
     let mut messages = Vec::new();
-    // name → 最近同名 functionCall 的自生成 id（跨 contents 顺序扫描，functionResponse 配对用）
-    let mut call_ids: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    // name → 同名 functionCall 自生成 id 队列（跨 contents 顺序扫描）：
+    // 同名工具同轮多次调用时，functionResponse 按出现顺序 pop_front 一一配对。
+    let mut call_ids: std::collections::HashMap<String, std::collections::VecDeque<String>> =
+        std::collections::HashMap::new();
 
     // System instruction
     let system = body
@@ -754,15 +756,15 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
                 }
             }
         }
-        // 工具 part：functionCall(Gemini 无 id，按序自生成并记 name→id) /
-        // functionResponse(按 name 查最近同名 Call 的生成 id 完成关联)
+        // 工具 part：functionCall(Gemini 无 id，按序自生成并入同名队列) /
+        // functionResponse(按 name 从队列 pop_front 按序配对，队列空回退固定名)
         let mut tool_blocks: Vec<ContentBlock> = Vec::new();
         for p in parts {
             if let Some(fc) = p.get("functionCall") {
                 let name = fc.get("name").and_then(|v| v.as_str()).unwrap_or("");
                 let args = fc.get("args").cloned().unwrap_or(serde_json::json!({}));
                 let id = format!("gemini-fc-{}", next_fc_id());
-                call_ids.insert(name.to_string(), id.clone());
+                call_ids.entry(name.to_string()).or_default().push_back(id.clone());
                 tool_blocks.push(ContentBlock::ToolUse {
                     id,
                     name: name.to_string(),
@@ -775,8 +777,8 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
                 let response = fr.get("response").cloned().unwrap_or(serde_json::json!({}));
                 tool_blocks.push(ContentBlock::ToolResult {
                     tool_use_id: call_ids
-                        .get(name)
-                        .cloned()
+                        .get_mut(name)
+                        .and_then(|q| q.pop_front())
                         .unwrap_or_else(|| format!("gemini-fc-{name}")),
                     content: response.to_string(),
                     name: Some(name.to_string()),
