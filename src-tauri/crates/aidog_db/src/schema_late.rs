@@ -935,6 +935,16 @@ pub fn run_migrations_proxy_log_late(
         );
     }
     migrate_request_log(conn)?;
+    // Migration 20261122-01: proxy_log 两侧原始内容去重标记。上游侧正文与用户侧逐字节相同时，
+    // 上游列存 ''、标记置 1，读取层（aidog_logs::get_proxy_log 等）按标记回填用户侧内容：
+    // upstream_request_body ⇐ request_body，response_body ⇐ user_response_body。
+    // 缺省 0 = 原样存储，存量行不回填。
+    for col in ["upstream_request_body_dedup", "response_body_dedup"] {
+        let _ = conn.execute(
+            &format!("ALTER TABLE proxy_log ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0"),
+            [],
+        );
+    }
     Ok(())
 }
 
