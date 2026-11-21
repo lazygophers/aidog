@@ -122,15 +122,16 @@ embeddings 能识别但转发会报 400，只好在对话里更正。用户可�
 2. 发现已经发出去的先例是错的：当场更正，并且检查依赖这条先例的答案，
    受影响的放进下一张表单复核（按第 3 条处理），不默认用户答案不变。
 
-## 9. 等 ask-ui 提交：一开始就给长超时
+## 9. 等 ask-ui 提交：用分离后台任务跑
 
 2026-09-30 perf-backend 轮：后台跑的 `ask-ui ask` 到 Bash 后台默认 30 分钟上限被杀，
 用户还没提交；改写 `sleep` 循环等结果被权限拒（也违反禁 sleep 轮询）；最后靠一个
 node `setTimeout` watcher 调 `ask-ui resume` 才接上。
 
-1. 用户要读长 background、慢慢拍板的表单，`ask-ui ask` 用后台 Bash 跑时**当场**
-   设 `timeout: 7200000`（后台上限 2 小时），不用默认值。
-2. 被超时杀掉不代表表单没了：用 `ask-ui resume` 接回同一张表单，别重发新表单。
+1. 用户要读长 background、慢慢拍板的表单，`ask-ui ask` 用 `run_in_background`
+   跑：后台命令分离运行、跨轮存活、退出时 harness 自动通知，超时上限 600000
+   （10 分钟）只约束前台命令，不约束分离的后台任务。
+2. 任务被杀掉不代表表单没了：用 `ask-ui resume` 接回同一张表单，别重发新表单。
 3. 禁写 `sleep` 循环等提交。
 
 ## 10. 派 research agent 的落盘指令要带回退口径（2026-10-01 commandcode-goat 轮）
