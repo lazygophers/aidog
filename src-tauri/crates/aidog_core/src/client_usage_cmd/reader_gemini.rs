@@ -17,6 +17,7 @@
 //!   → is_sidechain=true；标题 = 元数据 `summary`，回落首条用户提示截 60 字。
 //! - 增量扫描：[offset,end) 段外，另读文件头（≤64KB）取元数据 sessionId / kind，
 //!   使增量行归属会话与 sidechain 判定不受截断影响；标题只取本次扫描段的 `$set`。
+//! - 工作目录：`tmp/<slug>/.project_root`（票 06，见 [`project_root`]）。
 
 use std::path::Path;
 
@@ -92,6 +93,18 @@ fn read_prelude(path: &Path, offset: u64) -> (String, bool) {
     (sid, sub)
 }
 
+/// 工作目录：会话文件最近一层 `chats` 目录的上一级 `tmp/<slug>/.project_root`
+/// （官方 projectRegistry.ts:24 `PROJECT_ROOT_FILE`，内容为项目绝对路径）。
+/// 子代理文件在 `chats/<parent>/` 下同样取到 `<slug>`；文件缺失（旧哈希目录）/ 读失败 → 空。
+fn project_root(path: &Path) -> String {
+    path.ancestors()
+        .find(|a| a.file_name().is_some_and(|n| n == "chats"))
+        .and_then(|chats| chats.parent())
+        .and_then(|slug| std::fs::read_to_string(slug.join(".project_root")).ok())
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default()
+}
+
 /// 从 `offset` 起增量扫描一个会话 JSONL（追加写，无续行语义）。
 /// 截断（size < offset）→ [`ScanErr::Truncated`]。行字节偏移即 `file_pos` 定位键。
 pub fn scan_file(path: &Path, offset: u64, _last_msg_id: &str) -> Result<ScanOut, ScanErr> {
@@ -143,6 +156,7 @@ pub fn scan_file(path: &Path, offset: u64, _last_msg_id: &str) -> Result<ScanOut
         process_line(&v, line_pos, &mut sid, &mut sub, &mut out);
     }
     out.session_id = sid;
+    out.workdir = project_root(path);
     out.new_offset = offset + end as u64;
     Ok(out)
 }
