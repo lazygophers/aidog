@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { revealItemInDir, canRevealItemInDir } from "../../../services/platform";
 import { backupApi, type BackupSettings, type BackupResult } from "../../../services/api";
+import { listen } from "../../../services/transport";
 import { SectionHeader } from "./primitives";
 import { pad } from "../../../utils/formatters";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,25 @@ export function ScheduledBackupSection() {
   // 初次加载。
   useEffect(() => {
     backupApi.get().then(setSettings).catch(() => setSettings(null));
+  }, []);
+
+  // 定时备份是后台 loop，完成/失败只发 backup-completed 事件：重拉状态；隐藏期间跳过，恢复可见补拉。
+  useEffect(() => {
+    let alive = true;
+    let unlisten: () => void = () => {};
+    const reload = () => {
+      backupApi.get().then((s) => { if (alive) setSettings(s); }).catch(() => {});
+    };
+    listen("backup-completed", () => {
+      if (document.visibilityState === "visible") reload();
+    }).then((fn) => { if (alive) unlisten = fn; else fn(); }).catch(() => {});
+    const onVisible = () => { if (document.visibilityState === "visible") reload(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      alive = false;
+      unlisten();
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   if (!settings) {

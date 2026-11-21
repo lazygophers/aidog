@@ -65,6 +65,8 @@ pub async fn run_backup(db: &Db) -> Result<PathBuf, String> {
             // 备份成功后顺带清理超期文件。
             let _ = cleanup_expired(settings.retention_days).await;
             tracing::info!(path = %path.display(), "backup: ok");
+            // 定时备份是后台自发变更，唯一前端可见通道是这个事件（ScheduledBackupSection 重拉状态）。
+            aidog_ctx::emit_unit("backup-completed");
             Ok(path)
         }
         Err(e) => {
@@ -73,6 +75,7 @@ pub async fn run_backup(db: &Db) -> Result<PathBuf, String> {
             tracing::error!(error = %e, "backup: failed");
             // 通知用户 (失败, 不阻塞)。
             notify_failure(db, &e).await;
+            aidog_ctx::emit_unit("backup-completed");
             Err(e)
         }
     }

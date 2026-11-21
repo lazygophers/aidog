@@ -139,3 +139,10 @@ fn next_wake_delay_first_loop_grace_overrides_immediate_run() {
     assert_eq!(next_wake_delay(&s, now, false).as_secs(), 24 * 3600);
     assert_eq!(next_wake_delay(&s, now, true).as_secs(), 24 * 3600);
 }
+
+#[test]
+fn run_backup_emits_backup_completed() {
+    // 备份成功/失败后必须 emit backup-completed（前端 ScheduledBackupSection 重拉状态）
+    let src = include_str!("scheduler.rs");
+    assert!(src.contains(r#"emit_unit("backup-completed")"#));
+}

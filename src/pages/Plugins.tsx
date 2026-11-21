@@ -61,11 +61,17 @@ export function Plugins() {
     let active = true;
     let unlisten: (() => void) | undefined;
     void listen("plugins-updated", () => {
-      if (active) void run(refreshClaude);
+      // plugin_watch 是后台文件监听：隐藏期间不拉，恢复可见补拉（Sessions idiom）。
+      if (!active || document.hidden) return;
+      void run(refreshClaude);
     }).then((dispose) => {
       if (active) unlisten = dispose;
       else dispose();
     });
+    const onVisible = () => {
+      if (!document.hidden && active) void run(refreshClaude);
+    };
+    document.addEventListener("visibilitychange", onVisible);
     void run(async () => {
       await refreshClaude();
       setCodex(await pluginsApi.codexList());
@@ -73,6 +79,7 @@ export function Plugins() {
     return () => {
       active = false;
       unlisten?.();
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [run, refreshClaude]);
 

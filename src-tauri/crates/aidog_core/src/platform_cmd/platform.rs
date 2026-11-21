@@ -199,6 +199,8 @@ pub async fn platform_update(input: UpdatePlatform) -> Result<Platform, String> 
             tracing::warn!(command = "platform_update", platform_id = platform.id, error = %e, "sync manual groups failed");
         }
 
+    // 托盘菜单含平台状态，增删改后重画（app_setup.rs 的 tray-refresh listener）。
+    aidog_ctx::emit_unit("tray-refresh");
     Ok(platform)
 }
 }
@@ -208,7 +210,9 @@ pub async fn platform_delete(id: u64) -> Result<(), String> {
     let db = aidog_ctx::db();
     tracing::debug!(command = "platform_delete", id, "command invoked");
     db::delete_platform(db, id).await
-        .map_err(|e| { tracing::error!(command = "platform_delete", id, error = %e, "delete platform failed"); e })
+        .map_err(|e| { tracing::error!(command = "platform_delete", id, error = %e, "delete platform failed"); e })?;
+    aidog_ctx::emit_unit("tray-refresh");
+    Ok(())
 }
 }
 

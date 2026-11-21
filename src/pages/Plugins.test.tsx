@@ -97,6 +97,24 @@ describe("Plugins", () => {
     expect(api.claudeList).toHaveBeenCalledTimes(2);
   });
 
+  it("skips refresh while hidden and refetches on visible", async () => {
+    render(<Plugins />);
+    await screen.findByTestId("plugin-row-code-review");
+    await waitFor(() => expect(onPluginsUpdated).toBeDefined());
+    expect(api.claudeList).toHaveBeenCalledTimes(1);
+    const setHidden = (v: boolean) => {
+      Object.defineProperty(document, "hidden", { value: v, configurable: true });
+      Object.defineProperty(document, "visibilityState", { value: v ? "hidden" : "visible", configurable: true });
+    };
+    setHidden(true);
+    await act(async () => onPluginsUpdated?.({ payload: null }));
+    expect(api.claudeList).toHaveBeenCalledTimes(1);
+    setHidden(false);
+    await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
+    await waitFor(() => expect(api.claudeList).toHaveBeenCalledTimes(2));
+    setHidden(false);
+  });
+
   it("translates backend warnings by code", async () => {
     api.claudeSet.mockResolvedValue({ plugins: CLAUDE_LIST, warnings: [{ code: "skill_modified", args: { name: "review", agent: "codex" } }] });
     render(<Plugins />);
