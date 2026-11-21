@@ -373,7 +373,7 @@ pub fn scheduled_vacuum(
 }
 
 /// `PRAGMA page_count * PRAGMA page_size` = 当前 DB 文件占用的逻辑字节数。
-fn db_size_bytes(conn: &Connection) -> SqlResult<i64> {
+pub fn db_size_bytes(conn: &Connection) -> SqlResult<i64> {
     let pages: i64 = conn.query_row("PRAGMA page_count", [], |r| r.get(0))?;
     // SQLCipher 加密库上 PRAGMA page_size 返回 TEXT 且列名变 cipher_page_size，
     // i64 直取报 Invalid column type；经 Value 中转按实际类型解析。

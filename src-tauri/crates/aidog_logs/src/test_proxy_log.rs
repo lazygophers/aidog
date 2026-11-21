@@ -418,6 +418,15 @@ async fn estimate_cleanup_forever_retention_reports_zero_overdue() {
     assert!(est.db_size_bytes > 0);
 }
 
+/// 加密文件库（SQLCipher）上 PRAGMA page_size 返回 TEXT（列名 cipher_page_size），
+/// 旧实现 i64 直取报 Invalid column type → 命令 500（用户实例实锤）。内存库测不出，用文件库。
+#[tokio::test]
+async fn estimate_cleanup_works_on_encrypted_file_db() {
+    let (db, _dir) = three_file_db().await;
+    let est = estimate_cleanup(&db, 30, RetentionUnit::Day).await.expect("estimate on encrypted file db");
+    assert!(est.db_size_bytes > 0);
+}
+
 /// purge_deleted_proxy_logs 清历史 tombstone：软删残留行（deleted_at != 0）物理删除。
 #[tokio::test]
 async fn purge_deleted_clears_historical_tombstones() {

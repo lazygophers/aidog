@@ -1023,12 +1023,10 @@ pub fn estimate_cleanup(
                 )?,
                 None => (0, 0),
             };
-            let page_count: i64 = conn.query_row("PRAGMA page_count", [], |r| r.get(0))?;
-            let page_size: i64 = conn.query_row("PRAGMA page_size", [], |r| r.get(0))?;
             Ok(CleanupEstimate {
                 overdue_rows,
                 overdue_body_bytes,
-                db_size_bytes: page_count * page_size,
+                db_size_bytes: aidog_db::db_size_bytes(conn)?,
             })
         })
         .await
