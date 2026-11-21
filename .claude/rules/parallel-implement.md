@@ -50,6 +50,11 @@ master 基线本身带红（该轮：vitest 1 红、flutter 4 红、aidog_db 2 �
   文件名 `2026-11-07-*.md`，照写落盘，主会话事后 `mv` 改中文名 + 改 HTML 引用，纯返工）：agent 不读
   `scratch-规范.md` 等全局规则文件，prompt 写死的目标路径 agent 会原样照抄。要求 agent 落盘新文件时，
   prompt 里直接给最终中文名（research 类：中文文件名、词间 `-` 连），不给将来要改的过渡名。
+- **prompt 复述规则或闸门时，引用票面 / CLAUDE.md 原文加 file:line，不凭记忆概括**（2026-11-21 会话页票 10：
+  prompt 照 CLAUDE.md 写「consent_allows 是唯一闸门」，票面写的却是 `transcript_consent`。agent 取两者交集，
+  主会话复核采信，见 `.scratch/memory/2026-11-21.md`「换客户端继续的转写闸门取两开关交集」节）。
+  凭记忆写的「唯一 / 只有 / 一律」类断言，最容易和票面里后定的口径冲突。
+  agent 侧：prompt 与票面冲突时按票面执行；涉及安全或隐私闸门时取更严的交集，并在回报里写出冲突点，不自行放宽。
 
 ## 3. 派发 prompt 里的路径先验存在，agent 侧留自检指令
 
