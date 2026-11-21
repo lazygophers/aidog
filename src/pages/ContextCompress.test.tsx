@@ -317,4 +317,26 @@ describe("ContextCompress", () => {
     expect(screen.queryByTestId("cc-stat-rtk-saved")?.textContent).toBe(fmt(111));
     expect(screen.getByTestId("cc-stats-updated").textContent).toContain("boom");
   });
+
+  it("shows the context-mode card with aggregate tiles, and an empty state without data", async () => {
+    api.stats.mockResolvedValue({
+      rtk: null, sqz: null, rtk_daily: [], sqz_daily: [],
+      context_mode: { total_calls: 77, kept_out: 540204, total_processed: 1072399, tokens_saved: 135051, dollars_saved: 0.68, tokens_saved_lifetime: 12560640, dollars_saved_lifetime: 62.8, sessions: 32 },
+    });
+    render(<ContextCompress />);
+    const trigger = await screen.findByTestId("cc-tab-ctxmode");
+    fireEvent.mouseDown(trigger, { button: 0 });
+    fireEvent.click(trigger);
+    await waitFor(() => expect(screen.getByTestId("cc-stats-ctxmode").getAttribute("data-state")).toBe("ok"));
+    // 压缩比 = kept_out / total_processed = 50.374% → 一位小数
+    expect(screen.getByTestId("cc-stat-ctxmode-pct").textContent).toBe("50.4%");
+    expect(screen.getByTestId("cc-stat-ctxmode-savedTotal").textContent).toBe(fmt(12560640));
+    expect(screen.getByTestId("cc-stat-ctxmode-dollarsTotal").textContent).toContain("62.8");
+    expect(screen.getByTestId("cc-stat-ctxmode-calls").textContent).toBe(fmt(77));
+
+    api.stats.mockResolvedValue({ rtk: null, sqz: null, rtk_daily: [], sqz_daily: [], context_mode: null });
+    fireEvent.click(screen.getByTestId("cc-stats-refresh"));
+    await waitFor(() => expect(screen.getByTestId("cc-stats-ctxmode").getAttribute("data-state")).toBe("empty"));
+    expect(screen.getByTestId("cc-stats-ctxmode-msg").textContent).toBe("contextCompress.statsEmpty");
+  });
 });

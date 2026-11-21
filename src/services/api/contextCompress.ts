@@ -63,12 +63,33 @@ export interface SqzDaily {
   compressions: number | null;
 }
 
+/** context-mode 聚合（Σ stats-*.json；lifetime 取各份快照最大值），压缩比 = kept_out / total_processed。 */
+export interface ContextModeStats {
+  total_calls: number;
+  kept_out: number;
+  total_processed: number;
+  tokens_saved: number;
+  dollars_saved: number;
+  tokens_saved_lifetime: number;
+  dollars_saved_lifetime: number;
+  sessions: number;
+}
+
+/** 一份 stats-<sessionId>.json 的压缩比；session_id 与 Claude Code 会话 UUID 一致。 */
+export interface ContextModeSessionRatio {
+  session_id: string;
+  reduction_pct: number;
+  tokens_saved: number;
+  total_calls: number;
+}
+
 /** 工具未装 / 解析失败的一侧 summary 为 null；daily 为空表示无按日数据。 */
 export interface ContextCompressStats {
   rtk: RtkGainStats | null;
   sqz: SqzStats | null;
   rtk_daily: RtkDaily[];
   sqz_daily: SqzDaily[];
+  context_mode: ContextModeStats | null;
 }
 
 /** 上次成功拉取的统计；fetched_at 为 Unix ms。 */
@@ -81,6 +102,7 @@ export const contextCompressApi = {
   status: () => invoke<ContextCompressStatus>("context_compress_status"),
   stats: () => invoke<ContextCompressStats>("context_compress_stats"),
   statsCached: () => invoke<CachedContextCompressStats | null>("context_compress_stats_cached"),
+  contextModeSessions: () => invoke<ContextModeSessionRatio[]>("context_mode_sessions"),
   install: (tool: CompressTool) => invoke<ContextCompressStatus>("context_compress_install", { tool }),
   setRtk: (on: boolean) => invoke<RtkSetResult>("context_compress_rtk_set", { on }),
   setSqz: (on: boolean) => invoke<ContextCompressStatus>("context_compress_sqz_set", { on }),
