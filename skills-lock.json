@@ -1,6 +1,13 @@
 {
-  "version": 1,
+  "version": 2,
   "skills": {
+    "performance-optimization": {
+      "source": "addyosmani/agent-skills",
+      "commit": "8c99fa36d90068c82d547f7c12a9d67a3e95f4ee",
+      "sourceType": "github",
+      "skillPath": "skills/performance-optimization/SKILL.md",
+      "computedHash": "cfa0c39804554198a33e3beb2b0f920a1b468bb2e066822e1d08f4abeda3db33"
+    },
     "rspress-best-practices": {
       "source": "rstackjs/agent-skills",
       "sourceType": "github",
