@@ -376,7 +376,7 @@ async fn commandcode_windows_balance_and_chain() {
     // 真实形状（2026-11-21 实测）：windowLimits 在 credits 响应顶层，与 credits 键平级；
     // planId 只在 subscriptions.data.planId，credits.credits 内无 planId
     let (q, log) = cc_run(
-        r#"{"credits":{"belowThreshold":false,"creditThreshold":0.5,"monthlyCredits":30,
+        r#"{"credits":{"belowThreshold":false,"creditThreshold":0.5,"monthlyCredits":25,
             "purchasedCredits":5,"freeCredits":2},
             "windowLimits":{"limited":true,"exceeded":null,
                 "fiveHour":{"used":10,"cap":40,"exceeded":false,"resetAt":1750000000000},
@@ -388,7 +388,7 @@ async fn commandcode_windows_balance_and_chain() {
     let cp = q.coding_plan.as_ref().unwrap();
     assert_eq!(cp.level.as_deref(), Some("individual-pro"));
     let t = &cp.tiers;
-    assert_eq!(t.len(), 2);
+    assert_eq!(t.len(), 3);
     assert_eq!(t[0].name, "five_hour");
     assert!((t[0].utilization - 25.0).abs() < 1e-9, "used/cap = 10/40");
     assert_eq!(t[0].limit, Some(40.0));
@@ -404,11 +404,22 @@ async fn commandcode_windows_balance_and_chain() {
         t[1].resets_at.as_deref(),
         Some("2025-06-15T15:06:40.123+00:00")
     );
+    // 月档：used = summary.totalCost，上限 = credits.credits.monthlyCredits，
+    // resets_at = subscriptions.data.currentPeriodEnd；monthlyCredits<=0 / 缺字段不输出
+    assert_eq!(t[2].name, "monthly");
+    assert!((t[2].utilization - 50.0).abs() < 1e-9, "12.5/25");
+    assert_eq!(t[2].limit, Some(25.0));
+    assert_eq!(t[2].remaining, Some(12.5));
+    assert_eq!(
+        t[2].resets_at.as_deref(),
+        Some("2026-12-01T00:00:00Z"),
+        "currentPeriodEnd ISO 字符串原样透传"
+    );
     // 余额 = monthly + purchased + free；used = summary.totalCost；total = remaining + used
     let b = q.balance.as_ref().unwrap();
-    assert!((b.remaining - 37.0).abs() < 1e-9);
+    assert!((b.remaining - 32.0).abs() < 1e-9);
     assert!((b.used.unwrap() - 12.5).abs() < 1e-9);
-    assert!((b.total.unwrap() - 49.5).abs() < 1e-9);
+    assert!((b.total.unwrap() - 44.5).abs() < 1e-9);
     assert_eq!(b.currency, "USD");
     assert!(b.is_valid);
     // 链路顺序 + 参数透传 + Bearer
@@ -434,9 +445,8 @@ async fn commandcode_windows_balance_and_chain() {
 
 #[tokio::test]
 async fn commandcode_error_paths() {
-    // 缺省形态：无 windowLimits / 池全 0 → success 空 tiers；level 仍取 subscriptions.data.planId
-    let (q, _) = cc_run(r#"{"credits":{"monthlyCredits":0,"purchasedCredits":0,"freeCredits":0}}"#)
-        .await;
+    // 缺省形态：无 windowLimits / monthlyCredits 键缺失 → 月档不输出，其余空 tiers；level 仍取 subs planId
+    let (q, _) = cc_run(r#"{"credits":{"purchasedCredits":0,"freeCredits":0}}"#).await;
     assert!(q.success, "{:?}", q.error);
     let cp = q.coding_plan.unwrap();
     assert!(cp.tiers.is_empty());
@@ -476,7 +486,7 @@ async fn commandcode_org_null_personal_account() {
             200,
             r#"{"success":true,"user":{"id":"u1","userName":"tester"},"org":null}"#,
         ),
-        ("/alpha/billing/credits", 200, r#"{"credits":{"monthlyCredits":0,"purchasedCredits":0,"freeCredits":0}}"#),
+        ("/alpha/billing/credits", 200, r#"{"credits":{"monthlyCredits":20,"purchasedCredits":0,"freeCredits":0}}"#),
         ("/alpha/billing/subscriptions", 200, CC_SUBS_BODY),
         ("/alpha/usage/summary", 200, CC_SUMMARY_BODY),
     ])
@@ -497,11 +507,19 @@ async fn commandcode_org_null_personal_account() {
         "summary 只带 since"
     );
     let b = q.balance.as_ref().unwrap();
-    assert_eq!(b.remaining, 0.0);
+    assert_eq!(b.remaining, 20.0);
     assert_eq!(b.used.unwrap(), 12.5);
-    assert_eq!(b.total, Some(12.5));
+    assert_eq!(b.total, Some(32.5));
+    // 月档 org:null 照常输出：utilization = 12.5/20
+    let t = &q.coding_plan.as_ref().unwrap().tiers;
+    assert_eq!(t.len(), 1);
+    assert_eq!(t[0].name, "monthly");
+    assert!((t[0].utilization - 62.5).abs() < 1e-9, "12.5/20");
+    assert_eq!(t[0].limit, Some(20.0));
+    assert_eq!(t[0].remaining, Some(7.5));
+    assert_eq!(t[0].resets_at.as_deref(), Some("2026-12-01T00:00:00Z"));
     assert_eq!(
-        q.coding_plan.unwrap().level.as_deref(),
+        q.coding_plan.as_ref().unwrap().level.as_deref(),
         Some("individual-pro"),
         "org:null 时 level 仍取 subscriptions.data.planId"
     );
