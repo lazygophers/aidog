@@ -1,5 +1,5 @@
 //! 会话「一键继续」（2026-11-21 日志统计-会话列表 票）：在系统终端打开并执行
-//! `claude --resume <session_id> --settings ~/.aidog/settings.<group>.json`，
+//! `claude --resume <session_id> --settings <home>/.aidog/settings.<group>.json`（绝对路径：单引号内 `~` 不展开），
 //! 沿用会话原分组路由（settings.<group>.json = 分组代理地址 + 密钥，与
 //! Groups 页「复制启动命令」同一链路）。仅 macOS（Terminal.app + osascript）。
 //!
@@ -25,13 +25,13 @@ pub(crate) fn apple_script_escape(s: &str) -> String {
     out
 }
 
-/// 拼装 resume 命令（`shell_squote` 后拼进 shell 行）。分组空 = 不带 `--settings`
+/// 拼装 resume 命令（`shell_squote` 后拼进 shell 行）。`aidog_dir` = `~/.aidog` 的绝对路径。分组空 = 不带 `--settings`
 ///（无分组会话回落默认配置；`claude --resume <sid>` 本身已可续会话）。
-pub(crate) fn build_resume_command(session_id: &str, group_key: &str) -> String {
+pub(crate) fn build_resume_command(session_id: &str, group_key: &str, aidog_dir: &std::path::Path) -> String {
     let mut parts = vec!["claude".to_string(), "--resume".to_string(), shell_squote(session_id)];
     if !group_key.is_empty() {
         parts.push("--settings".to_string());
-        parts.push(shell_squote(&format!("~/.aidog/settings.{group_key}.json")));
+        parts.push(shell_squote(&aidog_dir.join(format!("settings.{group_key}.json")).to_string_lossy()));
     }
     parts.join(" ")
 }
@@ -52,6 +52,7 @@ pub(crate) fn build_session_resume_line(
     session_id: &str,
     group_key: &str,
     workdir: &str,
+    aidog_dir: &std::path::Path,
 ) -> Result<String, String> {
     if session_id.is_empty() {
         return Err("session_id is empty".to_string());
@@ -64,7 +65,7 @@ pub(crate) fn build_session_resume_line(
     }
     let sid = shell_squote(session_id);
     let cmd = match client_code {
-        "claude_code" => build_resume_command(session_id, group_key),
+        "claude_code" => build_resume_command(session_id, group_key, aidog_dir),
         "codex" if group_key.is_empty() => format!("codex resume {sid}"),
         "codex" => {
             let g = shell_squote(group_key);
@@ -91,10 +92,11 @@ pub(crate) async fn session_resume_with(
     session_id: &str,
     workdir: &str,
     opencode_root: Option<&std::path::Path>,
+    aidog_dir: &std::path::Path,
     run: &(dyn Fn(&str) -> Result<bool, String> + Send + Sync),
 ) -> Result<SessionResumeResult, String> {
     // 先做纯校验（Gemini 无目录、非法参数），失败不查库。
-    build_session_resume_line(client_code, session_id, "", workdir)?;
+    build_session_resume_line(client_code, session_id, "", workdir, aidog_dir)?;
     if client_code == "opencode" {
         let root = opencode_root.ok_or("opencode data dir not found")?.to_path_buf();
         let sid = session_id.to_string();
@@ -112,9 +114,14 @@ pub(crate) async fn session_resume_with(
     } else {
         String::new()
     };
-    let command = build_session_resume_line(client_code, session_id, &group, workdir)?;
+    let command = build_session_resume_line(client_code, session_id, &group, workdir, aidog_dir)?;
     let launched = run(&command)?;
     Ok(SessionResumeResult { launched, command })
+}
+
+/// `~/.aidog` 的绝对路径：命令里的路径在单引号内，shell 不展开 `~`（票 11）。
+fn aidog_dir() -> Result<std::path::PathBuf, String> {
+    Ok(dirs::home_dir().ok_or("cannot resolve home directory")?.join(".aidog"))
 }
 
 /// 生产执行器：macOS 开 Terminal.app 执行整行命令；其它平台不执行（返回 false 供前端复制）。
@@ -143,7 +150,8 @@ pub async fn session_resume(
     session_id: String,
     workdir: String) -> Result<SessionResumeResult, String> {
     let oc = crate::client_usage_cmd::client_root("opencode");
-    session_resume_with(aidog_ctx::db(), &client_code, &session_id, &workdir, oc.as_deref(), &open_terminal).await
+    let dir = aidog_dir()?;
+    session_resume_with(aidog_ctx::db(), &client_code, &session_id, &workdir, oc.as_deref(), &dir, &open_terminal).await
 }
 }
 
@@ -163,7 +171,7 @@ pub fn session_open_terminal(
         if session_id.is_empty() {
             return Err("session_id is empty".to_string());
         }
-        let shell_line = build_resume_command(&session_id, &group_key);
+        let shell_line = build_resume_command(&session_id, &group_key, &aidog_dir()?);
         let script = format!(
             "tell application \"Terminal\" to do script \"{}\"",
             apple_script_escape(&shell_line)
@@ -180,6 +188,11 @@ pub fn session_open_terminal(
 #[cfg(test)]
 mod test_session_cmd {
     use super::*;
+
+    const AD: &str = "/Users/demo/.aidog";
+    fn ad() -> &'static std::path::Path {
+        std::path::Path::new(AD)
+    }
 
     /// POSIX 单引号转义：内嵌单引号与 shell 元字符都出不来（与前端 shellSquote 同算法同结果）。
     #[test]
@@ -200,22 +213,31 @@ mod test_session_cmd {
     #[test]
     fn resume_command_escapes_and_guards() {
         assert_eq!(
-            build_resume_command("deadbeef", "teamA"),
-            "claude --resume 'deadbeef' --settings '~/.aidog/settings.teamA.json'"
+            build_resume_command("deadbeef", "teamA", ad()),
+            "claude --resume 'deadbeef' --settings '/Users/demo/.aidog/settings.teamA.json'"
         );
-        let cmd = build_resume_command("x'; rm -rf /", "g' ; calc");
+        let cmd = build_resume_command("x'; rm -rf /", "g' ; calc", ad());
         assert!(cmd.starts_with("claude --resume 'x'\\''; rm -rf /'"), "{cmd}");
-        assert!(cmd.contains("--settings '~/.aidog/settings.g'\\'' ; calc.json'"), "{cmd}");
-        assert_eq!(build_resume_command("deadbeef", ""), "claude --resume 'deadbeef'");
+        assert!(cmd.contains("--settings '/Users/demo/.aidog/settings.g'\\'' ; calc.json'"), "{cmd}");
+        assert_eq!(build_resume_command("deadbeef", "", ad()), "claude --resume 'deadbeef'");
+    }
+
+    /// 票 11：`~` 在单引号内不展开，--settings 必须是后端解析出的绝对路径（仍单引号包裹）。
+    #[test]
+    fn resume_settings_path_is_absolute() {
+        let dir = std::path::Path::new("/Users/my user/.aidog");
+        let cmd = build_resume_command("s1", "teamA", dir);
+        assert_eq!(cmd, "claude --resume 's1' --settings '/Users/my user/.aidog/settings.teamA.json'");
+        assert!(!cmd.contains('~'), "{cmd}");
     }
 
     /// 四家 × 有 / 无分组 × 有 / 无目录：拼出的整行命令逐字符对齐。
     #[test]
     fn session_resume_line_four_clients() {
-        let b = build_session_resume_line;
+        let b = |c: &str, s: &str, g: &str, w: &str| build_session_resume_line(c, s, g, w, ad());
         assert_eq!(
             b("claude_code", "s1", "teamA", "/w/p").unwrap(),
-            "cd -- '/w/p' && claude --resume 's1' --settings '~/.aidog/settings.teamA.json'"
+            "cd -- '/w/p' && claude --resume 's1' --settings '/Users/demo/.aidog/settings.teamA.json'"
         );
         assert_eq!(b("claude_code", "s1", "", "").unwrap(), "claude --resume 's1'");
         assert_eq!(
@@ -234,8 +256,8 @@ mod test_session_cmd {
     /// Gemini / OpenCode 不注入分组：传了分组也不出现在命令里。
     #[test]
     fn session_resume_line_gemini_opencode_ignore_group() {
-        let g = build_session_resume_line("gemini_cli", "g-1", "teamA", "/w").unwrap();
-        let o = build_session_resume_line("opencode", "ses_1", "teamA", "/w").unwrap();
+        let g = build_session_resume_line("gemini_cli", "g-1", "teamA", "/w", ad()).unwrap();
+        let o = build_session_resume_line("opencode", "ses_1", "teamA", "/w", ad()).unwrap();
         assert!(!g.contains("teamA") && !o.contains("teamA"), "{g} | {o}");
     }
 
@@ -243,24 +265,24 @@ mod test_session_cmd {
     /// 以 `-` 开头（会被当选项）与含控制字符的参数直接拒绝。
     #[test]
     fn session_resume_line_injection() {
-        let line = build_session_resume_line("codex", "a'b; rm -rf ~", "g' ;x", "/tmp/my dir'; echo pwn").unwrap();
+        let line = build_session_resume_line("codex", "a'b; rm -rf ~", "g' ;x", "/tmp/my dir'; echo pwn", ad()).unwrap();
         assert_eq!(
             line,
             "cd -- '/tmp/my dir'\\''; echo pwn' && AIDOG_KEY='g'\\'' ;x' codex -p 'g'\\'' ;x' resume 'a'\\''b; rm -rf ~'"
         );
-        let o = build_session_resume_line("opencode", "x y", "", "/a b").unwrap();
+        let o = build_session_resume_line("opencode", "x y", "", "/a b", ad()).unwrap();
         assert_eq!(o, "cd -- '/a b' && opencode -s 'x y' '/a b'");
         for (sid, wd) in [("--yolo", "/w"), ("ok", "-rf"), ("a\nb", "/w"), ("ok", "/w\r"), ("", "/w")] {
-            assert!(build_session_resume_line("claude_code", sid, "", wd).is_err(), "{sid:?} {wd:?}");
+            assert!(build_session_resume_line("claude_code", sid, "", wd, ad()).is_err(), "{sid:?} {wd:?}");
         }
-        assert!(build_session_resume_line("claude_code", "ok", "g\nx", "/w").is_err());
+        assert!(build_session_resume_line("claude_code", "ok", "g\nx", "/w", ad()).is_err());
     }
 
     /// Gemini 无目录 / 未知客户端 → Err。
     #[test]
     fn session_resume_line_errors() {
-        assert!(build_session_resume_line("gemini_cli", "g-1", "", "").is_err());
-        assert!(build_session_resume_line("pi", "x", "", "/w").is_err());
+        assert!(build_session_resume_line("gemini_cli", "g-1", "", "", ad()).is_err());
+        assert!(build_session_resume_line("pi", "x", "", "/w", ad()).is_err());
     }
 
     fn oc_db(dir: &std::path::Path, ids: &[&str]) -> std::path::PathBuf {
@@ -292,24 +314,24 @@ mod test_session_cmd {
             ran.lock().unwrap().push(l.to_string());
             Ok(true)
         };
-        let r = session_resume_with(&db, "claude_code", "c1", "/w", Some(&oc_root), &run).await.unwrap();
-        assert_eq!(r, SessionResumeResult { launched: true, command: "cd -- '/w' && claude --resume 'c1' --settings '~/.aidog/settings.teamA.json'".into() });
-        let r = session_resume_with(&db, "codex", "x1", "", Some(&oc_root), &run).await.unwrap();
+        let r = session_resume_with(&db, "claude_code", "c1", "/w", Some(&oc_root), ad(), &run).await.unwrap();
+        assert_eq!(r, SessionResumeResult { launched: true, command: "cd -- '/w' && claude --resume 'c1' --settings '/Users/demo/.aidog/settings.teamA.json'".into() });
+        let r = session_resume_with(&db, "codex", "x1", "", Some(&oc_root), ad(), &run).await.unwrap();
         assert_eq!(r.command, "AIDOG_KEY='teamX' codex -p 'teamX' resume 'x1'");
-        let r = session_resume_with(&db, "codex", "nogw", "", Some(&oc_root), &run).await.unwrap();
+        let r = session_resume_with(&db, "codex", "nogw", "", Some(&oc_root), ad(), &run).await.unwrap();
         assert_eq!(r.command, "codex resume 'nogw'");
-        let r = session_resume_with(&db, "gemini_cli", "c1", "/w", Some(&oc_root), &run).await.unwrap();
+        let r = session_resume_with(&db, "gemini_cli", "c1", "/w", Some(&oc_root), ad(), &run).await.unwrap();
         assert_eq!(r.command, "cd -- '/w' && gemini --resume 'c1'");
-        let r = session_resume_with(&db, "opencode", "ses_ok", "/w", Some(&oc_root), &run).await.unwrap();
+        let r = session_resume_with(&db, "opencode", "ses_ok", "/w", Some(&oc_root), ad(), &run).await.unwrap();
         assert_eq!(r.command, "cd -- '/w' && opencode -s 'ses_ok' '/w'");
         assert_eq!(ran.lock().unwrap().len(), 5);
         // 不存在 / 无 OpenCode 数据目录 → Err，执行器不被调用。
-        assert!(session_resume_with(&db, "opencode", "ses_missing", "/w", Some(&oc_root), &run).await.is_err());
-        assert!(session_resume_with(&db, "opencode", "ses_ok", "/w", None, &run).await.is_err());
-        assert!(session_resume_with(&db, "gemini_cli", "c1", "", Some(&oc_root), &run).await.is_err());
+        assert!(session_resume_with(&db, "opencode", "ses_missing", "/w", Some(&oc_root), ad(), &run).await.is_err());
+        assert!(session_resume_with(&db, "opencode", "ses_ok", "/w", None, ad(), &run).await.is_err());
+        assert!(session_resume_with(&db, "gemini_cli", "c1", "", Some(&oc_root), ad(), &run).await.is_err());
         assert_eq!(ran.lock().unwrap().len(), 5);
         // 执行器报不能开终端 → launched=false，命令照样返回供复制。
-        let r = session_resume_with(&db, "codex", "nogw", "", None, &|_| Ok(false)).await.unwrap();
+        let r = session_resume_with(&db, "codex", "nogw", "", None, ad(), &|_| Ok(false)).await.unwrap();
         assert_eq!(r, SessionResumeResult { launched: false, command: "codex resume 'nogw'".into() });
     }
 }
