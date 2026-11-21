@@ -611,17 +611,16 @@ fn bailian_coding_plan_keeps_noop() {
     }
 }
 
-/// 火山方舟家族（issue 79）：openai 端点禁思考写官方顶层 `thinking: {"type": "disabled"}`
-/// （方舟 Chat API 文档「disabled：关闭思考模式，模型直接回答问题，不进行思考」，
-/// https://www.volcengine.com/docs/82379/1494384 ）；客户端带来的旧 `enable_thinking` /
-/// `reasoning_effort` / vLLM 式 `chat_template_kwargs.enable_thinking` 一并剥除。
-/// anthropic 端点与 openai_responses 端点同基座（anthropic 臂 thinking.type=disabled；
-/// responses 臂 reasoning.effort=none，官方词表「none：关闭思考」可受，
-/// https://docs.volcengine.com/docs/ark/responses-api-deep-thinking?lang=zh ）。
+/// 火山方舟家族（issue 79 / 127 / 128）：openai 端点禁思考写官方顶层 `thinking: {"type": "disabled"}`
+/// （方舟 Chat API 文档「disabled：关闭思考模式」；BytePlus 文档同形示例 `"type":"disabled"` /
+/// `"type":"enabled"`，https://docs.byteplus.com/en/docs/ModelArk/text-generation ）；客户端带来的
+/// 旧 `enable_thinking` / `reasoning_effort` / vLLM 式 `chat_template_kwargs.enable_thinking`
+/// 一并剥除。anthropic 端点与 openai_responses 端点同基座（anthropic 臂 thinking.type=disabled；
+/// responses 臂 reasoning.effort=none，官方词表「none: Turn off reasoning」可受，
+/// https://docs.byteplus.com/en/docs/ModelArk/deep-thinking ）。
 #[test]
-#[allow(clippy::single_element_loop)] // 127/128 位家族成员就位后扩成多元素循环
 fn ark_family_disable_thinking_all_wires() {
-    for code in ["doubao"] {
+    for code in ["doubao", "byteplus"] {
         let adapter = super::adapter_for(code);
         let url = "http://127.0.0.1:31234/api/plan/v3";
         let mut body = json!({
@@ -692,32 +691,39 @@ fn ark_family_disable_thinking_all_wires() {
 /// 火山方舟家族错误分类沿用基座：404 InvalidEndpointOrModel.NotFound 的 message
 /// 「The model or endpoint … does not exist」命中基座 model + does not exist 特征归模型类；
 /// 401 AuthenticationError / 429 RateLimitExceeded.EndpointRPMExceeded 按状态码归服务类。
-/// 错误体统一 JSON 形状未证实（错误码页只列表格，无 JSON 示例），
-/// https://docs.volcengine.com/docs/ark/error-codes?lang=zh
+/// 错误体统一 JSON 形状未证实（错误码页只列表格，无 JSON 示例）；BytePlus 错误码表逐条同形
+/// （404 NotFound.InvalidEndpointOrModel.NotFound、401 AuthenticationError、
+/// 429 RateLimitExceeded.EndpointRPMExceeded），
+/// https://docs.byteplus.com/en/docs/ModelArk/error-codes
 #[test]
 fn ark_family_error_classification_tracks_base() {
-    let adapter = super::adapter_for("doubao");
-    assert_eq!(
-        adapter.classify_error(
-            404,
-            r#"{"error":{"code":"InvalidEndpointOrModel.NotFound","message":"The model or endpoint ep-2026 does not exist or you do not have access to it."}}"#,
-        ),
-        UpstreamErrorClass::Model
-    );
-    assert_eq!(
-        adapter.classify_error(
-            401,
-            r#"{"error":{"code":"AuthenticationError","message":"The API key or AK/SK in the request is missing or invalid."}}"#,
-        ),
-        UpstreamErrorClass::Service
-    );
-    assert_eq!(
-        adapter.classify_error(
-            429,
-            r#"{"error":{"code":"RateLimitExceeded.EndpointRPMExceeded","message":"Endpoint RPM limit exceeded."}}"#,
-        ),
-        UpstreamErrorClass::Service
-    );
+    for code in ["doubao", "byteplus"] {
+        let adapter = super::adapter_for(code);
+        assert_eq!(
+            adapter.classify_error(
+                404,
+                r#"{"error":{"code":"InvalidEndpointOrModel.NotFound","message":"The model or endpoint ep-2026 does not exist or you do not have access to it."}}"#,
+            ),
+            UpstreamErrorClass::Model,
+            "{code}"
+        );
+        assert_eq!(
+            adapter.classify_error(
+                401,
+                r#"{"error":{"code":"AuthenticationError","message":"The API key or AK/SK in the request is missing or invalid."}}"#,
+            ),
+            UpstreamErrorClass::Service,
+            "{code}"
+        );
+        assert_eq!(
+            adapter.classify_error(
+                429,
+                r#"{"error":{"code":"RateLimitExceeded.EndpointRPMExceeded","message":"Endpoint RPM limit exceeded."}}"#,
+            ),
+            UpstreamErrorClass::Service,
+            "{code}"
+        );
+    }
 }
 
 /// 覆写只作用于家族成员：非成员第三方 OpenAI 兼容端点仍写基座 vLLM 式
@@ -736,28 +742,33 @@ fn ark_override_scoped_to_family_members() {
     assert!(other.get("thinking").is_none());
 }
 
-/// coding_plan 注入保持 no-op：官方 Claude Code 接入页只要求设 base_url 与 API Key，
-/// 无出站附加字段（https://docs.volcengine.com/docs/ark/ai-tools-claude-code?lang=zh ）。
+/// coding_plan 注入保持 no-op：官方接入页只要求设 base_url 与 API Key，
+/// 无出站附加字段（火山 https://docs.volcengine.com/docs/ark/ai-tools-claude-code?lang=zh ；
+/// BytePlus quick start 只设 base_url 与 API key，
+/// https://docs.byteplus.com/en/docs/ModelArk/coding-plan ）。
 #[test]
 fn ark_coding_plan_keeps_noop() {
     for (platform, wire) in [
         (Protocol::Doubao, Protocol::Anthropic),
         (Protocol::Doubao, Protocol::OpenAI),
+        (Protocol::BytePlus, Protocol::Anthropic),
+        (Protocol::BytePlus, Protocol::OpenAI),
         (Protocol::BytePlus, Protocol::OpenAIResponses),
     ] {
         let mut body = json!({ "model": "doubao-seed-2.1", "messages": [] });
         let original = body.clone();
-        super::adapter_for("doubao").inject_coding_plan(&mut body, &platform, &wire);
+        super::adapter_for("byteplus").inject_coding_plan(&mut body, &platform, &wire);
         assert_eq!(body, original, "{platform:?} {wire:?}");
     }
 }
 
 /// usage 抽取沿用基座 openai 构件：`prompt_tokens_details.cached_tokens` 从 input 扣除、
 /// `completion_tokens_details.reasoning_tokens` 并入 output（方舟 Chat API 字段名与基座一致，
-/// https://www.volcengine.com/docs/82379/1494384 ）。
+/// https://www.volcengine.com/docs/82379/1494384 ；BytePlus 同名
+/// completion_tokens_details.reasoning_tokens，
+/// https://docs.byteplus.com/en/docs/ModelArk/deep-thinking ）。
 #[test]
 fn ark_usage_extraction_tracks_base() {
-    let adapter = super::adapter_for("doubao");
     let body = r#"{
         "usage": {
             "prompt_tokens": 100,
@@ -767,7 +778,107 @@ fn ark_usage_extraction_tracks_base() {
             "completion_tokens_details": { "reasoning_tokens": 20 }
         }
     }"#;
-    assert_eq!(adapter.extract_usage(body), (60, 50, 40, 0, 0, vec![]));
+    for code in ["doubao", "byteplus"] {
+        let adapter = super::adapter_for(code);
+        assert_eq!(adapter.extract_usage(body), (60, 50, 40, 0, 0, vec![]), "{code}");
+    }
+    // BytePlus Messages API（anthropic wire）usage 为 Anthropic 标准四件
+    // （cache_creation_input_tokens / cache_read_input_tokens，示例 cache_read=139），
+    // https://docs.byteplus.com/en/docs/ModelArk/messages-api
+    let anth = super::adapter_for("byteplus").extract_usage(
+        r#"{"usage":{"input_tokens":31,"output_tokens":33,"cache_creation_input_tokens":0,"cache_read_input_tokens":139}}"#,
+    );
+    assert_eq!(anth, (31, 33, 139, 0, 0, vec![]));
+}
+
+/// BytePlus 成员（issue 128）三协议全链路等价家族基座：请求构造 / 非流式响应 / 流式事件
+/// / 错误分类 / usage 抽取（接口①②③④⑤），base_url 取本地假上游地址（127.0.0.1），
+/// 出站永不读 registry 内置端点。对照件 = GENERIC 平台 deepseek（同基座构件）。
+#[test]
+fn byteplus_full_pipeline_matches_family_base() {
+    let input: ChatRequest = serde_json::from_value(json!({
+        "model": "doubao-seed-2.1",
+        "max_tokens": 128,
+        "messages": [{ "role": "user", "content": "hello" }]
+    }))
+    .unwrap();
+    let adapter = super::adapter_for("byteplus");
+    let generic = super::adapter_for("deepseek");
+    let platform = Protocol::BytePlus;
+
+    // ① 请求构造：三协议路径与 body 同基座构件（本地假上游 URL 不参与转换）。
+    for wire in [Protocol::OpenAI, Protocol::Anthropic, Protocol::OpenAIResponses] {
+        let (body, path) = adapter.build_request(&input, &wire, &platform);
+        let (base_body, base_path) = generic.build_request(&input, &wire, &platform);
+        assert_eq!((body, path), (base_body, base_path), "{wire:?}");
+    }
+    assert_eq!(
+        adapter
+            .build_request(&input, &Protocol::OpenAI, &platform)
+            .1,
+        "/chat/completions"
+    );
+
+    // ② 非流式响应：openai wire → anthropic 客户端、anthropic wire → openai 客户端。
+    let completion = json!({
+        "id": "cmpl-1", "model": "doubao-seed-2.1",
+        "choices": [{ "index": 0, "message": { "role": "assistant", "content": "hi" }, "finish_reason": "stop" }]
+    });
+    let converted = adapter
+        .convert_response(&completion, &Protocol::OpenAI, &Protocol::Anthropic, "doubao-seed-2.1")
+        .expect("openai 非流式应可转换");
+    assert_eq!(converted["content"][0]["text"], "hi");
+    assert_eq!(
+        converted,
+        generic
+            .convert_response(&completion, &Protocol::OpenAI, &Protocol::Anthropic, "doubao-seed-2.1")
+            .unwrap()
+    );
+    let message = json!({
+        "id": "msg_1", "type": "message", "role": "assistant", "model": "doubao-seed-2.1",
+        "content": [{ "type": "text", "text": "hi" }], "stop_reason": "end_turn",
+        "usage": { "input_tokens": 31, "output_tokens": 33 }
+    });
+    let anth_converted = adapter
+        .convert_response(&message, &Protocol::Anthropic, &Protocol::OpenAI, "doubao-seed-2.1")
+        .expect("anthropic 非流式应可转换");
+    assert_eq!(anth_converted["choices"][0]["message"]["content"], "hi");
+
+    // ③ 流式事件：openai delta 帧按 BytePlus 官方分帧（reasoning_content 与 content 各一帧，
+    // https://docs.byteplus.com/en/docs/ModelArk/streaming-output 示例）与 anthropic 帧同基座构件。
+    let reasoning_frame = json!({
+        "choices": [{ "index": 0, "delta": { "reasoning_content": "thinking" }, "usage": null }]
+    });
+    let content_frame = json!({
+        "choices": [{ "index": 0, "delta": { "content": "hi" }, "usage": null }]
+    });
+    for (frame, marker) in [(&reasoning_frame, "thinking"), (&content_frame, "hi")] {
+        let openai_events = adapter.parse_sse_frame(frame, &Protocol::OpenAI);
+        assert_eq!(
+            format!("{openai_events:?}"),
+            format!("{:?}", generic.parse_sse_frame(frame, &Protocol::OpenAI))
+        );
+        assert!(format!("{openai_events:?}").contains(marker), "{marker}");
+    }
+    let anth_delta = json!({
+        "type": "content_block_delta", "index": 0,
+        "delta": { "type": "text_delta", "text": "hi" }
+    });
+    let anth_events = adapter.parse_sse_frame(&anth_delta, &Protocol::Anthropic);
+    assert_eq!(
+        format!("{anth_events:?}"),
+        format!("{:?}", generic.parse_sse_frame(&anth_delta, &Protocol::Anthropic))
+    );
+
+    // ④ 错误分类见 ark_family_error_body（404 模型类 / 401 / 429 服务类），此处补 anthropic
+    // wire 错误形状同基座。
+    assert_eq!(
+        adapter.classify_error(
+            400,
+            r#"{"type":"error","error":{"type":"invalid_request_error","message":"bad request"}}"#,
+        ),
+        UpstreamErrorClass::Unknown
+    );
 }
 
 /// 百度千帆家族（issue 80）：openai 端点禁思考写官方顶层 `thinking: {"type": "disabled"}`
