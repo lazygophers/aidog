@@ -463,3 +463,38 @@ async fn commandcode_error_paths() {
         q3.error
     );
 }
+
+#[tokio::test]
+async fn commandcode_org_null_personal_account() {
+    // 个人账号 whoami org:null（实锤 2026-11-21 request_log）：不带 orgId 照常取数，对齐官方 CLI
+    let (stub, log) = spawn_capture(vec![
+        (
+            "/alpha/whoami",
+            200,
+            r#"{"success":true,"user":{"id":"u1","userName":"tester"},"org":null}"#,
+        ),
+        ("/alpha/billing/credits", 200, r#"{"credits":{"monthlyCredits":0,"purchasedCredits":0,"freeCredits":0}}"#),
+        ("/alpha/billing/subscriptions", 200, CC_SUBS_BODY),
+        ("/alpha/usage/summary", 200, CC_SUMMARY_BODY),
+    ])
+    .await;
+    let s = retarget(
+        &script_for("commandcode"),
+        "https://api.commandcode.ai",
+        &stub,
+    );
+    let q = run(&s, &stub).await;
+    assert!(q.success, "{:?}", q.error);
+    let l = log.lock().unwrap();
+    assert_eq!(l[0].path, "/alpha/whoami?limits=1");
+    assert_eq!(l[1].path, "/alpha/billing/credits", "org:null 不带 orgId 参数");
+    assert_eq!(l[2].path, "/alpha/billing/subscriptions");
+    assert_eq!(
+        l[3].path, "/alpha/usage/summary?since=2026-11-01T00%3A00%3A00Z",
+        "summary 只带 since"
+    );
+    let b = q.balance.as_ref().unwrap();
+    assert_eq!(b.remaining, 0.0);
+    assert_eq!(b.used.unwrap(), 12.5);
+    assert_eq!(b.total, Some(12.5));
+}
