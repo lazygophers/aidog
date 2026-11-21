@@ -4,6 +4,7 @@
 //! 首次开启全量导入、启动/refresh 增量导入共用同一条 `run_import` 链。
 
 mod agents;
+pub mod carry;
 pub mod reader;
 pub mod reader_codex;
 pub mod reader_gemini;
@@ -37,6 +38,9 @@ mod test_agents;
 #[cfg(test)]
 #[path = "test_state.rs"]
 mod test_state;
+#[cfg(test)]
+#[path = "test_carry.rs"]
+mod test_carry;
 
 /// 全局 IMPORT_STATE 只有一份，跨 reader 两个测试模块的用例用它串行化。
 #[cfg(test)]

@@ -120,7 +120,7 @@ pub(crate) async fn session_resume_with(
 }
 
 /// `~/.aidog` 的绝对路径：命令里的路径在单引号内，shell 不展开 `~`（票 11）。
-fn aidog_dir() -> Result<std::path::PathBuf, String> {
+pub(crate) fn aidog_dir() -> Result<std::path::PathBuf, String> {
     Ok(dirs::home_dir().ok_or("cannot resolve home directory")?.join(".aidog"))
 }
 
@@ -157,7 +157,7 @@ fn run_osascript(line: &str) -> Result<(), String> {
 }
 
 /// 生产执行器：macOS 开 Terminal.app 执行整行命令；其它平台不执行（返回 false 供前端复制）。
-fn open_terminal(line: &str) -> Result<bool, String> {
+pub(crate) fn open_terminal(line: &str) -> Result<bool, String> {
     #[cfg(not(target_os = "macos"))]
     {
         let _ = line;

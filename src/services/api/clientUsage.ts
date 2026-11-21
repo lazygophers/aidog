@@ -165,6 +165,11 @@ export const clientUsageApi = {
   /** 继续会话（票 07）：先 cd 到工作目录再跑各家继续命令；launched=false 时前端复制 command。 */
   sessionResume: (clientCode: string, sessionId: string, workdir: string) =>
     invoke<SessionResumeResult>("session_resume", { clientCode, sessionId, workdir }),
+  /** 换客户端继续（票 10）：Claude Code ⇄ Codex 转写为目标新会话，其余组合交接原文件路径；结果同 sessionResume。 */
+  sessionCarry: (clientCode: string, sessionId: string, workdir: string, targetClient: string) =>
+    invoke<SessionResumeResult>("session_carry", { clientCode, sessionId, workdir, targetClient }),
+  /** PATH 上能找到二进制的客户端码（票 10）。 */
+  installedClients: () => invoke<string[]>("session_installed_clients"),
   refresh: () => invoke<ClientUsageImportState>("client_usage_refresh"),
   /** 保留天数（0 = 永久，缺省 90）。 */
   retentionGet: () => invoke<number>("client_usage_retention_get"),

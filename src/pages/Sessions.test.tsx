@@ -13,6 +13,9 @@ const api = vi.hoisted(() => ({
   sessionHide: vi.fn(),
   sessionUnhide: vi.fn(),
   hiddenSessions: vi.fn(),
+  sessionCarry: vi.fn(),
+  installedClients: vi.fn(),
+  transcriptConsentGet: vi.fn(),
 }));
 vi.mock("../services/api/clientUsage", () => ({ clientUsageApi: api }));
 
@@ -87,6 +90,8 @@ beforeEach(() => {
   api.refresh.mockResolvedValue(IDLE);
   api.sessionStates.mockResolvedValue([]);
   cctx.contextModeSessions.mockResolvedValue([]);
+  api.installedClients.mockResolvedValue([]);
+  api.transcriptConsentGet.mockResolvedValue(false);
 });
 
 describe("Sessions 页（票 02）", () => {
@@ -765,5 +770,82 @@ describe("真机反馈修复与懒加载（票 12）", () => {
     const group = screen.getAllByTestId("sessions-group")[0];
     expect(within(group).queryByTestId("sessions-row-spark")).toBeNull();
     expect(api.sessionDetail.mock.calls.map((c) => c[1])).toEqual(["x-run"]);
+  });
+});
+
+describe("换客户端继续（票 10）", () => {
+  const CARRY_ROWS = [
+    row("claude_code", "c1", "演示会话甲", "/work/alpha", H),
+    row("gemini_cli", "g1", "演示无目录", "", 2 * H),
+  ];
+  const bySid = (sid: string) => screen.getAllByTestId("sessions-row").find((r) => r.getAttribute("data-session") === sid)!;
+  const openMenu = async (sid: string) => {
+    await userEvent.click(within(bySid(sid)).getByTestId("sessions-carry"));
+    return screen.findByTestId("sessions-carry-menu");
+  };
+
+  beforeEach(() => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(CARRY_ROWS);
+    api.sessionDetail.mockReturnValue(new Promise(() => {}));
+  });
+
+  it("菜单只列本机已安装的其它客户端；无目录会话不提供", async () => {
+    api.installedClients.mockResolvedValue(["claude_code", "codex", "gemini_cli"]);
+    render(<Sessions />);
+    await screen.findAllByTestId("sessions-row");
+    await waitFor(() => expect(within(bySid("c1")).getByTestId("sessions-carry")).toBeInTheDocument());
+    expect(within(bySid("g1")).queryByTestId("sessions-carry")).toBeNull();
+    const menu = await openMenu("c1");
+    const items = within(menu).getAllByTestId("sessions-carry-item").map((i) => i.getAttribute("data-target"));
+    expect(items).toEqual(["codex", "gemini_cli"]);
+    expect(bySid("c1")).toHaveAttribute("data-state", "closed");
+  });
+
+  it("没装其它客户端：不渲染菜单入口", async () => {
+    api.installedClients.mockResolvedValue(["claude_code"]);
+    render(<Sessions />);
+    await screen.findAllByTestId("sessions-row");
+    await waitFor(() => expect(api.installedClients).toHaveBeenCalled());
+    expect(within(bySid("c1")).queryByTestId("sessions-carry")).toBeNull();
+  });
+
+  it("原文开关关：Codex 项显示引导，点它跳设置且不调转写；交接项照常可用", async () => {
+    api.installedClients.mockResolvedValue(["codex", "gemini_cli"]);
+    api.sessionCarry.mockResolvedValue({ launched: true, command: "x" });
+    const onNavigate = vi.fn();
+    render(<Sessions onNavigate={onNavigate} />);
+    await screen.findAllByTestId("sessions-row");
+    await waitFor(() => expect(within(bySid("c1")).getByTestId("sessions-carry")).toBeInTheDocument());
+    let menu = await openMenu("c1");
+    const codex = within(menu).getAllByTestId("sessions-carry-item").find((i) => i.getAttribute("data-target") === "codex")!;
+    expect(codex).toHaveAttribute("data-mode", "need-consent");
+    expect(within(codex).getByTestId("sessions-carry-need-consent")).toBeInTheDocument();
+    await userEvent.click(codex);
+    expect(onNavigate).toHaveBeenCalledWith("settings/client_usage");
+    expect(api.sessionCarry).not.toHaveBeenCalled();
+    menu = await openMenu("c1");
+    const gem = within(menu).getAllByTestId("sessions-carry-item").find((i) => i.getAttribute("data-target") === "gemini_cli")!;
+    expect(gem).toHaveAttribute("data-mode", "handoff");
+    await userEvent.click(gem);
+    await waitFor(() => expect(api.sessionCarry).toHaveBeenCalledWith("claude_code", "c1", "/work/alpha", "gemini_cli"));
+  });
+
+  it("原文开关开：Codex 项为转写，点选调 session_carry；不能开终端时复制命令", async () => {
+    api.installedClients.mockResolvedValue(["codex"]);
+    api.transcriptConsentGet.mockResolvedValue(true);
+    api.sessionCarry.mockResolvedValue({ launched: false, command: "codex resume 'n1'" });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    render(<Sessions />);
+    await screen.findAllByTestId("sessions-row");
+    await waitFor(() => expect(within(bySid("c1")).getByTestId("sessions-carry")).toBeInTheDocument());
+    const menu = await openMenu("c1");
+    const codex = within(menu).getAllByTestId("sessions-carry-item")[0];
+    await waitFor(() => expect(codex).toHaveAttribute("data-mode", "transcribe"));
+    await userEvent.click(codex);
+    await waitFor(() => expect(api.sessionCarry).toHaveBeenCalledWith("claude_code", "c1", "/work/alpha", "codex"));
+    expect(await screen.findByTestId("sessions-resume-notice")).toHaveAttribute("data-kind", "copied");
+    expect(writeText).toHaveBeenCalledWith("codex resume 'n1'");
   });
 });
