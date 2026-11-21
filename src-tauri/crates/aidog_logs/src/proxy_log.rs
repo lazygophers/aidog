@@ -1654,3 +1654,37 @@ mod test_routing_snapshot {
         assert_eq!(rs.entries[1].reason, RouteReason::PeakDisabled);
     }
 }
+
+/// 在途会话（扩展-会话页 票 05）：给定 session_id 中，`created_at >= since_ms` 且 `done = 0` 的
+/// proxy_log 行所属的 session_id 集合。窗口限近期，不用整表 status_code=0（历史孤儿行永久堆积，
+/// `.claude/rules/perf-testing.md` §9）。
+#[track_caller]
+pub fn inflight_session_ids<'a>(
+    db: &'a Db,
+    session_ids: &'a [String],
+    since_ms: i64,
+) -> impl std::future::Future<Output = Result<std::collections::HashSet<String>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    let ids = session_ids.to_vec();
+    async move {
+        if ids.is_empty() {
+            return Ok(std::collections::HashSet::new());
+        }
+        db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            let marks = vec!["?"; ids.len()].join(",");
+            let sql = format!(
+                "SELECT DISTINCT session_id FROM proxy_log \
+                 WHERE deleted_at = 0 AND done = 0 AND created_at >= ? AND session_id IN ({marks})"
+            );
+            let mut args: Vec<rusqlite::types::Value> = vec![since_ms.into()];
+            args.extend(ids.into_iter().map(rusqlite::types::Value::from));
+            let mut stmt = conn.prepare(&sql)?;
+            let rows = stmt
+                .query_map(rusqlite::params_from_iter(args.iter()), |r| r.get::<_, String>(0))?
+                .collect::<Result<_, _>>()?;
+            Ok(rows)
+        })
+        .await
+        .map_err(|e| format!("inflight_session_ids: {e}"))
+    }
+}

@@ -8,6 +8,7 @@ pub mod reader;
 pub mod reader_codex;
 pub mod reader_gemini;
 pub mod reader_opencode;
+pub mod state;
 pub mod watch;
 #[cfg(test)]
 #[path = "test_reader.rs"]
@@ -33,6 +34,9 @@ mod test_settings;
 #[cfg(test)]
 #[path = "test_agents.rs"]
 mod test_agents;
+#[cfg(test)]
+#[path = "test_state.rs"]
+mod test_state;
 
 /// 全局 IMPORT_STATE 只有一份，跨 reader 两个测试模块的用例用它串行化。
 #[cfg(test)]

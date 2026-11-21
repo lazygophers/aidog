@@ -116,6 +116,18 @@ export interface ClientUsageSessionDetail {
   agents: ClientUsageAgentGroup[];
 }
 
+/** 会话运行状态（票 05）：执行中 / 空闲 / 已结束。 */
+export type SessionRunState = "running" | "idle" | "stopped";
+
+export interface ClientUsageSessionState {
+  clientCode: string;
+  sessionId: string;
+  state: SessionRunState;
+  /** pid_file = Claude Code pid 文件；gateway = 网关在途请求；activity = 最近活动时间阈值。 */
+  source: "pid_file" | "gateway" | "activity";
+  lastActivityMs: number;
+}
+
 export const clientUsageApi = {
   consentGet: () => invoke<ClientUsageConsent>("client_usage_consent_get"),
   consentSet: (consent: ClientUsageConsent) =>
@@ -131,6 +143,8 @@ export const clientUsageApi = {
     invoke<ClientUsageSessionRow[]>("client_usage_sessions", { fromMs, toMs, clientCode, limit }),
   sessionDetail: (clientCode: string, sessionId: string) =>
     invoke<ClientUsageSessionDetail>("client_usage_session_detail", { clientCode, sessionId }),
+  sessionStates: (sessionIds: string[], clientCode?: string) =>
+    invoke<ClientUsageSessionState[]>("client_usage_session_states", { clientCode, sessionIds }),
   refresh: () => invoke<ClientUsageImportState>("client_usage_refresh"),
   /** 保留天数（0 = 永久，缺省 90）。 */
   retentionGet: () => invoke<number>("client_usage_retention_get"),
