@@ -937,7 +937,68 @@ impl PlatformAdapter for QianfanFamilyAdapter {
     }
 }
 
+/// 商汤日日新家族基座（issue 81；成员 sensenova / sensenova_en）。
+///
+/// 官方国际站文档核对日期 2026-11-19；中国站 API 技术文档未能取得，以下家族契约仅证实于国际站：
+/// - 请求：OpenAI Chat Completions 使用 `/v1/chat/completions`，`model` / `messages` 必填，
+///   `stream` 缺省 false；Anthropic Messages 使用 `/v1/messages`，含 `system`、`max_tokens`。
+///   Anthropic `thinking.type` 缺省 enabled，值域 enabled / disabled；`output_config.effort`
+///   缺省 high，支持 none / low / medium / high / max。OpenAI 思考参数按模型不同：6.8 Flash 强制开启，
+///   Flash Lite 缺省开启，可用 `thinking.type` 关闭，或 `reasoning_effort: "none"` 关闭。
+/// - 工具：OpenAI function tools、tool_choice 缺省 auto；Anthropic 工具调用为 Messages 兼容形状。
+///   system 提示：OpenAI `role: system`；Anthropic `system` 可为字符串或文本块数组。
+/// - 多模态：OpenAI `image_url`、Anthropic `image` 块支持 URL / Base64；文档列 JPG/JPEG/PNG/GIF/WebP。
+///   其它模态未证实。现有协议构件覆盖已证实的请求形状。
+/// - 流式：两端点均支持 SSE；Anthropic 文档列 Messages 事件序列。OpenAI 流式 usage 默认包含。
+///   未证实额外事件及错误体字段契约，沿用协议基座。
+/// - usage：OpenAI `prompt_tokens` / `completion_tokens` / `total_tokens`，缓存输入在
+///   `prompt_tokens_details.cached_tokens`；Anthropic `input_tokens` / `output_tokens`，含思考 token。
+///   Anthropic `cache_read_input_tokens` 官方响应示例有；cache write 字段官方文档未见，
+///   保持基座处理。
+///   https://platform.sensenova.ai/docs#model-flash
+///   https://platform.sensenova.ai/docs#api-compatibility
+///
+/// SenseNova 6.8 Flash 明确不可关闭思考；Flash Lite 可关闭。registry 的 `thinking_toggleable`
+/// 标记决定强制思考路径。因中国站对应模型参数未证实，sensenova 保持框架默认行为。
+pub struct SenseNovaFamilyAdapter;
+
+impl PlatformAdapter for SenseNovaFamilyAdapter {}
+
+/// 国际版成员：可切换思考模型禁思考时用官方 `thinking.type=disabled`；强制思考模型由 registry 标记。
+struct SenseNovaEnAdapter;
+
+impl PlatformAdapter for SenseNovaEnAdapter {
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        if wire != &Protocol::OpenAI || forced_thinking {
+            return hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking);
+        }
+        let Some(obj) = body.as_object_mut() else {
+            return;
+        };
+        obj.remove("disable_thinking");
+        if !disable {
+            return;
+        }
+        for key in ["thinking", "reasoning_effort", "enable_thinking"] {
+            obj.remove(key);
+        }
+        obj.insert(
+            "thinking".to_string(),
+            serde_json::json!({"type": "disabled"}),
+        );
+    }
+}
+
 static GENERIC: GenericAdapter = GenericAdapter;
+static SENSENOVA: SenseNovaFamilyAdapter = SenseNovaFamilyAdapter;
+static SENSENOVA_EN: SenseNovaEnAdapter = SenseNovaEnAdapter;
 static MINIMAX_FAMILY: MiniMaxFamilyAdapter = MiniMaxFamilyAdapter;
 static MINIMAX: MiniMaxAdapter = MiniMaxAdapter;
 static MINIMAX_CODING: MiniMaxCodingAdapter = MiniMaxCodingAdapter;
@@ -1012,8 +1073,8 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("pipellm", &GENERIC),
     ("qianfan", &QIANFAN),
     ("qianfan_coding", &QIANFAN),
-    ("sensenova", &GENERIC),
-    ("sensenova_en", &GENERIC),
+    ("sensenova", &SENSENOVA),
+    ("sensenova_en", &SENSENOVA_EN),
     ("shengsuanyun", &GENERIC),
     ("siliconflow", &GENERIC),
     ("siliconflow_en", &GENERIC),
