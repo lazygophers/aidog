@@ -294,6 +294,7 @@ pub fn run() {
             aidog_core::ai_tools_cmd::context_compress::context_compress_sqz_set,
             aidog_core::ai_tools_cmd::context_compress::context_compress_stats,
             aidog_core::ai_tools_cmd::context_compress::context_compress_stats_cached,
+            aidog_core::ai_tools_cmd::context_compress::context_mode_sessions,
             // Plugins (扩展 → 插件管理：Claude Code 原生插件 + Codex 插件 CLI)
             aidog_core::ai_tools_cmd::plugin_bundle::plugins_bundle_list,
             aidog_core::ai_tools_cmd::plugin_bundle::plugins_bundle_probe,

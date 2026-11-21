@@ -304,6 +304,7 @@ rpc_routes! {
     mutating aidog_core::ai_tools_cmd::context_compress::context_compress_sqz_set,
     readonly aidog_core::ai_tools_cmd::context_compress::context_compress_stats,
     readonly aidog_core::ai_tools_cmd::context_compress::context_compress_stats_cached,
+    readonly aidog_core::ai_tools_cmd::context_compress::context_mode_sessions,
     mutating aidog_core::ai_tools_cmd::plugin_bundle::plugins_bundle_install,
     mutating aidog_core::ai_tools_cmd::plugin_bundle::plugins_bundle_set,
     mutating aidog_core::ai_tools_cmd::plugin_bundle::plugins_bundle_set_agents,

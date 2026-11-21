@@ -976,6 +976,7 @@ async fn stats_cache_round_trips_and_ignores_garbage() {
         sqz: None,
         rtk_daily: vec![RtkDaily { date: "2026-11-20".into(), commands: 3, input_tokens: 100, output_tokens: 40, saved_tokens: 60, savings_pct: 60.0 }],
         sqz_daily: vec![SqzDaily { date: "2026-11-20".into(), saved_tokens: 7, used_tokens: Some(10), compressions: Some(1) }],
+        context_mode: None,
     };
     store_stats_cache(&db, &stats, 1_795_000_000_000).await.unwrap();
     let got = load_stats_cache(&db).await.expect("拉取后应有缓存");
@@ -987,4 +988,59 @@ async fn stats_cache_round_trips_and_ignores_garbage() {
 
     set_setting(&db, STATS_CACHE_KEY, json!({"stats": "bad"})).await.unwrap();
     assert!(load_stats_cache(&db).await.is_none(), "无法解析 → None");
+}
+
+fn ctx_stats_fixture(tmp: &Path, name: &str, body: Value) {
+    let dir = tmp.join("sessions");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join(name), body.to_string()).unwrap();
+}
+
+#[test]
+fn context_mode_stats_aggregates_sums_and_max_lifetime() {
+    let tmp = tempfile::tempdir().unwrap();
+    ctx_stats_fixture(tmp.path(), "stats-aaa.json", json!({
+        "schemaVersion": 2, "total_calls": 10, "bytes_returned": 100, "bytes_indexed": 300,
+        "bytes_sandboxed": 0, "cache_hits": 0, "cache_bytes_saved": 0, "kept_out": 300,
+        "total_processed": 400, "reduction_pct": 75, "tokens_saved": 75,
+        "dollars_saved_session": 0.5, "tokens_saved_lifetime": 1000, "dollars_saved_lifetime": 5.0
+    }));
+    ctx_stats_fixture(tmp.path(), "stats-bbb.json", json!({
+        "total_calls": 2, "kept_out": 10, "total_processed": 100, "tokens_saved": 3,
+        "dollars_saved_session": 0.1, "tokens_saved_lifetime": 2000, "dollars_saved_lifetime": 9.0
+    }));
+    // 非 stats JSON 与垃圾文件跳过
+    std::fs::write(tmp.path().join("sessions").join("other.json"), "not stats").unwrap();
+    let dir = tmp.path().join("sessions");
+    let got = context_mode_stats_from_dir(&dir).expect("有可解析文件");
+    assert_eq!(got.sessions, 2);
+    assert_eq!(got.total_calls, 12);
+    assert_eq!(got.kept_out, 310);
+    assert_eq!(got.total_processed, 500);
+    assert_eq!(got.tokens_saved, 78);
+    assert!((got.dollars_saved - 0.6).abs() < 1e-9);
+    assert_eq!(got.tokens_saved_lifetime, 2000, "lifetime 取最大快照");
+    assert!((got.dollars_saved_lifetime - 9.0).abs() < 1e-9);
+
+    let empty = tempfile::tempdir().unwrap();
+    assert!(context_mode_stats_from_dir(empty.path()).is_none(), "目录不存在 → None");
+}
+
+#[test]
+fn context_mode_sessions_lists_ratio_per_file() {
+    let tmp = tempfile::tempdir().unwrap();
+    ctx_stats_fixture(tmp.path(), "stats-b.json", json!({
+        "total_calls": 4, "kept_out": 250, "total_processed": 1000, "tokens_saved": 63, "dollars_saved_session": 0.3,
+        "tokens_saved_lifetime": 1, "dollars_saved_lifetime": 0.0
+    }));
+    ctx_stats_fixture(tmp.path(), "pid-42.json", json!({"total_calls": 1})); // 非 stats- 前缀跳过
+    let dir = tmp.path().join("sessions");
+    let got = context_mode_sessions_from_dir(&dir);
+    assert_eq!(got.len(), 1);
+    assert_eq!(got[0].session_id, "b");
+    assert!((got[0].reduction_pct - 25.0).abs() < 1e-9);
+    assert_eq!(got[0].tokens_saved, 63);
+
+    let empty = tempfile::tempdir().unwrap();
+    assert!(context_mode_sessions_from_dir(empty.path()).is_empty());
 }

@@ -1410,12 +1410,103 @@ fn sqz_daily_from_db(path: &std::path::Path) -> Option<Vec<SqzDaily>> {
     rows.collect::<Result<Vec<_>, _>>().ok()
 }
 
+/// context-mode 单份会话统计（`~/.claude/context-mode/sessions/stats-<sessionId>.json`，
+/// schemaVersion 2）里用到的字段，其余忽略。`*_lifetime` 是插件写入的全局快照（各份相同）。
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct ContextModeStatsFile {
+    pub total_calls: u64,
+    pub kept_out: u64,
+    pub total_processed: u64,
+    pub tokens_saved: u64,
+    pub dollars_saved_session: f64,
+    pub tokens_saved_lifetime: u64,
+    pub dollars_saved_lifetime: f64,
+}
+
+/// context-mode 聚合：压缩比 = Σkept_out ÷ Σtotal_processed；lifetime 取各份快照的最大值。
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct ContextModeStats {
+    pub total_calls: u64,
+    pub kept_out: u64,
+    pub total_processed: u64,
+    pub tokens_saved: u64,
+    pub dollars_saved: f64,
+    pub tokens_saved_lifetime: u64,
+    pub dollars_saved_lifetime: f64,
+    pub sessions: u64,
+}
+
+/// 会话列表徽标：一份 stats JSON 的压缩比；session_id 取文件名 `stats-<id>.json` 的 `<id>`
+/// （与 Claude Code 会话 UUID 一致，其他客户端无此数据）。
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ContextModeSessionRatio {
+    pub session_id: String,
+    pub reduction_pct: f64,
+    pub tokens_saved: u64,
+    pub total_calls: u64,
+}
+
+/// 聚合目录下全部 stats-*.json；目录不存在 / 无一份可解析 → None。
+fn context_mode_stats_from_dir(dir: &std::path::Path) -> Option<ContextModeStats> {
+    let mut agg = ContextModeStats::default();
+    let mut seen = false;
+    for entry in std::fs::read_dir(dir).ok()?.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("json") {
+            continue;
+        }
+        let Ok(f) = serde_json::from_str::<ContextModeStatsFile>(&std::fs::read_to_string(&path).ok()?) else {
+            continue;
+        };
+        seen = true;
+        agg.sessions += 1;
+        agg.total_calls += f.total_calls;
+        agg.kept_out += f.kept_out;
+        agg.total_processed += f.total_processed;
+        agg.tokens_saved += f.tokens_saved;
+        agg.dollars_saved += f.dollars_saved_session;
+        agg.tokens_saved_lifetime = agg.tokens_saved_lifetime.max(f.tokens_saved_lifetime);
+        agg.dollars_saved_lifetime = agg.dollars_saved_lifetime.max(f.dollars_saved_lifetime);
+    }
+    seen.then_some(agg)
+}
+
+/// 逐份读 stats-*.json 出每会话压缩比；目录不存在 → 空数组。
+fn context_mode_sessions_from_dir(dir: &std::path::Path) -> Vec<ContextModeSessionRatio> {
+    let mut out = Vec::new();
+    let Ok(entries) = std::fs::read_dir(dir) else { return out };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Some(id) = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .and_then(|n| n.strip_prefix("stats-"))
+            .and_then(|n| n.strip_suffix(".json"))
+        else {
+            continue;
+        };
+        let Ok(text) = std::fs::read_to_string(&path) else { continue };
+        let Ok(f) = serde_json::from_str::<ContextModeStatsFile>(&text) else { continue };
+        let pct = if f.total_processed > 0 { f.kept_out as f64 / f.total_processed as f64 * 100.0 } else { 0.0 };
+        out.push(ContextModeSessionRatio {
+            session_id: id.to_string(),
+            reduction_pct: (pct * 10.0).round() / 10.0,
+            tokens_saved: f.tokens_saved,
+            total_calls: f.total_calls,
+        });
+    }
+    out.sort_by(|a, b| a.session_id.cmp(&b.session_id));
+    out
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[serde(default)]
 pub struct ContextCompressStats {
     pub rtk: Option<RtkGainStats>,
     pub sqz: Option<SqzStats>,
     pub rtk_daily: Vec<RtkDaily>,
     pub sqz_daily: Vec<SqzDaily>,
+    pub context_mode: Option<ContextModeStats>,
 }
 
 /// 上次成功拉取的统计（整份）+ 拉取时刻 Unix ms；页面打开先显示它，后台再拉新的。
@@ -1499,12 +1590,17 @@ crate::tauri_command! {
     /// 工具未装 / 输出解析失败的一侧 summary 为 null、daily 为空，不报错。
     pub async fn context_compress_stats() -> Result<ContextCompressStats, String> {
         let sqz_db = dirs::home_dir().map(|h| h.join(".sqz").join("sessions.db"));
-        let (rtk_out, sqz_stats_out, sqz_db_daily) = tokio::join!(
+        let ctx_sessions = dirs::home_dir().map(|h| h.join(".claude").join("context-mode").join("sessions"));
+        let (rtk_out, sqz_stats_out, sqz_db_daily, ctx_mode) = tokio::join!(
             async { run_cmd("rtk", &["gain", "-d", "--format", "json"], &[]).await.ok() },
             async { run_cmd("sqz", &["stats", "--json"], &[]).await.ok() },
             async {
                 let p = sqz_db?;
                 tokio::task::spawn_blocking(move || sqz_daily_from_db(&p)).await.ok().flatten()
+            },
+            async {
+                let d = ctx_sessions?;
+                tokio::task::spawn_blocking(move || context_mode_stats_from_dir(&d)).await.ok().flatten()
             },
         );
         let sqz_gain_out = match sqz_db_daily {
@@ -1514,6 +1610,7 @@ crate::tauri_command! {
         let mut stats = ContextCompressStats {
             rtk: rtk_out.as_deref().and_then(parse_rtk_gain),
             sqz: sqz_stats_out.as_deref().and_then(parse_sqz_stats),
+            context_mode: ctx_mode,
             ..Default::default()
         };
         if let Some(o) = rtk_out.as_deref() {
@@ -1536,6 +1633,17 @@ crate::tauri_command! {
     /// 上次成功拉取的统计 + 拉取时刻（Unix ms）；从未拉取过 / 缓存损坏 → null。
     pub async fn context_compress_stats_cached() -> Result<Option<CachedContextCompressStats>, String> {
         Ok(load_stats_cache(aidog_ctx::db()).await)
+    }
+}
+
+crate::tauri_command! {
+    /// 会话列表徽标：逐份 `~/.claude/context-mode/sessions/stats-<sessionId>.json` 出压缩比。
+    /// 目录不存在 / 读失败 → 空数组，不报错。
+    pub async fn context_mode_sessions() -> Result<Vec<ContextModeSessionRatio>, String> {
+        let Some(dir) = dirs::home_dir().map(|h| h.join(".claude").join("context-mode").join("sessions")) else {
+            return Ok(Vec::new());
+        };
+        tokio::task::spawn_blocking(move || context_mode_sessions_from_dir(&dir)).await.map_err(|e| e.to_string())
     }
 }
 
