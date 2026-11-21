@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { ChevronDown } from "lucide-react";
 import { StackedAreaChart } from "../charts";
 import { clientUsageApi, type ClientUsageAgentGroup, type ClientUsageSessionDetail } from "../../services/api/clientUsage";
-import { formatNumber } from "../../utils/formatters";
+import { formatNumber, formatPercent } from "../../utils/formatters";
 import { SessionCost } from "./SessionCost";
 
 type Load = { state: "loading" } | { state: "error"; error: string } | { state: "ready"; detail: ClientUsageSessionDetail };
@@ -54,7 +54,7 @@ function LazyBlock({ title, testId, fetch, children }: {
   );
 }
 
-export function SessionDetail({ clientCode, sessionId, sidechainCalls = 0 }: { clientCode: string; sessionId: string; sidechainCalls?: number }) {
+export function SessionDetail({ clientCode, sessionId, sidechainCalls = 0, ctxRatio }: { clientCode: string; sessionId: string; sidechainCalls?: number; ctxRatio?: number }) {
   const { t } = useTranslation();
   const [load, setLoad] = useState<Load>({ state: "loading" });
 
@@ -99,6 +99,11 @@ export function SessionDetail({ clientCode, sessionId, sidechainCalls = 0 }: { c
       {state === "empty" && <p className="text-sm text-muted-foreground">{t("sessions.detailEmpty", "保留期内没有这个会话的调用明细")}</p>}
       {state === "ready" && (
         <>
+          {ctxRatio != null && (
+            <p className="text-sm text-muted-foreground" title={t("sessions.ctxTitle", "context-mode 上下文压缩比")} data-testid="session-detail-ctx" data-pct={String(ctxRatio)}>
+              {t("sessions.ctxRatio", "压缩 {{pct}}", { pct: formatPercent(ctxRatio) })}
+            </p>
+          )}
           {/* 图例下留白：bare 模式图例紧贴 Y 轴顶刻度，加内边距让 Recharts 量高时把绘图区下推。 */}
           <div data-testid="session-detail-chart" data-points={String(points.length)} data-rows={String(data.length)} className="[&_.recharts-legend-wrapper]:pb-3">
             <h4 className="mb-2 text-sm font-medium text-muted-foreground">{t("sessions.detailChart", "token 消耗")}</h4>

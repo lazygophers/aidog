@@ -5,7 +5,7 @@ import { Fragment, memo, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, EyeOff, FolderOpen } from "lucide-react";
 import type { ClientUsageSessionRow, SessionRunState } from "../../services/api/clientUsage";
-import { formatNumber, formatRelativeTime } from "../../utils/formatters";
+import { formatNumber, formatPercent, formatRelativeTime } from "../../utils/formatters";
 import { ClientIcon, clientName } from "./ClientIcon";
 import { SessionCost } from "./SessionCost";
 import { SessionDetail } from "./SessionDetail";
@@ -29,7 +29,7 @@ const STATE_DOT: Record<SessionRunState, string> = {
 
 const rowKey = (r: ClientUsageSessionRow) => `${r.clientCode}:${r.sessionId}`;
 
-export function SessionGroups({ rows, pinned, stateOf, isResuming, onResume, onOpenDir, onHide }: {
+export function SessionGroups({ rows, pinned, stateOf, isResuming, onResume, onOpenDir, onHide, ctxRatioOf }: {
   rows: ClientUsageSessionRow[];
   /** 正在执行区的会话（已排序，且是 rows 的子集）。 */
   pinned: ClientUsageSessionRow[];
@@ -39,6 +39,8 @@ export function SessionGroups({ rows, pinned, stateOf, isResuming, onResume, onO
   onResume: (r: ClientUsageSessionRow) => void;
   onOpenDir: (workdir: string) => void;
   onHide: (r: ClientUsageSessionRow) => void;
+  /** context-mode 压缩比（0-100）；无数据的会话（含非 claude_code）返回 undefined 不显示。 */
+  ctxRatioOf: (r: ClientUsageSessionRow) => number | undefined;
 }) {
   const { t } = useTranslation();
   // 行内展开（spec S6，禁抽屉）：可同时展开多行。
@@ -67,6 +69,7 @@ export function SessionGroups({ rows, pinned, stateOf, isResuming, onResume, onO
       onResume={onResume}
       onOpenDir={onOpenDir}
       onHide={onHide}
+      ctxRatio={ctxRatioOf(r)}
     />
   );
   return (
@@ -132,7 +135,7 @@ function OpenDirButton({ workdir, testId, onOpenDir }: { workdir: string; testId
   );
 }
 
-const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, resuming, onToggle, onResume, onOpenDir, onHide }: {
+const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, resuming, onToggle, onResume, onOpenDir, onHide, ctxRatio }: {
   r: ClientUsageSessionRow;
   inPinned: boolean;
   isOpen: boolean;
@@ -142,6 +145,7 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
   onResume: (r: ClientUsageSessionRow) => void;
   onOpenDir: (workdir: string) => void;
   onHide: (r: ClientUsageSessionRow) => void;
+  ctxRatio?: number;
 }) {
   const { t } = useTranslation();
   const key = rowKey(r);
@@ -183,6 +187,7 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
           {" · "}
           {inPinned && r.workdir && <><span dir="ltr" title={r.workdir}>{projectName(r.workdir)}</span>{" · "}</>}
           {clientName(r.clientCode)} · {t("sessions.calls", "{{n}} 次调用", { n: r.calls })} · {t("sessions.duration", "持续 {{d}}", { d: duration })}
+          {ctxRatio != null && <>{" · "}<span className="font-mono tabular-nums" title={t("sessions.ctxTitle", "context-mode 上下文压缩比")} data-testid="sessions-row-ctx" data-pct={String(ctxRatio)}>{t("sessions.ctxRatio", "压缩 {{pct}}", { pct: formatPercent(ctxRatio) })}</span></>}
         </div>
       </div>
       <div className="text-end font-mono text-sm tabular-nums">
@@ -232,7 +237,7 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
         )}
       </div>
     </div>
-    {isOpen && <SessionDetail clientCode={r.clientCode} sessionId={r.sessionId} sidechainCalls={r.sidechainCalls} />}
+    {isOpen && <SessionDetail clientCode={r.clientCode} sessionId={r.sessionId} sidechainCalls={r.sidechainCalls} ctxRatio={ctxRatio} />}
     </Fragment>
   );
 });

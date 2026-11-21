@@ -14,6 +14,7 @@ import { SessionTrash } from "../components/sessions/SessionTrash";
 import { ClientIcon, SESSION_CLIENTS } from "../components/sessions/ClientIcon";
 import { deriveState, nextFlipDelay } from "../components/sessions/sessionState";
 import { clientUsageApi, type ClientUsageSessionRow, type ClientUsageSessionState, type ClientUsageStatus } from "../services/api/clientUsage";
+import { contextCompressApi } from "../services/api/contextCompress";
 import { listen } from "../services/transport";
 import { homeDir, revealItemInDir } from "../services/platform";
 
@@ -76,6 +77,17 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
   }, [range]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // context-mode 压缩比（只 claude_code 会话有）：sessionId ↔ CLAUDE_SESSION_ID 直配；拉不到就不显示徽标。
+  const [ctxRatios, setCtxRatios] = useState<Map<string, number>>(new Map());
+  useEffect(() => {
+    let alive = true;
+    contextCompressApi.contextModeSessions().then(
+      (list) => { if (alive) setCtxRatios(new Map(list.map((r) => [r.session_id, r.reduction_pct]))); },
+      () => {},
+    );
+    return () => { alive = false; };
+  }, []);
 
   // 事件驱动刷新：订阅一次，经 ref 调最新 load（时间范围变更不重订阅）。可见时 trailing 防抖合并；
   // 隐藏期间只记「漏过事件」，重新可见才补拉——没漏事件时切回窗口（如打开目录后从 Finder 回来）不重拉。
@@ -374,7 +386,7 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
             <p className="border-t py-10 text-muted-foreground" data-testid="sessions-no-match">{t("sessions.noMatch", "没有匹配的会话")}</p>
           ) : (
             <>
-              <SessionGroups rows={shown} pinned={pinned} stateOf={stateOf} isResuming={isResuming} onResume={onResume} onOpenDir={onOpenDir} onHide={onHide} />
+              <SessionGroups rows={shown} pinned={pinned} stateOf={stateOf} isResuming={isResuming} onResume={onResume} onOpenDir={onOpenDir} onHide={onHide} ctxRatioOf={(r) => ctxRatios.get(r.sessionId)} />
               <p className="text-sm text-muted-foreground">{t("sessions.footHint", "成本带 + 表示部分调用未定价。")}</p>
             </>
           )}
