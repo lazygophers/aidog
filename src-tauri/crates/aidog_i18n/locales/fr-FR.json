@@ -1293,6 +1293,8 @@
   "sessions.resume": "Reprendre",
   "sessions.resumeFailed": "Échec de la reprise de la session : {{error}}",
   "sessions.resumeCopied": "Impossible d'ouvrir un terminal sur ce système. Commande de reprise copiée : {{command}}",
+  "sessions.openDir": "Ouvrir le dossier",
+  "sessions.openDirFailed": "Impossible d'ouvrir le dossier : {{error}}",
   "sessions.durMin": "{{n}} min",
   "sessions.durHour": "{{n}} h",
   "sessions.tokenSplit": "entrée {{input}} / sortie {{output}}",

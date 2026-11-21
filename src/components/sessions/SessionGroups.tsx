@@ -1,8 +1,8 @@
 // 会话列表（设计稿方向 3）：最上方「正在执行」区平铺（票 11），其余按工作目录分组，左列 sticky 项目信息，右列会话行。
-// 置顶会话不在目录组重复显示，但目录组的会话数与成本仍计入。操作列：继续（票 07）；打开目录 / 隐藏等由票 08–10 接入。
+// 置顶会话不在目录组重复显示，但目录组的会话数与成本仍计入。操作列：打开目录（票 08）、继续（票 07）；隐藏等由票 09–10 接入。
 import { Fragment, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, FolderOpen } from "lucide-react";
 import type { ClientUsageSessionRow, SessionRunState } from "../../services/api/clientUsage";
 import { formatNumber, formatRelativeTime } from "../../utils/formatters";
 import { ClientIcon, clientName } from "./ClientIcon";
@@ -10,7 +10,7 @@ import { SessionCost } from "./SessionCost";
 import { SessionDetail } from "./SessionDetail";
 import { Button } from "../ui/button";
 
-const ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_210px_96px_96px_70px] items-center gap-3";
+const ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_210px_96px_96px_112px] items-center gap-3";
 
 function projectName(workdir: string): string {
   return workdir.split(/[\\/]/).filter(Boolean).pop() ?? workdir;
@@ -23,12 +23,13 @@ const STATE_DOT: Record<SessionRunState, string> = {
   stopped: "bg-muted-foreground/50",
 };
 
-export function SessionGroups({ rows, pinned, stateOf, onResume }: {
+export function SessionGroups({ rows, pinned, stateOf, onResume, onOpenDir }: {
   rows: ClientUsageSessionRow[];
   /** 正在执行区的会话（已排序，且是 rows 的子集）。 */
   pinned: ClientUsageSessionRow[];
   stateOf: (r: ClientUsageSessionRow) => SessionRunState;
   onResume: (r: ClientUsageSessionRow) => void;
+  onOpenDir: (workdir: string) => void;
 }) {
   const { t } = useTranslation();
   const stateLabel: Record<SessionRunState, string> = {
@@ -81,7 +82,12 @@ export function SessionGroups({ rows, pinned, stateOf, onResume }: {
           <div key={workdir} className="grid grid-cols-[230px_minmax(0,1fr)] border-t pt-4 pb-2.5" data-testid="sessions-group" data-workdir={workdir} data-count={String(items.length)} data-cost={String(cost)}>
             <div className="sticky top-0 self-start pe-4">
               <b className="block truncate text-lg font-semibold" title={workdir}>{workdir ? projectName(workdir) : t("sessions.noWorkdir", "未知目录")}</b>
-              {workdir && <small dir="ltr" className="mt-1 block truncate font-mono text-sm text-muted-foreground rtl:text-right" title={workdir} data-testid="sessions-group-path">{workdir}</small>}
+              {workdir && (
+                <div className="mt-1 flex items-center gap-1">
+                  <small dir="ltr" className="min-w-0 flex-1 truncate font-mono text-sm text-muted-foreground rtl:text-right" title={workdir} data-testid="sessions-group-path">{workdir}</small>
+                  {openDirButton(workdir, "sessions-group-open-dir")}
+                </div>
+              )}
               <div className="mt-2.5 text-sm text-muted-foreground">
                 {t("sessions.count", "{{n}} 个会话", { n: items.length })} · <span className="font-mono tabular-nums"><SessionCost cost={cost} calls={calls} unpricedCalls={unpriced} /></span>
               </div>
@@ -92,6 +98,25 @@ export function SessionGroups({ rows, pinned, stateOf, onResume }: {
       })}
     </div>
   );
+
+  // 无目录（含 Gemini 旧哈希目录会话）不渲染；按钮在可展开行内，阻冒泡。
+  function openDirButton(workdir: string, testId: string) {
+    const label = t("sessions.openDir", "打开目录");
+    return (
+      <Button
+        size="icon"
+        variant="ghost"
+        className="size-8 shrink-0"
+        title={label}
+        aria-label={label}
+        data-testid={testId}
+        onClick={(e) => { e.stopPropagation(); onOpenDir(workdir); }}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        <FolderOpen aria-hidden className="size-4" />
+      </Button>
+    );
+  }
 
   function renderRow(r: ClientUsageSessionRow, showDir: boolean) {
     const key = `${r.clientCode}:${r.sessionId}`;
@@ -144,7 +169,8 @@ export function SessionGroups({ rows, pinned, stateOf, onResume }: {
           {formatRelativeTime(r.lastCallMs)}
           <ChevronDown aria-hidden className={`size-4 shrink-0 transition-transform motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`} />
         </div>
-        <div className="text-end" data-testid="sessions-row-actions">
+        <div className="flex items-center justify-end gap-1" data-testid="sessions-row-actions">
+          {r.workdir && openDirButton(r.workdir, "sessions-open-dir")}
           {/* Gemini 会话按项目目录隔离，无目录无法继续（票 07）；按钮阻冒泡，不展开行 */}
           {!(r.clientCode === "gemini_cli" && !r.workdir) && (
             <Button

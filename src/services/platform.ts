@@ -24,6 +24,7 @@
 import { writeText as tauriWriteText, readText as tauriReadText } from "@tauri-apps/plugin-clipboard-manager";
 import { openUrl as tauriOpenUrl, revealItemInDir as tauriRevealItemInDir } from "@tauri-apps/plugin-opener";
 import { getVersion as tauriGetVersion } from "@tauri-apps/api/app";
+import { homeDir as tauriHomeDir } from "@tauri-apps/api/path";
 import {
   isPermissionGranted as tauriIsPermissionGranted,
   requestPermission as tauriRequestPermission,
@@ -95,6 +96,11 @@ export const canRevealItemInDir = (): boolean => isTauri();
 export async function revealItemInDir(path: string): Promise<void> {
   if (isTauri()) return tauriRevealItemInDir(path);
   return writeText(path);
+}
+
+/** 本机家目录；浏览器形态拿不到，返回 null（调用方原样用路径）。 */
+export async function homeDir(): Promise<string | null> {
+  return isTauri() ? tauriHomeDir() : null;
 }
 
 // ─── 应用版本 ────────────────────────────────────────────────

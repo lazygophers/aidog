@@ -1293,6 +1293,8 @@
   "sessions.resume": "Продолжить",
   "sessions.resumeFailed": "Не удалось продолжить сеанс: {{error}}",
   "sessions.resumeCopied": "В этой системе нельзя открыть терминал. Команда продолжения скопирована: {{command}}",
+  "sessions.openDir": "Открыть папку",
+  "sessions.openDirFailed": "Не удалось открыть папку: {{error}}",
   "sessions.durMin": "{{n}} мин",
   "sessions.durHour": "{{n}} ч",
   "sessions.tokenSplit": "вход {{input}} / выход {{output}}",
