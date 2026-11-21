@@ -2,7 +2,7 @@ use super::super::super::scheduling::{
     Admission, BreakerThresholds, PenaltyTier, SchedulerState, StickyTable,
 };
 use super::super::ordering::{apply_coding_plan_priority, is_coding_plan};
-use super::super::test_mod::{mk_gp, mk_gp_cp};
+use super::super::test_mod::{mk_gp, mk_gp_cp, mk_platform};
 use super::*;
 use aidog_db as db;
 use aidog_db::models::{RouteReason, RouteTag, UpdatePlatform};
@@ -5286,4 +5286,88 @@ async fn route_inputs_load_reads_split_db_handles() {
         .expect("load decision inputs");
     assert_eq!(decision.group_platforms.len(), 2);
     assert!(decision.custom_defs.is_none(), "非聊天请求不读自定义槽位定义");
+}
+
+// ── supported_protocols 路由过滤（4dbbc7c4：OSS 模型被打到 commandcode anthropic 端点 400）──
+
+/// commandcode 同款形状夹具：registry 实数据 deepseek/deepseek-v4-flash 只支持 openai 系协议。
+fn mk_commandcode_platform(endpoints: Vec<PlatformEndpoint>) -> aidog_db::models::Platform {
+    let mut p = mk_platform(aidog_db::models::PlatformStatus::Enabled, 0);
+    p.platform_type = Protocol::CommandCode;
+    p.endpoints = endpoints;
+    p
+}
+
+fn commandcode_endpoints(protocols: &[Protocol]) -> Vec<PlatformEndpoint> {
+    protocols
+        .iter()
+        .map(|proto| PlatformEndpoint {
+            protocol: proto.clone(),
+            base_url: "https://api.commandcode.ai/provider/v1".into(),
+            client_type: Default::default(),
+            coding_plan: false,
+        })
+        .collect()
+}
+
+/// 模型 supported_protocols 与平台端点协议无交集 → 从链剔除（全剔空返回空链，调用方按排除处理）；
+/// 有交集（含 converter 跨协议可用）→ 保留。
+#[test]
+fn resolve_target_chain_filters_models_without_matching_endpoint_protocol() {
+    let deepseek = "deepseek/deepseek-v4-flash";
+    let models = PlatformModels { default: chain(&[deepseek]), ..Default::default() };
+
+    // anthropic-only 端点：链剔空
+    let p = mk_commandcode_platform(commandcode_endpoints(&[Protocol::Anthropic]));
+    let out = resolve_target_chain(
+        RequestKind::Chat, &models, &p, &DecisionModels::default(), deepseek, &[],
+    );
+    assert!(out.is_empty(), "anthropic 端点服务不了 openai 系模型，链应剔空，实得 {out:?}");
+
+    // anthropic + openai 双端点（本次 bug 的正向形态）：模型保留，由 converter 转 openai 出站
+    let p = mk_commandcode_platform(commandcode_endpoints(&[Protocol::Anthropic, Protocol::OpenAI]));
+    let out = resolve_target_chain(
+        RequestKind::Chat, &models, &p, &DecisionModels::default(), deepseek, &[],
+    );
+    assert_eq!(out, vec![deepseek.to_string()]);
+
+    // 无 registry 数据的用户平台（OpenAI 别名无 bundled 条目）：不约束，链原样
+    let mut p = mk_platform(aidog_db::models::PlatformStatus::Enabled, 0);
+    p.endpoints = commandcode_endpoints(&[Protocol::Anthropic]);
+    let out = resolve_target_chain(
+        RequestKind::Chat, &models, &p, &DecisionModels::default(), deepseek, &[],
+    );
+    assert_eq!(out, vec![deepseek.to_string()]);
+}
+
+/// 单平台 commandcode 组：anthropic-only 端点 + OSS 模型 → 全链剔空，按 slot_disabled 终态拒绝
+/// （复用既有原因字符串，不新增三处手写点；旧代码不剔链，本测试先红）。
+#[tokio::test]
+async fn single_platform_unsupported_model_protocol_rejects() {
+    let (db, _dir) = db::test_support::three_file_db().await;
+    let p = db::create_platform(
+        &db,
+        CreatePlatform {
+            name: "commandcode".into(),
+            platform_type: Protocol::CommandCode,
+            base_url: "https://api.commandcode.ai/provider/v1".into(),
+            api_key: "k".into(),
+            extra: String::new(),
+            models: Some(PlatformModels { default: chain(&["deepseek/deepseek-v4-flash"]), ..Default::default() }),
+            available_models: None,
+            endpoints: Some(commandcode_endpoints(&[Protocol::Anthropic])),
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .expect("create platform");
+    let g = mk_db_group(&db, "free", &[p.id]).await;
+    let e = select_candidates_for_test(&db, &g, "deepseek/deepseek-v4-flash", None, RequestKind::Chat)
+        .await
+        .expect_err("anthropic-only 端点服务不了 OSS 模型，必须拒绝");
+    assert_eq!(e, "slot_disabled");
 }

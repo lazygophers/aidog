@@ -70,6 +70,25 @@ pub(crate) fn select_endpoint_for_protocol<'a>(
     endpoints: &'a [super::models::PlatformEndpoint],
     source_protocol: &Protocol,
 ) -> Option<&'a super::models::PlatformEndpoint> {
+    select_endpoint_where(endpoints, source_protocol, |_| true)
+}
+
+/// 模型 `supported_protocols` 约束版端点选择（4dbbc7c4）：只在模型支持的端点协议子集内
+/// 按同一优先序选择（同协议直发 / openai / 其余，converter 跨协议转换兜底）。
+/// 子集内无匹配返回 None，调用方回落全量选择，零行为变更兜底。
+pub(crate) fn select_endpoint_for_model<'a>(
+    endpoints: &'a [super::models::PlatformEndpoint],
+    source_protocol: &Protocol,
+    supported: &[Protocol],
+) -> Option<&'a super::models::PlatformEndpoint> {
+    select_endpoint_where(endpoints, source_protocol, |p| supported.contains(p))
+}
+
+fn select_endpoint_where<'a>(
+    endpoints: &'a [super::models::PlatformEndpoint],
+    source_protocol: &Protocol,
+    allowed: impl Fn(&Protocol) -> bool,
+) -> Option<&'a super::models::PlatformEndpoint> {
     let has_coding_ep = endpoints.iter().any(|ep| ep.coding_plan);
     if has_coding_ep {
         // 步骤 1（加固）：同协议端点直发原协议。采纳条件放宽为 `coding_plan ||
@@ -89,20 +108,28 @@ pub(crate) fn select_endpoint_for_protocol<'a>(
         };
         endpoints
             .iter()
-            .find(|ep| ep.protocol == *source_protocol && key_usable(ep))
+            .find(|ep| ep.protocol == *source_protocol && allowed(&ep.protocol) && key_usable(ep))
             .or_else(|| {
                 endpoints
                     .iter()
-                    .find(|ep| ep.coding_plan && ep.protocol == Protocol::OpenAI)
+                    .find(|ep| ep.coding_plan && ep.protocol == Protocol::OpenAI && allowed(&ep.protocol))
             })
     } else {
         // 普通平台：步骤 3 同协议直发；步骤 4 跨协议回退（释放 converter 5×5 互转）。
         // 优先 openai（最稳 converter 路径，平台最常见），若无 openai 取 endpoints 首个非 source 可用 endpoint。
         endpoints
             .iter()
-            .find(|ep| ep.protocol == *source_protocol)
-            .or_else(|| endpoints.iter().find(|ep| ep.protocol == Protocol::OpenAI))
-            .or_else(|| endpoints.iter().find(|ep| ep.protocol != *source_protocol))
+            .find(|ep| ep.protocol == *source_protocol && allowed(&ep.protocol))
+            .or_else(|| {
+                endpoints
+                    .iter()
+                    .find(|ep| ep.protocol == Protocol::OpenAI && allowed(&ep.protocol))
+            })
+            .or_else(|| {
+                endpoints
+                    .iter()
+                    .find(|ep| ep.protocol != *source_protocol && allowed(&ep.protocol))
+            })
     }
 }
 

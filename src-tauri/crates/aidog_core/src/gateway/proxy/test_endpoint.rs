@@ -678,3 +678,45 @@ fn group_hint_trims_and_ignores_blank() {
     h.insert("X-Aidog-Group", "   ".parse().unwrap());
     assert_eq!(endpoint::group_hint(&h), None);
 }
+
+// ── supported_protocols 约束端点选择（4dbbc7c4：OSS 模型被打到 commandcode anthropic 端点 400）──
+#[test]
+fn select_endpoint_for_model_respects_supported_protocols() {
+    use super::super::models::{PlatformEndpoint, Protocol};
+    use super::select_endpoint_for_model as sel_model;
+    use super::select_endpoint_for_protocol as sel;
+    let ep = |proto: Protocol, url: &str| PlatformEndpoint {
+        protocol: proto,
+        base_url: url.to_string(),
+        client_type: "default".to_string(),
+        coding_plan: false,
+    };
+
+    // commandcode 形状：anthropic + openai 双端点，deepseek 只支持 openai 系（registry 实数据）
+    let sup = aidog_db::model_supported_protocols("commandcode", "deepseek/deepseek-v4-flash")
+        .expect("registry 实数据应有该条目");
+    assert!(!sup.contains(&Protocol::Anthropic));
+    let cc = vec![
+        ep(Protocol::Anthropic, "https://api.commandcode.ai/provider/v1"),
+        ep(Protocol::OpenAI, "https://api.commandcode.ai/provider/v1"),
+    ];
+    // 无约束版选 anthropic（同协议直发）——bug 现状
+    assert_eq!(
+        sel(&cc, &Protocol::Anthropic).unwrap().protocol,
+        Protocol::Anthropic
+    );
+    // 模型约束版改选 openai 端点（converter 跨协议转换出站）
+    assert_eq!(
+        sel_model(&cc, &Protocol::Anthropic, &sup).unwrap().protocol,
+        Protocol::OpenAI
+    );
+
+    // 模型支持集含 anthropic（如 claude 条目）：行为与无约束版一致
+    let claude_sup =
+        aidog_db::model_supported_protocols("commandcode", "claude-sonnet-5-5").unwrap();
+    assert!(claude_sup.contains(&Protocol::Anthropic));
+    assert_eq!(
+        sel_model(&cc, &Protocol::Anthropic, &claude_sup).unwrap().protocol,
+        Protocol::Anthropic
+    );
+}

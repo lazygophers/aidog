@@ -727,6 +727,23 @@ async fn select_endpoint_target<'a>(
     // 先精确匹配；openai_responses 源（Codex）若无 Responses 端点，回退到 openai 端点
     // （普通 chat/completions 平台），出站经 to_openai 转换。
     let matched_ep = select_endpoint_for_protocol(&route.platform.endpoints, source_protocol);
+    // 模型 supported_protocols 约束（4dbbc7c4）：所选端点协议不在模型支持集内 → 在支持的
+    // 端点子集内重选（converter 跨协议转换出站）；无 registry 数据 / 重选无果保持原选择。
+    let matched_ep = if let Some(ep) = matched_ep
+        && let Some(sup) = aidog_db::model_supported_protocols(
+            &route.platform.platform_type.wire_str(),
+            &route.target_model,
+        )
+        && !sup.contains(&ep.protocol)
+    {
+        tracing::info!(
+            platform = %route.platform.name, model = %route.target_model,
+            "model supported_protocols excludes selected endpoint protocol, re-selecting endpoint"
+        );
+        select_endpoint_for_model(&route.platform.endpoints, source_protocol, sup).or(Some(ep))
+    } else {
+        matched_ep
+    };
 
     // ── UA 透传分支（[protocol-same-proto-passthrough] 扩展，PRD §5 级别 1）──
     // 仅当 path 推断的入站协议在平台无任何对应 endpoint（matched_ep == None，
