@@ -3240,6 +3240,24 @@
       "returns": "Vec<SearchSource>"
     },
     {
+      "name": "session_open_terminal",
+      "category": "proxy",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "sessionId",
+          "type": "String"
+        },
+        {
+          "name": "groupKey",
+          "type": "String"
+        }
+      ],
+      "returns": "()"
+    },
+    {
       "name": "session_stats",
       "category": "proxy",
       "kind": "readonly",

@@ -1,5 +1,23 @@
 import { describe, it, expect } from "vitest";
-import { buildCodexCommand, buildPiCommand } from "./commands";
+import { buildCodexCommand, buildPiCommand, buildResumeCommand } from "./commands";
+
+describe("buildResumeCommand", () => {
+  it("resumes with the group settings file, both args shell-quoted", () => {
+    expect(buildResumeCommand("deadbeef", "teamA")).toBe(
+      "claude --resume 'deadbeef' --settings '~/.aidog/settings.teamA.json'",
+    );
+  });
+
+  it("drops --settings for groupless sessions", () => {
+    expect(buildResumeCommand("deadbeef", "")).toBe("claude --resume 'deadbeef'");
+  });
+
+  it("quotes shell metacharacters in session id and group key", () => {
+    const cmd = buildResumeCommand("x'; rm -rf /", "g' ; calc");
+    expect(cmd).toContain("'x'\\''; rm -rf /'");
+    expect(cmd).toContain("'~/.aidog/settings.g'\\'' ; calc.json'");
+  });
+});
 
 describe("buildPiCommand", () => {
   it("selects the aidog provider for the group", () => {
