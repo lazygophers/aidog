@@ -57,7 +57,10 @@ pub(crate) fn route_fallback_status(err: &str) -> StatusCode {
         StatusCode::UNAVAILABLE_FOR_LEGAL_REASONS
     } else if err == "group's only platform is manually disabled" || err.starts_with("no available platform") {
         StatusCode::SERVICE_UNAVAILABLE
-    } else if matches!(err, "no_tools_platform" | "no_chat_platform" | "no_decision_platform") {
+    } else if matches!(
+        err,
+        "no_tools_platform" | "no_chat_platform" | "no_decision_platform" | "no_audio_platform"
+    ) {
         StatusCode::NOT_FOUND
     } else {
         StatusCode::BAD_REQUEST
@@ -164,8 +167,8 @@ pub(crate) async fn route_fail_response(
         };
         log.response_body = format!("route error: {msg}");
         (status, format!("{}: {msg}", i18n::t(lang, ErrorKey::Route)))
-    } else if err == "no_embedding_platform" || err == "no_rerank_platform" {
-        // 分组无可用向量化/重排序平台（槽位全空 / 无 OpenAI 系 endpoint）：该端点对此分组不存在 → 404（用户裁决 2026-11-14，原 503）。
+    } else if err == "no_embedding_platform" || err == "no_rerank_platform" || err == "no_audio_platform" {
+        // 分组无可用向量化/重排序/音频平台（槽位全空 / 无 OpenAI 系 endpoint）：该端点对此分组不存在 → 404（用户裁决 2026-11-14，原 503）。
         log.blocked_reason = err.to_string();
         log.response_body = format!("route error: {err}");
         (
