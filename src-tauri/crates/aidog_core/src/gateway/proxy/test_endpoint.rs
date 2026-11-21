@@ -707,7 +707,7 @@ fn select_endpoint_for_model_respects_supported_protocols() {
     );
     // 模型约束版改选 openai 端点（converter 跨协议转换出站）
     assert_eq!(
-        sel_model(&cc, &Protocol::Anthropic, &sup).unwrap().protocol,
+        sel_model(&cc, &Protocol::Anthropic, sup).unwrap().protocol,
         Protocol::OpenAI
     );
 
@@ -716,7 +716,7 @@ fn select_endpoint_for_model_respects_supported_protocols() {
         aidog_db::model_supported_protocols("commandcode", "claude-sonnet-5-5").unwrap();
     assert!(claude_sup.contains(&Protocol::Anthropic));
     assert_eq!(
-        sel_model(&cc, &Protocol::Anthropic, &claude_sup).unwrap().protocol,
+        sel_model(&cc, &Protocol::Anthropic, claude_sup).unwrap().protocol,
         Protocol::Anthropic
     );
 }
