@@ -140,10 +140,10 @@ export function ContextCompress() {
     </div>
   </div>;
 
-  const card = (tool: "rtk" | "sqz", tiles: [string, string, string, "range" | "total"][] | null, chart: ReactNode) => {
+  const card = (tool: "rtk" | "sqz" | "ctxmode", tiles: [string, string, string, "range" | "total"][] | null, chart: ReactNode) => {
     const state = statsState !== "ok" ? statsState
       : tiles ? "ok"
-      : status && !version(tool) ? "not-installed"
+      : tool !== "ctxmode" && status && !version(tool) ? "not-installed"
       : "empty";
     return <div className="space-y-3 rounded-lg border p-4" data-testid={`cc-stats-${tool}`} data-state={state}>
       {rangeHeader}
@@ -248,6 +248,15 @@ export function ContextCompress() {
     ["out", "contextCompress.statsOut", formatInteger(sqz.tokensOut), "total"],
   ];
 
+  // context-mode：无按日数据，只出聚合卡；全部为累计口径。
+  const cm = stats?.context_mode;
+  const ctxTiles: [string, string, string, "range" | "total"][] | null = statsState === "ok" && cm ? [
+    ["pct", "contextCompress.statsPct", cm.total_processed > 0 ? formatPercent(cm.kept_out / cm.total_processed * 100) : "—", "total"],
+    ["savedTotal", "contextCompress.statsSavedLifetime", formatInteger(cm.tokens_saved_lifetime), "total"],
+    ["dollarsTotal", "contextCompress.statsDollarsLifetime", formatNumber(cm.dollars_saved_lifetime), "total"],
+    ["calls", "contextCompress.statsCalls", formatInteger(cm.total_calls), "total"],
+  ] : null;
+
   return (
     <section className="space-y-5" data-testid="context-compress-page">
       <header>
@@ -259,6 +268,7 @@ export function ContextCompress() {
         <TabsList>
           <TabsTrigger value="rtk" data-testid="cc-tab-rtk">RTK</TabsTrigger>
           <TabsTrigger value="sqz" data-testid="cc-tab-sqz">sqz</TabsTrigger>
+          <TabsTrigger value="ctxmode" data-testid="cc-tab-ctxmode">context-mode</TabsTrigger>
         </TabsList>
         <TabsContent value="rtk" className="space-y-4">
           <p className="text-sm text-muted-foreground">{t("contextCompress.rtkDesc")}</p>
@@ -291,6 +301,10 @@ export function ContextCompress() {
             <ul className="list-disc pl-5">{status.sqz_missing.map(item => <li key={item}>{item}</li>)}</ul>
           </div>}
           {card("sqz", sqzTiles, sqzChart)}
+        </TabsContent>
+        <TabsContent value="ctxmode" className="space-y-4">
+          <p className="text-sm text-muted-foreground">{t("contextCompress.ctxDesc")}</p>
+          {card("ctxmode", ctxTiles, <p className="text-sm text-muted-foreground">{t("contextCompress.ctxNoDaily")}</p>)}
         </TabsContent>
       </Tabs>
     </section>
