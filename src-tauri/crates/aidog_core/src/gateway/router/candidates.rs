@@ -1030,6 +1030,20 @@ async fn select_candidates_inner(
         &decision_models,
     );
 
+    // 全平台模型链被 supported_protocols 剔空 → 无可用候选，走既有 route fail 汇总
+    //（复用通用原因串，零新增三处手写点；supported_protocols 不随等待变化，行为同配置排除）。
+    if candidates.is_empty() {
+        tracing::info!(
+            group = %group.name, source_model = %source_model,
+            "all candidates' model chains empty after supported_protocols filter"
+        );
+        return Err(RouteFail {
+            reason: "no available platform (all disabled, backing off, or circuit-broken)"
+                .to_string(),
+            routing,
+        });
+    }
+
     // 快照回填目标模型：选中候选按解析结果填 target_model（排除候选算不到，留 None）
     fill_snapshot_target_models(&mut routing, &candidates);
     fill_snapshot_model_via(
@@ -1216,6 +1230,18 @@ async fn handle_single_platform(
         mapped_target_model.as_deref().unwrap_or(source_model),
         cache.map(|c| c.custom.as_slice()).unwrap_or_default(),
     );
+    if chain.is_empty() {
+        // 全链模型 supported_protocols 与端点协议无交集：模型维度配置排除，复用 slot_disabled
+        // 终态语义（等多久都不会变，不碰平台健康）。
+        tracing::info!(
+            group = %group.name, platform = %only.platform.name,
+            "single-platform group: no model serviceable by platform endpoint protocols, request blocked"
+        );
+        return Err(RouteFail {
+            reason: "slot_disabled".to_string(),
+            routing: single_snapshot(only, group.routing_mode, RouteReason::ModelNotOnPlatform),
+        });
+    }
     let target_model = chain.remove(0);
     let fallback_models = chain;
 
@@ -2039,7 +2065,7 @@ fn build_route_results(
 ) -> Vec<RouteResult> {
     ordered
         .into_iter()
-        .map(|gp| {
+        .filter_map(|gp| {
             let cache = extra_cache.get(&gp.platform.id);
             let time_rules: &[serde_json::Value] =
                 cache.map(|c| c.time_windows.as_slice()).unwrap_or_default();
@@ -2053,13 +2079,17 @@ fn build_route_results(
                 mapped_target_model.as_deref().unwrap_or(source_model),
                 cache.map(|c| c.custom.as_slice()).unwrap_or_default(),
             );
+            if chain.is_empty() {
+                // supported_protocols 全剔空：该平台无可用模型，跳过（快照 target_model 留 None）
+                return None;
+            }
             let target_model = chain.remove(0);
-            RouteResult {
+            Some(RouteResult {
                 platform: gp.platform.clone(),
                 target_model,
                 fallback_models: chain,
                 mapping: mapping.cloned(),
-            }
+            })
         })
         .collect()
 }
@@ -2144,9 +2174,25 @@ fn full_chain(target: &str, fallbacks: &[String]) -> Vec<String> {
         .collect()
 }
 
-/// 按请求类型做槽位匹配，返回有序模型链（链首 = 目标模型，恒非空）。
+/// 模型 `supported_protocols` 与平台端点协议是否有交集（4dbbc7c4）：无交集 = 该模型
+/// 在本平台任何端点都服务不了（同协议直发或跨协议 converter 都无出口），从模型链剔除。
+/// registry 无数据（用户自建平台 / 条目缺该字段）不约束，恒可服务。
+fn model_serviceable(platform: &Platform, model: &str) -> bool {
+    // 无端点配置的平台不判定（拓扑未知，端点选择本来就无处可落，非本过滤职责）；
+    let Some(supported) =
+        db::model_supported_protocols(&platform.platform_type.wire_str(), model)
+        .filter(|_| !platform.endpoints.is_empty())
+    else {
+        return true;
+    };
+    supported.is_empty() || platform.endpoints.iter().any(|ep| supported.contains(&ep.protocol))
+}
+
+/// 按请求类型做槽位匹配，返回有序模型链（链首 = 目标模型）。
 /// `model_name` = 分组映射命中时的映射目标名，否则请求模型名：
 /// 映射只改名，不跳过槽位匹配（映射名不含档位词时同样回落 default 槽，用户 2026-10-01 确认）。
+/// 返回可能为空：模型 `supported_protocols` 与平台端点协议无交集的模型被剔出链
+/// （全剔空时调用方按平台排除处理）；Tools 链是日志元数据名，不过滤。
 fn resolve_target_chain(
     kind: RequestKind<'_>,
     effective_models: &PlatformModels,
@@ -2164,7 +2210,7 @@ fn resolve_target_chain(
         let c = slot_chain(slot);
         if c.is_empty() { vec![fallback] } else { c }
     };
-    match kind {
+    let mut chain = match kind {
         RequestKind::Decision => slot_or(
             &effective_models.jev,
             resolve_decision_model(effective_models, platform, decision_models, model_name),
@@ -2178,7 +2224,11 @@ fn resolve_target_chain(
         RequestKind::Rerank => slot_or(&effective_models.rerank, model_name.to_string()),
         // Tools 不做任何模型改写（语义 3）：映射命中取映射目标名（仅日志元数据），否则原样。
         RequestKind::Tools(_) => vec![model_name.to_string()],
+    };
+    if !matches!(kind, RequestKind::Tools(_)) {
+        chain.retain(|m| model_serviceable(platform, m));
     }
+    chain
 }
 
 /// 缓存版本的 peak 窗口判定（避免重新解析 peak）

@@ -6,7 +6,7 @@
 
 use super::*;
 use crate::cache::KeyPair;
-use crate::models::{ModelEntry, ModelEntryGroup, ModelInfoSnapshot, PlatformPreset};
+use crate::models::{ModelEntry, ModelEntryGroup, ModelInfoSnapshot, PlatformPreset, Protocol};
 use rusqlite::{OptionalExtension, Result as SqlResult, params};
 use std::sync::OnceLock;
 
@@ -141,6 +141,37 @@ pub fn bundled_model_entries() -> &'static [ModelEntry] {
         out.sort_by(|a, b| (&a.platform_code, &a.model_id).cmp(&(&b.platform_code, &b.model_id)));
         out
     })
+}
+
+/// 编译期内置 registry 的模型条目 `supported_protocols` 查询：`(platform_code, model_id)` →
+/// 解析后的 wire 协议集（schema 必填非空，2026-10-01 起）。`None` = bundled 无该条目（用户自建
+/// 平台 / 条目缺数据），调用方按「不约束」处理。路由层用它过滤「端点协议服务不了的模型」
+/// （4dbbc7c4：OSS 模型被打到 anthropic-only 端点 400）。registry 只读内置、无远程同步，
+/// DB 镜像 `model_entry` 无该列，bundled 即真值源。
+pub fn model_supported_protocols(platform_code: &str, model_id: &str) -> Option<&'static [Protocol]> {
+    static SUPPORTED: OnceLock<std::collections::HashMap<(String, String), Vec<Protocol>>> =
+        OnceLock::new();
+    SUPPORTED
+        .get_or_init(|| {
+            crate::registry::bundled_model_files()
+                .iter()
+                .filter_map(|(code, _file, raw)| {
+                    let v: serde_json::Value = serde_json::from_str(raw).ok()?;
+                    let model_id = v.get("model_id")?.as_str()?.to_string();
+                    let list: Vec<Protocol> = v
+                        .get("supported_protocols")?
+                        .as_array()?
+                        .iter()
+                        .filter_map(|p| p.as_str())
+                        .map(Protocol::from_db_str)
+                        .filter(|p| !matches!(p, Protocol::Unknown))
+                        .collect();
+                    Some(((code.to_string(), model_id), list))
+                })
+                .collect()
+        })
+        .get(&(platform_code.to_string(), model_id.to_string()))
+        .map(|v| v.as_slice())
 }
 
 /// 编译期内置 registry 的平台预设快照，`code` 升序。

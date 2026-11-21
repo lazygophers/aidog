@@ -1477,3 +1477,21 @@ fn kimi_k2_models_exclude_anthropic_protocol() {
         );
     }
 }
+
+/// `model_supported_protocols` 读取入口：bundled 实数据命中 / 缺条目 None（4dbbc7c4 路由过滤的数据面）。
+#[test]
+fn model_supported_protocols_looks_up_bundled_entries() {
+    let sup = crate::model_supported_protocols("commandcode", "deepseek/deepseek-v4-flash")
+        .expect("bundled commandcode deepseek 条目应存在");
+    assert!(sup.contains(&crate::Protocol::OpenAI));
+    assert!(sup.contains(&crate::Protocol::OpenAIResponses));
+    assert!(!sup.contains(&crate::Protocol::Anthropic));
+
+    let claude = crate::model_supported_protocols("commandcode", "claude-sonnet-5-5")
+        .expect("bundled commandcode claude 条目应存在");
+    assert!(claude.contains(&crate::Protocol::Anthropic));
+
+    // 缺条目（用户自建平台名 / 未登记模型）→ None，路由层按不约束处理
+    assert!(crate::model_supported_protocols("my-own-platform", "some-model").is_none());
+    assert!(crate::model_supported_protocols("commandcode", "not-a-real-model").is_none());
+}
