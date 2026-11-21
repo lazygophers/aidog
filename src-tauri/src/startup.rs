@@ -390,6 +390,10 @@ pub fn run() {
             aidog_core::client_usage_cmd::client_usage_by_model,
             aidog_core::client_usage_cmd::client_usage_sessions,
             aidog_core::client_usage_cmd::client_usage_refresh,
+            aidog_core::client_usage_cmd::client_usage_retention_get,
+            aidog_core::client_usage_cmd::client_usage_retention_set,
+            aidog_core::client_usage_cmd::client_usage_transcript_consent_get,
+            aidog_core::client_usage_cmd::client_usage_transcript_consent_set,
             // MITM (P3 ST7) — 白名单配置 + CA 安装状态/引导
             aidog_core::proxy_cmd::mitm::mitm_status,
             aidog_core::proxy_cmd::mitm::mitm_enable,

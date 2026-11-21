@@ -12,7 +12,7 @@ import { CustomModelSlotsSection } from "../components/settings/CustomModelSlots
 import { LogSettingsSection } from "./AppSettings/LogSettingsSection";
 import { SystemMiscSection, DbStatsSection, VersionToastSection } from "./AppSettings/SystemMiscSection";
 
-export type Tab = "system" | "claude" | "codex" | "pi" | "coding_tools" | "scheduling" | "notifications" | "pricing" | "tray" | "popover" | "importexport" | "mitm" | "api";
+export type Tab = "system" | "claude" | "codex" | "pi" | "coding_tools" | "scheduling" | "notifications" | "pricing" | "tray" | "popover" | "importexport" | "mitm" | "api" | "client_usage";
 
 // ponytail: 每个 settings 子 tab 单独 chunk。AppSettings 本身已由 App.tsx 懒加载，
 // 这里再拆一层子 tab —— 进 system tab 时不该把 modelInfo/tray/codex 等其余 tab 的代码一并拖下来。
@@ -29,6 +29,7 @@ const NotificationSettingsTab = lazy(() => import("../components/settings/Notifi
 const ImportExportTab = lazy(() => import("../components/settings/ImportExport/ImportExportTab").then(m => ({ default: m.ImportExportTab })));
 const CodingToolsSettingsTab = lazy(() => import("../components/settings/CodingToolsSettings").then(m => ({ default: m.CodingToolsSettingsTab })));
 const MitmConfigTab = lazy(() => import("../components/settings/MitmConfig").then(m => ({ default: m.MitmConfigTab })));
+const ClientUsageSettings = lazy(() => import("../components/settings/ClientUsageSettings").then(m => ({ default: m.ClientUsageSettings })));
 
 export function AppSettings({ tab, onNotifSettingsChanged }: { tab: Tab; onNotifSettingsChanged?: (enabled: boolean) => void }) {
   return (
@@ -51,6 +52,7 @@ function AppSettingsTabContent({ tab, onNotifSettingsChanged }: { tab: Tab; onNo
   if (tab === "importexport") return <ImportExportTab />;
   if (tab === "mitm") return <MitmConfigTab />;
   if (tab === "api") return <ApiTab />;
+  if (tab === "client_usage") return <ClientUsageSettings />;
   return <Settings />;
 }
 

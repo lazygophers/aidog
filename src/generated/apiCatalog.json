@@ -502,6 +502,29 @@
       "returns": "ImportState"
     },
     {
+      "name": "client_usage_retention_get",
+      "category": "client_usage",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "u32"
+    },
+    {
+      "name": "client_usage_retention_set",
+      "category": "client_usage",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "days",
+          "type": "u32"
+        }
+      ],
+      "returns": "()"
+    },
+    {
       "name": "client_usage_sessions",
       "category": "client_usage",
       "kind": "readonly",
@@ -557,6 +580,29 @@
         }
       ],
       "returns": "aidog_db::ClientUsageSummary"
+    },
+    {
+      "name": "client_usage_transcript_consent_get",
+      "category": "client_usage",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "bool"
+    },
+    {
+      "name": "client_usage_transcript_consent_set",
+      "category": "client_usage",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "returns": "()"
     },
     {
       "name": "client_usage_trend",
