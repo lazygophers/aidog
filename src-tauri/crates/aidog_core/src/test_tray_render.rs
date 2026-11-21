@@ -475,6 +475,14 @@ fn display_currency_set_triggers_tray_refresh() {
 }
 
 #[test]
+fn platform_update_delete_trigger_tray_refresh() {
+    // 命令层 platform_update / platform_delete 成功后必须 emit tray-refresh（托盘菜单含平台状态）
+    let src = include_str!("platform_cmd/platform.rs");
+    let n = src.matches(r#"emit_unit("tray-refresh")"#).count();
+    assert!(n >= 2, "platform_update/platform_delete must emit tray-refresh, found {n}");
+}
+
+#[test]
 fn platform_metrics_unit_and_decimals() {
     let p = platform(10.10, "");
     let item = item_json(json!({

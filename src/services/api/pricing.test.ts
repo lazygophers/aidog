@@ -5,8 +5,14 @@ vi.mock("../transport", () => ({ invoke: hoisted.invoke, listen: hoisted.listen 
 
 import { onRegistryUpdated, REGISTRY_UPDATED } from "./pricing";
 
+function setVisible(v: boolean) {
+  Object.defineProperty(document, "visibilityState", { value: v ? "visible" : "hidden", configurable: true });
+  Object.defineProperty(document, "hidden", { value: !v, configurable: true });
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
+  setVisible(true);
   hoisted.listen.mockImplementation((_e: string, cb: () => void) => {
     hoisted.handler = cb;
     return Promise.resolve(() => {});
@@ -33,6 +39,34 @@ describe("onRegistryUpdated", () => {
     expect(a).toHaveBeenCalledTimes(1);
     expect(b).toHaveBeenCalledTimes(2);
     offB();
+  });
+
+  it("隐藏时不触发回调；恢复可见时补拉一次（覆盖隐藏期积累）", () => {
+    const cb = vi.fn();
+    const off = onRegistryUpdated(cb, 100);
+    setVisible(false);
+    hoisted.handler!();
+    hoisted.handler!();
+    vi.advanceTimersByTime(200);
+    expect(cb).not.toHaveBeenCalled();
+    setVisible(true);
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(cb).toHaveBeenCalledTimes(1);
+    off();
+    setVisible(true);
+  });
+
+  it("可见期正常 debounce；无隐藏期积累时 visibilitychange 不补拉", () => {
+    const cb = vi.fn();
+    const off = onRegistryUpdated(cb, 100);
+    hoisted.handler!();
+    vi.advanceTimersByTime(99);
+    expect(cb).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(cb).toHaveBeenCalledTimes(1);
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(cb).toHaveBeenCalledTimes(1);
+    off();
   });
 
   it("cleanup 清掉未触发的 timer", () => {

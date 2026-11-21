@@ -77,14 +77,26 @@ function ensureRegistryListener(): Promise<UnlistenFn> {
  */
 export function onRegistryUpdated(callback: () => void, debounceMs = 500): () => void {
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let pendingWhileHidden = false;
   const wrapped: RegistrySubscriber = () => {
+    if (document.hidden) { pendingWhileHidden = true; return; }
+    pendingWhileHidden = false;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => { callback(); }, debounceMs);
   };
+  // 隐藏期间积累的变化在恢复可见时补拉一次：callback 触发的 reload 拉当下数据，最终一致。
+  const onVisible = () => {
+    if (!document.hidden && pendingWhileHidden) {
+      pendingWhileHidden = false;
+      callback();
+    }
+  };
+  document.addEventListener("visibilitychange", onVisible);
   registrySubscribers.add(wrapped);
   ensureRegistryListener().catch((e) => console.error(e));
   return () => {
     registrySubscribers.delete(wrapped);
+    document.removeEventListener("visibilitychange", onVisible);
     if (timer) clearTimeout(timer);
   };
 }
