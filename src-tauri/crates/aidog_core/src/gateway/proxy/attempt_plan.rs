@@ -328,6 +328,7 @@ pub(crate) fn is_config_empty(reason: &str) -> bool {
             | "no_decision_platform"
             | "no_embedding_platform"
             | "no_rerank_platform"
+            | "no_audio_platform"
             | "no_tools_platform"
             | "group has no platforms"
             | "group's only platform is manually disabled"
@@ -373,7 +374,7 @@ mod tests {
     fn config_caused_emptiness_is_terminal_others_are_not() {
         for r in [
             "unknown_protocol", "peak_disabled", "slot_disabled", "client_not_allowed", "client_not_allowed_mixed",
-            "no_chat_platform", "no_decision_platform", "no_embedding_platform", "no_rerank_platform", "no_tools_platform",
+            "no_chat_platform", "no_decision_platform", "no_embedding_platform", "no_rerank_platform", "no_audio_platform", "no_tools_platform",
             "group has no platforms", "group's only platform is manually disabled", "group's only platform is censorship-blocked",
         ] {
             assert!(is_config_empty(r), "{r} 应为配置原因（立即终态）");
