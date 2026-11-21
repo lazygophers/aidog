@@ -1124,6 +1124,8 @@
   "contextCompress.checking": "Checking…",
   "contextCompress.statsTitle": "Compression stats",
   "contextCompress.statsRefresh": "Refresh stats",
+  "contextCompress.statsRefreshing": "Refreshing…",
+  "contextCompress.statsUpdatedAt": "Updated {{time}}",
   "contextCompress.statsLoading": "Loading stats…",
   "contextCompress.statsError": "Failed to read stats:",
   "contextCompress.statsNotInstalled": "Not installed, no stats",

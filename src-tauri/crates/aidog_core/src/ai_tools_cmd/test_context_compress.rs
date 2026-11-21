@@ -966,3 +966,25 @@ fn sqz_db_missing_file_or_table_falls_back_to_none() {
     rusqlite::Connection::open(&empty).unwrap().execute_batch("CREATE TABLE other (x INTEGER);").unwrap();
     assert!(sqz_daily_from_db(&empty).is_none(), "缺 compression_log 表 → 回退");
 }
+
+#[tokio::test]
+async fn stats_cache_round_trips_and_ignores_garbage() {
+    let db = aidog_db::test_support::test_db().await;
+    assert!(load_stats_cache(&db).await.is_none(), "从未拉取 → 无缓存");
+    let stats = ContextCompressStats {
+        rtk: parse_rtk_gain(r#"{"summary":{"total_commands":3,"total_input":100,"total_output":40,"total_saved":60,"avg_savings_pct":60.0}}"#),
+        sqz: None,
+        rtk_daily: vec![RtkDaily { date: "2026-11-20".into(), commands: 3, input_tokens: 100, output_tokens: 40, saved_tokens: 60, savings_pct: 60.0 }],
+        sqz_daily: vec![SqzDaily { date: "2026-11-20".into(), saved_tokens: 7, used_tokens: Some(10), compressions: Some(1) }],
+    };
+    store_stats_cache(&db, &stats, 1_795_000_000_000).await.unwrap();
+    let got = load_stats_cache(&db).await.expect("拉取后应有缓存");
+    assert_eq!(got.fetched_at, 1_795_000_000_000);
+    assert_eq!(serde_json::to_value(&got.stats).unwrap(), serde_json::to_value(&stats).unwrap());
+    // 与 ledger 键互不覆盖
+    store_record(&db, &RtkCodexRecord::default()).await.unwrap();
+    assert!(load_stats_cache(&db).await.is_some());
+
+    set_setting(&db, STATS_CACHE_KEY, json!({"stats": "bad"})).await.unwrap();
+    assert!(load_stats_cache(&db).await.is_none(), "无法解析 → None");
+}

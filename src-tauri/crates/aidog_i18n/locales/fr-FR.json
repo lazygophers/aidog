@@ -1212,6 +1212,8 @@
   "contextCompress.checking": "Vérification…",
   "contextCompress.statsTitle": "Statistiques de compression",
   "contextCompress.statsRefresh": "Actualiser les statistiques",
+  "contextCompress.statsRefreshing": "Actualisation…",
+  "contextCompress.statsUpdatedAt": "Mis à jour {{time}}",
   "contextCompress.statsLoading": "Chargement des statistiques…",
   "contextCompress.statsError": "Échec de la lecture des statistiques :",
   "contextCompress.statsNotInstalled": "Non installé, aucune statistique",

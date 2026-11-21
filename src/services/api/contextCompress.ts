@@ -71,9 +71,16 @@ export interface ContextCompressStats {
   sqz_daily: SqzDaily[];
 }
 
+/** 上次成功拉取的统计；fetched_at 为 Unix ms。 */
+export interface CachedContextCompressStats {
+  stats: ContextCompressStats;
+  fetched_at: number;
+}
+
 export const contextCompressApi = {
   status: () => invoke<ContextCompressStatus>("context_compress_status"),
   stats: () => invoke<ContextCompressStats>("context_compress_stats"),
+  statsCached: () => invoke<CachedContextCompressStats | null>("context_compress_stats_cached"),
   install: (tool: CompressTool) => invoke<ContextCompressStatus>("context_compress_install", { tool }),
   setRtk: (on: boolean) => invoke<RtkSetResult>("context_compress_rtk_set", { on }),
   setSqz: (on: boolean) => invoke<ContextCompressStatus>("context_compress_sqz_set", { on }),

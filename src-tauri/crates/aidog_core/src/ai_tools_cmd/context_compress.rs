@@ -1373,7 +1373,7 @@ pub struct RtkDaily {
 /// sqz 的一日。首选 `~/.sqz/sessions.db` 的 `compression_log` 按 UTC 日聚合：
 /// used = Σtokens_original、saved = Σ(original − compressed)、compressions = 行数。
 /// 回退 `sqz gain --days N` 文本（MM-DD 年份按当天推定）时只有 saved，used / compressions 为 None。
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct SqzDaily {
     pub date: String,
     pub saved_tokens: u64,
@@ -1410,12 +1410,37 @@ fn sqz_daily_from_db(path: &std::path::Path) -> Option<Vec<SqzDaily>> {
     rows.collect::<Result<Vec<_>, _>>().ok()
 }
 
-#[derive(Serialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct ContextCompressStats {
     pub rtk: Option<RtkGainStats>,
     pub sqz: Option<SqzStats>,
     pub rtk_daily: Vec<RtkDaily>,
     pub sqz_daily: Vec<SqzDaily>,
+}
+
+/// 上次成功拉取的统计（整份）+ 拉取时刻 Unix ms；页面打开先显示它，后台再拉新的。
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct CachedContextCompressStats {
+    pub stats: ContextCompressStats,
+    pub fetched_at: i64,
+}
+
+/// 独立 setting 键：`context_compress` 键是整值覆盖的 ledger，缓存不与它混写。
+const STATS_CACHE_KEY: &str = "context_compress_stats_cache";
+
+async fn store_stats_cache(db: &Db, stats: &ContextCompressStats, fetched_at: i64) -> Result<(), String> {
+    let v = serde_json::to_value(CachedContextCompressStats { stats: stats.clone(), fetched_at })
+        .map_err(|e| e.to_string())?;
+    set_setting(db, STATS_CACHE_KEY, v).await
+}
+
+/// 缺失 / 无法解析 → None（页面按无缓存走加载态）。
+async fn load_stats_cache(db: &Db) -> Option<CachedContextCompressStats> {
+    aidog_db::get_setting(db, "global", STATS_CACHE_KEY)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
 }
 
 /// 解析 `rtk gain -d --format json` 的 daily 数组；无效输出返回空（统计缺失不报错）。
@@ -1499,7 +1524,18 @@ crate::tauri_command! {
         } else if let Some(o) = sqz_gain_out.as_deref() {
             stats.sqz_daily = parse_sqz_gain(o, chrono::Utc::now().date_naive());
         }
+        // 缓存写失败不影响本次结果，只是下次打开没有现成数据
+        if let Err(e) = store_stats_cache(aidog_ctx::db(), &stats, chrono::Utc::now().timestamp_millis()).await {
+            tracing::warn!("context_compress stats cache store failed: {e}");
+        }
         Ok(stats)
+    }
+}
+
+crate::tauri_command! {
+    /// 上次成功拉取的统计 + 拉取时刻（Unix ms）；从未拉取过 / 缓存损坏 → null。
+    pub async fn context_compress_stats_cached() -> Result<Option<CachedContextCompressStats>, String> {
+        Ok(load_stats_cache(aidog_ctx::db()).await)
     }
 }
 

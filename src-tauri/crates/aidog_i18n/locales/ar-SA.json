@@ -1212,6 +1212,8 @@
   "contextCompress.checking": "جارٍ الفحص…",
   "contextCompress.statsTitle": "إحصاءات الضغط",
   "contextCompress.statsRefresh": "تحديث الإحصاءات",
+  "contextCompress.statsRefreshing": "جارٍ التحديث…",
+  "contextCompress.statsUpdatedAt": "حُدّث {{time}}",
   "contextCompress.statsLoading": "جارٍ تحميل الإحصاءات…",
   "contextCompress.statsError": "تعذّرت قراءة الإحصاءات:",
   "contextCompress.statsNotInstalled": "غير مثبّت، لا توجد إحصاءات",

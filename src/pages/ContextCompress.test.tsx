@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "../test/render";
 
-const api = vi.hoisted(() => ({ status: vi.fn(), install: vi.fn(), setRtk: vi.fn(), setSqz: vi.fn(), stats: vi.fn() }));
+const api = vi.hoisted(() => ({ status: vi.fn(), install: vi.fn(), setRtk: vi.fn(), setSqz: vi.fn(), stats: vi.fn(), statsCached: vi.fn() }));
 vi.mock("../services/api/contextCompress", () => ({ contextCompressApi: api }));
 
 import { ContextCompress, DailyTooltip } from "./ContextCompress";
@@ -56,6 +56,7 @@ beforeEach(() => {
   api.setRtk.mockResolvedValue(RTK_RESULT);
   api.setSqz.mockResolvedValue({ ...STATUS, sqz_enabled: true, sqz_missing: [] });
   api.install.mockResolvedValue(STATUS);
+  api.statsCached.mockResolvedValue(null);
   api.stats.mockResolvedValue({
     rtk: RTK_SUMMARY,
     sqz: { totalCompressions: 50, tokensIn: 2000, tokensOut: 1400, tokensSaved: 600, avgReduction: 30 },
@@ -284,5 +285,36 @@ describe("ContextCompress", () => {
     fireEvent.click(screen.getByTestId("cc-stats-refresh"));
     await waitFor(() => expect(screen.getByTestId("cc-stat-rtk-saved").textContent).toBe(fmt(2400)));
     expect(api.stats).toHaveBeenCalledTimes(2);
+  });
+
+  const CACHED = {
+    stats: { rtk: RTK_SUMMARY, sqz: null, rtk_daily: [{ ...RTK_DAILY[0], saved_tokens: 111 }], sqz_daily: [] },
+    fetched_at: 1_795_000_000_000,
+  };
+
+  it("renders cached stats before the live call resolves, then swaps in live data", async () => {
+    const live = await api.stats();
+    let resolveLive!: (v: unknown) => void;
+    api.stats.mockReset().mockReturnValue(new Promise(r => { resolveLive = r; }));
+    api.statsCached.mockResolvedValue(CACHED);
+    render(<ContextCompress />);
+    await waitFor(() => expect(screen.queryByTestId("cc-stat-rtk-saved")?.textContent).toBe(fmt(111)));
+    const updated = screen.getByTestId("cc-stats-updated");
+    expect(updated.getAttribute("data-refreshing")).toBe("true");
+    expect(updated.getAttribute("data-fetched-at")).toBe(String(CACHED.fetched_at));
+    resolveLive(live);
+    await waitFor(() => expect(screen.getByTestId("cc-stat-rtk-saved").textContent).toBe(fmt(2400)));
+    expect(screen.getByTestId("cc-stats-updated").getAttribute("data-refreshing")).toBe("false");
+    expect(Number(screen.getByTestId("cc-stats-updated").getAttribute("data-fetched-at"))).toBeGreaterThan(CACHED.fetched_at);
+  });
+
+  it("keeps cached stats visible when the live refresh fails", async () => {
+    api.statsCached.mockResolvedValue(CACHED);
+    api.stats.mockRejectedValueOnce("boom");
+    render(<ContextCompress />);
+    await waitFor(() => expect(screen.getByTestId("cc-stats-updated").getAttribute("data-refreshing")).toBe("false"));
+    expect(screen.getByTestId("cc-stats-rtk").getAttribute("data-state")).toBe("ok");
+    expect(screen.queryByTestId("cc-stat-rtk-saved")?.textContent).toBe(fmt(111));
+    expect(screen.getByTestId("cc-stats-updated").textContent).toContain("boom");
   });
 });
