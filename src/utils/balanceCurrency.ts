@@ -13,6 +13,14 @@ let started = false;
 let unlisten: (() => void) | null = null;
 let lastFetch = 0;
 const THROTTLE_MS = 10_000;
+let pendingWhileHidden = false;
+
+// 隐藏期间事件只记 pending；恢复可见（visibilitychange / focus）补拉一次（10s 节流照旧）。
+function onVisible(): void {
+  if (document.hidden || !pendingWhileHidden) return;
+  pendingWhileHidden = false;
+  void refreshBalanceCurrenciesThrottled();
+}
 
 export function getBalanceCurrencies(): Record<string, string> {
   return current;
@@ -48,6 +56,7 @@ function start(): void {
   Promise.resolve()
     .then(() =>
       listen("proxy-log-updated", () => {
+        if (document.hidden) { pendingWhileHidden = true; return; }
         void refreshBalanceCurrenciesThrottled();
       }),
     )
@@ -56,6 +65,8 @@ function start(): void {
       else fn();
     })
     .catch((e) => console.error(e));
+  document.addEventListener("visibilitychange", onVisible);
+  document.addEventListener("focus", onVisible);
 }
 
 function stop(): void {
@@ -63,6 +74,8 @@ function stop(): void {
     unlisten();
     unlisten = null;
   }
+  document.removeEventListener("visibilitychange", onVisible);
+  document.removeEventListener("focus", onVisible);
   started = false;
 }
 
