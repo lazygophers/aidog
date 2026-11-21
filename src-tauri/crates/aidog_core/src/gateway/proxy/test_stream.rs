@@ -1416,3 +1416,25 @@ fn peek_served_model_does_not_consume() {
     assert_eq!(agg.peek_served_model().as_deref(), Some("m1"));
     assert_eq!(agg.peek_served_model().as_deref(), Some("m1"), "peek 不消费");
 }
+
+// ── issue #176 流式响应侧丢弃留痕：agg 累积 / 取走 ──
+
+#[test]
+fn stream_aggregator_note_and_take_response_drops() {
+    let agg = StreamAggregator::new();
+    agg.note_response_drops(&["drop:resp:web_search".to_string()]);
+    agg.note_response_drops(&[
+        "drop:resp:codeExecutionResult".to_string(),
+        "drop:resp:web_fetch".to_string(),
+    ]);
+    assert_eq!(
+        agg.take_response_drops(),
+        vec![
+            "drop:resp:web_search".to_string(),
+            "drop:resp:codeExecutionResult".to_string(),
+            "drop:resp:web_fetch".to_string(),
+        ],
+        "flush 取走全部累积 token"
+    );
+    assert!(agg.take_response_drops().is_empty(), "消费即清空");
+}

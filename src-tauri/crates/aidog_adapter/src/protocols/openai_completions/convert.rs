@@ -174,6 +174,7 @@ pub fn parse_completions_response(
         output_tokens,
         cache_read_tokens,
         reasoning,
+        ..Default::default()
     })
 }
 

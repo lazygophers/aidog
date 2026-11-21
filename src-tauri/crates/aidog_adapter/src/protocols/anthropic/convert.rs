@@ -278,6 +278,7 @@ pub fn parse_anthropic_response(
         output_tokens,
         cache_read_tokens,
         reasoning,
+        ..Default::default()
     })
 }
 

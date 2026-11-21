@@ -339,6 +339,8 @@ impl ResponsesSseState {
                 None
             }
             // openai wire 没有 ping 事件，无处安放；keep-alive 由网关侧自发（aidog_core::gateway::proxy::stream::with_idle_ping）。
+            // issue #176：Responses 客户端 wire 不回传服务端工具块（客户端协议自身的 web_search_call 走原生项）
+            ChatStreamEvent::ServerToolResult { .. } => None,
             ChatStreamEvent::Ping => None,
         }
     }

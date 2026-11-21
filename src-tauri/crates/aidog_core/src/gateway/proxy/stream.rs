@@ -161,11 +161,6 @@ impl SseLineReassembler {
         }
         ready
     }
-
-    /// EOF terminates the final SSE data line even when the upstream omitted its trailing newline.
-    pub(crate) fn finish(&mut self) -> String {
-        std::mem::take(&mut self.buf)
-    }
 }
 
 impl Drop for SseLineReassembler {
@@ -222,8 +217,9 @@ pub(crate) struct StreamAggregator {
     // 二者皆假 + guard 被 Drop = 流未读完就没人要了 = 客户端断连。
     upstream_err: std::sync::atomic::AtomicBool,
     exhausted: std::sync::atomic::AtomicBool,
-    // filtered_empty：disable_thinking 过滤后无内容（thinking-only 上游）——终态 502 而非 200。
-    filtered_empty: std::sync::atomic::AtomicBool,
+    // issue #176 流式响应侧丢弃留痕：relay 闭包写入 drop:resp: token，flush_with 取出
+    // 追加进 proxy_log.field_trace（请求侧 token 由 forward.rs 预写，此处只追加响应侧）。
+    response_drops: std::sync::Mutex<Vec<String>>,
 }
 
 impl StreamAggregator {
@@ -244,8 +240,26 @@ impl StreamAggregator {
             served_model: std::sync::Mutex::new(None),
             upstream_err: std::sync::atomic::AtomicBool::new(false),
             exhausted: std::sync::atomic::AtomicBool::new(false),
-            filtered_empty: std::sync::atomic::AtomicBool::new(false),
+            response_drops: std::sync::Mutex::new(Vec::new()),
         }
+    }
+
+    /// issue #176：记录流式响应侧被丢弃的原生服务端事件 token（幂等追加，flush 一次性取走）。
+    pub(crate) fn note_response_drops(&self, tokens: &[String]) {
+        if tokens.is_empty() {
+            return;
+        }
+        if let Ok(mut v) = self.response_drops.lock() {
+            v.extend(tokens.iter().cloned());
+        }
+    }
+
+    /// 取走累积的响应侧丢弃 token（消费即清空）。
+    pub(crate) fn take_response_drops(&self) -> Vec<String> {
+        self.response_drops
+            .lock()
+            .map(|mut v| std::mem::take(&mut *v))
+            .unwrap_or_default()
     }
 
     /// 上游 chunk 报错 → 标记上游截断（relay 闭包 Err 分支唯一调用点）。
@@ -260,16 +274,10 @@ impl StreamAggregator {
             .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
-    /// disable_thinking 过滤后无内容 → 日志终态从 200 改记 502（finish.rs 两分支调用）。
-    pub(crate) fn mark_filtered_empty(&self) {
-        self.filtered_empty
-            .store(true, std::sync::atomic::Ordering::Relaxed);
-    }
-
-    /// 无终止符时的终态状态码：上游报错 / 过滤后无内容 502 / 自然耗尽 200 / 都不是则客户端断连 499。
+    /// 无终止符时的终态状态码：上游报错 502 / 自然耗尽 200 / 都不是则客户端断连 499。
     fn end_status_code(&self) -> i32 {
         use std::sync::atomic::Ordering::Relaxed;
-        if self.upstream_err.load(Relaxed) || self.filtered_empty.load(Relaxed) {
+        if self.upstream_err.load(Relaxed) {
             502
         } else if self.exhausted.load(Relaxed) {
             200
@@ -522,18 +530,7 @@ impl StreamLogGuard {
     /// 正常结束走此路径回写（token 已累加完整）；仍未命中（如上游中途断裂无终止符）由 Drop 兜底。
     pub(crate) fn flush_if_done(&self, text: &str) {
         if has_stream_terminator(text) {
-            // disable_thinking 过滤后无内容（thinking-only 上游）：终止符虽在，客户端收到的是
-            // error 帧而非完整消息 → 终态走 end_status_code（502），不记 200 成功。
-            let filtered_empty = self
-                .agg
-                .filtered_empty
-                .load(std::sync::atomic::Ordering::Relaxed);
-            let status = if filtered_empty {
-                self.agg.end_status_code()
-            } else {
-                200
-            };
-            self.flush_with(status);
+            self.flush_with(200);
         }
     }
 
@@ -566,6 +563,11 @@ impl StreamLogGuard {
         }
 
         let mut final_log = self.log.clone();
+        // issue #176：流式响应侧丢弃 token 追加进 field_trace（请求侧 token 已由 forward.rs 预写）
+        super::outbound_shape::append_field_trace_tokens(
+            &mut final_log.field_trace,
+            &self.agg.take_response_drops(),
+        );
         // 实际模型口径（统计按上游自报模型聚合，2026-09-21）：流式从 data: 帧首见模型名取
         // actual_model，上游全程未自报则回退客户端请求模型（log.model），不再用路由目标模型。
         final_log.actual_model = self

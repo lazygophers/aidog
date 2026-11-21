@@ -641,6 +641,11 @@ pub enum ChatStreamEvent {
         name: Option<String>,
         input: Option<String>,
     },
+    /// 上游原生服务端工具结果（issue #176，`#74` 请求方向的响应侧对称）：已转成
+    /// Anthropic 形态内容块（server_tool_use + web_search_tool_result / web_fetch_tool_result 对）。
+    /// 仅 Anthropic 系客户端渲染下发；其余客户端协议状态机丢弃（proxy 侧 field_trace 留痕）。
+    #[serde(rename = "server_tool_result")]
+    ServerToolResult { blocks: Vec<serde_json::Value> },
     /// 结束
     #[serde(rename = "stop")]
     Stop { finish_reason: Option<String> },
