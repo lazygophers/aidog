@@ -1,10 +1,11 @@
 // 会话行内展开详情（票 03）：模型链（相邻同模型合并）+ token 消耗图（每次调用一点，堆叠四类）。
-// 子代理区由票 04 填充，这里只留挂载位。
+// 子代理区（票 04）：主线单列；Claude Code 按子代理文件拆分，其余客户端只分主线 / 子代理。
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { StackedAreaChart } from "../charts";
-import { clientUsageApi, type ClientUsageSessionDetail } from "../../services/api/clientUsage";
+import { clientUsageApi, type ClientUsageAgentGroup, type ClientUsageSessionDetail } from "../../services/api/clientUsage";
 import { formatNumber } from "../../utils/formatters";
+import { SessionCost } from "./SessionCost";
 
 type Load = { state: "loading" } | { state: "error"; error: string } | { state: "ready"; detail: ClientUsageSessionDetail };
 
@@ -30,9 +31,18 @@ export function SessionDetail({ clientCode, sessionId }: { clientCode: string; s
     output: { label: t("sessions.seriesOutput", "输出"), color: "var(--chart-4)" },
   }), [t]);
   const points = load.state === "ready" ? load.detail.points : [];
-  const data = useMemo(() => points.map((p) => ({
-    x: p.callTimeMs, input: p.inputTokens, output: p.outputTokens, cacheRead: p.cacheReadTokens, cacheWrite: p.cacheWriteTokens,
-  })), [points]);
+  const data = useMemo(() => {
+    const rows = points.map((p) => ({
+      x: p.callTimeMs, input: p.inputTokens, output: p.outputTokens, cacheRead: p.cacheReadTokens, cacheWrite: p.cacheWriteTokens,
+    }));
+    // 单次调用时 x 轴域零宽、画不出面积：前后各补一个零点（±1 分钟），画成一个尖峰。
+    if (rows.length !== 1) return rows;
+    const zero = (x: number) => ({ x, input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
+    return [zero(rows[0].x - 60_000), rows[0], zero(rows[0].x + 60_000)];
+  }, [points]);
+  const agents = load.state === "ready" ? load.detail.agents : [];
+  const agentName = (g: ClientUsageAgentGroup) =>
+    g.kind === "main" ? t("sessions.agentMain", "主线") : g.agentType ?? (g.agentId ? g.agentId.slice(0, 8) : t("sessions.agentSub", "子代理"));
 
   const state = load.state === "ready" && load.detail.points.length === 0 ? "empty" : load.state;
   return (
@@ -65,13 +75,44 @@ export function SessionDetail({ clientCode, sessionId }: { clientCode: string; s
             </ol>
           </div>
           {/* 图例下留白：bare 模式图例紧贴 Y 轴顶刻度，加内边距让 Recharts 量高时把绘图区下推。 */}
-          <div data-testid="session-detail-chart" data-points={String(points.length)} className="[&_.recharts-legend-wrapper]:pb-3">
+          <div data-testid="session-detail-chart" data-points={String(points.length)} data-rows={String(data.length)} className="[&_.recharts-legend-wrapper]:pb-3">
             <h4 className="mb-2 text-sm font-medium text-muted-foreground">{t("sessions.detailChart", "token 消耗")}</h4>
             <StackedAreaChart bare config={config} data={data} height={200} valueFormat={formatNumber} />
           </div>
         </>
       )}
-      <div data-testid="session-detail-subagents-slot" />
+      <div data-testid="session-detail-subagents-slot">
+        {state === "ready" && agents.some((g) => g.kind === "subagent") && (
+          <div>
+            <h4 className="mb-2 text-sm font-medium text-muted-foreground">{t("sessions.detailAgents", "主线与子代理")}</h4>
+            <ul className="divide-y rounded-md border" data-testid="session-detail-agents">
+              {agents.map((g, i) => (
+                <li
+                  key={`${i}:${g.agentId ?? g.kind}`}
+                  className="grid grid-cols-[minmax(0,1fr)_5rem_5rem_6rem] items-center gap-4 px-3 py-2 text-sm"
+                  data-testid="session-detail-agent"
+                  data-kind={g.kind}
+                  data-agent-id={g.agentId ?? ""}
+                  data-calls={String(g.calls)}
+                >
+                  <span className="truncate" title={g.agentId ?? undefined} data-testid="session-detail-agent-name">
+                    {g.kind === "main"
+                      ? <span className="font-medium">{agentName(g)}</span>
+                      : <span dir="ltr" className={g.agentType ? "" : "font-mono"}>{agentName(g)}</span>}
+                  </span>
+                  <span className="text-end text-muted-foreground">{t("sessions.segCalls", "{{n}} 次", { n: g.calls })}</span>
+                  <span className="text-end font-mono tabular-nums" title={t("sessions.tokenSplit", "入 {{input}} / 出 {{output}}", { input: formatNumber(g.inputTokens), output: formatNumber(g.outputTokens) })}>
+                    {formatNumber(g.inputTokens + g.outputTokens)}
+                  </span>
+                  <span className="text-end font-mono tabular-nums">
+                    <SessionCost cost={g.cost} calls={g.calls} unpricedCalls={g.unpricedCalls} testId="session-detail-agent-cost" />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

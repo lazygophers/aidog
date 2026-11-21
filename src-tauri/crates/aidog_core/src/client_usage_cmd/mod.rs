@@ -3,6 +3,7 @@
 //! 闸门唯一性：同意开关是读取器唯一入口判定（`consent_allows`）；关着 = 零文件读取。
 //! 首次开启全量导入、启动/refresh 增量导入共用同一条 `run_import` 链。
 
+mod agents;
 pub mod reader;
 pub mod reader_codex;
 pub mod reader_gemini;
@@ -29,6 +30,9 @@ mod plain_sqlite_probe;
 #[cfg(test)]
 #[path = "test_settings.rs"]
 mod test_settings;
+#[cfg(test)]
+#[path = "test_agents.rs"]
+mod test_agents;
 
 /// 全局 IMPORT_STATE 只有一份，跨 reader 两个测试模块的用例用它串行化。
 #[cfg(test)]
@@ -712,12 +716,14 @@ pub async fn client_usage_sessions(
 }
 
 crate::tauri_command! {
-/// 单会话详情：模型链（相邻同模型合并）+ token 时间序列。
+/// 单会话详情：模型链（相邻同模型合并）+ token 时间序列 + 主线 / 子代理分组。
 pub async fn client_usage_session_detail(
     client_code: String,
     session_id: String,
 ) -> Result<aidog_db::ClientUsageSessionDetail, String> {
-    aidog_db::client_usage_session_detail(aidog_ctx::db(), &client_code, &session_id).await
+    let mut d = aidog_db::client_usage_session_detail(aidog_ctx::db(), &client_code, &session_id).await?;
+    d.agents = agents::group_agents(&client_code, std::mem::take(&mut d.files));
+    Ok(d)
 }
 }
 

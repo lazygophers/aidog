@@ -216,6 +216,7 @@ const pt = (t: number) => ({ callTimeMs: t, inputTokens: 10, outputTokens: 5, ca
 const DETAIL = {
   modelChain: [seg("演示-sonnet", 2, NOW - 3000), seg("演示-opus", 1, NOW - 1000)],
   points: [pt(NOW - 3000), pt(NOW - 2000), pt(NOW - 1000)],
+  agents: [],
 };
 
 describe("Sessions 页（票 03：缓存 token、模型链、消耗图）", () => {
@@ -257,7 +258,7 @@ describe("Sessions 页（票 03：缓存 token、模型链、消耗图）", () =
   it("详情空数据与失败两态", async () => {
     api.status.mockResolvedValue(statusPayload(ALL_ON));
     api.sessions.mockResolvedValue(SESSIONS);
-    api.sessionDetail.mockResolvedValueOnce({ modelChain: [], points: [] }).mockRejectedValueOnce(new Error("演示失败"));
+    api.sessionDetail.mockResolvedValueOnce({ modelChain: [], points: [], agents: [] }).mockRejectedValueOnce(new Error("演示失败"));
     render(<Sessions onNavigate={vi.fn()} />);
     const [first, second] = await screen.findAllByTestId("sessions-row");
     fireEvent.click(first);
@@ -267,5 +268,59 @@ describe("Sessions 页（票 03：缓存 token、模型链、消耗图）", () =
     const detail = await screen.findByTestId("session-detail");
     await waitFor(() => expect(detail).toHaveAttribute("data-state", "error"));
     expect(within(detail).getByRole("alert")).toBeInTheDocument();
+  });
+});
+
+const ag = (kind: "main" | "subagent", agentId: string | null, agentType: string | null, calls: number) => ({
+  kind, agentId, agentType, calls,
+  inputTokens: 10 * calls, outputTokens: 5 * calls, cacheReadTokens: 100 * calls, cacheWriteTokens: calls,
+  cost: 0.01 * calls, unpricedCalls: 0,
+});
+
+describe("Sessions 页（票 04：子代理展开、单次调用图表）", () => {
+  it("展开区按主线 / 子代理分列：agentType 作名称，缺则显示 agentId 短串，无 id 显示通用子代理", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(SESSIONS);
+    api.sessionDetail.mockResolvedValue({
+      ...DETAIL,
+      agents: [ag("main", null, null, 3), ag("subagent", "a1", "演示-Explore", 2), ag("subagent", "c3d4e5f6a7b8c9", null, 1), ag("subagent", null, null, 4)],
+    });
+    render(<Sessions onNavigate={vi.fn()} />);
+    fireEvent.click((await screen.findAllByTestId("sessions-row"))[0]);
+    const detail = await screen.findByTestId("session-detail");
+    await waitFor(() => expect(detail).toHaveAttribute("data-state", "ready"));
+    const rows = within(detail).queryAllByTestId("session-detail-agent");
+    expect(rows.map((r) => [r.getAttribute("data-kind"), r.getAttribute("data-agent-id"), r.getAttribute("data-calls")])).toEqual([
+      ["main", "", "3"], ["subagent", "a1", "2"], ["subagent", "c3d4e5f6a7b8c9", "1"], ["subagent", "", "4"],
+    ]);
+    const names = within(detail).getAllByTestId("session-detail-agent-name");
+    expect(names[1]).toHaveTextContent("演示-Explore");
+    expect(names[2]).toHaveTextContent("c3d4e5f6");
+    expect(names[2]).not.toHaveTextContent("c3d4e5f6a7b8c9");
+    expect(within(rows[1]).getByTestId("session-detail-agent-cost")).toHaveAttribute("data-priced", "all");
+  });
+
+  it("只有主线时不显示子代理区", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(SESSIONS);
+    api.sessionDetail.mockResolvedValue({ ...DETAIL, agents: [ag("main", null, null, 3)] });
+    render(<Sessions onNavigate={vi.fn()} />);
+    fireEvent.click((await screen.findAllByTestId("sessions-row"))[0]);
+    const detail = await screen.findByTestId("session-detail");
+    await waitFor(() => expect(detail).toHaveAttribute("data-state", "ready"));
+    expect(within(detail).queryByTestId("session-detail-agents")).toBeNull();
+  });
+
+  it("只有 1 次调用时图表前后补零点，x 轴有可见宽度", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(SESSIONS);
+    api.sessionDetail.mockResolvedValue({ modelChain: [seg("演示-sonnet", 1, NOW - 1000)], points: [pt(NOW - 1000)], agents: [] });
+    render(<Sessions onNavigate={vi.fn()} />);
+    fireEvent.click((await screen.findAllByTestId("sessions-row"))[0]);
+    const detail = await screen.findByTestId("session-detail");
+    await waitFor(() => expect(detail).toHaveAttribute("data-state", "ready"));
+    const chart = within(detail).getByTestId("session-detail-chart");
+    expect(chart).toHaveAttribute("data-points", "1");
+    expect(chart).toHaveAttribute("data-rows", "3");
   });
 });
