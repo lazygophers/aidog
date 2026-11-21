@@ -221,7 +221,7 @@ pub fn upsert_client_session(
                  VALUES (?1,?2,?3,?4,?5,?6) \
                  ON CONFLICT(client_code, session_id) DO UPDATE SET \
                    title=CASE WHEN excluded.title = '' THEN client_session.title ELSE excluded.title END, \
-                   workdir=excluded.workdir, \
+                   workdir=CASE WHEN excluded.workdir = '' THEN client_session.workdir ELSE excluded.workdir END, \
                    first_call_ms=MIN(client_session.first_call_ms, excluded.first_call_ms), \
                    last_call_ms=MAX(client_session.last_call_ms, excluded.last_call_ms)",
                 params![client_code, session_id, title, workdir, first_call_ms, last_call_ms],
