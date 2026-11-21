@@ -78,6 +78,16 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
 
   useEffect(() => { void load(); }, [load]);
 
+  // 换客户端继续（票 10）：本机已安装客户端与「允许读取对话原文」开关，进页拉一次；失败按未安装 / 未开处理。
+  const [installed, setInstalled] = useState<string[]>([]);
+  const [transcriptOn, setTranscriptOn] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    clientUsageApi.installedClients().then((v) => { if (alive) setInstalled(v); }).catch(() => {});
+    clientUsageApi.transcriptConsentGet().then((v) => { if (alive) setTranscriptOn(v); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
   // context-mode 压缩比（只 claude_code 会话有）：sessionId ↔ CLAUDE_SESSION_ID 直配；拉不到就不显示徽标。
   const [ctxRatios, setCtxRatios] = useState<Map<string, number>>(new Map());
   useEffect(() => {
@@ -148,14 +158,17 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
   // 继续请求在途的会话（票 12）：返回前禁用按钮；ref 挡住同一帧内的连点。
   const resumingRef = useRef(new Set<string>());
   const [resuming, setResuming] = useState<ReadonlySet<string>>(() => new Set());
-  const resume = useCallback(async (r: ClientUsageSessionRow) => {
+  // to 非空 = 换客户端继续（票 10），结果与继续同形。
+  const resume = useCallback(async (r: ClientUsageSessionRow, to?: string) => {
     const key = `${r.clientCode}:${r.sessionId}`;
     if (resumingRef.current.has(key)) return;
     resumingRef.current.add(key);
     setResuming(new Set(resumingRef.current));
     setNotice(null);
     try {
-      const res = await clientUsageApi.sessionResume(r.clientCode, r.sessionId, r.workdir);
+      const res = to
+        ? await clientUsageApi.sessionCarry(r.clientCode, r.sessionId, r.workdir, to)
+        : await clientUsageApi.sessionResume(r.clientCode, r.sessionId, r.workdir);
       if (!res.launched) {
         await navigator.clipboard?.writeText(res.command);
         setNotice({ kind: "copied", text: res.command });
@@ -199,6 +212,8 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
     }
   }, []);
   const onResume = useCallback((r: ClientUsageSessionRow) => void resume(r), [resume]);
+  const onCarry = useCallback((r: ClientUsageSessionRow, to: string) => void resume(r, to), [resume]);
+  const onNeedTranscript = useCallback(() => onNavigate?.("settings/client_usage"), [onNavigate]);
   const onOpenDir = useCallback((d: string) => void openDir(d), [openDir]);
   const onHide = useCallback((r: ClientUsageSessionRow) => void hide(r), [hide]);
   const undoHide = async (r: ClientUsageSessionRow) => {
@@ -386,7 +401,7 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
             <p className="border-t py-10 text-muted-foreground" data-testid="sessions-no-match">{t("sessions.noMatch", "没有匹配的会话")}</p>
           ) : (
             <>
-              <SessionGroups rows={shown} pinned={pinned} stateOf={stateOf} isResuming={isResuming} onResume={onResume} onOpenDir={onOpenDir} onHide={onHide} ctxRatioOf={(r) => ctxRatios.get(r.sessionId)} />
+              <SessionGroups rows={shown} pinned={pinned} stateOf={stateOf} isResuming={isResuming} onResume={onResume} onOpenDir={onOpenDir} onHide={onHide} ctxRatioOf={(r) => ctxRatios.get(r.sessionId)} installed={installed} transcriptOn={transcriptOn} onCarry={onCarry} onNeedTranscript={onNeedTranscript} />
               <p className="text-sm text-muted-foreground">{t("sessions.footHint", "成本带 + 表示部分调用未定价。")}</p>
             </>
           )}

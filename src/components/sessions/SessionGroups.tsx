@@ -10,11 +10,12 @@ import { ClientIcon, clientName } from "./ClientIcon";
 import { SessionCost } from "./SessionCost";
 import { SessionDetail } from "./SessionDetail";
 import { SessionSparkline } from "./SessionSparkline";
+import { CarryMenu } from "./CarryMenu";
 import { Button } from "../ui/button";
 
-const ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_210px_96px_96px_148px] items-center gap-3";
+const ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_210px_96px_96px_184px] items-center gap-3";
 // 置顶区多一列迷你走势图（票 12），放在成本后。
-const PINNED_ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_210px_96px_56px_96px_148px] items-center gap-3";
+const PINNED_ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_210px_96px_56px_96px_184px] items-center gap-3";
 
 function projectName(workdir: string): string {
   return workdir.split(/[\\/]/).filter(Boolean).pop() ?? workdir;
@@ -29,7 +30,7 @@ const STATE_DOT: Record<SessionRunState, string> = {
 
 const rowKey = (r: ClientUsageSessionRow) => `${r.clientCode}:${r.sessionId}`;
 
-export function SessionGroups({ rows, pinned, stateOf, isResuming, onResume, onOpenDir, onHide, ctxRatioOf }: {
+export function SessionGroups({ rows, pinned, stateOf, isResuming, onResume, onOpenDir, onHide, ctxRatioOf, installed, transcriptOn, onCarry, onNeedTranscript }: {
   rows: ClientUsageSessionRow[];
   /** 正在执行区的会话（已排序，且是 rows 的子集）。 */
   pinned: ClientUsageSessionRow[];
@@ -41,6 +42,11 @@ export function SessionGroups({ rows, pinned, stateOf, isResuming, onResume, onO
   onHide: (r: ClientUsageSessionRow) => void;
   /** context-mode 压缩比（0-100）；无数据的会话（含非 claude_code）返回 undefined 不显示。 */
   ctxRatioOf: (r: ClientUsageSessionRow) => number | undefined;
+  /** 换客户端继续（票 10）：本机已安装客户端码、原文开关、点选回调、未开原文时的引导。 */
+  installed: string[];
+  transcriptOn: boolean;
+  onCarry: (r: ClientUsageSessionRow, to: string) => void;
+  onNeedTranscript: () => void;
 }) {
   const { t } = useTranslation();
   // 行内展开（spec S6，禁抽屉）：可同时展开多行。
@@ -70,6 +76,10 @@ export function SessionGroups({ rows, pinned, stateOf, isResuming, onResume, onO
       onOpenDir={onOpenDir}
       onHide={onHide}
       ctxRatio={ctxRatioOf(r)}
+      installed={installed}
+      transcriptOn={transcriptOn}
+      onCarry={onCarry}
+      onNeedTranscript={onNeedTranscript}
     />
   );
   return (
@@ -135,7 +145,7 @@ function OpenDirButton({ workdir, testId, onOpenDir }: { workdir: string; testId
   );
 }
 
-const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, resuming, onToggle, onResume, onOpenDir, onHide, ctxRatio }: {
+const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, resuming, onToggle, onResume, onOpenDir, onHide, ctxRatio, installed, transcriptOn, onCarry, onNeedTranscript }: {
   r: ClientUsageSessionRow;
   inPinned: boolean;
   isOpen: boolean;
@@ -146,6 +156,10 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
   onOpenDir: (workdir: string) => void;
   onHide: (r: ClientUsageSessionRow) => void;
   ctxRatio?: number;
+  installed: string[];
+  transcriptOn: boolean;
+  onCarry: (r: ClientUsageSessionRow, to: string) => void;
+  onNeedTranscript: () => void;
 }) {
   const { t } = useTranslation();
   const key = rowKey(r);
@@ -221,6 +235,7 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
           <EyeOff aria-hidden className="size-4" />
         </Button>
         {r.workdir && <OpenDirButton workdir={r.workdir} testId="sessions-open-dir" onOpenDir={onOpenDir} />}
+        <CarryMenu r={r} installed={installed} transcriptOn={transcriptOn} onCarry={onCarry} onNeedTranscript={onNeedTranscript} />
         {/* Gemini 会话按项目目录隔离，无目录无法继续（票 07）；按钮阻冒泡，不展开行 */}
         {!(r.clientCode === "gemini_cli" && !r.workdir) && (
           <Button

@@ -177,7 +177,7 @@ fn probe_version(tool: &str) -> (bool, Option<String>, Option<String>) {
 }
 
 /// `which tool` / `where tool` 拿 PATH 默认命中的第一处。
-fn which_first(tool: &str) -> Option<String> {
+pub(crate) fn which_first(tool: &str) -> Option<String> {
     let mut cmd = if cfg!(windows) {
         let mut c = Command::new("where");
         c.arg(tool);

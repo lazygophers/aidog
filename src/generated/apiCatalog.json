@@ -3398,6 +3398,41 @@
       "returns": "Vec<SearchSource>"
     },
     {
+      "name": "session_carry",
+      "category": "client_usage",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "clientCode",
+          "type": "String"
+        },
+        {
+          "name": "sessionId",
+          "type": "String"
+        },
+        {
+          "name": "workdir",
+          "type": "String"
+        },
+        {
+          "name": "targetClient",
+          "type": "String"
+        }
+      ],
+      "returns": "SessionResumeResult"
+    },
+    {
+      "name": "session_installed_clients",
+      "category": "client_usage",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "Vec<String>"
+    },
+    {
       "name": "session_open_terminal",
       "category": "proxy",
       "kind": "mutating",
