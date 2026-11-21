@@ -389,6 +389,7 @@ pub fn run() {
             aidog_core::client_usage_cmd::client_usage_trend,
             aidog_core::client_usage_cmd::client_usage_by_model,
             aidog_core::client_usage_cmd::client_usage_sessions,
+            aidog_core::client_usage_cmd::client_usage_session_detail,
             aidog_core::client_usage_cmd::client_usage_refresh,
             aidog_core::client_usage_cmd::client_usage_retention_get,
             aidog_core::client_usage_cmd::client_usage_retention_set,

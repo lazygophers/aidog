@@ -1,12 +1,15 @@
 // 会话列表（设计稿方向 3）：按工作目录分组，左列 sticky 项目信息，右列会话行。
 // 操作列先占位：继续 / 打开目录 / 隐藏等由票 07–10 接入，未实现前不画按钮。
+import { Fragment, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ChevronDown } from "lucide-react";
 import type { ClientUsageSessionRow } from "../../services/api/clientUsage";
 import { formatNumber, formatRelativeTime } from "../../utils/formatters";
 import { ClientGlyph, clientName } from "./ClientGlyph";
 import { SessionCost } from "./SessionCost";
+import { SessionDetail } from "./SessionDetail";
 
-const ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_170px_96px_96px_70px] items-center gap-3";
+const ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_210px_96px_96px_70px] items-center gap-3";
 
 function projectName(workdir: string): string {
   return workdir.split(/[\\/]/).filter(Boolean).pop() ?? workdir;
@@ -14,6 +17,13 @@ function projectName(workdir: string): string {
 
 export function SessionGroups({ rows }: { rows: ClientUsageSessionRow[] }) {
   const { t } = useTranslation();
+  // 行内展开（spec S6，禁抽屉）：可同时展开多行。
+  const [open, setOpen] = useState<Set<string>>(() => new Set());
+  const toggle = (key: string) => setOpen((s) => {
+    const n = new Set(s);
+    if (!n.delete(key)) n.add(key);
+    return n;
+  });
   const groups = new Map<string, ClientUsageSessionRow[]>();
   for (const r of rows) {
     const g = groups.get(r.workdir);
@@ -36,14 +46,33 @@ export function SessionGroups({ rows }: { rows: ClientUsageSessionRow[] }) {
           <div key={workdir} className="grid grid-cols-[230px_minmax(0,1fr)] border-t pt-4 pb-2.5" data-testid="sessions-group" data-workdir={workdir}>
             <div className="sticky top-0 self-start pe-4">
               <b className="block truncate text-lg font-semibold" title={workdir}>{workdir ? projectName(workdir) : t("sessions.noWorkdir", "未知目录")}</b>
-              {workdir && <small className="mt-1 block break-all font-mono text-sm text-muted-foreground"><span dir="ltr">{workdir}</span></small>}
+              {workdir && <small dir="ltr" className="mt-1 block truncate font-mono text-sm text-muted-foreground rtl:text-right" title={workdir} data-testid="sessions-group-path">{workdir}</small>}
               <div className="mt-2.5 text-sm text-muted-foreground">
                 {t("sessions.count", "{{n}} 个会话", { n: items.length })} · <span className="font-mono tabular-nums"><SessionCost cost={cost} calls={calls} unpricedCalls={unpriced} /></span>
               </div>
             </div>
             <div>
-              {items.map((r) => (
-                <div key={`${r.clientCode}:${r.sessionId}`} className={`${ROW_GRID} rounded-lg px-3 py-2.5 hover:bg-muted`} data-testid="sessions-row" data-client={r.clientCode} data-session={r.sessionId}>
+              {items.map((r) => {
+                const key = `${r.clientCode}:${r.sessionId}`;
+                const isOpen = open.has(key);
+                const cache = t("sessions.cacheSplit", "缓存 读 {{read}} / 写 {{write}}", { read: formatNumber(r.cacheReadTokens), write: formatNumber(r.cacheWriteTokens) });
+                return (
+                <Fragment key={key}>
+                <div
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={isOpen}
+                  aria-label={isOpen ? t("sessions.collapse", "收起详情") : t("sessions.expand", "展开详情")}
+                  onClick={() => toggle(key)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(key); }
+                  }}
+                  className={`${ROW_GRID} cursor-pointer rounded-lg px-3 py-2.5 hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring ${isOpen ? "bg-muted" : ""}`}
+                  data-testid="sessions-row"
+                  data-client={r.clientCode}
+                  data-session={r.sessionId}
+                  data-state={isOpen ? "open" : "closed"}
+                >
                   <ClientGlyph code={r.clientCode} size={16} on />
                   <div className="min-w-0">
                     <div className="truncate" title={r.title || r.sessionId}>{r.title || r.sessionId}</div>
@@ -53,17 +82,26 @@ export function SessionGroups({ rows }: { rows: ClientUsageSessionRow[] }) {
                   </div>
                   <div className="text-end font-mono text-sm tabular-nums">
                     {formatNumber(r.inputTokens + r.outputTokens)}
-                    <div className="truncate text-muted-foreground">
+                    <div className="truncate font-sans text-muted-foreground">
                       {t("sessions.tokenSplit", "入 {{input}} / 出 {{output}}", { input: formatNumber(r.inputTokens), output: formatNumber(r.outputTokens) })}
+                    </div>
+                    <div className="truncate font-sans text-muted-foreground" title={cache} data-testid="sessions-row-cache" data-read={String(r.cacheReadTokens)} data-write={String(r.cacheWriteTokens)}>
+                      {cache}
                     </div>
                   </div>
                   <div className="text-end font-mono text-sm tabular-nums">
                     <SessionCost cost={r.cost} calls={r.calls} unpricedCalls={r.unpricedCalls} testId="sessions-row-cost" />
                   </div>
-                  <div className="text-end text-sm text-muted-foreground">{formatRelativeTime(r.lastCallMs)}</div>
+                  <div className="flex items-center justify-end gap-1 text-sm text-muted-foreground">
+                    {formatRelativeTime(r.lastCallMs)}
+                    <ChevronDown aria-hidden className={`size-4 shrink-0 transition-transform motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`} />
+                  </div>
                   <div className="text-end" data-testid="sessions-row-actions" />
                 </div>
-              ))}
+                {isOpen && <SessionDetail clientCode={r.clientCode} sessionId={r.sessionId} />}
+                </Fragment>
+                );
+              })}
             </div>
           </div>
         );
