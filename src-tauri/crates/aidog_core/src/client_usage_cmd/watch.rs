@@ -280,21 +280,24 @@ pub fn start_event_loop() {
 }
 
 /// 定时对齐循环（5 分钟一轮；首轮跳过——启动增量导入已覆盖同一时刻）。
+/// 有变更（新增明细或删除）时广播一次 `client-usage-updated`。
 pub async fn align_loop() {
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(ALIGN_INTERVAL_SECS));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     interval.tick().await; // 首轮跳过
     loop {
         interval.tick().await;
-        let inserted = align_once(aidog_ctx::db()).await;
-        if inserted > 0 {
-            tracing::debug!(inserted, "client usage periodic align import");
+        let changed = align_once(aidog_ctx::db()).await;
+        if changed > 0 {
+            tracing::debug!(changed, "client usage periodic align import");
+            aidog_ctx::emit_unit(UPDATED_EVENT);
         }
     }
 }
 
 /// 一轮定时对齐：对启用客户端的进度表逐行比对 file_size/mtime——变化 → 增量读取
 /// （截断/替换的重建语义在 `scan_one_file` 内），文件删除 → 删明细/进度/空会话壳。
+/// 返回变更总数（新增明细数 + 成功删除数）。
 pub(super) async fn align_once(db: &Db) -> i64 {
     let consent = super::load_consent(db).await;
     let mut total = 0i64;
@@ -306,8 +309,9 @@ pub(super) async fn align_once(db: &Db) -> i64 {
         for row in progress {
             match std::fs::metadata(&row.path) {
                 Err(_) => {
-                    if let Err(e) = aidog_db::delete_client_file_state(db, code, &row.path).await {
-                        tracing::warn!(error = %e, path = %row.path, "client usage align delete failed");
+                    match aidog_db::delete_client_file_state(db, code, &row.path).await {
+                        Ok(()) => total += 1,
+                        Err(e) => tracing::warn!(error = %e, path = %row.path, "client usage align delete failed"),
                     }
                 }
                 Ok(meta) => {
