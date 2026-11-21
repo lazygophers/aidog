@@ -5,7 +5,8 @@
 //!   Claude 源取最后一条主线行沿 `parentUuid` 回溯（compact 边界无 parent，回溯自然停在那里），丢弃
 //!   sidechain / `isMeta` / 斜杠命令回显 / `<system-reminder>`；Codex 源取 `response_item`，遇 `compacted`
 //!   用其 `replacement_history`，丢弃 `<environment_context>` / `<user_instructions>` / AGENTS.md / developer 消息。
-//!   只搬用户与助手的文字；原文不进 AiDog 任何数据库表与日志。
+//!   搬用户与助手的话、用户贴的图（data: URL）、工具调用与结果（shell 类成目标自己的 shell 工具，其余工具
+//!   成助手的一段话；单个输出最多 64 KiB）；thinking / reasoning 不搬。原文不进 AiDog 任何数据库表与日志。
 //! - 其余组合：交接。不读原文，在目标客户端以原工作目录启动新会话，首条提示指向原会话文件路径。
 //!
 //! 闸门：转写要求「允许读取对话原文」（`transcript_consent`）开且源客户端读取开关开（`consent_allows`），
@@ -30,11 +31,176 @@ pub(crate) fn is_transcribe_pair(from: &str, to: &str) -> bool {
     matches!((from, to), ("claude_code", "codex") | ("codex", "claude_code"))
 }
 
+/// 一次工具调用（结果已配上；`shell` 非空 = 跑了一条 shell 命令）。
+#[derive(Debug, Clone, PartialEq, Default)]
+pub(crate) struct ToolCall {
+    pub name: String,
+    pub input: String,
+    pub shell: String,
+    pub workdir: String,
+    pub id: String,
+    /// None = 没记到输出
+    pub result: Option<String>,
+    pub is_error: bool,
+}
+
 /// 一条要搬过去的话。
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Item {
-    User(String),
+    /// 用户的话与贴的图（data: URL）
+    User(String, Vec<String>),
     Assistant(String),
+    Call(ToolCall),
+}
+
+/// 单个工具输出最多搬这么多字节。
+pub(crate) const CARRY_RESULT_MAX: usize = 64 << 10;
+
+/// 超出部分截掉（退到 UTF-8 字符边界），同 Magpie `cutResult`。
+pub(crate) fn cut_result(s: &str) -> String {
+    if s.len() <= CARRY_RESULT_MAX {
+        return s.to_string();
+    }
+    let mut cut = CARRY_RESULT_MAX;
+    while !s.is_char_boundary(cut) {
+        cut -= 1;
+    }
+    format!("{}\n[…]", &s[..cut])
+}
+
+/// 问本机二进制 `--version` 的执行器（生产起进程；测试注入假实现）。返回原始输出，失败 None。
+pub(crate) type VersionOf = std::sync::Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
+
+/// `--version` 输出里第一个形如 `数字.…` 的词（`2.1.319 (Claude Code)` / `codex-cli 0.46.0`）。
+pub(crate) fn parse_version(out: &str) -> Option<String> {
+    out.split_whitespace()
+        .find(|w| w.starts_with(|c: char| c.is_ascii_digit()) && w.contains('.'))
+        .map(str::to_string)
+}
+
+/// 生产执行器：PATH 上找到二进制再跑 `--version`。
+fn local_version(bin: &str) -> Option<String> {
+    let path = crate::cli_env::which_first(bin)?;
+    let out = std::process::Command::new(path).arg("--version").output().ok()?;
+    out.status.success().then(|| String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+/// JSON 排版成易读形式（短的才排），同 Magpie `pretty`。
+fn pretty(raw: &str) -> String {
+    if raw.is_empty() || raw.len() > 4000 {
+        return raw.to_string();
+    }
+    serde_json::from_str::<Value>(raw).ok().and_then(|v| serde_json::to_string_pretty(&v).ok()).unwrap_or_else(|| raw.to_string())
+}
+
+/// Claude tool_result 的正文：字符串，或文字块（图片记 `[image]`），同 Magpie `resultText`。
+fn result_text(v: &Value) -> String {
+    match v {
+        Value::String(s) => s.clone(),
+        Value::Array(bs) => bs
+            .iter()
+            .filter_map(|b| match str_of(b, "type") {
+                "text" => Some(str_of(b, "text").to_string()),
+                "image" => Some("[image]".to_string()),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join("\n"),
+        Value::Null => String::new(),
+        other => other.to_string(),
+    }
+}
+
+/// Codex 工具输出：字符串，或带 content / output 的对象，同 Magpie `codexOutput`。
+fn codex_output(v: &Value) -> String {
+    if let Some(s) = v.as_str() {
+        return s.to_string();
+    }
+    for k in ["content", "output"] {
+        let s = str_of(v, k);
+        if !s.is_empty() {
+            return s.to_string();
+        }
+    }
+    if v.is_null() { String::new() } else { v.to_string() }
+}
+
+/// argv 还原成 shell 行：`bash -lc <脚本>` 取脚本，否则带特殊字符的词单引号，同 Magpie `shellLine`。
+fn shell_line(argv: &[String]) -> String {
+    if argv.len() == 3 && (argv[1] == "-lc" || argv[1] == "-c") {
+        return argv[2].clone();
+    }
+    argv.iter()
+        .map(|a| {
+            if a.is_empty() || a.chars().any(|c| " \t\n'\"\\$`*?[]{}()<>|&;#~!".contains(c)) {
+                shell_squote(a)
+            } else {
+                a.clone()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// 目标客户端没有同名工具时，把调用写成助手的一段话，同 Magpie `note`。
+fn note(c: &ToolCall) -> String {
+    let mut b = format!("[{}]\n", c.name);
+    if !c.input.trim().is_empty() {
+        b.push_str(&fence(&c.input));
+    }
+    if let Some(r) = &c.result {
+        b.push_str(if c.is_error { "\n[error]\n" } else { "\n[result]\n" });
+        b.push_str(&fence(r));
+    }
+    b
+}
+
+/// 放进任何一行都关不掉的代码块。
+fn fence(s: &str) -> String {
+    let mut f = "```".to_string();
+    while s.contains(&f) {
+        f.push('`');
+    }
+    format!("{f}\n{}\n{f}\n", s.trim_end_matches('\n'))
+}
+
+/// data: URL → (媒体类型, base64 数据)。
+fn split_data_url(u: &str) -> Option<(&str, &str)> {
+    let (head, data) = u.strip_prefix("data:")?.split_once(',')?;
+    let mt = head.strip_suffix(";base64")?;
+    (!mt.is_empty()).then_some((mt, data))
+}
+
+/// 读出来的中间形态：结果按 id 配到它的调用上（结果不单独搬）。
+enum Raw {
+    Item(Item),
+    Result { id: String, text: String, is_error: bool },
+}
+
+/// 同 Magpie `pairCarry`：每个结果放回它的调用处。
+fn pair(raw: Vec<Raw>) -> Vec<Item> {
+    let mut at = std::collections::HashMap::new();
+    let mut out: Vec<Item> = Vec::new();
+    for r in raw {
+        match r {
+            Raw::Item(Item::Call(c)) => {
+                if !c.id.is_empty() {
+                    at.insert(c.id.clone(), out.len());
+                }
+                out.push(Item::Call(c));
+            }
+            Raw::Item(i) => out.push(i),
+            Raw::Result { id, text, is_error } => {
+                if let Some(Item::Call(c)) = at.get(&id).and_then(|&i| out.get_mut(i))
+                    && c.result.is_none()
+                {
+                    c.result = Some(cut_result(&text));
+                    c.is_error = is_error;
+                }
+            }
+        }
+    }
+    out
 }
 
 fn str_of<'a>(v: &'a Value, k: &str) -> &'a str {
@@ -77,7 +243,7 @@ pub(crate) fn claude_items(text: &str) -> Vec<Item> {
         }
         id = parent.get(&id).cloned().unwrap_or_default();
     }
-    let mut items = Vec::new();
+    let mut raw = Vec::new();
     for v in chain.into_iter().rev() {
         if v.get("isMeta").and_then(Value::as_bool) == Some(true) {
             continue;
@@ -88,64 +254,128 @@ pub(crate) fn claude_items(text: &str) -> Vec<Item> {
             if user && claude_own_words(s) {
                 continue;
             }
-            items.push(if user { Item::User(s.to_string()) } else { Item::Assistant(s.to_string()) });
+            raw.push(Raw::Item(if user { Item::User(s.to_string(), vec![]) } else { Item::Assistant(s.to_string()) }));
             continue;
         }
-        let texts = content.as_array().into_iter().flatten().filter(|b| str_of(b, "type") == "text").map(|b| str_of(b, "text"));
-        if user {
-            let words: Vec<&str> = texts.filter(|t| !claude_own_words(t)).collect();
-            if !words.is_empty() {
-                items.push(Item::User(words.join("\n\n")));
+        // 同 Magpie `claudeLineItems`：用户的话与图合成一条放最前；thinking 不搬。
+        let (mut words, mut images, mut rest) = (Vec::new(), Vec::new(), Vec::new());
+        for b in content.as_array().into_iter().flatten() {
+            match str_of(b, "type") {
+                "text" if user => {
+                    if !claude_own_words(str_of(b, "text")) {
+                        words.push(str_of(b, "text"));
+                    }
+                }
+                "text" if !str_of(b, "text").trim().is_empty() => rest.push(Raw::Item(Item::Assistant(str_of(b, "text").to_string()))),
+                "image" if user && str_of(&b["source"], "type") == "base64" && !str_of(&b["source"], "data").is_empty() => {
+                    images.push(format!("data:{};base64,{}", str_of(&b["source"], "media_type"), str_of(&b["source"], "data")));
+                }
+                "tool_use" => {
+                    let input = b.get("input").map(Value::to_string).unwrap_or_default();
+                    let shell = if str_of(b, "name") == "Bash" { str_of(&b["input"], "command").to_string() } else { String::new() };
+                    rest.push(Raw::Item(Item::Call(ToolCall {
+                        name: str_of(b, "name").to_string(),
+                        id: str_of(b, "id").to_string(),
+                        input: pretty(&input),
+                        shell,
+                        ..Default::default()
+                    })));
+                }
+                "tool_result" => rest.push(Raw::Result {
+                    id: str_of(b, "tool_use_id").to_string(),
+                    text: result_text(&b["content"]),
+                    is_error: b.get("is_error").and_then(Value::as_bool) == Some(true),
+                }),
+                _ => {}
             }
-        } else {
-            items.extend(texts.filter(|t| !t.trim().is_empty()).map(|t| Item::Assistant(t.to_string())));
         }
+        if user && (!words.is_empty() || !images.is_empty()) {
+            raw.push(Raw::Item(Item::User(words.join("\n\n"), images)));
+        }
+        raw.extend(rest);
     }
-    items
+    pair(raw)
 }
 
-/// 一条 Codex response item（message）→ 话；developer / Codex 自己写的上下文行丢弃。
-fn codex_item(p: &Value) -> Option<Item> {
-    if str_of(p, "type") != "message" {
-        return None;
-    }
-    let words: Vec<&str> = p["content"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter(|c| matches!(str_of(c, "type"), "input_text" | "output_text" | "text"))
-        .map(|c| str_of(c, "text"))
-        .collect();
-    let text = words.join("\n");
-    let t = text.trim();
-    match str_of(p, "role") {
-        // `<environment_context>` / `<user_instructions>` 等以 `<` 开头；AGENTS.md 注入以标题开头。
-        "user" if !(t.is_empty() || t.starts_with('<') || t.starts_with("# AGENTS.md")) => Some(Item::User(text)),
-        "assistant" if !t.is_empty() => Some(Item::Assistant(text)),
+/// Codex 自己写进用户消息的上下文（`<environment_context>` / `<user_instructions>` 等以 `<` 开头；AGENTS.md 注入以标题开头）。
+fn codex_own_words(t: &str) -> bool {
+    let t = t.trim();
+    t.is_empty() || t.starts_with('<') || t.starts_with("# AGENTS.md")
+}
+
+/// 一条 Codex response item → 话 / 调用 / 结果，同 Magpie `codexItem`；developer、reasoning、加密摘要丢弃。
+fn codex_item(p: &Value) -> Option<Raw> {
+    let call = |name: &str, input: String| ToolCall { name: name.to_string(), id: str_of(p, "call_id").to_string(), input, ..Default::default() };
+    match str_of(p, "type") {
+        "message" => {
+            let (mut words, mut images) = (Vec::new(), Vec::new());
+            for c in p["content"].as_array().into_iter().flatten() {
+                match str_of(c, "type") {
+                    "input_text" | "output_text" | "text" => words.push(str_of(c, "text")),
+                    "input_image" if str_of(c, "image_url").starts_with("data:") => images.push(str_of(c, "image_url").to_string()),
+                    _ => {}
+                }
+            }
+            let text = words.join("\n");
+            match str_of(p, "role") {
+                "user" if codex_own_words(&text) && images.is_empty() => None,
+                "user" => Some(Raw::Item(Item::User(if codex_own_words(&text) { String::new() } else { text }, images))),
+                "assistant" if !text.trim().is_empty() => Some(Raw::Item(Item::Assistant(text))),
+                _ => None,
+            }
+        }
+        "function_call" => {
+            let args_raw = str_of(p, "arguments");
+            let mut c = call(str_of(p, "name"), pretty(args_raw));
+            if let Ok(a) = serde_json::from_str::<Value>(args_raw) {
+                c.shell = match c.name.as_str() {
+                    "exec_command" => str_of(&a, "cmd").to_string(),
+                    "shell" | "container.exec" => a["command"]
+                        .as_array()
+                        .map(|v| shell_line(&v.iter().filter_map(|s| s.as_str().map(str::to_string)).collect::<Vec<_>>()))
+                        .unwrap_or_default(),
+                    "shell_command" => str_of(&a, "command").to_string(),
+                    _ => String::new(),
+                };
+                c.workdir = str_of(&a, "workdir").to_string();
+            }
+            Some(Raw::Item(Item::Call(c)))
+        }
+        "custom_tool_call" => Some(Raw::Item(Item::Call(call(str_of(p, "name"), str_of(p, "input").to_string())))),
+        "local_shell_call" => {
+            let argv: Vec<String> = p["action"]["command"].as_array().into_iter().flatten().filter_map(|s| s.as_str().map(str::to_string)).collect();
+            let mut c = call("shell", argv.join(" "));
+            c.shell = shell_line(&argv);
+            c.workdir = str_of(&p["action"], "working_directory").to_string();
+            Some(Raw::Item(Item::Call(c)))
+        }
+        "function_call_output" | "custom_tool_call_output" => {
+            Some(Raw::Result { id: str_of(p, "call_id").to_string(), text: codex_output(&p["output"]), is_error: false })
+        }
         _ => None,
     }
 }
 
-/// 读 Codex rollout 原文 → 文字。
+/// 读 Codex rollout 原文 → 话与调用。
 pub(crate) fn codex_items(text: &str) -> Vec<Item> {
-    let mut items = Vec::new();
+    let mut raw = Vec::new();
     for l in text.lines() {
         let Ok(v) = serde_json::from_str::<Value>(l) else { continue };
         let p = &v["payload"];
         match str_of(&v, "type") {
-            "response_item" => items.extend(codex_item(p)),
+            "response_item" => raw.extend(codex_item(p)),
             "compacted" => {
                 if let Some(h) = p.get("replacement_history").and_then(Value::as_array) {
-                    items = h.iter().filter_map(codex_item).collect();
+                    raw = h.iter().filter_map(codex_item).collect();
                 } else if !str_of(p, "message").is_empty() {
-                    items.retain(|i| matches!(i, Item::User(_)));
-                    items.push(Item::User(str_of(p, "message").to_string()));
+                    raw.retain(|i| matches!(i, Raw::Item(Item::User(..))));
+                    raw.push(Raw::Item(Item::User(str_of(p, "message").to_string(), vec![])));
                 }
             }
             _ => {}
         }
     }
-    items
+    pair(raw)
 }
 
 /// Claude Code 项目目录名：每个非字母数字的 UTF-16 单元换成 `-`。
@@ -188,9 +418,11 @@ pub(crate) fn write_claude(
     cwd: &str,
     items: &[Item],
     now: chrono::DateTime<chrono::Utc>,
+    version: &str,
 ) -> Result<(String, PathBuf), String> {
     let slug = claude_slug(cwd);
-    // shortcut: Claude Code 对超 200 字符的目录名另加哈希，未实现；遇到再补。
+    // shortcut: Claude Code 对超 200 字符的目录名另加哈希，算法无一手出处（Magpie relocate_claude.go
+    // `claudeProjectName` 同样直接报错），未实现；拿到官方算法再补。
     if slug.len() > 200 {
         return Err("workdir path too long for a Claude Code project".into());
     }
@@ -199,31 +431,77 @@ pub(crate) fn write_claude(
     let ts = stamp(now);
     let mut parent = Value::Null;
     let mut msg_id = String::new();
-    let mut lines = Vec::new();
+    let mut lines: Vec<Value> = Vec::new();
+    // 一行（字段顺序同 Claude Code 自己的文件，同 Magpie `writeClaudeCarry`），返回它的 uuid。
+    let line = |lines: &mut Vec<Value>, parent: &mut Value, ty: &str, message: Value, extra: Value| -> String {
+        let u = uuid::Uuid::new_v4().to_string();
+        let mut l = serde_json::Map::new();
+        l.insert("parentUuid".into(), parent.clone());
+        l.insert("isSidechain".into(), false.into());
+        l.insert("type".into(), ty.into());
+        l.insert("message".into(), message);
+        if let Value::Object(m) = extra {
+            l.extend(m);
+        }
+        for (k, v) in [("uuid", u.as_str()), ("timestamp", ts.as_str()), ("userType", "external"), ("entrypoint", "cli"),
+            ("cwd", cwd), ("sessionId", id.as_str()), ("version", version)]
+        {
+            l.insert(k.into(), v.into());
+        }
+        lines.push(Value::Object(l));
+        *parent = Value::String(u.clone());
+        u
+    };
+    let assistant = |lines: &mut Vec<Value>, parent: &mut Value, msg_id: &mut String, block: Value, stop: &str| -> String {
+        if msg_id.is_empty() {
+            *msg_id = format!("msg_{}", uuid::Uuid::new_v4().simple());
+        }
+        let message = json!({
+            "id": msg_id, "type": "message", "role": "assistant", "model": "<synthetic>",
+            "content": [block], "stop_reason": stop, "stop_sequence": null,
+            "usage": {"input_tokens": 0, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "output_tokens": 0},
+        });
+        line(lines, parent, "assistant", message, Value::Null)
+    };
     for it in items {
-        let (ty, message) = match it {
-            Item::User(t) => {
+        match it {
+            Item::User(t, images) => {
                 msg_id.clear();
-                ("user", json!({"role": "user", "content": t}))
+                let content = if images.is_empty() {
+                    json!(t)
+                } else {
+                    let mut blocks = Vec::new();
+                    if !t.is_empty() {
+                        blocks.push(json!({"type": "text", "text": t}));
+                    }
+                    for (mt, data) in images.iter().filter_map(|i| split_data_url(i)) {
+                        blocks.push(json!({"type": "image", "source": {"type": "base64", "media_type": mt, "data": data}}));
+                    }
+                    Value::Array(blocks)
+                };
+                line(&mut lines, &mut parent, "user", json!({"role": "user", "content": content}), Value::Null);
             }
             Item::Assistant(t) => {
-                if msg_id.is_empty() {
-                    msg_id = format!("msg_{}", uuid::Uuid::new_v4().simple());
-                }
-                ("assistant", json!({
-                    "id": msg_id, "type": "message", "role": "assistant", "model": "<synthetic>",
-                    "content": [{"type": "text", "text": t}], "stop_reason": "end_turn", "stop_sequence": null,
-                    "usage": {"input_tokens": 0, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "output_tokens": 0},
-                }))
+                assistant(&mut lines, &mut parent, &mut msg_id, json!({"type": "text", "text": t}), "end_turn");
             }
-        };
-        let u = uuid::Uuid::new_v4().to_string();
-        lines.push(json!({
-            "parentUuid": parent, "isSidechain": false, "type": ty, "message": message,
-            "uuid": u, "timestamp": ts, "userType": "external", "entrypoint": "cli",
-            "cwd": cwd, "sessionId": id, "version": "2.0.0",
-        }));
-        parent = Value::String(u);
+            Item::Call(c) if c.shell.is_empty() => {
+                assistant(&mut lines, &mut parent, &mut msg_id, json!({"type": "text", "text": note(c)}), "end_turn");
+            }
+            Item::Call(c) => {
+                let mut command = c.shell.clone();
+                if !c.workdir.is_empty() && c.workdir != cwd {
+                    command = format!("cd {} && {command}", shell_squote(&c.workdir));
+                }
+                let call_id = format!("toolu_{}", &uuid::Uuid::new_v4().simple().to_string()[..24]);
+                let by = assistant(&mut lines, &mut parent, &mut msg_id,
+                    json!({"type": "tool_use", "id": call_id, "name": "Bash", "input": {"command": command}}), "tool_use");
+                msg_id.clear();
+                let out = c.result.clone().unwrap_or_else(|| "[no output was recorded]".to_string());
+                line(&mut lines, &mut parent, "user",
+                    json!({"role": "user", "content": [{"tool_use_id": call_id, "type": "tool_result", "content": out, "is_error": c.is_error}]}),
+                    json!({"toolUseResult": {"stdout": out, "stderr": "", "interrupted": false, "isImage": false}, "sourceToolAssistantUUID": by}));
+            }
+        }
     }
     write_new(&path, &lines)?;
     Ok((id, path))
@@ -244,6 +522,7 @@ pub(crate) fn write_codex(
     cwd: &str,
     items: &[Item],
     now: chrono::DateTime<chrono::Utc>,
+    version: &str,
 ) -> Result<(String, PathBuf), String> {
     let id = uuid::Uuid::new_v4().to_string();
     let local = now.with_timezone(&chrono::Local);
@@ -254,22 +533,38 @@ pub(crate) fn write_codex(
     let ts = stamp(now);
     let mut lines = vec![json!({"timestamp": ts, "type": "session_meta", "payload": {
         "session_id": id, "id": id, "timestamp": ts, "cwd": cwd, "originator": "codex_cli_rs",
-        "cli_version": "0.0.0", "source": "cli", "model_provider": codex_provider(codex_home),
+        "cli_version": version, "source": "cli", "model_provider": codex_provider(codex_home),
     }})];
+    let add = |lines: &mut Vec<Value>, ty: &str, payload: Value| lines.push(json!({"timestamp": ts, "type": ty, "payload": payload}));
     // 每句话同时写成 Codex 自己的 event_msg：其 TUI 续会话时据此显示历史。
+    let say = |lines: &mut Vec<Value>, t: &str| {
+        add(lines, "response_item", json!({"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": t}]}));
+        add(lines, "event_msg", json!({"type": "agent_message", "message": t}));
+    };
+    // 同 Magpie `writeCodexCarry`：shell 调用写成 exec_command + function_call_output，其余工具成助手的话。
     for it in items {
-        let (item, event) = match it {
-            Item::User(t) => (
-                json!({"type": "message", "role": "user", "content": [{"type": "input_text", "text": t}]}),
-                json!({"type": "user_message", "message": t, "images": [], "local_images": [], "text_elements": []}),
-            ),
-            Item::Assistant(t) => (
-                json!({"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": t}]}),
-                json!({"type": "agent_message", "message": t}),
-            ),
-        };
-        lines.push(json!({"timestamp": ts, "type": "response_item", "payload": item}));
-        lines.push(json!({"timestamp": ts, "type": "event_msg", "payload": event}));
+        match it {
+            Item::User(t, imgs) => {
+                let images: Vec<&String> = imgs.iter().filter(|i| split_data_url(i).is_some()).collect();
+                let mut content = Vec::new();
+                if !t.is_empty() {
+                    content.push(json!({"type": "input_text", "text": t}));
+                }
+                content.extend(images.iter().map(|i| json!({"type": "input_image", "image_url": i})));
+                add(&mut lines, "response_item", json!({"type": "message", "role": "user", "content": content}));
+                add(&mut lines, "event_msg", json!({"type": "user_message", "message": t, "images": images, "local_images": [], "text_elements": []}));
+            }
+            Item::Assistant(t) => say(&mut lines, t),
+            Item::Call(c) if c.shell.is_empty() => say(&mut lines, &note(c)),
+            Item::Call(c) => {
+                let call_id = format!("call_{}", &uuid::Uuid::new_v4().simple().to_string()[..24]);
+                let workdir = if c.workdir.is_empty() { cwd } else { &c.workdir };
+                let args = json!({"cmd": c.shell, "workdir": workdir}).to_string();
+                add(&mut lines, "response_item", json!({"type": "function_call", "name": "exec_command", "arguments": args, "call_id": call_id}));
+                let out = c.result.clone().unwrap_or_else(|| "[no output was recorded]".to_string());
+                add(&mut lines, "response_item", json!({"type": "function_call_output", "call_id": call_id, "output": out}));
+            }
+        }
     }
     write_new(&path, &lines)?;
     Ok((id, path))
@@ -336,6 +631,7 @@ pub(crate) async fn session_carry_with(
     homes: &CarryHomes,
     aidog_dir: &Path,
     run: &(dyn Fn(&str) -> Result<bool, String> + Send + Sync),
+    version_of: VersionOf,
 ) -> Result<SessionResumeResult, String> {
     if from == to {
         return Err("target client is the source client".into());
@@ -369,11 +665,14 @@ pub(crate) async fn session_carry_with(
         let new_id = tokio::task::spawn_blocking(move || -> Result<String, String> {
             let text = std::fs::read_to_string(&source).map_err(|e| format!("read source session: {e}"))?;
             let items = if src_client == "claude_code" { claude_items(&text) } else { codex_items(&text) };
-            if !items.iter().any(|i| matches!(i, Item::User(_))) {
+            if !items.iter().any(|i| matches!(i, Item::User(..))) {
                 return Err("nothing was said in the session".into());
             }
             let now = chrono::Utc::now();
-            let (id, _) = if dst_client == "codex" { write_codex(&codex_home, &wd, &items, now)? } else { write_claude(&claude_root, &wd, &items, now)? };
+            // 写本机客户端版本号（同 Magpie 写目标自己的版本）；问不出回落固定值。
+            let (bin, fallback) = if dst_client == "codex" { ("codex", "0.0.0") } else { ("claude", "2.0.0") };
+            let version = version_of(bin).as_deref().and_then(parse_version).unwrap_or_else(|| fallback.to_string());
+            let (id, _) = if dst_client == "codex" { write_codex(&codex_home, &wd, &items, now, &version)? } else { write_claude(&claude_root, &wd, &items, now, &version)? };
             Ok(id)
         })
         .await
@@ -406,6 +705,7 @@ pub async fn session_carry(
     session_carry_with(
         aidog_ctx::db(), &client_code, &session_id, &workdir, &target_client, &homes, &dir,
         &crate::proxy_cmd::session_cmd::open_terminal,
+        std::sync::Arc::new(local_version),
     ).await
 }
 }
