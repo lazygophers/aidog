@@ -272,7 +272,13 @@ async fn aux_attempt(
     let (route, log_settings, group) = (scope.route, scope.log_settings, scope.group);
     let (is_last_candidate, has_next_model) = (scope.is_last_candidate, scope.has_next_model);
     // endpoint：OpenAI 系优先，否则回退平台主 base_url（零端点平台）。
-    let ep = select_endpoint_for_openai_family(&route.platform.endpoints);
+    // supported_protocols 约束（4dbbc7c4 同族）：模型支持子集内硬序，无数据（None→空集）全回落。
+    let supported = aidog_db::model_supported_protocols(
+        &route.platform.platform_type.wire_str(),
+        &route.target_model,
+    );
+    let ep =
+        select_endpoint_for_openai_family_model(&route.platform.endpoints, supported.unwrap_or(&[]));
     let base_url = ep
         .map(|e| e.base_url.clone())
         .unwrap_or_else(|| route.platform.base_url.clone());

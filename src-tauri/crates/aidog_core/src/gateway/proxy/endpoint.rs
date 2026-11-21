@@ -167,12 +167,32 @@ pub(crate) fn is_tools_endpoint(path: &str) -> bool {
 pub(crate) fn select_endpoint_for_decision(
     endpoints: &[super::models::PlatformEndpoint],
 ) -> Option<&super::models::PlatformEndpoint> {
-    endpoints
-        .iter()
-        .find(|ep| ep.protocol == Protocol::TypeSafe)
-        .or_else(|| endpoints.iter().find(|ep| ep.protocol == Protocol::OpenAI))
-        .or_else(|| endpoints.iter().find(|ep| ep.protocol == Protocol::OpenAICompletions))
-        .or_else(|| endpoints.iter().find(|ep| ep.protocol == Protocol::OpenAIResponses))
+    select_decision_where(endpoints, |_| true)
+}
+
+/// 决策 endpoint 硬序内核（TypeSafe → OpenAI → Completions → Responses）。
+fn select_decision_where(
+    endpoints: &[super::models::PlatformEndpoint],
+    allowed: impl Fn(&Protocol) -> bool,
+) -> Option<&super::models::PlatformEndpoint> {
+    [
+        Protocol::TypeSafe,
+        Protocol::OpenAI,
+        Protocol::OpenAICompletions,
+        Protocol::OpenAIResponses,
+    ]
+    .iter()
+    .find_map(|p| endpoints.iter().find(|ep| ep.protocol == *p && allowed(p)))
+}
+
+/// 模型 `supported_protocols` 约束版（4dbbc7c4 同族）：支持子集内按同硬序；
+/// 子集无匹配回落全量硬序（理论可达兜底，与 forward.rs 同款）；空集 = 无数据全回落。
+pub(crate) fn select_endpoint_for_decision_model<'a>(
+    endpoints: &'a [super::models::PlatformEndpoint],
+    supported: &[Protocol],
+) -> Option<&'a super::models::PlatformEndpoint> {
+    select_decision_where(endpoints, |p| supported.contains(p))
+        .or_else(|| select_endpoint_for_decision(endpoints))
 }
 
 /// 向量化请求端点判定：路径以 `/embeddings` 结尾（后缀判定，容忍 `/proxy` 前缀与尾 `/`；
@@ -191,9 +211,27 @@ pub(crate) fn is_rerank_endpoint(path: &str) -> bool {
 pub(crate) fn select_endpoint_for_openai_family(
     endpoints: &[super::models::PlatformEndpoint],
 ) -> Option<&super::models::PlatformEndpoint> {
+    select_openai_family_where(endpoints, |_| true)
+}
+
+/// 向量化 / 重排序 endpoint 硬序内核（OpenAI → Completions → Responses）。
+fn select_openai_family_where(
+    endpoints: &[super::models::PlatformEndpoint],
+    allowed: impl Fn(&Protocol) -> bool,
+) -> Option<&super::models::PlatformEndpoint> {
     [Protocol::OpenAI, Protocol::OpenAICompletions, Protocol::OpenAIResponses]
         .iter()
-        .find_map(|p| endpoints.iter().find(|ep| ep.protocol == *p))
+        .find_map(|p| endpoints.iter().find(|ep| ep.protocol == *p && allowed(p)))
+}
+
+/// 模型 `supported_protocols` 约束版（4dbbc7c4 同族）：支持子集内按同硬序；
+/// 子集无匹配回落全量硬序（理论可达兜底）；空集 = 无数据全回落。
+pub(crate) fn select_endpoint_for_openai_family_model<'a>(
+    endpoints: &'a [super::models::PlatformEndpoint],
+    supported: &[Protocol],
+) -> Option<&'a super::models::PlatformEndpoint> {
+    select_openai_family_where(endpoints, |p| supported.contains(p))
+        .or_else(|| select_endpoint_for_openai_family(endpoints))
 }
 
 pub(crate) fn infer_passthrough_protocol_from_ua(ua: &str) -> Option<Protocol> {

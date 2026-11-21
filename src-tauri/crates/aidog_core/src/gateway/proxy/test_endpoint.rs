@@ -720,3 +720,55 @@ fn select_endpoint_for_model_respects_supported_protocols() {
         Protocol::Anthropic
     );
 }
+
+// ── 决策 / 向量端点选择消费 supported_protocols（第二轮审查缺口 1，4dbbc7c4 同族）──
+#[test]
+fn select_endpoint_for_decision_model_respects_supported_protocols() {
+    use super::super::models::{PlatformEndpoint, Protocol};
+    use super::select_endpoint_for_decision_model as sel;
+    let ep = |proto: Protocol, url: &str| PlatformEndpoint {
+        protocol: proto,
+        base_url: url.to_string(),
+        client_type: "default".to_string(),
+        coding_plan: false,
+    };
+    // 平台 typesafe + openai 双端点；模型只支持 openai → 约束版选 openai（旧码硬序选 typesafe）
+    let eps = vec![ep(Protocol::TypeSafe, "https://x/v1"), ep(Protocol::OpenAI, "https://x/v1")];
+    assert_eq!(
+        sel(&eps, &[Protocol::OpenAI]).unwrap().protocol,
+        Protocol::OpenAI,
+        "模型只支持 openai 时决策端点须落 openai，不得按硬序打 typesafe"
+    );
+    // 模型支持 typesafe：硬序首位不变
+    assert_eq!(sel(&eps, &[Protocol::TypeSafe]).unwrap().protocol, Protocol::TypeSafe);
+    // 无数据（空集）：全回落硬序 typesafe（零行为变更）
+    assert_eq!(sel(&eps, &[]).unwrap().protocol, Protocol::TypeSafe);
+    // 子集无匹配：回落全量（理论可达兜底）
+    assert_eq!(sel(&eps, &[Protocol::Anthropic]).unwrap().protocol, Protocol::TypeSafe);
+}
+
+#[test]
+fn select_endpoint_for_openai_family_model_respects_supported_protocols() {
+    use super::super::models::{PlatformEndpoint, Protocol};
+    use super::select_endpoint_for_openai_family_model as sel;
+    let ep = |proto: Protocol, url: &str| PlatformEndpoint {
+        protocol: proto,
+        base_url: url.to_string(),
+        client_type: "default".to_string(),
+        coding_plan: false,
+    };
+    // 平台 openai + openai_completions；模型只支持 completions → 旧码抓 openai（400），约束版选 completions
+    let eps = vec![
+        ep(Protocol::OpenAI, "https://x/v1"),
+        ep(Protocol::OpenAICompletions, "https://x/legacy/v1"),
+    ];
+    assert_eq!(
+        sel(&eps, &[Protocol::OpenAICompletions]).unwrap().protocol,
+        Protocol::OpenAICompletions,
+        "模型只支持 completions 时向量端点须落 completions，不得按硬序抓 openai"
+    );
+    // 无数据：全回落 openai
+    assert_eq!(sel(&eps, &[]).unwrap().protocol, Protocol::OpenAI);
+    // 子集无匹配：回落 openai
+    assert_eq!(sel(&eps, &[Protocol::Anthropic]).unwrap().protocol, Protocol::OpenAI);
+}
