@@ -7790,6 +7790,63 @@ async fn mgmt_rpc_rejects_non_loopback_peer() {
     assert_eq!(r.status(), 403);
 }
 
+/// `/api/ws`（统一 WS 通道）闸门与 `/api/events` 同层：开关关 → 404 未启用。
+#[tokio::test]
+async fn mgmt_ws_disabled_returns_not_enabled() {
+    install_mgmt_test_router();
+    let state = make_state(test_db().await).await;
+    set_mgmt(&state, false, "").await;
+    let base = spawn_proxy_router(state.clone()).await;
+    let r = mgmt_client()
+        .get(format!("{base}/api/ws"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 404);
+    let v: serde_json::Value = r.json().await.unwrap();
+    assert_eq!(v["error"], "management_api_disabled");
+}
+
+/// `/api/ws` token 校验：缺 / 错 Bearer → 401（升级成功的推送流程由 aidog_rpc::ws 直连测试覆盖）。
+#[tokio::test]
+async fn mgmt_ws_optional_token_is_enforced() {
+    install_mgmt_test_router();
+    let state = make_state(test_db().await).await;
+    set_mgmt(&state, true, "s3cret").await;
+    let base = spawn_proxy_router(state.clone()).await;
+    let url = format!("{base}/api/ws");
+    let c = mgmt_client();
+    assert_eq!(c.get(&url).send().await.unwrap().status(), 401);
+    assert_eq!(
+        c.get(&url)
+            .bearer_auth("nope")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        401
+    );
+}
+
+/// `/api/ws` 非回环来源 403。
+#[tokio::test]
+async fn mgmt_ws_rejects_non_loopback_peer() {
+    install_mgmt_test_router();
+    let state = make_state(test_db().await).await;
+    let req = axum::http::Request::builder()
+        .method("GET")
+        .uri("/api/ws")
+        .body(axum::body::Body::empty())
+        .unwrap();
+    let r = super::handle_management(
+        AxumState(state),
+        axum::extract::ConnectInfo("10.1.2.3:5555".parse().unwrap()),
+        req,
+    )
+    .await;
+    assert_eq!(r.status(), 403);
+}
+
 /// 未登记的命令走管理接口的 404，不落入转发；其他路径照常进转发（根健康端点仍在）。
 #[tokio::test]
 async fn mgmt_rpc_unknown_command_is_404_and_other_paths_still_route() {

@@ -512,7 +512,8 @@ pub(crate) async fn process_upsert(
     // emit 从 40+ 次/请求 降到 1-2 次/请求（终态后少数重复调用）。前端 listener 各自 debounce
     // 兜底，丢失中间态刷新对 UI 无感（用户关心的是请求结束后的累计值）。
     if write_ok && is_terminal {
-        emit_log_events(state, platform_id);
+        let final_cost = est_cost_value.unwrap_or(log.est_cost);
+        emit_log_events(state, platform_id, final_cost, Some(log));
     }
 }
 
@@ -527,9 +528,68 @@ pub(crate) async fn process_upsert(
 /// ——emit/托盘重建频次降至请求量的 6/45 ≈ 13.3%（降幅 86.7%）。`is_terminal_log` 的 gate
 /// 语义见下方 `emit_gate_pass_rate_across_request_lifecycle` 测试（用真实 `is_terminal_log`
 /// 判定逐条计数，避免跨测试共享 static 计数器在默认并行 `cargo test` 下的 flaky 风险）。
-fn emit_log_events(_state: &Arc<ProxyState>, platform_id: u64) {
+fn emit_log_events(
+    _state: &Arc<ProxyState>,
+    platform_id: u64,
+    final_cost: f64,
+    log: Option<&ProxyLog>,
+) {
     aidog_ctx::emit("proxy-log-updated", platform_id.into());
     aidog_ctx::emit_unit("tray-refresh");
+    // 会话级终态事件（统一 WS 通道 `sessions` topic，/api/events SSE 同广播源可见）。
+    // session_key 为空的行（CONNECT 隧道 / 未派生会话）不发。与上面两个事件同一处调用，
+    // 频次口径不变（每终态请求 1-2 次），broadcast send 非阻塞，不改热路径时序。
+    if let Some(payload) = log.and_then(|l| session_event_payload(l, final_cost)) {
+        aidog_ctx::emit("sessions", payload);
+    }
+}
+
+/// `sessions` topic 事件载荷：`None` = session_key 为空（CONNECT / 未派生会话），不发。
+fn session_event_payload(l: &ProxyLog, final_cost: f64) -> Option<serde_json::Value> {
+    (!l.session_key.is_empty()).then(|| {
+        serde_json::json!({
+            "session_key": l.session_key,
+            "group_key": l.group_key,
+            "client": l.client,
+            "session_id": l.session_id,
+            "input_tokens": l.input_tokens,
+            "output_tokens": l.output_tokens,
+            "cache_tokens": l.cache_tokens,
+            "est_cost": final_cost,
+            "ts": l.created_at,
+            "request_id": l.id,
+        })
+    })
+}
+
+#[cfg(test)]
+mod test_sessions_emit {
+    use super::*;
+
+    #[test]
+    fn sessions_payload_skips_empty_session_key() {
+        let mut l = ProxyLog::default();
+        l.session_key = String::new();
+        assert!(session_event_payload(&l, 0.0).is_none(), "空 session_key 不发事件");
+        l.session_key = "sess-1".into();
+        l.group_key = "g".into();
+        l.client = "claude_code".into();
+        l.session_id = "sid-9".into();
+        l.input_tokens = 10;
+        l.output_tokens = 20;
+        l.cache_tokens = 30;
+        l.created_at = 1234;
+        let v = session_event_payload(&l, 1.5).expect("有 session_key 应发事件");
+        assert_eq!(v["session_key"], "sess-1");
+        assert_eq!(v["group_key"], "g");
+        assert_eq!(v["client"], "claude_code");
+        assert_eq!(v["session_id"], "sid-9");
+        assert_eq!(v["input_tokens"], 10);
+        assert_eq!(v["output_tokens"], 20);
+        assert_eq!(v["cache_tokens"], 30);
+        assert_eq!(v["est_cost"], 1.5);
+        assert_eq!(v["ts"], 1234);
+    }
 }
 
 /// 移除某请求 id 的列快照（终态写入后调用，防止 in-flight 快照 map 无限增长）。
@@ -954,7 +1014,8 @@ async fn process_connect_log(
     }
     // 通知前端 Platforms/Stats 刷新（platform_id 可能为 0，前端按需处理）。CONNECT 一次性终态
     // 写入，复用与 `process_upsert` 终态分支相同的 emit idiom（s4 proxy-hotpath-buffers）。
-    emit_log_events(state, platform_id);
+    // CONNECT 隧道无会话上下文：log=None，不发 sessions 事件。
+    emit_log_events(state, platform_id, 0.0, None);
 }
 
 /// 入站请求派生会话归组键（magpie 票 08 / spec D4）。规则：

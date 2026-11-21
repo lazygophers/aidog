@@ -425,6 +425,8 @@ fn build_router(state: Arc<ProxyState>) -> Router {
         // 管理接口（ADR 0010）：本机限制 / 开关 / 凭据都在 handle_management 内，早于分组解析与转发。
         .route("/api/rpc/{*cmd}", post(handle_management))
         .route("/api/events", get(handle_management))
+        // 统一 WebSocket 事件通道（2026-11-21）：协议与 topics 见 aidog_rpc::ws。
+        .route("/api/ws", get(handle_management))
         // Web 界面（桌面内置资源 / 内核 --ui）：同一套闸门，路径在代理端口根下的 /ui。
         .route("/ui", get(handle_management))
         .route("/ui/", get(handle_management))

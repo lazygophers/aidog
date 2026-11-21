@@ -15,5 +15,10 @@ aidog_ctx = { path = "../aidog_ctx" }
 aidog_db = { path = "../aidog_db" }
 serde_json = { workspace = true }
 axum = { workspace = true }
+tokio = { workspace = true }
 tokio-stream = { workspace = true }
 futures = { workspace = true }
+
+[dev-dependencies]
+# WS 客户端（ws.rs 端到端测试用）；版本与 axum 0.8 内置 tungstenite 对齐（workspace 注释）。
+tokio-tungstenite = { workspace = true }
