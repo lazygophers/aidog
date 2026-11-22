@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { proxyLogApi, onProxyLogUpdated, type ProxyLogDetail } from "../../services/api";
 import { writeText } from "../../services/platform";
+import { pickUserResponseBody } from "./userResponseBody";
 
 /**
  * Logs 页详情态：当前打开的 ProxyLogDetail + 复制（全量 markdown / 单条 id）+ 打开/刷新详情。
@@ -41,6 +42,7 @@ export function buildLogMarkdown(d: ProxyLogDetail): string {
   const fj = (s: string) => {
     try { return JSON.stringify(JSON.parse(s), null, 2); } catch { return s; }
   };
+  const userRespBody = pickUserResponseBody(d.user_response_body, d.response_body);
   const lines = [
       `# Proxy Log ${d.id}`,
       ``,
@@ -92,11 +94,7 @@ export function buildLogMarkdown(d: ProxyLogDetail): string {
       fj(d.user_response_headers || "{}"),
       ``,
       `### Response Body`,
-      (d.user_response_body && d.user_response_body !== "[stream]")
-        ? fj(d.user_response_body)
-        : (d.response_body && d.response_body !== "[stream]")
-          ? fj(d.response_body)
-          : "(streaming, not captured)",
+      userRespBody ? fj(userRespBody) : "(streaming, not captured)",
       ``,
       `## Upstream Request (Proxy → Platform)`,
       `- URL: ${d.upstream_request_url || "-"}`,
