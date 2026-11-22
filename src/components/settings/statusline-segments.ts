@@ -262,7 +262,7 @@ export const SEGMENT_DEFS: SegmentDef[] = [
     icon: "bolt",
     desc: "当前分组名 / 最近一次成功命中的平台名（多平台组也可用）",
     defaultOptions: {},
-    toPreview: () => "glm/GLM-自用",
+    toPreview: () => "glm/GLM-main",
     fields: [],
   },
   {

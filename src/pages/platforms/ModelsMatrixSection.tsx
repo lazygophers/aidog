@@ -58,7 +58,7 @@ function describeWindow(w: TimeWindow, tzMode: TzMode, t: TFunction): string {
   if (w.days_of_week && w.days_of_week.length > 0) {
     dayPart = `(${w.days_of_week.map((d) => weekdayShort(t, d)).join(",")})`;
   } else if (w.days_of_month && w.days_of_month.length > 0) {
-    dayPart = `(每月${w.days_of_month.join(",")}日)`;
+    dayPart = `(${t("platform.windows_monthDaysSummary", "每月{{days}}日", { days: w.days_of_month.join(",") })})`;
   }
   const tzLabel = tzMode === "local"
     ? t("platform.timezone_local", "本地")

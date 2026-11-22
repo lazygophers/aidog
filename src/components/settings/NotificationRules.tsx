@@ -34,7 +34,7 @@ function RuleEditor({ rule, onSave, onCancel }: {
   const [exprMsg, setExprMsg] = useState("");
   const [exprOk, setExprOk] = useState<"ok" | "err" | null>(null);
   // 票 05：可视化 ⇄ 文本双向。打开时能解析则进可视化；文本→可视化失败 → 降级提示并停留文本（保留原文）。
-  const initial = parseToVisual(rule.condition ?? "");
+  const initial = parseToVisual(rule.condition ?? "", t);
   const [mode, setMode] = useState<"visual" | "text">(initial.ok ? "visual" : "text");
   const [visual, setVisual] = useState<Visual>(initial.ok ? initial.visual : { join: "&&", terms: [{ field: "severity", op: "==", value: "error" }] });
   const [degrade, setDegrade] = useState("");
@@ -45,7 +45,7 @@ function RuleEditor({ rule, onSave, onCancel }: {
   };
 
   const switchToVisual = () => {
-    const r = parseToVisual(draft.condition ?? "");
+    const r = parseToVisual(draft.condition ?? "", t);
     if (r.ok) {
       setVisual(r.visual);
       setMode("visual");

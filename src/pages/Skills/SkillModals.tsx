@@ -224,7 +224,7 @@ export function SkillModals({ s }: { s: SkillsData }) {
           <Textarea
             style={{ minHeight: 160, fontFamily: "var(--font-mono, monospace)", resize: "vertical" }}
             value={pasteText}
-            placeholder="aidog://skill/import?data=... 或 base64 或 JSON 数组"
+            placeholder={t("skills.pastePlaceholder", "aidog://skill/import?data=... 或 base64 或 JSON 数组")}
             onChange={(e) => setPasteText(e.target.value)}
           />
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>

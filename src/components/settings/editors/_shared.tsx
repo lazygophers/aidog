@@ -166,7 +166,7 @@ export function FieldLabel({ field, t, style, nonDefault, onReset, highlight }: 
       </span>
       {field.description && (
         <span style={{ display: "block", fontWeight: 400, fontSize: F.hint, color: "var(--text-tertiary)", marginTop: 3, lineHeight: 1.5 }}>
-          {field.description}
+          {t(`settings.d_${field.key}`, field.description)}
         </span>
       )}
     </label>

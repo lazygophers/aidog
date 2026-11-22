@@ -185,13 +185,13 @@ function isResponseTarget(t: string): boolean {
 }
 
 /** 混阶段检查：树内所有叶子必须同侧（与 Rust validate_rule_phases 对称，前端提前提示）。 */
-function mixedPhase(node: ConditionNode): string | null {
+function mixedPhase(node: ConditionNode, t: TFunction): string | null {
   let phase: boolean | null = null;
   const walk = (n: ConditionNode) => {
     if (n.kind === "leaf") {
       const p = isResponseTarget(n.target);
       if (phase !== null && phase !== p) {
-        throw new Error(`混阶段条件被拒：'${n.target}' 与请求侧条件不能同树`);
+        throw new Error(t("middleware.mixedPhaseRejected", "混阶段条件被拒：'{{target}}' 与请求侧条件不能同树", { target: n.target }));
       }
       phase = p;
     } else if (n.kind === "not") {
@@ -484,7 +484,7 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
                 <div style={{ flex: "1 1 120px", minWidth: 120 }}>
                   <AutoTextarea
                     mono
-                    placeholder='replacement（默认 ****，regex 支持 $1）'
+                    placeholder={t("middleware.replacementPlaceholder", "replacement（默认 ****，regex 支持 $1）")}
                     value={st.params.replacement}
                     onChange={(v) => setStep(i, { ...st, params: { ...st.params, replacement: v } })}
                   />
@@ -721,19 +721,19 @@ export function RuleForm({ rule, onSave, onCancel }: RuleFormProps) {
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const phaseError = mixedPhase(conditions);
+  const phaseError = mixedPhase(conditions, t);
 
   const handleSave = async () => {
     if (mode === "dsl") {
       // DSL 模式下保存前必须解析成功（切回卡片时已同步，此处兜底）。
       try {
-        setConditions(parseDsl(dslText));
+        setConditions(parseDsl(dslText, t));
       } catch (e) {
         setDslError(String((e as Error).message));
         return;
       }
     }
-    if (mixedPhase(conditions)) return; // 前端已禁用保存按钮，兜底
+    if (mixedPhase(conditions, t)) return; // 前端已禁用保存按钮，兜底
     setSaving(true);
     try {
       await onSave({
@@ -761,7 +761,7 @@ export function RuleForm({ rule, onSave, onCancel }: RuleFormProps) {
   };
   const switchToCards = () => {
     try {
-      setConditions(parseDsl(dslText));
+      setConditions(parseDsl(dslText, t));
       setDslError("");
       setMode("cards");
     } catch (e) {
@@ -825,7 +825,7 @@ export function RuleForm({ rule, onSave, onCancel }: RuleFormProps) {
             onChange={(e) => {
               setDslText(e.target.value);
               try {
-                parseDsl(e.target.value);
+                parseDsl(e.target.value, t);
                 setDslError("");
               } catch (err) {
                 setDslError(String((err as Error).message));

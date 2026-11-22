@@ -315,13 +315,13 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     if (!found) return;
     groupDetailApi.movePlatform(pid, 0, found.gid)
       .then(() => {
-        setToast({ text: "已加入分组", ok: true });
+        setToast({ text: t("group.addedToGroupNoName", "已加入分组"), ok: true });
         // 拖到分组特例（见顶部「一致性规则」— 故意漏 reloadRef）：平台行本身不变，仅刷 groupDetails
         //   重建 membership（卡片即移到目标组）+ 事件广播供 GroupsEmbedded 等跨组件同步，无需整页 load()。
         handleGroupsChanged();
         window.dispatchEvent(new Event("aidog-groups-changed"));
       })
-      .catch(err => setToast({ text: `加入分组失败: ${err}`, ok: false }));
+      .catch(err => setToast({ text: t("group.addToGroupFailed", "加入分组失败: {{error}}", { error: String(err) }), ok: false }));
   };
 
   // ════════════ QUOTA SUBSYSTEM ════════════

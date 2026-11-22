@@ -1,8 +1,16 @@
 // mwDsl round-trip 与错误定位测试（票 05）。
 
 import { describe, it, expect } from "vitest";
-import { treeToDsl, parseDsl, dslErrorPos } from "./mwDsl";
+import { treeToDsl, parseDsl as parseDslT, dslErrorPos } from "./mwDsl";
 import type { ConditionNode } from "../services/api";
+
+// t stub：fallback + {{var}} 插值（i18next 同构），报错文本因此确定性等于中文兜底
+const t = ((key: string, fallback?: string, opts?: Record<string, unknown>) => {
+  let s = fallback ?? key;
+  if (opts) for (const [k, v] of Object.entries(opts)) s = s.split(`{{${k}}}`).join(String(v));
+  return s;
+}) as any;
+const parseDsl = (src: string) => parseDslT(src, t);
 
 const leaf = (target: string, pattern: string, match_type = "contains", field = "", validator = ""): ConditionNode => ({
   kind: "leaf",

@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Platform, GroupDetail, GroupPlatformDetail } from "../../services/api";
 import { groupDetailApi } from "../../services/api";
 
@@ -34,6 +35,9 @@ export function usePlatformDrag(api: PlatformDragApi): PlatformDragResult {
   // ref 镜像：稳定的 pointer handler 闭包读取最新 props（避免每次 deps 变化重新挂监听）
   const apiRef = useRef(api);
   apiRef.current = api;
+  const { t } = useTranslation();
+  const tRef = useRef(t);
+  tRef.current = t;
 
   // platDragRef：可变拖拽态（不用 state，避免 pointermove 频繁 rerender）
   const platDragRef = useRef<{ payload: DndPayload | null; active: boolean; startX: number; startY: number }>({
@@ -101,12 +105,12 @@ export function usePlatformDrag(api: PlatformDragApi): PlatformDragResult {
         const gname = details.find(d => d.group.id === gid)?.group.name ?? `#${gid}`;
         groupDetailApi.movePlatform(payload.pid, 0, gid)
           .then(() => {
-            onToast?.({ text: `已加入分组 ${gname}`, ok: true });
+            onToast?.({ text: tRef.current("group.addedToGroup", "已加入分组 {{name}}", { name: gname }), ok: true });
             load(); onGroupsChanged?.();
           })
           .catch((err) => {
             console.error("[aidog-dnd] movePlatform failed", err);
-            onToast?.({ text: `加入分组失败: ${err}`, ok: false });
+            onToast?.({ text: tRef.current("group.addToGroupFailed", "加入分组失败: {{error}}", { error: String(err) }), ok: false });
             load(); // 回滚乐观插入
           });
       } else {

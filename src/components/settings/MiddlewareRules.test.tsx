@@ -252,7 +252,7 @@ describe("RuleForm（票 04/05：卡片编辑器 + DSL）", () => {
     const dsl = screen.getByTestId("mw-dsl") as HTMLTextAreaElement;
     await user.clear(dsl);
     await user.type(dsl, 'foo contains "x"');
-    await waitFor(() => expect(screen.getByText(/未知 target/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/middleware\.dsl\.errorAt/)).toBeTruthy());
     // 保存与切回按钮均禁用
     expect(screen.getByRole("button", { name: "action.save" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "middleware.toCards" })).toBeDisabled();

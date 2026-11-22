@@ -24,7 +24,7 @@ export function Variables() {
     setError("");
     try {
       const invalid = variables.find(v => !KEY_PATTERN.test(v.key) || new TextEncoder().encode(v.value).length > 8192);
-      if (invalid) throw new Error("变量名须符合 [A-Za-z_][A-Za-z0-9_]*，最多 128 字符；变量值最多 8192 字节");
+      if (invalid) throw new Error(t("variables.invalid", "变量名须符合 [A-Za-z_][A-Za-z0-9_]*，最多 128 字符；变量值最多 8192 字节"));
       await variablesApi.save(variables);
     } catch (e) {
       setError(String(e));

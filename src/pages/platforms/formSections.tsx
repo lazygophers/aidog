@@ -623,7 +623,7 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
     <>
       {/* 实时态条：限额计数（用量扣减数据未回传表单，先展示静态配置态） */}
       <div className="aidog-anim-rise" style={C.strip}>
-        <div style={C.tile("var(--color-success)")}>预</div>
+        <div style={C.tile("var(--color-success)")}>{t("platform.tile.quota", "预")}</div>
         <span style={C.pill("neutral")}>
           {t("platform.manualBudgetCount", "{{n}} 个限额", { n: budgets.length })}
           {budgets.length > 0 && ` · ${budgets.filter(b => b.enabled).length}/${budgets.length}`}
@@ -978,7 +978,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
     >
       {/* 实时态条：当前生效倍率（first-match 实时判定，与路由同 hit 逻辑） */}
       <div className="aidog-anim-rise" style={C.strip}>
-        <div style={C.tile("var(--color-warning)")}>倍</div>
+        <div style={C.tile("var(--color-warning)")}>{t("platform.tile.multiplier", "倍")}</div>
         <span style={C.pill(nowPeak ? "hot" : "neutral")}>
           {nowPeak
             ? t("platform.peakPillPeak", "高峰中 ×{{n}}").replace("{{n}}", String(nowMult))
@@ -1751,7 +1751,7 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
     >
       {/* 实时态条：配置摘要（调度数据未回传，先展示静态配置态） */}
       <div className="aidog-anim-rise" style={C.strip}>
-        <div style={C.tile("var(--data-primary)")}>频</div>
+        <div style={C.tile("var(--data-primary)")}>{t("platform.tile.rateLimit", "频")}</div>
         {summary === "" ? (
           <span style={C.pill("neutral")}>
             {t("platform.rateLimits.none", "未配置 → 调度不限频（沿用 429 兜底）")}
@@ -1888,7 +1888,7 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
           </div>
         ))}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {([["5", "3600", "+ 5 小时"], ["1", "86400", "+ 1 天"], ["7", "86400", "+ 7 天"], ["30", "60", "+ 30 分钟"]] as const).map(([n, u, label]) => (
+          {([["5", "3600", t("platform.quickAdd.hours", "+ {{n}} 小时", { n: 5 })], ["1", "86400", t("platform.quickAdd.days", "+ {{n}} 天", { n: 1 })], ["7", "86400", t("platform.quickAdd.days", "+ {{n}} 天", { n: 7 })], ["30", "60", t("platform.quickAdd.minutes", "+ {{n}} 分钟", { n: 30 })]] as const).map(([n, u, label]) => (
             <button key={label} type="button" className={C.addBtnClass}
               onClick={() => upd("windows", [...draft.windows, { num: n, unit: u, mode: "tokens", amount: "", enabled: true, resetMode: "sliding" }])}>
               {label}
@@ -1923,7 +1923,7 @@ export function DirectModelsSection({ models, setModels, availableModels, protoc
       desc={t("platform.direct_models_desc", "声明后，分组请求携带这些模型 id 时只在声明它的平台里按现有优先级转发（保留请求模型原名）；组内无人声明则走默认链。声明即生效，不查模型收录。")}
     >
       <div className="aidog-anim-rise" style={C.strip}>
-        <div style={C.tile("var(--data-primary)")}>直</div>
+        <div style={C.tile("var(--data-primary)")}>{t("platform.tile.direct", "直")}</div>
         <span style={C.pill(models.length > 0 ? "ok" : "neutral")}>
           {t("platform.direct_models_count", "{{n}} 个模型", { n: models.length })}
         </span>

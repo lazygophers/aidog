@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { proxyLogApi, onProxyLogUpdated, type ProxyLogDetail } from "../../services/api";
 import { writeText } from "../../services/platform";
 import { pickUserResponseBody } from "./userResponseBody";
@@ -10,35 +11,8 @@ import { pickUserResponseBody } from "./userResponseBody";
  * DetailPanel（详情内工具栏）依赖，是 list/detail 真实共享的一段，故独立成段而非塞进某一侧。
  */
 
-  // 复制文本是给人读的调试文本，不进 UI，标签写死中文、不走 i18n
-const REASON_LABELS: Record<string, string> = {
-  "selected": "选中",
-  "disabled-manual": "手动禁用",
-  "disabled-auto": "自动禁用",
-  "peak-disabled": "高峰期禁用",
-  "breaker": "熔断",
-  "quota-cooldown": "配额冷却",
-  "auth-cooldown": "认证冷却",
-  "rate-limit-cooldown": "限频冷却",
-  "unknown-protocol": "协议未知",
-  "kind-unsupported": "请求类型不支持",
-  "client-not-allowed": "客户端不被允许",
-  "rate-limited": "限频超限",
-  "model-not-on-platform": "槽位已关闭（默认开关）",
-  "time-rule-slot-disabled": "槽位已关闭（时段档开关）",
-  "skipped-dead-upstream": "死站跳过",
-  "quota-window-exhausted": "额度窗口耗尽",
-};
-
-const TAG_LABELS: Record<string, string> = {
-  "mapping-promoted": "映射提升",
-  "coding-plan": "coding plan 上浮",
-  "demoted": "失败降权",
-  "sticky": "sticky",
-};
-
-/** 全量复制 Markdown；与详情页分区对应（快照/attempts 为空则整段省略，旧日志兼容）。 */
-export function buildLogMarkdown(d: ProxyLogDetail): string {
+/** 全量复制 Markdown；与详情页分区对应（快照/attempts 为空则整段省略，旧日志兼容）。路由原因 / 标签与路由画布同 key，未知值原样输出。 */
+export function buildLogMarkdown(d: ProxyLogDetail, t: TFunction): string {
   const fj = (s: string) => {
     try { return JSON.stringify(JSON.parse(s), null, 2); } catch { return s; }
   };
@@ -66,9 +40,9 @@ export function buildLogMarkdown(d: ProxyLogDetail): string {
       if (d.routing.mode) lines.push(`- Mode: ${d.routing.mode}`);
       lines.push(``);
       for (const c of d.routing.entries) {
-        const tagText = (c.tags ?? []).map(tg => TAG_LABELS[tg] ?? tg).join("、");
+        const tagText = (c.tags ?? []).map(tg => t(`logs.routing.tag.${tg}`, { defaultValue: tg })).join("、");
         const modelText = c.target_model ? ` · ${c.target_model}` : "";
-        lines.push(`${c.order}. ${c.platform} — ${REASON_LABELS[c.reason] ?? c.reason}${tagText ? `（${tagText}）` : ""} · 优先级 L${c.level_priority}/P${c.priority}${modelText}`);
+        lines.push(`${c.order}. ${c.platform} — ${t(`logs.routing.reason.${c.reason}`, { defaultValue: c.reason })}${tagText ? `（${tagText}）` : ""} · ${t("logs.copy.priority", "优先级 L{{level}}/P{{prio}}", { level: c.level_priority, prio: c.priority })}${modelText}`);
       }
       lines.push(``);
     }
@@ -124,11 +98,11 @@ export function useLogsDetail() {
 
   const copyDetail = useCallback(async (d: ProxyLogDetail) => {
     try {
-      await writeText(buildLogMarkdown(d));
+      await writeText(buildLogMarkdown(d, t));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (e) { console.error(e); }
-  }, []);
+  }, [t]);
 
   const openDetail = useCallback(async (id: string) => {
     // 竞态守卫：快速连点两行时慢的旧请求后到，不比对会覆盖面板显示错误请求的内容

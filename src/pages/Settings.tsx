@@ -247,7 +247,7 @@ export function Settings() {
       }
       setImportDiff({ source, diff, kind: "claudeCode" });
     } catch (e: any) {
-      setToast(`导入失败：${e?.message ?? e ?? "未知错误"}`);
+      setToast(t("settings.importFailed", "导入失败：{{error}}", { error: e?.message ?? e ?? t("common.unknownError", "未知错误") }));
       setTimeout(() => setToast(""), 5000);
     }
   };
@@ -289,7 +289,7 @@ export function Settings() {
       const hits = new Set<string>();
       for (const f of section.fields) {
         const label = t(`settings.f_${f.key}`, f.label).toLowerCase();
-        const desc = (f.description ?? "").toLowerCase();
+        const desc = (f.description ? t(`settings.d_${f.key}`, f.description) : "").toLowerCase();
         if (label.includes(q) || f.key.toLowerCase().includes(q) || desc.includes(q)) {
           hits.add(f.key);
         }
