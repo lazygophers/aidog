@@ -305,3 +305,46 @@ async fn connect_bytes_columns_survive_roundtrip() {
     assert_eq!(s.up_bytes, 12345, "up_bytes 经列表读回不得为 0");
     assert_eq!(s.down_bytes, 67890, "down_bytes 经列表读回不得为 0");
 }
+
+/// 验收 4（issue #56 票 02）：CONNECT 行携带字节数写入后，`upsert_proxy_log` 同 id 重写
+/// 必须绑定调用方值落库，不得像修复前那样对这两列写死 0（整行 REPLACE 语义下调用方
+/// 重写时携带同一字节数，携带值必须原样落库）。先红测试。
+#[tokio::test]
+async fn upsert_proxy_log_preserves_connect_bytes() {
+    let (db, _dir) = three_file_db().await;
+    let log = aidog_db::models::ProxyLog {
+        id: "rt-bytes-upsert".into(),
+        group_key: "grp".into(),
+        up_bytes: 12345,
+        down_bytes: 67890,
+        ..Default::default()
+    };
+    upsert_proxy_log(&db, log).await.unwrap();
+    // 同 id 重写（CONNECT 行重写场景）：调用方再次携带同一字节数 + 终态元数据。
+    let log2 = aidog_db::models::ProxyLog {
+        id: "rt-bytes-upsert".into(),
+        group_key: "grp".into(),
+        status_code: 200,
+        done: true,
+        up_bytes: 12345,
+        down_bytes: 67890,
+        ..Default::default()
+    };
+    upsert_proxy_log(&db, log2).await.unwrap();
+
+    let (up, down) = db
+        .call_read_proxy_log_traced(None, std::panic::Location::caller(), |conn| {
+            conn.query_row(
+                "SELECT up_bytes, down_bytes FROM proxy_log WHERE id = 'rt-bytes-upsert'",
+                [],
+                |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
+            )
+        })
+        .await
+        .unwrap();
+    assert_eq!(
+        (up, down),
+        (12345, 67890),
+        "upsert 同 id 重写不得清零 CONNECT 字节数"
+    );
+}

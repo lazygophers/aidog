@@ -155,6 +155,13 @@ pub struct ProxyLog {
     /// `x-claude-code-prev-tool-durations`：百分号解码后的 `Name=ms;Name=ms`（≤4096 字节）；空串 = 无。
     #[serde(default)]
     pub prev_tool_durations: String,
+    /// 隧道上/下行字节数（migration 20261109-02，仅 http-connect 行置值，其余 0）。
+    /// `upsert_proxy_log` 绑定本字段值（issue #56 票 02 验收 4：同 id 重写不得清零）。
+    #[serde(default)]
+    pub up_bytes: i64,
+    /// 隧道下行字节数（同 [`Self::up_bytes`]）。
+    #[serde(default)]
+    pub down_bytes: i64,
 }
 
 /// `ProxyLog.user_agent` 字符上限（防畸形超长 UA 撑大行）。

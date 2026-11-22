@@ -47,6 +47,9 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog
         client: row.get(38)?,
         user_agent: row.get(39)?,
         session_key: row.get(40)?,
+        // up/down 字节（列 41/42）不进本结构：读走 ProxyLogSummary（test_column_lock 注记）。
+        up_bytes: 0,
+        down_bytes: 0,
         request_class: row.get(43)?,
         agent_type: row.get(44)?,
         prompt_id: row.get(45)?,
@@ -150,7 +153,7 @@ pub fn upsert_proxy_log(
             // 固定 SQL（列目录派生）→ prepare_cached 命中 rusqlite statement cache，省每次写的 prepare 开销
             let mut stmt = conn.prepare_cached(proxy_log_catalog::insert_sql(true))?;
             stmt.execute(
-                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.cache_write_tokens, log.cache_write_1h_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at, log.done as i64, log.field_trace, log.body_omitted as i64, routing_str, log.client, log.user_agent, log.session_key, 0i64, 0i64, log.request_class, log.agent_type, log.prompt_id, log.session_id, log.agent_id, log.parent_agent_id, log.compaction, log.context_compacted, log.prev_tool_durations, up_req_dedup, resp_dedup],
+                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.cache_write_tokens, log.cache_write_1h_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at, log.done as i64, log.field_trace, log.body_omitted as i64, routing_str, log.client, log.user_agent, log.session_key, log.up_bytes, log.down_bytes, log.request_class, log.agent_type, log.prompt_id, log.session_id, log.agent_id, log.parent_agent_id, log.compaction, log.context_compacted, log.prev_tool_durations, up_req_dedup, resp_dedup],
             )?;
             Ok(())
         })
