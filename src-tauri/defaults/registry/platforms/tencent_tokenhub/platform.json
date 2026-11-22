@@ -1,5 +1,5 @@
 {
-  "last_updated": 1795317361,
+  "last_updated": 1795317498,
   "holiday_calendar": "CN",
   "endpoints": {
     "default": [
@@ -93,6 +93,7 @@
       "end_hour": 12,
       "multiplier": 1,
       "day_type": "workday",
+      "holiday_calendar": "CN",
       "models": [
         "deepseek/deepseek-flash",
         "deepseek-v4-flash-202605",
@@ -109,6 +110,7 @@
       "end_hour": 18,
       "multiplier": 1,
       "day_type": "workday",
+      "holiday_calendar": "CN",
       "models": [
         "deepseek/deepseek-flash",
         "deepseek-v4-flash-202605",
