@@ -2630,7 +2630,7 @@
   "proxy.logRetentionForever": "احتفظ للأبد",
   "proxy.logRetentionHint": "0 = احتفظ للأبد",
   "proxy.logUpstreamReq": "سجلّ طلب المنبع",
-  "proxy.logUpstreamReqDesc": "ترويسات وجسم الطلب المرسل إلى المنصة المنبع",
+  "proxy.logUpstreamReqDesc": "ترويسات وجسم الطلب المرسل إلى المنصة المنبع؛ ملخصات أخطاء المنبع (حتى 500 حرف) بيانات وصفية وتُحفظ دائمًا",
   "proxy.logUserReq": "سجلّ الطلب الأصلي للمستخدم",
   "proxy.logUserReqDesc": "ترويسات وجسم الطلب المرسل من العميل",
   "proxy.port": "المنفذ",

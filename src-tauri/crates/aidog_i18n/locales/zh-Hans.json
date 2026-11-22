@@ -2542,7 +2542,7 @@
   "proxy.logRetentionForever": "永久保留",
   "proxy.logRetentionHint": "0 = 永久保留",
   "proxy.logUpstreamReq": "记录实际上游请求",
-  "proxy.logUpstreamReqDesc": "发送到上游平台的请求头和请求体",
+  "proxy.logUpstreamReqDesc": "发送到上游平台的请求头和请求体；上游错误摘要（最多 500 字符）属元数据，始终保留",
   "proxy.logUserReq": "记录用户原始请求",
   "proxy.logUserReqDesc": "用户发送的请求头和请求体",
   "proxy.port": "端口",

@@ -2630,7 +2630,7 @@
   "proxy.logRetentionForever": "Für immer behalten",
   "proxy.logRetentionHint": "0 = für immer behalten",
   "proxy.logUpstreamReq": "Upstream-Anfrage protokollieren",
-  "proxy.logUpstreamReqDesc": "Anfrage-Header und -Body an die Upstream-Plattform",
+  "proxy.logUpstreamReqDesc": "Anfrage-Header und -Body an die Upstream-Plattform; Upstream-Fehlerzusammenfassungen (max. 500 Zeichen) sind Metadaten und werden immer aufbewahrt",
   "proxy.logUserReq": "Original-Nutzeranfrage protokollieren",
   "proxy.logUserReqDesc": "Anfrage-Header und -Body des Clients",
   "proxy.port": "Port",
