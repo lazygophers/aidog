@@ -214,17 +214,17 @@ static USER_RETENTION_SQL: LazyLock<String> = LazyLock::new(|| {
     let cols = raw_cols(Side::User);
     format!(
         "UPDATE proxy_log SET {} WHERE created_at < ?1 AND ({})",
-        set_empty(&cols),
-        nonempty_guard(&cols)
+        set_empty(cols),
+        nonempty_guard(cols)
     )
 });
 static UPSTREAM_RETENTION_SQL: LazyLock<String> = LazyLock::new(|| {
     let cols = raw_cols(Side::Upstream);
     format!(
         "UPDATE proxy_log SET {}, {} WHERE created_at < ?1 AND ({} OR {})",
-        set_empty(&cols),
+        set_empty(cols),
         dedup_reset_set(),
-        nonempty_guard(&cols),
+        nonempty_guard(cols),
         dedup_reset_guard()
     )
 });
