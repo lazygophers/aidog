@@ -216,11 +216,29 @@ export function useSystemSettings() {
     retention_unit: logRetentionUnit,
   });
 
-  const updateLogSettings = async (partial: Partial<ProxyLogSettings>) => {
-    const settings = { ...buildLogSettings(), ...partial };
+  // 保存失败时把已乐观变更的字段回滚为保存前的值（issue #56 T05），返回错误文本（成功 null）；
+  // 提示由调用方（LogSettingsSection）负责闪出。调用点先 setState 后调本函数，同一事件 tick 内
+  // 闭包里仍是旧值，prev 快照因此成立。
+  const updateLogSettings = async (partial: Partial<ProxyLogSettings>): Promise<string | null> => {
+    const prev = buildLogSettings();
     try {
-      await proxyLogApi.setSettings(settings);
-    } catch (e: any) { setMessage(e.toString()); }
+      await proxyLogApi.setSettings({ ...prev, ...partial });
+      return null;
+    } catch (e: any) {
+      setMessage(e.toString());
+      const logSetterMap: Record<keyof ProxyLogSettings, (v: never) => void> = {
+        log_user_request: setLogUserReq,
+        log_upstream_request: setLogUpstreamReq,
+        user_request_retention_days: setUserReqRetention,
+        user_request_retention_unit: setUserReqRetentionUnit,
+        upstream_request_retention_days: setUpstreamReqRetention,
+        upstream_request_retention_unit: setUpstreamReqRetentionUnit,
+        retention_days: setLogRetention,
+        retention_unit: setLogRetentionUnit,
+      };
+      for (const k of Object.keys(partial) as (keyof ProxyLogSettings)[]) logSetterMap[k](prev[k] as never);
+      return e.toString();
+    }
   };
 
   // 确认改走 AlertDialog（Radix Portal）：原生 window.confirm 破坏 Tauri，项目禁用。
