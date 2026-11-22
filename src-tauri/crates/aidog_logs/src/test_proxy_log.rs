@@ -1138,12 +1138,12 @@ async fn session_group_key_uses_session_id_index() {
 async fn dedup_raw(db: &aidog_db::Db, id: &str) -> (String, i64, String, i64) {
     let id = id.to_string();
     db.call_read_proxy_log_traced(None, std::panic::Location::caller(), move |conn| {
-        Ok(conn.query_row(
+        conn.query_row(
             "SELECT upstream_request_body, upstream_request_body_dedup, response_body, response_body_dedup \
              FROM proxy_log WHERE id = ?1",
             params![id],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
-        )?)
+        )
     })
     .await
     .unwrap()

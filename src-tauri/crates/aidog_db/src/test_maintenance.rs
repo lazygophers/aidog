@@ -390,9 +390,10 @@ async fn retention_three_file_clears_all_raw_columns() {
         .await
         .unwrap();
 
-    let (req_h, req_b, ur_h, ur_b, req_url, up_h, up_b, up_sh, resp_b, ft, up_url, attempts, routing, model, status): (
+    type MaintRawRow = (
         String, String, String, String, String, String, String, String, String, String, String, String, String, String, i32,
-    ) = db
+    );
+    let (req_h, req_b, ur_h, ur_b, req_url, up_h, up_b, up_sh, resp_b, ft, up_url, attempts, routing, model, status): MaintRawRow = db
         .call_read_proxy_log_traced(None, std::panic::Location::caller(), |c| {
             c.query_row(
                 "SELECT request_headers, request_body, user_response_headers, user_response_body, request_url, \
