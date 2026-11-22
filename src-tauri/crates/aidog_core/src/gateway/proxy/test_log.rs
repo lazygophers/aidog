@@ -55,6 +55,8 @@ fn placeholder_stream_log(id: &str) -> ProxyLog {
         done: false,
         field_trace: String::new(),
         body_omitted: false,
+        up_bytes: 0,
+        down_bytes: 0,
     }
 }
 

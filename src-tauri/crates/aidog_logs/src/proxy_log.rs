@@ -1,11 +1,9 @@
 use aidog_db::models::*;
+use aidog_db::proxy_log_catalog::{self, Side};
 use aidog_db::{Db, incremental_vacuum_conn, now, retention_cutoff_secs};
 use rusqlite::{OptionalExtension, Result as SqlResult, params};
 
-/// proxy_log 全列序（INSERT / 单行 SELECT 共用，与表定义列序一致）
-const PROXY_LOG_COLUMNS: &str = "id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, cache_write_tokens, cache_write_1h_tokens, est_cost, is_stream, attempts, retry_count, blocked_by, blocked_reason, created_at, updated_at, deleted_at, done, field_trace, body_omitted, routing, client, user_agent, session_key, up_bytes, down_bytes, request_class, agent_type, prompt_id, session_id, agent_id, parent_agent_id, compaction, context_compacted, prev_tool_durations";
-
-/// 从查询行构造 ProxyLog（列序须与 PROXY_LOG_COLUMNS 一致）
+/// 从查询行构造 ProxyLog（列序须与 `proxy_log_catalog::columns_csv` 一致）
 fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog> {
     Ok(aidog_db::models::ProxyLog {
         id: row.get(0)?,
@@ -49,6 +47,9 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog
         client: row.get(38)?,
         user_agent: row.get(39)?,
         session_key: row.get(40)?,
+        // up/down 字节（列 41/42）不进本结构：读走 ProxyLogSummary（test_column_lock 注记）。
+        up_bytes: 0,
+        down_bytes: 0,
         request_class: row.get(43)?,
         agent_type: row.get(44)?,
         prompt_id: row.get(45)?,
@@ -58,7 +59,7 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog
         compaction: row.get(49)?,
         context_compacted: row.get(50)?,
         prev_tool_durations: row.get(51)?,
-        // 票 16 B1：按次计数不落列（PROXY_LOG_COLUMNS 零变化），DB 读回恒空。
+        // 票 16 B1：按次计数不落列（目录列集零变化），DB 读回恒空。
         tool_call_counts: Vec::new(),
     })
 }
@@ -74,20 +75,16 @@ pub fn strip_raw_sides(
     strip_user: bool,
     strip_upstream: bool,
 ) {
-    if strip_user {
-        log.request_headers.clear();
-        log.request_body.clear();
-        log.user_response_headers.clear();
-        log.user_response_body.clear();
-        log.request_url.clear();
-    }
-    if strip_upstream {
-        log.upstream_request_headers.clear();
-        log.upstream_request_body.clear();
-        log.upstream_response_headers.clear();
-        log.response_body.clear();
-        log.field_trace.clear();
-        log.upstream_request_url.clear();
+    // 列集派生自 proxy_log_catalog（issue #56 票 02）：受哪个开关由列归属决定。
+    for (side, strip) in [(Side::User, strip_user), (Side::Upstream, strip_upstream)] {
+        if !strip {
+            continue;
+        }
+        for col in proxy_log_catalog::raw_cols(side) {
+            if let Some(field) = proxy_log_catalog::proxy_log_raw_field_mut(log, col) {
+                field.clear();
+            }
+        }
     }
 }
 
@@ -127,13 +124,10 @@ pub fn upsert_proxy_log(
         .call_proxy_log_traced(None, __db_caller, move |conn| {
             let attempts_str = aidog_db::models::serialize_attempts(&log.attempts);
             let routing_str = aidog_db::models::serialize_routing(&log.routing);
-            // 固定 SQL（列序常量）→ prepare_cached 命中 rusqlite statement cache，省每次写的 prepare 开销
-            let mut stmt = conn.prepare_cached(
-                &format!("INSERT OR REPLACE INTO proxy_log ({PROXY_LOG_COLUMNS})
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36,?37,?38,?39,?40,?41,?42,?43,?44,?45,?46,?47,?48,?49,?50,?51,?52)"),
-            )?;
+            // 固定 SQL（列目录派生）→ prepare_cached 命中 rusqlite statement cache，省每次写的 prepare 开销
+            let mut stmt = conn.prepare_cached(proxy_log_catalog::insert_sql(true))?;
             stmt.execute(
-                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.cache_write_tokens, log.cache_write_1h_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at, log.done as i64, log.field_trace, log.body_omitted as i64, routing_str, log.client, log.user_agent, log.session_key, 0i64, 0i64, log.request_class, log.agent_type, log.prompt_id, log.session_id, log.agent_id, log.parent_agent_id, log.compaction, log.context_compacted, log.prev_tool_durations],
+                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.cache_write_tokens, log.cache_write_1h_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at, log.done as i64, log.field_trace, log.body_omitted as i64, routing_str, log.client, log.user_agent, log.session_key, log.up_bytes, log.down_bytes, log.request_class, log.agent_type, log.prompt_id, log.session_id, log.agent_id, log.parent_agent_id, log.compaction, log.context_compacted, log.prev_tool_durations],
             )?;
             Ok(())
         })
@@ -148,7 +142,7 @@ pub fn upsert_proxy_log(
 /// 后续节点与上一快照逐列 diff，仅 UPDATE 变化列。配合 upsert_log 的按需脱敏，
 /// 彻底消除 proxy.rs 每次写都 `log.clone()` 整结构的开销。
 ///
-/// 字段顺序与值语义须与 `PROXY_LOG_COLUMNS` / `upsert_proxy_log` 完全一致（字段完整性红线）。
+/// 字段顺序与值语义须与 `proxy_log_catalog::columns_csv` / `upsert_proxy_log` 完全一致（字段完整性红线）。
 #[derive(Clone, PartialEq)]
 pub struct ProxyLogColumns {
     pub id: String,
@@ -421,53 +415,67 @@ impl ProxyLogColumns {
     fn large_fields_first_write(&self, prev_written: u8, terminal: bool) -> (Vec<ColBind>, u8) {
         let mut out: Vec<ColBind> = Vec::new();
         let mut mask = prev_written;
-        macro_rules! raw {
-            ($col:literal, $field:ident, $bit:literal, $force:expr) => {
-                if $force || (mask & (1 << $bit) == 0 && !self.$field.is_empty()) {
-                    out.push(($col, Box::new(self.$field.clone())));
-                    mask |= 1 << $bit;
-                }
-            };
+        // 大字段清单与位下标派生自 proxy_log_catalog（issue #56 票 02）；
+        // response_side = true 的列终态强制写（空值也写，覆盖中间态部分响应）。
+        for (name, bit, response_side) in proxy_log_catalog::PROXY_LOG_CATALOG
+            .iter()
+            .filter_map(|c| c.large.map(|l| (c.name, l.0, l.1)))
+        {
+            let should_write = (terminal && response_side)
+                || (mask & (1 << bit) == 0
+                    && self.raw_field(name).is_some_and(|v| !v.is_empty()));
+            if should_write {
+                out.push((
+                    name,
+                    Box::new(self.raw_field(name).expect("catalog large col").clone()),
+                ));
+                mask |= 1 << bit;
+            }
         }
-        raw!("request_headers", request_headers, 0, false);
-        raw!("request_body", request_body, 1, false);
-        raw!(
-            "upstream_request_headers",
-            upstream_request_headers,
-            2,
-            false
-        );
-        raw!("upstream_request_body", upstream_request_body, 3, false);
-        raw!("response_body", response_body, 4, terminal);
-        raw!(
-            "upstream_response_headers",
-            upstream_response_headers,
-            5,
-            terminal
-        );
-        raw!("user_response_headers", user_response_headers, 6, terminal);
-        raw!("user_response_body", user_response_body, 7, terminal);
         (out, mask)
+    }
+
+    /// 大字段列名 → 字段（8 列，与 `proxy_log_catalog` 的 `large` 声明同集；漏加时
+    /// `test_column_lock` 往返 / 穷尽测试红）。
+    fn raw_field(&self, col: &str) -> Option<&String> {
+        Some(match col {
+            "request_headers" => &self.request_headers,
+            "request_body" => &self.request_body,
+            "upstream_request_headers" => &self.upstream_request_headers,
+            "upstream_request_body" => &self.upstream_request_body,
+            "response_body" => &self.response_body,
+            "upstream_response_headers" => &self.upstream_response_headers,
+            "user_response_headers" => &self.user_response_headers,
+            "user_response_body" => &self.user_response_body,
+            _ => return None,
+        })
+    }
+
+    fn raw_field_mut(&mut self, col: &str) -> Option<&mut String> {
+        Some(match col {
+            "request_headers" => &mut self.request_headers,
+            "request_body" => &mut self.request_body,
+            "upstream_request_headers" => &mut self.upstream_request_headers,
+            "upstream_request_body" => &mut self.upstream_request_body,
+            "response_body" => &mut self.response_body,
+            "upstream_response_headers" => &mut self.upstream_response_headers,
+            "user_response_headers" => &mut self.user_response_headers,
+            "user_response_body" => &mut self.user_response_body,
+            _ => return None,
+        })
     }
 
     /// INSERT 后的初始位掩码：INSERT 绑定全部列，非空大字段视作「已写」，空字段留待后续首写。
     pub fn nonempty_raw_mask(&self) -> u8 {
         let mut m = 0u8;
-        macro_rules! bit {
-            ($field:ident, $b:literal) => {
-                if !self.$field.is_empty() {
-                    m |= 1 << $b;
-                }
-            };
+        for (name, bit, _) in proxy_log_catalog::PROXY_LOG_CATALOG
+            .iter()
+            .filter_map(|c| c.large.map(|l| (c.name, l.0, l.1)))
+        {
+            if self.raw_field(name).is_some_and(|v| !v.is_empty()) {
+                m |= 1 << bit;
+            }
         }
-        bit!(request_headers, 0);
-        bit!(request_body, 1);
-        bit!(upstream_request_headers, 2);
-        bit!(upstream_request_body, 3);
-        bit!(response_body, 4);
-        bit!(upstream_response_headers, 5);
-        bit!(user_response_headers, 6);
-        bit!(user_response_body, 7);
         m
     }
 
@@ -476,14 +484,14 @@ impl ProxyLogColumns {
     /// OOM 止血：log_snapshots HashMap 不再持大字段 String，仅留 meta（id/status/tokens/...）
     /// + 首写位掩码。DB schema 不变，body 列按「首写」规则写入（见 `large_fields_first_write`）。
     pub fn into_snapshot_meta(mut self) -> Self {
-        self.request_headers.clear();
-        self.request_body.clear();
-        self.upstream_request_headers.clear();
-        self.upstream_request_body.clear();
-        self.response_body.clear();
-        self.upstream_response_headers.clear();
-        self.user_response_headers.clear();
-        self.user_response_body.clear();
+        for name in proxy_log_catalog::PROXY_LOG_CATALOG
+            .iter()
+            .filter_map(|c| c.large.map(|_| c.name))
+        {
+            if let Some(field) = self.raw_field_mut(name) {
+                field.clear();
+            }
+        }
         self
     }
 }
@@ -500,11 +508,8 @@ pub fn insert_proxy_log_columns(
         let req_id = cols.id.clone();
         db
         .call_proxy_log_traced(Some(&req_id), __db_caller, move |conn| {
-            // 固定 SQL（列序常量）→ prepare_cached 命中 statement cache（渐进式日志首节点高频）
-            let mut stmt = conn.prepare_cached(
-                &format!("INSERT INTO proxy_log ({PROXY_LOG_COLUMNS})
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36,?37,?38,?39,?40,?41,?42,?43,?44,?45,?46,?47,?48,?49,?50,?51,?52)"),
-            )?;
+            // 固定 SQL（列目录派生）→ prepare_cached 命中 statement cache（渐进式日志首节点高频）
+            let mut stmt = conn.prepare_cached(proxy_log_catalog::insert_sql(false))?;
             stmt.execute(
                 params![cols.id, cols.group_key, cols.model, cols.actual_model, cols.source_protocol, cols.target_protocol, cols.platform_id, cols.request_headers, cols.request_body, cols.upstream_request_headers, cols.upstream_request_body, cols.response_body, cols.request_url, cols.upstream_request_url, cols.upstream_response_headers, cols.upstream_status_code, cols.user_response_headers, cols.user_response_body, cols.status_code, cols.duration_ms, cols.input_tokens, cols.output_tokens, cols.cache_tokens, cols.cache_write_tokens, cols.cache_write_1h_tokens, cols.est_cost, cols.is_stream, cols.attempts, cols.retry_count, cols.blocked_by, cols.blocked_reason, cols.created_at, cols.updated_at, cols.deleted_at, cols.done, cols.field_trace, cols.body_omitted, cols.routing, cols.client, cols.user_agent, cols.session_key, cols.up_bytes, cols.down_bytes, cols.request_class, cols.agent_type, cols.prompt_id, cols.session_id, cols.agent_id, cols.parent_agent_id, cols.compaction, cols.context_compacted, cols.prev_tool_durations],
             )?;
@@ -877,7 +882,8 @@ pub fn get_proxy_log<'a>(
         let id = id.to_string();
         db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare_cached(&format!(
-                "SELECT {PROXY_LOG_COLUMNS} FROM proxy_log WHERE id = ?1 AND deleted_at = 0"
+                "SELECT {} FROM proxy_log WHERE id = ?1 AND deleted_at = 0",
+                proxy_log_catalog::columns_csv()
             ))?;
             stmt.query_row(params![id], row_to_proxy_log).optional()
         })

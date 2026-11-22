@@ -1,4 +1,5 @@
 use super::*;
+use aidog_db::proxy_log_catalog;
 
 /// Read proxy log settings from DB
 pub(crate) async fn get_log_settings(db: &Db) -> ProxyLogSettings {
@@ -188,53 +189,44 @@ fn scoped_queue_log(
     let carry_bodies = log.status_code != 0 || log.done || terminal;
     let carry_user = settings.log_user_request;
     let carry_up = settings.log_upstream_request;
-    let take = |carry: bool, s: &str| if carry { s.to_owned() } else { String::new() };
-    let user = |nonempty: bool| carry_user && carry_bodies && nonempty;
-    let up = |nonempty: bool| carry_up && carry_bodies && nonempty;
-    ProxyLog {
-        request_headers: take(user(!log.request_headers.is_empty()), &log.request_headers),
-        request_body: take(user(!log.request_body.is_empty()), &log.request_body),
-        upstream_request_headers: take(
-            up(!log.upstream_request_headers.is_empty()),
-            &log.upstream_request_headers,
-        ),
-        upstream_request_body: take(
-            up(!log.upstream_request_body.is_empty()),
-            &log.upstream_request_body,
-        ),
-        // 响应侧终态强制携带（终态 UPDATE 强制覆盖写，即使值为空也要写），非终态不带。
-        response_body: take(
-            up(terminal || !log.response_body.is_empty()),
-            &log.response_body,
-        ),
-        upstream_response_headers: take(
-            up(terminal || !log.upstream_response_headers.is_empty()),
-            &log.upstream_response_headers,
-        ),
-        user_response_headers: take(
-            user(terminal || !log.user_response_headers.is_empty()),
-            &log.user_response_headers,
-        ),
-        user_response_body: take(
-            user(terminal || !log.user_response_body.is_empty()),
-            &log.user_response_body,
-        ),
+    // 大字段清单与侧归属派生自 proxy_log_catalog（issue #56 票 02）：请求侧仅在
+    // 侧开关开且非空时携带；响应侧 4 列终态强制携带（终态 UPDATE 强制覆盖写，
+    // 即使值为空也要写），非终态仅非空携带。
+    let mut out = ProxyLog {
         // 降级标记由 queue_upsert_log 在预算超限时置位。
         body_omitted: false,
         ..log.clone()
+    };
+    for (name, side, response_side) in proxy_log_catalog::PROXY_LOG_CATALOG
+        .iter()
+        .filter_map(|c| c.large.map(|l| (c.name, c.side, l.1)))
+    {
+        let side_on = match side {
+            proxy_log_catalog::Side::User => carry_user,
+            proxy_log_catalog::Side::Upstream => carry_up,
+            proxy_log_catalog::Side::Meta => false,
+        };
+        let Some(field) = proxy_log_catalog::proxy_log_raw_field_mut(&mut out, name) else {
+            continue;
+        };
+        let keep = side_on && carry_bodies && ((response_side && terminal) || !field.is_empty());
+        if !keep {
+            *field = String::new();
+        }
     }
+    out
 }
 
 /// 降级：清空队列消息携带的全部大字段（元数据保留）。`String::new()` 赋值释放原分配。
 fn strip_queue_bodies(log: &mut ProxyLog) {
-    log.request_headers = String::new();
-    log.request_body = String::new();
-    log.upstream_request_headers = String::new();
-    log.upstream_request_body = String::new();
-    log.response_body = String::new();
-    log.upstream_response_headers = String::new();
-    log.user_response_headers = String::new();
-    log.user_response_body = String::new();
+    for name in proxy_log_catalog::PROXY_LOG_CATALOG
+        .iter()
+        .filter_map(|c| c.large.map(|_| c.name))
+    {
+        if let Some(field) = proxy_log_catalog::proxy_log_raw_field_mut(log, name) {
+            *field = String::new();
+        }
+    }
 }
 
 /// 队列消息核算字节数（O6 字节预算记账）。ponytail: 固定开销与 attempts 是粗估
