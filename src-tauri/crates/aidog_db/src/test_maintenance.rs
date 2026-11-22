@@ -356,6 +356,87 @@ async fn cleanup_upstream_request_fields_clears_field_trace() {
     assert_eq!(cnt, 1, "row must not be deleted");
 }
 
+/// 票 01（issue #56）验收 2：retention 两条 UPDATE 在三库真实文件上逐列清空
+/// 全部 11 个「原始信息」列（用户侧 5 + 上游侧 6，含 field_trace /
+/// upstream_request_url）；元数据列（attempts / routing / model / status）与
+/// 行本身保留。上方内存库版本保留作行为参照；内存库下三 handle 复用同一连接，
+/// 路由错误不可见（db-pool-routing 规则 2）——本测试写读均走 log.db 专用 handle。
+#[tokio::test]
+async fn retention_three_file_clears_all_raw_columns() {
+    let (db, _dir) = three_file_db().await;
+    let now_ms = chrono::Utc::now().timestamp_millis();
+    let old_ts = now_ms - 2 * 24 * 3600 * 1000_i64;
+    // 11 个原始信息列全部非空；去重标记显式 0（避开 user 档的去重写回分支）。
+    db.call_proxy_log_traced(None, std::panic::Location::caller(), move |c| {
+        c.execute(
+            "INSERT INTO proxy_log (id, model, actual_model, group_key, platform_id, source_protocol, status_code, done, \
+             request_headers, request_body, user_response_headers, user_response_body, request_url, \
+             upstream_request_headers, upstream_request_body, upstream_response_headers, response_body, field_trace, upstream_request_url, \
+             upstream_request_body_dedup, response_body_dedup, attempts, routing, created_at, updated_at, deleted_at) \
+             VALUES ('maint-3f','m3f','m3f-actual','g',1,'anthropic',200,1, \
+             'rh','rb','urh','urb','rurl','uph','upb','upsh','respb','ft','upurl',0,0,\
+             '[{\"error\":\"attempt-keep\"}]','{\"kept\":true}',?1,?1,0)",
+            params![old_ts],
+        )?;
+        Ok(())
+    })
+    .await
+    .unwrap();
+
+    cleanup_user_request_fields(&db, 1, RetentionUnit::Day)
+        .await
+        .unwrap();
+    cleanup_upstream_request_fields(&db, 1, RetentionUnit::Day)
+        .await
+        .unwrap();
+
+    let (req_h, req_b, ur_h, ur_b, req_url, up_h, up_b, up_sh, resp_b, ft, up_url, attempts, routing, model, status): (
+        String, String, String, String, String, String, String, String, String, String, String, String, String, String, i32,
+    ) = db
+        .call_read_proxy_log_traced(None, std::panic::Location::caller(), |c| {
+            c.query_row(
+                "SELECT request_headers, request_body, user_response_headers, user_response_body, request_url, \
+                 upstream_request_headers, upstream_request_body, upstream_response_headers, response_body, field_trace, upstream_request_url, \
+                 attempts, routing, model, status_code FROM proxy_log WHERE id='maint-3f'",
+                [],
+                |r| {
+                    Ok((
+                        r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?,
+                        r.get(7)?, r.get(8)?, r.get(9)?, r.get(10)?, r.get(11)?, r.get(12)?,
+                        r.get(13)?, r.get(14)?,
+                    ))
+                },
+            )
+        })
+        .await
+        .unwrap();
+    // 用户侧 5 列清空。
+    assert_eq!(req_h, "", "request_headers");
+    assert_eq!(req_b, "", "request_body");
+    assert_eq!(ur_h, "", "user_response_headers");
+    assert_eq!(ur_b, "", "user_response_body");
+    assert_eq!(req_url, "", "request_url");
+    // 上游侧 6 列清空。
+    assert_eq!(up_h, "", "upstream_request_headers");
+    assert_eq!(up_b, "", "upstream_request_body");
+    assert_eq!(up_sh, "", "upstream_response_headers");
+    assert_eq!(resp_b, "", "response_body");
+    assert_eq!(ft, "", "field_trace");
+    assert_eq!(up_url, "", "upstream_request_url");
+    // 元数据列（含 attempts / routing，票 03 口径）与行本身不变。
+    assert_eq!(attempts, "[{\"error\":\"attempt-keep\"}]", "attempts 归元数据，retention 不得清");
+    assert_eq!(routing, "{\"kept\":true}", "routing 归元数据");
+    assert_eq!(model, "m3f");
+    assert_eq!(status, 200);
+    let cnt: i64 = db
+        .call_read_proxy_log_traced(None, std::panic::Location::caller(), |c| {
+            c.query_row("SELECT COUNT(*) FROM proxy_log WHERE id='maint-3f'", [], |r| r.get(0))
+        })
+        .await
+        .unwrap();
+    assert_eq!(cnt, 1, "row must not be deleted");
+}
+
 /// count_proxy_logs returns count of non-deleted rows.
 #[tokio::test]
 async fn count_proxy_logs_returns_count() {

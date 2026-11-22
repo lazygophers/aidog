@@ -13,6 +13,7 @@ mod test_oauth_raw_crypt;
 #[cfg(test)]
 mod test_user_agent;
 mod test_proxy_log;
+mod test_column_lock;
 
 pub use mitm_log::*;
 pub use proxy_log::*;
