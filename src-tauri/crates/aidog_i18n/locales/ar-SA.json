@@ -1314,6 +1314,7 @@
   "sessions.undo": "تراجع",
   "sessions.noticeClose": "إغلاق التنبيه",
   "sessions.spark5mLabel": "الرموز في آخر 5 دقائق، الإجمالي {{n}}",
+  "sessions.sparkRate": "{{n}} tokens/s",
   "sessions.hideFailed": "تعذّر الإخفاء: {{error}}",
   "sessions.trash": "سلة المهملات",
   "sessions.trashDesc": "الجلسات المخفية تُزال من القائمة فقط؛ تبقى ملفات العميل وسجلات الاستخدام محفوظة.",

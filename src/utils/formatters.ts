@@ -166,6 +166,12 @@ export function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
+/** 毫秒戳 → 本地时钟 24 小时制 "HH:MM:SS"（如 "14:03:21"）。 */
+export function formatClockTime(ms: number): string {
+  const d = new Date(ms);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 /**
  * 数值限制：将 value 限制在 [min, max] 区间内。
  * 例：clamp(15, 1, 10) → 10，clamp(-5, 0, 100) → 0，clamp(50, 0, 100) → 50。

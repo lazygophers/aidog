@@ -1226,6 +1226,7 @@
   "sessions.undo": "Undo",
   "sessions.noticeClose": "Dismiss",
   "sessions.spark5mLabel": "Tokens in the last 5 minutes, {{n}} total",
+  "sessions.sparkRate": "{{n}} tokens/s",
   "sessions.hideFailed": "Couldn't hide: {{error}}",
   "sessions.trash": "Trash",
   "sessions.trashDesc": "Hidden sessions are only removed from the list; client files and usage records are kept.",

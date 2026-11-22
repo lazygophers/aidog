@@ -1314,6 +1314,7 @@
   "sessions.undo": "Отменить",
   "sessions.noticeClose": "Закрыть уведомление",
   "sessions.spark5mLabel": "Токены за последние 5 минут, всего {{n}}",
+  "sessions.sparkRate": "{{n}} tokens/s",
   "sessions.hideFailed": "Не удалось скрыть: {{error}}",
   "sessions.trash": "Корзина",
   "sessions.trashDesc": "Скрытые сессии только убираются из списка; файлы клиента и записи использования сохраняются.",
