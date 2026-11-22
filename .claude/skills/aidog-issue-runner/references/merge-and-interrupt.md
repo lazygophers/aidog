@@ -28,13 +28,13 @@ SSL / 429 / 会话退出中断是常态。续做 agent 先五查，再接着做�
 4. 锁残留：`/tmp/aidog-cargo.lock`（等锁 >10 分钟核持锁活性：`pgrep -x cargo` / `pgrep -x rustc` 零匹配且锁 mtime 超 30 分钟 → 判残留，`rmdir` 删锁，回报记「删锁 1 次 + mtime」）；`.git/index.lock`（无 git 进程 + 0 字节才删）；
 5. 半成品含 JSON / 数据文件先跑 `yarn check:defaults` 再续做。
 
-半成品采信三前提（判据只看「能否独立验证到绿」，不看写了多少）：
+半成品采信三前提（你信的判据只有一个：能否独立验证到绿；沉没的 token 不是续做理由）：
 
 1. `git diff` 逐 hunk 看过、每段能归到票面任务；
 2. 全部门禁补跑绿（不是子集）；
 3. commit message 注明 `adopted from interrupted agent`，门禁整条重跑。
 
-改动半截不可判定（编译不过、门禁修不动）→ 回滚该 worktree 重派，不硬续。挂死 agent（外呼命令久挂 30 分钟 + 催收 1 次无响应等 10 分钟）→ TaskStop + 接管 agent，接管 prompt 带现场核对清单，「从核对现场接续，不重做已完成步骤」。
+改动半截不可判定（编译不过、门禁修不动）→ 回滚该 worktree 重派。挂死 agent（外呼命令久挂 30 分钟 + 催收 1 次无响应等 10 分钟）→ TaskStop + 接管 agent，接管 prompt 带现场核对清单，「从核对现场接续，不重做已完成步骤」。
 
 ## 磁盘与产物（shared-worktree.md「构建目录」「减少磁盘残留」节，§24/§37）
 

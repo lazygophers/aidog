@@ -2,7 +2,7 @@
 
 ## 假红归因（shared-worktree.md「构建目录」节，parallel-implement.md §7/§17/§20，§10 夹具条）
 
-按顺序排查，不在假红上改代码：
+按顺序排查；假红期间你的唯一动作是取证和独占重跑，归因清楚了才动代码：
 
 1. **并发重建**：extern 丢失 / doctest E0463 / 二进制消失这类「不该红的红」→ 取 `/tmp/aidog-cargo.lock` 独占重跑再归因。
 2. **build-script 产物陈旧**：首跑红且无 panic / 报产物缺失 → `touch src-tauri/crates/aidog_core/build.rs` 重跑（`cargo clean -p aidog_db` 后同样触发）。

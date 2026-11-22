@@ -7,7 +7,9 @@ when_to_use: 用户要求处理一个或全部 GitHub issue；继续 issue 处�
 
 # aidog issue 处理队列
 
-总览 = 一个循环：**清点 → 提取一个 issue → 执行单票闭环 → 合并清理 → 未清零回到提取**。#67（出站协议转换总任务）留到最后关单。同一时刻 2~3 个 worktree 并行写，cargo 测试全局串行。
+你是每张票的交付负责人：**完成 = 合并进 master + worktree 清理 + 票关闭**，代码写完只是中间站。
+
+总览 = 一个循环：**清点 → 提取一个 issue → 执行单票闭环 → 合并清理 → 未清零回到提取**。#67（出站协议转换总任务）留到最后关单。2~3 张票轮转、各自走完整闭环，同一时刻 2~3 个 worktree 并行写，cargo 测试全局串行。
 
 ## 提取顺序
 
@@ -22,10 +24,10 @@ when_to_use: 用户要求处理一个或全部 GitHub issue；继续 issue 处�
 ## 单个 issue 闭环
 
 1. **建 worktree**：先 `git fetch origin`；分支 `issue-<编号>-<短slug>` **必须从远端 `origin/master` 开**：`/usr/bin/git worktree add <仓库根>/.worktrees/issue-<编号>-<短slug> -b <分支> origin/master`。fetch 失败不是回落本地 master 的许可，未取得 `origin/master` 时不建分支、不开工。建完 `rev-parse --show-toplevel` 验一次，基点 sha 写进回报。细则：`.claude/rules/shared-worktree.md`「issue 开发：独立 worktree + PR」节。
-2. **实现**：worktree 内改码；每个可验证单元（编译过 + 相关测试绿）commit 一次，回报前最后一步是 commit。开工先 `git status --short` 记脏文件、`diff --cached --stat` 核索引；locale 文件一律按脏文件走 patch 过滤。
+2. **实现**：worktree 内改码；每个可验证单元（编译过 + 相关测试绿）commit 一次，回报前最后一步是 commit。commit 前自问：「这段 diff 的每一段，我都能说出它属于哪张票吗？」说不出的那段就是别人的。开工先 `git status --short` 记脏文件、`diff --cached --stat` 核索引；locale 文件一律按脏文件走 patch 过滤。
 3. **增量测试**：只跑改动面相关子集。worktree 内 `check:docs` EXIT 2、`yarn test:statusline-golden` ENOENT 属已知红，不修。假红（extern 丢失 / E0463 / 代理 env / 夹具漂移）归因见 [references/gate-and-dispatch.md](references/gate-and-dispatch.md)。
-4. **审查**：对照 issue 验收标准查行为与边界；失败回到「修复 → 增量测试 → 再审查」，不重开 worktree。同一问题连续三轮仍失败 → 停，ask-me。
-5. **push + PR**：验收标准全部满足后 push 并建 PR（永久授权）。push 预检、失败处置、READY 的 SHA 绑定见 [references/merge-and-interrupt.md](references/merge-and-interrupt.md)。
+4. **审查**：对照 issue 验收标准查行为与边界；失败在原 worktree 内回到「修复 → 增量测试 → 再审查」。同一问题连续三轮仍失败 → 停，ask-me。
+5. **push + PR**：验收标准全部满足后 push 并建 PR（永久授权）。push 前自问：「GitHub 端 head SHA 还是我验证过的那个吗？」push 预检、失败处置、READY 的 SHA 绑定见 [references/merge-and-interrupt.md](references/merge-and-interrupt.md)。
 6. **合并**：合并回 master 在主仓做，只挪指针、不动在途脏文件。**合并前在主仓跑全量门禁一次**（`cargo test --workspace --no-fail-fast` + `make lint` 整条）——agent 侧增量子集不作数。多 PR 同动 Cargo.lock / 同 crate：对合并态全量测试后再清理。
 7. **清理**：先把门禁证据日志移到主仓 `.tmp/pr-<PR号>/`，再删 worktree 与分支；删前 `git -C <worktree> status --short` 非空则停手上报。
 
