@@ -101,11 +101,12 @@ const META: &[&str] = &[
     "response_body_dedup",
 ];
 
-/// 穷尽分类（验收 1）：`PRAGMA table_info(proxy_log)` 的每一列必须落在
-/// USER_SIDE / UPSTREAM_SIDE / BYTES_ONLY / META 之一。收集式：新增列未分类时
-/// 一次列出全部差异再失败，不逐条 panic。
+/// 穷尽分类（验收 3，issue #56 票 02 改为直接比对目录）：`PRAGMA table_info(proxy_log)`
+/// 列集 == `proxy_log_catalog::PROXY_LOG_CATALOG` 列集；目录分类与票 01 手写清单交叉核对。
+/// 收集式：新增列未入目录时一次列出全部差异再失败，不逐条 panic。
 #[tokio::test]
 async fn every_proxy_log_column_is_classified() {
+    use aidog_db::proxy_log_catalog::{PROXY_LOG_CATALOG, Side};
     let (db, _dir) = three_file_db().await;
     let cols: Vec<String> = db
         .call_proxy_log_traced(None, std::panic::Location::caller(), |conn| {
@@ -116,31 +117,49 @@ async fn every_proxy_log_column_is_classified() {
         .await
         .unwrap();
 
-    let in_any = |c: &str| {
-        USER_SIDE.contains(&c) || UPSTREAM_SIDE.contains(&c) || BYTES_ONLY.contains(&c) || META.contains(&c)
-    };
+    let catalog_names: Vec<&str> = PROXY_LOG_CATALOG.iter().map(|c| c.name).collect();
     let unclassified: Vec<&str> = cols
         .iter()
         .map(|c| c.as_str())
-        .filter(|c| !in_any(c))
+        .filter(|c| !catalog_names.contains(c))
         .collect();
-    let stale: Vec<&str> = USER_SIDE
+    let stale: Vec<&str> = catalog_names
         .iter()
-        .chain(UPSTREAM_SIDE)
-        .chain(BYTES_ONLY)
-        .chain(META)
-        .filter(|c| !cols.iter().any(|t| t == *c))
+        .filter(|c| !cols.iter().any(|t| t == **c))
         .copied()
         .collect();
     assert!(
         unclassified.is_empty() && stale.is_empty(),
-        "proxy_log 列分类不完整（新增列必须先归类，否则 retention / strip 会漏）：\n\
-         未分类列: {unclassified:?}\n\
-         名单已过时（表中不存在）: {stale:?}\n\
+        "proxy_log 目录与实表不一致（新增列必须先进 proxy_log_catalog，否则 retention / strip 会漏）：\n\
+         实表有目录没有: {unclassified:?}\n\
+         目录有实表没有: {stale:?}\n\
          实表列: {cols:?}"
     );
+    assert_eq!(PROXY_LOG_CATALOG.len(), cols.len(), "目录列数 == 实表列数");
+
+    // 目录分类与票 01 手写清单交叉核对（手写清单保留为语义基准）。
+    let side_of = |n: &str| {
+        PROXY_LOG_CATALOG
+            .iter()
+            .find(|c| c.name == n)
+            .map(|c| c.side)
+    };
+    for n in USER_SIDE {
+        assert_eq!(side_of(n), Some(Side::User), "{n} 目录分类应为 User");
+    }
+    for n in UPSTREAM_SIDE {
+        assert_eq!(side_of(n), Some(Side::Upstream), "{n} 目录分类应为 Upstream");
+    }
+    for n in META.iter().chain(BYTES_ONLY) {
+        assert_eq!(side_of(n), Some(Side::Meta), "{n} 目录分类应为 Meta");
+    }
     // 两侧「原始信息」= 11 列（CLAUDE.md「Proxy 日志」节的机械断言）。
     assert_eq!(USER_SIDE.len() + UPSTREAM_SIDE.len(), 11);
+    assert_eq!(
+        aidog_db::proxy_log_catalog::raw_cols(Side::User).len()
+            + aidog_db::proxy_log_catalog::raw_cols(Side::Upstream).len(),
+        11
+    );
 }
 
 /// 逐列往返（验收 3）：每个字段取互不相同值的 `ProxyLog`，经
@@ -283,7 +302,7 @@ async fn roundtrip_preserves_every_column() {
 }
 
 /// up/down 字节（验收 4）：CONNECT 行路径——直接构造 `ProxyLogColumns`（`from_log`
-/// 后覆写，`ProxyLog` 结构无这两个字段）写入，重开 DB 后经列表接口
+/// 后覆写；增量路径不携带字节）写入，重开 DB 后经列表接口
 /// （`ProxyLogSummary`）读回非 0。
 #[tokio::test]
 async fn connect_bytes_columns_survive_roundtrip() {
