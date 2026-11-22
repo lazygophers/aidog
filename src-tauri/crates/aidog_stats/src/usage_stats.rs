@@ -757,7 +757,7 @@ pub fn group_last_requests<'a>(
         db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare_cached(
                 "SELECT id, status_code, created_at, duration_ms, blocked_reason, attempts, \
-                 substr(CASE WHEN response_body_dedup = 1 THEN user_response_body ELSE response_body END, 1, 200) \
+                 substr(response_body, 1, 200) \
                  FROM proxy_log WHERE group_key = ?1 AND deleted_at = 0 \
                  ORDER BY created_at DESC LIMIT 1",
             )?;
