@@ -434,11 +434,8 @@ pub fn cleanup_user_request_fields(
                  WHERE created_at < ?1 AND (upstream_request_body_dedup = 1 OR response_body_dedup = 1)",
                 params![cutoff],
             )?;
-            conn.execute(
-                "UPDATE proxy_log SET request_headers = '', request_body = '', user_response_headers = '', user_response_body = '', request_url = '' \
-                 WHERE created_at < ?1 AND (request_headers != '' OR request_body != '' OR user_response_headers != '' OR user_response_body != '' OR request_url != '')",
-                params![cutoff],
-            )?;
+            // 列集派生自 proxy_log_catalog（issue #56 票 02）：用户侧「原始信息」5 列。
+            conn.execute(crate::proxy_log_catalog::retention_sql(crate::proxy_log_catalog::Side::User), params![cutoff])?;
             // 请求记录（request_log）复用同一 retention：只清用户侧原始信息，不删行。
             conn.execute(
                 "UPDATE request_log SET request_headers = '', request_body = '', user_response_headers = '', user_response_body = '', request_url = '' \
@@ -475,13 +472,8 @@ pub fn cleanup_upstream_request_fields(
         // proxy_log 在 log.db（proxy-log-db-split s3），走专用写连接。
         db
         .call_proxy_log_traced(None, __db_caller, move |conn| {
-            conn.execute(
-                "UPDATE proxy_log SET upstream_request_headers = '', upstream_request_body = '', upstream_response_headers = '', response_body = '', field_trace = '', upstream_request_url = '', \
-                   upstream_request_body_dedup = 0, response_body_dedup = 0 \
-                 WHERE created_at < ?1 AND (upstream_request_headers != '' OR upstream_request_body != '' OR upstream_response_headers != '' OR response_body != '' OR field_trace != '' OR upstream_request_url != '' \
-                   OR upstream_request_body_dedup != 0 OR response_body_dedup != 0)",
-                params![cutoff],
-            )?;
+            // 列集派生自 proxy_log_catalog（issue #56 票 02）：上游侧 6 列 + 去重标记重置。
+            conn.execute(crate::proxy_log_catalog::retention_sql(crate::proxy_log_catalog::Side::Upstream), params![cutoff])?;
             conn.execute(
                 "UPDATE request_log SET upstream_request_headers = '', upstream_request_body = '', upstream_response_headers = '', response_body = '', upstream_request_url = '' \
                  WHERE created_at < ?1 AND (upstream_request_headers != '' OR upstream_request_body != '' OR upstream_response_headers != '' OR response_body != '' OR upstream_request_url != '')",
