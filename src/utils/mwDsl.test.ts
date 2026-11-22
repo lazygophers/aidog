@@ -77,7 +77,7 @@ describe("mwDsl round-trip", () => {
   });
 
   it("未知校验器名保存前就报错（后端 fail-closed，拼错会让整条规则静默失效）", () => {
-    expect(() => parseDsl('request_body regex "\\\\d{16}" checksum luhnn')).toThrow("未知校验器");
+    expect(() => parseDsl('request_body regex "\\\\d{16}" checksum luhnn')).toThrow("Unknown validator");
   });
 });
 
@@ -87,7 +87,7 @@ describe("mwDsl 错误定位", () => {
       parseDsl('foo contains "x"');
       expect.unreachable();
     } catch (e) {
-      expect(String(e)).toContain("未知 target");
+      expect(String(e)).toContain("Unknown target");
       expect(dslErrorPos(e)).toBe(0);
     }
   });
@@ -97,7 +97,7 @@ describe("mwDsl 错误定位", () => {
       parseDsl('request_body contains "x');
       expect.unreachable();
     } catch (e) {
-      expect(String(e)).toContain("未闭合");
+      expect(String(e)).toContain("Unclosed");
       expect(dslErrorPos(e)).toBe(22);
     }
   });
@@ -114,6 +114,6 @@ describe("mwDsl 错误定位", () => {
   });
 
   it("条件后多余内容拒绝", () => {
-    expect(() => parseDsl('request_body contains "x" )')).toThrow("多余内容");
+    expect(() => parseDsl('request_body contains "x" )')).toThrow("Unexpected content");
   });
 });

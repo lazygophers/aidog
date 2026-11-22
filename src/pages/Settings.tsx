@@ -247,7 +247,7 @@ export function Settings() {
       }
       setImportDiff({ source, diff, kind: "claudeCode" });
     } catch (e: any) {
-      setToast(t("settings.importFailed", "导入失败：{{error}}", { error: e?.message ?? e ?? t("common.unknownError", "未知错误") }));
+      setToast(t("settings.importFailed", "Import failed: {{error}}", { error: e?.message ?? e ?? t("common.unknownError", "Unknown error") }));
       setTimeout(() => setToast(""), 5000);
     }
   };

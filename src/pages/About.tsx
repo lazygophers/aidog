@@ -369,7 +369,7 @@ export function About() {
         )}
         {dbKey && (
           <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-            {t("about.dbKey.hint", "sqlcipher 工具开库：")}<code style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{t("about.dbKey.pragma", "PRAGMA key = \"x'{密钥}'\"")}</code>
+            {t("about.dbKey.hint", "sqlcipher 工具开库：")}<code style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{t("about.dbKey.pragma", "PRAGMA key = \"x'{key}'\"")}</code>
           </div>
         )}
         {dbKeyErr && (

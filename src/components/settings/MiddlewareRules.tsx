@@ -191,7 +191,7 @@ function mixedPhase(node: ConditionNode, t: TFunction): string | null {
     if (n.kind === "leaf") {
       const p = isResponseTarget(n.target);
       if (phase !== null && phase !== p) {
-        throw new Error(t("middleware.mixedPhaseRejected", "混阶段条件被拒：'{{target}}' 与请求侧条件不能同树", { target: n.target }));
+        throw new Error(t("middleware.mixedPhaseRejected", "Mixed-phase condition rejected: '{{target}}' cannot share a tree with request-side conditions", { target: n.target }));
       }
       phase = p;
     } else if (n.kind === "not") {
@@ -484,7 +484,7 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
                 <div style={{ flex: "1 1 120px", minWidth: 120 }}>
                   <AutoTextarea
                     mono
-                    placeholder={t("middleware.replacementPlaceholder", "replacement（默认 ****，regex 支持 $1）")}
+                    placeholder={t("middleware.replacementPlaceholder", "replacement (default ****; regex supports $1)")}
                     value={st.params.replacement}
                     onChange={(v) => setStep(i, { ...st, params: { ...st.params, replacement: v } })}
                   />

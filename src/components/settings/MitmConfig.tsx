@@ -145,7 +145,7 @@ export function MitmConfigTab() {
       console.error("[ca-install] reject", e);
       // mitm_install_ca reject（起不了进程 / 写不了 ca.pem）→ 兜底手动装。
       // 阶段A 兜底：reject 的 e 可能无 message（空 reject）→ 也必给非空文案。
-      setError(String(e) || t("mitm.rejectNoMessage", "(reject 无 message)"));
+      setError(String(e) || t("mitm.rejectNoMessage", "(rejected without a message)"));
       try {
         const spec = await mitmApi.installCaPrepare();
         setManualInstall(spec);

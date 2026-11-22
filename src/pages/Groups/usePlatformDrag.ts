@@ -105,12 +105,12 @@ export function usePlatformDrag(api: PlatformDragApi): PlatformDragResult {
         const gname = details.find(d => d.group.id === gid)?.group.name ?? `#${gid}`;
         groupDetailApi.movePlatform(payload.pid, 0, gid)
           .then(() => {
-            onToast?.({ text: tRef.current("group.addedToGroup", "已加入分组 {{name}}", { name: gname }), ok: true });
+            onToast?.({ text: tRef.current("group.addedToGroup", "Added to group {{name}}", { name: gname }), ok: true });
             load(); onGroupsChanged?.();
           })
           .catch((err) => {
             console.error("[aidog-dnd] movePlatform failed", err);
-            onToast?.({ text: tRef.current("group.addToGroupFailed", "加入分组失败: {{error}}", { error: String(err) }), ok: false });
+            onToast?.({ text: tRef.current("group.addToGroupFailed", "Failed to add to group: {{error}}", { error: String(err) }), ok: false });
             load(); // 回滚乐观插入
           });
       } else {

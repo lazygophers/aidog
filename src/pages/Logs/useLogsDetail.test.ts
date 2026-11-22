@@ -62,8 +62,8 @@ describe("buildLogMarkdown", () => {
     } as unknown as ProxyLogDetail, t);
     expect(md).toContain("## Routing Decision");
     expect(md).toContain("- Mode: failover");
-    expect(md).toContain("1. platB — 选中（映射提升） · 优先级 L5/P0 · mapped-b");
-    expect(md).toContain("2. platC — 熔断 · 优先级 L3/P2");
+    expect(md).toContain("1. platB — 选中（映射提升） · Priority L5/P0 · mapped-b");
+    expect(md).toContain("2. platC — 熔断 · Priority L3/P2");
     expect(md).toContain("## Attempts");
     expect(md).toContain("1. platA — status 500 — 50 ms — mapped-a — upstream error");
     expect(md).toContain("2. platB — status 200 — 50 ms — mapped-b");
@@ -74,7 +74,7 @@ describe("buildLogMarkdown", () => {
       ...base,
       routing: { mode: "failover", entries: [{ order: 1, platform: "platA", platform_id: 1, level_priority: 1, priority: 0, reason: "selected" }] },
     } as unknown as ProxyLogDetail, t);
-    expect(md).toContain("1. platA — 选中 · 优先级 L1/P0");
+    expect(md).toContain("1. platA — 选中 · Priority L1/P0");
   });
 
   it("旧日志缺模型字段时不输出占位符", () => {

@@ -136,7 +136,7 @@ describe("RateLimitsSection — C 方向稿接线", () => {
   it("+5 小时芯片 → 编辑态加一行；commit 净化丢空预算行（预算空不落 bundle）", () => {
     const { container, setBundle } = renderRateLimits(bundle);
     const before = container.querySelectorAll(".aidog-rowcard").length;
-    const btn = Array.from(container.querySelectorAll("button")).find(b => b.textContent.trim() === "+ 5 小时")!;
+    const btn = Array.from(container.querySelectorAll("button")).find(b => b.textContent.trim() === "+ 5 h")!;
     fireEvent.click(btn);
     // 编辑态：行卡 +1（draft.windows 追加）
     expect(container.querySelectorAll(".aidog-rowcard")).toHaveLength(before + 1);

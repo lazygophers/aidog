@@ -48,7 +48,7 @@ describe("ruleExpr — 票 05", () => {
   it("不可转换：&& 与 || 混用 → 明确降级理由", () => {
     const r = parseToVisual('type == "x" && severity == "error" || vars.k == "v"');
     expect(r.ok).toBe(false);
-    expect(!r.ok && r.reason).toContain("混用");
+    expect(!r.ok && r.reason).toContain("Mixing");
   });
 
   it("不可转换：括号分组 / 语法错 / 空", () => {

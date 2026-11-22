@@ -59,25 +59,25 @@ class Lexer {
         if (this.s[j] === "\\") j++;
         j++;
       }
-      if (j >= this.s.length) throw err(this.t, pos, this.t("middleware.dsl.unclosedString", "未闭合的字符串"));
+      if (j >= this.s.length) throw err(this.t, pos, this.t("middleware.dsl.unclosedString", "Unclosed string"));
       let v: string;
       try {
         v = JSON.parse(this.s.slice(pos, j + 1));
       } catch {
-        throw err(this.t, pos, this.t("middleware.dsl.badStringLiteral", "非法字符串字面量"));
+        throw err(this.t, pos, this.t("middleware.dsl.badStringLiteral", "Invalid string literal"));
       }
       this.i = j + 1;
       return { tok: { t: "str", v }, pos };
     }
     const m = /^[A-Za-z0-9_.\-]+/.exec(this.s.slice(this.i));
-    if (!m) throw err(this.t, pos, this.t("middleware.dsl.badChar", "非法字符 '{{c}}'", { c }));
+    if (!m) throw err(this.t, pos, this.t("middleware.dsl.badChar", "Invalid character '{{c}}'", { c }));
     this.i += m[0].length;
     return { tok: { t: "word", v: m[0] }, pos };
   }
 }
 
 function err(t: TFunction, pos: number, msg: string): Error {
-  const e = new Error(t("middleware.dsl.errorAt", "位置 {{pos}}: {{msg}}", { pos: pos + 1, msg })) as Error & { dslPos?: number };
+  const e = new Error(t("middleware.dsl.errorAt", "Position {{pos}}: {{msg}}", { pos: pos + 1, msg })) as Error & { dslPos?: number };
   e.dslPos = pos;
   return e;
 }
@@ -98,52 +98,52 @@ class Parser {
     const { tok, pos } = this.peek();
     if (tok.t === "word" && tok.v === "NOT") {
       this.take();
-      if (this.take().t !== "(") throw err(this.t, pos, this.t("middleware.dsl.notMissingParen", "NOT 后缺 '('"));
+      if (this.take().t !== "(") throw err(this.t, pos, this.t("middleware.dsl.notMissingParen", "Missing '(' after NOT"));
       const child = this.parseExpr();
-      if (this.take().t !== ")") throw err(this.t, pos, this.t("middleware.dsl.notOneChild", "NOT() 只接受一个子条件"));
+      if (this.take().t !== ")") throw err(this.t, pos, this.t("middleware.dsl.notOneChild", "NOT() accepts exactly one sub-condition"));
       return { kind: "not", child };
     }
     if (tok.t === "word" && (tok.v === "ALL" || tok.v === "ANY")) {
       this.take();
-      if (this.take().t !== "(") throw err(this.t, pos, this.t("middleware.dsl.missingParenAfter", "{{op}} 后缺 '('", { op: tok.v }));
+      if (this.take().t !== "(") throw err(this.t, pos, this.t("middleware.dsl.missingParenAfter", "Missing '(' after {{op}}", { op: tok.v }));
       const children: ConditionNode[] = [];
       while (true) {
         const p = this.peek();
-        if (p.tok.t === "eof") throw err(this.t, p.pos, this.t("middleware.dsl.missingCloseParen", "缺 ')'"));
+        if (p.tok.t === "eof") throw err(this.t, p.pos, this.t("middleware.dsl.missingCloseParen", "Missing ')'"));
         if (p.tok.t === ")") { this.take(); break; }
         children.push(this.parseExpr());
       }
-      if (children.length === 0) throw err(this.t, pos, this.t("middleware.dsl.needChild", "{{op}}() 至少需要一个子条件", { op: tok.v }));
+      if (children.length === 0) throw err(this.t, pos, this.t("middleware.dsl.needChild", "{{op}}() needs at least one sub-condition", { op: tok.v }));
       return { kind: tok.v.toLowerCase() as "all" | "any", children };
     }
     return this.parseLeaf();
   }
   parseLeaf(): ConditionNode {
     const { tok, pos } = this.peek();
-    if (tok.t !== "word") throw err(this.t, pos, this.t("middleware.dsl.expectCondition", "期望条件（target op \"pattern\"）"));
+    if (tok.t !== "word") throw err(this.t, pos, this.t("middleware.dsl.expectCondition", "Expected a condition (target op \"pattern\")"));
     this.take();
     // target[.field]
     const segs = tok.v.split(".");
     const target = segs[0];
     const field = segs.slice(1).join(".");
     if (!(TARGETS as readonly string[]).includes(target)) {
-      throw err(this.t, pos, this.t("middleware.dsl.unknownTarget", "未知 target '{{target}}'（可选: {{options}}）", { target, options: TARGETS.join(" / ") }));
+      throw err(this.t, pos, this.t("middleware.dsl.unknownTarget", "Unknown target '{{target}}' (options: {{options}})", { target, options: TARGETS.join(" / ") }));
     }
     const opTok = this.take();
     if (opTok.t !== "word" || !(OPS as readonly string[]).includes(opTok.v)) {
-      throw err(this.t, pos, this.t("middleware.dsl.expectOp", "期望算子（{{options}}）", { options: OPS.join(" / ") }));
+      throw err(this.t, pos, this.t("middleware.dsl.expectOp", "Expected an operator ({{options}})", { options: OPS.join(" / ") }));
     }
     const patTok = this.take();
-    if (patTok.t !== "str") throw err(this.t, pos, this.t("middleware.dsl.expectPattern", "期望双引号 pattern"));
+    if (patTok.t !== "str") throw err(this.t, pos, this.t("middleware.dsl.expectPattern", "Expected a double-quoted pattern"));
     // 可选尾缀 `checksum <name>`（票 09 校验位二次校验）。
     let validator = "";
     const after = this.peek();
     if (after.tok.t === "word" && after.tok.v === "checksum") {
       this.take();
       const nameTok = this.take();
-      if (nameTok.t !== "word") throw err(this.t, after.pos, this.t("middleware.dsl.missingValidator", "checksum 后缺校验器名"));
+      if (nameTok.t !== "word") throw err(this.t, after.pos, this.t("middleware.dsl.missingValidator", "Missing validator name after checksum"));
       if (!(VALIDATORS as readonly string[]).includes(nameTok.v)) {
-        throw err(this.t, after.pos, this.t("middleware.dsl.unknownValidator", "未知校验器 '{{name}}'（可选: {{options}}）", { name: nameTok.v, options: VALIDATORS.join(" / ") }));
+        throw err(this.t, after.pos, this.t("middleware.dsl.unknownValidator", "Unknown validator '{{name}}' (options: {{options}})", { name: nameTok.v, options: VALIDATORS.join(" / ") }));
       }
       validator = nameTok.v;
     }
@@ -163,7 +163,7 @@ export function parseDsl(src: string, t: TFunction): ConditionNode {
   const parser = new Parser(new Lexer(src, t), t);
   const tree = parser.parseExpr();
   const { tok, pos } = parser.peek();
-  if (tok.t !== "eof") throw err(t, pos, t("middleware.dsl.trailing", "条件后有多余内容"));
+  if (tok.t !== "eof") throw err(t, pos, t("middleware.dsl.trailing", "Unexpected content after the condition"));
   return tree;
 }
 
