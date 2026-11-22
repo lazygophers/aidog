@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794657886,
+  "last_updated": 1795317361,
   "holiday_calendar": "CN",
   "endpoints": {
     "default": [
@@ -92,13 +92,7 @@
       "start_hour": 9,
       "end_hour": 12,
       "multiplier": 1,
-      "days_of_week": [
-        1,
-        2,
-        3,
-        4,
-        5
-      ],
+      "day_type": "workday",
       "models": [
         "deepseek/deepseek-flash",
         "deepseek-v4-flash-202605",
@@ -114,13 +108,7 @@
       "start_hour": 14,
       "end_hour": 18,
       "multiplier": 1,
-      "days_of_week": [
-        1,
-        2,
-        3,
-        4,
-        5
-      ],
+      "day_type": "workday",
       "models": [
         "deepseek/deepseek-flash",
         "deepseek-v4-flash-202605",
