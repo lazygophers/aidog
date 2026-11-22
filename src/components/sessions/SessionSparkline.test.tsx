@@ -9,10 +9,13 @@ vi.mock("react-i18next", () => ({
 const sessionDetail = vi.fn();
 vi.mock("../../services/api/clientUsage", () => ({ clientUsageApi: { sessionDetail: (...a: unknown[]) => sessionDetail(...a) } }));
 
+import { formatClockTime } from "../../utils/formatters";
 import { SessionSparkline, curvePath, secondBuckets, smoothSeries } from "./SessionSparkline";
 
 const pt = (t: number, n = 10) => ({ callTimeMs: t, inputTokens: n, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 });
 const NOW = 1_800_000_000_500;
+// 窗口第 s 秒的起点毫秒戳（末格 = NOW 所在秒）
+const secMs = (s: number) => (Math.floor(NOW / 1000) - 299 + s) * 1000;
 
 describe("secondBuckets（最近 5 分钟逐秒）", () => {
   it("now-1s / now-299s 计入对应格，now-301s 排除，同秒求和", () => {
@@ -83,19 +86,24 @@ describe("SessionSparkline 实时滑动", () => {
     expect(curve.getAttribute("d")).not.toMatch(/V/);
 
     vi.spyOn(spark, "getBoundingClientRect").mockReturnValue({ left: 100, top: 0, width: 150, height: 24, right: 250, bottom: 24, x: 100, y: 0, toJSON: () => ({}) });
-    // 150px 容 300 秒：x=245.25 落在第 145 像素，覆盖秒 [290, 292)；时间偏移取区间最新一秒（第 291 秒 = 8 秒前）
+    // 150px 容 300 秒：x=245.25 落在第 145 像素，覆盖秒 [290, 292)；时间显示区间起–止（第 290 秒–第 291 秒）
     fireEvent.mouseMove(spark, { clientX: 245.25, clientY: 10 });
     const tip = screen.getByTestId("sessions-spark-tip");
     expect(tip).toHaveAttribute("data-second", "290");
     expect(tip).toHaveAttribute("data-span", "290-292");
     expect(tip).toHaveAttribute("data-rate", "617");
-    expect(tip.textContent).toContain("8 秒前");
+    expect(tip).toHaveAttribute("data-start", String(secMs(290)));
+    expect(tip).toHaveAttribute("data-end", String(secMs(291)));
+    expect(tip.textContent).toContain(`${formatClockTime(secMs(290))}–${formatClockTime(secMs(291))}`);
+    expect(tip.textContent).not.toContain("秒前");
     expect(tip.textContent).toContain("617 tokens/s");
     expect(tip.parentElement).toBe(document.body);
     expect(screen.getByTestId("sessions-spark-guide")).toBeInTheDocument();
 
+    // 末像素覆盖 [298, 300)：止 = 当前秒
     fireEvent.mouseMove(spark, { clientX: 249.9, clientY: 10 });
-    expect(screen.getByTestId("sessions-spark-tip").textContent).toContain("刚刚");
+    expect(screen.getByTestId("sessions-spark-tip")).toHaveAttribute("data-end", String(secMs(299)));
+    expect(screen.getByTestId("sessions-spark-tip").textContent).not.toContain("刚刚");
     expect(screen.getByTestId("sessions-spark-tip").textContent).toContain("0 tokens/s");
 
     fireEvent.click(spark);
@@ -131,5 +139,17 @@ describe("SessionSparkline 实时滑动", () => {
     const tip = screen.getByTestId("sessions-spark-tip");
     expect(tip).toHaveAttribute("data-rate", "600");
     expect(tip).toHaveAttribute("data-span", "290-291");
+    // 单秒区间只显示一个时间
+    expect(tip).toHaveAttribute("data-start", String(secMs(290)));
+    expect(tip).toHaveAttribute("data-end", String(secMs(290)));
+    expect(tip.textContent).toContain(formatClockTime(secMs(290)));
+    expect(tip.textContent).not.toContain("–");
+  });
+});
+
+describe("formatClockTime", () => {
+  it("本地时钟 24 小时制 HH:MM:SS，补零", () => {
+    expect(formatClockTime(new Date(2026, 10, 22, 14, 3, 21, 999).getTime())).toBe("14:03:21");
+    expect(formatClockTime(new Date(2026, 10, 22, 0, 0, 5).getTime())).toBe("00:00:05");
   });
 });

@@ -1314,8 +1314,6 @@
   "sessions.undo": "Annuler",
   "sessions.noticeClose": "Fermer l'avis",
   "sessions.spark5mLabel": "Tokens des 5 dernières minutes, {{n}} au total",
-  "sessions.sparkAgo": "il y a {{n}} s",
-  "sessions.sparkNow": "à l'instant",
   "sessions.sparkRate": "{{n}} tokens/s",
   "sessions.hideFailed": "Impossible de masquer : {{error}}",
   "sessions.trash": "Corbeille",

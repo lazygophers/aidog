@@ -1314,8 +1314,6 @@
   "sessions.undo": "Rückgängig",
   "sessions.noticeClose": "Hinweis schließen",
   "sessions.spark5mLabel": "Tokens der letzten 5 Minuten, insgesamt {{n}}",
-  "sessions.sparkAgo": "vor {{n}} s",
-  "sessions.sparkNow": "gerade eben",
   "sessions.sparkRate": "{{n}} tokens/s",
   "sessions.hideFailed": "Ausblenden fehlgeschlagen: {{error}}",
   "sessions.trash": "Papierkorb",

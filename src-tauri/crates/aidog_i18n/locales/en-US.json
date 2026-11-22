@@ -1226,8 +1226,6 @@
   "sessions.undo": "Undo",
   "sessions.noticeClose": "Dismiss",
   "sessions.spark5mLabel": "Tokens in the last 5 minutes, {{n}} total",
-  "sessions.sparkAgo": "{{n}}s ago",
-  "sessions.sparkNow": "just now",
   "sessions.sparkRate": "{{n}} tokens/s",
   "sessions.hideFailed": "Couldn't hide: {{error}}",
   "sessions.trash": "Trash",

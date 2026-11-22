@@ -1314,8 +1314,6 @@
   "sessions.undo": "تراجع",
   "sessions.noticeClose": "إغلاق التنبيه",
   "sessions.spark5mLabel": "الرموز في آخر 5 دقائق، الإجمالي {{n}}",
-  "sessions.sparkAgo": "قبل {{n}} ث",
-  "sessions.sparkNow": "الآن",
   "sessions.sparkRate": "{{n}} tokens/s",
   "sessions.hideFailed": "تعذّر الإخفاء: {{error}}",
   "sessions.trash": "سلة المهملات",

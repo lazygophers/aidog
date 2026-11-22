@@ -1314,8 +1314,6 @@
   "sessions.undo": "元に戻す",
   "sessions.noticeClose": "通知を閉じる",
   "sessions.spark5mLabel": "直近 5 分間のトークン（合計 {{n}}）",
-  "sessions.sparkAgo": "{{n}} 秒前",
-  "sessions.sparkNow": "たった今",
   "sessions.sparkRate": "{{n}} tokens/s",
   "sessions.hideFailed": "非表示にできませんでした：{{error}}",
   "sessions.trash": "ごみ箱",

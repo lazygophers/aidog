@@ -1,11 +1,11 @@
 // 「正在执行」区行内迷你 token 走势（票 12 / 15 / 16 / 18）：最近 5 分钟逐秒（入 + 出 + 缓存读写，记在调用时间所在秒），
-// 逐秒值经高斯平滑后用单调三次插值画曲线；悬浮显示指针所在像素覆盖秒区间的原始平均速度。
+// 逐秒值经高斯平滑后用单调三次插值画曲线；悬浮显示指针所在像素覆盖秒区间的时分秒（票 19）与原始平均速度。
 // 全部置顶行共用一个 1 秒计时器滑动窗口（页面隐藏时暂停）。数据复用会话详情的时间序列，会话有新调用（lastCallMs 变）才重读。
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { clientUsageApi, type ClientUsageTokenPoint } from "../../services/api/clientUsage";
-import { formatNumber } from "../../utils/formatters";
+import { formatClockTime, formatNumber } from "../../utils/formatters";
 
 const SECS = 300;
 const H = 24;
@@ -134,8 +134,10 @@ export function SessionSparkline({ clientCode, sessionId, lastCallMs }: { client
   const curve = sum > 0 ? curvePath(smooth, max, H) : "";
   const hx = hover ? hover.i + 0.5 : 0;
   const hy = hover ? yOf(smooth[hover.i], max, H) : 0;
-  // 时间偏移取区间最新一秒：区间含当前秒时显示「刚刚」
-  const ago = hover ? SECS - hover.s1 : 0;
+  // 区间起止秒的时刻：末格 = now 所在秒，与曲线同一时间基准
+  const firstMs = (Math.floor(now / 1000) - (SECS - 1)) * 1000;
+  const startMs = hover ? firstMs + hover.s0 * 1000 : 0;
+  const endMs = hover ? firstMs + (hover.s1 - 1) * 1000 : 0;
   const rate = hover ? bars.slice(hover.s0, hover.s1).reduce((a, b) => a + b, 0) / (hover.s1 - hover.s0) : 0;
   return (
     <>
@@ -183,10 +185,14 @@ export function SessionSparkline({ clientCode, sessionId, lastCallMs }: { client
           data-second={String(hover.s0)}
           data-rate={String(rate)}
           data-span={`${hover.s0}-${hover.s1}`}
+          data-start={String(startMs)}
+          data-end={String(endMs)}
           className="pointer-events-none fixed z-50 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-sm text-popover-foreground shadow-md"
           style={{ left: hover.x + 12, top: hover.top - 64 }}
         >
-          <div className="text-muted-foreground">{ago === 0 ? t("sessions.sparkNow", "刚刚") : t("sessions.sparkAgo", "{{n}} 秒前", { n: ago })}</div>
+          <div className="font-mono tabular-nums text-muted-foreground">
+            <bdi dir="ltr">{startMs === endMs ? formatClockTime(startMs) : `${formatClockTime(startMs)}–${formatClockTime(endMs)}`}</bdi>
+          </div>
           <div className="font-mono tabular-nums">{t("sessions.sparkRate", "{{n}} tokens/s", { n: formatNumber(rate) })}</div>
         </div>,
         document.body,

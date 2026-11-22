@@ -1314,8 +1314,6 @@
   "sessions.undo": "Отменить",
   "sessions.noticeClose": "Закрыть уведомление",
   "sessions.spark5mLabel": "Токены за последние 5 минут, всего {{n}}",
-  "sessions.sparkAgo": "{{n}} с назад",
-  "sessions.sparkNow": "только что",
   "sessions.sparkRate": "{{n}} tokens/s",
   "sessions.hideFailed": "Не удалось скрыть: {{error}}",
   "sessions.trash": "Корзина",
