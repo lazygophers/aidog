@@ -8,6 +8,7 @@
 // src-tauri/crates/aidog_db/src/models/notification.rs（CC_HOOK_EVENTS / DEFAULT_ON_EVENTS / default_template_for_event
 // + 事件目录表的专属入参），改一侧务必同步另一侧。事件名为 CC 官方英文原样，不翻译。
 
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import type { EventSetting } from "../../services/api";
 import { Textarea } from "@/components/ui/textarea";
@@ -58,47 +59,47 @@ export const DEFAULT_ON_EVENTS: string[] = ["Stop", "PermissionRequest"];
 const COMMON_VARS = ["{project}", "{session}", "{session_name}"];
 
 /**
- * per-event 目录：每事件**专属默认模板 + 专属可用入参**（每事件不同）。
- * **跨层镜像**后端 `src-tauri/crates/aidog_db/src/models/notification.rs` 的 `default_template_for_event` + 事件目录表
- * 的「专属入参」列；改一侧务必逐字同步另一侧。defaultTemplate 为 zh 硬编码（非 i18n）。
+ * per-event 目录：每事件**专属可用入参**（每事件不同）；专属默认模板在 locale `notif.eventTemplate.<事件>`，
+ * 与后端 `src-tauri/crates/aidog_db/src/models/notification.rs` 的 `default_template_for_event` 读同一份 key。
+ * 专属入参列跨层镜像后端事件目录表，改一侧务必同步另一侧。
  * vars 为该事件**额外**专属占位（不含 COMMON_VARS）。
  */
-export const EVENT_CATALOG: Record<string, { defaultTemplate: string; vars: string[] }> = {
-  SessionStart: { defaultTemplate: "{project}{ · |session_name} 会话开始", vars: ["{source}", "{model}", "{agent_type}", "{session_title}"] },
-  Setup: { defaultTemplate: "{project}{ · |session_name} 初始化（{trigger}）", vars: ["{trigger}"] },
-  InstructionsLoaded: { defaultTemplate: "{project}{ · |session_name} 已加载 {memory_type}", vars: ["{file_path}", "{memory_type}", "{load_reason}"] },
-  UserPromptSubmit: { defaultTemplate: "{project}{ · |session_name} 收到新指令", vars: ["{prompt}"] },
-  UserPromptExpansion: { defaultTemplate: "{project}{ · |session_name} 展开命令 {command_name}", vars: ["{command_name}", "{command_args}"] },
-  MessageDisplay: { defaultTemplate: "{project}{ · |session_name} 消息更新", vars: ["{turn_id}", "{final}"] },
-  PreToolUse: { defaultTemplate: "{project}{ · |session_name} 即将执行 {tool_name}", vars: ["{tool_name}"] },
-  PermissionRequest: { defaultTemplate: "{project}{ · |session_name} {action}", vars: ["{action}", "{tool_name}"] },
-  PermissionDenied: { defaultTemplate: "{project}{ · |session_name} 拒绝 {tool_name}：{reason}", vars: ["{tool_name}", "{reason}"] },
-  PostToolUse: { defaultTemplate: "{project}{ · |session_name} {tool_name} 完成（{duration_ms}ms）", vars: ["{tool_name}", "{duration_ms}"] },
-  PostToolUseFailure: { defaultTemplate: "{project}{ · |session_name} {tool_name} 失败：{error}", vars: ["{tool_name}", "{error}"] },
-  PostToolBatch: { defaultTemplate: "{project}{ · |session_name} 批量工具完成", vars: [] },
-  Notification: { defaultTemplate: "{project}{ · |session_name} 提醒：{action}", vars: ["{action}", "{message}", "{notification_type}"] },
-  SubagentStart: { defaultTemplate: "{project}{ · |session_name} 子代理 {agent_type} 启动", vars: ["{agent_type}"] },
-  SubagentStop: { defaultTemplate: "{project}{ · |session_name} 子代理 {agent_type} 完成", vars: ["{agent_type}"] },
-  Stop: { defaultTemplate: "{project}{ · |session_name} 任务完成", vars: [] },
-  StopFailure: { defaultTemplate: "{project}{ · |session_name} 中断：{error_message}", vars: ["{error_code}", "{error_message}"] },
-  TeammateIdle: { defaultTemplate: "{project}{ · |session_name} 队友 {teammate_id} 空闲", vars: ["{teammate_id}", "{status}"] },
-  TaskCreated: { defaultTemplate: "{project}{ · |session_name} 新建任务：{task_name}", vars: ["{task_id}", "{task_name}"] },
-  TaskCompleted: { defaultTemplate: "{project}{ · |session_name} 任务完成：{task_name}", vars: ["{task_id}", "{task_name}"] },
-  ConfigChange: { defaultTemplate: "{project}{ · |session_name} 配置变更（{config_source}）", vars: ["{config_source}"] },
-  CwdChanged: { defaultTemplate: "{project}{ · |session_name} 切换目录：{new_cwd}", vars: ["{old_cwd}", "{new_cwd}"] },
-  FileChanged: { defaultTemplate: "{project}{ · |session_name} 文件变更：{file_path}", vars: ["{file_path}", "{change_type}"] },
-  WorktreeCreate: { defaultTemplate: "{project}{ · |session_name} 创建 worktree", vars: ["{worktree_path}"] },
-  WorktreeRemove: { defaultTemplate: "{project}{ · |session_name} 移除 worktree", vars: ["{worktree_path}"] },
-  PreCompact: { defaultTemplate: "{project}{ · |session_name} 即将压缩上下文（{compact_reason}）", vars: ["{compact_reason}", "{context_size}"] },
-  PostCompact: { defaultTemplate: "{project}{ · |session_name} 压缩完成", vars: ["{context_reduction_ratio}"] },
-  Elicitation: { defaultTemplate: "{project}{ · |session_name} {server_name} 请求输入", vars: ["{server_name}", "{tool_name}"] },
-  ElicitationResult: { defaultTemplate: "{project}{ · |session_name} {server_name} 已响应", vars: ["{server_name}"] },
-  SessionEnd: { defaultTemplate: "{project}{ · |session_name} 会话结束（{end_reason}）", vars: ["{end_reason}", "{duration_ms}"] },
+export const EVENT_CATALOG: Record<string, { vars: string[] }> = {
+  SessionStart: { vars: ["{source}", "{model}", "{agent_type}", "{session_title}"] },
+  Setup: { vars: ["{trigger}"] },
+  InstructionsLoaded: { vars: ["{file_path}", "{memory_type}", "{load_reason}"] },
+  UserPromptSubmit: { vars: ["{prompt}"] },
+  UserPromptExpansion: { vars: ["{command_name}", "{command_args}"] },
+  MessageDisplay: { vars: ["{turn_id}", "{final}"] },
+  PreToolUse: { vars: ["{tool_name}"] },
+  PermissionRequest: { vars: ["{action}", "{tool_name}"] },
+  PermissionDenied: { vars: ["{tool_name}", "{reason}"] },
+  PostToolUse: { vars: ["{tool_name}", "{duration_ms}"] },
+  PostToolUseFailure: { vars: ["{tool_name}", "{error}"] },
+  PostToolBatch: { vars: [] },
+  Notification: { vars: ["{action}", "{message}", "{notification_type}"] },
+  SubagentStart: { vars: ["{agent_type}"] },
+  SubagentStop: { vars: ["{agent_type}"] },
+  Stop: { vars: [] },
+  StopFailure: { vars: ["{error_code}", "{error_message}"] },
+  TeammateIdle: { vars: ["{teammate_id}", "{status}"] },
+  TaskCreated: { vars: ["{task_id}", "{task_name}"] },
+  TaskCompleted: { vars: ["{task_id}", "{task_name}"] },
+  ConfigChange: { vars: ["{config_source}"] },
+  CwdChanged: { vars: ["{old_cwd}", "{new_cwd}"] },
+  FileChanged: { vars: ["{file_path}", "{change_type}"] },
+  WorktreeCreate: { vars: ["{worktree_path}"] },
+  WorktreeRemove: { vars: ["{worktree_path}"] },
+  PreCompact: { vars: ["{compact_reason}", "{context_size}"] },
+  PostCompact: { vars: ["{context_reduction_ratio}"] },
+  Elicitation: { vars: ["{server_name}", "{tool_name}"] },
+  ElicitationResult: { vars: ["{server_name}"] },
+  SessionEnd: { vars: ["{end_reason}", "{duration_ms}"] },
 };
 
 /** 取某事件专属默认模板（缺失 → 仅 {project} 兜底，与后端「未命中类型 default_template」呼应）。 */
-function defaultTemplateForEvent(event: string): string {
-  return EVENT_CATALOG[event]?.defaultTemplate ?? "{project}";
+function defaultTemplateForEvent(t: TFunction, event: string): string {
+  return EVENT_CATALOG[event] ? t(`notif.eventTemplate.${event}`) : "{project}";
 }
 
 /** 取某事件可用入参列表（通用 + 专属）。 */
@@ -245,7 +246,7 @@ export function NotificationEventList({ perEvent, disabled, onUpdate }: Props) {
                 style={{ fontSize: 14, fontFamily: "var(--font-mono, monospace)", minHeight: 40, resize: "vertical", width: "100%", boxSizing: "border-box" }}
                 value={es.template}
                 disabled={!es.enabled}
-                placeholder={defaultTemplateForEvent(event)}
+                placeholder={defaultTemplateForEvent(t, event)}
                 onChange={(e) => update(event, { template: e.target.value })}
                 aria-label={`${event} ${t("notif.fieldTemplate", "Template")}`}
               />

@@ -20,7 +20,12 @@ crate::tauri_command! {
     pub async fn settings_set(input: SetSettingInput) -> Result<(), String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "settings_set", scope = %input.scope, key = %input.key, "command invoked");
+        let locale_changed = input.scope == "app" && input.key == "locale";
         db::set_setting(db, input).await?;
+        if locale_changed {
+            // 托盘文字随界面语言：复用 tray-refresh listener 立即重画。
+            aidog_ctx::emit_unit("tray-refresh");
+        }
         // Auto-sync group settings files when claude code config changes
         try_sync_settings(db).await;
         // P2 #4: 同步刷新 ProxyState 设置缓存，禁陈旧（请求路径直接读缓存）。
@@ -69,7 +74,8 @@ crate::tauri_command! {
         script_type: String,
         stored: serde_json::Value) -> Result<String, String> {
         tracing::debug!(command = "preview_statusline_script", script_type = %script_type, "command invoked");
-        Ok(crate::statusline::preview(&stored, script_type != "subagent"))
+        let lang = db::get_app_lang(aidog_ctx::db()).await;
+        Ok(crate::statusline::preview(&stored, script_type != "subagent", lang))
     }
 }
 

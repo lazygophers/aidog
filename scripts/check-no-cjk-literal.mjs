@@ -33,14 +33,6 @@ export const ALLOWLIST = [
   // 与后端逐字一致的内部名：改了就对不上后端。
   { file: "src/components/settings/CodingToolsSettings.tsx", match: '"内置·日期格式改写防检测"', reason: "内置规则名，须与 Rust schema.rs builtin_rule_specs 逐字一致（按名查 middleware_rule）" },
   { file: "src/pages/Groups/useGroupData.ts", match: '"未匹配"', reason: "后端 fallback 直通落库的虚拟桶 group_key，按此键取统计" },
-  { file: "src/components/settings/NotificationEventList.tsx", match: 'defaultTemplate: "', reason: "逐字镜像后端 notification.rs default_template_for_event；后端发送的默认通知文案即此中文，占位符须与之一致" },
-  { file: "src/components/settings/statusline-segments.ts", match: '"余额 "', reason: "前缀默认值镜像 Rust statusline.rs DEFAULT_OPTIONS，写进状态行脚本输出" },
-  { file: "src/components/settings/statusline-segments.ts", match: '"折算$"', reason: "前缀默认值镜像 Rust statusline.rs DEFAULT_OPTIONS，写进状态行脚本输出" },
-  { file: "src/components/settings/statusline-segments.ts", match: '"缓存 "', reason: "前缀默认值镜像 Rust statusline.rs DEFAULT_OPTIONS / 默认段，写进状态行脚本输出" },
-  { file: "src/pages/TrayConfigTab.tsx", match: '["天", "小时", "分"]', reason: "托盘倒计时 cn 格式，与 Rust tray_render.rs format_countdown 逐字一致（托盘标签无 i18n）" },
-  { file: "src/pages/TrayConfigTab.tsx", match: "${d}天 ", reason: "托盘倒计时 clock 格式天数前缀，与 Rust tray_render.rs format_countdown 逐字一致" },
-  { file: "src/pages/TrayConfigTab.tsx", match: '"Chinese 2小时15分"', reason: "cn 倒计时格式的取值样例（与 en-US 值一致），中文即被展示的格式本身" },
-  { file: "src/pages/TrayConfigTab.tsx", match: '"峰" : "平"', reason: "托盘高峰段取值，与 Rust tray_render.rs peak_item_parts 逐字一致（托盘标签无 i18n）" },
 ];
 
 /**

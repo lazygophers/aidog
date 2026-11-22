@@ -7,13 +7,31 @@ use super::{align_pad, col_width, line_gap_text, platform_item_parts, tab_stop_l
 use aidog_db::currency::{DisplayCurrency, DisplayCurrencySetting, build_display_currency};
 use aidog_db::{Db, TrayConfig, TrayItem, set_tray_config};
 use aidog_stats::DbInitTables;
+use aidog_i18n::Lang;
 use serde_json::json;
+
+const ZH: Lang = Lang::ZhCn;
 
 async fn test_db() -> Db {
     aidog_db::test_support::ensure_test_master_key();
     let db = Db::new(":memory:").await.expect("open memory db");
     db.init_tables().await.expect("init tables");
+    // 既有断言按中文托盘文字写，固定界面语言为简体中文。
+    set_locale(&db, "zh-Hans").await;
     db
+}
+
+async fn set_locale(db: &Db, locale: &str) {
+    aidog_db::set_setting(
+        db,
+        aidog_db::models::SetSettingInput {
+            scope: "app".into(),
+            key: "locale".into(),
+            value: json!({ "locale": locale }),
+        },
+    )
+    .await
+    .expect("set locale");
 }
 
 /// 造一个 today_usage item（不需要 platform 行，聚焦布局逻辑本身）。
@@ -317,14 +335,36 @@ async fn default_segments_render_three_columns() {
     assert_eq!(pairs, vec![("花费", "$0"), ("命中", "—"), ("高峰", "平")]);
 }
 
+#[tokio::test]
+async fn default_segments_follow_app_locale() {
+    let db = test_db().await;
+    set_locale(&db, "en-US").await;
+    let l = tray_layout(&db).await;
+    let pairs: Vec<(&str, &str)> = l.columns.iter().skip(1).map(|c| (c.name.as_str(), c.value.as_str())).collect();
+    assert_eq!(pairs, vec![("Routed", "—"), ("Peak", "Off-peak")]);
+}
+
+#[test]
+fn countdown_and_peak_follow_lang() {
+    const M: i64 = 60_000;
+    let en = Lang::EnUs;
+    assert_eq!(super::format_countdown(NOW + 135 * M, NOW, "cn", en).as_deref(), Some("2 hr 15 min"));
+    assert_eq!(super::format_countdown(NOW + (27 * 60 + 20) * M, NOW, "cn", en).as_deref(), Some("1 d 3 hr 20 min"));
+    assert_eq!(super::format_countdown(NOW + (27 * 60 + 20) * M, NOW, "clock", en).as_deref(), Some("1d 3:20"));
+    // compact 格式与语言无关。
+    assert_eq!(super::format_countdown(NOW + 135 * M, NOW, "compact", en).as_deref(), Some("2h15m"));
+    assert_eq!(super::format_countdown(NOW + 135 * M, NOW, "cn", Lang::JaJp).as_deref(), Some("2時間15分"));
+    assert_eq!(super::peak_item_parts(None, 0, en), ("Peak".to_string(), "Off-peak".to_string()));
+}
+
 #[test]
 fn routed_parts_fall_back_to_dash_without_traffic() {
     assert_eq!(
-        super::routed_item_parts(None),
+        super::routed_item_parts(None, ZH),
         ("命中".to_string(), "—".to_string())
     );
     assert_eq!(
-        super::routed_item_parts(Some(&platform(1.0, ""))).1,
+        super::routed_item_parts(Some(&platform(1.0, "")), ZH).1,
         "Acme".to_string()
     );
 }
@@ -345,14 +385,14 @@ fn peak_status_reports_multiplier_only_in_window() {
 #[test]
 fn peak_parts_follow_routed_platform_window() {
     // 无命中平台 → 非高峰。
-    assert_eq!(super::peak_item_parts(None, 0).1, "平");
+    assert_eq!(super::peak_item_parts(None, 0, ZH).1, "平");
     // 平台带一个 0-24 全天窗口 → 任意时刻都是高峰。
     let mut p = platform(0.0, "");
     p.extra = r#"{"peak":[{"start_hour":0,"end_hour":24,"multiplier":2.0}]}"#.to_string();
-    assert_eq!(super::peak_item_parts(Some(&p), 0).1, "峰");
+    assert_eq!(super::peak_item_parts(Some(&p), 0, ZH).1, "峰");
     // 窗口只覆盖 UTC 1:00-2:00 → epoch 0（UTC 0:00）不在窗口内。
     p.extra = r#"{"peak":[{"start_hour":1,"end_hour":2,"multiplier":2.0}]}"#.to_string();
-    assert_eq!(super::peak_item_parts(Some(&p), 0).1, "平");
+    assert_eq!(super::peak_item_parts(Some(&p), 0, ZH).1, "平");
 }
 
 #[test]
@@ -423,12 +463,12 @@ fn platform_metrics_legacy_config_unchanged_without_metrics() {
     let plan = r#"{"tiers":[{"name":"five_hour","est_utilization":10.0}]}"#;
     let p = platform(99.0, plan);
     let item = item_json(json!({"item_type": "platform", "platform_id": 1, "display": "balance"}));
-    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None, NOW), "90%");
+    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None, NOW, ZH), "90%");
     let item = item_json(json!({"item_type": "platform", "platform_id": 1, "display": "coding"}));
-    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None, NOW), "90%");
+    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None, NOW, ZH), "90%");
     let empty_metrics =
         item_json(json!({"item_type": "platform", "platform_id": 1, "display": "balance", "metrics": []}));
-    assert_eq!(super::platform_item_value(&p, &empty_metrics, None, &usd(), None, NOW), "90%");
+    assert_eq!(super::platform_item_value(&p, &empty_metrics, None, &usd(), None, NOW, ZH), "90%");
 }
 
 #[test]
@@ -440,7 +480,7 @@ fn platform_metrics_join_with_separator() {
     }));
     // 无 per-platform today 数据 → today 两项落 0 值默认单位。
     assert_eq!(
-        super::platform_item_value(&p, &item, None, &usd(), None, NOW),
+        super::platform_item_value(&p, &item, None, &usd(), None, NOW, ZH),
         "$10.1 · $0 · 0 tok"
     );
 }
@@ -490,12 +530,12 @@ fn platform_metrics_unit_and_decimals() {
         "metrics": ["balance", "today_cost"], "unit": " U", "decimals": 3,
     }));
     // unit 非空：$ 前缀去掉、单位作后缀；decimals 是裁尾零的上限（与 today_usage cost 同语义）。
-    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None, NOW), "10.1 U · 0 U");
+    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None, NOW, ZH), "10.1 U · 0 U");
     let tok = item_json(json!({
         "item_type": "platform", "platform_id": 1,
         "metrics": ["today_tokens"], "unit": "k",
     }));
-    assert_eq!(super::platform_item_value(&p, &tok, None, &usd(), None, NOW), "0k");
+    assert_eq!(super::platform_item_value(&p, &tok, None, &usd(), None, NOW, ZH), "0k");
 }
 
 #[test]
@@ -511,14 +551,14 @@ fn platform_metrics_coding_window_tiers() {
         "metrics": ["balance", "coding:weekly_limit", "coding:five_hour", "coding:nope"],
     }));
     assert_eq!(
-        super::platform_item_value(&p, &item, None, &usd(), None, NOW),
+        super::platform_item_value(&p, &item, None, &usd(), None, NOW, ZH),
         "$0 · 50% · 75%"
     );
     // 全部指标不可用 → "—"。
     let item = item_json(json!({
         "item_type": "platform", "platform_id": 1, "metrics": ["coding:nope"],
     }));
-    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None, NOW), "—");
+    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None, NOW, ZH), "—");
 }
 
 #[test]
@@ -536,7 +576,7 @@ fn platform_metrics_today_values_from_prefetched_stat() {
         "metrics": ["today_cost", "today_tokens"],
     }));
     assert_eq!(
-        super::platform_item_value(&p, &item, Some(&stat), &usd(), None, NOW),
+        super::platform_item_value(&p, &item, Some(&stat), &usd(), None, NOW, ZH),
         "$0.5 · 1234 tok"
     );
 }
@@ -561,11 +601,11 @@ fn platform_metrics_reset_time_known_tier() {
     }));
     // 老配置（无 reset_format）：倒计时精确到分钟、默认中文格式，不再逐级 ceil 到整小时。
     assert_eq!(
-        super::platform_item_value(&p, &item, None, &usd(), None, start),
+        super::platform_item_value(&p, &item, None, &usd(), None, start, ZH),
         "5小时"
     );
     assert_eq!(
-        super::platform_item_value(&p, &item, None, &usd(), None, start + 45 * 60_000 + 1),
+        super::platform_item_value(&p, &item, None, &usd(), None, start + 45 * 60_000 + 1, ZH),
         "4小时15分"
     );
 }
@@ -590,7 +630,7 @@ fn platform_metrics_reset_countdown_only_and_formats() {
         if let Some(f) = fmt {
             j["reset_format"] = json!(f);
         }
-        super::platform_item_value(&p, &item_json(j), None, &usd(), None, now)
+        super::platform_item_value(&p, &item_json(j), None, &usd(), None, now, ZH)
     };
     for m in ["reset_time", "reset_in"] {
         let k = format!("{m}:five_hour");
@@ -602,7 +642,7 @@ fn platform_metrics_reset_countdown_only_and_formats() {
     // 过期 → 无值 → "—"（不再退化成具体时刻）。
     let late = start + 6 * HOUR;
     let j = json!({"item_type": "platform", "platform_id": 1, "metrics": ["reset_time:five_hour"]});
-    assert_eq!(super::platform_item_value(&p, &item_json(j), None, &usd(), None, late), "—");
+    assert_eq!(super::platform_item_value(&p, &item_json(j), None, &usd(), None, late, ZH), "—");
 }
 
 /// 重置时刻：reset_at 仅出本地绝对时刻（今天 HH:MM，跨天 MM-DD HH:MM），不受 reset_format 影响，过期仍给时刻。
@@ -623,7 +663,7 @@ fn platform_metrics_reset_at_clock_time_only() {
         if let Some(f) = fmt {
             j["reset_format"] = json!(f);
         }
-        super::platform_item_value(&p, &item_json(j), None, &usd(), None, now)
+        super::platform_item_value(&p, &item_json(j), None, &usd(), None, now, ZH)
     };
     let now = start + 45 * 60_000;
     assert_eq!(val(None, now), "15:00");
@@ -636,7 +676,7 @@ fn platform_metrics_reset_at_clock_time_only() {
     assert_eq!(val(None, local(yesterday, 12)), expect);
     // 两个指标并存，互相独立。
     let j = json!({"item_type": "platform", "platform_id": 1, "metrics": ["reset_time:five_hour", "reset_at:five_hour"]});
-    assert_eq!(super::platform_item_value(&p, &item_json(j), None, &usd(), None, now), "4小时15分 · 15:00");
+    assert_eq!(super::platform_item_value(&p, &item_json(j), None, &usd(), None, now, ZH), "4小时15分 · 15:00");
 }
 
 #[test]
@@ -669,7 +709,7 @@ fn platform_metrics_reset_time_skips_unusable_tiers() {
         "item_type": "platform", "platform_id": 1,
         "metrics": ["reset_time:five_hour", "reset_time:mystery", "reset_in:mystery"],
     }));
-    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None, NOW), "—");
+    assert_eq!(super::platform_item_value(&p, &item, None, &usd(), None, NOW, ZH), "—");
 }
 
 /// 今日花费 cost 段自定义 unit 通路（经 layout，空库 cost=0）+ 旧配置逐字不变。
@@ -689,16 +729,16 @@ async fn unit_position_cost_segment_and_legacy_platform_unit() {
     let p = platform(0.0, "");
     let stat = aidog_stats::TodayPlatformStat { platform_id: 1, platform_name: "Acme".into(), tokens: 0, cost: 0.242857142857, requests: 1 };
     let legacy = item_json(json!({"item_type": "platform", "platform_id": 1, "metrics": ["today_cost"], "unit": "元", "decimals": 2}));
-    assert_eq!(super::platform_item_value(&p, &legacy, Some(&stat), &cny, None, NOW), "1.7元");
+    assert_eq!(super::platform_item_value(&p, &legacy, Some(&stat), &cny, None, NOW, ZH), "1.7元");
     let suffix = item_json(json!({"item_type": "platform", "platform_id": 1, "metrics": ["today_cost"], "decimals": 2, "unit_position": "suffix"}));
-    assert_eq!(super::platform_item_value(&p, &suffix, Some(&stat), &cny, None, NOW), "1.7¥");
+    assert_eq!(super::platform_item_value(&p, &suffix, Some(&stat), &cny, None, NOW, ZH), "1.7¥");
 }
 
 // ─── 重置倒计时（纯函数，now 注入防秒边界抖动）───
 
 #[test]
 fn format_countdown_three_formats_and_boundaries() {
-    let f = |ms: i64, fmt: &str| super::format_countdown(NOW + ms, NOW, fmt);
+    let f = |ms: i64, fmt: &str| super::format_countdown(NOW + ms, NOW, fmt, ZH);
     let m = 60_000;
     // (剩余毫秒, compact, cn, clock)
     let cases: [(i64, &str, &str, &str); 11] = [
@@ -726,9 +766,9 @@ fn format_countdown_three_formats_and_boundaries() {
 #[test]
 fn format_countdown_expired_or_zero_is_none() {
     for fmt in ["compact", "cn", "clock"] {
-        assert_eq!(super::format_countdown(NOW, NOW, fmt), None);
-        assert_eq!(super::format_countdown(NOW - 1, NOW, fmt), None);
-        assert_eq!(super::format_countdown(NOW - HOUR, NOW, fmt), None);
+        assert_eq!(super::format_countdown(NOW, NOW, fmt, ZH), None);
+        assert_eq!(super::format_countdown(NOW - 1, NOW, fmt, ZH), None);
+        assert_eq!(super::format_countdown(NOW - HOUR, NOW, fmt, ZH), None);
     }
 }
 
@@ -832,7 +872,7 @@ fn platform_metrics_use_display_currency() {
             j["reset_format"] = json!(f);
         }
         let cu = cur(c["code"].as_str().unwrap(), Some(c["rate"].as_f64().unwrap()));
-        let got = super::platform_item_value(&p, &item_json(j), Some(&stat), &cu, c["balance_ccy"].as_str(), now_ms);
+        let got = super::platform_item_value(&p, &item_json(j), Some(&stat), &cu, c["balance_ccy"].as_str(), now_ms, ZH);
         assert_eq!(got, c["expected"].as_str().unwrap(), "{c}");
     }
 }

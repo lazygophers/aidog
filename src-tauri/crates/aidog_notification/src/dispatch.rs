@@ -82,12 +82,13 @@ pub async fn dispatch(
     // 标题/正文：event 路径沿用 per_event 模板 > 事件默认模板 > 类型默认（fill_empty 防裸 {x}）；
     // type 路径沿用 render（per_type 模板 / content / 类型默认）。
     let (title, body) = if let Some(ev) = event.filter(|e| !e.is_empty()) {
+        let lang = aidog_db::get_app_lang(db).await;
         let raw_body = settings
             .event_setting(ev)
             .map(|es| es.template.clone())
             .filter(|t| !t.trim().is_empty())
             .unwrap_or_else(|| {
-                let dft = default_template_for_event(ev);
+                let dft = default_template_for_event(lang, ev);
                 if !dft.is_empty() {
                     dft.to_string()
                 } else {

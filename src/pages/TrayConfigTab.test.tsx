@@ -3,6 +3,7 @@
 // 票 托盘设置-重设计/01：页面骨架 + 实时预览条（C 方向），组件级 vitest 锚 testid/data-state。
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, waitFor, fireEvent, act } from "../test/render";
+import i18n from "../locales";
 import {
   segmentKey,
   segmentOptions,
@@ -1040,6 +1041,18 @@ describe("formatCountdown", () => {
     expect(formatCountdown(now + ms, now, "cn")).toBe(cn);
     expect(formatCountdown(now + ms, now, "clock")).toBe(clock);
     expect(formatCountdown(now + ms, now, undefined)).toBe(cn);
+  });
+
+  it("完整单位 / 时钟天数随界面语言（与 Rust 读同一组 tray.render.* key）", async () => {
+    await i18n.changeLanguage("en-US");
+    try {
+      expect(formatCountdown(now + 135 * m, now, "cn")).toBe("2 hr 15 min");
+      expect(formatCountdown(now + (27 * 60 + 20) * m, now, "cn")).toBe("1 d 3 hr 20 min");
+      expect(formatCountdown(now + (27 * 60 + 20) * m, now, "clock")).toBe("1d 3:20");
+      expect(formatCountdown(now + 135 * m, now, "compact")).toBe("2h15m");
+    } finally {
+      await i18n.changeLanguage("zh-Hans");
+    }
   });
 
   it("过期 / 恰好到点 → null", () => {

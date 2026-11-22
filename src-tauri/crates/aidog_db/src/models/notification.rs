@@ -238,55 +238,20 @@ pub fn default_event_setting_for(event: &str) -> Option<EventSetting> {
     }
 }
 
-/// 事件名 → 该事件**专属独立默认模板**（zh 硬编码，非 i18n）。
+/// 事件名 → 该事件**专属独立默认模板**，按界面语言取 locale `notif.eventTemplate.<事件>`（与前端同 key）。
 ///
 /// 每事件一套模板、用各自专属入参（禁所有事件共用一个统一模板）。通用入参所有事件都有：
 /// `{project}`(项目名)/`{session}`(会话id)。专属入参来源 code.claude.com/docs/zh-Hans/hooks
 /// 各事件 stdin 字段。为避免可选字段缺失残留裸 `{x}`，默认模板**只用高确定字段**
 /// （脚本通用透传所有标量字段，确有则填，缺失字段通过 substitute_vars 的 fill_empty 选项
 /// 在 event 路径替换为空串 → 见 notification.rs render_event；故默认模板可放心用专属入参）。
+/// proxy 语义事件（票 01）的 `{platform}` 由发射点解析 platform_type 注入。
 /// 未命中事件 → 空串（dispatch 兜底到类型 default_template）。
 ///
 /// **跨层镜像**：前端 `src/components/settings/NotificationEventList.tsx` 的 `EVENT_CATALOG`
-/// 逐字镜像本表的 defaultTemplate + 专属入参，改此处务必同步前端。
-pub fn default_template_for_event(event: &str) -> &'static str {
-    match event {
-        "SessionStart" => "{project}{ · |session_name} 会话开始",
-        "Setup" => "{project}{ · |session_name} 初始化（{trigger}）",
-        "InstructionsLoaded" => "{project}{ · |session_name} 已加载 {memory_type}",
-        "UserPromptSubmit" => "{project}{ · |session_name} 收到新指令",
-        "UserPromptExpansion" => "{project}{ · |session_name} 展开命令 {command_name}",
-        "MessageDisplay" => "{project}{ · |session_name} 消息更新",
-        "PreToolUse" => "{project}{ · |session_name} 即将执行 {tool_name}",
-        "PermissionRequest" => "{project}{ · |session_name} {action}",
-        "PermissionDenied" => "{project}{ · |session_name} 拒绝 {tool_name}：{reason}",
-        "PostToolUse" => "{project}{ · |session_name} {tool_name} 完成（{duration_ms}ms）",
-        "PostToolUseFailure" => "{project}{ · |session_name} {tool_name} 失败：{error}",
-        "PostToolBatch" => "{project}{ · |session_name} 批量工具完成",
-        "Notification" => "{project}{ · |session_name} 提醒：{action}",
-        "SubagentStart" => "{project}{ · |session_name} 子代理 {agent_type} 启动",
-        "SubagentStop" => "{project}{ · |session_name} 子代理 {agent_type} 完成",
-        "Stop" => "{project}{ · |session_name} 任务完成",
-        "StopFailure" => "{project}{ · |session_name} 中断：{error_message}",
-        "TeammateIdle" => "{project}{ · |session_name} 队友 {teammate_id} 空闲",
-        "TaskCreated" => "{project}{ · |session_name} 新建任务：{task_name}",
-        "TaskCompleted" => "{project}{ · |session_name} 任务完成：{task_name}",
-        "ConfigChange" => "{project}{ · |session_name} 配置变更（{config_source}）",
-        "CwdChanged" => "{project}{ · |session_name} 切换目录：{new_cwd}",
-        "FileChanged" => "{project}{ · |session_name} 文件变更：{file_path}",
-        "WorktreeCreate" => "{project}{ · |session_name} 创建 worktree",
-        "WorktreeRemove" => "{project}{ · |session_name} 移除 worktree",
-        "PreCompact" => "{project}{ · |session_name} 即将压缩上下文（{compact_reason}）",
-        "PostCompact" => "{project}{ · |session_name} 压缩完成",
-        "Elicitation" => "{project}{ · |session_name} {server_name} 请求输入",
-        "ElicitationResult" => "{project}{ · |session_name} {server_name} 已响应",
-        "SessionEnd" => "{project}{ · |session_name} 会话结束（{end_reason}）",
-        // proxy 语义事件（票 01）：{platform} 由发射点解析 platform_type 注入。
-        "breaker_on" => "{platform} 熔断触发（连续失败摘除）",
-        "breaker_off" => "{platform} 熔断恢复",
-        "quota_exhaust_forecast" => "{platform} 配额预计 {minutes} 分钟后耗尽（{tier}）",
-        _ => "",
-    }
+/// 镜像专属入参，改此处务必同步前端。
+pub fn default_template_for_event(lang: aidog_i18n::Lang, event: &str) -> &'static str {
+    aidog_i18n::lookup(lang, &format!("notif.eventTemplate.{event}")).unwrap_or("")
 }
 
 /// 通知设置（settings KV scope=`notification`, key=`settings`）。

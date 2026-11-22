@@ -2,6 +2,7 @@ use crate::gateway;
 #[cfg(all(feature = "desktop", not(target_os = "macos")))]
 use crate::shared::*;
 use aidog_db::{self as db, Db, TrayConfig};
+use aidog_i18n::Lang;
 use gateway::models::*;
 #[cfg(all(feature = "desktop", not(target_os = "macos")))]
 use std::future::Future;
@@ -687,6 +688,7 @@ pub(crate) fn platform_item_value(
     cur: &db::currency::DisplayCurrency,
     balance_ccy: Option<&str>,
     now_ms: i64,
+    lang: Lang,
 ) -> String {
     let Some(metrics) = item.metrics.as_deref().filter(|m| !m.is_empty()) else {
         return platform_item_parts(platform, &item.display, cur, balance_ccy).1;
@@ -739,7 +741,7 @@ pub(crate) fn platform_item_value(
                 if kind == "reset_at" {
                     Some(format_reset_time(reset, now_ms))
                 } else {
-                    format_countdown(reset, now_ms, item.reset_format.as_deref().unwrap_or("cn"))
+                    format_countdown(reset, now_ms, item.reset_format.as_deref().unwrap_or("cn"), lang)
                 }
             }
             _ => None,
@@ -817,37 +819,43 @@ fn format_reset_time(reset_ms: i64, now_ms: i64) -> String {
 }
 
 /// 重置倒计时文案：精确到分钟（向上取整，与前端 `formatCountdown` 同语义），过期 → None。
-/// `fmt`：`compact`（`1d3h20m`）| `clock`（`1天 3:20` / `2:15`）| 其余（含 `cn` / 未知）→ 中文（`1天3小时20分`）。
-/// compact / cn 省略 0 值单位；clock 恒 `H:MM`，有天数前缀 `N天 `。
-/// 托盘标签无 i18n（「命中」「高峰」同机制），硬编码中文。
-fn format_countdown(reset_ms: i64, now_ms: i64, fmt: &str) -> Option<String> {
+/// `fmt`：`compact`（`1d3h20m`，与语言无关）| `clock`（`1天 3:20` / `2:15`）| 其余（含 `cn` / 未知）→
+/// 完整单位（zh `1天3小时20分`，en `1 d 3 hr 20 min`）。单位按界面语言取 locale `tray.render.*`（与前端同 key）。
+/// compact / cn 省略 0 值单位；clock 恒 `H:MM`，有天数前缀（`tray.render.clockDays`）。
+fn format_countdown(reset_ms: i64, now_ms: i64, fmt: &str, lang: Lang) -> Option<String> {
     let min = (reset_ms - now_ms + 59_999) / 60_000;
     if min <= 0 {
         return None;
     }
     let (d, h, m) = (min / 1440, min % 1440 / 60, min % 60);
+    let n = |key: &'static str, v: i64| aidog_i18n::tr(lang, key).replace("{{n}}", &v.to_string());
     Some(match fmt {
-        "clock" if d > 0 => format!("{d}天 {h}:{m:02}"),
+        "clock" if d > 0 => format!("{}{h}:{m:02}", n("tray.render.clockDays", d)),
         "clock" => format!("{h}:{m:02}"),
-        _ => {
-            let (ud, uh, um) = if fmt == "compact" {
-                ("d", "h", "m")
-            } else {
-                ("天", "小时", "分")
-            };
-            [(d, ud), (h, uh), (m, um)]
-                .iter()
-                .filter(|(n, _)| *n > 0)
-                .map(|(n, u)| format!("{n}{u}"))
-                .collect()
-        }
+        "compact" => [(d, "d"), (h, "h"), (m, "m")]
+            .iter()
+            .filter(|(v, _)| *v > 0)
+            .map(|(v, u)| format!("{v}{u}"))
+            .collect(),
+        // 带空格的语言单位自带尾随空格，拼完去掉末尾那个。
+        _ => [
+            (d, "tray.render.countdownDay"),
+            (h, "tray.render.countdownHour"),
+            (m, "tray.render.countdownMinute"),
+        ]
+        .iter()
+        .filter(|(v, _)| *v > 0)
+        .map(|(v, k)| n(k, *v))
+        .collect::<String>()
+        .trim_end()
+        .to_string(),
     })
 }
 
-/// 「当前命中平台」段的（名, 值）：名固定为「命中」，值为平台名；无转发记录 → "—"。
-pub(crate) fn routed_item_parts(platform: Option<&Platform>) -> (String, String) {
+/// 「当前命中平台」段的（名, 值）：名按界面语言（zh「命中」），值为平台名；无转发记录 → "—"。
+pub(crate) fn routed_item_parts(platform: Option<&Platform>, lang: Lang) -> (String, String) {
     (
-        "命中".to_string(),
+        aidog_i18n::tr(lang, "tray.render.routedName").to_string(),
         platform.map(|p| p.name.clone()).unwrap_or("—".to_string()),
     )
 }
@@ -858,13 +866,14 @@ fn platform_in_peak(p: &Platform, now_ms: i64) -> bool {
     gateway::peak::is_in_peak_window(&windows, now_ms, "")
 }
 
-/// 「高峰指示」段的（名, 值）：按当前命中平台的 peak 窗口判定，命中窗口 → 「峰」，否则「平」。
+/// 「高峰指示」段的（名, 值）：按当前命中平台的 peak 窗口判定，命中窗口 → zh「峰」，否则「平」（按界面语言）。
 /// 没有命中平台（从未转发）→ 「平」（无平台可判，视作非高峰）。
-pub(crate) fn peak_item_parts(platform: Option<&Platform>, now_ms: i64) -> (String, String) {
+pub(crate) fn peak_item_parts(platform: Option<&Platform>, now_ms: i64, lang: Lang) -> (String, String) {
     let in_peak = platform.is_some_and(|p| platform_in_peak(p, now_ms));
+    let value = if in_peak { "tray.render.peakOn" } else { "tray.render.peakOff" };
     (
-        "高峰".to_string(),
-        if in_peak { "峰" } else { "平" }.to_string(),
+        aidog_i18n::tr(lang, "tray.render.peakName").to_string(),
+        aidog_i18n::tr(lang, value).to_string(),
     )
 }
 
@@ -998,6 +1007,7 @@ pub(crate) async fn tray_layout_with_stats(
         None
     };
     let now_ms = chrono::Utc::now().timestamp_millis();
+    let lang = db::get_app_lang(db).await;
 
     // 平台槽含 today_* 指标时批量查一次各平台当日用量（TodayPlatformStat.platform_id 可直接过滤）。
     let needs_today = items.iter().any(|i| {
@@ -1051,6 +1061,7 @@ pub(crate) async fn tray_layout_with_stats(
                     &currency,
                     balance_ccys.get(&pid).map(String::as_str),
                     now_ms,
+                    lang,
                 );
                 if item.color.mode == "auto" {
                     // 与 platform_list / group-info 同式：余额 / 动态窗口日速率 / 24。
@@ -1072,8 +1083,8 @@ pub(crate) async fn tray_layout_with_stats(
                 }
                 (platform.name.clone(), value)
             }
-            "routed_platform" => routed_item_parts(routed_platform.as_ref()),
-            "peak" => peak_item_parts(routed_platform.as_ref(), now_ms),
+            "routed_platform" => routed_item_parts(routed_platform.as_ref(), lang),
+            "peak" => peak_item_parts(routed_platform.as_ref(), now_ms, lang),
             "today_usage" => {
                 let owned_stats;
                 let stats = match precomputed_today_stats {

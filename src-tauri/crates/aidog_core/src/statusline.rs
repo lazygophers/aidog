@@ -9,6 +9,7 @@ use crate::shared::{
     aidog_scripts_dir, cleanup_legacy_root_script, cleanup_legacy_scripts_dir_file,
 };
 use aidog_db::Db;
+use aidog_i18n::Lang;
 use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
@@ -30,6 +31,7 @@ const PEP723_HEADER: &str = concat!(
 );
 
 /// 各 segment 类型的默认选项（对齐 `statusline-segments.ts` 的 `SEGMENT_DEFS.defaultOptions`）。
+/// 空 `prefix` 是占位，按界面语言在 [`default_options`] 里填（`prefix_key`）。
 const DEFAULT_OPTIONS: &str = r##"{
   "model": {"format": "short"},
   "context-bar": {"width": 10, "filled": "▓", "empty": "░"},
@@ -38,18 +40,18 @@ const DEFAULT_OPTIONS: &str = r##"{
   "cost": {"showDuration": true},
   "rate-limits": {"windows": "both"},
   "separator": {"char": "·"},
-  "group-balance": {"prefix": "余额 ", "dynamicColor": false},
+  "group-balance": {"prefix": "", "dynamicColor": false},
   "group-spent": {"prefix": "$"},
-  "group-window-cost": {"prefix": "折算$"},
+  "group-window-cost": {"prefix": ""},
   "group-coding": {"dynamicColor": false},
-  "group-cache": {"prefix": "缓存 "},
+  "group-cache": {"prefix": ""},
   "group-tokens": {"prefix": ""},
   "cost-usd": {"prefix": "$"},
   "session-duration": {"format": "human"},
   "api-duration": {"format": "human"},
   "context-tokens": {"abbrev": true, "mode": "split"},
   "context-max": {"abbrev": true},
-  "context-cache": {"abbrev": true, "mode": "tokens", "prefix": "缓存 "},
+  "context-cache": {"abbrev": true, "mode": "tokens", "prefix": ""},
   "rate-limit-5h": {"showReset": false},
   "rate-limit-7d": {"showReset": false},
   "cwd": {"format": "basename"},
@@ -61,7 +63,7 @@ const DEFAULT_OPTIONS: &str = r##"{
   "thinking": {"label": "thinking"},
   "token-warn": {"label": "⚠200k"},
   "spend-limit": {"showReset": false, "showAmount": false},
-  "prompt-cache": {"mode": "hitrate", "prefix": "缓存 "},
+  "prompt-cache": {"mode": "hitrate", "prefix": ""},
   "fast-mode": {"label": "fast"},
   "custom": {"expr": ".model.display_name"}
 }"##;
@@ -100,7 +102,7 @@ const DEFAULT_SEGMENTS: &str = r##"[
   {"id": "d-tokens", "type": "context-tokens", "enabled": true, "newline": false, "color": "#BF5AF2", "options": {"mode": "sum", "abbrev": true}},
   {"id": "d-cost", "type": "cost-usd", "enabled": true, "newline": false, "color": "#8E8E93", "options": {"prefix": "$", "affixPre": "[", "affixSuf": "]·"}},
   {"id": "d-ctx", "type": "context-pct", "enabled": true, "newline": false, "color": "#34C759", "options": {}},
-  {"id": "d-cache", "type": "context-cache", "enabled": true, "newline": false, "color": "#34C759", "options": {"mode": "hitrate", "prefix": "缓存 ", "affixPre": "·"}},
+  {"id": "d-cache", "type": "context-cache", "enabled": true, "newline": false, "color": "#34C759", "options": {"mode": "hitrate", "affixPre": "·"}},
   {"id": "d-branch", "type": "git-branch", "enabled": true, "newline": true, "color": "#FFD60A", "options": {}},
   {"id": "d-worktree", "type": "worktree-name", "enabled": true, "newline": false, "options": {"affixPre": "·"}},
   {"id": "d-cwd", "type": "cwd", "enabled": true, "newline": false, "options": {"format": "full", "affixPre": "|"}},
@@ -139,16 +141,30 @@ struct Seg {
     options: Map<String, Value>,
 }
 
-fn default_options(ty: &str) -> Map<String, Value> {
+/// 随界面语言的前缀默认值 key（与前端 `statusline-segments.ts` 的 `PREFIX` 同 key）。
+fn prefix_key(ty: &str) -> Option<&'static str> {
+    match ty {
+        "group-balance" => Some("statusline.prefix.balance"),
+        "group-window-cost" => Some("statusline.prefix.windowCost"),
+        "group-cache" | "context-cache" | "prompt-cache" => Some("statusline.prefix.cache"),
+        _ => None,
+    }
+}
+
+fn default_options(ty: &str, lang: Lang) -> Map<String, Value> {
     static TABLE: OnceLock<Map<String, Value>> = OnceLock::new();
     let table = TABLE.get_or_init(|| {
         serde_json::from_str(DEFAULT_OPTIONS).expect("DEFAULT_OPTIONS must be a JSON object")
     });
-    table
+    let mut opts = table
         .get(ty)
         .and_then(Value::as_object)
         .cloned()
-        .unwrap_or_default()
+        .unwrap_or_default();
+    if let Some(key) = prefix_key(ty) {
+        opts.insert("prefix".into(), json!(aidog_i18n::tr(lang, key)));
+    }
+    opts
 }
 
 /// `"#RRGGBB"` / `"#RGB"` → `"r;g;b"`（ANSI 参数串），非法返回 None。
@@ -167,8 +183,8 @@ fn hex_to_rgb(hex: &str) -> Option<String> {
 }
 
 /// 合并默认选项 + 颜色，得到运行期 spec。
-fn seg_spec(seg: &Seg) -> Value {
-    let mut opts = default_options(&seg.ty);
+fn seg_spec(seg: &Seg, lang: Lang) -> Value {
+    let mut opts = default_options(&seg.ty, lang);
     for (k, v) in &seg.options {
         opts.insert(k.clone(), v.clone());
     }
@@ -182,7 +198,7 @@ fn seg_spec(seg: &Seg) -> Value {
 }
 
 /// 按 `newline` 切行，行的 align 取该行首个 segment 的 align。
-fn group_rows(segs: &[&Seg]) -> Vec<Value> {
+fn group_rows(segs: &[&Seg], lang: Lang) -> Vec<Value> {
     let mut rows: Vec<(String, Vec<Value>)> = Vec::new();
     for seg in segs {
         let need_new = match rows.last() {
@@ -198,19 +214,19 @@ fn group_rows(segs: &[&Seg]) -> Vec<Value> {
         rows.last_mut()
             .expect("row pushed above")
             .1
-            .push(seg_spec(seg));
+            .push(seg_spec(seg, lang));
     }
     rows.into_iter()
         .map(|(align, segs)| json!({ "align": align, "segs": segs }))
         .collect()
 }
 
-fn generate_main(segments: &[Seg]) -> String {
+fn generate_main(segments: &[Seg], lang: Lang) -> String {
     let active: Vec<&Seg> = segments.iter().filter(|s| s.enabled).collect();
     if active.is_empty() {
         return format!("{PEP723_HEADER}print('')\n");
     }
-    let rows = Value::Array(group_rows(&active));
+    let rows = Value::Array(group_rows(&active, lang));
     let need_group = active
         .iter()
         .any(|s| GROUP_SEG_TYPES.contains(&s.ty.as_str()));
@@ -236,12 +252,12 @@ fn generate_main(segments: &[Seg]) -> String {
     .join("\n")
 }
 
-fn generate_subagent(segments: &[Seg]) -> String {
+fn generate_subagent(segments: &[Seg], lang: Lang) -> String {
     let active: Vec<&Seg> = segments.iter().filter(|s| s.enabled).collect();
     if active.is_empty() {
         return format!("{PEP723_HEADER}pass\n");
     }
-    let specs = Value::Array(active.iter().map(|s| seg_spec(s)).collect());
+    let specs = Value::Array(active.iter().map(|s| seg_spec(s, lang)).collect());
     let config = B64.encode(specs.to_string());
     [
         PEP723_HEADER,
@@ -286,7 +302,7 @@ enum Materialized {
     Builtin(String),
 }
 
-fn materialize(stored: Option<&Value>, is_main: bool) -> Materialized {
+fn materialize(stored: Option<&Value>, is_main: bool, lang: Lang) -> Materialized {
     let obj = stored.and_then(Value::as_object);
     let enabled = obj
         .and_then(|o| o.get("enabled"))
@@ -304,15 +320,15 @@ fn materialize(stored: Option<&Value>, is_main: bool) -> Materialized {
     }
     let segments = parse_segments(obj, is_main);
     Materialized::Builtin(if is_main {
-        generate_main(&segments)
+        generate_main(&segments, lang)
     } else {
-        generate_subagent(&segments)
+        generate_subagent(&segments, lang)
     })
 }
 
 /// 只读预览：返回内置模式下的脚本正文，非内置/未启用返回空串。不落盘。
-pub fn preview(stored: &Value, is_main: bool) -> String {
-    match materialize(Some(stored), is_main) {
+pub fn preview(stored: &Value, is_main: bool, lang: Lang) -> String {
+    match materialize(Some(stored), is_main, lang) {
         Materialized::Builtin(s) => s,
         _ => String::new(),
     }
@@ -345,6 +361,7 @@ pub async fn prepare_statusline_fields(
     base_config: &Value,
 ) -> Result<[(&'static str, Option<Value>); 2], String> {
     let invoker = crate::shared::resolve_script_invoker(db).await;
+    let lang = aidog_db::get_app_lang(db).await;
     let targets = [
         (
             "statusLine",
@@ -363,7 +380,7 @@ pub async fn prepare_statusline_fields(
     ];
     let mut out = [("statusLine", None), ("subagentStatusLine", None)];
     for (i, (field, aidog_key, is_main, filename, legacy_sh)) in targets.into_iter().enumerate() {
-        let value = match materialize(base_config.get(aidog_key), is_main) {
+        let value = match materialize(base_config.get(aidog_key), is_main, lang) {
             Materialized::Disabled => None,
             Materialized::Custom(cmd) if cmd.is_empty() => None,
             Materialized::Custom(cmd) => Some(json!({ "type": "command", "command": cmd })),
@@ -442,11 +459,30 @@ mod tests {
     #[test]
     fn default_options_merge_and_override() {
         let s = &segs(r##"[{"type":"model","enabled":true,"options":{"format":"long"}}]"##)[0];
-        let spec = seg_spec(s);
+        let spec = seg_spec(s, Lang::ZhCn);
         assert_eq!(spec["opts"]["format"], "long");
 
         let s = &segs(r##"[{"type":"context-pct","enabled":true}]"##)[0];
-        assert_eq!(seg_spec(s)["opts"]["suffix"], "%");
+        assert_eq!(seg_spec(s, Lang::ZhCn)["opts"]["suffix"], "%");
+    }
+
+    #[test]
+    fn default_prefixes_follow_lang_but_user_prefix_kept() {
+        let prefix = |ty: &str, lang| default_options(ty, lang)["prefix"].clone();
+        assert_eq!(prefix("group-balance", Lang::ZhCn), "余额 ");
+        assert_eq!(prefix("group-balance", Lang::EnUs), "Balance ");
+        assert_eq!(prefix("group-window-cost", Lang::EnUs), "≈$");
+        for ty in ["group-cache", "context-cache", "prompt-cache"] {
+            assert_eq!(prefix(ty, Lang::ZhCn), "缓存 ", "{ty}");
+            assert_eq!(prefix(ty, Lang::EnUs), "Cache ", "{ty}");
+        }
+        // 用户自己填的前缀不翻译。
+        let s = &segs(r##"[{"type":"group-balance","enabled":true,"options":{"prefix":"余额 "}}]"##)[0];
+        assert_eq!(seg_spec(s, Lang::EnUs)["opts"]["prefix"], "余额 ");
+        // 默认布局的缓存段不写死前缀，随语言取默认值。
+        let list: Vec<Seg> = serde_json::from_str(DEFAULT_SEGMENTS).unwrap();
+        let cache = list.iter().find(|s| s.ty == "context-cache").unwrap();
+        assert_eq!(seg_spec(cache, Lang::EnUs)["opts"]["prefix"], "Cache ");
     }
 
     #[test]
@@ -454,14 +490,14 @@ mod tests {
         let s = &segs(
             r##"[{"type":"context-pct","enabled":true,"autoColor":true,"color":"#ffffff"}]"##,
         )[0];
-        let spec = seg_spec(s);
+        let spec = seg_spec(s, Lang::ZhCn);
         assert_eq!(spec["autoColor"], true);
         assert!(spec["rgb"].is_null());
 
         // model 不在 VALUE_COLORABLE：autoColor 失效，颜色照常生效。
         let s =
             &segs(r##"[{"type":"model","enabled":true,"autoColor":true,"color":"#ffffff"}]"##)[0];
-        let spec = seg_spec(s);
+        let spec = seg_spec(s, Lang::ZhCn);
         assert_eq!(spec["autoColor"], false);
         assert_eq!(spec["rgb"], "255;255;255");
     }
@@ -474,7 +510,7 @@ mod tests {
                 {"type":"version","enabled":true,"newline":true,"align":"right"}]"#,
         );
         let refs: Vec<&Seg> = list.iter().collect();
-        let rows = group_rows(&refs);
+        let rows = group_rows(&refs, Lang::ZhCn);
         assert_eq!(rows.len(), 2);
         // 首个 segment 的 newline 不产生空行。
         assert_eq!(rows[0]["align"], "left");
@@ -486,14 +522,14 @@ mod tests {
     #[test]
     fn empty_active_segments_produce_stub_scripts() {
         let list = segs(r##"[{"type":"model","enabled":false}]"##);
-        assert_eq!(generate_main(&list), format!("{PEP723_HEADER}print('')\n"));
-        assert_eq!(generate_subagent(&list), format!("{PEP723_HEADER}pass\n"));
+        assert_eq!(generate_main(&list, Lang::ZhCn), format!("{PEP723_HEADER}print('')\n"));
+        assert_eq!(generate_subagent(&list, Lang::ZhCn), format!("{PEP723_HEADER}pass\n"));
     }
 
     #[test]
     fn generated_script_embeds_engine_and_decodable_config() {
         let list: Vec<Seg> = serde_json::from_str(DEFAULT_SEGMENTS).unwrap();
-        let script = generate_main(&list);
+        let script = generate_main(&list, Lang::ZhCn);
         assert!(script.starts_with(PEP723_HEADER));
         assert!(script.contains(ENGINE_PY));
         // 默认布局含 group-* → 需要拉 group-info。
@@ -515,28 +551,29 @@ mod tests {
     #[test]
     fn subagent_script_has_no_group_fetch() {
         let list: Vec<Seg> = serde_json::from_str(DEFAULT_SUBAGENT_SEGMENTS).unwrap();
-        let script = generate_subagent(&list);
+        let script = generate_subagent(&list, Lang::ZhCn);
         assert!(script.contains("render_subagent"));
         assert!(!script.contains("NEED_GROUP"));
     }
 
     #[test]
     fn materialize_covers_three_states() {
-        assert!(matches!(materialize(None, true), Materialized::Disabled));
+        assert!(matches!(materialize(None, true, Lang::ZhCn), Materialized::Disabled));
         assert!(matches!(
-            materialize(Some(&json!({"enabled": false})), true),
+            materialize(Some(&json!({"enabled": false})), true, Lang::ZhCn),
             Materialized::Disabled
         ));
         let m = materialize(
             Some(&json!({"enabled": true, "mode": "custom", "customCommand": "  echo hi  "})),
             true,
+            Lang::ZhCn,
         );
         match m {
             Materialized::Custom(c) => assert_eq!(c, "echo hi"),
             _ => panic!("expected custom"),
         }
         // 启用但无 segments → 回落默认布局。
-        let m = materialize(Some(&json!({"enabled": true})), false);
+        let m = materialize(Some(&json!({"enabled": true})), false, Lang::ZhCn);
         match m {
             Materialized::Builtin(s) => assert!(s.contains("render_subagent")),
             _ => panic!("expected builtin"),
@@ -545,15 +582,16 @@ mod tests {
 
     #[test]
     fn preview_empty_unless_builtin() {
-        assert_eq!(preview(&json!({"enabled": false}), true), "");
+        assert_eq!(preview(&json!({"enabled": false}), true, Lang::ZhCn), "");
         assert_eq!(
             preview(
                 &json!({"enabled": true, "mode": "custom", "customCommand": "x"}),
-                true
+                true,
+                Lang::ZhCn
             ),
             ""
         );
-        assert!(preview(&json!({"enabled": true}), true).starts_with(PEP723_HEADER));
+        assert!(preview(&json!({"enabled": true}), true, Lang::ZhCn).starts_with(PEP723_HEADER));
     }
 
     #[test]
@@ -614,7 +652,7 @@ mod tests {
     fn run_segs(segs_json: &str, env: &[(&str, &str)], stdin: &str) -> String {
         use std::io::Write;
         let list = segs(segs_json);
-        let script = generate_main(&list);
+        let script = generate_main(&list, Lang::ZhCn);
         let dir = std::env::temp_dir().join(format!("aidog-sl-{}-{:p}", std::process::id(), &script));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("s.py");

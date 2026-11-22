@@ -2,56 +2,80 @@
 //! 中的 NotifType / NotifForm / TtsBackend / NotificationSettings 相关用例）。
 
 use super::*;
+use aidog_i18n::Lang;
+
+const ZH: Lang = Lang::ZhCn;
 
 #[test]
 fn default_template_per_event_independent() {
     // 每事件模板各自独立、用其专属入参（抽样核对）。
-    assert_eq!(default_template_for_event("Stop"), "{project}{ · |session_name} 任务完成");
+    assert_eq!(default_template_for_event(ZH, "Stop"), "{project}{ · |session_name} 任务完成");
     assert_eq!(
-        default_template_for_event("SubagentStop"),
+        default_template_for_event(ZH, "SubagentStop"),
         "{project}{ · |session_name} 子代理 {agent_type} 完成"
     );
     assert_eq!(
-        default_template_for_event("Notification"),
+        default_template_for_event(ZH, "Notification"),
         "{project}{ · |session_name} 提醒：{action}"
     );
     assert_eq!(
-        default_template_for_event("PostToolUseFailure"),
+        default_template_for_event(ZH, "PostToolUseFailure"),
         "{project}{ · |session_name} {tool_name} 失败：{error}"
     );
     assert_eq!(
-        default_template_for_event("SessionEnd"),
+        default_template_for_event(ZH, "SessionEnd"),
         "{project}{ · |session_name} 会话结束（{end_reason}）"
     );
     // 全量目录每事件都有非空专属默认模板。
     for e in CC_HOOK_EVENTS {
         assert!(
-            !default_template_for_event(e).is_empty(),
+            !default_template_for_event(ZH, e).is_empty(),
             "event {e} missing default template"
         );
     }
     // 会话事件 / 类型默认模板都在 {project} 后带可选会话名；网关事件不带。
     const OPT: &str = "{project}{ · |session_name}";
     for e in CC_HOOK_EVENTS {
-        assert!(default_template_for_event(e).starts_with(OPT), "event {e}");
+        assert!(default_template_for_event(ZH, e).starts_with(OPT), "event {e}");
     }
     for t in [NotifType::TaskComplete, NotifType::WaitingInput, NotifType::Error] {
         assert!(t.default_template().starts_with(OPT), "type {t:?}");
     }
     for e in ["breaker_on", "breaker_off", "quota_exhaust_forecast"] {
-        assert!(!default_template_for_event(e).contains("session_name"), "gateway {e}");
+        assert!(!default_template_for_event(ZH, e).contains("session_name"), "gateway {e}");
     }
     // 各事件模板互不相同（无统一模板）。
     let mut seen = std::collections::HashSet::new();
     for e in CC_HOOK_EVENTS {
-        let t = default_template_for_event(e);
+        let t = default_template_for_event(ZH, e);
         assert!(
             seen.insert(t),
             "duplicate default template across events: {t}"
         );
     }
     // 未命中事件 → 空串（dispatch 兜底类型 default_template）。
-    assert_eq!(default_template_for_event("UnknownEvent"), "");
+    assert_eq!(default_template_for_event(ZH, "UnknownEvent"), "");
+}
+
+#[test]
+fn default_template_follows_app_lang() {
+    assert_eq!(
+        default_template_for_event(Lang::EnUs, "Stop"),
+        "{project}{ · |session_name} task completed"
+    );
+    assert_eq!(
+        default_template_for_event(Lang::EnUs, "breaker_off"),
+        "{platform} circuit breaker recovered"
+    );
+    // 每语言每事件都有非空默认模板；未命中事件各语言都是空串。
+    for lang in [
+        Lang::ZhCn, Lang::EnUs, Lang::JaJp, Lang::FrFr, Lang::DeDe, Lang::RuRu, Lang::ArSa, Lang::EsEs,
+    ] {
+        for e in CC_HOOK_EVENTS.iter().chain(PROXY_SEMANTIC_EVENTS.iter()) {
+            assert!(!default_template_for_event(lang, e).is_empty(), "{lang:?} {e}");
+        }
+        assert_eq!(default_template_for_event(lang, "UnknownEvent"), "");
+    }
 }
 
 #[test]
@@ -265,7 +289,7 @@ fn cc_mapping_only_uses_known_events() {
 fn proxy_semantic_events_have_templates_and_defaults() {
     use super::*;
     for ev in PROXY_SEMANTIC_EVENTS {
-        assert!(!default_template_for_event(ev).is_empty(), "{ev} 缺默认模板");
+        assert!(!default_template_for_event(ZH, ev).is_empty(), "{ev} 缺默认模板");
         let es = default_event_setting_for(ev).expect("{ev} 缺内置默认配置");
         assert!(es.enabled, "{ev} 内置默认应启用");
     }

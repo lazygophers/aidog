@@ -1,6 +1,7 @@
 import { Fragment, useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import i18n from "../locales";
 import {
   platformApi,
   trayConfigApi,
@@ -239,17 +240,27 @@ const CYCLE_MS: Record<string, number> = {
   mcp_monthly: 30 * 86_400_000,
 };
 
-/** 托盘重置倒计时（与 Rust `format_countdown` 逐字对齐）：精确到分钟（ceil），过期 → null。 */
+/** 托盘重置倒计时（与 Rust `format_countdown` 逐字对齐，单位读同一组 `tray.render.*` key）：精确到分钟（ceil），过期 → null。 */
 export function formatCountdown(resetAtMs: number, nowMs: number, fmt?: string | null): string | null {
   const min = Math.ceil((resetAtMs - nowMs) / 60_000);
   if (min <= 0) return null;
   const d = Math.floor(min / 1440), h = Math.floor((min % 1440) / 60), mi = min % 60;
-  if (fmt === "clock") return `${d > 0 ? `${d}天 ` : ""}${h}:${String(mi).padStart(2, "0")}`;
-  const [ud, uh, um] = fmt === "compact" ? ["d", "h", "m"] : ["天", "小时", "分"];
-  return [[d, ud], [h, uh], [mi, um]].filter(([n]) => n).map(([n, u]) => `${n}${u}`).join("");
+  if (fmt === "clock") {
+    const days = d > 0 ? i18n.t("tray.render.clockDays", { n: d, defaultValue: "{{n}}d " }) : "";
+    return `${days}${h}:${String(mi).padStart(2, "0")}`;
+  }
+  if (fmt === "compact") {
+    return ([[d, "d"], [h, "h"], [mi, "m"]] as const).filter(([n]) => n).map(([n, u]) => `${n}${u}`).join("");
+  }
+  // 带空格的语言单位自带尾随空格，拼完去掉末尾那个。
+  return ([
+    [d, "tray.render.countdownDay", "{{n}} d "],
+    [h, "tray.render.countdownHour", "{{n}} hr "],
+    [mi, "tray.render.countdownMinute", "{{n}} min "],
+  ] as const).filter(([n]) => n).map(([n, k, f]) => i18n.t(k, { n, defaultValue: f })).join("").trimEnd();
 }
 
-/** 预览值。peak 与真实托盘同口径（峰/平，Rust `peak_item_parts`）；routed_platform 仍占位。
+/** 预览值。peak 与真实托盘同口径（`tray.render.peakOn/peakOff`，Rust `peak_item_parts`）；routed_platform 仍占位。
  *  nowMs 可选注入：reset_* 指标的倒计时（golden 两侧同 now 对算）。 */
 export function previewValue(
   item: TrayItem,
@@ -314,7 +325,7 @@ export function previewValue(
       return pct("coding") ?? money(balanceUsd, 2);
     }
     case "peak":
-      return peak?.in_peak ? "峰" : "平";
+      return peak?.in_peak ? i18n.t("tray.render.peakOn", "Peak") : i18n.t("tray.render.peakOff", "Off-peak");
     case "separator":
       return item.display;
     default:
@@ -503,7 +514,7 @@ export function SegmentEditor({
             style={editorInput}
           >
             <option value="compact">{t("tray.platform.resetFormat.compact", "Compact 2h15m")}</option>
-            <option value="cn">{t("tray.platform.resetFormat.cn", "Chinese 2小时15分")}</option>
+            <option value="cn">{t("tray.platform.resetFormat.cn", "Full units 2 hr 15 min")}</option>
             <option value="clock">{t("tray.platform.resetFormat.clock", "Clock 2:15")}</option>
           </select>
         </div>

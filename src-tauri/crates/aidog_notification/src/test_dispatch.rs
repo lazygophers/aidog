@@ -1,5 +1,5 @@
 // dispatch 规则驱动接线测试（票 04 重写：通道由规则控制，per_event/per_type 只存模板）。
-// 文案断言：t 不引入，模板 fallback 为 zh 硬编码（与 models 同源），文本确定性等价字面量。
+// 文案断言：mem_db 固定界面语言 zh-Hans，事件默认模板取 locale 中文值，文本确定性等价字面量。
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -17,7 +17,29 @@ async fn mem_db() -> Arc<Db> {
     aidog_db::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
         .await
         .unwrap();
-    Arc::new(db)
+    let db = Arc::new(db);
+    // 既有断言按中文默认模板写，固定界面语言为简体中文。
+    set_locale(&db, "zh-Hans").await;
+    db
+}
+
+async fn set_locale(db: &Arc<Db>, locale: &str) {
+    aidog_db::set_setting(db, aidog_db::models::SetSettingInput {
+        scope: "app".to_string(),
+        key: "locale".to_string(),
+        value: serde_json::json!({ "locale": locale }),
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn event_default_template_follows_app_locale() {
+    let db = mem_db().await;
+    set_rules(&db, |_| {}).await;
+    set_locale(&db, "en-US").await;
+    let r = dispatch(&db, None, Some("Stop"), "task_complete", None, &vars(&[("project", "P1")])).await;
+    assert_eq!(r.body, "P1 task completed");
 }
 
 async fn set_rules(db: &Arc<Db>, f: impl FnOnce(&mut NotificationSettings)) {

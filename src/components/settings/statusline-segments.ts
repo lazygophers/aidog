@@ -5,6 +5,15 @@
 // every symbol below so consumers import paths stay unchanged.
 //
 // Pure data only — no React/Tauri imports — safe to load in a Node test harness.
+// Prefix defaults follow the UI language via i18n (same keys as Rust statusline.rs default_options).
+
+import i18n from "../../locales";
+
+const PREFIX = {
+  balance: () => i18n.t("statusline.prefix.balance", "Balance "),
+  windowCost: () => i18n.t("statusline.prefix.windowCost", "≈$"),
+  cache: () => i18n.t("statusline.prefix.cache", "Cache "),
+};
 
 export type RowAlign = "left" | "center" | "right";
 
@@ -227,10 +236,10 @@ export const SEGMENT_DEFS: SegmentDef[] = [
     name: "Group Balance",
     icon: "bolt",
     desc: "Estimated remaining balance of the group's sole enabled platform (single-enabled-platform groups only)",
-    defaultOptions: { prefix: "余额 ", dynamicColor: false },
-    toPreview: (o) => `${o.prefix ?? "余额 "}48.20`,
+    get defaultOptions() { return { prefix: PREFIX.balance(), dynamicColor: false }; },
+    toPreview: (o) => `${o.prefix ?? PREFIX.balance()}48.20`,
     fields: [
-      { key: "prefix", label: "Prefix", type: "string", placeholder: "余额 " },
+      { key: "prefix", label: "Prefix", type: "string", get placeholder() { return PREFIX.balance(); } },
       { key: "dynamicColor", label: "Dynamic color (by days left)", type: "select", options: ["false", "true"] },
     ],
   },
@@ -250,10 +259,10 @@ export const SEGMENT_DEFS: SegmentDef[] = [
     name: "Window cost",
     icon: "bolt",
     desc: "Current group's estimated spend $ in this quota window (coding plan platforms accumulate est_cost since the window start; hidden when 0 or non-coding)",
-    defaultOptions: { prefix: "折算$" },
-    toPreview: (o) => `${o.prefix ?? "折算$"}4.56`,
+    get defaultOptions() { return { prefix: PREFIX.windowCost() }; },
+    toPreview: (o) => `${o.prefix ?? PREFIX.windowCost()}4.56`,
     fields: [
-      { key: "prefix", label: "Prefix", type: "string", placeholder: "折算$" },
+      { key: "prefix", label: "Prefix", type: "string", get placeholder() { return PREFIX.windowCost(); } },
     ],
   },
   {
@@ -290,10 +299,10 @@ export const SEGMENT_DEFS: SegmentDef[] = [
     name: "Cache Rate",
     icon: "status",
     desc: "Group cache hit rate (single-enabled-platform groups only)",
-    defaultOptions: { prefix: "缓存 " },
-    toPreview: (o) => `${o.prefix ?? "缓存 "}37%`,
+    get defaultOptions() { return { prefix: PREFIX.cache() }; },
+    toPreview: (o) => `${o.prefix ?? PREFIX.cache()}37%`,
     fields: [
-      { key: "prefix", label: "Prefix", type: "string", placeholder: "缓存 " },
+      { key: "prefix", label: "Prefix", type: "string", get placeholder() { return PREFIX.cache(); } },
     ],
   },
   {
@@ -391,14 +400,14 @@ export const SEGMENT_DEFS: SegmentDef[] = [
     name: "Cache Tokens",
     icon: "core",
     desc: "current_usage.cache_creation/read_input_tokens — cache write/read",
-    defaultOptions: { abbrev: true, mode: "tokens", prefix: "缓存 " },
+    get defaultOptions() { return { abbrev: true, mode: "tokens", prefix: PREFIX.cache() }; },
     toPreview: (o) => o.mode === "hitrate"
-      ? `${o.prefix ?? "缓存 "}13.3578%`
+      ? `${o.prefix ?? PREFIX.cache()}13.3578%`
       : (o.abbrev ? "w20K r12.1K" : "w20000 r12100"),
     fields: [
       { key: "mode", label: "Mode", type: "select", options: ["tokens", "hitrate"] },
       { key: "abbrev", label: "Abbreviate (K/M)", type: "select", options: ["true", "false"] },
-      { key: "prefix", label: "Hit-rate prefix", type: "string", placeholder: "缓存 " },
+      { key: "prefix", label: "Hit-rate prefix", type: "string", get placeholder() { return PREFIX.cache(); } },
     ],
   },
   // Rate limits (per window)
@@ -681,17 +690,17 @@ export const SEGMENT_DEFS: SegmentDef[] = [
     name: "Prompt Cache",
     icon: "status",
     desc: "prompt_cache — hit ratio / warm / expiry countdown / misses / cold rebuild / miss cause",
-    defaultOptions: { mode: "hitrate", prefix: "缓存 " },
+    get defaultOptions() { return { mode: "hitrate", prefix: PREFIX.cache() }; },
     toPreview: (o) => {
       const body: Record<string, string> = {
         hitrate: "91%", warm: "warm", ttl: "90m", misses: "2/14 miss",
         recache: "cold→45K", cause: "tools_changed",
       };
-      return (o.prefix ?? "缓存 ") + (body[o.mode ?? "hitrate"] ?? "91%");
+      return (o.prefix ?? PREFIX.cache()) + (body[o.mode ?? "hitrate"] ?? "91%");
     },
     fields: [
       { key: "mode", label: "Mode", type: "select", options: ["hitrate", "warm", "ttl", "misses", "recache", "cause"] },
-      { key: "prefix", label: "Prefix", type: "string", placeholder: "缓存 " },
+      { key: "prefix", label: "Prefix", type: "string", get placeholder() { return PREFIX.cache(); } },
     ],
   },
   {
@@ -819,7 +828,7 @@ export const DEFAULT_SEGMENTS: StatusLineSegment[] = [
   { id: "d-ctx", type: "context-pct", enabled: true, newline: false, color: "#34C759",
     options: {} },
   { id: "d-cache", type: "context-cache", enabled: true, newline: false, color: "#34C759",
-    options: { mode: "hitrate", prefix: "缓存 ", affixPre: "·" } },
+    options: { mode: "hitrate", affixPre: "·" } },
   // ── Row 2: branch[·worktree]|pwd ──
   { id: "d-branch", type: "git-branch", enabled: true, newline: true, color: "#FFD60A",
     options: {} },
