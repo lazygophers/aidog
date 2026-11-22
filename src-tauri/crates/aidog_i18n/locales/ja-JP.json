@@ -1306,6 +1306,7 @@
   "sessions.carryHandoff": "ファイルパスを引き渡す",
   "sessions.resumeFailed": "セッションを再開できませんでした: {{error}}",
   "sessions.resumeCopied": "このシステムではターミナルを開けません。再開コマンドをコピーしました: {{command}}",
+  "sessions.resumeCommandCopied": "再開コマンドをコピーしました: {{command}}",
   "sessions.openDir": "フォルダを開く",
   "sessions.openDirFailed": "フォルダを開けませんでした：{{error}}",
   "sessions.hide": "一覧から非表示",

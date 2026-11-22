@@ -1306,6 +1306,7 @@
   "sessions.carryHandoff": "Dateipfad übergeben",
   "sessions.resumeFailed": "Sitzung konnte nicht fortgesetzt werden: {{error}}",
   "sessions.resumeCopied": "Auf diesem System kann kein Terminal geöffnet werden. Befehl zum Fortsetzen kopiert: {{command}}",
+  "sessions.resumeCommandCopied": "Befehl zum Fortsetzen kopiert: {{command}}",
   "sessions.openDir": "Ordner öffnen",
   "sessions.openDirFailed": "Ordner konnte nicht geöffnet werden: {{error}}",
   "sessions.hide": "Aus Liste ausblenden",

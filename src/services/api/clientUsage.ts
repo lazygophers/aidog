@@ -131,7 +131,7 @@ export interface ClientUsageSessionState {
   lastActivityMs: number;
 }
 
-/** `session_resume` 结果：launched=false 表示本平台不能开终端，command 供复制。 */
+/** `session_resume` / `session_carry` 结果：launched=false 表示未开终端，command 供复制（`session_resume` 恒 false，票 14）。 */
 export interface SessionResumeResult {
   launched: boolean;
   command: string;
@@ -162,7 +162,7 @@ export const clientUsageApi = {
     invoke<ClientUsageHiddenSessionRow[]>("client_usage_hidden_sessions", { fromMs, toMs }),
   sessionStates: (sessionIds: string[], clientCode?: string) =>
     invoke<ClientUsageSessionState[]>("client_usage_session_states", { clientCode, sessionIds }),
-  /** 继续会话（票 07）：先 cd 到工作目录再跑各家继续命令；launched=false 时前端复制 command。 */
+  /** 继续会话（票 07 / 14）：返回先 cd 到工作目录再跑各家继续命令的整行，前端复制，不开终端。 */
   sessionResume: (clientCode: string, sessionId: string, workdir: string) =>
     invoke<SessionResumeResult>("session_resume", { clientCode, sessionId, workdir }),
   /** 换客户端继续（票 10）：Claude Code ⇄ Codex 转写为目标新会话，其余组合交接原文件路径；结果同 sessionResume。 */

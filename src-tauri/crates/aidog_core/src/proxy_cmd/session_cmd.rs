@@ -36,8 +36,8 @@ pub(crate) fn build_resume_command(session_id: &str, group_key: &str, aidog_dir:
     parts.join(" ")
 }
 
-/// `session_resume` 结果：launched=已在 Terminal.app 打开；false = 本平台不能开终端，
-/// 前端把 `command` 复制给用户自己跑。
+/// `session_resume` / `session_carry` 结果：launched=已在 Terminal.app 打开；false = 未开终端，
+/// 前端把 `command` 复制给用户自己跑（`session_resume` 恒为 false，票 14）。
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionResumeResult {
@@ -172,14 +172,14 @@ pub(crate) fn open_terminal(line: &str) -> Result<bool, String> {
 
 crate::tauri_command! {
 /// 统一「继续会话」（扩展-会话页 票 07）：四家客户端各自的继续命令，先 cd 到会话工作目录；
-/// Claude / Codex 沿用 proxy_log 记录的原分组。无测试直调：真跑会弹终端窗（测 `session_resume_with`）。
+/// Claude / Codex 沿用 proxy_log 记录的原分组。只返回整行命令供前端复制，不开终端（票 14）。
 pub async fn session_resume(
     client_code: String,
     session_id: String,
     workdir: String) -> Result<SessionResumeResult, String> {
     let oc = crate::client_usage_cmd::client_root("opencode");
     let dir = aidog_dir()?;
-    session_resume_with(aidog_ctx::db(), &client_code, &session_id, &workdir, oc.as_deref(), &dir, &open_terminal).await
+    session_resume_with(aidog_ctx::db(), &client_code, &session_id, &workdir, oc.as_deref(), &dir, &|_| Ok(false)).await
 }
 }
 

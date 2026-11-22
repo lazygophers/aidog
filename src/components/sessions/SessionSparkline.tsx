@@ -5,8 +5,8 @@ import { useTranslation } from "react-i18next";
 import { clientUsageApi, type ClientUsageTokenPoint } from "../../services/api/clientUsage";
 import { formatNumber } from "../../utils/formatters";
 
-const W = 56;
-const H = 20;
+const W = 160;
+const H = 24;
 const MAX_BARS = 20;
 
 const total = (p: ClientUsageTokenPoint) => p.inputTokens + p.outputTokens + p.cacheReadTokens + p.cacheWriteTokens;
@@ -38,12 +38,12 @@ export function SessionSparkline({ clientCode, sessionId, lastCallMs }: { client
   const bw = Math.max(1, step * 0.6);
   return (
     <svg
-      width={W}
       height={H}
       viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
       role="img"
       aria-label={t("sessions.sparkLabel", "token 走势，共 {{n}}", { n: formatNumber(sum) })}
-      className="justify-self-center text-[var(--primary)]"
+      className="w-14 text-[var(--primary)] @md:w-40"
       data-testid="sessions-row-spark"
       data-bars={String(list.length)}
       data-total={String(sum)}
