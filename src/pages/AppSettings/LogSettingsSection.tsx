@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { proxyLogApi } from "../../services/api/proxy";
-import type { CleanupEstimate, RetentionUnit } from "../../services/api";
+import type { CleanupEstimate, ProxyLogSettings, RetentionUnit } from "../../services/api";
 import { formatBytes, formatNumber } from "../../utils/formatters";
 import type { SystemSettings } from "./useSystemSettings";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,12 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
   function flashMessage(text: string, type: "success" | "error" = "success") {
     setMessage({ text, type });
     setTimeout(() => setMessage(null), 3000);
+  }
+
+  // updateLogSettings 失败时已在 hook 侧回滚 state（issue #56 T05）；这里只负责把错误闪出来。
+  async function saveLog(partial: Partial<ProxyLogSettings>) {
+    const err = await updateLogSettings(partial);
+    if (err !== null) flashMessage(err, "error");
   }
 
   // 只读预估（超期行数 / 可回收 body 字节 / 库大小）。挂载时取一次，保留期改动后重取
@@ -84,9 +90,9 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
   }
 
   // ponytail: 单位 Select 复用，三 option (hour/day/week) 固定。
-  const UnitSelect = ({ value, onChange }: { value: RetentionUnit; onChange: (u: RetentionUnit) => void }) => (
+  const UnitSelect = ({ value, onChange, testId }: { value: RetentionUnit; onChange: (u: RetentionUnit) => void; testId: string }) => (
     <Select value={value} onValueChange={(v) => onChange(v as RetentionUnit)}>
-      <SelectTrigger style={{ width: 80, height: 28, fontSize: 14 }}>
+      <SelectTrigger data-testid={testId} style={{ width: 80, height: 28, fontSize: 14 }}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -124,7 +130,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                     {t("proxy.logUserReqDesc", "用户发送的请求头和请求体")}
                   </div>
                 </div>
-                <Switch checked={logUserReq} onCheckedChange={(c) => { setLogUserReq(c); updateLogSettings({ log_user_request: c }); }} />
+                <Switch data-testid="log-user-req-switch" checked={logUserReq} onCheckedChange={(c) => { setLogUserReq(c); void saveLog({ log_user_request: c }); }} />
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
@@ -133,7 +139,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                     {t("proxy.logUpstreamReqDesc", "发送到上游平台的请求头和请求体")}
                   </div>
                 </div>
-                <Switch checked={logUpstreamReq} onCheckedChange={(c) => { setLogUpstreamReq(c); updateLogSettings({ log_upstream_request: c }); }} />
+                <Switch data-testid="log-upstream-req-switch" checked={logUpstreamReq} onCheckedChange={(c) => { setLogUpstreamReq(c); void saveLog({ log_upstream_request: c }); }} />
               </div>
             </div>
 
@@ -147,8 +153,9 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                   <Input
                     type="number"
                     min={0}
+                    data-testid="user-req-retention"
                     value={userReqRetention}
-                    onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setUserReqRetention(v); updateLogSettings({ user_request_retention_days: v }); }}
+                    onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setUserReqRetention(v); void saveLog({ user_request_retention_days: v }); }}
                     style={{ width: 70, height: 28, fontSize: 14 }}
                   />
                   {userReqRetention === 0 ? (
@@ -156,7 +163,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                       {t("proxy.logRetentionForever", "永久保留")}
                     </span>
                   ) : (
-                    <UnitSelect value={userReqRetentionUnit} onChange={(u) => { setUserReqRetentionUnit(u); updateLogSettings({ user_request_retention_unit: u }); }} />
+                    <UnitSelect value={userReqRetentionUnit} testId="user-req-retention-unit" onChange={(u) => { setUserReqRetentionUnit(u); void saveLog({ user_request_retention_unit: u }); }} />
                   )}
                 </div>
               )}
@@ -168,8 +175,9 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                   <Input
                     type="number"
                     min={0}
+                    data-testid="upstream-req-retention"
                     value={upstreamReqRetention}
-                    onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setUpstreamReqRetention(v); updateLogSettings({ upstream_request_retention_days: v }); }}
+                    onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setUpstreamReqRetention(v); void saveLog({ upstream_request_retention_days: v }); }}
                     style={{ width: 70, height: 28, fontSize: 14 }}
                   />
                   {upstreamReqRetention === 0 ? (
@@ -177,7 +185,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                       {t("proxy.logRetentionForever", "永久保留")}
                     </span>
                   ) : (
-                    <UnitSelect value={upstreamReqRetentionUnit} onChange={(u) => { setUpstreamReqRetentionUnit(u); updateLogSettings({ upstream_request_retention_unit: u }); }} />
+                    <UnitSelect value={upstreamReqRetentionUnit} testId="upstream-req-retention-unit" onChange={(u) => { setUpstreamReqRetentionUnit(u); void saveLog({ upstream_request_retention_unit: u }); }} />
                   )}
                 </div>
               )}
@@ -188,8 +196,9 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                 <Input
                   type="number"
                   min={0}
+                  data-testid="log-retention"
                   value={logRetention}
-                  onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setLogRetention(v); updateLogSettings({ retention_days: v }); }}
+                  onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setLogRetention(v); void saveLog({ retention_days: v }); }}
                   style={{ width: 70, height: 28, fontSize: 14 }}
                 />
                 {logRetention === 0 ? (
@@ -197,7 +206,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                     {t("proxy.logRetentionForever", "永久保留")}
                   </span>
                 ) : (
-                  <UnitSelect value={logRetentionUnit} onChange={(u) => { setLogRetentionUnit(u); updateLogSettings({ retention_unit: u }); }} />
+                  <UnitSelect value={logRetentionUnit} testId="log-retention-unit" onChange={(u) => { setLogRetentionUnit(u); void saveLog({ retention_unit: u }); }} />
                 )}
               </div>
             </div>
@@ -234,6 +243,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
           </div>
           {message && (
             <div
+              data-testid="log-settings-message"
               className="toast"
               style={{
                 fontSize: 14,
