@@ -5371,3 +5371,24 @@ async fn single_platform_unsupported_model_protocol_rejects() {
         .expect_err("anthropic-only 端点服务不了 OSS 模型，必须拒绝");
     assert_eq!(e, "slot_disabled");
 }
+
+/// 推断值不排除（issue 185 设计口径，保守方向：宁可不过滤不可误排除）：kimi-k3 实数据
+/// ['anthropic','openai'] 恰等于 kimi 平台 endpoints.default 并集 = registry 缺省回填的推断值，
+/// 不得当第一方约束数据——运行时端点与推断集零交集也保留（旧码按显式值剔链，本测试先红）。
+#[test]
+fn resolve_target_chain_keeps_models_with_inferred_supported_protocols() {
+    let k3 = "kimi-k3";
+    let models = PlatformModels { default: chain(&[k3]), ..Default::default() };
+    let mut p = mk_platform(aidog_db::models::PlatformStatus::Enabled, 0);
+    p.platform_type = Protocol::Kimi;
+    // 运行时端点与推断集（anthropic+openai）零交集：推断值不得触发剔除
+    p.endpoints = commandcode_endpoints(&[Protocol::Gemini]);
+    let out = resolve_target_chain(
+        RequestKind::Chat, &models, &p, &DecisionModels::default(), k3, &[],
+    );
+    assert_eq!(
+        out,
+        vec![k3.to_string()],
+        "推断回填值（= 端点并集）不得参与排除"
+    );
+}

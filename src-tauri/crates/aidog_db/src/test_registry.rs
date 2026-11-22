@@ -1495,3 +1495,21 @@ fn model_supported_protocols_looks_up_bundled_entries() {
     assert!(crate::model_supported_protocols("my-own-platform", "some-model").is_none());
     assert!(crate::model_supported_protocols("commandcode", "not-a-real-model").is_none());
 }
+
+/// 推断回填判定（issue 185 设计口径）：条目 `supported_protocols` 恰等于该平台
+/// `endpoints.default` 协议并集 = registry 缺省回填的推断值、非第一方数据 → 返回 None
+/// （路由层不约束，宁可不过滤不可误排除）；不等（显式第一方数据）→ Some。
+#[test]
+fn model_supported_protocols_returns_none_for_inferred_values() {
+    // kimi-k3 实数据 ['anthropic','openai'] 恰等于 kimi 端点并集（anthropic+openai）→ 推断，None
+    assert!(
+        crate::model_supported_protocols("kimi", "kimi-k3").is_none(),
+        "恰等于端点并集的条目值属推断回填，不得当第一方约束数据"
+    );
+
+    // kimi-k2.6 实数据 ['openai'] ≠ kimi 并集 → 显式第一方数据，Some 且不含 anthropic
+    let k2 = crate::model_supported_protocols("kimi", "kimi-k2.6")
+        .expect("显式条目（值 ≠ 端点并集）应返回 Some");
+    assert!(k2.contains(&crate::Protocol::OpenAI));
+    assert!(!k2.contains(&crate::Protocol::Anthropic));
+}

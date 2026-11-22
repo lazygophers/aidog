@@ -145,9 +145,11 @@ pub fn bundled_model_entries() -> &'static [ModelEntry] {
 
 /// 编译期内置 registry 的模型条目 `supported_protocols` 查询：`(platform_code, model_id)` →
 /// 解析后的 wire 协议集（schema 必填非空，2026-10-01 起）。`None` = bundled 无该条目（用户自建
-/// 平台 / 条目缺数据），调用方按「不约束」处理。路由层用它过滤「端点协议服务不了的模型」
-/// （4dbbc7c4：OSS 模型被打到 anthropic-only 端点 400）。registry 只读内置、无远程同步，
-/// DB 镜像 `model_entry` 无该列，bundled 即真值源。
+/// 平台 / 条目缺数据）**或条目值属推断回填**，调用方按「不约束」处理。路由层用它过滤「端点
+/// 协议服务不了的模型」（4dbbc7c4：OSS 模型被打到 anthropic-only 端点 400）。推断判定
+/// （issue 185）：条目值恰等于该平台 `endpoints.default` 协议并集 = registry 缺省规则的
+/// 回填值、非第一方数据，返回 None（宁可不过滤，不可误排除）。registry 只读内置、无远程
+/// 同步，DB 镜像 `model_entry` 无该列，bundled 即真值源。
 pub fn model_supported_protocols(platform_code: &str, model_id: &str) -> Option<&'static [Protocol]> {
     static SUPPORTED: OnceLock<std::collections::HashMap<(String, String), Vec<Protocol>>> =
         OnceLock::new();
@@ -166,12 +168,50 @@ pub fn model_supported_protocols(platform_code: &str, model_id: &str) -> Option<
                         .map(Protocol::from_db_str)
                         .filter(|p| !matches!(p, Protocol::Unknown))
                         .collect();
+                    // 推断回填判定（issue 185）：恰等于平台端点并集的值不是第一方数据，不约束
+                    if platform_default_endpoint_union()
+                        .get(*code)
+                        .is_some_and(|u| same_protocol_set(u, &list))
+                    {
+                        return None;
+                    }
                     Some(((code.to_string(), model_id), list))
                 })
                 .collect()
         })
         .get(&(platform_code.to_string(), model_id.to_string()))
         .map(|v| v.as_slice())
+}
+
+/// 各平台预设 `endpoints.default` 的协议并集（CLAUDE.md registry 缺省规则：缺省 =
+/// 该平台 endpoints.default 的 protocol 并集，属推断值）。
+fn platform_default_endpoint_union() -> &'static std::collections::HashMap<&'static str, Vec<Protocol>> {
+    static UNION: OnceLock<std::collections::HashMap<&'static str, Vec<Protocol>>> =
+        OnceLock::new();
+    UNION.get_or_init(|| {
+        crate::registry::bundled_platform_files()
+            .iter()
+            .filter_map(|(code, raw)| {
+                let v: serde_json::Value = serde_json::from_str(raw).ok()?;
+                let arr = v.get("endpoints")?.get("default")?.as_array()?;
+                let mut ps: Vec<Protocol> = Vec::new();
+                for e in arr {
+                    if let Some(s) = e.get("protocol").and_then(|p| p.as_str()) {
+                        let p = Protocol::from_db_str(s);
+                        if !matches!(p, Protocol::Unknown) && !ps.contains(&p) {
+                            ps.push(p);
+                        }
+                    }
+                }
+                (!ps.is_empty()).then_some((*code, ps))
+            })
+            .collect()
+    })
+}
+
+/// 无序集合相等（n ≤ 8，逐元素 contains 足够）。
+fn same_protocol_set(a: &[Protocol], b: &[Protocol]) -> bool {
+    a.len() == b.len() && a.iter().all(|p| b.contains(p))
 }
 
 /// 编译期内置 registry 的平台预设快照，`code` 升序。
