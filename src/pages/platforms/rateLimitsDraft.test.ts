@@ -39,10 +39,10 @@ describe("rateLimits draft helpers", () => {
       tpm: "1.9",
       rules: [{ id: "a", models: ["m1"], start: "", end: "", tz: "", days: [], concurrency: "", rpm: "-3", tpm: "7" }],
       windows: [
-        { num: "0", unit: "3600", mode: "tokens", amount: "9" },      // 时长非法 → 整行丢
-        { num: "7", unit: "86400", mode: "tokens", amount: "" },      // 预算空 → 丢
-        { num: "2", unit: "3600", mode: "usd", amount: "4.5" },       // 金额小数保留
-        { num: "1", unit: "60", mode: "count", amount: "9.7" },       // 次数取整
+        { num: "0", unit: "3600", mode: "tokens", amount: "9", enabled: true, resetMode: "sliding" },      // 时长非法 → 整行丢
+        { num: "7", unit: "86400", mode: "tokens", amount: "", enabled: true, resetMode: "sliding" },      // 预算空 → 丢
+        { num: "2", unit: "3600", mode: "usd", amount: "4.5", enabled: true, resetMode: "sliding" },       // 金额小数保留
+        { num: "1", unit: "60", mode: "count", amount: "9.7", enabled: true, resetMode: "sliding" },       // 次数取整
       ],
     }));
     expect(b.rate_limits).toEqual({ tpm: 1, rules: [{ models: ["m1"], tpm: 7 }] });
