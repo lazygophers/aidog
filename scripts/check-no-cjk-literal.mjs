@@ -26,8 +26,11 @@ const LITERAL_KINDS = new Set([
 export const ALLOWLIST = [
   // 语言自称名：语言选项按各语言本身的写法显示，不随界面语言翻译。
   { file: "src/services/claude-settings-schema.ts", match: 'family: "中文"', reason: "语言自称名（中文语族名）" },
-  { file: "src/services/claude-settings-schema.ts", match: '"简体（', reason: "语言自称名（简体中文变体）" },
-  { file: "src/services/claude-settings-schema.ts", match: '"繁体（', reason: "语言自称名（繁体中文变体）" },
+  { file: "src/services/claude-settings-schema.ts", match: '"简体（通用）"', reason: "语言自称名（简体中文变体）" },
+  { file: "src/services/claude-settings-schema.ts", match: '"简体（中国）"', reason: "语言自称名（简体中文变体）" },
+  { file: "src/services/claude-settings-schema.ts", match: '"简体（新加坡）"', reason: "语言自称名（简体中文变体）" },
+  { file: "src/services/claude-settings-schema.ts", match: '"繁体（台湾）"', reason: "语言自称名（繁体中文变体）" },
+  { file: "src/services/claude-settings-schema.ts", match: '"繁体（香港）"', reason: "语言自称名（繁体中文变体）" },
   { file: "src/services/claude-settings-schema.ts", match: '"日本語"', reason: "语言自称名（日语）" },
   { file: "src/services/claude-settings-schema.ts", match: '"한국어"', reason: "语言自称名（韩语）" },
   // 与后端逐字一致的内部名：改了就对不上后端。

@@ -23,6 +23,7 @@ export {
   DEFAULT_SEGMENTS,
   DEFAULT_SUBAGENT_SEGMENTS,
   STATUSLINE_DATA_FIELDS,
+  omitLocalizedDefaultPrefix,
 } from "./statusline-segments";
 
 import {

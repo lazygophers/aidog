@@ -9,6 +9,7 @@ import {
   DEFAULT_SEGMENTS,
   DEFAULT_SUBAGENT_SEGMENTS,
   normalizeSegments,
+  omitLocalizedDefaultPrefix,
   SEGMENT_DEF_MAP,
 } from "../../statusline-gen";
 import { statuslineApi } from "../../../../services/api";
@@ -134,7 +135,7 @@ export function useStatusLinePanel({
       type,
       enabled: true,
       newline,
-      options: { ...def.defaultOptions },
+      options: omitLocalizedDefaultPrefix({ ...def.defaultOptions }, def.defaultOptions),
     };
     updateSegments([...segments, newSeg]);
     setShowAddMenu(false);

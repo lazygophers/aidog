@@ -199,7 +199,7 @@ export function McpModals({ d }: { d: McpData }) {
               onClick={(e) => { makeRipple(e); void handlePasteImport(); }}
               disabled={pasteBusy || !pasteText.trim()}
             >
-              {pasteBusy ? t("mcp.importing", "Importing…") : t("mcp.import", "Import")}
+              {pasteBusy ? t("mcp.importing", "Importing…") : t("mcp.importAction", "Import")}
             </Button>
           </div>
         </DialogContent>

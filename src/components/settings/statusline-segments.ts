@@ -15,6 +15,20 @@ const PREFIX = {
   cache: () => i18n.t("statusline.prefix.cache", "Cache "),
 };
 
+/**
+ * 未改动的语言化默认前缀（等于 defaults.prefix 且由 PREFIX 管）不存进 options，
+ * 显示时按当前语言取；用户改过（含清空成空串）原样保留。
+ */
+export function omitLocalizedDefaultPrefix(
+  opts: Record<string, any>,
+  defaults: Record<string, any>,
+): Record<string, any> {
+  const p = opts.prefix;
+  if (p === undefined || p !== defaults.prefix || !Object.values(PREFIX).some((f) => f() === p)) return opts;
+  const { prefix: _drop, ...rest } = opts;
+  return rest;
+}
+
 export type RowAlign = "left" | "center" | "right";
 
 export type SegmentType =
