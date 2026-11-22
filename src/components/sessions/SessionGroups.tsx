@@ -14,7 +14,8 @@ import { CarryMenu } from "./CarryMenu";
 import { Button } from "../ui/button";
 
 // 置顶区迷你走势图放在标题列内、token 列前的空白处（票 14），不占独立列：两区列模板相同，各列对齐。
-const ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_210px_96px_96px_184px] items-center gap-3";
+// 窄窗（票 20）：标题列至少 8rem 容纳走势图，token 列可收缩并截断；<xl 时项目信息列移到行上方，不与会话行抢宽。
+const ROW_GRID = "grid grid-cols-[20px_minmax(8rem,1fr)_minmax(0,210px)_96px_96px_184px] items-center gap-3";
 
 function projectName(workdir: string): string {
   return workdir.split(/[\\/]/).filter(Boolean).pop() ?? workdir;
@@ -84,8 +85,8 @@ export function SessionGroups({ rows, pinned, stateOf, isResuming, onResume, onO
   return (
     <div data-testid="sessions-list">
       {pinned.length > 0 && (
-        <div className="grid grid-cols-[230px_minmax(0,1fr)] border-t pt-4 pb-2.5" data-testid="sessions-pinned">
-          <div className="sticky top-0 self-start pe-4">
+        <div className="grid grid-cols-1 xl:grid-cols-[230px_minmax(0,1fr)] border-t pt-4 pb-2.5" data-testid="sessions-pinned">
+          <div className="mb-2 self-start pe-4 xl:sticky xl:top-0 xl:mb-0">
             <b className="flex items-center gap-2 text-lg font-semibold">
               <i aria-hidden className={`inline-block size-2 rounded-full ${STATE_DOT.running}`} />
               {t("sessions.pinnedTitle", "正在执行")}
@@ -103,8 +104,8 @@ export function SessionGroups({ rows, pinned, stateOf, isResuming, onResume, onO
         // 组内会话全部在上方执行中：不留空组。
         if (visible.length === 0) return null;
         return (
-          <div key={workdir} className="grid grid-cols-[230px_minmax(0,1fr)] border-t pt-4 pb-2.5" data-testid="sessions-group" data-workdir={workdir} data-count={String(items.length)} data-cost={String(cost)}>
-            <div className="sticky top-0 self-start pe-4">
+          <div key={workdir} className="grid grid-cols-1 xl:grid-cols-[230px_minmax(0,1fr)] border-t pt-4 pb-2.5" data-testid="sessions-group" data-workdir={workdir} data-count={String(items.length)} data-cost={String(cost)}>
+            <div className="mb-2 self-start pe-4 xl:sticky xl:top-0 xl:mb-0">
               <b className="block truncate text-lg font-semibold" title={workdir}>{workdir ? projectName(workdir) : t("sessions.noWorkdir", "未知目录")}</b>
               {workdir && (
                 <div className="mt-1 flex items-center gap-1">
@@ -208,8 +209,8 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
         </div>
         {inPinned && <SessionSparkline clientCode={r.clientCode} sessionId={r.sessionId} lastCallMs={r.lastCallMs} />}
       </div>
-      <div className="text-end font-mono text-sm tabular-nums" data-testid="sessions-row-tokens">
-        {formatNumber(r.inputTokens + r.outputTokens)}
+      <div className="min-w-0 text-end font-mono text-sm tabular-nums" data-testid="sessions-row-tokens">
+        <div className="truncate">{formatNumber(r.inputTokens + r.outputTokens)}</div>
         <div className="truncate font-sans text-muted-foreground">
           {t("sessions.tokenSplit", "入 {{input}} / 出 {{output}}", { input: formatNumber(r.inputTokens), output: formatNumber(r.outputTokens) })}
         </div>
