@@ -1,5 +1,5 @@
-// 「正在执行」区行内迷你 token 走势（票 12 / 15 / 16）：最近 5 分钟逐秒（入 + 出 + 缓存读写，记在调用时间所在秒），
-// 逐秒值经高斯平滑后用单调三次插值画曲线；悬浮显示该秒原始速度。
+// 「正在执行」区行内迷你 token 走势（票 12 / 15 / 16 / 18）：最近 5 分钟逐秒（入 + 出 + 缓存读写，记在调用时间所在秒），
+// 逐秒值经高斯平滑后用单调三次插值画曲线；悬浮显示指针所在像素覆盖秒区间的原始平均速度。
 // 全部置顶行共用一个 1 秒计时器滑动窗口（页面隐藏时暂停）。数据复用会话详情的时间序列，会话有新调用（lastCallMs 变）才重读。
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
@@ -96,7 +96,8 @@ const subscribe = (l: () => void) => {
 };
 const useNowMs = () => useSyncExternalStore(subscribe, () => nowMs);
 
-type Hover = { i: number; x: number; top: number; bottom: number };
+// s0..s1：指针所在像素覆盖的秒区间 [s0, s1)；i：辅助线 / 点所在秒（区间中间格）
+type Hover = { s0: number; s1: number; i: number; x: number; top: number; bottom: number };
 
 export function SessionSparkline({ clientCode, sessionId, lastCallMs }: { clientCode: string; sessionId: string; lastCallMs: number }) {
   const { t } = useTranslation();
@@ -133,7 +134,9 @@ export function SessionSparkline({ clientCode, sessionId, lastCallMs }: { client
   const curve = sum > 0 ? curvePath(smooth, max, H) : "";
   const hx = hover ? hover.i + 0.5 : 0;
   const hy = hover ? yOf(smooth[hover.i], max, H) : 0;
-  const ago = hover ? SECS - 1 - hover.i : 0;
+  // 时间偏移取区间最新一秒：区间含当前秒时显示「刚刚」
+  const ago = hover ? SECS - hover.s1 : 0;
+  const rate = hover ? bars.slice(hover.s0, hover.s1).reduce((a, b) => a + b, 0) / (hover.s1 - hover.s0) : 0;
   return (
     <>
       <svg
@@ -149,8 +152,11 @@ export function SessionSparkline({ clientCode, sessionId, lastCallMs }: { client
         onMouseMove={(e) => {
           const r = e.currentTarget.getBoundingClientRect();
           if (r.width <= 0) return;
-          const i = Math.max(0, Math.min(SECS - 1, Math.floor(((e.clientX - r.left) / r.width) * SECS)));
-          setHover({ i, x: e.clientX, top: r.top, bottom: r.bottom });
+          // 窄宽时一像素覆盖数秒，单秒值常为 0：取整像素覆盖的秒区间求平均；一像素 ≤1 秒时区间只含一秒
+          const px = Math.floor(e.clientX - r.left);
+          const s0 = Math.max(0, Math.min(SECS - 1, Math.floor((px * SECS) / r.width)));
+          const s1 = Math.max(s0 + 1, Math.min(SECS, Math.floor(((px + 1) * SECS) / r.width)));
+          setHover({ s0, s1, i: Math.floor((s0 + s1 - 1) / 2), x: e.clientX, top: r.top, bottom: r.bottom });
         }}
         onMouseLeave={() => setHover(null)}
         onClick={(e) => e.stopPropagation()}
@@ -174,12 +180,14 @@ export function SessionSparkline({ clientCode, sessionId, lastCallMs }: { client
         <div
           ref={tipRef}
           data-testid="sessions-spark-tip"
-          data-second={String(hover.i)}
+          data-second={String(hover.s0)}
+          data-rate={String(rate)}
+          data-span={`${hover.s0}-${hover.s1}`}
           className="pointer-events-none fixed z-50 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-sm text-popover-foreground shadow-md"
           style={{ left: hover.x + 12, top: hover.top - 64 }}
         >
           <div className="text-muted-foreground">{ago === 0 ? t("sessions.sparkNow", "刚刚") : t("sessions.sparkAgo", "{{n}} 秒前", { n: ago })}</div>
-          <div className="font-mono tabular-nums">{t("sessions.sparkRate", "{{n}} tokens/s", { n: formatNumber(bars[hover.i]) })}</div>
+          <div className="font-mono tabular-nums">{t("sessions.sparkRate", "{{n}} tokens/s", { n: formatNumber(rate) })}</div>
         </div>,
         document.body,
       )}

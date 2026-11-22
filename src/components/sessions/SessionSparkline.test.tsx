@@ -83,12 +83,14 @@ describe("SessionSparkline 实时滑动", () => {
     expect(curve.getAttribute("d")).not.toMatch(/V/);
 
     vi.spyOn(spark, "getBoundingClientRect").mockReturnValue({ left: 100, top: 0, width: 150, height: 24, right: 250, bottom: 24, x: 100, y: 0, toJSON: () => ({}) });
-    // 150px 容 300 秒：x=245.25 → 第 290 格（= now 往前 9 秒）
+    // 150px 容 300 秒：x=245.25 落在第 145 像素，覆盖秒 [290, 292)；时间偏移取区间最新一秒（第 291 秒 = 8 秒前）
     fireEvent.mouseMove(spark, { clientX: 245.25, clientY: 10 });
     const tip = screen.getByTestId("sessions-spark-tip");
     expect(tip).toHaveAttribute("data-second", "290");
-    expect(tip.textContent).toContain("9 秒前");
-    expect(tip.textContent).toContain("1.2K tokens/s");
+    expect(tip).toHaveAttribute("data-span", "290-292");
+    expect(tip).toHaveAttribute("data-rate", "617");
+    expect(tip.textContent).toContain("8 秒前");
+    expect(tip.textContent).toContain("617 tokens/s");
     expect(tip.parentElement).toBe(document.body);
     expect(screen.getByTestId("sessions-spark-guide")).toBeInTheDocument();
 
@@ -102,5 +104,32 @@ describe("SessionSparkline 实时滑动", () => {
     fireEvent.mouseLeave(spark);
     expect(screen.queryByTestId("sessions-spark-tip")).toBeNull();
     expect(screen.queryByTestId("sessions-spark-guide")).toBeNull();
+  });
+
+  const rect = (width: number) => ({ left: 100, top: 0, width, height: 24, right: 100 + width, bottom: 24, x: 100, y: 0, toJSON: () => ({}) });
+
+  it("窄宽 49px：光标所在单秒为 0、像素覆盖区间内有非零秒 → 显示区间平均速度", async () => {
+    sessionDetail.mockResolvedValue({ points: [pt(NOW - 9000, 600)], modelChain: [], agents: [] });
+    render(<SessionSparkline clientCode="codex" sessionId="s" lastCallMs={NOW - 9000} />);
+    await act(async () => {});
+    const spark = screen.getByTestId("sessions-row-spark");
+    vi.spyOn(spark, "getBoundingClientRect").mockReturnValue(rect(49));
+    // 第 47 像素覆盖秒 [287, 293)，调用在第 290 秒；x=147.1 单秒映射为第 288 秒（值 0）
+    fireEvent.mouseMove(spark, { clientX: 147.1, clientY: 10 });
+    const tip = screen.getByTestId("sessions-spark-tip");
+    expect(tip).toHaveAttribute("data-rate", "100");
+    expect(tip).toHaveAttribute("data-span", "287-293");
+  });
+
+  it("宽度足够（≤1 秒/像素）退化为单秒原始值", async () => {
+    sessionDetail.mockResolvedValue({ points: [pt(NOW - 9000, 600)], modelChain: [], agents: [] });
+    render(<SessionSparkline clientCode="codex" sessionId="s" lastCallMs={NOW - 9000} />);
+    await act(async () => {});
+    const spark = screen.getByTestId("sessions-row-spark");
+    vi.spyOn(spark, "getBoundingClientRect").mockReturnValue(rect(600));
+    fireEvent.mouseMove(spark, { clientX: 100 + 290 * 2 + 0.5, clientY: 10 });
+    const tip = screen.getByTestId("sessions-spark-tip");
+    expect(tip).toHaveAttribute("data-rate", "600");
+    expect(tip).toHaveAttribute("data-span", "290-291");
   });
 });
