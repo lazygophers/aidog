@@ -15,6 +15,7 @@ import { RequestLogRow, Pagination, FilterSelect, ThCell } from "./Logs/primitiv
 import { DetailPanel } from "./Logs/DetailPanel";
 import { useDetailScroll } from "./Logs/useDetailScroll";
 import { timePresetToRange, type TimePreset } from "./Logs/types";
+import { pickUserResponseBody } from "./Logs/userResponseBody";
 import { formatDateTime } from "../utils/formatters";
 import { makeRipple } from "@/utils/motion";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ type TypeFilter = "all" | "test" | "quota";
 
 function buildMarkdown(d: ProxyLogDetail): string {
   const fj = (s: string) => { try { return JSON.stringify(JSON.parse(s), null, 2); } catch { return s; } };
+  const userRespBody = pickUserResponseBody(d.user_response_body, d.response_body);
   return [
     `# Request Log ${d.id}`,
     ``,
@@ -51,11 +53,7 @@ function buildMarkdown(d: ProxyLogDetail): string {
     `### Request Body`, fj(d.request_body), ``,
     `### Response Body`,
     // 票 06：哨兵已废，空串 = 流式中/未捕获；done 置位后必有聚合内容（或按开关清空）
-    d.user_response_body
-      ? fj(d.user_response_body)
-      : d.response_body
-        ? fj(d.response_body)
-        : "(streaming, not captured)",
+    userRespBody ? fj(userRespBody) : "(streaming, not captured)",
     ``,
     `## Upstream Request`,
     `- URL: ${d.upstream_request_url || "-"}`,

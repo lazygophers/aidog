@@ -3,6 +3,7 @@ import { writeText } from "../../services/platform";
 import { F } from "../../domains/shared/tokens";
 import { CopyButton, MetaItem, RequestTabs } from "./primitives";
 import { safeParseJson } from "./types";
+import { pickUserResponseBody } from "./userResponseBody";
 import type { LogsDetailData } from "./useLogsDetail";
 import { formatDateTime } from "../../utils/formatters";
 import { makeRipple } from "../../components/shared";
@@ -80,11 +81,10 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
     ? t("logs.streamResponse", "(流式响应，内容未记录)")
     : safeParseJson(detail.response_body);
   const userRespHeaders = safeParseJson(detail.user_response_headers || "{}");
-  const userRespBody = detail.user_response_body
-    ? safeParseJson(detail.user_response_body)
-    : detail.response_body
-      ? safeParseJson(detail.response_body)
-      : t("logs.streamResponse", "(流式响应，内容未记录)");
+  const userRespBodyText = pickUserResponseBody(detail.user_response_body, detail.response_body);
+  const userRespBody = userRespBodyText
+    ? safeParseJson(userRespBodyText)
+    : t("logs.streamResponse", "(流式响应，内容未记录)");
 
   // 协议直观名（共享 hook，fallback locale→en→key; copyText 仍保裸值供审计）
   const { i18n } = useTranslation();
