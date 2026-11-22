@@ -11,6 +11,9 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
 
+// WaterLevel（T3 数据板块）经 SSE 传输层订阅；jsdom 无 EventSource，桩成空实现（不外呼）。
+vi.stubGlobal("EventSource", class { onerror = null; addEventListener() {} removeEventListener() {} close() {} });
+
 vi.mock("../../domains/platforms/useProtocolLogo", () => ({
   useProtocolLogo: vi.fn().mockReturnValue({ logoSrc: null }),
 }));

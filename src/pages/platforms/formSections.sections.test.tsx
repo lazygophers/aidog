@@ -183,7 +183,8 @@ describe("RateLimitsSection — 并发 / 时段窗口 / 策略库", () => {
     });
     const q = (id: string) => container.querySelector(`[data-testid="${id}"]`) as HTMLInputElement;
     expect(q("rl-rule-0-start").value).toBe("22");
-    expect(q("rl-rule-0-tz").value).toBe("Asia/Shanghai");
+    // tz 已改 Radix Select（327f69ce4）：触发器按钮无 .value，选中项文本 = textContent
+    expect(q("rl-rule-0-tz").textContent).toBe("Asia/Shanghai");
     fireEvent.click(q("rl-rules-add"));
     fireEvent.change(q("rl-rule-1-start"), { target: { value: "9" } });
     fireEvent.change(q("rl-rule-1-end"), { target: { value: "18" } });
