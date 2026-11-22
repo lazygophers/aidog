@@ -20,7 +20,10 @@ crate::tauri_command! {
     pub async fn settings_set(input: SetSettingInput) -> Result<(), String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "settings_set", scope = %input.scope, key = %input.key, "command invoked");
-        let locale_changed = input.scope == "app" && input.key == "locale";
+        // 值没变（前端启动 / 重复写同一语言）不重画托盘。
+        let locale_changed = input.scope == "app"
+            && input.key == "locale"
+            && db::get_setting(db, "app", "locale").await.ok().flatten().as_ref() != Some(&input.value);
         db::set_setting(db, input).await?;
         if locale_changed {
             // 托盘文字随界面语言：复用 tray-refresh listener 立即重画。

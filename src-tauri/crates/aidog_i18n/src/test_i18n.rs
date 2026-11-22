@@ -85,9 +85,15 @@ fn backend_shared_keys_keep_placeholders_in_all_langs() {
     let zh = locale_table(Lang::ZhCn);
     let keys: Vec<&String> = zh
         .keys()
-        .filter(|k| k.starts_with("notif.eventTemplate.") || k.starts_with("tray.render.countdown") || *k == "tray.render.clockDays")
+        .filter(|k| {
+            k.starts_with("notif.eventTemplate.")
+                || k.starts_with("notif.typeTemplate.")
+                || k.starts_with("notif.action.")
+                || k.starts_with("tray.render.countdown")
+                || *k == "tray.render.clockDays"
+        })
         .collect();
-    assert_eq!(keys.len(), 33 + 4, "zh-Hans 后端共用 key 数");
+    assert_eq!(keys.len(), 33 + 3 + 21 + 4, "zh-Hans 后端共用 key 数");
     let mut bad = Vec::new();
     for lang in ALL_LANGS {
         for k in &keys {

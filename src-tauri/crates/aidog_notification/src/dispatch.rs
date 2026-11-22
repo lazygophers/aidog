@@ -45,11 +45,12 @@ pub async fn dispatch(
         .unwrap_or_else(aidog_db::logging::new_trace_id);
     // 会话名：类型 / 事件两条路径都显式注入（取不到 = 空串，可选占位 `{ · |session_name}` 据此整段消失）。
     let session_name = super::session_name::resolve(db, vars).await;
+    let lang = aidog_db::get_app_lang(db).await;
     let vars_owned: HashMap<String, String> = {
         let mut v = vars.clone();
         v.insert("request_id".to_string(), action_key.clone());
         v.insert("session_name".to_string(), session_name);
-        if let Some(a) = event.and_then(|e| super::action::derive_action(e, vars)) {
+        if let Some(a) = event.and_then(|e| super::action::derive_action(e, vars, lang)) {
             v.entry("action".to_string()).or_insert(a);
         }
         v
@@ -82,7 +83,6 @@ pub async fn dispatch(
     // 标题/正文：event 路径沿用 per_event 模板 > 事件默认模板 > 类型默认（fill_empty 防裸 {x}）；
     // type 路径沿用 render（per_type 模板 / content / 类型默认）。
     let (title, body) = if let Some(ev) = event.filter(|e| !e.is_empty()) {
-        let lang = aidog_db::get_app_lang(db).await;
         let raw_body = settings
             .event_setting(ev)
             .map(|es| es.template.clone())
@@ -92,7 +92,7 @@ pub async fn dispatch(
                 if !dft.is_empty() {
                     dft.to_string()
                 } else {
-                    notif_type.default_template().to_string()
+                    notif_type.default_template(lang).to_string()
                 }
             });
         let mut bvars = vars.clone();
@@ -108,7 +108,7 @@ pub async fn dispatch(
         (title, body)
     } else {
         let setting = settings.type_setting(notif_type);
-        render(notif_type, setting.template.as_str(), content, vars)
+        render(notif_type, lang, setting.template.as_str(), content, vars)
     };
 
     // 总开关 OFF → 整体旁路。
@@ -211,7 +211,7 @@ pub async fn dispatch(
     // 弹窗（title 空时退化类型默认名，防空标题）。
     if do_popup && let Some(ctx) = ctx {
         let popup_title = if title.is_empty() {
-            default_title(notif_type)
+            default_title(notif_type, lang)
         } else {
             title.as_str()
         };

@@ -46,15 +46,17 @@ impl NotifType {
     }
 
     /// 内置默认模板（每类型均有；render 在 setting.template 空时兜底使用，无项目名时给
-    /// `{project}` 注入品牌兜底名）。用户在设置页留空 template → 自动展示本默认。
-    /// **跨层镜像**：前端逐字镜像于 `src/components/settings/NotificationSettings.tsx`
-    /// 的 `NOTIF_DEFAULT_TEMPLATES`，改此处务必同步前端（zh 硬编码，非 i18n）。
-    pub fn default_template(&self) -> &'static str {
-        match self {
-            NotifType::TaskComplete => "{project}{ · |session_name} 完成",
-            NotifType::WaitingInput => "{project}{ · |session_name} 等待用户输入",
-            NotifType::Error => "{project}{ · |session_name} 出错",
-        }
+    /// `{project}` 注入品牌兜底名）。用户留空 template → 渲染时按界面语言取本默认
+    /// （locale `notif.typeTemplate.<类型>`），默认值不写入存储。
+    pub fn default_template(&self, lang: aidog_i18n::Lang) -> &'static str {
+        aidog_i18n::tr(
+            lang,
+            match self {
+                NotifType::TaskComplete => "notif.typeTemplate.task_complete",
+                NotifType::WaitingInput => "notif.typeTemplate.waiting_input",
+                NotifType::Error => "notif.typeTemplate.error",
+            },
+        )
     }
 }
 

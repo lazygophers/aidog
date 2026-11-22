@@ -39,7 +39,7 @@ fn default_template_per_event_independent() {
         assert!(default_template_for_event(ZH, e).starts_with(OPT), "event {e}");
     }
     for t in [NotifType::TaskComplete, NotifType::WaitingInput, NotifType::Error] {
-        assert!(t.default_template().starts_with(OPT), "type {t:?}");
+        assert!(t.default_template(ZH).starts_with(OPT), "type {t:?}");
     }
     for e in ["breaker_on", "breaker_off", "quota_exhaust_forecast"] {
         assert!(!default_template_for_event(ZH, e).contains("session_name"), "gateway {e}");
@@ -55,6 +55,17 @@ fn default_template_per_event_independent() {
     }
     // 未命中事件 → 空串（dispatch 兜底类型 default_template）。
     assert_eq!(default_template_for_event(ZH, "UnknownEvent"), "");
+}
+
+#[test]
+fn type_default_template_follows_app_lang() {
+    assert_eq!(NotifType::TaskComplete.default_template(ZH), "{project}{ · |session_name} 完成");
+    assert_eq!(NotifType::WaitingInput.default_template(ZH), "{project}{ · |session_name} 等待用户输入");
+    assert_eq!(NotifType::Error.default_template(ZH), "{project}{ · |session_name} 出错");
+    assert_eq!(
+        NotifType::WaitingInput.default_template(Lang::EnUs),
+        "{project}{ · |session_name} waiting for your input"
+    );
 }
 
 #[test]

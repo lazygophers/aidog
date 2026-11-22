@@ -1,13 +1,16 @@
 use super::action::*;
 use aidog_db::models::NotificationSettings;
 use std::collections::HashMap;
+use aidog_i18n::Lang;
+
+const ZH: Lang = Lang::ZhCn;
 
 fn v(pairs: &[(&str, &str)]) -> HashMap<String, String> {
     pairs.iter().map(|(k, x)| (k.to_string(), x.to_string())).collect()
 }
 
 fn perm(tool: &str) -> Option<String> {
-    derive_action("PermissionRequest", &v(&[("tool_name", tool)]))
+    derive_action("PermissionRequest", &v(&[("tool_name", tool)]), ZH)
 }
 
 #[test]
@@ -31,14 +34,14 @@ fn permission_action_per_tool() {
         assert_eq!(perm(tool).as_deref(), Some(want), "{tool}");
     }
     // 缺 tool_name → 不派生（模板 fill_empty 兜底）
-    assert_eq!(derive_action("PermissionRequest", &v(&[])), None);
+    assert_eq!(derive_action("PermissionRequest", &v(&[]), ZH), None);
     // 非目标事件不派生
-    assert_eq!(derive_action("Stop", &v(&[("tool_name", "Bash")])), None);
+    assert_eq!(derive_action("Stop", &v(&[("tool_name", "Bash")]), ZH), None);
 }
 
 #[test]
 fn notification_action_per_type() {
-    let a = |t: &str, m: &str| derive_action("Notification", &v(&[("notification_type", t), ("message", m)]));
+    let a = |t: &str, m: &str| derive_action("Notification", &v(&[("notification_type", t), ("message", m)]), ZH);
     assert_eq!(a("idle_prompt", "x").as_deref(), Some("空闲一分钟了，在等你回话"));
     assert_eq!(a("elicitation_dialog", "x").as_deref(), Some("MCP 服务请你填写信息"));
     assert_eq!(a("permission_prompt", "x").as_deref(), Some("还在等你授权"));
@@ -62,4 +65,18 @@ fn duplicate_permission_prompt_branches() {
         serde_json::from_value(serde_json::json!({ "enabled": false })).unwrap(),
     );
     assert!(!is_duplicate_permission_prompt("Notification", &n, &s));
+}
+
+#[test]
+fn action_follows_lang() {
+    let en = |e: &str, p: &[(&str, &str)]| derive_action(e, &v(p), Lang::EnUs);
+    assert_eq!(en("PermissionRequest", &[("tool_name", "Bash")]).as_deref(), Some("wants to run a command"));
+    assert_eq!(
+        en("PermissionRequest", &[("tool_name", "mcp__github__create_issue")]).as_deref(),
+        Some("wants to call create_issue on github")
+    );
+    assert_eq!(en("PermissionRequest", &[("tool_name", "MultiEdit")]).as_deref(), Some("wants permission to use MultiEdit"));
+    assert_eq!(en("Notification", &[("notification_type", "weird")]).as_deref(), Some("Claude Code has a new notification"));
+    // 用户 / 上游原文（message）不翻译。
+    assert_eq!(en("Notification", &[("notification_type", "weird"), ("message", "原文")]).as_deref(), Some("原文"));
 }

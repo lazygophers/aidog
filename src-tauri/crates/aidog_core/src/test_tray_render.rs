@@ -340,8 +340,25 @@ async fn default_segments_follow_app_locale() {
     let db = test_db().await;
     set_locale(&db, "en-US").await;
     let l = tray_layout(&db).await;
-    let pairs: Vec<(&str, &str)> = l.columns.iter().skip(1).map(|c| (c.name.as_str(), c.value.as_str())).collect();
-    assert_eq!(pairs, vec![("Routed", "—"), ("Peak", "Off-peak")]);
+    let pairs: Vec<(&str, &str)> = l.columns.iter().map(|c| (c.name.as_str(), c.value.as_str())).collect();
+    assert_eq!(pairs, vec![("Cost", "$0"), ("Routed", "—"), ("Peak", "Off-peak")]);
+}
+
+#[tokio::test]
+async fn today_usage_labels_follow_app_locale() {
+    let db = test_db().await;
+    set_locale(&db, "en-US").await;
+    let items = ["tokens", "cache_rate", "cost", "requests"]
+        .iter()
+        .enumerate()
+        .map(|(i, m)| usage_item(m, i as i32))
+        .collect();
+    set_tray_config(&db, &TrayConfig { separator: "  ".to_string(), items })
+        .await
+        .expect("set tray config");
+    let l = tray_layout(&db).await;
+    let names: Vec<&str> = l.columns.iter().map(|c| c.name.as_str()).collect();
+    assert_eq!(names, vec!["Today", "Cache", "Cost", "Requests"]);
 }
 
 #[test]

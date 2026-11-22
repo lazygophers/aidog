@@ -78,38 +78,6 @@ pub async fn enabled_hook_events(db: &Db) -> Vec<String> {
         .collect()
 }
 
-/// 把内置默认模板物化进 NotificationSettings.per_type[task_complete/waiting_input]（仅在缺失/空时填）。
-/// 用户已自定义模板则不覆盖。
-pub async fn seed_default_templates(db: &Db) -> Result<(), String> {
-    use gateway::models::{NotifType, TypeSetting};
-    let mut settings = aidog_db::get_notification_settings(db).await;
-    let mut changed = false;
-    for t in [NotifType::TaskComplete, NotifType::WaitingInput] {
-        let key = t.as_str().to_string();
-        let entry = settings
-            .per_type
-            .entry(key)
-            .or_insert_with(TypeSetting::default);
-        if entry.template.trim().is_empty() {
-            entry.template = t.default_template().to_string();
-            changed = true;
-        }
-    }
-    if changed {
-        aidog_db::set_setting(
-            db,
-            SetSettingInput {
-                scope: "notification".to_string(),
-                key: "settings".to_string(),
-                value: serde_json::to_value(&settings)
-                    .map_err(|e| format!("serialize notification settings: {e}"))?,
-            },
-        )
-        .await?;
-    }
-    Ok(())
-}
-
 /// 读取「默认为所有分组注入通知 hook」总开关状态（基线 `claude_code._aidog_hooks.enabled`）。
 /// 无基线配置时回退编译内默认（defaults/settings/oss.json 默认开）。
 /// `&Db` 版本：供 command 包装层转发，也供测试直调（不经 tauri::State，见 test_hooks 模块注释）。
@@ -147,7 +115,7 @@ crate::tauri_command! {
     /// - `client="claude_code"`：把 hooks.Stop/Notification 注入基线 `claude_code` 配置，
     ///   re-sync 物化到所有 `settings.{group}.json`（与 statusLine 同机制）。
     /// - `client="codex"`：把 `notify=[<complete 脚本>]` 注入 `~/.codex/config.toml`。
-    /// 同时物化内置默认模板。`group` 入参用于 API 对称（Claude Code hooks 走基线对全分组生效）。
+    /// 默认通知模板不写入存储（渲染时按界面语言取）。`group` 入参用于 API 对称（Claude Code hooks 走基线对全分组生效）。
     pub async fn inject_hooks(
         group: String,
         client: String) -> Result<(), String> {
@@ -156,8 +124,6 @@ crate::tauri_command! {
         let hook_client = aidog_hooks::HookClient::from_str(&client)?;
         let invoker = resolve_script_invoker(db).await;
         let scripts = generate_hook_scripts(invoker)?;
-        seed_default_templates(db).await?;
-
         match hook_client {
             aidog_hooks::HookClient::ClaudeCode => {
                 // 读基线 claude_code 配置（无则用编译内默认）注入 hooks，回写 + re-sync。
@@ -251,10 +217,6 @@ crate::tauri_command! {
             key: "claude_code".to_string(),
             value: config,
         }).await?;
-        // 开启时确保默认模板已物化（与 inject_hooks 行为一致）。
-        if enabled {
-            seed_default_templates(db).await?;
-        }
         let port = load_proxy_settings(db).await?.port;
         do_sync_group_settings(db, port).await?;
         Ok(())
@@ -283,30 +245,6 @@ mod test_hooks {
         let events = enabled_hook_events(&db).await;
         assert!(!events.is_empty());
         assert_eq!(events.len(), gateway::models::DEFAULT_ON_EVENTS.len());
-    }
-
-    #[tokio::test]
-    async fn seed_templates_fills_then_idempotent() {
-        let db = test_db().await;
-        seed_default_templates(&db).await.unwrap();
-        let settings = aidog_db::get_notification_settings(&db).await;
-        let complete = settings
-            .per_type
-            .get(NotifType::TaskComplete.as_str())
-            .unwrap();
-        assert!(!complete.template.trim().is_empty());
-        let first_template = complete.template.clone();
-        // 幂等：再跑一次不覆盖已有模板
-        seed_default_templates(&db).await.unwrap();
-        let settings2 = aidog_db::get_notification_settings(&db).await;
-        assert_eq!(
-            settings2
-                .per_type
-                .get(NotifType::TaskComplete.as_str())
-                .unwrap()
-                .template,
-            first_template
-        );
     }
 
     #[tokio::test]

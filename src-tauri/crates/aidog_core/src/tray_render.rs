@@ -1107,11 +1107,11 @@ pub(crate) async fn tray_layout_with_stats(
                 };
                 let metric = item.metric.as_deref().unwrap_or("tokens");
                 let (label, val) = match metric {
-                    "cache_rate" => ("Cache".to_string(), format!("{:.0}%", stats.cache_rate)),
+                    "cache_rate" => (aidog_i18n::tr(lang, "tray.render.cacheName").to_string(), format!("{:.0}%", stats.cache_rate)),
                     "cost" => {
                         let d = item.decimals.unwrap_or(5) as usize;
                         (
-                            "花费".to_string(),
+                            aidog_i18n::tr(lang, "tray.metric.cost").to_string(),
                             tray_money_unit(
                                 stats.cost,
                                 &currency,
@@ -1121,8 +1121,8 @@ pub(crate) async fn tray_layout_with_stats(
                             ),
                         )
                     }
-                    "requests" => ("请求".to_string(), format!("{}", stats.total_requests)),
-                    _ => ("今日".to_string(), format!("{} tok", stats.tokens)),
+                    "requests" => (aidog_i18n::tr(lang, "tray.metric.requests").to_string(), format!("{}", stats.total_requests)),
+                    _ => (aidog_i18n::tr(lang, "tray.metric.today").to_string(), format!("{} tok", stats.tokens)),
                 };
                 (label, val)
             }

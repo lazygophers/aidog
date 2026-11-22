@@ -1,6 +1,9 @@
 use super::*;
 use aidog_db::models::{NotifForm, NotifType};
 use std::collections::HashMap;
+use aidog_i18n::Lang;
+
+const ZH: Lang = Lang::ZhCn;
 
 fn vars(pairs: &[(&str, &str)]) -> HashMap<String, String> {
     pairs
@@ -55,6 +58,7 @@ fn render_template_priority() {
     // template 优先；title 现取 vars["project"]
     let (title, body) = render(
         NotifType::TaskComplete,
+        ZH,
         "{project} 完成",
         Some("ignored"),
         &v,
@@ -62,10 +66,10 @@ fn render_template_priority() {
     assert_eq!(title, "aidog");
     assert_eq!(body, "aidog 完成");
     // template 空 → content
-    let (_, body2) = render(NotifType::Error, "", Some("构建失败 {project}"), &v);
+    let (_, body2) = render(NotifType::Error, ZH, "", Some("构建失败 {project}"), &v);
     assert_eq!(body2, "构建失败 aidog");
     // 都空 + 有 project → default_template 兜底
-    let (_, body3) = render(NotifType::WaitingInput, "", None, &v);
+    let (_, body3) = render(NotifType::WaitingInput, ZH, "", None, &v);
     assert_eq!(body3, "aidog 等待用户输入");
 }
 
@@ -73,11 +77,11 @@ fn render_template_priority() {
 fn render_body_uses_default_template_when_project_present() {
     let v = vars(&[("project", "aidog")]);
     // 3 类型 default_template 兜底
-    let (_, b1) = render(NotifType::TaskComplete, "", None, &v);
+    let (_, b1) = render(NotifType::TaskComplete, ZH, "", None, &v);
     assert_eq!(b1, "aidog 完成");
-    let (_, b2) = render(NotifType::WaitingInput, "", None, &v);
+    let (_, b2) = render(NotifType::WaitingInput, ZH, "", None, &v);
     assert_eq!(b2, "aidog 等待用户输入");
-    let (_, b3) = render(NotifType::Error, "", None, &v);
+    let (_, b3) = render(NotifType::Error, ZH, "", None, &v);
     assert_eq!(b3, "aidog 出错");
 }
 
@@ -91,27 +95,27 @@ fn render_body_uses_default_template_with_brand_fallback_when_no_project() {
         (NotifType::WaitingInput, "aidog 等待用户输入"),
         (NotifType::Error, "aidog 出错"),
     ] {
-        let body = render(t, "", None, &v).1;
+        let body = render(t, ZH, "", None, &v).1;
         assert_eq!(body, expect);
         assert!(!body.contains("{project}"), "残留 {{project}} 字面: {body}");
-        assert_ne!(body, default_title(t), "不应退化到英文 default_title");
+        assert_ne!(body, default_title(t, ZH), "不应退化到英文 default_title");
     }
 
     // project 仅空白也按无 project 处理 → 品牌兜底
     let v_blank = vars(&[("project", "   ")]);
-    assert_eq!(render(NotifType::Error, "", None, &v_blank).1, "aidog 出错");
+    assert_eq!(render(NotifType::Error, ZH, "", None, &v_blank).1, "aidog 出错");
 }
 
 #[test]
 fn render_title_is_project_name() {
     // 有 project：title = project（不是 default_title）
     let v = vars(&[("project", "aidog")]);
-    let (title, _) = render(NotifType::Error, "", None, &v);
+    let (title, _) = render(NotifType::Error, ZH, "", None, &v);
     assert_eq!(title, "aidog");
 
     // project 含周围空白 → trim
     let v2 = vars(&[("project", "  myproj  ")]);
-    let (title2, _) = render(NotifType::WaitingInput, "", None, &v2);
+    let (title2, _) = render(NotifType::WaitingInput, ZH, "", None, &v2);
     assert_eq!(title2, "myproj");
 }
 
@@ -119,17 +123,25 @@ fn render_title_is_project_name() {
 fn render_title_empty_when_no_project() {
     // vars 无 project → title 空字符串（前端 fallback typeLabel；弹窗 dispatch 内 fallback default_title）
     let v = HashMap::new();
-    let (title, body) = render(NotifType::TaskComplete, "", None, &v);
+    let (title, body) = render(NotifType::TaskComplete, ZH, "", None, &v);
     assert_eq!(title, "");
     assert_eq!(body, "aidog 完成"); // body 用 default_template + 品牌兜底
 
     // project 值为空字符串 → 视同无
     let v2 = vars(&[("project", "")]);
-    let (title2, _) = render(NotifType::Error, "", None, &v2);
+    let (title2, _) = render(NotifType::Error, ZH, "", None, &v2);
     assert_eq!(title2, "");
 
     // project 仅空白 → trim 后空 → 视同无
     let v3 = vars(&[("project", "   ")]);
-    let (title3, _) = render(NotifType::Error, "", None, &v3);
+    let (title3, _) = render(NotifType::Error, ZH, "", None, &v3);
     assert_eq!(title3, "");
+}
+
+#[test]
+fn type_defaults_follow_lang() {
+    let v = vars(&[("project", "P")]);
+    assert_eq!(render(NotifType::Error, Lang::EnUs, "", None, &v).1, "P error occurred");
+    assert_eq!(default_title(NotifType::WaitingInput, ZH), "等待输入");
+    assert_eq!(default_title(NotifType::WaitingInput, Lang::EnUs), "Waiting for Input");
 }

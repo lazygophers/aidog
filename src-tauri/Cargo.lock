@@ -350,6 +350,7 @@ version = "0.1.21"
 dependencies = [
  "aidog_ctx",
  "aidog_db",
+ "aidog_i18n",
  "aidog_middleware",
  "ctor",
  "dirs 7.0.0",
