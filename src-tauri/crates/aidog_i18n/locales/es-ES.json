@@ -1225,7 +1225,7 @@
   "sessions.hidden": "Ocultada de la lista: {{title}}",
   "sessions.undo": "Deshacer",
   "sessions.noticeClose": "Cerrar aviso",
-  "sessions.sparkLabel": "Tendencia de tokens, {{n}} en total",
+  "sessions.spark5mLabel": "Tokens de los últimos 5 minutos, {{n}} en total",
   "sessions.hideFailed": "No se pudo ocultar: {{error}}",
   "sessions.trash": "Papelera",
   "sessions.trashDesc": "Las sesiones ocultas solo se quitan de la lista; los archivos del cliente y los registros de uso se conservan.",

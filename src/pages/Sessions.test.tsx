@@ -765,9 +765,9 @@ describe("真机反馈修复与懒加载（票 12）", () => {
     render(<Sessions />);
     const pinned = await screen.findByTestId("sessions-pinned");
     const spark = await within(pinned).findByTestId("sessions-row-spark");
-    await waitFor(() => expect(spark).toHaveAttribute("data-bars", "3"));
+    await waitFor(() => expect(spark).toHaveAttribute("data-bars", "300"));
     expect(spark).toHaveAttribute("data-total", "348");
-    expect(spark).toHaveAttribute("aria-label", "sessions.sparkLabel");
+    expect(spark).toHaveAttribute("aria-label", "sessions.spark5mLabel");
     const group = screen.getAllByTestId("sessions-group")[0];
     expect(within(group).queryByTestId("sessions-row-spark")).toBeNull();
     expect(api.sessionDetail.mock.calls.map((c) => c[1])).toEqual(["x-run"]);

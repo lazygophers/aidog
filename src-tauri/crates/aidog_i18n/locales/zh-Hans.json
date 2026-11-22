@@ -1225,7 +1225,7 @@
   "sessions.hidden": "已从列表隐藏：{{title}}",
   "sessions.undo": "撤销",
   "sessions.noticeClose": "关闭提示",
-  "sessions.sparkLabel": "token 走势，共 {{n}}",
+  "sessions.spark5mLabel": "最近 5 分钟 token，共 {{n}}",
   "sessions.hideFailed": "隐藏失败：{{error}}",
   "sessions.trash": "回收站",
   "sessions.trashDesc": "隐藏的会话只是不在列表中显示，客户端文件与用量记录都保留。",

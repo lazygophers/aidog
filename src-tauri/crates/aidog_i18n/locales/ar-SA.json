@@ -1313,7 +1313,7 @@
   "sessions.hidden": "أُخفيت من القائمة: {{title}}",
   "sessions.undo": "تراجع",
   "sessions.noticeClose": "إغلاق التنبيه",
-  "sessions.sparkLabel": "اتجاه الرموز، الإجمالي {{n}}",
+  "sessions.spark5mLabel": "الرموز في آخر 5 دقائق، الإجمالي {{n}}",
   "sessions.hideFailed": "تعذّر الإخفاء: {{error}}",
   "sessions.trash": "سلة المهملات",
   "sessions.trashDesc": "الجلسات المخفية تُزال من القائمة فقط؛ تبقى ملفات العميل وسجلات الاستخدام محفوظة.",

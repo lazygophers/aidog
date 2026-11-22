@@ -1313,7 +1313,7 @@
   "sessions.hidden": "Masquée de la liste : {{title}}",
   "sessions.undo": "Annuler",
   "sessions.noticeClose": "Fermer l'avis",
-  "sessions.sparkLabel": "Tendance des tokens, {{n}} au total",
+  "sessions.spark5mLabel": "Tokens des 5 dernières minutes, {{n}} au total",
   "sessions.hideFailed": "Impossible de masquer : {{error}}",
   "sessions.trash": "Corbeille",
   "sessions.trashDesc": "Les sessions masquées disparaissent seulement de la liste ; les fichiers du client et l'historique d'utilisation sont conservés.",
