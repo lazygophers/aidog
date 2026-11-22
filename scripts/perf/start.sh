@@ -12,9 +12,10 @@ fi
 if ! alive "$ISO/kernel.pid"; then
   args=(); [ "${UI:-1}" = 1 ] && args=(--ui)
   # exec：让 $! 就是内核本身的 pid（不 exec 时 $! 是包装子 shell，stop.sh 会认不出）
-  (cd "$ISO" && HOME="$ISO" exec nohup "$KERNEL_BIN" ${args[@]+"${args[@]}"} > "$ISO/kernel.log" 2>&1) &
+  # 显式 key 文件（缺省创建）：隔离 HOME 下不碰用户 keychain（crypt.rs 来源优先级 1）
+  (cd "$ISO" && HOME="$ISO" AIDOG_DB_MASTER_KEY_FILE="$ISO/.aidog/master.key" exec nohup "$KERNEL_BIN" ${args[@]+"${args[@]}"} > "$ISO/kernel.log" 2>&1) &
   echo $! > "$ISO/kernel.pid"
 fi
 wait_port "$MOCK_PORT" 10 || { echo "mock not up, see $ISO/mock.log"; exit 1; }
 wait_port "$PROXY_PORT" 30 || { echo "proxy not up on $PROXY_PORT, see $ISO/kernel.log"; exit 1; }
-echo "up: ISO=$ISO kernel pid $(cat "$ISO/kernel.pid") proxy :$PROXY_PORT mgmt :$MGMT_PORT mock pid $(cat "$ISO/mock.pid") :$MOCK_PORT"
+echo "up: ISO=$ISO kernel pid $(cat "$ISO/kernel.pid") proxy+rpc :$PROXY_PORT mock pid $(cat "$ISO/mock.pid") :$MOCK_PORT"
