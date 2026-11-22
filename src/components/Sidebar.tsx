@@ -346,7 +346,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
         <Button
           id="g3-sidebar-collapse"
           variant="ghost"
-          title={collapsed ? t("sidebar.expand", "展开侧栏") : t("sidebar.collapse", "折叠侧栏")}
+          title={collapsed ? t("sidebar.expand", "Expand sidebar") : t("sidebar.collapse", "Collapse sidebar")}
           onClick={toggleCollapsed}
           style={{ padding: 4, width: 24, minWidth: 0, fontSize: 14, color: "var(--text-tertiary)", height: "auto" }}
         >
@@ -564,10 +564,10 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
           }}>L</span>
           {!collapsed && (
             <>
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{t("sidebar.localInstance", "本地实例")}</span>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{t("sidebar.localInstance", "Local instance")}</span>
               <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
                 <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--color-success)", display: "inline-block" }} />
-                {t("sidebar.running", "运行中")}
+                {t("sidebar.running", "Running")}
               </span>
             </>
           )}

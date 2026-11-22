@@ -28,9 +28,9 @@ describe("parseTestBody", () => {
     expect(r.kind).toBe("known");
     if (r.kind === "known") {
       expect(r.rows).toEqual([
-        { label: "错误信息", value: "bad key" },
-        { label: "错误类型", value: "auth_error" },
-        { label: "错误码", value: "401" },
+        { label: "Error message", value: "bad key" },
+        { label: "Error type", value: "auth_error" },
+        { label: "Error code", value: "401" },
       ]);
     }
   });
@@ -39,7 +39,7 @@ describe("parseTestBody", () => {
     const r = parseTestBody(JSON.stringify({ error: "rate limited" }), t);
     expect(r.kind).toBe("known");
     if (r.kind === "known") {
-      expect(r.rows).toContainEqual({ label: "错误", value: "rate limited" });
+      expect(r.rows).toContainEqual({ label: "Error", value: "rate limited" });
     }
   });
 
@@ -47,16 +47,16 @@ describe("parseTestBody", () => {
     const r = parseTestBody(JSON.stringify({ usage: { input_tokens: 10, output_tokens: 5 } }), t);
     expect(r.kind).toBe("known");
     if (r.kind === "known") {
-      expect(r.rows).toContainEqual({ label: "输入 tokens", value: "10" });
-      expect(r.rows).toContainEqual({ label: "输出 tokens", value: "5" });
+      expect(r.rows).toContainEqual({ label: "Input tokens", value: "10" });
+      expect(r.rows).toContainEqual({ label: "Output tokens", value: "5" });
     }
   });
 
   it("usage（openai 风格）→ prompt/completion tokens 归一", () => {
     const r = parseTestBody(JSON.stringify({ usage: { prompt_tokens: 7, completion_tokens: 3 } }), t);
     if (r.kind === "known") {
-      expect(r.rows).toContainEqual({ label: "输入 tokens", value: "7" });
-      expect(r.rows).toContainEqual({ label: "输出 tokens", value: "3" });
+      expect(r.rows).toContainEqual({ label: "Input tokens", value: "7" });
+      expect(r.rows).toContainEqual({ label: "Output tokens", value: "3" });
     }
   });
 
@@ -64,7 +64,7 @@ describe("parseTestBody", () => {
     const body = JSON.stringify({ content: [{ type: "text", text: "hello" }] });
     const r = parseTestBody(body, t);
     if (r.kind === "known") {
-      expect(r.rows).toContainEqual({ label: "响应内容", value: "hello" });
+      expect(r.rows).toContainEqual({ label: "Response content", value: "hello" });
     }
   });
 
@@ -72,7 +72,7 @@ describe("parseTestBody", () => {
     const body = JSON.stringify({ choices: [{ message: { content: "world" } }] });
     const r = parseTestBody(body, t);
     if (r.kind === "known") {
-      expect(r.rows).toContainEqual({ label: "响应内容", value: "world" });
+      expect(r.rows).toContainEqual({ label: "Response content", value: "world" });
     }
   });
 

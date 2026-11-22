@@ -117,9 +117,9 @@ export function BatchOverrideModelsModal({
         onPointerDownOutside={(e) => { if (busy) e.preventDefault(); }}
       >
         <DialogHeader>
-          <DialogTitle>{t("group.batchOverrideModelsTitle", "批量覆盖模型")}</DialogTitle>
+          <DialogTitle>{t("group.batchOverrideModelsTitle", "Batch override models")}</DialogTitle>
           <DialogDescription>
-            {t("group.batchOverrideModelsDesc", "将以下 {{count}} 个平台的模型整体覆盖为新值（5 槽位全量替换）。", { count: platforms.length })}
+            {t("group.batchOverrideModelsDesc", "Override the models of the following {{count}} platform(s) with new values (all 5 slots fully replaced).", { count: platforms.length })}
           </DialogDescription>
         </DialogHeader>
 
@@ -132,9 +132,9 @@ export function BatchOverrideModelsModal({
             <div key={s} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 14 }}>
               <RadioGroupItem value={s} id={`batch-override-src-${s}`} />
               <label htmlFor={`batch-override-src-${s}`} style={{ cursor: "pointer" }}>
-                {s === "manual" && t("group.batchOverrideSourceManual", "手输")}
-                {s === "preset" && t("group.batchOverrideSourcePreset", "preset 下拉")}
-                {s === "copy" && t("group.batchOverrideSourceCopy", "从别平台复制")}
+                {s === "manual" && t("group.batchOverrideSourceManual", "Manual")}
+                {s === "preset" && t("group.batchOverrideSourcePreset", "Preset dropdown")}
+                {s === "copy" && t("group.batchOverrideSourceCopy", "Copy from another platform")}
               </label>
             </div>
           ))}
@@ -146,7 +146,7 @@ export function BatchOverrideModelsModal({
             onValueChange={(v) => setPresetProtocol(v as Protocol)}
           >
             <SelectTrigger style={{ fontSize: 14, width: "100%", marginBottom: 10 }} className="input">
-              <SelectValue placeholder={t("group.batchOverridePresetSelect", "选择协议…")} />
+              <SelectValue placeholder={t("group.batchOverridePresetSelect", "Select protocol…")} />
             </SelectTrigger>
             <SelectContent>
               {protocolOptions.map(o => (
@@ -161,7 +161,7 @@ export function BatchOverrideModelsModal({
             onValueChange={(v) => setCopyPlatformId(v === "" ? "" : Number(v))}
           >
             <SelectTrigger style={{ fontSize: 14, width: "100%", marginBottom: 10 }} className="input">
-              <SelectValue placeholder={t("group.batchOverrideCopySelect", "选择平台…")} />
+              <SelectValue placeholder={t("group.batchOverrideCopySelect", "Select platform…")} />
             </SelectTrigger>
             <SelectContent>
               {allPlatforms.map(p => (
@@ -194,7 +194,7 @@ export function BatchOverrideModelsModal({
         </div>
 
         <div style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 6 }}>
-          {t("group.batchOverrideDiffTitle", "覆盖预览（当前 → 新值）：")}
+          {t("group.batchOverrideDiffTitle", "Override preview (current → new):")}
         </div>
         <div style={{
           display: "flex", flexDirection: "column", gap: 6,
@@ -228,7 +228,7 @@ export function BatchOverrideModelsModal({
                       fontStyle: cur ? "normal" : "italic",
                       overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                     }}>
-                      {cur || t("group.batchOverrideEmpty", "（空）")}
+                      {cur || t("group.batchOverrideEmpty", "(empty)")}
                     </span>
                     <span style={{ color: changed ? "var(--accent)" : "var(--text-tertiary)" }}>→</span>
                     <span style={{
@@ -237,7 +237,7 @@ export function BatchOverrideModelsModal({
                       fontWeight: changed ? 600 : 400,
                       overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                     }}>
-                      {next || t("group.batchOverrideEmpty", "（空）")}
+                      {next || t("group.batchOverrideEmpty", "(empty)")}
                     </span>
                   </div>
                 );
@@ -248,16 +248,16 @@ export function BatchOverrideModelsModal({
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={busy}>
-            {t("action.cancel", "取消")}
+            {t("action.cancel", "Cancel")}
           </Button>
           <Button
             onClick={() => onConfirm(textToSlots(slots))}
             disabled={busy || allEmpty}
-            title={allEmpty ? t("group.batchOverrideAllEmptyHint", "所有槽位为空，请至少填一个") : undefined}
+            title={allEmpty ? t("group.batchOverrideAllEmptyHint", "All slots empty, fill at least one") : undefined}
           >
             {busy
-              ? t("group.batchOverrideApplying", "覆盖中…")
-              : t("group.batchOverrideConfirm", "覆盖 {{count}} 个平台", { count: platforms.length })}
+              ? t("group.batchOverrideApplying", "Overriding…")
+              : t("group.batchOverrideConfirm", "Override {{count}} platforms", { count: platforms.length })}
           </Button>
         </DialogFooter>
       </DialogContent>

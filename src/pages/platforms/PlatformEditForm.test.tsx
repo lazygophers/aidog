@@ -92,7 +92,7 @@ describe("PlatformEditForm advanced tabs (8-tab split)", () => {
     render(<PlatformEditForm s={state("openai")} />);
     const tabs = screen.getAllByRole("tab");
     expect(tabs.map(b => b.textContent)).toEqual([
-      "配额查询", "时段档", "高峰时段倍率", "直通模型", "限频", "熔断", "客户端白名单", "过期时间", "分组归属",
+      "Quota Query", "Time-based models", "Peak hours multiplier", "Direct models", "Rate Limits", "Circuit breaker", "Client allowlist", "Expires at", "Group Assignment",
     ]);
     expect(tabs[0]).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByText("计费")).not.toBeInTheDocument();
@@ -104,7 +104,7 @@ describe("PlatformEditForm advanced tabs (8-tab split)", () => {
     const s = state("openai");
     (s.form as { isPassthrough: boolean }).isPassthrough = true;
     render(<PlatformEditForm s={s} />);
-    expect(screen.getAllByRole("tab").map(b => b.textContent)).toEqual(["客户端白名单", "过期时间"]);
+    expect(screen.getAllByRole("tab").map(b => b.textContent)).toEqual(["Client allowlist", "Expires at"]);
   });
 });
 
@@ -115,20 +115,20 @@ describe("PlatformEditForm advanced tabs visibility matrix (spec)", () => {
     const s = state("openai");
     (s.form as { editing: unknown }).editing = null;
     render(<PlatformEditForm s={s} />);
-    expect(labels()).toEqual(["配额查询", "时段档", "客户端白名单", "过期时间", "分组归属"]);
+    expect(labels()).toEqual(["Quota Query", "Time-based models", "Client allowlist", "Expires at", "Group Assignment"]);
   });
 
   it("mock platform hides quota/timemodels/peak, keeps ratelimits/breaker/expiry/group", () => {
     const s = state("openai");
     (s.form as { isMock: boolean }).isMock = true;
     render(<PlatformEditForm s={s} />);
-    expect(labels()).toEqual(["限频", "熔断", "过期时间", "分组归属"]);
+    expect(labels()).toEqual(["Rate Limits", "Circuit breaker", "Expires at", "Group Assignment"]);
   });
 
   it("passThrough platform shows only clients + expiry + group tabs", () => {
     const s = state("openai");
     (s.form as { isPassThrough: boolean }).isPassThrough = true;
     render(<PlatformEditForm s={s} />);
-    expect(labels()).toEqual(["客户端白名单", "过期时间", "分组归属"]);
+    expect(labels()).toEqual(["Client allowlist", "Expires at", "Group Assignment"]);
   });
 });

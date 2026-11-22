@@ -58,7 +58,7 @@ export function StatusLineSection({
           key: "fileSuggestion",
           label: "File Suggestion",
           type: "string",
-          description: t("statusline.fileSuggestionDesc", "自定义文件建议脚本路径"),
+          description: t("statusline.fileSuggestionDesc", "Custom file suggestion script path"),
           pathType: "file",
         };
         return (
@@ -79,11 +79,11 @@ export function StatusLineSection({
           style={{ fontSize: F.body, padding: "4px 8px", display: "flex", alignItems: "center", gap: 4, width: "100%", justifyContent: "flex-start" }}
           onClick={() => setShowDataRef(!showDataRef)}>
           <span style={{ transform: showDataRef ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 150ms", display: "inline-block" }}>▶</span>
-          {t("statusline.dataFieldsRef", "可用数据字段参考")}
+          {t("statusline.dataFieldsRef", "Available Data Fields Reference")}
         </Button>
         {showDataRef && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
-            <Hint>{t("statusline.dataFieldsHint", "Claude Code 通过 stdin 注入以下 JSON 字段，可在脚本中用 jq 提取")}</Hint>
+            <Hint>{t("statusline.dataFieldsHint", "Claude Code injects the following JSON fields via stdin, extractable with jq in your script")}</Hint>
             {STATUSLINE_DATA_FIELDS.map(group => (
               <div key={group.id}>
                 <div style={{ fontSize: F.label, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
@@ -100,7 +100,7 @@ export function StatusLineSection({
                         {f.key}
                       </td>
                       <td style={{ padding: "4px 0", fontSize: F.hint, color: "var(--text-tertiary)" }}>
-                        {f.desc}
+                        {t(`statusline.dataField.${f.key}`, f.desc)}
                       </td>
                     </tr>
                   ))}

@@ -103,14 +103,14 @@ function codingMetrics(platform: Platform): string[] {
 }
 
 function platformMetricLabel(metric: string, t: TFunction): string {
-  if (metric.startsWith("coding:")) return `${t("tray.platform.codingRemaining", "剩余%")} (${metric.slice(7)})`;
-  if (metric.startsWith("reset_time:")) return `${t("tray.platform.resetTime", "重置剩余时间")} (${metric.slice(11)})`;
-  if (metric.startsWith("reset_at:")) return `${t("tray.platform.resetAt", "重置时刻")} (${metric.slice(9)})`;
+  if (metric.startsWith("coding:")) return `${t("tray.platform.codingRemaining", "Left %")} (${metric.slice(7)})`;
+  if (metric.startsWith("reset_time:")) return `${t("tray.platform.resetTime", "Reset countdown")} (${metric.slice(11)})`;
+  if (metric.startsWith("reset_at:")) return `${t("tray.platform.resetAt", "Reset at")} (${metric.slice(9)})`;
   const keys: Record<string, [string, string]> = {
-    balance: ["tray.platform.balance", "余额"],
-    coding: ["tray.platform.coding", "套餐剩余"],
-    today_cost: ["tray.platform.todayCost", "今日花费"],
-    today_tokens: ["tray.platform.todayTokens", "今日 token 数"],
+    balance: ["tray.platform.balance", "Balance"],
+    coding: ["tray.platform.coding", "Plan left"],
+    today_cost: ["tray.platform.todayCost", "Today cost"],
+    today_tokens: ["tray.platform.todayTokens", "Today tokens"],
   };
   const [key, fallback] = keys[metric] ?? [metric, metric];
   return t(key, fallback);
@@ -132,26 +132,26 @@ export const SEPARATOR_PRESETS = ["|", "｜", "·", "-"] as const;
 /** 候选段清单：今日统计 4 项 + 当前命中平台 + 高峰指示 + 每个平台（含禁用）。 */
 export function segmentOptions(platforms: Platform[], t: TFunction): SegmentOption[] {
   const metrics: [string, string, string][] = [
-    ["cost", "tray.metric.cost", "花费"],
+    ["cost", "tray.metric.cost", "Cost"],
     ["tokens", "tray.metric.tokens", "Tokens"],
-    ["requests", "tray.metric.requests", "请求"],
+    ["requests", "tray.metric.requests", "Requests"],
     ["cache_rate", "tray.metric.cache_rate", "Cache%"],
   ];
   return [
     ...metrics.map(([m, key, fallback]) => ({
       key: `today_usage:${m}`,
       item: makeItem({ item_type: "today_usage", metric: m, ...(m === "cost" ? { unit_position: "prefix" } : {}) }),
-      label: `${t("tray.todayUsage", "今日消耗")} — ${t(key, fallback)}`,
+      label: `${t("tray.todayUsage", "Today's Usage")} — ${t(key, fallback)}`,
     })),
     {
       key: "routed_platform",
       item: makeItem({ item_type: "routed_platform" }),
-      label: t("tray.segment.routed", "当前命中平台"),
+      label: t("tray.segment.routed", "Currently routed platform"),
     },
     {
       key: "peak",
       item: makeItem({ item_type: "peak" }),
-      label: t("tray.segment.peak", "高峰指示"),
+      label: t("tray.segment.peak", "Peak indicator"),
     },
     ...platforms.map((p) => ({
       key: `platform:${p.id}`,
@@ -161,7 +161,7 @@ export function segmentOptions(platforms: Platform[], t: TFunction): SegmentOpti
     ...SEPARATOR_PRESETS.map((d) => ({
       key: `separator:${d}`,
       item: makeItem({ item_type: "separator", metric: null, display: d }),
-      label: t("tray.separatorName", "分隔符"),
+      label: t("tray.separatorName", "Separator"),
     })),
   ];
 }
@@ -474,7 +474,7 @@ export function SegmentEditor({
         };
         return (
           <div style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", gap: 5 }}>
-            <FieldLabel>{t("tray.platform.metrics", "展示指标（可多选）")}</FieldLabel>
+            <FieldLabel>{t("tray.platform.metrics", "Metrics (multi-select)")}</FieldLabel>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {words.map((m) => (
                 <button
@@ -495,27 +495,27 @@ export function SegmentEditor({
       {/* 倒计时格式（仅选了重置剩余时间指标时露出；缺省 = cn） */}
       {seg.item_type === "platform" && seg.metrics?.some((m) => m.startsWith("reset_time:")) && (
         <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-          <FieldLabel>{t("tray.platform.resetFormat", "倒计时格式")}</FieldLabel>
+          <FieldLabel>{t("tray.platform.resetFormat", "Countdown format")}</FieldLabel>
           <select
             data-testid="tray-edit-reset-format"
             value={seg.reset_format ?? "cn"}
             onChange={(e) => onPatch({ reset_format: e.target.value })}
             style={editorInput}
           >
-            <option value="compact">{t("tray.platform.resetFormat.compact", "紧凑 2h15m")}</option>
-            <option value="cn">{t("tray.platform.resetFormat.cn", "中文 2小时15分")}</option>
-            <option value="clock">{t("tray.platform.resetFormat.clock", "时钟 2:15")}</option>
+            <option value="compact">{t("tray.platform.resetFormat.compact", "Compact 2h15m")}</option>
+            <option value="cn">{t("tray.platform.resetFormat.cn", "Chinese 2小时15分")}</option>
+            <option value="clock">{t("tray.platform.resetFormat.clock", "Clock 2:15")}</option>
           </select>
         </div>
       )}
       {/* 单位（平台槽 / 今日花费 cost 段；留空回落默认） */}
       {(seg.item_type === "platform" || isCostSeg) && (
         <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-          <FieldLabel>{t("tray.platform.unit", "单位")}</FieldLabel>
+          <FieldLabel>{t("tray.platform.unit", "Unit")}</FieldLabel>
           <input
             data-testid="tray-edit-unit"
             value={seg.unit ?? ""}
-            placeholder={t("tray.platform.unitPlaceholder", "留空使用默认")}
+            placeholder={t("tray.platform.unitPlaceholder", "Leave empty for default")}
             onChange={(e) => onPatch({ unit: e.target.value || null })}
             style={editorInput}
           />
@@ -524,7 +524,7 @@ export function SegmentEditor({
       {/* 单位位置（仅金额段；缺省 = 旧语义，选后写显式值） */}
       {isMoneySeg && (
         <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-          <FieldLabel>{t("tray.unitPosition", "单位位置")}</FieldLabel>
+          <FieldLabel>{t("tray.unitPosition", "Unit position")}</FieldLabel>
           <div style={{ display: "flex", gap: 6 }}>
             {(["prefix", "suffix"] as const).map((p) => {
               const cur = seg.unit_position ?? (seg.unit ? "suffix" : "prefix");
@@ -537,7 +537,7 @@ export function SegmentEditor({
                   style={cur === p ? editorBtnActive : editorBtn}
                   onClick={() => onPatch({ unit_position: p })}
                 >
-                  {p === "prefix" ? t("tray.unitPosition.prefix", "前") : t("tray.unitPosition.suffix", "后")}
+                  {p === "prefix" ? t("tray.unitPosition.prefix", "Before") : t("tray.unitPosition.suffix", "After")}
                 </button>
               );
             })}
@@ -546,18 +546,18 @@ export function SegmentEditor({
       )}
       {/* label */}
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-        <FieldLabel>{t("tray.customLabel", "自定义标签")}</FieldLabel>
+        <FieldLabel>{t("tray.customLabel", "Label")}</FieldLabel>
         <input
           data-testid="tray-edit-label"
           value={seg.label ?? ""}
-          placeholder={t("tray.customLabelPlaceholder", "留空使用默认名")}
+          placeholder={t("tray.customLabelPlaceholder", "Default")}
           onChange={(e) => onPatch({ label: e.target.value || null })}
           style={{ ...editorInput, width: "100%" }}
         />
       </div>
       {/* decimals */}
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-        <FieldLabel>{t("tray.decimals", "小数位")}</FieldLabel>
+        <FieldLabel>{t("tray.decimals", "Decimals")}</FieldLabel>
         <input
           type="number" min={0} max={5}
           data-testid="tray-edit-decimals"
@@ -571,7 +571,7 @@ export function SegmentEditor({
       </div>
       {/* color 三态 */}
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-        <FieldLabel>{t("tray.color", "颜色")}</FieldLabel>
+        <FieldLabel>{t("tray.color", "Color")}</FieldLabel>
         <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
           <button
             data-testid="tray-edit-color-follow"
@@ -579,7 +579,7 @@ export function SegmentEditor({
             style={seg.color.mode === "follow" ? editorBtnActive : editorBtn}
             onClick={() => { setCustomOn(false); setHexInvalid(false); onPatch({ color: { mode: "follow", value: "" } }); }}
           >
-            {t("tray.colorFollow", "跟随主题")}
+            {t("tray.colorFollow", "Follow system")}
           </button>
           <button
             data-testid="tray-edit-color-auto"
@@ -587,7 +587,7 @@ export function SegmentEditor({
             style={seg.color.mode === "auto" ? editorBtnActive : editorBtn}
             onClick={() => { setCustomOn(false); setHexInvalid(false); onPatch({ color: { mode: "auto", value: "" } }); }}
           >
-            {t("tray.colorAuto", "自动")}
+            {t("tray.colorAuto", "Auto")}
           </button>
           <button
             data-testid="tray-edit-color-preset"
@@ -595,7 +595,7 @@ export function SegmentEditor({
             style={seg.color.mode === "preset" ? editorBtnActive : editorBtn}
             onClick={() => { setCustomOn(false); setHexInvalid(false); onPatch({ color: { mode: "preset", value: seg.color.mode === "preset" ? seg.color.value : "red" } }); }}
           >
-            {t("tray.colorPreset", "预设")}
+            {t("tray.colorPreset", "Preset color")}
           </button>
           {seg.color.mode === "preset" && ["red", "green", "orange"].map((v) => (
             <button
@@ -617,7 +617,7 @@ export function SegmentEditor({
               if (HEX_RE.test(hex)) onPatch({ color: { mode: "custom", value: hex } });
             }}
           >
-            {t("tray.colorCustom", "自定义")}
+            {t("tray.colorCustom", "Custom")}
           </button>
         </div>
         {customOn && (
@@ -631,7 +631,7 @@ export function SegmentEditor({
             />
             {hexInvalid && (
               <span data-testid="tray-edit-hex-invalid" style={{ fontSize: 14, color: "var(--destructive)" }}>
-                {t("tray.colorInvalid", "颜色格式无效，请输入如 #RRGGBB")}
+                {t("tray.colorInvalid", "Invalid color, use e.g. #RRGGBB")}
               </span>
             )}
           </div>
@@ -639,7 +639,7 @@ export function SegmentEditor({
       </div>
       {/* font_size */}
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-        <FieldLabel>{t("tray.fontSize", "字号")}</FieldLabel>
+        <FieldLabel>{t("tray.fontSize", "Font size")}</FieldLabel>
         <input
           type="number" min={7} max={32}
           data-testid="tray-edit-fontsize"
@@ -653,7 +653,7 @@ export function SegmentEditor({
       </div>
       {/* line_mode */}
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-        <FieldLabel>{t("tray.lineMode", "行模式")}</FieldLabel>
+        <FieldLabel>{t("tray.lineMode", "Line")}</FieldLabel>
         <div style={{ display: "flex", gap: 6 }}>
           <button
             data-testid="tray-edit-line-single"
@@ -661,7 +661,7 @@ export function SegmentEditor({
             style={!two ? editorBtnActive : editorBtn}
             onClick={() => onPatch({ line_mode: "single" })}
           >
-            {t("tray.lineModeSingle", "单行")}
+            {t("tray.lineModeSingle", "Single line")}
           </button>
           <button
             data-testid="tray-edit-line-two"
@@ -669,13 +669,13 @@ export function SegmentEditor({
             style={two ? editorBtnActive : editorBtn}
             onClick={() => onPatch({ line_mode: "two" })}
           >
-            {t("tray.lineModeTwo", "两行")}
+            {t("tray.lineModeTwo", "Two lines")}
           </button>
         </div>
       </div>
       {/* align */}
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-        <FieldLabel>{t("tray.align", "对齐")}</FieldLabel>
+        <FieldLabel>{t("tray.align", "Align")}</FieldLabel>
         <div style={{ display: "flex", gap: 6 }}>
           {["left", "center", "right"].map((v) => (
             <button
@@ -693,7 +693,7 @@ export function SegmentEditor({
       {/* align_row2（仅两行模式） */}
       {two && (
         <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-          <FieldLabel>{t("tray.alignRow2", "值行对齐")}</FieldLabel>
+          <FieldLabel>{t("tray.alignRow2", "Row 2 align")}</FieldLabel>
           <div style={{ display: "flex", gap: 6 }}>
             {["left", "center", "right"].map((v) => (
               <button
@@ -938,15 +938,15 @@ export function TrayConfigTab() {
   };
 
   if (loading) {
-    return <div className="text-secondary" style={{ fontSize: 14, padding: 20 }}>{t("common.loading", "加载中...")}</div>;
+    return <div className="text-secondary" style={{ fontSize: 14, padding: 20 }}>{t("common.loading", "Loading...")}</div>;
   }
 
   // 候选库按域分行：统计（今日 4 指标）/ 状态（命中·高峰）/ 平台余额。
   const libRows: [string, SegmentOption[]][] = [
-    [t("tray.catStats", "统计"), options.filter((o) => o.key.startsWith("today_usage:"))],
-    [t("tray.catStatus", "状态"), options.filter((o) => o.key === "routed_platform" || o.key === "peak")],
-    [t("tray.catPlatform", "平台"), options.filter((o) => o.key.startsWith("platform:"))],
-    [t("tray.catSeparator", "分隔符"), options.filter((o) => o.key.startsWith("separator:"))],
+    [t("tray.catStats", "Stats"), options.filter((o) => o.key.startsWith("today_usage:"))],
+    [t("tray.catStatus", "Status"), options.filter((o) => o.key === "routed_platform" || o.key === "peak")],
+    [t("tray.catPlatform", "Platform"), options.filter((o) => o.key.startsWith("platform:"))],
+    [t("tray.catSeparator", "Separator"), options.filter((o) => o.key.startsWith("separator:"))],
   ];
 
   return (
@@ -954,14 +954,14 @@ export function TrayConfigTab() {
       {/* ── 页头：标题 + 已装段数 ── */}
       <div style={{ display: "flex", alignItems: "flex-end", gap: 14 }}>
         <div>
-          <h1 style={{ fontSize: 21, fontWeight: 800, margin: 0 }}>{t("tray.title", "托盘")}</h1>
+          <h1 style={{ fontSize: 21, fontWeight: 800, margin: 0 }}>{t("tray.title", "Tray")}</h1>
           <div style={{ fontSize: 14, color: "var(--muted-foreground)", marginTop: 3 }}>
-            {t("tray.pageDesc", "菜单栏仪表——选中的段按顺序实时显示，右侧同步今日观测。")}
+            {t("tray.pageDesc", "Menu bar gauge — loaded segments show live in order; today's stats sync on the right.")}
           </div>
         </div>
         <div data-testid="tray-count" style={{ marginLeft: "auto", display: "flex", alignItems: "baseline", gap: 8, fontFamily: MONO, fontSize: 14, color: "var(--muted-foreground)" }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: "var(--foreground)" }}>{selected.length}</span>
-          {t("tray.slotCountUnit", "段")}
+          {t("tray.slotCountUnit", "seg")}
         </div>
       </div>
 
@@ -971,9 +971,9 @@ export function TrayConfigTab() {
           {/* ── 卡 1：菜单栏预览 + 装载槽 ── */}
           <TraySectionCard staggerMs={0}>
             <SecHead
-              title={t("tray.previewTitle", "菜单栏预览")}
+              title={t("tray.previewTitle", "Menu Bar Preview")}
               lab={t("tray.realScale", "REAL SCALE")}
-              hint={t("tray.liveHint", "数值随代理日志实时刷新 · 预览条跟随系统主题")}
+              hint={t("tray.liveHint", "Values refresh with proxy logs · preview follows system theme")}
             />
             {/* 菜单栏模拟条：颜色全走 --mb-* 主题 token（light=浅色菜单栏 / dark=深色），双主题自动换色 */}
             <div
@@ -988,12 +988,12 @@ export function TrayConfigTab() {
             >
               <div style={{ display: "flex", gap: 14, color: "var(--mb-fg-dim)", fontSize: 14 }}>
                 <b style={{ color: "var(--mb-fg-strong)", fontWeight: 600 }}>⌘ AiDog</b>
-                <span>{t("nav.groups", "分组")}</span>
-                <span>{t("nav.logs", "日志")}</span>
+                <span>{t("nav.groups", "Groups")}</span>
+                <span>{t("nav.logs", "Proxy Log")}</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 18, fontFamily: MONO, fontWeight: 600, fontSize: 14, marginLeft: "auto", paddingRight: 18, borderRight: "1px solid var(--mb-border)", marginRight: 16 }}>
                 {selected.length === 0 ? (
-                  <span style={{ color: "var(--mb-fg-dim)", fontStyle: "italic" }}>{t("tray.previewEmpty", "暂无展示项")}</span>
+                  <span style={{ color: "var(--mb-fg-dim)", fontStyle: "italic" }}>{t("tray.previewEmpty", "No items")}</span>
                 ) : selected.map((seg, idx) => {
                   const opt = options.find((o) => o.key === segmentKey(seg));
                   const two = seg.line_mode === "two";
@@ -1035,7 +1035,7 @@ export function TrayConfigTab() {
               </div>
             </div>
             <div style={{ margin: "16px 18px 8px", fontFamily: MONO, fontSize: 14, letterSpacing: 1.2, color: "var(--muted-foreground)", textTransform: "uppercase" }}>
-              {t("tray.slotsLabel", "装载槽")}
+              {t("tray.slotsLabel", "Slots")}
             </div>
             <div style={{ margin: "0 18px 18px", display: "flex", gap: 10 }}>
               <SortableContext items={selected.map((x) => `slot:${segmentKey(x)}`)} strategy={horizontalListSortingStrategy}>
@@ -1046,17 +1046,17 @@ export function TrayConfigTab() {
                     <GapSlot
                       i={i}
                       display={gaps[i]}
-                      removeLabel={t("tray.separatorRemove", "移除分隔符")}
-                      dropLabel={t("tray.separatorDrop", "拖入分隔符")}
+                      removeLabel={t("tray.separatorRemove", "Remove separator")}
+                      dropLabel={t("tray.separatorDrop", "Drop a separator here")}
                       onRemove={() => persist({ ...config, items: setGapSeparator(config.items, i, null) })}
                     />
                   );
-                  if (!seg) return <Fragment key={i}>{gap}<EmptySlot i={i} tag={t("tray.slotIndex", "SLOT {{n}}", { n: i + 1 })} label={t("tray.slotEmpty", "空槽 — 从候选库点选装载")} /></Fragment>;
+                  if (!seg) return <Fragment key={i}>{gap}<EmptySlot i={i} tag={t("tray.slotIndex", "SLOT {{n}}", { n: i + 1 })} label={t("tray.slotEmpty", "Empty slot — load from the library")} /></Fragment>;
                   const opt = options.find((o) => o.key === segmentKey(seg));
                   return (
                     <Fragment key={segmentKey(seg)}>
                     {gap}
-                    <SortableSlot i={i} tag={t("tray.slotIndex", "SLOT {{n}}", { n: i + 1 })} id={segmentKey(seg)} onEdit={() => setEditingKey(segmentKey(seg))} handleLabel={t("tray.dragHandle", "拖动排序")}>
+                    <SortableSlot i={i} tag={t("tray.slotIndex", "SLOT {{n}}", { n: i + 1 })} id={segmentKey(seg)} onEdit={() => setEditingKey(segmentKey(seg))} handleLabel={t("tray.dragHandle", "Drag to reorder")}>
                       <div style={{ fontSize: 14, fontWeight: 650 }}>{seg.label || opt?.label || segmentKey(seg)}</div>
                       <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 700, color: ACCENT_TEXT, letterSpacing: 0.3 }}>{previewValue(seg, platforms, todayStats, peak, cur)}</div>
                     </SortableSlot>
@@ -1074,7 +1074,7 @@ export function TrayConfigTab() {
               >
                 {/* key=editingKey：切段重挂，清掉上一段的 hex/customOn 局部 state */}
                 <div style={{ fontFamily: MONO, fontSize: 14, letterSpacing: 1.2, color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: 10 }}>
-                  {t("tray.editTitle", "编辑段")}
+                  {t("tray.editTitle", "Edit segment")}
                 </div>
                 <SegmentEditor
                   key={editingKey}
@@ -1090,9 +1090,9 @@ export function TrayConfigTab() {
           {/* ── 卡 2：候选库（静态壳，装载交互在票 02 接 toggleSegment + persist）── */}
           <TraySectionCard staggerMs={60}>
             <SecHead
-              title={t("tray.libraryTitle", "候选库")}
+              title={t("tray.libraryTitle", "Library")}
               lab="LIBRARY"
-              hint={t("tray.libraryHint", "按装载顺序显示")}
+              hint={t("tray.libraryHint", "Shown in load order")}
             />
             <LibraryDrop>
               {libRows.map(([cat, rows]) => rows.length > 0 && (
@@ -1144,18 +1144,18 @@ export function TrayConfigTab() {
           <TraySectionCard staggerMs={60}>
             <div style={{ padding: "14px 16px" }}>
               <div style={{ fontFamily: MONO, fontSize: 14, letterSpacing: 1.2, color: "var(--muted-foreground)", textTransform: "uppercase" }}>
-                {t("tray.todayUsage", "今日消耗")}
+                {t("tray.todayUsage", "Today's Usage")}
               </div>
               <div data-testid="tray-big-cost" style={{ fontFamily: MONO, fontSize: 32, fontWeight: 700, letterSpacing: 0.5, marginTop: 4, color: ACCENT_TEXT }}>
                 {formatMoney(todayStats?.cost ?? 0)}
               </div>
               <div style={{ fontSize: 14, color: "var(--muted-foreground)", marginTop: 2 }}>
-                {t("tray.todayCostSub", "随代理日志终态实时累加")}
+                {t("tray.todayCostSub", "Accumulates live with proxy log finals")}
               </div>
               {peak?.in_peak && (
                 <div data-testid="tray-peak-badge" style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 10, border: "1px solid color-mix(in srgb, var(--warning) 40%, transparent)", background: "color-mix(in srgb, var(--warning) 10%, transparent)", color: "var(--warning)", borderRadius: 6, padding: "5px 10px", fontSize: 14, fontFamily: MONO }}>
                   <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--warning)" }} />
-                  {t("tray.peakBadge", "高峰时段")} · {peak.platform_name} ×{peak.multiplier}
+                  {t("tray.peakBadge", "Peak hours")} · {peak.platform_name} ×{peak.multiplier}
                 </div>
               )}
             </div>
@@ -1163,14 +1163,14 @@ export function TrayConfigTab() {
           <TraySectionCard staggerMs={120}>
             <div style={{ padding: "14px 16px 6px" }}>
               <div style={{ fontFamily: MONO, fontSize: 14, letterSpacing: 1.2, color: "var(--muted-foreground)", textTransform: "uppercase" }}>
-                {t("tray.todayMetrics", "今日指标")}
+                {t("tray.todayMetrics", "Today's Metrics")}
               </div>
               <div style={{ marginTop: 6 }}>
                 {([
                   [t("tray.metric.tokens", "Tokens"), `${todayStats?.tokens ?? 0} tok`],
-                  [t("tray.metric.requests", "请求"), `${todayStats?.total_requests ?? 0}`],
+                  [t("tray.metric.requests", "Requests"), `${todayStats?.total_requests ?? 0}`],
                   [t("tray.metric.cache_rate", "Cache%"), `${todayStats?.cache_rate ?? 0}%`],
-                  [t("tray.segment.routed", "当前命中平台"), "—"],
+                  [t("tray.segment.routed", "Currently routed platform"), "—"],
                 ] as [string, string][]).map(([k, v]) => (
                   <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "7px 0", borderBottom: "1px solid var(--border)", fontSize: 14, color: "var(--muted-foreground)" }}>
                     {k}
@@ -1182,7 +1182,7 @@ export function TrayConfigTab() {
           </TraySectionCard>
           <div data-testid="tray-trend" style={{ ...cardStyle, padding: "4px 16px 14px" }}>
             <div style={{ fontFamily: MONO, fontSize: 14, letterSpacing: 1.2, color: "var(--muted-foreground)", textTransform: "uppercase", padding: "12px 0 6px" }}>
-              {t("tray.trendTitle", "近 7 日消费趋势")}
+              {t("tray.trendTitle", "7-day spend trend")}
             </div>
             {/* size=s 无卡片标题，data 仅 m/l 标题用得到 */}
             <CostTrendCard item={TREND_ITEM} data={{} as PopoverData} size="s" t={t} stats={trend ?? undefined} statsLoaded={trendLoaded} />
@@ -1192,14 +1192,14 @@ export function TrayConfigTab() {
 
       {error && (
         <div data-testid="tray-error" style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14, color: "var(--destructive)", padding: "10px 14px", border: "1px solid color-mix(in srgb, var(--destructive) 40%, transparent)", borderRadius: 8 }}>
-          {t("tray.persistError", "保存托盘配置失败：{{msg}}", { msg: error })}
+          {t("tray.persistError", "Failed to save tray config: {{msg}}", { msg: error })}
         </div>
       )}
 
       {keptDisabled > 0 && (
         <div data-testid="tray-kept-disabled" style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14, color: "var(--muted-foreground)", padding: "10px 14px", border: "1px dashed var(--border)", borderRadius: 8 }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--warning)", flexShrink: 0 }} />
-          {t("tray.keptDisabled", "旧版托盘配置里多出的 {{count}} 项已保留但未启用，不会丢失", { count: keptDisabled })}
+          {t("tray.keptDisabled", "{{count}} extra item(s) from the old tray layout are kept but switched off — nothing was discarded", { count: keptDisabled })}
         </div>
       )}
     </div>

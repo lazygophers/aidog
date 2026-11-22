@@ -48,9 +48,9 @@ export function ConflictRow({
         <Segmented
           value={current.kind}
           options={[
-            { id: "overwrite", label: t("importExport.overwrite", "覆盖") },
-            { id: "skip", label: t("importExport.skip", "跳过") },
-            { id: "rename", label: t("importExport.rename", "重命名") },
+            { id: "overwrite", label: t("importExport.overwrite", "Overwrite") },
+            { id: "skip", label: t("importExport.skip", "Skip") },
+            { id: "rename", label: t("importExport.rename", "Rename") },
           ]}
           onSelect={(id) => {
             if (id === "rename") onChange({ kind: "rename", new_key: item.key + "-imported" });

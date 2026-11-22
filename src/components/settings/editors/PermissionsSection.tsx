@@ -21,12 +21,12 @@ const MODE_COLORS: Record<RuleMode, string> = {
 };
 
 const PERMISSION_MODES: { value: string; desc: string; hint: string }[] = [
-  { value: "default", desc: "标准模式", hint: "首次使用每个工具时提示权限" },
-  { value: "acceptEdits", desc: "接受编辑", hint: "自动接受工作目录内的文件编辑和常见文件系统命令" },
-  { value: "plan", desc: "计划模式", hint: "只读 — 读取文件和只读命令，不编辑源文件" },
-  { value: "auto", desc: "自动模式", hint: "自动批准 + 后台安全检查（研究预览）" },
-  { value: "dontAsk", desc: "不再询问", hint: "未预先批准的工具自动拒绝" },
-  { value: "bypassPermissions", desc: "跳过权限", hint: "跳过所有权限提示（根目录删除仍会提示）" },
+  { value: "default", desc: "Standard mode", hint: "Prompt for permission the first time each tool is used" },
+  { value: "acceptEdits", desc: "Accept edits", hint: "Automatically accept file edits and common filesystem commands within the working directory" },
+  { value: "plan", desc: "Plan mode", hint: "Read-only — read files and run read-only commands, no source edits" },
+  { value: "auto", desc: "Auto mode", hint: "Auto-approve + background safety checks (research preview)" },
+  { value: "dontAsk", desc: "Don't ask", hint: "Tools not pre-approved are automatically denied" },
+  { value: "bypassPermissions", desc: "Bypass permissions", hint: "Skip all permission prompts (root deletions still prompt)" },
 ];
 
 /** Tool categories with syntax hints and template examples — aligned with permissions docs */
@@ -38,10 +38,10 @@ const TOOL_GROUPS: { tool: string; label: string; syntax: string; examples: stri
   { tool: "PowerShell", label: "PowerShell", syntax: "PowerShell(cmd) / PowerShell(prefix *) / PowerShell", examples: [
     "PowerShell(Get-ChildItem *)", "PowerShell(git commit *)", "PowerShell",
   ] },
-  { tool: "Read", label: "Read", syntax: "Read(path) — //绝对 / ~/主目录 / /项目根 / ./当前", examples: [
+  { tool: "Read", label: "Read", syntax: "Read(path) — // absolute / ~/ home / / project root / ./ current", examples: [
     "Read(./.env)", "Read(//**/*.key)", "Read(~/.ssh/**)", "Read(src/**)", "Read(**/.env)",
   ] },
-  { tool: "Edit", label: "Edit / Write", syntax: "Edit(path) — 同 Read 路径规则", examples: [
+  { tool: "Edit", label: "Edit / Write", syntax: "Edit(path) — same path rules as Read", examples: [
     "Edit(/src/**/*.ts)", "Edit(./config.json)", "Edit(/docs/**)",
   ] },
   { tool: "WebFetch", label: "WebFetch", syntax: "WebFetch(domain:host) / WebFetch", examples: [
@@ -50,7 +50,7 @@ const TOOL_GROUPS: { tool: string; label: string; syntax: string; examples: stri
   { tool: "mcp__", label: "MCP", syntax: "mcp__server__tool / mcp__server__*", examples: [
     "mcp__puppeteer__*", "mcp__puppeteer__puppeteer_navigate",
   ] },
-  { tool: "Agent", label: "Agent (子代理)", syntax: "Agent(name)", examples: [
+  { tool: "Agent", label: "Agent (subagent)", syntax: "Agent(name)", examples: [
     "Agent(Explore)", "Agent(Plan)", "Agent(my-custom-agent)",
   ] },
 ];
@@ -208,21 +208,21 @@ function PermissionsEditor({ perms, updateField, t }: {
 </Select>
       </FieldRow>
       <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", lineHeight: 1.6, paddingLeft: 92 }}>
-        {t("settings.perm.priorityLabel", "规则优先级")}: <span style={{ color: MODE_COLORS.deny, fontWeight: 600 }}>deny</span> →{" "}
+        {t("settings.perm.priorityLabel", "Rule priority")}: <span style={{ color: MODE_COLORS.deny, fontWeight: 600 }}>deny</span> →{" "}
         <span style={{ color: MODE_COLORS.ask, fontWeight: 600 }}>ask</span> →{" "}
-        <span style={{ color: MODE_COLORS.allow, fontWeight: 600 }}>allow</span>{t("settings.perm.priorityNote", "。第一个匹配的规则生效。")}
+        <span style={{ color: MODE_COLORS.allow, fontWeight: 600 }}>allow</span>{t("settings.perm.priorityNote", ". The first matching rule applies.")}
       </div>
 
       {/* ── Safety Toggles ── */}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <FieldRow label={t("settings.perm.disableBypass", "禁用绕过模式")} icon={<SectionIcon name="bolt" size={14} />}>
+        <FieldRow label={t("settings.perm.disableBypass", "Disable Bypass Mode")} icon={<SectionIcon name="bolt" size={14} />}>
           <Toggle
             active={!!perms.disableBypassPermissionsMode}
             onChange={(v) => updatePermKey("disableBypassPermissionsMode", v ? "disable" : undefined)}
           />
           <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>disableBypassPermissionsMode</span>
         </FieldRow>
-        <FieldRow label={t("settings.perm.disableAuto", "禁用自动模式")} icon={<SectionIcon name="bolt" size={14} />}>
+        <FieldRow label={t("settings.perm.disableAuto", "Disable Auto Mode")} icon={<SectionIcon name="bolt" size={14} />}>
           <Toggle
             active={!!perms.disableAutoMode}
             onChange={(v) => updatePermKey("disableAutoMode", v ? "disable" : undefined)}
@@ -274,7 +274,7 @@ function PermissionsEditor({ perms, updateField, t }: {
         const groupRules = grouped.get(activeToolGroup) ?? [];
         if (groupRules.length === 0) return (
           <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", padding: "12px 0", textAlign: "center" }}>
-            {t("settings.perm.noRulesPrefix", "暂无")} {t(`settings.perm.toolLabel_${toolGroup.tool}`, toolGroup.label)} {t("settings.perm.noRulesSuffix", "规则。使用下方输入框添加。")}
+            {t("settings.perm.noRulesPrefix", "No")} {t(`settings.perm.toolLabel_${toolGroup.tool}`, toolGroup.label)} {t("settings.perm.noRulesSuffix", "rules yet. Add one using the input below.")}
           </div>
         );
         return (
@@ -334,7 +334,7 @@ function PermissionsEditor({ perms, updateField, t }: {
               color: showTemplates ? "var(--accent)" : "var(--text-tertiary)",
             }}
             onClick={() => setShowTemplates(!showTemplates)}
-            title={t("settings.perm.ruleTemplates", "规则模板")}
+            title={t("settings.perm.ruleTemplates", "Rule Templates")}
           >
             <SectionIcon name="bolt" size={14} />
           </Button>
@@ -397,7 +397,7 @@ function PermissionsEditor({ perms, updateField, t }: {
           display: "flex", flexDirection: "column", gap: 4,
         }}>
           <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 4, display: "flex", gap: 12 }}>
-            <span>{t("settings.perm.totalRulesPrefix", "共")} {rules.length} {t("settings.perm.totalRulesSuffix", "条规则")}</span>
+            <span>{t("settings.perm.totalRulesPrefix", "Total")} {rules.length} {t("settings.perm.totalRulesSuffix", "rules")}</span>
             <span style={{ color: MODE_COLORS.deny, display: "inline-flex", alignItems: "center", gap: 4 }}><IconClose size={12} /> deny: {rules.filter(r => r.mode === "deny").length}</span>
             <span style={{ color: MODE_COLORS.ask }}>? ask: {rules.filter(r => r.mode === "ask").length}</span>
             <span style={{ color: MODE_COLORS.allow, display: "inline-flex", alignItems: "center", gap: 4 }}><IconCheck size={12} /> allow: {rules.filter(r => r.mode === "allow").length}</span>

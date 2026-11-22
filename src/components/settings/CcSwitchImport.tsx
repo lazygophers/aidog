@@ -50,11 +50,11 @@ function protocolColor(matchedBy: string): ColorLevel {
 function matchBadgeKey(matchedBy: string, t: TFunction): string {
   switch (matchedBy) {
     case "preset_keyword":
-      return t("importExport.ccswitch.matched", "命中");
+      return t("importExport.ccswitch.matched", "matched");
     case "base_url_host":
       return t("importExport.ccswitch.hostMatch", "host");
     default:
-      return t("importExport.ccswitch.fallback", "回退");
+      return t("importExport.ccswitch.fallback", "fallback");
   }
 }
 
@@ -190,7 +190,7 @@ export function CcSwitchImportSection({
         payload.push(json);
       }
       if (payload.length === 0) {
-        setError(t("importExport.ccswitch.nothingSelected", "没有可导入的项（全部跳过或未选中）"));
+        setError(t("importExport.ccswitch.nothingSelected", "Nothing to import (all skipped or none selected)"));
         return;
       }
       const ds: ConflictDecision[] = Array.from(decisions.entries()).map(([k, d]) => {
@@ -233,16 +233,16 @@ export function CcSwitchImportSection({
     >
       <SectionHeader
         icon="download"
-        title={t("importExport.ccswitch.title", "从 cc-switch 导入")}
+        title={t("importExport.ccswitch.title", "Import from cc-switch")}
         desc={t(
           "importExport.ccswitch.desc",
-          "读取本地 cc-switch 配置（仅 claude + codex provider），按 base_url 自动识别平台类型。选择性导入 + 冲突逐项决策。",
+          "Read local cc-switch config (claude + codex providers only), auto-detect platform type by base_url. Selective import + per-item conflict decision.",
         )}
       />
 
       <PiUnsupportedNote
         reasonKey="pi.unsupportedCcSwitch"
-        reasonFallback="上游 cc-switch 只管 claude 与 codex provider，本身不认识 pi，没有可导入的 pi 数据。"
+        reasonFallback="Upstream cc-switch only knows claude and codex providers, so there is no pi data to import."
       />
 
       {/* 检测 + 手动选目录 */}
@@ -254,8 +254,8 @@ export function CcSwitchImportSection({
           style={{ padding: "7px 16px", fontSize: 14 }}
         >
           {detecting
-            ? t("importExport.ccswitch.detecting", "检测中…")
-            : t("importExport.ccswitch.detectBtn", "检测 cc-switch")}
+            ? t("importExport.ccswitch.detecting", "Detecting…")
+            : t("importExport.ccswitch.detectBtn", "Detect cc-switch")}
         </Button>
         <Button variant="outline"
           onClick={handlePickDir}
@@ -266,13 +266,13 @@ export function CcSwitchImportSection({
             background: "transparent", color: "var(--text-secondary)",
           }}
         >
-          {t("importExport.ccswitch.selectDir", "手动选择目录")}
+          {t("importExport.ccswitch.selectDir", "Pick directory manually")}
         </Button>
         {detection && detection.found && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <StatChip
               value={String(detection.providerCount)}
-              label={t("importExport.ccswitch.providerCount", "个")}
+              label={t("importExport.ccswitch.providerCount", "items")}
               level="success"
             />
             <code style={{ fontSize: 14, color: "var(--text-tertiary)", wordBreak: "break-all" }}>
@@ -282,7 +282,7 @@ export function CcSwitchImportSection({
         )}
         {detection && !detection.found && (
           <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-            {t("importExport.ccswitch.notDetected", "未检测到，可手动选择目录")}
+            {t("importExport.ccswitch.notDetected", "Not detected; pick directory manually")}
           </span>
         )}
       </div>
@@ -292,18 +292,18 @@ export function CcSwitchImportSection({
         <>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <strong style={{ fontSize: 14, color: "var(--text-primary)" }}>
-              {t("importExport.ccswitch.providerList", "供应商列表")}
+              {t("importExport.ccswitch.providerList", "Providers")}
             </strong>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <TextButton
                 onClick={() => setSelected(new Set(providers.map((p) => p.id)))}
               >
-                {t("importExport.selectAll", "全选")}
+                {t("importExport.selectAll", "Select all")}
               </TextButton>
               <TextButton onClick={() => setSelected(new Set())}>
-                {t("importExport.deselectAll", "反选")}
+                {t("importExport.deselectAll", "Deselect all")}
               </TextButton>
-              <StatChip value={`${selectedCount}/${providers.length}`} label={t("importExport.selectedLabel", "已选")} level={selectedCount > 0 ? "success" : "neutral"} />
+              <StatChip value={`${selectedCount}/${providers.length}`} label={t("importExport.selectedLabel", "selected")} level={selectedCount > 0 ? "success" : "neutral"} />
             </div>
           </div>
 
@@ -312,20 +312,20 @@ export function CcSwitchImportSection({
             <DimCheckbox
               checked={dims.d1}
               onChange={(v) => setDims((d) => ({ ...d, d1: v }))}
-              label={t("importExport.ccswitch.dimPlatformType", "平台类型")}
-              hint={t("importExport.ccswitch.dimPlatformTypeHint", "含 endpoints")}
+              label={t("importExport.ccswitch.dimPlatformType", "Platform type")}
+              hint={t("importExport.ccswitch.dimPlatformTypeHint", "incl. endpoints")}
               disabled
             />
             <DimCheckbox
               checked={dims.d2}
               onChange={(v) => setDims((d) => ({ ...d, d2: v }))}
-              label={t("importExport.ccswitch.dimModels", "模型映射")}
+              label={t("importExport.ccswitch.dimModels", "Model mapping")}
               hint={t("importExport.ccswitch.dimModelsHint", "ANTHROPIC_MODEL / codex model")}
             />
             <DimCheckbox
               checked={dims.d4}
               onChange={(v) => setDims((d) => ({ ...d, d4: v }))}
-              label={t("importExport.ccswitch.dimApiKey", "密钥")}
+              label={t("importExport.ccswitch.dimApiKey", "API key")}
               hint={t("importExport.ccswitch.dimApiKeyHint", "api_key")}
             />
           </div>
@@ -357,10 +357,10 @@ export function CcSwitchImportSection({
           {/* 批量分组归属（作用于本次导入的全部平台） */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)" }}>
             <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-              {t("importExport.ccswitch.groupAssignHint", "导入后这些平台加入哪些分组（批量，作用于全部已导入平台）")}
+              {t("importExport.ccswitch.groupAssignHint", "Which groups these platforms join after import (batch, applies to all imported platforms)")}
             </div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-              <span style={{ fontSize: 14 }}>{t("importExport.ccswitch.autoGroup", "导入后自动加入「cc-switch」分组")}</span>
+              <span style={{ fontSize: 14 }}>{t("importExport.ccswitch.autoGroup", "Auto-join the \"cc-switch\" group after import")}</span>
               <Switch checked={batchAutoGroup} onCheckedChange={setBatchAutoGroup} />
             </div>
             {groupDetails.length > 0 && (
@@ -404,7 +404,7 @@ export function CcSwitchImportSection({
                 opacity: selectedCount === 0 ? 0.5 : 1,
               }}
             >
-              {t("importExport.ccswitch.preview", "预览冲突")}
+              {t("importExport.ccswitch.preview", "Preview conflicts")}
             </Button>
             <Button variant="default"
               className="ripple"
@@ -414,8 +414,8 @@ export function CcSwitchImportSection({
               style={{ padding: "7px 16px", fontSize: 14 }}
             >
               {importing
-                ? t("importExport.applying", "导入中…")
-                : t("importExport.ccswitch.importBtn", "导入 {{n}} 项", { n: selectedCount })}
+                ? t("importExport.applying", "Importing…")
+                : t("importExport.ccswitch.importBtn", "Import {{n}} item(s)", { n: selectedCount })}
             </Button>
           </div>
         </>
@@ -425,7 +425,7 @@ export function CcSwitchImportSection({
       {conflictCount > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <strong style={{ fontSize: 14, color: "var(--color-warning)" }}>
-            {t("importExport.conflicts", "冲突（{{n}} 项）", { n: conflictCount })}
+            {t("importExport.conflicts", "Conflicts ({{n}})", { n: conflictCount })}
           </strong>
           {conflicts.map((c) => {
             const dk = decisionKey(c.scope, c.key);
@@ -550,10 +550,10 @@ function ProviderRow({
         </code>
       )}
       {conflict && (
-        <StatChip value={t("importExport.ccswitch.conflict", "冲突")} label="" level="danger" />
+        <StatChip value={t("importExport.ccswitch.conflict", "conflict")} label="" level="danger" />
       )}
       {noKey && (
-        <StatChip value={t("importExport.ccswitch.noKey", "无密钥")} label="" level="warning" />
+        <StatChip value={t("importExport.ccswitch.noKey", "no key")} label="" level="warning" />
       )}
     </div>
   );
@@ -588,7 +588,7 @@ function ConflictRowSimple({
         {(["overwrite", "skip", "rename"] as const).map((kind, i) => {
           const active = current.kind === kind;
           const labelKey = kind === "overwrite" ? "importExport.overwrite" : kind === "skip" ? "importExport.skip" : "importExport.rename";
-          const defaultLabel = kind === "overwrite" ? "覆盖" : kind === "skip" ? "跳过" : "重命名";
+          const defaultLabel = kind === "overwrite" ? "Overwrite" : kind === "skip" ? "Skip" : "Rename";
           return (
             <Button variant="outline"
               key={kind}

@@ -240,7 +240,7 @@ export const PlatformCard = memo(function PlatformCard({
       <CompactCard
         expanded={hasDetail ? expanded : undefined}
         onToggle={hasDetail ? (next) => actions.onToggleExpanded(p.id, next) : undefined}
-        toggleLabel={t("platform.toggleDetail", "展开/收起明细")}
+        toggleLabel={t("platform.toggleDetail", "Toggle details")}
         revealDelay={i * 60}
         header={(
           <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
@@ -254,7 +254,7 @@ export const PlatformCard = memo(function PlatformCard({
                 onPointerDown={e => actions.onPointerDown(e, i)}
                 onPointerMove={actions.onPointerMove}
                 onPointerUp={actions.onPointerUp}
-                title={t("platform.dragReorder", "拖拽排序")}
+                title={t("platform.dragReorder", "Drag to reorder")}
               >
                 <svg width="12" height="18" viewBox="0 0 14 20" fill="currentColor"><circle cx="4" cy="3" r="1.8"/><circle cx="4" cy="10" r="1.8"/><circle cx="4" cy="17" r="1.8"/><circle cx="10" cy="3" r="1.8"/><circle cx="10" cy="10" r="1.8"/><circle cx="10" cy="17" r="1.8"/></svg>
               </div>
@@ -292,7 +292,7 @@ export const PlatformCard = memo(function PlatformCard({
                     boxShadow: `0 0 4px ${HEALTH_COLORS[health]}60`,
                   }}
                   title={p.last_error
-                    ? t("platform.lastErrorHint", "最近一次失败 · {{time}}\n{{error}}")
+                    ? t("platform.lastErrorHint", "Last failure · {{time}}\n{{error}}")
                         .replace("{{time}}", formatDateTime(p.last_error_at) ?? "")
                         .replace("{{error}}", p.last_error)
                     : undefined}
@@ -304,47 +304,47 @@ export const PlatformCard = memo(function PlatformCard({
                   <span style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
                   {/* Coding Plan 套餐协议徽标（数据驱动：读 preset.is_coding_plan，非硬编码协议键名） */}
                   {isCpProtocol && (
-                    <Pill color="var(--color-success)" title={t("platform.codingPlanHint", "Coding Plan 套餐协议：走独立子域 / 配额计费")} style={{ flex: "none" }}>
+                    <Pill color="var(--color-success)" title={t("platform.codingPlanHint", "Coding Plan protocol: dedicated subdomain / quota-billed")} style={{ flex: "none" }}>
                       {t("platform.codingPlanBadge", "Coding Plan")}
                     </Pill>
                   )}
                   {/* 订阅徽标（spec cc-sub-mitm §3.5）：claude_code 协议 = OAuth 订阅透传，与
                       isCpProtocol 徽标同款 idiom；协议键比较与上方 isCcMitm 同源 */}
                   {p.platform_type === "claude_code" && (
-                    <Pill color="var(--accent)" title={t("platform.subscriptionHint", "订阅透传：OAuth 订阅绑定，流量经 MITM 观测（不计费，按窗口限额）")} style={{ flex: "none" }}>
-                      {t("platform.subscriptionBadge", "订阅")}
+                    <Pill color="var(--accent)" title={t("platform.subscriptionHint", "Subscription passthrough: OAuth-bound, traffic observed via MITM (not billed, window-limited)")} style={{ flex: "none" }}>
+                      {t("platform.subscriptionBadge", "Subscription")}
                     </Pill>
                   )}
                   {p.status === "auto_disabled" && (
-                    <Pill color="var(--color-warning)" title={t("platform.autoDisabledHint", "401/403 自动禁用，下次试探时间 {{time}}")
+                    <Pill color="var(--color-warning)" title={t("platform.autoDisabledHint", "Auto-disabled on 401/403, next probe at {{time}}")
                       .replace("{{time}}", p.auto_disabled_until > 0 ? (formatDateTime(p.auto_disabled_until) ?? "-") : "-")} style={{ flex: "none" }}>
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M12 9v4" /><path d="M12 17h.01" />
                         <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                       </svg>
-                      {t("platform.autoDisabled", "自动禁用")}
+                      {t("platform.autoDisabled", "Auto-disabled")}
                     </Pill>
                   )}
                   {/* 「代理」徽标（issue #64 T03）：平台开关开 且 全局代理地址非空才显示（地址空 = 实际直连） */}
                   {parseProxyEnabled(p.extra ?? "") && proxyConfigured && (
                     <span data-testid="card-proxy-badge" style={{ display: "inline-flex" }}>
-                      <Pill color="var(--text-secondary)" title={t("platform.useProxyDesc", "该平台的出站请求经「设置 → 代理配置」的代理地址转发。")}>
-                        {t("platform.proxyBadge", "代理")}
+                      <Pill color="var(--text-secondary)" title={t("platform.useProxyDesc", "Outbound requests of this platform go through the proxy configured in Settings → Proxy.")}>
+                        {t("platform.proxyBadge", "Proxy")}
                       </Pill>
                     </span>
                   )}
                   {(rateLimitsBundle.rate_limits || rateLimitsBundle.quota_windows) && (
-                    <Pill color="var(--text-secondary)" title={t("platform.rateLimits.badgeHint", "已配限频；超限自动排除候选（后续版本生效）")} style={{ flex: "none", background: "var(--bg-glass)", border: "1px solid var(--border)" }}>
+                    <Pill color="var(--text-secondary)" title={t("platform.rateLimits.badgeHint", "Rate limits configured; exceeded platform excluded from scheduling (future release)")} style={{ flex: "none", background: "var(--bg-glass)", border: "1px solid var(--border)" }}>
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M13 2L4 14h7l-2 8 9-12h-7l2-8z" />
                       </svg>
-                      {rateLimitsSummary(rateLimitsBundle, n => t("platform.rateLimits.windowsCount", "{{n}} 个窗口", { n }))}
+                      {rateLimitsSummary(rateLimitsBundle, n => t("platform.rateLimits.windowsCount", "{{n}} windows", { n }))}
                     </Pill>
                   )}
                   {/* 高峰禁用中徽标（独立维度，与 status 正交）：开关 on && now 在 peak window 命中 → 实时显 */}
                   {disableDuringPeak && isCurrentlyPeak(peakWindows, Date.now(), "", holidayCalendar) && (
-                    <Pill color="var(--color-warning)" title={t("platform.disable_during_peak_desc", "启用后该平台在高峰时段从路由候选排除（不改 status，临时闸门）。")} style={{ flex: "none" }}>
-                      {t("platform.peak_disabled_badge", "高峰禁用中")}
+                    <Pill color="var(--color-warning)" title={t("platform.disable_during_peak_desc", "When on, this platform is excluded from routing candidates during peak hours (any peak window hit). Does not change status — temporary gate; recovers when toggled off or outside the window.")} style={{ flex: "none" }}>
+                      {t("platform.peak_disabled_badge", "Peak-disabled")}
                     </Pill>
                   )}
                   {/* 高峰生效态徽标（R6 UI 可见性）：平台有 peak && 当前命中 → 显示。
@@ -360,15 +360,15 @@ export const PlatformCard = memo(function PlatformCard({
                     const models = hitWin?.models;
                     const hasScope = models && models.length > 0;
                     const tooltip = hasScope
-                      ? t("platform.peak_badge_models_tooltip", "受影响模型：{{models}}")
+                      ? t("platform.peak_badge_models_tooltip", "Affected models: {{models}}")
                           .replace("{{models}}", models!.join(", "))
-                      : t("platform.peak", "高峰时段倍率");
+                      : t("platform.peak", "Peak hours multiplier");
                     return (
                       <Pill color="var(--accent)" title={tooltip} style={{ flex: "none" }}>
                         {hasScope
-                          ? t("platform.peak_badge_limited", "高峰·{{count}}模型")
+                          ? t("platform.peak_badge_limited", "Peak · {{count}} models")
                               .replace("{{count}}", String(models!.length))
-                          : t("platform.peak_badge", "高峰")}
+                          : t("platform.peak_badge", "Peak")}
                       </Pill>
                     );
                   })()}
@@ -377,9 +377,9 @@ export const PlatformCard = memo(function PlatformCard({
                     const nowMs = Date.now();
                     if (nowMs >= p.expires_at) {
                       return (
-                        <Pill color="var(--color-danger)" title={t("platform.expiredHint", "已过期：{{time}}，路由自动排除")
+                        <Pill color="var(--color-danger)" title={t("platform.expiredHint", "Expired: {{time}}, automatically excluded from routing")
                           .replace("{{time}}", formatDateTime(p.expires_at) ?? "")} style={{ flex: "none" }}>
-                          {t("platform.expired", "已过期")}
+                          {t("platform.expired", "Expired")}
                         </Pill>
                       );
                     }
@@ -391,9 +391,9 @@ export const PlatformCard = memo(function PlatformCard({
                           color: soon ? "var(--color-warning)" : "var(--text-tertiary)",
                           fontWeight: soon ? 600 : 500,
                         }}
-                        title={t("platform.expiresAtHint", "可选。到期后该平台自动从路由候选排除（等效禁用），改值或清空即恢复。")}
+                        title={t("platform.expiresAtHint", "Optional. After expiration the platform is automatically excluded from routing candidates (equivalent to disabled); changing or clearing the value restores it.")}
                       >
-                        {t("platform.expiresAtBadge", "到期 {{time}}")
+                        {t("platform.expiresAtBadge", "Expires {{time}}")
                           .replace("{{time}}", formatDateTime(p.expires_at) ?? "")}
                       </span>
                     );
@@ -403,7 +403,7 @@ export const PlatformCard = memo(function PlatformCard({
                 </div>
                 <div className="text-secondary" style={{ fontSize: 14, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {/* unknown = DB platform_type 落了枚举外的值（票 06）：显式「未知协议」，提示重选平台类型 */}
-                  {p.platform_type === "unknown" ? t("platform.unknownProtocol", "未知协议") : protocolLabel || p.platform_type} · {getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url}
+                  {p.platform_type === "unknown" ? t("platform.unknownProtocol", "Unknown protocol") : protocolLabel || p.platform_type} · {getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url}
                 </div>
                 {/* 所属分组 badge */}
                 {platformMembership && platformMembership.length > 0 && (
@@ -425,7 +425,7 @@ export const PlatformCard = memo(function PlatformCard({
                     color="var(--color-danger)"
                     onClick={() => setLastErrorExpanded(v => !v)}
                     expanded={lastErrorExpanded}
-                    title={t("platform.lastErrorHint", "最近一次失败 · {{time}}\n{{error}}")
+                    title={t("platform.lastErrorHint", "Last failure · {{time}}\n{{error}}")
                       .replace("{{time}}", (p.last_error_at ?? 0) > 0 ? (formatDateTime(p.last_error_at) ?? "-") : "-")
                       .replace("{{error}}", p.last_error)}
                     style={{ marginTop: 3, alignItems: "flex-start", maxWidth: "100%", background: "color-mix(in srgb, var(--color-danger) 14%, transparent)", border: "1px solid color-mix(in srgb, var(--color-danger) 35%, transparent)" }}
@@ -436,7 +436,7 @@ export const PlatformCard = memo(function PlatformCard({
                     <span style={lastErrorExpanded
                       ? { whiteSpace: "pre-wrap", wordBreak: "break-all", maxHeight: 120, overflow: "auto" }
                       : { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {t("platform.lastError", "最近错误")}: {p.last_error}
+                      {t("platform.lastError", "Last error")}: {p.last_error}
                     </span>
                   </Pill>
                 )}
@@ -473,7 +473,7 @@ export const PlatformCard = memo(function PlatformCard({
                         kind={isAcu || quota.currency !== "USD" ? "raw" : "usd"}
                         currency={isAcu ? "" : quota.currency}
                         level={balColor === "neutral" ? undefined : balColor}
-                        label={isAcu ? t("platform.acuUsage", "ACU 用量") : undefined}
+                        label={isAcu ? t("platform.acuUsage", "ACU usage") : undefined}
                       />
                     </div>
                   );
@@ -488,7 +488,7 @@ export const PlatformCard = memo(function PlatformCard({
                         <span style={{ fontWeight: 700, fontSize: 14, color: mb.depleted ? "var(--color-danger)" : mb.ratio < 0.2 ? "var(--color-warning)" : "var(--text-primary)" }}>
                           {formatNumber(Math.max(0, mb.remaining))}
                           <span style={{ fontSize: 14, color: "var(--text-tertiary)", marginLeft: 3 }}>
-                            / {formatNumber(mb.amount)} {mb.unit === "count" ? t("platform.manualBudgetUnitCountShort", "次") : "tok"}
+                            / {formatNumber(mb.amount)} {mb.unit === "count" ? t("platform.manualBudgetUnitCountShort", "req") : "tok"}
                           </span>
                         </span>
                         <div style={{ height: 4, borderRadius: "var(--radius-sm)", background: "var(--bg-glass)", overflow: "hidden" }}>
@@ -498,9 +498,9 @@ export const PlatformCard = memo(function PlatformCard({
                     )}
                     <span style={{ fontSize: 14, fontWeight: 700, color: mb.depleted ? "var(--color-danger)" : "var(--text-tertiary)" }}>
                       {mb.depleted
-                        ? t("platform.manualBudgetDepleted", "额度耗尽")
-                        : t("platform.manualBudgetLabel", "手动预算")}
-                      {mb.unit === "token" && ` · ${t("platform.manualBudgetTokenApprox", "≈未知$")}`}
+                        ? t("platform.manualBudgetDepleted", "Exhausted")
+                        : t("platform.manualBudgetLabel", "Manual budget")}
+                      {mb.unit === "token" && ` · ${t("platform.manualBudgetTokenApprox", "≈unknown $")}`}
                     </span>
                   </div>
                 )}
@@ -512,7 +512,7 @@ export const PlatformCard = memo(function PlatformCard({
                       const value = isMcp && tier.limit != null
                         ? `${tier.remaining ?? 0}/${tier.limit}`
                         : `${tier.remainPct.toFixed(0)}%`;
-                      const remainSuffix = t("platform.quotaRemainSuffix", "剩");
+                      const remainSuffix = t("platform.quotaRemainSuffix", "left");
                       const tierColor = tier.level === "danger" ? "var(--color-danger)" : tier.level === "warning" ? "var(--color-warning)" : tier.level === "success" ? "var(--color-success)" : "var(--text-secondary)";
                       const countdown = formatResetCountdown(tier.resetsAt);
                       const resetClock = formatResetClock(tier.resetsAt);
@@ -554,13 +554,13 @@ export const PlatformCard = memo(function PlatformCard({
                     故单列一个 chip 不混进 tiers。窗口通常 1 分钟，快照超 5 分钟即视为过期不展示。 */}
                 {rateLimit && (
                   <span
-                    title={t("platform.rateLimitTitle", "上游速率限制余量（每分钟），来自 {{vendor}} 响应头", { vendor: rateLimit.vendor })}
+                    title={t("platform.rateLimitTitle", "Upstream rate limit headroom (per minute), from {{vendor}} response headers", { vendor: rateLimit.vendor })}
                     style={{
                       flexShrink: 0, fontSize: 14, whiteSpace: "nowrap",
                       color: rateLimitColor,
                     }}
                   >
-                    {t("platform.rateLimit", "速率")} {rateLimitText}
+                    {t("platform.rateLimit", "Rate")} {rateLimitText}
                   </span>
                 )}
                 {/* ── 终稿统计带：今日成本 + 成功率（折叠态可见，usage 到即显）── */}
@@ -568,18 +568,18 @@ export const PlatformCard = memo(function PlatformCard({
                   <div style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
                     {!hasCodingEndpoint && (
                       <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}
-                        title={t("platform.todayUsageLabel", "今日")}>
+                        title={t("platform.todayUsageLabel", "Today")}>
                         <span style={{ fontSize: 14, fontWeight: 600, color: u.today_cost > 0 ? "var(--text-primary)" : "var(--text-tertiary)", fontVariantNumeric: "tabular-nums" }}>
                           {formatMoney(u.today_cost)}
                         </span>
-                        <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("platform.todayUsageLabel", "今日")}</span>
+                        <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("platform.todayUsageLabel", "Today")}</span>
                       </span>
                     )}
                     <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>
                       <span style={{ fontSize: 14, fontWeight: 600, color: successRateLevel(sr, u.total_requests) === "danger" ? "var(--color-danger)" : successRateLevel(sr, u.total_requests) === "warning" ? "var(--color-warning)" : "var(--color-success)", fontVariantNumeric: "tabular-nums" }}>
                         {formatPercent(sr)}
                       </span>
-                      <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("platform.successRateLabel", "成功率")}</span>
+                      <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("platform.successRateLabel", "Success")}</span>
                     </span>
                   </div>
                 )}
@@ -588,7 +588,7 @@ export const PlatformCard = memo(function PlatformCard({
             {/* ④ 余额区骨架：quota 外部 HTTP 待回时占位，禁空白/est 旧值闪烁 */}
             {showQuotaSkeleton && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, paddingLeft: 24 }}>
-                <span className="skeleton" style={{ width: 120, height: 22 }} aria-label={t("platform.quotaLoading", "额度加载中")} />
+                <span className="skeleton" style={{ width: 120, height: 22 }} aria-label={t("platform.quotaLoading", "Loading quota")} />
               </div>
             )}
           </div>
@@ -637,14 +637,14 @@ export const PlatformCard = memo(function PlatformCard({
             {/* 配额各档明细 */}
             {showQuota && quota.tiers.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span className="text-tertiary" style={{ fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.quotaLabel", "额度")}</span>
+                <span className="text-tertiary" style={{ fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.quotaLabel", "Quota")}</span>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {quota.tiers.map(tier => {
                     const isMcp = tier.name === "mcp_monthly";
                     const value = isMcp && tier.limit != null
                       ? `${tier.remaining ?? 0}/${tier.limit}`
                       : `${tier.remainPct.toFixed(0)}%`;
-                    const remainSuffix = t("platform.quotaRemainSuffix", "剩");
+                    const remainSuffix = t("platform.quotaRemainSuffix", "left");
                     const tierColor = tier.level === "danger" ? "var(--color-danger)" : tier.level === "warning" ? "var(--color-warning)" : tier.level === "success" ? "var(--color-success)" : "var(--text-secondary)";
                     const countdown = formatResetCountdown(tier.resetsAt);
                     const resetClock = formatResetClock(tier.resetsAt);
@@ -769,7 +769,7 @@ function UsageSection({
       {usage && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span className="text-tertiary" style={{ fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "已使用")}</span>
+            <span className="text-tertiary" style={{ fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "Used")}</span>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               <StatChip icon={<IconBolt size={13} />} value={formatNumber(totalTokens)} label="tokens" />
               <StatChip icon={<IconCost size={13} />} value={formatMoney(totalCost)} label="cost" level={costLevel(totalCost)} />
@@ -777,7 +777,7 @@ function UsageSection({
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span className="text-tertiary" style={{ fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.todayUsageLabel", "今日")}</span>
+            <span className="text-tertiary" style={{ fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.todayUsageLabel", "Today")}</span>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               <StatChip icon={<IconBolt size={13} />} value={formatNumber(usage.today_tokens)} label="tokens" />
               <StatChip icon={<IconCost size={13} />} value={formatMoney(usage.today_cost)} label="cost" level={costLevel(usage.today_cost)} />
@@ -787,9 +787,9 @@ function UsageSection({
       )}
       {!usage && usagePending && (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span className="text-tertiary" style={{ fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "已使用")}</span>
+          <span className="text-tertiary" style={{ fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "Used")}</span>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            <span className="skeleton" style={{ width: 80, height: 24 }} aria-label={t("platform.usageLoading", "用量加载中")} />
+            <span className="skeleton" style={{ width: 80, height: 24 }} aria-label={t("platform.usageLoading", "Loading usage")} />
             <span className="skeleton" style={{ width: 70, height: 24 }} />
             <span className="skeleton" style={{ width: 60, height: 24 }} />
           </div>
@@ -825,7 +825,7 @@ function PlatformActionButtons({
           size="icon"
           style={{ padding: 4, height: "auto", minWidth: "auto" }}
           disabled={refreshing}
-          title={t("platform.quotaRefresh", "刷新额度")}
+          title={t("platform.quotaRefresh", "Refresh quota")}
           onClick={(e) => { e.stopPropagation(); actions.onRefreshQuota(platform); }}
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -841,10 +841,10 @@ function PlatformActionButtons({
         style={{ cursor: "pointer" }}
         onClick={(e) => { e.stopPropagation(); service.onToggleEnabled(platform); }}
         title={platform.status === "enabled"
-          ? t("platform.disable", "禁用")
+          ? t("platform.disable", "Disable")
           : platform.status === "auto_disabled"
-            ? t("platform.reenable", "重新启用")
-            : t("platform.enable", "启用")}
+            ? t("platform.reenable", "Re-enable")
+            : t("platform.enable", "Enable")}
       />
       {/* 模型测试按钮：passthrough 平台无模型语义（原样透传），隐藏快速/自定义测试 */}
       {platform.platform_type !== "passthrough" && (
@@ -855,7 +855,7 @@ function PlatformActionButtons({
           style={{ height: "auto" }}
           disabled={testing}
           onClick={(e) => { e.stopPropagation(); service.onQuickTest(platform); }}
-          title={t("platform.quickTest", "快速测试默认模型")}
+          title={t("platform.quickTest", "Quick Test")}
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none">
             <path d="M13 2L4 14h7l-2 8 9-12h-7l2-8z"/>
@@ -866,7 +866,7 @@ function PlatformActionButtons({
           size="icon"
           style={{ height: "auto" }}
           onClick={(e) => { e.stopPropagation(); service.onCustomTest(platform); }}
-          title={t("platform.customTest", "自定义测试")}
+          title={t("platform.customTest", "Custom Test")}
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 12h4l2 5 4-10 2 5h4" />
@@ -875,12 +875,12 @@ function PlatformActionButtons({
       </div>
       )}
       {/* 详情全页入口（T2）：卡片显式按钮；行视图（PlatformRow）走 ⋯ 菜单「查看平台详情」 */}
-      <Button variant="ghost" size="icon" style={{ height: "auto" }} data-testid="card-detail" onClick={(e) => { e.stopPropagation(); service.onDetail(platform); }} title={t("platform.detailHint", "查看平台详情")}>
+      <Button variant="ghost" size="icon" style={{ height: "auto" }} data-testid="card-detail" onClick={(e) => { e.stopPropagation(); service.onDetail(platform); }} title={t("platform.detailHint", "View platform details")}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="7" cy="7" r="5.2" /><path d="M7 6.4v3.2" /><path d="M7 4.4h.01" />
         </svg>
       </Button>
-      <Button variant="ghost" size="icon" style={{ height: "auto" }} onClick={(e) => { e.stopPropagation(); service.onEdit(platform); }} title={t("platform.editHint", "编辑平台")}>
+      <Button variant="ghost" size="icon" style={{ height: "auto" }} onClick={(e) => { e.stopPropagation(); service.onEdit(platform); }} title={t("platform.editHint", "Edit platform")}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M10 2l2 2-7 7H3v-2l7-7z" />
         </svg>
@@ -888,7 +888,7 @@ function PlatformActionButtons({
       {/* ── 低频操作收进 ⋯ 菜单（终稿：行内露出 开关+测速+编辑+⋯，其余收口） ── */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" style={{ height: "auto" }} title={t("platform.moreActions", "更多操作")} onClick={(e) => e.stopPropagation()}>
+          <Button variant="ghost" size="icon" style={{ height: "auto" }} title={t("platform.moreActions", "More actions")} onClick={(e) => e.stopPropagation()}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
               <circle cx="3" cy="7" r="1.3" /><circle cx="7" cy="7" r="1.3" /><circle cx="11" cy="7" r="1.3" />
             </svg>
@@ -896,17 +896,17 @@ function PlatformActionButtons({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
           <DropdownMenuItem onSelect={() => service.onViewLogs(platform)}>
-            {t("platform.viewLogs", "查看日志")}
+            {t("platform.viewLogs", "View Logs")}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => service.onShare(platform)}>
-            {t("platform.share.button", "分享")}
+            {t("platform.share.button", "Share")}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => service.onDuplicate(platform)}>
-            {t("platform.duplicate", "复制")}
+            {t("platform.duplicate", "Duplicate")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => actions.onDelete(platform.id)}>
-            {t("platform.delete", "删除")}
+            {t("platform.delete", "Delete")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -969,9 +969,9 @@ export function LevelPriorityControl({ value, onChange }: { value: number; onCha
       <span
         className="text-tertiary"
         style={{ fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}
-        title={t("group.levelPriorityHint", "数值越大优先级越高（10=最高优先），仅在本分组生效")}
+        title={t("group.levelPriorityHint", "Higher value = higher priority (10 = highest); only effective within this group")}
       >
-        {t("group.levelPriority", "优先级")}
+        {t("group.levelPriority", "Priority")}
       </span>
       <div style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
         <Button
@@ -979,7 +979,7 @@ export function LevelPriorityControl({ value, onChange }: { value: number; onCha
           size="icon"
           style={btnStyle}
           disabled={value <= 1}
-          title={t("group.levelPriorityDown", "降低优先级")}
+          title={t("group.levelPriorityDown", "Decrease priority")}
           onClick={e => { e.stopPropagation(); set(value - 1); }}
         >
           <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 7h8" /></svg>
@@ -1006,14 +1006,14 @@ export function LevelPriorityControl({ value, onChange }: { value: number; onCha
           size="icon"
           style={btnStyle}
           disabled={value >= 10}
-          title={t("group.levelPriorityUp", "提高优先级")}
+          title={t("group.levelPriorityUp", "Increase priority")}
           onClick={e => { e.stopPropagation(); set(value + 1); }}
         >
           <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M7 3v8M3 7h8" /></svg>
         </Button>
       </div>
       <span className="text-tertiary" style={{ fontSize: 14, opacity: 0.7 }}>
-        {t("group.levelPriorityMax", "10=最高优先")}
+        {t("group.levelPriorityMax", "10 = highest")}
       </span>
     </div>
   );
@@ -1043,8 +1043,8 @@ function LastTestBadge({ result }: { result: LastTestResult }) {
           cursor: hasBody ? "pointer" : "default",
         }}
         title={ok
-          ? t("platform.lastTestOkHint", "最近测试通过 · {{time}}", { time: formatDateTime(result.created_at) ?? "" })
-          : t("platform.lastTestFailHint", "最近测试失败 · {{time}}{{error}}", {
+          ? t("platform.lastTestOkHint", "Last test passed · {{time}}", { time: formatDateTime(result.created_at) ?? "" })
+          : t("platform.lastTestFailHint", "Last test failed · {{time}}{{error}}", {
               time: formatDateTime(result.created_at) ?? "",
               error: result.error ? `\n${result.error}` : "",
             })}

@@ -69,9 +69,9 @@ export function BatchSetStatusModal({
         onPointerDownOutside={(e) => { if (busy) e.preventDefault(); }}
       >
         <DialogHeader>
-          <DialogTitle>{t("group.batchSetStatusTitle", "批量改状态")}</DialogTitle>
+          <DialogTitle>{t("group.batchSetStatusTitle", "Batch change status")}</DialogTitle>
           <DialogDescription>
-            {t("group.batchSetStatusDesc", "将以下 {{count}} 个平台的状态改为：", { count: platforms.length })}
+            {t("group.batchSetStatusDesc", "Change the status of the following {{count}} platform(s) to:", { count: platforms.length })}
           </DialogDescription>
         </DialogHeader>
 
@@ -85,8 +85,8 @@ export function BatchSetStatusModal({
               <RadioGroupItem value={s} id={`batch-status-${s}`} />
               <label htmlFor={`batch-status-${s}`} style={{ cursor: "pointer" }}>
                 {s === "enabled"
-                  ? t("group.batchSetStatusEnabled", "启用")
-                  : t("group.batchSetStatusDisabled", "禁用")}
+                  ? t("group.batchSetStatusEnabled", "Enabled")
+                  : t("group.batchSetStatusDisabled", "Disabled")}
               </label>
             </div>
           ))}
@@ -103,7 +103,7 @@ export function BatchSetStatusModal({
             background: "var(--bg-glass)",
             border: "1px solid var(--color-danger)",
           }}>
-            {t("group.batchSetStatusNoCandidateWarning", "警告：选中平台覆盖了当前分组的全部候选（enabled）平台，禁用后整组将无可用候选，路由请求将失败。")}
+            {t("group.batchSetStatusNoCandidateWarning", "Warning: the selected platforms cover all enabled candidates of the current group; disabling them leaves the group with no available candidates and routed requests will fail.")}
           </div>
         )}
 
@@ -127,10 +127,10 @@ export function BatchSetStatusModal({
                     : { color: "var(--text-tertiary)", background: "var(--bg-glass)" }),
               }}>
                 {p.status === "enabled"
-                  ? t("platform.statusEnabled", "启用")
+                  ? t("platform.statusEnabled", "Enabled")
                   : p.status === "auto_disabled"
-                    ? t("platform.statusAutoDisabled", "熔断")
-                    : t("platform.statusDisabled", "禁用")}
+                    ? t("platform.statusAutoDisabled", "Circuit-broken")
+                    : t("platform.statusDisabled", "Disabled")}
               </span>
               <span style={{ fontSize: 14, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {p.name}
@@ -141,12 +141,12 @@ export function BatchSetStatusModal({
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={busy}>
-            {t("action.cancel", "取消")}
+            {t("action.cancel", "Cancel")}
           </Button>
           <Button onClick={() => onConfirm(status)} disabled={busy}>
             {busy
-              ? t("group.batchSetStatusApplying", "应用中…")
-              : t("group.batchSetStatusConfirm", "改状态（{{count}} 个平台）", { count: platforms.length })}
+              ? t("group.batchSetStatusApplying", "Applying…")
+              : t("group.batchSetStatusConfirm", "Change status ({{count}} platforms)", { count: platforms.length })}
           </Button>
         </DialogFooter>
       </DialogContent>

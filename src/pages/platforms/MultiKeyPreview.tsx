@@ -42,10 +42,10 @@ export function MultiKeyPreview({
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <div className="section-title" style={{ fontSize: 14 }}>
-          {t("platform.batch.previewTitle", "将创建 {{count}} 个平台", { count: keys.length })}
+          {t("platform.batch.previewTitle", "Will create {{count}} platforms", { count: keys.length })}
         </div>
         <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-          {t("platform.batch.previewHint", "点击右上角「批量创建」提交，name 自动生成 {{base}}-key尾4位，撞名追号；除 Token 外全部配置与表单一致", { base: "{base}" })}
+          {t("platform.batch.previewHint", "Confirm to batch create; name auto-generated as {{base}}-key last 4, suffix incremented on collision", { base: "{base}" })}
         </div>
       </div>
 

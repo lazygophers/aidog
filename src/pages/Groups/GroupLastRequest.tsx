@@ -9,11 +9,11 @@ import { blockedReasonLabel } from "../Logs/primitives";
  */
 export function GroupLastRequest({ last, onOpen }: { last: Last | undefined; onOpen?: (logId: string) => void }) {
   const { t } = useTranslation();
-  const label = t("group.lastRequest.label", "最近请求");
+  const label = t("group.lastRequest.label", "Last request");
   if (!last) {
     return (
       <span data-testid="group-last-request" data-state="none" style={{ fontSize: 14, color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>
-        {label} · {t("group.lastRequest.none", "暂无请求")}
+        {label} · {t("group.lastRequest.none", "No requests yet")}
       </span>
     );
   }
@@ -28,7 +28,7 @@ export function GroupLastRequest({ last, onOpen }: { last: Last | undefined; onO
       data-testid="group-last-request"
       data-state={state}
       role={onOpen ? "button" : undefined}
-      title={onOpen ? t("group.lastRequest.viewLog", "查看日志详情") : undefined}
+      title={onOpen ? t("group.lastRequest.viewLog", "View log details") : undefined}
       onClick={onOpen ? (e) => { e.stopPropagation(); onOpen(last.id); } : undefined}
       style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, minWidth: 0, cursor: onOpen ? "pointer" : undefined }}
     >

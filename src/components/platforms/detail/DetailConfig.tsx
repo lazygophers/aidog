@@ -35,10 +35,10 @@ export function DetailConfig({ platform: p, membership }: {
   const { t, i18n } = useTranslation();
   const { labelMap, peakWindows } = useProtocolMeta(p.platform_type, p.extra ?? "", i18n.language);
   const rl = parseRateLimitsBundle(p.extra ?? "");
-  const rlText = rateLimitsSummary(rl, n => t("platform.rateLimits.windowsCount", "{{n}} 个窗口", { n }));
+  const rlText = rateLimitsSummary(rl, n => t("platform.rateLimits.windowsCount", "{{n}} windows", { n }));
   const breaker = parsePlatformBreaker(p.extra ?? "");
   const breakerText = breaker.failure_threshold === 0 && breaker.half_open_max === 0
-    ? t("platform.detail.inherit", "继承默认")
+    ? t("platform.detail.inherit", "Inherit default")
     : `${breaker.failure_threshold} / ${breaker.half_open_max}`;
   const peakMax = peakWindows.reduce((m, w) => Math.max(m, w.multiplier ?? 1), 1);
   const clients = parseAllowedClients(p.extra ?? "");
@@ -47,8 +47,8 @@ export function DetailConfig({ platform: p, membership }: {
     .filter(r => r.chain.length > 0);
 
   return (
-    <Blk title={t("platform.detail.config", "配置")} testid="detail-config">
-      <Row k={t("platform.endpoints", "协议端点")} v={(p.endpoints ?? []).length > 0
+    <Blk title={t("platform.detail.config", "Configuration")} testid="detail-config">
+      <Row k={t("platform.endpoints", "Protocol Endpoints")} v={(p.endpoints ?? []).length > 0
         ? p.endpoints!.map((ep, ei) => (
             <span key={ei}>
               {ei > 0 && " · "}
@@ -58,7 +58,7 @@ export function DetailConfig({ platform: p, membership }: {
             </span>
           ))
         : p.base_url} />
-      <Row k={t("platform.models", "模型配置")} v={slotRows.length > 0
+      <Row k={t("platform.models", "Model Configuration")} v={slotRows.length > 0
         ? slotRows.map((r, ri) => (
             <div key={ri} style={{ display: "flex", gap: 6, alignItems: "baseline" }}>
               <span style={{ color: "var(--text-tertiary)", minWidth: 64 }}>{r.label}</span>
@@ -77,17 +77,17 @@ export function DetailConfig({ platform: p, membership }: {
             </div>
           ))
         : "-"} />
-      <Row k={t("platform.detail.rateLimits", "限频")} v={rlText ? rtlIsolate(rlText) : "-"} />
-      <Row k={t("platform.detail.breaker", "熔断")} v={rtlIsolate(breakerText)} />
-      <Row k={t("platform.detail.peak", "高峰倍率")} v={peakWindows.length > 0
+      <Row k={t("platform.detail.rateLimits", "Rate limits")} v={rlText ? rtlIsolate(rlText) : "-"} />
+      <Row k={t("platform.detail.breaker", "Circuit breaker")} v={rtlIsolate(breakerText)} />
+      <Row k={t("platform.detail.peak", "Peak multiplier")} v={peakWindows.length > 0
         ? `${peakWindows.length} ×${peakMax}`
         : "-"} />
-      <Row k={t("platform.detail.groups", "所属分组")} v={membership && membership.length > 0
+      <Row k={t("platform.detail.groups", "Groups")} v={membership && membership.length > 0
         ? membership.join(" · ")
-        : t("platform.detail.noGroup", "未分组")} />
-      <Row k={t("platform.detail.whitelist", "客户端白名单")} v={clients.length > 0
+        : t("platform.detail.noGroup", "Ungrouped")} />
+      <Row k={t("platform.detail.whitelist", "Client whitelist")} v={clients.length > 0
         ? clients.join(" · ")
-        : t("platform.detail.allClients", "全放行")} />
+        : t("platform.detail.allClients", "All clients")} />
     </Blk>
   );
 }

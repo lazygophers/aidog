@@ -73,8 +73,8 @@ export function ClientUsageSettings() {
     <div className="flex flex-col gap-5" data-testid="client-usage-settings">
       <Card className="p-5 space-y-4">
         <div>
-          <h2 className="font-medium">{t("clientUsage.consentTitle", "读取授权")}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{t("clientUsage.consentDesc", "选择要统计的客户端。开启后读取对应客户端本地的会话文件并导入统计。")}</p>
+          <h2 className="font-medium">{t("clientUsage.consentTitle", "Read Authorization")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t("clientUsage.consentDesc", "Choose which clients to track. When enabled, the client's local session files are read and imported into the statistics.")}</p>
         </div>
         <div className="space-y-3">
           {USAGE_CLIENTS.map((c) => (
@@ -93,8 +93,8 @@ export function ClientUsageSettings() {
 
       <Card className="p-5 space-y-3">
         <div>
-          <h2 className="font-medium">{t("clientUsage.retentionTitle", "保留天数")}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{t("clientUsage.retentionDesc", "超过天数的调用明细会被清理；0 = 永久保留，缺省 90 天。")}</p>
+          <h2 className="font-medium">{t("clientUsage.retentionTitle", "Retention days")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t("clientUsage.retentionDesc", "Call details older than this are cleaned up. 0 = keep forever; default 90 days.")}</p>
         </div>
         <div className="flex items-center gap-2">
           <Input
@@ -103,26 +103,26 @@ export function ClientUsageSettings() {
             min={0}
             value={days}
             className="w-24"
-            aria-label={t("clientUsage.retentionTitle", "保留天数")}
+            aria-label={t("clientUsage.retentionTitle", "Retention days")}
             onChange={(e) => { setDays(e.target.value); setSaved(false); }}
           />
           <Button data-testid="retention-save" variant="outline" onClick={() => void saveRetention()}>
-            {t("toolLog.save", "保存")}
+            {t("toolLog.save", "Save")}
           </Button>
-          {saved && <span className="text-sm text-muted-foreground" data-testid="retention-saved">{t("toolLog.saved", "已保存")}</span>}
+          {saved && <span className="text-sm text-muted-foreground" data-testid="retention-saved">{t("toolLog.saved", "Saved")}</span>}
         </div>
       </Card>
 
       <Card className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="font-medium">{t("clientUsage.transcriptTitle", "允许读取对话原文")}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{t("clientUsage.transcriptDesc", "仅在「换客户端继续」时读取会话原文并写入目标客户端；原文不存入 AiDog 数据库。默认关闭。")}</p>
+            <h2 className="font-medium">{t("clientUsage.transcriptTitle", "Allow reading conversation transcripts")}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t("clientUsage.transcriptDesc", "Transcripts are read only when you continue a session in another client, and are written to that client's own storage. They are never stored in the AiDog database. Off by default.")}</p>
           </div>
           <Switch
             checked={transcript}
             onCheckedChange={(on) => void toggleTranscript(on)}
-            aria-label={t("clientUsage.transcriptTitle", "允许读取对话原文")}
+            aria-label={t("clientUsage.transcriptTitle", "Allow reading conversation transcripts")}
             data-testid="transcript-consent"
           />
         </div>

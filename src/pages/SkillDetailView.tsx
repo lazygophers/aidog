@@ -48,7 +48,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
   // 加载文件树，默认选 SKILL.md。
   useEffect(() => {
     if (!path) {
-      setError(t("skills.detail.loadFailed", { defaultValue: "加载失败" }));
+      setError(t("skills.detail.loadFailed", { defaultValue: "Failed to load" }));
       setLoadingList(false);
       return;
     }
@@ -203,7 +203,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
                 textTransform: "uppercase",
               }}
             >
-              {t("skills.detail.files", { defaultValue: "文件" })} ({files.length})
+              {t("skills.detail.files", { defaultValue: "Files" })} ({files.length})
             </div>
             {loadingList && (
               <div style={{ padding: "8px 14px", fontSize: 14, color: "var(--text-secondary)" }}>
@@ -212,7 +212,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
             )}
             {!loadingList && files.length === 0 && (
               <div style={{ padding: "8px 14px", fontSize: 14, color: "var(--text-secondary)" }}>
-                {t("skills.detail.empty", { defaultValue: "空" })}
+                {t("skills.detail.empty", { defaultValue: "Empty" })}
               </div>
             )}
             {files.map((f, idx) => (
@@ -233,7 +233,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
                 className="glass-surface"
                 style={{ fontSize: 14, color: "var(--color-danger)", padding: "10px 14px" }}
               >
-                {t("skills.detail.readFailed", { defaultValue: "读取失败" })}: {error}
+                {t("skills.detail.readFailed", { defaultValue: "Failed to read" })}: {error}
               </div>
             )}
             {!error && loadingFile && (
@@ -263,7 +263,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
                     }}
                   >
                     {t("skills.detail.binary", {
-                      defaultValue: "二进制文件，无法预览",
+                      defaultValue: "Binary file, cannot preview",
                     })}
                   </div>
                 ) : content.truncated ? (
@@ -274,7 +274,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
                       marginBottom: 8,
                     }}
                   >
-                    {t("skills.detail.truncated", { defaultValue: "文件过大，已截断" })}
+                    {t("skills.detail.truncated", { defaultValue: "File too large, truncated" })}
                   </div>
                 ) : null}
                 {content.content !== null &&
@@ -302,7 +302,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
             )}
             {!error && !loadingFile && !content && !selected && (
               <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-                {t("skills.detail.noSkillMd", { defaultValue: "无 SKILL.md" })}
+                {t("skills.detail.noSkillMd", { defaultValue: "No SKILL.md" })}
               </div>
             )}
           </div>

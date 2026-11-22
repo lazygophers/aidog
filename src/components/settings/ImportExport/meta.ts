@@ -13,16 +13,16 @@ export const ALL_SCOPES: {
   descKey: string;
   defaultDesc: string;
 }[] = [
-  { id: "platform", labelKey: "importExport.scope.platform", defaultLabel: "平台", icon: "network", descKey: "importExport.scopeDesc.platform", defaultDesc: "平台连接与凭据" },
-  { id: "group", labelKey: "importExport.scope.group", defaultLabel: "分组", icon: "team", descKey: "importExport.scopeDesc.group", defaultDesc: "分组与调度策略" },
-  { id: "group_platform", labelKey: "importExport.scope.groupPlatform", defaultLabel: "分组↔平台关联", icon: "worktree", descKey: "importExport.scopeDesc.groupPlatform", defaultDesc: "分组与平台的关联关系" },
-  { id: "setting", labelKey: "importExport.scope.setting", defaultLabel: "全局设置", icon: "bolt", descKey: "importExport.scopeDesc.setting", defaultDesc: "主题 / 语言 / 代理 / 通知等" },
-  { id: "codex", labelKey: "importExport.scope.codex", defaultLabel: "Codex 设置", icon: "file", descKey: "importExport.scopeDesc.codex", defaultDesc: "Codex 配置" },
-  { id: "claude_code", labelKey: "importExport.scope.claudeCode", defaultLabel: "Claude Code 设置", icon: "memory", descKey: "importExport.scopeDesc.claudeCode", defaultDesc: "Claude Code 配置" },
-  { id: "model_price", labelKey: "importExport.scope.modelPrice", defaultLabel: "模型价格", icon: "pricing", descKey: "importExport.scopeDesc.modelPrice", defaultDesc: "自定义模型定价" },
-  { id: "mcp", labelKey: "importExport.scope.mcp", defaultLabel: "MCP 服务器", icon: "mcp", descKey: "importExport.scopeDesc.mcp", defaultDesc: "MCP 服务器配置 + 启用状态" },
-  { id: "middleware", labelKey: "importExport.scope.middleware", defaultLabel: "中间件规则", icon: "rules", descKey: "importExport.scopeDesc.middleware", defaultDesc: "请求/响应中间件规则" },
-  { id: "skills", labelKey: "importExport.scope.skills", defaultLabel: "Skills", icon: "plugins", descKey: "importExport.scopeDesc.skills", defaultDesc: "npx 安装 + 启用状态" },
+  { id: "platform", labelKey: "importExport.scope.platform", defaultLabel: "Platforms", icon: "network", descKey: "importExport.scopeDesc.platform", defaultDesc: "Platform connections & credentials" },
+  { id: "group", labelKey: "importExport.scope.group", defaultLabel: "Groups", icon: "team", descKey: "importExport.scopeDesc.group", defaultDesc: "Groups & scheduling strategy" },
+  { id: "group_platform", labelKey: "importExport.scope.groupPlatform", defaultLabel: "Group↔Platform links", icon: "worktree", descKey: "importExport.scopeDesc.groupPlatform", defaultDesc: "Group-to-platform associations" },
+  { id: "setting", labelKey: "importExport.scope.setting", defaultLabel: "Global settings (theme/language/proxy/notification, etc.)", icon: "bolt", descKey: "importExport.scopeDesc.setting", defaultDesc: "Theme / language / proxy / notifications" },
+  { id: "codex", labelKey: "importExport.scope.codex", defaultLabel: "Codex settings", icon: "file", descKey: "importExport.scopeDesc.codex", defaultDesc: "Codex configuration" },
+  { id: "claude_code", labelKey: "importExport.scope.claudeCode", defaultLabel: "Claude Code settings", icon: "memory", descKey: "importExport.scopeDesc.claudeCode", defaultDesc: "Claude Code configuration" },
+  { id: "model_price", labelKey: "importExport.scope.modelPrice", defaultLabel: "Model Pricing", icon: "pricing", descKey: "importExport.scopeDesc.modelPrice", defaultDesc: "Custom model pricing" },
+  { id: "mcp", labelKey: "importExport.scope.mcp", defaultLabel: "MCP Servers", icon: "mcp", descKey: "importExport.scopeDesc.mcp", defaultDesc: "MCP server config + enabled state" },
+  { id: "middleware", labelKey: "importExport.scope.middleware", defaultLabel: "Middleware Rules", icon: "rules", descKey: "importExport.scopeDesc.middleware", defaultDesc: "Request/response middleware rules" },
+  { id: "skills", labelKey: "importExport.scope.skills", defaultLabel: "Skills", icon: "plugins", descKey: "importExport.scopeDesc.skills", defaultDesc: "npx install + enable state" },
 ];
 
 export const SCOPE_ICON: Record<string, string> = Object.fromEntries(ALL_SCOPES.map((s) => [s.id, s.icon]));
@@ -43,14 +43,14 @@ export type MenuGroupId =
   | "extension" | "rules" | "scheduling" | "uiPref" | "system";
 
 export const MENU_GROUPS: { id: MenuGroupId; labelKey: string; defaultLabel: string; icon: string }[] = [
-  { id: "platform", labelKey: "importExport.menuGroup.platform", defaultLabel: "平台", icon: "network" },
-  { id: "group", labelKey: "importExport.menuGroup.group", defaultLabel: "分组", icon: "team" },
-  { id: "group_platform", labelKey: "importExport.menuGroup.groupPlatform", defaultLabel: "分组↔平台关联", icon: "worktree" },
-  { id: "extension", labelKey: "importExport.menuGroup.extension", defaultLabel: "扩展", icon: "plugins" },
-  { id: "rules", labelKey: "importExport.menuGroup.rules", defaultLabel: "规则", icon: "rules" },
-  { id: "scheduling", labelKey: "importExport.menuGroup.scheduling", defaultLabel: "调度", icon: "worktree" },
-  { id: "uiPref", labelKey: "importExport.menuGroup.uiPref", defaultLabel: "界面偏好", icon: "bolt" },
-  { id: "system", labelKey: "importExport.menuGroup.system", defaultLabel: "系统", icon: "settings" },
+  { id: "platform", labelKey: "importExport.menuGroup.platform", defaultLabel: "Platforms", icon: "network" },
+  { id: "group", labelKey: "importExport.menuGroup.group", defaultLabel: "Groups", icon: "team" },
+  { id: "group_platform", labelKey: "importExport.menuGroup.groupPlatform", defaultLabel: "Group↔Platform links", icon: "worktree" },
+  { id: "extension", labelKey: "importExport.menuGroup.extension", defaultLabel: "Extensions", icon: "plugins" },
+  { id: "rules", labelKey: "importExport.menuGroup.rules", defaultLabel: "Rules", icon: "rules" },
+  { id: "scheduling", labelKey: "importExport.menuGroup.scheduling", defaultLabel: "Scheduling", icon: "worktree" },
+  { id: "uiPref", labelKey: "importExport.menuGroup.uiPref", defaultLabel: "UI Preferences", icon: "bolt" },
+  { id: "system", labelKey: "importExport.menuGroup.system", defaultLabel: "System", icon: "settings" },
 ];
 
 // scope → 菜单组（platform/group/group_platform 三 scope 各自独立子分组，避免一菜单组平铺；

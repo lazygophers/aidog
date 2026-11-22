@@ -63,7 +63,7 @@ export function DonutChart({
       .slice(0, topN)
       .map((d) => ({ name: d.name, value: d.value }));
     const rest = sorted.slice(topN).reduce((s, d) => s + d.value, 0);
-    if (rest > 0) items.push({ name: t("stats.donutRest", "其他"), value: rest });
+    if (rest > 0) items.push({ name: t("stats.donutRest", "Other"), value: rest });
     return items.map((d, i) => ({
       ...d,
       // 首位琥珀（值最大项），其后灰阶循环

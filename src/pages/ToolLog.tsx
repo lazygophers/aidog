@@ -33,7 +33,7 @@ function Detail({ row }: { row: ToolLogRow }) {
   return (
     <div data-testid={`tool-log-detail-${row.id}`} className="flex flex-col gap-2">
       {row.platform && (
-        <div className="text-sm text-secondary">{t("toolLog.platform", "被绕开的平台")}：{row.platform}</div>
+        <div className="text-sm text-secondary">{t("toolLog.platform", "Bypassed platform")}：{row.platform}</div>
       )}
       {row.error && (
         <div className="text-sm text-destructive">{row.error}</div>
@@ -42,10 +42,10 @@ function Detail({ row }: { row: ToolLogRow }) {
         <table className="text-sm">
           <thead>
             <tr>
-              <th className="px-2 py-0.5 text-left font-normal">{t("toolLog.engine", "引擎")}</th>
-              <th className="px-2 py-0.5 text-right font-normal">{t("toolLog.count", "条数")}</th>
-              <th className="px-2 py-0.5 text-right font-normal">{t("toolLog.latency", "耗时")}</th>
-              <th className="px-2 py-0.5 text-left font-normal">{t("toolLog.error", "错误")}</th>
+              <th className="px-2 py-0.5 text-left font-normal">{t("toolLog.engine", "Engine")}</th>
+              <th className="px-2 py-0.5 text-right font-normal">{t("toolLog.count", "Results")}</th>
+              <th className="px-2 py-0.5 text-right font-normal">{t("toolLog.latency", "Latency")}</th>
+              <th className="px-2 py-0.5 text-left font-normal">{t("toolLog.error", "Error")}</th>
             </tr>
           </thead>
           <tbody>
@@ -64,7 +64,7 @@ function Detail({ row }: { row: ToolLogRow }) {
         data-testid={`tool-log-result-${row.id}`}
         className="m-0 max-h-60 overflow-auto whitespace-pre-wrap break-all rounded-md border border-border bg-card p-1.5 font-mono text-sm"
       >
-        {row.result || t("toolLog.resultEmpty", "（正文未记录：请开启「记录用户请求原始信息」）")}
+        {row.result || t("toolLog.resultEmpty", "(Content not recorded: enable \"Record raw user request info\")")}
       </pre>
     </div>
   );
@@ -123,53 +123,53 @@ export function ToolLog() {
   return (
     <div className="flex flex-col gap-3">
       <div>
-        <div data-testid="tool-log-header" className="section-title">{t("page.toolLog", "工具日志")}</div>
+        <div data-testid="tool-log-header" className="section-title">{t("page.toolLog", "Tool Log")}</div>
         <div data-testid="tool-log-desc" className="mt-1 text-sm text-secondary">
-          {t("toolLog.desc", "网关代执行与 HTTP MCP 的每次工具调用流水")}
+          {t("toolLog.desc", "Tool call history for gateway-executed and HTTP MCP calls")}
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <select data-testid="tool-log-filter-tool" value={tool} className={CONTROL}
           onChange={(e) => onFilter(setTool)(e.target.value)}>
-          <option value="">{t("toolLog.allTools", "全部工具")}</option>
+          <option value="">{t("toolLog.allTools", "All tools")}</option>
           {TOOLS.map((x) => <option key={x} value={x}>{x}</option>)}
         </select>
         <select data-testid="tool-log-filter-trigger" value={trigger} className={CONTROL}
           onChange={(e) => onFilter(setTrigger)(e.target.value)}>
-          <option value="">{t("toolLog.allTriggers", "全部触发方")}</option>
+          <option value="">{t("toolLog.allTriggers", "All triggers")}</option>
           {TRIGGERS.map((x) => <option key={x} value={x}>{t(`toolLog.trigger.${x}`, x)}</option>)}
         </select>
         <Input data-testid="tool-log-filter-group" value={group} className="h-8 w-40 text-sm"
-          placeholder={t("toolLog.groupPlaceholder", "分组名")}
+          placeholder={t("toolLog.groupPlaceholder", "Group name")}
           onChange={(e) => onFilter(setGroup)(e.target.value)} />
-        <span className="ms-auto text-secondary">{t("toolLog.retentionDays", "保留天数（0 = 永久）")}</span>
+        <span className="ms-auto text-secondary">{t("toolLog.retentionDays", "Retention days (0 = forever)")}</span>
         <Input data-testid="tool-log-retention-input" type="number" min={0} value={days} className="h-8 w-20 text-sm"
           onChange={(e) => { setDays(e.target.value); setSaved(false); }} />
         <Button data-testid="tool-log-retention-save" size="sm" variant="outline" onClick={saveRetention}>
-          {saved ? t("toolLog.saved", "已保存") : t("toolLog.save", "保存")}
+          {saved ? t("toolLog.saved", "Saved") : t("toolLog.save", "Save")}
         </Button>
       </div>
 
       {page === null ? (
-        <div className="text-sm text-tertiary">{t("status.loading", "加载中…")}</div>
+        <div className="text-sm text-tertiary">{t("status.loading", "Loading...")}</div>
       ) : page.rows.length === 0 ? (
         <div data-testid="tool-log-empty" className="text-sm text-tertiary">
-          {t("toolLog.empty", "（暂无工具调用记录）")}
+          {t("toolLog.empty", "(No tool calls recorded yet)")}
         </div>
       ) : (
         <>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{t("toolLog.time", "时间")}</TableHead>
-                <TableHead>{t("toolLog.tool", "工具")}</TableHead>
-                <TableHead>{t("toolLog.triggerCol", "触发方")}</TableHead>
-                <TableHead>{t("toolLog.group", "分组")}</TableHead>
-                <TableHead>{t("toolLog.query", "搜索词 / URL")}</TableHead>
-                <TableHead className="text-right">{t("toolLog.count", "条数")}</TableHead>
-                <TableHead className="text-right">{t("toolLog.duration", "总耗时")}</TableHead>
-                <TableHead className="text-right">{t("toolLog.status", "状态")}</TableHead>
+                <TableHead>{t("toolLog.time", "Time")}</TableHead>
+                <TableHead>{t("toolLog.tool", "Tool")}</TableHead>
+                <TableHead>{t("toolLog.triggerCol", "Trigger")}</TableHead>
+                <TableHead>{t("toolLog.group", "Group")}</TableHead>
+                <TableHead>{t("toolLog.query", "Query / URL")}</TableHead>
+                <TableHead className="text-right">{t("toolLog.count", "Results")}</TableHead>
+                <TableHead className="text-right">{t("toolLog.duration", "Duration")}</TableHead>
+                <TableHead className="text-right">{t("toolLog.status", "Status")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -185,14 +185,14 @@ export function ToolLog() {
                     <TableCell className="text-right">{r.result_count}</TableCell>
                     <TableCell className="text-right">{formatDurationMs(r.duration_ms)}</TableCell>
                     <TableCell className={`text-right ${r.success ? "" : "text-destructive"}`}>
-                      {r.success ? t("toolLog.ok", "成功") : t("toolLog.fail", "失败")}
+                      {r.success ? t("toolLog.ok", "OK") : t("toolLog.fail", "Failed")}
                     </TableCell>
                   </TableRow>
                   {openId === r.id && (
                     <TableRow>
                       <TableCell colSpan={8}>
                         {details[r.id] === undefined ? (
-                          <div className="text-sm text-tertiary">{t("status.loading", "加载中…")}</div>
+                          <div className="text-sm text-tertiary">{t("status.loading", "Loading...")}</div>
                         ) : (
                           <Detail row={details[r.id] ?? r} />
                         )}
@@ -205,10 +205,10 @@ export function ToolLog() {
           </Table>
           <div className="flex items-center gap-2 text-sm">
             <Button data-testid="tool-log-prev" size="sm" variant="outline" disabled={offset === 0}
-              onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>{t("toolLog.prev", "上一页")}</Button>
+              onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>{t("toolLog.prev", "Previous")}</Button>
             <span className="text-secondary">{offset + 1}–{Math.min(offset + PAGE_SIZE, total)} / {total}</span>
             <Button data-testid="tool-log-next" size="sm" variant="outline" disabled={offset + PAGE_SIZE >= total}
-              onClick={() => setOffset(offset + PAGE_SIZE)}>{t("toolLog.next", "下一页")}</Button>
+              onClick={() => setOffset(offset + PAGE_SIZE)}>{t("toolLog.next", "Next")}</Button>
           </div>
         </>
       )}

@@ -225,13 +225,13 @@ function conditionsSummary(node: ConditionNode): string {
 
 function actionLabel(t: TFunction, a: ActionKind): string {
   const map: Record<ActionKind, string> = {
-    mask: t("middleware.action.mask", "脱敏"),
-    block: t("middleware.action.block", "拦截"),
-    warn: t("middleware.action.warn", "告警"),
-    inject: t("middleware.action.inject", "注入"),
-    override: t("middleware.action.override", "改写"),
-    classify: t("middleware.action.classify", "分类"),
-    budget_gate: t("middleware.action.budgetGate", "预算闸门"),
+    mask: t("middleware.action.mask", "Mask"),
+    block: t("middleware.action.block", "Block"),
+    warn: t("middleware.action.warn", "Warn"),
+    inject: t("middleware.action.inject", "Inject"),
+    override: t("middleware.action.override", "Override"),
+    classify: t("middleware.action.classify", "Classify"),
+    budget_gate: t("middleware.action.budgetGate", "Budget gate"),
   };
   return map[a];
 }
@@ -281,7 +281,7 @@ function ConditionLeafEditor({ node, onChange, onRemove, removeLabel }: Omit<Nod
         <div style={{ flex: "1 1 100px", minWidth: 100 }}>
           <AutoTextarea
             mono
-            placeholder={t("middleware.fieldHint", "字段（空=整体 / JSON path / header 名）")}
+            placeholder={t("middleware.fieldHint", "Field (empty = whole / JSON path / header name)")}
             value={node.field}
             onChange={(v) => onChange({ ...node, field: v })}
           />
@@ -298,24 +298,24 @@ function ConditionLeafEditor({ node, onChange, onRemove, removeLabel }: Omit<Nod
       <div style={{ flex: "2 1 160px", minWidth: 160 }}>
         <AutoTextarea
           mono
-          placeholder={t("middleware.pattern", "匹配模式")}
+          placeholder={t("middleware.pattern", "Pattern / Target")}
           value={node.pattern}
           onChange={(v) => onChange({ ...node, pattern: v })}
         />
       </div>
       {node.match_type === "regex" && (
         <Select value={node.validator || "none"} onValueChange={(v) => onChange({ ...node, validator: v === "none" ? "" : v })}>
-          <SelectTrigger title={t("middleware.checksumHint", "正则命中后再跑校验位，校验不过的不算命中")} style={{ fontSize: F.hint, width: "auto", minWidth: 110, flexShrink: 0 }}><SelectValue /></SelectTrigger>
+          <SelectTrigger title={t("middleware.checksumHint", "Run a checksum after the regex match; matches failing it do not count")} style={{ fontSize: F.hint, width: "auto", minWidth: 110, flexShrink: 0 }}><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="none">{t("middleware.checksum.none", "无校验位")}</SelectItem>
-            <SelectItem value="luhn">{t("middleware.checksum.luhn", "Luhn (银行卡)")}</SelectItem>
+            <SelectItem value="none">{t("middleware.checksum.none", "No checksum")}</SelectItem>
+            <SelectItem value="luhn">{t("middleware.checksum.luhn", "Luhn (bank card)")}</SelectItem>
             <SelectItem value="iban">{t("middleware.checksum.iban", "IBAN")}</SelectItem>
-            <SelectItem value="cn_id">{t("middleware.checksum.cn_id", "中国身份证")}</SelectItem>
+            <SelectItem value="cn_id">{t("middleware.checksum.cn_id", "China ID card")}</SelectItem>
           </SelectContent>
         </Select>
       )}
       {onRemove && (
-        <Button variant="ghost" onClick={onRemove} title={removeLabel ?? t("action.delete", "删除")} style={{ color: "var(--text-tertiary)" }}>
+        <Button variant="ghost" onClick={onRemove} title={removeLabel ?? t("action.delete", "Delete")} style={{ color: "var(--text-tertiary)" }}>
           <IconClose size={12} />
         </Button>
       )}
@@ -325,12 +325,12 @@ function ConditionLeafEditor({ node, onChange, onRemove, removeLabel }: Omit<Nod
 
 function conditionsTargetLabel(t: TFunction, x: string): string {
   const map: Record<string, string> = {
-    request_body: t("middleware.target.request_body", "请求 body"),
-    request_headers: t("middleware.target.request_headers", "请求 header"),
-    response_body: t("middleware.target.response_body", "响应 body"),
-    response_headers: t("middleware.target.response_headers", "响应 header"),
-    status: t("middleware.target.status", "状态码"),
-    model: t("middleware.target.model", "模型"),
+    request_body: t("middleware.target.request_body", "Request body"),
+    request_headers: t("middleware.target.request_headers", "Request headers"),
+    response_body: t("middleware.target.response_body", "Response body"),
+    response_headers: t("middleware.target.response_headers", "Response headers"),
+    status: t("middleware.target.status", "Status code"),
+    model: t("middleware.target.model", "Model"),
   };
   return map[x] ?? x;
 }
@@ -368,24 +368,24 @@ function ConditionNodeEditor({ node, onChange, onRemove, removeLabel, depth }: N
         <Select value={node.kind} onValueChange={(v) => setKind(v as "all" | "any" | "not")}>
           <SelectTrigger style={{ fontSize: F.hint, width: "auto", minWidth: 92, flexShrink: 0 }}><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">{t("middleware.node.all", "AND (全部满足)")}</SelectItem>
-            <SelectItem value="any">{t("middleware.node.any", "OR (任一满足)")}</SelectItem>
-            <SelectItem value="not">{t("middleware.node.not", "NOT (取反)")}</SelectItem>
+            <SelectItem value="all">{t("middleware.node.all", "AND (all match)")}</SelectItem>
+            <SelectItem value="any">{t("middleware.node.any", "OR (any match)")}</SelectItem>
+            <SelectItem value="not">{t("middleware.node.not", "NOT (negate)")}</SelectItem>
           </SelectContent>
         </Select>
         <div style={{ flex: 1 }} />
         {!isNot && (
           <>
             <Button variant="ghost" style={{ fontSize: 14 }} onClick={() => addChild(true)}>
-              + {t("middleware.addLeaf", "条件")}
+              + {t("middleware.addLeaf", "Condition")}
             </Button>
             <Button variant="ghost" style={{ fontSize: 14 }} onClick={() => addChild(false)}>
-              + {t("middleware.addGroup", "子组")}
+              + {t("middleware.addGroup", "Subgroup")}
             </Button>
           </>
         )}
         {onRemove && (
-          <Button variant="ghost" onClick={onRemove} title={removeLabel ?? t("action.delete", "删除")} style={{ color: "var(--text-tertiary)" }}>
+          <Button variant="ghost" onClick={onRemove} title={removeLabel ?? t("action.delete", "Delete")} style={{ color: "var(--text-tertiary)" }}>
             <IconClose size={12} />
           </Button>
         )}
@@ -458,7 +458,7 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
             <div style={{ flex: 1 }} />
             <Button variant="ghost" style={{ fontSize: 14 }} onClick={() => move(i, -1)} disabled={i === 0}>↑</Button>
             <Button variant="ghost" style={{ fontSize: 14 }} onClick={() => move(i, 1)} disabled={i === steps.length - 1}>↓</Button>
-            <Button variant="ghost" onClick={() => remove(i)} title={t("action.delete", "删除")} style={{ color: "var(--text-tertiary)" }}>
+            <Button variant="ghost" onClick={() => remove(i)} title={t("action.delete", "Delete")} style={{ color: "var(--text-tertiary)" }}>
               <IconClose size={12} />
             </Button>
           </div>
@@ -477,7 +477,7 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
                       })
                     }
                   />
-                  {t("middleware.maskReversible", "可还原（占位符，响应自动还原）")}
+                  {t("middleware.maskReversible", "Reversible (placeholder, restored in the reply)")}
                 </label>
               )}
               {!(st.kind === "mask" && st.params.mode === "reversible") && (
@@ -496,7 +496,7 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
                     testId="mask-fields"
                     options={(st.params.mode === "reversible" ? MASK_FIELDS_REVERSIBLE : MASK_FIELDS).map((f) => ({
                       value: f,
-                      label: f === "all" ? t("middleware.maskScopeAll", "全部内容") : f,
+                      label: f === "all" ? t("middleware.maskScopeAll", "All content") : f,
                     }))}
                     selected={st.params.fields.filter((f): f is MaskField => (MASK_FIELDS_REVERSIBLE as readonly string[]).includes(f))}
                     onToggle={(v, on) =>
@@ -513,7 +513,7 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
                         },
                       })
                     }
-                    emptyLabel={t("middleware.maskFieldsAll", "全部字段（messages + system）")}
+                    emptyLabel={t("middleware.maskFieldsAll", "All fields (messages + system)")}
                   />
                 </div>
               )}
@@ -526,10 +526,10 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
                   checked={st.params.observe}
                   onCheckedChange={(v) => setStep(i, { ...st, params: { ...st.params, observe: v } })}
                 />
-                {t("middleware.observe", "观察模式")}
+                {t("middleware.observe", "Observe mode")}
               </label>
               <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-                {t("middleware.observeHint", "开启后命中不拦截：请求照常转发并计费，只在日志里记一笔，用来验证规则是否误伤")}
+                {t("middleware.observeHint", "When on, a match no longer blocks: the request is forwarded and billed as usual and only recorded in the log, so you can check whether the rule misfires.")}
               </span>
             </div>
           )}
@@ -570,14 +570,14 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
                 type="number"
                 min={0}
                 step="0.01"
-                placeholder={t("middleware.budgetAmount", "本月预算上限（美元）")}
+                placeholder={t("middleware.budgetAmount", "Monthly budget cap (USD)")}
                 value={st.params.budget_usd || ""}
                 onChange={(e) =>
                   setStep(i, { ...st, params: { ...st.params, budget_usd: Number(e.target.value) || 0 } })
                 }
               />
               <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-                {t("middleware.budgetHint", "本自然月内作用范围的累计花费达到该金额后，请求被拒绝（每月 1 号归零）")}
+                {t("middleware.budgetHint", "Once spend within this scope reaches the cap in the current calendar month, requests are rejected (resets on the 1st).")}
               </span>
             </div>
           )}
@@ -613,7 +613,7 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
         </div>
       ))}
       <Button variant="ghost" style={{ fontSize: F.hint, alignSelf: "flex-start" }} onClick={add}>
-        + {t("middleware.addAction", "动作")}
+        + {t("middleware.addAction", "Action")}
       </Button>
     </div>
   );
@@ -648,34 +648,34 @@ function AppliesToEditor({ value, onChange }: { value: AppliesTo; onChange: (a: 
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {loadFailed && (
         <div style={{ color: "var(--destructive)" }}>
-          {t("skills.loadFailed")} — {t("middleware.appliesPlatforms", "平台（空 = 全部）")}
+          {t("skills.loadFailed")} — {t("middleware.appliesPlatforms", "Platforms (empty = all)")}
         </div>
       )}
       <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
-          {t("middleware.appliesPlatforms", "平台（空 = 全部）")}
+          {t("middleware.appliesPlatforms", "Platforms (empty = all)")}
         </span>
         <MultiSelect
           options={platforms.map((p) => ({ value: p.id, label: p.name }))}
           selected={platforms.filter((p) => check("platforms", p.id)).map((p) => p.id)}
           onToggle={(v, on) => toggle("platforms", v, on)}
-          emptyLabel={t("middleware.appliesAll", "全部")}
+          emptyLabel={t("middleware.appliesAll", "All")}
         />
       </label>
       <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
-          {t("middleware.appliesGroups", "分组（空 = 全部）")}
+          {t("middleware.appliesGroups", "Groups (empty = all)")}
         </span>
         <MultiSelect
           options={groups.map((g) => ({ value: g.group_key, label: g.name }))}
           selected={groups.filter((g) => check("groups", g.group_key)).map((g) => g.group_key)}
           onToggle={(v, on) => toggle("groups", v, on)}
-          emptyLabel={t("middleware.appliesAll", "全部")}
+          emptyLabel={t("middleware.appliesAll", "All")}
         />
       </label>
       <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
-          {t("middleware.appliesModels", "模型（逗号分隔，空 = 全部）")}
+          {t("middleware.appliesModels", "Models (comma-separated, empty = all)")}
         </span>
         <AutoTextarea
           mono
@@ -686,7 +686,7 @@ function AppliesToEditor({ value, onChange }: { value: AppliesTo; onChange: (a: 
         <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>
           {t(
             "middleware.appliesModelsHint",
-            "填上游实际模型名（配了模型重映射就填映射之后的那个）。预算闸门按这个名字统计花费。",
+            "Use the upstream model name (the one after model remapping, if configured). Budget gates aggregate spend by this name.",
           )}
         </span>
       </label>
@@ -774,13 +774,13 @@ export function RuleForm({ rule, onSave, onCancel }: RuleFormProps) {
       <div style={{ display: "flex", flexDirection: "column", gap: S.gap }}>
       <Input
         style={{ fontSize: F.body }}
-        placeholder={t("middleware.name", "规则名称")}
+        placeholder={t("middleware.name", "Rule Name")}
         value={name}
         onChange={(e) => setName(e.target.value)}
       />
       <Input
         style={{ fontSize: F.hint }}
-        placeholder={t("middleware.description", "描述（可选）")}
+        placeholder={t("middleware.description", "Description (optional)")}
         value={description}
         onChange={(e) => setDescription(e.target.value)}
       />
@@ -788,16 +788,16 @@ export function RuleForm({ rule, onSave, onCancel }: RuleFormProps) {
       {/* 条件区：卡片树 / DSL 双模式 */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
-          {t("middleware.conditions", "条件")}
+          {t("middleware.conditions", "Conditions")}
         </span>
         <div style={{ flex: 1 }} />
         {mode === "cards" ? (
           <Button variant="ghost" style={{ fontSize: 14 }} onClick={switchToDsl}>
-            {t("middleware.toDsl", "DSL 源码")}
+            {t("middleware.toDsl", "DSL source")}
           </Button>
         ) : (
           <Button variant="ghost" style={{ fontSize: 14 }} onClick={switchToCards} disabled={!!dslError}>
-            {t("middleware.toCards", "卡片模式")}
+            {t("middleware.toCards", "Card mode")}
           </Button>
         )}
       </div>
@@ -806,7 +806,7 @@ export function RuleForm({ rule, onSave, onCancel }: RuleFormProps) {
           node={conditions}
           onChange={setConditions}
           onRemove={() => setConditions(EMPTY_LEAF)}
-          removeLabel={t("middleware.clearConditions", "清空条件")}
+          removeLabel={t("middleware.clearConditions", "Clear conditions")}
           depth={0}
         />
       ) : (
@@ -834,7 +834,7 @@ export function RuleForm({ rule, onSave, onCancel }: RuleFormProps) {
             spellCheck={false}
           />
           <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-            {t("middleware.dslHint", '语法: ALL(...)/ANY(...)/叶子，叶子 = target[.field] contains|regex|exact "pattern"')}
+            {t("middleware.dslHint", 'Syntax: ALL(...)/ANY(...)/NOT(...)/leaf, leaf = target[.field] contains|regex|exact "pattern" [checksum luhn|iban|cn_id]')}
           </div>
           {dslError && (
             <div style={{ fontSize: 14, color: "var(--color-danger)", wordBreak: "break-all" }}>{dslError}</div>
@@ -847,19 +847,19 @@ export function RuleForm({ rule, onSave, onCancel }: RuleFormProps) {
 
       {/* 动作链 */}
       <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
-        {t("middleware.actions", "动作链（按顺序执行；block/classify 后停止）")}
+        {t("middleware.actions", "Actions (run in order; stop after block/classify)")}
       </span>
       <ActionChainEditor steps={actions} onChange={setActions} />
 
       {/* applies_to */}
       <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
-        {t("middleware.appliesTo", "应用范围（各自空 = 不限；多值命中任一）")}
+        {t("middleware.appliesTo", "Applies to (each empty = unrestricted; multiple values = any match)")}
       </span>
       <AppliesToEditor value={applies} onChange={setApplies} />
 
       <label style={{ display: "flex", flexDirection: "column", gap: 4, width: 120 }}>
         <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
-          {t("middleware.priority", "优先级")}
+          {t("middleware.priority", "Priority")}
         </span>
         <Input
           type="number"
@@ -871,7 +871,7 @@ export function RuleForm({ rule, onSave, onCancel }: RuleFormProps) {
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
-          {t("middleware.enabled", "启用")}
+          {t("middleware.enabled", "Enabled")}
         </span>
         <Switch checked={enabled} onCheckedChange={setEnabled} />
       </div>
@@ -883,7 +883,7 @@ export function RuleForm({ rule, onSave, onCancel }: RuleFormProps) {
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
         <Button variant="outline" style={{ fontSize: F.hint }} onClick={onCancel} disabled={saving}>
-          {t("action.cancel", "取消")}
+          {t("action.cancel", "Cancel")}
         </Button>
         <Button
           variant="default"
@@ -892,7 +892,7 @@ export function RuleForm({ rule, onSave, onCancel }: RuleFormProps) {
           onClick={(e) => { makeRipple(e); handleSave(); }}
           disabled={saving || !name || !!phaseError || (mode === "dsl" && !!dslError)}
         >
-          {t("action.save", "保存")}
+          {t("action.save", "Save")}
         </Button>
       </div>
     </div>
@@ -908,8 +908,8 @@ export function RuleFormDialog({
 }: RuleFormProps & { open: boolean; onOpenChange: (v: boolean) => void }) {
   const { t } = useTranslation();
   const title = formProps.rule
-    ? t("middleware.editRule", "编辑规则")
-    : t("middleware.addRule", "新增规则");
+    ? t("middleware.editRule", "Edit Rule")
+    : t("middleware.addRule", "Add Rule");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -965,21 +965,21 @@ function RuleRow({ rule, budget, onEdit, onToggle, onDelete, onReset }: RuleRowP
           <span style={{ fontSize: F.hint, fontWeight: 600 }}>{rule.name}</span>
           {rule.is_builtin && (
             <span className="badge badge-accent" style={{ fontSize: 14 }}>
-              {t("middleware.builtin", "内置")}
+              {t("middleware.builtin", "Built-in")}
             </span>
           )}
           {rule.is_builtin && rule.user_modified && (
             <span
               className="badge"
               style={{ fontSize: 14, color: "var(--color-warning)" }}
-              title={t("middleware.modifiedHint", "已按你的修改生效；还原后恢复随版本升级自动更新内置默认")}
+              title={t("middleware.modifiedHint", "Your changes are in effect; restoring re-enables automatic built-in default updates on upgrade")}
             >
-              {t("middleware.modified", "已修改")}
+              {t("middleware.modified", "Modified")}
             </span>
           )}
           {rule.failed && (
             <span className="badge" style={{ fontSize: 14, color: "var(--color-danger)" }}>
-              {t("middleware.failed", "失效")}
+              {t("middleware.failed", "Failed")}
             </span>
           )}
           <span className="badge" style={{ fontSize: 14 }}>
@@ -990,18 +990,18 @@ function RuleRow({ rule, budget, onEdit, onToggle, onDelete, onReset }: RuleRowP
               data-testid="rule-reversible-badge"
               className="badge"
               style={{ fontSize: 14 }}
-              title={t("middleware.maskReversibleHint", "命中片段以占位符发往上游，响应返回时自动还原")}
+              title={t("middleware.maskReversibleHint", "Matched text is sent upstream as a placeholder and restored automatically in the response")}
             >
-              {t("middleware.reversible", "可还原")}
+              {t("middleware.reversible", "Reversible")}
             </span>
           )}
           {hasObserve(rule.actions) && (
             <span
               className="badge"
               style={{ fontSize: 14, color: "var(--color-warning)" }}
-              title={t("middleware.observeHint", "开启后命中不拦截：请求照常转发并计费，只在日志里记一笔，用来验证规则是否误伤")}
+              title={t("middleware.observeHint", "When on, a match no longer blocks: the request is forwarded and billed as usual and only recorded in the log, so you can check whether the rule misfires.")}
             >
-              {t("middleware.observe", "观察模式")}
+              {t("middleware.observe", "Observe mode")}
             </span>
           )}
           {!!appliesSummary(rule.applies_to) && (
@@ -1049,7 +1049,7 @@ function RuleRow({ rule, budget, onEdit, onToggle, onDelete, onReset }: RuleRowP
               />
             </div>
             <span data-testid="budget-used" style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-              {t("middleware.budgetUsed", "本月已用")} {formatMoney(budget.spent_usd)} /{" "}
+              {t("middleware.budgetUsed", "Used this month")} {formatMoney(budget.spent_usd)} /{" "}
               {formatMoney(budget.budget_usd)}
             </span>
             <span
@@ -1060,8 +1060,8 @@ function RuleRow({ rule, budget, onEdit, onToggle, onDelete, onReset }: RuleRowP
               }}
             >
               {budget.remaining_usd <= 0
-                ? t("middleware.budgetExceeded", "已超预算，请求被拒绝")
-                : `${t("middleware.budgetRemaining", "剩余")} ${formatMoney(budget.remaining_usd)}`}
+                ? t("middleware.budgetExceeded", "Budget exceeded — requests rejected")
+                : `${t("middleware.budgetRemaining", "Remaining")} ${formatMoney(budget.remaining_usd)}`}
             </span>
           </div>
         )}
@@ -1070,12 +1070,12 @@ function RuleRow({ rule, budget, onEdit, onToggle, onDelete, onReset }: RuleRowP
       <Switch
         checked={rule.enabled}
         onCheckedChange={() => onToggle(rule)}
-        title={t("middleware.enabled", "启用")}
+        title={t("middleware.enabled", "Enabled")}
       />
 
       {/* 内置规则已修改时提供还原默认；Failed 规则（含内置残留）只可删除 */}
       {!rule.failed && (
-        <Button variant="ghost" onClick={() => onEdit(rule)} title={t("action.edit", "编辑")}>
+        <Button variant="ghost" onClick={() => onEdit(rule)} title={t("action.edit", "Edit")}>
           <IconEdit size={14} />
         </Button>
       )}
@@ -1083,7 +1083,7 @@ function RuleRow({ rule, budget, onEdit, onToggle, onDelete, onReset }: RuleRowP
         <Button
           variant="ghost"
           onClick={() => onReset(rule.id)}
-          title={t("middleware.resetBuiltin", "还原默认")}
+          title={t("middleware.resetBuiltin", "Restore default")}
           style={{ color: "var(--text-tertiary)" }}
         >
           <IconRotateCcw size={14} />
@@ -1093,7 +1093,7 @@ function RuleRow({ rule, budget, onEdit, onToggle, onDelete, onReset }: RuleRowP
         <Button
           variant="ghost"
           onClick={() => onDelete(rule.id)}
-          title={t("action.delete", "删除")}
+          title={t("action.delete", "Delete")}
           style={{ color: "var(--text-tertiary)" }}
         >
           <IconClose size={14} />
@@ -1204,18 +1204,18 @@ export function MiddlewareRulesPanel() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>
-        {t("middleware.globalRulesHint", "规则按优先级堆叠执行；应用范围为空时对所有分组 / 平台生效")}
+        {t("middleware.globalRulesHint", "Global rules apply to all groups/platforms and can be overridden by group/platform-level rules (nearest wins)")}
       </div>
 
       {loading ? (
         <div className="text-secondary" style={{ fontSize: F.hint, padding: 8 }}>
-          {t("status.loading", "加载中…")}
+          {t("status.loading", "Loading...")}
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {rules.length === 0 && (
             <div className="text-tertiary" style={{ fontSize: F.hint, padding: 8 }}>
-              {t("middleware.noRules", "暂无规则")}
+              {t("middleware.noRules", "No rules yet")}
             </div>
           )}
           {rules.map((rule) => (
@@ -1234,7 +1234,7 @@ export function MiddlewareRulesPanel() {
 
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <Button variant="ghost" style={{ fontSize: F.hint }} onClick={openCreate}>
-          + {t("middleware.addRule", "新增规则")}
+          + {t("middleware.addRule", "Add Rule")}
         </Button>
       </div>
 
@@ -1302,7 +1302,7 @@ export function MiddlewareSettingsTab() {
   if (loading) {
     return (
       <div className="text-secondary" style={{ padding: 20 }}>
-        {t("status.loading", "加载中…")}
+        {t("status.loading", "Loading...")}
       </div>
     );
   }
@@ -1315,9 +1315,9 @@ export function MiddlewareSettingsTab() {
         style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
         <div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("middleware.masterToggle", "中间件总开关")}</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("middleware.masterToggle", "Middleware Master Switch")}</div>
           <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
-            {t("middleware.masterToggleDesc", "关闭后全部规则旁路，请求 / 响应不经过中间件处理")}
+            {t("middleware.masterToggleDesc", "When off, all rules are bypassed; requests/responses skip middleware processing")}
           </div>
         </div>
         <Switch checked={settings.enabled} onCheckedChange={toggleMaster} />
@@ -1328,7 +1328,7 @@ export function MiddlewareSettingsTab() {
         staggerMs={60}
         style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12, opacity: settings.enabled ? 1 : 0.55 }}
       >
-        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("middleware.globalRules", "规则列表")}</div>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("middleware.globalRules", "Global Rules")}</div>
         <MiddlewareRulesPanel />
       </MwSectionCard>
 

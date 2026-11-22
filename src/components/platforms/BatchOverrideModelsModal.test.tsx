@@ -18,9 +18,9 @@ function renderModal(onConfirm = vi.fn()) {
   );
   // Dialog 走 Portal：手输模式 8 个槽位输入框（data-testid=batch-slot-<key>）
   const inputs = Array.from(document.body.querySelectorAll("input[data-testid^='batch-slot-']")) as HTMLInputElement[];
-  // 确认按钮：t stub 回 fallback「覆盖 {{count}} 个平台」（取消按钮是「取消」，右上角关闭按钮无此文本）
+  // 确认按钮：t stub 回 fallback「Override {{count}} platforms」（取消按钮是「取消」，右上角关闭按钮无此文本）
   const confirm = Array.from(document.body.querySelectorAll("button"))
-    .find(b => b.textContent?.startsWith("覆盖"))!;
+    .find(b => b.textContent?.startsWith("Override"))!;
   return { inputs, confirm, onConfirm };
 }
 

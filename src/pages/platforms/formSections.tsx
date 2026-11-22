@@ -85,11 +85,11 @@ export function ProxyEnabledSection({ enabled, onChange, t }: { enabled: boolean
   // 全局代理地址是否已配置（设置页「代理配置」host 非空）：为空时开关可照常操作，实际直连。
   const proxyConfigured = useProxyConfigured();
   return (
-    <FormSection title={t("platform.useProxy", "使用代理")}>
+    <FormSection title={t("platform.useProxy", "Use proxy")}>
       <div data-testid="platform-use-proxy-row" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "9px 12px", borderRadius: "var(--radius-sm)", background: "var(--card)", border: "1px solid var(--border)" }}>
         <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, cursor: "pointer" }}>
           <Switch data-testid="platform-use-proxy" checked={enabled} onCheckedChange={v => onChange(v === true)} />
-          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{t("platform.useProxy", "使用代理")}</span>
+          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{t("platform.useProxy", "Use proxy")}</span>
         </label>
         {!proxyConfigured && (
           <span data-testid="proxy-unconfigured-hint" style={{
@@ -98,11 +98,11 @@ export function ProxyEnabledSection({ enabled, onChange, t }: { enabled: boolean
             background: "color-mix(in srgb, var(--color-warning) 12%, transparent)",
             border: "1px solid color-mix(in srgb, var(--color-warning) 30%, transparent)",
           }}>
-            {t("platform.proxyUnconfiguredHint", "代理未配置，暂按直连")}
+            {t("platform.proxyUnconfiguredHint", "No proxy configured; direct connection for now")}
           </span>
         )}
         <span style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.4 }}>
-          {t("platform.useProxyDesc", "该平台的出站请求经「设置 → 代理配置」的代理地址转发。")}
+          {t("platform.useProxyDesc", "Outbound requests of this platform go through the proxy configured in Settings → Proxy.")}
         </span>
       </div>
     </FormSection>
@@ -288,12 +288,12 @@ export function QuotaScriptFields({
     <>
       {customOnly ? (
         <div style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
-          {t("platform.quotaScript.noBuiltin", "该平台暂无内置查询脚本，可在下方自行编写；写好后平台卡片会出现刷新按钮。")}
+          {t("platform.quotaScript.noBuiltin", "This platform has no built-in lookup script. Write your own below; once saved, a refresh button appears on the platform card.")}
         </div>
       ) : (
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-          {t("platform.quotaScript.variant", "脚本变体")}
+          {t("platform.quotaScript.variant", "Script variant")}
         </div>
         <Select value={selection || QUOTA_CUSTOM_VARIANT} onValueChange={onVariantChange}>
           <SelectTrigger className="input" data-testid="quota-variant-select">
@@ -303,12 +303,12 @@ export function QuotaScriptFields({
             {variants.map(v => (
               <SelectItem key={v.id} value={v.id}>{quotaVariantLabel(v.name, v.id, locale)}</SelectItem>
             ))}
-            <SelectItem value={QUOTA_CUSTOM_VARIANT}>{t("platform.quotaScript.custom", "自定义脚本")}</SelectItem>
+            <SelectItem value={QUOTA_CUSTOM_VARIANT}>{t("platform.quotaScript.custom", "Custom script")}</SelectItem>
           </SelectContent>
         </Select>
         {fellBack && (
           <div style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
-            {t("platform.quotaScript.fellBack", "已选变体已失效，已回落到首个变体")}
+            {t("platform.quotaScript.fellBack", "Selected variant no longer exists; fell back to the first one")}
           </div>
         )}
       </div>
@@ -316,11 +316,11 @@ export function QuotaScriptFields({
       {selection === QUOTA_CUSTOM_VARIANT ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-            {t("platform.quotaScript.customLabel", "自定义 JS 脚本")}
+            {t("platform.quotaScript.customLabel", "Custom JS script")}
           </div>
           <textarea
             className="input"
-            placeholder={t("platform.quotaScript.customPlaceholder", "// 返回 { success, balance, tiers, newapi_user_id }")}
+            placeholder={t("platform.quotaScript.customPlaceholder", "// return { success, balance, tiers, newapi_user_id }")}
             data-testid="quota-custom-script"
             value={customScript}
             onChange={(e) => onCustomScriptChange(e.target.value)}
@@ -329,7 +329,7 @@ export function QuotaScriptFields({
             style={{ resize: "vertical", minHeight: 120, fontFamily: "var(--font-mono, monospace)", fontSize: 14, lineHeight: 1.6 }}
           />
           <div style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
-            {t("platform.quotaScript.customHint", "ctx 提供 baseUrl / apiKey / extra（requires 参数在 extra 顶层）；可用 http.get / http.post 出站（走系统代理、记录日志）。")}
+            {t("platform.quotaScript.customHint", "ctx provides baseUrl / apiKey / extra (requires params at the top level of extra); http.get / http.post available for outbound calls (system proxy, logged).")}
           </div>
         </div>
       ) : (selVariant?.requires ?? []).map(r => (
@@ -369,13 +369,13 @@ export function QuotaScriptFields({
       {protocol === "newapi" && selection !== QUOTA_CUSTOM_VARIANT && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-            {t("platform.newapiUserId", "用户 ID")}
+            {t("platform.newapiUserId", "User ID")}
           </div>
           <Input
             data-testid="quota-newapi-user-id"
             className="input"
             type="text"
-            placeholder={t("platform.newapiUserIdPlaceholder", "数字 ID（可选）")}
+            placeholder={t("platform.newapiUserIdPlaceholder", "Numeric ID (optional)")}
             value={requires.user_id ?? ""}
             onChange={(e) => onRequiresChange("user_id", e.target.value)}
           />
@@ -393,25 +393,25 @@ export function DevinConfigSection({ config, onChange, t }: {
   const devinModes = ["normal", "fast", "lite", "ultra", "fusion"];
   return (
     <FormSection
-      title={t("platform.devinConfig", "Devin 配置")}
-      desc={t("platform.devinConfigHint", "API Key 填 cog_ 前缀凭证；组织 ID 在「配额查询脚本」区配置")}
+      title={t("platform.devinConfig", "Devin Configuration")}
+      desc={t("platform.devinConfigHint", "API Key uses cog_ prefixed credential; Organization ID is configured in the \"Quota Query Script\" section")}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-          {t("platform.devinTimeout", "Session 超时（秒，可选）")}
+          {t("platform.devinTimeout", "Session timeout (seconds, optional)")}
         </div>
         <Input
           className="input"
           type="number"
           min={0}
-          placeholder={t("platform.devinTimeoutPlaceholder", "默认 300")}
+          placeholder={t("platform.devinTimeoutPlaceholder", "Default 300")}
           value={config.devin_timeout}
           onChange={(e) => onChange(prev => ({ ...prev, devin_timeout: e.target.value }))}
         />
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-          {t("platform.devinMode", "默认模式（可选）")}
+          {t("platform.devinMode", "Default mode (optional)")}
         </div>
         {/* radix Select 禁 value="" → __none__ 哨兵映射回空串 */}
         <Select
@@ -419,10 +419,10 @@ export function DevinConfigSection({ config, onChange, t }: {
           onValueChange={(v) => onChange(prev => ({ ...prev, devin_mode: v === "__none__" ? "" : v }))}
         >
           <SelectTrigger className="input">
-            <SelectValue placeholder={t("platform.devinModeAuto", "按模型自动映射")} />
+            <SelectValue placeholder={t("platform.devinModeAuto", "Auto-map by model")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__none__">{t("platform.devinModeAuto", "按模型自动映射")}</SelectItem>
+            <SelectItem value="__none__">{t("platform.devinModeAuto", "Auto-map by model")}</SelectItem>
             {devinModes.map(m => (
               <SelectItem key={m} value={m}>{m}</SelectItem>
             ))}
@@ -441,10 +441,10 @@ export function PassthroughConfigSection({ endpoints, setEndpoints, apiKey, setA
   t: TFunction;
 }) {
   return (
-    <FormSection title={t("platform.sectionPassthrough", "透传配置")}>
+    <FormSection title={t("platform.sectionPassthrough", "Passthrough Config")}>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>
-          {t("platform.passthroughBaseUrl", "上游地址（Base URL）")}
+          {t("platform.passthroughBaseUrl", "Upstream Base URL")}
         </div>
         <Input
           className="input"
@@ -461,15 +461,15 @@ export function PassthroughConfigSection({ endpoints, setEndpoints, apiKey, setA
           }}
         />
         <div style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
-          {t("platform.passthroughBaseUrlHint", "填 host 根（如 https://api.anthropic.com）。纯透传会拼接客户端原始 path/query 直接转发，请勿带版本前缀。")}
+          {t("platform.passthroughBaseUrlHint", "Enter host root (e.g. https://api.anthropic.com). Passthrough forwards original path/query directly, do not include version prefix.")}
         </div>
       </div>
       <ApiKeyField
         value={apiKey} onChange={setApiKey} show={showKey} onToggleShow={() => setShowKey(!showKey)}
-        placeholder={t("platform.apiKeyOptional", "Token（可选，透传可留空）")}
+        placeholder={t("platform.apiKeyOptional", "Token (optional, leave empty for passthrough)")}
       />
       <div style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
-        {t("platform.passthroughNote", "纯透传：客户端请求的 header（含订阅 OAuth 认证）与 body 原样转发，aidog 不做任何转换或认证注入。上方 Token 可留空。")}
+        {t("platform.passthroughNote", "Passthrough: client headers (including OAuth) and body are forwarded as-is. aidog performs no conversion or auth injection. Token can be empty.")}
       </div>
     </FormSection>
   );
@@ -508,12 +508,12 @@ export function PassThroughSection({
   const selection = matchedPreset ? matchedPreset.id : PASS_THROUGH_CUSTOM;
   return (
     <FormSection
-      title={t("platform.passthrough.sectionTitle", "透传配置")}
-      desc={t("platform.passthrough.note", "仅定义认证：客户端请求剥认证头后注入下方 apikey header，其余 header 与 body 原样转发；path/query 原样拼接 base_url。")}
+      title={t("platform.passthrough.sectionTitle", "Passthrough Settings")}
+      desc={t("platform.passthrough.note", "Auth only: client auth headers are stripped and re-injected with the apikey header above; all other headers and the body are forwarded as-is, with the original path/query appended to the base URL.")}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>
-          {t("platform.passthroughBaseUrl", "上游地址（Base URL）")}
+          {t("platform.passthroughBaseUrl", "Upstream Base URL")}
         </div>
         <Input
           className="input"
@@ -530,7 +530,7 @@ export function PassThroughSection({
           }}
         />
         <div style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
-          {t("platform.passthroughBaseUrlHint", "填 host 根（如 https://api.anthropic.com）。纯透传会拼接客户端原始 path/query 直接转发，请勿带版本前缀。")}
+          {t("platform.passthroughBaseUrlHint", "Enter host root (e.g. https://api.anthropic.com). Passthrough forwards original path/query directly, do not include version prefix.")}
         </div>
       </div>
       <ApiKeyField
@@ -539,7 +539,7 @@ export function PassThroughSection({
       />
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-          {t("platform.passthrough.headerPreset", "认证 Header 预设")}
+          {t("platform.passthrough.headerPreset", "Auth Header Preset")}
         </div>
         <Select
           value={selection}
@@ -559,7 +559,7 @@ export function PassThroughSection({
             {PASS_THROUGH_HEADER_PRESETS.map(p => (
               <SelectItem key={p.id} value={p.id}>{`${p.header}: ${p.template}`}</SelectItem>
             ))}
-            <SelectItem value={PASS_THROUGH_CUSTOM}>{t("platform.passthrough.headerCustom", "自定义")}</SelectItem>
+            <SelectItem value={PASS_THROUGH_CUSTOM}>{t("platform.passthrough.headerCustom", "Custom")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -567,7 +567,7 @@ export function PassThroughSection({
         <>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-              {t("platform.passthrough.headerName", "Header 名")}
+              {t("platform.passthrough.headerName", "Header Name")}
             </div>
             <Input
               className="input"
@@ -578,7 +578,7 @@ export function PassThroughSection({
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-              {t("platform.passthrough.headerTemplate", "值模板")}
+              {t("platform.passthrough.headerTemplate", "Value Template")}
             </div>
             <Input
               className="input"
@@ -587,7 +587,7 @@ export function PassThroughSection({
               onChange={(e) => setAuth(prev => ({ ...prev, auth_template: e.target.value }))}
             />
             <div style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
-              {t("platform.passthrough.headerTemplateHint", "{key} 占位符会被替换为上方 apikey。")}
+              {t("platform.passthrough.headerTemplateHint", "The {key} placeholder is replaced with the apikey above.")}
             </div>
           </div>
         </>
@@ -625,12 +625,12 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
       <div className="aidog-anim-rise" style={C.strip}>
         <div style={C.tile("var(--color-success)")}>{t("platform.tile.quota", "Q")}</div>
         <span style={C.pill("neutral")}>
-          {t("platform.manualBudgetCount", "{{n}} 个限额", { n: budgets.length })}
+          {t("platform.manualBudgetCount", "{{n}} budgets", { n: budgets.length })}
           {budgets.length > 0 && ` · ${budgets.filter(b => b.enabled).length}/${budgets.length}`}
         </span>
         {budgets.length === 0 && (
           <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-            {t("platform.manualBudgetEmpty", "暂无限额，点击「添加限额」开始配置。")}
+            {t("platform.manualBudgetEmpty", "No limits yet. Click \"Add limit\" to configure.")}
           </span>
         )}
       </div>
@@ -654,7 +654,7 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
                 title={selectedTier?.source_url}
                 onClick={() => selectedTier && setBudgets(tierToBudgets(selectedTier))}
               >
-                {t("platform.manualBudgetUseTier", "填入内置额度（{{tier}}）").replace("{{tier}}", selectedTier?.name ?? "")}
+                {t("platform.manualBudgetUseTier", "Fill built-in quota ({{tier}})").replace("{{tier}}", selectedTier?.name ?? "")}
               </Button>
             </>
           )}
@@ -682,10 +682,10 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="total">{t("platform.manualBudgetKindTotal", "总额")}</SelectItem>
-                <SelectItem value="rolling">{t("platform.manualBudgetKindRolling", "滑动窗口")}</SelectItem>
-                <SelectItem value="fixed">{t("platform.manualBudgetKindFixed", "固定窗口")}</SelectItem>
-                <SelectItem value="daily">{t("platform.manualBudgetKindDaily", "每日")}</SelectItem>
+                <SelectItem value="total">{t("platform.manualBudgetKindTotal", "Total")}</SelectItem>
+                <SelectItem value="rolling">{t("platform.manualBudgetKindRolling", "Rolling")}</SelectItem>
+                <SelectItem value="fixed">{t("platform.manualBudgetKindFixed", "Fixed")}</SelectItem>
+                <SelectItem value="daily">{t("platform.manualBudgetKindDaily", "Daily")}</SelectItem>
               </SelectContent>
             </Select>
             {/* 金额：C 方向稿大数字底边线输入（4-手动预算区.html .amt） */}
@@ -695,7 +695,7 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
               min={0}
               step="any"
               style={{ width: 100, flexShrink: 0, height: "auto", fontSize: 15, fontWeight: 300, border: 0, borderBottom: "1px solid var(--border)", borderRadius: 0, background: "transparent" }}
-              placeholder={t("platform.manualBudgetAmount", "额度")}
+              placeholder={t("platform.manualBudgetAmount", "Amount")}
               value={b.amount || ""}
               onChange={e => update({ amount: parseFloat(e.target.value) || 0 })}
             />
@@ -709,7 +709,7 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
               <SelectContent>
                 <SelectItem value="usd">$ USD</SelectItem>
                 <SelectItem value="token">{t("platform.manualBudgetUnitToken", "Token")}</SelectItem>
-                <SelectItem value="count">{t("platform.manualBudgetUnitCount", "次数")}</SelectItem>
+                <SelectItem value="count">{t("platform.manualBudgetUnitCount", "Requests")}</SelectItem>
               </SelectContent>
             </Select>
             {needsWindow ? (
@@ -720,7 +720,7 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
                   min={0}
                   step="any"
                   style={{ width: 80, flexShrink: 0, textAlign: "center", fontVariantNumeric: "tabular-nums" }}
-                  placeholder={t("platform.manualBudgetWindow", "窗口")}
+                  placeholder={t("platform.manualBudgetWindow", "Window")}
                   value={b.window_hours ?? ""}
                   onChange={e => update({ window_hours: e.target.value === "" ? null : (parseFloat(e.target.value) || 0) })}
                 />
@@ -732,11 +732,11 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="minute">{t("platform.windowUnitMinute", "分钟")}</SelectItem>
-                    <SelectItem value="hour">{t("platform.windowUnitHour", "小时")}</SelectItem>
-                    <SelectItem value="day">{t("platform.windowUnitDay", "天")}</SelectItem>
-                    <SelectItem value="week">{t("platform.windowUnitWeek", "周")}</SelectItem>
-                    <SelectItem value="month">{t("platform.windowUnitMonth", "月")}</SelectItem>
+                    <SelectItem value="minute">{t("platform.windowUnitMinute", "Minutes")}</SelectItem>
+                    <SelectItem value="hour">{t("platform.windowUnitHour", "Hours")}</SelectItem>
+                    <SelectItem value="day">{t("platform.windowUnitDay", "Days")}</SelectItem>
+                    <SelectItem value="week">{t("platform.windowUnitWeek", "Weeks")}</SelectItem>
+                    <SelectItem value="month">{t("platform.windowUnitMonth", "Months")}</SelectItem>
                   </SelectContent>
                 </Select>
               </>
@@ -749,14 +749,14 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
                 checked={b.enabled}
                 onCheckedChange={v => update({ enabled: v === true })}
               />
-              {t("platform.manualBudgetEnabled", "启用")}
+              {t("platform.manualBudgetEnabled", "Enabled")}
             </label>
             <Button
               variant="ghost"
               size="icon"
               className="btn-danger"
               style={{ flexShrink: 0, color: "var(--color-danger)", marginLeft: "auto" }}
-              title={t("action.delete", "删除")}
+              title={t("action.delete", "Delete")}
               onClick={() => setBudgets(budgets.filter((_, i) => i !== idx))}
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -771,7 +771,7 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
         className={C.addBtnClass}
         onClick={() => setBudgets([...budgets, newManualBudget()])}
       >
-        + {t("platform.manualBudgetAdd", "添加限额")}
+        + {t("platform.manualBudgetAdd", "Add limit")}
       </button>
     </>
   );
@@ -785,21 +785,21 @@ export function BreakerSection({ defaults, failure, setFailure, halfOpenMax, set
 }) {
   return (
     <FormSection
-      title={t("platform.breakerTitle", "熔断阈值")}
-      desc={t("platform.breakerDesc", "连续失败达阈值后临时摘除该平台，冷却后半开探测恢复。留空 = 继承系统设置的全局默认值。")}
+      title={t("platform.breakerTitle", "Circuit breaker")}
+      desc={t("platform.breakerDesc", "Temporarily remove this platform after consecutive failures reach the threshold; recover via half-open probes after cooldown. Leave empty to inherit the global defaults from System Settings.")}
     >
       <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: "10px 12px" }}>
-        <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>{t("platform.breakerFailureThreshold", "失败阈值")}</span>
+        <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>{t("platform.breakerFailureThreshold", "Failure threshold")}</span>
         <Input
           className="input" type="number" min={0} style={{ width: 140 }}
-          placeholder={defaults ? t("platform.breakerInherit", "继承默认 {{n}}").replace("{{n}}", String(defaults.breaker_failure_threshold)) : t("platform.breakerInheritGeneric", "继承默认")}
+          placeholder={defaults ? t("platform.breakerInherit", "Inherit default {{n}}").replace("{{n}}", String(defaults.breaker_failure_threshold)) : t("platform.breakerInheritGeneric", "Inherit default")}
           value={failure}
           onChange={e => setFailure(e.target.value)}
         />
-        <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>{t("platform.breakerHalfOpenMax", "半开探测数")}</span>
+        <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>{t("platform.breakerHalfOpenMax", "Half-open probes")}</span>
         <Input
           className="input" type="number" min={0} style={{ width: 140 }}
-          placeholder={defaults ? t("platform.breakerInherit", "继承默认 {{n}}").replace("{{n}}", String(defaults.breaker_half_open_max)) : t("platform.breakerInheritGeneric", "继承默认")}
+          placeholder={defaults ? t("platform.breakerInherit", "Inherit default {{n}}").replace("{{n}}", String(defaults.breaker_half_open_max)) : t("platform.breakerInheritGeneric", "Inherit default")}
           value={halfOpenMax}
           onChange={e => setHalfOpenMax(e.target.value)}
         />
@@ -839,13 +839,13 @@ function formatWindowPreview(w: TimeWindow, tzMode: TzMode, t: TFunction): strin
   const endStr = `${pad(endDisplay.hour)}:${pad(endDisplay.minute)}:59`;
 
   const tzLabel = w.timezone ?? (tzMode === "local"
-    ? t("platform.timezone_local", "本地")
+    ? t("platform.timezone_local", "Local")
     : t("platform.timezone_utc", "UTC+0"));
 
   // 跨天判定：end_hour < start_hour（原始 UTC 值，不在 display 层比较）
   const isNextDay = w.end_hour < w.start_hour;
   const nextDayLabel = isNextDay
-    ? t("platform.peak_next_day", "次日")
+    ? t("platform.peak_next_day", "Next day")
     : "";
 
   return `${startStr} - ${endStr}（${tzLabel}）${nextDayLabel ? `（${nextDayLabel}）` : ""}`;
@@ -944,8 +944,8 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
 
   return (
     <FormSection
-      title={t("platform.peak", "高峰时段倍率")}
-      desc={t("platform.peak_desc", "设置时段倍率（>1 加价 / <1 折扣）。时段按各窗口指定时区的本地时间判定；时区默认 UTC。多窗口按顺序 first-match；不命中 = 1.0。")}
+      title={t("platform.peak", "Peak hours multiplier")}
+      desc={t("platform.peak_desc", "Set time-window multipliers (>1 surcharge / <1 discount). Windows are evaluated in their own timezone's local time; timezone defaults to UTC. Multi-window first-match in order; no match = 1.0.")}
       action={
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
           <div style={{ display: "flex", gap: 4, padding: 2, background: "var(--bg-glass)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
@@ -959,7 +959,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                   : { padding: "2px 8px", fontSize: 14, height: "auto", fontWeight: 400 }}
                 onClick={() => setTzMode(m)}
               >
-                {m === "local" ? t("platform.timezone_local", "本地") : t("platform.timezone_utc", "UTC+0")}
+                {m === "local" ? t("platform.timezone_local", "Local") : t("platform.timezone_utc", "UTC+0")}
               </Button>
             ))}
           </div>
@@ -968,10 +968,10 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
             size="sm"
             style={{ padding: "2px 8px", fontSize: 14, whiteSpace: "nowrap", height: "auto" }}
             disabled={!defaultCache || defaultCache.length === 0}
-            title={!defaultCache || defaultCache.length === 0 ? t("platform.peak_no_default", "该平台无默认高峰配置") : ""}
+            title={!defaultCache || defaultCache.length === 0 ? t("platform.peak_no_default", "No default peak config for this platform") : ""}
             onClick={() => setModalOpen(true)}
           >
-            {t("platform.peak_import_default", "导入默认配置")}
+            {t("platform.peak_import_default", "Import default")}
           </Button>
         </div>
       }
@@ -981,12 +981,12 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
         <div style={C.tile("var(--color-warning)")}>{t("platform.tile.multiplier", "×")}</div>
         <span style={C.pill(nowPeak ? "hot" : "neutral")}>
           {nowPeak
-            ? t("platform.peakPillPeak", "高峰中 ×{{n}}").replace("{{n}}", String(nowMult))
-            : t("platform.peakPillOff", "非高峰 ×1.0")}
+            ? t("platform.peakPillPeak", "Peak ×{{n}}").replace("{{n}}", String(nowMult))
+            : t("platform.peakPillOff", "Off-peak ×1.0")}
         </span>
         {windows.length > 0 && (
           <span style={C.pill("neutral")}>
-            {t("platform.rateLimits.windowsCount", "{{n}} 个窗口", { n: windows.length })}
+            {t("platform.rateLimits.windowsCount", "{{n}} windows", { n: windows.length })}
           </span>
         )}
       </div>
@@ -998,7 +998,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
             checked={disableDuringPeak}
             onCheckedChange={v => setDisableDuringPeak(v === true)}
           />
-          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{t("platform.disable_during_peak", "高峰期禁用")}</span>
+          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{t("platform.disable_during_peak", "Disable during peak")}</span>
         </label>
         {/* 实时态徽标恒显（稿 2 badge-peak；2026-10-27 拍板 q6）：高峰编辑直接相关，off 态也报当前状态 */}
         <span
@@ -1014,16 +1014,16 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
             }}
           >
             {nowPeak
-              ? t("platform.currently_peak", "当前：高峰期")
-              : t("platform.currently_off_peak", "当前：非高峰期")}
+              ? t("platform.currently_peak", "Current: peak")
+              : t("platform.currently_off_peak", "Current: off-peak")}
         </span>
         <span style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.4 }}>
-          {t("platform.disable_during_peak_desc", "启用后该平台在高峰时段从路由候选排除（不改 status，临时闸门）。")}
+          {t("platform.disable_during_peak_desc", "When on, this platform is excluded from routing candidates during peak hours (any peak window hit). Does not change status — temporary gate; recovers when toggled off or outside the window.")}
         </span>
       </div>
       {windows.length === 0 && (
         <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-          {t("platform.peak_empty", "未配置 → 按预设默认或 1.0（无调整）")}
+          {t("platform.peak_empty", "Not configured → use preset default or 1.0 (no adjustment)")}
         </div>
       )}
       {windows.map((w, idx) => (
@@ -1042,7 +1042,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
               return (
                 <>
                   <TimePicker
-                    suffix={t("platform.start_hour", "起")} hour={startDisp.hour} minute={startDisp.minute} maxHour={23}
+                    suffix={t("platform.start_hour", "Start")} hour={startDisp.hour} minute={startDisp.minute} maxHour={23}
                     t={t}
                     onSet={(h, m) => {
                       const utc = fromDisp(h, m);
@@ -1050,7 +1050,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                     }}
                   />
                   <TimePicker
-                    suffix={t("platform.end_hour", "止")} hour={endDisp.hour} minute={endDisp.minute} maxHour={24}
+                    suffix={t("platform.end_hour", "End")} hour={endDisp.hour} minute={endDisp.minute} maxHour={24}
                     t={t}
                     onSet={(h, m) => {
                       const utc = fromDisp(h, m);
@@ -1061,7 +1061,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
               );
             })()}
             <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 14, color: "var(--text-secondary)" }}>
-              {t("platform.multiplier", "倍率")}
+              {t("platform.multiplier", "Mult")}
               <Input
                 className="input" type="number" step={0.1} min={0} style={{ width: 84 }}
                 value={w.multiplier}
@@ -1071,7 +1071,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
             {/* 窗口时区：__utc__ 哨兵 = 无 timezone 字段（= UTC，向后兼容）；
                 切换时区只改解释基准，存值数字不动（用户自定时段含义）。 */}
             <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 14, color: "var(--text-secondary)" }}>
-              {t("platform.window_timezone", "时区")}
+              {t("platform.window_timezone", "Timezone")}
               <Select
                 value={w.timezone ?? "__utc__"}
                 onValueChange={(v) => update(idx, { timezone: v === "__utc__" ? undefined : v })}
@@ -1082,7 +1082,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                 <SelectContent>
                   {WINDOW_TIMEZONES.map((tz) => (
                     <SelectItem key={tz} value={tz}>
-                      {tz === "__utc__" ? t("platform.window_timezone_utc_default", "UTC（默认）") : tz}
+                      {tz === "__utc__" ? t("platform.window_timezone_utc_default", "UTC (default)") : tz}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1092,13 +1092,13 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
               value={w.day_type ?? "__week__"}
               onValueChange={value => update(idx, { day_type: value === "__week__" ? undefined : value as "workday" | "holiday", days_of_week: undefined, holiday_calendar: value === "__week__" ? undefined : w.holiday_calendar })}
             >
-              <SelectTrigger className="input" style={{ width: 125, height: 28, fontSize: 14 }} aria-label={t("platform.holidayCalendar.dayType", "日期类型")}>
+              <SelectTrigger className="input" style={{ width: 125, height: 28, fontSize: 14 }} aria-label={t("platform.holidayCalendar.dayType", "Day type")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__week__">{t("platform.holidayCalendar.weekday", "星期")}</SelectItem>
-                <SelectItem value="workday">{t("platform.windows_dim_workday", "工作日")}</SelectItem>
-                <SelectItem value="holiday">{t("platform.windows_dim_holiday", "节假日")}</SelectItem>
+                <SelectItem value="__week__">{t("platform.holidayCalendar.weekday", "Weekdays")}</SelectItem>
+                <SelectItem value="workday">{t("platform.windows_dim_workday", "Workdays")}</SelectItem>
+                <SelectItem value="holiday">{t("platform.windows_dim_holiday", "Holidays")}</SelectItem>
               </SelectContent>
             </Select>
             {w.day_type && <HolidayCalendarSelect value={w.holiday_calendar} inheritedValue={platformCalendar} timezone={w.timezone} onChange={holiday_calendar => update(idx, { holiday_calendar })} t={t} />}
@@ -1110,7 +1110,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                     key={di}
                     variant="ghost"
                     size="icon"
-                    title={t("platform.days_of_week", "星期（0=周日…6=周六，缺省=每天）")}
+                    title={t("platform.days_of_week", "Days of week (0=Sun…6=Sat, empty=every day)")}
                     onClick={() => toggleDay(idx, di)}
                     style={{
                       width: 22, height: 22, padding: 0, fontSize: 14, lineHeight: 1,
@@ -1128,7 +1128,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
             <Button
               variant="ghost"
               size="icon"
-              title={t("platform.remove_window", "删除窗口")}
+              title={t("platform.remove_window", "Remove window")}
               onClick={() => remove(idx)}
               style={{ marginLeft: "auto" }}
             >
@@ -1146,10 +1146,10 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
               absent / 空 = 全平台（标「全部模型」），UI 暴露 model 维度过滤可见性。 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-              {t("platform.peak_model_scope", "受影响模型")}
+              {t("platform.peak_model_scope", "Affected models")}
               {(!w.models || w.models.length === 0) && (
                 <span style={{ color: "var(--text-tertiary)", marginLeft: 4 }}>
-                  · {t("platform.peak_model_scope_all", "全部模型")}
+                  · {t("platform.peak_model_scope_all", "All models")}
                 </span>
               )}
             </div>
@@ -1170,7 +1170,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                       border: "none", background: "transparent", color: "var(--text-tertiary)",
                       cursor: "pointer", padding: 0, lineHeight: 1, fontSize: 14,
                     }}
-                    title={t("platform.remove_window", "删除窗口")}
+                    title={t("platform.remove_window", "Remove window")}
                   >
                     ✕
                   </Button>
@@ -1180,7 +1180,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                 className="input"
                 style={{ width: 160, fontSize: 14, padding: "2px 6px" }}
                 list={`peak-models-${idx}`}
-                placeholder={t("platform.peak_model_placeholder", "模型名或 前缀*")}
+                placeholder={t("platform.peak_model_placeholder", "Model name or prefix*")}
                 value={modelInput[idx] ?? ""}
                 onChange={e => setModelInput(s => ({ ...s, [idx]: e.target.value }))}
                 onKeyDown={e => {
@@ -1207,7 +1207,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
               非必填：空 = 立即可用 / 永久；福利期自动切换用（design §1.3）。 */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginTop: 2 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 14, color: "var(--text-secondary)" }}>
-              {t("platform.peak_start_at", "生效起始")}
+              {t("platform.peak_start_at", "Effective from")}
               <Input
                 id={`peak-start-${idx}`}
                 className="input"
@@ -1221,7 +1221,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
               />
             </label>
             <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 14, color: "var(--text-secondary)" }}>
-              {t("platform.peak_end_at", "生效截止")}
+              {t("platform.peak_end_at", "Expires at")}
               <Input
                 id={`peak-end-${idx}`}
                 className="input"
@@ -1238,16 +1238,16 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
         </div>
       ))}
       <button type="button" className={C.addBtnClass} style={{ marginTop: 2 }} onClick={add}>
-        + {t("platform.add_window", "添加窗口")}
+        + {t("platform.add_window", "Add window")}
       </button>
       <Dialog open={modalOpen} onOpenChange={(v) => { if (!v) setModalOpen(false); }}>
         <DialogContent className="glass-elevated" style={{ maxWidth: 400 }}>
           <DialogHeader>
             <DialogTitle style={{ fontSize: 14 }}>
-              {t("platform.peak_overwrite_confirm_title", "覆盖高峰配置？")}
+              {t("platform.peak_overwrite_confirm_title", "Overwrite peak config?")}
             </DialogTitle>
             <DialogDescription style={{ fontSize: 14 }}>
-              {t("platform.peak_overwrite_confirm_body", "当前高峰配置将被默认值替换（{{count}} 个窗口），此操作不可撤销。").replace("{{count}}", String(defaultCache?.length ?? 0))}
+              {t("platform.peak_overwrite_confirm_body", "Current peak config will be replaced with default ({{count}} windows). This operation cannot be undone.").replace("{{count}}", String(defaultCache?.length ?? 0))}
             </DialogDescription>
           </DialogHeader>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
@@ -1255,12 +1255,12 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
               variant="ghost"
               onClick={() => setModalOpen(false)}
             >
-              {t("platform.peak_overwrite_cancel_button", "取消")}
+              {t("platform.peak_overwrite_cancel_button", "Cancel")}
             </Button>
             <Button
               onClick={handleImportDefault}
             >
-              {t("platform.peak_overwrite_confirm_button", "确认")}
+              {t("platform.peak_overwrite_confirm_button", "Confirm")}
             </Button>
           </div>
         </DialogContent>
@@ -1279,27 +1279,27 @@ export function GroupAssignSection({ editing, lockedGroupId, groupDetails, autoG
 }) {
   return (
     <FormSection
-      title={t("platform.groupAssignTitle", "分组归属")}
-      desc={t("platform.groupAssignDesc", "可同时创建默认分组并加入其他已有分组；都不选则该平台不在任何分组。")}
+      title={t("platform.groupAssignTitle", "Group Assignment")}
+      desc={t("platform.groupAssignDesc", "Create a default group and join other existing groups at the same time; selecting none means the platform belongs to no group.")}
     >
       {lockedGroupId != null ? (
         <div style={{ fontSize: 14, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
           <span className="badge badge-muted" style={{ padding: "0 6px" }}>
             {groupDetails.find(g => g.group.id === lockedGroupId)?.group.name ?? `#${lockedGroupId}`}
           </span>
-          {t("platform.groupLocked", "已锁定到此分组")}
+          {t("platform.groupLocked", "Locked to this group")}
         </div>
       ) : !editing ? (
         // 创建默认分组是「创建时一次性判断」，仅创建表单显示；编辑表单不再判断建组。
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <span style={{ fontSize: 14 }}>{t("platform.groupAssignAuto", "创建默认分组")}</span>
+          <span style={{ fontSize: 14 }}>{t("platform.groupAssignAuto", "Create default group")}</span>
           <Switch checked={autoGroup} onCheckedChange={setAutoGroup} />
         </div>
       ) : null}
       {lockedGroupId == null && groupDetails.length > 0 && (
         <>
           <div style={{ fontSize: 14, color: "var(--text-secondary)", margin: "10px 0 6px" }}>
-            {t("platform.groupAssignJoin", "加入已有分组")}
+            {t("platform.groupAssignJoin", "Join existing groups")}
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {groupDetails
@@ -1344,11 +1344,11 @@ export function ExpirySection({ expiresAt, setExpiresAt, expiryEnabled, setExpir
 }) {
   return (
     <FormSection
-      title={t("platform.expiresAt", "过期时间")}
-      desc={t("platform.expiresAtHint", "可选。到期后该平台自动从路由候选排除（等效禁用），改值或清空即恢复。")}
+      title={t("platform.expiresAt", "Expires at")}
+      desc={t("platform.expiresAtHint", "Optional. After expiration the platform is automatically excluded from routing candidates (equivalent to disabled); changing or clearing the value restores it.")}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: expiryEnabled ? 8 : 0 }}>
-        <span style={{ fontSize: 14 }}>{t("platform.expiresAtEnable", "启用过期")}</span>
+        <span style={{ fontSize: 14 }}>{t("platform.expiresAtEnable", "Enable expiration")}</span>
         <Switch
           checked={expiryEnabled}
           onCheckedChange={(v) => {
@@ -1382,7 +1382,7 @@ export function ExpirySection({ expiresAt, setExpiresAt, expiryEnabled, setExpir
               style={{ fontSize: 14, padding: "4px 10px" }}
               onClick={() => setExpiresAt(0)}
             >
-              {t("platform.expiresAtClear", "清空")}
+              {t("platform.expiresAtClear", "Clear")}
             </Button>
           )}
           {expiresAt > 0 && (
@@ -1390,12 +1390,12 @@ export function ExpirySection({ expiresAt, setExpiresAt, expiryEnabled, setExpir
               {(() => {
                 const nowMs = Date.now();
                 if (nowMs >= expiresAt) {
-                  return t("platform.expired", "已过期");
+                  return t("platform.expired", "Expired");
                 }
                 const inDay = expiresAt - nowMs < 86_400_000;
                 const txt = formatDateTime(expiresAt) || "-";
                 return inDay
-                  ? t("platform.expiresAtSoon", "临近过期：{{time}}", { time: txt })
+                  ? t("platform.expiresAtSoon", "Expiring soon: {{time}}", { time: txt })
                   : txt;
               })()}
             </span>
@@ -1519,13 +1519,13 @@ export function QuotaSection({
 
   return (
     <FormSection
-      title={t("platform.quotaSection.title", "配额查询")}
-      desc={t("platform.quotaSection.desc", "选择余额/配额的获取方式：自动脚本向上游查询实时余额；手动预算自设限额、按用量扣减、耗尽返回 402。两种方式互斥，切换并保存会清掉另一侧的配置。")}
+      title={t("platform.quotaSection.title", "Quota Query")}
+      desc={t("platform.quotaSection.desc", "Choose how balance/quota is obtained: auto scripts query the upstream for live balance; manual budgets set your own limits, deducted by usage, returning 402 when exhausted. The two are mutually exclusive; switching and saving clears the other side's config.")}
     >
       <Tabs value={quotaSource} onValueChange={(v) => trySwitch(v as "auto" | "manual")}>
         <TabsList style={{ width: "100%" }}>
-          <TabsTrigger value="auto" style={{ flex: 1 }}>{t("platform.quotaSection.tabAuto", "自动脚本")}</TabsTrigger>
-          <TabsTrigger value="manual" style={{ flex: 1 }}>{t("platform.quotaSection.tabManual", "手动预算")}</TabsTrigger>
+          <TabsTrigger value="auto" style={{ flex: 1 }}>{t("platform.quotaSection.tabAuto", "Auto Script")}</TabsTrigger>
+          <TabsTrigger value="manual" style={{ flex: 1 }}>{t("platform.quotaSection.tabManual", "Manual Budget")}</TabsTrigger>
         </TabsList>
         <TabsContent value="auto">
           <QuotaScriptFields
@@ -1543,11 +1543,11 @@ export function QuotaSection({
               disabled={!scriptAvailable || testRunning}
               onClick={runQuotaTest}
             >
-              {testRunning ? t("platform.quotaSection.testing", "查询中…") : t("platform.quotaSection.test", "测试")}
+              {testRunning ? t("platform.quotaSection.testing", "Querying…") : t("platform.quotaSection.test", "Test")}
             </Button>
             {!scriptAvailable && (
               <div data-testid="quota-test-hint" style={{ fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
-                {t("platform.quotaSection.testNoScript", "先配置查询脚本（选择变体或编写自定义脚本）再测试。")}
+                {t("platform.quotaSection.testNoScript", "Configure a query script (pick a variant or write a custom script) before testing.")}
               </div>
             )}
             {testResult && (
@@ -1556,11 +1556,11 @@ export function QuotaSection({
                   <>
                     {testResult.balance && (
                       <div data-testid="quota-test-balance">
-                        {t("platform.quotaSection.testBalance", "余额")}
+                        {t("platform.quotaSection.testBalance", "Balance")}
                         {": "}
                         {formatAmount(testResult.balance.remaining, testResult.balance.currency)}
                         {testResult.balance.total != null && ` / ${formatAmount(testResult.balance.total, testResult.balance.currency)}`}
-                        {testResult.balance.used != null && ` (${t("platform.quotaSection.testUsed", "已用")} ${formatAmount(testResult.balance.used, testResult.balance.currency)})`}
+                        {testResult.balance.used != null && ` (${t("platform.quotaSection.testUsed", "used")} ${formatAmount(testResult.balance.used, testResult.balance.currency)})`}
                       </div>
                     )}
                     {testResult.coding_plan?.tiers.map(tier => (
@@ -1569,13 +1569,13 @@ export function QuotaSection({
                       </div>
                     ))}
                     <div>
-                      {t("platform.quotaSection.testQueriedAt", "查询时间")}
+                      {t("platform.quotaSection.testQueriedAt", "Queried at")}
                       {": "}
                       {formatDateTime(testResult.queried_at) ?? "-"}
                     </div>
                     {testResult.error && (
                       <div data-testid="quota-test-note" style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-                        {t("platform.quotaSection.testNote", "附注")}
+                        {t("platform.quotaSection.testNote", "Note")}
                         {": "}
                         {testResult.error}
                       </div>
@@ -1583,7 +1583,7 @@ export function QuotaSection({
                   </>
                 ) : (
                   <div data-testid="quota-test-error" style={{ color: "var(--destructive)" }}>
-                    {testResult.error ?? t("platform.quotaSection.testFail", "查询失败")}
+                    {testResult.error ?? t("platform.quotaSection.testFail", "Query failed")}
                   </div>
                 )}
               </div>
@@ -1604,19 +1604,19 @@ export function QuotaSection({
           <AlertDialogHeader>
             <AlertDialogTitle>
               {confirmTarget === "manual"
-                ? t("platform.quotaSection.switchToManual", "切换到手动预算？")
-                : t("platform.quotaSection.switchToAuto", "切换到自动脚本？")}
+                ? t("platform.quotaSection.switchToManual", "Switch to manual budget?")
+                : t("platform.quotaSection.switchToAuto", "Switch to auto script?")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmTarget === "manual"
-                ? t("platform.quotaSection.clearScript", "保存后将清空脚本配置：变体选择、自定义脚本、查询参数。已查询到的余额保留展示。")
-                : t("platform.quotaSection.clearBudgets", "保存后将清空手动预算限额列表。")}
+                ? t("platform.quotaSection.clearScript", "Saving will clear the script config: variant choice, custom script, query params. Previously fetched balance stays displayed.")
+                : t("platform.quotaSection.clearBudgets", "Saving will clear the manual budget limit list.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setConfirmTarget(null)}>{t("action.cancel", "取消")}</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setConfirmTarget(null)}>{t("action.cancel", "Cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={() => { if (confirmTarget) onSourceChange(confirmTarget); setConfirmTarget(null); }}>
-              {t("platform.quotaSection.switch", "切换")}
+              {t("platform.quotaSection.switch", "Switch")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1739,29 +1739,29 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
   // 导入 = 覆盖 rate_limits（quota_windows 不动）；不经 lastEmitted，让编辑态随新 bundle 重取。
   const importPolicy = (cfg: RateLimitsConfig) => setBundle({ ...bundle, rate_limits: cfg });
 
-  const summary = rateLimitsSummary(bundle, n => t("platform.rateLimits.windowsCount", "{{n}} 个窗口", { n }));
+  const summary = rateLimitsSummary(bundle, n => t("platform.rateLimits.windowsCount", "{{n}} windows", { n }));
   const ruleCount = bundle.rate_limits?.rules?.length ?? 0;
   const inputStyle = { fontSize: 14, height: 28, minWidth: 70 };
   const numStyle = { ...inputStyle, textAlign: "center", fontVariantNumeric: "tabular-nums" } as React.CSSProperties;
   const labelStyle = { fontSize: 14, opacity: 0.7, color: "var(--text-tertiary)" }; // 稿 .lb/.lb2 = fg-3
   return (
     <FormSection
-      title={t("platform.rateLimits.title", "限频")}
-      desc={t("platform.rateLimits.desc", "按平台套餐配置 RPM/TPM 与额度窗口；调度侧超限自动排除候选并阻断请求。")}
+      title={t("platform.rateLimits.title", "Rate Limits")}
+      desc={t("platform.rateLimits.desc", "Configure RPM/TPM and quota windows per plan; scheduling excludes the platform and blocks requests when exceeded.")}
     >
       {/* 实时态条：配置摘要（调度数据未回传，先展示静态配置态） */}
       <div className="aidog-anim-rise" style={C.strip}>
         <div style={C.tile("var(--data-primary)")}>{t("platform.tile.rateLimit", "R")}</div>
         {summary === "" ? (
           <span style={C.pill("neutral")}>
-            {t("platform.rateLimits.none", "未配置 → 调度不限频（沿用 429 兜底）")}
+            {t("platform.rateLimits.none", "Not configured → no rate limiting (429 fallback only)")}
           </span>
         ) : (
           <>
             <span style={C.pill("ok")}>{summary}</span>
             {ruleCount > 0 && (
               <span style={C.pill("neutral")}>
-                {t("platform.rateLimits.ruleCount", "{{n}} 条规则", { n: ruleCount })}
+                {t("platform.rateLimits.ruleCount", "{{n}} rules", { n: ruleCount })}
               </span>
             )}
           </>
@@ -1771,21 +1771,21 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
       {/* 平台级 RPM/TPM：C 方向稿大数字底边线输入 */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
         <label className="aidog-cell" style={{ display: "flex", alignItems: "baseline", gap: 8, ...C.row }}>
-          <span style={labelStyle}>{t("platform.rateLimits.concurrency", "并发（在途请求）")}</span>
+          <span style={labelStyle}>{t("platform.rateLimits.concurrency", "Concurrency (in-flight)")}</span>
           <Input id="rl-concurrency" type="number" min={0} value={draft.concurrency ?? ""} onChange={e => upd("concurrency", e.target.value)}
             className="aidog-bignum"
             style={{ ...inputStyle, flex: 1, minWidth: 60, height: "auto", fontSize: 17, fontWeight: 300, border: 0, borderBottom: "1px solid var(--border)", borderRadius: 0, background: "transparent" }}
             placeholder="—" />
         </label>
         <label className="aidog-cell" style={{ display: "flex", alignItems: "baseline", gap: 8, ...C.row }}>
-          <span style={labelStyle}>{t("platform.rateLimits.rpm", "RPM（请求/分钟）")}</span>
+          <span style={labelStyle}>{t("platform.rateLimits.rpm", "RPM (req/min)")}</span>
           <Input id="rl-rpm" type="number" min={0} value={draft.rpm} onChange={e => upd("rpm", e.target.value)}
             className="aidog-bignum"
             style={{ ...inputStyle, flex: 1, minWidth: 60, height: "auto", fontSize: 17, fontWeight: 300, border: 0, borderBottom: "1px solid var(--border)", borderRadius: 0, background: "transparent" }}
             placeholder="—" />
         </label>
         <label className="aidog-cell" style={{ display: "flex", alignItems: "baseline", gap: 8, ...C.row }}>
-          <span style={labelStyle}>{t("platform.rateLimits.tpm", "TPM（token/分钟）")}</span>
+          <span style={labelStyle}>{t("platform.rateLimits.tpm", "TPM (tokens/min)")}</span>
           <Input id="rl-tpm" type="number" min={0} value={draft.tpm} onChange={e => upd("tpm", e.target.value)}
             className="aidog-bignum"
             style={{ ...inputStyle, flex: 1, minWidth: 60, height: "auto", fontSize: 17, fontWeight: 300, border: 0, borderBottom: "1px solid var(--border)", borderRadius: 0, background: "transparent" }}
@@ -1795,7 +1795,7 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
 
       {/* 限频规则：模型 / 时段条件 + 上限；重叠按列表顺序（可拖动） */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
-        <span style={labelStyle}>{t("platform.rateLimits.rules", "限频规则")}</span>
+        <span style={labelStyle}>{t("platform.rateLimits.rules", "Rate-limit rules")}</span>
         <RateLimitRulesList rules={draft.rules} onChange={rules => upd("rules", rules)} modelOptions={modelOptions} protocol={protocol} platformCalendar={platformCalendar} t={t} />
       </div>
 
@@ -1804,13 +1804,13 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
       {/* 额度窗口（2026-10-23 A2 定稿：时长自由数字+单位，预算三选一 token|金额|次数，预设只是快捷填充；
           2026-11-16 执行上线：每窗口启用开关 + 重置方式） */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
-        <span style={labelStyle}>{t("platform.rateLimits.quotaWindows", "额度窗口")}</span>
+        <span style={labelStyle}>{t("platform.rateLimits.quotaWindows", "Quota windows (5h=18000 / 7d=604800 sec)")}</span>
         {draft.windows.map((w, i) => (
           <div key={i} className={C.rowClass} style={{ ...C.row, opacity: w.enabled ? undefined : 0.65 }}>
             <Input
               type="number" min={1} step={1}
               value={w.num}
-              aria-label={t("platform.rateLimits.windowLength", "窗口时长")}
+              aria-label={t("platform.rateLimits.windowLength", "Window length")}
               placeholder="5"
               onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, num: e.target.value } : x))}
               style={{ ...numStyle, width: 64, minWidth: 64, flexShrink: 0 }}
@@ -1823,9 +1823,9 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="60">{t("platform.windowUnitMinute", "分钟")}</SelectItem>
-                <SelectItem value="3600">{t("platform.windowUnitHour", "小时")}</SelectItem>
-                <SelectItem value="86400">{t("platform.windowUnitDay", "天")}</SelectItem>
+                <SelectItem value="60">{t("platform.windowUnitMinute", "Minutes")}</SelectItem>
+                <SelectItem value="3600">{t("platform.windowUnitHour", "Hours")}</SelectItem>
+                <SelectItem value="86400">{t("platform.windowUnitDay", "Days")}</SelectItem>
               </SelectContent>
             </Select>
             <Select
@@ -1836,9 +1836,9 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="tokens">{t("platform.rateLimits.budgetTokens", "token 预算")}</SelectItem>
-                <SelectItem value="usd">{t("platform.rateLimits.budgetUsd", "金额 ($)")}</SelectItem>
-                <SelectItem value="count">{t("platform.rateLimits.budgetCount", "请求次数")}</SelectItem>
+                <SelectItem value="tokens">{t("platform.rateLimits.budgetTokens", "token budget")}</SelectItem>
+                <SelectItem value="usd">{t("platform.rateLimits.budgetUsd", "Budget ($)")}</SelectItem>
+                <SelectItem value="count">{t("platform.rateLimits.budgetCount", "Request count")}</SelectItem>
               </SelectContent>
             </Select>
             <Input
@@ -1848,13 +1848,13 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
               value={w.amount}
               data-testid={`quota-window-amount-${i}`}
               aria-invalid={w.amount.trim() !== "" && !(Number(w.amount) > 0) ? true : undefined}
-              aria-label={t("platform.rateLimits.budgetAmount", "预算额度")}
-              placeholder={t("platform.manualBudgetAmount", "额度")}
+              aria-label={t("platform.rateLimits.budgetAmount", "Budget amount")}
+              placeholder={t("platform.manualBudgetAmount", "Amount")}
               onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))}
               style={{ ...numStyle, width: 96, minWidth: 96, flexShrink: 0 }}
             />
             <span style={{ fontSize: 14, color: "var(--text-tertiary)", flexShrink: 0 }}>
-              {w.mode === "usd" ? "$" : w.mode === "count" ? t("platform.rateLimits.unitCount", "次") : "tokens"}
+              {w.mode === "usd" ? "$" : w.mode === "count" ? t("platform.rateLimits.unitCount", "req") : "tokens"}
             </span>
             {/* 重置方式（额度窗口执行 2026-11-16）：sliding / 自然日 / 自然小时 */}
             <Select
@@ -1865,21 +1865,21 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
                 data-testid={`quota-window-reset-${i}`}
                 className="input"
                 style={{ width: 108, flexShrink: 0, height: 28, fontSize: 14 }}
-                aria-label={t("platform.rateLimits.resetMode", "重置方式")}
+                aria-label={t("platform.rateLimits.resetMode", "Reset mode")}
               >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="sliding">{t("platform.rateLimits.resetModeSliding", "滑动窗口")}</SelectItem>
-                <SelectItem value="calendar_day">{t("platform.rateLimits.resetModeCalendarDay", "按自然日")}</SelectItem>
-                <SelectItem value="calendar_hour">{t("platform.rateLimits.resetModeCalendarHour", "按自然小时")}</SelectItem>
+                <SelectItem value="sliding">{t("platform.rateLimits.resetModeSliding", "Sliding window")}</SelectItem>
+                <SelectItem value="calendar_day">{t("platform.rateLimits.resetModeCalendarDay", "Calendar day")}</SelectItem>
+                <SelectItem value="calendar_hour">{t("platform.rateLimits.resetModeCalendarHour", "Calendar hour")}</SelectItem>
               </SelectContent>
             </Select>
             {/* 启用开关（关掉 = 不参与阻断与计数；行内控件阻断冒泡到行容器） */}
             <span onClick={(e) => e.stopPropagation()}>
               <Switch
                 data-testid={`quota-window-enabled-${i}`}
-                aria-label={t("platform.rateLimits.windowEnabled", "启用")}
+                aria-label={t("platform.rateLimits.windowEnabled", "Enabled")}
                 checked={w.enabled}
                 onCheckedChange={v => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, enabled: v === true } : x))}
               />
@@ -1919,13 +1919,13 @@ export function DirectModelsSection({ models, setModels, availableModels, protoc
   };
   return (
     <FormSection
-      title={t("platform.direct_models", "直通模型")}
-      desc={t("platform.direct_models_desc", "声明后，分组请求携带这些模型 id 时只在声明它的平台里按现有优先级转发（保留请求模型原名）；组内无人声明则走默认链。声明即生效，不查模型收录。")}
+      title={t("platform.direct_models", "Direct models")}
+      desc={t("platform.direct_models_desc", "When declared, group requests carrying these model ids are routed only to platforms that declare them, preserving the requested model name (failover follows existing priority). If no platform declares the id, the default chain applies. Declaration takes effect immediately — no registry lookup.")}
     >
       <div className="aidog-anim-rise" style={C.strip}>
         <div style={C.tile("var(--data-primary)")}>{t("platform.tile.direct", "D")}</div>
         <span style={C.pill(models.length > 0 ? "ok" : "neutral")}>
-          {t("platform.direct_models_count", "{{n}} 个模型", { n: models.length })}
+          {t("platform.direct_models_count", "{{n}} models", { n: models.length })}
         </span>
       </div>
       {models.map((m, i) => (
@@ -1939,7 +1939,7 @@ export function DirectModelsSection({ models, setModels, availableModels, protoc
           <Button
             variant="ghost" size="icon" className="btn-danger" style={{ height: 28, width: 28 }}
             data-testid={`direct-model-remove-${i}`}
-            aria-label={t("platform.delete", "删除")}
+            aria-label={t("platform.delete", "Delete")}
             onClick={() => setModels(prev => prev.filter((_, j) => j !== i))}
           >×</Button>
         </div>
@@ -1949,14 +1949,14 @@ export function DirectModelsSection({ models, setModels, availableModels, protoc
           <ModelCombobox
             value={input} onChange={setInput} onSelect={add}
             source={source} exclude={models} protocol={protocol}
-            placeholder={t("platform.direct_models_placeholder", "模型 id，如 claude-sonnet-4-5")}
+            placeholder={t("platform.direct_models_placeholder", "Model id, e.g. claude-sonnet-4-5")}
             inputProps={{ "data-testid": "direct-model-input" }}
             inputStyle={{ fontFamily: "var(--font-mono, monospace)", fontSize: 14, height: 28 }}
             t={t}
           />
         </div>
         <button type="button" data-testid="direct-model-add" className={C.addBtnClass} onClick={() => add()}>
-          + {t("platform.direct_models_add", "添加")}
+          + {t("platform.direct_models_add", "Add")}
         </button>
       </div>
     </FormSection>
@@ -1978,19 +1978,19 @@ export function ClientWhitelistSection({ vocab, selected, setSelected, uaRules, 
     setUaRules(prev => prev.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   return (
     <FormSection
-      title={t("platform.client_whitelist", "客户端白名单")}
-      desc={t("platform.client_whitelist_desc", "只允许勾选的客户端使用该平台；勾大类即允许其全部变体。未勾选任何项 = 不限制。配置后无法识别的客户端一律拒绝。")}
+      title={t("platform.client_whitelist", "Client allowlist")}
+      desc={t("platform.client_whitelist_desc", "Only the selected clients may use this platform; selecting a category allows all its variants. No selection and no UA rules = no restriction. Clients the built-in vocabulary cannot identify are judged by the UA rules and rejected if none matches.")}
       action={restricted > 0 ? (
         <Button variant="ghost" size="sm" data-testid="client-wl-clear" onClick={() => { setSelected([]); setUaRules([]); }}>
-          {t("platform.client_whitelist_clear", "清空")}
+          {t("platform.client_whitelist_clear", "Clear")}
         </Button>
       ) : undefined}
     >
       <div className="aidog-anim-rise" style={C.strip}>
         <span style={C.pill(restricted > 0 ? "ok" : "neutral")} data-testid="client-wl-count">
           {restricted > 0
-            ? t("platform.client_whitelist_count", "已限制 {{n}} 项", { n: restricted })
-            : t("platform.client_whitelist_none", "不限制")}
+            ? t("platform.client_whitelist_count", "{{n}} restricted", { n: restricted })
+            : t("platform.client_whitelist_none", "No restriction")}
         </span>
       </div>
       <div style={{ maxHeight: 320, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -2027,10 +2027,10 @@ export function ClientWhitelistSection({ vocab, selected, setSelected, uaRules, 
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
-          {t("platform.client_ua_rules", "UA 规则")}
+          {t("platform.client_ua_rules", "UA rules")}
         </div>
         <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-          {t("platform.client_ua_rules_desc", "只对内置词表认不出的客户端生效，命中任一条即放行；内置认出的客户端只看上面的勾选。均不区分大小写。")}
+          {t("platform.client_ua_rules_desc", "Apply only to clients the built-in list cannot identify; any matching rule allows the request. Clients the built-in list identifies are judged by the ticks above only. All matching is case-insensitive.")}
         </div>
         {uaRules.map((r, i) => {
           const err = validateClientUaRule(r);
@@ -2042,15 +2042,15 @@ export function ClientWhitelistSection({ vocab, selected, setSelected, uaRules, 
                 value={r.kind}
                 onChange={e => patchRule(i, { kind: e.target.value as ClientUaRuleKind })}
               >
-                <option value="contains">{t("platform.client_ua_rule_kind_contains", "包含")}</option>
-                <option value="prefix">{t("platform.client_ua_rule_kind_prefix", "开头是")}</option>
-                <option value="exact">{t("platform.client_ua_rule_kind_exact", "完全相等")}</option>
-                <option value="regex">{t("platform.client_ua_rule_kind_regex", "正则")}</option>
+                <option value="contains">{t("platform.client_ua_rule_kind_contains", "Contains")}</option>
+                <option value="prefix">{t("platform.client_ua_rule_kind_prefix", "Starts with")}</option>
+                <option value="exact">{t("platform.client_ua_rule_kind_exact", "Equals")}</option>
+                <option value="regex">{t("platform.client_ua_rule_kind_regex", "Regex")}</option>
               </select>
               <Input
                 data-testid={`client-ua-rule-pattern-${i}`}
                 value={r.pattern}
-                placeholder={t("platform.client_ua_rule_placeholder", "UA 文本，如 openviking")}
+                placeholder={t("platform.client_ua_rule_placeholder", "UA text, e.g. openviking")}
                 aria-invalid={err ? true : undefined}
                 onChange={e => patchRule(i, { pattern: e.target.value })}
                 style={{ flex: 1, minWidth: 110, fontFamily: "var(--font-mono, monospace)", fontSize: 14, height: 28 }}
@@ -2058,14 +2058,14 @@ export function ClientWhitelistSection({ vocab, selected, setSelected, uaRules, 
               {err && (
                 <span style={{ fontSize: 14, color: "var(--danger, #c0392b)" }}>
                   {err === "empty"
-                    ? t("platform.client_ua_rule_err_empty", "不能为空")
-                    : t("platform.client_ua_rule_err_regex", "正则不合法")}
+                    ? t("platform.client_ua_rule_err_empty", "Must not be empty")
+                    : t("platform.client_ua_rule_err_regex", "Invalid regex")}
                 </span>
               )}
               <Button
                 variant="ghost" size="icon" className="btn-danger" style={{ height: 28, width: 28 }}
                 data-testid={`client-ua-rule-remove-${i}`}
-                aria-label={t("platform.delete", "删除")}
+                aria-label={t("platform.delete", "Delete")}
                 onClick={() => setUaRules(prev => prev.filter((_, j) => j !== i))}
               >×</Button>
             </div>
@@ -2076,7 +2076,7 @@ export function ClientWhitelistSection({ vocab, selected, setSelected, uaRules, 
             variant="ghost" size="sm" data-testid="client-ua-rule-add"
             onClick={() => setUaRules(prev => [...prev, { kind: "contains", pattern: "" }])}
           >
-            + {t("platform.client_ua_rule_add", "添加规则")}
+            + {t("platform.client_ua_rule_add", "Add rule")}
           </Button>
         </div>
       </div>
@@ -2093,8 +2093,8 @@ export function AppbuilderKeySection({ value, onChange, t }: {
 }) {
   return (
     <FormSection
-      title={t("platform.appbuilder_key", "AppBuilder 凭据")}
-      desc={t("platform.appbuilder_key_desc", "独立搜索/工具端点转发用的 AppBuilder key，与千帆模型服务 key 相互独立；留空表示未配置（搜索请求照常转发，401 走冷却）。")}
+      title={t("platform.appbuilder_key", "AppBuilder credential")}
+      desc={t("platform.appbuilder_key_desc", "AppBuilder key for independent search/tool endpoint forwarding, separate from the Qianfan model-service key; leave empty if not configured (search requests still forward, 401 enters cooldown).")}
     >
       <Input
         data-testid="appbuilder-key-input"

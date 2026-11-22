@@ -196,8 +196,8 @@ export function useSystemSettings() {
     try {
       const { ok, failed } = await enableProxyForAllPlatforms();
       setMessage(failed > 0
-        ? t("proxy.enableForAllPartial", "已为 {{n}} 个平台开启代理，{{f}} 个失败", { n: String(ok), f: String(failed) })
-        : t("proxy.enableForAllDone", "已为 {{n}} 个平台开启代理", { n: String(ok) }));
+        ? t("proxy.enableForAllPartial", "Proxy enabled for {{n}} platforms, {{f}} failed", { n: String(ok), f: String(failed) })
+        : t("proxy.enableForAllDone", "Proxy enabled for {{n}} platforms", { n: String(ok) }));
     } catch (e: any) {
       setMessage(e.toString());
     } finally {
@@ -254,7 +254,7 @@ export function useSystemSettings() {
       const pct = r.before_bytes > 0
         ? Math.round((1 - r.after_bytes / r.before_bytes) * 100)
         : 0;
-      setMessage(t("settings.dbCompactDone", "{{before}} MB → {{after}} MB（省 {{pct}}%）", { before: beforeMB, after: afterMB, pct: String(pct) }));
+      setMessage(t("settings.dbCompactDone", "{{before}} MB → {{after}} MB (saved {{pct}}%)", { before: beforeMB, after: afterMB, pct: String(pct) }));
     } catch (e: any) { setMessage(e.toString()); }
     finally { setDbCompacting(false); }
   };
@@ -270,7 +270,7 @@ export function useSystemSettings() {
     setStatsRebuilding(true);
     try {
       await statsApi.rebuildFromLogs();
-      setMessage(t("stats.rebuildDone", "聚合统计已从日志重建"));
+      setMessage(t("stats.rebuildDone", "Aggregate stats rebuilt from logs"));
     } catch (e: any) { setMessage(e.toString()); }
     finally { setStatsRebuilding(false); }
   };

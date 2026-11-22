@@ -478,7 +478,7 @@ export function ToolsSection() {
       const r = await mcpApi.selfInstall();
       setInstallOk(true);
       setInstallMsg(
-        t("tools.installed", "已写入 {{name}} 的 {{agents}} 配置，重启对应 agent 生效", {
+        t("tools.installed", "Written to {{name}} ({{agents}}) config — restart the agent to take effect", {
           name: r.name,
           agents: r.agents.join(", "),
         }),
@@ -970,7 +970,7 @@ export function ToolsSection() {
   return (
     <div data-testid="mcp-tools-section" className="flex w-full flex-col gap-4">
       <div>
-        <div className="section-title">{t("tools.title", "工具")}</div>
+        <div className="section-title">{t("tools.title", "Tools")}</div>
         <div className="mt-1 text-sm text-secondary">{t("tools.desc")}</div>
       </div>
 

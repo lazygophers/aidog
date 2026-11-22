@@ -148,7 +148,7 @@ function renderPicker(props: Partial<Parameters<typeof TimePicker>[0]> = {}) {
   // document.body 里残留前面 modal 测试的 picker，全局查询会点错组件。
   const { container } = render(
     <TimePicker
-      suffix="止"
+      suffix="End"
       hour={12}
       minute={0}
       maxHour={24}
@@ -276,13 +276,13 @@ describe("WindowsEditModal — 摘要行 scope/跨天", () => {
 
   it("跨天窗口（止<起）→ 摘要出「次日」徽标", () => {
     const { container } = renderModal([{ start_hour: 22, end_hour: 6, multiplier: 1.0 }]);
-    expect(container.textContent).toContain("次日");
+    expect(container.textContent).toContain("Next day");
   });
 
   it("添加窗口默认：本地时区 + 工作日（周一-周五）", () => {
     const { container, onSave } = renderModal([]);
     fireEvent.click(
-      Array.from(container.querySelectorAll("button")).find(b => b.textContent?.includes("添加窗口"))!
+      Array.from(container.querySelectorAll("button")).find(b => b.textContent?.includes("Add window"))!
     );
     fireEvent.click(container.querySelector("button.ripple") as HTMLElement);
     const saved = onSave.mock.calls[0][0] as TimeWindow[];

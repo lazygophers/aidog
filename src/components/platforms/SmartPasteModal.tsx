@@ -182,10 +182,10 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
       >
         <DialogHeader>
           <DialogTitle style={{ fontSize: 17 }}>
-            {t("platform.paste.title", "智能识别")}
+            {t("platform.paste.title", "Smart Detect")}
           </DialogTitle>
           <DialogDescription style={{ lineHeight: 1.55 }}>
-            {t("platform.paste.hint", "粘贴分享文案，自动识别 Base URL、平台与 API Key（base64 自动解码）。")}
+            {t("platform.paste.hint", "Paste shared text to auto-detect Base URL, platform and API Key (base64 auto-decoded).")}
           </DialogDescription>
         </DialogHeader>
 
@@ -199,7 +199,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
             fontSize: 14,
             lineHeight: 1.5,
           }}
-          placeholder={t("platform.paste.placeholder", "在此粘贴文案…")}
+          placeholder={t("platform.paste.placeholder", "Paste text here…")}
           value={text}
           onChange={(e) => setText(e.target.value)}
           autoFocus
@@ -220,13 +220,13 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
             }}
           >
             <div style={{ fontSize: 14, fontWeight: 600, color: "var(--accent)" }}>
-              {t("platform.paste.shareDetected", "已识别 AiDog 平台分享")}
+              {t("platform.paste.shareDetected", "AiDog platform share detected")}
             </div>
             <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
               {share.name} · {protocolLabel || share.platform_type}
             </div>
             <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-              {t("platform.paste.shareDetectedHint", "点击下方按钮将完整配置（含 API Key）灌入表单。")}
+              {t("platform.paste.shareDetectedHint", "Click the button below to fill the full configuration (including API key) into the form.")}
             </div>
           </div>
         )}
@@ -234,25 +234,25 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
         {/* 识别结果（非分享串的杂乱文本解析） */}
         {!share && (
         <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={labelStyle}>{t("platform.paste.detected", "识别结果")}</div>
+          <div style={labelStyle}>{t("platform.paste.detected", "Detected")}</div>
 
           {!hasResult && (
             <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-              {t("platform.paste.empty", "粘贴文案后自动识别。")}
+              {t("platform.paste.empty", "Auto-detected after pasting.")}
             </div>
           )}
 
           {/* 平台 */}
           {hasResult && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <div style={labelStyle}>{t("platform.paste.platform", "平台")}</div>
+              <div style={labelStyle}>{t("platform.paste.platform", "Platform")}</div>
               {parsed.platform ? (
                 <div style={{ ...optRow, cursor: "default", borderColor: "var(--accent)" }}>
                   <span style={{ color: "var(--accent)", fontWeight: 600 }}>{parsed.platform.label}</span>
                 </div>
               ) : (
                 <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-                  {t("platform.paste.noPlatform", "未匹配内置平台，将保持当前平台选择不变。")}
+                  {t("platform.paste.noPlatform", "No built-in platform matched; current selection is kept.")}
                 </div>
               )}
             </div>
@@ -264,7 +264,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
               <div style={{ ...labelStyle, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span>{t("platform.paste.baseUrl", "Base URL")}</span>
                 <span style={{ fontSize: 14, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "none", letterSpacing: 0 }}>
-                  {t("platform.paste.baseUrlMultiHint", "不同类型可各选一个")}
+                  {t("platform.paste.baseUrlMultiHint", "One per type")}
                 </span>
               </div>
               {parsed.baseUrls.map((b) => {
@@ -304,7 +304,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
                 <span>{t("platform.paste.apiKey", "Token")}</span>
                 {parsed.apiKeys.length > 1 && (
                   <span style={{ fontSize: 14, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "none", letterSpacing: 0 }}>
-                    {t("platform.paste.apiKeyMultiHint", "已选 {{n}}/{{total}}，将批量创建", { n: selKeys.length, total: parsed.apiKeys.length })}
+                    {t("platform.paste.apiKeyMultiHint", "Selected {{n}}/{{total}}, will batch create", { n: selKeys.length, total: parsed.apiKeys.length })}
                   </span>
                 )}
               </div>
@@ -351,7 +351,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
           {/* 过期时间（社区分享帖常见「即将过期 06-28 23:59」） */}
           {hasExpiry && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <div style={labelStyle}>{t("platform.expiresAt", "过期时间")}</div>
+              <div style={labelStyle}>{t("platform.expiresAt", "Expires at")}</div>
               <div style={{ ...optRow, cursor: "default", borderColor: "var(--accent)" }}>
                 <span style={{ color: "var(--accent)", fontWeight: 600 }}>
                   {formatDateTime(parsed.expiresAt!) || "-"}
@@ -365,11 +365,11 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
         <DialogFooter>
           {onManualEntry && (
             <Button variant="ghost" style={{ fontSize: 14, padding: "6px 14px" }} onClick={onManualEntry}>
-              {t("platform.paste.manualEntry", "手动填写")}
+              {t("platform.paste.manualEntry", "Manual")}
             </Button>
           )}
           <Button variant="ghost" style={{ fontSize: 14, padding: "6px 14px" }} onClick={onClose}>
-            {t("action.cancel", "取消")}
+            {t("action.cancel", "Cancel")}
           </Button>
           <Button
             style={{ fontSize: 14, padding: "6px 14px", minWidth: 96 }}
@@ -393,7 +393,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
               onClose();
             }}
           >
-            {t("platform.paste.apply", "填入表单")}
+            {t("platform.paste.apply", "Fill form")}
           </Button>
         </DialogFooter>
       </DialogContent>

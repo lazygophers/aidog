@@ -37,7 +37,7 @@ export function UpdatePromptModal({ update, onClose }: UpdatePromptModalProps) {
       onClose();
     } catch (e) {
       setBusy(false);
-      setError(`${t("updater.updateFailed", "更新失败")}: ${String(e)}`);
+      setError(`${t("updater.updateFailed", "Update failed")}: ${String(e)}`);
     }
   };
 
@@ -48,7 +48,7 @@ export function UpdatePromptModal({ update, onClose }: UpdatePromptModalProps) {
       <DialogContent className="glass-elevated" style={{ maxWidth: 460, padding: "22px 24px" }}>
         <DialogHeader>
           <DialogTitle style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)" }}>
-            {t("updater.foundTitle", "发现新版本")} v{update.version}
+            {t("updater.foundTitle", "New version available")} v{update.version}
           </DialogTitle>
           {update.body && (
             <DialogDescription
@@ -65,7 +65,7 @@ export function UpdatePromptModal({ update, onClose }: UpdatePromptModalProps) {
             >
               <div>
                 <div style={{ fontWeight: 600, marginBottom: 4, color: "var(--text-primary)" }}>
-                  {t("updater.releaseNotes", "更新内容")}
+                  {t("updater.releaseNotes", "Release notes")}
                 </div>
                 {update.body}
               </div>
@@ -85,7 +85,7 @@ export function UpdatePromptModal({ update, onClose }: UpdatePromptModalProps) {
             onClick={(e) => { makeRipple(e); onClose(); }}
             disabled={busy}
           >
-            {t("updater.later", "稍后")}
+            {t("updater.later", "Later")}
           </Button>
           <Button
             variant="default"
@@ -101,8 +101,8 @@ export function UpdatePromptModal({ update, onClose }: UpdatePromptModalProps) {
             disabled={busy}
           >
             {busy
-              ? t("updater.updating", "更新中…")
-              : t("updater.updateNow", "立即更新")}
+              ? t("updater.updating", "Updating…")
+              : t("updater.updateNow", "Update now")}
           </Button>
         </div>
       </DialogContent>

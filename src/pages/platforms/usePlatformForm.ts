@@ -678,7 +678,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
    *  update 路径也复用（api_key 由 caller 覆盖；auto_group 仅 create 语义）。 */
   const buildSharedCreateFields = () => {
     if (protocol === "unknown") {
-      throw new Error(t("platform.unknownProtocolSave", "请选择有效的协议类型后再保存"));
+      throw new Error(t("platform.unknownProtocolSave", "Select a valid protocol before saving"));
     }
     const modelsPayload = buildModelsPayload() as Platform["models"] | undefined;
     const availablePayload = availableModels.length > 0 ? availableModels : undefined;
@@ -709,10 +709,10 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       half_open_max: toBreakerNum(breakerHalfOpenMax),
     });
     if (timemodels.uaRules.some(r => validateClientUaRule(r))) {
-      throw new Error(t("platform.client_ua_rules_invalid", "UA 规则有误：pattern 不能为空，正则须合法"));
+      throw new Error(t("platform.client_ua_rules_invalid", "Invalid UA rule: pattern must not be empty and regex must be valid"));
     }
     if (rateLimits.rate_limits?.rules?.some(r => rateLimitRuleError(r))) {
-      throw new Error(t("platform.rateLimits.rulesInvalid", "限频规则有误：每条规则至少选一个模型或填一个时段，通配符只能是末尾单个 *"));
+      throw new Error(t("platform.rateLimits.rulesInvalid", "Invalid rate-limit rule: each rule needs at least one model or a time window; wildcard must be a single trailing *"));
     }
     extraPayload = timemodels.serialize(extraPayload);
     // mitm_stats：false → 移除键（默认行为）；true → 写入。
@@ -770,7 +770,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const handleSave = async () => {
     setSaveError("");
     if (protocol === "unknown") {
-      const message = t("platform.unknownProtocolSave", "请选择有效的协议类型后再保存");
+      const message = t("platform.unknownProtocolSave", "Select a valid protocol before saving");
       setSaveError(message);
       setToast({ text: message, ok: false });
       return;
@@ -833,7 +833,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       console.error(msg);
       setSaveError(msg);
       // saveError 渲染在长表单底部易被滚出视口（用户感知「无反应」）；额外用全局 toast 即时反馈，禁静默失败。
-      setToast({ text: `${t("platform.saveFail", "保存失败")}: ${msg}`, ok: false });
+      setToast({ text: `${t("platform.saveFail", "Save failed")}: ${msg}`, ok: false });
       setTimeout(() => setToast(null), 4000);
     }
   };

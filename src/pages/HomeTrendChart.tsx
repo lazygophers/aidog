@@ -143,7 +143,7 @@ export function HomeTrendChart({
 
   // 总计 = 平台序列全合并（平台维度是请求的完整划分，跨维度恒同一条总曲线）。
   const totalSeries = useMemo(
-    () => [{ ...mergeSeries(platformSeries), name: t("home.tabTotal", "总计") }],
+    () => [{ ...mergeSeries(platformSeries), name: t("home.tabTotal", "Total") }],
     [platformSeries, t],
   );
   const series =
@@ -152,34 +152,34 @@ export function HomeTrendChart({
         : dim === "group" ? groupSeries
           : platformSeries;
   const { config, rows } = useMemo(
-    () => buildDimTrend(series, metric, { other: t("home.dimOther", "其它"), ungrouped: dim === "group" ? ungroupedLabel : undefined }),
+    () => buildDimTrend(series, metric, { other: t("home.dimOther", "Other"), ungrouped: dim === "group" ? ungroupedLabel : undefined }),
     [series, metric, t, dim, ungroupedLabel],
   );
 
   const dims: { id: TrendDim; key: string; def: string }[] = [
-    { id: "total", key: "home.tabTotal", def: "总计" },
-    { id: "platform", key: "home.tabPlatform", def: "按平台" },
-    { id: "model", key: "home.tabModel", def: "按模型" },
-    { id: "group", key: "home.tabGroup", def: "按分组" },
+    { id: "total", key: "home.tabTotal", def: "Total" },
+    { id: "platform", key: "home.tabPlatform", def: "By Platform" },
+    { id: "model", key: "home.tabModel", def: "By Model" },
+    { id: "group", key: "home.tabGroup", def: "By Group" },
   ];
   const metrics: { id: TrendMetric; key: string; def: string }[] = [
     { id: "tokens", key: "home.tokens", def: "Token" },
-    { id: "cost", key: "home.trendCost", def: "花费" },
+    { id: "cost", key: "home.trendCost", def: "Cost" },
   ];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <b style={{ fontSize: F.small + 1, color: P.fg }}>{t("home.dimTrendTitle", "维度趋势 · 24 小时")}</b>
+        <b style={{ fontSize: F.small + 1, color: P.fg }}>{t("home.dimTrendTitle", "Dimension Trends · 24h")}</b>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-          <div role="group" aria-label={t("home.dimTrendTitle", "维度趋势 · 24 小时")} style={{ display: "flex", gap: 4 }}>
+          <div role="group" aria-label={t("home.dimTrendTitle", "Dimension Trends · 24h")} style={{ display: "flex", gap: 4 }}>
             {dims.map(d => (
               <button key={d.id} type="button" style={tabButton(dim === d.id, P, mode)} aria-pressed={dim === d.id} onClick={() => setDim(d.id)}>
                 {t(d.key, d.def)}
               </button>
             ))}
           </div>
-          <div role="group" aria-label={t("home.dimMetric", "tokens / 花费 / 请求")} style={{ display: "flex", gap: 4 }}>
+          <div role="group" aria-label={t("home.dimMetric", "tokens / cost / requests")} style={{ display: "flex", gap: 4 }}>
             {metrics.map(m => (
               <button key={m.id} type="button" style={tabButton(metric === m.id, P, mode)} aria-pressed={metric === m.id} onClick={() => setMetric(m.id)}>
                 {t(m.key, m.def)}
@@ -198,9 +198,9 @@ export function HomeTrendChart({
         data={rows}
         height={240}
         valueFormat={metric === "cost" ? formatMoney : formatNumber}
-        rightConfig={{ req: { label: t("home.trendRequests", "请求数") } }}
+        rightConfig={{ req: { label: t("home.trendRequests", "Requests") } }}
         rightValueFormat={formatNumber}
-        emptyHint={loading ? "" : t("home.noToday", "今日暂无请求")}
+        emptyHint={loading ? "" : t("home.noToday", "No requests today")}
       />
     </div>
   );

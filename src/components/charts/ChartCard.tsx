@@ -41,7 +41,7 @@ export function ChartCard({ title, subtitle, empty, emptyHint, className, childr
             color: "var(--text-secondary)",
           }}
         >
-          <span style={{ fontSize: 14 }}>{t("charts.noData", "暂无数据")}</span>
+          <span style={{ fontSize: 14 }}>{t("charts.noData", "No data available")}</span>
           {emptyHint != null && (
             <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{emptyHint}</span>
           )}

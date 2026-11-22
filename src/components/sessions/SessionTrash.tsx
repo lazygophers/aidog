@@ -43,19 +43,19 @@ export function SessionTrash({ open, onOpenChange, onRestored }: {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl" data-testid="sessions-trash-dialog">
         <DialogHeader>
-          <DialogTitle>{t("sessions.trash", "回收站")}</DialogTitle>
-          <DialogDescription>{t("sessions.trashDesc", "隐藏的会话只是不在列表中显示，客户端文件与用量记录都保留。")}</DialogDescription>
+          <DialogTitle>{t("sessions.trash", "Trash")}</DialogTitle>
+          <DialogDescription>{t("sessions.trashDesc", "Hidden sessions are only removed from the list; client files and usage records are kept.")}</DialogDescription>
         </DialogHeader>
         {error && (
           <p role="alert" className="text-sm break-all text-destructive" data-testid="sessions-trash-error">
-            {t("sessions.trashFailed", "回收站操作失败：{{error}}", { error })}
+            {t("sessions.trashFailed", "Trash action failed: {{error}}", { error })}
           </p>
         )}
         {rows === null ? (
           <div className="h-16 animate-pulse rounded-lg bg-muted" aria-busy="true" />
         ) : rows.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground" data-testid="sessions-trash-empty">
-            {t("sessions.trashEmpty", "回收站是空的")}
+            {t("sessions.trashEmpty", "Trash is empty")}
           </p>
         ) : (
           <ul className="max-h-[60vh] divide-y overflow-y-auto">
@@ -74,11 +74,11 @@ export function SessionTrash({ open, onOpenChange, onRestored }: {
                     <bdi>{clientName(r.clientCode)}</bdi>
                     {r.workdir && <>{" · "}<bdi dir="ltr" title={r.workdir} data-testid="sessions-trash-path">{r.workdir}</bdi></>}
                     {" · "}
-                    <bdi>{t("sessions.hiddenAt", "隐藏于 {{time}}", { time: formatRelativeTime(r.hiddenAt, i18n.language) })}</bdi>
+                    <bdi>{t("sessions.hiddenAt", "Hidden {{time}}", { time: formatRelativeTime(r.hiddenAt, i18n.language) })}</bdi>
                   </div>
                 </div>
                 <Button size="sm" variant="outline" data-testid="sessions-trash-restore" onClick={() => void restore(r)}>
-                  {t("sessions.restore", "恢复")}
+                  {t("sessions.restore", "Restore")}
                 </Button>
               </li>
             ))}

@@ -96,7 +96,7 @@ export function SettingsHeader({
         <Input
           
           style={{ fontSize: F.hint, padding: "6px 10px 6px 30px", width: "100%" }}
-          placeholder={t("settings.search", "搜索设置…")}
+          placeholder={t("settings.search", "Search settings…")}
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
         />
@@ -128,7 +128,7 @@ export function SettingsHeader({
         style={{ fontSize: F.hint, padding: "6px 14px" }}
         onClick={onImport}
       >
-        <SectionIcon name="folder" size={14} /> {t("settings.importFromClaudeCode", "从 Claude Code 导入")}
+        <SectionIcon name="folder" size={14} /> {t("settings.importFromClaudeCode", "Import from Claude Code")}
       </Button>
 
       {toast && <span style={{ fontSize: F.body, color: "var(--color-success)" }}>{toast}</span>}
@@ -155,8 +155,8 @@ export function SettingsHeader({
             }}
           />
           {dirty
-            ? t("settings.unsavedChanges", "未保存更改")
-            : t("settings.allSaved", "已保存")}
+            ? t("settings.unsavedChanges", "Unsaved changes")
+            : t("settings.allSaved", "Saved")}
         </span>
       )}
 

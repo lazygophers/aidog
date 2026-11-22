@@ -121,7 +121,7 @@ export function TimePicker({ suffix, hour, minute, maxHour, onSet, t }: {
           }
         }}
         onBlur={commit}
-        title={t("platform.windows_step_hint", "可直接键入，或点开选择（分钟 15 分钟档）")}
+        title={t("platform.windows_step_hint", "Type directly, or open the picker (15-minute grid)")}
         style={{
           width: 48, background: "transparent", border: 0, outline: "none", padding: 0,
           color: "inherit", font: "inherit", fontSize: 15, fontWeight: 600, textAlign: "center",
@@ -269,11 +269,11 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
   };
 
   const DIM_OPTIONS = [
-    { key: "none" as const,  label: t("platform.windows_dim_none", "每天") },
-    { key: "week" as const,  label: t("platform.windows_dim_week", "周几") },
-    { key: "month" as const, label: t("platform.windows_dim_month", "每月几日") },
-    { key: "workday" as const, label: t("platform.windows_dim_workday", "工作日") },
-    { key: "holiday" as const, label: t("platform.windows_dim_holiday", "节假日") },
+    { key: "none" as const,  label: t("platform.windows_dim_none", "Every day") },
+    { key: "week" as const,  label: t("platform.windows_dim_week", "Day of week") },
+    { key: "month" as const, label: t("platform.windows_dim_month", "Day of month") },
+    { key: "workday" as const, label: t("platform.windows_dim_workday", "Workdays") },
+    { key: "holiday" as const, label: t("platform.windows_dim_holiday", "Holidays") },
   ];
 
   return (
@@ -281,7 +281,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
       <DialogContent className="aidog-anim-pop" style={{ maxWidth: 520, padding: 16 }}>
         <DialogHeader>
           <DialogTitle style={{ margin: "0 0 12px", paddingRight: 32, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <span>{t("platform.windows_edit_title", "编辑时段窗口")}</span>
+            <span>{t("platform.windows_edit_title", "Edit time windows")}</span>
             {/* tz 切换：与 formSections.tsx PeakSection 同款样式，windows 存储恒 UTC+0，仅展示/输入换算 */}
             <div style={{ display: "flex", gap: 4, padding: 2, background: "var(--bg-glass)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
               {(["local", "utc"] as const).map(m => (
@@ -295,7 +295,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                     : { padding: "2px 8px", fontSize: 14, height: "auto", fontWeight: 400 }}
                   onClick={() => setTzMode(m)}
                 >
-                  {m === "local" ? t("platform.timezone_local", "本地") : t("platform.timezone_utc", "UTC+0")}
+                  {m === "local" ? t("platform.timezone_local", "Local") : t("platform.timezone_utc", "UTC+0")}
                 </Button>
               ))}
             </div>
@@ -304,7 +304,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
 
         {local.length === 0 && (
           <div style={{ fontSize: 14, color: "var(--text-tertiary)", fontStyle: "italic", marginBottom: 8 }}>
-            {t("platform.windows_edit_empty", "无窗口 → 永不命中")}
+            {t("platform.windows_edit_empty", "No windows → never matches")}
           </div>
         )}
 
@@ -326,16 +326,16 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
             const scopeText = dim === "week"
               ? (w.days_of_week && w.days_of_week.length > 0
                   ? w.days_of_week.map(d => t(`platform.weekday_short.${d}`)).join("·")
-                  : t("platform.windows_dim_week", "周几"))
+                  : t("platform.windows_dim_week", "Day of week"))
               : dim === "month"
                 ? (w.days_of_month && w.days_of_month.length > 0
                     ? w.days_of_month.join("·")
-                    : t("platform.windows_dim_month", "每月几日"))
+                    : t("platform.windows_dim_month", "Day of month"))
                 : dim === "workday" || dim === "holiday"
-                  ? t(`platform.windows_dim_${dim}`, dim === "workday" ? "工作日" : "节假日")
-                  : t("platform.windows_dim_none", "每天");
+                  ? t(`platform.windows_dim_${dim}`, dim === "workday" ? "Workdays" : "Holidays")
+                  : t("platform.windows_dim_none", "Every day");
             const tzLabel = w.timezone ?? (tzMode === "local"
-              ? t("platform.timezone_local", "本地")
+              ? t("platform.timezone_local", "Local")
               : t("platform.timezone_utc", "UTC+0"));
             return (
               <div
@@ -368,7 +368,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                       color: "var(--color-warning)",
                       background: "color-mix(in srgb, var(--color-warning) 8%, transparent)",
                     }}>
-                      {t("platform.peak_next_day", "次日")}
+                      {t("platform.peak_next_day", "Next day")}
                     </span>
                   )}
                   <span>· {tzLabel}</span>
@@ -377,7 +377,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                 {/* 双时间选择器 + 时区 + 删除 */}
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <TimePicker
-                    suffix={t("platform.start_hour", "起")} hour={startDisp.hour} minute={startDisp.minute} maxHour={23}
+                    suffix={t("platform.start_hour", "Start")} hour={startDisp.hour} minute={startDisp.minute} maxHour={23}
                     t={t}
                     onSet={(h, m) => {
                       const utc = fromDisp(h, m);
@@ -386,7 +386,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                   />
                   <span style={{ color: "var(--text-tertiary)", fontSize: 14 }}>→</span>
                   <TimePicker
-                    suffix={t("platform.end_hour", "止")} hour={endDisp.hour} minute={endDisp.minute} maxHour={24}
+                    suffix={t("platform.end_hour", "End")} hour={endDisp.hour} minute={endDisp.minute} maxHour={24}
                     t={t}
                     onSet={(h, m) => {
                       const utc = fromDisp(h, m);
@@ -405,7 +405,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                     <SelectContent>
                       {WINDOW_TIMEZONES.map((tz) => (
                         <SelectItem key={tz} value={tz}>
-                          {tz === "__utc__" ? t("platform.window_timezone_utc_default", "UTC（默认）") : tz}
+                          {tz === "__utc__" ? t("platform.window_timezone_utc_default", "UTC (default)") : tz}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -415,7 +415,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                     size="sm"
                     style={{ padding: "2px 6px", fontSize: 14, color: "var(--color-danger)" }}
                     onClick={() => removeWindow(widx)}
-                    title={t("action.delete", "删除")}
+                    title={t("action.delete", "Delete")}
                   >
                     ×
                   </Button>
@@ -425,11 +425,11 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                     容器带 radiogroup 语义（按钮 role=radio 必须有分组父级，ARIA 要求）。 */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 14, color: "var(--text-tertiary)", fontWeight: 600 }}>
-                    {t("platform.windows_dimension", "生效日")}
+                    {t("platform.windows_dimension", "Applies to")}
                   </span>
                   <div
                     role="radiogroup"
-                    aria-label={t("platform.windows_dimension", "生效日")}
+                    aria-label={t("platform.windows_dimension", "Applies to")}
                     style={{ display: "flex", gap: 4, padding: 2, background: "var(--card)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}
                   >
                     {DIM_OPTIONS.map(opt => (
@@ -515,13 +515,13 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
           style={{ width: "100%", padding: "4px 10px", fontSize: 14, marginTop: 4, justifyContent: "flex-start" }}
           onClick={addWindow}
         >
-          + {t("platform.windows_edit_add", "添加窗口")}
+          + {t("platform.windows_edit_add", "Add window")}
         </Button>
 
         {/* 底部操作 */}
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14 }}>
           <Button variant="ghost" onClick={onClose}>
-            {t("action.cancel", "取消")}
+            {t("action.cancel", "Cancel")}
           </Button>
           {/* 稿 1 footer .primary：单色反转（前景色底/背景色字），非紫渐变 */}
           <Button
@@ -529,7 +529,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
             style={{ background: "var(--foreground)", color: "var(--background)", borderColor: "var(--foreground)", fontWeight: 500 }}
             onClick={(e) => { makeRipple(e); handleSave(); }}
           >
-            {t("action.confirm", "确认")}
+            {t("action.confirm", "Confirm")}
           </Button>
         </div>
       </DialogContent>

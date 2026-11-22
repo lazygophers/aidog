@@ -24,17 +24,17 @@ export function ReportView({
   return (
     <div className="glass-surface" style={{ padding: 14, borderRadius: "var(--radius-lg)", display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <strong style={{ fontSize: 14, color: "var(--text-primary)" }}>{t("importExport.reportTitle", "导入结果")}</strong>
-        <StatChip value={String(appliedTotal)} label={t("importExport.applied", "已应用")} level="success" />
-        <StatChip value={String(skippedTotal)} label={t("importExport.skipped", "已跳过")} level="neutral" />
+        <strong style={{ fontSize: 14, color: "var(--text-primary)" }}>{t("importExport.reportTitle", "Import result")}</strong>
+        <StatChip value={String(appliedTotal)} label={t("importExport.applied", "Applied")} level="success" />
+        <StatChip value={String(skippedTotal)} label={t("importExport.skipped", "Skipped")} level="neutral" />
         {report.errors.length > 0 && (
-          <StatChip value={String(report.errors.length)} label={t("importExport.errorsLabel", "错误")} level="danger" />
+          <StatChip value={String(report.errors.length)} label={t("importExport.errorsLabel", "Errors")} level="danger" />
         )}
       </div>
 
       {applied.length > 0 && (
         <ReportSection
-          title={t("importExport.applied", "已应用")}
+          title={t("importExport.applied", "Applied")}
           color="var(--color-success)"
           bg="var(--color-success-bg)"
           icon={<IconCheck size={13} color="var(--color-success)" strokeWidth={2.5} />}
@@ -43,7 +43,7 @@ export function ReportView({
       )}
       {skipped.length > 0 && (
         <ReportSection
-          title={t("importExport.skipped", "已跳过")}
+          title={t("importExport.skipped", "Skipped")}
           color="var(--text-tertiary)"
           bg="var(--color-neutral-bg)"
           icon={<SectionIcon name="status" size={13} style={{ color: "var(--text-tertiary)" }} />}
@@ -52,7 +52,7 @@ export function ReportView({
       )}
       {report.errors.length > 0 && (
         <ReportSection
-          title={t("importExport.errors", "错误（{{n}}）", { n: report.errors.length })}
+          title={t("importExport.errors", "Errors ({{n}})", { n: report.errors.length })}
           color="var(--color-danger)"
           bg="var(--color-danger-bg)"
           rows={report.errors}

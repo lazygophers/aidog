@@ -67,7 +67,7 @@ function RuleEditor({ rule, onSave, onCancel }: {
     if (!expr) { setExprMsg(""); setExprOk(null); return; }
     try {
       await notificationApi.validateRuleExpr(expr);
-      setExprMsg(t("notif.rules.validOk", "✓ 表达式有效"));
+      setExprMsg(t("notif.rules.validOk", "✓ Valid expression"));
       setExprOk("ok");
     } catch (e) {
       setExprMsg(String(e));
@@ -90,21 +90,21 @@ function RuleEditor({ rule, onSave, onCancel }: {
       style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 0", borderTop: "1px solid var(--border)" }}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         <label style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: 14, minWidth: 160, flex: 1 }}>
-          <span className="text-secondary">{t("notif.rules.name", "名称")}</span>
+          <span className="text-secondary">{t("notif.rules.name", "Name")}</span>
           <Input className="input" style={{ fontSize: 14 }} value={draft.name}
             onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} />
         </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: 14, minWidth: 160 }}>
-          <span className="text-secondary">{t("notif.rules.matchType", "事件类型")}</span>
+          <span className="text-secondary">{t("notif.rules.matchType", "Event Type")}</span>
           <select className="input" style={{ fontSize: 14, padding: "4px 6px" }}
             value={draft.match_type ?? ""}
             onChange={e => setDraft(d => ({ ...d, match_type: e.target.value || null }))}>
-            <option value="">{t("notif.rules.anyType", "任意类型")}</option>
+            <option value="">{t("notif.rules.anyType", "Any type")}</option>
             {SEMANTIC_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: 14, minWidth: 120 }}>
-          <span className="text-secondary">{t("notif.rules.dedupSecs", "去重窗口（秒）")}</span>
+          <span className="text-secondary">{t("notif.rules.dedupSecs", "Dedup window (s)")}</span>
           <Input className="input" type="number" style={{ fontSize: 14 }} value={draft.action.dedup_window_secs}
             onChange={e => setDraft(d => ({ ...d, action: { ...d.action, dedup_window_secs: Number(e.target.value) || 0 } }))} />
         </label>
@@ -112,24 +112,24 @@ function RuleEditor({ rule, onSave, onCancel }: {
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between" }}>
           <span className="text-secondary" style={{ fontSize: 14 }}>
-            {t("notif.rules.condition", "条件表达式（可选：字段比较 + && / ||，字段 type/severity/vars.*）")}
+            {t("notif.rules.condition", "Condition (optional: field comparison + && / ||; fields type/severity/vars.*)")}
           </span>
           <div style={{ display: "flex", gap: 4 }}>
             <button type="button" id="notif-rule-mode-visual" data-state={mode === "visual" ? "active" : "idle"}
               onClick={() => mode === "text" && switchToVisual()}
               style={{ all: "unset", cursor: "pointer", fontSize: 14, padding: "1px 8px", borderRadius: "var(--radius-sm)",
                 background: mode === "visual" ? "var(--accent-subtle)" : "transparent", color: "var(--text-secondary)" }}>
-              {t("notif.rules.visualMode", "可视化")}
+              {t("notif.rules.visualMode", "Visual")}
             </button>
             <button type="button" id="notif-rule-mode-text" data-state={mode === "text" ? "active" : "idle"}
               onClick={() => mode === "visual" && switchToText()}
               style={{ all: "unset", cursor: "pointer", fontSize: 14, padding: "1px 8px", borderRadius: "var(--radius-sm)",
                 background: mode === "text" ? "var(--accent-subtle)" : "transparent", color: "var(--text-secondary)" }}>
-              {t("notif.rules.textMode", "文本")}
+              {t("notif.rules.textMode", "Text")}
             </button>
             <Button variant="ghost" size="sm" style={{ fontSize: 14, height: "auto", padding: "2px 8px" }}
               onClick={validate}>
-              {t("notif.rules.validate", "校验")}
+              {t("notif.rules.validate", "Validate")}
             </Button>
           </div>
         </div>
@@ -163,7 +163,7 @@ function RuleEditor({ rule, onSave, onCancel }: {
             ))}
             <Button variant="ghost" size="sm" style={{ fontSize: 14, height: "auto", padding: "2px 8px", alignSelf: "flex-start" }}
               onClick={() => applyVisual({ ...visual, terms: [...visual.terms, { field: "severity", op: "==", value: "" }] })}>
-              + {t("notif.rules.addField", "加条件")}
+              + {t("notif.rules.addField", "Add condition")}
             </Button>
             <div className="text-tertiary" style={{ fontSize: 14, fontFamily: "var(--font-mono, monospace)" }}>{toText(visual)}</div>
           </div>
@@ -174,7 +174,7 @@ function RuleEditor({ rule, onSave, onCancel }: {
         )}
         {degrade && (
           <div id="notif-rule-degrade" data-state="shown" style={{ fontSize: 14, color: "var(--color-warning)" }}>
-            {t("notif.rules.degradeHint", "该表达式无法转成可视化（原因见下），已保留原文——请继续在文本模式编辑")}
+            {t("notif.rules.degradeHint", "This expression cannot be converted to visual (reason below); the original text is kept — keep editing in text mode")}
             <div className="text-tertiary">{degrade}</div>
           </div>
         )}
@@ -182,7 +182,7 @@ function RuleEditor({ rule, onSave, onCancel }: {
       {exprMsg && <div id={`notif-rule-exprmsg-${draft.id}`} data-ok={exprOk === "ok" ? "yes" : "no"}
         style={{ fontSize: 14, color: exprMsg.startsWith("✓") ? "var(--color-success)" : "var(--color-danger)" }}>{exprMsg}</div>}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-        <span className="text-secondary" style={{ fontSize: 14 }}>{t("notif.rules.channels", "渠道")}</span>
+        <span className="text-secondary" style={{ fontSize: 14 }}>{t("notif.rules.channels", "Channels")}</span>
         {ALL_CHANNELS.map(c => (
           <label key={c} style={{ display: "flex", gap: 3, alignItems: "center", fontSize: 14 }}>
             <input type="checkbox" checked={draft.action.channels.includes(c)} onChange={() => toggleChannel(c)} />
@@ -192,17 +192,17 @@ function RuleEditor({ rule, onSave, onCancel }: {
         <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 14, marginLeft: 8 }}>
           <Switch checked={draft.action.bypass_dnd}
             onCheckedChange={v => setDraft(d => ({ ...d, action: { ...d.action, bypass_dnd: v } }))} />
-          {t("notif.rules.bypassDnd", "免打扰穿透")}
+          {t("notif.rules.bypassDnd", "Pierce DND")}
         </label>
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <Button variant="ghost" size="sm" style={{ fontSize: 14, height: "auto", padding: "4px 10px" }}
           onClick={() => onSave(draft)}>
-          {t("common.save", "保存")}
+          {t("common.save", "Save")}
         </Button>
         <Button variant="ghost" size="sm" style={{ fontSize: 14, height: "auto", padding: "4px 10px" }}
           onClick={onCancel}>
-          {t("common.cancel", "取消")}
+          {t("common.cancel", "Cancel")}
         </Button>
       </div>
     </div>
@@ -219,7 +219,7 @@ export function NotificationRulesSection({ settings, persist }: { settings: Noti
   const copyPreset = (r: Rule) => setRules(rs => [...rs, {
     ...r,
     id: `copy-of-${r.id}-${Date.now()}`,
-    name: `${r.name}（${t("notif.rules.copy", "副本")}）`,
+    name: `${r.name}（${t("notif.rules.copy", "copy")}）`,
     preset: false,
   }]);
 
@@ -227,19 +227,19 @@ export function NotificationRulesSection({ settings, persist }: { settings: Noti
     <div className="glass-surface" style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.rules.title", "通知规则")}</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.rules.title", "Notification Rules")}</div>
           <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
-            {t("notif.rules.desc", "命中规则按渠道并集投递；预置规则只可开关/复制")}
+            {t("notif.rules.desc", "Matched rules deliver to the union of channels; preset rules can only be toggled/copied")}
           </div>
         </div>
         <Button variant="ghost" size="sm" style={{ fontSize: 14, height: "auto", padding: "4px 10px" }}
           onClick={() => setEditing(blankRule(rules.length + 1))}>
-          + {t("notif.rules.add", "添加规则")}
+          + {t("notif.rules.add", "Add Rule")}
         </Button>
       </div>
       {rules.length === 0 && (
         <div className="text-secondary" style={{ fontSize: 14 }}>
-          {t("notif.rules.emptyHint", "未存储规则——分发回落内置预置（每种类型一条，可在上方开关）")}
+          {t("notif.rules.emptyHint", "No rules stored — dispatch falls back to built-in presets (one per type)")}
         </div>
       )}
       {editing && (
@@ -255,9 +255,9 @@ export function NotificationRulesSection({ settings, persist }: { settings: Noti
               onCheckedChange={v => setRules(rs => rs.map(x => x.id === r.id ? { ...x, enabled: v } : x))} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <span style={{ fontSize: 14, fontWeight: 600 }}>{r.name || r.id}</span>
-              {r.preset && <span style={{ fontSize: 14, marginLeft: 6, padding: "0 5px", borderRadius: "var(--radius-sm)", background: "var(--accent-subtle)", color: "var(--accent)" }}>{t("notif.rules.preset", "预置")}</span>}
+              {r.preset && <span style={{ fontSize: 14, marginLeft: 6, padding: "0 5px", borderRadius: "var(--radius-sm)", background: "var(--accent-subtle)", color: "var(--accent)" }}>{t("notif.rules.preset", "Preset")}</span>}
               <span style={{ fontSize: 14, color: "var(--text-tertiary)", marginLeft: 8 }}>
-                {r.match_type ?? t("notif.rules.anyType", "任意类型")}{r.condition ? ` · ${r.condition}` : ""}
+                {r.match_type ?? t("notif.rules.anyType", "Any type")}{r.condition ? ` · ${r.condition}` : ""}
               </span>
               <span style={{ fontSize: 14, color: "var(--text-secondary)", marginLeft: 8 }}>
                 → {r.action.channels.map(c => t(`notif.channel.${c}`, c)).join(", ")}
@@ -266,17 +266,17 @@ export function NotificationRulesSection({ settings, persist }: { settings: Noti
             {r.preset ? (
               <Button variant="ghost" size="sm" style={{ fontSize: 14, height: "auto", padding: "2px 8px" }}
                 onClick={() => copyPreset(r)}>
-                {t("notif.rules.copyAction", "复制")}
+                {t("notif.rules.copyAction", "Copy")}
               </Button>
             ) : (
               <div style={{ display: "flex", gap: 4 }}>
                 <Button variant="ghost" size="sm" style={{ fontSize: 14, height: "auto", padding: "2px 8px" }}
                   onClick={() => setEditing(r)}>
-                  {t("notif.rules.edit", "编辑")}
+                  {t("notif.rules.edit", "Edit")}
                 </Button>
                 <Button variant="ghost" size="sm" style={{ fontSize: 14, height: "auto", padding: "2px 8px" }}
                   onClick={() => setRules(rs => rs.filter(x => x.id !== r.id))}>
-                  {t("notif.rules.delete", "删除")}
+                  {t("notif.rules.delete", "Delete")}
                 </Button>
               </div>
             )}

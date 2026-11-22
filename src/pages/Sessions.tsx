@@ -241,26 +241,26 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
     .filter((r) => stateOf(r) === "running" || (r.clientCode === "claude_code" && states[`${r.clientCode}:${r.sessionId}`]?.source === "pid_file"))
     .sort((a, b) => activityOf(b) - activityOf(a));
   const offClients = SESSION_CLIENTS.filter((c) => !enabled[c.code]);
-  const rangeLabel = { today: t("stats.today", "今天"), "7d": t("stats.7d", "近 7 天"), "30d": t("stats.30d", "近 30 天") }[range];
+  const rangeLabel = { today: t("stats.today", "Today"), "7d": t("stats.7d", "Last 7d"), "30d": t("stats.30d", "Last 30d") }[range];
   const importing = status?.import.running ?? false;
 
   return (
     <section className="space-y-5" data-testid="sessions-page">
       <header className="flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold">{t("sessions.title", "会话")}</h1>
-        <span className="text-sm text-muted-foreground">{t("sessions.desc", "本机 AI 客户端会话的用量记录，不含对话内容")}</span>
+        <h1 className="text-xl font-semibold">{t("sessions.title", "Sessions")}</h1>
+        <span className="text-sm text-muted-foreground">{t("sessions.desc", "Usage records of local AI client sessions, without conversation content")}</span>
         <span className="flex-1" />
         <Select value={range} onValueChange={(v) => setRange(v as Range)}>
           <SelectTrigger className="w-36" data-testid="sessions-range"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="today" data-testid="range-opt-today">{t("stats.today", "今天")}</SelectItem>
-            <SelectItem value="7d" data-testid="range-opt-7d">{t("stats.7d", "近 7 天")}</SelectItem>
-            <SelectItem value="30d" data-testid="range-opt-30d">{t("stats.30d", "近 30 天")}</SelectItem>
+            <SelectItem value="today" data-testid="range-opt-today">{t("stats.today", "Today")}</SelectItem>
+            <SelectItem value="7d" data-testid="range-opt-7d">{t("stats.7d", "Last 7d")}</SelectItem>
+            <SelectItem value="30d" data-testid="range-opt-30d">{t("stats.30d", "Last 30d")}</SelectItem>
           </SelectContent>
         </Select>
         {anyEnabled && (
           <Button variant="outline" data-testid="sessions-refresh" disabled={importing} onClick={() => void rescan()}>
-            {importing ? t("clientUsage.refreshing", "正在导入…") : t("clientUsage.refresh", "立即刷新")}
+            {importing ? t("clientUsage.refreshing", "Importing…") : t("clientUsage.refresh", "Refresh Now")}
           </Button>
         )}
       </header>
@@ -268,7 +268,7 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
       {error && (
         <div role="alert" className="flex items-center gap-3 text-sm text-destructive" data-testid="sessions-load-error">
           <span className="min-w-0 break-all">{error}</span>
-          <Button size="sm" variant="outline" data-testid="sessions-retry" onClick={() => void load()}>{t("sessions.retry", "重试")}</Button>
+          <Button size="sm" variant="outline" data-testid="sessions-retry" onClick={() => void load()}>{t("sessions.retry", "Retry")}</Button>
         </div>
       )}
 
@@ -279,14 +279,14 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
       {status && !anyEnabled && (
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-8 rounded-xl border border-dashed bg-card p-10" data-testid="sessions-guide">
           <div>
-            <h2 className="mb-2 text-xl font-semibold">{t("sessions.guideTitle", "四个客户端都还没有开启读取")}</h2>
-            <p className="max-w-[620px] leading-relaxed text-muted-foreground">{t("sessions.guideDesc", "开启后，AiDog 读取所选客户端在本机写下的会话文件，按项目列出每个会话的调用次数、token 与成本。读取开关在设置里，可以只开其中一个。")}</p>
+            <h2 className="mb-2 text-xl font-semibold">{t("sessions.guideTitle", "None of the four clients has reading enabled")}</h2>
+            <p className="max-w-[620px] leading-relaxed text-muted-foreground">{t("sessions.guideDesc", "Once enabled, AiDog reads the session files the selected clients write on this machine and lists each session's calls, tokens and cost by project. The reading switches are in Settings; you can enable just one.")}</p>
             <ul className="mt-3 list-disc ps-5 text-sm leading-loose text-muted-foreground">
-              <li>{t("sessions.guideMeta", "只记录元数据：会话标题、工作目录、token、成本")}</li>
-              <li>{t("sessions.guideNoBody", "对话正文不入库；随时可在设置中关闭")}</li>
+              <li>{t("sessions.guideMeta", "Only metadata is recorded: session title, working directory, tokens, cost")}</li>
+              <li>{t("sessions.guideNoBody", "Conversation text is never stored; you can turn it off in Settings at any time")}</li>
             </ul>
           </div>
-          <Button data-testid="sessions-guide-go" onClick={goSettings}>{t("clientUsage.guideGo", "去设置启用")}</Button>
+          <Button data-testid="sessions-guide-go" onClick={goSettings}>{t("clientUsage.guideGo", "Enable in Settings")}</Button>
         </div>
       )}
 
@@ -299,16 +299,16 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
                   <ClientIcon code={c.code} size={14} />{c.name}
                 </span>
               ))}
-              <span>{t("sessions.tileOff", "未启用读取")} ·</span>
+              <span>{t("sessions.tileOff", "Reading off")} ·</span>
               <Button variant="link" size="sm" className="h-auto p-0" data-testid="sessions-partial-off-go" onClick={goSettings}>
-                {t("clientUsage.guideGo", "去设置启用")}
+                {t("clientUsage.guideGo", "Enable in Settings")}
               </Button>
             </div>
           )}
 
           <div className="flex items-center gap-2.5" data-testid="sessions-toolbar">
-            <div role="tablist" className="flex items-center gap-1 rounded-lg border border-border bg-card p-1" aria-label={t("sessions.title", "会话")}>
-              {[{ code: "all", name: t("sessions.tabAll", "全部") }, ...SESSION_CLIENTS].map((c) => {
+            <div role="tablist" className="flex items-center gap-1 rounded-lg border border-border bg-card p-1" aria-label={t("sessions.title", "Sessions")}>
+              {[{ code: "all", name: t("sessions.tabAll", "All") }, ...SESSION_CLIENTS].map((c) => {
                 const off = c.code !== "all" && !enabled[c.code];
                 const selected = activeTab === c.code;
                 return (
@@ -318,7 +318,7 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
                     role="tab"
                     aria-selected={selected}
                     disabled={off}
-                    title={off ? t("sessions.tileOff", "未启用读取") : undefined}
+                    title={off ? t("sessions.tileOff", "Reading off") : undefined}
                     className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm ${selected ? "bg-[var(--accent-subtle)] font-medium text-foreground" : "text-muted-foreground hover:bg-muted"} disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent`}
                     data-testid={`sessions-tab-${c.code}`}
                     onClick={() => setTab(c.code)}
@@ -330,19 +330,19 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
               })}
             </div>
             <span className="font-mono text-sm text-muted-foreground tabular-nums" data-testid="sessions-count" data-count={String(shown.length)}>
-              {t("sessions.count", "{{n}} 个会话", { n: shown.length })}
+              {t("sessions.count", "{{n}} sessions", { n: shown.length })}
             </span>
             <span className="flex-1" />
             <Button variant="outline" data-testid="sessions-trash" onClick={() => setTrashOpen(true)}>
               <Trash2 aria-hidden className="size-4" />
-              {t("sessions.trash", "回收站")}
+              {t("sessions.trash", "Trash")}
             </Button>
             <Input
               className="w-64"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={t("sessions.search", "搜索标题或目录")}
-              aria-label={t("sessions.search", "搜索标题或目录")}
+              placeholder={t("sessions.search", "Search title or directory")}
+              aria-label={t("sessions.search", "Search title or directory")}
               data-testid="sessions-search"
             />
           </div>
@@ -359,28 +359,28 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
               >
                 <span className="min-w-0">
                   {notice.kind === "error"
-                    ? t("sessions.resumeFailed", "继续会话失败：{{error}}", { error: notice.text })
+                    ? t("sessions.resumeFailed", "Failed to resume session: {{error}}", { error: notice.text })
                     : notice.kind === "open-error"
-                    ? t("sessions.openDirFailed", "打开目录失败：{{error}}", { error: notice.text })
+                    ? t("sessions.openDirFailed", "Couldn't open folder: {{error}}", { error: notice.text })
                     : notice.kind === "hide-error"
-                    ? t("sessions.hideFailed", "隐藏失败：{{error}}", { error: notice.text })
+                    ? t("sessions.hideFailed", "Couldn't hide: {{error}}", { error: notice.text })
                     : notice.kind === "hidden"
-                    ? t("sessions.hidden", "已从列表隐藏：{{title}}", { title: notice.text })
+                    ? t("sessions.hidden", "Hidden from list: {{title}}", { title: notice.text })
                     : notice.kind === "resume-copied"
-                    ? t("sessions.resumeCommandCopied", "继续命令已复制：{{command}}", { command: notice.text })
-                    : t("sessions.resumeCopied", "当前系统无法直接打开终端，继续命令已复制：{{command}}", { command: notice.text })}
+                    ? t("sessions.resumeCommandCopied", "Resume command copied: {{command}}", { command: notice.text })
+                    : t("sessions.resumeCopied", "Can't open a terminal on this system. Resume command copied: {{command}}", { command: notice.text })}
                 </span>
                 {notice.kind === "hidden" && notice.row && (
                   <Button size="sm" variant="link" className="h-auto shrink-0 p-0" data-testid="sessions-hide-undo" onClick={() => void undoHide(notice.row!)}>
-                    {t("sessions.undo", "撤销")}
+                    {t("sessions.undo", "Undo")}
                   </Button>
                 )}
                 <Button
                   size="icon"
                   variant="ghost"
                   className="size-7 shrink-0 text-muted-foreground"
-                  aria-label={t("sessions.noticeClose", "关闭提示")}
-                  title={t("sessions.noticeClose", "关闭提示")}
+                  aria-label={t("sessions.noticeClose", "Dismiss")}
+                  title={t("sessions.noticeClose", "Dismiss")}
                   data-testid="sessions-notice-close"
                   onClick={() => setNotice(null)}
                 >
@@ -393,18 +393,18 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
 
           {enabledRows.length === 0 ? (
             <div className="border-t py-10 text-muted-foreground" data-testid="sessions-empty">
-              <h3 className="mb-1.5 text-lg font-semibold text-foreground">{t("sessions.emptyTitle", "{{range}}没有会话记录", { range: rangeLabel })}</h3>
-              <p className="mb-3.5">{t("sessions.emptyDesc", "已启用的客户端暂时没有新会话。会话文件更新后会自动导入。")}</p>
+              <h3 className="mb-1.5 text-lg font-semibold text-foreground">{t("sessions.emptyTitle", "No sessions — {{range}}", { range: rangeLabel })}</h3>
+              <p className="mb-3.5">{t("sessions.emptyDesc", "Enabled clients have no new sessions yet. Updated session files are imported automatically.")}</p>
               <Button variant="outline" data-testid="sessions-rescan" disabled={importing} onClick={() => void rescan()}>
-                {t("sessions.rescan", "重新扫描")}
+                {t("sessions.rescan", "Rescan")}
               </Button>
             </div>
           ) : shown.length === 0 ? (
-            <p className="border-t py-10 text-muted-foreground" data-testid="sessions-no-match">{t("sessions.noMatch", "没有匹配的会话")}</p>
+            <p className="border-t py-10 text-muted-foreground" data-testid="sessions-no-match">{t("sessions.noMatch", "No matching sessions")}</p>
           ) : (
             <>
               <SessionGroups rows={shown} pinned={pinned} stateOf={stateOf} isResuming={isResuming} onResume={onResume} onOpenDir={onOpenDir} onHide={onHide} ctxRatioOf={(r) => ctxRatios.get(r.sessionId)} installed={installed} transcriptOn={transcriptOn} onCarry={onCarry} onNeedTranscript={onNeedTranscript} />
-              <p className="text-sm text-muted-foreground">{t("sessions.footHint", "成本带 + 表示部分调用未定价。")}</p>
+              <p className="text-sm text-muted-foreground">{t("sessions.footHint", "A + on cost means some calls are unpriced.")}</p>
             </>
           )}
         </>

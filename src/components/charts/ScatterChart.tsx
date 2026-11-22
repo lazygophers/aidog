@@ -78,8 +78,8 @@ export function ScatterChart({
   const points = useMemo(() => scatterPoints(histogram), [histogram]);
   const fmtX = formatX ?? formatDurationMs;
   const fmtY = formatY ?? formatMoney;
-  const xl = xLabel ?? t("charts.scatterX", "延迟");
-  const yl = yLabel ?? t("charts.scatterY", "成本");
+  const xl = xLabel ?? t("charts.scatterX", "Latency");
+  const yl = yLabel ?? t("charts.scatterY", "Cost");
 
   // 轴域钉在 bin 边界（服务端 nice 边界），空矩阵退化 [0,1]
   const xDomain: [number, number] = histogram.duration_bins.length > 1

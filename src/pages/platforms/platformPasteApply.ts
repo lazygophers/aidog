@@ -302,7 +302,7 @@ export async function runBatchCreateFromPaste(
   const proto = effectiveProtocol ?? protocol;
   const baseUrl = getPrimaryBaseUrl(proto, eps);
   if (!baseUrl && eps.length === 0) {
-    setToast({ text: t("platform.batch.noBaseUrl", "批量创建失败：未设置 Base URL"), ok: false });
+    setToast({ text: t("platform.batch.noBaseUrl", "Batch create failed: no Base URL set"), ok: false });
     setTimeout(() => setToast(null), 4000);
     return;
   }
@@ -314,7 +314,7 @@ export async function runBatchCreateFromPaste(
   let okCount = 0;
   const failures: { key: string; err: string }[] = [];
   // 批量进行中即时反馈（避免 N 次串行 invoke 时用户以为卡死）。
-  setToast({ text: t("platform.batch.progress", "批量创建中… {{done}}/{{total}}", { done: 0, total: keys.length }), ok: true });
+  setToast({ text: t("platform.batch.progress", "Batch creating… {{done}}/{{total}}", { done: 0, total: keys.length }), ok: true });
   for (let i = 0; i < keys.length; i++) {
     const k = keys[i];
     // name 计算复用 previewBatchNames 的单元素版本（保持预览 = 实际创建名一致）。
@@ -336,7 +336,7 @@ export async function runBatchCreateFromPaste(
       setPlatforms(prev => prev.some(x => x.id === saved.id) ? prev : [...prev, saved]);
       quota.scheduleQuotaFor(saved);
       // 进度 toast（每条更新）
-      setToast({ text: t("platform.batch.progress", "批量创建中… {{done}}/{{total}}", { done: i + 1, total: keys.length }), ok: true });
+      setToast({ text: t("platform.batch.progress", "Batch creating… {{done}}/{{total}}", { done: i + 1, total: keys.length }), ok: true });
     } catch (e: any) {
       failures.push({ key: k.slice(-4), err: e?.toString() || "Unknown error" });
       console.error("batch create failed", { keyTail: k.slice(-4) }, e);
@@ -349,11 +349,11 @@ export async function runBatchCreateFromPaste(
   window.dispatchEvent(new Event("aidog-groups-changed"));
   resetForm();
   if (failures.length === 0) {
-    setToast({ text: t("platform.batch.allOk", "批量创建完成：成功 {{n}} 个", { n: okCount }), ok: true });
+    setToast({ text: t("platform.batch.allOk", "Batch create done: {{n}} succeeded", { n: okCount }), ok: true });
   } else {
     const failList = failures.map(f => `${f.key.slice(-4)}: ${f.err}`).join("; ");
     setToast({
-      text: `${t("platform.batch.summary", "批量创建：成功 {{ok}} / 失败 {{fail}}", { ok: okCount, fail: failures.length })} — ${failList}`,
+      text: `${t("platform.batch.summary", "Batch create: {{ok}} succeeded / {{fail}} failed", { ok: okCount, fail: failures.length })} — ${failList}`,
       ok: okCount > 0,
     });
   }

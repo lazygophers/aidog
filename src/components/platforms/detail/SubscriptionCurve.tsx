@@ -45,22 +45,22 @@ export function SubscriptionCurveView({ curve, nowMs }: {
     ? t(
         snapshotPct != null ? "platform.detail.curveNoHistory" : "platform.detail.curveUnknown",
         snapshotPct != null
-          ? "无完整且同单位的本地历史；仅显示官方快照。"
-          : "窗口覆盖或额度单位未确认，剩余值未知。",
+          ? "No complete, unit-matched local history; showing the official snapshot only."
+          : "Window coverage or quota unit is unknown; remaining cannot be established.",
       )
     : actual.length < 3
-      ? t("platform.detail.curveSparse", "仅 {{count}} 个可验证日采样点；不绘制平滑趋势。")
+      ? t("platform.detail.curveSparse", "Only {{count}} verified daily samples; no smooth trend is drawn.")
           .replace("{{count}}", `${actual.length}`)
       : snapshotPct == null
-        ? t("platform.detail.curveCurrentUnknown", "本地曲线只到最新采样时刻，当前剩余未知。")
+        ? t("platform.detail.curveCurrentUnknown", "The local curve ends at the latest sample; current remaining is unknown.")
         : null;
 
   const calibLabel = (c: CalibrationPoint) =>
-    t("platform.detail.snapshot", "快照 {{pct}}%").replace("{{pct}}", `${Math.round(c.pct)}`);
+    t("platform.detail.snapshot", "Snapshot {{pct}}%").replace("{{pct}}", `${Math.round(c.pct)}`);
 
   return (
     <div data-testid="detail-t3-curve" ref={chartRef}>
-      <svg viewBox="-90 -20 850 344" width="100%" direction="ltr" role="img" aria-label={t("platform.detail.curve", "订阅消耗曲线")}>
+      <svg viewBox="-90 -20 850 344" width="100%" direction="ltr" role="img" aria-label={t("platform.detail.curve", "Subscription Usage Curve")}>
         {/* 横向网格线 + Y 轴刻度 */}
         {[100, 75, 50, 25, 0].map((p, i) => (
           <g key={p}>
@@ -108,8 +108,8 @@ export function SubscriptionCurveView({ curve, nowMs }: {
           stroke="var(--muted-foreground)" strokeWidth={1.5} strokeDasharray="4 4" />
       </svg>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", fontSize: 14, color: "var(--muted-foreground)", marginTop: 4 }}>
-        <span>{t("platform.detail.todayLabel", "今天")}</span>
-        <span>{t("platform.detail.resetAt", "重置于 {{time}}").replace("{{time}}", resetLabel ?? "-")}</span>
+        <span>{t("platform.detail.todayLabel", "Today")}</span>
+        <span>{t("platform.detail.resetAt", "Resets {{time}}").replace("{{time}}", resetLabel ?? "-")}</span>
       </div>
       {calibrations.length > 0 && (
         <div data-testid="detail-t3-calibrations" style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 14, color: "var(--color-warning)", marginTop: 6 }}>
@@ -117,11 +117,11 @@ export function SubscriptionCurveView({ curve, nowMs }: {
         </div>
       )}
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 14, color: "var(--muted-foreground)", marginTop: 8 }}>
-        <LegendSwatch kind="line" label={t("platform.detail.actualLine", "本地额度余量（日桶采样；线段为保形插值）")} />
-        <LegendSwatch kind="dot" label={t("platform.detail.rawPoints", "原始记账点")} />
-        <LegendSwatch kind="dash" label={t("platform.detail.planLine", "计划消耗线")} />
-        <LegendSwatch kind="calib" label={t("platform.detail.calibPoints", "额度快照校准点")} />
-        <LegendSwatch kind="vline" label={t("platform.detail.resetDay", "重置日")} />
+        <LegendSwatch kind="line" label={t("platform.detail.actualLine", "Local remaining (daily samples; shape-preserving interpolation)")} />
+        <LegendSwatch kind="dot" label={t("platform.detail.rawPoints", "Raw ledger points")} />
+        <LegendSwatch kind="dash" label={t("platform.detail.planLine", "Planned usage line")} />
+        <LegendSwatch kind="calib" label={t("platform.detail.calibPoints", "Quota snapshot calibration points")} />
+        <LegendSwatch kind="vline" label={t("platform.detail.resetDay", "Reset day")} />
       </div>
       {dataNote && (
         <div data-testid="detail-t3-sparse" role="note" style={{ marginTop: 8, fontSize: 14, color: "var(--muted-foreground)" }}>
@@ -131,21 +131,21 @@ export function SubscriptionCurveView({ curve, nowMs }: {
       <div style={{ marginTop: 8, fontSize: 14, color: "var(--text-secondary)" }}>
         {snapshotPct != null && calibrations[0] && (
           <div data-testid="detail-t3-snapshot">
-            {t("platform.detail.quotaSnapshotAt", "官方快照 {{pct}}% · {{time}}")
+            {t("platform.detail.quotaSnapshotAt", "Official snapshot: {{pct}}% · {{time}}")
               .replace("{{pct}}", `${Math.round(snapshotPct)}`)
               .replace("{{time}}", formatDateTime(calibrations[0].t) ?? "-")}
           </div>
         )}
         {snapshotPct == null && latestActual && (
           <div data-testid="detail-t3-latest">
-            {t("platform.detail.latestRecorded", "最新本地日桶 {{pct}}% · {{time}}")
+            {t("platform.detail.latestRecorded", "Latest local daily sample: {{pct}}% · {{time}}")
               .replace("{{pct}}", `${Math.round(latestActual.pct)}`)
               .replace("{{time}}", formatDateTime(latestActual.t) ?? "-")}
           </div>
         )}
         {deviationFlag && (
           <div data-testid="detail-t3-deviation" style={{ color: "var(--color-warning)", marginTop: 4 }}>
-            {t("platform.detail.deviationNote", "快照与本地记账偏差 {{pct}}%，可能存在未记录的用量")
+            {t("platform.detail.deviationNote", "Snapshot deviates {{pct}}% from local ledger; usage may be unrecorded")
               .replace("{{pct}}", maxDeviation!.toFixed(1))}
           </div>
         )}

@@ -122,7 +122,7 @@ describe("DetailPanel Claude Code 网关提示头", () => {
   it("已知请求类型映射为本地化标签，子代理类型原样展示", () => {
     const d = { ...detailFixture([attempt(1, 200)]), request_class: "subagent", agent_type: "Explore" } as unknown as ProxyLogDetail;
     renderPanel(d);
-    expect(screen.getByTestId("detail-request-class").textContent).toBe("子代理");
+    expect(screen.getByTestId("detail-request-class").textContent).toBe("Subagent");
     expect(screen.getByTestId("detail-agent-type").textContent).toBe("Explore");
   });
 
@@ -151,7 +151,7 @@ describe("DetailPanel Claude Code 网关 id / 压缩 / 工具耗时", () => {
     expect(screen.getByTestId("detail-session-id").textContent).toBe("s-1");
     expect(screen.getByTestId("detail-agent-id").textContent).toBe("ag-1");
     expect(screen.getByTestId("detail-parent-agent-id").textContent).toBe("ag-0");
-    expect(screen.getByTestId("detail-compaction").textContent).toBe("手动");
+    expect(screen.getByTestId("detail-compaction").textContent).toBe("Manual");
     expect(screen.getByTestId("detail-context-compacted").textContent).toBe("weird");
     const rows = screen.getAllByTestId("detail-tool-duration");
     expect(rows.map(r => r.textContent)).toEqual(["Bash742 ms", "Read9 ms"]);

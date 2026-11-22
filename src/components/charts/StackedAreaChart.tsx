@@ -251,7 +251,7 @@ export function StackedAreaChart({
             color: textColor ?? "var(--text-secondary)",
           }}
         >
-          <span>{t("charts.noData", "暂无数据")}</span>
+          <span>{t("charts.noData", "No data available")}</span>
           {emptyHint != null && (
             <span style={{ fontSize: 14, opacity: 0.75 }}>{emptyHint}</span>
           )}

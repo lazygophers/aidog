@@ -38,13 +38,13 @@ export function DetailHeader({ platform: p, membership, onBack, service }: {
         variant="ghost" size="sm"
         data-testid="detail-back"
         onClick={onBack}
-        title={t("platform.back", "返回")}
+        title={t("platform.back", "Back")}
         style={{ flexShrink: 0 }}
       >
         <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <path d="M9 2 4 7l5 5" />
         </svg>
-        {t("platform.back", "返回")}
+        {t("platform.back", "Back")}
       </Button>
       {/* Logo + 健康三态灯（与卡片同款派生） */}
       <div style={{ position: "relative", flexShrink: 0 }}>
@@ -73,7 +73,7 @@ export function DetailHeader({ platform: p, membership, onBack, service }: {
             boxShadow: `0 0 4px ${HEALTH_COLORS[health]}60`,
           }}
           title={p.last_error
-            ? t("platform.lastErrorHint", "最近一次失败 · {{time}}\n{{error}}")
+            ? t("platform.lastErrorHint", "Last failure · {{time}}\n{{error}}")
                 .replace("{{time}}", formatDateTime(p.last_error_at) ?? "")
                 .replace("{{error}}", p.last_error)
             : undefined}
@@ -84,24 +84,24 @@ export function DetailHeader({ platform: p, membership, onBack, service }: {
         <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, flexWrap: "wrap" }}>
           <span style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
           {isCpProtocol && (
-            <Pill color="var(--color-success)" title={t("platform.codingPlanHint", "Coding Plan 套餐协议：走独立子域 / 配额计费")}>
+            <Pill color="var(--color-success)" title={t("platform.codingPlanHint", "Coding Plan protocol: dedicated subdomain / quota-billed")}>
               {t("platform.codingPlanBadge", "Coding Plan")}
             </Pill>
           )}
           {p.platform_type === "claude_code" && (
-            <Pill color="var(--accent)" title={t("platform.subscriptionHint", "订阅透传：OAuth 订阅绑定，流量经 MITM 观测（不计费，按窗口限额）")}>
-              {t("platform.subscriptionBadge", "订阅")}
+            <Pill color="var(--accent)" title={t("platform.subscriptionHint", "Subscription passthrough: OAuth-bound, traffic observed via MITM (not billed, window-limited)")}>
+              {t("platform.subscriptionBadge", "Subscription")}
             </Pill>
           )}
           {p.status === "auto_disabled" && (
-            <Pill color="var(--color-warning)" title={t("platform.autoDisabledHint", "401/403 自动禁用，下次试探时间 {{time}}")
+            <Pill color="var(--color-warning)" title={t("platform.autoDisabledHint", "Auto-disabled on 401/403, next probe at {{time}}")
               .replace("{{time}}", p.auto_disabled_until > 0 ? (formatDateTime(p.auto_disabled_until) ?? "-") : "-")}>
-              {t("platform.autoDisabled", "自动禁用")}
+              {t("platform.autoDisabled", "Auto-disabled")}
             </Pill>
           )}
         </div>
         <div className="text-secondary" style={{ fontSize: 14, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "var(--font-mono, monospace)" }}>
-          {p.platform_type === "unknown" ? t("platform.unknownProtocol", "未知协议") : protocolLabel || p.platform_type} · {url}
+          {p.platform_type === "unknown" ? t("platform.unknownProtocol", "Unknown protocol") : protocolLabel || p.platform_type} · {url}
         </div>
         {membership && membership.length > 0 && (
           <div style={{ marginTop: 3, display: "flex", gap: 4, flexWrap: "wrap" }}>
@@ -120,10 +120,10 @@ export function DetailHeader({ platform: p, membership, onBack, service }: {
         style={{ cursor: "pointer", flexShrink: 0 }}
         onClick={() => service.onToggleEnabled(p)}
         title={p.status === "enabled"
-          ? t("platform.disable", "禁用")
+          ? t("platform.disable", "Disable")
           : p.status === "auto_disabled"
-            ? t("platform.reenable", "重新启用")
-            : t("platform.enable", "启用")}
+            ? t("platform.reenable", "Re-enable")
+            : t("platform.enable", "Enable")}
       />
     </header>
   );

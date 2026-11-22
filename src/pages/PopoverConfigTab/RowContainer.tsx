@@ -31,9 +31,9 @@ export function RowContainer({
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-          {t("popover.rowLabel", "第 {{n}} 行", { n: row + 1 })}
+          {t("popover.rowLabel", "Row {{n}}", { n: row + 1 })}
         </span>
-        <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("popover.cols", "列数")}</span>
+        <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("popover.cols", "Columns")}</span>
         {[1, 2, 3].map((c) => (
           <Button
             key={c}

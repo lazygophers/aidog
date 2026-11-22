@@ -260,7 +260,7 @@ export function FlowChart({ columns, rows, metric, surface = "var(--card)" }: Fl
   const H = TOP + Math.max(0, ...nodes.map(n => n.y + n.h - TOP)) + 8;
   const nx = (ci: number) => 4 + ci * COL_GAP;
   const label = (ci: number, id: string) =>
-    id === OTHER ? t("group.flow.other", "其他") : (columns[ci].labelOf?.(id) ?? (id === "" ? t("flow.model.none", "未指定") : id));
+    id === OTHER ? t("group.flow.other", "Other") : (columns[ci].labelOf?.(id) ?? (id === "" ? t("flow.model.none", "Unspecified") : id));
 
   // 高亮链路：节点 → 其上游全部连线 ∪ 下游全部连线；连线 → 自身 ∪ 源上游 ∪ 宿下游
   const lit = useMemo(() => {

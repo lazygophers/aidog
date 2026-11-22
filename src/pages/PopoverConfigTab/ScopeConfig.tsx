@@ -41,9 +41,9 @@ export function ScopeConfig({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="overall">{t("popover.trendScopeOverall", "整体")}</SelectItem>
-            <SelectItem value="group">{t("popover.trendScopeGroup", "分组")}</SelectItem>
-            <SelectItem value="platform">{t("popover.trendScopePlatform", "平台")}</SelectItem>
+            <SelectItem value="overall">{t("popover.trendScopeOverall", "Overall")}</SelectItem>
+            <SelectItem value="group">{t("popover.trendScopeGroup", "Group")}</SelectItem>
+            <SelectItem value="platform">{t("popover.trendScopePlatform", "Platform")}</SelectItem>
           </SelectContent>
         </Select>
         {item.scope === "group" && (
@@ -89,7 +89,7 @@ function GroupSelect({ item, groups, t, onUpdate }: { item: PopoverItem; groups:
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {groups.length === 0 && <SelectItem value="__none__">{t("popover.trendNoGroup", "无分组")}</SelectItem>}
+        {groups.length === 0 && <SelectItem value="__none__">{t("popover.trendNoGroup", "No groups")}</SelectItem>}
         {groups.map((g) => (
           <SelectItem key={g.group_key} value={g.group_key}>{g.name}</SelectItem>
         ))}
@@ -108,7 +108,7 @@ function PlatformSelect({ item, platforms, t, onUpdate }: { item: PopoverItem; p
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {platforms.length === 0 && <SelectItem value="__none__">{t("popover.trendNoPlatform", "无平台")}</SelectItem>}
+        {platforms.length === 0 && <SelectItem value="__none__">{t("popover.trendNoPlatform", "No platforms")}</SelectItem>}
         {platforms.map((p) => (
           <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
         ))}
@@ -129,7 +129,7 @@ function WindowSelect({ item, t, onUpdate, def }: { item: PopoverItem; t: (k: st
       <SelectContent>
         {TREND_WINDOWS.map((w) => (
           <SelectItem key={w} value={w}>
-            {t(`popover.trendWindow_${w}`, w === "today" ? "今日" : w === "30d" ? "近 30 天" : "近 7 天")}
+            {t(`popover.trendWindow_${w}`, w === "today" ? "Today" : w === "30d" ? "Last 30 days" : "Last 7 days")}
           </SelectItem>
         ))}
       </SelectContent>

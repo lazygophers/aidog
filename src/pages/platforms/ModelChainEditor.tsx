@@ -62,8 +62,8 @@ export function ModelChainEditor({
               data-testid={`chip-handle-${id}`}
               {...handle.attributes}
               {...handle.listeners}
-              aria-label={t("platform.modelChain.drag", "拖动排序")}
-              title={t("platform.modelChain.drag", "拖动排序")}
+              aria-label={t("platform.modelChain.drag", "Drag to reorder")}
+              title={t("platform.modelChain.drag", "Drag to reorder")}
               style={{ cursor: "grab", color: "var(--text-tertiary)", touchAction: "none", userSelect: "none" }}
             >
               ⠿
@@ -73,8 +73,8 @@ export function ModelChainEditor({
               type="button"
               data-testid={`chip-remove-${id}`}
               className="model-chip-remove"
-              aria-label={t("platform.modelChain.remove", "移除")}
-              title={t("platform.modelChain.remove", "移除")}
+              aria-label={t("platform.modelChain.remove", "Remove")}
+              title={t("platform.modelChain.remove", "Remove")}
               onClick={() => onChange(value.filter((m) => m !== id))}
               style={{ cursor: "pointer", color: "var(--text-tertiary)", background: "transparent", border: 0, padding: "0 2px" }}
             >
@@ -88,7 +88,7 @@ export function ModelChainEditor({
         value={draft} onChange={setDraft} onSelect={toggle}
         source={source} selected={value} protocol={protocol}
         open={open} onOpenChange={onOpenChange}
-        placeholder={t("platform.modelChain.add", "添加模型（回车确认）")}
+        placeholder={t("platform.modelChain.add", "Add model (Enter to confirm)")}
         inputProps={{
           "data-testid": `chain-input-${testId}`,
           onKeyDown: (e) => {

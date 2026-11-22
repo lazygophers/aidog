@@ -37,11 +37,11 @@ export function GroupSidePanels({ group, gps }: { group: Group; gps: GroupPlatfo
       {/* ── 上：候选序 + 下一个请求 ── */}
       <div id="g3-candidates" className="glass-surface" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 14, fontWeight: 600 }}>{t("group.candidates.title", "候选序")}</span>
+          <span style={{ fontSize: 14, fontWeight: 600 }}>{t("group.candidates.title", "Candidates")}</span>
           <span className="text-tertiary" style={{ fontSize: 14, fontFamily: "var(--font-mono, monospace)" }}>{routingModeLabel(t, group.routing_mode)}</span>
         </div>
         {ordered.length === 0 ? (
-          <div className="text-secondary" style={{ fontSize: 14 }}>{t("group.candidates.none", "无启用中的候选平台")}</div>
+          <div className="text-secondary" style={{ fontSize: 14 }}>{t("group.candidates.none", "No enabled candidate platforms")}</div>
         ) : (
           <>
             <div id="g3-next-request" style={{
@@ -49,10 +49,10 @@ export function GroupSidePanels({ group, gps }: { group: Group; gps: GroupPlatfo
               background: "var(--accent-subtle)", color: "var(--primary)",
               display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap",
             }}>
-              <span style={{ fontWeight: 600 }}>{t("group.next.title", "下一个请求")}</span>
+              <span style={{ fontWeight: 600 }}>{t("group.next.title", "Next request")}</span>
               <span>→</span>
               {isLB
-                ? t("group.next.distributed", { defaultValue: "按权重分布（{{n}} 个候选）", n: ordered.length })
+                ? t("group.next.distributed", { defaultValue: "Weighted distribution ({{n}} candidates)", n: ordered.length })
                 : <b style={{ fontFamily: "var(--font-mono, monospace)" }}>{ordered[0].platform.platform_type}</b>}
             </div>
             {ordered.map((g, i) => (
@@ -64,10 +64,10 @@ export function GroupSidePanels({ group, gps }: { group: Group; gps: GroupPlatfo
                 <span className="text-tertiary" style={{ fontFamily: "var(--font-mono, monospace)", minWidth: 14 }}>{i + 1}</span>
                 <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.platform.platform_type}</span>
                 {g.platform.status !== "enabled" && (
-                  <span style={{ fontSize: 14, color: "var(--color-warning)" }}>{t("group.candidates.disabled", "停用")}</span>
+                  <span style={{ fontSize: 14, color: "var(--color-warning)" }}>{t("group.candidates.disabled", "Disabled")}</span>
                 )}
                 <span style={{ flex: 1 }} />
-                <span className="text-tertiary" title={t("group.candidates.posReason", "优先级 {{level}} / 序 {{prio}}", { level: g.level_priority, prio: g.priority })}>
+                <span className="text-tertiary" title={t("group.candidates.posReason", "Priority {{level}} / order {{prio}}", { level: g.level_priority, prio: g.priority })}>
                   {isLB ? `${Math.round(Math.max(1, g.level_priority) / weightSum * 100)}%` : `L${g.level_priority}`}
                 </span>
               </div>
@@ -78,9 +78,9 @@ export function GroupSidePanels({ group, gps }: { group: Group; gps: GroupPlatfo
 
       {/* ── 下：最近路由快照 ── */}
       <div id="g3-latest-routing" className="glass-surface" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
-        <span style={{ fontSize: 14, fontWeight: 600 }}>{t("group.routing.latest", "最近路由")}</span>
+        <span style={{ fontSize: 14, fontWeight: 600 }}>{t("group.routing.latest", "Latest routing")}</span>
         {!latest ? (
-          <div className="text-secondary" style={{ fontSize: 14 }}>{t("group.routing.none", "暂无路由记录")}</div>
+          <div className="text-secondary" style={{ fontSize: 14 }}>{t("group.routing.none", "No routing records yet")}</div>
         ) : (
           <>
             <div style={{ fontSize: 14, display: "flex", gap: 6, flexWrap: "wrap" }}>

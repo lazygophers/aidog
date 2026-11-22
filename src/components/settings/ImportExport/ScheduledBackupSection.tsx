@@ -20,12 +20,12 @@ const INTERVAL_PRESETS: { labelKey: string; defaultLabel: string; hours: number 
   { labelKey: "settings.backup.preset1h", defaultLabel: "1h", hours: 1 },
   { labelKey: "settings.backup.preset6h", defaultLabel: "6h", hours: 6 },
   { labelKey: "settings.backup.preset12h", defaultLabel: "12h", hours: 12 },
-  { labelKey: "settings.backup.presetDaily", defaultLabel: "每天", hours: 24 },
-  { labelKey: "settings.backup.presetWeekly", defaultLabel: "每周", hours: 168 },
+  { labelKey: "settings.backup.presetDaily", defaultLabel: "Daily", hours: 24 },
+  { labelKey: "settings.backup.presetWeekly", defaultLabel: "Weekly", hours: 168 },
 ];
 
 function formatBackupTime(ms: number, t: TFunction): string {
-  if (!ms) return t("settings.backup.never", "从未");
+  if (!ms) return t("settings.backup.never", "Never");
   const d = new Date(ms);
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
@@ -86,13 +86,13 @@ export function ScheduledBackupSection() {
     try {
       const r: BackupResult = await backupApi.runNow();
       if (r.ok) {
-        setMsg({ ok: true, text: t("settings.backup.success", "备份成功") });
+        setMsg({ ok: true, text: t("settings.backup.success", "Backup succeeded") });
         setLastResultPath(r.path ?? null);
         // 刷新 last_backup_at。
         const fresh = await backupApi.get();
         setSettings(fresh);
       } else {
-        setMsg({ ok: false, text: r.error ?? t("settings.backup.failed", "备份失败") });
+        setMsg({ ok: false, text: r.error ?? t("settings.backup.failed", "Backup failed") });
       }
     } catch (e) {
       setMsg({ ok: false, text: String(e) });
@@ -109,14 +109,14 @@ export function ScheduledBackupSection() {
     <section className="glass" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
       <SectionHeader
         icon="backup"
-        title={t("settings.backup.title", "定时备份")}
-        desc={t("settings.backup.desc", "按设定间隔自动导出全部数据为加密 .aidogx，落盘 ~/.aidog/backups/，超期自动清理。")}
+        title={t("settings.backup.title", "Scheduled Backup")}
+        desc={t("settings.backup.desc", "Automatically export all data as encrypted .aidogx at a set interval. Saved to ~/.aidog/backups/, expired files auto-cleaned.")}
       />
 
       {/* 总开关 */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <span style={{ fontSize: 14, color: "var(--text-primary)", fontWeight: 500 }}>
-          {t("settings.backup.enable", "启用定时备份")}
+          {t("settings.backup.enable", "Enable scheduled backup")}
         </span>
         <Switch checked={settings.enabled} onCheckedChange={(v) => patch({ enabled: v })} />
       </div>
@@ -126,7 +126,7 @@ export function ScheduledBackupSection() {
           {/* 间隔 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-              {t("settings.backup.interval", "备份间隔（小时）")}
+              {t("settings.backup.interval", "Backup interval")}
             </span>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <Input
@@ -143,7 +143,7 @@ export function ScheduledBackupSection() {
                   background: "var(--bg-glass)", color: "var(--text-primary)",
                 }}
               />
-              <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("settings.backup.hours", "小时")}</span>
+              <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("settings.backup.hours", "hours")}</span>
               {INTERVAL_PRESETS.map((p) => (
                 <Button variant="outline"
                   key={p.hours}
@@ -170,7 +170,7 @@ export function ScheduledBackupSection() {
           {/* 保留天数 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-              {t("settings.backup.retention", "保留天数")}
+              {t("settings.backup.retention", "Retention days")}
             </span>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Input
@@ -188,20 +188,20 @@ export function ScheduledBackupSection() {
                   background: "var(--bg-glass)", color: "var(--text-primary)",
                 }}
               />
-              <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("settings.backup.days", "天（1-90）")}</span>
+              <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("settings.backup.days", "days (1-90)")}</span>
             </div>
           </div>
 
           {/* 状态 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "10px 12px", borderRadius: "var(--radius-md)", background: "var(--secondary)", fontSize: 14, color: "var(--text-secondary)" }}>
-            <div>{t("settings.backup.lastBackup", "上次备份")}: <span style={{ color: "var(--text-primary)" }}>{formatBackupTime(settings.last_backup_at, t)}</span></div>
+            <div>{t("settings.backup.lastBackup", "Last backup")}: <span style={{ color: "var(--text-primary)" }}>{formatBackupTime(settings.last_backup_at, t)}</span></div>
             {nextAt > 0 && (
-              <div>{t("settings.backup.nextBackup", "下次预计")}: <span style={{ color: "var(--text-primary)" }}>{formatBackupTime(nextAt, t)}</span></div>
+              <div>{t("settings.backup.nextBackup", "Next estimated")}: <span style={{ color: "var(--text-primary)" }}>{formatBackupTime(nextAt, t)}</span></div>
             )}
-            <div>{t("settings.backup.location", "备份位置")}: <code style={{ fontSize: 14, color: "var(--text-tertiary)" }}>~/.aidog/backups/</code></div>
+            <div>{t("settings.backup.location", "Location")}: <code style={{ fontSize: 14, color: "var(--text-tertiary)" }}>~/.aidog/backups/</code></div>
             {settings.last_backup_error && (
               <div style={{ color: "var(--color-danger)" }}>
-                {t("settings.backup.lastError", "上次错误")}: {settings.last_backup_error}
+                {t("settings.backup.lastError", "Last error")}: {settings.last_backup_error}
               </div>
             )}
           </div>
@@ -218,7 +218,7 @@ export function ScheduledBackupSection() {
                 opacity: running ? 0.6 : 1,
               }}
             >
-              {running ? t("settings.backup.running", "备份中…") : t("settings.backup.runNow", "立即备份一次")}
+              {running ? t("settings.backup.running", "Backing up…") : t("settings.backup.runNow", "Back up now")}
             </Button>
             {lastResultPath && (
               <Button variant="outline"
@@ -232,8 +232,8 @@ export function ScheduledBackupSection() {
                 {/* 票 10：浏览器沙箱里打不开本机文件管理器，这里退化成「复制路径」，
                     文案跟着换 —— 按钮说「在文件夹显示」却只复制了路径，那是骗人。 */}
                 {canRevealItemInDir()
-                  ? t("settings.backup.reveal", "在文件夹显示")
-                  : t("settings.backup.copyPath", "复制备份路径")}
+                  ? t("settings.backup.reveal", "Reveal in folder")
+                  : t("settings.backup.copyPath", "Copy backup path")}
               </Button>
             )}
           </div>

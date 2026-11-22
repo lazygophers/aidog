@@ -222,7 +222,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       silentReload(); onGroupsChanged?.();
     } catch (e) {
       console.error(e);
-      onToast?.({ text: `${t("group.removeFromGroupFailed", "移出分组失败")}: ${e}`, ok: false });
+      onToast?.({ text: `${t("group.removeFromGroupFailed", "Failed to remove from group")}: ${e}`, ok: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [details, silentReload, t]);
@@ -265,7 +265,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       onPlatformDeleted?.([target.platform.id]);
     } catch (e) {
       console.error(e);
-      onToast?.({ text: `${t("platform.deleteFail", "删除失败")}: ${e}`, ok: false });
+      onToast?.({ text: `${t("platform.deleteFail", "Delete failed")}: ${e}`, ok: false });
       setTimeout(() => onToast?.(null), 3000);
       setRemoveTarget(null);
     }
@@ -321,13 +321,13 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       setBatchDeleteTarget(null);
       silentReload(); onGroupsChanged?.(); onPlatformDeleted?.(ids);
       onToast?.({
-        text: t("group.batchDeleteDone", "已删除 {{count}} 个平台", { count: report.applied }),
+        text: t("group.batchDeleteDone", "Deleted {{count}} platforms", { count: report.applied }),
         ok: true,
       });
       setTimeout(() => onToast?.(null), 3000);
     } catch (e) {
       console.error(e);
-      onToast?.({ text: `${t("group.batchDeleteFailed", "批量删除失败")}: ${e}`, ok: false });
+      onToast?.({ text: `${t("group.batchDeleteFailed", "Batch delete failed")}: ${e}`, ok: false });
       setTimeout(() => onToast?.(null), 3000);
       setBatchDeleteTarget(null);
     } finally {
@@ -365,13 +365,13 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       setBatchDoneSignal(n => n + 1);
       silentReload(); onGroupsChanged?.();
       onToast?.({
-        text: t("group.batchOverrideModelsDone", "已覆盖 {{count}} 个平台的模型", { count: report.applied }),
+        text: t("group.batchOverrideModelsDone", "Overrode models on {{count}} platforms", { count: report.applied }),
         ok: true,
       });
       setTimeout(() => onToast?.(null), 3000);
     } catch (e) {
       console.error(e);
-      onToast?.({ text: `${t("group.batchOverrideModelsFailed", "批量覆盖模型失败")}: ${e}`, ok: false });
+      onToast?.({ text: `${t("group.batchOverrideModelsFailed", "Batch override models failed")}: ${e}`, ok: false });
       setTimeout(() => onToast?.(null), 3000);
       setBatchOverrideTarget(null);
     } finally {
@@ -415,13 +415,13 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       setBatchDoneSignal(n => n + 1);
       silentReload(); onGroupsChanged?.();
       onToast?.({
-        text: t("group.batchSetStatusDone", "已改 {{count}} 个平台状态", { count: report.applied }),
+        text: t("group.batchSetStatusDone", "Changed status of {{count}} platforms", { count: report.applied }),
         ok: true,
       });
       setTimeout(() => onToast?.(null), 3000);
     } catch (e) {
       console.error(e);
-      onToast?.({ text: `${t("group.batchSetStatusFailed", "批量改状态失败")}: ${e}`, ok: false });
+      onToast?.({ text: `${t("group.batchSetStatusFailed", "Batch status change failed")}: ${e}`, ok: false });
       setTimeout(() => onToast?.(null), 3000);
       setBatchSetStatusTarget(null);
     } finally {
@@ -465,7 +465,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
         return p?.platform_type === "claude_code";
       });
       if (compositionCc && composition.size > 1) {
-        onToast?.({ text: t("group.soloHint", "Claude Code 订阅平台只允许独占分组，不能与其他平台同组"), ok: false });
+        onToast?.({ text: t("group.soloHint", "Claude Code subscription platform must be in a solo group — no other platforms allowed"), ok: false });
         setTimeout(() => onToast?.(null), 3000);
         return;
       }
@@ -474,16 +474,16 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       setBatchDoneSignal(n => n + 1);
       silentReload(); onGroupsChanged?.();
       onToast?.({
-        text: t("group.batchMoveGroupDone", "已{{mode}} {{count}} 个平台", {
+        text: t("group.batchMoveGroupDone", "{{mode}}d {{count}} platforms", {
           count: report.applied,
-          mode: mode === "move" ? t("group.batchMoveGroupModeMoveShort", "移动") : t("group.batchMoveGroupModeAddShort", "加入"),
+          mode: mode === "move" ? t("group.batchMoveGroupModeMoveShort", "Move") : t("group.batchMoveGroupModeAddShort", "Add"),
         }),
         ok: true,
       });
       setTimeout(() => onToast?.(null), 3000);
     } catch (e) {
       console.error(e);
-      onToast?.({ text: `${t("group.batchMoveGroupFailed", "批量移组失败")}: ${e}`, ok: false });
+      onToast?.({ text: `${t("group.batchMoveGroupFailed", "Batch move failed")}: ${e}`, ok: false });
       setTimeout(() => onToast?.(null), 3000);
       setBatchMoveGroupTarget(null);
     } finally {
@@ -501,7 +501,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     onDelete: (id) => {
       const p = platforms.find(pp => pp.id === id);
       if (p) { handleGroupRemovePlatform(p, gid); return; }
-      onToast?.({ text: t("group.platformNotFound", "平台数据未加载，请刷新后重试"), ok: false });
+      onToast?.({ text: t("group.platformNotFound", "Platform data not loaded, refresh and retry"), ok: false });
       setTimeout(() => onToast?.(null), 3000);
     },
     onFaviconFailed: (id) => cards.onFaviconFailed(prev => new Set(prev).add(id)),
@@ -547,7 +547,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     }));
     groupDetailApi.setPlatformLevelPriority(gid, pid, next).catch((err: unknown) => {
       console.error("[aidog] setPlatformLevelPriority failed", err);
-      onToast?.({ text: t("group.levelPriorityFailed", "优先级保存失败: {{err}}", { err: String(err) }), ok: false });
+      onToast?.({ text: t("group.levelPriorityFailed", "Failed to save priority: {{err}}", { err: String(err) }), ok: false });
       setDetails(prev => prev.map(d => {
         if (d.group.id !== gid) return d;
         return {
@@ -579,7 +579,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       await silentReload();
     } catch (e) {
       console.error(e);
-      onToast?.({ text: `${t("group.saveFailed", "保存分组失败")}: ${e}`, ok: false });
+      onToast?.({ text: `${t("group.saveFailed", "Failed to save group")}: ${e}`, ok: false });
       setTimeout(() => onToast?.(null), 3000);
     }
   }, [silentReload, onToast, t]);
@@ -618,7 +618,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       onGroupsChanged?.();
     } catch (e) {
       console.error(e);
-      onToast?.({ text: `${t("group.saveFailed", "保存分组失败")}: ${e}`, ok: false });
+      onToast?.({ text: `${t("group.saveFailed", "Failed to save group")}: ${e}`, ok: false });
       setTimeout(() => onToast?.(null), 3000);
     }
   };
@@ -638,7 +638,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       onGroupsChanged?.();
     } catch (e) {
       console.error(e);
-      onToast?.({ text: `${t("group.createFailed", "创建分组失败")}: ${e}`, ok: false });
+      onToast?.({ text: `${t("group.createFailed", "Failed to create group")}: ${e}`, ok: false });
     }
   };
 
@@ -649,7 +649,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       onGroupsChanged?.();
     } catch (e) {
       console.error(e);
-      onToast?.({ text: `${t("group.deleteFailed", "删除分组失败")}: ${e}`, ok: false });
+      onToast?.({ text: `${t("group.deleteFailed", "Failed to delete group")}: ${e}`, ok: false });
       setTimeout(() => onToast?.(null), 3000);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -663,7 +663,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       onGroupsChanged?.();
     } catch (e) {
       console.error(e);
-      onToast?.({ text: `${t("group.setDefaultFailed", "设置默认分组失败")}: ${e}`, ok: false });
+      onToast?.({ text: `${t("group.setDefaultFailed", "Failed to set default group")}: ${e}`, ok: false });
       setTimeout(() => onToast?.(null), 3000);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -673,14 +673,14 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     try {
       const r = await platformApi.purgeDisabled(gid);
       if (r.deletedIds.length === 0 && r.unassignedIds.length === 0) {
-        onToast?.({ text: t("platform.purgeDisabledNone", "暂无失效平台"), ok: true });
+        onToast?.({ text: t("platform.purgeDisabledNone", "No disabled platforms"), ok: true });
       } else {
-        onToast?.({ text: t("group.purgeDisabledDone", "已清理：删除 {{deleted}}，移除 {{unassigned}}", { deleted: r.deletedIds.length, unassigned: r.unassignedIds.length }), ok: true });
+        onToast?.({ text: t("group.purgeDisabledDone", "Cleaned up: deleted {{deleted}}, unassigned {{unassigned}}", { deleted: r.deletedIds.length, unassigned: r.unassignedIds.length }), ok: true });
       }
       silentReload();
       onGroupsChanged?.();
     } catch (err) {
-      onToast?.({ text: `${t("group.purgeDisabled", "清理失效")}: ${err}`, ok: false });
+      onToast?.({ text: `${t("group.purgeDisabled", "Purge disabled")}: ${err}`, ok: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t, onToast, onGroupsChanged, silentReload]);
@@ -695,7 +695,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       onGroupsChanged?.();
     } catch (e) {
       console.error(e);
-      onToast?.({ text: `${t("group.deleteMappingFailed", "删除映射失败")}: ${e}`, ok: false });
+      onToast?.({ text: `${t("group.deleteMappingFailed", "Failed to delete mapping")}: ${e}`, ok: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [details, onGroupsChanged, onToast, t]);
@@ -752,35 +752,35 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
           <AlertDialogHeader>
             <AlertDialogTitle>
               {removeTarget?.groupCount && removeTarget.groupCount > 1
-                ? t("group.deletePlatformMultiTitle", "移出或删除平台")
-                : t("group.deletePlatformTitle", "删除平台")}
+                ? t("group.deletePlatformMultiTitle", "Remove or Delete Platform")
+                : t("group.deletePlatformTitle", "Delete Platform")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {removeTarget?.groupCount && removeTarget.groupCount > 1
                 ? t("group.deletePlatformMultiDesc",
-                    "「{{name}}」属 {{count}} 个分组：{{groups}}。选择操作：",
+                    "\"{{name}}\" belongs to {{count}} groups: {{groups}}. Choose an action:",
                     { name: removeTarget.platform.name, count: removeTarget.groupCount, groups: removeTarget.groupNames.join("、") })
                 : t("group.deletePlatformConfirm",
-                    "「{{name}}」仅属此分组，移除将彻底删除该平台及其所有关联，且无法撤销。确认删除？",
+                    "\"{{name}}\" belongs only to this group. Removing it will permanently delete the platform and all its associations. This cannot be undone. Delete it?",
                     { name: removeTarget?.platform.name ?? "" })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("action.cancel", "取消")}</AlertDialogCancel>
+            <AlertDialogCancel>{t("action.cancel", "Cancel")}</AlertDialogCancel>
             {removeTarget?.groupCount && removeTarget.groupCount > 1 && (
               <Button variant="outline" onClick={() => {
                 removePlatformFromGroup(removeTarget.platform.id, removeTarget.gid);
                 setRemoveTarget(null);
               }}>
-                {t("group.removeFromGroupAction", "移出本组")}
+                {t("group.removeFromGroupAction", "Remove from this group")}
               </Button>
             )}
             <AlertDialogAction
               style={{ backgroundColor: "var(--color-danger)", color: "var(--destructive-foreground)" }}
               onClick={() => { void confirmDeletePlatform(); }}>
               {removeTarget?.groupCount && removeTarget.groupCount > 1
-                ? t("group.deleteFromAllGroupsAction", "删除平台（全部组）")
-                : t("group.deletePlatformAction", "删除平台")}
+                ? t("group.deleteFromAllGroupsAction", "Delete Platform (all groups)")
+                : t("group.deletePlatformAction", "Delete Platform")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

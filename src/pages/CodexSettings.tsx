@@ -121,7 +121,7 @@ export function CodexSettings() {
       setConfig(value);
       setEditJson(JSON.stringify(value, null, 2));
       setBaseline(stableStringify(value));
-      setToast(t("settings.saved", "已保存"));
+      setToast(t("settings.saved", "Settings saved"));
       setTimeout(() => setToast(""), 2000);
       setSaving(false);
       return true;
@@ -136,7 +136,7 @@ export function CodexSettings() {
     const merged = deepMerge(config, rec);
     setConfig(merged);
     setEditJson(JSON.stringify(merged, null, 2));
-    setToast(t("settings.loadedRecommended", "已加载推荐配置"));
+    setToast(t("settings.loadedRecommended", "Recommended config loaded"));
     setTimeout(() => setToast(""), 2000);
   };
 
@@ -190,14 +190,14 @@ export function CodexSettings() {
       >
         <div style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8, marginRight: 8 }}>
           <SectionIcon name="bolt" size={18} />
-          {t("codex.title", "Codex 配置")}
+          {t("codex.title", "Codex Config")}
         </div>
 
         <Button variant={mode === "gui" ? "default" : "outline"}
           style={{ fontSize: F.body, padding: S.btnPad }}
           onClick={() => setMode("gui")}
         >
-          {t("settings.guiMode", "图形")}
+          {t("settings.guiMode", "GUI")}
         </Button>
         <Button variant={mode === "json" ? "default" : "outline"}
           style={{ fontSize: F.body, padding: S.btnPad }}
@@ -215,7 +215,7 @@ export function CodexSettings() {
           style={{ fontSize: F.hint, padding: "6px 14px" }}
           onClick={handleLoadRecommended}
         >
-          <SectionIcon name="bolt" size={14} /> {t("settings.loadRecommended", "加载推荐配置")}
+          <SectionIcon name="bolt" size={14} /> {t("settings.loadRecommended", "Load Recommended")}
         </Button>
 
         {toast && <span style={{ fontSize: F.body, color: "var(--color-success)" }}>{toast}</span>}
@@ -239,7 +239,7 @@ export function CodexSettings() {
                 flexShrink: 0,
               }}
             />
-            {dirty ? t("settings.unsavedChanges", "未保存更改") : t("settings.allSaved", "已保存")}
+            {dirty ? t("settings.unsavedChanges", "Unsaved changes") : t("settings.allSaved", "Saved")}
           </span>
         )}
 
@@ -248,7 +248,7 @@ export function CodexSettings() {
           onClick={handleSave}
           disabled={saving || !dirty}
         >
-          {saving ? t("status.loading", "保存中…") : t("action.save", "保存")}
+          {saving ? t("status.loading", "Loading...") : t("action.save", "Save")}
         </Button>
       </div>
 

@@ -107,7 +107,7 @@ export function DetailData({ platform: p, col3Extra }: { platform: Platform; col
     <div data-testid="detail-t3-mount" className="contents">
       <div className="min-w-0 border-r border-[var(--border)] max-xl:border-r-0">
         {/* C：使用统计（四档窗口） */}
-        <Blk testid="detail-t3-stats" title={t("platform.detail.stats", "使用统计")}>
+        <Blk testid="detail-t3-stats" title={t("platform.detail.stats", "Usage Stats")}>
           <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
             {WINS.map(w => (
               <button
@@ -127,8 +127,8 @@ export function DetailData({ platform: p, col3Extra }: { platform: Platform; col
           </div>
           <StatRows t={t} stats={stats} />
         </Blk>
-        <Blk testid="detail-t3-fail" title={t("platform.detail.failures", "失败分析")}
-          hint={t("platform.detail.win.7d", "近 7 天")}>
+        <Blk testid="detail-t3-fail" title={t("platform.detail.failures", "Failure Analysis")}
+          hint={t("platform.detail.win.7d", "Last 7 days")}>
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
             {FAIL_CLASSES.map(cls => {
               const v = failStats.counts[cls];
@@ -148,10 +148,10 @@ export function DetailData({ platform: p, col3Extra }: { platform: Platform; col
             <table style={{ width: "100%", fontSize: 14, borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ color: "var(--muted-foreground)", textAlign: "left" }}>
-                  <th style={thStyle}>{t("platform.detail.colTime", "时间")}</th>
-                  <th style={thStyle}>{t("platform.detail.colModel", "模型")}</th>
-                  <th style={thStyle}>{t("platform.detail.colReason", "原因")}</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>{t("platform.detail.colStatus", "状态码")}</th>
+                  <th style={thStyle}>{t("platform.detail.colTime", "Time")}</th>
+                  <th style={thStyle}>{t("platform.detail.colModel", "Model")}</th>
+                  <th style={thStyle}>{t("platform.detail.colReason", "Reason")}</th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>{t("platform.detail.colStatus", "Status")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -172,16 +172,16 @@ export function DetailData({ platform: p, col3Extra }: { platform: Platform; col
         {/* B / B'：曲线 或 按量柱线图 */}
       <Blk
         testid="detail-t3-usage"
-        title={isSubscription ? t("platform.detail.curve", "订阅消耗曲线") : t("platform.detail.paygo", "近 7 天用量")}
+        title={isSubscription ? t("platform.detail.curve", "Subscription Usage Curve") : t("platform.detail.paygo", "Last 7 Days Usage")}
         hint={isSubscription
-          ? t("platform.detail.curveWindowHint", "本窗口 7 天")
+          ? t("platform.detail.curveWindowHint", "Current window: 7 days")
           : formatMoney(bars.reduce((s, b) => s + b.cost, 0))}
       >
         {!isSubscription && p.est_balance_remaining > 0 && (
           <div data-testid="detail-t3-balance" style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>
             {formatMoney(p.est_balance_remaining)}
             <span style={{ fontSize: 14, fontWeight: 400, color: "var(--muted-foreground)", marginLeft: 8 }}>
-              {t("platform.detail.balance", "余额")}
+              {t("platform.detail.balance", "Balance")}
             </span>
           </div>
         )}
@@ -200,7 +200,7 @@ export function DetailData({ platform: p, col3Extra }: { platform: Platform; col
 
 
         {/* G：模型用量分布 */}
-        <Blk testid="detail-t3-models" title={t("platform.detail.modelDist", "模型用量分布")} hint={t(`platform.detail.win.${win}`, WIN_FALLBACK[win])}>          {modelRows.length === 0
+        <Blk testid="detail-t3-models" title={t("platform.detail.modelDist", "Model Usage Distribution")} hint={t(`platform.detail.win.${win}`, WIN_FALLBACK[win])}>          {modelRows.length === 0
             ? <Empty t={t} />
             : modelRows.map(r => (
               <div key={r.model} data-testid="detail-t3-model-row"
@@ -229,19 +229,19 @@ const thStyle = { fontWeight: 400, paddingBottom: 4 } as const;
 const tdStyle = { padding: "4px 0", color: "var(--text-secondary)" } as const;
 
 const WIN_FALLBACK: Record<Win, string> = {
-  today: "今日", "7d": "近 7 天", "30d": "近 30 天", all: "累计",
+  today: "Today", "7d": "Last 7 days", "30d": "Last 30 days", all: "All time",
 };
 
 function StatRows({ t, stats }: { t: (k: string, d: string) => string; stats?: PlatformUsageStats }) {
   const rows: Array<[string, string]> = stats
     ? [
-        [t("platform.detail.requests", "请求数"), formatNumber(stats.total_requests)],
-        [t("platform.detail.successRate", "成功率"), formatPercent(
+        [t("platform.detail.requests", "Requests"), formatNumber(stats.total_requests)],
+        [t("platform.detail.successRate", "Success rate"), formatPercent(
           stats.total_requests > 0 ? (stats.success_count / stats.total_requests) * 100 : 0)],
-        [t("platform.detail.inputTokens", "输入 token"), formatNumber(stats.total_input_tokens)],
-        [t("platform.detail.outputTokens", "输出 token"), formatNumber(stats.total_output_tokens)],
-        [t("platform.detail.cacheTokens", "缓存读 token"), formatNumber(stats.total_cache_tokens)],
-        [t("platform.detail.estCost", "估算费用"), formatMoney(stats.total_cost)],
+        [t("platform.detail.inputTokens", "Input tokens"), formatNumber(stats.total_input_tokens)],
+        [t("platform.detail.outputTokens", "Output tokens"), formatNumber(stats.total_output_tokens)],
+        [t("platform.detail.cacheTokens", "Cache read tokens"), formatNumber(stats.total_cache_tokens)],
+        [t("platform.detail.estCost", "Estimated cost"), formatMoney(stats.total_cost)],
       ]
     : [];
   return (
@@ -265,30 +265,30 @@ function HealthBlock({ t, health }: { t: (k: string, d: string) => string; healt
     <div data-testid="detail-t3-cd-row" style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "3px 0" }}>
       <span style={{ color: "var(--text-secondary)" }}>{label}</span>
       <span style={{ color: s > 0 ? "var(--color-warning)" : "var(--muted-foreground)" }}>
-        {secs(s) ?? t("platform.detail.noCooldown", "无")}
+        {secs(s) ?? t("platform.detail.noCooldown", "None")}
       </span>
     </div>
   );
   return (
-    <Blk testid="detail-t3-health" title={t("platform.detail.health", "健康状态")} hint={t("platform.detail.live", "实时")}>
+    <Blk testid="detail-t3-health" title={t("platform.detail.health", "Health")} hint={t("platform.detail.live", "Live")}>
       {!health ? <Empty t={t} /> : (
         <div>
           <div data-testid="detail-t3-breaker" style={{ fontSize: 14, padding: "3px 0", display: "flex", justifyContent: "space-between" }}>
-            <span style={{ color: "var(--text-secondary)" }}>{t("platform.detail.breakerState", "熔断状态")}</span>
+            <span style={{ color: "var(--text-secondary)" }}>{t("platform.detail.breakerState", "Circuit breaker")}</span>
             <span style={{ color: health.breaker_open ? "var(--color-danger)" : "var(--color-success)" }}>
               {health.breaker_open
-                ? t("platform.detail.breakerOpen", "已触发 · 连续失败 {{n}}").replace("{{n}}", `${health.breaker_fails}`)
-                : t("platform.detail.breakerOk", "未触发 · 连续失败 {{n}}").replace("{{n}}", `${health.breaker_fails}`)}
+                ? t("platform.detail.breakerOpen", "Open · {{n}} consecutive failures").replace("{{n}}", `${health.breaker_fails}`)
+                : t("platform.detail.breakerOk", "Closed · {{n}} consecutive failures").replace("{{n}}", `${health.breaker_fails}`)}
             </span>
           </div>
-          {cd(t("platform.detail.cdQuota", "配额冷却"), health.quota_cooldown_secs)}
-          {cd(t("platform.detail.cdVerdict", "额度判定冷却"), health.quota_verdict_secs)}
-          {cd(t("platform.detail.cdAuth", "鉴权冷却"), health.auth_cooldown_secs)}
-          {cd(t("platform.detail.cdBalance", "余额冷却"), health.balance_cooldown_secs)}
+          {cd(t("platform.detail.cdQuota", "Quota cooldown"), health.quota_cooldown_secs)}
+          {cd(t("platform.detail.cdVerdict", "Quota verdict cooldown"), health.quota_verdict_secs)}
+          {cd(t("platform.detail.cdAuth", "Auth cooldown"), health.auth_cooldown_secs)}
+          {cd(t("platform.detail.cdBalance", "Balance cooldown"), health.balance_cooldown_secs)}
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "3px 0" }}>
-            <span style={{ color: "var(--text-secondary)" }}>{t("platform.detail.peakDisabled", "高峰禁用")}</span>
+            <span style={{ color: "var(--text-secondary)" }}>{t("platform.detail.peakDisabled", "Peak disable")}</span>
             <span style={{ color: health.peak_disabled ? "var(--color-warning)" : "var(--muted-foreground)" }}>
-              {health.peak_disabled ? t("platform.detail.on", "启用中") : t("platform.detail.off", "未启用")}
+              {health.peak_disabled ? t("platform.detail.on", "Active") : t("platform.detail.off", "Inactive")}
             </span>
           </div>
         </div>
@@ -304,7 +304,7 @@ const FAIL_LABEL: Record<FailClass, string> = {
   rate: "platform.detail.failRate",
   auth: "platform.detail.failAuth",
 };
-const FAIL_FALLBACK: Record<FailClass, string> = { service: "服务类", model: "模型类", rate: "限频", auth: "鉴权" };
+const FAIL_FALLBACK: Record<FailClass, string> = { service: "Service", model: "Model", rate: "Rate limit", auth: "Auth" };
 const FAIL_COLOR: Record<FailClass, string> = {
   service: "var(--color-danger)", model: "var(--color-warning)",
   rate: "var(--data-primary)", auth: "var(--muted-foreground)",
@@ -312,6 +312,6 @@ const FAIL_COLOR: Record<FailClass, string> = {
 
 function Empty({ t }: { t: (k: string, d: string) => string }) {
   return <div style={{ fontSize: 14, color: "var(--muted-foreground)", padding: "8px 0" }}>
-    {t("platform.detail.noData", "暂无数据")}
+    {t("platform.detail.noData", "No data")}
   </div>;
 }

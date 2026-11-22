@@ -63,9 +63,9 @@ export function BatchDeleteModal({
         onEscapeKeyDown={(e) => { if (busy) e.preventDefault(); }}
       >
         <AlertDialogHeader>
-          <AlertDialogTitle>{t("group.batchDeleteTitle", "批量删除平台")}</AlertDialogTitle>
+          <AlertDialogTitle>{t("group.batchDeleteTitle", "Batch delete platforms")}</AlertDialogTitle>
           <AlertDialogDescription>
-            {t("group.batchDeleteDesc", "将永久删除以下 {{count}} 个平台及其所有分组关联，此操作不可撤销。", { count: platforms.length })}
+            {t("group.batchDeleteDesc", "The following {{count}} platform(s) and all their group associations will be permanently deleted. This action cannot be undone.", { count: platforms.length })}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -81,7 +81,7 @@ export function BatchDeleteModal({
           }}>
             {t(
               "group.batchDeleteCrossGroupWarning",
-              "其中 {{count}} 个平台属于多个分组，删除后将从所有分组移除：",
+              "{{count}} platform(s) belong to multiple groups; deleting will remove them from all groups:",
               { count: crossGroupPlatforms.length },
             )}
           </div>
@@ -119,7 +119,7 @@ export function BatchDeleteModal({
                 </div>
                 {isCross && (
                   <div style={{ fontSize: 14, color: "var(--color-danger)", paddingLeft: 18, lineHeight: 1.4 }}>
-                    {t("group.batchDeleteCrossGroupItem", "属 {{count}} 组：{{groups}}", { count: groups.length, groups: groups.join("、") })}
+                    {t("group.batchDeleteCrossGroupItem", "In {{count}} groups: {{groups}}", { count: groups.length, groups: groups.join("、") })}
                   </div>
                 )}
               </div>
@@ -128,11 +128,11 @@ export function BatchDeleteModal({
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={busy}>{t("action.cancel", "取消")}</AlertDialogCancel>
+          <AlertDialogCancel disabled={busy}>{t("action.cancel", "Cancel")}</AlertDialogCancel>
           <Button variant="destructive" disabled={busy} onClick={onConfirm}>
             {busy
-              ? t("group.batchDeleting", "删除中…")
-              : t("group.batchDeleteConfirm", "删除 {{count}} 个平台", { count: platforms.length })}
+              ? t("group.batchDeleting", "Deleting…")
+              : t("group.batchDeleteConfirm", "Delete {{count}} platforms", { count: platforms.length })}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

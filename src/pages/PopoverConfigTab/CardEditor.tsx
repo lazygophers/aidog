@@ -48,14 +48,14 @@ export function CardEditor({
         <Switch
           checked={item.visible}
           onCheckedChange={onToggleVisible}
-          title={t("popover.toggleVisible", "显隐")}
+          title={t("popover.toggleVisible", "Toggle visibility")}
         />
         <Button
           variant="ghost"
           className="ripple"
           style={{ fontSize: 14, padding: "2px 8px", height: 24, color: "var(--color-danger)" }}
           onClick={(e) => { makeRipple(e); onRemove(); }}
-          title={t("common.delete", "删除")}
+          title={t("common.delete", "Delete")}
         >
           ✕
         </Button>
@@ -66,7 +66,7 @@ export function CardEditor({
 
       {/* 尺寸选择 */}
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ fontSize: 14, color: "var(--text-secondary)", width: 36 }}>{t("popover.size", "尺寸")}</span>
+        <span style={{ fontSize: 14, color: "var(--text-secondary)", width: 36 }}>{t("popover.size", "Size")}</span>
         {SIZE_OPTIONS.map((s) => (
           <Button
             key={s}
@@ -75,7 +75,7 @@ export function CardEditor({
               fontSize: 14, padding: "2px 8px", height: 22,
             }}
             onClick={() => onUpdate({ size: s })}
-            title={t(`popover.size_${s}`, s === "s" ? "小" : s === "l" ? "大" : "中")}
+            title={t(`popover.size_${s}`, s === "s" ? "Small" : s === "l" ? "Large" : "Medium")}
           >
             {s.toUpperCase()}
           </Button>
@@ -84,7 +84,7 @@ export function CardEditor({
 
       {/* 颜色编辑 */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 14, color: "var(--text-secondary)", width: 36 }}>{t("popover.color", "颜色")}</span>
+        <span style={{ fontSize: 14, color: "var(--text-secondary)", width: 36 }}>{t("popover.color", "Color")}</span>
         {COLOR_PRESETS.map((c) => {
           const selected = c.mode === "follow"
             ? color.mode === "follow"
@@ -93,7 +93,7 @@ export function CardEditor({
             <Button
               key={`${c.mode}-${c.value}`}
               variant="ghost"
-              title={c.mode === "follow" ? t("popover.colorFollow", "跟随") : c.value}
+              title={c.mode === "follow" ? t("popover.colorFollow", "Follow") : c.value}
               style={{
                 width: 18, height: 18, borderRadius: "50%", padding: 0, minWidth: 18,
                 border: selected ? "2px solid var(--accent)" : "1px solid var(--glass-border)",

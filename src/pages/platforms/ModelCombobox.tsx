@@ -67,7 +67,7 @@ export function ModelCombobox({
             <Input
               className="input"
               style={{ width: "100%", fontSize: 14, padding: "6px 8px", paddingRight: hasDropdown ? 24 : undefined, ...inputStyle }}
-              placeholder={placeholder ?? t("platform.models_placeholder", "模型名")}
+              placeholder={placeholder ?? t("platform.models_placeholder", "e.g. claude-sonnet-4-5")}
               {...inputProps}
               value={value}
               onChange={(e) => {

@@ -46,9 +46,9 @@ export function GroupTestPanel({ groupName, rows, running, onClose, t }: {
   });
   const statusText = (r: GroupTestRow): string => {
     if (r.status === "testing") return "…";
-    if (r.status === "pending") return t("group.testAllPending", "等待");
-    if (r.status === "ok") return t("group.testAllOk", "成功") + (r.durationMs != null ? ` ${r.durationMs}ms` : "");
-    return t("group.testAllFail", "失败");
+    if (r.status === "pending") return t("group.testAllPending", "Pending");
+    if (r.status === "ok") return t("group.testAllOk", "OK") + (r.durationMs != null ? ` ${r.durationMs}ms` : "");
+    return t("group.testAllFail", "Failed");
   };
   return createPortal(
     <div onClick={onClose} style={{
@@ -62,16 +62,16 @@ export function GroupTestPanel({ groupName, rows, running, onClose, t }: {
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>
-            {t("group.testAllTitle", "测试分组平台")}：{groupName}
+            {t("group.testAllTitle", "Test group platforms")}：{groupName}
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} title={t("action.dismiss", "关闭")}>
+          <Button variant="ghost" size="icon" onClick={onClose} title={t("action.dismiss", "Dismiss")}>
             <IconClose size={16} />
           </Button>
         </div>
         <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
           {running
-            ? t("group.testAllProgress", "测试中… {{done}}/{{total}}", { done, total: rows.length })
-            : t("group.testAllSummary", "完成：{{ok}} 成功 / {{fail}} 失败 / 共 {{total}}", { ok, fail, total: rows.length })}
+            ? t("group.testAllProgress", "Testing… {{done}}/{{total}}", { done, total: rows.length })
+            : t("group.testAllSummary", "Done: {{ok}} ok / {{fail}} failed / {{total}} total", { ok, fail, total: rows.length })}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {rows.map(r => (

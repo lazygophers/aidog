@@ -111,11 +111,11 @@ describe("RateLimitPolicyLibrary", () => {
   it("数字带标签且并发显示完整整数（无 CONC / 1.0K 缩写）", async () => {
     await renderLib();
     const plat = byId("rl-policy-platform-many")!.textContent!;
-    expect(plat).toContain("并发 1,000");
+    expect(plat).toContain("Conc. 1,000");
     expect(plat).toContain("RPM 60");
     expect(plat).not.toMatch(/CONC|1\.0K/);
-    expect(byId("rl-policy-platform-v0")!.textContent).toBe("并发 50");
-    expect(byId("rl-policy-rule-many-0")!.textContent).toContain("并发 1");
+    expect(byId("rl-policy-platform-v0")!.textContent).toBe("Conc. 50");
+    expect(byId("rl-policy-rule-many-0")!.textContent).toContain("Conc. 1");
     fireEvent.click(byId("rl-policy-toggle-many")!);
     expect(byId("rl-policy-rule-many-8")!.textContent).toContain("RPM 30");
   });

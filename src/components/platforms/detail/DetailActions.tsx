@@ -32,22 +32,22 @@ export function DetailActions({ platform: p, onRefreshQuota, service }: {
   };
 
   return (
-    <Blk title={t("platform.detail.actions", "快捷操作")}>
+    <Blk title={t("platform.detail.actions", "Quick actions")}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <Button data-testid="detail-act-test" variant="outline" size="sm" onClick={() => service.onQuickTest(p)}>
-          {t("platform.quickTest", "快速测试")}
+          {t("platform.quickTest", "Quick Test")}
         </Button>
         <Button data-testid="detail-act-quota" variant="outline" size="sm" onClick={() => onRefreshQuota?.(p)}>
-          {t("platform.quotaRefresh", "刷新额度")}
+          {t("platform.quotaRefresh", "Refresh quota")}
         </Button>
         <Button data-testid="detail-act-fetch" variant="outline" size="sm" disabled={fetching} onClick={fetchModels}>
-          {fetching ? t("status.loading", "加载中…") : t("platform.fetchModels", "拉取模型")}
+          {fetching ? t("status.loading", "Loading...") : t("platform.fetchModels", "Fetch Models")}
         </Button>
         <Button data-testid="detail-act-logs" variant="outline" size="sm" onClick={() => service.onViewLogs(p)}>
-          {t("platform.viewLogs", "查看日志")}
+          {t("platform.viewLogs", "View Logs")}
         </Button>
         <Button data-testid="detail-act-edit" variant="outline" size="sm" onClick={() => service.onEdit(p)}>
-          {t("platform.editHint", "编辑平台")}
+          {t("platform.editHint", "Edit platform")}
         </Button>
       </div>
       {fetchErr && (

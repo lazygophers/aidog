@@ -82,7 +82,7 @@ export function MetaItem({ label, value, highlight, copyText, testId, t }: { lab
       }} data-testid={testId}>
         {value}
       </div>
-      {copyText && copyText !== "-" && <CopyButton text={copyText} title={t?.("logs.copy", "复制")} />}
+      {copyText && copyText !== "-" && <CopyButton text={copyText} title={t?.("logs.copy", "Copy")} />}
     </div>
   );
 }
@@ -156,16 +156,16 @@ function RequestSectionContent({
   const bodyStr = (v: any) => typeof v === "string" ? v : JSON.stringify(v, null, 2);
   const emptyBody = !reqBody && !respBody;
   // ponytail: 占位串（未捕获 / 流式未记录）不复制的判定基准 — 对比当前 locale 翻译后的占位文本
-  const streamPlaceholder = t("logs.streamResponse", "(流式响应，内容未记录)");
+  const streamPlaceholder = t("logs.streamResponse", "(Stream response, content not recorded)");
   const isPlaceholder = (s: string) => !s || s === streamPlaceholder;
   const headersText = (h: any) => typeof h === "string" ? h : JSON.stringify(h, null, 2);
   const headersEmpty = (h: any) => !h || headersText(h) === "{}";
-  const copyTitle = t("logs.copy", "复制");
+  const copyTitle = t("logs.copy", "Copy");
 
   if (emptyBody) {
     return (
       <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", fontStyle: "italic" }}>
-        {t("logs.noUpstream", "(未捕获)")}
+        {t("logs.noUpstream", "(not captured)")}
       </div>
     );
   }
@@ -188,7 +188,7 @@ function RequestSectionContent({
       )}
       <div>
         <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
-          {t("logs.requestHeaders", "请求头")}
+          {t("logs.requestHeaders", "Request Headers")}
         </div>
         <div style={{ position: "relative" }}>
           <JsonCodeEditor value={headersText(reqHeaders)} minHeight={60} />
@@ -197,7 +197,7 @@ function RequestSectionContent({
       </div>
       <div>
         <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
-          {t("logs.requestBody", "请求体")}
+          {t("logs.requestBody", "Request Body")}
         </div>
         {reqBody
           ? (
@@ -211,7 +211,7 @@ function RequestSectionContent({
       </div>
       <div>
         <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
-          {t("logs.responseHeaders", "响应头")}
+          {t("logs.responseHeaders", "Response Headers")}
         </div>
         <div style={{ position: "relative" }}>
           <JsonCodeEditor value={headersText(respHeaders)} minHeight={60} />
@@ -220,7 +220,7 @@ function RequestSectionContent({
       </div>
       <div>
         <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
-          {t("logs.responseBody", "响应体")}
+          {t("logs.responseBody", "Response Body")}
         </div>
         <div style={{ position: "relative" }}>
           <JsonCodeEditor value={bodyStr(respBody)} minHeight={60} />
@@ -285,12 +285,12 @@ interface LogRowProps {
 /** blocked_reason → 短标签（rate-limit-aware 票 04：被调度排除/拦截的行标记）。 */
 export function blockedReasonLabel(reason: string, t: (k: string, d: string) => string): string {
   switch (reason) {
-    case "rate_limit": return t("logs.blockedRateLimit", "限频");
-    case "peak": return t("logs.blockedPeak", "高峰禁用");
-    case "quota_exhausted": return t("logs.blockedQuotaExhausted", "额度用完");
-    case "client_not_allowed": return t("logs.blockedClientNotAllowed", "客户端被拒");
-    case "client_not_allowed_mixed": return t("logs.blockedClientNotAllowedMixed", "客户端被拒（混合）");
-    case "observe": return t("logs.blockedObserve", "观察");
+    case "rate_limit": return t("logs.blockedRateLimit", "Rate limited");
+    case "peak": return t("logs.blockedPeak", "Peak disabled");
+    case "quota_exhausted": return t("logs.blockedQuotaExhausted", "Quota exhausted");
+    case "client_not_allowed": return t("logs.blockedClientNotAllowed", "Client not allowed");
+    case "client_not_allowed_mixed": return t("logs.blockedClientNotAllowedMixed", "Client not allowed (mixed)");
+    case "observe": return t("logs.blockedObserve", "Observed");
     default: return reason;
   }
 }
@@ -311,7 +311,7 @@ export const LogRow = memo(function LogRow({ log, idx = 0, platformName, groupNa
           <span style={PLATFORM_NAME_STYLE}>{platformName}</span>
           {log.retry_count > 0 && (
             <span className="badge" style={RETRY_BADGE_STYLE}
-              title={t("logs.retriedHint", "经过 {{n}} 次重试").replace("{{n}}", String(log.retry_count))}>
+              title={t("logs.retriedHint", "Retried {{n}} time(s)").replace("{{n}}", String(log.retry_count))}>
               ↻{log.retry_count}
             </span>
           )}
@@ -323,7 +323,7 @@ export const LogRow = memo(function LogRow({ log, idx = 0, platformName, groupNa
             <span style={MODEL_NAME_STYLE} data-testid="log-row-tunnel-host">{log.request_url}</span>
             {log.blocked_reason === "mitm_opaque" && (
               <span className="badge" style={RETRY_BADGE_STYLE} data-testid="log-row-opaque-badge">
-                {t("logs.tunnelOpaque", "未解密")}
+                {t("logs.tunnelOpaque", "Not decrypted")}
               </span>
             )}
             <span style={MODEL_NAME_STYLE} data-testid="log-row-bytes">
@@ -336,11 +336,11 @@ export const LogRow = memo(function LogRow({ log, idx = 0, platformName, groupNa
         <span style={INLINE_FLEX_STYLE}>
           <span style={MODEL_NAME_STYLE}>{log.model || "-"}</span>
           {log.is_stream && (
-            <span className="badge" style={SSE_BADGE_STYLE} title={t("logs.streaming", "流式")}>SSE</span>
+            <span className="badge" style={SSE_BADGE_STYLE} title={t("logs.streaming", "Streaming")}>SSE</span>
           )}
           {log.blocked_reason ? (
             <span className="badge" style={RETRY_BADGE_STYLE}
-              title={`${t("logs.blockedBy", "拦截")}: ${log.blocked_by} · ${log.blocked_reason}`}>
+              title={`${t("logs.blockedBy", "Blocked")}: ${log.blocked_by} · ${log.blocked_reason}`}>
               {blockedReasonLabel(log.blocked_reason, t)}
             </span>
           ) : null}
@@ -352,9 +352,9 @@ export const LogRow = memo(function LogRow({ log, idx = 0, platformName, groupNa
       <TdCell>
         <span style={{ color: log.status_code >= 200 && log.status_code < 300 ? "var(--color-success)" : "var(--color-danger)" }}>
           {log.status_code === 0
-            ? t("logs.statusIncomplete", "未完成")
+            ? t("logs.statusIncomplete", "Incomplete")
             : log.status_code === 499
-              ? t("logs.statusInterrupted", "已中断")
+              ? t("logs.statusInterrupted", "Interrupted")
               : log.status_code}
         </span>
       </TdCell>
@@ -366,7 +366,7 @@ export const LogRow = memo(function LogRow({ log, idx = 0, platformName, groupNa
           variant="ghost"
           className="btn-icon"
           style={ACTION_BTN_STYLE}
-          title={t("logs.copyAll", "复制完整信息")}
+          title={t("logs.copyAll", "Copy full info")}
           onClick={(e) => { e.stopPropagation(); onCopy(log.id); }}
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="8" height="8" rx="1" /><path d="M10 10v1.5a1 1 0 01-1 1h-6a1 1 0 01-1-1v-6a1 1 0 011-1H4.5" /></svg>
@@ -388,12 +388,12 @@ export const RequestLogRow = memo(function RequestLogRow({ log, idx = 0, onOpen,
       <TdCell><span style={UA_CELL_STYLE} title={log.user_agent || undefined} data-testid="request-log-row-ua">{log.user_agent || "-"}</span></TdCell>
       <TdCell>
         <span style={{ color: log.status_code >= 200 && log.status_code < 300 ? "var(--color-success)" : "var(--color-danger)" }}>
-          {log.status_code === 0 ? t("logs.statusIncomplete", "未完成") : log.status_code}
+          {log.status_code === 0 ? t("logs.statusIncomplete", "Incomplete") : log.status_code}
         </span>
       </TdCell>
       <TdCell>{log.duration_ms}ms</TdCell>
       <TdCell sticky>
-        <Button variant="ghost" className="btn-icon" style={ACTION_BTN_STYLE} title={t("logs.copyAll", "复制完整信息")}
+        <Button variant="ghost" className="btn-icon" style={ACTION_BTN_STYLE} title={t("logs.copyAll", "Copy full info")}
           onClick={(e) => { e.stopPropagation(); onCopy(log.id); }}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="8" height="8" rx="1" /><path d="M10 10v1.5a1 1 0 01-1 1h-6a1 1 0 01-1-1v-6a1 1 0 011-1H4.5" /></svg>
         </Button>
@@ -430,16 +430,16 @@ export function Pagination({
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span className="text-tertiary" style={{ fontSize: 14 }}>
           {resultCount > 0 ? `${rangeStart}–${rangeEnd}` : rangeStart}
-          {!hasMore && currentPage <= 1 ? "" : ` · ${t(hasMore ? "logs.hasMore" : "logs.noMore", hasMore ? "还有更多" : "已到底")}`}
+          {!hasMore && currentPage <= 1 ? "" : ` · ${t(hasMore ? "logs.hasMore" : "logs.noMore", hasMore ? "More available" : "No more")}`}
         </span>
         <label style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-          <span className="text-tertiary" style={{ fontSize: 14 }}>{t("logs.pageSize", "每页")}</span>
+          <span className="text-tertiary" style={{ fontSize: 14 }}>{t("logs.pageSize", "Per page")}</span>
           <Select
             value={String(pageSize)}
             onValueChange={v => onPageSizeChange(Number(v))}
           >
             <SelectTrigger
-              aria-label={t("logs.pageSize", "每页")}
+              aria-label={t("logs.pageSize", "Per page")}
               style={{ fontSize: F.small, padding: "4px 8px", height: 28, width: 80 }}
             >
               <SelectValue />

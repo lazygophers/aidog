@@ -30,7 +30,7 @@ export function ModelPriceTag({ info, compact, style }: {
   const { t } = useTranslation();
   if (!info) return null;
   if (info.free) {
-    return <span style={{ ...BASE, ...style }}>{t("common.priceFree", "免费")}</span>;
+    return <span style={{ ...BASE, ...style }}>{t("common.priceFree", "Free")}</span>;
   }
   if (info.unitLabel) {
     return <span style={{ ...BASE, ...style }}>{info.unitLabel}</span>;
@@ -39,7 +39,7 @@ export function ModelPriceTag({ info, compact, style }: {
     const s = compactPriceLabel(info);
     return s ? <span style={{ ...BASE, ...style }}>{s}</span> : null;
   }
-  const lines = fullPriceLines(info, t("common.pricePeak", "峰"));
+  const lines = fullPriceLines(info, t("common.pricePeak", "Peak"));
   if (!lines.length) return null;
   return (
     <span style={{ ...BASE, ...style, display: "inline-flex", flexDirection: "column", alignItems: "flex-end" }}>

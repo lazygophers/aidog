@@ -30,21 +30,21 @@ export function UnsavedChangesModal({
       <DialogContent data-testid="unsaved-modal" className="glass-elevated" style={{ maxWidth: 420, padding: "22px 24px" }}>
         <DialogHeader>
           <DialogTitle style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)" }}>
-            {t("settings.unsavedTitle", "未保存的更改")}
+            {t("settings.unsavedTitle", "Unsaved changes")}
           </DialogTitle>
           <DialogDescription style={{ fontSize: F.body, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-            {t("settings.unsavedBody", "你有尚未保存的更改。离开此页面前要如何处理？")}
+            {t("settings.unsavedBody", "You have unsaved changes. What would you like to do before leaving this page?")}
           </DialogDescription>
         </DialogHeader>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
           <Button variant="ghost" style={{ fontSize: F.body, padding: S.btnPad }} onClick={onCancel} disabled={saving}>
-            {t("action.cancel", "取消")}
+            {t("action.cancel", "Cancel")}
           </Button>
           <Button data-testid="unsaved-discard" variant="ghost" style={{ fontSize: F.body, padding: S.btnPad, color: "var(--color-danger)" }} onClick={onDiscard} disabled={saving}>
-            {t("settings.discardChanges", "放弃更改")}
+            {t("settings.discardChanges", "Discard changes")}
           </Button>
           <Button variant="default" style={{ fontSize: F.body, padding: S.btnPad, minWidth: 96 }} onClick={onSave} disabled={saving}>
-            {saving ? t("status.loading", "加载中…") : t("settings.saveAndLeave", "保存并离开")}
+            {saving ? t("status.loading", "Loading...") : t("settings.saveAndLeave", "Save and leave")}
           </Button>
         </div>
       </DialogContent>

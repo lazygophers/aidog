@@ -1,11 +1,11 @@
 // Claude Code `x-claude-code-request-class` 已知取值 → 中文兜底（locale key `logs.requestClass.<值>`）。
 const FALLBACK: Record<string, string> = {
-  main: "主对话",
-  subagent: "子代理",
-  workflow: "工作流",
-  compaction: "压缩",
-  auxiliary: "辅助",
-  side_reply: "旁路回复",
+  main: "Main",
+  subagent: "Subagent",
+  workflow: "Workflow",
+  compaction: "Compaction",
+  auxiliary: "Auxiliary",
+  side_reply: "Side reply",
 };
 
 /** 请求类型显示名：已知值走词表，未知值原样展示，空串 -> "-"。 */
@@ -20,7 +20,7 @@ export function compactionLabel(t: (key: string, fallback: string) => string, v:
   return v in COMPACTION_FALLBACK ? t(`logs.compaction.${v}`, COMPACTION_FALLBACK[v]) : v;
 }
 
-const COMPACTION_FALLBACK: Record<string, string> = { auto: "自动", manual: "手动", reactive: "被动" };
+const COMPACTION_FALLBACK: Record<string, string> = { auto: "Auto", manual: "Manual", reactive: "Reactive" };
 
 /** `Name=ms;Name=ms`（已解码）-> 条目列表；忽略空段与缺 `=` / ms 非数字的段。 */
 export function parseToolDurations(s: string): { name: string; ms: number }[] {

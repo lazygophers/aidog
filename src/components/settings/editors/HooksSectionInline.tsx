@@ -114,7 +114,7 @@ export function HooksSectionInline(props: {
           onValueChange={(v) => { if (v && v !== "__none__") addMatcherGroup(v); }}>
 <SelectTrigger style={{ fontSize: F.body, padding: S.inputPad, flex: 1, minWidth: 200 }}><SelectValue/></SelectTrigger>
 <SelectContent>
-          <SelectItem value="__none__">{t("settings.hooks.addEvent", "+ 添加 Hook 事件…")}</SelectItem>
+          <SelectItem value="__none__">{t("settings.hooks.addEvent", "+ Add Hook Event…")}</SelectItem>
           {HOOK_EVENTS.map(ev => (
             <SelectItem key={ev.id} value={ev.id}>{ev.id} — {t(`settings.hooks.event.${ev.id}.desc`, ev.desc)}</SelectItem>
           ))}
@@ -124,8 +124,8 @@ export function HooksSectionInline(props: {
 
       {totalHooks === 0 && (
         <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
-          {t("settings.hooks.introLine1", "Hooks 在 Claude Code 生命周期的特定点自动执行命令/HTTP请求/LLM提示。")}
-          <br />{t("settings.hooks.introLine2", "选择事件类型开始配置。")}
+          {t("settings.hooks.introLine1", "Hooks automatically run commands/HTTP requests/LLM prompts at specific points in the Claude Code lifecycle.")}
+          <br />{t("settings.hooks.introLine2", "Select an event type to start configuring.")}
         </div>
       )}
 
@@ -154,7 +154,7 @@ export function HooksSectionInline(props: {
               </span>
               <Button variant="ghost" type="button" 
                 style={{ width: 26, height: 26, minWidth: 26, fontSize: 14, padding: 0, color: "var(--text-tertiary)" }}
-                onClick={() => { const u = { ...hooks }; delete u[eventId]; syncHooks(u); }} title={t("action.delete", "删除")}>×
+                onClick={() => { const u = { ...hooks }; delete u[eventId]; syncHooks(u); }} title={t("action.delete", "Delete")}>×
               </Button>
             </div>
 
@@ -168,7 +168,7 @@ export function HooksSectionInline(props: {
               return (
                 <div key={gi} style={{ borderLeft: "3px solid var(--accent)", paddingLeft: 16, display: "flex", flexDirection: "column", gap: 12 }}>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                    <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", flexShrink: 0, fontWeight: 500 }}>{t("settings.hooks.matcher", "匹配器")}</span>
+                    <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", flexShrink: 0, fontWeight: 500 }}>{t("settings.hooks.matcher", "Matcher")}</span>
                     {eventMeta && eventMeta.matcherOptions.length > 0 ? (
                       <>
                         {eventMeta.matcherOptions.map(opt => {
@@ -186,14 +186,14 @@ export function HooksSectionInline(props: {
                       </>
                     ) : eventMeta?.matcherFreeform ? (
                       <Input  style={{ ...inputStyle, flex: 1 }}
-                        placeholder={eventMeta?.id === "FileChanged" ? t("settings.hooks.matcherFilePh", "文件名，如 .envrc|.env") : t("settings.hooks.matcherToolPh", "工具名称或正则，多个用 | 分隔")}
+                        placeholder={eventMeta?.id === "FileChanged" ? t("settings.hooks.matcherFilePh", "File name, e.g. .envrc|.env") : t("settings.hooks.matcherToolPh", "Tool name or regex, separate multiple with |")}
                         value={group.matcher} onChange={(e) => updateMatcher(eventId, gi, e.target.value)} />
                     ) : (
-                      <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>{t("settings.hooks.matchAll", "匹配所有")}</span>
+                      <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>{t("settings.hooks.matchAll", "Match all")}</span>
                     )}
                     <Button variant="ghost" type="button" 
                       style={{ width: 26, height: 26, minWidth: 26, fontSize: 14, padding: 0, color: "var(--text-tertiary)" }}
-                      onClick={() => removeMatcherGroup(eventId, gi)} title={t("action.delete", "删除")}>×
+                      onClick={() => removeMatcherGroup(eventId, gi)} title={t("action.delete", "Delete")}>×
                     </Button>
                   </div>
 
@@ -218,13 +218,13 @@ export function HooksSectionInline(props: {
 </Select>
                         <Button variant="ghost" type="button" 
                           style={{ width: 26, height: 26, minWidth: 26, fontSize: 14, padding: 0, color: "var(--text-tertiary)", marginLeft: "auto" }}
-                          onClick={() => removeHandler(eventId, gi, hi)} title={t("action.delete", "删除")}>×
+                          onClick={() => removeHandler(eventId, gi, hi)} title={t("action.delete", "Delete")}>×
                         </Button>
                       </div>
 
                       {handler.type === "command" && (
                         <>
-                          <FieldRow label={t("settings.hooks.fieldCommand", "命令")} icon={<SectionIcon name="bolt" size={13} />}>
+                          <FieldRow label={t("settings.hooks.fieldCommand", "Command")} icon={<SectionIcon name="bolt" size={13} />}>
                             <Textarea
                               
                               style={{
@@ -232,7 +232,7 @@ export function HooksSectionInline(props: {
                                 fontFamily: '"SF Mono", "Fira Code", monospace', lineHeight: 1.5,
                                 minHeight: 56, resize: "vertical",
                               }}
-                              placeholder={t("settings.hooks.commandPh", "命令或脚本路径，如 ./scripts/check.sh&#10;支持多行命令，每行独立执行")}
+                              placeholder={t("settings.hooks.commandPh", "Command or script path, e.g. ./scripts/check.sh&#10;Multi-line commands supported, each line runs independently")}
                               value={handler.command ?? ""}
                               onChange={(e) => updateHandler(eventId, gi, hi, { command: e.target.value || undefined })}
                             />
@@ -250,24 +250,24 @@ export function HooksSectionInline(props: {
                       )}
                       {handler.type === "http" && (
                         <FieldRow label="URL" icon={<SectionIcon name="network" size={13} />}>
-                          <Input  style={{ ...inputStyle, flex: 1 }} placeholder={t("settings.hooks.urlPh", "HTTP URL，如 http://localhost:8080/hooks/pre-tool-use")}
+                          <Input  style={{ ...inputStyle, flex: 1 }} placeholder={t("settings.hooks.urlPh", "HTTP URL, e.g. http://localhost:8080/hooks/pre-tool-use")}
                             value={handler.url ?? ""} onChange={(e) => updateHandler(eventId, gi, hi, { url: e.target.value || undefined })} />
                         </FieldRow>
                       )}
                       {handler.type === "mcp_tool" && (
                         <>
-                          <FieldRow label={t("settings.hooks.fieldServer", "服务器")} icon={<SectionIcon name="network" size={13} />}>
-                            <Input  style={{ ...inputStyle, flex: 1 }} placeholder={t("settings.hooks.serverPh", "MCP 服务器名称")}
+                          <FieldRow label={t("settings.hooks.fieldServer", "Server")} icon={<SectionIcon name="network" size={13} />}>
+                            <Input  style={{ ...inputStyle, flex: 1 }} placeholder={t("settings.hooks.serverPh", "MCP server name")}
                               value={handler.server ?? ""} onChange={(e) => updateHandler(eventId, gi, hi, { server: e.target.value || undefined })} />
                           </FieldRow>
-                          <FieldRow label={t("settings.hooks.fieldTool", "工具")} icon={<SectionIcon name="advanced" size={13} />}>
-                            <Input  style={{ ...inputStyle, flex: 1 }} placeholder={t("settings.hooks.toolPh", "工具名称")}
+                          <FieldRow label={t("settings.hooks.fieldTool", "Tool")} icon={<SectionIcon name="advanced" size={13} />}>
+                            <Input  style={{ ...inputStyle, flex: 1 }} placeholder={t("settings.hooks.toolPh", "Tool name")}
                               value={handler.tool ?? ""} onChange={(e) => updateHandler(eventId, gi, hi, { tool: e.target.value || undefined })} />
                           </FieldRow>
                         </>
                       )}
                       {(handler.type === "prompt" || handler.type === "agent") && (
-                        <FieldRow label={t("settings.hooks.fieldPrompt", "提示")} icon={<SectionIcon name="behavior" size={13} />}>
+                        <FieldRow label={t("settings.hooks.fieldPrompt", "Prompt")} icon={<SectionIcon name="behavior" size={13} />}>
                           <Textarea
                             
                             style={{
@@ -275,7 +275,7 @@ export function HooksSectionInline(props: {
                               fontFamily: '"SF Mono", "Fira Code", monospace', lineHeight: 1.5,
                               minHeight: 56, resize: "vertical",
                             }}
-                            placeholder={t("settings.hooks.promptPh", "提示文本，用 $ARGUMENTS 插入 hook 输入数据&#10;支持多行提示内容")}
+                            placeholder={t("settings.hooks.promptPh", "Prompt text, use $ARGUMENTS to insert hook input data&#10;Multi-line prompt content supported")}
                             value={handler.prompt ?? ""}
                             onChange={(e) => updateHandler(eventId, gi, hi, { prompt: e.target.value || undefined })}
                           />
@@ -283,8 +283,8 @@ export function HooksSectionInline(props: {
                       )}
 
                       {eventMeta?.hasMatcher && (
-                        <FieldRow label={t("settings.hooks.fieldIf", "条件 if")} icon={<SectionIcon name="permissions" size={13} />}>
-                          <Input  style={{ ...inputStyle, flex: 1, fontSize: F.hint }} placeholder={t("settings.hooks.ifPh", "匹配条件，如 Bash(rm *)")}
+                        <FieldRow label={t("settings.hooks.fieldIf", "Condition if")} icon={<SectionIcon name="permissions" size={13} />}>
+                          <Input  style={{ ...inputStyle, flex: 1, fontSize: F.hint }} placeholder={t("settings.hooks.ifPh", "Match condition, e.g. Bash(rm *)")}
                             value={handler["if"] ?? ""} onChange={(e) => {
                               const patch: Partial<HookHandler> = {};
                               if (e.target.value) (patch as any)["if"] = e.target.value;
@@ -293,22 +293,22 @@ export function HooksSectionInline(props: {
                             }} />
                         </FieldRow>
                       )}
-                      <FieldRow label={t("settings.hooks.fieldTimeout", "超时")} icon={<SectionIcon name="status" size={13} />}>
+                      <FieldRow label={t("settings.hooks.fieldTimeout", "Timeout")} icon={<SectionIcon name="status" size={13} />}>
                         <Input  style={{ ...inputStyle, width: 80, fontSize: F.hint }} type="number" placeholder="600"
                           value={handler.timeout ?? ""} onChange={(e) => updateHandler(eventId, gi, hi, { timeout: e.target.value ? Number(e.target.value) : undefined })} />
-                        <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>{t("settings.hooks.seconds", "秒")}</span>
+                        <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>{t("settings.hooks.seconds", "s")}</span>
                       </FieldRow>
                       {handler.type === "command" && (
                         <FieldRow label="async" icon={<SectionIcon name="ui" size={13} />}>
                           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: F.hint, color: "var(--text-tertiary)", cursor: "pointer" }}>
                             <Toggle active={!!handler.async} onChange={(v) => updateHandler(eventId, gi, hi, { async: v || undefined })} />
-                            {t("settings.hooks.asyncDesc", "后台运行（不阻塞主流程）")}
+                            {t("settings.hooks.asyncDesc", "Run in background (non-blocking)")}
                           </label>
                         </FieldRow>
                       )}
-                      <FieldRow label={t("settings.hooks.fieldStatus", "状态")} icon={<SectionIcon name="status" size={13} />}>
+                      <FieldRow label={t("settings.hooks.fieldStatus", "Status")} icon={<SectionIcon name="status" size={13} />}>
                         <Input  style={{ ...inputStyle, flex: 1, fontSize: F.hint }}
-                          placeholder={t("settings.hooks.statusPh", "运行时显示的状态消息")} value={handler.statusMessage ?? ""}
+                          placeholder={t("settings.hooks.statusPh", "Status message shown at runtime")} value={handler.statusMessage ?? ""}
                           onChange={(e) => updateHandler(eventId, gi, hi, { statusMessage: e.target.value || undefined })} />
                       </FieldRow>
                     </div>
@@ -316,7 +316,7 @@ export function HooksSectionInline(props: {
 
                   <Button variant="ghost" type="button" 
                     style={{ fontSize: F.hint, padding: "6px 14px", alignSelf: "flex-start", marginLeft: 72 }}
-                    onClick={() => addHandler(eventId, gi)}>{t("settings.hooks.addHandler", "+ 处理器")}</Button>
+                    onClick={() => addHandler(eventId, gi)}>{t("settings.hooks.addHandler", "+ Handler")}</Button>
                 </div>
               );
             })}
@@ -324,7 +324,7 @@ export function HooksSectionInline(props: {
             {isExpanded && (
               <Button variant="ghost" type="button" 
                 style={{ fontSize: F.hint, padding: "6px 14px", alignSelf: "flex-start" }}
-                onClick={() => addMatcherGroup(eventId)}>{t("settings.hooks.addMatcherGroup", "+ 匹配器组")}</Button>
+                onClick={() => addMatcherGroup(eventId)}>{t("settings.hooks.addMatcherGroup", "+ Matcher Group")}</Button>
             )}
           </div>
         );

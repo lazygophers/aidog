@@ -112,7 +112,7 @@ export function useSkillsData() {
       // F1: npx 失败/HOME 缺失时后端返 load_failed=true（保留旧缓存）。显加载失败提示让用户
       // 知道当前看到的是上次列表而非真清空（防「skills 没了」误判）。
       if (res.load_failed) {
-        setMessage(t("skills.loadFailed", "列表加载失败，显示上次缓存。检查 npx/Node.js 与 HOME 配置。"));
+        setMessage(t("skills.loadFailed", "List load failed, showing last cached. Check npx/Node.js and HOME configuration."));
       }
     } catch (e) {
       console.error("refresh installed failed", e);
@@ -151,7 +151,7 @@ export function useSkillsData() {
       const res = await skillsApi.listRefresh(scope);
       setInstalled(res.items);
       if (res.load_failed) {
-        setMessage(t("skills.loadFailed", "列表加载失败，显示上次缓存。检查 npx/Node.js 与 HOME 配置。"));
+        setMessage(t("skills.loadFailed", "List load failed, showing last cached. Check npx/Node.js and HOME configuration."));
       }
     } catch (e) {
       console.error("list installed (refresh) failed", e);
@@ -201,7 +201,7 @@ export function useSkillsData() {
     try {
       const selected = await pickPath({
         directory: true,
-        title: t("skills.chooseProjectDir", "选择项目目录"),
+        title: t("skills.chooseProjectDir", "Choose project directory"),
       });
       if (selected) setProjectPath(selected);
     } catch {
@@ -212,11 +212,11 @@ export function useSkillsData() {
   // 统一处理写操作结果 → toast + 刷新已装。
   const applyResult = async (res: SkillsOpResult, okKey: string) => {
     if (res.success) {
-      setMessage(t(okKey, "操作成功"));
+      setMessage(t(okKey, "Operation succeeded"));
       // 写后缓存已失效（后端），强制 refresh 取真实态。
       await refreshInstalled();
     } else {
-      const err = res.stderr.trim() || res.stdout.trim() || t("skills.opFailed", "操作失败");
+      const err = res.stderr.trim() || res.stdout.trim() || t("skills.opFailed", "Operation failed");
       setMessage(err);
     }
   };
@@ -254,11 +254,11 @@ export function useSkillsData() {
           scope,
         );
       if (res.success) {
-        setMessage(t(enabled ? "skills.disabled" : "skills.enabled", "操作成功"));
+        setMessage(t(enabled ? "skills.disabled" : "skills.enabled", "Operation succeeded"));
       } else {
         // 后端失败：回滚乐观改动 + 弹错。
         setInstalled(prev);
-        const err = res.stderr.trim() || res.stdout.trim() || t("skills.opFailed", "操作失败");
+        const err = res.stderr.trim() || res.stdout.trim() || t("skills.opFailed", "Operation failed");
         setMessage(err);
       }
     } catch (e) {
@@ -364,12 +364,12 @@ export function useSkillsData() {
         const n = m ? Number(m[1]) : 0;
         setMessage(
           n === 0
-            ? t("skills.alignNoop", "两 agent 配置已一致，无需对齐")
-            : t("skills.alignDone", "已对齐 {{count}} 项变更", { count: n }),
+            ? t("skills.alignNoop", "Both agents already match, no changes needed")
+            : t("skills.alignDone", "Aligned {{count}} change(s)", { count: n }),
         );
         await refreshInstalled();
       } else {
-        const err = res.stderr.trim() || res.stdout.trim() || t("skills.opFailed", "操作失败");
+        const err = res.stderr.trim() || res.stdout.trim() || t("skills.opFailed", "Operation failed");
         setMessage(err);
       }
     } catch (e) {
@@ -393,15 +393,15 @@ export function useSkillsData() {
         const n = m ? Number(m[1]) : 0;
         setMessage(
           n === 0
-            ? t("skills.enableAllNoop", "{{agent}} 已全部启用", { agent: t(`skills.agent.${agent}`, agent) })
-            : t("skills.enableAllDone", "已为 {{agent}} 启用 {{count}} 项", {
+            ? t("skills.enableAllNoop", "{{agent}} already has all skills enabled", { agent: t(`skills.agent.${agent}`, agent) })
+            : t("skills.enableAllDone", "Enabled {{count}} skill(s) for {{agent}}", {
                 agent: t(`skills.agent.${agent}`, agent),
                 count: n,
               }),
         );
         await refreshInstalled();
       } else {
-        const err = res.stderr.trim() || res.stdout.trim() || t("skills.opFailed", "操作失败");
+        const err = res.stderr.trim() || res.stdout.trim() || t("skills.opFailed", "Operation failed");
         setMessage(err);
       }
     } catch (e) {
@@ -417,7 +417,7 @@ export function useSkillsData() {
   const handleShare = (skill: SkillInfo) => {
     const id = skillCatalogId(skill);
     if (!id) {
-      setMessage(t("skills.share.noSource", "该 skill 非 catalog 来源，无法分享"));
+      setMessage(t("skills.share.noSource", "This skill is not from catalog and cannot be shared"));
       return;
     }
     setShareData({ share: { skills: [id] }, name: skill.name });
@@ -442,7 +442,7 @@ export function useSkillsData() {
     if (!ids || importAgents.size === 0) return;
     if (importScopeKind === "project" && importProjectPath.trim() === "") return;
     if (!env?.npx_available) {
-      setMessage(t("skills.envMissing", "未检测到 npx / Node.js，安装与更新功能不可用。请先安装 Node.js。"));
+      setMessage(t("skills.envMissing", "npx / Node.js not detected. Install and update are unavailable. Please install Node.js first."));
       return;
     }
     setImportBusy(true);
@@ -469,12 +469,12 @@ export function useSkillsData() {
     setImportIds(null);
     setImportBusy(false);
     if (fail === 0) {
-      setMessage(t("skills.importOk", "已导入 {{count}} 项", { count: ok }));
+      setMessage(t("skills.importOk", "Imported {{count}} skill(s)", { count: ok }));
     } else if (ok === 0) {
-      setMessage(t("skills.importFail", "导入失败 {{count}} 项", { count: fail }));
+      setMessage(t("skills.importFail", "Failed to import {{count}} skill(s)", { count: fail }));
     } else {
       setMessage(
-        t("skills.importPartial", "成功 {{ok}}，失败 {{fail}}", { ok, fail }) +
+        t("skills.importPartial", "Success {{ok}}, failed {{fail}}", { ok, fail }) +
           (failed.length > 0 ? `\n${failed.join(", ")}` : ""),
       );
     }
@@ -486,7 +486,7 @@ export function useSkillsData() {
   const handlePasteImport = () => {
     const ids = decodeSkillShare(pasteText);
     if (!ids || ids.length === 0) {
-      setMessage(t("skills.importInvalid", "分享文本格式无效"));
+      setMessage(t("skills.importInvalid", "Invalid share text"));
       return;
     }
     setPasteOpen(false);
@@ -502,7 +502,7 @@ export function useSkillsData() {
     if (!data) return;
     const ids = decodeSkillShare(data);
     if (!ids || ids.length === 0) {
-      setMessage(t("skills.importInvalid", "分享文本格式无效"));
+      setMessage(t("skills.importInvalid", "Invalid share text"));
       return;
     }
     openImportConfirm(ids);

@@ -22,7 +22,7 @@ export function PaygoBarsView({ bars }: { bars: DailyBar[] }) {
 
   return (
     <div data-testid="detail-t3-paygo">
-      <svg viewBox="0 0 760 224" width="100%" role="img" aria-label={t("platform.detail.paygo", "近 7 天用量")}>
+      <svg viewBox="0 0 760 224" width="100%" role="img" aria-label={t("platform.detail.paygo", "Last 7 Days Usage")}>
         {/* 网格 + 费用刻度 */}
         {moneyTicks.map((v, i) => {
           const y = barY(v);
@@ -54,7 +54,7 @@ export function PaygoBarsView({ bars }: { bars: DailyBar[] }) {
             fill={i === bars.length - 1 ? "var(--accent)" : "var(--muted-foreground)"}
             fontFamily="var(--font-mono, monospace)">
             {i === bars.length - 1
-              ? t("platform.detail.todayLabel", "今天")
+              ? t("platform.detail.todayLabel", "Today")
               : b.day.slice(5)}
           </text>
         ))}
@@ -62,11 +62,11 @@ export function PaygoBarsView({ bars }: { bars: DailyBar[] }) {
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 14, color: "var(--muted-foreground)", marginTop: 4 }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
           <span style={{ width: 12, height: 9, background: "var(--data-primary)", opacity: 0.9, borderRadius: 2, display: "inline-block" }} />
-          {t("platform.detail.dailyCost", "每日费用")}
+          {t("platform.detail.dailyCost", "Daily cost")}
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
           <span style={{ width: 14, height: 0, borderTop: "2px solid var(--color-warning)", display: "inline-block" }} />
-          {t("platform.detail.reqTrend", "请求数趋势")}
+          {t("platform.detail.reqTrend", "Requests trend")}
         </span>
       </div>
     </div>

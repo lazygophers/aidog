@@ -126,8 +126,8 @@ export function GroupListView(props: GroupListViewProps) {
               fontSize: 14, color: "var(--text-secondary)", background: "var(--bg-glass)",
               padding: "4px 8px", borderRadius: "var(--radius-sm)", whiteSpace: "nowrap",
             }}>{proxyBaseUrl}</code>
-            <CopyButton text={proxyBaseUrl} label={t("group.copyBaseUrl", "复制代理地址")}
-              title={t("group.copyBaseUrlTitle", "复制代理 base_url")} />
+            <CopyButton text={proxyBaseUrl} label={t("group.copyBaseUrl", "Copy proxy URL")}
+              title={t("group.copyBaseUrlTitle", "Copy proxy base_url")} />
           </div>
         </div>
       </div>
@@ -273,15 +273,15 @@ export function GroupListView(props: GroupListViewProps) {
         <AlertDialogContent className="glass-elevated" style={{ maxWidth: 420, padding: "20px 22px" }}>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {t("group.delete", "删除分组")}
+              {t("group.delete", "Delete group")}
               {deleteGroupName && `：${deleteGroupName}`}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {t("group.deleteConfirm", "删除后该分组的路由配置将一并失效，且无法撤销。确认删除？")}
+              {t("group.deleteConfirm", "Deleting this group also drops its routing configuration. This cannot be undone. Delete it?")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("action.cancel", "取消")}</AlertDialogCancel>
+            <AlertDialogCancel>{t("action.cancel", "Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 const id = deleteGroupId;
@@ -289,7 +289,7 @@ export function GroupListView(props: GroupListViewProps) {
                 if (id !== null) handleDeleteGroup(id);
               }}
             >
-              {t("action.delete", "删除")}
+              {t("action.delete", "Delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -312,15 +312,15 @@ function UnmatchedBucketCard({ stat: u, t }: { stat: PlatformUsageStats; t: TFun
     }}>
       <CardHeader style={{ padding: 0, gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <CardTitle style={{ fontSize: 14, fontWeight: 600 }}>{t("group.unmatched", "未匹配")}</CardTitle>
+          <CardTitle style={{ fontSize: 14, fontWeight: 600 }}>{t("group.unmatched", "Unmatched")}</CardTitle>
           <Badge variant="secondary" style={{ fontSize: 14, padding: "0 6px", fontWeight: 500 }}>
-            {t("group.unmatchedBadge", "虚拟桶")}
+            {t("group.unmatchedBadge", "virtual")}
           </Badge>
         </div>
       </CardHeader>
       <CardContent style={{ padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
         <div className="text-tertiary" style={{ fontSize: 14, lineHeight: 1.5 }}>
-          {t("group.unmatchedHint", "MITM 解密的非 API 流量未匹配分组时透明转发到原 host，不计费，仅统计请求数。")}
+          {t("group.unmatchedHint", "MITM-decrypted non-API traffic with no matching group is transparently forwarded to the origin host. Not billed; request count only.")}
         </div>
         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
           <StatChip icon={<IconBolt size={13} />} value={formatNumber(totalTokens)} label="tokens" />

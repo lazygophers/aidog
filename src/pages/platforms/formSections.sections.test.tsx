@@ -61,7 +61,7 @@ const ENABLE_TESTID = ["quota", "window", "enabled", "0"].join("-");
 describe("ManualBudgetsFields — C 方向稿接线", () => {
   it("实时态条：N 个限额 + 启用计数；空态提示并存", () => {
     const { container } = renderBudgets([budget({ enabled: true }), budget({ id: "b2", enabled: false })]);
-    expect(container.textContent).toContain("2 个限额");
+    expect(container.textContent).toContain("2 budgets");
     expect(container.textContent).toContain("1/2");
   });
 
@@ -71,7 +71,7 @@ describe("ManualBudgetsFields — C 方向稿接线", () => {
       budget({ id: "d1", kind: "daily" }),
     ]);
     const winInputs = Array.from(container.querySelectorAll("input")).filter(
-      i => i.placeholder === "窗口"
+      i => i.placeholder === "Window"
     );
     expect(winInputs).toHaveLength(1);
     expect((winInputs[0] as HTMLInputElement).value).toBe("5");
@@ -79,7 +79,7 @@ describe("ManualBudgetsFields — C 方向稿接线", () => {
 
   it("添加限额 → setBudgets 追加一条 total/usd/enabled 默认", () => {
     const { container, setBudgets } = renderBudgets([budget({})]);
-    const add = Array.from(container.querySelectorAll("button")).find(b => b.textContent.includes("添加限额"))!;
+    const add = Array.from(container.querySelectorAll("button")).find(b => b.textContent.includes("Add limit"))!;
     fireEvent.click(add);
     const next = setBudgets.mock.calls[0][0] as ManualBudget[];
     expect(next).toHaveLength(2);
@@ -93,7 +93,7 @@ describe("ManualBudgetsFields — C 方向稿接线", () => {
       budgets: [{ kind: "rolling", unit: "usd", amount: 20, window_hours: 5, window_unit: "hour" }],
     };
     const { container, setBudgets } = renderBudgets([budget({})], [tier]);
-    const fill = Array.from(container.querySelectorAll("button")).find(b => b.textContent.includes("填入内置额度"))!;
+    const fill = Array.from(container.querySelectorAll("button")).find(b => b.textContent.includes("Fill built-in quota"))!;
     fireEvent.click(fill);
     const next = setBudgets.mock.calls[0][0] as ManualBudget[];
     expect(next).toHaveLength(1);
@@ -102,7 +102,7 @@ describe("ManualBudgetsFields — C 方向稿接线", () => {
 
   it("删除行 → setBudgets 过滤掉该 id", () => {
     const { container, setBudgets } = renderBudgets([budget({ id: "keep" }), budget({ id: "drop" })]);
-    const del = Array.from(container.querySelectorAll("button")).find(b => b.title === "删除")!;
+    const del = Array.from(container.querySelectorAll("button")).find(b => b.title === "Delete")!;
     fireEvent.click(del);
     const next = setBudgets.mock.calls[0][0] as ManualBudget[];
     // 删除按钮按行渲染，第一行删除后保留第二行；断言「只剩一行且不叫 drop」语义（id 由实现按过滤生成）
@@ -147,13 +147,13 @@ describe("RateLimitsSection — C 方向稿接线", () => {
 
   it("空 bundle → 未配置 pill，无行卡", () => {
     const { container } = renderRateLimits({});
-    expect(container.textContent).toContain("未配置");
+    expect(container.textContent).toContain("Not configured");
     expect(container.querySelectorAll(".aidog-rowcard")).toHaveLength(0);
   });
 
   it("时长自由输入接线：5h 行键入 2 → commit window=7200（num×单位秒因子）", () => {
     const { container, setBundle } = renderRateLimits(bundle);
-    const dur = container.querySelector('input[aria-label="窗口时长"]') as HTMLInputElement;
+    const dur = container.querySelector('input[aria-label="Window length"]') as HTMLInputElement;
     expect((dur as HTMLInputElement).value).toBe("5");
     fireEvent.change(dur, { target: { value: "2" } });
     // commit 传普通对象（draftToBundle 已算好），非函数式 updater
@@ -238,9 +238,9 @@ function renderPeak(windows: TimeWindow[]) {
 describe("PeakSection — C 方向稿接线（preset RPC mock 空）", () => {
   it("全天 ×2 窗口：pill 显示 高峰中 ×2 + 1 个窗口；spark 24 段全亮", () => {
     const { container } = renderPeak([{ start_hour: 0, end_hour: 24, multiplier: 2 }]);
-    expect(container.textContent).toContain("高峰中");
+    expect(container.textContent).toContain("Peak ×");
     expect(container.textContent).toContain("×2");
-    expect(container.querySelectorAll(".aidog-anim-rise span")[1]?.textContent).toContain("1 个窗口");
+    expect(container.querySelectorAll(".aidog-anim-rise span")[1]?.textContent).toContain("1 windows");
     const lit = Array.from(container.querySelectorAll("i")).filter(
       i => (i as HTMLElement).style.background.includes("color-warning")
     );
@@ -249,15 +249,15 @@ describe("PeakSection — C 方向稿接线（preset RPC mock 空）", () => {
 
   it("无窗口 → 未配置提示、倍率 pill ×1.0、无 spark", () => {
     const { container } = renderPeak([]);
-    expect(container.textContent).toContain("未配置");
+    expect(container.textContent).toContain("Not configured");
     expect(container.textContent).toContain("×1.0");
     expect(container.querySelectorAll("i")).toHaveLength(0);
   });
 
   it("起/止时间选择器接线：键入 937 → setWindows 提交 09:37（utc 直存）", () => {
     const { container, setWindows } = renderPeak([{ start_hour: 0, end_hour: 24, multiplier: 1 }]);
-    // aria-label = TimePicker suffix（t stub → fallback「起」），限定本 render container
-    const startInput = container.querySelector('input[aria-label="起"]') as HTMLInputElement;
+    // aria-label = TimePicker suffix（t stub → fallback「Start」），限定本 render container
+    const startInput = container.querySelector('input[aria-label="Start"]') as HTMLInputElement;
     fireEvent.change(startInput, { target: { value: "937" } });
     fireEvent.blur(startInput);
     expect(setWindows).toHaveBeenCalled();

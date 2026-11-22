@@ -150,7 +150,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
   const handleTest = async () => {
     try {
       await notificationApi.testNotify("task_complete");
-      setMessage(t("notif.testSent", "测试通知已发送"));
+      setMessage(t("notif.testSent", "Test notification sent"));
     } catch (e) {
       console.error("test notify failed", e);
       setMessage(String(e));
@@ -160,7 +160,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
   // 独立通道测试：绕过 dispatch 直接触发某通道，便于诊断（语音后端 / 弹窗权限 / 系统提示音）。
   const handleTestTts = async () => {
     try {
-      await notificationApi.testTts(t("notif.testTtsContent", "测试播报"));
+      await notificationApi.testTts(t("notif.testTtsContent", "test announcement"));
     } catch (e) {
       console.error("test tts failed", e);
       setMessage(String(e));
@@ -168,7 +168,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
   };
   const handleTestPopup = async () => {
     try {
-      await notificationApi.testPopup(t("notif.testPopupTitle", "测试通知"), t("notif.testPopupBody", "测试弹窗"));
+      await notificationApi.testPopup(t("notif.testPopupTitle", "Test notification"), t("notif.testPopupBody", "Test popup"));
     } catch (e) {
       console.error("test popup failed", e);
       setMessage(String(e));
@@ -200,11 +200,11 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
     setUvInstalling(true);
     try {
       await scriptExecutorApi.installUv();
-      setMessage(t("notif.uvInstalled", "uv 安装完成"));
+      setMessage(t("notif.uvInstalled", "uv installed"));
       uvModal.resolve(true);
     } catch (e) {
       console.error("install uv failed", e);
-      setMessage(t("notif.uvInstallFailed", "uv 安装失败，将使用 python3"));
+      setMessage(t("notif.uvInstallFailed", "uv install failed; falling back to python3"));
       // 安装失败 → 退回 python3 仍可生成脚本。
       try { await scriptExecutorApi.setExecutor("python3"); } catch { /* best-effort */ }
       uvModal.resolve(true);
@@ -254,8 +254,8 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
     try {
       await notificationApi.setDefaultHooksEnabled(next);
       setMessage(next
-        ? t("notif.defaultHooksOn", "已为所有分组注入通知 hook")
-        : t("notif.defaultHooksOff", "已移除所有分组的通知 hook"));
+        ? t("notif.defaultHooksOn", "Notification hooks injected for all groups")
+        : t("notif.defaultHooksOff", "Notification hooks removed from all groups"));
     } catch (e) {
       console.error("set default hooks failed", e);
       setDefaultHooks(!next);
@@ -267,7 +267,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
   if (loading) {
     return (
       <div className="text-secondary" style={{ padding: 20 }}>
-        {t("status.loading", "加载中…")}
+        {t("status.loading", "Loading...")}
       </div>
     );
   }
@@ -280,9 +280,9 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
         style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
         <div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.masterToggle", "通知总开关")}</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.masterToggle", "Notifications")}</div>
           <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
-            {t("notif.masterToggleDesc", "关闭后所有通知分发被旁路")}
+            {t("notif.masterToggleDesc", "When off, all notification dispatch is bypassed")}
           </div>
         </div>
         <Switch
@@ -297,9 +297,9 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
         style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
         <div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.dnd", "免打扰")}</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.dnd", "Do Not Disturb")}</div>
           <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
-            {t("notif.dndDesc", "开启后压掉弹窗/提示音/TTS/外部渠道，收件箱照常记录；规则可设「免打扰穿透」")}
+            {t("notif.dndDesc", "Suppresses popup/sound/TTS/external channels; inbox still records. Rules can pierce DND")}
           </div>
         </div>
         <Switch
@@ -321,9 +321,9 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
           style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}
         >
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.permGuideTitle", "没收到系统通知？")}</div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.permGuideTitle", "Not receiving system notifications?")}</div>
             <div className="text-secondary" style={{ fontSize: 14, marginTop: 2, lineHeight: 1.5 }}>
-              {t("notif.permGuideDesc", "可能需在系统设置中允许 aidog 发送通知。")}
+              {t("notif.permGuideDesc", "You may need to allow aidog to send notifications in System Settings.")}
             </div>
           </div>
           <Button variant="ghost"
@@ -331,7 +331,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
             style={{ fontSize: 14, padding: "6px 12px", whiteSpace: "nowrap" }}
             onClick={(e) => { makeRipple(e); handleOpenNotifSettings(); }}
           >
-            {t("notif.permGuideButton", "打开系统通知设置")}
+            {t("notif.permGuideButton", "Open notification settings")}
           </Button>
         </NotifSectionCard>
       )}
@@ -343,9 +343,9 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.ttsToggle", "语音播报")}</div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.ttsToggle", "Voice Announcements")}</div>
             <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
-              {t("notif.ttsToggleDesc", "启用后按类型配置朗读通知内容")}
+              {t("notif.ttsToggleDesc", "Read out notification content per type when enabled")}
             </div>
           </div>
           <Switch
@@ -356,7 +356,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
         {settings.tts_enabled && (
           <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 8, borderTop: "1px solid var(--border)" }}>
             <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-              {t("notif.ttsBackendLabel", "播报后端")}
+              {t("notif.ttsBackendLabel", "TTS Backend")}
             </label>
             <Select
               
@@ -380,33 +380,33 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
         staggerMs={180}
         style={{ padding: "12px 20px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", opacity: settings.enabled ? 1 : 0.55 }}
       >
-        <span style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.testChannels", "通道测试")}</span>
+        <span style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.testChannels", "Channel test")}</span>
         <Button variant="ghost"
           className="ripple"
           style={{ fontSize: 14, padding: "4px 10px" }}
           onClick={(e) => { makeRipple(e); handleTestTts(); }}
           disabled={!settings.enabled}
-          title={t("notif.testTtsTip", "仅测语音播报")}
+          title={t("notif.testTtsTip", "Test voice only")}
         >
-          🔊 {t("notif.testTtsLabel", "语音")}
+          🔊 {t("notif.testTtsLabel", "Voice")}
         </Button>
         <Button variant="ghost"
           className="ripple"
           style={{ fontSize: 14, padding: "4px 10px" }}
           onClick={(e) => { makeRipple(e); handleTestPopup(); }}
           disabled={!settings.enabled}
-          title={t("notif.testPopupTip", "仅测系统弹窗")}
+          title={t("notif.testPopupTip", "Test system popup only")}
         >
-          🪟 {t("notif.testPopupLabel", "弹窗")}
+          🪟 {t("notif.testPopupLabel", "Popup")}
         </Button>
         <Button variant="ghost"
           className="ripple"
           style={{ fontSize: 14, padding: "4px 10px" }}
           onClick={(e) => { makeRipple(e); handleTestBeep(); }}
           disabled={!settings.enabled}
-          title={t("notif.testBeepTip", "仅测系统提示音")}
+          title={t("notif.testBeepTip", "Test system beep only")}
         >
-          🔔 {t("notif.testBeepLabel", "提示音")}
+          🔔 {t("notif.testBeepLabel", "Beep")}
         </Button>
         <Button variant="ghost"
           className="ripple"
@@ -414,7 +414,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
           onClick={(e) => { makeRipple(e); handleTest(); }}
           disabled={!settings.enabled}
         >
-          {t("notif.test", "测试")}
+          {t("notif.test", "Test")}
         </Button>
       </NotifSectionCard>
 
@@ -430,22 +430,22 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.retentionTitle", "通知历史自动清理")}</div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.retentionTitle", "Auto-clean notification history")}</div>
                 <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
-                  {t("notif.retentionDesc", "超过保留天数的通知历史将被永久删除；关闭则永久保留")}
+                  {t("notif.retentionDesc", "History older than the retention period is permanently deleted; off keeps it forever")}
                 </div>
               </div>
               {/* 关 → 0（不清理）；开 → 回 7 天默认。 */}
               <Switch
                 checked={cleanupOn}
                 onCheckedChange={() => persist(prev => ({ ...prev, inbox_retention_days: cleanupOn ? 0 : 7 }))}
-                aria-label={t("notif.retentionTitle", "通知历史自动清理")}
+                aria-label={t("notif.retentionTitle", "Auto-clean notification history")}
               />
             </div>
             {cleanupOn && (
               <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 8, borderTop: "1px solid var(--border)" }}>
                 <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-                  {t("notif.retentionDaysLabel", "保留天数")}
+                  {t("notif.retentionDaysLabel", "Retention days")}
                 </label>
                 <Input
                   type="number"
@@ -460,7 +460,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
                     persist(prev => ({ ...prev, inbox_retention_days: n }));
                   }}
                 />
-                <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>{t("notif.retentionDaysUnit", "天")}</span>
+                <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>{t("notif.retentionDaysUnit", "days")}</span>
               </div>
             )}
           </NotifSectionCard>
@@ -473,23 +473,23 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
         style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
         <div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.defaultHooksTitle", "默认为所有分组注入通知 Hook")}</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("notif.defaultHooksTitle", "Inject Notification Hooks for All Groups by Default")}</div>
           <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
-            {t("notif.defaultHooksDesc", "开启后所有分组自动带 Claude Code hooks 与 Codex notify，无需逐个手动注入")}
-            {hooksDisabled && <span style={{ marginLeft: 4 }}>· {t("notif.defaultHooksDisabledHint", "需先开启通知")}</span>}
+            {t("notif.defaultHooksDesc", "When enabled, all groups automatically get Claude Code hooks and Codex notify, no per-group manual injection needed")}
+            {hooksDisabled && <span style={{ marginLeft: 4 }}>· {t("notif.defaultHooksDisabledHint", "Enable notifications first")}</span>}
           </div>
         </div>
         <Switch
           checked={defaultHooks && !hooksDisabled}
           disabled={hooksDisabled || defaultHooksBusy}
           onCheckedChange={() => handleToggleDefaultHooks()}
-          aria-label={t("notif.defaultHooksTitle", "默认为所有分组注入通知 Hook")}
+          aria-label={t("notif.defaultHooksTitle", "Inject Notification Hooks for All Groups by Default")}
         />
       </NotifSectionCard>
 
       <PiUnsupportedNote
         reasonKey="pi.unsupportedHooks"
-        reasonFallback="pi 没有配置式 hooks，事件处理只能写在 extension 的 TypeScript 里，aidog 无法代为注入。"
+        reasonFallback="pi has no config-driven hooks; event handlers live in TypeScript extensions, so aidog cannot inject them for you."
       />
 
       {/* N2：逐 hook 事件触发配置（仅 claude_code；通知总开关关时禁用整区） */}
@@ -511,9 +511,9 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
       <Dialog open={uvModal !== null} onOpenChange={(o) => { if (!o) handleUvCancel(); }}>
         <DialogContent className="glass-elevated" style={{ maxWidth: 420, padding: "20px 24px" }}>
           <DialogHeader>
-            <DialogTitle style={{ fontSize: 15, fontWeight: 600 }}>{t("notif.uvModalTitle", "未检测到 uv")}</DialogTitle>
+            <DialogTitle style={{ fontSize: 15, fontWeight: 600 }}>{t("notif.uvModalTitle", "uv not detected")}</DialogTitle>
             <DialogDescription className="text-secondary" style={{ fontSize: 14, lineHeight: 1.5 }}>
-              {t("notif.uvModalDesc", "通知 hook 脚本为 Python（PEP723），推荐用 uv 运行以隔离依赖。是否自动安装 uv？否则将使用系统 python3。")}
+              {t("notif.uvModalDesc", "Notification hook scripts are Python (PEP723). Running them with uv is recommended for dependency isolation. Install uv automatically? Otherwise system python3 will be used.")}
             </DialogDescription>
           </DialogHeader>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
@@ -523,7 +523,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
               onClick={(e) => { makeRipple(e); handleUvCancel(); }}
               disabled={uvInstalling}
             >
-              {t("notif.uvModalCancel", "取消")}
+              {t("notif.uvModalCancel", "Cancel")}
             </Button>
             <Button variant="ghost"
               className="ripple"
@@ -531,7 +531,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
               onClick={(e) => { makeRipple(e); handleUvUsePython(); }}
               disabled={uvInstalling}
             >
-              {t("notif.uvModalUsePython", "用 python3")}
+              {t("notif.uvModalUsePython", "Use python3")}
             </Button>
             <Button variant="default"
               className="ripple"
@@ -539,7 +539,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
               onClick={(e) => { makeRipple(e); handleUvInstall(); }}
               disabled={uvInstalling}
             >
-              {uvInstalling ? t("notif.uvModalInstalling", "安装中…") : t("notif.uvModalInstall", "自动安装 uv")}
+              {uvInstalling ? t("notif.uvModalInstalling", "Installing…") : t("notif.uvModalInstall", "Install uv automatically")}
             </Button>
           </div>
         </DialogContent>

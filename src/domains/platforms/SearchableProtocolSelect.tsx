@@ -194,7 +194,7 @@ export function SearchableProtocolSelect({
           <Input
             ref={inputRef}
             className="input"
-            placeholder={t("platform.searchPlaceholder", "搜索平台...")}
+            placeholder={t("platform.searchPlaceholder", "Search platforms...")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoFocus

@@ -30,7 +30,7 @@ export function SectionTabs({ tabs, active, onChange }: {
         background: "var(--bg-glass)",
       }}
       role="tablist"
-      aria-label={t("common.sectionTabs", "设置分区")}
+      aria-label={t("common.sectionTabs", "Sections")}
     >
       {tabs.map(tab => {
         const on = tab.id === active;

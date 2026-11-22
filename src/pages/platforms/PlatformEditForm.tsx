@@ -74,16 +74,16 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
 
   // ── 高级设置 tab（2026-10-20 拆 7 tab）：内容全被条件隐藏的 tab 不进列表；只剩 1 个 → 不出条直接平铺 ──
   const advTabs = [
-    ...(!isMock && !isPassthrough && !isPassThrough ? [{ id: "quota", label: t("platform.tabQuota", "配额查询") }] : []),
-    ...(!isMock && !isPassthrough && !isPassThrough ? [{ id: "timemodels", label: t("platform.tabTimemodels", "时段档") }] : []),
-    ...(!isMock && editing && !isPassthrough && !isPassThrough ? [{ id: "peak", label: t("platform.tabPeak", "高峰时段倍率") }] : []),
-    ...(!isMock && editing && !isPassthrough && !isPassThrough ? [{ id: "direct", label: t("platform.tabDirect", "直通模型") }] : []),
-    ...(editing && protocol === "qianfan" ? [{ id: "appbuilder", label: t("platform.tabAppbuilder", "AppBuilder 凭据") }] : []),
-    ...(editing && !isPassthrough && !isPassThrough ? [{ id: "ratelimits", label: t("platform.tabRateLimits", "限频") }] : []),
-    ...(editing && !isPassthrough && !isPassThrough ? [{ id: "breaker", label: t("platform.tabBreaker", "熔断") }] : []),
-    ...(!isMock ? [{ id: "clients", label: t("platform.tabClients", "客户端白名单") }] : []),
-    { id: "expiry", label: t("platform.tabExpiry", "过期时间") },
-    ...(!isPassthrough ? [{ id: "group", label: t("platform.tabGroupAssign", "分组归属") }] : []),
+    ...(!isMock && !isPassthrough && !isPassThrough ? [{ id: "quota", label: t("platform.tabQuota", "Quota Query") }] : []),
+    ...(!isMock && !isPassthrough && !isPassThrough ? [{ id: "timemodels", label: t("platform.tabTimemodels", "Time-based models") }] : []),
+    ...(!isMock && editing && !isPassthrough && !isPassThrough ? [{ id: "peak", label: t("platform.tabPeak", "Peak hours multiplier") }] : []),
+    ...(!isMock && editing && !isPassthrough && !isPassThrough ? [{ id: "direct", label: t("platform.tabDirect", "Direct models") }] : []),
+    ...(editing && protocol === "qianfan" ? [{ id: "appbuilder", label: t("platform.tabAppbuilder", "AppBuilder") }] : []),
+    ...(editing && !isPassthrough && !isPassThrough ? [{ id: "ratelimits", label: t("platform.tabRateLimits", "Rate Limits") }] : []),
+    ...(editing && !isPassthrough && !isPassThrough ? [{ id: "breaker", label: t("platform.tabBreaker", "Circuit breaker") }] : []),
+    ...(!isMock ? [{ id: "clients", label: t("platform.tabClients", "Client allowlist") }] : []),
+    { id: "expiry", label: t("platform.tabExpiry", "Expires at") },
+    ...(!isPassthrough ? [{ id: "group", label: t("platform.tabGroupAssign", "Group Assignment") }] : []),
   ];
   const [advTab, setAdvTab] = useState("quota");
   const activeAdvTab = advTabs.some(x => x.id === advTab) ? advTab : advTabs[0].id;
@@ -137,14 +137,14 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           {editing && (
             <div className="section-desc">
               {/* unknown = DB platform_type 落了枚举外的值（票 06）：显式「未知协议」，提示重选平台类型 */}
-              {editing.platform_type === "unknown" ? t("platform.unknownProtocol", "未知协议") : labelMap[editing.platform_type] || editing.platform_type} · {getPrimaryBaseUrl(editing.platform_type, editing.endpoints ?? []) || editing.base_url}
+              {editing.platform_type === "unknown" ? t("platform.unknownProtocol", "Unknown protocol") : labelMap[editing.platform_type] || editing.platform_type} · {getPrimaryBaseUrl(editing.platform_type, editing.endpoints ?? []) || editing.base_url}
             </div>
           )}
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           {!editing && (
             <Button variant="outline" onClick={() => setShowPaste(true)}>
-              {t("platform.paste.title", "智能识别")}
+              {t("platform.paste.title", "Smart Detect")}
             </Button>
           )}
           <Button variant="outline" onClick={resetForm}>{t("action.cancel")}</Button>
@@ -157,7 +157,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             {editing
               ? t("action.save")
               : batchPreviewKeys && batchPreviewKeys.length > 1
-                ? t("platform.batch.createN", "批量创建（{{n}}）", { n: batchPreviewKeys.length })
+                ? t("platform.batch.createN", "Batch Create ({{n}})", { n: batchPreviewKeys.length })
                 : t("action.create")}
           </Button>
         </div>
@@ -174,7 +174,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
 
       <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {/* 基础信息：名称 + 协议 */}
-        <FormSection title={t("platform.sectionBasic", "基础信息")}>
+        <FormSection title={t("platform.sectionBasic", "Basic Info")}>
           <Input className="input" placeholder={t("platform.name")} value={name}
             onChange={(e) => setName(e.target.value)} />
           {/* 协议可改（2026-10-27 用户拍板）：编辑态与创建态同款选择器；unknown 修复/正常切换共用 handleProtocolChange */}
@@ -193,13 +193,13 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             <Alert variant="destructive" data-testid="platform-usage-warning">{usageWarning}</Alert>
           )}
           {protocol === "unknown" && (
-            <p role="alert">{t("platform.unknownProtocolSave", "请选择有效的协议类型后再保存")}</p>
+            <p role="alert">{t("platform.unknownProtocolSave", "Select a valid protocol before saving")}</p>
           )}
         </FormSection>
 
         {/* Mock 平台配置编辑器（仅 mock 平台显示，替代 endpoints / API Key / 模型） */}
         {isMock && (
-          <FormSection title={t("platform.sectionSpecial", "特例配置")}>
+          <FormSection title={t("platform.sectionSpecial", "Special Config")}>
             <MockConfigEditor config={mockConfig} onChange={setMockConfig} />
           </FormSection>
         )}
@@ -250,13 +250,13 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         <EndpointsSection endpoints={endpoints} setEndpoints={setEndpoints} protocol={protocol} t={t} />
 
         {/* Token（创建态多行 = 每行一个，批量创建；编辑态单行单平台） */}
-        <FormSection title={t("platform.sectionAuth", "认证")}>
+        <FormSection title={t("platform.sectionAuth", "Authentication")}>
           <ApiKeyField
             value={apiKey} onChange={handleApiKeyChange} show={showKey} onToggleShow={() => setShowKey(!showKey)}
             editing={!!editing} multiline={!editing}
             placeholder={editing
               ? t("platform.tokenPlaceholderEdit", "Token")
-              : t("platform.tokenPlaceholder", "Token（每行一个，多行将批量创建平台）")}
+              : t("platform.tokenPlaceholder", "Token (one per line; multiple lines create multiple platforms)")}
           />
         </FormSection>
 
@@ -362,7 +362,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           <>
         <ModelsMatrixSection
           columns="time"
-          titleOverride={t("platform.time_windows_section_title", "时段档")}
+          titleOverride={t("platform.time_windows_section_title", "Time-based models")}
           models={models} onModelsChange={handleModelsChange}
           activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown}
           availableModels={availableModels} protocol={proto}

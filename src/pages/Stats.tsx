@@ -255,11 +255,11 @@ export function buildQuotaGauges(snaps: QuotaSnapshot[]): QuotaGauge[] {
 // ── 粒度可读标注（趋势图右上角；auto 降级时加「（自动）」后缀让用户知情） ──
 function granLabel(g: StatsQuery["granularity"], auto: boolean, t: TFunction): string {
   const base =
-    g === "minute" ? t("stats.granMinute", "1 分钟")
-      : g === "5min" ? t("stats.gran5min", "5 分钟")
-        : g === "hourly" ? t("stats.granHourly", "小时")
-          : t("stats.granDaily", "天");
-  return auto ? t("stats.granAuto", "{{g}}（自动）", { g: base }) : base;
+    g === "minute" ? t("stats.granMinute", "1 min")
+      : g === "5min" ? t("stats.gran5min", "5 min")
+        : g === "hourly" ? t("stats.granHourly", "Hourly")
+          : t("stats.granDaily", "Daily");
+  return auto ? t("stats.granAuto", "{{g}} (auto)", { g: base }) : base;
 }
 
 // ── 小箭头 SVG（环比方向 / 排序指示），就地渲染避免改动 shared icons ──
@@ -545,8 +545,8 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
   // （未分组请求）=「未分组平台」；model 空串已被 Rust 侧过滤（无模型请求
   // 不构成一个模型），落到这里只可能是旧内核，仍归「未知平台」。
   const fallbackName = groupBy === "group"
-    ? t("platform.ungrouped", "未分组平台")
-    : t("popover.unknownPlatform", "未知平台");
+    ? t("platform.ungrouped", "Ungrouped platforms")
+    : t("popover.unknownPlatform", "Unknown platform");
   const dims = (data?.dimension_data ?? []).map(d => (d.name ? d : { ...d, name: fallbackName }));
   const series = useMemo(
     () => (data?.series ?? []).map(s => (s.name ? s : { ...s, name: fallbackName })),
@@ -555,7 +555,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
 
   // 时间序列 tab：series_by 多序列（无 series 回落 buckets 单序列）
   const trend = useMemo(
-    () => buildTrendChartData(buckets, series, t("stats.requests", "请求")),
+    () => buildTrendChartData(buckets, series, t("stats.requests", "Requests")),
     [buckets, series, t],
   );
 
@@ -600,8 +600,8 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Header */}
       <div>
-        <div className="section-title">{t("page.stats", "使用统计")}</div>
-        <div className="section-desc">{t("stats.desc", "按平台、分组、模型维度查看请求量与 Token 消耗趋势")}</div>
+        <div className="section-title">{t("page.stats", "Usage Statistics")}</div>
+        <div className="section-desc">{t("stats.desc", "View request volume and token usage by platform, group, and model")}</div>
       </div>
 
       {/* Filters */}
@@ -626,7 +626,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
               }}
               onClick={() => changePreset(p)}
             >
-              {t(`stats.${p}`, p === "today" ? "今天" : p === "7d" ? "近 7 天" : "近 30 天")}
+              {t(`stats.${p}`, p === "today" ? "Today" : p === "7d" ? "Last 7d" : "Last 30d")}
             </Button>
           ))}
         </div>
@@ -637,8 +637,8 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="daily">{t("stats.daily", "按天")}</SelectItem>
-            <SelectItem value="hourly">{t("stats.hourly", "按小时")}</SelectItem>
+            <SelectItem value="daily">{t("stats.daily", "Daily")}</SelectItem>
+            <SelectItem value="hourly">{t("stats.hourly", "Hourly")}</SelectItem>
           </SelectContent>
         </Select>
 
@@ -648,9 +648,9 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="platform">{t("stats.byPlatform", "按平台")}</SelectItem>
-            <SelectItem value="model">{t("stats.byModel", "按模型")}</SelectItem>
-            <SelectItem value="group">{t("stats.byGroup", "按分组")}</SelectItem>
+            <SelectItem value="platform">{t("stats.byPlatform", "By Platform")}</SelectItem>
+            <SelectItem value="model">{t("stats.byModel", "By Model")}</SelectItem>
+            <SelectItem value="group">{t("stats.byGroup", "By Group")}</SelectItem>
           </SelectContent>
         </Select>
 
@@ -659,14 +659,14 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
           width={140}
           value={filterGroup}
           onChange={setFilterGroup}
-          allLabel={t("stats.allGroups", "全部分组")}
-          searchPlaceholder={t("stats.searchGroup", "搜索分组...")}
+          allLabel={t("stats.allGroups", "All Groups")}
+          searchPlaceholder={t("stats.searchGroup", "Search group")}
           options={[
             ...groups.map(g => ({ value: g.group.group_key, label: g.group.name })),
             // 隧道请求无 apikey → group_key=''（sentinel 映射见 load）
-            { value: NO_GROUP_SENTINEL, label: t("stats.noGroup", "无分组") },
+            { value: NO_GROUP_SENTINEL, label: t("stats.noGroup", "No group") },
           ]}
-          emptyLabel={t("stats.noMatch", "无匹配")}
+          emptyLabel={t("stats.noMatch", "No match")}
         />
 
         {/* Filter: model（带搜索，列表可能很长） */}
@@ -674,10 +674,10 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
           width={170}
           value={filterModel}
           onChange={setFilterModel}
-          allLabel={t("stats.allModels", "全部模型")}
-          searchPlaceholder={t("stats.searchModel", "搜索模型...")}
+          allLabel={t("stats.allModels", "All Models")}
+          searchPlaceholder={t("stats.searchModel", "Search model")}
           options={allModels.map(m => ({ value: m, label: m }))}
-          emptyLabel={t("stats.noMatch", "无匹配")}
+          emptyLabel={t("stats.noMatch", "No match")}
         />
 
         {/* Filter: protocol（带搜索） */}
@@ -685,11 +685,11 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
           width={140}
           value={filterPlatform}
           onChange={setFilterPlatform}
-          allLabel={t("stats.allPlatforms", "全部平台")}
-          searchPlaceholder={t("stats.searchPlatform", "搜索平台...")}
+          allLabel={t("stats.allPlatforms", "All Platforms")}
+          searchPlaceholder={t("stats.searchPlatform", "Search platform")}
           // 追加「无平台」(platform_id=0，隧道请求 host 未命中)
-          options={[...allPlatforms, { value: "0", label: t("stats.noPlatform", "无平台") }]}
-          emptyLabel={t("stats.noMatch", "无匹配")}
+          options={[...allPlatforms, { value: "0", label: t("stats.noPlatform", "No platform") }]}
+          emptyLabel={t("stats.noMatch", "No match")}
         />
         {/* Filter: coding plan（订阅套餐平台，spec B3） */}
         <Select value={filterCodingPlan ? "coding" : "all"} onValueChange={v => setFilterCodingPlan(v === "coding")}>
@@ -697,21 +697,21 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">{t("stats.planAll", "全部计费")}</SelectItem>
-            <SelectItem value="coding">{t("stats.codingPlanOnly", "仅 Coding Plan")}</SelectItem>
+            <SelectItem value="all">{t("stats.planAll", "All billing")}</SelectItem>
+            <SelectItem value="coding">{t("stats.codingPlanOnly", "Coding Plan only")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
       {loading ? (
         <div style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)", fontSize: F.hint }}>
-          {t("stats.loading", "加载中...")}
+          {t("stats.loading", "Loading...")}
         </div>
       ) : overview ? (
         <>
           {/* Overview cards（含色编码 + 环比对比） */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <OverviewCard
-              label={t("stats.totalRequests", "总请求")}
+              label={t("stats.totalRequests", "Total Requests")}
               value={formatNumber(overview.total_requests)}
               numericValue={overview.total_requests}
               staggerMs={0}
@@ -719,7 +719,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
               t={t}
             />
             <OverviewCard
-              label={t("stats.successRate", "成功率")}
+              label={t("stats.successRate", "Success Rate")}
               value={curSuccessRate.toFixed(1)}
               unit="%"
               level={successRateLevel(curSuccessRate, overview.total_requests)}
@@ -728,28 +728,28 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
               t={t}
             />
             <OverviewCard
-              label={t("stats.inputTokens", "输入 Token")}
+              label={t("stats.inputTokens", "Input Tokens")}
               value={formatNumber(overview.total_input_tokens)}
               staggerMs={120}
               delta={delta(overview.total_input_tokens, prevOverview?.total_input_tokens ?? 0)}
               t={t}
             />
             <OverviewCard
-              label={t("stats.outputTokens", "输出 Token")}
+              label={t("stats.outputTokens", "Output Tokens")}
               value={formatNumber(overview.total_output_tokens)}
               staggerMs={180}
               delta={delta(overview.total_output_tokens, prevOverview?.total_output_tokens ?? 0)}
               t={t}
             />
             <OverviewCard
-              label={t("stats.cacheTokens", "缓存 Token")}
+              label={t("stats.cacheTokens", "Cache Tokens")}
               value={formatNumber(overview.total_cache_tokens)}
               staggerMs={240}
               delta={delta(overview.total_cache_tokens, prevOverview?.total_cache_tokens ?? 0)}
               t={t}
             />
             <OverviewCard
-              label={t("stats.cacheRate", "缓存率")}
+              label={t("stats.cacheRate", "Cache Rate")}
               value={overview.cache_rate.toFixed(1)}
               unit="%"
               staggerMs={300}
@@ -757,7 +757,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
               t={t}
             />
             <OverviewCard
-              label={t("stats.avgLatency", "平均延迟")}
+              label={t("stats.avgLatency", "Avg Latency")}
               value={overview.avg_duration_ms.toFixed(0)}
               unit="ms"
               staggerMs={360}
@@ -766,13 +766,13 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
               t={t}
             />
             <OverviewCard
-              label={t("stats.totalCost", "预估成本")}
+              label={t("stats.totalCost", "Total Cost")}
               value={formatMoney(overview.total_cost)}
               level={costLevel(overview.total_cost)}
               staggerMs={420}
               delta={delta(overview.total_cost, prevOverview?.total_cost ?? 0)}
               deltaInverse
-              hint={t("stats.costNote", "参考成本，非实付")}
+              hint={t("stats.costNote", "Reference cost, not actual charges")}
               t={t}
             />
           </div>
@@ -780,12 +780,12 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
           {/* MITM 盲转「未计入」提示（blocked_reason=mitm_opaque：解不开的请求 est_cost=0，不进上方成本） */}
           {opaqueCount > 0 && (
             <div style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>
-              {t("stats.mitmOpaqueNote", "另有 {{n}} 条 MITM 盲转请求未计入成本（无法解密，仅记元数据）", { n: formatNumber(opaqueCount) })}
+              {t("stats.mitmOpaqueNote", "{{n}} additional MITM opaque requests not counted in cost (undecryptable, metadata only)", { n: formatNumber(opaqueCount) })}
             </div>
           )}
 
           {/* 主图区四 tab（spec C1）：tab 本地 state 切换，筛选条作用于所有 tab */}
-          <div role="tablist" aria-label={t("page.stats", "使用统计")} style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          <div role="tablist" aria-label={t("page.stats", "Usage Statistics")} style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {TABS.map(({ id, key }) => (
               <Button
                 key={id}
@@ -821,14 +821,14 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="total">{t("stats.trendTotal", "总计")}</SelectItem>
-                    <SelectItem value="platform">{t("stats.byPlatform", "按平台")}</SelectItem>
-                    <SelectItem value="model">{t("stats.byModel", "按模型")}</SelectItem>
-                    <SelectItem value="group">{t("stats.byGroup", "按分组")}</SelectItem>
+                    <SelectItem value="total">{t("stats.trendTotal", "Total")}</SelectItem>
+                    <SelectItem value="platform">{t("stats.byPlatform", "By Platform")}</SelectItem>
+                    <SelectItem value="model">{t("stats.byModel", "By Model")}</SelectItem>
+                    <SelectItem value="group">{t("stats.byGroup", "By Group")}</SelectItem>
                   </SelectContent>
                 </Select>
                 {trend.multi && (
-                  <div role="group" aria-label={t("stats.viewMode", "视图")} style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                  <div role="group" aria-label={t("stats.viewMode", "View")} style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
                   <Button
                     variant={!trendStacked ? "default" : "ghost"}
                     aria-pressed={!trendStacked}
@@ -844,7 +844,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                     }}
                     onClick={() => setTrendStacked(false)}
                   >
-                    {t("stats.viewLine", "折线")}
+                    {t("stats.viewLine", "Lines")}
                   </Button>
                   <Button
                     variant={trendStacked ? "default" : "ghost"}
@@ -861,21 +861,21 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                     }}
                     onClick={() => setTrendStacked(true)}
                   >
-                    {t("stats.viewStacked", "堆叠")}
+                    {t("stats.viewStacked", "Stacked")}
                   </Button>
                 </div>
                 )}
               </div>
               {trendStacked && trend.multi ? (
                 <StackedAreaChart
-                  title={t("stats.requestTrend", "请求趋势")}
+                  title={t("stats.requestTrend", "Request Trend")}
                   subtitle={
                     <>
-                      {t("stats.granularityLabel", "粒度")}：{granLabel(effectiveGran, effectiveGran !== granularity, t)}
+                      {t("stats.granularityLabel", "Granularity")}：{granLabel(effectiveGran, effectiveGran !== granularity, t)}
                       {(effectiveGran === "minute" || effectiveGran === "5min") && (
-                        <span title={t("stats.fineGranHint", "分钟级数据来自请求日志，仅短期可用（受日志保留天数限制）")}
+                        <span title={t("stats.fineGranHint", "Minute-level data comes from request logs and is only available short-term (limited by log retention)")}
                           style={{ marginLeft: 6, color: "var(--color-warning, var(--text-tertiary))", cursor: "help" }}>
-                          {t("stats.fineGranBadge", "· 仅短期可用")}
+                          {t("stats.fineGranBadge", "· short-term only")}
                         </span>
                       )}
                     </>
@@ -886,14 +886,14 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                 />
               ) : (
                 <LineChart
-                  title={t("stats.requestTrend", "请求趋势")}
+                  title={t("stats.requestTrend", "Request Trend")}
                   subtitle={
                     <>
-                      {t("stats.granularityLabel", "粒度")}：{granLabel(effectiveGran, effectiveGran !== granularity, t)}
+                      {t("stats.granularityLabel", "Granularity")}：{granLabel(effectiveGran, effectiveGran !== granularity, t)}
                       {(effectiveGran === "minute" || effectiveGran === "5min") && (
-                        <span title={t("stats.fineGranHint", "分钟级数据来自请求日志，仅短期可用（受日志保留天数限制）")}
+                        <span title={t("stats.fineGranHint", "Minute-level data comes from request logs and is only available short-term (limited by log retention)")}
                           style={{ marginLeft: 6, color: "var(--color-warning, var(--text-tertiary))", cursor: "help" }}>
-                          {t("stats.fineGranBadge", "· 仅短期可用")}
+                          {t("stats.fineGranBadge", "· short-term only")}
                         </span>
                       )}
                     </>
@@ -913,15 +913,15 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
               <DonutChart
                 title={
                   <>
-                    {t("stats.costShare", "成本占比")} — {t(`stats.by${groupBy.charAt(0).toUpperCase() + groupBy.slice(1)}`, groupBy)}
+                    {t("stats.costShare", "Cost share")} — {t(`stats.by${groupBy.charAt(0).toUpperCase() + groupBy.slice(1)}`, groupBy)}
                   </>
                 }
                 data={dims.filter(e => e.total_cost > 0).map(e => ({ name: e.name, value: e.total_cost }))}
                 formatValue={formatMoney}
-                centerLabel={t("stats.totalCost", "预估成本")}
+                centerLabel={t("stats.totalCost", "Total Cost")}
               />
               <DimensionHeatmap
-                title={t("stats.dimHeatTitle", "活跃热力（维度 × 日）")}
+                title={t("stats.dimHeatTitle", "Activity Heatmap (Dimension × Day)")}
                 data={dimHeat}
                 formatValue={formatNumber}
               />
@@ -953,20 +953,20 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                     onClick={() => setDensityView(v)}
                   >
                     {v === "heat"
-                      ? t("stats.densityViewHeat", "时刻热力")
-                      : t("stats.densityViewScatter", "请求分布")}
+                      ? t("stats.densityViewHeat", "Hour heatmap")
+                      : t("stats.densityViewScatter", "Distribution")}
                   </Button>
                 ))}
               </div>
               {densityView === "heat" ? (
                 <HourHeatmap
-                  title={t("stats.heatTitle", "请求密度（星期 × 小时）")}
+                  title={t("stats.heatTitle", "Request Density (Weekday × Hour)")}
                   data={buildHeatCells(heatBuckets ?? [])}
                   formatValue={formatNumber}
                 />
               ) : (
                 <ScatterChart
-                  title={t("stats.scatterTitle", "请求分布（延迟 × 成本）")}
+                  title={t("stats.scatterTitle", "Request Distribution (Latency × Cost)")}
                   histogram={scatterHist ?? { duration_bins: [], cost_bins: [], counts: [] }}
                 />
               )}
@@ -982,15 +982,15 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                 <GaugeChart
                   value={0}
                   max={0}
-                  title={t("stats.quotaTitle", "配额快照")}
-                  emptyHint={t("stats.quotaEmptyHint", "暂无配额快照；平台余额真实查询成功后会自动记录")}
+                  title={t("stats.quotaTitle", "Quota Snapshot")}
+                  emptyHint={t("stats.quotaEmptyHint", "No quota snapshots yet; they are recorded automatically after a successful real balance query")}
                 />
               );
             }
             return (
               <div>
                 <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 8 }}>
-                  {t("stats.quotaPeakNote", "占比 = 当前余额 / 窗口内峰值余额")}
+                  {t("stats.quotaPeakNote", "Ratio = current balance / peak balance within the window")}
                 </div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   {gauges.map((g) => (
@@ -1016,9 +1016,9 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
             if (rows.length === 0) {
               return (
                 <div className="glass-surface" style={{ padding: "16px 20px" }}>
-                  <div style={{ fontSize: F.label, fontWeight: 600, marginBottom: 12 }}>{t("stats.tabSessions", "会话")}</div>
+                  <div style={{ fontSize: F.label, fontWeight: 600, marginBottom: 12 }}>{t("stats.tabSessions", "Sessions")}</div>
                   <div style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)", fontSize: F.hint }}>
-                    {t("stats.sessionEmpty", "暂无会话数据")}
+                    {t("stats.sessionEmpty", "No session data")}
                   </div>
                 </div>
               );
@@ -1027,9 +1027,9 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
               <div className="glass-surface" style={{ padding: "16px 20px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
                   <div style={{ fontSize: F.label, fontWeight: 600 }}>
-                    {t("stats.tabSessions", "会话")}
+                    {t("stats.tabSessions", "Sessions")}
                     <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400, marginLeft: 8 }}>
-                      {t("stats.totalRows", "共 {{count}} 条", { count: rows.length })}
+                      {t("stats.totalRows", "{{count}} records", { count: rows.length })}
                     </span>
                   </div>
                   <Select value={String(sessionDays)} onValueChange={v => setSessionDays(Number(v))}>
@@ -1037,27 +1037,27 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="7">{t("stats.7d", "近 7 天")}</SelectItem>
-                      <SelectItem value="14">{t("stats.14d", "近 14 天")}</SelectItem>
-                      <SelectItem value="30">{t("stats.30d", "近 30 天")}</SelectItem>
+                      <SelectItem value="7">{t("stats.7d", "Last 7d")}</SelectItem>
+                      <SelectItem value="14">{t("stats.14d", "Last 14d")}</SelectItem>
+                      <SelectItem value="30">{t("stats.30d", "Last 30d")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 {rows.length >= 200 && (
                   <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 8 }}>
-                    {t("stats.sessionLimitNote", "仅显示最近 200 个会话")}
+                    {t("stats.sessionLimitNote", "Showing the latest 200 sessions only")}
                   </div>
                 )}
                 <Table style={{ fontSize: F.hint }}>
                   <TableHeader>
                     <TableRow style={{ borderBottom: "1px solid var(--border)" }}>
-                      <TableHead style={{ textAlign: "left", padding: "6px 8px", fontWeight: 600 }}>{t("stats.tabSessions", "会话")}</TableHead>
-                      <TableHead style={{ textAlign: "left", padding: "6px 8px", fontWeight: 600 }}>{t("stats.sessionMeta", "分组 / 客户端")}</TableHead>
-                      <TableHead style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600 }}>{t("stats.requests", "请求")}</TableHead>
-                      <TableHead style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600 }}>{t("stats.totalTokens", "总 Token")}</TableHead>
-                      <TableHead style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600 }}>{t("stats.totalCost", "预估成本")}</TableHead>
-                      <TableHead style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600 }}>{t("stats.sessionSpeedCol", "实时速度")}</TableHead>
-                      <TableHead style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600 }}>{t("stats.sessionActions", "操作")}</TableHead>
+                      <TableHead style={{ textAlign: "left", padding: "6px 8px", fontWeight: 600 }}>{t("stats.tabSessions", "Sessions")}</TableHead>
+                      <TableHead style={{ textAlign: "left", padding: "6px 8px", fontWeight: 600 }}>{t("stats.sessionMeta", "Group / Client")}</TableHead>
+                      <TableHead style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600 }}>{t("stats.requests", "Requests")}</TableHead>
+                      <TableHead style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600 }}>{t("stats.totalTokens", "Total Tokens")}</TableHead>
+                      <TableHead style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600 }}>{t("stats.totalCost", "Total Cost")}</TableHead>
+                      <TableHead style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600 }}>{t("stats.sessionSpeedCol", "Live speed")}</TableHead>
+                      <TableHead style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600 }}>{t("stats.sessionActions", "Actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1076,11 +1076,11 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                             title={s.title || undefined}
                             style={{ padding: "6px 8px", fontWeight: 500, maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                           >
-                            {s.title || t("stats.sessionUntitled", "未命名会话")}
+                            {s.title || t("stats.sessionUntitled", "Untitled session")}
                           </TableCell>
                           <TableCell data-testid="session-badges" style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>
                             <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
-                              {isActive && <SessionChip>{t("stats.sessionLive", "活跃")}</SessionChip>}
+                              {isActive && <SessionChip>{t("stats.sessionLive", "Live")}</SessionChip>}
                               {s.group_key ? <SessionChip>{s.group_key}</SessionChip> : null}
                               {s.client ? <SessionChip>{s.client}</SessionChip> : null}
                               {!isActive && !s.group_key && !s.client ? "—" : null}
@@ -1093,7 +1093,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                             {/* 降级口径：WS 不可用（down）/ 无事件时不画流图，列表照常 */}
                             {isActive && wsStatus === "open" && live.length > 0 && (
                               <span onClick={(e) => e.stopPropagation()} style={{ display: "inline-flex" }}>
-                                <SessionSpeedSpark points={live} label={t("stats.sessionSpeed", "token 累计")} />
+                                <SessionSpeedSpark points={live} label={t("stats.sessionSpeed", "cumulative tokens")} />
                               </span>
                             )}
                           </TableCell>
@@ -1107,7 +1107,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                                   style={{ height: 26, padding: "0 8px", fontSize: 14 }}
                                   onClick={() => { void navigator.clipboard?.writeText(buildResumeCommand(s.session_id, s.group_key)); }}
                                 >
-                                  {t("stats.sessionCopyResume", "复制继续命令")}
+                                  {t("stats.sessionCopyResume", "Copy resume command")}
                                 </Button>
                                 <Button
                                   variant="outline"
@@ -1115,7 +1115,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                                   style={{ height: 26, padding: "0 8px", fontSize: 14 }}
                                   onClick={() => { sessionApi.openTerminal(s.session_id, s.group_key).catch(console.error); }}
                                 >
-                                  {t("stats.sessionResume", "终端继续")}
+                                  {t("stats.sessionResume", "Resume in terminal")}
                                 </Button>
                               </span>
                             ) : null}
@@ -1134,9 +1134,9 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
             <div className="glass-surface" style={{ padding: "16px 20px" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
                 <div style={{ fontSize: F.label, fontWeight: 600 }}>
-                  {t("stats.dimensionRank", "维度排行")} — {t(`stats.by${groupBy.charAt(0).toUpperCase() + groupBy.slice(1)}`, groupBy)}
+                  {t("stats.dimensionRank", "Dimension Ranking")} — {t(`stats.by${groupBy.charAt(0).toUpperCase() + groupBy.slice(1)}`, groupBy)}
                   <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400, marginLeft: 8 }}>
-                    {t("stats.totalRows", "共 {{count}} 条", { count: sortedDims.length })}
+                    {t("stats.totalRows", "{{count}} records", { count: sortedDims.length })}
                   </span>
                 </div>
                 {pageCount > 1 && (
@@ -1152,16 +1152,16 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
               <Table style={{ fontSize: F.hint }}>
                 <TableHeader>
                   <TableRow style={{ borderBottom: "1px solid var(--border)" }}>
-                    <SortableTh label={t("stats.dimName", "名称")} col="name" align="left" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                    <SortableTh label={t("stats.requests", "请求")} col="total_requests" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                    <SortableTh label={t("stats.success", "成功")} col="success_count" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                    <SortableTh label={t("stats.successRate", "成功率")} col="success_rate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                    <SortableTh label={t("stats.inputTokens", "输入")} col="input_tokens" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                    <SortableTh label={t("stats.outputTokens", "输出")} col="output_tokens" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                    <SortableTh label={t("stats.cacheTokens", "缓存")} col="cache_tokens" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                    <SortableTh label={t("stats.cacheRate", "缓存率")} col="cache_rate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                    <SortableTh label={t("stats.avgMs", "平均延迟")} col="avg_duration_ms" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                    <SortableTh label={t("stats.totalCost", "预估成本")} col="total_cost" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label={t("stats.dimName", "Name")} col="name" align="left" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label={t("stats.requests", "Requests")} col="total_requests" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label={t("stats.success", "Success")} col="success_count" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label={t("stats.successRate", "Success Rate")} col="success_rate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label={t("stats.inputTokens", "Input Tokens")} col="input_tokens" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label={t("stats.outputTokens", "Output Tokens")} col="output_tokens" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label={t("stats.cacheTokens", "Cache Tokens")} col="cache_tokens" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label={t("stats.cacheRate", "Cache Rate")} col="cache_rate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label={t("stats.avgMs", "Avg Latency")} col="avg_duration_ms" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label={t("stats.totalCost", "Total Cost")} col="total_cost" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1191,7 +1191,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
         </>
       ) : (
         <div style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)", fontSize: F.hint }}>
-          {t("stats.noData", "暂无统计数据")}
+          {t("stats.noData", "No data available")}
         </div>
       )}
     </div>
@@ -1232,7 +1232,7 @@ const OverviewCard = memo(function OverviewCard({ label, value, numericValue, st
     const color = good ? "var(--color-success)" : "var(--color-danger)";
     deltaNode = (
       <div style={{ display: "flex", alignItems: "center", gap: 2, fontSize: F.small, color, fontWeight: 600 }}
-        title={t("stats.vsPrevPeriod", "对比上一周期")}>
+        title={t("stats.vsPrevPeriod", "vs previous period")}>
         {up ? <ArrowUp color={color} /> : <ArrowDown color={color} />}
         {Math.abs(delta).toFixed(1)}%
       </div>
@@ -1302,7 +1302,7 @@ function Pager({ page, pageCount, onPrev, onNext, t }: PagerProps) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: F.small }}>
       <Button variant="outline" style={{ fontSize: 14, padding: "3px 10px", height: "auto" }} disabled={page <= 0} onClick={onPrev}>
-        {t("stats.prevPage", "上一页")}
+        {t("stats.prevPage", "Previous Page")}
       </Button>
       <span style={{ color: "var(--text-secondary)" }}>
         {/* 插值键必须是 current：翻译串写的是「第 {{current}} / {{total}} 页」
@@ -1311,7 +1311,7 @@ function Pager({ page, pageCount, onPrev, onNext, t }: PagerProps) {
         {t("stats.pageOf", "{{current}} / {{total}}", { current: page + 1, total: pageCount })}
       </span>
       <Button variant="outline" style={{ fontSize: 14, padding: "3px 10px", height: "auto" }} disabled={page >= pageCount - 1} onClick={onNext}>
-        {t("stats.nextPage", "下一页")}
+        {t("stats.nextPage", "Next Page")}
       </Button>
     </div>
   );

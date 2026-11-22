@@ -34,18 +34,18 @@ export function Variables() {
   };
 
   return <section className="space-y-5" data-testid="variables-page">
-    <header><h1 className="text-xl font-semibold">{t("variables.title", "变量")}</h1><p className="mt-1 text-sm text-muted-foreground">{t("variables.desc", "环境变量独立管理：同名时附加并覆盖 Claude Code 与 Codex 的现有值，两边同时生效。清空值即撤销该变量（恢复覆盖前的原值）。")}</p></header>
+    <header><h1 className="text-xl font-semibold">{t("variables.title", "Variables")}</h1><p className="mt-1 text-sm text-muted-foreground">{t("variables.desc", "Manage environment variables for Claude Code and Codex")}</p></header>
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     <div className="space-y-3">
       {variables.map((item, index) => <div key={index} className="grid grid-cols-[minmax(120px,1fr)_minmax(120px,2fr)_auto] items-center gap-3 rounded-lg border p-3">
-        <Input aria-label={t("variables.name", "变量名")} value={item.key} onChange={e => update(index, { key: e.target.value })} />
-        <Input aria-label={t("variables.value", "变量值")} value={item.value} onChange={e => update(index, { value: e.target.value })} />
-        <Button variant="ghost" onClick={() => setVariables(current => current.filter((_, i) => i !== index))} aria-label={t("action.remove", "移除")}>×</Button>
+        <Input aria-label={t("variables.name", "Variable name")} value={item.key} onChange={e => update(index, { key: e.target.value })} />
+        <Input aria-label={t("variables.value", "Variable value")} value={item.value} onChange={e => update(index, { value: e.target.value })} />
+        <Button variant="ghost" onClick={() => setVariables(current => current.filter((_, i) => i !== index))} aria-label={t("action.remove", "Remove")}>×</Button>
       </div>)}
     </div>
     <div className="flex gap-2">
-      <Button data-testid="variable-add" variant="outline" onClick={() => setVariables(current => [...current, { key: "", value: "" }])}>{t("variables.add", "添加变量")}</Button>
-      <Button data-testid="variables-save" disabled={busy} onClick={() => void save()}>{t("action.save", "保存")}</Button>
+      <Button data-testid="variable-add" variant="outline" onClick={() => setVariables(current => [...current, { key: "", value: "" }])}>{t("variables.add", "Add variable")}</Button>
+      <Button data-testid="variables-save" disabled={busy} onClick={() => void save()}>{t("action.save", "Save")}</Button>
     </div>
   </section>;
 }

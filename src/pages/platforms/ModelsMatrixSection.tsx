@@ -61,7 +61,7 @@ function describeWindow(w: TimeWindow, tzMode: TzMode, t: TFunction): string {
     dayPart = `(${t("platform.windows_monthDaysSummary", "days {{days}} of each month", { days: w.days_of_month.join(",") })})`;
   }
   const tzLabel = tzMode === "local"
-    ? t("platform.timezone_local", "本地")
+    ? t("platform.timezone_local", "Local")
     : t("platform.timezone_utc", "UTC+0");
   return `${timePart}${dayPart}（${tzLabel}）`;
 }
@@ -101,7 +101,7 @@ function SlotRow({ testId, name, count, badge, title, hint, toggle, cellMinWidth
           {badge}
         </span>
         <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-          {t("platform.modelCount", "{{n}} 个模型", { n: count })}
+          {t("platform.modelCount", "{{n}} models", { n: count })}
         </span>
       </div>
       <div style={{ flex: 1, minWidth: cellMinWidth }}>
@@ -296,7 +296,7 @@ export function ModelsMatrixSection({
       data-testid={`${prefix}-${key}`}
       style={{ fontSize: 14, lineHeight: "16px", padding: "0 5px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", color: "var(--text-tertiary)", whiteSpace: "nowrap", flexShrink: 0 }}
     >
-      {t("platform.slotDedicated", "专用")}
+      {t("platform.slotDedicated", "dedicated")}
     </span>
   ) : null;
 
@@ -309,7 +309,7 @@ export function ModelsMatrixSection({
     } as const;
     return (
       <FormSection
-        title={titleOverride ?? t("platform.time_windows_section_title", "时段档")}
+        title={titleOverride ?? t("platform.time_windows_section_title", "Time-based models")}
         action={(
           <div style={{ display: "flex", gap: 6 }}>
             <Button
@@ -318,10 +318,10 @@ export function ModelsMatrixSection({
               style={{ fontSize: 14, padding: "4px 10px", whiteSpace: "nowrap" }}
               data-testid="time-rule-import-peak"
               disabled={peak.length === 0}
-              title={peak.length === 0 ? t("platform.time_windows_no_peak", "当前无高峰时段配置") : ""}
+              title={peak.length === 0 ? t("platform.time_windows_no_peak", "No peak hours configured") : ""}
               onClick={() => setImportModalOpen(true)}
             >
-              {t("platform.time_windows_import_peak", "从高峰时段导入")}
+              {t("platform.time_windows_import_peak", "Import from peak hours")}
             </Button>
             <Button
               variant="ghost"
@@ -330,14 +330,14 @@ export function ModelsMatrixSection({
               data-testid="time-rule-add"
               onClick={addRule}
             >
-              + {t("platform.time_windows_add_rule", "添加时段档")}
+              + {t("platform.time_windows_add_rule", "Add time-slot column")}
             </Button>
           </div>
         )}
       >
         {rules.length === 0 ? (
           <div style={{ fontSize: 14, color: "var(--text-tertiary)", fontStyle: "italic" }}>
-            {t("platform.time_windows_empty", "未配置 → 全时段用默认模型档")}
+            {t("platform.time_windows_empty", "No rules → use default models all day")}
           </div>
         ) : (
           <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
@@ -363,16 +363,16 @@ export function ModelsMatrixSection({
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                       <Switch data-testid={`tw-${idx}-enabled`} checked={enabled}
-                        aria-label={t("platform.time_windows_rule_enabled", "启用此时段档（关掉后视为不存在）")}
-                        title={t("platform.time_windows_rule_enabled", "启用此时段档（关掉后视为不存在）")}
+                        aria-label={t("platform.time_windows_rule_enabled", "Enable this time tier (off = treated as absent)")}
+                        title={t("platform.time_windows_rule_enabled", "Enable this time tier (off = treated as absent)")}
                         onClick={(e) => e.stopPropagation()}
                         onCheckedChange={(v) => updateRule(idx, { enabled: v === true ? undefined : false })} />
                       <span style={{ fontSize: 14, fontWeight: 600, color: on ? "var(--text-primary)" : "var(--text-secondary)", flex: 1 }}>
-                        {t("platform.time_windows_rule_n", "档 {{n}}", { n: idx + 1 })}
+                        {t("platform.time_windows_rule_n", "Tier {{n}}", { n: idx + 1 })}
                       </span>
-                      <Button variant="ghost" size="icon" style={{ ...btnMini }} disabled={idx === 0} onClick={() => moveUp(idx)} title={t("action.moveUp", "上移")}>↑</Button>
-                      <Button variant="ghost" size="icon" style={{ ...btnMini }} disabled={idx === rules.length - 1} onClick={() => moveDown(idx)} title={t("action.moveDown", "下移")}>↓</Button>
-                      <Button variant="ghost" size="icon" className="btn-danger" style={{ ...btnMini, color: "var(--color-danger)" }} onClick={() => removeRule(idx)} title={t("action.delete", "删除")}>×</Button>
+                      <Button variant="ghost" size="icon" style={{ ...btnMini }} disabled={idx === 0} onClick={() => moveUp(idx)} title={t("action.moveUp", "Move up")}>↑</Button>
+                      <Button variant="ghost" size="icon" style={{ ...btnMini }} disabled={idx === rules.length - 1} onClick={() => moveDown(idx)} title={t("action.moveDown", "Move down")}>↓</Button>
+                      <Button variant="ghost" size="icon" className="btn-danger" style={{ ...btnMini, color: "var(--color-danger)" }} onClick={() => removeRule(idx)} title={t("action.delete", "Delete")}>×</Button>
                     </div>
                     <span style={{ fontSize: 14, color: "var(--text-tertiary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {describeWindows(rule.windows, tzMode, t)}
@@ -393,7 +393,7 @@ export function ModelsMatrixSection({
                   style={{ fontSize: 14, padding: "4px 10px" }}
                   onClick={() => setEditingIdx(selIdx)}
                 >
-                  {t("platform.time_windows_edit_button", "编辑时段")}
+                  {t("platform.time_windows_edit_button", "Edit window")}
                 </Button>
                 <Button
                   variant="ghost"
@@ -403,7 +403,7 @@ export function ModelsMatrixSection({
                   onClick={() => (MODEL_SLOTS.some(({ key }) => slotList(sel.models[key]).length > 0)
                     ? setCopyConfirmOpen(true) : copyFromModels(selIdx))}
                 >
-                  {t("platform.time_windows_copy_models", "从模型配置复制")}
+                  {t("platform.time_windows_copy_models", "Copy from model config")}
                 </Button>
               </div>
               {MODEL_SLOTS.map(({ key, labelKey }) => (
@@ -424,8 +424,8 @@ export function ModelsMatrixSection({
                           style={{ fontSize: 14, color: "var(--text-tertiary)", marginTop: 2 }}
                         >
                           {head
-                            ? t("platform.timeSlotFallbackDefault", "落到本档 default：{{model}}", { model: head })
-                            : t("platform.timeSlotFallbackPassthrough", "透传请求模型名")}
+                            ? t("platform.timeSlotFallbackDefault", "Falls to this rule's default: {{model}}", { model: head })
+                            : t("platform.timeSlotFallbackPassthrough", "Passes the requested model name through")}
                         </div>
                       );
                     })()
@@ -437,7 +437,7 @@ export function ModelsMatrixSection({
                         data-state="empty"
                         style={{ fontSize: 14, color: "var(--text-tertiary)", marginTop: 2 }}
                       >
-                        {t("platform.timeSlotDedicatedEmptyHint", "时段内本平台不接此类请求")}
+                        {t("platform.timeSlotDedicatedEmptyHint", "This platform does not accept this request type during this time rule")}
                       </div>
                     ) : !hasOpenAIEndpoint && (
                       <div
@@ -479,18 +479,18 @@ export function ModelsMatrixSection({
           <DialogContent className="glass-elevated" style={{ maxWidth: 400 }}>
             <DialogHeader>
               <DialogTitle style={{ fontSize: 14 }}>
-                {t("platform.time_windows_copy_confirm_title", "覆盖本档模型配置？")}
+                {t("platform.time_windows_copy_confirm_title", "Overwrite this rule's models?")}
               </DialogTitle>
               <DialogDescription style={{ fontSize: 14 }}>
-                {t("platform.time_windows_copy_confirm_body", "本档已有模型槽内容，将被「模型」tab 当前的内置槽模型与开关整份覆盖。")}
+                {t("platform.time_windows_copy_confirm_body", "This rule already has model slots. They will be fully replaced by the built-in slots and switches currently set in the Models tab.")}
               </DialogDescription>
             </DialogHeader>
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <Button variant="ghost" data-testid="time-rule-copy-cancel" onClick={() => setCopyConfirmOpen(false)}>
-                {t("action.cancel", "取消")}
+                {t("action.cancel", "Cancel")}
               </Button>
               <Button data-testid="time-rule-copy-confirm" className="ripple" onClick={(e) => { makeRipple(e); copyFromModels(selIdx); }}>
-                {t("platform.time_windows_copy_confirm_button", "覆盖")}
+                {t("platform.time_windows_copy_confirm_button", "Overwrite")}
               </Button>
             </div>
           </DialogContent>
@@ -500,18 +500,18 @@ export function ModelsMatrixSection({
           <DialogContent className="glass-elevated" style={{ maxWidth: 400 }}>
             <DialogHeader>
               <DialogTitle style={{ fontSize: 14 }}>
-                {t("platform.time_windows_import_confirm_title", "导入高峰时段配置？")}
+                {t("platform.time_windows_import_confirm_title", "Import peak hours config?")}
               </DialogTitle>
               <DialogDescription style={{ fontSize: 14 }}>
-                {t("platform.time_windows_import_confirm_body", "将基于当前高峰时段（{{count}} 个窗口）创建新规则，独立可编辑。").replace("{{count}}", String(peak.length))}
+                {t("platform.time_windows_import_confirm_body", "Create new rule based on current peak hours ({{count}} windows). Independent and editable.").replace("{{count}}", String(peak.length))}
               </DialogDescription>
             </DialogHeader>
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <Button variant="ghost" onClick={() => setImportModalOpen(false)}>
-                {t("action.cancel", "取消")}
+                {t("action.cancel", "Cancel")}
               </Button>
               <Button data-testid="time-rule-import-confirm" className="ripple" onClick={(e) => { makeRipple(e); importFromPeak(); }}>
-                {t("platform.time_windows_import_confirm_button", "确认")}
+                {t("platform.time_windows_import_confirm_button", "Confirm")}
               </Button>
             </div>
           </DialogContent>
@@ -608,7 +608,7 @@ export function ModelsMatrixSection({
 
           {rules.length === 0 && (
             <div style={{ fontSize: 14, color: "var(--text-tertiary)", fontStyle: "italic", paddingLeft: LABEL_W + 8 }}>
-              {t("platform.time_windows_empty", "未配置 → 全时段用默认模型档")}
+              {t("platform.time_windows_empty", "No rules → use default models all day")}
             </div>
           )}
         </div>
@@ -633,10 +633,10 @@ export function ModelsMatrixSection({
         <DialogContent className="glass-elevated" style={{ maxWidth: 400 }}>
           <DialogHeader>
             <DialogTitle style={{ fontSize: 14 }}>
-              {t("platform.time_windows_import_confirm_title", "导入高峰时段配置？")}
+              {t("platform.time_windows_import_confirm_title", "Import peak hours config?")}
             </DialogTitle>
             <DialogDescription style={{ fontSize: 14 }}>
-              {t("platform.time_windows_import_confirm_body", "将基于当前高峰时段（{{count}} 个窗口）创建新规则，独立可编辑。").replace("{{count}}", String(peak.length))}
+              {t("platform.time_windows_import_confirm_body", "Create new rule based on current peak hours ({{count}} windows). Independent and editable.").replace("{{count}}", String(peak.length))}
             </DialogDescription>
           </DialogHeader>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
@@ -644,13 +644,13 @@ export function ModelsMatrixSection({
               variant="ghost"
               onClick={() => setImportModalOpen(false)}
             >
-              {t("action.cancel", "取消")}
+              {t("action.cancel", "Cancel")}
             </Button>
             <Button
               className="ripple"
               onClick={(e) => { makeRipple(e); importFromPeak(); }}
             >
-              {t("platform.time_windows_import_confirm_button", "确认")}
+              {t("platform.time_windows_import_confirm_button", "Confirm")}
             </Button>
           </div>
         </DialogContent>

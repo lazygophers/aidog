@@ -96,7 +96,7 @@ export function useMcpData() {
         text: t("mcp.unsupportedTransport", {
           transport: srv.transport,
           agent: t(`mcp.agent.${agent}`),
-          defaultValue: "不支持",
+          defaultValue: "{{transport}} not supported by {{agent}}",
         }),
       });
       return;
@@ -120,7 +120,7 @@ export function useMcpData() {
       await mcpApi.setAgent(srv.name, agent, !enabled);
       setMessage({
         kind: "ok",
-        text: t(enabled ? "mcp.disabled" : "mcp.enabled", "操作成功"),
+        text: t(enabled ? "mcp.disabled" : "mcp.enabled", "Operation succeeded"),
       });
     } catch (e) {
       setServers(prev); // 回滚
@@ -177,11 +177,11 @@ export function useMcpData() {
             ? t("mcp.importPartial", {
                 ok: report.imported.length,
                 skip: skipped,
-                defaultValue: `导入 ${report.imported.length}，跳过 ${skipped}`,
+                defaultValue: "Imported {{ok}}, skipped {{skip}}",
               })
             : t("mcp.imported", {
                 count: report.imported.length,
-                defaultValue: `已导入 ${report.imported.length}`,
+                defaultValue: "Imported {{count}}",
               }),
       });
     } catch (e) {
@@ -222,11 +222,11 @@ export function useMcpData() {
             ? t("mcp.importPartial", {
                 ok: report.imported.length,
                 skip: skipped,
-                defaultValue: `导入 ${report.imported.length}，跳过 ${skipped}`,
+                defaultValue: "Imported {{ok}}, skipped {{skip}}",
               })
             : t("mcp.imported", {
                 count: report.imported.length,
-                defaultValue: `已导入 ${report.imported.length}`,
+                defaultValue: "Imported {{count}}",
               }),
       });
     } catch (e) {
@@ -244,7 +244,7 @@ export function useMcpData() {
     try {
       await mcpApi.delete(name);
       setServers((list) => list.filter((s) => s.name !== name));
-      setMessage({ kind: "ok", text: t("mcp.deleted", "已删除") });
+      setMessage({ kind: "ok", text: t("mcp.deleted", "Deleted") });
     } catch (e) {
       setMessage({ kind: "err", text: String(e) });
     } finally {
@@ -259,7 +259,7 @@ export function useMcpData() {
     setMessage(null);
     try {
       const n = await mcpApi.resync();
-      setMessage({ kind: "ok", text: t("mcp.resyncDone", "已重新同步 {{n}} 项", { n }) });
+      setMessage({ kind: "ok", text: t("mcp.resyncDone", "Resynced {{n}} entries", { n }) });
     } catch (e) {
       setMessage({ kind: "err", text: String(e) });
     } finally {
@@ -306,11 +306,11 @@ export function useMcpData() {
             ? t("mcp.importPartial", {
                 ok: report.imported.length,
                 skip: skipped,
-                defaultValue: `导入 ${report.imported.length}，跳过 ${skipped}`,
+                defaultValue: "Imported {{ok}}, skipped {{skip}}",
               })
             : t("mcp.imported", {
                 count: report.imported.length,
-                defaultValue: `已导入 ${report.imported.length}`,
+                defaultValue: "Imported {{count}}",
               }),
       });
     } catch (e) {
@@ -406,7 +406,7 @@ export function useMcpData() {
     if (!editOpen) return;
     const f = editForm;
     if (!f.name.trim()) {
-      setMessage({ kind: "err", text: t("mcp.nameRequired", "name 必填") });
+      setMessage({ kind: "err", text: t("mcp.nameRequired", "Name is required") });
       return;
     }
     const isAdd = editTarget === null;
@@ -438,7 +438,7 @@ export function useMcpData() {
       setEditTarget(null);
       setEditOpen(false);
       setPrefillMeta(null);
-      setMessage({ kind: "ok", text: t("mcp.saved", "已保存") });
+      setMessage({ kind: "ok", text: t("mcp.saved", "Saved") });
     } catch (e) {
       setMessage({ kind: "err", text: String(e) });
     } finally {

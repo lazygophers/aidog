@@ -88,7 +88,7 @@ export function SchedulingSettingsTab() {
   if (loading) {
     return (
       <div className="text-secondary" style={{ padding: 20 }}>
-        {t("status.loading", "加载中…")}
+        {t("status.loading", "Loading...")}
       </div>
     );
   }
@@ -103,9 +103,9 @@ export function SchedulingSettingsTab() {
         style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
         <div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("scheduling.masterToggle", "熔断总开关")}</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("scheduling.masterToggle", "Circuit breaker master switch")}</div>
           <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
-            {t("scheduling.masterToggleDesc", "关闭后旁路熔断：失败平台不再被临时摘除")}
+            {t("scheduling.masterToggleDesc", "When off, the breaker is bypassed: failing platforms are no longer temporarily removed.")}
           </div>
         </div>
         <Switch checked={settings.enabled} onCheckedChange={toggleEnabled} />
@@ -117,9 +117,9 @@ export function SchedulingSettingsTab() {
         style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
         <div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("scheduling.cacheAffinity", "缓存亲和")}</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("scheduling.cacheAffinity", "Cache affinity")}</div>
           <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
-            {t("scheduling.cacheAffinityDesc", "响应带缓存时对话保持绑定回答它的平台；连续两次无缓存自动解绑")}
+            {t("scheduling.cacheAffinityDesc", "Keep conversations pinned to the platform that served them while cache hits continue; unbinds after two consecutive cache-less responses")}
           </div>
         </div>
         <Switch checked={settings.cache_affinity} onCheckedChange={toggleCacheAffinity} />
@@ -131,9 +131,9 @@ export function SchedulingSettingsTab() {
         style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}
       >
         <div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("scheduling.defaultRoutingMode", "默认调度策略")}</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("scheduling.defaultRoutingMode", "Default routing mode")}</div>
           <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
-            {t("scheduling.defaultRoutingModeDesc", "Group 未单独指定时使用的全局默认策略")}
+            {t("scheduling.defaultRoutingModeDesc", "Global default strategy used when a group does not specify its own.")}
           </div>
         </div>
         <Select
@@ -157,19 +157,19 @@ export function SchedulingSettingsTab() {
         style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12, opacity: settings.enabled ? 1 : 0.55 }}
       >
         <div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("scheduling.breakerDefaults", "全局熔断默认")}</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("scheduling.breakerDefaults", "Global breaker defaults")}</div>
           <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
-            {t("scheduling.breakerDefaultsDesc", "平台未单独覆盖（留空 / 0）时使用的默认熔断阈值")}
+            {t("scheduling.breakerDefaultsDesc", "Default breaker thresholds used when a platform does not override them (empty / 0).")}
           </div>
         </div>
         <div style={rowStyle}>
-          <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>{t("platform.breakerFailureThreshold", "失败阈值")}</span>
+          <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>{t("platform.breakerFailureThreshold", "Failure threshold")}</span>
           <Input
              type="number" min={0} style={{ width: 140 }}
             value={settings.breaker_failure_threshold}
             onChange={e => setNum("breaker_failure_threshold", e.target.value)}
           />
-          <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>{t("platform.breakerHalfOpenMax", "半开探测数")}</span>
+          <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>{t("platform.breakerHalfOpenMax", "Half-open probes")}</span>
           <Input
              type="number" min={0} style={{ width: 140 }}
             value={settings.breaker_half_open_max}

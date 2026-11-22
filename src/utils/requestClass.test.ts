@@ -7,17 +7,17 @@ const t = (key: string, fallback: string) => `${key}|${fallback}`;
 
 describe("requestClass", () => {
   it("已知值走 logs.requestClass.<值> 并带中文兜底", () => {
-    expect(requestClassLabel(t, "subagent")).toBe("logs.requestClass.subagent|子代理");
-    expect(requestClassLabel(t, "side_reply")).toBe("logs.requestClass.side_reply|旁路回复");
+    expect(requestClassLabel(t, "subagent")).toBe("logs.requestClass.subagent|Subagent");
+    expect(requestClassLabel(t, "side_reply")).toBe("logs.requestClass.side_reply|Side reply");
   });
   it("未知取值原样展示；空串 -> '-'", () => {
     expect(requestClassLabel(t, "brand_new")).toBe("brand_new");
     expect(requestClassLabel(t, "")).toBe("-");
   });
   it("压缩原因：三个已知值走词表，未知原样，空串 '-'", () => {
-    expect(compactionLabel(t, "auto")).toBe("logs.compaction.auto|自动");
-    expect(compactionLabel(t, "manual")).toBe("logs.compaction.manual|手动");
-    expect(compactionLabel(t, "reactive")).toBe("logs.compaction.reactive|被动");
+    expect(compactionLabel(t, "auto")).toBe("logs.compaction.auto|Auto");
+    expect(compactionLabel(t, "manual")).toBe("logs.compaction.manual|Manual");
+    expect(compactionLabel(t, "reactive")).toBe("logs.compaction.reactive|Reactive");
     expect(compactionLabel(t, "other")).toBe("other");
     expect(compactionLabel(t, "")).toBe("-");
   });
