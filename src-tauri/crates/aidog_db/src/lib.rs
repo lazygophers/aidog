@@ -15,6 +15,7 @@ pub mod models;
 mod trace;
 
 pub mod helpers;
+pub mod proxy_log_catalog;
 pub mod crypt;
 pub mod sqlcipher;
 pub mod schema;
