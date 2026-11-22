@@ -101,6 +101,9 @@ lint-run:
 	yarn check:theme-tokens
 	@printf "$(CYAN)▶ Font size floor check...$(RESET)\n"
 	yarn check:font-size
+	@printf "$(CYAN)▶ No CJK literal check...$(RESET)\n"
+	yarn check:no-cjk-literal
+	yarn test:no-cjk-literal
 	@printf "$(CYAN)▶ Linting...$(RESET)\n"
 	cd $(TAURI_DIR) && cargo clippy --workspace --all-targets -- -D warnings
 

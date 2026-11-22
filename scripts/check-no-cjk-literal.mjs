@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 中文字面量门禁（`yarn check:no-cjk-literal`）：src/ 非测试 ts/tsx 的字符串 / 模板字面量 / JSX 文本不得含 CJK 字符。
 // 用户可见文案一律走 i18n（曾有 formatRelativeTime 硬编码「N 小时前」，英文界面显示中文）。注释不查。
-// 命中即 exit 1，全量输出 file:line；确需保留的在 ALLOWLIST 登记（file + reason，可选 match 只豁免含该串的行）。
+// 命中即 exit 1，全量输出 file:line；确需保留的在 ALLOWLIST 登记（file + reason，可选 match 只豁免与该串重叠的字面量）。
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -22,7 +22,7 @@ const LITERAL_KINDS = new Set([
   ts.SyntaxKind.JsxText,
 ]);
 
-/** 豁免：file 为相对仓库根路径；match 缺省 = 整文件，否则只豁免源码行含 match 的命中；reason 必填。 */
+/** 豁免：file 为相对仓库根路径；match 缺省 = 整文件，否则只豁免源码行内与 match 出现处重叠的字面量；reason 必填。 */
 export const ALLOWLIST = [
   // 语言自称名：语言选项按各语言本身的写法显示，不随界面语言翻译。
   { file: "src/services/claude-settings-schema.ts", match: 'family: "中文"', reason: "语言自称名（中文语族名）" },
@@ -39,8 +39,22 @@ export const ALLOWLIST = [
   { file: "src/components/settings/statusline-segments.ts", match: '"缓存 "', reason: "前缀默认值镜像 Rust statusline.rs DEFAULT_OPTIONS / 默认段，写进状态行脚本输出" },
   { file: "src/pages/TrayConfigTab.tsx", match: '["天", "小时", "分"]', reason: "托盘倒计时 cn 格式，与 Rust tray_render.rs format_countdown 逐字一致（托盘标签无 i18n）" },
   { file: "src/pages/TrayConfigTab.tsx", match: "${d}天 ", reason: "托盘倒计时 clock 格式天数前缀，与 Rust tray_render.rs format_countdown 逐字一致" },
+  { file: "src/pages/TrayConfigTab.tsx", match: '"Chinese 2小时15分"', reason: "cn 倒计时格式的取值样例（与 en-US 值一致），中文即被展示的格式本身" },
   { file: "src/pages/TrayConfigTab.tsx", match: '"峰" : "平"', reason: "托盘高峰段取值，与 Rust tray_render.rs peak_item_parts 逐字一致（托盘标签无 i18n）" },
 ];
+
+/**
+ * 命中是否被 rules 豁免：源码行内 match 出现处须与该字面量 [start, end) 重叠，
+ * 同一行上不与 match 重叠的其它字面量照常报（只豁免 match 指向的那个字面量）。
+ */
+export function allowedBy(rules, lineText, lineStart, start, end) {
+  return rules.some((a) => {
+    for (let i = lineText.indexOf(a.match); i >= 0; i = lineText.indexOf(a.match, i + 1)) {
+      if (lineStart + i < end && lineStart + i + a.match.length > start) return true;
+    }
+    return false;
+  });
+}
 
 /** 列出 dir 下待查文件（绝对路径）：排除测试、.d.ts、src/services/api/types/generated/。 */
 export function collect(dir, root = ROOT, out = []) {
@@ -70,7 +84,7 @@ export function scan(files, root = ROOT, allow = ALLOWLIST) {
         if (m) {
           const line = sf.getLineAndCharacterOfPosition(start + m.index).line;
           const text = lines[line];
-          if (!rules.some((a) => text.includes(a.match))) hits.push({ file: rel, line: line + 1, text: text.trim().slice(0, 160) });
+          if (!allowedBy(rules, text, sf.getPositionOfLineAndCharacter(line, 0), start, node.getEnd())) hits.push({ file: rel, line: line + 1, text: text.trim().slice(0, 160) });
         }
       }
       ts.forEachChild(node, visit);

@@ -50,3 +50,9 @@ test("白名单文件豁免、按行内容匹配仅豁免该行", () => {
   ]);
   assert.deepEqual(hits.map((h) => `${h.file}:${h.line}`), ["src/part.ts:1"]);
 });
+
+test("按内容匹配只豁免与 match 重叠的字面量，同行其它字面量仍报", () => {
+  const f = put("same.ts", 'const x = { label: "前缀", placeholder: "缓存 " };\nconst y = `${p ?? "缓存 "}37%`;');
+  const hits = scan([f], root, [{ file: "src/same.ts", match: '"缓存 "', reason: "test" }]);
+  assert.deepEqual(hits.map((h) => `${h.line}:${h.text.includes("前缀")}`), ["1:true"]);
+});
