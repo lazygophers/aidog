@@ -488,7 +488,10 @@ mod tests {
         let calendar = aidog_db::registry::holiday_calendar_get("CN").unwrap();
         let workdays = &calendar.years["2027"].workdays;
         assert_eq!(workdays.len(), 5);
-        for protocol in ["tencent_tokenhub", "tencent_tokenhub_intl"] {
+        // tencent_tokenhub 自 e93e2a2b0 / 6b0a308f9（issue #54）起窗口为 day_type=workday +
+        // holiday_calendar=CN（tencent_tokenhub/platform.json peak 段）：CN 补班周末算工作日 → 高峰，
+        // 法定假日工作日 → 非高峰。tencent_tokenhub_intl 仍是 days_of_week=[1..5]，补班周末不命中。
+        for (protocol, workday_basis) in [("tencent_tokenhub", true), ("tencent_tokenhub_intl", false)] {
             let windows = peak_in(aidog_db::registry::presets(), protocol);
             assert_eq!(windows.len(), 2, "{protocol}");
             for hour in [10, 15] {
@@ -498,11 +501,22 @@ mod tests {
                         .timestamp_millis();
                     let day = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap();
                     assert!(day.weekday().number_from_monday() >= 6, "{date}");
-                    assert!(
-                        !is_in_peak_window(&windows, ms, ""),
+                    assert_eq!(
+                        is_in_peak_window(&windows, ms, ""),
+                        workday_basis,
                         "{protocol} {date} {hour}"
                     );
                 }
+                // 2027-10-01 周五，CN 国庆假日（CN.json years.2027.holidays）
+                let holiday =
+                    DateTime::parse_from_rfc3339(&format!("2027-10-01T{hour:02}:00:00+08:00"))
+                        .unwrap()
+                        .timestamp_millis();
+                assert_eq!(
+                    is_in_peak_window(&windows, holiday, ""),
+                    !workday_basis,
+                    "{protocol} holiday {hour}"
+                );
                 let weekday =
                     DateTime::parse_from_rfc3339(&format!("2027-03-01T{hour:02}:00:00+08:00"))
                         .unwrap()
@@ -514,8 +528,9 @@ mod tests {
             }
         }
 
-        // 2026：bundled CN 日历 2026 数据在位（CN.json years.2026）。补班周末（workdays 列表）
-        // 与普通周末都不命中 days_of_week=[1..5] 工作日窗口（窗口无 day_type，日历不参与判定）。
+        // 2026：bundled CN 日历 2026 数据在位（CN.json years.2026）。2026-02-14 是补班周末
+        // （workdays 列表），2026-02-15 是普通周末：tencent_tokenhub（workday + CN）仅补班日命中，
+        // tencent_tokenhub_intl（days_of_week=[1..5]）两天都不命中。
         let workdays_2026 = &calendar.years["2026"].workdays;
         assert_eq!(workdays_2026.len(), 6);
         for date in ["2026-02-14", "2026-02-15"] {
@@ -525,9 +540,11 @@ mod tests {
                 DateTime::parse_from_rfc3339(&format!("{date}T10:00:00+08:00"))
                     .unwrap()
                     .timestamp_millis();
-            for protocol in ["tencent_tokenhub", "tencent_tokenhub_intl"] {
-                assert!(
-                    !is_in_peak_window(&peak_in(aidog_db::registry::presets(), protocol), ms, ""),
+            let makeup = workdays_2026.iter().any(|d| d == date);
+            for (protocol, expect) in [("tencent_tokenhub", makeup), ("tencent_tokenhub_intl", false)] {
+                assert_eq!(
+                    is_in_peak_window(&peak_in(aidog_db::registry::presets(), protocol), ms, ""),
+                    expect,
                     "{protocol} 2026 weekend {date}"
                 );
             }
