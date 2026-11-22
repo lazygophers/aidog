@@ -691,6 +691,22 @@ fn clear_legacy_group_env_vars(conn: &Connection) -> SqlResult<()> {
     Ok(())
 }
 
+/// ADD COLUMN 幂等辅助（issue #56 票 06）：true=新加，false=列已存在，Err=真错误。
+/// 真错误由调用点 `tracing::warn!` 记录、不中断迁移。先查 `PRAGMA table_info` 判存在，
+/// 不依赖错误消息文本（SQLCipher 库同样可用）。
+fn ensure_column(conn: &Connection, table: &str, column: &str, ddl: &str) -> SqlResult<bool> {
+    let exists = conn
+        .prepare(&format!("PRAGMA table_info({table})"))?
+        .query_map([], |r| r.get::<_, String>(1))?
+        .filter_map(Result::ok)
+        .any(|c| c == column);
+    if exists {
+        return Ok(false);
+    }
+    conn.execute(ddl, [])?;
+    Ok(true)
+}
+
 /// proxy_log 表的 late migrations（log.db 库内序 20260727-10..20，原 021–047 范围内的 proxy_log 部分）。
 ///
 /// 拆库后这些 DDL 跑在 log.db 写连接。`cpa_pids` 为原 046 需清理的 CPA 平台 ID
@@ -704,6 +720,14 @@ pub fn run_migrations_proxy_log_late(
     cpa_pids: &[i64],
     notif_rows: &[(String, String, String, i64)],
 ) -> SqlResult<()> {
+    // ADD COLUMN 幂等加列 + 真错误告警（issue #56 票 06）：重复列静默跳过，
+    // 真错误（磁盘满 / 库锁 / SQL 错）warn 记录但不中断迁移（保持既有「不中断」语义，
+    // 只补可观测性）。
+    let ensure = |column: &str, ddl: &str| {
+        if let Err(e) = ensure_column(conn, "proxy_log", column, ddl) {
+            tracing::warn!(error = %e, column, "proxy_log late migration: ADD COLUMN 失败");
+        }
+    };
     // Migration 20260727-10 (原 024, proxy_log): group_name → group_key（幂等：探测列存在性）。
     let has_log_group_key = conn
         .prepare("PRAGMA table_info(proxy_log)")?
@@ -776,9 +800,9 @@ pub fn run_migrations_proxy_log_late(
     // 移除，ADD 语句删除，存量库由下方 20260910-02 DROP COLUMN 清理。
     // Migration 20260824-01 (票 06 stream-full-log): proxy_log 加 done 终态列，取代
     // `response_body == "[stream]"` 哨兵的终态判定（log.rs 背压/聚合 gate/快照移除）。
-    let _ = conn.execute(
+    ensure(
+        "done",
         "ALTER TABLE proxy_log ADD COLUMN done INTEGER NOT NULL DEFAULT 0",
-        [],
     );
     // 回填 ①：历史真实终态行（status!=0 且非哨兵）标 done=1。
     // 关日志正文的非流式行 response_body='' 也算终态（哨兵只在流式路径写入）。
@@ -797,9 +821,9 @@ pub fn run_migrations_proxy_log_late(
     // Migration 20260827-01 (票 10 field-trace): proxy_log 加 field_trace 列，
     // 承载出站 body 构造中被丢弃 / 被改写的字段名留痕（只记名不记值）。
     // 存量行按 DEFAULT '' 补齐 = 「无留痕」，语义正确，无需回填。
-    let _ = conn.execute(
+    ensure(
+        "field_trace",
         "ALTER TABLE proxy_log ADD COLUMN field_trace TEXT NOT NULL DEFAULT ''",
-        [],
     );
     // Migration 20260727-19 (原 031 ②): notification 时间索引（从主库迁入 log.db）。
     let _ = conn.execute(
@@ -825,16 +849,16 @@ pub fn run_migrations_proxy_log_late(
     // Anthropic `cache_creation_input_tokens` 此前全链路未采集（input_tokens 不含缓存写入，
     // cache_tokens 只记读），重度 prompt caching 工作负载 token/est_cost 双少计。
     // 存量行 DEFAULT 0 补齐 = 历史无采集，语义正确，无需回填。
-    let _ = conn.execute(
+    ensure(
+        "cache_write_tokens",
         "ALTER TABLE proxy_log ADD COLUMN cache_write_tokens INTEGER NOT NULL DEFAULT 0",
-        [],
     );
     // Migration 20261028-01 (B3 cache 5m/1h 拆价): proxy_log 加 cache_write_1h_tokens 列——
     // Anthropic `cache_creation.ephemeral_1h_input_tokens` 独立落库，计价走 `price.cache_write_1h`
     // 档（2× input 价）。存量行 DEFAULT 0 补齐 = 历史无采集，语义正确，无需回填。
-    let _ = conn.execute(
+    ensure(
+        "cache_write_1h_tokens",
         "ALTER TABLE proxy_log ADD COLUMN cache_write_1h_tokens INTEGER NOT NULL DEFAULT 0",
-        [],
     );
     // Migration 20261001-01 (perf-backend O5): proxy_log 三个读侧窄索引，堵界面查询随
     // 行数线性变慢（票 03 实测 scaled 20.5 万行：L3 计数 56ms / L8 最近测试 57ms /
@@ -861,30 +885,30 @@ pub fn run_migrations_proxy_log_late(
     // 队列字节预算超限、消息降级为「只含元数据」时置位（写侧 aidog_core log.rs），日志详情
     // 页据此显示「正文已省略」标记。正文列保持空串、不写占位文字（CLAUDE.md「Proxy 日志」段：
     // body 列不承载控制语义）。存量行 DEFAULT 0 补齐 = 历史无降级，语义正确，无需回填。
-    let _ = conn.execute(
+    ensure(
+        "body_omitted",
         "ALTER TABLE proxy_log ADD COLUMN body_omitted INTEGER NOT NULL DEFAULT 0",
-        [],
     );
     // Migration 20261024-01 (代理日志-路由决策直观化 票 01): proxy_log 加 routing 列——
     // 路由决策快照 JSON（评估过的候选平台 + 排除原因标签 + 位置标签 + 路由模式），
     // 与 attempts 列同模式。元数据：不受 log_user_request / log_upstream_request
     // 开关控制，恒落库（不进两侧「原始信息」列集）。存量行 DEFAULT '' 补齐 =
     // 无快照（旧版行），语义正确，无需回填。
-    let _ = conn.execute(
+    ensure(
+        "routing",
         "ALTER TABLE proxy_log ADD COLUMN routing TEXT NOT NULL DEFAULT ''",
-        [],
     );
     // Migration 20261030-01 (请求流向 票 02): proxy_log 加 client 列——请求进入时按 UA 归类的
     // 客户端代码（claude_code/codex/pi/cursor/windsurf/gemini_cli/other）。存量行 '' = 未知，不回填。
-    let _ = conn.execute(
+    ensure(
+        "client",
         "ALTER TABLE proxy_log ADD COLUMN client TEXT NOT NULL DEFAULT ''",
-        [],
     );
     // Migration 20261030-03: proxy_log 加 user_agent 列——入站原始 UA（截断 256 字符），日志页展示用。
     // 存量行 '' = 未知，不回填；不进 stats_agg_hourly（聚合只用 client 代码）。
-    let _ = conn.execute(
+    ensure(
+        "user_agent",
         "ALTER TABLE proxy_log ADD COLUMN user_agent TEXT NOT NULL DEFAULT ''",
-        [],
     );
     // Migration 20261107-01 (magpie 票 08 会话归组): proxy_log 加 session_key 列——入站请求
     // 派生的会话归组键（anthropic metadata.user_id 的 session UUID / openai 系 session_id /
@@ -892,9 +916,9 @@ pub fn run_migrations_proxy_log_late(
     // 不受 log_user_request / log_upstream_request 开关控制。存量行 '' = 未归组（spec D4a
     // 不回填，空键不参与聚合），语义正确，无需回填。附 (session_key, created_at) 读侧窄索引
     // 供会话聚合查询（同 20261001-01 idiom）。
-    let _ = conn.execute(
+    ensure(
+        "session_key",
         "ALTER TABLE proxy_log ADD COLUMN session_key TEXT NOT NULL DEFAULT ''",
-        [],
     );
     let _ = conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_proxy_log_session_created \
@@ -905,28 +929,19 @@ pub fn run_migrations_proxy_log_late(
     // Migration 20261109-02 (代理日志-MITM隧道 票 02): proxy_log 加隧道上/下行字节数两列，
     // 仅 http-connect（AI 隧道）行写值，存量行 0 无需回填。
     for col in ["up_bytes", "down_bytes"] {
-        let _ = conn.execute(
-            &format!("ALTER TABLE proxy_log ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0"),
-            [],
-        );
+        ensure(col, &format!("ALTER TABLE proxy_log ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0"));
     }
     // Migration 20261110-01: proxy_log 加 request_class / agent_type 两列——Claude Code 网关提示头
     // `x-claude-code-request-class` / `x-claude-code-agent-type`（入口解析，元数据恒记录）。
     // 存量行 '' = 无，不回填。
     for col in ["request_class", "agent_type"] {
-        let _ = conn.execute(
-            &format!("ALTER TABLE proxy_log ADD COLUMN {col} TEXT NOT NULL DEFAULT ''"),
-            [],
-        );
+        ensure(col, &format!("ALTER TABLE proxy_log ADD COLUMN {col} TEXT NOT NULL DEFAULT ''"));
     }
     // Migration 20261110-03: proxy_log 再加 7 列——Claude Code 网关提示头 prompt-id / session-id /
     // agent-id / parent-agent-id / compaction / context-compacted / prev-tool-durations（入口解析，
     // 元数据恒记录）。存量行 '' = 无，不回填。prompt_id / session_id 附窄索引供日志列表按它们筛选。
     for col in ["prompt_id", "session_id", "agent_id", "parent_agent_id", "compaction", "context_compacted", "prev_tool_durations"] {
-        let _ = conn.execute(
-            &format!("ALTER TABLE proxy_log ADD COLUMN {col} TEXT NOT NULL DEFAULT ''"),
-            [],
-        );
+        ensure(col, &format!("ALTER TABLE proxy_log ADD COLUMN {col} TEXT NOT NULL DEFAULT ''"));
     }
     for col in ["prompt_id", "session_id"] {
         let _ = conn.execute(
@@ -4172,5 +4187,130 @@ mod tests {
         )
         .unwrap();
         assert_eq!(extra2, extra, "二次启动幂等");
+    }
+
+    // ===== issue #56 票 06: ensure_column 辅助 =====
+
+    #[test]
+    fn ensure_column_adds_once_then_reports_existing() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("CREATE TABLE t (id INTEGER);").unwrap();
+        assert!(
+            ensure_column(&conn, "t", "a", "ALTER TABLE t ADD COLUMN a TEXT NOT NULL DEFAULT ''")
+                .unwrap(),
+            "首次加列应返回 true（新加）"
+        );
+        assert!(
+            !ensure_column(&conn, "t", "a", "ALTER TABLE t ADD COLUMN a TEXT NOT NULL DEFAULT ''")
+                .unwrap(),
+            "重复加同一列应返回 false（已存在）"
+        );
+    }
+
+    #[test]
+    fn ensure_column_errors_on_missing_table() {
+        let conn = Connection::open_in_memory().unwrap();
+        let r = ensure_column(
+            &conn,
+            "no_such_table",
+            "a",
+            "ALTER TABLE no_such_table ADD COLUMN a TEXT NOT NULL DEFAULT ''",
+        );
+        assert!(r.is_err(), "不存在的表应返回 Err，不吞错");
+    }
+
+    /// 迁移回归（票 06 验收 2/3）：three_file_db 已跑全量迁移一遍（init_tables），
+    /// 再手跑 run_migrations_proxy_log_late 两遍，列集须恒等，且与改前（基点 c39031977e）
+    /// 列集常量逐列相同。常量采集自改桩阶段的真实迁移输出（改前行为）。
+    #[tokio::test]
+    async fn proxy_log_late_migration_column_set_idempotent_and_unchanged() {
+        const EXPECTED_PROXY_LOG_COLUMNS: &[&str] = &[
+            "actual_model",
+            "agent_id",
+            "agent_type",
+            "attempts",
+            "blocked_by",
+            "blocked_reason",
+            "body_omitted",
+            "cache_tokens",
+            "cache_write_1h_tokens",
+            "cache_write_tokens",
+            "client",
+            "compaction",
+            "context_compacted",
+            "created_at",
+            "deleted_at",
+            "done",
+            "down_bytes",
+            "duration_ms",
+            "est_cost",
+            "field_trace",
+            "group_key",
+            "id",
+            "input_tokens",
+            "is_stream",
+            "model",
+            "output_tokens",
+            "parent_agent_id",
+            "platform_id",
+            "prev_tool_durations",
+            "prompt_id",
+            "request_body",
+            "request_class",
+            "request_headers",
+            "request_url",
+            "response_body",
+            "retry_count",
+            "routing",
+            "session_id",
+            "session_key",
+            "source_protocol",
+            "status_code",
+            "target_protocol",
+            "up_bytes",
+            "updated_at",
+            "upstream_request_body",
+            "upstream_request_headers",
+            "upstream_request_url",
+            "upstream_response_headers",
+            "upstream_status_code",
+            "user_agent",
+            "user_response_body",
+            "user_response_headers",
+        ];
+        fn columns_of(conn: &Connection) -> Vec<String> {
+            let mut stmt = conn.prepare("PRAGMA table_info(proxy_log)").unwrap();
+            let mut cols: Vec<String> = stmt
+                .query_map([], |r| r.get::<_, String>(1))
+                .unwrap()
+                .filter_map(Result::ok)
+                .collect();
+            cols.sort();
+            cols
+        }
+        let (db, _dir) = crate::test_support::three_file_db().await;
+        let cols_after_run1 = db
+            .call_proxy_log_traced(None, std::panic::Location::caller(), |conn| {
+                run_migrations_proxy_log_late(conn, &HashMap::new(), &[], &[])?;
+                Ok(columns_of(conn))
+            })
+            .await
+            .unwrap();
+        let cols_after_run2 = db
+            .call_proxy_log_traced(None, std::panic::Location::caller(), |conn| {
+                run_migrations_proxy_log_late(conn, &HashMap::new(), &[], &[])?;
+                Ok(columns_of(conn))
+            })
+            .await
+            .unwrap();
+        assert_eq!(cols_after_run1, cols_after_run2, "两遍迁移列集必须一致（幂等）");
+        let expected: Vec<String> = EXPECTED_PROXY_LOG_COLUMNS
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        assert_eq!(
+            cols_after_run2, expected,
+            "列集与改前常量不一致; actual={cols_after_run2:?}"
+        );
     }
 }
