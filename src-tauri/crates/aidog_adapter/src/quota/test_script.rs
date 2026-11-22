@@ -185,10 +185,15 @@ async fn script_outbound_uses_injected_client_and_persists_log() {
 
     static BUILDER_CALLED: AtomicBool = AtomicBool::new(false);
     /// 捕获 builder 收到的平台 extra（issue #64 T04：脚本路径须把 ctx.extra 原样传给构建器）。
-    static BUILDER_EXTRA: Mutex<Option<String>> = Mutex::new(None);
+    /// Vec 追加而非单值覆盖：CLIENT_BUILDER 是进程级注入点，其它带 db 的并行测试
+    /// （如 test_dispatch 的 draft magpie）也触发本闭包，单值会被并发覆盖造成断言竞态。
+    static BUILDER_EXTRA: Mutex<Vec<String>> = Mutex::new(Vec::new());
     set_client_builder(Arc::new(|_db, extra| {
         BUILDER_CALLED.store(true, Ordering::SeqCst);
-        *BUILDER_EXTRA.lock().unwrap() = extra.map(str::to_string);
+        BUILDER_EXTRA
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(extra.unwrap_or_default().to_string());
         Box::pin(async {
             reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(10))
@@ -206,9 +211,12 @@ async fn script_outbound_uses_injected_client_and_persists_log() {
         BUILDER_CALLED.load(Ordering::SeqCst),
         "出站须走 CLIENT_BUILDER 注入的 client（db=Some 时）"
     );
-    assert_eq!(
-        BUILDER_EXTRA.lock().unwrap().as_deref(),
-        Some(qctx().extra.as_str()),
+    assert!(
+        BUILDER_EXTRA
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .iter()
+            .any(|s| s.as_str() == qctx().extra),
         "builder 须收到平台行 extra 原文（issue #64 T04 平台归属判定输入）"
     );
 
