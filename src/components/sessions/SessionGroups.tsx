@@ -161,7 +161,7 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
   onCarry: (r: ClientUsageSessionRow, to: string) => void;
   onNeedTranscript: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const key = rowKey(r);
   const stateLabel: Record<SessionRunState, string> = {
     running: t("sessions.stateRunning", "执行中"),
@@ -221,8 +221,8 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
       <div className="text-end font-mono text-sm tabular-nums">
         <SessionCost cost={r.cost} calls={r.calls} unpricedCalls={r.unpricedCalls} testId="sessions-row-cost" />
       </div>
-      <div className="flex items-center justify-end gap-1 text-sm text-muted-foreground">
-        {formatRelativeTime(r.lastCallMs)}
+      <div className="flex items-center justify-end gap-1 text-sm text-muted-foreground" data-testid="sessions-row-last">
+        {formatRelativeTime(r.lastCallMs, i18n.language)}
         <ChevronDown aria-hidden className={`size-4 shrink-0 transition-transform motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`} />
       </div>
       <div className="flex items-center justify-end gap-1" data-testid="sessions-row-actions">

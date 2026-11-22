@@ -160,7 +160,7 @@ describe("formatDateTime", () => {
 
 describe("formatRelativeTime", () => {
   const NOW = Date.UTC(2026, 5, 26, 12, 0, 0);
-  const ago = (ms: number) => formatRelativeTime(NOW - ms);
+  const ago = (ms: number, lng = "zh-Hans") => formatRelativeTime(NOW - ms, lng);
   const SEC = 1000, MIN = 60 * SEC, HR = 60 * MIN, DAY = 24 * HR;
 
   afterEach(() => vi.useRealTimers());
@@ -175,23 +175,25 @@ describe("formatRelativeTime", () => {
   it("picks the largest whole unit at each boundary", () => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
-    expect(ago(0)).toBe("刚刚");
-    expect(ago(59 * SEC)).toBe("刚刚");
-    expect(ago(60 * SEC)).toBe("1 分钟前");
-    expect(ago(59 * MIN)).toBe("59 分钟前");
-    expect(ago(60 * MIN)).toBe("1 小时前");
-    expect(ago(23 * HR)).toBe("23 小时前");
-    expect(ago(24 * HR)).toBe("1 天前");
-    expect(ago(29 * DAY)).toBe("29 天前");
-    expect(ago(30 * DAY)).toBe("1 个月前");
-    expect(ago(364 * DAY)).toBe("12 个月前");
-    expect(ago(365 * DAY)).toBe("1 年前");
+    expect(ago(0)).toBe("现在");
+    expect(ago(59 * SEC)).toBe("现在");
+    expect(ago(60 * SEC)).toBe("1分钟前");
+    expect(ago(59 * MIN)).toBe("59分钟前");
+    expect(ago(60 * MIN)).toBe("1小时前");
+    expect(ago(23 * HR)).toBe("23小时前");
+    expect(ago(24 * HR)).toBe("1天前");
+    expect(ago(29 * DAY)).toBe("29天前");
+    expect(ago(30 * DAY)).toBe("1个月前");
+    expect(ago(364 * DAY)).toBe("12个月前");
+    expect(ago(365 * DAY)).toBe("1年前");
+    expect(ago(5 * HR, "en-US")).toBe("5 hours ago");
+    expect(ago(0, "ar-SA")).toBe("الآن");
   });
 
-  it("clamps future timestamps to 刚刚 instead of counting down", () => {
+  it("clamps future timestamps to now instead of counting down", () => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
-    expect(formatRelativeTime(NOW + DAY)).toBe("刚刚");
+    expect(formatRelativeTime(NOW + DAY, "zh-Hans")).toBe("现在");
   });
 });
 

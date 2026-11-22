@@ -13,7 +13,7 @@ export function SessionTrash({ open, onOpenChange, onRestored }: {
   /** 恢复成功后通知父页重拉列表。 */
   onRestored: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [rows, setRows] = useState<ClientUsageHiddenSessionRow[] | null>(null);
   const [error, setError] = useState("");
 
@@ -74,7 +74,7 @@ export function SessionTrash({ open, onOpenChange, onRestored }: {
                     <bdi>{clientName(r.clientCode)}</bdi>
                     {r.workdir && <>{" · "}<bdi dir="ltr" title={r.workdir} data-testid="sessions-trash-path">{r.workdir}</bdi></>}
                     {" · "}
-                    <bdi>{t("sessions.hiddenAt", "隐藏于 {{time}}", { time: formatRelativeTime(r.hiddenAt) })}</bdi>
+                    <bdi>{t("sessions.hiddenAt", "隐藏于 {{time}}", { time: formatRelativeTime(r.hiddenAt, i18n.language) })}</bdi>
                   </div>
                 </div>
                 <Button size="sm" variant="outline" data-testid="sessions-trash-restore" onClick={() => void restore(r)}>

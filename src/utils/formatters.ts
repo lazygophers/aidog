@@ -2,6 +2,7 @@
 // 收敛 Groups / Stats / Logs 等页面原本各自重复定义的 formatter，保证显示一致、修复传播。
 // formatMoney 读 displayCurrency store 的当前币种，其余为纯函数。
 
+import i18next from "i18next";
 import { getDisplayCurrency } from "./displayCurrency";
 
 /**
@@ -129,32 +130,32 @@ export function formatDateTime(input: string | number | null | undefined): strin
 }
 
 /**
- * ISO 时间戳 / 毫秒戳 → 相对时间简写（如 "3 天前" / "刚刚" / "2 小时前"）。
+ * ISO 时间戳 / 毫秒戳 → 本地化相对时间（如 "3 天前" / "3 days ago" / "قبل ٣ أيام"），走 Intl.RelativeTimeFormat。
  * 用于卡片次要信息行紧凑展示（绝对时间走 formatDateTime，相对时间更易扫读）。
- * 输入无效 → null。差值 < 1 秒 → "刚刚"；未来时间（> 当前）→ 也用 "刚刚" 兜底（防倒计时 UI）。
+ * `locale` 缺省取全局 i18next 当前语言（组件内可传 `i18n.language`）。
+ * 输入无效 → null。差值 < 60 秒 → 「现在」（en "now"）；未来时间（> 当前）同样兜底为「现在」（防倒计时 UI）。
  *
- * 粒度：秒 / 分 / 时 / 天 / 月（30 天）/ 年（365 天），取最大整数单位。
+ * 粒度：分 / 时 / 天 / 月（30 天）/ 年（365 天），取最大整数单位。
  */
-export function formatRelativeTime(input: string | number | null | undefined): string | null {
+export function formatRelativeTime(input: string | number | null | undefined, locale: string | undefined = i18next.language): string | null {
   if (input === null || input === undefined || input === "") return null;
   const d = typeof input === "number" ? new Date(input) : new Date(input);
   if (Number.isNaN(d.getTime())) return null;
-  const diffMs = Date.now() - d.getTime();
-  // 未来时间兜底为「刚刚」（避免显示负数或倒计时）。
-  const past = Math.max(0, diffMs);
+  // 未来时间兜底为「现在」（避免显示负数或倒计时）。
+  const past = Math.max(0, Date.now() - d.getTime());
   const sec = Math.floor(past / 1000);
-  if (sec < 60) return "刚刚";
+  if (sec < 60) return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(0, "second");
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "always" });
   const min = Math.floor(sec / 60);
-  if (min < 60) return `${min} 分钟前`;
+  if (min < 60) return rtf.format(-min, "minute");
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr} 小时前`;
+  if (hr < 24) return rtf.format(-hr, "hour");
   const day = Math.floor(hr / 24);
-  if (day < 30) return `${day} 天前`;
+  if (day < 30) return rtf.format(-day, "day");
   // 按天数（而非 month < 12）判断是否进位到「年」：30 天/月与 365 天/年不整除，
   // 用 month < 12 会让 360–364 天落进 year 分支算出 floor(364/365)=0 → "0 年前"。
-  if (day < 365) return `${Math.floor(day / 30)} 个月前`;
-  const year = Math.floor(day / 365);
-  return `${year} 年前`;
+  if (day < 365) return rtf.format(-Math.floor(day / 30), "month");
+  return rtf.format(-Math.floor(day / 365), "year");
 }
 
 /**

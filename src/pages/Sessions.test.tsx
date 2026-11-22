@@ -1,7 +1,7 @@
 // Sessions 页就近测试（扩展-会话页 票 02）：渲染真组件，mock api / transport，断言走 data-testid / data-state。
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { act, fireEvent, render, screen, waitFor, within } from "../test/render";
+import { act, fireEvent, render, screen, testI18n, waitFor, within } from "../test/render";
 
 const api = vi.hoisted(() => ({
   status: vi.fn(),
@@ -92,6 +92,27 @@ beforeEach(() => {
   cctx.contextModeSessions.mockResolvedValue([]);
   api.installedClients.mockResolvedValue([]);
   api.transcriptConsentGet.mockResolvedValue(false);
+});
+
+describe("最后活动相对时间随界面语言（票 21）", () => {
+  it.each(["en-US", "ar-SA"])("%s 下不出中文", async (lng) => {
+    await testI18n.changeLanguage(lng);
+    try {
+      api.status.mockResolvedValue(statusPayload(ALL_ON));
+      api.sessions.mockResolvedValue([...SESSIONS, row("claude_code", "c0", "演示会话丁", "/work/beta", 0)]);
+      api.sessionDetail.mockResolvedValue({ points: [] });
+      render(<Sessions onNavigate={vi.fn()} />);
+      await screen.findAllByTestId("sessions-row");
+      const texts = screen.getAllByTestId("sessions-row-last").map((el) => el.textContent ?? "");
+      expect(texts.length).toBe(4);
+      for (const s of texts) {
+        expect(s).not.toBe("");
+        expect(s).not.toMatch(/[一-鿿]/);
+      }
+    } finally {
+      await testI18n.changeLanguage("zh-Hans");
+    }
+  });
 });
 
 describe("Sessions 页（票 02）", () => {
