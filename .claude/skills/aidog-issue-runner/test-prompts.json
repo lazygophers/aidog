@@ -1,0 +1,60 @@
+[
+  {
+    "id": "dev-1",
+    "split": "dev",
+    "source": "user",
+    "prompt": "我要开始处理 issue #94（CrazyRouter 出站适配）。把开工前的准备做出来：worktree、分支、基点，写成一份我可以逐条执行并核对的操作单，存成 plan.md。",
+    "files": [],
+    "checks": [
+      "产出文件 plan.md 存在",
+      "含 `git fetch origin` 且 fetch 发生在建分支之前",
+      "worktree 创建命令以 origin/master 为基点（出现 origin/master，且不出现以本地 HEAD 或本地 master 为基点的命令）",
+      "分支名形如 issue-94-<短slug>",
+      "含建后 `rev-parse --show-toplevel` 验证步骤",
+      "含记录基点 sha 的步骤"
+    ]
+  },
+  {
+    "id": "dev-2",
+    "split": "dev",
+    "source": "user",
+    "prompt": "实现 agent 回报：worktree 里跑 `cargo test` 全绿，14 passed，可以合并了吗？请给出你合并前要做的事，写成一份 checklist 存成 pre-merge.md。",
+    "files": [],
+    "checks": [
+      "产出文件 pre-merge.md 存在",
+      "明确指出 agent 侧 14 passed 不作数，合并前在主仓跑全量门禁",
+      "全量门禁含 `cargo test --workspace`（或 --workspace --no-fail-fast）与 `make lint` 整条",
+      "含 push 预检 `git rev-list --count origin/master..<分支>`",
+      "含 head SHA 与 READY/验证版本的一致性核对（ls-remote 或 --match-head-commit 任一）",
+      "含工作区脏文件/指针挪动注意事项（不 stash 外来脏文件）"
+    ]
+  },
+  {
+    "id": "hold-1",
+    "split": "holdout",
+    "source": "user",
+    "prompt": "issue-157-xxx 分支已经验收过，push 时报 SSL certificate 错误失败了两次。我现在该怎么把 PR 建起来？把处置步骤写成 push-retry.md。",
+    "files": [],
+    "checks": [
+      "产出文件 push-retry.md 存在",
+      "含 `git fetch origin` 后把 origin/master merge 进本分支解冲突再重推的路径",
+      "明确不基于本地 master 重建分支（fetch 失败不是回落许可）",
+      "无 force push",
+      "重推前重跑 rev-list --count 预检"
+    ]
+  },
+  {
+    "id": "hold-2",
+    "split": "holdout",
+    "source": "user",
+    "prompt": "跑 `cargo test --workspace` 报 `extern location for aidog_db does not exist`，但这个报错看着不该出现——代码没人动过，同时另一个会话好像也在跑测试。怎么办？写成 triage.md。",
+    "files": [],
+    "checks": [
+      "产出文件 triage.md 存在",
+      "判定这是并发重建假红，不是代码回归（明确不在红上改代码）",
+      "含取 /tmp/aidog-cargo.lock 独占后重跑",
+      "含替代排查：touch aidog_core build.rs 重跑，或按行号核对",
+      "无 pkill / 删共享缓存 / 删 target 的动作"
+    ]
+  }
+]
