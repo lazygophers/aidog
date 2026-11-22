@@ -1,31 +1,32 @@
-// 「正在执行」区行内迷你 token 走势（票 12 / 15 / 16 / 18）：最近 5 分钟逐秒（入 + 出 + 缓存读写，记在调用时间所在秒），
-// 逐秒值经高斯平滑后用单调三次插值画曲线；悬浮显示指针所在像素覆盖秒区间的时分秒（票 19）与原始平均速度。
-// 全部置顶行共用一个 1 秒计时器滑动窗口（页面隐藏时暂停）。数据复用会话详情的时间序列，会话有新调用（lastCallMs 变）才重读。
+// 「正在执行」区行内迷你 token 走势（票 12 / 15 / 16 / 18 / 22）：最近 5 分钟按绝对时间对齐的 5 秒桶（入 + 出 + 缓存读写，
+// 记在调用时间所在桶），桶值 = 桶内总和 ÷ 5（tokens/s），经高斯平滑后用单调三次插值画曲线；悬浮显示指针所在桶区间的时分秒（票 19）与原始平均速度。
+// 全部置顶行共用一个对齐 5 秒整的计时器滑动窗口（页面隐藏时暂停）。数据复用会话详情的时间序列，会话有新调用（lastCallMs 变）才重读。
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { clientUsageApi, type ClientUsageTokenPoint } from "../../services/api/clientUsage";
 import { formatClockTime, formatNumber } from "../../utils/formatters";
 
-const SECS = 300;
+const BUCKET_MS = 5000;
+const N = 60; // 60 × 5 秒 = 近 300 秒
 const H = 24;
 
 const total = (p: ClientUsageTokenPoint) => p.inputTokens + p.outputTokens + p.cacheReadTokens + p.cacheWriteTokens;
 
-/** 以 nowMs 所在秒为最后一格，往前 300 秒逐秒求和；窗口外的调用丢弃。 */
-export function secondBuckets(points: ClientUsageTokenPoint[], nowMs: number): number[] {
-  const first = Math.floor(nowMs / 1000) - (SECS - 1);
-  const bars = new Array<number>(SECS).fill(0);
+/** 以 nowMs 所在 5 秒桶（按绝对时间对齐 5 秒整）为最后一格，往前 60 桶逐桶求 token 总和；窗口外的调用丢弃。 */
+export function windowBuckets(points: ClientUsageTokenPoint[], nowMs: number): number[] {
+  const first = Math.floor(nowMs / BUCKET_MS) - (N - 1);
+  const sums = new Array<number>(N).fill(0);
   for (const p of points) {
-    const i = Math.floor(p.callTimeMs / 1000) - first;
-    if (i >= 0 && i < SECS) bars[i] += total(p);
+    const i = Math.floor(p.callTimeMs / BUCKET_MS) - first;
+    if (i >= 0 && i < N) sums[i] += total(p);
   }
-  return bars;
+  return sums;
 }
 
-// 高斯核 σ=5 秒、半径 15 秒（约 31 秒窗口；窄宽 56px 时一像素约 5 秒，σ 再小曲线仍显尖）：单次调用的尖峰摊成平滑鼓包；核权重和为 1，窗口内部总量守恒（两端截断处略漏）。
-const SIGMA = 5;
-const RADIUS = 15;
+// 高斯核 σ=1 桶、半径 3 桶（等效原逐秒的 σ=5 秒、半径 15 秒）：单次调用的尖峰摊成平滑鼓包；核权重和为 1，窗口内部总量守恒（两端截断处略漏）。
+const SIGMA = 1;
+const RADIUS = 3;
 const KERNEL = (() => {
   const w = Array.from({ length: 2 * RADIUS + 1 }, (_, k) => Math.exp(-((k - RADIUS) ** 2) / (2 * SIGMA * SIGMA)));
   const s = w.reduce((a, b) => a + b, 0);
@@ -43,7 +44,7 @@ export function smoothSeries(v: number[]): number[] {
   });
 }
 
-/** 第 i 秒中心在 viewBox 的 y：留上下 1.5 / 0.5 余量，描边不被裁。 */
+/** 第 i 桶中心在 viewBox 的 y：留上下 1.5 / 0.5 余量，描边不被裁。 */
 const yOf = (v: number, max: number, h: number) => h - 0.5 - (v / max) * (h - 2);
 const f = (n: number) => String(+n.toFixed(2));
 
@@ -70,13 +71,13 @@ export function curvePath(values: number[], max: number, h: number): string {
   return p;
 }
 
-// 共享秒表：有订阅者且页面可见时才跑；单次 setTimeout 对齐到下一整秒再续排，窗口恰在秒跳变时前移、不累积漂移。
+// 共享计时器：有订阅者且页面可见时才跑；单次 setTimeout 对齐到下一个 5 秒整再续排，窗口恰在桶跳变时前移、不累积漂移。
 const listeners = new Set<() => void>();
 let nowMs = Date.now();
 let timer: ReturnType<typeof setTimeout> | undefined;
 const tick = () => {
   nowMs = Date.now();
-  timer = setTimeout(tick, 1000 - (nowMs % 1000));
+  timer = setTimeout(tick, BUCKET_MS - (nowMs % BUCKET_MS));
   for (const l of listeners) l();
 };
 const sync = () => {
@@ -96,8 +97,8 @@ const subscribe = (l: () => void) => {
 };
 const useNowMs = () => useSyncExternalStore(subscribe, () => nowMs);
 
-// s0..s1：指针所在像素覆盖的秒区间 [s0, s1)；i：辅助线 / 点所在秒（区间中间格）
-type Hover = { s0: number; s1: number; i: number; x: number; top: number; bottom: number };
+// b0..b1：指针所在像素对齐后的桶区间 [b0, b1)；i：辅助线 / 点所在桶（区间中间格）
+type Hover = { b0: number; b1: number; i: number; x: number; top: number; bottom: number };
 
 export function SessionSparkline({ clientCode, sessionId, lastCallMs }: { clientCode: string; sessionId: string; lastCallMs: number }) {
   const { t } = useTranslation();
@@ -127,23 +128,24 @@ export function SessionSparkline({ clientCode, sessionId, lastCallMs }: { client
     el.style.left = `${Math.max(4, Math.min(left, vw - w - 4))}px`;
     el.style.top = `${Math.max(4, Math.min(top, vh - h - 4))}px`;
   });
-  const bars = secondBuckets(points, now);
-  const sum = bars.reduce((a, b) => a + b, 0);
+  const sums = windowBuckets(points, now);
+  const sum = sums.reduce((a, b) => a + b, 0);
+  const bars = sums.map((v) => v / (BUCKET_MS / 1000));
   const smooth = smoothSeries(bars);
   const max = Math.max(1e-9, ...smooth);
   const curve = sum > 0 ? curvePath(smooth, max, H) : "";
-  const hx = hover ? hover.i + 0.5 : 0;
+  const hx = hover ? (hover.b0 + hover.b1) / 2 : 0;
   const hy = hover ? yOf(smooth[hover.i], max, H) : 0;
-  // 区间起止秒的时刻：末格 = now 所在秒，与曲线同一时间基准
-  const firstMs = (Math.floor(now / 1000) - (SECS - 1)) * 1000;
-  const startMs = hover ? firstMs + hover.s0 * 1000 : 0;
-  const endMs = hover ? firstMs + (hover.s1 - 1) * 1000 : 0;
-  const rate = hover ? bars.slice(hover.s0, hover.s1).reduce((a, b) => a + b, 0) / (hover.s1 - hover.s0) : 0;
+  // 区间起止时刻 = 桶边界：末桶 = now 所在桶，与曲线同一时间基准；止为区间末桶的结束边界
+  const firstMs = (Math.floor(now / BUCKET_MS) - (N - 1)) * BUCKET_MS;
+  const startMs = hover ? firstMs + hover.b0 * BUCKET_MS : 0;
+  const endMs = hover ? firstMs + hover.b1 * BUCKET_MS : 0;
+  const rate = hover ? bars.slice(hover.b0, hover.b1).reduce((a, b) => a + b, 0) / (hover.b1 - hover.b0) : 0;
   return (
     <>
       <svg
         height={H}
-        viewBox={`0 0 ${SECS} ${H}`}
+        viewBox={`0 0 ${N} ${H}`}
         preserveAspectRatio="none"
         role="img"
         aria-label={t("sessions.spark5mLabel", "最近 5 分钟 token，共 {{n}}", { n: formatNumber(sum) })}
@@ -154,19 +156,20 @@ export function SessionSparkline({ clientCode, sessionId, lastCallMs }: { client
         onMouseMove={(e) => {
           const r = e.currentTarget.getBoundingClientRect();
           if (r.width <= 0) return;
-          // 窄宽时一像素覆盖数秒，单秒值常为 0：取整像素覆盖的秒区间求平均；一像素 ≤1 秒时区间只含一秒
+          // 一像素 ≤1 桶时取像素中心所在桶（跨桶边界的像素也恰 5 秒）；窄宽一像素覆盖多桶时，覆盖区间向外对齐到桶边界求平均
           const px = Math.floor(e.clientX - r.left);
-          const s0 = Math.max(0, Math.min(SECS - 1, Math.floor((px * SECS) / r.width)));
-          const s1 = Math.max(s0 + 1, Math.min(SECS, Math.floor(((px + 1) * SECS) / r.width)));
-          setHover({ s0, s1, i: Math.floor((s0 + s1 - 1) / 2), x: e.clientX, top: r.top, bottom: r.bottom });
+          const wide = r.width >= N;
+          const b0 = Math.max(0, Math.min(N - 1, Math.floor(((px + (wide ? 0.5 : 0)) * N) / r.width)));
+          const b1 = wide ? b0 + 1 : Math.max(b0 + 1, Math.min(N, Math.ceil(((px + 1) * N) / r.width)));
+          setHover({ b0, b1, i: Math.floor((b0 + b1 - 1) / 2), x: e.clientX, top: r.top, bottom: r.bottom });
         }}
         onMouseLeave={() => setHover(null)}
         onClick={(e) => e.stopPropagation()}
       >
-        <path d={`M0 ${H - 0.5}H${SECS}`} stroke="currentColor" strokeOpacity={0.25} vectorEffect="non-scaling-stroke" />
+        <path d={`M0 ${H - 0.5}H${N}`} stroke="currentColor" strokeOpacity={0.25} vectorEffect="non-scaling-stroke" />
         {curve && (
           <>
-            <path d={`${curve}L${SECS - 0.5},${H}L0.5,${H}Z`} fill="currentColor" fillOpacity={0.15} stroke="none" />
+            <path d={`${curve}L${N - 0.5},${H}L0.5,${H}Z`} fill="currentColor" fillOpacity={0.15} stroke="none" />
             <path data-testid="sessions-spark-curve" d={curve} fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
           </>
         )}
@@ -182,16 +185,15 @@ export function SessionSparkline({ clientCode, sessionId, lastCallMs }: { client
         <div
           ref={tipRef}
           data-testid="sessions-spark-tip"
-          data-second={String(hover.s0)}
           data-rate={String(rate)}
-          data-span={`${hover.s0}-${hover.s1}`}
+          data-span={`${hover.b0}-${hover.b1}`}
           data-start={String(startMs)}
           data-end={String(endMs)}
           className="pointer-events-none fixed z-50 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-sm text-popover-foreground shadow-md"
           style={{ left: hover.x + 12, top: hover.top - 64 }}
         >
           <div className="font-mono tabular-nums text-muted-foreground">
-            <bdi dir="ltr">{startMs === endMs ? formatClockTime(startMs) : `${formatClockTime(startMs)}–${formatClockTime(endMs)}`}</bdi>
+            <bdi dir="ltr">{`${formatClockTime(startMs)}–${formatClockTime(endMs)}`}</bdi>
           </div>
           <div className="font-mono tabular-nums">{t("sessions.sparkRate", "{{n}} tokens/s", { n: formatNumber(rate) })}</div>
         </div>,
