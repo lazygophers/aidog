@@ -2630,7 +2630,7 @@
   "proxy.logRetentionForever": "Хранить вечно",
   "proxy.logRetentionHint": "0 = хранить вечно",
   "proxy.logUpstreamReq": "Логировать запрос к апстриму",
-  "proxy.logUpstreamReqDesc": "Заголовки и тело запроса к апстрим-платформе",
+  "proxy.logUpstreamReqDesc": "Заголовки и тело запроса к апстрим-платформе; сводки ошибок апстрима (до 500 символов) — метаданные, сохраняются всегда",
   "proxy.logUserReq": "Логировать исходный запрос пользователя",
   "proxy.logUserReqDesc": "Заголовки и тело запроса от клиента",
   "proxy.port": "Порт",

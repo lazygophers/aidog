@@ -2630,7 +2630,7 @@
   "proxy.logRetentionForever": "無期限で保持",
   "proxy.logRetentionHint": "0 = 無期限",
   "proxy.logUpstreamReq": "アップストリームリクエストを記録",
-  "proxy.logUpstreamReqDesc": "アップストリームプラットフォームに送信したヘッダーとボディ",
+  "proxy.logUpstreamReqDesc": "アップストリームプラットフォームに送信したヘッダーとボディ。上流エラー概要（最大 500 文字）はメタデータとして常に保持されます",
   "proxy.logUserReq": "ユーザー生リクエストを記録",
   "proxy.logUserReqDesc": "クライアントが送信したリクエストヘッダーとボディ",
   "proxy.port": "ポート",
