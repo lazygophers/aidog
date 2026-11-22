@@ -2541,7 +2541,7 @@
   "proxy.logRetentionForever": "Conservar indefinidamente",
   "proxy.logRetentionHint": "0 = conservar indefinidamente",
   "proxy.logUpstreamReq": "Registrar solicitud upstream",
-  "proxy.logUpstreamReqDesc": "Cabeceras y cuerpo enviados a la plataforma upstream",
+  "proxy.logUpstreamReqDesc": "Cabeceras y cuerpo enviados a la plataforma upstream; los resúmenes de errores upstream (máx. 500 caracteres) son metadatos y siempre se conservan",
   "proxy.logUserReq": "Registrar solicitud original del usuario",
   "proxy.logUserReqDesc": "Cabeceras y cuerpo de solicitud enviados por el cliente",
   "proxy.port": "Puerto",

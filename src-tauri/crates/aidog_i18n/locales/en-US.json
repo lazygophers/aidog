@@ -2541,7 +2541,7 @@
   "proxy.logRetentionForever": "Keep forever",
   "proxy.logRetentionHint": "0 = keep forever",
   "proxy.logUpstreamReq": "Log upstream request",
-  "proxy.logUpstreamReqDesc": "Request headers and body sent to the upstream platform",
+  "proxy.logUpstreamReqDesc": "Request headers and body sent to the upstream platform; upstream error digests (up to 500 characters) are metadata and always retained",
   "proxy.logUserReq": "Log original user request",
   "proxy.logUserReqDesc": "Request headers and body sent by the client",
   "proxy.port": "Port",

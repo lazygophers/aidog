@@ -2629,7 +2629,7 @@
   "proxy.logRetentionForever": "Conserver indéfiniment",
   "proxy.logRetentionHint": "0 = conserver indéfiniment",
   "proxy.logUpstreamReq": "Journaliser la requête amont",
-  "proxy.logUpstreamReqDesc": "En-têtes et corps envoyés à la plateforme amont",
+  "proxy.logUpstreamReqDesc": "En-têtes et corps envoyés à la plateforme amont ; les résumés d’erreur amont (500 caractères max.) sont des métadonnées toujours conservées",
   "proxy.logUserReq": "Journaliser la requête utilisateur originale",
   "proxy.logUserReqDesc": "En-têtes et corps de requête envoyés par le client",
   "proxy.port": "Port",
