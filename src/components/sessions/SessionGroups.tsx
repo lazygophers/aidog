@@ -13,8 +13,8 @@ import { SessionSparkline } from "./SessionSparkline";
 import { CarryMenu } from "./CarryMenu";
 import { Button } from "../ui/button";
 
-// 成本后一列放置顶区的迷你走势图（票 12）；目录组行留同宽空位，两区各列对齐（票 13）。
-const ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_210px_96px_56px_96px_184px] items-center gap-3";
+// 置顶区迷你走势图放在标题列内、token 列前的空白处（票 14），不占独立列：两区列模板相同，各列对齐。
+const ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_210px_96px_96px_184px] items-center gap-3";
 
 function projectName(workdir: string): string {
   return workdir.split(/[\\/]/).filter(Boolean).pop() ?? workdir;
@@ -190,21 +190,25 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
       data-state={isOpen ? "open" : "closed"}
     >
       <ClientIcon code={r.clientCode} size={16} />
-      <div className="min-w-0">
-        <div className="truncate" title={r.title || r.sessionId}>{r.title || r.sessionId}</div>
-        <div className="mt-0.5 truncate text-sm text-muted-foreground" data-testid="sessions-row-meta">
-          <span className="inline-flex items-center gap-1.5 text-foreground" data-testid="sessions-row-state" data-state={runState}>
-            <i aria-hidden className={`inline-block size-2 rounded-full ${STATE_DOT[runState]}`} />
-            {stateLabel[runState]}
-          </span>
-          {" · "}
-          {/* 每段 bdi 各自隔离方向：RTL 下数字与拉丁名不与相邻段混排（票 13） */}
-          {inPinned && r.workdir && <><bdi dir="ltr" title={r.workdir}>{projectName(r.workdir)}</bdi>{" · "}</>}
-          <bdi>{clientName(r.clientCode)}</bdi> · <bdi>{t("sessions.calls", "{{n}} 次调用", { n: r.calls })}</bdi> · <bdi>{t("sessions.duration", "持续 {{d}}", { d: duration })}</bdi>
-          {ctxRatio != null && <>{" · "}<bdi className="font-mono tabular-nums" title={t("sessions.ctxTitle", "context-mode 上下文压缩比")} data-testid="sessions-row-ctx" data-pct={String(ctxRatio)}>{t("sessions.ctxRatio", "压缩 {{pct}}", { pct: formatPercent(ctxRatio) })}</bdi></>}
+      {/* 用 grid 不用 flex：全局 [dir=rtl] .flex 会反转行内顺序；走势图随标题列宽伸缩（容器查询），窄窗不挤标题 */}
+      <div className={inPinned ? "@container grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3" : "min-w-0"}>
+        <div className="min-w-0" data-testid="sessions-row-title">
+          <div className="truncate" title={r.title || r.sessionId}>{r.title || r.sessionId}</div>
+          <div className="mt-0.5 truncate text-sm text-muted-foreground" data-testid="sessions-row-meta">
+            <span className="inline-flex items-center gap-1.5 text-foreground" data-testid="sessions-row-state" data-state={runState}>
+              <i aria-hidden className={`inline-block size-2 rounded-full ${STATE_DOT[runState]}`} />
+              {stateLabel[runState]}
+            </span>
+            {" · "}
+            {/* 每段 bdi 各自隔离方向：RTL 下数字与拉丁名不与相邻段混排（票 13） */}
+            {inPinned && r.workdir && <><bdi dir="ltr" title={r.workdir}>{projectName(r.workdir)}</bdi>{" · "}</>}
+            <bdi>{clientName(r.clientCode)}</bdi> · <bdi>{t("sessions.calls", "{{n}} 次调用", { n: r.calls })}</bdi> · <bdi>{t("sessions.duration", "持续 {{d}}", { d: duration })}</bdi>
+            {ctxRatio != null && <>{" · "}<bdi className="font-mono tabular-nums" title={t("sessions.ctxTitle", "context-mode 上下文压缩比")} data-testid="sessions-row-ctx" data-pct={String(ctxRatio)}>{t("sessions.ctxRatio", "压缩 {{pct}}", { pct: formatPercent(ctxRatio) })}</bdi></>}
+          </div>
         </div>
+        {inPinned && <SessionSparkline clientCode={r.clientCode} sessionId={r.sessionId} lastCallMs={r.lastCallMs} />}
       </div>
-      <div className="text-end font-mono text-sm tabular-nums">
+      <div className="text-end font-mono text-sm tabular-nums" data-testid="sessions-row-tokens">
         {formatNumber(r.inputTokens + r.outputTokens)}
         <div className="truncate font-sans text-muted-foreground">
           {t("sessions.tokenSplit", "入 {{input}} / 出 {{output}}", { input: formatNumber(r.inputTokens), output: formatNumber(r.outputTokens) })}
@@ -216,9 +220,6 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
       <div className="text-end font-mono text-sm tabular-nums">
         <SessionCost cost={r.cost} calls={r.calls} unpricedCalls={r.unpricedCalls} testId="sessions-row-cost" />
       </div>
-      {inPinned
-        ? <SessionSparkline clientCode={r.clientCode} sessionId={r.sessionId} lastCallMs={r.lastCallMs} />
-        : <span aria-hidden data-testid="sessions-row-spark-slot" />}
       <div className="flex items-center justify-end gap-1 text-sm text-muted-foreground">
         {formatRelativeTime(r.lastCallMs)}
         <ChevronDown aria-hidden className={`size-4 shrink-0 transition-transform motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`} />

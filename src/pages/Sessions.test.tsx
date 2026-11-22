@@ -408,10 +408,11 @@ describe("继续会话（票 07）", () => {
     await waitFor(() => expect(api.sessionResume).toHaveBeenCalledWith("claude_code", "c1", "/work/alpha"));
     fireEvent.keyDown(btn, { key: "Enter" });
     expect(bySid("c1")).toHaveAttribute("data-state", "closed");
-    expect(screen.queryByTestId("sessions-resume-notice")).toBeNull();
+    // 票 14：继续一律复制命令，不看 launched。
+    await waitFor(() => expect(screen.getByTestId("sessions-resume-notice")).toHaveAttribute("data-kind", "resume-copied"));
   });
 
-  it("失败显示错误；本平台不能开终端时复制命令并提示", async () => {
+  it("失败显示错误；成功时复制命令并提示", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
     api.sessionResume.mockRejectedValueOnce("opencode session not found: o9");
@@ -425,7 +426,7 @@ describe("继续会话（票 07）", () => {
     api.sessionResume.mockResolvedValueOnce({ launched: false, command: "gemini --resume 'g2'" });
     fireEvent.click(within(bySid("g2")).getByTestId("sessions-resume"));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("gemini --resume 'g2'"));
-    await waitFor(() => expect(screen.getByTestId("sessions-resume-notice")).toHaveAttribute("data-kind", "copied"));
+    await waitFor(() => expect(screen.getByTestId("sessions-resume-notice")).toHaveAttribute("data-kind", "resume-copied"));
   });
 });
 
@@ -764,9 +765,9 @@ describe("真机反馈修复与懒加载（票 12）", () => {
     render(<Sessions />);
     const pinned = await screen.findByTestId("sessions-pinned");
     const spark = await within(pinned).findByTestId("sessions-row-spark");
-    await waitFor(() => expect(spark).toHaveAttribute("data-bars", "3"));
+    await waitFor(() => expect(spark).toHaveAttribute("data-bars", "300"));
     expect(spark).toHaveAttribute("data-total", "348");
-    expect(spark).toHaveAttribute("aria-label", "sessions.sparkLabel");
+    expect(spark).toHaveAttribute("aria-label", "sessions.spark5mLabel");
     const group = screen.getAllByTestId("sessions-group")[0];
     expect(within(group).queryByTestId("sessions-row-spark")).toBeNull();
     expect(api.sessionDetail.mock.calls.map((c) => c[1])).toEqual(["x-run"]);
@@ -854,7 +855,7 @@ describe("遗留六项（票 13）", () => {
   const PIN = [row("codex", "x-run", "演示执行", "/work/beta", 10_000), row("claude_code", "c-old", "演示旧", "/work/alpha", 5 * H)];
   const bySid = (sid: string) => screen.getAllByTestId("sessions-row").find((r) => r.getAttribute("data-session") === sid)!;
 
-  it("置顶区行与目录组行同一列模板：目录组行留出走势图空位，token 列对齐", async () => {
+  it("置顶区行与目录组行同一列模板，token 列对齐（票 14 起走势图不占独立列）", async () => {
     api.status.mockResolvedValue(statusPayload(ALL_ON));
     api.sessions.mockResolvedValue(PIN);
     api.sessionStates.mockResolvedValue([st("codex", "x-run", "running", "activity", NOW - 10_000)]);
@@ -863,7 +864,6 @@ describe("遗留六项（票 13）", () => {
     await screen.findByTestId("sessions-pinned");
     const tpl = (el: HTMLElement) => el.className.split(" ").find((c) => c.startsWith("grid-cols-"));
     expect(tpl(bySid("c-old"))).toBe(tpl(bySid("x-run")));
-    expect(within(bySid("c-old")).getByTestId("sessions-row-spark-slot")).toBeInTheDocument();
     expect(within(bySid("c-old")).queryByTestId("sessions-row-spark")).toBeNull();
   });
 
@@ -892,5 +892,53 @@ describe("遗留六项（票 13）", () => {
     expect(path).toHaveAttribute("dir", "ltr");
     expect(path).toHaveTextContent("/work/beta");
     expect(within(item).getByTestId("sessions-trash-title").tagName).toBe("BDI");
+  });
+});
+
+describe("继续复制命令与小图换位（票 14）", () => {
+  const PIN = [row("codex", "x-run", "演示执行", "/work/beta", 10_000), row("claude_code", "c-old", "演示旧", "/work/alpha", 5 * H)];
+  const bySid = (sid: string) => screen.getAllByTestId("sessions-row").find((r) => r.getAttribute("data-session") === sid)!;
+  const follows = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+  it.each([
+    ["c-old", "cd -- '/work/alpha' && claude --resume 'c-old' --settings '/Users/demo/.aidog/settings.teamA.json'"],
+    ["x-run", "cd -- '/work/beta' && AIDOG_KEY='teamA' codex -p 'teamA' resume 'x-run'"],
+  ])("继续 %s：复制后端整行命令并提示已复制，不开终端", async (sid, line) => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    const { invoke } = await import("../services/transport");
+    vi.mocked(invoke).mockClear();
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(PIN);
+    api.sessionStates.mockResolvedValue([]);
+    api.sessionResume.mockResolvedValueOnce({ launched: false, command: line });
+    render(<Sessions />);
+    await screen.findAllByTestId("sessions-row");
+    fireEvent.click(within(bySid(sid)).getByTestId("sessions-resume"));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(line));
+    expect(writeText).toHaveBeenCalledTimes(1);
+    const n = await screen.findByTestId("sessions-resume-notice");
+    expect(n).toHaveAttribute("data-kind", "resume-copied");
+    expect(n).toHaveAttribute("data-detail", line);
+    expect(n).toHaveTextContent("sessions.resumeCommandCopied");
+    expect(vi.mocked(invoke).mock.calls.map((c) => c[0])).not.toContain("session_open_terminal");
+  });
+
+  it("置顶行走势图位于标题与 token 单元格之间；目录组行无走势图空位，列模板相同且无 56px 列", async () => {
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(PIN);
+    api.sessionStates.mockResolvedValue([st("codex", "x-run", "running", "activity", NOW - 10_000)]);
+    api.sessionDetail.mockReturnValue(new Promise(() => {}));
+    render(<Sessions />);
+    await screen.findByTestId("sessions-pinned");
+    const pinRow = bySid("x-run");
+    const spark = within(pinRow).getByTestId("sessions-row-spark");
+    expect(follows(within(pinRow).getByTestId("sessions-row-title"), spark)).toBe(true);
+    expect(follows(spark, within(pinRow).getByTestId("sessions-row-tokens"))).toBe(true);
+    expect(follows(spark, within(pinRow).getByTestId("sessions-row-cost"))).toBe(true);
+    expect(within(bySid("c-old")).queryByTestId("sessions-row-spark-slot")).toBeNull();
+    const tpl = (el: HTMLElement) => el.className.split(" ").find((c) => c.startsWith("grid-cols-"));
+    expect(tpl(bySid("c-old"))).toBe(tpl(pinRow));
+    expect(tpl(pinRow)).not.toContain("56px");
   });
 });

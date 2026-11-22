@@ -424,16 +424,6 @@ pub fn cleanup_user_request_fields(
         // proxy_log 在 log.db（proxy-log-db-split s3），走专用写连接。
         db
         .call_proxy_log_traced(None, __db_caller, move |conn| {
-            // 两侧去重（migration 20261122-01）：上游侧仍依赖用户侧内容的行，先写回上游列再清用户侧，
-            // 上游侧在其保留期内照常可读。先写回后清空，中途中断也不丢内容。
-            conn.execute(
-                "UPDATE proxy_log SET \
-                   upstream_request_body = CASE WHEN upstream_request_body_dedup = 1 THEN request_body ELSE upstream_request_body END, \
-                   response_body = CASE WHEN response_body_dedup = 1 THEN user_response_body ELSE response_body END, \
-                   upstream_request_body_dedup = 0, response_body_dedup = 0 \
-                 WHERE created_at < ?1 AND (upstream_request_body_dedup = 1 OR response_body_dedup = 1)",
-                params![cutoff],
-            )?;
             // 列集派生自 proxy_log_catalog（issue #56 票 02）：用户侧「原始信息」5 列。
             conn.execute(crate::proxy_log_catalog::retention_sql(crate::proxy_log_catalog::Side::User), params![cutoff])?;
             // 请求记录（request_log）复用同一 retention：只清用户侧原始信息，不删行。
@@ -472,7 +462,7 @@ pub fn cleanup_upstream_request_fields(
         // proxy_log 在 log.db（proxy-log-db-split s3），走专用写连接。
         db
         .call_proxy_log_traced(None, __db_caller, move |conn| {
-            // 列集派生自 proxy_log_catalog（issue #56 票 02）：上游侧 6 列 + 去重标记重置。
+            // 列集派生自 proxy_log_catalog（issue #56 票 02）：上游侧「原始信息」6 列。
             conn.execute(crate::proxy_log_catalog::retention_sql(crate::proxy_log_catalog::Side::Upstream), params![cutoff])?;
             conn.execute(
                 "UPDATE request_log SET upstream_request_headers = '', upstream_request_body = '', upstream_response_headers = '', response_body = '', upstream_request_url = '' \

@@ -5,7 +5,7 @@ use rusqlite::{OptionalExtension, Result as SqlResult, params};
 
 /// 从查询行构造 ProxyLog（列序须与 `proxy_log_catalog::columns_csv` 一致）
 fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog> {
-    let mut log = aidog_db::models::ProxyLog {
+    Ok(aidog_db::models::ProxyLog {
         id: row.get(0)?,
         group_key: row.get(1)?,
         model: row.get(2)?,
@@ -61,31 +61,7 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog
         prev_tool_durations: row.get(51)?,
         // 票 16 B1：按次计数不落列（目录列集零变化），DB 读回恒空。
         tool_call_counts: Vec::new(),
-    };
-    // 两侧去重标记（列 52 / 53，见 proxy_log_catalog 去重标记列）：上游侧存 '' 时回填用户侧内容。
-    if row.get::<_, i64>(52)? == 1 {
-        log.upstream_request_body = log.request_body.clone();
-    }
-    if row.get::<_, i64>(53)? == 1 {
-        log.response_body = log.user_response_body.clone();
-    }
-    Ok(log)
-}
-
-/// 两侧去重对：(上游侧列, 用户侧列, 标记列)。上游侧与用户侧逐字节相同且非空时上游侧存 ''、标记 1。
-const DEDUP_PAIRS: [(&str, &str, &str); 2] = [
-    ("upstream_request_body", "request_body", "upstream_request_body_dedup"),
-    ("response_body", "user_response_body", "response_body_dedup"),
-];
-
-/// 整行写入（INSERT / REPLACE）时的去重：相同则清空上游侧并返回标记 1。
-fn dedup_side(upstream: &mut String, user: &str) -> i64 {
-    if !user.is_empty() && upstream.as_str() == user {
-        upstream.clear();
-        1
-    } else {
-        0
-    }
+    })
 }
 
 /// 按 `ProxyLogSettings` 就地清空「原始信息」两侧列。
@@ -144,8 +120,6 @@ pub fn upsert_proxy_log(
             !settings.log_user_request,
             !settings.log_upstream_request,
         );
-        let up_req_dedup = dedup_side(&mut log.upstream_request_body, &log.request_body);
-        let resp_dedup = dedup_side(&mut log.response_body, &log.user_response_body);
         db
         .call_proxy_log_traced(None, __db_caller, move |conn| {
             let attempts_str = aidog_db::models::serialize_attempts(&log.attempts);
@@ -153,7 +127,7 @@ pub fn upsert_proxy_log(
             // 固定 SQL（列目录派生）→ prepare_cached 命中 rusqlite statement cache，省每次写的 prepare 开销
             let mut stmt = conn.prepare_cached(proxy_log_catalog::insert_sql(true))?;
             stmt.execute(
-                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.cache_write_tokens, log.cache_write_1h_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at, log.done as i64, log.field_trace, log.body_omitted as i64, routing_str, log.client, log.user_agent, log.session_key, log.up_bytes, log.down_bytes, log.request_class, log.agent_type, log.prompt_id, log.session_id, log.agent_id, log.parent_agent_id, log.compaction, log.context_compacted, log.prev_tool_durations, up_req_dedup, resp_dedup],
+                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.cache_write_tokens, log.cache_write_1h_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at, log.done as i64, log.field_trace, log.body_omitted as i64, routing_str, log.client, log.user_agent, log.session_key, log.up_bytes, log.down_bytes, log.request_class, log.agent_type, log.prompt_id, log.session_id, log.agent_id, log.parent_agent_id, log.compaction, log.context_compacted, log.prev_tool_durations],
             )?;
             Ok(())
         })
@@ -532,15 +506,12 @@ pub fn insert_proxy_log_columns(
     async move {
         // cols.id == proxy_log.id == 请求 span 的 request_id（32-hex），用作 SQL 日志归属键。
         let req_id = cols.id.clone();
-        let mut cols = cols;
-        let up_req_dedup = dedup_side(&mut cols.upstream_request_body, &cols.request_body);
-        let resp_dedup = dedup_side(&mut cols.response_body, &cols.user_response_body);
         db
         .call_proxy_log_traced(Some(&req_id), __db_caller, move |conn| {
             // 固定 SQL（列目录派生）→ prepare_cached 命中 statement cache（渐进式日志首节点高频）
             let mut stmt = conn.prepare_cached(proxy_log_catalog::insert_sql(false))?;
             stmt.execute(
-                params![cols.id, cols.group_key, cols.model, cols.actual_model, cols.source_protocol, cols.target_protocol, cols.platform_id, cols.request_headers, cols.request_body, cols.upstream_request_headers, cols.upstream_request_body, cols.response_body, cols.request_url, cols.upstream_request_url, cols.upstream_response_headers, cols.upstream_status_code, cols.user_response_headers, cols.user_response_body, cols.status_code, cols.duration_ms, cols.input_tokens, cols.output_tokens, cols.cache_tokens, cols.cache_write_tokens, cols.cache_write_1h_tokens, cols.est_cost, cols.is_stream, cols.attempts, cols.retry_count, cols.blocked_by, cols.blocked_reason, cols.created_at, cols.updated_at, cols.deleted_at, cols.done, cols.field_trace, cols.body_omitted, cols.routing, cols.client, cols.user_agent, cols.session_key, cols.up_bytes, cols.down_bytes, cols.request_class, cols.agent_type, cols.prompt_id, cols.session_id, cols.agent_id, cols.parent_agent_id, cols.compaction, cols.context_compacted, cols.prev_tool_durations, up_req_dedup, resp_dedup],
+                params![cols.id, cols.group_key, cols.model, cols.actual_model, cols.source_protocol, cols.target_protocol, cols.platform_id, cols.request_headers, cols.request_body, cols.upstream_request_headers, cols.upstream_request_body, cols.response_body, cols.request_url, cols.upstream_request_url, cols.upstream_response_headers, cols.upstream_status_code, cols.user_response_headers, cols.user_response_body, cols.status_code, cols.duration_ms, cols.input_tokens, cols.output_tokens, cols.cache_tokens, cols.cache_write_tokens, cols.cache_write_1h_tokens, cols.est_cost, cols.is_stream, cols.attempts, cols.retry_count, cols.blocked_by, cols.blocked_reason, cols.created_at, cols.updated_at, cols.deleted_at, cols.done, cols.field_trace, cols.body_omitted, cols.routing, cols.client, cols.user_agent, cols.session_key, cols.up_bytes, cols.down_bytes, cols.request_class, cols.agent_type, cols.prompt_id, cols.session_id, cols.agent_id, cols.parent_agent_id, cols.compaction, cols.context_compacted, cols.prev_tool_durations],
             )?;
             Ok(())
         })
@@ -571,38 +542,6 @@ pub fn update_proxy_log_columns<'a>(
         if changed.is_empty() {
             return Ok(prev.raw_written_mask);
         }
-        // 两侧去重（migration 20261122-01），标记随每次写入重算：
-        // - 两侧同次写入 → 按本次绑定值比较；
-        // - 仅写上游侧 → SQL 内与库里用户侧比较（CASE 表达式，见下方 set_sql）；
-        // - 仅写用户侧且上游侧依赖旧值 → 先把旧用户侧内容写回上游列再清标记（SET 右侧取旧行值）。
-        let body = |c: &str| -> &str {
-            match c {
-                "upstream_request_body" => &new.upstream_request_body,
-                "request_body" => &new.request_body,
-                "response_body" => &new.response_body,
-                "user_response_body" => &new.user_response_body,
-                _ => "",
-            }
-        };
-        let mut sql_cmp: Vec<(&'static str, &'static str, &'static str)> = Vec::new();
-        let mut restore: Vec<String> = Vec::new();
-        for (dep, src, flag) in DEDUP_PAIRS {
-            let dep_i = changed.iter().position(|(c, _)| *c == dep);
-            let src_in = changed.iter().any(|(c, _)| *c == src);
-            match (dep_i, src_in) {
-                (Some(d), true) => {
-                    let mut v = body(dep).to_string();
-                    let f = dedup_side(&mut v, body(src));
-                    changed[d].1 = Box::new(v);
-                    changed.push((flag, Box::new(f)));
-                }
-                (Some(_), false) => sql_cmp.push((dep, src, flag)),
-                (None, true) => restore.push(format!(
-                    "{dep} = CASE WHEN {flag} = 1 THEN {src} ELSE {dep} END, {flag} = 0"
-                )),
-                (None, false) => {}
-            }
-        }
         let id = new.id.clone();
         // id == proxy_log.id == request_id，用作 SQL 日志归属键。
         let req_id = id.clone();
@@ -610,17 +549,7 @@ pub fn update_proxy_log_columns<'a>(
             let set_sql: String = changed
                 .iter()
                 .enumerate()
-                .map(|(i, (col, _))| {
-                    let i = i + 1;
-                    match sql_cmp.iter().find(|(dep, _, _)| dep == col) {
-                        Some((dep, src, flag)) => format!(
-                            "{dep} = CASE WHEN ?{i} <> '' AND {src} = ?{i} THEN '' ELSE ?{i} END, \
-                             {flag} = (?{i} <> '' AND {src} = ?{i})"
-                        ),
-                        None => format!("{col} = ?{i}"),
-                    }
-                })
-                .chain(restore)
+                .map(|(i, (col, _))| format!("{col} = ?{}", i + 1))
                 .collect::<Vec<_>>()
                 .join(", ");
             let id_idx = changed.len() + 1;

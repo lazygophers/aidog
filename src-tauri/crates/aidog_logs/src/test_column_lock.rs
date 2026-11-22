@@ -96,9 +96,6 @@ const META: &[&str] = &[
     "compaction",
     "context_compacted",
     "prev_tool_durations",
-    // 两侧去重标记（migration 20261122-01）：技术标记，非原始内容。
-    "upstream_request_body_dedup",
-    "response_body_dedup",
 ];
 
 /// 穷尽分类（验收 3，issue #56 票 02 改为直接比对目录）：`PRAGMA table_info(proxy_log)`
@@ -181,7 +178,6 @@ async fn roundtrip_preserves_every_column() {
     log.request_headers = "rt-request-headers".into();
     log.request_body = "rt-request-body".into();
     log.upstream_request_headers = "rt-upstream-request-headers".into();
-    // 与 request_body / user_response_body 逐字节不同，避开两侧去重（dedup）路径。
     log.upstream_request_body = "rt-upstream-request-body".into();
     log.response_body = "rt-response-body".into();
     log.request_url = "rt-request-url".into();

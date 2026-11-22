@@ -538,6 +538,24 @@ async fn lk20_401_health_aware_fails_over_next() {
         "gklkv",
         &[(&up1, &["claude-3"], Protocol::Anthropic, "p1"), (&up2, &["claude-3"], Protocol::Anthropic, "p2")],
     ).await;
+    // p1 抬高 level_priority 保证首选：两平台全同键时 order_health_aware 在并列组内加权随机选首
+    // （router/ordering.rs 首部同键并列组），否则约一半概率先打 p2 直接 200、attempts[0] 无 effects。
+    let g = aidog_db::list_groups(&state.db).await.unwrap().into_iter().find(|g| g.group_key == "gklkv").unwrap();
+    let inputs: Vec<GroupPlatformInput> = aidog_db::list_platforms(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .filter(|p| p.name.starts_with("gklkv-"))
+        .map(|p| GroupPlatformInput {
+            platform_id: p.id,
+            priority: Some(0),
+            weight: Some(1),
+            // clamp_level_priority 下限 1（aidog_db models/group.rs），故 2 vs 1
+            level_priority: Some(if p.name.ends_with("p1") { 2 } else { 1 }),
+        })
+        .collect();
+    assert_eq!(inputs.len(), 2);
+    aidog_db::set_group_platforms(&state.db, g.id, &inputs).await.unwrap();
     set_group_routing_mode(&state, "gklkv", RoutingMode::HealthAware).await;
     let resp = handle_proxy(AxumState(state.clone()), messages_request("gklkv", CHAT_REQ)).await;
     assert_eq!(resp.status().as_u16(), 200);

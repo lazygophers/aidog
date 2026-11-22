@@ -152,8 +152,8 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
     }
   };
 
-  // 继续会话（票 07）：macOS 后端直接开终端；其它平台返回命令，复制给用户。
-  const [notice, setNotice] = useState<{ kind: "error" | "copied" | "open-error" | "hidden" | "hide-error"; text: string; row?: ClientUsageSessionRow } | null>(null);
+  // 继续会话（票 14）：一律复制整行命令（含 cd），不开终端；换客户端继续仍是 macOS 开终端、其它平台复制。
+  const [notice, setNotice] = useState<{ kind: "error" | "copied" | "resume-copied" | "open-error" | "hidden" | "hide-error"; text: string; row?: ClientUsageSessionRow } | null>(null);
   const [trashOpen, setTrashOpen] = useState(false);
   // 继续请求在途的会话（票 12）：返回前禁用按钮；ref 挡住同一帧内的连点。
   const resumingRef = useRef(new Set<string>());
@@ -169,9 +169,9 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
       const res = to
         ? await clientUsageApi.sessionCarry(r.clientCode, r.sessionId, r.workdir, to)
         : await clientUsageApi.sessionResume(r.clientCode, r.sessionId, r.workdir);
-      if (!res.launched) {
+      if (!to || !res.launched) {
         await navigator.clipboard?.writeText(res.command);
-        setNotice({ kind: "copied", text: res.command });
+        setNotice({ kind: to ? "copied" : "resume-copied", text: res.command });
       }
     } catch (e) {
       setNotice({ kind: "error", text: String(e) });
@@ -351,8 +351,8 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
           {notice && createPortal(
             <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4" data-testid="sessions-notice-layer">
               <div
-                role={notice.kind === "copied" || notice.kind === "hidden" ? "status" : "alert"}
-                className={`pointer-events-auto flex max-w-[min(720px,100%)] items-center gap-3 rounded-lg border bg-card px-4 py-2.5 text-sm shadow-lg break-all ${notice.kind === "copied" || notice.kind === "hidden" ? "text-foreground" : "border-destructive/40 text-destructive"}`}
+                role={notice.kind === "copied" || notice.kind === "resume-copied" || notice.kind === "hidden" ? "status" : "alert"}
+                className={`pointer-events-auto flex max-w-[min(720px,100%)] items-center gap-3 rounded-lg border bg-card px-4 py-2.5 text-sm shadow-lg break-all ${notice.kind === "copied" || notice.kind === "resume-copied" || notice.kind === "hidden" ? "text-foreground" : "border-destructive/40 text-destructive"}`}
                 data-testid="sessions-resume-notice"
                 data-kind={notice.kind}
                 data-detail={notice.text}
@@ -366,6 +366,8 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
                     ? t("sessions.hideFailed", "隐藏失败：{{error}}", { error: notice.text })
                     : notice.kind === "hidden"
                     ? t("sessions.hidden", "已从列表隐藏：{{title}}", { title: notice.text })
+                    : notice.kind === "resume-copied"
+                    ? t("sessions.resumeCommandCopied", "继续命令已复制：{{command}}", { command: notice.text })
                     : t("sessions.resumeCopied", "当前系统无法直接打开终端，继续命令已复制：{{command}}", { command: notice.text })}
                 </span>
                 {notice.kind === "hidden" && notice.row && (

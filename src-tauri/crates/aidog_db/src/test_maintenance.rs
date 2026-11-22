@@ -366,15 +366,15 @@ async fn retention_three_file_clears_all_raw_columns() {
     let (db, _dir) = three_file_db().await;
     let now_ms = chrono::Utc::now().timestamp_millis();
     let old_ts = now_ms - 2 * 24 * 3600 * 1000_i64;
-    // 11 个原始信息列全部非空；去重标记显式 0（避开 user 档的去重写回分支）。
+    // 11 个原始信息列全部非空。
     db.call_proxy_log_traced(None, std::panic::Location::caller(), move |c| {
         c.execute(
             "INSERT INTO proxy_log (id, model, actual_model, group_key, platform_id, source_protocol, status_code, done, \
              request_headers, request_body, user_response_headers, user_response_body, request_url, \
              upstream_request_headers, upstream_request_body, upstream_response_headers, response_body, field_trace, upstream_request_url, \
-             upstream_request_body_dedup, response_body_dedup, attempts, routing, created_at, updated_at, deleted_at) \
+             attempts, routing, created_at, updated_at, deleted_at) \
              VALUES ('maint-3f','m3f','m3f-actual','g',1,'anthropic',200,1, \
-             'rh','rb','urh','urb','rurl','uph','upb','upsh','respb','ft','upurl',0,0,\
+             'rh','rb','urh','urb','rurl','uph','upb','upsh','respb','ft','upurl',\
              '[{\"error\":\"attempt-keep\"}]','{\"kept\":true}',?1,?1,0)",
             params![old_ts],
         )?;
