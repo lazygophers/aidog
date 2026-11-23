@@ -1198,3 +1198,189 @@ fn siliconflow_family_preserves_generic_protocol_behavior() {
         assert_eq!(usage.2, 4, "{code} cache read");
     }
 }
+
+/// StepFun 家族（issue 83）：官方无「关闭思考」参数形态（openai 端点 `reasoning_effort` 仅
+/// low/medium/high，anthropic 端点用 `output_config.effort`，均无 disabled/none 值），
+/// 禁思考只剥开启型参数、不注入任何关闭参数（基座 openai 非 official host 的
+/// `chat_template_kwargs.enable_thinking=false` 与 anthropic 臂的 `thinking.type=disabled`
+/// 都是 StepFun 文档未证实的第三方形态）；关思考关与强制思考路径同基座。
+#[test]
+fn stepfun_members_disable_thinking_strips_without_injection() {
+    for code in ["stepfun", "stepfun_en"] {
+        let adapter = super::adapter_for(code);
+        let mut body = json!({
+            "model": "step-5-preview",
+            "reasoning_effort": "high",
+            "thinking": {"type": "enabled"},
+            "output_config": {"effort": "high"},
+            "chat_template_kwargs": {"enable_thinking": true},
+        });
+        adapter.apply_disable_thinking(
+            &mut body,
+            true,
+            &Protocol::OpenAI,
+            "https://api.stepfun.com/v1",
+            false,
+        );
+        assert!(body.get("reasoning_effort").is_none(), "{code}");
+        assert!(body.get("thinking").is_none(), "{code}");
+        assert!(body.get("output_config").is_none(), "{code}");
+        assert!(
+            body["chat_template_kwargs"].get("enable_thinking").is_none(),
+            "{code}"
+        );
+        // 官方无关闭形态：不注入任何禁思考参数。
+        assert!(body.get("enable_thinking").is_none(), "{code}");
+
+        // anthropic wire：剥 thinking / output_config，不写基座 `thinking.type=disabled`。
+        let mut ant = json!({
+            "model": "step-5-preview",
+            "thinking": {"type": "enabled"},
+            "output_config": {"effort": "low"},
+        });
+        adapter.apply_disable_thinking(
+            &mut ant,
+            true,
+            &Protocol::Anthropic,
+            "https://api.stepfun.com/step_plan",
+            false,
+        );
+        assert!(ant.get("thinking").is_none(), "{code}");
+        assert!(ant.get("output_config").is_none(), "{code}");
+
+        // 剥 effort 时保留同一对象内与思考无关的字段。
+        let mut config = json!({"output_config": {"effort": "high", "format": {"type": "json"}}});
+        adapter.apply_disable_thinking(
+            &mut config,
+            true,
+            &Protocol::Anthropic,
+            "https://api.stepfun.com/v1",
+            false,
+        );
+        assert_eq!(config["output_config"]["format"]["type"], "json", "{code}");
+        assert!(config["output_config"].get("effort").is_none(), "{code}");
+
+        // 禁思考关：不剥客户端思考参数（仅剥内部 disable_thinking 标记，基座行为）。
+        let mut keep = json!({ "model": "m", "reasoning_effort": "high" });
+        adapter.apply_disable_thinking(
+            &mut keep,
+            false,
+            &Protocol::OpenAI,
+            "https://api.stepfun.com/v1",
+            false,
+        );
+        assert_eq!(keep["reasoning_effort"], "high", "{code}");
+        assert!(keep.get("disable_thinking").is_none(), "{code}");
+
+        // 强制思考模型：只剥禁用形参数、不写任何参数（基座）。
+        let mut forced = json!({ "model": "step-3.5-flash-2603", "thinking": {"type": "disabled"} });
+        adapter.apply_disable_thinking(
+            &mut forced,
+            true,
+            &Protocol::OpenAI,
+            "https://api.stepfun.com/v1",
+            true,
+        );
+        assert!(forced.get("thinking").is_none(), "{code}");
+        assert!(forced.get("reasoning_effort").is_none(), "{code}");
+    }
+}
+
+/// StepFun 家族其余接口继承协议构件：请求构造 / 响应转换 / 流式 / 错误分类 / usage
+/// 与通用适配逐字节等价；官方错误码（400 模型不存在 / 401 认证 / 429 限频）按基座
+/// 特征归类。https://platform.stepfun.com/docs/zh/api-reference/error-codes.md
+#[test]
+fn stepfun_family_preserves_generic_protocol_behavior() {
+    let input: ChatRequest = serde_json::from_value(json!({
+        "model": "step-5-preview",
+        "max_tokens": 64,
+        "messages": [{ "role": "user", "content": "hi" }]
+    }))
+    .unwrap();
+    let generic = super::adapter_for("deepseek");
+    let completion = json!({
+        "id": "cmpl-1", "model": "step-5-preview",
+        "choices": [{ "index": 0, "message": { "role": "assistant", "content": "ok" }, "finish_reason": "stop" }],
+        "usage": { "prompt_tokens": 90, "completion_tokens": 24, "total_tokens": 114 }
+    });
+    let delta = json!({
+        "id": "cmpl-1", "choices": [{ "index": 0, "delta": { "reasoning_content": "think", "content": "ok" } }]
+    });
+    let anthropic_message = json!({
+        "id": "msg_1", "type": "message", "role": "assistant", "model": "m",
+        "content": [{ "type": "text", "text": "ok" }], "stop_reason": "end_turn",
+        "usage": { "input_tokens": 5, "output_tokens": 3 }
+    });
+
+    for (code, platform) in [
+        ("stepfun", Protocol::StepFun),
+        ("stepfun_en", Protocol::StepFunEn),
+    ] {
+        let adapter = super::adapter_for(code);
+        for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+            let (body, path) = adapter.build_request(&input, &wire, &platform);
+            let (base_body, base_path) = generic.build_request(&input, &wire, &platform);
+            assert_eq!((body, path), (base_body, base_path), "{code}/{wire:?}");
+        }
+        let converted = adapter
+            .convert_response(&completion, &Protocol::OpenAI, &Protocol::Anthropic, "m")
+            .expect("OpenAI response should convert to Anthropic");
+        assert_eq!(
+            converted,
+            generic
+                .convert_response(&completion, &Protocol::OpenAI, &Protocol::Anthropic, "m")
+                .unwrap(),
+            "{code} non-stream parity"
+        );
+        assert_eq!(converted["content"][0]["text"], "ok", "{code}");
+
+        let events = adapter.parse_sse_frame(&delta, &Protocol::OpenAI);
+        assert_eq!(
+            format!("{events:?}"),
+            format!("{:?}", generic.parse_sse_frame(&delta, &Protocol::OpenAI)),
+            "{code} stream parity"
+        );
+        assert!(format!("{events:?}").contains("ok"), "{code} stream content: {events:?}");
+
+        let anthropic_converted = adapter
+            .convert_response(&anthropic_message, &Protocol::Anthropic, &Protocol::OpenAI, "m")
+            .expect("Anthropic response should convert to OpenAI");
+        assert_eq!(
+            anthropic_converted,
+            generic
+                .convert_response(&anthropic_message, &Protocol::Anthropic, &Protocol::OpenAI, "m")
+                .unwrap(),
+            "{code} anthropic non-stream parity"
+        );
+
+        // 错误归类：模型不存在归模型类；401 / 429 按状态码归服务类。
+        assert_eq!(
+            adapter.classify_error(
+                400,
+                r#"{"error":{"message":"模型不存在或无权限","type":"request_params_invalid"}}"#,
+            ),
+            UpstreamErrorClass::Model,
+            "{code} model error"
+        );
+        assert_eq!(
+            adapter.classify_error(401, r#"{"error":{"message":"invalid api key"}}"#),
+            UpstreamErrorClass::Service,
+            "{code} 401"
+        );
+        assert_eq!(
+            adapter.classify_error(429, r#"{"error":{"message":"rate limit exceeded"}}"#),
+            UpstreamErrorClass::Service,
+            "{code} 429"
+        );
+
+        // usage：无缓存字段时基座构件直取 prompt/completion。
+        assert_eq!(
+            adapter.extract_usage(&completion.to_string()),
+            generic.extract_usage(&completion.to_string()),
+            "{code} usage parity"
+        );
+        let usage = adapter.extract_usage(&completion.to_string());
+        assert_eq!(usage.0, 90, "{code} input tokens");
+        assert_eq!(usage.1, 24, "{code} output tokens");
+    }
+}

@@ -1097,6 +1097,122 @@ impl PlatformAdapter for SiliconFlowFamilyAdapter {
     }
 }
 
+/// StepFun（阶跃星辰）家族基座（issue 83；成员 stepfun / stepfun_en 共用，成员差异见各成员子
+/// issue）。
+///
+/// 家族共性取证（官方文档原文，核对日期 2026-11-23；中国站 platform.stepfun.com 与国际站
+/// platform.stepfun.ai 文档结构一致，均 Mintlify 站、正文走 `llms.txt` 列出的 `.md` 原文页）：
+/// - Chat Completions（openai 端点）：OpenAI 兼容形状，`POST {base}/v1/chat/completions`；
+///   system 用 `role: "system"`，工具 `tools` / `tool_choice`，图片 / 文档输入在
+///   `messages[].content` 多模态块（`image_url` / 文档块）；请求参数无家族专属默认值说明
+///   （`reasoning_effort` / `reasoning_format` 均 optional、文档未列 default）。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create.md
+///   https://platform.stepfun.ai/docs/en/api-reference/chat/chat-completion-create.md
+/// - 思考开关（openai 端点）：推理深度用顶层 `reasoning_effort`（`low` / `medium` / `high`，
+///   `step-3.5-flash-2603` 兼容 `low`/`high`；「值越高，模型会进行更深入的思考」）——**文档无
+///   关闭思考的参数**（无 `none` 值、无 `enable_thinking`、无 `thinking` 对象）。禁思考覆写
+///   openai 臂只剥开启型参数、不注入任何关闭参数（官方无该形态，写 unknown_parameter 反而
+///   400；剥后模型按官方默认行为运行）；强制思考路径同基座（只剥不写）。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create.md
+/// - 思考开关（anthropic 端点）：Messages API 是 Anthropic 兼容格式；思考配置用
+///   `output_config: {"effort": "low"|"medium"|"high"}`（示例值，非开关）——官方无 `thinking`
+///   对象、无 disabled 形态说明。禁思考同上：只剥（客户端带来的 `thinking` /
+///   `output_config`）不写。基座 anthropic 臂会写 `thinking.type=disabled`（Anthropic 标准形），
+///   StepFun 文档未列该参数——标「未证实」，按 SiliconFlow 家族先例（官方 Messages 页支持
+///   `thinking` 对象即不覆盖）此处文档未证实支持，故覆写 anthropic 臂不写 disabled。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/messages-create.md
+/// - 流式（openai 端点）：SSE `data: {chunk}` 帧、`data: [DONE]` 结束；思考增量在
+///   `delta.reasoning` 与 `delta.reasoning_content`（「一同返回且内容一致（DeepSeek 兼容字段名），
+///   仅在 step 推理模型下返回」；请求参数 `reasoning_format` 默认 `general`，选
+///   `deepseek-style` 走 reasoning_content 字段——两字段并存时基座 openai 流式构件按
+///   delta.reasoning_content 抽取即得同一内容，不覆盖）。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create.md
+/// - 流式（anthropic 端点）：Messages API「支持流式输出」，Anthropic 兼容事件流（基座
+///   anthropic 流式构件），不覆盖。https://platform.stepfun.com/docs/zh/api-reference/chat/messages-create.md
+/// - usage（openai 端点）：`usage.prompt_tokens / completion_tokens / total_tokens`（流式帧
+///   逐帧携带）；缓存 token 字段文档示例未见——「未证实」，基座 usage 构件（cached_tokens /
+///   prompt_cache_hit_tokens 两形态）读不到即缺省，不覆盖。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create.md
+/// - usage（anthropic 端点）：Anthropic 兼容 `input_tokens / output_tokens`；缓存两件未见，
+///   「未证实」同上不覆盖。https://platform.stepfun.com/docs/zh/api-reference/chat/messages-create.md
+/// - 错误体：错误码按 HTTP 状态码分（400 `request_params_invalid` / 图片下载失败 /
+///   模型不存在等；401 认证；429 限频），`unsupported_content_type` 等业务码以字符串出现在
+///   错误信息中——基座 `error.message/code/type` 读法覆盖（模型不存在命中模型类特征，
+///   401/402/403/429 按状态码归服务类），不扩展。
+///   https://platform.stepfun.com/docs/zh/api-reference/error-codes.md
+/// - 工具 / 图片与多模态 / system：Chat Completions 标准 OpenAI 形状；Messages API 支持
+///   system 顶层字段、工具调用、图片输入（「支持流式输出、工具调用、图片输入与思考深度配置」）
+///   ——均与基座构件一致，不覆盖。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/messages-create.md
+/// - coding_plan 注入：两成员均非编码套餐（`step_plan` 通道是套餐路径但平台 code 非
+///   `*_coding`），基座按平台协议分派对 StepFun / StepFunEn 协议为 no-op，行为不变。
+/// - 未证实（保持基座默认/不注入）：`reasoning_effort` 默认档位、Chat Completions 缓存
+///   token 字段、anthropic 端点 `thinking` 对象与 `output_config.effort` 的完整值域、
+///   错误体在流式帧内的形态、`step_plan` 通道 `max_tokens` 64K 上限之外的字段约束、
+///   非推理模型收到禁思考时是否需要显式参数（官方无关闭形态可写，剥净即默认）。
+pub struct StepFunFamilyAdapter;
+
+impl PlatformAdapter for StepFunFamilyAdapter {
+    /// 差异：StepFun 官方无「关闭思考」参数形态（openai 端点 `reasoning_effort` 仅
+    /// low/medium/high，anthropic 端点用 `output_config.effort`，均无 disabled/none 值），
+    /// 禁思考两臂都只剥开启型参数、不注入关闭参数（对比：基座 openai 非 official host 写
+    /// `chat_template_kwargs.enable_thinking=false`、anthropic 臂写 `thinking.type=disabled`，
+    /// 两形态 StepFun 文档均未证实支持，写了有 unknown_parameter 400 风险）。强制思考路径与
+    /// 其余 wire（用户手配 openai_responses 等，StepFun 官方 Responses API 存在）同基座。
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        if wire != &Protocol::OpenAI && wire != &Protocol::Anthropic {
+            return hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking);
+        }
+        if forced_thinking || !disable {
+            return hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking);
+        }
+        let Some(obj) = body.as_object_mut() else {
+            return;
+        };
+        obj.remove("disable_thinking");
+        // StepFun Messages 的 output_config.effort 是思考参数；保留同对象中的其他客户端字段。
+        let output_config_empty = obj
+            .get_mut("output_config")
+            .and_then(Value::as_object_mut)
+            .map(|config| {
+                config.remove("effort");
+                config.is_empty()
+            })
+            .unwrap_or(false);
+        if output_config_empty {
+            obj.remove("output_config");
+        }
+        for k in [
+            "thinking",
+            "context_management",
+            "reasoning_effort",
+            "reasoning",
+            "enable_thinking",
+        ] {
+            obj.remove(k);
+        }
+        if let Some(ctk) = obj
+            .get_mut("chat_template_kwargs")
+            .and_then(|o| o.as_object_mut())
+        {
+            ctk.remove("enable_thinking");
+        }
+        if let Some(gc) = obj
+            .get_mut("generationConfig")
+            .and_then(|o| o.as_object_mut())
+        {
+            gc.remove("thinkingConfig");
+        }
+    }
+}
+
 static GENERIC: GenericAdapter = GenericAdapter;
 static MINIMAX_FAMILY: MiniMaxFamilyAdapter = MiniMaxFamilyAdapter;
 static MINIMAX: MiniMaxAdapter = MiniMaxAdapter;
@@ -1119,6 +1235,7 @@ static BAILIAN: BailianFamilyAdapter = BailianFamilyAdapter;
 static ARK: ArkFamilyAdapter = ArkFamilyAdapter;
 static QIANFAN: QianfanFamilyAdapter = QianfanFamilyAdapter;
 static SILICONFLOW: SiliconFlowFamilyAdapter = SiliconFlowFamilyAdapter;
+static STEPFUN: StepFunFamilyAdapter = StepFunFamilyAdapter;
 
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
@@ -1176,8 +1293,8 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("shengsuanyun", &GENERIC),
     ("siliconflow", &SILICONFLOW),
     ("siliconflow_en", &SILICONFLOW),
-    ("stepfun", &GENERIC),
-    ("stepfun_en", &GENERIC),
+    ("stepfun", &STEPFUN),
+    ("stepfun_en", &STEPFUN),
     ("tencent_coding", &GENERIC),
     ("tencent_tokenhub", &GENERIC),
     ("tencent_tokenhub_intl", &GENERIC),
