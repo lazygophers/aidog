@@ -1199,11 +1199,9 @@ fn siliconflow_family_preserves_generic_protocol_behavior() {
     }
 }
 
-/// StepFun 家族（issue 83）：官方无「关闭思考」参数形态（openai 端点 `reasoning_effort` 仅
-/// low/medium/high，anthropic 端点用 `output_config.effort`，均无 disabled/none 值），
-/// 禁思考只剥开启型参数、不注入任何关闭参数（基座 openai 非 official host 的
-/// `chat_template_kwargs.enable_thinking=false` 与 anthropic 臂的 `thinking.type=disabled`
-/// 都是 StepFun 文档未证实的第三方形态）；关思考关与强制思考路径同基座。
+/// StepFun 家族（issue 83）：openai wire 官方没有关闭思考值，禁思考不写基座第三方参数；
+/// anthropic wire 的 `thinking` 对象认受性未证实，按票面保留框架默认（`thinking.type=disabled`），
+/// 同时剥官方 `output_config.effort`；不相关输出配置保留。
 #[test]
 fn stepfun_members_disable_thinking_strips_without_injection() {
     for code in ["stepfun", "stepfun_en"] {
@@ -1224,19 +1222,21 @@ fn stepfun_members_disable_thinking_strips_without_injection() {
         );
         assert!(body.get("reasoning_effort").is_none(), "{code}");
         assert!(body.get("thinking").is_none(), "{code}");
-        assert!(body.get("output_config").is_none(), "{code}");
+        // output_config 是 Messages 端点参数，openai wire 不碰它。
+        assert_eq!(body["output_config"]["effort"], "high", "{code}");
         assert!(
             body["chat_template_kwargs"].get("enable_thinking").is_none(),
             "{code}"
         );
-        // 官方无关闭形态：不注入任何禁思考参数。
+        // 官方无关闭形态：不注入任何禁思考参数（无 enable_thinking / chat_template_kwargs 注入）。
         assert!(body.get("enable_thinking").is_none(), "{code}");
 
-        // anthropic wire：剥 thinking / output_config，不写基座 `thinking.type=disabled`。
+        // anthropic wire：`thinking` 对象认受性未证实 → 保持框架默认（thinking.type=disabled），
+        // 仅额外剥官方 output_config.effort 思考档位。
         let mut ant = json!({
             "model": "step-5-preview",
             "thinking": {"type": "enabled"},
-            "output_config": {"effort": "low"},
+            "output_config": {"effort": "low", "format": {"type": "json"}},
         });
         adapter.apply_disable_thinking(
             &mut ant,
@@ -1245,20 +1245,20 @@ fn stepfun_members_disable_thinking_strips_without_injection() {
             "https://api.stepfun.com/step_plan",
             false,
         );
-        assert!(ant.get("thinking").is_none(), "{code}");
-        assert!(ant.get("output_config").is_none(), "{code}");
+        assert_eq!(ant["thinking"]["type"], "disabled", "{code}");
+        assert_eq!(ant["output_config"]["format"]["type"], "json", "{code}");
+        assert!(ant["output_config"].get("effort").is_none(), "{code}");
 
-        // 剥 effort 时保留同一对象内与思考无关的字段。
-        let mut config = json!({"output_config": {"effort": "high", "format": {"type": "json"}}});
+        // anthropic wire 禁思考关：不剥 output_config（基座行为）。
+        let mut keep_ant = json!({ "output_config": {"effort": "high"} });
         adapter.apply_disable_thinking(
-            &mut config,
-            true,
+            &mut keep_ant,
+            false,
             &Protocol::Anthropic,
-            "https://api.stepfun.com/v1",
+            "https://api.stepfun.com/step_plan",
             false,
         );
-        assert_eq!(config["output_config"]["format"]["type"], "json", "{code}");
-        assert!(config["output_config"].get("effort").is_none(), "{code}");
+        assert_eq!(keep_ant["output_config"]["effort"], "high", "{code}");
 
         // 禁思考关：不剥客户端思考参数（仅剥内部 disable_thinking 标记，基座行为）。
         let mut keep = json!({ "model": "m", "reasoning_effort": "high" });
@@ -1383,4 +1383,45 @@ fn stepfun_family_preserves_generic_protocol_behavior() {
         assert_eq!(usage.0, 90, "{code} input tokens");
         assert_eq!(usage.1, 24, "{code} output tokens");
     }
+}
+
+/// StepFun 默认 `reasoning_format=general` 用 reasoning 字段，缓存计数来自官方 cached_tokens 字段。
+#[test]
+fn stepfun_general_reasoning_and_cached_usage_are_supported() {
+    let adapter = super::adapter_for("stepfun");
+    let completion = json!({
+        "id": "cmpl-stepfun",
+        "model": "step-5-preview",
+        "choices": [{
+            "index": 0,
+            "message": {"role": "assistant", "content": "answer", "reasoning": "thought"},
+            "finish_reason": "stop"
+        }],
+        "usage": {
+            "prompt_tokens": 10,
+            "completion_tokens": 3,
+            "total_tokens": 13,
+            "prompt_tokens_details": {"cached_tokens": 4}
+        }
+    });
+    let converted = adapter
+        .convert_response(&completion, &Protocol::OpenAI, &Protocol::Anthropic, "step-5-preview")
+        .unwrap();
+    assert!(converted["content"].as_array().unwrap().iter().any(|block| {
+        block["type"] == "thinking" && block["thinking"] == "thought"
+    }));
+    assert!(converted["content"].as_array().unwrap().iter().any(|block| {
+        block["type"] == "text" && block["text"] == "answer"
+    }));
+
+    let (input, output, cache_read, cache_write, _, _) =
+        adapter.extract_usage(&completion.to_string());
+    assert_eq!((input, output, cache_read, cache_write), (6, 3, 4, 0));
+
+    let delta = json!({
+        "id": "cmpl-stepfun",
+        "choices": [{"index": 0, "delta": {"reasoning": "thought"}}]
+    });
+    let events = adapter.parse_sse_frame(&delta, &Protocol::OpenAI);
+    assert!(format!("{events:?}").contains("thought"), "{events:?}");
 }
