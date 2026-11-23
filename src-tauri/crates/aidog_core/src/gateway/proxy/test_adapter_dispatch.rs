@@ -2917,3 +2917,40 @@ async fn mimo_disable_thinking_strips_reasoning_from_non_stream_and_stream_respo
         assert!(resp.contains("hi"), "stream text must remain: {pt:?}: {resp}");
     }
 }
+
+/// issue 85：Anthropic wire 禁思考响应侧不泄露 thinking block（含 signature）或 thinking_delta，
+/// 非流式与流式都保留普通文本。MiMo 官方 Anthropic schema 定义 thinking.signature；该测试也
+/// 锁定通用清洗路径，避免未来家族覆写遗漏签名思考块。
+#[tokio::test]
+async fn mimo_anthropic_disable_thinking_strips_signed_blocks_and_stream_deltas() {
+    let thinking_response = r#"{"id":"msg_mm","type":"message","role":"assistant","model":"mimo-v2.6-pro","content":[{"type":"thinking","thinking":"private reasoning","signature":"sig"},{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3}}"#;
+    for (i, (pt, _)) in MIMO_FAMILY.iter().enumerate() {
+        let inbound = r#"{"model":"mimo-v2.6-pro","max_tokens":32,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#;
+        let (status, resp, _) = glm_member_call(
+            pt.clone(),
+            Protocol::Anthropic,
+            &format!("gk85antn{i}"),
+            "/chat/completions",
+            inbound,
+            (200, "application/json", thinking_response),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert!(!resp.contains("private reasoning") && !resp.contains("signature"), "{pt:?}: {resp}");
+        assert!(resp.contains("hi"), "text must remain: {pt:?}: {resp}");
+
+        let inbound_stream = r#"{"model":"mimo-v2.6-pro","max_tokens":32,"stream":true,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#;
+        let (status, resp, _) = glm_member_call(
+            pt.clone(),
+            Protocol::Anthropic,
+            &format!("gk85ants{i}"),
+            "/chat/completions",
+            inbound_stream,
+            (200, "text/event-stream", MM_ANTHROPIC_SSE),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert!(!resp.contains("plan"), "thinking delta must be stripped: {pt:?}: {resp}");
+        assert!(resp.contains("hi"), "stream text must remain: {pt:?}: {resp}");
+    }
+}
