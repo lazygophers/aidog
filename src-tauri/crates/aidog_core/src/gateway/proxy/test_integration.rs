@@ -12327,8 +12327,8 @@ async fn compshare_family_members_forward_stream_and_nonstream_on_openai_wire() 
     }
 }
 
-/// 家族覆盖全部内置端点协议：anthropic wire（Messages SSE）与 gemini wire（usageMetadata SSE）
-/// 各走一轮真实代理 + 本地假上游，usage 记账进 proxy_log。
+/// 家族覆盖全部内置端点协议：anthropic wire（Messages SSE）两成员各走一轮、gemini wire
+/// （usageMetadata SSE）标准成员走一轮，真实代理 + 本地假上游，usage 记账进 proxy_log。
 #[tokio::test]
 async fn compshare_family_anthropic_and_gemini_wires_forward_with_usage() {
     let anthropic_sse = concat!(
@@ -12342,21 +12342,36 @@ async fn compshare_family_anthropic_and_gemini_wires_forward_with_usage() {
         "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"!\"}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":5,\"candidatesTokenCount\":3,\"thoughtsTokenCount\":1}}\n\n",
     );
 
-    for (label, wire, sse, expect_input, expect_output) in [
-        ("anthropic", Protocol::Anthropic, anthropic_sse, 5, 2),
-        ("gemini", Protocol::Gemini, gemini_sse, 5, 4),
+    for (label, platform, wire, sse, expect_input, expect_output) in [
+        (
+            "anthropic-standard",
+            Protocol::Compshare,
+            Protocol::Anthropic,
+            anthropic_sse,
+            5,
+            2,
+        ),
+        (
+            "anthropic-coding",
+            Protocol::CompshareCoding,
+            Protocol::Anthropic,
+            anthropic_sse,
+            5,
+            2,
+        ),
+        (
+            "gemini",
+            Protocol::Compshare,
+            Protocol::Gemini,
+            gemini_sse,
+            5,
+            4,
+        ),
     ] {
         let upstream = spawn_unified_upstream(200, "text/event-stream", sse).await;
         let state = make_state(test_db().await).await;
         let gk = format!("gkcompsharewire{label}");
-        setup_compshare_wire_group(
-            &state,
-            &gk,
-            Protocol::Compshare,
-            wire.clone(),
-            &upstream,
-        )
-        .await;
+        setup_compshare_wire_group(&state, &gk, platform, wire.clone(), &upstream).await;
         let request = HttpRequest::builder()
             .method("POST")
             .uri("/v1/messages")
@@ -12380,6 +12395,126 @@ async fn compshare_family_anthropic_and_gemini_wires_forward_with_usage() {
             (expect_input, expect_output),
             "{label}"
         );
+    }
+}
+
+/// 上游 400 错误原样透传客户端（两成员 × openai wire）：状态码、错误体、到达上游、
+/// proxy_log 终态记账（本地假上游，禁真实外呼）。
+#[tokio::test]
+async fn compshare_family_forwards_upstream_errors_to_client() {
+    const UPSTREAM_ERROR: &str =
+        r#"{"error":{"type":"invalid_request_error","message":"compshare-family-error"}}"#;
+
+    for (member, platform) in [
+        ("standard", Protocol::Compshare),
+        ("coding", Protocol::CompshareCoding),
+    ] {
+        let (error_upstream, error_requests) =
+            spawn_recording_response_upstream(400, UPSTREAM_ERROR).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkcompshare{member}error");
+        setup_compshare_wire_group(&state, &gk, platform, Protocol::OpenAI, &error_upstream).await;
+        let request_body =
+            r#"{"model":"glm-5.3","messages":[{"role":"user","content":"family error"}]}"#;
+        let response = handle_proxy(
+            AxumState(state.clone()),
+            HttpRequest::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {gk}"))
+                .body(Body::from(request_body))
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{member}");
+        let response_body = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        assert!(
+            String::from_utf8_lossy(&response_body).contains("compshare-family-error"),
+            "{member}"
+        );
+        let captured = error_requests.lock().unwrap().clone();
+        assert_eq!(
+            captured.len(),
+            1,
+            "{member}: error request must reach fake upstream"
+        );
+        assert!(
+            captured[0].0.ends_with("/chat/completions"),
+            "{member}: {}",
+            captured[0].0
+        );
+        let error_log = only_log_of(&state, &gk).await;
+        assert_eq!(
+            error_log.status_code,
+            StatusCode::BAD_REQUEST.as_u16() as i32,
+            "{member}"
+        );
+        assert!(
+            error_log.done,
+            "{member}: upstream error must be recorded as terminal"
+        );
+    }
+}
+
+/// 禁思考门控端到端（openai wire）：客户端 `disable_thinking=true` 时，官方证实模型
+/// 出站写 `thinking.type=disabled`（无 vLLM 式参数），未证实模型保持基座第三方端点默认。
+#[tokio::test]
+async fn compshare_family_disable_thinking_gated_on_official_models_at_gateway() {
+    const CHAT_OK: &str = r#"{"id":"chatcmpl-compshare","object":"chat.completion","created":0,"model":"m","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}"#;
+
+    for (model, expect_official) in [
+        ("deepseek-ai/DeepSeek-V3.1", true),
+        ("deepseek-ai/DeepSeek-V3.1-Terminus", true),
+        ("ByteDance/doubao-seed-1.6", true),
+        ("ByteDance/doubao-1.5-thinking-vision-pro", true),
+        // 未证实模型取 registry `thinking_toggleable:true` 的 MiniMax-M2.1（非强制思考，
+        // 才能走到基座第三方端点默认分支）。
+        ("MiniMax-M2.1", false),
+    ] {
+        let (upstream, requests) = spawn_recording_upstream(CHAT_OK).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkcompsharegate{}", expect_official as u8);
+        setup_compshare_wire_group(&state, &gk, Protocol::Compshare, Protocol::OpenAI, &upstream)
+            .await;
+        let request_body = serde_json::json!({
+            "model": model,
+            "messages": [{"role": "user", "content": "gate"}],
+            "disable_thinking": true
+        });
+        let response = handle_proxy(
+            AxumState(state.clone()),
+            HttpRequest::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {gk}"))
+                .body(Body::from(request_body.to_string()))
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK, "{model}");
+        let captured = requests.lock().unwrap().clone();
+        assert_eq!(captured.len(), 1, "{model}");
+        let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+        assert!(sent.get("disable_thinking").is_none(), "{model}");
+        if expect_official {
+            assert_eq!(
+                sent["thinking"],
+                serde_json::json!({"type": "disabled"}),
+                "{model}"
+            );
+            assert!(sent.get("chat_template_kwargs").is_none(), "{model}");
+        } else {
+            assert_eq!(
+                sent.pointer("/chat_template_kwargs/enable_thinking"),
+                Some(&serde_json::Value::Bool(false)),
+                "{model}"
+            );
+            assert!(sent.get("thinking").is_none(), "{model}");
+        }
     }
 }
 
