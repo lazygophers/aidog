@@ -12257,6 +12257,46 @@ async fn setup_compshare_wire_group(
 }
 
 #[tokio::test]
+async fn anthropic_family_forwards_messages_and_records_cache_usage() {
+    const RESPONSE: &str = r#"{"id":"msg-family","type":"message","role":"assistant","model":"claude-sonnet","content":[{"type":"text","text":"ok"}],"stop_reason":"end_turn","usage":{"input_tokens":7,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":4}}"#;
+    let (upstream, requests) = spawn_recording_response_upstream(200, RESPONSE).await;
+    let state = make_state(test_db().await).await;
+    let gk = "gkanthropicfamily";
+    setup_group_with_upstream(&state, gk, &upstream).await;
+
+    let response = handle_proxy(
+        AxumState(state.clone()),
+        HttpRequest::builder()
+            .method("POST")
+            .uri("/v1/messages")
+            .header("content-type", "application/json")
+            .header("anthropic-version", "2023-06-01")
+            .header("authorization", format!("Bearer {gk}"))
+            .body(Body::from(
+                r#"{"model":"claude-sonnet","max_tokens":64,"system":"system prompt","messages":[{"role":"user","content":[{"type":"text","text":"hello"}]}],"tools":[{"name":"lookup","input_schema":{"type":"object"}}]}"#,
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let captured = requests.lock().unwrap().clone();
+    assert_eq!(captured.len(), 1, "request must reach local upstream");
+    assert!(captured[0].0.ends_with("/v1/messages"), "{}", captured[0].0);
+    assert_eq!(captured[0].2.get("x-api-key").unwrap(), "sk-up");
+    assert_eq!(captured[0].2.get("anthropic-version").unwrap(), "2023-06-01");
+    let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+    assert_eq!(sent["model"], "claude-sonnet");
+    assert_eq!(sent["system"], "system prompt");
+    assert_eq!(sent["tools"][0]["name"], "lookup");
+
+    let log = only_log_of(&state, "gkanthropicfamily").await;
+    assert_eq!((log.input_tokens, log.output_tokens), (7, 3));
+    assert_eq!((log.cache_tokens, log.cache_write_tokens), (2, 4));
+    assert!(log.done, "successful Anthropic response must be terminal");
+}
+
+#[tokio::test]
 async fn compshare_family_members_forward_stream_and_nonstream_on_openai_wire() {
     const CHAT_OK: &str = r#"{"id":"chatcmpl-compshare","object":"chat.completion","created":0,"model":"glm-5.3","choices":[{"index":0,"message":{"role":"assistant","content":"compshare-family-ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}"#;
     const CHAT_SSE: &str = "data: {\"id\":\"chatcmpl-compshare\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"glm-5.3\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"compshare-family-stream\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-compshare\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"glm-5.3\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1,\"total_tokens\":2}}\n\ndata: [DONE]\n\n";
@@ -12518,10 +12558,57 @@ async fn compshare_family_disable_thinking_gated_on_official_models_at_gateway()
     }
 }
 
+/// issue 89（Anthropic 家族基座）：上游 400（anthropic 官方错误体形状 `type` +
+/// `error.type` / `error.message`）→ 客户端原样透传；URI /v1/messages；proxy_log
+/// 终态记账。官方错误体格式：https://docs.anthropic.com/en/api/errors（核对 2026-11-23）。
+#[tokio::test]
+async fn anthropic_family_forwards_upstream_errors_to_client() {
+    const UPSTREAM_ERROR: &str =
+        r#"{"type":"error","error":{"type":"invalid_request_error","message":"anthropic-family-error"}}"#;
+    let (error_upstream, error_requests) =
+        spawn_recording_response_upstream(400, UPSTREAM_ERROR).await;
+    let state = make_state(test_db().await).await;
+    let gk = "gkanthropicfamilyerror";
+    setup_group_with_upstream(&state, gk, &error_upstream).await;
+
+    let response = handle_proxy(
+        AxumState(state.clone()),
+        HttpRequest::builder()
+            .method("POST")
+            .uri("/v1/messages")
+            .header("content-type", "application/json")
+            .header("anthropic-version", "2023-06-01")
+            .header("authorization", format!("Bearer {gk}"))
+            .body(Body::from(
+                r#"{"model":"claude-sonnet","max_tokens":16,"messages":[{"role":"user","content":"family error"}]}"#,
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let response_body = axum::body::to_bytes(response.into_body(), 1 << 20).await.unwrap();
+    assert!(
+        String::from_utf8_lossy(&response_body).contains("anthropic-family-error"),
+        "error body must pass through to client"
+    );
+
+    let captured = error_requests.lock().unwrap().clone();
+    assert_eq!(captured.len(), 1, "error request must reach fake upstream");
+    assert!(captured[0].0.ends_with("/v1/messages"), "{}", captured[0].0);
+    assert_eq!(captured[0].2.get("x-api-key").unwrap(), "sk-up");
+
+    let error_log = only_log_of(&state, "gkanthropicfamilyerror").await;
+    assert_eq!(
+        error_log.status_code,
+        StatusCode::BAD_REQUEST.as_u16() as i32
+    );
+    assert!(error_log.done, "upstream error must be recorded as terminal");
+}
+
 async fn spawn_recording_response_upstream(
     status: u16,
     body: &'static str,
-) -> (String, Arc<std::sync::Mutex<Vec<(String, String)>>>) {
+) -> (String, Arc<std::sync::Mutex<Vec<(String, String, axum::http::HeaderMap)>>>) {
     use axum::routing::any;
     let rec = Arc::new(std::sync::Mutex::new(Vec::new()));
     let rec_srv = rec.clone();
@@ -12529,12 +12616,13 @@ async fn spawn_recording_response_upstream(
         let rec = rec_srv.clone();
         async move {
             let uri = req.uri().to_string();
+            let headers = req.headers().clone();
             let bytes = axum::body::to_bytes(req.into_body(), 1 << 20)
                 .await
                 .unwrap_or_default();
             rec.lock()
                 .unwrap()
-                .push((uri, String::from_utf8_lossy(&bytes).to_string()));
+                .push((uri, String::from_utf8_lossy(&bytes).to_string(), headers));
             (
                 axum::http::StatusCode::from_u16(status).unwrap(),
                 [("content-type", "application/json")],
