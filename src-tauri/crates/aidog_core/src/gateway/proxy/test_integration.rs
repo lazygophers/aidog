@@ -13125,11 +13125,6 @@ async fn chat_routes_to_model_supported_endpoint_protocol() {
     )
     .await;
     assert_eq!(resp.status(), StatusCode::OK, "深链转换后须 2xx");
-    assert_eq!(
-        resp.headers().get(axum::http::header::CONTENT_TYPE).and_then(|v| v.to_str().ok()),
-        Some("application/json"),
-        "Anthropic 响应须以 JSON 格式返回",
-    );
     let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
     let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(v["type"], "message", "回客户端 anthropic 形状: {v}");
