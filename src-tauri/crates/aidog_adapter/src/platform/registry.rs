@@ -1279,6 +1279,141 @@ impl PlatformAdapter for StepFunFamilyAdapter {
     }
 }
 
+/// 腾讯云家族基座（issue 84；成员 tencent_coding / tencent_tokenhub / tencent_tokenhub_intl
+/// 共用，成员差异见各成员 issue 137 / 138 / 139）。
+///
+/// 家族共性取证（官方文档原文，核对日期 2026-11-23；TokenHub 国内站与国际站同一组文档，
+/// 仅 Base URL 二选一）：
+/// - 端点：TokenHub 统一三协议同组 Base URL（广州 `https://tokenhub.tencentmaas.com/v1` /
+///   新加坡 `https://tokenhub-intl.tencentmaas.com/v1`），按路径切换协议：openai
+///   `/v1/chat/completions`、anthropic `/v1/messages`；与 registry 内置默认一致，运行时只用
+///   用户平台配置的端点。Coding Plan（`tencent_coding`）专属 Base URL：openai
+///   `https://api.lkeap.cloud.tencent.com/coding/v3`、anthropic
+///   `https://api.lkeap.cloud.tencent.com/coding/anthropic`（与预付费 `sk-xxxx` Key 和
+///   旧 Base URL 不互通；专属 Key 格式 `sk-sp-xxxx`）。
+///   https://cloud.tencent.com/document/product/1823/130079
+///   https://cloud.tencent.com/document/product/1823/130092
+/// - 鉴权：openai 路径 `Authorization: Bearer`，anthropic 路径 `x-api-key`
+///   （平台同时兼容 `Authorization: Bearer`）；网关层注入，适配器不涉。
+///   https://cloud.tencent.com/document/product/1823/130079
+///   https://cloud.tencent.com/document/product/1823/135874
+/// - 思考开关（openai 端点）：**已证实差异**——平台思考模式参数表以 `thinking` 对象为
+///   「标准方式」，`thinking.type` 取 `"enabled"` / `"disabled"` / `"adaptive"`（仅给
+///   `budget_tokens` 缺 `type` 返 400）；`enable_thinking` 布尔只是部分模型（Qwen、DeepSeek
+///   系）的「简化开关」。工具调用节进一步明确：思考开启时 `tool_choice:"required"` 返 400，
+///   「需显式传入 `thinking: {"type": "disabled"}` 后使用」——即平台认收的禁思考写法。
+///   文档无 `chat_template_kwargs`（基座第三方写法未经本平台证实）。覆写 openai 臂：剥
+///   开启型参数（含平台扩展 `thinking_budget` / `interleaved_thinking`）后写
+///   `thinking: {"type": "disabled"}`。`Protocol::OpenAICompletions` 不在覆写范围（成员
+///   内置默认端点仅 openai / anthropic，用户手配端点仍走基座 `chat_template_kwargs`）。
+///   https://cloud.tencent.com/document/product/1823/135872
+/// - 思考开关（anthropic 端点）：Messages 协议 `thinking` 对象为标准参数
+///   （`enabled` / `disabled` / `adaptive` + `budget_tokens`），与基座 anthropic 臂
+///   `thinking.type=disabled` 一致，不覆盖。
+///   https://cloud.tencent.com/document/product/1823/135874
+/// - 思考内容（openai 端点）：响应 `message.reasoning_content` / 流式
+///   `delta.reasoning_content`（先于 content 输出），多轮需原样回填；带签名的分块形态走
+///   `reasoning_details` 数组——基座 openai 构件读 `reasoning_content`，不覆盖；
+///   `reasoning_details` 在转换分支（anthropic 客户端）无对应块、原样透传分支不受影响。
+///   https://cloud.tencent.com/document/product/1823/135872
+/// - usage（openai 端点）：`prompt_tokens / completion_tokens / total_tokens`（后者 =
+///   前两者之和，completion 已含思维链）；缓存字段两形态并存——顶层 `cache_read_tokens` /
+///   `cache_write_tokens`（「部分模型，可减少计费」）与 `prompt_tokens_details.cached_tokens`
+///   （prompt_cache_key 节指认的命中查看口）。**顶层两字段与 `prompt_tokens` 的包含关系
+///   文档未写**，按票面「未证实保持框架默认」：基座 openai 构件只读
+///   `prompt_tokens_details.cached_tokens`（并从 input 扣除），不覆盖顶层字段（复活条件：
+///   官方明确包含关系或成员 issue 取证实测后评估）。
+///   https://cloud.tencent.com/document/product/1823/135872
+/// - usage（anthropic 端点）：`input_tokens / output_tokens` + `cache_creation_input_tokens` /
+///   `cache_read_input_tokens`，「三者互斥、真实总输入 = 三者之和」——与基座 anthropic 臂
+///   一致（不扣 input），不覆盖。缓存明细（分 TTL 等）官方自述「普遍不完整」。
+///   https://cloud.tencent.com/document/product/1823/135874
+/// - 流式：openai 端点 SSE `data: {chunk}`、`data: [DONE]` 结束，`stream_options.include_usage`
+///   控制末 chunk 携带 usage；错误帧为流中 `data: {"error":{...}}` 后跟 `[DONE]`（客户端侧
+///   检测，基座构件不覆盖）。anthropic 端点标准事件链
+///   `message_start → content_block_* → message_delta → message_stop`，同基座。
+///   https://cloud.tencent.com/document/product/1823/135872
+///   https://cloud.tencent.com/document/product/1823/135874
+/// - 错误体（openai 端点）：`{"error":{"message","message_zh","code","type","request_id"}}`，
+///   业务码 6 位数字、前三位对应 HTTP 状态（400xxx / 401xxx / 429xxx）；早期拦截错误 `type`
+///   统一 `gateway_error`；`code` 可能为整型（429 限频场景，携 `Retry-After` 头）。
+///   基座分类按状态码归 401/402/403/429 → Service，模型类特征靠 message 文案；TokenHub
+///   未列「模型不存在」的确定性文案/状态（`402xxx` 为「模型服务未开通或额度不足」，按
+///   状态码已归 Service），不扩展特征。
+///   https://cloud.tencent.com/document/product/1823/130079
+///   https://cloud.tencent.com/document/product/1823/135872
+/// - 工具 / 图片与多模态 / system：openai 端点标准形状（`tools[].function`、`tool_choice`
+///   字符串/对象、`image_url` / `video_url` / `file_url` 内容块、`role: "system"`）；anthropic
+///   端点标准 Messages 形状（顶层 `system`、`input_schema`、`tool_result` 块、image/video/
+///   document 块）——均与基座构件一致，不覆盖。Coding Plan「暂不支持多模态能力」，
+///   模型 `tc-code-latest`，属成员 issue 137 的模型层约束，基座不按平台剥块。
+///   https://cloud.tencent.com/document/product/1823/135872
+///   https://cloud.tencent.com/document/product/1823/135874
+///   https://cloud.tencent.com/document/product/1823/130092
+/// - coding_plan 注入：Coding Plan 文档只要求专属 Key + Base URL，未列任何必填请求字段
+///   （无 prompt_cache_key 类要求），基座按平台协议分派对 `TencentCoding` 为 no-op，行为不变。
+///   https://cloud.tencent.com/document/product/1823/130092
+/// - 未证实（保持基座默认）：顶层 `cache_read_tokens` / `cache_write_tokens` 与
+///   `prompt_tokens` 的包含关系、错误体在流式帧内的完整 JSON 形状（官方只给外层
+///   `{"error":{...}}`）、anthropic 端点非 Claude 系模型对 `signature` 回传的校验强度
+///   （官方自述按模型而异）。
+pub struct TencentFamilyAdapter;
+
+impl PlatformAdapter for TencentFamilyAdapter {
+    /// 差异：openai 端点禁思考写平台标准 `thinking: {"type": "disabled"}`，不写基座第三方
+    /// 端点用的 vLLM 式 `chat_template_kwargs.enable_thinking`（TokenHub 文档无此参数；
+    /// `enable_thinking` 布尔仅是部分模型的「简化开关」，统一标准形态是 `thinking.type`）。
+    /// 一并剥平台扩展的 `thinking_budget` / `interleaved_thinking`（开启型/思考态参数，
+    /// 与显式禁用矛盾）。其余 wire 与强制思考路径同基座。
+    /// https://cloud.tencent.com/document/product/1823/135872
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        if wire != &Protocol::OpenAI || forced_thinking {
+            return hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking);
+        }
+        let Some(obj) = body.as_object_mut() else {
+            return;
+        };
+        obj.remove("disable_thinking");
+        if !disable {
+            return;
+        }
+        for k in [
+            "thinking",
+            "context_management",
+            "reasoning_effort",
+            "reasoning",
+            "enable_thinking",
+            "thinking_budget",
+            "interleaved_thinking",
+        ] {
+            obj.remove(k);
+        }
+        if let Some(ctk) = obj
+            .get_mut("chat_template_kwargs")
+            .and_then(|o| o.as_object_mut())
+        {
+            ctk.remove("enable_thinking");
+        }
+        if let Some(gc) = obj
+            .get_mut("generationConfig")
+            .and_then(|o| o.as_object_mut())
+        {
+            gc.remove("thinkingConfig");
+        }
+        obj.insert(
+            "thinking".to_string(),
+            serde_json::json!({"type": "disabled"}),
+        );
+    }
+}
+
 static GENERIC: GenericAdapter = GenericAdapter;
 static MINIMAX_FAMILY: MiniMaxFamilyAdapter = MiniMaxFamilyAdapter;
 static MINIMAX: MiniMaxAdapter = MiniMaxAdapter;
@@ -1302,6 +1437,7 @@ static ARK: ArkFamilyAdapter = ArkFamilyAdapter;
 static QIANFAN: QianfanFamilyAdapter = QianfanFamilyAdapter;
 static SILICONFLOW: SiliconFlowFamilyAdapter = SiliconFlowFamilyAdapter;
 static STEPFUN: StepFunFamilyAdapter = StepFunFamilyAdapter;
+static TENCENT: TencentFamilyAdapter = TencentFamilyAdapter;
 
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
@@ -1361,9 +1497,9 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("siliconflow_en", &SILICONFLOW),
     ("stepfun", &STEPFUN),
     ("stepfun_en", &STEPFUN),
-    ("tencent_coding", &GENERIC),
-    ("tencent_tokenhub", &GENERIC),
-    ("tencent_tokenhub_intl", &GENERIC),
+    ("tencent_coding", &TENCENT),
+    ("tencent_tokenhub", &TENCENT),
+    ("tencent_tokenhub_intl", &TENCENT),
     ("therouter", &GENERIC),
     ("tokenrhythm", &GENERIC),
     ("typesafe", &GENERIC),

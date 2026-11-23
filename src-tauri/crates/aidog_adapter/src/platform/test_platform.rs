@@ -1425,3 +1425,90 @@ fn stepfun_general_reasoning_and_cached_usage_are_supported() {
     let events = adapter.parse_sse_frame(&delta, &Protocol::OpenAI);
     assert!(format!("{events:?}").contains("thought"), "{events:?}");
 }
+
+async fn tencent_fake_upstream(path: String, response: &'static str) -> (String, tokio::task::JoinHandle<()>) {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let request_path = path.clone();
+    let task = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let mut request = [0; 4096];
+        let n = stream.read(&mut request).await.unwrap();
+        let request = String::from_utf8_lossy(&request[..n]);
+        assert!(request.starts_with(&format!("POST {request_path} HTTP/1.1")), "{request}");
+        let reply = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",
+            response.len()
+        );
+        stream.write_all(reply.as_bytes()).await.unwrap();
+    });
+    (format!("http://{addr}{path}"), task)
+}
+
+/// 验证三个家族成员的 OpenAI 与 Anthropic 协议都走本地假上游，并按平台已证实的缓存字段抽取 usage。
+#[tokio::test]
+async fn tencent_family_protocols_use_local_upstream_and_extract_usage() {
+    let req: ChatRequest = serde_json::from_value(json!({
+        "model": "tc-code-latest",
+        "max_tokens": 64,
+        "messages": [{ "role": "user", "content": "hello" }]
+    }))
+    .unwrap();
+    let generic = super::adapter_for("deepseek");
+    for code in ["tencent_coding", "tencent_tokenhub", "tencent_tokenhub_intl"] {
+        let adapter = super::adapter_for(code);
+        assert!(super::lookup(code).is_some(), "{code} registration");
+        let mut disabled = json!({
+            "model": "tc-code-latest",
+            "thinking": { "type": "enabled", "budget_tokens": 8192 },
+            "thinking_budget": 4096,
+            "reasoning_effort": "high"
+        });
+        adapter.apply_disable_thinking(
+            &mut disabled,
+            true,
+            &Protocol::OpenAI,
+            "http://127.0.0.1:1/v1",
+            false,
+        );
+        assert_eq!(disabled["thinking"]["type"], "disabled", "{code} thinking");
+        assert!(disabled.get("thinking_budget").is_none(), "{code} thinking_budget");
+        assert!(disabled.get("reasoning_effort").is_none(), "{code} reasoning_effort");
+        for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+            let platform = match code {
+                "tencent_coding" => Protocol::TencentCoding,
+                "tencent_tokenhub" => Protocol::TencentTokenhub,
+                _ => Protocol::TencentTokenhubIntl,
+            };
+            let (body, path) = adapter.build_request(&req, &wire, &platform);
+            let (base_body, base_path) = generic.build_request(&req, &wire, &platform);
+            assert_eq!((body.clone(), path.clone()), (base_body, base_path), "{code}/{wire:?}");
+            let (response, expected) = if wire == Protocol::OpenAI {
+                (
+                    r#"{"id":"cmpl-local","model":"tc-code-latest","choices":[],"usage":{"prompt_tokens":100,"completion_tokens":20,"total_tokens":120,"prompt_tokens_details":{"cached_tokens":30}}}"#,
+                    (70, 20, 30, 0),
+                )
+            } else {
+                (
+                    r#"{"id":"msg_local","type":"message","role":"assistant","model":"tc-code-latest","content":[],"stop_reason":"end_turn","usage":{"input_tokens":100,"output_tokens":20,"cache_read_input_tokens":30,"cache_creation_input_tokens":5}}"#,
+                    (100, 20, 30, 5),
+                )
+            };
+            let (url, upstream) = tencent_fake_upstream(path.clone(), response).await;
+            let upstream_response = reqwest::Client::new()
+                .post(url)
+                .json(&body)
+                .send()
+                .await
+                .unwrap()
+                .text()
+                .await
+                .unwrap();
+            upstream.await.unwrap();
+            let (input, output, cache_read, cache_write, _, _) = adapter.extract_usage(&upstream_response);
+            assert_eq!((input, output, cache_read, cache_write), expected, "{code}/{wire:?}");
+        }
+    }
+}
