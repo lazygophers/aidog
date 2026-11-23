@@ -1551,6 +1551,29 @@ impl PlatformAdapter for MimoFamilyAdapter {
     }
 }
 
+/// OpenCode 家族基座（issue 87；成员 opencode / opencode_zen 共用；成员工作项 #145 / #146）。
+///
+/// 官方文档核对日期：2026-11-23。
+/// - 请求：OpenCode Console 文档给出 OpenAI Chat Completions 的 JSON 请求，含 `model` 与
+///   `messages`。Go 与 Zen 文档说明模型有原生 API，文本模型也可经其他 API 并由 Console 转换；
+///   其它请求字段和默认值未证实，保持 OpenAI 构件默认行为。
+///   https://opencode.ai/docs/console/api/inference
+///   https://opencode.ai/docs/console/go/ https://opencode.ai/docs/zen/
+/// - 思考参数、工具调用、图片 / 音视频能力、system prompt、max token 限制：成员端点的专属行为
+///   未证实，保持框架默认行为。
+///   https://opencode.ai/docs/console/go/ https://opencode.ai/docs/zen/
+/// - Usage：Console inference 文档展示 OpenAI `usage` 与额外的 `opencode` 信息，并说明启用
+///   `stream_options.include_usage` 时流末 usage chunk 携带统计。文档未证明 `/zen/go/v1` 与
+///   `/zen/v1` 的缓存 token 字段或计数语义，保持框架默认 usage 抽取。
+///   https://opencode.ai/docs/console/api/inference
+/// - 错误体与 SSE 事件 / 结束标记：成员端点专属格式未证实，保持框架默认处理。
+///   https://opencode.ai/docs/console/go/ https://opencode.ai/docs/zen/
+///
+/// 目前无可证实的成员共性覆写；成员均继承 OpenAI 协议构件默认实现。
+pub struct OpenCodeFamilyAdapter;
+
+impl PlatformAdapter for OpenCodeFamilyAdapter {}
+
 /// Cline 家族基座（issue 86；成员 cline / cline_pass 共用，成员差异见 issue 143 / 144）。
 ///
 /// 家族共性取证（官方文档，核对日期 2026-11-23）：
@@ -1597,6 +1620,7 @@ impl PlatformAdapter for ClineFamilyAdapter {
 }
 
 static GENERIC: GenericAdapter = GenericAdapter;
+static OPENCODE: OpenCodeFamilyAdapter = OpenCodeFamilyAdapter;
 static CLINE: ClineFamilyAdapter = ClineFamilyAdapter;
 static MIMO: MimoFamilyAdapter = MimoFamilyAdapter {
     official_openai_thinking: true,
@@ -1679,8 +1703,8 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("novita", &GENERIC),
     ("nvidia", &GENERIC),
     ("openai", &GENERIC),
-    ("opencode", &GENERIC),
-    ("opencode_zen", &GENERIC),
+    ("opencode", &OPENCODE),
+    ("opencode_zen", &OPENCODE),
     ("openrouter", &GENERIC),
     ("passthrough", &GENERIC),
     ("pipellm", &GENERIC),
@@ -1719,6 +1743,20 @@ pub fn lookup(code: &str) -> Option<&'static dyn PlatformAdapter> {
 /// 平台 code → 出站适配器；未登记 code（registry 清单外的用户协议变体）回落通用适配。
 pub fn adapter_for(code: &str) -> &'static dyn PlatformAdapter {
     table().get(code).copied().unwrap_or(&GENERIC)
+}
+
+#[cfg(test)]
+mod opencode_family_tests {
+    use super::*;
+
+    #[test]
+    fn members_share_registered_family_adapter() {
+        let go = lookup("opencode").expect("OpenCode Go adapter must be registered");
+        let zen = lookup("opencode_zen").expect("OpenCode Zen adapter must be registered");
+
+        assert!(std::ptr::eq(go, zen));
+        assert!(!std::ptr::eq(go, adapter_for("openai")));
+    }
 }
 
 #[cfg(test)]
