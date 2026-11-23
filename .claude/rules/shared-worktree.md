@@ -452,3 +452,16 @@ fix-159 agent 的 worktree `.worktrees/fix/char-second-est-cost` 与本地分支
 - **预检查的是「分支相对 origin/master 只含自己的提交」，不是「origin/master 是分支祖先」**：写预检条件前对照「推送只走 origin」节的既有判据，不发明新的祖先关系条件。
 - 预检因 origin/master 前进失败时的正解：`git fetch origin && git merge origin/master`（进分支）解冲突后重跑预检再 push；这不是 push 禁令的例外，是预检失败的标准处置。本地 master 领先 origin 的 ff-only 同步失败属正常（见「多个 agent 同时动主 checkout 的 master」节），留待 master 管理方处理。
 
+
+## 隔离构建期间 `make lint` 仍会在主 target 上不取锁跑 clippy（2026-11-22 中文字面量门禁轮）
+
+agent 等 `/tmp/aidog-cargo.lock` 超 30 分钟（他会话自 00:53 持有），按「构建目录」节改走 detach worktree + `target-iso` 跑 clippy / test，绿后删 10G target-iso。但 `make lint` 内含 `cargo clippy --workspace`（`Makefile:108`），照常在主仓 `src-tauri/target` 上不经锁执行。
+
+- 改走隔离构建后，`make lint` 同样放进隔离 worktree 跑，或等锁释放后再在主仓跑；回报写明 `make lint` 跑在哪个 target、是否持锁。
+- 判据：清单里任何会触发 cargo 的命令（`make lint`、`yarn test:statusline-golden` 等）都算 cargo 步骤，不只是显式写出的 `cargo …`。
+
+## commit message 里的计数取自命令输出（2026-11-23 eb212248f）
+
+agent 提交正文写「45 处改半角」，实际 47 处（53 = 47 + 4 + 2）；提交后才发现，按禁改历史未 amend，只能记账本遗留。
+
+- 正文里的处数 / 文件数 / 测试数从本轮脚本输出或 `git diff --cached --stat` 抄，各分项相加核对总数后再提交。
