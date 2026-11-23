@@ -429,6 +429,7 @@ async fn forward_attempt_model(
                 switched,
                 ttfb_ms: Some(ttfb_ms),
                 candidate_total,
+                image: false,
             },
         )
         .await;

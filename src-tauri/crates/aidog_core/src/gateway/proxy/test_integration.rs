@@ -14324,9 +14324,10 @@ async fn image_stream_end_to_end() {
     assert_eq!(log.status_code, 200);
     assert!(log.is_stream, "流式标记");
     assert!(log.done);
-    assert_eq!((log.input_tokens, log.output_tokens), (10, 50), "completed usage 入账");
+    // 票 07：IMAGE_SSE 带 1 张 partial → completed usage 50 + 官方附加费 100 = 150。
+    assert_eq!((log.input_tokens, log.output_tokens), (10, 150), "completed usage + partial 附加费");
     assert!(
-        (log.est_cost - (10.0 * 2e-8 + 50.0 * 1e-8)).abs() < 1e-15,
+        (log.est_cost - (10.0 * 2e-8 + 150.0 * 1e-8)).abs() < 1e-15,
         "got {}",
         log.est_cost
     );
@@ -14394,8 +14395,8 @@ async fn image_stream_upstream_unsupported_no_silent_downgrade() {
     );
 }
 
-/// 流式中断（上游只有 partial、无 completed）：按已收用量记账（partial 不带 usage → 0），
-/// attempts 留 stream_interrupted 标记（票 03 口径；可见标记由票 07 接）。
+/// 流式中断（上游只有 partial、无 completed）：票 03 口径——已收到的 billable 用量照计
+///（每张 partial 官方附加费 100 输出 token），标不完整；attempts 留 stream_interrupted 标记。
 #[tokio::test]
 async fn image_stream_interrupted_marks_incomplete() {
     let (up, _h) = spawn_typed_upstream(200, "text/event-stream", IMAGE_SSE_INTERRUPTED).await;
@@ -14423,11 +14424,26 @@ async fn image_stream_interrupted_marks_incomplete() {
     let body = axum::body::to_bytes(resp.into_body(), 4 * 1024 * 1024).await.unwrap();
     assert!(String::from_utf8_lossy(&body).contains("partial_image"));
 
-    let log = last_log_for(&state, "gkbrk").await;
+    let mut log = last_log_for(&state, "gkbrk").await;
+    for _ in 0..40 {
+        if log.done && log.output_tokens != 0 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        log = last_log_for(&state, "gkbrk").await;
+    }
     assert!(log.done, "中断也落终态行");
     assert_eq!(log.status_code, 200);
-    assert_eq!((log.input_tokens, log.output_tokens), (0, 0), "无 completed → 无用量");
-    assert_eq!(log.est_cost, 0.0, "无用量 → 费用未知（0，票 07 加可见标记）");
+    assert_eq!(
+        (log.input_tokens, log.output_tokens),
+        (0, 100),
+        "无 completed；1 张 partial 按官方附加费计 100 输出 token"
+    );
+    assert!(
+        (log.est_cost - 100.0 * 1e-8).abs() < 1e-15,
+        "中断按已收用量计费（不完整），got {}",
+        log.est_cost
+    );
     assert!(
         log.attempts.iter().any(|a| a.kind.as_deref() == Some("stream_interrupted")),
         "中断标记在 attempts（元数据，不受原始信息开关控）"
@@ -14453,4 +14469,330 @@ async fn image_stream_gif_rejected_before_upstream() {
     let log = last_log_for(&state, "gkgif").await;
     assert_eq!(log.status_code, 400);
     assert!(log.done);
+}
+
+// ══ 票 07：计费状态、额度窗口、限频、审核拒绝（本地假上游，禁外呼）══
+
+/// 生图槽位模型链（票 07 同平台多模型用例）。
+fn image_chain(models: &[&str]) -> PlatformModels {
+    PlatformModels {
+        image: models.iter().map(|m| m.to_string()).collect(),
+        ..Default::default()
+    }
+}
+
+/// 模型感知假上游：请求 model == `blocked` 时回 (400, error_body)，否则 (200, ok_body)。
+async fn spawn_model_aware_upstream(
+    blocked: &'static str,
+    error_body: &'static str,
+    ok_body: &'static str,
+) -> (String, EmbHits) {
+    let hits: EmbHits = std::sync::Arc::new(StdMutex::new(Vec::new()));
+    let h2 = hits.clone();
+    let app = axum::Router::new().fallback(axum::routing::any(move |req: Request| {
+        let hits = h2.clone();
+        async move {
+            let path = req.uri().path().to_string();
+            let req_body = axum::body::to_bytes(req.into_body(), 1024 * 1024)
+                .await
+                .map(|b| String::from_utf8_lossy(&b).to_string())
+                .unwrap_or_default();
+            let model = serde_json::from_str::<Value>(&req_body)
+                .ok()
+                .and_then(|v| v.get("model").and_then(Value::as_str).map(str::to_string))
+                .unwrap_or_default();
+            hits.lock().unwrap().push((path, req_body, String::new()));
+            if model == blocked {
+                (
+                    axum::http::StatusCode::BAD_REQUEST,
+                    [("content-type", "application/json")],
+                    error_body.to_string(),
+                )
+            } else {
+                (
+                    axum::http::StatusCode::OK,
+                    [("content-type", "application/json")],
+                    ok_body.to_string(),
+                )
+            }
+        }
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.ok();
+    });
+    (format!("http://{addr}"), hits)
+}
+
+/// 官方 Images 审核拒绝形态（guides/image-generation "Handling blocked requests"：
+/// HTTP 400 + error.type=image_generation_user_error + error.code=moderation_blocked）。
+const IMAGE_MODERATION_ERROR: &str = r#"{"error":{"type":"image_generation_user_error","code":"moderation_blocked","message":"Your request was rejected as a result of our safety system."}}"#;
+/// 通用审核拒绝标记形态（error.type=censorship_blocked，is_censorship_blocked 同款）。
+const IMAGE_CENSORSHIP_ERROR: &str = r#"{"error":{"type":"censorship_blocked","message":"blocked"}}"#;
+
+/// 票 03 拍板：生图审核拒绝按**模型类**裁决（异于聊天 censorship_blocked 服务类 +
+/// 自动禁用口径）——官方 moderation_blocked 码也归模型类，换同平台下一模型重试。
+#[tokio::test]
+async fn image_moderation_blocked_switches_model_same_platform() {
+    let (up, hits) =
+        spawn_model_aware_upstream("img-a", IMAGE_MODERATION_ERROR, IMG_RESPONSE).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![
+            image_entry_named("img-a", "openai", r#"{"input":2e-8,"output":1e-8}"#),
+            image_entry_named("img-b", "openai", r#"{"input":2e-8,"output":1e-8}"#),
+        ],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(&state, "gkmod", &[(&up, image_chain(&["img-a", "img-b"]), Protocol::OpenAI, "a")]).await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request("gkmod", r#"{"model":"client-img","prompt":"a cat"}"#, "/v1/images/generations"),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK, "审核拒绝后换同平台下一模型成功");
+    {
+        let h = hits.lock().unwrap();
+        assert_eq!(h.len(), 2, "恰好两次上游调用");
+        let sent0: Value = serde_json::from_str(&h[0].1).unwrap();
+        let sent1: Value = serde_json::from_str(&h[1].1).unwrap();
+        assert_eq!(sent0["model"], "img-a");
+        assert_eq!(sent1["model"], "img-b", "第二次同平台换 img-b");
+    }
+
+    let log = last_log_for(&state, "gkmod").await;
+    assert_eq!(log.status_code, 200);
+    assert_eq!(log.attempts.len(), 2);
+    let a0 = &log.attempts[0];
+    assert_eq!(
+        a0.error_class.as_deref(),
+        Some("model"),
+        "审核拒绝按模型类裁决（非 unknown / service）"
+    );
+    assert!(
+        !matches!(a0.exclusion, Some(ExcludeScope::Platform)),
+        "只排除该（平台，模型）组合"
+    );
+    assert!(
+        a0.effects.iter().all(|e| e != "disabled_censorship"),
+        "生图审核拒绝不自动禁用平台（聊天口径特例）"
+    );
+}
+
+/// 票 03 拍板（行为反例面）：error.type=censorship_blocked（聊天走服务类 + 自动禁用 1h 的
+/// 形状）在生图链路必须按模型类换同平台下一模型，不触发平台自动禁用。
+#[tokio::test]
+async fn image_censorship_blocked_shape_is_model_class_not_platform_disable() {
+    let (up, hits) =
+        spawn_model_aware_upstream("img-a", IMAGE_CENSORSHIP_ERROR, IMG_RESPONSE).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![
+            image_entry_named("img-a", "openai", r#"{"input":2e-8,"output":1e-8}"#),
+            image_entry_named("img-b", "openai", r#"{"input":2e-8,"output":1e-8}"#),
+        ],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(&state, "gkcen", &[(&up, image_chain(&["img-a", "img-b"]), Protocol::OpenAI, "a")]).await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request("gkcen", r#"{"model":"client-img","prompt":"a cat"}"#, "/v1/images/generations"),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK, "换同平台下一模型成功");
+    assert_eq!(hits.lock().unwrap().len(), 2);
+
+    let log = last_log_for(&state, "gkcen").await;
+    assert_eq!(log.status_code, 200);
+    let a0 = &log.attempts[0];
+    assert_eq!(a0.error_class.as_deref(), Some("model"));
+    assert!(
+        a0.effects.iter().all(|e| e != "disabled_censorship"),
+        "不自动禁用平台"
+    );
+    // 平台未被 disable_platform_for_censorship 打成 auto_disabled
+    let plat = aidog_db::list_platforms(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|p| p.name == "gkcen-a")
+        .expect("platform");
+    assert_ne!(plat.status, aidog_db::PlatformStatus::AutoDisabled, "平台保持启用");
+}
+
+/// 官方流式附加费（guides/image-generation "Partial images cost"：每张 partial 额外
+/// 100 图像输出 token）：IMAGE_SSE 带 1 张 partial → output = 50 + 100 = 150。
+#[tokio::test]
+async fn image_stream_partial_surcharge_billed() {
+    let (up, _h) = spawn_typed_upstream(200, "text/event-stream", IMAGE_SSE).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(
+        &state,
+        "gkpartial",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")],
+    )
+    .await;
+    let req = embedding_request(
+        "gkpartial",
+        r#"{"model":"client-img","prompt":"a cat","stream":true,"partial_images":1}"#,
+        "/v1/images/generations",
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    // 消费响应体（guard 随 stream Drop 触发终态落库）。
+    let body = axum::body::to_bytes(resp.into_body(), 4 * 1024 * 1024).await.unwrap();
+    assert!(String::from_utf8_lossy(&body).contains("image_generation.completed"));
+    // 流式终态由 guard Drop 异步入队：轮询等终态行落库（≤2s）。
+    let mut log = last_log_for(&state, "gkpartial").await;
+    for _ in 0..40 {
+        if log.done && log.output_tokens != 0 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        log = last_log_for(&state, "gkpartial").await;
+    }
+    assert_eq!(
+        (log.input_tokens, log.output_tokens),
+        (10, 150),
+        "completed usage + partial 附加费 100"
+    );
+    assert!(
+        (log.est_cost - (10.0 * 2e-8 + 150.0 * 1e-8)).abs() < 1e-15,
+        "got {}",
+        log.est_cost
+    );
+}
+
+/// 额度窗口按次数生效（回归护栏，机制在票 04/05 已并入 aux 骨架）：budget_count=1 →
+/// 第一次 200，第二次整组耗尽 429 + quota_window_exhausted。
+#[tokio::test]
+async fn image_quota_window_count_blocks_second_request() {
+    let (up, _h) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"unit":"image","unit_price":0.05}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group_extra(
+        &state,
+        "gkqimg",
+        &[(
+            &up,
+            image_slot("img-slot"),
+            Protocol::OpenAI,
+            "q",
+            r#"{"quota_windows":[{"window":3600,"budget_count":1}]}"#,
+        )],
+    )
+    .await;
+    let send = |state: &Arc<ProxyState>| {
+        let state = state.clone();
+        async move {
+            handle_proxy(
+                AxumState(state),
+                embedding_request("gkqimg", r#"{"model":"client-img","prompt":"a cat"}"#, "/v1/images/generations"),
+            )
+            .await
+        }
+    };
+    let r1 = send(&state).await;
+    assert_eq!(r1.status(), StatusCode::OK, "第一次在窗口内");
+    let r2 = send(&state).await;
+    assert_eq!(r2.status(), StatusCode::TOO_MANY_REQUESTS, "次数窗口耗尽");
+    let log = last_log_for(&state, "gkqimg").await;
+    assert_eq!(log.status_code, 429);
+    assert_eq!(log.blocked_reason, "quota_window_exhausted");
+    assert!(
+        log.attempts.is_empty() || log.attempts.iter().all(|a| a.status_code == 0),
+        "超限不发上游请求"
+    );
+}
+
+/// 额度窗口按金额生效：budget_usd=0.01，预置用量 $1 → 首个请求即被候选筛选排除。
+#[tokio::test]
+async fn image_quota_window_usd_blocks_when_exhausted() {
+    let (up, _h) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"unit":"image","unit_price":0.05}"#)],
+    )
+    .await
+    .unwrap();
+    let extra = r#"{"quota_windows":[{"window":3600,"budget_usd":0.01}]}"#;
+    setup_aux_group_extra(
+        &state,
+        "gkqusd",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "q", extra)],
+    )
+    .await;
+    let pid = platform_id_of(&state, "gkqusd-q").await;
+    crate::gateway::quota_window::record_usage(&state.db, pid, extra, 0.0, 1.0, aidog_db::now())
+        .await
+        .unwrap();
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request("gkqusd", r#"{"model":"client-img","prompt":"a cat"}"#, "/v1/images/generations"),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS, "金额窗口耗尽");
+    let log = last_log_for(&state, "gkqusd").await;
+    assert_eq!(log.blocked_reason, "quota_window_exhausted");
+    assert_eq!(log.est_cost, 0.0);
+}
+
+/// 限频占位对生图生效（回归护栏，机制在 aux 骨架）：rpm=1 → 第一次 200，第二次 429 rate_limit。
+#[tokio::test]
+async fn image_rate_limit_rpm_blocks_second_request() {
+    let (up, _h) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"unit":"image","unit_price":0.05}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group_extra(
+        &state,
+        "gkrlimg",
+        &[(
+            &up,
+            image_slot("img-slot"),
+            Protocol::OpenAI,
+            "r",
+            r#"{"rate_limits":{"rpm":1}}"#,
+        )],
+    )
+    .await;
+    let send = |state: &Arc<ProxyState>| {
+        let state = state.clone();
+        async move {
+            handle_proxy(
+                AxumState(state),
+                embedding_request("gkrlimg", r#"{"model":"client-img","prompt":"a cat"}"#, "/v1/images/generations"),
+            )
+            .await
+        }
+    };
+    let r1 = send(&state).await;
+    assert_eq!(r1.status(), StatusCode::OK);
+    let r2 = send(&state).await;
+    assert_eq!(r2.status(), StatusCode::TOO_MANY_REQUESTS, "rpm 占位超限");
+    let log = last_log_for(&state, "gkrlimg").await;
+    assert_eq!(log.blocked_reason, "rate_limit");
 }

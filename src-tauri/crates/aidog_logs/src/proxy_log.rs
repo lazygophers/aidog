@@ -61,6 +61,7 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog
         prev_tool_durations: row.get(51)?,
         // 票 16 B1：按次计数不落列（目录列集零变化），DB 读回恒空。
         tool_call_counts: Vec::new(),
+        fee_state: None,
     })
 }
 

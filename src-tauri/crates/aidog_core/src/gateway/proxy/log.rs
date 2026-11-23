@@ -436,6 +436,17 @@ pub(crate) async fn process_upsert(
             duration_ms = log.duration_ms,
             "request final"
         );
+        // 票 07：生图费用状态可见标记（known 不标；estimated / unknown / incomplete 各一条，
+        // `+unestimable` 先例——只进日志，不落列、不改落库列集）。
+        if let Some(state) = log.fee_state.as_deref().filter(|s| *s != "known") {
+            tracing::info!(
+                target: "final",
+                request_id = %log.id,
+                fee_state = state,
+                est_cost = cost,
+                "image fee state marker"
+            );
+        }
     }
 
     // 按 settings 就地脱敏构造入库列快照（仅克隆受影响 String 字段，不再 clone 整 ProxyLog 结构）。

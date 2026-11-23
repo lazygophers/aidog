@@ -381,3 +381,50 @@ fn image_stream_usage_extracts_completed_event() {
     assert_eq!(feed(&[b""]), (0, 0, false));
     assert_eq!(feed(&[b"data: [DONE]"]), (0, 0, false));
 }
+
+// ══ 票 07：费用状态（known / estimated / unknown / incomplete）══
+
+/// 四类费用状态各有映射（票 03 口径）：
+/// - 非流式 2xx：token 用量或 data 张数在场 → known；全缺（张数按请求 n 推算）→ estimated。
+/// - 失败终态：有已收用量 → incomplete；无用量 → unknown。
+/// - 流式终态：completed → known；中断有已计费用（含 partial 附加费）→ incomplete；全无 → unknown。
+#[test]
+fn image_fee_states_covered() {
+    use super::{failure_fee_state, image_fee_state, stream_fee_state};
+    // known：token 用量在场 / data 张数在场
+    assert_eq!(image_fee_state(10, 0, "{}"), "known");
+    assert_eq!(image_fee_state(0, 0, r#"{"data":[{"b64_json":"aGk="}]}"#), "known");
+    // estimated：全缺，张数只能按请求 n / 官方缺省推算
+    assert_eq!(image_fee_state(0, 0, r#"{"created":1}"#), "estimated");
+    assert_eq!(image_fee_state(0, 0, r#"{"data":[]}"#), "estimated", "空 data 不算计量到场");
+    // 失败终态
+    assert_eq!(failure_fee_state(0, 0), "unknown");
+    assert_eq!(failure_fee_state(7, 0), "incomplete");
+    // 流式终态
+    assert_eq!(stream_fee_state(true, 10, 150), "known");
+    assert_eq!(stream_fee_state(false, 0, 100), "incomplete", "partial 附加费是已计费用");
+    assert_eq!(stream_fee_state(false, 3, 0), "incomplete");
+    assert_eq!(stream_fee_state(false, 0, 0), "unknown");
+}
+
+/// partial_image 事件计数 + 官方附加费（每张 100 图像输出 token）计入 output。
+#[test]
+fn image_stream_acc_counts_partials_for_surcharge() {
+    let mut acc = ImageStreamAcc::default();
+    acc.feed(b"data: {\"type\":\"image_generation.partial_image\",\"b64_json\":\"AA==\"}\r\n\r\n");
+    acc.feed(b"data: {\"type\":\"image_generation.partial_image\",\"b64_json\":\"BA==\"}\r\n\r\n");
+    assert_eq!(acc.partials, 2, "两张 partial 事件计数");
+    acc.feed(b"data: {\"type\":\"image_generation.completed\",\"b64_json\":\"QQ==\",\"usage\":{\"input_tokens\":10,\"output_tokens\":50}}\r\n\r\n");
+    assert_eq!((acc.input, acc.output, acc.partials), (10, 50, 2));
+    // guard 计费口径：output = completed usage + 100 × partials = 250
+    let output_with_surcharge = acc.output + 100 * acc.partials;
+    assert_eq!(output_with_surcharge, 250);
+    assert_eq!(stream_fee_state(acc.completed, acc.input, output_with_surcharge), "known");
+    // 只有两张 partial 中断：output 附加费 200 → incomplete（非 unknown）
+    let mut acc2 = ImageStreamAcc::default();
+    acc2.feed(b"data: {\"type\":\"image_generation.partial_image\",\"b64_json\":\"AA==\"}\r\n\r\n");
+    acc2.feed(b"data: {\"type\":\"image_generation.partial_image\",\"b64_json\":\"BA==\"}\r\n\r\n");
+    let out2 = acc2.output + 100 * acc2.partials;
+    assert_eq!(out2, 200);
+    assert_eq!(stream_fee_state(acc2.completed, acc2.input, out2), "incomplete");
+}

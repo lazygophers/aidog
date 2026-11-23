@@ -114,6 +114,46 @@ fn image_units(req: &Value, body: &str) -> i64 {
     req.get("n").and_then(Value::as_i64).unwrap_or(1).max(1)
 }
 
+// ══ 票 07：费用状态（known / estimated / unknown / incomplete，票 03 口径）══
+
+/// 生图非流式 2xx 费用状态：响应 token 用量或 `data` 张数在场 → 已知；
+/// 全缺（张数只能按请求 n / 官方缺省推算）→ 估算（票 03：可推算则记录并标估算）。
+fn image_fee_state(input: i32, output: i32, body: &str) -> &'static str {
+    if input > 0 || output > 0 {
+        return "known";
+    }
+    let measured = serde_json::from_str::<Value>(body)
+        .ok()
+        .and_then(|v| v.get("data").and_then(Value::as_array).map(|a| !a.is_empty()))
+        .unwrap_or(false);
+    if measured {
+        "known"
+    } else {
+        "estimated"
+    }
+}
+
+/// 生图失败终态费用状态（票 03：有已收用量 → 不完整；无用量 → 未知）。
+pub(super) fn failure_fee_state(input: i32, output: i32) -> &'static str {
+    if input > 0 || output > 0 {
+        "incomplete"
+    } else {
+        "unknown"
+    }
+}
+
+/// 生图流式终态费用状态。partial 每张按官方附加费计 100 输出 token（billable，
+/// 见 [`ImageStreamGuard`]），有已计费用 → 不完整；全无 → 未知；completed → 已知。
+fn stream_fee_state(completed: bool, input: i32, output_with_surcharge: i32) -> &'static str {
+    if completed {
+        "known"
+    } else if input > 0 || output_with_surcharge > 0 {
+        "incomplete"
+    } else {
+        "unknown"
+    }
+}
+
 pub(crate) const IMAGE: AuxSpec = AuxSpec {
     kind: RequestKind::Image,
     api_path: "/images/generations",
@@ -863,6 +903,8 @@ async fn aux_attempt(
                 switched,
                 ttfb_ms: None,
                 candidate_total: scope.candidate_total,
+                // 票 07：生图审核拒绝按模型类裁决（judge 生图特例分岔）。
+                image: matches!(spec.kind, RequestKind::Image),
             },
         )
         .await
@@ -982,6 +1024,10 @@ async fn aux_attempt(
     let (input, output) = (spec.extract_usage)(&body_str);
     log.input_tokens = input;
     log.output_tokens = output;
+    // 费用状态（票 07）：生图 2xx 按响应用量/张数定已知或估算。
+    if matches!(spec.kind, RequestKind::Image) {
+        log.fee_state = Some(image_fee_state(input, output, &body_str).to_string());
+    }
     // 计量次数（rerank：search_units；speech：input 字符数；ASR：duration 秒数；embedding None → 0）。
     let request_units = match spec.extract_units {
         Some(units) => {
@@ -1079,6 +1125,8 @@ struct ImageStreamAcc {
     scanned: usize,
     input: i32,
     output: i32,
+    /// 收到的 `image_generation.partial_image` 事件数（票 07 附加费计量）。
+    partials: i32,
     completed: bool,
 }
 
@@ -1108,8 +1156,13 @@ impl ImageStreamAcc {
         let Ok(v) = serde_json::from_str::<Value>(data.trim()) else {
             return;
         };
-        if v.get("type").and_then(Value::as_str) != Some("image_generation.completed") {
-            return;
+        match v.get("type").and_then(Value::as_str) {
+            Some("image_generation.partial_image") => {
+                self.partials += 1;
+                return;
+            }
+            Some("image_generation.completed") => {}
+            _ => return,
         }
         let tok = |field: &str, legacy: &str| {
             v.pointer(&format!("/usage/{field}"))
@@ -1149,7 +1202,15 @@ impl Drop for ImageStreamGuard {
         log.is_stream = true;
         log.status_code = 200;
         log.input_tokens = acc.input;
-        log.output_tokens = acc.output;
+        // 官方附加费（guides/image-generation "Partial images cost"，2026-11-24 取证）：
+        // 流式每张 partial 额外收 100 图像输出 token，completed usage 不含该笔。
+        let output_with_surcharge = acc.output + 100 * acc.partials;
+        log.output_tokens = output_with_surcharge;
+        // 费用状态（票 03 口径）：completed → 已知；中断有已计费用（含 partial 附加费）→
+        // 不完整；全无 → 未知。
+        log.fee_state = Some(
+            stream_fee_state(acc.completed, acc.input, output_with_surcharge).to_string(),
+        );
         // 中断且无 completed usage → 0 units，避免把请求 n 当成已完成图数；费用未知按票 03 口径。
         let units = i64::from(acc.completed);
         log.tool_call_counts

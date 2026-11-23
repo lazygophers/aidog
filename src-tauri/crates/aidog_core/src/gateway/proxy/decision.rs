@@ -443,6 +443,7 @@ async fn decision_attempt(
                 switched,
                 ttfb_ms: None,
                 candidate_total: scope.candidate_total,
+                image: false,
             },
         )
         .await
