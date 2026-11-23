@@ -2954,3 +2954,110 @@ async fn mimo_anthropic_disable_thinking_strips_signed_blocks_and_stream_deltas(
         assert!(resp.contains("hi"), "stream text must remain: {pt:?}: {resp}");
     }
 }
+
+// ── issue 86：Cline 家族（cline / cline_pass）──
+// 官方取证见 aidog_adapter platform::registry::ClineFamilyAdapter。两成员均只提供 OpenAI
+// Chat Completions 端点；下列 gateway 测试把用户 base_url 指向本地假上游，不访问外网。
+const CLINE_FAMILY: [(Protocol, &str); 2] = [
+    (Protocol::Cline, "gk86cline"),
+    (Protocol::ClinePass, "gk86pass"),
+];
+const CLINE_OPENAI_RESP: &str = r#"{"id":"cline_1","model":"anthropic/claude-sonnet-4-6","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"hi"}}],"usage":{"prompt_tokens":10,"completion_tokens":2,"prompt_tokens_details":{"cached_tokens":3},"cost":0.00012}}"#;
+const CLINE_OPENAI_SSE: &str = "data: {\"id\":\"cline_1\",\"model\":\"cline-pass/qwen3.7-max\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"hi\"}}]}\n\ndata: {\"id\":\"cline_1\",\"model\":\"cline-pass/qwen3.7-max\",\"choices\":[],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":2,\"prompt_tokens_details\":{\"cached_tokens\":3},\"cost\":0.00012}}\n\ndata: [DONE]\n\n";
+
+/// 非流式请求必须发出官方格式头，并覆盖客户端提供的冲突值。
+#[tokio::test]
+async fn cline_family_gateway_sends_openai_response_header() {
+    let requests = [
+        (
+            "/chat/completions",
+            r#"{"model":"test","stream":false,"messages":[{"role":"user","content":"hi"}]}"#,
+        ),
+        (
+            "/v1/messages",
+            r#"{"model":"test","max_tokens":64,"messages":[{"role":"user","content":"hi"}]}"#,
+        ),
+    ];
+    for (i, (pt, _)) in CLINE_FAMILY.iter().enumerate() {
+        for (j, (uri, body)) in requests.iter().enumerate() {
+            let seen = Arc::new(Mutex::new(Vec::new()));
+            let sink = seen.clone();
+            let app = axum::Router::new().fallback(move |headers: axum::http::HeaderMap| async move {
+                sink.lock().unwrap().push(headers);
+                ([ ("content-type", "application/json") ], CLINE_OPENAI_RESP)
+            });
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let base = format!("http://{}", listener.local_addr().unwrap());
+            tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+            let state = make_state(test_db().await).await;
+            let pid = aidog_db::test_support::create_platform_at_fake_upstream(
+                &state.db, pt.clone(), &base, &[Protocol::OpenAI],
+            ).await;
+            let key = format!("gk86header{i}-{j}");
+            let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(&key, vec![])).await.unwrap();
+            aidog_db::set_group_platforms(&state.db, group.id, &[GroupPlatformInput {
+                platform_id: pid, priority: Some(0), weight: Some(1), level_priority: Some(0),
+            }]).await.unwrap();
+            let req = HttpRequest::builder().method("POST").uri(*uri)
+                .header("authorization", format!("Bearer {key}"))
+                .header("content-type", "application/json")
+                .header("x-response-format", "wrapped")
+                .body(Body::from(*body)).unwrap();
+            let response = handle_proxy(AxumState(state.clone()), req).await;
+            assert_eq!(response.status(), StatusCode::OK, "{pt:?} {uri}");
+            if *uri == "/v1/messages" {
+                let response = axum::body::to_bytes(response.into_body(), 1 << 20).await.unwrap();
+                let json: serde_json::Value = serde_json::from_slice(&response).unwrap();
+                assert_eq!(json["type"], "message", "Anthropic response shape: {json}");
+            }
+            let headers = seen.lock().unwrap();
+            assert_eq!(headers.len(), 1, "{pt:?} {uri}");
+            assert_eq!(headers[0].get("x-response-format").unwrap(), "openai", "{pt:?} {uri}");
+        }
+    }
+}
+
+/// issue 86：Cline 的非流式 OpenAI 端点走真实 gateway，经本地假上游返回 usage 与缓存 token。
+#[tokio::test]
+async fn cline_family_openai_endpoint_non_stream() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::Cline,
+        Protocol::OpenAI,
+        "gk86nonstream",
+        "/chat/completions",
+        r#"{"model":"anthropic/claude-sonnet-4-6","messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "application/json", CLINE_OPENAI_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits.len(), 1, "{hits:?}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let request: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(request["model"], "anthropic/claude-sonnet-4-6");
+    assert_eq!(request["messages"][0]["role"], "user");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["choices"][0]["message"]["content"], "hi");
+    assert_eq!(response["usage"]["prompt_tokens_details"]["cached_tokens"], 3);
+    assert_eq!(response["usage"]["cost"], 0.00012);
+}
+
+/// issue 86：两成员的 OpenAI SSE 端点都透传标准 chunk、末帧 usage 与 [DONE]。
+#[tokio::test]
+async fn cline_family_openai_endpoint_stream() {
+    for (i, (pt, _)) in CLINE_FAMILY.iter().enumerate() {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::OpenAI,
+            &format!("gk86stream{i}"),
+            "/chat/completions",
+            r#"{"model":"cline-pass/qwen3.7-max","stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+            (200, "text/event-stream", CLINE_OPENAI_SSE),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits.len(), 1, "{pt:?}: {hits:?}");
+        assert_eq!(hits[0].0, "/chat/completions", "{pt:?}");
+        assert!(resp.contains("data: [DONE]"), "{pt:?}: {resp}");
+        assert!(resp.contains("hi"), "{pt:?}: {resp}");
+    }
+}
