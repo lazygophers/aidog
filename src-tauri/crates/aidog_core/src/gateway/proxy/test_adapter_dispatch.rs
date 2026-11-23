@@ -2589,3 +2589,368 @@ async fn tencent_family_openai_endpoint_error_body() {
         assert!(resp.contains("模型不存在"), "{pt:?}: {resp}");
     }
 }
+
+// ── issue 85：小米 MiMo 家族（xiaomi_mimo / xiaomi_mimo_coding / xiaomi_mimo_coding_en）──
+// 家族取证（官方文档核对日期 2026-11-23）见 aidog_adapter platform::registry
+// `MimoFamilyAdapter` 模块注释。本节全部经真实 gateway handle_proxy → 分组路由 →
+// 用户端点 (protocol, base_url=本地假上游) → 协议转换 / 透传 → 上游，走本地假上游禁真实外呼。
+
+/// MiMo openai 非流式：reasoning_content 思考 + prompt_tokens_details.cached_tokens 缓存 +
+/// completion_tokens_details.reasoning_tokens（官方响应示例形状）。
+const MM_OPENAI_RESP: &str = r#"{"id":"mm_1","created":1,"model":"mimo-v2.6-pro","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"hi","reasoning_content":"think"}}],"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13,"completion_tokens_details":{"reasoning_tokens":2},"prompt_tokens_details":{"cached_tokens":4}}}"#;
+/// MiMo openai 流式：delta.reasoning_content → delta.content → 末帧 choices 空 + usage → [DONE]。
+const MM_OPENAI_SSE: &str = "data: {\"id\":\"mm_1\",\"created\":1,\"model\":\"mimo-v2.6-pro\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"reasoning_content\":\"think\"}}]}\n\n\
+data: {\"id\":\"mm_1\",\"created\":1,\"model\":\"mimo-v2.6-pro\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n\
+data: {\"id\":\"mm_1\",\"created\":1,\"model\":\"mimo-v2.6-pro\",\"choices\":[],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":3,\"total_tokens\":13,\"prompt_tokens_details\":{\"cached_tokens\":4}}}\n\n\
+data: [DONE]\n\n";
+/// MiMo anthropic 非流式：标准 Messages 形状 + cache_read（官方无 cache_creation 字段）。
+const MM_ANTHROPIC_RESP: &str = r#"{"id":"msg_mm","type":"message","role":"assistant","model":"mimo-v2.6-pro","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3,"cache_read_input_tokens":4}}"#;
+/// MiMo anthropic 流式：标准事件链（含 thinking_delta）。
+const MM_ANTHROPIC_SSE: &str = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_mm\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"mimo-v2.6-pro\",\"content\":[],\"usage\":{\"input_tokens\":6,\"output_tokens\":0,\"cache_read_input_tokens\":4}}}\n\n\
+event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\"}}\n\n\
+event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"plan\"}}\n\n\
+event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n\
+event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n\
+event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":3}}\n\n\
+event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+
+const MIMO_FAMILY: [(Protocol, &str); 3] = [
+    (Protocol::XiaomiMimo, "gk85m"),
+    (Protocol::XiaomiMimoCoding, "gk85mc"),
+    (Protocol::XiaomiMimoCodingEn, "gk85mce"),
+];
+
+/// issue 85：三成员 openai 端点禁思考逐成员作用域（经真实 gateway）——`xiaomi_mimo` 写
+/// 官方 `thinking.type=disabled`（deep-thinking.md），不剥 temperature（官方静默覆盖非报错）；
+/// 套餐两成员官方未列 API 参数，保持框架默认 `chat_template_kwargs.enable_thinking=false`。
+#[tokio::test]
+async fn mimo_family_openai_endpoint_disable_thinking_per_member_scope() {
+    let inbound = r#"{"model":"mimo-v2.6-pro","max_tokens":32,"disable_thinking":true,"temperature":0.7,"messages":[{"role":"user","content":"hi"}]}"#;
+    for (i, (pt, official)) in MIMO_FAMILY.iter().enumerate().map(|(i, (pt, _))| (i, (pt.clone(), *pt == Protocol::XiaomiMimo))) {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::OpenAI,
+            &format!("gk85do{i}"),
+            "/v1/messages",
+            inbound,
+            (200, "application/json", MM_OPENAI_RESP),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits.len(), 1, "{pt:?}: {hits:?}");
+        assert_eq!(hits[0].0, "/chat/completions", "{pt:?}");
+        let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+        assert!(up.get("disable_thinking").is_none(), "{pt:?}: {up}");
+        if official {
+            assert_eq!(up["thinking"]["type"], "disabled", "{pt:?}: {up}");
+            assert!(up.get("chat_template_kwargs").is_none(), "{pt:?}: {up}");
+            assert!(
+                up.get("temperature").is_some(),
+                "官方静默覆盖非报错，不剥: {pt:?}: {up}"
+            );
+        } else {
+            assert!(up.get("thinking").is_none(), "{pt:?}: {up}");
+            assert_eq!(
+                up["chat_template_kwargs"]["enable_thinking"],
+                false,
+                "{pt:?}: {up}"
+            );
+        }
+    }
+}
+
+/// issue 85：三成员 anthropic 端点禁思考——基座 anthropic 臂标准 `thinking.type=disabled`
+/// （官方参数表 enabled/disabled），家族一致。
+#[tokio::test]
+async fn mimo_family_anthropic_endpoint_disable_thinking_default_shape() {
+    let inbound = r#"{"model":"mimo-v2.6-pro","max_tokens":32,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#;
+    for (i, (pt, _)) in MIMO_FAMILY.iter().enumerate() {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::Anthropic,
+            &format!("gk85da{i}"),
+            "/v1/messages",
+            inbound,
+            (200, "application/json", MM_ANTHROPIC_RESP),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits[0].0, "/v1/messages", "{pt:?}");
+        let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+        assert_eq!(up["thinking"]["type"], "disabled", "{pt:?}: {up}");
+        assert!(up.get("disable_thinking").is_none(), "{pt:?}: {up}");
+    }
+}
+
+/// issue 85：三成员 openai 端点非流式——入站 anthropic 转 openai 打 `/chat/completions`；
+/// 响应回 anthropic：reasoning_content → thinking 块、cached_tokens → cache_read_input_tokens。
+#[tokio::test]
+async fn mimo_family_openai_endpoint_non_stream_request_response_usage() {
+    for (i, (pt, _)) in MIMO_FAMILY.iter().enumerate() {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::OpenAI,
+            &format!("gk85on{i}"),
+            "/v1/messages",
+            GLM_ANTHROPIC_IN,
+            (200, "application/json", MM_OPENAI_RESP),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits.len(), 1, "{pt:?}: {hits:?}");
+        assert_eq!(hits[0].0, "/chat/completions", "{pt:?}");
+        let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+        assert_eq!(up["model"], "glm-test", "{pt:?}: {up}");
+        assert_eq!(up["max_tokens"], 32, "{pt:?}: {up}");
+        let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
+        let content = v["content"].as_array().unwrap();
+        assert!(
+            content.iter().any(|b| b["type"] == "thinking" && b["thinking"] == "think"),
+            "{pt:?}: {v}"
+        );
+        assert!(content.iter().any(|b| b["type"] == "text" && b["text"] == "hi"), "{pt:?}: {v}");
+        assert_eq!(v["usage"]["cache_read_input_tokens"], 4, "{pt:?}: {v}");
+        assert_eq!(v["usage"]["output_tokens"], 3, "{pt:?}: {v}");
+    }
+}
+
+/// issue 85：三成员 anthropic 端点非流式——入站 openai 转 anthropic 打 `/v1/messages`；
+/// 响应回 openai 形状（官方无 cache_creation 字段，usage 沿 input/output）。
+#[tokio::test]
+async fn mimo_family_anthropic_endpoint_non_stream_request_response_usage() {
+    for (i, (pt, _)) in MIMO_FAMILY.iter().enumerate() {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::Anthropic,
+            &format!("gk85an{i}"),
+            "/chat/completions",
+            GLM_OPENAI_IN,
+            (200, "application/json", MM_ANTHROPIC_RESP),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits.len(), 1, "{pt:?}: {hits:?}");
+        assert_eq!(hits[0].0, "/v1/messages", "{pt:?}");
+        let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+        assert_eq!(up["max_tokens"], 32, "{pt:?}: {up}");
+        let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
+        assert_eq!(v["choices"][0]["message"]["content"], "hi", "{pt:?}: {v}");
+        assert_eq!(v["usage"]["completion_tokens"], 3, "{pt:?}: {v}");
+    }
+}
+
+/// issue 85：三成员 openai 端点流式——delta.reasoning_content → thinking_delta、
+/// delta.content → text_delta、末帧 usage、`[DONE]` 收尾 message_stop。
+#[tokio::test]
+async fn mimo_family_openai_endpoint_stream() {
+    for (i, (pt, _)) in MIMO_FAMILY.iter().enumerate() {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::OpenAI,
+            &format!("gk85os{i}"),
+            "/v1/messages",
+            GLM_ANTHROPIC_IN_STREAM,
+            (200, "text/event-stream", MM_OPENAI_SSE),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits[0].0, "/chat/completions", "{pt:?}");
+        assert!(resp.contains("thinking_delta") && resp.contains("think"), "{pt:?}: {resp}");
+        assert!(resp.contains("text_delta") && resp.contains("\"hi\""), "{pt:?}: {resp}");
+        assert!(resp.contains("message_stop"), "{pt:?}: {resp}");
+    }
+}
+
+/// issue 85：三成员 anthropic 端点流式——标准事件链（含 thinking_delta）转 openai chunk，
+/// 结尾 `[DONE]`。
+#[tokio::test]
+async fn mimo_family_anthropic_endpoint_stream() {
+    for (i, (pt, _)) in MIMO_FAMILY.iter().enumerate() {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::Anthropic,
+            &format!("gk85as{i}"),
+            "/chat/completions",
+            GLM_OPENAI_IN_STREAM,
+            (200, "text/event-stream", MM_ANTHROPIC_SSE),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits[0].0, "/v1/messages", "{pt:?}");
+        assert!(resp.contains("\"hi\""), "{pt:?}: {resp}");
+        assert!(resp.contains("[DONE]"), "{pt:?}: {resp}");
+    }
+}
+
+/// issue 85：错误体——官方错误码页仅状态码表格、无 JSON 错误体形状示例（未证实，不伪造
+/// 模型类契约）。断言经真实 gateway 的 401 错误原样透传 + 状态码保持；归类按状态码
+/// 401/429 → Service（换平台）。
+#[tokio::test]
+async fn mimo_family_error_body_passthrough_and_service_classification() {
+    let pa = aidog_adapter::platform::adapter_for("xiaomi_mimo");
+    // 状态码归类（官方未给「模型不存在」确定性文案，不测 Model 类特征）。
+    assert_eq!(
+        pa.classify_error(401, r#"{"error":{"message":"invalid api key"}}"#),
+        aidog_adapter::platform::error::UpstreamErrorClass::Service
+    );
+    assert_eq!(
+        pa.classify_error(429, r#"{"error":{"message":"rate limit exceeded"}}"#),
+        aidog_adapter::platform::error::UpstreamErrorClass::Service
+    );
+    // 真实 gateway 往返：两 wire × 三成员，上游 401 + 中性错误体 → 客户端 401 原样透传。
+    for (i, (pt, _)) in MIMO_FAMILY.iter().enumerate() {
+        for (j, (wire, inbound_path, inbound_body, expected_path)) in [
+            (
+                Protocol::OpenAI,
+                "/v1/messages",
+                GLM_ANTHROPIC_IN,
+                "/chat/completions",
+            ),
+            (Protocol::Anthropic, "/chat/completions", GLM_OPENAI_IN, "/v1/messages"),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let (status, resp, hits) = glm_member_call(
+                pt.clone(),
+                wire.clone(),
+                &format!("gk85er{i}{j}"),
+                inbound_path,
+                inbound_body,
+                (
+                    401,
+                    "application/json",
+                    r#"{"error":{"message":"invalid api key"}}"#,
+                ),
+            )
+            .await;
+            assert!(!hits.is_empty(), "{pt:?}: {hits:?}");
+            assert_eq!(hits[0].0, expected_path, "{pt:?}/{wire:?}");
+            assert_eq!(status, StatusCode::UNAUTHORIZED, "{pt:?}/{wire:?}: {resp}");
+            assert!(resp.contains("invalid api key"), "{pt:?}/{wire:?}: {resp}");
+        }
+    }
+}
+
+/// issue 85（护栏）：`xiaomi_mimo` openai 端点多轮工具历史携带 reasoning_content
+/// （官方 400 校验）；套餐成员官方文档未列该行为，不外推、不补写。
+/// 取证：deep-thinking.md「must completely pass back the reasoning_content field,
+/// otherwise the API will return a 400 error」。
+#[tokio::test]
+async fn mimo_family_openai_tool_history_carries_reasoning_content() {
+    let history = r#"{"model":"mimo-v2.6-pro","max_tokens":64,"messages":[
+        {"role":"user","content":"北京天气?"},
+        {"role":"assistant","content":[
+            {"type":"thinking","thinking":"需要调用天气工具","signature":"sig"},
+            {"type":"tool_use","id":"tu1","name":"get_weather","input":{"city":"北京"}}]},
+        {"role":"user","content":[{"type":"tool_result","tool_use_id":"tu1","content":"晴"}]}]}"#;
+    let body = kimi_member_outbound_raw(
+        Protocol::XiaomiMimo,
+        Protocol::OpenAI,
+        "gk85mr",
+        false,
+        history,
+    )
+    .await;
+    let asst = body["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["role"] == "assistant" && m.get("tool_calls").is_some_and(|v| !v.is_null()))
+        .expect("出站应含 assistant tool-call 消息");
+    assert_eq!(
+        asst["reasoning_content"],
+        "需要调用天气工具",
+        "assistant tool-call 历史应携带 reasoning_content: {asst}"
+    );
+    let body = kimi_member_outbound_raw(
+        Protocol::XiaomiMimoCoding,
+        Protocol::OpenAI,
+        "gk85mrc",
+        true,
+        history,
+    )
+    .await;
+    let asst = body["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["role"] == "assistant" && m.get("tool_calls").is_some_and(|v| !v.is_null()))
+        .expect("出站应含 assistant tool-call 消息");
+    assert!(
+        asst.get("reasoning_content").is_none(),
+        "套餐成员不外推 carry 行为: {asst}"
+    );
+}
+
+/// issue 85：禁思考响应侧清洗覆盖 MiMo 官方 reasoning_content（非流式 message 与流式 delta）。
+/// 即使上游返回思考内容，客户端请求 disable_thinking 时不得泄露；其它文本仍保留。
+#[tokio::test]
+async fn mimo_disable_thinking_strips_reasoning_from_non_stream_and_stream_responses() {
+    for (i, (pt, _)) in MIMO_FAMILY.iter().enumerate() {
+        let inbound = r#"{"model":"mimo-v2.6-pro","max_tokens":32,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#;
+        let (status, resp, _) = glm_member_call(
+            pt.clone(),
+            Protocol::OpenAI,
+            &format!("gk85stripn{i}"),
+            "/v1/messages",
+            inbound,
+            (200, "application/json", MM_OPENAI_RESP),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert!(!resp.contains("think"), "reasoning_content must be stripped: {pt:?}: {resp}");
+        assert!(resp.contains("hi"), "text must remain: {pt:?}: {resp}");
+
+        let inbound_stream = r#"{"model":"mimo-v2.6-pro","max_tokens":32,"stream":true,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#;
+        let (status, resp, _) = glm_member_call(
+            pt.clone(),
+            Protocol::OpenAI,
+            &format!("gk85strips{i}"),
+            "/v1/messages",
+            inbound_stream,
+            (200, "text/event-stream", MM_OPENAI_SSE),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert!(!resp.contains("think"), "stream reasoning delta must be stripped: {pt:?}: {resp}");
+        assert!(resp.contains("hi"), "stream text must remain: {pt:?}: {resp}");
+    }
+}
+
+/// issue 85：Anthropic wire 禁思考响应侧不泄露 thinking block（含 signature）或 thinking_delta，
+/// 非流式与流式都保留普通文本。MiMo 官方 Anthropic schema 定义 thinking.signature；该测试也
+/// 锁定通用清洗路径，避免未来家族覆写遗漏签名思考块。
+#[tokio::test]
+async fn mimo_anthropic_disable_thinking_strips_signed_blocks_and_stream_deltas() {
+    let thinking_response = r#"{"id":"msg_mm","type":"message","role":"assistant","model":"mimo-v2.6-pro","content":[{"type":"thinking","thinking":"private reasoning","signature":"sig"},{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3}}"#;
+    for (i, (pt, _)) in MIMO_FAMILY.iter().enumerate() {
+        let inbound = r#"{"model":"mimo-v2.6-pro","max_tokens":32,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#;
+        let (status, resp, _) = glm_member_call(
+            pt.clone(),
+            Protocol::Anthropic,
+            &format!("gk85antn{i}"),
+            "/chat/completions",
+            inbound,
+            (200, "application/json", thinking_response),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert!(!resp.contains("private reasoning") && !resp.contains("signature"), "{pt:?}: {resp}");
+        assert!(resp.contains("hi"), "text must remain: {pt:?}: {resp}");
+
+        let inbound_stream = r#"{"model":"mimo-v2.6-pro","max_tokens":32,"stream":true,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#;
+        let (status, resp, _) = glm_member_call(
+            pt.clone(),
+            Protocol::Anthropic,
+            &format!("gk85ants{i}"),
+            "/chat/completions",
+            inbound_stream,
+            (200, "text/event-stream", MM_ANTHROPIC_SSE),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert!(!resp.contains("plan"), "thinking delta must be stripped: {pt:?}: {resp}");
+        assert!(resp.contains("hi"), "stream text must remain: {pt:?}: {resp}");
+    }
+}
