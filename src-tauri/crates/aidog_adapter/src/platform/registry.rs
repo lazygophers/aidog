@@ -1097,7 +1097,469 @@ impl PlatformAdapter for SiliconFlowFamilyAdapter {
     }
 }
 
+/// StepFun（阶跃星辰）家族基座（issue 83；成员 stepfun / stepfun_en 共用，成员差异见各成员子
+/// issue）。
+///
+/// 家族共性取证（官方文档原文，核对日期 2026-11-23；中国站 platform.stepfun.com 与国际站
+/// platform.stepfun.ai 文档结构一致，均 Mintlify 站、正文走 `llms.txt` 列出的 `.md` 原文页）：
+/// - Chat Completions（openai 端点）：OpenAI 兼容形状，`POST {base}/v1/chat/completions`；
+///   system 用 `role: "system"`，工具 `tools` / `tool_choice`，图片 / 文档输入在
+///   `messages[].content` 多模态块（`image_url` / 文档块）；请求参数按官方定义处理，思考字段详见下文。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create.md
+///   https://platform.stepfun.ai/docs/en/api-reference/chat/chat-completion-create.md
+/// - 思考开关（openai 端点）：推理深度用顶层 `reasoning_effort`（`low` / `medium` / `high`，
+///   `step-3.5-flash-2603` 兼容 `low`/`high`；「值越高，模型会进行更深入的思考」）——**文档无
+///   关闭思考的参数**（无 `none` 值；全文 grep 无 `enable_thinking` / `chat_template_kwargs`）。
+///   禁思考覆写 openai 臂只剥开启型参数、不注入任何关闭参数（官方无该形态，写
+///   `chat_template_kwargs.enable_thinking=false` 是未经证实的第三方形态，有 400 风险；
+///   剥后模型按官方默认行为运行）；强制思考路径同基座（只剥不写）。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create.md
+/// - 思考开关（anthropic 端点）：Messages API 参数表（官方请求参数逐字段列表）思考深度仅
+///   `output_config.effort`（`low` / `medium` / `high`；`step-3.5-flash-2603` 兼容
+///   `low`/`high`；step-router-v1 下该字段「会被忽略」）——参数表**无 `thinking` 对象**。
+///   `thinking` 对象认受性未证实，按票面「未证实保持框架默认」：anthropic 臂不覆盖基座
+///   （基座写 Anthropic 标准形 `thinking.type=disabled`）；仅额外剥已证实的
+///   `output_config.effort`（禁思考时档位参数与禁用矛盾，剥 effort、保留同对象其他字段）。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/messages-create.md
+/// - 思考内容字段（openai 端点）：请求参数 `reasoning_format` **默认 `general`**——「使用
+///   `reasoning` 字段返回结果」；`deepseek-style` 才用 `reasoning_content`。响应格式页
+///   `message` / `delta` 同时列出 `reasoning` 与 `reasoning_content`（「一同返回且内容一致
+///   （DeepSeek 兼容字段名），仅在 step 推理模型下返回」）。基座 openai 构件只读
+///   reasoning_content，适配器在转换前把缺 reasoning_content 的 message/delta 用 reasoning
+///   补齐（已带 reasoning_content 的帧不动，与通用构件逐字节等价）。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create.md
+/// - 流式（openai 端点）：SSE `data: {chunk}` 帧、`data: [DONE]` 结束；思考增量字段同上
+///   （`reasoning` / `reasoning_content`，经补齐后基座构件按 delta.reasoning_content 抽取）。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create.md
+/// - 流式（anthropic 端点）：Messages API「支持流式输出」，Anthropic 兼容事件流（基座
+///   anthropic 流式构件），不覆盖。https://platform.stepfun.com/docs/zh/api-reference/chat/messages-create.md
+/// - usage（openai 端点）：`usage.prompt_tokens / completion_tokens / total_tokens`（流式帧
+///   逐帧携带）+ `usage.prompt_tokens_details.cached_tokens`（响应格式页非流式与流式两臂
+///   均列出，「提示信息中命中缓存的 token 数量」；官方示例含 `prompt_tokens_details: null`
+///   形态）——基座 usage 构件已按 cached_tokens 抽取并从 input 扣除，不覆盖。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create.md
+/// - usage（anthropic 端点）：Anthropic 兼容 `input_tokens / output_tokens`；缓存两件未见
+///   （官方响应示例仅 input/output）——「未证实」，基座构件读不到即缺省，不覆盖。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/messages-create.md
+/// - 错误体：错误码按 HTTP 状态码分（400 `request_params_invalid` / 图片下载失败 /
+///   模型不存在等；401 认证；429 限频），`unsupported_content_type` 等业务码以字符串出现在
+///   错误信息中——基座 `error.message/code/type` 读法覆盖（模型不存在命中模型类特征，
+///   401/402/403/429 按状态码归服务类），不扩展。
+///   https://platform.stepfun.com/docs/zh/api-reference/error-codes.md
+/// - 工具 / 图片与多模态 / system：Chat Completions 标准 OpenAI 形状；Messages API 支持
+///   system 顶层字段、工具调用、图片输入（「支持流式输出、工具调用、图片输入与思考深度配置」）
+///   ——均与基座构件一致，不覆盖。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/messages-create.md
+/// - coding_plan 注入：两成员均非编码套餐（`step_plan` 通道是套餐路径但平台 code 非
+///   `*_coding`），基座按平台协议分派对 StepFun / StepFunEn 协议为 no-op，行为不变。
+/// - 未证实（保持基座默认/不注入）：`reasoning_effort` 默认档位、anthropic 端点 `thinking`
+///   对象认受性（按票面保持框架默认）、错误体在流式帧内的形态、`step_plan` 通道 `max_tokens`
+///   64K 上限之外的字段约束、非推理模型收到禁思考时是否需要显式参数（官方无关闭形态可写，
+///   剥净即默认）。
+pub struct StepFunFamilyAdapter;
+
+/// StepFun 默认 `reasoning_format: general`：思考内容在 `reasoning` 字段（`deepseek-style`
+/// 才写 `reasoning_content`；官方响应格式页两字段并存且「内容一致」）。基座 openai 构件只读
+/// reasoning_content，转换前把缺 reasoning_content 的 message/delta 用 reasoning 补齐；
+/// 已带 reasoning_content 的帧不动，保持与通用构件逐字节等价。
+fn stepfun_normalize_reasoning(body: &Value) -> Value {
+    let mut out = body.clone();
+    let Some(choices) = out.get_mut("choices").and_then(Value::as_array_mut) else {
+        return out;
+    };
+    for choice in choices {
+        for key in ["message", "delta"] {
+            if let Some(slot) = choice.get_mut(key).and_then(Value::as_object_mut) {
+                let has_rc = slot
+                    .get("reasoning_content")
+                    .and_then(Value::as_str)
+                    .is_some_and(|s| !s.is_empty());
+                if !has_rc
+                    && let Some(r) = slot
+                        .get("reasoning")
+                        .and_then(Value::as_str)
+                        .filter(|s| !s.is_empty())
+                {
+                    let r = r.to_string();
+                    slot.insert("reasoning_content".to_string(), Value::String(r));
+                }
+            }
+        }
+    }
+    out
+}
+
+impl PlatformAdapter for StepFunFamilyAdapter {
+    /// 差异一：openai 端点禁思考只剥开启型参数、不注入关闭参数——官方 Chat Completions
+    /// 文档无关闭形态（`reasoning_effort` 仅 low/medium/high，全文无 `enable_thinking` /
+    /// `chat_template_kwargs`），基座非官方 host 的 `chat_template_kwargs.enable_thinking=false`
+    /// 是未经证实的第三方形态。强制思考路径与其余 wire（openai_completions /
+    /// openai_responses 等用户手配端点）同基座。
+    /// 差异二：anthropic 端点保持框架默认（基座写 `thinking.type=disabled`——`thinking` 对象
+    /// 在官方参数表未列出、认受性未证实，按票面「未证实保持框架默认」），仅额外剥已证实的
+    /// `output_config.effort` 思考档位（剥 effort、保留同对象其他字段）。
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        if wire != &Protocol::OpenAI {
+            hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking);
+            if disable && !forced_thinking
+                && let Some(obj) = body.as_object_mut()
+            {
+                let config_empty = obj
+                    .get_mut("output_config")
+                    .and_then(Value::as_object_mut)
+                    .map(|config| {
+                        config.remove("effort");
+                        config.is_empty()
+                    })
+                    .unwrap_or(false);
+                if config_empty {
+                    obj.remove("output_config");
+                }
+            }
+            return;
+        }
+        if forced_thinking || !disable {
+            return hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking);
+        }
+        let Some(obj) = body.as_object_mut() else {
+            return;
+        };
+        obj.remove("disable_thinking");
+        for k in [
+            "thinking",
+            "context_management",
+            "reasoning_effort",
+            "reasoning",
+            "enable_thinking",
+        ] {
+            obj.remove(k);
+        }
+        if let Some(ctk) = obj
+            .get_mut("chat_template_kwargs")
+            .and_then(|o| o.as_object_mut())
+        {
+            ctk.remove("enable_thinking");
+        }
+        if let Some(gc) = obj
+            .get_mut("generationConfig")
+            .and_then(|o| o.as_object_mut())
+        {
+            gc.remove("thinkingConfig");
+        }
+    }
+
+    /// 差异三：openai 端点响应/流式的思考内容在 `reasoning` 字段（`reasoning_format` 默认
+    /// `general`），基座构件只读 reasoning_content——转换前补齐（见
+    /// [`stepfun_normalize_reasoning`]）；其余 wire 原样走基座构件。
+    fn convert_response(
+        &self,
+        body: &Value,
+        wire: &Protocol,
+        client: &Protocol,
+        model: &str,
+    ) -> Option<Value> {
+        if wire == &Protocol::OpenAI {
+            return converter::convert_response(&stepfun_normalize_reasoning(body), wire, client, model);
+        }
+        converter::convert_response(body, wire, client, model)
+    }
+
+    fn parse_sse_frame(&self, data: &Value, wire: &Protocol) -> Vec<crate::types::ChatStreamEvent> {
+        if wire == &Protocol::OpenAI {
+            return converter::parse_sse(&stepfun_normalize_reasoning(data), wire);
+        }
+        converter::parse_sse(data, wire)
+    }
+}
+
+/// 腾讯云家族基座（issue 84；成员 tencent_coding / tencent_tokenhub / tencent_tokenhub_intl
+/// 共用，成员差异见各成员 issue 137 / 138 / 139）。
+///
+/// 家族共性取证（官方文档原文，核对日期 2026-11-23；TokenHub 国内站与国际站同一组文档，
+/// 仅 Base URL 二选一）：
+/// - 端点：TokenHub 统一三协议同组 Base URL（广州 `https://tokenhub.tencentmaas.com/v1` /
+///   新加坡 `https://tokenhub-intl.tencentmaas.com/v1`），按路径切换协议：openai
+///   `/v1/chat/completions`、anthropic `/v1/messages`；与 registry 内置默认一致，运行时只用
+///   用户平台配置的端点。Coding Plan（`tencent_coding`）专属 Base URL：openai
+///   `https://api.lkeap.cloud.tencent.com/coding/v3`、anthropic
+///   `https://api.lkeap.cloud.tencent.com/coding/anthropic`（与预付费 `sk-xxxx` Key 和
+///   旧 Base URL 不互通；专属 Key 格式 `sk-sp-xxxx`）。
+///   https://cloud.tencent.com/document/product/1823/130079
+///   https://cloud.tencent.com/document/product/1823/130092
+/// - 鉴权：openai 路径 `Authorization: Bearer`，anthropic 路径 `x-api-key`
+///   （平台同时兼容 `Authorization: Bearer`）；网关层注入，适配器不涉。
+///   https://cloud.tencent.com/document/product/1823/130079
+///   https://cloud.tencent.com/document/product/1823/135874
+/// - 思考开关（openai 端点）：**已证实差异**——平台思考模式参数表以 `thinking` 对象为
+///   「标准方式」，`thinking.type` 取 `"enabled"` / `"disabled"` / `"adaptive"`（仅给
+///   `budget_tokens` 缺 `type` 返 400）；`enable_thinking` 布尔只是部分模型（Qwen、DeepSeek
+///   系）的「简化开关」。工具调用节进一步明确：思考开启时 `tool_choice:"required"` 返 400，
+///   「需显式传入 `thinking: {"type": "disabled"}` 后使用」——即平台认收的禁思考写法。
+///   文档无 `chat_template_kwargs`（基座第三方写法未经本平台证实）。覆写 openai 臂：剥
+///   开启型参数（含平台扩展 `thinking_budget` / `interleaved_thinking`）后写
+///   `thinking: {"type": "disabled"}`。`Protocol::OpenAICompletions` 不在覆写范围（成员
+///   内置默认端点仅 openai / anthropic，用户手配端点仍走基座 `chat_template_kwargs`）。
+///   https://cloud.tencent.com/document/product/1823/135872
+/// - 思考开关（anthropic 端点）：Messages 协议 `thinking` 对象为标准参数
+///   （`enabled` / `disabled` / `adaptive` + `budget_tokens`），与基座 anthropic 臂
+///   `thinking.type=disabled` 一致，不覆盖。
+///   https://cloud.tencent.com/document/product/1823/135874
+/// - 思考内容（openai 端点）：响应 `message.reasoning_content` / 流式
+///   `delta.reasoning_content`（先于 content 输出），多轮需原样回填；带签名的分块形态走
+///   `reasoning_details` 数组——基座 openai 构件读 `reasoning_content`，不覆盖；
+///   `reasoning_details` 在转换分支（anthropic 客户端）无对应块、原样透传分支不受影响。
+///   https://cloud.tencent.com/document/product/1823/135872
+/// - usage（openai 端点）：`prompt_tokens / completion_tokens / total_tokens`（后者 =
+///   前两者之和，completion 已含思维链）；缓存字段两形态并存——顶层 `cache_read_tokens` /
+///   `cache_write_tokens`（「部分模型，可减少计费」）与 `prompt_tokens_details.cached_tokens`
+///   （prompt_cache_key 节指认的命中查看口）。**顶层两字段与 `prompt_tokens` 的包含关系
+///   文档未写**，按票面「未证实保持框架默认」：基座 openai 构件只读
+///   `prompt_tokens_details.cached_tokens`（并从 input 扣除），不覆盖顶层字段（复活条件：
+///   官方明确包含关系或成员 issue 取证实测后评估）。
+///   https://cloud.tencent.com/document/product/1823/135872
+/// - usage（anthropic 端点）：`input_tokens / output_tokens` + `cache_creation_input_tokens` /
+///   `cache_read_input_tokens`，「三者互斥、真实总输入 = 三者之和」——与基座 anthropic 臂
+///   一致（不扣 input），不覆盖。缓存明细（分 TTL 等）官方自述「普遍不完整」。
+///   https://cloud.tencent.com/document/product/1823/135874
+/// - 流式：openai 端点 SSE `data: {chunk}`、`data: [DONE]` 结束，`stream_options.include_usage`
+///   控制末 chunk 携带 usage；错误帧为流中 `data: {"error":{...}}` 后跟 `[DONE]`（客户端侧
+///   检测，基座构件不覆盖）。anthropic 端点标准事件链
+///   `message_start → content_block_* → message_delta → message_stop`，同基座。
+///   https://cloud.tencent.com/document/product/1823/135872
+///   https://cloud.tencent.com/document/product/1823/135874
+/// - 错误体（openai 端点）：`{"error":{"message","message_zh","code","type","request_id"}}`，
+///   业务码 6 位数字、前三位对应 HTTP 状态（400xxx / 401xxx / 429xxx）；早期拦截错误 `type`
+///   统一 `gateway_error`；`code` 可能为整型（429 限频场景，携 `Retry-After` 头）。
+///   基座分类按状态码归 401/402/403/429 → Service，模型类特征靠 message 文案；TokenHub
+///   未列「模型不存在」的确定性文案/状态（`402xxx` 为「模型服务未开通或额度不足」，按
+///   状态码已归 Service），不扩展特征。
+///   https://cloud.tencent.com/document/product/1823/130079
+///   https://cloud.tencent.com/document/product/1823/135872
+/// - 工具 / 图片与多模态 / system：openai 端点标准形状（`tools[].function`、`tool_choice`
+///   字符串/对象、`image_url` / `video_url` / `file_url` 内容块、`role: "system"`）；anthropic
+///   端点标准 Messages 形状（顶层 `system`、`input_schema`、`tool_result` 块、image/video/
+///   document 块）——均与基座构件一致，不覆盖。Coding Plan「暂不支持多模态能力」，
+///   模型 `tc-code-latest`，属成员 issue 137 的模型层约束，基座不按平台剥块。
+///   https://cloud.tencent.com/document/product/1823/135872
+///   https://cloud.tencent.com/document/product/1823/135874
+///   https://cloud.tencent.com/document/product/1823/130092
+/// - coding_plan 注入：Coding Plan 文档只要求专属 Key + Base URL，未列任何必填请求字段
+///   （无 prompt_cache_key 类要求），基座按平台协议分派对 `TencentCoding` 为 no-op，行为不变。
+///   https://cloud.tencent.com/document/product/1823/130092
+/// - 未证实（保持基座默认）：顶层 `cache_read_tokens` / `cache_write_tokens` 与
+///   `prompt_tokens` 的包含关系、错误体在流式帧内的完整 JSON 形状（官方只给外层
+///   `{"error":{...}}`）、anthropic 端点非 Claude 系模型对 `signature` 回传的校验强度
+///   （官方自述按模型而异）。
+pub struct TencentFamilyAdapter {
+    /// TokenHub 两成员（官方 135872 取证 `thinking.type` 标准形态）openai wire 禁思考写
+    /// `thinking: {"type":"disabled"}`；Coding Plan 官方文档（130092）未列思考参数、模型库
+    /// 动态——未证实范围保持框架默认（false），成员 issue 137 取证后再收窄。
+    official_openai_thinking: bool,
+}
+
+impl PlatformAdapter for TencentFamilyAdapter {
+    /// 差异（仅 TokenHub 两成员，`official_openai_thinking: true`）：openai 端点禁思考写平台
+    /// 标准 `thinking: {"type": "disabled"}`，不写基座第三方端点用的 vLLM 式
+    /// `chat_template_kwargs.enable_thinking`（TokenHub 文档无此参数；`enable_thinking` 布尔
+    /// 仅是部分模型的「简化开关」，统一标准形态是 `thinking.type`）。一并剥平台扩展的
+    /// `thinking_budget` / `interleaved_thinking`（开启型/思考态参数，与显式禁用矛盾）。
+    /// 其余 wire、强制思考路径与 `official_openai_thinking: false`（Coding Plan，官方未列
+    /// 思考参数，130092）同基座框架默认。
+    /// https://cloud.tencent.com/document/product/1823/135872
+    /// https://cloud.tencent.com/document/product/1823/130092
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        if wire != &Protocol::OpenAI || forced_thinking || !self.official_openai_thinking {
+            return hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking);
+        }
+        let Some(obj) = body.as_object_mut() else {
+            return;
+        };
+        obj.remove("disable_thinking");
+        if !disable {
+            return;
+        }
+        for k in [
+            "thinking",
+            "context_management",
+            "reasoning_effort",
+            "reasoning",
+            "enable_thinking",
+            "thinking_budget",
+            "interleaved_thinking",
+        ] {
+            obj.remove(k);
+        }
+        if let Some(ctk) = obj
+            .get_mut("chat_template_kwargs")
+            .and_then(|o| o.as_object_mut())
+        {
+            ctk.remove("enable_thinking");
+        }
+        if let Some(gc) = obj
+            .get_mut("generationConfig")
+            .and_then(|o| o.as_object_mut())
+        {
+            gc.remove("thinkingConfig");
+        }
+        obj.insert(
+            "thinking".to_string(),
+            serde_json::json!({"type": "disabled"}),
+        );
+    }
+}
+
+/// 小米 MiMo 家族基座（issue 85；成员 xiaomi_mimo / xiaomi_mimo_coding /
+/// xiaomi_mimo_coding_en 共用，成员差异见各成员 issue）。
+///
+/// 家族共性取证（官方文档 `.md` 原文页，核对日期 2026-11-23；本地留档
+/// `.tmp/issue-85/docs/`）：
+/// - 端点：openai `https://api.xiaomimimo.com/v1/chat/completions`、anthropic
+///   `https://api.xiaomimimo.com/anthropic/v1/messages`（registry 内置默认 base_url
+///   `…/v1` / `…/anthropic` 与官方一致）；Token Plan 套餐三集群
+///   `token-plan-cn|sgp|ams.xiaomimimo.com` 的 `/v1` 与 `/anthropic`（订阅页）。
+///   鉴权 `api-key` 头与 `Authorization: Bearer` 双形态官方均认收（网关注入 Bearer），
+///   网关层注入，适配器不涉。运行时只用用户平台配置的端点。
+///   https://mimo.mi.com/static/docs/api/chat/openai-api-post.md
+///   https://mimo.mi.com/static/docs/api/chat/anthropic-api-post.md
+///   https://mimo.mi.com/docs/zh-CN/tokenplan/Token%20Plan/subscription
+/// - 思考开关（openai 端点）：顶层对象参数 `thinking.type`——「Set the `thinking.type`
+///   parameter in the request to control deep thinking: `enabled` to enable deep thinking
+///   or `disabled` to disable deep thinking」（官方示例 `extra_body={"thinking":{"type":"disabled"}}`）；
+///   全文 grep 无 `chat_template_kwargs` / `enable_thinking` / `reasoning_effort`（基座第三方
+///   写法未经本平台证实）。已证实差异 → 覆写 openai 臂按基座 anthropic 臂执行
+///   （写 `thinking.type=disabled`）。`Protocol::OpenAICompletions` 不在覆写范围（家族成员
+///   内置默认端点仅 openai / anthropic，用户手配端点仍走基座写法，与 GLM / 百炼 / 方舟 /
+///   千帆基座同口径）。
+///   https://mimo.mi.com/static/docs/quick-start/usage-guide/text-generation/deep-thinking.md
+/// - 思考开关（anthropic 端点）：参数表 `thinking` 对象 `type` 取 `enabled` / `disabled`
+///   （v2.6 系默认 `enabled`），与基座 anthropic 臂同形，不覆盖。
+///   https://mimo.mi.com/static/docs/api/chat/anthropic-api-post.md
+/// - temperature / top_p：思考模式下 v2.6 系「不支持自定义，即使传入也会被强制覆盖为推荐
+///   默认值 1.0 / 0.95」——静默覆盖**不报错**（与 Kimi「传入其他值会报错」不同），禁思考
+///   不剥 temperature（传了无害）。https://mimo.mi.com/static/docs/api/guidance/model-hyperparameters.md
+/// - reasoning_content（openai 端点）：`message.reasoning_content` / 流式
+///   `delta.reasoning_content`；多轮工具调用 thinking 模式「历史 assistant 消息必须完整回传
+///   `reasoning_content`，否则 API 返回 400」——anthropic 客户端回灌的 thinking 块在
+///   openai 转换中被跳过 → assistant tool-call 消息缺字段 → 上游 400，与 Kimi Code
+///   （issue 119）同形。按官方证实证据开启 [`hooks::carry_history_reasoning`]（仅
+///   `xiaomi_mimo`；套餐成员官方文档未列 API 行为，不外推，见成员节）。
+///   https://mimo.mi.com/static/docs/quick-start/usage-guide/text-generation/deep-thinking.md
+///   https://mimo.mi.com/static/docs/api/guidance/error-codes.md
+/// - 流式（openai 端点）：`data: {chunk}` 帧、`data: [DONE]` 结束；末帧 `choices` 空、
+///   顶层带 `usage`（官方示例，请求侧未出现 `stream_options.include_usage`）——基座构件
+///   逐帧解析一致，不覆盖。
+///   https://mimo.mi.com/static/docs/quick-start/usage-guide/text-generation/deep-thinking.md
+/// - usage（openai 端点）：`prompt_tokens_details.cached_tokens`（「Number of tokens served
+///   from cache」）与 `completion_tokens_details.reasoning_tokens`——基座构件已抽取
+///   cached_tokens 并从 input 扣除、reasoning_tokens 并入 output，不覆盖。
+///   https://mimo.mi.com/static/docs/api/chat/openai-api-post.md
+/// - usage（anthropic 端点）：`input_tokens / output_tokens / cache_read_input_tokens`
+///   （**无 `cache_creation_input_tokens`**，全文零命中）——基座构件读不到即缺省 0，
+///   不覆盖。https://mimo.mi.com/static/docs/api/chat/anthropic-api-post.md
+/// - 错误体：错误码页仅「400 / 401 / 429 + 原因 / 解决建议」表格，**无 JSON 错误体形状
+///   示例**——未证实，不扩展错误特征、不在测试伪造模型类契约；401 / 429 按状态码归
+///   服务类（换平台）。https://mimo.mi.com/static/docs/api/guidance/error-codes.md
+/// - 工具 / 图片与多模态 / system：openai 端点标准形状（`tools` / `tool_choice`、
+///   `image_url` 等、`role: "system"`）；anthropic 端点标准 Messages 形状（顶层 `system`、
+///   `input_schema`、image/audio/video 内容块、thinking 块带 `signature` 回传）——均与
+///   基座构件一致，不覆盖。tool_choice 两端点官方均只列 `auto`，且「传非 auto 值后端
+///   默认移除该字段、行为等价 auto」（不报错）→ 不降级、不覆盖 [`PlatformAdapter::adjust_tool_choice`]。
+///   https://mimo.mi.com/static/docs/api/chat/openai-api-post.md
+///   https://mimo.mi.com/static/docs/api/chat/anthropic-api-post.md
+/// - coding_plan 注入：Token Plan 订阅页只给套餐专属 Key（`tp-xxxxx`）与 Base URL，未列
+///   必填请求字段（无 prompt_cache_key 类要求）；基座按平台协议分派对 XiaomiMimoCoding /
+///   XiaomiMimoCodingEn 为 no-op，行为不变。
+///   https://mimo.mi.com/docs/zh-CN/tokenplan/Token%20Plan/subscription
+/// - 未证实（保持基座默认）：错误体 JSON 形状与「模型不存在」确定性文案、openai 端点对
+///   基座出站键 `max_tokens` 的认受性（官方参数表只列 `max_completion_tokens`；基座 openai
+///   构件出站统一写 `max_tokens` 第三方通行写法，不改名；复活条件：实测 400 / 被忽略时
+///   评估换名）、`stream_options.include_usage` 认受性、anthropic 端点 signature 回传校验
+///   强度、max_tokens 统一上限。
+///
+/// 成员 `xiaomi_mimo`（小米 MiMo，api.xiaomimimo.com 标准平台；成员 issue 待建）：
+/// 本成员官方文档即家族取证来源，登记为 [`MimoFamilyAdapter`] 全量开启家族覆写
+/// （`official_openai_thinking` / `carry_history_reasoning_openai` 均 true）。
+///
+/// 成员 `xiaomi_mimo_coding`（小米 MiMo 套餐（小米），token-plan-cn/sgp/ams；成员 issue 待建）、
+/// `xiaomi_mimo_coding_en`（小米 MiMo 套餐国际版，token-plan-sgp/ams；成员 issue 待建）：
+/// 官方文档（订阅页）只给套餐专属 Key 与三集群 Base URL，未列任何 API 请求参数与行为
+/// 差异——未证实范围按票面保持框架默认（`official_openai_thinking: false` → openai wire
+/// 禁思考走基座 vLLM 式 `chat_template_kwargs.enable_thinking=false`；`carry_history_reasoning_openai:
+/// false`），成员 issue 取证后收窄。腾讯 Coding Plan（issue 84 `official_openai_thinking: false`）
+/// 同口径先例。registry 端点标 `coding_plan: true`，基座注入对两协议为 no-op。
+pub struct MimoFamilyAdapter {
+    /// openai 端点禁思考是否写官方 `thinking: {"type":"disabled"}`（仅 `xiaomi_mimo` 为
+    /// true——标准平台官方证实；套餐两成员官方未列 API 参数，保持框架默认）。
+    official_openai_thinking: bool,
+    /// openai wire 多轮工具历史是否携带 reasoning_content（官方 400 校验；仅 `xiaomi_mimo`
+    /// 为 true，套餐成员不外推）。https://mimo.mi.com/static/docs/api/guidance/error-codes.md
+    carry_history_reasoning_openai: bool,
+}
+
+impl PlatformAdapter for MimoFamilyAdapter {
+    /// 差异（仅 `carry_history_reasoning_openai` 成员，openai wire）：多轮工具历史的
+    /// assistant tool-call 消息携带 reasoning_content（官方 400 校验，见
+    /// [`hooks::carry_history_reasoning`]）。
+    fn build_request(
+        &self,
+        chat_req: &crate::types::ChatRequest,
+        wire: &Protocol,
+        platform: &Protocol,
+    ) -> (Value, String) {
+        let (mut body, path) = converter::convert_request(chat_req, wire, platform);
+        if self.carry_history_reasoning_openai && wire == &Protocol::OpenAI {
+            hooks::carry_history_reasoning(&mut body, chat_req);
+        }
+        (body, path)
+    }
+
+    /// 差异（仅 `official_openai_thinking` 成员）：openai 端点禁思考写官方
+    /// `thinking: {"type": "disabled"}`，不写基座第三方端点用的 vLLM 式
+    /// `chat_template_kwargs.enable_thinking`（MiMo 官方 API 文档无此参数）。写出值与
+    /// 基座 anthropic 臂相同，故按 anthropic 臂执行；禁思考**不剥** `temperature` /
+    /// `top_p`（官方：思考模式传入会被静默覆盖为 1.0 / 0.95，不报错，与 Kimi 报错语义
+    /// 不同）。其余 wire 与强制思考路径同基座。
+    /// https://mimo.mi.com/static/docs/quick-start/usage-guide/text-generation/deep-thinking.md
+    /// https://mimo.mi.com/static/docs/api/guidance/model-hyperparameters.md
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        let wire = match wire {
+            Protocol::OpenAI if self.official_openai_thinking => &Protocol::Anthropic,
+            w => w,
+        };
+        hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking)
+    }
+}
+
 static GENERIC: GenericAdapter = GenericAdapter;
+static MIMO: MimoFamilyAdapter = MimoFamilyAdapter {
+    official_openai_thinking: true,
+    carry_history_reasoning_openai: true,
+};
+static MIMO_CODING: MimoFamilyAdapter = MimoFamilyAdapter {
+    official_openai_thinking: false,
+    carry_history_reasoning_openai: false,
+};
 static MINIMAX_FAMILY: MiniMaxFamilyAdapter = MiniMaxFamilyAdapter;
 static MINIMAX: MiniMaxAdapter = MiniMaxAdapter;
 static MINIMAX_CODING: MiniMaxCodingAdapter = MiniMaxCodingAdapter;
@@ -1119,6 +1581,13 @@ static BAILIAN: BailianFamilyAdapter = BailianFamilyAdapter;
 static ARK: ArkFamilyAdapter = ArkFamilyAdapter;
 static QIANFAN: QianfanFamilyAdapter = QianfanFamilyAdapter;
 static SILICONFLOW: SiliconFlowFamilyAdapter = SiliconFlowFamilyAdapter;
+static STEPFUN: StepFunFamilyAdapter = StepFunFamilyAdapter;
+static TENCENT: TencentFamilyAdapter = TencentFamilyAdapter {
+    official_openai_thinking: true,
+};
+static TENCENT_CODING: TencentFamilyAdapter = TencentFamilyAdapter {
+    official_openai_thinking: false,
+};
 
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
@@ -1176,18 +1645,18 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("shengsuanyun", &GENERIC),
     ("siliconflow", &SILICONFLOW),
     ("siliconflow_en", &SILICONFLOW),
-    ("stepfun", &GENERIC),
-    ("stepfun_en", &GENERIC),
-    ("tencent_coding", &GENERIC),
-    ("tencent_tokenhub", &GENERIC),
-    ("tencent_tokenhub_intl", &GENERIC),
+    ("stepfun", &STEPFUN),
+    ("stepfun_en", &STEPFUN),
+    ("tencent_coding", &TENCENT_CODING),
+    ("tencent_tokenhub", &TENCENT),
+    ("tencent_tokenhub_intl", &TENCENT),
     ("therouter", &GENERIC),
     ("tokenrhythm", &GENERIC),
     ("typesafe", &GENERIC),
     ("xai", &GENERIC),
-    ("xiaomi_mimo", &GENERIC),
-    ("xiaomi_mimo_coding", &GENERIC),
-    ("xiaomi_mimo_coding_en", &GENERIC),
+    ("xiaomi_mimo", &MIMO),
+    ("xiaomi_mimo_coding", &MIMO_CODING),
+    ("xiaomi_mimo_coding_en", &MIMO_CODING),
 ];
 
 fn table() -> &'static std::collections::HashMap<&'static str, &'static dyn PlatformAdapter> {
